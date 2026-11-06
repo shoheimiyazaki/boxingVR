@@ -3,8 +3,10 @@ using Aigis.Render;
 using MiniRing;
 using MiniRing.Vr;
 
-// Mini Ring Boxing（VR 版）: OpenXR ランタイム（SteamVR / Quest Link / PICO Connect 等）経由で HMD に描く。
+// Mini Ring Boxing（VR 版）: OpenXR で HMD に描く。既定は SteamVR を使わず Quest に直接つなぐ
+// （Meta Quest Link → Virtual Desktop の順にランタイムを探して、このプロセスだけ固定する）。
 // ウィンドウは無い（状態はこのコンソールに出る）。Ctrl+C で終了。
+//   --runtime <auto|meta|vd|steamvr|system|path.json>  使う OpenXR ランタイム（既定 auto）
 //   --scale <0.3..1.0>  目の解像度倍率（既定 0.8。重いときは下げる）
 //   --selftest          HMD なしで VR 描画経路（外部デバイス・GPU コピー）を検証して終了
 
@@ -14,13 +16,31 @@ if (args.Contains("--selftest"))
 }
 
 var renderScale = 0.8f;
+var runtimeRequest = "auto";
 for (var i = 0; i < args.Length - 1; i++)
 {
     if (args[i] == "--scale" && float.TryParse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture, out var s))
     {
         renderScale = Math.Clamp(s, 0.3f, 1f);
     }
+    else if (args[i] == "--runtime")
+    {
+        runtimeRequest = args[i + 1];
+    }
 }
+
+// OpenXR ローダーは xrCreateInstance の時点で XR_RUNTIME_JSON を読むので、XrSession を作る前に固定する。
+var runtime = XrRuntimeSelector.Choose(runtimeRequest, XrRuntimeSelector.Discover(),
+    Environment.GetEnvironmentVariable(XrRuntimeSelector.RuntimeEnvVar));
+if (runtime.Error is not null)
+{
+    Console.Error.WriteLine(runtime.Error);
+    Console.Error.WriteLine("HMD なしで遊ぶ場合は miniring-desktop を使ってください。");
+    return 1;
+}
+
+XrRuntimeSelector.Pin(runtime);
+Console.WriteLine(runtime.Manifest is null ? "[xr] runtime: system default" : $"[xr] runtime: {runtime.Kind} ({runtime.Manifest})");
 
 var quit = false;
 Console.CancelKeyPress += (_, e) =>
@@ -37,7 +57,13 @@ try
 catch (InvalidOperationException ex)
 {
     Console.Error.WriteLine($"VR を開始できませんでした: {ex.Message}");
-    Console.Error.WriteLine("HMD を接続し、OpenXR ランタイム（SteamVR / Meta Quest Link / PICO Connect）を有効にしてから再実行してください。");
+    Console.Error.WriteLine(runtime.Kind switch
+    {
+        XrRuntimeKind.Meta => "Quest で Link（USB ケーブル）または Air Link を開始し、PC の Meta Quest Link アプリでヘッドセットが「接続済み」になってから再実行してください。"
+            + " 初回は Meta Quest Link アプリの「設定 > 一般 > OpenXR ランタイム」は変更しなくて構いません（このアプリは自分で Meta のランタイムを指定します）。",
+        XrRuntimeKind.VirtualDesktop => "Quest で Virtual Desktop を起動して PC に接続してから再実行してください。",
+        _ => "HMD を接続し、選んだ OpenXR ランタイムが動いている状態で再実行してください。",
+    });
     Console.Error.WriteLine("HMD なしで遊ぶ場合は miniring-desktop を使ってください。");
     return 1;
 }

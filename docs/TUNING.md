@@ -26,8 +26,9 @@ GPU スナップショットでは、打ち合いのときに体がかなり前�
 ## 実機（HMD）で最初に確認すること
 
 1. **起動**
-   - `XrSession.Create` が失敗したら、コンソールのメッセージを見る。
-   - SteamVR は HMD 未接続だと xrCreateInstance 自体が失敗する（iTVision の知見）。
+   - コンソール 1 行目の `[xr] runtime: Meta (...)` で、Meta のランタイムに固定されたか確かめる。
+   - `xrGetSystem` で失敗する場合は、Quest が Link / Air Link でつながっていない（Meta Quest Link アプリでヘッドセットが「接続済み」になっているか見る）。
+   - SteamVR（`--runtime steamvr`）は HMD 未接続だと xrCreateInstance 自体が失敗する（iTVision の知見）。
 2. **向きと位置**
    - 起動直後に向いていた方向にリングが来るか。
    - 逆向きなら `XrSession.WorldFromXr` か `Recenter` の符号を見る。
@@ -56,4 +57,5 @@ GPU スナップショットでは、打ち合いのときに体がかなり前�
 - デスクトップのミラーウィンドウ、効果音（Aigis.Audio は位置音響なし）、VR 内の文字表示は未実装です。
 - 脚は見た目だけの正弦歩行で、体重は骨盤へのホバー力で支えています。踏み出して踏ん張る歩行は未実装です。
 - 拳の向き（コントローラの回転）は使っていません。
-- SteamVR の同梱、`XR_RUNTIME_JSON` での固定、PICO Connect の起動支援（iTVision の `Shared/*`）は必要になったら移植します。
+- Quest 単体（スタンドアロン・Android）では動きません。PC で動かし、Link / Air Link / Virtual Desktop で映す構成です。
+- SteamVR の同梱と PICO Connect の起動支援（iTVision の `Shared/*`）は必要になったら移植します。

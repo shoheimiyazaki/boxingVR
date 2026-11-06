@@ -9,11 +9,23 @@
 
 ## 遊ぶ
 
-VR（HMD と OpenXR ランタイム — SteamVR / Meta Quest Link / PICO Connect — が必要）:
+VR（**Quest を SteamVR なしで**つなぐのが既定）:
+
+1. PC に **Meta Quest Link** アプリ（旧 Oculus アプリ）を入れ、Quest を USB ケーブルの Link か Air Link で接続する
+2. 次のコマンドで起動する。Meta の OpenXR ランタイムを自分で探し、このプロセスだけ固定するので、SteamVR がシステム既定のままでも経由しない
 
 ```bash
 dotnet run --project games/MiniRing.Vr -c Release
 ```
+
+| `--runtime` | 使うランタイム |
+|---|---|
+| `auto`（既定） | Meta Quest Link → Virtual Desktop（VDXR）の順。どちらも無ければ案内を出して終了し、SteamVR には黙って落ちない |
+| `meta` / `vd` / `steamvr` | そのランタイムを指定する |
+| `system` | システム既定（レジストリの ActiveRuntime）を使う |
+| `path.json` | マニフェストを直接指定する |
+
+環境変数 `XR_RUNTIME_JSON` が設定されていれば、そちらを優先します。Quest Link のリフレッシュレート（72/80/90/120Hz）は Meta Quest Link アプリのグラフィック設定で選んでください。
 
 HMD なし（キーボード＋マウス）:
 

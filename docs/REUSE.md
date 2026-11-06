@@ -10,7 +10,8 @@
 | `VR/VulkanRenderer.VrAttach.cs` の XR_KHR_vulkan_enable（v1）手順 | `XrSession.Create` と `VulkanContext.cs`。iTVision は既存デバイスへ後付けするため拡張を先回りで有効化していたが、こちらは起動時に VR 専用で作るので、**ランタイムが要求する拡張をそのまま使う** |
 | `VR/VulkanRenderer.VrInput.cs` アクションセット・Touch/Index/simple のバインド・SyncActions 失敗＝フォーカス喪失・グリップのヒステリシス | `XrSession.CreateActions` / `ReadInput`、`VrPlayerControl.cs`。iTVision に無かった **A/X ボタン（キャリブレーション）と振動出力を追加** |
 | 目ごとに 2 パスで描画（マルチビューなし）、要求解像度 | 同じ方式。解像度倍率は `--scale` で指定 |
-| 落とし穴（`SESSION_NOTES.md` など）: 拡張の不一致、SteamVR が HMD 無しで instance 作成に失敗する、IDLE のまま止まる、フォーカス喪失、レイアウト | エラーメッセージとコメントに反映。SteamVR の同梱や `XR_RUNTIME_JSON` での固定（`Shared/SteamVrRuntime.cs`）、PICO Connect の起動支援は**未移植**（POC ではシステムの既定ランタイムを使う） |
+| `Shared/SteamVrRuntime.cs` の「`XR_RUNTIME_JSON` でこのプロセスだけランタイムを固定」 | `XrRuntimeSelector.cs`。向きを逆にして使い、SteamVR ではなく **Meta Quest Link（→ Virtual Desktop）を優先して固定**する。マシンの設定は変えない |
+| 落とし穴（`SESSION_NOTES.md` など）: 拡張の不一致、SteamVR が HMD 無しで instance 作成に失敗する、IDLE のまま止まる、フォーカス喪失、レイアウト | エラーメッセージとコメントに反映。SteamVR の同梱と PICO Connect の起動支援は**未移植** |
 | GDI+ で描く VR HUD | 未移植。体力バーはワールド空間の箱で代用 |
 
 ## Dr. Tod's Very Good Clinic（Aigis / Triage、`E:\repos\ClaudeProjects\engine`、`shoheimiyazaki/aigis`）

@@ -9,6 +9,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="MiniRing.Tests" />
     <ProjectReference Include="..\MiniRing\MiniRing.csproj" />
     <ProjectReference Include="..\..\src\Aigis.Render\Aigis.Render.csproj" />
   </ItemGroup>
