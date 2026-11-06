@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>aigis-player</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Aigis.Foundation\Aigis.Foundation.csproj" />
+    <ProjectReference Include="..\Aigis.Physics\Aigis.Physics.csproj" />
+    <ProjectReference Include="..\Aigis.Render\Aigis.Render.csproj" />
+    <ProjectReference Include="..\Aigis.Platform\Aigis.Platform.csproj" />
+  </ItemGroup>
+</Project>

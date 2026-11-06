@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Aigis.Foundation\Aigis.Foundation.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Raw Vulkan: the headline features (procedural image writes, offscreen readback
+         for agent screenshots) are exactly what higher-level wrappers obscure. -->
+    <PackageReference Include="Silk.NET.Vulkan" Version="2.23.0" />
+    <!-- VK_KHR_surface / VK_KHR_swapchain — the windowed present path (WindowedRenderer). -->
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.23.0" />
+    <!-- IWindow.VkSurface — WindowedRenderer's hook into Aigis.Platform's window, kept
+         Vulkan-only here (no input handling; that stays in Aigis.Platform). -->
+    <PackageReference Include="Silk.NET.Windowing" Version="2.23.0" />
+    <!-- Runtime GLSL -> SPIR-V (no Vulkan SDK needed; native shaderc is bundled). -->
+    <PackageReference Include="Silk.NET.Shaderc" Version="2.23.0" />
+    <!-- System-font text rasterization (GlyphRasterizer, TASK-051) — already a dependency
+         of tools/Aigis.Evolve at this same version; promoting SystemFontRasterizer into the
+         engine (see GlyphRasterizer.cs's doc comment) promotes this reference alongside it
+         rather than duplicating the GDI+ glue behind two separate package references. -->
+    <PackageReference Include="System.Drawing.Common" Version="4.7.3" />
+  </ItemGroup>
+</Project>

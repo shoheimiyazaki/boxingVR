@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- NativeMethods' [LibraryImport] (PlatformWindow.ContentScale's GetDpiForWindow): the source
+         generator emits unsafe marshalling stubs and refuses to run without this. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Aigis.Foundation\Aigis.Foundation.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Windowing/input only — no Vulkan/Bepu references (kept for Aigis.Render/Physics). -->
+    <PackageReference Include="Silk.NET.Windowing" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Input" Version="2.23.0" />
+  </ItemGroup>
+</Project>

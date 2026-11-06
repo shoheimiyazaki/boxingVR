@@ -1,0 +1,24 @@
+<Project>
+  <!-- Aigis engine-wide build policy (greenfield: strict from day one).
+       Derived from iTFlow4 but with the "good settings" (which they left
+       commented out) enabled. sandbox/ has its own props that turn these OFF. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
+    <!-- Doc generation ON only so IDE0005 (remove unused usings) works in-build;
+         we do not require a doc comment on every public member (CS1591 off). -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- The Sentry package's targets add `global using Sentry;` to every project that references it,
+         directly or transitively (the tests do, through Game.Triage). Off repo-wide, so the one file
+         allowed to use it has to say so — PolicyGateTests.SentryTypes_ConfinedToTheCrashReporter. -->
+    <SentryImplicitUsings>false</SentryImplicitUsings>
+  </PropertyGroup>
+</Project>

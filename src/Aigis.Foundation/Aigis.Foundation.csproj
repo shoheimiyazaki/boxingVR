@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- TargetFramework / Nullable / analyzers come from Directory.Build.props -->
+</Project>

@@ -1,0 +1,11 @@
+# .NET build output
+bin/
+obj/
+*.user
+*.log
+
+# Local-only render checks (Aigis convention)
+.visualcheck/
+
+# Per-user Claude Code settings
+.claude/settings.local.json

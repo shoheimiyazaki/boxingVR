@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    OpenXR ホスト（iTVision 3 の OpenXR 層を移植）。HMD 必須。SteamVR / Quest Link / PICO Connect など
+    OpenXR ランタイムが有効な状態で起動する。描画は Aigis の HeadlessRenderer（外部デバイスモード）。
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>miniring-vr</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MiniRing\MiniRing.csproj" />
+    <ProjectReference Include="..\..\src\Aigis.Render\Aigis.Render.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.OpenXR" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.OpenXR.Extensions.KHR" Version="2.23.0" />
+    <PackageReference Include="OpenXR.Loader" Version="1.0.10.2" GeneratePathProperty="true" />
+  </ItemGroup>
+  <!-- iTVision と同じ: OpenXR ローダー DLL を実行ファイルの隣へ置く。 -->
+  <ItemGroup>
+    <None Include="$(PkgOpenXR_Loader)\native\x64\release\bin\openxr_loader.dll" Link="openxr_loader.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('$(PkgOpenXR_Loader)\native\x64\release\bin\openxr_loader.dll')" />
+  </ItemGroup>
+</Project>

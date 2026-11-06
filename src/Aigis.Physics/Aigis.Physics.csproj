@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Aigis.Foundation\Aigis.Foundation.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Pure-managed physics: no native deps => hermetic, reproducible headless
+         verification (Apache-2.0). Isolated behind this one leaf assembly so the
+         solver can be swapped (e.g. Jitter2) without touching the rest of Aigis. -->
+    <PackageReference Include="BepuPhysics" Version="2.4.0" />
+  </ItemGroup>
+</Project>

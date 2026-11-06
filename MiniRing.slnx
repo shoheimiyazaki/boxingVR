@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/games/">
+    <Project Path="games/MiniRing.Desktop/MiniRing.Desktop.csproj" />
+    <Project Path="games/MiniRing.Vr/MiniRing.Vr.csproj" />
+    <Project Path="games/MiniRing/MiniRing.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Aigis.Audio/Aigis.Audio.csproj" />
+    <Project Path="src/Aigis.Foundation/Aigis.Foundation.csproj" />
+    <Project Path="src/Aigis.Physics/Aigis.Physics.csproj" />
+    <Project Path="src/Aigis.Platform/Aigis.Platform.csproj" />
+    <Project Path="src/Aigis.Player/Aigis.Player.csproj" />
+    <Project Path="src/Aigis.Render/Aigis.Render.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MiniRing.Tests/MiniRing.Tests.csproj" />
+  </Folder>
+</Solution>

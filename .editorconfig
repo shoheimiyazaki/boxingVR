@@ -1,0 +1,32 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+trim_trailing_whitespace = true
+
+# Shaders must be ASCII (some GL/Vulkan driver toolchains choke on UTF-8).
+[*.{glsl,compute,vert,frag,comp,hlsl}]
+charset = ascii
+indent_size = 4
+
+[*.cs]
+indent_size = 4
+# --- Nullable correctness as build errors ---
+dotnet_diagnostic.CS8600.severity = error
+dotnet_diagnostic.CS8602.severity = error
+dotnet_diagnostic.CS8618.severity = error
+# --- Style the analyzers can enforce (EnforceCodeStyleInBuild=true) ---
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_prefer_braces = true:warning
+dotnet_style_readonly_field = true:warning
+dotnet_style_require_accessibility_modifiers = always:warning
+dotnet_diagnostic.IDE0005.severity = warning
+
+[*.{xml,csproj,props,targets}]
+indent_size = 2
+
+[*.{json,yml,yaml}]
+indent_size = 2

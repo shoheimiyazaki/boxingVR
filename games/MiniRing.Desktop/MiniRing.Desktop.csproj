@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- HMD なしで遊ぶ／検証するためのデスクトップホスト（Aigis GameHost）。 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>miniring-desktop</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MiniRing\MiniRing.csproj" />
+    <ProjectReference Include="..\..\src\Aigis.Platform\Aigis.Platform.csproj" />
+    <ProjectReference Include="..\..\src\Aigis.Player\Aigis.Player.csproj" />
+  </ItemGroup>
+</Project>
