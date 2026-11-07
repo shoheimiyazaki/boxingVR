@@ -40,6 +40,23 @@ public sealed class MappingAndMathTests
     }
 
     [TestMethod]
+    public void HandTargetGain_DoublesTheMotionAroundTheGuard_NotTheReachFromTheShoulder()
+    {
+        var shoulders = new BodyFrame(new Vector3(0.4f, 1.4f, -0.2f), 0.7f);
+        const float height = 1.7f;
+        foreach (var hand in new[] { Hand.Left, Hand.Right })
+        {
+            var guardWorld = shoulders.LocalToWorld(PuppetMapping.GuardLocal(hand, height));
+            var atGuard = PuppetMapping.HandTargetLocal(guardWorld, shoulders, 0.5f, hand, height, gain: 2f);
+            AssertClose(PuppetMapping.GuardLocal(hand, height) * 0.5f, atGuard); // 構えたままなら増幅しない
+
+            var jab = guardWorld + (shoulders.Forward * 0.2f);
+            var amplified = PuppetMapping.HandTargetLocal(jab, shoulders, 0.5f, hand, height, gain: 2f);
+            AssertClose(new Vector3(0f, 0f, 0.4f * 0.5f), amplified - atGuard); // 20cm 突けば 40cm 分届く
+        }
+    }
+
+    [TestMethod]
     public void HeightCalibration_AndScale_AreSane()
     {
         Assert.AreEqual(1.0f, PuppetMapping.PlayerHeightFromEye(0.2f));

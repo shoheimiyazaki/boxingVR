@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Text.Json.Serialization;
 using Aigis.Physics;
 
 namespace MiniRing;
@@ -46,16 +47,23 @@ public sealed record FighterTuning
     public float GaitHipSwingRadians { get; init; } = 30f * MathF.PI / 180f;
     public float GaitKneeLiftRadians { get; init; } = 40f * MathF.PI / 180f;
     public float LegServoHz { get; init; } = 12f;
-    public float NeckServoHz { get; init; } = 8f;
+    /// <summary>首（頭と胴をつなぐバネ）の固有振動数 [Hz]。低いほど打たれた頭が大きく揺れる。</summary>
+    public float NeckServoHz { get; init; } = 3.5f;
+
+    /// <summary>首のバネの減衰比。1 未満で振動が残り、殴られると頭がグラングラン揺れてから戻る。</summary>
+    public float NeckDampingRatio { get; init; } = 0.06f;
+
+    /// <summary>首のバネが出せる最大トルク（TorqueScale 倍する前）。</summary>
+    public float NeckMaxTorque { get; init; } = 20f;
 
     // ── 腕（サーボ + 拳への PD 力）
-    public float ArmServoHz { get; init; } = 10f;
+    public float ArmServoHz { get; init; } = 15f;
     public float ArmServoMaxSpeed { get; init; } = 40f;
-    public float HandKp { get; init; } = 420f;
-    public float HandKd { get; init; } = 32f;
+    public float HandKp { get; init; } = 1100f; // 目標 → 拳のバネ [1/s²]（約 5.3Hz）。固いほどきびきび追う
+    public float HandKd { get; init; } = 53f; // 減衰比 ≒ 0.8（行き過ぎずに止まる）
     public float MaxHandForce { get; init; } = 35f;
     public float HandReactionShare { get; init; } = 0.5f;
-    public float MaxTargetSpeed { get; init; } = 3f;
+    public float MaxTargetSpeed { get; init; } = 6f; // 目標の速度の上限 [m/s]（動きを 2 倍にしたので、速い腕の振りも追えるように）
     public float TargetVelocitySmoothing { get; init; } = 25f;
 
     // ── ボクシングの力学（PunchMechanics）
@@ -68,8 +76,6 @@ public sealed record FighterTuning
     public float HipTwistShare { get; init; } = 0.45f;
     /// <summary>頭のずれ（前傾・スリップ）で胴を傾けられる最大角。</summary>
     public float MaxLeanRadians { get; init; } = 30f * MathF.PI / 180f;
-    /// <summary>反応遅れのために保持する指令の長さ [s]（これより遅い反応は表現できない）。</summary>
-    public float CommandHistorySeconds { get; init; } = 1.2f;
 
     // ── 掴み・投げ
     public float GrabRadius { get; init; } = 0.04f;
@@ -86,13 +92,13 @@ public sealed record FighterTuning
     public float DownTime { get; init; } = 1.6f;
     public float GetUpDuration { get; init; } = 1.0f;
     public float RecoverUprightness { get; init; } = 0.78f;
-    public float StunDecayPerSecond { get; init; } = 1.2f;
-    public float StunnedDriveScale { get; init; } = 0.3f;
     public float NoGroundFallTime { get; init; } = 0.4f;
 
     /// <summary>関節の力上限の倍率。トルク ∝ 質量 × 長さ なので MassScale × Scale。</summary>
+    [JsonIgnore]
     public float TorqueScale => MassScale * Scale;
 
+    [JsonIgnore]
     public HumanoidRagdoll.HalfExtents HalfExtents
     {
         get
@@ -105,6 +111,7 @@ public sealed record FighterTuning
         }
     }
 
+    [JsonIgnore]
     public HumanoidRagdoll.MassDistribution Masses
     {
         get

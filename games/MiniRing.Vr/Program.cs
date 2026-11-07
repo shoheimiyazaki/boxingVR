@@ -1,6 +1,8 @@
 using System.Numerics;
 using Aigis.Render;
 using MiniRing;
+using MiniRing.Audio;
+using MiniRing.Replay;
 using MiniRing.Vr;
 
 // Mini Ring Boxing（VR 版）: OpenXR で HMD に描く。既定は SteamVR を使わず Quest に直接つなぐ
@@ -68,16 +70,22 @@ catch (InvalidOperationException ex)
     return 1;
 }
 
+// 試合は replays/ に自動で記録する（デスクトップ版の --replay で再生、--verify で照合できる）。
 using (xr)
 using (var game = new BoxingGame())
+using (var recorder = ReplayRecorder.TryStartFile(Path.Combine(Environment.CurrentDirectory, "replays"), game, "vr", out var recordingMessage))
 using (var renderer = new HeadlessRenderer(xr.EyeWidth, xr.EyeHeight, xr.Vulkan.External))
+using (var sounds = HitSoundPlayer.CreateDefault())
 {
     Console.WriteLine($"[vr] eye {xr.EyeWidth}x{xr.EyeHeight}, sRGB={xr.IsSrgb}. Put the headset on.");
+    Console.WriteLine($"[vr] {recordingMessage}");
     var control = new VrPlayerControl();
     var clear = new Vector4(0.10f, 0.11f, 0.14f, 1f);
     IReadOnlyList<PrimitiveInstance> instances = [];
     IReadOnlyList<DebugLine> lines = [];
     var lastStatus = "";
+    var idleHintAt = DateTime.UtcNow.AddSeconds(8);
+    var idleHintShown = false;
 
     // Ctrl+C ではセッションを壊さず、ランタイムに終了を頼んで STOPPING → EXITING まで回す（最大 3 秒）。
     var quitDeadline = DateTime.MaxValue;
@@ -92,7 +100,18 @@ using (var renderer = new HeadlessRenderer(xr.EyeWidth, xr.EyeHeight, xr.Vulkan.
         xr.RunFrame(
             update: (frame, dt) =>
             {
-                game.Step(control.Read(frame, game.PlayerSense, dt), dt);
+                var input = control.Read(frame, game.PlayerSense, dt);
+                if (recorder is null)
+                {
+                    game.Step(input, dt);
+                }
+                else
+                {
+                    recorder.Step(game, input, dt);
+                }
+
+                sounds.PlayAll(game.RecentHits);
+
                 foreach (var hit in game.RecentHits)
                 {
                     if (hit.Attacker == game.Player)
@@ -113,6 +132,16 @@ using (var renderer = new HeadlessRenderer(xr.EyeWidth, xr.EyeHeight, xr.Vulkan.
                 var viewProjection = Camera.OffCenterViewProjection(eye.View, eye.Fov, 0.02f, 50f);
                 renderer.RenderPrimitiveSceneToImage(eye.TargetImage, clear, viewProjection, instances, lines, cameraPosition: eye.Position);
             });
+
+        // ランタイムがセッションを READY にしない（ヘッドセットに表示されない）まま待ち続けるときの手がかり。
+        if (!xr.Running && !idleHintShown && DateTime.UtcNow > idleHintAt)
+        {
+            idleHintShown = true;
+            Console.WriteLine("[vr] Still waiting for the headset (session Idle). Check:");
+            Console.WriteLine("[vr]   1. The Quest is in Link (cable or Air Link) and shows the Link home, not the standalone Quest home.");
+            Console.WriteLine("[vr]   2. Meta Horizon Link app on the PC > Settings > General > \"Unknown sources\" is ON (required for apps not from the Meta store).");
+            Console.WriteLine("[vr]   3. The headset is on your head (the proximity sensor wakes it). Ctrl+C to quit.");
+        }
 
         var status = $"{xr.StateName} {xr.DisplayHz:0}Hz | {game.StatusLine} {game.Message}";
         if (status != lastStatus)

@@ -39,6 +39,21 @@ public static class PuppetMapping
         => playerShoulders.WorldToLocal(controllerPosition) * scale;
 
     /// <summary>
+    /// <see cref="HandTargetLocal(Vector3, in BodyFrame, float)"/> の増幅版: 構えの位置（<see cref="GuardLocal"/>）からの
+    /// ずれを <paramref name="gain"/> 倍する。肩からの距離ごと倍にすると構えただけで腕が伸び切るので、
+    /// 構えを中心に増幅する（小さく打っても大きく届く。届かない分は腕の IK が伸び切りで止める）。
+    /// </summary>
+    public static Vector3 HandTargetLocal(Vector3 controllerPosition, in BodyFrame playerShoulders, float scale, Hand hand, float playerHeight, float gain)
+    {
+        var guard = GuardLocal(hand, playerHeight);
+        return (guard + ((playerShoulders.WorldToLocal(controllerPosition) - guard) * gain)) * scale;
+    }
+
+    /// <summary>プレイヤーの構えの拳の位置（肩中心フレーム）: あごの横・肩より少し上・前へ約 25cm（身長 1.7m）。</summary>
+    public static Vector3 GuardLocal(Hand hand, float playerHeight)
+        => new Vector3(hand.LocalSide() * 0.08f, 0.05f, 0.15f) * playerHeight;
+
+    /// <summary>
     /// 頭の、構えの位置（ゆっくり追従する平均位置）からのずれを人形の体フレームへ縮小して渡す。
     /// スリップ・ダッキング・前傾は、人形の体の軸の傾き・沈み込みになる。
     /// </summary>

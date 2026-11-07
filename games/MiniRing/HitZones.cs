@@ -15,7 +15,7 @@ public enum BodyPartKind
     Foot,
 }
 
-/// <summary>打たれた場所。効き方（どの能力が落ちるか）は <see cref="BodyCondition.ApplyHit"/> が決める。</summary>
+/// <summary>打たれた場所。ダメージの倍率（<see cref="ZoneDamage"/>）と、打撃音・傷の見た目を決める。</summary>
 public enum HitZone
 {
     Chin,

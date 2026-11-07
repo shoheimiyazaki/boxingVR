@@ -9,6 +9,19 @@
 
 ## 遊ぶ
 
+いちばん簡単なのは `run.cmd` です（毎回 Release で差分ビルドしてから起動します）。PowerShell では `.\run.cmd vr` のように `.\` を付けてください。付けないと「認識されません」と出て実行されません。ビルド自体が落ちたとき（メモリ不足の後の MSB4166 など）は、.NET のビルドサーバーを再起動して 1 回だけやり直します。
+
+| コマンド | 内容 |
+|---|---|
+| `run.cmd` | デスクトップで遊ぶ（キーボード＋マウス） |
+| `run.cmd vr [--runtime ...] [--scale ...]` | VR で遊ぶ（既定は SteamVR なしで Quest に直接つなぐ） |
+| `run.cmd replay [ファイル]` | 記録した試合を実時間で再生する（省略時は最新の記録） |
+| `run.cmd verify [ファイル]` | 記録を最速で再シミュレーションし、記録どおりに再現できるか照合する |
+| `run.cmd selftest` | HMD なしで VR の描画経路を検証する |
+| `run.cmd test` | 自動テストを実行する（GPU スナップショットを除く） |
+
+**試合は自動で記録されます**（デスクトップ版・VR 版とも `replays/` に `miniring_<host>_<日時>.mrrep`）。詳しくは [docs/REPLAY.md](docs/REPLAY.md)。
+
 VR（**Quest を SteamVR なしで**つなぐのが既定）:
 
 1. PC に **Meta Quest Link** アプリ（旧 Oculus アプリ）を入れ、Quest を USB ケーブルの Link か Air Link で接続する
@@ -24,6 +37,13 @@ dotnet run --project games/MiniRing.Vr -c Release
 | `meta` / `vd` / `steamvr` | そのランタイムを指定する |
 | `system` | システム既定（レジストリの ActiveRuntime）を使う |
 | `path.json` | マニフェストを直接指定する |
+
+**ヘッドセットに映らないとき**は、表示に応じて次を確認してください。
+
+| 表示 | 確認すること |
+|---|---|
+| `ErrorFormFactorUnavailable` で終了する | Link がつながっていない。Quest で Link を開始し、Meta Quest Link アプリでヘッドセットが「接続済み」になってから再実行する |
+| `session state -> Idle` のまま進まない（8 秒後に案内が出る） | 1. Quest が Link の画面（スタンドアロンのホームではない）になっている<br>2. Meta Quest Link アプリの「設定 > 一般 > 提供元不明」がオンになっている（ストア外のアプリには必須）<br>3. ヘッドセットをかぶっている（近接センサーで起きる） |
 
 環境変数 `XR_RUNTIME_JSON` が設定されていれば、そちらを優先します。Quest Link のリフレッシュレート（72/80/90/120Hz）は Meta Quest Link アプリのグラフィック設定で選んでください。
 
@@ -41,11 +61,13 @@ dotnet run --project games/MiniRing.Desktop -c Release
 | 掴む | グリップ（握っている間） | Q = 左 / E = 右（押している間） |
 | 投げる | 掴んだまま腕を振って離す | 同左 |
 | 身長キャリブレーション | A / X（まっすぐ立って押す。初回は自動） | — |
-| やり直し | KO・リングアウトで自動 | R |
+| やり直し | 10 カウント・リングアウトで自動 | R |
 
 - 向きは常に相手へロックオンします。
 - 起動時に頭の向きを「リングの方向」として再センタリングします（iTVision と同じ）。リングは約 1m 前方、台の高さ 75cm です。
-- 人形の手の目標点は小さな発光球で表示され、拳とは線でつながります。掴んでいる間はオレンジになります。
+- 人形の手の目標点は常に光る玉で表示され、拳とは線でつながります（体やグローブの陰でも隠れません）。掴んでいる間はオレンジになります。
+- VR ではコントローラの動きを **2 倍**にして人形へ渡します（構えの位置を中心に増幅するので、構えたままなら腕は伸び切りません）。
+- ダメージは動きに影響しません。体は常にフルパワーで動き、打たれると頭が首のバネでグラングラン揺れます。当たりの重さと芯の食い方は**打撃音**で分かります（[docs/BOXING.md](docs/BOXING.md)）。
 - VR 版にはデスクトップのミラーウィンドウがありません。状態はコンソールに出ます。
 
 ## 検証
@@ -62,7 +84,7 @@ dotnet test tests/MiniRing.Tests --filter "TestCategory!=visual"
 dotnet run --project games/MiniRing.Vr -- --selftest
 ```
 
-- テストは 54 件あります（うち GPU 描画の visual 1 件）。純関数（IK・写像・力学モデル・部位判定・体の状態など）と、ヘッドレスで物理を回して「立つ・歩く・旋回・パンチが届く・掴んで離す・ダウンから起き上がる」「肩を痛めると腕が上がらない・脚を壊すと立てない・意識が飛ぶと反応が遅れる」「手の位置で胴がひねれ、頭の位置で傾く」「ストレートは手打ちより重い」を確かめるものです。
+- テストは 56 件あります（うち GPU 描画の visual 2 件）。記録→再生が全チェックサムまでビット単位で一致することも確かめています。純関数（IK・写像・力学モデル・部位判定・体の状態など）と、ヘッドレスで物理を回して「立つ・歩く・旋回・パンチが届く・掴んで離す・ダウンから起き上がる」「打たれた頭が首のバネで揺れて戻る」「手の位置で胴がひねれ、頭の位置で傾く」「ストレートは手打ちより重い」を確かめるものです。
 - `--selftest` は HMD なしで VR 描画経路を検証します。自前の Vulkan デバイスと sRGB 画像（XR スワップチェーン画像の代役）に描いた結果が、通常の描画とバイト単位で一致するかを見ます。
 - GPU の画面確認は `dotnet test tests/MiniRing.Tests --filter TestCategory=visual` で行い、出力先は `.visualcheck/` です。
 
@@ -71,6 +93,8 @@ dotnet run --project games/MiniRing.Vr -- --selftest
 ## ドキュメント
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — 構成・制御の仕組み・1 フレームの流れ
-- [docs/BOXING.md](docs/BOXING.md) — パンチの力学（体重が乗る／手打ち）と、部位ごとのダメージ・性能低下
+- [docs/BOXING.md](docs/BOXING.md) — パンチの力学（体重が乗る／手打ち）、部位ダメージ（動きには影響しない）、打撃音
+- [docs/REPLAY.md](docs/REPLAY.md) — 自動記録と完全再現（ファイル形式・再生・照合）
+- [docs/VISUAL.md](docs/VISUAL.md) — ボクサーの見た目（素材の調査結果、手続きメッシュ、部位ごとの PDCA の記録）
 - [docs/REUSE.md](docs/REUSE.md) — iTVision 3 / Aigis(Dr. Tod) から何をどう持ってきたか、エンジンへの変更点
 - [docs/TUNING.md](docs/TUNING.md) — 調整値と、実機で最初に見るべきこと

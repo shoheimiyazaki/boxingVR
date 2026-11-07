@@ -13,12 +13,10 @@ public sealed class MatchStatsProbe
         using var game = new BoxingGame(seed: 11);
         var ai = new AiControl(99, 0.8f);
         var hits = new List<HitEvent>();
-        var staminaFloor = 1f;
         for (var i = 0; i < 60 * 30; i++)
         {
             game.Step(new BoxingInput(ai.Read(game.PlayerSense, 1f / 60f)), 1f / 60f);
             hits.AddRange(game.RecentHits);
-            staminaFloor = MathF.Min(staminaFloor, MathF.Min(game.Player.Condition.Stamina, game.Cpu.Condition.Stamina));
         }
 
         foreach (var g in hits.GroupBy(h => h.Zone).OrderByDescending(g => g.Count()))
@@ -29,7 +27,5 @@ public sealed class MatchStatsProbe
         Assert.IsGreaterThan(10, hits.Count);
         Assert.IsGreaterThan(3, hits.Select(h => h.Zone).Distinct().Count(), "punches land on different zones");
         Assert.IsGreaterThan(hits.Min(h => h.ImpactMass) * 3f, hits.Max(h => h.ImpactMass), "some punches are arm punches, some carry the body");
-        Assert.IsLessThan(0.95f, staminaFloor, "throwing punches costs stamina");
-        Assert.IsGreaterThan(0.2f, staminaFloor, "but pushing on a guard must not pin stamina at zero");
     }
 }

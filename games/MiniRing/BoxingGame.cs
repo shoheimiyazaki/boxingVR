@@ -54,6 +54,12 @@ public sealed class BoxingGame : IGame<BoxingInput>
     }
 
     public PhysicsWorld World => _world;
+
+    /// <summary>CPU の乱数の種（リプレイで同じ試合を作り直すため）。</summary>
+    public int Seed => _seed;
+
+    /// <summary>ファイターの調整値（リプレイで同じ試合を作り直すため）。</summary>
+    public FighterTuning Tuning => _tuning;
     public Ring Ring => _ring;
     public Fighter Player { get; private set; } = null!;
     public Fighter Cpu { get; private set; } = null!;
@@ -68,7 +74,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
     /// <summary>直近の <see cref="Step"/> で発生したヒット（ホストの効果音・ハプティクス用）。</summary>
     public IReadOnlyList<HitEvent> RecentHits => _recentHits;
 
-    public string StatusLine => $"Round {_round}  You {Percent(Player.Condition.Consciousness)} - CPU {Percent(Cpu.Condition.Consciousness)}  ({PlayerWins}-{CpuWins})";
+    public string StatusLine => string.Create(CultureInfo.InvariantCulture,
+        $"Round {_round}  You {Cpu.Condition.TotalDamage:0} - CPU {Player.Condition.TotalDamage:0} damage  ({PlayerWins}-{CpuWins})");
 
     public bool IsOver => false;
 
@@ -104,11 +111,6 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
         foreach (var fighter in Fighters)
         {
-            if (fighter.Condition.LiverKicked && !fighter.Condition.CanStand)
-            {
-                ShowMessage("LIVER!", 1.2f);
-            }
-
             foreach (var hand in Hands)
             {
                 _preStepGloveVelocity[(fighter, hand)] = fighter.GloveVelocity(hand);
@@ -206,8 +208,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
         }
 
         var victim = hit.Victim;
+        // ダメージは記録だけ（見た目と得点）。動きは落とさない。
         victim.Condition.ApplyHit(hit.Zone, armHand, hit.Damage);
-        victim.AddStun(ZoneDamage.Stun(hit.Damage), Vector3.Zero);
 
         // 体重の乗った拳は相手を押し込む: 物理の接触が運ぶのは腕の質量だけなので、体から来た分の運動量を足す。
         // 1 部位に入れると千切れるほど速くなるので、相手の全身へ一様な速度変化として配り（上限付き）、
@@ -217,22 +219,12 @@ public sealed class BoxingGame : IGame<BoxingInput>
         {
             var momentum = extraMass * hit.Speed * KnockbackTransfer;
             var push = Vector3.Normalize(gloveVelocity) * MathF.Min(MaxKnockbackSpeed, momentum / victim.TotalMass);
-            victim.AddStun(0f, push);
-            hit.Attacker.AddStun(0f, -push * (victim.TotalMass / hit.Attacker.TotalMass));
+            victim.Push(push);
+            hit.Attacker.Push(-push * (victim.TotalMass / hit.Attacker.TotalMass));
         }
 
         _recentHits.Add(hit);
         LastHit = hit;
-        if (victim.Condition.IsKnockedOut)
-        {
-            victim.Knockdown(gloveVelocity, permanent: true);
-            EndRound(cpuWon: victim == Player, "K.O.");
-        }
-        else if (ZoneDamage.IsKnockdown(hit.Zone, hit.Damage) || !victim.Condition.CanStand)
-        {
-            victim.Knockdown(gloveVelocity, permanent: false);
-            ShowMessage("DOWN!", 1.2f);
-        }
     }
 
     private void UpdateRound(float dt)
@@ -320,7 +312,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         ArgumentNullException.ThrowIfNull(self);
         ArgumentNullException.ThrowIfNull(opponent);
         return new FighterSense(self.Frame, self.ArmReach, opponent.HeadPosition, opponent.ChestPosition,
-            !opponent.Condition.IsKnockedOut && opponent.State == FighterState.Standing);
+            opponent.State == FighterState.Standing);
     }
 
     public FighterSense PlayerSense => Sense(Player, Cpu);
@@ -337,8 +329,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
         {
             new($"{PlayerWins} - {CpuWins}", new Vector2(screenSizePixels.X * 0.5f, 20f), 28f, white, TextAnchor.Center),
         };
-        AddCondition(list, "YOU", Player, new Vector2(24f, 20f), TextAnchor.Left, new Vector4(1f, 0.45f, 0.4f, 1f));
-        AddCondition(list, "CPU", Cpu, new Vector2(screenSizePixels.X - 24f, 20f), TextAnchor.Right, new Vector4(0.5f, 0.65f, 1f, 1f));
+        AddCondition(list, "YOU", Cpu, new Vector2(24f, 20f), TextAnchor.Left, new Vector4(1f, 0.45f, 0.4f, 1f));
+        AddCondition(list, "CPU", Player, new Vector2(screenSizePixels.X - 24f, 20f), TextAnchor.Right, new Vector4(0.5f, 0.65f, 1f, 1f));
         if (LastHit is { } hit)
         {
             var who = hit.Attacker == Player ? "YOU" : "CPU";
@@ -364,17 +356,15 @@ public sealed class BoxingGame : IGame<BoxingInput>
         return list;
     }
 
-    private static void AddCondition(List<ScreenTextDraw> list, string name, Fighter fighter, Vector2 at, TextAnchor anchor, Vector4 color)
+    private static void AddCondition(List<ScreenTextDraw> list, string name, Fighter opponent, Vector2 at, TextAnchor anchor, Vector4 color)
     {
-        var c = fighter.Condition;
+        // 得点 = 相手に与えたダメージとクリーンヒット数（ダメージは動きに影響しない）。
+        var given = opponent.Condition;
         string[] lines =
         [
-            $"{name}  MIND {Percent(c.Consciousness)}",
-            $"STAMINA {Percent(c.Stamina)}  LEGS {Percent(c.Legs)}",
-            $"NECK {Percent(c.Neck)}  HEART {Percent(c.Heart)}",
-            $"SHOULDER L {Percent(c.Shoulder(Hand.Left))} R {Percent(c.Shoulder(Hand.Right))}",
-            $"ELBOW L {Percent(c.Elbow(Hand.Left))} R {Percent(c.Elbow(Hand.Right))}",
-            $"REACTION {c.ReactionDelay * 1000f:0}ms",
+            name,
+            string.Create(CultureInfo.InvariantCulture, $"DAMAGE {given.TotalDamage:0}"),
+            string.Create(CultureInfo.InvariantCulture, $"CLEAN HITS {given.CleanHitsTaken}"),
         ];
         for (var i = 0; i < lines.Length; i++)
         {
@@ -384,6 +374,49 @@ public sealed class BoxingGame : IGame<BoxingInput>
     }
 
     private static string Percent(float value) => (value * 100f).ToString("0", CultureInfo.InvariantCulture) + "%";
+
+    /// <summary>
+    /// 試合の状態のチェックサム（FNV-1a 64）: 全剛体の位置・姿勢・速度、両者の受けたダメージ、勝敗。
+    /// リプレイが記録と同じ動きをしているかを、ビット単位で照合するのに使う。
+    /// </summary>
+    public ulong StateChecksum()
+    {
+        var hash = 14695981039346656037UL;
+        void Add(float value)
+        {
+            var bits = (uint)BitConverter.SingleToInt32Bits(value);
+            for (var i = 0; i < 4; i++)
+            {
+                hash = (hash ^ ((bits >> (8 * i)) & 0xFF)) * 1099511628211UL;
+            }
+        }
+
+        foreach (var body in _world.SnapshotDynamics())
+        {
+            Add(body.Position.X);
+            Add(body.Position.Y);
+            Add(body.Position.Z);
+            Add(body.Orientation.X);
+            Add(body.Orientation.Y);
+            Add(body.Orientation.Z);
+            Add(body.Orientation.W);
+            Add(body.LinearVelocity.X);
+            Add(body.LinearVelocity.Y);
+            Add(body.LinearVelocity.Z);
+        }
+
+        foreach (var fighter in _fighters)
+        {
+            Add(fighter.Condition.TotalDamage);
+            Add(fighter.Condition.CleanHitsTaken);
+            Add((float)fighter.State);
+        }
+
+        Add(PlayerWins);
+        Add(CpuWins);
+        Add(_round);
+        return hash;
+    }
 
     public void Dispose() => _world.Dispose();
 }

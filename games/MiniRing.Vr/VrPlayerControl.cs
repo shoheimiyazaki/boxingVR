@@ -4,7 +4,7 @@ namespace MiniRing.Vr;
 
 /// <summary>
 /// VR の姿勢・ボタン → プレイヤーのファイター指令。
-/// 左スティック: 歩き（視線基準） ／ 腕: コントローラ位置を肩基準で腕の長さ比に縮めて人形の体へ ／
+/// 左スティック: 歩き（視線基準） ／ 腕: コントローラ位置を肩基準で腕の長さ比に縮め、構えからの動きを 2 倍にして人形の体へ ／
 /// グリップ: 掴む ／ A・X: 身長キャリブレーション（まっすぐ立って押す。初回は自動）。
 /// 向きは常に相手へロックオン（観戦視点から自分の体を回す操作は直感的でないため）。
 /// </summary>
@@ -14,6 +14,7 @@ internal sealed class VrPlayerControl
     private const float GripOff = 0.35f;
     private const float BodyYawSmoothing = 4f; // [1/s] 頭を振っても腕の写像が暴れないよう体の向きは緩く追う
     private const float StanceSmoothing = 0.8f; // [1/s] 構えの位置（頭の平均位置）の追従。これより速い頭の動き＝スリップ・ダッキング
+    private const float MotionGain = 2f; // コントローラの動き（構えからのずれ）の増幅率
 
     private readonly bool[] _gripHeld = new bool[2];
     private readonly Vector3[] _lastHandLocal = new Vector3[2];
@@ -46,12 +47,12 @@ internal sealed class VrPlayerControl
         // トラッキングが切れた手は最後の目標に留める（急に体の中心へ吸い込まれないように）。
         if (frame.LeftTracked)
         {
-            _lastHandLocal[0] = PuppetMapping.HandTargetLocal(frame.LeftHand, shoulders, scale);
+            _lastHandLocal[0] = PuppetMapping.HandTargetLocal(frame.LeftHand, shoulders, scale, Hand.Left, PlayerHeight, MotionGain);
         }
 
         if (frame.RightTracked)
         {
-            _lastHandLocal[1] = PuppetMapping.HandTargetLocal(frame.RightHand, shoulders, scale);
+            _lastHandLocal[1] = PuppetMapping.HandTargetLocal(frame.RightHand, shoulders, scale, Hand.Right, PlayerHeight, MotionGain);
         }
 
         var command = new FighterCommand(move, sense.OpponentChest - sense.Self.Origin,

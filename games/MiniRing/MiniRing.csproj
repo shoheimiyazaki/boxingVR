@@ -5,6 +5,7 @@
     <ProjectReference Include="..\..\src\Aigis.Physics\Aigis.Physics.csproj" />
     <ProjectReference Include="..\..\src\Aigis.Render\Aigis.Render.csproj" />
     <ProjectReference Include="..\..\src\Aigis.Player\Aigis.Player.csproj" />
+    <ProjectReference Include="..\..\src\Aigis.Audio\Aigis.Audio.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="MiniRing.Tests" />

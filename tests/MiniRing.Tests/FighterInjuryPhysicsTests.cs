@@ -4,97 +4,12 @@ using Aigis.Physics;
 namespace MiniRing.Tests;
 
 /// <summary>
-/// ダメージによる性能低下と体の軸・力学が、ヘッドレスの物理で実際に起きることを確かめる。
+/// 体の軸・パンチの力学・首の揺れが、ヘッドレスの物理で実際に起きることを確かめる（ダメージは動きに影響しない）。
 /// </summary>
 [TestClass]
 public sealed class FighterInjuryPhysicsTests
 {
     private const float Dt = 1f / 240f;
-
-    [TestMethod]
-    public void InjuredShoulder_CannotRaiseThatArmAboveTheHead()
-    {
-        float GloveHeightAfterReachingUp(Action<Fighter> injure)
-        {
-            using var world = NewWorld();
-            var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
-            injure(fighter);
-            var up = new Vector3(-0.1f, 0.6f, 0.3f) * fighter.ArmReach;
-            Run(world, fighter, Idle(fighter) with { Right = new HandCommand(up, false) }, 1.5f);
-            return fighter.GloveCenter(Hand.Right).Y - fighter.ShoulderCenter.Y;
-        }
-
-        var healthy = GloveHeightAfterReachingUp(_ => { });
-        var injured = GloveHeightAfterReachingUp(f => f.Condition.ApplyHit(HitZone.Shoulder, Hand.Right, 40f));
-
-        Assert.IsGreaterThan(0f, healthy, "a healthy arm gets the glove above the shoulder");
-        Assert.IsLessThan(healthy - 0.05f, injured, $"healthy {healthy:0.000} injured {injured:0.000}");
-    }
-
-    [TestMethod]
-    public void BrokenLegs_CannotStandOrGetUp()
-    {
-        using var world = NewWorld();
-        var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
-        Run(world, fighter, Idle(fighter), 0.5f);
-        fighter.Condition.ApplyHit(HitZone.Knee, Hand.Left, 40f);
-        fighter.Condition.ApplyHit(HitZone.Knee, Hand.Left, 40f);
-
-        Run(world, fighter, Idle(fighter), 4f);
-
-        Assert.AreNotEqual(FighterState.Standing, fighter.State);
-        Assert.IsGreaterThan(3f, fighter.DownTime, "the count keeps running");
-    }
-
-    [TestMethod]
-    public void DazedFighter_ReactsLate()
-    {
-        float TimeToMoveGlove(Action<Fighter> injure)
-        {
-            using var world = NewWorld();
-            var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
-            Run(world, fighter, Idle(fighter), 1f);
-            injure(fighter);
-            var start = fighter.GloveCenter(Hand.Right);
-            var punch = Idle(fighter) with { Right = new HandCommand(new Vector3(-0.05f, 0f, 0.95f) * fighter.ArmReach, false) };
-            for (var i = 0; i < 240; i++)
-            {
-                fighter.ApplyControl(punch, Dt);
-                world.Step(Dt);
-                if (Vector3.Distance(fighter.GloveCenter(Hand.Right), start) > 0.02f)
-                {
-                    return i * Dt;
-                }
-            }
-
-            return 1f;
-        }
-
-        var sharp = TimeToMoveGlove(_ => { });
-        var dazed = TimeToMoveGlove(f => f.Condition.ApplyHit(HitZone.Chin, Hand.Left, 30f));
-
-        Assert.IsGreaterThan(sharp + 0.1f, dazed, $"sharp {sharp:0.000}s dazed {dazed:0.000}s");
-    }
-
-    [TestMethod]
-    public void HeartStun_FreezesTheBody_ItDoesNotReplayOldCommands()
-    {
-        using var world = NewWorld();
-        var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
-        var reach = fighter.ArmReach;
-        var old = Idle(fighter) with { Left = new HandCommand(new Vector3(0.3f, 0.2f, 0.3f) * reach, false) };
-        var current = Idle(fighter);
-        Run(world, fighter, old, 0.5f);
-        Run(world, fighter, current, 0.5f);
-
-        fighter.Condition.ApplyHit(HitZone.Heart, Hand.Left, 30f);
-        for (var i = 0; i < (int)(1.5f / Dt); i++)
-        {
-            fighter.ApplyControl(current, Dt);
-            world.Step(Dt);
-            Assert.AreNotEqual(old, fighter.LastCommand, $"replayed an old command at {i * Dt:0.000}s");
-        }
-    }
 
     [TestMethod]
     public void HandsDecideTheTorsoTwist()
@@ -145,17 +60,46 @@ public sealed class FighterInjuryPhysicsTests
     }
 
     [TestMethod]
-    public void InjuredShoulder_TurnsTheSamePunchIntoAnArmPunch()
+    public void HitHead_WobblesOnTheNeckSpring_ThenSettles()
     {
         using var world = NewWorld();
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
-        Run(world, fighter, Idle(fighter) with { Right = new HandCommand(new Vector3(0f, 0f, 1f) * fighter.ArmReach, false) }, 1.2f);
-        var forward = fighter.Frame.Forward;
-        var healthy = fighter.ImpactMass(Hand.Right, forward);
+        Run(world, fighter, Idle(fighter), 1f);
 
-        fighter.Condition.ApplyHit(HitZone.Shoulder, Hand.Right, 40f);
+        // 横からのフック相当: 頭だけを横へ叩く。
+        world.ApplyLinearImpulse(fighter.Parts.Head, new Vector3(1f, 0f, 0f) * (0.6f * FighterTuning.Default.Masses.Head));
+        var signChanges = 0;
+        var peak = 0f;
+        var lastSign = 0;
+        for (var i = 0; i < (int)(1.5f / Dt); i++)
+        {
+            fighter.ApplyControl(Idle(fighter), Dt);
+            world.Step(Dt);
+            var tilt = HeadSideTilt(world, fighter);
+            peak = MathF.Max(peak, MathF.Abs(tilt));
+            var sign = MathF.Abs(tilt) < 0.01f ? 0 : MathF.Sign(tilt);
+            if (sign != 0 && lastSign != 0 && sign != lastSign)
+            {
+                signChanges++;
+            }
 
-        Assert.IsLessThan(healthy * 0.6f, fighter.ImpactMass(Hand.Right, forward));
+            lastSign = sign == 0 ? lastSign : sign;
+        }
+
+        Run(world, fighter, Idle(fighter), 2f);
+        var settled = MathF.Abs(HeadSideTilt(world, fighter));
+
+        Assert.IsGreaterThan(0.15f, peak, $"the head swings visibly (peak {peak:0.000} rad)");
+        Assert.IsGreaterThanOrEqualTo(2, signChanges, $"it swings back past upright, more than once ({signChanges})");
+        Assert.IsLessThan(0.1f, settled, $"and settles upright again ({settled:0.000} rad)");
+    }
+
+    /// <summary>胴に対する頭の左右の傾き [rad]（胴の座標で頭の上方向が X へ倒れた角度）。</summary>
+    private static float HeadSideTilt(PhysicsWorld world, Fighter fighter)
+    {
+        var relative = Quaternion.Concatenate(world.GetState(fighter.Parts.Head).Orientation, Quaternion.Inverse(world.GetState(fighter.Parts.Chest).Orientation));
+        var up = Vector3.Transform(Vector3.UnitY, relative);
+        return MathF.Atan2(up.X, up.Y);
     }
 
     private static PhysicsWorld NewWorld()

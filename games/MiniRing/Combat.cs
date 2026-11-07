@@ -13,7 +13,7 @@ public readonly record struct HitEvent(
     public float Momentum => ImpactMass * Speed;
 }
 
-/// <summary>部位ごとの効き目（ダメージの倍率）。どの能力が落ちるかは <see cref="BodyCondition.ApplyHit"/>。</summary>
+/// <summary>部位ごとの効き目（ダメージの倍率）。ダメージは記録と音にだけ使い、動きは落とさない。</summary>
 public static class ZoneDamage
 {
     public static float Multiplier(HitZone zone) => zone switch
@@ -32,11 +32,4 @@ public static class ZoneDamage
         HitZone.Knee => 0.8f,
         _ => 0.4f,
     };
-
-    /// <summary>この一撃でダウンするか（顎・こめかみは軽めでも倒れる）。</summary>
-    public static bool IsKnockdown(HitZone zone, float damage)
-        => damage * (zone is HitZone.Chin or HitZone.Temple ? 1.5f : 1f) >= 20f;
-
-    /// <summary>よろめき（0..1）。</summary>
-    public static float Stun(float damage) => Math.Clamp(damage / 30f, 0f, 1f);
 }
