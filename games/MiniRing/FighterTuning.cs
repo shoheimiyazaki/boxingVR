@@ -94,6 +94,18 @@ public sealed record FighterTuning
     public float RecoverUprightness { get; init; } = 0.78f;
     public float NoGroundFallTime { get; init; } = 0.4f;
 
+    // ── 見た目: ローポリの体と打撃によるへこみ（BoxerModel / BoxerSkin）
+    /// <summary>ローポリ形状を形を保ったまま何回細分化するか（1 回で三角形 4 倍）。変形の細かさが決まる。</summary>
+    public int ModelSubdivisions { get; init; } = 1;
+    /// <summary>ダメージ 1 あたりのへこみの深さ [m]。</summary>
+    public float DentDepthPerDamage { get; init; } = 0.0005f;
+    /// <summary>1 発でへこむ深さの上限 [m]。</summary>
+    public float MaxDentDepthPerHit { get; init; } = 0.008f;
+    /// <summary>拳の表面からこの距離 [m] までのノードがへこみに引きずられる。</summary>
+    public float DentSpread { get; init; } = 0.016f;
+    /// <summary>ノードが元の位置から動ける上限（部位の箱の最小の半径に対する割合）。ここで色が真っ赤になる。</summary>
+    public float MaxDentRatio { get; init; } = 0.4f;
+
     /// <summary>関節の力上限の倍率。トルク ∝ 質量 × 長さ なので MassScale × Scale。</summary>
     [JsonIgnore]
     public float TorqueScale => MassScale * Scale;

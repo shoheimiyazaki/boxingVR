@@ -84,7 +84,7 @@ dotnet test tests/MiniRing.Tests --filter "TestCategory!=visual"
 dotnet run --project games/MiniRing.Vr -- --selftest
 ```
 
-- テストは 56 件あります（うち GPU 描画の visual 2 件）。記録→再生が全チェックサムまでビット単位で一致することも確かめています。純関数（IK・写像・力学モデル・部位判定・体の状態など）と、ヘッドレスで物理を回して「立つ・歩く・旋回・パンチが届く・掴んで離す・ダウンから起き上がる」「打たれた頭が首のバネで揺れて戻る」「手の位置で胴がひねれ、頭の位置で傾く」「ストレートは手打ちより重い」を確かめるものです。
+- テストは 76 件あります（うち GPU 描画の visual 2 件）。記録→再生が全チェックサムまでビット単位で一致することも確かめています。純関数（IK・写像・力学モデル・部位判定・体の状態など）と、ヘッドレスで物理を回して「立つ・歩く・旋回・パンチが届く・掴んで離す・ダウンから起き上がる」「打たれた頭が首のバネで揺れて戻る」「手の位置で胴がひねれ、頭の位置で傾く」「ストレートは手打ちより重い」を確かめるものです。
 - `--selftest` は HMD なしで VR 描画経路を検証します。自前の Vulkan デバイスと sRGB 画像（XR スワップチェーン画像の代役）に描いた結果が、通常の描画とバイト単位で一致するかを見ます。
 - GPU の画面確認は `dotnet test tests/MiniRing.Tests --filter TestCategory=visual` で行い、出力先は `.visualcheck/` です。
 
@@ -95,6 +95,5 @@ dotnet run --project games/MiniRing.Vr -- --selftest
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — 構成・制御の仕組み・1 フレームの流れ
 - [docs/BOXING.md](docs/BOXING.md) — パンチの力学（体重が乗る／手打ち）、部位ダメージ（動きには影響しない）、打撃音
 - [docs/REPLAY.md](docs/REPLAY.md) — 自動記録と完全再現（ファイル形式・再生・照合）
-- [docs/VISUAL.md](docs/VISUAL.md) — ボクサーの見た目（素材の調査結果、手続きメッシュ、部位ごとの PDCA の記録）
 - [docs/REUSE.md](docs/REUSE.md) — iTVision 3 / Aigis(Dr. Tod) から何をどう持ってきたか、エンジンへの変更点
 - [docs/TUNING.md](docs/TUNING.md) — 調整値と、実機で最初に見るべきこと

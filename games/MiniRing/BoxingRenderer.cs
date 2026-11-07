@@ -1,33 +1,38 @@
 using System.Numerics;
 using Aigis.Physics;
 using Aigis.Render;
-using MiniRing.Visual;
+using MiniRing.LowPoly;
 
 namespace MiniRing;
 
 /// <summary>
-/// 試合の描画データ（Aigis の PrimitiveInstance / DebugLine）。体力バーもワールド空間の箱で作るので、
+/// 試合の描画データ（Aigis の PrimitiveInstance / DebugLine）。すべてワールド空間に置くので、
 /// スクリーン HUD が使えない VR でもそのまま見える。
 /// </summary>
 public static class BoxingRenderer
 {
-    // 体は単色（2 人の見分けは色味をわずかに変えるだけ）、グローブだけ色付き。
-    private static readonly Vector4 PlayerColor = new(0.8f, 0.75f, 0.69f, 1f);
-    private static readonly Vector4 PlayerGlove = new(0.85f, 0.1f, 0.1f, 1f);
-    private static readonly Vector4 CpuColor = new(0.66f, 0.69f, 0.75f, 1f);
-    private static readonly Vector4 CpuGlove = new(0.1f, 0.25f, 0.85f, 1f);
-    private static readonly Vector4 Bruise = new(0.5f, 0.12f, 0.14f, 1f);
+    private const float EyeRadius = 0.005f;
 
     /// <summary>手の目標の玉の半径 [m]（60cm の人形で見て分かり、拳より小さい）。</summary>
     private const float TargetMarkerRadius = 0.011f;
 
-    public static (IReadOnlyList<PrimitiveInstance> Instances, IReadOnlyList<DebugLine> Lines) Build(BoxingGame game, bool showTargetGhosts)
+    private static readonly Vector4 PlayerGlove = new(0.85f, 0.1f, 0.1f, 1f);
+    private static readonly Vector4 CpuGlove = new(0.1f, 0.25f, 0.85f, 1f);
+
+    /// <summary>
+    /// 呼び出し側のリストを空にして詰め直す。へこんだ体は 1 万インスタンス近くになるので、毎フレーム新しいリストを
+    /// 伸ばしながら作ると確保とコピーだけで数 ms かかる（計測: 新規 ≈ 5ms、使い回し ≈ 0.8ms）。
+    /// </summary>
+    public static void Fill(BoxingGame game, bool showTargetGhosts, List<PrimitiveInstance> instances, List<DebugLine> lines)
     {
         ArgumentNullException.ThrowIfNull(game);
-        var instances = new List<PrimitiveInstance>(game.Ring.Visuals);
-        var lines = new List<DebugLine>();
-        AddFighter(instances, game.World, game.Player, PlayerColor, PlayerGlove);
-        AddFighter(instances, game.World, game.Cpu, CpuColor, CpuGlove);
+        ArgumentNullException.ThrowIfNull(instances);
+        ArgumentNullException.ThrowIfNull(lines);
+        instances.Clear();
+        lines.Clear();
+        instances.AddRange(game.Ring.Visuals);
+        AddFighter(instances, game.World, game.Player, game.Model, game.PlayerSkin, PlayerGlove);
+        AddFighter(instances, game.World, game.Cpu, game.Model, game.CpuSkin, CpuGlove);
 
         if (showTargetGhosts)
         {
@@ -43,22 +48,47 @@ public static class BoxingRenderer
                     new Vector3(TargetMarkerRadius, 0f, 0f), color, MaterialKind.XRayFill));
             }
         }
-
-        return (instances, lines);
     }
 
-    private static void AddFighter(List<PrimitiveInstance> instances, PhysicsWorld world, Fighter fighter, Vector4 color, Vector4 glove)
-        // 見た目は Visual/BoxerModel（剛体ごとの滑らかなメッシュ）。傷んだ部位だけ赤黒く寄せる（ゲームの情報なので残す）。
-        => BoxerRenderer.Add(instances, world, fighter, color, glove,
-            (part, body) => Vector4.Lerp(body, Bruise, 0.75f * fighter.Condition.Bruise(RegionOf(fighter.Parts, part))));
+    /// <summary>
+    /// 体はローポリのメッシュ（<see cref="BoxerModel"/>）。へこんでいない部位は静的メッシュ 1 個、
+    /// へこんだ部位は三角形ごとに直角三角形のインスタンスへ分解して、変形した形と変形量の色（白 → 赤）で描く。
+    /// 体が白一色なので、どちらのファイターかはグローブの色で見分ける。
+    /// </summary>
+    private static void AddFighter(List<PrimitiveInstance> instances, PhysicsWorld world, Fighter fighter, BoxerModel model, BoxerSkin skin, Vector4 glove)
+    {
+        foreach (var id in fighter.Parts.All)
+        {
+            var s = world.GetState(id);
+            var body = Matrix4x4.CreateFromQuaternion(s.Orientation) * Matrix4x4.CreateTranslation(s.Position);
+            var dented = skin.Part(id);
+            if (!dented.IsDented)
+            {
+                instances.Add(new PrimitiveInstance(PrimitiveKind.Cube, body, Vector3.Zero, DentedMesh.Undamaged, Mesh: model.RestMesh(fighter.KindOf(id))));
+                continue;
+            }
 
-    /// <summary>剛体 → 傷の区分。Aigis の "Right" 部位は本人の左（Fighter.Locate と同じ対応）。</summary>
-    private static BodyRegion RegionOf(HumanoidRagdoll.Parts p, int part)
-        => part == p.Head ? BodyRegion.Head
-            : part == p.RightUpperArm ? BodyRegion.LeftUpperArm
-            : part == p.LeftUpperArm ? BodyRegion.RightUpperArm
-            : part == p.RightForearm ? BodyRegion.LeftForearm
-            : part == p.LeftForearm ? BodyRegion.RightForearm
-            : part == p.Chest || part == p.Pelvis ? BodyRegion.Torso
-            : BodyRegion.Legs;
+            var (locals, colors) = dented.Triangles();
+            for (var i = 0; i < locals.Count; i++)
+            {
+                instances.Add(new PrimitiveInstance(PrimitiveKind.Cube, locals[i] * body, Vector3.Zero, colors[i], Mesh: RightTriangles.UnitMesh));
+            }
+        }
+
+        foreach (var hand in new[] { Hand.Left, Hand.Right })
+        {
+            instances.Add(new PrimitiveInstance(PrimitiveKind.Sphere, Matrix4x4.CreateTranslation(fighter.GloveCenter(hand)),
+                new Vector3(fighter.GloveRadius, 0f, 0f), glove));
+        }
+
+        // 顔の向きが分かるよう、眼窩のノードに目を 2 つ（へこめば目も一緒に動く）。
+        var head = world.GetState(fighter.Parts.Head);
+        var face = skin.Part(fighter.Parts.Head);
+        foreach (var socket in new[] { BoxerShapes.EyeSockets.Left, BoxerShapes.EyeSockets.Right })
+        {
+            instances.Add(new PrimitiveInstance(PrimitiveKind.Sphere,
+                Matrix4x4.CreateTranslation(head.Position + Vector3.Transform(face.Position(socket), head.Orientation)),
+                new Vector3(EyeRadius, 0f, 0f), new Vector4(0.05f, 0.05f, 0.05f, 1f)));
+        }
+    }
 }
