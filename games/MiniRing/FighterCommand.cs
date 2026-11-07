@@ -23,8 +23,10 @@ public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip);
 /// <summary>
 /// 1 ステップ分の操作指令 — 入力元（VR / キーボード / AI）とラグドールの唯一の契約。
 /// ラグドールはこれを位置として書き込まず、バネ・ダンパの目標として追う。
+/// <para><paramref name="HeadOffset"/> は頭の構えからのずれ（体フレームのローカル [m]）: 前へ出せば前傾、横へずらせば
+/// スリップ（横傾き）、下げればダッキング（沈み込み）。体の軸の向きは両手の位置とこの頭の位置から決まる。</para>
 /// </summary>
-public readonly record struct FighterCommand(Vector3 MoveWorld, Vector3 FaceDirection, HandCommand Left, HandCommand Right)
+public readonly record struct FighterCommand(Vector3 MoveWorld, Vector3 FaceDirection, HandCommand Left, HandCommand Right, Vector3 HeadOffset = default)
 {
     public HandCommand For(Hand hand) => hand == Hand.Left ? Left : Right;
 
@@ -40,7 +42,8 @@ public readonly record struct FighterCommand(Vector3 MoveWorld, Vector3 FaceDire
     }
 }
 
-/// <summary>入力元がファイターの状況を知るための読み取り専用情報。</summary>
+/// <summary>入力元がファイターの状況を知るための読み取り専用情報。OpponentAlive は相手が打ってよい状態か
+/// （KO されておらず、立っている）。倒れた相手には手を出さない。</summary>
 public readonly record struct FighterSense(BodyFrame Self, float ArmReach, Vector3 OpponentHead, Vector3 OpponentChest, bool OpponentAlive);
 
 /// <summary>ファイターの操作元。VR・キーボード・AI がこれを実装する。</summary>

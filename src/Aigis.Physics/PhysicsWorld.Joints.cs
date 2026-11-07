@@ -425,6 +425,19 @@ public sealed partial class PhysicsWorld
         return id;
     }
 
+    /// <summary>Re-tunes a live <see cref="AddTwistServo"/> joint's spring and force ceiling in place — the
+    /// twin of <see cref="SetAngularServoSettings"/> (added for MiniRing: an injured elbow loses strength).</summary>
+    public void SetTwistServoSettings(int id, float frequency, float maxForce, float dampingRatio = 1f)
+    {
+        ThrowIfDisposed();
+        var handle = _constraints[id];
+        _simulation.Solver.GetDescription(handle, out TwistServo description);
+        description.SpringSettings = new SpringSettings(frequency, dampingRatio);
+        description.ServoSettings = new ServoSettings(
+            description.ServoSettings.MaximumSpeed, description.ServoSettings.BaseSpeed, maxForce);
+        _simulation.Solver.ApplyDescription(handle, description);
+    }
+
     /// <summary>Re-targets a live <see cref="AddTwistServo"/> joint in place (no remove/re-add).</summary>
     public void SetTwistServoTarget(int id, float targetAngleRadians)
     {

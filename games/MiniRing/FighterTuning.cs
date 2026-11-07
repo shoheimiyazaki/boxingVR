@@ -58,6 +58,19 @@ public sealed record FighterTuning
     public float MaxTargetSpeed { get; init; } = 3f;
     public float TargetVelocitySmoothing { get; init; } = 25f;
 
+    // ── ボクシングの力学（PunchMechanics）
+    /// <summary>体の質量を借りられたときに腕の力へ上乗せできる最大の割合（脚・腰の力）。</summary>
+    public float BodyDrive { get; init; } = 1.5f;
+    /// <summary>腕へ上乗せした体の力のうち、胴を拳の方向へ押し出す（体重移動として見える）割合。</summary>
+    public float WeightShiftShare { get; init; } = 0.3f;
+    /// <summary>両手の位置から決める胴のひねりの最大角。腰はその一部だけ回る。</summary>
+    public float MaxTorsoTwistRadians { get; init; } = 35f * MathF.PI / 180f;
+    public float HipTwistShare { get; init; } = 0.45f;
+    /// <summary>頭のずれ（前傾・スリップ）で胴を傾けられる最大角。</summary>
+    public float MaxLeanRadians { get; init; } = 30f * MathF.PI / 180f;
+    /// <summary>反応遅れのために保持する指令の長さ [s]（これより遅い反応は表現できない）。</summary>
+    public float CommandHistorySeconds { get; init; } = 1.2f;
+
     // ── 掴み・投げ
     public float GrabRadius { get; init; } = 0.04f;
     public float GrabBreakForce { get; init; } = 260f;

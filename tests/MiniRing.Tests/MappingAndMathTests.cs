@@ -87,16 +87,6 @@ public sealed class MappingAndMathTests
         Assert.AreEqual(0f, mid.RightKnee, Eps);
     }
 
-    [TestMethod]
-    public void Damage_ZeroBelowThreshold_HeadGreaterThanBody_Capped()
-    {
-        Assert.AreEqual(0f, PunchMath.Damage(PunchMath.SpeedThreshold, HitZone.Head));
-        Assert.IsGreaterThan(PunchMath.Damage(1.8f, HitZone.Body), PunchMath.Damage(1.8f, HitZone.Head));
-        Assert.IsGreaterThan(PunchMath.Damage(1.8f, HitZone.Limb), PunchMath.Damage(1.8f, HitZone.Body));
-        Assert.AreEqual(PunchMath.MaxDamage, PunchMath.Damage(50f, HitZone.Head));
-        Assert.IsTrue(PunchMath.IsKnockdown(PunchMath.KnockdownDamage));
-    }
-
     private static void AssertClose(Vector3 expected, Vector3 actual)
         => Assert.IsLessThan(Eps, Vector3.Distance(expected, actual), $"expected {expected} actual {actual}");
 }

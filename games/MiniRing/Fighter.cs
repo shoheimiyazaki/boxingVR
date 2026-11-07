@@ -13,16 +13,16 @@ public enum FighterState
 /// <summary>
 /// 1 体のファイター: Aigis の <see cref="HumanoidRagdoll"/> を 60cm に縮小し、指令をバネ・ダンパで伝える。
 /// <list type="bullet">
-/// <item>体幹: 骨盤ホバー PD + 骨盤/胸の直立 PD + 水平速度 P（力積で与える）。</item>
+/// <item>体幹: 骨盤ホバー PD + 骨盤/胸の直立 PD + 水平速度 P（力積で与える）。胴の軸の向きは両手と頭の位置から決める。</item>
 /// <item>脚: <see cref="HumanoidRagdoll.AddLegServos"/> のサーボに正弦歩行の目標角。</item>
-/// <item>腕: 2 ボーン IK → 肩 AngularServo / 肘 TwistServo の目標、さらに拳を目標へ PD 力で引く（反作用は胸へ）。</item>
+/// <item>腕: 2 ボーン IK → 肩 AngularServo / 肘 TwistServo の目標、さらに拳を目標へ PD 力で引く。
+///   力の上限は <see cref="PunchMechanics"/>（体の有効質量 × 腕の連結度）で決まり、体重が乗るほど大きい。</item>
+/// <item>被弾: <see cref="Condition"/> が反応遅れ・脚・肩・肘・スタミナとして性能を落とす。</item>
 /// </list>
 /// 位置・姿勢を直接書き換えるのは生成直後の向き合わせ（<see cref="Spawn"/>）だけ。
 /// </summary>
 public sealed class Fighter
 {
-    private const int GrabSubgroup = HumanoidRagdoll.PartSubgroupCount;
-
     private readonly PhysicsWorld _world;
     private readonly FighterTuning _tuning;
     private readonly HumanoidRagdoll.LegServos _legs;
@@ -30,6 +30,12 @@ public sealed class Fighter
     private readonly int[] _all;
     private readonly int _neck;
     private readonly float _standHeight;
+    private readonly BodyInertia _inertia;
+    private readonly CommandHistory _history = new(1024);
+    private readonly float[] _servoSettings = [-1f, -1f, -1f, -1f, -1f, -1f];
+    private float _readTime;
+    private float _time;
+    private float _fatigue;
     private float _facingYaw;
     private float _gaitPhase;
     private float _smoothedSpeed;
@@ -54,6 +60,8 @@ public sealed class Fighter
         var pelvisY = world.GetState(parts.Pelvis).Position.Y;
         var footBottom = MathF.Min(world.GetState(parts.LeftFoot).Position.Y, world.GetState(parts.RightFoot).Position.Y) - halfExtents.Foot.Y;
         _standHeight = pelvisY - footBottom;
+        var height = world.GetState(parts.Head).Position.Y + halfExtents.Head.Y - footBottom;
+        _inertia = BodyInertia.Cylinder(TotalMass, height, halfExtents.Chest.X);
 
         _legs = HumanoidRagdoll.AddLegServos(world, parts, tuning.LegServoHz,
             anklePitchMaxForce: 100f * tuning.TorqueScale, kneeMaxForce: 100f * tuning.TorqueScale);
@@ -71,9 +79,15 @@ public sealed class Fighter
     public float TotalMass { get; }
     public FighterState State { get; private set; }
     public float Stun01 { get; private set; }
+    public BodyCondition Condition { get; } = new();
+
+    /// <summary>実際に体が従っている指令（反応遅れを経たもの）。</summary>
     public FighterCommand LastCommand { get; private set; }
     public bool IsGrabbed => _grabbedByCount > 0;
     public float ArmReach => _arms[0].UpperLength + _arms[0].LowerLength;
+
+    /// <summary>倒れてからの経過時間 [s]（10 カウント用）。起き上がり中も数え続け、立ち直ったら 0。</summary>
+    public float DownTime { get; private set; }
 
     /// <summary>現在の手の駆動強度（0..1）。被弾・転倒で下がる。</summary>
     public float ControlScale { get; private set; } = 1f;
@@ -93,6 +107,21 @@ public sealed class Fighter
     public Vector3 HeadPosition => _world.GetState(Parts.Head).Position;
     public Vector3 ChestPosition => _world.GetState(Parts.Chest).Position;
     public Vector3 PelvisPosition => _world.GetState(Parts.Pelvis).Position;
+    public Quaternion TorsoOrientation => _world.GetState(Parts.Chest).Orientation;
+
+    public Vector3 CenterOfMass
+    {
+        get
+        {
+            var sum = Vector3.Zero;
+            foreach (var id in _all)
+            {
+                sum += _world.GetState(id).Position * _world.GetMass(id);
+            }
+
+            return sum / TotalMass;
+        }
+    }
 
     public float Uprightness => MathF.Min(UpOf(Parts.Chest).Y, UpOf(Parts.Pelvis).Y);
 
@@ -109,7 +138,48 @@ public sealed class Fighter
         return f.LinearVelocity + Vector3.Cross(f.AngularVelocity, GloveCenter(hand) - f.Position);
     }
 
-    public bool IsForearm(int bodyId) => bodyId == Parts.LeftForearm || bodyId == Parts.RightForearm;
+    /// <summary>上腕と前腕の質量（体を使わずに拳に乗る質量）。</summary>
+    public float ArmMass(Hand hand) => _world.GetMass(_arms[(int)hand].UpperArm) + _world.GetMass(_arms[(int)hand].Forearm);
+
+    /// <summary>
+    /// いまの姿勢で、拳が方向 <paramref name="direction"/> に当たったときに乗る質量（<see cref="PunchMechanics"/>）。
+    /// 腕の質量 + 腕の連結度 × 体の有効質量。
+    /// </summary>
+    public float ImpactMass(Hand hand, Vector3 direction) => ImpactMass(hand, direction, out _);
+
+    public float ImpactMass(Hand hand, Vector3 direction, out float bodyShare)
+    {
+        var arm = _arms[(int)hand];
+        var glove = arm.GlovePosition(_world);
+        var bodyEffective = PunchMechanics.BodyEffectiveMass(_inertia, TorsoOrientation, glove - CenterOfMass, direction);
+        var coupling = PunchMechanics.Coupling(glove - arm.ShoulderPosition(_world, Parts.Chest), direction, Condition.JointIntegrity(hand));
+        var total = PunchMechanics.ImpactMass(ArmMass(hand), bodyEffective, coupling);
+        bodyShare = (total - ArmMass(hand)) / total;
+        return total;
+    }
+
+    /// <summary>
+    /// 部位 <paramref name="part"/> のどこに <paramref name="point"/> が当たったか（部位ローカルを半径で割った値）と、
+    /// 腕の部位ならその腕の手（肩寄り・肘寄りの判定と、どちらの肩・肘が痛むかに使う）。
+    /// </summary>
+    public (BodyPartKind Kind, Vector3 Normalized, Hand ArmHand) Locate(int part, Vector3 point)
+    {
+        var s = _world.GetState(part);
+        var half = HalfExtentsOf(part);
+        var local = Vector3.Clamp(Vector3.Transform(point - s.Position, Quaternion.Conjugate(s.Orientation)), -half, half) / half;
+        var p = Parts;
+        // Aigis の "Right" 部位は +X 側＝本人の左（FighterCommand / Arm.Create と同じ対応）。
+        var armHand = part == p.RightUpperArm || part == p.RightForearm ? Hand.Left : Hand.Right;
+        var kind = part == p.Head ? BodyPartKind.Head
+            : part == p.Chest ? BodyPartKind.Chest
+            : part == p.Pelvis ? BodyPartKind.Pelvis
+            : part == p.LeftUpperArm || part == p.RightUpperArm ? BodyPartKind.UpperArm
+            : part == p.LeftForearm || part == p.RightForearm ? BodyPartKind.Forearm
+            : part == p.LeftThigh || part == p.RightThigh ? BodyPartKind.Thigh
+            : part == p.LeftShin || part == p.RightShin ? BodyPartKind.Shin
+            : BodyPartKind.Foot;
+        return (kind, local, armHand);
+    }
 
     /// <summary><paramref name="point"/> から自分の部位 <paramref name="part"/>（箱）までの距離。</summary>
     public float DistanceToPart(int part, Vector3 point) => Vector3.Distance(ClosestPointOnBox(this, part, point), point);
@@ -142,24 +212,39 @@ public sealed class Fighter
         return new Fighter(world, tuning, name, parts, built, yawRadians);
     }
 
-    /// <summary>1 サブステップ分の制御を力積で与える（物理ステップの直前に呼ぶ）。</summary>
+    /// <summary>
+    /// 1 サブステップ分の制御を力積で与える（物理ステップの直前に呼ぶ）。
+    /// 体が従うのは <see cref="BodyCondition.ReactionDelay"/> だけ前の指令（打たれるほど反応が遅れる）。
+    /// </summary>
     public void ApplyControl(in FighterCommand command, float dt)
     {
-        LastCommand = command;
+        _time += dt;
+        _history.Add(_time, command);
+        // 反応遅れ: 体は遅れた指令に従う。読み出し位置は巻き戻さない（遅れが急に増えたら、その間は体が固まる）、
+        // 追いつくときも実時間の 1.5 倍までに抑える（過去の動きを早送りで再生しない）。
+        var delay = MathF.Min(Condition.ReactionDelay, _tuning.CommandHistorySeconds - 0.05f);
+        _readTime = Math.Clamp(_time - delay, _readTime, _readTime + (1.5f * dt));
+        var delayed = _history.At(_readTime);
+        LastCommand = delayed;
+
+        Condition.Tick(dt, _fatigue);
+        _fatigue = 0f;
         _stateTime += dt;
         Stun01 = MathF.Max(0f, Stun01 - (_tuning.StunDecayPerSecond * dt));
+        _stayDown |= Condition.IsKnockedOut;
+        DownTime = State == FighterState.Standing ? 0f : DownTime + dt;
         var grounded = TryFindGround(out var height);
 
         switch (State)
         {
             case FighterState.Standing:
-                TickStanding(command, grounded, height, dt);
+                TickStanding(delayed, grounded, height, dt);
                 break;
             case FighterState.Down:
-                TickDown(command, grounded, height, dt);
+                TickDown(delayed, grounded, height, dt);
                 break;
             case FighterState.GettingUp:
-                TickGettingUp(command, grounded, height, dt);
+                TickGettingUp(delayed, grounded, height, dt);
                 break;
         }
     }
@@ -323,7 +408,8 @@ public sealed class Fighter
     {
         _noGroundTime = grounded ? 0f : _noGroundTime + dt;
         _tiltTime = Uprightness < _tuning.FallUprightness ? _tiltTime + dt : 0f;
-        if (_noGroundTime > _tuning.NoGroundFallTime || _tiltTime > _tuning.FallGrace)
+        // 脚か意識が尽きたら崩れる（肝臓が遅れて効いたときもここで倒れる）。
+        if (_noGroundTime > _tuning.NoGroundFallTime || _tiltTime > _tuning.FallGrace || !Condition.CanStand)
         {
             Enter(FighterState.Down);
             return;
@@ -343,9 +429,9 @@ public sealed class Fighter
         // こらえて崩れる（Triage ADR-102④）: 駆動を一気に抜かず CollapseDuration かけて落とす。
         ControlScale = Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration);
         SetServoScale(ControlScale);
-        DriveArms(command, ControlScale, dt);
+        DriveArms(command, ControlScale, weightShift: false, dt);
         var settled = _world.GetState(Parts.Pelvis).LinearVelocity.Length() < 0.6f;
-        if (!_stayDown && _stateTime > _tuning.DownTime && settled && grounded && height < _standHeight * 1.6f)
+        if (!_stayDown && Condition.CanGetUp && _stateTime > _tuning.DownTime && settled && grounded && height < _standHeight * 1.6f)
         {
             Enter(FighterState.GettingUp);
         }
@@ -353,7 +439,7 @@ public sealed class Fighter
 
     private void TickGettingUp(in FighterCommand command, bool grounded, float height, float dt)
     {
-        if (!grounded)
+        if (!grounded || !Condition.CanStand)
         {
             Enter(FighterState.Down);
             return;
@@ -384,29 +470,37 @@ public sealed class Fighter
 
     private void DriveBody(in FighterCommand command, float scale, bool grounded, float height, float dt)
     {
+        // 意識・脚・肩などの影響は各チャンネル（脚・首・腕・姿勢）でそれぞれ 1 回だけ掛ける（二重に弱めない）。
         ControlScale = Math.Clamp(scale, 0f, 1f);
         SetServoScale(scale);
         if (grounded)
         {
-            ApplyHover(height, scale, dt);
+            ApplyHover(command, height, scale, dt);
         }
 
         ApplyFacingAndUpright(command, scale, dt);
         ApplyMovement(command, scale, dt);
         ApplyGait(dt);
-        DriveArms(command, ControlScale, dt);
+        DriveArms(command, ControlScale, weightShift: grounded && State == FighterState.Standing, dt);
     }
 
-    private void ApplyHover(float height, float scale, float dt)
+    private void ApplyHover(in FighterCommand command, float height, float scale, float dt)
     {
         var bob = MathF.Sin(_gaitPhase * 2f) * 0.04f * _standHeight * Math.Clamp(_smoothedSpeed / _tuning.WalkSpeed, 0f, 1f);
         var hoverScale = State == FighterState.GettingUp ? scale * Lerp(0.5f, 1f, Math.Clamp(Uprightness, 0f, 1f)) : scale;
+        // 立つ高さ: 頭を下げればダッキング（沈み込み）、脚が効かないと膝が折れて低くなる。
+        var crouch = Math.Clamp(command.HeadOffset.Y / _standHeight, -0.3f, 0.05f);
+        var target = _standHeight * _tuning.StandHeightRatio * (1f + crouch) * Lerp(0.8f, 1f, Condition.Legs);
         var pelvis = _world.GetState(Parts.Pelvis);
-        var accel = FighterMath.HoverAccel(-_world.Gravity.Y, (_standHeight * _tuning.StandHeightRatio) + bob - height,
-            pelvis.LinearVelocity.Y, _tuning.HoverKp, _tuning.HoverKd, _tuning.MaxHoverAccel, hoverScale);
+        var accel = FighterMath.HoverAccel(-_world.Gravity.Y, target + bob - height,
+            pelvis.LinearVelocity.Y, _tuning.HoverKp, _tuning.HoverKd, _tuning.MaxHoverAccel, hoverScale * Condition.LegStrength);
         ApplySharedImpulse(new Vector3(0f, accel * TotalMass * dt, 0f));
     }
 
+    /// <summary>
+    /// 体の軸の向き: 向き（相手へロックオン）＋ 両手の位置からのひねり（前に出た手・横切る手の側の肩が前へ）
+    /// ＋ 頭の位置からの前傾・横傾き。腰は胸のひねりの一部だけ回る。
+    /// </summary>
     private void ApplyFacingAndUpright(in FighterCommand command, float scale, float dt)
     {
         if (command.FaceDirection.LengthSquared() > 1e-4f)
@@ -416,11 +510,24 @@ public sealed class Fighter
             _facingYaw += Math.Clamp(BodyFrame.DeltaAngle(_facingYaw, desired), -maxStep, maxStep);
         }
 
-        // 前進なら前傾・後退なら後傾（向きは相手にロックしたまま下がれる）。
-        var lean = Math.Clamp(_forwardSpeed / _tuning.WalkSpeed, -1f, 1f) * (6f * MathF.PI / 180f);
-        var target = Quaternion.Concatenate(Quaternion.CreateFromAxisAngle(Vector3.UnitX, lean), Quaternion.CreateFromAxisAngle(Vector3.UnitY, _facingYaw));
-        ApplyUprightImpulse(Parts.Pelvis, target, scale, dt);
-        ApplyUprightImpulse(Parts.Chest, target, scale * 0.9f, dt);
+        var twist = PunchMechanics.TorsoTwist(command.Left.TargetLocal, command.Right.TargetLocal, ArmReach, _tuning.MaxTorsoTwistRadians);
+        var torsoLength = MathF.Max(0.05f, HeadPosition.Y - PelvisPosition.Y);
+        var head = command.HeadOffset;
+        var moveLean = Math.Clamp(_forwardSpeed / _tuning.WalkSpeed, -1f, 1f) * (6f * MathF.PI / 180f);
+        var pitch = Math.Clamp(moveLean + MathF.Atan2(head.Z, torsoLength), -_tuning.MaxLeanRadians, _tuning.MaxLeanRadians);
+        var roll = Math.Clamp(MathF.Atan2(-head.X, torsoLength), -_tuning.MaxLeanRadians, _tuning.MaxLeanRadians); // 頭を右（−X）へ → 右へ傾く
+        // 姿勢 = 向き（ヨー）×（向きの座標系での）傾き × 胴自身のひねり。傾きは向きの座標系で与えるので、
+        // ひねっていても「前へ出した頭」は前傾のまま。傾きは主に胸、腰はその一部（脚の付け根が後ろへ振れないように）。
+        var facing = Quaternion.CreateFromAxisAngle(Vector3.UnitY, _facingYaw);
+        Quaternion Upright(float twistShare, float leanShare)
+        {
+            var lean = Quaternion.Concatenate(Quaternion.CreateFromAxisAngle(Vector3.UnitZ, roll * leanShare), Quaternion.CreateFromAxisAngle(Vector3.UnitX, pitch * leanShare));
+            return Quaternion.Concatenate(Quaternion.Concatenate(Quaternion.CreateFromAxisAngle(Vector3.UnitY, twist * twistShare), lean), facing);
+        }
+
+        var posture = scale * Condition.PostureStrength;
+        ApplyUprightImpulse(Parts.Pelvis, Upright(_tuning.HipTwistShare, 0.25f), posture, dt);
+        ApplyUprightImpulse(Parts.Chest, Upright(1f, 1f), posture * 0.9f, dt);
     }
 
     private void ApplyUprightImpulse(int body, Quaternion target, float scale, float dt)
@@ -437,8 +544,9 @@ public sealed class Fighter
     private void ApplyMovement(in FighterCommand command, float scale, float dt)
     {
         var pelvis = _world.GetState(Parts.Pelvis);
-        var accel = FighterMath.MoveAccel(pelvis.LinearVelocity, command.ClampedMove * _tuning.WalkSpeed, _tuning.MoveGain, _tuning.MaxMoveAccel);
-        ApplySharedImpulse(accel * (TotalMass * scale * dt));
+        var walk = _tuning.WalkSpeed * Lerp(0.3f, 1f, Condition.Legs);
+        var accel = FighterMath.MoveAccel(pelvis.LinearVelocity, command.ClampedMove * walk, _tuning.MoveGain, _tuning.MaxMoveAccel);
+        ApplySharedImpulse(accel * (TotalMass * scale * Condition.LegStrength * dt));
         var v = pelvis.LinearVelocity;
         var blend = 1f - MathF.Exp(-6f * dt);
         _smoothedSpeed = Lerp(_smoothedSpeed, new Vector2(v.X, v.Z).Length(), blend);
@@ -462,12 +570,25 @@ public sealed class Fighter
         _world.SetTwistServoTarget(_legs.RightAnkle, -(pose.RightHip + pose.RightKnee));
     }
 
-    private void DriveArms(in FighterCommand command, float scale, float dt)
+    private void DriveArms(in FighterCommand command, float scale, bool weightShift, float dt)
     {
         var frame = Frame;
+        var com = CenterOfMass;
+        var torso = TorsoOrientation;
         foreach (var arm in _arms)
         {
-            arm.Drive(_world, _tuning, frame, command.For(arm.Hand).TargetLocal, scale, dt, Parts.Chest);
+            var hand = arm.Hand;
+            var capability = new ArmCapability(
+                Condition.ArmRaiseLimit(hand) * ArmReach,
+                Condition.HandForceScale(hand) * scale,
+                Condition.JointIntegrity(hand));
+            var drive = arm.Drive(_world, _tuning, frame, command.For(hand).TargetLocal, capability, _inertia, com, torso, TotalMass, dt, Parts.Chest);
+            _fatigue += drive.Fatigue;
+            if (weightShift && drive.BodyForce.LengthSquared() > 0f)
+            {
+                // 体の質量を借りた分は、脚と腰が地面を押して出す力。胴も拳の方向へ少し運ばれる（体重移動）。
+                ApplySharedImpulse(drive.BodyForce * (_tuning.WeightShiftShare * dt));
+            }
         }
     }
 
@@ -475,13 +596,41 @@ public sealed class Fighter
     {
         var s = Math.Clamp(scale, 0.01f, 1.5f);
         var t = _tuning.TorqueScale * s;
-        _world.SetAngularServoSettings(_legs.LeftHip, _tuning.LegServoHz, 120f * t);
-        _world.SetAngularServoSettings(_legs.RightHip, _tuning.LegServoHz, 120f * t);
-        _world.SetAngularServoSettings(_neck, _tuning.NeckServoHz, 20f * t);
+        var legs = t * Condition.LegStrength;
+        // 値が変わったときだけ Bepu の拘束を書き換える（毎サブステップ 9 本の Get/ApplyDescription を避ける）。
+        if (Changed(0, legs))
+        {
+            _world.SetAngularServoSettings(_legs.LeftHip, _tuning.LegServoHz, 120f * legs);
+            _world.SetAngularServoSettings(_legs.RightHip, _tuning.LegServoHz, 120f * legs);
+            _world.SetTwistServoSettings(_legs.LeftKnee, _tuning.LegServoHz, 100f * legs);
+            _world.SetTwistServoSettings(_legs.RightKnee, _tuning.LegServoHz, 100f * legs);
+        }
+
+        if (Changed(1, t * Condition.NeckStrength))
+        {
+            _world.SetAngularServoSettings(_neck, _tuning.NeckServoHz, 20f * t * Condition.NeckStrength);
+        }
+
         foreach (var arm in _arms)
         {
-            arm.SetStrength(_world, _tuning, s);
+            var shoulder = s * Condition.ShoulderStrength(arm.Hand);
+            var elbow = s * Condition.ElbowStrength(arm.Hand);
+            if (Changed(2 + (2 * (int)arm.Hand), shoulder) | Changed(3 + (2 * (int)arm.Hand), elbow))
+            {
+                arm.SetStrength(_world, _tuning, shoulder, elbow);
+            }
         }
+    }
+
+    private bool Changed(int slot, float value)
+    {
+        if (MathF.Abs(_servoSettings[slot] - value) <= 0.005f * MathF.Max(1e-3f, MathF.Abs(value)))
+        {
+            return false;
+        }
+
+        _servoSettings[slot] = value;
+        return true;
     }
 
     // P-002: 骨盤 1 点に掛けると質量比で発散しやすいので、骨盤と胸へ質量比で配分する。
@@ -518,6 +667,12 @@ public sealed class Fighter
 
     /// <summary>投げの成立（投げた手・投げられた相手）。</summary>
     internal readonly record struct ThrowResult(Hand Hand, Fighter Victim);
+
+    /// <summary>片腕の能力（<see cref="BodyCondition"/> から）: 上げられる高さ [m・肩基準]・筋力の倍率・体を通す度合い。</summary>
+    private readonly record struct ArmCapability(float RaiseLimit, float ForceScale, float JointIntegrity);
+
+    /// <summary>腕の駆動結果: 使ったスタミナ（割合）と、体から借りた力 [N]。</summary>
+    private readonly record struct ArmDrive(float Fatigue, Vector3 BodyForce);
 
     /// <summary>片腕ぶんのサーボ・IK・拳 PD の状態。</summary>
     private sealed class Arm
@@ -593,15 +748,24 @@ public sealed class Fighter
             return f.Position + Vector3.Transform(GloveLocal, f.Orientation);
         }
 
-        public void SetStrength(PhysicsWorld world, FighterTuning tuning, float scale)
-        {
-            world.SetAngularServoSettings(ShoulderServo, tuning.ArmServoHz, 40f * tuning.TorqueScale * scale);
-        }
-
-        public void Drive(PhysicsWorld world, FighterTuning tuning, BodyFrame frame, Vector3 targetLocal, float scale, float dt, int chestId)
+        public Vector3 ShoulderPosition(PhysicsWorld world, int chestId)
         {
             var chest = world.GetState(chestId);
-            var shoulder = chest.Position + Vector3.Transform(ShoulderOnChest, chest.Orientation);
+            return chest.Position + Vector3.Transform(ShoulderOnChest, chest.Orientation);
+        }
+
+        public void SetStrength(PhysicsWorld world, FighterTuning tuning, float shoulderScale, float elbowScale)
+        {
+            world.SetAngularServoSettings(ShoulderServo, tuning.ArmServoHz, 40f * tuning.TorqueScale * Math.Max(0.01f, shoulderScale));
+            world.SetTwistServoSettings(ElbowServo, tuning.ArmServoHz, 30f * tuning.TorqueScale * Math.Max(0.01f, elbowScale));
+        }
+
+        public ArmDrive Drive(PhysicsWorld world, FighterTuning tuning, BodyFrame frame, Vector3 targetLocal, ArmCapability capability,
+            BodyInertia inertia, Vector3 centerOfMass, Quaternion torso, float totalMass, float dt, int chestId)
+        {
+            // 肩・スタミナが落ちると腕が上がらない: 目標の高さ（肩基準）を上限で抑える。
+            targetLocal.Y = MathF.Min(targetLocal.Y, capability.RaiseLimit);
+            var shoulder = ShoulderPosition(world, chestId);
             var reach = UpperLength + LowerLength;
             var target = ArmIk.ClampReach(shoulder, frame.LocalToWorld(targetLocal), reach);
             LastTarget = target;
@@ -617,21 +781,36 @@ public sealed class Fighter
             _hasPrevious = true;
 
             // 1) IK → 肩・肘サーボの目標（腕の「形」）。肘は下・外・やや後ろへ逃がす。
+            var chest = world.GetState(chestId);
             var pole = shoulder + (((-Vector3.UnitY * 1.0f) + (frame.Rotate(Vector3.UnitX * Side) * 0.6f) - (frame.Forward * 0.3f)) * reach);
             var (elbow, hand) = ArmIk.SolveTwoBone(shoulder, target, pole, UpperLength, LowerLength);
             var (upperRotation, elbowAngle) = ArmIk.JointTargets(shoulder, elbow, hand, ArmIk.BendNormal(shoulder, target, pole), Side);
             world.SetAngularServoTarget(ShoulderServo, Quaternion.Concatenate(upperRotation, Quaternion.Conjugate(chest.Orientation)));
             world.SetTwistServoTarget(ElbowServo, Math.Clamp(elbowAngle, 0f, 140f * MathF.PI / 180f));
 
-            // 2) 拳を目標へ PD 力で引く（パンチの勢いの本体）。反作用を胸へ返す（P-002）。
+            // 2) 拳を目標へ PD 力で引く。力の上限は「腕の筋力 × 体の質量をどれだけ借りられるか」（PunchMechanics）:
+            //    体軸を通る向き・骨で突っ張れる向きほど脚と腰の力が乗り、軸から外れた手打ちは腕の力だけになる。
             var f = world.GetState(Forearm);
             var glove = f.Position + Vector3.Transform(GloveLocal, f.Orientation);
             var gloveVelocity = f.LinearVelocity + Vector3.Cross(f.AngularVelocity, glove - f.Position);
             var accel = FighterMath.HandAccel(glove, gloveVelocity, target, _targetVelocity, tuning.HandKp, tuning.HandKd);
             var chainMass = world.GetMass(UpperArm) + world.GetMass(Forearm);
-            var force = ClampLength(accel * chainMass, tuning.MaxHandForce) * scale;
+            var desired = accel * chainMass;
+            var bodyEffective = PunchMechanics.BodyEffectiveMass(inertia, torso, glove - centerOfMass, desired);
+            var coupling = PunchMechanics.Coupling(glove - shoulder, desired, capability.JointIntegrity);
+            var armForce = tuning.MaxHandForce * capability.ForceScale;
+            var cap = armForce * PunchMechanics.ForceMultiplier(coupling, bodyEffective, totalMass, tuning.BodyDrive);
+            var force = ClampLength(desired, cap);
             world.ApplyLinearImpulse(Forearm, force * dt);
-            world.ApplyLinearImpulse(chestId, -force * (tuning.HandReactionShare * dt));
+
+            // 腕の筋力ぶんの反作用は胸へ（P-002）。体から借りた分は脚が地面を押して出す力として呼び出し側へ返す。
+            var armPart = ClampLength(force, armForce);
+            world.ApplyLinearImpulse(chestId, -armPart * (tuning.HandReactionShare * dt));
+            // 疲労: 拳に掛けた仕事（動かした分）＋ 力を出し続けること自体（力の 2 乗 × 時間）。
+            var work = MathF.Max(0f, Vector3.Dot(force, gloveVelocity)) * dt;
+            // 力を出し続ける分は腕の筋力の分だけ・線形で小さく（ガードを押し合っているだけで尽きないように）。
+            var exertion = armPart.Length() / MathF.Max(1e-3f, armForce);
+            return new ArmDrive((work / 20f) + (0.03f * exertion * dt), force - armPart);
         }
     }
 }

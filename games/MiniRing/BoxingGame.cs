@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using Aigis.Physics;
 using Aigis.Player;
@@ -13,13 +14,23 @@ public readonly record struct BoxingInput(FighterCommand Player, bool ResetReque
 /// デスクトップは Aigis の <see cref="GameHost"/> から、VR は OpenXR ホストから同じ <see cref="Step"/> を呼ぶ。
 /// <para>物理は内部で約 240Hz にサブステップする（60cm の小さな体を 60Hz・1 サブステップで回すと
 /// サーボが発散しやすい／Aigis 調査メモ）。ホストの dt は 60Hz でも 90Hz でもよい。</para>
+/// <para>勝敗: 意識が尽きたら KO、倒れて 10 秒立てなければ KO（脚を壊されて立てない場合も）、リングから落ちたら負け。</para>
 /// </summary>
 public sealed class BoxingGame : IGame<BoxingInput>
 {
-    public const float MaxHp = 100f;
+    public const float CountSeconds = 10f;
     private const float SubstepRate = 240f;
     private const float RoundResetDelay = 3.5f;
     private const float RehitCooldown = 0.18f;
+    private const float MinimumDamage = 1f;
+
+    /// <summary>拳に乗った質量のうち、物理の接触では伝わらない体の分を相手へ押し込む割合（反発を含めた運動量の受け渡し）。</summary>
+    private const float KnockbackTransfer = 0.6f;
+
+    /// <summary>1 発で相手の全身に与える速度変化の上限 [m/s]（吹き飛ばしすぎない）。</summary>
+    private const float MaxKnockbackSpeed = 0.6f;
+
+    private static readonly Hand[] Hands = [Hand.Left, Hand.Right];
 
     private readonly FighterTuning _tuning;
     private readonly int _seed;
@@ -27,6 +38,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
     private readonly Dictionary<(Fighter, Hand), Vector3> _preStepGloveVelocity = [];
     private readonly Dictionary<(Fighter, Hand), float> _hitCooldown = [];
     private PhysicsWorld _world = null!;
+    private Fighter[] _fighters = [];
     private Ring _ring = null!;
     private AiControl _ai = null!;
     private float _roundOverTimer;
@@ -45,17 +57,18 @@ public sealed class BoxingGame : IGame<BoxingInput>
     public Ring Ring => _ring;
     public Fighter Player { get; private set; } = null!;
     public Fighter Cpu { get; private set; } = null!;
-    public float PlayerHp { get; private set; }
-    public float CpuHp { get; private set; }
     public int PlayerWins { get; private set; }
     public int CpuWins { get; private set; }
     public bool RoundOver => _roundOverTimer > 0f;
     public string Message => _messageTimer > 0f ? _roundMessage : "";
 
+    /// <summary>直近のヒット（HUD 表示用。次のヒットまで残る）。</summary>
+    public HitEvent? LastHit { get; private set; }
+
     /// <summary>直近の <see cref="Step"/> で発生したヒット（ホストの効果音・ハプティクス用）。</summary>
     public IReadOnlyList<HitEvent> RecentHits => _recentHits;
 
-    public string StatusLine => $"Round {_round}  You {PlayerHp:0} - CPU {CpuHp:0}  ({PlayerWins}-{CpuWins})";
+    public string StatusLine => $"Round {_round}  You {Percent(Player.Condition.Consciousness)} - CPU {Percent(Cpu.Condition.Consciousness)}  ({PlayerWins}-{CpuWins})";
 
     public bool IsOver => false;
 
@@ -85,13 +98,18 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
     private void Substep(in FighterCommand playerCommand, float dt)
     {
-        var cpuCommand = _ai.Read(Sense(Cpu, Player, PlayerHp), dt);
+        var cpuCommand = _ai.Read(Sense(Cpu, Player), dt);
         Drive(Player, Cpu, playerCommand, dt);
         Drive(Cpu, Player, cpuCommand, dt);
 
-        foreach (var fighter in new[] { Player, Cpu })
+        foreach (var fighter in Fighters)
         {
-            foreach (var hand in new[] { Hand.Left, Hand.Right })
+            if (fighter.Condition.LiverKicked && !fighter.Condition.CanStand)
+            {
+                ShowMessage("LIVER!", 1.2f);
+            }
+
+            foreach (var hand in Hands)
             {
                 _preStepGloveVelocity[(fighter, hand)] = fighter.GloveVelocity(hand);
                 _hitCooldown[(fighter, hand)] = MathF.Max(0f, _hitCooldown.GetValueOrDefault((fighter, hand)) - dt);
@@ -104,7 +122,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
     private void Drive(Fighter self, Fighter opponent, in FighterCommand command, float dt)
     {
-        foreach (var hand in new[] { Hand.Left, Hand.Right })
+        foreach (var hand in Hands)
         {
             if (self.UpdateGrab(hand, command.For(hand).Grip, opponent) is not null)
             {
@@ -115,10 +133,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         self.ApplyControl(command, dt);
     }
 
-    /// <summary>
-    /// 物理の接触一覧からグローブ（前腕）× 相手の部位を拾い、衝突直前のグローブ速度のうち
-    /// 相手へ踏み込む成分だけでダメージを計算する（相手が歩いてガードに当たっただけでは減らない）。
-    /// </summary>
+    /// <summary>物理の接触一覧から「拳（前腕の先）× 相手の部位」を拾う。</summary>
     private void DetectHits()
     {
         foreach (var contact in _world.Contacts())
@@ -135,15 +150,19 @@ public sealed class BoxingGame : IGame<BoxingInput>
         }
     }
 
+    /// <summary>
+    /// 1 発の判定。衝撃 = 拳に乗った質量（<see cref="Fighter.ImpactMass(Hand, Vector3)"/>: 姿勢と向きだけで決まる）
+    /// × 衝突直前に相手へ踏み込む拳の速さ。急所の判定は当たった点の部位ローカル位置から（<see cref="HitZones"/>）。
+    /// </summary>
     private void TryHit(Fighter attacker, Fighter victim, int attackerBody, int victimBody)
     {
-        // 相手の前腕（＝グローブ）との接触はガード／打ち合いとして数えない（両者にダメージが出るのを防ぐ）。
-        if (!victim.Owns(victimBody) || victim.IsForearm(victimBody))
+        // 倒れている相手（起き上がり中を含む）への打撃は数えない: ダウンはカウントで決着させる。
+        if (!victim.Owns(victimBody) || victim.State != FighterState.Standing)
         {
             return;
         }
 
-        foreach (var hand in new[] { Hand.Left, Hand.Right })
+        foreach (var hand in Hands)
         {
             if (attacker.ForearmId(hand) != attackerBody || _hitCooldown[(attacker, hand)] > 0f)
             {
@@ -152,55 +171,66 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
             // 前腕のどこが当たっても接触は出るので、拳（グローブ球）の近くで当たったものだけをパンチとする（肘打ちを除外）。
             var glove = attacker.GloveCenter(hand);
-            if (victim.DistanceToPart(victimBody, glove) > FighterTuning.Default.GloveRadius * 1.6f)
+            if (victim.DistanceToPart(victimBody, glove) > _tuning.GloveRadius * 1.6f)
             {
                 continue;
             }
 
+            var velocity = _preStepGloveVelocity[(attacker, hand)];
             var into = _world.GetState(victimBody).Position - glove;
-            var speed = into.LengthSquared() > 1e-8f ? MathF.Max(0f, Vector3.Dot(_preStepGloveVelocity[(attacker, hand)], Vector3.Normalize(into))) : 0f;
-            var zone = victimBody == victim.Parts.Head ? HitZone.Head
-                : victimBody == victim.Parts.Chest || victimBody == victim.Parts.Pelvis ? HitZone.Body
-                : HitZone.Limb;
-            var damage = PunchMath.Damage(speed, zone);
-            if (damage <= 0f)
+            var speed = into.LengthSquared() > 1e-8f ? MathF.Max(0f, Vector3.Dot(velocity, Vector3.Normalize(into))) : 0f;
+            if (speed <= 0f)
             {
                 continue;
+            }
+
+            var impactMass = attacker.ImpactMass(hand, velocity, out var bodyShare);
+            var (kind, normalized, armHand) = victim.Locate(victimBody, glove);
+            var zone = HitZones.Classify(kind, normalized, armHand.LocalSide());
+            var damage = PunchMechanics.Damage(impactMass * speed) * PunchMechanics.Sharpness(speed) * ZoneDamage.Multiplier(zone);
+            if (damage < MinimumDamage)
+            {
+                continue; // 触れただけ・押し合い
             }
 
             _hitCooldown[(attacker, hand)] = RehitCooldown;
-            ApplyDamage(new HitEvent(attacker, hand, victim, zone, glove, speed, damage), _preStepGloveVelocity[(attacker, hand)]);
+            ApplyHit(new HitEvent(attacker, hand, victim, zone, glove, speed, impactMass, bodyShare, damage), victimBody, velocity, armHand);
         }
     }
 
-    private void ApplyDamage(HitEvent hit, Vector3 direction)
+    private void ApplyHit(HitEvent hit, int victimBody, Vector3 gloveVelocity, Hand armHand)
     {
         if (RoundOver)
         {
             return;
         }
 
-        var victimIsPlayer = hit.Victim == Player;
-        var hp = MathF.Max(0f, (victimIsPlayer ? PlayerHp : CpuHp) - hit.Damage);
-        if (victimIsPlayer)
+        var victim = hit.Victim;
+        victim.Condition.ApplyHit(hit.Zone, armHand, hit.Damage);
+        victim.AddStun(ZoneDamage.Stun(hit.Damage), Vector3.Zero);
+
+        // 体重の乗った拳は相手を押し込む: 物理の接触が運ぶのは腕の質量だけなので、体から来た分の運動量を足す。
+        // 1 部位に入れると千切れるほど速くなるので、相手の全身へ一様な速度変化として配り（上限付き）、
+        // 同じ運動量の反作用を打った側の全身へ返す（運動量は湧かない）。
+        var extraMass = hit.ImpactMass - hit.Attacker.ArmMass(hit.Hand);
+        if (extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f)
         {
-            PlayerHp = hp;
-        }
-        else
-        {
-            CpuHp = hp;
+            var momentum = extraMass * hit.Speed * KnockbackTransfer;
+            var push = Vector3.Normalize(gloveVelocity) * MathF.Min(MaxKnockbackSpeed, momentum / victim.TotalMass);
+            victim.AddStun(0f, push);
+            hit.Attacker.AddStun(0f, -push * (victim.TotalMass / hit.Attacker.TotalMass));
         }
 
-        hit.Victim.AddStun(PunchMath.Stun(hit.Damage), Vector3.Zero);
         _recentHits.Add(hit);
-        if (hp <= 0f)
+        LastHit = hit;
+        if (victim.Condition.IsKnockedOut)
         {
-            hit.Victim.Knockdown(direction, permanent: true);
-            EndRound(cpuWon: victimIsPlayer, "K.O.");
+            victim.Knockdown(gloveVelocity, permanent: true);
+            EndRound(cpuWon: victim == Player, "K.O.");
         }
-        else if (PunchMath.IsKnockdown(hit.Damage))
+        else if (ZoneDamage.IsKnockdown(hit.Zone, hit.Damage) || !victim.Condition.CanStand)
         {
-            hit.Victim.Knockdown(direction, permanent: false);
+            victim.Knockdown(gloveVelocity, permanent: false);
             ShowMessage("DOWN!", 1.2f);
         }
     }
@@ -226,6 +256,14 @@ public sealed class BoxingGame : IGame<BoxingInput>
         {
             EndRound(cpuWon: false, "RING OUT");
         }
+        else if (Player.DownTime > CountSeconds)
+        {
+            EndRound(cpuWon: true, "10 COUNT K.O.");
+        }
+        else if (Cpu.DownTime > CountSeconds)
+        {
+            EndRound(cpuWon: false, "10 COUNT K.O.");
+        }
     }
 
     private void EndRound(bool cpuWon, string reason)
@@ -250,7 +288,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
     /// <summary>
     /// ラウンドを作り直す。Aigis では剛体の削除がハンドル再利用で危険（architecture.md risk 4）なので、
-    /// ワールドごと作り直す。
+    /// ワールドごと作り直す（体の状態もラウンドごとに新品）。
     /// </summary>
     private void StartRound()
     {
@@ -261,10 +299,10 @@ public sealed class BoxingGame : IGame<BoxingInput>
         var surface = _ring.SurfaceCenter;
         Player = Fighter.Spawn(_world, _tuning, "player", surface - new Vector3(0f, 0f, 0.22f), 0f);
         Cpu = Fighter.Spawn(_world, _tuning, "cpu", surface + new Vector3(0f, 0f, 0.22f), MathF.PI);
+        _fighters = [Player, Cpu];
         _ai = new AiControl(_seed + _round, 0.5f);
-        PlayerHp = MaxHp;
-        CpuHp = MaxHp;
         _roundOverTimer = 0f;
+        LastHit = null;
         _preStepGloveVelocity.Clear();
         _hitCooldown.Clear();
         ShowMessage("FIGHT!", 1.5f);
@@ -277,14 +315,17 @@ public sealed class BoxingGame : IGame<BoxingInput>
     }
 
     /// <summary>入力元に渡す、<paramref name="self"/> から見た状況。</summary>
-    public static FighterSense Sense(Fighter self, Fighter opponent, float opponentHp)
+    public static FighterSense Sense(Fighter self, Fighter opponent)
     {
         ArgumentNullException.ThrowIfNull(self);
         ArgumentNullException.ThrowIfNull(opponent);
-        return new FighterSense(self.Frame, self.ArmReach, opponent.HeadPosition, opponent.ChestPosition, opponentHp > 0f);
+        return new FighterSense(self.Frame, self.ArmReach, opponent.HeadPosition, opponent.ChestPosition,
+            !opponent.Condition.IsKnockedOut && opponent.State == FighterState.Standing);
     }
 
-    public FighterSense PlayerSense => Sense(Player, Cpu, CpuHp);
+    public FighterSense PlayerSense => Sense(Player, Cpu);
+
+    private Fighter[] Fighters => _fighters;
 
     public (IReadOnlyList<PrimitiveInstance> Instances, IReadOnlyList<DebugLine> Lines) BuildRenderables()
         => BoxingRenderer.Build(this, showTargetGhosts: true);
@@ -294,10 +335,27 @@ public sealed class BoxingGame : IGame<BoxingInput>
         var white = new Vector4(1f, 1f, 1f, 1f);
         var list = new List<ScreenTextDraw>
         {
-            new($"YOU {PlayerHp:0}", new Vector2(24f, 20f), 28f, new Vector4(1f, 0.45f, 0.4f, 1f)),
-            new($"CPU {CpuHp:0}", new Vector2(screenSizePixels.X - 24f, 20f), 28f, new Vector4(0.5f, 0.65f, 1f, 1f), TextAnchor.Right),
             new($"{PlayerWins} - {CpuWins}", new Vector2(screenSizePixels.X * 0.5f, 20f), 28f, white, TextAnchor.Center),
         };
+        AddCondition(list, "YOU", Player, new Vector2(24f, 20f), TextAnchor.Left, new Vector4(1f, 0.45f, 0.4f, 1f));
+        AddCondition(list, "CPU", Cpu, new Vector2(screenSizePixels.X - 24f, 20f), TextAnchor.Right, new Vector4(0.5f, 0.65f, 1f, 1f));
+        if (LastHit is { } hit)
+        {
+            var who = hit.Attacker == Player ? "YOU" : "CPU";
+            var text = $"{who} {(hit.Hand == Hand.Left ? "L" : "R")} > {HitZones.Label(hit.Zone)}  {hit.Damage:0}  " +
+                $"{hit.ImpactMass:0.0}kg x {hit.Speed:0.0}m/s  BODY {Percent(hit.BodyShare)}";
+            list.Add(new ScreenTextDraw(text, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y - 44f), 22f, white, TextAnchor.Center));
+        }
+
+        foreach (var fighter in Fighters)
+        {
+            if (fighter.DownTime > 0.5f && !RoundOver)
+            {
+                list.Add(new ScreenTextDraw($"{(fighter == Player ? "YOU" : "CPU")} DOWN  {MathF.Min(CountSeconds, MathF.Floor(fighter.DownTime) + 1f):0}",
+                    new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y * 0.42f), 40f, new Vector4(1f, 0.85f, 0.3f, 1f), TextAnchor.Center));
+            }
+        }
+
         if (Message.Length > 0)
         {
             list.Add(new ScreenTextDraw(Message, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y * 0.3f), 56f, white, TextAnchor.Center));
@@ -305,6 +363,27 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
         return list;
     }
+
+    private static void AddCondition(List<ScreenTextDraw> list, string name, Fighter fighter, Vector2 at, TextAnchor anchor, Vector4 color)
+    {
+        var c = fighter.Condition;
+        string[] lines =
+        [
+            $"{name}  MIND {Percent(c.Consciousness)}",
+            $"STAMINA {Percent(c.Stamina)}  LEGS {Percent(c.Legs)}",
+            $"NECK {Percent(c.Neck)}  HEART {Percent(c.Heart)}",
+            $"SHOULDER L {Percent(c.Shoulder(Hand.Left))} R {Percent(c.Shoulder(Hand.Right))}",
+            $"ELBOW L {Percent(c.Elbow(Hand.Left))} R {Percent(c.Elbow(Hand.Right))}",
+            $"REACTION {c.ReactionDelay * 1000f:0}ms",
+        ];
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var y = i == 0 ? 0f : 12f + (i * 22f);
+            list.Add(new ScreenTextDraw(lines[i], at + new Vector2(0f, y), i == 0 ? 26f : 18f, color, anchor));
+        }
+    }
+
+    private static string Percent(float value) => (value * 100f).ToString("0", CultureInfo.InvariantCulture) + "%";
 
     public void Dispose() => _world.Dispose();
 }

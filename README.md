@@ -36,7 +36,8 @@ dotnet run --project games/MiniRing.Desktop -c Release
 | 操作 | VR | デスクトップ |
 |---|---|---|
 | 歩く | 左スティック（視線基準） | WASD（カメラ基準） |
-| 腕 | コントローラの位置（肩基準で腕の長さ比に縮小して人形の体へ写す） | 左クリック = 右ストレート / 右クリック = 左ジャブ / Shift+クリック = アッパー |
+| 腕 | コントローラの位置（肩基準で腕の長さ比に縮小して人形の体へ写す） | 左クリック = 右手 / 右クリック = 左手（相手の頭へ）。Ctrl = 横から回す経路 / Shift = 下から突き上げる経路 / Alt = ボディを狙う |
+| 頭（体の軸） | 頭を動かす（スリップ・ダッキング・前傾がそのまま人形の体の傾き・沈み込みになる） | 矢印キー（←→ スリップ / ↑ 前傾 / ↓ ダッキング） |
 | 掴む | グリップ（握っている間） | Q = 左 / E = 右（押している間） |
 | 投げる | 掴んだまま腕を振って離す | 同左 |
 | 身長キャリブレーション | A / X（まっすぐ立って押す。初回は自動） | — |
@@ -61,7 +62,7 @@ dotnet test tests/MiniRing.Tests --filter "TestCategory!=visual"
 dotnet run --project games/MiniRing.Vr -- --selftest
 ```
 
-- テストは 25 件あります。純関数（IK・写像・ダメージなど）と、ヘッドレスで物理を回して「立つ・歩く・旋回・パンチが届く・構える・掴んで離す・ダウンから起き上がる・CPU 戦が発散しない」を確かめるものです。
+- テストは 54 件あります（うち GPU 描画の visual 1 件）。純関数（IK・写像・力学モデル・部位判定・体の状態など）と、ヘッドレスで物理を回して「立つ・歩く・旋回・パンチが届く・掴んで離す・ダウンから起き上がる」「肩を痛めると腕が上がらない・脚を壊すと立てない・意識が飛ぶと反応が遅れる」「手の位置で胴がひねれ、頭の位置で傾く」「ストレートは手打ちより重い」を確かめるものです。
 - `--selftest` は HMD なしで VR 描画経路を検証します。自前の Vulkan デバイスと sRGB 画像（XR スワップチェーン画像の代役）に描いた結果が、通常の描画とバイト単位で一致するかを見ます。
 - GPU の画面確認は `dotnet test tests/MiniRing.Tests --filter TestCategory=visual` で行い、出力先は `.visualcheck/` です。
 
@@ -70,5 +71,6 @@ dotnet run --project games/MiniRing.Vr -- --selftest
 ## ドキュメント
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — 構成・制御の仕組み・1 フレームの流れ
+- [docs/BOXING.md](docs/BOXING.md) — パンチの力学（体重が乗る／手打ち）と、部位ごとのダメージ・性能低下
 - [docs/REUSE.md](docs/REUSE.md) — iTVision 3 / Aigis(Dr. Tod) から何をどう持ってきたか、エンジンへの変更点
 - [docs/TUNING.md](docs/TUNING.md) — 調整値と、実機で最初に見るべきこと

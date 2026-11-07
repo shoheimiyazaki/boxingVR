@@ -38,6 +38,13 @@ public static class PuppetMapping
     public static Vector3 HandTargetLocal(Vector3 controllerPosition, in BodyFrame playerShoulders, float scale)
         => playerShoulders.WorldToLocal(controllerPosition) * scale;
 
+    /// <summary>
+    /// 頭の、構えの位置（ゆっくり追従する平均位置）からのずれを人形の体フレームへ縮小して渡す。
+    /// スリップ・ダッキング・前傾は、人形の体の軸の傾き・沈み込みになる。
+    /// </summary>
+    public static Vector3 HeadOffsetLocal(Vector3 head, Vector3 stanceHead, float bodyYawRadians, float scale)
+        => new BodyFrame(Vector3.Zero, bodyYawRadians).InverseRotate(head - stanceHead) * scale;
+
     /// <summary>スティック入力を視線ヨー基準のワールド水平方向へ（デッドゾーン付き・長さ 0..1）。</summary>
     public static Vector3 StickToWorld(Vector2 stick, float viewYawRadians, float deadZone = 0.15f)
     {
