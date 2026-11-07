@@ -1,6 +1,7 @@
 using System.Numerics;
 using Aigis.Physics;
 using Aigis.Render;
+using MiniRing.LowPoly;
 
 namespace MiniRing;
 
@@ -10,20 +11,24 @@ namespace MiniRing;
 /// </summary>
 public static class BoxingRenderer
 {
-    private static readonly Vector4 PlayerColor = new(0.9f, 0.55f, 0.45f, 1f);
+    private const float EyeRadius = 0.005f;
     private static readonly Vector4 PlayerGlove = new(0.85f, 0.1f, 0.1f, 1f);
-    private static readonly Vector4 CpuColor = new(0.55f, 0.65f, 0.9f, 1f);
     private static readonly Vector4 CpuGlove = new(0.1f, 0.25f, 0.85f, 1f);
-    private static readonly Vector4 Skin = new(0.95f, 0.8f, 0.68f, 1f);
-    private static readonly Vector4 Bruise = new(0.45f, 0.05f, 0.1f, 1f);
 
-    public static (IReadOnlyList<PrimitiveInstance> Instances, IReadOnlyList<DebugLine> Lines) Build(BoxingGame game, bool showTargetGhosts)
+    /// <summary>
+    /// 呼び出し側のリストを空にして詰め直す。へこんだ体は 1 万インスタンス近くになるので、毎フレーム新しいリストを
+    /// 伸ばしながら作ると確保とコピーだけで数 ms かかる（計測: 新規 ≈ 5ms、使い回し ≈ 0.8ms）。
+    /// </summary>
+    public static void Fill(BoxingGame game, bool showTargetGhosts, List<PrimitiveInstance> instances, List<DebugLine> lines)
     {
         ArgumentNullException.ThrowIfNull(game);
-        var instances = new List<PrimitiveInstance>(game.Ring.Visuals);
-        var lines = new List<DebugLine>();
-        AddFighter(instances, game.World, game.Player, PlayerColor, PlayerGlove);
-        AddFighter(instances, game.World, game.Cpu, CpuColor, CpuGlove);
+        ArgumentNullException.ThrowIfNull(instances);
+        ArgumentNullException.ThrowIfNull(lines);
+        instances.Clear();
+        lines.Clear();
+        instances.AddRange(game.Ring.Visuals);
+        AddFighter(instances, game.World, game.Player, game.Model, game.PlayerSkin, PlayerGlove);
+        AddFighter(instances, game.World, game.Cpu, game.Model, game.CpuSkin, CpuGlove);
         AddBars(instances, game.Player, new Vector4(0.95f, 0.3f, 0.25f, 1f));
         AddBars(instances, game.Cpu, new Vector4(0.3f, 0.5f, 1f, 1f));
 
@@ -40,25 +45,31 @@ public static class BoxingRenderer
                     new Vector3(0.008f, 0f, 0f), color, MaterialKind.Emissive));
             }
         }
-
-        return (instances, lines);
     }
 
-    private static void AddFighter(List<PrimitiveInstance> instances, PhysicsWorld world, Fighter fighter, Vector4 color, Vector4 glove)
+    /// <summary>
+    /// 体はローポリのメッシュ（<see cref="BoxerModel"/>）。へこんでいない部位は静的メッシュ 1 個、
+    /// へこんだ部位は三角形ごとに直角三角形のインスタンスへ分解して、変形した形と変形量の色（白 → 赤）で描く。
+    /// 体が白一色なので、どちらのファイターかはグローブの色で見分ける。
+    /// </summary>
+    private static void AddFighter(List<PrimitiveInstance> instances, PhysicsWorld world, Fighter fighter, BoxerModel model, BoxerSkin skin, Vector4 glove)
     {
-        foreach (var part in HumanoidRagdoll.DescribeForRender(fighter.Parts, fighter.HalfExtents))
+        foreach (var id in fighter.Parts.All)
         {
-            if (part.Role == HumanoidRagdoll.RenderPartRole.Hand)
+            var s = world.GetState(id);
+            var body = Matrix4x4.CreateFromQuaternion(s.Orientation) * Matrix4x4.CreateTranslation(s.Position);
+            var dented = skin.Part(id);
+            if (!dented.IsDented)
             {
-                continue; // 手はグローブ球で描く
+                instances.Add(new PrimitiveInstance(PrimitiveKind.Cube, body, Vector3.Zero, DentedMesh.Undamaged, Mesh: model.RestMesh(fighter.KindOf(id))));
+                continue;
             }
 
-            var s = world.GetState(part.Id);
-            var tint = part.Id == fighter.Parts.Head ? Skin
-                : part.Role == HumanoidRagdoll.RenderPartRole.ChestFrontPanel ? HumanoidRagdoll.AnteriorPanelColor(color)
-                : color;
-            tint = Vector4.Lerp(tint, Bruise, 1f - Health(fighter, part.Id));
-            instances.Add(new PrimitiveInstance(PrimitiveKind.Cube, part.ModelMatrix(s.Position, s.Orientation), Vector3.Zero, tint));
+            var (locals, colors) = dented.Triangles();
+            for (var i = 0; i < locals.Count; i++)
+            {
+                instances.Add(new PrimitiveInstance(PrimitiveKind.Cube, locals[i] * body, Vector3.Zero, colors[i], Mesh: RightTriangles.UnitMesh));
+            }
         }
 
         foreach (var hand in new[] { Hand.Left, Hand.Right })
@@ -67,30 +78,15 @@ public static class BoxingRenderer
                 new Vector3(FighterTuning.Default.GloveRadius, 0f, 0f), glove));
         }
 
-        // 顔の向きが分かるよう目を 2 つ。
+        // 顔の向きが分かるよう、眼窩のノードに目を 2 つ（へこめば目も一緒に動く）。
         var head = world.GetState(fighter.Parts.Head);
-        foreach (var side in new[] { -1f, 1f })
+        var face = skin.Part(fighter.Parts.Head);
+        foreach (var socket in new[] { BoxerShapes.EyeSockets.Left, BoxerShapes.EyeSockets.Right })
         {
-            var eye = new Vector3(side * fighter.HalfExtents.Head.X * 0.4f, fighter.HalfExtents.Head.Y * 0.2f, fighter.HalfExtents.Head.Z);
-            instances.Add(new PrimitiveInstance(PrimitiveKind.Sphere, Matrix4x4.CreateTranslation(head.Position + Vector3.Transform(eye, head.Orientation)),
-                new Vector3(0.005f, 0f, 0f), new Vector4(0.05f, 0.05f, 0.05f, 1f)));
+            instances.Add(new PrimitiveInstance(PrimitiveKind.Sphere,
+                Matrix4x4.CreateTranslation(head.Position + Vector3.Transform(face.Position(socket), head.Orientation)),
+                new Vector3(EyeRadius, 0f, 0f), new Vector4(0.05f, 0.05f, 0.05f, 1f)));
         }
-    }
-
-    /// <summary>傷んだ部位ほど赤黒く（肩・肘・脚・頭）。打たれた場所と性能低下が見て分かる。</summary>
-    private static float Health(Fighter fighter, int part)
-    {
-        var p = fighter.Parts;
-        var c = fighter.Condition;
-        // Aigis の "Right" 部位は本人の左（Fighter.Locate と同じ対応）。
-        return part == p.Head ? Math.Min(c.Consciousness, c.Neck)
-            : part == p.RightUpperArm ? c.Shoulder(Hand.Left)
-            : part == p.LeftUpperArm ? c.Shoulder(Hand.Right)
-            : part == p.RightForearm ? c.Elbow(Hand.Left)
-            : part == p.LeftForearm ? c.Elbow(Hand.Right)
-            : part == p.Chest ? Math.Min(c.Heart, 0.5f + (0.5f * c.Stamina))
-            : part == p.Pelvis ? 1f
-            : c.Legs;
     }
 
     /// <summary>頭上に 3 本: 意識（チーム色）・スタミナ（黄）・脚（緑）。ワールド空間なので VR でも見える。</summary>

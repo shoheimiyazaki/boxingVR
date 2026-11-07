@@ -3,6 +3,7 @@ using System.Numerics;
 using Aigis.Physics;
 using Aigis.Player;
 using Aigis.Render;
+using MiniRing.LowPoly;
 
 namespace MiniRing;
 
@@ -33,10 +34,13 @@ public sealed class BoxingGame : IGame<BoxingInput>
     private static readonly Hand[] Hands = [Hand.Left, Hand.Right];
 
     private readonly FighterTuning _tuning;
+    private readonly BoxerModel _model;
     private readonly int _seed;
     private readonly List<HitEvent> _recentHits = [];
     private readonly Dictionary<(Fighter, Hand), Vector3> _preStepGloveVelocity = [];
     private readonly Dictionary<(Fighter, Hand), float> _hitCooldown = [];
+    private readonly List<PrimitiveInstance> _renderInstances = [];
+    private readonly List<DebugLine> _renderLines = [];
     private PhysicsWorld _world = null!;
     private Fighter[] _fighters = [];
     private Ring _ring = null!;
@@ -49,6 +53,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
     public BoxingGame(FighterTuning? tuning = null, int seed = 1)
     {
         _tuning = tuning ?? FighterTuning.Default;
+        _model = BoxerModel.Build(_tuning.HalfExtents, _tuning.ModelSubdivisions);
         _seed = seed;
         StartRound();
     }
@@ -57,6 +62,17 @@ public sealed class BoxingGame : IGame<BoxingInput>
     public Ring Ring => _ring;
     public Fighter Player { get; private set; } = null!;
     public Fighter Cpu { get; private set; } = null!;
+
+    /// <summary>見た目の体（打撃でへこむローポリ）。ファイターと同じくラウンドごとに新品。</summary>
+    public BoxerSkin PlayerSkin { get; private set; } = null!;
+    public BoxerSkin CpuSkin { get; private set; } = null!;
+
+    /// <summary>この試合で使っている体のメッシュ（部位ごとの変形前の形）。</summary>
+    public BoxerModel Model => _model;
+
+    public BoxerSkin SkinOf(Fighter fighter) => fighter == Player ? PlayerSkin
+        : fighter == Cpu ? CpuSkin
+        : throw new ArgumentException($"この試合のファイターではありません: {fighter?.Name}", nameof(fighter));
     public int PlayerWins { get; private set; }
     public int CpuWins { get; private set; }
     public bool RoundOver => _roundOverTimer > 0f;
@@ -209,6 +225,9 @@ public sealed class BoxingGame : IGame<BoxingInput>
         victim.Condition.ApplyHit(hit.Zone, armHand, hit.Damage);
         victim.AddStun(ZoneDamage.Stun(hit.Damage), Vector3.Zero);
 
+        // 当たった部位の、拳に近いノードを拳の進む向きへへこませる（見た目だけ。当たり判定の箱は変わらない）。
+        SkinOf(victim).Dent(victimBody, _world.GetState(victimBody), hit.Point, gloveVelocity, hit.Damage);
+
         // 体重の乗った拳は相手を押し込む: 物理の接触が運ぶのは腕の質量だけなので、体から来た分の運動量を足す。
         // 1 部位に入れると千切れるほど速くなるので、相手の全身へ一様な速度変化として配り（上限付き）、
         // 同じ運動量の反作用を打った側の全身へ返す（運動量は湧かない）。
@@ -299,6 +318,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
         var surface = _ring.SurfaceCenter;
         Player = Fighter.Spawn(_world, _tuning, "player", surface - new Vector3(0f, 0f, 0.22f), 0f);
         Cpu = Fighter.Spawn(_world, _tuning, "cpu", surface + new Vector3(0f, 0f, 0.22f), MathF.PI);
+        PlayerSkin = new BoxerSkin(_model, Player, _tuning);
+        CpuSkin = new BoxerSkin(_model, Cpu, _tuning);
         _fighters = [Player, Cpu];
         _ai = new AiControl(_seed + _round, 0.5f);
         _roundOverTimer = 0f;
@@ -327,8 +348,15 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
     private Fighter[] Fighters => _fighters;
 
+    /// <summary>
+    /// このフレームの描画データ。返すリストは使い回しで、次の呼び出しで中身が入れ替わる
+    /// （Triage の <c>BuildRenderables</c> と同じ。受け取ったらそのフレームのうちに描くこと）。
+    /// </summary>
     public (IReadOnlyList<PrimitiveInstance> Instances, IReadOnlyList<DebugLine> Lines) BuildRenderables()
-        => BoxingRenderer.Build(this, showTargetGhosts: true);
+    {
+        BoxingRenderer.Fill(this, showTargetGhosts: true, _renderInstances, _renderLines);
+        return (_renderInstances, _renderLines);
+    }
 
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 viewProjection, Vector2 screenSizePixels)
     {

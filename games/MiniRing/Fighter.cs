@@ -170,7 +170,14 @@ public sealed class Fighter
         var p = Parts;
         // Aigis の "Right" 部位は +X 側＝本人の左（FighterCommand / Arm.Create と同じ対応）。
         var armHand = part == p.RightUpperArm || part == p.RightForearm ? Hand.Left : Hand.Right;
-        var kind = part == p.Head ? BodyPartKind.Head
+        return (KindOf(part), local, armHand);
+    }
+
+    /// <summary>自分の剛体 <paramref name="part"/> がどの種類の部位か。</summary>
+    public BodyPartKind KindOf(int part)
+    {
+        var p = Parts;
+        return part == p.Head ? BodyPartKind.Head
             : part == p.Chest ? BodyPartKind.Chest
             : part == p.Pelvis ? BodyPartKind.Pelvis
             : part == p.LeftUpperArm || part == p.RightUpperArm ? BodyPartKind.UpperArm
@@ -178,7 +185,6 @@ public sealed class Fighter
             : part == p.LeftThigh || part == p.RightThigh ? BodyPartKind.Thigh
             : part == p.LeftShin || part == p.RightShin ? BodyPartKind.Shin
             : BodyPartKind.Foot;
-        return (kind, local, armHand);
     }
 
     /// <summary><paramref name="point"/> から自分の部位 <paramref name="part"/>（箱）までの距離。</summary>

@@ -23,6 +23,7 @@ Bepu の型は Aigis.Physics の外に出ない（Aigis の規約）。
 | `PuppetMapping.cs` | HMD・コントローラ → 人形の体フレーム（純関数） |
 | `AiControl.cs` | CPU（間合い・パンチ・掴み）。seed 固定で決定的 |
 | `BoxingRenderer.cs` / `Ring.cs` | 描画データ（体力バーもワールド空間なので VR でも見える） |
+| `LowPoly/` | ローポリの体（`BoxerShapes`・`Lathe`・`LowPolyMesh`）、打撃のへこみ（`DentedMesh`・`BoxerSkin`）、変形した三角形の描き方（`RightTriangles`）。見た目だけで、当たり判定は箱のまま |
 
 ### ファイターの制御（1 サブステップ = 1/240 s）
 
