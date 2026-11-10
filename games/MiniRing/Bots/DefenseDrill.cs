@@ -12,8 +12,10 @@ namespace MiniRing.Bots;
 /// <param name="CounterDamage">受け手のカウンターが与えたダメージ。</param>
 /// <param name="Defenses">守りを出した回数。</param>
 /// <param name="Failed">守りの最中に打たれた回数。</param>
+/// <param name="CountersThrown">受け手が打ったカウンターの拳の数。</param>
+/// <param name="CountersLanded">そのうち当たった数。</param>
 public sealed record DrillResult(Defense Defense, PunchKind Kind, int Punches, float Damage, int BaselinePunches, float BaselineDamage,
-    float CounterDamage, int Defenses, int Failed)
+    float CounterDamage, int Defenses, int Failed, int CountersThrown = 0, int CountersLanded = 0)
 {
     public float DamagePerPunch => Damage / Math.Max(1, Punches);
 
@@ -43,14 +45,21 @@ public static class DefenseDrill
     private const float StepDt = 1f / 60f;
 
     /// <summary>その種類の拳だけを打つ攻め手（守らない・回らない・頭を振らない）。</summary>
-    public static BotStyle Attacker(PunchKind kind) => new()
+    /// <summary>ドリルの既定の間合い（受け手が保つ胸と胸の距離、腕の長さ倍）。攻め手はこれより 0.1 だけ踏み込んで打つ。</summary>
+    public const float DefaultRange = 1.15f;
+
+    /// <summary>
+    /// その種類の拳を打つ攻め手（守らない・回らない・頭を振らない）。<paramref name="combos"/> なら、その種類の拳を含む連打を打つ
+    /// （実戦の相手は単発でなく連打で来る。単発で磨いた回避は、前へ入る形が連打の 2 発目に当たりに行き、実戦で効かなかった。回避編 E4）。
+    /// </summary>
+    public static BotStyle Attacker(PunchKind kind, float range = DefaultRange, bool combos = false) => new()
     {
         Name = $"drill-{kind}",
         Aggression = 0.8f,
-        AttackRange = 1.05f, // 実戦の踏み込み（champion は腕の長さ 1.0 倍）に近い間合い
-        NeutralRange = 1.15f,
+        AttackRange = range - 0.1f,
+        NeutralRange = range,
         EngageRange = 1.6f,
-        ComboWeights = kind switch
+        ComboWeights = combos ? CombosOf(kind) : kind switch
         {
             PunchKind.Straight => new Dictionary<string, float> { ["1"] = 1f, ["2"] = 1f },
             PunchKind.Hook => new Dictionary<string, float> { ["3"] = 1f, ["4"] = 1f },
@@ -70,46 +79,49 @@ public static class DefenseDrill
     /// 受け手: 自分からは攻めず、守る率は上限、守り切ったら必ずカウンター。反応時間は人並みの既定（0.18 秒）で、
     /// 動き出しは読み切る（<see cref="BotStyle.Anticipation"/> = 1）。技そのものの良し悪しだけを比べるため。
     /// </summary>
-    public static BotStyle Defender(DefenseBook book, bool defend) => new()
+    public static BotStyle Defender(DefenseBook book, bool defend, float range = DefaultRange, bool counters = true) => new()
     {
         Name = defend ? "drill-defender" : "drill-open",
         Attacks = false,
-        NeutralRange = 1.15f,
+        NeutralRange = range,
         Circling = 0f,
         HeadMovement = 0f,
         GuardHeight = 0.6f,
         ReactionTime = 0.18f,
         Anticipation = 1f,
         DefenseRate = defend ? BotStyle.MaxDefenseRate : 0f,
-        CounterRate = 1f,
+        CounterRate = counters ? 1f : 0f,
+        RopeEscape = 1f, // 回避の後退でロープに詰まらない（回避編 E1）
+        EvadeReach = 1.2f, // 届かない拳は避けない（回避編 E2）
         ClinchRate = 0f,
         ThrowRate = 0f,
         Defenses = book,
     };
 
     /// <summary>1 本のドリル（守る受け手と、同じ種で守らない受け手の 2 試合）。</summary>
-    public static DrillResult Run(Defense defense, PunchKind kind, DefenseBook book, int seed, float seconds, Baseline? baseline = null)
+    public static DrillResult Run(Defense defense, PunchKind kind, DefenseBook book, int seed, float seconds, Baseline? baseline = null,
+        float range = DefaultRange, bool counters = true, bool combos = false)
     {
         ArgumentNullException.ThrowIfNull(book);
-        var open = baseline ?? MeasureBaseline(kind, seed, seconds);
-        var (punches, damage, counter, stats) = Bout(kind, Defender(book, defend: true), defense, seed, seconds);
+        var open = baseline ?? MeasureBaseline(kind, seed, seconds, range, combos);
+        var (punches, damage, counter, stats) = Bout(kind, Defender(book, defend: true, range, counters), defense, seed, seconds, range, combos);
         var defended = stats.Defenses.Values;
         return new DrillResult(defense, kind, punches, damage, open.Punches, open.Damage, counter,
-            defended.Sum(c => c.Attempts), defended.Sum(c => c.Failed));
+            defended.Sum(c => c.Attempts), defended.Sum(c => c.Failed), stats.CountersThrown, stats.CountersLanded);
     }
 
     /// <summary>守らない受け手の成績（防御の動きに依らないので、同じ種・同じ種類なら使い回せる）。</summary>
-    public static Baseline MeasureBaseline(PunchKind kind, int seed, float seconds)
+    public static Baseline MeasureBaseline(PunchKind kind, int seed, float seconds, float range = DefaultRange, bool combos = false)
     {
-        var (punches, damage, _, _) = Bout(kind, Defender(DefenseBook.Default, defend: false), null, seed, seconds);
+        var (punches, damage, _, _) = Bout(kind, Defender(DefenseBook.Default, defend: false, range), null, seed, seconds, range, combos);
         return new Baseline(punches, damage);
     }
 
-    private static (int Punches, float Damage, float Counter, BotStats Stats) Bout(PunchKind kind, BotStyle defender, Defense? forced, int seed, float seconds)
+    private static (int Punches, float Damage, float Counter, BotStats Stats) Bout(PunchKind kind, BotStyle defender, Defense? forced, int seed, float seconds, float range, bool combos)
     {
         var attackers = new List<BoxerBot>();
         var defenders = new List<BoxerBot>();
-        var attacker = Attacker(kind).Validated();
+        var attacker = Attacker(kind, range, combos).Validated();
         var corners = new BoxingCorners(attacker.Name,
             s => Keep(attackers, new BoxerBot(attacker, s)),
             s => Keep(defenders, new BoxerBot(defender, s, forced)));
@@ -141,6 +153,15 @@ public static class DefenseDrill
         var punches = attackers.Sum(a => a.Stats.Techniques.Values.Sum(c => c.Thrown));
         return (punches, damage, counter, stats);
     }
+
+    /// <summary>その種類の拳を含む、実戦でよく出る連打（ストレートなら 1-2 や 1-1-2、フックなら 2-3-2 や 3-2）。</summary>
+    private static Dictionary<string, float> CombosOf(PunchKind kind) => kind switch
+    {
+        PunchKind.Straight => new() { ["1-2"] = 2f, ["1-1-2"] = 1f, ["1-1"] = 1f, ["2-3"] = 1f },
+        PunchKind.Hook => new() { ["1-2-3"] = 1f, ["2-3-2"] = 1f, ["3-2"] = 1f, ["3-4"] = 1f },
+        PunchKind.Uppercut => new() { ["6-3"] = 1f, ["5-2"] = 1f, ["6-3-2"] = 1f },
+        _ => new() { ["1b-2"] = 1f, ["3b-3"] = 1f, ["2b-3"] = 1f, ["4b-3"] = 1f },
+    };
 
     private static BoxerBot Keep(List<BoxerBot> list, BoxerBot bot)
     {

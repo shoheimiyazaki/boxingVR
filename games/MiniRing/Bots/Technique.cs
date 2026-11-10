@@ -100,6 +100,12 @@ public enum Defense
 
     /// <summary>足で横へ出て、拳の線から外れて角度を取る。</summary>
     SideStep,
+
+    /// <summary>インサイドスリップ: 頭を拳の線から外しながら半歩踏み込み、カウンターの届く距離に入る。</summary>
+    SlipIn,
+
+    /// <summary>ローリング: 拳の進む向きへ頭を沈めながら流し、当たっても衝撃を逃がす。</summary>
+    Roll,
 }
 
 /// <summary>
@@ -146,6 +152,10 @@ public sealed record Combo(string Name, IReadOnlyList<Technique> Steps, float Ga
         new("2b", [Technique.BodyCross]),
         new("3b", [Technique.LeadBodyHook]),
         new("4b", [Technique.RearBodyHook]),
+
+        // 回避からの打ち返しの候補（カウンター研究）。
+        new("2-3", [Technique.Cross, Technique.LeadHook]),
+        new("3-2", [Technique.LeadHook, Technique.Cross]),
     ];
 
     public static Combo Named(string name) => All.FirstOrDefault(c => c.Name == name)

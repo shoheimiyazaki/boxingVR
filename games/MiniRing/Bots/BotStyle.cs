@@ -70,6 +70,11 @@ public sealed record BotStyle
 
     // ── 足と頭 ──
 
+    /// <summary>
+    /// ロープを背負わない度合い（0..1）。背中側のロープが近いとき、下がる動きをこの割合だけ空いている横への動きに替える。
+    /// </summary>
+    public float RopeEscape { get; init; }
+
     /// <summary>相手の周りを回る強さ（0..1）。</summary>
     public float Circling { get; init; } = 0.4f;
 
@@ -91,6 +96,11 @@ public sealed record BotStyle
     /// </summary>
     public float Anticipation { get; init; }
 
+    /// <summary>
+    /// 避ける拳の届く範囲（腕の長さ倍、0 = 見ない）。相手の肩から自分の頭までがこれより遠い拳は、届かないとみて避けない。
+    /// </summary>
+    public float EvadeReach { get; init; }
+
     /// <summary>気づいた拳に守りを出す確率。</summary>
     public float DefenseRate { get; init; } = 0.55f;
 
@@ -101,6 +111,8 @@ public sealed record BotStyle
     public float StepBackWeight { get; init; } = 0.5f;
     public float WeaveWeight { get; init; }
     public float SideStepWeight { get; init; }
+    public float SlipInWeight { get; init; }
+    public float RollWeight { get; init; }
 
     /// <summary>防御技それぞれの動き（頭・足・拳）。防御ドリルで最適化した値を持つ。</summary>
     public DefenseBook Defenses { get; init; } = DefenseBook.Default;
@@ -123,6 +135,8 @@ public sealed record BotStyle
         Defense.StepBack => StepBackWeight,
         Defense.Weave => WeaveWeight,
         Defense.SideStep => SideStepWeight,
+        Defense.SlipIn => SlipInWeight,
+        Defense.Roll => RollWeight,
         _ => 0f,
     };
 
@@ -157,6 +171,7 @@ public sealed record BotStyle
             StopJab = Unit(StopJab),
             ThrowRate = Unit(ThrowRate),
             Circling = Unit(Circling),
+            RopeEscape = Unit(RopeEscape),
             HeadMovement = Unit(HeadMovement),
             GuardHeight = Unit(GuardHeight),
             ReactionTime = Range(ReactionTime, MinReactionTime, 0.5f, 0.5f),
@@ -168,9 +183,12 @@ public sealed record BotStyle
             StepBackWeight = NonNegative(StepBackWeight),
             WeaveWeight = NonNegative(WeaveWeight),
             SideStepWeight = NonNegative(SideStepWeight),
+            SlipInWeight = NonNegative(SlipInWeight),
+            RollWeight = NonNegative(RollWeight),
             Defenses = (Defenses ?? DefenseBook.Default).Validated(),
             CounterRate = Unit(CounterRate),
             Anticipation = Unit(Anticipation),
+            EvadeReach = float.IsFinite(EvadeReach) && EvadeReach > 0f ? Math.Clamp(EvadeReach, 0.8f, 2f) : 0f,
             ClinchRate = Unit(ClinchRate),
         };
     }

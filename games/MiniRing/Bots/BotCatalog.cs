@@ -34,25 +34,13 @@ public static class BotCatalog
         ThrowRate = 0f,
     };
 
-    /// <summary>インファイター（スウォーマー）: 頭を振りながら詰め、胴とフックの連打。ダッキングとスリップで潜る。</summary>
-    public static BotStyle Swarmer { get; } = new()
-    {
-        Name = "swarmer",
-        Aggression = 0.85f,
-        AttackRange = 0.82f,
-        NeutralRange = 1.05f,
-        EngageRange = 1.5f,
-        ComboWeights = new Dictionary<string, float> { ["1-2-3"] = 2f, ["3b-3"] = 3f, ["6-3"] = 2f, ["3-4"] = 2f, ["4b-3"] = 2f, ["1-2-3b"] = 2f, ["2b-3"] = 1f, ["6-3-2"] = 1f },
-        ExitAfterCombo = 0.1f,
-        Circling = 0.2f,
-        HeadMovement = 0.85f,
-        GuardHeight = 0.8f,
-        DefenseRate = 0.55f,
-        BlockWeight = 0.8f, DuckWeight = 1.2f, SlipWeight = 1f, SwayWeight = 0.1f, StepBackWeight = 0.1f,
-        CounterRate = 0.6f,
-        ClinchRate = 0.15f,
-        ThrowRate = 0.08f,
-    };
+    /// <summary>
+    /// インファイター（スウォーマー）: 頭を振りながら詰め、胴とフックの連打。攻めの値は最初の手書きのまま、守りは回避編で磨いた
+    /// 回避技（ウィービング・ダッキング・ローリング・インサイドスリップなど）と、回避しながら打つカウンターの表を持つ。
+    /// 回避の間合いで戦うスタイルなので、磨いた回避がいちばん効いた（勝率 6% → 14%、元の版に 6-1-3。docs/BOT_PDCA.md 回避編）。
+    /// 値が多いので JSON（Bots/swarmer.json）を組み込んで読む。
+    /// </summary>
+    public static BotStyle Swarmer { get; } = LoadEmbedded("MiniRing.Bots.swarmer.json");
 
     /// <summary>カウンターパンチャー: 手数は少なく、守り切ってから打ち返す。</summary>
     public static BotStyle Counter { get; } = new()

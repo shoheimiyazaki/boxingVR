@@ -10,6 +10,8 @@ using MiniRing.Bots;
 //   drill [--book f.json] [--bouts N] [--seconds S]                                防御ドリル: 防御技 × 拳の種類の効き目の表
 //   drilltune [--defense a,b|all] [--book f.json] [--gens G] [--pop P] [--log f.md] [--out book.json]
 //                                                                                   防御技ごとの最適化（ドリルで PDCA）
+//   counterlab [--book f.json] [--defense a,b|evasions] [--bouts N] [--ranges 1.15,1.3] [--log f.md] [--out book.json]
+//                                                                                   回避からのカウンターの研究（型 × 打ち始めの総当たり）
 //   video [--red A] [--blue B] [--seed X] [--seconds S] [--width W --height H --fps F] [--out file.mp4]
 //                                                                                   ボット同士の試合を字幕・打撃音つきの mp4 に（ffmpeg が必要）
 // ボットは名前（legacy, boxer, outboxer, swarmer, counter, slugger, champion）か、スタイルの JSON ファイルのパス。
@@ -23,7 +25,8 @@ try
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out")),
         "tune" => Tune(Options.Parse(argv[1..], "base", "gens", "pop", "bouts", "seconds", "gauntlet", "seed", "log", "out", "focus")),
         "drill" => Drill(Options.Parse(argv[1..], "book", "bouts", "seconds", "seed", "out")),
-        "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out")),
+        "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
+        "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out")),
         _ => Usage($"知らないコマンド: {command}"),
     };
@@ -115,9 +118,12 @@ static int Drill(Options o)
 static int DrillTune(Options o)
 {
     var book = LoadBook(o.Get("book"));
-    var techniques = o.Get("defense") is { } list && list != "all"
-        ? list.Split(',').Select(n => Enum.Parse<Defense>(n, ignoreCase: true)).ToList()
-        : DefenseBook.Techniques.ToList();
+    var techniques = o.Get("defense") switch
+    {
+        null or "all" => DefenseBook.Techniques.ToList(),
+        "evasions" => DefenseBook.Evasions.ToList(),
+        var list => list.Split(',').Select(n => Enum.Parse<Defense>(n, ignoreCase: true)).ToList(),
+    };
     if (techniques.Contains(Defense.None))
     {
         throw new ArgumentException("--defense に None は使えません。");
@@ -134,7 +140,10 @@ static int DrillTune(Options o)
     }
 
     var seed = o.Int("seed", 1);
-    var tuner = new DefenseTuner(o.Int("bouts", 8, min: 1), o.Float("seconds", 20f, min: 1f), seed, Log);
+    var ranges = o.List("ranges", [DefenseDrill.DefaultRange.ToString(CultureInfo.InvariantCulture)]).Select(r => float.Parse(r, CultureInfo.InvariantCulture)).ToList();
+    var counters = bool.Parse(o.Get("counters") ?? "true");
+    var combos = bool.Parse(o.Get("combos") ?? "false");
+    var tuner = new DefenseTuner(o.Int("bouts", 8, min: 1), o.Float("seconds", 20f, min: 1f), seed, Log, ranges, counters, combos);
     var before = tuner.Matrix(book, seed + 500);
     Log("## 最適化の前の表\n\n" + DefenseTuner.MatrixTable(before.Results));
     var tuned = tuner.Optimize(book, techniques, o.Int("gens", 6, min: 0), o.Int("pop", 8, min: 1));
@@ -144,6 +153,38 @@ static int DrillTune(Options o)
     if (o.Get("out") is { } outPath)
     {
         File.WriteAllText(outPath, json);
+    }
+
+    return 0;
+}
+
+static int CounterLabCommand(Options o)
+{
+    var book = LoadBook(o.Get("book"));
+    var evasions = o.Get("defense") is { } list && list != "evasions"
+        ? list.Split(',').Select(n => Enum.Parse<Defense>(n, ignoreCase: true)).ToList()
+        : DefenseBook.Evasions.ToList();
+    if (evasions.Any(d => !DefenseBook.Evasions.Contains(d)))
+    {
+        throw new ArgumentException("counterlab は回避技だけを調べます（ブロックは守り終えてから打ち返す）。");
+    }
+
+    var ranges = o.List("ranges", ["1.15", "1.3"]).Select(r => float.Parse(r, CultureInfo.InvariantCulture)).ToList();
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    var lab = new CounterLab(o.Int("bouts", 6, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), ranges, Log, bool.Parse(o.Get("combos") ?? "false"));
+    var studied = lab.Run(book, evasions);
+    if (o.Get("out") is { } outPath)
+    {
+        File.WriteAllText(outPath, System.Text.Json.JsonSerializer.Serialize(studied, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
     }
 
     return 0;

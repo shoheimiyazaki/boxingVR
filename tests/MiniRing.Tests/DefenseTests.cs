@@ -216,6 +216,191 @@ public sealed class DefenseTests
         Assert.IsEmpty(style.ComboWeights);
     }
 
+    [TestMethod]
+    public void CounterDuringTheEvasion_IsThrownWhileStillSlipping()
+    {
+        // 回避の 35% で打ち始める設定: スリップの姿勢のまま、後ろの手のストレートが出ている。
+        var book = DefenseBook.Default with { Slip = DefenseBook.Default.Slip with { CounterStraight = "2", CounterStraightAt = 0.35f } };
+        var style = BotCatalog.Boxer with { Defenses = book, DefenseRate = BotStyle.MaxDefenseRate, CounterRate = 1f, Attacks = false };
+        Assert.IsTrue(Any(style, Defense.Slip, (bot, rear) => bot.CurrentDefense == Defense.Slip && bot.CurrentTechnique(rear) == Technique.Cross),
+            "a cross while the head is still off the line");
+    }
+
+    [TestMethod]
+    public void CounterAfterTheEvasion_WaitsUntilTheEvasionEnds()
+    {
+        var book = DefenseBook.Default with { Slip = DefenseBook.Default.Slip with { CounterStraight = "2", CounterStraightAt = 1f } };
+        var style = BotCatalog.Boxer with { Defenses = book, DefenseRate = BotStyle.MaxDefenseRate, CounterRate = 1f, Attacks = false };
+        Assert.IsFalse(Any(style, Defense.Slip, (bot, rear) => bot.CurrentDefense == Defense.Slip && bot.CurrentTechnique(rear) == Technique.Cross),
+            "no punch during the slip");
+    }
+
+    [TestMethod]
+    public void NewEvasions_AreEvasions_AndUnknownCounterCombosAreRejected()
+    {
+        CollectionAssert.Contains(DefenseBook.Evasions.ToList(), Defense.SlipIn);
+        CollectionAssert.Contains(DefenseBook.Evasions.ToList(), Defense.Roll);
+        CollectionAssert.DoesNotContain(DefenseBook.Evasions.ToList(), Defense.Block);
+        Assert.IsTrue(DefenseBook.Default.Roll.Sweep, "rolling sweeps the head along with the punch");
+        Assert.IsGreaterThan(0f, DefenseBook.Default.SlipIn.Move, "an inside slip steps in");
+
+        var bad = DefenseBook.Default.Slip with { CounterHook = "9-9" };
+        Assert.ThrowsExactly<ArgumentException>(() => bad.Validated());
+    }
+
+    [TestMethod]
+    public void RopeBehind_GrowsNearTheRopes_AndPointsToTheOpenSide()
+    {
+        var center = BoxingGame.RingCenter;
+        var half = BoxingGame.RingSize * 0.5f;
+        var dir = Vector3.UnitZ; // 相手は +Z、背中は −Z
+        var left = Vector3.Cross(Vector3.UnitY, dir);
+
+        var (middle, _) = BoxerBot.RopeBehind(center, dir, left, Reach);
+        var (nearRopes, escape) = BoxerBot.RopeBehind(center + new Vector3(half - 0.05f, 0f, -half + 0.05f), dir, left, Reach);
+
+        Assert.AreEqual(0f, middle, "plenty of room behind in the middle of the ring");
+        Assert.IsGreaterThan(0.8f, nearRopes, "the ropes are right behind");
+        Assert.AreEqual(MathF.Sign(-left.X), escape, "escape toward the open side (away from the side ropes)");
+    }
+
+    [TestMethod]
+    public void PunchesThatCannotReach_AreNotEvaded()
+    {
+        // 相手は胸と胸で腕の長さの 2 倍先。拳が速く向かってきても、肩から頭まで届かないので避けない。
+        var style = BotCatalog.Boxer with { EvadeReach = 1.2f, DefenseRate = BotStyle.MaxDefenseRate, Attacks = false };
+        var far = Coming() with { OpponentHead = new Vector3(0f, 1.06f, 2f * Reach), OpponentChest = new Vector3(0f, 0.98f, 2f * Reach) };
+        for (var seed = 0; seed < 5; seed++)
+        {
+            var bot = new BoxerBot(style, seed, Defense.Duck);
+            for (var t = 0f; t < 0.5f; t += 1f / 240f)
+            {
+                bot.Read(far, 1f / 240f);
+                Assert.AreEqual(Defense.None, bot.CurrentDefense);
+            }
+        }
+
+        var close = style with { EvadeReach = 0f };
+        Assert.IsTrue(Enumerable.Range(0, 5).Any(seed =>
+        {
+            var bot = new BoxerBot(close, seed, Defense.Duck);
+            for (var t = 0f; t < 0.5f; t += 1f / 240f)
+            {
+                bot.Read(far, 1f / 240f);
+            }
+
+            return bot.CurrentDefense == Defense.Duck;
+        }), "without the reach check the same punch is evaded");
+    }
+
+    [TestMethod]
+    public void SkippedOutOfReachPunch_IsEvaded_OnceTheOpponentStepsIn()
+    {
+        // 振りかぶりの時点では届かない距離 → 相手が踏み込んで届く距離に。見送った拳を見直して避ける。
+        var style = BotCatalog.Boxer with { EvadeReach = 1.2f, DefenseRate = BotStyle.MaxDefenseRate, Attacks = false };
+        var far = Coming() with { OpponentHead = new Vector3(0f, 1.06f, 2f * Reach), OpponentChest = new Vector3(0f, 0.98f, 2f * Reach) };
+        var near = Coming() with { OpponentHead = new Vector3(0f, 1.06f, 0.9f * Reach), OpponentChest = new Vector3(0f, 0.98f, 0.9f * Reach) };
+        Assert.IsTrue(Enumerable.Range(0, 10).Any(seed =>
+        {
+            var bot = new BoxerBot(style, seed, Defense.Duck);
+            for (var t = 0f; t < 0.3f; t += 1f / 240f)
+            {
+                bot.Read(far, 1f / 240f);
+            }
+
+            for (var t = 0f; t < 0.1f; t += 1f / 240f)
+            {
+                bot.Read(near, 1f / 240f);
+            }
+
+            return bot.CurrentDefense == Defense.Duck;
+        }), "the same punch is evaded once it can reach");
+    }
+
+    [TestMethod]
+    public void RopeEscape_KeepsOneSide_AcrossTheMiddleOfTheRope()
+    {
+        // 背中にロープ、相手が近い（下がりたい）。体がロープの真ん中を左右にまたいでも、逃げる向きは変えない。
+        var style = BotCatalog.Boxer with { RopeEscape = 1f, Circling = 0f, HeadMovement = 0f, Attacks = false, DefenseRate = 0f };
+        var bot = new BoxerBot(style, 1);
+        var half = BoxingGame.RingSize * 0.5f;
+        var signs = new HashSet<int>();
+        for (var i = 0; i < 40; i++)
+        {
+            var x = (i % 2 == 0 ? 1f : -1f) * 0.01f;
+            var origin = BoxingGame.RingCenter + new Vector3(x, 0.9f, -half + 0.05f);
+            var sense = new FighterSense(new BodyFrame(origin, 0f), Reach,
+                OpponentHead: origin + new Vector3(0f, 0.06f, 0.8f * Reach), OpponentChest: origin + new Vector3(0f, -0.02f, 0.8f * Reach), OpponentAlive: true,
+                SelfHead: origin + new Vector3(0f, 0.06f, 0f));
+            var command = bot.Read(sense, 1f / 240f);
+            signs.Add(MathF.Sign(command.MoveWorld.X));
+        }
+
+        Assert.HasCount(1, signs.Where(sign => sign != 0), "one escape direction");
+    }
+
+    [TestMethod]
+    public void Block_NeverCountersMidBlock_EvenIfTheBookSaysSo()
+    {
+        var book = DefenseBook.Default with { Block = DefenseBook.Default.Block with { CounterStraight = "2", CounterStraightAt = 0.35f } };
+        var style = BotCatalog.Boxer with { Defenses = book, DefenseRate = BotStyle.MaxDefenseRate, CounterRate = 1f, Attacks = false };
+        Assert.IsFalse(Any(style, Defense.Block, (bot, rear) => bot.CurrentDefense == Defense.Block && bot.CurrentTechnique(rear) == Technique.Cross),
+            "both gloves stay up while blocking");
+    }
+
+    [TestMethod]
+    public void ComboDrillAttacker_ThrowsCombosContainingItsPunchKind()
+    {
+        foreach (var kind in Enum.GetValues<PunchKind>())
+        {
+            var single = DefenseDrill.Attacker(kind).Validated();
+            var combos = DefenseDrill.Attacker(kind, combos: true).Validated();
+
+            Assert.IsTrue(single.ComboWeights.Keys.All(n => Combo.Named(n).Steps.Count == 1), $"{kind}: single punches by default");
+            Assert.IsTrue(combos.ComboWeights.Keys.Any(n => Combo.Named(n).Steps.Count >= 2), $"{kind}: real combos when asked");
+            Assert.IsTrue(combos.ComboWeights.Keys.All(n => Combo.Named(n).Steps.Any(t => Kind(t) == kind)), $"{kind}: every combo contains that kind of punch");
+        }
+
+        static PunchKind Kind(Technique t)
+        {
+            var spec = PunchSpec.Of(t);
+            return spec.ToBody ? PunchKind.Body : spec.Low > 0.5f ? PunchKind.Uppercut : spec.Lateral > 0.5f ? PunchKind.Hook : PunchKind.Straight;
+        }
+    }
+
+    /// <summary>
+    /// 頭へまっすぐ来る拳を見せ続け、<paramref name="forced"/> で守らせる。どれかの種で、守りの最中に <paramref name="seen"/> が真になったか。
+    /// 拳は動き続けるので、守りが終わって次の判断が入ることもある。見るのは最初の守りの間だけ。
+    /// </summary>
+    private static bool Any(BotStyle style, Defense forced, Func<BoxerBot, Hand, bool> seen)
+    {
+        var sense = Coming();
+        for (var seed = 0; seed < 10; seed++)
+        {
+            var bot = new BoxerBot(style, seed, forced);
+            var rear = style.Lead == Hand.Left ? Hand.Right : Hand.Left;
+            var defended = false;
+            for (var t = 0f; t < 1.2f; t += 1f / 240f)
+            {
+                bot.Read(sense, 1f / 240f);
+                if (bot.CurrentDefense != Defense.None)
+                {
+                    defended = true;
+                    if (seen(bot, rear))
+                    {
+                        return true;
+                    }
+                }
+                else if (defended)
+                {
+                    break;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>正面 0.15m から頭へ 0.6m/s でまっすぐ向かってくる左の拳（そのまま見せ続ける）。</summary>
     private static FighterSense Coming()
     {

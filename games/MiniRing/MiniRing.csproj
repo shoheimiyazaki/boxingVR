@@ -13,5 +13,7 @@
   <ItemGroup>
     <!-- ゲームの CPU（champion）のスタイル。値が多い（防御技の表を含む）ので JSON のまま組み込む。docs/BOT_PDCA.md -->
     <EmbeddedResource Include="Bots\champion.json" LogicalName="MiniRing.Bots.champion.json" />
+    <!-- インファイター。回避編で磨いた回避技と、回避からのカウンターの表を持つ（docs/BOT_PDCA.md 回避編）。 -->
+    <EmbeddedResource Include="Bots\swarmer.json" LogicalName="MiniRing.Bots.swarmer.json" />
   </ItemGroup>
 </Project>

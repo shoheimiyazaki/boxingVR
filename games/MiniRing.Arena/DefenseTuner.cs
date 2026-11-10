@@ -16,10 +16,18 @@ namespace MiniRing.Arena;
 /// </list>
 /// 最後に、全技 × 全種類の表（効き目）を測り、守りを選ぶときの重み（<see cref="DefenseMove.VsStraight"/> など）にする。
 /// </summary>
-internal sealed class DefenseTuner(int bouts, float seconds, int seed, Action<string> log)
+/// <param name="bouts">1 つの評価で行うドリルの本数（間合いごと・種を変えて）。</param>
+/// <param name="seconds">1 本のドリルの長さ [s]。</param>
+/// <param name="seed">乱数の種（変異と評価の種の元）。</param>
+/// <param name="log">PDCA の記録の書き出し先。</param>
+/// <param name="ranges">ドリルの間合い（腕の長さ倍）。複数なら全部で測って合わせる。</param>
+/// <param name="counters">受け手が守り切ったら打ち返すか。偽なら回避そのものの性能（被ダメージの減り）だけで点を付ける。</param>
+/// <param name="combos">ドリルの攻め手が連打を打つか（偽なら単発）。</param>
+internal sealed class DefenseTuner(int bouts, float seconds, int seed, Action<string> log, IReadOnlyList<float>? ranges = null, bool counters = true, bool combos = false)
 {
     private readonly Mutation _mutation = new(seed);
-    private readonly ConcurrentDictionary<(PunchKind, int), DefenseDrill.Baseline> _baselines = new();
+    private readonly IReadOnlyList<float> _ranges = ranges ?? [DefenseDrill.DefaultRange];
+    private readonly ConcurrentDictionary<(PunchKind, int, float), DefenseDrill.Baseline> _baselines = new();
 
     /// <summary>
     /// 技が受け持つ拳の種類（ボクシングでの使いどころ）。最適化はこの種類の点の平均で行う。
@@ -31,6 +39,8 @@ internal sealed class DefenseTuner(int bouts, float seconds, int seed, Action<st
         Defense.Duck => [PunchKind.Straight, PunchKind.Hook],
         Defense.Weave => [PunchKind.Hook, PunchKind.Straight],
         Defense.Slip => [PunchKind.Straight],
+        Defense.SlipIn => [PunchKind.Straight],
+        Defense.Roll => [PunchKind.Hook, PunchKind.Straight],
         _ => [PunchKind.Straight, PunchKind.Hook, PunchKind.Uppercut],
     };
 
@@ -160,12 +170,14 @@ internal sealed class DefenseTuner(int bouts, float seconds, int seed, Action<st
     /// <summary>同じ技・種類のドリルを <c>bouts</c> 本（種を変えて）並列に行い、合計した結果。</summary>
     private DrillResult Aggregate(DefenseBook book, Defense defense, PunchKind kind, int evalSeed)
     {
-        var runs = new DrillResult[bouts];
-        Parallel.For(0, bouts, i =>
+        var runs = new DrillResult[bouts * _ranges.Count];
+        Parallel.For(0, runs.Length, j =>
         {
+            var i = j % bouts;
+            var range = _ranges[j / bouts];
             var s = evalSeed + (i * 7919) + ((int)kind * 31);
-            var baseline = _baselines.GetOrAdd((kind, s), key => DefenseDrill.MeasureBaseline(key.Item1, key.Item2, seconds));
-            runs[i] = DefenseDrill.Run(defense, kind, book, s, seconds, baseline);
+            var baseline = _baselines.GetOrAdd((kind, s, range), key => DefenseDrill.MeasureBaseline(key.Item1, key.Item2, seconds, key.Item3, combos));
+            runs[j] = DefenseDrill.Run(defense, kind, book, s, seconds, baseline, range, counters, combos);
         });
         return new DrillResult(defense, kind, runs.Sum(r => r.Punches), runs.Sum(r => r.Damage), runs.Sum(r => r.BaselinePunches),
             runs.Sum(r => r.BaselineDamage), runs.Sum(r => r.CounterDamage), runs.Sum(r => r.Defenses), runs.Sum(r => r.Failed));

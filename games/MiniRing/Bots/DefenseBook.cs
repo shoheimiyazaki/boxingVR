@@ -66,6 +66,30 @@ public sealed record DefenseMove
     public float VsUppercut { get; init; }
     public float VsBody { get; init; }
 
+    /// <summary>
+    /// 回避からのカウンター: 拳の種類ごとの打ち返し（<see cref="Combo"/> の名前。空なら守り方ごとの決まった返し）と、
+    /// 守りの進み具合のどこで打ち始めるか（0..1。1 は守り終えてから、1 未満は回避しながら打つ）。カウンター研究で決める。
+    /// </summary>
+    public string CounterStraight { get; init; } = "";
+    public string CounterHook { get; init; } = "";
+    public string CounterUppercut { get; init; } = "";
+    public float CounterStraightAt { get; init; } = 1f;
+    public float CounterHookAt { get; init; } = 1f;
+    public float CounterUppercutAt { get; init; } = 1f;
+
+    /// <summary>その拳への打ち返しの型と打ち始め（型が空なら null = 守り方ごとの決まった返しを守り終えてから）。</summary>
+    public (string Combo, float At)? CounterFor(PunchKind kind)
+    {
+        var (combo, at) = kind switch
+        {
+            PunchKind.Straight => (CounterStraight, CounterStraightAt),
+            PunchKind.Hook => (CounterHook, CounterHookAt),
+            PunchKind.Uppercut => (CounterUppercut, CounterUppercutAt),
+            _ => ("", 1f),
+        };
+        return string.IsNullOrEmpty(combo) ? null : (combo, at);
+    }
+
     public float Against(PunchKind kind) => kind switch
     {
         PunchKind.Straight => VsStraight,
@@ -78,8 +102,22 @@ public sealed record DefenseMove
     {
         static float F(float v, float min, float max, float fallback) => Math.Clamp(float.IsFinite(v) ? v : fallback, min, max);
         var headX = F(HeadX, -0.6f, 0.6f, 0f);
+        foreach (var combo in new[] { CounterStraight, CounterHook, CounterUppercut })
+        {
+            if (!string.IsNullOrEmpty(combo))
+            {
+                _ = Combo.Named(combo); // 知らない型は読む時点で断る
+            }
+        }
+
         return this with
         {
+            CounterStraight = CounterStraight ?? "",
+            CounterHook = CounterHook ?? "",
+            CounterUppercut = CounterUppercut ?? "",
+            CounterStraightAt = F(CounterStraightAt, 0.2f, 1f, 1f),
+            CounterHookAt = F(CounterHookAt, 0.2f, 1f, 1f),
+            CounterUppercutAt = F(CounterUppercutAt, 0.2f, 1f, 1f),
             HeadX = headX,
             HeadY = F(HeadY, -0.7f, 0.2f, 0f),
             HeadZ = F(HeadZ, -0.5f, 0.4f, 0f),
@@ -162,6 +200,20 @@ public sealed record DefenseBook
         VsStraight = 1f, VsHook = 0.5f, VsUppercut = 0.5f, VsBody = 1f,
     };
 
+    /// <summary>インサイドスリップ: スリップしながら半歩踏み込む（外した拳の内側で打ち返す距離に入る）。</summary>
+    public DefenseMove SlipIn { get; init; } = new()
+    {
+        HeadX = 0.38f, EndX = 0.38f, HeadY = -0.15f, HeadZ = 0.15f, Move = 0.4f, Duration = 0.3f,
+        VsStraight = 1f,
+    };
+
+    /// <summary>ローリング: 真ん中から、来る拳の進む向き（拳から離れる側）へ沈みながら頭を流す。</summary>
+    public DefenseMove Roll { get; init; } = new()
+    {
+        Sweep = true, HeadX = 0f, EndX = 0.45f, HeadY = -0.3f, HeadZ = -0.05f, Move = -0.2f, Duration = 0.35f, HandsUp = 0.5f,
+        VsHook = 1f, VsStraight = 0.5f,
+    };
+
     public static DefenseBook Default { get; } = new();
 
     public DefenseMove Of(Defense defense) => defense switch
@@ -173,6 +225,8 @@ public sealed record DefenseBook
         Defense.Sway => Sway,
         Defense.StepBack => StepBack,
         Defense.SideStep => SideStep,
+        Defense.SlipIn => SlipIn,
+        Defense.Roll => Roll,
         _ => throw new ArgumentOutOfRangeException(nameof(defense), defense, null),
     };
 
@@ -186,8 +240,13 @@ public sealed record DefenseBook
         Defense.Sway => this with { Sway = move },
         Defense.StepBack => this with { StepBack = move },
         Defense.SideStep => this with { SideStep = move },
+        Defense.SlipIn => this with { SlipIn = move },
+        Defense.Roll => this with { Roll = move },
         _ => throw new ArgumentOutOfRangeException(nameof(defense), defense, null),
     };
+
+    /// <summary>回避技（拳で受けるブロックを除く、頭と足で外す技）。</summary>
+    public static IReadOnlyList<Defense> Evasions { get; } = [.. Enum.GetValues<Defense>().Where(d => d is not (Defense.None or Defense.Block))];
 
     /// <summary>防御技の全部（<see cref="Defense.None"/> を除く）。</summary>
     public static IReadOnlyList<Defense> Techniques { get; } = [.. Enum.GetValues<Defense>().Where(d => d != Defense.None)];

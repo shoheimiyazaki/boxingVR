@@ -115,6 +115,9 @@ internal sealed class StyleTuner(IReadOnlyList<Contender> gauntlet, int bouts, f
             PivotAfterCombo = m.Tweak("打って回り込む", parent.PivotAfterCombo, 0.15f, 0f, 1f),
             StopJab = m.Tweak("ストップジャブ", parent.StopJab, 0.15f, 0f, 1f),
             Circling = m.Tweak("回る", parent.Circling, 0.15f, 0f, 1f),
+            RopeEscape = m.Tweak("ロープを背負わない", parent.RopeEscape, 0.2f, 0f, 1f),
+            // 0（見ない）と 0.8〜2 の間は飛ぶので、見ている間だけ帯の中で揺らす（帯の外の値を記録しない）。
+            EvadeReach = parent.EvadeReach > 0f ? m.Tweak("避ける届く範囲", parent.EvadeReach, 0.1f, 0.8f, 2f) : 0f,
             HeadMovement = m.Tweak("頭を振る", parent.HeadMovement, 0.15f, 0f, 1f),
             GuardHeight = m.Tweak("構えの高さ", parent.GuardHeight, 0.15f, 0f, 1f),
             Anticipation = m.Tweak("動き出しを読む", parent.Anticipation, 0.15f, 0f, 1f),
@@ -126,6 +129,8 @@ internal sealed class StyleTuner(IReadOnlyList<Contender> gauntlet, int bouts, f
             SwayWeight = m.Tweak("スウェー", parent.SwayWeight, 0.3f, 0f, 3f),
             StepBackWeight = m.Tweak("バックステップ", parent.StepBackWeight, 0.3f, 0f, 3f),
             SideStepWeight = m.Tweak("サイドステップ", parent.SideStepWeight, 0.3f, 0f, 3f),
+            SlipInWeight = m.Tweak("インサイドスリップ", parent.SlipInWeight, 0.3f, 0f, 3f),
+            RollWeight = m.Tweak("ローリング", parent.RollWeight, 0.3f, 0f, 3f),
             CounterRate = m.Tweak("カウンター", parent.CounterRate, 0.15f, 0f, 1f),
             ClinchRate = m.Tweak("クリンチ", parent.ClinchRate, 0.1f, 0f, 1f),
             ComboWeights = weights,

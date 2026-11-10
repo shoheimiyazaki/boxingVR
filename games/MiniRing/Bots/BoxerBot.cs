@@ -70,12 +70,16 @@ public sealed class BoxerBot : IFighterControl
     private bool _defenseHit;
     private float _defenseSide;
     private float _defenseProgress;
+    private Combo? _plannedCounter;
+    private float _plannedCounterAt;
+    private bool _counterLaunched;
     private PunchKind _defenseKind;
     private DefenseMove _defenseMove = new();
     private float _pivotTimer;
     private float _pivotSide;
     private float _stopJabCooldown;
     private float _opponentClosing;
+    private float _ropeEscapeSide;
     private float _clinchTime = -1f;
     private float _throwTime = -1f;
     private Hand _throwHand;
@@ -108,9 +112,10 @@ public sealed class BoxerBot : IFighterControl
 
     /// <summary>
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、リプレイの見出しに残して照らし合わせる。
-    /// 変えたら 1 増やす（1: 最初のボット、2: 防御技の表・動き出しの読み・ストップジャブ・ピボット）。
+    /// 変えたら 1 増やす（1: 最初のボット、2: 防御技の表・動き出しの読み・ストップジャブ・ピボット、
+    /// 3: インサイドスリップ・ローリング、回避しながら打つカウンターと拳の種類ごとの打ち返し）。
     /// </summary>
-    public const int LogicVersion = 2;
+    public const int LogicVersion = 3;
 
     public BotStyle Style { get; }
 
@@ -244,7 +249,9 @@ public sealed class BoxerBot : IFighterControl
 
             track = track with { Time = track.Time + dt, Gap = 0f };
             // 守りの最中・組み付き中は決めずにおく（終わってからまだ来ていれば、そのとき決める）。
-            if (!track.Decided && track.Time >= Style.ReactionTime && _defense == Defense.None && !Grappling)
+            // 届かない拳は避けない（避ける動きで間合いを崩して、かえって打たれる）。ただし決めずにおき、毎回見直す:
+            // 振りかぶりの時点では届かなくても、相手が踏み込めば届く（レビュー指摘: 見送った拳を二度と見ていなかった）。
+            if (!track.Decided && track.Time >= Style.ReactionTime && _defense == Defense.None && !Grappling && !OutOfReach(sense, head))
             {
                 track = track with { Decided = true };
                 if (_random.NextSingle() < Style.DefenseRate)
@@ -280,6 +287,21 @@ public sealed class BoxerBot : IFighterControl
         var home = ownerChest - glove.Position;
         var retracting = Vector3.Dot(glove.Velocity, home) > 0.7f * speed * home.Length();
         return r.Length() < (1f + (0.3f * anticipation)) * reach && speed > cueSpeed && !retracting;
+    }
+
+    /// <summary>
+    /// 届かない拳か: 相手の肩（胸の少し上）から自分の頭までが、腕の長さ × <see cref="BotStyle.EvadeReach"/> より遠い。
+    /// 0 なら見ない（来る拳は全部避ける）。回避編 E2: 拳の届かない間合いで避けると、避けない受け手の 2〜3 倍打たれた。
+    /// </summary>
+    private bool OutOfReach(in FighterSense sense, Vector3 head)
+    {
+        if (Style.EvadeReach <= 0f)
+        {
+            return false;
+        }
+
+        var shoulder = sense.OpponentChest + new Vector3(0f, 0.25f * sense.ArmReach, 0f);
+        return Vector3.Distance(shoulder, head) > Style.EvadeReach * sense.ArmReach;
     }
 
     /// <summary>拳が速く近づいてきていて、まもなく頭か胴の近くを通るか。</summary>
@@ -407,6 +429,17 @@ public sealed class BoxerBot : IFighterControl
         _defenseHit = false;
         _defenseMove = Style.Defenses.Of(defense);
         _defenseDuration = _defenseMove.Duration;
+        // 打ち返すかは守りを始めたときに決める（回避しながら打つ技は、守り終えるのを待たない）。
+        _counterLaunched = false;
+        _plannedCounter = null;
+        if (_random.NextSingle() < Style.CounterRate)
+        {
+            var plan = _defenseMove.CounterFor(kind);
+            _plannedCounter = plan is { } p ? Combo.Named(p.Combo) : CounterFor(defense);
+            // ブロックは両手で覆う守りなので、打ち返すのは守り終えてから（途中で打つと片手の覆いが外れる）。
+            _plannedCounterAt = defense == Defense.Block ? 1f : plan?.At ?? 1f;
+        }
+
         _combo = null; // 守るときは連打を打ち切る（出ている拳はそのまま戻す）
         _wantAttack = false;
         if (defense == Defense.Block)
@@ -436,6 +469,14 @@ public sealed class BoxerBot : IFighterControl
             _defenseProgress += dt / MathF.Max(1e-3f, _defenseDuration);
         }
 
+        // 回避しながら打つカウンター: 決めた進み具合まで打たれていなければ、守りの姿勢のまま打ち始める。
+        if (_plannedCounter is { } during && !_counterLaunched && _plannedCounterAt < 1f && _defenseProgress >= _plannedCounterAt
+            && !_defenseHit && !Grappling && distance < Style.EngageRange * reach)
+        {
+            _counterLaunched = true;
+            StartCombo(during, counter: true);
+        }
+
         if (_defenseProgress < 1f && _defenseTime < MaxDefenseDuration + _defenseDuration)
         {
             return;
@@ -444,9 +485,9 @@ public sealed class BoxerBot : IFighterControl
         var defended = _defense;
         Stats.DefenseEnded(defended, _defenseHit);
         _defense = Defense.None;
-        if (!_defenseHit && !Grappling && distance < Style.EngageRange * reach && _random.NextSingle() < Style.CounterRate)
+        if (_plannedCounter is { } after && !_counterLaunched && !_defenseHit && !Grappling && distance < Style.EngageRange * reach)
         {
-            StartCombo(CounterFor(defended), counter: true);
+            StartCombo(after, counter: true);
         }
     }
 
@@ -459,6 +500,8 @@ public sealed class BoxerBot : IFighterControl
         Defense.Weave => new Combo("weave-counter", _defenseSide * Style.Lead.LocalSide() > 0f ? [Technique.LeadHook, Technique.Cross] : [Technique.RearHook, Technique.LeadHook]),
         Defense.SideStep => new Combo("angle-counter", [Technique.Cross, Technique.LeadHook]),
         Defense.StepBack => new Combo("step-counter", [Technique.Jab, Technique.Cross]),
+        Defense.SlipIn => new Combo("inside-counter", [Technique.Cross, Technique.LeadHook]),
+        Defense.Roll => new Combo("roll-counter", [Technique.LeadHook, Technique.Cross]),
         _ => new Combo("block-counter", [Technique.Jab, Technique.Cross]),
     };
 
@@ -482,6 +525,11 @@ public sealed class BoxerBot : IFighterControl
                 : _defenseKind == PunchKind.Hook && side == -_defenseSide
                     ? headLocal + (new Vector3(side * m.TempleWidth, m.GloveHeight + 0.05f, m.GloveForward * 0.55f) * reach)
                     : headLocal + (new Vector3(side * m.GloveWidth, m.GloveHeight, m.GloveForward) * reach);
+            if (_hands[(int)hand].Active)
+            {
+                continue; // 回避しながら打っている手は覆いに使わない
+            }
+
             var current = hand == Hand.Left ? left : right;
             Set(hand, ref left, ref right, Vector3.Lerp(current, cover, m.HandsUp));
         }
@@ -790,9 +838,61 @@ public sealed class BoxerBot : IFighterControl
             approach = MathF.Min(approach, -0.2f);
         }
 
+        // ロープを背負わない: 背中側のロープが近いほど、下がる動きを空いている横への動きに替える（回避の後退でも、間合いを
+        // 取り直す後退でも）。下がり続けてロープに詰まると回避が効かず打たれ続けた（回避編 E1: ロープ際にいた時間が
+        // 守らない受け手の 0% に対し、バックステップで回避する受け手は 63%、被ダメージは 3.6 倍）。
+        // 逃げる側は、ロープを感じた時に決めて、離れるまで変えない（毎回「広い側」を選び直すと、ロープの真ん中で左右が
+        // 入れ替わり続けて離れられない）。守りの最中は、来る拳から離れる側へ逃げる（拳の方へ寄らない）。レビュー指摘。
+        var (behind, roomySide) = RopeBehind(self.Origin, dir, lateral, reach);
+        if (behind <= 0f)
+        {
+            _ropeEscapeSide = 0f;
+        }
+        else if (_ropeEscapeSide == 0f)
+        {
+            _ropeEscapeSide = roomySide;
+        }
+
+        if (approach < 0f && Style.RopeEscape > 0f && behind > 0f)
+        {
+            var escapeSide = _defense != Defense.None ? _defenseSide : _ropeEscapeSide;
+            var converted = -approach * behind * Style.RopeEscape;
+            approach += converted;
+            side += escapeSide * converted;
+        }
+
         var circling = _combo is null && !_wantAttack && _pivotTimer <= 0f ? Style.Circling * _circleDirection : 0f;
         var move = (dir * Math.Clamp(approach, -1f, 1f)) + (lateral * Math.Clamp(circling + side, -1f, 1f));
         return move + StayInside(self.Origin, reach);
+    }
+
+    /// <summary>
+    /// 背中側のロープの近さ（0 = 遠い … 1 = すぐ後ろ。腕の長さの 2 倍より近づくと効き始める）と、横のどちらが空いているか
+    /// （<paramref name="lateral"/> の向きを +1）。
+    /// </summary>
+    internal static (float Behind, float EscapeSide) RopeBehind(Vector3 position, Vector3 dir, Vector3 lateral, float reach)
+    {
+        var half = BoxingGame.RingSize * 0.5f;
+        var p = position - BoxingGame.RingCenter;
+        static float Room(Vector3 p, Vector3 toward, float half)
+        {
+            var room = float.MaxValue;
+            if (MathF.Abs(toward.X) > 1e-4f)
+            {
+                room = MathF.Min(room, ((MathF.Sign(toward.X) * half) - p.X) / toward.X);
+            }
+
+            if (MathF.Abs(toward.Z) > 1e-4f)
+            {
+                room = MathF.Min(room, ((MathF.Sign(toward.Z) * half) - p.Z) / toward.Z);
+            }
+
+            return MathF.Max(0f, room);
+        }
+
+        var behind = Math.Clamp(1f - (Room(p, -dir, half) / (2f * reach)), 0f, 1f);
+        var escape = Room(p, lateral, half) >= Room(p, -lateral, half) ? 1f : -1f;
+        return (behind, escape);
     }
 
     /// <summary>ロープ際に近づいたら中央へ戻る向きを足す（追い詰められると打たれ続け、落ちれば負け）。</summary>
