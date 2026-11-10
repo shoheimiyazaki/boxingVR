@@ -49,89 +49,110 @@ internal sealed class VideoMaker(int width, int height, int fps)
         var frame = 0;
         var watch = Stopwatch.StartNew();
 
-        using (var ffmpeg = StartFfmpeg(videoPath))
+        // 途中で失敗しても、作りかけの映像・音声ファイルと ffmpeg を残さない。
+        try
         {
-            var stdin = ffmpeg.StandardInput.BaseStream;
-            void Emit(Matrix4x4 viewProjection, Vector3 eye, IReadOnlyList<ScreenTextDraw> text, IReadOnlyList<UiShapeDraw> shapes)
+            using (var ffmpeg = StartFfmpeg(videoPath))
             {
-                var rgba = renderer.RenderPrimitiveScene(Clear, viewProjection, instances, lines, text, cameraPosition: eye, shapes: shapes);
-                stdin.Write(rgba);
-                frame++;
-            }
-
-            // タイトル: 試合前の構えを背景に。
-            BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
-            for (var t = 0f; t < TitleSeconds; t += 1f / fps)
-            {
-                var (vp, eye) = CameraAt(game, t * 0.15f);
-                Emit(vp, eye, Title(red.Name, blue.Name, MathF.Min(1f, t / 0.6f)), Dim(0.6f));
-            }
-
-            // 試合。
-            var stepsPerFrame = Math.Max(1, (int)MathF.Round(1f / (fps * SimDt)));
-            var time = 0f;
-            for (var step = 0; time < seconds; step++)
-            {
-                game.Step(default, SimDt);
-                time += SimDt;
-                foreach (var hit in game.RecentHits)
+                try
                 {
-                    var redHit = hit.Attacker == game.Player;
-                    if (redHit)
+                    var stdin = ffmpeg.StandardInput.BaseStream;
+                    void Emit(Matrix4x4 viewProjection, Vector3 eye, IReadOnlyList<ScreenTextDraw> text, IReadOnlyList<UiShapeDraw> shapes)
                     {
-                        redDamage += hit.Damage;
-                    }
-                    else
-                    {
-                        blueDamage += hit.Damage;
+                        var rgba = renderer.RenderPrimitiveScene(Clear, viewProjection, instances, lines, text, cameraPosition: eye, shapes: shapes);
+                        stdin.Write(rgba);
+                        frame++;
                     }
 
-                    var tone = HitTone.Of(hit);
-                    Mix(audio, HitSound.Synthesize(tone, step), TitleSeconds + time, 0.55f + (0.45f * tone.Intensity));
-                    if (hit.Damage >= BigHitDamage)
+                    // タイトル: 試合前の構えを背景に。
+                    BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
+                    for (var t = 0f; t < TitleSeconds; t += 1f / fps)
                     {
-                        flashes.Add(($"{HitZones.Label(hit.Zone)}  {hit.Damage:0}", redHit ? Red : Blue, time + 0.7f));
+                        var (vp, eye) = CameraAt(game, t * 0.15f);
+                        Emit(vp, eye, Title(red.Name, blue.Name, MathF.Min(1f, t / 0.6f)), Dim(0.6f));
+                    }
+
+                    // 試合。
+                    var stepsPerFrame = Math.Max(1, (int)MathF.Round(1f / (fps * SimDt)));
+                    var time = 0f;
+                    for (var step = 0; time < seconds; step++)
+                    {
+                        game.Step(default, SimDt);
+                        time += SimDt;
+                        foreach (var hit in game.RecentHits)
+                        {
+                            var redHit = hit.Attacker == game.Player;
+                            if (redHit)
+                            {
+                                redDamage += hit.Damage;
+                            }
+                            else
+                            {
+                                blueDamage += hit.Damage;
+                            }
+
+                            var tone = HitTone.Of(hit);
+                            Mix(audio, HitSound.Synthesize(tone, step), TitleSeconds + time, 0.55f + (0.45f * tone.Intensity));
+                            if (hit.Damage >= BigHitDamage)
+                            {
+                                flashes.Add(($"{HitZones.Label(hit.Zone)}  {hit.Damage:0}", redHit ? Red : Blue, time + 0.7f));
+                            }
+                        }
+
+                        UpdateCaption(redCaption, redBots, redCombos, time);
+                        UpdateCaption(blueCaption, blueBots, blueCombos, time);
+                        flashes.RemoveAll(f => f.Until < time);
+                        if (step % stepsPerFrame != 0)
+                        {
+                            continue;
+                        }
+
+                        BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
+                        var (vp, eye) = CameraAt(game, (TitleSeconds * 0.15f) + (time * 0.15f));
+                        Emit(vp, eye, MatchOverlay(red.Name, blue.Name, redCaption, blueCaption, flashes, redDamage, blueDamage, time, seconds), Bars());
+                        if (frame % (fps * 5) == 0)
+                        {
+                            log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {time:0}s / {seconds:0}s ({watch.Elapsed.TotalSeconds:0}s elapsed)"));
+                        }
+                    }
+
+                    // 結果。
+                    var winner = MathF.Abs(redDamage - blueDamage) <= MathF.Max(1f, 0.05f * (redDamage + blueDamage) / 2f) ? 0 : MathF.Sign(redDamage - blueDamage);
+                    BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
+                    for (var t = 0f; t < ResultSeconds; t += 1f / fps)
+                    {
+                        var (vp, eye) = CameraAt(game, ((TitleSeconds + seconds) * 0.15f) + (t * 0.15f));
+                        Emit(vp, eye, Result(red.Name, blue.Name, redDamage, blueDamage, winner, MathF.Min(1f, t / 0.6f)), Dim(0.6f * MathF.Min(1f, t / 0.6f)));
+                    }
+
+                    stdin.Close();
+                    ffmpeg.WaitForExit();
+                    if (ffmpeg.ExitCode != 0)
+                    {
+                        throw new IOException($"ffmpeg (video) failed with exit code {ffmpeg.ExitCode}.");
                     }
                 }
-
-                UpdateCaption(redCaption, redBots, redCombos, time);
-                UpdateCaption(blueCaption, blueBots, blueCombos, time);
-                flashes.RemoveAll(f => f.Until < time);
-                if (step % stepsPerFrame != 0)
+                catch
                 {
-                    continue;
-                }
+                    if (!ffmpeg.HasExited)
+                    {
+                        ffmpeg.Kill();
+                        ffmpeg.WaitForExit();
+                    }
 
-                BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
-                var (vp, eye) = CameraAt(game, (TitleSeconds * 0.15f) + (time * 0.15f));
-                Emit(vp, eye, MatchOverlay(red.Name, blue.Name, redCaption, blueCaption, flashes, redDamage, blueDamage, time, seconds), Bars());
-                if (frame % (fps * 5) == 0)
-                {
-                    log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {time:0}s / {seconds:0}s ({watch.Elapsed.TotalSeconds:0}s elapsed)"));
+                    throw;
                 }
             }
 
-            // 結果。
-            var winner = MathF.Abs(redDamage - blueDamage) <= MathF.Max(1f, 0.05f * (redDamage + blueDamage) / 2f) ? 0 : MathF.Sign(redDamage - blueDamage);
-            BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
-            for (var t = 0f; t < ResultSeconds; t += 1f / fps)
-            {
-                var (vp, eye) = CameraAt(game, ((TitleSeconds + seconds) * 0.15f) + (t * 0.15f));
-                Emit(vp, eye, Result(red.Name, blue.Name, redDamage, blueDamage, winner, MathF.Min(1f, t / 0.6f)), Dim(0.6f * MathF.Min(1f, t / 0.6f)));
-            }
-
-            stdin.Close();
-            ffmpeg.WaitForExit();
-            if (ffmpeg.ExitCode != 0)
-            {
-                throw new IOException($"ffmpeg (video) failed with exit code {ffmpeg.ExitCode}.");
-            }
+            WriteWav(wavPath, audio, (float)frame / fps);
+            Run("ffmpeg", $"-y -loglevel error -i \"{videoPath}\" -i \"{wavPath}\" -c:v copy -c:a aac -b:a 160k -shortest \"{outPath}\"");
+        }
+        finally
+        {
+            File.Delete(videoPath);
+            File.Delete(wavPath);
         }
 
-        WriteWav(wavPath, audio, (float)frame / fps);
-        Run("ffmpeg", $"-y -loglevel error -i \"{videoPath}\" -i \"{wavPath}\" -c:v copy -c:a aac -b:a 160k -shortest \"{outPath}\"");
-        File.Delete(videoPath);
-        File.Delete(wavPath);
         log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{outPath}: {frame} frames ({(float)frame / fps:0.0}s) in {watch.Elapsed.TotalSeconds:0}s"));
     }
 
@@ -262,7 +283,14 @@ internal sealed class VideoMaker(int width, int height, int fps)
         "duck-counter" => "ダッキングからカウンター",
         "pull-counter" => "スウェーからプルカウンター",
         "block-counter" => "ブロックからカウンター",
-        _ => $"{name}  " + string.Join(" → ", Combo.Named(name).Steps.Select(TechniqueLabel)),
+        "weave-counter" => "ウィービングからカウンター",
+        "angle-counter" => "サイドステップからカウンター",
+        "step-counter" => "バックステップからカウンター",
+        "stop-jab" => "ストップジャブ",
+        // 名簿の型なら技を並べる。知らない名前（ボットが後から足した型）は名前のまま出す。
+        _ => Combo.All.FirstOrDefault(c => c.Name == name) is { } combo
+            ? $"{name}  " + string.Join(" → ", combo.Steps.Select(TechniqueLabel))
+            : name,
     };
 
     private static string TechniqueLabel(Technique t) => t switch
@@ -289,6 +317,8 @@ internal sealed class VideoMaker(int width, int height, int fps)
         Defense.Slip => "スリップ",
         Defense.Sway => "スウェー",
         Defense.StepBack => "バックステップ",
+        Defense.Weave => "ウィービング",
+        Defense.SideStep => "サイドステップ",
         _ => "",
     };
 
