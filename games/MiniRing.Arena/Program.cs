@@ -27,7 +27,7 @@ try
         "drill" => Drill(Options.Parse(argv[1..], "book", "bouts", "seconds", "seed", "out")),
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound")),
         _ => Usage($"知らないコマンド: {command}"),
     };
 }
@@ -199,7 +199,18 @@ static int Video(Options o)
     var blue = Load(o.Get("blue") ?? "jabber");
     var output = Path.GetFullPath(o.Get("out") ?? $"miniring_{red.Name}_vs_{blue.Name}.mp4");
     Directory.CreateDirectory(Path.GetDirectoryName(output)!);
-    new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10))
+    var breakName = o.Get("break-sound") ?? MiniRing.Audio.VoxelBreakSound.DefaultStyle.ToString();
+    if (!MiniRing.Audio.BreakSoundOption.TryName(breakName, out var breakStyle))
+    {
+        throw new ArgumentException($"--break-sound '{breakName}' はありません（{string.Join(", ", Enum.GetNames<MiniRing.Audio.BreakStyle>().Select(n => n.ToLowerInvariant()))}）。");
+    }
+
+    if (!MiniRing.Audio.HitSoundOption.TryValue(o.Get("hit-sound") ?? "off", out var hitSounds))
+    {
+        throw new ArgumentException("--hit-sound は on か off にしてください。");
+    }
+
+    new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), breakStyle, hitSounds)
         .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 45f, min: 1f), output, Console.Out);
     return 0;
 }

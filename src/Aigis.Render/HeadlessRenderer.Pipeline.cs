@@ -199,6 +199,7 @@ public sealed unsafe partial class HeadlessRenderer
         DisposeOverlayImageResources();
         DisposeIrradianceResources();
         DisposeDecalResources();
+        DisposeVoxelResources();
         DisposePostProcessResources();
         DisposeSurfaceTextureResources();
         DisposeUiShapeResources();

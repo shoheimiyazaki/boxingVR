@@ -1,5 +1,7 @@
 using System.Globalization;
 using Aigis.Audio;
+using Aigis.Render.Voxels;
+using MiniRing.Voxels;
 
 namespace MiniRing.Audio;
 
@@ -12,12 +14,17 @@ public sealed class HitSoundPlayer : IDisposable
 {
     private const int IntensityLevels = 8;
     private const int CleanLevels = 4;
-    private const int MaxVoices = 12;
+    private const int MaxVoices = 24;
+
+    /// <summary>床に落ちる音が使わずに残しておく声の数（打撃・砕ける音・致命傷のため）。</summary>
+    private const int ReservedForBreaks = 12;
+    private const int FatalVariants = 2;
 
     private readonly IAudioBackend _backend;
     private readonly Dictionary<(int Intensity, int Clean, HitTarget Target), AudioClip> _clips = [];
     private readonly List<int> _voices = [];
     private readonly Random _variation = new();
+    private readonly AudioClip?[] _fatal = new AudioClip?[FatalVariants];
 
     public HitSoundPlayer(IAudioBackend backend)
     {
@@ -26,7 +33,17 @@ public sealed class HitSoundPlayer : IDisposable
     }
 
     /// <summary>既定の音声出力（Windows の既定デバイス。Quest Link 中は Link の音声出力）で鳴らす。</summary>
-    public static HitSoundPlayer CreateDefault() => new(new OpenAlAudioBackend());
+    public static HitSoundPlayer CreateDefault(BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool playHits = false)
+    {
+        VoxelBreakSound.Prewarm(breakStyle);
+        return new(new OpenAlAudioBackend()) { BreakStyle = breakStyle, PlayHits = playHits };
+    }
+
+    /// <summary>ボクセルが砕ける音・床に落ちる音の方式。</summary>
+    public BreakStyle BreakStyle { get; init; } = VoxelBreakSound.DefaultStyle;
+
+    /// <summary>パンチが当たる音を鳴らすか（既定は鳴らさない: ボクセルの音と風切り音だけ）。</summary>
+    public bool PlayHits { get; init; }
 
     public bool IsAvailable => _backend.IsAvailable;
 
@@ -41,7 +58,7 @@ public sealed class HitSoundPlayer : IDisposable
 
     public void Play(in HitEvent hit)
     {
-        if (!_backend.IsAvailable)
+        if (!_backend.IsAvailable || !PlayHits)
         {
             return;
         }
@@ -65,6 +82,95 @@ public sealed class HitSoundPlayer : IDisposable
         }
 
         var pitch = 1f + ((_variation.NextSingle() - 0.5f) * 0.08f);
+        _voices.Add(_backend.Play(clip, volume: 1f, shouldLoop: false, pitch));
+    }
+
+    /// <summary>
+    /// 砕けたボクセルの音（<see cref="VoxelBreakSound"/>）: 1 発ごとに、砕けたボクセルの粒を重ねた音を合成して鳴らす。
+    /// 致命傷なら、その上に致命傷の音も鳴らす。
+    /// </summary>
+    public void PlayShatters(IReadOnlyList<ShatterEvent> shatters)
+    {
+        ArgumentNullException.ThrowIfNull(shatters);
+        if (!_backend.IsAvailable || shatters.Count == 0)
+        {
+            return;
+        }
+
+        OpenAlAudioBackend.MakeCurrentOnThisThread();
+        foreach (var shatter in shatters)
+        {
+            if (shatter.Grains.Count > 0)
+            {
+                var pcm = VoxelBreakSound.Synthesize(shatter, _variation.Next(), BreakStyle);
+                Start(new AudioClip("shatter", AudioSampleFormat.Mono16, VoxelBreakSound.SampleRate, pcm, IsGenerated: true), 1f);
+            }
+
+            if (shatter.Fatal)
+            {
+                var v = _variation.Next(FatalVariants);
+                _fatal[v] ??= new AudioClip($"fatal_{v}", AudioSampleFormat.Mono16, VoxelBreakSound.SampleRate, VoxelBreakSound.Fatal(seed: 7 + v, BreakStyle), IsGenerated: true);
+                Start(_fatal[v]!, 1f);
+            }
+        }
+    }
+
+    /// <summary>1 ステップぶんの、床に落ちた破片の音（パラパラ）。</summary>
+    public void PlayLandings(IReadOnlyList<DebrisLanding> landings)
+    {
+        ArgumentNullException.ThrowIfNull(landings);
+        if (!_backend.IsAvailable || landings.Count == 0)
+        {
+            return;
+        }
+
+        OpenAlAudioBackend.MakeCurrentOnThisThread();
+        Reap();
+        if (_voices.Count >= MaxVoices - ReservedForBreaks)
+        {
+            return; // 床の音は譲る: 砕ける音や致命傷の長い音を、古い順に押し出さないように
+        }
+
+        if (VoxelBreakSound.Landings(landings, _variation.Next(), BreakStyle) is { } pcm)
+        {
+            Start(new AudioClip("landing", AudioSampleFormat.Mono16, VoxelBreakSound.SampleRate, pcm, IsGenerated: true), 1f);
+        }
+    }
+
+    /// <summary>1 ステップぶんの、振り抜いた拳の風切り音（小さく）。</summary>
+    public void PlaySwings(IReadOnlyList<SwingEvent> swings)
+    {
+        ArgumentNullException.ThrowIfNull(swings);
+        if (!_backend.IsAvailable || swings.Count == 0)
+        {
+            return;
+        }
+
+        OpenAlAudioBackend.MakeCurrentOnThisThread();
+        foreach (var swing in swings)
+        {
+            Reap();
+            if (_voices.Count >= MaxVoices - ReservedForBreaks)
+            {
+                return;
+            }
+
+            if (SwingSound.Synthesize(swing.Speed, _variation.Next()) is { } pcm)
+            {
+                Start(new AudioClip("swing", AudioSampleFormat.Mono16, SwingSound.SampleRate, pcm, IsGenerated: true), 1f);
+            }
+        }
+    }
+
+    private void Start(AudioClip clip, float pitch)
+    {
+        Reap();
+        if (_voices.Count >= MaxVoices)
+        {
+            _backend.StopVoice(_voices[0]);
+            _voices.RemoveAt(0);
+        }
+
         _voices.Add(_backend.Play(clip, volume: 1f, shouldLoop: false, pitch));
     }
 

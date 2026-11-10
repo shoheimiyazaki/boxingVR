@@ -3,7 +3,12 @@ using System.Numerics;
 using Aigis.Physics;
 using Aigis.Player;
 using Aigis.Render;
+using Aigis.Foundation.Voxels;
+using Aigis.Physics.Voxels;
+using Aigis.Render.Voxels;
+using MiniRing.Audio;
 using MiniRing.LowPoly;
+using MiniRing.Voxels;
 
 namespace MiniRing;
 
@@ -51,11 +56,28 @@ public sealed class BoxingGame : IGame<BoxingInput>
     private readonly FighterTuning _tuning;
     private readonly BoxerModel _model;
     private readonly int _seed;
+    /// <summary>
+    /// 体の形（ローポリのモデル）は不変なので、同じ体格の試合どうしで共有する。ボクセルの「形の内側」の判定もモデルごとに
+    /// 1 度で済む（試合を作るたびに作り直すと 1 試合 0.6 秒かかり、対戦場やテストで何百試合も作ると効く）。
+    /// </summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(HumanoidRagdoll.HalfExtents, int), BoxerModel> Models = new();
+
     private readonly List<HitEvent> _recentHits = [];
+    private readonly List<VoxelChip> _chips = [];
+    private readonly VoxelDebris _debris = new(capacity: 9000);
+    private readonly ImpactEffects _impacts = new();
+    private readonly List<ShatterEvent> _recentShatters = [];
+    private readonly List<DebrisLanding> _recentLandings = [];
+    private readonly List<SwingEvent> _recentSwings = [];
+    private readonly Dictionary<(Fighter, Hand), (Vector3 Velocity, bool Armed)> _swing = [];
+    private readonly Random _fx;
     private readonly Dictionary<(Fighter, Hand), Vector3> _preStepGloveVelocity = [];
     private readonly Dictionary<(Fighter, Hand), float> _hitCooldown = [];
     private readonly List<PrimitiveInstance> _renderInstances = [];
     private readonly List<DebugLine> _renderLines = [];
+    private readonly List<VoxelVolumeDraw> _renderVoxels = [];
+    private readonly List<ParticleInstance> _renderParticles = [];
+    private float _lookTime;
     private PhysicsWorld _world = null!;
     private Fighter[] _fighters = [];
     private Ring _ring = null!;
@@ -71,7 +93,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
     {
         _tuning = tuning ?? FighterTuning.Default;
         _corners = corners ?? BoxingCorners.Default;
-        _model = BoxerModel.Build(_tuning.HalfExtents, _tuning.ModelSubdivisions);
+        _fx = new Random(seed ^ 0x5eed);
+        _model = Models.GetOrAdd((_tuning.HalfExtents, _tuning.ModelSubdivisions), key => BoxerModel.Build(key.Item1, key.Item2));
         _seed = seed;
         StartRound();
     }
@@ -123,6 +146,15 @@ public sealed class BoxingGame : IGame<BoxingInput>
     /// <summary>直近の <see cref="Step"/> で発生したヒット（ホストの効果音・ハプティクス用）。</summary>
     public IReadOnlyList<HitEvent> RecentHits => _recentHits;
 
+    /// <summary>直近の <see cref="Step"/> で砕けたボクセルの列（1 発に 1 つ。ホストの砕ける音用）。</summary>
+    public IReadOnlyList<ShatterEvent> RecentShatters => _recentShatters;
+
+    /// <summary>直近の <see cref="Step"/> で床に落ちた（跳ねた）破片（ホストの落下音用）。</summary>
+    public IReadOnlyList<DebrisLanding> RecentLandings => _recentLandings;
+
+    /// <summary>直前の <see cref="Step"/> で振り抜かれた拳（風切り音）。</summary>
+    public IReadOnlyList<SwingEvent> RecentSwings => _recentSwings;
+
     public string StatusLine => string.Create(CultureInfo.InvariantCulture,
         $"Round {_round}  You {Cpu.Condition.TotalDamage:0} - CPU {Player.Condition.TotalDamage:0} damage  ({PlayerWins}-{CpuWins})");
 
@@ -135,6 +167,9 @@ public sealed class BoxingGame : IGame<BoxingInput>
     public void Step(BoxingInput input, float dt)
     {
         _recentHits.Clear();
+        _recentShatters.Clear();
+        _recentLandings.Clear();
+        _recentSwings.Clear();
         if (input.ResetRequested)
         {
             StartRound();
@@ -149,7 +184,40 @@ public sealed class BoxingGame : IGame<BoxingInput>
         }
 
         _messageTimer = MathF.Max(0f, _messageTimer - dt);
+        _debris.Step(dt, _recentLandings);
+        _impacts.Step(dt);
+        _lookTime += dt;
+        DetectSwings();
         UpdateRound(dt);
+    }
+
+    /// <summary>
+    /// グローブの速さが <see cref="SwingSound.MinSpeed"/> を超えて、いちばん速くなった（減り始めた）フレームを 1 回の振りとして出す。
+    /// 速さがその半分を下回ったら次の振りを待つ。音のためだけで、試合（物理・記録）には響かない。
+    /// </summary>
+    private void DetectSwings()
+    {
+        foreach (var fighter in Fighters)
+        {
+            var opponent = fighter == Player ? Cpu : Player;
+            foreach (var hand in Hands)
+            {
+                var velocity = fighter.GloveVelocity(hand);
+                var speed = velocity.Length();
+                // 最初は「止まるまで待つ」: 試合開始の構えに入る揺れを振りと数えない。
+                var (previous, armed) = _swing.GetValueOrDefault((fighter, hand), (Vector3.Zero, false));
+                var previousSpeed = previous.Length();
+                var toOpponent = Vector3.Normalize(opponent.HeadPosition - fighter.GloveCenter(hand));
+                // 相手へ向かう振りだけ（引き戻しは鳴らさない）。
+                if (armed && previousSpeed >= SwingSound.MinSpeed && speed < previousSpeed && Vector3.Dot(previous, toOpponent) > 0.5f * previousSpeed)
+                {
+                    _recentSwings.Add(new SwingEvent(fighter.GloveCenter(hand), previousSpeed));
+                    armed = false;
+                }
+
+                _swing[(fighter, hand)] = (velocity, armed || speed < 0.5f * SwingSound.MinSpeed);
+            }
+        }
     }
 
     private void Substep(in FighterCommand playerCommand, float dt)
@@ -215,7 +283,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
         foreach (var hand in Hands)
         {
-            if (attacker.ForearmId(hand) != attackerBody || _hitCooldown[(attacker, hand)] > 0f)
+            // 切り落とされた腕（落ちていく破片）は打撃に数えない。
+            if (attacker.ArmSevered(hand) || attacker.ForearmId(hand) != attackerBody || _hitCooldown[(attacker, hand)] > 0f)
             {
                 continue;
             }
@@ -262,6 +331,9 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
         // 当たった部位の、拳に近いノードを拳の進む向きへへこませる（見た目だけ。当たり判定の箱は変わらない）。
         SkinOf(victim).Dent(victimBody, _world.GetState(victimBody), hit.Point, gloveVelocity, hit.Damage);
+        // 削る量は打撃そのものの強さ（部位の倍率を外したダメージ）。得点ではガードの上は 0.25 倍に割り引くが、
+        // 受けた腕にかかる衝撃は同じ: ブロックし続けた腕は削れていく。
+        Strike(victim, victimBody, hit.Point, gloveVelocity, hit.Damage / ZoneDamage.Multiplier(hit.Zone), hit.Attacker);
 
         // 体重の乗った拳は相手を押し込む: 物理の接触が運ぶのは腕の質量だけなので、体から来た分の運動量を足す。
         // 1 部位に入れると千切れるほど速くなるので、相手の全身へ一様な速度変化として配り（上限付き）、
@@ -281,6 +353,141 @@ public sealed class BoxingGame : IGame<BoxingInput>
         ControlOf(victim)?.OnPunchTaken(hit);
     }
 
+    /// <summary>
+    /// ボクセルの体を削る: ダメージに比例した量を、拳の進む向きへ掘る。削れたボクセルは破片と血しぶきになって飛ぶ。
+    /// 腕・脚の骨が断たれたら、そこから先が落ちる。臓器が半分以上壊れたら死ぬ。
+    /// </summary>
+    /// <param name="victim">打たれたファイター。</param>
+    /// <param name="victimBody">打たれた部位の剛体。</param>
+    /// <param name="point">当たった点（ワールド）。</param>
+    /// <param name="direction">拳の進む向き（速度でよい）。</param>
+    /// <param name="damage">打撃の強さ（ダメージ点）。</param>
+    /// <param name="attacker">打った側（火花をその側のグローブの色にする）。分からなければ null。</param>
+    internal void Strike(Fighter victim, int victimBody, Vector3 point, Vector3 direction, float damage, Fighter? attacker = null)
+    {
+        if (victim.Voxels is not { } body)
+        {
+            return;
+        }
+
+        // 飛び散り方で打撃を読ませる: 強いほど速く・細く・遠くへ（弱い 1 発は近くにぽろっと落ちる）。
+        var strength = HitStrength(damage);
+        var chipSpeed = _tuning.ChipSpeed * (0.5f + (1.3f * strength));
+        var spread = 0.75f - (0.5f * strength);
+        _chips.Clear();
+        var result = body.Impact(victimBody, point, direction, damage * _tuning.CarvePerDamage, chipSpeed, Jitter, _chips, spread);
+        SpawnDebris(_chips, point, direction, strength, attacker);
+        if (result?.Fragment is { } fragment)
+        {
+            victim.Sever(victimBody, fragment.Body);
+            ShowMessage(fragment.Kind is BodyPartKind.UpperArm or BodyPartKind.Forearm ? "ARM OFF!" : "LEG OFF!", 1.2f);
+        }
+
+        var fatal = false;
+        if (!victim.IsDead && body.DeathCause() is { } cause)
+        {
+            victim.Die(cause);
+            fatal = true;
+            _impacts.Spawn(point, direction, 1f, FatalFlash, Jitter); // 致命傷: いちばん大きな赤い光
+        }
+
+        if (_chips.Count > 0 || fatal)
+        {
+            // 音の粒: 砕けた順（当たった所に近い順）に 3.5ms ずつ、少しばらつかせて並べる。
+            var grains = new ShatterGrain[_chips.Count];
+            for (var i = 0; i < grains.Length; i++)
+            {
+                grains[i] = new ShatterGrain(_chips[i].Material, MathF.Min(0.3f, (i * 0.0035f) + (0.002f * (1f + Jitter()))));
+            }
+
+            _recentShatters.Add(new ShatterEvent(point, grains, fatal));
+        }
+    }
+
+    /// <summary>打撃の強さ 0（かすり）〜 1（とても重い 1 発）。ダメージ 3 で 0、30 で 1 にかけて、平方根で（中くらいの差も見える）。</summary>
+    internal static float HitStrength(float damage) => MathF.Sqrt(Math.Clamp((damage - 3f) / 27f, 0f, 1f));
+
+    /// <summary>
+    /// 削れたボクセルを砕け散らせる。散り方で「どの向きに・どれだけ強く」当たったかが読めるように、どの破片も
+    /// 欠片の飛ぶ向き（<see cref="VoxelBody.Impact"/> の噴き出し）に沿わせ、その速さに比べた小さな揺らぎだけを足す。
+    /// 1 個ごとに、その材質の色の欠片と細かい破片 2 つ。骨からは白い粉と光る火花、肉と臓器からは血しぶき、臓器からはさらに
+    /// 光る赤い飛沫。当たった所には打った側の色の閃光（<see cref="ImpactFlash"/>）。
+    /// </summary>
+    private void SpawnDebris(List<VoxelChip> chips, Vector3 point, Vector3 direction, float strength, Fighter? attacker)
+    {
+        ImpactFlash(point, direction, strength, attacker);
+        if (chips.Count == 0)
+        {
+            return;
+        }
+
+        var palette = BoxerAnatomy.Palette;
+        foreach (var chip in chips)
+        {
+            var material = palette[chip.Material];
+            var color = chip.WasSurface ? material.SurfaceColor : material.Color;
+            var along = chip.Velocity;
+            var pace = along.Length();
+            // 欠片の向きに沿って、速さを掛け、その速さに比べた揺らぎ（spread）を足す。
+            Vector3 Fly(float speedScale, float wobble) => (along * speedScale) + (new Vector3(Jitter(), Jitter(), Jitter()) * (wobble * pace * speedScale));
+            Vector3 Spin(float s) => new Vector3(Jitter(), Jitter(), Jitter()) * s;
+            _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color, tag: chip.Material);
+            for (var k = 0; k < 2; k++)
+            {
+                _debris.Spawn(chip.Position, Fly(1.8f, 0.25f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f, tag: chip.Material);
+            }
+
+            switch (material.Tissue)
+            {
+                case VoxelTissue.Bone:
+                    for (var k = 0; k < 3; k++)
+                    {
+                        _debris.Spawn(chip.Position, Fly(1.6f, 0.35f), chip.Orientation, chip.Size * 0.25f, Spin(90f), BoneDust, life: 1.2f, tag: VoxelBreakSound.DustTag);
+                    }
+
+                    _debris.Spawn(chip.Position, Fly(2.4f, 0.3f), chip.Orientation, chip.Size * 0.22f, Spin(30f), Spark, life: 0.25f, glow: true, tag: VoxelBreakSound.SparkTag);
+                    break;
+                case VoxelTissue.Organ:
+                    for (var k = 0; k < 2; k++)
+                    {
+                        _debris.Spawn(chip.Position, Fly(2f, 0.3f), chip.Orientation, chip.Size * 0.35f, Spin(50f), OrganGlow, life: 0.4f, glow: true, tag: VoxelBreakSound.SparkTag);
+                    }
+
+                    goto case VoxelTissue.Flesh;
+                case VoxelTissue.Flesh:
+                    for (var k = 0; k < 3; k++)
+                    {
+                        _debris.Spawn(chip.Position, Fly(2.1f, 0.3f), chip.Orientation, chip.Size * 0.35f, Spin(60f), BloodColor, life: 2.2f, tag: VoxelBreakSound.BloodTag);
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    /// <summary>当たった瞬間の光（<see cref="ImpactEffects"/>: 球とカプセルで、飛び散るボクセルと紛れない）。打った側のグローブの色。</summary>
+    private void ImpactFlash(Vector3 point, Vector3 direction, float strength, Fighter? attacker)
+    {
+        var color = attacker is null ? Spark : attacker == Player ? PlayerSpark : CpuSpark;
+        _impacts.Spawn(point, direction, strength, color, Jitter);
+    }
+
+    private static readonly Vector4 BloodColor = new(0.55f, 0.02f, 0.03f, 1f);
+    private static readonly Vector4 BoneDust = new(1f, 0.98f, 0.9f, 1f);
+    private static readonly Vector4 Spark = new(1f, 0.85f, 0.45f, 1f);
+    private static readonly Vector4 OrganGlow = new(1f, 0.15f, 0.25f, 1f);
+    private static readonly Vector4 PlayerSpark = new(1f, 0.08f, 0.04f, 1f);
+    private static readonly Vector4 CpuSpark = new(0.1f, 0.35f, 1f, 1f);
+    private static readonly Vector4 FatalFlash = new(1f, 0.15f, 0.1f, 1f);
+
+    private float Jitter() => (2f * _fx.NextSingle()) - 1f;
+
+    /// <summary>飛び散ったボクセルの破片（描画用）。</summary>
+    public VoxelDebris Debris => _debris;
+
+    /// <summary>当たった瞬間の光（描画用）。</summary>
+    public ImpactEffects Impacts => _impacts;
+
     private void UpdateRound(float dt)
     {
         if (RoundOver)
@@ -294,7 +501,12 @@ public sealed class BoxingGame : IGame<BoxingInput>
             return;
         }
 
-        if (_ring.IsOut(Player.PelvisPosition))
+        if (Player.IsDead || Cpu.IsDead)
+        {
+            var dead = Player.IsDead ? Player : Cpu;
+            EndRound(cpuWon: dead == Player, $"K.O. — {dead.DeathCause!.ToUpperInvariant()} DESTROYED");
+        }
+        else if (_ring.IsOut(Player.PelvisPosition))
         {
             EndRound(cpuWon: true, "RING OUT");
         }
@@ -346,6 +558,15 @@ public sealed class BoxingGame : IGame<BoxingInput>
         Player = Fighter.Spawn(_world, _tuning, "player", surface - new Vector3(0f, 0f, 0.22f), 0f);
         Cpu = Fighter.Spawn(_world, _tuning, "cpu", surface + new Vector3(0f, 0f, 0.22f), MathF.PI);
         PlayerSkin = new BoxerSkin(_model, Player, _tuning);
+        // 体の形はローポリのモデル（頭・胸・腕の形）。その内側をボクセルで埋める。
+        Player.Voxels = new BoxerBody(Player, _world, _tuning, _model);
+        Cpu.Voxels = new BoxerBody(Cpu, _world, _tuning, _model);
+        // 破片はリングの上ならリングの面、外なら床で止まる。
+        var ringHalf = (RingSize * 0.5f) + 0.02f;
+        _debris.Clear();
+        _impacts.Clear();
+        _debris.GroundAt = p => MathF.Abs(p.X - RingCenter.X) < ringHalf && MathF.Abs(p.Z - RingCenter.Z) < ringHalf ? RingSurfaceHeight : 0f;
+        _debris.Gravity = 9.81f * _tuning.DebrisGravityScale;
         CpuSkin = new BoxerSkin(_model, Cpu, _tuning);
         _fighters = [Player, Cpu];
         _cpuControl = _corners.Cpu(_seed + _round);
@@ -390,6 +611,35 @@ public sealed class BoxingGame : IGame<BoxingInput>
         BoxingRenderer.Fill(this, showTargetGhosts: true, _renderInstances, _renderLines);
         return (_renderInstances, _renderLines);
     }
+
+    /// <summary>
+    /// このフレームのボクセルの体（3D テクスチャと置き場所）。返すリストは使い回し（<see cref="BuildRenderables"/> と同じ）。
+    /// </summary>
+    public IReadOnlyList<VoxelVolumeDraw> BuildVoxelVolumes()
+    {
+        BoxingRenderer.FillVoxels(this, _renderVoxels);
+        return _renderVoxels;
+    }
+
+    /// <summary>当たった瞬間の光と会場の空気の粒（返すリストは使い回し）。</summary>
+    public IReadOnlyList<ParticleInstance> BuildParticles()
+    {
+        _renderParticles.Clear();
+        ArenaLook.WriteAtmosphere(RingCenter, RingSize, RingSurfaceHeight, _lookTime, _renderParticles);
+        _impacts.WriteParticles(_renderParticles);
+        return _renderParticles;
+    }
+
+    /// <summary>会場の照明（<see cref="ArenaLook"/>）。</summary>
+    public SceneLighting BuildLighting() => Lighting;
+
+    /// <summary>リングに落ちる影。</summary>
+    public ShadowMapConfig? BuildShadow() => ArenaLook.Shadow(RingCenter, RingSize, RingSurfaceHeight);
+
+    /// <summary>画面用の仕上げ（光のにじみ・陰り・コントラスト）。</summary>
+    public PostProcessSettings? BuildPostProcess() => ArenaLook.ScreenFinish;
+
+    private static SceneLighting Lighting { get; } = ArenaLook.Lighting(RingCenter, RingSize, RingSurfaceHeight);
 
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 viewProjection, Vector2 screenSizePixels)
     {
@@ -478,6 +728,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         {
             Add(fighter.Condition.TotalDamage);
             Add(fighter.Condition.CleanHitsTaken);
+            Add(fighter.IsDead ? 1f : 0f);
             Add((float)fighter.State);
         }
 

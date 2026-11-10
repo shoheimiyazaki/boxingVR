@@ -12,7 +12,7 @@ namespace MiniRing.Arena;
 /// 構成: タイトル → 試合（技・守り・クリーンヒットの字幕、打撃音つき）→ 結果。
 /// 試合は種で決まるので、同じ引数なら同じ動画になる。
 /// </summary>
-internal sealed class VideoMaker(int width, int height, int fps)
+internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = false)
 {
     private const float SimDt = 1f / 60f;
     private const float TitleSeconds = 3.5f;
@@ -21,7 +21,6 @@ internal sealed class VideoMaker(int width, int height, int fps)
     /// <summary>字幕に出す「重い一撃」のダメージ（1 発でクリーンヒットと言える程度）。</summary>
     private const float BigHitDamage = 15f;
 
-    private static readonly Vector4 Clear = new(0.07f, 0.08f, 0.11f, 1f);
     private static readonly Vector4 White = new(1f, 1f, 1f, 1f);
     private static readonly Vector4 Red = new(1f, 0.45f, 0.4f, 1f);
     private static readonly Vector4 Blue = new(0.5f, 0.68f, 1f, 1f);
@@ -59,7 +58,8 @@ internal sealed class VideoMaker(int width, int height, int fps)
                     var stdin = ffmpeg.StandardInput.BaseStream;
                     void Emit(Matrix4x4 viewProjection, Vector3 eye, IReadOnlyList<ScreenTextDraw> text, IReadOnlyList<UiShapeDraw> shapes)
                     {
-                        var rgba = renderer.RenderPrimitiveScene(Clear, viewProjection, instances, lines, text, cameraPosition: eye, shapes: shapes);
+                        var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),
+                            shadow: game.BuildShadow(), cameraPosition: eye, shapes: shapes, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
                         stdin.Write(rgba);
                         frame++;
                     }
@@ -79,6 +79,33 @@ internal sealed class VideoMaker(int width, int height, int fps)
                     {
                         game.Step(default, SimDt);
                         time += SimDt;
+                        if (VoxelBreakSound.Landings(game.RecentLandings, step, breakStyle) is { } landed)
+                        {
+                            Mix(audio, landed, TitleSeconds + time, 1f);
+                        }
+
+                        foreach (var swing in game.RecentSwings)
+                        {
+                            if (SwingSound.Synthesize(swing.Speed, step) is { } whoosh)
+                            {
+                                Mix(audio, whoosh, TitleSeconds + time, 1f);
+                            }
+                        }
+
+                        foreach (var shatter in game.RecentShatters)
+                        {
+                            if (shatter.Grains.Count > 0)
+                            {
+                                Mix(audio, VoxelBreakSound.Synthesize(shatter, step, breakStyle), TitleSeconds + time, 0.8f);
+                            }
+
+                            if (shatter.Fatal)
+                            {
+                                Mix(audio, VoxelBreakSound.Fatal(seed: 7, breakStyle), TitleSeconds + time, 1f);
+                                flashes.Add(("FATAL", Gold, time + 1.2f));
+                            }
+                        }
+
                         foreach (var hit in game.RecentHits)
                         {
                             var redHit = hit.Attacker == game.Player;
@@ -92,7 +119,11 @@ internal sealed class VideoMaker(int width, int height, int fps)
                             }
 
                             var tone = HitTone.Of(hit);
-                            Mix(audio, HitSound.Synthesize(tone, step), TitleSeconds + time, 0.55f + (0.45f * tone.Intensity));
+                            if (hitSounds)
+                            {
+                                Mix(audio, HitSound.Synthesize(tone, step), TitleSeconds + time, 0.55f + (0.45f * tone.Intensity));
+                            }
+
                             if (hit.Damage >= BigHitDamage)
                             {
                                 flashes.Add(($"{HitZones.Label(hit.Zone)}  {hit.Damage:0}", redHit ? Red : Blue, time + 0.7f));

@@ -574,6 +574,7 @@ public sealed unsafe partial class WindowedRenderer : IDisposable
             DisposeOverlayImageResources();
             DisposeIrradianceResources();
             DisposeDecalResources();
+            DisposeVoxelResources();
             DisposePostProcessResources();
             DisposeSurfaceTextureResources();
             DisposeUiShapeResources();

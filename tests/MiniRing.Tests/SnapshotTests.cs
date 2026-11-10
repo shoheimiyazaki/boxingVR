@@ -43,7 +43,7 @@ public sealed class SnapshotTests
 
             var (instances, lines) = game.BuildRenderables();
             var text = game.BuildOverlayText(viewProjection, new Vector2(Width, Height));
-            var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, instances, lines, text, cameraPosition: eye);
+            var rgba = Render(renderer, game, viewProjection, eye, instances, lines, text);
             var path = Path.Combine(outDir, $"miniring_t{at:0.0}.png");
             PngWriter.WriteRgba(path, Width, Height, rgba);
             Assert.IsTrue(File.Exists(path));
@@ -74,7 +74,7 @@ public sealed class SnapshotTests
         void Shoot(string name)
         {
             var (instances, lines) = game.BuildRenderables();
-            var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, instances, lines, [], cameraPosition: eye);
+            var rgba = Render(renderer, game, viewProjection, eye, instances, lines, []);
             PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_closeup_{name}.png"), Width, Height, rgba);
         }
 
@@ -87,13 +87,98 @@ public sealed class SnapshotTests
             var half = cpu.HalfExtentsOf(part).Z;
             var fist = s.Position + (forward * (half + FighterTuning.Default.GloveRadius)) + (left * side * half);
             game.CpuSkin.Dent(part, s, fist, -forward, damage);
+            game.Strike(cpu, part, fist, -forward, damage * 2f); // ボクセルの体も削る（体の見た目はこちら）
+        }
+
+        for (var i = 0; i < 12; i++)
+        {
+            game.Step(default, 1f / 60f); // 削れた破片を飛ばしてから撮る（直後は穴の中に詰まっている）
         }
 
         Shoot("after");
         Assert.IsTrue(game.CpuSkin.Part(cpu.Parts.Head).IsDented);
+        Assert.IsLessThan(1f, cpu.Voxels!.PartOf(cpu.Parts.Head)!.Body.Grid.Fraction(Aigis.Foundation.Voxels.VoxelTissue.Flesh), "the head's voxels were carved");
+    }
+
+    /// <summary>
+    /// CPU の体を前後に半分に割った断面（手前半分を描かない）を正面から撮り、中の組織（皮膚・筋肉・骨・脳・心臓・肺・肝臓・腸・目）が
+    /// 色で見分けられるかを見る。プレイヤーの体は描かない。
+    /// </summary>
+    [TestMethod]
+    public void Cutaway_ShowsEachTissueInItsOwnColor()
+    {
+        var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
+        Directory.CreateDirectory(outDir);
+        using var game = new BoxingGame(seed: 3);
+        using var renderer = new HeadlessRenderer(Width, Height);
+        for (var i = 0; i < 30; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        var cpu = game.Cpu;
+        var cpuVolumes = cpu.Voxels!.Parts.Select(p => p.Volume).ToHashSet();
+        var voxels = game.BuildVoxelVolumes().Where(d => cpuVolumes.Contains(d.Volume)).ToList();
+        foreach (var volume in cpuVolumes)
+        {
+            for (var z = volume.Depth / 2; z < volume.Depth; z++)
+            {
+                Array.Clear(volume.Rgba, 4 * volume.Width * volume.Height * z, 4 * volume.Width * volume.Height);
+            }
+        }
+
+        var chest = game.World.GetState(cpu.Parts.Chest);
+        var front = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, chest.Orientation) with { Y = 0f });
+        var target = chest.Position + new Vector3(0f, -0.08f, 0f);
+        var eye = target + (front * 0.5f) + new Vector3(0f, 0.05f, 0f);
+        var viewProjection = Camera.ViewProjection(eye, target, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+        var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, [], [], [], cameraPosition: eye, voxels: voxels);
+        PngWriter.WriteRgba(Path.Combine(outDir, "miniring_cutaway.png"), Width, Height, rgba);
+        Assert.IsGreaterThan(0, rgba.Where((_, i) => i % 4 == 0).Count(r => r > 60), "the body was drawn");
+    }
+
+    /// <summary>重い 1 発の直後（数フレーム）を間近で: 打った側の色の光の玉・輪・筋と、拳の向きへ噴き出すボクセル。</summary>
+    [TestMethod]
+    public void HeavyBlow_ShowsTheImpactGlowAndTheJet()
+    {
+        var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
+        Directory.CreateDirectory(outDir);
+        using var game = new BoxingGame(seed: 3);
+        using var renderer = new HeadlessRenderer(Width, Height);
+        for (var i = 0; i < 30; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        var cpu = game.Cpu;
+        var chest = game.World.GetState(cpu.Parts.Chest);
+        var forward = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, chest.Orientation) with { Y = 0f });
+        var side = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, forward));
+        var half = cpu.HalfExtentsOf(cpu.Parts.Chest).Z;
+        // 右から斜めに入るフック。
+        var blow = Vector3.Normalize(-forward + (side * 0.8f));
+        var fist = chest.Position - (blow * (half + 0.02f));
+        game.Strike(cpu, cpu.Parts.Chest, fist, blow * 4f, 28f, game.Player);
+        for (var i = 0; i < 4; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        var eye = chest.Position + (Vector3.Normalize(Vector3.Cross(blow, Vector3.UnitY) - (blow * 0.5f)) * 0.42f) + new Vector3(0f, 0.3f, 0f); // 打った側の斜め上から（輪が楕円に見え、手前の体に遮られない）
+        var viewProjection = Camera.ViewProjection(eye, chest.Position, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+        var (instances, lines) = game.BuildRenderables();
+        var rgba = Render(renderer, game, viewProjection, eye, instances, lines, []);
+        PngWriter.WriteRgba(Path.Combine(outDir, "miniring_impact.png"), Width, Height, rgba);
+        Assert.IsGreaterThan(0, game.Impacts.Count);
     }
 
     private static readonly Vector4 IGameClear = new(0.10f, 0.11f, 0.14f, 1f);
+
+    /// <summary>ゲームと同じ画づくり（会場の照明・影・空気の粒・仕上げ）で描く。</summary>
+    private static byte[] Render(HeadlessRenderer renderer, BoxingGame game, Matrix4x4 viewProjection, Vector3 eye,
+        IReadOnlyList<PrimitiveInstance> instances, IReadOnlyList<DebugLine> lines, IReadOnlyList<ScreenTextDraw> text)
+        => renderer.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, text, particles: game.BuildParticles(),
+            lighting: game.BuildLighting(), shadow: game.BuildShadow(), cameraPosition: eye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
 
     private static string FindRepoRoot()
     {

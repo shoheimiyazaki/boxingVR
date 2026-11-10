@@ -1,4 +1,3 @@
-using System.Numerics;
 using Aigis.Render;
 using MiniRing;
 using MiniRing.Audio;
@@ -10,11 +9,25 @@ using MiniRing.Vr;
 // ウィンドウは無い（状態はこのコンソールに出る）。Ctrl+C で終了。
 //   --runtime <auto|meta|vd|steamvr|system|path.json>  使う OpenXR ランタイム（既定 auto）
 //   --scale <0.3..1.0>  目の解像度倍率（既定 0.8。重いときは下げる）
+//   --break-sound <glass|crumble|crunch|circuit|metal>  ボクセルが砕ける音の方式（既定 glass）
+//   --hit-sound <on|off>  パンチが当たる音（既定 off。風切り音とボクセルの音だけ）
 //   --selftest          HMD なしで VR 描画経路（外部デバイス・GPU コピー）を検証して終了
 
 if (args.Contains("--selftest"))
 {
     return SelfTest.Run(Path.Combine(Environment.CurrentDirectory, ".visualcheck"));
+}
+
+if (!HitSoundOption.TryParse(args, out var hitSounds, out var hitError))
+{
+    Console.Error.WriteLine(hitError);
+    return 1;
+}
+
+if (!BreakSoundOption.TryParse(args, out var breakStyle, out var breakError))
+{
+    Console.Error.WriteLine(breakError);
+    return 1;
 }
 
 var renderScale = 0.8f;
@@ -75,14 +88,18 @@ using (xr)
 using (var game = new BoxingGame())
 using (var recorder = ReplayRecorder.TryStartFile(Path.Combine(Environment.CurrentDirectory, "replays"), game, "vr", out var recordingMessage))
 using (var renderer = new HeadlessRenderer(xr.EyeWidth, xr.EyeHeight, xr.Vulkan.External))
-using (var sounds = HitSoundPlayer.CreateDefault())
+using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
 {
     Console.WriteLine($"[vr] eye {xr.EyeWidth}x{xr.EyeHeight}, sRGB={xr.IsSrgb}. Put the headset on.");
     Console.WriteLine($"[vr] {recordingMessage}");
     var control = new VrPlayerControl();
-    var clear = new Vector4(0.10f, 0.11f, 0.14f, 1f);
+    var clear = ArenaLook.Background;
+    // VR の仕上げ: 画面の隅の陰りは付けない（頭を動かしても付いてくる黒い縁は不自然）。
+    var finish = ArenaLook.Finish(vignette: 0f);
     IReadOnlyList<PrimitiveInstance> instances = [];
     IReadOnlyList<DebugLine> lines = [];
+    IReadOnlyList<Aigis.Render.Voxels.VoxelVolumeDraw> voxels = [];
+    IReadOnlyList<ParticleInstance> particles = [];
     var lastStatus = "";
     var idleHintAt = DateTime.UtcNow.AddSeconds(8);
     var idleHintShown = false;
@@ -111,6 +128,9 @@ using (var sounds = HitSoundPlayer.CreateDefault())
                 }
 
                 sounds.PlayAll(game.RecentHits);
+                sounds.PlayShatters(game.RecentShatters);
+                sounds.PlayLandings(game.RecentLandings);
+                sounds.PlaySwings(game.RecentSwings);
 
                 foreach (var hit in game.RecentHits)
                 {
@@ -126,11 +146,14 @@ using (var sounds = HitSoundPlayer.CreateDefault())
                 }
 
                 (instances, lines) = game.BuildRenderables();
+                voxels = game.BuildVoxelVolumes();
+                particles = game.BuildParticles();
             },
             renderEye: eye =>
             {
                 var viewProjection = Camera.OffCenterViewProjection(eye.View, eye.Fov, 0.02f, 50f);
-                renderer.RenderPrimitiveSceneToImage(eye.TargetImage, clear, viewProjection, instances, lines, cameraPosition: eye.Position);
+                renderer.RenderPrimitiveSceneToImage(eye.TargetImage, clear, viewProjection, instances, lines, game.BuildLighting(), game.BuildShadow(),
+                    eye.Position, voxels, particles, finish);
             });
 
         // ランタイムがセッションを READY にしない（ヘッドセットに表示されない）まま待ち続けるときの手がかり。

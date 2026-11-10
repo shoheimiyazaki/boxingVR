@@ -778,6 +778,7 @@ public static class GameHost
                 var clearColor = barrier.Guard("game.BuildClearColor", game, static g => g.BuildClearColor(), IGame<TInput>.DefaultClearColor);
                 var particles = barrier.Guard("game.BuildParticles", game, static g => g.BuildParticles(), []);
                 var decals = barrier.Guard("game.BuildDecals", game, static g => g.BuildDecals(), []);
+                var voxels = barrier.Guard("game.BuildVoxelVolumes", game, static g => g.BuildVoxelVolumes(), []);
                 var lighting = barrier.Guard("game.BuildLighting", game, static g => g.BuildLighting(), SceneLighting.Default);
                 var shadow = barrier.Guard("game.BuildShadow", game, static g => g.BuildShadow(), null);
                 var postProcess = barrier.Guard("game.BuildPostProcess", game, static g => g.BuildPostProcess(), null);
@@ -795,7 +796,7 @@ public static class GameHost
                     // the day painting it black unconditionally turned Triage's sky black.
                     ClearColor: clearColor,
                     SplitClearColor: resolvedViews.CoversWholeTarget ? clearColor : new Vector4(0f, 0f, 0f, 1f),
-                    instances, lines, overlayText, overlayImages, overlayShapes, particles, decals, lighting, shadow, foreground, postProcess);
+                    instances, lines, overlayText, overlayImages, overlayShapes, particles, decals, lighting, shadow, foreground, postProcess, voxels);
                 heldFrame = frame;
                 var presented = PresentFrame(frame, overlayText, overlayShapes);
                 FinishFrame(presented);
@@ -920,7 +921,8 @@ public static class GameHost
                         shapes: shapes,
                         decals: frame.Decals,
                         foreground: frame.Foreground,
-                        postProcess: frame.PostProcess)
+                        postProcess: frame.PostProcess,
+                        voxels: frame.Voxels)
                     : renderer!.RenderPrimitiveViewsAndPresent(
                         frame.SplitClearColor,
                         frame.Views, frame.Instances, frame.Lines,
@@ -932,7 +934,8 @@ public static class GameHost
                         shapes: shapes,
                         decals: frame.Decals,
                         foreground: frame.Foreground,
-                        postProcess: frame.PostProcess);
+                        postProcess: frame.PostProcess,
+                        voxels: frame.Voxels);
             }
             catch (Exception renderFailure) when (!barrier.Strict)
             {
@@ -1205,7 +1208,8 @@ public static class GameHost
         SceneLighting Lighting,
         ShadowMapConfig? Shadow,
         ForegroundLayer? Foreground,
-        PostProcessSettings? PostProcess = null);
+        PostProcessSettings? PostProcess = null,
+        IReadOnlyList<Aigis.Render.Voxels.VoxelVolumeDraw>? Voxels = null);
 
     private static (float Aspect, Vector2 SizePixels) WindowMetrics(PlatformWindow window)
     {

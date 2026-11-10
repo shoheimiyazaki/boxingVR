@@ -141,6 +141,51 @@ public sealed class LowPolyMesh
         return area;
     }
 
+    /// <summary>
+    /// <paramref name="point"/> が閉じたメッシュの内側か（+X 寄りの光線が面を横切る回数の偶奇）。光線はわずかに傾けて、
+    /// 辺や頂点をちょうど通る数え違いを避ける。
+    /// </summary>
+    public bool Contains(Vector3 point)
+    {
+        var direction = Vector3.Normalize(new Vector3(1f, 0.0013f, 0.0029f));
+        var crossings = 0;
+        for (var t = 0; t < TriangleCount; t++)
+        {
+            var (a, b, c) = Triangle(t);
+            if (RayHitsTriangle(point, direction, Vertices[a], Vertices[b], Vertices[c]))
+            {
+                crossings++;
+            }
+        }
+
+        return (crossings & 1) == 1;
+    }
+
+    /// <summary>Möller–Trumbore（光線の前方 t &gt; 0 で当たるか）。</summary>
+    private static bool RayHitsTriangle(Vector3 origin, Vector3 direction, Vector3 a, Vector3 b, Vector3 c)
+    {
+        var e1 = b - a;
+        var e2 = c - a;
+        var p = Vector3.Cross(direction, e2);
+        var det = Vector3.Dot(e1, p);
+        if (MathF.Abs(det) < 1e-12f)
+        {
+            return false;
+        }
+
+        var inv = 1f / det;
+        var s = origin - a;
+        var u = Vector3.Dot(s, p) * inv;
+        if (u < 0f || u > 1f)
+        {
+            return false;
+        }
+
+        var q = Vector3.Cross(s, e1);
+        var v = Vector3.Dot(direction, q) * inv;
+        return v >= 0f && u + v <= 1f && Vector3.Dot(e2, q) * inv > 0f;
+    }
+
     public static Vector3 FaceNormal(Vector3 a, Vector3 b, Vector3 c)
     {
         var n = Vector3.Cross(b - a, c - a);

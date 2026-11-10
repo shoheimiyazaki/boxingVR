@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Aigis.Physics;
 using Aigis.Render;
 using MiniRing.LowPoly;
@@ -19,6 +20,9 @@ public static class BoxingRenderer
     private static readonly Vector4 PlayerGlove = new(0.85f, 0.1f, 0.1f, 1f);
     private static readonly Vector4 CpuGlove = new(0.1f, 0.25f, 0.85f, 1f);
 
+    /// <summary>会場の飾り（光る帯・灯体）。リングは動かないので 1 度だけ作る。</summary>
+    private static readonly PrimitiveInstance[] Dressing = [.. ArenaLook.Dressing(BoxingGame.RingCenter, BoxingGame.RingSize, BoxingGame.RingSurfaceHeight)];
+
     /// <summary>
     /// 呼び出し側のリストを空にして詰め直す。へこんだ体は 1 万インスタンス近くになるので、毎フレーム新しいリストを
     /// 伸ばしながら作ると確保とコピーだけで数 ms かかる（計測: 新規 ≈ 5ms、使い回し ≈ 0.8ms）。
@@ -31,8 +35,10 @@ public static class BoxingRenderer
         instances.Clear();
         lines.Clear();
         instances.AddRange(game.Ring.Visuals);
+        instances.AddRange(Dressing);
         AddFighter(instances, game.World, game.Player, game.Model, game.PlayerSkin, PlayerGlove);
         AddFighter(instances, game.World, game.Cpu, game.Model, game.CpuSkin, CpuGlove);
+        game.Debris.WriteInstances(instances);
 
         if (showTargetGhosts)
         {
@@ -51,12 +57,87 @@ public static class BoxingRenderer
     }
 
     /// <summary>
+    /// ボクセルの体の、ボクセル以外: グローブ（付いている剛体の先 — 前腕、切れたらその破片）。体そのものは
+    /// <see cref="FillVoxels"/> の 3D テクスチャから GPU が描く。目は頭のボクセルにある。
+    /// </summary>
+    private static void AddVoxelFighter(List<PrimitiveInstance> instances, Fighter fighter, Voxels.BoxerBody voxels, Vector4 glove)
+    {
+        // ボクセルの体は影の計算に入らないので、部位と切り落とされた破片ごとに、残っているボクセルを囲む見えない箱で影だけ落とす
+        // （キャンバスに立つ人の影。切れた腕の付け根は短い影、床に落ちた腕にも影）。
+        foreach (var part in voxels.Parts.Concat(voxels.Fragments))
+        {
+            if (ShadowBox(part.Body) is { } model)
+            {
+                instances.Add(new PrimitiveInstance(PrimitiveKind.Cube, model, Vector3.Zero, Vector4.One, MaterialKind.ShadowCastOnly));
+            }
+        }
+
+        foreach (var hand in new[] { Hand.Left, Hand.Right })
+        {
+            instances.Add(new PrimitiveInstance(PrimitiveKind.Sphere, Matrix4x4.CreateTranslation(fighter.GloveCenter(hand)),
+                new Vector3(fighter.GloveRadius, 0f, 0f), glove));
+        }
+    }
+
+    /// <summary>格子ごとの「残っているボクセルを囲む箱」（格子が変わったときだけ数え直す。全セルを見るので毎フレームは重い）。</summary>
+    private static readonly ConditionalWeakTable<Aigis.Foundation.Voxels.VoxelGrid, StrongBox<(int Version, (Vector3 Center, Vector3 HalfExtents)? Bounds)>> OccupiedCache = new();
+
+    /// <summary>影だけを落とす箱（ワールド）。少し細めにして、体より太い影にしない。空の格子は null。</summary>
+    private static Matrix4x4? ShadowBox(Aigis.Physics.Voxels.VoxelBody body)
+    {
+        var grid = body.Grid;
+        var cached = OccupiedCache.GetValue(grid, static g => new StrongBox<(int, (Vector3, Vector3)?)>((g.Version, g.OccupiedBounds())));
+        if (cached.Value.Version != grid.Version)
+        {
+            cached.Value = (grid.Version, grid.OccupiedBounds());
+        }
+
+        return cached.Value.Bounds is { } b
+            ? Matrix4x4.CreateScale(b.HalfExtents * 2f * 0.85f) * Matrix4x4.CreateTranslation(b.Center) * body.GridToWorld()
+            : null;
+    }
+
+    /// <summary>
+    /// ボクセルの体（部位と切り落とされた破片）を描く指示を、呼び出し側のリストへ詰め直す。各部位の 3D テクスチャは
+    /// 格子が変わったときだけ書き直され、GPU はそこから表面（空のボクセルとの境目の面）を作る。
+    /// </summary>
+    public static void FillVoxels(BoxingGame game, List<Aigis.Render.Voxels.VoxelVolumeDraw> voxels)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+        ArgumentNullException.ThrowIfNull(voxels);
+        voxels.Clear();
+        foreach (var fighter in new[] { game.Player, game.Cpu })
+        {
+            if (fighter.Voxels is not { } body)
+            {
+                continue;
+            }
+
+            foreach (var part in body.Parts)
+            {
+                voxels.Add(part.Draw());
+            }
+
+            foreach (var fragment in body.Fragments)
+            {
+                voxels.Add(fragment.Draw());
+            }
+        }
+    }
+
+    /// <summary>
     /// 体はローポリのメッシュ（<see cref="BoxerModel"/>）。へこんでいない部位は静的メッシュ 1 個、
     /// へこんだ部位は三角形ごとに直角三角形のインスタンスへ分解して、変形した形と変形量の色（白 → 赤）で描く。
     /// 体が白一色なので、どちらのファイターかはグローブの色で見分ける。
     /// </summary>
     private static void AddFighter(List<PrimitiveInstance> instances, PhysicsWorld world, Fighter fighter, BoxerModel model, BoxerSkin skin, Vector4 glove)
     {
+        if (fighter.Voxels is { } voxels)
+        {
+            AddVoxelFighter(instances, fighter, voxels, glove);
+            return;
+        }
+
         foreach (var id in fighter.Parts.All)
         {
             var s = world.GetState(id);

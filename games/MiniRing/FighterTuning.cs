@@ -94,6 +94,24 @@ public sealed record FighterTuning
     public float RecoverUprightness { get; init; } = 0.78f;
     public float NoGroundFallTime { get; init; } = 0.4f;
 
+    // ── ボクセルの体: 打撃で削れ、動きに響き、骨が断たれたら落ち、臓器が壊れたら死ぬ（Voxels/BoxerBody）
+    /// <summary>ボクセル 1 個の大きさの目安 [m]（部位の箱をこれに近い大きさで割り切る）。</summary>
+    public float VoxelSize { get; init; } = 0.005f;
+    /// <summary>ダメージ 1 あたりに削る量（肉 1 ボクセル = 1。骨は 8、臓器は 1.2〜1.4）。</summary>
+    public float CarvePerDamage { get; init; } = 4.3f;
+    /// <summary>削れたボクセルが飛び散る速さ [m/s]（60cm の人形に合わせた値）。</summary>
+    public float ChipSpeed { get; init; } = 0.8f;
+    /// <summary>飛び散った破片にかかる重力の倍率（1 = 実際の重力。小さいほどふわりと長く舞う）。</summary>
+    public float DebrisGravityScale { get; init; } = 0.5f;
+    /// <summary>臓器がこの割合より少なくなったら死ぬ。</summary>
+    public float OrganDeathFraction { get; init; } = 0.5f;
+    /// <summary>
+    /// 肉が無くなったときに残る力の割合（腕・脚・胴）。肉の残り f に対して力は MinMuscleStrength + (1 − MinMuscleStrength) × f。
+    /// </summary>
+    public float MinMuscleStrength { get; init; } = 0.15f;
+    /// <summary>左右の脚の力の弱い方がこれを下回ると、立っていられずに倒れて起き上がれない。</summary>
+    public float StandStrength { get; init; } = 0.35f;
+
     // ── 見た目: ローポリの体と打撃によるへこみ（BoxerModel / BoxerSkin）
     /// <summary>ローポリ形状を形を保ったまま何回細分化するか（1 回で三角形 4 倍）。変形の細かさが決まる。</summary>
     public int ModelSubdivisions { get; init; } = 1;

@@ -2,6 +2,8 @@ using System.Numerics;
 using Aigis.Physics;
 using Aigis.Player;
 using Aigis.Render;
+using Aigis.Render.Voxels;
+using MiniRing.Voxels;
 
 namespace MiniRing.Audio;
 
@@ -15,12 +17,22 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     private readonly IGame<BoxingInput> _inner;
     private readonly Func<IReadOnlyList<HitEvent>> _hits;
     private readonly HitSoundPlayer _sounds;
+    private readonly Func<IReadOnlyList<ShatterEvent>>? _shatters;
+    private readonly Func<IReadOnlyList<DebrisLanding>>? _landings;
+    private readonly Func<IReadOnlyList<SwingEvent>>? _swings;
 
     /// <param name="inner">包む試合。</param>
     /// <param name="hits">直前の <see cref="Step"/> で起きた打撃。</param>
     /// <param name="sounds">鳴らす先。これはこのオブジェクトと一緒に破棄する。</param>
-    public HitSoundGame(IGame<BoxingInput> inner, Func<IReadOnlyList<HitEvent>> hits, HitSoundPlayer sounds)
+    /// <param name="shatters">直前の <see cref="Step"/> で砕けたボクセル（砕ける音）。</param>
+    /// <param name="landings">直前の <see cref="Step"/> で床に落ちた破片（落ちる音）。</param>
+    /// <param name="swings">直前の <see cref="Step"/> で振り抜かれた拳（風切り音）。</param>
+    public HitSoundGame(IGame<BoxingInput> inner, Func<IReadOnlyList<HitEvent>> hits, HitSoundPlayer sounds,
+        Func<IReadOnlyList<ShatterEvent>>? shatters = null, Func<IReadOnlyList<DebrisLanding>>? landings = null, Func<IReadOnlyList<SwingEvent>>? swings = null)
     {
+        _shatters = shatters;
+        _landings = landings;
+        _swings = swings;
         ArgumentNullException.ThrowIfNull(inner);
         ArgumentNullException.ThrowIfNull(hits);
         ArgumentNullException.ThrowIfNull(sounds);
@@ -37,7 +49,32 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     {
         _inner.Step(input, dt);
         _sounds.PlayAll(_hits());
+        if (_shatters is not null)
+        {
+            _sounds.PlayShatters(_shatters());
+        }
+
+        if (_landings is not null)
+        {
+            _sounds.PlayLandings(_landings());
+        }
+
+        if (_swings is not null)
+        {
+            _sounds.PlaySwings(_swings());
+        }
     }
+
+    /// <summary>ボクセルの体（包んだ試合のもの）。これを中継しないとホストは体を描かない。</summary>
+    public IReadOnlyList<VoxelVolumeDraw> BuildVoxelVolumes() => _inner.BuildVoxelVolumes();
+
+    public IReadOnlyList<ParticleInstance> BuildParticles() => _inner.BuildParticles();
+
+    public SceneLighting BuildLighting() => _inner.BuildLighting();
+
+    public ShadowMapConfig? BuildShadow() => _inner.BuildShadow();
+
+    public PostProcessSettings? BuildPostProcess() => _inner.BuildPostProcess();
 
     public (IReadOnlyList<PrimitiveInstance> Instances, IReadOnlyList<DebugLine> Lines) BuildRenderables() => _inner.BuildRenderables();
 

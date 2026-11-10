@@ -102,7 +102,7 @@ public static class HitSound
     }
 
     /// <summary>小さな部屋の響き（2 本のフィードバック・コム）。打撃が乾きすぎず、耳に心地よく残る。</summary>
-    private static void AddRoom(float[] samples, float amount)
+    internal static void AddRoom(float[] samples, float amount)
     {
         var d1 = (int)(0.029f * SampleRate);
         var d2 = (int)(0.043f * SampleRate);
@@ -115,7 +115,7 @@ public static class HitSound
     }
 
     /// <summary>ピークを <paramref name="loudness"/> に揃え、柔らかくクリップし、末尾をフェードして 16-bit にする。</summary>
-    private static byte[] ToPcm16(float[] samples, float loudness)
+    internal static byte[] ToPcm16(float[] samples, float loudness)
     {
         var peak = 1e-6f;
         foreach (var s in samples)

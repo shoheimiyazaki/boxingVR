@@ -3,6 +3,9 @@ using System.Numerics;
 using Aigis.Physics;
 using Aigis.Player;
 using Aigis.Render;
+using Aigis.Render.Voxels;
+using MiniRing.Audio;
+using MiniRing.Voxels;
 
 namespace MiniRing.Replay;
 
@@ -26,6 +29,16 @@ public sealed class RecordingGame : IGame<BoxingInput>
 
     public (IReadOnlyList<PrimitiveInstance> Instances, IReadOnlyList<DebugLine> Lines) BuildRenderables() => _game.BuildRenderables();
 
+    public IReadOnlyList<VoxelVolumeDraw> BuildVoxelVolumes() => _game.BuildVoxelVolumes();
+
+    public IReadOnlyList<ParticleInstance> BuildParticles() => _game.BuildParticles();
+
+    public SceneLighting BuildLighting() => _game.BuildLighting();
+
+    public ShadowMapConfig? BuildShadow() => _game.BuildShadow();
+
+    public PostProcessSettings? BuildPostProcess() => _game.BuildPostProcess();
+
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 viewProjection, Vector2 screenSizePixels)
         => _game.BuildOverlayText(viewProjection, screenSizePixels);
 
@@ -40,6 +53,9 @@ public sealed class ReplayGame : IGame<BoxingInput>
 {
     private readonly ReplayPlayer _player;
     private readonly List<HitEvent> _frameHits = [];
+    private readonly List<ShatterEvent> _frameShatters = [];
+    private readonly List<DebrisLanding> _frameLandings = [];
+    private readonly List<SwingEvent> _frameSwings = [];
     private float _clock;
 
     public ReplayGame(ReplayData data)
@@ -51,6 +67,15 @@ public sealed class ReplayGame : IGame<BoxingInput>
 
     /// <summary>直前の <see cref="Step"/>（1 フレームに何ステップ進んでも）で起きた打撃。</summary>
     public IReadOnlyList<HitEvent> FrameHits => _frameHits;
+
+    /// <summary>直前の <see cref="Step"/> で砕けたボクセル。</summary>
+    public IReadOnlyList<ShatterEvent> FrameShatters => _frameShatters;
+
+    /// <summary>直前の <see cref="Step"/> で床に落ちた破片。</summary>
+    public IReadOnlyList<DebrisLanding> FrameLandings => _frameLandings;
+
+    /// <summary>直前の <see cref="Step"/> で振り抜かれた拳。</summary>
+    public IReadOnlyList<SwingEvent> FrameSwings => _frameSwings;
     public PhysicsWorld World => _player.Game.World;
     public bool IsOver => false;
 
@@ -66,10 +91,29 @@ public sealed class ReplayGame : IGame<BoxingInput>
     {
         _clock += dt;
         _frameHits.Clear();
-        _player.PlayUntil(_clock, game => _frameHits.AddRange(game.RecentHits));
+        _frameShatters.Clear();
+        _frameLandings.Clear();
+        _frameSwings.Clear();
+        _player.PlayUntil(_clock, game =>
+        {
+            _frameHits.AddRange(game.RecentHits);
+            _frameShatters.AddRange(game.RecentShatters);
+            _frameLandings.AddRange(game.RecentLandings);
+            _frameSwings.AddRange(game.RecentSwings);
+        });
     }
 
     public (IReadOnlyList<PrimitiveInstance> Instances, IReadOnlyList<DebugLine> Lines) BuildRenderables() => _player.Game.BuildRenderables();
+
+    public IReadOnlyList<VoxelVolumeDraw> BuildVoxelVolumes() => _player.Game.BuildVoxelVolumes();
+
+    public IReadOnlyList<ParticleInstance> BuildParticles() => _player.Game.BuildParticles();
+
+    public SceneLighting BuildLighting() => _player.Game.BuildLighting();
+
+    public ShadowMapConfig? BuildShadow() => _player.Game.BuildShadow();
+
+    public PostProcessSettings? BuildPostProcess() => _player.Game.BuildPostProcess();
 
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 viewProjection, Vector2 screenSizePixels)
     {

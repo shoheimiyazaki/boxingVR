@@ -12,6 +12,20 @@ using Silk.NET.Input;
 //   （引数なし）            遊ぶ。試合は replays/ に自動で記録される（--no-record で無効）
 //   --replay <file.mrrep>   記録した試合を実時間で再生する（VR の記録も可）
 //   --verify <file.mrrep>   ウィンドウを開かず最速で再生し、記録どおりに再現できるかを照合して終了
+//   --break-sound <glass|crumble|crunch|circuit|metal>  ボクセルが砕ける音の方式（既定 glass）
+//   --hit-sound <on|off>  パンチが当たる音（既定 off。風切り音とボクセルの音だけ）
+
+if (!HitSoundOption.TryParse(args, out var hitSounds, out var hitError))
+{
+    Console.Error.WriteLine(hitError);
+    return 1;
+}
+
+if (!BreakSoundOption.TryParse(args, out var breakStyle, out var breakError))
+{
+    Console.Error.WriteLine(breakError);
+    return 1;
+}
 
 foreach (var flag in new[] { "--verify", "--replay" })
 {
@@ -49,7 +63,7 @@ var options = new GameHost.Options(
 if (Option("--replay") is { } replayPath)
 {
     using var replay = new ReplayGame(ReplayFile.Read(replayPath));
-    using var replayWithSound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault());
+    using var replayWithSound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => replay.FrameShatters, () => replay.FrameLandings, () => replay.FrameSwings);
     profiler.Mark("replay loaded");
     GameHost.Run(profiler, options, replayWithSound, readInput: (_, _, _) => default(BoxingInput));
     return 0;
@@ -67,7 +81,7 @@ if (!args.Contains("--no-record"))
 
 // 打撃音は試合の外側で鳴らす（記録・物理には触れない）。
 using var recording = recorder is null ? null : new RecordingGame(game, recorder);
-using var withSound = new HitSoundGame(recording ?? (IGame<BoxingInput>)game, () => game.RecentHits, HitSoundPlayer.CreateDefault());
+using var withSound = new HitSoundGame(recording ?? (IGame<BoxingInput>)game, () => game.RecentHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => game.RecentShatters, () => game.RecentLandings, () => game.RecentSwings);
 GameHost.Run(profiler, options, withSound, readInput: (input, _, _) => keyboard.Read(input, camera.YawRadians, game.PlayerSense, FixedStep.Default.Dt));
 return 0;
 
