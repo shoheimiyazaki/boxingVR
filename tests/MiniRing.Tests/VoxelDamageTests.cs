@@ -222,7 +222,7 @@ public sealed class VoxelDamageTests
         instances.Clear();
         debris.WriteInstances(instances);
         Assert.IsTrue(instances.All(i => i.Material == MaterialKind.Standard), "cooled: nothing glows");
-        Assert.IsGreaterThanOrEqualTo(0.0049f, instances.Min(i => i.Model.Translation.Y), "no cube sinks into the floor");
+        Assert.IsGreaterThanOrEqualTo(-1e-4f, instances.Min(i => i.Model.Translation.Y - (0.5f * new Vector3(i.Model.M11, i.Model.M12, i.Model.M13).Length())), "no cube sinks into the floor (it shrinks as it fades)");
         Assert.AreEqual(1, debris.Count, "one piece of the capacity");
     }
 
@@ -247,7 +247,7 @@ public sealed class VoxelDamageTests
         Assert.IsTrue(trails.All(t => t.Blend == ParticleBlend.Additive && t.Position.Z < 0.5f), "only the hot piece streaks");
         Assert.IsTrue(trails.All(t => t.Position.X <= cubes[0].Model.Translation.X + 1e-4f), "behind it, back along its flight");
         var length = cubes[0].Model.Translation.X - trails.Min(t => t.Position.X);
-        Assert.IsTrue(length is > 0.01f and < 0.08f, $"a short streak ({length} m)");
+        Assert.IsTrue(length is > 0.06f and < 0.1f, $"about 5 frames of its flight at 1 m/s ({length} m)");
 
         for (var i = 0; i < 16; i++)
         {
@@ -334,7 +334,7 @@ public sealed class VoxelDamageTests
         var instances = new List<PrimitiveInstance>();
         debris.WriteInstances(instances);
         Assert.HasCount(1, instances);
-        Assert.AreEqual(0.005f, instances[0].Model.Translation.Y, 1e-3f, "resting on the floor");
+        Assert.AreEqual(0.005f * 0.75f, instances[0].Model.Translation.Y, 5e-4f, "resting on the floor (shrinking away: 3/4 size at 1.5 s of 2)");
 
         for (var i = 0; i < 40; i++)
         {

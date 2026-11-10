@@ -156,7 +156,14 @@ public sealed class VoxelDebris
                 continue;
             }
 
-            var previousY = p.Position.Y;
+            // Where its bottom was before this step (a chunk's bottom moves as it turns, so take it before turning).
+            var previousBottom = p.Position.Y - BottomDepth(p);
+            var angle = p.Spin.Length() * dt;
+            if (angle > 1e-6f)
+            {
+                p.Orientation = Quaternion.Normalize(Quaternion.Concatenate(p.Orientation, Quaternion.CreateFromAxisAngle(Vector3.Normalize(p.Spin), angle)));
+            }
+
             p.Velocity -= new Vector3(0f, Gravity * dt, 0f);
             p.Position += p.Velocity * dt;
             var half = BottomDepth(p);
@@ -164,7 +171,7 @@ public sealed class VoxelDebris
             // Land on a floor crossed from above during this step (however fast — no tunnelling), or resting on it.
             // A piece that was already below a raised floor (it fell past that floor's edge, e.g. off the side of a ring)
             // keeps falling to whatever is under it.
-            var wasAbove = previousY - half >= ground - 1e-3f;
+            var wasAbove = previousBottom >= ground - 1e-3f;
             if (p.Position.Y - half < ground && wasAbove)
             {
                 p.Position.Y = ground + half;
@@ -186,12 +193,6 @@ public sealed class VoxelDebris
                 }
             }
 
-            var angle = p.Spin.Length() * dt;
-            if (angle > 1e-6f)
-            {
-                p.Orientation = Quaternion.Normalize(Quaternion.Concatenate(p.Orientation, Quaternion.CreateFromAxisAngle(Vector3.Normalize(p.Spin), angle)));
-            }
-
             _pieces[i++] = p;
         }
 
@@ -205,7 +206,7 @@ public sealed class VoxelDebris
         for (var i = 0; i < _count; i++)
         {
             var p = _pieces[i];
-            var fade = Math.Clamp((p.Life - p.Age) / (p.Life / 3f), 0f, 1f);
+            var fade = FadeOf(p);
             if (p.Cells is not null)
             {
                 WriteChunk(p, fade, into);
@@ -256,11 +257,11 @@ public sealed class VoxelDebris
         }
     }
 
-    /// <summary>How long a hot piece's streak is, in seconds of its travel.</summary>
-    public const float TrailSeconds = 0.045f;
+    /// <summary>How long a hot piece's streak is, in seconds of its travel: about 5 frames at 60 fps, so the light lingers that long behind it.</summary>
+    public const float TrailSeconds = 5f / 60f;
 
-    private const float MaxTrailLength = 0.07f;
-    private const int TrailDots = 6;
+    private const float MaxTrailLength = 0.15f;
+    private const int TrailDots = 10;
     private const float HotBrightness = 1.6f;
     private const float CooledBrightness = 0.75f;
 
@@ -304,13 +305,15 @@ public sealed class VoxelDebris
     private const float PlateWidth = 0.8f;
     private const float PlateBrightness = 1.15f;
 
-    /// <summary>How far below its centre a piece reaches (a chunk: its lowest cube as it is turned now).</summary>
+    /// <summary>How far below its centre a piece reaches as it is drawn now (a chunk: its lowest cube as it is turned
+    /// now), shrinking with it over the end of its life so a fading piece stays on the floor.</summary>
     private static float BottomDepth(in Piece p)
     {
+        var fade = FadeOf(p);
         var halfEdge = 0.5f * MathF.Max(p.Size.X, MathF.Max(p.Size.Y, p.Size.Z));
         if (p.Cells is null)
         {
-            return halfEdge;
+            return halfEdge * fade;
         }
 
         var lowest = 0f;
@@ -319,8 +322,11 @@ public sealed class VoxelDebris
             lowest = MathF.Min(lowest, Vector3.Transform(cell.Offset, p.Orientation).Y);
         }
 
-        return halfEdge - lowest;
+        return (halfEdge - lowest) * fade;
     }
+
+    /// <summary>1, falling to 0 over the last third of its life (it shrinks away).</summary>
+    private static float FadeOf(in Piece p) => Math.Clamp((p.Life - p.Age) / (p.Life / 3f), 0f, 1f);
 
     /// <summary>1 when it has just broken off, falling to 0 over its heat (eased, so it cools fast then lingers).</summary>
     private static float HeatOf(in Piece p)

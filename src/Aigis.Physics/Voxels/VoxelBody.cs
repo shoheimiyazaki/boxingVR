@@ -198,7 +198,7 @@ public sealed class VoxelBody
             for (var k = 0; k < removed.Count && seed < 0; k++)
             {
                 var i = (start + k) % removed.Count;
-                if (group[i] < 0 && removed[i].WasSurface)
+                if (group[i] == -1 && removed[i].WasSurface)
                 {
                     seed = i;
                 }
@@ -207,7 +207,7 @@ public sealed class VoxelBody
             for (var k = 0; k < removed.Count && seed < 0; k++)
             {
                 var i = (start + k) % removed.Count;
-                if (group[i] < 0)
+                if (group[i] == -1)
                 {
                     seed = i;
                 }
@@ -231,7 +231,7 @@ public sealed class VoxelBody
                         break;
                     }
 
-                    if (index.TryGetValue((x + dx, y + dy, z + dz), out var n) && group[n] < 0)
+                    if (index.TryGetValue((x + dx, y + dy, z + dz), out var n) && group[n] == -1)
                     {
                         group[n] = g;
                         members.Add(n);
