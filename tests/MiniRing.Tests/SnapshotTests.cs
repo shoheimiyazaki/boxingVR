@@ -210,6 +210,10 @@ public sealed class SnapshotTests
             var (instances, lines) = game.BuildRenderables();
             var rgba = Render(renderer, game, viewProjection, eye, instances, lines, []);
             PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_face_f{frame:00}.png"), Width, Height, rgba);
+            // 殴った側の斜め前から: えぐれた顔の断面が、白 → 黄 → 赤と冷めていく。
+            var frontEye = head.Position + (forward * 0.3f) + (side * 0.12f) + new Vector3(0f, 0.06f, 0f);
+            var front = Camera.ViewProjection(frontEye, head.Position, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+            PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_face_front_f{frame:00}.png"), Width, Height, Render(renderer, game, front, frontEye, instances, lines, []));
         }
 
         Assert.IsGreaterThan(0, game.Debris.Count);

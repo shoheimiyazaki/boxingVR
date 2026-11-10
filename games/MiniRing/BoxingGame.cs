@@ -65,6 +65,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
     private readonly List<HitEvent> _recentHits = [];
     private readonly List<VoxelChip> _chips = [];
     private readonly List<VoxelChunk> _chunks = [];
+    private readonly List<VoxelCutFace> _cutFaces = [];
+    private readonly WoundGlow _wounds = new();
     private readonly VoxelDebris _debris = new(capacity: 9000);
     private readonly ImpactEffects _impacts = new();
     private readonly List<ShatterEvent> _recentShatters = [];
@@ -187,6 +189,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         _messageTimer = MathF.Max(0f, _messageTimer - dt);
         _debris.Step(dt, _recentLandings);
         _impacts.Step(dt);
+        _wounds.Step(dt);
         _lookTime += dt;
         DetectSwings();
         UpdateRound(dt);
@@ -384,7 +387,13 @@ public sealed class BoxingGame : IGame<BoxingInput>
         var spread = 0.75f - (0.5f * strength);
         _chips.Clear();
         _chunks.Clear();
-        var result = body.Impact(victimBody, point, direction, damage * _tuning.CarvePerDamage, chipSpeed, Jitter, _chips, spread, _chunks);
+        _cutFaces.Clear();
+        var result = body.Impact(victimBody, point, direction, damage * _tuning.CarvePerDamage, chipSpeed, Jitter, _chips, spread, _chunks, _cutFaces);
+        if (result is { Part: var struck } && _cutFaces.Count > 0)
+        {
+            _wounds.Add(struck, _cutFaces); // えぐれた穴の断面も、欠片と同じく白から冷めていく
+        }
+
         SpawnDebris(_chips, point, direction, strength, attacker, recoil);
         SpawnChunks(_chunks, recoil);
         if (result?.Fragment is { } fragment)
@@ -542,6 +551,9 @@ public sealed class BoxingGame : IGame<BoxingInput>
     /// <summary>当たった瞬間の光（描画用）。</summary>
     public ImpactEffects Impacts => _impacts;
 
+    /// <summary>削られた体の、光っている断面（描画用）。</summary>
+    public WoundGlow Wounds => _wounds;
+
     private void UpdateRound(float dt)
     {
         if (RoundOver)
@@ -619,6 +631,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         var ringHalf = (RingSize * 0.5f) + 0.02f;
         _debris.Clear();
         _impacts.Clear();
+        _wounds.Clear();
         _debris.GroundAt = p => MathF.Abs(p.X - RingCenter.X) < ringHalf && MathF.Abs(p.Z - RingCenter.Z) < ringHalf ? RingSurfaceHeight : 0f;
         _debris.Gravity = 9.81f * _tuning.DebrisGravityScale;
         CpuSkin = new BoxerSkin(_model, Cpu, _tuning);

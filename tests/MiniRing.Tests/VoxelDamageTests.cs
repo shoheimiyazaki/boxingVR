@@ -198,6 +198,60 @@ public sealed class VoxelDamageTests
     }
 
     [TestMethod]
+    public void Impact_ReportsTheFacesItLaidBare_OnWhatIsLeftOfTheBody()
+    {
+        using var world = new PhysicsWorld(gravity: Vector3.Zero);
+        var id = world.AddDynamicBox(Vector3.Zero, new Vector3(0.05f), 2f);
+        var block = new VoxelGrid(Palette, new Vector3(0.05f), (10, 10, 10), (_, _) => Flesh);
+        var body = new VoxelBody(world, id, block);
+        var random = new Random(4);
+        var cut = new List<VoxelCutFace>();
+        body.Impact(new Vector3(0f, 0.08f, 0f), -Vector3.UnitY, 60f, chipSpeed: 2f, () => (2f * random.NextSingle()) - 1f, [], cutFaces: cut);
+
+        Assert.IsNotEmpty(cut);
+        (int X, int Y, int Z)[] steps = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)];
+        foreach (var face in cut)
+        {
+            Assert.AreNotEqual(0, block.At(face.X, face.Y, face.Z), "on a cell still on the body");
+            var (dx, dy, dz) = steps[face.Face];
+            Assert.AreEqual(0, block.At(face.X + dx, face.Y + dy, face.Z + dz), "looking into the crater");
+        }
+
+        Assert.AreEqual(cut.Count, cut.Distinct().Count(), "each face once");
+        Assert.IsTrue(cut.Any(f => f.Face == 2), "the crater's floor looks up, back out of the struck face");
+    }
+
+    [TestMethod]
+    public void TheCrater_GlowsWhiteHotOnTheBody_ThenCoolsAway()
+    {
+        using var game = new BoxingGame(seed: 3);
+        for (var i = 0; i < 30; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        var cpu = game.Cpu;
+        var chest = game.World.GetState(cpu.Parts.Chest);
+        var forward = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, chest.Orientation) with { Y = 0f });
+        var fist = chest.Position + (forward * (cpu.HalfExtentsOf(cpu.Parts.Chest).Z + 0.02f));
+        game.Strike(cpu, cpu.Parts.Chest, fist, -forward * 4f, 28f, game.Player);
+        Assert.IsGreaterThan(0, game.Wounds.Count, "the crater's faces glow");
+
+        game.Step(default, 1f / 60f);
+        var glowing = new List<PrimitiveInstance>();
+        game.Wounds.WriteInstances(glowing);
+        Assert.IsNotEmpty(glowing);
+        Assert.IsTrue(glowing.All(g => g.Material == MaterialKind.Emissive && g.Color.X > 1f && g.Color.Z > 0.7f * g.Color.X), "white hot at first");
+
+        for (var i = 0; i < 31; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        Assert.AreEqual(0, game.Wounds.Count, $"cooled after {WoundGlow.HeatSeconds} s");
+    }
+
+    [TestMethod]
     public void AHotChunk_GlowsOnlyOnItsTornFaces_TumblesAsOne_AndRestsOnItsLowestCube()
     {
         var debris = new VoxelDebris(capacity: 1, groundY: 0f);

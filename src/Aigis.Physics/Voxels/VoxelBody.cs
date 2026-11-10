@@ -14,6 +14,11 @@ public readonly record struct VoxelChip(Vector3 Position, Vector3 Velocity, Quat
 /// +X, −X, +Y, −Y, +Z, −Z (bits 0..5). The rest were open air before the blow, or face cells of the same chunk.</param>
 public readonly record struct VoxelChunkCell(Vector3 Offset, byte Material, bool WasSurface, byte TornFaces);
 
+/// <summary>A face a carve laid bare on what is left of a body: cell (<paramref name="X"/>, <paramref name="Y"/>,
+/// <paramref name="Z"/>) of its grid, still filled, and which of its faces now looks into the crater (0..5: +X, −X, +Y,
+/// −Y, +Z, −Z).</summary>
+public readonly record struct VoxelCutFace(int X, int Y, int Z, byte Face);
+
 /// <summary>A clump of voxels torn off a body whole, in world space, with how it flies off (for debris effects).</summary>
 /// <param name="Position">Its centre.</param>
 /// <param name="Velocity">How it flies off [m/s].</param>
@@ -98,9 +103,10 @@ public sealed class VoxelBody
     /// of them off whole: up to <paramref name="maxChunks"/> connected clumps holding about <paramref name="chunkShare"/>
     /// of the cells between them, each a <see cref="VoxelChunk"/> (flying a little slower than the chips). The rest
     /// leave as chips.</para>
+    /// <para>With <paramref name="cutFaces"/>, every face the carve laid bare on what is left of the body (a <see cref="VoxelCutFace"/>).</para>
     /// </summary>
     public int Impact(Vector3 worldPoint, Vector3 worldDirection, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f,
-        ICollection<VoxelChunk>? chunks = null, float chunkShare = 0.6f, int maxChunks = 3)
+        ICollection<VoxelChunk>? chunks = null, float chunkShare = 0.6f, int maxChunks = 3, ICollection<VoxelCutFace>? cutFaces = null)
     {
         ArgumentNullException.ThrowIfNull(jitter);
         ArgumentNullException.ThrowIfNull(chips);
@@ -137,6 +143,11 @@ public sealed class VoxelBody
             var heading = (normal * 0.75f) + (radial * fan) + (glance * 0.9f) + (scatter * 0.12f);
             var speed = chipSpeed * speedScale * (1f + (0.25f * jitter()));
             return pointVelocity + (Vector3.Normalize(heading + new Vector3(1e-4f)) * speed);
+        }
+
+        if (cutFaces is not null)
+        {
+            CollectCutFaces(removed, cutFaces);
         }
 
         var group = chunks is null ? null : GroupIntoChunks(removed, chunkShare, maxChunks, jitter);
@@ -307,6 +318,26 @@ public sealed class VoxelBody
 
             var position = s.Position + Vector3.Transform(center + GridCenterLocal, s.Orientation);
             into.Add(new VoxelChunk(position, splash(position, ChunkSpeedScale), s.Orientation, s.AngularVelocity, Grid.CellSize, cells));
+        }
+    }
+
+    /// <summary>The faces the carve laid bare on the body: every face of a cell still filled that faced a carved cell.</summary>
+    private void CollectCutFaces(List<RemovedVoxel> removed, ICollection<VoxelCutFace> into)
+    {
+        var (nx, ny, nz) = Grid.Dimensions;
+        foreach (var v in removed)
+        {
+            var (x, y, z) = CellOf(v.LocalCenter);
+            for (var f = 0; f < FaceSteps.Length; f++)
+            {
+                var (dx, dy, dz) = FaceSteps[f];
+                var (ax, ay, az) = (x + dx, y + dy, z + dz);
+                if (ax >= 0 && ay >= 0 && az >= 0 && ax < nx && ay < ny && az < nz && Grid.At(ax, ay, az) != 0)
+                {
+                    // The neighbour's face that looks back at the carved cell (the opposite face of step f).
+                    into.Add(new VoxelCutFace(ax, ay, az, (byte)(f ^ 1)));
+                }
+            }
         }
     }
 
