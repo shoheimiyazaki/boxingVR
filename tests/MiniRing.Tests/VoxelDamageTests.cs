@@ -463,11 +463,55 @@ public sealed class VoxelDamageTests
         Assert.IsFalse(BreakSoundOption.TryParse(["--break-sound", "glass,crunch"], out _, out _), "one style at a time");
 
         Assert.IsTrue(HitSoundOption.TryParse([], out var hits, out _));
-        Assert.IsTrue(hits, "punches are heard unless turned off");
-        Assert.IsTrue(HitSoundOption.TryParse(["--hit-sound", "OFF"], out hits, out _));
-        Assert.IsFalse(hits);
-        Assert.IsFalse(HitSoundOption.TryParse(["--hit-sound", "quiet"], out hits, out _));
+        Assert.IsFalse(hits, "punches landing are silent unless turned on");
+        Assert.IsTrue(HitSoundOption.TryParse(["--hit-sound", "ON"], out hits, out _));
         Assert.IsTrue(hits);
+        Assert.IsFalse(HitSoundOption.TryParse(["--hit-sound", "quiet"], out hits, out _));
+        Assert.IsFalse(hits);
+    }
+
+    [TestMethod]
+    public void AFasterSwing_WhooshesLouder_AndASlowOneIsSilent()
+    {
+        static float Peak(byte[] pcm) => Enumerable.Range(0, pcm.Length / 2).Max(i => Math.Abs((int)BitConverter.ToInt16(pcm, 2 * i))) / 32768f;
+        Assert.IsNull(SwingSound.Synthesize(SwingSound.MinSpeed - 0.1f, 1));
+        var gentle = SwingSound.Synthesize(1.4f, 1)!;
+        var hard = SwingSound.Synthesize(3.2f, 1)!;
+        Assert.IsLessThan(Peak(hard), Peak(gentle));
+        Assert.IsLessThanOrEqualTo(SwingSound.Loudness + 0.01f, Peak(hard), "a whoosh stays quiet");
+        Assert.IsLessThan(gentle.Length, hard.Length, "a fast swing is short and sharp");
+    }
+
+    [TestMethod]
+    public void TheCpusPunches_AreHeardAsSwings_OncePerPunch()
+    {
+        using var game = new BoxingGame(seed: 4);
+        var swings = new List<SwingEvent>();
+        for (var i = 0; i < 20 * 60; i++)
+        {
+            game.Step(default, 1f / 60f);
+            swings.AddRange(game.RecentSwings);
+        }
+
+        Assert.IsGreaterThan(5, swings.Count, "the CPU threw punches");
+        Assert.IsLessThan(80, swings.Count, "one whoosh per punch, not one per frame");
+        Assert.IsTrue(swings.All(s => s.Speed >= SwingSound.MinSpeed));
+    }
+
+    [TestMethod]
+    public void Debris_FallsAtHalfGravity()
+    {
+        Assert.AreEqual(0.5f, FighterTuning.Default.DebrisGravityScale);
+        var debris = new VoxelDebris(capacity: 1, groundY: -10f) { Gravity = 9.81f * FighterTuning.Default.DebrisGravityScale };
+        debris.Spawn(Vector3.Zero, Vector3.Zero, Quaternion.Identity, new Vector3(0.01f), Vector3.Zero, Vector4.One);
+        for (var i = 0; i < 60; i++)
+        {
+            debris.Step(1f / 60f);
+        }
+
+        var instances = new List<PrimitiveInstance>();
+        debris.WriteInstances(instances);
+        Assert.AreEqual(-0.5f * 4.905f, instances[0].Model.Translation.Y, 0.05f, "half of g over one second");
     }
 
     [TestMethod]

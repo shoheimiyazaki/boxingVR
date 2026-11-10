@@ -4,6 +4,7 @@ using Aigis.Physics;
 using Aigis.Player;
 using Aigis.Render;
 using Aigis.Render.Voxels;
+using MiniRing.Audio;
 using MiniRing.Voxels;
 
 namespace MiniRing.Replay;
@@ -46,6 +47,7 @@ public sealed class ReplayGame : IGame<BoxingInput>
     private readonly List<HitEvent> _frameHits = [];
     private readonly List<ShatterEvent> _frameShatters = [];
     private readonly List<DebrisLanding> _frameLandings = [];
+    private readonly List<SwingEvent> _frameSwings = [];
     private float _clock;
 
     public ReplayGame(ReplayData data)
@@ -63,6 +65,9 @@ public sealed class ReplayGame : IGame<BoxingInput>
 
     /// <summary>直前の <see cref="Step"/> で床に落ちた破片。</summary>
     public IReadOnlyList<DebrisLanding> FrameLandings => _frameLandings;
+
+    /// <summary>直前の <see cref="Step"/> で振り抜かれた拳。</summary>
+    public IReadOnlyList<SwingEvent> FrameSwings => _frameSwings;
     public PhysicsWorld World => _player.Game.World;
     public bool IsOver => false;
 
@@ -80,11 +85,13 @@ public sealed class ReplayGame : IGame<BoxingInput>
         _frameHits.Clear();
         _frameShatters.Clear();
         _frameLandings.Clear();
+        _frameSwings.Clear();
         _player.PlayUntil(_clock, game =>
         {
             _frameHits.AddRange(game.RecentHits);
             _frameShatters.AddRange(game.RecentShatters);
             _frameLandings.AddRange(game.RecentLandings);
+            _frameSwings.AddRange(game.RecentSwings);
         });
     }
 

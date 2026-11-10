@@ -12,7 +12,7 @@ namespace MiniRing.Arena;
 /// 構成: タイトル → 試合（技・守り・クリーンヒットの字幕、打撃音つき）→ 結果。
 /// 試合は種で決まるので、同じ引数なら同じ動画になる。
 /// </summary>
-internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true)
+internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = false)
 {
     private const float SimDt = 1f / 60f;
     private const float TitleSeconds = 3.5f;
@@ -82,6 +82,14 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         if (VoxelBreakSound.Landings(game.RecentLandings, step, breakStyle) is { } landed)
                         {
                             Mix(audio, landed, TitleSeconds + time, 1f);
+                        }
+
+                        foreach (var swing in game.RecentSwings)
+                        {
+                            if (SwingSound.Synthesize(swing.Speed, step) is { } whoosh)
+                            {
+                                Mix(audio, whoosh, TitleSeconds + time, 1f);
+                            }
                         }
 
                         foreach (var shatter in game.RecentShatters)

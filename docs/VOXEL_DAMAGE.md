@@ -132,7 +132,7 @@
 ### 砕ける音（`Audio/VoxelBreakSound.cs`・`Audio/BreakGrainSynth.cs`）
 
 ボクセル 1 個に 1 粒の音を鳴らします（素材ファイルなし・合成）。音の作り方は 5 方式あり、起動オプション `--break-sound <方式>` で選びます（デスクトップ・VR・`MiniRing.Arena video`。既定は `glass`）。
-パンチが当たる音（`HitSound`）は `--hit-sound off` で消せます（デスクトップ・VR・`MiniRing.Arena video`）。ボクセルの音だけを聞き比べるとき用です。
+パンチが当たる音（`HitSound`）は既定で鳴らしません（`--hit-sound on` で戻せる。デスクトップ・VR・`MiniRing.Arena video`）。代わりに、拳を振り抜いたときの小さな風切り音（`Audio/SwingSound.cs`）を鳴らします: グローブの速さが 1.2m/s を超えて相手の方へ向かい、いちばん速くなったフレームで 1 回（引き戻しと試合開始の揺れは鳴らさない）。帯域を絞ったノイズの「シュッ」で、速いほど高く・大きく・短く、最大でも砕ける音の 1 割強（`SwingSound.Loudness` = 0.12、2.4m/s で最大）。
 
 | 方式 | 狙い | 皮膚・肉 | 骨・目 | 臓器・脳 |
 |---|---|---|---|---|
@@ -158,6 +158,7 @@
 | ボクセルの細かさ | `VoxelSize`（既定 5mm。細かいほど形が元の体に近く、GPU の頂点が増える） |
 | 削れる速さ | `CarvePerDamage`（ダメージ 1 あたりの削る量） |
 | 飛び散り方 | `ChipSpeed` |
+| 破片の落ち方 | `DebrisGravityScale`（破片にかかる重力の倍率。既定 0.5 で、ふわりと長く舞う） |
 | 死にやすさ | `OrganDeathFraction`（臓器がこの割合より少なくなったら死ぬ） |
 | 弱り方 | `MinMuscleStrength`（肉が無くても残る力）、`StandStrength`（立っていられる脚の力） |
 | 材質の硬さ・色・中身の配置 | `Voxels/BoxerAnatomy.cs` |

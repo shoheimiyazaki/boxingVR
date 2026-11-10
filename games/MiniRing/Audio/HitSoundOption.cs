@@ -1,15 +1,15 @@
 namespace MiniRing.Audio;
 
-/// <summary>起動オプション <c>--hit-sound &lt;on|off&gt;</c>（パンチが当たる音。off でボクセルが砕ける音だけを聞く）。</summary>
+/// <summary>起動オプション <c>--hit-sound &lt;on|off&gt;</c>（パンチが当たる音。既定は off）。</summary>
 public static class HitSoundOption
 {
     public const string Flag = "--hit-sound";
 
-    /// <summary>引数から読む。無ければ on。値が無い・on/off 以外なら false と理由。</summary>
+    /// <summary>引数から読む。無ければ off（パンチの音は鳴らさない）。値が無い・on/off 以外なら false と理由。</summary>
     public static bool TryParse(IReadOnlyList<string> args, out bool on, out string error)
     {
         ArgumentNullException.ThrowIfNull(args);
-        on = true;
+        on = false;
         error = "";
         for (var i = 0; i < args.Count; i++)
         {
@@ -20,7 +20,7 @@ public static class HitSoundOption
 
             if (i + 1 >= args.Count || !TryValue(args[i + 1], out on))
             {
-                on = true;
+                on = false;
                 error = $"{Flag} needs on or off.";
                 return false;
             }

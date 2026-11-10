@@ -11,7 +11,7 @@ using MiniRing.Vr;
 //   --runtime <auto|meta|vd|steamvr|system|path.json>  使う OpenXR ランタイム（既定 auto）
 //   --scale <0.3..1.0>  目の解像度倍率（既定 0.8。重いときは下げる）
 //   --break-sound <glass|crumble|crunch|circuit|metal>  ボクセルが砕ける音の方式（既定 glass）
-//   --hit-sound <on|off>  パンチが当たる音（既定 on。off でボクセルの音だけ）
+//   --hit-sound <on|off>  パンチが当たる音（既定 off。風切り音とボクセルの音だけ）
 //   --selftest          HMD なしで VR 描画経路（外部デバイス・GPU コピー）を検証して終了
 
 if (args.Contains("--selftest"))
@@ -128,6 +128,7 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
                 sounds.PlayAll(game.RecentHits);
                 sounds.PlayShatters(game.RecentShatters);
                 sounds.PlayLandings(game.RecentLandings);
+                sounds.PlaySwings(game.RecentSwings);
 
                 foreach (var hit in game.RecentHits)
                 {

@@ -67,6 +67,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
     private readonly VoxelDebris _debris = new(capacity: 9000);
     private readonly List<ShatterEvent> _recentShatters = [];
     private readonly List<DebrisLanding> _recentLandings = [];
+    private readonly List<SwingEvent> _recentSwings = [];
+    private readonly Dictionary<(Fighter, Hand), (Vector3 Velocity, bool Armed)> _swing = [];
     private readonly Random _fx;
     private readonly Dictionary<(Fighter, Hand), Vector3> _preStepGloveVelocity = [];
     private readonly Dictionary<(Fighter, Hand), float> _hitCooldown = [];
@@ -147,6 +149,9 @@ public sealed class BoxingGame : IGame<BoxingInput>
     /// <summary>直近の <see cref="Step"/> で床に落ちた（跳ねた）破片（ホストの落下音用）。</summary>
     public IReadOnlyList<DebrisLanding> RecentLandings => _recentLandings;
 
+    /// <summary>直前の <see cref="Step"/> で振り抜かれた拳（風切り音）。</summary>
+    public IReadOnlyList<SwingEvent> RecentSwings => _recentSwings;
+
     public string StatusLine => string.Create(CultureInfo.InvariantCulture,
         $"Round {_round}  You {Cpu.Condition.TotalDamage:0} - CPU {Player.Condition.TotalDamage:0} damage  ({PlayerWins}-{CpuWins})");
 
@@ -161,6 +166,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         _recentHits.Clear();
         _recentShatters.Clear();
         _recentLandings.Clear();
+        _recentSwings.Clear();
         if (input.ResetRequested)
         {
             StartRound();
@@ -176,7 +182,37 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
         _messageTimer = MathF.Max(0f, _messageTimer - dt);
         _debris.Step(dt, _recentLandings);
+        DetectSwings();
         UpdateRound(dt);
+    }
+
+    /// <summary>
+    /// グローブの速さが <see cref="SwingSound.MinSpeed"/> を超えて、いちばん速くなった（減り始めた）フレームを 1 回の振りとして出す。
+    /// 速さがその半分を下回ったら次の振りを待つ。音のためだけで、試合（物理・記録）には響かない。
+    /// </summary>
+    private void DetectSwings()
+    {
+        foreach (var fighter in Fighters)
+        {
+            var opponent = fighter == Player ? Cpu : Player;
+            foreach (var hand in Hands)
+            {
+                var velocity = fighter.GloveVelocity(hand);
+                var speed = velocity.Length();
+                // 最初は「止まるまで待つ」: 試合開始の構えに入る揺れを振りと数えない。
+                var (previous, armed) = _swing.GetValueOrDefault((fighter, hand), (Vector3.Zero, false));
+                var previousSpeed = previous.Length();
+                var toOpponent = Vector3.Normalize(opponent.HeadPosition - fighter.GloveCenter(hand));
+                // 相手へ向かう振りだけ（引き戻しは鳴らさない）。
+                if (armed && previousSpeed >= SwingSound.MinSpeed && speed < previousSpeed && Vector3.Dot(previous, toOpponent) > 0.5f * previousSpeed)
+                {
+                    _recentSwings.Add(new SwingEvent(fighter.GloveCenter(hand), previousSpeed));
+                    armed = false;
+                }
+
+                _swing[(fighter, hand)] = (velocity, armed || speed < 0.5f * SwingSound.MinSpeed);
+            }
+        }
     }
 
     private void Substep(in FighterCommand playerCommand, float dt)
@@ -510,6 +546,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         var ringHalf = (RingSize * 0.5f) + 0.02f;
         _debris.Clear();
         _debris.GroundAt = p => MathF.Abs(p.X - RingCenter.X) < ringHalf && MathF.Abs(p.Z - RingCenter.Z) < ringHalf ? RingSurfaceHeight : 0f;
+        _debris.Gravity = 9.81f * _tuning.DebrisGravityScale;
         CpuSkin = new BoxerSkin(_model, Cpu, _tuning);
         _fighters = [Player, Cpu];
         _cpuControl = _corners.Cpu(_seed + _round);

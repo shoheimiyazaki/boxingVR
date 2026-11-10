@@ -164,7 +164,7 @@ static int Video(Options o)
         throw new ArgumentException($"--break-sound '{breakName}' はありません（{string.Join(", ", Enum.GetNames<MiniRing.Audio.BreakStyle>().Select(n => n.ToLowerInvariant()))}）。");
     }
 
-    if (!MiniRing.Audio.HitSoundOption.TryValue(o.Get("hit-sound") ?? "on", out var hitSounds))
+    if (!MiniRing.Audio.HitSoundOption.TryValue(o.Get("hit-sound") ?? "off", out var hitSounds))
     {
         throw new ArgumentException("--hit-sound は on か off にしてください。");
     }

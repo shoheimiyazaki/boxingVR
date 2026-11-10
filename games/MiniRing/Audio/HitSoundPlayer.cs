@@ -33,7 +33,7 @@ public sealed class HitSoundPlayer : IDisposable
     }
 
     /// <summary>既定の音声出力（Windows の既定デバイス。Quest Link 中は Link の音声出力）で鳴らす。</summary>
-    public static HitSoundPlayer CreateDefault(BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool playHits = true)
+    public static HitSoundPlayer CreateDefault(BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool playHits = false)
     {
         VoxelBreakSound.Prewarm(breakStyle);
         return new(new OpenAlAudioBackend()) { BreakStyle = breakStyle, PlayHits = playHits };
@@ -42,8 +42,8 @@ public sealed class HitSoundPlayer : IDisposable
     /// <summary>ボクセルが砕ける音・床に落ちる音の方式。</summary>
     public BreakStyle BreakStyle { get; init; } = VoxelBreakSound.DefaultStyle;
 
-    /// <summary>パンチが当たる音を鳴らすか（false でボクセルの音だけ）。</summary>
-    public bool PlayHits { get; init; } = true;
+    /// <summary>パンチが当たる音を鳴らすか（既定は鳴らさない: ボクセルの音と風切り音だけ）。</summary>
+    public bool PlayHits { get; init; }
 
     public bool IsAvailable => _backend.IsAvailable;
 
@@ -134,6 +134,31 @@ public sealed class HitSoundPlayer : IDisposable
         if (VoxelBreakSound.Landings(landings, _variation.Next(), BreakStyle) is { } pcm)
         {
             Start(new AudioClip("landing", AudioSampleFormat.Mono16, VoxelBreakSound.SampleRate, pcm, IsGenerated: true), 1f);
+        }
+    }
+
+    /// <summary>1 ステップぶんの、振り抜いた拳の風切り音（小さく）。</summary>
+    public void PlaySwings(IReadOnlyList<SwingEvent> swings)
+    {
+        ArgumentNullException.ThrowIfNull(swings);
+        if (!_backend.IsAvailable || swings.Count == 0)
+        {
+            return;
+        }
+
+        OpenAlAudioBackend.MakeCurrentOnThisThread();
+        foreach (var swing in swings)
+        {
+            Reap();
+            if (_voices.Count >= MaxVoices - ReservedForBreaks)
+            {
+                return;
+            }
+
+            if (SwingSound.Synthesize(swing.Speed, _variation.Next()) is { } pcm)
+            {
+                Start(new AudioClip("swing", AudioSampleFormat.Mono16, SwingSound.SampleRate, pcm, IsGenerated: true), 1f);
+            }
         }
     }
 
