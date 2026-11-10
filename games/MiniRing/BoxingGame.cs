@@ -65,6 +65,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
     private readonly List<HitEvent> _recentHits = [];
     private readonly List<VoxelChip> _chips = [];
     private readonly VoxelDebris _debris = new(capacity: 9000);
+    private readonly ImpactEffects _impacts = new();
     private readonly List<ShatterEvent> _recentShatters = [];
     private readonly List<DebrisLanding> _recentLandings = [];
     private readonly List<SwingEvent> _recentSwings = [];
@@ -182,6 +183,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
         _messageTimer = MathF.Max(0f, _messageTimer - dt);
         _debris.Step(dt, _recentLandings);
+        _impacts.Step(dt);
         DetectSwings();
         UpdateRound(dt);
     }
@@ -383,7 +385,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         {
             victim.Die(cause);
             fatal = true;
-            Burst(point, 60, 1.6f, new Vector4(1f, 0.25f, 0.2f, 1f)); // 致命傷: 大きな赤い閃光
+            _impacts.Spawn(point, direction, 1f, FatalFlash, Jitter); // 致命傷: いちばん大きな赤い光
         }
 
         if (_chips.Count > 0 || fatal)
@@ -460,64 +462,28 @@ public sealed class BoxingGame : IGame<BoxingInput>
         }
     }
 
-    /// <summary>
-    /// 当たった瞬間の閃光（打った側のグローブの色。分からなければ金色）: 拳の進む向きへの細い火花の筋と、少しの跳ね返り。
-    /// 強いほど本数が多く、速く、長い。重い 1 発（強さ 0.5 以上）では、拳の向きに垂直な光の輪も広がる。
-    /// </summary>
+    /// <summary>当たった瞬間の光（<see cref="ImpactEffects"/>: 球とカプセルで、飛び散るボクセルと紛れない）。打った側のグローブの色。</summary>
     private void ImpactFlash(Vector3 point, Vector3 direction, float strength, Fighter? attacker)
     {
         var color = attacker is null ? Spark : attacker == Player ? PlayerSpark : CpuSpark;
-        var dir = direction.LengthSquared() > 1e-12f ? Vector3.Normalize(direction) : Vector3.UnitY;
-        var streaks = 4 + (int)(20f * strength);
-        for (var k = 0; k < streaks; k++)
-        {
-            var back = k % 4 == 3; // 4 本に 1 本は跳ね返り
-            var heading = Vector3.Normalize(((back ? -0.6f : 1f) * dir) + (new Vector3(Jitter(), Jitter(), Jitter()) * (back ? 0.7f : 0.35f)));
-            var speed = (0.8f + (2.2f * strength)) * (1f + (0.3f * Jitter()));
-            _debris.Spawn(point, heading * speed, Quaternion.Identity, new Vector3(0.004f + (0.003f * strength)),
-                new Vector3(Jitter(), Jitter(), Jitter()) * 40f, color, life: 0.12f + (0.15f * strength), glow: true, tag: VoxelBreakSound.SparkTag);
-        }
-
-        if (strength < 0.5f)
-        {
-            return;
-        }
-
-        // 光の輪: 拳の向きに垂直な面に、等間隔で外へ。
-        var side = Vector3.Normalize(Vector3.Cross(dir, MathF.Abs(dir.Y) < 0.9f ? Vector3.UnitY : Vector3.UnitX));
-        var up = Vector3.Cross(dir, side);
-        var ring = 12 + (int)(16f * strength);
-        for (var k = 0; k < ring; k++)
-        {
-            var angle = 2f * MathF.PI * k / ring;
-            var outward = (MathF.Cos(angle) * side) + (MathF.Sin(angle) * up);
-            _debris.Spawn(point, outward * (1.2f + (1.5f * strength)), Quaternion.Identity, new Vector3(0.005f),
-                Vector3.Zero, color, life: 0.14f, glow: true, tag: VoxelBreakSound.SparkTag);
-        }
-    }
-
-    /// <summary>当たった所から光る火花を放射状に（0.15〜0.3 秒）。</summary>
-    private void Burst(Vector3 point, int count, float speed, Vector4 color)
-    {
-        for (var k = 0; k < count; k++)
-        {
-            var dir = Vector3.Normalize(new Vector3(Jitter(), Jitter() + 0.3f, Jitter()) + new Vector3(1e-3f));
-            _debris.Spawn(point, dir * speed * (1f + (0.5f * Jitter())), Quaternion.Identity, new Vector3(0.004f + (0.002f * Jitter())),
-                new Vector3(Jitter(), Jitter(), Jitter()) * 40f, color, life: 0.18f + (0.08f * Jitter()), glow: true, tag: VoxelBreakSound.SparkTag);
-        }
+        _impacts.Spawn(point, direction, strength, color, Jitter);
     }
 
     private static readonly Vector4 BloodColor = new(0.55f, 0.02f, 0.03f, 1f);
     private static readonly Vector4 BoneDust = new(1f, 0.98f, 0.9f, 1f);
     private static readonly Vector4 Spark = new(1f, 0.85f, 0.45f, 1f);
     private static readonly Vector4 OrganGlow = new(1f, 0.15f, 0.25f, 1f);
-    private static readonly Vector4 PlayerSpark = new(1f, 0.4f, 0.3f, 1f);
-    private static readonly Vector4 CpuSpark = new(0.45f, 0.65f, 1f, 1f);
+    private static readonly Vector4 PlayerSpark = new(1f, 0.08f, 0.04f, 1f);
+    private static readonly Vector4 CpuSpark = new(0.1f, 0.35f, 1f, 1f);
+    private static readonly Vector4 FatalFlash = new(1f, 0.15f, 0.1f, 1f);
 
     private float Jitter() => (2f * _fx.NextSingle()) - 1f;
 
     /// <summary>飛び散ったボクセルの破片（描画用）。</summary>
     public VoxelDebris Debris => _debris;
+
+    /// <summary>当たった瞬間の光（描画用）。</summary>
+    public ImpactEffects Impacts => _impacts;
 
     private void UpdateRound(float dt)
     {
@@ -595,6 +561,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         // 破片はリングの上ならリングの面、外なら床で止まる。
         var ringHalf = (RingSize * 0.5f) + 0.02f;
         _debris.Clear();
+        _impacts.Clear();
         _debris.GroundAt = p => MathF.Abs(p.X - RingCenter.X) < ringHalf && MathF.Abs(p.Z - RingCenter.Z) < ringHalf ? RingSurfaceHeight : 0f;
         _debris.Gravity = 9.81f * _tuning.DebrisGravityScale;
         CpuSkin = new BoxerSkin(_model, Cpu, _tuning);

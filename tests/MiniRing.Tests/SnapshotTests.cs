@@ -137,6 +137,41 @@ public sealed class SnapshotTests
         Assert.IsGreaterThan(0, rgba.Where((_, i) => i % 4 == 0).Count(r => r > 60), "the body was drawn");
     }
 
+    /// <summary>重い 1 発の直後（数フレーム）を間近で: 打った側の色の光の玉・輪・筋と、拳の向きへ噴き出すボクセル。</summary>
+    [TestMethod]
+    public void HeavyBlow_ShowsTheImpactGlowAndTheJet()
+    {
+        var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
+        Directory.CreateDirectory(outDir);
+        using var game = new BoxingGame(seed: 3);
+        using var renderer = new HeadlessRenderer(Width, Height);
+        for (var i = 0; i < 30; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        var cpu = game.Cpu;
+        var chest = game.World.GetState(cpu.Parts.Chest);
+        var forward = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, chest.Orientation) with { Y = 0f });
+        var side = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, forward));
+        var half = cpu.HalfExtentsOf(cpu.Parts.Chest).Z;
+        // 右から斜めに入るフック。
+        var blow = Vector3.Normalize(-forward + (side * 0.8f));
+        var fist = chest.Position - (blow * (half + 0.02f));
+        game.Strike(cpu, cpu.Parts.Chest, fist, blow * 4f, 28f, game.Player);
+        for (var i = 0; i < 4; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        var eye = chest.Position + (Vector3.Normalize(Vector3.Cross(blow, Vector3.UnitY)) * 0.6f) + new Vector3(0f, 0.12f, 0f); // 拳の向きを真横から
+        var viewProjection = Camera.ViewProjection(eye, chest.Position, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+        var (instances, lines) = game.BuildRenderables();
+        var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, instances, lines, [], cameraPosition: eye, voxels: game.BuildVoxelVolumes());
+        PngWriter.WriteRgba(Path.Combine(outDir, "miniring_impact.png"), Width, Height, rgba);
+        Assert.IsGreaterThan(0, game.Impacts.Count);
+    }
+
     private static readonly Vector4 IGameClear = new(0.10f, 0.11f, 0.14f, 1f);
 
     private static string FindRepoRoot()

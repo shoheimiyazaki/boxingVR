@@ -34,6 +34,7 @@ public static class BoxingRenderer
         AddFighter(instances, game.World, game.Player, game.Model, game.PlayerSkin, PlayerGlove);
         AddFighter(instances, game.World, game.Cpu, game.Model, game.CpuSkin, CpuGlove);
         game.Debris.WriteInstances(instances);
+        game.Impacts.WriteInstances(instances);
 
         if (showTargetGhosts)
         {

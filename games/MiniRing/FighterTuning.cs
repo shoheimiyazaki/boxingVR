@@ -100,7 +100,7 @@ public sealed record FighterTuning
     /// <summary>ダメージ 1 あたりに削る量（肉 1 ボクセル = 1。骨は 8、臓器は 1.2〜1.4）。</summary>
     public float CarvePerDamage { get; init; } = 4.3f;
     /// <summary>削れたボクセルが飛び散る速さ [m/s]（60cm の人形に合わせた値）。</summary>
-    public float ChipSpeed { get; init; } = 1.1f;
+    public float ChipSpeed { get; init; } = 0.8f;
     /// <summary>飛び散った破片にかかる重力の倍率（1 = 実際の重力。小さいほどふわりと長く舞う）。</summary>
     public float DebrisGravityScale { get; init; } = 0.5f;
     /// <summary>臓器がこの割合より少なくなったら死ぬ。</summary>

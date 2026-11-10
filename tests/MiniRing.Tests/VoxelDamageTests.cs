@@ -142,6 +142,34 @@ public sealed class VoxelDamageTests
     }
 
     [TestMethod]
+    public void TheImpactGlow_IsSpheresAndCapsules_NeverCubes_AndAHeavyBlowAddsARing()
+    {
+        var random = new Random(2);
+        float Jitter() => (2f * random.NextSingle()) - 1f;
+        var light = new ImpactEffects();
+        light.Spawn(Vector3.Zero, Vector3.UnitZ, 0.1f, Vector4.One, Jitter);
+        var heavy = new ImpactEffects();
+        heavy.Spawn(Vector3.Zero, Vector3.UnitZ, 0.9f, Vector4.One, Jitter);
+        light.Step(0.03f);
+        heavy.Step(0.03f);
+        var lightShapes = new List<PrimitiveInstance>();
+        var heavyShapes = new List<PrimitiveInstance>();
+        light.WriteInstances(lightShapes);
+        heavy.WriteInstances(heavyShapes);
+
+        Assert.IsTrue(lightShapes.Concat(heavyShapes).All(i => i.Kind is PrimitiveKind.Sphere or PrimitiveKind.Capsule), "not to be mistaken for voxel chips");
+        Assert.IsTrue(heavyShapes.All(i => i.Material == MaterialKind.Emissive));
+        Assert.IsGreaterThan(lightShapes.Count + 15, heavyShapes.Count, "the heavy blow's ring");
+
+        for (var i = 0; i < 30; i++)
+        {
+            heavy.Step(1f / 60f);
+        }
+
+        Assert.AreEqual(0, heavy.Count, "gone in half a second");
+    }
+
+    [TestMethod]
     public void AHarderBlow_ReadsStronger()
     {
         Assert.AreEqual(0f, BoxingGame.HitStrength(2f));
