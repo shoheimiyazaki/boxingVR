@@ -22,8 +22,8 @@ public sealed class ImpactEffects
     /// <summary>いちばん濃い粒の不透明度。どれもこれ以下で、後ろが透けて見える。</summary>
     public const float MaxAlpha = 0.6f;
 
-    private const int RingDots = 28;
-    private const int TrailDots = 5;
+    private const int RingDots = 48;
+    private const int TrailDots = 8;
     private const float GlowLife = 0.16f;
     private const float RingLife = 0.32f;
     private const float HazeLife = 0.5f;
@@ -102,7 +102,8 @@ public sealed class ImpactEffects
                     // 最初の 2 割で一気にふくらみ、残りで薄れる。
                     var swell = t < 0.2f ? t / 0.2f : 1f;
                     var fade = t < 0.2f ? 1f : 1f - ((t - 0.2f) / 0.8f);
-                    var size = (0.05f + (0.07f * e.Strength)) * (0.6f + (0.4f * swell));
+                    // 粒は中心から外へ薄れるので、見える大きさは粒の半分ほど。前の光の玉（半径 0.015〜0.04m）と同じに見えるよう、直径の 2 倍にする。
+                    var size = 4f * (0.015f + (0.025f * e.Strength)) * (0.6f + (0.4f * swell));
                     into.Add(new ParticleInstance(e.Position, size, e.Color with { W = 0.5f * fade * (0.6f + (0.4f * e.Strength)) }, Blend: ParticleBlend.Additive));
                     into.Add(new ParticleInstance(e.Position, size * 0.35f, Vector4.One with { W = 0.5f * fade }, Blend: ParticleBlend.Additive));
                     break;
@@ -111,12 +112,13 @@ public sealed class ImpactEffects
                 case EffectKind.Ring:
                 {
                     var spread = 1f - ((1f - t) * (1f - t)); // 速く広がって、ゆるむ
-                    var radius = 0.02f + ((0.05f + (0.09f * e.Strength)) * spread);
+                    var radius = 0.025f + ((0.04f + (0.08f * e.Strength)) * spread); // 前の衝撃の輪と同じ半径
                     var fade = (1f - t) * (1f - t);
                     var side = Vector3.Normalize(Vector3.Cross(e.Direction, MathF.Abs(e.Direction.Y) < 0.9f ? Vector3.UnitY : Vector3.UnitX));
                     var up = Vector3.Cross(e.Direction, side);
-                    // 隣の粒と重なる大きさにして、点の列ではなく、ぼけた 1 本の帯に見せる。
-                    var dot = MathF.Max(0.012f, 2.6f * MathF.PI * radius / RingDots);
+                    // 帯の太さは前の輪（太さ 2 × (0.004〜0.009)m）が同じに見える粒の大きさ。隣の粒と重ねて、ぼけた 1 本の帯に見せる。
+                    var band = 4f * (0.004f + (0.005f * e.Strength)) * (1f - (0.5f * t));
+                    var dot = MathF.Max(band, 1.5f * 2f * MathF.PI * radius / RingDots);
                     var color = e.Color with { W = 0.32f * fade * (0.6f + (0.4f * e.Strength)) };
                     // 加算ではなく半透明で重ねる: 明るい肌やキャンバスの上でも、色のついた薄い膜として見える。
                     for (var k = 0; k < RingDots; k++)
@@ -132,11 +134,11 @@ public sealed class ImpactEffects
                 case EffectKind.Trail:
                 {
                     var fade = 1f - t;
-                    var length = (0.02f + (0.04f * e.Strength)) * fade;
+                    var length = 2f * (0.015f + (0.035f * e.Strength)) * fade; // 前の光の筋と同じ長さ
                     for (var k = 0; k < TrailDots; k++)
                     {
                         var back = k / (float)(TrailDots - 1);
-                        var size = (0.012f + (0.008f * e.Strength)) * (1f - (0.6f * back));
+                        var size = (0.016f + (0.006f * e.Strength)) * (1f - (0.5f * back)); // 前の筋の太さ（約 8mm）が同じに見える大きさ
                         var alpha = 0.45f * fade * (1f - (0.85f * back));
                         into.Add(new ParticleInstance(e.Position - (e.Direction * length * back), size, e.Color with { W = alpha }, Blend: ParticleBlend.Additive));
                     }
