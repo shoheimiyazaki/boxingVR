@@ -9,6 +9,13 @@ namespace Aigis.Render.Voxels;
 /// <param name="Tag">What the spawner said it was (<see cref="VoxelDebris.Spawn"/>).</param>
 public readonly record struct DebrisLanding(Vector3 Position, float Speed, float Size, byte Tag);
 
+/// <summary>One cube of a chunk (<see cref="VoxelDebris.SpawnChunk"/>).</summary>
+/// <param name="Offset">Its centre from the chunk's centre, in the chunk's frame.</param>
+/// <param name="Color">Its colour.</param>
+/// <param name="TornFaces">Its faces that were torn off something, one bit per face (+X, −X, +Y, −Y, +Z, −Z: bits 0..5):
+/// only these glow while the chunk is hot.</param>
+public readonly record struct DebrisCell(Vector3 Offset, Vector4 Color, byte TornFaces);
+
 /// <summary>
 /// Flying cubes for carved-off voxels: each tumbles under gravity, bounces and slides to rest on a ground plane, then
 /// shrinks away. Visual only (no collision with bodies), CPU-simulated, fixed capacity (the oldest piece makes room for a
@@ -73,6 +80,41 @@ public sealed class VoxelDebris
             Heat = MathF.Max(0f, heat),
             HotColor = hotColor ?? Vector4.One,
         };
+        Add(piece);
+    }
+
+    /// <summary>
+    /// Adds a chunk: several cubes of <paramref name="cellSize"/> flying and tumbling as one (one slot of the capacity).
+    /// While hot (<paramref name="heat"/> seconds) only its torn faces (<see cref="DebrisCell.TornFaces"/>) glow, in
+    /// <paramref name="hotColor"/>; its cubes keep their own colours. It draws no streak.
+    /// </summary>
+    /// <param name="position">Its centre.</param>
+    /// <param name="velocity">How it flies off [m/s].</param>
+    /// <param name="orientation">Its frame (the cells' offsets are in it).</param>
+    /// <param name="cellSize">One cube's edges.</param>
+    /// <param name="cells">Its cubes (at least one).</param>
+    /// <param name="spin">Its spin [rad/s].</param>
+    /// <param name="life">How long it lives [s]; zero or less uses <see cref="LifeSeconds"/>.</param>
+    /// <param name="tag">What it is, for the caller (reported back with its landings).</param>
+    /// <param name="heat">How long [s] its torn faces glow.</param>
+    /// <param name="hotColor">The colour they glow (white when not given).</param>
+    public void SpawnChunk(Vector3 position, Vector3 velocity, Quaternion orientation, Vector3 cellSize, IReadOnlyList<DebrisCell> cells, Vector3 spin, float life = 0f, byte tag = 0, float heat = 0f, Vector4? hotColor = null)
+    {
+        ArgumentNullException.ThrowIfNull(cells);
+        ArgumentOutOfRangeException.ThrowIfZero(cells.Count);
+        var piece = new Piece(position, velocity, orientation, spin, cellSize, cells[0].Color, 0f)
+        {
+            Life = life > 0f ? life : LifeSeconds,
+            Tag = tag,
+            Heat = MathF.Max(0f, heat),
+            HotColor = hotColor ?? Vector4.One,
+            Cells = [.. cells],
+        };
+        Add(piece);
+    }
+
+    private void Add(Piece piece)
+    {
         if (_count < _pieces.Length)
         {
             _pieces[_count++] = piece;
@@ -117,7 +159,7 @@ public sealed class VoxelDebris
             var previousY = p.Position.Y;
             p.Velocity -= new Vector3(0f, Gravity * dt, 0f);
             p.Position += p.Velocity * dt;
-            var half = 0.5f * MathF.Max(p.Size.X, MathF.Max(p.Size.Y, p.Size.Z));
+            var half = BottomDepth(p);
             var ground = GroundAt?.Invoke(p.Position) ?? GroundY;
             // Land on a floor crossed from above during this step (however fast — no tunnelling), or resting on it.
             // A piece that was already below a raised floor (it fell past that floor's edge, e.g. off the side of a ring)
@@ -164,6 +206,12 @@ public sealed class VoxelDebris
         {
             var p = _pieces[i];
             var fade = Math.Clamp((p.Life - p.Age) / (p.Life / 3f), 0f, 1f);
+            if (p.Cells is not null)
+            {
+                WriteChunk(p, fade, into);
+                continue;
+            }
+
             var model = Matrix4x4.CreateScale(p.Size * fade) * Matrix4x4.CreateFromQuaternion(p.Orientation) * Matrix4x4.CreateTranslation(p.Position);
             var hot = HeatOf(p);
             if (hot > 0f)
@@ -189,7 +237,7 @@ public sealed class VoxelDebris
             var p = _pieces[i];
             var hot = HeatOf(p);
             var speed = p.Velocity.Length();
-            if (hot <= 0f || speed < 0.05f)
+            if (hot <= 0f || speed < 0.05f || p.Cells is not null)
             {
                 continue;
             }
@@ -215,6 +263,64 @@ public sealed class VoxelDebris
     private const int TrailDots = 6;
     private const float HotBrightness = 1.6f;
     private const float CooledBrightness = 0.75f;
+
+    /// <summary>
+    /// A chunk's cubes in their own colours, and, while it is hot, a thin self-lit plate on each torn face (just proud
+    /// of the face, so it never fights it for depth), cooling from the hot colour to the cube's own.
+    /// </summary>
+    private static void WriteChunk(in Piece p, float fade, ICollection<PrimitiveInstance> into)
+    {
+        var frame = Matrix4x4.CreateFromQuaternion(p.Orientation) * Matrix4x4.CreateTranslation(p.Position);
+        var cube = p.Size * fade;
+        var hot = HeatOf(p);
+        foreach (var cell in p.Cells!)
+        {
+            var at = cell.Offset * fade;
+            into.Add(new PrimitiveInstance(PrimitiveKind.Cube, Matrix4x4.CreateScale(cube) * Matrix4x4.CreateTranslation(at) * frame, Vector3.Zero, cell.Color, MaterialKind.Standard));
+            if (hot <= 0f || cell.TornFaces == 0)
+            {
+                continue;
+            }
+
+            var glow = Vector4.Lerp(cell.Color * CooledBrightness, p.HotColor * PlateBrightness, hot) with { W = cell.Color.W };
+            for (var f = 0; f < 6; f++)
+            {
+                if ((cell.TornFaces & (1 << f)) == 0)
+                {
+                    continue;
+                }
+
+                var axis = f / 2;
+                var sign = f % 2 == 0 ? 1f : -1f;
+                var normal = axis switch { 0 => Vector3.UnitX, 1 => Vector3.UnitY, _ => Vector3.UnitZ } * sign;
+                var plate = new Vector3(axis == 0 ? PlateThickness : PlateWidth, axis == 1 ? PlateThickness : PlateWidth, axis == 2 ? PlateThickness : PlateWidth) * cube;
+                var center = at + (normal * (0.5f * Vector3.Dot(cube, normal * sign)));
+                into.Add(new PrimitiveInstance(PrimitiveKind.Cube, Matrix4x4.CreateScale(plate) * Matrix4x4.CreateTranslation(center) * frame, Vector3.Zero, glow, MaterialKind.Emissive));
+            }
+        }
+    }
+
+    private const float PlateThickness = 0.12f;
+    private const float PlateWidth = 0.8f;
+    private const float PlateBrightness = 1.15f;
+
+    /// <summary>How far below its centre a piece reaches (a chunk: its lowest cube as it is turned now).</summary>
+    private static float BottomDepth(in Piece p)
+    {
+        var halfEdge = 0.5f * MathF.Max(p.Size.X, MathF.Max(p.Size.Y, p.Size.Z));
+        if (p.Cells is null)
+        {
+            return halfEdge;
+        }
+
+        var lowest = 0f;
+        foreach (var cell in p.Cells)
+        {
+            lowest = MathF.Min(lowest, Vector3.Transform(cell.Offset, p.Orientation).Y);
+        }
+
+        return halfEdge - lowest;
+    }
 
     /// <summary>1 when it has just broken off, falling to 0 over its heat (eased, so it cools fast then lingers).</summary>
     private static float HeatOf(in Piece p)
@@ -247,5 +353,8 @@ public sealed class VoxelDebris
         public byte Tag;
         public float Heat;
         public Vector4 HotColor;
+
+        /// <summary>A chunk's cells (null for a single cube): <see cref="Size"/> is then one cell.</summary>
+        public DebrisCell[]? Cells;
     }
 }

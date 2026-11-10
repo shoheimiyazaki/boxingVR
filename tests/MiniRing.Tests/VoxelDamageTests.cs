@@ -151,6 +151,82 @@ public sealed class VoxelDamageTests
     }
 
     [TestMethod]
+    public void AHeavyBlow_TearsOffChunksWhole_WithTheirTornFacesMarked_AndTheRestCrumbles()
+    {
+        (List<VoxelChip> Chips, List<VoxelChunk> Chunks, int Carved) Hit(float energy)
+        {
+            using var world = new PhysicsWorld(gravity: Vector3.Zero);
+            var id = world.AddDynamicBox(Vector3.Zero, new Vector3(0.05f), 2f);
+            var block = new VoxelGrid(Palette, new Vector3(0.05f), (10, 10, 10), (_, _) => Flesh);
+            var body = new VoxelBody(world, id, block);
+            var random = new Random(4);
+            var chips = new List<VoxelChip>();
+            var chunks = new List<VoxelChunk>();
+            var carved = body.Impact(new Vector3(0f, 0.08f, 0f), -Vector3.UnitY, energy, chipSpeed: 2f, () => (2f * random.NextSingle()) - 1f, chips, chunks: chunks);
+            return (chips, chunks, carved);
+        }
+
+        var light = Hit(4f);
+        Assert.IsLessThan(VoxelBody.MinCellsForChunks, light.Carved);
+        Assert.IsEmpty(light.Chunks, "a light blow only crumbles");
+
+        var heavy = Hit(120f);
+        Assert.IsTrue(heavy.Chunks.Count is >= 1 and <= 3, $"one to a few chunks ({heavy.Chunks.Count})");
+        Assert.IsNotEmpty(heavy.Chips, "and fine chips besides");
+        Assert.AreEqual(heavy.Carved, heavy.Chips.Count + heavy.Chunks.Sum(c => c.Cells.Count), "every carved cell leaves once");
+        foreach (var chunk in heavy.Chunks)
+        {
+            Assert.IsGreaterThanOrEqualTo(3, chunk.Cells.Count);
+            // 1 つにつながった塊（隣り合う面でたどれる）。
+            var cells = chunk.Cells.Select(c => Vector3.Round(c.Offset / 0.01f * 2f)).ToList();
+            var reached = new HashSet<Vector3> { cells[0] };
+            var frontier = new Queue<Vector3>(reached);
+            while (frontier.Count > 0)
+            {
+                var at = frontier.Dequeue();
+                foreach (var next in cells.Where(c => Vector3.DistanceSquared(c, at) is > 3.9f and < 4.1f && reached.Add(c)))
+                {
+                    frontier.Enqueue(next);
+                }
+            }
+
+            Assert.HasCount(cells.Count, reached, "one connected clump");
+            Assert.IsTrue(chunk.Cells.Any(c => c.TornFaces != 0), "it was torn off something: those faces glow");
+            Assert.IsTrue(chunk.Cells.Any(c => c.WasSurface && (c.TornFaces & 0b100) == 0), "its outer skin (+Y, the struck face) is not a torn face");
+            Assert.IsGreaterThan(0f, chunk.Velocity.Y, "it splashes out of the struck face too");
+        }
+    }
+
+    [TestMethod]
+    public void AHotChunk_GlowsOnlyOnItsTornFaces_TumblesAsOne_AndRestsOnItsLowestCube()
+    {
+        var debris = new VoxelDebris(capacity: 1, groundY: 0f);
+        var skin = new Vector4(0.8f, 0.6f, 0.5f, 1f);
+        DebrisCell[] cells = [new(new Vector3(-0.005f, 0f, 0f), skin, 0b000010), new(new Vector3(0.005f, 0f, 0f), skin, 0)];
+        debris.SpawnChunk(new Vector3(0f, 0.3f, 0f), Vector3.Zero, Quaternion.Identity, new Vector3(0.01f), cells, new Vector3(0f, 0f, 3f), heat: 0.3f, hotColor: Vector4.One);
+        debris.Step(1f / 60f);
+
+        var instances = new List<PrimitiveInstance>();
+        debris.WriteInstances(instances);
+        Assert.AreEqual(2, instances.Count(i => i.Material == MaterialKind.Standard), "its cubes keep their own colours");
+        Assert.AreEqual(1, instances.Count(i => i.Material == MaterialKind.Emissive), "one torn face, one glowing plate");
+        var trails = new List<ParticleInstance>();
+        debris.WriteTrails(trails);
+        Assert.IsEmpty(trails, "a chunk draws no streak");
+
+        for (var i = 0; i < 150; i++)
+        {
+            debris.Step(1f / 60f);
+        }
+
+        instances.Clear();
+        debris.WriteInstances(instances);
+        Assert.IsTrue(instances.All(i => i.Material == MaterialKind.Standard), "cooled: nothing glows");
+        Assert.IsGreaterThanOrEqualTo(0.0049f, instances.Min(i => i.Model.Translation.Y), "no cube sinks into the floor");
+        Assert.AreEqual(1, debris.Count, "one piece of the capacity");
+    }
+
+    [TestMethod]
     public void HotChips_GlowAndDrawAShortStreakBehindThem_ThenCoolToTheirOwnColor()
     {
         var debris = new VoxelDebris(capacity: 2) { Gravity = 0f };

@@ -6,6 +6,23 @@ namespace Aigis.Physics.Voxels;
 /// <summary>A voxel carved off a body, in world space, with the velocity it flies off at (for debris effects).</summary>
 public readonly record struct VoxelChip(Vector3 Position, Vector3 Velocity, Quaternion Orientation, Vector3 Size, byte Material, bool WasSurface);
 
+/// <summary>One cell of a <see cref="VoxelChunk"/>.</summary>
+/// <param name="Offset">Its centre from the chunk's centre, in the chunk's frame.</param>
+/// <param name="Material">Its material (palette index).</param>
+/// <param name="WasSurface">Whether it was on the body's original skin.</param>
+/// <param name="TornFaces">Its faces that were torn (faced the body, or cells that flew off apart), one bit per face:
+/// +X, −X, +Y, −Y, +Z, −Z (bits 0..5). The rest were open air before the blow, or face cells of the same chunk.</param>
+public readonly record struct VoxelChunkCell(Vector3 Offset, byte Material, bool WasSurface, byte TornFaces);
+
+/// <summary>A clump of voxels torn off a body whole, in world space, with how it flies off (for debris effects).</summary>
+/// <param name="Position">Its centre.</param>
+/// <param name="Velocity">How it flies off [m/s].</param>
+/// <param name="Orientation">Its frame (the body's at the blow): <see cref="VoxelChunkCell.Offset"/> is in it.</param>
+/// <param name="AngularVelocity">The body's spin at the blow [rad/s].</param>
+/// <param name="CellSize">One cell's edges.</param>
+/// <param name="Cells">Its cells.</param>
+public sealed record VoxelChunk(Vector3 Position, Vector3 Velocity, Quaternion Orientation, Vector3 AngularVelocity, Vector3 CellSize, IReadOnlyList<VoxelChunkCell> Cells);
+
 /// <summary>
 /// A rigid body whose inside is a <see cref="VoxelGrid"/>: the grid is the body's box, centred at
 /// <see cref="GridCenterLocal"/> in the body's frame (zero for a body built around its grid).
@@ -77,8 +94,13 @@ public sealed class VoxelBody
     /// 65°) and swept along the part of the blow that runs along the surface, so a glancing blow throws them on its way.
     /// The body's own recoil is the caller's to add (it usually comes after the carve). Speeds are about <paramref name="chipSpeed"/> (±25%) on top of the body's own
     /// velocity. <paramref name="jitter"/> (−1..1 per call) spreads them; pass a seeded source to stay deterministic.
+    /// <para>With <paramref name="chunks"/>, a blow that carves at least <see cref="MinCellsForChunks"/> cells tears some
+    /// of them off whole: up to <paramref name="maxChunks"/> connected clumps holding about <paramref name="chunkShare"/>
+    /// of the cells between them, each a <see cref="VoxelChunk"/> (flying a little slower than the chips). The rest
+    /// leave as chips.</para>
     /// </summary>
-    public int Impact(Vector3 worldPoint, Vector3 worldDirection, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f)
+    public int Impact(Vector3 worldPoint, Vector3 worldDirection, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f,
+        ICollection<VoxelChunk>? chunks = null, float chunkShare = 0.6f, int maxChunks = 3)
     {
         ArgumentNullException.ThrowIfNull(jitter);
         ArgumentNullException.ThrowIfNull(chips);
@@ -101,27 +123,203 @@ public sealed class VoxelBody
         var glance = dir - (normal * Vector3.Dot(dir, normal));
         var cone = 0.5f + spread;
         var size = Grid.CellSize;
-        foreach (var v in removed)
+
+        // A splash out of the crater, never through the body: out of the struck face, fanned around the fist (which
+        // blocks the way straight back), swept along the glancing part of the blow. A blow head-on to the face
+        // sprays out around the fist and back toward the puncher, not out of the back of the head.
+        Vector3 Splash(Vector3 position, float speedScale)
         {
-            var local = v.LocalCenter + GridCenterLocal;
-            var position = s.Position + Vector3.Transform(local, s.Orientation);
             var pointVelocity = s.LinearVelocity + Vector3.Cross(s.AngularVelocity, position - s.Position);
             var scatter = new Vector3(jitter(), jitter(), jitter());
-            // A splash out of the crater, never through the body: out of the struck face, fanned around the fist (which
-            // blocks the way straight back), swept along the glancing part of the blow. A blow head-on to the face
-            // sprays out around the fist and back toward the puncher, not out of the back of the head.
             var around = scatter - (normal * Vector3.Dot(scatter, normal));
             var radial = around.LengthSquared() > 1e-8f ? Vector3.Normalize(around) : Vector3.Normalize(Vector3.Cross(normal, Vector3.UnitX + new Vector3(0f, 0.3f, 0.1f)));
             var fan = cone * (0.35f + (0.65f * MathF.Abs(jitter())));
             var heading = (normal * 0.75f) + (radial * fan) + (glance * 0.9f) + (scatter * 0.12f);
+            var speed = chipSpeed * speedScale * (1f + (0.25f * jitter()));
+            return pointVelocity + (Vector3.Normalize(heading + new Vector3(1e-4f)) * speed);
+        }
 
-            var speed = chipSpeed * (1f + (0.25f * jitter()));
-            var velocity = pointVelocity + (Vector3.Normalize(heading + new Vector3(1e-4f)) * speed);
-            chips.Add(new VoxelChip(position, velocity, s.Orientation, size, v.Material, v.WasSurface));
+        var group = chunks is null ? null : GroupIntoChunks(removed, chunkShare, maxChunks, jitter);
+        if (group is not null)
+        {
+            EmitChunks(removed, group, s, Splash, chunks!);
+        }
+
+        for (var i = 0; i < removed.Count; i++)
+        {
+            if (group is not null && group[i] >= 0)
+            {
+                continue;
+            }
+
+            var v = removed[i];
+            var position = s.Position + Vector3.Transform(v.LocalCenter + GridCenterLocal, s.Orientation);
+            chips.Add(new VoxelChip(position, Splash(position, 1f), s.Orientation, size, v.Material, v.WasSurface));
         }
 
         UpdateMass();
         return removed.Count;
+    }
+
+    /// <summary>Fewest carved cells before any of them leave as a chunk (a light blow only crumbles).</summary>
+    public const int MinCellsForChunks = 8;
+
+    /// <summary>Smallest chunk [cells]; a group that grows smaller than this crumbles into chips.</summary>
+    private const int MinChunkCells = 3;
+
+    /// <summary>
+    /// Sorts the carved cells into up to <paramref name="maxChunks"/> chunks (connected clumps, about
+    /// <paramref name="share"/> of the cells between them) and loose chips: the group index of each cell, −1 for a chip.
+    /// Null when nothing forms a chunk. More cells carved, more chunks (one, two from 60, three from 140).
+    /// </summary>
+    private int[]? GroupIntoChunks(List<RemovedVoxel> removed, float share, int maxChunks, Func<float> jitter)
+    {
+        if (removed.Count < MinCellsForChunks || maxChunks <= 0 || !(share > 0f))
+        {
+            return null;
+        }
+
+        var count = Math.Min(maxChunks, 1 + (removed.Count >= 60 ? 1 : 0) + (removed.Count >= 140 ? 1 : 0));
+        var target = Math.Max(MinChunkCells, (int)(Math.Clamp(share, 0f, 1f) * removed.Count / count));
+        var index = new Dictionary<(int X, int Y, int Z), int>(removed.Count);
+        for (var i = 0; i < removed.Count; i++)
+        {
+            index[CellOf(removed[i].LocalCenter)] = i;
+        }
+
+        var group = new int[removed.Count];
+        Array.Fill(group, -1);
+        var any = false;
+        for (var g = 0; g < count; g++)
+        {
+            // Seed somewhere on the torn-off skin when there is one free (a chunk is a flap of the surface and what is under it).
+            var start = (int)((0.5f + (0.5f * jitter())) * removed.Count) % removed.Count;
+            var seed = -1;
+            for (var k = 0; k < removed.Count && seed < 0; k++)
+            {
+                var i = (start + k) % removed.Count;
+                if (group[i] < 0 && removed[i].WasSurface)
+                {
+                    seed = i;
+                }
+            }
+
+            for (var k = 0; k < removed.Count && seed < 0; k++)
+            {
+                var i = (start + k) % removed.Count;
+                if (group[i] < 0)
+                {
+                    seed = i;
+                }
+            }
+
+            if (seed < 0)
+            {
+                break;
+            }
+
+            // Grow a connected clump outward from the seed (breadth first over the six face neighbours).
+            var members = new List<int> { seed };
+            group[seed] = g;
+            for (var head = 0; head < members.Count && members.Count < target; head++)
+            {
+                var (x, y, z) = CellOf(removed[members[head]].LocalCenter);
+                foreach (var (dx, dy, dz) in FaceSteps)
+                {
+                    if (members.Count >= target)
+                    {
+                        break;
+                    }
+
+                    if (index.TryGetValue((x + dx, y + dy, z + dz), out var n) && group[n] < 0)
+                    {
+                        group[n] = g;
+                        members.Add(n);
+                    }
+                }
+            }
+
+            if (members.Count < MinChunkCells)
+            {
+                foreach (var m in members)
+                {
+                    group[m] = -1;
+                }
+
+                // Mark the lone seed so it is not picked again (restored to a chip below).
+                group[seed] = -2;
+                continue;
+            }
+
+            any = true;
+        }
+
+        for (var i = 0; i < group.Length; i++)
+        {
+            if (group[i] == -2)
+            {
+                group[i] = -1;
+            }
+        }
+
+        return any ? group : null;
+    }
+
+    /// <summary>
+    /// Builds one <see cref="VoxelChunk"/> per group: its cells around their centre (in the body's orientation), each
+    /// cell's torn faces (those that faced cells still on the body, or cells that went elsewhere), and a splash velocity
+    /// a little slower than the chips' (it is heavier).
+    /// </summary>
+    private void EmitChunks(List<RemovedVoxel> removed, int[] group, BodyState s, Func<Vector3, float, Vector3> splash, ICollection<VoxelChunk> into)
+    {
+        var groups = group.Where(g => g >= 0).Distinct().Order().ToList();
+        var index = new Dictionary<(int X, int Y, int Z), int>(removed.Count);
+        for (var i = 0; i < removed.Count; i++)
+        {
+            index[CellOf(removed[i].LocalCenter)] = i;
+        }
+
+        var (nx, ny, nz) = Grid.Dimensions;
+        foreach (var g in groups)
+        {
+            var members = Enumerable.Range(0, removed.Count).Where(i => group[i] == g).ToList();
+            var center = members.Aggregate(Vector3.Zero, (sum, i) => sum + removed[i].LocalCenter) / members.Count;
+            var cells = new VoxelChunkCell[members.Count];
+            for (var k = 0; k < members.Count; k++)
+            {
+                var v = removed[members[k]];
+                var (x, y, z) = CellOf(v.LocalCenter);
+                byte torn = 0;
+                for (var f = 0; f < FaceSteps.Length; f++)
+                {
+                    var (dx, dy, dz) = FaceSteps[f];
+                    var (ax, ay, az) = (x + dx, y + dy, z + dz);
+                    var onBody = ax >= 0 && ay >= 0 && az >= 0 && ax < nx && ay < ny && az < nz && Grid.At(ax, ay, az) != 0;
+                    var elsewhere = index.TryGetValue((ax, ay, az), out var other) && group[other] != g;
+                    if (onBody || elsewhere)
+                    {
+                        torn |= (byte)(1 << f);
+                    }
+                }
+
+                cells[k] = new VoxelChunkCell(v.LocalCenter - center, v.Material, v.WasSurface, torn);
+            }
+
+            var position = s.Position + Vector3.Transform(center + GridCenterLocal, s.Orientation);
+            into.Add(new VoxelChunk(position, splash(position, ChunkSpeedScale), s.Orientation, s.AngularVelocity, Grid.CellSize, cells));
+        }
+    }
+
+    /// <summary>A chunk flies at this fraction of the chips' speed.</summary>
+    private const float ChunkSpeedScale = 0.75f;
+
+    /// <summary>The six face neighbours, in the order of <see cref="VoxelChunkCell.TornFaces"/>'s bits: +X, −X, +Y, −Y, +Z, −Z.</summary>
+    private static readonly (int X, int Y, int Z)[] FaceSteps = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)];
+
+    private (int X, int Y, int Z) CellOf(Vector3 local)
+    {
+        var c = (local + Grid.HalfExtents) / Grid.CellSize;
+        return ((int)MathF.Floor(c.X), (int)MathF.Floor(c.Y), (int)MathF.Floor(c.Z));
     }
 
     /// <summary>

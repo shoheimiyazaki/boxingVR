@@ -64,6 +64,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
     private readonly List<HitEvent> _recentHits = [];
     private readonly List<VoxelChip> _chips = [];
+    private readonly List<VoxelChunk> _chunks = [];
     private readonly VoxelDebris _debris = new(capacity: 9000);
     private readonly ImpactEffects _impacts = new();
     private readonly List<ShatterEvent> _recentShatters = [];
@@ -382,8 +383,10 @@ public sealed class BoxingGame : IGame<BoxingInput>
         var chipSpeed = _tuning.ChipSpeed * (0.5f + (1.3f * strength));
         var spread = 0.75f - (0.5f * strength);
         _chips.Clear();
-        var result = body.Impact(victimBody, point, direction, damage * _tuning.CarvePerDamage, chipSpeed, Jitter, _chips, spread);
+        _chunks.Clear();
+        var result = body.Impact(victimBody, point, direction, damage * _tuning.CarvePerDamage, chipSpeed, Jitter, _chips, spread, _chunks);
         SpawnDebris(_chips, point, direction, strength, attacker, recoil);
+        SpawnChunks(_chunks, recoil);
         if (result?.Fragment is { } fragment)
         {
             victim.Sever(victimBody, fragment.Body);
@@ -398,13 +401,14 @@ public sealed class BoxingGame : IGame<BoxingInput>
             _impacts.Spawn(point, direction, 1f, FatalFlash, Jitter); // 致命傷: いちばん大きな赤い光
         }
 
-        if (_chips.Count > 0 || fatal)
+        if (_chips.Count > 0 || _chunks.Count > 0 || fatal)
         {
-            // 音の粒: 砕けた順（当たった所に近い順）に 3.5ms ずつ、少しばらつかせて並べる。
-            var grains = new ShatterGrain[_chips.Count];
+            // 音の粒: 砕けた順（当たった所に近い順）に 3.5ms ずつ、少しばらつかせて並べる。塊のボクセルも 1 個 1 粒。
+            var materials = _chips.Select(c => c.Material).Concat(_chunks.SelectMany(c => c.Cells.Select(cell => cell.Material))).ToList();
+            var grains = new ShatterGrain[materials.Count];
             for (var i = 0; i < grains.Length; i++)
             {
-                grains[i] = new ShatterGrain(_chips[i].Material, MathF.Min(0.3f, (i * 0.0035f) + (0.002f * (1f + Jitter()))));
+                grains[i] = new ShatterGrain(materials[i], MathF.Min(0.3f, (i * 0.0035f) + (0.002f * (1f + Jitter()))));
             }
 
             _recentShatters.Add(new ShatterEvent(point, grains, fatal));
@@ -472,6 +476,45 @@ public sealed class BoxingGame : IGame<BoxingInput>
             }
         }
     }
+
+    /// <summary>
+    /// 塊のまま剥がれたボクセルを飛ばす: 1 つの塊として回りながら飛び、はがれた断面だけが一瞬光る（外側だった面は光らない）。
+    /// 肉の混じった塊からは、断面から血が少し飛ぶ。
+    /// </summary>
+    private void SpawnChunks(List<VoxelChunk> chunks, Vector3 recoil)
+    {
+        var palette = BoxerAnatomy.Palette;
+        foreach (var chunk in chunks)
+        {
+            var cells = new DebrisCell[chunk.Cells.Count];
+            var flesh = 0;
+            for (var i = 0; i < cells.Length; i++)
+            {
+                var c = chunk.Cells[i];
+                var material = palette[c.Material];
+                cells[i] = new DebrisCell(c.Offset, c.WasSurface ? material.SurfaceColor : material.Color, c.TornFaces);
+                flesh += material.Tissue is VoxelTissue.Flesh or VoxelTissue.Organ ? 1 : 0;
+            }
+
+            var velocity = (chunk.Velocity * ChunkFling) + recoil;
+            var spin = chunk.AngularVelocity + (new Vector3(Jitter(), Jitter(), Jitter()) * ChunkSpin);
+            _debris.SpawnChunk(chunk.Position, velocity, chunk.Orientation, chunk.CellSize, cells, spin, tag: chunk.Cells[0].Material, heat: ChipHeat * 1.2f, hotColor: TornGlow);
+            for (var k = 0; k < Math.Min(4, flesh / 2); k++)
+            {
+                var drop = (velocity * 1.2f) + (new Vector3(Jitter(), Jitter(), Jitter()) * (0.3f * velocity.Length()));
+                _debris.Spawn(chunk.Position, drop, chunk.Orientation, chunk.CellSize * 0.35f, new Vector3(Jitter(), Jitter(), Jitter()) * 60f, BloodColor, life: 2.2f, tag: VoxelBreakSound.BloodTag);
+            }
+        }
+    }
+
+    /// <summary>塊のはがれた断面の光の色（熱をもった赤橙。欠片の白い光より控えめ）。</summary>
+    private static readonly Vector4 TornGlow = new(1f, 0.5f, 0.22f, 1f);
+
+    /// <summary>塊の飛ぶ速さの倍率（欠片の 1.5 倍より遅い: 重い）。</summary>
+    private const float ChunkFling = 1.3f;
+
+    /// <summary>塊の回る速さ [rad/s]（欠片より、ゆっくり大きく回る）。</summary>
+    private const float ChunkSpin = 14f;
 
     /// <summary>当たった瞬間の光（<see cref="ImpactEffects"/>: 球とカプセルで、飛び散るボクセルと紛れない）。打った側のグローブの色。</summary>
     private void ImpactFlash(Vector3 point, Vector3 direction, float strength, Fighter? attacker)
