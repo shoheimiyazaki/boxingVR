@@ -12,12 +12,13 @@ public static class BotCatalog
     public const string DefaultCpu = "champion";
 
     /// <summary>バランス型（ボクサーパンチャー）: ジャブで組み立てて 1-2-3、守りも一通り。</summary>
-    public static BotStyle Boxer { get; } = new() { Name = "boxer" };
+    public static BotStyle Boxer { get; } = new() { Name = "boxer", Telegraph = 0.08f, Prediction = 0.5f, EdgeRange = 0.3f };
 
     /// <summary>アウトボクサー: 遠い間合いからジャブ、打ったら離れる、回る、スウェーとバックステップで外す。</summary>
     public static BotStyle OutBoxer { get; } = new()
     {
         Name = "outboxer",
+        Telegraph = 0.06f, Prediction = 0.6f, EdgeRange = 0.7f,
         Aggression = 0.45f,
         AttackRange = 1.02f,
         NeutralRange = 1.5f,
@@ -46,6 +47,7 @@ public static class BotCatalog
     public static BotStyle Counter { get; } = new()
     {
         Name = "counter",
+        Telegraph = 0.06f, Prediction = 0.9f, EdgeRange = 0.6f,
         Aggression = 0.2f,
         NeutralRange = 1.25f,
         ComboWeights = new Dictionary<string, float> { ["1"] = 3f, ["1-2"] = 2f, ["f-2"] = 2f, ["f-3"] = 1f },
@@ -64,6 +66,7 @@ public static class BotCatalog
     public static BotStyle Slugger { get; } = new()
     {
         Name = "slugger",
+        Telegraph = 0.12f, Prediction = 0.2f, EdgeRange = 0f,
         Aggression = 0.7f,
         AttackRange = 0.9f,
         NeutralRange = 1.2f,
@@ -87,6 +90,7 @@ public static class BotCatalog
     public static BotStyle Jabber { get; } = new()
     {
         Name = "jabber",
+        Telegraph = 0.04f, Prediction = 0.4f, EdgeRange = 0.5f,
         Aggression = 0.69988924f,
         AttackRange = 1.2508752f,
         NeutralRange = 1.627571f,
@@ -113,6 +117,7 @@ public static class BotCatalog
     public static BotStyle ChampionV1 { get; } = new()
     {
         Name = "champion-v1",
+        Telegraph = 0.06f, Prediction = 0f, EdgeRange = 0f,
         Aggression = 1f,
         AttackRange = 1.001754f,
         NeutralRange = 1.3007601f,

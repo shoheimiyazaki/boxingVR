@@ -16,6 +16,19 @@ public sealed record DefenseMove
     /// </summary>
     public bool Sweep { get; init; }
 
+    /// <summary>
+    /// ストレートには、拳の<b>外側</b>（打ってくる腕の肩の側）へ頭を滑り込ませるか。偽なら拳から離れる側（内側）。
+    /// 外側へ外すと、相手の腕が自分と相手の体の間に来て、相手の反対の手が届きにくい。フックやアッパーには使わない
+    /// （フックの外側は拳の来る側そのもの）。
+    /// </summary>
+    public bool Outside { get; init; }
+
+    /// <summary>
+    /// 守りの間、拳を構えの頭の高さ（守りを始めた時の頭の位置）に残す度合い（0 = 頭と一緒に下がる … 1 = 構えの高さに残る）。
+    /// 1 に近いほど、沈んだ頭は自分のブロック（上げた拳）の下に入る。
+    /// </summary>
+    public float GloveAnchor { get; init; }
+
     /// <summary>守りの始めの頭の横（側の向き）。</summary>
     public float HeadX { get; init; }
 
@@ -127,6 +140,7 @@ public sealed record DefenseMove
             Step = F(Step, -1f, 1f, 0f),
             Rate = F(Rate, 6f, 60f, 26f),
             HandsUp = F(HandsUp, 0f, 1f, 0f),
+            GloveAnchor = F(GloveAnchor, 0f, 1f, 0f),
             GloveWidth = F(GloveWidth, 0f, 0.35f, 0.1f),
             GloveHeight = F(GloveHeight, -0.3f, 0.2f, -0.03f),
             GloveForward = F(GloveForward, 0.05f, 0.5f, 0.3f),

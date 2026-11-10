@@ -188,11 +188,30 @@ public sealed class BotTests
     [TestMethod]
     public void BoxerBot_OutpointsTheLegacyCpu_AndThrowsItsTechniques()
     {
-        var result = BotArena.Run(new BoutSpec(Contender.Named("boxer"), Contender.Named(BotCatalog.Legacy), Seed: 2, Seconds: 20f));
+        // ゲームの CPU（champion）で確かめる。手書きのままの boxer は、頭を人の比率に小さくしてから legacy と 5-4-1 になった:
+        // legacy の拳は当たるまで頭を追い続ける（BoxerBot は打ち出したら直せない。基本動作編 B2）ので、小さな頭ほど有利になる。
+        // legacy は比べる基準と昔の記録の再生のため、そのまま残す。
+        var result = BotArena.Run(new BoutSpec(Contender.Named(BotCatalog.DefaultCpu), Contender.Named(BotCatalog.Legacy), Seed: 2, Seconds: 20f));
 
-        Assert.AreEqual(1, result.Winner, $"boxer {result.Red.DamageDealt:0} vs legacy {result.Blue.DamageDealt:0}");
+        Assert.AreEqual(1, result.Winner, $"champion {result.Red.DamageDealt:0} vs legacy {result.Blue.DamageDealt:0}");
         Assert.IsGreaterThan(2, result.Red.Stats.Techniques.Count, "several different punches are thrown");
         Assert.IsGreaterThan(0, result.Red.Stats.Techniques.Values.Sum(t => t.Landed));
+    }
+
+    [TestMethod]
+    public void Infighter_DoesNotFightCrouchedTheWholeTime()
+    {
+        // 以前のインファイターは試合の 3 割をしゃがんで過ごし、続けて 4 秒しゃがんでいたこともあった（足運び編 F3）。
+        // 1 試合では相手と種しだいで揺れる（同じ形で 19〜28 %）ので、3 つの種を足して見る。
+        var stats = new BotStats();
+        foreach (var seed in new[] { 1, 2, 3 })
+        {
+            stats.Merge(BotArena.Run(new BoutSpec(Contender.Named("swarmer"), Contender.Named("slugger"), Seed: seed, Seconds: 30f)).Red.Stats);
+        }
+
+        Assert.IsGreaterThan(60f, stats.Time);
+        Assert.IsLessThan(0.25f, stats.CrouchShare, $"crouched {stats.CrouchShare:P0}");
+        Assert.IsLessThan(1.5f, stats.LongestCrouch, $"longest crouch {stats.LongestCrouch:0.0}s");
     }
 
     [TestMethod]

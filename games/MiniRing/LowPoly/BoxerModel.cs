@@ -51,6 +51,7 @@ public sealed class BoxerModel
         BodyPartKind.Thigh => h.Thigh,
         BodyPartKind.Shin => h.Shin,
         BodyPartKind.Foot => h.Foot,
+        BodyPartKind.Toe => FootGeometry.ToeHalf(h.Foot),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "大きさの無い部位です。"),
     };
 }

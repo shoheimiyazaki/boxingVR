@@ -137,7 +137,7 @@ public static class BoxerAnatomy
         BodyPartKind.Pelvis => PelvisAt(n),
         BodyPartKind.UpperArm or BodyPartKind.Forearm => Rod(n.Y, n.Z, 0.42f),
         BodyPartKind.Thigh or BodyPartKind.Shin => Rod(n.X, n.Z, 0.4f),
-        BodyPartKind.Foot => MathF.Abs(n.Y) < 0.45f && MathF.Abs(n.X) < 0.55f && MathF.Abs(n.Z) < 0.85f ? Bone : Muscle,
+        BodyPartKind.Foot or BodyPartKind.Toe => MathF.Abs(n.Y) < 0.45f && MathF.Abs(n.X) < 0.55f && MathF.Abs(n.Z) < 0.85f ? Bone : Muscle,
         _ => Muscle,
     };
 

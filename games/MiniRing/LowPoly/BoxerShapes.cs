@@ -76,6 +76,7 @@ public static class BoxerShapes
         BodyPartKind.Thigh => Limb(0.95f, 1.0f, 0.72f),
         BodyPartKind.Shin => Limb(0.88f, 1.0f, 0.62f),
         BodyPartKind.Foot => Limb(0.85f, 1.0f, 0.9f).Rotated(LimbAlongZ),
+        BodyPartKind.Toe => Limb(0.95f, 0.9f, 0.7f).Rotated(LimbAlongZ),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "形状の無い部位です。"),
     };
 

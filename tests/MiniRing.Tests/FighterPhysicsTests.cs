@@ -24,7 +24,9 @@ public sealed class FighterPhysicsTests
 
         Assert.AreEqual(FighterState.Standing, fighter.State);
         Assert.IsGreaterThan(0.9f, fighter.Uprightness, $"upright {fighter.Uprightness}");
-        Assert.AreEqual(startPelvis.Y, fighter.PelvisPosition.Y, 0.04f, $"pelvis {fighter.PelvisPosition}");
+        // 足の運びの構え（足を前後に開き、膝を曲げる）で骨盤は生成時（脚がまっすぐ）より下がる。下がり過ぎない（2 割以内）。
+        Assert.IsLessThan(startPelvis.Y, fighter.PelvisPosition.Y, $"pelvis {fighter.PelvisPosition}");
+        Assert.IsGreaterThan(0.8f * startPelvis.Y, fighter.PelvisPosition.Y, $"pelvis {fighter.PelvisPosition}");
         Assert.IsLessThan(0.05f, Horizontal(fighter.PelvisPosition - startPelvis));
     }
 

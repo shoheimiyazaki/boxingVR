@@ -13,6 +13,9 @@ public enum BodyPartKind
     Thigh,
     Shin,
     Foot,
+
+    /// <summary>つま先（足の前、母指球の蝶番から先）。</summary>
+    Toe,
 }
 
 /// <summary>打たれた場所。ダメージの倍率（<see cref="ZoneDamage"/>）と、打撃音・傷の見た目を決める。</summary>

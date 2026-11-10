@@ -81,8 +81,24 @@ public sealed record BotStyle
     /// <summary>何もしていないときの頭の振り（ボブ・ウィーブ）の大きさ（0..1）。</summary>
     public float HeadMovement { get; init; } = 0.4f;
 
-    /// <summary>構えの高さ（0 = 低い構え（胸）… 1 = 高い構え（あご））。</summary>
+    /// <summary>構えの高さ（0 = 低い構え（胸）… 1 = あご … <see cref="MaxGuardHeight"/> = 目の高さで顔を覆う）。</summary>
     public float GuardHeight { get; init; } = 0.5f;
+
+    /// <summary>構えの高さの上限（あごの高さを 1 として、拳が目の高さに来る）。</summary>
+    public const float MaxGuardHeight = 1.5f;
+
+    /// <summary>
+    /// 打つ前の溜め [s]（0 = 溜めなし）。連打の最初の拳の前に、体（腰と肩のひねり・体重移動・踏み込み）が先に動き、そのあと拳が出る。
+    /// 拳が出てからの速さは変わらない。実際の拳は体から動き出し（運動連鎖）、相手はそれを読んで避ける。狙いは溜めの始めに決まる。
+    /// 長い溜めは体重が乗って拳が深く打ち抜ける代わりに読まれやすく、短い溜めは読まれにくい代わりに軽い。
+    /// </summary>
+    public float Telegraph { get; init; }
+
+    /// <summary>構えの拳の左右の開き（1 = 標準 … 小さいほど両拳を顔の前で寄せる）。</summary>
+    public float GuardWidth { get; init; } = 1f;
+
+    /// <summary>構えの拳の前への出し（1 = 標準 … 小さいほど拳を顔に近づける）。</summary>
+    public float GuardReach { get; init; } = 1f;
 
     // ── 守り ──
 
@@ -95,6 +111,19 @@ public sealed record BotStyle
     /// 反応時間（<see cref="ReactionTime"/>）は気づいてから数える。
     /// </summary>
     public float Anticipation { get; init; }
+
+    /// <summary>
+    /// 予測で避ける度合い（0..1、0 = 予測しない）。試合の中で相手の間合い・リズム・打つ前の体の動き・癖を覚え
+    /// （<see cref="OpponentRead"/>）、拳が出る前に「まもなく来る」と見積もった時に守りを始める。大きいほど低い確からしさでも
+    /// 動き出す（早く避けられるが、フェイントや頭の振りにも釣られ、空振りの守りで自分の攻めを止める）。
+    /// </summary>
+    public float Prediction { get; init; }
+
+    /// <summary>
+    /// 相手の届く間合いのすぐ外に立つ度合い（0..1）。覚えた相手の打ち始めの間合いの少し外を普段の間合いにし、
+    /// 相手に踏み込ませる（踏み込みは読める手がかりになり、その間に避ける）。
+    /// </summary>
+    public float EdgeRange { get; init; }
 
     /// <summary>
     /// 避ける拳の届く範囲（腕の長さ倍、0 = 見ない）。相手の肩から自分の頭までがこれより遠い拳は、届かないとみて避けない。
@@ -173,7 +202,10 @@ public sealed record BotStyle
             Circling = Unit(Circling),
             RopeEscape = Unit(RopeEscape),
             HeadMovement = Unit(HeadMovement),
-            GuardHeight = Unit(GuardHeight),
+            GuardHeight = Range(GuardHeight, 0f, MaxGuardHeight, 0.5f),
+            GuardWidth = Range(GuardWidth, 0.2f, 1.5f, 1f),
+            Telegraph = Range(Telegraph, 0f, 0.2f, 0f),
+            GuardReach = Range(GuardReach, 0.3f, 1.5f, 1f),
             ReactionTime = Range(ReactionTime, MinReactionTime, 0.5f, 0.5f),
             DefenseRate = Range(DefenseRate, 0f, MaxDefenseRate, 0f),
             BlockWeight = NonNegative(BlockWeight),
@@ -188,6 +220,8 @@ public sealed record BotStyle
             Defenses = (Defenses ?? DefenseBook.Default).Validated(),
             CounterRate = Unit(CounterRate),
             Anticipation = Unit(Anticipation),
+            Prediction = Unit(Prediction),
+            EdgeRange = Unit(EdgeRange),
             EvadeReach = float.IsFinite(EvadeReach) && EvadeReach > 0f ? Math.Clamp(EvadeReach, 0.8f, 2f) : 0f,
             ClinchRate = Unit(ClinchRate),
         };

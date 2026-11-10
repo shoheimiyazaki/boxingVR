@@ -520,12 +520,28 @@ public static partial class HumanoidRagdoll
     /// its 2-tuple positionally) so this is a separate opt-in method rather than a breaking change,
     /// exactly the same "don't disturb Build itself" posture <see cref="AddLegServos"/> already
     /// established for active leg control.</summary>
-    public static (Parts Parts, HalfExtents HalfExtents, IReadOnlyList<JointGroup> Joints) BuildDetachable(PhysicsWorld world, Vector3 pelvisPosition, string namePrefix = "", MassDistribution? masses = null, HalfExtents? halfExtents = null, float jointMotorScale = 1f, bool selfCollision = false)
-        => BuildCore(world, pelvisPosition, namePrefix, masses ?? MassDistribution.Default, halfExtents ?? HalfExtents.Default, jointMotorScale, selfCollision);
+    /// <remarks><c>overlap</c> is how far each joint's child box reaches back past the joint into its parent (metres), and
+    /// <c>footForwardOffset</c> is subtracted from the foot's half-length to place its centre forward of the ankle. The defaults
+    /// (<see cref="Overlap"/>, <see cref="FootForwardOffset"/>) are sized for a ~1.7 m body; a much smaller body should scale both
+    /// with its size, or every child box visibly juts out behind its joint (a 3 cm overlap on a 60 cm figure's 12 cm forearm sticks a
+    /// quarter of it out behind the elbow). <see cref="JointAnchors"/> and the pose helpers assume the defaults.</remarks>
+    public static (Parts Parts, HalfExtents HalfExtents, IReadOnlyList<JointGroup> Joints) BuildDetachable(PhysicsWorld world, Vector3 pelvisPosition, string namePrefix = "", MassDistribution? masses = null, HalfExtents? halfExtents = null, float jointMotorScale = 1f, bool selfCollision = false,
+        float overlap = Overlap, float footForwardOffset = FootForwardOffset)
+        => BuildCore(world, pelvisPosition, namePrefix, masses ?? MassDistribution.Default, halfExtents ?? HalfExtents.Default, jointMotorScale, selfCollision, overlap, footForwardOffset);
 
-    private static (Parts Parts, HalfExtents HalfExtents, IReadOnlyList<JointGroup> Joints) BuildCore(PhysicsWorld world, Vector3 pelvisPosition, string namePrefix, MassDistribution masses, HalfExtents dimensions, float jointMotorScale, bool selfCollision)
+    private static (Parts Parts, HalfExtents HalfExtents, IReadOnlyList<JointGroup> Joints) BuildCore(PhysicsWorld world, Vector3 pelvisPosition, string namePrefix, MassDistribution masses, HalfExtents dimensions, float jointMotorScale, bool selfCollision,
+        float overlap = Overlap, float footForwardOffset = FootForwardOffset)
     {
         ArgumentNullException.ThrowIfNull(world);
+        if (!float.IsFinite(overlap) || overlap < 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(overlap), overlap, "Joint overlap must be finite and non-negative.");
+        }
+
+        if (!float.IsFinite(footForwardOffset))
+        {
+            throw new ArgumentOutOfRangeException(nameof(footForwardOffset), footForwardOffset, "The foot offset must be finite.");
+        }
         string Name(string part) => string.IsNullOrEmpty(namePrefix) ? part : $"{namePrefix}.{part}";
         var names = new[]
         {
@@ -555,8 +571,8 @@ public static partial class HumanoidRagdoll
         var footHalf = dimensions.Foot;
 
         var pelvisPos = pelvisPosition;
-        var chestPos = pelvisPos + new Vector3(0f, pelvisHalf.Y + chestHalf.Y - Overlap, 0f);
-        var headPos = chestPos + new Vector3(0f, chestHalf.Y + headHalf.Y - Overlap, 0f);
+        var chestPos = pelvisPos + new Vector3(0f, pelvisHalf.Y + chestHalf.Y - overlap, 0f);
+        var headPos = chestPos + new Vector3(0f, chestHalf.Y + headHalf.Y - overlap, 0f);
         var shoulderY = chestPos.Y + chestHalf.Y * 0.5f;
         var hipX = pelvisHalf.X * 0.65f;
 
@@ -575,15 +591,15 @@ public static partial class HumanoidRagdoll
         // scattering the limbs across the map instead of settling into a coherent pile.
         void ArmChain(float sideSign, out Vector3 upperArmPos, out Vector3 forearmPos)
         {
-            upperArmPos = new Vector3(pelvisPos.X + sideSign * (chestHalf.X + upperArmHalf.X - Overlap), shoulderY, pelvisPos.Z);
-            forearmPos = upperArmPos + new Vector3(sideSign * (upperArmHalf.X + forearmHalf.X - Overlap), 0f, 0f);
+            upperArmPos = new Vector3(pelvisPos.X + sideSign * (chestHalf.X + upperArmHalf.X - overlap), shoulderY, pelvisPos.Z);
+            forearmPos = upperArmPos + new Vector3(sideSign * (upperArmHalf.X + forearmHalf.X - overlap), 0f, 0f);
         }
 
         void LegChain(float sideSign, out Vector3 thighPos, out Vector3 shinPos, out Vector3 footPos)
         {
-            thighPos = new Vector3(pelvisPos.X + sideSign * hipX, pelvisPos.Y - pelvisHalf.Y - thighHalf.Y + Overlap, pelvisPos.Z);
-            shinPos = thighPos + new Vector3(0f, -(thighHalf.Y + shinHalf.Y - Overlap), 0f);
-            footPos = shinPos + new Vector3(0f, -(shinHalf.Y + footHalf.Y - Overlap), footHalf.Z - FootForwardOffset);
+            thighPos = new Vector3(pelvisPos.X + sideSign * hipX, pelvisPos.Y - pelvisHalf.Y - thighHalf.Y + overlap, pelvisPos.Z);
+            shinPos = thighPos + new Vector3(0f, -(thighHalf.Y + shinHalf.Y - overlap), 0f);
+            footPos = shinPos + new Vector3(0f, -(shinHalf.Y + footHalf.Y - overlap), footHalf.Z - footForwardOffset);
         }
 
         ArmChain(-1f, out var lUpperArmPos, out var lForearmPos);
@@ -635,29 +651,29 @@ public static partial class HumanoidRagdoll
         var neck = BallJoint(world, RagdollJoint.Neck, chest, head, chestPos + new Vector3(0f, chestHalf.Y, 0f), chestPos, headPos, Vector3.UnitY, YAxisTwistBasis, 45f * deg, -70f * deg, 70f * deg, isSpineOrNeck: true, jointMotorScale);
 
         // Shoulders (chest-upperarm): ball-and-socket, twist/swing around X (the arm's own length axis).
-        var lShoulder = BallJoint(world, RagdollJoint.LeftShoulder, chest, lUpperArm, lUpperArmPos - new Vector3(-1f * (upperArmHalf.X - Overlap), 0f, 0f), chestPos, lUpperArmPos, Vector3.UnitX, XAxisTwistBasis, ShoulderSwingLimitDegrees * deg, -ShoulderTwistLimitDegrees * deg, ShoulderTwistLimitDegrees * deg, isSpineOrNeck: false, jointMotorScale);
-        var rShoulder = BallJoint(world, RagdollJoint.RightShoulder, chest, rUpperArm, rUpperArmPos - new Vector3(1f * (upperArmHalf.X - Overlap), 0f, 0f), chestPos, rUpperArmPos, Vector3.UnitX, XAxisTwistBasis, ShoulderSwingLimitDegrees * deg, -ShoulderTwistLimitDegrees * deg, ShoulderTwistLimitDegrees * deg, isSpineOrNeck: false, jointMotorScale);
+        var lShoulder = BallJoint(world, RagdollJoint.LeftShoulder, chest, lUpperArm, lUpperArmPos - new Vector3(-1f * (upperArmHalf.X - overlap), 0f, 0f), chestPos, lUpperArmPos, Vector3.UnitX, XAxisTwistBasis, ShoulderSwingLimitDegrees * deg, -ShoulderTwistLimitDegrees * deg, ShoulderTwistLimitDegrees * deg, isSpineOrNeck: false, jointMotorScale);
+        var rShoulder = BallJoint(world, RagdollJoint.RightShoulder, chest, rUpperArm, rUpperArmPos - new Vector3(1f * (upperArmHalf.X - overlap), 0f, 0f), chestPos, rUpperArmPos, Vector3.UnitX, XAxisTwistBasis, ShoulderSwingLimitDegrees * deg, -ShoulderTwistLimitDegrees * deg, ShoulderTwistLimitDegrees * deg, isSpineOrNeck: false, jointMotorScale);
 
         // Elbows (upperarm-forearm): hinge, bend axis Y (curls the forearm forward), 0..~145deg.
         // Right uses the mirrored basis (see YAxisTwistBasisMirrored) so a shared positive servo
         // target curls both forearms toward the same world direction despite the mirrored rest.
-        var lElbow = HingeJoint(world, RagdollJoint.LeftElbow, lUpperArm, lForearm, lForearmPos - new Vector3(-1f * (forearmHalf.X - Overlap), 0f, 0f), lUpperArmPos, lForearmPos, Vector3.UnitY, YAxisTwistBasis, -10f * deg, 145f * deg, jointMotorScale);
-        var rElbow = HingeJoint(world, RagdollJoint.RightElbow, rUpperArm, rForearm, rForearmPos - new Vector3(1f * (forearmHalf.X - Overlap), 0f, 0f), rUpperArmPos, rForearmPos, Vector3.UnitY, YAxisTwistBasisMirrored, -10f * deg, 145f * deg, jointMotorScale);
+        var lElbow = HingeJoint(world, RagdollJoint.LeftElbow, lUpperArm, lForearm, lForearmPos - new Vector3(-1f * (forearmHalf.X - overlap), 0f, 0f), lUpperArmPos, lForearmPos, Vector3.UnitY, YAxisTwistBasis, -10f * deg, 145f * deg, jointMotorScale);
+        var rElbow = HingeJoint(world, RagdollJoint.RightElbow, rUpperArm, rForearm, rForearmPos - new Vector3(1f * (forearmHalf.X - overlap), 0f, 0f), rUpperArmPos, rForearmPos, Vector3.UnitY, YAxisTwistBasisMirrored, -10f * deg, 145f * deg, jointMotorScale);
 
         // Hips (pelvis-thigh): ball-and-socket, twist/swing around Y (the leg's own length axis).
         var lHip = BallJoint(world, RagdollJoint.LeftHip, pelvis, lThigh, pelvisPos + new Vector3(0f, -pelvisHalf.Y, 0f), pelvisPos, lThighPos, Vector3.UnitY, YAxisTwistBasis, 90f * deg, -40f * deg, 40f * deg, isSpineOrNeck: false, jointMotorScale);
         var rHip = BallJoint(world, RagdollJoint.RightHip, pelvis, rThigh, pelvisPos + new Vector3(0f, -pelvisHalf.Y, 0f), pelvisPos, rThighPos, Vector3.UnitY, YAxisTwistBasis, 90f * deg, -40f * deg, 40f * deg, isSpineOrNeck: false, jointMotorScale);
 
         // Knees (thigh-shin): hinge, bend axis X (swings the shin backward), 0..~140deg.
-        var lKnee = HingeJoint(world, RagdollJoint.LeftKnee, lThigh, lShin, lShinPos + new Vector3(0f, shinHalf.Y - Overlap, 0f), lThighPos, lShinPos, Vector3.UnitX, XAxisTwistBasis, -10f * deg, 140f * deg, jointMotorScale);
-        var rKnee = HingeJoint(world, RagdollJoint.RightKnee, rThigh, rShin, rShinPos + new Vector3(0f, shinHalf.Y - Overlap, 0f), rThighPos, rShinPos, Vector3.UnitX, XAxisTwistBasis, -10f * deg, 140f * deg, jointMotorScale);
+        var lKnee = HingeJoint(world, RagdollJoint.LeftKnee, lThigh, lShin, lShinPos + new Vector3(0f, shinHalf.Y - overlap, 0f), lThighPos, lShinPos, Vector3.UnitX, XAxisTwistBasis, -10f * deg, 140f * deg, jointMotorScale);
+        var rKnee = HingeJoint(world, RagdollJoint.RightKnee, rThigh, rShin, rShinPos + new Vector3(0f, shinHalf.Y - overlap, 0f), rThighPos, rShinPos, Vector3.UnitX, XAxisTwistBasis, -10f * deg, 140f * deg, jointMotorScale);
 
         // Ankles (shin-foot): passive 2-DOF swing (dorsi/plantar-flexion + inversion/eversion)
         // around the shin's long axis, with yaw/twist bounded separately. The AngularMotor is
         // damping only; the existing ankle TwistServo, added by AddLegServos, remains the sole
         // active pitch actuator and does not control the newly-free roll direction.
-        var lAnkle = AnkleJoint(world, RagdollJoint.LeftAnkle, lShin, lFoot, lFootPos + new Vector3(0f, footHalf.Y - Overlap, -(footHalf.Z - FootForwardOffset)), lShinPos, lFootPos, deg, jointMotorScale);
-        var rAnkle = AnkleJoint(world, RagdollJoint.RightAnkle, rShin, rFoot, rFootPos + new Vector3(0f, footHalf.Y - Overlap, -(footHalf.Z - FootForwardOffset)), rShinPos, rFootPos, deg, jointMotorScale);
+        var lAnkle = AnkleJoint(world, RagdollJoint.LeftAnkle, lShin, lFoot, lFootPos + new Vector3(0f, footHalf.Y - overlap, -(footHalf.Z - footForwardOffset)), lShinPos, lFootPos, deg, jointMotorScale);
+        var rAnkle = AnkleJoint(world, RagdollJoint.RightAnkle, rShin, rFoot, rFootPos + new Vector3(0f, footHalf.Y - overlap, -(footHalf.Z - footForwardOffset)), rShinPos, rFootPos, deg, jointMotorScale);
 
         var parts = new Parts(pelvis, chest, head, lUpperArm, rUpperArm, lForearm, rForearm, lThigh, rThigh, lShin, rShin, lFoot, rFoot, group);
         var halfExtents = new HalfExtents(pelvisHalf, chestHalf, headHalf, upperArmHalf, forearmHalf, thighHalf, shinHalf, footHalf);

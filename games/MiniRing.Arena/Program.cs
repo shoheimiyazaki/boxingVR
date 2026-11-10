@@ -12,6 +12,8 @@ using MiniRing.Bots;
 //                                                                                   防御技ごとの最適化（ドリルで PDCA）
 //   counterlab [--book f.json] [--defense a,b|evasions] [--bouts N] [--ranges 1.15,1.3] [--log f.md] [--out book.json]
 //                                                                                   回避からのカウンターの研究（型 × 打ち始めの総当たり）
+//   basics [--punch 2] [--slot Duck] [--style swarmer] [--guards 0.6,1.0,1.5] [--guard H] [--gens G] [--pop P] [--log f.md] [--out f.json]
+//                                                                                   回避の基本動作の最適化（1 つの型だけを打たせて、外す形を磨く）
 //   video [--red A] [--blue B] [--seed X] [--seconds S] [--width W --height H --fps F] [--out file.mp4]
 //                                                                                   ボット同士の試合を字幕・打撃音つきの mp4 に（ffmpeg が必要）
 // ボットは名前（legacy, boxer, outboxer, swarmer, counter, slugger, champion）か、スタイルの JSON ファイルのパス。
@@ -27,7 +29,8 @@ try
         "drill" => Drill(Options.Parse(argv[1..], "book", "bouts", "seconds", "seed", "out")),
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound")),
+        "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard")),
         _ => Usage($"知らないコマンド: {command}"),
     };
 }
@@ -190,11 +193,88 @@ static int CounterLabCommand(Options o)
     return 0;
 }
 
+static int Basics(Options o)
+{
+    var punch = o.Get("punch") ?? "2";
+    _ = Combo.Named(punch);
+    var slot = Enum.Parse<Defense>(o.Get("slot") ?? "Duck", ignoreCase: true);
+    if (!DefenseBook.Evasions.Contains(slot))
+    {
+        throw new ArgumentException("basics は回避技を磨きます（ブロックは除く）。");
+    }
+
+    var style = LoadStyle(o.Get("style") ?? "swarmer");
+    var ranges = o.List("ranges", ["1.0", "1.15"]).Select(r => float.Parse(r, CultureInfo.InvariantCulture)).ToList();
+    var guards = o.List("guards", ["0.6", "0.8", "1.0", "1.2", "1.5"]).Select(r => float.Parse(r, CultureInfo.InvariantCulture)).ToList();
+    var seed = o.Int("seed", 1);
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    var cueList = o.Get("cue") is { } c && c != "none" ? c.Split(',').Select(x => float.Parse(x, CultureInfo.InvariantCulture)).ToList() : null;
+    var start = o.Get("move") is { } movePath ? LoadMove(movePath) : slot == Defense.Slip ? style.Defenses.Of(Defense.Slip) : style.Defenses.Of(slot);
+    var lab = new BasicsLab(punch, slot, o.Int("bouts", 6, min: 1), o.Float("seconds", 20f, min: 1f), seed, ranges, Log, cueList, o.Float("telegraph", 0f, min: 0f));
+    if (o.Get("cues") is not null)
+    {
+        var delays = o.List("cues", []).Select(d => float.Parse(d, CultureInfo.InvariantCulture)).ToList();
+        var guardHeight = o.Get("guard") is { } gh ? float.Parse(gh, CultureInfo.InvariantCulture) : style.GuardHeight;
+        Log($"## 合図の遅れと回避（相手の型 {punch}）\n");
+        lab.CueSurvey("外へ外す形", start, guardHeight, delays);
+        lab.CueSurvey($"{style.Name} の {slot}", style.Defenses.Of(slot), style.GuardHeight, delays);
+        lab.CueSurvey($"{style.Name} の Slip", style.Defenses.Of(Defense.Slip), style.GuardHeight, delays);
+        return 0;
+    }
+
+    Log($"## 構えの高さ（守らない受け手、相手の型 {punch}）\n");
+    lab.GuardSurvey(guards,
+        o.List("widths", ["1"]).Select(r => float.Parse(r, CultureInfo.InvariantCulture)).ToList(),
+        o.List("reaches", ["1"]).Select(r => float.Parse(r, CultureInfo.InvariantCulture)).ToList());
+    if (o.Int("gens", 15, min: 0) == 0)
+    {
+        return 0; // 構えだけを比べる
+    }
+
+    var guard = o.Get("guard") is { } g ? float.Parse(g, CultureInfo.InvariantCulture) : style.GuardHeight;
+    Log(string.Create(CultureInfo.InvariantCulture, $"## 出発点（{style.Name} の構え {style.GuardHeight:0.0} と、磨く構え {guard:0.0}）\n"));
+    Log(BasicsLab.Header);
+    lab.Measure($"{style.Name} の {slot}（今）", style.Defenses.Of(slot), style.GuardHeight, seed);
+    lab.Measure($"{style.Name} の Slip（今）", style.Defenses.Of(Defense.Slip), style.GuardHeight, seed);
+    lab.Measure("外へ外す形（出発点）", start, guard, seed);
+    Log("");
+    var tuned = lab.Optimize(start, guard, o.Int("gens", 15, min: 1), o.Int("pop", 8, min: 1));
+    Log("## 確認（まだ使っていない種）\n");
+    Log(BasicsLab.Header);
+    var confirmSeed = seed + 4_000_000;
+    lab.Measure($"{style.Name} の {slot}（前）", style.Defenses.Of(slot), style.GuardHeight, confirmSeed);
+    lab.Measure("磨いた形（後）", tuned, guard, confirmSeed);
+    Log("");
+    if (o.Get("out") is { } outPath)
+    {
+        File.WriteAllText(outPath, System.Text.Json.JsonSerializer.Serialize(tuned, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    return 0;
+}
+
+static DefenseMove LoadMove(string path)
+    => (System.Text.Json.JsonSerializer.Deserialize<DefenseMove>(File.ReadAllText(path)) ?? throw new System.Text.Json.JsonException("空の動きです。")).Validated();
+
 static DefenseBook LoadBook(string? path) => path is null ? DefenseBook.Default
     : (System.Text.Json.JsonSerializer.Deserialize<DefenseBook>(File.ReadAllText(path)) ?? throw new System.Text.Json.JsonException("空の本です。")).Validated();
 
 static int Video(Options o)
 {
+    if (o.Get("drill") is { } punch)
+    {
+        return DrillVideo(o, punch);
+    }
+
     var red = Load(o.Get("red") ?? "champion");
     var blue = Load(o.Get("blue") ?? "jabber");
     var output = Path.GetFullPath(o.Get("out") ?? $"miniring_{red.Name}_vs_{blue.Name}.mp4");
@@ -213,6 +293,50 @@ static int Video(Options o)
     new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), breakStyle, hitSounds)
         .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 45f, min: 1f), output, Console.Out);
     return 0;
+}
+
+// 基本動作のドリルを動画に: 青（攻め手）は 1 つの型だけを打ち、赤（受け手）は 1 つの回避で外す。
+// --move に basics の --out（動きの JSON）、--cue に合図の遅れ（none で受け手自身の目と反応）。
+// --telegraph に攻め手の打つ前の溜め [s]、--predict に受け手の予測の度合い（--cue none と合わせて、読んで避ける様子を見る）、
+// --width-guard / --reach-guard に受け手の構えの開きと出し。
+static int DrillVideo(Options o, string punch)
+{
+    var slot = Enum.Parse<Defense>(o.Get("defense") ?? "Duck", ignoreCase: true);
+    if (!DefenseBook.Evasions.Contains(slot))
+    {
+        throw new ArgumentException("ドリルの動画は回避技を見せます（ブロックは除く）。");
+    }
+
+    var move = o.Get("move") is { } path ? LoadMove(path) : BasicsLab.SlipOutside;
+    var range = o.Float("range", DefenseDrill.DefaultRange, min: 0.8f);
+    float? cue = o.Get("cue") is { } c && c != "none" ? float.Parse(c, CultureInfo.InvariantCulture) : 0.04f;
+    var attacker = DefenseDrill.PunchAttacker(punch, range, telegraph: o.Float("telegraph", 0f, min: 0f));
+    var defender = DefenseDrill.Defender(DefenseBook.Default.With(slot, move), defend: true, range, counters: false) with
+    {
+        Name = "slip",
+        GuardHeight = o.Float("guard", 0.8f, min: 0f),
+        GuardWidth = o.Float("width-guard", 1f, min: 0.2f),
+        GuardReach = o.Float("reach-guard", 1f, min: 0.3f),
+        Prediction = o.Float("predict", 0f, min: 0f),
+    };
+    defender = (cue is null ? defender : defender with { DefenseRate = 0f }).Validated();
+    var attackers = new List<BoxerBot>();
+    var defenders = new List<BoxerBot>();
+    var cues = cue is { } d ? DefenseDrill.DrillCue.For(punch, attacker, d) : null;
+    var red = new Contender(defender.Name, s => Keep(defenders, new BoxerBot(defender, s, slot)));
+    var blue = new Contender(attacker.Name, s => Keep(attackers, new BoxerBot(attacker, s)));
+    var output = Path.GetFullPath(o.Get("out") ?? $"miniring_drill_{punch}_{slot}.mp4");
+    Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+    new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10))
+        .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 20f, min: 1f), output, Console.Out,
+            t => { if (defenders.Count > 0) { cues?.Update(t, attackers, defenders[^1]); } });
+    return 0;
+
+    static BoxerBot Keep(List<BoxerBot> list, BoxerBot bot)
+    {
+        list.Add(bot);
+        return bot;
+    }
 }
 
 static Contender Load(string nameOrPath)

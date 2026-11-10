@@ -19,7 +19,7 @@ public sealed class BoxerSkin
         ArgumentNullException.ThrowIfNull(fighter);
         ArgumentNullException.ThrowIfNull(tuning);
         _tuning = tuning;
-        _parts = fighter.Parts.All.ToImmutableDictionary(id => id, id =>
+        _parts = fighter.AllParts.ToImmutableDictionary(id => id, id =>
         {
             var kind = fighter.KindOf(id);
             return new DentedMesh(model.Mesh(kind), model.MinHalfExtent(kind) * tuning.MaxDentRatio);

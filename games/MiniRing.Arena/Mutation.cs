@@ -55,6 +55,7 @@ internal sealed class Mutation(int seed)
             GloveForward = Tweak(prefix + "拳の前", m.GloveForward, 0.05f * scale, 0.05f, 0.5f, chance),
             BodyDrop = Tweak(prefix + "肘を締める", m.BodyDrop, 0.08f * scale, 0.2f, 0.9f, chance),
             TempleWidth = Tweak(prefix + "こめかみ", m.TempleWidth, 0.04f * scale, 0f, 0.4f, chance),
+            GloveAnchor = Tweak(prefix + "拳を残す", m.GloveAnchor, 0.15f * scale, 0f, 1f, chance),
         };
         return moved.Validated();
     }

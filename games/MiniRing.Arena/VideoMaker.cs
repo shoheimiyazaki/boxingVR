@@ -27,7 +27,14 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     private static readonly Vector4 Gold = new(1f, 0.85f, 0.3f, 1f);
     private static readonly Vector4 Grey = new(0.75f, 0.78f, 0.85f, 1f);
 
-    public void Make(Contender red, Contender blue, int seed, float seconds, string outPath, TextWriter log)
+    /// <param name="red">赤コーナー（プレイヤー側）。</param>
+    /// <param name="blue">青コーナー（CPU 側）。</param>
+    /// <param name="seed">試合の種。</param>
+    /// <param name="seconds">試合の長さ [s]。</param>
+    /// <param name="outPath">書き出す mp4 のパス。</param>
+    /// <param name="log">進み具合の書き出し先。</param>
+    /// <param name="afterStep">試合を 1 歩進めるたびに呼ぶ（時刻 [s]）。ドリルの合図などに使う。</param>
+    public void Make(Contender red, Contender blue, int seed, float seconds, string outPath, TextWriter log, Action<float>? afterStep = null)
     {
         var redBots = new List<IFighterControl>();
         var blueBots = new List<IFighterControl>();
@@ -106,6 +113,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             }
                         }
 
+                        afterStep?.Invoke(time);
                         foreach (var hit in game.RecentHits)
                         {
                             var redHit = hit.Attacker == game.Player;

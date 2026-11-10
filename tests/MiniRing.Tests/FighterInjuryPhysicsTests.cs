@@ -66,8 +66,13 @@ public sealed class FighterInjuryPhysicsTests
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
         Run(world, fighter, Idle(fighter), 1f);
 
-        // 横からのフック相当: 頭だけを横へ叩く。
-        world.ApplyLinearImpulse(fighter.Parts.Head, new Vector3(1f, 0f, 0f) * (0.6f * FighterTuning.Default.Masses.Head));
+        // 横からのフック相当: 頭の横（こめかみの高さ、中心より上）を叩く。グローブは頭の表面に当たるので、押すだけでなく回す。
+        // 中心だけを押す叩き方では、頭を人の比率に小さくした時（HeadScale 0.72）にほとんど回らなかったが、実戦の頭への打撃の
+        // 揺れはむしろ大きくなった（傾きの最大の中央値 0.51 → 0.75 rad、HeadWobbleProbe）。
+        var impulse = new Vector3(1f, 0f, 0f) * (0.6f * FighterTuning.Default.Masses.Head);
+        var temple = new Vector3(0f, 0.5f * FighterTuning.Default.HalfExtents.Head.Y, 0f);
+        world.ApplyLinearImpulse(fighter.Parts.Head, impulse);
+        world.ApplyAngularImpulse(fighter.Parts.Head, Vector3.Cross(temple, impulse));
         var signChanges = 0;
         var peak = 0f;
         var lastSign = 0;

@@ -21,10 +21,28 @@ public sealed record FighterTuning
     /// <summary>既定質量（約 67.6kg）への倍率。0.1 ≒ 6.8kg。</summary>
     public float MassScale { get; init; } = 0.1f;
 
+    /// <summary>
+    /// 頭の大きさの倍率（体の縮尺に対して）。人の比率（0.72）に小さくしてみたが、60cm の人形では頭が小さすぎて見た目が変だった
+    /// ので 1.15 に戻した（予測編 P7）。頭が大きいぶん、回避は大きく早く動く必要がある。
+    /// </summary>
     public float HeadScale { get; init; } = 1.15f;
 
-    /// <summary>腕の長さ方向の倍率。Aigis の関節の重なり代（Overlap 3cm 固定）が 60cm 体格では腕を大きく削るので、その分を補う。</summary>
-    public float ArmLengthScale { get; init; } = 1.4f;
+    /// <summary>
+    /// 腕の長さ方向の倍率。腕の届く長さ（肩 → 肘 → 拳）を以前と同じ約 0.19m に保つ値。
+    /// 以前は関節の重なり代が 3cm 固定で腕を大きく削っていたので 1.4 で補っていた。重なり代を体の縮尺に合わせた（<see cref="JointOverlap"/>）ので 1.18。
+    /// </summary>
+    public float ArmLengthScale { get; init; } = 1.18f;
+
+    /// <summary>
+    /// 関節の重なり代 [m]: 子の部位の箱が、関節から親の側へはみ出す長さ。Aigis の既定（3cm）は 1.7m の体用で、60cm の体では
+    /// 前腕が肘から後ろへ 3cm（前腕の 1/4）飛び出していた。体の縮尺に合わせる。
+    /// </summary>
+    [JsonIgnore]
+    public float JointOverlap => HumanoidRagdoll.Overlap * Scale;
+
+    /// <summary>足首から足の中心までの前へのずれを決める値 [m]（Aigis の既定 5cm は 1.7m の体用。そのままでは、かかとが足首から後ろへ 5cm 飛び出していた）。</summary>
+    [JsonIgnore]
+    public float FootForwardOffset => HumanoidRagdoll.FootForwardOffset * Scale;
     public float GloveRadius { get; init; } = 0.024f;
 
     // ── 体幹（加速度単位）
@@ -46,9 +64,21 @@ public sealed record FighterTuning
     public float NeutralKneeRadians { get; init; } = 14f * MathF.PI / 180f;
     public float GaitHipSwingRadians { get; init; } = 30f * MathF.PI / 180f;
     public float GaitKneeLiftRadians { get; init; } = 40f * MathF.PI / 180f;
-    public float LegServoHz { get; init; } = 12f;
+    /// <summary>脚のサーボの固有振動数 [Hz]。足の運びで、踏み出した足を 0.1〜0.2 秒で置き場所まで運び切れる速さ（以前の歩行は 12）。</summary>
+    public float LegServoHz { get; init; } = 20f;
+
+    /// <summary>股・膝・足首のサーボが出せる最大トルク（TorqueScale 倍する前）。足を置き場所へ運び切れる強さ（以前は 120 / 100 / 100）。</summary>
+    public float HipMaxTorque { get; init; } = 360f;
+    public float KneeMaxTorque { get; init; } = 300f;
+    public float AnkleMaxTorque { get; init; } = 900f;
     /// <summary>首（頭と胴をつなぐバネ）の固有振動数 [Hz]。低いほど打たれた頭が大きく揺れる。</summary>
     public float NeckServoHz { get; init; } = 3.5f;
+
+    /// <summary>足の運び（足の置き場所のモデル。<see cref="MiniRing.Footwork"/>）。</summary>
+    public FootworkTuning Footwork { get; init; } = new();
+
+    /// <summary>つま先の蝶番のサーボの強さ（TorqueScale 倍する前）。</summary>
+    public float ToeMaxTorque { get; init; } = 20f;
 
     /// <summary>首のバネの減衰比。1 未満で振動が残り、殴られると頭がグラングラン揺れてから戻る。</summary>
     public float NeckDampingRatio { get; init; } = 0.06f;
@@ -76,6 +106,12 @@ public sealed record FighterTuning
     public float HipTwistShare { get; init; } = 0.45f;
     /// <summary>頭のずれ（前傾・スリップ）で胴を傾けられる最大角。</summary>
     public float MaxLeanRadians { get; init; } = 30f * MathF.PI / 180f;
+
+    /// <summary>沈み込みの最大（立つ高さに対する割合）。膝と股を曲げて腰を落とす。</summary>
+    public float MaxCrouch { get; init; } = 0.4f;
+
+    /// <summary>腰の沈みで足りない頭の下げを、股から上体を前へ折って補う最大角（ヒップヒンジ）。</summary>
+    public float MaxHingeRadians { get; init; } = 20f * MathF.PI / 180f;
 
     // ── 掴み・投げ
     public float GrabRadius { get; init; } = 0.04f;
@@ -137,7 +173,7 @@ public sealed record FighterTuning
             return new HumanoidRagdoll.HalfExtents(
                 d.Pelvis * Scale, d.Chest * Scale, d.Head * (Scale * HeadScale),
                 d.UpperArm * Scale * new Vector3(ArmLengthScale, 1f, 1f), d.Forearm * Scale * new Vector3(ArmLengthScale, 1f, 1f),
-                d.Thigh * Scale, d.Shin * Scale, d.Foot * Scale);
+                d.Thigh * Scale, d.Shin * Scale, d.Foot * Scale * new Vector3(1f, 1f, 1f - FootGeometry.ToeShare)); // 足はかかと側（つま先は別の部位）
         }
     }
 
@@ -151,7 +187,7 @@ public sealed record FighterTuning
             {
                 Pelvis = m.Pelvis * MassScale, Chest = m.Chest * MassScale, Head = m.Head * MassScale,
                 UpperArm = m.UpperArm * MassScale, Forearm = m.Forearm * MassScale, Thigh = m.Thigh * MassScale,
-                Shin = m.Shin * MassScale, Foot = m.Foot * MassScale,
+                Shin = m.Shin * MassScale, Foot = m.Foot * MassScale * (1f - FootGeometry.ToeShare), // かかと側（残りはつま先）
             };
         }
     }

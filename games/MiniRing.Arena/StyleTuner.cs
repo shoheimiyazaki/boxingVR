@@ -119,8 +119,14 @@ internal sealed class StyleTuner(IReadOnlyList<Contender> gauntlet, int bouts, f
             // 0（見ない）と 0.8〜2 の間は飛ぶので、見ている間だけ帯の中で揺らす（帯の外の値を記録しない）。
             EvadeReach = parent.EvadeReach > 0f ? m.Tweak("避ける届く範囲", parent.EvadeReach, 0.1f, 0.8f, 2f) : 0f,
             HeadMovement = m.Tweak("頭を振る", parent.HeadMovement, 0.15f, 0f, 1f),
-            GuardHeight = m.Tweak("構えの高さ", parent.GuardHeight, 0.15f, 0f, 1f),
+            GuardHeight = m.Tweak("構えの高さ", parent.GuardHeight, 0.15f, 0f, BotStyle.MaxGuardHeight),
+            GuardWidth = m.Tweak("構えの開き", parent.GuardWidth, 0.15f, 0.2f, 1.5f),
+            GuardReach = m.Tweak("構えの出し", parent.GuardReach, 0.15f, 0.3f, 1.5f),
             Anticipation = m.Tweak("動き出しを読む", parent.Anticipation, 0.15f, 0f, 1f),
+            Prediction = m.Tweak("予測で避ける", parent.Prediction, 0.15f, 0f, 1f),
+            EdgeRange = m.Tweak("間合いの端に立つ", parent.EdgeRange, 0.15f, 0f, 1f),
+            // 溜めは人の体で 0 にはできない（腰と肩が先に動く）ので、調整では 0.03 秒より短くしない。
+            Telegraph = m.Tweak("溜め", MathF.Max(0.03f, parent.Telegraph), 0.02f, 0.03f, 0.2f),
             DefenseRate = m.Tweak("守る率", parent.DefenseRate, 0.1f, 0f, BotStyle.MaxDefenseRate),
             BlockWeight = m.Tweak("ブロック", parent.BlockWeight, 0.3f, 0f, 3f),
             DuckWeight = m.Tweak("ダッキング", parent.DuckWeight, 0.3f, 0f, 3f),

@@ -44,6 +44,9 @@ public readonly record struct PunchSpec(
     /// <summary>腕の振り出しが全体に占める割合（残りで構えへ戻す）。</summary>
     public const float OutboundShare = 0.6f;
 
+    /// <summary>経路の曲がり（0 = 構えから狙いへまっすぐ … 1 = 溜めの点を通る）。溜めの横・下の大きさで決める（0.5 以上で 1）。</summary>
+    public float Curve => Math.Clamp(MathF.Max(Lateral, MathF.Abs(Low)) / 0.5f, 0f, 1f);
+
     public static PunchSpec Of(Technique technique) => technique switch
     {
         Technique.Jab => new(true, 0f, 0f, 0.25f, 0.30f, false, new(0.05f, 0f, 0.08f), 0.6f),
@@ -68,8 +71,11 @@ public readonly record struct PunchSpec(
     public Vector3 Evaluate(Hand hand, float time, float duration, Vector3 guard, Vector3 aim, float reach)
     {
         var t = Math.Clamp(time / duration, 0f, 1f);
-        var windup = PunchPath.Windup(hand, Lateral, Low, reach);
         var through = PunchPath.Through(aim, Overshoot, reach) - new Vector3(hand.LocalSide() * Sweep * reach, 0f, 0f);
+        // 溜めの小さい拳（ジャブ・ストレート）は、構えから狙いへまっすぐ出す。溜めの点をそのまま使うと、右ストレートが
+        // 外側の下から弧を描いて来て、頭の横下へ外す回避に自分から当たりに行っていた（基本動作編 B9）。
+        var straight = (guard + through) * 0.5f;
+        var windup = Vector3.Lerp(straight, PunchPath.Windup(hand, Lateral, Low, reach), Curve);
         var outbound = PunchPath.Point(guard, windup, through, MathF.Min(t / OutboundShare, Extend));
         return Vector3.Lerp(outbound, guard, MathF.Max(0f, (t - OutboundShare) / (1f - OutboundShare)));
     }

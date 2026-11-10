@@ -138,7 +138,7 @@ public static class BoxingRenderer
             return;
         }
 
-        foreach (var id in fighter.Parts.All)
+        foreach (var id in fighter.AllParts)
         {
             var s = world.GetState(id);
             var body = Matrix4x4.CreateFromQuaternion(s.Orientation) * Matrix4x4.CreateTranslation(s.Position);

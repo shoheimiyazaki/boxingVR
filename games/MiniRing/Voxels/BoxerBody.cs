@@ -52,7 +52,7 @@ public sealed class BoxerBody
         ArgumentNullException.ThrowIfNull(tuning);
         _deathFraction = tuning.OrganDeathFraction;
         var p = fighter.Parts;
-        foreach (var id in p.All)
+        foreach (var id in fighter.AllParts)
         {
             var kind = fighter.KindOf(id);
             var grid = BoxerAnatomy.Build(kind, fighter.HalfExtentsOf(id), tuning.VoxelSize, shapes?.Mesh(kind));
@@ -69,7 +69,7 @@ public sealed class BoxerBody
         }
     }
 
-    /// <summary>体に付いている部位（13）。</summary>
+    /// <summary>体に付いている部位（Aigis の 13 + つま先 2）。</summary>
     public IReadOnlyList<VoxelPart> Parts => _parts;
 
     /// <summary>切り落とされた破片。</summary>

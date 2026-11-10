@@ -1,0 +1,15 @@
+{
+  "Outside": true,
+  "HeadX": 0.5,
+  "HeadY": -0.6,
+  "HeadZ": -0.2,
+  "EndX": 0.5,
+  "Duration": 0.3,
+  "Step": 1,
+  "Rate": 60,
+  "HandsUp": 0.3,
+  "GloveWidth": 0.1,
+  "GloveHeight": -0.03,
+  "GloveForward": 0.25,
+  "VsStraight": 1
+}

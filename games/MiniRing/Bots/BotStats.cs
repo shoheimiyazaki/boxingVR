@@ -19,8 +19,36 @@ public sealed class BotStats
     public int ThrowAttempts { get; private set; }
     public int Pivots { get; private set; }
 
+    /// <summary>予測で（拳が出る前に）始めた守りの数・そのうち打たれた数・拳が来なかった（空振りの）数。</summary>
+    public int Predictions { get; private set; }
+    public int PredictionsHit { get; private set; }
+    public int PredictionsIdle { get; private set; }
+
     /// <summary>守りを出さずに（出せずに）受けた打撃の数。</summary>
     public int HitsTakenOpen { get; private set; }
+
+    /// <summary>立っていた時間と、そのうち頭を沈めて（しゃがんで）いた時間 [s]、続けてしゃがんでいた最長の時間 [s]。</summary>
+    public float Time { get; private set; }
+    public float CrouchTime { get; private set; }
+    public float LongestCrouch { get; private set; }
+    private float _crouchRun;
+
+    /// <summary>しゃがんでいた時間の割合。</summary>
+    public float CrouchShare => Time > 0f ? CrouchTime / Time : 0f;
+
+    /// <summary>しゃがんでいた時間のうち、守りの最中・打っている最中だった時間 [s]（どこで沈んでいるかを見る）。</summary>
+    public float CrouchDefending { get; private set; }
+    public float CrouchPunching { get; private set; }
+
+    internal void Tick(float dt, bool crouched, bool defending = false, bool punching = false)
+    {
+        Time += dt;
+        CrouchTime += crouched ? dt : 0f;
+        CrouchDefending += crouched && defending ? dt : 0f;
+        CrouchPunching += crouched && punching && !defending ? dt : 0f;
+        _crouchRun = crouched ? _crouchRun + dt : 0f;
+        LongestCrouch = MathF.Max(LongestCrouch, _crouchRun);
+    }
 
     internal void Thrown(Technique technique, bool counter)
     {
@@ -44,6 +72,13 @@ public sealed class BotStats
     }
 
     internal void TookOpenHit() => HitsTakenOpen++;
+
+    internal void Predicted(bool hit, bool punchCame)
+    {
+        Predictions++;
+        PredictionsHit += hit ? 1 : 0;
+        PredictionsIdle += punchCame ? 0 : 1;
+    }
 
     internal void Clinched() => Clinches++;
 
@@ -77,6 +112,14 @@ public sealed class BotStats
         ThrowAttempts += other.ThrowAttempts;
         Pivots += other.Pivots;
         HitsTakenOpen += other.HitsTakenOpen;
+        Predictions += other.Predictions;
+        PredictionsHit += other.PredictionsHit;
+        PredictionsIdle += other.PredictionsIdle;
+        Time += other.Time;
+        CrouchTime += other.CrouchTime;
+        CrouchDefending += other.CrouchDefending;
+        CrouchPunching += other.CrouchPunching;
+        LongestCrouch = MathF.Max(LongestCrouch, other.LongestCrouch);
     }
 
     private TechniqueCount Get(Technique technique) => _techniques.GetValueOrDefault(technique);

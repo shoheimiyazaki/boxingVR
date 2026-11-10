@@ -595,7 +595,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
             opponent.State == FighterState.Standing, self.HeadPosition,
             new GloveSense(opponent.GloveCenter(Hand.Left), opponent.GloveVelocity(Hand.Left)),
             new GloveSense(opponent.GloveCenter(Hand.Right), opponent.GloveVelocity(Hand.Right)),
-            opponent.ChestVelocity);
+            opponent.ChestVelocity,
+            new BodySense(opponent.ShoulderPosition(Hand.Left), opponent.ShoulderPosition(Hand.Right), opponent.PelvisPosition));
     }
 
     public FighterSense PlayerSense => Sense(Player, Cpu);

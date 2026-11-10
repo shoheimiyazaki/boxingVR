@@ -50,6 +50,14 @@ internal static class Report
             sb.AppendLine(string.Create(Inv,
                 $"カウンター {(float)st.CountersThrown / s.Bouts:0.0}発 命中 {(st.CountersThrown > 0 ? (float)st.CountersLanded / st.CountersThrown : 0f):P0} ／ " +
                 $"無防備に受けた打撃 {(float)st.HitsTakenOpen / s.Bouts:0.0} ／ クリンチ {(float)st.Clinches / s.Bouts:0.0} ／ 投げ {(float)st.ThrowAttempts / s.Bouts:0.0}（1 試合あたり）"));
+            if (st.Predictions > 0)
+            {
+                sb.AppendLine(string.Create(Inv,
+                    $"予測の守り {(float)st.Predictions / s.Bouts:0.0}回: 打たれず {1f - ((float)st.PredictionsHit / st.Predictions):P0} ／ 拳が来なかった（空振り） {(float)st.PredictionsIdle / st.Predictions:P0}"));
+            }
+
+            sb.AppendLine(string.Create(Inv, $"しゃがんでいた時間 {st.CrouchShare:P0}（守りの最中 {(st.Time > 0f ? st.CrouchDefending / st.Time : 0f):P0}・打つ最中 {(st.Time > 0f ? st.CrouchPunching / st.Time : 0f):P0}、続けて最長 {st.LongestCrouch:0.0} 秒）"));
+
             sb.AppendLine();
         }
 
