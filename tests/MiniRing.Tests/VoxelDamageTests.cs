@@ -122,6 +122,35 @@ public sealed class VoxelDamageTests
     }
 
     [TestMethod]
+    public void Chips_JetOnAlongTheBlow_MostlyForward_WithSomeSprayingBack()
+    {
+        using var world = new PhysicsWorld(gravity: Vector3.Zero);
+        var id = world.AddDynamicBox(Vector3.Zero, new Vector3(0.05f, 0.02f, 0.02f), 1.6f);
+        var body = new VoxelBody(world, id, Rod());
+        var random = new Random(1);
+        var chips = new List<VoxelChip>();
+        var blow = new Vector3(1f, -1f, 0f); // 上から斜めに打ち下ろす
+        body.Impact(new Vector3(-0.02f, 0.02f, 0f), blow, 12f, chipSpeed: 2f, () => (2f * random.NextSingle()) - 1f, chips, spread: 0.3f);
+
+        Assert.IsGreaterThan(5, chips.Count);
+        var dir = Vector3.Normalize(blow);
+        var forward = chips.Count(c => Vector3.Dot(Vector3.Normalize(c.Velocity), dir) > 0.7f);
+        var back = chips.Count(c => Vector3.Dot(c.Velocity, dir) < 0f);
+        Assert.IsGreaterThan(0.5f * chips.Count, forward, "most fly on along the blow, in a narrow cone");
+        Assert.IsGreaterThan(0, back, "some burst back out of the crater");
+        Assert.IsTrue(chips.All(c => c.Velocity.Length() is > 1.4f and < 2.6f), "at about the chip speed");
+    }
+
+    [TestMethod]
+    public void AHarderBlow_ReadsStronger()
+    {
+        Assert.AreEqual(0f, BoxingGame.HitStrength(2f));
+        Assert.IsLessThan(BoxingGame.HitStrength(15f), BoxingGame.HitStrength(6f));
+        Assert.IsLessThan(BoxingGame.HitStrength(30f), BoxingGame.HitStrength(15f));
+        Assert.AreEqual(1f, BoxingGame.HitStrength(60f));
+    }
+
+    [TestMethod]
     public void Sever_BreaksOffTheFarPiece_AsANewBody_WithItsShareOfTheMass()
     {
         using var world = new PhysicsWorld(gravity: Vector3.Zero);

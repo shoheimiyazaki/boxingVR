@@ -328,7 +328,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         SkinOf(victim).Dent(victimBody, _world.GetState(victimBody), hit.Point, gloveVelocity, hit.Damage);
         // 削る量は打撃そのものの強さ（部位の倍率を外したダメージ）。得点ではガードの上は 0.25 倍に割り引くが、
         // 受けた腕にかかる衝撃は同じ: ブロックし続けた腕は削れていく。
-        Strike(victim, victimBody, hit.Point, gloveVelocity, hit.Damage / ZoneDamage.Multiplier(hit.Zone));
+        Strike(victim, victimBody, hit.Point, gloveVelocity, hit.Damage / ZoneDamage.Multiplier(hit.Zone), hit.Attacker);
 
         // 体重の乗った拳は相手を押し込む: 物理の接触が運ぶのは腕の質量だけなので、体から来た分の運動量を足す。
         // 1 部位に入れると千切れるほど速くなるので、相手の全身へ一様な速度変化として配り（上限付き）、
@@ -357,16 +357,21 @@ public sealed class BoxingGame : IGame<BoxingInput>
     /// <param name="point">当たった点（ワールド）。</param>
     /// <param name="direction">拳の進む向き（速度でよい）。</param>
     /// <param name="damage">打撃の強さ（ダメージ点）。</param>
-    internal void Strike(Fighter victim, int victimBody, Vector3 point, Vector3 direction, float damage)
+    /// <param name="attacker">打った側（火花をその側のグローブの色にする）。分からなければ null。</param>
+    internal void Strike(Fighter victim, int victimBody, Vector3 point, Vector3 direction, float damage, Fighter? attacker = null)
     {
         if (victim.Voxels is not { } body)
         {
             return;
         }
 
+        // 飛び散り方で打撃を読ませる: 強いほど速く・細く・遠くへ（弱い 1 発は近くにぽろっと落ちる）。
+        var strength = HitStrength(damage);
+        var chipSpeed = _tuning.ChipSpeed * (0.5f + (1.3f * strength));
+        var spread = 0.75f - (0.5f * strength);
         _chips.Clear();
-        var result = body.Impact(victimBody, point, direction, damage * _tuning.CarvePerDamage, _tuning.ChipSpeed, Jitter, _chips);
-        SpawnDebris(_chips, point);
+        var result = body.Impact(victimBody, point, direction, damage * _tuning.CarvePerDamage, chipSpeed, Jitter, _chips, spread);
+        SpawnDebris(_chips, point, direction, strength, attacker);
         if (result?.Fragment is { } fragment)
         {
             victim.Sever(victimBody, fragment.Body);
@@ -394,12 +399,18 @@ public sealed class BoxingGame : IGame<BoxingInput>
         }
     }
 
+    /// <summary>打撃の強さ 0（かすり）〜 1（とても重い 1 発）。ダメージ 3 で 0、30 で 1 にかけて、平方根で（中くらいの差も見える）。</summary>
+    internal static float HitStrength(float damage) => MathF.Sqrt(Math.Clamp((damage - 3f) / 27f, 0f, 1f));
+
     /// <summary>
-    /// 削れたボクセルを派手に砕け散らせる: 1 個ごとに、その材質の色の欠片（速く、強く回る）と細かい破片 2 つ。骨からは白い粉と
-    /// 光る火花（機械の部品が壊れるように）、肉と臓器からは血しぶき、臓器からはさらに光る赤い飛沫。当たった所には一瞬の閃光。
+    /// 削れたボクセルを砕け散らせる。散り方で「どの向きに・どれだけ強く」当たったかが読めるように、どの破片も
+    /// 欠片の飛ぶ向き（<see cref="VoxelBody.Impact"/> の噴き出し）に沿わせ、その速さに比べた小さな揺らぎだけを足す。
+    /// 1 個ごとに、その材質の色の欠片と細かい破片 2 つ。骨からは白い粉と光る火花、肉と臓器からは血しぶき、臓器からはさらに
+    /// 光る赤い飛沫。当たった所には打った側の色の閃光（<see cref="ImpactFlash"/>）。
     /// </summary>
-    private void SpawnDebris(List<VoxelChip> chips, Vector3 point)
+    private void SpawnDebris(List<VoxelChip> chips, Vector3 point, Vector3 direction, float strength, Fighter? attacker)
     {
+        ImpactFlash(point, direction, strength, attacker);
         if (chips.Count == 0)
         {
             return;
@@ -410,12 +421,15 @@ public sealed class BoxingGame : IGame<BoxingInput>
         {
             var material = palette[chip.Material];
             var color = chip.WasSurface ? material.SurfaceColor : material.Color;
-            Vector3 Scatter(float s) => new Vector3(Jitter(), Jitter() + 0.4f, Jitter()) * s;
+            var along = chip.Velocity;
+            var pace = along.Length();
+            // 欠片の向きに沿って、速さを掛け、その速さに比べた揺らぎ（spread）を足す。
+            Vector3 Fly(float speedScale, float wobble) => (along * speedScale) + (new Vector3(Jitter(), Jitter(), Jitter()) * (wobble * pace * speedScale));
             Vector3 Spin(float s) => new Vector3(Jitter(), Jitter(), Jitter()) * s;
-            _debris.Spawn(chip.Position, (chip.Velocity * 1.5f) + Scatter(0.5f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color, tag: chip.Material);
+            _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color, tag: chip.Material);
             for (var k = 0; k < 2; k++)
             {
-                _debris.Spawn(chip.Position, (chip.Velocity * 2f) + Scatter(1.2f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f, tag: chip.Material);
+                _debris.Spawn(chip.Position, Fly(1.8f, 0.25f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f, tag: chip.Material);
             }
 
             switch (material.Tissue)
@@ -423,29 +437,63 @@ public sealed class BoxingGame : IGame<BoxingInput>
                 case VoxelTissue.Bone:
                     for (var k = 0; k < 3; k++)
                     {
-                        _debris.Spawn(chip.Position, (chip.Velocity * 1.8f) + Scatter(1.5f), chip.Orientation, chip.Size * 0.25f, Spin(90f), BoneDust, life: 1.2f, tag: VoxelBreakSound.DustTag);
+                        _debris.Spawn(chip.Position, Fly(1.6f, 0.35f), chip.Orientation, chip.Size * 0.25f, Spin(90f), BoneDust, life: 1.2f, tag: VoxelBreakSound.DustTag);
                     }
 
-                    _debris.Spawn(chip.Position, (chip.Velocity * 2.5f) + Scatter(2.5f), chip.Orientation, chip.Size * 0.22f, Spin(30f), Spark, life: 0.25f, glow: true, tag: VoxelBreakSound.SparkTag);
+                    _debris.Spawn(chip.Position, Fly(2.4f, 0.3f), chip.Orientation, chip.Size * 0.22f, Spin(30f), Spark, life: 0.25f, glow: true, tag: VoxelBreakSound.SparkTag);
                     break;
                 case VoxelTissue.Organ:
                     for (var k = 0; k < 2; k++)
                     {
-                        _debris.Spawn(chip.Position, (chip.Velocity * 2.2f) + Scatter(1.8f), chip.Orientation, chip.Size * 0.35f, Spin(50f), OrganGlow, life: 0.4f, glow: true, tag: VoxelBreakSound.SparkTag);
+                        _debris.Spawn(chip.Position, Fly(2f, 0.3f), chip.Orientation, chip.Size * 0.35f, Spin(50f), OrganGlow, life: 0.4f, glow: true, tag: VoxelBreakSound.SparkTag);
                     }
 
                     goto case VoxelTissue.Flesh;
                 case VoxelTissue.Flesh:
                     for (var k = 0; k < 3; k++)
                     {
-                        _debris.Spawn(chip.Position, (chip.Velocity * 2.4f) + Scatter(1.4f), chip.Orientation, chip.Size * 0.35f, Spin(60f), BloodColor, life: 2.2f, tag: VoxelBreakSound.BloodTag);
+                        _debris.Spawn(chip.Position, Fly(2.1f, 0.3f), chip.Orientation, chip.Size * 0.35f, Spin(60f), BloodColor, life: 2.2f, tag: VoxelBreakSound.BloodTag);
                     }
 
                     break;
             }
         }
+    }
 
-        Burst(point, Math.Min(24, 4 + (chips.Count / 3)), 1f, Spark);
+    /// <summary>
+    /// 当たった瞬間の閃光（打った側のグローブの色。分からなければ金色）: 拳の進む向きへの細い火花の筋と、少しの跳ね返り。
+    /// 強いほど本数が多く、速く、長い。重い 1 発（強さ 0.5 以上）では、拳の向きに垂直な光の輪も広がる。
+    /// </summary>
+    private void ImpactFlash(Vector3 point, Vector3 direction, float strength, Fighter? attacker)
+    {
+        var color = attacker is null ? Spark : attacker == Player ? PlayerSpark : CpuSpark;
+        var dir = direction.LengthSquared() > 1e-12f ? Vector3.Normalize(direction) : Vector3.UnitY;
+        var streaks = 4 + (int)(20f * strength);
+        for (var k = 0; k < streaks; k++)
+        {
+            var back = k % 4 == 3; // 4 本に 1 本は跳ね返り
+            var heading = Vector3.Normalize(((back ? -0.6f : 1f) * dir) + (new Vector3(Jitter(), Jitter(), Jitter()) * (back ? 0.7f : 0.35f)));
+            var speed = (0.8f + (2.2f * strength)) * (1f + (0.3f * Jitter()));
+            _debris.Spawn(point, heading * speed, Quaternion.Identity, new Vector3(0.004f + (0.003f * strength)),
+                new Vector3(Jitter(), Jitter(), Jitter()) * 40f, color, life: 0.12f + (0.15f * strength), glow: true, tag: VoxelBreakSound.SparkTag);
+        }
+
+        if (strength < 0.5f)
+        {
+            return;
+        }
+
+        // 光の輪: 拳の向きに垂直な面に、等間隔で外へ。
+        var side = Vector3.Normalize(Vector3.Cross(dir, MathF.Abs(dir.Y) < 0.9f ? Vector3.UnitY : Vector3.UnitX));
+        var up = Vector3.Cross(dir, side);
+        var ring = 12 + (int)(16f * strength);
+        for (var k = 0; k < ring; k++)
+        {
+            var angle = 2f * MathF.PI * k / ring;
+            var outward = (MathF.Cos(angle) * side) + (MathF.Sin(angle) * up);
+            _debris.Spawn(point, outward * (1.2f + (1.5f * strength)), Quaternion.Identity, new Vector3(0.005f),
+                Vector3.Zero, color, life: 0.14f, glow: true, tag: VoxelBreakSound.SparkTag);
+        }
     }
 
     /// <summary>当たった所から光る火花を放射状に（0.15〜0.3 秒）。</summary>
@@ -463,6 +511,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
     private static readonly Vector4 BoneDust = new(1f, 0.98f, 0.9f, 1f);
     private static readonly Vector4 Spark = new(1f, 0.85f, 0.45f, 1f);
     private static readonly Vector4 OrganGlow = new(1f, 0.15f, 0.25f, 1f);
+    private static readonly Vector4 PlayerSpark = new(1f, 0.4f, 0.3f, 1f);
+    private static readonly Vector4 CpuSpark = new(0.45f, 0.65f, 1f, 1f);
 
     private float Jitter() => (2f * _fx.NextSingle()) - 1f;
 

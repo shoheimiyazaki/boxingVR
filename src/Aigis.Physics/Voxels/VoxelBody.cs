@@ -72,11 +72,12 @@ public sealed class VoxelBody
     /// <summary>
     /// Carves a blow landing at <paramref name="worldPoint"/> travelling along <paramref name="worldDirection"/> with
     /// <paramref name="energy"/> damage (<see cref="VoxelGrid.Carve"/>). Carved voxels are appended to
-    /// <paramref name="chips"/>: each flies off along the blow and back out of the crater at about
-    /// <paramref name="chipSpeed"/>, on top of the body's own velocity. <paramref name="jitter"/> (−1..1 per call)
-    /// spreads them; pass a seeded source to stay deterministic.
+    /// <paramref name="chips"/> so the blow reads from how they fly: most leave as a jet onward along the blow (an exit
+    /// spray, within a cone of half-width <paramref name="spread"/>: 0 = a straight line, 1 = about 45°), the rest burst
+    /// back out of the crater against it. Speeds are about <paramref name="chipSpeed"/> (±25%) on top of the body's own
+    /// velocity. <paramref name="jitter"/> (−1..1 per call) spreads them; pass a seeded source to stay deterministic.
     /// </summary>
-    public int Impact(Vector3 worldPoint, Vector3 worldDirection, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips)
+    public int Impact(Vector3 worldPoint, Vector3 worldDirection, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f)
     {
         ArgumentNullException.ThrowIfNull(jitter);
         ArgumentNullException.ThrowIfNull(chips);
@@ -98,10 +99,23 @@ public sealed class VoxelBody
             var local = v.LocalCenter + GridCenterLocal;
             var position = s.Position + Vector3.Transform(local, s.Orientation);
             var pointVelocity = s.LinearVelocity + Vector3.Cross(s.AngularVelocity, position - s.Position);
-            // Out of the crater (against the blow) and onward with it, plus some scatter and a little lift.
-            var outward = Vector3.Normalize(position - worldPoint + (dir * 1e-3f));
             var scatter = new Vector3(jitter(), jitter(), jitter());
-            var velocity = pointVelocity + (chipSpeed * ((0.6f * dir) + (0.5f * -dir * (0.5f + (0.5f * jitter()))) + (0.6f * outward) + (0.5f * scatter) + new Vector3(0f, 0.6f, 0f)));
+            Vector3 heading;
+            if (jitter() > -0.5f)
+            {
+                // The exit jet (3 in 4): onward along the blow, fanned by the spread.
+                heading = dir + (spread * scatter);
+            }
+            else
+            {
+                // The back spray (1 in 4): out of the crater, against the blow and away from the contact.
+                var outward = position - worldPoint - (dir * Vector3.Dot(position - worldPoint, dir));
+                var aside = outward.LengthSquared() > 1e-10f ? Vector3.Normalize(outward) : scatter;
+                heading = (-0.8f * dir) + (0.6f * aside) + (0.4f * scatter);
+            }
+
+            var speed = chipSpeed * (1f + (0.25f * jitter()));
+            var velocity = pointVelocity + (Vector3.Normalize(heading + new Vector3(1e-4f)) * speed);
             chips.Add(new VoxelChip(position, velocity, s.Orientation, size, v.Material, v.WasSurface));
         }
 
