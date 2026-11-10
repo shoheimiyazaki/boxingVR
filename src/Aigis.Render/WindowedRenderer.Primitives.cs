@@ -239,6 +239,8 @@ public sealed unsafe partial class WindowedRenderer
     /// <exception cref="ArgumentException"><paramref name="lighting"/> requests specular but
     /// <paramref name="cameraPosition"/> is <see langword="null"/> — see
     /// <see cref="HeadlessRenderer.RenderPrimitiveScene"/>'s matching parameter.</exception>
+    /// <param name="voxels">Voxel volumes (<see cref="Voxels.VoxelVolumeDraw"/>): each one's surface is built on the GPU from its
+    /// 3D texture — a face wherever a filled cell meets an empty one — and drawn with the opaque scene.</param>
     public bool RenderPrimitiveSceneAndPresent(
         Vector4 clearColor,
         Matrix4x4 viewProjection,
@@ -253,7 +255,8 @@ public sealed unsafe partial class WindowedRenderer
         IReadOnlyList<UiShapeDraw>? shapes = null,
         IReadOnlyList<DecalQuadDraw>? decals = null,
         ForegroundLayer? foreground = null,
-        PostProcessSettings? postProcess = null)
+        PostProcessSettings? postProcess = null,
+        IReadOnlyList<Voxels.VoxelVolumeDraw>? voxels = null)
     {
         // Before the fence is reset and an image acquired: a bad value thrown mid-frame would leave the
         // fence unsignalled and freeze every later frame.
@@ -294,6 +297,8 @@ public sealed unsafe partial class WindowedRenderer
         PrepareSurfaceTextures(effectiveLighting.SurfaceTextures);
         var effectiveDecals = decals ?? [];
         PrepareDecals(effectiveDecals);
+        var effectiveVoxels = voxels ?? [];
+        PrepareVoxels(effectiveVoxels);
         RenderPhases.Mark(RenderPhaseProfiler.Phase.PrepareTextures);
 
         if (!TryBeginFrame(out var imageIndex))
@@ -381,6 +386,7 @@ public sealed unsafe partial class WindowedRenderer
 
         DrawPrimitiveDepthPrepass(_commandBuffer, _primitivePacker, 0);
         DrawPrimitiveBatches(_commandBuffer);
+        DrawVoxels(_commandBuffer, effectiveVoxels, viewProjection);
         DrawPrimitiveXRayBatches(_commandBuffer, _primitivePacker, 0);
         DrawPrimitiveGlowBatches(_commandBuffer, _primitivePacker, 0);
         WriteGpuTimestamp(_commandBuffer, RenderPhaseProfiler.GpuPhase.Primitives);
@@ -459,7 +465,8 @@ public sealed unsafe partial class WindowedRenderer
         IReadOnlyList<UiShapeDraw>? shapes = null,
         IReadOnlyList<DecalQuadDraw>? decals = null,
         ForegroundLayer? foreground = null,
-        PostProcessSettings? postProcess = null)
+        PostProcessSettings? postProcess = null,
+        IReadOnlyList<Voxels.VoxelVolumeDraw>? voxels = null)
     {
         ArgumentNullException.ThrowIfNull(views);
         ArgumentNullException.ThrowIfNull(instances);
@@ -497,6 +504,8 @@ public sealed unsafe partial class WindowedRenderer
         PrepareSurfaceTextures(effectiveLighting.SurfaceTextures);
         var effectiveDecals = decals ?? [];
         PrepareDecals(effectiveDecals);
+        var effectiveVoxels = voxels ?? [];
+        PrepareVoxels(effectiveVoxels);
         var shadowViewProjection = shadow.HasValue
             ? Camera.DirectionalShadowViewProjection(shadow.Value.AabbMin, shadow.Value.AabbMax, effectiveLighting.Sun.Direction)
             : Matrix4x4.Identity;
@@ -604,6 +613,7 @@ public sealed unsafe partial class WindowedRenderer
 
             DrawPrimitiveDepthPrepass(_commandBuffer, packer, baseInstance);
             DrawPrimitiveBatches(_commandBuffer, packer, baseInstance, i);
+            DrawVoxels(_commandBuffer, effectiveVoxels, view.ViewProjection);
             DrawPrimitiveXRayBatches(_commandBuffer, packer, baseInstance, i);
             DrawPrimitiveGlowBatches(_commandBuffer, packer, baseInstance, i);
             // Per view, with that view's camera: a decal is world geometry, so each split-screen

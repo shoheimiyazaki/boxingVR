@@ -1,0 +1,335 @@
+using System.Numerics;
+using Aigis.Foundation.Voxels;
+using Aigis.Physics;
+using Aigis.Physics.Voxels;
+using Aigis.Render;
+using Aigis.Render.Voxels;
+using MiniRing.Voxels;
+
+namespace MiniRing.Tests;
+
+/// <summary>
+/// ボクセルの体: エンジン（格子・削る・骨の断裂・切り離し・剛体の形の変更・破片）と、
+/// ゲーム（肉が削れると弱る・骨が断たれると落ちる・臓器が壊れると死ぬ）。
+/// </summary>
+[TestClass]
+public sealed class VoxelDamageTests
+{
+    private const byte Flesh = 1;
+    private const byte Bone = 2;
+
+    private static readonly VoxelPalette Palette = new(
+    [
+        new VoxelMaterial("empty", VoxelTissue.Empty, 1f, false, Vector4.Zero, Vector4.Zero),
+        new VoxelMaterial("flesh", VoxelTissue.Flesh, 1f, false, Vector4.One, Vector4.One),
+        new VoxelMaterial("bone", VoxelTissue.Bone, 8f, false, Vector4.One, Vector4.One),
+    ]);
+
+    /// <summary>X に沿った 10 × 4 × 4 の棒（1cm 角）。芯の 2 × 2 が骨、<paramref name="gapAt"/> の断面だけ骨が無い。</summary>
+    private static VoxelGrid Rod(int gapAt = -1) => new(Palette, new Vector3(0.05f, 0.02f, 0.02f), (10, 4, 4), (p, n) =>
+    {
+        var x = (int)MathF.Floor((p.X + 0.05f) / 0.01f);
+        return MathF.Abs(n.Y) < 0.5f && MathF.Abs(n.Z) < 0.5f && x != gapAt ? Bone : Flesh;
+    });
+
+    // ── エンジン: 格子 ──
+
+    [TestMethod]
+    public void Grid_FillsItsBoxExactly_AndCountsEachMaterial()
+    {
+        var grid = Rod();
+
+        Assert.AreEqual(new Vector3(0.01f), grid.CellSize);
+        Assert.AreEqual(40, grid.Initial(Bone), "a 2 x 2 core along 10 cells");
+        Assert.AreEqual(120, grid.Initial(Flesh));
+        Assert.AreEqual(160, grid.FilledCount);
+        Assert.AreEqual(1f, grid.Fraction(VoxelTissue.Flesh));
+        Assert.IsTrue(grid.IsOriginalSurface(0, 0, 0));
+        Assert.IsFalse(grid.IsOriginalSurface(4, 1, 1), "the core is not skin");
+    }
+
+    [TestMethod]
+    public void Carve_DigsFromTheSurfaceIn_AndBoneStopsAWeakBlow()
+    {
+        var grid = Rod();
+        var removed = new List<RemovedVoxel>();
+
+        // 上から下へ（−Y）の弱い 1 発: 表面の肉だけが削れ、骨の手前で止まる。
+        grid.Carve(new Vector3(0f, 0.02f, 0f), -Vector3.UnitY, 4f, removed);
+
+        Assert.HasCount(4, removed);
+        Assert.IsTrue(removed.All(r => r.Material == Flesh), "a light blow does not reach the bone");
+        Assert.IsTrue(removed[0].WasSurface, "the skin goes first");
+        Assert.AreEqual(40, grid.Remaining(Bone));
+        Assert.AreEqual(116, grid.Remaining(Flesh));
+    }
+
+    [TestMethod]
+    public void Carve_BoneGivesWayOnlyAfterEnoughBlows_AndTheWoundIsStained()
+    {
+        var grid = Rod();
+        var removed = new List<RemovedVoxel>();
+        for (var i = 0; i < 6; i++)
+        {
+            grid.Carve(new Vector3(0.005f, 0.02f, 0f), -Vector3.UnitY, 6f, removed);
+        }
+
+        Assert.IsGreaterThan(0, removed.Count(r => r.Material == Bone), "repeated blows break into the bone");
+        Assert.IsGreaterThan(0f, grid.Stain(8, 3, 2), "the skin next to the wound is bloodied");
+        Assert.IsLessThan(grid.Stain(8, 3, 2), grid.Stain(0, 0, 3), "the stain fades with distance from the wound");
+    }
+
+    [TestMethod]
+    public void BoneBreak_IsFound_AndTheFarSideSplitsOff()
+    {
+        var grid = Rod(gapAt: 4);
+
+        Assert.AreEqual(4, grid.FindBoneBreak(axis: 0, fromHigh: false));
+        Assert.IsNull(Rod().FindBoneBreak(axis: 0, fromHigh: false), "a whole bone has no break");
+
+        var split = grid.Split(axis: 0, slice: 4, takeHigh: true);
+
+        Assert.IsNotNull(split);
+        var (piece, offset) = split.Value;
+        Assert.AreEqual((5, 4, 4), piece.Dimensions, "slices 5..9 move");
+        Assert.AreEqual(0.025f, offset.X, 1e-6f, "the piece's centre sits halfway along the moved slices");
+        Assert.AreEqual(80, piece.FilledCount);
+        Assert.AreEqual(80, grid.FilledCount, "slices 0..4 stay");
+        var bounds = grid.OccupiedBounds()!.Value;
+        Assert.AreEqual(-0.025f, bounds.Center.X, 1e-6f, "what is left is the near half");
+    }
+
+    // ── エンジン: 剛体 ──
+
+    [TestMethod]
+    public void Reshape_KeepsTheBodyAndItsJoint_WithANewColliderAndMass()
+    {
+        using var world = new PhysicsWorld(gravity: Vector3.Zero);
+        var a = world.AddDynamicBox(Vector3.Zero, new Vector3(0.05f, 0.02f, 0.02f), 1f);
+        var b = world.AddDynamicBox(new Vector3(0.1f, 0f, 0f), new Vector3(0.05f, 0.02f, 0.02f), 1f);
+        var joint = world.AddBallSocket(a, b, new Vector3(0.05f, 0f, 0f), new Vector3(-0.05f, 0f, 0f));
+
+        world.ReshapeDynamicBox(a, new Vector3(-0.025f, 0f, 0f), new Vector3(0.025f, 0.02f, 0.02f), 0.5f);
+        world.ApplyLinearImpulse(b, new Vector3(0f, 0.2f, 0f));
+        world.Step(120, 1f / 120f);
+
+        Assert.AreEqual(0.5f, world.GetMass(a));
+        Assert.IsTrue(world.HasConstraint(joint));
+        var anchors = world.GetJointAnchors(joint)!.Value;
+        Assert.IsLessThan(0.005f, Vector3.Distance(anchors.AnchorA, anchors.AnchorB), "the joint still holds after the reshape");
+        Assert.IsTrue(float.IsFinite(world.GetState(a).Position.X));
+    }
+
+    [TestMethod]
+    public void Sever_BreaksOffTheFarPiece_AsANewBody_WithItsShareOfTheMass()
+    {
+        using var world = new PhysicsWorld(gravity: Vector3.Zero);
+        var id = world.AddDynamicBox(Vector3.Zero, new Vector3(0.05f, 0.02f, 0.02f), 1.6f);
+        world.SetLinearVelocity(id, new Vector3(0f, 0f, 1f));
+        var body = new VoxelBody(world, id, Rod(gapAt: 4));
+
+        var fragment = body.Sever(axis: 0, distalHigh: true);
+
+        Assert.IsNotNull(fragment);
+        Assert.AreNotEqual(id, fragment.BodyId);
+        Assert.AreEqual(0.025f, world.GetState(fragment.BodyId).Position.X, 1e-5f, "the piece stays where its cells were");
+        Assert.AreEqual(0.8f, world.GetMass(fragment.BodyId), 1e-4f, "half the cells, half the mass");
+        Assert.AreEqual(0.8f, world.GetMass(id), 1e-4f);
+        Assert.AreEqual(1f, world.GetState(fragment.BodyId).LinearVelocity.Z, 1e-5f, "it flies on with the body");
+        Assert.IsNull(body.Sever(axis: 0, distalHigh: true), "nothing more to break");
+    }
+
+    [TestMethod]
+    public void Debris_FallsBouncesAndRests_ThenFadesAway()
+    {
+        var debris = new VoxelDebris(capacity: 4, groundY: 0f) { LifeSeconds = 2f };
+        debris.Spawn(new Vector3(0f, 0.5f, 0f), new Vector3(0.3f, 1f, 0f), Quaternion.Identity, new Vector3(0.01f), new Vector3(0f, 0f, 10f), Vector4.One);
+        for (var i = 0; i < 90; i++)
+        {
+            debris.Step(1f / 60f);
+        }
+
+        var instances = new List<PrimitiveInstance>();
+        debris.WriteInstances(instances);
+        Assert.HasCount(1, instances);
+        Assert.AreEqual(0.005f, instances[0].Model.Translation.Y, 1e-3f, "resting on the floor");
+
+        for (var i = 0; i < 40; i++)
+        {
+            debris.Step(1f / 60f);
+        }
+
+        Assert.AreEqual(0, debris.Count, "gone after its life");
+    }
+
+    [TestMethod]
+    public void Volume_IsTheGridAsA3DTexture_FilledOpaqueAndEmptyClear_AndFollowsChanges()
+    {
+        var grid = Rod();
+        var volume = VoxelVolume.For(grid);
+        int Opaque() => Enumerable.Range(0, volume.CellCount).Count(i => volume.Rgba[(4 * i) + 3] == 255);
+
+        Assert.AreEqual((10, 4, 4), (volume.Width, volume.Height, volume.Depth));
+        Assert.AreEqual(160, Opaque());
+        var revision = volume.Revision;
+        volume.Sync(grid);
+        Assert.AreEqual(revision, volume.Revision, "an unchanged grid is not copied again");
+
+        grid.Carve(new Vector3(0f, 0.02f, 0f), -Vector3.UnitY, 4f, []);
+        volume.Sync(grid);
+
+        Assert.AreEqual(revision + 1, volume.Revision, "a carved grid is a new revision to upload");
+        Assert.AreEqual(156, Opaque(), "carved cells are clear: the GPU puts a face where they meet filled ones");
+        var corner = Vector3.Transform(Vector3.Zero, VoxelVolume.CellToWorld(grid, Matrix4x4.CreateTranslation(1f, 2f, 3f)));
+        Assert.AreEqual(new Vector3(0.95f, 1.98f, 2.98f), corner, "cell (0,0,0)'s corner is the box's corner");
+    }
+
+    // ── ゲーム ──
+
+    [TestMethod]
+    public void BlowsToTheForearm_CutItOff_AndTheGloveFallsWithIt()
+    {
+        using var game = new BoxingGame(seed: 2);
+        var cpu = game.Cpu;
+        var forearm = cpu.ForearmId(Hand.Left);
+        StrikeUntil(game, cpu, forearm, () => cpu.ArmSevered(Hand.Left), damage: 20f);
+
+        Assert.IsTrue(cpu.ArmSevered(Hand.Left));
+        Assert.AreNotEqual(forearm, cpu.GloveBody(Hand.Left), "the glove is on the piece that came off");
+        Assert.HasCount(1, cpu.Voxels!.Fragments);
+        Assert.AreEqual(0f, cpu.ArmStrength(Hand.Left));
+        var glove = cpu.GloveCenter(Hand.Left).Y;
+        for (var i = 0; i < 60; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        Assert.IsLessThan(glove - 0.05f, cpu.GloveCenter(Hand.Left).Y, "the cut-off hand drops");
+        Assert.IsFalse(cpu.ArmSevered(Hand.Right));
+    }
+
+    [TestMethod]
+    public void TheCutOffPiece_IsTheFarSide_WithTheGlove()
+    {
+        using var game = new BoxingGame(seed: 2);
+        var cpu = game.Cpu;
+        var forearm = cpu.ForearmId(Hand.Right);
+        StrikeUntil(game, cpu, forearm, () => cpu.ArmSevered(Hand.Right), damage: 20f);
+
+        var glove = cpu.GloveCenter(Hand.Right);
+        var piece = game.World.GetState(cpu.GloveBody(Hand.Right)).Position;
+        var stub = game.World.GetState(forearm).Position;
+        Assert.IsLessThan(Vector3.Distance(stub, glove), Vector3.Distance(piece, glove), "the piece that fell is the hand end");
+    }
+
+    [TestMethod]
+    public void ACutOffArm_CannotGrab_AndItsLooseForearmIsNoLongerPartOfTheBody()
+    {
+        using var game = new BoxingGame(seed: 2);
+        var player = game.Player;
+        StrikeUntil(game, player, player.Parts.RightUpperArm, () => player.ArmSevered(Hand.Left), damage: 20f);
+
+        Assert.IsFalse(player.Owns(player.ForearmId(Hand.Left)), "the forearm hangs from the cut-off piece now");
+        Assert.IsTrue(player.Owns(player.Parts.RightUpperArm), "the stub stays on the body");
+        var reach = player.ArmReach;
+        for (var i = 0; i < 90; i++)
+        {
+            game.Step(new BoxingInput(new FighterCommand(Vector3.Zero, Vector3.UnitZ,
+                new HandCommand(new Vector3(0f, 0f, reach), Grip: true), new HandCommand(new Vector3(0f, 0f, 0.5f * reach), false))), 1f / 60f);
+        }
+
+        Assert.IsFalse(player.IsHolding(Hand.Left));
+    }
+
+    [TestMethod]
+    public void CarvedFlesh_WeakensTheArm_ButDoesNotDisableIt()
+    {
+        using var game = new BoxingGame(seed: 2);
+        var cpu = game.Cpu;
+        var upper = cpu.Parts.RightUpperArm; // Hand.Left の上腕（Aigis の Right 側）
+        for (var i = 0; i < 4; i++)
+        {
+            Strike(game, cpu, upper, damage: 8f, Vector3.UnitZ);
+        }
+
+        Assert.IsLessThan(1f, cpu.ArmStrength(Hand.Left));
+        Assert.IsGreaterThan(0.5f, cpu.ArmStrength(Hand.Left));
+        Assert.AreEqual(1f, cpu.ArmStrength(Hand.Right));
+    }
+
+    [TestMethod]
+    public void DestroyingTheBrain_Kills_AndEndsTheRound()
+    {
+        using var game = new BoxingGame(seed: 2);
+        var cpu = game.Cpu;
+        StrikeUntil(game, cpu, cpu.Parts.Head, () => cpu.IsDead, damage: 30f);
+
+        Assert.AreEqual("brain", cpu.DeathCause);
+        game.Step(default, 1f / 60f);
+        Assert.IsTrue(game.RoundOver);
+        Assert.AreEqual(1, game.PlayerWins);
+        Assert.Contains("BRAIN", game.Message);
+    }
+
+    [TestMethod]
+    public void ALegCutOff_LeavesTheFighterDown_UnableToStand()
+    {
+        using var game = new BoxingGame(seed: 2);
+        var cpu = game.Cpu;
+        StrikeUntil(game, cpu, cpu.Parts.LeftThigh, () => cpu.LegSevered, damage: 25f);
+
+        Assert.IsFalse(cpu.CanStand);
+        for (var i = 0; i < 60 * 4; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        Assert.AreEqual(FighterState.Down, cpu.State, "down and not getting up");
+    }
+
+    [TestMethod]
+    public void EveryOrganIsInsideItsPart_AndBonesRunAlongTheLimbs()
+    {
+        var tuning = FighterTuning.Default;
+        var half = tuning.HalfExtents;
+        var head = BoxerAnatomy.Build(BodyPartKind.Head, half.Head, tuning.VoxelSize);
+        var chest = BoxerAnatomy.Build(BodyPartKind.Chest, half.Chest, tuning.VoxelSize);
+        var forearm = BoxerAnatomy.Build(BodyPartKind.Forearm, half.Forearm, tuning.VoxelSize);
+
+        Assert.IsGreaterThan(30, head.Initial(BoxerAnatomy.Brain));
+        Assert.IsGreaterThan(10, chest.Initial(BoxerAnatomy.Heart));
+        Assert.IsGreaterThan(10, chest.Initial(BoxerAnatomy.Liver));
+        Assert.IsNull(forearm.FindBoneBreak(axis: 0, fromHigh: false), "the forearm bone runs its whole length");
+        foreach (var grid in new[] { head, chest })
+        {
+            for (var i = 0; i < grid.CellCount; i++)
+            {
+                var (x, y, z) = grid.Coordinates(i);
+                var material = grid.Palette[grid.At(x, y, z)];
+                if (material.Tissue == VoxelTissue.Organ)
+                {
+                    Assert.IsFalse(grid.IsOriginalSurface(x, y, z), $"{material.Name} is never on the skin");
+                }
+            }
+        }
+    }
+
+    private static void StrikeUntil(BoxingGame game, Fighter victim, int part, Func<bool> done, float damage)
+    {
+        var directions = new[] { Vector3.UnitZ, -Vector3.UnitZ, Vector3.UnitY, -Vector3.UnitY };
+        for (var i = 0; i < 200 && !done(); i++)
+        {
+            Strike(game, victim, part, damage, directions[i % directions.Length]);
+        }
+
+        Assert.IsTrue(done(), "the blows got through");
+    }
+
+    /// <summary>部位の中心へ、<paramref name="from"/> の側の外から 1 発。</summary>
+    private static void Strike(BoxingGame game, Fighter victim, int part, float damage, Vector3 from)
+    {
+        var s = game.World.GetState(part);
+        var point = s.Position + (Vector3.Transform(from, s.Orientation) * 0.08f);
+        game.Strike(victim, part, point, s.Position - point, damage);
+    }
+}

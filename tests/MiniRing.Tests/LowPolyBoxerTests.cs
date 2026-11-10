@@ -1,5 +1,6 @@
 using System.Numerics;
 using Aigis.Physics;
+using Aigis.Render;
 using MiniRing.LowPoly;
 
 namespace MiniRing.Tests;
@@ -203,8 +204,9 @@ public sealed class LowPolyBoxerTests
         }
 
         Assert.IsTrue(dented, "30 秒打ち合えば誰かのどこかがへこむ");
+        // 体の見た目はボクセル（Voxels/BoxerBody）。打たれた所は削れて、周りが血の色に染まる。
         var (instances, _) = game.BuildRenderables();
-        Assert.IsTrue(instances.Any(x => x.Mesh == RightTriangles.UnitMesh), "へこんだ部位は三角形ごとに描く");
+        Assert.IsTrue(instances.Any(x => x.Kind == PrimitiveKind.Cube && x.Color.Y < 0.5f && x.Color.X > 0.4f), "傷はボクセルの色（肉・血）で見える");
     }
 
     private static void AssertClosedAndOriented(LowPolyMesh mesh)

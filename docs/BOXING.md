@@ -61,9 +61,9 @@ coupling = ( a² + 0.55 · (1 − a²) ) × 関節の健全度
 
 ## 2. 部位ダメージと打撃音（`HitZones.cs` / `BodyCondition.cs` / `Audio/`）
 
-**この POC はラグドールの体を動かす面白さに絞っているので、ダメージは動きに一切影響しません。**
-反応が遅れる・腕が上がらない・立てない・スタミナが尽きる・よろめく、といった性能低下はすべて廃止し、体は常にフルパワーで動きます。
-倒れるのは、足が浮いた・大きく傾いたなど、物理的にバランスを失ったときだけです。倒れても必ず起き上がります。
+**この節のダメージ（点数）は、動きに影響しません。** 反応が遅れる・スタミナが尽きる・よろめく、といった点数による性能低下はありません。
+
+動きに響くのは**体そのものの壊れ方**です。体はボクセルでできていて、打撃で削れます。肉が削れた部位は力が落ち、骨が断たれた腕・脚は落ち、臓器が壊れると死にます（[VOXEL_DAMAGE.md](VOXEL_DAMAGE.md)）。
 
 ダメージの使い道は次の 3 つです。
 
@@ -116,6 +116,8 @@ coupling = ( a² + 0.55 · (1 − a²) ) × 関節の健全度
 
 ## 3. ローポリの体と打撃のへこみ（`LowPoly/`）
 
+> 体の見た目はボクセル（[VOXEL_DAMAGE.md](VOXEL_DAMAGE.md)）に替わりました。ローポリの体は、ボクセルの体を持たないファイターを描くときだけ使います（へこみの記録は今も続けています）。
+
 - **形**: 部位ごとに、輪を重ねたローポリ（`BoxerShapes`）。頭は額・眉弓・鼻筋と窪んだ眼窩・鼻先・頬骨・耳・口・顎先とエラ（112 枚）、胸は僧帽筋・肩・胸筋・みぞおち・腹筋（96 枚）、上腕は力こぶと三頭筋、前腕は平たい形。脚・足は六角柱です。
 - **細分化**: 辺の中点で 1 回割ります（`FighterTuning.ModelSubdivisions`、三角形 4 倍）。頂点を動かさないので形はローポリのままで、変形できるノードだけが細かくなります。
 - **へこみ**: 当たった部位の、拳の表面から `DentSpread` 以内のノードを、拳の速度の向きへ動かします。深さはダメージ × `DentDepthPerDamage`（1 発 `MaxDentDepthPerHit` まで）、近いほど大きく（(1 − x²)² の山）。累積は部位の最小半径 × `MaxDentRatio` で止まります。
@@ -134,5 +136,6 @@ coupling = ( a² + 0.55 · (1 − a²) ) × 関節の健全度
 | 首の揺れ | `FighterTuning.NeckServoHz`・`NeckDampingRatio`（低いほど大きく・長く揺れる） |
 | 拳の追従 | `FighterTuning.HandKp`・`HandKd`（拳のバネ）、VR の `VrPlayerControl.MotionGain`（動きの倍率） |
 | へこみ・色 | `FighterTuning.DentDepthPerDamage`、`MaxDentDepthPerHit`、`DentSpread`、`MaxDentRatio`、`ModelSubdivisions` |
+| ボクセルの体 | `FighterTuning.VoxelSize`、`CarvePerDamage`、`ChipSpeed`、`OrganDeathFraction`、`MinMuscleStrength`、`StandStrength`、`Voxels/BoxerAnatomy.cs`（[VOXEL_DAMAGE.md](VOXEL_DAMAGE.md)） |
 
 `MatchStatsProbe` を detailed ログで実行すると、CPU 同士 30 秒のヒット分布が出ます。部位ごとの件数・平均ダメージ・乗った質量・速さ・体の割合で、調整の目安になります。

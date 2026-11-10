@@ -59,7 +59,7 @@ internal sealed class VideoMaker(int width, int height, int fps)
                     var stdin = ffmpeg.StandardInput.BaseStream;
                     void Emit(Matrix4x4 viewProjection, Vector3 eye, IReadOnlyList<ScreenTextDraw> text, IReadOnlyList<UiShapeDraw> shapes)
                     {
-                        var rgba = renderer.RenderPrimitiveScene(Clear, viewProjection, instances, lines, text, cameraPosition: eye, shapes: shapes);
+                        var rgba = renderer.RenderPrimitiveScene(Clear, viewProjection, instances, lines, text, cameraPosition: eye, shapes: shapes, voxels: game.BuildVoxelVolumes());
                         stdin.Write(rgba);
                         frame++;
                     }

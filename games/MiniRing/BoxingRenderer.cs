@@ -33,6 +33,7 @@ public static class BoxingRenderer
         instances.AddRange(game.Ring.Visuals);
         AddFighter(instances, game.World, game.Player, game.Model, game.PlayerSkin, PlayerGlove);
         AddFighter(instances, game.World, game.Cpu, game.Model, game.CpuSkin, CpuGlove);
+        game.Debris.WriteInstances(instances);
 
         if (showTargetGhosts)
         {
@@ -51,12 +52,60 @@ public static class BoxingRenderer
     }
 
     /// <summary>
+    /// ボクセルの体の、ボクセル以外: グローブ（付いている剛体の先 — 前腕、切れたらその破片）。体そのものは
+    /// <see cref="FillVoxels"/> の 3D テクスチャから GPU が描く。目は頭のボクセルにある。
+    /// </summary>
+    private static void AddVoxelFighter(List<PrimitiveInstance> instances, Fighter fighter, Voxels.BoxerBody voxels, Vector4 glove)
+    {
+        _ = voxels;
+        foreach (var hand in new[] { Hand.Left, Hand.Right })
+        {
+            instances.Add(new PrimitiveInstance(PrimitiveKind.Sphere, Matrix4x4.CreateTranslation(fighter.GloveCenter(hand)),
+                new Vector3(fighter.GloveRadius, 0f, 0f), glove));
+        }
+    }
+
+    /// <summary>
+    /// ボクセルの体（部位と切り落とされた破片）を描く指示を、呼び出し側のリストへ詰め直す。各部位の 3D テクスチャは
+    /// 格子が変わったときだけ書き直され、GPU はそこから表面（空のボクセルとの境目の面）を作る。
+    /// </summary>
+    public static void FillVoxels(BoxingGame game, List<Aigis.Render.Voxels.VoxelVolumeDraw> voxels)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+        ArgumentNullException.ThrowIfNull(voxels);
+        voxels.Clear();
+        foreach (var fighter in new[] { game.Player, game.Cpu })
+        {
+            if (fighter.Voxels is not { } body)
+            {
+                continue;
+            }
+
+            foreach (var part in body.Parts)
+            {
+                voxels.Add(part.Draw());
+            }
+
+            foreach (var fragment in body.Fragments)
+            {
+                voxels.Add(fragment.Draw());
+            }
+        }
+    }
+
+    /// <summary>
     /// 体はローポリのメッシュ（<see cref="BoxerModel"/>）。へこんでいない部位は静的メッシュ 1 個、
     /// へこんだ部位は三角形ごとに直角三角形のインスタンスへ分解して、変形した形と変形量の色（白 → 赤）で描く。
     /// 体が白一色なので、どちらのファイターかはグローブの色で見分ける。
     /// </summary>
     private static void AddFighter(List<PrimitiveInstance> instances, PhysicsWorld world, Fighter fighter, BoxerModel model, BoxerSkin skin, Vector4 glove)
     {
+        if (fighter.Voxels is { } voxels)
+        {
+            AddVoxelFighter(instances, fighter, voxels, glove);
+            return;
+        }
+
         foreach (var id in fighter.Parts.All)
         {
             var s = world.GetState(id);

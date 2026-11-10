@@ -81,6 +81,14 @@ public interface IGame<in TInput> : IDisposable
     /// </summary>
     public IReadOnlyList<DecalQuadDraw> BuildDecals() => [];
 
+    /// <summary>
+    /// This frame's voxel volumes (<see cref="Aigis.Render.Voxels.VoxelVolumeDraw"/>): each one's surface is built on the GPU
+    /// from its 3D texture and drawn with the opaque scene. Same instance-identity contract as <see cref="BuildDecals"/>:
+    /// keep one <see cref="Aigis.Render.Voxels.VoxelVolume"/> per volume and return it every frame; the renderer uploads
+    /// only when its revision moves. Only reads — change the volumes in <see cref="Step"/>.
+    /// </summary>
+    public IReadOnlyList<Aigis.Render.Voxels.VoxelVolumeDraw> BuildVoxelVolumes() => [];
+
     /// <summary>Screen-space HUD text for this frame. <paramref name="viewProjection"/> is the
     /// exact matrix the 3D scene beneath it is rendered with this frame (so a world-anchored HUD
     /// element projected via <see cref="Camera.TryWorldToScreen"/> is correctly placed), and

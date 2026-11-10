@@ -73,13 +73,14 @@ public sealed unsafe partial class HeadlessRenderer
         IReadOnlyList<DebugLine> lines,
         SceneLighting? lighting = null,
         ShadowMapConfig? shadow = null,
-        Vector3? cameraPosition = null)
+        Vector3? cameraPosition = null,
+        IReadOnlyList<Voxels.VoxelVolumeDraw>? voxels = null)
     {
         _externalTarget = new Image(targetImage);
         try
         {
             _ = RenderPrimitiveSceneForView(clearColor, viewProjection, instances, lines, null, null, lighting, shadow, cameraPosition,
-                null, null, null, null, null, null, postProcessSampleRect: null);
+                null, null, null, null, null, null, postProcessSampleRect: null, voxels);
         }
         finally
         {

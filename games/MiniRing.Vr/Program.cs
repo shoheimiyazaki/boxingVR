@@ -83,6 +83,7 @@ using (var sounds = HitSoundPlayer.CreateDefault())
     var clear = new Vector4(0.10f, 0.11f, 0.14f, 1f);
     IReadOnlyList<PrimitiveInstance> instances = [];
     IReadOnlyList<DebugLine> lines = [];
+    IReadOnlyList<Aigis.Render.Voxels.VoxelVolumeDraw> voxels = [];
     var lastStatus = "";
     var idleHintAt = DateTime.UtcNow.AddSeconds(8);
     var idleHintShown = false;
@@ -126,11 +127,12 @@ using (var sounds = HitSoundPlayer.CreateDefault())
                 }
 
                 (instances, lines) = game.BuildRenderables();
+                voxels = game.BuildVoxelVolumes();
             },
             renderEye: eye =>
             {
                 var viewProjection = Camera.OffCenterViewProjection(eye.View, eye.Fov, 0.02f, 50f);
-                renderer.RenderPrimitiveSceneToImage(eye.TargetImage, clear, viewProjection, instances, lines, cameraPosition: eye.Position);
+                renderer.RenderPrimitiveSceneToImage(eye.TargetImage, clear, viewProjection, instances, lines, cameraPosition: eye.Position, voxels: voxels);
             });
 
         // ランタイムがセッションを READY にしない（ヘッドセットに表示されない）まま待ち続けるときの手がかり。

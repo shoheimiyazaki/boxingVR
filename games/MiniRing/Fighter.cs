@@ -1,5 +1,7 @@
 using System.Numerics;
 using Aigis.Physics;
+using Aigis.Physics.Voxels;
+using MiniRing.Voxels;
 
 namespace MiniRing;
 
@@ -17,7 +19,8 @@ public enum FighterState
 /// <item>脚: <see cref="HumanoidRagdoll.AddLegServos"/> のサーボに正弦歩行の目標角。</item>
 /// <item>腕: 2 ボーン IK → 肩 AngularServo / 肘 TwistServo の目標、さらに拳を目標へ PD 力で引く。
 ///   力の上限は <see cref="PunchMechanics"/>（体の有効質量 × 腕の連結度）で決まり、体重が乗るほど大きい。</item>
-/// <item>被弾: <see cref="Condition"/> に部位ごとのダメージを記録するだけ。動きは常にフルパワー（この POC は体を動かす面白さに絞る）。</item>
+/// <item>被弾: 体はボクセル（<see cref="Voxels"/>）で、打撃で削れる。肉の残りが腕・脚・胴の力になり、骨が断たれた腕・脚はそこから先が落ち、
+/// 臓器が壊れたら死ぬ（<see cref="Die"/>）。<see cref="Voxels"/> が無ければ常にフルパワー。</item>
 /// </list>
 /// 位置・姿勢を直接書き換えるのは生成直後の向き合わせ（<see cref="Spawn"/>）だけ。
 /// </summary>
@@ -47,10 +50,20 @@ public sealed class Fighter
     private float _noGroundTime;
     private int _grabbedByCount;
     private bool _stayDown;
+    private readonly List<HumanoidRagdoll.JointGroup> _joints;
 
-    private Fighter(PhysicsWorld world, FighterTuning tuning, string name, HumanoidRagdoll.Parts parts, HumanoidRagdoll.HalfExtents halfExtents, float yaw)
+    /// <summary>
+    /// 切り落とされて体から外れた部位（切れた所より先にぶら下がっていた部位: 上腕が切れたら前腕、腿が切れたらすねと足）。
+    /// 体の一部として数えない（打撃・掴み・重心・押す力の対象外）。
+    /// </summary>
+    private readonly HashSet<int> _detached = [];
+    private readonly bool[] _legSevered = new bool[2]; // [0] = Aigis の Left 脚（本人の右）、[1] = Right
+
+    private Fighter(PhysicsWorld world, FighterTuning tuning, string name, HumanoidRagdoll.Parts parts, HumanoidRagdoll.HalfExtents halfExtents, float yaw,
+        IReadOnlyList<HumanoidRagdoll.JointGroup> joints)
     {
         _world = world;
+        _joints = [.. joints];
         _tuning = tuning;
         Name = name;
         Parts = parts;
@@ -82,6 +95,49 @@ public sealed class Fighter
     public float TotalMass { get; }
     public FighterState State { get; private set; }
     public BodyCondition Condition { get; } = new();
+
+    /// <summary>ボクセルの体（打撃で削れる中身）。無ければ常にフルパワーで、切れも死にもしない。</summary>
+    public BoxerBody? Voxels { get; internal set; }
+
+    /// <summary>臓器が壊れて死んだ。倒れたまま起き上がらない。</summary>
+    public bool IsDead => DeathCause is not null;
+
+    /// <summary>死因（壊れた臓器の名前）。生きていれば null。</summary>
+    public string? DeathCause { get; private set; }
+
+    /// <summary>その手の腕が切り落とされた（もう駆動しない）。</summary>
+    public bool ArmSevered(Hand hand) => _arms[(int)hand].Severed;
+
+    /// <summary>どちらかの脚が切り落とされた（立てない）。</summary>
+    public bool LegSevered => _legSevered[0] || _legSevered[1];
+
+    /// <summary>部位の力（肉の残りから。0..1、肉が無くても <see cref="FighterTuning.MinMuscleStrength"/> は残る）。</summary>
+    public float Strength(int part)
+    {
+        var m = _tuning.MinMuscleStrength;
+        return Voxels is null ? 1f : m + ((1f - m) * Voxels.Muscle(part));
+    }
+
+    /// <summary>その腕の力（上腕と前腕の平均）。切れていれば 0。</summary>
+    public float ArmStrength(Hand hand)
+    {
+        var arm = _arms[(int)hand];
+        return arm.Severed ? 0f : 0.5f * (Strength(arm.UpperArm) + Strength(arm.Forearm));
+    }
+
+    /// <summary>脚の力（Aigis の Left / Right 脚。腿とすねの平均）。切れていれば 0。</summary>
+    public float LegStrength(bool aigisLeft)
+    {
+        var p = Parts;
+        return _legSevered[aigisLeft ? 0 : 1] ? 0f
+            : aigisLeft ? 0.5f * (Strength(p.LeftThigh) + Strength(p.LeftShin)) : 0.5f * (Strength(p.RightThigh) + Strength(p.RightShin));
+    }
+
+    /// <summary>胴の力（胸と腰の平均）。</summary>
+    public float CoreStrength => 0.5f * (Strength(Parts.Chest) + Strength(Parts.Pelvis));
+
+    /// <summary>立っていられるか: 生きていて、両脚があり、弱い方の脚の力が <see cref="FighterTuning.StandStrength"/> 以上。</summary>
+    public bool CanStand => !IsDead && !LegSevered && MathF.Min(LegStrength(true), LegStrength(false)) >= _tuning.StandStrength;
 
     /// <summary>実際に体が従っている指令（反応遅れを経たもの）。</summary>
     public FighterCommand LastCommand { get; private set; }
@@ -121,28 +177,41 @@ public sealed class Fighter
     {
         get
         {
+            // 削られて軽くなった分と、切り落とされた部位を除いた、今の体の重心。
             var sum = Vector3.Zero;
+            var mass = 0f;
             foreach (var id in _all)
             {
-                sum += _world.GetState(id).Position * _world.GetMass(id);
+                if (_detached.Contains(id))
+                {
+                    continue;
+                }
+
+                var m = _world.GetMass(id);
+                sum += _world.GetState(id).Position * m;
+                mass += m;
             }
 
-            return sum / TotalMass;
+            return sum / MathF.Max(1e-6f, mass);
         }
     }
 
     public float Uprightness => MathF.Min(UpOf(Parts.Chest).Y, UpOf(Parts.Pelvis).Y);
 
-    public bool Owns(int bodyId) => Array.IndexOf(_all, bodyId) >= 0;
+    /// <summary>その剛体が今この体の一部か（切り落とされて外れた部位は含まない）。</summary>
+    public bool Owns(int bodyId) => Array.IndexOf(_all, bodyId) >= 0 && !_detached.Contains(bodyId);
 
     public int ForearmId(Hand hand) => _arms[(int)hand].Forearm;
 
     public Vector3 GloveCenter(Hand hand) => _arms[(int)hand].GlovePosition(_world);
 
+    /// <summary>グローブが付いている剛体（前腕。前腕が切れたらその破片）。</summary>
+    public int GloveBody(Hand hand) => _arms[(int)hand].GloveBody;
+
     /// <summary>拳の点速度（v + ω×r）。フックのような回転するパンチも正しく測る。</summary>
     public Vector3 GloveVelocity(Hand hand)
     {
-        var f = _world.GetState(_arms[(int)hand].Forearm);
+        var f = _world.GetState(_arms[(int)hand].GloveBody);
         return f.LinearVelocity + Vector3.Cross(f.AngularVelocity, GloveCenter(hand) - f.Position);
     }
 
@@ -239,7 +308,7 @@ public sealed class Fighter
             world.SetDynamicPose(id, position, Quaternion.Concatenate(s.Orientation, rotation));
         }
 
-        return new Fighter(world, tuning, name, parts, built, yawRadians);
+        return new Fighter(world, tuning, name, parts, built, yawRadians, joints);
     }
 
     /// <summary>1 サブステップ分の制御を力積で与える（物理ステップの直前に呼ぶ）。指令は遅れなくそのまま体へ届く。</summary>
@@ -274,7 +343,10 @@ public sealed class Fighter
 
         foreach (var id in _all)
         {
-            _world.ApplyLinearImpulse(id, velocityChange * _world.GetMass(id));
+            if (!_detached.Contains(id))
+            {
+                _world.ApplyLinearImpulse(id, velocityChange * _world.GetMass(id));
+            }
         }
     }
 
@@ -304,6 +376,13 @@ public sealed class Fighter
         if (arm.GrabConstraint is { } id && !_world.HasConstraint(id))
         {
             Release(arm, opponent, allowThrow: false); // 千切れた
+        }
+
+        if (arm.Severed)
+        {
+            Release(arm, opponent, allowThrow: false); // 切り落とされた腕では掴めない
+            arm.GripWasHeld = gripHeld;
+            return null;
         }
 
         if (State != FighterState.Standing)
@@ -339,6 +418,11 @@ public sealed class Fighter
         var bestDistance = _tuning.GrabRadius;
         foreach (var part in opponent._all)
         {
+            if (opponent._detached.Contains(part))
+            {
+                continue;
+            }
+
             var closest = ClosestPointOnBox(opponent, part, glove);
             var distance = Vector3.Distance(closest, glove);
             if (distance < bestDistance)
@@ -356,7 +440,7 @@ public sealed class Fighter
 
         var target = _world.GetState(best);
         var localOnTarget = Vector3.Transform(bestPoint - target.Position, Quaternion.Conjugate(target.Orientation));
-        var constraint = _world.AddBallSocket(arm.Forearm, best, arm.GloveLocal, localOnTarget, frequency: 30f, dampingRatio: 1f);
+        var constraint = _world.AddBallSocket(arm.GloveBody, best, arm.GloveLocal, localOnTarget, frequency: 30f, dampingRatio: 1f);
         _world.MakeBreakable(constraint, _tuning.GrabBreakForce);
         arm.GrabConstraint = constraint;
         arm.Grabbed = opponent;
@@ -422,7 +506,15 @@ public sealed class Fighter
     {
         _noGroundTime = grounded ? 0f : _noGroundTime + dt;
         _tiltTime = Uprightness < _tuning.FallUprightness ? _tiltTime + dt : 0f;
-        // 倒れるのは物理的にバランスを失ったとき（足が浮いた・大きく傾いた）だけ。ダメージでは倒れない。
+        // 倒れるのは物理的にバランスを失ったとき（足が浮いた・大きく傾いた）と、脚が体を支えられなくなったとき
+        // （肉を削られた・切り落とされた）。支えられない脚では起き上がれない。
+        if (!CanStand)
+        {
+            _stayDown = true;
+            Enter(FighterState.Down);
+            return;
+        }
+
         if (_noGroundTime > _tuning.NoGroundFallTime || _tiltTime > _tuning.FallGrace)
         {
             Enter(FighterState.Down);
@@ -440,7 +532,7 @@ public sealed class Fighter
         SetServoScale(ControlScale);
         DriveArms(command, ControlScale, weightShift: false, dt);
         var settled = _world.GetState(Parts.Pelvis).LinearVelocity.Length() < 0.6f;
-        if (!_stayDown && _stateTime > _tuning.DownTime && settled && grounded && height < _standHeight * 1.6f)
+        if (!_stayDown && CanStand && _stateTime > _tuning.DownTime && settled && grounded && height < _standHeight * 1.6f)
         {
             Enter(FighterState.GettingUp);
         }
@@ -477,13 +569,15 @@ public sealed class Fighter
     {
         ControlScale = Math.Clamp(scale, 0f, 1f);
         SetServoScale(scale);
+        // 脚の肉が削られるほど体を持ち上げる力・歩く力が落ち、胴の肉が削られるほど体の軸を保つ力が落ちる。
+        var legs = MathF.Min(LegStrength(true), LegStrength(false));
         if (grounded)
         {
-            ApplyHover(command, height, scale, dt);
+            ApplyHover(command, height, scale * legs, dt);
         }
 
-        ApplyFacingAndUpright(command, scale, dt);
-        ApplyMovement(command, scale, dt);
+        ApplyFacingAndUpright(command, scale * CoreStrength, dt);
+        ApplyMovement(command, scale * legs, dt);
         ApplyGait(dt);
         DriveArms(command, ControlScale, weightShift: grounded && State == FighterState.Standing, dt);
     }
@@ -563,13 +657,22 @@ public sealed class Fighter
         _gaitPhase += direction * 2f * MathF.PI * speed / MathF.Max(0.01f, _tuning.StrideLength) * dt;
         var pose = FighterMath.Gait(_gaitPhase, blend, _tuning.NeutralHipRadians, _tuning.NeutralKneeRadians,
             _tuning.GaitHipSwingRadians, _tuning.GaitKneeLiftRadians);
-        _world.SetAngularServoTarget(_legs.LeftHip, Quaternion.CreateFromAxisAngle(Vector3.UnitX, pose.LeftHip));
-        _world.SetAngularServoTarget(_legs.RightHip, Quaternion.CreateFromAxisAngle(Vector3.UnitX, pose.RightHip));
-        _world.SetTwistServoTarget(_legs.LeftKnee, pose.LeftKnee);
-        _world.SetTwistServoTarget(_legs.RightKnee, pose.RightKnee);
+        // 切り落とされた脚のサーボは外してある（無い拘束には書かない）。
+        if (_world.HasConstraint(_legs.LeftHip))
+        {
+            _world.SetAngularServoTarget(_legs.LeftHip, Quaternion.CreateFromAxisAngle(Vector3.UnitX, pose.LeftHip));
+        }
+
+        if (_world.HasConstraint(_legs.RightHip))
+        {
+            _world.SetAngularServoTarget(_legs.RightHip, Quaternion.CreateFromAxisAngle(Vector3.UnitX, pose.RightHip));
+        }
+
+        SetTwistTarget(_legs.LeftKnee, pose.LeftKnee);
+        SetTwistTarget(_legs.RightKnee, pose.RightKnee);
         // 足裏を水平に保つ: 足首 = −(股 + 膝)（3 関節とも同じ矢状軸・同じ符号規約）。
-        _world.SetTwistServoTarget(_legs.LeftAnkle, -(pose.LeftHip + pose.LeftKnee));
-        _world.SetTwistServoTarget(_legs.RightAnkle, -(pose.RightHip + pose.RightKnee));
+        SetTwistTarget(_legs.LeftAnkle, -(pose.LeftHip + pose.LeftKnee));
+        SetTwistTarget(_legs.RightAnkle, -(pose.RightHip + pose.RightKnee));
     }
 
     private void DriveArms(in FighterCommand command, float scale, bool weightShift, float dt)
@@ -579,7 +682,12 @@ public sealed class Fighter
         var torso = TorsoOrientation;
         foreach (var arm in _arms)
         {
-            var bodyForce = arm.Drive(_world, _tuning, frame, command.For(arm.Hand).TargetLocal, scale, _inertia, com, torso, TotalMass, dt, Parts.Chest);
+            if (arm.Severed)
+            {
+                continue; // 切り落とされた腕は動かせない
+            }
+
+            var bodyForce = arm.Drive(_world, _tuning, frame, command.For(arm.Hand).TargetLocal, scale * ArmStrength(arm.Hand), _inertia, com, torso, TotalMass, dt, Parts.Chest);
             if (weightShift && bodyForce.LengthSquared() > 0f)
             {
                 // 体の質量を借りた分は、脚と腰が地面を押して出す力。胴も拳の方向へ少し運ばれる（体重移動）。
@@ -592,14 +700,20 @@ public sealed class Fighter
     {
         var s = Math.Clamp(scale, 0.01f, 1.5f);
         var t = _tuning.TorqueScale * s;
-        var legs = t;
         // 値が変わったときだけ Bepu の拘束を書き換える（毎サブステップ 9 本の Get/ApplyDescription を避ける）。
-        if (Changed(0, legs))
+        // 脚・腕のサーボの強さには、その脚・腕の肉の残り（力）を掛ける。
+        var left = t * MathF.Max(0.01f, LegStrength(true));
+        if (Changed(0, left))
         {
-            _world.SetAngularServoSettings(_legs.LeftHip, _tuning.LegServoHz, 120f * legs);
-            _world.SetAngularServoSettings(_legs.RightHip, _tuning.LegServoHz, 120f * legs);
-            _world.SetTwistServoSettings(_legs.LeftKnee, _tuning.LegServoHz, 100f * legs);
-            _world.SetTwistServoSettings(_legs.RightKnee, _tuning.LegServoHz, 100f * legs);
+            SetAngularStrength(_legs.LeftHip, _tuning.LegServoHz, 120f * left);
+            SetTwistStrength(_legs.LeftKnee, _tuning.LegServoHz, 100f * left);
+        }
+
+        var right = t * MathF.Max(0.01f, LegStrength(false));
+        if (Changed(4, right))
+        {
+            SetAngularStrength(_legs.RightHip, _tuning.LegServoHz, 120f * right);
+            SetTwistStrength(_legs.RightKnee, _tuning.LegServoHz, 100f * right);
         }
 
         if (Changed(1, t))
@@ -609,9 +723,174 @@ public sealed class Fighter
 
         foreach (var arm in _arms)
         {
-            if (Changed(2 + (int)arm.Hand, s))
+            if (!arm.Severed && Changed(2 + (int)arm.Hand, s * ArmStrength(arm.Hand)))
             {
-                arm.SetStrength(_world, _tuning, s, s);
+                arm.SetStrength(_world, _tuning, s * Strength(arm.UpperArm), s * Strength(arm.Forearm));
+            }
+        }
+    }
+
+    private void SetTwistTarget(int servo, float angle)
+    {
+        if (_world.HasConstraint(servo))
+        {
+            _world.SetTwistServoTarget(servo, angle);
+        }
+    }
+
+    private void SetAngularStrength(int servo, float hz, float force)
+    {
+        if (_world.HasConstraint(servo))
+        {
+            _world.SetAngularServoSettings(servo, hz, force);
+        }
+    }
+
+    private void SetTwistStrength(int servo, float hz, float force)
+    {
+        if (_world.HasConstraint(servo))
+        {
+            _world.SetTwistServoSettings(servo, hz, force);
+        }
+    }
+
+    /// <summary>臓器が壊れて死ぬ: 崩れ落ち、起き上がらない。</summary>
+    internal void Die(string cause)
+    {
+        if (IsDead)
+        {
+            return;
+        }
+
+        DeathCause = cause;
+        _stayDown = true;
+        if (State != FighterState.Down)
+        {
+            Enter(FighterState.Down);
+        }
+    }
+
+    /// <summary>
+    /// 部位 <paramref name="part"/> の骨が断たれ、遠い側が <paramref name="fragment"/>（新しい剛体）になった。
+    /// <list type="bullet">
+    /// <item>その部位に付いていた先の部位（肘から先・膝から先・足首から先）は、関節ごと破片へ付け替える。筋肉（サーボ）は外す（もう動かせない）。</item>
+    /// <item>腕なら、その腕はもう駆動しない。前腕が切れたら、グローブは破片と一緒に落ちる。掴んでいれば離す。</item>
+    /// <item>脚なら、立てずに倒れて起き上がれない。</item>
+    /// </list>
+    /// </summary>
+    internal void Sever(int part, VoxelBody fragment)
+    {
+        ArgumentNullException.ThrowIfNull(fragment);
+        for (var i = 0; i < _joints.Count; i++)
+        {
+            var joint = _joints[i];
+            if (joint.ParentPart != part)
+            {
+                continue;
+            }
+
+            var anchor = _world.GetJointAnchors(joint.PrimaryConstraintId)?.AnchorA ?? _world.GetState(joint.ChildPart).Position;
+            foreach (var hanging in HumanoidRagdoll.DownstreamParts(_joints, joint))
+            {
+                _detached.Add(hanging);
+            }
+
+            foreach (var id in joint.AllConstraintIds)
+            {
+                if (_world.HasConstraint(id))
+                {
+                    _world.RemoveConstraint(id);
+                }
+            }
+
+            RemoveServosBetween(part, joint.ChildPart);
+            var f = _world.GetState(fragment.BodyId);
+            var c = _world.GetState(joint.ChildPart);
+            var socket = _world.AddBallSocket(fragment.BodyId, joint.ChildPart,
+                Vector3.Transform(anchor - f.Position, Quaternion.Conjugate(f.Orientation)),
+                Vector3.Transform(anchor - c.Position, Quaternion.Conjugate(c.Orientation)));
+            // 付け替えた関節は玉継手だけ（角度の制限も筋肉も無い、ぶらぶらの関節）。TorqueConstraintId もその玉継手を指す。
+            _joints[i] = joint with { ParentPart = fragment.BodyId, PrimaryConstraintId = socket, TorqueConstraintId = socket, AllConstraintIds = [socket] };
+        }
+
+        SeparateCollisions(part, fragment.BodyId);
+
+        foreach (var arm in _arms)
+        {
+            if (part != arm.UpperArm && part != arm.Forearm)
+            {
+                continue;
+            }
+
+            // グローブが今この部位に付いているときだけ、切り落とされた側（破片）へ移す（同じ前腕を 2 度切ったときの、
+            // 体に残った切り株の 2 度目の切断では動かさない）。
+            if (arm.GloveBody == part)
+            {
+                // グローブは前腕の先（破片の側）に付いている。
+                var glove = arm.GlovePosition(_world);
+                var f = _world.GetState(fragment.BodyId);
+                arm.AttachGlove(fragment.BodyId, Vector3.Transform(glove - f.Position, Quaternion.Conjugate(f.Orientation)));
+            }
+
+            arm.Severed = true;
+            if (arm.GrabConstraint is { } grab)
+            {
+                if (_world.HasConstraint(grab))
+                {
+                    _world.RemoveConstraint(grab, forget: true);
+                }
+
+                arm.GrabConstraint = null;
+                arm.Grabbed?.SetGrabbed(false);
+                arm.Grabbed = null;
+            }
+        }
+
+        var p = Parts;
+        if (part == p.LeftThigh || part == p.LeftShin)
+        {
+            _legSevered[0] = true;
+        }
+
+        if (part == p.RightThigh || part == p.RightShin)
+        {
+            _legSevered[1] = true;
+        }
+    }
+
+    /// <summary>
+    /// 切り落とされた破片と、それにぶら下がって外れた部位は、体の自己衝突の除外から出す: 体（と相手と床）にぶつかるようにし、
+    /// 互いの間と、破片と体に残った切り株の間だけはぶつけない（つながっている・切り口で接している）。
+    /// </summary>
+    private void SeparateCollisions(int stub, int fragment)
+    {
+        var loose = _detached.Append(fragment).ToList();
+        foreach (var id in loose)
+        {
+            _world.SetCollisionGroup(id, null);
+        }
+
+        for (var a = 0; a < loose.Count; a++)
+        {
+            for (var b = a + 1; b < loose.Count; b++)
+            {
+                _world.SetPairCollisionEnabled(loose[a], loose[b], false);
+            }
+        }
+
+        _world.SetPairCollisionEnabled(fragment, stub, false);
+    }
+
+    /// <summary>2 つの部位をつなぐ筋肉（腕・脚のサーボ）を外す。</summary>
+    private void RemoveServosBetween(int a, int b)
+    {
+        int[] servos = [_legs.LeftHip, _legs.RightHip, _legs.LeftKnee, _legs.RightKnee, _legs.LeftAnkle, _legs.RightAnkle,
+            _arms[0].ShoulderServo, _arms[0].ElbowServo, _arms[1].ShoulderServo, _arms[1].ElbowServo];
+        foreach (var servo in servos)
+        {
+            if (_world.GetConstraintBodies(servo) is { } bodies && ((bodies.BodyA == a && bodies.BodyB == b) || (bodies.BodyA == b && bodies.BodyB == a)))
+            {
+                _world.RemoveConstraint(servo);
             }
         }
     }
@@ -683,7 +962,19 @@ public sealed class Fighter
         public int ElbowServo { get; private init; }
         public Vector3 ShoulderOnChest { get; private init; }
         public Vector3 ShoulderCenterOnChest { get; private init; }
-        public Vector3 GloveLocal { get; private init; }
+        public Vector3 GloveLocal { get; private set; }
+
+        /// <summary>グローブが付いている剛体（はじめは前腕。前腕が切れたら、その先の破片）。</summary>
+        public int GloveBody { get; private set; }
+
+        /// <summary>切り落とされた（もう駆動しない）。</summary>
+        public bool Severed { get; set; }
+
+        public void AttachGlove(int body, Vector3 local)
+        {
+            GloveBody = body;
+            GloveLocal = local;
+        }
         public float UpperLength { get; private init; }
         public float LowerLength { get; private init; }
         public Vector3 LastTarget { get; private set; }
@@ -724,6 +1015,7 @@ public sealed class Fighter
                 ElbowServo = elbowServo,
                 ShoulderOnChest = shoulderOnChest,
                 ShoulderCenterOnChest = center,
+                GloveBody = fore,
                 GloveLocal = Vector3.Transform(glove - f.Position, Quaternion.Conjugate(f.Orientation)),
                 UpperLength = Vector3.Distance(shoulder, elbow),
                 LowerLength = Vector3.Distance(elbow, glove),
@@ -732,7 +1024,7 @@ public sealed class Fighter
 
         public Vector3 GlovePosition(PhysicsWorld world)
         {
-            var f = world.GetState(Forearm);
+            var f = world.GetState(GloveBody);
             return f.Position + Vector3.Transform(GloveLocal, f.Orientation);
         }
 

@@ -119,6 +119,8 @@ public sealed unsafe partial class HeadlessRenderer
     /// <exception cref="ArgumentException"><paramref name="lighting"/> requests specular
     /// (<see cref="SceneLighting.Specular"/>.<see cref="SpecularConfig.Intensity"/> &gt; 0) but
     /// <paramref name="cameraPosition"/> is <see langword="null"/>.</exception>
+    /// <param name="voxels">Voxel volumes (<see cref="Voxels.VoxelVolumeDraw"/>): each one's surface is built on the GPU from its
+    /// 3D texture — a face wherever a filled cell meets an empty one — and drawn with the opaque scene.</param>
     public byte[] RenderPrimitiveScene(
         Vector4 clearColor,
         Matrix4x4 viewProjection,
@@ -134,10 +136,11 @@ public sealed unsafe partial class HeadlessRenderer
         IReadOnlyList<DecalQuadDraw>? decals = null,
         IReadOnlyList<MeshInstance>? meshes = null,
         ForegroundLayer? foreground = null,
-        PostProcessSettings? postProcess = null) =>
+        PostProcessSettings? postProcess = null,
+        IReadOnlyList<Voxels.VoxelVolumeDraw>? voxels = null) =>
         RenderPrimitiveSceneForView(
             clearColor, viewProjection, instances, lines, text, particles, lighting, shadow, cameraPosition,
-            images, shapes, decals, meshes, foreground, postProcess, postProcessSampleRect: null);
+            images, shapes, decals, meshes, foreground, postProcess, postProcessSampleRect: null, voxels);
 
     /// <summary><see cref="RenderPrimitiveScene"/>
     /// with the finishing pass's taps confined to <paramref name="postProcessSampleRect"/> (whole-target
@@ -159,7 +162,8 @@ public sealed unsafe partial class HeadlessRenderer
         IReadOnlyList<MeshInstance>? meshes,
         ForegroundLayer? foreground,
         PostProcessSettings? postProcess,
-        Vector4? postProcessSampleRect)
+        Vector4? postProcessSampleRect,
+        IReadOnlyList<Voxels.VoxelVolumeDraw>? voxels = null)
     {
         // Before any command is recorded: a bad value must fail the call, not leave a frame half-begun.
         postProcess?.Validate();
@@ -224,6 +228,8 @@ public sealed unsafe partial class HeadlessRenderer
 
         var effectiveDecals = decals ?? [];
         PrepareDecals(effectiveDecals);
+        var effectiveVoxels = voxels ?? [];
+        PrepareVoxels(effectiveVoxels);
 
         // Mesh uploads record buffer copies, so they happen before any render pass opens — the same
         // constraint PrepareOverlayImages and PrepareDecals work under.
@@ -250,6 +256,7 @@ public sealed unsafe partial class HeadlessRenderer
         BeginScenePass(command, clearColor, postProcess);
         DrawPrimitiveDepthPrepass(command);
         DrawPrimitiveBatches(command);
+        DrawVoxels(command, effectiveVoxels, viewProjection);
         DrawMeshes(command, effectiveMeshes, viewProjection);
         DrawPrimitiveXRayBatches(command);
         DrawPrimitiveGlowBatches(command);

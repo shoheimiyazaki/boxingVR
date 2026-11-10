@@ -43,7 +43,7 @@ public sealed class SnapshotTests
 
             var (instances, lines) = game.BuildRenderables();
             var text = game.BuildOverlayText(viewProjection, new Vector2(Width, Height));
-            var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, instances, lines, text, cameraPosition: eye);
+            var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, instances, lines, text, cameraPosition: eye, voxels: game.BuildVoxelVolumes());
             var path = Path.Combine(outDir, $"miniring_t{at:0.0}.png");
             PngWriter.WriteRgba(path, Width, Height, rgba);
             Assert.IsTrue(File.Exists(path));
@@ -74,7 +74,7 @@ public sealed class SnapshotTests
         void Shoot(string name)
         {
             var (instances, lines) = game.BuildRenderables();
-            var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, instances, lines, [], cameraPosition: eye);
+            var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, instances, lines, [], cameraPosition: eye, voxels: game.BuildVoxelVolumes());
             PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_closeup_{name}.png"), Width, Height, rgba);
         }
 
@@ -87,10 +87,12 @@ public sealed class SnapshotTests
             var half = cpu.HalfExtentsOf(part).Z;
             var fist = s.Position + (forward * (half + FighterTuning.Default.GloveRadius)) + (left * side * half);
             game.CpuSkin.Dent(part, s, fist, -forward, damage);
+            game.Strike(cpu, part, fist, -forward, damage * 2f); // ボクセルの体も削る（体の見た目はこちら）
         }
 
         Shoot("after");
         Assert.IsTrue(game.CpuSkin.Part(cpu.Parts.Head).IsDented);
+        Assert.IsLessThan(1f, cpu.Voxels!.PartOf(cpu.Parts.Head)!.Body.Grid.Fraction(Aigis.Foundation.Voxels.VoxelTissue.Flesh), "the head's voxels were carved");
     }
 
     private static readonly Vector4 IGameClear = new(0.10f, 0.11f, 0.14f, 1f);

@@ -25,6 +25,7 @@ internal static unsafe class SelfTest
         }
 
         var (instances, lines) = game.BuildRenderables();
+        var voxels = game.BuildVoxelVolumes();
         var eye = new Vector3(0f, 1.55f, 0.05f);
         var target = BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight + 0.15f };
         var view = Matrix4x4.CreateLookAt(eye, target, Vector3.UnitY);
@@ -35,7 +36,7 @@ internal static unsafe class SelfTest
         byte[] expected;
         using (var reference = new HeadlessRenderer(Width, Height))
         {
-            expected = reference.RenderPrimitiveScene(clear, viewProjection, instances, lines, cameraPosition: eye);
+            expected = reference.RenderPrimitiveScene(clear, viewProjection, instances, lines, cameraPosition: eye, voxels: voxels);
         }
 
         using var context = VulkanContext.CreateInstance([]);
@@ -53,7 +54,7 @@ internal static unsafe class SelfTest
         using (var target2 = new SrgbTarget(vk, context))
         using (var renderer = new HeadlessRenderer(Width, Height, context.External))
         {
-            renderer.RenderPrimitiveSceneToImage(target2.Image.Handle, clear, viewProjection, instances, lines, cameraPosition: eye);
+            renderer.RenderPrimitiveSceneToImage(target2.Image.Handle, clear, viewProjection, instances, lines, cameraPosition: eye, voxels: voxels);
             actual = target2.ReadBack();
         }
 
