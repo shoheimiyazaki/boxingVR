@@ -6,6 +6,7 @@ using Aigis.Render;
 using Aigis.Foundation.Voxels;
 using Aigis.Physics.Voxels;
 using Aigis.Render.Voxels;
+using MiniRing.Audio;
 using MiniRing.LowPoly;
 using MiniRing.Voxels;
 
@@ -65,6 +66,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
     private readonly List<VoxelChip> _chips = [];
     private readonly VoxelDebris _debris = new(capacity: 9000);
     private readonly List<ShatterEvent> _recentShatters = [];
+    private readonly List<DebrisLanding> _recentLandings = [];
     private readonly Random _fx;
     private readonly Dictionary<(Fighter, Hand), Vector3> _preStepGloveVelocity = [];
     private readonly Dictionary<(Fighter, Hand), float> _hitCooldown = [];
@@ -142,6 +144,9 @@ public sealed class BoxingGame : IGame<BoxingInput>
     /// <summary>直近の <see cref="Step"/> で砕けたボクセルの列（1 発に 1 つ。ホストの砕ける音用）。</summary>
     public IReadOnlyList<ShatterEvent> RecentShatters => _recentShatters;
 
+    /// <summary>直近の <see cref="Step"/> で床に落ちた（跳ねた）破片（ホストの落下音用）。</summary>
+    public IReadOnlyList<DebrisLanding> RecentLandings => _recentLandings;
+
     public string StatusLine => string.Create(CultureInfo.InvariantCulture,
         $"Round {_round}  You {Cpu.Condition.TotalDamage:0} - CPU {Player.Condition.TotalDamage:0} damage  ({PlayerWins}-{CpuWins})");
 
@@ -155,6 +160,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
     {
         _recentHits.Clear();
         _recentShatters.Clear();
+        _recentLandings.Clear();
         if (input.ResetRequested)
         {
             StartRound();
@@ -169,7 +175,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         }
 
         _messageTimer = MathF.Max(0f, _messageTimer - dt);
-        _debris.Step(dt);
+        _debris.Step(dt, _recentLandings);
         UpdateRound(dt);
     }
 
@@ -370,10 +376,10 @@ public sealed class BoxingGame : IGame<BoxingInput>
             var color = chip.WasSurface ? material.SurfaceColor : material.Color;
             Vector3 Scatter(float s) => new Vector3(Jitter(), Jitter() + 0.4f, Jitter()) * s;
             Vector3 Spin(float s) => new Vector3(Jitter(), Jitter(), Jitter()) * s;
-            _debris.Spawn(chip.Position, (chip.Velocity * 1.5f) + Scatter(0.5f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color);
+            _debris.Spawn(chip.Position, (chip.Velocity * 1.5f) + Scatter(0.5f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color, tag: chip.Material);
             for (var k = 0; k < 2; k++)
             {
-                _debris.Spawn(chip.Position, (chip.Velocity * 2f) + Scatter(1.2f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f);
+                _debris.Spawn(chip.Position, (chip.Velocity * 2f) + Scatter(1.2f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f, tag: chip.Material);
             }
 
             switch (material.Tissue)
@@ -381,22 +387,22 @@ public sealed class BoxingGame : IGame<BoxingInput>
                 case VoxelTissue.Bone:
                     for (var k = 0; k < 3; k++)
                     {
-                        _debris.Spawn(chip.Position, (chip.Velocity * 1.8f) + Scatter(1.5f), chip.Orientation, chip.Size * 0.25f, Spin(90f), BoneDust, life: 1.2f);
+                        _debris.Spawn(chip.Position, (chip.Velocity * 1.8f) + Scatter(1.5f), chip.Orientation, chip.Size * 0.25f, Spin(90f), BoneDust, life: 1.2f, tag: VoxelBreakSound.DustTag);
                     }
 
-                    _debris.Spawn(chip.Position, (chip.Velocity * 2.5f) + Scatter(2.5f), chip.Orientation, chip.Size * 0.22f, Spin(30f), Spark, life: 0.25f, glow: true);
+                    _debris.Spawn(chip.Position, (chip.Velocity * 2.5f) + Scatter(2.5f), chip.Orientation, chip.Size * 0.22f, Spin(30f), Spark, life: 0.25f, glow: true, tag: VoxelBreakSound.SparkTag);
                     break;
                 case VoxelTissue.Organ:
                     for (var k = 0; k < 2; k++)
                     {
-                        _debris.Spawn(chip.Position, (chip.Velocity * 2.2f) + Scatter(1.8f), chip.Orientation, chip.Size * 0.35f, Spin(50f), OrganGlow, life: 0.4f, glow: true);
+                        _debris.Spawn(chip.Position, (chip.Velocity * 2.2f) + Scatter(1.8f), chip.Orientation, chip.Size * 0.35f, Spin(50f), OrganGlow, life: 0.4f, glow: true, tag: VoxelBreakSound.SparkTag);
                     }
 
                     goto case VoxelTissue.Flesh;
                 case VoxelTissue.Flesh:
                     for (var k = 0; k < 3; k++)
                     {
-                        _debris.Spawn(chip.Position, (chip.Velocity * 2.4f) + Scatter(1.4f), chip.Orientation, chip.Size * 0.35f, Spin(60f), BloodColor, life: 2.2f);
+                        _debris.Spawn(chip.Position, (chip.Velocity * 2.4f) + Scatter(1.4f), chip.Orientation, chip.Size * 0.35f, Spin(60f), BloodColor, life: 2.2f, tag: VoxelBreakSound.BloodTag);
                     }
 
                     break;
@@ -413,7 +419,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         {
             var dir = Vector3.Normalize(new Vector3(Jitter(), Jitter() + 0.3f, Jitter()) + new Vector3(1e-3f));
             _debris.Spawn(point, dir * speed * (1f + (0.5f * Jitter())), Quaternion.Identity, new Vector3(0.004f + (0.002f * Jitter())),
-                new Vector3(Jitter(), Jitter(), Jitter()) * 40f, color, life: 0.18f + (0.08f * Jitter()), glow: true);
+                new Vector3(Jitter(), Jitter(), Jitter()) * 40f, color, life: 0.18f + (0.08f * Jitter()), glow: true, tag: VoxelBreakSound.SparkTag);
         }
     }
 

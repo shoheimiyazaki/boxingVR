@@ -45,6 +45,7 @@ public sealed class ReplayGame : IGame<BoxingInput>
     private readonly ReplayPlayer _player;
     private readonly List<HitEvent> _frameHits = [];
     private readonly List<ShatterEvent> _frameShatters = [];
+    private readonly List<DebrisLanding> _frameLandings = [];
     private float _clock;
 
     public ReplayGame(ReplayData data)
@@ -59,6 +60,9 @@ public sealed class ReplayGame : IGame<BoxingInput>
 
     /// <summary>直前の <see cref="Step"/> で砕けたボクセル。</summary>
     public IReadOnlyList<ShatterEvent> FrameShatters => _frameShatters;
+
+    /// <summary>直前の <see cref="Step"/> で床に落ちた破片。</summary>
+    public IReadOnlyList<DebrisLanding> FrameLandings => _frameLandings;
     public PhysicsWorld World => _player.Game.World;
     public bool IsOver => false;
 
@@ -75,10 +79,12 @@ public sealed class ReplayGame : IGame<BoxingInput>
         _clock += dt;
         _frameHits.Clear();
         _frameShatters.Clear();
+        _frameLandings.Clear();
         _player.PlayUntil(_clock, game =>
         {
             _frameHits.AddRange(game.RecentHits);
             _frameShatters.AddRange(game.RecentShatters);
+            _frameLandings.AddRange(game.RecentLandings);
         });
     }
 

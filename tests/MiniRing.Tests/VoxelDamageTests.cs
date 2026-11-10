@@ -394,6 +394,83 @@ public sealed class VoxelDamageTests
         Assert.IsTrue(heard[^1].Grains.Zip(heard[^1].Grains.Skip(1)).All(p => p.Second.Delay >= p.First.Delay - 0.005f), "grains follow one after another");
     }
 
+    [TestMethod]
+    public void Debris_ReportsEachHardLanding_WithItsTag_AndNotTheRestingPieces()
+    {
+        var debris = new VoxelDebris(capacity: 4, groundY: 0f);
+        debris.Spawn(new Vector3(0f, 0.5f, 0f), Vector3.Zero, Quaternion.Identity, new Vector3(0.01f), Vector3.Zero, Vector4.One, tag: 7);
+        debris.Spawn(new Vector3(0.2f, 0.006f, 0f), Vector3.Zero, Quaternion.Identity, new Vector3(0.01f), Vector3.Zero, Vector4.One, tag: 8);
+        var landed = new List<DebrisLanding>();
+        for (var i = 0; i < 120; i++)
+        {
+            debris.Step(1f / 60f, landed);
+        }
+
+        Assert.IsNotEmpty(landed, "the falling piece hits the floor");
+        Assert.IsTrue(landed.All(l => l.Tag == 7), "the piece that starts at rest on the floor is never heard");
+        Assert.IsGreaterThan(2.5f, landed[0].Speed, "a 0.5 m drop lands at about 3 m/s");
+        Assert.AreEqual(0.01f, landed[0].Size, 1e-4f);
+    }
+
+    [TestMethod]
+    public void EveryBreakStyle_SoundsEveryVoxel_AndEveryLanding_ButSparksAreSilent()
+    {
+        foreach (var style in Enum.GetValues<BreakStyle>())
+        {
+            foreach (var kind in Enum.GetValues<GrainKind>())
+            {
+                var grain = VoxelBreakSound.Grain(kind, 1, style);
+                Assert.IsGreaterThan(0.01f, grain.Max(MathF.Abs), $"{style} {kind} is audible");
+            }
+
+            foreach (var tag in new[] { BoxerAnatomy.Skin, BoxerAnatomy.Bone, VoxelBreakSound.BloodTag, VoxelBreakSound.DustTag })
+            {
+                Assert.IsNotNull(VoxelBreakSound.Landings([new DebrisLanding(default, 2f, 0.005f, tag)], 1, style), $"{style} landing {tag}");
+            }
+
+            Assert.IsNull(VoxelBreakSound.Landings([new DebrisLanding(default, 2f, 0.005f, VoxelBreakSound.SparkTag)], 1, style));
+            Assert.AreEqual((int)(1.8f * 44100) * 2, VoxelBreakSound.Fatal(7, style).Length, $"{style} fatal");
+        }
+
+        Assert.AreEqual(LandingKind.Hard, VoxelBreakSound.LandingKindOf(BoxerAnatomy.Bone));
+        Assert.AreEqual(LandingKind.Chunk, VoxelBreakSound.LandingKindOf(BoxerAnatomy.Heart));
+    }
+
+    [TestMethod]
+    public void BreakSoundOption_PicksTheStyle_DefaultsToGlass_AndRejectsUnknownNames()
+    {
+        Assert.IsTrue(BreakSoundOption.TryParse([], out var style, out _));
+        Assert.AreEqual(BreakStyle.Glass, style);
+        Assert.IsTrue(BreakSoundOption.TryParse(["--replay", "x", "--break-sound", "Crunch"], out style, out _));
+        Assert.AreEqual(BreakStyle.Crunch, style);
+        Assert.IsFalse(BreakSoundOption.TryParse(["--break-sound", "bell"], out _, out var error));
+        StringAssert.Contains(error, "glass|crumble|crunch|circuit|metal");
+        Assert.IsFalse(BreakSoundOption.TryParse(["--break-sound"], out _, out _));
+        Assert.IsFalse(BreakSoundOption.TryParse(["--break-sound", "7"], out _, out _), "numbers are not names");
+        Assert.IsFalse(BreakSoundOption.TryParse(["--break-sound", "0"], out _, out _), "not even a defined one");
+        Assert.IsFalse(BreakSoundOption.TryParse(["--break-sound", "glass,crunch"], out _, out _), "one style at a time");
+    }
+
+    [TestMethod]
+    public void Stains_TintTheSkin_ButLeaveBoneAndOrgansTheirOwnColor()
+    {
+        var palette = BoxerAnatomy.Palette;
+        Assert.AreEqual(1f, palette[BoxerAnatomy.Skin].Stainable);
+        Assert.AreEqual(0f, palette[BoxerAnatomy.Bone].Stainable);
+        Assert.AreEqual(0f, palette[BoxerAnatomy.Brain].Stainable);
+
+        // 隣り合う組織の色がはっきり違う（RGB の距離）。
+        var tissues = new[] { BoxerAnatomy.Skin, BoxerAnatomy.Muscle, BoxerAnatomy.Bone, BoxerAnatomy.Brain, BoxerAnatomy.Heart, BoxerAnatomy.Lung, BoxerAnatomy.Liver, BoxerAnatomy.Gut };
+        foreach (var a in tissues)
+        {
+            foreach (var b in tissues.Where(b => b > a))
+            {
+                var d = Vector3.Distance(new Vector3(palette[a].Color.X, palette[a].Color.Y, palette[a].Color.Z), new Vector3(palette[b].Color.X, palette[b].Color.Y, palette[b].Color.Z));
+                Assert.IsGreaterThan(0.2f, d, $"{palette[a].Name} vs {palette[b].Name}");
+            }
+        }
+    }
+
     private static void StrikeUntil(BoxingGame game, Fighter victim, int part, Func<bool> done, float damage)
     {
         var directions = new[] { Vector3.UnitZ, -Vector3.UnitZ, Vector3.UnitY, -Vector3.UnitY };

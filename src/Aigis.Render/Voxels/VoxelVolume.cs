@@ -89,7 +89,7 @@ public sealed class VoxelVolume
 
                     var material = grid.Palette[m];
                     var color = grid.IsOriginalSurface(x, y, z) ? material.SurfaceColor : material.Color;
-                    color = Vector4.Lerp(color, StainColor, 0.85f * grid.Stain(x, y, z));
+                    color = Vector4.Lerp(color, StainColor, 0.85f * material.Stainable * grid.Stain(x, y, z));
                     Rgba[t] = ToByte(color.X);
                     Rgba[t + 1] = ToByte(color.Y);
                     Rgba[t + 2] = ToByte(color.Z);

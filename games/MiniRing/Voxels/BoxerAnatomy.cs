@@ -36,21 +36,22 @@ public static class BoxerAnatomy
     private static Vector4 Rgb(float r, float g, float b) => new(r, g, b, 1f);
 
     /// <summary>
-    /// 材質の表。色は 1 つずつ（皮膚・肉・骨・脳・臓器ごと・目）: 削れて出てきた中身がその色で見える。
+    /// 材質の表。色は 1 つずつ（皮膚・肉・骨・脳・臓器ごと・目）: 削れて出てきた中身がその色で見える。照明の下でも見分けられるよう、
+    /// 互いに離した鮮やかな色にし、血の染みは皮膚（と少しだけ筋肉）にしか乗せない（中身の色が血で隠れないように）。
     /// 目だけは、表に出ている面（黒目）と中（白い眼球）で色が違う。どちらのファイターかはグローブの色で見分ける。
     /// </summary>
     public static VoxelPalette Palette { get; } = new(
     [
         new VoxelMaterial("empty", VoxelTissue.Empty, 1f, false, Vector4.Zero, Vector4.Zero),
-        new VoxelMaterial("skin", VoxelTissue.Flesh, 0.7f, false, Rgb(0.93f, 0.8f, 0.68f), Rgb(0.93f, 0.8f, 0.68f)),
-        new VoxelMaterial("muscle", VoxelTissue.Flesh, 1f, false, Rgb(0.7f, 0.07f, 0.09f), Rgb(0.7f, 0.07f, 0.09f)),
-        new VoxelMaterial("bone", VoxelTissue.Bone, 8f, false, Rgb(0.96f, 0.93f, 0.8f), Rgb(0.96f, 0.93f, 0.8f)),
-        new VoxelMaterial("brain", VoxelTissue.Organ, 1.4f, true, Rgb(0.98f, 0.55f, 0.72f), Rgb(0.98f, 0.55f, 0.72f)),
-        new VoxelMaterial("heart", VoxelTissue.Organ, 1.4f, true, Rgb(0.5f, 0.0f, 0.1f), Rgb(0.5f, 0.0f, 0.1f)),
-        new VoxelMaterial("lung", VoxelTissue.Organ, 1.2f, true, Rgb(0.95f, 0.42f, 0.45f), Rgb(0.95f, 0.42f, 0.45f)),
-        new VoxelMaterial("liver", VoxelTissue.Organ, 1.4f, true, Rgb(0.4f, 0.12f, 0.06f), Rgb(0.4f, 0.12f, 0.06f)),
-        new VoxelMaterial("gut", VoxelTissue.Organ, 1.2f, true, Rgb(0.82f, 0.6f, 0.35f), Rgb(0.82f, 0.6f, 0.35f)),
-        new VoxelMaterial("eye", VoxelTissue.Organ, 0.8f, false, Rgb(0.97f, 0.97f, 1f), Rgb(0.06f, 0.12f, 0.3f)),
+        new VoxelMaterial("skin", VoxelTissue.Flesh, 0.7f, false, Rgb(0.86f, 0.6f, 0.42f), Rgb(0.86f, 0.6f, 0.42f), Stainable: 1f),
+        new VoxelMaterial("muscle", VoxelTissue.Flesh, 1f, false, Rgb(0.8f, 0.05f, 0.07f), Rgb(0.8f, 0.05f, 0.07f), Stainable: 0.3f),
+        new VoxelMaterial("bone", VoxelTissue.Bone, 8f, false, Rgb(1f, 0.98f, 0.88f), Rgb(1f, 0.98f, 0.88f), Stainable: 0f),
+        new VoxelMaterial("brain", VoxelTissue.Organ, 1.4f, true, Rgb(1f, 0.4f, 0.8f), Rgb(1f, 0.4f, 0.8f), Stainable: 0f),
+        new VoxelMaterial("heart", VoxelTissue.Organ, 1.4f, true, Rgb(0.55f, 0f, 0.35f), Rgb(0.55f, 0f, 0.35f), Stainable: 0f),
+        new VoxelMaterial("lung", VoxelTissue.Organ, 1.2f, true, Rgb(0.45f, 0.8f, 1f), Rgb(0.45f, 0.8f, 1f), Stainable: 0f),
+        new VoxelMaterial("liver", VoxelTissue.Organ, 1.4f, true, Rgb(0.36f, 0.13f, 0.04f), Rgb(0.36f, 0.13f, 0.04f), Stainable: 0f),
+        new VoxelMaterial("gut", VoxelTissue.Organ, 1.2f, true, Rgb(1f, 0.82f, 0.25f), Rgb(1f, 0.82f, 0.25f), Stainable: 0f),
+        new VoxelMaterial("eye", VoxelTissue.Organ, 0.8f, false, Rgb(1f, 1f, 1f), Rgb(0.04f, 0.08f, 0.25f), Stainable: 0f),
     ]);
 
     /// <summary>

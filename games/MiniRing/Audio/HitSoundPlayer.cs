@@ -1,5 +1,6 @@
 using System.Globalization;
 using Aigis.Audio;
+using Aigis.Render.Voxels;
 using MiniRing.Voxels;
 
 namespace MiniRing.Audio;
@@ -14,6 +15,9 @@ public sealed class HitSoundPlayer : IDisposable
     private const int IntensityLevels = 8;
     private const int CleanLevels = 4;
     private const int MaxVoices = 24;
+
+    /// <summary>床に落ちる音が使わずに残しておく声の数（打撃・砕ける音・致命傷のため）。</summary>
+    private const int ReservedForBreaks = 12;
     private const int FatalVariants = 2;
 
     private readonly IAudioBackend _backend;
@@ -29,7 +33,14 @@ public sealed class HitSoundPlayer : IDisposable
     }
 
     /// <summary>既定の音声出力（Windows の既定デバイス。Quest Link 中は Link の音声出力）で鳴らす。</summary>
-    public static HitSoundPlayer CreateDefault() => new(new OpenAlAudioBackend());
+    public static HitSoundPlayer CreateDefault(BreakStyle breakStyle = VoxelBreakSound.DefaultStyle)
+    {
+        VoxelBreakSound.Prewarm(breakStyle);
+        return new(new OpenAlAudioBackend()) { BreakStyle = breakStyle };
+    }
+
+    /// <summary>ボクセルが砕ける音・床に落ちる音の方式。</summary>
+    public BreakStyle BreakStyle { get; init; } = VoxelBreakSound.DefaultStyle;
 
     public bool IsAvailable => _backend.IsAvailable;
 
@@ -88,16 +99,38 @@ public sealed class HitSoundPlayer : IDisposable
         {
             if (shatter.Grains.Count > 0)
             {
-                var pcm = VoxelBreakSound.Synthesize(shatter, _variation.Next());
+                var pcm = VoxelBreakSound.Synthesize(shatter, _variation.Next(), BreakStyle);
                 Start(new AudioClip("shatter", AudioSampleFormat.Mono16, VoxelBreakSound.SampleRate, pcm, IsGenerated: true), 1f);
             }
 
             if (shatter.Fatal)
             {
                 var v = _variation.Next(FatalVariants);
-                _fatal[v] ??= new AudioClip($"fatal_{v}", AudioSampleFormat.Mono16, VoxelBreakSound.SampleRate, VoxelBreakSound.Fatal(seed: 7 + v), IsGenerated: true);
+                _fatal[v] ??= new AudioClip($"fatal_{v}", AudioSampleFormat.Mono16, VoxelBreakSound.SampleRate, VoxelBreakSound.Fatal(seed: 7 + v, BreakStyle), IsGenerated: true);
                 Start(_fatal[v]!, 1f);
             }
+        }
+    }
+
+    /// <summary>1 ステップぶんの、床に落ちた破片の音（パラパラ）。</summary>
+    public void PlayLandings(IReadOnlyList<DebrisLanding> landings)
+    {
+        ArgumentNullException.ThrowIfNull(landings);
+        if (!_backend.IsAvailable || landings.Count == 0)
+        {
+            return;
+        }
+
+        OpenAlAudioBackend.MakeCurrentOnThisThread();
+        Reap();
+        if (_voices.Count >= MaxVoices - ReservedForBreaks)
+        {
+            return; // 床の音は譲る: 砕ける音や致命傷の長い音を、古い順に押し出さないように
+        }
+
+        if (VoxelBreakSound.Landings(landings, _variation.Next(), BreakStyle) is { } pcm)
+        {
+            Start(new AudioClip("landing", AudioSampleFormat.Mono16, VoxelBreakSound.SampleRate, pcm, IsGenerated: true), 1f);
         }
     }
 

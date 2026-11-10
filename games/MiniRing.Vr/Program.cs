@@ -10,11 +10,18 @@ using MiniRing.Vr;
 // ウィンドウは無い（状態はこのコンソールに出る）。Ctrl+C で終了。
 //   --runtime <auto|meta|vd|steamvr|system|path.json>  使う OpenXR ランタイム（既定 auto）
 //   --scale <0.3..1.0>  目の解像度倍率（既定 0.8。重いときは下げる）
+//   --break-sound <glass|crumble|crunch|circuit|metal>  ボクセルが砕ける音の方式（既定 glass）
 //   --selftest          HMD なしで VR 描画経路（外部デバイス・GPU コピー）を検証して終了
 
 if (args.Contains("--selftest"))
 {
     return SelfTest.Run(Path.Combine(Environment.CurrentDirectory, ".visualcheck"));
+}
+
+if (!BreakSoundOption.TryParse(args, out var breakStyle, out var breakError))
+{
+    Console.Error.WriteLine(breakError);
+    return 1;
 }
 
 var renderScale = 0.8f;
@@ -75,7 +82,7 @@ using (xr)
 using (var game = new BoxingGame())
 using (var recorder = ReplayRecorder.TryStartFile(Path.Combine(Environment.CurrentDirectory, "replays"), game, "vr", out var recordingMessage))
 using (var renderer = new HeadlessRenderer(xr.EyeWidth, xr.EyeHeight, xr.Vulkan.External))
-using (var sounds = HitSoundPlayer.CreateDefault())
+using (var sounds = HitSoundPlayer.CreateDefault(breakStyle))
 {
     Console.WriteLine($"[vr] eye {xr.EyeWidth}x{xr.EyeHeight}, sRGB={xr.IsSrgb}. Put the headset on.");
     Console.WriteLine($"[vr] {recordingMessage}");
@@ -113,6 +120,7 @@ using (var sounds = HitSoundPlayer.CreateDefault())
 
                 sounds.PlayAll(game.RecentHits);
                 sounds.PlayShatters(game.RecentShatters);
+                sounds.PlayLandings(game.RecentLandings);
 
                 foreach (var hit in game.RecentHits)
                 {

@@ -79,8 +79,8 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
             // The engine's default sun (DirectionalLight.Default) and a sky/ground hemisphere ambient.
             vec3 sun = normalize(vec3(0.4, 0.85, 0.35));
             vec3 n = normalize(vNormal);
-            float diffuse = 0.72 * max(dot(n, sun), 0.0);
-            float ambient = mix(0.16, 0.34, n.y * 0.5 + 0.5);
+            float diffuse = 0.4 * max(dot(n, sun), 0.0);
+            float ambient = mix(0.58, 0.72, n.y * 0.5 + 0.5); // bright: the tissues are told apart by colour
             outColor = vec4(vColor * (ambient + diffuse), 1.0);
         }
         """;

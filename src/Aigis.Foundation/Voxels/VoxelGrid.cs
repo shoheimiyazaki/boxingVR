@@ -28,7 +28,8 @@ public enum VoxelTissue : byte
 /// <param name="Vital">Losing enough of this material kills (brain, heart).</param>
 /// <param name="Color">RGBA when the voxel is exposed inside the body.</param>
 /// <param name="SurfaceColor">RGBA when the voxel is still the body's original outer surface (skin).</param>
-public sealed record VoxelMaterial(string Name, VoxelTissue Tissue, float Toughness, bool Vital, Vector4 Color, Vector4 SurfaceColor);
+/// <param name="Stainable">How much a stain shows on it (0 = never: an organ keeps its own colour; 1 = fully: skin bloodied).</param>
+public sealed record VoxelMaterial(string Name, VoxelTissue Tissue, float Toughness, bool Vital, Vector4 Color, Vector4 SurfaceColor, float Stainable = 1f);
 
 /// <summary>A material table: index 0 is always <see cref="VoxelTissue.Empty"/>; a grid cell stores an index.</summary>
 public sealed class VoxelPalette
@@ -333,14 +334,14 @@ public sealed class VoxelGrid
         }
 
         // The cells around the crater are stained (a blow leaves more mark than the hole it digs): strongest at the
-        // contact, fading out to about twice the crater's reach.
-        var stainReach = reach * 2f;
+        // contact, fading out a little past the crater (kept tight so the colours of what lies beneath still read).
+        var stainReach = reach * 1.4f;
         ForEachCellNear(start, start, stainReach, (i, center) =>
         {
             var d = Vector3.Distance(center, start);
             if (d < stainReach)
             {
-                _stain[i] = MathF.Min(1f, _stain[i] + (0.7f * (1f - (d / stainReach))));
+                _stain[i] = MathF.Min(1f, _stain[i] + (0.35f * (1f - (d / stainReach))));
             }
         });
 

@@ -18,14 +18,18 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     private readonly Func<IReadOnlyList<HitEvent>> _hits;
     private readonly HitSoundPlayer _sounds;
     private readonly Func<IReadOnlyList<ShatterEvent>>? _shatters;
+    private readonly Func<IReadOnlyList<DebrisLanding>>? _landings;
 
     /// <param name="inner">包む試合。</param>
     /// <param name="hits">直前の <see cref="Step"/> で起きた打撃。</param>
     /// <param name="sounds">鳴らす先。これはこのオブジェクトと一緒に破棄する。</param>
     /// <param name="shatters">直前の <see cref="Step"/> で砕けたボクセル（砕ける音）。</param>
-    public HitSoundGame(IGame<BoxingInput> inner, Func<IReadOnlyList<HitEvent>> hits, HitSoundPlayer sounds, Func<IReadOnlyList<ShatterEvent>>? shatters = null)
+    /// <param name="landings">直前の <see cref="Step"/> で床に落ちた破片（落ちる音）。</param>
+    public HitSoundGame(IGame<BoxingInput> inner, Func<IReadOnlyList<HitEvent>> hits, HitSoundPlayer sounds,
+        Func<IReadOnlyList<ShatterEvent>>? shatters = null, Func<IReadOnlyList<DebrisLanding>>? landings = null)
     {
         _shatters = shatters;
+        _landings = landings;
         ArgumentNullException.ThrowIfNull(inner);
         ArgumentNullException.ThrowIfNull(hits);
         ArgumentNullException.ThrowIfNull(sounds);
@@ -45,6 +49,11 @@ public sealed class HitSoundGame : IGame<BoxingInput>
         if (_shatters is not null)
         {
             _sounds.PlayShatters(_shatters());
+        }
+
+        if (_landings is not null)
+        {
+            _sounds.PlayLandings(_landings());
         }
     }
 

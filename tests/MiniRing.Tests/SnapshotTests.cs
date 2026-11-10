@@ -90,9 +90,51 @@ public sealed class SnapshotTests
             game.Strike(cpu, part, fist, -forward, damage * 2f); // ボクセルの体も削る（体の見た目はこちら）
         }
 
+        for (var i = 0; i < 12; i++)
+        {
+            game.Step(default, 1f / 60f); // 削れた破片を飛ばしてから撮る（直後は穴の中に詰まっている）
+        }
+
         Shoot("after");
         Assert.IsTrue(game.CpuSkin.Part(cpu.Parts.Head).IsDented);
         Assert.IsLessThan(1f, cpu.Voxels!.PartOf(cpu.Parts.Head)!.Body.Grid.Fraction(Aigis.Foundation.Voxels.VoxelTissue.Flesh), "the head's voxels were carved");
+    }
+
+    /// <summary>
+    /// CPU の体を前後に半分に割った断面（手前半分を描かない）を正面から撮り、中の組織（皮膚・筋肉・骨・脳・心臓・肺・肝臓・腸・目）が
+    /// 色で見分けられるかを見る。プレイヤーの体は描かない。
+    /// </summary>
+    [TestMethod]
+    public void Cutaway_ShowsEachTissueInItsOwnColor()
+    {
+        var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
+        Directory.CreateDirectory(outDir);
+        using var game = new BoxingGame(seed: 3);
+        using var renderer = new HeadlessRenderer(Width, Height);
+        for (var i = 0; i < 30; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        var cpu = game.Cpu;
+        var cpuVolumes = cpu.Voxels!.Parts.Select(p => p.Volume).ToHashSet();
+        var voxels = game.BuildVoxelVolumes().Where(d => cpuVolumes.Contains(d.Volume)).ToList();
+        foreach (var volume in cpuVolumes)
+        {
+            for (var z = volume.Depth / 2; z < volume.Depth; z++)
+            {
+                Array.Clear(volume.Rgba, 4 * volume.Width * volume.Height * z, 4 * volume.Width * volume.Height);
+            }
+        }
+
+        var chest = game.World.GetState(cpu.Parts.Chest);
+        var front = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, chest.Orientation) with { Y = 0f });
+        var target = chest.Position + new Vector3(0f, -0.08f, 0f);
+        var eye = target + (front * 0.5f) + new Vector3(0f, 0.05f, 0f);
+        var viewProjection = Camera.ViewProjection(eye, target, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+        var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, [], [], [], cameraPosition: eye, voxels: voxels);
+        PngWriter.WriteRgba(Path.Combine(outDir, "miniring_cutaway.png"), Width, Height, rgba);
+        Assert.IsGreaterThan(0, rgba.Where((_, i) => i % 4 == 0).Count(r => r > 60), "the body was drawn");
     }
 
     private static readonly Vector4 IGameClear = new(0.10f, 0.11f, 0.14f, 1f);

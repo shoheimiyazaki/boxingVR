@@ -2,6 +2,13 @@ using System.Numerics;
 
 namespace Aigis.Render.Voxels;
 
+/// <summary>A piece meeting the floor (its first landing, or a bounce) — for a landing sound.</summary>
+/// <param name="Position">Where it landed.</param>
+/// <param name="Speed">How fast it came down [m/s].</param>
+/// <param name="Size">Its largest edge [m].</param>
+/// <param name="Tag">What the spawner said it was (<see cref="VoxelDebris.Spawn"/>).</param>
+public readonly record struct DebrisLanding(Vector3 Position, float Speed, float Size, byte Tag);
+
 /// <summary>
 /// Flying cubes for carved-off voxels: each tumbles under gravity, bounces and slides to rest on a ground plane, then
 /// shrinks away. Visual only (no collision with bodies), CPU-simulated, fixed capacity (the oldest piece makes room for a
@@ -32,6 +39,9 @@ public sealed class VoxelDebris
     /// <summary>How long a piece lives [s] before it has shrunk away.</summary>
     public float LifeSeconds { get; set; } = 3.5f;
 
+    /// <summary>Slowest downward speed [m/s] reported as a landing (slower is resting, not hitting).</summary>
+    public float LandingSpeed { get; set; } = 0.3f;
+
     /// <summary>Fraction of the vertical speed kept on a bounce.</summary>
     public float Bounce { get; set; } = 0.35f;
 
@@ -49,9 +59,10 @@ public sealed class VoxelDebris
     /// <param name="color">Its colour.</param>
     /// <param name="life">How long this piece lives [s]; zero or less uses <see cref="LifeSeconds"/>.</param>
     /// <param name="glow">Draw it self-lit (<see cref="MaterialKind.Emissive"/>): a spark rather than a chip.</param>
-    public void Spawn(Vector3 position, Vector3 velocity, Quaternion orientation, Vector3 size, Vector3 spin, Vector4 color, float life = 0f, bool glow = false)
+    /// <param name="tag">What it is, for the caller (reported back with its landings — <see cref="DebrisLanding.Tag"/>).</param>
+    public void Spawn(Vector3 position, Vector3 velocity, Quaternion orientation, Vector3 size, Vector3 spin, Vector4 color, float life = 0f, bool glow = false, byte tag = 0)
     {
-        var piece = new Piece(position, velocity, orientation, spin, size, color, 0f) { Life = life > 0f ? life : LifeSeconds, Glow = glow };
+        var piece = new Piece(position, velocity, orientation, spin, size, color, 0f) { Life = life > 0f ? life : LifeSeconds, Glow = glow, Tag = tag };
         if (_count < _pieces.Length)
         {
             _pieces[_count++] = piece;
@@ -72,7 +83,11 @@ public sealed class VoxelDebris
         _pieces[oldest] = piece;
     }
 
-    public void Step(float dt)
+    /// <summary>Moves every piece by <paramref name="dt"/>.</summary>
+    /// <param name="dt">Time step [s].</param>
+    /// <param name="landed">Receives every piece that hit the floor this step coming down faster than
+    /// <see cref="LandingSpeed"/> (its first landing and each real bounce).</param>
+    public void Step(float dt, ICollection<DebrisLanding>? landed = null)
     {
         if (!(dt > 0f))
         {
@@ -101,6 +116,11 @@ public sealed class VoxelDebris
             if (p.Position.Y - half < ground && wasAbove)
             {
                 p.Position.Y = ground + half;
+                if (landed is not null && -p.Velocity.Y > LandingSpeed)
+                {
+                    landed.Add(new DebrisLanding(p.Position, -p.Velocity.Y, 2f * half, p.Tag));
+                }
+
                 if (p.Velocity.Y < 0f)
                 {
                     p.Velocity = new Vector3(p.Velocity.X * Friction, -p.Velocity.Y * Bounce, p.Velocity.Z * Friction);
@@ -154,5 +174,6 @@ public sealed class VoxelDebris
         public float Age = age;
         public float Life;
         public bool Glow;
+        public byte Tag;
     }
 }
