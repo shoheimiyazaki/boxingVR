@@ -9,7 +9,7 @@ namespace MiniRing.Voxels;
 /// <list type="bullet">
 /// <item>光のにじみ: 当たった所に一瞬ふくらんで消える、淡い光。</item>
 /// <item>空気の輪: 拳の向きに垂直に広がる、色のついた薄い膜の輪（半透明。明るい所でも見える）（重い 1 発だけ）。押し出された空気の波。</item>
-/// <item>光の尾: 拳の向きへ流れる粒と、その後ろに伸びて薄れていく尾。</item>
+/// <item>光の尾: 拳の周りに開いて打った側へ跳ね返る粒と、その後ろに伸びて薄れていく尾（体を突き抜けて向こう側へは出ない）。</item>
 /// <item>空気のもや: 重い 1 発で、当たった所にふわっと広がって消える白いもや。</item>
 /// </list>
 /// 色は打った側のグローブの色（白に寄せて淡く）、大きさ・速さ・数は打撃の強さ（0〜1）で決まる。
@@ -59,12 +59,16 @@ public sealed class ImpactEffects
             }
         }
 
+        // 光の尾は、拳の周りに開いて打った側へ跳ね返るしぶき（体を突き抜けて向こう側へは出ない）。
         var trails = 3 + (int)(5f * s);
         for (var k = 0; k < trails; k++)
         {
-            var heading = Vector3.Normalize(dir + (new Vector3(jitter(), jitter(), jitter()) * 0.35f));
+            var scatter = new Vector3(jitter(), jitter(), jitter());
+            var around = scatter - (dir * Vector3.Dot(scatter, dir));
+            var radial = around.LengthSquared() > 1e-8f ? Vector3.Normalize(around) : Vector3.Normalize(Vector3.Cross(dir, new Vector3(0.3f, 1f, 0.1f)));
+            var heading = Vector3.Normalize((-dir * 0.55f) + radial + (scatter * 0.15f));
             var speed = (1.2f + (2.4f * s)) * (1f + (0.25f * jitter()));
-            _effects.Add(new Effect(EffectKind.Trail, point, heading, heading * speed, tint, 0.12f + (0.1f * s), s));
+            _effects.Add(new Effect(EffectKind.Trail, surface, heading, heading * speed, tint, 0.12f + (0.1f * s), s));
         }
     }
 

@@ -122,23 +122,69 @@ public sealed class VoxelDamageTests
     }
 
     [TestMethod]
-    public void Chips_JetOnAlongTheBlow_MostlyForward_WithSomeSprayingBack()
+    public void Chips_SplashOutOfTheStruckFace_NeverThroughTheBody_SweptAlongAGlancingBlow()
     {
-        using var world = new PhysicsWorld(gravity: Vector3.Zero);
-        var id = world.AddDynamicBox(Vector3.Zero, new Vector3(0.05f, 0.02f, 0.02f), 1.6f);
-        var body = new VoxelBody(world, id, Rod());
-        var random = new Random(1);
-        var chips = new List<VoxelChip>();
-        var blow = new Vector3(1f, -1f, 0f); // 上から斜めに打ち下ろす
-        body.Impact(new Vector3(-0.02f, 0.02f, 0f), blow, 12f, chipSpeed: 2f, () => (2f * random.NextSingle()) - 1f, chips, spread: 0.3f);
+        List<VoxelChip> Hit(Vector3 point, Vector3 blow, float energy = 12f)
+        {
+            using var world = new PhysicsWorld(gravity: Vector3.Zero);
+            var id = world.AddDynamicBox(Vector3.Zero, new Vector3(0.05f, 0.02f, 0.02f), 1.6f);
+            var body = new VoxelBody(world, id, Rod());
+            var random = new Random(1);
+            var chips = new List<VoxelChip>();
+            body.Impact(point, blow, energy, chipSpeed: 2f, () => (2f * random.NextSingle()) - 1f, chips, spread: 0.3f);
+            return chips;
+        }
 
-        Assert.IsGreaterThan(5, chips.Count);
-        var dir = Vector3.Normalize(blow);
-        var forward = chips.Count(c => Vector3.Dot(Vector3.Normalize(c.Velocity), dir) > 0.7f);
-        var back = chips.Count(c => Vector3.Dot(c.Velocity, dir) < 0f);
-        Assert.IsGreaterThan(0.5f * chips.Count, forward, "most fly on along the blow, in a narrow cone");
-        Assert.IsGreaterThan(0, back, "some burst back out of the crater");
-        Assert.IsTrue(chips.All(c => c.Velocity.Length() is > 1.4f and < 2.6f), "at about the chip speed");
+        // 上の面を真上から（拳の中心は面の 1cm 上）: 拳の周りに開いて上へ跳ね、下（体の向こう側）へは抜けない。
+        var straight = Hit(new Vector3(0f, 0.03f, 0f), -Vector3.UnitY, energy: 30f);
+        Assert.IsGreaterThan(5, straight.Count);
+        Assert.IsTrue(straight.All(c => c.Velocity.Y > 0.2f), "out of the struck face, back toward the puncher");
+        Assert.IsTrue(straight.Any(c => c.Velocity.X > 0.3f) && straight.Any(c => c.Velocity.X < -0.3f), "fanned around the fist");
+        Assert.IsTrue(straight.All(c => c.Velocity.Length() is > 1.4f and < 2.6f), "at about the chip speed");
+
+        // 上から斜めに打ち下ろす（+X へかすめる）: やはり上へ跳ね、しぶきは拳の向き（+X）へ流される。
+        var glancing = Hit(new Vector3(-0.02f, 0.02f, 0f), new Vector3(1f, -1f, 0f));
+        Assert.IsGreaterThan(5, glancing.Count);
+        Assert.IsTrue(glancing.All(c => c.Velocity.Y > 0f), "never through the body");
+        Assert.IsGreaterThan(0.4f, glancing.Average(c => c.Velocity.X), "swept along the glancing blow");
+        Assert.IsLessThan(0.3f, Math.Abs(straight.Average(c => c.Velocity.X)), "a straight blow sweeps no way in particular");
+    }
+
+    [TestMethod]
+    public void HotChips_GlowAndDrawAShortStreakBehindThem_ThenCoolToTheirOwnColor()
+    {
+        var debris = new VoxelDebris(capacity: 2) { Gravity = 0f };
+        var skin = new Vector4(0.8f, 0.6f, 0.5f, 1f);
+        var hot = new Vector4(1f, 0.8f, 0.6f, 1f);
+        debris.Spawn(new Vector3(0f, 1f, 0f), new Vector3(1f, 0f, 0f), Quaternion.Identity, new Vector3(0.01f), Vector3.Zero, skin, heat: 0.25f, hotColor: hot);
+        debris.Spawn(new Vector3(0f, 1f, 1f), new Vector3(1f, 0f, 0f), Quaternion.Identity, new Vector3(0.01f), Vector3.Zero, skin);
+        debris.Step(1f / 60f);
+
+        var cubes = new List<PrimitiveInstance>();
+        var trails = new List<ParticleInstance>();
+        debris.WriteInstances(cubes);
+        debris.WriteTrails(trails);
+        Assert.AreEqual(MaterialKind.Emissive, cubes[0].Material, "just broken off: it glows");
+        Assert.IsGreaterThan(skin.X, cubes[0].Color.X, "brighter than its own colour");
+        Assert.AreEqual(MaterialKind.Standard, cubes[1].Material, "a piece without heat never glows");
+        Assert.IsNotEmpty(trails);
+        Assert.IsTrue(trails.All(t => t.Blend == ParticleBlend.Additive && t.Position.Z < 0.5f), "only the hot piece streaks");
+        Assert.IsTrue(trails.All(t => t.Position.X <= cubes[0].Model.Translation.X + 1e-4f), "behind it, back along its flight");
+        var length = cubes[0].Model.Translation.X - trails.Min(t => t.Position.X);
+        Assert.IsTrue(length is > 0.01f and < 0.08f, $"a short streak ({length} m)");
+
+        for (var i = 0; i < 16; i++)
+        {
+            debris.Step(1f / 60f);
+        }
+
+        cubes.Clear();
+        trails.Clear();
+        debris.WriteInstances(cubes);
+        debris.WriteTrails(trails);
+        Assert.AreEqual(MaterialKind.Standard, cubes[0].Material, "cooled");
+        Assert.AreEqual(skin, cubes[0].Color);
+        Assert.IsEmpty(trails);
     }
 
     [TestMethod]
@@ -558,9 +604,9 @@ public sealed class VoxelDamageTests
     }
 
     [TestMethod]
-    public void Debris_FallsAtHalfGravity()
+    public void Debris_FallsAtAThirdOfGravity()
     {
-        Assert.AreEqual(0.5f, FighterTuning.Default.DebrisGravityScale);
+        Assert.AreEqual(0.35f, FighterTuning.Default.DebrisGravityScale);
         var debris = new VoxelDebris(capacity: 1, groundY: -10f) { Gravity = 9.81f * FighterTuning.Default.DebrisGravityScale };
         debris.Spawn(Vector3.Zero, Vector3.Zero, Quaternion.Identity, new Vector3(0.01f), Vector3.Zero, Vector4.One);
         for (var i = 0; i < 60; i++)
@@ -570,7 +616,7 @@ public sealed class VoxelDamageTests
 
         var instances = new List<PrimitiveInstance>();
         debris.WriteInstances(instances);
-        Assert.AreEqual(-0.5f * 4.905f, instances[0].Model.Translation.Y, 0.05f, "half of g over one second");
+        Assert.AreEqual(-0.5f * 9.81f * 0.35f, instances[0].Model.Translation.Y, 0.05f, "0.35 g over one second");
     }
 
     [TestMethod]

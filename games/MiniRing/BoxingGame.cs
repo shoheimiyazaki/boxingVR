@@ -331,18 +331,23 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
         // 当たった部位の、拳に近いノードを拳の進む向きへへこませる（見た目だけ。当たり判定の箱は変わらない）。
         SkinOf(victim).Dent(victimBody, _world.GetState(victimBody), hit.Point, gloveVelocity, hit.Damage);
-        // 削る量は打撃そのものの強さ（部位の倍率を外したダメージ）。得点ではガードの上は 0.25 倍に割り引くが、
-        // 受けた腕にかかる衝撃は同じ: ブロックし続けた腕は削れていく。
-        Strike(victim, victimBody, hit.Point, gloveVelocity, hit.Damage / ZoneDamage.Multiplier(hit.Zone), hit.Attacker);
-
         // 体重の乗った拳は相手を押し込む: 物理の接触が運ぶのは腕の質量だけなので、体から来た分の運動量を足す。
         // 1 部位に入れると千切れるほど速くなるので、相手の全身へ一様な速度変化として配り（上限付き）、
         // 同じ運動量の反作用を打った側の全身へ返す（運動量は湧かない）。
+        var push = Vector3.Zero;
         var extraMass = hit.ImpactMass - hit.Attacker.ArmMass(hit.Hand);
         if (extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f)
         {
             var momentum = extraMass * hit.Speed * KnockbackTransfer;
-            var push = Vector3.Normalize(gloveVelocity) * MathF.Min(MaxKnockbackSpeed, momentum / victim.TotalMass);
+            push = Vector3.Normalize(gloveVelocity) * MathF.Min(MaxKnockbackSpeed, momentum / victim.TotalMass);
+        }
+
+        // 削る量は打撃そのものの強さ（部位の倍率を外したダメージ）。得点ではガードの上は 0.25 倍に割り引くが、
+        // 受けた腕にかかる衝撃は同じ: ブロックし続けた腕は削れていく。破片は、のけぞる体の動き（push）に乗って流れる。
+        Strike(victim, victimBody, hit.Point, gloveVelocity, hit.Damage / ZoneDamage.Multiplier(hit.Zone), hit.Attacker, push);
+
+        if (push != Vector3.Zero)
+        {
             victim.Push(push);
             hit.Attacker.Push(-push * (victim.TotalMass / hit.Attacker.TotalMass));
         }
@@ -363,7 +368,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
     /// <param name="direction">拳の進む向き（速度でよい）。</param>
     /// <param name="damage">打撃の強さ（ダメージ点）。</param>
     /// <param name="attacker">打った側（火花をその側のグローブの色にする）。分からなければ null。</param>
-    internal void Strike(Fighter victim, int victimBody, Vector3 point, Vector3 direction, float damage, Fighter? attacker = null)
+    /// <param name="recoil">打たれた体がこれから受ける押し込みの速度（破片はこれに乗って、のけぞる向きへ流れる）。</param>
+    internal void Strike(Fighter victim, int victimBody, Vector3 point, Vector3 direction, float damage, Fighter? attacker = null, Vector3 recoil = default)
     {
         if (victim.Voxels is not { } body)
         {
@@ -376,7 +382,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         var spread = 0.75f - (0.5f * strength);
         _chips.Clear();
         var result = body.Impact(victimBody, point, direction, damage * _tuning.CarvePerDamage, chipSpeed, Jitter, _chips, spread);
-        SpawnDebris(_chips, point, direction, strength, attacker);
+        SpawnDebris(_chips, point, direction, strength, attacker, recoil);
         if (result?.Fragment is { } fragment)
         {
             victim.Sever(victimBody, fragment.Body);
@@ -413,7 +419,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
     /// 1 個ごとに、その材質の色の欠片と細かい破片 2 つ。骨からは白い粉と光る火花、肉と臓器からは血しぶき、臓器からはさらに
     /// 光る赤い飛沫。当たった所には打った側の色の閃光（<see cref="ImpactFlash"/>）。
     /// </summary>
-    private void SpawnDebris(List<VoxelChip> chips, Vector3 point, Vector3 direction, float strength, Fighter? attacker)
+    private void SpawnDebris(List<VoxelChip> chips, Vector3 point, Vector3 direction, float strength, Fighter? attacker, Vector3 recoil)
     {
         ImpactFlash(point, direction, strength, attacker);
         if (chips.Count == 0)
@@ -428,13 +434,14 @@ public sealed class BoxingGame : IGame<BoxingInput>
             var color = chip.WasSurface ? material.SurfaceColor : material.Color;
             var along = chip.Velocity;
             var pace = along.Length();
-            // 欠片の向きに沿って、速さを掛け、その速さに比べた揺らぎ（spread）を足す。
-            Vector3 Fly(float speedScale, float wobble) => (along * speedScale) + (new Vector3(Jitter(), Jitter(), Jitter()) * (wobble * pace * speedScale));
+            // 欠片の向きに沿って、速さを掛け、その速さに比べた揺らぎ（spread）を足す。のけぞる体の動きにも乗る。
+            Vector3 Fly(float speedScale, float wobble) => (along * speedScale) + (new Vector3(Jitter(), Jitter(), Jitter()) * (wobble * pace * speedScale)) + recoil;
             Vector3 Spin(float s) => new Vector3(Jitter(), Jitter(), Jitter()) * s;
-            _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color, tag: chip.Material);
+            // 砕けた直後の欠片は一瞬光り、短い光の尾を引く（ChipHeat 秒で元の色に戻る）。
+            _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color, tag: chip.Material, heat: ChipHeat, hotColor: ChipGlow);
             for (var k = 0; k < 2; k++)
             {
-                _debris.Spawn(chip.Position, Fly(1.8f, 0.25f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f, tag: chip.Material);
+                _debris.Spawn(chip.Position, Fly(1.8f, 0.25f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f, tag: chip.Material, heat: ChipHeat * 0.7f, hotColor: ChipGlow);
             }
 
             switch (material.Tissue)
@@ -471,6 +478,12 @@ public sealed class BoxingGame : IGame<BoxingInput>
         var color = attacker is null ? Spark : attacker == Player ? PlayerSpark : CpuSpark;
         _impacts.Spawn(point, direction, strength, color, Jitter);
     }
+
+    /// <summary>砕けた欠片が光っている時間 [s]。</summary>
+    private const float ChipHeat = 0.28f;
+
+    /// <summary>砕けた欠片の光の色（白に近い暖色）。</summary>
+    private static readonly Vector4 ChipGlow = new(1f, 0.82f, 0.58f, 1f);
 
     private static readonly Vector4 BloodColor = new(0.55f, 0.02f, 0.03f, 1f);
     private static readonly Vector4 BoneDust = new(1f, 0.98f, 0.9f, 1f);
@@ -627,6 +640,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         _renderParticles.Clear();
         ArenaLook.WriteAtmosphere(RingCenter, RingSize, RingSurfaceHeight, _lookTime, _renderParticles);
         _impacts.WriteParticles(_renderParticles);
+        _debris.WriteTrails(_renderParticles);
         return _renderParticles;
     }
 

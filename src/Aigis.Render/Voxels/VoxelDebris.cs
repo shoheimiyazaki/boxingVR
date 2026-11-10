@@ -60,9 +60,19 @@ public sealed class VoxelDebris
     /// <param name="life">How long this piece lives [s]; zero or less uses <see cref="LifeSeconds"/>.</param>
     /// <param name="glow">Draw it self-lit (<see cref="MaterialKind.Emissive"/>): a spark rather than a chip.</param>
     /// <param name="tag">What it is, for the caller (reported back with its landings — <see cref="DebrisLanding.Tag"/>).</param>
-    public void Spawn(Vector3 position, Vector3 velocity, Quaternion orientation, Vector3 size, Vector3 spin, Vector4 color, float life = 0f, bool glow = false, byte tag = 0)
+    /// <param name="heat">How long [s] it glows hot after it breaks off: drawn self-lit in <paramref name="hotColor"/>, cooling
+    /// to its own colour, with a short streak of light behind it (<see cref="WriteTrails"/>). Zero: it never glows.</param>
+    /// <param name="hotColor">The colour it glows while hot (white when not given).</param>
+    public void Spawn(Vector3 position, Vector3 velocity, Quaternion orientation, Vector3 size, Vector3 spin, Vector4 color, float life = 0f, bool glow = false, byte tag = 0, float heat = 0f, Vector4? hotColor = null)
     {
-        var piece = new Piece(position, velocity, orientation, spin, size, color, 0f) { Life = life > 0f ? life : LifeSeconds, Glow = glow, Tag = tag };
+        var piece = new Piece(position, velocity, orientation, spin, size, color, 0f)
+        {
+            Life = life > 0f ? life : LifeSeconds,
+            Glow = glow,
+            Tag = tag,
+            Heat = MathF.Max(0f, heat),
+            HotColor = hotColor ?? Vector4.One,
+        };
         if (_count < _pieces.Length)
         {
             _pieces[_count++] = piece;
@@ -145,7 +155,8 @@ public sealed class VoxelDebris
 
     }
 
-    /// <summary>Appends one cube per live piece (shrinking over the last third of its life).</summary>
+    /// <summary>Appends one cube per live piece (shrinking over the last third of its life). A hot piece is drawn
+    /// self-lit, from its hot colour (brighter than white, so it blooms) cooling to its own.</summary>
     public void WriteInstances(ICollection<PrimitiveInstance> into)
     {
         ArgumentNullException.ThrowIfNull(into);
@@ -154,8 +165,67 @@ public sealed class VoxelDebris
             var p = _pieces[i];
             var fade = Math.Clamp((p.Life - p.Age) / (p.Life / 3f), 0f, 1f);
             var model = Matrix4x4.CreateScale(p.Size * fade) * Matrix4x4.CreateFromQuaternion(p.Orientation) * Matrix4x4.CreateTranslation(p.Position);
+            var hot = HeatOf(p);
+            if (hot > 0f)
+            {
+                var color = Vector4.Lerp(p.Color * CooledBrightness, p.HotColor * HotBrightness, hot) with { W = p.Color.W };
+                into.Add(new PrimitiveInstance(PrimitiveKind.Cube, model, Vector3.Zero, color, MaterialKind.Emissive));
+                continue;
+            }
+
             into.Add(new PrimitiveInstance(PrimitiveKind.Cube, model, Vector3.Zero, p.Color, p.Glow ? MaterialKind.Emissive : MaterialKind.Standard));
         }
+    }
+
+    /// <summary>
+    /// Appends a short streak of soft light behind every hot piece (see <see cref="Spawn"/>'s heat): a few additive dots
+    /// back along its flight, about <see cref="TrailSeconds"/> of its travel long, fading with its heat and toward the tail.
+    /// </summary>
+    public void WriteTrails(ICollection<ParticleInstance> into)
+    {
+        ArgumentNullException.ThrowIfNull(into);
+        for (var i = 0; i < _count; i++)
+        {
+            var p = _pieces[i];
+            var hot = HeatOf(p);
+            var speed = p.Velocity.Length();
+            if (hot <= 0f || speed < 0.05f)
+            {
+                continue;
+            }
+
+            var edge = MathF.Max(p.Size.X, MathF.Max(p.Size.Y, p.Size.Z));
+            var back = p.Velocity / speed;
+            var length = MathF.Min(speed * TrailSeconds, MaxTrailLength) * (0.4f + (0.6f * hot));
+            for (var k = 0; k < TrailDots; k++)
+            {
+                var f = k / (float)(TrailDots - 1);
+                // Soft dots fade from the centre (visible about half their size): twice the edge reads as the piece's width.
+                var size = 2f * edge * (1f - (0.5f * f));
+                var alpha = 0.75f * hot * (1f - (0.8f * f));
+                into.Add(new ParticleInstance(p.Position - (back * length * f), size, p.HotColor with { W = alpha }, Blend: ParticleBlend.Additive));
+            }
+        }
+    }
+
+    /// <summary>How long a hot piece's streak is, in seconds of its travel.</summary>
+    public const float TrailSeconds = 0.045f;
+
+    private const float MaxTrailLength = 0.07f;
+    private const int TrailDots = 6;
+    private const float HotBrightness = 1.6f;
+    private const float CooledBrightness = 0.75f;
+
+    /// <summary>1 when it has just broken off, falling to 0 over its heat (eased, so it cools fast then lingers).</summary>
+    private static float HeatOf(in Piece p)
+    {
+        if (p.Heat <= 0f || p.Age >= p.Heat)
+        {
+            return 0f;
+        }
+
+        var left = 1f - (p.Age / p.Heat);
+        return left * left;
     }
 
     public void Clear()
@@ -175,5 +245,7 @@ public sealed class VoxelDebris
         public float Life;
         public bool Glow;
         public byte Tag;
+        public float Heat;
+        public Vector4 HotColor;
     }
 }

@@ -72,9 +72,10 @@ public sealed class VoxelBody
     /// <summary>
     /// Carves a blow landing at <paramref name="worldPoint"/> travelling along <paramref name="worldDirection"/> with
     /// <paramref name="energy"/> damage (<see cref="VoxelGrid.Carve"/>). Carved voxels are appended to
-    /// <paramref name="chips"/> so the blow reads from how they fly: most leave as a jet onward along the blow (an exit
-    /// spray, within a cone of half-width <paramref name="spread"/>: 0 = a straight line, 1 = about 45°), the rest burst
-    /// back out of the crater against it. Speeds are about <paramref name="chipSpeed"/> (±25%) on top of the body's own
+    /// <paramref name="chips"/> as a splash out of the crater: out of the struck face (never through the body), fanned
+    /// around the fist (wider with <paramref name="spread"/>: 0 = within about 35° of the face's normal, 1 = out to about
+    /// 65°) and swept along the part of the blow that runs along the surface, so a glancing blow throws them on its way.
+    /// The body's own recoil is the caller's to add (it usually comes after the carve). Speeds are about <paramref name="chipSpeed"/> (±25%) on top of the body's own
     /// velocity. <paramref name="jitter"/> (−1..1 per call) spreads them; pass a seeded source to stay deterministic.
     /// </summary>
     public int Impact(Vector3 worldPoint, Vector3 worldDirection, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f)
@@ -85,6 +86,8 @@ public sealed class VoxelBody
         var inverse = Quaternion.Conjugate(s.Orientation);
         var localPoint = WorldToGrid(worldPoint);
         var localDirection = Vector3.Transform(worldDirection, inverse);
+        // The face that was struck, read before the crater changes it.
+        var localNormal = SurfaceNormal(Grid, localPoint, localDirection);
         var removed = new List<RemovedVoxel>();
         Grid.Carve(localPoint, localDirection, energy, removed);
         if (removed.Count == 0)
@@ -93,6 +96,10 @@ public sealed class VoxelBody
         }
 
         var dir = worldDirection.LengthSquared() > 1e-12f ? Vector3.Normalize(worldDirection) : Vector3.UnitY;
+        var normal = Vector3.Transform(localNormal, s.Orientation);
+        // The part of the blow that runs along the surface (a glancing hook): the splash is swept that way.
+        var glance = dir - (normal * Vector3.Dot(dir, normal));
+        var cone = 0.5f + spread;
         var size = Grid.CellSize;
         foreach (var v in removed)
         {
@@ -100,19 +107,13 @@ public sealed class VoxelBody
             var position = s.Position + Vector3.Transform(local, s.Orientation);
             var pointVelocity = s.LinearVelocity + Vector3.Cross(s.AngularVelocity, position - s.Position);
             var scatter = new Vector3(jitter(), jitter(), jitter());
-            Vector3 heading;
-            if (jitter() > -0.5f)
-            {
-                // The exit jet (3 in 4): onward along the blow, fanned by the spread.
-                heading = dir + (spread * scatter);
-            }
-            else
-            {
-                // The back spray (1 in 4): out of the crater, against the blow and away from the contact.
-                var outward = position - worldPoint - (dir * Vector3.Dot(position - worldPoint, dir));
-                var aside = outward.LengthSquared() > 1e-10f ? Vector3.Normalize(outward) : scatter;
-                heading = (-0.8f * dir) + (0.6f * aside) + (0.4f * scatter);
-            }
+            // A splash out of the crater, never through the body: out of the struck face, fanned around the fist (which
+            // blocks the way straight back), swept along the glancing part of the blow. A blow head-on to the face
+            // sprays out around the fist and back toward the puncher, not out of the back of the head.
+            var around = scatter - (normal * Vector3.Dot(scatter, normal));
+            var radial = around.LengthSquared() > 1e-8f ? Vector3.Normalize(around) : Vector3.Normalize(Vector3.Cross(normal, Vector3.UnitX + new Vector3(0f, 0.3f, 0.1f)));
+            var fan = cone * (0.35f + (0.65f * MathF.Abs(jitter())));
+            var heading = (normal * 0.75f) + (radial * fan) + (glance * 0.9f) + (scatter * 0.12f);
 
             var speed = chipSpeed * (1f + (0.25f * jitter()));
             var velocity = pointVelocity + (Vector3.Normalize(heading + new Vector3(1e-4f)) * speed);
@@ -121,6 +122,73 @@ public sealed class VoxelBody
 
         UpdateMass();
         return removed.Count;
+    }
+
+    /// <summary>
+    /// The outward normal (grid-local, unit) of the surface a blow from <paramref name="localPoint"/> along
+    /// <paramref name="localDirection"/> meets: walks along the blow to the first filled cell, then takes the direction
+    /// away from the filled cells around it. Facing the blow (never along it); −direction when nothing is in the way.
+    /// </summary>
+    private static Vector3 SurfaceNormal(VoxelGrid grid, Vector3 localPoint, Vector3 localDirection)
+    {
+        var dir = localDirection.LengthSquared() > 1e-12f ? Vector3.Normalize(localDirection) : -Vector3.UnitY;
+        var cell = grid.CellSize;
+        var stepLength = 0.5f * MathF.Min(cell.X, MathF.Min(cell.Y, cell.Z));
+        var (nx, ny, nz) = grid.Dimensions;
+        var reach = 2f * grid.HalfExtents.Length();
+        (int X, int Y, int Z) CellOf(Vector3 p)
+        {
+            var c = (p + grid.HalfExtents) / cell;
+            return ((int)MathF.Floor(c.X), (int)MathF.Floor(c.Y), (int)MathF.Floor(c.Z));
+        }
+
+        bool Filled(int x, int y, int z) => x >= 0 && y >= 0 && z >= 0 && x < nx && y < ny && z < nz && grid.At(x, y, z) != 0;
+
+        // Start where the blow line enters the grid's box (the contact point may be the glove's centre, outside it).
+        var start = Vector3.Clamp(localPoint, -grid.HalfExtents, grid.HalfExtents);
+        (int X, int Y, int Z)? hit = null;
+        for (var t = -2f * stepLength; t <= reach; t += stepLength)
+        {
+            var c = CellOf(start + (dir * t));
+            if (Filled(c.X, c.Y, c.Z))
+            {
+                hit = c;
+                break;
+            }
+        }
+
+        if (hit is not { } h)
+        {
+            return -dir;
+        }
+
+        // Away from the filled cells within a couple of cells of the entry.
+        const int R = 2;
+        var inward = Vector3.Zero;
+        var center = grid.CellCenter(h.X, h.Y, h.Z);
+        for (var z = h.Z - R; z <= h.Z + R; z++)
+        {
+            for (var y = h.Y - R; y <= h.Y + R; y++)
+            {
+                for (var x = h.X - R; x <= h.X + R; x++)
+                {
+                    if (Filled(x, y, z))
+                    {
+                        inward += (grid.CellCenter(x, y, z) - center) / cell;
+                    }
+                }
+            }
+        }
+
+        if (inward.LengthSquared() < 1e-6f)
+        {
+            return -dir;
+        }
+
+        var normal = -Vector3.Normalize(inward);
+        // A face the blow does not run into (an edge, or a reading off a corner): lean it back toward the blow.
+        var facing = Vector3.Dot(normal, -dir);
+        return facing >= 0.2f ? normal : Vector3.Normalize(normal + (-dir * (0.2f - facing + 0.3f)));
     }
 
     /// <summary>

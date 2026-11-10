@@ -172,6 +172,49 @@ public sealed class SnapshotTests
         Assert.IsGreaterThan(0, game.Impacts.Count);
     }
 
+    /// <summary>
+    /// 顔を正面から重いストレートで打った直後を真横から: 破片は顔の前（打った側）へ拳の周りに開いて跳ね、頭の後ろからは出ない。
+    /// 砕けた直後の欠片は光って短い尾を引く。数フレームおきに 3 枚。
+    /// </summary>
+    [TestMethod]
+    public void StraightToTheFace_SplashesOutOfTheFace_NotOutOfTheBackOfTheHead()
+    {
+        var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
+        Directory.CreateDirectory(outDir);
+        using var game = new BoxingGame(seed: 3);
+        using var renderer = new HeadlessRenderer(Width, Height);
+        for (var i = 0; i < 30; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        var cpu = game.Cpu;
+        var head = game.World.GetState(cpu.Parts.Head);
+        var forward = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, head.Orientation) with { Y = 0f });
+        var half = cpu.HalfExtentsOf(cpu.Parts.Head).Z;
+        var blow = -forward;
+        var fist = head.Position - (blow * (half + FighterTuning.Default.GloveRadius));
+        game.Strike(cpu, cpu.Parts.Head, fist, blow * 4f, 28f, game.Player, recoil: blow * 0.4f);
+        var side = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, forward));
+        var eye = head.Position + (side * 0.45f) + (forward * 0.05f) + new Vector3(0f, 0.05f, 0f);
+        var viewProjection = Camera.ViewProjection(eye, head.Position + (forward * 0.05f), Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+        var stepped = 0;
+        foreach (var frame in new[] { 3, 8, 16 })
+        {
+            while (stepped < frame)
+            {
+                game.Step(default, 1f / 60f);
+                stepped++;
+            }
+
+            var (instances, lines) = game.BuildRenderables();
+            var rgba = Render(renderer, game, viewProjection, eye, instances, lines, []);
+            PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_face_f{frame:00}.png"), Width, Height, rgba);
+        }
+
+        Assert.IsGreaterThan(0, game.Debris.Count);
+    }
+
     private static readonly Vector4 IGameClear = new(0.10f, 0.11f, 0.14f, 1f);
 
     /// <summary>ゲームと同じ画づくり（会場の照明・影・空気の粒・仕上げ）で描く。</summary>
