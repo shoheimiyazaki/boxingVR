@@ -432,6 +432,18 @@ public sealed class VoxelDamageTests
             Assert.AreEqual((int)(1.8f * 44100) * 2, VoxelBreakSound.Fatal(7, style).Length, $"{style} fatal");
         }
 
+        // 既定のガラスでも、臓器と脳は金属の粒。皮膚と骨はガラスのまま。
+        CollectionAssert.AreEqual(VoxelBreakSound.Grain(GrainKind.Brain, 3, BreakStyle.Metal), VoxelBreakSound.Grain(GrainKind.Brain, 3, BreakStyle.Glass));
+        CollectionAssert.AreEqual(VoxelBreakSound.Grain(GrainKind.Organ, 3, BreakStyle.Metal), VoxelBreakSound.Grain(GrainKind.Organ, 3, BreakStyle.Glass));
+        CollectionAssert.AreNotEqual(VoxelBreakSound.Grain(GrainKind.Bone, 3, BreakStyle.Metal), VoxelBreakSound.Grain(GrainKind.Bone, 3, BreakStyle.Glass));
+
+        // 床に落ちる音は小さい: 24 個が一度に強く落ちても、ピークは砕ける音の 1 割ほど。
+        static float Peak(byte[] pcm) => Enumerable.Range(0, pcm.Length / 2).Max(i => Math.Abs((int)BitConverter.ToInt16(pcm, 2 * i))) / 32768f;
+        var rain = VoxelBreakSound.Landings([.. Enumerable.Repeat(new DebrisLanding(default, 3f, 0.006f, BoxerAnatomy.Bone), 24)], 1)!;
+        var gentle = VoxelBreakSound.Landings([new DebrisLanding(default, 0.4f, 0.003f, BoxerAnatomy.Skin)], 1)!;
+        Assert.IsLessThanOrEqualTo(VoxelBreakSound.LandingLoudness + 0.01f, Peak(rain));
+        Assert.IsLessThan(Peak(rain), Peak(gentle), "a gentle landing is quieter still");
+
         Assert.AreEqual(LandingKind.Hard, VoxelBreakSound.LandingKindOf(BoxerAnatomy.Bone));
         Assert.AreEqual(LandingKind.Chunk, VoxelBreakSound.LandingKindOf(BoxerAnatomy.Heart));
     }

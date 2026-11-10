@@ -40,6 +40,9 @@ public static class VoxelBreakSound
     public const BreakStyle DefaultStyle = BreakStyle.Glass;
 
     /// <summary>破片の印（<see cref="VoxelDebris.Spawn"/> の tag）: 材質の番号のほかに、血・粉・火花。</summary>
+    /// <summary>床に落ちる音のいちばん大きいときの音量（砕ける音は 1 前後）。</summary>
+    public const float LandingLoudness = 0.1f;
+
     public const byte BloodTag = 250;
     public const byte DustTag = 251;
     public const byte SparkTag = 252;
@@ -180,7 +183,9 @@ public static class VoxelBreakSound
             AddPitched(mix, source, start, pitch, gain);
         }
 
-        return HitSound.ToPcm16(mix, Math.Clamp(0.15f + (0.03f * audible.Count), 0.15f, 0.55f));
+        // 背景の「パラパラ」として、砕ける音よりずっと小さく。そっと落ちただけのフレームはさらに小さく（粒の音量で）。
+        var strongest = Math.Clamp(grains.Max(g => g.Gain) / 0.5f, 0.3f, 1f);
+        return HitSound.ToPcm16(mix, LandingLoudness * strongest * Math.Clamp(0.5f + (0.05f * audible.Count), 0.5f, 1f));
     }
 
     /// <summary>
@@ -273,7 +278,11 @@ public static class VoxelBreakSound
 
     /// <summary>1 粒の波形。金属は最初の合成、ほかは <see cref="BreakGrainSynth"/> の作り方で。</summary>
     internal static float[] Grain(GrainKind kind, int seed, BreakStyle style = DefaultStyle)
-        => style == BreakStyle.Metal ? MetalGrain(kind, seed) : BreakGrainSynth.Render(BreakGrainSynth.Break(style, kind), seed);
+        => UsesMetal(style, kind) ? MetalGrain(kind, seed) : BreakGrainSynth.Render(BreakGrainSynth.Break(style, kind), seed);
+
+    /// <summary>金属の粒で鳴らすか。ガラスでも、臓器と脳は金属（重く壊れた手応えに）。</summary>
+    private static bool UsesMetal(BreakStyle style, GrainKind kind)
+        => style == BreakStyle.Metal || (style == BreakStyle.Glass && kind is GrainKind.Organ or GrainKind.Brain);
 
     /// <summary>金属の 1 粒（最初の音: 倍音の響き。約 30〜320ms）。</summary>
     private static float[] MetalGrain(GrainKind kind, int seed)
