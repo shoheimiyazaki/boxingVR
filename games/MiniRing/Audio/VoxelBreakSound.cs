@@ -41,7 +41,7 @@ public static class VoxelBreakSound
 
     /// <summary>破片の印（<see cref="VoxelDebris.Spawn"/> の tag）: 材質の番号のほかに、血・粉・火花。</summary>
     /// <summary>床に落ちる音のいちばん大きいときの音量（砕ける音は 1 前後）。</summary>
-    public const float LandingLoudness = 0.1f;
+    public const float LandingLoudness = 0.035f;
 
     public const byte BloodTag = 250;
     public const byte DustTag = 251;

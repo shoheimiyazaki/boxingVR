@@ -461,6 +461,13 @@ public sealed class VoxelDamageTests
         Assert.IsFalse(BreakSoundOption.TryParse(["--break-sound", "7"], out _, out _), "numbers are not names");
         Assert.IsFalse(BreakSoundOption.TryParse(["--break-sound", "0"], out _, out _), "not even a defined one");
         Assert.IsFalse(BreakSoundOption.TryParse(["--break-sound", "glass,crunch"], out _, out _), "one style at a time");
+
+        Assert.IsTrue(HitSoundOption.TryParse([], out var hits, out _));
+        Assert.IsTrue(hits, "punches are heard unless turned off");
+        Assert.IsTrue(HitSoundOption.TryParse(["--hit-sound", "OFF"], out hits, out _));
+        Assert.IsFalse(hits);
+        Assert.IsFalse(HitSoundOption.TryParse(["--hit-sound", "quiet"], out hits, out _));
+        Assert.IsTrue(hits);
     }
 
     [TestMethod]

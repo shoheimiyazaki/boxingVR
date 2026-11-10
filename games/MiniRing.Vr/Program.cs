@@ -11,11 +11,18 @@ using MiniRing.Vr;
 //   --runtime <auto|meta|vd|steamvr|system|path.json>  使う OpenXR ランタイム（既定 auto）
 //   --scale <0.3..1.0>  目の解像度倍率（既定 0.8。重いときは下げる）
 //   --break-sound <glass|crumble|crunch|circuit|metal>  ボクセルが砕ける音の方式（既定 glass）
+//   --hit-sound <on|off>  パンチが当たる音（既定 on。off でボクセルの音だけ）
 //   --selftest          HMD なしで VR 描画経路（外部デバイス・GPU コピー）を検証して終了
 
 if (args.Contains("--selftest"))
 {
     return SelfTest.Run(Path.Combine(Environment.CurrentDirectory, ".visualcheck"));
+}
+
+if (!HitSoundOption.TryParse(args, out var hitSounds, out var hitError))
+{
+    Console.Error.WriteLine(hitError);
+    return 1;
 }
 
 if (!BreakSoundOption.TryParse(args, out var breakStyle, out var breakError))
@@ -82,7 +89,7 @@ using (xr)
 using (var game = new BoxingGame())
 using (var recorder = ReplayRecorder.TryStartFile(Path.Combine(Environment.CurrentDirectory, "replays"), game, "vr", out var recordingMessage))
 using (var renderer = new HeadlessRenderer(xr.EyeWidth, xr.EyeHeight, xr.Vulkan.External))
-using (var sounds = HitSoundPlayer.CreateDefault(breakStyle))
+using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
 {
     Console.WriteLine($"[vr] eye {xr.EyeWidth}x{xr.EyeHeight}, sRGB={xr.IsSrgb}. Put the headset on.");
     Console.WriteLine($"[vr] {recordingMessage}");

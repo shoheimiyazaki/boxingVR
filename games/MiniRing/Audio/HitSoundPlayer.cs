@@ -33,14 +33,17 @@ public sealed class HitSoundPlayer : IDisposable
     }
 
     /// <summary>既定の音声出力（Windows の既定デバイス。Quest Link 中は Link の音声出力）で鳴らす。</summary>
-    public static HitSoundPlayer CreateDefault(BreakStyle breakStyle = VoxelBreakSound.DefaultStyle)
+    public static HitSoundPlayer CreateDefault(BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool playHits = true)
     {
         VoxelBreakSound.Prewarm(breakStyle);
-        return new(new OpenAlAudioBackend()) { BreakStyle = breakStyle };
+        return new(new OpenAlAudioBackend()) { BreakStyle = breakStyle, PlayHits = playHits };
     }
 
     /// <summary>ボクセルが砕ける音・床に落ちる音の方式。</summary>
     public BreakStyle BreakStyle { get; init; } = VoxelBreakSound.DefaultStyle;
+
+    /// <summary>パンチが当たる音を鳴らすか（false でボクセルの音だけ）。</summary>
+    public bool PlayHits { get; init; } = true;
 
     public bool IsAvailable => _backend.IsAvailable;
 
@@ -55,7 +58,7 @@ public sealed class HitSoundPlayer : IDisposable
 
     public void Play(in HitEvent hit)
     {
-        if (!_backend.IsAvailable)
+        if (!_backend.IsAvailable || !PlayHits)
         {
             return;
         }
