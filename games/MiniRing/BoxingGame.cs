@@ -334,12 +334,13 @@ public sealed class BoxingGame : IGame<BoxingInput>
         // 体重の乗った拳は相手を押し込む: 物理の接触が運ぶのは腕の質量だけなので、体から来た分の運動量を足す。
         // 1 部位に入れると千切れるほど速くなるので、相手の全身へ一様な速度変化として配り（上限付き）、
         // 同じ運動量の反作用を打った側の全身へ返す（運動量は湧かない）。
+        var victimMass = victim.TotalMass; // 削る前の重さで押しと反作用をそろえる（千切れても運動量が湧かない）
         var push = Vector3.Zero;
         var extraMass = hit.ImpactMass - hit.Attacker.ArmMass(hit.Hand);
         if (extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f)
         {
             var momentum = extraMass * hit.Speed * KnockbackTransfer;
-            push = Vector3.Normalize(gloveVelocity) * MathF.Min(MaxKnockbackSpeed, momentum / victim.TotalMass);
+            push = Vector3.Normalize(gloveVelocity) * MathF.Min(MaxKnockbackSpeed, momentum / victimMass);
         }
 
         // 削る量は打撃そのものの強さ（部位の倍率を外したダメージ）。得点ではガードの上は 0.25 倍に割り引くが、
@@ -349,7 +350,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         if (push != Vector3.Zero)
         {
             victim.Push(push);
-            hit.Attacker.Push(-push * (victim.TotalMass / hit.Attacker.TotalMass));
+            hit.Attacker.Push(-push * (victimMass / hit.Attacker.TotalMass));
         }
 
         _recentHits.Add(hit);
