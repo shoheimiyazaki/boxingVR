@@ -76,6 +76,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
     private readonly List<PrimitiveInstance> _renderInstances = [];
     private readonly List<DebugLine> _renderLines = [];
     private readonly List<VoxelVolumeDraw> _renderVoxels = [];
+    private readonly List<ParticleInstance> _renderParticles = [];
+    private float _lookTime;
     private PhysicsWorld _world = null!;
     private Fighter[] _fighters = [];
     private Ring _ring = null!;
@@ -184,6 +186,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         _messageTimer = MathF.Max(0f, _messageTimer - dt);
         _debris.Step(dt, _recentLandings);
         _impacts.Step(dt);
+        _lookTime += dt;
         DetectSwings();
         UpdateRound(dt);
     }
@@ -617,6 +620,26 @@ public sealed class BoxingGame : IGame<BoxingInput>
         BoxingRenderer.FillVoxels(this, _renderVoxels);
         return _renderVoxels;
     }
+
+    /// <summary>当たった瞬間の光と会場の空気の粒（返すリストは使い回し）。</summary>
+    public IReadOnlyList<ParticleInstance> BuildParticles()
+    {
+        _renderParticles.Clear();
+        ArenaLook.WriteAtmosphere(RingCenter, RingSize, RingSurfaceHeight, _lookTime, _renderParticles);
+        _impacts.WriteParticles(_renderParticles);
+        return _renderParticles;
+    }
+
+    /// <summary>会場の照明（<see cref="ArenaLook"/>）。</summary>
+    public SceneLighting BuildLighting() => Lighting;
+
+    /// <summary>リングに落ちる影。</summary>
+    public ShadowMapConfig? BuildShadow() => ArenaLook.Shadow(RingCenter, RingSize, RingSurfaceHeight);
+
+    /// <summary>画面用の仕上げ（光のにじみ・陰り・コントラスト）。</summary>
+    public PostProcessSettings? BuildPostProcess() => ArenaLook.ScreenFinish;
+
+    private static SceneLighting Lighting { get; } = ArenaLook.Lighting(RingCenter, RingSize, RingSurfaceHeight);
 
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 viewProjection, Vector2 screenSizePixels)
     {

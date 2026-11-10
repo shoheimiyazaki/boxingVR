@@ -142,7 +142,7 @@ public sealed class VoxelDamageTests
     }
 
     [TestMethod]
-    public void TheImpactGlow_IsSpheresAndCapsules_NeverCubes_AndAHeavyBlowAddsARing()
+    public void TheImpactGlow_IsSeeThroughSoftLight_NeverSolidShapes_AndAHeavyBlowAddsARing()
     {
         var random = new Random(2);
         float Jitter() => (2f * random.NextSingle()) - 1f;
@@ -152,21 +152,23 @@ public sealed class VoxelDamageTests
         heavy.Spawn(Vector3.Zero, Vector3.UnitZ, 0.9f, Vector4.One, Jitter);
         light.Step(0.03f);
         heavy.Step(0.03f);
-        var lightShapes = new List<PrimitiveInstance>();
-        var heavyShapes = new List<PrimitiveInstance>();
-        light.WriteInstances(lightShapes);
-        heavy.WriteInstances(heavyShapes);
+        var lightShapes = new List<ParticleInstance>();
+        var heavyShapes = new List<ParticleInstance>();
+        light.WriteParticles(lightShapes);
+        heavy.WriteParticles(heavyShapes);
 
-        Assert.IsTrue(lightShapes.Concat(heavyShapes).All(i => i.Kind is PrimitiveKind.Sphere or PrimitiveKind.Capsule), "not to be mistaken for voxel chips");
-        Assert.IsTrue(heavyShapes.All(i => i.Material == MaterialKind.Emissive));
-        Assert.IsGreaterThan(lightShapes.Count + 15, heavyShapes.Count, "the heavy blow's ring");
+        // 不透明な立方体（飛び散るボクセル）と見間違えない: どれも柔らかい半透明の粒で、後ろが透ける。
+        Assert.IsTrue(lightShapes.Concat(heavyShapes).All(p => p.Color.W is > 0f and <= ImpactEffects.MaxAlpha), "see-through");
+        Assert.IsTrue(heavyShapes.Any(p => p.Blend == ParticleBlend.Additive), "light adds to what is behind it");
+        Assert.IsTrue(heavyShapes.Any(p => p.Blend == ParticleBlend.Alpha), "a heavy blow pushes out a puff of air");
+        Assert.IsGreaterThan(lightShapes.Count + 20, heavyShapes.Count, "the heavy blow's ring");
 
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 45; i++)
         {
             heavy.Step(1f / 60f);
         }
 
-        Assert.AreEqual(0, heavy.Count, "gone in half a second");
+        Assert.AreEqual(0, heavy.Count, "gone in under a second");
     }
 
     [TestMethod]

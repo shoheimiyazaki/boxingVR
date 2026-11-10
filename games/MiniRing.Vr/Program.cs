@@ -1,4 +1,3 @@
-using System.Numerics;
 using Aigis.Render;
 using MiniRing;
 using MiniRing.Audio;
@@ -94,10 +93,13 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
     Console.WriteLine($"[vr] eye {xr.EyeWidth}x{xr.EyeHeight}, sRGB={xr.IsSrgb}. Put the headset on.");
     Console.WriteLine($"[vr] {recordingMessage}");
     var control = new VrPlayerControl();
-    var clear = new Vector4(0.10f, 0.11f, 0.14f, 1f);
+    var clear = ArenaLook.Background;
+    // VR の仕上げ: 画面の隅の陰りは付けない（頭を動かしても付いてくる黒い縁は不自然）。
+    var finish = ArenaLook.Finish(vignette: 0f);
     IReadOnlyList<PrimitiveInstance> instances = [];
     IReadOnlyList<DebugLine> lines = [];
     IReadOnlyList<Aigis.Render.Voxels.VoxelVolumeDraw> voxels = [];
+    IReadOnlyList<ParticleInstance> particles = [];
     var lastStatus = "";
     var idleHintAt = DateTime.UtcNow.AddSeconds(8);
     var idleHintShown = false;
@@ -145,11 +147,13 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
 
                 (instances, lines) = game.BuildRenderables();
                 voxels = game.BuildVoxelVolumes();
+                particles = game.BuildParticles();
             },
             renderEye: eye =>
             {
                 var viewProjection = Camera.OffCenterViewProjection(eye.View, eye.Fov, 0.02f, 50f);
-                renderer.RenderPrimitiveSceneToImage(eye.TargetImage, clear, viewProjection, instances, lines, cameraPosition: eye.Position, voxels: voxels);
+                renderer.RenderPrimitiveSceneToImage(eye.TargetImage, clear, viewProjection, instances, lines, game.BuildLighting(), game.BuildShadow(),
+                    eye.Position, voxels, particles, finish);
             });
 
         // ランタイムがセッションを READY にしない（ヘッドセットに表示されない）まま待ち続けるときの手がかり。

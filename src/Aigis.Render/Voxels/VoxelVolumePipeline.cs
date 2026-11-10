@@ -32,6 +32,9 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
         layout(push_constant) uniform Push { mat4 viewProjection; mat4 cellToWorld; } pc;
         layout(location = 0) out vec3 vColor;
         layout(location = 1) out vec3 vNormal;
+        layout(location = 2) out vec3 vWorld;
+        layout(location = 3) out vec2 vFace;
+        layout(location = 4) flat out vec3 vEye;
 
         const ivec3 DIRS[6] = ivec3[](ivec3(1,0,0), ivec3(-1,0,0), ivec3(0,1,0), ivec3(0,-1,0), ivec3(0,0,1), ivec3(0,0,-1));
         // Four corners of each face, in the cell's own unit cube.
@@ -56,13 +59,24 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
             float neighbour = inside ? texelFetch(volume, n, 0).a : 0.0;
             vNormal = vec3(0.0, 1.0, 0.0);
             vColor = vec3(0.0);
+            vWorld = vec3(0.0);
+            vFace = vec2(0.5);
+            vEye = vec3(0.0);
             if (texel.a < 0.5 || neighbour >= 0.5) {
                 gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // hidden face: one point outside the clip volume
                 return;
             }
 
-            vec3 local = vec3(c) + CORNERS[face * 4 + corner];
-            gl_Position = pc.viewProjection * (pc.cellToWorld * vec4(local, 1.0));
+            vec3 corner3 = CORNERS[face * 4 + corner];
+            vec3 local = vec3(c) + corner3;
+            vec4 world = pc.cellToWorld * vec4(local, 1.0);
+            gl_Position = pc.viewProjection * world;
+            vWorld = world.xyz;
+            // Where on the face this corner is (0..1 on the two axes in the face), for the bevel.
+            vFace = face < 2 ? corner3.yz : face < 4 ? corner3.xz : corner3.xy;
+            // The eye: the one point a perspective projection sends to w = 0 (x = y = 0).
+            vec4 eye = inverse(pc.viewProjection) * vec4(0.0, 0.0, 1.0, 0.0);
+            vEye = abs(eye.w) > 1e-8 ? eye.xyz / eye.w : world.xyz + vec3(0.0, 0.0, 1.0);
             // An axis-aligned normal through rotation and per-axis scale stays on that rotated axis.
             vNormal = normalize(mat3(pc.cellToWorld) * vec3(DIRS[face]));
             vColor = texel.rgb;
@@ -73,15 +87,31 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
         #version 450
         layout(location = 0) in vec3 vColor;
         layout(location = 1) in vec3 vNormal;
+        layout(location = 2) in vec3 vWorld;
+        layout(location = 3) in vec2 vFace;
+        layout(location = 4) flat in vec3 vEye;
         layout(location = 0) out vec4 outColor;
 
         void main() {
-            // The engine's default sun (DirectionalLight.Default) and a sky/ground hemisphere ambient.
-            vec3 sun = normalize(vec3(0.4, 0.85, 0.35));
+            // Stage lighting: a key light from high above (the arena's lights), a cool fill from the sky
+            // side and a dark floor, a soft sheen and a rim that lifts the silhouette off a dark backdrop.
+            vec3 key = normalize(vec3(0.2, 1.0, 0.3));
             vec3 n = normalize(vNormal);
-            float diffuse = 0.4 * max(dot(n, sun), 0.0);
-            float ambient = mix(0.58, 0.72, n.y * 0.5 + 0.5); // bright: the tissues are told apart by colour
-            outColor = vec4(vColor * (ambient + diffuse), 1.0);
+            vec3 toEye = vEye - vWorld;
+            vec3 v = dot(toEye, toEye) > 1e-12 ? normalize(toEye) : n;
+            float ndl = max(dot(n, key), 0.0);
+            float hemi = mix(0.42, 0.66, n.y * 0.5 + 0.5); // tissues must stay told apart by colour
+            vec3 lit = vColor * (hemi + 0.5 * ndl);
+
+            // Each cube's edges are slightly darker, so a carved surface reads as stacked blocks.
+            vec2 e = min(vFace, 1.0 - vFace);
+            float edge = min(e.x, e.y);
+            lit *= mix(0.88, 1.0, smoothstep(0.0, 0.09, edge));
+
+            vec3 h = normalize(key + v);
+            float sheen = pow(max(dot(n, h), 0.0), 28.0) * 0.16;
+            float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.28;
+            outColor = vec4(lit + vec3(sheen) + rim * vec3(0.72, 0.82, 1.0), 1.0);
         }
         """;
 

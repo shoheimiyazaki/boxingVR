@@ -43,7 +43,7 @@ public sealed class SnapshotTests
 
             var (instances, lines) = game.BuildRenderables();
             var text = game.BuildOverlayText(viewProjection, new Vector2(Width, Height));
-            var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, instances, lines, text, cameraPosition: eye, voxels: game.BuildVoxelVolumes());
+            var rgba = Render(renderer, game, viewProjection, eye, instances, lines, text);
             var path = Path.Combine(outDir, $"miniring_t{at:0.0}.png");
             PngWriter.WriteRgba(path, Width, Height, rgba);
             Assert.IsTrue(File.Exists(path));
@@ -74,7 +74,7 @@ public sealed class SnapshotTests
         void Shoot(string name)
         {
             var (instances, lines) = game.BuildRenderables();
-            var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, instances, lines, [], cameraPosition: eye, voxels: game.BuildVoxelVolumes());
+            var rgba = Render(renderer, game, viewProjection, eye, instances, lines, []);
             PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_closeup_{name}.png"), Width, Height, rgba);
         }
 
@@ -164,15 +164,21 @@ public sealed class SnapshotTests
             game.Step(default, 1f / 60f);
         }
 
-        var eye = chest.Position + (Vector3.Normalize(Vector3.Cross(blow, Vector3.UnitY)) * 0.6f) + new Vector3(0f, 0.12f, 0f); // 拳の向きを真横から
+        var eye = chest.Position + (Vector3.Normalize(Vector3.Cross(blow, Vector3.UnitY) - (blow * 0.5f)) * 0.42f) + new Vector3(0f, 0.3f, 0f); // 打った側の斜め上から（輪が楕円に見え、手前の体に遮られない）
         var viewProjection = Camera.ViewProjection(eye, chest.Position, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
         var (instances, lines) = game.BuildRenderables();
-        var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, instances, lines, [], cameraPosition: eye, voxels: game.BuildVoxelVolumes());
+        var rgba = Render(renderer, game, viewProjection, eye, instances, lines, []);
         PngWriter.WriteRgba(Path.Combine(outDir, "miniring_impact.png"), Width, Height, rgba);
         Assert.IsGreaterThan(0, game.Impacts.Count);
     }
 
     private static readonly Vector4 IGameClear = new(0.10f, 0.11f, 0.14f, 1f);
+
+    /// <summary>ゲームと同じ画づくり（会場の照明・影・空気の粒・仕上げ）で描く。</summary>
+    private static byte[] Render(HeadlessRenderer renderer, BoxingGame game, Matrix4x4 viewProjection, Vector3 eye,
+        IReadOnlyList<PrimitiveInstance> instances, IReadOnlyList<DebugLine> lines, IReadOnlyList<ScreenTextDraw> text)
+        => renderer.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, text, particles: game.BuildParticles(),
+            lighting: game.BuildLighting(), shadow: game.BuildShadow(), cameraPosition: eye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
 
     private static string FindRepoRoot()
     {

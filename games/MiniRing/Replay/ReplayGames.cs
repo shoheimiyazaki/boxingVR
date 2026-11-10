@@ -31,6 +31,14 @@ public sealed class RecordingGame : IGame<BoxingInput>
 
     public IReadOnlyList<VoxelVolumeDraw> BuildVoxelVolumes() => _game.BuildVoxelVolumes();
 
+    public IReadOnlyList<ParticleInstance> BuildParticles() => _game.BuildParticles();
+
+    public SceneLighting BuildLighting() => _game.BuildLighting();
+
+    public ShadowMapConfig? BuildShadow() => _game.BuildShadow();
+
+    public PostProcessSettings? BuildPostProcess() => _game.BuildPostProcess();
+
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 viewProjection, Vector2 screenSizePixels)
         => _game.BuildOverlayText(viewProjection, screenSizePixels);
 
@@ -98,6 +106,14 @@ public sealed class ReplayGame : IGame<BoxingInput>
     public (IReadOnlyList<PrimitiveInstance> Instances, IReadOnlyList<DebugLine> Lines) BuildRenderables() => _player.Game.BuildRenderables();
 
     public IReadOnlyList<VoxelVolumeDraw> BuildVoxelVolumes() => _player.Game.BuildVoxelVolumes();
+
+    public IReadOnlyList<ParticleInstance> BuildParticles() => _player.Game.BuildParticles();
+
+    public SceneLighting BuildLighting() => _player.Game.BuildLighting();
+
+    public ShadowMapConfig? BuildShadow() => _player.Game.BuildShadow();
+
+    public PostProcessSettings? BuildPostProcess() => _player.Game.BuildPostProcess();
 
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 viewProjection, Vector2 screenSizePixels)
     {

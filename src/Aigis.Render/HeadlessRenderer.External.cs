@@ -63,7 +63,8 @@ public sealed unsafe partial class HeadlessRenderer
     /// <summary>
     /// Renders the scene and copies it into <paramref name="targetImage"/> (a VkImage handle of the same
     /// size, TRANSFER_DST usage). Blocks until the GPU has finished, so the caller may release the image
-    /// to the compositor as soon as this returns.
+    /// to the compositor as soon as this returns. Particles and the finishing pass work as in
+    /// <see cref="RenderPrimitiveScene"/>; the finish is applied before the copy.
     /// </summary>
     public void RenderPrimitiveSceneToImage(
         ulong targetImage,
@@ -74,13 +75,15 @@ public sealed unsafe partial class HeadlessRenderer
         SceneLighting? lighting = null,
         ShadowMapConfig? shadow = null,
         Vector3? cameraPosition = null,
-        IReadOnlyList<Voxels.VoxelVolumeDraw>? voxels = null)
+        IReadOnlyList<Voxels.VoxelVolumeDraw>? voxels = null,
+        IReadOnlyList<ParticleInstance>? particles = null,
+        PostProcessSettings? postProcess = null)
     {
         _externalTarget = new Image(targetImage);
         try
         {
-            _ = RenderPrimitiveSceneForView(clearColor, viewProjection, instances, lines, null, null, lighting, shadow, cameraPosition,
-                null, null, null, null, null, null, postProcessSampleRect: null, voxels);
+            _ = RenderPrimitiveSceneForView(clearColor, viewProjection, instances, lines, null, particles, lighting, shadow, cameraPosition,
+                null, null, null, null, null, postProcess, postProcessSampleRect: null, voxels);
         }
         finally
         {

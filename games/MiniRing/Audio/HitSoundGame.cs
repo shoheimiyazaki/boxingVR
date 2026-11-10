@@ -68,6 +68,14 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     /// <summary>ボクセルの体（包んだ試合のもの）。これを中継しないとホストは体を描かない。</summary>
     public IReadOnlyList<VoxelVolumeDraw> BuildVoxelVolumes() => _inner.BuildVoxelVolumes();
 
+    public IReadOnlyList<ParticleInstance> BuildParticles() => _inner.BuildParticles();
+
+    public SceneLighting BuildLighting() => _inner.BuildLighting();
+
+    public ShadowMapConfig? BuildShadow() => _inner.BuildShadow();
+
+    public PostProcessSettings? BuildPostProcess() => _inner.BuildPostProcess();
+
     public (IReadOnlyList<PrimitiveInstance> Instances, IReadOnlyList<DebugLine> Lines) BuildRenderables() => _inner.BuildRenderables();
 
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 viewProjection, Vector2 screenSizePixels)

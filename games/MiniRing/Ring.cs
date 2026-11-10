@@ -22,10 +22,10 @@ public sealed class Ring
         var half = size * 0.5f;
 
         // 部屋の床・台・キャンバス。
-        Box(world, new Vector3(center.X, -0.05f, center.Z), new Vector3(4f, 0.05f, 4f), new Vector4(0.22f, 0.22f, 0.25f, 1f), solid: true);
+        Box(world, new Vector3(center.X, -0.05f, center.Z), new Vector3(4f, 0.05f, 4f), new Vector4(0.07f, 0.07f, 0.08f, 1f), solid: true);
         Box(world, new Vector3(center.X, (surfaceHeight - 0.06f) * 0.5f, center.Z), new Vector3(half * 0.9f, (surfaceHeight - 0.06f) * 0.5f, half * 0.9f), new Vector4(0.12f, 0.12f, 0.14f, 1f), solid: true);
         Box(world, new Vector3(center.X, surfaceHeight - 0.03f, center.Z), new Vector3(half + 0.02f, 0.03f, half + 0.02f), new Vector4(0.15f, 0.25f, 0.6f, 1f), solid: true);
-        Box(world, new Vector3(center.X, surfaceHeight - 0.003f, center.Z), new Vector3(half, 0.004f, half), new Vector4(0.86f, 0.84f, 0.78f, 1f), solid: false);
+        Box(world, new Vector3(center.X, surfaceHeight - 0.003f, center.Z), new Vector3(half, 0.004f, half), new Vector4(0.64f, 0.63f, 0.61f, 1f), solid: false);
 
         const float postHeight = 0.36f;
         foreach (var x in new[] { -1f, 1f })
