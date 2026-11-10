@@ -85,12 +85,11 @@ public sealed class PredictionTests
 
         Console.WriteLine($"reacting {reacting}");
         Console.WriteLine($"predicting {predicting}");
-        // 見てから避ける（反応）だけでは、半分以上が頭に当たる（気づけずに受ける）。予測すると、ほぼ全部の拳に守りを出せる。
-        // 注意: 関節の重なり代を体の縮尺に合わせてから（足運び編 F5）、この練習では予測が拳より 0.4 秒も早く発火することがあり、
-        // 短いスリップが拳より先に終わって、頭に当たる割合は反応と同じくらい（5 割）に戻った。実戦の予測の守りは 5 割が打たれずに終わる。
-        Assert.IsGreaterThan(0.5f, reacting.HeadRate, $"reacting {reacting}");
+        // 見てから避ける（反応）だけでは、大半が頭に当たる（気づけずに受ける）。予測すると、ほぼ全部の拳に守りを出し、頭に当たる割合がはっきり減る。
+        // 相手は溜めの始めに狙いを決めるので、溜めより前に動くと動いた先を狙われる。外せるのは溜めの始め近くに動き出したときだけ（足運び編 F6）。
+        Assert.IsGreaterThan(0.6f, reacting.HeadRate, $"reacting {reacting}");
         Assert.IsGreaterThan(reacting.Coverage + 0.2f, predicting.Coverage, $"predicting {predicting} vs reacting {reacting}");
-        Assert.IsLessThan(reacting.HeadRate + 0.05f, predicting.HeadRate, $"predicting {predicting} vs reacting {reacting}");
+        Assert.IsLessThan(reacting.HeadRate - 0.1f, predicting.HeadRate, $"predicting {predicting} vs reacting {reacting}");
     }
 
     [TestMethod]

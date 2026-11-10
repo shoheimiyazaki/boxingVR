@@ -60,16 +60,35 @@ public sealed class FighterInjuryPhysicsTests
     }
 
     [TestMethod]
-    public void HitHead_WobblesOnTheNeckSpring_ThenSettles()
+    public void HitHead_SnapsOnAStiffNeck_ThenSettlesWithoutWobbling()
+    {
+        // 横からのフック相当: 頭の横（こめかみの高さ、中心より上）を叩く。グローブは頭の表面に当たるので、押すだけでなく回す。
+        // 首は硬く減衰の効いたバネ: 打たれていないときはぐらつかず、打たれると頭が持っていかれ、揺れ返さずに戻る。
+        var light = HeadSnap(0.6f);
+        var heavy = HeadSnap(1.2f);
+        Console.WriteLine($"idle {light.Idle:0.000} rad; light: peak {light.Peak:0.000} rad, {light.SignChanges} swings back, settled {light.Settled:0.000}; heavy: peak {heavy.Peak:0.000} rad");
+
+        Assert.IsLessThan(0.05f, light.Idle, "standing still, the head does not wobble on the neck");
+        Assert.IsGreaterThan(0.08f, light.Peak, "a blow carries the head visibly");
+        Assert.IsGreaterThan(1.8f * light.Peak, heavy.Peak, "twice the blow carries it about twice as far, or more (the neck gives out)");
+        Assert.IsLessThanOrEqualTo(1, light.SignChanges, "it does not swing back and forth");
+        Assert.IsLessThan(0.05f, light.Settled, "and settles upright again");
+    }
+
+    private static (float Idle, float Peak, int SignChanges, float Settled) HeadSnap(float speed)
     {
         using var world = NewWorld();
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
         Run(world, fighter, Idle(fighter), 1f);
+        var idle = 0f;
+        for (var i = 0; i < (int)(0.5f / Dt); i++)
+        {
+            fighter.ApplyControl(Idle(fighter), Dt);
+            world.Step(Dt);
+            idle = MathF.Max(idle, MathF.Abs(HeadSideTilt(world, fighter)));
+        }
 
-        // 横からのフック相当: 頭の横（こめかみの高さ、中心より上）を叩く。グローブは頭の表面に当たるので、押すだけでなく回す。
-        // 中心だけを押す叩き方では、頭を人の比率に小さくした時（HeadScale 0.72）にほとんど回らなかったが、実戦の頭への打撃の
-        // 揺れはむしろ大きくなった（傾きの最大の中央値 0.51 → 0.75 rad、HeadWobbleProbe）。
-        var impulse = new Vector3(1f, 0f, 0f) * (0.6f * FighterTuning.Default.Masses.Head);
+        var impulse = new Vector3(1f, 0f, 0f) * (speed * FighterTuning.Default.Masses.Head);
         var temple = new Vector3(0f, 0.5f * FighterTuning.Default.HalfExtents.Head.Y, 0f);
         world.ApplyLinearImpulse(fighter.Parts.Head, impulse);
         world.ApplyAngularImpulse(fighter.Parts.Head, Vector3.Cross(temple, impulse));
@@ -82,7 +101,8 @@ public sealed class FighterInjuryPhysicsTests
             world.Step(Dt);
             var tilt = HeadSideTilt(world, fighter);
             peak = MathF.Max(peak, MathF.Abs(tilt));
-            var sign = MathF.Abs(tilt) < 0.01f ? 0 : MathF.Sign(tilt);
+            // 揺れ返しは、はっきり反対へ傾いたときだけ数える（体の小さな揺れは数えない）。
+            var sign = MathF.Abs(tilt) < 0.03f ? 0 : MathF.Sign(tilt);
             if (sign != 0 && lastSign != 0 && sign != lastSign)
             {
                 signChanges++;
@@ -91,13 +111,10 @@ public sealed class FighterInjuryPhysicsTests
             lastSign = sign == 0 ? lastSign : sign;
         }
 
-        Run(world, fighter, Idle(fighter), 2f);
-        var settled = MathF.Abs(HeadSideTilt(world, fighter));
-
-        Assert.IsGreaterThan(0.15f, peak, $"the head swings visibly (peak {peak:0.000} rad)");
-        Assert.IsGreaterThanOrEqualTo(2, signChanges, $"it swings back past upright, more than once ({signChanges})");
-        Assert.IsLessThan(0.1f, settled, $"and settles upright again ({settled:0.000} rad)");
+        Run(world, fighter, Idle(fighter), 1f);
+        return (idle, peak, signChanges, MathF.Abs(HeadSideTilt(world, fighter)));
     }
+
 
     /// <summary>胴に対する頭の左右の傾き [rad]（胴の座標で頭の上方向が X へ倒れた角度）。</summary>
     private static float HeadSideTilt(PhysicsWorld world, Fighter fighter)

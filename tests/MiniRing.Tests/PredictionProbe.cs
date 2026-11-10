@@ -53,6 +53,26 @@ public sealed class PredictionProbe
         }
     }
 
+    /// <summary>予測の度合い × 体の手がかりの要求ごとに、溜めた右ストレートへのスリップの結果を出す。</summary>
+    [TestMethod]
+    public void BodyCueSweep()
+    {
+        foreach (var prediction in new[] { 0.6f, 1f })
+        {
+            foreach (var cue in new[] { 0f, 0.5f, 1f, 1.5f, 2f, 2.5f })
+            {
+                var defender = PredictionTests.SlipDefender(prediction) with { BodyCue = cue };
+                var total = PunchDrillResult.Empty;
+                for (var seed = 1; seed <= 3; seed++)
+                {
+                    total += DefenseDrill.Punch("2", Defense.Slip, defender, seed, 30f, telegraph: 0.08f);
+                }
+
+                Console.WriteLine($"prediction {prediction:0.0} body cue {cue:0.0}: head {total.HeadRate:P0} clean {total.EvadeRate:P0} covered {total.Coverage:P0} ({total.Punches} punches)");
+            }
+        }
+    }
+
     /// <summary>比べるための合図つきドリル（溜めの始めから決まった遅れで必ず回避を始める）。</summary>
     [TestMethod]
     public void CuedSlip()
@@ -104,12 +124,12 @@ public sealed class PredictionProbe
                 throws.Add(t);
             }
 
-            hits.AddRange(game.RecentHits.Where(h => h.Attacker == game.Cpu).Select(h => (t, h.Zone.ToString())));
+            hits.AddRange(game.RecentHits.Where(h => h.Attacker == game.Cpu).Select(h => (t, h.Zone.ToString() + (defenders[^1].CurrentDefense == Defense.None ? "(open)" : "(in " + defenders[^1].CurrentDefense + ")"))));
         }
 
         foreach (var throwAt in throws.Skip(5).Take(40))
         {
-            var start = starts.Where(s => s.T > throwAt - 0.6f && s.T < throwAt + 0.4f).Select(s => ((float T, float Side, bool Predicted)?)s).FirstOrDefault();
+            var start = starts.Where(s => s.T > throwAt - 0.6f && s.T < throwAt + 0.4f).Select(s => ((float T, float Side, bool Predicted)?)s).LastOrDefault();
             var hit = hits.Where(h => h.T > throwAt && h.T < throwAt + 0.4f).Select(h => h.Zone).FirstOrDefault() ?? "-";
             Console.WriteLine($"throw {throwAt:0.000}: defense {(start is { } s ? $"{s.T - throwAt:+0.000;-0.000}s side {s.Side:+0;-0} {(s.Predicted ? "predicted" : "reacted")}" : "none")}  hit {hit}");
         }

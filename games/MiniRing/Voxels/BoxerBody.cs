@@ -81,6 +81,22 @@ public sealed class BoxerBody
     public float Muscle(int bodyId) => _byBody.TryGetValue(bodyId, out var part) ? part.Body.Grid.Fraction(VoxelTissue.Flesh) : 1f;
 
     /// <summary>
+    /// 脳の働き（0..1）: 脳のボクセルの残り。死ぬ残り（<paramref name="deathFraction"/>）で 0、無傷で 1。
+    /// 少し削れただけでは働きはあまり落ちず、死ぬ残りに近づくほど急に落ちる（残りの割合の平方根）。
+    /// </summary>
+    public float BrainFunction(float deathFraction)
+    {
+        int left = 0, start = 0;
+        foreach (var part in _parts)
+        {
+            left += part.Body.Grid.Remaining(BoxerAnatomy.Brain);
+            start += part.Body.Grid.Initial(BoxerAnatomy.Brain);
+        }
+
+        return start == 0 ? 1f : MathF.Sqrt(Math.Clamp(((float)left / start - deathFraction) / MathF.Max(1e-3f, 1f - deathFraction), 0f, 1f));
+    }
+
+    /// <summary>
     /// 半分以上（<see cref="FighterTuning.OrganDeathFraction"/> 未満しか残っていない）壊れた臓器の名前。
     /// 生きていれば null。
     /// </summary>

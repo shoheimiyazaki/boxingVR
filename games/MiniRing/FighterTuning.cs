@@ -72,7 +72,7 @@ public sealed record FighterTuning
     public float KneeMaxTorque { get; init; } = 300f;
     public float AnkleMaxTorque { get; init; } = 900f;
     /// <summary>首（頭と胴をつなぐバネ）の固有振動数 [Hz]。低いほど打たれた頭が大きく揺れる。</summary>
-    public float NeckServoHz { get; init; } = 3.5f;
+    public float NeckServoHz { get; init; } = 9f;
 
     /// <summary>足の運び（足の置き場所のモデル。<see cref="MiniRing.Footwork"/>）。</summary>
     public FootworkTuning Footwork { get; init; } = new();
@@ -80,11 +80,11 @@ public sealed record FighterTuning
     /// <summary>つま先の蝶番のサーボの強さ（TorqueScale 倍する前）。</summary>
     public float ToeMaxTorque { get; init; } = 20f;
 
-    /// <summary>首のバネの減衰比。1 未満で振動が残り、殴られると頭がグラングラン揺れてから戻る。</summary>
-    public float NeckDampingRatio { get; init; } = 0.06f;
+    /// <summary>首のバネの減衰比。殴られて持っていかれた頭が、揺れ返さずに戻る（打たれていないときもぐらつかない）。</summary>
+    public float NeckDampingRatio { get; init; } = 0.7f;
 
     /// <summary>首のバネが出せる最大トルク（TorqueScale 倍する前）。</summary>
-    public float NeckMaxTorque { get; init; } = 20f;
+    public float NeckMaxTorque { get; init; } = 60f;
 
     // ── 腕（サーボ + 拳への PD 力）
     public float ArmServoHz { get; init; } = 15f;
@@ -106,6 +106,9 @@ public sealed record FighterTuning
     public float HipTwistShare { get; init; } = 0.45f;
     /// <summary>頭のずれ（前傾・スリップ）で胴を傾けられる最大角。</summary>
     public float MaxLeanRadians { get; init; } = 30f * MathF.PI / 180f;
+
+    /// <summary>後ろへ反らす（スウェー）ときに腰が受け持つ割合（胸は全部）。上体ごと後ろへ倒れ、首だけで反らない。前へ倒すときは 0.25。</summary>
+    public float HipBackLeanShare { get; init; } = 0.6f;
 
     /// <summary>沈み込みの最大（立つ高さに対する割合）。膝と股を曲げて腰を落とす。</summary>
     public float MaxCrouch { get; init; } = 0.4f;
@@ -133,12 +136,56 @@ public sealed record FighterTuning
     // ── ボクセルの体: 打撃で削れ、動きに響き、骨が断たれたら落ち、臓器が壊れたら死ぬ（Voxels/BoxerBody）
     /// <summary>ボクセル 1 個の大きさの目安 [m]（部位の箱をこれに近い大きさで割り切る）。</summary>
     public float VoxelSize { get; init; } = 0.005f;
-    /// <summary>ダメージ 1 あたりに削る量（肉 1 ボクセル = 1。骨は 8、臓器は 1.2〜1.4）。</summary>
+    /// <summary>
+    /// ダメージ 1 あたりに削る量（肉 1 ボクセル = 1。骨は 8、臓器は 1.2〜1.4）。試合の打撃は運動エネルギーから削る量を決める（<see cref="CarvePerJoule"/>）ので、
+    /// これは削る量を渡さずにダメージだけで削るとき（テストや道具）に使う。
+    /// </summary>
     public float CarvePerDamage { get; init; } = 4.3f;
     /// <summary>削れたボクセルが飛び散る速さ [m/s]（60cm の人形に合わせた値）。</summary>
     public float ChipSpeed { get; init; } = 0.8f;
     /// <summary>飛び散った破片にかかる重力の倍率（1 = 実際の重力。小さいほどふわりと長く舞う）。</summary>
     public float DebrisGravityScale { get; init; } = 0.35f;
+    /// <summary>
+    /// 運動エネルギー 1 J あたりに削る量（肉 1 ボクセル = 1）。削る量は拳の運動エネルギー（½ × 乗った質量 × 速さ²）に比例する:
+    /// 体重の乗った速い 1 発ほど急に深く掘れ、手打ちはほとんど掘れない（非線形）。硬い頭蓋（骨）が、その奥の脳までの壁になる。
+    /// </summary>
+    public float CarvePerJoule { get; init; } = 45f;
+
+    /// <summary>1 発で削る量の上限（約 10 J ぶん。速さの測り違いのような外れの 1 発が、腕を丸ごと削らないように）。</summary>
+    public float MaxCarve { get; init; } = 450f;
+
+    /// <summary>
+    /// 打撃で相手へ運ぶ体の運動量のうち、当たった部位に残る（当たった点に掛かる）割合の上限。残りは全身を押す。
+    /// 部位に残る分は頭を首の上でのけぞらせ、急所（あご・こめかみ）のように回転の中心から外れた所では頭を強くねじる。
+    /// </summary>
+    public float StrikeShare { get; init; } = 0.55f;
+
+    /// <summary>
+    /// 部位に残る割合が <see cref="StrikeShare"/> に達する拳の速さ [m/s]。これより遅い拳では速さに比例して減る:
+    /// 部位に残る運動量は m v² に比例し（非線形）、速く振り抜いた 1 発ほど頭が持っていかれる。
+    /// </summary>
+    public float FullStrikeSpeed { get; init; } = 2.5f;
+
+    /// <summary>打撃で当たった部位に残す運動量が、その部位に与える速さの上限 [m/s]（拳の速さの測り違いで部位を飛ばさない）。</summary>
+    public float MaxStrikeSpeed { get; init; } = 6f;
+
+    /// <summary>脳しんとうの効き: 打撃で頭がねじられた速さ（頭の慣性で割った回転 [rad/s]）の 2 乗あたりに意識から引く量。</summary>
+    public float ConcussionGain { get; init; } = 0.00005f;
+
+    /// <summary>脳しんとうから意識が戻る速さ（時定数 [s]）。</summary>
+    public float ConcussionRecovery { get; init; } = 2.5f;
+
+    /// <summary>意識がこの値を下回ると体の力が抜け始め、<see cref="ToneConsciousness"/> で抜けきる。</summary>
+    public float ToneConsciousness { get; init; } = 0.2f;
+    public float FullToneConsciousness { get; init; } = 0.5f;
+
+    /// <summary>起き上がるのに要る意識（体の張りが戻りきる <see cref="FullToneConsciousness"/> と同じ: 立っていられる体なら起き上がれる）。</summary>
+    public float GetUpConsciousness { get; init; } = 0.5f;
+
+    /// <summary>骨盤が支えようとしている高さより、立つ高さのこの割合だけ低いまま <see cref="CollapseTime"/> 過ぎたら、崩れ落ちた（ダウン）。</summary>
+    public float CollapseDrop { get; init; } = 0.25f;
+    public float CollapseTime { get; init; } = 0.25f;
+
     /// <summary>臓器がこの割合より少なくなったら死ぬ。</summary>
     public float OrganDeathFraction { get; init; } = 0.5f;
     /// <summary>

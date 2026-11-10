@@ -168,9 +168,9 @@ public sealed class ReplayTests
     }
 
     [TestMethod]
-    public void Version1Replay_IsReadAsALegacyCpuMatch()
+    public void OlderFormatReplay_IsRejected_BecauseTheBodyPhysicsChanged()
     {
-        // 版 1 の記録（CPU 名の欄が無い）は、CPU が legacy だった頃の試合として読む。
+        // 版 1・2 の記録は、足の運び・関節の位置・非線形のダメージより前の体で記録したもの。同じ入力でも違う試合になるので、黙って再生せずに断る。
         var stream = new MemoryStream();
         using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
         {
@@ -183,9 +183,8 @@ public sealed class ReplayTests
             writer.Write(DateTime.UtcNow.Ticks);
         }
 
-        var header = ReplayFile.Read(new MemoryStream(stream.ToArray())).Header;
-        Assert.AreEqual(Bots.BotCatalog.Legacy, header.CpuName);
-        Assert.AreEqual(3, header.Seed);
+        var error = Assert.ThrowsExactly<InvalidDataException>(() => ReplayFile.Read(new MemoryStream(stream.ToArray())));
+        StringAssert.Contains(error.Message, "body physics");
     }
 
     /// <summary>CPU 同士（プレイヤー側も AI が操作）で打ち合い、途中でラウンドのやり直しも挟んで記録する。</summary>

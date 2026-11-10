@@ -322,7 +322,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         }
     }
 
-    private void ApplyHit(HitEvent hit, int victimBody, Vector3 gloveVelocity)
+    internal void ApplyHit(HitEvent hit, int victimBody, Vector3 gloveVelocity)
     {
         if (RoundOver)
         {
@@ -336,26 +336,48 @@ public sealed class BoxingGame : IGame<BoxingInput>
         // 当たった部位の、拳に近いノードを拳の進む向きへへこませる（見た目だけ。当たり判定の箱は変わらない）。
         SkinOf(victim).Dent(victimBody, _world.GetState(victimBody), hit.Point, gloveVelocity, hit.Damage);
         // 体重の乗った拳は相手を押し込む: 物理の接触が運ぶのは腕の質量だけなので、体から来た分の運動量を足す。
-        // 1 部位に入れると千切れるほど速くなるので、相手の全身へ一様な速度変化として配り（上限付き）、
+        // 一部は当たった部位に残り（strike）、残りは相手の（付いている）全身へ一様な速度変化として配り（上限付き）、
         // 同じ運動量の反作用を打った側の全身へ返す（運動量は湧かない）。
-        var victimMass = victim.TotalMass; // 削る前の重さで押しと反作用をそろえる（千切れても運動量が湧かない）
+        var victimMass = victim.AttachedMass;
+        var partMass = _world.GetMass(victimBody);
         var push = Vector3.Zero;
+        var strike = Vector3.Zero;
         var extraMass = hit.ImpactMass - hit.Attacker.ArmMass(hit.Hand);
         if (extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f)
         {
-            var momentum = extraMass * hit.Speed * KnockbackTransfer;
-            push = Vector3.Normalize(gloveVelocity) * MathF.Min(MaxKnockbackSpeed, momentum / victimMass);
+            // 運ぶ運動量のうち、当たった部位に残る分（strike）は速さとともに増える（非線形: 部位に残る運動量 ∝ m v²）。
+            // 速い拳ほど接触が短く、その間に首（関節のバネ）が体へ逃がせる運動量は限られるので、頭がそのまま持っていかれる。
+            // ゆっくり押し当てる拳は、関節を通して全身へ配られる（鋭さで 0 へ）。部位に与える速さには上限を置き（拳の速さの
+            // 測り違いで部位が飛ばない）、上限を超えた分は全身を押す側へ回す。
+            var carried = Vector3.Normalize(gloveVelocity) * (extraMass * hit.Speed * KnockbackTransfer);
+            strike = ClampLength(carried * StrikeShare(hit.Speed), _tuning.MaxStrikeSpeed * partMass);
+            push = ClampLength((carried - strike) / victimMass, MaxKnockbackSpeed);
+        }
+
+        if (strike != Vector3.Zero || push != Vector3.Zero)
+        {
+            // 部位に残る運動量は、拳が部位の表面に触れた点に掛かる: 部位を押し（頭なら首の上でのけぞる）、中心から外れた分だけ回す
+            // （あご・こめかみを振り抜くと頭が首の上でねじれる。回転の中心を通る拳は回さない）。削って千切る前に掛ける
+            // （千切れた先の点で、残った切り株を回さない）。
+            var part = _world.GetState(victimBody);
+            var twist = Vector3.Cross(victim.ClosestPointOnPart(victimBody, hit.Point) - part.Position, strike);
+            _world.ApplyLinearImpulse(victimBody, strike);
+            _world.ApplyAngularImpulse(victimBody, twist);
+            if (victimBody == victim.Parts.Head)
+            {
+                victim.TwistHead(twist); // 頭がねじられた分だけ脳しんとう
+            }
+
+            victim.Push(push);
+            // 反作用は打った側の（付いている）全身へ（部位に残した分も含めて、運動量は湧かない）。
+            hit.Attacker.Push(-((push * victimMass) + strike) / hit.Attacker.AttachedMass);
         }
 
         // 削る量は打撃そのものの強さ（部位の倍率を外したダメージ）。得点ではガードの上は 0.25 倍に割り引くが、
         // 受けた腕にかかる衝撃は同じ: ブロックし続けた腕は削れていく。破片は、のけぞる体の動き（push）に乗って流れる。
-        Strike(victim, victimBody, hit.Point, gloveVelocity, hit.Damage / ZoneDamage.Multiplier(hit.Zone), hit.Attacker, push);
-
-        if (push != Vector3.Zero)
-        {
-            victim.Push(push);
-            hit.Attacker.Push(-push * (victimMass / hit.Attacker.TotalMass));
-        }
+        // 削る量は拳の運動エネルギー（½ m v²）に比例: 体重の乗った速い 1 発ほど急に深く掘れる（非線形）。
+        var energy = 0.5f * hit.ImpactMass * hit.Speed * hit.Speed * PunchMechanics.Sharpness(hit.Speed);
+        Strike(victim, victimBody, hit.Point, gloveVelocity, hit.Damage / ZoneDamage.Multiplier(hit.Zone), hit.Attacker, push, MathF.Min(_tuning.MaxCarve, energy * _tuning.CarvePerJoule));
 
         _recentHits.Add(hit);
         LastHit = hit;
@@ -374,7 +396,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
     /// <param name="damage">打撃の強さ（ダメージ点）。</param>
     /// <param name="attacker">打った側（火花をその側のグローブの色にする）。分からなければ null。</param>
     /// <param name="recoil">打たれた体がこれから受ける押し込みの速度（破片はこれに乗って、のけぞる向きへ流れる）。</param>
-    internal void Strike(Fighter victim, int victimBody, Vector3 point, Vector3 direction, float damage, Fighter? attacker = null, Vector3 recoil = default)
+    /// <param name="carve">削る量（肉 1 ボクセル = 1）。null ならダメージ × <see cref="FighterTuning.CarvePerDamage"/>。</param>
+    internal void Strike(Fighter victim, int victimBody, Vector3 point, Vector3 direction, float damage, Fighter? attacker = null, Vector3 recoil = default, float? carve = null)
     {
         if (victim.Voxels is not { } body)
         {
@@ -388,7 +411,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         _chips.Clear();
         _chunks.Clear();
         _cutFaces.Clear();
-        var result = body.Impact(victimBody, point, direction, damage * _tuning.CarvePerDamage, chipSpeed, Jitter, _chips, spread, _chunks, _cutFaces);
+        var result = body.Impact(victimBody, point, direction, carve ?? (damage * _tuning.CarvePerDamage), chipSpeed, Jitter, _chips, spread, _chunks, _cutFaces);
         if (result is { Part: var struck } && _cutFaces.Count > 0)
         {
             _wounds.Add(struck, _cutFaces); // えぐれた穴の断面も、欠片と同じく白から冷めていく
@@ -808,4 +831,17 @@ public sealed class BoxingGame : IGame<BoxingInput>
     }
 
     public void Dispose() => _world.Dispose();
+
+    /// <summary>
+    /// 運ぶ運動量のうち当たった部位に残る割合: 拳の速さに比例して <see cref="FighterTuning.FullStrikeSpeed"/> で
+    /// <see cref="FighterTuning.StrikeShare"/> に達する（押し当てるだけの遅い拳は鋭さで 0）。
+    /// </summary>
+    private float StrikeShare(float speed)
+        => _tuning.StrikeShare * PunchMechanics.Sharpness(speed) * Math.Clamp(speed / MathF.Max(1e-3f, _tuning.FullStrikeSpeed), 0f, 1f);
+
+    private static Vector3 ClampLength(Vector3 v, float max)
+    {
+        var length = v.Length();
+        return length > max ? v * (max / length) : v;
+    }
 }

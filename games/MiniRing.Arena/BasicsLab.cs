@@ -14,7 +14,7 @@ namespace MiniRing.Arena;
 /// <item>Act: 別の種でも上回ったら採用。目標（<see cref="TargetEvade"/>・<see cref="TargetHead"/>）に届いたら止める。</item>
 /// </list>
 /// </summary>
-internal sealed class BasicsLab(string punch, Defense slot, int bouts, float seconds, int seed, IReadOnlyList<float> ranges, Action<string> log, IReadOnlyList<float>? cues = null, float telegraph = 0f)
+internal sealed class BasicsLab(string punch, Defense slot, int bouts, float seconds, int seed, IReadOnlyList<float> ranges, Action<string> log, IReadOnlyList<float>? cues = null, float telegraph = 0f, float prediction = 0f)
 {
     /// <summary>目標: 回避の 9 割はどこにも触れられずに外す。</summary>
     public const float TargetEvade = 0.9f;
@@ -182,7 +182,7 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
         $"| {label} | {r.Score:0.00} | {r.EvadeRate:P0} | {r.HeadRate:P0} | {r.HeadHits} / {r.GuardHits} / {r.OtherHits} | {r.OpenHeadHits} | {r.Coverage:P0} | {r.Punches} |");
 
     private BotStyle Defender(DefenseMove move, float guardHeight)
-        => DefenseDrill.Defender(DefenseBook.Default.With(slot, move), defend: true, counters: false) with { GuardHeight = guardHeight };
+        => DefenseDrill.Defender(DefenseBook.Default.With(slot, move), defend: true, counters: false) with { GuardHeight = guardHeight, Prediction = prediction };
 
     private (DefenseMove Move, string Changes) Mutate(DefenseMove parent)
     {

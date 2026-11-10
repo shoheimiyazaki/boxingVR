@@ -120,6 +120,12 @@ public sealed record BotStyle
     public float Prediction { get; init; }
 
     /// <summary>
+    /// 予測で動き出すのに要る、体の手がかり（ひねり・前傾）の証拠の強さ（尤度比の対数、0..3）。0 なら体が「打たない」側を示していなければ動く。
+    /// 大きいほど、間合いやリズムだけでは動かず、打つ前の体の動きを見てから動く（早すぎる予測で短い回避が拳より先に終わるのを防ぐ）。
+    /// </summary>
+    public float BodyCue { get; init; }
+
+    /// <summary>
     /// 相手の届く間合いのすぐ外に立つ度合い（0..1）。覚えた相手の打ち始めの間合いの少し外を普段の間合いにし、
     /// 相手に踏み込ませる（踏み込みは読める手がかりになり、その間に避ける）。
     /// </summary>
@@ -221,6 +227,7 @@ public sealed record BotStyle
             CounterRate = Unit(CounterRate),
             Anticipation = Unit(Anticipation),
             Prediction = Unit(Prediction),
+            BodyCue = Range(BodyCue, 0f, 3f, 0f),
             EdgeRange = Unit(EdgeRange),
             EvadeReach = float.IsFinite(EvadeReach) && EvadeReach > 0f ? Math.Clamp(EvadeReach, 0.8f, 2f) : 0f,
             ClinchRate = Unit(ClinchRate),

@@ -173,7 +173,7 @@ public sealed class BoxerBot : IFighterControl
     /// 3: インサイドスリップ・ローリング、回避しながら打つカウンターと拳の種類ごとの打ち返し、4: 狙いの固定・外側への回避・守りの拳の高さ、
     /// 5: 打つ前の溜め（腰と肩のひねり）・相手の読みによる予測の回避・相手の届く間合いのすぐ外に立つ）。
     /// </summary>
-    public const int LogicVersion = 5;
+    public const int LogicVersion = 6;
 
     public BotStyle Style { get; }
 
@@ -1190,7 +1190,7 @@ public sealed class BoxerBot : IFighterControl
 
         var head = sense.SelfHead == default ? sense.Self.Origin + new Vector3(0f, 0.3f * sense.ArmReach, 0f) : sense.SelfHead;
         var forecast = _read.Predict();
-        if (forecast.Likelihood < PredictionThreshold || forecast.BodyEvidence < MinBodyEvidence || OutOfReach(sense, head))
+        if (forecast.Likelihood < PredictionThreshold || forecast.BodyEvidence < Style.BodyCue || OutOfReach(sense, head))
         {
             return;
         }
@@ -1201,9 +1201,6 @@ public sealed class BoxerBot : IFighterControl
         _predicted = _defense != Defense.None;
     }
 
-    /// <summary>動き出しに要る体の手がかりの証拠（尤度比の対数）の下限。0 = 体が「打たない」側を示していなければよい。</summary>
-    private const float MinBodyEvidence = 0f;
-
     /// <summary>予測で動き出す確からしさ（<see cref="BotStyle.Prediction"/> = 1 で 0.35、小さいほど確かな時だけ）。</summary>
     private float PredictionThreshold => 0.95f - (0.6f * Style.Prediction);
 
@@ -1213,6 +1210,11 @@ public sealed class BoxerBot : IFighterControl
         if (_predicted)
         {
             Stats.Predicted(_defenseHit, _predictedPunchCame);
+            if (!_predictedPunchCame)
+            {
+                // 読みが早すぎて拳が来ないまま守りが終わったら、すぐ読み直せるようにする（待たされている間に本当の拳が来ていた。足運び編 F6）。
+                _predictionCooldown = 0f;
+            }
         }
 
         _predicted = false;

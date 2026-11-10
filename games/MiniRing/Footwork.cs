@@ -71,7 +71,7 @@ public sealed record FootworkTuning
     public float PivotHeelRaiseDegrees { get; init; } = 22f;
 
     /// <summary>体が移動の指令に付いていく遅れ [s]（この間に足が先に踏み出す）。</summary>
-    public float BodyLag { get; init; } = 0.08f;
+    public float BodyLag { get; init; } = 0.04f;
 
     /// <summary>体を両足の間の支えの点へ寄せる速さ [1/s] と、その速度の上限 [m/s]。</summary>
     public float Centering { get; init; } = 5f;

@@ -6,7 +6,7 @@ namespace MiniRing.Replay;
 
 /// <summary>リプレイの見出し: 試合を作り直すのに必要なもの（乱数の種・調整値・CPU のボット名）と、記録の素性。</summary>
 public sealed record ReplayHeader(int Seed, string TuningJson, string Host, string AppVersion, DateTime CreatedUtc,
-    string CpuName = Bots.BotCatalog.Legacy, string CpuStyleJson = "", int CpuLogic = 0)
+    string CpuName = Bots.BotCatalog.Legacy, string CpuStyleJson = "", int CpuLogic = 0, int Physics = Fighter.PhysicsVersion)
 {
     /// <summary>
     /// 記録時と同じ CPU の両コーナー。名前ではなく記録したスタイルから作るので、あとで <c>champion</c> を調整し直しても再現できる。
@@ -30,8 +30,8 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// <summary>
 /// リプレイのファイル形式（バイナリ・リトルエンディアン）。
 /// <code>
-/// "MRRP" int32 version | int32 seed | string tuningJson | string host | string appVersion | int64 createdUtcTicks | string cpuName | string cpuStyleJson | int32 cpuLogic
-/// （CPU の欄は版 2 から。cpuStyleJson が空なら legacy。cpuLogic はボットの判断の仕組みの版（BoxerBot.LogicVersion）。
+/// "MRRP" int32 version | int32 seed | string tuningJson | string host | string appVersion | int64 createdUtcTicks | string cpuName | string cpuStyleJson | int32 cpuLogic | int32 physics
+/// （physics は版 3 から: 体の物理の版（Fighter.PhysicsVersion）。違う版の記録は読まない。CPU の欄は版 2 から。cpuStyleJson が空なら legacy。cpuLogic はボットの判断の仕組みの版（BoxerBot.LogicVersion）。
 /// 版 1 の記録は CPU が legacy だった頃のもの）
 /// 以降、レコードの並び:
 ///   0x01 Step:     float dt | BoxingInput（float × 18 + bool × 3）
@@ -41,7 +41,7 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// </summary>
 public static class ReplayFile
 {
-    public const int Version = 2;
+    public const int Version = 3;
     public const string Extension = ".mrrep";
     /// <summary>1 ステップの時間刻みとして受け付ける上限 [s]（壊れたファイルの値を物理に渡さない）。</summary>
     public const float MaxDt = 0.25f;
@@ -63,6 +63,7 @@ public static class ReplayFile
         writer.Write(header.CpuName);
         writer.Write(header.CpuStyleJson);
         writer.Write(header.CpuLogic);
+        writer.Write(header.Physics);
     }
 
     public static void WriteStep(BinaryWriter writer, in ReplayStep step)
@@ -106,9 +107,11 @@ public static class ReplayFile
 
         var header = new ReplayHeader(reader.ReadInt32(), reader.ReadString(), reader.ReadString(), reader.ReadString(),
             new DateTime(reader.ReadInt64(), DateTimeKind.Utc));
+        var recordedPhysics = 0;
         if (version >= 2)
         {
             header = header with { CpuName = reader.ReadString(), CpuStyleJson = reader.ReadString(), CpuLogic = reader.ReadInt32() };
+            recordedPhysics = version >= 3 ? reader.ReadInt32() : 0;
             if (header.CpuStyleJson.Length == 0 && header.CpuName != Bots.BotCatalog.Legacy)
             {
                 throw new InvalidDataException($"Replay CPU '{header.CpuName}' has no recorded style.");
@@ -130,6 +133,15 @@ public static class ReplayFile
                 throw new InvalidDataException($"Replay CPU style is invalid: {e.Message}", e);
             }
         }
+
+        // 版 3 から体の物理の版を持つ。それより前の記録は、足の運び・関節の位置・非線形のダメージより前の体で記録したもので、再現できない。
+        if (recordedPhysics != Fighter.PhysicsVersion)
+        {
+            throw new InvalidDataException(
+                $"Replay was recorded with body physics v{recordedPhysics}; this build has v{Fighter.PhysicsVersion} and cannot reproduce it.");
+        }
+
+        header = header with { Physics = recordedPhysics };
         var steps = new List<ReplayStep>();
         var checksums = new Dictionary<int, ulong>();
         try

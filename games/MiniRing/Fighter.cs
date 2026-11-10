@@ -94,6 +94,7 @@ public sealed class Fighter
     private float _crouch;
     private float _stateTime;
     private float _tiltTime;
+    private float _collapsedTime;
     private float _noGroundTime;
     private int _grabbedByCount;
     private bool _stayDown;
@@ -153,6 +154,12 @@ public sealed class Fighter
 
     /// <summary>かかと側の足の剛体（<see cref="Footwork.Lead"/> / <see cref="Footwork.Rear"/>）。</summary>
     public int HeelId(int foot) => _legParts[foot].Heel;
+
+    /// <summary>
+    /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
+    /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
+    /// </summary>
+    public const int PhysicsVersion = 2;
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -338,6 +345,12 @@ public sealed class Fighter
     /// <summary><paramref name="point"/> から自分の部位 <paramref name="part"/>（箱）までの距離。</summary>
     public float DistanceToPart(int part, Vector3 point) => Vector3.Distance(ClosestPointOnBox(this, part, point), point);
 
+    /// <summary>部位の箱の表面（または内側）で <paramref name="point"/> にいちばん近い点。拳が部位に触れた点。</summary>
+    public Vector3 ClosestPointOnPart(int part, Vector3 point) => ClosestPointOnBox(this, part, point);
+
+    /// <summary>体に付いている部位（千切れて落ちた先を除く）の質量の合計 [kg]。押す・反作用の運動量はこの質量で数える。</summary>
+    public float AttachedMass => _all.Where(id => !_detached.Contains(id)).Sum(_world.GetMass);
+
     public Vector3 HandTargetWorld(Hand hand) => _arms[(int)hand].LastTarget;
 
     public bool IsHolding(Hand hand) => _arms[(int)hand].GrabConstraint is not null;
@@ -419,6 +432,8 @@ public sealed class Fighter
     public void ApplyControl(in FighterCommand command, float dt)
     {
         LastCommand = command;
+        MeasureHeadJolt();
+        Concussion *= MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.ConcussionRecovery)); // 脳しんとうは時間とともに抜ける
         _stateTime += dt;
         DownTime = State == FighterState.Standing ? 0f : DownTime + dt;
         var grounded = TryFindGround(out var height);
@@ -434,6 +449,56 @@ public sealed class Fighter
             case FighterState.GettingUp:
                 TickGettingUp(command, grounded, height, dt);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// 前の物理ステップで頭が胴に対してどれだけ急に回されたか: 頭の相対角速度の変化 [rad/s]（調べもの用。脳しんとうには使わない:
+    /// 自分の動きや体どうしのぶつかりでも大きく揺れるので、打撃が頭に与えた回転から計算する <see cref="TwistHead"/> を使う）。
+    /// </summary>
+    public float HeadJolt { get; private set; }
+
+    private Vector3 _previousHeadSpin;
+    private bool _hasHeadSpin;
+
+    private void MeasureHeadJolt()
+    {
+        var spin = _world.GetState(Parts.Head).AngularVelocity - _world.GetState(Parts.Chest).AngularVelocity;
+        HeadJolt = _hasHeadSpin ? Vector3.Distance(spin, _previousHeadSpin) : 0f;
+        _previousHeadSpin = spin;
+        _hasHeadSpin = true;
+    }
+
+    /// <summary>脳しんとう（意識から引く量。打撃で頭が急にねじられると溜まり、時間とともに抜ける）。</summary>
+    public float Concussion { get; private set; }
+
+    /// <summary>最後に頭が打撃でねじられた速さ [rad/s]（調べもの用）。</summary>
+    public float LastHeadTwist { get; private set; }
+
+    /// <summary>
+    /// 頭が打撃で <paramref name="angularImpulse"/>（ワールド [N·m·s]）だけねじられた: 頭の慣性で割った回転の速さの 2 乗に比例して意識が飛ぶ。
+    /// 回転の中心を通る打撃（額の正面）は回さず、外れた所（あご・こめかみ）を体重を乗せて振り抜くほど強く回る。
+    /// </summary>
+    internal void TwistHead(Vector3 angularImpulse)
+    {
+        var head = _world.GetState(Parts.Head);
+        var local = Vector3.Transform(angularImpulse, Quaternion.Conjugate(head.Orientation)) / _world.GetLocalInertiaDiagonal(Parts.Head);
+        LastHeadTwist = local.Length();
+        Concussion += _tuning.ConcussionGain * LastHeadTwist * LastHeadTwist;
+    }
+
+    /// <summary>
+    /// 意識（0..1）= 脳の働き（脳のボクセルの残り）− 脳しんとう。打撃の部位で場合分けせず、脳を削られたか・頭がどれだけねじられたかだけで決まる。
+    /// </summary>
+    public float Consciousness => Math.Clamp((Voxels?.BrainFunction(_tuning.OrganDeathFraction) ?? 1f) - Concussion, 0f, 1f);
+
+    /// <summary>体の張り（0..1）: 意識が薄れると体を支える力・動かす力が抜ける（崩れ落ちるのは物理）。</summary>
+    public float Tone
+    {
+        get
+        {
+            var t = Math.Clamp((Consciousness - _tuning.ToneConsciousness) / MathF.Max(1e-3f, _tuning.FullToneConsciousness - _tuning.ToneConsciousness), 0f, 1f);
+            return t * t * (3f - (2f * t));
         }
     }
 
@@ -620,14 +685,18 @@ public sealed class Fighter
             return;
         }
 
-        if (_noGroundTime > _tuning.NoGroundFallTime || _tiltTime > _tuning.FallGrace)
+        // 力が抜けて、支えようとしている高さより腰が大きく落ちた（崩れ落ちた）のもダウン。傾かずに真下へ崩れても倒れたことになる。
+        // しゃがんだ（自分で腰を落とした）だけなら、支えようとしている高さも下がっているので当たらない。
+        // 力が抜けている間だけ数える（しゃがみから立ち上がる途中で、目標の高さに追いつく前を崩れ落ちと取り違えない）。
+        _collapsedTime = grounded && Tone < 1f && _hoverHeight > 0f && height < _hoverHeight - (_tuning.CollapseDrop * _standHeight) ? _collapsedTime + dt : 0f;
+        if (_noGroundTime > _tuning.NoGroundFallTime || _tiltTime > _tuning.FallGrace || _collapsedTime > _tuning.CollapseTime)
         {
             Enter(FighterState.Down);
             return;
         }
 
         var scale = IsGrabbed ? _tuning.GrabbedDriveScale : 1f;
-        DriveBody(command, scale, grounded, height, dt);
+        DriveBody(command, scale * Tone, grounded, height, dt);
     }
 
     private void TickDown(in FighterCommand command, bool grounded, float height, float dt)
@@ -637,7 +706,7 @@ public sealed class Fighter
         SetServoScale(ControlScale);
         DriveArms(command, ControlScale, weightShift: false, dt);
         var settled = _world.GetState(Parts.Pelvis).LinearVelocity.Length() < 0.6f;
-        if (!_stayDown && CanStand && _stateTime > _tuning.DownTime && settled && grounded && height < _standHeight * 1.6f)
+        if (!_stayDown && CanStand && Consciousness >= _tuning.GetUpConsciousness && _stateTime > _tuning.DownTime && settled && grounded && height < _standHeight * 1.6f)
         {
             Enter(FighterState.GettingUp);
         }
@@ -651,7 +720,7 @@ public sealed class Fighter
             return;
         }
 
-        DriveBody(command, Ramp(0.4f, 1.2f, _stateTime, _tuning.GetUpDuration), true, height, dt);
+        DriveBody(command, Ramp(0.4f, 1.2f, _stateTime, _tuning.GetUpDuration) * Tone, true, height, dt);
         if (_stateTime >= _tuning.GetUpDuration && Uprightness > _tuning.RecoverUprightness)
         {
             Enter(FighterState.Standing);
@@ -667,6 +736,7 @@ public sealed class Fighter
         State = next;
         _stateTime = 0f;
         _tiltTime = 0f;
+        _collapsedTime = 0f;
         _noGroundTime = 0f;
     }
 
@@ -911,7 +981,8 @@ public sealed class Fighter
         var error = target + bob - height;
         // 体を支える力が弱い（打たれて力が落ちた・脚が削られた）間は積分しない。弱い間に溜めると、力が戻ったときに体が跳ねる。
         _hoverIntegral = walking ? 0f : Math.Clamp(_hoverIntegral + (HoverKi * error * dt * Math.Clamp(hoverScale, 0f, 1f)), -0.3f * -_world.Gravity.Y, 0.3f * -_world.Gravity.Y);
-        var accel = FighterMath.HoverAccel(-_world.Gravity.Y + (_hoverIntegral * MathF.Max(0f, hoverScale)), error,
+        // 体を支える力は、意識が薄れて体の張りが抜けると重力を支えきれなくなる（崩れ落ちる）。
+        var accel = FighterMath.HoverAccel((-_world.Gravity.Y * Tone) + (_hoverIntegral * MathF.Max(0f, hoverScale)), error,
             pelvis.LinearVelocity.Y, _tuning.HoverKp, _tuning.HoverKd, _tuning.MaxHoverAccel, hoverScale);
         // 足の運びの間は脚が床に立っていて、脚の重さは床が支える。浮かせるのは上体（骨盤から上）だけ。
         ApplySharedImpulse(new Vector3(0f, accel * (walking ? TotalMass : TotalMass - _legMass) * dt, 0f));
@@ -946,15 +1017,19 @@ public sealed class Fighter
         // 姿勢 = 向き（ヨー）×（向きの座標系での）傾き × 胴自身のひねり。傾きは向きの座標系で与えるので、
         // ひねっていても「前へ出した頭」は前傾のまま。傾きは主に胸、腰はその一部（脚の付け根が後ろへ振れないように）。
         var facing = Quaternion.CreateFromAxisAngle(Vector3.UnitY, _facingYaw);
-        Quaternion Upright(float twistShare, float leanShare)
+        Quaternion Upright(float twistShare, float leanShare, float pitchAngle)
         {
-            var lean = Quaternion.Concatenate(Quaternion.CreateFromAxisAngle(Vector3.UnitZ, roll * leanShare), Quaternion.CreateFromAxisAngle(Vector3.UnitX, pitch * leanShare));
+            var lean = Quaternion.Concatenate(Quaternion.CreateFromAxisAngle(Vector3.UnitZ, roll * leanShare), Quaternion.CreateFromAxisAngle(Vector3.UnitX, pitchAngle));
             return Quaternion.Concatenate(Quaternion.Concatenate(Quaternion.CreateFromAxisAngle(Vector3.UnitY, twist * twistShare), lean), facing);
         }
 
-        _pelvisTarget = Upright(_tuning.HipTwistShare, 0.25f);
+        // 後ろへ反らす（スウェー）ときは、腰から上体ごと後ろへ倒す（首だけで反らない）。前へ倒すときの腰は一部だけ
+        // （脚の付け根が後ろへ振れないように。前へ深く折るのはヒップヒンジ）。
+        // 頭を後ろへ引いた分（後ろへ歩くときの傾き・ヒップヒンジは含めない）だけ、腰の受け持ちを増やす。
+        var sway = Math.Clamp(MathF.Atan2(head.Z, torsoLength), -_tuning.MaxLeanRadians, 0f);
+        _pelvisTarget = Upright(_tuning.HipTwistShare, 0.25f, (0.25f * pitch) + ((_tuning.HipBackLeanShare - 0.25f) * sway));
         ApplyUprightImpulse(Parts.Pelvis, _pelvisTarget, scale, dt);
-        ApplyUprightImpulse(Parts.Chest, Upright(1f, 1f), scale * 0.9f, dt);
+        ApplyUprightImpulse(Parts.Chest, Upright(1f, 1f, pitch), scale * 0.9f, dt);
     }
 
     private void ApplyUprightImpulse(int body, Quaternion target, float scale, float dt)
