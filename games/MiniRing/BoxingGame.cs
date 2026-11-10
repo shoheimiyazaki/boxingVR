@@ -498,7 +498,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
             var velocity = (chunk.Velocity * ChunkFling) + recoil;
             var spin = chunk.AngularVelocity + (new Vector3(Jitter(), Jitter(), Jitter()) * ChunkSpin);
-            _debris.SpawnChunk(chunk.Position, velocity, chunk.Orientation, chunk.CellSize, cells, spin, tag: chunk.Cells[0].Material, heat: ChipHeat * 1.2f, hotColor: TornGlow);
+            _debris.SpawnChunk(chunk.Position, velocity, chunk.Orientation, chunk.CellSize, cells, spin, tag: chunk.Cells[0].Material, heat: ChunkHeat, hotColor: TornGlow);
             for (var k = 0; k < Math.Min(4, flesh / 2); k++)
             {
                 var drop = (velocity * 1.2f) + (new Vector3(Jitter(), Jitter(), Jitter()) * (0.3f * velocity.Length()));
@@ -506,6 +506,9 @@ public sealed class BoxingGame : IGame<BoxingInput>
             }
         }
     }
+
+    /// <summary>塊のはがれた断面が光っている時間 [s]。</summary>
+    private const float ChunkHeat = 0.34f;
 
     /// <summary>塊のはがれた断面の光の色（熱をもった赤橙。欠片の白い光より控えめ）。</summary>
     private static readonly Vector4 TornGlow = new(1f, 0.5f, 0.22f, 1f);
@@ -524,7 +527,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
     }
 
     /// <summary>砕けた欠片が光っている時間 [s]。</summary>
-    private const float ChipHeat = 0.28f;
+    private const float ChipHeat = 0.4f;
 
     /// <summary>砕けた欠片の光の色（白に近い暖色）。</summary>
     private static readonly Vector4 ChipGlow = new(1f, 0.82f, 0.58f, 1f);

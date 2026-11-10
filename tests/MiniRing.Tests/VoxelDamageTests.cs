@@ -247,7 +247,7 @@ public sealed class VoxelDamageTests
         Assert.IsTrue(trails.All(t => t.Blend == ParticleBlend.Additive && t.Position.Z < 0.5f), "only the hot piece streaks");
         Assert.IsTrue(trails.All(t => t.Position.X <= cubes[0].Model.Translation.X + 1e-4f), "behind it, back along its flight");
         var length = cubes[0].Model.Translation.X - trails.Min(t => t.Position.X);
-        Assert.IsTrue(length is > 0.06f and < 0.1f, $"about 5 frames of its flight at 1 m/s ({length} m)");
+        Assert.IsTrue(length is > 0.14f and < 0.2f, $"about 10 frames of its flight at 1 m/s ({length} m)");
 
         for (var i = 0; i < 16; i++)
         {

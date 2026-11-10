@@ -245,23 +245,30 @@ public sealed class VoxelDebris
 
             var edge = MathF.Max(p.Size.X, MathF.Max(p.Size.Y, p.Size.Z));
             var back = p.Velocity / speed;
-            var length = MathF.Min(speed * TrailSeconds, MaxTrailLength) * (0.4f + (0.6f * hot));
-            for (var k = 0; k < TrailDots; k++)
+            var length = MathF.Min(speed * TrailSeconds, MaxTrailLength);
+            // Soft dots fade from the centre (visible about half their size): a little over twice the edge reads as the
+            // piece's width. Packed close enough to overlap into one unbroken line rather than a row of dots.
+            var size = 2.4f * edge;
+            var dots = Math.Clamp((int)MathF.Ceiling(length / (0.3f * size)) + 1, 4, MaxTrailDots);
+            // The streak fades with its own (linear) cooling, so it lingers a little longer than the piece's own glow.
+            var left = 1f - (p.Age / p.Heat);
+            var color = p.HotColor * TrailBrightness;
+            for (var k = 0; k < dots; k++)
             {
-                var f = k / (float)(TrailDots - 1);
-                // Soft dots fade from the centre (visible about half their size): twice the edge reads as the piece's width.
-                var size = 2f * edge * (1f - (0.5f * f));
-                var alpha = 0.75f * hot * (1f - (0.8f * f));
-                into.Add(new ParticleInstance(p.Position - (back * length * f), size, p.HotColor with { W = alpha }, Blend: ParticleBlend.Additive));
+                var f = k / (float)(dots - 1);
+                var tail = 1f - f;
+                var alpha = MathF.Min(1f, 0.85f * left * tail * tail);
+                into.Add(new ParticleInstance(p.Position - (back * length * f), size * (1f - (0.45f * f)), color with { W = alpha }, Blend: ParticleBlend.Additive));
             }
         }
     }
 
-    /// <summary>How long a hot piece's streak is, in seconds of its travel: about 5 frames at 60 fps, so the light lingers that long behind it.</summary>
-    public const float TrailSeconds = 5f / 60f;
+    /// <summary>How long a hot piece's streak is, in seconds of its travel: about 10 frames at 60 fps, so the light lingers that long behind it.</summary>
+    public const float TrailSeconds = 10f / 60f;
 
-    private const float MaxTrailLength = 0.15f;
-    private const int TrailDots = 10;
+    private const float MaxTrailLength = 0.3f;
+    private const int MaxTrailDots = 48;
+    private const float TrailBrightness = 1.4f;
     private const float HotBrightness = 1.6f;
     private const float CooledBrightness = 0.75f;
 
