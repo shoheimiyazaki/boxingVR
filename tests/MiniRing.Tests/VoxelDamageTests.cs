@@ -243,10 +243,18 @@ public sealed class VoxelDamageTests
         Assert.IsNotEmpty(glowing);
         Assert.IsTrue(glowing.All(g => g.Material == MaterialKind.Emissive && g.Color.X > 1f && g.Color.Z > 0.7f * g.Color.X), "white hot at first");
 
-        for (var i = 0; i < 31; i++)
+        var halos = new List<ParticleInstance>();
+        game.Wounds.WriteHalos(halos);
+        Assert.IsNotEmpty(halos, "a halo of light around the crater while hot");
+
+        for (var i = 0; i < 30; i++)
         {
             game.Step(default, 1f / 60f);
         }
+
+        Assert.IsGreaterThan(0, game.Wounds.Count, "still glowing after half a second");
+
+        game.Wounds.Step(WoundGlow.HeatSeconds); // 1.5 秒も試合を回すと次の打撃で新しい穴ができるので、傷の時計だけ進める
 
         Assert.AreEqual(0, game.Wounds.Count, $"cooled after {WoundGlow.HeatSeconds} s");
     }

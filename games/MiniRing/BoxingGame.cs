@@ -695,6 +695,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         ArenaLook.WriteAtmosphere(RingCenter, RingSize, RingSurfaceHeight, _lookTime, _renderParticles);
         _impacts.WriteParticles(_renderParticles);
         _debris.WriteTrails(_renderParticles);
+        _wounds.WriteHalos(_renderParticles);
         return _renderParticles;
     }
 

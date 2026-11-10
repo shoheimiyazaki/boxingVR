@@ -199,7 +199,7 @@ public sealed class SnapshotTests
         var eye = head.Position + (side * 0.45f) + (forward * 0.05f) + new Vector3(0f, 0.05f, 0f);
         var viewProjection = Camera.ViewProjection(eye, head.Position + (forward * 0.05f), Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
         var stepped = 0;
-        foreach (var frame in new[] { 3, 8, 16 })
+        foreach (var frame in new[] { 3, 15, 30, 60 })
         {
             while (stepped < frame)
             {
