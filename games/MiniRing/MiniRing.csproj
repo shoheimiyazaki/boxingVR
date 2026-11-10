@@ -10,4 +10,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="MiniRing.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- ゲームの CPU（champion）のスタイル。値が多い（防御技の表を含む）ので JSON のまま組み込む。docs/BOT_PDCA.md -->
+    <EmbeddedResource Include="Bots\champion.json" LogicalName="MiniRing.Bots.champion.json" />
+  </ItemGroup>
 </Project>

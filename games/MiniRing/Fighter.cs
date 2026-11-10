@@ -111,6 +111,9 @@ public sealed class Fighter
 
     public Vector3 HeadPosition => _world.GetState(Parts.Head).Position;
     public Vector3 ChestPosition => _world.GetState(Parts.Chest).Position;
+
+    /// <summary>胸の速度（体全体の動きの目安。拳の動きから歩く動きを差し引くのに使う）。</summary>
+    public Vector3 ChestVelocity => _world.GetState(Parts.Chest).LinearVelocity;
     public Vector3 PelvisPosition => _world.GetState(Parts.Pelvis).Position;
     public Quaternion TorsoOrientation => _world.GetState(Parts.Chest).Orientation;
 

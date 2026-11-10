@@ -4,9 +4,17 @@ using System.Text.Json;
 
 namespace MiniRing.Replay;
 
-/// <summary>リプレイの見出し: 試合を作り直すのに必要なもの（乱数の種・調整値）と、記録の素性。</summary>
-public sealed record ReplayHeader(int Seed, string TuningJson, string Host, string AppVersion, DateTime CreatedUtc)
+/// <summary>リプレイの見出し: 試合を作り直すのに必要なもの（乱数の種・調整値・CPU のボット名）と、記録の素性。</summary>
+public sealed record ReplayHeader(int Seed, string TuningJson, string Host, string AppVersion, DateTime CreatedUtc,
+    string CpuName = Bots.BotCatalog.Legacy, string CpuStyleJson = "", int CpuLogic = 0)
 {
+    /// <summary>
+    /// 記録時と同じ CPU の両コーナー。名前ではなく記録したスタイルから作るので、あとで <c>champion</c> を調整し直しても再現できる。
+    /// </summary>
+    public BoxingCorners Corners => CpuStyleJson.Length == 0
+        ? Bots.BotCatalog.Corners(Bots.BotCatalog.Legacy)
+        : Bots.BotCatalog.Corners(Bots.BotStyle.FromJson(CpuStyleJson) with { Name = CpuName });
+
     public FighterTuning Tuning => JsonSerializer.Deserialize<FighterTuning>(TuningJson) ?? FighterTuning.Default;
 }
 
@@ -22,7 +30,9 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// <summary>
 /// リプレイのファイル形式（バイナリ・リトルエンディアン）。
 /// <code>
-/// "MRRP" int32 version | int32 seed | string tuningJson | string host | string appVersion | int64 createdUtcTicks
+/// "MRRP" int32 version | int32 seed | string tuningJson | string host | string appVersion | int64 createdUtcTicks | string cpuName | string cpuStyleJson | int32 cpuLogic
+/// （CPU の欄は版 2 から。cpuStyleJson が空なら legacy。cpuLogic はボットの判断の仕組みの版（BoxerBot.LogicVersion）。
+/// 版 1 の記録は CPU が legacy だった頃のもの）
 /// 以降、レコードの並び:
 ///   0x01 Step:     float dt | BoxingInput（float × 18 + bool × 3）
 ///   0x02 Checksum: int32 step（そのステップを終えた直後）| uint64 BoxingGame.StateChecksum()
@@ -31,7 +41,7 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// </summary>
 public static class ReplayFile
 {
-    public const int Version = 1;
+    public const int Version = 2;
     public const string Extension = ".mrrep";
     /// <summary>1 ステップの時間刻みとして受け付ける上限 [s]（壊れたファイルの値を物理に渡さない）。</summary>
     public const float MaxDt = 0.25f;
@@ -50,6 +60,9 @@ public static class ReplayFile
         writer.Write(header.Host);
         writer.Write(header.AppVersion);
         writer.Write(header.CreatedUtc.Ticks);
+        writer.Write(header.CpuName);
+        writer.Write(header.CpuStyleJson);
+        writer.Write(header.CpuLogic);
     }
 
     public static void WriteStep(BinaryWriter writer, in ReplayStep step)
@@ -86,13 +99,37 @@ public static class ReplayFile
         }
 
         var version = reader.ReadInt32();
-        if (version != Version)
+        if (version is < 1 or > Version)
         {
-            throw new InvalidDataException($"Replay format version {version} is not supported (expected {Version}).");
+            throw new InvalidDataException($"Replay format version {version} is not supported (expected 1..{Version}).");
         }
 
         var header = new ReplayHeader(reader.ReadInt32(), reader.ReadString(), reader.ReadString(), reader.ReadString(),
             new DateTime(reader.ReadInt64(), DateTimeKind.Utc));
+        if (version >= 2)
+        {
+            header = header with { CpuName = reader.ReadString(), CpuStyleJson = reader.ReadString(), CpuLogic = reader.ReadInt32() };
+            if (header.CpuStyleJson.Length == 0 && header.CpuName != Bots.BotCatalog.Legacy)
+            {
+                throw new InvalidDataException($"Replay CPU '{header.CpuName}' has no recorded style.");
+            }
+
+            // 仕組みの違うボットで再生すると、黙ってどこかでずれる。読む前にはっきり断る。
+            if (header.CpuStyleJson.Length > 0 && header.CpuLogic != Bots.BoxerBot.LogicVersion)
+            {
+                throw new InvalidDataException(
+                    $"Replay CPU was recorded with bot logic v{header.CpuLogic}; this build has v{Bots.BoxerBot.LogicVersion} and cannot reproduce it.");
+            }
+
+            try
+            {
+                _ = header.Corners; // スタイルの JSON を読む前に確かめる
+            }
+            catch (Exception e) when (e is System.Text.Json.JsonException or ArgumentException)
+            {
+                throw new InvalidDataException($"Replay CPU style is invalid: {e.Message}", e);
+            }
+        }
         var steps = new List<ReplayStep>();
         var checksums = new Dictionary<int, ulong>();
         try

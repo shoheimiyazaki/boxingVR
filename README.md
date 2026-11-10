@@ -19,6 +19,8 @@
 | `run.cmd verify [ファイル]` | 記録を最速で再シミュレーションし、記録どおりに再現できるか照合する |
 | `run.cmd selftest` | HMD なしで VR の描画経路を検証する |
 | `run.cmd test` | 自動テストを実行する（GPU スナップショットを除く） |
+| `run.cmd arena league [--bouts N --seconds S]` | ボット同士の総当たり（順位表・技ごとの命中率・守りの成功率） |
+| `run.cmd arena tune --base NAME` | ボットのスタイルを自動調整する（世代ごとに PDCA を記録） |
 
 **試合は自動で記録されます**（デスクトップ版・VR 版とも `replays/` に `miniring_<host>_<日時>.mrrep`）。詳しくは [docs/REPLAY.md](docs/REPLAY.md)。
 
@@ -68,6 +70,7 @@ dotnet run --project games/MiniRing.Desktop -c Release
 - 人形の手の目標点は常に光る玉で表示され、拳とは線でつながります（体やグローブの陰でも隠れません）。掴んでいる間はオレンジになります。
 - VR ではコントローラの動きを **2 倍**にして人形へ渡します（構えの位置を中心に増幅するので、構えたままなら腕は伸び切りません）。
 - ダメージは動きに影響しません。体は常にフルパワーで動き、打たれると頭が首のバネでグラングラン揺れます。当たりの重さと芯の食い方は**打撃音**で分かります（[docs/BOXING.md](docs/BOXING.md)）。
+- CPU はボクシングの技を使うボットです。ジャブ・ストレート・フック・アッパー・ボディ・コンビネーションを打ち、拳が向かってくればブロック・ダッキング・スリップ・スウェー・バックステップで守り、守り切ればカウンターを返します。ボット同士を戦わせて改善した `champion` が相手をします（[docs/BOTS.md](docs/BOTS.md)、改善の記録は [docs/BOT_PDCA.md](docs/BOT_PDCA.md)）。
 - VR 版にはデスクトップのミラーウィンドウがありません。状態はコンソールに出ます。
 
 ## 検証
@@ -84,7 +87,7 @@ dotnet test tests/MiniRing.Tests --filter "TestCategory!=visual"
 dotnet run --project games/MiniRing.Vr -- --selftest
 ```
 
-- テストは 76 件あります（うち GPU 描画の visual 2 件）。記録→再生が全チェックサムまでビット単位で一致することも確かめています。純関数（IK・写像・力学モデル・部位判定・体の状態など）と、ヘッドレスで物理を回して「立つ・歩く・旋回・パンチが届く・掴んで離す・ダウンから起き上がる」「打たれた頭が首のバネで揺れて戻る」「手の位置で胴がひねれ、頭の位置で傾く」「ストレートは手打ちより重い」を確かめるものです。
+- テストは 106 件あります（うち GPU 描画の visual 2 件）。記録→再生が全チェックサムまでビット単位で一致することも確かめています。純関数（IK・写像・力学モデル・部位判定・体の状態など）と、ヘッドレスで物理を回して「立つ・歩く・旋回・パンチが届く・掴んで離す・ダウンから起き上がる」「打たれた頭が首のバネで揺れて戻る」「手の位置で胴がひねれ、頭の位置で傾く」「ストレートは手打ちより重い」を確かめるものです。
 - `--selftest` は HMD なしで VR 描画経路を検証します。自前の Vulkan デバイスと sRGB 画像（XR スワップチェーン画像の代役）に描いた結果が、通常の描画とバイト単位で一致するかを見ます。
 - GPU の画面確認は `dotnet test tests/MiniRing.Tests --filter TestCategory=visual` で行い、出力先は `.visualcheck/` です。
 
@@ -95,5 +98,7 @@ dotnet run --project games/MiniRing.Vr -- --selftest
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — 構成・制御の仕組み・1 フレームの流れ
 - [docs/BOXING.md](docs/BOXING.md) — パンチの力学（体重が乗る／手打ち）、部位ダメージ（動きには影響しない）、打撃音
 - [docs/REPLAY.md](docs/REPLAY.md) — 自動記録と完全再現（ファイル形式・再生・照合）
+- [docs/BOTS.md](docs/BOTS.md) — ボクシングボットの技・守り・スタイルと、ボット同士の対戦場
+- [docs/BOT_PDCA.md](docs/BOT_PDCA.md) — ボット同士を戦わせて改善した記録（データと判断）
 - [docs/REUSE.md](docs/REUSE.md) — iTVision 3 / Aigis(Dr. Tod) から何をどう持ってきたか、エンジンへの変更点
 - [docs/TUNING.md](docs/TUNING.md) — 調整値と、実機で最初に見るべきこと

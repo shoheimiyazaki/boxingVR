@@ -7,7 +7,7 @@ public readonly record struct ReplayVerification(int StepsPlayed, int ChecksumsM
 }
 
 /// <summary>
-/// 記録から試合を作り直して 1 ステップずつ再生する。記録時と同じ種・同じ調整値で <see cref="BoxingGame"/> を作り、
+/// 記録から試合を作り直して 1 ステップずつ再生する。記録時と同じ種・同じ調整値・同じ CPU で <see cref="BoxingGame"/> を作り、
 /// 同じ入力と時間刻みを順に与える。途中のチェックサムと照合して、記録と同じ動きかを確かめる。
 /// </summary>
 public sealed class ReplayPlayer : IDisposable
@@ -18,7 +18,7 @@ public sealed class ReplayPlayer : IDisposable
     {
         ArgumentNullException.ThrowIfNull(data);
         _data = data;
-        Game = new BoxingGame(data.Header.Tuning, data.Header.Seed);
+        Game = new BoxingGame(data.Header.Tuning, data.Header.Seed, data.Header.Corners);
     }
 
     public BoxingGame Game { get; }

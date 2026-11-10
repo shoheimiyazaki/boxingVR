@@ -9,6 +9,8 @@ rem   run.cmd replay [file]      watch a recording in real time (default: the ne
 rem   run.cmd verify [file]      re-simulate a recording and check it reproduces exactly (default: newest)
 rem   run.cmd selftest           check the VR render path without a headset
 rem   run.cmd test               run the automated tests (excluding GPU snapshots)
+rem   run.cmd arena [args]       bot-vs-bot arena: league [--bouts N --seconds S] / tune --base NAME (see docs\BOTS.md)
+rem                              video [--red A --blue B --seconds S --out f.mp4] renders a match (needs ffmpeg)
 rem
 rem Builds Release incrementally first. If the build itself crashes (e.g. MSB4166 after the PC ran out of
 rem memory), it restarts the .NET build servers and tries once more.
@@ -19,12 +21,14 @@ cd /d "%~dp0"
 set "MODE=%~1"
 set "DESKTOP=games\MiniRing.Desktop"
 set "VR=games\MiniRing.Vr"
+set "ARENA=games\MiniRing.Arena"
 
 if /i "%MODE%"=="vr" goto :vr
 if /i "%MODE%"=="replay" goto :replay
 if /i "%MODE%"=="verify" goto :verify
 if /i "%MODE%"=="selftest" goto :selftest
 if /i "%MODE%"=="test" goto :test
+if /i "%MODE%"=="arena" goto :arena
 if not "%MODE%"=="" if not "%MODE:~0,2%"=="--" goto :usage
 
 call :build "%DESKTOP%" || goto :end
@@ -49,6 +53,21 @@ call :pick "%~2"
 if not defined FILE goto :nofile
 call :build "%DESKTOP%" || goto :end
 dotnet run --project %DESKTOP% -c Release --no-build -- --verify "%FILE%"
+goto :end
+
+:arena
+rem Forward every argument after "arena" (not just %2..%9). cmd splits comma lists into separate
+rem arguments; the arena joins the values that follow one --name back together.
+shift
+set "ARGS="
+:arenaargs
+if "%~1"=="" goto :arenarun
+set ARGS=%ARGS% "%~1"
+shift
+goto :arenaargs
+:arenarun
+call :build "%ARENA%" || goto :end
+dotnet run --project %ARENA% -c Release --no-build --%ARGS%
 goto :end
 
 :selftest
@@ -88,7 +107,7 @@ set "EXITCODE=1"
 goto :end
 
 :usage
-echo Unknown mode "%MODE%". Use: run.cmd [vr^|replay^|verify^|selftest^|test]
+echo Unknown mode "%MODE%". Use: run.cmd [vr^|replay^|verify^|selftest^|test^|arena]
 set "EXITCODE=1"
 goto :end
 

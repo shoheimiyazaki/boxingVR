@@ -42,9 +42,20 @@ public readonly record struct FighterCommand(Vector3 MoveWorld, Vector3 FaceDire
     }
 }
 
+/// <summary>拳 1 つの見え方（ワールド座標の位置と速度）。</summary>
+public readonly record struct GloveSense(Vector3 Position, Vector3 Velocity);
+
 /// <summary>入力元がファイターの状況を知るための読み取り専用情報。OpponentAlive は相手が打ってよい状態か
-/// （KO されておらず、立っている）。倒れた相手には手を出さない。</summary>
-public readonly record struct FighterSense(BodyFrame Self, float ArmReach, Vector3 OpponentHead, Vector3 OpponentChest, bool OpponentAlive);
+/// （KO されておらず、立っている）。倒れた相手には手を出さない。
+/// <para>SelfHead と相手の拳（<paramref name="OpponentLeft"/> / <paramref name="OpponentRight"/>）は、ボットが飛んでくる拳を
+/// 見て守るためのもの（ブロック・ダッキング・スリップ・スウェー）。<paramref name="OpponentVelocity"/> は相手の胴の速度で、
+/// 拳の動きから歩く動きを差し引いて「パンチの動き出し」を見るのに使う。</para></summary>
+public readonly record struct FighterSense(
+    BodyFrame Self, float ArmReach, Vector3 OpponentHead, Vector3 OpponentChest, bool OpponentAlive,
+    Vector3 SelfHead = default, GloveSense OpponentLeft = default, GloveSense OpponentRight = default, Vector3 OpponentVelocity = default)
+{
+    public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
+}
 
 /// <summary>ファイターの操作元。VR・キーボード・AI がこれを実装する。</summary>
 public interface IFighterControl
@@ -53,6 +64,11 @@ public interface IFighterControl
 
     /// <summary>自分のパンチが当たった（ハプティクス等のフィードバック用）。</summary>
     public void OnPunchLanded(Hand hand, float damage)
+    {
+    }
+
+    /// <summary>自分が打たれた（ボットが「守れたか」を知るため）。</summary>
+    public void OnPunchTaken(in HitEvent hit)
     {
     }
 }

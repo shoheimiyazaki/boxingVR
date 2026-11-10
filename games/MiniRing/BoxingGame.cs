@@ -10,6 +10,21 @@ namespace MiniRing;
 /// <summary>ホストから毎ステップ渡される入力: プレイヤーの指令と、ラウンドのやり直し要求。</summary>
 public readonly record struct BoxingInput(FighterCommand Player, bool ResetRequested = false);
 
+/// <summary>ラウンドごとに操作元を作る（引数はそのラウンドの乱数の種）。</summary>
+public delegate IFighterControl ControlFactory(int roundSeed);
+
+/// <summary>
+/// 両コーナーの操作元。<paramref name="Cpu"/> は CPU 側（<see cref="Bots.BotCatalog"/> の名前やスタイルからも作れる）。
+/// <paramref name="Player"/> を渡すとプレイヤー側もボットになり、<see cref="BoxingInput.Player"/> は無視される
+/// （ボット同士の対戦。どちらもサブステップごとに読むので条件は対等）。
+/// <paramref name="CpuStyleJson"/> は CPU のスタイルそのもの（リプレイに書き、後で <c>champion</c> が変わっても同じ相手で再生するため）。
+/// </summary>
+public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFactory? Player = null, string? CpuStyleJson = null)
+{
+    /// <summary>ゲームの既定の CPU。</summary>
+    public static BoxingCorners Default => Bots.BotCatalog.Corners(Bots.BotCatalog.DefaultCpu);
+}
+
 /// <summary>
 /// 試合本体（ホスト非依存）: リング・2 体のファイター・CPU・判定・ラウンド進行・描画データ。
 /// デスクトップは Aigis の <see cref="GameHost"/> から、VR は OpenXR ホストから同じ <see cref="Step"/> を呼ぶ。
@@ -44,15 +59,18 @@ public sealed class BoxingGame : IGame<BoxingInput>
     private PhysicsWorld _world = null!;
     private Fighter[] _fighters = [];
     private Ring _ring = null!;
-    private AiControl _ai = null!;
+    private readonly BoxingCorners _corners;
+    private IFighterControl _cpuControl = null!;
+    private IFighterControl? _playerControl;
     private float _roundOverTimer;
     private string _roundMessage = "";
     private float _messageTimer;
     private int _round;
 
-    public BoxingGame(FighterTuning? tuning = null, int seed = 1)
+    public BoxingGame(FighterTuning? tuning = null, int seed = 1, BoxingCorners? corners = null)
     {
         _tuning = tuning ?? FighterTuning.Default;
+        _corners = corners ?? BoxingCorners.Default;
         _model = BoxerModel.Build(_tuning.HalfExtents, _tuning.ModelSubdivisions);
         _seed = seed;
         StartRound();
@@ -65,6 +83,21 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
     /// <summary>ファイターの調整値（リプレイで同じ試合を作り直すため）。</summary>
     public FighterTuning Tuning => _tuning;
+
+    /// <summary>CPU 側のボットの名前（リプレイで同じ相手を作り直すため）。</summary>
+    public string CpuName => _corners.CpuName;
+
+    /// <summary>CPU 側のボットのスタイル（JSON）。legacy や外から渡した操作元なら null。</summary>
+    public string? CpuStyleJson => _corners.CpuStyleJson;
+
+    /// <summary>このラウンドの CPU 側の操作元。</summary>
+    public IFighterControl CpuControl => _cpuControl;
+
+    /// <summary>このラウンドのプレイヤー側の操作元（ボット同士のときだけ。人が操作するときは null）。</summary>
+    public IFighterControl? PlayerControl => _playerControl;
+
+    /// <summary>今のラウンド番号（1 から）。</summary>
+    public int Round => _round;
     public Ring Ring => _ring;
     public Fighter Player { get; private set; } = null!;
     public Fighter Cpu { get; private set; } = null!;
@@ -121,8 +154,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
     private void Substep(in FighterCommand playerCommand, float dt)
     {
-        var cpuCommand = _ai.Read(Sense(Cpu, Player), dt);
-        Drive(Player, Cpu, playerCommand, dt);
+        var cpuCommand = _cpuControl.Read(Sense(Cpu, Player), dt);
+        Drive(Player, Cpu, _playerControl?.Read(Sense(Player, Cpu), dt) ?? playerCommand, dt);
         Drive(Cpu, Player, cpuCommand, dt);
 
         foreach (var fighter in Fighters)
@@ -244,6 +277,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
         _recentHits.Add(hit);
         LastHit = hit;
+        ControlOf(hit.Attacker)?.OnPunchLanded(hit.Hand, hit.Damage);
+        ControlOf(victim)?.OnPunchTaken(hit);
     }
 
     private void UpdateRound(float dt)
@@ -313,7 +348,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
         PlayerSkin = new BoxerSkin(_model, Player, _tuning);
         CpuSkin = new BoxerSkin(_model, Cpu, _tuning);
         _fighters = [Player, Cpu];
-        _ai = new AiControl(_seed + _round, 0.5f);
+        _cpuControl = _corners.Cpu(_seed + _round);
+        _playerControl = _corners.Player?.Invoke((_seed * 7919) + _round);
         _roundOverTimer = 0f;
         LastHit = null;
         _preStepGloveVelocity.Clear();
@@ -327,13 +363,18 @@ public sealed class BoxingGame : IGame<BoxingInput>
         _messageTimer = seconds;
     }
 
+    private IFighterControl? ControlOf(Fighter fighter) => fighter == Cpu ? _cpuControl : _playerControl;
+
     /// <summary>入力元に渡す、<paramref name="self"/> から見た状況。</summary>
     public static FighterSense Sense(Fighter self, Fighter opponent)
     {
         ArgumentNullException.ThrowIfNull(self);
         ArgumentNullException.ThrowIfNull(opponent);
         return new FighterSense(self.Frame, self.ArmReach, opponent.HeadPosition, opponent.ChestPosition,
-            opponent.State == FighterState.Standing);
+            opponent.State == FighterState.Standing, self.HeadPosition,
+            new GloveSense(opponent.GloveCenter(Hand.Left), opponent.GloveVelocity(Hand.Left)),
+            new GloveSense(opponent.GloveCenter(Hand.Right), opponent.GloveVelocity(Hand.Right)),
+            opponent.ChestVelocity);
     }
 
     public FighterSense PlayerSense => Sense(Player, Cpu);

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- ボット同士を戦わせる対戦場（ヘッドレス）。総当たりの順位表・技の内訳・スタイルの自動調整。 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>miniring-arena</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MiniRing\MiniRing.csproj" />
+  </ItemGroup>
+</Project>

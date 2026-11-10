@@ -27,8 +27,20 @@ public sealed class ReplayRecorder : IDisposable
     {
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(game);
+        // 記録から作り直せない試合は記録しない: ボット同士（ホストの入力は使われていない）と、スタイルの分からない CPU。
+        if (game.PlayerControl is not null)
+        {
+            throw new ArgumentException("A bot-vs-bot match cannot be recorded: the player's input is not used.", nameof(game));
+        }
+
+        if (game.CpuStyleJson is null && game.CpuName != Bots.BotCatalog.Legacy)
+        {
+            throw new ArgumentException($"CPU '{game.CpuName}' has no style to record; build the match with BotCatalog.Corners.", nameof(game));
+        }
+
         _writer = new BinaryWriter(output);
-        ReplayFile.WriteHeader(_writer, new ReplayHeader(game.Seed, JsonSerializer.Serialize(game.Tuning), host, AppVersion, DateTime.UtcNow));
+        ReplayFile.WriteHeader(_writer, new ReplayHeader(game.Seed, JsonSerializer.Serialize(game.Tuning), host, AppVersion, DateTime.UtcNow,
+            game.CpuName, game.CpuStyleJson ?? "", game.CpuStyleJson is null ? 0 : Bots.BoxerBot.LogicVersion));
         _writer.Flush();
     }
 
@@ -70,6 +82,7 @@ public sealed class ReplayRecorder : IDisposable
             catch
             {
                 file.Dispose();
+                File.Delete(path); // 見出しも書けなかった空のファイルは残さない
                 throw;
             }
         }
