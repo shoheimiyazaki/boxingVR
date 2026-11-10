@@ -443,10 +443,10 @@ public sealed class BoxingGame : IGame<BoxingInput>
             Vector3 Fly(float speedScale, float wobble) => (along * speedScale) + (new Vector3(Jitter(), Jitter(), Jitter()) * (wobble * pace * speedScale)) + recoil;
             Vector3 Spin(float s) => new Vector3(Jitter(), Jitter(), Jitter()) * s;
             // 砕けた直後の欠片は一瞬光り、短い光の尾を引く（ChipHeat 秒で元の色に戻る）。
-            _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color, tag: chip.Material, heat: ChipHeat, hotColor: ChipGlow);
+            _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color, tag: chip.Material, heat: ChipHeat);
             for (var k = 0; k < 2; k++)
             {
-                _debris.Spawn(chip.Position, Fly(1.8f, 0.25f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f, tag: chip.Material, heat: ChipHeat * 0.7f, hotColor: ChipGlow);
+                _debris.Spawn(chip.Position, Fly(1.8f, 0.25f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f, tag: chip.Material, heat: ChipHeat * 0.7f);
             }
 
             switch (material.Tissue)
@@ -498,7 +498,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
             var velocity = (chunk.Velocity * ChunkFling) + recoil;
             var spin = chunk.AngularVelocity + (new Vector3(Jitter(), Jitter(), Jitter()) * ChunkSpin);
-            _debris.SpawnChunk(chunk.Position, velocity, chunk.Orientation, chunk.CellSize, cells, spin, tag: chunk.Cells[0].Material, heat: ChunkHeat, hotColor: TornGlow);
+            _debris.SpawnChunk(chunk.Position, velocity, chunk.Orientation, chunk.CellSize, cells, spin, tag: chunk.Cells[0].Material, heat: ChunkHeat);
             for (var k = 0; k < Math.Min(4, flesh / 2); k++)
             {
                 var drop = (velocity * 1.2f) + (new Vector3(Jitter(), Jitter(), Jitter()) * (0.3f * velocity.Length()));
@@ -507,11 +507,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
         }
     }
 
-    /// <summary>塊のはがれた断面が光っている時間 [s]。</summary>
-    private const float ChunkHeat = 0.34f;
-
-    /// <summary>塊のはがれた断面の光の色（熱をもった赤橙。欠片の白い光より控えめ）。</summary>
-    private static readonly Vector4 TornGlow = new(1f, 0.5f, 0.22f, 1f);
+    /// <summary>塊のはがれた断面が光っている時間 [s]（欠片と同じく白 → 黄 → 赤 → 元の色）。</summary>
+    private const float ChunkHeat = 0.5f;
 
     /// <summary>塊の飛ぶ速さの倍率（欠片の 1.5 倍より遅い: 重い）。</summary>
     private const float ChunkFling = 1.3f;
@@ -526,11 +523,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
         _impacts.Spawn(point, direction, strength, color, Jitter);
     }
 
-    /// <summary>砕けた欠片が光っている時間 [s]。</summary>
-    private const float ChipHeat = 0.4f;
-
-    /// <summary>砕けた欠片の光の色（白に近い暖色）。</summary>
-    private static readonly Vector4 ChipGlow = new(1f, 0.82f, 0.58f, 1f);
+    /// <summary>砕けた欠片が光っている時間 [s]: 白 → 黄 → 赤 → 元の色と、空中で冷めていく（<see cref="VoxelDebris.HeatColor"/>）。</summary>
+    private const float ChipHeat = 0.5f;
 
     private static readonly Vector4 BloodColor = new(0.55f, 0.02f, 0.03f, 1f);
     private static readonly Vector4 BoneDust = new(1f, 0.98f, 0.9f, 1f);

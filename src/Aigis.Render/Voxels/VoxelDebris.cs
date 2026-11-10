@@ -69,7 +69,7 @@ public sealed class VoxelDebris
     /// <param name="tag">What it is, for the caller (reported back with its landings — <see cref="DebrisLanding.Tag"/>).</param>
     /// <param name="heat">How long [s] it glows hot after it breaks off: drawn self-lit in <paramref name="hotColor"/>, cooling
     /// to its own colour, with a short streak of light behind it (<see cref="WriteTrails"/>). Zero: it never glows.</param>
-    /// <param name="hotColor">The colour it glows while hot (white when not given).</param>
+    /// <param name="hotColor">The colour it first glows (white when not given); it then cools through yellow and red to its own (<see cref="HeatColor"/>).</param>
     public void Spawn(Vector3 position, Vector3 velocity, Quaternion orientation, Vector3 size, Vector3 spin, Vector4 color, float life = 0f, bool glow = false, byte tag = 0, float heat = 0f, Vector4? hotColor = null)
     {
         var piece = new Piece(position, velocity, orientation, spin, size, color, 0f)
@@ -97,7 +97,7 @@ public sealed class VoxelDebris
     /// <param name="life">How long it lives [s]; zero or less uses <see cref="LifeSeconds"/>.</param>
     /// <param name="tag">What it is, for the caller (reported back with its landings).</param>
     /// <param name="heat">How long [s] its torn faces glow.</param>
-    /// <param name="hotColor">The colour they glow (white when not given).</param>
+    /// <param name="hotColor">The colour they first glow (white when not given), cooling through yellow and red (<see cref="HeatColor"/>).</param>
     public void SpawnChunk(Vector3 position, Vector3 velocity, Quaternion orientation, Vector3 cellSize, IReadOnlyList<DebrisCell> cells, Vector3 spin, float life = 0f, byte tag = 0, float heat = 0f, Vector4? hotColor = null)
     {
         ArgumentNullException.ThrowIfNull(cells);
@@ -214,10 +214,10 @@ public sealed class VoxelDebris
             }
 
             var model = Matrix4x4.CreateScale(p.Size * fade) * Matrix4x4.CreateFromQuaternion(p.Orientation) * Matrix4x4.CreateTranslation(p.Position);
-            var hot = HeatOf(p);
-            if (hot > 0f)
+            var cooling = CoolingOf(p);
+            if (cooling >= 0f)
             {
-                var color = Vector4.Lerp(p.Color * CooledBrightness, p.HotColor * HotBrightness, hot) with { W = p.Color.W };
+                var color = HeatColor(p.HotColor, p.Color, cooling) with { W = p.Color.W };
                 into.Add(new PrimitiveInstance(PrimitiveKind.Cube, model, Vector3.Zero, color, MaterialKind.Emissive));
                 continue;
             }
@@ -236,9 +236,9 @@ public sealed class VoxelDebris
         for (var i = 0; i < _count; i++)
         {
             var p = _pieces[i];
-            var hot = HeatOf(p);
+            var cooling = CoolingOf(p);
             var speed = p.Velocity.Length();
-            if (hot <= 0f || speed < 0.05f || p.Cells is not null)
+            if (cooling < 0f || speed < 0.05f || p.Cells is not null)
             {
                 continue;
             }
@@ -251,8 +251,9 @@ public sealed class VoxelDebris
             var size = 2.4f * edge;
             var dots = Math.Clamp((int)MathF.Ceiling(length / (0.3f * size)) + 1, 4, MaxTrailDots);
             // The streak fades with its own (linear) cooling, so it lingers a little longer than the piece's own glow.
-            var left = 1f - (p.Age / p.Heat);
-            var color = p.HotColor * TrailBrightness;
+            // Its light is the piece's own, at the same point of cooling (white, then yellow, then red).
+            var left = 1f - cooling;
+            var color = HeatColor(p.HotColor, p.Color, cooling) * TrailBrightness;
             for (var k = 0; k < dots; k++)
             {
                 var f = k / (float)(dots - 1);
@@ -268,8 +269,7 @@ public sealed class VoxelDebris
 
     private const float MaxTrailLength = 0.3f;
     private const int MaxTrailDots = 48;
-    private const float TrailBrightness = 1.4f;
-    private const float HotBrightness = 1.6f;
+    private const float TrailBrightness = 0.85f;
     private const float CooledBrightness = 0.75f;
 
     /// <summary>
@@ -280,17 +280,17 @@ public sealed class VoxelDebris
     {
         var frame = Matrix4x4.CreateFromQuaternion(p.Orientation) * Matrix4x4.CreateTranslation(p.Position);
         var cube = p.Size * fade;
-        var hot = HeatOf(p);
+        var cooling = CoolingOf(p);
         foreach (var cell in p.Cells!)
         {
             var at = cell.Offset * fade;
             into.Add(new PrimitiveInstance(PrimitiveKind.Cube, Matrix4x4.CreateScale(cube) * Matrix4x4.CreateTranslation(at) * frame, Vector3.Zero, cell.Color, MaterialKind.Standard));
-            if (hot <= 0f || cell.TornFaces == 0)
+            if (cooling < 0f || cell.TornFaces == 0)
             {
                 continue;
             }
 
-            var glow = Vector4.Lerp(cell.Color * CooledBrightness, p.HotColor * PlateBrightness, hot) with { W = cell.Color.W };
+            var glow = (HeatColor(p.HotColor, cell.Color, cooling) * PlateBrightness) with { W = cell.Color.W };
             for (var f = 0; f < 6; f++)
             {
                 if ((cell.TornFaces & (1 << f)) == 0)
@@ -310,7 +310,7 @@ public sealed class VoxelDebris
 
     private const float PlateThickness = 0.12f;
     private const float PlateWidth = 0.8f;
-    private const float PlateBrightness = 1.15f;
+    private const float PlateBrightness = 0.8f;
 
     /// <summary>How far below its centre a piece reaches as it is drawn now (a chunk: its lowest cube as it is turned
     /// now), shrinking with it over the end of its life so a fading piece stays on the floor.</summary>
@@ -335,17 +335,38 @@ public sealed class VoxelDebris
     /// <summary>1, falling to 0 over the last third of its life (it shrinks away).</summary>
     private static float FadeOf(in Piece p) => Math.Clamp((p.Life - p.Age) / (p.Life / 3f), 0f, 1f);
 
-    /// <summary>1 when it has just broken off, falling to 0 over its heat (eased, so it cools fast then lingers).</summary>
-    private static float HeatOf(in Piece p)
+    /// <summary>How far it has cooled: 0 when it has just broken off, rising to 1 at the end of its heat; −1 when it is
+    /// not hot (never was, or has cooled).</summary>
+    private static float CoolingOf(in Piece p) => p.Heat <= 0f || p.Age >= p.Heat ? -1f : p.Age / p.Heat;
+
+    /// <summary>
+    /// The colour of something cooling as hot metal does, at <paramref name="cooling"/> (0 = just broken off, 1 = cold):
+    /// <paramref name="hot"/> (white) at first, then yellow, then red, then its <paramref name="own"/> colour, dimmer
+    /// as it cools. Brighter than 1 while hot, so it blooms. For drawing self-lit.
+    /// </summary>
+    public static Vector4 HeatColor(Vector4 hot, Vector4 own, float cooling)
     {
-        if (p.Heat <= 0f || p.Age >= p.Heat)
+        var t = Math.Clamp(cooling, 0f, 1f);
+        var white = hot * 1.8f;
+        var yellow = new Vector4(1f, 0.78f, 0.12f, 1f) * 1.5f;
+        var red = new Vector4(1f, 0.1f, 0.02f, 1f) * 1.1f;
+        var cold = own * CooledBrightness;
+        static float Ease(float a, float b, float x)
         {
-            return 0f;
+            var u = Math.Clamp((x - a) / (b - a), 0f, 1f);
+            return u * u * (3f - (2f * u));
         }
 
-        var left = 1f - (p.Age / p.Heat);
-        return left * left;
+        return t < WhiteToYellow
+            ? Vector4.Lerp(white, yellow, Ease(0f, WhiteToYellow, t))
+            : t < YellowToRed
+                ? Vector4.Lerp(yellow, red, Ease(WhiteToYellow, YellowToRed, t))
+                : Vector4.Lerp(red, cold, Ease(YellowToRed, 1f, t));
     }
+
+    /// <summary>Where on its cooling (0..1) it has turned yellow, and then red.</summary>
+    private const float WhiteToYellow = 0.2f;
+    private const float YellowToRed = 0.5f;
 
     public void Clear()
     {

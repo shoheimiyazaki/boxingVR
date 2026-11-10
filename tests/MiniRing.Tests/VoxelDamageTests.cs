@@ -322,6 +322,35 @@ public sealed class VoxelDamageTests
     }
 
     [TestMethod]
+    public void AHotChip_CoolsLikeHotMetal_WhiteThenYellowThenRedThenItsOwnColor()
+    {
+        var skin = new Vector4(0.8f, 0.6f, 0.5f, 1f);
+        Vector4 At(float cooling) => VoxelDebris.HeatColor(Vector4.One, skin, cooling);
+
+        var white = At(0.02f);
+        Assert.IsTrue(white.Y > 0.9f * white.X && white.Z > 0.8f * white.X && white.X > 1f, $"white hot, brighter than white ({white})");
+        var yellow = At(0.2f);
+        Assert.IsTrue(yellow.Y > 0.6f * yellow.X && yellow.Z < 0.25f * yellow.X, $"yellow ({yellow})");
+        var red = At(0.5f);
+        Assert.IsTrue(red.Y < 0.2f * red.X && red.Z < 0.1f * red.X, $"red ({red})");
+        var cold = At(1f);
+        Assert.AreEqual(skin.Y / skin.X, cold.Y / cold.X, 1e-4f, "its own colour at the end");
+        Assert.IsLessThan(skin.X, cold.X, "and no longer brighter than it");
+
+        // 飛んでいる間に変わる: 0.5 秒で冷める欠片は、離れて 0.25 秒後には赤い。
+        var debris = new VoxelDebris(capacity: 1) { Gravity = 0f };
+        debris.Spawn(new Vector3(0f, 1f, 0f), new Vector3(1f, 0f, 0f), Quaternion.Identity, new Vector3(0.01f), Vector3.Zero, skin, heat: 0.5f);
+        for (var i = 0; i < 15; i++)
+        {
+            debris.Step(1f / 60f);
+        }
+
+        var cubes = new List<PrimitiveInstance>();
+        debris.WriteInstances(cubes);
+        Assert.IsTrue(cubes[0].Color.Y < 0.5f * cubes[0].Color.X, $"orange-red in flight ({cubes[0].Color})");
+    }
+
+    [TestMethod]
     public void Debris_FallsBouncesAndRests_ThenFadesAway()
     {
         var debris = new VoxelDebris(capacity: 4, groundY: 0f) { LifeSeconds = 2f };
