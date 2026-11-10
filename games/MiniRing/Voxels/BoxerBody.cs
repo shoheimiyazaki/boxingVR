@@ -113,17 +113,17 @@ public sealed class BoxerBody
 
     /// <summary>
     /// 部位 <paramref name="bodyId"/> に 1 発を刻む。<paramref name="energy"/> は削る量（肉 1 ボクセル = 1）。
-    /// 削れたボクセルは <paramref name="chips"/> へ（演出用）。骨が断たれたら破片を切り離して返す（関節の付け替えは呼び出し側）。
+    /// 削れたボクセルは <paramref name="chips"/> へ（演出用）。<paramref name="chunks"/> があれば、一部は塊のまま剥がれてそちらへ。骨が断たれたら破片を切り離して返す（関節の付け替えは呼び出し側）。
     /// <paramref name="spread"/> は破片の噴き出す円錐の広さ（<see cref="Aigis.Physics.Voxels.VoxelBody.Impact"/>）。
     /// </summary>
-    public ImpactResult? Impact(int bodyId, Vector3 point, Vector3 direction, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f)
+    public ImpactResult? Impact(int bodyId, Vector3 point, Vector3 direction, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f, ICollection<VoxelChunk>? chunks = null, ICollection<VoxelCutFace>? cutFaces = null)
     {
         if (!_byBody.TryGetValue(bodyId, out var part))
         {
             return null;
         }
 
-        var carved = part.Body.Impact(point, direction, energy, chipSpeed, jitter, chips, spread);
+        var carved = part.Body.Impact(point, direction, energy, chipSpeed, jitter, chips, spread, chunks, cutFaces: cutFaces);
         VoxelPart? fragment = null;
         if (carved > 0 && part.SeverAxis is { } axis && part.Body.Sever(axis, part.DistalHigh) is { } piece)
         {
