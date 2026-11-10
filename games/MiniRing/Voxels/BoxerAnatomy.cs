@@ -18,33 +18,39 @@ namespace MiniRing.Voxels;
 /// <item>腰: 骨盤の環と背骨、腸。</item>
 /// <item>腕・脚: 長さに沿った骨の芯、周りは肉。足は骨の板。</item>
 /// </list>
-/// 臓器はどれも致命的（<see cref="VoxelMaterial.Vital"/>）: 半分以上壊れると死ぬ（<see cref="BoxerBody"/>）。
+/// 外側の 1 層は皮膚。目も臓器の一種（顔に出ている）。目を除く臓器はどれも致命的（<see cref="VoxelMaterial.Vital"/>）:
+/// 半分以上壊れると死ぬ（<see cref="BoxerBody"/>）。
 /// </summary>
 public static class BoxerAnatomy
 {
-    public const byte Muscle = 1;
-    public const byte Bone = 2;
-    public const byte Brain = 3;
-    public const byte Heart = 4;
-    public const byte Lung = 5;
-    public const byte Liver = 6;
-    public const byte Gut = 7;
-    public const byte Eye = 8;
+    public const byte Skin = 1;
+    public const byte Muscle = 2;
+    public const byte Bone = 3;
+    public const byte Brain = 4;
+    public const byte Heart = 5;
+    public const byte Lung = 6;
+    public const byte Liver = 7;
+    public const byte Gut = 8;
+    public const byte Eye = 9;
 
-    /// <summary>皮膚の色（体の外側のまま残っているボクセル）。グローブの色でどちらのファイターか見分ける。</summary>
-    public static readonly Vector4 SkinColor = new(0.93f, 0.9f, 0.86f, 1f);
+    private static Vector4 Rgb(float r, float g, float b) => new(r, g, b, 1f);
 
+    /// <summary>
+    /// 材質の表。色は 1 つずつ（皮膚・肉・骨・脳・臓器ごと・目）: 削れて出てきた中身がその色で見える。
+    /// 目だけは、表に出ている面（黒目）と中（白い眼球）で色が違う。どちらのファイターかはグローブの色で見分ける。
+    /// </summary>
     public static VoxelPalette Palette { get; } = new(
     [
         new VoxelMaterial("empty", VoxelTissue.Empty, 1f, false, Vector4.Zero, Vector4.Zero),
-        new VoxelMaterial("muscle", VoxelTissue.Flesh, 1f, false, new Vector4(0.72f, 0.1f, 0.1f, 1f), SkinColor),
-        new VoxelMaterial("bone", VoxelTissue.Bone, 8f, false, new Vector4(0.95f, 0.92f, 0.8f, 1f), SkinColor),
-        new VoxelMaterial("brain", VoxelTissue.Organ, 1.4f, true, new Vector4(0.95f, 0.62f, 0.68f, 1f), SkinColor),
-        new VoxelMaterial("heart", VoxelTissue.Organ, 1.4f, true, new Vector4(0.45f, 0.02f, 0.06f, 1f), SkinColor),
-        new VoxelMaterial("lung", VoxelTissue.Organ, 1.2f, true, new Vector4(0.9f, 0.45f, 0.52f, 1f), SkinColor),
-        new VoxelMaterial("liver", VoxelTissue.Organ, 1.4f, true, new Vector4(0.42f, 0.1f, 0.08f, 1f), SkinColor),
-        new VoxelMaterial("gut", VoxelTissue.Organ, 1.2f, true, new Vector4(0.86f, 0.5f, 0.42f, 1f), SkinColor),
-        new VoxelMaterial("eye", VoxelTissue.Flesh, 0.8f, false, new Vector4(0.95f, 0.95f, 0.95f, 1f), new Vector4(0.05f, 0.05f, 0.06f, 1f)),
+        new VoxelMaterial("skin", VoxelTissue.Flesh, 0.7f, false, Rgb(0.93f, 0.8f, 0.68f), Rgb(0.93f, 0.8f, 0.68f)),
+        new VoxelMaterial("muscle", VoxelTissue.Flesh, 1f, false, Rgb(0.7f, 0.07f, 0.09f), Rgb(0.7f, 0.07f, 0.09f)),
+        new VoxelMaterial("bone", VoxelTissue.Bone, 8f, false, Rgb(0.96f, 0.93f, 0.8f), Rgb(0.96f, 0.93f, 0.8f)),
+        new VoxelMaterial("brain", VoxelTissue.Organ, 1.4f, true, Rgb(0.98f, 0.55f, 0.72f), Rgb(0.98f, 0.55f, 0.72f)),
+        new VoxelMaterial("heart", VoxelTissue.Organ, 1.4f, true, Rgb(0.5f, 0.0f, 0.1f), Rgb(0.5f, 0.0f, 0.1f)),
+        new VoxelMaterial("lung", VoxelTissue.Organ, 1.2f, true, Rgb(0.95f, 0.42f, 0.45f), Rgb(0.95f, 0.42f, 0.45f)),
+        new VoxelMaterial("liver", VoxelTissue.Organ, 1.4f, true, Rgb(0.4f, 0.12f, 0.06f), Rgb(0.4f, 0.12f, 0.06f)),
+        new VoxelMaterial("gut", VoxelTissue.Organ, 1.2f, true, Rgb(0.82f, 0.6f, 0.35f), Rgb(0.82f, 0.6f, 0.35f)),
+        new VoxelMaterial("eye", VoxelTissue.Organ, 0.8f, false, Rgb(0.97f, 0.97f, 1f), Rgb(0.06f, 0.12f, 0.3f)),
     ]);
 
     /// <summary>
@@ -59,7 +65,7 @@ public static class BoxerAnatomy
         // 骨・臓器の配置は「体の外形」を −1..1 とした座標で決める。形を渡されたらその外形（頂点の範囲）、無ければ箱。
         // 箱のままだと、箱より細いメッシュの腕がほとんど骨になる。
         var (center, half) = shape is null ? (Vector3.Zero, halfExtents) : Bounds(shape);
-        return new VoxelGrid(Palette, halfExtents, dims, (p, _) =>
+        var grid = new VoxelGrid(Palette, halfExtents, dims, (p, _) =>
         {
             var n = (p - center) / half;
             if (inside is not null)
@@ -74,6 +80,10 @@ public static class BoxerAnatomy
 
             return Fill(kind, n);
         });
+
+        // 外側の 1 層は皮膚（目だけは顔に出たまま）。
+        grid.Remap((_, material, surface) => surface && material != Eye ? Skin : material);
+        return grid;
     }
 
     /// <summary>

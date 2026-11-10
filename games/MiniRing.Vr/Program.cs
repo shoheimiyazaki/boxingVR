@@ -112,6 +112,7 @@ using (var sounds = HitSoundPlayer.CreateDefault())
                 }
 
                 sounds.PlayAll(game.RecentHits);
+                sounds.PlayShatters(game.RecentShatters);
 
                 foreach (var hit in game.RecentHits)
                 {

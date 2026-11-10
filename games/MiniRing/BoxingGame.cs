@@ -63,7 +63,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
     private readonly List<HitEvent> _recentHits = [];
     private readonly List<VoxelChip> _chips = [];
-    private readonly VoxelDebris _debris = new(capacity: 4000);
+    private readonly VoxelDebris _debris = new(capacity: 9000);
+    private readonly List<ShatterEvent> _recentShatters = [];
     private readonly Random _fx;
     private readonly Dictionary<(Fighter, Hand), Vector3> _preStepGloveVelocity = [];
     private readonly Dictionary<(Fighter, Hand), float> _hitCooldown = [];
@@ -138,6 +139,9 @@ public sealed class BoxingGame : IGame<BoxingInput>
     /// <summary>直近の <see cref="Step"/> で発生したヒット（ホストの効果音・ハプティクス用）。</summary>
     public IReadOnlyList<HitEvent> RecentHits => _recentHits;
 
+    /// <summary>直近の <see cref="Step"/> で砕けたボクセルの列（1 発に 1 つ。ホストの砕ける音用）。</summary>
+    public IReadOnlyList<ShatterEvent> RecentShatters => _recentShatters;
+
     public string StatusLine => string.Create(CultureInfo.InvariantCulture,
         $"Round {_round}  You {Cpu.Condition.TotalDamage:0} - CPU {Player.Condition.TotalDamage:0} damage  ({PlayerWins}-{CpuWins})");
 
@@ -150,6 +154,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
     public void Step(BoxingInput input, float dt)
     {
         _recentHits.Clear();
+        _recentShatters.Clear();
         if (input.ResetRequested)
         {
             StartRound();
@@ -319,38 +324,103 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
         _chips.Clear();
         var result = body.Impact(victimBody, point, direction, damage * _tuning.CarvePerDamage, _tuning.ChipSpeed, Jitter, _chips);
-        SpawnDebris(_chips);
+        SpawnDebris(_chips, point);
         if (result?.Fragment is { } fragment)
         {
             victim.Sever(victimBody, fragment.Body);
             ShowMessage(fragment.Kind is BodyPartKind.UpperArm or BodyPartKind.Forearm ? "ARM OFF!" : "LEG OFF!", 1.2f);
         }
 
+        var fatal = false;
         if (!victim.IsDead && body.DeathCause() is { } cause)
         {
             victim.Die(cause);
+            fatal = true;
+            Burst(point, 60, 1.6f, new Vector4(1f, 0.25f, 0.2f, 1f)); // 致命傷: 大きな赤い閃光
+        }
+
+        if (_chips.Count > 0 || fatal)
+        {
+            // 音の粒: 砕けた順（当たった所に近い順）に 3.5ms ずつ、少しばらつかせて並べる。
+            var grains = new ShatterGrain[_chips.Count];
+            for (var i = 0; i < grains.Length; i++)
+            {
+                grains[i] = new ShatterGrain(_chips[i].Material, MathF.Min(0.3f, (i * 0.0035f) + (0.002f * (1f + Jitter()))));
+            }
+
+            _recentShatters.Add(new ShatterEvent(point, grains, fatal));
         }
     }
 
-    /// <summary>削れたボクセルを、その材質の色の破片として飛ばす。肉と臓器からは小さな血の粒も飛ぶ。</summary>
-    private void SpawnDebris(List<VoxelChip> chips)
+    /// <summary>
+    /// 削れたボクセルを派手に砕け散らせる: 1 個ごとに、その材質の色の欠片（速く、強く回る）と細かい破片 2 つ。骨からは白い粉と
+    /// 光る火花（機械の部品が壊れるように）、肉と臓器からは血しぶき、臓器からはさらに光る赤い飛沫。当たった所には一瞬の閃光。
+    /// </summary>
+    private void SpawnDebris(List<VoxelChip> chips, Vector3 point)
     {
+        if (chips.Count == 0)
+        {
+            return;
+        }
+
         var palette = BoxerAnatomy.Palette;
         foreach (var chip in chips)
         {
             var material = palette[chip.Material];
             var color = chip.WasSurface ? material.SurfaceColor : material.Color;
-            var spin = new Vector3(Jitter(), Jitter(), Jitter()) * 25f;
-            _debris.Spawn(chip.Position, chip.Velocity, chip.Orientation, chip.Size * 0.9f, spin, color);
-            if (material.Tissue is VoxelTissue.Flesh or VoxelTissue.Organ)
+            Vector3 Scatter(float s) => new Vector3(Jitter(), Jitter() + 0.4f, Jitter()) * s;
+            Vector3 Spin(float s) => new Vector3(Jitter(), Jitter(), Jitter()) * s;
+            _debris.Spawn(chip.Position, (chip.Velocity * 1.5f) + Scatter(0.5f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color);
+            for (var k = 0; k < 2; k++)
             {
-                var spray = chip.Velocity * 1.4f + (new Vector3(Jitter(), Jitter() + 0.5f, Jitter()) * 0.6f);
-                _debris.Spawn(chip.Position, spray, chip.Orientation, chip.Size * 0.4f, spin * 2f, BloodColor);
+                _debris.Spawn(chip.Position, (chip.Velocity * 2f) + Scatter(1.2f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f);
             }
+
+            switch (material.Tissue)
+            {
+                case VoxelTissue.Bone:
+                    for (var k = 0; k < 3; k++)
+                    {
+                        _debris.Spawn(chip.Position, (chip.Velocity * 1.8f) + Scatter(1.5f), chip.Orientation, chip.Size * 0.25f, Spin(90f), BoneDust, life: 1.2f);
+                    }
+
+                    _debris.Spawn(chip.Position, (chip.Velocity * 2.5f) + Scatter(2.5f), chip.Orientation, chip.Size * 0.22f, Spin(30f), Spark, life: 0.25f, glow: true);
+                    break;
+                case VoxelTissue.Organ:
+                    for (var k = 0; k < 2; k++)
+                    {
+                        _debris.Spawn(chip.Position, (chip.Velocity * 2.2f) + Scatter(1.8f), chip.Orientation, chip.Size * 0.35f, Spin(50f), OrganGlow, life: 0.4f, glow: true);
+                    }
+
+                    goto case VoxelTissue.Flesh;
+                case VoxelTissue.Flesh:
+                    for (var k = 0; k < 3; k++)
+                    {
+                        _debris.Spawn(chip.Position, (chip.Velocity * 2.4f) + Scatter(1.4f), chip.Orientation, chip.Size * 0.35f, Spin(60f), BloodColor, life: 2.2f);
+                    }
+
+                    break;
+            }
+        }
+
+        Burst(point, Math.Min(24, 4 + (chips.Count / 3)), 1f, Spark);
+    }
+
+    /// <summary>当たった所から光る火花を放射状に（0.15〜0.3 秒）。</summary>
+    private void Burst(Vector3 point, int count, float speed, Vector4 color)
+    {
+        for (var k = 0; k < count; k++)
+        {
+            var dir = Vector3.Normalize(new Vector3(Jitter(), Jitter() + 0.3f, Jitter()) + new Vector3(1e-3f));
+            _debris.Spawn(point, dir * speed * (1f + (0.5f * Jitter())), Quaternion.Identity, new Vector3(0.004f + (0.002f * Jitter())),
+                new Vector3(Jitter(), Jitter(), Jitter()) * 40f, color, life: 0.18f + (0.08f * Jitter()), glow: true);
         }
     }
 
     private static readonly Vector4 BloodColor = new(0.55f, 0.02f, 0.03f, 1f);
+    private static readonly Vector4 BoneDust = new(1f, 0.98f, 0.9f, 1f);
+    private static readonly Vector4 Spark = new(1f, 0.85f, 0.45f, 1f);
+    private static readonly Vector4 OrganGlow = new(1f, 0.15f, 0.25f, 1f);
 
     private float Jitter() => (2f * _fx.NextSingle()) - 1f;
 

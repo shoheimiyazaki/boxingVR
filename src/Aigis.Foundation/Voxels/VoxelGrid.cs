@@ -236,6 +236,44 @@ public sealed class VoxelGrid
     }
 
     /// <summary>
+    /// Changes the material of cells before any damage (a skin layer over the original surface, say):
+    /// <paramref name="remap"/> gets each filled cell's coordinates, material and whether it is on the original surface,
+    /// and returns the material it should be. Health, counts and the starting counts follow the new materials.
+    /// </summary>
+    public void Remap(Func<(int X, int Y, int Z), byte, bool, byte> remap)
+    {
+        ArgumentNullException.ThrowIfNull(remap);
+        for (var i = 0; i < _cells.Length; i++)
+        {
+            var current = _cells[i];
+            if (current == 0)
+            {
+                continue;
+            }
+
+            var next = remap(Coordinates(i), current, _surface[i]);
+            if (next == current)
+            {
+                continue;
+            }
+
+            if (next == 0 || next >= Palette.Count)
+            {
+                throw new ArgumentException($"Remap returned material {next}; it must be a filled material of the palette.", nameof(remap));
+            }
+
+            _remaining[current]--;
+            _initial[current]--;
+            _remaining[next]++;
+            _initial[next]++;
+            _cells[i] = next;
+            _health[i] = Palette[next].Toughness;
+        }
+
+        Version++;
+    }
+
+    /// <summary>
     /// Carves a blow into the grid. The blow lands at <paramref name="localPoint"/> heading along
     /// <paramref name="localDirection"/> and carries <paramref name="energy"/> units of damage (one unit carves one
     /// flesh voxel). Cells are hit nearest-first along a short drill line from the contact point inward, so a blow

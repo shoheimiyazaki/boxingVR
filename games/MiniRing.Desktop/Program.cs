@@ -49,7 +49,7 @@ var options = new GameHost.Options(
 if (Option("--replay") is { } replayPath)
 {
     using var replay = new ReplayGame(ReplayFile.Read(replayPath));
-    using var replayWithSound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault());
+    using var replayWithSound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(), () => replay.FrameShatters);
     profiler.Mark("replay loaded");
     GameHost.Run(profiler, options, replayWithSound, readInput: (_, _, _) => default(BoxingInput));
     return 0;
@@ -67,7 +67,7 @@ if (!args.Contains("--no-record"))
 
 // 打撃音は試合の外側で鳴らす（記録・物理には触れない）。
 using var recording = recorder is null ? null : new RecordingGame(game, recorder);
-using var withSound = new HitSoundGame(recording ?? (IGame<BoxingInput>)game, () => game.RecentHits, HitSoundPlayer.CreateDefault());
+using var withSound = new HitSoundGame(recording ?? (IGame<BoxingInput>)game, () => game.RecentHits, HitSoundPlayer.CreateDefault(), () => game.RecentShatters);
 GameHost.Run(profiler, options, withSound, readInput: (input, _, _) => keyboard.Read(input, camera.YawRadians, game.PlayerSense, FixedStep.Default.Dt));
 return 0;
 

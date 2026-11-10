@@ -4,6 +4,7 @@ using Aigis.Physics;
 using Aigis.Physics.Voxels;
 using Aigis.Render;
 using Aigis.Render.Voxels;
+using MiniRing.Audio;
 using MiniRing.Voxels;
 
 namespace MiniRing.Tests;
@@ -306,12 +307,91 @@ public sealed class VoxelDamageTests
             {
                 var (x, y, z) = grid.Coordinates(i);
                 var material = grid.Palette[grid.At(x, y, z)];
-                if (material.Tissue == VoxelTissue.Organ)
+                if (material.Tissue == VoxelTissue.Organ && grid.At(x, y, z) != BoxerAnatomy.Eye)
                 {
                     Assert.IsFalse(grid.IsOriginalSurface(x, y, z), $"{material.Name} is never on the skin");
                 }
             }
         }
+    }
+
+    [TestMethod]
+    public void Remap_MovesCellsToAnotherMaterial_WithCountsAndToughness()
+    {
+        var grid = Rod();
+
+        grid.Remap((_, m, surface) => surface ? Bone : m);
+        var removed = new List<RemovedVoxel>();
+        grid.Carve(new Vector3(0f, 0.02f, 0f), -Vector3.UnitY, 4f, removed);
+
+        // 4 x 4 の断面では外周の 12 個が全部表面（肉はすべて表面にあった）。
+        Assert.AreEqual(160, grid.Initial(Bone), "the whole outer layer is bone now, on top of the core");
+        Assert.AreEqual(0, grid.Initial(Flesh));
+        Assert.IsEmpty(removed, "4 units do not break one bone cell (toughness 8)");
+    }
+
+    [TestMethod]
+    public void TheBody_IsCoveredInSkin_AndTheEyesAreOrgansThatDoNotKill()
+    {
+        var tuning = FighterTuning.Default;
+        var head = BoxerAnatomy.Build(BodyPartKind.Head, tuning.HalfExtents.Head, tuning.VoxelSize,
+            LowPoly.BoxerModel.Build(tuning.HalfExtents, tuning.ModelSubdivisions).Mesh(BodyPartKind.Head));
+        var eye = BoxerAnatomy.Palette[BoxerAnatomy.Eye];
+
+        Assert.AreEqual(VoxelTissue.Organ, eye.Tissue);
+        Assert.IsFalse(eye.Vital);
+        Assert.IsGreaterThan(0, head.Initial(BoxerAnatomy.Eye), "the face has eyes");
+        Assert.IsGreaterThan(0, head.Initial(BoxerAnatomy.Skin));
+        for (var i = 0; i < head.CellCount; i++)
+        {
+            var (x, y, z) = head.Coordinates(i);
+            if (head.IsOriginalSurface(x, y, z))
+            {
+                Assert.IsTrue(head.At(x, y, z) is BoxerAnatomy.Skin or BoxerAnatomy.Eye, "only skin and eyes show before any damage");
+            }
+        }
+    }
+
+    [TestMethod]
+    public void EachVoxelBreaksWithItsOwnGrain_AndTheGrainsFollowEachOther()
+    {
+        var skin = VoxelBreakSound.Grain(GrainKind.Skin, 1);
+        var bone = VoxelBreakSound.Grain(GrainKind.Bone, 1);
+        var brain = VoxelBreakSound.Grain(GrainKind.Brain, 1);
+        Assert.IsLessThan(bone.Length, skin.Length, "a skin tick is shorter than a bone crack");
+        Assert.IsLessThan(brain.Length, bone.Length, "and an organ breaks longest");
+        Assert.AreEqual(GrainKind.Organ, VoxelBreakSound.KindOf(BoxerAnatomy.Heart));
+        Assert.AreEqual(GrainKind.Eye, VoxelBreakSound.KindOf(BoxerAnatomy.Eye));
+
+        // 3 粒を 0・50・100ms に: それぞれの粒の頭で音が立ち上がる。
+        var mix = VoxelBreakSound.Mix([new ShatterGrain(BoxerAnatomy.Bone, 0f), new ShatterGrain(BoxerAnatomy.Bone, 0.05f), new ShatterGrain(BoxerAnatomy.Bone, 0.1f)], seed: 3);
+        float Energy(float from, float to) => mix.Skip((int)(from * 44100)).Take((int)((to - from) * 44100)).Sum(v => v * v);
+        Assert.IsGreaterThan(Energy(0.035f, 0.049f) * 2f, Energy(0.05f, 0.064f), "the second grain starts at 50 ms");
+
+        var fatal = VoxelBreakSound.Fatal(seed: 7);
+        Assert.AreEqual((int)(1.8f * 44100) * 2, fatal.Length);
+    }
+
+    [TestMethod]
+    public void BreakingVoxels_IsHeard_AndTheKillingBlowIsFatal()
+    {
+        using var game = new BoxingGame(seed: 2);
+        var cpu = game.Cpu;
+        var heard = new List<ShatterEvent>();
+        var directions = new[] { Vector3.UnitZ, -Vector3.UnitZ, Vector3.UnitY };
+        for (var i = 0; i < 200 && !cpu.IsDead; i++)
+        {
+            game.Step(default, 1f / 60f); // 前の 1 発の事象を消す
+            Strike(game, cpu, cpu.Parts.Head, 30f, directions[i % 3]);
+            heard.AddRange(game.RecentShatters);
+        }
+
+        Assert.IsTrue(cpu.IsDead);
+        Assert.IsTrue(heard.Any(e => e.Grains.Any(g => g.Material == BoxerAnatomy.Skin)), "skin breaks first");
+        Assert.IsTrue(heard.Any(e => e.Grains.Any(g => g.Material == BoxerAnatomy.Brain)));
+        Assert.IsTrue(heard[^1].Fatal, "the blow that killed is the fatal one");
+        Assert.AreEqual(1, heard.Count(e => e.Fatal));
+        Assert.IsTrue(heard[^1].Grains.Zip(heard[^1].Grains.Skip(1)).All(p => p.Second.Delay >= p.First.Delay - 0.005f), "grains follow one after another");
     }
 
     private static void StrikeUntil(BoxingGame game, Fighter victim, int part, Func<bool> done, float damage)

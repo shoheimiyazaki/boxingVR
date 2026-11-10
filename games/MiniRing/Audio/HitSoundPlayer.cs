@@ -1,5 +1,6 @@
 using System.Globalization;
 using Aigis.Audio;
+using MiniRing.Voxels;
 
 namespace MiniRing.Audio;
 
@@ -12,12 +13,14 @@ public sealed class HitSoundPlayer : IDisposable
 {
     private const int IntensityLevels = 8;
     private const int CleanLevels = 4;
-    private const int MaxVoices = 12;
+    private const int MaxVoices = 24;
+    private const int FatalVariants = 2;
 
     private readonly IAudioBackend _backend;
     private readonly Dictionary<(int Intensity, int Clean, HitTarget Target), AudioClip> _clips = [];
     private readonly List<int> _voices = [];
     private readonly Random _variation = new();
+    private readonly AudioClip?[] _fatal = new AudioClip?[FatalVariants];
 
     public HitSoundPlayer(IAudioBackend backend)
     {
@@ -65,6 +68,48 @@ public sealed class HitSoundPlayer : IDisposable
         }
 
         var pitch = 1f + ((_variation.NextSingle() - 0.5f) * 0.08f);
+        _voices.Add(_backend.Play(clip, volume: 1f, shouldLoop: false, pitch));
+    }
+
+    /// <summary>
+    /// 砕けたボクセルの音（<see cref="VoxelBreakSound"/>）: 1 発ごとに、砕けたボクセルの粒を重ねた音を合成して鳴らす。
+    /// 致命傷なら、その上に致命傷の音も鳴らす。
+    /// </summary>
+    public void PlayShatters(IReadOnlyList<ShatterEvent> shatters)
+    {
+        ArgumentNullException.ThrowIfNull(shatters);
+        if (!_backend.IsAvailable || shatters.Count == 0)
+        {
+            return;
+        }
+
+        OpenAlAudioBackend.MakeCurrentOnThisThread();
+        foreach (var shatter in shatters)
+        {
+            if (shatter.Grains.Count > 0)
+            {
+                var pcm = VoxelBreakSound.Synthesize(shatter, _variation.Next());
+                Start(new AudioClip("shatter", AudioSampleFormat.Mono16, VoxelBreakSound.SampleRate, pcm, IsGenerated: true), 1f);
+            }
+
+            if (shatter.Fatal)
+            {
+                var v = _variation.Next(FatalVariants);
+                _fatal[v] ??= new AudioClip($"fatal_{v}", AudioSampleFormat.Mono16, VoxelBreakSound.SampleRate, VoxelBreakSound.Fatal(seed: 7 + v), IsGenerated: true);
+                Start(_fatal[v]!, 1f);
+            }
+        }
+    }
+
+    private void Start(AudioClip clip, float pitch)
+    {
+        Reap();
+        if (_voices.Count >= MaxVoices)
+        {
+            _backend.StopVoice(_voices[0]);
+            _voices.RemoveAt(0);
+        }
+
         _voices.Add(_backend.Play(clip, volume: 1f, shouldLoop: false, pitch));
     }
 

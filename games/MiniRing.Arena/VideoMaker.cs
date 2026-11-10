@@ -79,6 +79,20 @@ internal sealed class VideoMaker(int width, int height, int fps)
                     {
                         game.Step(default, SimDt);
                         time += SimDt;
+                        foreach (var shatter in game.RecentShatters)
+                        {
+                            if (shatter.Grains.Count > 0)
+                            {
+                                Mix(audio, VoxelBreakSound.Synthesize(shatter, step), TitleSeconds + time, 0.8f);
+                            }
+
+                            if (shatter.Fatal)
+                            {
+                                Mix(audio, VoxelBreakSound.Fatal(seed: 7), TitleSeconds + time, 1f);
+                                flashes.Add(("FATAL", Gold, time + 1.2f));
+                            }
+                        }
+
                         foreach (var hit in game.RecentHits)
                         {
                             var redHit = hit.Attacker == game.Player;
