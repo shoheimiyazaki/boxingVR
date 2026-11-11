@@ -103,7 +103,7 @@ public static class VoxelBreakSound
     /// <summary>材質（<see cref="BoxerAnatomy"/> の番号）の音の種類。</summary>
     public static GrainKind KindOf(byte material) => material switch
     {
-        BoxerAnatomy.Skin => GrainKind.Skin,
+        BoxerAnatomy.Skin or BoxerAnatomy.RedTrunks or BoxerAnatomy.BlueTrunks or BoxerAnatomy.Waistband or BoxerAnatomy.Boot => GrainKind.Skin,
         BoxerAnatomy.Bone => GrainKind.Bone,
         BoxerAnatomy.Brain => GrainKind.Brain,
         BoxerAnatomy.Heart or BoxerAnatomy.Lung or BoxerAnatomy.Liver or BoxerAnatomy.Gut => GrainKind.Organ,

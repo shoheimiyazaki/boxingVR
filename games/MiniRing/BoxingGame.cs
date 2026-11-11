@@ -647,9 +647,9 @@ public sealed class BoxingGame : IGame<BoxingInput>
         Player = Fighter.Spawn(_world, _tuning, "player", surface - new Vector3(0f, 0f, 0.22f), 0f);
         Cpu = Fighter.Spawn(_world, _tuning, "cpu", surface + new Vector3(0f, 0f, 0.22f), MathF.PI);
         PlayerSkin = new BoxerSkin(_model, Player, _tuning);
-        // 体の形はローポリのモデル（頭・胸・腕の形）。その内側をボクセルで埋める。
-        Player.Voxels = new BoxerBody(Player, _world, _tuning, _model);
-        Cpu.Voxels = new BoxerBody(Cpu, _world, _tuning, _model);
+        // 体の形はローポリのモデル（頭・胸・腕の形）。その内側をボクセルで埋める。トランクスはグローブと同じコーナーの色。
+        Player.Voxels = new BoxerBody(Player, _world, _tuning, _model, Outfit.RedCorner);
+        Cpu.Voxels = new BoxerBody(Cpu, _world, _tuning, _model, Outfit.BlueCorner);
         // 破片はリングの上ならリングの面、外なら床で止まる。
         var ringHalf = (RingSize * 0.5f) + 0.02f;
         _debris.Clear();
