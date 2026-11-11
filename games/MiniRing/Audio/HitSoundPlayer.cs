@@ -162,6 +162,18 @@ public sealed class HitSoundPlayer : IDisposable
         }
     }
 
+    /// <summary>ラウンドのゴング（<see cref="GongSound"/>）。他の音で声が埋まっていても、いちばん古い声を止めて鳴らす。</summary>
+    public void PlayBell(RoundBell bell)
+    {
+        if (!_backend.IsAvailable || GongSound.Synthesize(bell) is not { } pcm)
+        {
+            return;
+        }
+
+        OpenAlAudioBackend.MakeCurrentOnThisThread();
+        Start(new AudioClip("gong", AudioSampleFormat.Mono16, GongSound.SampleRate, pcm, IsGenerated: true), 1f);
+    }
+
     private void Start(AudioClip clip, float pitch)
     {
         Reap();

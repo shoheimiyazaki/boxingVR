@@ -20,6 +20,7 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     private readonly Func<IReadOnlyList<ShatterEvent>>? _shatters;
     private readonly Func<IReadOnlyList<DebrisLanding>>? _landings;
     private readonly Func<IReadOnlyList<SwingEvent>>? _swings;
+    private readonly Func<RoundBell>? _bells;
 
     /// <param name="inner">包む試合。</param>
     /// <param name="hits">直前の <see cref="Step"/> で起きた打撃。</param>
@@ -27,9 +28,12 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     /// <param name="shatters">直前の <see cref="Step"/> で砕けたボクセル（砕ける音）。</param>
     /// <param name="landings">直前の <see cref="Step"/> で床に落ちた破片（落ちる音）。</param>
     /// <param name="swings">直前の <see cref="Step"/> で振り抜かれた拳（風切り音）。</param>
+    /// <param name="bells">直前の <see cref="Step"/> で鳴ったラウンドのゴング。</param>
     public HitSoundGame(IGame<BoxingInput> inner, Func<IReadOnlyList<HitEvent>> hits, HitSoundPlayer sounds,
-        Func<IReadOnlyList<ShatterEvent>>? shatters = null, Func<IReadOnlyList<DebrisLanding>>? landings = null, Func<IReadOnlyList<SwingEvent>>? swings = null)
+        Func<IReadOnlyList<ShatterEvent>>? shatters = null, Func<IReadOnlyList<DebrisLanding>>? landings = null, Func<IReadOnlyList<SwingEvent>>? swings = null,
+        Func<RoundBell>? bells = null)
     {
+        _bells = bells;
         _shatters = shatters;
         _landings = landings;
         _swings = swings;
@@ -63,6 +67,11 @@ public sealed class HitSoundGame : IGame<BoxingInput>
         {
             _sounds.PlaySwings(_swings());
         }
+
+        if (_bells is not null)
+        {
+            _sounds.PlayBell(_bells());
+        }
     }
 
     /// <summary>ボクセルの体（包んだ試合のもの）。これを中継しないとホストは体を描かない。</summary>
@@ -80,6 +89,9 @@ public sealed class HitSoundGame : IGame<BoxingInput>
 
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 viewProjection, Vector2 screenSizePixels)
         => _inner.BuildOverlayText(viewProjection, screenSizePixels);
+
+    public IReadOnlyList<UiShapeDraw> BuildOverlayShapes(Matrix4x4 viewProjection, Vector2 screenSizePixels)
+        => _inner.BuildOverlayShapes(viewProjection, screenSizePixels);
 
     public void Dispose() => _sounds.Dispose();
 }

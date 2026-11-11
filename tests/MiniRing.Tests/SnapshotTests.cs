@@ -50,6 +50,56 @@ public sealed class SnapshotTests
         }
     }
 
+    /// <summary>
+    /// 顔の窓（<see cref="FaceCam"/>）: 画面の両脇に、頭の格子に固定したカメラで撮った両ボクサーの顔を重ねる。ホストは重ねる窓として描くが、
+    /// ヘッドレスでは窓の大きさで別に描いて書き写す（同じ場面・同じカメラ）。窓だけの拡大も書き出す。
+    /// </summary>
+    [TestMethod]
+    public void FaceCam_ShowsTheOwnFaceFromTheFront_OverTheMatch()
+    {
+        var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
+        Directory.CreateDirectory(outDir);
+        using var game = new BoxingGame(seed: 3) { FaceCam = FaceCam.Default };
+        using var renderer = new HeadlessRenderer(Width, Height);
+        var screen = new Vector2(Width, Height);
+        var panel = FaceCam.Default.Panel(screen, FaceSide.Left);
+        using var paneRenderer = new HeadlessRenderer((uint)panel.WidthPx, (uint)panel.HeightPx);
+        const int Big = 480;
+        using var bigRenderer = new HeadlessRenderer(Big, Big);
+        var eye = new Vector3(0f, 1.55f, 0.05f);
+        var target = BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight + 0.15f };
+        var viewProjection = Camera.ViewProjection(eye, target, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.02f, 50f);
+        var time = 0f;
+        foreach (var at in new[] { 1f, 4f, 8f, 14f })
+        {
+            while (time < at)
+            {
+                game.Step(default, 1f / 60f);
+                time += 1f / 60f;
+            }
+
+            var (instances, lines) = game.BuildRenderables();
+            var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, game.BuildOverlayText(viewProjection, screen),
+                particles: game.BuildParticles(), lighting: game.BuildLighting(), shadow: game.BuildShadow(), cameraPosition: eye,
+                shapes: game.BuildOverlayShapes(viewProjection, screen), postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+            foreach (var facePane in FaceCam.Default.Panes(game, screen))
+            {
+                var (faceVp, faceEye) = FaceCam.Default.Camera(game, facePane.Fighter, 1f);
+                var pane = Render(paneRenderer, game, faceVp, faceEye, instances, lines, []);
+                var p = facePane.Panel;
+                for (var y = 0; y < p.HeightPx; y++)
+                {
+                    Array.Copy(pane, y * p.WidthPx * 4, rgba, (((p.YPx + y) * Width) + p.XPx) * 4, p.WidthPx * 4);
+                }
+
+                var who = facePane.Fighter == game.Player ? "red" : "blue";
+                PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_facecam_big_{who}_t{at:0}.png"), Big, Big, Render(bigRenderer, game, faceVp, faceEye, instances, lines, []));
+            }
+
+            PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_facecam_t{at:0}.png"), Width, Height, rgba);
+        }
+    }
+
     /// <summary>部屋（実物大）とローテーブルに載った箱庭のリングを、入口側の隅・ソファ側・テーブルの横から見る。</summary>
     [TestMethod]
     public void Room_AroundTheTabletopRing()

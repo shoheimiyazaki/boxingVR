@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini Ring 設計ガイド</title>
+<style>
+:root {
+  --bg: #f7f5f0; --panel: #ffffff; --ink: #1f2328; --muted: #5d6470; --line: #d9d4ca;
+  --accent: #c2410c; --accent-soft: #fde7da; --blue: #1d4ed8; --blue-soft: #dbe7ff;
+  --green: #15803d; --green-soft: #dcf2e3; --code: #f0ece4; --shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171a; --panel: #1d2024; --ink: #e8e6e3; --muted: #a2a8b1; --line: #343841;
+    --accent: #fb923c; --accent-soft: #3a2416; --blue: #93b4ff; --blue-soft: #1c2740;
+    --green: #6ad48f; --green-soft: #17301f; --code: #262a30; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171a; --panel: #1d2024; --ink: #e8e6e3; --muted: #a2a8b1; --line: #343841;
+  --accent: #fb923c; --accent-soft: #3a2416; --blue: #93b4ff; --blue-soft: #1c2740;
+  --green: #6ad48f; --green-soft: #17301f; --code: #262a30; --shadow: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.75 "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", system-ui, sans-serif; }
+header { padding: 48px 16px 24px; max-width: 980px; margin: 0 auto; }
+header h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.25; margin: 0 0 8px; letter-spacing: .01em; }
+header p { color: var(--muted); margin: 0; }
+.axis { margin: 24px 0 0; padding: 20px 22px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 0 10px 10px 0; font-size: 18px; font-weight: 600; }
+nav { position: sticky; top: 0; z-index: 2; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+nav ul { list-style: none; margin: 0 auto; padding: 8px 16px; max-width: 980px; display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: 14px; }
+nav a { color: var(--muted); text-decoration: none; }
+nav a:hover { color: var(--accent); }
+main { max-width: 980px; margin: 0 auto; padding: 8px 16px 80px; }
+section { margin-top: 56px; }
+h2 { font-size: 26px; margin: 0 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+h3 { font-size: 19px; margin: 28px 0 8px; }
+p, li { max-width: 72ch; }
+.muted { color: var(--muted); }
+code { background: var(--code); padding: 1px 6px; border-radius: 5px; font: 14px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; }
+pre { background: var(--code); padding: 14px 16px; border-radius: 10px; overflow-x: auto; font: 13.5px/1.6 ui-monospace, "Cascadia Code", Consolas, monospace; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 16px 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; box-shadow: var(--shadow); }
+.card h4 { margin: 0 0 6px; font-size: 16px; }
+.card p { margin: 0; font-size: 15px; color: var(--muted); }
+.tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 99px; margin-right: 6px; }
+.tag.no { background: var(--accent-soft); color: var(--accent); }
+.tag.yes { background: var(--green-soft); color: var(--green); }
+.table-wrap { overflow-x: auto; margin: 12px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; background: var(--panel); border-radius: 10px; overflow: hidden; }
+th, td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+th { background: var(--code); font-weight: 600; }
+figure { margin: 18px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption { font-size: 14px; color: var(--muted); margin-top: 8px; }
+.svg-text { fill: var(--ink); font: 13px "Hiragino Sans", "Yu Gothic UI", sans-serif; }
+.svg-muted { fill: var(--muted); font: 12px "Hiragino Sans", "Yu Gothic UI", sans-serif; }
+.box { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.box-accent { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+.box-blue { fill: var(--blue-soft); stroke: var(--blue); stroke-width: 1.5; }
+.box-green { fill: var(--green-soft); stroke: var(--green); stroke-width: 1.5; }
+.arrow { stroke: var(--muted); stroke-width: 1.6; fill: none; marker-end: url(#arrowhead); }
+.arrowhead { fill: var(--muted); }
+.callout { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 12px 16px; margin: 14px 0; }
+.callout strong { color: var(--accent); }
+footer { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); }
+@media (max-width: 600px) { body { font-size: 15px; } h2 { font-size: 22px; } .axis { font-size: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mini Ring Boxing 設計ガイド</h1>
+  <p>VR とコントローラで遊ぶ、物理と材料だけで動くボクシング。アーキテクチャ・物理・材料・アルゴリズム・ロジック、そして開発の方針。</p>
+  <div class="axis">入力は「目標」、体は「バネ」で追う。動きは物理から、壊れ方は材料から生まれる。<br>物理と材料だけで、すべてを矛盾なく書く。</div>
+</header>
+<nav><ul>
+  <li><a href="#axis">1. 軸</a></li><li><a href="#arch">2. アーキテクチャ</a></li><li><a href="#physics">3. 物理</a></li>
+  <li><a href="#material">4. 材料</a></li><li><a href="#algo">5. アルゴリズム</a></li><li><a href="#logic">6. ロジック</a></li>
+  <li><a href="#play">7. 2 つの遊び方</a></li><li><a href="#policy">8. 開発の方針</a></li><li><a href="#debt">9. 軸からのずれ</a></li>
+</ul></nav>
+<main>
+
+<section id="axis">
+  <h2>1. 軸 — 何を守るゲームか</h2>
+  <p>目の前のローテーブルに置いた箱庭のリングで、身長 60 cm のアクティブラグドールが戦います。プレイヤー（VR の手・コントローラの意図）もボットも、人形の体を直接動かしません。出せるのは<strong>目標</strong>だけで、人形の筋肉（関節のサーボと PD の力）がそれを<strong>バネのように</strong>追います。</p>
+  <div class="cards">
+    <div class="card"><h4><span class="tag yes">する</span>目標を出す</h4><p>手の目標位置・頭のずれ・移動の向き・胴のひねり。入力の契約は <code>FighterCommand</code> ただ一つ。</p></div>
+    <div class="card"><h4><span class="tag yes">する</span>バネで追う</h4><p>遅れる・届かない・押し負ける・打たれて持っていかれる。それが手触りになる。</p></div>
+    <div class="card"><h4><span class="tag no">しない</span>アニメーションを流す</h4><p>技は「目標の経路」として書く。見た目が違えば、経路か体の力学を直す。</p></div>
+    <div class="card"><h4><span class="tag no">しない</span>場合分け</h4><p>「フックなら強い」「急所なら一撃」とは書かない。向き・位置・速さ・質量・材質から連続に決まる。</p></div>
+    <div class="card"><h4><span class="tag yes">する</span>材料で壊れる</h4><p>体も物もボクセル。皮膚・肉・骨・臓器の強さで削れ・断たれ・死ぬ。</p></div>
+    <div class="card"><h4><span class="tag yes">する</span>決定的</h4><p>同じ種と入力なら、試合はビット単位で同じ。記録は入力だけで再現できる。</p></div>
+  </div>
+  <figure>
+    <svg viewBox="0 0 900 250" role="img" aria-label="入力から材料までの因果の流れ">
+      <defs><marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrowhead" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      <rect class="box-blue" x="10" y="30" width="150" height="70" rx="10"/><text class="svg-text" x="85" y="60" text-anchor="middle">入力元</text><text class="svg-muted" x="85" y="80" text-anchor="middle">VR・コントローラ・ボット</text>
+      <rect class="box" x="195" y="30" width="150" height="70" rx="10"/><text class="svg-text" x="270" y="60" text-anchor="middle">目標</text><text class="svg-muted" x="270" y="80" text-anchor="middle">FighterCommand</text>
+      <rect class="box" x="380" y="30" width="150" height="70" rx="10"/><text class="svg-text" x="455" y="60" text-anchor="middle">筋肉（バネ）</text><text class="svg-muted" x="455" y="80" text-anchor="middle">サーボ・PD の力</text>
+      <rect class="box" x="565" y="30" width="150" height="70" rx="10"/><text class="svg-text" x="640" y="60" text-anchor="middle">剛体の体</text><text class="svg-muted" x="640" y="80" text-anchor="middle">Bepu 240 Hz</text>
+      <rect class="box-accent" x="740" y="30" width="150" height="70" rx="10"/><text class="svg-text" x="815" y="60" text-anchor="middle">接触・運動量</text><text class="svg-muted" x="815" y="80" text-anchor="middle">打撃の受け渡し</text>
+      <rect class="box-green" x="565" y="160" width="325" height="70" rx="10"/><text class="svg-text" x="727" y="190" text-anchor="middle">ボクセルの材料</text><text class="svg-muted" x="727" y="210" text-anchor="middle">削れる・断たれる・臓器が壊れる・脳が揺れる</text>
+      <rect class="box" x="195" y="160" width="335" height="70" rx="10"/><text class="svg-text" x="362" y="190" text-anchor="middle">体の状態</text><text class="svg-muted" x="362" y="210" text-anchor="middle">部位の力・意識・体の張り・立てる高さ</text>
+      <path class="arrow" d="M160,65 H192"/><path class="arrow" d="M345,65 H377"/><path class="arrow" d="M530,65 H562"/><path class="arrow" d="M715,65 H737"/>
+      <path class="arrow" d="M815,100 V157"/><path class="arrow" d="M565,195 H533"/>
+      <path class="arrow" d="M362,160 C362,130 455,130 455,103"/>
+    </svg>
+    <figcaption>因果は一方向に流れ、壊れた材料と揺れた脳が「筋肉の強さ」として戻ってくる。どこにも技の種類による分岐は無い。</figcaption>
+  </figure>
+</section>
+
+<section id="arch">
+  <h2>2. アーキテクチャ</h2>
+  <figure>
+    <svg viewBox="0 0 900 300" role="img" aria-label="層の構成">
+      <rect class="box-blue" x="20" y="20" width="200" height="60" rx="10"/><text class="svg-text" x="120" y="47" text-anchor="middle">MiniRing.Vr</text><text class="svg-muted" x="120" y="66" text-anchor="middle">OpenXR（Quest 直結）</text>
+      <rect class="box-blue" x="240" y="20" width="200" height="60" rx="10"/><text class="svg-text" x="340" y="47" text-anchor="middle">MiniRing.Desktop</text><text class="svg-muted" x="340" y="66" text-anchor="middle">キーボード・マウス</text>
+      <rect class="box-blue" x="460" y="20" width="200" height="60" rx="10"/><text class="svg-text" x="560" y="47" text-anchor="middle">MiniRing.Arena</text><text class="svg-muted" x="560" y="66" text-anchor="middle">対戦場・ドリル・動画</text>
+      <rect class="box-blue" x="680" y="20" width="200" height="60" rx="10"/><text class="svg-text" x="780" y="47" text-anchor="middle">MiniRing.Tests</text><text class="svg-muted" x="780" y="66" text-anchor="middle">単体・物理・visual</text>
+      <rect class="box-accent" x="20" y="115" width="860" height="70" rx="10"/><text class="svg-text" x="450" y="143" text-anchor="middle">games/MiniRing（ホスト非依存のゲーム本体）</text><text class="svg-muted" x="450" y="164" text-anchor="middle">Fighter・PunchMechanics・BoxingGame・Voxels・Bots・Replay・LivingRoom・ArenaLook</text>
+      <rect class="box" x="20" y="220" width="860" height="60" rx="10"/><text class="svg-text" x="450" y="246" text-anchor="middle">Aigis エンジン（src/）</text><text class="svg-muted" x="450" y="266" text-anchor="middle">Physics（Bepu v2）・Render（Vulkan）・Foundation（ボクセル）・Audio・Player・Platform</text>
+      <path class="arrow" d="M120,80 V112"/><path class="arrow" d="M340,80 V112"/><path class="arrow" d="M560,80 V112"/><path class="arrow" d="M780,80 V112"/><path class="arrow" d="M450,185 V217"/>
+    </svg>
+    <figcaption>依存は上から下へ一方向。Bepu の型はエンジンの Physics の外へ出ない。</figcaption>
+  </figure>
+  <h3>1 サブステップ（1/240 秒）の流れ</h3>
+<pre>入力元.Read(FighterSense) → FighterCommand
+Fighter.ApplyControl
+  脳しんとうの回復 → 腰を上げる高さ (Rise) を進める
+  立っている: 骨盤の高さ (ホバー PD)・骨盤と胸の向き (直立 PD + ひねり + 傾き)
+             足の運び (倒立振子の捕捉点 → 足を置く → 脚の IK → サーボ)
+             腕: IK → 肩・肘のサーボ + 拳を目標へ PD の力 (反作用は胸へ)
+             体のバネ → 拳 (打ち出す間だけ、体の運動エネルギーとバネのエネルギーを拳へ)
+  倒れている: 崩れてから、張りのぶんだけ体を起こす (いつも立とうとする)
+PhysicsWorld.Step (Bepu)
+BoxingGame: 接触から「拳 × 相手の部位」→ 運動量の受け渡し・ボクセルを削る・頭をねじる</pre>
+  <h3>主なファイル</h3>
+  <div class="table-wrap"><table>
+    <tr><th>ファイル</th><th>役割</th></tr>
+    <tr><td><code>FighterCommand.cs</code></td><td>入力の契約（目標）と、入力元が見てよい情報（<code>FighterSense</code>）</td></tr>
+    <tr><td><code>Fighter.cs</code> / <code>FighterTuning.cs</code></td><td>アクティブラグドール本体と、その調整値のすべて</td></tr>
+    <tr><td><code>PunchMechanics.cs</code></td><td>拳にどれだけ体の質量が乗るか（場合分けなし）</td></tr>
+    <tr><td><code>BoxingGame.cs</code></td><td>リング・2 体・当たり・運動量の受け渡し・ラウンド・得点</td></tr>
+    <tr><td><code>Voxels/</code></td><td>体の中身（材質）・削れ・断裂・死・.vox の行き来</td></tr>
+    <tr><td><code>Bots/</code></td><td>技の経路・ボットの判断・相手の読み・スタイル（JSON）</td></tr>
+    <tr><td><code>Replay/</code></td><td>入力だけの記録と完全再現</td></tr>
+    <tr><td><code>LivingRoom.cs</code></td><td>実物大の部屋。床・ローテーブル・台座は当たり判定を持つ（落ちた破片が転がる）</td></tr>
+    <tr><td><code>RoomAssets.cs</code> / <code>ArenaLook.cs</code></td><td>CC0 の素材・照明（描画だけ）</td></tr>
+  </table></div>
+</section>
+
+<section id="physics">
+  <h2>3. 物理</h2>
+  <h3>3.1 アクティブラグドール</h3>
+  <p>Aigis の人型ラグドールを 0.355 倍（約 60 cm）にし、関節ごとにサーボ（目標の向きへ戻るバネ）を付けたもの。立つ・向く・歩く・打つは、すべて目標とバネの差から生まれる力です。</p>
+  <div class="table-wrap"><table>
+    <tr><th>部分</th><th>どう動くか</th></tr>
+    <tr><td>立つ</td><td>骨盤を立つ高さへ引く PD の力（重力ぶんを常に支える）。意識が薄れると目標の高さそのものが下がる（§3.5）。</td></tr>
+    <tr><td>向き</td><td>骨盤と胸を「相手へのヨー × 頭の位置からの傾き × 両手からのひねり」へ回す PD。頭を下げる分は膝で半分、残りを腰から前へ折る（ヒップヒンジ、最大 40°）、お尻はそのぶん後ろへ。</td></tr>
+    <tr><td>足</td><td>倒立振子の捕捉点から足の置き場所を決め、足から先に動く（踏み出し → 体が付いていく）。かかととつま先の 2 部品、左足が前。</td></tr>
+    <tr><td>腕</td><td>2 ボーン IK で肩・肘のサーボ目標を作り、拳は目標へ PD の力で引く（反作用は胸へ）。</td></tr>
+    <tr><td>首</td><td>固いバネ（9 Hz・減衰 0.7）。打たれたときだけ大きく持っていかれ、ふだんはぐらつかない。</td></tr>
+  </table></div>
+
+  <h3>3.2 パンチの重さ — 体の軸との関係だけで</h3>
+  <p>拳に乗る質量 = 腕の質量 + 体の有効質量 × 腕の連結度。</p>
+  <ul>
+    <li><strong>有効質量</strong>: 力の作用線が体の軸（重心）に近いほど大きい。軸に向かって押す・引く力は体全体の慣性を借り、軸から外れた力は体を回すだけ。</li>
+    <li><strong>連結度</strong>: 肘が伸びて肩・胴と一直線になっているほど、体の質量を拳まで通せる（手打ちは連結が弱い）。</li>
+    <li>回転を固定する動き（胴のひねりに乗せる）は、体の回転の慣性を拳に乗せる。</li>
+  </ul>
+
+  <h3>3.3 打撃の運動量 — 部位に残る分と体を押す分</h3>
+  <p>運ぶ運動量のうち、当たった部位に残る割合は拳の速さに比例して増え（2.5 m/s で上限 0.55。押し当てるだけの遅い拳は鋭さが 0 で何も運ばない）、残りは体全体を押します。部位に残る分は当たった点に掛かるので、回転の中心から外れた所（あご・こめかみ）では頭を首の上で大きくねじります。速く振り抜いた 1 発ほど頭が持っていかれる（運動量の非線形）。</p>
+
+  <h3>3.4 溜め — 体のバネと拳のバネ</h3>
+  <p>拳は体に<strong>バネでつながっている</strong>と考えます。予備動作（溜め）で打つ手の肩を逆へ引き、脚を沈め、胴をひねると、体のバネにエネルギーが貯まります。打ち出しの間だけ、体幹の運動エネルギー（打つ向きの成分・上向き・胸の回転）とバネのエネルギーを、時定数 0.04 秒で拳の目標の先回り（3 Hz のバネ）へ移し、体はそのぶん止まります。</p>
+  <div class="callout"><strong>エネルギーは無から出ない。</strong> 移せるのは体が持っている分まで。踏み込みながら打てば拳が速くなり、体は遅くなる。下がりながらでは乗らない。ダッキングの沈みの反発も同じ仕組みで拳に乗る。結果として、溜めの大きいストレートは小さいものより重くなる（0.83 → 1.56 J）。</div>
+
+  <h3>3.5 意識・体の張り・立てる高さ（連続）</h3>
+  <p>意識 = 脳の働き（脳が 10% 削られるごとに半分）− 脳しんとう。倒れている間、意識が少しでもあれば体は 1.3〜2.6 秒ごとに起き上がろうと力を込めては抜き（意識が深いほど強く頻繁に）、まったく無ければ止まって、4 秒動かなければ審判がその場で K.O. にします。脳しんとうは打撃で頭がねじられた角速度の 2 乗に比例して溜まり、一定の速さ（0.07/秒）で抜けます。意識から体の張りと「腰を上げられる高さ」が連続に決まり、体はいつもその高さまで立とうとします（上がるのは 2.5 秒で床から立つ速さまで）。</p>
+  <figure>
+    <svg id="tone-chart" viewBox="0 0 900 330" role="img" aria-label="意識と体の張り・立てる高さのグラフ"></svg>
+    <figcaption>横軸 = 意識、縦軸 = 割合。0.12 以下で床に伸び、0.3 では腰が落ちた立ち姿、それを下回ると急に膝立ち・座り込みへ、0.75 以上で張りが満ちる。段差はどこにも無い。</figcaption>
+  </figure>
+  <p>審判のダウンは姿勢から読みます（腰が立つ高さの 55 % より下なら Down、85 % まで戻って上体が起きた姿勢を 0.3 秒保てば立ち直り）。意識を 0.05 まで飛ばされた調べ（<code>ConsciousnessProbe</code>）では、約 2 秒床に伸び → 2.5 秒で膝立ち → 6.5 秒で立ち直り → 10 秒ではっきりしました。</p>
+</section>
+
+<section id="material">
+  <h2>4. 材料 — ボクセルの体</h2>
+  <p>体の部位はローポリの外形の内側を 5 mm のボクセルで埋めたもの。各ボクセルは材質を持ち、打撃で削れます。</p>
+  <div class="table-wrap"><table>
+    <tr><th>材質</th><th>働き</th></tr>
+    <tr><td>皮膚・髪・服（トランクス・ブーツ）</td><td>外側の 1 層。打たれ強さは皮膚と同じ（服で強くならない）</td></tr>
+    <tr><td>筋肉</td><td>残りの割合がその部位の力（腕が上がらない・脚が支えられない・胴が軸を保てない）</td></tr>
+    <tr><td>骨（8 倍削れにくい）</td><td>腕・脚の骨が断たれると、そこから先が別の剛体として落ちる</td></tr>
+    <tr><td>脳・心臓・肺・肝臓・腸</td><td>半分以上壊れると死ぬ。脳の残りは意識の上限</td></tr>
+    <tr><td>目（白目と黒目）</td><td>顔に出ている臓器</td></tr>
+  </table></div>
+  <ul>
+    <li>削る量は拳の運動エネルギー（½ × 乗った質量 × 速さ²）に比例。体重の乗った速い 1 発ほど急に深く掘れ、手打ちはほとんど掘れない。</li>
+    <li>削れたボクセルは、当たった向きと頭ののけぞる向きを尊重して飛び散り（塊と粒）、白 → 黄 → 赤 → 元の色へ冷えながら軌跡を描く。音はボクセル 1 つずつの粒（ガラス、臓器と脳は金属）。</li>
+    <li>中身は Vengi などのボクセル編集ソフトで直せる（<code>voxexport</code> → 編集 → <code>voxcheck --install yes</code>）。</li>
+  </ul>
+  <h3>武器（並行して開発中）— 圧力のモデル</h3>
+  <p>鉄の剣・木の棍棒もボクセルで作り、ボクセル同士の接触で壊れ方が決まります。接触の運動エネルギーをたわみで割った力を、触れた形が力を集める面積（応力の集中）と材質の強さで比べ、<strong>柔らかい方が壊れる</strong>（鉄は木を欠くが、木は鉄を欠けない。強さが近ければ両方）。刃は切り、腹は弾かれ、切っ先は少ないエネルギーで刺さり、細い所・切り欠きから折れる。どれも「刃なら切る」という分岐ではなく、形と材質だけで決まります。武器は拳の位置と角度の目標をバネで追い、慣性と慣性モーメントを手首の筋肉で操ります。</p>
+</section>
+
+<section id="algo">
+  <h2>5. アルゴリズム</h2>
+  <h3>5.1 技 = 目標の経路</h3>
+  <p>パンチは「構え → 溜め（横なら フック、下なら アッパー、上なら オーバーハンド）→ 狙いの奥」を通る経路で、目標がその上を先回りし、拳は筋肉で追います。速さは予定の時間ではなく、筋力・加速できる距離・体のバネで決まります。回避（ブロック・ダッキング・ウィービング・スリップ・スウェー・ローリング・ステップ）は頭と体の目標の動き。</p>
+  <h3>5.2 相手を読む</h3>
+  <p>パンチは拳より先に肩と腰が動く。ボットは相手の肩・腰のひねりの動き出しから、どちらの手で何が来るかを読み（<code>OpponentRead</code>）、来る拳に効く回避を回避の表（<code>DefenseBook</code>）から選びます。見てから避けるのではなく、間合いとリズムで先に動く。</p>
+  <h3>5.3 ボットの改善（PDCA）</h3>
+  <ol>
+    <li><strong>ドリル</strong>: 1 つの技だけを、同じ相手の同じ拳に対して何度も（基本動作を磨く）。</li>
+    <li><strong>自動調整</strong>: 技の値を少しずつ変えて、点の良いものを残す（世代ごとに記録）。</li>
+    <li><strong>実戦</strong>: 総当たりのリーグで、全体の強さが上がったかを確かめる。</li>
+    <li><strong>記録</strong>: 仮説・測った結果・採否を <code>docs/BOT_PDCA.md</code> と <code>docs/arena/</code> に残す。</li>
+  </ol>
+  <h3>5.4 決定性と記録</h3>
+  <p>240 Hz の固定ステップ、単スレッドの物理、種付きの乱数。記録は入力・種・調整値・CPU のスタイルだけで、再生で全チェックサムが一致することをテストが確かめます。物理を変えたら <code>PhysicsVersion</code>、ボットの判断を変えたら <code>LogicVersion</code> を上げ、古い記録は黙ってずれる代わりに拒まれます。</p>
+  <h3>5.5 描画</h3>
+  <ul>
+    <li>ボクセルは 3D テクスチャで GPU に置き、空と中身の境に面を張る（削れればその場で形が変わる）。</li>
+    <li>部屋の床・壁・布・木は CC0 の写真を R・G・B の 3 層にし、世界の向きから貼る（UV 不要の三方向投影。<code>TextureInColour</code>）。</li>
+    <li>家具・照明・画面の仕上げは描画だけで、試合の計算には響かない（床・テーブル・台座の当たり判定だけは物理）。</li>
+  </ul>
+</section>
+
+<section id="logic">
+  <h2>6. ロジック</h2>
+  <div class="table-wrap"><table>
+    <tr><th>項目</th><th>決まり</th></tr>
+    <tr><td>当たり</td><td>拳（前腕）と相手の部位の接触から、拳が相手へ踏み込む速さで判定。倒れている相手への打撃は一切数えない（得点・運動量・削れ・脳しんとうのどれも無し。ダウンはカウントで決着）。</td></tr>
+    <tr><td>得点</td><td>運んだ運動量・鋭さ・急所の倍率から。</td></tr>
+    <tr><td>ダウン</td><td>姿勢から読む（§3.5）。10 秒数えられたら KO。脚を失った・臓器が壊れた体は起きない。</td></tr>
+    <tr><td>ラウンド</td><td>ワールドごと作り直す（剛体の削除は危険なため）。</td></tr>
+    <tr><td>リングアウト</td><td>骨盤がキャンバスより 15 cm 下へ落ちたら。</td></tr>
+  </table></div>
+</section>
+
+<section id="play">
+  <h2>7. 2 つの遊び方</h2>
+  <p>どちらも、最後に出すのは同じ <code>FighterCommand</code>（目標）。違うのは「目標をどう作るか」だけです。</p>
+  <figure>
+    <svg viewBox="0 0 900 280" role="img" aria-label="VR とコントローラの入力の流れ">
+      <rect class="box-blue" x="20" y="25" width="190" height="64" rx="10"/><text class="svg-text" x="115" y="52" text-anchor="middle">VR</text><text class="svg-muted" x="115" y="72" text-anchor="middle">HMD・両手の位置</text>
+      <rect class="box" x="250" y="25" width="250" height="64" rx="10"/><text class="svg-text" x="375" y="52" text-anchor="middle">体フレームへ写す</text><text class="svg-muted" x="375" y="72" text-anchor="middle">PuppetMapping（手のずれ 2 倍）</text>
+      <rect class="box-blue" x="20" y="170" width="190" height="64" rx="10"/><text class="svg-text" x="115" y="197" text-anchor="middle">コントローラ</text><text class="svg-muted" x="115" y="217" text-anchor="middle">方向 + 少ないボタン</text>
+      <rect class="box" x="250" y="150" width="180" height="104" rx="10"/><text class="svg-text" x="340" y="182" text-anchor="middle">意図の解釈</text><text class="svg-muted" x="340" y="204" text-anchor="middle">意図 + 状況</text><text class="svg-muted" x="340" y="224" text-anchor="middle">（間合い・読み・体勢）</text>
+      <rect class="box" x="460" y="150" width="180" height="104" rx="10"/><text class="svg-text" x="550" y="182" text-anchor="middle">技の実行</text><text class="svg-muted" x="550" y="204" text-anchor="middle">ボットと共有</text><text class="svg-muted" x="550" y="224" text-anchor="middle">PunchSpec・DefenseBook</text>
+      <rect class="box-accent" x="690" y="90" width="190" height="80" rx="10"/><text class="svg-text" x="785" y="124" text-anchor="middle">FighterCommand</text><text class="svg-muted" x="785" y="146" text-anchor="middle">目標 → バネで追う体</text>
+      <path class="arrow" d="M210,57 H247"/><path class="arrow" d="M500,57 C600,57 640,110 687,120"/>
+      <path class="arrow" d="M210,202 H247"/><path class="arrow" d="M430,202 H457"/><path class="arrow" d="M640,202 C670,202 680,160 700,150"/>
+    </svg>
+    <figcaption>コントローラは「その瞬間の方針」を選ぶだけ。どの技が最適かは状況から決め、技は目標の経路として実行する。アニメーションは無い。</figcaption>
+  </figure>
+  <h3>コントローラの意図 → 技（構想）</h3>
+  <div class="table-wrap"><table>
+    <tr><th>入力</th><th>意図</th><th>状況による技の選び方</th></tr>
+    <tr><td>後ろ ＋ 回避</td><td>下がって外す</td><td>スウェー（上体ごと後ろへ。首だけで反らない）、間合いが詰まっていればバックステップ</td></tr>
+    <tr><td>前 ＋ 回避</td><td>前で外して入る</td><td>来る拳を読んで: ストレートにはスリップ（外側へ頭を滑らせる）、フックにはウィービング（腰から折って U 字）かダッキング</td></tr>
+    <tr><td>横 ＋ 回避</td><td>角度を取る</td><td>サイドステップ・ローリング</td></tr>
+    <tr><td>弱攻撃</td><td>速く当てる</td><td>ジャブ（ボディジャブ・ダブル）。回避の直後なら体の動きを乗せた返し</td></tr>
+    <tr><td>強攻撃</td><td>倒しに行く</td><td>ストレート。近ければフック・アッパー。溜めを大きく取る（威力は物理で出る）</td></tr>
+    <tr><td>方向 ＋ 攻撃</td><td>狙いを変える</td><td>下 ＋ 攻撃でボディ、回避中の入力は回避からのカウンター</td></tr>
+  </table></div>
+  <p class="muted">今のデスクトップ操作（矢印キーで頭・クリックで拳の経路）は素朴な版。意図ベースの操作は、ボットの技の実行部を共有して作る。</p>
+</section>
+
+<section id="policy">
+  <h2>8. 開発の方針</h2>
+  <div class="cards">
+    <div class="card"><h4>軸を先に確かめる</h4><p>分岐・姿勢の書き込み・物理で説明できない閾値を入れていないか。必要なら変更の前に議論する。</p></div>
+    <div class="card"><h4>値は 1 か所に</h4><p>体の値は <code>FighterTuning</code>、ボットは <code>BotStyle</code> と JSON。何の量か・なぜその値かを横に書く。</p></div>
+    <div class="card"><h4>物理として確かめる</h4><p>テストは「物理として起きている」ことを数値で見る。例: 踏み込むと拳は速く、体はそのぶん遅い。</p></div>
+    <div class="card"><h4>目で見る</h4><p>見た目は visual のスナップショットか動画で、自分で確かめてから完了。動画は音を残して縮める。</p></div>
+    <div class="card"><h4>ドリル → 実戦</h4><p>1 つの技を同じ条件で磨いてから、リーグで全体を確かめる。仮説と結果と採否を記録する。</p></div>
+    <div class="card"><h4>版と記録</h4><p>物理を変えたら <code>PhysicsVersion</code>、判断を変えたら <code>LogicVersion</code>。シェーダーを変えたら SPIR-V を作り直す。</p></div>
+  </div>
+  <p>エージェント向けの細かな決まり（チェックリスト・コマンド・過去の失敗）は、リポジトリ直下の <code>CLAUDE.md</code> にあります。</p>
+</section>
+
+<section id="debt">
+  <h2>9. 軸からまだ外れている所</h2>
+  <p>次に軸へ寄せる候補です。新しい近道を入れたら、ここと <code>CLAUDE.md</code> に書き足します。</p>
+  <div class="table-wrap"><table>
+    <tr><th>どこ</th><th>今</th><th>寄せる方向</th></tr>
+    <tr><td>拳の削れ方</td><td>運動エネルギー × 係数で掘る</td><td>武器と同じ圧力のモデルに。グローブの材質で衝撃が広がる</td></tr>
+    <tr><td>立つ力</td><td>骨盤を持ち上げる PD の力（脚が床を押す近似）</td><td>脚の関節トルクで体重を支える</td></tr>
+    <tr><td>意識</td><td>頭のねじれ² × 係数</td><td>脳の材料（揺れによる損傷）として書く</td></tr>
+    <tr><td>ダウンの判定</td><td>腰の高さの割合（ルールの値）</td><td>体の動きは連続のまま、判定はルールとして明示</td></tr>
+  </table></div>
+</section>
+</main>
+<footer>Mini Ring Boxing — docs/GUIDE.html。エージェント向けは CLAUDE.md、細部は docs/*.md。</footer>
+<script>
+(function () {
+  // §3.5 のグラフ: FighterTuning の値（FullTone 0.75 / Knockout 0.3 / Limp 0.12 / FaintTone 0.5 / FaintSag 0.25）から Tone と StandReach を描く。
+  const full = 0.75, ko = 0.3, limp = 0.12, faintTone = 0.5, sag = 0.25;
+  const smooth = t => t * t * (3 - 2 * t);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const tone = c => c < ko ? faintTone * smooth(clamp((c - limp) / (ko - limp), 0, 1)) : faintTone + (1 - faintTone) * smooth(clamp((c - ko) / (full - ko), 0, 1));
+  const reach = c => { const t = tone(c); return t >= faintTone ? 1 - sag * clamp((1 - t) / (1 - faintTone), 0, 1) : (1 - sag) * t / faintTone; };
+  const svg = document.getElementById('tone-chart');
+  const W = 900, H = 330, L = 60, R = 30, T = 20, B = 50;
+  const x = c => L + c * (W - L - R), y = v => T + (1 - v) * (H - T - B);
+  const ns = 'http://www.w3.org/2000/svg';
+  const add = (tag, attrs, text) => { const e = document.createElementNS(ns, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text) e.textContent = text; svg.appendChild(e); return e; };
+  for (const v of [0, 0.25, 0.5, 0.75, 1]) {
+    add('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: 'var(--line)' });
+    add('text', { x: L - 8, y: y(v) + 4, 'text-anchor': 'end', class: 'svg-muted' }, v.toFixed(2));
+  }
+  for (const c of [0, limp, ko, 0.5, full, 1]) {
+    add('line', { x1: x(c), x2: x(c), y1: T, y2: H - B, stroke: 'var(--line)', 'stroke-dasharray': '3 4' });
+    add('text', { x: x(c), y: H - B + 18, 'text-anchor': 'middle', class: 'svg-muted' }, c.toFixed(2));
+  }
+  add('text', { x: (L + W - R) / 2, y: H - 10, 'text-anchor': 'middle', class: 'svg-text' }, '意識');
+  const path = f => { let d = ''; for (let i = 0; i <= 200; i++) { const c = i / 200; d += (i ? 'L' : 'M') + x(c).toFixed(1) + ',' + y(f(c)).toFixed(1); } return d; };
+  add('path', { d: path(tone), fill: 'none', stroke: 'var(--blue)', 'stroke-width': 3 });
+  add('path', { d: path(reach), fill: 'none', stroke: 'var(--accent)', 'stroke-width': 3 });
+  add('text', { x: x(0.86), y: y(1) - 6, class: 'svg-text', fill: 'var(--blue)' }, '体の張り (Tone)');
+  add('text', { x: x(0.38), y: y(reach(0.38)) - 10, class: 'svg-text' }, '腰を上げられる高さ (StandReach)');
+  add('text', { x: x(0.02), y: y(0.08), class: 'svg-muted' }, '床に伸びる');
+  add('text', { x: x(0.2) + 4, y: y(0.45), class: 'svg-muted' }, '膝立ち・座り込み');
+})();
+</script>
+</body>
+</html>

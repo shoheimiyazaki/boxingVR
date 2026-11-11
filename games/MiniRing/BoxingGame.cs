@@ -40,6 +40,13 @@ public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFa
 public sealed class BoxingGame : IGame<BoxingInput>
 {
     public const float CountSeconds = 10f;
+
+    /// <summary>
+    /// 倒れたまま体がまったく動かない（<see cref="Fighter.StillTime"/>）のがこの秒数続いたら、10 カウントを待たずにその場で K.O.
+    /// （審判が試合を止める）。意識が少しでもあれば起き上がろうとする試みで体が動く（試みの間隔 <see cref="FighterTuning.StirPeriodSlow"/> より長い）ので、
+    /// 止まるのは死んだ・完全に意識を失ったときだけ。ルールの値（物理量ではない）。
+    /// </summary>
+    public const float StillKoSeconds = 4f;
     private const float SubstepRate = 240f;
     private const float RoundResetDelay = 3.5f;
     private const float RehitCooldown = 0.18f;
@@ -169,6 +176,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
     public void Step(BoxingInput input, float dt)
     {
+        RecentBell = _startBellPending ? RoundBell.Start : RoundBell.None;
+        _startBellPending = false;
         _recentHits.Clear();
         _recentShatters.Clear();
         _recentLandings.Clear();
@@ -179,7 +188,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
             return;
         }
 
-        var substeps = Math.Max(1, (int)MathF.Ceiling(dt * SubstepRate));
+        // 1/80 s（0.75 倍速の 1 歩）× 240 が浮動小数で 3.0000002 になり 4 つに割らないよう、わずかに切り下げてから切り上げる。
+        var substeps = Math.Max(1, (int)MathF.Ceiling((dt * SubstepRate) - 1e-3f));
         var sub = dt / substeps;
         for (var i = 0; i < substeps; i++)
         {
@@ -595,6 +605,10 @@ public sealed class BoxingGame : IGame<BoxingInput>
             var dead = Player.IsDead ? Player : Cpu;
             EndRound(cpuWon: dead == Player, $"K.O. — {dead.DeathCause!.ToUpperInvariant()} DESTROYED");
         }
+        else if (Fighters.FirstOrDefault(f => f.StillTime > StillKoSeconds) is { } still)
+        {
+            EndRound(cpuWon: still == Player, "K.O. — OUT COLD");
+        }
         else if (_ring.IsOut(Player.PelvisPosition))
         {
             EndRound(cpuWon: true, "RING OUT");
@@ -630,6 +644,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         }
 
         _roundOverTimer = RoundResetDelay;
+        RecentBell = RoundBell.End;
         ShowMessage($"{reason}  {(cpuWon ? "CPU WINS" : "YOU WIN")}", RoundResetDelay);
     }
 
@@ -667,7 +682,16 @@ public sealed class BoxingGame : IGame<BoxingInput>
         _preStepGloveVelocity.Clear();
         _hitCooldown.Clear();
         ShowMessage("FIGHT!", 1.5f);
+        _startBellPending = true;
     }
+
+    /// <summary>
+    /// 直近の <see cref="Step"/> で鳴ったゴング（ホストの音用。試合には響かない）。ラウンドの始まりは、そのラウンドの最初の <see cref="Step"/> で
+    /// <see cref="RoundBell.Start"/>、終わり（K.O.・リングアウト）は終わった <see cref="Step"/> で <see cref="RoundBell.End"/>。
+    /// </summary>
+    public RoundBell RecentBell { get; private set; }
+
+    private bool _startBellPending;
 
     private void ShowMessage(string text, float seconds)
     {
@@ -736,6 +760,19 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
     private static SceneLighting Lighting { get; } = ArenaLook.Lighting(RingCenter, RingSize, RingSurfaceHeight);
 
+    /// <summary>
+    /// 両ボクサーの顔の窓（<see cref="MiniRing.FaceCam"/>）を出すか。描画だけの設定で、試合の計算・記録には響かない。
+    /// ここでは窓の縁（HUD の図形）だけを描く。窓の中身はホストが <see cref="FaceCam.Views"/> で重ねる。
+    /// </summary>
+    public FaceCam? FaceCam { get; set; }
+
+    /// <summary>ホストが試合を進めている速さ（<see cref="GameSpeed"/>）。HUD に出すだけで、試合の計算には響かない（速さはホストが 1 歩の時間で決める）。</summary>
+    public GameSpeed? Speed { get; set; }
+
+    /// <summary>HUD の図形: 10 カウントの目盛りと、顔の窓の縁（<see cref="FaceCam"/> があるときだけ）。</summary>
+    public IReadOnlyList<UiShapeDraw> BuildOverlayShapes(Matrix4x4 viewProjection, Vector2 screenSizePixels)
+        => [.. DownCountHud.Shapes(this, screenSizePixels), .. FaceCam?.Frames(this, screenSizePixels) ?? []];
+
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 viewProjection, Vector2 screenSizePixels)
     {
         var white = new Vector4(1f, 1f, 1f, 1f);
@@ -753,13 +790,13 @@ public sealed class BoxingGame : IGame<BoxingInput>
             list.Add(new ScreenTextDraw(text, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y - 44f), 22f, white, TextAnchor.Center));
         }
 
-        foreach (var fighter in Fighters)
+        list.AddRange(DownCountHud.Text(this, screenSizePixels, f => f == Player ? "YOU" : "CPU",
+            f => f == Player ? new Vector4(1f, 0.45f, 0.4f, 1f) : new Vector4(0.5f, 0.65f, 1f, 1f)));
+
+        if (Speed is { } speed)
         {
-            if (fighter.DownTime > 0.5f && !RoundOver)
-            {
-                list.Add(new ScreenTextDraw($"{(fighter == Player ? "YOU" : "CPU")} DOWN  {MathF.Min(CountSeconds, MathF.Floor(fighter.DownTime) + 1f):0}",
-                    new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y * 0.42f), 40f, new Vector4(1f, 0.85f, 0.3f, 1f), TextAnchor.Center));
-            }
+            list.Add(new ScreenTextDraw($"{speed.Label}  [1] 0.5x  [2] 0.75x  [3] 1.0x", new Vector2(24f, screenSizePixels.Y - 20f), 18f,
+                new Vector4(0.85f, 0.85f, 0.85f, 0.8f), TextAnchor.Left));
         }
 
         if (Message.Length > 0)
@@ -847,4 +884,12 @@ public sealed class BoxingGame : IGame<BoxingInput>
         var length = v.Length();
         return length > max ? v * (max / length) : v;
     }
+}
+
+/// <summary>ラウンドのゴング: 鳴らない・始まり・終わり。</summary>
+public enum RoundBell
+{
+    None,
+    Start,
+    End,
 }

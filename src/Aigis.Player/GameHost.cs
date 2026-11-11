@@ -148,6 +148,12 @@ public static class GameHost
     /// (1 = 100%). Asked for once at startup and again whenever the window lands on a display with a
     /// different scale, so the picture is always drawn 1:1 (see <see cref="CursorImage"/>). Null keeps
     /// the system arrow, which is what every game had before this existed.</param>
+    /// <param name="TimeScale">2026-11-11 (Mini Ring Boxing's slow motion): game seconds per real second,
+    /// asked every frame so a game can switch it live. The host still takes one step per
+    /// <see cref="FixedStep.Default"/> of REAL time (the picture stays as smooth as at full speed) and passes
+    /// each step <c>Dt × TimeScale</c>, so a game that subdivides its step (fixed physics substeps) slows
+    /// down without a coarser picture. Null (the default) is 1: every existing game is unchanged.
+    /// Non-finite or non-positive values are treated as 1.</param>
     public sealed record Options(
         string Title,
         string HelpText,
@@ -161,7 +167,8 @@ public static class GameHost
         Func<Vector2, IReadOnlyList<CameraView>?>? DynamicViews = null,
         double FrameRateCap = PlatformWindowOptions.Uncapped,
         bool HidePointerWhenUnused = false,
-        Func<float, CursorImage>? CursorImageForScale = null);
+        Func<float, CursorImage>? CursorImageForScale = null,
+        Func<float>? TimeScale = null);
 
     /// <summary>
     /// Reads the <c>AIGIS_FRAME_THROTTLE</c> override (<c>vsync</c>/<c>lowlatency</c>/<c>unlimited</c>,
@@ -528,6 +535,8 @@ public static class GameHost
                     static s => s.readInput(s.input, s.aspect, s.windowSizePixels),
                     default!);
                 var steps = loop.Advance(realDeltaSeconds);
+                var timeScale = options.TimeScale?.Invoke() ?? 1f;
+                var stepDt = FixedStep.Default.Dt * (float.IsFinite(timeScale) && timeScale > 0f ? timeScale : 1f);
                 var stepsStarted = Stopwatch.GetTimestamp();
                 for (var i = 0; i < steps; i++)
                 {
@@ -540,8 +549,8 @@ public static class GameHost
                     // It means the player still has a window, a HUD and a way out.
                     barrier.Guard(
                         "game.Step",
-                        (game, gameInput),
-                        static s => s.game.Step(s.gameInput, FixedStep.Default.Dt));
+                        (game, gameInput, stepDt),
+                        static s => s.game.Step(s.gameInput, s.stepDt));
                 }
 
                 frameProfiler.AddPhase("step", Stopwatch.GetElapsedTime(stepsStarted).TotalMilliseconds);
