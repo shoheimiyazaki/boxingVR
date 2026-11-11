@@ -1,3 +1,4 @@
+using System.Numerics;
 using Aigis.Foundation.Voxels;
 using MiniRing.Audio;
 using MiniRing.Voxels;
@@ -92,6 +93,21 @@ public sealed class OutfitTests
             Assert.AreEqual(skin.Toughness, cloth.Toughness, $"{cloth.Name} breaks like skin");
             Assert.IsFalse(cloth.Vital);
             Assert.AreEqual(GrainKind.Skin, VoxelBreakSound.KindOf(m), $"{cloth.Name} sounds like the outer layer");
+        }
+    }
+
+    [TestMethod]
+    public void ACutInTheClothes_ShowsInAnotherColor()
+    {
+        var palette = BoxerAnatomy.Palette;
+        Vector3 Rgb(byte m) => new(palette[m].Color.X, palette[m].Color.Y, palette[m].Color.Z);
+        var clothes = Enumerable.Range(0, palette.Count).Select(m => (byte)m).Where(BoxerAnatomy.IsClothing).ToList();
+
+        CollectionAssert.AreEquivalent(new[] { BoxerAnatomy.RedTrunks, BoxerAnatomy.BlueTrunks, BoxerAnatomy.Waistband, BoxerAnatomy.Boot }, clothes);
+        foreach (var cloth in clothes)
+        {
+            Assert.IsGreaterThan(0.2f, Vector3.Distance(Rgb(cloth), Rgb(BoxerAnatomy.Muscle)), $"{palette[cloth].Name} vs the muscle under it");
+            Assert.IsGreaterThan(0.2f, Vector3.Distance(Rgb(cloth), Rgb(BoxerAnatomy.Skin)), $"{palette[cloth].Name} vs bare skin");
         }
     }
 

@@ -39,6 +39,9 @@ public static class BoxerAnatomy
     public const byte Waistband = 12;
     public const byte Boot = 13;
 
+    /// <summary>身なりの材質（布と革）か。皮膚の代わりの層なので、音・見え方の扱いは皮膚に合わせる。</summary>
+    public static bool IsClothing(byte material) => material is >= RedTrunks and <= Boot;
+
     /// <summary>布と革は皮膚と同じ削れにくさ・同じ組織（肉）にする: 着ても打たれ強さと部位の力は裸のときと変わらない。</summary>
     private const float SkinToughness = 0.7f;
 
@@ -61,7 +64,7 @@ public static class BoxerAnatomy
         new VoxelMaterial("liver", VoxelTissue.Organ, 1.4f, true, Rgb(0.36f, 0.13f, 0.04f), Rgb(0.36f, 0.13f, 0.04f), Stainable: 0f),
         new VoxelMaterial("gut", VoxelTissue.Organ, 1.2f, true, Rgb(1f, 0.82f, 0.25f), Rgb(1f, 0.82f, 0.25f), Stainable: 0f),
         new VoxelMaterial("eye", VoxelTissue.Organ, 0.8f, false, Rgb(1f, 1f, 1f), Rgb(0.04f, 0.08f, 0.25f), Stainable: 0f),
-        new VoxelMaterial("red trunks", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.72f, 0.06f, 0.08f), Rgb(0.72f, 0.06f, 0.08f), Stainable: 0.5f),
+        new VoxelMaterial("red trunks", VoxelTissue.Flesh, SkinToughness, false, Rgb(1f, 0.24f, 0.18f), Rgb(1f, 0.24f, 0.18f), Stainable: 0.5f),
         new VoxelMaterial("blue trunks", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.08f, 0.2f, 0.72f), Rgb(0.08f, 0.2f, 0.72f), Stainable: 0.5f),
         new VoxelMaterial("waistband", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.95f, 0.95f, 0.9f), Rgb(0.95f, 0.95f, 0.9f), Stainable: 0.8f),
         new VoxelMaterial("boot", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.1f, 0.1f, 0.11f), Rgb(0.1f, 0.1f, 0.11f), Stainable: 0.3f),
@@ -73,14 +76,14 @@ public static class BoxerAnatomy
     /// <summary>トランクスの裾: 太ももの外形のこの高さ（正規化 Y、+1 が付け根）より上を覆う。太ももの半ばより少し下まで。</summary>
     private const float TrunksHemAt = -0.15f;
 
-    /// <summary>ブーツの履き口: すねの外形のこの高さ（正規化 Y、−1 が足首）より下を覆う。くるぶしの上、ふくらはぎの下まで。</summary>
-    private const float BootTopAt = -0.25f;
+    /// <summary>ブーツの履き口: すねの外形のこの高さ（正規化 Y、−1 が足首）より下を覆う。ボクシングシューズの丈（すねの半ば）。</summary>
+    private const float BootTopAt = 0.05f;
 
     /// <summary>
     /// 部位 <paramref name="kind"/> の箱を、<paramref name="cellSize"/> [m] ほどのボクセルで埋める。<paramref name="shape"/>
     /// （部位のローカルの閉じたメッシュ、ローポリの体）を渡すと、その内側だけを埋める（外は空）。
-    /// </summary>
     /// <paramref name="outfit"/> を渡すと、外側の皮膚の層のうち、トランクスとブーツの所をその材質にする（<see cref="Dress"/>）。
+    /// </summary>
     public static VoxelGrid Build(BodyPartKind kind, Vector3 halfExtents, float cellSize, LowPolyMesh? shape = null, Outfit? outfit = null)
     {
         var dims = VoxelGrid.CellsFor(halfExtents, cellSize);
@@ -113,8 +116,7 @@ public static class BoxerAnatomy
                 return material;
             }
 
-            var n = ((-halfExtents + ((new Vector3(c.X, c.Y, c.Z) + new Vector3(0.5f)) * cell)) - center) / half;
-            return outfit is null ? Skin : Dress(kind, n, outfit);
+            return outfit is null ? Skin : Dress(kind, (grid.CellCenter(c.X, c.Y, c.Z) - center) / half, outfit);
         });
         return grid;
     }
@@ -268,10 +270,17 @@ public static class BoxerAnatomy
     }
 }
 
-/// <summary>ボクサーの身なり。トランクスの色はコーナーの色（ブーツと腰のゴムは共通）。</summary>
-/// <param name="Trunks">トランクスの材質（<see cref="BoxerAnatomy.RedTrunks"/> か <see cref="BoxerAnatomy.BlueTrunks"/>）。</param>
-public sealed record Outfit(byte Trunks)
+/// <summary>
+/// ボクサーの身なり。トランクスの色はコーナーの色（ブーツと腰のゴムは共通）。作れるのは赤と青の 2 つだけ
+/// （ほかの材質をトランクスにすると、腰の削れにくさが変わってしまう）。
+/// </summary>
+public sealed record Outfit
 {
+    private Outfit(byte trunks) => Trunks = trunks;
+
+    /// <summary>トランクスの材質（<see cref="BoxerAnatomy.RedTrunks"/> か <see cref="BoxerAnatomy.BlueTrunks"/>）。</summary>
+    public byte Trunks { get; }
+
     public static Outfit RedCorner { get; } = new(BoxerAnatomy.RedTrunks);
 
     public static Outfit BlueCorner { get; } = new(BoxerAnatomy.BlueTrunks);

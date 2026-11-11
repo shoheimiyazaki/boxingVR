@@ -101,6 +101,43 @@ public sealed class SnapshotTests
     }
 
     /// <summary>
+    /// 身なり: 2 人を横から、CPU を斜め前から、頭から足まで入れて撮る。トランクス（コーナーの色・白い腰のゴム）が腰と太ももの上、
+    /// ブーツが足とすねの下に見えるか。
+    /// </summary>
+    [TestMethod]
+    public void Outfit_ShowsTrunksAndBoots()
+    {
+        var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
+        Directory.CreateDirectory(outDir);
+        using var game = new BoxingGame(seed: 3);
+        using var renderer = new HeadlessRenderer(Width, Height);
+        for (var i = 0; i < 30; i++)
+        {
+            game.Step(new BoxingInput(new FighterCommand(Vector3.Zero, Vector3.UnitZ,
+                new HandCommand(AiControl.Guard(Hand.Left, game.Player.ArmReach), false),
+                new HandCommand(AiControl.Guard(Hand.Right, game.Player.ArmReach), false))), 1f / 60f);
+        }
+
+        var player = game.World.GetState(game.Player.Parts.Pelvis).Position;
+        var cpu = game.World.GetState(game.Cpu.Parts.Pelvis).Position;
+        var between = Vector3.Normalize((cpu - player) with { Y = 0f });
+        var across = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, between));
+
+        void Shoot(string name, Vector3 eye, Vector3 target)
+        {
+            var viewProjection = Camera.ViewProjection(eye, target, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+            var (instances, lines) = game.BuildRenderables();
+            PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_outfit_{name}.png"), Width, Height, Render(renderer, game, viewProjection, eye, instances, lines, []));
+        }
+
+        var middle = (player + cpu) * 0.5f;
+        // 横はロープの上から見下ろし、前はプレイヤーの横へ大きく外して CPU の全身を入れる。
+        Shoot("side", middle + (across * 0.9f) + new Vector3(0f, 0.3f, 0f), middle - new Vector3(0f, 0.08f, 0f));
+        Shoot("front", cpu - (between * 0.75f) + (across * 0.5f) + new Vector3(0f, 0.15f, 0f), cpu - new Vector3(0f, 0.1f, 0f));
+        Assert.IsGreaterThan(0, game.Cpu.Voxels!.PartOf(game.Cpu.Parts.Pelvis)!.Body.Grid.Initial(MiniRing.Voxels.BoxerAnatomy.BlueTrunks));
+    }
+
+    /// <summary>
     /// CPU の体を前後に半分に割った断面（手前半分を描かない）を正面から撮り、中の組織（皮膚・筋肉・骨・脳・心臓・肺・肝臓・腸・目）が
     /// 色で見分けられるかを見る。プレイヤーの体は描かない。
     /// </summary>
