@@ -13,7 +13,7 @@ public sealed class ConsciousnessProbe
     [TestMethod]
     public void BodyAtEachLevelOfConsciousness()
     {
-        foreach (var level in new[] { 1f, 0.75f, 0.65f, 0.55f, 0.45f, 0.35f, 0.31f, 0.29f })
+        foreach (var level in new[] { 1f, 0.75f, 0.65f, 0.55f, 0.45f, 0.35f, 0.29f, 0.25f, 0.2f, 0.15f, 0.1f })
         {
             var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
             using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
@@ -51,6 +51,33 @@ public sealed class ConsciousnessProbe
             var guardNow = f.GloveCenter(Hand.Left).Y - f.ChestPosition.Y;
             Console.WriteLine($"consciousness {level:0.0} (tone {f.Tone:0.00}): pelvis settles {(sum / Math.Max(1, n)) / stand:P0} of standing, lowest {minPelvis / stand:P0}, " +
                 $"glove {guard:0.000} → {guardNow:0.000} m above chest, {(downAt >= 0f ? $"down at {downAt:0.00}s ({f.State})" : "stays up")}, tilt {f.Uprightness:0.00}");
+        }
+    }
+
+    [TestMethod]
+    public void RecoveryFromADeepConcussion()
+    {
+        // 一度だけ深く意識を飛ばし、その後の意識・腰を上げようとする高さ・実際の腰の高さ・状態を 0.5 秒ごとに見る。
+        var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
+        var f = game.Cpu;
+        for (var t = 0f; t < 1.5f; t += Dt)
+        {
+            game.Step(default, Dt);
+        }
+
+        var ground = f.AllParts.Min(id => game.World.GetState(id).Position.Y) - 0.01f;
+        var stand = f.PelvisPosition.Y - ground;
+        f.Concussion = 0.95f;
+        var next = 0f;
+        for (var t = 0f; t < 16f; t += Dt)
+        {
+            game.Step(default, Dt);
+            if (t >= next)
+            {
+                next += 0.5f;
+                Console.WriteLine($"t {t,5:0.0}s consciousness {f.Consciousness:0.00} tone {f.Tone:0.00} reach {f.StandReach:0.00} rise {f.Rise:0.00} pelvis {(f.PelvisPosition.Y - ground) / stand:P0} upright {f.Uprightness:0.00} {f.State}");
+            }
         }
     }
 }

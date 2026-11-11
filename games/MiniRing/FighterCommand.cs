@@ -17,15 +17,20 @@ public static class HandExtensions
     public static float LocalSide(this Hand hand) => hand == Hand.Left ? 1f : -1f;
 }
 
-/// <summary>片手ぶんの指令。目標はファイターの体フレーム（肩中心・向きヨー）のローカル座標 [m]。</summary>
-public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip);
+/// <summary>
+/// 片手ぶんの指令。目標はファイターの体フレーム（肩中心・向きヨー）のローカル座標 [m]。
+/// <paramref name="Spring"/>（0..1）は体の動きを拳へ移す割合: 拳が体にバネでつながり、体幹の運動エネルギーが拳の速さに移る
+/// （溜めで縮めた体のバネ・回避で動いた体の運動量が拳に乗る。<see cref="FighterTuning.BodyToFistEfficiency"/>）。ボットが拳を出していく間に使う。ホスト（VR・キーボード）は 0（自分の手をきっちり追う）。
+/// 記録には残さない（胴のひねりの指示と同じく、ボットが再生のたびに同じ値を出す）。
+/// </summary>
+public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float Spring = 0f);
 
 /// <summary>
 /// 1 ステップ分の操作指令 — 入力元（VR / キーボード / AI）とラグドールの唯一の契約。
 /// ラグドールはこれを位置として書き込まず、バネ・ダンパの目標として追う。
 /// <para><paramref name="HeadOffset"/> は頭の構えからのずれ（体フレームのローカル [m]）: 前へ出せば前傾、横へずらせば
 /// スリップ（横傾き）、下げればダッキング（沈み込み）。体の軸の向きは両手の位置とこの頭の位置から決まる。</para>
-/// <para><paramref name="TwistBias"/> は胴のひねりの上乗せ [rad]（正で右肩が前）。拳より先に腰と肩を回す（打つ前の溜め）のに使う。</para>
+/// <para><paramref name="TwistBias"/> は胴のひねりの上乗せ [rad]（正で右肩が前）。拳より先に腰と肩を回す（打つ前の溜め: 打つ手の肩を後ろへ引いて胴のバネを縮め、打ち出すと前へ回す）のに使う。</para>
 /// </summary>
 public readonly record struct FighterCommand(Vector3 MoveWorld, Vector3 FaceDirection, HandCommand Left, HandCommand Right, Vector3 HeadOffset = default, float TwistBias = 0f)
 {

@@ -13,17 +13,27 @@ public sealed class Ring
     private const float RopeThickness = 0.012f;
     private readonly List<PrimitiveInstance> _visuals = [];
 
-    public Ring(PhysicsWorld world, Vector3 center, float size, float surfaceHeight)
+    /// <param name="world">物理のワールド（台・エプロン・コーナーポスト・ロープを静的な箱で置く）。</param>
+    /// <param name="center">リングの中心（床の上の位置）。</param>
+    /// <param name="size">リングの 1 辺 [m]。</param>
+    /// <param name="surfaceHeight">キャンバスの高さ（床から）。</param>
+    /// <param name="baseHeight">リングの台が立つ高さ（テーブルに置いた台座の上面）。</param>
+    public Ring(PhysicsWorld world, Vector3 center, float size, float surfaceHeight, float baseHeight)
     {
         ArgumentNullException.ThrowIfNull(world);
+        if (!(baseHeight >= 0f && baseHeight < surfaceHeight - 0.06f))
+        {
+            throw new ArgumentOutOfRangeException(nameof(baseHeight), baseHeight, "The ring's stand must start below its canvas.");
+        }
+
         Center = center;
         Size = size;
         SurfaceHeight = surfaceHeight;
         var half = size * 0.5f;
 
-        // 部屋の床・台・キャンバス。
-        Box(world, new Vector3(center.X, -0.05f, center.Z), new Vector3(4f, 0.05f, 4f), new Vector4(0.07f, 0.07f, 0.08f, 1f), solid: true);
-        Box(world, new Vector3(center.X, (surfaceHeight - 0.06f) * 0.5f, center.Z), new Vector3(half * 0.9f, (surfaceHeight - 0.06f) * 0.5f, half * 0.9f), new Vector4(0.12f, 0.12f, 0.14f, 1f), solid: true);
+        // 台（箱庭の台座の上から）・エプロン・キャンバス。床とテーブルは部屋（LivingRoom）。
+        var stand = surfaceHeight - 0.06f - baseHeight;
+        Box(world, new Vector3(center.X, baseHeight + (stand * 0.5f), center.Z), new Vector3(half * 0.9f, stand * 0.5f, half * 0.9f), new Vector4(0.12f, 0.12f, 0.14f, 1f), solid: true);
         Box(world, new Vector3(center.X, surfaceHeight - 0.03f, center.Z), new Vector3(half + 0.02f, 0.03f, half + 0.02f), new Vector4(0.15f, 0.25f, 0.6f, 1f), solid: true);
         Box(world, new Vector3(center.X, surfaceHeight - 0.003f, center.Z), new Vector3(half, 0.004f, half), new Vector4(0.64f, 0.63f, 0.61f, 1f), solid: false);
 

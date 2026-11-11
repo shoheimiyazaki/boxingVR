@@ -984,7 +984,10 @@ public sealed class PrimitiveInstancePacker
         // zero this buffer has always written means "untextured" (and a reused buffer can never leak
         // a stale layer); w = metres per repeat, 0 meaning the shader's default, any negative meaning
         // a photo decal (see PrimitiveInstance) -- normalised to -1 so the shader tests one value.
-        buffer[write++] = instance.TextureLayer >= 0 ? instance.TextureLayer + 1f : 0f;
+        // A colour texture (2026-11-11) negates the lane: -(layer + 1). The shader takes abs() for the layer.
+        buffer[write++] = instance.TextureLayer < 0 ? 0f
+            : instance.TextureInColour ? -(instance.TextureLayer + 1f)
+            : instance.TextureLayer + 1f;
         buffer[write++] = !float.IsFinite(instance.TextureTileMetres) ? 0f
             : instance.TextureTileMetres > 0f ? instance.TextureTileMetres
             : instance.TextureTileMetres < 0f ? -1f

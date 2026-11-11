@@ -1,6 +1,7 @@
 # Mini Ring Boxing（VR POC）
 
 目の前の卓上リングで、身長 60cm のアクティブラグドールを VR コントローラで操るボクシングゲームの POC。
+リングは実物大のリビング（5.4 m × 6.4 m）の真ん中、ローテーブルに置いた箱庭。家具（Kenney Furniture Kit）と床・壁・布・木のテクスチャ（ambientCG）はどれも CC0（[games/MiniRing/Assets/CREDITS.md](games/MiniRing/Assets/CREDITS.md)）。
 自分の手の動きは位置として転写されず、**手の目標点へ向かうバネ・ダンパ（Bepu のサーボ＋PD 力）** として人形に伝わる。
 
 - エンジン: **Aigis**（Dr. Tod's Very Good Clinic のエンジン。C# / .NET 10・Vulkan(Silk.NET)・BepuPhysics v2）を `src/` にコピー
@@ -88,7 +89,7 @@ dotnet test tests/MiniRing.Tests --filter "TestCategory!=visual"
 dotnet run --project games/MiniRing.Vr -- --selftest
 ```
 
-- テストは 175 件あります（うち GPU 描画の visual 2 件。調査用の Probe は除く）。記録→再生が全チェックサムまでビット単位で一致することも確かめています。純関数（IK・写像・力学モデル・部位判定・体の状態など）と、ヘッドレスで物理を回して「立つ・歩く・旋回・パンチが届く・掴んで離す・ダウンから起き上がる」「打たれた頭が硬い首の上で持っていかれ、揺れ返さずに戻る」「手の位置で胴がひねれ、頭の位置で傾く」「ストレートは手打ちより重い」「打撃でボクセルが削れ、骨が断たれた腕・脚が落ち、脳を壊すと死ぬ」を確かめるものです。
+- テストは 210 件あります（うち GPU 描画の visual 2 件。調査用の Probe は除く）。記録→再生が全チェックサムまでビット単位で一致することも確かめています。純関数（IK・写像・力学モデル・部位判定・体の状態など）と、ヘッドレスで物理を回して「立つ・歩く・旋回・パンチが届く・掴んで離す・ダウンから意識の戻りに合わせてゆっくり起き上がる」「打たれた頭が硬い首の上で持っていかれ、揺れ返さずに戻る」「手の位置で胴がひねれ、頭の位置で傾く」「ストレートは手打ちより重い」「打撃でボクセルが削れ、骨が断たれた腕・脚が落ち、脳を壊すと死ぬ」を確かめるものです。
 - `--selftest` は HMD なしで VR 描画経路を検証します。自前の Vulkan デバイスと sRGB 画像（XR スワップチェーン画像の代役）に描いた結果が、通常の描画とバイト単位で一致するかを見ます。
 - GPU の画面確認は `dotnet test tests/MiniRing.Tests --filter TestCategory=visual` で行い、出力先は `.visualcheck/` です。
 
@@ -99,6 +100,8 @@ dotnet run --project games/MiniRing.Vr -- --selftest
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — 構成・制御の仕組み・1 フレームの流れ
 - [docs/BOXING.md](docs/BOXING.md) — パンチの力学（体重が乗る／手打ち）、部位ダメージ、打撃音
 - [docs/VOXEL_DAMAGE.md](docs/VOXEL_DAMAGE.md) — ボクセルの体（削れる・弱る・骨が断たれて落ちる・臓器が壊れて死ぬ・飛び散る）とエンジンの部品
+- [games/MiniRing/Assets/CREDITS.md](games/MiniRing/Assets/CREDITS.md) — 部屋の家具・テクスチャの出典（CC0）。部屋の作りは `LivingRoom.cs`、素材の読み込みは `RoomAssets.cs`、エンジンの色のテクスチャは `SurfaceTextureSet.Builder.AddColour`・`PrimitiveInstance.TextureInColour`、OBJ は `ObjModel`
+- [docs/VOXEL_EDITING.md](docs/VOXEL_EDITING.md) — ボクサーのボクセルを Vengi・MagicaVoxel で直す（.vox への書き出し・確かめ・組み込み）
 - [docs/REPLAY.md](docs/REPLAY.md) — 自動記録と完全再現（ファイル形式・再生・照合）
 - [docs/BOTS.md](docs/BOTS.md) — ボクシングボットの技・守り・スタイルと、ボット同士の対戦場
 - [docs/BOT_PDCA.md](docs/BOT_PDCA.md) — ボット同士を戦わせて改善した記録（データと判断）

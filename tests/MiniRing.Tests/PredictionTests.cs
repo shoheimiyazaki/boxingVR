@@ -107,7 +107,7 @@ public sealed class PredictionTests
     }
 
     [TestMethod]
-    public void LoadedRightCross_TurnsTheRightShoulderForward_BeforeTheFistMoves()
+    public void LoadedRightCross_WindsTheRightShoulderBack_BeforeTheFistMoves()
     {
         var attackers = new List<BoxerBot>();
         var attacker = DefenseDrill.PunchAttacker("2", telegraph: 0.12f);
@@ -129,9 +129,9 @@ public sealed class PredictionTests
 
             if (thrownAt >= 0f && t >= thrownAt + 0.1f)
             {
-                // 溜めの終わり近く（拳はまだ出ていない）: 右肩が前へ回り、拳は前へ出ていない（少し引いている）。
-                // 足運び編 F5 で胴が長くなり（関節の重なり代を縮尺に合わせた）、同じ時間で回る角度は 0.03 → 0.026 rad ほど。
-                Assert.IsGreaterThan(0.02f, Twist(game) - twistAtThrow, "the right shoulder turns forward first");
+                // 溜めの終わり近く（拳はまだ出ていない）: 右肩を後ろへ引いて胴のバネを縮め（攻撃編 A1。以前は前へ回していた）、拳は前へ出ていない（少し引いている）。
+                // 体の動きは拳より先に出るので、相手はこの引きを読める（OpponentRead は向きによらず、拳の前の体の動きを覚える）。
+                Assert.IsLessThan(-0.01f, Twist(game) - twistAtThrow, "the right shoulder winds back first"); // 溜め 0.12 秒では引ききる（0.2 秒）手前
                 var glove = game.Cpu.Frame.InverseRotate(game.Cpu.GloveCenter(Hand.Right) - game.Cpu.Frame.Origin);
                 Assert.IsLessThan(0.05f, (glove.Z - gloveAtThrow.Z) / game.Cpu.ArmReach, "the fist has not gone out yet");
                 return;

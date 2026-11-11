@@ -10,12 +10,16 @@ using MiniRing.Bots;
 //   drill [--book f.json] [--bouts N] [--seconds S]                                防御ドリル: 防御技 × 拳の種類の効き目の表
 //   drilltune [--defense a,b|all] [--book f.json] [--gens G] [--pop P] [--log f.md] [--out book.json]
 //                                                                                   防御技ごとの最適化（ドリルで PDCA）
+//   attacklab [--combos 1,2,1-2] [--telegraphs 0,0.1,0.2] [--ranges 0.9,1.05,1.2] [--bouts N] [--seconds S] [--log f.md]
+//                                                                                   攻撃のドリル: 単発・連打 × 溜めの長さで、拳の速さ・体重の乗り・威力
 //   counterlab [--book f.json] [--defense a,b|evasions] [--bouts N] [--ranges 1.15,1.3] [--log f.md] [--out book.json]
 //                                                                                   回避からのカウンターの研究（型 × 打ち始めの総当たり）
 //   basics [--punch 2] [--slot Duck] [--style swarmer] [--guards 0.6,1.0,1.5] [--guard H] [--gens G] [--pop P] [--log f.md] [--out f.json]
 //                                                                                   回避の基本動作の最適化（1 つの型だけを打たせて、外す形を磨く）
 //   video [--red A] [--blue B] [--seed X] [--seconds S] [--width W --height H --fps F] [--out file.mp4]
 //                                                                                   ボット同士の試合を字幕・打撃音つきの mp4 に（ffmpeg が必要）
+//   voxexport [--out boxer.vox] [--from current|generated]                         ボクサーの中身を .vox へ（Vengi・MagicaVoxel で直す）
+//   voxcheck --in boxer.vox [--install yes]                                        直した .vox を確かめ、生成との差を出す（yes でゲームに組み込む）
 // ボットは名前（legacy, boxer, outboxer, swarmer, counter, slugger, champion）か、スタイルの JSON ファイルのパス。
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 var argv = args.Length == 0 ? ["league"] : args;
@@ -28,9 +32,12 @@ try
         "tune" => Tune(Options.Parse(argv[1..], "base", "gens", "pop", "bouts", "seconds", "gauntlet", "seed", "log", "out", "focus")),
         "drill" => Drill(Options.Parse(argv[1..], "book", "bouts", "seconds", "seed", "out")),
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
+        "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters")),
+        "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
+        "voxcheck" => VoxCheck(Options.Parse(argv[1..], "in", "install")),
         _ => Usage($"知らないコマンド: {command}"),
     };
 }
@@ -158,6 +165,25 @@ static int DrillTune(Options o)
         File.WriteAllText(outPath, json);
     }
 
+    return 0;
+}
+
+static int AttackLabCommand(Options o)
+{
+    var combos = o.List("combos", ["1", "2", "3", "4", "5", "6", "1b", "2b", "3b", "4b", "1-2", "1-2-3", "2-3", "3-2", "1-1-2", "6-3", "6-3-2", "3-4", "5-2"]);
+    var telegraphs = o.List("telegraphs", ["0", "0.05", "0.1", "0.15", "0.2"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    var ranges = o.List("ranges", ["0.9", "1.05", "1.2"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
+    new AttackLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log).Run(combos, telegraphs, ranges);
     return 0;
 }
 
@@ -299,6 +325,7 @@ static int Video(Options o)
 // --move に basics の --out（動きの JSON）、--cue に合図の遅れ（none で受け手自身の目と反応）。
 // --telegraph に攻め手の打つ前の溜め [s]、--predict に受け手の予測の度合い（--cue none と合わせて、読んで避ける様子を見る）、
 // --width-guard / --reach-guard に受け手の構えの開きと出し。
+// --style に受け手のスタイル（その守りの技の動き・返しと構えを使う）、--counters true で回避から打ち返す。
 static int DrillVideo(Options o, string punch)
 {
     var slot = Enum.Parse<Defense>(o.Get("defense") ?? "Duck", ignoreCase: true);
@@ -307,16 +334,19 @@ static int DrillVideo(Options o, string punch)
         throw new ArgumentException("ドリルの動画は回避技を見せます（ブロックは除く）。");
     }
 
-    var move = o.Get("move") is { } path ? LoadMove(path) : BasicsLab.SlipOutside;
+    // --style を渡すと、そのスタイルの守りの技（動き・返し）と構えを使う。渡さなければ、外へ外す形（--move で差し替え）。
+    var style = o.Get("style") is { } styleName ? LoadStyle(styleName) : null;
+    var move = o.Get("move") is { } path ? LoadMove(path) : style?.Defenses.Of(slot) ?? BasicsLab.SlipOutside;
+    var book = (style?.Defenses ?? DefenseBook.Default).With(slot, move);
     var range = o.Float("range", DefenseDrill.DefaultRange, min: 0.8f);
     float? cue = o.Get("cue") is { } c && c != "none" ? float.Parse(c, CultureInfo.InvariantCulture) : 0.04f;
     var attacker = DefenseDrill.PunchAttacker(punch, range, telegraph: o.Float("telegraph", 0f, min: 0f));
-    var defender = DefenseDrill.Defender(DefenseBook.Default.With(slot, move), defend: true, range, counters: false) with
+    var defender = DefenseDrill.Defender(book, defend: true, range, counters: bool.Parse(o.Get("counters") ?? "false")) with
     {
-        Name = "slip",
-        GuardHeight = o.Float("guard", 0.8f, min: 0f),
-        GuardWidth = o.Float("width-guard", 1f, min: 0.2f),
-        GuardReach = o.Float("reach-guard", 1f, min: 0.3f),
+        Name = style?.Name ?? "slip",
+        GuardHeight = o.Float("guard", style?.GuardHeight ?? 0.8f, min: 0f),
+        GuardWidth = o.Float("width-guard", style?.GuardWidth ?? 1f, min: 0.2f),
+        GuardReach = o.Float("reach-guard", style?.GuardReach ?? 1f, min: 0.3f),
         Prediction = o.Float("predict", 0f, min: 0f),
     };
     defender = (cue is null ? defender : defender with { DefenseRate = 0f }).Validated();
@@ -355,6 +385,21 @@ static BotStyle LoadStyle(string nameOrPath)
     => nameOrPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? BotStyle.FromJson(File.ReadAllText(nameOrPath)) : BotCatalog.Style(nameOrPath);
 
 static string Check(string name) => BotCatalog.Names.Contains(name) ? name : throw new ArgumentException($"ボット '{name}' はありません（{string.Join(", ", BotCatalog.Names)}）。");
+
+static int VoxExport(Options o)
+{
+    var from = o.Get("from") ?? "current";
+    return from is "current" or "generated"
+        ? VoxelTool.Export(o.Get("out") ?? "boxer.vox", generated: from == "generated")
+        : throw new ArgumentException($"--from は current か generated です（{from}）。");
+}
+
+static int VoxCheck(Options o)
+{
+    var input = o.Get("in") ?? throw new ArgumentException("--in に直した .vox を渡してください。");
+    var install = o.Get("install") ?? "no";
+    return install is "yes" or "no" ? VoxelTool.Check(input, install == "yes") : throw new ArgumentException($"--install は yes か no です（{install}）。");
+}
 
 static int Usage(string message)
 {

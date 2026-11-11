@@ -495,8 +495,9 @@ public static class ShaderSource
 
         // Triplanar: the instance has no UVs, so the map is projected along the three world axes and
         // blended by the geometric normal (sharpened, so a wall takes one projection and a bevel two).
-        // vFinish.z = layer + 1 (0 = untextured), vFinish.w = metres per repeat (0 = 2 m). The result
-        // multiplies the albedo: 1.0 where the map is at its mean, so colour is preserved.
+        // vFinish.z = layer + 1 (0 = untextured; NEGATIVE = a colour texture whose R, G, B are layers
+        // |z| - 1, +1, +2), vFinish.w = metres per repeat (0 = 2 m). The result multiplies the albedo:
+        // 1.0 where the map is at its mean, so colour is preserved.
         // ---- Facade windows (SurfaceDetail.FacadeWindows, 2026-10-06; styles 2026-10-07) -----------
         // Building faces drawn procedurally in the instance's own frame, so the pattern meets the
         // corners and scales with the box: storeys from its height, bays from its width. vDecal.x is
@@ -666,11 +667,11 @@ public static class ShaderSource
         }
 
         vec3 SurfaceTextureAlbedo(vec3 worldPos, vec3 geometricNormal) {
-            if (vFinish.z < 0.5) {
+            if (abs(vFinish.z) < 0.5) {
                 return vec3(1.0);
             }
 
-            float layer = vFinish.z - 1.0;
+            float layer = abs(vFinish.z) - 1.0;
             if (vFinish.w < -0.5) {
                 // Photo decal: R, G, B in three consecutive layers, mapped once over the XY plane.
                 // Each layer is normalised to mean 0.5, so x2 keeps the photo's channel balance
@@ -697,7 +698,24 @@ public static class ShaderSource
             float t2 = texture(surfaceTextures, vec3(q.z, -q.y, layer)).r * w.x
                 + texture(surfaceTextures, vec3(q.x, q.z, layer)).r * w.y
                 + texture(surfaceTextures, vec3(q.x, -q.y, layer)).r * w.z;
-            return vec3(t1 + t2);
+            if (vFinish.z > 0.0) {
+                return vec3(t1 + t2);
+            }
+
+            // Colour texture (2026-11-11): the green and blue channels are the next two layers, read
+            // with the same projections and the same anti-tiling pair as the red one above.
+            vec2 channels[2];
+            for (int c = 0; c < 2; c++) {
+                float l = layer + 1.0 + float(c);
+                channels[c].x = texture(surfaceTextures, vec3(p.z, -p.y, l)).r * w.x
+                    + texture(surfaceTextures, vec3(p.x, p.z, l)).r * w.y
+                    + texture(surfaceTextures, vec3(p.x, -p.y, l)).r * w.z;
+                channels[c].y = texture(surfaceTextures, vec3(q.z, -q.y, l)).r * w.x
+                    + texture(surfaceTextures, vec3(q.x, q.z, l)).r * w.y
+                    + texture(surfaceTextures, vec3(q.x, -q.y, l)).r * w.z;
+            }
+
+            return vec3(t1 + t2, channels[0].x + channels[0].y, channels[1].x + channels[1].y);
         }
 
         float SampleShadowPcf(sampler2D depthMap, vec3 ndc) {

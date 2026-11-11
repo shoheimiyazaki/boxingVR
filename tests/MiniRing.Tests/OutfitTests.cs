@@ -116,7 +116,7 @@ public sealed class OutfitTests
     {
         foreach (var kind in Enum.GetValues<BodyPartKind>())
         {
-            Assert.IsTrue(Surface(Build(kind, null)).All(c => c.Material is BoxerAnatomy.Skin or BoxerAnatomy.Eye), kind.ToString());
+            Assert.IsTrue(Surface(Build(kind, null)).All(c => c.Material is BoxerAnatomy.Skin or BoxerAnatomy.Eye or BoxerAnatomy.Pupil or BoxerAnatomy.Hair), kind.ToString()); // 顔の目と、頭の髪は身なりと別
         }
     }
 

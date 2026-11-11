@@ -46,7 +46,8 @@ public sealed class BoxerBody
     /// <param name="tuning">ボクセルの大きさ・死ぬ条件。</param>
     /// <param name="shapes">部位ごとの形（ローポリの体）。渡すと箱ではなくその形の内側だけを埋める。</param>
     /// <param name="outfit">身なり（トランクスとブーツ）。null なら裸。</param>
-    public BoxerBody(Fighter fighter, PhysicsWorld world, FighterTuning tuning, LowPoly.BoxerModel? shapes = null, Outfit? outfit = null)
+    /// <param name="overrides">ボクセル編集ソフトで直した中身（<see cref="BoxerVoxelOverrides.Shipped"/> など）。null なら生成のまま。</param>
+    public BoxerBody(Fighter fighter, PhysicsWorld world, FighterTuning tuning, LowPoly.BoxerModel? shapes = null, Outfit? outfit = null, BoxerVoxelOverrides? overrides = null)
     {
         ArgumentNullException.ThrowIfNull(fighter);
         ArgumentNullException.ThrowIfNull(world);
@@ -56,7 +57,7 @@ public sealed class BoxerBody
         foreach (var id in fighter.AllParts)
         {
             var kind = fighter.KindOf(id);
-            var grid = BoxerAnatomy.Build(kind, fighter.HalfExtentsOf(id), tuning.VoxelSize, shapes?.Mesh(kind), outfit);
+            var grid = BoxerAnatomy.Build(kind, fighter.HalfExtentsOf(id), tuning.VoxelSize, shapes?.Mesh(kind), outfit, overrides);
             // 腕は長さが X: Aigis の Left 腕は −X 側に付くので体から遠いのは −X、Right 腕は +X。脚は Y で、遠いのは下。
             var (axis, distalHigh) = kind switch
             {

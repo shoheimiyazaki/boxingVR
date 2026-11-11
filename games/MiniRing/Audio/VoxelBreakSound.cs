@@ -89,7 +89,7 @@ public static class VoxelBreakSound
         BloodTag => LandingKind.Blood,
         DustTag => LandingKind.Dust,
         SparkTag => LandingKind.Silent,
-        BoxerAnatomy.Bone or BoxerAnatomy.Eye => LandingKind.Hard,
+        BoxerAnatomy.Bone or BoxerAnatomy.Eye or BoxerAnatomy.Pupil => LandingKind.Hard,
         _ => LandingKind.Chunk,
     };
 
@@ -104,11 +104,11 @@ public static class VoxelBreakSound
     public static GrainKind KindOf(byte material) => material switch
     {
         BoxerAnatomy.Skin => GrainKind.Skin,
-        _ when BoxerAnatomy.IsClothing(material) => GrainKind.Skin, // 布と革は皮膚の代わりの層
+        _ when BoxerAnatomy.IsClothing(material) || material == BoxerAnatomy.Hair => GrainKind.Skin, // 布と革・髪は皮膚の代わりの層
         BoxerAnatomy.Bone => GrainKind.Bone,
         BoxerAnatomy.Brain => GrainKind.Brain,
         BoxerAnatomy.Heart or BoxerAnatomy.Lung or BoxerAnatomy.Liver or BoxerAnatomy.Gut => GrainKind.Organ,
-        BoxerAnatomy.Eye => GrainKind.Eye,
+        BoxerAnatomy.Eye or BoxerAnatomy.Pupil => GrainKind.Eye,
         _ => GrainKind.Flesh,
     };
 

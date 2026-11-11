@@ -579,7 +579,7 @@ public sealed class VoxelDamageTests
             {
                 var (x, y, z) = grid.Coordinates(i);
                 var material = grid.Palette[grid.At(x, y, z)];
-                if (material.Tissue == VoxelTissue.Organ && grid.At(x, y, z) != BoxerAnatomy.Eye)
+                if (material.Tissue == VoxelTissue.Organ && grid.At(x, y, z) is not (BoxerAnatomy.Eye or BoxerAnatomy.Pupil))
                 {
                     Assert.IsFalse(grid.IsOriginalSurface(x, y, z), $"{material.Name} is never on the skin");
                 }
@@ -613,13 +613,15 @@ public sealed class VoxelDamageTests
         Assert.AreEqual(VoxelTissue.Organ, eye.Tissue);
         Assert.IsFalse(eye.Vital);
         Assert.IsGreaterThan(0, head.Initial(BoxerAnatomy.Eye), "the face has eyes");
+        Assert.AreEqual(2, head.Initial(BoxerAnatomy.Pupil), "one black voxel in the white of each eye");
+        Assert.IsGreaterThan(0, head.Initial(BoxerAnatomy.Hair), "and hair on top");
         Assert.IsGreaterThan(0, head.Initial(BoxerAnatomy.Skin));
         for (var i = 0; i < head.CellCount; i++)
         {
             var (x, y, z) = head.Coordinates(i);
             if (head.IsOriginalSurface(x, y, z))
             {
-                Assert.IsTrue(head.At(x, y, z) is BoxerAnatomy.Skin or BoxerAnatomy.Eye, "only skin and eyes show before any damage");
+                Assert.IsTrue(head.At(x, y, z) is BoxerAnatomy.Skin or BoxerAnatomy.Eye or BoxerAnatomy.Pupil or BoxerAnatomy.Hair, "only skin, hair and eyes show before any damage");
             }
         }
     }

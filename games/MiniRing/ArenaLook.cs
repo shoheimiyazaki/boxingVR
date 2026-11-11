@@ -5,8 +5,8 @@ using Aigis.Render;
 namespace MiniRing;
 
 /// <summary>
-/// 試合会場の「画づくり」（描画のみ。試合には響かない）: 暗い会場にリングだけが照らされる照明、
-/// リングに落ちる影、照明の光の中に漂う空気の粒、仕上げ（光のにじみ・隅の陰り・コントラスト・溝の陰）。
+/// 試合会場の「画づくり」（描画のみ。試合には響かない）: 昼の部屋（<see cref="LivingRoom"/>）の明かり（窓の光・天井の照明・テーブルの上のスポット）、
+/// リングに落ちる影、光の中に漂う空気の粒、仕上げ（光のにじみ・隅の陰り・コントラスト・溝の陰）。
 /// 体（ボクセル）の陰影は <c>VoxelVolumePipeline</c> のシェーダーが同じ真上寄りの光で付ける。
 /// </summary>
 public static class ArenaLook
@@ -14,41 +14,42 @@ public static class ArenaLook
     /// <summary>照明（リングの真上やや手前から）。ボクセルのシェーダーの主光と同じ向き。</summary>
     public static Vector3 KeyDirection { get; } = Vector3.Normalize(new Vector3(0.2f, 1f, 0.3f));
 
-    /// <summary>リングの外の暗さ（背景の色）。</summary>
-    public static Vector4 Background { get; } = new(0.025f, 0.028f, 0.04f, 1f);
+    /// <summary>背景の色（部屋に囲まれているので、ほぼ見えない。見えたときに目立たない壁の色）。</summary>
+    public static Vector4 Background { get; } = new(0.78f, 0.76f, 0.72f, 1f);
 
     private const int Motes = 70;
-    private const float LightHeight = 1.35f;
 
-    /// <summary>会場の照明: 弱い環境光、リングを上から照らす主光、四隅の上からリングへ向けたスポット。</summary>
+    /// <summary>
+    /// 部屋の明かり: 昼の空の環境光（上は空色・下は床の照り返し）、主光（窓からの昼の光。ボクセルのシェーダーと同じ向き）、
+    /// 天井の照明（部屋全体へ）、テーブルの真上からリングへ絞ったスポット（箱庭を明るく見せる）、窓から斜めに差す光。
+    /// </summary>
     public static SceneLighting Lighting(Vector3 ringCenter, float ringSize, float surfaceHeight)
     {
         var target = new Vector3(ringCenter.X, surfaceHeight, ringCenter.Z);
-        var spots = ImmutableArray.CreateBuilder<SpotLight>();
-        var corner = ringSize * 0.75f;
-        foreach (var (x, z, color) in new[]
-                 {
-                     (-1f, -1f, new Vector3(1f, 0.92f, 0.82f)), (1f, -1f, new Vector3(0.85f, 0.9f, 1f)),
-                     (-1f, 1f, new Vector3(0.85f, 0.9f, 1f)), (1f, 1f, new Vector3(1f, 0.92f, 0.82f)),
-                 })
-        {
-            var position = target + new Vector3(x * corner, LightHeight, z * corner);
-            spots.Add(new SpotLight(position, Vector3.Normalize(target - position), color, 0.32f, 3.2f, 34f));
-        }
+        var lamp = LivingRoom.CeilingLamp(ringCenter);
+        var window = LivingRoom.WindowCenter;
+        var spots = ImmutableArray.Create(
+            new SpotLight(lamp - new Vector3(0f, 0.05f, 0f), -Vector3.UnitY, new Vector3(1f, 0.93f, 0.82f), 0.55f, 3.5f, 30f),
+            new SpotLight(window - new Vector3(0f, 0f, 0.2f), Vector3.Normalize(target - window), new Vector3(0.85f, 0.92f, 1f), 0.3f, 6f, 40f));
 
         return new SceneLighting(
-            new DirectionalLight(KeyDirection, new Vector3(1f, 0.97f, 0.92f), 0.5f),
-            new AmbientLight(new Vector3(0.5f, 0.56f, 0.72f), new Vector3(0.16f, 0.13f, 0.12f), 0.32f),
-            ImmutableArray<PointLight>.Empty,
+            new DirectionalLight(KeyDirection, new Vector3(1f, 0.97f, 0.92f), 0.45f),
+            new AmbientLight(new Vector3(0.85f, 0.88f, 0.95f), new Vector3(0.62f, 0.56f, 0.5f), 0.72f),
+            ImmutableArray.Create(new PointLight(lamp - new Vector3(0f, 0.1f, 0f), new Vector3(1f, 0.92f, 0.8f), 0.35f, 4.5f)),
             new SpecularConfig(40f, 0.25f),
             ToneMapping.Legacy,
-            spots.ToImmutable());
+            spots)
+        {
+            // 床・壁・布・木の色のテクスチャ（RoomAssets）。
+            SurfaceTextures = RoomAssets.Instance.Textures,
+        };
     }
 
     /// <summary>リングとその周りに影を落とす範囲（主光の影）。</summary>
     public static ShadowMapConfig Shadow(Vector3 ringCenter, float ringSize, float surfaceHeight)
     {
-        var half = (ringSize * 0.5f) + 0.4f;
+        // ローテーブルの影が床とラグに落ちるところまで。
+        var half = MathF.Max((ringSize * 0.5f) + 0.4f, LivingRoom.TableHalf + 0.25f);
         return new ShadowMapConfig(
             new Vector3(ringCenter.X - half, 0f, ringCenter.Z - half),
             new Vector3(ringCenter.X + half, surfaceHeight + 0.9f, ringCenter.Z + half));
@@ -86,18 +87,6 @@ public static class ArenaLook
         var target = new Vector3(ringCenter.X, surfaceHeight, ringCenter.Z);
         var corner = ringSize * 0.75f;
 
-        // 光の筋: 四隅の照明からリングへ、大きくて極く淡い粒を並べる（遠いほど広がる円すい）。
-        foreach (var (x, z) in new[] { (-1f, -1f), (1f, -1f), (-1f, 1f), (1f, 1f) })
-        {
-            var from = target + new Vector3(x * corner, LightHeight, z * corner);
-            for (var k = 1; k <= 7; k++)
-            {
-                var f = k / 8f;
-                var at = Vector3.Lerp(from, target, f * 0.85f);
-                into.Add(new ParticleInstance(at, 0.08f + (0.45f * f), new Vector4(1f, 0.96f, 0.9f, 0.018f * (1f - (0.5f * f))), Blend: ParticleBlend.Additive));
-            }
-        }
-
         // ほこり: リングの上の空間をゆっくり漂い、ときどき光を受けてきらめく。
         for (var i = 0; i < Motes; i++)
         {
@@ -115,7 +104,7 @@ public static class ArenaLook
         }
     }
 
-    /// <summary>リングの外まわりの飾り（暗い会場で光るエプロンの帯、コーナーマット）。</summary>
+    /// <summary>リングの外まわりの飾り（エプロンを回る光る帯）。</summary>
     public static IEnumerable<PrimitiveInstance> Dressing(Vector3 ringCenter, float ringSize, float surfaceHeight)
     {
         var half = (ringSize * 0.5f) + 0.025f;
@@ -133,13 +122,6 @@ public static class ArenaLook
             yield return new PrimitiveInstance(PrimitiveKind.Cube, Matrix4x4.CreateScale(halfExtents * 2f) * Matrix4x4.CreateTranslation(center), Vector3.Zero, color, MaterialKind.Emissive);
         }
 
-        // 天井の照明（四隅の上、光る小さな灯体）。画面に入れば光がにじむ。
-        var corner = ringSize * 0.75f;
-        foreach (var (x, z) in new[] { (-1f, -1f), (1f, -1f), (-1f, 1f), (1f, 1f) })
-        {
-            var at = new Vector3(ringCenter.X + (x * corner), surfaceHeight + LightHeight, ringCenter.Z + (z * corner));
-            yield return new PrimitiveInstance(PrimitiveKind.Sphere, Matrix4x4.CreateTranslation(at), new Vector3(0.03f, 0f, 0f), new Vector4(1f, 0.97f, 0.9f, 1f), MaterialKind.Emissive);
-        }
     }
 
     private static float Hash(int i, int salt)

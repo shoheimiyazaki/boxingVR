@@ -50,7 +50,66 @@ public sealed class SnapshotTests
         }
     }
 
+    /// <summary>部屋（実物大）とローテーブルに載った箱庭のリングを、入口側の隅・ソファ側・テーブルの横から見る。</summary>
+    [TestMethod]
+    public void Room_AroundTheTabletopRing()
+    {
+        var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
+        Directory.CreateDirectory(outDir);
+        using var game = new BoxingGame(seed: 3);
+        using var renderer = new HeadlessRenderer(Width, Height);
+        for (var i = 0; i < 60; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        var ring = BoxingGame.RingCenter with { Y = LivingRoom.TableTop + 0.2f };
+        foreach (var (name, eye, target) in new[]
+                 {
+                     ("corner", new Vector3(LivingRoom.MinX + 0.4f, 1.6f, LivingRoom.MinZ + 0.3f), ring),
+                     ("far", new Vector3(LivingRoom.MaxX - 0.5f, 1.5f, LivingRoom.MaxZ - 0.5f), ring),
+                     ("low", BoxingGame.RingCenter + new Vector3(1.9f, 0.7f, -0.8f), ring),
+                 })
+        {
+            var viewProjection = Camera.ViewProjection(eye, target, Vector3.UnitY, 70f * MathF.PI / 180f, (float)Width / Height, 0.02f, 50f);
+            var (instances, lines) = game.BuildRenderables();
+            var rgba = Render(renderer, game, viewProjection, eye, instances, lines, []);
+            var path = Path.Combine(outDir, $"miniring_room_{name}.png");
+            PngWriter.WriteRgba(path, Width, Height, rgba);
+            Assert.IsTrue(File.Exists(path));
+        }
+    }
+
     /// <summary>ローポリの顔・胴・腕と、打撃のへこみ（白 → 赤）を間近で見る。顔と左腕と胸を正面から決め打ちでへこませる。</summary>
+    [TestMethod]
+    public void HeadCloseUp_ShowsEyesAndHair()
+    {
+        // 白目の中に黒目のボクセルが 1 つずつ、頭の上と後ろは髪（正面と斜め後ろから）。
+        var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
+        Directory.CreateDirectory(outDir);
+        using var game = new BoxingGame(seed: 3);
+        using var renderer = new HeadlessRenderer(Width, Height);
+        for (var i = 0; i < 30; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        var cpu = game.Cpu;
+        var head = game.World.GetState(cpu.Parts.Head);
+        var face = Vector3.Transform(Vector3.UnitZ, head.Orientation) with { Y = 0f };
+        face = Vector3.Normalize(face);
+        var side = Vector3.Cross(Vector3.UnitY, face);
+        foreach (var (name, offset) in new[] { ("front", face * 0.12f), ("back", (-face * 0.1f) + (side * 0.06f) + new Vector3(0f, 0.05f, 0f)) })
+        {
+            var eye = head.Position + offset;
+            var viewProjection = Camera.ViewProjection(eye, head.Position, Vector3.UnitY, 40f * MathF.PI / 180f, (float)Width / Height, 0.005f, 20f);
+            var (instances, lines) = game.BuildRenderables();
+            PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_head_{name}.png"), Width, Height, Render(renderer, game, viewProjection, eye, instances, lines, []));
+        }
+
+        Assert.IsTrue(File.Exists(Path.Combine(outDir, "miniring_head_front.png")));
+    }
+
     [TestMethod]
     public void CloseUp_ShowsLowPolyBodyAndDents()
     {
