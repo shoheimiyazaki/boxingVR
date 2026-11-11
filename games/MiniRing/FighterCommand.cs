@@ -60,11 +60,11 @@ public readonly record struct BodySense(Vector3 LeftShoulder, Vector3 RightShoul
 /// <para>SelfHead と相手の拳（<paramref name="OpponentLeft"/> / <paramref name="OpponentRight"/>）は、ボットが飛んでくる拳を
 /// 見て守るためのもの（ブロック・ダッキング・スリップ・スウェー）。<paramref name="OpponentVelocity"/> は相手の胴の速度で、
 /// 拳の動きから歩く動きを差し引いて「パンチの動き出し」を見るのに使う。<paramref name="OpponentBody"/> は相手の両肩と腰
-/// （打つ前の体の動きを読むため。見えないホストでは既定値）。</para></summary>
+/// （打つ前の体の動きを読むため。見えないホストでは既定値）。<paramref name="SelfFaintness"/> は自分の意識が薄れた度合い（<see cref="Fighter.Faintness"/>、0..1）。</para></summary>
 public readonly record struct FighterSense(
     BodyFrame Self, float ArmReach, Vector3 OpponentHead, Vector3 OpponentChest, bool OpponentAlive,
     Vector3 SelfHead = default, GloveSense OpponentLeft = default, GloveSense OpponentRight = default, Vector3 OpponentVelocity = default,
-    BodySense OpponentBody = default)
+    BodySense OpponentBody = default, float SelfFaintness = 0f)
 {
     public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
 }

@@ -97,7 +97,8 @@ public sealed class EvasionBasicsTests
         Console.WriteLine($"open head {open.HeadRate:P0}, slipped head {slipped.HeadRate:P0} evade {slipped.EvadeRate:P0}");
 
         Assert.IsGreaterThan(5, open.Punches);
-        Assert.IsGreaterThan(0.8f, open.HeadRate, "standing still, the right straight lands");
+        // 頭を人の比率（HeadScale 0.8）に小さくしてから、打たれてのけぞった頭は溜めの始めに決めた狙いから外れやすくなった（82 % → 71 %。ダメージ編 D2）。
+        Assert.IsGreaterThan(0.6f, open.HeadRate, "standing still, the right straight mostly lands");
         Assert.IsLessThan(0.6f, slipped.HeadRate, "slipping as it is thrown, the head is often missed");
         Assert.IsGreaterThan(0.3f, slipped.EvadeRate, "and the punch passes without touching anything");
     }

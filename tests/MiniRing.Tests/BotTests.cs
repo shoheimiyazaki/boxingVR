@@ -191,11 +191,19 @@ public sealed class BotTests
         // ゲームの CPU（champion）で確かめる。手書きのままの boxer は、頭を人の比率に小さくしてから legacy と 5-4-1 になった:
         // legacy の拳は当たるまで頭を追い続ける（BoxerBot は打ち出したら直せない。基本動作編 B2）ので、小さな頭ほど有利になる。
         // legacy は比べる基準と昔の記録の再生のため、そのまま残す。
-        var result = BotArena.Run(new BoutSpec(Contender.Named(BotCatalog.DefaultCpu), Contender.Named(BotCatalog.Legacy), Seed: 2, Seconds: 20f));
+        // 1 試合では、相手がふらついてガードを下げている間はジャブとストレートだけで足りることもある（ダメージ編 D2）ので、3 つの種を合わせて見る。
+        var stats = new BotStats();
+        var landed = 0;
+        foreach (var seed in new[] { 1, 2, 3 })
+        {
+            var result = BotArena.Run(new BoutSpec(Contender.Named(BotCatalog.DefaultCpu), Contender.Named(BotCatalog.Legacy), Seed: seed, Seconds: 20f));
+            Assert.AreEqual(1, result.Winner, $"seed {seed}: champion {result.Red.DamageDealt:0} vs legacy {result.Blue.DamageDealt:0}");
+            stats.Merge(result.Red.Stats);
+            landed += result.Red.Stats.Techniques.Values.Sum(t => t.Landed);
+        }
 
-        Assert.AreEqual(1, result.Winner, $"champion {result.Red.DamageDealt:0} vs legacy {result.Blue.DamageDealt:0}");
-        Assert.IsGreaterThan(2, result.Red.Stats.Techniques.Count, "several different punches are thrown");
-        Assert.IsGreaterThan(0, result.Red.Stats.Techniques.Values.Sum(t => t.Landed));
+        Assert.IsGreaterThan(2, stats.Techniques.Count, $"several different punches are thrown ({string.Join(", ", stats.Techniques.Select(t => $"{t.Key} {t.Value.Thrown}"))})");
+        Assert.IsGreaterThan(0, landed);
     }
 
     [TestMethod]

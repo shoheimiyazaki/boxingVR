@@ -159,7 +159,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 2;
+    public const int PhysicsVersion = 3;
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -470,7 +470,7 @@ public sealed class Fighter
     }
 
     /// <summary>脳しんとう（意識から引く量。打撃で頭が急にねじられると溜まり、時間とともに抜ける）。</summary>
-    public float Concussion { get; private set; }
+    public float Concussion { get; internal set; }
 
     /// <summary>最後に頭が打撃でねじられた速さ [rad/s]（調べもの用）。</summary>
     public float LastHeadTwist { get; private set; }
@@ -492,15 +492,31 @@ public sealed class Fighter
     /// </summary>
     public float Consciousness => Math.Clamp((Voxels?.BrainFunction(_tuning.OrganDeathFraction) ?? 1f) - Concussion, 0f, 1f);
 
-    /// <summary>体の張り（0..1）: 意識が薄れると体を支える力・動かす力が抜ける（崩れ落ちるのは物理）。</summary>
+    /// <summary>
+    /// 体の張り（0..1）: 意識が薄れると体を支える力・動かす力が抜ける（崩れ落ちる・腰が落ちるのは物理）。
+    /// 意識が <see cref="FighterTuning.FullToneConsciousness"/> を下回ると張りが抜け始めて腰が落ち、ガードが下がる（<see cref="FighterTuning.FaintTone"/> まで）。
+    /// <see cref="FighterTuning.KnockoutConsciousness"/> を下回ると意識が途切れて張りは 0: 全身の力が抜けて倒れきる。
+    /// </summary>
     public float Tone
     {
         get
         {
-            var t = Math.Clamp((Consciousness - _tuning.ToneConsciousness) / MathF.Max(1e-3f, _tuning.FullToneConsciousness - _tuning.ToneConsciousness), 0f, 1f);
-            return t * t * (3f - (2f * t));
+            var c = Consciousness;
+            if (c < _tuning.KnockoutConsciousness)
+            {
+                return 0f;
+            }
+
+            var t = Math.Clamp((c - _tuning.KnockoutConsciousness) / MathF.Max(1e-3f, _tuning.FullToneConsciousness - _tuning.KnockoutConsciousness), 0f, 1f);
+            return _tuning.FaintTone + ((1f - _tuning.FaintTone) * t * t * (3f - (2f * t)));
         }
     }
+
+    /// <summary>意識が薄れて体の張りが抜けた度合い（0 = 張りが満ちている、1 = 意識が途切れる手前の <see cref="FighterTuning.FaintTone"/> 以下）。ボットはこれを見てガードを下げる。</summary>
+    public float Faintness => Math.Clamp((1f - Tone) / MathF.Max(1e-3f, 1f - _tuning.FaintTone), 0f, 1f);
+
+    /// <summary>意識が薄れて腕に残る力の割合（体の張りに加えて。<see cref="FighterTuning.FaintArmStrength"/>）。</summary>
+    private float FaintArm => Lerp(1f, _tuning.FaintArmStrength, Faintness);
 
     /// <summary>体ごと押す（重いパンチ・投げ）。<paramref name="velocityChange"/> は全部位へ一様に（胴だけだと 4 割しか伝わらない／Triage P-006）。</summary>
     public void Push(Vector3 velocityChange)
@@ -702,7 +718,8 @@ public sealed class Fighter
     private void TickDown(in FighterCommand command, bool grounded, float height, float dt)
     {
         // こらえて崩れる（Triage ADR-102④）: 駆動を一気に抜かず CollapseDuration かけて落とす。
-        ControlScale = Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration);
+        // 意識が途切れている（張りが 0）なら、こらえる力も無く、全身の力が抜けて倒れきる。
+        ControlScale = Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration) * Tone;
         SetServoScale(ControlScale);
         DriveArms(command, ControlScale, weightShift: false, dt);
         var settled = _world.GetState(Parts.Pelvis).LinearVelocity.Length() < 0.6f;
@@ -778,7 +795,8 @@ public sealed class Fighter
             }
         }
 
-        DriveArms(command, ControlScale, weightShift: grounded && State == FighterState.Standing, dt);
+        // 意識が薄れると腕を上げていられない（ガードが重さで下がる）。
+        DriveArms(command, ControlScale * FaintArm, weightShift: grounded && State == FighterState.Standing, dt);
     }
 
     /// <summary>今の両足の位置で、足の運びを置き直す（立ち直ったとき・生成直後）。</summary>
@@ -974,6 +992,8 @@ public sealed class Fighter
         // 足の運びの間は、着いた足に膝を少し曲げて届く高さを上限にする（伸びきった脚で足が浮かないように）。
         var stand = _standHeight * _tuning.StandHeightRatio;
         var target = (float.IsFinite(legsAllow) ? MathF.Min(stand, MathF.Max(0.85f * stand, legsAllow)) : stand) + (stand * _crouch);
+        // 意識が薄れて張りが抜けると、脚は体重を支えても伸ばしきれず膝が折れて腰が落ちる（張りが FaintTone で FaintSag だけ）。
+        target -= stand * _tuning.FaintSag * Faintness;
         _hoverHeight = target;
         var pelvis = _world.GetState(Parts.Pelvis);
         // 足の運びの間は、脚が床と体の間でどれだけ重さを受け持つかが姿勢で変わり、骨盤が目標から数 cm ずれたまま止まる
@@ -981,8 +1001,8 @@ public sealed class Fighter
         var error = target + bob - height;
         // 体を支える力が弱い（打たれて力が落ちた・脚が削られた）間は積分しない。弱い間に溜めると、力が戻ったときに体が跳ねる。
         _hoverIntegral = walking ? 0f : Math.Clamp(_hoverIntegral + (HoverKi * error * dt * Math.Clamp(hoverScale, 0f, 1f)), -0.3f * -_world.Gravity.Y, 0.3f * -_world.Gravity.Y);
-        // 体を支える力は、意識が薄れて体の張りが抜けると重力を支えきれなくなる（崩れ落ちる）。
-        var accel = FighterMath.HoverAccel((-_world.Gravity.Y * Tone) + (_hoverIntegral * MathF.Max(0f, hoverScale)), error,
+        // 体重を支える力は、意識が途切れて張りが 0 になると無くなる（崩れ落ちる）。張りが残っている間は支える（腰が落ちるだけ）。
+        var accel = FighterMath.HoverAccel((Tone > 0f ? -_world.Gravity.Y : 0f) + (_hoverIntegral * MathF.Max(0f, hoverScale)), error,
             pelvis.LinearVelocity.Y, _tuning.HoverKp, _tuning.HoverKd, _tuning.MaxHoverAccel, hoverScale);
         // 足の運びの間は脚が床に立っていて、脚の重さは床が支える。浮かせるのは上体（骨盤から上）だけ。
         ApplySharedImpulse(new Vector3(0f, accel * (walking ? TotalMass : TotalMass - _legMass) * dt, 0f));
@@ -1136,9 +1156,10 @@ public sealed class Fighter
 
         foreach (var arm in _arms)
         {
-            if (!arm.Severed && Changed(2 + (int)arm.Hand, s * ArmStrength(arm.Hand)))
+            var a = s * FaintArm; // 意識が薄れると腕を上げていられない
+            if (!arm.Severed && Changed(2 + (int)arm.Hand, a * ArmStrength(arm.Hand)))
             {
-                arm.SetStrength(_world, _tuning, s * Strength(arm.UpperArm), s * Strength(arm.Forearm));
+                arm.SetStrength(_world, _tuning, a * Strength(arm.UpperArm), a * Strength(arm.Forearm));
             }
         }
     }

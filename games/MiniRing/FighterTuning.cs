@@ -22,10 +22,10 @@ public sealed record FighterTuning
     public float MassScale { get; init; } = 0.1f;
 
     /// <summary>
-    /// 頭の大きさの倍率（体の縮尺に対して）。人の比率（0.72）に小さくしてみたが、60cm の人形では頭が小さすぎて見た目が変だった
-    /// ので 1.15 に戻した（予測編 P7）。頭が大きいぶん、回避は大きく早く動く必要がある。
+    /// 頭の大きさの倍率（体の縮尺に対して）。0.8 で身長が頭 7.5 個分（人の比率。1.15 では 5.6 個分）。
+    /// 0.72 では小さすぎて見た目が変だったので一度 1.15 に戻した（予測編 P7）が、人の比率にしてほしいという要望で 0.8 に（ダメージ編 D2）。
     /// </summary>
-    public float HeadScale { get; init; } = 1.15f;
+    public float HeadScale { get; init; } = 0.8f;
 
     /// <summary>
     /// 腕の長さ方向の倍率。腕の届く長さ（肩 → 肘 → 拳）を以前と同じ約 0.19m に保つ値。
@@ -148,11 +148,12 @@ public sealed record FighterTuning
     /// <summary>
     /// 運動エネルギー 1 J あたりに削る量（肉 1 ボクセル = 1）。削る量は拳の運動エネルギー（½ × 乗った質量 × 速さ²）に比例する:
     /// 体重の乗った速い 1 発ほど急に深く掘れ、手打ちはほとんど掘れない（非線形）。硬い頭蓋（骨）が、その奥の脳までの壁になる。
+    /// 頭を人の比率（<see cref="HeadScale"/> 0.8）に小さくしたとき、正面への重い 1 発で脳が削れる割合が変わらないよう 45 → 12 にした。
     /// </summary>
-    public float CarvePerJoule { get; init; } = 45f;
+    public float CarvePerJoule { get; init; } = 12f;
 
     /// <summary>1 発で削る量の上限（約 10 J ぶん。速さの測り違いのような外れの 1 発が、腕を丸ごと削らないように）。</summary>
-    public float MaxCarve { get; init; } = 450f;
+    public float MaxCarve { get; init; } = 120f;
 
     /// <summary>
     /// 打撃で相手へ運ぶ体の運動量のうち、当たった部位に残る（当たった点に掛かる）割合の上限。残りは全身を押す。
@@ -170,17 +171,31 @@ public sealed record FighterTuning
     public float MaxStrikeSpeed { get; init; } = 6f;
 
     /// <summary>脳しんとうの効き: 打撃で頭がねじられた速さ（頭の慣性で割った回転 [rad/s]）の 2 乗あたりに意識から引く量。</summary>
-    public float ConcussionGain { get; init; } = 0.00005f;
+    public float ConcussionGain { get; init; } = 0.000035f;
 
     /// <summary>脳しんとうから意識が戻る速さ（時定数 [s]）。</summary>
-    public float ConcussionRecovery { get; init; } = 2.5f;
+    public float ConcussionRecovery { get; init; } = 5f;
 
-    /// <summary>意識がこの値を下回ると体の力が抜け始め、<see cref="ToneConsciousness"/> で抜けきる。</summary>
-    public float ToneConsciousness { get; init; } = 0.2f;
-    public float FullToneConsciousness { get; init; } = 0.5f;
+    /// <summary>意識がこの値を下回ると体の張りが抜け始める（腰が落ち、ガードが下がる）。</summary>
+    public float FullToneConsciousness { get; init; } = 0.75f;
 
-    /// <summary>起き上がるのに要る意識（体の張りが戻りきる <see cref="FullToneConsciousness"/> と同じ: 立っていられる体なら起き上がれる）。</summary>
-    public float GetUpConsciousness { get; init; } = 0.5f;
+    /// <summary>意識が途切れる手前（<see cref="KnockoutConsciousness"/> のすぐ上）で残る体の張り。腰は大きく落ちるが立っていられる。</summary>
+    public float FaintTone { get; init; } = 0.5f;
+
+    /// <summary>意識が途切れる手前（張りが <see cref="FaintTone"/>）で腰が落ちる量（立つ高さに対する割合）。</summary>
+    public float FaintSag { get; init; } = 0.25f;
+
+    /// <summary>
+    /// 意識が途切れる手前で、拳を目標へ運ぶ力に残る割合（体の張りに加えて）。腕を上げていられず、ガードが重さで下がる
+    /// （拳の目標はずらさない: VR の自分の手から拳がずれない。力が弱いだけなので、遅れて付いていく）。
+    /// </summary>
+    public float FaintArmStrength { get; init; } = 0.3f;
+
+    /// <summary>意識がこの値を下回ると意識が途切れ、体の張りは 0（全身の力が抜けて倒れきる）。</summary>
+    public float KnockoutConsciousness { get; init; } = 0.3f;
+
+    /// <summary>起き上がるのに要る意識（腰の落ちた、ふらつく体で起き上がる）。</summary>
+    public float GetUpConsciousness { get; init; } = 0.55f;
 
     /// <summary>骨盤が支えようとしている高さより、立つ高さのこの割合だけ低いまま <see cref="CollapseTime"/> 過ぎたら、崩れ落ちた（ダウン）。</summary>
     public float CollapseDrop { get; init; } = 0.25f;

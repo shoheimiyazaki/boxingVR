@@ -173,7 +173,7 @@ public sealed class BoxerBot : IFighterControl
     /// 3: インサイドスリップ・ローリング、回避しながら打つカウンターと拳の種類ごとの打ち返し、4: 狙いの固定・外側への回避・守りの拳の高さ、
     /// 5: 打つ前の溜め（腰と肩のひねり）・相手の読みによる予測の回避・相手の届く間合いのすぐ外に立つ）。
     /// </summary>
-    public const int LogicVersion = 6;
+    public const int LogicVersion = 7;
 
     public BotStyle Style { get; }
 
@@ -197,6 +197,7 @@ public sealed class BoxerBot : IFighterControl
 
     public FighterCommand Read(in FighterSense sense, float dt)
     {
+        _faintness = float.IsFinite(sense.SelfFaintness) ? Math.Clamp(sense.SelfFaintness, 0f, 1f) : 0f;
         var self = sense.Self;
         var reach = sense.ArmReach;
         _reach = reach;
@@ -306,12 +307,19 @@ public sealed class BoxerBot : IFighterControl
     /// 構え（体フレームのローカル）: 前の手は前へ、後ろの手はあご寄り。高さは <see cref="BotStyle.GuardHeight"/>、
     /// 左右の開きと前への出しは <see cref="BotStyle.GuardWidth"/>・<see cref="BotStyle.GuardReach"/>。
     /// </summary>
+    /// <summary>意識が途切れる手前で、構えの拳が下がる量 [腕の長さ]。</summary>
+    private const float FaintGuardDrop = 0.35f;
+
+    /// <summary>自分の意識が薄れた度合い（<see cref="FighterSense.SelfFaintness"/>）。</summary>
+    private float _faintness;
+
     public Vector3 Guard(Hand hand, float reach, Vector3 headLocal)
     {
         var lead = hand == Style.Lead;
         var chin = headLocal.Y - (0.15f * reach);
         var low = -0.12f * reach;
-        var y = low + ((chin - low) * Style.GuardHeight * (lead ? 0.85f : 1f));
+        // 意識が薄れると、ぼんやりして構えを保てずガードが下がる。
+        var y = low + ((chin - low) * Style.GuardHeight * (lead ? 0.85f : 1f)) - (FaintGuardDrop * _faintness * reach);
         return new Vector3(hand.LocalSide() * (lead ? 0.17f : 0.13f) * Style.GuardWidth * reach, y, (lead ? 0.52f : 0.36f) * Style.GuardReach * reach);
     }
 
