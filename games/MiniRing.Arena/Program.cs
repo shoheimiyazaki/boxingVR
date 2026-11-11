@@ -43,6 +43,7 @@ try
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
+        "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue")),
         "swordlib" => SwordLibCommand(Options.Parse(argv[1..], "out", "best", "bouts", "seconds", "seed", "fight", "video", "red", "blue")),
         "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead")),
         "mocap" => MocapCommand(Options.Parse(argv[1..], "bvh", "out", "from", "to", "speed", "width", "height", "fps", "strikes")),
@@ -340,6 +341,30 @@ static int SwingLabCommand(Options o)
     }
 
     var report = lab.Run(best, Console.Out, o.Int("bouts", 6, min: 1), o.Float("seconds", 60f, min: 1f), families);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int VersusCommand(Options o)
+{
+    // 武器ごとの練習試合（拳・棍棒・バット・日本刀・ロングソードの総当たり）。
+    var defense = o.Get("defense") == "off" ? MiniRing.Bots.SwordDefense.None : new MiniRing.Bots.SwordDefense();
+    var contenders = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", defense);
+    if (o.Get("video") is { } video)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(video))!);
+        var red = contenders.Single(c => c.Name == (o.Get("red") ?? "拳"));
+        var blue = contenders.Single(c => c.Name == (o.Get("blue") ?? "日本刀"));
+        new SparVideo(1280, 720, 30).MakeVersus(red, blue, o.Int("seed", 1), o.Float("seconds", 30f, min: 1f), video, Console.Out);
+        return 0;
+    }
+
+    var report = VersusLab.Run(contenders, o.Int("bouts", 4, min: 2), o.Float("seconds", 30f, min: 1f), o.Int("seed", 1), Console.Out);
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {

@@ -13,8 +13,9 @@ namespace MiniRing.Bots;
 /// <param name="ThreatSpeed">これより遅い剣先は見ない [腕の長さ / s]（構えた剣の揺れ）。</param>
 /// <param name="HoldTime">受け・外しを続ける時間 [s]。</param>
 /// <param name="Counter">受けた後すぐに、近い間合いの技で打ち返すか（返し技）。</param>
+/// <param name="WatchFists">相手の拳も見て守るか（拳で戦う相手・武器を落とした相手に）。</param>
 public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, float Horizon = 0.25f, float Margin = 0.45f, float ThreatSpeed = 6f,
-    float HoldTime = 0.3f, bool Counter = true)
+    float HoldTime = 0.3f, bool Counter = true, bool WatchFists = true)
 {
     /// <summary>守らない。</summary>
     public static SwordDefense None { get; } = new(Enabled: false);
@@ -206,34 +207,60 @@ public sealed class SwordsmanBot : IFighterControl
     /// </summary>
     private (Vector3 Point, Vector3 Velocity)? Threat(in FighterSense sense)
     {
-        var blade = sense.OpponentBlade;
         var reach = sense.ArmReach;
-        if (!blade.Present || blade.TipVelocity.Length() < _defense.ThreatSpeed * reach)
+        var shoulder = sense.OpponentBody.Pelvis == default ? sense.OpponentChest : (sense.OpponentBody.LeftShoulder + sense.OpponentBody.RightShoulder) * 0.5f;
+        var blade = sense.OpponentBlade;
+        if (blade.Present && Incoming(sense, blade.Tip, blade.TipVelocity, shoulder, _opponentReach * reach) is { } cut)
+        {
+            return cut;
+        }
+
+        // 相手の拳も同じに読む（拳の届く長さは腕の長さ。相手の胴の動きは差し引いて、拳を出した動きだけを見る）。
+        if (_defense.WatchFists)
+        {
+            foreach (var fist in new[] { sense.OpponentLeft, sense.OpponentRight })
+            {
+                if (fist.Position != default && Incoming(sense, fist.Position, fist.Velocity - sense.OpponentVelocity, shoulder, 1.15f * reach) is { } punch)
+                {
+                    return punch;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// <paramref name="tip"/>（剣先や拳）が速度 <paramref name="velocity"/> のまま進むとして、相手の肩から <paramref name="limit"/> の内で、
+    /// 自分の体の線（頭から腰）へ <see cref="SwordDefense.Margin"/> より近づく初めての所。
+    /// </summary>
+    private (Vector3 Point, Vector3 Velocity)? Incoming(in FighterSense sense, Vector3 tip, Vector3 velocity, Vector3 shoulder, float limit)
+    {
+        var reach = sense.ArmReach;
+        if (velocity.Length() < _defense.ThreatSpeed * reach)
         {
             return null;
         }
 
         var top = sense.SelfHead == default ? sense.Self.Origin + new Vector3(0f, 0.4f * reach, 0f) : sense.SelfHead;
         var bottom = sense.Self.Origin - new Vector3(0f, 1.2f * reach, 0f);
-        // 剣先が近づいてくる（体の線へ向かう）ときだけ。
-        if (Vector3.Dot(blade.TipVelocity, ClosestOnSegment(blade.Tip, top, bottom) - blade.Tip) <= 0f)
+        // 近づいてくる（体の線へ向かう）ときだけ。
+        if (Vector3.Dot(velocity, ClosestOnSegment(tip, top, bottom) - tip) <= 0f)
         {
             return null;
         }
 
-        // 剣先は相手の肩から腕と剣の長さより先へは行けない: そこを越える所は読まない。
-        var shoulder = sense.OpponentBody.Pelvis == default ? sense.OpponentChest : (sense.OpponentBody.LeftShoulder + sense.OpponentBody.RightShoulder) * 0.5f;
         for (var k = 0; k <= 12; k++)
         {
-            var p = blade.Tip + (blade.TipVelocity * (_defense.Horizon * k / 12f));
-            if (Vector3.Distance(p, shoulder) > _opponentReach * reach)
+            var p = tip + (velocity * (_defense.Horizon * k / 12f));
+            if (Vector3.Distance(p, shoulder) > limit)
             {
                 break;
             }
 
             if (Vector3.Distance(p, ClosestOnSegment(p, top, bottom)) < _defense.Margin * reach)
             {
-                return (p, blade.TipVelocity);
+                return (p, velocity);
             }
         }
 

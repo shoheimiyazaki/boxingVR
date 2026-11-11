@@ -34,8 +34,39 @@ internal sealed class SparVideo(int width, int height, int fps)
         }, outPath, log);
 
     /// <summary>剣士が今していること: 技・受け・外し（武器を落としていれば「拳」）。</summary>
+    /// <summary>練習試合の 1 試合（<see cref="VersusLab"/> の戦い手同士）。画面には剣士の技・受け・外し、武器を落としたら「拳」。</summary>
+    public void MakeVersus(Bots.Contender red, Bots.Contender blue, int seed, float seconds, string outPath, TextWriter log) =>
+        Render($"練習試合（赤 {red.Name} 対 青 {blue.Name}）", step =>
+        {
+            Bots.DisarmedFallback? redBot = null, blueBot = null;
+            IFighterControl Make(Bots.Contender c, int s, Action<Bots.DisarmedFallback> keep)
+            {
+                var control = c.Create(s);
+                if (c.Weapon is null)
+                {
+                    return control;
+                }
+
+                var f = Bots.DisarmedFallback.WithFists(control, s);
+                keep(f);
+                return f;
+            }
+
+            using var game = new BoxingGame(VersusLab.Tuning, seed, new BoxingCorners(blue.Name, s => Make(blue, s, f => blueBot = f), s => Make(red, s, f => redBot = f),
+                CpuWeapon: blue.Weapon, PlayerWeapon: red.Weapon, CpuTwoHanded: blue.TwoHanded, PlayerTwoHanded: red.TwoHanded));
+            static string? Label(Bots.DisarmedFallback? f, Fighter fighter) =>
+                f is null ? null : f.Disarmed ? "拳（武器を落とした）" : Now(f.Armed as Bots.SwordsmanBot, fighter);
+            for (var t = 0f; t < seconds; t += 1f / 60f)
+            {
+                game.Step(default, 1f / 60f);
+                step(game, t, Label(redBot, game.Player), Label(blueBot, game.Cpu));
+            }
+
+            return string.Create(CultureInfo.InvariantCulture, $"red wins {game.PlayerWins}, blue wins {game.CpuWins}");
+        }, outPath, log);
+
     private static string? Now(Bots.SwordsmanBot? bot, Fighter fighter) =>
-        !fighter.Wields(BoxingGame.WeaponHand) ? "拳（武器を落とした）" : bot is null ? null : bot.Blocking ? "受け" : bot.Defending ? "外し" : Short(bot.Current?.Name);
+        bot is null ? null : !fighter.Wields(BoxingGame.WeaponHand) ? "拳（武器を落とした）" : bot.Blocking ? "受け" : bot.Defending ? "外し" : Short(bot.Current?.Name);
 
     /// <summary>技の名前の、切り出した所を除いた前半（「小手 / BasicKendo@43.17」→「小手」）。</summary>
     private static string? Short(string? name) => name?.Split(" / ")[0];
