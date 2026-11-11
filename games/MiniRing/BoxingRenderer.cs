@@ -25,8 +25,9 @@ public static class BoxingRenderer
 
     private const float BareFistScale = 0.55f;
 
-    /// <summary>会場の飾り（光る帯・灯体）。リングは動かないので 1 度だけ作る。</summary>
-    private static readonly PrimitiveInstance[] Dressing = [.. ArenaLook.Dressing(BoxingGame.RingCenter, BoxingGame.RingSize, BoxingGame.RingSurfaceHeight)];
+    /// <summary>部屋（ローテーブルに載った箱庭のリングの周り）と会場の飾り。リングも部屋も動かないので 1 度だけ作る。</summary>
+    private static readonly PrimitiveInstance[] Dressing =
+        [.. LivingRoom.Visuals(BoxingGame.RingCenter, RoomAssets.Instance), .. ArenaLook.Dressing(BoxingGame.RingCenter, BoxingGame.RingSize, BoxingGame.RingSurfaceHeight)];
 
     /// <summary>
     /// 呼び出し側のリストを空にして詰め直す。へこんだ体は 1 万インスタンス近くになるので、毎フレーム新しいリストを

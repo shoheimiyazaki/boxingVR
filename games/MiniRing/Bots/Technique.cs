@@ -44,6 +44,12 @@ public readonly record struct PunchSpec(
     /// <summary>腕の振り出しが全体に占める割合（残りで構えへ戻す）。</summary>
     public const float OutboundShare = 0.6f;
 
+    /// <summary>
+    /// 拳の目標が打ち抜く先へ届くまでの、振り出しに占める割合。目標は経路を先回りし、拳はそれを肩・肘の筋肉の力で追う:
+    /// 拳の速さは予定の時間ではなく、筋肉の力・加速できる距離（予備動作で引いた分）・体のバネのタメで決まる。
+    /// </summary>
+    public const float LaunchShare = 0.5f;
+
     /// <summary>経路の曲がり（0 = 構えから狙いへまっすぐ … 1 = 溜めの点を通る）。溜めの横・下の大きさで決める（0.5 以上で 1）。</summary>
     public float Curve => Math.Clamp(MathF.Max(Lateral, MathF.Abs(Low)) / 0.5f, 0f, 1f);
 
@@ -76,7 +82,7 @@ public readonly record struct PunchSpec(
         // 外側の下から弧を描いて来て、頭の横下へ外す回避に自分から当たりに行っていた（基本動作編 B9）。
         var straight = (guard + through) * 0.5f;
         var windup = Vector3.Lerp(straight, PunchPath.Windup(hand, Lateral, Low, reach), Curve);
-        var outbound = PunchPath.Point(guard, windup, through, MathF.Min(t / OutboundShare, Extend));
+        var outbound = PunchPath.Point(guard, windup, through, MathF.Min(t / (OutboundShare * LaunchShare), Extend));
         return Vector3.Lerp(outbound, guard, MathF.Max(0f, (t - OutboundShare) / (1f - OutboundShare)));
     }
 }

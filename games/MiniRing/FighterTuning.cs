@@ -91,6 +91,20 @@ public sealed record FighterTuning
     public float ArmServoMaxSpeed { get; init; } = 40f;
     public float HandKp { get; init; } = 1100f; // 目標 → 拳のバネ [1/s²]（約 5.3Hz）。固いほどきびきび追う
     public float HandKd { get; init; } = 53f; // 減衰比 ≒ 0.8（行き過ぎずに止まる）
+    /// <summary>
+    /// 体の動きを拳へ移すとき（<see cref="HandCommand.Spring"/>）、体幹の運動エネルギーが拳へ抜ける時定数 [s]。バネが伸びて戻るまでの速さ。
+    /// </summary>
+    public float BodyToFistTime { get; init; } = 0.04f;
+
+    /// <summary>体幹から抜けた運動エネルギーのうち、拳の速さになる割合（残りは筋肉と床で失われる）。</summary>
+    public float BodyToFistEfficiency { get; init; } = 0.5f;
+
+    /// <summary>拳の目標の先走り（体の動きから移った運動量）を体へ戻すバネの固有振動数 [Hz] と減衰比。低いほど先まで走る。</summary>
+    public float LeadSpringHz { get; init; } = 3f;
+    public float LeadSpringDamping { get; init; } = 0.4f;
+
+    /// <summary>拳を出していく間（<see cref="HandCommand.Spring"/>）に、拳を目標へ引くバネに残す減衰の割合（減衰比 0.8 → 約 0.25）。目標の手前でブレーキをかけない。</summary>
+    public float LooseHandDamping { get; init; } = 0.3f;
     public float MaxHandForce { get; init; } = 35f;
 
     /// <summary>手首の筋肉（武器を握ったとき、武器を向きの目標へ回すサーボ）の固さ [Hz]。</summary>
@@ -128,8 +142,14 @@ public sealed record FighterTuning
     /// <summary>沈み込みの最大（立つ高さに対する割合）。膝と股を曲げて腰を落とす。</summary>
     public float MaxCrouch { get; init; } = 0.4f;
 
-    /// <summary>腰の沈みで足りない頭の下げを、股から上体を前へ折って補う最大角（ヒップヒンジ）。</summary>
-    public float MaxHingeRadians { get; init; } = 20f * MathF.PI / 180f;
+    /// <summary>頭を下げる量のうち、腰から前へ折って（ヒップヒンジ）下げる割合。残りは膝と股を曲げて腰を落とす。ウィービング・ダッキングが膝だけで沈まない。</summary>
+    public float HipHingeShare { get; init; } = 0.5f;
+
+    /// <summary>腰から前へ折ったとき、頭が前へ出る分のうちお尻を後ろへ引いて打ち消す割合（1 で頭は足の上のまま）。</summary>
+    public float HipsBackShare { get; init; } = 1f;
+
+    /// <summary>股から上体を前へ折る（ヒップヒンジ）最大角。</summary>
+    public float MaxHingeRadians { get; init; } = 40f * MathF.PI / 180f;
 
     // ── 掴み・投げ
     public float GrabRadius { get; init; } = 0.04f;
@@ -143,8 +163,22 @@ public sealed record FighterTuning
     public float FallGrace { get; init; } = 0.15f;
     public float CollapseDuration { get; init; } = 0.3f;
     public float DownDriveScale { get; init; } = 0.05f;
-    public float DownTime { get; init; } = 1.6f;
-    public float GetUpDuration { get; init; } = 1.0f;
+
+    /// <summary>
+    /// 床から立つ高さまで腰を上げきるのにかかる時間 [s]（意識がはっきりしているとき）。倒れている間も常に立とうとし、
+    /// 腰を上げられる高さ（<see cref="Fighter.StandReach"/>）までこの速さで上げる。意識が戻る速さより遅くは上がらない。
+    /// </summary>
+    public float RiseTime { get; init; } = 2.5f;
+
+    /// <summary>骨盤が立つ高さのこの割合より低いまま <see cref="CollapseTime"/> 過ぎたらダウン（膝を突いた・座り込んだ）。</summary>
+    public float DownHeightRatio { get; init; } = 0.55f;
+
+    /// <summary>骨盤が立つ高さのこの割合まで戻り、上体が <see cref="RecoverUprightness"/> まで起きたら、立ち直った。</summary>
+    public float RecoverHeightRatio { get; init; } = 0.85f;
+
+    /// <summary>立ち直りの判定に要る、立った姿勢を保つ時間 [s]（起き上がる途中で一瞬届いただけでは立ち直らない）。</summary>
+    public float RecoverHold { get; init; } = 0.3f;
+
     public float RecoverUprightness { get; init; } = 0.78f;
     public float NoGroundFallTime { get; init; } = 0.4f;
 
@@ -194,8 +228,11 @@ public sealed record FighterTuning
     /// <summary>脳しんとうの効き: 打撃で頭がねじられた速さ（頭の慣性で割った回転 [rad/s]）の 2 乗あたりに意識から引く量。</summary>
     public float ConcussionGain { get; init; } = 0.000035f;
 
-    /// <summary>脳しんとうから意識が戻る速さ（時定数 [s]）。</summary>
-    public float ConcussionRecovery { get; init; } = 5f;
+    /// <summary>
+    /// 脳しんとうから意識が戻る速さ [意識/秒]（一定）。意識を 0.95 飛ばされると、膝立ちまで戻るのに約 3 秒、立ち上がれるまで約 6 秒、
+    /// はっきりするまで約 10 秒。軽く効いた程度（0.3）なら 4 秒ほどで抜ける。
+    /// </summary>
+    public float ConcussionRecoveryRate { get; init; } = 0.07f;
 
     /// <summary>意識がこの値を下回ると体の張りが抜け始める（腰が落ち、ガードが下がる）。</summary>
     public float FullToneConsciousness { get; init; } = 0.75f;
@@ -212,11 +249,14 @@ public sealed record FighterTuning
     /// </summary>
     public float FaintArmStrength { get; init; } = 0.3f;
 
-    /// <summary>意識がこの値を下回ると意識が途切れ、体の張りは 0（全身の力が抜けて倒れきる）。</summary>
+    /// <summary>
+    /// 意識がこの値を下回ると、張りは <see cref="FaintTone"/> から <see cref="LimpConsciousness"/> で 0 へ抜けていき、
+    /// 腰を上げられる高さも膝立ち・座り込み・床へと下がる（段階でなく連続）。
+    /// </summary>
     public float KnockoutConsciousness { get; init; } = 0.3f;
 
-    /// <summary>起き上がるのに要る意識（腰の落ちた、ふらつく体で起き上がる）。</summary>
-    public float GetUpConsciousness { get; init; } = 0.55f;
+    /// <summary>意識がこの値を下回ると張りは 0（全身の力が抜けて床に伸びる）。</summary>
+    public float LimpConsciousness { get; init; } = 0.12f;
 
     /// <summary>骨盤が支えようとしている高さより、立つ高さのこの割合だけ低いまま <see cref="CollapseTime"/> 過ぎたら、崩れ落ちた（ダウン）。</summary>
     public float CollapseDrop { get; init; } = 0.25f;

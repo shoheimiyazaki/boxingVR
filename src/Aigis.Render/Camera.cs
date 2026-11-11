@@ -1121,7 +1121,12 @@ public enum SurfaceDetail
 /// no tiling, no triplanar blend — across a board standing in the world XY plane. A cube carries no
 /// size in <see cref="Dimensions"/>, so that lane holds the mapping instead: X = the world x of the
 /// photo's left edge, Y = the world y of its top edge, Z = its width in metres (the photo is
-/// square). The photo multiplies <see cref="Color"/> per channel, emissive or not.</para></summary>
+/// square). The photo multiplies <see cref="Color"/> per channel, emissive or not.</para>
+/// <para><b>Colour texture</b> (<see cref="TextureInColour"/>, 2026-11-11): layers <see cref="TextureLayer"/>, +1 and +2
+/// are an image's R, G and B (each normalised to mean 0.5, see <see cref="SurfaceTextureSet.Builder.AddColour"/>),
+/// projected triplanarly and tiled exactly like a detail map, multiplying <see cref="Color"/> per channel. With
+/// <see cref="Color"/> set to the image's mean colour (<see cref="ColourTexture.Mean"/>) the surface shows the image's
+/// own colours: wood grain, plaster, fabric.</para></summary>
 public readonly record struct PrimitiveInstance(
     PrimitiveKind Kind,
     Matrix4x4 Model,
@@ -1132,7 +1137,8 @@ public readonly record struct PrimitiveInstance(
     MeshData? Mesh = null,
     SurfaceFinish? Finish = null,
     int TextureLayer = -1,
-    float TextureTileMetres = 0f)
+    float TextureTileMetres = 0f,
+    bool TextureInColour = false)
 {
     /// <summary>
     /// This instance's world-space bounding box — the size it will actually be DRAWN at.

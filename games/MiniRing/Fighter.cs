@@ -86,6 +86,8 @@ public sealed class Fighter
     private readonly BodyInertia _inertia;
     private readonly float[] _servoSettings = [-1f, -1f, -1f, -1f, -1f, -1f];
     private float _facingYaw;
+    /// <summary>腰から前へ折っている角度 [rad]（ヒップヒンジ。体を足の上に置くとき、お尻を引く量に使う）。</summary>
+    private float _hinge;
     private float _gaitPhase;
     private float _smoothedSpeed;
     private float _forwardSpeed;
@@ -95,6 +97,7 @@ public sealed class Fighter
     private float _stateTime;
     private float _tiltTime;
     private float _collapsedTime;
+    private float _lowTime;
     private float _noGroundTime;
     private int _grabbedByCount;
     private bool _stayDown;
@@ -159,7 +162,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 7; // 7: 両手の武器を片手で持つと手首のバネが 1/3（master は 6 まで進んでいるので、マージで 7 にそろえる）
+    public const int PhysicsVersion = 7; // 7: 両手の武器を片手で持つと手首のバネが 1/3（握った武器・ボクセルの武器）
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -364,6 +367,11 @@ public sealed class Fighter
 
     public Vector3 HandTargetWorld(Hand hand) => _arms[(int)hand].LastTarget;
 
+    /// <summary>拳の目標の先走り [m]（体の動きから移った運動量。調べもの用）。</summary>
+    internal Vector3 HandLead(Hand hand) => _arms[(int)hand].Lead;
+
+    internal Vector3 PelvisVelocity => _world.GetState(Parts.Pelvis).LinearVelocity;
+
     public bool IsHolding(Hand hand) => _arms[(int)hand].GrabConstraint is not null;
 
     /// <summary>その手が武器を握っている（グローブは外している）。</summary>
@@ -548,7 +556,8 @@ public sealed class Fighter
     {
         LastCommand = command;
         MeasureHeadJolt();
-        Concussion *= MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.ConcussionRecovery)); // 脳しんとうは時間とともに抜ける
+        // 脳しんとうは時間とともに一定の速さで抜ける: 深く飛んだ意識ほど戻るのに長くかかる（指数で抜くと、深いほど速く戻っていた）。
+        Concussion = MathF.Max(0f, Concussion - (dt * _tuning.ConcussionRecoveryRate));
         _stateTime += dt;
         DownTime = State == FighterState.Standing ? 0f : DownTime + dt;
         var grounded = TryFindGround(out var height);
@@ -557,16 +566,16 @@ public sealed class Fighter
             arm.LastForce = Vector3.Zero; // 腕を動かす歩だけ、Drive が押した力を残す
         }
 
+        UpdateRise(grounded, height, dt);
+
         switch (State)
         {
             case FighterState.Standing:
                 TickStanding(command, grounded, height, dt);
                 break;
             case FighterState.Down:
-                TickDown(command, grounded, height, dt);
-                break;
             case FighterState.GettingUp:
-                TickGettingUp(command, grounded, height, dt);
+                TickDown(command, grounded, height, dt);
                 break;
         }
     }
@@ -614,7 +623,8 @@ public sealed class Fighter
     /// <summary>
     /// 体の張り（0..1）: 意識が薄れると体を支える力・動かす力が抜ける（崩れ落ちる・腰が落ちるのは物理）。
     /// 意識が <see cref="FighterTuning.FullToneConsciousness"/> を下回ると張りが抜け始めて腰が落ち、ガードが下がる（<see cref="FighterTuning.FaintTone"/> まで）。
-    /// <see cref="FighterTuning.KnockoutConsciousness"/> を下回ると意識が途切れて張りは 0: 全身の力が抜けて倒れきる。
+    /// <see cref="FighterTuning.KnockoutConsciousness"/> を下回ると張りは更に抜け、<see cref="FighterTuning.LimpConsciousness"/> で 0（全身の力が抜けて床に伸びる）。
+    /// どこにも段差は無い（意識が少し変われば張りも少し変わる）。
     /// </summary>
     public float Tone
     {
@@ -623,13 +633,41 @@ public sealed class Fighter
             var c = Consciousness;
             if (c < _tuning.KnockoutConsciousness)
             {
-                return 0f;
+                var low = Math.Clamp((c - _tuning.LimpConsciousness) / MathF.Max(1e-3f, _tuning.KnockoutConsciousness - _tuning.LimpConsciousness), 0f, 1f);
+                return _tuning.FaintTone * Smooth(low);
             }
 
             var t = Math.Clamp((c - _tuning.KnockoutConsciousness) / MathF.Max(1e-3f, _tuning.FullToneConsciousness - _tuning.KnockoutConsciousness), 0f, 1f);
-            return _tuning.FaintTone + ((1f - _tuning.FaintTone) * t * t * (3f - (2f * t)));
+            return _tuning.FaintTone + ((1f - _tuning.FaintTone) * Smooth(t));
         }
     }
+
+    private static float Smooth(float t) => t * t * (3f - (2f * t));
+
+    /// <summary>
+    /// 今の意識で腰を上げられる高さ（立つ高さに対する割合、0..1）。張りが満ちていれば 1、張りが <see cref="FighterTuning.FaintTone"/>
+    /// まで抜けると <see cref="FighterTuning.FaintSag"/> だけ腰が落ち、それより抜けると膝立ち・座り込み・床へと連続に下がる。
+    /// 倒れている間も、立っている間も、体はいつもこの高さまで立とうとする。
+    /// </summary>
+    public float StandReach
+    {
+        get
+        {
+            var tone = Tone;
+            return tone >= _tuning.FaintTone
+                ? 1f - (_tuning.FaintSag * Faintness)
+                : (1f - _tuning.FaintSag) * (tone / MathF.Max(1e-3f, _tuning.FaintTone));
+        }
+    }
+
+    /// <summary>
+    /// 今、腰を上げようとしている高さ（立つ高さに対する割合）。<see cref="StandReach"/> が下がればすぐに下がり（崩れる）、
+    /// 上がるときは <see cref="FighterTuning.RiseTime"/> の速さでしか上がらない（ゆっくり起き上がる）。
+    /// </summary>
+    public float Rise => _rise;
+
+    private float _rise = 1f;
+    private float _recoverTime;
 
     /// <summary>意識が薄れて体の張りが抜けた度合い（0 = 張りが満ちている、1 = 意識が途切れる手前の <see cref="FighterTuning.FaintTone"/> 以下）。ボットはこれを見てガードを下げる。</summary>
     public float Faintness => Math.Clamp((1f - Tone) / MathF.Max(1e-3f, 1f - _tuning.FaintTone), 0f, 1f);
@@ -663,6 +701,7 @@ public sealed class Fighter
         }
 
         Enter(FighterState.Down);
+        _rise = 0f; // 投げ倒された: 床から立ち上がり直す（意識がはっきりしていても RiseTime かかる）
         var flat = new Vector3(direction.X, 0f, direction.Z);
         if (flat.LengthSquared() > 1e-4f)
         {
@@ -824,7 +863,10 @@ public sealed class Fighter
         // しゃがんだ（自分で腰を落とした）だけなら、支えようとしている高さも下がっているので当たらない。
         // 力が抜けている間だけ数える（しゃがみから立ち上がる途中で、目標の高さに追いつく前を崩れ落ちと取り違えない）。
         _collapsedTime = grounded && Tone < 1f && _hoverHeight > 0f && height < _hoverHeight - (_tuning.CollapseDrop * _standHeight) ? _collapsedTime + dt : 0f;
-        if (_noGroundTime > _tuning.NoGroundFallTime || _tiltTime > _tuning.FallGrace || _collapsedTime > _tuning.CollapseTime)
+        // 意識が薄れて腰を上げられる高さが下がり、膝を突く・座り込むほど腰が落ちたのもダウン（張りが抜けた分だけ連続に落ちる）。
+        // 自分で沈んだ分（ダッキング・ウィービングの _crouch）は数えない: ふらついた体の深いダッキングをダウンと取り違えない。
+        _lowTime = grounded && height < (_tuning.DownHeightRatio + MathF.Min(0f, _crouch)) * StandTargetHeight ? _lowTime + dt : 0f;
+        if (_noGroundTime > _tuning.NoGroundFallTime || _tiltTime > _tuning.FallGrace || _collapsedTime > _tuning.CollapseTime || _lowTime > _tuning.CollapseTime)
         {
             Enter(FighterState.Down);
             return;
@@ -834,36 +876,58 @@ public sealed class Fighter
         DriveBody(command, scale * Tone, grounded, height, dt);
     }
 
-    private void TickDown(in FighterCommand command, bool grounded, float height, float dt)
+    /// <summary>
+    /// 腰を上げようとする高さ <see cref="Rise"/> を進める: 意識で決まる <see cref="StandReach"/> を上限に、下がるときはすぐ、上がるときは
+    /// <see cref="FighterTuning.RiseTime"/> の速さで。倒れている間は、今の腰の高さより大きく先へは行かない（体が付いてこられる分だけ
+    /// 先に立つ: 床から一気に浮き上がらない）。倒れていく途中は今の高さまで下げる（落ちていく体を途中で受け止めない）。
+    /// </summary>
+    private void UpdateRise(bool grounded, float height, float dt)
     {
-        // こらえて崩れる（Triage ADR-102④）: 駆動を一気に抜かず CollapseDuration かけて落とす。
-        // 意識が途切れている（張りが 0）なら、こらえる力も無く、全身の力が抜けて倒れきる。
-        ControlScale = Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration) * Tone;
-        SetServoScale(ControlScale);
-        DriveArms(command, ControlScale, weightShift: false, dt);
-        var settled = _world.GetState(Parts.Pelvis).LinearVelocity.Length() < 0.6f;
-        if (!_stayDown && CanStand && Consciousness >= _tuning.GetUpConsciousness && _stateTime > _tuning.DownTime && settled && grounded && height < _standHeight * 1.6f)
+        var reach = _stayDown || !CanStand ? 0f : StandReach;
+        var up = _rise + (dt / MathF.Max(1e-3f, _tuning.RiseTime));
+        if (State != FighterState.Standing)
         {
-            Enter(FighterState.GettingUp);
+            // 足元の床が見つからない（ロープの外へ乗り出した等）間は、今の目標のまま（床の高さが分からないのに下げない）。
+            var actual = grounded ? Math.Clamp(height / StandTargetHeight, 0f, 1f) : _rise;
+            var falling = grounded && _world.GetState(Parts.Pelvis).LinearVelocity.Y < -0.3f;
+            up = falling ? MathF.Min(_rise, actual) : MathF.Min(up, actual + RiseLead);
         }
+
+        _rise = Math.Clamp(MathF.Min(reach, up), 0f, 1f);
     }
 
-    private void TickGettingUp(in FighterCommand command, bool grounded, float height, float dt)
+    /// <summary>起き上がる間、腰の目標が今の高さより先へ行ってよい量（立つ高さに対する割合）。</summary>
+    private const float RiseLead = 0.15f;
+
+    /// <summary>まっすぐ立ったときの骨盤の地面からの高さ。</summary>
+    private float StandTargetHeight => MathF.Max(1e-3f, _standHeight * _tuning.StandHeightRatio);
+
+    private void TickDown(in FighterCommand command, bool grounded, float height, float dt)
     {
-        if (!grounded)
+        if (_stayDown || !CanStand)
         {
-            Enter(FighterState.Down);
+            // 起き上がれない（死んだ・脚を失った）: こらえて崩れ（Triage ADR-102④: 駆動を一気に抜かず CollapseDuration かけて落とす）、そのまま伸びる。
+            ControlScale = Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration) * Tone;
+            SetServoScale(ControlScale);
+            DriveArms(command, ControlScale, weightShift: false, dt);
             return;
         }
 
-        DriveBody(command, Ramp(0.4f, 1.2f, _stateTime, _tuning.GetUpDuration) * Tone, true, height, dt);
-        if (_stateTime >= _tuning.GetUpDuration && Uprightness > _tuning.RecoverUprightness)
+        // 倒れている間も、いつも立とうとする。倒れていく間（CollapseDuration）は力を抜いて崩れ、その後は張りのぶんだけ体を起こす。
+        // 腰をどこまで上げられるか（膝立ち・座り込み・立つ）は意識で決まり（StandReach）、意識が戻るのに合わせてゆっくり上がる（Rise）。
+        var effort = _stateTime < _tuning.CollapseDuration
+            ? Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration)
+            : Ramp(_tuning.DownDriveScale, 1f, _stateTime - _tuning.CollapseDuration, _tuning.RiseTime * 0.5f);
+        DriveBody(command, effort * Tone, grounded, height, dt);
+
+        // 起き上がる途中（腰がダウンの高さを越えた）か、まだ床か。審判のカウントはどちらでも続く。
+        var ratio = grounded ? height / StandTargetHeight : 0f;
+        State = ratio >= _tuning.DownHeightRatio ? FighterState.GettingUp : FighterState.Down;
+        var recovered = grounded && ratio >= _tuning.RecoverHeightRatio && Uprightness > _tuning.RecoverUprightness;
+        _recoverTime = recovered ? _recoverTime + dt : 0f;
+        if (_recoverTime >= _tuning.RecoverHold)
         {
             Enter(FighterState.Standing);
-        }
-        else if (_stateTime > _tuning.GetUpDuration * 3f)
-        {
-            Enter(FighterState.Down);
         }
     }
 
@@ -874,6 +938,12 @@ public sealed class Fighter
         _tiltTime = 0f;
         _collapsedTime = 0f;
         _noGroundTime = 0f;
+        _lowTime = 0f;
+        _recoverTime = 0f;
+        if (next != FighterState.Standing && TryFindGround(out var height))
+        {
+            _rise = MathF.Min(_rise, Math.Clamp(height / StandTargetHeight, 0f, 1f)); // 倒れたところから立ち上がる
+        }
     }
 
     private void DriveBody(in FighterCommand command, float scale, bool grounded, float height, float dt)
@@ -882,7 +952,9 @@ public sealed class Fighter
         SetServoScale(scale);
         // 脚の肉が削られるほど体を持ち上げる力・歩く力が落ち、胴の肉が削られるほど体の軸を保つ力が落ちる。
         var legs = MathF.Min(LegStrength(true), LegStrength(false));
-        _crouch = Math.Clamp(command.HeadOffset.Y / _standHeight, -_tuning.MaxCrouch, 0.05f);
+        // 頭を下げる量のうち、腰から前へ折る分（HipHingeShare）を除いた残りを膝と股を曲げて腰を落とす。
+        var drop = MathF.Min(0f, command.HeadOffset.Y);
+        _crouch = Math.Clamp(((command.HeadOffset.Y - drop) + (drop * (1f - _tuning.HipHingeShare))) / _standHeight, -_tuning.MaxCrouch, 0.05f);
         // 立っている間は足の運び（足を置いてから体が付いていく）。倒れて起き上がる間は以前の歩行の形のまま。
         var footwork = _tuning.Footwork.Enabled && State == FighterState.Standing && grounded && !LegSevered;
         if (footwork && !_footworkActive)
@@ -977,7 +1049,9 @@ public sealed class Fighter
         var t = _tuning.Footwork;
         var pelvis = _world.GetState(Parts.Pelvis);
         _laggedMove = Vector3.Lerp(_laggedMove, command.ClampedMove, 1f - MathF.Exp(-dt / MathF.Max(1e-3f, t.BodyLag)));
-        var toSupport = _footwork.SupportCenter - new Vector2(pelvis.Position.X, pelvis.Position.Z);
+        // 腰から前へ折る（ヒップヒンジ）ほど、お尻を後ろへ引く: 頭が足の上から前へ出ない（前へ出た頭は、振り抜かれるフックの軌道に入る）。
+        var back = new BodyFrame(Vector3.Zero, _facingYaw).Forward * (-_restTorso * MathF.Sin(_hinge) * _tuning.HipsBackShare);
+        var toSupport = _footwork.SupportCenter + new Vector2(back.X, back.Z) - new Vector2(pelvis.Position.X, pelvis.Position.Z);
         var centering = toSupport * t.Centering;
         if (centering.Length() > t.MaxCentering)
         {
@@ -1106,13 +1180,14 @@ public sealed class Fighter
     {
         var walking = !footwork;
         var bob = walking ? MathF.Sin(_gaitPhase * 2f) * 0.04f * _standHeight * Math.Clamp(_smoothedSpeed / _tuning.WalkSpeed, 0f, 1f) : 0f;
-        var hoverScale = State == FighterState.GettingUp ? scale * Lerp(0.5f, 1f, Math.Clamp(Uprightness, 0f, 1f)) : scale;
+        var hoverScale = State != FighterState.Standing ? scale * Lerp(0.5f, 1f, Math.Clamp(Uprightness, 0f, 1f)) : scale;
         // 立つ高さ: 頭を下げればダッキング（膝と股を曲げて腰から沈む。脚の曲げは足の IK、起き上がり中は ApplyGait が同じ _crouch から決める）。
         // 足の運びの間は、着いた足に膝を少し曲げて届く高さを上限にする（伸びきった脚で足が浮かないように）。
         var stand = _standHeight * _tuning.StandHeightRatio;
         var target = (float.IsFinite(legsAllow) ? MathF.Min(stand, MathF.Max(0.85f * stand, legsAllow)) : stand) + (stand * _crouch);
-        // 意識が薄れて張りが抜けると、脚は体重を支えても伸ばしきれず膝が折れて腰が落ちる（張りが FaintTone で FaintSag だけ）。
-        target -= stand * _tuning.FaintSag * Faintness;
+        // 意識が薄れて張りが抜けると、脚は体重を支えても伸ばしきれず膝が折れて腰が落ちる（張りが FaintTone で FaintSag だけ、
+        // それより抜けると膝立ち・座り込み・床へ）。倒れた後は、意識が戻るのに合わせてゆっくり腰を上げる（Rise）。
+        target = MathF.Max(0f, target - (stand * (1f - _rise)));
         _hoverHeight = target;
         var pelvis = _world.GetState(Parts.Pelvis);
         // 足の運びの間は、脚が床と体の間でどれだけ重さを受け持つかが姿勢で変わり、骨盤が目標から数 cm ずれたまま止まる
@@ -1120,8 +1195,9 @@ public sealed class Fighter
         var error = target + bob - height;
         // 体を支える力が弱い（打たれて力が落ちた・脚が削られた）間は積分しない。弱い間に溜めると、力が戻ったときに体が跳ねる。
         _hoverIntegral = walking ? 0f : Math.Clamp(_hoverIntegral + (HoverKi * error * dt * Math.Clamp(hoverScale, 0f, 1f)), -0.3f * -_world.Gravity.Y, 0.3f * -_world.Gravity.Y);
-        // 体重を支える力は、意識が途切れて張りが 0 になると無くなる（崩れ落ちる）。張りが残っている間は支える（腰が落ちるだけ）。
-        var accel = FighterMath.HoverAccel((Tone > 0f ? -_world.Gravity.Y : 0f) + (_hoverIntegral * MathF.Max(0f, hoverScale)), error,
+        // 体重を支える力は、張りが FaintTone より抜けると減っていき、0 で無くなる（崩れ落ちる）。張りが残っている間は支える（腰が落ちるだけ）。
+        var support = -_world.Gravity.Y * Math.Clamp(Tone / MathF.Max(1e-3f, _tuning.FaintTone), 0f, 1f);
+        var accel = FighterMath.HoverAccel(support + (_hoverIntegral * MathF.Max(0f, hoverScale)), error,
             pelvis.LinearVelocity.Y, _tuning.HoverKp, _tuning.HoverKd, _tuning.MaxHoverAccel, hoverScale);
         // 足の運びの間は脚が床に立っていて、脚の重さは床が支える。浮かせるのは上体（骨盤から上）だけ。
         ApplySharedImpulse(new Vector3(0f, accel * (walking ? TotalMass : TotalMass - _legMass) * dt, 0f));
@@ -1151,6 +1227,7 @@ public sealed class Fighter
         var hipDrop = -_crouch * _standHeight * _tuning.StandHeightRatio;
         var rest = MathF.Max(0f, -head.Y - hipDrop);
         var hinge = MathF.Min(_tuning.MaxHingeRadians, MathF.Acos(Math.Clamp(1f - (rest / _restTorso), -1f, 1f)));
+        _hinge = hinge;
         var pitch = Math.Clamp(moveLean + MathF.Atan2(head.Z, torsoLength), -_tuning.MaxLeanRadians, _tuning.MaxLeanRadians) + hinge;
         var roll = Math.Clamp(MathF.Atan2(-head.X, torsoLength), -_tuning.MaxLeanRadians, _tuning.MaxLeanRadians); // 頭を右（−X）へ → 右へ傾く
         // 姿勢 = 向き（ヨー）×（向きの座標系での）傾き × 胴自身のひねり。傾きは向きの座標系で与えるので、
@@ -1204,7 +1281,8 @@ public sealed class Fighter
         var direction = _forwardSpeed < -0.25f * speed ? -1f : 1f; // 後退中は位相を逆回し
         _gaitPhase += direction * 2f * MathF.PI * speed / MathF.Max(0.01f, _tuning.StrideLength) * dt;
         // 沈み込み: 腿を前へ θ・すねを後ろへ θ 傾けると、脚の高さは cos θ 倍になる（股 −θ・膝 +2θ・足首は下で水平に戻す）。
-        var squat = MathF.Acos(Math.Clamp(1f + MathF.Min(0f, _crouch), 0f, 1f));
+        // 起き上がる途中（腰を上げきれていない）の分も膝を曲げる: 脚が先に伸びきって体を押し上げない。
+        var squat = MathF.Acos(Math.Clamp(1f + MathF.Min(0f, _crouch) - (1f - _rise), 0f, 1f));
         var pose = FighterMath.Gait(_gaitPhase, blend, _tuning.NeutralHipRadians - squat, _tuning.NeutralKneeRadians + (2f * squat),
             _tuning.GaitHipSwingRadians, _tuning.GaitKneeLiftRadians);
         // 切り落とされた脚のサーボは外してある（無い拘束には書かない）。
@@ -1245,7 +1323,18 @@ public sealed class Fighter
             }
 
             arm.CarriedMass = CarriedMass(arm);
-            var bodyForce = arm.Drive(_world, _tuning, frame, target, scale * ArmStrength(arm.Hand), _inertia, com, torso, TotalMass, dt, Parts.Chest);
+            arm.UpdateLead(_tuning.LeadSpringHz, _tuning.LeadSpringDamping, dt);
+            var spring = State == FighterState.Standing && float.IsFinite(hand.Spring) ? Math.Clamp(hand.Spring, 0f, 1f) : 0f; // 倒れている間は移さない
+            if (spring > 0f)
+            {
+                TransferBodyMotion(arm, frame.LocalToWorld(target), spring * scale, dt);
+            }
+            else
+            {
+                arm.BodyStore = null; // 次の拳の出し始めで蓄え直す
+            }
+
+            var bodyForce = arm.Drive(_world, _tuning, frame, target, scale * ArmStrength(arm.Hand), _inertia, com, torso, TotalMass, dt, Parts.Chest, spring);
             arm.DriveWrist(_world, frame, arm.Support is { } held ? command.For(held.Main).Orientation : hand.Orientation);
             if (weightShift && bodyForce.LengthSquared() > 0f)
             {
@@ -1298,6 +1387,80 @@ public sealed class Fighter
         }
 
         return arm.Support is { Socket: not null } support ? 0.5f * _world.GetMass(support.Body) : 0f;
+    }
+
+    /// <summary>これまでに体の動きから拳の目標の先走りへ渡した運動エネルギーの合計 [J]（調べもの用。拳が実際に得る分は、腕の力の上限で少なくなる）。</summary>
+    internal float BodyToFistEnergy { get; private set; }
+
+    /// <summary>
+    /// 体の動きとタメを拳へ移す（拳が体にバネでつながり、溜めで縮めた体のバネの反発・回避や前の拳で動いた体の運動量が拳に乗る）。
+    /// 拳を出し始めた瞬間の体の蓄え（体幹の動きの運動エネルギー ＋ 体のバネに溜まったエネルギー: <see cref="BodySpringEnergy"/>）を上限に、
+    /// その時々の体幹の動きの運動エネルギーのうち <see cref="FighterTuning.BodyToFistTime"/> の時定数で抜ける分を、拳の目標の先走りへ渡す。
+    /// その <see cref="FighterTuning.BodyToFistEfficiency"/> が、拳の目標へ向かう向きの運動エネルギーになる（エネルギーは湧かない）。
+    /// 数える体幹の動きは、拳の向きへ進む動き・持ち上がる動き・胸の回転だけ: 打たれてのけぞる・下がるような拳と逆の動きは拳に乗らない。
+    /// </summary>
+    private void TransferBodyMotion(Arm arm, Vector3 plannedTarget, float share, float dt)
+    {
+        var toTarget = plannedTarget - arm.GlovePosition(_world);
+        if (toTarget.LengthSquared() < 1e-6f)
+        {
+            return;
+        }
+
+        var direction = Vector3.Normalize(toTarget);
+        var pelvis = _world.GetState(Parts.Pelvis);
+        var chest = _world.GetState(Parts.Chest);
+        var pelvisMass = _world.GetMass(Parts.Pelvis);
+        var chestMass = _world.GetMass(Parts.Chest);
+        var trunkMass = pelvisMass + chestMass;
+        var trunkVelocity = ((pelvis.LinearVelocity * pelvisMass) + (chest.LinearVelocity * chestMass)) / trunkMass;
+        // 拳に乗せられる動き: 水平は拳の向きへ進む成分だけ、鉛直は持ち上がる成分だけ。
+        var flat = new Vector3(direction.X, 0f, direction.Z);
+        var forward = flat.LengthSquared() > 1e-6f ? Vector3.Normalize(flat) * MathF.Max(0f, Vector3.Dot(trunkVelocity, Vector3.Normalize(flat))) : Vector3.Zero;
+        var usable = forward + new Vector3(0f, MathF.Max(0f, trunkVelocity.Y), 0f);
+        var chestInertia = _world.GetLocalInertiaDiagonal(Parts.Chest);
+        var chestSpin = Vector3.Transform(chest.AngularVelocity, Quaternion.Conjugate(chest.Orientation)); // 胸のローカル
+        var linearEnergy = 0.5f * trunkMass * usable.LengthSquared();
+        var spinEnergy = 0.5f * Vector3.Dot(chestSpin, chestInertia * chestSpin);
+        var motionEnergy = linearEnergy + spinEnergy;
+        arm.BodyStore ??= motionEnergy + BodySpringEnergy(); // 出し始めの蓄え
+        if (motionEnergy <= 1e-6f || arm.BodyStore <= 1e-6f)
+        {
+            return;
+        }
+
+        // その時々の体の動きのうち時定数で抜ける分（体はゆっくりになっても動き続ける）。出し始めの蓄えより多くは渡さない。
+        var released = MathF.Min(arm.BodyStore.Value, motionEnergy * Math.Clamp(share, 0f, 1f) * (1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.BodyToFistTime))));
+        arm.BodyStore -= released;
+        // 体幹: 拳に乗せた動き（並進のうち乗せられる成分と、胸の回転）の運動エネルギーが released だけ減るよう、同じ割合で縮める。
+        var keep = MathF.Sqrt(MathF.Max(0f, 1f - (released / motionEnergy)));
+        ApplySharedImpulse(usable * ((keep - 1f) * trunkMass));
+        _world.ApplyAngularImpulse(Parts.Chest, Vector3.Transform(chestInertia * chestSpin * (keep - 1f), chest.Orientation));
+        // 拳の目標の先走り（腕の質量で数える）: 目標へ向かう向きの速さを、渡されたエネルギーぶん上げる。腕はそれを筋肉の力の範囲で追う。
+        var armMass = _world.GetMass(arm.UpperArm) + _world.GetMass(arm.Forearm);
+        var along = MathF.Max(0f, arm.LeadSpeedAlong(direction));
+        var faster = MathF.Sqrt((along * along) + (2f * _tuning.BodyToFistEfficiency * released / armMass));
+        arm.KickLead(direction * (faster - along));
+        BodyToFistEnergy += _tuning.BodyToFistEfficiency * released;
+    }
+
+    /// <summary>
+    /// 体のバネに溜まったエネルギー [J]（タメ）: 屈んだ脚（立つ高さより腰が低い分。体を支えるバネ <see cref="FighterTuning.HoverKp"/>）と、
+    /// ひねった胸（向きから鉛直軸まわりに外れた分。体の軸を保つバネ <see cref="FighterTuning.UprightKp"/>）。前へ傾けたままの姿勢は数えない。
+    /// </summary>
+    private float BodySpringEnergy()
+    {
+        var legs = 0f;
+        if (TryFindGround(out var height))
+        {
+            var crouch = MathF.Max(0f, (_standHeight * _tuning.StandHeightRatio) - height);
+            legs = 0.5f * (TotalMass - _legMass) * _tuning.HoverKp * crouch * crouch;
+        }
+
+        var chest = _world.GetState(Parts.Chest);
+        var twist = FighterMath.RotationError(chest.Orientation, Quaternion.CreateFromAxisAngle(Vector3.UnitY, _facingYaw)).Y; // 鉛直軸まわり
+        var yawInertia = _world.GetLocalInertiaDiagonal(Parts.Chest).Y;
+        return legs + (0.5f * _tuning.UprightKp * yawInertia * twist * twist);
     }
 
     private void SetServoScale(float scale)
@@ -1651,6 +1814,7 @@ public sealed class Fighter
         private Vector3 _previousTarget;
         private Vector3 _targetVelocity;
         private bool _hasPrevious;
+        private Vector3 _leadVelocity;
 
         private Arm(Hand hand)
         {
@@ -1658,6 +1822,29 @@ public sealed class Fighter
         }
 
         public Hand Hand { get; }
+
+        /// <summary>
+        /// 拳の目標が予定の軌道より先へ走っている量 [m]。体の動きから移った運動量で走り出し、体へつなぐバネで戻る
+        /// （<see cref="Fighter.TransferBodyMotion"/>）。腕はこの先の目標を筋肉の力の範囲で追うので、拳が速く出る。
+        /// </summary>
+        public Vector3 Lead { get; private set; }
+
+        /// <summary>返しの拳を出し始めた瞬間の体幹の運動エネルギーのうち、まだ拳へ渡していない分 [J]（出していない間は null）。</summary>
+        public float? BodyStore { get; set; }
+
+        /// <summary>目標の先走りの、拳の目標へ向かう向きの速さ [m/s]。</summary>
+        public float LeadSpeedAlong(Vector3 direction) => Vector3.Dot(_leadVelocity, direction);
+
+        /// <summary>体の動きから移った速さを、目標の先走りに足す。</summary>
+        public void KickLead(Vector3 velocityChange) => _leadVelocity += velocityChange;
+
+        /// <summary>目標の先走りを、体へつなぐバネ（固有振動数 <paramref name="hz"/>、減衰比 <paramref name="damping"/>）で戻す。</summary>
+        public void UpdateLead(float hz, float damping, float dt)
+        {
+            var omega = 2f * MathF.PI * hz;
+            _leadVelocity += ((-omega * omega * Lead) - (2f * damping * omega * _leadVelocity)) * dt;
+            Lead += _leadVelocity * dt;
+        }
         /// <summary>この腕の肩がある側（体のローカル X 符号）。</summary>
         public float Side => Hand.LocalSide();
         public int UpperArm { get; private init; }
@@ -1682,6 +1869,9 @@ public sealed class Fighter
         public float UpperLength { get; private init; }
         public float LowerLength { get; private init; }
         public Vector3 LastTarget { get; private set; }
+
+        /// <summary>指令どおりの拳の目標（先走りを足す前）。</summary>
+        public Vector3 PlannedTarget { get; private set; }
         public int? GrabConstraint { get; set; }
         public Fighter? Grabbed { get; set; }
 
@@ -1878,11 +2068,13 @@ public sealed class Fighter
 
         /// <summary>腕を目標へ駆動し、体から借りた力 [N]（脚と腰が地面を押して出す分）を返す。</summary>
         public Vector3 Drive(PhysicsWorld world, FighterTuning tuning, BodyFrame frame, Vector3 targetLocal, float forceScale,
-            BodyInertia inertia, Vector3 centerOfMass, Quaternion torso, float totalMass, float dt, int chestId)
+            BodyInertia inertia, Vector3 centerOfMass, Quaternion torso, float totalMass, float dt, int chestId, float spring = 0f)
         {
             var shoulder = ShoulderPosition(world, chestId);
             var reach = UpperLength + LowerLength;
-            var target = ArmIk.ClampReach(shoulder, frame.LocalToWorld(targetLocal), reach);
+            var planned = ArmIk.ClampReach(shoulder, frame.LocalToWorld(targetLocal), reach);
+            PlannedTarget = planned;
+            var target = Lead == Vector3.Zero ? planned : ArmIk.ClampReach(shoulder, planned + Lead, reach);
             LastTarget = target;
 
             // 目標速度（フィードフォワード）。キャリブレーション等の瞬間移動が力のスパイクにならないよう上限付き。
@@ -1908,7 +2100,9 @@ public sealed class Fighter
             var f = world.GetState(Forearm);
             var glove = f.Position + Vector3.Transform(GloveLocal, f.Orientation);
             var gloveVelocity = f.LinearVelocity + Vector3.Cross(f.AngularVelocity, glove - f.Position);
-            var accel = FighterMath.HandAccel(glove, gloveVelocity, target, _targetVelocity, tuning.HandKp, tuning.HandKd);
+            // 拳を出していく間（spring）は、目標の手前でブレーキをかけない（減衰を弱める）: 実際のパンチも、当たるまで止める筋肉は働かない。
+            var kd = tuning.HandKd * (1f + ((tuning.LooseHandDamping - 1f) * Math.Clamp(spring, 0f, 1f)));
+            var accel = FighterMath.HandAccel(glove, gloveVelocity, target, _targetVelocity, tuning.HandKp, kd);
             // 武器を握っていれば、拳は前腕と一緒に武器の重さも引く（武器の慣性は、この力と手首のトルクで動かす）。
             var chainMass = world.GetMass(UpperArm) + world.GetMass(Forearm) + CarriedMass;
             var desired = accel * chainMass;

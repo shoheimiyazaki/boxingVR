@@ -74,9 +74,18 @@ public sealed class BoxerBot : IFighterControl
     /// <summary>頭を沈める守りを、拳が来続けても沈んだまま延ばしてよい上限 [s]（沈まない守りは <see cref="MaxDefenseDuration"/>）。</summary>
     private const float MaxCrouchedDefense = 0.45f;
 
-    /// <summary>溜めで先に回す胴のひねり [rad]（後ろの手 / 前の手）。後ろの手は腰から大きく回して打つ。</summary>
+    /// <summary>
+    /// 溜めで胴を逆へひねる大きさ [rad]（後ろの手 / 前の手）。打つ手の肩を後ろへ引いて胴のバネを縮め、打ち出すと前へ回す。
+    /// 溜めの時間が <see cref="FullLoad"/> でこの大きさまで引ききる（短い溜めは浅くしか引けない）。
+    /// </summary>
     private const float LoadTwistRear = 25f * MathF.PI / 180f;
     private const float LoadTwistLead = 12f * MathF.PI / 180f;
+
+    /// <summary>溜めで引ききるまでの時間 [s]（<see cref="BotStyle.Telegraph"/> の上限と同じ）。</summary>
+    private const float FullLoad = BotStyle.MaxTelegraph;
+
+    /// <summary>溜めで頭を沈める量（腕の長さ倍）: 膝を沈めて脚のバネを縮める。</summary>
+    private const float LoadDip = 0.08f;
 
     /// <summary>
     /// 溜めで拳を引く量（腕の長さ倍、後ろの手 / 前の手）。打つ前に拳をわずかに引いて肩を入れる（実際のボクシングでよく言う「テレフォン」）。
@@ -171,9 +180,10 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、リプレイの見出しに残して照らし合わせる。
     /// 変えたら 1 増やす（1: 最初のボット、2: 防御技の表・動き出しの読み・ストップジャブ・ピボット、
     /// 3: インサイドスリップ・ローリング、回避しながら打つカウンターと拳の種類ごとの打ち返し、4: 狙いの固定・外側への回避・守りの拳の高さ、
-    /// 5: 打つ前の溜め（腰と肩のひねり）・相手の読みによる予測の回避・相手の届く間合いのすぐ外に立つ）。
+    /// 5: 打つ前の溜め（腰と肩のひねり）・相手の読みによる予測の回避・相手の届く間合いのすぐ外に立つ、6: しゃがみの疲れ・予測の回避の読み直し、
+    /// 7: 意識が薄れるとガードを下げる、8: 回避からの返しの拳に体の動きを移す（HandCommand.Spring）、9: 溜めは逆へ引いて体のバネを縮め、全ての拳に体の動きとタメを移す）。
     /// </summary>
-    public const int LogicVersion = 7;
+    public const int LogicVersion = 9;
 
     public BotStyle Style { get; }
 
@@ -252,7 +262,7 @@ public sealed class BoxerBot : IFighterControl
                 var target = action.Spec.Evaluate(hand, action.Time, action.Duration, Guard(hand, reach, headLocal), aim, reach);
                 if (action.Time < 0f && action.Loaded)
                 {
-                    target += (hand == Style.Lead ? LoadCockLead : LoadCockRear) * (reach * (1f + (action.Time / action.Load)));
+                    target += (hand == Style.Lead ? LoadCockLead : LoadCockRear) * (reach * Wound(action));
                 }
 
                 Set(hand, ref left, ref right, target);
@@ -276,7 +286,19 @@ public sealed class BoxerBot : IFighterControl
         // 一度疲れたら、疲れが抜けきるまで（立ち上がって息を整えるまで）沈む守りを控える。
         _crouchTired = _crouchTime > CrouchBudget || (_crouchTired && _crouchTime > 0f);
         Stats.Tick(dt, crouched, _defense != Defense.None, _hands[0].Active || _hands[1].Active);
-        return new FighterCommand(move, dir, new HandCommand(left, grip.Left), new HandCommand(right, grip.Right), _head, LoadTwist());
+        return new FighterCommand(move, dir, new HandCommand(left, grip.Left, Spring(Hand.Left)), new HandCommand(right, grip.Right, Spring(Hand.Right)), _head, LoadTwist());
+    }
+
+    /// <summary>
+    /// 体の動きとタメを拳へ移すか（<see cref="HandCommand.Spring"/>）: 拳を出していく間。溜め（引いて縮めた体のバネ）・回避・前の拳で
+    /// 動いた体の運動量が拳に乗る。溜めの無い拳・止まった体から出す拳には、渡すものがほとんど無い（場合分けしない）。
+    /// </summary>
+    private float Spring(Hand hand)
+    {
+        // 拳を出していく間だけ（引き戻しでは移さない）。
+        var action = _hands[(int)hand];
+        // フェイント（振り出しきらない拳）は体を乗せない（打ち抜かない見せの拳で、体の勢いを使わない）。
+        return action.Active && action.Spec.Extend >= 1f && action.Time >= 0f && action.Time < action.Duration * PunchSpec.OutboundShare ? 1f : 0f;
     }
 
     public void OnPunchLanded(Hand hand, float damage)
@@ -1088,6 +1110,8 @@ public sealed class BoxerBot : IFighterControl
             {
                 var s = action.Spec.HeadShift;
                 shift += new Vector3(s.X * lead, s.Y, s.Z) * (reach * Envelope(action));
+                // 溜め: 打つ向きと逆へ頭を引き、膝を沈める（体のバネを縮める。打ち出すとその反発で前へ出る）。
+                shift += new Vector3(-0.5f * s.X * lead, -LoadDip, -0.5f * s.Z) * (reach * Wound(action));
             }
         }
 
@@ -1141,23 +1165,27 @@ public sealed class BoxerBot : IFighterControl
     }
 
     /// <summary>
-    /// 拳に合わせた体の動き（頭の動き・踏み込み）の大きさ。溜めの間（Time が負）は 0 から 0.5 へ先に動き出し（読める手がかり）、
+    /// 拳に合わせた体の動き（頭の動き・踏み込み）の大きさ。溜めの間（Time が負）は 0（逆へ引く: <see cref="Wound"/>）、
     /// 拳が出てからは拳の振りに合わせて山を描く。
     /// </summary>
     private static float Envelope(in HandAction action)
     {
         if (action.Time < 0f)
         {
-            return action.Loaded ? 0.5f * (1f + (action.Time / action.Load)) : 0f;
+            return 0f; // 溜めの間は逆へ引く（<see cref="Wound"/>）
         }
 
         var u = Math.Clamp(action.Time / action.Duration, 0f, 1f);
         return action.Loaded ? MathF.Max(MathF.Sin(MathF.PI * u), u < 0.5f ? 0.5f : 0f) : MathF.Sin(MathF.PI * u);
     }
 
+    /// <summary>溜めでどれだけ引いたか（0..1）: 溜めを始めてからの時間 ÷ <see cref="FullLoad"/>。溜めの間だけ。</summary>
+    private static float Wound(in HandAction action)
+        => action.Loaded && action.Time < 0f ? Math.Clamp((action.Time + action.Load) / FullLoad, 0f, 1f) : 0f;
+
     /// <summary>
-    /// 溜めの胴のひねり [rad]（正で右肩が前）: 溜めの間に打つ手の肩を前へ回し始め（拳より先に動く、読める手がかり）、
-    /// 拳が出たら腕の動きからのひねり（<see cref="PunchMechanics.TorsoTwist"/>）へ引き継ぐ。
+    /// 溜めの胴のひねり [rad]（正で右肩が前）: 溜めの間に打つ手の肩を後ろへ引いて胴のバネを縮め（拳より先に動く、読める手がかり）、
+    /// 打ち出したら前へ回してバネの反発を拳に乗せる（<see cref="Spring"/>）。その後は腕の動きからのひねり（<see cref="PunchMechanics.TorsoTwist"/>）へ引き継ぐ。
     /// </summary>
     private float LoadTwist()
     {
@@ -1170,7 +1198,8 @@ public sealed class BoxerBot : IFighterControl
                 continue;
             }
 
-            var share = action.Time < 0f ? 1f + (action.Time / action.Load) : MathF.Max(0f, 1f - (2f * action.Time / action.Duration));
+            // 溜めの間は打つ手の肩を後ろへ引き（胴のバネを縮める）、打ち出したら引いた大きさに見合うだけ前へ回す。
+            var share = action.Time < 0f ? -Wound(action) : MathF.Min(1f, action.Load / FullLoad) * MathF.Max(0f, 1f - (2f * action.Time / action.Duration));
             var size = hand == Style.Lead ? LoadTwistLead : LoadTwistRear;
             twist += (hand == Hand.Right ? 1f : -1f) * size * share;
         }

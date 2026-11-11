@@ -171,22 +171,23 @@ public sealed class ClubGripTests
         }
 
         var turn = false;
-        game = Armed(s => new HandCommand(new Vector3(0f, 0.3f, 0.6f) * s.ArmReach, false, turn ? AtOwnHead(s) : up));
+        game = Armed(s => new HandCommand(new Vector3(0f, 0.3f, 0.6f) * s.ArmReach, false, Orientation: turn ? AtOwnHead(s) : up));
         using var owner = game;
         Play(game, 1f);
         var before = game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
-        var concussion = game.Cpu.Concussion;
+        var twist = 0f;
         turn = true;
         var own = new List<BodyPartKind>();
         for (var t = 0f; t < 1f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
             own.AddRange(game.SelfWeaponHits.Select(h => h.Part));
+            twist = MathF.Max(twist, game.SelfWeaponHits.Where(h => h.Part == BodyPartKind.Head).Select(h => h.HeadTwist).DefaultIfEmpty(0f).Max());
             Assert.IsFalse(game.WeaponHits.Any(h => h.Victim == game.Cpu), "hitting yourself is not a scoring blow");
         }
 
         CollectionAssert.Contains(own, BodyPartKind.Head, $"the club strikes its owner's head (hit: {string.Join(",", own)})");
-        Assert.IsGreaterThan(concussion, game.Cpu.Concussion, "and rattles it");
+        Assert.IsGreaterThan(0f, twist, "and twists it (concussion; it fades again within the second)");
         Assert.IsLessThan(before, game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), "and crushes some of it");
     }
 

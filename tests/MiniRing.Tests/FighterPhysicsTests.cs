@@ -145,11 +145,13 @@ public sealed class FighterPhysicsTests
         using var world = NewWorld();
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Floor, 0f);
         Run(world, fighter, Idle(fighter), seconds: 0.5f);
+        var standing = fighter.PelvisPosition.Y;
 
         fighter.Knockdown(Vector3.UnitZ, permanent: false);
         Run(world, fighter, Idle(fighter), seconds: 1f);
         Assert.AreEqual(FighterState.Down, fighter.State);
-        Assert.IsLessThan(0.6f, fighter.Uprightness, "should actually be on the floor");
+        // 倒れ方（仰向け・尻もち）は物理しだい。床に落ちた＝腰が立つ高さの 6 割より下。
+        Assert.IsLessThan(0.6f * standing, fighter.PelvisPosition.Y, "should actually be on the floor");
 
         Run(world, fighter, Idle(fighter), seconds: 5f);
         Assert.AreEqual(FighterState.Standing, fighter.State, $"upright {fighter.Uprightness}");

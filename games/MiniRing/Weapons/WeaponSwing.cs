@@ -119,14 +119,14 @@ public sealed record WeaponSwing(
             roll = Roll * (1f - u);
         }
 
-        return (new HandCommand(fist * reach, false, Orientation(az, el, roll)), twist, step);
+        return (new HandCommand(fist * reach, false, Orientation: Orientation(az, el, roll)), twist, step);
     }
 
     /// <summary>構えの指令（<paramref name="family"/> の型の構え。既定は片手の構え）。</summary>
     public static HandCommand GuardCommand(float reach, SwingFamily family = SwingFamily.Side)
     {
         var guard = GuardOf(family);
-        return new(guard.Fist * reach, false, Orientation(guard.Azimuth, guard.Elevation));
+        return new(guard.Fist * reach, false, Orientation: Orientation(guard.Azimuth, guard.Elevation));
     }
 
     /// <summary>体フレームでの向き（方位角: 0 = 前、正 = 左 / 仰角: 正 = 上）。</summary>

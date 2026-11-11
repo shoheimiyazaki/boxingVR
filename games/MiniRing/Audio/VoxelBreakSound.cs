@@ -89,7 +89,7 @@ public static class VoxelBreakSound
         BloodTag => LandingKind.Blood,
         DustTag => LandingKind.Dust,
         SparkTag => LandingKind.Silent,
-        BoxerAnatomy.Bone or BoxerAnatomy.Eye => LandingKind.Hard,
+        BoxerAnatomy.Bone or BoxerAnatomy.Eye or BoxerAnatomy.Pupil => LandingKind.Hard,
         _ => LandingKind.Chunk,
     };
 
@@ -103,11 +103,12 @@ public static class VoxelBreakSound
     /// <summary>材質（<see cref="BoxerAnatomy"/> の番号）の音の種類。</summary>
     public static GrainKind KindOf(byte material) => material switch
     {
-        BoxerAnatomy.Skin or BoxerAnatomy.RedTrunks or BoxerAnatomy.BlueTrunks or BoxerAnatomy.Waistband or BoxerAnatomy.Boot => GrainKind.Skin,
+        BoxerAnatomy.Skin => GrainKind.Skin,
+        _ when BoxerAnatomy.IsClothing(material) || material == BoxerAnatomy.Hair => GrainKind.Skin, // 布と革・髪は皮膚の代わりの層
         BoxerAnatomy.Bone or BoxerAnatomy.Iron or BoxerAnatomy.Wood => GrainKind.Bone,
         BoxerAnatomy.Brain => GrainKind.Brain,
         BoxerAnatomy.Heart or BoxerAnatomy.Lung or BoxerAnatomy.Liver or BoxerAnatomy.Gut => GrainKind.Organ,
-        BoxerAnatomy.Eye => GrainKind.Eye,
+        BoxerAnatomy.Eye or BoxerAnatomy.Pupil => GrainKind.Eye,
         _ => GrainKind.Flesh,
     };
 

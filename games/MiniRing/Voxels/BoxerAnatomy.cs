@@ -39,9 +39,18 @@ public static class BoxerAnatomy
     public const byte Waistband = 12;
     public const byte Boot = 13;
 
+    /// <summary>髪（頭の上と後ろの外側の層。皮膚の代わり）。</summary>
+    public const byte Hair = 14;
+
+    /// <summary>黒目（左右の目それぞれ、白目の表のボクセル 1 つ）。</summary>
+    public const byte Pupil = 15;
+
+    /// <summary>身なりの材質（布と革）か。皮膚の代わりの層なので、音・見え方の扱いは皮膚に合わせる。</summary>
+    public static bool IsClothing(byte material) => material is >= RedTrunks and <= Boot;
+
     // 武器の材質（体と同じ表に置き、破片の色・音・染みを体と同じ仕組みで扱う）: 鉄（剣の刃・鍔・柄頭）と木（棍棒・剣の握り）。
-    public const byte Iron = 14;
-    public const byte Wood = 15;
+    public const byte Iron = 16;
+    public const byte Wood = 17;
 
     // ── 押されたときのふるまい（VoxelContact）: 密度 [kg/m³]・降伏する圧力 [Pa]・たわむ距離 [m]・（武器だけ）折れる曲げ応力とヤング率 [Pa]。
     // 体の値は、人形の縮尺の剣（約 0.085kg）の刃が、ふつうの振り（6m/s）では皮膚と肉を切って骨で止まり、強い振り（16m/s）では
@@ -98,11 +107,13 @@ public static class BoxerAnatomy
         new VoxelMaterial("lung", VoxelTissue.Organ, 1.2f, true, Rgb(0.45f, 0.8f, 1f), Rgb(0.45f, 0.8f, 1f), Stainable: 0f, Mechanics: OrganMechanics),
         new VoxelMaterial("liver", VoxelTissue.Organ, 1.4f, true, Rgb(0.36f, 0.13f, 0.04f), Rgb(0.36f, 0.13f, 0.04f), Stainable: 0f, Mechanics: OrganMechanics),
         new VoxelMaterial("gut", VoxelTissue.Organ, 1.2f, true, Rgb(1f, 0.82f, 0.25f), Rgb(1f, 0.82f, 0.25f), Stainable: 0f, Mechanics: OrganMechanics),
-        new VoxelMaterial("eye", VoxelTissue.Organ, 0.8f, false, Rgb(1f, 1f, 1f), Rgb(0.04f, 0.08f, 0.25f), Stainable: 0f, Mechanics: BrainMechanics),
-        new VoxelMaterial("red trunks", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.72f, 0.06f, 0.08f), Rgb(0.72f, 0.06f, 0.08f), Stainable: 0.5f, Mechanics: ClothMechanics),
+        new VoxelMaterial("eye", VoxelTissue.Organ, 0.8f, false, Rgb(1f, 1f, 1f), Rgb(1f, 1f, 1f), Stainable: 0f, Mechanics: BrainMechanics),
+        new VoxelMaterial("red trunks", VoxelTissue.Flesh, SkinToughness, false, Rgb(1f, 0.24f, 0.18f), Rgb(1f, 0.24f, 0.18f), Stainable: 0.5f, Mechanics: ClothMechanics),
         new VoxelMaterial("blue trunks", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.08f, 0.2f, 0.72f), Rgb(0.08f, 0.2f, 0.72f), Stainable: 0.5f, Mechanics: ClothMechanics),
         new VoxelMaterial("waistband", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.95f, 0.95f, 0.9f), Rgb(0.95f, 0.95f, 0.9f), Stainable: 0.8f, Mechanics: ClothMechanics),
         new VoxelMaterial("boot", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.1f, 0.1f, 0.11f), Rgb(0.1f, 0.1f, 0.11f), Stainable: 0.3f, Mechanics: LeatherMechanics),
+        new VoxelMaterial("hair", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.13f, 0.08f, 0.05f), Rgb(0.13f, 0.08f, 0.05f), Stainable: 0.2f, Mechanics: SkinMechanics),
+        new VoxelMaterial("pupil", VoxelTissue.Organ, 0.8f, false, Rgb(0.02f, 0.02f, 0.03f), Rgb(0.02f, 0.02f, 0.03f), Stainable: 0f, Mechanics: BrainMechanics),
         new VoxelMaterial("iron", VoxelTissue.Solid, 50f, false, Rgb(0.72f, 0.74f, 0.78f), Rgb(0.82f, 0.84f, 0.88f), Stainable: 0.6f, Mechanics: IronMechanics),
         new VoxelMaterial("wood", VoxelTissue.Solid, 5f, false, Rgb(0.78f, 0.6f, 0.38f), Rgb(0.5f, 0.32f, 0.16f), Stainable: 0.7f, Mechanics: WoodMechanics),
     ]);
@@ -113,17 +124,23 @@ public static class BoxerAnatomy
     /// <summary>トランクスの裾: 太ももの外形のこの高さ（正規化 Y、+1 が付け根）より上を覆う。太ももの半ばより少し下まで。</summary>
     private const float TrunksHemAt = -0.15f;
 
-    /// <summary>ブーツの履き口: すねの外形のこの高さ（正規化 Y、−1 が足首）より下を覆う。くるぶしの上、ふくらはぎの下まで。</summary>
-    private const float BootTopAt = -0.25f;
+    /// <summary>ブーツの履き口: すねの外形のこの高さ（正規化 Y、−1 が足首）より下を覆う。ボクシングシューズの丈（すねの半ば）。</summary>
+    private const float BootTopAt = 0.05f;
 
     /// <summary>
     /// 部位 <paramref name="kind"/> の箱を、<paramref name="cellSize"/> [m] ほどのボクセルで埋める。<paramref name="shape"/>
     /// （部位のローカルの閉じたメッシュ、ローポリの体）を渡すと、その内側だけを埋める（外は空）。
-    /// </summary>
     /// <paramref name="outfit"/> を渡すと、外側の皮膚の層のうち、トランクスとブーツの所をその材質にする（<see cref="Dress"/>）。
-    public static VoxelGrid Build(BodyPartKind kind, Vector3 halfExtents, float cellSize, LowPolyMesh? shape = null, Outfit? outfit = null)
+    /// </summary>
+    /// <remarks><c>overrides</c>: ボクセル編集ソフトで直した中身（<see cref="BoxerVoxelModel"/>）。この部位の直しがあり、セルの数が同じなら生成せずそれを使う。</remarks>
+    public static VoxelGrid Build(BodyPartKind kind, Vector3 halfExtents, float cellSize, LowPolyMesh? shape = null, Outfit? outfit = null, BoxerVoxelOverrides? overrides = null)
     {
         var dims = VoxelGrid.CellsFor(halfExtents, cellSize);
+        if (overrides?.For(kind, dims) is { } edited)
+        {
+            return FromEdited(halfExtents, dims, edited, outfit);
+        }
+
         var inside = shape is null ? null : InsideMask(shape, halfExtents, dims);
         var cell = 2f * halfExtents / new Vector3(dims.X, dims.Y, dims.Z);
         // 骨・臓器の配置は「体の外形」を −1..1 とした座標で決める。形を渡されたらその外形（頂点の範囲）、無ければ箱。
@@ -153,16 +170,88 @@ public static class BoxerAnatomy
                 return material;
             }
 
-            var n = ((-halfExtents + ((new Vector3(c.X, c.Y, c.Z) + new Vector3(0.5f)) * cell)) - center) / half;
+            var n = (grid.CellCenter(c.X, c.Y, c.Z) - center) / half;
+            if (kind == BodyPartKind.Head && IsHair(n))
+            {
+                return Hair; // 頭の上と後ろは髪
+            }
+
             return outfit is null ? Skin : Dress(kind, n, outfit);
         });
+        if (kind == BodyPartKind.Head)
+        {
+            PlacePupils(grid, center, half);
+        }
+
         return grid;
     }
 
     /// <summary>
-    /// 外側の層の 1 セル（正規化座標 <paramref name="n"/>）が何を着ているか: 腰はトランクス（上の帯はゴム）、太ももの上半分はトランクスの裾、
+    /// 直した中身から格子を作る。トランクス（赤で塗ってある）はコーナーの色に、身なりが無ければ服の所は皮膚にする（生成と同じ）。
+    /// 皮膚の層（元の表面）は格子が空との境から決める。
+    /// </summary>
+    private static VoxelGrid FromEdited(Vector3 halfExtents, (int X, int Y, int Z) dims, byte[] materials, Outfit? outfit)
+    {
+        var cell = 2f * halfExtents / new Vector3(dims.X, dims.Y, dims.Z);
+        return new VoxelGrid(Palette, halfExtents, dims, (p, _) =>
+        {
+            var c = (p + halfExtents) / cell;
+            var m = materials[(int)c.X + (dims.X * ((int)c.Y + (dims.Y * (int)c.Z)))];
+            return !IsClothing(m) ? m
+                : outfit is null ? Skin
+                : m is RedTrunks or BlueTrunks ? outfit.Trunks
+                : m;
+        });
+    }
+
+    /// <summary>
+    /// 外側の層の 1 セル（正規化座標 <paramref name="n"/>）が何を着ているか:腰はトランクス（上の帯はゴム）、太ももの上半分はトランクスの裾、
     /// 足とすねの下はブーツ。ほかは皮膚。脚の部位は +Y が体の上（付け根）側。
     /// </summary>
+    /// <summary>頭の外側の層の 1 セル（正規化座標 <paramref name="n"/>、+Z が顔）が髪か: 頭の上（額の生え際より上）と後ろ（耳の後ろからうなじの上まで）。</summary>
+    public static bool IsHair(Vector3 n) => n.Y > HairlineAt || (n.Z < -0.15f && n.Y > -0.25f);
+
+    /// <summary>髪の生え際の高さ（正規化 Y）。目（0.18 の高さ）より上に額を残す。</summary>
+    private const float HairlineAt = 0.45f;
+
+    /// <summary>
+    /// 黒目を置く: 左右の目それぞれ、白目の表に出ているボクセルのうち、目の真ん中の前（<see cref="HeadAt"/> の目の中心）にいちばん近い 1 つを黒目にする。
+    /// </summary>
+    private static void PlacePupils(VoxelGrid grid, Vector3 center, Vector3 half)
+    {
+        var picks = new (int X, int Y, int Z)?[2];
+        var best = new[] { float.MaxValue, float.MaxValue };
+        var (dx, dy, dz) = grid.Dimensions;
+        for (var z = 0; z < dz; z++)
+        {
+            for (var y = 0; y < dy; y++)
+            {
+                for (var x = 0; x < dx; x++)
+                {
+                    if (grid.At(x, y, z) != Eye || !grid.IsOriginalSurface(x, y, z))
+                    {
+                        continue;
+                    }
+
+                    var n = (grid.CellCenter(x, y, z) - center) / half;
+                    var side = n.X > 0f ? 0 : 1;
+                    var d = Vector3.DistanceSquared(n, new Vector3((side == 0 ? 1f : -1f) * EyeSide, EyeHeight, 1f));
+                    if (d < best[side])
+                    {
+                        best[side] = d;
+                        picks[side] = (x, y, z);
+                    }
+                }
+            }
+        }
+
+        grid.Remap((c, material, _) => c == picks[0] || c == picks[1] ? Pupil : material);
+    }
+
+    /// <summary>目の中心の横の位置と高さ（正規化座標）。</summary>
+    private const float EyeSide = 0.38f;
+    private const float EyeHeight = 0.18f;
+
     public static byte Dress(BodyPartKind kind, Vector3 n, Outfit outfit)
     {
         ArgumentNullException.ThrowIfNull(outfit);
@@ -233,7 +322,7 @@ public static class BoxerAnatomy
     private static byte HeadAt(Vector3 n)
     {
         // 目: 顔の前面、左右に 1 つずつ。
-        if (n.Z > 0.55f && MathF.Abs(MathF.Abs(n.X) - 0.38f) < 0.2f && MathF.Abs(n.Y - 0.18f) < 0.18f)
+        if (n.Z > 0.55f && MathF.Abs(MathF.Abs(n.X) - EyeSide) < 0.2f && MathF.Abs(n.Y - EyeHeight) < 0.18f)
         {
             return Eye;
         }
@@ -308,10 +397,17 @@ public static class BoxerAnatomy
     }
 }
 
-/// <summary>ボクサーの身なり。トランクスの色はコーナーの色（ブーツと腰のゴムは共通）。</summary>
-/// <param name="Trunks">トランクスの材質（<see cref="BoxerAnatomy.RedTrunks"/> か <see cref="BoxerAnatomy.BlueTrunks"/>）。</param>
-public sealed record Outfit(byte Trunks)
+/// <summary>
+/// ボクサーの身なり。トランクスの色はコーナーの色（ブーツと腰のゴムは共通）。作れるのは赤と青の 2 つだけ
+/// （ほかの材質をトランクスにすると、腰の削れにくさが変わってしまう）。
+/// </summary>
+public sealed record Outfit
 {
+    private Outfit(byte trunks) => Trunks = trunks;
+
+    /// <summary>トランクスの材質（<see cref="BoxerAnatomy.RedTrunks"/> か <see cref="BoxerAnatomy.BlueTrunks"/>）。</summary>
+    public byte Trunks { get; }
+
     public static Outfit RedCorner { get; } = new(BoxerAnatomy.RedTrunks);
 
     public static Outfit BlueCorner { get; } = new(BoxerAnatomy.BlueTrunks);

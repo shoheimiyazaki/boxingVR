@@ -96,8 +96,8 @@ public static class BotArena
             }
 
             // ダウンを取った数: 相手が立っている状態から倒れたら 1。
-            blue.Knockdowns += redState == FighterState.Standing && game.Player.State == FighterState.Down ? 1 : 0;
-            red.Knockdowns += blueState == FighterState.Standing && game.Cpu.State == FighterState.Down ? 1 : 0;
+            blue.Knockdowns += redState == FighterState.Standing && game.Player.State != FighterState.Standing ? 1 : 0;
+            red.Knockdowns += blueState == FighterState.Standing && game.Cpu.State != FighterState.Standing ? 1 : 0;
             redState = game.Player.State;
             blueState = game.Cpu.State;
         }

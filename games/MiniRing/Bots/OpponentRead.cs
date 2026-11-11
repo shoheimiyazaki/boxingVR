@@ -215,13 +215,19 @@ internal sealed class OpponentRead
 
     private void Onset(Hand hand, PunchKind kind)
     {
-        // 直前の手がかりのひねりの向き（相手のどちらの肩が前へ出たか）と出た手を結びつける。
+        // 直前の手がかりのひねりの向き（相手のどちらの肩が動いたか）と出た手を結びつける。拳より先に動いた最初のひねりを使う:
+        // 予測は溜めの間に働くので、溜めの間の向き（打つ手の肩を引く）と結びつける。打ち出しのひねり（逆向きで大きい）と結ぶと、
+        // 溜めを見て逆の手を予想した（レビュー指摘）。
         var twist = 0f;
         foreach (var s in _pending)
         {
-            if (_time - s.Time <= Window && MathF.Abs(s.TwistRate) > MathF.Abs(twist))
+            if (_time - s.Time <= Window && (TwistSign(s.TwistRate) != 2 || MathF.Abs(s.TwistRate) > MathF.Abs(twist)))
             {
                 twist = s.TwistRate;
+                if (TwistSign(twist) != 2)
+                {
+                    break;
+                }
             }
         }
 

@@ -87,10 +87,13 @@ public sealed record BotStyle
     /// <summary>構えの高さの上限（あごの高さを 1 として、拳が目の高さに来る）。</summary>
     public const float MaxGuardHeight = 1.5f;
 
+    /// <summary>溜めの上限 [s]（ボットはこの時間で引ききる）。</summary>
+    public const float MaxTelegraph = 0.2f;
+
     /// <summary>
-    /// 打つ前の溜め [s]（0 = 溜めなし）。連打の最初の拳の前に、体（腰と肩のひねり・体重移動・踏み込み）が先に動き、そのあと拳が出る。
-    /// 拳が出てからの速さは変わらない。実際の拳は体から動き出し（運動連鎖）、相手はそれを読んで避ける。狙いは溜めの始めに決まる。
-    /// 長い溜めは体重が乗って拳が深く打ち抜ける代わりに読まれやすく、短い溜めは読まれにくい代わりに軽い。
+    /// 打つ前の溜め（予備動作）[s]（0 = 溜めなし、上限 <see cref="MaxTelegraph"/>）。連打の最初の拳の前に、打つ手の肩を後ろへ引き、頭を引いて膝を沈め
+    /// （体のバネを縮める）、そのあと拳が出る。打ち出すと縮めたバネの反発と体の動きが拳に移る（場合分けせず物理で: 長く溜めるほど深く引けて、拳が速く重い）。
+    /// 体は拳より先に動くので、相手はそれを読んで避ける。狙いは溜めの始めに決まる。長い溜めは威力が出る代わりに読まれやすく、時間もかかる。
     /// </summary>
     public float Telegraph { get; init; }
 
@@ -210,7 +213,7 @@ public sealed record BotStyle
             HeadMovement = Unit(HeadMovement),
             GuardHeight = Range(GuardHeight, 0f, MaxGuardHeight, 0.5f),
             GuardWidth = Range(GuardWidth, 0.2f, 1.5f, 1f),
-            Telegraph = Range(Telegraph, 0f, 0.2f, 0f),
+            Telegraph = Range(Telegraph, 0f, MaxTelegraph, 0f),
             GuardReach = Range(GuardReach, 0.3f, 1.5f, 1f),
             ReactionTime = Range(ReactionTime, MinReactionTime, 0.5f, 0.5f),
             DefenseRate = Range(DefenseRate, 0f, MaxDefenseRate, 0f),

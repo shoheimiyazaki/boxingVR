@@ -150,12 +150,13 @@ coupling = ( a² + 0.55 · (1 − a²) ) × 関節の健全度
 |---|---|
 | 体重の乗り方 | `PunchMechanics.LeverTransfer`、`FighterTuning.BodyDrive`、`WeightShiftShare` |
 | ダメージ量 | `PunchMechanics.DamageScale`、`MomentumThreshold`、`Sharpness`、`ZoneDamage.Multiplier` |
-| 体の軸 | `FighterTuning.MaxTorsoTwistRadians`、`HipTwistShare`、`MaxLeanRadians` |
+| 体の軸 | `FighterTuning.MaxTorsoTwistRadians`、`HipTwistShare`、`MaxLeanRadians`、`HipHingeShare`・`MaxHingeRadians`（腰から前へ折る）、`HipsBackShare`（お尻を引く） |
 | 打撃音 | `HitTone.Of`（強さ・芯の決め方）、`HitSound.Synthesize`（各層の高さ・長さ・音量） |
 | 足の運び | `FighterTuning.Footwork`（構えの幅・歩幅・踏む時間・かかとの浮き・軸足の回し・体の遅れ）、`HipMaxTorque` などの脚のサーボ |
 | 首 | `FighterTuning.NeckServoHz`・`NeckDampingRatio`・`NeckMaxTorque`（硬く減衰の効いたバネ: 打たれていないときはぐらつかず、強い 1 発は首の力を押し切って頭が持っていかれる）、打撃で頭に残る運動量は `StrikeShare`・`FullStrikeSpeed` |
 | スウェー | `FighterTuning.HipBackLeanShare`（後ろへ反らすときに腰が受け持つ割合。首ではなく上体ごと反る） |
-| 意識の段階 | `FighterTuning.FullToneConsciousness`（ふらつき始め）・`KnockoutConsciousness`（意識が途切れて倒れきる）・`FaintTone`・`FaintSag`（腰の落ち）・`FaintArmStrength`（腕の力）・`ConcussionRecovery`（戻る速さ）・`GetUpConsciousness`、ボットのガードの下げは `BoxerBot.FaintGuardDrop` |
+| 意識の段階 | `FighterTuning.FullToneConsciousness`（ふらつき始め）・`KnockoutConsciousness`（意識が途切れて倒れきる）・`FaintTone`・`FaintSag`（腰の落ち）・`FaintArmStrength`（腕の力）・`LimpConsciousness`（床に伸びる）・`ConcussionRecoveryRate`（戻る速さ、一定）、ダウンからの起き上がりは `RiseTime`・`DownHeightRatio`・`RecoverHeightRatio`・`RecoverHold`、ボットのガードの下げは `BoxerBot.FaintGuardDrop` |
+| 体の動きとタメを拳へ | `FighterTuning.BodyToFistTime`（渡す速さ）・`BodyToFistEfficiency`（拳の速さになる割合）・`LeadSpringHz`・`LeadSpringDamping`（拳の目標の先走りを戻すバネ）、タメの量は `HoverKp`（屈んだ脚）・`UprightKp`（傾いた・ひねった胸）、`LooseHandDamping`（振り出しの間のブレーキ）、ボットは全ての拳の振り出しで使う（`HandCommand.Spring`）。溜めの引きは `BoxerBot.LoadTwistRear`・`LoadTwistLead`・`LoadDip`、打ち抜く先へ目標が届く速さは `PunchSpec.LaunchShare` |
 | 拳の追従 | `FighterTuning.HandKp`・`HandKd`（拳のバネ）、VR の `VrPlayerControl.MotionGain`（動きの倍率） |
 | へこみ・色 | `FighterTuning.DentDepthPerDamage`、`MaxDentDepthPerHit`、`DentSpread`、`MaxDentRatio`、`ModelSubdivisions` |
 | ボクセルの体 | `FighterTuning.VoxelSize`、`CarvePerDamage`、`ChipSpeed`、`OrganDeathFraction`、`MinMuscleStrength`、`StandStrength`、`Voxels/BoxerAnatomy.cs`（[VOXEL_DAMAGE.md](VOXEL_DAMAGE.md)） |

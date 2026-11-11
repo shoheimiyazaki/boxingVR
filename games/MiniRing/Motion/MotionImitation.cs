@@ -117,7 +117,7 @@ public sealed class MotionImitation : IFighterControl
         var move = (sense.Self.Rotate(frame.Velocity * (reach * rate)) / walkSpeed) + extraMove;
         return new FighterCommand(move, face,
             new HandCommand(left, false),
-            new HandCommand(right, false, frame.Orientation),
+            new HandCommand(right, false, Orientation: frame.Orientation),
             HeadOffset: frame.Head * reach,
             TwistBias: twistBias);
     }

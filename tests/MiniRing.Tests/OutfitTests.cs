@@ -1,3 +1,4 @@
+using System.Numerics;
 using Aigis.Foundation.Voxels;
 using MiniRing.Audio;
 using MiniRing.Voxels;
@@ -96,11 +97,26 @@ public sealed class OutfitTests
     }
 
     [TestMethod]
+    public void ACutInTheClothes_ShowsInAnotherColor()
+    {
+        var palette = BoxerAnatomy.Palette;
+        Vector3 Rgb(byte m) => new(palette[m].Color.X, palette[m].Color.Y, palette[m].Color.Z);
+        var clothes = Enumerable.Range(0, palette.Count).Select(m => (byte)m).Where(BoxerAnatomy.IsClothing).ToList();
+
+        CollectionAssert.AreEquivalent(new[] { BoxerAnatomy.RedTrunks, BoxerAnatomy.BlueTrunks, BoxerAnatomy.Waistband, BoxerAnatomy.Boot }, clothes);
+        foreach (var cloth in clothes)
+        {
+            Assert.IsGreaterThan(0.2f, Vector3.Distance(Rgb(cloth), Rgb(BoxerAnatomy.Muscle)), $"{palette[cloth].Name} vs the muscle under it");
+            Assert.IsGreaterThan(0.2f, Vector3.Distance(Rgb(cloth), Rgb(BoxerAnatomy.Skin)), $"{palette[cloth].Name} vs bare skin");
+        }
+    }
+
+    [TestMethod]
     public void WithoutAnOutfit_TheBodyIsBare()
     {
         foreach (var kind in Enum.GetValues<BodyPartKind>())
         {
-            Assert.IsTrue(Surface(Build(kind, null)).All(c => c.Material is BoxerAnatomy.Skin or BoxerAnatomy.Eye), kind.ToString());
+            Assert.IsTrue(Surface(Build(kind, null)).All(c => c.Material is BoxerAnatomy.Skin or BoxerAnatomy.Eye or BoxerAnatomy.Pupil or BoxerAnatomy.Hair), kind.ToString()); // 顔の目と、頭の髪は身なりと別
         }
     }
 

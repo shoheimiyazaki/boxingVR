@@ -39,9 +39,9 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
     /// 技ごとの形（予測編 P7。頭を元の大きさに戻し、ずっとしゃがまないように磨き直す）。
     /// <list type="bullet">
     /// <item>スリップ: ストレートの外側へ、頭を横へ大きく、沈みは浅く（膝を少し曲げる程度）。</item>
-    /// <item>ウィービング: 真ん中から U 字に沈み、来るフックの反対側へ抜けて起き上がる。</item>
+    /// <item>ウィービング: 腰から前へ折って真ん中から U 字に沈み、来るフックの反対側へ抜けて起き上がる（頭を後ろへ引くとスウェーに見える。頭を前へ突き出すと、相手の頭のあった所の奥まで振り抜かれるフックの軌道へ自分から入る）。</item>
     /// <item>ローリング: フックの進む向きへ頭を流しながら浅く沈む。</item>
-    /// <item>ダッキング: 短く深く沈んで、すぐ起き上がる。</item>
+    /// <item>ダッキング: 腰から前へ折って短く深く沈み、すぐ起き上がる。</item>
     /// </list>
     /// </summary>
     public static DefenseMove Form(DefenseMove m, Defense slot) => slot switch
@@ -56,7 +56,7 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
         {
             Sweep = true, Outside = false,
             HeadX = Math.Clamp(m.HeadX, -0.1f, 0.2f), EndX = Math.Clamp(m.EndX, 0.25f, 0.6f), HeadY = Math.Clamp(m.HeadY, -0.65f, -0.3f),
-            Duration = Math.Clamp(m.Duration, 0.25f, 0.5f),
+            Duration = Math.Clamp(m.Duration, 0.25f, 0.5f), HeadZ = Math.Clamp(m.HeadZ, 0f, 0.35f),
         }).Validated(),
         Defense.Roll => (m with
         {
@@ -65,7 +65,7 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
         }).Validated(),
         Defense.Duck => (m with
         {
-            Sweep = false, HeadY = Math.Clamp(m.HeadY, -0.7f, -0.35f), Duration = Math.Clamp(m.Duration, 0.15f, 0.35f),
+            Sweep = false, HeadY = Math.Clamp(m.HeadY, -0.7f, -0.35f), Duration = Math.Clamp(m.Duration, 0.15f, 0.35f), HeadZ = Math.Clamp(m.HeadZ, 0f, 0.35f),
         }).Validated(),
         _ => m.Validated(),
     };

@@ -35,8 +35,10 @@ Fighter.ApplyControl
              首: AngularServo で直立へ
              腕: IK → 肩 AngularServo（上腕の回転）・肘 TwistServo（曲げ角）
                  ＋ 拳を目標へ PD 力（目標速度フィードフォワード・上限 35N・反作用の半分を胸へ）
-  Down:      サーボ強度を 0.3 秒かけて 5% まで抜く（こらえて崩れる）→ 一定時間後 GettingUp（KO なら起きない）
-  GettingUp: 強度 0.4→1.2 で立ち直る → 直立度が戻れば Standing
+  Down / GettingUp: 0.3 秒かけて力を抜いて崩れ、その後はいつも立とうとする。腰を上げられる高さ（StandReach）は意識で連続に決まり
+             （床 → 膝立ち・座り込み → 中腰 → 立つ）、意識が戻るのに合わせて RiseTime の速さでゆっくり上げる（Rise）。
+             腰が DownHeightRatio より下なら Down、上なら GettingUp（審判のカウントはどちらも続く）。
+             腰が RecoverHeightRatio まで戻り、上体が起きた姿勢を RecoverHold 保てば Standing（脚を失った・死んだなら起きない）
 PhysicsWorld.Step → Contacts() から「前腕 × 相手の部位」を拾い、衝突直前の拳速度のうち相手へ踏み込む成分でダメージ
 ```
 
