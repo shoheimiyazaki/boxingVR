@@ -16,6 +16,29 @@ public enum VoxelTissue : byte
 
     /// <summary>An organ. Destroying enough of a <see cref="VoxelMaterial.Vital"/> one kills.</summary>
     Organ = 3,
+
+    /// <summary>Lifeless solid matter (a weapon's iron or wood): breaks, but is neither flesh nor bone to the damage rules.</summary>
+    Solid = 4,
+}
+
+/// <summary>
+/// How a material stands up to being pressed by another voxel body (<c>VoxelContact</c>): what it weighs, the pressure
+/// it gives way under, how far it gives before that, and the bending stress that snaps it.
+/// </summary>
+/// <param name="Density">Mass per volume [kg/m³].</param>
+/// <param name="Strength">Contact pressure it yields under [Pa]: above it, the cells pressed are crushed or cut away,
+/// each costing <c>Strength × cell volume</c> of energy. Below it, the contact only pushes.</param>
+/// <param name="Give">How far [m] the material gives under a blow before it either yields or stops the blow (soft
+/// flesh gives far, iron hardly at all). The two sides' give is the stopping distance of a blow, so it sets the force:
+/// <c>kinetic energy / give</c>.</param>
+/// <param name="Tensile">Bending stress it snaps at [Pa]; null for a material that never snaps as a beam (a body part
+/// held together by its joints and bone).</param>
+/// <param name="Stiffness">Young's modulus [Pa]: how hard a beam of it is to bend. A slender body flexes under a blow,
+/// which caps the force a blow can put on it; null = rigid (the contact's give alone sets the force).</param>
+public sealed record VoxelMechanics(float Density, float Strength, float Give, float? Tensile = null, float? Stiffness = null)
+{
+    /// <summary>Soft default for a material that states none (yields easily, never snaps).</summary>
+    public static VoxelMechanics Default { get; } = new(1000f, 0.5e6f, 0.004f);
 }
 
 /// <summary>
@@ -29,7 +52,12 @@ public enum VoxelTissue : byte
 /// <param name="Color">RGBA when the voxel is exposed inside the body.</param>
 /// <param name="SurfaceColor">RGBA when the voxel is still the body's original outer surface (skin).</param>
 /// <param name="Stainable">How much a stain shows on it (0 = never: an organ keeps its own colour; 1 = fully: skin bloodied).</param>
-public sealed record VoxelMaterial(string Name, VoxelTissue Tissue, float Toughness, bool Vital, Vector4 Color, Vector4 SurfaceColor, float Stainable = 1f);
+/// <param name="Mechanics">How it behaves when another voxel body presses on it (null = <see cref="VoxelMechanics.Default"/>).</param>
+public sealed record VoxelMaterial(string Name, VoxelTissue Tissue, float Toughness, bool Vital, Vector4 Color, Vector4 SurfaceColor, float Stainable = 1f, VoxelMechanics? Mechanics = null)
+{
+    /// <summary>Its mechanics, or the soft default.</summary>
+    public VoxelMechanics MechanicsOrDefault => Mechanics ?? VoxelMechanics.Default;
+}
 
 /// <summary>A material table: index 0 is always <see cref="VoxelTissue.Empty"/>; a grid cell stores an index.</summary>
 public sealed class VoxelPalette
@@ -54,6 +82,13 @@ public sealed class VoxelPalette
             if (m.Tissue == VoxelTissue.Empty || !(m.Toughness > 0f) || !float.IsFinite(m.Toughness))
             {
                 throw new ArgumentException($"Material '{m.Name}' needs a non-empty tissue and a positive toughness.", nameof(materials));
+            }
+
+            static bool Positive(float v) => v > 0f && float.IsFinite(v);
+            if (m.Mechanics is { } k && !(Positive(k.Density) && Positive(k.Strength) && Positive(k.Give)
+                && (k.Tensile is null || Positive(k.Tensile.Value)) && (k.Stiffness is null || Positive(k.Stiffness.Value))))
+            {
+                throw new ArgumentException($"Material '{m.Name}' needs a positive density, strength, give and (if any) tensile strength and stiffness.", nameof(materials));
             }
         }
 
@@ -348,6 +383,70 @@ public sealed class VoxelGrid
         Version++;
         return spent;
     }
+
+    /// <summary>The volume of one cell [m³].</summary>
+    public float CellVolume => CellSize.X * CellSize.Y * CellSize.Z;
+
+    /// <summary>The index of the filled cell whose box holds <paramref name="local"/> (grid-local, metres), or −1 if the
+    /// point is outside the grid or in an empty cell.</summary>
+    public int FilledCellAt(Vector3 local)
+    {
+        var i = CellAt(local);
+        return i >= 0 && _cells[i] != 0 ? i : -1;
+    }
+
+    /// <summary>The index of the cell (filled or not) whose box holds <paramref name="local"/>, or −1 outside the grid.</summary>
+    public int CellAt(Vector3 local)
+    {
+        var f = (local + HalfExtents) / CellSize;
+        if (!(f.X >= 0f && f.Y >= 0f && f.Z >= 0f))
+        {
+            return -1;
+        }
+
+        var (x, y, z) = ((int)f.X, (int)f.Y, (int)f.Z);
+        if (x >= Dimensions.X || y >= Dimensions.Y || z >= Dimensions.Z)
+        {
+            return -1;
+        }
+
+        return Index(x, y, z);
+    }
+
+    /// <summary>The material at a cell index.</summary>
+    public byte MaterialAt(int index) => _cells[index];
+
+    /// <summary>
+    /// Breaks one filled cell away whole (crushed or cut by a contact, not worn down like <see cref="Carve"/>), adds it to
+    /// <paramref name="removed"/>, and stains the cells next to it a little. False if the cell was already empty.
+    /// </summary>
+    public bool Break(int index, ICollection<RemovedVoxel> removed)
+    {
+        ArgumentNullException.ThrowIfNull(removed);
+        if (_cells[index] == 0)
+        {
+            return false;
+        }
+
+        var (x, y, z) = Coordinates(index);
+        removed.Add(new RemovedVoxel(CellCenter(x, y, z), _cells[index], _surface[index]));
+        Clear(index);
+        var (nx, ny, nz) = Dimensions;
+        foreach (var (dx, dy, dz) in Neighbours)
+        {
+            var (ax, ay, az) = (x + dx, y + dy, z + dz);
+            if (ax >= 0 && ay >= 0 && az >= 0 && ax < nx && ay < ny && az < nz)
+            {
+                var j = Index(ax, ay, az);
+                _stain[j] = MathF.Min(1f, _stain[j] + 0.25f);
+            }
+        }
+
+        Version++;
+        return true;
+    }
+
+    private static readonly (int X, int Y, int Z)[] Neighbours = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)];
 
     /// <summary>
     /// Along <paramref name="axis"/> (0 = x, 1 = y, 2 = z), the first slice (counted from the <paramref name="fromHigh"/>

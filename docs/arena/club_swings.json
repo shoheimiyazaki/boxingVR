@@ -1,0 +1,83 @@
+[
+  {
+    "Swing": {
+      "Family": 0,
+      "WindupFist": {
+        "X": -0.07437211,
+        "Y": 0.69842565,
+        "Z": -0.09935211
+      },
+      "WindupAzimuth": -0.4954549,
+      "WindupElevation": 1.4331589,
+      "StrikeFist": {
+        "X": 0.028032437,
+        "Y": -0.27690232,
+        "Z": 0.70305383
+      },
+      "StrikeAzimuth": 0.25565764,
+      "StrikeElevation": -0.2160155,
+      "WindupTime": 0.20440906,
+      "StrikeTime": 0.11305687,
+      "RecoverTime": 0.35,
+      "WristDelay": 0.39540556,
+      "Twist": 0.14280045,
+      "Step": 0.3271188,
+      "Ease": 1.6796644
+    },
+    "Range": 0.3127272
+  },
+  {
+    "Swing": {
+      "Family": 1,
+      "WindupFist": {
+        "X": -0.39189634,
+        "Y": 0.38597965,
+        "Z": -0.13769682
+      },
+      "WindupAzimuth": -1.871464,
+      "WindupElevation": 0.48374647,
+      "StrikeFist": {
+        "X": 0.4728994,
+        "Y": -0.041971795,
+        "Z": 0.32097316
+      },
+      "StrikeAzimuth": 0.6857209,
+      "StrikeElevation": 0.44157264,
+      "WindupTime": 0.28803405,
+      "StrikeTime": 0.10178075,
+      "RecoverTime": 0.35,
+      "WristDelay": 0.10230186,
+      "Twist": 0.28662333,
+      "Step": 0.008456498,
+      "Ease": 1.1146003
+    },
+    "Range": 0.36581782
+  },
+  {
+    "Swing": {
+      "Family": 2,
+      "WindupFist": {
+        "X": -0.002059346,
+        "Y": 0.12794113,
+        "Z": -0.028496316
+      },
+      "WindupAzimuth": 0.16464803,
+      "WindupElevation": -0.024384726,
+      "StrikeFist": {
+        "X": -0.040555995,
+        "Y": 0.2493487,
+        "Z": 1.1
+      },
+      "StrikeAzimuth": 0.031849734,
+      "StrikeElevation": 0.59504175,
+      "WindupTime": 0.3167283,
+      "StrikeTime": 0.19601102,
+      "RecoverTime": 0.35,
+      "WristDelay": 0.13666373,
+      "Twist": -0.12771738,
+      "Step": 0.51252544,
+      "Ease": 1.5717704
+    },
+    "Range": 0.44364667
+  }
+]

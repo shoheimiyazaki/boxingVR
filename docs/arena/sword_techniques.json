@@ -1,0 +1,266 @@
+[
+  {
+    "Name": "kote",
+    "Target": 4,
+    "Maai": 2,
+    "Range": 0.459831,
+    "Swing": {
+      "Family": 4,
+      "WindupFist": {
+        "X": -0.12961513,
+        "Y": 0.21813485,
+        "Z": 0.32579997
+      },
+      "WindupAzimuth": -0.29462463,
+      "WindupElevation": 1.493499,
+      "StrikeFist": {
+        "X": 0.06170212,
+        "Y": 0.14487764,
+        "Z": 0.7129452
+      },
+      "StrikeAzimuth": -0.41509038,
+      "StrikeElevation": -0.24577394,
+      "WindupTime": 0.27020016,
+      "StrikeTime": 0.15208209,
+      "RecoverTime": 0.35,
+      "WristDelay": 0.07932344,
+      "Twist": 0.11652899,
+      "Step": 0.5218779,
+      "Ease": 1.3339113,
+      "Roll": 0.045610256
+    },
+    "Title": "\u98DB\u3073\u8FBC\u307F\u5C0F\u624B",
+    "Origin": "\u5263\u9053\u306E\u4ED5\u639B\u3051\u6280\u3002\u9060\u9593\u304B\u3089\u5263\u5148\u3092\u5C0F\u3055\u304F\u4E0A\u3052\u3001\u8E0F\u307F\u8FBC\u307F\u306A\u304C\u3089\u76F8\u624B\u306E\u69CB\u3048\u305F\u53F3\u624B\u9996\uFF08\u5C0F\u624B\uFF09\u3092\u6253\u3064\u3002\u3044\u3061\u3070\u3093\u8FD1\u3044\u6240\u3092\u6253\u3064\u306E\u3067\u9060\u304F\u304B\u3089\u5C4A\u304F"
+  },
+  {
+    "Name": "katate-tsuki",
+    "Target": 1,
+    "Maai": 2,
+    "Range": 0.46999997,
+    "Swing": {
+      "Family": 4,
+      "WindupFist": {
+        "X": 0.061755512,
+        "Y": -0.04537502,
+        "Z": 0.24927166
+      },
+      "WindupAzimuth": 0.5368196,
+      "WindupElevation": 0.06673977,
+      "StrikeFist": {
+        "X": -0.055546585,
+        "Y": 0.23576102,
+        "Z": 1.1019204
+      },
+      "StrikeAzimuth": 0.2321946,
+      "StrikeElevation": 0.25632626,
+      "WindupTime": 0.16566217,
+      "StrikeTime": 0.22311196,
+      "RecoverTime": 0.35,
+      "WristDelay": 0,
+      "Twist": -0.2236032,
+      "Step": 0.6100899,
+      "Ease": 1,
+      "Roll": 0.9773456
+    },
+    "Title": "\u7247\u624B\u7A81\u304D",
+    "Origin": "\u5263\u9053\u306E\u7247\u624B\u7A81\u304D\u3002\u4E2D\u6BB5\u304B\u3089\u53F3\u624B\u4E00\u672C\u3067\u8155\u3092\u4F38\u3070\u3057\u5207\u308A\u3001\u8E0F\u307F\u8FBC\u3093\u3067\u5589\u3092\u7A81\u304F\u3002\u7247\u624B\u306E\u3076\u3093\u4E21\u624B\u3088\u308A\u9060\u304F\u3078\u5C4A\u304F"
+  },
+  {
+    "Name": "men",
+    "Target": 0,
+    "Maai": 1,
+    "Range": 0.38055643,
+    "Swing": {
+      "Family": 4,
+      "WindupFist": {
+        "X": -0.052008018,
+        "Y": 0.6627285,
+        "Z": 0.2188932
+      },
+      "WindupAzimuth": -0.096479334,
+      "WindupElevation": 1.9200815,
+      "StrikeFist": {
+        "X": -0.31565645,
+        "Y": 0.34504068,
+        "Z": 0.81569654
+      },
+      "StrikeAzimuth": -0.25015536,
+      "StrikeElevation": 0.22855723,
+      "WindupTime": 0.26893476,
+      "StrikeTime": 0.11463346,
+      "RecoverTime": 0.35,
+      "WristDelay": 0.13002254,
+      "Twist": 0.19025955,
+      "Step": 0.8304225,
+      "Ease": 1,
+      "Roll": -0.3039961
+    },
+    "Title": "\u9762",
+    "Origin": "\u5263\u9053\u306E\u9762\u3002\u4E00\u8DB3\u4E00\u5200\u306E\u9593\u5408\u3044\u304B\u3089\u632F\u308A\u304B\u3076\u308A\u3001\u8E0F\u307F\u8FBC\u3093\u3067\u982D\u306E\u771F\u4E0A\u3078\u6253\u3061\u4E0B\u308D\u3059"
+  },
+  {
+    "Name": "kesa",
+    "Target": 1,
+    "Maai": 1,
+    "Range": 0.41619617,
+    "Swing": {
+      "Family": 4,
+      "WindupFist": {
+        "X": -0.44634736,
+        "Y": 0.46323478,
+        "Z": 0.20740645
+      },
+      "WindupAzimuth": -0.86768806,
+      "WindupElevation": 1.5967727,
+      "StrikeFist": {
+        "X": 0.14752054,
+        "Y": -0.022889279,
+        "Z": 0.7015628
+      },
+      "StrikeAzimuth": 0.34985042,
+      "StrikeElevation": -0.7894854,
+      "WindupTime": 0.28594565,
+      "StrikeTime": 0.16075462,
+      "RecoverTime": 0.35,
+      "WristDelay": 0,
+      "Twist": -0.18191186,
+      "Step": 0.43387395,
+      "Ease": 1.0692698,
+      "Roll": 0.10936591
+    },
+    "Title": "\u8888\u88DF\u65AC\u308A",
+    "Origin": "\u5263\u8853\u30FB\u5C45\u5408\u306E\u8888\u88DF\u65AC\u308A\u3002\u53F3\u80A9\u306E\u4E0A\u3078\u632F\u308A\u304B\u3076\u308A\u3001\u76F8\u624B\u306E\u5DE6\u80A9\u304B\u3089\u53F3\u8107\u8179\u3078\u659C\u3081\u306B\u65AC\u308A\u4E0B\u308D\u3059"
+  },
+  {
+    "Name": "do",
+    "Target": 2,
+    "Maai": 1,
+    "Range": 0.4154975,
+    "Swing": {
+      "Family": 4,
+      "WindupFist": {
+        "X": -0.28252044,
+        "Y": 0.5317122,
+        "Z": 0.19731905
+      },
+      "WindupAzimuth": -0.20900422,
+      "WindupElevation": 2.0355237,
+      "StrikeFist": {
+        "X": 0.2916807,
+        "Y": -0.04285904,
+        "Z": 0.46009126
+      },
+      "StrikeAzimuth": 0.33264846,
+      "StrikeElevation": -0.4825478,
+      "WindupTime": 0.37525532,
+      "StrikeTime": 0.10265067,
+      "RecoverTime": 0.35,
+      "WristDelay": 0.27895373,
+      "Twist": 0.19172002,
+      "Step": 0.9369954,
+      "Ease": 1.2492423,
+      "Roll": 1.5413682
+    },
+    "Title": "\u80F4",
+    "Origin": "\u5263\u9053\u306E\u80F4\u3002\u9762\u306E\u3088\u3046\u306B\u632F\u308A\u304B\u3076\u308A\u3001\u624B\u9996\u3092\u8FD4\u3057\u3066\u76F8\u624B\u306E\u53F3\u306E\u8107\u8179\u3092\u659C\u3081\u4E0B\u3078\u65AC\u308A\u629C\u304F"
+  },
+  {
+    "Name": "hiki-kote",
+    "Target": 4,
+    "Maai": 0,
+    "Range": 0.29553634,
+    "Swing": {
+      "Family": 4,
+      "WindupFist": {
+        "X": -0.03606102,
+        "Y": 0.20631929,
+        "Z": 0.19426784
+      },
+      "WindupAzimuth": 0.3492152,
+      "WindupElevation": 2.2628791,
+      "StrikeFist": {
+        "X": -0.13360518,
+        "Y": 0.18219031,
+        "Z": 0.24297932
+      },
+      "StrikeAzimuth": 0.16285022,
+      "StrikeElevation": -0.26078594,
+      "WindupTime": 0.13998088,
+      "StrikeTime": 0.1282732,
+      "RecoverTime": 0.35,
+      "WristDelay": 0.06784512,
+      "Twist": -0.15147164,
+      "Step": -0.73151356,
+      "Ease": 1.6524682,
+      "Roll": -0.5105616
+    },
+    "Title": "\u5F15\u304D\u5C0F\u624B",
+    "Origin": "\u5263\u9053\u306E\u5F15\u304D\u6280\u3002\u9354\u8FEB\u308A\u5408\u3044\u306E\u8FD1\u3055\u304B\u3089\u3001\u4E0B\u304C\u308A\u306A\u304C\u3089\u76F8\u624B\u306E\u5C0F\u624B\u3092\u6253\u3064"
+  },
+  {
+    "Name": "hiki-do",
+    "Target": 2,
+    "Maai": 0,
+    "Range": 0.250041,
+    "Swing": {
+      "Family": 4,
+      "WindupFist": {
+        "X": -0.34341824,
+        "Y": 0.39529374,
+        "Z": 0.1696214
+      },
+      "WindupAzimuth": -0.48825565,
+      "WindupElevation": 1.4608368,
+      "StrikeFist": {
+        "X": 0.10891655,
+        "Y": -0.16097797,
+        "Z": 0.355167
+      },
+      "StrikeAzimuth": 0.56938833,
+      "StrikeElevation": -0.045793936,
+      "WindupTime": 0.2620538,
+      "StrikeTime": 0.15576099,
+      "RecoverTime": 0.35,
+      "WristDelay": 0.17879264,
+      "Twist": -0.3137315,
+      "Step": -0.80045563,
+      "Ease": 1.327065,
+      "Roll": -1.3248259
+    },
+    "Title": "\u5F15\u304D\u80F4",
+    "Origin": "\u5263\u9053\u306E\u5F15\u304D\u6280\u3002\u9354\u8FEB\u308A\u5408\u3044\u306E\u8FD1\u3055\u304B\u3089\u3001\u632F\u308A\u304B\u3076\u3063\u3066\u4E0B\u304C\u308A\u306A\u304C\u3089\u76F8\u624B\u306E\u80F4\u3092\u65AC\u308B"
+  },
+  {
+    "Name": "sune",
+    "Target": 6,
+    "Maai": 0,
+    "Range": 0.27522936,
+    "Swing": {
+      "Family": 4,
+      "WindupFist": {
+        "X": -0.620736,
+        "Y": 0.3056495,
+        "Z": 0.31138623
+      },
+      "WindupAzimuth": -0.4683305,
+      "WindupElevation": -0.073257685,
+      "StrikeFist": {
+        "X": 0.20886134,
+        "Y": -0.7,
+        "Z": 0.80142593
+      },
+      "StrikeAzimuth": 1.1254711,
+      "StrikeElevation": -0.8777289,
+      "WindupTime": 0.18730852,
+      "StrikeTime": 0.18845205,
+      "RecoverTime": 0.35,
+      "WristDelay": 0.07595444,
+      "Twist": 0.28659302,
+      "Step": 0.3317802,
+      "Ease": 1.0980663,
+      "Roll": -0.05660848
+    },
+    "Title": "\u811B\u65AC\u308A",
+    "Origin": "\u306A\u304E\u306A\u305F\u30FB\u67F3\u751F\u65B0\u9670\u6D41\u306E\u811B\uFF08\u3059\u306D\uFF09\u3002\u69CB\u3048\u305F\u76F8\u624B\u306E\u6CE8\u610F\u306E\u5916\u306E\u3001\u524D\u306E\u811A\u306E\u811B\u3092\u4F4E\u304F\u6255\u3046"
+  }
+]

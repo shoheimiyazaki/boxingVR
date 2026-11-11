@@ -79,11 +79,14 @@ public sealed class VoxelBody
     public Vector3 GridCenterLocal { get; }
 
     /// <summary>The grid's frame in world space (scale 1): grid-local point → world.</summary>
-    public Matrix4x4 GridToWorld()
-    {
-        var s = _world.GetState(BodyId);
-        return Matrix4x4.CreateTranslation(GridCenterLocal) * Matrix4x4.CreateFromQuaternion(s.Orientation) * Matrix4x4.CreateTranslation(s.Position);
-    }
+    public Matrix4x4 GridToWorld() => GridToWorld(_world.GetState(BodyId));
+
+    /// <summary>The grid's frame in world space for the body in state <paramref name="s"/> (a pose before a step, say).</summary>
+    public Matrix4x4 GridToWorld(BodyState s) =>
+        Matrix4x4.CreateTranslation(GridCenterLocal) * Matrix4x4.CreateFromQuaternion(s.Orientation) * Matrix4x4.CreateTranslation(s.Position);
+
+    /// <summary>The physics world the body lives in.</summary>
+    public PhysicsWorld World => _world;
 
     public Vector3 WorldToGrid(Vector3 world)
     {
@@ -431,12 +434,17 @@ public sealed class VoxelBody
     public VoxelBody? Sever(int axis, bool distalHigh)
     {
         var slice = Grid.FindBoneBreak(axis, fromHigh: !distalHigh);
-        if (slice is not { } cut)
-        {
-            return null;
-        }
+        return slice is { } cut ? SplitAt(axis, cut, distalHigh) : null;
+    }
 
-        var split = Grid.Split(axis, cut, takeHigh: distalHigh);
+    /// <summary>
+    /// Breaks the body at slice <paramref name="slice"/> of <paramref name="axis"/> (the slice's cells stay with this
+    /// body): everything on the <paramref name="takeHigh"/> side becomes a new dynamic body, as <see cref="Sever"/> does.
+    /// Null if nothing lies on that side.
+    /// </summary>
+    public VoxelBody? SplitAt(int axis, int slice, bool takeHigh)
+    {
+        var split = Grid.Split(axis, slice, takeHigh: takeHigh);
         if (split is not { } piece)
         {
             return null;

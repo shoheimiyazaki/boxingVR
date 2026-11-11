@@ -24,7 +24,10 @@ public delegate IFighterControl ControlFactory(int roundSeed);
 /// （ボット同士の対戦。どちらもサブステップごとに読むので条件は対等）。
 /// <paramref name="CpuStyleJson"/> は CPU のスタイルそのもの（リプレイに書き、後で <c>champion</c> が変わっても同じ相手で再生するため）。
 /// </summary>
-public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFactory? Player = null, string? CpuStyleJson = null)
+/// <para><paramref name="CpuWeapon"/> / <paramref name="PlayerWeapon"/> を渡すと、その側はラウンドの初めから右手のグローブを外し、
+/// その武器を握って立つ（<see cref="Fighter.Wield"/>）。</para>
+public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFactory? Player = null, string? CpuStyleJson = null,
+    Weapons.WeaponKind? CpuWeapon = null, Weapons.WeaponKind? PlayerWeapon = null, bool CpuTwoHanded = false, bool PlayerTwoHanded = false, bool VoxelGloves = true)
 {
     /// <summary>ゲームの既定の CPU。</summary>
     public static BoxingCorners Default => Bots.BotCatalog.Corners(Bots.BotCatalog.DefaultCpu);
@@ -37,7 +40,7 @@ public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFa
 /// サーボが発散しやすい／Aigis 調査メモ）。ホストの dt は 60Hz でも 90Hz でもよい。</para>
 /// <para>勝敗: 意識が尽きたら KO、倒れて 10 秒立てなければ KO（脚を壊されて立てない場合も）、リングから落ちたら負け。</para>
 /// </summary>
-public sealed class BoxingGame : IGame<BoxingInput>
+public sealed partial class BoxingGame : IGame<BoxingInput>
 {
     public const float CountSeconds = 10f;
 
@@ -179,6 +182,9 @@ public sealed class BoxingGame : IGame<BoxingInput>
         RecentBell = _startBellPending ? RoundBell.Start : RoundBell.None;
         _startBellPending = false;
         _recentHits.Clear();
+        _recentCuts.Clear();
+        WeaponHits.Clear();
+        SelfWeaponHits.Clear();
         _recentShatters.Clear();
         _recentLandings.Clear();
         _recentSwings.Clear();
@@ -236,8 +242,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
 
     private void Substep(in FighterCommand playerCommand, float dt)
     {
-        var cpuCommand = _cpuControl.Read(Sense(Cpu, Player), dt);
-        Drive(Player, Cpu, _playerControl?.Read(Sense(Player, Cpu), dt) ?? playerCommand, dt);
+        var cpuCommand = _cpuControl.Read(ArmedSense(Cpu, Player), dt);
+        Drive(Player, Cpu, _playerControl?.Read(ArmedSense(Player, Cpu), dt) ?? playerCommand, dt);
         Drive(Cpu, Player, cpuCommand, dt);
 
         foreach (var fighter in Fighters)
@@ -249,8 +255,11 @@ public sealed class BoxingGame : IGame<BoxingInput>
             }
         }
 
+        RememberBeforeStep();
+        CoolWeapons(dt);
         _world.Step(dt);
         DetectHits();
+        ResolveWeapons();
     }
 
     private void Drive(Fighter self, Fighter opponent, in FighterCommand command, float dt)
@@ -298,7 +307,8 @@ public sealed class BoxingGame : IGame<BoxingInput>
         foreach (var hand in Hands)
         {
             // 切り落とされた腕（落ちていく破片）は打撃に数えない。
-            if (attacker.ArmSevered(hand) || attacker.ForearmId(hand) != attackerBody || _hitCooldown[(attacker, hand)] > 0f)
+            // ボクセルのグローブをはめた手の打撃は、グローブのボクセルの接触で数える（BoxingGame.Punch）。
+            if (attacker.ArmSevered(hand) || attacker.Wields(hand) || attacker.WearsGlove(hand) || attacker.ForearmId(hand) != attackerBody || _hitCooldown[(attacker, hand)] > 0f)
             {
                 continue;
             }
@@ -332,7 +342,46 @@ public sealed class BoxingGame : IGame<BoxingInput>
         }
     }
 
-    internal void ApplyHit(HitEvent hit, int victimBody, Vector3 gloveVelocity)
+    /// <summary>
+    /// 体重の乗った打撃が相手へ運ぶ運動量 <paramref name="carried"/>（腕より先の体の質量 × 速さ × 受け渡しの割合。物理の接触が運ぶ
+    /// 拳や武器そのものの分は含まない）を、当たった部位と全身へ配る。拳でも、拳が握った武器でも同じ。
+    /// <list type="bullet">
+    /// <item>部位に残る分（strike）は当たる速さ <paramref name="contactSpeed"/> とともに増える（非線形: 部位に残る運動量 ∝ m v²）。
+    /// 速い打撃ほど接触が短く、その間に首（関節のバネ）が体へ逃がせる運動量は限られるので、頭がそのまま持っていかれる。
+    /// ゆっくり押し当てる打撃は、関節を通して全身へ配られる。部位に与える速さには上限を置き、超えた分は全身を押す側へ回す。</item>
+    /// <item>部位に残る運動量は、当たった点に掛かる: 部位を押し（頭なら首の上でのけぞる）、中心から外れた分だけ回す（あご・こめかみを
+    /// 振り抜くと頭が首の上でねじれる）。頭なら、そのねじれと <paramref name="alsoTwist"/>（物理の接触がすでに頭を回した分）を合わせて
+    /// 脳しんとう。</item>
+    /// <item>反作用は打った側の全身へ（運動量は湧かない）。</item>
+    /// </list>
+    /// 全身を押す速度（破片を流す向き）を返す。
+    /// </summary>
+    private Vector3 CarryBody(Fighter attacker, Fighter victim, int victimBody, Vector3 point, Vector3 carried, float contactSpeed, Vector3 alsoTwist)
+    {
+        var victimMass = victim.AttachedMass;
+        var partMass = _world.GetMass(victimBody);
+        var strike = ClampLength(carried * StrikeShare(contactSpeed), _tuning.MaxStrikeSpeed * partMass);
+        var push = ClampLength((carried - strike) / victimMass, MaxKnockbackSpeed);
+        var part = _world.GetState(victimBody);
+        var twist = Vector3.Cross(victim.ClosestPointOnPart(victimBody, point) - part.Position, strike);
+        _world.ApplyLinearImpulse(victimBody, strike);
+        _world.ApplyAngularImpulse(victimBody, twist);
+        if (victimBody == victim.Parts.Head)
+        {
+            victim.TwistHead(twist + alsoTwist); // 頭がねじられた分だけ脳しんとう
+        }
+
+        victim.Push(push);
+        attacker.Push(-((push * victimMass) + strike) / attacker.AttachedMass);
+        return push;
+    }
+
+    /// <param name="hit">打撃。</param>
+    /// <param name="victimBody">打たれた部位の剛体。</param>
+    /// <param name="gloveVelocity">拳の速度（歩の前）。</param>
+    /// <param name="carve">拳の運動エネルギーで当たった所を掘るか（素手の拳の近道）。ボクセルのグローブの打撃は、接触そのものが壊した分だけなので false。</param>
+    /// <param name="alsoTwist">物理の接触が頭を回した分（グローブのボクセルの接触の力積）。</param>
+    internal void ApplyHit(HitEvent hit, int victimBody, Vector3 gloveVelocity, bool carve = true, Vector3 alsoTwist = default)
     {
         if (RoundOver)
         {
@@ -348,46 +397,25 @@ public sealed class BoxingGame : IGame<BoxingInput>
         // 体重の乗った拳は相手を押し込む: 物理の接触が運ぶのは腕の質量だけなので、体から来た分の運動量を足す。
         // 一部は当たった部位に残り（strike）、残りは相手の（付いている）全身へ一様な速度変化として配り（上限付き）、
         // 同じ運動量の反作用を打った側の全身へ返す（運動量は湧かない）。
-        var victimMass = victim.AttachedMass;
-        var partMass = _world.GetMass(victimBody);
-        var push = Vector3.Zero;
-        var strike = Vector3.Zero;
         var extraMass = hit.ImpactMass - hit.Attacker.ArmMass(hit.Hand);
-        if (extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f)
+        var push = extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f
+            ? CarryBody(hit.Attacker, victim, victimBody, hit.Point, Vector3.Normalize(gloveVelocity) * (extraMass * hit.Speed * KnockbackTransfer), hit.Speed, alsoTwist)
+            : Vector3.Zero;
+        if (!carve)
         {
-            // 運ぶ運動量のうち、当たった部位に残る分（strike）は速さとともに増える（非線形: 部位に残る運動量 ∝ m v²）。
-            // 速い拳ほど接触が短く、その間に首（関節のバネ）が体へ逃がせる運動量は限られるので、頭がそのまま持っていかれる。
-            // ゆっくり押し当てる拳は、関節を通して全身へ配られる（鋭さで 0 へ）。部位に与える速さには上限を置き（拳の速さの
-            // 測り違いで部位が飛ばない）、上限を超えた分は全身を押す側へ回す。
-            var carried = Vector3.Normalize(gloveVelocity) * (extraMass * hit.Speed * KnockbackTransfer);
-            strike = ClampLength(carried * StrikeShare(hit.Speed), _tuning.MaxStrikeSpeed * partMass);
-            push = ClampLength((carried - strike) / victimMass, MaxKnockbackSpeed);
+            // グローブの打撃: 壊れたボクセルは接触が散らす（Shatter）。ここは当たった光だけ。
+            ImpactFlash(hit.Point, gloveVelocity, HitStrength(hit.Damage), hit.Attacker);
         }
 
-        if (strike != Vector3.Zero || push != Vector3.Zero)
-        {
-            // 部位に残る運動量は、拳が部位の表面に触れた点に掛かる: 部位を押し（頭なら首の上でのけぞる）、中心から外れた分だけ回す
-            // （あご・こめかみを振り抜くと頭が首の上でねじれる。回転の中心を通る拳は回さない）。削って千切る前に掛ける
-            // （千切れた先の点で、残った切り株を回さない）。
-            var part = _world.GetState(victimBody);
-            var twist = Vector3.Cross(victim.ClosestPointOnPart(victimBody, hit.Point) - part.Position, strike);
-            _world.ApplyLinearImpulse(victimBody, strike);
-            _world.ApplyAngularImpulse(victimBody, twist);
-            if (victimBody == victim.Parts.Head)
-            {
-                victim.TwistHead(twist); // 頭がねじられた分だけ脳しんとう
-            }
-
-            victim.Push(push);
-            // 反作用は打った側の（付いている）全身へ（部位に残した分も含めて、運動量は湧かない）。
-            hit.Attacker.Push(-((push * victimMass) + strike) / hit.Attacker.AttachedMass);
-        }
 
         // 削る量は打撃そのものの強さ（部位の倍率を外したダメージ）。得点ではガードの上は 0.25 倍に割り引くが、
         // 受けた腕にかかる衝撃は同じ: ブロックし続けた腕は削れていく。破片は、のけぞる体の動き（push）に乗って流れる。
         // 削る量は拳の運動エネルギー（½ m v²）に比例: 体重の乗った速い 1 発ほど急に深く掘れる（非線形）。
         var energy = 0.5f * hit.ImpactMass * hit.Speed * hit.Speed * PunchMechanics.Sharpness(hit.Speed);
-        Strike(victim, victimBody, hit.Point, gloveVelocity, hit.Damage / ZoneDamage.Multiplier(hit.Zone), hit.Attacker, push, MathF.Min(_tuning.MaxCarve, energy * _tuning.CarvePerJoule));
+        if (carve)
+        {
+            Strike(victim, victimBody, hit.Point, gloveVelocity, hit.Damage / ZoneDamage.Multiplier(hit.Zone), hit.Attacker, push, MathF.Min(_tuning.MaxCarve, energy * _tuning.CarvePerJoule));
+        }
 
         _recentHits.Add(hit);
         LastHit = hit;
@@ -432,6 +460,7 @@ public sealed class BoxingGame : IGame<BoxingInput>
         if (result?.Fragment is { } fragment)
         {
             victim.Sever(victimBody, fragment.Body);
+            UntouchedByWeaponBoxes(fragment.Body.BodyId);
             ShowMessage(fragment.Kind is BodyPartKind.UpperArm or BodyPartKind.Forearm ? "ARM OFF!" : "LEG OFF!", 1.2f);
         }
 
@@ -484,11 +513,25 @@ public sealed class BoxingGame : IGame<BoxingInput>
             // 欠片の向きに沿って、速さを掛け、その速さに比べた揺らぎ（spread）を足す。のけぞる体の動きにも乗る。
             Vector3 Fly(float speedScale, float wobble) => (along * speedScale) + (new Vector3(Jitter(), Jitter(), Jitter()) * (wobble * pace * speedScale)) + recoil;
             Vector3 Spin(float s) => new Vector3(Jitter(), Jitter(), Jitter()) * s;
-            // 砕けた直後の欠片は一瞬光り、短い光の尾を引く（ChipHeat 秒で元の色に戻る）。
-            _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color, tag: chip.Material, heat: ChipHeat);
+            if (material.Tissue == VoxelTissue.Organ)
+            {
+                // 臓器: 紫に光る火花（光の尾を引く）。血しぶきも飛ぶ。
+                _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.6f, Spin(40f), OrganSpark, life: 0.6f, glow: true, tag: chip.Material, heat: ChipHeat, trail: 1f, ownColor: true);
+                for (var k = 0; k < 3; k++)
+                {
+                    _debris.Spawn(chip.Position, Fly(2f, 0.3f), chip.Orientation, chip.Size * 0.3f, Spin(50f), OrganSpark, life: 0.45f, glow: true, tag: VoxelBreakSound.SparkTag, heat: ChipHeat * 0.7f, trail: 1f, ownColor: true);
+                }
+
+                Blood(chip, Fly, Spin);
+                continue;
+            }
+
+            // 欠片はそのままの色で、その色の光の尾を引く。尾の長さは材質で: 骨は長く（火花ほど）、皮膚・肉・金属・木は短く（その半分）。
+            var trail = material.Tissue == VoxelTissue.Bone ? BoneTrail : ChipTrail;
+            _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color, tag: chip.Material, heat: ChipHeat, trail: trail, ownColor: true);
             for (var k = 0; k < 2; k++)
             {
-                _debris.Spawn(chip.Position, Fly(1.8f, 0.25f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f, tag: chip.Material, heat: ChipHeat * 0.7f);
+                _debris.Spawn(chip.Position, Fly(1.8f, 0.25f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f, tag: chip.Material, heat: ChipHeat * 0.7f, trail: trail, ownColor: true);
             }
 
             switch (material.Tissue)
@@ -499,23 +542,40 @@ public sealed class BoxingGame : IGame<BoxingInput>
                         _debris.Spawn(chip.Position, Fly(1.6f, 0.35f), chip.Orientation, chip.Size * 0.25f, Spin(90f), BoneDust, life: 1.2f, tag: VoxelBreakSound.DustTag);
                     }
 
-                    _debris.Spawn(chip.Position, Fly(2.4f, 0.3f), chip.Orientation, chip.Size * 0.22f, Spin(30f), Spark, life: 0.25f, glow: true, tag: VoxelBreakSound.SparkTag);
                     break;
-                case VoxelTissue.Organ:
-                    for (var k = 0; k < 2; k++)
-                    {
-                        _debris.Spawn(chip.Position, Fly(2f, 0.3f), chip.Orientation, chip.Size * 0.35f, Spin(50f), OrganGlow, life: 0.4f, glow: true, tag: VoxelBreakSound.SparkTag);
-                    }
-
-                    goto case VoxelTissue.Flesh;
+                case VoxelTissue.Solid when chip.Material != BoxerAnatomy.Iron:
+                    // 木が潰れると木くず。
+                    _debris.Spawn(chip.Position, Fly(1.4f, 0.4f), chip.Orientation, chip.Size * 0.4f, Spin(80f), material.Color, life: 1.4f, tag: VoxelBreakSound.DustTag);
+                    break;
                 case VoxelTissue.Flesh:
-                    for (var k = 0; k < 3; k++)
-                    {
-                        _debris.Spawn(chip.Position, Fly(2.1f, 0.3f), chip.Orientation, chip.Size * 0.35f, Spin(60f), BloodColor, life: 2.2f, tag: VoxelBreakSound.BloodTag);
-                    }
-
+                    Blood(chip, Fly, Spin);
                     break;
             }
+        }
+    }
+
+    private void Blood(VoxelChip chip, Func<float, float, Vector3> fly, Func<float, Vector3> spin)
+    {
+        for (var k = 0; k < 3; k++)
+        {
+            _debris.Spawn(chip.Position, fly(2.1f, 0.3f), chip.Orientation, chip.Size * 0.35f, spin(60f), BloodColor, life: 2.2f, tag: VoxelBreakSound.BloodTag);
+        }
+    }
+
+    /// <summary>
+    /// 金属と金属がぶつかった所の火花: 白く光って黄・赤へ冷める小さな粒が、光の尾を引いて飛ぶ。数と速さは、ぶつかった所の
+    /// 近づく速さ <paramref name="speed"/> [m/s] とともに増える（擦れ合う刃が削る熱の量の見え方）。
+    /// </summary>
+    internal void MetalSparks(Vector3 point, Vector3 normal, Vector3 along, float speed)
+    {
+        var count = Math.Clamp((int)(speed * SparksPerSpeed), 0, MaxSparks);
+        for (var k = 0; k < count; k++)
+        {
+            var scatter = new Vector3(Jitter(), Jitter(), Jitter());
+            var dir = Vector3.Normalize((normal * (0.4f + (0.6f * MathF.Abs(Jitter())))) + (along * 0.6f) + (scatter * 0.7f) + new Vector3(1e-4f));
+            var v = dir * (speed * (0.6f + (0.5f * MathF.Abs(Jitter()))));
+            _debris.Spawn(point, v, Quaternion.Identity, new Vector3(0.0012f), Vector3.Zero, Spark, life: 0.3f + (0.15f * MathF.Abs(Jitter())), glow: true,
+                tag: VoxelBreakSound.SparkTag, heat: 0.3f, trail: BoneTrail);
         }
     }
 
@@ -571,7 +631,15 @@ public sealed class BoxingGame : IGame<BoxingInput>
     private static readonly Vector4 BloodColor = new(0.55f, 0.02f, 0.03f, 1f);
     private static readonly Vector4 BoneDust = new(1f, 0.98f, 0.9f, 1f);
     private static readonly Vector4 Spark = new(1f, 0.85f, 0.45f, 1f);
-    private static readonly Vector4 OrganGlow = new(1f, 0.15f, 0.25f, 1f);
+    private static readonly Vector4 OrganSpark = new(0.75f, 0.2f, 1.6f, 1f); // 紫（1 を超える分は光ってにじむ）
+
+    /// <summary>欠片の光の尾の長さ（<see cref="VoxelDebris.TrailSeconds"/> ぶんの何倍か）: 皮膚・肉・金属・木は短く、骨と火花は長く。</summary>
+    private const float ChipTrail = 0.5f;
+    private const float BoneTrail = 1f;
+
+    /// <summary>金属同士の火花: 近づく速さ 1 m/s あたりの粒の数と、1 度に出す数の上限。</summary>
+    private const float SparksPerSpeed = 6f;
+    private const int MaxSparks = 40;
     private static readonly Vector4 PlayerSpark = new(1f, 0.08f, 0.04f, 1f);
     private static readonly Vector4 CpuSpark = new(0.1f, 0.35f, 1f, 1f);
     private static readonly Vector4 FatalFlash = new(1f, 0.15f, 0.1f, 1f);
@@ -655,6 +723,9 @@ public sealed class BoxingGame : IGame<BoxingInput>
     private void StartRound()
     {
         _world?.Dispose();
+        _weapons.Clear(); // 武器は世界ごと消える
+        _recentCuts.Clear();
+        _beforeStep.Clear();
         _round++;
         _world = new PhysicsWorld();
         LivingRoom.AddColliders(_world, RingCenter);
@@ -675,6 +746,26 @@ public sealed class BoxingGame : IGame<BoxingInput>
         _debris.Gravity = 9.81f * _tuning.DebrisGravityScale;
         CpuSkin = new BoxerSkin(_model, Cpu, _tuning);
         _fighters = [Player, Cpu];
+        _wielders.Clear();
+        _wieldHand.Clear();
+        _weaponCooldown.Clear();
+        _selfCooldown.Clear();
+        if (_corners.PlayerWeapon is { } playerWeapon)
+        {
+            Arm(Player, playerWeapon, _corners.PlayerTwoHanded);
+        }
+
+        if (_corners.CpuWeapon is { } cpuWeapon)
+        {
+            Arm(Cpu, cpuWeapon, _corners.CpuTwoHanded);
+        }
+
+        if (_corners.VoxelGloves)
+        {
+            Glove(Player);
+            Glove(Cpu);
+        }
+
         _cpuControl = _corners.Cpu(_seed + _round);
         _playerControl = _corners.Player?.Invoke((_seed * 7919) + _round);
         _roundOverTimer = 0f;

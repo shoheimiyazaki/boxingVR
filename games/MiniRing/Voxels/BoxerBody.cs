@@ -148,13 +148,22 @@ public sealed class BoxerBody
         }
 
         var carved = part.Body.Impact(point, direction, energy, chipSpeed, jitter, chips, spread, chunks, cutFaces: cutFaces);
-        VoxelPart? fragment = null;
-        if (carved > 0 && part.SeverAxis is { } axis && part.Body.Sever(axis, part.DistalHigh) is { } piece)
+        return new ImpactResult(carved, part, carved > 0 ? SeverIfBroken(bodyId) : null);
+    }
+
+    /// <summary>
+    /// 部位 <paramref name="bodyId"/> の骨が断たれていれば（武器で切られた後など）、そこから先を破片にして切り離し、その破片を返す
+    /// （関節の付け替えは呼び出し側）。切れない部位・骨がつながっている部位・知らない剛体なら null。
+    /// </summary>
+    public VoxelPart? SeverIfBroken(int bodyId)
+    {
+        if (!_byBody.TryGetValue(bodyId, out var part) || part.SeverAxis is not { } axis || part.Body.Sever(axis, part.DistalHigh) is not { } piece)
         {
-            fragment = new VoxelPart(part.Kind, piece, VoxelVolume.For(piece.Grid), axis, part.DistalHigh, bodyId);
-            _fragments.Add(fragment);
+            return null;
         }
 
-        return new ImpactResult(carved, part, fragment);
+        var fragment = new VoxelPart(part.Kind, piece, VoxelVolume.For(piece.Grid), axis, part.DistalHigh, bodyId);
+        _fragments.Add(fragment);
+        return fragment;
     }
 }

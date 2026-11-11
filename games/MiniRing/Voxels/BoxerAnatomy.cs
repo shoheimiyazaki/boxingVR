@@ -48,6 +48,52 @@ public static class BoxerAnatomy
     /// <summary>身なりの材質（布と革）か。皮膚の代わりの層なので、音・見え方の扱いは皮膚に合わせる。</summary>
     public static bool IsClothing(byte material) => material is >= RedTrunks and <= Boot;
 
+    // 武器の材質（体と同じ表に置き、破片の色・音・染みを体と同じ仕組みで扱う）: 鉄（剣の刃・鍔・柄頭）と木（棍棒・剣の握り）。
+    public const byte Iron = 16;
+    public const byte Wood = 17;
+
+    // グローブの材質: 表の革（コーナーの色）と、中の詰め物（発泡材）。
+    public const byte RedGlove = 18;
+    public const byte BlueGlove = 19;
+    public const byte Padding = 20;
+
+    // ── 押されたときのふるまい（VoxelContact）: 密度 [kg/m³]・降伏する圧力 [Pa]・たわむ距離 [m]・（武器だけ）折れる曲げ応力とヤング率 [Pa]。
+    // 体の値は、人形の縮尺の剣（約 0.085kg）の刃が、ふつうの振り（6m/s）では皮膚と肉を切って骨で止まり、強い振り（16m/s）では
+    // 骨まで断つように合わせている（docs/VOXEL_WEAPONS.md）。ボクセルの刃先は本物よりずっと鈍い（1.25mm）ので、肉の値は本物の切れにくさより低い。
+    //
+    // 人形の相似則: 人形の体は人のおよそ 0.32 倍（腕の長さの比、<see cref="Similitude"/>）。同じ重力の下で釣り合う動きは時間が √0.32 倍、
+    // 速さが √0.32 倍になり、ぶつかる物の運動エネルギーは大きさの 4 乗で小さくなる（剣は人の剣のおよそ 1/100）。一方で材質の強さ（圧力）を
+    // 人の値のままにすると、壊すのに要る仕事は大きさの 3 乗でしか小さくならず、人形の剣は人の剣より何倍も斬れない（頭蓋で 1 層止まる）。
+    // 力学的に似た（相似の）壊れ方にするには、応力の次元を持つ値を大きさに比例して小さくする（応力 ∝ ρv² ∝ 大きさ）。強さ・引張・
+    // ヤング率に <see cref="Similitude"/> を掛ける（鉄と木も同じ割合なので、材質の強さの比 = 壊れ方の非対称は変わらない）。
+    private static readonly VoxelMechanics SkinMechanics = Doll(new(1100f, 1.2e6f, 0.005f));
+    private static readonly VoxelMechanics MuscleMechanics = Doll(new(1060f, 0.3e6f, 0.005f));
+    private static readonly VoxelMechanics BoneMechanics = Doll(new(1900f, 25e6f, 0.0005f));
+    private static readonly VoxelMechanics OrganMechanics = Doll(new(1050f, 0.2e6f, 0.005f));
+    private static readonly VoxelMechanics BrainMechanics = Doll(new(1040f, 0.12e6f, 0.005f));
+    private static readonly VoxelMechanics ClothMechanics = Doll(new(1100f, 1.2e6f, 0.005f));
+    private static readonly VoxelMechanics LeatherMechanics = Doll(new(1100f, 2.0e6f, 0.004f));
+
+    /// <summary>人形の体の大きさの、人に対する比（腕の長さの比 0.17 m / 0.53 m）。材質の強さの相似則に使う。</summary>
+    public const float Similitude = 0.32f;
+
+    /// <summary>人の材質の値を、人形の相似則で縮める（強さ・引張・ヤング率 × <see cref="Similitude"/>。密度とたわむ距離はそのまま）。</summary>
+    public static VoxelMechanics Doll(VoxelMechanics human) => human with
+    {
+        Strength = human.Strength * Similitude,
+        Tensile = human.Tensile * Similitude,
+        Stiffness = human.Stiffness * Similitude,
+    };
+
+    /// <summary>グローブの詰め物（発泡材）: 軽く（120 kg/m³）、弱い圧力で潰れ（0.15 MPa）、大きくたわむ（8 mm）。拳の衝撃を広げて和らげる。</summary>
+    public static VoxelMechanics PaddingMechanics { get; } = Doll(new(120f, 0.15e6f, 0.008f));
+
+    /// <summary>剣の鋼: 焼き入れした鋼（人で降伏 600MPa、引張 1.5GPa、ヤング率 200GPa。人形の相似則で縮める）。</summary>
+    public static VoxelMechanics IronMechanics { get; } = Doll(new(7800f, 600e6f, 0.0002f, Tensile: 1.5e9f, Stiffness: 200e9f));
+
+    /// <summary>樫: 人で、木目に直角に潰れる強さ 8MPa、曲げて折れる強さ 60MPa、ヤング率 10GPa（人形の相似則で縮める）。</summary>
+    public static VoxelMechanics WoodMechanics { get; } = Doll(new(700f, 8e6f, 0.001f, Tensile: 60e6f, Stiffness: 10e9f));
+
     /// <summary>布と革は皮膚と同じ削れにくさ・同じ組織（肉）にする: 着ても打たれ強さと部位の力は裸のときと変わらない。</summary>
     private const float SkinToughness = 0.7f;
 
@@ -61,21 +107,26 @@ public static class BoxerAnatomy
     public static VoxelPalette Palette { get; } = new(
     [
         new VoxelMaterial("empty", VoxelTissue.Empty, 1f, false, Vector4.Zero, Vector4.Zero),
-        new VoxelMaterial("skin", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.86f, 0.6f, 0.42f), Rgb(0.86f, 0.6f, 0.42f), Stainable: 1f),
-        new VoxelMaterial("muscle", VoxelTissue.Flesh, 1f, false, Rgb(0.8f, 0.05f, 0.07f), Rgb(0.8f, 0.05f, 0.07f), Stainable: 0.3f),
-        new VoxelMaterial("bone", VoxelTissue.Bone, 8f, false, Rgb(1f, 0.98f, 0.88f), Rgb(1f, 0.98f, 0.88f), Stainable: 0f),
-        new VoxelMaterial("brain", VoxelTissue.Organ, 1.4f, true, Rgb(1f, 0.4f, 0.8f), Rgb(1f, 0.4f, 0.8f), Stainable: 0f),
-        new VoxelMaterial("heart", VoxelTissue.Organ, 1.4f, true, Rgb(0.55f, 0f, 0.35f), Rgb(0.55f, 0f, 0.35f), Stainable: 0f),
-        new VoxelMaterial("lung", VoxelTissue.Organ, 1.2f, true, Rgb(0.45f, 0.8f, 1f), Rgb(0.45f, 0.8f, 1f), Stainable: 0f),
-        new VoxelMaterial("liver", VoxelTissue.Organ, 1.4f, true, Rgb(0.36f, 0.13f, 0.04f), Rgb(0.36f, 0.13f, 0.04f), Stainable: 0f),
-        new VoxelMaterial("gut", VoxelTissue.Organ, 1.2f, true, Rgb(1f, 0.82f, 0.25f), Rgb(1f, 0.82f, 0.25f), Stainable: 0f),
-        new VoxelMaterial("eye", VoxelTissue.Organ, 0.8f, false, Rgb(1f, 1f, 1f), Rgb(1f, 1f, 1f), Stainable: 0f),
-        new VoxelMaterial("red trunks", VoxelTissue.Flesh, SkinToughness, false, Rgb(1f, 0.24f, 0.18f), Rgb(1f, 0.24f, 0.18f), Stainable: 0.5f),
-        new VoxelMaterial("blue trunks", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.08f, 0.2f, 0.72f), Rgb(0.08f, 0.2f, 0.72f), Stainable: 0.5f),
-        new VoxelMaterial("waistband", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.95f, 0.95f, 0.9f), Rgb(0.95f, 0.95f, 0.9f), Stainable: 0.8f),
-        new VoxelMaterial("boot", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.1f, 0.1f, 0.11f), Rgb(0.1f, 0.1f, 0.11f), Stainable: 0.3f),
-        new VoxelMaterial("hair", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.13f, 0.08f, 0.05f), Rgb(0.13f, 0.08f, 0.05f), Stainable: 0.2f),
-        new VoxelMaterial("pupil", VoxelTissue.Organ, 0.8f, false, Rgb(0.02f, 0.02f, 0.03f), Rgb(0.02f, 0.02f, 0.03f), Stainable: 0f),
+        new VoxelMaterial("skin", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.86f, 0.6f, 0.42f), Rgb(0.86f, 0.6f, 0.42f), Stainable: 1f, Mechanics: SkinMechanics),
+        new VoxelMaterial("muscle", VoxelTissue.Flesh, 1f, false, Rgb(0.8f, 0.05f, 0.07f), Rgb(0.8f, 0.05f, 0.07f), Stainable: 0.3f, Mechanics: MuscleMechanics),
+        new VoxelMaterial("bone", VoxelTissue.Bone, 8f, false, Rgb(1f, 0.98f, 0.88f), Rgb(1f, 0.98f, 0.88f), Stainable: 0f, Mechanics: BoneMechanics),
+        new VoxelMaterial("brain", VoxelTissue.Organ, 1.4f, true, Rgb(1f, 0.4f, 0.8f), Rgb(1f, 0.4f, 0.8f), Stainable: 0f, Mechanics: BrainMechanics),
+        new VoxelMaterial("heart", VoxelTissue.Organ, 1.4f, true, Rgb(0.55f, 0f, 0.35f), Rgb(0.55f, 0f, 0.35f), Stainable: 0f, Mechanics: OrganMechanics),
+        new VoxelMaterial("lung", VoxelTissue.Organ, 1.2f, true, Rgb(0.45f, 0.8f, 1f), Rgb(0.45f, 0.8f, 1f), Stainable: 0f, Mechanics: OrganMechanics),
+        new VoxelMaterial("liver", VoxelTissue.Organ, 1.4f, true, Rgb(0.36f, 0.13f, 0.04f), Rgb(0.36f, 0.13f, 0.04f), Stainable: 0f, Mechanics: OrganMechanics),
+        new VoxelMaterial("gut", VoxelTissue.Organ, 1.2f, true, Rgb(1f, 0.82f, 0.25f), Rgb(1f, 0.82f, 0.25f), Stainable: 0f, Mechanics: OrganMechanics),
+        new VoxelMaterial("eye", VoxelTissue.Organ, 0.8f, false, Rgb(1f, 1f, 1f), Rgb(1f, 1f, 1f), Stainable: 0f, Mechanics: BrainMechanics),
+        new VoxelMaterial("red trunks", VoxelTissue.Flesh, SkinToughness, false, Rgb(1f, 0.24f, 0.18f), Rgb(1f, 0.24f, 0.18f), Stainable: 0.5f, Mechanics: ClothMechanics),
+        new VoxelMaterial("blue trunks", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.08f, 0.2f, 0.72f), Rgb(0.08f, 0.2f, 0.72f), Stainable: 0.5f, Mechanics: ClothMechanics),
+        new VoxelMaterial("waistband", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.95f, 0.95f, 0.9f), Rgb(0.95f, 0.95f, 0.9f), Stainable: 0.8f, Mechanics: ClothMechanics),
+        new VoxelMaterial("boot", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.1f, 0.1f, 0.11f), Rgb(0.1f, 0.1f, 0.11f), Stainable: 0.3f, Mechanics: LeatherMechanics),
+        new VoxelMaterial("hair", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.13f, 0.08f, 0.05f), Rgb(0.13f, 0.08f, 0.05f), Stainable: 0.2f, Mechanics: SkinMechanics),
+        new VoxelMaterial("pupil", VoxelTissue.Organ, 0.8f, false, Rgb(0.02f, 0.02f, 0.03f), Rgb(0.02f, 0.02f, 0.03f), Stainable: 0f, Mechanics: BrainMechanics),
+        new VoxelMaterial("iron", VoxelTissue.Solid, 50f, false, Rgb(0.72f, 0.74f, 0.78f), Rgb(0.82f, 0.84f, 0.88f), Stainable: 0.6f, Mechanics: IronMechanics),
+        new VoxelMaterial("wood", VoxelTissue.Solid, 5f, false, Rgb(0.78f, 0.6f, 0.38f), Rgb(0.5f, 0.32f, 0.16f), Stainable: 0.7f, Mechanics: WoodMechanics),
+        new VoxelMaterial("red glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.85f, 0.1f, 0.1f), Rgb(0.85f, 0.1f, 0.1f), Stainable: 0.6f, Mechanics: LeatherMechanics),
+        new VoxelMaterial("blue glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.1f, 0.25f, 0.85f), Rgb(0.1f, 0.25f, 0.85f), Stainable: 0.6f, Mechanics: LeatherMechanics),
+        new VoxelMaterial("padding", VoxelTissue.Solid, 1f, false, Rgb(0.92f, 0.9f, 0.82f), Rgb(0.92f, 0.9f, 0.82f), Stainable: 0.4f, Mechanics: PaddingMechanics),
     ]);
 
     /// <summary>腰のゴム: 骨盤の外形の上からこの高さ（正規化 Y）より上。</summary>
