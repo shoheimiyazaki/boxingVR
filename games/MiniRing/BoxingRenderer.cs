@@ -91,6 +91,11 @@ public static class BoxingRenderer
         foreach (var hand in new[] { Hand.Left, Hand.Right })
         {
             // 武器を握る手はグローブを外した素手（肌色の小さな拳）。
+            if (fighter.WearsGlove(hand))
+            {
+                continue; // ボクセルのグローブ（武器と同じに描く）
+            }
+
             var wields = fighter.BareFist(hand); // 武器を放した後も素手のまま
             instances.Add(new PrimitiveInstance(PrimitiveKind.Sphere, Matrix4x4.CreateTranslation(fighter.GloveCenter(hand)),
                 new Vector3(fighter.GloveRadius * (wields ? BareFistScale : 1f), 0f, 0f), wields ? BareFist : glove));
@@ -182,6 +187,11 @@ public static class BoxingRenderer
         foreach (var hand in new[] { Hand.Left, Hand.Right })
         {
             // 武器を握る手はグローブを外した素手（肌色の小さな拳）。
+            if (fighter.WearsGlove(hand))
+            {
+                continue; // ボクセルのグローブ（武器と同じに描く）
+            }
+
             var wields = fighter.BareFist(hand); // 武器を放した後も素手のまま
             instances.Add(new PrimitiveInstance(PrimitiveKind.Sphere, Matrix4x4.CreateTranslation(fighter.GloveCenter(hand)),
                 new Vector3(fighter.GloveRadius * (wields ? BareFistScale : 1f), 0f, 0f), wields ? BareFist : glove));

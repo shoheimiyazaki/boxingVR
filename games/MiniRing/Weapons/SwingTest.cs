@@ -65,13 +65,14 @@ public static class SwingTest
 
     /// <summary>
     /// 1 振りを試す。<paramref name="afterStep"/> は物理の 1 歩ごとに、時刻と振っている最中かを添えて呼ぶ（動画を撮るため）。
-    /// <paramref name="twoHanded"/> で握り方を振りの型と変えられる（両手の振りを片手で振ると、など）。
+    /// <paramref name="twoHanded"/> で握り方を振りの型と変えられる（両手の振りを片手で振ると、など）。<paramref name="gloves"/> が false なら
+    /// 両者ともボクセルのグローブをはめない（構えたグローブの詰め物が打撃を受け止めない）。
     /// </summary>
-    public static SwingResult Run(WeaponSwing swing, float range, Action<BoxingGame, float, bool>? afterStep = null, bool? twoHanded = null)
+    public static SwingResult Run(WeaponSwing swing, float range, Action<BoxingGame, float, bool>? afterStep = null, bool? twoHanded = null, bool gloves = true)
     {
         ArgumentNullException.ThrowIfNull(swing);
         var bot = new ClubBot([swing], seed: 1, range: range, rest: 1000f);
-        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => bot, PlayerWeapon: WeaponKind.WoodenClub, PlayerTwoHanded: twoHanded ?? swing.TwoHanded));
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => bot, PlayerWeapon: WeaponKind.WoodenClub, PlayerTwoHanded: twoHanded ?? swing.TwoHanded, VoxelGloves: gloves));
         var club = game.WeaponOf(game.Player)!;
         var tip = Weapon.TipOf(club.Kind);
         var concussionBefore = 0f;

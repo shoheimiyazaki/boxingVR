@@ -26,6 +26,12 @@ public enum WeaponKind
     /// ロングソード（両手）: まっすぐな両刃の刀身（菱形の断面）、十字の鍔、長い握り、柄頭。右手は鍔のすぐ下、左手は柄頭の手前を握る。
     /// </summary>
     Longsword,
+
+    /// <summary>
+    /// ボクシンググローブ: 拳を包む球。表は革（コーナーの色）、中は詰め物（発泡材）、芯は拳（骨）。拳（前腕の先）に付けて打つ。
+    /// 当たりは武器と同じ圧力のモデルで、詰め物が広い面でたわんで衝撃を和らげる。
+    /// </summary>
+    Glove,
 }
 
 /// <summary>
@@ -61,10 +67,16 @@ public sealed class Weapon
     /// <summary>
     /// 武器を <paramref name="world"/> に置く。質量はボクセルの材質の密度 × 体積の合計（剛体の箱は格子の大きさ）。
     /// </summary>
-    public static Weapon Create(PhysicsWorld world, WeaponKind kind, Vector3 position, Quaternion orientation)
+    public static Weapon Create(PhysicsWorld world, WeaponKind kind, Vector3 position, Quaternion orientation) =>
+        Create(world, kind, Build(kind), position, orientation);
+
+    /// <summary>グローブを置く（表の革の材質 <paramref name="leather"/>: <see cref="BoxerAnatomy.RedGlove"/> か <see cref="BoxerAnatomy.BlueGlove"/>）。</summary>
+    public static Weapon CreateGlove(PhysicsWorld world, byte leather, Vector3 position, Quaternion orientation) =>
+        Create(world, WeaponKind.Glove, Glove(leather), position, orientation);
+
+    private static Weapon Create(PhysicsWorld world, WeaponKind kind, VoxelGrid grid, Vector3 position, Quaternion orientation)
     {
         ArgumentNullException.ThrowIfNull(world);
-        var grid = Build(kind);
         var mass = 0f;
         for (var m = 1; m < grid.Palette.Count; m++)
         {
@@ -83,6 +95,7 @@ public sealed class Weapon
         WeaponKind.IronSword => new Vector3((GuardFrom + PommelAt) * 0.5f, 0f, 0f),
         WeaponKind.WoodenClub => new Vector3(-ClubHalfLength + 0.015f, 0f, 0f),
         WeaponKind.Katana or WeaponKind.Longsword => TwoHandGripsOf(kind).Top,
+        WeaponKind.Glove => Vector3.Zero, // 拳はグローブの真ん中
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
 
@@ -123,6 +136,7 @@ public sealed class Weapon
         WeaponKind.WoodenClub => new Vector3(ClubHalfLength - 0.01f, 0f, 0f),
         WeaponKind.Katana => new Vector3(KatanaHalfLength, KatanaSori, 0f),
         WeaponKind.Longsword => new Vector3(LongHalfLength, 0f, 0f),
+        WeaponKind.Glove => new Vector3(GloveRadius, 0f, 0f),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
 
@@ -133,6 +147,7 @@ public sealed class Weapon
         WeaponKind.WoodenClub => Club(),
         WeaponKind.Katana => Katana(),
         WeaponKind.Longsword => Longsword(),
+        WeaponKind.Glove => Glove(BoxerAnatomy.RedGlove),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
 
@@ -321,6 +336,24 @@ public sealed class Weapon
             }
 
             return (p.Y * p.Y) + (p.Z * p.Z) <= LongGripRadius * LongGripRadius ? BoxerAnatomy.Wood : (byte)0;
+        });
+    }
+
+    // ── ボクシンググローブ（人形の縮尺: 半径 2.4 cm = 試合のグローブの球の大きさ）。4 mm のセル（刃の無い広い面なので粗くてよい。
+    // 2 mm では、構えて触れ合っている間の接触の計算が重すぎた）。
+    private const float GloveRadius = 0.024f;
+    private const float GloveCell = 0.004f;
+    private const float GloveLeather = 0.004f;
+    private const float GloveFist = 0.012f;
+
+    /// <summary>グローブ: 半径 <see cref="GloveRadius"/> の球。外側 <see cref="GloveLeather"/> は革、その内は詰め物、芯（半径 <see cref="GloveFist"/>）は拳（骨）。</summary>
+    public static VoxelGrid Glove(byte leather)
+    {
+        var half = new Vector3(GloveRadius);
+        return new VoxelGrid(BoxerAnatomy.Palette, half, GloveCell, (p, _) =>
+        {
+            var r = p.Length();
+            return r > GloveRadius ? (byte)0 : r > GloveRadius - GloveLeather ? leather : r > GloveFist ? BoxerAnatomy.Padding : BoxerAnatomy.Bone;
         });
     }
 }

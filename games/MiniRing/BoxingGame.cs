@@ -27,7 +27,7 @@ public delegate IFighterControl ControlFactory(int roundSeed);
 /// <para><paramref name="CpuWeapon"/> / <paramref name="PlayerWeapon"/> を渡すと、その側はラウンドの初めから右手のグローブを外し、
 /// その武器を握って立つ（<see cref="Fighter.Wield"/>）。</para>
 public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFactory? Player = null, string? CpuStyleJson = null,
-    Weapons.WeaponKind? CpuWeapon = null, Weapons.WeaponKind? PlayerWeapon = null, bool CpuTwoHanded = false, bool PlayerTwoHanded = false)
+    Weapons.WeaponKind? CpuWeapon = null, Weapons.WeaponKind? PlayerWeapon = null, bool CpuTwoHanded = false, bool PlayerTwoHanded = false, bool VoxelGloves = true)
 {
     /// <summary>ゲームの既定の CPU。</summary>
     public static BoxingCorners Default => Bots.BotCatalog.Corners(Bots.BotCatalog.DefaultCpu);
@@ -297,7 +297,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         foreach (var hand in Hands)
         {
             // 切り落とされた腕（落ちていく破片）は打撃に数えない。
-            if (attacker.ArmSevered(hand) || attacker.Wields(hand) || attacker.ForearmId(hand) != attackerBody || _hitCooldown[(attacker, hand)] > 0f)
+            // ボクセルのグローブをはめた手の打撃は、グローブのボクセルの接触で数える（BoxingGame.Punch）。
+            if (attacker.ArmSevered(hand) || attacker.Wields(hand) || attacker.WearsGlove(hand) || attacker.ForearmId(hand) != attackerBody || _hitCooldown[(attacker, hand)] > 0f)
             {
                 continue;
             }
@@ -365,7 +366,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         return push;
     }
 
-    internal void ApplyHit(HitEvent hit, int victimBody, Vector3 gloveVelocity)
+    /// <param name="hit">打撃。</param>
+    /// <param name="victimBody">打たれた部位の剛体。</param>
+    /// <param name="gloveVelocity">拳の速度（歩の前）。</param>
+    /// <param name="carve">拳の運動エネルギーで当たった所を掘るか（素手の拳の近道）。ボクセルのグローブの打撃は、接触そのものが壊した分だけなので false。</param>
+    /// <param name="alsoTwist">物理の接触が頭を回した分（グローブのボクセルの接触の力積）。</param>
+    internal void ApplyHit(HitEvent hit, int victimBody, Vector3 gloveVelocity, bool carve = true, Vector3 alsoTwist = default)
     {
         if (RoundOver)
         {
@@ -383,14 +389,23 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 同じ運動量の反作用を打った側の全身へ返す（運動量は湧かない）。
         var extraMass = hit.ImpactMass - hit.Attacker.ArmMass(hit.Hand);
         var push = extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f
-            ? CarryBody(hit.Attacker, victim, victimBody, hit.Point, Vector3.Normalize(gloveVelocity) * (extraMass * hit.Speed * KnockbackTransfer), hit.Speed, Vector3.Zero)
+            ? CarryBody(hit.Attacker, victim, victimBody, hit.Point, Vector3.Normalize(gloveVelocity) * (extraMass * hit.Speed * KnockbackTransfer), hit.Speed, alsoTwist)
             : Vector3.Zero;
+        if (!carve)
+        {
+            // グローブの打撃: 壊れたボクセルは接触が散らす（Shatter）。ここは当たった光だけ。
+            ImpactFlash(hit.Point, gloveVelocity, HitStrength(hit.Damage), hit.Attacker);
+        }
+
 
         // 削る量は打撃そのものの強さ（部位の倍率を外したダメージ）。得点ではガードの上は 0.25 倍に割り引くが、
         // 受けた腕にかかる衝撃は同じ: ブロックし続けた腕は削れていく。破片は、のけぞる体の動き（push）に乗って流れる。
         // 削る量は拳の運動エネルギー（½ m v²）に比例: 体重の乗った速い 1 発ほど急に深く掘れる（非線形）。
         var energy = 0.5f * hit.ImpactMass * hit.Speed * hit.Speed * PunchMechanics.Sharpness(hit.Speed);
-        Strike(victim, victimBody, hit.Point, gloveVelocity, hit.Damage / ZoneDamage.Multiplier(hit.Zone), hit.Attacker, push, MathF.Min(_tuning.MaxCarve, energy * _tuning.CarvePerJoule));
+        if (carve)
+        {
+            Strike(victim, victimBody, hit.Point, gloveVelocity, hit.Damage / ZoneDamage.Multiplier(hit.Zone), hit.Attacker, push, MathF.Min(_tuning.MaxCarve, energy * _tuning.CarvePerJoule));
+        }
 
         _recentHits.Add(hit);
         LastHit = hit;
@@ -717,6 +732,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         CpuSkin = new BoxerSkin(_model, Cpu, _tuning);
         _fighters = [Player, Cpu];
         _wielders.Clear();
+        _wieldHand.Clear();
         _weaponCooldown.Clear();
         _selfCooldown.Clear();
         if (_corners.PlayerWeapon is { } playerWeapon)
@@ -727,6 +743,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         if (_corners.CpuWeapon is { } cpuWeapon)
         {
             Arm(Cpu, cpuWeapon, _corners.CpuTwoHanded);
+        }
+
+        if (_corners.VoxelGloves)
+        {
+            Glove(Player);
+            Glove(Cpu);
         }
 
         _cpuControl = _corners.Cpu(_seed + _round);

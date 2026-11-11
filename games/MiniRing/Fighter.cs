@@ -162,7 +162,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 7; // 7: 両手の武器を片手で持つと手首のバネが 1/3（握った武器・ボクセルの武器）
+    public const int PhysicsVersion = 8; // 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -375,7 +375,10 @@ public sealed class Fighter
     public bool IsHolding(Hand hand) => _arms[(int)hand].GrabConstraint is not null;
 
     /// <summary>その手が武器を握っている（グローブは外している）。</summary>
-    public bool Wields(Hand hand) => _arms[(int)hand].Held is not null || _arms[(int)hand].Support is not null;
+    public bool Wields(Hand hand) => (_arms[(int)hand].Held is not null && !_arms[(int)hand].Glove) || _arms[(int)hand].Support is not null;
+
+    /// <summary>その手がボクセルのグローブ（<see cref="Weapons.WeaponKind.Glove"/>）をはめている。</summary>
+    public bool WearsGlove(Hand hand) => _arms[(int)hand].Held is not null && _arms[(int)hand].Glove;
 
     /// <summary>
     /// 両手で握っているなら、<paramref name="main"/>（武器を握った利き手）に添えて同じ武器を握っているもう一方の手（握れていなければ null）。
@@ -395,7 +398,11 @@ public sealed class Fighter
     /// 武器の向きを <see cref="HandCommand.Orientation"/> へ回す。腕は拳の目標へ、前腕と武器を合わせた重さを引く。
     /// 武器と自分の体は物理の箱ではぶつからない（ボクセルの当たりも、握った本人の体は除く: 呼び出し側）。
     /// </summary>
-    internal void Wield(Hand hand, int body, Vector3 gripLocal)
+    /// <param name="hand">握る手。</param>
+    /// <param name="body">武器の剛体。</param>
+    /// <param name="gripLocal">握る所（武器のローカル）。</param>
+    /// <param name="glove">はめるグローブ（武器と同じに拳へ付けるが、握るのではない: 素手にはならない）。</param>
+    internal void Wield(Hand hand, int body, Vector3 gripLocal, bool glove = false)
     {
         var arm = _arms[(int)hand];
         if (arm.Severed || arm.Held is not null)
@@ -409,7 +416,8 @@ public sealed class Fighter
         }
 
         arm.Wield(_world, _tuning, body, gripLocal);
-        arm.Bare = true;
+        arm.Glove = glove;
+        arm.Bare |= !glove;
         arm.WristShare = 1f;
     }
 
@@ -1992,6 +2000,9 @@ public sealed class Fighter
 
         /// <summary>グローブを外した素手（武器を握った・添えた）。</summary>
         public bool Bare { get; set; }
+
+        /// <summary>拳に付けているのはボクセルのグローブ（握った武器ではない）。</summary>
+        public bool Glove { get; set; }
 
         /// <summary>
         /// 手首の角度のサーボの強さ: バネの固さ（∝ 周波数²）と出せるトルクに、<paramref name="scale"/>（肉の残り・意識）と

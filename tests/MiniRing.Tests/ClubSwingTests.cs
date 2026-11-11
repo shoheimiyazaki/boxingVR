@@ -40,8 +40,9 @@ public sealed class ClubSwingTests
     [TestMethod]
     public void AClubBlow_CrushesMoreOfTheBody_ThanAPunchCarvesAtMost()
     {
-        // 縦振りの出発点は胸に当たる。素の木の打撃は、拳の重い 1 発の上限（MaxCarve）より多くのセルを潰す。
-        var r = SwingTest.Run(WeaponSwing.Default(SwingFamily.Chop), 0.38f);
+        // 縦振りの出発点は胸に当たる。素の木の打撃は、拳の重い 1 発の上限（MaxCarve）より多くのセルを潰す（グローブ無しの相手: 構えた
+        // ボクセルのグローブの詰め物は、棍棒を受け止めて和らげる）。
+        var r = SwingTest.Run(WeaponSwing.Default(SwingFamily.Chop), 0.38f, gloves: false);
         Assert.IsTrue(r.Landed);
         Assert.IsGreaterThan(FighterTuning.Default.MaxCarve * 0.35f, r.Cells, "a hard club crushes the flesh it strikes");
     }

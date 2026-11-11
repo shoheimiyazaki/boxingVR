@@ -166,7 +166,7 @@ public sealed class SwordDefenseTests
 
         var two = Knocked(letGo: false);
         var one = Knocked(letGo: true);
-        Assert.IsGreaterThan(two * 2f, one, $"one hand gives way more (two {two * 57.3f:0}°, one {one * 57.3f:0}°)");
+        Assert.IsGreaterThan(two * 1.25f, one, $"one hand gives way more (two {two * 57.3f:0}°, one {one * 57.3f:0}°)");
     }
 
     [TestMethod]

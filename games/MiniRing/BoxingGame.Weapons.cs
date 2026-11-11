@@ -2,6 +2,8 @@ using System.Numerics;
 using Aigis.Foundation.Voxels;
 using Aigis.Physics;
 using Aigis.Physics.Voxels;
+using Aigis.Render.Voxels;
+using MiniRing.Audio;
 using MiniRing.Voxels;
 using MiniRing.Weapons;
 
@@ -18,6 +20,7 @@ public sealed partial class BoxingGame
     private readonly Dictionary<int, BodyState> _beforeStep = [];
     private readonly List<VoxelContactResult> _recentCuts = [];
     private readonly Dictionary<Weapon, Fighter> _wielders = [];
+    private readonly Dictionary<Weapon, Hand> _wieldHand = [];
     private readonly Dictionary<Weapon, float> _weaponCooldown = [];
     private readonly Dictionary<Weapon, float> _selfCooldown = [];
 
@@ -42,7 +45,33 @@ public sealed partial class BoxingGame
     public const Hand WeaponHand = Hand.Right;
 
     /// <summary><paramref name="fighter"/> が握っている武器（無ければ null）。</summary>
-    public Weapon? WeaponOf(Fighter fighter) => _wielders.FirstOrDefault(kv => kv.Value == fighter).Key;
+    public Weapon? WeaponOf(Fighter fighter) => _wielders.FirstOrDefault(kv => kv.Value == fighter && kv.Key.Kind != WeaponKind.Glove).Key;
+
+    /// <summary><paramref name="fighter"/> が手 <paramref name="hand"/> にはめているグローブ（はめていなければ null）。</summary>
+    public Weapon? GloveOf(Fighter fighter, Hand hand) =>
+        _wielders.FirstOrDefault(kv => kv.Value == fighter && kv.Key.Kind == WeaponKind.Glove && _wieldHand[kv.Key] == hand).Key;
+
+    /// <summary>
+    /// <paramref name="fighter"/> の、武器を握っていない手に、ボクセルのグローブ（<see cref="WeaponKind.Glove"/>、コーナーの色）をはめる。
+    /// 拳の打撃は、このグローブと相手の体のボクセル同士の接触（圧力のモデル）で起きる。
+    /// </summary>
+    public void Glove(Fighter fighter)
+    {
+        ArgumentNullException.ThrowIfNull(fighter);
+        foreach (var hand in Hands)
+        {
+            if (fighter.ArmSevered(hand) || fighter.Wields(hand) || fighter.WearsGlove(hand))
+            {
+                continue;
+            }
+
+            var glove = Weapon.CreateGlove(_world, fighter == Player ? BoxerAnatomy.RedGlove : BoxerAnatomy.BlueGlove, fighter.GloveCenter(hand), Quaternion.Identity);
+            Track(glove);
+            fighter.Wield(hand, glove.Body.BodyId, Weapon.GripOf(WeaponKind.Glove), glove: true);
+            _wielders[glove] = fighter;
+            _wieldHand[glove] = hand;
+        }
+    }
 
     /// <summary>両手持ちで、利き手に添えて下を握る手。</summary>
     public const Hand SupportHand = Hand.Left;
@@ -78,6 +107,7 @@ public sealed partial class BoxingGame
         }
 
         _wielders[weapon] = fighter;
+        _wieldHand[weapon] = WeaponHand;
         return weapon;
     }
 
@@ -97,7 +127,7 @@ public sealed partial class BoxingGame
         {
             var s = _world.GetState(weapon.Body.BodyId);
             var tip = s.Position + Vector3.Transform(Weapon.TipOf(weapon.Kind), s.Orientation);
-            blade = new BladeSense(true, opponent.GloveCenter(WeaponHand), tip, s.LinearVelocity + Vector3.Cross(s.AngularVelocity, tip - s.Position));
+            blade = new BladeSense(true, opponent.GloveCenter(HandOf(weapon)), tip, s.LinearVelocity + Vector3.Cross(s.AngularVelocity, tip - s.Position));
         }
 
         return sense with { OpponentBlade = blade, SelfArmed = WeaponOf(self) is { } mine && HolderOf(mine) == self };
@@ -105,7 +135,10 @@ public sealed partial class BoxingGame
 
     /// <summary>今その武器を手に握っているファイター（腕ごと落ちた・放した武器なら null）。</summary>
     private Fighter? HolderOf(Weapon weapon) =>
-        _wielders.TryGetValue(weapon, out var holder) && holder.WieldedBody(WeaponHand) == weapon.Body.BodyId ? holder : null;
+        _wielders.TryGetValue(weapon, out var holder) && holder.WieldedBody(HandOf(weapon)) == weapon.Body.BodyId ? holder : null;
+
+    /// <summary>その武器を握る（グローブをはめる）手。</summary>
+    private Hand HandOf(Weapon weapon) => _wieldHand.TryGetValue(weapon, out var hand) ? hand : WeaponHand;
 
     /// <summary>
     /// 握った手が武器を押し込む力 [N]（ワールド。握られていなければ 0）: この歩で腕が拳を目標へ押した力（両手なら 2 本の腕の和）。
@@ -114,18 +147,21 @@ public sealed partial class BoxingGame
     /// </summary>
     private Vector3 Drive(Weapon weapon)
     {
-        if (HolderOf(weapon) is not { } holder)
+        // グローブは押し込まない: 腕が押し付ける力は詰め物が広い面で受けて散らす（圧力のモデルは表の革の面だけを見るので、詰め物の
+        // 下で押す腕の力を数えると、構えたグローブを押し付けているだけで肌が削れてしまう）。
+        if (HolderOf(weapon) is not { } holder || weapon.Kind == WeaponKind.Glove)
         {
             return Vector3.Zero;
         }
 
-        var force = holder.HandPush(WeaponHand);
-        return holder.SupportOf(WeaponHand) is { } support ? force + holder.HandPush(support) : force;
+        var hand = HandOf(weapon);
+        var force = holder.HandPush(hand);
+        return holder.SupportOf(hand) is { } support ? force + holder.HandPush(support) : force;
     }
 
     /// <summary>部位 <paramref name="bodyId"/> が、<paramref name="fighter"/> の武器を握っている（添えに行っている）手の前腕か。</summary>
     private static bool IsGripping(Fighter fighter, int bodyId) =>
-        (fighter.Wields(WeaponHand) && fighter.ForearmId(WeaponHand) == bodyId) || (fighter.Wields(SupportHand) && fighter.ForearmId(SupportHand) == bodyId);
+        Hands.Any(h => (fighter.Wields(h) || fighter.WearsGlove(h)) && fighter.ForearmId(h) == bodyId);
 
     /// <summary>直近の <see cref="Step"/> で、握った武器が自分の体を打った打撃（得点にはならない。<see cref="WeaponHits"/> には入れない）。</summary>
     public List<WeaponHitEvent> SelfWeaponHits { get; } = [];
@@ -186,6 +222,20 @@ public sealed partial class BoxingGame
         }
     }
 
+    /// <summary>
+    /// 2 つのボクセルの体が、この歩の間に近づけるか（格子を囲む球同士の、歩の前と後の近い方の距離から、動いた分を引いて）。遠ければ接触を
+    /// 調べない（<see cref="VoxelContact.Resolve"/> の手前の安い振り分け。結果は変わらない: 球が離れていれば格子は触れない）。
+    /// </summary>
+    private bool MayTouch(VoxelBody a, BodyState aBefore, VoxelBody b, BodyState bBefore)
+    {
+        var aNow = _world.GetState(a.BodyId);
+        var bNow = _world.GetState(b.BodyId);
+        var reach = a.Grid.HalfExtents.Length() + b.Grid.HalfExtents.Length() + a.GridCenterLocal.Length() + b.GridCenterLocal.Length();
+        var moved = Vector3.Distance(aBefore.Position, aNow.Position) + Vector3.Distance(bBefore.Position, bNow.Position) + 0.01f;
+        var gap = MathF.Min(Vector3.Distance(aBefore.Position, bBefore.Position), Vector3.Distance(aNow.Position, bNow.Position));
+        return gap - moved <= reach;
+    }
+
     private static IEnumerable<VoxelPart> VoxelPartsOf(IEnumerable<Fighter> fighters) =>
         fighters.SelectMany(f => f.Voxels is { } body ? body.Parts.Concat(body.Fragments) : []);
 
@@ -230,7 +280,13 @@ public sealed partial class BoxingGame
             for (var j = i + 1; j < weapons.Count; j++)
             {
                 var other = weapons[j];
-                if (_beforeStep.TryGetValue(other.Body.BodyId, out var otherBefore))
+                // 同じ人の両手のグローブは打ち合わない（構えでいつも触れ合っている）。
+                if (weapon.Kind == WeaponKind.Glove && other.Kind == WeaponKind.Glove && HolderOf(weapon) is { } h && HolderOf(other) == h)
+                {
+                    continue;
+                }
+
+                if (_beforeStep.TryGetValue(other.Body.BodyId, out var otherBefore) && MayTouch(weapon.Body, before, other.Body, otherBefore))
                 {
                     Clash(weapon, other, VoxelContact.Resolve(weapon.Body, before, other.Body, otherBefore, Drive(weapon), Drive(other)));
                 }
@@ -242,7 +298,8 @@ public sealed partial class BoxingGame
                 // 握った本人の体にも当たる（振りかぶった棍棒が自分の頭を打つことも）。握っている手の前腕だけは除く: 拳と武器は
                 // 玉継手でつながっていて、握りはいつも前腕の先に触れている。
                 var holds = HolderOf(weapon) == fighter;
-                if (holds && !WeaponsHitHolder)
+                // グローブは自分の体を打たない（構えたグローブはいつも自分の顔に触れている。自分を殴る力は乗らない）。
+                if (holds && (!WeaponsHitHolder || weapon.Kind == WeaponKind.Glove))
                 {
                     continue;
                 }
@@ -254,7 +311,7 @@ public sealed partial class BoxingGame
                         continue;
                     }
 
-                    if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore))
+                    if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore) && MayTouch(weapon.Body, before, part.Body, partBefore))
                     {
                         Cut(weapon, fighter, part, VoxelContact.Resolve(weapon.Body, before, part.Body, partBefore, drive));
                     }
@@ -334,6 +391,21 @@ public sealed partial class BoxingGame
             contactTwist = Vector3.Cross(hit.Point - head.Position, hit.ImpulseOnB);
         }
 
+        // グローブの打撃は拳の打撃（パンチ）: 拳と同じ物差しで数え、体の重さを運ぶ。壊れるのはボクセル同士の接触が壊した分だけ。
+        if (weapon.Kind == WeaponKind.Glove)
+        {
+            if (!(part.FragmentOf is null && HolderOf(weapon) is { } puncher && puncher != victim && Punch(puncher, HandOf(weapon), victim, part, hit, contactTwist)))
+            {
+                if (contactTwist != Vector3.Zero && victim.State == FighterState.Standing)
+                {
+                    victim.TwistHead(contactTwist);
+                }
+            }
+
+            Shatter(hit, weapon.Body, -hit.Normal, part.Body, hit.Normal, fatal: false);
+            return;
+        }
+
         // 握った武器の打撃は、拳の打撃と同じく、拳の後ろの体の重さも運ぶ（武器は梃子で速さを、体は重さを足す）。1 振りに 1 度。
         var carried = false;
         if (!RoundOver && part.FragmentOf is null && HolderOf(weapon) is { } swinger && swinger != victim && victim.State == FighterState.Standing
@@ -341,11 +413,12 @@ public sealed partial class BoxingGame
         {
             var contactVelocity = weaponBefore.LinearVelocity + Vector3.Cross(weaponBefore.AngularVelocity, hit.Point - weaponBefore.Position);
             var contactSpeed = MathF.Max(0f, Vector3.Dot(contactVelocity, hit.Direction));
-            var fistVelocity = swinger.GloveVelocity(WeaponHand);
+            var swingHand = HandOf(weapon);
+            var fistVelocity = swinger.GloveVelocity(swingHand);
             var fistSpeed = MathF.Max(0f, Vector3.Dot(fistVelocity, hit.Direction));
             // 両手で握っていれば、添えた腕の重さも武器の後ろに乗る。
-            var extraMass = swinger.ImpactMass(WeaponHand, hit.Direction * fistSpeed, out _) - swinger.ArmMass(WeaponHand)
-                + (swinger.SupportOf(WeaponHand) is { } support ? swinger.ArmMass(support) : 0f);
+            var extraMass = swinger.ImpactMass(swingHand, hit.Direction * fistSpeed, out _) - swinger.ArmMass(swingHand)
+                + (swinger.SupportOf(swingHand) is { } support ? swinger.ArmMass(support) : 0f);
             if (contactSpeed >= MinimumBlowSpeed && extraMass > 0f)
             {
                 var momentum = hit.Direction * (extraMass * fistSpeed * KnockbackTransfer);
@@ -436,6 +509,39 @@ public sealed partial class BoxingGame
     }
 
     /// <summary>
+    /// グローブが相手の体に当たった: 拳の打撃（<see cref="HitEvent"/>）として数える。拳の速さ（歩の前）の、当たる向きの分が打撃の速さ、
+    /// 乗る質量は拳の有効質量（<see cref="Fighter.ImpactMass(Hand, Vector3)"/>）。ダメージが小さすぎる触れ合い・押し合いは数えない（拳の打撃と同じ）。
+    /// 体を削るのはボクセル同士の接触が壊した分だけ（エネルギーで掘る近道は使わない）。数えたら true。
+    /// </summary>
+    private bool Punch(Fighter attacker, Hand hand, Fighter victim, VoxelPart part, VoxelContactResult hit, Vector3 contactTwist)
+    {
+        if (RoundOver || victim.State != FighterState.Standing || _hitCooldown[(attacker, hand)] > 0f)
+        {
+            return false;
+        }
+
+        var velocity = _preStepGloveVelocity[(attacker, hand)];
+        var speed = MathF.Max(0f, Vector3.Dot(velocity, hit.Direction));
+        if (speed <= 0f)
+        {
+            return false;
+        }
+
+        var impactMass = attacker.ImpactMass(hand, velocity, out var bodyShare);
+        var (kind, normalized, armHand) = victim.Locate(part.Body.BodyId, hit.Point);
+        var zone = HitZones.Classify(kind, normalized, armHand.LocalSide());
+        var damage = PunchMechanics.Damage(impactMass * speed) * PunchMechanics.Sharpness(speed) * ZoneDamage.Multiplier(zone);
+        if (damage < MinimumDamage)
+        {
+            return false;
+        }
+
+        _hitCooldown[(attacker, hand)] = RehitCooldown;
+        ApplyHit(new HitEvent(attacker, hand, victim, zone, hit.Point, speed, impactMass, bodyShare, damage), part.Body.BodyId, velocity, carve: false, alsoTwist: contactTwist);
+        return true;
+    }
+
+    /// <summary>
     /// 刃が振り抜けた所の、斬った側の動き: 当たった所の刃の速さ（打たれた部位に対して、歩の前の姿勢から）と、刃の向き（ワールド）。
     /// </summary>
     private (Vector3 Swing, Vector3 Blade) SwingAt(Weapon weapon, VoxelBody struck, Vector3 point)
@@ -471,7 +577,7 @@ public sealed partial class BoxingGame
     /// <summary>
     /// 接触で壊れたセルを、その材質の色の破片にして飛ばす（体の削れと同じ <see cref="SpawnDebris"/>）。破片は壊れた側の面から外へ、
     /// 切る向きに流れて飛ぶ。砕ける音の粒も 1 セル 1 粒。
-    /// 刃のある武器（<c>blade</c>）が体を斬ったときは、体の破片を振り抜けた向きへ飛ばす（<see cref="AddSprayChips"/>）。
+    /// 刃のある武器（<c>blade</c>）が体を斬ったときは、体の破片を振り抜けた向きへ飛ばす（<see cref="SliceOff"/>）。
     /// </summary>
     private void Shatter(VoxelContactResult hit, VoxelBody a, Vector3 outOfA, VoxelBody b, Vector3 outOfB, bool fatal, Weapon? blade = null)
     {
@@ -485,31 +591,41 @@ public sealed partial class BoxingGame
         var chipSpeed = _tuning.ChipSpeed * (0.5f + (1.3f * strength));
         _chips.Clear();
         AddChips(a, hit.RemovedA, outOfA, hit.Direction, chipSpeed);
+        var materials = new List<byte>();
         if (blade is not null)
         {
+            // 刃で斬った体: つながって剥がれた所は塊で、振り抜けた向きへ（SliceOff）。武器の側の欠片だけ、ふつうに散らす。
             var (swing, axis) = SwingAt(blade, b, hit.Point);
-            AddSprayChips(b, hit.RemovedB, swing, axis, outOfB, chipSpeed);
+            SliceOff(b, hit.RemovedB, swing, axis, outOfB, chipSpeed);
+            materials.AddRange(hit.RemovedB.Select(v => v.Material));
+            if (_chips.Count > 0)
+            {
+                SpawnDebris(_chips, hit.Point, hit.Direction, strength, attacker: null, recoil: Vector3.Zero);
+            }
         }
         else
         {
             AddChips(b, hit.RemovedB, outOfB, hit.Direction, chipSpeed);
+            SpawnDebris(_chips, hit.Point, hit.Direction, strength, attacker: null, recoil: Vector3.Zero);
         }
-        SpawnDebris(_chips, hit.Point, hit.Direction, strength, attacker: null, recoil: Vector3.Zero);
-        var grains = new ShatterGrain[_chips.Count];
+
+        materials.AddRange(_chips.Select(c => c.Material));
+        var grains = new ShatterGrain[materials.Count];
         for (var i = 0; i < grains.Length; i++)
         {
-            grains[i] = new ShatterGrain(_chips[i].Material, MathF.Min(0.3f, (i * 0.0035f) + (0.002f * (1f + Jitter()))));
+            grains[i] = new ShatterGrain(materials[i], MathF.Min(0.3f, (i * 0.0035f) + (0.002f * (1f + Jitter()))));
         }
 
         _recentShatters.Add(new ShatterEvent(hit.Point, grains, fatal));
     }
 
     /// <summary>
-    /// 刃で斬られた欠片: 刃が振り抜けた向き（<paramref name="swing"/>）へ、その速さの一部をもらって飛ぶ。刃の向き（<paramref name="blade"/>）に沿って
-    /// 扇に広がり（刃の長さに沿って斬れた肉が、刃の通った面に沿ってしぶく）、面から外へは少しだけ。拳の削れ（面から外へ放射状に散る）とは
-    /// 違い、細く長い一筋のしぶきになる。速さの割合は欠片ごとにばらつき、速いものほど遠くへ。
+    /// 刃のひと太刀で剥がれたボクセル: 格子の上で面でつながっているものは 1 つの塊になって剥がれ、刃が振り抜けた向き（<paramref name="swing"/>）へ、
+    /// 刃の速さの一部をもらって飛ぶ（向きのばらつきは小さく: 刃の面に沿って ±10°、面の外へは ±4°）。塊は刃の進む向きへ前転するように回る。
+    /// 1 つだけで剥がれたボクセルと、塊の縁から少しだけ欠ける細かい欠片は、同じ向きへ、少し速く。血は塊から振り抜けた向きへ垂れる。
+    /// 拳の削れのような放射状の散り方・当たった所の光の輪はない。
     /// </summary>
-    private void AddSprayChips(VoxelBody body, IReadOnlyList<RemovedVoxel> removed, Vector3 swing, Vector3 blade, Vector3 outward, float chipSpeed)
+    private void SliceOff(VoxelBody body, IReadOnlyList<RemovedVoxel> removed, Vector3 swing, Vector3 blade, Vector3 outward, float chipSpeed)
     {
         if (removed.Count == 0)
         {
@@ -517,28 +633,95 @@ public sealed partial class BoxingGame
         }
 
         var speed = swing.Length();
-        if (speed < 0.2f)
-        {
-            AddChips(body, removed, outward, -outward, chipSpeed);
-            return;
-        }
-
-        var dir = swing / speed;
-        // 刃の向きのうち、振りの向きに直角な分（斬った線）。
+        var dir = speed > 0.2f ? swing / speed : -outward;
         var across = blade - (Vector3.Dot(blade, dir) * dir);
         across = across.LengthSquared() > 1e-6f ? Vector3.Normalize(across) : Vector3.Normalize(Vector3.Cross(dir, outward) + new Vector3(1e-4f));
         var side = Vector3.Cross(dir, across);
         var s = _world.GetState(body.BodyId);
         var toWorld = body.GridToWorld(s);
-        foreach (var v in removed)
+        var cell = body.Grid.CellSize;
+        var fling = MathF.Max(chipSpeed, speed * SprayShare);
+        Vector3 Heading(float spreadAcross, float spreadSide) => Vector3.Normalize(dir + (across * (spreadAcross * Jitter())) + (side * (spreadSide * Jitter())));
+        Vector3 PointVelocity(Vector3 p) => s.LinearVelocity + Vector3.Cross(s.AngularVelocity, p - s.Position);
+
+        // 面でつながったものを 1 つにまとめる（格子の上の整数の座標で、6 近傍）。
+        var keys = removed.Select(v => (X: (int)MathF.Round(v.LocalCenter.X / cell.X), Y: (int)MathF.Round(v.LocalCenter.Y / cell.Y), Z: (int)MathF.Round(v.LocalCenter.Z / cell.Z))).ToArray();
+        var index = new Dictionary<(int X, int Y, int Z), int>();
+        for (var i = 0; i < keys.Length; i++)
         {
-            var position = Vector3.Transform(v.LocalCenter, toWorld);
-            // 振り抜けた向きへ、刃の速さの SprayShare 倍ほど（1 割〜 2 倍のばらつき）。扇は刃に沿って ±35°、面の外へは ±8°。
-            var share = SprayShare * (0.55f + (0.45f * Jitter()));
-            var heading = dir + (across * (0.7f * Jitter())) + (side * (0.14f * Jitter()));
-            var velocity = s.LinearVelocity + Vector3.Cross(s.AngularVelocity, position - s.Position)
-                + (Vector3.Normalize(heading) * MathF.Max(chipSpeed, speed * share));
-            _chips.Add(new VoxelChip(position, velocity, s.Orientation, body.Grid.CellSize, v.Material, v.WasSurface));
+            index.TryAdd(keys[i], i);
+        }
+
+        var group = new int[keys.Length];
+        Array.Fill(group, -1);
+        var groups = new List<List<int>>();
+        for (var i = 0; i < keys.Length; i++)
+        {
+            if (group[i] >= 0)
+            {
+                continue;
+            }
+
+            var members = new List<int> { i };
+            group[i] = groups.Count;
+            for (var m = 0; m < members.Count; m++)
+            {
+                var (x, y, z) = keys[members[m]];
+                foreach (var n in new[] { (x + 1, y, z), (x - 1, y, z), (x, y + 1, z), (x, y - 1, z), (x, y, z + 1), (x, y, z - 1) })
+                {
+                    if (index.TryGetValue(n, out var j) && group[j] < 0)
+                    {
+                        group[j] = groups.Count;
+                        members.Add(j);
+                    }
+                }
+            }
+
+            groups.Add(members);
+        }
+
+        var palette = BoxerAnatomy.Palette;
+        foreach (var members in groups)
+        {
+            var center = members.Aggregate(Vector3.Zero, (sum, i) => sum + removed[i].LocalCenter) / members.Count;
+            var position = Vector3.Transform(center, toWorld);
+            var velocity = PointVelocity(position) + (Heading(0.18f, 0.07f) * fling * (0.8f + (0.3f * Jitter())));
+            if (members.Count == 1)
+            {
+                Single(removed[members[0]], position, velocity, 1f);
+                continue;
+            }
+
+            var cells = members.Select(i =>
+            {
+                var v = removed[i];
+                var material = palette[v.Material];
+                return new DebrisCell(v.LocalCenter - center, v.WasSurface ? material.SurfaceColor : material.Color, 0);
+            }).ToArray();
+            // 刃の進む向きへ前転する（刃は塊の、刃に近い側を押し出す）。
+            var spin = Vector3.Cross(outward, dir) * (speed * 25f);
+            _debris.SpawnChunk(position, velocity, s.Orientation, cell, cells, spin, tag: removed[members[0]].Material);
+            // 塊の縁から欠ける細かい欠片（塊 4 つに 1 つ、多くて 3 つ）と、肉からの血。
+            for (var k = 0; k < Math.Min(3, members.Count / 4); k++)
+            {
+                Single(removed[members[k * members.Count / 3 % members.Count]], position, PointVelocity(position) + (Heading(0.25f, 0.1f) * fling * 1.15f), 0.5f);
+            }
+
+            var flesh = members.Count(i => palette[removed[i].Material].Tissue is VoxelTissue.Flesh or VoxelTissue.Organ);
+            for (var k = 0; k < Math.Min(4, flesh / 3); k++)
+            {
+                _debris.Spawn(position, PointVelocity(position) + (Heading(0.2f, 0.1f) * fling * (0.9f + (0.2f * Jitter()))), s.Orientation, cell * 0.35f,
+                    new Vector3(Jitter(), Jitter(), Jitter()) * 40f, BloodColor, life: 2.2f, tag: VoxelBreakSound.BloodTag);
+            }
+        }
+
+        void Single(RemovedVoxel v, Vector3 at, Vector3 velocity, float size)
+        {
+            var material = palette[v.Material];
+            var color = material.Tissue == VoxelTissue.Organ ? OrganSpark : v.WasSurface ? material.SurfaceColor : material.Color;
+            var trail = material.Tissue == VoxelTissue.Bone ? BoneTrail : ChipTrail;
+            _debris.Spawn(at, velocity, s.Orientation, cell * (0.9f * size), new Vector3(Jitter(), Jitter(), Jitter()) * 30f, color, glow: material.Tissue == VoxelTissue.Organ,
+                tag: v.Material, heat: ChipHeat, trail: trail, ownColor: true);
         }
     }
 

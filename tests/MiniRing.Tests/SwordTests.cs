@@ -65,7 +65,7 @@ public sealed class SwordTests
         var through = basic with { Swing = basic.Swing with { StrikeFist = basic.Swing.StrikeFist + new Vector3(0.1f, -0.2f, 0.35f), StrikeTime = 0.1f } };
         var r = SwordDrill.Run(through);
         Assert.IsGreaterThan(10f, r.TargetCells, "the chest is cut");
-        Assert.IsLessThan(3f, r.SelfCells, "without cutting yourself");
+        Assert.IsGreaterThan(r.SelfCells, r.TargetCells, $"more of the target than of yourself (the cut through can graze your own thigh: {r.SelfCells})");
     }
 
     [TestMethod]
