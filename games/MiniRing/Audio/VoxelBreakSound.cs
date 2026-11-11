@@ -104,7 +104,7 @@ public static class VoxelBreakSound
     public static GrainKind KindOf(byte material) => material switch
     {
         BoxerAnatomy.Skin or BoxerAnatomy.RedTrunks or BoxerAnatomy.BlueTrunks or BoxerAnatomy.Waistband or BoxerAnatomy.Boot => GrainKind.Skin,
-        BoxerAnatomy.Bone => GrainKind.Bone,
+        BoxerAnatomy.Bone or BoxerAnatomy.Iron or BoxerAnatomy.Wood => GrainKind.Bone,
         BoxerAnatomy.Brain => GrainKind.Brain,
         BoxerAnatomy.Heart or BoxerAnatomy.Lung or BoxerAnatomy.Liver or BoxerAnatomy.Gut => GrainKind.Organ,
         BoxerAnatomy.Eye => GrainKind.Eye,

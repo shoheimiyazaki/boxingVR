@@ -17,8 +17,12 @@ public static class HandExtensions
     public static float LocalSide(this Hand hand) => hand == Hand.Left ? 1f : -1f;
 }
 
-/// <summary>片手ぶんの指令。目標はファイターの体フレーム（肩中心・向きヨー）のローカル座標 [m]。</summary>
-public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip);
+/// <summary>
+/// 片手ぶんの指令。目標はファイターの体フレーム（肩中心・向きヨー）のローカル座標 [m]。
+/// <paramref name="Orientation"/> は、その手が武器を握っているときの武器の向きの目標（武器のローカル軸 → 体フレームの回転。武器の
+/// ローカル X が打つ側の先）。拳が位置の目標へバネで引かれるのと同じく、手首の筋肉が武器をこの向きへバネで回す。null なら前腕に沿わせる。
+/// </summary>
+public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, Quaternion? Orientation = null);
 
 /// <summary>
 /// 1 ステップ分の操作指令 — 入力元（VR / キーボード / AI）とラグドールの唯一の契約。
@@ -43,6 +47,12 @@ public readonly record struct FighterCommand(Vector3 MoveWorld, Vector3 FaceDire
     }
 }
 
+/// <summary>
+/// 相手が握っている武器の見え方（ワールド座標）: 握り（鍔の側の手）・先の位置と、先の速度。<paramref name="Present"/> が false なら
+/// 相手は武器を握っていない。剣士は相手の剣先の動きを見て、受ける・外す。
+/// </summary>
+public readonly record struct BladeSense(bool Present, Vector3 Hilt, Vector3 Tip, Vector3 TipVelocity);
+
 /// <summary>拳 1 つの見え方（ワールド座標の位置と速度）。</summary>
 public readonly record struct GloveSense(Vector3 Position, Vector3 Velocity);
 
@@ -60,11 +70,14 @@ public readonly record struct BodySense(Vector3 LeftShoulder, Vector3 RightShoul
 /// <para>SelfHead と相手の拳（<paramref name="OpponentLeft"/> / <paramref name="OpponentRight"/>）は、ボットが飛んでくる拳を
 /// 見て守るためのもの（ブロック・ダッキング・スリップ・スウェー）。<paramref name="OpponentVelocity"/> は相手の胴の速度で、
 /// 拳の動きから歩く動きを差し引いて「パンチの動き出し」を見るのに使う。<paramref name="OpponentBody"/> は相手の両肩と腰
-/// （打つ前の体の動きを読むため。見えないホストでは既定値）。<paramref name="SelfFaintness"/> は自分の意識が薄れた度合い（<see cref="Fighter.Faintness"/>、0..1）。</para></summary>
+/// （打つ前の体の動きを読むため。見えないホストでは既定値）。<paramref name="SelfFaintness"/> は自分の意識が薄れた度合い（<see cref="Fighter.Faintness"/>、0..1）。</para>
+/// <para><paramref name="OpponentBlade"/> は相手の握った武器の見え方、<paramref name="SelfArmed"/> は自分が武器を握っているか（null は分からない:
+/// 武器を扱わない入力元のため）。武器を落とした剣士は拳で戦う（<see cref="Bots.DisarmedFallback"/>）。</para>
+/// </summary>
 public readonly record struct FighterSense(
     BodyFrame Self, float ArmReach, Vector3 OpponentHead, Vector3 OpponentChest, bool OpponentAlive,
     Vector3 SelfHead = default, GloveSense OpponentLeft = default, GloveSense OpponentRight = default, Vector3 OpponentVelocity = default,
-    BodySense OpponentBody = default, float SelfFaintness = 0f)
+    BodySense OpponentBody = default, float SelfFaintness = 0f, BladeSense OpponentBlade = default, bool? SelfArmed = null)
 {
     public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
 }

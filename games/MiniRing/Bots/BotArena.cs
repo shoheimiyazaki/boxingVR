@@ -1,7 +1,10 @@
 namespace MiniRing.Bots;
 
-/// <summary>対戦に出すボット: 名前と、ラウンドごとに新しい操作元を作る関数。</summary>
-public sealed record Contender(string Name, Func<int, IFighterControl> Create)
+/// <summary>
+/// 対戦に出すボット: 名前と、ラウンドごとに新しい操作元を作る関数。<paramref name="Weapon"/> を渡すと右手に武器を握って戦う
+/// （<paramref name="TwoHanded"/> なら左手を添えて両手で）。
+/// </summary>
+public sealed record Contender(string Name, Func<int, IFighterControl> Create, Weapons.WeaponKind? Weapon = null, bool TwoHanded = false)
 {
     public static Contender Of(BotStyle style)
     {
@@ -55,8 +58,9 @@ public static class BotArena
         var redBots = new List<IFighterControl>();
         var blueBots = new List<IFighterControl>();
         var corners = new BoxingCorners(spec.Blue.Name,
-            seed => Track(blueBots, spec.Blue.Create(seed)),
-            seed => Track(redBots, spec.Red.Create(seed)));
+            seed => Track(blueBots, Fallback(spec.Blue, seed)),
+            seed => Track(redBots, Fallback(spec.Red, seed)), CpuWeapon: spec.Blue.Weapon, PlayerWeapon: spec.Red.Weapon,
+            CpuTwoHanded: spec.Blue.TwoHanded, PlayerTwoHanded: spec.Red.TwoHanded);
         using var game = new BoxingGame(tuning, spec.Seed, corners);
 
         var red = new Tally();
@@ -69,6 +73,15 @@ public static class BotArena
         {
             game.Step(default, StepDt);
             foreach (var hit in game.RecentHits)
+            {
+                var tally = hit.Attacker == game.Player ? red : blue;
+                tally.Damage += hit.Damage;
+                tally.Landed++;
+                tally.Clean += hit.Zone != HitZone.Guard ? 1 : 0;
+            }
+
+            // 武器の打撃も拳と同じ物差しのダメージで数える。
+            foreach (var hit in game.WeaponHits)
             {
                 var tally = hit.Attacker == game.Player ? red : blue;
                 tally.Damage += hit.Damage;
@@ -143,6 +156,13 @@ public static class BotArena
         return bot;
     }
 
+    /// <summary>武器で戦うボットは、武器を落としたら拳で戦う（<see cref="DisarmedFallback"/>）。</summary>
+    private static IFighterControl Fallback(Contender contender, int seed)
+    {
+        var control = contender.Create(seed);
+        return contender.Weapon is null ? control : DisarmedFallback.WithFists(control, seed);
+    }
+
     private sealed class Tally
     {
         public float Damage;
@@ -153,7 +173,7 @@ public static class BotArena
         public CornerResult Result(int roundsWon, IEnumerable<IFighterControl> bots)
         {
             var stats = new BotStats();
-            foreach (var bot in bots.OfType<BoxerBot>())
+            foreach (var bot in bots.SelectMany(b => b is DisarmedFallback f ? new[] { f.Armed, f.Fists } : [b]).OfType<BoxerBot>())
             {
                 stats.Merge(bot.Stats);
             }
@@ -202,5 +222,4 @@ public sealed record Standing(string Name, int Bouts, int Wins, int Draws, int L
             RoundsWon = s.RoundsWon + own.RoundsWon,
             Knockdowns = s.Knockdowns + own.Knockdowns,
         };
-    }
-}
+    }}

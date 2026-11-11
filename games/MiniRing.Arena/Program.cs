@@ -16,6 +16,14 @@ using MiniRing.Bots;
 //                                                                                   回避の基本動作の最適化（1 つの型だけを打たせて、外す形を磨く）
 //   video [--red A] [--blue B] [--seed X] [--seconds S] [--width W --height H --fps F] [--out file.mp4]
 //                                                                                   ボット同士の試合を字幕・打撃音つきの mp4 に（ffmpeg が必要）
+//   weaponlab [--out file.mp4] [--table file.md] [--width W --height H --fps F] [--slow X] [--video on|off]
+//                                                                                   武器の実験場: 鉄の剣と木の棍棒で斬る・打つ・突く・打ち合う（スロー動画と結果の表）
+//   sparlab [--gens G] [--lambda L] [--bouts N] [--seconds S] [--seed X] [--start techniques.json] [--best style.json] [--out report.md]
+//           [--final-bouts N] [--final-seconds S] [--video f.mp4]
+//   swordlab [--gens G] [--lambda L] [--seed X] [--bouts N] [--seconds S] [--out report.md] [--best techniques.json] [--techniques kote,men]
+//            [--fight only] [--video f.mp4]
+//   swinglab [--gens G] [--lambda L] [--seed X] [--bouts N] [--seconds S] [--out report.md] [--best swings.json] [--video f.mp4]
+//                                                                                   棍棒の振りの研究（型ごとに威力を進化戦略で上げ、要素を外して比べ、拳のボットと戦わせる）
 // ボットは名前（legacy, boxer, outboxer, swarmer, counter, slugger, champion）か、スタイルの JSON ファイルのパス。
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 var argv = args.Length == 0 ? ["league"] : args;
@@ -30,6 +38,13 @@ try
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
+        "swordlib" => SwordLibCommand(Options.Parse(argv[1..], "out", "best", "bouts", "seconds", "seed", "fight", "video", "red", "blue")),
+        "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead")),
+        "mocap" => MocapCommand(Options.Parse(argv[1..], "bvh", "out", "from", "to", "speed", "width", "height", "fps", "strikes")),
+        "sparlab" => SparLabCommand(Options.Parse(argv[1..], "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out", "final-bouts", "final-seconds", "video", "width", "height", "fps")),
+        "swordlab" => SwordLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "techniques")),
+        "swinglab" => SwingLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "families")),
+        "weaponlab" => WeaponLabCommand(Options.Parse(argv[1..], "out", "table", "width", "height", "fps", "slow", "video")),
         "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard")),
         _ => Usage($"知らないコマンド: {command}"),
     };
@@ -267,6 +282,228 @@ static DefenseMove LoadMove(string path)
 
 static DefenseBook LoadBook(string? path) => path is null ? DefenseBook.Default
     : (System.Text.Json.JsonSerializer.Deserialize<DefenseBook>(File.ReadAllText(path)) ?? throw new System.Text.Json.JsonException("空の本です。")).Validated();
+
+static int SwingLabCommand(Options o)
+{
+    if (o.Get("video") is { } video)
+    {
+        // 研究の出発点の振りと、見つけた振り（--best の JSON）を動画に。
+        var found = SwingLab.Load(o.Get("best") ?? "docs/arena/club_swings.json");
+        var list = found.Select(f => ($"{SwingLab.Name(f.Swing.Family)} — 出発点", MiniRing.Weapons.WeaponSwing.Default(f.Swing.Family), 0.38f))
+            .Concat(found.Select(f => ($"{SwingLab.Name(f.Swing.Family)} — 研究で見つけた振り", f.Swing, f.Range))).ToList();
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(video))!);
+        new SwingVideo(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), o.Float("slow", 4f, min: 1f)).Make(list, video, Console.Out);
+        return 0;
+    }
+
+    var lab = new SwingLab(o.Int("gens", 10, min: 1), o.Int("lambda", 8, min: 1), o.Int("seed", 1));
+    var bat = (o.Get("families") ?? "").Contains("bat", StringComparison.OrdinalIgnoreCase);
+    var best = o.Get("best") ?? (bat ? "docs/arena/bat_swings.json" : "docs/arena/club_swings.json");
+    if (o.Get("fight") == "only")
+    {
+        Console.WriteLine(lab.FightOnly(best, Console.Out, o.Int("bouts", 6, min: 1), o.Float("seconds", 60f, min: 1f)));
+        return 0;
+    }
+
+    // --families bat / chop,side,thrust（既定: 片手の 3 型）。片手と両手は握り方が違うので、同じ研究（同じボット）には混ぜない。
+    var families = (o.Get("families") ?? "chop,side,thrust").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(f => Enum.Parse<MiniRing.Weapons.SwingFamily>(f, ignoreCase: true)).ToList();
+    if (families.Select(f => f == MiniRing.Weapons.SwingFamily.Bat).Distinct().Count() > 1)
+    {
+        throw new ArgumentException("片手の型と両手の型（bat）は同じ研究に混ぜられません。");
+    }
+
+    var report = lab.Run(best, Console.Out, o.Int("bouts", 6, min: 1), o.Float("seconds", 60f, min: 1f), families);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int SwordLibCommand(Options o)
+{
+    // 両手の剣の技の一覧（モーションキャプチャと型から）を作り、間合いを決め、剣士同士を戦わせる。
+    var lab = new SwordLibraryLab(o.Int("seed", 1));
+    var best = o.Get("best") ?? "docs/arena/sword_library.json";
+    if (o.Get("video") is { } video)
+    {
+        // 剣士同士の 1 試合（--red / --blue: katana か longsword）。
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(video))!);
+        var red = Enum.Parse<MiniRing.Weapons.WeaponKind>(o.Get("red") ?? "Katana", ignoreCase: true);
+        var blue = Enum.Parse<MiniRing.Weapons.WeaponKind>(o.Get("blue") ?? "Katana", ignoreCase: true);
+        static string Ja(MiniRing.Weapons.WeaponKind k) => k == MiniRing.Weapons.WeaponKind.Katana ? "日本刀" : "ロングソード";
+        new SparVideo(1280, 720, 30).MakeBout(SwordLibraryLab.Load(best), red, blue, o.Int("seed", 1), o.Float("seconds", 30f, min: 1f),
+            $"剣士同士（赤 {Ja(red)} 対 青 {Ja(blue)}、両手持ち）", video, Console.Out);
+        return 0;
+    }
+
+    var report = o.Get("fight") == "only"
+        ? lab.FightOnly(best, Console.Out, o.Int("bouts", 4, min: 1), o.Float("seconds", 30f, min: 1f))
+        : lab.Run(best, Console.Out, o.Int("bouts", 4, min: 1), o.Float("seconds", 30f, min: 1f));
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int ImitateCommand(Options o)
+{
+    // 日本刀（剣道のモーションキャプチャ）とロングソード（型のキー）の基本を、ラグドールがなぞる動画。
+    var output = o.Get("out") ?? "videos/sword_basics.mp4";
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
+    var rate = o.Float("rate", 1.77f, min: 0.1f); // 体の大きさの比 0.32 の 1/√（同じ重力の下でつり合う速さ）
+    var shots = SwordBasics.Shots(rate).Where(s => o.Get("only") is not { } only || s.Title.Contains(only, StringComparison.Ordinal)).ToList();
+    // 調べもの: 手首の強さ・固さを変えて、なぞれ方がどう変わるか（--measure なら動画を作らずに数字だけ）。
+    var tuning = ImitationVideo.SwordStance with
+    {
+        WristMaxTorque = ImitationVideo.SwordStance.WristMaxTorque * o.Float("wrist", 1f, min: 0.01f),
+        WristServoHz = o.Float("wrist-hz", ImitationVideo.SwordStance.WristServoHz, min: 1f),
+    };
+    var video = new ImitationVideo(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), o.Float("slow", 1f, min: 0.25f), tuning, hitSelf: o.Get("self") != "0", anticipation: o.Float("lead", 0f, min: 0f));
+    if (o.Get("measure") is not null)
+    {
+        var results = new ImitationVideo.Tracking[shots.Count];
+        if (o.Get("measure") == "trace")
+        {
+            results[0] = video.Run(shots[0], null, Console.Out);
+            return 0;
+        }
+
+        Parallel.For(0, shots.Count, i => results[i] = video.Run(shots[i], null));
+        for (var i = 0; i < shots.Count; i++)
+        {
+            Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{shots[i].Title}: tip mean {results[i].MeanTipError:0.00} max {results[i].MaxTipError:0.00} hand {results[i].MeanHandError:0.00}"));
+        }
+
+        return 0;
+    }
+
+    video.Make(shots, output, Console.Out);
+    return 0;
+}
+
+static int MocapCommand(Options o)
+{
+    if (o.Get("strikes") is not null)
+    {
+        // 打ちの一覧: どの時刻に、どんな打ちが、どれだけ速く。
+        foreach (var file in Directory.GetFiles("data/mocap/sfu_kendo", "*.bvh"))
+        {
+            var clip = MiniRing.Motion.BvhClip.Load(file);
+            var motion = MiniRing.Motion.MotionRetarget.FromBvh(clip, Path.GetFileName(file), 0f, clip.Duration);
+            Console.WriteLine($"== {Path.GetFileName(file)}");
+            foreach (var s in MiniRing.Motion.StrikeFinder.Find(motion))
+            {
+                Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                    $"{s.Kind,-8} {s.Start,6:0.00}-{s.End,6:0.00} peak {s.Peak,6:0.00} speed {s.PeakSpeed,5:0.0} arm/s  tip@peak ({s.TipAtPeak.X:0.00},{s.TipAtPeak.Y:0.00},{s.TipAtPeak.Z:0.00}) end ({s.TipAtEnd.X:0.00},{s.TipAtEnd.Y:0.00},{s.TipAtEnd.Z:0.00}) advance {s.Advance:0.00}"));
+            }
+        }
+
+        return 0;
+    }
+
+    // モーションキャプチャ（BVH）を棒人間の動画にして、読めているか・何が入っているかを見る。
+    var bvh = o.Get("bvh") ?? throw new ArgumentException("--bvh が要ります。");
+    var output = o.Get("out") ?? "videos/mocap.mp4";
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
+    new MocapVideo(o.Int("width", 960, min: 160), o.Int("height", 540, min: 90), o.Int("fps", 30, min: 10))
+        .Make(bvh, output, o.Float("from", 0f, min: 0f), o.Float("to", 1e6f, min: 0f), o.Float("speed", 1f, min: 0.05f), Console.Out);
+    return 0;
+}
+
+static int SparLabCommand(Options o)
+{
+    var best = o.Get("best") ?? "docs/arena/sword_style.json";
+    if (o.Get("video") is { } video)
+    {
+        // 磨いた流儀同士の稽古を 1 試合、ふつうの速さで。
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(video))!);
+        var style = SwordSparLab.Load(best);
+        new SparVideo(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10))
+            .Make(style, o.Int("seed", 1), o.Float("seconds", 30f, min: 1f), video, Console.Out);
+        return 0;
+    }
+
+    var lab = new SwordSparLab(o.Int("gens", 10, min: 1), o.Int("lambda", 6, min: 1), o.Int("bouts", 4, min: 2), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1));
+    var report = lab.Run(o.Get("start") ?? "docs/arena/sword_techniques.json", best, Console.Out, o.Int("final-bouts", 6, min: 2), o.Float("final-seconds", 45f, min: 1f));
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int SwordLabCommand(Options o)
+{
+    var best = o.Get("best") ?? "docs/arena/sword_techniques.json";
+    if (o.Get("video") is { } video)
+    {
+        // 基本の技と、磨いた技（--best の JSON）を、技ごとに並べて動画に。
+        var found = File.Exists(best) ? SwordLab.Load(best) : [];
+        var shots = MiniRing.Weapons.SwordTechnique.Basics.SelectMany(b =>
+        {
+            var list = new List<SwingVideo.Shot> { SwingVideo.Sword($"{b.Title} — 基本", b) };
+            if (found.FirstOrDefault(t => t.Name == b.Name) is { } t)
+            {
+                list.Add(SwingVideo.Sword($"{b.Title} — 磨いた技", t));
+            }
+
+            return list;
+        }).ToList();
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(video))!);
+        new SwingVideo(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), o.Float("slow", 4f, min: 1f)).Make(shots, video, Console.Out);
+        return 0;
+    }
+
+    var lab = new SwordLab(o.Int("gens", 10, min: 1), o.Int("lambda", 8, min: 1), o.Int("seed", 1));
+    if (o.Get("fight") == "only")
+    {
+        Console.WriteLine(lab.FightOnly(best, Console.Out, o.Int("bouts", 6, min: 1), o.Float("seconds", 60f, min: 1f)));
+        return 0;
+    }
+
+    var only = o.Get("techniques")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
+    if (only is not null && only.Except(MiniRing.Weapons.SwordTechnique.Basics.Select(t => t.Name)).FirstOrDefault() is { } unknown)
+    {
+        throw new ArgumentException($"知らない技: {unknown}（使えるもの: {string.Join(", ", MiniRing.Weapons.SwordTechnique.Basics.Select(t => t.Name))}）");
+    }
+
+    var report = lab.Run(best, Console.Out, o.Int("bouts", 6, min: 1), o.Float("seconds", 60f, min: 1f), only);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int WeaponLabCommand(Options o)
+{
+    var video = (o.Get("video") ?? "on") == "off" ? null : Path.GetFullPath(o.Get("out") ?? "videos/weaponlab.mp4");
+    if (video is not null)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(video)!);
+    }
+
+    var lab = new WeaponLab(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), o.Float("slow", 4f, min: 1f));
+    var table = lab.Run(video, Console.Out);
+    Console.WriteLine(table);
+    if (o.Get("table") is { } path)
+    {
+        File.WriteAllText(path, table);
+    }
+
+    return 0;
+}
 
 static int Video(Options o)
 {

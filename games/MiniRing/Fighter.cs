@@ -159,7 +159,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 3;
+    public const int PhysicsVersion = 7; // 7: 両手の武器を片手で持つと手首のバネが 1/3（master は 6 まで進んでいるので、マージで 7 にそろえる）
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -195,6 +195,17 @@ public sealed class Fighter
     {
         var arm = _arms[(int)hand];
         return arm.Severed ? 0f : 0.5f * (Strength(arm.UpperArm) + Strength(arm.Forearm));
+    }
+
+    /// <summary>
+    /// この物理の歩で、腕が拳を目標へ押した力 [N]（ワールド。向きも大きさも、拳を目標へ引く PD 力そのもの: 腕の筋力・腕の肉の残り・
+    /// 体の質量をどれだけ借りられるか・意識と倒れ方で弱る駆動の強さ、で上限が決まる）。腕を動かしていない歩（死んだ後など）は 0。
+    /// 握った武器を押し込む力（<see cref="VoxelContact"/> の drive）に使う。
+    /// </summary>
+    public Vector3 HandPush(Hand hand)
+    {
+        var arm = _arms[(int)hand];
+        return arm.Severed || IsDead ? Vector3.Zero : arm.LastForce;
     }
 
     /// <summary>脚の力（Aigis の Left / Right 脚。腿とすねの平均）。切れていれば 0。</summary>
@@ -355,6 +366,110 @@ public sealed class Fighter
 
     public bool IsHolding(Hand hand) => _arms[(int)hand].GrabConstraint is not null;
 
+    /// <summary>その手が武器を握っている（グローブは外している）。</summary>
+    public bool Wields(Hand hand) => _arms[(int)hand].Held is not null || _arms[(int)hand].Support is not null;
+
+    /// <summary>
+    /// 両手で握っているなら、<paramref name="main"/>（武器を握った利き手）に添えて同じ武器を握っているもう一方の手（握れていなければ null）。
+    /// </summary>
+    public Hand? SupportOf(Hand main)
+    {
+        var other = _arms[1 - (int)main];
+        return other.Support is { Socket: not null } support && support.Main == main ? other.Hand : null;
+    }
+
+    /// <summary>その手が握っている武器の剛体（握っていなければ null）。</summary>
+    public int? WieldedBody(Hand hand) => _arms[(int)hand].Held?.Body;
+
+    /// <summary>
+    /// 手 <paramref name="hand"/> に武器（剛体 <paramref name="body"/>、握る所はその剛体のローカル <paramref name="gripLocal"/>）を握らせる。
+    /// 武器は拳の所へ、ローカル X が前腕の先の向きになるよう置き直す。拳と武器は玉継手でつながり、手首の筋肉（角度のサーボ）が
+    /// 武器の向きを <see cref="HandCommand.Orientation"/> へ回す。腕は拳の目標へ、前腕と武器を合わせた重さを引く。
+    /// 武器と自分の体は物理の箱ではぶつからない（ボクセルの当たりも、握った本人の体は除く: 呼び出し側）。
+    /// </summary>
+    internal void Wield(Hand hand, int body, Vector3 gripLocal)
+    {
+        var arm = _arms[(int)hand];
+        if (arm.Severed || arm.Held is not null)
+        {
+            throw new InvalidOperationException($"{hand} の手はもう武器を握っているか、切り落とされています。");
+        }
+
+        foreach (var id in _all)
+        {
+            _world.SetPairCollisionEnabled(body, id, false);
+        }
+
+        arm.Wield(_world, _tuning, body, gripLocal);
+        arm.Bare = true;
+        arm.WristShare = 1f;
+    }
+
+    /// <summary>
+    /// 手 <paramref name="hand"/> を、利き手 <paramref name="main"/> が握った武器に添える（両手持ち）。添える手は武器のローカル
+    /// <paramref name="gripLocal"/> を握りに行き、拳がそこへ <see cref="FighterTuning.SupportGripReach"/> まで近づいたら玉継手でつながる。
+    /// 握ったら、添える手の手首の筋肉（角度のサーボ）も武器を利き手の指令の向きへ回す: 武器は 2 つの手首のトルクと、2 つの拳が
+    /// 握りの別々の所を押し引きする力（偶力）で回る。添える手の拳の目標は、利き手の指令（拳の位置と武器の向き）から、握りの上の位置
+    /// として決まる（その手の指令は使わない）。
+    /// </summary>
+    internal void Support(Hand hand, Hand main, Vector3 gripLocal)
+    {
+        var arm = _arms[(int)hand];
+        var mainArm = _arms[(int)main];
+        if (hand == main || mainArm.Held is not { } held || arm.Severed || arm.Held is not null || arm.Support is not null)
+        {
+            throw new InvalidOperationException($"{hand} の手は {main} の手の武器に添えられません。");
+        }
+
+        arm.Support = new SupportGrip(held.Body, gripLocal, main, held.GripLocal, Socket: null);
+        arm.Bare = true;
+    }
+
+    /// <summary>握っている武器を放す（関節と手首の筋肉を外す。武器はそのまま落ちる）。添えていた手も放す。</summary>
+    internal void Unwield(Hand hand)
+    {
+        _arms[(int)hand].Unwield(_world);
+        var other = _arms[1 - (int)hand];
+        if (other.Support is { } support && support.Main == hand)
+        {
+            other.ReleaseSupport(_world);
+        }
+    }
+
+    /// <summary>
+    /// 添えていた手 <paramref name="arm"/> が武器を放す（その腕が落ちたなど）。利き手はまだ握っていれば、片手で持つことになる: 武器を支える
+    /// 手首の角度のバネは、両手で握っていたときの <see cref="FighterTuning.OneHandWristShare"/>（1/3）になる（2 本の手首と、2 つの拳が
+    /// 握りの別々の所を押し引きする偶力が、手首 1 本になる）。
+    /// </summary>
+    private void ReleaseSupport(Arm arm)
+    {
+        if (arm.Support is not { } support)
+        {
+            return;
+        }
+
+        arm.ReleaseSupport(_world);
+        var main = _arms[(int)support.Main];
+        // 握る前に放したなら、利き手はもともと片手で持っていた（両手の支えは無かった）。
+        if (support.Socket is not null && main.Held is not null && !main.Severed)
+        {
+            main.WristShare = _tuning.OneHandWristShare;
+            main.SetWristStrength(_world, _tuning, main.LastWristScale);
+        }
+    }
+
+    /// <summary>添えている手 <paramref name="hand"/> を武器から放す（残った手は片手で持つ）。</summary>
+    internal void LetGoSupport(Hand hand) => ReleaseSupport(_arms[(int)hand]);
+
+    /// <summary>その手の武器が、両手で握っていたものを片手で持っている（手首のバネが弱っている）。</summary>
+    public bool HoldsOneHanded(Hand hand) => _arms[(int)hand].Held is not null && _arms[(int)hand].WristShare < 1f;
+
+    /// <summary>
+    /// その手の拳がグローブを外した素手か（武器を握った・添えた手は、武器を放した後も素手のまま。描画に使う。拳の当たりの大きさは
+    /// まだグローブのまま: 素手の拳の当たりは今後）。
+    /// </summary>
+    public bool BareFist(Hand hand) => _arms[(int)hand].Bare;
+
     /// <summary>
     /// ラグドールの首には相対角速度を 0 にする強い減衰モーター（減衰係数 100 N·m·s/rad）があり、頭の質量では
     /// 首が実質固まって揺れない。これを外し、頭と胴は <see cref="FighterTuning.NeckServoHz"/> のバネダンパだけでつなぐ。
@@ -437,6 +552,10 @@ public sealed class Fighter
         _stateTime += dt;
         DownTime = State == FighterState.Standing ? 0f : DownTime + dt;
         var grounded = TryFindGround(out var height);
+        foreach (var arm in _arms)
+        {
+            arm.LastForce = Vector3.Zero; // 腕を動かす歩だけ、Drive が押した力を残す
+        }
 
         switch (State)
         {
@@ -574,7 +693,7 @@ public sealed class Fighter
         {
             Release(arm, opponent, allowThrow: false);
         }
-        else if (gripHeld && !arm.GripWasHeld && arm.GrabConstraint is null)
+        else if (gripHeld && !arm.GripWasHeld && arm.GrabConstraint is null && !Wields(hand))
         {
             TryGrab(arm, opponent);
         }
@@ -1118,13 +1237,67 @@ public sealed class Fighter
                 continue; // 切り落とされた腕は動かせない
             }
 
-            var bodyForce = arm.Drive(_world, _tuning, frame, command.For(arm.Hand).TargetLocal, scale * ArmStrength(arm.Hand), _inertia, com, torso, TotalMass, dt, Parts.Chest);
+            var hand = command.For(arm.Hand);
+            var target = hand.TargetLocal;
+            if (arm.Support is { } support)
+            {
+                target = SupportTarget(arm, support, command, frame);
+            }
+
+            arm.CarriedMass = CarriedMass(arm);
+            var bodyForce = arm.Drive(_world, _tuning, frame, target, scale * ArmStrength(arm.Hand), _inertia, com, torso, TotalMass, dt, Parts.Chest);
+            arm.DriveWrist(_world, frame, arm.Support is { } held ? command.For(held.Main).Orientation : hand.Orientation);
             if (weightShift && bodyForce.LengthSquared() > 0f)
             {
                 // 体の質量を借りた分は、脚と腰が地面を押して出す力。胴も拳の方向へ少し運ばれる（体重移動）。
                 ApplySharedImpulse(bodyForce * (_tuning.WeightShiftShare * dt));
             }
         }
+    }
+
+    /// <summary>
+    /// 添える手の拳の目標（体フレームのローカル）。握る前は武器の上の握る所そのもの（そこへ手を伸ばし、届いたら握る）。握った後は、
+    /// 利き手の指令から決まる握りの上の位置: 利き手の拳の目標 + 武器の向きの目標で回した「利き手の握り → 添える手の握り」。
+    /// 利き手の指令に向きが無ければ、武器の今の向きで回す。
+    /// </summary>
+    private Vector3 SupportTarget(Arm arm, SupportGrip support, in FighterCommand command, BodyFrame frame)
+    {
+        var weapon = _world.GetState(support.Body);
+        var gripWorld = weapon.Position + Vector3.Transform(support.GripLocal, weapon.Orientation);
+        if (support.Socket is null)
+        {
+            if (Vector3.Distance(arm.GlovePosition(_world), gripWorld) <= _tuning.SupportGripReach)
+            {
+                arm.CloseSupport(_world, _tuning);
+                arm.SetWristStrength(_world, _tuning, _arms[(int)support.Main].LastWristScale); // 今の腕の強さ（肉・意識）で
+            }
+
+            // 握りが腕の届かない所にあれば、届くまではその手の指令どおり（構えを解かない）。
+            var reachable = Vector3.Distance(arm.ShoulderPosition(_world, Parts.Chest), gripWorld) <= arm.UpperLength + arm.LowerLength;
+            return reachable ? frame.WorldToLocal(gripWorld) : command.For(arm.Hand).TargetLocal;
+        }
+
+        // 利き手の目標は、利き手の腕の届く所までに縮めてから使う（届かない所を両手で取り合わない）。
+        var main = command.For(support.Main);
+        var mainArm = _arms[(int)support.Main];
+        var mainTarget = frame.WorldToLocal(ArmIk.ClampReach(mainArm.ShoulderPosition(_world, Parts.Chest), frame.LocalToWorld(main.TargetLocal), mainArm.UpperLength + mainArm.LowerLength));
+        var offset = support.GripLocal - support.MainGrip;
+        var rotated = main.Orientation is { } q
+            ? Vector3.Transform(offset, q)
+            : frame.InverseRotate(Vector3.Transform(offset, weapon.Orientation));
+        return mainTarget + rotated;
+    }
+
+    /// <summary>腕が拳の先に引いている武器の（今の、削れた後の）質量: 1 本の手で握れば全部、両手で握れば半分ずつ。</summary>
+    private float CarriedMass(Arm arm)
+    {
+        if (arm.Held is { } held)
+        {
+            var mass = _world.GetMass(held.Body);
+            return SupportOf(arm.Hand) is null ? mass : 0.5f * mass;
+        }
+
+        return arm.Support is { Socket: not null } support ? 0.5f * _world.GetMass(support.Body) : 0f;
     }
 
     private void SetServoScale(float scale)
@@ -1160,6 +1333,7 @@ public sealed class Fighter
             if (!arm.Severed && Changed(2 + (int)arm.Hand, a * ArmStrength(arm.Hand)))
             {
                 arm.SetStrength(_world, _tuning, a * Strength(arm.UpperArm), a * Strength(arm.Forearm));
+                arm.SetWristStrength(_world, _tuning, a * Strength(arm.Forearm));
             }
         }
     }
@@ -1280,6 +1454,8 @@ public sealed class Fighter
             }
 
             arm.Severed = true;
+            Unwield(arm.Hand); // 切り落とされた腕は武器を握っていられない（添えていた手も放す）
+            ReleaseSupport(arm); // 添えていた腕なら、残った利き手は片手で持つ
             if (arm.GrabConstraint is { } grab)
             {
                 if (_world.HasConstraint(grab))
@@ -1508,6 +1684,138 @@ public sealed class Fighter
         public Vector3 LastTarget { get; private set; }
         public int? GrabConstraint { get; set; }
         public Fighter? Grabbed { get; set; }
+
+        /// <summary>握っている武器: 剛体、拳とつなぐ玉継手、手首の筋肉（角度のサーボ）、前腕に沿わせたときの相対の向き。</summary>
+        public HeldWeapon? Held { get; private set; }
+
+        /// <summary>
+        /// 武器を握る: 握る所を拳（グローブの位置）に重ね、ローカル X を前腕の先の向き（体から遠い向き）にして置き、玉継手で拳へ、
+        /// 手首の筋肉で前腕へつなぐ。
+        /// </summary>
+        public void Wield(PhysicsWorld world, FighterTuning tuning, int body, Vector3 gripLocal)
+        {
+            var f = world.GetState(Forearm);
+            // 前腕のローカル X × 腕の側 が体から遠い向き。武器の X をそれに合わせる（右手 = −X 側の腕は Y まわりに半回転）。
+            var along = Side > 0f ? Quaternion.Identity : Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI);
+            var orientation = Quaternion.Concatenate(along, f.Orientation);
+            var fist = GlovePosition(world);
+            world.SetDynamicPose(body, fist - Vector3.Transform(gripLocal, orientation), orientation);
+            world.SetLinearVelocity(body, f.LinearVelocity);
+            var socket = world.AddBallSocket(Forearm, body, GloveLocal, gripLocal, frequency: 30f, dampingRatio: 1f);
+            var wrist = world.AddAngularServo(Forearm, body, along, tuning.WristServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.WristMaxTorque * tuning.TorqueScale);
+            Held = new HeldWeapon(body, gripLocal, socket, wrist, along, world.GetMass(body));
+        }
+
+        /// <summary>武器を放す。</summary>
+        public void Unwield(PhysicsWorld world)
+        {
+            if (Held is not { } held)
+            {
+                return;
+            }
+
+            foreach (var id in new[] { held.Socket, held.Wrist })
+            {
+                if (world.HasConstraint(id))
+                {
+                    world.RemoveConstraint(id, forget: true);
+                }
+            }
+
+            Held = null;
+        }
+
+        /// <summary>
+        /// 手首の筋肉: 武器を向きの目標（体フレームのローカル。null なら前腕に沿わせる）へ回す。目標は前腕に対する相対の向きにして
+        /// サーボへ渡すので、手首が出せるトルクの上限で、武器の慣性モーメントに逆らって回る。
+        /// </summary>
+        public void DriveWrist(PhysicsWorld world, BodyFrame frame, Quaternion? orientationLocal)
+        {
+            var wrist = Held?.Wrist ?? Support?.Wrist;
+            if (wrist is not { } id || !world.HasConstraint(id))
+            {
+                return;
+            }
+
+            if (orientationLocal is not { } local)
+            {
+                // 向きの指令が無ければ、握った手は前腕に沿わせ、添えた手は今の握りのまま。
+                if (Held is { } held)
+                {
+                    world.SetAngularServoTarget(id, held.Along);
+                }
+
+                return;
+            }
+
+            var yaw = Quaternion.CreateFromAxisAngle(Vector3.UnitY, frame.YawRadians);
+            var desired = Quaternion.Concatenate(local, yaw);
+            var f = world.GetState(Forearm);
+            world.SetAngularServoTarget(id, Quaternion.Concatenate(desired, Quaternion.Conjugate(f.Orientation)));
+        }
+
+        /// <summary>利き手の武器に添えている（両手持ち。握る前は Socket が null）。</summary>
+        public SupportGrip? Support { get; set; }
+
+        /// <summary>この歩で拳を目標へ押した力 [N]（ワールド。<see cref="Fighter.HandPush"/>）。</summary>
+        public Vector3 LastForce { get; set; }
+
+        /// <summary>拳の先に引いている武器の質量（<see cref="Fighter.CarriedMass"/> が毎歩決める）。</summary>
+        public float CarriedMass { get; set; }
+
+        /// <summary>添える手が握りに届いた: 拳と武器を玉継手でつなぎ、手首の筋肉（今の握りの向きを目標に）を付ける。</summary>
+        public void CloseSupport(PhysicsWorld world, FighterTuning tuning)
+        {
+            if (Support is not { Socket: null } support)
+            {
+                return;
+            }
+
+            var socket = world.AddBallSocket(Forearm, support.Body, GloveLocal, support.GripLocal, frequency: 30f, dampingRatio: 1f);
+            var relative = Quaternion.Concatenate(world.GetState(support.Body).Orientation, Quaternion.Conjugate(world.GetState(Forearm).Orientation));
+            var wrist = world.AddAngularServo(Forearm, support.Body, relative, tuning.WristServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.WristMaxTorque * tuning.TorqueScale);
+            Support = support with { Socket = socket, Wrist = wrist };
+        }
+
+        /// <summary>添えていた手を放す。</summary>
+        public void ReleaseSupport(PhysicsWorld world)
+        {
+            if (Support is { } support)
+            {
+                foreach (var id in new[] { support.Socket, support.Wrist })
+                {
+                    if (id is { } c && world.HasConstraint(c))
+                    {
+                        world.RemoveConstraint(c, forget: true);
+                    }
+                }
+            }
+
+            Support = null;
+        }
+
+        /// <summary>手首の角度のバネの割合: 1（ふつう）、両手で握っていた武器を片手で持つと <see cref="FighterTuning.OneHandWristShare"/>。</summary>
+        public float WristShare { get; set; } = 1f;
+
+        /// <summary>最後に手首へ掛けた強さ（肉の残り・意識）。</summary>
+        public float LastWristScale { get; private set; } = 1f;
+
+        /// <summary>グローブを外した素手（武器を握った・添えた）。</summary>
+        public bool Bare { get; set; }
+
+        /// <summary>
+        /// 手首の角度のサーボの強さ: バネの固さ（∝ 周波数²）と出せるトルクに、<paramref name="scale"/>（肉の残り・意識）と
+        /// <see cref="WristShare"/> を掛ける（固さを割合にするため、周波数は √割合 倍）。
+        /// </summary>
+        public void SetWristStrength(PhysicsWorld world, FighterTuning tuning, float scale)
+        {
+            LastWristScale = scale;
+            var wrist = Held?.Wrist ?? Support?.Wrist;
+            if (wrist is { } id && world.HasConstraint(id))
+            {
+                world.SetAngularServoSettings(id, tuning.WristServoHz * MathF.Sqrt(WristShare), tuning.WristMaxTorque * tuning.TorqueScale * WristShare * Math.Max(0.01f, scale));
+            }
+        }
         public bool GripWasHeld { get; set; }
 
         public static Arm Create(PhysicsWorld world, FighterTuning tuning, HumanoidRagdoll.Parts parts, HumanoidRagdoll.HalfExtents half, Hand hand)
@@ -1601,7 +1909,8 @@ public sealed class Fighter
             var glove = f.Position + Vector3.Transform(GloveLocal, f.Orientation);
             var gloveVelocity = f.LinearVelocity + Vector3.Cross(f.AngularVelocity, glove - f.Position);
             var accel = FighterMath.HandAccel(glove, gloveVelocity, target, _targetVelocity, tuning.HandKp, tuning.HandKd);
-            var chainMass = world.GetMass(UpperArm) + world.GetMass(Forearm);
+            // 武器を握っていれば、拳は前腕と一緒に武器の重さも引く（武器の慣性は、この力と手首のトルクで動かす）。
+            var chainMass = world.GetMass(UpperArm) + world.GetMass(Forearm) + CarriedMass;
             var desired = accel * chainMass;
             var bodyEffective = PunchMechanics.BodyEffectiveMass(inertia, torso, glove - centerOfMass, desired);
             var coupling = PunchMechanics.Coupling(glove - shoulder, desired, jointIntegrity: 1f);
@@ -1609,6 +1918,7 @@ public sealed class Fighter
             var cap = armForce * PunchMechanics.ForceMultiplier(coupling, bodyEffective, totalMass, tuning.BodyDrive);
             var force = ClampLength(desired, cap);
             world.ApplyLinearImpulse(Forearm, force * dt);
+            LastForce = force;
 
             // 腕の筋力ぶんの反作用は胸へ（P-002）。体から借りた分は脚が地面を押して出す力として呼び出し側へ返す。
             var armPart = ClampLength(force, armForce);
@@ -1617,3 +1927,12 @@ public sealed class Fighter
         }
     }
 }
+
+/// <summary>手に握った武器: 剛体・握る所（武器のローカル）・拳とつなぐ玉継手・手首の筋肉・前腕に沿わせたときの相対の向き・質量。</summary>
+internal readonly record struct HeldWeapon(int Body, Vector3 GripLocal, int Socket, int Wrist, Quaternion Along, float Mass);
+
+/// <summary>
+/// 利き手の武器に添えた手（両手持ち）: 武器の剛体・この手が握る所と利き手が握る所（武器のローカル）・利き手・拳とつなぐ玉継手と
+/// 手首の筋肉（握りに届く前は null）。
+/// </summary>
+internal readonly record struct SupportGrip(int Body, Vector3 GripLocal, Hand Main, Vector3 MainGrip, int? Socket, int? Wrist = null);

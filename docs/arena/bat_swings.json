@@ -1,0 +1,29 @@
+[
+  {
+    "Swing": {
+      "Family": 3,
+      "WindupFist": {
+        "X": -0.540659,
+        "Y": 0.20452465,
+        "Z": -0.09266198
+      },
+      "WindupAzimuth": -2.284255,
+      "WindupElevation": 1.0129873,
+      "StrikeFist": {
+        "X": 0.4493123,
+        "Y": 0.17629632,
+        "Z": 0.51300025
+      },
+      "StrikeAzimuth": 0.57291794,
+      "StrikeElevation": 0.16447493,
+      "WindupTime": 0.31480992,
+      "StrikeTime": 0.15137023,
+      "RecoverTime": 0.4,
+      "WristDelay": 0.4665201,
+      "Twist": 0.12724844,
+      "Step": 0.6538706,
+      "Ease": 2.5799682
+    },
+    "Range": 0.3112692
+  }
+]

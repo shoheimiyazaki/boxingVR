@@ -70,7 +70,13 @@ public sealed class VoxelDebris
     /// <param name="heat">How long [s] it glows hot after it breaks off: drawn self-lit in <paramref name="hotColor"/>, cooling
     /// to its own colour, with a short streak of light behind it (<see cref="WriteTrails"/>). Zero: it never glows.</param>
     /// <param name="hotColor">The colour it first glows (white when not given); it then cools through yellow and red to its own (<see cref="HeatColor"/>).</param>
-    public void Spawn(Vector3 position, Vector3 velocity, Quaternion orientation, Vector3 size, Vector3 spin, Vector4 color, float life = 0f, bool glow = false, byte tag = 0, float heat = 0f, Vector4? hotColor = null)
+    /// <param name="trail">How long its streak is, as a share of <see cref="TrailSeconds"/> of its travel (1 = the usual streak).</param>
+    /// <param name="ownColor">
+    /// While "hot" it keeps its own colour instead of glowing white-hot: the piece is drawn as it is, and its streak is a soft
+    /// line of its own colour that fades over <paramref name="heat"/> seconds (a chip of skin or bone, not a spark).
+    /// </param>
+    public void Spawn(Vector3 position, Vector3 velocity, Quaternion orientation, Vector3 size, Vector3 spin, Vector4 color, float life = 0f, bool glow = false, byte tag = 0, float heat = 0f, Vector4? hotColor = null,
+        float trail = 1f, bool ownColor = false)
     {
         var piece = new Piece(position, velocity, orientation, spin, size, color, 0f)
         {
@@ -79,6 +85,8 @@ public sealed class VoxelDebris
             Tag = tag,
             Heat = MathF.Max(0f, heat),
             HotColor = hotColor ?? Vector4.One,
+            Trail = MathF.Max(0f, trail),
+            OwnColor = ownColor,
         };
         Add(piece);
     }
@@ -215,7 +223,7 @@ public sealed class VoxelDebris
 
             var model = Matrix4x4.CreateScale(p.Size * fade) * Matrix4x4.CreateFromQuaternion(p.Orientation) * Matrix4x4.CreateTranslation(p.Position);
             var cooling = CoolingOf(p);
-            if (cooling >= 0f)
+            if (cooling >= 0f && !p.OwnColor)
             {
                 var color = HeatColor(p.HotColor, p.Color, cooling) with { W = p.Color.W };
                 into.Add(new PrimitiveInstance(PrimitiveKind.Cube, model, Vector3.Zero, color, MaterialKind.Emissive));
@@ -238,14 +246,14 @@ public sealed class VoxelDebris
             var p = _pieces[i];
             var cooling = CoolingOf(p);
             var speed = p.Velocity.Length();
-            if (cooling < 0f || speed < 0.05f || p.Cells is not null)
+            if (cooling < 0f || speed < 0.05f || p.Cells is not null || p.Trail <= 0f)
             {
                 continue;
             }
 
             var edge = MathF.Max(p.Size.X, MathF.Max(p.Size.Y, p.Size.Z));
             var back = p.Velocity / speed;
-            var length = MathF.Min(speed * TrailSeconds, MaxTrailLength);
+            var length = MathF.Min(speed * TrailSeconds, MaxTrailLength) * p.Trail;
             // Soft dots fade from the centre (visible about half their size): a little over twice the edge reads as the
             // piece's width. Packed close enough to overlap into one unbroken line rather than a row of dots.
             var size = 2.4f * edge;
@@ -253,7 +261,8 @@ public sealed class VoxelDebris
             // The streak fades with its own (linear) cooling, so it lingers a little longer than the piece's own glow.
             // Its light is the piece's own, at the same point of cooling (white, then yellow, then red).
             var left = 1f - cooling;
-            var color = HeatColor(p.HotColor, p.Color, cooling) * TrailBrightness;
+            // A piece that keeps its own colour leaves a streak of that colour; a hot one, of its cooling light.
+            var color = (p.OwnColor ? p.Color : HeatColor(p.HotColor, p.Color, cooling)) * TrailBrightness;
             for (var k = 0; k < dots; k++)
             {
                 var f = k / (float)(dots - 1);
@@ -387,6 +396,8 @@ public sealed class VoxelDebris
         public byte Tag;
         public float Heat;
         public Vector4 HotColor;
+        public float Trail;
+        public bool OwnColor;
 
         /// <summary>A chunk's cells (null for a single cube): <see cref="Size"/> is then one cell.</summary>
         public DebrisCell[]? Cells;

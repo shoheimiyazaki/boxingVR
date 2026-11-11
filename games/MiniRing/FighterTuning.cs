@@ -92,6 +92,21 @@ public sealed record FighterTuning
     public float HandKp { get; init; } = 1100f; // 目標 → 拳のバネ [1/s²]（約 5.3Hz）。固いほどきびきび追う
     public float HandKd { get; init; } = 53f; // 減衰比 ≒ 0.8（行き過ぎずに止まる）
     public float MaxHandForce { get; init; } = 35f;
+
+    /// <summary>手首の筋肉（武器を握ったとき、武器を向きの目標へ回すサーボ）の固さ [Hz]。</summary>
+    public float WristServoHz { get; init; } = 15f;
+
+    /// <summary>手首が武器を回す最大トルク（TorqueScale 倍する前。肩の 40 の 1/4）。重い武器ほど向きを変えるのが遅れる。</summary>
+    public float WristMaxTorque { get; init; } = 10f;
+
+    /// <summary>
+    /// 両手で握っていた武器を片手で持つことになったときの、手首の角度のバネ（固さとトルク）の割合。両手の握りは、2 本の手首に加えて、
+    /// 2 つの拳が握りの別々の所を押し引きする偶力で武器を支える。片手ではそれが手首 1 本になるので、1/3 にする（ユーザーの指定）。
+    /// </summary>
+    public float OneHandWristShare { get; init; } = 1f / 3f;
+
+    /// <summary>両手持ちで、添える手が握りをつかめる、拳と握る所の距離 [m]（これより近づいたら玉継手でつなぐ）。</summary>
+    public float SupportGripReach { get; init; } = 0.02f;
     public float HandReactionShare { get; init; } = 0.5f;
     public float MaxTargetSpeed { get; init; } = 6f; // 目標の速度の上限 [m/s]（動きを 2 倍にしたので、速い腕の振りも追えるように）
     public float TargetVelocitySmoothing { get; init; } = 25f;
@@ -154,6 +169,12 @@ public sealed record FighterTuning
 
     /// <summary>1 発で削る量の上限（約 10 J ぶん。速さの測り違いのような外れの 1 発が、腕を丸ごと削らないように）。</summary>
     public float MaxCarve { get; init; } = 120f;
+
+    /// <summary>
+    /// 素の武器（木・鉄）の打撃が、同じ運動エネルギーの拳（グローブ）の何倍深く潰して掘るか（上限 <see cref="MaxCarve"/> にも掛ける）。
+    /// グローブの詰め物は当たる面を広げて衝撃を和らげるが、硬い武器は狭い面へ一気に掛ける。
+    /// </summary>
+    public float WeaponCarveScale { get; init; } = 3f;
 
     /// <summary>
     /// 打撃で相手へ運ぶ体の運動量のうち、当たった部位に残る（当たった点に掛かる）割合の上限。残りは全身を押す。
