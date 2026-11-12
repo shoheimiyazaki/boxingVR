@@ -147,6 +147,7 @@ dotnet run --project games/MiniRing.Arena -c Release -- versus --video videos/ve
   - 始めの値は 16 勝 4 敗、育てた値は 11 勝 9 敗。
   - 育てた値は、育てるのに使った 10 試合の運に合わせただけでした。**採らず、始めの値を使います**（`docs/arena/hit_and_away.json`。合わせすぎた値は `hit_and_away_overfit.json` に残す）。
   - `awaylab` は今後、比べ直して悪ければ始めの値を書き出します。
+  - 2026-11-13: awaylab は守りの練習（guardspar）と同じ `MatchTrainer` で育てる（世代ごとに種を変え、親も戦い直す。`docs/WEAPON_DEFENSE.md` §6）。
 
 ### 総当たりで比べる（各組 4 試合 × 30 秒。武器同士は広いリング、剣士は狙いあり）
 
