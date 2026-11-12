@@ -80,6 +80,15 @@ public sealed class ReplayGame : IGame<BoxingInput>
     /// <summary>直前の <see cref="Step"/> で振り抜かれた拳。</summary>
     public IReadOnlyList<SwingEvent> FrameSwings => _frameSwings;
 
+    /// <summary>このホストのフレームの間に拳が体をかすめた瞬間。</summary>
+    public IReadOnlyList<GrazeEvent> FrameGrazes => _frameGrazes;
+
+    /// <summary>このホストのフレームの間に部位が切り離された瞬間。</summary>
+    public IReadOnlyList<SeverEvent> FrameSevers => _frameSevers;
+
+    private readonly List<GrazeEvent> _frameGrazes = [];
+    private readonly List<SeverEvent> _frameSevers = [];
+
     /// <summary>このホストのフレームの間に鳴ったゴング（複数なら最後のもの）。</summary>
     public RoundBell FrameBell { get; private set; }
     public PhysicsWorld World => _player.Game.World;
@@ -101,8 +110,12 @@ public sealed class ReplayGame : IGame<BoxingInput>
         _frameLandings.Clear();
         _frameSwings.Clear();
         FrameBell = RoundBell.None;
+        _frameGrazes.Clear();
+        _frameSevers.Clear();
         _player.PlayUntil(_clock, game =>
         {
+            _frameGrazes.AddRange(game.RecentGrazes);
+            _frameSevers.AddRange(game.RecentSevers);
             FrameBell = game.RecentBell == RoundBell.None ? FrameBell : game.RecentBell;
             _frameHits.AddRange(game.RecentHits);
             _frameShatters.AddRange(game.RecentShatters);

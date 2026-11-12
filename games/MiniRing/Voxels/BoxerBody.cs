@@ -9,16 +9,34 @@ namespace MiniRing.Voxels;
 /// <summary>体の 1 部位（または切り落とされた破片）: ボクセルの剛体と、その描画のキャッシュ。</summary>
 /// <param name="Kind">どの部位か（破片なら元の部位）。</param>
 /// <param name="Body">ボクセルの剛体。</param>
-/// <param name="Volume">描画用の 3D テクスチャ（GPU がここから表面を作る）。格子が変わったら <see cref="VoxelVolume.Sync"/> で写す。</param>
+/// <param name="Volume">描画用の 3D テクスチャ（GPU がここから表面を作る）。格子が変わったら <see cref="VoxelVolume.Sync(VoxelGrid)"/> で写す。</param>
 /// <param name="SeverAxis">骨が断たれたらこの軸（部位のローカル 0/1/2）で切り離す。null なら切れない（胴・頭・足）。</param>
 /// <param name="DistalHigh">切れたとき、軸の正の側が体から遠い側か。</param>
 /// <param name="FragmentOf">破片なら、元の部位の剛体 id。</param>
 public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Volume, int? SeverAxis, bool DistalHigh, int? FragmentOf = null)
 {
+    /// <summary>チアノーゼを丸める段の数（テクスチャの書き直しはこの段が変わったときだけ）。</summary>
+    private const int CyanosisSteps = 16;
+
+    /// <summary>いちばん強いチアノーゼで、皮膚の色を寄せる割合（元の肌の色を少し残す）。</summary>
+    private const float MaxCyanosis = 0.6f;
+
+    /// <summary>チアノーゼの皮膚の色（酸素の足りない血の、くすんだ青紫）。</summary>
+    private static readonly Vector4 CyanoticSkin = new(0.42f, 0.45f, 0.68f, 1f);
+
     /// <summary>この部位を描く指示: 格子の変化をテクスチャへ写し、セル座標をワールドへ置く行列を付ける。</summary>
-    public VoxelVolumeDraw Draw()
+    public VoxelVolumeDraw Draw() => Draw(0f);
+
+    /// <summary>
+    /// この部位を描く指示。<paramref name="cyanosis"/>（0..1）だけ皮膚を青紫へ寄せる（チアノーゼ: 息が上がり酸素が足りない）。
+    /// 16 段に丸めて、段が変わったときだけテクスチャを書き直す。見た目だけ。
+    /// </summary>
+    public VoxelVolumeDraw Draw(float cyanosis)
     {
-        Volume.Sync(Body.Grid);
+        var step = (int)MathF.Round(Math.Clamp(cyanosis, 0f, 1f) * CyanosisSteps);
+        Volume.Sync(Body.Grid, step, step == 0 ? null : (m, color) => m == BoxerAnatomy.Skin
+            ? Vector4.Lerp(color, CyanoticSkin, MaxCyanosis * step / CyanosisSteps) with { W = color.W }
+            : color);
         return new VoxelVolumeDraw(Volume, VoxelVolume.CellToWorld(Body.Grid, Body.GridToWorld()));
     }
 }
@@ -47,17 +65,24 @@ public sealed class BoxerBody
     /// <param name="shapes">部位ごとの形（ローポリの体）。渡すと箱ではなくその形の内側だけを埋める。</param>
     /// <param name="outfit">身なり（トランクスとブーツ）。null なら裸。</param>
     /// <param name="overrides">ボクセル編集ソフトで直した中身（<see cref="BoxerVoxelOverrides.Shipped"/> など）。null なら生成のまま。</param>
-    public BoxerBody(Fighter fighter, PhysicsWorld world, FighterTuning tuning, LowPoly.BoxerModel? shapes = null, Outfit? outfit = null, BoxerVoxelOverrides? overrides = null)
+    /// <param name="look">顔（肌・髪の色と髪型・眉・ひげ。<see cref="FaceLook"/>）。null なら作ったまま。見た目だけ。</param>
+    public BoxerBody(Fighter fighter, PhysicsWorld world, FighterTuning tuning, LowPoly.BoxerModel? shapes = null, Outfit? outfit = null, BoxerVoxelOverrides? overrides = null, FaceLook? look = null)
     {
         ArgumentNullException.ThrowIfNull(fighter);
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(tuning);
         _deathFraction = tuning.OrganDeathFraction;
         var p = fighter.Parts;
+        VoxelPalette? lookPalette = null;
         foreach (var id in fighter.AllParts)
         {
             var kind = fighter.KindOf(id);
             var grid = BoxerAnatomy.Build(kind, fighter.HalfExtentsOf(id), tuning.VoxelSize, shapes?.Mesh(kind), outfit, overrides);
+            if (look is not null)
+            {
+                lookPalette ??= look.Palette(grid.Palette);
+                grid = look.Restyle(kind, grid, lookPalette);
+            }
             // 腕は長さが X: Aigis の Left 腕は −X 側に付くので体から遠いのは −X、Right 腕は +X。脚は Y で、遠いのは下。
             var (axis, distalHigh) = kind switch
             {
@@ -68,8 +93,210 @@ public sealed class BoxerBody
             var part = new VoxelPart(kind, new VoxelBody(world, id, grid), VoxelVolume.For(grid), axis, distalHigh);
             _parts.Add(part);
             _byBody[id] = part;
+            AddOrganSites(part);
+            _originals[part] = Original.Of(grid);
         }
     }
+
+    /// <summary>
+    /// 部位の格子の、作ったときの中身: 各セルの材質と表面だったか、と、治す順（格子の中心に近い順 = 内側から外へ。浮いたボクセルを作らない）。
+    /// </summary>
+    private sealed record Original(byte[] Materials, bool[] Surface, int[] HealOrder)
+    {
+        public static Original Of(VoxelGrid grid)
+        {
+            var (nx, ny, nz) = grid.Dimensions;
+            var count = nx * ny * nz;
+            var materials = new byte[count];
+            var surface = new bool[count];
+            var center = new Vector3(nx - 1, ny - 1, nz - 1) * 0.5f;
+            var order = new List<(float Distance, int Index)>();
+            for (var i = 0; i < count; i++)
+            {
+                materials[i] = grid.AtIndex(i);
+                if (materials[i] == 0)
+                {
+                    continue;
+                }
+
+                var (x, y, z) = grid.Coordinates(i);
+                surface[i] = grid.IsOriginalSurface(x, y, z);
+                order.Add((Vector3.DistanceSquared(new Vector3(x, y, z) * grid.CellSize, center * grid.CellSize), i));
+            }
+
+            return new Original(materials, surface, [.. order.OrderBy(o => o.Distance).ThenBy(o => o.Index).Select(o => o.Index)]);
+        }
+    }
+
+    private readonly Dictionary<VoxelPart, Original> _originals = [];
+
+    /// <summary>
+    /// 削れた体を治す（ラウンドの間の再生）: 付いている部位の、削られたセルを元の材質で、内側から外へ最大 <paramref name="budget"/> 個戻す。
+    /// 切り離された部位（骨が断たれて先が落ちた所）は生えない。臓器・脳が戻れば、その働き（意識・息・腹）も戻る。戻した数を返す。
+    /// </summary>
+    public int Regenerate(int budget)
+    {
+        var restored = 0;
+        var severed = new HashSet<int>();
+        foreach (var fragment in _fragments)
+        {
+            if (fragment.FragmentOf is { } from)
+            {
+                severed.Add(from);
+            }
+        }
+
+        foreach (var part in _parts)
+        {
+            if (restored >= budget || severed.Contains(part.Body.BodyId) || !_originals.TryGetValue(part, out var original)
+                || part.Body.Grid.FilledCount >= original.HealOrder.Length)
+            {
+                continue; // 治った部位（削れていない）は数えない
+            }
+
+            var grid = part.Body.Grid;
+            var before = restored;
+            foreach (var i in original.HealOrder)
+            {
+                if (restored >= budget)
+                {
+                    break;
+                }
+
+                if (grid.AtIndex(i) == 0 && grid.Restore(i, original.Materials[i], original.Surface[i]))
+                {
+                    restored++;
+                }
+            }
+
+            if (restored > before)
+            {
+                part.Body.UpdateMass();
+            }
+        }
+
+        return restored;
+    }
+
+    /// <summary>胴の臓器（打撲と働きを持つもの）: 心臓・肺・肝臓・腸。脳は意識（<see cref="BrainFunction"/>）、目は見た目だけ。</summary>
+    public static IReadOnlyList<byte> TrunkOrgans { get; } = [BoxerAnatomy.Heart, BoxerAnatomy.Lung, BoxerAnatomy.Liver, BoxerAnatomy.Gut];
+
+    /// <summary>臓器の置き場所: どの部位の格子の、どこ（格子のローカルの重心）に、どれだけの大きさ（同じ体積の球の半径）で。</summary>
+    private readonly record struct OrganSite(VoxelPart Part, byte Organ, Vector3 LocalCentroid, float Radius);
+
+    private readonly List<OrganSite> _organSites = [];
+    private readonly Dictionary<byte, float> _bruise = [];
+
+    private void AddOrganSites(VoxelPart part)
+    {
+        var grid = part.Body.Grid;
+        var (nx, ny, nz) = grid.Dimensions;
+        foreach (var organ in TrunkOrgans)
+        {
+            var sum = Vector3.Zero;
+            var count = 0;
+            for (var z = 0; z < nz; z++)
+            {
+                for (var y = 0; y < ny; y++)
+                {
+                    for (var x = 0; x < nx; x++)
+                    {
+                        if (grid.At(x, y, z) == organ)
+                        {
+                            sum += new Vector3(x + 0.5f, y + 0.5f, z + 0.5f);
+                            count++;
+                        }
+                    }
+                }
+            }
+
+            if (count > 0)
+            {
+                var centroid = (sum / count * grid.CellSize) - grid.HalfExtents;
+                var volume = count * grid.CellSize.X * grid.CellSize.Y * grid.CellSize.Z;
+                _organSites.Add(new OrganSite(part, organ, centroid, MathF.Cbrt(3f * volume / (4f * MathF.PI))));
+            }
+        }
+    }
+
+    /// <summary>
+    /// 打撃の衝撃を臓器へ伝える（皮膚の上からの打撲。削れなくても効く）。臓器ごとに、当たった点から臓器の表面までの距離 d について
+    /// <c>energy × perJoule × exp(−d / falloff)</c> だけ打撲が増える（0..1 で頭打ち）。衝撃は組織を伝わるうちに減る（距離の指数で）。
+    /// 臓器の名前で場合分けしない: どの臓器が効くかは、当たった所との位置関係だけで決まる。
+    /// </summary>
+    /// <returns>臓器ごとの打撲の増え分（0 のものは含まない）。</returns>
+    public IReadOnlyDictionary<byte, float> Bruise(Vector3 point, float energy, float perJoule, float falloff)
+    {
+        var added = new Dictionary<byte, float>();
+        if (energy <= 0f)
+        {
+            return added;
+        }
+
+        foreach (var site in _organSites)
+        {
+            var center = Vector3.Transform(site.LocalCentroid, site.Part.Body.GridToWorld());
+            var depth = MathF.Max(0f, Vector3.Distance(point, center) - site.Radius);
+            var dose = energy * perJoule * MathF.Exp(-depth / MathF.Max(1e-4f, falloff));
+            var before = _bruise.GetValueOrDefault(site.Organ);
+            var after = MathF.Min(1f, before + dose);
+            if (after > before)
+            {
+                _bruise[site.Organ] = after;
+                added[site.Organ] = added.GetValueOrDefault(site.Organ) + (after - before);
+            }
+        }
+
+        return added;
+    }
+
+    /// <summary>打撲が時間とともに引く（一定の速さ <paramref name="rate"/> [/s]）。</summary>
+    public void HealBruises(float dt, float rate)
+    {
+        foreach (var organ in TrunkOrgans)
+        {
+            if (_bruise.TryGetValue(organ, out var b) && b > 0f)
+            {
+                _bruise[organ] = MathF.Max(0f, b - (rate * dt));
+            }
+        }
+    }
+
+    /// <summary>臓器の中心（ワールド。いちばん大きな置き場所の重心）。その臓器が無ければ null。</summary>
+    public Vector3? OrganCenter(byte organ)
+    {
+        OrganSite? best = null;
+        foreach (var site in _organSites)
+        {
+            if (site.Organ == organ && (best is null || site.Radius > best.Value.Radius))
+            {
+                best = site;
+            }
+        }
+
+        return best is { } s ? Vector3.Transform(s.LocalCentroid, s.Part.Body.GridToWorld()) : null;
+    }
+
+    /// <summary>臓器の今の打撲（0..1、一時的）。</summary>
+    public float BruiseOf(byte organ) => _bruise.GetValueOrDefault(organ);
+
+    /// <summary>臓器が削られた割合（0..1、恒久的）。</summary>
+    public float OrganLoss(byte organ)
+    {
+        int left = 0, start = 0;
+        foreach (var part in _parts)
+        {
+            left += part.Body.Grid.Remaining(organ);
+            start += part.Body.Grid.Initial(organ);
+        }
+
+        return start == 0 ? 0f : Math.Clamp(1f - ((float)left / start), 0f, 1f);
+    }
+
+    /// <summary>
+    /// 臓器の働き（0..1）= 打撲で一時的に落ちる分（1 − 打撲）× 削れて恒久的に落ちる分（<c>0.5^(削れた割合 / halvingLoss)</c>、脳と同じ形）。
+    /// </summary>
+    public float OrganFunction(byte organ, float halvingLoss) => (1f - BruiseOf(organ)) * BrainFunctionOf(OrganLoss(organ), halvingLoss);
 
     /// <summary>体に付いている部位（Aigis の 13 + つま先 2）。</summary>
     public IReadOnlyList<VoxelPart> Parts => _parts;

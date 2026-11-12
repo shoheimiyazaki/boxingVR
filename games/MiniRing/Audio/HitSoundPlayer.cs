@@ -162,6 +162,108 @@ public sealed class HitSoundPlayer : IDisposable
         }
     }
 
+    /// <summary>1 ステップぶんの、拳が体をかすめた音（打撃音に隠れるほど小さく）。</summary>
+    public void PlayGrazes(IReadOnlyList<GrazeEvent> grazes)
+    {
+        ArgumentNullException.ThrowIfNull(grazes);
+        if (!_backend.IsAvailable || grazes.Count == 0)
+        {
+            return;
+        }
+
+        OpenAlAudioBackend.MakeCurrentOnThisThread();
+        foreach (var graze in grazes)
+        {
+            Reap();
+            if (_voices.Count >= MaxVoices - ReservedForBreaks)
+            {
+                return;
+            }
+
+            Start(new AudioClip("graze", AudioSampleFormat.Mono16, GrazeSound.SampleRate, GrazeSound.Synthesize(graze.Speed, _variation.Next()), IsGenerated: true), 1f);
+        }
+    }
+
+    /// <summary>1 ステップぶんの、部位が切り離された音（骨が折れる音と裂ける音）。</summary>
+    public void PlaySevers(IReadOnlyList<SeverEvent> severs)
+    {
+        ArgumentNullException.ThrowIfNull(severs);
+        if (!_backend.IsAvailable || severs.Count == 0)
+        {
+            return;
+        }
+
+        OpenAlAudioBackend.MakeCurrentOnThisThread();
+        foreach (var sever in severs)
+        {
+            Reap();
+            if (_voices.Count >= MaxVoices - ReservedForBreaks)
+            {
+                return;
+            }
+
+            Start(new AudioClip("sever", AudioSampleFormat.Mono16, SeverSound.SampleRate, SeverSound.Synthesize(sever.Strength, _variation.Next()), IsGenerated: true), 1f);
+        }
+    }
+
+    /// <summary>
+    /// 会場のざわめきと反応の音を、別のスレッドで前もって作り始める（テレビ中継のモード。合成は 1 秒近くかかるので、試合の歩を止めない）。
+    /// できたら <see cref="PlayCrowd"/> が鳴らし始める。反応は種類ごとに強さ 3 段 × 揺らぎ 3 通りを作っておく。
+    /// </summary>
+    public void PrepareCrowd(int seed, float ambienceSeconds = 20f)
+    {
+        if (!_backend.IsAvailable || _crowd is not null)
+        {
+            return;
+        }
+
+        _crowd = Task.Run(() =>
+        {
+            var ambience = CrowdSound.ToPcm(CrowdSound.Ambience(ambienceSeconds, seed));
+            var reactions = new Dictionary<(CrowdReaction, int, int), byte[]>();
+            foreach (var reaction in Enum.GetValues<CrowdReaction>())
+            {
+                for (var level = 0; level < CrowdLevels; level++)
+                {
+                    for (var variant = 0; variant < CrowdVariants; variant++)
+                    {
+                        reactions[(reaction, level, variant)] = CrowdSound.ToPcm(CrowdSound.React(reaction, (level + 0.5f) / CrowdLevels, seed + (31 * variant) + level));
+                    }
+                }
+            }
+
+            return (ambience, (IReadOnlyDictionary<(CrowdReaction, int, int), byte[]>)reactions);
+        });
+    }
+
+    private const int CrowdLevels = 3;
+    private const int CrowdVariants = 3;
+    private Task<(byte[] Ambience, IReadOnlyDictionary<(CrowdReaction, int, int), byte[]> Reactions)>? _crowd;
+    private int? _ambience;
+
+    /// <summary>会場の反応（歓声・どよめき・カウントの掛け声）を 1 つ鳴らす。音がまだできていなければ鳴らさない（ざわめきも、できたら流し始める）。</summary>
+    public void PlayCrowd(CrowdCue cue)
+    {
+        if (!_backend.IsAvailable || _crowd is not { IsCompletedSuccessfully: true } ready)
+        {
+            return;
+        }
+
+        OpenAlAudioBackend.MakeCurrentOnThisThread();
+        var (ambience, reactions) = ready.Result;
+        _ambience ??= _backend.Play(new AudioClip("crowd", AudioSampleFormat.Mono16, CrowdSound.SampleRate, ambience, IsGenerated: true), volume: 1f, shouldLoop: true);
+        if (cue.Reaction is { } reaction && reactions.TryGetValue((reaction, Math.Clamp((int)(cue.Intensity * CrowdLevels), 0, CrowdLevels - 1), Math.Abs(cue.Seed) % CrowdVariants), out var pcm))
+        {
+            Reap();
+            if (_voices.Count >= MaxVoices - ReservedForBreaks)
+            {
+                return; // 砕ける音・ゴングの声を奪わない
+            }
+
+            Start(new AudioClip("cheer", AudioSampleFormat.Mono16, CrowdSound.SampleRate, pcm, IsGenerated: true), 1f);
+        }
+    }
+
     /// <summary>ラウンドのゴング（<see cref="GongSound"/>）。他の音で声が埋まっていても、いちばん古い声を止めて鳴らす。</summary>
     public void PlayBell(RoundBell bell)
     {
@@ -201,6 +303,11 @@ public sealed class HitSoundPlayer : IDisposable
 
     public void Dispose()
     {
+        if (_ambience is { } ambience)
+        {
+            _backend.StopVoice(ambience);
+        }
+
         foreach (var voice in _voices)
         {
             _backend.StopVoice(voice);

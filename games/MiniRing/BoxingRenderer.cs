@@ -138,7 +138,7 @@ public static class BoxingRenderer
 
             foreach (var part in body.Parts)
             {
-                voxels.Add(part.Draw());
+                voxels.Add(part.Draw(fighter.Cyanosis)); // 息が上がるほど皮膚が青紫に（見た目だけ）
             }
 
             foreach (var fragment in body.Fragments)

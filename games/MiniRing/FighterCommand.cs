@@ -80,7 +80,8 @@ public readonly record struct BodySense(Vector3 LeftShoulder, Vector3 RightShoul
 public readonly record struct FighterSense(
     BodyFrame Self, float ArmReach, Vector3 OpponentHead, Vector3 OpponentChest, bool OpponentAlive,
     Vector3 SelfHead = default, GloveSense OpponentLeft = default, GloveSense OpponentRight = default, Vector3 OpponentVelocity = default,
-    BodySense OpponentBody = default, float SelfFaintness = 0f, BladeSense OpponentBlade = default, bool? SelfArmed = null)
+    BodySense OpponentBody = default, float SelfFaintness = 0f, BladeSense OpponentBlade = default, bool? SelfArmed = null,
+    TargetMap? OpponentTargets = null, float SelfStamina = 1f)
 {
     public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
 }
@@ -92,6 +93,14 @@ public interface IFighterControl
 
     /// <summary>自分のパンチが当たった（ハプティクス等のフィードバック用）。</summary>
     public void OnPunchLanded(Hand hand, float damage)
+    {
+    }
+
+    /// <summary>
+    /// ラウンドが変わって作り直された操作元へ、前のラウンドの操作元（同じコーナー）を渡す。覚えたことを試合の中で引き継ぐため
+    /// （学ぶボット）。試合を最初から再生すれば同じ順に呼ばれるので、記録の再生は一致する。
+    /// </summary>
+    public void CarryOver(IFighterControl previous)
     {
     }
 

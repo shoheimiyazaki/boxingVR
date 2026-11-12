@@ -21,6 +21,9 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     private readonly Func<IReadOnlyList<DebrisLanding>>? _landings;
     private readonly Func<IReadOnlyList<SwingEvent>>? _swings;
     private readonly Func<RoundBell>? _bells;
+    private readonly Func<IReadOnlyList<GrazeEvent>>? _grazes;
+    private readonly Func<IReadOnlyList<SeverEvent>>? _severs;
+    private readonly Action<HitSoundPlayer, float>? _afterStep;
 
     /// <param name="inner">包む試合。</param>
     /// <param name="hits">直前の <see cref="Step"/> で起きた打撃。</param>
@@ -29,10 +32,17 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     /// <param name="landings">直前の <see cref="Step"/> で床に落ちた破片（落ちる音）。</param>
     /// <param name="swings">直前の <see cref="Step"/> で振り抜かれた拳（風切り音）。</param>
     /// <param name="bells">直前の <see cref="Step"/> で鳴ったラウンドのゴング。</param>
+    /// <param name="grazes">直前の <see cref="Step"/> で拳が体をかすめた瞬間。</param>
+    /// <param name="severs">直前の <see cref="Step"/> で部位が切り離された瞬間。</param>
+    /// <param name="afterStep">1 ステップごとに、鳴らす先と時間 [s] を渡して呼ぶ（会場の歓声など、包んだ側が足す音）。</param>
     public HitSoundGame(IGame<BoxingInput> inner, Func<IReadOnlyList<HitEvent>> hits, HitSoundPlayer sounds,
         Func<IReadOnlyList<ShatterEvent>>? shatters = null, Func<IReadOnlyList<DebrisLanding>>? landings = null, Func<IReadOnlyList<SwingEvent>>? swings = null,
-        Func<RoundBell>? bells = null)
+        Func<RoundBell>? bells = null, Func<IReadOnlyList<GrazeEvent>>? grazes = null, Func<IReadOnlyList<SeverEvent>>? severs = null,
+        Action<HitSoundPlayer, float>? afterStep = null)
     {
+        _afterStep = afterStep;
+        _grazes = grazes;
+        _severs = severs;
         _bells = bells;
         _shatters = shatters;
         _landings = landings;
@@ -72,6 +82,18 @@ public sealed class HitSoundGame : IGame<BoxingInput>
         {
             _sounds.PlayBell(_bells());
         }
+
+        if (_grazes is not null)
+        {
+            _sounds.PlayGrazes(_grazes());
+        }
+
+        if (_severs is not null)
+        {
+            _sounds.PlaySevers(_severs());
+        }
+
+        _afterStep?.Invoke(_sounds, dt); // 会場の歓声など、包んだ側が足す音
     }
 
     /// <summary>ボクセルの体（包んだ試合のもの）。これを中継しないとホストは体を描かない。</summary>

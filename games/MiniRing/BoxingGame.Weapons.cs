@@ -45,19 +45,23 @@ public sealed partial class BoxingGame
     public const Hand WeaponHand = Hand.Right;
 
     /// <summary><paramref name="fighter"/> が握っている武器（無ければ null）。</summary>
-    public Weapon? WeaponOf(Fighter fighter) => _wielders.FirstOrDefault(kv => kv.Value == fighter && kv.Key.Kind != WeaponKind.Glove).Key;
-
-    /// <summary><paramref name="fighter"/> が手 <paramref name="hand"/> にはめているグローブ（はめていなければ null）。</summary>
-    public Weapon? GloveOf(Fighter fighter, Hand hand) =>
-        _wielders.FirstOrDefault(kv => kv.Value == fighter && kv.Key.Kind == WeaponKind.Glove && _wieldHand[kv.Key] == hand).Key;
+    public Weapon? WeaponOf(Fighter fighter) => _wielders.FirstOrDefault(kv => kv.Value == fighter && !Weapon.IsWorn(kv.Key.Kind)).Key;
 
     /// <summary>
-    /// <paramref name="fighter"/> の、武器を握っていない手に、ボクセルのグローブ（<see cref="WeaponKind.Glove"/>、コーナーの色）をはめる。
-    /// 拳の打撃は、このグローブと相手の体のボクセル同士の接触（圧力のモデル）で起きる。
+    /// <paramref name="fighter"/> が手 <paramref name="hand"/> にはめている物（グローブ・素手の拳・メリケンサック・カタール・籠手。
+    /// <see cref="Weapon.IsWorn"/>。はめていなければ null）。
     /// </summary>
-    public void Glove(Fighter fighter)
+    public Weapon? GloveOf(Fighter fighter, Hand hand) =>
+        _wielders.FirstOrDefault(kv => kv.Value == fighter && Weapon.IsWorn(kv.Key.Kind) && _wieldHand[kv.Key] == hand).Key;
+
+    /// <summary>
+    /// <paramref name="fighter"/> の、武器を握っていない手に、<paramref name="wear"/>（既定はボクセルのグローブ。革はコーナーの色）をはめる。
+    /// 拳の打撃は、はめた物と相手の体のボクセル同士の接触（圧力のモデル）で起きる。どれも同じ道を通り、違いはボクセルの形と材質だけ。
+    /// </summary>
+    public void Wear(Fighter fighter, HandWear wear = HandWear.Glove)
     {
         ArgumentNullException.ThrowIfNull(fighter);
+        var kind = wear.Kind();
         foreach (var hand in Hands)
         {
             if (fighter.ArmSevered(hand) || fighter.Wields(hand) || fighter.WearsGlove(hand))
@@ -65,11 +69,12 @@ public sealed partial class BoxingGame
                 continue;
             }
 
-            var glove = Weapon.CreateGlove(_world, fighter == Player ? BoxerAnatomy.RedGlove : BoxerAnatomy.BlueGlove, fighter.GloveCenter(hand), Quaternion.Identity);
-            Track(glove);
-            fighter.Wield(hand, glove.Body.BodyId, Weapon.GripOf(WeaponKind.Glove), glove: true);
-            _wielders[glove] = fighter;
-            _wieldHand[glove] = hand;
+            var leather = fighter == Player ? BoxerAnatomy.RedGlove : BoxerAnatomy.BlueGlove;
+            var worn = Weapon.CreateWorn(_world, kind, leather, fighter.GloveCenter(hand), Quaternion.Identity);
+            Track(worn);
+            fighter.Wield(hand, worn.Body.BodyId, Weapon.GripOf(kind), glove: true);
+            _wielders[worn] = fighter;
+            _wieldHand[worn] = hand;
         }
     }
 
@@ -147,9 +152,9 @@ public sealed partial class BoxingGame
     /// </summary>
     private Vector3 Drive(Weapon weapon)
     {
-        // グローブは押し込まない: 腕が押し付ける力は詰め物が広い面で受けて散らす（圧力のモデルは表の革の面だけを見るので、詰め物の
-        // 下で押す腕の力を数えると、構えたグローブを押し付けているだけで肌が削れてしまう）。
-        if (HolderOf(weapon) is not { } holder || weapon.Kind == WeaponKind.Glove)
+        // 打つ面が柔らかい物（グローブの革・素手の皮膚）は押し込まない: 腕が押し付ける力は詰め物や肉が広い面で受けて散らす（圧力のモデルは
+        // 表の面だけを見るので、その下で押す腕の力を数えると、構えた拳を押し付けているだけで肌が削れてしまう）。硬い面（鉄・木）は伝える。
+        if (HolderOf(weapon) is not { } holder || !Weapon.HasRigidFace(weapon.Kind))
         {
             return Vector3.Zero;
         }
@@ -280,8 +285,8 @@ public sealed partial class BoxingGame
             for (var j = i + 1; j < weapons.Count; j++)
             {
                 var other = weapons[j];
-                // 同じ人の両手のグローブは打ち合わない（構えでいつも触れ合っている）。
-                if (weapon.Kind == WeaponKind.Glove && other.Kind == WeaponKind.Glove && HolderOf(weapon) is { } h && HolderOf(other) == h)
+                // 同じ人の両手にはめた物は打ち合わない（構えでいつも触れ合っている）。
+                if (Weapon.IsWorn(weapon.Kind) && Weapon.IsWorn(other.Kind) && HolderOf(weapon) is { } h && HolderOf(other) == h)
                 {
                     continue;
                 }
@@ -298,8 +303,8 @@ public sealed partial class BoxingGame
                 // 握った本人の体にも当たる（振りかぶった棍棒が自分の頭を打つことも）。握っている手の前腕だけは除く: 拳と武器は
                 // 玉継手でつながっていて、握りはいつも前腕の先に触れている。
                 var holds = HolderOf(weapon) == fighter;
-                // グローブは自分の体を打たない（構えたグローブはいつも自分の顔に触れている。自分を殴る力は乗らない）。
-                if (holds && (!WeaponsHitHolder || weapon.Kind == WeaponKind.Glove))
+                // 手にはめた物は自分の体を打たない（構えた拳はいつも自分の顔に触れている。自分を殴る力は乗らない）。
+                if (holds && (!WeaponsHitHolder || Weapon.IsWorn(weapon.Kind)))
                 {
                     continue;
                 }
@@ -391,8 +396,9 @@ public sealed partial class BoxingGame
             contactTwist = Vector3.Cross(hit.Point - head.Position, hit.ImpulseOnB);
         }
 
-        // グローブの打撃は拳の打撃（パンチ）: 拳と同じ物差しで数え、体の重さを運ぶ。壊れるのはボクセル同士の接触が壊した分だけ。
-        if (weapon.Kind == WeaponKind.Glove)
+        // 手にはめた物の打撃は拳の打撃（パンチ）: 拳と同じ物差しで数え、体の重さを運ぶ。壊れるのはボクセル同士の接触が壊した分だけ
+        // （カタールの刃が斬った所も、メリケンサックの突起が潰した所も、同じ接触が壊した分）。
+        if (Weapon.IsWorn(weapon.Kind))
         {
             if (!(part.FragmentOf is null && HolderOf(weapon) is { } puncher && puncher != victim && Punch(puncher, HandOf(weapon), victim, part, hit, contactTwist)))
             {
@@ -402,7 +408,7 @@ public sealed partial class BoxingGame
                 }
             }
 
-            Shatter(hit, weapon.Body, -hit.Normal, part.Body, hit.Normal, fatal: false);
+            Wound(weapon, victim, part, hit);
             return;
         }
 
@@ -486,12 +492,22 @@ public sealed partial class BoxingGame
             SelfWeaponHits.Add(own with { HeadTwist = part.Kind == BodyPartKind.Head ? victim.LastHeadTwist : 0f });
         }
 
+        Wound(weapon, victim, part, hit);
+    }
+
+    /// <summary>
+    /// 接触が体を壊した後: 骨が断たれたらその先を落とし、臓器が壊れたら死なせ、壊れたセルを散らす（刃のある物は振り抜けた向きへ、
+    /// 刃の無い物は拳と同じ散り方）。握った武器も手にはめた物も同じ。
+    /// </summary>
+    private void Wound(Weapon weapon, Fighter victim, VoxelPart part, VoxelContactResult hit)
+    {
         var fatal = false;
         if (hit.RemovedB.Count > 0 && victim.Voxels is { } body)
         {
             if (part.FragmentOf is null && body.SeverIfBroken(part.Body.BodyId) is { } fragment)
             {
                 victim.Sever(part.Body.BodyId, fragment.Body);
+                _recentSevers.Add(new SeverEvent(_world.GetState(fragment.Body.BodyId).Position, 1f));
                 UntouchedByWeaponBoxes(fragment.Body.BodyId);
                 ShowMessage(fragment.Kind is BodyPartKind.UpperArm or BodyPartKind.Forearm ? "ARM OFF!" : "LEG OFF!", 1.2f);
             }

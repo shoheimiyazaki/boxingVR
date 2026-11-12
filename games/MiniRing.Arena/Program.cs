@@ -37,6 +37,9 @@ try
     return command switch
     {
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out")),
+        "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
+        "learnlab" => LearnLabCommand(Options.Parse(argv[1..], "first", "second", "seeds", "seconds", "seed", "prior", "scale", "combos", "defender", "out")),
+        "rangelab" => RangeLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "out")),
         "tune" => Tune(Options.Parse(argv[1..], "base", "gens", "pop", "bouts", "seconds", "gauntlet", "seed", "log", "out", "focus")),
         "drill" => Drill(Options.Parse(argv[1..], "book", "bouts", "seconds", "seed", "out")),
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
@@ -51,7 +54,7 @@ try
         "swordlab" => SwordLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "techniques")),
         "swinglab" => SwingLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "families")),
         "weaponlab" => WeaponLabCommand(Options.Parse(argv[1..], "out", "table", "width", "height", "fps", "slow", "video")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
         "voxcheck" => VoxCheck(Options.Parse(argv[1..], "in", "install")),
         _ => Usage($"知らないコマンド: {command}"),
@@ -78,6 +81,82 @@ static int League(Options o)
     var rows = Standing.From(results);
     var text = $"### 総当たり（各組 {bouts} 試合 × {seconds:0} 秒、種 {o.Int("seed", 1)}）\n\n" +
         Report.Standings(rows) + "\n" + Report.Matrix(results) + "\n" + Report.Breakdown(rows);
+    Console.WriteLine(text);
+    Console.Error.WriteLine($"{results.Count} bouts in {watch.Elapsed.TotalSeconds:0.0}s");
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, text);
+    }
+
+    return 0;
+}
+
+static int StaminaLabCommand(Options o)
+{
+    var variants = o.List("variants", ["off", "on", "hard"]);
+    var bots = o.List("bots", [.. BotCatalog.Names.Where(n => n != BotCatalog.Legacy)]).Select(Check).ToList();
+    var bouts = o.Int("bouts", 4, min: 1);
+    // --tv on: テレビ中継の決まり（30 秒 × 5 ラウンド、間に 10 秒の休み）。スタミナの配分・休みでの戻りが効くのはこちら。
+    var rules = o.Get("tv") == "on" ? MiniRing.MatchRules.Tv : null;
+    var seconds = rules?.TotalSeconds ?? o.Float("seconds", 60f, min: 1f);
+    var seed = o.Int("seed", 1);
+    var watch = Stopwatch.StartNew();
+    var results = StaminaLab.Run(variants, bots, bouts, seconds, seed, rules);
+    var text = StaminaLab.Report(results, variants, bots, bouts, seconds, seed);
+    Console.WriteLine(text);
+    Console.Error.WriteLine($"{results.Count} bouts in {watch.Elapsed.TotalSeconds:0.0}s");
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, text);
+    }
+
+    return 0;
+}
+
+// 拳の種類の名前（Straight / Hook / Uppercut / Body）。数字や知らない名前は引数の誤りとして知らせる。
+static PunchKind Kind(string name) => Enum.TryParse<PunchKind>(name, ignoreCase: true, out var kind) && Enum.IsDefined(kind) && !int.TryParse(name, out _)
+    ? kind
+    : throw new ArgumentException($"拳の種類 '{name}' はありません（{string.Join(", ", Enum.GetNames<PunchKind>())}）。");
+
+static int RangeLabCommand(Options o)
+{
+    var variants = o.List("variants", ["off", "guard", "head", "guess", "exit", "all"]);
+    foreach (var v in variants)
+    {
+        _ = RangeLab.Variant(v); // 打ち間違いを先に知らせる
+    }
+
+    var bots = o.List("bots", [.. BotCatalog.Names.Where(n => n != BotCatalog.Legacy)]).Select(Check).ToList();
+    var watch = Stopwatch.StartNew();
+    var text = RangeLab.Run(variants, bots, o.Int("bouts", 2, min: 1), o.Float("seconds", 60f, min: 1f), o.Int("seed", 1));
+    Console.WriteLine(text);
+    Console.Error.WriteLine($"done in {watch.Elapsed.TotalSeconds:0.0}s");
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, text);
+    }
+
+    return 0;
+}
+
+static int LearnLabCommand(Options o)
+{
+    var first = Kind(o.Get("first") ?? "Straight");
+    var second = Kind(o.Get("second") ?? "Hook");
+    var seeds = o.Int("seeds", 6, min: 1);
+    var seconds = o.Float("seconds", 120f, min: 2f);
+    var seed = o.Int("seed", 1);
+    var prior = o.Float("prior", 4f, min: 0.5f);
+    var scale = o.Float("scale", 10f, min: 0.5f);
+    var combos = o.Get("combos") == "on";
+    // 受け手: スタイルの名前（自分からは攻めない形にして使う）か "drill"（防御ドリルの受け手。反応だけで守る）。
+    var defenderName = o.Get("defender") ?? "counter";
+    var defender = defenderName == "drill"
+        ? DefenseDrill.Defender(DefenseBook.Default, defend: true)
+        : BotCatalog.Style(Check(defenderName)) with { Attacks = false, ClinchRate = 0f, ThrowRate = 0f };
+    var watch = Stopwatch.StartNew();
+    var results = LearnLab.Run(defender, first, second, seeds, seconds, seed, prior, scale, combos);
+    var text = $"受け手: {defenderName}\n\n" + LearnLab.Report(results, first, second, seeds, seconds, seed, prior, scale, combos);
     Console.WriteLine(text);
     Console.Error.WriteLine($"{results.Count} bouts in {watch.Elapsed.TotalSeconds:0.0}s");
     if (o.Get("out") is { } path)
@@ -587,8 +666,15 @@ static int Video(Options o)
     var speed = o.Get("speed") is { } speedText
         ? MiniRing.GameSpeed.Parse(speedText) ?? throw new ArgumentException("--speed は 0.5 / 0.75 / 1 のどれかです。")
         : MiniRing.GameSpeed.Standard;
-    new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), breakStyle, hitSounds, faceCam, speed)
-        .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 45f, min: 1f), output, Console.Out, untilKo: (o.Get("until-ko") ?? "no") switch { "yes" => true, "no" => false, _ => throw new ArgumentException("--until-ko は yes か no にしてください。") });
+    var tv = (o.Get("tv") ?? "off") switch
+    {
+        "on" => true,
+        "off" => false,
+        _ => throw new ArgumentException("--tv は on か off にしてください。"),
+    };
+    new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), breakStyle, hitSounds, faceCam, speed, tv)
+        .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 45f, min: 1f), output, Console.Out, untilKo: (o.Get("until-ko") ?? "no") switch { "yes" => true, "no" => false, _ => throw new ArgumentException("--until-ko は yes か no にしてください。") },
+            redWear: MiniRing.Weapons.HandWears.Parse(o.Get("red-wear") ?? "glove"), blueWear: MiniRing.Weapons.HandWears.Parse(o.Get("blue-wear") ?? "glove"));
     return 0;
 }
 
