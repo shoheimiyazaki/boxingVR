@@ -39,7 +39,7 @@ try
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out")),
         "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
         "learnlab" => LearnLabCommand(Options.Parse(argv[1..], "first", "second", "seeds", "seconds", "seed", "prior", "scale", "combos", "defender", "out")),
-        "rangelab" => RangeLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "out")),
+        "rangelab" => RangeLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "weapons", "out")),
         "tune" => Tune(Options.Parse(argv[1..], "base", "gens", "pop", "bouts", "seconds", "gauntlet", "seed", "log", "out", "focus")),
         "drill" => Drill(Options.Parse(argv[1..], "book", "bouts", "seconds", "seed", "out")),
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
@@ -124,6 +124,22 @@ static PunchKind Kind(string name) => Enum.TryParse<PunchKind>(name, ignoreCase:
 
 static int RangeLabCommand(Options o)
 {
+    if (o.Get("weapons") == "on")
+    {
+        // 拳（間合いの層なし・あり）と武器の相手（versus と同じ棍棒・バット・日本刀・ロングソード）。
+        var weapons = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json",
+            MiniRing.Bots.SwordDefense.Adopted, File.Exists("docs/arena/hit_and_away.json") ? AwayLab.Load("docs/arena/hit_and_away.json") : new MiniRing.Bots.HitAndAway(), AimDefaults.Tuning)
+            .Where(c => c.Name != "拳").ToList();
+        var report = RangeLab.RunWeapons(weapons, o.Int("bouts", 4, min: 1), o.Float("seconds", 45f, min: 1f), o.Int("seed", 1));
+        Console.WriteLine(report);
+        if (o.Get("out") is { } weaponOut)
+        {
+            File.WriteAllText(weaponOut, report);
+        }
+
+        return 0;
+    }
+
     var variants = o.List("variants", ["off", "guard", "head", "guess", "exit", "all"]);
     foreach (var v in variants)
     {

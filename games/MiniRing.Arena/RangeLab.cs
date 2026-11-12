@@ -120,4 +120,47 @@ internal static class RangeLab
 
         return text.ToString();
     }
+
+    /// <summary>
+    /// 間合いの層と武器（docs/LEARNING_PLAN.md の R5）: 拳のボット（champion）を、間合いの層なし・あり（スタイルの値）で、武器の相手
+    /// （棍棒・バット・日本刀・ロングソード、<see cref="VersusLab"/> と同じ）と戦わせる。拳の側の勝ち・与えた・受けた・ダウン・打たずに危ない所にいた時間。
+    /// </summary>
+    public static string RunWeapons(IReadOnlyList<Contender> weapons, int bouts, float seconds, int seed)
+    {
+        var fists = new[]
+        {
+            Contender.Of(Variant("off")(BotCatalog.Style("champion")) with { Name = "拳（層なし）" }),
+            Contender.Of(BotCatalog.Style("champion") with { Name = "拳（層あり）" }),
+        };
+        var specs = new List<BoutSpec>();
+        for (var a = 0; a < fists.Length; a++)
+        {
+            for (var b = 0; b < weapons.Count; b++)
+            {
+                specs.AddRange(BotArena.Pair(fists[a], weapons[b], bouts, seconds, seed + (37 * b)));
+            }
+        }
+
+        var results = BotArena.RunAll(specs, VersusLab.Tuning);
+        var text = new StringBuilder();
+        text.AppendLine(CultureInfo.InvariantCulture, $"### 拳と武器（各組 {bouts} 試合 × {seconds:0} 秒、種 {seed}。拳の側から）");
+        text.AppendLine();
+        text.AppendLine("| 拳 | 相手 | 勝ち点 | 与えた | 受けた | 取ったダウン | 取られたダウン | 打った数 | 打たずに危ない所にいた時間 [s] |");
+        text.AppendLine("|---|---|---|---|---|---|---|---|---|");
+        foreach (var fist in fists)
+        {
+            foreach (var weapon in weapons.Append(null))
+            {
+                var mine = results.Where(r => (r.Spec.Red.Name == fist.Name || r.Spec.Blue.Name == fist.Name)
+                    && (weapon is null || r.Spec.Red.Name == weapon.Name || r.Spec.Blue.Name == weapon.Name)).ToList();
+                var n = Math.Max(1, mine.Count);
+                var points = mine.Sum(r => r.Winner == 0 ? 0.5f : (r.Winner == 1) == (r.Spec.Red.Name == fist.Name) ? 1f : 0f) / n;
+                var me = mine.Select(r => r.Spec.Red.Name == fist.Name ? (Me: r.Red, Them: r.Blue) : (Me: r.Blue, Them: r.Red)).ToList();
+                text.AppendLine(CultureInfo.InvariantCulture,
+                    $"| {fist.Name} | {(weapon is null ? "**全体**" : weapon.Name)} | {points:0.00} | {me.Sum(x => x.Me.DamageDealt) / n:0} | {me.Sum(x => x.Them.DamageDealt) / n:0} | {me.Sum(x => x.Me.Knockdowns) / (float)n:0.0} | {me.Sum(x => x.Them.Knockdowns) / (float)n:0.0} | {me.Sum(x => x.Me.Stats.Techniques.Values.Sum(c => c.Thrown)) / (float)n:0.0} | {me.Sum(x => x.Me.Stats.IdleDangerTime) / n:0.0} |");
+            }
+        }
+
+        return text.ToString();
+    }
 }

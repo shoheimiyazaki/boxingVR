@@ -50,6 +50,21 @@ public sealed class RangeSenseTests
         Assert.AreEqual(0f, Danger(gap, new Vector3(0f, 0f, 0.5f)), 1e-6f, "離れていく相手は伸びない");
     }
 
+    /// <summary>相手が武器を握っていれば、危ない所は握りから先までの長さだけ遠くまで伸びる（素手なら届かない所でも、剣なら届く）。</summary>
+    [TestMethod]
+    public void Weapon_ExtendsTheDangerZone()
+    {
+        var gap = (BotCatalog.Boxer.RangeThreat + 0.5f) * Reach; // 素手では届かない
+        var bare = Sense(gap);
+        var armed = bare with { OpponentBlade = new BladeSense(true, bare.OpponentChest, bare.OpponentChest + new Vector3(0f, 0f, -0.15f), Vector3.Zero) };
+        var range = new RangeSense();
+        range.Update(bare, bare.SelfHead, attacking: false, BotCatalog.Boxer, 1f / 60f);
+        Assert.AreEqual(0f, range.Danger, 1e-6f);
+        range.Update(armed, armed.SelfHead, attacking: false, BotCatalog.Boxer, 1f / 60f);
+        Assert.AreEqual(0.15f, range.WeaponLength, 1e-5f);
+        Assert.AreEqual(1f, range.Danger, 1e-6f, "15 cm の刃なら届く");
+    }
+
     /// <summary>さらされ: 打っていない間は危険度を積み、打っている間は積まない。倒れた相手は危なくない。</summary>
     [TestMethod]
     public void Exposure_GrowsOnlyWhileNotAttacking()

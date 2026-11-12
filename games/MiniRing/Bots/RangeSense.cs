@@ -26,6 +26,9 @@ internal sealed class RangeSense
     /// <summary>さらされ [s]: 自分から打っていない間に危険度を積んだもの（危ない所を出ると <see cref="ExposureDecay"/> で抜ける）。</summary>
     public float Exposure { get; private set; }
 
+    /// <summary>相手が握っている武器の、握りから先までの長さ [m]（握っていなければ 0）。危ない所はその分遠くまで伸びる。</summary>
+    public float WeaponLength { get; private set; }
+
     /// <summary>相手の肩から自分の頭までの距離 [m]（調査用）。</summary>
     public float Distance { get; private set; }
 
@@ -49,7 +52,11 @@ internal sealed class RangeSense
 
         // 相手が自分の方へ詰めてくる速さ（離れていく分は数えない）。反応する間に詰められる分だけ、届く所が遠くまで伸びる。
         var closing = MathF.Max(0f, Vector3.Dot(sense.OpponentVelocity, toMe / distance));
-        var threat = (style.RangeThreat * reach) + (closing * style.ReactionTime);
+        // 相手が武器を握っていれば、届く長さは握りから先までの長さだけ伸びる（剣士の読み SwordsmanBot.OpponentReach と同じ考え: 武器 + 腕）。
+        var blade = sense.OpponentBlade;
+        var weapon = blade.Present ? Vector3.Distance(blade.Hilt, blade.Tip) : 0f;
+        WeaponLength = weapon;
+        var threat = (style.RangeThreat * reach) + weapon + (closing * style.ReactionTime);
         var width = Width * reach;
         var t = Math.Clamp((threat + width - distance) / (2f * width), 0f, 1f);
         Danger = t * t * (3f - (2f * t));

@@ -197,7 +197,8 @@ public sealed class BoxerBot : IFighterControl
     // 13（claude/a-3d0203 の中だけの番号: 11 = 手数の配分・守りの効き目を経験で覚える、12 = 間合いの層、13 = スタイルごとの間合いの層）を master の 12 と合わせて 14:
     // 自分のスタミナで手数を配分する（PaceKnee・PaceDrop、既定は使わない）、守りの効き目を経験で覚える（LearnDefense: DefenseMemory、ラウンドをまたいで CarryOver、既定は使わない）、
     // 間合いの層（RangeSense: 危険度・さらされ）とスタイルごとの使い方（RangePress・RangeGuard。boxer は基準として使わない）。
-    public const int LogicVersion = 14;
+    // 15: 間合いの層の届く長さに相手の武器（握りから先）を足す（素手どうしの試合は変わらない）。
+    public const int LogicVersion = 15;
 
     public BotStyle Style { get; }
 
