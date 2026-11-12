@@ -44,6 +44,7 @@ try
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
         "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift")),
+        "guardspar" => GuardSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seconds", "out", "only", "variants", "video", "try")),
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
@@ -364,7 +365,7 @@ static int VersusCommand(Options o)
         "legacy" => new MiniRing.Bots.SwordDefense(),
         "step" => new MiniRing.Bots.SwordDefense(Mode: MiniRing.Bots.DefenseMode.Step),
         "parry" => MiniRing.Bots.SwordDefense.Parrying,
-        null => MiniRing.Bots.SwordDefense.Adopted,
+        null => DefenseDefaults.Value,
         var other => throw new ArgumentException($"--defense は off・legacy・step・parry のどれか（{other}）。"),
     };
     // --hitaway: off（打って離れない）・default（始めの値）・JSON のパス（awaylab で育てた値）。既定は育てた値があればそれ。
@@ -463,10 +464,39 @@ static int AimLabCommand(Options o)
     return 0;
 }
 
+static int GuardSparCommand(Options o)
+{
+    // 守りを練習試合で育てる: 育てる剣士（既定は日本刀）の守りの値を変えながら相手たちと戦わせ、最後にロングソードでも比べ直す。
+    const string Library = "docs/arena/sword_library.json";
+    IReadOnlyList<Contender> With(MiniRing.Bots.SwordDefense d) =>
+        VersusLab.Contenders(Library, "docs/arena/club_swings.json", "docs/arena/bat_swings.json", d, HitAwayDefaults.Value, AimDefaults.Tuning);
+    var traineeName = o.Get("trainee") ?? "日本刀";
+    if (traineeName is not ("日本刀" or "ロングソード"))
+    {
+        throw new ArgumentException($"--trainee は剣士（日本刀・ロングソード）だけ（守りの値は剣士だけが使う）: {traineeName}");
+    }
+
+    var checkName = traineeName == "日本刀" ? "ロングソード" : "日本刀";
+    var opponents = With(DefenseDefaults.Value).Where(c => o.List("opponents", ["日本刀", "ロングソード", "バット", "棍棒", "拳"]).Contains(c.Name)).ToList();
+    var start = o.Get("start") is { } from ? GuardSpar.Load(from) : DefenseDefaults.Value;
+    var trainer = new MatchTrainer<MiniRing.Bots.SwordDefense>(d => With(d).Single(c => c.Name == traineeName), GuardSpar.Mutate, GuardSpar.Describe);
+    var (best, report) = trainer.Run($"守りを練習試合で育てる（{traineeName}）", opponents, start, o.Int("gens", 5, min: 1), o.Int("lambda", 4, min: 1),
+        o.Int("bouts", 4, min: 2), o.Float("seconds", 30f, min: 1f), o.Int("seed", 1), Console.Out,
+        [(checkName, d => With(d).Single(c => c.Name == checkName))]);
+    Console.WriteLine(report);
+    GuardSpar.Save(o.Get("best") ?? "docs/arena/sword_defense.json", best);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
 static int AwayLabCommand(Options o)
 {
     // 打って離れる剣士を練習試合で育てる。
-    var defense = MiniRing.Bots.SwordDefense.Adopted;
+    var defense = DefenseDefaults.Value;
     IReadOnlyList<Contender> Contenders(MiniRing.Bots.HitAndAway? h) =>
         VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", defense, h, AimDefaults.Tuning);
     var trainee = o.Get("trainee") ?? "日本刀";
@@ -486,7 +516,7 @@ static int AwayLabCommand(Options o)
 static int BladeProbeCommand(Options o)
 {
     // 調査: 刃が相手の体にめり込んだまま何も起きない場面を数える。
-    var contenders = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", MiniRing.Bots.SwordDefense.Adopted);
+    var contenders = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", DefenseDefaults.Value);
     var report = BladeProbe.Run(contenders, [.. o.List("pairs", ["日本刀-日本刀", "ロングソード-日本刀", "日本刀-拳", "バット-日本刀"])], o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), Console.Out);
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
@@ -871,4 +901,25 @@ internal static class AimDefaults
     private static readonly Lazy<MiniRing.Motion.AimTuning> Loaded = new(() => File.Exists("docs/arena/aim_tuning.json") ? AimLab.Load("docs/arena/aim_tuning.json") : new());
 
     public static MiniRing.Motion.AimTuning Tuning => Loaded.Value;
+}
+
+/// <summary>打って離れる剣士の値（awaylab で育てた docs/arena/hit_and_away.json があればそれ、無ければ始めの値）。</summary>
+internal static class HitAwayDefaults
+{
+    private static readonly Lazy<MiniRing.Bots.HitAndAway> Loaded = new(() =>
+        File.Exists("docs/arena/hit_and_away.json") ? AwayLab.Load("docs/arena/hit_and_away.json") : new MiniRing.Bots.HitAndAway());
+
+    public static MiniRing.Bots.HitAndAway Value => Loaded.Value;
+}
+
+/// <summary>
+/// 剣士の守り（guardspar で練習試合から育てて採った docs/arena/sword_defense.json があればそれ、無ければ守りのドリルで選んだ
+/// <see cref="MiniRing.Bots.SwordDefense.Adopted"/>）。
+/// </summary>
+internal static class DefenseDefaults
+{
+    private static readonly Lazy<MiniRing.Bots.SwordDefense> Loaded = new(() =>
+        File.Exists("docs/arena/sword_defense.json") ? GuardSpar.Load("docs/arena/sword_defense.json") : MiniRing.Bots.SwordDefense.Adopted);
+
+    public static MiniRing.Bots.SwordDefense Value => Loaded.Value;
 }
