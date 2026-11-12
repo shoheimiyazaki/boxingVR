@@ -1,6 +1,7 @@
 {
   "Name": "swarmer",
   "Southpaw": false,
+  "Aim": { "Chin": 0.3, "Temple": 0, "ExposedBrain": 1, "Liver": 2.5, "SolarPlexus": 1.5, "Heart": 0.8, "GuardArm": 0 },
   "Aggression": 0.85,
   "AttackRange": 0.82,
   "NeutralRange": 1.05,

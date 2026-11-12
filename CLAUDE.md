@@ -115,7 +115,8 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | 総当たり | `dotnet run --project games/MiniRing.Arena -c Release -- league --bouts 4 --seconds 60 --out docs/arena/<名前>.md` |
 | 攻撃のドリル | `... -- attacklab --combos 1,2,1-2 --telegraphs 0,0.1,0.2` |
 | 防御・回避のドリル | `... -- drill` / `drilltune` / `basics --punch 2 --slot Duck --style swarmer` / `counterlab` |
-| 試合の動画 | `... -- video --red champion --blue swarmer --seconds 40 --out docs/video/<名前>.mp4`（ffmpeg が要る。`--facecam on` で両コーナーの顔の窓を両脇に出す。`--until-ko yes` で K.O. まで続け、`--seconds` は上限になる。`--speed 0.5 / 0.75 / 1`（既定 0.75）は試合そのものを遅く進めて撮る） |
+| 試合の動画 | `... -- video --red champion --blue swarmer --seconds 40 --out docs/video/<名前>.mp4`（ffmpeg が要る。`--facecam on` で両コーナーの顔の窓を両脇に出す。`--until-ko yes` で K.O. まで続け、`--seconds` は上限になる。`--speed 0.5 / 0.75 / 1`（既定 0.75）は試合そのものを遅く進めて撮る。`--tv on` はテレビ中継風: 5 ラウンド・歓声・*.events.json） |
+| 実況・解説を入れる | `powershell -ExecutionPolicy Bypass -File tools\commentary\dub.ps1 -Video in.mp4 -Script script.json -Out out.mp4`（台本は *.events.json を見て書く。`tools/commentary/README.md`） |
 | ボクセルの書き出し・確かめ | `... -- voxexport --out boxer.vox` / `voxcheck --in boxer.vox [--install yes]` |
 
 動画を縮めるときは**音を残す**: `ffmpeg -i in.mp4 -vcodec libx264 -crf 30 -preset slow -vf scale=960:-2 -c:a aac -b:a 96k out_small.mp4`（`-an` は音を消す。過去にこれで音が消えた）。
@@ -138,6 +139,10 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 - **体を支える力**: 骨盤を目標の高さへ持ち上げる「ホバー」の力（脚が床を押す力の近似）。脚の関節トルクだけで立つモデルではない。
 - **意識**: 頭のねじれの角速度² × 係数で脳しんとう（脳の材料の損傷ではなく、意識の量のモデル）。脳のボクセルが削られる分は材料で効く。
 - **ダウンの判定**: 審判の数え（Down / GettingUp）は姿勢（腰の高さ・上体の起き方）から読むが、閾値（0.55・0.85）はルールの値。体の動き自体は連続。動かないまま 4 秒でその場の K.O.（`StillKoSeconds`・`StillSpeed`）もルールの値（審判が見て判断する量）。
+- **スタミナと臓器の効き方**: スタミナはエネルギーの出入り（筋肉の仕事・心肺の戻り）で書いたが、仕事は拳の PD 力と歩く距離の近似（脚の関節の仕事ではない）。臓器の打撲は「エネルギー × 距離の指数」の近似（衝撃の伝わり方の材料のモデルではない）。臓器の役割（息 = 心臓・肺、腹 = 肝臓・腸）は生理の対応表。
+- **ラウンドの間の再生**: テレビ中継のモードで、削れたボクセルを一定の速さで元に戻す（ゲームのルール。治る仕組みのモデルではない）。
+- **はめる物の近道**: 刃の無い物の扱い（`IsBlunt`）は種類の一覧、腕の押し込みを武器に通すか（`HasRigidFace`: 打つ面が鉄・木か）は入るか切るかの二択。はめる物は持ち主自身には当たらない（グローブが顔の前にあるため。7 cm のカタールの刃でも同じ扱いの近道）。カタールの刃はボットに見えていない（`BladeSense` が空）。
+- **倒れている間の手**: 倒れている間は入力元の拳の代わりに、両手を肩の下の床へ着く目標を体が自分で出す（`Fighter.PostOnTheCanvas`。反射のモデル。姿勢は書かず目標だけ）。
 - **起き上がろうとする試みの拍子**: 倒れている間の試み（`Fighter.Stir`）は意識の深さで強さ・間隔が連続に決まるが、力を込める山の形と間隔のずれ（体ごとの決まった数列）は意志のモデルで、物理からは出ていない。
 - **ボットの読み**: 相手の肩・腰の動き出しから次の拳を読む（人が見ている情報の近似）。判断の部分は物理ではなくてよい（入力元の一つ）が、出力は必ず `FighterCommand`。
 

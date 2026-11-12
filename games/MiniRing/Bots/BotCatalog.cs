@@ -18,6 +18,7 @@ public static class BotCatalog
     public static BotStyle OutBoxer { get; } = new()
     {
         Name = "outboxer",
+        Aim = new(Temple: 0.5f, GuardArm: 0.6f),
         Telegraph = 0.06f, Prediction = 0.6f, EdgeRange = 0.7f,
         Aggression = 0.45f,
         AttackRange = 1.02f,
@@ -47,6 +48,7 @@ public static class BotCatalog
     public static BotStyle Counter { get; } = new()
     {
         Name = "counter",
+        Aim = new(Chin: 2f, ExposedBrain: 2f),
         Telegraph = 0.06f, Prediction = 0.9f, EdgeRange = 0.6f,
         Aggression = 0.2f,
         NeutralRange = 1.25f,
@@ -66,6 +68,7 @@ public static class BotCatalog
     public static BotStyle Slugger { get; } = new()
     {
         Name = "slugger",
+        Aim = new(Chin: 1f, Temple: 1f, ExposedBrain: 4f),
         Telegraph = 0.12f, Prediction = 0.2f, EdgeRange = 0f,
         Aggression = 0.7f,
         AttackRange = 0.9f,
@@ -90,6 +93,7 @@ public static class BotCatalog
     public static BotStyle Jabber { get; } = new()
     {
         Name = "jabber",
+        Aim = new(Chin: 0.5f, GuardArm: 1.5f),
         Telegraph = 0.04f, Prediction = 0.4f, EdgeRange = 0.5f,
         Aggression = 0.69988924f,
         AttackRange = 1.2508752f,

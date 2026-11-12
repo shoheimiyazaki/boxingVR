@@ -162,7 +162,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 9; // 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
+    public const int PhysicsVersion = 12; // 12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -235,6 +235,21 @@ public sealed class Fighter
 
     /// <summary>倒れてからの経過時間 [s]（10 カウント用）。起き上がり中も数え続け、立ち直ったら 0。</summary>
     public float DownTime { get; private set; }
+
+    /// <summary>相手から見た、この体の狙いどころ（<see cref="TargetMap"/>。戦略の AI の知覚）。</summary>
+    public TargetMap AsTarget => _asTarget ??= new TargetMap(this);
+
+    /// <summary>この体のいる物理のワールド（狙いどころの位置を読むため）。</summary>
+    internal PhysicsWorld World => _world;
+
+    private TargetMap? _asTarget;
+
+    /// <summary>審判の数えを 0 からにする（テレビ中継の試合で、倒れたままラウンドの休みに入ったとき、次のラウンドで数え直す）。</summary>
+    internal void ResetCount()
+    {
+        DownTime = 0f;
+        StillTime = 0f; // 休みの間に動かなかった分で、次のラウンドの始めにその場の K.O. にしない
+    }
 
     /// <summary>
     /// 倒れていて、意識が無く（<see cref="Awareness"/> が 0: 死んだ・完全に気を失った）、体が動いていない（全部位の速さが
@@ -596,6 +611,13 @@ public sealed class Fighter
         // 腕しか動かせず止まって見えても数えない（もがく力が弱いだけ）。
         StillTime = State != FighterState.Standing && Awareness <= 0f && MaxPartSpeed() < _tuning.StillSpeed ? StillTime + dt : 0f;
         UpdateStir(dt);
+        UpdateStamina(dt);
+        if (!IsDead)
+        {
+            // 見た目だけ（吐く息・メーターの点滅の拍子）。小数部だけが意味を持つので、float の精度が落ちる前に整数ぶん戻す。
+            BreathPhase += dt * TiredLook.BreathsPerSecond(Winded);
+            BreathPhase -= BreathPhase >= 1024f ? 1024f : 0f;
+        }
         var grounded = TryFindGround(out var height);
         foreach (var arm in _arms)
         {
@@ -662,7 +684,125 @@ public sealed class Fighter
     /// <see cref="FighterTuning.KnockoutConsciousness"/> を下回ると張りは更に抜け、<see cref="FighterTuning.LimpConsciousness"/> で 0（全身の力が抜けて床に伸びる）。
     /// どこにも段差は無い（意識が少し変われば張りも少し変わる）。
     /// </summary>
-    public float Tone
+    public float Tone => ConsciousTone * CoreTone;
+
+    /// <summary>
+    /// 腹の臓器（肝臓・腸）の働き（打撲で一時的・削れて恒久的に落ちる）から決まる、体の張りの上限（<see cref="FighterTuning.CoreToneFloor"/>〜1）。
+    /// 腹を打たれると、意識がはっきりしていても膝から力が抜ける。
+    /// </summary>
+    public float CoreTone => Lerp(_tuning.CoreToneFloor, 1f, Core);
+
+    /// <summary>腹の働き（0..1）: 肝臓と腸の働きの小さい方（物理の歩ごとに数え直す。打たれた直後は打撲の分をすぐ足す）。</summary>
+    public float Core { get; private set; } = 1f;
+
+    /// <summary>息の働き（0..1）: 心臓と肺の働きの小さい方。スタミナを戻す速さに掛かる（物理の歩ごとに数え直す）。</summary>
+    public float Breath { get; private set; } = 1f;
+
+    /// <summary>臓器の働き（腹・息）を数え直す（全部位の臓器のボクセルの残りを数えるので、歩に 1 回だけ）。</summary>
+    private void RefreshOrgans()
+    {
+        if (Voxels is not { } v)
+        {
+            return;
+        }
+
+        var h = _tuning.OrganHalvingLoss;
+        Core = MathF.Min(v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Liver, h), v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Gut, h));
+        Breath = MathF.Min(v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Heart, h), v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Lung, h));
+    }
+
+    /// <summary>スタミナ（0..1）: 筋肉がすぐ使えるエネルギーの蓄えの残り（<see cref="FighterTuning.StaminaCapacity"/> に対する割合）。</summary>
+    public float Stamina { get; internal set; } = 1f; // internal: テストが疲れた体を作る
+
+    private readonly float[] _armPower = new float[2];
+
+    /// <summary>
+    /// チアノーゼの度合い（0..1、見た目だけ）: 酸素が足りないほど皮膚が青紫になる。スタミナが <see cref="FighterTuning.TiredKnee"/> を下回るほど、
+    /// また息（心臓・肺）の働きが落ちるほど強い（大きい方）。死んでいれば 1。試合の計算には使わない。
+    /// </summary>
+    public float Cyanosis => IsDead ? 1f : Smooth(Winded);
+
+    /// <summary>
+    /// 息の上がり方（0..1、見た目だけ）: スタミナが <see cref="FighterTuning.TiredKnee"/> を下回るほど、また息（心臓・肺）の働きが
+    /// 落ちるほど大きい（大きい方）。死んでいれば 0（息をしない）。チアノーゼ・吐く息・メーターの点滅はここから出る。試合の計算には使わない。
+    /// </summary>
+    public float Winded => IsDead ? 0f : Math.Clamp(MathF.Max(1f - (Stamina / MathF.Max(1e-3f, _tuning.TiredKnee)), BreathWindedShare * (1f - Breath)), 0f, 1f);
+
+    /// <summary>
+    /// 息（心臓・肺）の働きが 0 のときの <see cref="Winded"/>（見た目だけ）。スタミナが尽きたとき（1）より少し弱い: 胸を打たれた直後は
+    /// まだ蓄えがあるので、あえぎきるのはスタミナも尽きてから。
+    /// </summary>
+    private const float BreathWindedShare = 0.8f;
+
+    /// <summary>
+    /// 呼吸の位相（息の数、見た目だけ）: 1 息ごとに 1 増える（小数部が 1 息の中の位置。死ねば止まる）。速さは <see cref="Winded"/> で決まる（<see cref="TiredLook.BreathsPerSecond"/>）。
+    /// 物理の歩で進むので、同じ試合なら同じ所で息を吐く。試合の計算には使わない。
+    /// </summary>
+    public float BreathPhase { get; private set; }
+
+    /// <summary>スタミナがこれを下回ると拳を運ぶ力が落ち始める（<see cref="FighterTuning.TiredKnee"/>。メーターの「動きが鈍る」区域の上端）。</summary>
+    public float SluggishBelow => _tuning.TiredKnee;
+
+    /// <summary>スタミナで決まる、拳を運ぶ力の割合（<see cref="FighterTuning.TiredStrength"/>〜1）。疲れは腕に出る（脚は意識で決まる）。</summary>
+    public float Vigor => Lerp(_tuning.TiredStrength, 1f, Smooth(Math.Clamp(Stamina / MathF.Max(1e-3f, _tuning.TiredKnee), 0f, 1f)));
+
+    /// <summary>
+    /// 1 物理の歩ぶんスタミナを出し入れする: 拳を押した力のした仕事（正の分）と保持の分、体を水平に運んだ分を引き、心肺の働き
+    /// （<see cref="Breath"/>）に比例して戻す。臓器の打撲もここで引いていく。
+    /// </summary>
+    private void UpdateStamina(float dt)
+    {
+        RefreshOrgans();
+        var work = 0f;
+        // 腕が拳を押した仕事率（力 × 拳の速さ）を、短い時間（StaminaPowerWindow）でならしてから正の分だけ数える: 目標を保つための細かな
+        // 行き来（押しては戻される）はならすと打ち消し合い、拳を運ぶ・振り抜く仕事だけが残る。
+        var blend = 1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.StaminaPowerWindow));
+        for (var index = 0; index < 2; index++)
+        {
+            var hand = (Hand)index;
+            var arm = _arms[index];
+            if (arm.Severed)
+            {
+                continue;
+            }
+
+            var force = arm.LastForce;
+            var power = Vector3.Dot(force, GloveVelocity(hand));
+            _armPower[(int)hand] += (power - _armPower[(int)hand]) * blend;
+            work += (MathF.Max(0f, _armPower[(int)hand]) + (_tuning.IsometricCost * force.Length())) * dt;
+        }
+
+        var pelvis = _world.GetState(Parts.Pelvis).LinearVelocity;
+        work += _tuning.WalkCost * TotalMass * new Vector2(pelvis.X, pelvis.Z).Length() * dt;
+        var recovery = IsDead ? 0f : _tuning.StaminaRecoveryPower * Breath * dt;
+        Stamina = Math.Clamp(Stamina + ((recovery - work) / MathF.Max(1e-3f, _tuning.StaminaCapacity)), 0f, 1f);
+        Voxels?.HealBruises(dt, _tuning.BruiseRecoveryRate);
+    }
+
+    /// <summary>
+    /// 打撃の衝撃を臓器へ伝える（<see cref="Voxels.BoxerBody.Bruise"/>）。打撲が増えた分だけ息が詰まってスタミナを失う
+    /// （<see cref="FighterTuning.WindPerBruise"/>）。ガードの上でも、拳でも武器でも同じ（当たった点と運動エネルギーだけで決まる）。
+    /// </summary>
+    internal void BruiseOrgans(Vector3 point, float energy)
+    {
+        if (Voxels is not { } body)
+        {
+            return;
+        }
+
+        var added = body.Bruise(point, energy, _tuning.BruisePerJoule, _tuning.BruiseFalloff);
+        var total = 0f;
+        foreach (var amount in added.Values)
+        {
+            total += amount;
+        }
+
+        Stamina = MathF.Max(0f, Stamina - (_tuning.WindPerBruise * total));
+        RefreshOrgans(); // 打たれた直後から効く（腹の張り・息）
+    }
+
+    /// <summary>意識で決まる体の張り（下の説明）。</summary>
+    private float ConsciousTone
     {
         get
         {
@@ -1002,7 +1142,7 @@ public sealed class Fighter
             // 脚を失っても意識があれば、腕と体はもがく（死んでいれば Stir は 0）。
             ControlScale = Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration) * StirredTone;
             SetServoScale(ControlScale);
-            DriveArms(command, ControlScale, weightShift: false, dt);
+            DriveArms(IsDead ? command : PostOnTheCanvas(command, grounded, height), ControlScale, weightShift: false, dt);
             return;
         }
 
@@ -1011,7 +1151,7 @@ public sealed class Fighter
         var effort = _stateTime < _tuning.CollapseDuration
             ? Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration)
             : Ramp(_tuning.DownDriveScale, 1f, _stateTime - _tuning.CollapseDuration, _tuning.RiseTime * 0.5f);
-        DriveBody(command, effort * StirredTone, grounded, height, dt);
+        DriveBody(PostOnTheCanvas(command, grounded, height), effort * StirredTone, grounded, height, dt);
 
         // 起き上がる途中（腰がダウンの高さを越えた）か、まだ床か。審判のカウントはどちらでも続く。
         var ratio = grounded ? height / StandTargetHeight : 0f;
@@ -1022,6 +1162,33 @@ public sealed class Fighter
         {
             Enter(FighterState.Standing);
         }
+    }
+
+    /// <summary>
+    /// 倒れている間の手の目標: 入力元の拳（構え・パンチ）の代わりに、両手を肩の下の少し前の床へ着く（体を支え、起き上がるときに床を押す）。
+    /// 起き上がろうとする試み（<see cref="Stir"/>）の山では、床より少し下を狙って押し込む。倒れた人が拳を振るうことはなく、
+    /// 両手を床に着いた姿で、ボディを狙って中腰になった構え（拳は顔の前）とひと目で見分けられる。姿勢は書かない: 手の目標を床へ置き、
+    /// 腕はいつもの力（張りの分だけ）でそれを追う。入力元からの移動・頭の指令はそのまま（立とうとする向きを選べる）。
+    /// </summary>
+    private FighterCommand PostOnTheCanvas(in FighterCommand command, bool grounded, float height)
+    {
+        var frame = Frame;
+        var groundY = grounded ? PelvisPosition.Y - height : PelvisPosition.Y - (0.5f * StandTargetHeight);
+        var forward = frame.Forward;
+        HandCommand Post(Hand hand)
+        {
+            var shoulder = ShoulderPosition(hand);
+            var floor = new Vector3(shoulder.X, groundY - (_tuning.PostPress * ArmReach * Stir), shoulder.Z) + (forward * (_tuning.PostReach * ArmReach));
+            return new HandCommand(frame.WorldToLocal(floor), false);
+        }
+
+        // 武器を握っている手は、入力元の指令のまま（両手持ちの柄を左右の床へ引き裂かない・手首の角度を保つ）。素手・はめる物の手だけ床へ。
+        return command with
+        {
+            Left = Wields(Hand.Left) ? command.Left : Post(Hand.Left),
+            Right = Wields(Hand.Right) ? command.Right : Post(Hand.Right),
+            TwistBias = 0f,
+        };
     }
 
     private void Enter(FighterState next)
@@ -1080,7 +1247,8 @@ public sealed class Fighter
         }
 
         // 意識が薄れると腕を上げていられない（ガードが重さで下がる）。
-        DriveArms(command, ControlScale * FaintArm, weightShift: grounded && State == FighterState.Standing, dt);
+        // 疲れると拳を運ぶ力が落ちる（パンチが遅く軽くなり、ガードが下がる）。体を支える脚は意識（張り）で決まり、疲れでは崩れない。
+        DriveArms(command, ControlScale * FaintArm * Vigor, weightShift: grounded && State == FighterState.Standing, dt);
     }
 
     /// <summary>今の両足の位置で、足の運びを置き直す（立ち直ったとき・生成直後）。</summary>

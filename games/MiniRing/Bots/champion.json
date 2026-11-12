@@ -1,6 +1,7 @@
 {
   "Name": "champion",
   "Southpaw": false,
+  "Aim": { "Chin": 1, "Temple": 0.5, "ExposedBrain": 3, "Liver": 1, "SolarPlexus": 0.3, "Heart": 0, "GuardArm": 0.3 },
   "Aggression": 1,
   "AttackRange": 1.3,
   "NeutralRange": 1.3,

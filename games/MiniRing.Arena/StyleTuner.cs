@@ -108,6 +108,7 @@ internal sealed class StyleTuner(IReadOnlyList<Contender> gauntlet, int bouts, f
         var style = parent with
         {
             Name = name,
+            RingName = BotNames.Generate(name), // ドリルの中で生まれた個体に、それぞれの名前（と顔）
             AttackRange = m.Tweak("踏込距離", parent.AttackRange, 0.06f, 0.7f, 1.3f),
             NeutralRange = m.Tweak("普段の距離", parent.NeutralRange, 0.08f, 0.7f, 1.9f),
             EngageRange = m.Tweak("仕掛け距離", parent.EngageRange, 0.1f, 0.7f, 2.2f),

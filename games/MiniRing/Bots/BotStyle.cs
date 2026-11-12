@@ -129,6 +129,15 @@ public sealed record BotStyle
     public float BodyCue { get; init; }
 
     /// <summary>
+    /// 狙いどころの重み（<see cref="AimWeights"/>: あご・こめかみ・露出した脳・肝臓・みぞおち・心臓・ガードの腕）。拳を出すたびに、
+    /// その拳で打てる狙いどころから重みの比で選び、無理のない範囲（<see cref="Targeting"/>）で狙いの点を動かす。null なら真ん中だけ。
+    /// </summary>
+    public AimWeights? Aim { get; init; }
+
+    /// <summary>リングネーム（中継・実況で呼ぶ名前）。null なら名前から決まる名前（<see cref="BotNames.Generate"/>）。顔もこれから決まる。</summary>
+    public string? RingName { get; init; }
+
+    /// <summary>
     /// 相手の届く間合いのすぐ外に立つ度合い（0..1）。覚えた相手の打ち始めの間合いの少し外を普段の間合いにし、
     /// 相手に踏み込ませる（踏み込みは読める手がかりになり、その間に避ける）。
     /// </summary>
@@ -231,6 +240,7 @@ public sealed record BotStyle
             Anticipation = Unit(Anticipation),
             Prediction = Unit(Prediction),
             BodyCue = Range(BodyCue, 0f, 3f, 0f),
+            Aim = Aim?.Validated(),
             EdgeRange = Unit(EdgeRange),
             EvadeReach = float.IsFinite(EvadeReach) && EvadeReach > 0f ? Math.Clamp(EvadeReach, 0.8f, 2f) : 0f,
             ClinchRate = Unit(ClinchRate),

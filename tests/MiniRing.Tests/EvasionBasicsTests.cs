@@ -32,7 +32,8 @@ public sealed class EvasionBasicsTests
 
         // 以前は脚が歩きの角度のまま伸びていて、0.6 腕の長さを命じても 0.12 しか沈まなかった（回避の基本動作 B1）。
         Assert.IsGreaterThan(0.4f * f.ArmReach, head - f.HeadPosition.Y, $"head drop {(head - f.HeadPosition.Y) / f.ArmReach:0.00} R");
-        Assert.IsGreaterThan(0.25f * f.ArmReach, pelvis - f.PelvisPosition.Y, "the hips go down, not just the head");
+        // 2026-11-12: 沈み込みの最大を 0.4 → 0.28 にした（膝が床近くまで落ちてダウンと見分けにくかった）。頭は腰から折る分で下がる。
+        Assert.IsGreaterThan(0.15f * f.ArmReach, pelvis - f.PelvisPosition.Y, "the hips go down, not just the head");
         Assert.AreEqual(FighterState.Standing, f.State);
     }
 

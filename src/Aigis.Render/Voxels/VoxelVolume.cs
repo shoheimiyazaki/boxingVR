@@ -41,6 +41,8 @@ public sealed class VoxelVolume
     /// <summary>Bumped by every change; the renderer uploads when the revision it holds differs.</summary>
     public int Revision { get; private set; }
 
+    private int _colorKey;
+
     /// <summary>What a fully stained cell looks like (dried blood by default) — see <see cref="VoxelGrid.Stain"/>.</summary>
     public Vector4 StainColor { get; init; } = new(0.45f, 0.02f, 0.03f, 1f);
 
@@ -58,7 +60,16 @@ public sealed class VoxelVolume
     /// each filled cell in its material's colour — the original outer surface in <see cref="VoxelMaterial.SurfaceColor"/>,
     /// anything exposed by damage in <see cref="VoxelMaterial.Color"/> — tinted toward <see cref="StainColor"/> by its stain.
     /// </summary>
-    public void Sync(VoxelGrid grid)
+    public void Sync(VoxelGrid grid) => Sync(grid, 0, null);
+
+    /// <summary>
+    /// 2026-11-12 (Mini Ring Boxing's cyanosis): as <see cref="Sync(VoxelGrid)"/>, with every filled cell's colour passed through
+    /// <paramref name="recolor"/> (material, colour, cell → colour) before it is written. The cell lets a tint vary across the volume
+    /// (the cyanosis is a gradient up the face). <paramref name="colorKey"/> names the recolouring:
+    /// the texels are rewritten when it changes even if the grid did not, so a caller that quantises a slowly changing tint into
+    /// a few keys pays for a rewrite only when the tint crosses a step.
+    /// </summary>
+    public void Sync(VoxelGrid grid, int colorKey, VoxelRecolor? recolor)
     {
         ArgumentNullException.ThrowIfNull(grid);
         if (grid.Dimensions != (Width, Height, Depth))
@@ -66,13 +77,14 @@ public sealed class VoxelVolume
             throw new ArgumentException($"Grid {grid.Dimensions} does not match the volume ({Width}, {Height}, {Depth}).", nameof(grid));
         }
 
-        if (ReferenceEquals(grid, _source) && grid.Version == _sourceVersion)
+        if (ReferenceEquals(grid, _source) && grid.Version == _sourceVersion && colorKey == _colorKey)
         {
             return;
         }
 
         _source = grid;
         _sourceVersion = grid.Version;
+        _colorKey = colorKey;
         for (var z = 0; z < Depth; z++)
         {
             for (var y = 0; y < Height; y++)
@@ -89,6 +101,7 @@ public sealed class VoxelVolume
 
                     var material = grid.Palette[m];
                     var color = grid.IsOriginalSurface(x, y, z) ? material.SurfaceColor : material.Color;
+                    color = recolor?.Invoke(m, color, x, y, z) ?? color;
                     color = Vector4.Lerp(color, StainColor, 0.85f * material.Stainable * grid.Stain(x, y, z));
                     Rgba[t] = ToByte(color.X);
                     Rgba[t + 1] = ToByte(color.Y);
@@ -113,6 +126,15 @@ public sealed class VoxelVolume
 
     private static byte ToByte(float v) => (byte)Math.Clamp((int)MathF.Round(v * 255f), 0, 255);
 }
+
+/// <summary>Recolours one filled cell for <see cref="VoxelVolume.Sync(VoxelGrid, int, VoxelRecolor?)"/>: its material, its colour and its cell.</summary>
+/// <param name="material">The cell's material id.</param>
+/// <param name="color">The colour it would be written with.</param>
+/// <param name="x">Cell x.</param>
+/// <param name="y">Cell y.</param>
+/// <param name="z">Cell z.</param>
+/// <returns>The colour to write.</returns>
+public delegate Vector4 VoxelRecolor(byte material, Vector4 color, int x, int y, int z);
 
 /// <summary>One voxel volume to draw this frame: the texture and where its cell coordinates land in the world.</summary>
 /// <param name="Volume">The volume (uploaded on first use and whenever its revision changes).</param>

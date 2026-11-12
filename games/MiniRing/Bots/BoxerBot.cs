@@ -183,7 +183,7 @@ public sealed class BoxerBot : IFighterControl
     /// 5: 打つ前の溜め（腰と肩のひねり）・相手の読みによる予測の回避・相手の届く間合いのすぐ外に立つ、6: しゃがみの疲れ・予測の回避の読み直し、
     /// 7: 意識が薄れるとガードを下げる、8: 回避からの返しの拳に体の動きを移す（HandCommand.Spring）、9: 溜めは逆へ引いて体のバネを縮め、全ての拳に体の動きとタメを移す）。
     /// </summary>
-    public const int LogicVersion = 9;
+    public const int LogicVersion = 10; // 10: 狙いどころ（AimWeights: あご・こめかみ・露出した脳・肝臓・みぞおち・心臓・ガードの腕）を選んで、無理のない範囲で狙う
 
     public BotStyle Style { get; }
 
@@ -207,6 +207,7 @@ public sealed class BoxerBot : IFighterControl
 
     public FighterCommand Read(in FighterSense sense, float dt)
     {
+        _targets = sense.OpponentTargets;
         _faintness = float.IsFinite(sense.SelfFaintness) ? Math.Clamp(sense.SelfFaintness, 0f, 1f) : 0f;
         var self = sense.Self;
         var reach = sense.ArmReach;
@@ -254,7 +255,10 @@ public sealed class BoxerBot : IFighterControl
                 // 溜めのある拳は、溜めの始め（決めた時）に狙いを決める。溜めの無い拳は打ち始めの少しの間だけ追う。
                 if (action.AimWorld == default || (!action.Loaded && action.Time <= action.Duration * AimTrackShare))
                 {
-                    action = action with { AimWorld = action.Spec.ToBody ? sense.OpponentChest : sense.OpponentHead };
+                    var natural = action.Spec.ToBody ? sense.OpponentChest : sense.OpponentHead;
+                    // 狙いどころ（戦略が選んだ点）へ、無理のない範囲（Targeting）で寄せる。使えなくなった狙い（脳が隠れた等）は真ん中へ。
+                    var chosen = action.Goal == AimGoal.Center ? null : sense.OpponentTargets?.Point(action.Goal, sense.SelfHead);
+                    action = action with { AimWorld = chosen is { } point ? Targeting.Clamp(natural, point, sense.SelfHead, reach) : natural };
                     _hands[(int)hand] = action;
                 }
 
@@ -856,12 +860,36 @@ public sealed class BoxerBot : IFighterControl
         }
 
         (technique, spec, var aimOffset) = AimAtGap(technique, spec);
+        // 戦略の狙いどころ: 頭・胴を問わず重みで選び、拳の高さが合わなければ同じ手・同じ形の拳で打ち分ける。
+        var goal = Style.Aim is { } aimWeights && technique != Technique.Feint
+            ? Targeting.PickAny(aimWeights, _targets, _random.NextSingle())
+            : AimGoal.Center;
+        if ((Targeting.IsBodyGoal(goal) && !spec.ToBody) || (Targeting.IsHeadGoal(goal) && spec.ToBody))
+        {
+            var retargeted = Targeting.Retarget(technique, Targeting.IsBodyGoal(goal));
+            if (PunchSpec.Of(retargeted).ToBody == Targeting.IsBodyGoal(goal))
+            {
+                technique = retargeted;
+                spec = PunchSpec.Of(retargeted);
+            }
+            else
+            {
+                goal = AimGoal.Center; // 打ち分けられない拳（アッパー等）は真ん中へ
+            }
+        }
+
+        if (goal != AimGoal.Center)
+        {
+            aimOffset = Vector3.Zero; // 狙いどころを打つときは、構えの隙へのずらしは使わない
+            Stats.Aimed(goal);
+        }
+
         var duration = spec.Duration / Style.PunchSpeed;
         // 連打の最初の拳だけ、体の溜め（Time が負の間）から始める。2 発目以降は前の拳の流れで出る。
         // 溜めの威力は物理に任せる（溜めの間に回した胴と踏み込みの勢いが拳に乗る）。打ち抜きを深くすると、外したはずの頭まで届いた。
         // カウンターとストップジャブは溜めない（回避の流れ・相手の踏み込みに合わせて、すぐ出す）。
         var load = _comboIndex == 0 && !_comboIsCounter && combo != StopJabCombo ? Style.Telegraph : 0f;
-        _hands[(int)puncher] = new HandAction(technique, spec, -load, duration, _comboIsCounter, aimOffset, Load: load);
+        _hands[(int)puncher] = new HandAction(technique, spec, -load, duration, _comboIsCounter, aimOffset, Load: load, Goal: goal);
         Stats.Thrown(technique, _comboIsCounter);
         _comboIndex++;
         _comboClock = load + (duration * combo.Gap); // 次の拳は、この拳が出てから数える（溜めを含めないと 1-2 がほぼ同時に出た。レビュー指摘）
@@ -885,6 +913,9 @@ public sealed class BoxerBot : IFighterControl
     }
 
     private bool AnyPunchActive => _hands[0].Active || _hands[1].Active;
+
+    /// <summary>相手の体の狙いどころ（最後に読んだ知覚）。</summary>
+    private TargetMap? _targets;
 
     private bool Grappling => _clinchTime >= 0f || _throwTime >= 0f;
 
@@ -1282,7 +1313,9 @@ public sealed class BoxerBot : IFighterControl
     /// <param name="AimOffset">狙いのずらし（構えを読んで隙を狙うとき、体フレーム）。</param>
     /// <param name="AimWorld">狙いの点（ワールド）。溜めのある拳は溜めの始めに決め、溜めの無い拳は打ち始めの <see cref="AimTrackShare"/> の間だけ相手を追う。</param>
     /// <param name="Load">打つ前の溜め [s]（<see cref="Time"/> は −Load から始まる）。</param>
-    private readonly record struct HandAction(Technique? Technique, PunchSpec Spec, float Time, float Duration, bool Counter, Vector3 AimOffset = default, Vector3 AimWorld = default, float Load = 0f)
+    /// <param name="Goal">狙いどころ（戦略が選ぶ。<see cref="Targeting"/>）。</param>
+    private readonly record struct HandAction(Technique? Technique, PunchSpec Spec, float Time, float Duration, bool Counter, Vector3 AimOffset = default, Vector3 AimWorld = default, float Load = 0f,
+        AimGoal Goal = AimGoal.Center)
     {
         public bool Active => Duration > 0f && Time < Duration;
 

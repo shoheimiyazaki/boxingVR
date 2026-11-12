@@ -80,7 +80,8 @@ public readonly record struct BodySense(Vector3 LeftShoulder, Vector3 RightShoul
 public readonly record struct FighterSense(
     BodyFrame Self, float ArmReach, Vector3 OpponentHead, Vector3 OpponentChest, bool OpponentAlive,
     Vector3 SelfHead = default, GloveSense OpponentLeft = default, GloveSense OpponentRight = default, Vector3 OpponentVelocity = default,
-    BodySense OpponentBody = default, float SelfFaintness = 0f, BladeSense OpponentBlade = default, bool? SelfArmed = null)
+    BodySense OpponentBody = default, float SelfFaintness = 0f, BladeSense OpponentBlade = default, bool? SelfArmed = null,
+    TargetMap? OpponentTargets = null)
 {
     public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
 }

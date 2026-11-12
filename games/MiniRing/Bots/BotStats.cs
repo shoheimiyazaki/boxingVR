@@ -65,6 +65,13 @@ public sealed class BotStats
 
     internal void ComboStarted(string name) => _combos[name] = _combos.GetValueOrDefault(name) + 1;
 
+    private readonly Dictionary<AimGoal, int> _aims = [];
+
+    /// <summary>狙いどころごとの、狙って出した拳の数（真ん中以外）。</summary>
+    public IReadOnlyDictionary<AimGoal, int> Aims => _aims;
+
+    internal void Aimed(AimGoal goal) => _aims[goal] = _aims.GetValueOrDefault(goal) + 1;
+
     internal void DefenseEnded(Defense defense, bool hit)
     {
         var c = _defenses.GetValueOrDefault(defense);
@@ -88,6 +95,12 @@ public sealed class BotStats
 
     public void Merge(BotStats other)
     {
+        ArgumentNullException.ThrowIfNull(other);
+        foreach (var (goal, count) in other._aims)
+        {
+            _aims[goal] = _aims.GetValueOrDefault(goal) + count;
+        }
+
         ArgumentNullException.ThrowIfNull(other);
         foreach (var (k, v) in other._techniques)
         {

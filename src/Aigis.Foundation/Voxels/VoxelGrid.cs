@@ -600,6 +600,31 @@ public sealed class VoxelGrid
         return (x, rest % Dimensions.Y, rest / Dimensions.Y);
     }
 
+    /// <summary>The material in the cell at <paramref name="index"/> (0 = empty).</summary>
+    public byte AtIndex(int index) => _cells[index];
+
+    /// <summary>
+    /// 2026-11-12 (Mini Ring Boxing's healing between rounds): puts a carved-away cell back, with full health and no stain,
+    /// as <paramref name="material"/> (the material it had before it was carved). Counts follow; the starting counts do not
+    /// change, so <see cref="Fraction(byte)"/> climbs back towards 1. Returns false (and changes nothing) if the cell is
+    /// already filled or the material is not a filled material of the palette.
+    /// </summary>
+    public bool Restore(int index, byte material, bool originalSurface)
+    {
+        if (_cells[index] != 0 || material == 0 || material >= Palette.Count)
+        {
+            return false;
+        }
+
+        _cells[index] = material;
+        _health[index] = Palette[material].Toughness;
+        _surface[index] = originalSurface;
+        _stain[index] = 0f;
+        _remaining[material]++;
+        Version++;
+        return true;
+    }
+
     private void Clear(int i)
     {
         _remaining[_cells[i]]--;

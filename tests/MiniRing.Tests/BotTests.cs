@@ -194,7 +194,7 @@ public sealed class BotTests
         // 1 試合では、相手がふらついてガードを下げている間はジャブとストレートだけで足りることもある（ダメージ編 D2）ので、3 つの種を合わせて見る。
         var stats = new BotStats();
         var landed = 0;
-        foreach (var seed in new[] { 1, 2, 3 })
+        foreach (var seed in new[] { 1, 2, 3, 4, 5 }) // 2026-11-12: K.O. で早く終わる試合が増えたので、種を足して 60 秒以上を見る
         {
             var result = BotArena.Run(new BoutSpec(Contender.Named(BotCatalog.DefaultCpu), Contender.Named(BotCatalog.Legacy), Seed: seed, Seconds: 20f));
             Assert.AreEqual(1, result.Winner, $"seed {seed}: champion {result.Red.DamageDealt:0} vs legacy {result.Blue.DamageDealt:0}");
@@ -212,7 +212,7 @@ public sealed class BotTests
         // 以前のインファイターは試合の 3 割をしゃがんで過ごし、続けて 4 秒しゃがんでいたこともあった（足運び編 F3）。
         // 1 試合では相手と種しだいで揺れる（同じ形で 19〜28 %）ので、3 つの種を足して見る。
         var stats = new BotStats();
-        foreach (var seed in new[] { 1, 2, 3 })
+        foreach (var seed in new[] { 1, 2, 3, 4, 5 }) // 2026-11-12: K.O. で早く終わる試合が増えたので、種を足して 60 秒以上を見る
         {
             stats.Merge(BotArena.Run(new BoutSpec(Contender.Named("swarmer"), Contender.Named("slugger"), Seed: seed, Seconds: 30f)).Red.Stats);
         }

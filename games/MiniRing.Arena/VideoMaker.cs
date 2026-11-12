@@ -19,8 +19,9 @@ namespace MiniRing.Arena;
 /// <param name="hitSounds">パンチが当たる音を入れるか。</param>
 /// <param name="speed">試合の速さ（<see cref="GameSpeed"/>。標準 0.75 倍）。試合そのものを遅く進めて撮るので、映像は滑らかなまま遅くなる
 /// （出来た動画を引き伸ばすのと違い、コマが重複しない）。音は映像の時刻に置き、音そのものの速さ・高さは変えない。</param>
+/// <param name="tv">テレビ中継風（<see cref="MatchRules.Tv"/> の 30 秒 × 5 ラウンド、得点表と時計、会場の歓声、実況用の出来事の記録 *.events.json）。</param>
 /// <param name="faceCam">試合中、画面の両脇に両コーナーの顔の窓を出す（<see cref="FaceCam"/>）。null なら出さない。</param>
-internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = false, FaceCam? faceCam = null, float speed = GameSpeed.Standard)
+internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = false, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false)
 {
     /// <summary>試合を 1 歩進める時間の上限 [s]（ホストの 1 歩と同じ）。速さを落とすと 1 歩はこれより短くなる。</summary>
     private const float MaxStepDt = 1f / 60f;
@@ -50,12 +51,24 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// K.O.（臓器が壊れる・10 カウント・リングアウト）で試合を終える。<paramref name="seconds"/> は打ち切りの上限になり、
     /// 上の数字は残り時間でなく経過時間、K.O. の後 <see cref="AftermathSeconds"/> 秒の倒れた様子まで撮って結果へ進む。
     /// </param>
-    public void Make(Contender red, Contender blue, int seed, float seconds, string outPath, TextWriter log, Action<float>? afterStep = null, bool untilKo = false)
+    /// <param name="redWear">赤コーナーが手にはめる物（既定 グローブ）。</param>
+    /// <param name="blueWear">青コーナーが手にはめる物（既定 グローブ）。</param>
+    public void Make(Contender red, Contender blue, int seed, float seconds, string outPath, TextWriter log, Action<float>? afterStep = null, bool untilKo = false,
+        MiniRing.Weapons.HandWear redWear = MiniRing.Weapons.HandWear.Glove, MiniRing.Weapons.HandWear blueWear = MiniRing.Weapons.HandWear.Glove)
     {
         var redBots = new List<IFighterControl>();
         var blueBots = new List<IFighterControl>();
-        var corners = new BoxingCorners(blue.Name, s => Keep(blueBots, blue.Create(s)), s => Keep(redBots, red.Create(s)));
-        using var game = new BoxingGame(seed: seed, corners: corners);
+        var corners = new BoxingCorners(blue.Name, s => Keep(blueBots, blue.Create(s)), s => Keep(redBots, red.Create(s)), PlayerWear: redWear, CpuWear: blueWear, PlayerName: red.Name);
+        // 画面と実況ではリングネームで呼ぶ（ドリルで生まれた個体にもそれぞれの名前がある）。
+        var redRing = BotNames.RingNameOf(red.Name);
+        var blueRing = BotNames.RingNameOf(blue.Name);
+        using var game = new BoxingGame(seed: seed, corners: corners, rules: tv ? MatchRules.Tv : null);
+        if (tv)
+        {
+            seconds = MathF.Max(seconds, MatchRules.Tv.TotalSeconds + AftermathSeconds + 1f); // テレビ中継は試合の終わりまで撮る（--seconds が短くても）
+        }
+
+        var broadcast = tv ? new Broadcast(redRing, blueRing, red.Name, blue.Name) : null;
         using var renderer = new HeadlessRenderer((uint)width, (uint)height);
         var screen = new Vector2(width, height);
         var panel = faceCam?.Panel(screen, FaceSide.Left) ?? default; // 左右の窓は同じ大きさ
@@ -114,7 +127,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     for (var t = 0f; t < TitleSeconds; t += 1f / fps)
                     {
                         var (vp, eye) = CameraAt(game, t * 0.15f);
-                        Emit(vp, eye, Title(red.Name, blue.Name, MathF.Min(1f, t / 0.6f)), Dim(0.6f));
+                        Emit(vp, eye, Title(redRing, blueRing, MathF.Min(1f, t / 0.6f)), Dim(0.6f));
                     }
 
                     // 試合。
@@ -129,9 +142,28 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         game.Step(default, stepDt);
                         time += stepDt;
                         var at = TitleSeconds + (time / speed); // 映像の時刻（音を置く所）
+                        broadcast?.Observe(game, at, step);
+                        if (tv && endAt is null && game.MatchOver)
+                        {
+                            // テレビ中継: K.O. か最終ラウンドの判定で試合が終わる。少し余韻を撮って結果へ。
+                            finish = game.Decision ?? game.Message;
+                            koWinner = game.PlayerWins > game.CpuWins ? 1 : game.CpuWins > game.PlayerWins ? -1 : 0;
+                            endAt = time + AftermathSeconds;
+                        }
+
                         if (GongSound.Synthesize(game.RecentBell) is { } gong)
                         {
                             Mix(audio, gong, at, 1f);
+                        }
+
+                        foreach (var graze in game.RecentGrazes)
+                        {
+                            Mix(audio, GrazeSound.Synthesize(graze.Speed, step), at, 1f);
+                        }
+
+                        foreach (var sever in game.RecentSevers)
+                        {
+                            Mix(audio, SeverSound.Synthesize(sever.Strength, step), at, 1f);
                         }
                         if (untilKo && endAt is null && game.RoundOver)
                         {
@@ -195,6 +227,24 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
                         UpdateCaption(redCaption, redBots, redCombos, time);
                         UpdateCaption(blueCaption, blueBots, blueCombos, time);
+                        if (broadcast is not null)
+                        {
+                            // 技・守りの名前（ボットの頭の中から）を、実況の資料に足す。
+                            foreach (var (caption, ring) in new[] { (redCaption, redRing), (blueCaption, blueRing) })
+                            {
+                                if (caption.ComboTime == time && caption.Combo is { } combo)
+                                {
+                                    broadcast.Note(at, "technique", ring, $"{ring} が {combo}");
+                                }
+
+                                if (caption.DefenseTime == time && caption.Defense is { } defense && defense != caption.LastNotedDefense)
+                                {
+                                    broadcast.Note(at, "defense", ring, $"{ring} が {defense}");
+                                }
+
+                                caption.LastNotedDefense = caption.DefenseTime == time ? caption.Defense : null;
+                            }
+                        }
                         flashes.RemoveAll(f => f.Until < time);
                         if (step % stepsPerFrame != 0)
                         {
@@ -203,7 +253,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
                         BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
                         var (vp, eye) = CameraAt(game, (TitleSeconds * 0.15f) + (time / speed * 0.15f));
-                        Emit(vp, eye, MatchOverlay(red.Name, blue.Name, redCaption, blueCaption, flashes, redDamage, blueDamage, time, untilKo ? null : seconds, game), [.. Bars(), .. DownCountHud.Shapes(game, new Vector2(width, height))], withFace: true);
+                        Emit(vp, eye, MatchOverlay(redRing, blueRing, redCaption, blueCaption, flashes, redDamage, blueDamage, time, untilKo || tv ? null : seconds, game),
+                            [.. Bars(), .. tv ? TvHud.Shapes(game, screen) : StaminaBars(game), .. DownCountHud.Shapes(game, screen)], withFace: true);
                         if (frame % (fps * 5) == 0)
                         {
                             log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {time:0}s / {seconds:0}s ({watch.Elapsed.TotalSeconds:0}s elapsed)"));
@@ -216,7 +267,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     for (var t = 0f; t < ResultSeconds; t += 1f / fps)
                     {
                         var (vp, eye) = CameraAt(game, ((TitleSeconds + (time / speed)) * 0.15f) + (t * 0.15f));
-                        Emit(vp, eye, Result(red.Name, blue.Name, redDamage, blueDamage, winner, MathF.Min(1f, t / 0.6f), finish), Dim(0.6f * MathF.Min(1f, t / 0.6f)));
+                        Emit(vp, eye, Result(redRing, blueRing, redDamage, blueDamage, winner, MathF.Min(1f, t / 0.6f), finish), Dim(0.6f * MathF.Min(1f, t / 0.6f)));
                     }
 
                     stdin.Close();
@@ -238,6 +289,12 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                 }
             }
 
+            if (broadcast is not null)
+            {
+                broadcast.MixInto(audio, HitSound.SampleRate, seed);
+                broadcast.WriteEvents(Path.ChangeExtension(outPath, ".events.json"));
+            }
+
             WriteWav(wavPath, audio, (float)frame / fps);
             Run("ffmpeg", $"-y -loglevel error -i \"{videoPath}\" -i \"{wavPath}\" -c:v copy -c:a aac -b:a 160k -shortest \"{outPath}\"");
         }
@@ -249,6 +306,10 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
         log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{outPath}: {frame} frames ({(float)frame / fps:0.0}s) in {watch.Elapsed.TotalSeconds:0}s"));
     }
+
+    /// <summary>名前とダメージの下のスタミナのメーター（左右）。</summary>
+    private IEnumerable<UiShapeDraw> StaminaBars(BoxingGame game)
+        => [.. TvHud.StaminaBar(new Vector2(28f, 92f), 140f, 8f, game.Player), .. TvHud.StaminaBar(new Vector2(width - 28f - 140f, 92f), 140f, 8f, game.Cpu)];
 
     /// <summary>タイトル・結果の文字を読めるよう、画面全体を暗くする。</summary>
     private UiShapeDraw[] Dim(float alpha) => [new(new Vector2(width * 0.5f, height * 0.5f), new Vector2(width, height), new Vector4(0f, 0f, 0f, alpha))];
@@ -306,6 +367,13 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             new(seconds is { } limit ? string.Create(CultureInfo.InvariantCulture, $"{MathF.Max(0f, limit - time):0}") : string.Create(CultureInfo.InvariantCulture, $"{(int)time / 60}:{(int)time % 60:00}"), new Vector2(w * 0.5f, 22f), 34f, White, TextAnchor.Center),
         };
         list.AddRange(DownCountHud.Text(game, new Vector2(w, h), f => f == game.Player ? red : blue, f => f == game.Player ? Red : Blue));
+        if (game.Rules is not null)
+        {
+            // テレビ中継: 上の名前・ダメージ・時間の代わりに、得点表と時計。
+            list.RemoveRange(0, 5);
+            list.InsertRange(0, TvHud.Text(game, new Vector2(w, h), red, blue));
+        }
+
         AddCaption(list, redCaption, new Vector2(28f, h - 96f), TextAnchor.Left, Red, time);
         AddCaption(list, blueCaption, new Vector2(w - 28f, h - 96f), TextAnchor.Right, Blue, time);
         for (var i = 0; i < flashes.Count; i++)
@@ -489,5 +557,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         public float ComboTime { get; set; }
         public string? Defense { get; set; }
         public float DefenseTime { get; set; }
+
+        /// <summary>最後に実況の資料へ書いた守り（続いている間は 1 回だけ書く）。</summary>
+        public string? LastNotedDefense { get; set; }
     }
 }

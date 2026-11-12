@@ -14,8 +14,10 @@ using Silk.NET.Input;
 //   --verify <file.mrrep>   ウィンドウを開かず最速で再生し、記録どおりに再現できるかを照合して終了
 //   --break-sound <glass|crumble|crunch|circuit|metal>  ボクセルが砕ける音の方式（既定 glass）
 //   --hit-sound <on|off>  パンチが当たる音（既定 off。風切り音とボクセルの音だけ）
+//   --tv                    テレビ中継風: 30 秒 × 5 ラウンド・休み 10 秒（休みに体が治る）、得点表と時計、会場の歓声（このモードは記録しない）
 //   --no-facecam            画面の両脇の顔の窓を出さない（窓の分の描画が要らない）
 //   --speed <0.5|0.75|1>    最初の速さ（既定 0.75 倍）。遊んでいる間・再生中も 1 / 2 / 3 キーで 0.5 / 0.75 / 1.0 倍に切り替わる
+//   --wear <glove|none|knuckles|katar|gauntlet>  両コーナーが手にはめる物（既定 glove。glove 以外は記録しない: 記録の形式にはめる物が入っていない）
 
 if (!HitSoundOption.TryParse(args, out var hitSounds, out var hitError))
 {
@@ -94,7 +96,7 @@ if (Option("--replay") is { } replayPath)
     using var replay = new ReplayGame(ReplayFile.Read(replayPath));
     replay.Game.FaceCam = faceCam;
     replay.Game.Speed = speed;
-    using var replayWithSound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => replay.FrameShatters, () => replay.FrameLandings, () => replay.FrameSwings, () => replay.FrameBell);
+    using var replayWithSound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => replay.FrameShatters, () => replay.FrameLandings, () => replay.FrameSwings, () => replay.FrameBell, () => replay.FrameGrazes, () => replay.FrameSevers);
     profiler.Mark("replay loaded");
     GameHost.Run(profiler, options with { DynamicViews = faceViews(replay.Game) }, replayWithSound, readInput: (input, _, _) =>
     {
@@ -104,11 +106,24 @@ if (Option("--replay") is { } replayPath)
     return 0;
 }
 
-using var game = new BoxingGame { FaceCam = faceCam, Speed = speed };
+var tv = args.Contains("--tv");
+MiniRing.Weapons.HandWear wear;
+try
+{
+    wear = Option("--wear") is { } wearName ? MiniRing.Weapons.HandWears.Parse(wearName) : MiniRing.Weapons.HandWear.Glove;
+}
+catch (ArgumentException e)
+{
+    Console.Error.WriteLine(e.Message);
+    return 1;
+}
+
+using var game = new BoxingGame(corners: BoxingCorners.Default with { PlayerWear = wear, CpuWear = wear }, rules: tv ? MatchRules.Tv : null) { FaceCam = faceCam, Speed = speed };
 profiler.Mark("BoxingGame constructed");
 var keyboard = new KeyboardControl();
 ReplayRecorder? recorder = null;
-if (!args.Contains("--no-record"))
+// テレビ中継の試合（ラウンドの時間・休み・体の再生）は記録の形式に入っていないので、記録しない。
+if (!args.Contains("--no-record") && !tv && wear == MiniRing.Weapons.HandWear.Glove)
 {
     recorder = ReplayRecorder.TryStartFile(Path.Combine(Environment.CurrentDirectory, "replays"), game, "desktop", out var recordingMessage);
     Console.WriteLine(recordingMessage);
@@ -116,7 +131,8 @@ if (!args.Contains("--no-record"))
 
 // 打撃音は試合の外側で鳴らす（記録・物理には触れない）。
 using var recording = recorder is null ? null : new RecordingGame(game, recorder);
-using var withSound = new HitSoundGame(recording ?? (IGame<BoxingInput>)game, () => game.RecentHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => game.RecentShatters, () => game.RecentLandings, () => game.RecentSwings, () => game.RecentBell);
+using var withSound = new HitSoundGame(recording ?? (IGame<BoxingInput>)game, () => game.RecentHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => game.RecentShatters, () => game.RecentLandings, () => game.RecentSwings, () => game.RecentBell, () => game.RecentGrazes, () => game.RecentSevers,
+    tv ? CrowdFor(game) : null);
 GameHost.Run(profiler, options with { DynamicViews = faceViews(game) }, withSound, readInput: (input, _, _) =>
 {
     ReadSpeed(input);
@@ -129,4 +145,31 @@ string? Option(string name)
 {
     var i = Array.IndexOf(args, name);
     return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+}
+
+// テレビ中継のモードの会場: ざわめきを流し続け、試合を見て反応（歓声・どよめき・カウントの掛け声）を鳴らす。
+static Action<HitSoundPlayer, float> CrowdFor(BoxingGame game)
+{
+    var broadcast = new Broadcast("YOU", "CPU");
+    var clock = 0f;
+    var step = 0;
+    var played = 0;
+    var started = false;
+    return (sounds, dt) =>
+    {
+        if (!started)
+        {
+            sounds.PrepareCrowd(seed: 7); // 別のスレッドで作る（試合を止めない）
+            started = true;
+        }
+
+        clock += dt;
+        broadcast.Observe(game, clock, step++);
+        sounds.PlayCrowd(new CrowdCue(clock, null, 0f, 0)); // ざわめきを（できていれば）流し始める
+        // 反応は時刻が来たものから鳴らす（どよめきの後の悲鳴のように、少し後に置かれたものがある）。
+        for (; played < broadcast.Cues.Count && broadcast.Cues[played].At <= clock; played++)
+        {
+            sounds.PlayCrowd(broadcast.Cues[played]);
+        }
+    };
 }

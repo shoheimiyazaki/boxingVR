@@ -139,11 +139,11 @@ public sealed record FighterTuning
     /// <summary>後ろへ反らす（スウェー）ときに腰が受け持つ割合（胸は全部）。上体ごと後ろへ倒れ、首だけで反らない。前へ倒すときは 0.25。</summary>
     public float HipBackLeanShare { get; init; } = 0.6f;
 
-    /// <summary>沈み込みの最大（立つ高さに対する割合）。膝と股を曲げて腰を落とす。</summary>
-    public float MaxCrouch { get; init; } = 0.4f;
+    /// <summary>沈み込みの最大（立つ高さに対する割合）。膝と股を曲げて腰を落とす。0.4 では、ボディを打つ・かわすたびに膝が床近くまで落ち、ダウンと見分けにくかった（2026-11-12 に 0.28）。</summary>
+    public float MaxCrouch { get; init; } = 0.28f;
 
     /// <summary>頭を下げる量のうち、腰から前へ折って（ヒップヒンジ）下げる割合。残りは膝と股を曲げて腰を落とす。ウィービング・ダッキングが膝だけで沈まない。</summary>
-    public float HipHingeShare { get; init; } = 0.5f;
+    public float HipHingeShare { get; init; } = 0.6f;
 
     /// <summary>腰から前へ折ったとき、頭が前へ出る分のうちお尻を後ろへ引いて打ち消す割合（1 で頭は足の上のまま）。</summary>
     public float HipsBackShare { get; init; } = 1f;
@@ -285,6 +285,71 @@ public sealed record FighterTuning
     /// 審判が見て判断する量（ルールの値）。
     /// </summary>
     public float StillSpeed { get; init; } = 0.015f;
+
+    /// <summary>倒れている間に手を着く所: 肩の真下からの前への距離（腕の長さに対する割合）。膝の前に手を着いて体を支える位置。</summary>
+    public float PostReach { get; init; } = 0.35f;
+
+    /// <summary>起き上がろうとする試みの山で、手を床より下へ押し込む量（腕の長さに対する割合 × 試みの強さ）。床を押して体を持ち上げる。</summary>
+    public float PostPress { get; init; } = 0.15f;
+
+    // ── スタミナ（2026-11-12 に復活。以前の「部位で減らす」形ではなく、筋肉がした仕事のエネルギーの出入りで書く）──
+
+    /// <summary>
+    /// スタミナの容量 [J]: 筋肉がすぐ使えるエネルギーの蓄え。拳を目標へ押す力がした仕事（力 × 拳の速さの正の分）・力を出し続ける
+    /// 保持の分（<see cref="IsometricCost"/>）・歩いて体を運ぶ分（<see cref="WalkCost"/>）がここから出ていき、心肺が戻す
+    /// （<see cref="StaminaRecoveryPower"/>）。容量 90 J・戻り 2.7 W（10 秒休むと 3 割戻る）・息詰まり 0.1。60 J では、テレビ中継の試合で 13 秒で尽きかけた（2026-11-12）。
+    /// </summary>
+    public float StaminaCapacity { get; init; } = 90f;
+
+    /// <summary>腕の仕事率をならす時間 [s]（これより短い行き来は打ち消し合う。拳を 1 回出す時間 0.15〜0.3 s より短く）。</summary>
+    public float StaminaPowerWindow { get; init; } = 0.08f;
+
+    /// <summary>心肺がスタミナを戻す速さ [W]（心臓と肺の働きが満ちているとき。働きに比例して落ちる）。</summary>
+    public float StaminaRecoveryPower { get; init; } = 2.7f;
+
+    /// <summary>力を出し続けるだけで使うエネルギー [J/(N·s)]: 筋肉は動かなくても力を保つのにエネルギーを使う（構えた腕を上げているだけで疲れる）。</summary>
+    public float IsometricCost { get; init; } = 0.004f;
+
+    /// <summary>体を水平に運ぶのに使うエネルギー [J/(kg·m)]（足を運ぶ仕事の近似）。</summary>
+    public float WalkCost { get; init; } = 0.15f;
+
+    /// <summary>
+    /// スタミナが尽きたときに残る、拳を運ぶ力の割合（スタミナに比例して戻る）。疲れは腕に出す: 脚まで弱めると、意識がはっきりしたまま
+    /// 疲れだけで何度も崩れ落ちた（テレビ中継の試合で 1 ラウンドに 5 回。2026-11-12）。
+    /// </summary>
+    public float TiredStrength { get; init; } = 0.45f;
+
+    /// <summary>
+    /// スタミナがこれより多い間は、力は落ちない（蓄えに余裕のあるうちは全力が出る）。これを下回ると、0 で <see cref="TiredStrength"/> まで
+    /// なめらかに落ちる。少し使っただけで力が落ちると、出だしの数 % の違いで剣の斬れ方まで変わった（2026-11-12）。
+    /// </summary>
+    public float TiredKnee { get; init; } = 0.6f;
+
+    // ── 臓器への打撃（皮膚の上からの打撲 = 一時的、削れ = 恒久的）──
+
+    /// <summary>
+    /// 打撃の運動エネルギー 1 J が、臓器の表面に直接届いたときに増やす打撲（0..1）。拳の重い 1 発（約 10 J）が肝臓の真上に入ると
+    /// 打撲はほぼいっぱいになる。
+    /// </summary>
+    public float BruisePerJoule { get; init; } = 0.13f;
+
+    /// <summary>衝撃が組織を伝わって減る距離 [m]（この深さごとに 1/e）。人形の体（胸の厚み約 9 cm）で、真上の 1 発は効き、反対側には届かない。</summary>
+    public float BruiseFalloff { get; init; } = 0.025f;
+
+    /// <summary>打撲が引く速さ [/s]（いっぱいの打撲は 15 秒ほどで引く）。</summary>
+    public float BruiseRecoveryRate { get; init; } = 0.065f;
+
+    /// <summary>胴の臓器がこの割合だけ削られるごとに、その臓器の働きが半分になる（脳の <see cref="BrainHalvingLoss"/> と同じ形）。</summary>
+    public float OrganHalvingLoss { get; init; } = 0.2f;
+
+    /// <summary>
+    /// 腹（肝臓と腸）の働きが 0 のとき、体の張り（<see cref="Fighter.Tone"/>）に残る割合。肝臓を打たれると意識はあっても膝から力が抜ける
+    /// （リバーブロー）。働きに比例して戻る。
+    /// </summary>
+    public float CoreToneFloor { get; init; } = 0.25f;
+
+    /// <summary>胴の臓器の打撲が 1 増えるごとに、その場で失うスタミナ（息が詰まる）。</summary>
+    public float WindPerBruise { get; init; } = 0.1f;
 
     /// <summary>骨盤が支えようとしている高さより、立つ高さのこの割合だけ低いまま <see cref="CollapseTime"/> 過ぎたら、崩れ落ちた（ダウン）。</summary>
     public float CollapseDrop { get; init; } = 0.25f;
