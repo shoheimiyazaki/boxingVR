@@ -24,8 +24,9 @@ public static class HandExtensions
 /// 記録には残さない（胴のひねりの指示と同じく、ボットが再生のたびに同じ値を出す）。
 /// <para><paramref name="Orientation"/> は、その手が武器を握っているときの武器の向きの目標（武器のローカル軸 → 体フレームの回転。武器の
 /// ローカル X が打つ側の先）。拳が位置の目標へバネで引かれるのと同じく、手首の筋肉が武器をこの向きへバネで回す。null なら前腕に沿わせる。</para>
+/// <para><paramref name="LetGo"/> は、その手が握っている武器（添えている武器）を放す。放した手は素手の拳になる（はめた物は外せない）。</para>
 /// </summary>
-public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float Spring = 0f, Quaternion? Orientation = null);
+public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float Spring = 0f, Quaternion? Orientation = null, bool LetGo = false);
 
 /// <summary>
 /// 1 ステップ分の操作指令 — 入力元（VR / キーボード / AI）とラグドールの唯一の契約。
@@ -56,6 +57,16 @@ public readonly record struct FighterCommand(Vector3 MoveWorld, Vector3 FaceDire
 /// </summary>
 public readonly record struct BladeSense(bool Present, Vector3 Hilt, Vector3 Tip, Vector3 TipVelocity);
 
+/// <summary>
+/// 自分の握っている武器の見え方: 握っているか（<paramref name="Held"/>）、握る所から先の端までの長さ（今の <paramref name="Reach"/> と、
+/// 作ったときの <paramref name="FullReach"/>）[m]。折れて短くなった武器は Reach が FullReach より短い。
+/// </summary>
+public readonly record struct WeaponSense(bool Held, float Reach, float FullReach)
+{
+    /// <summary>折れて失った長さ [m]。</summary>
+    public float Lost => Held ? MathF.Max(0f, FullReach - Reach) : 0f;
+}
+
 /// <summary>拳 1 つの見え方（ワールド座標の位置と速度）。</summary>
 public readonly record struct GloveSense(Vector3 Position, Vector3 Velocity);
 
@@ -77,12 +88,13 @@ public readonly record struct BodySense(Vector3 LeftShoulder, Vector3 RightShoul
 /// <para><paramref name="OpponentBlade"/> は相手の握った武器の見え方、<paramref name="SelfArmed"/> は自分が武器を握っているか（null は分からない:
 /// 武器を扱わない入力元のため）。武器を落とした剣士は拳で戦う（<see cref="Bots.DisarmedFallback"/>）。</para>
 /// <para><paramref name="Ring"/> はこの試合のリング（null は拳の試合の標準 <see cref="RingLayout.Boxing"/>）。ロープ際を知り、下がる余地を測るため。</para>
+/// <para><paramref name="SelfWeapon"/> は自分の握っている武器の長さ（折れて短くなったか。<see cref="WeaponSense"/>）。</para>
 /// </summary>
 public readonly record struct FighterSense(
     BodyFrame Self, float ArmReach, Vector3 OpponentHead, Vector3 OpponentChest, bool OpponentAlive,
     Vector3 SelfHead = default, GloveSense OpponentLeft = default, GloveSense OpponentRight = default, Vector3 OpponentVelocity = default,
     BodySense OpponentBody = default, float SelfFaintness = 0f, BladeSense OpponentBlade = default, bool? SelfArmed = null,
-    TargetMap? OpponentTargets = null, RingLayout? Ring = null)
+    TargetMap? OpponentTargets = null, RingLayout? Ring = null, WeaponSense SelfWeapon = default)
 {
     public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
 

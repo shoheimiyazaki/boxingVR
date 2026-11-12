@@ -5,10 +5,11 @@ namespace MiniRing;
 /// <summary>
 /// 1 ヒットの結果（HUD・効果音・ハプティクス用）。
 /// <paramref name="ImpactMass"/> は拳に乗った質量 [kg]、<paramref name="BodyShare"/> はそのうち体から来た割合（0 = 手打ち、1 に近いほど体重が乗った）。
+/// <paramref name="Face"/> は打った面の材質（<see cref="Voxels.BoxerAnatomy"/> の番号: グローブの革・素手の皮膚・鉄。0 = 分からない）。打撃音の種類に使う。
 /// </summary>
 public readonly record struct HitEvent(
     Fighter Attacker, Hand Hand, Fighter Victim, HitZone Zone, Vector3 Point,
-    float Speed, float ImpactMass, float BodyShare, float Damage)
+    float Speed, float ImpactMass, float BodyShare, float Damage, byte Face = 0)
 {
     public float Momentum => ImpactMass * Speed;
 }

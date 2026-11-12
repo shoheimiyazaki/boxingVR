@@ -87,6 +87,10 @@ public sealed class ReplayGame : IGame<BoxingInput>
     public IReadOnlyList<SeverEvent> FrameSevers => _frameSevers;
 
     private readonly List<GrazeEvent> _frameGrazes = [];
+    private readonly List<ContactSoundEvent> _frameContacts = [];
+
+    /// <summary>この描画フレームの間に、物どうしが何も壊さずにぶつかった瞬間。</summary>
+    public IReadOnlyList<ContactSoundEvent> FrameContacts => _frameContacts;
     private readonly List<SeverEvent> _frameSevers = [];
 
     /// <summary>このホストのフレームの間に鳴ったゴング（複数なら最後のもの）。</summary>
@@ -112,9 +116,11 @@ public sealed class ReplayGame : IGame<BoxingInput>
         FrameBell = RoundBell.None;
         _frameGrazes.Clear();
         _frameSevers.Clear();
+        _frameContacts.Clear();
         _player.PlayUntil(_clock, game =>
         {
             _frameGrazes.AddRange(game.RecentGrazes);
+            _frameContacts.AddRange(game.RecentContacts);
             _frameSevers.AddRange(game.RecentSevers);
             FrameBell = game.RecentBell == RoundBell.None ? FrameBell : game.RecentBell;
             _frameHits.AddRange(game.RecentHits);

@@ -30,8 +30,19 @@ public static class GongSound
     /// <summary>終わりのゴングを打つ間隔 [s]（録音の 2 打の間隔）。</summary>
     private const float StrikeInterval = 0.25f;
 
-    /// <summary>最後の打撃の後に鳴らしておく長さ [s]。</summary>
-    private const float Ring = 3f;
+    /// <summary>
+    /// 最後の打撃の後に鳴らしておく長さ [s]。実物の鐘は 3 秒以上鳴るが、ゲームでは長すぎた（ユーザーの指定: もっと短く）。
+    /// 鳴り終わりは <see cref="Damping"/> で抑え、最後の <see cref="FadeOut"/> で 0 へ落とす。
+    /// </summary>
+    private const float Ring = 0.9f;
+
+    /// <summary>
+    /// 部分音の減衰の時定数の上限 [s]: 打った後に鐘を手で押さえて止めたように、長く鳴る部分音も早く消す（音程・当たりの響きは録音のまま）。
+    /// </summary>
+    private const float Damping = 0.3f;
+
+    /// <summary>鳴り終わりを 0 へ落とす長さ [s]（途中で切れてプツッと鳴らない）。</summary>
+    private const float FadeOut = 0.08f;
 
     /// <summary>音量（砕ける音は 1 前後）。</summary>
     public const float Loudness = 0.7f;
@@ -57,6 +68,12 @@ public static class GongSound
         }
 
         HitSound.AddRoom(samples, 0.25f);
+        var fade = (int)(FadeOut * SampleRate);
+        for (var i = 0; i < fade && i < samples.Length; i++)
+        {
+            samples[samples.Length - 1 - i] *= i / (float)fade;
+        }
+
         return HitSound.ToPcm16(samples, Loudness);
     }
 
@@ -72,7 +89,7 @@ public static class GongSound
             var sum = 0f;
             foreach (var (hz, amplitude, decay) in Partials)
             {
-                sum += amplitude * MathF.Exp(-t / decay) * MathF.Sin(2f * MathF.PI * hz * t);
+                sum += amplitude * MathF.Exp(-t / MathF.Min(decay, Damping)) * MathF.Sin(2f * MathF.PI * hz * t);
             }
 
             samples[n] += onset * sum;

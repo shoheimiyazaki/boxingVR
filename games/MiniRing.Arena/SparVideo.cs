@@ -67,6 +67,33 @@ internal sealed class SparVideo(int width, int height, int fps)
             return string.Create(CultureInfo.InvariantCulture, $"red wins {game.PlayerWins}, blue wins {game.CpuWins}");
         }, outPath, log);
 
+    /// <summary>台本つきの場面（<see cref="BreakDemo"/>）を続けて撮る。画面の青の行に、その場面で今起きていること。</summary>
+    public void MakeBreakDemo(IReadOnlyList<BreakDemo.Scene> scenes, float seconds, string outPath, TextWriter log) =>
+        Render("骨が断たれる・折れる・武器が折れる", step =>
+        {
+            var offset = 0f;
+            foreach (var scene in scenes)
+            {
+                using var game = scene.Create();
+                var done = false;
+                for (var t = 0f; t < seconds; t += 1f / 60f)
+                {
+                    if (!done && t >= scene.At)
+                    {
+                        scene.Act(game);
+                        done = true;
+                    }
+
+                    game.Step(default, 1f / 60f);
+                    step(game, offset + t, scene.Title, scene.Describe(game, done));
+                }
+
+                offset += seconds;
+            }
+
+            return $"{scenes.Count} scenes";
+        }, outPath, log, plainLabels: true);
+
     /// <summary>守りのドリル（<see cref="GuardLab"/>）の何本かを続けて撮る。画面には打ち手と、受け手の今の守り（受け・外し）。</summary>
     public void MakeGuard(SwordLibraryLab.Library library, IReadOnlyList<GuardLab.Attack> attacks, GuardLab.Variant variant, int seed, float seconds, string outPath, TextWriter log) =>
         Render($"守りのドリル（青: 日本刀・{variant.Name}）", step =>
@@ -90,7 +117,13 @@ internal sealed class SparVideo(int width, int height, int fps)
     /// <summary>技の名前の、切り出した所を除いた前半（「小手 / BasicKendo@43.17」→「小手」）。</summary>
     private static string? Short(string? name) => name?.Split(" / ")[0];
 
-    private void Render(string title, Func<Action<BoxingGame, float, string?, string?>, string> run, string outPath, TextWriter log)
+    /// <summary>1 本の動画を撮る: <paramref name="run"/> が試合を進め、歩ごとに渡された関数を呼ぶ（フレームの間隔ごとに 1 枚描く）。</summary>
+    /// <param name="title">画面の上の見出し。</param>
+    /// <param name="run">試合を進める（引数の関数を歩ごとに: 試合・時刻・赤の説明・青の説明）。最後に記録へ残す要約を返す。</param>
+    /// <param name="outPath">書き出す mp4。</param>
+    /// <param name="log">要約を書く先。</param>
+    /// <param name="plainLabels">赤・青の行に、渡した説明だけを書く（技の名前と「最後の技」を出さない。台本つきの場面）。</param>
+    private void Render(string title, Func<Action<BoxingGame, float, string?, string?>, string> run, string outPath, TextWriter log, bool plainLabels = false)
     {
         using var renderer = new HeadlessRenderer((uint)width, (uint)height);
         using var ffmpeg = Process.Start(new ProcessStartInfo("ffmpeg",
@@ -129,8 +162,8 @@ internal sealed class SparVideo(int width, int height, int fps)
             ScreenTextDraw[] text =
             [
                 new(title, new Vector2(40f, 40f), 34f, White, TextAnchor.Left),
-                new(string.Create(CultureInfo.InvariantCulture, $"赤: {redNow ?? "構え"}（最後の技 {redLast}）  体 {100f * redCells / redStart.Value:0}%{(game.Player.IsDead ? " 死亡" : "")}"), new Vector2(40f, 84f), 26f, Red, TextAnchor.Left),
-                new(string.Create(CultureInfo.InvariantCulture, $"青: {blueNow ?? "構え"}（最後の技 {blueLast}）  体 {100f * blueCells / blueStart.Value:0}%{(game.Cpu.IsDead ? " 死亡" : "")}"), new Vector2(40f, 118f), 26f, Blue, TextAnchor.Left),
+                new(plainLabels ? redNow ?? "" : string.Create(CultureInfo.InvariantCulture, $"赤: {redNow ?? "構え"}（最後の技 {redLast}）  体 {100f * redCells / redStart.Value:0}%{(game.Player.IsDead ? " 死亡" : "")}"), new Vector2(40f, 84f), 26f, plainLabels ? White : Red, TextAnchor.Left),
+                new(plainLabels ? $"青: {blueNow}" : string.Create(CultureInfo.InvariantCulture, $"青: {blueNow ?? "構え"}（最後の技 {blueLast}）  体 {100f * blueCells / blueStart.Value:0}%{(game.Cpu.IsDead ? " 死亡" : "")}"), new Vector2(40f, 118f), 26f, Blue, TextAnchor.Left),
                 new(string.Create(CultureInfo.InvariantCulture, $"間合い（胸と胸） {distance * 100f:0} cm"), new Vector2(40f, 152f), 26f, Grey, TextAnchor.Left),
                 new(string.Create(CultureInfo.InvariantCulture, $"{t:0.0} s"), new Vector2(width - 40f, height - 40f), 26f, Grey, TextAnchor.Right),
             ];

@@ -132,7 +132,7 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
         {
             var name = NameOf(game, fighter);
             var before = _seen.GetValueOrDefault(fighter);
-            var down = fighter.State != FighterState.Standing;
+            var down = fighter.IsKnockedDown; // 審判がダウンを取ったときだけ（一瞬意識が飛んだ中腰・待っている間の中腰は言わない）
             var count = down ? DownCountHud.Count(fighter) : 0;
             var tired = fighter.Stamina < 0.2f;
             var gut = fighter.Core < 0.6f;
@@ -168,7 +168,7 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
             _seen[fighter] = (down, count, tired, gut);
         }
 
-        var bothDown = game.Player.State != FighterState.Standing && game.Cpu.State != FighterState.Standing && !game.Resting;
+        var bothDown = game.Player.IsKnockedDown && game.Cpu.IsKnockedDown && !game.Resting;
         if (bothDown && !_bothDown)
         {
             Log(at, "both_down", null, "両者が同時に倒れている（打ち合いの相打ち・足がもつれた）。カウントは両者に入り、先に立った方が続ける。倒れた側は拳を出さず両手を床に着く（体の反射）");

@@ -75,6 +75,15 @@ public sealed class VoxelBody
 
     public VoxelGrid Grid { get; }
 
+    /// <summary>
+    /// The axis (0/1/2) along which this body is a beam held by its load-bearing cells (a limb: the bone carries the bending,
+    /// the flesh only its mass), or null for a body every cell of which bears load (a weapon: it snaps where the blow bends
+    /// it past its strength, and the piece flies off). A limb that bends past its bone's strength is not split here: the
+    /// contact reports where (<see cref="VoxelContactResult.BentB"/>), and the caller breaks it there (the flesh still holds
+    /// the two pieces together).
+    /// </summary>
+    public int? BeamAxis { get; set; }
+
     /// <summary>Where the grid's centre sits in the body's frame.</summary>
     public Vector3 GridCenterLocal { get; }
 

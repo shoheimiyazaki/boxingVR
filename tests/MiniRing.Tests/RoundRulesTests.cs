@@ -65,6 +65,9 @@ public sealed class RoundRulesTests
         var end = GongSound.Synthesize(RoundBell.End)!;
         Assert.IsGreaterThan(start.Length, end.Length, "three strikes ring longer");
         Assert.IsTrue(start.SequenceEqual(GongSound.Synthesize(RoundBell.Start)!), "the same sound every time");
+        // 短く（ユーザーの指定）: 始まりの 1 打は 1 秒未満、終わりの 3 打も 1.5 秒未満で鳴り終わる。
+        Assert.IsLessThan(1f, start.Length / 2f / GongSound.SampleRate);
+        Assert.IsLessThan(1.5f, end.Length / 2f / GongSound.SampleRate);
     }
 
     [TestMethod]
@@ -92,8 +95,11 @@ public sealed class RoundRulesTests
     {
         using var game = new BoxingGame(seed: 1);
         var screen = new Vector2(1280, 720);
+        // リングを斜め上から見るカメラ（動画の既定のカメラに近い）。
+        var center = BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight };
+        var vp = Aigis.Render.Camera.ViewProjection(center + new Vector3(0.6f, 0.5f, 0.9f), center, Vector3.UnitY, 45f * MathF.PI / 180f, screen.X / screen.Y, 0.02f, 30f);
         game.Step(default, 1f / 60f);
-        Assert.IsEmpty(DownCountHud.Text(game, screen, _ => "X", _ => Vector4.One).ToList(), "nobody is down");
+        Assert.IsEmpty(DownCountHud.Text(game, vp, screen, _ => "X", _ => Vector4.One).ToList(), "nobody is down");
         game.Cpu.Concussion = 0.95f; // 倒れるが意識は戻る（カウントが進む）
         for (var t = 0f; t < 3.2f; t += 1f / 60f)
         {
@@ -101,11 +107,22 @@ public sealed class RoundRulesTests
         }
 
         var count = DownCountHud.Count(game.Cpu);
-        var text = DownCountHud.Text(game, screen, f => f == game.Cpu ? "CPU" : "YOU", _ => Vector4.One).Select(t => t.Text).ToList();
+        var draws = DownCountHud.Text(game, vp, screen, f => f == game.Cpu ? "CPU" : "YOU", _ => Vector4.One).ToList();
+        var text = draws.Select(t => t.Text).ToList();
         Console.WriteLine($"down {game.Cpu.DownTime:0.00}s: {string.Join(" | ", text)}");
         Assert.IsGreaterThanOrEqualTo(2, count);
         CollectionAssert.Contains(text, "CPU DOWN");
         CollectionAssert.Contains(text, count.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        Assert.HasCount((int)BoxingGame.CountSeconds + 1, DownCountHud.Shapes(game, screen).ToList(), "a backdrop and ten pips");
+        var pips = DownCountHud.Shapes(game, vp, screen).ToList();
+        Assert.HasCount((int)BoxingGame.CountSeconds, pips, "ten pips and no backdrop window");
+
+        // 倒れた本人の上に出る: 体を画面へ写した所の真上（横は同じ、縦は上）。
+        Assert.IsTrue(Aigis.Render.Camera.TryWorldToScreen(vp, (game.Cpu.ChestPosition + game.Cpu.PelvisPosition) * 0.5f, screen, out var body));
+        var number = draws.Last(d => d.Text == count.ToString(System.Globalization.CultureInfo.InvariantCulture)); // 影の後に描く本体
+        Console.WriteLine($"body at {body}, number at {number.ScreenPosPixels}, pips at y {pips[0].CenterPixels.Y}");
+        Assert.AreEqual(body.X, number.ScreenPosPixels.X, 1f, "right over the fighter");
+        Assert.IsLessThan(body.Y, pips[0].CenterPixels.Y, "above the body");
+        Assert.IsGreaterThan(body.Y - 250f, number.ScreenPosPixels.Y, "and close to it");
+        Assert.IsTrue(draws.All(t => t.ScreenPosPixels.Y >= 0f), "all of it on the screen, even with the fighter near the top");
     }
 }

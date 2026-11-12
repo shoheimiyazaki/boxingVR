@@ -35,7 +35,11 @@ public enum VoxelTissue : byte
 /// held together by its joints and bone).</param>
 /// <param name="Stiffness">Young's modulus [Pa]: how hard a beam of it is to bend. A slender body flexes under a blow,
 /// which caps the force a blow can put on it; null = rigid (the contact's give alone sets the force).</param>
-public sealed record VoxelMechanics(float Density, float Strength, float Give, float? Tensile = null, float? Stiffness = null)
+/// <param name="Wear">2026-11-12: the share of a cell's <see cref="VoxelMaterial.Toughness"/> one blow that presses it at its
+/// full <paramref name="Strength"/> without breaking it wears away (a blow at a fraction r of it wears r² of that). Repeated
+/// blows that each hold still tear it in the end, and the wear shows as a stain on the way (<see cref="VoxelGrid.Wear"/>).
+/// Null = never worn (only a blow past its strength breaks it).</param>
+public sealed record VoxelMechanics(float Density, float Strength, float Give, float? Tensile = null, float? Stiffness = null, float? Wear = null)
 {
     /// <summary>Soft default for a material that states none (yields easily, never snaps).</summary>
     public static VoxelMechanics Default { get; } = new(1000f, 0.5e6f, 0.004f);
@@ -418,9 +422,10 @@ public sealed class VoxelGrid
 
     /// <summary>
     /// Breaks one filled cell away whole (crushed or cut by a contact, not worn down like <see cref="Carve"/>), adds it to
-    /// <paramref name="removed"/>, and stains the cells next to it a little. False if the cell was already empty.
+    /// <paramref name="removed"/>, and stains the cells next to it a little (<paramref name="neighbourStain"/> each: blood from
+    /// the break). False if the cell was already empty.
     /// </summary>
-    public bool Break(int index, ICollection<RemovedVoxel> removed)
+    public bool Break(int index, ICollection<RemovedVoxel> removed, float neighbourStain = 0.25f)
     {
         ArgumentNullException.ThrowIfNull(removed);
         if (_cells[index] == 0)
@@ -438,7 +443,7 @@ public sealed class VoxelGrid
             if (ax >= 0 && ay >= 0 && az >= 0 && ax < nx && ay < ny && az < nz)
             {
                 var j = Index(ax, ay, az);
-                _stain[j] = MathF.Min(1f, _stain[j] + 0.25f);
+                _stain[j] = MathF.Min(1f, _stain[j] + neighbourStain);
             }
         }
 
@@ -452,42 +457,53 @@ public sealed class VoxelGrid
     /// Along <paramref name="axis"/> (0 = x, 1 = y, 2 = z), the first slice (counted from the <paramref name="fromHigh"/>
     /// end) that has no bone left while both of its sides still do — i.e. where the bone has been broken through.
     /// Null if the bone still spans the grid, or the grid never had bone along that axis.
+    /// <para>
+    /// A joint at an end carries the bone on into the next body, so it counts as bone: <paramref name="lowJoint"/> /
+    /// <paramref name="highJoint"/> are the slices (usually just outside the grid, −1 or the slice count) where a joint
+    /// holds the bone's end. With them, bone carved away right at its end — the elbow end of an upper arm — is a break
+    /// between the joint and what is left, not a bone that merely got shorter.
+    /// </para>
     /// </summary>
-    public int? FindBoneBreak(int axis, bool fromHigh)
+    public int? FindBoneBreak(int axis, bool fromHigh, int? lowJoint = null, int? highJoint = null)
     {
         var slices = Slices(axis);
         var bone = new int[slices];
-        var any = false;
+        int first = -1, last = -1;
         for (var i = 0; i < _cells.Length; i++)
         {
             if (_cells[i] != 0 && Palette[_cells[i]].Tissue == VoxelTissue.Bone)
             {
                 var c = Coordinates(i);
-                bone[axis == 0 ? c.X : axis == 1 ? c.Y : c.Z]++;
-                any = true;
+                var s = axis == 0 ? c.X : axis == 1 ? c.Y : c.Z;
+                bone[s]++;
+                first = first < 0 || s < first ? s : first;
+                last = Math.Max(last, s);
             }
         }
 
-        if (!any)
+        if (first < 0)
+        {
+            // No bone left at all: broken only if a joint holds each end (the whole span between them is gone).
+            first = lowJoint ?? int.MaxValue;
+            last = highJoint ?? int.MinValue;
+        }
+        else
+        {
+            first = lowJoint is { } low ? Math.Min(low, first) : first;
+            last = highJoint is { } high ? Math.Max(high, last) : last;
+        }
+
+        if (first >= last)
         {
             return null;
         }
 
-        int first = -1, last = -1;
-        for (var s = 0; s < slices; s++)
-        {
-            if (bone[s] > 0)
-            {
-                first = first < 0 ? s : first;
-                last = s;
-            }
-        }
-
+        bool Empty(int s) => s >= 0 && s < slices && s != lowJoint && s != highJoint && bone[s] == 0;
         if (fromHigh)
         {
             for (var s = last; s > first; s--)
             {
-                if (bone[s] == 0)
+                if (Empty(s))
                 {
                     return s;
                 }
@@ -497,7 +513,7 @@ public sealed class VoxelGrid
         {
             for (var s = first; s < last; s++)
             {
-                if (bone[s] == 0)
+                if (Empty(s))
                 {
                     return s;
                 }
@@ -505,6 +521,109 @@ public sealed class VoxelGrid
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// What still holds the two sides of slice <paramref name="slice"/> of <paramref name="axis"/> together: the filled
+    /// cells of that slice that a path of face-touching filled cells joins to both sides (flesh left across a broken bone).
+    /// The slice's bone does not count (the bone is what broke there, whether carved away or snapped by bending).
+    /// Empty if nothing joins them (cut clean through, or one side is empty). The cells' indices are returned so a caller
+    /// can weigh, from their materials, how much the bridge can carry.
+    /// </summary>
+    public IReadOnlyList<int> Bridge(int axis, int slice)
+    {
+        var slices = Slices(axis);
+        if (slice <= 0 || slice >= slices - 1)
+        {
+            return [];
+        }
+
+        int SliceOf(int i)
+        {
+            var c = Coordinates(i);
+            return axis == 0 ? c.X : axis == 1 ? c.Y : c.Z;
+        }
+
+        // Flood from every filled cell below the slice; the slice's cells reached that also touch a reached cell above it
+        // (or lead on to one) are the bridge. One flood finds both: anything above the slice it reaches came through the slice.
+        var reached = new bool[_cells.Length];
+        var queue = new Queue<int>();
+        for (var i = 0; i < _cells.Length; i++)
+        {
+            if (_cells[i] != 0 && SliceOf(i) < slice)
+            {
+                reached[i] = true;
+                queue.Enqueue(i);
+            }
+        }
+
+        var (nx, ny, nz) = Dimensions;
+        while (queue.Count > 0)
+        {
+            var i = queue.Dequeue();
+            var (x, y, z) = Coordinates(i);
+            foreach (var (dx, dy, dz) in Neighbours)
+            {
+                var (ax, ay, az) = (x + dx, y + dy, z + dz);
+                if (ax < 0 || ay < 0 || az < 0 || ax >= nx || ay >= ny || az >= nz)
+                {
+                    continue;
+                }
+
+                var j = Index(ax, ay, az);
+                if (_cells[j] != 0 && !reached[j] && !(SliceOf(j) == slice && Palette[_cells[j]].Tissue == VoxelTissue.Bone))
+                {
+                    reached[j] = true;
+                    queue.Enqueue(j);
+                }
+            }
+        }
+
+        // The slice's reached cells that a reached cell above the slice touches, flooded back within the slice (a bridge cell
+        // need not sit right under one that continues upward).
+        var bridge = new List<int>();
+        var onBridge = new bool[_cells.Length];
+        var within = new Queue<int>();
+        for (var i = 0; i < _cells.Length; i++)
+        {
+            if (!reached[i] || SliceOf(i) != slice)
+            {
+                continue;
+            }
+
+            var (x, y, z) = Coordinates(i);
+            var above = axis == 0 ? Index(x + 1, y, z) : axis == 1 ? Index(x, y + 1, z) : Index(x, y, z + 1);
+            if (reached[above])
+            {
+                onBridge[i] = true;
+                within.Enqueue(i);
+            }
+        }
+
+        while (within.Count > 0)
+        {
+            var i = within.Dequeue();
+            bridge.Add(i);
+            var (x, y, z) = Coordinates(i);
+            foreach (var (dx, dy, dz) in Neighbours)
+            {
+                var (ax, ay, az) = (x + dx, y + dy, z + dz);
+                if (ax < 0 || ay < 0 || az < 0 || ax >= nx || ay >= ny || az >= nz)
+                {
+                    continue;
+                }
+
+                var j = Index(ax, ay, az);
+                if (reached[j] && !onBridge[j] && SliceOf(j) == slice)
+                {
+                    onBridge[j] = true;
+                    within.Enqueue(j);
+                }
+            }
+        }
+
+        bridge.Sort();
+        return bridge;
     }
 
     /// <summary>
@@ -621,6 +740,93 @@ public sealed class VoxelGrid
         _surface[index] = originalSurface;
         _stain[index] = 0f;
         _remaining[material]++;
+        Version++;
+        return true;
+    }
+
+    /// <summary>
+    /// 2026-11-12 (Mini Ring Boxing's healing between rounds, with dents and wear): sets the cell at <paramref name="index"/> back
+    /// to <paramref name="material"/> whole — full health, no stain — whatever is there now (empty, worn, stained, or another
+    /// material pushed in over it by a dent). Counts follow. Returns false (and changes nothing) if it already is exactly that.
+    /// </summary>
+    public bool Reset(int index, byte material, bool originalSurface)
+    {
+        if (material >= Palette.Count)
+        {
+            return false;
+        }
+
+        var toughness = material == 0 ? 0f : Palette[material].Toughness;
+        if (_cells[index] == material && _surface[index] == originalSurface && _stain[index] == 0f && _health[index] >= toughness)
+        {
+            return false;
+        }
+
+        if (_cells[index] != 0)
+        {
+            _remaining[_cells[index]]--;
+        }
+
+        _cells[index] = material;
+        _health[index] = toughness;
+        _surface[index] = material != 0 && originalSurface;
+        _stain[index] = 0f;
+        if (material != 0)
+        {
+            _remaining[material]++;
+        }
+
+        Version++;
+        return true;
+    }
+
+    /// <summary>
+    /// 2026-11-12 (a face pressed again and again, <c>VoxelContact</c>): wears <paramref name="fraction"/> of the cell's
+    /// <see cref="VoxelMaterial.Toughness"/> away. The cell is stained as far as it is worn (a battered skin reddens), and once
+    /// it is worn through it breaks away (<see cref="Break"/>, added to <paramref name="removed"/>). Returns true if it broke.
+    /// </summary>
+    public bool Wear(int index, float fraction, ICollection<RemovedVoxel> removed)
+    {
+        ArgumentNullException.ThrowIfNull(removed);
+        if (_cells[index] == 0 || fraction <= 0f)
+        {
+            return false;
+        }
+
+        var toughness = MathF.Max(1e-6f, Palette[_cells[index]].Toughness);
+        _health[index] -= fraction * toughness;
+        if (_health[index] <= 1e-4f)
+        {
+            return Break(index, removed);
+        }
+
+        _stain[index] = MathF.Max(_stain[index], 1f - (_health[index] / toughness));
+        Version++;
+        return false;
+    }
+
+    /// <summary>
+    /// 2026-11-12 (pressure passed on beneath a face that held, <c>VoxelContact</c>): moves the filled cell at
+    /// <paramref name="from"/> into the empty cell <paramref name="to"/> whole (material, health, original-surface flag and stain
+    /// go with it) and leaves <paramref name="from"/> empty — a skin cell pushed in over the flesh crushed under it, so the
+    /// surface dents instead of floating over a hole. Counts do not change. False (nothing moves) unless <paramref name="from"/>
+    /// is filled and <paramref name="to"/> empty.
+    /// </summary>
+    public bool Shift(int from, int to)
+    {
+        if (from == to || _cells[from] == 0 || _cells[to] != 0)
+        {
+            return false;
+        }
+
+        _cells[to] = _cells[from];
+        _health[to] = _health[from];
+        _surface[to] = _surface[from];
+        _stain[to] = _stain[from];
+        _cells[from] = 0;
+        _health[from] = 0f;
+        _surface[from] = false;
+        _stain[from] = 0f;
         Version++;
         return true;
     }

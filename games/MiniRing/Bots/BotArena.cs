@@ -66,8 +66,8 @@ public static class BotArena
         var red = new Tally();
         var blue = new Tally();
         var round = game.Round;
-        var redState = FighterState.Standing;
-        var blueState = FighterState.Standing;
+        var redDown = false;
+        var blueDown = false;
         var steps = (int)MathF.Ceiling(spec.Seconds / StepDt);
         for (var i = 0; i < steps; i++)
         {
@@ -92,14 +92,14 @@ public static class BotArena
             if (game.Round != round)
             {
                 round = game.Round;
-                redState = blueState = FighterState.Standing;
+                redDown = blueDown = false;
             }
 
-            // ダウンを取った数: 相手が立っている状態から倒れたら 1。
-            blue.Knockdowns += redState == FighterState.Standing && game.Player.State != FighterState.Standing ? 1 : 0;
-            red.Knockdowns += blueState == FighterState.Standing && game.Cpu.State != FighterState.Standing ? 1 : 0;
-            redState = game.Player.State;
-            blueState = game.Cpu.State;
+            // ダウンを取った数: 審判がダウンを取っていない状態から取ったら 1（中腰で待っている間は数えない）。
+            blue.Knockdowns += !redDown && game.Player.IsKnockedDown ? 1 : 0;
+            red.Knockdowns += !blueDown && game.Cpu.IsKnockedDown ? 1 : 0;
+            redDown = game.Player.IsKnockedDown;
+            blueDown = game.Cpu.IsKnockedDown;
         }
 
         return new BoutResult(spec, red.Result(game.PlayerWins, redBots), blue.Result(game.CpuWins, blueBots));

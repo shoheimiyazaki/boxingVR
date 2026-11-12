@@ -134,6 +134,7 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
                 sounds.PlayBell(game.RecentBell);
                 sounds.PlayGrazes(game.RecentGrazes);
                 sounds.PlaySevers(game.RecentSevers);
+                sounds.PlayContacts(game.RecentContacts);
 
                 foreach (var hit in game.RecentHits)
                 {

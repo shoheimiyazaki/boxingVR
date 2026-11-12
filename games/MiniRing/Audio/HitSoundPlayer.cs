@@ -21,7 +21,7 @@ public sealed class HitSoundPlayer : IDisposable
     private const int FatalVariants = 2;
 
     private readonly IAudioBackend _backend;
-    private readonly Dictionary<(int Intensity, int Clean, HitTarget Target), AudioClip> _clips = [];
+    private readonly Dictionary<(int Intensity, int Clean, HitTarget Target, HitSurface Surface), AudioClip> _clips = [];
     private readonly List<int> _voices = [];
     private readonly Random _variation = new();
     private readonly AudioClip?[] _fatal = new AudioClip?[FatalVariants];
@@ -72,11 +72,11 @@ public sealed class HitSoundPlayer : IDisposable
         }
 
         var tone = HitTone.Of(hit);
-        var key = ((int)MathF.Round(tone.Intensity * (IntensityLevels - 1)), (int)MathF.Round(tone.Clean * (CleanLevels - 1)), tone.Target);
+        var key = ((int)MathF.Round(tone.Intensity * (IntensityLevels - 1)), (int)MathF.Round(tone.Clean * (CleanLevels - 1)), tone.Target, tone.Surface); // 打った面の材質（グローブ・素手・鉄）ごとに別の音
         if (!_clips.TryGetValue(key, out var clip))
         {
-            var quantized = new HitTone(key.Item1 / (float)(IntensityLevels - 1), key.Item2 / (float)(CleanLevels - 1), key.Target);
-            var name = string.Create(CultureInfo.InvariantCulture, $"hit_{key.Target}_{key.Item1}_{key.Item2}");
+            var quantized = new HitTone(key.Item1 / (float)(IntensityLevels - 1), key.Item2 / (float)(CleanLevels - 1), key.Target, key.Surface);
+            var name = string.Create(CultureInfo.InvariantCulture, $"hit_{key.Surface}_{key.Target}_{key.Item1}_{key.Item2}");
             clip = new AudioClip(name, AudioSampleFormat.Mono16, HitSound.SampleRate, HitSound.Synthesize(quantized, seed: key.GetHashCode()), IsGenerated: true);
             _clips[key] = clip;
         }
@@ -181,6 +181,29 @@ public sealed class HitSoundPlayer : IDisposable
             }
 
             Start(new AudioClip("graze", AudioSampleFormat.Mono16, GrazeSound.SampleRate, GrazeSound.Synthesize(graze.Speed, _variation.Next()), IsGenerated: true), 1f);
+        }
+    }
+
+    /// <summary>1 ステップぶんの、物どうしが何も壊さずにぶつかった音（金属どうし・グローブと皮膚など、材質の組ごと）。</summary>
+    public void PlayContacts(IReadOnlyList<ContactSoundEvent> contacts)
+    {
+        ArgumentNullException.ThrowIfNull(contacts);
+        if (!_backend.IsAvailable || contacts.Count == 0)
+        {
+            return;
+        }
+
+        OpenAlAudioBackend.MakeCurrentOnThisThread();
+        foreach (var contact in contacts)
+        {
+            Reap();
+            if (_voices.Count >= MaxVoices - ReservedForBreaks)
+            {
+                return;
+            }
+
+            // 音量は合成した波形の山にすでに入っている（ContactSound.Loudness）ので 1 で鳴らす。
+            Start(new AudioClip("contact", AudioSampleFormat.Mono16, ContactSound.SampleRate, ContactSound.Synthesize(contact.Pair, contact.Strength, _variation.Next()), IsGenerated: true), 1f);
         }
     }
 

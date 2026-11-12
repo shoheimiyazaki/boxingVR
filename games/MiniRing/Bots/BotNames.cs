@@ -7,26 +7,23 @@ namespace MiniRing.Bots;
 /// </summary>
 public static class BotNames
 {
+    /// <summary>
+    /// リングネームの名前（2026-11-12、ユーザーの指定: ファーストネームだけ、1960 年代の名前）。1960 年代に生まれた男の子に多かった名前
+    /// （明治安田生命の名前ランキングの上位に並ぶ、浩・誠・隆・健一・博・茂・勝・修・進 などの読み）をカタカナで。
+    /// </summary>
     private static readonly string[] Given =
     [
-        "ケン", "リュウ", "ジョー", "タイガ", "ショウ", "ダイキ", "レン", "ハヤト",
-        "ゴウ", "カイ", "ジン", "トウマ", "ユウマ", "ライ", "セナ", "ミツル",
-        "テツ", "ガク", "シン", "アラタ",
+        "ヒロシ", "マコト", "タカシ", "ヨシオ", "カズオ", "ススム", "ツヨシ", "イサム",
+        "ミノル", "ノボル", "ケンイチ", "シゲル", "アキラ", "マサオ", "テツヤ", "オサム",
+        "トオル", "ユタカ", "サトル", "ケンジ", "タケシ", "コウジ", "ヨウイチ", "ヒデオ",
+        "マサル", "ツトム", "カツミ", "ミツオ", "セイジ", "ノリオ",
     ];
 
-    private static readonly string[] Family =
-    [
-        "アカギ", "クロガネ", "ミナカタ", "サイジョウ", "カミシロ", "オオトリ", "ハヤセ", "キリュウ",
-        "シラヌイ", "タカツキ", "ヒムロ", "カゲヤマ", "イブキ", "ツルギ", "マガミ", "ホムラ",
-        "アマギ", "ライドウ", "コクブ", "ジングウジ",
-    ];
-
-    /// <summary>名前（スタイルの名前・ドリルの個体の名前）から決まるリングネーム（「ケン・アカギ」の形）。</summary>
+    /// <summary>名前（スタイルの名前・ドリルの個体の名前）から決まるリングネーム（ファーストネームだけ: 「ヒロシ」）。</summary>
     public static string Generate(string id)
     {
         ArgumentNullException.ThrowIfNull(id);
-        var h = Hash(id);
-        return $"{Given[h % (uint)Given.Length]}・{Family[(h / (uint)Given.Length) % (uint)Family.Length]}";
+        return Given[Hash(id) % (uint)Given.Length];
     }
 
     /// <summary>名前のボットのリングネーム: 名簿にあってリングネームが決めてあればそれ、無ければ <see cref="Generate"/>。</summary>

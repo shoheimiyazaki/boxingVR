@@ -165,6 +165,11 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         {
                             Mix(audio, SeverSound.Synthesize(sever.Strength, step), at, 1f);
                         }
+
+                        foreach (var contact in game.RecentContacts)
+                        {
+                            Mix(audio, ContactSound.Synthesize(contact.Pair, contact.Strength, step), at, 1f);
+                        }
                         if (untilKo && endAt is null && game.RoundOver)
                         {
                             // ラウンドが終わった理由（K.O. の種類と勝者）。ゲームは RoundResetDelay の後に次のラウンドを始めるので、その前に止める。
@@ -253,8 +258,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
                         BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
                         var (vp, eye) = CameraAt(game, (TitleSeconds * 0.15f) + (time / speed * 0.15f));
-                        Emit(vp, eye, MatchOverlay(redRing, blueRing, redCaption, blueCaption, flashes, redDamage, blueDamage, time, untilKo || tv ? null : seconds, game),
-                            [.. Bars(), .. tv ? TvHud.Shapes(game, screen) : StaminaBars(game), .. DownCountHud.Shapes(game, screen)], withFace: true);
+                        Emit(vp, eye, MatchOverlay(redRing, blueRing, redCaption, blueCaption, flashes, redDamage, blueDamage, time, untilKo || tv ? null : seconds, game, vp),
+                            [.. Bars(), .. tv ? TvHud.Shapes(game, screen) : StaminaBars(game), .. DownCountHud.Shapes(game, vp, screen)], withFace: true);
                         if (frame % (fps * 5) == 0)
                         {
                             log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {time:0}s / {seconds:0}s ({watch.Elapsed.TotalSeconds:0}s elapsed)"));
@@ -354,7 +359,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     }
 
     private List<ScreenTextDraw> MatchOverlay(string red, string blue, Caption redCaption, Caption blueCaption,
-        List<(string Text, Vector4 Color, float Until)> flashes, float redDamage, float blueDamage, float time, float? seconds, BoxingGame game)
+        List<(string Text, Vector4 Color, float Until)> flashes, float redDamage, float blueDamage, float time, float? seconds, BoxingGame game, Matrix4x4 viewProjection)
     {
         var w = width;
         var h = height;
@@ -366,7 +371,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             new(string.Create(CultureInfo.InvariantCulture, $"DAMAGE {blueDamage:0}"), new Vector2(w - 28f, 60f), 22f, Blue, TextAnchor.Right),
             new(seconds is { } limit ? string.Create(CultureInfo.InvariantCulture, $"{MathF.Max(0f, limit - time):0}") : string.Create(CultureInfo.InvariantCulture, $"{(int)time / 60}:{(int)time % 60:00}"), new Vector2(w * 0.5f, 22f), 34f, White, TextAnchor.Center),
         };
-        list.AddRange(DownCountHud.Text(game, new Vector2(w, h), f => f == game.Player ? red : blue, f => f == game.Player ? Red : Blue));
+        list.AddRange(DownCountHud.Text(game, viewProjection, new Vector2(w, h), f => f == game.Player ? red : blue, f => f == game.Player ? Red : Blue));
         if (game.Rules is not null)
         {
             // テレビ中継: 上の名前・ダメージ・時間の代わりに、得点表と時計。

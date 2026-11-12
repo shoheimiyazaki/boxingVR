@@ -9,6 +9,8 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="MiniRing.Tests" />
+    <!-- 対戦場の台本つきの場面（breakdemo: 骨を断つ・折る・武器を折る）が、試合の内側の手（BoxingGame.BreakBone など）を使う。 -->
+    <InternalsVisibleTo Include="miniring-arena" />
   </ItemGroup>
   <ItemGroup>
     <!-- ゲームの CPU（champion）のスタイル。値が多い（防御技の表を含む）ので JSON のまま組み込む。docs/BOT_PDCA.md -->

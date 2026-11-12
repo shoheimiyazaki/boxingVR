@@ -96,7 +96,7 @@ if (Option("--replay") is { } replayPath)
     using var replay = new ReplayGame(ReplayFile.Read(replayPath));
     replay.Game.FaceCam = faceCam;
     replay.Game.Speed = speed;
-    using var replayWithSound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => replay.FrameShatters, () => replay.FrameLandings, () => replay.FrameSwings, () => replay.FrameBell, () => replay.FrameGrazes, () => replay.FrameSevers);
+    using var replayWithSound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => replay.FrameShatters, () => replay.FrameLandings, () => replay.FrameSwings, () => replay.FrameBell, () => replay.FrameGrazes, () => replay.FrameSevers, contacts: () => replay.FrameContacts);
     profiler.Mark("replay loaded");
     GameHost.Run(profiler, options with { DynamicViews = faceViews(replay.Game) }, replayWithSound, readInput: (input, _, _) =>
     {
@@ -132,7 +132,7 @@ if (!args.Contains("--no-record") && !tv && wear == MiniRing.Weapons.HandWear.Gl
 // 打撃音は試合の外側で鳴らす（記録・物理には触れない）。
 using var recording = recorder is null ? null : new RecordingGame(game, recorder);
 using var withSound = new HitSoundGame(recording ?? (IGame<BoxingInput>)game, () => game.RecentHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => game.RecentShatters, () => game.RecentLandings, () => game.RecentSwings, () => game.RecentBell, () => game.RecentGrazes, () => game.RecentSevers,
-    tv ? CrowdFor(game) : null);
+    tv ? CrowdFor(game) : null, () => game.RecentContacts);
 GameHost.Run(profiler, options with { DynamicViews = faceViews(game) }, withSound, readInput: (input, _, _) =>
 {
     ReadSpeed(input);

@@ -130,6 +130,9 @@ public sealed class HandWearTests
         return new BoutResult(before - Filled(), hits, hits > 0 ? speed / hits : 0f, wornBefore - Worn(), ironBefore - Worn(BoxerAnatomy.Iron));
     }
 
+    private static BoutResult Sum(BoutResult a, BoutResult b) => new(a.Carved + b.Carved, a.Hits + b.Hits,
+        a.Hits + b.Hits > 0 ? ((a.MeanSpeed * a.Hits) + (b.MeanSpeed * b.Hits)) / (a.Hits + b.Hits) : 0f, a.WearLost + b.WearLost, a.IronLost + b.IronLost);
+
     /// <param name="Carved">青の体が失ったボクセル。</param>
     /// <param name="Hits">赤の拳の打撃の数。</param>
     /// <param name="MeanSpeed">打撃の速さの平均 [m/s]。</param>
@@ -156,8 +159,9 @@ public sealed class HandWearTests
     [TestMethod]
     public void TheSamePunches_CarveByTheShapeAndMaterialOfWhatIsWorn()
     {
-        // 同じボット・同じ種で、構えて立つ相手を 12 秒打つ。違うのは拳にはめた物の形と材質だけ。
-        var result = All.ToDictionary(w => w, w => Bout(w, "swarmer"));
+        // 同じボット・同じ種で、構えて立つ相手を 12 秒打つ。違うのは拳にはめた物の形と材質だけ。1 本の試合は混沌としていて、何発当たるかが
+        // 大きく揺れる（籠手は swarmer の 1 本で 4 発しか当たらず 7 セルのこともあった）ので、2 つのボットの合計で比べる（2026-11-13）。
+        var result = All.ToDictionary(w => w, w => Sum(Bout(w, "swarmer"), Bout(w, "champion")));
         foreach (var (wear, r) in result)
         {
             TestContext.WriteLine($"{wear,-14} {r}");

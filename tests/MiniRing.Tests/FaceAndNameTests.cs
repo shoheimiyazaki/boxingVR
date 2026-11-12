@@ -14,7 +14,10 @@ public sealed class FaceAndNameTests
         Assert.AreEqual(BotNames.Generate("champion-g3c2"), BotNames.Generate("champion-g3c2"), "the same individual always has the same name");
         var names = Enumerable.Range(0, 12).Select(i => BotNames.Generate($"champion-g1c{i}")).ToHashSet();
         Assert.IsGreaterThan(8, names.Count, "individuals born in a drill get (mostly) different names");
-        StringAssert.Contains(BotNames.RingNameOf("slugger"), "・");
+        Assert.DoesNotContain("・", BotNames.RingNameOf("slugger"), "first names only (no family name)");
+        var catalog = BotCatalog.Names.Where(n => n != BotCatalog.Legacy).Select(BotNames.RingNameOf).ToList();
+        Console.WriteLine(string.Join(", ", BotCatalog.Names.Where(n => n != BotCatalog.Legacy).Zip(catalog, (n, r) => $"{n}={r}")));
+        Assert.HasCount(catalog.Count, catalog.Distinct(), "every bot on the roster has its own name");
     }
 
     [TestMethod]

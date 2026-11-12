@@ -22,11 +22,19 @@ public static class VoxelBending
     /// pressed at <paramref name="point"/> (both grid-local) bends it past its materials' tensile strength — the worst one
     /// — or null if it holds everywhere (or a material there never snaps).
     /// </summary>
-    public static VoxelBreak? FindBreak(VoxelGrid grid, Vector3 point, Vector3 force)
+    /// <param name="grid">The body's cells.</param>
+    /// <param name="point">Where the blow presses (grid-local).</param>
+    /// <param name="force">The blow's force (grid-local) [N].</param>
+    /// <param name="beamAxis">The axis the body runs along as a beam (null: its longest axis).</param>
+    /// <param name="loadBearingOnly">
+    /// Whether only the cells with a tensile strength carry the section (a limb: the bone carries the bending, the flesh
+    /// around it only adds its mass and inertia). Without it, every material must have one (a weapon) or nothing snaps.
+    /// </param>
+    public static VoxelBreak? FindBreak(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false)
     {
         ArgumentNullException.ThrowIfNull(grid);
         var (nx, ny, nz) = grid.Dimensions;
-        var axis = nx >= ny && nx >= nz ? 0 : ny >= nz ? 1 : 2;
+        var axis = beamAxis ?? (nx >= ny && nx >= nz ? 0 : ny >= nz ? 1 : 2);
         var slices = axis == 0 ? nx : axis == 1 ? ny : nz;
         if (slices < 3 || !(force.LengthSquared() > 0f))
         {
@@ -49,7 +57,12 @@ public static class VoxelBending
             var k = grid.Palette[m].MechanicsOrDefault;
             if (k.Tensile is not { } tensile)
             {
-                return null;
+                if (!loadBearingOnly)
+                {
+                    return null;
+                }
+
+                tensile = float.NaN; // only mass: it does not carry the section
             }
 
             var (x, y, z) = grid.Coordinates(i);
@@ -60,7 +73,7 @@ public static class VoxelBending
             moment += at * mass;
         }
 
-        if (cells.Count == 0 || total <= 0f)
+        if (cells.Count == 0 || total <= 0f || !cells.Exists(c => !float.IsNaN(c.Tensile)))
         {
             return null;
         }
@@ -95,10 +108,10 @@ public static class VoxelBending
         VoxelBreak? worst = null;
         for (var s = 1; s < slices - 1; s++)
         {
-            var section = bySlice[s];
+            var section = loadBearingOnly ? bySlice[s].FindAll(c => !float.IsNaN(cells[c].Tensile)) : bySlice[s];
             if (section.Count == 0)
             {
-                continue;
+                continue; // nothing carries this section (a limb whose bone is already broken here: the caller's joint holds it)
             }
 
             // The far piece: the side the blow lands on. It needs material on both sides to be a break.
@@ -174,11 +187,15 @@ public static class VoxelBending
     /// area of its cross-sections about the bending axis, and L its filled length. Null if a material has no stiffness,
     /// or the push runs along the length (no bending).
     /// </summary>
-    public static float? BeamStiffness(VoxelGrid grid, Vector3 direction)
+    /// <param name="grid">The body's cells.</param>
+    /// <param name="direction">The push (grid-local).</param>
+    /// <param name="beamAxis">The axis the body runs along as a beam (null: its longest axis).</param>
+    /// <param name="loadBearingOnly">Whether only the cells with a stiffness carry the bending (a limb's bone; see <see cref="FindBreak"/>).</param>
+    public static float? BeamStiffness(VoxelGrid grid, Vector3 direction, int? beamAxis = null, bool loadBearingOnly = false)
     {
         ArgumentNullException.ThrowIfNull(grid);
         var (nx, ny, nz) = grid.Dimensions;
-        var axis = nx >= ny && nx >= nz ? 0 : ny >= nz ? 1 : 2;
+        var axis = beamAxis ?? (nx >= ny && nx >= nz ? 0 : ny >= nz ? 1 : 2);
         var slices = axis == 0 ? nx : axis == 1 ? ny : nz;
         var lengthAxis = axis == 0 ? Vector3.UnitX : axis == 1 ? Vector3.UnitY : Vector3.UnitZ;
         var across = direction - (lengthAxis * Vector3.Dot(direction, lengthAxis));
@@ -205,6 +222,11 @@ public static class VoxelBending
 
             if (grid.Palette[m].MechanicsOrDefault.Stiffness is not { } stiffness)
             {
+                if (loadBearingOnly)
+                {
+                    continue; // flesh: no part in the bending stiffness
+                }
+
                 return null;
             }
 

@@ -122,7 +122,8 @@ public sealed class WeaponTests
 
         Assert.IsNotNull(palette[BoxerAnatomy.Iron].Mechanics!.Tensile, "iron can snap");
         Assert.IsNotNull(palette[BoxerAnatomy.Wood].Mechanics!.Tensile, "wood can snap");
-        Assert.IsNull(palette[BoxerAnatomy.Bone].Mechanics!.Tensile, "a limb is held by its joints, not checked as a beam");
+        Assert.IsNotNull(palette[BoxerAnatomy.Bone].Mechanics!.Tensile, "bone carries a limb's bending: it snaps where a blow bends it too far");
+        Assert.IsNull(palette[BoxerAnatomy.Muscle].Mechanics!.Tensile, "flesh only adds its mass to the limb as a beam");
         Assert.IsGreaterThan(palette[BoxerAnatomy.Muscle].Mechanics!.Strength, palette[BoxerAnatomy.Skin].Mechanics!.Strength, "skin is tougher than muscle");
         Assert.IsGreaterThan(palette[BoxerAnatomy.Skin].Mechanics!.Strength * 10f, palette[BoxerAnatomy.Bone].Mechanics!.Strength);
         Assert.IsGreaterThan(palette[BoxerAnatomy.Wood].Mechanics!.Strength * 10f, palette[BoxerAnatomy.Iron].Mechanics!.Strength);

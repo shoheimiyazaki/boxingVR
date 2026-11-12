@@ -46,6 +46,7 @@ try
         "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift")),
         "guardspar" => GuardSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
+        "breakdemo" => BreakDemoCommand(Options.Parse(argv[1..], "out", "seconds")),
         "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seconds", "out", "only", "variants", "video", "try")),
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
         "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway")),
@@ -687,6 +688,15 @@ static int SwordLabCommand(Options o)
         File.WriteAllText(path, report);
     }
 
+    return 0;
+}
+
+static int BreakDemoCommand(Options o)
+{
+    var video = Path.GetFullPath(o.Get("out") ?? "videos/breakdemo.mp4");
+    Directory.CreateDirectory(Path.GetDirectoryName(video)!);
+    new SparVideo(1280, 720, 30).MakeBreakDemo(BreakDemo.Scenes(), o.Float("seconds", 6f, min: 2f), video, Console.Out);
+    Console.WriteLine(video);
     return 0;
 }
 

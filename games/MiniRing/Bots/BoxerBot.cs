@@ -185,7 +185,7 @@ public sealed class BoxerBot : IFighterControl
     /// 10: ロープの位置を試合のリング（RingLayout）から読む。剣士（SwordsmanBot）は間合いを読んで打って離れる（HitAndAway）、
     /// 11: 剣士は相手の武器を握りから先までの線として読み、受け流し・足と頭で外す（WeaponDefense）。遠間に、見て覚えた相手の届く距離を入れる（SeenReach））。
     /// </summary>
-    public const int LogicVersion = 12; // 10: 狙いどころ（AimWeights: あご・こめかみ・露出した脳・肝臓・みぞおち・心臓・ガードの腕）を選んで、無理のない範囲で狙う。11: 剣士の守り（claude/voxel-damage）。12: 10 と 11 を合わせた
+    public const int LogicVersion = 13; // 13: 折れた武器を、残った長さで短いまま使う（失った分だけ間合いを詰める）か、柄だけなら捨てて素手で戦う（DisarmedFallback）。10: 狙いどころ（AimWeights: あご・こめかみ・露出した脳・肝臓・みぞおち・心臓・ガードの腕）を選んで、無理のない範囲で狙う。11: 剣士の守り（claude/voxel-damage）。12: 10 と 11 を合わせた
 
     public BotStyle Style { get; }
 

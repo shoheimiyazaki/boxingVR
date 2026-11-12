@@ -69,6 +69,8 @@ public sealed class ClubBot : IFighterControl
         toOpponent.Y = 0f;
         var distance = toOpponent.Length();
         var face = distance > 1e-4f ? toOpponent / distance : Vector3.UnitZ;
+        // 武器が折れて短くなったら、失った長さだけ相手が遠いとみなす（短いまま使う: その分だけ間合いを詰めて振る）。
+        distance += sense.SelfWeapon.Lost;
         var reach = sense.ArmReach;
         var guard = new HandCommand(new Vector3(0.15f * reach, 0.1f * reach, 0.45f * reach), false);
         if (!sense.OpponentAlive)

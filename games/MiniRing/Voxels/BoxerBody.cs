@@ -73,8 +73,26 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
     }
 }
 
-/// <summary>1 発の結果: 削れたボクセルの数と、骨が断たれて切り離された破片（無ければ null）。</summary>
-public readonly record struct ImpactResult(int Carved, VoxelPart Part, VoxelPart? Fragment);
+/// <summary>1 発の結果: 削れたボクセルの数と、骨が断たれた所（無ければ null）。</summary>
+public readonly record struct ImpactResult(int Carved, VoxelPart Part, BoneBreak? Break);
+
+/// <summary>
+/// 腕・脚の骨が断たれた・折れた所。部位はそこで 2 つの剛体に分かれる（体に近い側が元の部位、遠い側が <paramref name="Fragment"/>）。
+/// 骨の切れ目をまたいで、まだ肉（皮膚・筋肉）がつないでいれば、その肉の橋が 2 つをつなぐ（<see cref="Fighter.Break"/>: 駆動の無い弱いバネ）。
+/// 肉まで断たれていれば、遠い側は落ちる。
+/// </summary>
+/// <param name="Part">骨が切れた部位（体に近い側として残る）。</param>
+/// <param name="Fragment">遠い側の破片（その先に何も残っていなければ null: 関節の所で骨の端が削り取られた）。</param>
+/// <param name="Point">切れ目（ワールド。骨の軸の上、切れ目の面）。</param>
+/// <param name="BridgeCells">切れ目をまたいでつないでいる肉のセルの数（0 なら断たれた）。</param>
+/// <param name="TearForce">肉の橋が引っぱりで裂ける力 [N]（セルごとの「強さ × 断面の面積」の和）。</param>
+/// <param name="BendTorque">肉の橋が曲げで持ちこたえられるトルク [N·m]（セルごとの「強さ × 面積 × 骨の軸からの距離」の和）。</param>
+/// <param name="Bent">打撃の曲げで折れた（骨のセルは残っている）か、削られて断たれたか。</param>
+public sealed record BoneBreak(VoxelPart Part, VoxelPart? Fragment, Vector3 Point, int BridgeCells, float TearForce, float BendTorque, bool Bent)
+{
+    /// <summary>肉がまだつないでいる（遠い側がぶら下がる）。</summary>
+    public bool Hangs => Fragment is not null && BridgeCells > 0;
+}
 
 /// <summary>
 /// ファイター 1 人のボクセルの体。部位の箱ごとに中身（<see cref="BoxerAnatomy"/>）を持ち、打撃で削れていく。
@@ -90,6 +108,12 @@ public sealed class BoxerBody
     private readonly List<VoxelPart> _parts = [];
     private readonly List<VoxelPart> _fragments = [];
     private readonly float _deathFraction;
+
+    /// <summary>作ったときの骨の、切れる軸に沿った両端のスライス（腕・脚の部位ごと）。関節はその外側で骨を受けている。</summary>
+    private readonly Dictionary<int, (int Low, int High)> _boneSpan = [];
+
+    /// <summary>遠い側の端がまだ次の部位の関節を受けている部位（上腕・太もも・すね。骨が切れたら、その先は破片の側へ移る）。</summary>
+    private readonly HashSet<int> _holdsFarEnd = [];
 
     /// <param name="fighter">体の持ち主。</param>
     /// <param name="world">物理のワールド。</param>
@@ -122,11 +146,20 @@ public sealed class BoxerBody
                 BodyPartKind.Thigh or BodyPartKind.Shin => ((int?)1, false),
                 _ => ((int?)null, false),
             };
-            var part = new VoxelPart(kind, new VoxelBody(world, id, grid), VoxelVolume.For(grid), axis, distalHigh);
+            // 腕・脚は骨で曲げを受ける梁（肉は質量だけ）: 打撃の曲げが骨の強さを超えた所で折れる（VoxelContact が場所を返す）。
+            var part = new VoxelPart(kind, new VoxelBody(world, id, grid) { BeamAxis = axis }, VoxelVolume.For(grid), axis, distalHigh);
             _parts.Add(part);
             _byBody[id] = part;
             AddOrganSites(part);
             _originals[part] = Original.Of(grid);
+            if (axis is { } along && BoneSpan(grid, along) is { } span)
+            {
+                _boneSpan[id] = span;
+                if (kind is BodyPartKind.UpperArm or BodyPartKind.Thigh or BodyPartKind.Shin)
+                {
+                    _holdsFarEnd.Add(id); // 肘・膝・足首の関節が、この部位の遠い側の骨の端に付いている
+                }
+            }
         }
     }
 
@@ -162,12 +195,17 @@ public sealed class BoxerBody
 
     private readonly Dictionary<VoxelPart, Original> _originals = [];
 
+    /// <summary>部位ごとの、治し切った時の格子の版（<see cref="Regenerate"/> が飛ばす目印）。</summary>
+    private readonly Dictionary<VoxelPart, int> _healedAt = new(ReferenceEqualityComparer.Instance);
+
     /// <summary>
     /// 削れた体を治す（ラウンドの間の再生）: 付いている部位の、削られたセルを元の材質で、内側から外へ最大 <paramref name="budget"/> 個戻す。
     /// 切り離された部位（骨が断たれて先が落ちた所）は生えない。臓器・脳が戻れば、その働き（意識・息・腹）も戻る。戻した数を返す。
     /// </summary>
     public int Regenerate(int budget)
     {
+        // 臓器が潰れて皮膚が押し込まれた所は数が減らない（中身が入れ替わっただけ）ので、「埋まった数が元に届いたら治った」とは言えない。
+        // 治し切った時の格子の版を覚えておき、それから変わっていない部位は飛ばす。
         var restored = 0;
         var severed = new HashSet<int>();
         foreach (var fragment in _fragments)
@@ -181,9 +219,9 @@ public sealed class BoxerBody
         foreach (var part in _parts)
         {
             if (restored >= budget || severed.Contains(part.Body.BodyId) || !_originals.TryGetValue(part, out var original)
-                || part.Body.Grid.FilledCount >= original.HealOrder.Length)
+                || _healedAt.TryGetValue(part, out var healed) && healed == part.Body.Grid.Version)
             {
-                continue; // 治った部位（削れていない）は数えない
+                continue; // 治った部位（治してから変わっていない）は数えない
             }
 
             var grid = part.Body.Grid;
@@ -195,7 +233,10 @@ public sealed class BoxerBody
                     break;
                 }
 
-                if (grid.AtIndex(i) == 0 && grid.Restore(i, original.Materials[i], original.Surface[i]))
+                // 削れた所だけでなく、へこみで押し込まれた所（潰れた肉の場所に入った皮膚）・擦り減った皮膚（赤み）も元に戻す。
+                // 数えるのは、中身が入れ替わったセル（埋め直した・押し込まれた所を戻した）だけ。赤み・擦り減りを消すだけなら予算を使わない。
+                var was = grid.AtIndex(i);
+                if (grid.Reset(i, original.Materials[i], original.Surface[i]) && was != original.Materials[i])
                 {
                     restored++;
                 }
@@ -204,6 +245,11 @@ public sealed class BoxerBody
             if (restored > before)
             {
                 part.Body.UpdateMass();
+            }
+
+            if (restored < budget)
+            {
+                _healedAt[part] = grid.Version; // 全部戻った（予算が尽きずに回り切った）
             }
         }
 
@@ -407,22 +453,123 @@ public sealed class BoxerBody
         }
 
         var carved = part.Body.Impact(point, direction, energy, chipSpeed, jitter, chips, spread, chunks, cutFaces: cutFaces);
-        return new ImpactResult(carved, part, carved > 0 ? SeverIfBroken(bodyId) : null);
+        return new ImpactResult(carved, part, carved > 0 ? BreakIfSevered(bodyId) : null);
     }
 
     /// <summary>
-    /// 部位 <paramref name="bodyId"/> の骨が断たれていれば（武器で切られた後など）、そこから先を破片にして切り離し、その破片を返す
-    /// （関節の付け替えは呼び出し側）。切れない部位・骨がつながっている部位・知らない剛体なら null。
+    /// 部位 <paramref name="bodyId"/> の骨が断たれていれば（削られて骨の無いスライスができた）、そこで部位を 2 つに分け、その切れ目を返す
+    /// （関節の付け替えは呼び出し側: <see cref="Fighter.Break"/>）。骨の端を受けている関節も骨として数える: 肘の側の骨の端が削り取られたら、
+    /// 前腕はもう骨で支えられていない（以前は骨が両側に残る切れ目しか見ず、肘の無い前腕が空中の関節に付いたまま動いていた）。
+    /// 切れない部位・骨がつながっている部位・知らない剛体なら null。
     /// </summary>
-    public VoxelPart? SeverIfBroken(int bodyId)
+    public BoneBreak? BreakIfSevered(int bodyId)
     {
-        if (!_byBody.TryGetValue(bodyId, out var part) || part.SeverAxis is not { } axis || part.Body.Sever(axis, part.DistalHigh) is not { } piece)
+        if (!_byBody.TryGetValue(bodyId, out var part) || part.SeverAxis is not { } axis || !_boneSpan.TryGetValue(bodyId, out var span))
         {
             return null;
         }
 
-        var fragment = new VoxelPart(part.Kind, piece, VoxelVolume.For(piece.Grid), axis, part.DistalHigh, bodyId);
-        _fragments.Add(fragment);
-        return fragment;
+        // 体に近い側の関節は、元の部位にいつも付いている。遠い側の関節は、まだその端を受けていれば。
+        var near = part.DistalHigh ? span.Low - 1 : span.High + 1;
+        int? far = _holdsFarEnd.Contains(bodyId) ? (part.DistalHigh ? span.High + 1 : span.Low - 1) : null;
+        var (low, high) = part.DistalHigh ? ((int?)near, far) : (far, (int?)near);
+        var grid = part.Body.Grid;
+        var slice = grid.FindBoneBreak(axis, fromHigh: !part.DistalHigh, low, high) ?? EmptyJointSlice(grid, _originals[part].Materials, axis, span, part.DistalHigh, far is not null);
+        return slice is { } at ? BreakAt(part, axis, at, bent: false) : null;
+    }
+
+    /// <summary>
+    /// 遠い側の関節（肘・膝・足首）を受けている、骨の端のすぐ先のスライス（骨と関節の間の肉と靭帯）が、まるごと無くなっていればそのスライス
+    /// （無ければ null）。そこでは関節が何も受けていない（肘の肉が斬り取られた上腕の先に、前腕が付いていてはいけない）。
+    /// 骨の端に接したスライスだけを見る: その先の丸い端のスライスは数セルしかなく、かすっただけで空になる（それで腕が外れてはいけない）。
+    /// 体に近い側（肩・股）は見ない: そこで分けると、関節とサーボに付いた元の部位に数セルしか残らない（骨の端が削られれば FindBoneBreak が見る）。
+    /// </summary>
+    private static int? EmptyJointSlice(VoxelGrid grid, byte[] original, int axis, (int Low, int High) span, bool distalHigh, bool holdsFarEnd)
+    {
+        var slices = axis == 0 ? grid.Dimensions.X : axis == 1 ? grid.Dimensions.Y : grid.Dimensions.Z;
+        var filled = new int[slices];
+        var had = new int[slices];
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            var (x, y, z) = grid.Coordinates(i);
+            var s = axis == 0 ? x : axis == 1 ? y : z;
+            filled[s] += grid.MaterialAt(i) != 0 ? 1 : 0;
+            had[s] += original[i] != 0 ? 1 : 0;
+        }
+
+        var next = distalHigh ? span.High + 1 : span.Low - 1;
+        return holdsFarEnd && next >= 0 && next < slices && filled[next] == 0 && had[next] > 0 ? next : null;
+    }
+
+    /// <summary>
+    /// 打撃の曲げで部位 <paramref name="bodyId"/> の骨が折れた（<see cref="VoxelContactResult.BentFor"/>）: そのスライスで部位を 2 つに分け、
+    /// 切れ目を返す。肉は断たれていないので、ふつうは肉の橋がつないだまま（遠い側はぶら下がる）。知らない部位なら null。
+    /// </summary>
+    public BoneBreak? BreakBent(int bodyId, VoxelBreak bend)
+    {
+        if (!_byBody.TryGetValue(bodyId, out var part) || part.SeverAxis is not { } axis || axis != bend.Axis)
+        {
+            return null;
+        }
+
+        return BreakAt(part, axis, bend.Slice, bent: true);
+    }
+
+    private BoneBreak BreakAt(VoxelPart part, int axis, int slice, bool bent)
+    {
+        var body = part.Body;
+        var grid = body.Grid;
+        // 切る前に、切れ目をまたいでつないでいる肉を数える（切った後は 2 つの格子に分かれて見えない）。
+        var bridge = grid.Bridge(axis, slice);
+        var cell = grid.CellSize;
+        var along = axis == 0 ? cell.X : axis == 1 ? cell.Y : cell.Z;
+        var area = grid.CellVolume / along;
+        float tear = 0f, bend = 0f;
+        foreach (var i in bridge)
+        {
+            var strength = grid.Palette[grid.MaterialAt(i)].MechanicsOrDefault.Strength;
+            var (x, y, z) = grid.Coordinates(i);
+            var at = grid.CellCenter(x, y, z);
+            var across = axis == 0 ? new Vector2(at.Y, at.Z) : axis == 1 ? new Vector2(at.X, at.Z) : new Vector2(at.X, at.Y);
+            tear += strength * area;
+            bend += strength * area * across.Length();
+        }
+
+        // 切れ目: 骨の軸（格子の中心線）の上の、切れ目のスライスの遠い側の面。
+        var half = axis == 0 ? grid.HalfExtents.X : axis == 1 ? grid.HalfExtents.Y : grid.HalfExtents.Z;
+        var face = -half + ((slice + (part.DistalHigh ? 1 : 0)) * along);
+        var local = axis == 0 ? new Vector3(face, 0f, 0f) : axis == 1 ? new Vector3(0f, face, 0f) : new Vector3(0f, 0f, face);
+        var point = Vector3.Transform(local, body.GridToWorld());
+        var piece = body.SplitAt(axis, slice, part.DistalHigh);
+        VoxelPart? fragment = null;
+        if (piece is not null)
+        {
+            piece.BeamAxis = axis; // 破片も骨で曲げを受ける梁（武器のように Snap で飛ばない。破片はそれ以上は分けない）
+            fragment = new VoxelPart(part.Kind, piece, VoxelVolume.For(piece.Grid), axis, part.DistalHigh, body.BodyId);
+            _fragments.Add(fragment);
+        }
+
+        _holdsFarEnd.Remove(body.BodyId); // 遠い側の関節は破片の側へ移る（何も残っていなければ外れる）
+        var hangs = fragment is not null;
+        return new BoneBreak(part, fragment, point, hangs ? bridge.Count : 0, hangs ? tear : 0f, hangs ? bend : 0f, bent);
+    }
+
+    /// <summary>格子 <paramref name="grid"/> の骨の、軸 <paramref name="axis"/> に沿った両端のスライス（骨が無ければ null）。</summary>
+    private static (int Low, int High)? BoneSpan(VoxelGrid grid, int axis)
+    {
+        int low = int.MaxValue, high = -1;
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            var m = grid.AtIndex(i);
+            if (m != 0 && grid.Palette[m].Tissue == VoxelTissue.Bone)
+            {
+                var (x, y, z) = grid.Coordinates(i);
+                var s = axis == 0 ? x : axis == 1 ? y : z;
+                low = Math.Min(low, s);
+                high = Math.Max(high, s);
+            }
+        }
+
+        return high < 0 ? null : (low, high);
     }
 }

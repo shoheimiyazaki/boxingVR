@@ -225,6 +225,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _recentSwings.Clear();
         _recentGrazes.Clear();
         _recentSevers.Clear();
+        BrokenBones.Clear();
+        _recentContacts.Clear();
+        _recentContactBodies.Clear();
+        QuietContacts(dt);
         if (input.ResetRequested)
         {
             StartRound();
@@ -284,9 +288,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// </summary>
     private void DetectGrazes()
     {
-        if (Resting || RoundOver)
+        if (Resting || RoundOver || Holding)
         {
-            return; // 休み・決着の後は数えない
+            return; // 休み・決着の後・ダウンの後の一呼吸は数えない
         }
 
         foreach (var fighter in Fighters)
@@ -331,6 +335,18 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             // ラウンドの間（と試合の後）: 自分のコーナーへ歩いて戻り、ガードを下げて休む。入力元（ボット・プレイヤー）は読まない。
             Drive(Player, Cpu, RestCommand(Player, Cpu), dt);
             Drive(Cpu, Player, RestCommand(Cpu, Player), dt);
+            _resumeHold = 0f; // 休みに入ったら一呼吸は持ち越さない（次のラウンドはゴングで始まる）
+        }
+        else if (Holding)
+        {
+            // ダウンから立ち直った直後の一呼吸（審判が構えを確かめてから試合を戻す）: 両者その場で構えて向き合う。打撃は数えない。
+            Drive(Player, Cpu, HoldCommand(Player, Cpu), dt);
+            Drive(Cpu, Player, HoldCommand(Cpu, Player), dt);
+            _resumeHold = MathF.Max(0f, _resumeHold - dt);
+            if (!Holding)
+            {
+                ShowMessage("BOX!", 0.8f);
+            }
         }
         else
         {
@@ -354,19 +370,127 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         DetectHits();
         ResolveWeapons();
         DetectGrazes();
+        WatchRecoveries();
     }
+
+    /// <summary>
+    /// ダウンから立ち直って構えた後、試合を戻すまでの一呼吸 [s]（審判の判断の値: 2026-11-13、ユーザーの指定「ワンテンポ入れてから再開」）。
+    /// 人形の 0.75 倍速の動画で 1.6 秒ほど: 立ち直った体が構えを取り直し、見ている人が「戻った」と分かる間。
+    /// </summary>
+    public const float ResumePause = 1.2f;
+
+    /// <summary>ダウンから立ち直った後の一呼吸の残り [s]（<see cref="ResumePause"/>）。</summary>
+    private float _resumeHold;
+
+    /// <summary>前の物理の歩で、ダウン（審判が数えていた）だった両者。</summary>
+    private readonly HashSet<Fighter> _wasCounted = [];
+
+    /// <summary>試合を一呼吸止めているか（ダウンから立ち直った直後）。打撃は数えず、両者その場で構える。</summary>
+    public bool Holding => _resumeHold > 0f && !Resting && !RoundOver;
+
+    /// <summary>ダウンの数えから立ち直った（立って構えた）ファイターがいたら、試合を <see cref="ResumePause"/> だけ止める。</summary>
+    private void WatchRecoveries()
+    {
+        foreach (var fighter in Fighters)
+        {
+            if (_wasCounted.Contains(fighter) && fighter.State == FighterState.Standing && !Resting)
+            {
+                _resumeHold = ResumePause;
+            }
+
+            if (fighter.IsKnockedDown)
+            {
+                _wasCounted.Add(fighter);
+            }
+            else
+            {
+                _wasCounted.Remove(fighter);
+            }
+        }
+    }
+
+    /// <summary>一呼吸の間の構え: その場に立って（歩かない）相手を向き、いつものガードの位置に両手を置く。</summary>
+    private static FighterCommand HoldCommand(Fighter self, Fighter opponent) =>
+        new(Vector3.Zero, opponent.ChestPosition - self.ChestPosition,
+            new HandCommand(AiControl.Guard(Hand.Left, self.ArmReach), false),
+            new HandCommand(AiControl.Guard(Hand.Right, self.ArmReach), false));
 
     private void Drive(Fighter self, Fighter opponent, in FighterCommand command, float dt)
     {
         foreach (var hand in Hands)
         {
+            if (command.For(hand).LetGo)
+            {
+                LetGo(self, hand);
+            }
+
             if (self.UpdateGrab(hand, command.For(hand).Grip, opponent) is not null)
             {
                 ShowMessage(self == Player ? "THROW!" : "THROWN!", 1f);
             }
         }
 
+        BareFreeHands(self);
         self.ApplyControl(command, dt);
+    }
+
+    /// <summary>
+    /// 手 <paramref name="hand"/> が握っている武器を放す（<see cref="HandCommand.LetGo"/>）。利き手なら、添えていた手も放す。添えていた手なら、
+    /// 利き手は片手で持つ。はめた物（グローブ）は外さない。
+    /// </summary>
+    private static void LetGo(Fighter self, Hand hand)
+    {
+        if (self.WearsGlove(hand) || !self.Wields(hand))
+        {
+            return;
+        }
+
+        if (self.WieldedBody(hand) is not null)
+        {
+            self.Unwield(hand);
+        }
+        else
+        {
+            self.LetGoSupport(hand);
+        }
+    }
+
+    /// <summary>
+    /// 何も握っていない・はめていない手（武器を放した・握っていた武器を失った）に、ボクセルの素手の拳をはめる: 拳の打撃はいつも、はめた物と
+    /// 相手の体のボクセル同士の接触（圧力のモデル）で起きる（古い、運動エネルギーで掘る拳に戻さない）。拳の試合では両手ともグローブなので何もしない。
+    /// </summary>
+    private void BareFreeHands(Fighter self)
+    {
+        if (!_corners.VoxelGloves)
+        {
+            return;
+        }
+
+        foreach (var hand in Hands)
+        {
+            if (!self.ArmSevered(hand) && !self.Wields(hand) && !self.WearsGlove(hand) && ClearOfDroppedWeapon(self, hand))
+            {
+                Wear(self, MiniRing.Weapons.HandWear.None);
+                return; // Wear は空いている手すべてにはめる
+            }
+        }
+    }
+
+    /// <summary>
+    /// 手 <paramref name="hand"/> が、放した武器から離れたか（その武器の格子を囲む球の外 + 1 cm）。放した瞬間の拳の所には武器があるので、
+    /// そこに素手の拳を作ると重なったまま始まる（押し出しの跳ねと、重なった所からの接触）。
+    /// </summary>
+    private bool ClearOfDroppedWeapon(Fighter self, Hand hand)
+    {
+        if (WeaponOf(self) is not { } weapon)
+        {
+            return true;
+        }
+
+        var s = _world.GetState(weapon.Body.BodyId);
+        var center = s.Position + Vector3.Transform(weapon.Body.GridCenterLocal, s.Orientation);
+        var radius = weapon.Body.Grid.HalfExtents.Length();
+        return Vector3.Distance(center, self.GloveCenter(hand)) > radius + 0.01f;
     }
 
     /// <summary>物理の接触一覧から「拳（前腕の先）× 相手の部位」を拾う。</summary>
@@ -477,7 +601,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <param name="alsoTwist">物理の接触が頭を回した分（グローブのボクセルの接触の力積）。</param>
     internal void ApplyHit(HitEvent hit, int victimBody, Vector3 gloveVelocity, bool carve = true, Vector3 alsoTwist = default)
     {
-        if (RoundOver || Resting)
+        if (RoundOver || Resting || Holding)
         {
             return;
         }
@@ -553,12 +677,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
         SpawnDebris(_chips, point, direction, strength, attacker, recoil);
         SpawnChunks(_chunks, recoil);
-        if (result?.Fragment is { } fragment)
+        if (result?.Break is { } broken)
         {
-            victim.Sever(victimBody, fragment.Body);
-            _recentSevers.Add(new SeverEvent(point, strength));
-            UntouchedByWeaponBoxes(fragment.Body.BodyId);
-            ShowMessage(fragment.Kind is BodyPartKind.UpperArm or BodyPartKind.Forearm ? "ARM OFF!" : "LEG OFF!", 1.2f);
+            BreakBone(victim, broken, strength);
         }
 
         var fatal = false;
@@ -968,6 +1089,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _weapons.Clear(); // 武器は世界ごと消える
         _recentCuts.Clear();
         _beforeStep.Clear();
+        _resumeHold = 0f;
+        _wasCounted.Clear();
         _round++;
         _world = new PhysicsWorld();
         LivingRoom.AddColliders(_world, Layout);
@@ -992,6 +1115,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         CpuSkin = new BoxerSkin(_model, Cpu, _tuning);
         _fighters = [Player, Cpu];
         _wielders.Clear();
+        _reach.Clear();
+        _fullReach.Clear();
         _wieldHand.Clear();
         _weaponCooldown.Clear();
         _selfCooldown.Clear();
@@ -1060,6 +1185,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     public FighterSense PlayerSense => ArmedSense(Player, Cpu);
 
+    /// <summary>CPU の入力元が今見ている物（調べもの・テスト用）。</summary>
+    public FighterSense CpuSense => ArmedSense(Cpu, Player);
+
     private Fighter[] Fighters => _fighters;
 
     /// <summary>
@@ -1117,7 +1245,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
                 ? TvHud.Shapes(this, screenSizePixels)
                 : [.. TvHud.StaminaBar(new Vector2(24f, 102f), StaminaBarWidth, 8f, Player),
                    .. TvHud.StaminaBar(new Vector2(screenSizePixels.X - 24f - StaminaBarWidth, 102f), StaminaBarWidth, 8f, Cpu)],
-            .. DownCountHud.Shapes(this, screenSizePixels),
+            .. DownCountHud.Shapes(this, viewProjection, screenSizePixels),
             .. FaceCam?.Frames(this, screenSizePixels) ?? [],
         ];
 
@@ -1147,7 +1275,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             list.Add(new ScreenTextDraw(text, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y - 44f), 22f, white, TextAnchor.Center));
         }
 
-        list.AddRange(DownCountHud.Text(this, screenSizePixels, f => f == Player ? "YOU" : "CPU",
+        list.AddRange(DownCountHud.Text(this, viewProjection, screenSizePixels, f => f == Player ? "YOU" : "CPU",
             f => f == Player ? new Vector4(1f, 0.45f, 0.4f, 1f) : new Vector4(0.5f, 0.65f, 1f, 1f)));
 
         if (Speed is { } speed)
@@ -1256,6 +1384,15 @@ public readonly record struct GrazeEvent(Vector3 Position, float Speed);
 
 /// <summary>骨が断たれて部位が切り離された瞬間。<paramref name="Strength"/> は打撃の強さ（0..1）。</summary>
 public readonly record struct SeverEvent(Vector3 Position, float Strength);
+
+/// <summary>骨が折れて、肉だけでつながった（<paramref name="Bent"/> なら打撃の曲げで、でなければ削られて断たれた）。</summary>
+public readonly record struct BoneBreakEvent(Fighter Victim, BodyPartKind Part, Vector3 Position, bool Bent);
+
+/// <summary>
+/// ボクセルの物どうしが、何も壊さずにぶつかった瞬間（2026-11-12）。<paramref name="Pair"/> はぶつかった面の材質の組
+/// （金属どうし・グローブと皮膚など）、<paramref name="Strength"/> は近づく速さから決めた強さ（0..1）。
+/// </summary>
+public readonly record struct ContactSoundEvent(Vector3 Position, Audio.ContactPair Pair, float Strength);
 
 /// <summary>
 /// テレビ中継の試合の決まり（2026-11-12）: 1 ラウンド <paramref name="RoundSeconds"/> 秒 × <paramref name="Rounds"/> ラウンド、ラウンドの間

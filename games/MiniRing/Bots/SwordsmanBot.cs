@@ -255,8 +255,14 @@ public sealed class SwordsmanBot : IFighterControl
         return best;
     }
 
-    /// <summary>技 <paramref name="technique"/> を出す間合い: 技の間合いに、狙う所が相手の胸より手前にある分を足す。</summary>
-    private float RangeOf(MotionTechnique technique) => technique.Range + _aimForward;
+    /// <summary>
+    /// 技 <paramref name="technique"/> を出す間合い: 技の間合いに、狙う所が相手の胸より手前にある分を足し、武器が折れて失った長さ
+    /// （<see cref="WeaponSense.Lost"/>）だけ近づく（短くなった武器のまま使う）。
+    /// </summary>
+    private float RangeOf(MotionTechnique technique) => technique.Range + _aimForward - _lost;
+
+    /// <summary>自分の武器が折れて失った長さ [m]（毎歩 <see cref="FighterSense.SelfWeapon"/> から）。</summary>
+    private float _lost;
 
     private bool Fits(MotionTechnique technique, float distance) => MathF.Abs(distance - RangeOf(technique)) <= MotionTechnique.Window;
 
@@ -314,6 +320,7 @@ public sealed class SwordsmanBot : IFighterControl
     public FighterCommand Read(in FighterSense sense, float dt)
     {
         _time += dt;
+        _lost = sense.SelfWeapon.Lost;
         var toOpponent = sense.OpponentChest - sense.Self.Origin;
         toOpponent.Y = 0f;
         var distance = toOpponent.Length();
@@ -414,7 +421,7 @@ public sealed class SwordsmanBot : IFighterControl
             }
         }
 
-        var want = resting ? StandOff : RangeOf(_plan!);
+        var want = resting ? StandOff - _lost : RangeOf(_plan!);
         var move = distance > want + 0.02f ? face : distance < want - 0.02f ? -face : Vector3.Zero;
         return MotionImitation.ToCommand(_guard, sense, face, 0f, _walkSpeed, _maxTwist, move);
     }
@@ -619,7 +626,9 @@ public sealed class SwordsmanBot : IFighterControl
             var newBlow = fresh || Vector3.Distance(threat.Line.Hilt, _threatHilt) > 0.5f * sense.ArmReach || Vector3.Dot(direction, _threatDirection) < 0.5f;
             if (newBlow)
             {
-                _block = parry ? WeaponDefense.Parry(sense, threat, _defense, _bladeLength, _spacing, _guard.Blade) : null;
+                // 折れて短くなった刀は、残った長さで受ける。
+                var blade = MathF.Max(0.1f, _bladeLength - (_lost / MathF.Max(1e-3f, sense.ArmReach)));
+                _block = parry ? WeaponDefense.Parry(sense, threat, _defense, blade, _spacing, _guard.Blade) : null;
                 _counter = parry && _defense.Counter && !Passive;
                 Blocks += parry ? 1 : 0;
                 _threatDirection = direction;

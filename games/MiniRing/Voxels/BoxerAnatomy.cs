@@ -66,9 +66,31 @@ public static class BoxerAnatomy
     // 人の値のままにすると、壊すのに要る仕事は大きさの 3 乗でしか小さくならず、人形の剣は人の剣より何倍も斬れない（頭蓋で 1 層止まる）。
     // 力学的に似た（相似の）壊れ方にするには、応力の次元を持つ値を大きさに比例して小さくする（応力 ∝ ρv² ∝ 大きさ）。強さ・引張・
     // ヤング率に <see cref="Similitude"/> を掛ける（鉄と木も同じ割合なので、材質の強さの比 = 壊れ方の非対称は変わらない）。
-    private static readonly VoxelMechanics SkinMechanics = Doll(new(1100f, 1.2e6f, 0.005f));
+    // 皮膚の擦り減り（Wear）: 破れない打撃でも、1 発ごとに丈夫さの一部が減る（皮膚の強さいっぱいの押しで 1 発 12%、半分の押しで 3%）。
+    // 同じ所を打たれ続けると赤くなっていき（血がにじむ）、やがて裂ける（顔のカット）。グローブの試合で測って決めた（docs/VOXEL_WEAPONS.md）。
+    private static readonly VoxelMechanics SkinMechanics = Doll(new(1100f, 1.2e6f, 0.005f, Wear: SkinWear));
+
+    /// <summary>皮膚の強さいっぱいで押す 1 発が擦り減らす、丈夫さの割合（<see cref="VoxelMechanics.Wear"/>）。</summary>
+    private const float SkinWear = 0.12f;
     private static readonly VoxelMechanics MuscleMechanics = Doll(new(1060f, 0.3e6f, 0.005f));
-    private static readonly VoxelMechanics BoneMechanics = Doll(new(1900f, 25e6f, 0.0005f));
+    // 骨は腕・脚の梁として曲げを受ける（肉は質量だけ。VoxelBody.BeamAxis）: 打撃の曲げが骨の強さを超えた所で折れる（VoxelBending。武器が折れる
+    // のと同じモデル）。値は皮質骨（曲げて折れる強さ 150 MPa・ヤング率 17 GPa）を、ボクセルの骨の太さに合わせた実効値にする（BoneSectionShare）。
+    private static readonly VoxelMechanics BoneMechanics = Doll(new(1900f, 25e6f, 0.0005f,
+        Tensile: 150e6f * BoneSectionModulusShare, Stiffness: 17e9f * BoneSectionInertiaShare));
+
+    /// <summary>
+    /// ボクセルの骨の、曲げの実効値の割合（複合材のセルの値を中身の割合から決めるのと同じ）。5 mm のセルでは前腕の骨は 2 × 2 セル（1 cm 角）より
+    /// 細くできないが、人形の縮尺の本物の前腕の骨は橈骨・尺骨とも直径 4 mm ほど（人で 1.3 cm・1.2 cm × 相似則 0.32）。曲げで折れる力は断面係数
+    /// Z に、たわみは断面二次モーメント I に比例するので、セルの骨の Z・I に対する本物の 2 本の骨の比を掛ける:
+    /// Z = π(d₁³ + d₂³)/32 = 1.27e-8 m³ に対して 1 cm 角は 1.67e-7 m³（0.076）、I = π(d₁⁴ + d₂⁴)/64 = 2.55e-11 m⁴ に対して 8.33e-10 m⁴（0.031）。
+    /// 潰れる強さ（Strength: 剣が骨で止まるか）は変えない。上腕・脚の骨は前腕よりさらに太めに作ってあるので、この割合では本物より少し折れにくい。
+    /// 測った（BoneBreakProbe）: 前腕の真ん中を折る力は 869 N → 66 N。グローブが 2 m/s では 27 N しか渡さず折れず、腕と体の乗った 4 m/s の 1 発（110 N）で折れる。
+    /// （static の初期化はこの宣言より前の BoneMechanics で使うので、const にしてある。）
+    /// </summary>
+    private const float BoneSectionModulusShare = 0.076f;
+
+    /// <summary>ボクセルの骨の、曲げのたわみ（断面二次モーメント）の実効値の割合（<see cref="BoneSectionModulusShare"/> を見よ）。</summary>
+    private const float BoneSectionInertiaShare = 0.031f;
     private static readonly VoxelMechanics OrganMechanics = Doll(new(1050f, 0.2e6f, 0.005f));
     private static readonly VoxelMechanics BrainMechanics = Doll(new(1040f, 0.12e6f, 0.005f));
     private static readonly VoxelMechanics ClothMechanics = Doll(new(1100f, 1.2e6f, 0.005f));

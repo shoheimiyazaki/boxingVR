@@ -121,6 +121,24 @@ public sealed record FighterTuning
 
     /// <summary>両手持ちで、添える手が握りをつかめる、拳と握る所の距離 [m]（これより近づいたら玉継手でつなぐ）。</summary>
     public float SupportGripReach { get; init; } = 0.02f;
+
+    /// <summary>
+    /// 腕が使えなくなった（切り落とされた・骨が折れた）手の握りが抜けていく時定数 [s]。握りが持ちこたえる力は掴みの強さ
+    /// （<see cref="GrabBreakForce"/>）から exp(−t / これ) で落ちていき、武器の重さ・振られる力を支えられなくなった所で武器が抜ける
+    /// （止まっていれば、手と武器の軽い方の重さを支えられなくなる約 3 秒後）。筋肉に力を送る神経・血が絶たれた手の指がほどける速さの近似。
+    /// </summary>
+    public float DeadGripRelaxSeconds { get; init; } = 0.5f;
+
+    /// <summary>
+    /// 折れた骨の両側をつなぐ肉の、位置のバネの固さ [Hz]（玉継手のやわらかさ）。肉は伸びるので、関節（ArmServoHz 級）よりずっとやわらかい。
+    /// </summary>
+    public float FractureLinkHz { get; init; } = 6f;
+
+    /// <summary>
+    /// 折れた骨の両側をつなぐ肉の、向きのバネの固さ [Hz]（駆動の無い弱いバネ: 目標は折れた瞬間のまっすぐな向きのまま）。
+    /// 出せるトルクの上限は、残った肉の断面が曲げで持ちこたえる強さ（<see cref="Voxels.BoneBreak.BendTorque"/>）。
+    /// </summary>
+    public float FractureSpringHz { get; init; } = 1.5f;
     public float HandReactionShare { get; init; } = 0.5f;
     public float MaxTargetSpeed { get; init; } = 6f; // 目標の速度の上限 [m/s]（動きを 2 倍にしたので、速い腕の振りも追えるように）
     public float TargetVelocitySmoothing { get; init; } = 25f;
@@ -170,7 +188,7 @@ public sealed record FighterTuning
     /// </summary>
     public float RiseTime { get; init; } = 2.5f;
 
-    /// <summary>骨盤が立つ高さのこの割合より低いまま <see cref="CollapseTime"/> 過ぎたらダウン（膝を突いた・座り込んだ）。</summary>
+    /// <summary>倒れている間、骨盤が立つ高さのこの割合より低ければ床にいる（Down）、高ければ起き上がる途中（GettingUp）。審判のダウンの判定には使わない（<see cref="DownFaintTime"/>）。</summary>
     public float DownHeightRatio { get; init; } = 0.55f;
 
     /// <summary>骨盤が立つ高さのこの割合まで戻り、上体が <see cref="RecoverUprightness"/> まで起きたら、立ち直った。</summary>
@@ -351,9 +369,17 @@ public sealed record FighterTuning
     /// <summary>胴の臓器の打撲が 1 増えるごとに、その場で失うスタミナ（息が詰まる）。</summary>
     public float WindPerBruise { get; init; } = 0.1f;
 
-    /// <summary>骨盤が支えようとしている高さより、立つ高さのこの割合だけ低いまま <see cref="CollapseTime"/> 過ぎたら、崩れ落ちた（ダウン）。</summary>
-    public float CollapseDrop { get; init; } = 0.25f;
-    public float CollapseTime { get; init; } = 0.25f;
+    /// <summary>
+    /// 中腰でまだ立っている体の意識が <see cref="KnockoutConsciousness"/> を下回ったまま、これだけ続いたらダウン（審判の判断の値:
+    /// 2026-11-13、ユーザーの指定で 4 秒）。それまでは相手が攻め続けてよい。足の裏以外がマットに着いた・倒れたら、待たずにすぐダウン。
+    /// </summary>
+    public float DownFaintTime { get; init; } = 4f;
+
+    /// <summary>
+    /// マットに「着いた」とみなす、体の部位の下端とマットの間 [m]（人形の縮尺で 1.2 cm: 体のボクセル 2 つ半ほど）。
+    /// 腰・上体・腕・拳がこれより低ければダウン（尻もち・倒れ込み・手を突いた）。
+    /// </summary>
+    public float CanvasTouch { get; init; } = 0.012f;
 
     /// <summary>
     /// 脳がこの割合だけ削られるごとに、脳の働き（意識の上限）が半分になる（<see cref="Voxels.BoxerBody.BrainFunction"/>）。

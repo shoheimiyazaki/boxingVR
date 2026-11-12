@@ -23,6 +23,7 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     private readonly Func<RoundBell>? _bells;
     private readonly Func<IReadOnlyList<GrazeEvent>>? _grazes;
     private readonly Func<IReadOnlyList<SeverEvent>>? _severs;
+    private readonly Func<IReadOnlyList<ContactSoundEvent>>? _contacts;
     private readonly Action<HitSoundPlayer, float>? _afterStep;
 
     /// <param name="inner">包む試合。</param>
@@ -35,12 +36,14 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     /// <param name="grazes">直前の <see cref="Step"/> で拳が体をかすめた瞬間。</param>
     /// <param name="severs">直前の <see cref="Step"/> で部位が切り離された瞬間。</param>
     /// <param name="afterStep">1 ステップごとに、鳴らす先と時間 [s] を渡して呼ぶ（会場の歓声など、包んだ側が足す音）。</param>
+    /// <param name="contacts">直前の <see cref="Step"/> で物どうしが何も壊さずにぶつかった瞬間（当たった音）。</param>
     public HitSoundGame(IGame<BoxingInput> inner, Func<IReadOnlyList<HitEvent>> hits, HitSoundPlayer sounds,
         Func<IReadOnlyList<ShatterEvent>>? shatters = null, Func<IReadOnlyList<DebrisLanding>>? landings = null, Func<IReadOnlyList<SwingEvent>>? swings = null,
         Func<RoundBell>? bells = null, Func<IReadOnlyList<GrazeEvent>>? grazes = null, Func<IReadOnlyList<SeverEvent>>? severs = null,
-        Action<HitSoundPlayer, float>? afterStep = null)
+        Action<HitSoundPlayer, float>? afterStep = null, Func<IReadOnlyList<ContactSoundEvent>>? contacts = null)
     {
         _afterStep = afterStep;
+        _contacts = contacts;
         _grazes = grazes;
         _severs = severs;
         _bells = bells;
@@ -91,6 +94,11 @@ public sealed class HitSoundGame : IGame<BoxingInput>
         if (_severs is not null)
         {
             _sounds.PlaySevers(_severs());
+        }
+
+        if (_contacts is not null)
+        {
+            _sounds.PlayContacts(_contacts());
         }
 
         _afterStep?.Invoke(_sounds, dt); // 会場の歓声など、包んだ側が足す音

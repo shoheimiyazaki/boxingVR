@@ -96,8 +96,6 @@ public sealed class Fighter
     private float _crouch;
     private float _stateTime;
     private float _tiltTime;
-    private float _collapsedTime;
-    private float _lowTime;
     private float _noGroundTime;
     private int _grabbedByCount;
     private bool _stayDown;
@@ -162,7 +160,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 13; // 13: claude/voxel-damage（武器同士は広いリング RingLayout・斬れずにめり込んだボクセルの押し戻し）をマージ。12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
+    public const int PhysicsVersion = 16; // 16: 骨が折れる（打撃の曲げ。骨だけが曲げを受ける梁、肉の橋の弱いバネでぶら下がる）・関節の端の骨や肉が削り取られたら外れる・使えなくなった手の握りが抜けていく・武器を放す（LetGo）と素手の拳。15: ダウンは腰・上体・手がマットに着いた・倒れたらすぐ、中腰なら意識が薄いまま 4 秒続いたら（腰の高さでは取らない）。14: 面の下へ伝わる圧力（グローブの拳が皮膚の下の肉を潰してへこませる。拳の後ろの腕と体の質量 massBehind）。13: claude/voxel-damage（武器同士は広いリング RingLayout・斬れずにめり込んだボクセルの押し戻し）をマージ。12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -233,8 +231,23 @@ public sealed class Fighter
     /// <summary>グローブ（拳）の半径（見た目と拳の判定に使う）。</summary>
     public float GloveRadius => _tuning.GloveRadius;
 
-    /// <summary>倒れてからの経過時間 [s]（10 カウント用）。起き上がり中も数え続け、立ち直ったら 0。</summary>
+    /// <summary>
+    /// 審判が数えている時間 [s]（10 カウント用）: ダウンを取られて（<see cref="IsKnockedDown"/>）からの時間。起き上がり中も数え続け、
+    /// 立ち直ったら 0。中腰で意識が薄いまま待っている間（<see cref="FighterTuning.DownFaintTime"/>）は数えない。
+    /// </summary>
     public float DownTime { get; private set; }
+
+    /// <summary>
+    /// 審判がダウンを取ったか（2026-11-13、ユーザーの指定）: 腰・上体・手がマットに着いた・倒れた（投げられたのも）・脚で立てなくなったら
+    /// すぐ。中腰でまだ立っているなら、意識が <see cref="FighterTuning.KnockoutConsciousness"/> を下回ったまま
+    /// <see cref="FighterTuning.DownFaintTime"/> 待ってから（その間は相手が攻め続けてよい）。立ち直れば外れる。
+    /// </summary>
+    public bool IsKnockedDown => State != FighterState.Standing && _counted;
+
+    /// <summary>意識が <see cref="FighterTuning.KnockoutConsciousness"/> を下回ったまま続いている時間 [s]。</summary>
+    public float FaintTime { get; private set; }
+
+    private bool _counted;
 
     /// <summary>相手から見た、この体の狙いどころ（<see cref="TargetMap"/>。戦略の AI の知覚）。</summary>
     public TargetMap AsTarget => _asTarget ??= new TargetMap(this);
@@ -327,6 +340,9 @@ public sealed class Fighter
     public bool Owns(int bodyId) => Array.IndexOf(_all, bodyId) >= 0 && !_detached.Contains(bodyId);
 
     public int ForearmId(Hand hand) => _arms[(int)hand].Forearm;
+
+    /// <summary>その手の側の上腕の剛体（Aigis の Left/Right は本人の左右と逆なので、手から引く）。</summary>
+    public int UpperArmId(Hand hand) => _arms[(int)hand].UpperArm;
 
     public Vector3 GloveCenter(Hand hand) => _arms[(int)hand].GlovePosition(_world);
 
@@ -430,6 +446,9 @@ public sealed class Fighter
 
     /// <summary>その手が握っている武器の剛体（握っていなければ null）。</summary>
     public int? WieldedBody(Hand hand) => _arms[(int)hand].Held?.Body;
+
+    /// <summary>その手が武器を握っている所（武器のローカル。握っていなければ null）。</summary>
+    public Vector3? WieldedGrip(Hand hand) => _arms[(int)hand].Held?.GripLocal;
 
     /// <summary>
     /// 手 <paramref name="hand"/> に武器（剛体 <paramref name="body"/>、握る所はその剛体のローカル <paramref name="gripLocal"/>）を握らせる。
@@ -606,12 +625,15 @@ public sealed class Fighter
         // 脳しんとうは時間とともに一定の速さで抜ける: 深く飛んだ意識ほど戻るのに長くかかる（指数で抜くと、深いほど速く戻っていた）。
         Concussion = MathF.Max(0f, Concussion - (dt * _tuning.ConcussionRecoveryRate));
         _stateTime += dt;
-        DownTime = State == FighterState.Standing ? 0f : DownTime + dt;
+        FaintTime = Consciousness < _tuning.KnockoutConsciousness ? FaintTime + dt : 0f;
+        DownTime = IsKnockedDown ? DownTime + dt : 0f;
         // 意識が無い（死んだ・完全に気を失った）うえで体が止まっている間だけ数える（ユーザーの指示どおり両方）。意識があれば、脚を失って
         // 腕しか動かせず止まって見えても数えない（もがく力が弱いだけ）。
         StillTime = State != FighterState.Standing && Awareness <= 0f && MaxPartSpeed() < _tuning.StillSpeed ? StillTime + dt : 0f;
         UpdateStir(dt);
         UpdateStamina(dt);
+        RelaxDeadGrips(dt);
+        WatchFleshLinks();
         if (!IsDead)
         {
             // 見た目だけ（吐く息・メーターの点滅の拍子）。小数部だけが意味を持つので、float の精度が落ちる前に整数ぶん戻す。
@@ -1030,19 +1052,21 @@ public sealed class Fighter
         // （肉を削られた・切り落とされた）。支えられない脚では起き上がれない。
         if (!CanStand)
         {
-            _stayDown = true;
+            _stayDown = true; // 立てない体は 10 カウントで負け
             Enter(FighterState.Down);
             return;
         }
 
-        // 力が抜けて、支えようとしている高さより腰が大きく落ちた（崩れ落ちた）のもダウン。傾かずに真下へ崩れても倒れたことになる。
-        // しゃがんだ（自分で腰を落とした）だけなら、支えようとしている高さも下がっているので当たらない。
-        // 力が抜けている間だけ数える（しゃがみから立ち上がる途中で、目標の高さに追いつく前を崩れ落ちと取り違えない）。
-        _collapsedTime = grounded && Tone < 1f && _hoverHeight > 0f && height < _hoverHeight - (_tuning.CollapseDrop * _standHeight) ? _collapsedTime + dt : 0f;
-        // 意識が薄れて腰を上げられる高さが下がり、膝を突く・座り込むほど腰が落ちたのもダウン（張りが抜けた分だけ連続に落ちる）。
-        // 自分で沈んだ分（ダッキング・ウィービングの _crouch）は数えない: ふらついた体の深いダッキングをダウンと取り違えない。
-        _lowTime = grounded && height < (_tuning.DownHeightRatio + MathF.Min(0f, _crouch)) * StandTargetHeight ? _lowTime + dt : 0f;
-        if (_noGroundTime > _tuning.NoGroundFallTime || _tiltTime > _tuning.FallGrace || _collapsedTime > _tuning.CollapseTime || _lowTime > _tuning.CollapseTime)
+        // 腰・上体・手がマットに着いた、または倒れた（足が浮いた・大きく傾いた）: すぐダウン。
+        if ((grounded && TouchesCanvas(PelvisPosition.Y - height)) || _noGroundTime > _tuning.NoGroundFallTime || _tiltTime > _tuning.FallGrace)
+        {
+            Enter(FighterState.Down);
+            return;
+        }
+
+        // 中腰でまだ立っている: 意識が薄いまま DownFaintTime（4 秒）待ってからダウン。それまでは立っている体として打たれる（相手の攻めどころ）。
+        // 一瞬意識が飛んで腰が落ちただけなら、その間に意識が戻ってダウンにならない。
+        if (FaintTime > _tuning.DownFaintTime)
         {
             Enter(FighterState.Down);
             return;
@@ -1050,6 +1074,46 @@ public sealed class Fighter
 
         var scale = IsGrabbed ? _tuning.GrabbedDriveScale : 1f;
         DriveBody(command, scale * Tone, grounded, height, dt);
+    }
+
+    /// <summary>両手（<see cref="TouchesCanvas"/> が毎歩回すので、配列を作り直さない）。</summary>
+    private static readonly Hand[] BothHands = [Hand.Left, Hand.Right];
+
+    /// <summary>
+    /// 腰・上体・手がマットに着いているか（<paramref name="groundY"/> はマットの高さ）: 脚（足・つま先・すね・太もも）以外の部位（腰・胴・頭・腕）の
+    /// 箱のいちばん低い所か、拳（グローブ）の下端が、マットから <see cref="FighterTuning.CanvasTouch"/> 以内。尻もち・倒れ込み・手を突いたら着く。
+    /// 膝は数えない（ユーザーの指定は「腰をついた・倒れた」。意識が薄れて深く沈んだ体は、膝がマットすれすれまで来ても中腰として待つ）。
+    /// 切り落とされた腕の拳は数えない。
+    /// </summary>
+    private bool TouchesCanvas(float groundY)
+    {
+        var touch = groundY + _tuning.CanvasTouch;
+        foreach (var id in AllParts)
+        {
+            if (_detached.Contains(id) || KindOf(id) is BodyPartKind.Foot or BodyPartKind.Toe or BodyPartKind.Shin or BodyPartKind.Thigh)
+            {
+                continue; // 切り離された・折れてぶら下がった先は、もう体を支えていない（床に落ちていてもダウンではない）
+            }
+
+            var s = _world.GetState(id);
+            var half = HalfExtentsOf(id);
+            var r = Matrix4x4.CreateFromQuaternion(s.Orientation);
+            var down = (MathF.Abs(r.M12) * half.X) + (MathF.Abs(r.M22) * half.Y) + (MathF.Abs(r.M32) * half.Z); // 箱の中心からいちばん低い角まで
+            if (s.Position.Y - down < touch)
+            {
+                return true;
+            }
+        }
+
+        foreach (var hand in BothHands)
+        {
+            if (!_arms[(int)hand].Severed && GloveCenter(hand).Y - GloveRadius < touch)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -1156,7 +1220,9 @@ public sealed class Fighter
         // 起き上がる途中（腰がダウンの高さを越えた）か、まだ床か。審判のカウントはどちらでも続く。
         var ratio = grounded ? height / StandTargetHeight : 0f;
         State = ratio >= _tuning.DownHeightRatio ? FighterState.GettingUp : FighterState.Down;
-        var recovered = grounded && ratio >= _tuning.RecoverHeightRatio && Uprightness > _tuning.RecoverUprightness;
+        // 意識が KnockoutConsciousness を下回ったまま立ち上がっても立ち直りとは見ない（立ってはすぐ倒れ直して、数えを 0 からにするのを防ぐ）。
+        var recovered = grounded && ratio >= _tuning.RecoverHeightRatio && Uprightness > _tuning.RecoverUprightness
+            && Consciousness >= _tuning.KnockoutConsciousness;
         _recoverTime = recovered ? _recoverTime + dt : 0f;
         if (_recoverTime >= _tuning.RecoverHold)
         {
@@ -1196,9 +1262,8 @@ public sealed class Fighter
         State = next;
         _stateTime = 0f;
         _tiltTime = 0f;
-        _collapsedTime = 0f;
         _noGroundTime = 0f;
-        _lowTime = 0f;
+        _counted = next != FighterState.Standing; // 倒れたら（マットに着いた・倒れた・意識が薄いまま 4 秒）ダウン、立ち直ったら外れる
         _recoverTime = 0f;
         if (next != FighterState.Standing && TryFindGround(out var height))
         {
@@ -1803,16 +1868,23 @@ public sealed class Fighter
     }
 
     /// <summary>
-    /// 部位 <paramref name="part"/> の骨が断たれ、遠い側が <paramref name="fragment"/>（新しい剛体）になった。
+    /// 腕・脚の骨が断たれた・折れた（<see cref="BoneBreak"/>）: 部位は切れ目で 2 つの剛体に分かれ、遠い側が破片になった。
     /// <list type="bullet">
-    /// <item>その部位に付いていた先の部位（肘から先・膝から先・足首から先）は、関節ごと破片へ付け替える。筋肉（サーボ）は外す（もう動かせない）。</item>
-    /// <item>腕なら、その腕はもう駆動しない。前腕が切れたら、グローブは破片と一緒に落ちる。掴んでいれば離す。</item>
+    /// <item>その部位に付いていた先の部位（肘から先・膝から先・足首から先）は、関節ごと破片へ付け替える。筋肉（サーボ）は外す（もう動かせない）。
+    /// 破片が無い（関節の所で骨の端が削り取られた）なら、先の部位はどこにもつながらずに落ちる。</item>
+    /// <item>切れ目をまたいでまだ肉がつないでいれば（<see cref="BoneBreak.Hangs"/>: 打撃の曲げで折れた骨、斬り残した肉）、その肉が 2 つを
+    /// つなぐ: 位置はやわらかい玉継手（<see cref="FighterTuning.FractureLinkHz"/>）、向きは駆動の無い弱いバネ（目標は折れた瞬間のまっすぐな
+    /// 向き、トルクの上限は肉の断面が曲げで持ちこたえる強さ）。肉が引っぱりで裂ける力（<see cref="BoneBreak.TearForce"/>）を超えたら千切れる。</item>
+    /// <item>腕なら、その腕はもう駆動しない。握っていた武器は、力の抜けていく手でしばらく握ったまま、支えきれなくなった所で抜ける
+    /// （<see cref="FighterTuning.DeadGripRelaxSeconds"/>）。はめた物（グローブ）は手に付いたまま。掴んでいれば離す。</item>
     /// <item>脚なら、立てずに倒れて起き上がれない。</item>
     /// </list>
     /// </summary>
-    internal void Sever(int part, VoxelBody fragment)
+    internal void Break(BoneBreak broken)
     {
-        ArgumentNullException.ThrowIfNull(fragment);
+        ArgumentNullException.ThrowIfNull(broken);
+        var part = broken.Part.Body.BodyId;
+        var fragment = broken.Fragment?.Body;
         for (var i = 0; i < _joints.Count; i++)
         {
             var joint = _joints[i];
@@ -1849,6 +1921,14 @@ public sealed class Fighter
             }
 
             RemoveServosBetween(part, joint.ChildPart);
+            if (fragment is null)
+            {
+                // 骨の端ごと関節が削り取られた: 先の部位を受ける物が無い（落ちる）。切り口で接していた切り株とはぶつけない。
+                _world.SetPairCollisionEnabled(joint.ChildPart, part, false);
+                _joints[i] = joint with { ParentPart = -1, PrimaryConstraintId = -1, TorqueConstraintId = -1, AllConstraintIds = [] };
+                continue;
+            }
+
             var f = _world.GetState(fragment.BodyId);
             var c = _world.GetState(joint.ChildPart);
             var socket = _world.AddBallSocket(fragment.BodyId, joint.ChildPart,
@@ -1858,7 +1938,19 @@ public sealed class Fighter
             _joints[i] = joint with { ParentPart = fragment.BodyId, PrimaryConstraintId = socket, TorqueConstraintId = socket, AllConstraintIds = [socket] };
         }
 
-        SeparateCollisions(part, fragment.BodyId);
+        MoveFleshLinks(part, fragment?.BodyId);
+        if (fragment is not null)
+        {
+            SeparateCollisions(part, fragment.BodyId);
+            if (broken.Hangs)
+            {
+                JoinByFlesh(part, fragment.BodyId, broken);
+            }
+        }
+        else
+        {
+            SeparateCollisions(part, null);
+        }
 
         foreach (var arm in _arms)
         {
@@ -1867,19 +1959,20 @@ public sealed class Fighter
                 continue;
             }
 
-            // グローブが今この部位に付いているときだけ、切り落とされた側（破片）へ移す（同じ前腕を 2 度切ったときの、
+            // グローブ（手）が今この部位に付いているときだけ、切り離された側（破片）へ移す（同じ前腕を 2 度切ったときの、
             // 体に残った切り株の 2 度目の切断では動かさない）。
-            if (arm.GloveBody == part)
+            var handGone = arm.GloveBody == part && fragment is null; // 手のある先まで削り取られた
+            if (arm.GloveBody == part && fragment is not null)
             {
-                // グローブは前腕の先（破片の側）に付いている。
                 var glove = arm.GlovePosition(_world);
                 var f = _world.GetState(fragment.BodyId);
                 arm.AttachGlove(fragment.BodyId, Vector3.Transform(glove - f.Position, Quaternion.Conjugate(f.Orientation)));
             }
 
+            // 前の骨折・切断から、力の抜けた手がまだ握っている物・はめた物は、手と一緒に移す（手が無くなれば放す）。
+            MoveHeldBy(part, arm, handGone);
             arm.Severed = true;
-            Unwield(arm.Hand); // 切り落とされた腕は武器を握っていられない（添えていた手も放す）
-            ReleaseSupport(arm); // 添えていた腕なら、残った利き手は片手で持つ
+            LoosenGrip(arm, handGone);
             if (arm.GrabConstraint is { } grab)
             {
                 if (_world.HasConstraint(grab))
@@ -1905,13 +1998,250 @@ public sealed class Fighter
         }
     }
 
+    /// <summary>折れた骨の両側をつないでいる肉（<see cref="Break"/>）: 体に近い側の部位、破片、玉継手、向きのバネ。</summary>
+    private readonly record struct FleshLink(int Stub, int Fragment, int Socket, int Spring, float TearForce, float BendTorque);
+
+    private readonly List<FleshLink> _fleshLinks = [];
+
+    /// <summary>骨が折れて、肉だけでつながっている所の数（調べもの・表示用）。</summary>
+    public int Fractures => _fleshLinks.Count;
+
+    /// <summary>折れた所の破片がまだ肉でつながっているか。</summary>
+    public bool HangsByFlesh(int fragment) => _fleshLinks.Exists(l => l.Fragment == fragment);
+
+    /// <summary>
+    /// 折れた骨の両側を、切れ目をまたいで残った肉でつなぐ: やわらかい玉継手（裂ける力を超えたら千切れる）と、駆動の無い弱い向きのバネ
+    /// （目標は今のまっすぐな向き。肉の断面が曲げで持ちこたえるトルクまでしか出さない）。
+    /// </summary>
+    private void JoinByFlesh(int stub, int fragment, BoneBreak broken) => Link(stub, fragment, broken.Point, broken.TearForce, broken.BendTorque);
+
+    private void Link(int stub, int fragment, Vector3 point, float tear, float bend)
+    {
+        var a = _world.GetState(stub);
+        var b = _world.GetState(fragment);
+        var socket = _world.AddBallSocket(stub, fragment,
+            Vector3.Transform(point - a.Position, Quaternion.Conjugate(a.Orientation)),
+            Vector3.Transform(point - b.Position, Quaternion.Conjugate(b.Orientation)),
+            frequency: _tuning.FractureLinkHz, dampingRatio: 1f);
+        _world.MakeBreakable(socket, tear);
+        var relative = Quaternion.Concatenate(b.Orientation, Quaternion.Conjugate(a.Orientation));
+        var spring = _world.AddAngularServo(stub, fragment, relative, _tuning.FractureSpringHz, 1f, _tuning.ArmServoMaxSpeed, 0f, bend);
+        _fleshLinks.Add(new FleshLink(stub, fragment, socket, spring, tear, bend));
+    }
+
+    /// <summary>
+    /// 部位 <paramref name="part"/> が（もう一度）切れた: 前の骨折でそこにぶら下がっていた肉のつなぎは、切れ目より先（前の切れ目は今の切れ目より
+    /// 遠い）なので、新しい破片 <paramref name="fragment"/> へ付け替える。破片が無ければ外す（ぶら下がっていた先は落ちる）。
+    /// </summary>
+    private void MoveFleshLinks(int part, int? fragment)
+    {
+        for (var i = _fleshLinks.Count - 1; i >= 0; i--)
+        {
+            var link = _fleshLinks[i];
+            if (link.Stub != part)
+            {
+                continue;
+            }
+
+            var point = _world.GetJointAnchors(link.Socket)?.AnchorA;
+            foreach (var id in new[] { link.Socket, link.Spring })
+            {
+                if (_world.HasConstraint(id))
+                {
+                    _world.RemoveConstraint(id, forget: true);
+                }
+            }
+
+            _fleshLinks.RemoveAt(i);
+            if (fragment is { } to && point is { } at)
+            {
+                Link(to, link.Fragment, at, link.TearForce, link.BendTorque);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 力の抜けた手（<paramref name="arm"/>）がまだ握っている物・はめた物で、部位 <paramref name="part"/> に付いているものを、手の今の剛体
+    /// （<see cref="Arm.GloveBody"/>）へ付け替える。<paramref name="handGone"/> なら手が無いので放す。
+    /// </summary>
+    private void MoveHeldBy(int part, Arm arm, bool handGone)
+    {
+        for (var i = _deadGrips.Count - 1; i >= 0; i--)
+        {
+            var grip = _deadGrips[i];
+            if (grip.Hand != part || arm.GloveBody == part && !handGone)
+            {
+                continue;
+            }
+
+            if (_world.HasConstraint(grip.Socket))
+            {
+                _world.RemoveConstraint(grip.Socket, forget: true);
+            }
+
+            if (handGone)
+            {
+                _deadGrips.RemoveAt(i);
+                continue;
+            }
+
+            var link = _world.AddBallSocket(arm.GloveBody, grip.Held, arm.GloveLocal, grip.HeldLocal, frequency: 30f, dampingRatio: 1f);
+            _deadGrips[i] = grip with { Socket = link, Hand = arm.GloveBody };
+        }
+    }
+
+    /// <summary>
+    /// 力の抜けた手が、まだ握っている・はめている物 <paramref name="itemBody"/> の、手の剛体（無ければ null）と、はめた物か。握った人として
+    /// 数えない（その手は駆動しない）が、本人の手に付いているので、はめた物は本人を打たず、握った物は手の剛体を打たない。
+    /// </summary>
+    public (int Hand, bool Worn)? DeadHandOn(int itemBody)
+    {
+        foreach (var grip in _deadGrips)
+        {
+            if (grip.Held == itemBody && _world.HasConstraint(grip.Socket))
+            {
+                return (grip.Hand, grip.Worn);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>肉が千切れた所（玉継手が裂ける力を超えて外れた）は、向きのバネも外す（遠い側は落ちる）。</summary>
+    private void WatchFleshLinks()
+    {
+        for (var i = _fleshLinks.Count - 1; i >= 0; i--)
+        {
+            var link = _fleshLinks[i];
+            if (_world.HasConstraint(link.Socket))
+            {
+                continue;
+            }
+
+            if (_world.HasConstraint(link.Spring))
+            {
+                _world.RemoveConstraint(link.Spring, forget: true);
+            }
+
+            _fleshLinks.RemoveAt(i);
+        }
+    }
+
+    /// <summary>力の抜けていく手が、まだ握っている物: つないでいる玉継手、握っている物の剛体、握りが抜け始めてからの時間。</summary>
+    /// <param name="Socket">手と物をつなぐ玉継手。</param>
+    /// <param name="Held">握っている（はめている）物の剛体。</param>
+    /// <param name="Hand">手が付いている剛体（前腕、前腕が切れたらその先の破片）。</param>
+    /// <param name="HeldLocal">握る所（物のローカル）。手が別の剛体へ移ったら、つなぎ直すのに使う。</param>
+    /// <param name="Since">握りが抜け始めてからの時間 [s]。</param>
+    /// <param name="Worn">はめた物（握っているのではないので、抜けない）。</param>
+    private readonly record struct DeadGrip(int Socket, int Held, int Hand, Vector3 HeldLocal, float Since, bool Worn);
+
+    private readonly List<DeadGrip> _deadGrips = [];
+
+    /// <summary>使えなくなった腕の手が、まだ握っている武器の数（はめた物は数えない。調べもの用）。</summary>
+    public int DeadGrips => _deadGrips.Count(g => !g.Worn);
+
+    /// <summary>
+    /// 腕 <paramref name="arm"/> が駆動しなくなった: 手首の筋肉は外す。握っていた武器（添えていた武器）は、手が付いている剛体（前腕、
+    /// 前腕が切れたらその先の破片）につないだまま、力の抜けていく握りとして残す（<see cref="RelaxDeadGrips"/>）。はめた物は手に付いたまま
+    /// （握っているのではない）。<paramref name="handGone"/> なら、握る手そのものが無い（すぐ放す）。両手で持っていれば、もう一方の手は:
+    /// こちらが利き手なら添えるのをやめ（利き手の指令が無くなる）、こちらが添えた手なら片手で持つ。
+    /// </summary>
+    private void LoosenGrip(Arm arm, bool handGone)
+    {
+        var other = _arms[1 - (int)arm.Hand];
+        if (other.Support is { } otherSupport && otherSupport.Main == arm.Hand)
+        {
+            other.ReleaseSupport(_world); // 利き手が使えなくなった: 添えていた手も放す
+        }
+
+        int body, socket;
+        Vector3 grip;
+        int? wrist;
+        var worn = arm.Glove;
+        if (arm.Held is { } held)
+        {
+            (body, socket, grip, wrist) = (held.Body, held.Socket, held.GripLocal, held.Wrist);
+        }
+        else if (arm.Support is { Socket: { } supportSocket } support)
+        {
+            (body, socket, grip, wrist) = (support.Body, supportSocket, support.GripLocal, support.Wrist);
+            var main = _arms[(int)support.Main];
+            if (main.Held is not null && !main.Severed)
+            {
+                // 添えていた手が使えなくなった: 利き手は片手で持つ（手首のバネが 1/3）。
+                main.WristShare = _tuning.OneHandWristShare;
+                main.SetWristStrength(_world, _tuning, main.LastWristScale);
+            }
+        }
+        else
+        {
+            arm.Unwield(_world);
+            arm.ReleaseSupport(_world); // 握る前に添えに行っていた手
+            return;
+        }
+
+        if (wrist is { } w && _world.HasConstraint(w))
+        {
+            _world.RemoveConstraint(w, forget: true);
+        }
+
+        if (_world.HasConstraint(socket))
+        {
+            _world.RemoveConstraint(socket, forget: true);
+        }
+
+        arm.Abandon();
+        if (handGone)
+        {
+            return;
+        }
+
+        // 手が付いている剛体（前腕、前腕が切れたら破片）と握る所を、つなぎ直す（切れた前腕の切り株の側に残った玉継手は、空を握っている）。
+        var link = _world.AddBallSocket(arm.GloveBody, body, arm.GloveLocal, grip, frequency: 30f, dampingRatio: 1f);
+        _deadGrips.Add(new DeadGrip(link, body, arm.GloveBody, grip, 0f, worn));
+    }
+
+    /// <summary>
+    /// 力の抜けていく手の握り: 持ちこたえる力は掴みの強さから exp(−t / <see cref="FighterTuning.DeadGripRelaxSeconds"/>) で落ちる。
+    /// その力を超えて引かれたら（振られる武器・ぶら下がる腕の重さ）抜ける。手と武器の軽い方の重さも支えられなくなったら、止まっていても抜ける。
+    /// </summary>
+    private void RelaxDeadGrips(float dt)
+    {
+        const float Gravity = 9.81f;
+        for (var i = _deadGrips.Count - 1; i >= 0; i--)
+        {
+            if (_deadGrips[i].Worn)
+            {
+                continue; // はめた物は手に付いたまま
+            }
+
+            var grip = _deadGrips[i] with { Since = _deadGrips[i].Since + dt };
+            var hold = _tuning.GrabBreakForce * MathF.Exp(-grip.Since / MathF.Max(1e-3f, _tuning.DeadGripRelaxSeconds));
+            var weight = MathF.Min(_world.GetMass(grip.Held), _world.GetMass(grip.Hand)) * Gravity;
+            if (!_world.HasConstraint(grip.Socket) || hold < weight)
+            {
+                if (_world.HasConstraint(grip.Socket))
+                {
+                    _world.RemoveConstraint(grip.Socket, forget: true);
+                }
+
+                _deadGrips.RemoveAt(i);
+                continue;
+            }
+
+            _world.MakeBreakable(grip.Socket, hold);
+            _deadGrips[i] = grip;
+        }
+    }
+
     /// <summary>
     /// 切り落とされた破片と、それにぶら下がって外れた部位は、体の自己衝突の除外から出す: 体（と相手と床）にぶつかるようにし、
     /// 互いの間と、破片と体に残った切り株の間だけはぶつけない（つながっている・切り口で接している）。
     /// </summary>
-    private void SeparateCollisions(int stub, int fragment)
+    private void SeparateCollisions(int stub, int? fragment)
     {
-        var loose = _detached.Append(fragment).ToList();
+        var loose = fragment is { } piece ? _detached.Append(piece).ToList() : [.. _detached];
         foreach (var id in loose)
         {
             _world.SetCollisionGroup(id, null);
@@ -1925,7 +2255,10 @@ public sealed class Fighter
             }
         }
 
-        _world.SetPairCollisionEnabled(fragment, stub, false);
+        if (fragment is { } cut)
+        {
+            _world.SetPairCollisionEnabled(cut, stub, false);
+        }
     }
 
     /// <summary>2 つの部位をつなぐ筋肉（腕・脚のサーボ）を外す。</summary>
@@ -2155,6 +2488,13 @@ public sealed class Fighter
             var socket = world.AddBallSocket(Forearm, body, GloveLocal, gripLocal, frequency: 30f, dampingRatio: 1f);
             var wrist = world.AddAngularServo(Forearm, body, along, tuning.WristServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.WristMaxTorque * tuning.TorqueScale);
             Held = new HeldWeapon(body, gripLocal, socket, wrist, along, world.GetMass(body));
+        }
+
+        /// <summary>握っている・添えている物を、つないだ関節はそのままに手放したことにする（呼び出し側が関節を引き取る）。</summary>
+        public void Abandon()
+        {
+            Held = null;
+            Support = null;
         }
 
         /// <summary>武器を放す。</summary>

@@ -22,13 +22,34 @@ namespace Aigis.Physics.Voxels;
 /// <param name="SnappedB">If <paramref name="B"/> snapped, the piece that broke off.</param>
 /// <param name="ImpulseOnB">The impulse [N·s] the contact gave <paramref name="B"/> at <paramref name="Point"/> (A got the
 /// opposite): how hard the blow knocked it.</param>
+/// <param name="CrushedA">Cells of <paramref name="A"/> crushed BENEATH a face that held (the pressure passed on under it; see
+/// <see cref="VoxelContact"/>), null if none. Not among <paramref name="RemovedA"/>: nothing flew off, the face dented in.</param>
+/// <param name="CrushedB">The same for <paramref name="B"/>.</param>
+/// <param name="FaceA">The material of <paramref name="A"/>'s face where the two met (the commonest over the contact patch; 0 if unknown).</param>
+/// <param name="FaceB">The same for <paramref name="B"/>.</param>
+/// <param name="ApproachSpeed">How fast the two came together along the face at first contact [m/s] (0 if resting, sliding or parting).</param>
+/// <param name="BentA">Where the blow bent <paramref name="A"/> past its bone's strength, if it is a beam of load-bearing cells (<see cref="VoxelBody.BeamAxis"/>: a limb). Not split: the caller breaks it.</param>
+/// <param name="BentB">The same for <paramref name="B"/>.</param>
+/// <param name="PassedForce">The whole blow's force [N] (the mass behind included) that the contact passed on: what pressed beneath a face that held, and what bends a limb.</param>
 public sealed record VoxelContactResult(
     bool Touched, VoxelBody A, VoxelBody B, IReadOnlyList<RemovedVoxel> RemovedA, IReadOnlyList<RemovedVoxel> RemovedB,
     Vector3 Point, Vector3 Normal, Vector3 Direction, float Pressure, float Force, float EnergySpent, bool Stopped,
-    VoxelBody? SnappedA, VoxelBody? SnappedB, Vector3 ImpulseOnB = default)
+    VoxelBody? SnappedA, VoxelBody? SnappedB, Vector3 ImpulseOnB = default,
+    IReadOnlyList<RemovedVoxel>? CrushedA = null, IReadOnlyList<RemovedVoxel>? CrushedB = null, byte FaceA = 0, byte FaceB = 0, float ApproachSpeed = 0f,
+    VoxelBreak? BentA = null, VoxelBreak? BentB = null, float PassedForce = 0f)
 {
+    /// <summary>Where the blow bent a beam of load-bearing cells (<see cref="VoxelBody.BeamAxis"/>: a limb's bone) past its strength, if it did.</summary>
+    public VoxelBreak? BentFor(VoxelBody body) => body == A ? BentA : body == B ? BentB : null;
+
     /// <summary>The cells <paramref name="body"/> lost (empty if it is neither side).</summary>
     public IReadOnlyList<RemovedVoxel> RemovedFor(VoxelBody body) => body == A ? RemovedA : body == B ? RemovedB : [];
+
+    /// <summary>The cells crushed beneath <paramref name="body"/>'s face (empty if none, or it is neither side).</summary>
+    public IReadOnlyList<RemovedVoxel> CrushedFor(VoxelBody body) => (body == A ? CrushedA : body == B ? CrushedB : null) ?? [];
+
+    /// <summary>Whether the contact broke nothing on either side (nothing cut, crushed or snapped): a plain bump.</summary>
+    public bool BrokeNothing => RemovedA.Count == 0 && RemovedB.Count == 0 && (CrushedA?.Count ?? 0) == 0 && (CrushedB?.Count ?? 0) == 0
+        && SnappedA is null && SnappedB is null && BentA is null && BentB is null;
 
     /// <summary>The piece that snapped off <paramref name="body"/>, if any.</summary>
     public VoxelBody? SnappedFor(VoxelBody body) => body == A ? SnappedA : body == B ? SnappedB : null;
@@ -59,6 +80,15 @@ public sealed record VoxelContactResult(
 /// a bone), the blow stops there.</item>
 /// <item>A stopped blow is an ordinary inelastic collision: the approach speed along the face is taken out (shared by
 /// momentum), and the lighter body is set back to where the blow stopped. A blow that cut on loses only the speed it spent.</item>
+/// <item><b>Beneath a face that held</b> (2026-11-12): a blow stopped at the field's face still presses on what lies under it.
+/// The force spreads out with depth (a 45 degree cone: over <c>pi (r0 + d)^2</c> at depth d, r0 the radius of the patch), and
+/// the field gives way only within the blow's give, so only the cells within the give behind the face feel it. Those weaker
+/// than the stress there are crushed (each costs <c>strength x cell volume</c> of the blow's energy) and the cell in front of
+/// each is pushed in over it (<see cref="VoxelGrid.Shift"/>). A layer harder than the face (a skull under the scalp) stops it:
+/// it bears the load as a plate and spreads it sideways. So a padded fist that cannot break skin still crushes the flesh
+/// under it and leaves a dent. The face that held is worn by each such blow (its material's <see cref="VoxelMechanics.Wear"/>,
+/// by the square of the pressure over its strength): it reddens blow by blow and tears in the end. Only the field (the coarser grid, the body struck) is crushed this way; the probe (a blade,
+/// a glove, a club) is taken as solid behind its face.</item>
 /// </list>
 /// <para>
 /// <b>Snapping.</b> A body made of materials with a <see cref="VoxelMechanics.Tensile"/> strength (a weapon, not a body
@@ -75,6 +105,10 @@ public static class VoxelContact
     /// <summary>How much more than the softer side's strength the contact pressure can reach (both sides yield only when
     /// they are about this close in strength).</summary>
     public const float FlowMargin = 1.25f;
+
+    /// <summary>How much a cell crushed beneath a face that held stains its neighbours (a bruise showing through the skin: far
+    /// fainter than the blood of a cell broken open, so that the redness of a battered face builds up blow by blow).</summary>
+    public const float BruiseStain = 0.03f;
 
     /// <summary>Bounce of a stopped blow (0 = dead stop).</summary>
     public const float Restitution = 0.1f;
@@ -103,7 +137,20 @@ public static class VoxelContact
     /// Zero (the default) is a free blow.
     /// </param>
     /// <param name="driveB">The same for <paramref name="b"/> (pushing B into A).</param>
-    public static VoxelContactResult Resolve(VoxelBody a, BodyState aBefore, VoxelBody b, BodyState bBefore, Vector3 driveA = default, Vector3 driveB = default)
+    /// <param name="massBehindA">
+    /// Mass [kg] joined to <paramref name="a"/> through joints that moves on with it into the blow (the arm and the share of
+    /// the body behind a fist, 2026-11-12). The physics engine's joints are not seen here, so without it a 45 g glove on a
+    /// swinging arm would press with the energy of the glove alone. It counts only for what a face that held passes on beneath
+    /// it: the whole blow (A's side with this mass added) over the give, up to what the face carries. Whether a face breaks
+    /// stays the two bodies' own blow (the values of every material were set against that), and the bounce impulse goes to the
+    /// two bodies alone (the caller hands the arm's momentum on its own way). Zero (the default) is a free body.
+    /// </param>
+    /// <param name="massBehindB">The same for <paramref name="b"/>.</param>
+    /// <param name="pressBeneath">Whether a face that held passes the blow on beneath it (crushing and wearing; see the type's
+    /// summary). It acts on the field (the coarser grid); a caller whose two bodies are both solid things (two weapons, two gloves:
+    /// which of them is the field is only which grid is coarser) passes false.</param>
+    public static VoxelContactResult Resolve(VoxelBody a, BodyState aBefore, VoxelBody b, BodyState bBefore, Vector3 driveA = default, Vector3 driveB = default,
+        float massBehindA = 0f, float massBehindB = 0f, bool pressBeneath = true)
     {
         ArgumentNullException.ThrowIfNull(a);
         ArgumentNullException.ThrowIfNull(b);
@@ -116,7 +163,8 @@ public static class VoxelContact
         var aFiner = MinCell(a.Grid) < MinCell(b.Grid) - 1e-7f || (MathF.Abs(MinCell(a.Grid) - MinCell(b.Grid)) <= 1e-7f && a.Grid.FilledCount <= b.Grid.FilledCount);
         var (probe, probeBefore, field, fieldBefore) = aFiner ? (a, aBefore, b, bBefore) : (b, bBefore, a, aBefore);
         // The sweep moves the probe into the field: what pushes it on is the probe's drive less the field's.
-        var sweep = new Sweep(probe, probeBefore, field, fieldBefore, aFiner ? driveA - driveB : driveB - driveA);
+        var sweep = new Sweep(probe, probeBefore, field, fieldBefore, aFiner ? driveA - driveB : driveB - driveA,
+            aFiner ? massBehindA : massBehindB, aFiner ? massBehindB : massBehindA, pressBeneath);
         var hit = sweep.Run();
         if (hit is null)
         {
@@ -124,8 +172,13 @@ public static class VoxelContact
         }
 
         var h = hit.Value;
-        var snapProbe = h.Force > 0f ? Snap(probe, h.Point, -h.Direction, h.Force, h.Energy) : null;
-        var snapField = h.Force > 0f ? Snap(field, h.Point, h.Direction, h.Force, h.Energy) : null;
+        var snapProbe = h.Force > 0f && probe.BeamAxis is null ? Snap(probe, h.Point, -h.Direction, h.Force, h.Energy) : null;
+        var snapField = h.Force > 0f && field.BeamAxis is null ? Snap(field, h.Point, h.Direction, h.Force, h.Energy) : null;
+        // A limb is bent by the whole blow, the mass behind it included (the arm behind a glove bends the forearm it lands on),
+        // up to what the face could pass on (the same force that presses beneath a face that held).
+        var (blowForce, blowEnergy) = (MathF.Max(h.Force, h.BlowForce), MathF.Max(h.Energy, h.BlowEnergy));
+        var bentProbe = blowForce > 0f && probe.BeamAxis is { } probeAxis ? Bend(probe, probeAxis, h.Point, -h.Direction, blowForce, blowEnergy) : null;
+        var bentField = blowForce > 0f && field.BeamAxis is { } fieldAxis ? Bend(field, fieldAxis, h.Point, h.Direction, blowForce, blowEnergy) : null;
         // The sweep's normal points out of the field toward the probe; the result's normal points out of B toward A.
         var normal = aFiner ? h.Normal : -h.Normal;
         var direction = aFiner ? h.Direction : -h.Direction;
@@ -133,7 +186,26 @@ public static class VoxelContact
             aFiner ? h.RemovedProbe : h.RemovedField, aFiner ? h.RemovedField : h.RemovedProbe,
             h.Point, normal, direction, h.Pressure, h.Force, h.EnergySpent, h.Stopped,
             aFiner ? snapProbe : snapField, aFiner ? snapField : snapProbe,
-            aFiner ? -sweep.ImpulseOnProbe : sweep.ImpulseOnProbe);
+            aFiner ? -sweep.ImpulseOnProbe : sweep.ImpulseOnProbe,
+            aFiner ? null : h.CrushedField, aFiner ? h.CrushedField : null,
+            aFiner ? h.FaceProbe : h.FaceField, aFiner ? h.FaceField : h.FaceProbe, h.Approach,
+            aFiner ? bentProbe : bentField, aFiner ? bentField : bentProbe, blowForce);
+    }
+
+    /// <summary>
+    /// Where the blow bends a beam of load-bearing cells (<see cref="VoxelBody.BeamAxis"/>) past their tensile strength, as
+    /// <see cref="Snap"/> does for a weapon: the force is capped by what the springy beam takes from the blow's energy
+    /// before it has flexed (<c>sqrt(2 E k)</c>). The body is not split (the caller breaks it, and the flesh holds the pieces).
+    /// </summary>
+    private static VoxelBreak? Bend(VoxelBody body, int axis, Vector3 worldPoint, Vector3 worldDirection, float contactForce, float energy)
+    {
+        var grid = body.Grid;
+        var s = body.World.GetState(body.BodyId);
+        var localPoint = body.WorldToGrid(worldPoint);
+        var localDirection = Vector3.Transform(worldDirection, Quaternion.Conjugate(s.Orientation));
+        var stiffness = VoxelBending.BeamStiffness(grid, localDirection, axis, loadBearingOnly: true);
+        var force = stiffness is { } k ? MathF.Min(contactForce, MathF.Sqrt(2f * energy * k)) : contactForce;
+        return VoxelBending.FindBreak(grid, localPoint, localDirection * force, axis, loadBearingOnly: true);
     }
 
     private static float MinCell(VoxelGrid grid) => MathF.Min(grid.CellSize.X, MathF.Min(grid.CellSize.Y, grid.CellSize.Z));
@@ -172,7 +244,8 @@ public static class VoxelContact
 
     private readonly record struct Hit(
         Vector3 Point, Vector3 Normal, Vector3 Direction, float Pressure, float Force, float Energy, float EnergySpent, bool Stopped,
-        List<RemovedVoxel> RemovedProbe, List<RemovedVoxel> RemovedField);
+        List<RemovedVoxel> RemovedProbe, List<RemovedVoxel> RemovedField,
+        List<RemovedVoxel>? CrushedField = null, byte FaceProbe = 0, byte FaceField = 0, float Approach = 0f, float BlowForce = 0f, float BlowEnergy = 0f);
 
     /// <summary>Cells per side of a brick: the filled cells are grouped into bricks so whole bricks far from the field are skipped at once.</summary>
     private const int BrickSize = 8;
@@ -253,13 +326,23 @@ public static class VoxelContact
         private readonly float _advance;
         private readonly Vector3 _drive;
 
+        /// <summary>Whether a face of the field that held passes the blow on beneath it (see <see cref="Resolve"/>'s pressBeneath).</summary>
+        private readonly bool _pressBeneath;
+
+        /// <summary>Mass joined behind the probe / the field through joints (see <see cref="Resolve"/>'s massBehind).</summary>
+        private readonly float _probeBehind;
+        private readonly float _fieldBehind;
+
         /// <summary>Field cells broken during this sweep, with what they were. They stay in the way (and cost work) until
         /// the step is over: a fine edge crossing a coarse cell pays for the whole crossing, not only the moment it enters.</summary>
         private readonly Dictionary<int, byte> _brokenField = [];
 
-        public Sweep(VoxelBody probe, BodyState probeBefore, VoxelBody field, BodyState fieldBefore, Vector3 drive)
+        public Sweep(VoxelBody probe, BodyState probeBefore, VoxelBody field, BodyState fieldBefore, Vector3 drive, float probeBehind = 0f, float fieldBehind = 0f, bool pressBeneath = true)
         {
+            _pressBeneath = pressBeneath;
             _drive = drive;
+            _probeBehind = MathF.Max(0f, probeBehind);
+            _fieldBehind = MathF.Max(0f, fieldBehind);
             _probe = probe;
             _field = field;
             _probeNow = probe.World.GetState(probe.BodyId);
@@ -492,12 +575,17 @@ public static class VoxelContact
                     Separate(Vector3.Zero, normal, 0);
                 }
 
-                return new Hit(point, normal, speed > 1e-5f ? relative / speed : -normal, 0f, 0f, 0f, 0f, true, removedProbe, removedField);
+                return new Hit(point, normal, speed > 1e-5f ? relative / speed : -normal, 0f, 0f, 0f, 0f, true, removedProbe, removedField,
+                    null, Commonest(touching, probeSide: true), Commonest(touching, probeSide: false));
             }
 
             var direction = relative / speed;
             var localAlong = Vector3.Transform(direction, Quaternion.Conjugate(fieldRotation));
             var mEff = EffectiveMass(point, direction);
+            // The blow with what is joined behind it (massBehind): it does not change whether the face breaks (that is the two bodies'
+            // own blow, calibrated so), only how hard a face that held presses on what lies beneath it.
+            // Only the part of the blow that comes in across the face presses beneath it (a glancing, sliding touch does not).
+            var blowEnergy = 0.5f * BlowMass(point, normal) * approach * approach;
             var energy = 0.5f * mEff * speed * speed;
             var drive = MathF.Max(0f, Vector3.Dot(_drive, direction)); // only the push along the blow drives it on
             var left = energy;
@@ -508,6 +596,10 @@ public static class VoxelContact
             var contactOnProbe = Vector3.Transform(localPoint - tFirst, Quaternion.Conjugate(qFirst));
             float peakPressure = 0f, peakForce = 0f;
             var stoppedAt = -1;
+            // Where a blow stopped at the field's face without breaking it: the patch, its give and force (for what lies beneath).
+            List<PatchBin>? heldPatch = null;
+            float heldGive = 0f, heldForce = 0f;
+            byte faceProbe = Commonest(touching, probeSide: true), faceField = Commonest(touching, probeSide: false);
             for (var k = first; k <= _samples; k++)
             {
                 var now = k == first ? touching : Overlaps(k);
@@ -521,7 +613,13 @@ public static class VoxelContact
                 // first and leave the load on the harder ones, so a little bone under the blade carries the whole blow).
                 var give = Give(now);
                 var push = (left / give) + drive;
-                var patch = Patch(k, fieldFront, give);
+                var bins = PatchBins(k, fieldFront, give);
+                var patch = bins.ConvertAll(b => (b.Probe, b.Field));
+                if (k == first && patch.Count > 0)
+                {
+                    (faceProbe, faceField) = (Commonest(patch.Select(b => b.Probe)), Commonest(patch.Select(b => b.Field)));
+                }
+
                 // A patch that missed the field's heightfield (a corner between bins) falls back to the cells overlapping now.
                 var probeHold = patch.Count > 0 ? Hold(patch, probeSide: true) : Resistance(now, probeSide: true, localAlong);
                 var fieldHold = patch.Count > 0 ? Hold(patch, probeSide: false) : Resistance(now, probeSide: false, localAlong);
@@ -535,6 +633,14 @@ public static class VoxelContact
                 if (!probeYields && !fieldYields)
                 {
                     stoppedAt = k;
+                    if (k == first && bins.Count > 0)
+                    {
+                        // What the face passes on: the blow (with the mass behind) over the give, but no more than the face carries. A steady
+                        // drive (a hand pressing a held blade) is left out: a press is not a blow, and counting it would wear and crush on
+                        // every step it is held there (the review measured a pressed flat tearing skin in ~8 steps).
+                        (heldPatch, heldGive, heldForce) = (bins, give, MathF.Min(blowEnergy / give, MathF.Min(probeHold, fieldHold) * FlowMargin));
+                    }
+
                     break;
                 }
 
@@ -581,23 +687,177 @@ public static class VoxelContact
             {
                 // Cut on through: only the speed spent breaking cells is lost.
                 var after = speed * MathF.Sqrt(left / energy);
-                Push(point, -direction * (mEff * (speed - after)));
+                Push(point, -direction * (EffectiveMass(point, direction) * (speed - after))); // the bodies alone (the mass behind is handed on by the caller)
             }
+
+            // The face held: the pressure goes on beneath it, as far as the blow gives.
+            var crushed = heldPatch is null || !_pressBeneath ? null : CrushBeneath(heldPatch, localAlong, heldGive, heldForce, blowEnergy, removedField);
 
             if (removedProbe.Count > 0)
             {
                 _probe.UpdateMass();
             }
 
-            if (removedField.Count > 0)
+            if (removedField.Count > 0 || crushed is { Count: > 0 })
             {
                 _field.UpdateMass();
             }
 
-            return new Hit(point, normal, direction, peakPressure, peakForce, energy, energy - left, stopped, removedProbe, removedField);
+            // The whole blow (with the mass behind) that the contact passed on: what bends a limb it lands on.
+            var passed = heldPatch is null ? peakForce : MathF.Max(peakForce, heldForce);
+            return new Hit(point, normal, direction, peakPressure, peakForce, energy, energy - left, stopped, removedProbe, removedField,
+                crushed, faceProbe, faceField, approach, passed, blowEnergy);
         }
 
-        /// <summary>The side of one bin of the contact heightfield (<see cref="Patch"/>): a probe cell.</summary>
+        /// <summary>Whether two cells share a face.</summary>
+        private static bool Neighbours(VoxelGrid grid, int a, int b)
+        {
+            var (ax, ay, az) = grid.Coordinates(a);
+            var (bx, by, bz) = grid.Coordinates(b);
+            return Math.Abs(ax - bx) + Math.Abs(ay - by) + Math.Abs(az - bz) == 1;
+        }
+
+        private static float Strength(VoxelGrid grid, int cell) => grid.Palette[grid.MaterialAt(cell)].MechanicsOrDefault.Strength;
+
+        /// <summary>The commonest material among one side of <paramref name="overlaps"/> (0 if none).</summary>
+        private byte Commonest(List<(int Slot, int Field, Vector3 At)> overlaps, bool probeSide) =>
+            Commonest(overlaps.Select(o => probeSide ? _probe.Grid.MaterialAt(_cellIndex[o.Slot]) : FieldMaterial(o.Field)));
+
+        private static byte Commonest(IEnumerable<byte> materials)
+        {
+            Span<int> counts = stackalloc int[256];
+            foreach (var m in materials)
+            {
+                counts[m]++;
+            }
+
+            var best = 0;
+            for (var m = 1; m < 256; m++)
+            {
+                if (counts[m] > 0 && (best == 0 || counts[m] > counts[best]))
+                {
+                    best = m;
+                }
+            }
+
+            return (byte)best;
+        }
+
+        /// <summary>
+        /// The pressure passed on beneath a face that held (see the type's summary): under each bin of the contact patch, the
+        /// field cells within <paramref name="give"/> behind the face are pressed by the force spread over a 45 degree cone,
+        /// <c>F / (pi (r0 + d)^2)</c>. Each one weaker than that is crushed (shallowest first, then in cell order; each costs
+        /// its <c>strength x volume</c> out of <paramref name="left"/>), and the cell in front of it is pushed in over it.
+        /// Returns the crushed cells (null if none).
+        /// </summary>
+        private List<RemovedVoxel>? CrushBeneath(List<PatchBin> patch, Vector3 along, float give, float force, float left, List<RemovedVoxel> removedFace)
+        {
+            var grid = _field.Grid;
+            // A quarter cell: a column running at a slant must not step past a thin layer (a skull one cell thick) at a corner.
+            var step = 0.25f * MinCell(grid);
+            var r0 = MathF.Sqrt(patch.Count * _bin * _bin / MathF.PI);
+            var cellVolume = grid.CellSize.X * grid.CellSize.Y * grid.CellSize.Z;
+            var faces = new HashSet<int>();
+            var depthOf = new Dictionary<int, float>();
+            var outerOf = new Dictionary<int, int>();
+            foreach (var bin in patch.OrderBy(b => b.Key.Item1).ThenBy(b => b.Key.Item2))
+            {
+                var across = (_u * ((bin.Key.Item1 + 0.5f) * _bin)) + (_w * ((bin.Key.Item2 + 0.5f) * _bin));
+                var face = -1;
+                var previous = -1;
+                for (var d = 0f; d <= give + MaxCell(grid); d += step)
+                {
+                    var cell = grid.CellAt(across + (along * (bin.Front + d + (0.5f * step))));
+                    if (cell < 0 || grid.MaterialAt(cell) == 0)
+                    {
+                        if (face >= 0)
+                        {
+                            break; // a hollow behind the face: the column ends there
+                        }
+
+                        continue;
+                    }
+
+                    if (face < 0)
+                    {
+                        face = cell;
+                        faces.Add(cell);
+                    }
+                    else if (Strength(grid, cell) > Strength(grid, face))
+                    {
+                        break; // a harder layer under a softer face (a skull under the scalp) bears the load as a plate and spreads it sideways
+                    }
+                    else if (cell != previous && cell != face && d < give && (!depthOf.TryGetValue(cell, out var known) || d < known))
+                    {
+                        depthOf[cell] = d;
+                        outerOf[cell] = previous;
+                    }
+
+                    previous = cell;
+                }
+            }
+
+            // The face itself: each blow that held wears it by (pressure / its strength)² of its material's Wear (squared: the strain
+            // energy a blow leaves in the material goes as the stress squared, so light touches wear next to nothing). Worn through, it
+            // tears (and is broken away like a cut cell); on the way it stains (VoxelGrid.Wear).
+            var facePressure = force / MathF.Max(1e-9f, patch.Count * _bin * _bin);
+            foreach (var cell in faces.Order())
+            {
+                if (grid.MaterialAt(cell) is var material and not 0 && grid.Palette[material].MechanicsOrDefault is { Wear: { } wear } mechanics)
+                {
+                    var ratio = MathF.Min(1f, facePressure / mechanics.Strength);
+                    grid.Wear(cell, wear * ratio * ratio, removedFace);
+                }
+            }
+
+            List<RemovedVoxel>? crushed = null;
+            foreach (var (cell, depth) in depthOf.Where(c => !faces.Contains(c.Key)).OrderBy(c => c.Value).ThenBy(c => c.Key))
+            {
+                var material = grid.MaterialAt(cell);
+                if (material == 0)
+                {
+                    continue;
+                }
+
+                var strength = grid.Palette[material].MechanicsOrDefault.Strength;
+                var spread = MathF.PI * (r0 + depth) * (r0 + depth);
+                var cost = strength * cellVolume;
+                if (force / spread <= strength || cost > left)
+                {
+                    continue;
+                }
+
+                crushed ??= [];
+                if (grid.Break(cell, crushed, BruiseStain))
+                {
+                    left -= cost;
+                    // Everything in front of it, up to the face, moves one cell in over it (a dent; no hollow is left under the skin).
+                    var into = cell;
+                    while (outerOf.TryGetValue(into, out var outer) && outer >= 0 && grid.Shift(outer, into))
+                    {
+                        into = outer;
+                    }
+
+                    if (faces.Contains(into) || into == cell)
+                    {
+                        continue;
+                    }
+
+                    // The chain stopped short of the face (its cell was already moved): the face moves in too if it sits right in front.
+                    foreach (var face in faces.Order())
+                    {
+                        if (grid.MaterialAt(face) != 0 && Neighbours(grid, face, into) && grid.Shift(face, into))
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return crushed;
+        }
+
+        /// <summary>The side of one bin of the contact heightfield (<see cref="PatchBins"/>): a probe cell.</summary>
         private float _bin;
 
         /// <summary>
@@ -667,7 +927,7 @@ public static class VoxelContact
         /// they press over once the contact has given way. An edge or a point leaves a thin strip or a dot; a flat face
         /// against a round limb, the whole chord its curve allows. Each bin keeps the material at either face.
         /// </summary>
-        private List<(byte Probe, byte Field)> Patch(int k, Dictionary<(int, int), (float Front, byte Material)> fieldFront, float give)
+        private List<PatchBin> PatchBins(int k, Dictionary<(int, int), (float Front, byte Material)> fieldFront, float give)
         {
             var (q, t) = Pose(k);
             var reach = 0.5f * MaxCell(_probe.Grid);
@@ -698,17 +958,20 @@ public static class VoxelContact
                 }
             }
 
-            var patch = new List<(byte, byte)>();
+            var patch = new List<PatchBin>();
             foreach (var (key, pf) in probeFront)
             {
                 if (fieldFront.TryGetValue(key, out var ff) && ff.Front - pf.Front <= deepest + give)
                 {
-                    patch.Add((pf.Material, ff.Material));
+                    patch.Add(new PatchBin(key, ff.Front, pf.Material, ff.Material));
                 }
             }
 
             return patch;
         }
+
+        /// <summary>One bin of the contact patch: its place across the blow, where the field's face starts along it (field frame), and the two materials there.</summary>
+        private readonly record struct PatchBin((int, int) Key, float Front, byte Probe, byte Field);
 
         /// <summary>The force [N] it takes to push through one side of the <paramref name="patch"/> (as
         /// <see cref="Resistance"/>, over the patch's bins).</summary>
@@ -872,6 +1135,18 @@ public static class VoxelContact
         }
 
         private static Vector3 VelocityAt(BodyState s, Vector3 point) => s.LinearVelocity + Vector3.Cross(s.AngularVelocity, point - s.Position);
+
+        /// <summary>
+        /// The blow's effective mass along <paramref name="direction"/> at <paramref name="point"/>: as <see cref="EffectiveMass"/>,
+        /// with the mass joined behind each side added to that side (a side that cannot move stays immovable).
+        /// </summary>
+        private float BlowMass(Vector3 point, Vector3 direction)
+        {
+            static float Side(float inverse, float behind) => inverse <= 1e-12f ? 0f : 1f / ((1f / inverse) + behind);
+            var inverse = Side(InverseMass(_probe.BodyId, _probeNow, point, direction), _probeBehind)
+                + Side(InverseMass(_field.BodyId, _fieldNow, point, direction), _fieldBehind);
+            return inverse > 1e-12f ? 1f / inverse : 0f;
+        }
 
         /// <summary>The two bodies' effective mass for a push along <paramref name="direction"/> at <paramref name="point"/>
         /// (their masses and turning, a kinematic body counting as immovable). 0 if neither can move.</summary>
