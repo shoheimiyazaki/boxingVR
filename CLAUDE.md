@@ -86,6 +86,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | `docs/BOTS.md` / `docs/BOT_PDCA.md` | ボットの技と、改善の記録（サイクルごとの仮説・結果・採否） |
 | `docs/REPLAY.md` | 記録と完全再現 |
 | `docs/VOXEL_EDITING.md` | ボクセルを Vengi で直す（.vox） |
+| `docs/WEAPON_DEFENSE.md` | 武器を選ばない守り（読み・受け流し・足と頭で外す・間合いを保つ）と守りのドリル（guardlab） |
 | `docs/REUSE.md` | エンジン（Aigis）と iTVision から持ってきたもの、エンジンへの変更 |
 | `docs/arena/*.md` | ドリル・リーグの生の記録 |
 
@@ -115,6 +116,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | 総当たり | `dotnet run --project games/MiniRing.Arena -c Release -- league --bouts 4 --seconds 60 --out docs/arena/<名前>.md` |
 | 攻撃のドリル | `... -- attacklab --combos 1,2,1-2 --telegraphs 0,0.1,0.2` |
 | 防御・回避のドリル | `... -- drill` / `drilltune` / `basics --punch 2 --slot Duck --style swarmer` / `counterlab` |
+| 剣の守りのドリル（武器を選ばない） | `... -- guardlab [--only kesa,棍棒] [--variants 0,7] [--try "ParryAndStep:0.2:0.52:0.35:0.3:0.25:0.3"] [--video out.mp4]`（`docs/WEAPON_DEFENSE.md`） |
 | 試合の動画 | `... -- video --red champion --blue swarmer --seconds 40 --out docs/video/<名前>.mp4`（ffmpeg が要る。`--facecam on` で両コーナーの顔の窓を両脇に出す。`--until-ko yes` で K.O. まで続け、`--seconds` は上限になる。`--speed 0.5 / 0.75 / 1`（既定 0.75）は試合そのものを遅く進めて撮る） |
 | ボクセルの書き出し・確かめ | `... -- voxexport --out boxer.vox` / `voxcheck --in boxer.vox [--install yes]` |
 

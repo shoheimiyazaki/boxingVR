@@ -12,7 +12,7 @@ dotnet run --project games/MiniRing.Arena -c Release -- versus --video videos/ve
 | 拳 | ボクセルのグローブ（両手） | 拳の最強ボット `champion` |
 | 棍棒 | 木の棍棒（右手）。左手はグローブ | `ClubBot` と研究した片手の振り（`docs/arena/club_swings.json`） |
 | バット | 木の棍棒（両手） | `ClubBot` と研究したバットの振り（`docs/arena/bat_swings.json`） |
-| 日本刀 | 日本刀（両手） | `SwordsmanBot` と技の一覧（`docs/arena/sword_library.json`）。守りあり |
+| 日本刀 | 日本刀（両手） | `SwordsmanBot` と技の一覧（`docs/arena/sword_library.json`）。守りは武器を選ばない足と頭の外し（`docs/WEAPON_DEFENSE.md`） |
 | ロングソード | ロングソード（両手） | 同上 |
 
 - 武器の戦い手は、握った腕を斬り落とされて武器を落としたら、拳で戦う（`DisarmedFallback`）。

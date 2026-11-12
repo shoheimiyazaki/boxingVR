@@ -156,7 +156,7 @@ internal sealed class SwordLibraryLab(int seed)
     };
 
     /// <summary>剣の握り（右手）から先までの長さ [腕の長さ]（受けるとき、剣のどこで受けるか）。</summary>
-    private static float BladeLength(WeaponKind weapon) => (Weapon.TipOf(weapon).X - Weapon.TwoHandGripsOf(weapon).Top.X) / ArmReach.Value;
+    internal static float BladeLength(WeaponKind weapon) => (Weapon.TipOf(weapon).X - Weapon.TwoHandGripsOf(weapon).Top.X) / ArmReach.Value;
 
     private static readonly Lazy<float> ArmReach = new(() =>
     {
@@ -167,7 +167,7 @@ internal sealed class SwordLibraryLab(int seed)
     /// <summary>剣士のボット（試合用）。武器を落としたら拳で戦う（<see cref="DisarmedFallback"/>）。</summary>
     internal static DisarmedFallback Bot(Library library, WeaponKind weapon, int seed, SwordDefense? defense = null, HitAndAway? hitAndAway = null, AimTuning? aim = null) =>
         DisarmedFallback.WithFists(new SwordsmanBot([.. library.Techniques.Where(t => t.Weapon == weapon)], library.Guards[weapon], seed, SwordStance.Rate,
-            tuning: SwordStance.Tuning, defense: defense ?? new SwordDefense(), bladeLength: BladeLength(weapon),
+            tuning: SwordStance.Tuning, defense: defense ?? SwordDefense.Adopted, bladeLength: BladeLength(weapon),
             spacing: weapon == WeaponKind.Longsword ? SwordForms.LongswordSpacing : SwordForms.KatanaSpacing, opponentReach: 3f, hitAndAway: hitAndAway, aim: aim)
         {
             // 狙いのドリル（aimlab）で技ごとの打てる部位を測ってあれば、相手の構えの空いた所を狙う。
@@ -260,8 +260,8 @@ internal sealed class SwordLibraryLab(int seed)
         // 守りの効き: 日本刀同士で、片方だけ守る（コーナーを半分ずつ入れ替え）。
         var defended = new BoutMeasure[bouts];
         Parallel.For(0, bouts, k => defended[k] = k % 2 == 0
-            ? Bout(library, WeaponKind.Katana, WeaponKind.Katana, seed + 500 + k, seconds, redDefense: new SwordDefense(), blueDefense: SwordDefense.None)
-            : Bout(library, WeaponKind.Katana, WeaponKind.Katana, seed + 500 + k, seconds, redDefense: SwordDefense.None, blueDefense: new SwordDefense()));
+            ? Bout(library, WeaponKind.Katana, WeaponKind.Katana, seed + 500 + k, seconds, redDefense: SwordDefense.Adopted, blueDefense: SwordDefense.None)
+            : Bout(library, WeaponKind.Katana, WeaponKind.Katana, seed + 500 + k, seconds, redDefense: SwordDefense.None, blueDefense: SwordDefense.Adopted));
         float mineLost = 0f, theirsLost = 0f;
         for (var k = 0; k < bouts; k++)
         {

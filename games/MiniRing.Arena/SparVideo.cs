@@ -67,6 +67,22 @@ internal sealed class SparVideo(int width, int height, int fps)
             return string.Create(CultureInfo.InvariantCulture, $"red wins {game.PlayerWins}, blue wins {game.CpuWins}");
         }, outPath, log);
 
+    /// <summary>守りのドリル（<see cref="GuardLab"/>）の何本かを続けて撮る。画面には打ち手と、受け手の今の守り（受け・外し）。</summary>
+    public void MakeGuard(SwordLibraryLab.Library library, IReadOnlyList<GuardLab.Attack> attacks, GuardLab.Variant variant, int seed, float seconds, string outPath, TextWriter log) =>
+        Render($"守りのドリル（青: 日本刀・{variant.Name}）", step =>
+        {
+            var summary = new List<string>();
+            var offset = 0f;
+            foreach (var attack in attacks)
+            {
+                var r = GuardLab.Run(attack, library, variant, seed, seconds, (game, t, bot) => step(game, offset + t, attack.Name, bot.Blocking ? "受け" : bot.Defending ? "外し" : null));
+                offset += seconds;
+                summary.Add(string.Create(CultureInfo.InvariantCulture, $"{attack.Name}: lost {r.Cells} (self {r.SelfCells}), clash steps {r.ClashSteps}"));
+            }
+
+            return string.Join("; ", summary);
+        }, outPath, log);
+
     private static string? Now(Bots.SwordsmanBot? bot, Fighter fighter) =>
         bot is null ? null : !fighter.Wields(BoxingGame.WeaponHand) ? "拳（武器を落とした）" : bot.Blocking ? "受け" : bot.Defending ? "外し"
             : bot.Current is { } now ? Short(now.Name) : bot.Attacking ? "詰める" : bot.Retreating ? "下がる" : null;

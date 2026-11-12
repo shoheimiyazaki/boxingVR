@@ -182,9 +182,10 @@ public sealed class BoxerBot : IFighterControl
     /// 3: インサイドスリップ・ローリング、回避しながら打つカウンターと拳の種類ごとの打ち返し、4: 狙いの固定・外側への回避・守りの拳の高さ、
     /// 5: 打つ前の溜め（腰と肩のひねり）・相手の読みによる予測の回避・相手の届く間合いのすぐ外に立つ、6: しゃがみの疲れ・予測の回避の読み直し、
     /// 7: 意識が薄れるとガードを下げる、8: 回避からの返しの拳に体の動きを移す（HandCommand.Spring）、9: 溜めは逆へ引いて体のバネを縮め、全ての拳に体の動きとタメを移す、
-    /// 10: ロープの位置を試合のリング（RingLayout）から読む。剣士（SwordsmanBot）は間合いを読んで打って離れる（HitAndAway））。
+    /// 10: ロープの位置を試合のリング（RingLayout）から読む。剣士（SwordsmanBot）は間合いを読んで打って離れる（HitAndAway）、
+    /// 11: 剣士は相手の武器を握りから先までの線として読み、受け流し・足と頭で外す（WeaponDefense）。遠間に、見て覚えた相手の届く距離を入れる（SeenReach））。
     /// </summary>
-    public const int LogicVersion = 10;
+    public const int LogicVersion = 11;
 
     public BotStyle Style { get; }
 
