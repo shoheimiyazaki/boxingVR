@@ -29,13 +29,18 @@ public delegate IFighterControl ControlFactory(int roundSeed);
 /// <para><paramref name="PlayerWear"/>（赤コーナー）/ <paramref name="CpuWear"/>（青コーナー）は、武器を握っていない手にはめる物
 /// （<see cref="Weapons.HandWear"/>: グローブ・素手・メリケンサック・カタール・籠手。既定はグローブ）。<paramref name="VoxelGloves"/> が false なら
 /// どちらの手にも何もはめず、これまでの拳（前腕の箱の当たりと、運動エネルギーで掘る近道。§8）で打つ（比べもの用）。</para>
+/// <para><paramref name="Ring"/> はリングの大きさと始めの間。null なら、両方が武器を握る試合は <see cref="RingLayout.Weapons"/>（広いリングで遠間から）、
+/// それ以外は <see cref="RingLayout.Boxing"/>。</para>
 public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFactory? Player = null, string? CpuStyleJson = null,
     Weapons.WeaponKind? CpuWeapon = null, Weapons.WeaponKind? PlayerWeapon = null, bool CpuTwoHanded = false, bool PlayerTwoHanded = false, bool VoxelGloves = true,
     Weapons.HandWear PlayerWear = Weapons.HandWear.Glove, Weapons.HandWear CpuWear = Weapons.HandWear.Glove,
-    string? PlayerName = null)
+    string? PlayerName = null, RingLayout? Ring = null)
 {
     /// <summary>ゲームの既定の CPU。</summary>
     public static BoxingCorners Default => Bots.BotCatalog.Corners(Bots.BotCatalog.DefaultCpu);
+
+    /// <summary>この試合のリング。</summary>
+    public RingLayout Layout => (Ring ?? (CpuWeapon is not null && PlayerWeapon is not null ? RingLayout.Weapons : RingLayout.Boxing)).Validated();
 }
 
 /// <summary>
@@ -119,6 +124,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         Rules = rules;
         _tuning = tuning ?? FighterTuning.Default;
         _corners = corners ?? BoxingCorners.Default;
+        Layout = _corners.Layout;
+        _lighting = ArenaLook.Lighting(Layout.Center, Layout.Size, RingSurfaceHeight);
         _fx = new Random(seed ^ 0x5eed);
         _model = Models.GetOrAdd((_tuning.HalfExtents, _tuning.ModelSubdivisions), key => BoxerModel.Build(key.Item1, key.Item2));
         _seed = seed;
@@ -192,9 +199,18 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     public bool IsOver => false;
 
-    public static Vector3 RingCenter { get; } = new(0f, 0f, 0.95f);
-    public const float RingSize = 1.2f;
+    /// <summary>拳の試合のリングの中心（<see cref="RingLayout.Boxing"/>。この試合のリングは <see cref="Layout"/>）。</summary>
+    public static Vector3 RingCenter => RingLayout.Boxing.Center;
+
+    /// <summary>拳の試合のリングの 1 辺 [m]（<see cref="RingLayout.Boxing"/>。この試合のリングは <see cref="Layout"/>）。</summary>
+    public static float RingSize => RingLayout.Boxing.Size;
+
     public const float RingSurfaceHeight = 0.75f;
+
+    /// <summary>この試合のリング（大きさと始めの間）。</summary>
+    public RingLayout Layout { get; }
+
+    private readonly SceneLighting _lighting;
 
     public void Step(BoxingInput input, float dt)
     {
@@ -909,8 +925,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private FighterCommand RestCommand(Fighter self, Fighter opponent)
     {
         var rules = Rules ?? MatchRules.Tv;
-        var inset = (RingSize * 0.5f) - rules.CornerInset;
-        var corner = RingCenter + (self == Player ? new Vector3(-inset, 0f, -inset) : new Vector3(inset, 0f, inset));
+        var inset = (Layout.Size * 0.5f) - rules.CornerInset;
+        var corner = Layout.Center + (self == Player ? new Vector3(-inset, 0f, -inset) : new Vector3(inset, 0f, inset));
         var toCorner = corner - self.PelvisPosition;
         toCorner.Y = 0f;
         var distance = toCorner.Length();
@@ -954,12 +970,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _beforeStep.Clear();
         _round++;
         _world = new PhysicsWorld();
-        LivingRoom.AddColliders(_world, RingCenter);
-        _ring = new Ring(_world, RingCenter, RingSize, RingSurfaceHeight, LivingRoom.StageBase);
+        LivingRoom.AddColliders(_world, Layout);
+        _ring = new Ring(_world, Layout.Center, Layout.Size, RingSurfaceHeight, LivingRoom.StageBase);
         var surface = _ring.SurfaceCenter;
+        var apart = new Vector3(0f, 0f, Layout.StartGap * 0.5f);
         // VR のプレイヤーには、手触りの調整が終わるまでスタミナの疲れを効かせない（FighterTuning.PlayerFatigue）。
-        Player = Fighter.Spawn(_world, _tuning.PlayerFatigue ? _tuning : _tuning with { TiredStrength = 1f, TiredHandSlowness = 0f }, "player", surface - new Vector3(0f, 0f, 0.22f), 0f);
-        Cpu = Fighter.Spawn(_world, _tuning, "cpu", surface + new Vector3(0f, 0f, 0.22f), MathF.PI);
+        Player = Fighter.Spawn(_world, _tuning.PlayerFatigue ? _tuning : _tuning with { TiredStrength = 1f, TiredHandSlowness = 0f }, "player", surface - apart, 0f);
+        Cpu = Fighter.Spawn(_world, _tuning, "cpu", surface + apart, MathF.PI);
         PlayerSkin = new BoxerSkin(_model, Player, _tuning);
         // 体の形はローポリのモデル（頭・胸・腕の形）。その内側をボクセルで埋める。トランクスはグローブと同じコーナーの色。
         // 顔はボットのリングネームから（同じボットはいつも同じ顔）。人が操る赤コーナーは名前が無ければ既定の顔。
@@ -968,11 +985,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         Cpu.Voxels = new BoxerBody(Cpu, _world, _tuning, _model, Outfit.BlueCorner, BoxerVoxelOverrides.Shipped,
             FaceLook.For(Bots.BotNames.RingNameOf(_corners.CpuName)));
         // 破片はリングの上ならリングの面、その外は箱庭の台座・ローテーブルの天板、さらに外は床で止まる。
-        var ringHalf = (RingSize * 0.5f) + 0.02f;
         _debris.Clear();
         _impacts.Clear();
         _wounds.Clear();
-        _debris.GroundAt = p => LivingRoom.GroundAt(p, RingCenter, ringHalf, RingSurfaceHeight);
+        _debris.GroundAt = p => LivingRoom.GroundAt(p, Layout, RingSurfaceHeight);
         _debris.Gravity = 9.81f * _tuning.DebrisGravityScale;
         CpuSkin = new BoxerSkin(_model, Cpu, _tuning);
         _fighters = [Player, Cpu];
@@ -1055,7 +1071,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             self.Faintness, OpponentTargets: opponent.AsTarget, SelfStamina: self.Stamina);
     }
 
-    public FighterSense PlayerSense => Sense(Player, Cpu);
+    public FighterSense PlayerSense => ArmedSense(Player, Cpu);
 
     private Fighter[] Fighters => _fighters;
 
@@ -1082,7 +1098,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public IReadOnlyList<ParticleInstance> BuildParticles()
     {
         _renderParticles.Clear();
-        ArenaLook.WriteAtmosphere(RingCenter, RingSize, RingSurfaceHeight, _lookTime, _renderParticles);
+        ArenaLook.WriteAtmosphere(Layout.Center, Layout.Size, RingSurfaceHeight, _lookTime, _renderParticles);
         _impacts.WriteParticles(_renderParticles);
         _debris.WriteTrails(_renderParticles);
         _wounds.WriteHalos(_renderParticles);
@@ -1090,15 +1106,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     }
 
     /// <summary>会場の照明（<see cref="ArenaLook"/>）。</summary>
-    public SceneLighting BuildLighting() => Lighting;
+    public SceneLighting BuildLighting() => _lighting;
 
     /// <summary>リングに落ちる影。</summary>
-    public ShadowMapConfig? BuildShadow() => ArenaLook.Shadow(RingCenter, RingSize, RingSurfaceHeight);
+    public ShadowMapConfig? BuildShadow() => ArenaLook.Shadow(Layout.Center, Layout.Size, RingSurfaceHeight);
 
     /// <summary>画面用の仕上げ（光のにじみ・陰り・コントラスト）。</summary>
     public PostProcessSettings? BuildPostProcess() => ArenaLook.ScreenFinish;
-
-    private static SceneLighting Lighting { get; } = ArenaLook.Lighting(RingCenter, RingSize, RingSurfaceHeight);
 
     /// <summary>
     /// 両ボクサーの顔の窓（<see cref="MiniRing.FaceCam"/>）を出すか。描画だけの設定で、試合の計算・記録には響かない。
@@ -1114,8 +1128,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         => [
             .. Rules is not null
                 ? TvHud.Shapes(this, screenSizePixels)
-                : [.. TvHud.StaminaBar(new Vector2(24f, 102f), StaminaBarWidth, 8f, Player.Stamina),
-                   .. TvHud.StaminaBar(new Vector2(screenSizePixels.X - 24f - StaminaBarWidth, 102f), StaminaBarWidth, 8f, Cpu.Stamina)],
+                : [.. TvHud.StaminaBar(new Vector2(24f, 102f), StaminaBarWidth, 8f, Player),
+                   .. TvHud.StaminaBar(new Vector2(screenSizePixels.X - 24f - StaminaBarWidth, 102f), StaminaBarWidth, 8f, Cpu)],
             .. DownCountHud.Shapes(this, screenSizePixels),
             .. FaceCam?.Frames(this, screenSizePixels) ?? [],
         ];

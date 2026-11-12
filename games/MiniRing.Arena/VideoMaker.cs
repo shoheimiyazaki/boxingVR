@@ -309,7 +309,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
     /// <summary>名前とダメージの下のスタミナのメーター（左右）。</summary>
     private IEnumerable<UiShapeDraw> StaminaBars(BoxingGame game)
-        => [.. TvHud.StaminaBar(new Vector2(28f, 92f), 140f, 8f, game.Player.Stamina), .. TvHud.StaminaBar(new Vector2(width - 28f - 140f, 92f), 140f, 8f, game.Cpu.Stamina)];
+        => [.. TvHud.StaminaBar(new Vector2(28f, 92f), 140f, 8f, game.Player), .. TvHud.StaminaBar(new Vector2(width - 28f - 140f, 92f), 140f, 8f, game.Cpu)];
 
     /// <summary>タイトル・結果の文字を読めるよう、画面全体を暗くする。</summary>
     private UiShapeDraw[] Dim(float alpha) => [new(new Vector2(width * 0.5f, height * 0.5f), new Vector2(width, height), new Vector4(0f, 0f, 0f, alpha))];

@@ -9,7 +9,7 @@ namespace MiniRing;
 /// 床に立った人が見下ろす（VR のプレイヤーは原点に立ち、+Z のリングを向く）。
 /// <list type="bullet">
 /// <item>部屋: 幅 5.4 m × 奥行き 6.4 m、天井 2.4 m。木の床、白い壁と巾木、奥の壁に窓（昼の空）とカーテン、左の壁にドア、天井に照明。</item>
-/// <item>ローテーブル: 1.5 m 角、天板の上面が床から <see cref="TableTop"/>。脚は 4 本。テーブルの下にラグ。</item>
+/// <item>ローテーブル: リングに合わせた正方形（<see cref="RingLayout"/>。拳の試合で 1.5 m 角）、天板の上面が床から <see cref="TableTop"/>。脚は 4 本。テーブルの下にラグ。</item>
 /// <item>箱庭の台座: テーブルの上に板（<see cref="PlinthHeight"/>）。その上にリングの台（<see cref="Ring"/>）。</item>
 /// </list>
 /// 当たり判定は床とテーブルの天板だけ（落ちた破片が床・天板に転がる）。壁・家具は見た目だけ。
@@ -25,9 +25,6 @@ public static class LivingRoom
 
     /// <summary>ローテーブルの天板の上面の高さ（床から）。</summary>
     public const float TableTop = 0.40f;
-
-    /// <summary>ローテーブルの天板の半分の幅（正方形）。</summary>
-    public const float TableHalf = 0.75f;
 
     /// <summary>箱庭の台座（テーブルに置いた板）の厚み。</summary>
     public const float PlinthHeight = 0.035f;
@@ -59,23 +56,29 @@ public static class LivingRoom
     public static Vector3 CeilingLamp(Vector3 tableCenter) => new(tableCenter.X, CeilingHeight - 0.08f, tableCenter.Z);
 
     /// <summary>床とテーブルの天板の当たり判定を置く（破片が転がる）。</summary>
-    public static void AddColliders(PhysicsWorld world, Vector3 tableCenter)
+    public static void AddColliders(PhysicsWorld world, RingLayout layout)
     {
         ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(layout);
+        var tableCenter = layout.Center;
+        var tableHalf = layout.TableHalf;
         var width = (MaxX - MinX) * 0.5f;
         var depth = (MaxZ - MinZ) * 0.5f;
         world.AddStaticBox(new Vector3((MinX + MaxX) * 0.5f, -0.05f, (MinZ + MaxZ) * 0.5f), new Vector3(width, 0.05f, depth));
-        world.AddStaticBox(new Vector3(tableCenter.X, TableTop - (TableThickness * 0.5f), tableCenter.Z), new Vector3(TableHalf, TableThickness * 0.5f, TableHalf));
-        world.AddStaticBox(new Vector3(tableCenter.X, TableTop + (PlinthHeight * 0.5f), tableCenter.Z), PlinthHalf(tableCenter));
+        world.AddStaticBox(new Vector3(tableCenter.X, TableTop - (TableThickness * 0.5f), tableCenter.Z), new Vector3(tableHalf, TableThickness * 0.5f, tableHalf));
+        world.AddStaticBox(new Vector3(tableCenter.X, TableTop + (PlinthHeight * 0.5f), tableCenter.Z), PlinthHalf(layout));
     }
 
     /// <summary>
     /// 部屋の見た目（床・壁・天井・巾木・窓・カーテン・ドア・ラグ・ローテーブル・台座・天井の照明・家具）。
     /// 床・壁・布・木には <paramref name="assets"/> の色のテクスチャを貼る（床の板は写真の色、ほかは塗った色に写真の木目・織り目を乗せる）。
     /// </summary>
-    public static IEnumerable<PrimitiveInstance> Visuals(Vector3 tableCenter, RoomAssets assets)
+    public static IEnumerable<PrimitiveInstance> Visuals(RingLayout layout, RoomAssets assets)
     {
+        ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(assets);
+        var tableCenter = layout.Center;
+        var tableHalf = layout.TableHalf;
         var cx = (MinX + MaxX) * 0.5f;
         var cz = (MinZ + MaxZ) * 0.5f;
         var width = (MaxX - MinX) * 0.5f;
@@ -141,23 +144,23 @@ public static class LivingRoom
 
         // ラグ（テーブルの下）と縁。
         var t = tableCenter;
-        yield return assets.Fabric.Over(Box(new Vector3(t.X, 0.006f, t.Z), new Vector3(1.3f, 0.006f, 1.1f), RugBorder), FabricTile);
-        yield return assets.Fabric.Over(Box(new Vector3(t.X, 0.008f, t.Z), new Vector3(1.22f, 0.006f, 1.02f), Rug), FabricTile);
+        yield return assets.Fabric.Over(Box(new Vector3(t.X, 0.006f, t.Z), new Vector3(tableHalf + 0.55f, 0.006f, tableHalf + 0.35f), RugBorder), FabricTile);
+        yield return assets.Fabric.Over(Box(new Vector3(t.X, 0.008f, t.Z), new Vector3(tableHalf + 0.47f, 0.006f, tableHalf + 0.27f), Rug), FabricTile);
 
         // ローテーブル: 天板と 4 本の脚。
-        yield return Box(new Vector3(t.X, TableTop - (TableThickness * 0.5f), t.Z), new Vector3(TableHalf, TableThickness * 0.5f, TableHalf), TableWood).Over(assets.Wood, WoodTile);
+        yield return Box(new Vector3(t.X, TableTop - (TableThickness * 0.5f), t.Z), new Vector3(tableHalf, TableThickness * 0.5f, tableHalf), TableWood).Over(assets.Wood, WoodTile);
         const float leg = 0.035f;
         var legHeight = (TableTop - TableThickness) * 0.5f;
         foreach (var x in new[] { -1f, 1f })
         {
             foreach (var z in new[] { -1f, 1f })
             {
-                yield return Box(new Vector3(t.X + (x * (TableHalf - 0.08f)), legHeight, t.Z + (z * (TableHalf - 0.08f))), new Vector3(leg, legHeight, leg), TableWood).Over(assets.Wood, WoodTile);
+                yield return Box(new Vector3(t.X + (x * (tableHalf - 0.08f)), legHeight, t.Z + (z * (tableHalf - 0.08f))), new Vector3(leg, legHeight, leg), TableWood).Over(assets.Wood, WoodTile);
             }
         }
 
         // 箱庭の台座（テーブルに置いた明るい板）。
-        yield return assets.Wood.Over(Box(new Vector3(t.X, TableTop + (PlinthHeight * 0.5f), t.Z), PlinthHalf(t), PlinthWood), WoodTile);
+        yield return assets.Wood.Over(Box(new Vector3(t.X, TableTop + (PlinthHeight * 0.5f), t.Z), PlinthHalf(layout), PlinthWood), WoodTile);
 
         // 天井の照明（丸い灯体）。
         var lamp = CeilingLamp(t);
@@ -195,18 +198,19 @@ public static class LivingRoom
         new("pottedPlant", new Vector3(MinX + 0.35f, 0f, MinZ + 0.4f), 0f),
     ];
 
-    private static Vector3 PlinthHalf(Vector3 tableCenter) => new(0.68f, PlinthHeight * 0.5f, 0.68f);
+    private static Vector3 PlinthHalf(RingLayout layout) => new(layout.PlinthHalf, PlinthHeight * 0.5f, layout.PlinthHalf);
 
     /// <summary>
-    /// 飛び散った破片が止まる高さ: リングの上はキャンバス（<paramref name="ringHalf"/> の内側）、その外は台座の上、
-    /// テーブルの天板の上、それより外は床。
+    /// 飛び散った破片が止まる高さ: リングの上（縁から 2 cm 外まで）はキャンバス、その外は台座の上、テーブルの天板の上、それより外は床。
     /// </summary>
-    public static float GroundAt(Vector3 p, Vector3 tableCenter, float ringHalf, float canvasHeight)
+    public static float GroundAt(Vector3 p, RingLayout layout, float canvasHeight)
     {
-        var d = MathF.Max(MathF.Abs(p.X - tableCenter.X), MathF.Abs(p.Z - tableCenter.Z));
-        return d < ringHalf ? canvasHeight
-            : d < PlinthHalf(tableCenter).X ? StageBase
-            : d < TableHalf ? TableTop
+        ArgumentNullException.ThrowIfNull(layout);
+        var c = layout.Center;
+        var d = MathF.Max(MathF.Abs(p.X - c.X), MathF.Abs(p.Z - c.Z));
+        return d < layout.Half + 0.02f ? canvasHeight
+            : d < layout.PlinthHalf ? StageBase
+            : d < layout.TableHalf ? TableTop
             : 0f;
     }
 

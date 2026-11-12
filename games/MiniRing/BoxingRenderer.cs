@@ -25,9 +25,11 @@ public static class BoxingRenderer
 
     private const float BareFistScale = 0.55f;
 
-    /// <summary>部屋（ローテーブルに載った箱庭のリングの周り）と会場の飾り。リングも部屋も動かないので 1 度だけ作る。</summary>
-    private static readonly PrimitiveInstance[] Dressing =
-        [.. LivingRoom.Visuals(BoxingGame.RingCenter, RoomAssets.Instance), .. ArenaLook.Dressing(BoxingGame.RingCenter, BoxingGame.RingSize, BoxingGame.RingSurfaceHeight)];
+    /// <summary>部屋（ローテーブルに載った箱庭のリングの周り）と会場の飾り。リングも部屋も動かないので、リングの大きさごとに 1 度だけ作る。</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<RingLayout, PrimitiveInstance[]> Dressings = new();
+
+    private static PrimitiveInstance[] Dressing(RingLayout layout) => Dressings.GetOrAdd(layout, l =>
+        [.. LivingRoom.Visuals(l, RoomAssets.Instance), .. ArenaLook.Dressing(l.Center, l.Size, BoxingGame.RingSurfaceHeight)]);
 
     /// <summary>
     /// 呼び出し側のリストを空にして詰め直す。へこんだ体は 1 万インスタンス近くになるので、毎フレーム新しいリストを
@@ -41,7 +43,7 @@ public static class BoxingRenderer
         instances.Clear();
         lines.Clear();
         instances.AddRange(game.Ring.Visuals);
-        instances.AddRange(Dressing);
+        instances.AddRange(Dressing(game.Layout));
         AddFighter(instances, game.World, game.Player, game.Model, game.PlayerSkin, PlayerGlove);
         AddFighter(instances, game.World, game.Cpu, game.Model, game.CpuSkin, CpuGlove);
         foreach (var weapon in game.Weapons)
@@ -55,6 +57,7 @@ public static class BoxingRenderer
 
         game.Debris.WriteInstances(instances);
         game.Wounds.WriteInstances(instances);
+        TiredLook.WriteInstances(game, instances); // 息が上がった側の口から白い息（見た目だけ）
 
         if (showTargetGhosts)
         {

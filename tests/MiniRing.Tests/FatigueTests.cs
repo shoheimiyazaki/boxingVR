@@ -1,50 +1,70 @@
+using System.Numerics;
 using MiniRing.Bots;
 
 namespace MiniRing.Tests;
 
 /// <summary>
-/// 疲れ（A3）: スタミナが尽きた体の拳は、筋肉の縮む速さの上限（1 / <see cref="Fighter.HandSlowness"/>）が下がって遅く、軽くなる。
-/// 構えて立っているだけの相手へ、同じ攻め手が同じ種類の拳を 20 秒打ち、当たった拳の速さを比べる。
+/// 疲れ（A3）: スタミナが尽きた体の拳は、筋肉の縮む速さの上限（1 / <see cref="Fighter.HandSlowness"/>）が下がって遅くなる。
+/// 同じ体に同じ指令（構え ⇄ 前へ突き出す、を繰り返す）を出し、空中での拳の最大の速さ（胸に対して）を比べる。相手に当たった拳の速さで
+/// 比べると、ガードに当たったか・どこで当たったかで揺れて、試合の流れが少し変わるだけで逆転した（2026-11-13、master のマージ後）。
 /// </summary>
 [TestClass]
 public sealed class FatigueTests
 {
-    private static (float Speed, float DamagePerHit, float Vigor) Punches(FighterTuning tuning, PunchKind kind)
+    private const float Dt = 1f / 240f;
+
+    /// <summary>右の拳を構えと前（直線）・横（フックの向き）へ交互に出し、出すたびの拳の最大の速さの平均 [m/s]。</summary>
+    private static float PeakFistSpeed(bool tired, Vector3 strike)
     {
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f, Name = "still" };
-        using var game = new BoxingGame(tuning, seed: 1, new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(DefenseDrill.Attacker(kind), s)));
-        var hits = 0;
-        var speed = 0f;
-        var damage = 0f;
-        for (var t = 0f; t < 20f; t += 1f / 60f)
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s)));
+        var reach = game.Player.ArmReach;
+        var guard = new Vector3(-0.13f, 0.25f, 0.36f) * reach;
+        var lead = new Vector3(0.17f, 0.25f, 0.5f) * reach;
+        var peaks = new List<float>();
+        var peak = 0f;
+        var extended = false;
+        for (var t = 0f; t < 6f; t += Dt)
         {
-            game.Step(default, 1f / 60f);
-            foreach (var hit in game.RecentHits)
+            var phase = (int)(t / 0.5f);
+            var nowExtended = t > 1f && phase % 2 == 1;
+            if (nowExtended != extended)
             {
-                if (hit.Attacker == game.Player)
+                if (extended)
                 {
-                    hits++;
-                    speed += hit.Speed;
-                    damage += hit.Damage;
+                    peaks.Add(peak);
                 }
+
+                peak = 0f;
+                extended = nowExtended;
             }
+
+            if (tired)
+            {
+                game.Player.Stamina = 0f; // 尽きたまま（回復の分を毎歩消す）
+            }
+
+            var right = new HandCommand(nowExtended ? strike * reach : guard, false);
+            var command = new FighterCommand(Vector3.Zero, Vector3.UnitZ, new HandCommand(lead, false), right);
+            game.Step(new BoxingInput(command), Dt);
+            var relative = game.Player.GloveVelocity(Hand.Right) - game.Player.ChestVelocity;
+            peak = MathF.Max(peak, relative.Length());
         }
 
-        Assert.IsGreaterThan(3, hits, "拳が当たっている");
-        return (speed / hits, damage / hits, game.Player.Vigor);
+        return peaks.Average();
     }
 
     [TestMethod]
-    [DataRow(PunchKind.Straight)]
-    [DataRow(PunchKind.Hook)]
-    public void TiredFists_AreSlowerAndLighter(PunchKind kind)
+    [DataRow(0f, DisplayName = "straight")]
+    [DataRow(1f, DisplayName = "hook")]
+    public void TiredFists_AreSlower(float sideways)
     {
-        var fresh = Punches(FighterTuning.Default with { TiredStrength = 1f, TiredHandSlowness = 0f }, kind);
-        var tired = Punches(FighterTuning.Default with { StaminaCapacity = 0.5f, StaminaRecoveryPower = 0f }, kind);
-        Console.WriteLine($"{kind}: fresh speed {fresh.Speed:0.00} dmg/hit {fresh.DamagePerHit:0.0}; tired (vigor {tired.Vigor:0.00}) speed {tired.Speed:0.00} dmg/hit {tired.DamagePerHit:0.0}");
-        Assert.AreEqual(FighterTuning.Default.TiredStrength, tired.Vigor, 1e-3f, "スタミナを使い切っている");
-        // 2026-11-12: ストレート 1.90 → 1.72 m/s（−9%）、フック 2.78 → 1.88 m/s（−32%）。疲れた筋肉の速さの上限 2.4 m/s に近い速い拳ほど落ちる。
-        Assert.IsLessThan(0.95f * fresh.Speed, tired.Speed, "疲れた拳は遅い");
-        Assert.IsLessThan(fresh.DamagePerHit, tired.DamagePerHit, "疲れた拳は軽い");
+        // 直線: 前へ。横: 外から回す向き（右の拳を左前へ）。
+        var strike = Vector3.Normalize(new Vector3(0.6f * sideways, 0.25f, 1f)) * 1.05f;
+        var fresh = PeakFistSpeed(tired: false, strike);
+        var tired = PeakFistSpeed(tired: true, strike);
+        Console.WriteLine($"sideways {sideways}: fresh peak {fresh:0.00} m/s, tired peak {tired:0.00} m/s");
+        // 2026-11-13: 直線 2.07 → 1.94 m/s（−6 %）、横 2.23 → 2.02 m/s（−9 %）。疲れた筋肉の速さの上限 2.4 m/s に近い速い拳ほど落ちる。
+        Assert.IsLessThan(0.96f * fresh, tired, "疲れた拳は遅い");
     }
 }

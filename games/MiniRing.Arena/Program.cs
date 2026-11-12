@@ -46,7 +46,11 @@ try
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
-        "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue")),
+        "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift")),
+        "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
+        "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seconds", "out", "only", "variants", "video", "try")),
+        "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
+        "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway")),
         "swordlib" => SwordLibCommand(Options.Parse(argv[1..], "out", "best", "bouts", "seconds", "seed", "fight", "video", "red", "blue")),
         "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead")),
         "mocap" => MocapCommand(Options.Parse(argv[1..], "bvh", "out", "from", "to", "speed", "width", "height", "fps", "strikes")),
@@ -432,8 +436,24 @@ static int SwingLabCommand(Options o)
 static int VersusCommand(Options o)
 {
     // 武器ごとの練習試合（拳・棍棒・バット・日本刀・ロングソードの総当たり）。
-    var defense = o.Get("defense") == "off" ? MiniRing.Bots.SwordDefense.None : new MiniRing.Bots.SwordDefense();
-    var contenders = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", defense);
+    // --defense: off・legacy（はじめの守り）・step（足と頭で外す）・parry（受け流し＋足と頭）。既定は守りのドリルで選んだもの。
+    var defense = o.Get("defense") switch
+    {
+        "off" => MiniRing.Bots.SwordDefense.None,
+        "legacy" => new MiniRing.Bots.SwordDefense(),
+        "step" => new MiniRing.Bots.SwordDefense(Mode: MiniRing.Bots.DefenseMode.Step),
+        "parry" => MiniRing.Bots.SwordDefense.Parrying,
+        null => MiniRing.Bots.SwordDefense.Adopted,
+        var other => throw new ArgumentException($"--defense は off・legacy・step・parry のどれか（{other}）。"),
+    };
+    // --hitaway: off（打って離れない）・default（始めの値）・JSON のパス（awaylab で育てた値）。既定は育てた値があればそれ。
+    var hitAway = (o.Get("hitaway") ?? (File.Exists("docs/arena/hit_and_away.json") ? "docs/arena/hit_and_away.json" : "default")) switch
+    {
+        "off" => null,
+        "default" => new MiniRing.Bots.HitAndAway(),
+        var file => AwayLab.Load(file),
+    };
+    var contenders = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", defense, hitAway, AimDefaults.Tuning);
     if (o.Get("video") is { } video)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(video))!);
@@ -444,6 +464,109 @@ static int VersusCommand(Options o)
     }
 
     var report = VersusLab.Run(contenders, o.Int("bouts", 4, min: 2), o.Float("seconds", 30f, min: 1f), o.Int("seed", 1), Console.Out);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int GuardLabCommand(Options o)
+{
+    // 守りのドリル: 日本刀の受け手へ、いろいろな武器の打ち手が 1 本ずつ打ち込み、守り方ごとに失ったものを比べる。
+    // --only 名前の一部（打ち手を絞る）、--variants 0,4,7（守り方を番号で選ぶ）。
+    var library = SwordLibraryLab.Load("docs/arena/sword_library.json");
+    var attacks = GuardLab.Attacks(library, SwingLab.Load("docs/arena/club_swings.json"), SwingLab.Load("docs/arena/bat_swings.json"));
+    if (o.Get("only") is { } only)
+    {
+        attacks = [.. attacks.Where(a => only.Split(',').Any(x => a.Name.Contains(x, StringComparison.Ordinal)))];
+    }
+
+    var variants = o.Get("variants") is { } picked
+        ? [.. picked.Split(',').Select(s => GuardLab.Variants[int.Parse(s, System.Globalization.CultureInfo.InvariantCulture)])]
+        : GuardLab.Variants;
+    // --try "Parry:lead:deflect:forte;ParryAndStep:..."（受け流しの値を試す。値は腕の長さ・rad・刀の割合）。
+    if (o.Get("try") is { } tries)
+    {
+        variants = [.. variants, .. tries.Split(';').Select(t =>
+        {
+            var x = t.Split(':');
+            if (x.Length < 4)
+            {
+                throw new ArgumentException($"--try の 1 つは Mode:lead:deflect:forte[:drive[:horizon[:bind[:flat]]]]（{t}）。");
+            }
+
+            float F(int i) => float.Parse(x[i], System.Globalization.CultureInfo.InvariantCulture);
+            return new GuardLab.Variant(t,
+                new MiniRing.Bots.SwordDefense(Counter: false, Mode: Enum.Parse<MiniRing.Bots.DefenseMode>(x[0]), Lead: F(1), Deflect: F(2), Forte: F(3), Drive: x.Length > 4 ? F(4) : 0f, Horizon: x.Length > 5 ? F(5) : 0.25f, Bind: x.Length > 6 ? F(6) : 1f, Flat: x.Length > 7 && x[7] == "flat"));
+        })];
+    }
+
+    if (o.Get("video") is { } video)
+    {
+        // 動画: 選んだ打ち手を、選んだ守り方（最後の 1 つ。--try があればそれ）で続けて撮る。
+        new SparVideo(1280, 720, 30).MakeGuard(library, attacks, variants[^1], 1, o.Float("seconds", 4.5f), video, Console.Out);
+        return 0;
+    }
+
+    var report = GuardLab.Run(library, attacks, variants, o.Int("seeds", 2), o.Float("seconds", 4.5f), Console.Out, out _);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, "# 守りのドリル（guardlab）\n\n" + report);
+    }
+
+    return 0;
+}
+
+static int AimLabCommand(Options o)
+{
+    // 狙いのドリル: 技 × 狙う部位 × 的の構えで、狙った部位を打てるかを測り、狙いの付け方を選んで、技ごとの打てた割合を一覧へ書く。
+    var library = o.Get("library") ?? "docs/arena/sword_library.json";
+    // --maxshift 0.6,1,1.4: 前の回で選んだ付け方（aim_tuning.json）のまま、ずらせる上限だけを変えて比べる。
+    List<MiniRing.Motion.AimTuning> candidates = o.Get("maxshift") is { } shifts
+        ? [.. shifts.Split(',').Select(s => AimDefaults.Tuning with { MaxShift = float.Parse(s, System.Globalization.CultureInfo.InvariantCulture) })]
+        : o.Get("quick") == "yes"
+        ? [new()]
+        : [.. from gain in AimGrid.Gains from lead in AimGrid.Leads from forward in AimGrid.Forwards
+              select new MiniRing.Motion.AimTuning(gain, lead, 0.6f, forward)];
+    var report = AimLab.Run(SwordLibraryLab.Load(library), candidates, o.Get("library-out") ?? library, o.Get("tuning-out") ?? "docs/arena/aim_tuning.json", Console.Out);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int AwayLabCommand(Options o)
+{
+    // 打って離れる剣士を練習試合で育てる。
+    var defense = MiniRing.Bots.SwordDefense.Adopted;
+    IReadOnlyList<Contender> Contenders(MiniRing.Bots.HitAndAway? h) =>
+        VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", defense, h, AimDefaults.Tuning);
+    var trainee = o.Get("trainee") ?? "日本刀";
+    var start = o.Get("start") is { } from ? AwayLab.Load(from) : new MiniRing.Bots.HitAndAway();
+    var (best, report) = AwayLab.Run(Contenders, trainee, o.List("opponents", ["日本刀", "ロングソード", "バット", "棍棒", "拳"]), start,
+        o.Int("gens", 6, min: 0), o.Int("lambda", 6, min: 1), o.Int("bouts", 2, min: 2), o.Float("seconds", 30f, min: 1f), o.Int("seed", 1), Console.Out);
+    Console.WriteLine(report);
+    AwayLab.Save(o.Get("best") ?? "docs/arena/hit_and_away.json", best);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int BladeProbeCommand(Options o)
+{
+    // 調査: 刃が相手の体にめり込んだまま何も起きない場面を数える。
+    var contenders = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", MiniRing.Bots.SwordDefense.Adopted);
+    var report = BladeProbe.Run(contenders, [.. o.List("pairs", ["日本刀-日本刀", "ロングソード-日本刀", "日本刀-拳", "バット-日本刀"])], o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), Console.Out);
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {
@@ -818,4 +941,20 @@ internal sealed record Options(IReadOnlyDictionary<string, string> Values)
 
     public IReadOnlyList<string> List(string name, IReadOnlyList<string> fallback)
         => Get(name) is { } v ? v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : fallback;
+}
+
+/// <summary>狙いのドリルで比べる、狙いの付け方の格子。</summary>
+internal static class AimGrid
+{
+    public static readonly float[] Gains = [0.6f, 1f];
+    public static readonly float[] Leads = [0.4f, 0.7f];
+    public static readonly float[] Forwards = [0.5f, 1f];
+}
+
+/// <summary>狙いのドリル（aimlab）で選んだ狙いの付け方（まだ無ければ既定）。</summary>
+internal static class AimDefaults
+{
+    private static readonly Lazy<MiniRing.Motion.AimTuning> Loaded = new(() => File.Exists("docs/arena/aim_tuning.json") ? AimLab.Load("docs/arena/aim_tuning.json") : new());
+
+    public static MiniRing.Motion.AimTuning Tuning => Loaded.Value;
 }

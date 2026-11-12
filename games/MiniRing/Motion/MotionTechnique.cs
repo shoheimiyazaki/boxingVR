@@ -11,7 +11,9 @@ namespace MiniRing.Motion;
 /// <param name="Motion">動きの区間。</param>
 /// <param name="Range">始める間合い [m]。</param>
 /// <param name="Target">いちばん斬った部位（ドリルで決まる。まだなら null）。</param>
-public sealed record MotionTechnique(string Name, WeaponKind Weapon, SwordMotion Motion, float Range, BodyPartKind? Target = null)
+/// <param name="Skill">狙った部位ごとの、その部位を打てた割合（0..1。狙いのドリル <c>aimlab</c> で、構えの違う相手に対して測る。まだなら null）。</param>
+public sealed record MotionTechnique(string Name, WeaponKind Weapon, SwordMotion Motion, float Range, BodyPartKind? Target = null,
+    IReadOnlyDictionary<BodyPartKind, float>? Skill = null)
 {
     /// <summary>技を出す間合いの幅 [m]: 間合いが <see cref="Range"/> ± これに入ったら出す。</summary>
     public const float Window = 0.03f;

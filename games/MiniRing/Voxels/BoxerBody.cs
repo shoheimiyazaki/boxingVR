@@ -18,25 +18,57 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
     /// <summary>チアノーゼを丸める段の数（テクスチャの書き直しはこの段が変わったときだけ）。</summary>
     private const int CyanosisSteps = 16;
 
-    /// <summary>いちばん強いチアノーゼで、皮膚の色を寄せる割合（元の肌の色を少し残す）。</summary>
-    private const float MaxCyanosis = 0.6f;
+    /// <summary>
+    /// いちばん強いチアノーゼで、皮膚の色を寄せる割合。0.6 とくすんだ青灰色では照明の下で肌の陰と見分けられなかった（ユーザーの指摘）ので、
+    /// ゲームとして読める強さ（ほぼ寄せきる）と色にした。
+    /// </summary>
+    private const float MaxCyanosis = 0.85f;
 
-    /// <summary>チアノーゼの皮膚の色（酸素の足りない血の、くすんだ青紫）。</summary>
-    private static readonly Vector4 CyanoticSkin = new(0.42f, 0.45f, 0.68f, 1f);
+    /// <summary>
+    /// 顔のグラデーションの曲がり方（高さ 0..1 の何乗で青くするか）。1 未満で、首の近くだけ元の色を残して顔の大部分をしっかり青くする
+    /// （1 だと口元まで薄く、顔の青さが読めなかった）。
+    /// </summary>
+    private const float CyanosisRise = 0.6f;
+
+    /// <summary>チアノーゼの皮膚の色（青紫。現実よりはっきりさせた、ゲームの合図の色）。</summary>
+    private static readonly Vector4 CyanoticSkin = new(0.36f, 0.34f, 0.86f, 1f);
+
+    /// <summary>
+    /// 塗り直しの関数の置き場（段ごとに作り直す）。record の値の比較・ハッシュ（<c>_originals</c> の鍵）が描画で変わらないよう、
+    /// 中身を書き換える別の箱に入れて、この部位は箱への参照だけを持つ。
+    /// </summary>
+    private readonly RecolorCache _cache = new();
+
+    private sealed class RecolorCache
+    {
+        public VoxelRecolor? Recolor { get; set; }
+
+        public int Step { get; set; }
+    }
 
     /// <summary>この部位を描く指示: 格子の変化をテクスチャへ写し、セル座標をワールドへ置く行列を付ける。</summary>
     public VoxelVolumeDraw Draw() => Draw(0f);
 
     /// <summary>
-    /// この部位を描く指示。<paramref name="cyanosis"/>（0..1）だけ皮膚を青紫へ寄せる（チアノーゼ: 息が上がり酸素が足りない）。
-    /// 16 段に丸めて、段が変わったときだけテクスチャを書き直す。見た目だけ。
+    /// この部位を描く指示。頭なら <paramref name="cyanosis"/>（0..1）だけ顔の皮膚を青紫へ寄せる（チアノーゼ: 息が上がり酸素が足りない）。
+    /// 顔だけ、下から上へのグラデーション: 頭の箱の下の端（首とのつなぎ目）は元の肌の色のまま、上へ行くほど青い（ユーザーの指定。
+    /// 全身を青くすると照明の陰と混ざって分かりにくかった）。16 段に丸めて、段が変わったときだけテクスチャを書き直す。見た目だけ。
     /// </summary>
     public VoxelVolumeDraw Draw(float cyanosis)
     {
-        var step = (int)MathF.Round(Math.Clamp(cyanosis, 0f, 1f) * CyanosisSteps);
-        Volume.Sync(Body.Grid, step, step == 0 ? null : (m, color) => m == BoxerAnatomy.Skin
-            ? Vector4.Lerp(color, CyanoticSkin, MaxCyanosis * step / CyanosisSteps) with { W = color.W }
-            : color);
+        var step = Kind == BodyPartKind.Head ? (int)MathF.Round(Math.Clamp(cyanosis, 0f, 1f) * CyanosisSteps) : 0;
+        if (step != _cache.Step)
+        {
+            // 塗り直しの関数は段が変わったときだけ作る（毎フレーム作ると描画の道でごみが出る。VR で効く）。
+            var height = MathF.Max(1f, Body.Grid.Dimensions.Y - 1);
+            var amount = MaxCyanosis * step / CyanosisSteps;
+            _cache.Recolor = step == 0 ? null : (m, color, _, y, _) => m == BoxerAnatomy.Skin
+                ? Vector4.Lerp(color, CyanoticSkin, amount * MathF.Pow(y / height, CyanosisRise)) with { W = color.W }
+                : color;
+            _cache.Step = step;
+        }
+
+        Volume.Sync(Body.Grid, step, _cache.Recolor);
         return new VoxelVolumeDraw(Volume, VoxelVolume.CellToWorld(Body.Grid, Body.GridToWorld()));
     }
 }

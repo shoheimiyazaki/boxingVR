@@ -162,7 +162,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 13; // 13: 疲れ（Vigor）を肩・肘・手首（武器の刃筋を保つ力）のサーボにも出し、疲れた筋肉は拳を縮めて運ぶ速さに上限が付く（TiredHandSlowness）。12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
+    public const int PhysicsVersion = 14; // 14: 疲れ（Vigor）を肩・肘・手首（武器の刃筋を保つ力）のサーボにも出し、疲れた筋肉は拳を縮めて運ぶ速さに上限が付く（TiredHandSlowness。claude/a-3d0203 では 13 だった）。13: claude/voxel-damage（武器同士は広いリング RingLayout・斬れずにめり込んだボクセルの押し戻し）をマージ。12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -612,6 +612,12 @@ public sealed class Fighter
         StillTime = State != FighterState.Standing && Awareness <= 0f && MaxPartSpeed() < _tuning.StillSpeed ? StillTime + dt : 0f;
         UpdateStir(dt);
         UpdateStamina(dt);
+        if (!IsDead)
+        {
+            // 見た目だけ（吐く息・メーターの点滅の拍子）。小数部だけが意味を持つので、float の精度が落ちる前に整数ぶん戻す。
+            BreathPhase += dt * TiredLook.BreathsPerSecond(Winded);
+            BreathPhase -= BreathPhase >= 1024f ? 1024f : 0f;
+        }
         var grounded = TryFindGround(out var height);
         foreach (var arm in _arms)
         {
@@ -706,7 +712,7 @@ public sealed class Fighter
     }
 
     /// <summary>スタミナ（0..1）: 筋肉がすぐ使えるエネルギーの蓄えの残り（<see cref="FighterTuning.StaminaCapacity"/> に対する割合）。</summary>
-    public float Stamina { get; private set; } = 1f;
+    public float Stamina { get; internal set; } = 1f; // internal: テストが疲れた体を作る
 
     private readonly float[] _armPower = new float[2];
 
@@ -714,7 +720,28 @@ public sealed class Fighter
     /// チアノーゼの度合い（0..1、見た目だけ）: 酸素が足りないほど皮膚が青紫になる。スタミナが <see cref="FighterTuning.TiredKnee"/> を下回るほど、
     /// また息（心臓・肺）の働きが落ちるほど強い（大きい方）。死んでいれば 1。試合の計算には使わない。
     /// </summary>
-    public float Cyanosis => IsDead ? 1f : Smooth(Math.Clamp(MathF.Max(1f - (Stamina / MathF.Max(1e-3f, _tuning.TiredKnee)), 0.8f * (1f - Breath)), 0f, 1f));
+    public float Cyanosis => IsDead ? 1f : Smooth(Winded);
+
+    /// <summary>
+    /// 息の上がり方（0..1、見た目だけ）: スタミナが <see cref="FighterTuning.TiredKnee"/> を下回るほど、また息（心臓・肺）の働きが
+    /// 落ちるほど大きい（大きい方）。死んでいれば 0（息をしない）。チアノーゼ・吐く息・メーターの点滅はここから出る。試合の計算には使わない。
+    /// </summary>
+    public float Winded => IsDead ? 0f : Math.Clamp(MathF.Max(1f - (Stamina / MathF.Max(1e-3f, _tuning.TiredKnee)), BreathWindedShare * (1f - Breath)), 0f, 1f);
+
+    /// <summary>
+    /// 息（心臓・肺）の働きが 0 のときの <see cref="Winded"/>（見た目だけ）。スタミナが尽きたとき（1）より少し弱い: 胸を打たれた直後は
+    /// まだ蓄えがあるので、あえぎきるのはスタミナも尽きてから。
+    /// </summary>
+    private const float BreathWindedShare = 0.8f;
+
+    /// <summary>
+    /// 呼吸の位相（息の数、見た目だけ）: 1 息ごとに 1 増える（小数部が 1 息の中の位置。死ねば止まる）。速さは <see cref="Winded"/> で決まる（<see cref="TiredLook.BreathsPerSecond"/>）。
+    /// 物理の歩で進むので、同じ試合なら同じ所で息を吐く。試合の計算には使わない。
+    /// </summary>
+    public float BreathPhase { get; private set; }
+
+    /// <summary>スタミナがこれを下回ると拳を運ぶ力が落ち始める（<see cref="FighterTuning.TiredKnee"/>。メーターの「動きが鈍る」区域の上端）。</summary>
+    public float SluggishBelow => _tuning.TiredKnee;
 
     /// <summary>スタミナで決まる、拳を運ぶ力の割合（<see cref="FighterTuning.TiredStrength"/>〜1）。疲れは腕に出る（脚は意識で決まる）。</summary>
     public float Vigor => Lerp(_tuning.TiredStrength, 1f, Freshness);

@@ -38,12 +38,16 @@ public static class StrikeDrill
 {
     private const float Dt = 1f / 240f;
 
-    /// <summary>技を 1 回出す。<paramref name="afterStep"/> は物理の 1 歩ごとに、時刻と技を出している最中かを添えて呼ぶ（動画を撮るため）。</summary>
-    public static StrikeResult Run(MotionTechnique technique, MotionFrame guard, float rate, FighterTuning? tuning = null, Action<BoxingGame, float, bool>? afterStep = null)
+    /// <summary>
+    /// 技を 1 回出す。<paramref name="afterStep"/> は物理の 1 歩ごとに、時刻と技を出している最中かを添えて呼ぶ（動画を撮るため）。
+    /// <paramref name="target"/> は的の構え（null ならその場で構えて立つ <see cref="StandGuard"/>）、<paramref name="aim"/> は狙う部位（<see cref="SwordsmanBot.Aim"/>）。
+    /// </summary>
+    public static StrikeResult Run(MotionTechnique technique, MotionFrame guard, float rate, FighterTuning? tuning = null, Action<BoxingGame, float, bool>? afterStep = null,
+        Func<IFighterControl>? target = null, BodyPartKind? aim = null, AimTuning? aimTuning = null)
     {
         ArgumentNullException.ThrowIfNull(technique);
-        var bot = new SwordsmanBot([technique], guard, seed: 1, rate, rest: 1000f, exact: true, tuning: tuning);
-        using var game = new BoxingGame(tuning, seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => bot, PlayerWeapon: technique.Weapon, PlayerTwoHanded: true));
+        var bot = new SwordsmanBot([technique], guard, seed: 1, rate, rest: 1000f, exact: true, tuning: tuning, aim: aimTuning) { Aim = aim };
+        using var game = new BoxingGame(tuning, seed: 1, corners: new BoxingCorners("stand", _ => target?.Invoke() ?? new StandGuard(), _ => bot, PlayerWeapon: technique.Weapon, PlayerTwoHanded: true));
         var victim = game.Cpu.Voxels!;
         var start = Count(victim);
         var sword = game.WeaponOf(game.Player)!;

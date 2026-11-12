@@ -40,6 +40,9 @@
 
 状態: 未着手 / 作業中 / 済（採用） / 済（不採用） / 保留。
 
+**版の番号（2026-11-13、master をマージ）**: この文書の中の `LogicVersion` 11〜13・`PhysicsVersion` 13 は、このブランチ（claude/a-3d0203）の中だけの番号。
+master（剣士の守り `LogicVersion` 12、武器のリング `PhysicsVersion` 13）とマージして、合わせた版を **`LogicVersion` 14・`PhysicsVersion` 14** にした。
+
 ---
 
 ## 2. A0: スタミナあり・なしの総当たり
