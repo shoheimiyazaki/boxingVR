@@ -22,6 +22,26 @@ public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, 
 }
 
 /// <summary>
+/// 間合いの取り合い（打って離れる: ヒットアンドアウェイ）。相手の届く距離を読み、その少し外（遠間）に立って待つ。相手に隙が見えたら
+/// （振り終えた直後・武器を落とした）、または待ちきれなくなったら、一気に技の間合いまで詰めて打ち、打ち終えたらすぐ遠間まで下がる。
+/// 相手が自分の技の間合いへ入ってきたら、その出端を打つ。下がる・待つ間はロープを背負わないよう、空いている横へ回る。
+/// </summary>
+/// <param name="Margin">相手の届く距離（読み）より外に立つ余裕 [m]。</param>
+/// <param name="Lunge">相手の届く距離の読みに足す、相手の踏み込みの分 [腕の長さ]。</param>
+/// <param name="OpeningTime">相手の振りが終わってから、隙と見て打ちに出る時間の窓 [s]。</param>
+/// <param name="Patience">隙が来ないとき、自分から攻めて出るまでに待つ時間 [s]。</param>
+/// <param name="Circle">遠間で待つ間に横へ回る強さ（歩く速さに対する割合）。</param>
+/// <param name="Debana">相手が自分の技の間合いへ踏み込んできたら、その出端を打つか。</param>
+public sealed record HitAndAway(float Margin = 0.06f, float Lunge = 0.35f, float OpeningTime = 0.4f, float Patience = 1.2f, float Circle = 0.35f, bool Debana = true)
+{
+    /// <summary>形の検査をして自分を返す。</summary>
+    public HitAndAway Validated() =>
+        Margin is >= -0.2f and <= 0.5f && Lunge is >= 0f and <= 2f && OpeningTime is >= 0f and <= 2f && Patience is > 0f and <= 10f && Circle is >= 0f and <= 1f
+            ? this
+            : throw new ArgumentOutOfRangeException(nameof(Margin), "間合いの取り合いの値が範囲の外です。");
+}
+
+/// <summary>
 /// 両手で剣を握って戦うボット。技は動きの区間（<see cref="MotionTechnique"/>）で、構え（コンストラクタに渡すフレーム）から出す:
 /// <list type="bullet">
 /// <item>構えのまま、遠間（いちばん遠い技の間合いの少し外、<see cref="StandOff"/>）で相手と向き合う。</item>
@@ -55,6 +75,20 @@ public sealed class SwordsmanBot : IFighterControl
     private MotionFrame? _block;
     private Vector3 _evade;
     private bool _counter;
+    private readonly HitAndAway? _hitAndAway;
+    private bool _attacking;
+    private bool _retreating;
+    private float _waitStart;
+    private float _openUntil;
+    private bool _opponentSwinging;
+    private float _circleSide = 1f;
+    private float _ropeSide;
+    private readonly AimTuning _aimTuning;
+    private float _aimForward;
+    private readonly Dictionary<BodyPartKind, float> _forwardNow = [];
+    private float _retreatStart;
+    private bool _circleTurned;
+    private BodyPartKind? _openTarget;
 
     /// <summary>狙った技の間合いに着けないまま、この秒数が過ぎたら狙いを決め直す。</summary>
     public const float PlanPatience = 1.5f;
@@ -70,8 +104,10 @@ public sealed class SwordsmanBot : IFighterControl
     /// <param name="bladeLength">剣の握り（右手）から先までの長さ [腕の長さ]（受けるとき、剣のどこで受けるか）。</param>
     /// <param name="spacing">両手の間隔 [腕の長さ]（受けの構えの左手の位置）。</param>
     /// <param name="opponentReach">相手の肩から剣先までが届く長さ [腕の長さ]（これより先を通る剣先は届かないので守らない）。</param>
+    /// <param name="hitAndAway">間合いの取り合い（打って離れる）。null なら、遠間で構えて技を 1 つずつ狙って詰める（ドリルと同じ）。</param>
+    /// <param name="aim">狙いの付け方（<see cref="Aim"/> を決めたときの、通り道のずらし方）。null なら既定。</param>
     public SwordsmanBot(IReadOnlyList<MotionTechnique> techniques, MotionFrame guard, int seed, float rate, float rest = 0.6f, bool exact = false, FighterTuning? tuning = null,
-        SwordDefense? defense = null, float bladeLength = 1.4f, float spacing = SwordForms.KatanaSpacing, float opponentReach = 3f)
+        SwordDefense? defense = null, float bladeLength = 1.4f, float spacing = SwordForms.KatanaSpacing, float opponentReach = 3f, HitAndAway? hitAndAway = null, AimTuning? aim = null)
     {
         ArgumentNullException.ThrowIfNull(techniques);
         if (techniques.Count == 0)
@@ -92,6 +128,9 @@ public sealed class SwordsmanBot : IFighterControl
         _bladeLength = bladeLength;
         _spacing = spacing;
         _opponentReach = opponentReach;
+        _hitAndAway = hitAndAway?.Validated();
+        _aimTuning = (aim ?? new AimTuning()).Validated();
+        _circleSide = _hitAndAway is null || _random.Next(2) == 0 ? 1f : -1f;
         StandOff = techniques.Max(x => x.Range) + 0.08f;
     }
 
@@ -125,6 +164,119 @@ public sealed class SwordsmanBot : IFighterControl
     /// <summary>足で外した回数。</summary>
     public int Evasions { get; private set; }
 
+    /// <summary>
+    /// 狙う相手の部位（<see cref="MotionAim.Targets"/> のどれか。null なら技そのままの通り道）。入力元の意図（コントローラの方向など）から
+    /// 毎フレーム変えてよい。狙う部位があれば、技はその部位を打てる技（ドリルで測った <see cref="MotionTechnique.Skill"/>）から選び、
+    /// 相手の今の姿勢でのその部位の位置へ、間合いと両手の通り道を合わせて出す（<see cref="MotionAim"/>）。
+    /// </summary>
+    public BodyPartKind? Aim { get; set; }
+
+    /// <summary>
+    /// 狙う部位を自分で選ぶか（ボット）。技を決めるたびに、相手の構えでいちばん空いている部位（<see cref="OpenTarget"/>）を <see cref="Aim"/> にする。
+    /// </summary>
+    public bool AutoAim { get; init; }
+
+    /// <summary>
+    /// 相手の構えでいちばん空いている部位: 部位ごとに、相手の拳と剣（握りから先までの線）からの近さ（守られている度合い）と、その部位を打てる
+    /// 自分の技の割合（<see cref="MotionTechnique.Skill"/>）を掛けた点がいちばん高い所。打てる技が 1 つも無ければ null。
+    /// </summary>
+    private BodyPartKind? OpenTarget(in FighterSense sense)
+    {
+        BodyPartKind? best = null;
+        var bestScore = 0f;
+        foreach (var part in MotionAim.Targets)
+        {
+            var skill = _techniques.Max(t => t.Skill?.GetValueOrDefault(part) ?? 0f);
+            if (skill <= 0f)
+            {
+                continue;
+            }
+
+            var at = MotionAim.TargetPoint(sense, part);
+            var cover = float.MaxValue;
+            foreach (var fist in new[] { sense.OpponentLeft.Position, sense.OpponentRight.Position })
+            {
+                // 部位そのものが拳・前腕なら、その拳では守れない。
+                if (fist != default && !(part == BodyPartKind.Forearm && Vector3.Distance(fist, at) < 0.3f * sense.ArmReach))
+                {
+                    cover = MathF.Min(cover, Vector3.Distance(fist, at));
+                }
+            }
+
+            if (sense.OpponentBlade.Present)
+            {
+                cover = MathF.Min(cover, Vector3.Distance(at, ClosestOnSegment(at, sense.OpponentBlade.Hilt, sense.OpponentBlade.Tip)));
+            }
+
+            // 守りから腕の長さほど離れていれば、空いている（それより遠くても点は増えない）。
+            var open = MathF.Min(1f, cover / sense.ArmReach);
+            var score = open * skill;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = part;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>技 <paramref name="technique"/> を出す間合い: 技の間合いに、狙う所が相手の胸より手前にある分を足す。</summary>
+    private float RangeOf(MotionTechnique technique) => technique.Range + _aimForward;
+
+    private bool Fits(MotionTechnique technique, float distance) => MathF.Abs(distance - RangeOf(technique)) <= MotionTechnique.Window;
+
+    /// <summary>
+    /// 次に狙う技: 狙う部位が無ければ全ての技から乱数で。あれば、その部位を打てた割合（<see cref="MotionTechnique.Skill"/>）がいちばん高い技の
+    /// 8 割以上の技から乱数で（測っていなければ、ドリルでいちばん斬った部位がそこの技、それも無ければ全ての技から）。
+    /// </summary>
+    private MotionTechnique ChoosePlan()
+    {
+        if (AutoAim)
+        {
+            // 狙いを決め直したら、その部位の前後の差で間合いも決め直す（このフレームのうちに）。空いた所が無ければ狙わない。
+            Aim = _openTarget;
+            _aimForward = Aim is { } chosen ? _forwardNow.GetValueOrDefault(chosen) : 0f;
+        }
+
+        if (Aim is not { } aimAt)
+        {
+            return _techniques[_random.Next(_techniques.Count)];
+        }
+
+        var best = _techniques.Max(t => t.Skill?.GetValueOrDefault(aimAt) ?? 0f);
+        IReadOnlyList<MotionTechnique> pool = best > 0f
+            ? [.. _techniques.Where(t => (t.Skill?.GetValueOrDefault(aimAt) ?? 0f) >= 0.8f * best)]
+            : _techniques.Where(t => t.Target == aimAt).ToList() is { Count: > 0 } named ? named : _techniques;
+        return pool[_random.Next(pool.Count)];
+    }
+
+    /// <summary>相手の隙（振り終えた直後）を見て打ちに出た回数（<see cref="HitAndAway"/>）。</summary>
+    public int Openings { get; private set; }
+
+    /// <summary>相手が間合いへ踏み込んできた出端を打った回数。</summary>
+    public int Debanas { get; private set; }
+
+    /// <summary>隙が来ないまま待ちきれず、自分から攻めて出た回数。</summary>
+    public int Pressures { get; private set; }
+
+    /// <summary>今、打った後に遠間へ下がっているか。</summary>
+    public bool Retreating => _retreating;
+
+    /// <summary>今、技の間合いへ詰めているか（打ちに出た）。</summary>
+    public bool Attacking => _attacking;
+
+    /// <summary>
+    /// 相手の武器（無ければ拳）がこちらの胸に届く、胸と胸の距離の読み [m]: 武器の握りから先までの長さ + 腕の長さの 1.15 倍（肩の回り込み）
+    /// + 踏み込み（<see cref="HitAndAway.Lunge"/>）。体の形は同じ人形なので、腕の長さは自分のもので読む。
+    /// </summary>
+    public static float OpponentReach(in FighterSense sense, float lunge)
+    {
+        var blade = sense.OpponentBlade;
+        var weapon = blade.Present ? Vector3.Distance(blade.Hilt, blade.Tip) : 0f;
+        return weapon + (sense.ArmReach * (1.15f + lunge));
+    }
+
     public FighterCommand Read(in FighterSense sense, float dt)
     {
         _time += dt;
@@ -132,6 +284,18 @@ public sealed class SwordsmanBot : IFighterControl
         toOpponent.Y = 0f;
         var distance = toOpponent.Length();
         var face = distance > 1e-4f ? toOpponent / distance : sense.Self.Forward;
+        WatchOpponent(sense);
+        _openTarget = AutoAim ? OpenTarget(sense) : null;
+        _forwardNow.Clear();
+        if (AutoAim || Aim is not null)
+        {
+            foreach (var part in MotionAim.Targets)
+            {
+                _forwardNow[part] = _aimTuning.ForwardGain * MotionAim.ForwardOffset(sense, MotionAim.TargetPoint(sense, part), face);
+            }
+        }
+
+        _aimForward = Aim is { } aimAt ? _forwardNow[aimAt] : 0f;
         if (!sense.OpponentAlive)
         {
             _current = null;
@@ -149,6 +313,9 @@ public sealed class SwordsmanBot : IFighterControl
             _current = null;
             _plan = null;
             _restUntil = _time + Rest;
+            _attacking = false;
+            _retreating = _hitAndAway is not null; // 打ったらすぐ遠間へ下がる
+            _retreatStart = _time;
         }
 
         // 守り: 技を出していない間だけ（打っている最中は打ち切る）。
@@ -169,36 +336,187 @@ public sealed class SwordsmanBot : IFighterControl
             // 受けた直後: 休まず、近い間合いの技で打ち返す。
             _counter = false;
             _restUntil = _time;
-            _plan = _techniques.MinBy(x => MathF.Abs(x.Range - distance));
+            _plan = _techniques.MinBy(x => MathF.Abs(RangeOf(x) - distance));
             _plannedAt = _time;
+            _attacking = _hitAndAway is not null;
+            _retreating = false;
+        }
+
+        if (_hitAndAway is { } h)
+        {
+            return HitAndAwayStep(sense, h, distance, face);
         }
 
         var resting = _time < _restUntil;
-        var closest = _techniques.Min(x => x.Range);
-        var pressed = !Exact && (resting ? distance <= closest + MotionTechnique.Window : _plan is { } p && distance < p.Range - MotionTechnique.Window);
+        var closest = _techniques.Min(RangeOf);
+        var pressed = !Exact && (resting ? distance <= closest + MotionTechnique.Window : _plan is { } p && distance < RangeOf(p) - MotionTechnique.Window);
         if (!resting || pressed)
         {
             if (_plan is null || _time - _plannedAt > PlanPatience)
             {
-                _plan = _techniques[_random.Next(_techniques.Count)];
+                _plan = ChoosePlan();
                 _plannedAt = _time;
             }
 
-            var fits = _techniques.Where(x => x.Fits(distance)).ToList();
+            var fits = _techniques.Where(x => Fits(x, distance)).ToList();
             if (fits.Count > 0 && (pressed || fits.Contains(_plan)))
             {
-                var chosen = fits.Contains(_plan) ? _plan : fits[_random.Next(fits.Count)];
-                _current = chosen;
-                _start = _time;
-                Used.Add(chosen.Name);
-                UsedAt.Add(distance);
-                return MotionImitation.ToCommand(chosen.Motion.Frames[0], sense, face, _rate, _walkSpeed, _maxTwist);
+                return Strike(fits.Contains(_plan) ? _plan : fits[_random.Next(fits.Count)], sense, face, distance);
             }
         }
 
-        var want = resting ? StandOff : _plan!.Range;
+        var want = resting ? StandOff : RangeOf(_plan!);
         var move = distance > want + 0.02f ? face : distance < want - 0.02f ? -face : Vector3.Zero;
         return MotionImitation.ToCommand(_guard, sense, face, 0f, _walkSpeed, _maxTwist, move);
+    }
+
+    /// <summary>技 <paramref name="technique"/> を今の間合い <paramref name="distance"/> から出す。</summary>
+    private FighterCommand Strike(MotionTechnique technique, in FighterSense sense, Vector3 face, float distance)
+    {
+        // 狙う部位があれば、今のその位置へ両手の通り道をずらす（姿勢でなく目標の通り道を変える）。
+        if (Aim is { } aimAt)
+        {
+            var target = sense.Self.WorldToLocal(MotionAim.TargetPoint(sense, aimAt)) / sense.ArmReach;
+            technique = MotionAim.Aimed(technique, target, sense.ArmReach, _aimTuning) with { Name = technique.Name };
+        }
+
+        _current = technique;
+        _start = _time;
+        Used.Add(technique.Name);
+        UsedAt.Add(distance);
+        return MotionImitation.ToCommand(technique.Motion.Frames[0], sense, face, _rate, _walkSpeed, _maxTwist);
+    }
+
+    /// <summary>
+    /// 相手の振りを見る: 剣先（武器が無ければ拳）が、相手の胴の動きを差し引いて守りの読みの速さ（<see cref="SwordDefense.ThreatSpeed"/>）より
+    /// 速ければ振っている。振りが終わったら、そこから <see cref="HitAndAway.OpeningTime"/> 秒を隙と見る（振り抜いた剣は戻るまで受けに使えない）。
+    /// </summary>
+    private void WatchOpponent(in FighterSense sense)
+    {
+        if (_hitAndAway is not { } h)
+        {
+            return;
+        }
+
+        var blade = sense.OpponentBlade;
+        var speed = blade.Present
+            ? (blade.TipVelocity - sense.OpponentVelocity).Length()
+            : MathF.Max((sense.OpponentLeft.Velocity - sense.OpponentVelocity).Length(), (sense.OpponentRight.Velocity - sense.OpponentVelocity).Length());
+        var swinging = speed > _defense.ThreatSpeed * sense.ArmReach;
+        if (_opponentSwinging && !swinging)
+        {
+            _openUntil = _time + h.OpeningTime;
+        }
+
+        _opponentSwinging = swinging;
+    }
+
+    /// <summary>
+    /// 打って離れる 1 歩（<see cref="HitAndAway"/>）: 遠間で待つ → 隙・待ちきれない・出端で打ちに出る → 技の間合いで打つ → 遠間へ下がる。
+    /// </summary>
+    private FighterCommand HitAndAwayStep(in FighterSense sense, HitAndAway h, float distance, Vector3 face)
+    {
+        var reach = sense.ArmReach;
+        var safe = OpponentReach(sense, h.Lunge) + h.Margin;
+        // 遠間まで下がれたら待つ。追われて下がりきれないまま（ロープ際など）長く続いたら、下がるのをやめて待ち直す。
+        if (_retreating && (distance >= safe - 0.02f || _time - _retreatStart > PlanPatience))
+        {
+            _retreating = false;
+            _waitStart = _time;
+        }
+
+        if (!_attacking)
+        {
+            // 出端: 相手がこちらへ歩いて詰めてきて、今の間合いで出せる技がある（下がっている最中に追ってきた相手にも）。
+            var advancing = Vector3.Dot(sense.OpponentVelocity, -face) > 0.25f * _walkSpeed;
+            var ready = _techniques.Where(x => Fits(x, distance)).ToList();
+            if (h.Debana && advancing && ready.Count > 0)
+            {
+                Debanas++;
+                _attacking = true;
+                _retreating = false;
+                return Strike(ready[_random.Next(ready.Count)], sense, face, distance);
+            }
+        }
+
+        if (!_attacking && !_retreating)
+        {
+            var open = _time < _openUntil;
+            if (open || _time - _waitStart > h.Patience)
+            {
+                Openings += open ? 1 : 0;
+                Pressures += open ? 0 : 1;
+                _attacking = true;
+                _plan = ChoosePlan();
+                _plannedAt = _time;
+            }
+        }
+
+        if (_attacking && _plan is { } plan)
+        {
+            var fits = _techniques.Where(x => Fits(x, distance)).ToList();
+            if (fits.Count > 0 && (fits.Contains(plan) || distance < RangeOf(plan) - MotionTechnique.Window))
+            {
+                return Strike(fits.Contains(plan) ? plan : fits[_random.Next(fits.Count)], sense, face, distance);
+            }
+
+            if (_time - _plannedAt <= PlanPatience)
+            {
+                var step = distance > RangeOf(plan) + 0.02f ? face : distance < RangeOf(plan) - 0.02f ? -face : Vector3.Zero;
+                return MotionImitation.ToCommand(_guard, sense, face, 0f, _walkSpeed, _maxTwist, Footing(sense, step, face, reach));
+            }
+
+            // 詰めきれなかった（相手も下がった）: 遠間へ戻って待ち直す。
+            _attacking = false;
+            _retreating = true;
+            _retreatStart = _time;
+        }
+
+        // 待つ（遠間で横へ回る）・下がる。
+        var lateral = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, face));
+        var keep = _retreating || distance < safe - 0.03f ? -face : distance > safe + 0.03f ? face * 0.6f : Vector3.Zero;
+        // 回る先にロープが近づいたら逆へ回る。決めたら、そのロープから離れるまで変えない（隅で毎フレーム入れ替わると動けない）。
+        var ahead = BoxerBot.RopeBehind(sense.Self.Origin, -lateral * _circleSide, face, reach, sense.Arena).Behind;
+        if (ahead > 0.5f && !_circleTurned)
+        {
+            _circleSide = -_circleSide;
+            _circleTurned = true;
+        }
+        else if (ahead < 0.2f)
+        {
+            _circleTurned = false;
+        }
+
+        var circle = _retreating ? Vector3.Zero : lateral * (h.Circle * _circleSide);
+        return MotionImitation.ToCommand(_guard, sense, face, 0f, _walkSpeed, _maxTwist, Footing(sense, keep + circle, face, reach));
+    }
+
+    /// <summary>
+    /// ロープを背負わない足の運び（拳のボットと同じ: <see cref="BoxerBot.RopeBehind"/>）: 背中側のロープが近いほど、下がる動きを空いている横への
+    /// 動きに替え（逃げる側はロープを感じた時に決めて、離れるまで変えない）、ロープ際では中へ戻る向きを足す。
+    /// </summary>
+    private Vector3 Footing(in FighterSense sense, Vector3 move, Vector3 face, float reach)
+    {
+        var ring = sense.Arena;
+        var lateral = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, face));
+        var (behind, roomy) = BoxerBot.RopeBehind(sense.Self.Origin, face, lateral, reach, ring);
+        if (behind <= 0f)
+        {
+            _ropeSide = 0f;
+        }
+        else if (_ropeSide == 0f)
+        {
+            _ropeSide = roomy;
+        }
+
+        var approach = Vector3.Dot(move, face);
+        if (approach < 0f && behind > 0f)
+        {
+            var converted = -approach * behind;
+            move += (face * converted) + (lateral * (_ropeSide * converted));
+        }
+
+        return move + BoxerBot.StayInside(sense.Self.Origin, reach, ring);
     }
 
     /// <summary>

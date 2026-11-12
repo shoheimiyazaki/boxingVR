@@ -26,11 +26,17 @@ public delegate IFighterControl ControlFactory(int roundSeed);
 /// </summary>
 /// <para><paramref name="CpuWeapon"/> / <paramref name="PlayerWeapon"/> を渡すと、その側はラウンドの初めから右手のグローブを外し、
 /// その武器を握って立つ（<see cref="Fighter.Wield"/>）。</para>
+/// <para><paramref name="Ring"/> はリングの大きさと始めの間。null なら、両方が武器を握る試合は <see cref="RingLayout.Weapons"/>（広いリングで遠間から）、
+/// それ以外は <see cref="RingLayout.Boxing"/>。</para>
 public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFactory? Player = null, string? CpuStyleJson = null,
-    Weapons.WeaponKind? CpuWeapon = null, Weapons.WeaponKind? PlayerWeapon = null, bool CpuTwoHanded = false, bool PlayerTwoHanded = false, bool VoxelGloves = true)
+    Weapons.WeaponKind? CpuWeapon = null, Weapons.WeaponKind? PlayerWeapon = null, bool CpuTwoHanded = false, bool PlayerTwoHanded = false, bool VoxelGloves = true,
+    RingLayout? Ring = null)
 {
     /// <summary>ゲームの既定の CPU。</summary>
     public static BoxingCorners Default => Bots.BotCatalog.Corners(Bots.BotCatalog.DefaultCpu);
+
+    /// <summary>この試合のリング。</summary>
+    public RingLayout Layout => (Ring ?? (CpuWeapon is not null && PlayerWeapon is not null ? RingLayout.Weapons : RingLayout.Boxing)).Validated();
 }
 
 /// <summary>
@@ -99,6 +105,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     {
         _tuning = tuning ?? FighterTuning.Default;
         _corners = corners ?? BoxingCorners.Default;
+        Layout = _corners.Layout;
+        _lighting = ArenaLook.Lighting(Layout.Center, Layout.Size, RingSurfaceHeight);
         _fx = new Random(seed ^ 0x5eed);
         _model = Models.GetOrAdd((_tuning.HalfExtents, _tuning.ModelSubdivisions), key => BoxerModel.Build(key.Item1, key.Item2));
         _seed = seed;
@@ -166,9 +174,18 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     public bool IsOver => false;
 
-    public static Vector3 RingCenter { get; } = new(0f, 0f, 0.95f);
-    public const float RingSize = 1.2f;
+    /// <summary>拳の試合のリングの中心（<see cref="RingLayout.Boxing"/>。この試合のリングは <see cref="Layout"/>）。</summary>
+    public static Vector3 RingCenter => RingLayout.Boxing.Center;
+
+    /// <summary>拳の試合のリングの 1 辺 [m]（<see cref="RingLayout.Boxing"/>。この試合のリングは <see cref="Layout"/>）。</summary>
+    public static float RingSize => RingLayout.Boxing.Size;
+
     public const float RingSurfaceHeight = 0.75f;
+
+    /// <summary>この試合のリング（大きさと始めの間）。</summary>
+    public RingLayout Layout { get; }
+
+    private readonly SceneLighting _lighting;
 
     public void Step(BoxingInput input, float dt)
     {
@@ -713,21 +730,21 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _beforeStep.Clear();
         _round++;
         _world = new PhysicsWorld();
-        LivingRoom.AddColliders(_world, RingCenter);
-        _ring = new Ring(_world, RingCenter, RingSize, RingSurfaceHeight, LivingRoom.StageBase);
+        LivingRoom.AddColliders(_world, Layout);
+        _ring = new Ring(_world, Layout.Center, Layout.Size, RingSurfaceHeight, LivingRoom.StageBase);
         var surface = _ring.SurfaceCenter;
-        Player = Fighter.Spawn(_world, _tuning, "player", surface - new Vector3(0f, 0f, 0.22f), 0f);
-        Cpu = Fighter.Spawn(_world, _tuning, "cpu", surface + new Vector3(0f, 0f, 0.22f), MathF.PI);
+        var apart = new Vector3(0f, 0f, Layout.StartGap * 0.5f);
+        Player = Fighter.Spawn(_world, _tuning, "player", surface - apart, 0f);
+        Cpu = Fighter.Spawn(_world, _tuning, "cpu", surface + apart, MathF.PI);
         PlayerSkin = new BoxerSkin(_model, Player, _tuning);
         // 体の形はローポリのモデル（頭・胸・腕の形）。その内側をボクセルで埋める。トランクスはグローブと同じコーナーの色。
         Player.Voxels = new BoxerBody(Player, _world, _tuning, _model, Outfit.RedCorner, BoxerVoxelOverrides.Shipped);
         Cpu.Voxels = new BoxerBody(Cpu, _world, _tuning, _model, Outfit.BlueCorner, BoxerVoxelOverrides.Shipped);
         // 破片はリングの上ならリングの面、その外は箱庭の台座・ローテーブルの天板、さらに外は床で止まる。
-        var ringHalf = (RingSize * 0.5f) + 0.02f;
         _debris.Clear();
         _impacts.Clear();
         _wounds.Clear();
-        _debris.GroundAt = p => LivingRoom.GroundAt(p, RingCenter, ringHalf, RingSurfaceHeight);
+        _debris.GroundAt = p => LivingRoom.GroundAt(p, Layout, RingSurfaceHeight);
         _debris.Gravity = 9.81f * _tuning.DebrisGravityScale;
         CpuSkin = new BoxerSkin(_model, Cpu, _tuning);
         _fighters = [Player, Cpu];
@@ -782,7 +799,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             self.Faintness);
     }
 
-    public FighterSense PlayerSense => Sense(Player, Cpu);
+    public FighterSense PlayerSense => ArmedSense(Player, Cpu);
 
     private Fighter[] Fighters => _fighters;
 
@@ -809,7 +826,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public IReadOnlyList<ParticleInstance> BuildParticles()
     {
         _renderParticles.Clear();
-        ArenaLook.WriteAtmosphere(RingCenter, RingSize, RingSurfaceHeight, _lookTime, _renderParticles);
+        ArenaLook.WriteAtmosphere(Layout.Center, Layout.Size, RingSurfaceHeight, _lookTime, _renderParticles);
         _impacts.WriteParticles(_renderParticles);
         _debris.WriteTrails(_renderParticles);
         _wounds.WriteHalos(_renderParticles);
@@ -817,15 +834,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     }
 
     /// <summary>会場の照明（<see cref="ArenaLook"/>）。</summary>
-    public SceneLighting BuildLighting() => Lighting;
+    public SceneLighting BuildLighting() => _lighting;
 
     /// <summary>リングに落ちる影。</summary>
-    public ShadowMapConfig? BuildShadow() => ArenaLook.Shadow(RingCenter, RingSize, RingSurfaceHeight);
+    public ShadowMapConfig? BuildShadow() => ArenaLook.Shadow(Layout.Center, Layout.Size, RingSurfaceHeight);
 
     /// <summary>画面用の仕上げ（光のにじみ・陰り・コントラスト）。</summary>
     public PostProcessSettings? BuildPostProcess() => ArenaLook.ScreenFinish;
-
-    private static SceneLighting Lighting { get; } = ArenaLook.Lighting(RingCenter, RingSize, RingSurfaceHeight);
 
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 viewProjection, Vector2 screenSizePixels)
     {

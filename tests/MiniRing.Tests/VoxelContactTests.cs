@@ -311,4 +311,32 @@ public sealed class VoxelContactTests
 
         Assert.AreEqual(0, removed);
     }
+
+    [TestMethod]
+    public void AnOverlapThatCannotCut_IsPushedOutWithinAFewSteps_NotLeftEmbedded()
+    {
+        // 再発防止: 腕が押し込んで、斬れないまま体にめり込んだ刃が、そのまま残っていた（試合で刃の 1〜2 割の歩がめり込んでいた）。
+        // 歩の始めからめり込んでいる重なりは、サンプル半分ずつではなく、めり込んだ深さだけ押し戻す（深ければ数歩に分けて）。
+        using var world = World();
+        var gel = GelBlock(world);
+        // 平らな面を下に、ゲルの上面から 1 cm 沈めて止めて置く（平らな面は押し切れない）。
+        var flat = Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI / 2f);
+        var plate = Box(world, Steel, new Vector3(0.04f, 0.015f, 0.00125f), 0.00125f, new Vector3(0f, 0.03f + 0.00125f - 0.01f, 0f), flat);
+        world.SetPairCollisionEnabled(plate.BodyId, gel.BodyId, false);
+        var removed = 0;
+        for (var i = 0; i < 3; i++)
+        {
+            var sp = world.GetState(plate.BodyId);
+            var sg = world.GetState(gel.BodyId);
+            world.Step(Dt);
+            var r = VoxelContact.Resolve(plate, sp, gel, sg);
+            removed += r.RemovedB.Count;
+            Assert.IsTrue(i > 0 || r.Touched);
+        }
+
+        Assert.AreEqual(0, removed, "a flat face at rest cuts nothing");
+        var bottom = world.GetState(plate.BodyId).Position.Y - 0.00125f;
+        Assert.IsGreaterThan(0.03f - 0.005f, bottom, $"the plate is out of the gel, but for less than one gel cell (bottom at {bottom * 1000f:0.0} mm, top of the gel at 30 mm)");
+        Assert.IsLessThan(0.03f + 0.005f, bottom, "and not thrown clear of it");
+    }
 }

@@ -131,16 +131,17 @@ public sealed class RoomAssetsTests
             Assert.IsNotEmpty(assets.Furniture(name).Parts, name);
         }
 
-        var table = BoxingGame.RingCenter;
-        foreach (var piece in LivingRoom.Furniture)
+        foreach (var (piece, layout) in LivingRoom.Furniture.SelectMany(p => new[] { (p, RingLayout.Boxing), (p, RingLayout.Weapons) }))
         {
             var (min, max) = Bounds(piece.Instances(assets));
             var label = $"{piece.Name} at {piece.Position}: {min} .. {max}";
             Assert.IsTrue(min.X >= LivingRoom.MinX - 0.01f && max.X <= LivingRoom.MaxX + 0.01f, $"inside the side walls: {label}");
             Assert.IsTrue(min.Z >= LivingRoom.MinZ - 0.01f && max.Z <= LivingRoom.MaxZ + 0.01f, $"inside the front and back walls: {label}");
             Assert.IsLessThan(LivingRoom.CeilingHeight, max.Y, $"under the ceiling: {label}");
-            var clearOfTable = max.X < table.X - LivingRoom.TableHalf - 0.3f || min.X > table.X + LivingRoom.TableHalf + 0.3f
-                || max.Z < table.Z - LivingRoom.TableHalf - 0.3f || min.Z > table.Z + LivingRoom.TableHalf + 0.3f;
+            // 武器の試合の広いリングでも、テーブルのまわりを歩ける。
+            var (table, tableHalf) = (layout.Center, layout.TableHalf);
+            var clearOfTable = max.X < table.X - tableHalf - 0.3f || min.X > table.X + tableHalf + 0.3f
+                || max.Z < table.Z - tableHalf - 0.3f || min.Z > table.Z + tableHalf + 0.3f;
             Assert.IsTrue(clearOfTable, $"room to walk around the table: {label}");
             var clearOfPlayer = new Vector2(MathF.Max(min.X, MathF.Min(0f, max.X)), MathF.Max(min.Z, MathF.Min(0f, max.Z))).Length() > 0.8f;
             Assert.IsTrue(clearOfPlayer, $"the player's spot (origin) is free: {label}");

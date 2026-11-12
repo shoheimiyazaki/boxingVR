@@ -43,7 +43,10 @@ try
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
-        "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue")),
+        "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift")),
+        "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
+        "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
+        "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway")),
         "swordlib" => SwordLibCommand(Options.Parse(argv[1..], "out", "best", "bouts", "seconds", "seed", "fight", "video", "red", "blue")),
         "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead")),
         "mocap" => MocapCommand(Options.Parse(argv[1..], "bvh", "out", "from", "to", "speed", "width", "height", "fps", "strikes")),
@@ -354,7 +357,14 @@ static int VersusCommand(Options o)
 {
     // 武器ごとの練習試合（拳・棍棒・バット・日本刀・ロングソードの総当たり）。
     var defense = o.Get("defense") == "off" ? MiniRing.Bots.SwordDefense.None : new MiniRing.Bots.SwordDefense();
-    var contenders = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", defense);
+    // --hitaway: off（打って離れない）・default（始めの値）・JSON のパス（awaylab で育てた値）。既定は育てた値があればそれ。
+    var hitAway = (o.Get("hitaway") ?? (File.Exists("docs/arena/hit_and_away.json") ? "docs/arena/hit_and_away.json" : "default")) switch
+    {
+        "off" => null,
+        "default" => new MiniRing.Bots.HitAndAway(),
+        var file => AwayLab.Load(file),
+    };
+    var contenders = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", defense, hitAway, AimDefaults.Tuning);
     if (o.Get("video") is { } video)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(video))!);
@@ -365,6 +375,61 @@ static int VersusCommand(Options o)
     }
 
     var report = VersusLab.Run(contenders, o.Int("bouts", 4, min: 2), o.Float("seconds", 30f, min: 1f), o.Int("seed", 1), Console.Out);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int AimLabCommand(Options o)
+{
+    // 狙いのドリル: 技 × 狙う部位 × 的の構えで、狙った部位を打てるかを測り、狙いの付け方を選んで、技ごとの打てた割合を一覧へ書く。
+    var library = o.Get("library") ?? "docs/arena/sword_library.json";
+    // --maxshift 0.6,1,1.4: 前の回で選んだ付け方（aim_tuning.json）のまま、ずらせる上限だけを変えて比べる。
+    List<MiniRing.Motion.AimTuning> candidates = o.Get("maxshift") is { } shifts
+        ? [.. shifts.Split(',').Select(s => AimDefaults.Tuning with { MaxShift = float.Parse(s, System.Globalization.CultureInfo.InvariantCulture) })]
+        : o.Get("quick") == "yes"
+        ? [new()]
+        : [.. from gain in AimGrid.Gains from lead in AimGrid.Leads from forward in AimGrid.Forwards
+              select new MiniRing.Motion.AimTuning(gain, lead, 0.6f, forward)];
+    var report = AimLab.Run(SwordLibraryLab.Load(library), candidates, o.Get("library-out") ?? library, o.Get("tuning-out") ?? "docs/arena/aim_tuning.json", Console.Out);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int AwayLabCommand(Options o)
+{
+    // 打って離れる剣士を練習試合で育てる。
+    var defense = new MiniRing.Bots.SwordDefense();
+    IReadOnlyList<Contender> Contenders(MiniRing.Bots.HitAndAway? h) =>
+        VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", defense, h, AimDefaults.Tuning);
+    var trainee = o.Get("trainee") ?? "日本刀";
+    var start = o.Get("start") is { } from ? AwayLab.Load(from) : new MiniRing.Bots.HitAndAway();
+    var (best, report) = AwayLab.Run(Contenders, trainee, o.List("opponents", ["日本刀", "ロングソード", "バット", "棍棒", "拳"]), start,
+        o.Int("gens", 6, min: 0), o.Int("lambda", 6, min: 1), o.Int("bouts", 2, min: 2), o.Float("seconds", 30f, min: 1f), o.Int("seed", 1), Console.Out);
+    Console.WriteLine(report);
+    AwayLab.Save(o.Get("best") ?? "docs/arena/hit_and_away.json", best);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int BladeProbeCommand(Options o)
+{
+    // 調査: 刃が相手の体にめり込んだまま何も起きない場面を数える。
+    var contenders = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", new MiniRing.Bots.SwordDefense());
+    var report = BladeProbe.Run(contenders, [.. o.List("pairs", ["日本刀-日本刀", "ロングソード-日本刀", "日本刀-拳", "バット-日本刀"])], o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), Console.Out);
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {
@@ -723,4 +788,20 @@ internal sealed record Options(IReadOnlyDictionary<string, string> Values)
 
     public IReadOnlyList<string> List(string name, IReadOnlyList<string> fallback)
         => Get(name) is { } v ? v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : fallback;
+}
+
+/// <summary>狙いのドリルで比べる、狙いの付け方の格子。</summary>
+internal static class AimGrid
+{
+    public static readonly float[] Gains = [0.6f, 1f];
+    public static readonly float[] Leads = [0.4f, 0.7f];
+    public static readonly float[] Forwards = [0.5f, 1f];
+}
+
+/// <summary>狙いのドリル（aimlab）で選んだ狙いの付け方（まだ無ければ既定）。</summary>
+internal static class AimDefaults
+{
+    private static readonly Lazy<MiniRing.Motion.AimTuning> Loaded = new(() => File.Exists("docs/arena/aim_tuning.json") ? AimLab.Load("docs/arena/aim_tuning.json") : new());
+
+    public static MiniRing.Motion.AimTuning Tuning => Loaded.Value;
 }

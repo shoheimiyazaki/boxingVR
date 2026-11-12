@@ -76,13 +76,17 @@ public readonly record struct BodySense(Vector3 LeftShoulder, Vector3 RightShoul
 /// （打つ前の体の動きを読むため。見えないホストでは既定値）。<paramref name="SelfFaintness"/> は自分の意識が薄れた度合い（<see cref="Fighter.Faintness"/>、0..1）。</para>
 /// <para><paramref name="OpponentBlade"/> は相手の握った武器の見え方、<paramref name="SelfArmed"/> は自分が武器を握っているか（null は分からない:
 /// 武器を扱わない入力元のため）。武器を落とした剣士は拳で戦う（<see cref="Bots.DisarmedFallback"/>）。</para>
+/// <para><paramref name="Ring"/> はこの試合のリング（null は拳の試合の標準 <see cref="RingLayout.Boxing"/>）。ロープ際を知り、下がる余地を測るため。</para>
 /// </summary>
 public readonly record struct FighterSense(
     BodyFrame Self, float ArmReach, Vector3 OpponentHead, Vector3 OpponentChest, bool OpponentAlive,
     Vector3 SelfHead = default, GloveSense OpponentLeft = default, GloveSense OpponentRight = default, Vector3 OpponentVelocity = default,
-    BodySense OpponentBody = default, float SelfFaintness = 0f, BladeSense OpponentBlade = default, bool? SelfArmed = null)
+    BodySense OpponentBody = default, float SelfFaintness = 0f, BladeSense OpponentBlade = default, bool? SelfArmed = null, RingLayout? Ring = null)
 {
     public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
+
+    /// <summary>この試合のリング（分からなければ拳の試合の標準）。</summary>
+    public RingLayout Arena => Ring ?? RingLayout.Boxing;
 }
 
 /// <summary>ファイターの操作元。VR・キーボード・AI がこれを実装する。</summary>

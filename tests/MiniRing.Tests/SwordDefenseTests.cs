@@ -133,7 +133,9 @@ public sealed class SwordDefenseTests
         {
             var hold = new MotionFrame(new Vector3(-0.1f, -0.2f, 0.75f), new Vector3(-0.1f, -0.2f, 0.29f), Vector3.UnitZ, -Vector3.UnitY, Vector3.Zero, 0f, Vector3.Zero);
             using var game = new BoxingGame(SwordStance.Tuning, seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(),
-                _ => new MotionImitation(new SwordMotion("hold", 1f / 60f, [hold, hold]), loop: true), PlayerWeapon: WeaponKind.Katana, PlayerTwoHanded: true));
+                _ => new MotionImitation(new SwordMotion("hold", 1f / 60f, [hold, hold]), loop: true), PlayerWeapon: WeaponKind.Katana, PlayerTwoHanded: true,
+                Ring: new RingLayout(2.4f, 1.6f)));
+            // 的は刀の届かない所に立たせる（前へ構えた刀が的の胸に当たって止まると、回りにくさが手首のバネでなく当たりで決まる）。
             for (var t = 0f; t < 1f; t += 1f / 240f)
             {
                 game.Step(default, 1f / 240f);

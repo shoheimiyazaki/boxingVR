@@ -85,6 +85,11 @@ public static class VoxelContact
     /// <summary>Most samples the give looks ahead.</summary>
     private const int MaxLookahead = 48;
 
+    /// <summary>Most samples an overlap left from before the step is pushed out by in one step (beyond that, the rest on the
+    /// next steps). A smaller cap leaves a blade overlapping over several steps, where it drags instead of cutting
+    /// (measured: a kesa through the chest cut 6 cells at 16, 17 at 64).</summary>
+    private const int MaxPushOut = 64;
+
     /// <summary>Resolves the contact between <paramref name="a"/> and <paramref name="b"/> over the step just taken.</summary>
     /// <param name="a">One body.</param>
     /// <param name="aBefore">Its state before the step.</param>
@@ -391,9 +396,9 @@ public static class VoxelContact
             return (turn * _q0, Vector3.Lerp(_t0, _t1, t));
         }
 
-        /// <summary>The probe cells inside a filled field cell at sample <paramref name="k"/>: (probe cell slot, field cell
+        /// <summary>The probe cells inside a filled field cell at sample <paramref name="k"/> (moved on by <paramref name="offset"/>, field frame): (probe cell slot, field cell
         /// index, probe cell centre in the field frame).</summary>
-        private List<(int Slot, int Field, Vector3 At)> Overlaps(int k)
+        private List<(int Slot, int Field, Vector3 At)> Overlaps(int k, Vector3 offset = default)
         {
             if (_cellCenter.Length == 0)
             {
@@ -410,7 +415,7 @@ public static class VoxelContact
                     continue;
                 }
 
-                var p = Vector3.Transform(_cellCenter[i], q) + t;
+                var p = Vector3.Transform(_cellCenter[i], q) + t + offset;
                 var f = grid.CellAt(p);
                 if (f >= 0 && (grid.MaterialAt(f) != 0 || _brokenField.ContainsKey(f)))
                 {
@@ -480,8 +485,9 @@ public static class VoxelContact
             var mEffNormal = EffectiveMass(point, normal);
             if (approach <= 1e-5f || speed <= 1e-5f || mEffNormal <= 0f)
             {
-                // Resting or parting: nothing to break. Ease a resting overlap apart.
-                if (first == 0 && approach > -1e-3f)
+                // Resting, sliding or parting: nothing to break. An overlap left from before the step (an arm pressing a blade in
+                // that cannot cut) is pushed out: what does not break is pushed aside, it does not pass through.
+                if (first == 0)
                 {
                     Separate(Vector3.Zero, normal, 0);
                 }
@@ -819,17 +825,21 @@ public static class VoxelContact
 
         /// <summary>
         /// Moves the lighter body back so the contact point riding on the probe (<paramref name="onProbe"/>, probe frame) sits
-        /// where it was at sample <paramref name="k"/> relative to the field (the turn is left as it is). At sample 0
-        /// (already overlapping), eases them apart along the face.
+        /// where it was at sample <paramref name="k"/> relative to the field (the turn is left as it is). At sample 0 there is no
+        /// earlier free place to go back to: pushes them apart along the face by as far as they overlap now (<see cref="PushOutDepth"/>).
         /// </summary>
         private void Separate(Vector3 onProbe, Vector3 normal, int k)
         {
             var world = _probe.World;
+            if (world.IsKinematic(_probe.BodyId) && world.IsKinematic(_field.BodyId))
+            {
+                return;
+            }
+
             var (qk, tk) = Pose(k);
             var (qEnd, tEnd) = Pose(_samples);
-            var shift = k > 0
-                ? Vector3.Transform((Vector3.Transform(onProbe, qk) + tk) - (Vector3.Transform(onProbe, qEnd) + tEnd), _fieldNow.Orientation)
-                : normal * _sample;
+            var shift = k > 0 ? Vector3.Transform((Vector3.Transform(onProbe, qk) + tk) - (Vector3.Transform(onProbe, qEnd) + tEnd), _fieldNow.Orientation)
+                : normal * PushOutDepth(Vector3.Transform(normal, Quaternion.Conjugate(_fieldNow.Orientation)));
             var probeMass = world.GetMass(_probe.BodyId);
             var fieldMass = world.GetMass(_field.BodyId);
             var moveProbe = !world.IsKinematic(_probe.BodyId) && (world.IsKinematic(_field.BodyId) || probeMass <= fieldMass);
@@ -841,6 +851,24 @@ public static class VoxelContact
             {
                 world.TranslateBody(_field.BodyId, -shift);
             }
+        }
+
+        /// <summary>
+        /// How far [m] the probe, as it is now, must move out along the field's face (<paramref name="localNormal"/>, field frame) to
+        /// touch no filled field cell (cells broken during this sweep still count), in whole samples, up to <see cref="MaxPushOut"/>
+        /// samples (a deeper overlap is pushed out that far now and the rest on the next steps).
+        /// </summary>
+        private float PushOutDepth(Vector3 localNormal)
+        {
+            for (var n = 1; n <= MaxPushOut; n++)
+            {
+                if (Overlaps(_samples, localNormal * (n * _sample)).Count == 0)
+                {
+                    return n * _sample;
+                }
+            }
+
+            return MaxPushOut * _sample;
         }
 
         private static Vector3 VelocityAt(BodyState s, Vector3 point) => s.LinearVelocity + Vector3.Cross(s.AngularVelocity, point - s.Position);
@@ -879,7 +907,8 @@ public static class VoxelContact
 
     /// <summary>
     /// The outward face of the field where the probe touches it (field grid frame, unit): from every touched cell, the
-    /// directions to its open neighbours (empty, or off the grid), summed. Falls back to "away from the grid's centre".
+    /// directions to its open neighbours (empty, or off the grid), summed. Falls back to "away from the grid's centre"
+    /// (the shortest way out of a deep overlap, when the open sides cancel).
     /// </summary>
     private static Vector3 OutwardNormal(VoxelGrid grid, List<(int Slot, int Field, Vector3 At)> touching)
     {

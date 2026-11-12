@@ -181,9 +181,10 @@ public sealed class BoxerBot : IFighterControl
     /// 変えたら 1 増やす（1: 最初のボット、2: 防御技の表・動き出しの読み・ストップジャブ・ピボット、
     /// 3: インサイドスリップ・ローリング、回避しながら打つカウンターと拳の種類ごとの打ち返し、4: 狙いの固定・外側への回避・守りの拳の高さ、
     /// 5: 打つ前の溜め（腰と肩のひねり）・相手の読みによる予測の回避・相手の届く間合いのすぐ外に立つ、6: しゃがみの疲れ・予測の回避の読み直し、
-    /// 7: 意識が薄れるとガードを下げる、8: 回避からの返しの拳に体の動きを移す（HandCommand.Spring）、9: 溜めは逆へ引いて体のバネを縮め、全ての拳に体の動きとタメを移す）。
+    /// 7: 意識が薄れるとガードを下げる、8: 回避からの返しの拳に体の動きを移す（HandCommand.Spring）、9: 溜めは逆へ引いて体のバネを縮め、全ての拳に体の動きとタメを移す、
+    /// 10: ロープの位置を試合のリング（RingLayout）から読む。剣士（SwordsmanBot）は間合いを読んで打って離れる（HitAndAway））。
     /// </summary>
-    public const int LogicVersion = 9;
+    public const int LogicVersion = 10;
 
     public BotStyle Style { get; }
 
@@ -269,7 +270,7 @@ public sealed class BoxerBot : IFighterControl
             }
         }
 
-        var move = Footwork(self, dir, distance, reach, dt);
+        var move = Footwork(self, dir, distance, reach, sense.Arena, dt);
         if (_defense != Defense.None)
         {
             DefenseGloves(reach, headLocal, self.Origin.Y, ref left, ref right);
@@ -979,7 +980,7 @@ public sealed class BoxerBot : IFighterControl
 
     // ── 足と頭 ──
 
-    private Vector3 Footwork(BodyFrame self, Vector3 dir, float distance, float reach, float dt)
+    private Vector3 Footwork(BodyFrame self, Vector3 dir, float distance, float reach, RingLayout ring, float dt)
     {
         _circleTimer -= dt;
         if (_circleTimer <= 0f)
@@ -1028,7 +1029,7 @@ public sealed class BoxerBot : IFighterControl
         // 守らない受け手の 0% に対し、バックステップで回避する受け手は 63%、被ダメージは 3.6 倍）。
         // 逃げる側は、ロープを感じた時に決めて、離れるまで変えない（毎回「広い側」を選び直すと、ロープの真ん中で左右が
         // 入れ替わり続けて離れられない）。守りの最中は、来る拳から離れる側へ逃げる（拳の方へ寄らない）。レビュー指摘。
-        var (behind, roomySide) = RopeBehind(self.Origin, dir, lateral, reach);
+        var (behind, roomySide) = RopeBehind(self.Origin, dir, lateral, reach, ring);
         if (behind <= 0f)
         {
             _ropeEscapeSide = 0f;
@@ -1048,17 +1049,18 @@ public sealed class BoxerBot : IFighterControl
 
         var circling = _combo is null && !_wantAttack && _pivotTimer <= 0f ? Style.Circling * _circleDirection : 0f;
         var move = (dir * Math.Clamp(approach, -1f, 1f)) + (lateral * Math.Clamp(circling + side, -1f, 1f));
-        return move + StayInside(self.Origin, reach);
+        return move + StayInside(self.Origin, reach, ring);
     }
 
     /// <summary>
     /// 背中側のロープの近さ（0 = 遠い … 1 = すぐ後ろ。腕の長さの 2 倍より近づくと効き始める）と、横のどちらが空いているか
     /// （<paramref name="lateral"/> の向きを +1）。
     /// </summary>
-    internal static (float Behind, float EscapeSide) RopeBehind(Vector3 position, Vector3 dir, Vector3 lateral, float reach)
+    internal static (float Behind, float EscapeSide) RopeBehind(Vector3 position, Vector3 dir, Vector3 lateral, float reach, RingLayout? ring = null)
     {
-        var half = BoxingGame.RingSize * 0.5f;
-        var p = position - BoxingGame.RingCenter;
+        ring ??= RingLayout.Boxing;
+        var half = ring.Half;
+        var p = position - ring.Center;
         static float Room(Vector3 p, Vector3 toward, float half)
         {
             var room = float.MaxValue;
@@ -1081,11 +1083,11 @@ public sealed class BoxerBot : IFighterControl
     }
 
     /// <summary>ロープ際に近づいたら中央へ戻る向きを足す（追い詰められると打たれ続け、落ちれば負け）。</summary>
-    private static Vector3 StayInside(Vector3 position, float reach)
+    internal static Vector3 StayInside(Vector3 position, float reach, RingLayout ring)
     {
-        var half = BoxingGame.RingSize * 0.5f;
+        var half = ring.Half;
         var margin = MathF.Max(0.12f, 0.8f * reach);
-        var offset = position - BoxingGame.RingCenter;
+        var offset = position - ring.Center;
         static float Push(float o, float half, float margin)
         {
             var over = MathF.Abs(o) - (half - margin);

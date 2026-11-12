@@ -17,6 +17,9 @@ internal sealed class SparVideo(int width, int height, int fps)
     private static readonly Vector4 Blue = new(0.55f, 0.7f, 1f, 1f);
     private static readonly Vector4 Grey = new(0.75f, 0.78f, 0.85f, 1f);
 
+    /// <summary>技でない、剣士の今の様子（「最後の技」には残さない）。</summary>
+    private static readonly HashSet<string> States = ["受け", "外し", "詰める", "下がる"];
+
     /// <summary>片手の剣の流儀同士の稽古（<see cref="SwordSparring"/>）。</summary>
     public void Make(SwordStyle style, int seed, float seconds, string outPath, TextWriter log) =>
         Render("剣同士の稽古（片手の剣）", step =>
@@ -33,7 +36,6 @@ internal sealed class SparVideo(int width, int height, int fps)
             return string.Create(CultureInfo.InvariantCulture, $"mean distance {r.MeanDistance:0.00} m, red lost {r.RedLost}, blue lost {r.BlueLost}, died {r.RedDied}/{r.BlueDied}");
         }, outPath, log);
 
-    /// <summary>剣士が今していること: 技・受け・外し（武器を落としていれば「拳」）。</summary>
     /// <summary>練習試合の 1 試合（<see cref="VersusLab"/> の戦い手同士）。画面には剣士の技・受け・外し、武器を落としたら「拳」。</summary>
     public void MakeVersus(Bots.Contender red, Bots.Contender blue, int seed, float seconds, string outPath, TextWriter log) =>
         Render($"練習試合（赤 {red.Name} 対 青 {blue.Name}）", step =>
@@ -66,7 +68,8 @@ internal sealed class SparVideo(int width, int height, int fps)
         }, outPath, log);
 
     private static string? Now(Bots.SwordsmanBot? bot, Fighter fighter) =>
-        bot is null ? null : !fighter.Wields(BoxingGame.WeaponHand) ? "拳（武器を落とした）" : bot.Blocking ? "受け" : bot.Defending ? "外し" : Short(bot.Current?.Name);
+        bot is null ? null : !fighter.Wields(BoxingGame.WeaponHand) ? "拳（武器を落とした）" : bot.Blocking ? "受け" : bot.Defending ? "外し"
+            : bot.Current is { } now ? Short(now.Name) : bot.Attacking ? "詰める" : bot.Retreating ? "下がる" : null;
 
     /// <summary>技の名前の、切り出した所を除いた前半（「小手 / BasicKendo@43.17」→「小手」）。</summary>
     private static string? Short(string? name) => name?.Split(" / ")[0];
@@ -97,8 +100,8 @@ internal sealed class SparVideo(int width, int height, int fps)
             var blueCells = game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
             redStart ??= redCells;
             blueStart ??= blueCells;
-            redLast = redNow ?? redLast;
-            blueLast = blueNow ?? blueLast;
+            redLast = redNow is { } r && !States.Contains(r) ? r : redLast;
+            blueLast = blueNow is { } b && !States.Contains(b) ? b : blueLast;
             BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
             var mid = (game.Player.ChestPosition + game.Cpu.ChestPosition) * 0.5f;
             var axis = game.Cpu.ChestPosition - game.Player.ChestPosition;

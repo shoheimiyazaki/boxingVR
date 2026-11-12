@@ -116,7 +116,7 @@ public sealed partial class BoxingGame
     /// </summary>
     private FighterSense ArmedSense(Fighter self, Fighter opponent)
     {
-        var sense = Sense(self, opponent);
+        var sense = Sense(self, opponent) with { Ring = Layout };
         if (_wielders.Count == 0)
         {
             return sense;

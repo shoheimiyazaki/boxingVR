@@ -136,6 +136,9 @@ internal sealed class SwordLibraryLab(int seed)
     /// <summary>保存した一覧を読む。</summary>
     public static Library Load(string path) => JsonSerializer.Deserialize<Library>(File.ReadAllText(path), Json) ?? throw new JsonException("空の一覧です。");
 
+    /// <summary>一覧を書き出す（<see cref="Load"/> で読める形）。</summary>
+    public static void Save(string path, Library library) => File.WriteAllText(path, JsonSerializer.Serialize(library, Json));
+
     /// <summary>保存した一覧で、試合だけを回す。</summary>
     public string FightOnly(string path, TextWriter log, int bouts, float seconds) => Bouts(Load(path), bouts, seconds, log);
 
@@ -162,10 +165,14 @@ internal sealed class SwordLibraryLab(int seed)
     });
 
     /// <summary>剣士のボット（試合用）。武器を落としたら拳で戦う（<see cref="DisarmedFallback"/>）。</summary>
-    internal static DisarmedFallback Bot(Library library, WeaponKind weapon, int seed, SwordDefense? defense = null) =>
+    internal static DisarmedFallback Bot(Library library, WeaponKind weapon, int seed, SwordDefense? defense = null, HitAndAway? hitAndAway = null, AimTuning? aim = null) =>
         DisarmedFallback.WithFists(new SwordsmanBot([.. library.Techniques.Where(t => t.Weapon == weapon)], library.Guards[weapon], seed, SwordStance.Rate,
             tuning: SwordStance.Tuning, defense: defense ?? new SwordDefense(), bladeLength: BladeLength(weapon),
-            spacing: weapon == WeaponKind.Longsword ? SwordForms.LongswordSpacing : SwordForms.KatanaSpacing, opponentReach: 3f), seed); // 腕 1 + 剣 2 弱
+            spacing: weapon == WeaponKind.Longsword ? SwordForms.LongswordSpacing : SwordForms.KatanaSpacing, opponentReach: 3f, hitAndAway: hitAndAway, aim: aim)
+        {
+            // 狙いのドリル（aimlab）で技ごとの打てる部位を測ってあれば、相手の構えの空いた所を狙う。
+            AutoAim = library.Techniques.Any(t => t.Weapon == weapon && t.Skill is not null),
+        }, seed); // 腕 1 + 剣 2 弱
 
     /// <summary>1 試合の測ったもの。</summary>
     internal sealed record BoutMeasure(float MeanDistance, float CloseShare, int RedLost, int BlueLost, bool RedDied, bool BlueDied, List<string> RedUsed, List<float> RedUsedAt, List<string> BlueUsed, List<float> BlueUsedAt,
