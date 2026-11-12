@@ -14,6 +14,8 @@ using Silk.NET.Input;
 //   --verify <file.mrrep>   ウィンドウを開かず最速で再生し、記録どおりに再現できるかを照合して終了
 //   --break-sound <glass|crumble|crunch|circuit|metal>  ボクセルが砕ける音の方式（既定 glass）
 //   --hit-sound <on|off>  パンチが当たる音（既定 off。風切り音とボクセルの音だけ）
+//   --no-facecam            画面の両脇の顔の窓を出さない（窓の分の描画が要らない）
+//   --speed <0.5|0.75|1>    最初の速さ（既定 0.75 倍）。遊んでいる間・再生中も 1 / 2 / 3 キーで 0.5 / 0.75 / 1.0 倍に切り替わる
 
 if (!HitSoundOption.TryParse(args, out var hitSounds, out var hitError))
 {
@@ -55,21 +57,54 @@ var camera = new OrbitCamera(initialDistance: 0.9f) { Target = BoxingGame.RingCe
 camera.ApplyDrag(new Vector2(-MathF.PI / 0.005f, -60f));
 var options = new GameHost.Options(
     "Mini Ring Boxing",
-    "WASD: move, LMB/RMB: right/left hand (Ctrl: hook path, Shift: uppercut path, Alt: body), arrows: head, Q/E: grab, R: reset round, middle-drag: orbit, Escape: quit.",
+    "WASD: move, LMB/RMB: right/left hand (Ctrl: hook path, Shift: uppercut path, Alt: body), arrows: head, Q/E: grab, R: reset round, 1/2/3: speed 0.5x/0.75x/1.0x, middle-drag: orbit, Escape: quit.",
     camera,
     "miniring",
     OrbitButton: MouseButton.Middle);
 
+// 画面の両脇に両ボクサーの顔の窓（左が自分・右が CPU）（頭のボクセルの格子に固定したカメラで、リングの上の実際の顔を正面から撮る）。
+var faceCam = args.Contains("--no-facecam") ? null : FaceCam.Default;
+Func<BoxingGame, Func<Vector2, IReadOnlyList<Aigis.Render.CameraView>?>?> faceViews =
+    g => faceCam is null ? null : size => faceCam.Views(camera, g, size);
+
+// 試合の速さ（標準 0.75 倍）。1 / 2 / 3 キーで切り替える。
+if (args.Contains("--speed") && GameSpeed.Parse(Option("--speed")) is null)
+{
+    Console.Error.WriteLine("--speed は 0.5 / 0.75 / 1 のどれかです。");
+    return 1;
+}
+
+var speed = new GameSpeed(GameSpeed.Parse(Option("--speed")) ?? GameSpeed.Standard);
+var speedKeys = new[] { Key.Number1, Key.Number2, Key.Number3 };
+void ReadSpeed(Aigis.Platform.InputSnapshot input)
+{
+    for (var i = 0; i < speedKeys.Length; i++)
+    {
+        if (input.WasKeyPressed(speedKeys[i]))
+        {
+            speed.SelectIndex(i);
+        }
+    }
+}
+
+options = options with { TimeScale = () => speed.Value };
+
 if (Option("--replay") is { } replayPath)
 {
     using var replay = new ReplayGame(ReplayFile.Read(replayPath));
-    using var replayWithSound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => replay.FrameShatters, () => replay.FrameLandings, () => replay.FrameSwings);
+    replay.Game.FaceCam = faceCam;
+    replay.Game.Speed = speed;
+    using var replayWithSound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => replay.FrameShatters, () => replay.FrameLandings, () => replay.FrameSwings, () => replay.FrameBell);
     profiler.Mark("replay loaded");
-    GameHost.Run(profiler, options, replayWithSound, readInput: (_, _, _) => default(BoxingInput));
+    GameHost.Run(profiler, options with { DynamicViews = faceViews(replay.Game) }, replayWithSound, readInput: (input, _, _) =>
+    {
+        ReadSpeed(input);
+        return default(BoxingInput);
+    });
     return 0;
 }
 
-using var game = new BoxingGame();
+using var game = new BoxingGame { FaceCam = faceCam, Speed = speed };
 profiler.Mark("BoxingGame constructed");
 var keyboard = new KeyboardControl();
 ReplayRecorder? recorder = null;
@@ -81,8 +116,13 @@ if (!args.Contains("--no-record"))
 
 // 打撃音は試合の外側で鳴らす（記録・物理には触れない）。
 using var recording = recorder is null ? null : new RecordingGame(game, recorder);
-using var withSound = new HitSoundGame(recording ?? (IGame<BoxingInput>)game, () => game.RecentHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => game.RecentShatters, () => game.RecentLandings, () => game.RecentSwings);
-GameHost.Run(profiler, options, withSound, readInput: (input, _, _) => keyboard.Read(input, camera.YawRadians, game.PlayerSense, FixedStep.Default.Dt));
+using var withSound = new HitSoundGame(recording ?? (IGame<BoxingInput>)game, () => game.RecentHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => game.RecentShatters, () => game.RecentLandings, () => game.RecentSwings, () => game.RecentBell);
+GameHost.Run(profiler, options with { DynamicViews = faceViews(game) }, withSound, readInput: (input, _, _) =>
+{
+    ReadSpeed(input);
+    // 拳の経路は試合の時間で進める（遅くしても体と同じ速さで遅くなる）。
+    return keyboard.Read(input, camera.YawRadians, game.PlayerSense, FixedStep.Default.Dt * speed.Value);
+});
 return 0;
 
 string? Option(string name)

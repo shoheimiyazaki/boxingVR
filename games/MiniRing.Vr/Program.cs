@@ -131,6 +131,7 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
                 sounds.PlayShatters(game.RecentShatters);
                 sounds.PlayLandings(game.RecentLandings);
                 sounds.PlaySwings(game.RecentSwings);
+                sounds.PlayBell(game.RecentBell);
 
                 foreach (var hit in game.RecentHits)
                 {

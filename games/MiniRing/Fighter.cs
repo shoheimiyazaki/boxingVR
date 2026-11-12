@@ -162,7 +162,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 9; // 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: 武器同士は広いリング（RingLayout）、斬れずにめり込んだボクセルは深さだけ押し戻す
+    public const int PhysicsVersion = 10; // 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた。10: 武器同士は広いリング（RingLayout）、斬れずにめり込んだボクセルは深さだけ押し戻す
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -235,6 +235,30 @@ public sealed class Fighter
 
     /// <summary>倒れてからの経過時間 [s]（10 カウント用）。起き上がり中も数え続け、立ち直ったら 0。</summary>
     public float DownTime { get; private set; }
+
+    /// <summary>
+    /// 倒れていて、意識が無く（<see cref="Awareness"/> が 0: 死んだ・完全に気を失った）、体が動いていない（全部位の速さが
+    /// <see cref="FighterTuning.StillSpeed"/> 未満の）まま続いた時間 [s]。立っている・意識がある・動いたら 0。
+    /// 意識があれば起き上がろうとする試み（<see cref="Stir"/>）で体が動く。審判はこれを見てカウントを止める（<c>BoxingGame.StillKoSeconds</c>）。
+    /// </summary>
+    public float StillTime { get; private set; }
+
+    /// <summary>
+    /// 倒れている間の、起き上がろうとする試みの今の強さ（0..1）: 力を込めては抜く山の形 × 意識の深さ（<see cref="Awareness"/>）。
+    /// 試みの間だけ体の張り・腰を上げようとする高さが上がる（<see cref="FighterTuning.StirTone"/> / <see cref="FighterTuning.StirReach"/>）。
+    /// 姿勢を書かない: 目標（張りと高さ）が時間で変わり、体はそれをバネで追う。
+    /// </summary>
+    public float Stir { get; private set; }
+
+    /// <summary>
+    /// 意識の深さ（0..1）: 0 で完全に意識が無い、<see cref="FighterTuning.KnockoutConsciousness"/> 以上で 1。平方根で、わずかな意識でも
+    /// はっきり体が動くようにする（意識 0.01 でも 0.18）。死んでいれば 0。
+    /// </summary>
+    public float Awareness => MathF.Sqrt(Math.Clamp(Consciousness / MathF.Max(1e-3f, _tuning.KnockoutConsciousness), 0f, 1f));
+
+    private float _stirClock;
+    private float _stirPeriod;
+    private int _stirIndex;
 
     /// <summary>現在の手の駆動強度（0..1）。被弾・転倒で下がる。</summary>
     public float ControlScale { get; private set; } = 1f;
@@ -568,6 +592,10 @@ public sealed class Fighter
         Concussion = MathF.Max(0f, Concussion - (dt * _tuning.ConcussionRecoveryRate));
         _stateTime += dt;
         DownTime = State == FighterState.Standing ? 0f : DownTime + dt;
+        // 意識が無い（死んだ・完全に気を失った）うえで体が止まっている間だけ数える（ユーザーの指示どおり両方）。意識があれば、脚を失って
+        // 腕しか動かせず止まって見えても数えない（もがく力が弱いだけ）。
+        StillTime = State != FighterState.Standing && Awareness <= 0f && MaxPartSpeed() < _tuning.StillSpeed ? StillTime + dt : 0f;
+        UpdateStir(dt);
         var grounded = TryFindGround(out var height);
         foreach (var arm in _arms)
         {
@@ -626,7 +654,7 @@ public sealed class Fighter
     /// <summary>
     /// 意識（0..1）= 脳の働き（脳のボクセルの残り）− 脳しんとう。打撃の部位で場合分けせず、脳を削られたか・頭がどれだけねじられたかだけで決まる。
     /// </summary>
-    public float Consciousness => Math.Clamp((Voxels?.BrainFunction(_tuning.OrganDeathFraction) ?? 1f) - Concussion, 0f, 1f);
+    public float Consciousness => IsDead ? 0f : Math.Clamp((Voxels?.BrainFunction(_tuning.BrainHalvingLoss) ?? 1f) - Concussion, 0f, 1f);
 
     /// <summary>
     /// 体の張り（0..1）: 意識が薄れると体を支える力・動かす力が抜ける（崩れ落ちる・腰が落ちるのは物理）。
@@ -891,7 +919,7 @@ public sealed class Fighter
     /// </summary>
     private void UpdateRise(bool grounded, float height, float dt)
     {
-        var reach = _stayDown || !CanStand ? 0f : StandReach;
+        var reach = _stayDown || !CanStand ? 0f : MathF.Min(1f, StandReach + (_tuning.StirReach * Stir));
         var up = _rise + (dt / MathF.Max(1e-3f, _tuning.RiseTime));
         if (State != FighterState.Standing)
         {
@@ -902,6 +930,62 @@ public sealed class Fighter
         }
 
         _rise = Math.Clamp(MathF.Min(reach, up), 0f, 1f);
+    }
+
+    /// <summary>倒れている間の体の張り: 意識で決まる張り（<see cref="Tone"/>）に、起き上がろうとする試みの分を足す（満ちていない分に対して）。</summary>
+    private float StirredTone => Tone + ((1f - Tone) * _tuning.StirTone * Stir);
+
+    /// <summary>
+    /// 起き上がろうとする試みを進める。倒れている間だけ、間隔 <see cref="FighterTuning.StirPeriodSlow"/>〜<see cref="FighterTuning.StirPeriodFast"/>
+    /// （意識が深いほど短い）ごとに 1 回、力を込めて（山の形）抜く。間隔は毎回、体ごとの決まった数列でずらす（決定的）。
+    /// </summary>
+    private void UpdateStir(float dt)
+    {
+        var awareness = Awareness;
+        // 倒れていく間（CollapseDuration）は力を抜いて崩れる: 試みは倒れきってから。
+        var collapsing = State == FighterState.Down && _stateTime < _tuning.CollapseDuration;
+        if (State == FighterState.Standing || awareness <= 0f || collapsing)
+        {
+            Stir = 0f;
+            _stirClock = 0f;
+            _stirPeriod = 0f;
+            return;
+        }
+
+        _stirClock += dt;
+        if (_stirClock >= _stirPeriod)
+        {
+            _stirClock = _stirPeriod > 0f ? _stirClock - _stirPeriod : 0f;
+            _stirIndex++;
+            var jitter = (2f * Hash01(_stirIndex, Parts.Head)) - 1f;
+            _stirPeriod = Lerp(_tuning.StirPeriodSlow, _tuning.StirPeriodFast, awareness) * (1f + (_tuning.StirJitter * jitter));
+        }
+
+        var phase = _stirClock / MathF.Max(1e-3f, _stirPeriod * _tuning.StirDuty);
+        var pulse = phase < 1f ? 0.5f - (0.5f * MathF.Cos(2f * MathF.PI * phase)) : 0f;
+        Stir = pulse * awareness;
+    }
+
+    /// <summary>整数 2 つから決まる 0..1 の数（試みの間隔のずれ。種なしの乱数を使わず、同じ試合なら同じ値）。</summary>
+    private static float Hash01(int a, int b)
+    {
+        var h = unchecked(((uint)a * 0x9E3779B1u) ^ ((uint)b * 0x85EBCA6Bu));
+        h ^= h >> 15;
+        h = unchecked(h * 0x2C1B3C6Du);
+        h ^= h >> 12;
+        return (h & 0xFFFFFF) / (float)0x1000000;
+    }
+
+    /// <summary>全部位の重心の速さの最大 [m/s]（体が動いているか）。</summary>
+    private float MaxPartSpeed()
+    {
+        var max = 0f;
+        foreach (var id in _all)
+        {
+            max = MathF.Max(max, _world.GetState(id).LinearVelocity.Length());
+        }
+
+        return max;
     }
 
     /// <summary>起き上がる間、腰の目標が今の高さより先へ行ってよい量（立つ高さに対する割合）。</summary>
@@ -915,7 +999,8 @@ public sealed class Fighter
         if (_stayDown || !CanStand)
         {
             // 起き上がれない（死んだ・脚を失った）: こらえて崩れ（Triage ADR-102④: 駆動を一気に抜かず CollapseDuration かけて落とす）、そのまま伸びる。
-            ControlScale = Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration) * Tone;
+            // 脚を失っても意識があれば、腕と体はもがく（死んでいれば Stir は 0）。
+            ControlScale = Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration) * StirredTone;
             SetServoScale(ControlScale);
             DriveArms(command, ControlScale, weightShift: false, dt);
             return;
@@ -926,7 +1011,7 @@ public sealed class Fighter
         var effort = _stateTime < _tuning.CollapseDuration
             ? Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration)
             : Ramp(_tuning.DownDriveScale, 1f, _stateTime - _tuning.CollapseDuration, _tuning.RiseTime * 0.5f);
-        DriveBody(command, effort * Tone, grounded, height, dt);
+        DriveBody(command, effort * StirredTone, grounded, height, dt);
 
         // 起き上がる途中（腰がダウンの高さを越えた）か、まだ床か。審判のカウントはどちらでも続く。
         var ratio = grounded ? height / StandTargetHeight : 0f;

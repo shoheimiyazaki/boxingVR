@@ -83,10 +83,12 @@ public sealed class BoxerBody
     public float Muscle(int bodyId) => _byBody.TryGetValue(bodyId, out var part) ? part.Body.Grid.Fraction(VoxelTissue.Flesh) : 1f;
 
     /// <summary>
-    /// 脳の働き（0..1）: 脳のボクセルの残り。死ぬ残り（<paramref name="deathFraction"/>）で 0、無傷で 1。
-    /// 少し削れただけでは働きはあまり落ちず、死ぬ残りに近づくほど急に落ちる（残りの割合の平方根）。
+    /// 脳の働き（0..1）: 脳が削られた割合 <c>lost</c> について <c>0.5^(lost / halvingLoss)</c>。無傷で 1、
+    /// <paramref name="halvingLoss"/>（既定 10%）削られるごとに半分になる（10% で 0.5、20% で 0.25、30% で 0.125 …）。
+    /// 少しの削れでも働きははっきり落ちる（ユーザーの指示: 2026-11-11。以前は死ぬ残りで 0 になる平方根で、少しの削れは効きにくかった）。
+    /// 死ぬかどうかは別に <see cref="DeathCause"/> が決める（残りが <see cref="FighterTuning.OrganDeathFraction"/> 未満）。
     /// </summary>
-    public float BrainFunction(float deathFraction)
+    public float BrainFunction(float halvingLoss)
     {
         int left = 0, start = 0;
         foreach (var part in _parts)
@@ -95,8 +97,12 @@ public sealed class BoxerBody
             start += part.Body.Grid.Initial(BoxerAnatomy.Brain);
         }
 
-        return start == 0 ? 1f : MathF.Sqrt(Math.Clamp(((float)left / start - deathFraction) / MathF.Max(1e-3f, 1f - deathFraction), 0f, 1f));
+        return BrainFunctionOf(start == 0 ? 0f : 1f - ((float)left / start), halvingLoss);
     }
+
+    /// <summary>脳が <paramref name="lost"/>（割合）削られたときの働き: <c>0.5^(lost / halvingLoss)</c>。</summary>
+    public static float BrainFunctionOf(float lost, float halvingLoss)
+        => MathF.Pow(0.5f, Math.Clamp(lost, 0f, 1f) / MathF.Max(1e-3f, halvingLoss));
 
     /// <summary>
     /// 半分以上（<see cref="FighterTuning.OrganDeathFraction"/> 未満しか残っていない）壊れた臓器の名前。

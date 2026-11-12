@@ -12,11 +12,23 @@ namespace MiniRing.Arena;
 /// 構成: タイトル → 試合（技・守り・クリーンヒットの字幕、打撃音つき）→ 結果。
 /// 試合は種で決まるので、同じ引数なら同じ動画になる。
 /// </summary>
-internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = false)
+/// <param name="width">映像の幅 [px]。</param>
+/// <param name="height">映像の高さ [px]。</param>
+/// <param name="fps">毎秒のコマ数。</param>
+/// <param name="breakStyle">ボクセルが砕ける音の方式。</param>
+/// <param name="hitSounds">パンチが当たる音を入れるか。</param>
+/// <param name="speed">試合の速さ（<see cref="GameSpeed"/>。標準 0.75 倍）。試合そのものを遅く進めて撮るので、映像は滑らかなまま遅くなる
+/// （出来た動画を引き伸ばすのと違い、コマが重複しない）。音は映像の時刻に置き、音そのものの速さ・高さは変えない。</param>
+/// <param name="faceCam">試合中、画面の両脇に両コーナーの顔の窓を出す（<see cref="FaceCam"/>）。null なら出さない。</param>
+internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = false, FaceCam? faceCam = null, float speed = GameSpeed.Standard)
 {
-    private const float SimDt = 1f / 60f;
+    /// <summary>試合を 1 歩進める時間の上限 [s]（ホストの 1 歩と同じ）。速さを落とすと 1 歩はこれより短くなる。</summary>
+    private const float MaxStepDt = 1f / 60f;
     private const float TitleSeconds = 3.5f;
     private const float ResultSeconds = 5f;
+
+    /// <summary>K.O. の後、結果へ進むまでに撮る長さ [s]。ゲームが次のラウンドを始める（3.5 s）より短く。</summary>
+    private const float AftermathSeconds = 3f;
 
     /// <summary>字幕に出す「重い一撃」のダメージ（1 発でクリーンヒットと言える程度）。</summary>
     private const float BigHitDamage = 15f;
@@ -34,14 +46,22 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// <param name="outPath">書き出す mp4 のパス。</param>
     /// <param name="log">進み具合の書き出し先。</param>
     /// <param name="afterStep">試合を 1 歩進めるたびに呼ぶ（時刻 [s]）。ドリルの合図などに使う。</param>
-    public void Make(Contender red, Contender blue, int seed, float seconds, string outPath, TextWriter log, Action<float>? afterStep = null)
+    /// <param name="untilKo">
+    /// K.O.（臓器が壊れる・10 カウント・リングアウト）で試合を終える。<paramref name="seconds"/> は打ち切りの上限になり、
+    /// 上の数字は残り時間でなく経過時間、K.O. の後 <see cref="AftermathSeconds"/> 秒の倒れた様子まで撮って結果へ進む。
+    /// </param>
+    public void Make(Contender red, Contender blue, int seed, float seconds, string outPath, TextWriter log, Action<float>? afterStep = null, bool untilKo = false)
     {
         var redBots = new List<IFighterControl>();
         var blueBots = new List<IFighterControl>();
         var corners = new BoxingCorners(blue.Name, s => Keep(blueBots, blue.Create(s)), s => Keep(redBots, red.Create(s)));
         using var game = new BoxingGame(seed: seed, corners: corners);
         using var renderer = new HeadlessRenderer((uint)width, (uint)height);
-        var audio = new float[(int)((TitleSeconds + seconds + ResultSeconds + 1f) * HitSound.SampleRate)];
+        var screen = new Vector2(width, height);
+        var panel = faceCam?.Panel(screen, FaceSide.Left) ?? default; // 左右の窓は同じ大きさ
+        // 顔の窓は窓の大きさで別に描いて書き写す（ヘッドレスの描画は 1 つのカメラで 1 枚。ホストでは重ねる窓として描く）。
+        using var paneRenderer = faceCam is null ? null : new HeadlessRenderer((uint)panel.WidthPx, (uint)panel.HeightPx);
+        var audio = new float[(int)((TitleSeconds + (seconds / speed) + ResultSeconds + 1f) * HitSound.SampleRate)];
         var videoPath = Path.ChangeExtension(outPath, ".video.mp4");
         var wavPath = Path.ChangeExtension(outPath, ".wav");
         var instances = new List<PrimitiveInstance>();
@@ -53,6 +73,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         var blueCombos = new Dictionary<string, int>();
         float redDamage = 0f, blueDamage = 0f;
         var frame = 0;
+        string? finish = null;
+        int? koWinner = null;
         var watch = Stopwatch.StartNew();
 
         // 途中で失敗しても、作りかけの映像・音声ファイルと ffmpeg を残さない。
@@ -63,10 +85,26 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                 try
                 {
                     var stdin = ffmpeg.StandardInput.BaseStream;
-                    void Emit(Matrix4x4 viewProjection, Vector3 eye, IReadOnlyList<ScreenTextDraw> text, IReadOnlyList<UiShapeDraw> shapes)
+                    void Emit(Matrix4x4 viewProjection, Vector3 eye, IReadOnlyList<ScreenTextDraw> text, IReadOnlyList<UiShapeDraw> shapes, bool withFace = false)
                     {
+                        var face = withFace ? faceCam : null;
                         var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),
-                            shadow: game.BuildShadow(), cameraPosition: eye, shapes: shapes, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                            shadow: game.BuildShadow(), cameraPosition: eye, shapes: face is null ? shapes : [.. shapes, .. face.Frames(game, screen)], postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                        if (face is not null && paneRenderer is not null)
+                        {
+                            foreach (var facePane in face.Panes(game, screen))
+                            {
+                                var at = facePane.Panel;
+                                var (faceViewProjection, faceEye) = face.Camera(game, facePane.Fighter, at.AspectRatio);
+                                var pane = paneRenderer.RenderPrimitiveScene(ArenaLook.Background, faceViewProjection, instances, lines, [], particles: game.BuildParticles(), lighting: game.BuildLighting(),
+                                    shadow: game.BuildShadow(), cameraPosition: faceEye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                                for (var row = 0; row < at.HeightPx; row++)
+                                {
+                                    Array.Copy(pane, row * at.WidthPx * 4, rgba, (((at.YPx + row) * width) + at.XPx) * 4, at.WidthPx * 4);
+                                }
+                            }
+                        }
+
                         stdin.Write(rgba);
                         frame++;
                     }
@@ -80,22 +118,39 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     }
 
                     // 試合。
-                    var stepsPerFrame = Math.Max(1, (int)MathF.Round(1f / (fps * SimDt)));
+                    // 1 コマで進める試合の時間（速さ / fps）を、MaxStepDt 以下の等しい歩に分ける（30 fps なら 0.75 倍で 1/80 s × 2 歩）。
+                    var frameDt = speed / fps;
+                    var stepsPerFrame = Math.Max(1, (int)MathF.Ceiling((frameDt / MaxStepDt) - 1e-3f));
+                    var stepDt = frameDt / stepsPerFrame;
                     var time = 0f;
-                    for (var step = 0; time < seconds; step++)
+                    float? endAt = null;
+                    for (var step = 0; time < seconds && (endAt is null || time < endAt); step++)
                     {
-                        game.Step(default, SimDt);
-                        time += SimDt;
+                        game.Step(default, stepDt);
+                        time += stepDt;
+                        var at = TitleSeconds + (time / speed); // 映像の時刻（音を置く所）
+                        if (GongSound.Synthesize(game.RecentBell) is { } gong)
+                        {
+                            Mix(audio, gong, at, 1f);
+                        }
+                        if (untilKo && endAt is null && game.RoundOver)
+                        {
+                            // ラウンドが終わった理由（K.O. の種類と勝者）。ゲームは RoundResetDelay の後に次のラウンドを始めるので、その前に止める。
+                            finish = game.Message;
+                            koWinner = game.PlayerWins > game.CpuWins ? 1 : -1;
+                            endAt = time + AftermathSeconds;
+                            flashes.Add(("K.O.", Gold, endAt.Value));
+                        }
                         if (VoxelBreakSound.Landings(game.RecentLandings, step, breakStyle) is { } landed)
                         {
-                            Mix(audio, landed, TitleSeconds + time, 1f);
+                            Mix(audio, landed, at, 1f);
                         }
 
                         foreach (var swing in game.RecentSwings)
                         {
                             if (SwingSound.Synthesize(swing.Speed, step) is { } whoosh)
                             {
-                                Mix(audio, whoosh, TitleSeconds + time, 1f);
+                                Mix(audio, whoosh, at, 1f);
                             }
                         }
 
@@ -103,13 +158,13 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         {
                             if (shatter.Grains.Count > 0)
                             {
-                                Mix(audio, VoxelBreakSound.Synthesize(shatter, step, breakStyle), TitleSeconds + time, 0.8f);
+                                Mix(audio, VoxelBreakSound.Synthesize(shatter, step, breakStyle), at, 0.8f);
                             }
 
                             if (shatter.Fatal)
                             {
-                                Mix(audio, VoxelBreakSound.Fatal(seed: 7, breakStyle), TitleSeconds + time, 1f);
-                                flashes.Add(("FATAL", Gold, time + 1.2f));
+                                Mix(audio, VoxelBreakSound.Fatal(seed: 7, breakStyle), at, 1f);
+                                flashes.Add(("FATAL", Gold, time + (1.2f * speed))); // 表示の長さは映像の秒で
                             }
                         }
 
@@ -129,7 +184,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             var tone = HitTone.Of(hit);
                             if (hitSounds)
                             {
-                                Mix(audio, HitSound.Synthesize(tone, step), TitleSeconds + time, 0.55f + (0.45f * tone.Intensity));
+                                Mix(audio, HitSound.Synthesize(tone, step), at, 0.55f + (0.45f * tone.Intensity));
                             }
 
                             if (hit.Damage >= BigHitDamage)
@@ -147,8 +202,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         }
 
                         BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
-                        var (vp, eye) = CameraAt(game, (TitleSeconds * 0.15f) + (time * 0.15f));
-                        Emit(vp, eye, MatchOverlay(red.Name, blue.Name, redCaption, blueCaption, flashes, redDamage, blueDamage, time, seconds), Bars());
+                        var (vp, eye) = CameraAt(game, (TitleSeconds * 0.15f) + (time / speed * 0.15f));
+                        Emit(vp, eye, MatchOverlay(red.Name, blue.Name, redCaption, blueCaption, flashes, redDamage, blueDamage, time, untilKo ? null : seconds, game), [.. Bars(), .. DownCountHud.Shapes(game, new Vector2(width, height))], withFace: true);
                         if (frame % (fps * 5) == 0)
                         {
                             log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {time:0}s / {seconds:0}s ({watch.Elapsed.TotalSeconds:0}s elapsed)"));
@@ -156,12 +211,12 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     }
 
                     // 結果。
-                    var winner = MathF.Abs(redDamage - blueDamage) <= MathF.Max(1f, 0.05f * (redDamage + blueDamage) / 2f) ? 0 : MathF.Sign(redDamage - blueDamage);
+                    var winner = koWinner ?? (MathF.Abs(redDamage - blueDamage) <= MathF.Max(1f, 0.05f * (redDamage + blueDamage) / 2f) ? 0 : MathF.Sign(redDamage - blueDamage));
                     BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
                     for (var t = 0f; t < ResultSeconds; t += 1f / fps)
                     {
-                        var (vp, eye) = CameraAt(game, ((TitleSeconds + seconds) * 0.15f) + (t * 0.15f));
-                        Emit(vp, eye, Result(red.Name, blue.Name, redDamage, blueDamage, winner, MathF.Min(1f, t / 0.6f)), Dim(0.6f * MathF.Min(1f, t / 0.6f)));
+                        var (vp, eye) = CameraAt(game, ((TitleSeconds + (time / speed)) * 0.15f) + (t * 0.15f));
+                        Emit(vp, eye, Result(red.Name, blue.Name, redDamage, blueDamage, winner, MathF.Min(1f, t / 0.6f), finish), Dim(0.6f * MathF.Min(1f, t / 0.6f)));
                     }
 
                     stdin.Close();
@@ -238,7 +293,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     }
 
     private List<ScreenTextDraw> MatchOverlay(string red, string blue, Caption redCaption, Caption blueCaption,
-        List<(string Text, Vector4 Color, float Until)> flashes, float redDamage, float blueDamage, float time, float seconds)
+        List<(string Text, Vector4 Color, float Until)> flashes, float redDamage, float blueDamage, float time, float? seconds, BoxingGame game)
     {
         var w = width;
         var h = height;
@@ -248,8 +303,9 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             new(blue, new Vector2(w - 28f, 22f), 30f, Blue, TextAnchor.Right),
             new(string.Create(CultureInfo.InvariantCulture, $"DAMAGE {redDamage:0}"), new Vector2(28f, 60f), 22f, Red),
             new(string.Create(CultureInfo.InvariantCulture, $"DAMAGE {blueDamage:0}"), new Vector2(w - 28f, 60f), 22f, Blue, TextAnchor.Right),
-            new(string.Create(CultureInfo.InvariantCulture, $"{MathF.Max(0f, seconds - time):0}"), new Vector2(w * 0.5f, 22f), 34f, White, TextAnchor.Center),
+            new(seconds is { } limit ? string.Create(CultureInfo.InvariantCulture, $"{MathF.Max(0f, limit - time):0}") : string.Create(CultureInfo.InvariantCulture, $"{(int)time / 60}:{(int)time % 60:00}"), new Vector2(w * 0.5f, 22f), 34f, White, TextAnchor.Center),
         };
+        list.AddRange(DownCountHud.Text(game, new Vector2(w, h), f => f == game.Player ? red : blue, f => f == game.Player ? Red : Blue));
         AddCaption(list, redCaption, new Vector2(28f, h - 96f), TextAnchor.Left, Red, time);
         AddCaption(list, blueCaption, new Vector2(w - 28f, h - 96f), TextAnchor.Right, Blue, time);
         for (var i = 0; i < flashes.Count; i++)
@@ -262,13 +318,17 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         return list;
     }
 
-    private IReadOnlyList<ScreenTextDraw> Result(string red, string blue, float redDamage, float blueDamage, int winner, float fade)
+    private IReadOnlyList<ScreenTextDraw> Result(string red, string blue, float redDamage, float blueDamage, int winner, float fade, string? finish = null)
     {
         var w = width;
         var h = height;
         var verdict = winner == 0 ? "DRAW" : $"{(winner > 0 ? red : blue)} WINS";
         return
         [
+            // K.O. の種類（"K.O. — BRAIN DESTROYED" / "10 COUNT K.O." / "RING OUT"。勝者の部分は上の大きな文字が言うので落とす）。
+            .. finish is { Length: > 0 }
+                ? new ScreenTextDraw[] { new(finish.Split("  ")[0], new Vector2(w * 0.5f, h * 0.14f), 40f, Fade(Gold, fade), TextAnchor.Center) }
+                : [],
             new(verdict, new Vector2(w * 0.5f, h * 0.26f), 72f, Fade(winner > 0 ? Red : winner < 0 ? Blue : Gold, fade), TextAnchor.Center),
             new(string.Create(CultureInfo.InvariantCulture, $"{red}  {redDamage:0}"), new Vector2(w * 0.5f - 30f, h * 0.45f), 40f, Fade(Red, fade), TextAnchor.Right),
             new(string.Create(CultureInfo.InvariantCulture, $"{blueDamage:0}  {blue}"), new Vector2(w * 0.5f + 30f, h * 0.45f), 40f, Fade(Blue, fade), TextAnchor.Left),

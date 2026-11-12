@@ -27,7 +27,25 @@ public sealed class DamageModelTests
         Console.WriteLine($"twist: chin {chin.Twist:0.0} rad/s, through the centre {centre.Twist:0.0} rad/s");
 
         Assert.IsGreaterThan(5f * centre.Twist, chin.Twist, "off the centre of rotation, the head is twisted on the neck");
-        Assert.IsFalse(centre.WentDown);
+        // 2026-11-11: 真ん中への同じ 1 発は頭をほとんどねじらない（脳しんとうは小さい）が、顔を貫いて脳を 2 割削る。脳の働きは 10% ごとに半分
+        // （BrainHalvingLoss）なので 0.23 まで落ちて崩れる（以前の平方根では 0.8 ほどで立っていた）。倒れる理由はねじれでなく材料。
+        Assert.IsTrue(centre.WentDown, "the brain carved through the face drops him, though the head barely turns");
+    }
+
+    [TestMethod]
+    public void BrainLoss_Probe()
+    {
+        foreach (var (name, where) in new (string, Func<Fighter, Vector3>)[] { ("chin", Chin), ("centre", Centre) })
+        {
+            var (game, cpu) = NewGame();
+            using (game)
+            {
+                int Brain() => cpu.Voxels!.Parts.Sum(p => p.Body.Grid.Remaining(MiniRing.Voxels.BoxerAnatomy.Brain));
+                var initial = cpu.Voxels!.Parts.Sum(p => p.Body.Grid.Initial(MiniRing.Voxels.BoxerAnatomy.Brain));
+                Hit(game, cpu, where(cpu), mass: 4.5f, speed: 2.2f);
+                Console.WriteLine($"{name}: brain {initial} → {Brain()} (lost {1f - ((float)Brain() / initial):P1}), function {cpu.Voxels.BrainFunction(FighterTuning.Default.BrainHalvingLoss):0.00}, concussion {cpu.Concussion:0.00}, consciousness {cpu.Consciousness:0.00}");
+            }
+        }
     }
 
     [TestMethod]
@@ -49,7 +67,9 @@ public sealed class DamageModelTests
         var (game, cpu) = NewGame();
         using (game)
         {
-            Hit(game, cpu, Chin(cpu), mass: 4.5f, speed: 2.2f);
+            // 意識が 0 のまま StillKoSeconds 動かないほど深い 1 発（2.2 m/s: 脳しんとう 1.3）はその場で K.O. になるので、
+            // 倒れても意識が少し残る 1 発（2.1 m/s）で、もがきながら 7 秒ほどで起き上がるまでを見る。
+            Hit(game, cpu, Chin(cpu), mass: 4.5f, speed: 2.1f);
             var downAt = -1f;
             var upAt = -1f;
             for (var t = 0f; t < 16f; t += Dt)

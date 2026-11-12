@@ -124,7 +124,7 @@ public sealed class HeadCarveProbe
             const float mass = 4.5f, speed = 2.2f;
             var damage = PunchMechanics.Damage(mass * speed) * PunchMechanics.Sharpness(speed);
             game.ApplyHit(new HitEvent(game.Player, Hand.Right, cpu, HitZone.Chin, point, speed, mass, 0.7f, damage), cpu.Parts.Head, -cpu.Frame.Forward * speed);
-            Console.WriteLine($"head {headScale}, MaxCarve {maxCarve}, {name}: brain function {cpu.Voxels!.BrainFunction(FighterTuning.Default.OrganDeathFraction):0.00}, twist {cpu.LastHeadTwist:0} rad/s");
+            Console.WriteLine($"head {headScale}, MaxCarve {maxCarve}, {name}: brain function {cpu.Voxels!.BrainFunction(FighterTuning.Default.BrainHalvingLoss):0.00}, twist {cpu.LastHeadTwist:0} rad/s");
         }
     }
 }

@@ -258,9 +258,43 @@ public sealed record FighterTuning
     /// <summary>意識がこの値を下回ると張りは 0（全身の力が抜けて床に伸びる）。</summary>
     public float LimpConsciousness { get; init; } = 0.12f;
 
+    /// <summary>
+    /// 倒れている間の「起き上がろうとする試み」の強さ: 試みの山で、体の張りに足される量（張りが満ちていない分 1 − Tone に対する割合）。
+    /// 意識が少しでもあれば体は動く: 張りが 0 の意識の浅いところ（<see cref="LimpConsciousness"/> 未満）でも、試みの間だけ体が張って
+    /// 腕・頭・腰がわずかに動き、すぐ抜ける。意識が深いほど（<see cref="KnockoutConsciousness"/> へ近いほど）試みは強く・頻繁になる。
+    /// </summary>
+    public float StirTone { get; init; } = 0.45f;
+
+    /// <summary>試みの山で、腰を上げようとする高さ（<see cref="Fighter.Rise"/>）に足す上限（立つ高さに対する割合）。保てない高さまで持ち上げようとして崩れる。</summary>
+    public float StirReach { get; init; } = 0.3f;
+
+    /// <summary>意識がわずかなときの試みの間隔 [s]。<see cref="StillSpeed"/> の静止で K.O. にする時間（<c>BoxingGame.StillKoSeconds</c>）より短くする（意識があれば必ずその間に動く）。</summary>
+    public float StirPeriodSlow { get; init; } = 2.6f;
+
+    /// <summary>意識が <see cref="KnockoutConsciousness"/> 以上のときの試みの間隔 [s]。</summary>
+    public float StirPeriodFast { get; init; } = 1.3f;
+
+    /// <summary>1 回の試みが力を込めている長さの、間隔に対する割合（残りは力を抜いて休む）。</summary>
+    public float StirDuty { get; init; } = 0.55f;
+
+    /// <summary>試みの間隔を毎回ずらす幅（±割合）。決まった拍子で動くと人に見えない。ずれは体ごとの決まった数列（種なしの乱数は使わない）。</summary>
+    public float StirJitter { get; init; } = 0.3f;
+
+    /// <summary>
+    /// 体が「動いていない」とみなす速さ [m/s]: 全部位の重心の速さの最大がこれ未満。60 cm の体で 1 秒に 1.5 cm（目で動きと分からない程度）。
+    /// 審判が見て判断する量（ルールの値）。
+    /// </summary>
+    public float StillSpeed { get; init; } = 0.015f;
+
     /// <summary>骨盤が支えようとしている高さより、立つ高さのこの割合だけ低いまま <see cref="CollapseTime"/> 過ぎたら、崩れ落ちた（ダウン）。</summary>
     public float CollapseDrop { get; init; } = 0.25f;
     public float CollapseTime { get; init; } = 0.25f;
+
+    /// <summary>
+    /// 脳がこの割合だけ削られるごとに、脳の働き（意識の上限）が半分になる（<see cref="Voxels.BoxerBody.BrainFunction"/>）。
+    /// 10%: 10% 削れで 0.5（ふらつく）、20% で 0.25（膝をつく）、30% で 0.125（立てない）、40% で 0.06（起き上がろうともがくだけ）。
+    /// </summary>
+    public float BrainHalvingLoss { get; init; } = 0.1f;
 
     /// <summary>臓器がこの割合より少なくなったら死ぬ。</summary>
     public float OrganDeathFraction { get; init; } = 0.5f;

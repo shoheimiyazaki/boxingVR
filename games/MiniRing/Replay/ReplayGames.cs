@@ -42,6 +42,9 @@ public sealed class RecordingGame : IGame<BoxingInput>
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 viewProjection, Vector2 screenSizePixels)
         => _game.BuildOverlayText(viewProjection, screenSizePixels);
 
+    public IReadOnlyList<UiShapeDraw> BuildOverlayShapes(Matrix4x4 viewProjection, Vector2 screenSizePixels)
+        => _game.BuildOverlayShapes(viewProjection, screenSizePixels);
+
     public void Dispose() => _recorder.Dispose();
 }
 
@@ -76,6 +79,9 @@ public sealed class ReplayGame : IGame<BoxingInput>
 
     /// <summary>直前の <see cref="Step"/> で振り抜かれた拳。</summary>
     public IReadOnlyList<SwingEvent> FrameSwings => _frameSwings;
+
+    /// <summary>このホストのフレームの間に鳴ったゴング（複数なら最後のもの）。</summary>
+    public RoundBell FrameBell { get; private set; }
     public PhysicsWorld World => _player.Game.World;
     public bool IsOver => false;
 
@@ -94,8 +100,10 @@ public sealed class ReplayGame : IGame<BoxingInput>
         _frameShatters.Clear();
         _frameLandings.Clear();
         _frameSwings.Clear();
+        FrameBell = RoundBell.None;
         _player.PlayUntil(_clock, game =>
         {
+            FrameBell = game.RecentBell == RoundBell.None ? FrameBell : game.RecentBell;
             _frameHits.AddRange(game.RecentHits);
             _frameShatters.AddRange(game.RecentShatters);
             _frameLandings.AddRange(game.RecentLandings);
@@ -125,6 +133,9 @@ public sealed class ReplayGame : IGame<BoxingInput>
         };
         return list;
     }
+
+    public IReadOnlyList<UiShapeDraw> BuildOverlayShapes(Matrix4x4 viewProjection, Vector2 screenSizePixels)
+        => _player.Game.BuildOverlayShapes(viewProjection, screenSizePixels);
 
     public void Dispose() => _player.Dispose();
 }
