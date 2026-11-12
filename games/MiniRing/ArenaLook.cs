@@ -49,7 +49,7 @@ public static class ArenaLook
     public static ShadowMapConfig Shadow(Vector3 ringCenter, float ringSize, float surfaceHeight)
     {
         // ローテーブルの影が床とラグに落ちるところまで。
-        var half = MathF.Max((ringSize * 0.5f) + 0.4f, LivingRoom.TableHalf + 0.25f);
+        var half = (ringSize * 0.5f) + 0.4f; // テーブルの縁（リングの縁から 15 cm）の 25 cm 外まで
         return new ShadowMapConfig(
             new Vector3(ringCenter.X - half, 0f, ringCenter.Z - half),
             new Vector3(ringCenter.X + half, surfaceHeight + 0.9f, ringCenter.Z + half));

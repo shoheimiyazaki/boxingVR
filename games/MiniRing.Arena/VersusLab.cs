@@ -15,8 +15,8 @@ internal static class VersusLab
     /// <summary>練習試合の体の調整: 既定の体に、両手で柄を締めた剣の固い手首（30 Hz）だけを足す（足の運びはボクサーのまま）。</summary>
     public static FighterTuning Tuning { get; } = FighterTuning.Default with { WristServoHz = SwordStance.Tuning.WristServoHz };
 
-    /// <summary>戦い手（名前で選ぶ）。</summary>
-    public static IReadOnlyList<Contender> Contenders(string swordLibrary, string clubSwings, string batSwings, SwordDefense? defense = null)
+    /// <summary>戦い手（名前で選ぶ）。<paramref name="hitAndAway"/> を渡すと、剣士（日本刀・ロングソード）は間合いを読んで打って離れる。</summary>
+    public static IReadOnlyList<Contender> Contenders(string swordLibrary, string clubSwings, string batSwings, SwordDefense? defense = null, HitAndAway? hitAndAway = null, AimTuning? aim = null)
     {
         var library = SwordLibraryLab.Load(swordLibrary);
         var club = SwingLab.Load(clubSwings);
@@ -26,8 +26,8 @@ internal static class VersusLab
             Contender.Named("champion") with { Name = "拳" },
             new("棍棒", s => new ClubBot([.. club.Select(c => c.Swing)], s, club.Average(c => c.Range), rest: 0.6f), WeaponKind.WoodenClub),
             new("バット", s => new ClubBot([.. bat.Select(c => c.Swing)], s, bat.Average(c => c.Range), rest: 0.6f), WeaponKind.WoodenClub, TwoHanded: true),
-            new("日本刀", s => SwordLibraryLab.Bot(library, WeaponKind.Katana, s, defense).Armed, WeaponKind.Katana, TwoHanded: true),
-            new("ロングソード", s => SwordLibraryLab.Bot(library, WeaponKind.Longsword, s, defense).Armed, WeaponKind.Longsword, TwoHanded: true),
+            new("日本刀", s => SwordLibraryLab.Bot(library, WeaponKind.Katana, s, defense, hitAndAway, aim).Armed, WeaponKind.Katana, TwoHanded: true),
+            new("ロングソード", s => SwordLibraryLab.Bot(library, WeaponKind.Longsword, s, defense, hitAndAway, aim).Armed, WeaponKind.Longsword, TwoHanded: true),
         ];
     }
 

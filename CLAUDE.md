@@ -86,6 +86,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | `docs/BOTS.md` / `docs/BOT_PDCA.md` | ボットの技と、改善の記録（サイクルごとの仮説・結果・採否） |
 | `docs/REPLAY.md` | 記録と完全再現 |
 | `docs/VOXEL_EDITING.md` | ボクセルを Vengi で直す（.vox） |
+| `docs/WEAPON_DEFENSE.md` | 武器を選ばない守り（読み・受け流し・足と頭で外す・間合いを保つ）と守りのドリル（guardlab） |
 | `docs/REUSE.md` | エンジン（Aigis）と iTVision から持ってきたもの、エンジンへの変更 |
 | `docs/arena/*.md` | ドリル・リーグの生の記録 |
 
@@ -115,6 +116,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | 総当たり | `dotnet run --project games/MiniRing.Arena -c Release -- league --bouts 4 --seconds 60 --out docs/arena/<名前>.md` |
 | 攻撃のドリル | `... -- attacklab --combos 1,2,1-2 --telegraphs 0,0.1,0.2` |
 | 防御・回避のドリル | `... -- drill` / `drilltune` / `basics --punch 2 --slot Duck --style swarmer` / `counterlab` |
+| 剣の守りのドリル（武器を選ばない） | `... -- guardlab [--only kesa,棍棒] [--variants 0,7] [--try "ParryAndStep:0.2:0.52:0.35:0.3:0.25:0.3"] [--video out.mp4]`（`docs/WEAPON_DEFENSE.md`） |
 | 試合の動画 | `... -- video --red champion --blue swarmer --seconds 40 --out docs/video/<名前>.mp4`（ffmpeg が要る。`--facecam on` で両コーナーの顔の窓を両脇に出す。`--until-ko yes` で K.O. まで続け、`--seconds` は上限になる。`--speed 0.5 / 0.75 / 1`（既定 0.75）は試合そのものを遅く進めて撮る。`--tv on` はテレビ中継風: 5 ラウンド・歓声・*.events.json） |
 | 実況・解説を入れる | `powershell -ExecutionPolicy Bypass -File tools\commentary\dub.ps1 -Video in.mp4 -Script script.json -Out out.mp4`（台本は *.events.json を見て書く。`tools/commentary/README.md`） |
 | ボクセルの書き出し・確かめ | `... -- voxexport --out boxer.vox` / `voxcheck --in boxer.vox [--install yes]` |
@@ -131,7 +133,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 
 ## 7. 並行して進んでいる作業
 
-- **ボクセルの武器（ワークツリー `.claude/worktrees/voxel-damage` の未コミットの変更。ブランチ自体は master へマージ済みで、武器の作業はまだコミットされていない）**: 鉄の剣・木の棍棒。`VoxelContact`（ボクセル同士の圧力の接触: 応力の集中・柔らかい方が壊れる非対称・押し進む仕事）、`VoxelBending`（梁としての曲げ・切り欠きから折れる）、`Fighter.Wield`（握り = 玉継手、手首 = 角度サーボ、拳の PD 力は腕＋武器の質量に掛かる）、`HandCommand.Orientation`（拳の角度の目標）。文書は `docs/VOXEL_WEAPONS.md`・`docs/CLUB_FIGHTING.md`（そのワークツリー）。マージするときは、master 側の変更（連続のダウン・部屋・色のテクスチャ・`PhysicsVersion` 6）とぶつかる所を確かめる。
+- **ボクセルの武器（ワークツリー `.claude/worktrees/voxel-damage`、ブランチ `claude/voxel-damage`）**: 鉄の剣・木の棍棒・はめる物。`VoxelContact`（圧力の接触）、`VoxelBending`（梁の曲げ）、`Fighter.Wield`、武器同士の広いリング（`RingLayout`）、武器を選ばない剣の守り（`docs/WEAPON_DEFENSE.md`）。2026-11-12 の時点で master へマージ済み（`PhysicsVersion` 13・`LogicVersion` 12）。続きを入れるときは、master 側の変更（スタミナ・臓器・テレビ中継・狙い・はめる物・顔）とぶつかる所を確かめる。
 
 ## 8. 軸から外れている所（技術的な負債。直す方向は軸へ寄せること）
 
