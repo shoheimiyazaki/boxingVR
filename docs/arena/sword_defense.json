@@ -1,0 +1,20 @@
+{
+  "Enabled": true,
+  "BlockShare": 0.6,
+  "Horizon": 0.25,
+  "Margin": 0.45,
+  "ThreatSpeed": 6,
+  "HoldTime": 0.3,
+  "Counter": true,
+  "WatchFists": true,
+  "Mode": 2,
+  "Deflect": 0.5,
+  "Forte": 0.35,
+  "Lead": 0.1,
+  "StepDelay": 0.05,
+  "HeadTime": 0.15,
+  "Clearance": 0.6,
+  "Drive": 0,
+  "Bind": 1,
+  "Flat": false
+}
