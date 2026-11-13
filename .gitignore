@@ -15,3 +15,6 @@ replays/
 videos/
 assets-src/
 docs/video/
+
+# Archived videos and replays by development generation (docs/MEDIA.md is the index)
+media/
