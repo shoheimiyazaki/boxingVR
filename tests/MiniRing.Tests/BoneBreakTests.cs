@@ -336,4 +336,63 @@ public sealed class BoneBreakTests
         var hanging = game.World.GetState(piece);
         Assert.IsLessThan(0.1f, Vector3.Distance(stub.Position, hanging.Position), "hanging close to where it broke");
     }
+
+    /// <summary>骨の軸（部位のローカル X）のワールドの向き。</summary>
+    private static Vector3 Axis(BoxingGame game, int body) => Vector3.Transform(Vector3.UnitX, game.World.GetState(body).Orientation);
+
+    [TestMethod]
+    public void TheBrokenPiece_SagsUnderItsWeight_ButDoesNotHangStraightDown()
+    {
+        // 拳を前へ突き出したまま、前腕の真ん中で折る: 折れた先は下へたわむが、真下へは垂れない（肉のバネが重さの多くを支える）。
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("reach", _ => new Scripted(s => Reach(s, high: false)), _ => new StandGuard()));
+        Play(game, 1f);
+        var forearm = game.Cpu.ForearmId(Hand.Left);
+        var broken = game.Cpu.Voxels!.BreakBent(forearm, new VoxelBreak(0, Slices(game, forearm) / 2, true, 2f))!;
+        game.BreakBone(game.Cpu, broken, 1f);
+        var piece = broken.Fragment!.Body.BodyId;
+        Play(game, 2f);
+
+        var stub = Axis(game, forearm);
+        var hanging = Axis(game, piece);
+        var bend = MathF.Acos(Math.Clamp(MathF.Abs(Vector3.Dot(stub, hanging)), -1f, 1f));
+        var down = MathF.Abs(Vector3.Dot(hanging, -Vector3.UnitY));
+        Assert.IsGreaterThan(10f * MathF.PI / 180f, bend, "it gives at the break (no bone holds it straight)");
+        Assert.IsLessThan(0.9f, down, "but it does not hang straight down");
+    }
+
+    private static bool _high;
+
+    private static FighterCommand Reach(in FighterSense s, bool high)
+    {
+        var face = s.OpponentChest - s.Self.Origin;
+        face.Y = 0f;
+        var r = s.ArmReach;
+        var left = new HandCommand(new Vector3(0.15f * r, (high ? 0.7f : 0.1f) * r, 0.7f * r), false);
+        var right = new HandCommand(new Vector3(-0.15f * r, 0.1f * r, 0.45f * r), false);
+        return new FighterCommand(Vector3.Zero, Vector3.Normalize(face), left, right);
+    }
+
+    [TestMethod]
+    public void TheArmAboveTheBreak_StillMovesToWhereTheInputPutsIt()
+    {
+        _high = false;
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("reach", _ => new Scripted(s => Reach(s, _high)), _ => new StandGuard()));
+        Play(game, 1f);
+        var forearm = game.Cpu.ForearmId(Hand.Left);
+        var upper = game.Cpu.UpperArmId(Hand.Left);
+        var broken = game.Cpu.Voxels!.BreakBent(forearm, new VoxelBreak(0, Slices(game, forearm) / 2, true, 2f))!;
+        game.BreakBone(game.Cpu, broken, 1f);
+        Play(game, 1f);
+        var lowUpper = Axis(game, upper);
+        var lowStub = game.World.GetState(forearm).Position.Y;
+
+        _high = true; // 拳の目標を顔の高さへ上げる
+        Play(game, 1f);
+        var highUpper = Axis(game, upper);
+        var highStub = game.World.GetState(forearm).Position.Y;
+
+        Assert.IsGreaterThan(15f * MathF.PI / 180f, MathF.Acos(Math.Clamp(Vector3.Dot(lowUpper, highUpper), -1f, 1f)), "the shoulder still turns the upper arm to the input");
+        Assert.IsGreaterThan(0.02f, highStub - lowStub, "and the forearm above the break rises with it");
+        Assert.AreEqual(Vector3.Zero, game.Cpu.HandPush(Hand.Left), "nothing pulls the dangling hand");
+    }
 }

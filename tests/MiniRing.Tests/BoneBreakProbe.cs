@@ -102,6 +102,38 @@ public sealed class BoneBreakProbe
     }
 
     [TestMethod]
+    public void GloveBouts_BreakRate()
+    {
+        int bouts = 0, breaks = 0, severs = 0;
+        var byPart = new Dictionary<BodyPartKind, int>();
+        foreach (var (red, blue) in new[] { ("champion", "slugger"), ("swarmer", "champion"), ("slugger", "swarmer"), ("champion", "champion") })
+        {
+            foreach (var seed in new[] { 1, 2, 3 })
+            {
+                using var game = new BoxingGame(seed: seed, corners: new BoxingCorners(blue, s => BotCatalog.Create(blue, s), s => BotCatalog.Create(red, s)));
+                var lines = new List<string>();
+                for (var t = 0f; t < 60f && !game.RoundOver; t += 1f / 60f)
+                {
+                    game.Step(default, 1f / 60f);
+                    foreach (var b in game.BrokenBones)
+                    {
+                        breaks++;
+                        byPart[b.Part] = byPart.GetValueOrDefault(b.Part) + 1;
+                        lines.Add(string.Create(CultureInfo.InvariantCulture, $"{t:0.0}s {(b.Victim == game.Player ? "red" : "blue")} {b.Part}"));
+                    }
+
+                    severs += game.RecentSevers.Count;
+                }
+
+                bouts++;
+                TestContext.WriteLine($"{red} vs {blue} seed {seed}: {string.Join(" | ", lines)}");
+            }
+        }
+
+        TestContext.WriteLine($"{bouts} bouts x 60 s: {breaks} broken bones ({string.Join(", ", byPart.Select(kv => $"{kv.Key} {kv.Value}"))}), {severs} severed");
+    }
+
+    [TestMethod]
     public void GloveBouts_CountBrokenBones()
     {
         foreach (var seed in new[] { 1, 2, 3 })

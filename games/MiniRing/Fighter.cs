@@ -160,7 +160,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 17; // 17: claude/a-3d0203 をマージ（疲れ Vigor を肩・肘・手首のサーボにも出し、疲れた筋肉は拳を縮めて運ぶ速さに上限 TiredHandSlowness。ブランチの中では 14）。16: 骨が折れる（打撃の曲げ。骨だけが曲げを受ける梁、肉の橋の弱いバネでぶら下がる）・関節の端の骨や肉が削り取られたら外れる・使えなくなった手の握りが抜けていく・武器を放す（LetGo）と素手の拳。15: ダウンは腰・上体・手がマットに着いた・倒れたらすぐ、中腰なら意識が薄いまま 4 秒続いたら（腰の高さでは取らない）。14: 面の下へ伝わる圧力（グローブの拳が皮膚の下の肉を潰してへこませる。拳の後ろの腕と体の質量 massBehind）。13: claude/voxel-damage（武器同士は広いリング RingLayout・斬れずにめり込んだボクセルの押し戻し）をマージ。12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
+    public const int PhysicsVersion = 18; // 18: 折れた骨をつなぐ肉のバネは自分の重さで約 35° たわむ固さ（FractureSagRadians）・折れた腕も折れ目より体に近い側の筋肉は入力どおり動く（DriveStump）。17: claude/a-3d0203 をマージ（疲れ Vigor を肩・肘・手首のサーボにも出し、疲れた筋肉は拳を縮めて運ぶ速さに上限 TiredHandSlowness。ブランチの中では 14）。16: 骨が折れる（打撃の曲げ。骨だけが曲げを受ける梁、肉の橋の弱いバネでぶら下がる）・関節の端の骨や肉が削り取られたら外れる・使えなくなった手の握りが抜けていく・武器を放す（LetGo）と素手の拳。15: ダウンは腰・上体・手がマットに着いた・倒れたらすぐ、中腰なら意識が薄いまま 4 秒続いたら（腰の高さでは取らない）。14: 面の下へ伝わる圧力（グローブの拳が皮膚の下の肉を潰してへこませる。拳の後ろの腕と体の質量 massBehind）。13: claude/voxel-damage（武器同士は広いリング RingLayout・斬れずにめり込んだボクセルの押し戻し）をマージ。12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1645,12 +1645,15 @@ public sealed class Fighter
         var torso = TorsoOrientation;
         foreach (var arm in _arms)
         {
+            var hand = command.For(arm.Hand);
             if (arm.Severed)
             {
-                continue; // 切り落とされた腕は動かせない
+                // 折れた・切れた腕: 折れ目より体に近い側（残った肩・肘の筋肉）は、入力の拳の目標から決まる本来の形へ動く。その先は肉のバネで
+                // ぶら下がるだけ（拳を目標へ引く力は掛けない: 手は駆動していない先に付いている）。
+                arm.DriveStump(_world, frame, hand.TargetLocal, Parts.Chest);
+                continue;
             }
 
-            var hand = command.For(arm.Hand);
             var target = hand.TargetLocal;
             if (arm.Support is { } support)
             {
@@ -1953,10 +1956,6 @@ public sealed class Fighter
         if (fragment is not null)
         {
             SeparateCollisions(part, fragment.BodyId);
-            if (broken.Hangs)
-            {
-                JoinByFlesh(part, fragment.BodyId, broken);
-            }
         }
         else
         {
@@ -1995,6 +1994,12 @@ public sealed class Fighter
                 arm.Grabbed?.SetGrabbed(false);
                 arm.Grabbed = null;
             }
+        }
+
+        // 肉のつなぎは手を付け替えた後で: バネの固さは、折れた先にはまっている物（グローブ）の重さも数える。
+        if (fragment is not null && broken.Hangs)
+        {
+            JoinByFlesh(part, fragment.BodyId, broken);
         }
 
         var p = Parts;
@@ -2036,8 +2041,54 @@ public sealed class Fighter
             frequency: _tuning.FractureLinkHz, dampingRatio: 1f);
         _world.MakeBreakable(socket, tear);
         var relative = Quaternion.Concatenate(b.Orientation, Quaternion.Conjugate(a.Orientation));
-        var spring = _world.AddAngularServo(stub, fragment, relative, _tuning.FractureSpringHz, 1f, _tuning.ArmServoMaxSpeed, 0f, bend);
+        var spring = _world.AddAngularServo(stub, fragment, relative, FractureSpringHz(fragment, point), 1f, _tuning.ArmServoMaxSpeed, 0f, bend);
         _fleshLinks.Add(new FleshLink(stub, fragment, socket, spring, tear, bend));
+    }
+
+    /// <summary>
+    /// 折れた骨をつなぐ向きのバネの固有振動数 [Hz]: 折れた先（<paramref name="fragment"/> と、関節でそこにぶら下がる部位）を、折れ目
+    /// <paramref name="point"/> を支点に重心へ集めた振り子として見て、水平に突き出したとき自分の重さで <see cref="FighterTuning.FractureSagRadians"/>
+    /// だけたわむバネ: k = m g d / θ。
+    /// </summary>
+    private float FractureSpringHz(int fragment, Vector3 point)
+    {
+        const float Gravity = 9.81f;
+        var mass = 0f;
+        var moment = Vector3.Zero;
+        var hanging = HangingFrom(fragment);
+        // 折れた先の手にはめている物（グローブ）も、折れた先の重さ（握った武器はやがて抜けるので数えない）。
+        foreach (var id in hanging.Concat(_deadGrips.Where(g => g.Worn && hanging.Contains(g.Hand)).Select(g => g.Held)).ToList())
+        {
+            var m = _world.GetMass(id);
+            mass += m;
+            moment += _world.GetState(id).Position * m;
+        }
+
+        var lever = mass > 0f ? Vector3.Distance(moment / mass, point) : 0f;
+        // 欲しいバネ定数 k = m g d / θ。向きのバネ（角度のサーボ）の固さは、つないだ剛体の重心まわりの慣性で数える（k = I ω²）ので、
+        // 折れた先の剛体の、骨の軸に直角な向きの慣性モーメントで振動数へ直す。
+        var stiffness = mass * Gravity * lever / MathF.Max(1e-3f, _tuning.FractureSagRadians);
+        var inertia = _world.GetLocalInertiaDiagonal(fragment);
+        var across = MathF.Max(1e-7f, MathF.Max(inertia.Y, inertia.Z));
+        return MathF.Sqrt(stiffness / across) / (2f * MathF.PI);
+    }
+
+    /// <summary>剛体 <paramref name="root"/> と、関節でそこから先にぶら下がる部位（体の関節の親子をたどる）。</summary>
+    private List<int> HangingFrom(int root)
+    {
+        var parts = new List<int> { root };
+        for (var i = 0; i < parts.Count; i++)
+        {
+            foreach (var joint in _joints)
+            {
+                if (joint.ParentPart == parts[i] && !parts.Contains(joint.ChildPart))
+                {
+                    parts.Add(joint.ChildPart);
+                }
+            }
+        }
+
+        return parts;
     }
 
     /// <summary>
@@ -2679,6 +2730,32 @@ public sealed class Fighter
         {
             world.SetAngularServoSettings(ShoulderServo, tuning.ArmServoHz, 40f * tuning.TorqueScale * Math.Max(0.01f, shoulderScale));
             world.SetTwistServoSettings(ElbowServo, tuning.ArmServoHz, 30f * tuning.TorqueScale * Math.Max(0.01f, elbowScale));
+        }
+
+        /// <summary>
+        /// 折れた・切れた腕の、残った筋肉だけを駆動する: 拳の目標から IK で決まる肩・肘の角度を、まだある肩・肘のサーボの目標にする（骨折より
+        /// 体に近い側は入力どおりの形へ動く）。拳を引く力は掛けない。サーボが外れた関節（折れ目より先）には何も書かない。
+        /// </summary>
+        public void DriveStump(PhysicsWorld world, BodyFrame frame, Vector3 targetLocal, int chestId)
+        {
+            LastForce = Vector3.Zero;
+            var shoulder = ShoulderPosition(world, chestId);
+            var reach = UpperLength + LowerLength;
+            var target = ArmIk.ClampReach(shoulder, frame.LocalToWorld(targetLocal), reach);
+            PlannedTarget = target;
+            LastTarget = target;
+            var pole = shoulder + (((-Vector3.UnitY * 1.0f) + (frame.Rotate(Vector3.UnitX * Side) * 0.6f) - (frame.Forward * 0.3f)) * reach);
+            var (elbow, hand) = ArmIk.SolveTwoBone(shoulder, target, pole, UpperLength, LowerLength);
+            var (upperRotation, elbowAngle) = ArmIk.JointTargets(shoulder, elbow, hand, ArmIk.BendNormal(shoulder, target, pole), Side);
+            if (world.HasConstraint(ShoulderServo))
+            {
+                world.SetAngularServoTarget(ShoulderServo, Quaternion.Concatenate(upperRotation, Quaternion.Conjugate(world.GetState(chestId).Orientation)));
+            }
+
+            if (world.HasConstraint(ElbowServo))
+            {
+                world.SetTwistServoTarget(ElbowServo, Math.Clamp(elbowAngle, 0f, 140f * MathF.PI / 180f));
+            }
         }
 
         /// <summary>腕を目標へ駆動し、体から借りた力 [N]（脚と腰が地面を押して出す分）を返す。</summary>

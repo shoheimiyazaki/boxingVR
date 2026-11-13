@@ -166,6 +166,14 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             Mix(audio, SeverSound.Synthesize(sever.Strength, step), at, 1f);
                         }
 
+                        // 骨が折れた（肉でぶら下がる）: 画面に出し、記録に残す（どの打撃で・どこが折れたか、動画のどこを見ればよいか）。
+                        foreach (var broken in game.BrokenBones)
+                        {
+                            flashes.Add(("BROKEN!", Gold, time + (1.2f * speed)));
+                            log.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                                $"bone broken at {time:0.0} s (video {at:0.0} s): {(broken.Victim == game.Player ? "red" : "blue")} {broken.Part}"));
+                        }
+
                         foreach (var contact in game.RecentContacts)
                         {
                             Mix(audio, ContactSound.Synthesize(contact.Pair, contact.Strength, step), at, 1f);

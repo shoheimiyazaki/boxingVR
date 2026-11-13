@@ -135,10 +135,13 @@ public sealed record FighterTuning
     public float FractureLinkHz { get; init; } = 6f;
 
     /// <summary>
-    /// 折れた骨の両側をつなぐ肉の、向きのバネの固さ [Hz]（駆動の無い弱いバネ: 目標は折れた瞬間のまっすぐな向きのまま）。
-    /// 出せるトルクの上限は、残った肉の断面が曲げで持ちこたえる強さ（<see cref="Voxels.BoneBreak.BendTorque"/>）。
+    /// 折れた骨の両側をつなぐ肉の、向きのバネ（駆動の無いバネ: 目標は折れた瞬間のまっすぐな向きのまま）の固さを、折れた先が水平に
+    /// 突き出したとき自分の重さでたわむ角 [rad] で決める: バネ定数 k = m g d / この角（m は折れた先とそこにぶら下がる部位の質量、d は折れ目から
+    /// その重心まで）。0.6 rad（約 35°）: ぶらぶら揺れるが、重力に負けきって真下へ垂れはしない（ユーザーの指定 2026-11-13「完全には重力に負けない
+    /// 程度」。初めの 1.5 Hz では前腕の先は真下へ垂れた）。握った武器の分だけ重い先は、さらにたわむ。出せるトルクの上限は、残った肉の断面が
+    /// 曲げで持ちこたえる強さ（<see cref="Voxels.BoneBreak.BendTorque"/>）。
     /// </summary>
-    public float FractureSpringHz { get; init; } = 1.5f;
+    public float FractureSagRadians { get; init; } = 0.6f;
     public float HandReactionShare { get; init; } = 0.5f;
     /// <summary>
     /// スタミナが尽きたときの、腕の筋肉が拳を肩に対して動かせる速さの上限の逆数 [s/m]（Hill の力と速さの関係を直線で近似: 上限の速さで出せる力が 0）。
