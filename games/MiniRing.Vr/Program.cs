@@ -85,7 +85,7 @@ catch (InvalidOperationException ex)
 
 // 試合は replays/ に自動で記録する（デスクトップ版の --replay で再生、--verify で照合できる）。
 using (xr)
-using (var game = new BoxingGame())
+using (var game = new BoxingGame(FighterTuning.Default with { PlayerFatigue = false })) // VR の手触りの調整が終わるまで、自分の腕は疲れない
 using (var recorder = ReplayRecorder.TryStartFile(Path.Combine(Environment.CurrentDirectory, "replays"), game, "vr", out var recordingMessage))
 using (var renderer = new HeadlessRenderer(xr.EyeWidth, xr.EyeHeight, xr.Vulkan.External))
 using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))

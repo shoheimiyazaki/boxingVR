@@ -1097,7 +1097,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _ring = new Ring(_world, Layout.Center, Layout.Size, RingSurfaceHeight, LivingRoom.StageBase);
         var surface = _ring.SurfaceCenter;
         var apart = new Vector3(0f, 0f, Layout.StartGap * 0.5f);
-        Player = Fighter.Spawn(_world, _tuning, "player", surface - apart, 0f);
+        // VR のプレイヤーには、手触りの調整が終わるまでスタミナの疲れを効かせない（FighterTuning.PlayerFatigue）。
+        Player = Fighter.Spawn(_world, _tuning.PlayerFatigue ? _tuning : _tuning with { TiredStrength = 1f, TiredHandSlowness = 0f }, "player", surface - apart, 0f);
         Cpu = Fighter.Spawn(_world, _tuning, "cpu", surface + apart, MathF.PI);
         PlayerSkin = new BoxerSkin(_model, Player, _tuning);
         // 体の形はローポリのモデル（頭・胸・腕の形）。その内側をボクセルで埋める。トランクスはグローブと同じコーナーの色。
@@ -1136,8 +1137,20 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             Wear(Cpu, _corners.CpuWear);
         }
 
+        // 前のラウンドの操作元から、覚えたことを引き継がせる（学ぶボット。IFighterControl.CarryOver）。
+        var previousCpu = _round > 1 ? _cpuControl : null;
+        var previousPlayer = _playerControl;
         _cpuControl = _corners.Cpu(_seed + _round);
         _playerControl = _corners.Player?.Invoke((_seed * 7919) + _round);
+        if (previousCpu is not null)
+        {
+            _cpuControl.CarryOver(previousCpu);
+        }
+
+        if (previousPlayer is not null)
+        {
+            _playerControl?.CarryOver(previousPlayer);
+        }
         _roundOverTimer = 0f;
         LastHit = null;
         _preStepGloveVelocity.Clear();
@@ -1180,7 +1193,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             new GloveSense(opponent.GloveCenter(Hand.Right), opponent.GloveVelocity(Hand.Right)),
             opponent.ChestVelocity,
             new BodySense(opponent.ShoulderPosition(Hand.Left), opponent.ShoulderPosition(Hand.Right), opponent.PelvisPosition),
-            self.Faintness, OpponentTargets: opponent.AsTarget);
+            self.Faintness, OpponentTargets: opponent.AsTarget, SelfStamina: self.Stamina);
     }
 
     public FighterSense PlayerSense => ArmedSense(Player, Cpu);

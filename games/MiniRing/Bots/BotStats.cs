@@ -40,6 +40,23 @@ public sealed class BotStats
     public float CrouchDefending { get; private set; }
     public float CrouchPunching { get; private set; }
 
+    /// <summary>危ない所（間合いの層の危険度）にいた時間 [s]（危険度で重み付け）。</summary>
+    public float DangerTime { get; private set; }
+
+    /// <summary>そのうち、自分から打っていない間に危ない所にいた時間 [s]（間合いの層の立ち位置が変えるのはここ）。</summary>
+    public float IdleDangerTime { get; private set; }
+
+    /// <summary>当てずっぽうで入れた回避の数（間合いの層）。</summary>
+    public int Guesses { get; private set; }
+
+    internal void InRange(float danger, bool attacking, float dt)
+    {
+        DangerTime += danger * dt;
+        IdleDangerTime += attacking ? 0f : danger * dt;
+    }
+
+    internal void Guessed() => Guesses++;
+
     internal void Tick(float dt, bool crouched, bool defending = false, bool punching = false)
     {
         Time += dt;
@@ -113,6 +130,10 @@ public sealed class BotStats
             var c = _defenses.GetValueOrDefault(k);
             _defenses[k] = new DefenseCount(c.Attempts + v.Attempts, c.Failed + v.Failed);
         }
+
+        DangerTime += other.DangerTime;
+        IdleDangerTime += other.IdleDangerTime;
+        Guesses += other.Guesses;
 
         foreach (var (k, v) in other._combos)
         {

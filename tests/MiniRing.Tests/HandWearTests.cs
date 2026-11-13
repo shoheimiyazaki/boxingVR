@@ -173,14 +173,17 @@ public sealed class HandWearTests
             Assert.AreEqual(0, result[wear].IronLost, $"{wear}: skin and leather never break iron");
         }
 
-        var glove = result[HandWear.Glove].Carved;
-        var bare = result[HandWear.None].Carved;
-        // 柔らかく広い面（詰め物・皮膚）はほとんど壊さない。硬い鉄の面は同じ拳で肌と肉を潰し、刃先は深く刺さる。
-        Assert.IsLessThan(10, glove, "a padded glove barely breaks the skin");
-        Assert.IsLessThan(10, bare, "skin on skin barely breaks either");
-        Assert.IsGreaterThan(glove + 20, result[HandWear.KnuckleDuster].Carved, "iron knuckles crush more than a padded glove");
-        Assert.IsGreaterThan(glove + 20, result[HandWear.Gauntlet].Carved, "iron plates crush more than a padded glove");
-        Assert.IsGreaterThan(2 * Math.Max(result[HandWear.KnuckleDuster].Carved, result[HandWear.Gauntlet].Carved), result[HandWear.Katar].Carved,
+        // 何発当たるかははめる物ごとの試合の流れで大きく変わる（ボットの間合いの層を入れたマージで、グローブは 13 → 34 発。2026-11-13）ので、
+        // 1 発あたりの削れ [セル/発] で比べる。
+        float PerHit(HandWear wear) => (float)result[wear].Carved / result[wear].Hits;
+        var glove = PerHit(HandWear.Glove);
+        var bare = PerHit(HandWear.None);
+        // 柔らかく広い面（詰め物・皮膚）はほとんど壊さない（2 発で 1 セル未満）。硬い鉄の面は同じ拳で肌と肉を潰し、刃先は深く刺さる。
+        Assert.IsLessThan(0.5f, glove, "a padded glove barely breaks the skin");
+        Assert.IsLessThan(0.5f, bare, "skin on skin barely breaks either");
+        Assert.IsGreaterThan(glove + 1.5f, PerHit(HandWear.KnuckleDuster), "iron knuckles crush more than a padded glove");
+        Assert.IsGreaterThan(glove + 1.5f, PerHit(HandWear.Gauntlet), "iron plates crush more than a padded glove");
+        Assert.IsGreaterThan(2f * Math.Max(PerHit(HandWear.KnuckleDuster), PerHit(HandWear.Gauntlet)), PerHit(HandWear.Katar),
             "a blade's edge and point concentrate the same punch far more than any blunt face");
     }
 }

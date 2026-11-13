@@ -37,6 +37,9 @@ try
     return command switch
     {
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out")),
+        "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
+        "learnlab" => LearnLabCommand(Options.Parse(argv[1..], "first", "second", "seeds", "seconds", "seed", "prior", "scale", "combos", "defender", "out")),
+        "rangelab" => RangeLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "weapons", "out")),
         "tune" => Tune(Options.Parse(argv[1..], "base", "gens", "pop", "bouts", "seconds", "gauntlet", "seed", "log", "out", "focus")),
         "drill" => Drill(Options.Parse(argv[1..], "book", "bouts", "seconds", "seed", "out")),
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
@@ -84,6 +87,98 @@ static int League(Options o)
     var rows = Standing.From(results);
     var text = $"### 総当たり（各組 {bouts} 試合 × {seconds:0} 秒、種 {o.Int("seed", 1)}）\n\n" +
         Report.Standings(rows) + "\n" + Report.Matrix(results) + "\n" + Report.Breakdown(rows);
+    Console.WriteLine(text);
+    Console.Error.WriteLine($"{results.Count} bouts in {watch.Elapsed.TotalSeconds:0.0}s");
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, text);
+    }
+
+    return 0;
+}
+
+static int StaminaLabCommand(Options o)
+{
+    var variants = o.List("variants", ["off", "on", "hard"]);
+    var bots = o.List("bots", [.. BotCatalog.Names.Where(n => n != BotCatalog.Legacy)]).Select(Check).ToList();
+    var bouts = o.Int("bouts", 4, min: 1);
+    // --tv on: テレビ中継の決まり（30 秒 × 5 ラウンド、間に 10 秒の休み）。スタミナの配分・休みでの戻りが効くのはこちら。
+    var rules = o.Get("tv") == "on" ? MiniRing.MatchRules.Tv : null;
+    var seconds = rules?.TotalSeconds ?? o.Float("seconds", 60f, min: 1f);
+    var seed = o.Int("seed", 1);
+    var watch = Stopwatch.StartNew();
+    var results = StaminaLab.Run(variants, bots, bouts, seconds, seed, rules);
+    var text = StaminaLab.Report(results, variants, bots, bouts, seconds, seed);
+    Console.WriteLine(text);
+    Console.Error.WriteLine($"{results.Count} bouts in {watch.Elapsed.TotalSeconds:0.0}s");
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, text);
+    }
+
+    return 0;
+}
+
+// 拳の種類の名前（Straight / Hook / Uppercut / Body）。数字や知らない名前は引数の誤りとして知らせる。
+static PunchKind Kind(string name) => Enum.TryParse<PunchKind>(name, ignoreCase: true, out var kind) && Enum.IsDefined(kind) && !int.TryParse(name, out _)
+    ? kind
+    : throw new ArgumentException($"拳の種類 '{name}' はありません（{string.Join(", ", Enum.GetNames<PunchKind>())}）。");
+
+static int RangeLabCommand(Options o)
+{
+    if (o.Get("weapons") == "on")
+    {
+        // 拳（間合いの層なし・あり）と武器の相手（versus と同じ棍棒・バット・日本刀・ロングソード）。
+        var weapons = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json",
+            MiniRing.Bots.SwordDefense.Adopted, File.Exists("docs/arena/hit_and_away.json") ? AwayLab.Load("docs/arena/hit_and_away.json") : new MiniRing.Bots.HitAndAway(), AimDefaults.Tuning)
+            .Where(c => c.Name != "拳").ToList();
+        var report = RangeLab.RunWeapons(weapons, o.Int("bouts", 4, min: 1), o.Float("seconds", 45f, min: 1f), o.Int("seed", 1));
+        Console.WriteLine(report);
+        if (o.Get("out") is { } weaponOut)
+        {
+            File.WriteAllText(weaponOut, report);
+        }
+
+        return 0;
+    }
+
+    var variants = o.List("variants", ["off", "guard", "head", "guess", "exit", "all"]);
+    foreach (var v in variants)
+    {
+        _ = RangeLab.Variant(v); // 打ち間違いを先に知らせる
+    }
+
+    var bots = o.List("bots", [.. BotCatalog.Names.Where(n => n != BotCatalog.Legacy)]).Select(Check).ToList();
+    var watch = Stopwatch.StartNew();
+    var text = RangeLab.Run(variants, bots, o.Int("bouts", 2, min: 1), o.Float("seconds", 60f, min: 1f), o.Int("seed", 1));
+    Console.WriteLine(text);
+    Console.Error.WriteLine($"done in {watch.Elapsed.TotalSeconds:0.0}s");
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, text);
+    }
+
+    return 0;
+}
+
+static int LearnLabCommand(Options o)
+{
+    var first = Kind(o.Get("first") ?? "Straight");
+    var second = Kind(o.Get("second") ?? "Hook");
+    var seeds = o.Int("seeds", 6, min: 1);
+    var seconds = o.Float("seconds", 120f, min: 2f);
+    var seed = o.Int("seed", 1);
+    var prior = o.Float("prior", 4f, min: 0.5f);
+    var scale = o.Float("scale", 10f, min: 0.5f);
+    var combos = o.Get("combos") == "on";
+    // 受け手: スタイルの名前（自分からは攻めない形にして使う）か "drill"（防御ドリルの受け手。反応だけで守る）。
+    var defenderName = o.Get("defender") ?? "counter";
+    var defender = defenderName == "drill"
+        ? DefenseDrill.Defender(DefenseBook.Default, defend: true)
+        : BotCatalog.Style(Check(defenderName)) with { Attacks = false, ClinchRate = 0f, ThrowRate = 0f };
+    var watch = Stopwatch.StartNew();
+    var results = LearnLab.Run(defender, first, second, seeds, seconds, seed, prior, scale, combos);
+    var text = $"受け手: {defenderName}\n\n" + LearnLab.Report(results, first, second, seeds, seconds, seed, prior, scale, combos);
     Console.WriteLine(text);
     Console.Error.WriteLine($"{results.Count} bouts in {watch.Elapsed.TotalSeconds:0.0}s");
     if (o.Get("out") is { } path)

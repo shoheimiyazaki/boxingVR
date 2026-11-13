@@ -20,6 +20,7 @@ public static class BotCatalog
         Name = "outboxer",
         Aim = new(Temple: 0.5f, GuardArm: 0.6f),
         Telegraph = 0.06f, Prediction = 0.6f, EdgeRange = 0.7f,
+        RangePress = 0.5f, RangeGuard = 0.6f, // 間合いの層（R3）: 外から打つので打って解消は弱め、入られたら構えを上げる
         Aggression = 0.45f,
         AttackRange = 1.02f,
         NeutralRange = 1.5f,
@@ -50,6 +51,7 @@ public static class BotCatalog
         Name = "counter",
         Aim = new(Chin: 2f, ExposedBrain: 2f),
         Telegraph = 0.06f, Prediction = 0.9f, EdgeRange = 0.6f,
+        RangePress = 0.5f, RangeGuard = 0.8f, // 間合いの層（R3）: 待って返すので打って解消は弱め、構えは厚く
         Aggression = 0.2f,
         NeutralRange = 1.25f,
         ComboWeights = new Dictionary<string, float> { ["1"] = 3f, ["1-2"] = 2f, ["f-2"] = 2f, ["f-3"] = 1f },
@@ -70,6 +72,7 @@ public static class BotCatalog
         Name = "slugger",
         Aim = new(Chin: 1f, Temple: 1f, ExposedBrain: 4f),
         Telegraph = 0.12f, Prediction = 0.2f, EdgeRange = 0f,
+        RangePress = 2f, RangeGuard = 0.3f, // 間合いの層（R3）: 前へ出て打ち合う。居続けたら強く打って解消、構えは薄め
         Aggression = 0.7f,
         AttackRange = 0.9f,
         NeutralRange = 1.2f,
@@ -95,6 +98,7 @@ public static class BotCatalog
         Name = "jabber",
         Aim = new(Chin: 0.5f, GuardArm: 1.5f),
         Telegraph = 0.04f, Prediction = 0.4f, EdgeRange = 0.5f,
+        RangePress = 1f, RangeGuard = 0.4f, // 間合いの層（R3）: 手数で解消、構えは中くらい
         Aggression = 0.69988924f,
         AttackRange = 1.2508752f,
         NeutralRange = 1.627571f,
@@ -122,6 +126,7 @@ public static class BotCatalog
     {
         Name = "champion-v1",
         Telegraph = 0.06f, Prediction = 0f, EdgeRange = 0f,
+        RangePress = 1f, RangeGuard = 0.6f, // 間合いの層（R3）
         Aggression = 1f,
         AttackRange = 1.001754f,
         NeutralRange = 1.3007601f,

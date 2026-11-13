@@ -30,6 +30,61 @@ public sealed record BotStyle
     /// <summary>手数（0 = 待つ … 1 = 休まず攻める）。攻撃の間隔を決める。</summary>
     public float Aggression { get; init; } = 0.5f;
 
+    /// <summary>
+    /// ペース配分（docs/LEARNING_PLAN.md の A1）: 自分のスタミナ（<see cref="FighterSense.SelfStamina"/>）がこれを下回ると、手数をなめらかに落とす。
+    /// スタミナ 0 で手数は <c>Aggression × (1 − PaceDrop)</c>、攻撃の間隔はそのぶん空き、空いた間に心肺がスタミナを戻す。
+    /// </summary>
+    public float PaceKnee { get; init; } = 0.7f;
+
+    /// <summary>
+    /// スタミナが尽きたときに手数を落とす割合（0 = 配分しない … 1 = 尽きたら攻めない）。既定は 0: 今のスタミナは腕の力にしか出ず、減っても
+    /// 拳の数・当たり・ダメージがほとんど変わらないので（A0）、配分しても手数が減るだけで得が無い（A2、docs/LEARNING_PLAN.md）。
+    /// </summary>
+    public float PaceDrop { get; init; }
+
+    // ── 間合いの層（docs/LEARNING_PLAN.md の R、RangeSense）──
+
+    /// <summary>相手の拳が届くとみなす、相手の肩から自分の頭までの距離 [腕の長さ]（踏み込み・体の傾きを含む）。危険度の物差し。</summary>
+    public float RangeThreat { get; init; } = 1.2f;
+
+    /// <summary>危険度に応じて構えを上げる度合い（0 = 上げない … 1 = 危険度 1 で目の高さまで顔を覆う）。</summary>
+    public float RangeGuard { get; init; }
+
+    /// <summary>危険度に応じて頭を大きく・細かく動かす度合い（的を絞らせない。<see cref="HeadMovement"/> に足す）。</summary>
+    public float RangeHeadMove { get; init; }
+
+    /// <summary>危険度 1 の所にいる間、当てずっぽうで回避を入れる頻度 [回/s]（来る拳を見ずに、来ると思って動く）。</summary>
+    public float RangeGuess { get; init; }
+
+    /// <summary>
+    /// 自分から打っていない間、危険度に応じて外へ出る強さ（足運びの前後の指令に足す、0..1）。危ない所に居続けた時間（さらされ）が長いほど
+    /// 強く出る（危険度 × (1 + さらされ[s])）。
+    /// </summary>
+    public float RangeExit { get; init; }
+
+    /// <summary>
+    /// 普段の立ち位置を、相手の拳の届かない所（危険度 0: 相手の届く長さ <see cref="RangeThreat"/> ＋ 境目の幅の外）へ寄せる度合い
+    /// （0 = <see cref="NeutralRange"/> のまま … 1 = 届かない所に立ち、打つときだけ入る）。
+    /// </summary>
+    public float RangeKeepOut { get; init; }
+
+    /// <summary>
+    /// 危ない所に何もせず居続けることを、打って解消する強さ（0 = しない）。危険度 × (1 + さらされ[s]) × この値だけ、次の拳までの間（攻撃の間隔）を
+    /// 早く縮める。下がる（<see cref="RangeExit"/>・<see cref="RangeKeepOut"/>）と違って消極的にならない（R3: 下がる版は試合がつまらなかった）。
+    /// </summary>
+    public float RangePress { get; init; }
+
+    // ── 学ぶ（docs/LEARNING_PLAN.md の B1）──
+
+    /// <summary>守りの効き目を経験で覚え、選び方を変えるか（<see cref="DefenseMemory"/>）。</summary>
+    public bool LearnDefense { get; init; }
+
+    /// <summary>防御ドリルで測った効き目（事前分布）を、何回ぶんの経験として信じるか。大きいほど経験で変わりにくい（慎重・頑固）。</summary>
+    public float LearnPrior { get; init; } = 4f;
+
+    /// <summary>守りの報酬の物差し [ダメージ]: 守りの間にこれだけ受けると報酬は 1/e。拳 1 発の被ダメージはおよそ 10〜15（2026-11-12 の総当たり）。</summary>
+    public float LearnDamageScale { get; init; } = 10f;
+
     /// <summary>打つときに踏み込む胸と胸の距離（腕の長さ倍）。</summary>
     public float AttackRange { get; init; } = 0.95f;
 
@@ -206,6 +261,17 @@ public sealed record BotStyle
         return this with
         {
             Aggression = Unit(Aggression),
+            PaceKnee = Range(PaceKnee, 0.05f, 1f, 0.7f),
+            PaceDrop = Unit(PaceDrop),
+            RangeThreat = Range(RangeThreat, 0.5f, 2.5f, 1.2f),
+            RangeGuard = Unit(RangeGuard),
+            RangeHeadMove = Unit(RangeHeadMove),
+            RangeGuess = Range(RangeGuess, 0f, 10f, 0f),
+            RangeExit = Unit(RangeExit),
+            RangeKeepOut = Unit(RangeKeepOut),
+            RangePress = Range(RangePress, 0f, 10f, 0f),
+            LearnPrior = Range(LearnPrior, 0.5f, 100f, 4f),
+            LearnDamageScale = Range(LearnDamageScale, 0.5f, 100f, 10f),
             AttackRange = attack,
             NeutralRange = neutral,
             EngageRange = Range(EngageRange, neutral, 2.2f, 1.6f),

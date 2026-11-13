@@ -140,6 +140,14 @@ public sealed record FighterTuning
     /// </summary>
     public float FractureSpringHz { get; init; } = 1.5f;
     public float HandReactionShare { get; init; } = 0.5f;
+    /// <summary>
+    /// スタミナが尽きたときの、腕の筋肉が拳を肩に対して動かせる速さの上限の逆数 [s/m]（Hill の力と速さの関係を直線で近似: 上限の速さで出せる力が 0）。
+    /// 疲れていない筋肉は、この大きさの体では速さの上限が効かない（筋力が余っていて、力と速さの関係を入れると疲れていない剣の振り・鉄の拳まで
+    /// 遅くなり試合の結果が変わった。2026-11-12）。疲れた分だけ効く: 上限の逆数 = (1 − 疲れていない度合い) × この値。
+    /// 1 / 2.4 m/s: 疲れきるとフック（2.8 m/s）・ストレート（2.0 m/s）が目に見えて遅くなる。0 なら疲れても速さは落ちない。
+    /// </summary>
+    public float TiredHandSlowness { get; init; } = 1f / 2.4f;
+
     public float MaxTargetSpeed { get; init; } = 6f; // 目標の速度の上限 [m/s]（動きを 2 倍にしたので、速い腕の振りも追えるように）
     public float TargetVelocitySmoothing { get; init; } = 25f;
 
@@ -342,6 +350,13 @@ public sealed record FighterTuning
     /// なめらかに落ちる。少し使っただけで力が落ちると、出だしの数 % の違いで剣の斬れ方まで変わった（2026-11-12）。
     /// </summary>
     public float TiredKnee { get; init; } = 0.6f;
+
+    /// <summary>
+    /// プレイヤー（赤コーナー）の体にスタミナの疲れ（腕の力が落ちる）を効かせるか。偽ならプレイヤーの体だけ <see cref="TiredStrength"/> = 1 で作る
+    /// （スタミナは数えるが、腕の力は落ちない）。VR は手触りの調整が終わるまで偽（2026-11-12 のユーザーの決定。CLAUDE.md §8 の例外）。
+    /// 調整値に入れておくと、記録（TuningJson）に残って再生でも同じになる。
+    /// </summary>
+    public bool PlayerFatigue { get; init; } = true;
 
     // ── 臓器への打撃（皮膚の上からの打撲 = 一時的、削れ = 恒久的）──
 

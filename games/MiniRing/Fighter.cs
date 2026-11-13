@@ -160,7 +160,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 16; // 16: 骨が折れる（打撃の曲げ。骨だけが曲げを受ける梁、肉の橋の弱いバネでぶら下がる）・関節の端の骨や肉が削り取られたら外れる・使えなくなった手の握りが抜けていく・武器を放す（LetGo）と素手の拳。15: ダウンは腰・上体・手がマットに着いた・倒れたらすぐ、中腰なら意識が薄いまま 4 秒続いたら（腰の高さでは取らない）。14: 面の下へ伝わる圧力（グローブの拳が皮膚の下の肉を潰してへこませる。拳の後ろの腕と体の質量 massBehind）。13: claude/voxel-damage（武器同士は広いリング RingLayout・斬れずにめり込んだボクセルの押し戻し）をマージ。12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
+    public const int PhysicsVersion = 17; // 17: claude/a-3d0203 をマージ（疲れ Vigor を肩・肘・手首のサーボにも出し、疲れた筋肉は拳を縮めて運ぶ速さに上限 TiredHandSlowness。ブランチの中では 14）。16: 骨が折れる（打撃の曲げ。骨だけが曲げを受ける梁、肉の橋の弱いバネでぶら下がる）・関節の端の骨や肉が削り取られたら外れる・使えなくなった手の握りが抜けていく・武器を放す（LetGo）と素手の拳。15: ダウンは腰・上体・手がマットに着いた・倒れたらすぐ、中腰なら意識が薄いまま 4 秒続いたら（腰の高さでは取らない）。14: 面の下へ伝わる圧力（グローブの拳が皮膚の下の肉を潰してへこませる。拳の後ろの腕と体の質量 massBehind）。13: claude/voxel-damage（武器同士は広いリング RingLayout・斬れずにめり込んだボクセルの押し戻し）をマージ。12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -766,7 +766,16 @@ public sealed class Fighter
     public float SluggishBelow => _tuning.TiredKnee;
 
     /// <summary>スタミナで決まる、拳を運ぶ力の割合（<see cref="FighterTuning.TiredStrength"/>〜1）。疲れは腕に出る（脚は意識で決まる）。</summary>
-    public float Vigor => Lerp(_tuning.TiredStrength, 1f, Smooth(Math.Clamp(Stamina / MathF.Max(1e-3f, _tuning.TiredKnee), 0f, 1f)));
+    public float Vigor => Lerp(_tuning.TiredStrength, 1f, Freshness);
+
+    /// <summary>
+    /// スタミナで決まる、腕の筋肉が拳を縮めて運べる速さの上限の逆数 [s/m]（0 = 上限なし。疲れきって <see cref="FighterTuning.TiredHandSlowness"/>）。
+    /// 疲れた筋肉は力より先に速さを失う（この大きさの体では筋力が余っていて、力の上限を下げても拳は遅くならなかった。A3）。
+    /// </summary>
+    public float HandSlowness => (1f - Freshness) * MathF.Max(0f, _tuning.TiredHandSlowness);
+
+    /// <summary>疲れていない度合い（0 = 尽きた … 1 = 膝 <see cref="FighterTuning.TiredKnee"/> より上）。</summary>
+    private float Freshness => Smooth(Math.Clamp(Stamina / MathF.Max(1e-3f, _tuning.TiredKnee), 0f, 1f));
 
     /// <summary>
     /// 1 物理の歩ぶんスタミナを出し入れする: 拳を押した力のした仕事（正の分）と保持の分、体を水平に運んだ分を引き、心肺の働き
@@ -1660,7 +1669,7 @@ public sealed class Fighter
                 arm.BodyStore = null; // 次の拳の出し始めで蓄え直す
             }
 
-            var bodyForce = arm.Drive(_world, _tuning, frame, target, scale * ArmStrength(arm.Hand), _inertia, com, torso, TotalMass, dt, Parts.Chest, spring);
+            var bodyForce = arm.Drive(_world, _tuning, frame, target, scale * ArmStrength(arm.Hand), _inertia, com, torso, TotalMass, dt, Parts.Chest, spring, HandSlowness);
             arm.DriveWrist(_world, frame, arm.Support is { } held ? command.For(held.Main).Orientation : hand.Orientation);
             if (weightShift && bodyForce.LengthSquared() > 0f)
             {
@@ -1818,7 +1827,9 @@ public sealed class Fighter
 
         foreach (var arm in _arms)
         {
-            var a = s * FaintArm; // 意識が薄れると腕を上げていられない
+            // 意識が薄れると腕を上げていられない。疲れ（スタミナ、Vigor）も肩・肘の筋肉（関節のサーボ）に出す: 拳を引く力だけを弱めても、
+            // 腕の形を作るサーボが全力のままだと拳は同じ速さで出ていた（疲れきっても拳の速さ 1.90 m/s のまま。A3、2026-11-12）。
+            var a = s * FaintArm * Vigor;
             if (!arm.Severed && Changed(2 + (int)arm.Hand, a * ArmStrength(arm.Hand)))
             {
                 arm.SetStrength(_world, _tuning, a * Strength(arm.UpperArm), a * Strength(arm.Forearm));
@@ -2672,7 +2683,7 @@ public sealed class Fighter
 
         /// <summary>腕を目標へ駆動し、体から借りた力 [N]（脚と腰が地面を押して出す分）を返す。</summary>
         public Vector3 Drive(PhysicsWorld world, FighterTuning tuning, BodyFrame frame, Vector3 targetLocal, float forceScale,
-            BodyInertia inertia, Vector3 centerOfMass, Quaternion torso, float totalMass, float dt, int chestId, float spring = 0f)
+            BodyInertia inertia, Vector3 centerOfMass, Quaternion torso, float totalMass, float dt, int chestId, float spring = 0f, float slowness = 0f)
         {
             var shoulder = ShoulderPosition(world, chestId);
             var reach = UpperLength + LowerLength;
@@ -2714,6 +2725,17 @@ public sealed class Fighter
             var coupling = PunchMechanics.Coupling(glove - shoulder, desired, jointIntegrity: 1f);
             var armForce = tuning.MaxHandForce * forceScale;
             var cap = armForce * PunchMechanics.ForceMultiplier(coupling, bodyEffective, totalMass, tuning.BodyDrive);
+            // 疲れた筋肉の力と速さの関係（Hill の式を直線で近似）: 拳が肩に対して力の向きへ速く動いているほど、出せる力は減り、
+            // 縮む速さの上限（1 / slowness）で 0 になる。疲れていなければ slowness = 0 で上限なし（力の上限を下げても、
+            // この大きさの体では筋力が余っていて拳の速さは変わらなかった。A3、2026-11-12）。
+            if (slowness > 0f && desired.LengthSquared() > 1e-12f)
+            {
+                var chestState = world.GetState(chestId);
+                var shoulderVelocity = chestState.LinearVelocity + Vector3.Cross(chestState.AngularVelocity, shoulder - chestState.Position);
+                var shortening = Vector3.Dot(gloveVelocity - shoulderVelocity, Vector3.Normalize(desired));
+                cap *= Math.Clamp(1f - (MathF.Max(0f, shortening) * slowness), 0f, 1f);
+            }
+
             var force = ClampLength(desired, cap);
             world.ApplyLinearImpulse(Forearm, force * dt);
             LastForce = force;
