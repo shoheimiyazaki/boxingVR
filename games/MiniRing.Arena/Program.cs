@@ -60,6 +60,7 @@ try
         "swordlab" => SwordLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "techniques")),
         "swinglab" => SwingLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "families")),
         "weaponlab" => WeaponLabCommand(Options.Parse(argv[1..], "out", "table", "width", "height", "fps", "slow", "video")),
+        "intentvideo" => IntentVideo(Options.Parse(argv[1..], "script", "blue", "seed", "seconds", "width", "height", "out")),
         "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
         "voxcheck" => VoxCheck(Options.Parse(argv[1..], "in", "install")),
@@ -814,6 +815,26 @@ static int WeaponLabCommand(Options o)
     return 0;
 }
 
+static int IntentVideo(Options o)
+{
+    var script = MiniRing.IntentScript.Load(o.Get("script") ?? "docs/arena/intent_demo.json");
+    var blue = Load(o.Get("blue") ?? "champion");
+    if (blue.Create(1) is not BoxerBot)
+    {
+        throw new ArgumentException("意図操作の動画の相手は記録できるボクシングボットを指定してください。");
+    }
+
+    var output = Path.GetFullPath(o.Get("out") ?? "docs/video/gen10_intent.mp4");
+    Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+    new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), 30,
+        faceCam: MiniRing.FaceCam.Default, speed: 1f)
+        .Make(Contender.Named("intent"), blue, o.Int("seed", 31), o.Float("seconds", 14f, min: 1f), output, Console.Out, intentScript: script);
+    var recording = MiniRing.Replay.ReplayFile.Read(Path.ChangeExtension(output, ".mrrep"));
+    var result = MiniRing.Replay.ReplayPlayer.Verify(recording);
+    Console.WriteLine($"意図操作の再生: {result.ChecksumsMatched}/{recording.Checksums.Count} チェックサム一致");
+    return result.Reproduced ? 0 : 2;
+}
+
 static int Video(Options o)
 {
     if (o.Get("drill") is { } punch)
@@ -831,7 +852,7 @@ static int Video(Options o)
         throw new ArgumentException($"--break-sound '{breakName}' はありません（{string.Join(", ", Enum.GetNames<MiniRing.Audio.BreakStyle>().Select(n => n.ToLowerInvariant()))}）。");
     }
 
-    if (!MiniRing.Audio.HitSoundOption.TryValue(o.Get("hit-sound") ?? "off", out var hitSounds))
+    if (!MiniRing.Audio.HitSoundOption.TryValue(o.Get("hit-sound") ?? "on", out var hitSounds))
     {
         throw new ArgumentException("--hit-sound は on か off にしてください。");
     }

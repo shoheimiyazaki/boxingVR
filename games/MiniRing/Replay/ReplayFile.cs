@@ -34,14 +34,16 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// （physics は版 3 から: 体の物理の版（Fighter.PhysicsVersion）。違う版の記録は読まない。CPU の欄は版 2 から。cpuStyleJson が空なら legacy。cpuLogic はボットの判断の仕組みの版（BoxerBot.LogicVersion）。
 /// 版 1 の記録は CPU が legacy だった頃のもの）
 /// 以降、レコードの並び:
-///   0x01 Step:     float dt | BoxingInput（float × 18 + bool × 3）
+///   0x01 Step:     float dt | BoxingInput（目標など float × 15 + bool × 3）
+///                | v4: float 胴のひねり | 左右各(float Spring, bool LetGo, bool Orientation有無, あれば float×4)
 ///   0x02 Checksum: int32 step（そのステップを終えた直後）| uint64 BoxingGame.StateChecksum()
 /// </code>
+/// v3 の Step は追加部分を持たず、Spring・ひねりは 0 として読む。
 /// 途中で終わっていても（クラッシュ・強制終了）、最後の完全なレコードまで読める。
 /// </summary>
 public static class ReplayFile
 {
-    public const int Version = 3;
+    public const int Version = 4;
     public const string Extension = ".mrrep";
     /// <summary>1 ステップの時間刻みとして受け付ける上限 [s]（壊れたファイルの値を物理に渡さない）。</summary>
     public const float MaxDt = 0.25f;
@@ -80,6 +82,9 @@ public static class ReplayFile
         writer.Write(c.Right.Grip);
         Write(writer, c.HeadOffset);
         writer.Write(step.Input.ResetRequested);
+        writer.Write(c.TwistBias);
+        WriteHandExtras(writer, c.Left);
+        WriteHandExtras(writer, c.Right);
     }
 
     public static void WriteChecksum(BinaryWriter writer, int stepIndex, ulong checksum)
@@ -161,7 +166,18 @@ public static class ReplayFile
                             new HandCommand(Read3(reader), reader.ReadBoolean()),
                             new HandCommand(Read3(reader), reader.ReadBoolean()),
                             Read3(reader));
-                        steps.Add(new ReplayStep(new BoxingInput(command, reader.ReadBoolean()), dt));
+                        var reset = reader.ReadBoolean();
+                        if (version >= 4)
+                        {
+                            command = command with
+                            {
+                                TwistBias = ReadFinite(reader),
+                                Left = ReadHandExtras(reader, command.Left),
+                                Right = ReadHandExtras(reader, command.Right),
+                            };
+                        }
+
+                        steps.Add(new ReplayStep(new BoxingInput(command, reset), dt));
                         break;
                     case ChecksumTag:
                         var index = reader.ReadInt32();
@@ -191,6 +207,50 @@ public static class ReplayFile
         writer.Write(v.X);
         writer.Write(v.Y);
         writer.Write(v.Z);
+    }
+
+    private static void WriteHandExtras(BinaryWriter writer, HandCommand hand)
+    {
+        writer.Write(hand.Spring);
+        writer.Write(hand.LetGo);
+        writer.Write(hand.Orientation.HasValue);
+        if (hand.Orientation is { } q)
+        {
+            writer.Write(q.X);
+            writer.Write(q.Y);
+            writer.Write(q.Z);
+            writer.Write(q.W);
+        }
+    }
+
+    private static HandCommand ReadHandExtras(BinaryReader reader, HandCommand hand)
+    {
+        var spring = ReadFinite(reader);
+        if (spring is < 0f or > 1f)
+        {
+            throw new InvalidDataException("拳へのバネ伝達は 0..1 で指定してください。");
+        }
+
+        var letGo = reader.ReadBoolean();
+        Quaternion? orientation = null;
+        if (reader.ReadBoolean())
+        {
+            var q = new Quaternion(ReadFinite(reader), ReadFinite(reader), ReadFinite(reader), ReadFinite(reader));
+            if (MathF.Abs(q.LengthSquared() - 1f) > 0.01f)
+            {
+                throw new InvalidDataException("武器の向きは単位クォータニオンで指定してください。");
+            }
+
+            orientation = q;
+        }
+
+        return hand with { Spring = spring, LetGo = letGo, Orientation = orientation };
+    }
+
+    private static float ReadFinite(BinaryReader reader)
+    {
+        var value = reader.ReadSingle();
+        return float.IsFinite(value) ? value : throw new InvalidDataException("記録に有限でない指令が含まれています。");
     }
 
     private static Vector3 Read3(BinaryReader reader)

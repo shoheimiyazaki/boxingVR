@@ -21,9 +21,9 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     private readonly Func<IReadOnlyList<DebrisLanding>>? _landings;
     private readonly Func<IReadOnlyList<SwingEvent>>? _swings;
     private readonly Func<RoundBell>? _bells;
-    private readonly Func<IReadOnlyList<GrazeEvent>>? _grazes;
     private readonly Func<IReadOnlyList<SeverEvent>>? _severs;
     private readonly Func<IReadOnlyList<ContactSoundEvent>>? _contacts;
+    private readonly Func<IReadOnlyList<WeaponHitEvent>>? _weaponHits;
     private readonly Action<HitSoundPlayer, float>? _afterStep;
 
     /// <param name="inner">包む試合。</param>
@@ -37,14 +37,16 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     /// <param name="severs">直前の <see cref="Step"/> で部位が切り離された瞬間。</param>
     /// <param name="afterStep">1 ステップごとに、鳴らす先と時間 [s] を渡して呼ぶ（会場の歓声など、包んだ側が足す音）。</param>
     /// <param name="contacts">直前の <see cref="Step"/> で物どうしが何も壊さずにぶつかった瞬間（当たった音）。</param>
+    /// <param name="weaponHits">直前の歩で確定した、握った武器による打撃。</param>
     public HitSoundGame(IGame<BoxingInput> inner, Func<IReadOnlyList<HitEvent>> hits, HitSoundPlayer sounds,
         Func<IReadOnlyList<ShatterEvent>>? shatters = null, Func<IReadOnlyList<DebrisLanding>>? landings = null, Func<IReadOnlyList<SwingEvent>>? swings = null,
         Func<RoundBell>? bells = null, Func<IReadOnlyList<GrazeEvent>>? grazes = null, Func<IReadOnlyList<SeverEvent>>? severs = null,
-        Action<HitSoundPlayer, float>? afterStep = null, Func<IReadOnlyList<ContactSoundEvent>>? contacts = null)
+        Action<HitSoundPlayer, float>? afterStep = null, Func<IReadOnlyList<ContactSoundEvent>>? contacts = null,
+        Func<IReadOnlyList<WeaponHitEvent>>? weaponHits = null)
     {
         _afterStep = afterStep;
         _contacts = contacts;
-        _grazes = grazes;
+        _weaponHits = weaponHits;
         _severs = severs;
         _bells = bells;
         _shatters = shatters;
@@ -65,11 +67,7 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     public void Step(BoxingInput input, float dt)
     {
         _inner.Step(input, dt);
-        _sounds.PlayAll(_hits());
-        if (_shatters is not null)
-        {
-            _sounds.PlayShatters(_shatters());
-        }
+        _sounds.PlayImpacts(dt, _hits(), _contacts?.Invoke() ?? [], _shatters?.Invoke() ?? [], _weaponHits?.Invoke());
 
         if (_landings is not null)
         {
@@ -86,19 +84,11 @@ public sealed class HitSoundGame : IGame<BoxingInput>
             _sounds.PlayBell(_bells());
         }
 
-        if (_grazes is not null)
-        {
-            _sounds.PlayGrazes(_grazes());
-        }
+        // かすりの速度だけのクリックは衝撃の重さと無関係なので、風切り音へ任せる。
 
         if (_severs is not null)
         {
             _sounds.PlaySevers(_severs());
-        }
-
-        if (_contacts is not null)
-        {
-            _sounds.PlayContacts(_contacts());
         }
 
         _afterStep?.Invoke(_sounds, dt); // 会場の歓声など、包んだ側が足す音

@@ -130,9 +130,9 @@ public sealed record FighterTuning
     public float DeadGripRelaxSeconds { get; init; } = 0.5f;
 
     /// <summary>
-    /// 折れた骨の両側をつなぐ肉の、位置のバネの固さ [Hz]（玉継手のやわらかさ）。肉は伸びるので、関節（ArmServoHz 級）よりずっとやわらかい。
+    /// 折れた骨の両側をつなぐ肉の、位置のバネの固さ [Hz]。折れ目で回る玉継手として接続面を近く保つ（60 Hz、240 Hz ステップの 1/4）。曲がる柔らかさは向きのバネで表す。
     /// </summary>
-    public float FractureLinkHz { get; init; } = 6f;
+    public float FractureLinkHz { get; init; } = 60f;
 
     /// <summary>
     /// 折れた骨の両側をつなぐ肉の、向きのバネ（駆動の無いバネ: 目標は折れた瞬間のまっすぐな向きのまま）の固さを、折れた先が水平に

@@ -33,7 +33,7 @@ public sealed class HitSoundPlayer : IDisposable
     }
 
     /// <summary>既定の音声出力（Windows の既定デバイス。Quest Link 中は Link の音声出力）で鳴らす。</summary>
-    public static HitSoundPlayer CreateDefault(BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool playHits = false)
+    public static HitSoundPlayer CreateDefault(BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool playHits = true)
     {
         VoxelBreakSound.Prewarm(breakStyle);
         return new(new OpenAlAudioBackend()) { BreakStyle = breakStyle, PlayHits = playHits };
@@ -42,8 +42,32 @@ public sealed class HitSoundPlayer : IDisposable
     /// <summary>ボクセルが砕ける音・床に落ちる音の方式。</summary>
     public BreakStyle BreakStyle { get; init; } = VoxelBreakSound.DefaultStyle;
 
-    /// <summary>パンチが当たる音を鳴らすか（既定は鳴らさない: ボクセルの音と風切り音だけ）。</summary>
-    public bool PlayHits { get; init; }
+    /// <summary>パンチが当たる音を鳴らすか（既定は鳴らす。接触・破壊と集約する）。</summary>
+    public bool PlayHits { get; init; } = true;
+
+    private readonly ImpactAudio _impacts = new();
+    private double _impactTime;
+
+    /// <summary>全ホスト共通の衝撃音。重複した接触・破壊を集約してから1声として再生する。</summary>
+    public void PlayImpacts(float dt, IReadOnlyList<HitEvent> hits, IReadOnlyList<ContactSoundEvent> contacts, IReadOnlyList<ShatterEvent> shatters,
+        IReadOnlyList<WeaponHitEvent>? weaponHits = null)
+    {
+        if (!float.IsFinite(dt) || dt < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(dt));
+        }
+        _impactTime += dt;
+        foreach (var voice in _impacts.Push(_impactTime, ImpactAudio.Gather(hits, contacts, shatters, PlayHits, weaponHits), BreakStyle))
+        {
+            if (_backend.IsAvailable)
+            {
+                OpenAlAudioBackend.MakeCurrentOnThisThread();
+                Start(new AudioClip("impact", AudioSampleFormat.Mono16, HitSound.SampleRate, voice.Pcm, IsGenerated: true), 1f);
+            }
+        }
+        // 致命傷は一打の細かな破壊と別の、死亡を知らせる持続音。
+        PlayShatters([.. shatters.Where(s => s.Fatal).Select(s => s with { Grains = [] })]);
+    }
 
     public bool IsAvailable => _backend.IsAvailable;
 
@@ -131,7 +155,7 @@ public sealed class HitSoundPlayer : IDisposable
             return; // 床の音は譲る: 砕ける音や致命傷の長い音を、古い順に押し出さないように
         }
 
-        if (VoxelBreakSound.Landings(landings, _variation.Next(), BreakStyle) is { } pcm)
+        if (VoxelBreakSound.Landings(landings, _variation.Next(), BreakStyle) is { } landingPcm && _impacts.LimitBackground(_impactTime, landingPcm) is { } pcm)
         {
             Start(new AudioClip("landing", AudioSampleFormat.Mono16, VoxelBreakSound.SampleRate, pcm, IsGenerated: true), 1f);
         }

@@ -22,6 +22,8 @@ Bepu の型は Aigis.Physics の外に出ない（Aigis の規約）。
 | `BoxingGame.cs` | リング・2 体・CPU・ヒット判定・ラウンド進行。物理は 240Hz サブステップ |
 | `PuppetMapping.cs` | HMD・コントローラ → 人形の体フレーム（純関数） |
 | `AiControl.cs` | CPU（間合い・パンチ・掴み）。seed 固定で決定的 |
+| `IntentControl.cs` / `IntentScript.cs` | ホスト非依存の意図選択と、試合の時刻で動かすキーの台本。デスクトップだけが実キーを読む |
+| `Bots/TechniqueExecution.cs` | ボットと意図操作が共有する拳・ガード・頭・溜め・ひねりの目標経路。判断や乱数は持たない |
 | `BoxingRenderer.cs` / `Ring.cs` | 描画データ（体力バーもワールド空間なので VR でも見える） |
 | `FaceCam.cs` | 画面の両脇に出す両ボクサーの顔の窓（左が赤コーナー、右が青コーナー）（往年の FPS の HUD の顔のような）。カメラは頭の剛体（＝頭のボクセルの格子）の座標系に固定し、顔の正面（ローカル +Z）から頭を向く。同じ場面をもう 1 つのカメラで描くだけなので、グローブ・相手の拳・部屋も写り、頭が振られると窓の中で背景が流れる。デスクトップのホストは `GameHost.Options.DynamicViews` で、画面全体の上に重ねる窓（`CameraView.IsOverlay`）として描く。動画は `video --facecam on`（ヘッドレスでは窓の大きさで別に描いて書き写す）。描画だけで、試合・記録には響かない。VR はまだ（視野に固定した板として出すのが次の段） |
 | `LowPoly/` | ローポリの体（`BoxerShapes`・`Lathe`・`LowPolyMesh`）、打撃のへこみ（`DentedMesh`・`BoxerSkin`）、変形した三角形の描き方（`RightTriangles`）。見た目だけで、当たり判定は箱のまま |

@@ -160,7 +160,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 18; // 18: 折れた骨をつなぐ肉のバネは自分の重さで約 35° たわむ固さ（FractureSagRadians）・折れた腕も折れ目より体に近い側の筋肉は入力どおり動く（DriveStump）。17: claude/a-3d0203 をマージ（疲れ Vigor を肩・肘・手首のサーボにも出し、疲れた筋肉は拳を縮めて運ぶ速さに上限 TiredHandSlowness。ブランチの中では 14）。16: 骨が折れる（打撃の曲げ。骨だけが曲げを受ける梁、肉の橋の弱いバネでぶら下がる）・関節の端の骨や肉が削り取られたら外れる・使えなくなった手の握りが抜けていく・武器を放す（LetGo）と素手の拳。15: ダウンは腰・上体・手がマットに着いた・倒れたらすぐ、中腰なら意識が薄いまま 4 秒続いたら（腰の高さでは取らない）。14: 面の下へ伝わる圧力（グローブの拳が皮膚の下の肉を潰してへこませる。拳の後ろの腕と体の質量 massBehind）。13: claude/voxel-damage（武器同士は広いリング RingLayout・斬れずにめり込んだボクセルの押し戻し）をマージ。12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
+    public const int PhysicsVersion = 19; // 19: 折れ目の皮膚・筋肉の断面でバネと裂ける力を更新し、断面0で切断。18: 折れた骨をつなぐ肉のバネは自分の重さで約 35° たわむ固さ（FractureSagRadians）・折れた腕も折れ目より体に近い側の筋肉は入力どおり動く（DriveStump）。17: claude/a-3d0203 をマージ（疲れ Vigor を肩・肘・手首のサーボにも出し、疲れた筋肉は拳を縮めて運ぶ速さに上限 TiredHandSlowness。ブランチの中では 14）。16: 骨が折れる（打撃の曲げ。骨だけが曲げを受ける梁、肉の橋の弱いバネでぶら下がる）・関節の端の骨や肉が削り取られたら外れる・使えなくなった手の握りが抜けていく・武器を放す（LetGo）と素手の拳。15: ダウンは腰・上体・手がマットに着いた・倒れたらすぐ、中腰なら意識が薄いまま 4 秒続いたら（腰の高さでは取らない）。14: 面の下へ伝わる圧力（グローブの拳が皮膚の下の肉を潰してへこませる。拳の後ろの腕と体の質量 massBehind）。13: claude/voxel-damage（武器同士は広いリング RingLayout・斬れずにめり込んだボクセルの押し戻し）をマージ。12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -2015,7 +2015,7 @@ public sealed class Fighter
     }
 
     /// <summary>折れた骨の両側をつないでいる肉（<see cref="Break"/>）: 体に近い側の部位、破片、玉継手、向きのバネ。</summary>
-    private readonly record struct FleshLink(int Stub, int Fragment, int Socket, int Spring, float TearForce, float BendTorque);
+    private readonly record struct FleshLink(int Stub, int Fragment, int Socket, int Spring, float TearForce, float BendTorque, FleshBridge? Bridge, float FullHz);
 
     private readonly List<FleshLink> _fleshLinks = [];
 
@@ -2029,20 +2029,27 @@ public sealed class Fighter
     /// 折れた骨の両側を、切れ目をまたいで残った肉でつなぐ: やわらかい玉継手（裂ける力を超えたら千切れる）と、駆動の無い弱い向きのバネ
     /// （目標は今のまっすぐな向き。肉の断面が曲げで持ちこたえるトルクまでしか出さない）。
     /// </summary>
-    private void JoinByFlesh(int stub, int fragment, BoneBreak broken) => Link(stub, fragment, broken.Point, broken.TearForce, broken.BendTorque);
+    private void JoinByFlesh(int stub, int fragment, BoneBreak broken) => Link(stub, fragment, broken.Point, broken.TearForce, broken.BendTorque, broken.Bridge);
 
-    private void Link(int stub, int fragment, Vector3 point, float tear, float bend)
+    private void Link(int stub, int fragment, Vector3 point, float tear, float bend, FleshBridge? bridge)
     {
+        var section = bridge?.Measure();
+        if (section is { Count: 0 })
+        {
+            return;
+        }
         var a = _world.GetState(stub);
         var b = _world.GetState(fragment);
         var socket = _world.AddBallSocket(stub, fragment,
             Vector3.Transform(point - a.Position, Quaternion.Conjugate(a.Orientation)),
             Vector3.Transform(point - b.Position, Quaternion.Conjugate(b.Orientation)),
             frequency: _tuning.FractureLinkHz, dampingRatio: 1f);
-        _world.MakeBreakable(socket, tear);
+        _world.MakeBreakable(socket, section?.Tear ?? tear);
         var relative = Quaternion.Concatenate(b.Orientation, Quaternion.Conjugate(a.Orientation));
-        var spring = _world.AddAngularServo(stub, fragment, relative, FractureSpringHz(fragment, point), 1f, _tuning.ArmServoMaxSpeed, 0f, bend);
-        _fleshLinks.Add(new FleshLink(stub, fragment, socket, spring, tear, bend));
+        var fullHz = FractureSpringHz(fragment, point);
+        // 肉の柱を並列のせん断ばねとして扱う: k は断面積に比例、Hz は sqrt(k) に比例。
+        var spring = _world.AddAngularServo(stub, fragment, relative, fullHz * MathF.Sqrt(section?.Fraction ?? 1f), 1f, _tuning.ArmServoMaxSpeed, 0f, section?.Bend ?? bend);
+        _fleshLinks.Add(new FleshLink(stub, fragment, socket, spring, tear, bend, bridge, fullHz));
     }
 
     /// <summary>
@@ -2117,7 +2124,8 @@ public sealed class Fighter
             _fleshLinks.RemoveAt(i);
             if (fragment is { } to && point is { } at)
             {
-                Link(to, link.Fragment, at, link.TearForce, link.BendTorque);
+                var next = Voxels?.Fragments.FirstOrDefault(p => p.Body.BodyId == to)?.Body;
+                Link(to, link.Fragment, at, link.TearForce, link.BendTorque, next is null ? link.Bridge : link.Bridge?.MoveStub(next));
             }
         }
     }
@@ -2175,9 +2183,20 @@ public sealed class Fighter
         for (var i = _fleshLinks.Count - 1; i >= 0; i--)
         {
             var link = _fleshLinks[i];
+            var section = link.Bridge?.Measure();
+            if (_world.HasConstraint(link.Socket) && section is not { Count: 0 })
+            {
+                if (section is { } left)
+                {
+                    _world.MakeBreakable(link.Socket, left.Tear);
+                    _world.SetAngularServoSettings(link.Spring, link.FullHz * MathF.Sqrt(left.Fraction), left.Bend);
+                }
+                continue;
+            }
+
             if (_world.HasConstraint(link.Socket))
             {
-                continue;
+                _world.RemoveConstraint(link.Socket, forget: true);
             }
 
             if (_world.HasConstraint(link.Spring))

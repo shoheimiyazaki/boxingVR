@@ -737,7 +737,7 @@ public sealed class VoxelDamageTests
         Assert.IsFalse(BreakSoundOption.TryParse(["--break-sound", "glass,crunch"], out _, out _), "one style at a time");
 
         Assert.IsTrue(HitSoundOption.TryParse([], out var hits, out _));
-        Assert.IsFalse(hits, "punches landing are silent unless turned on");
+        Assert.IsTrue(hits, "damage cues are audible by default");
         Assert.IsTrue(HitSoundOption.TryParse(["--hit-sound", "ON"], out hits, out _));
         Assert.IsTrue(hits);
         Assert.IsFalse(HitSoundOption.TryParse(["--hit-sound", "quiet"], out hits, out _));

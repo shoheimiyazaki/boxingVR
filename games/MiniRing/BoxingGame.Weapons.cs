@@ -283,16 +283,32 @@ public sealed partial class BoxingGame
             {
                 if (strength > _recentContacts[i].Strength)
                 {
-                    _recentContacts[i] = new ContactSoundEvent(hit.Point, pair, strength);
+                    _recentContacts[i] = ContactAudioOf(hit, pair, strength);
                 }
 
                 return;
             }
         }
 
-        _recentContacts.Add(new ContactSoundEvent(hit.Point, pair, strength));
+        _recentContacts.Add(ContactAudioOf(hit, pair, strength));
         _recentContactBodies.Add(bodies);
         _contactQuiet[bodies] = ContactQuietSeconds;
+    }
+
+    private ContactSoundEvent ContactAudioOf(VoxelContactResult hit, ContactPair pair, float strength) =>
+        new(hit.Point, pair, strength, ResonanceOf(hit), 0.5f * MathF.Abs(Vector3.Dot(hit.ImpulseOnB, hit.Normal)) * hit.ApproachSpeed);
+
+    // 音のメタデータだけを読む。剛体・材質・乱数・チェックサムへの書き込みはない。
+    private ContactResonance ResonanceOf(VoxelContactResult hit)
+    {
+        ContactResonance Shape(VoxelBody body)
+        {
+            var half = body.Grid.OccupiedBounds()?.HalfExtents ?? body.Grid.HalfExtents;
+            var dimensions = new[] { half.X * 2, half.Y * 2, half.Z * 2 }.OrderDescending().ToArray();
+            var supported = _wielders.Keys.Any(w => w.Body == body && OwnerOf(w) is not null);
+            return ContactResonance.Of(dimensions[0], dimensions[1], dimensions[2], MathF.Max(1e-6f, _world.GetMass(body.BodyId)), supported);
+        }
+        return new ContactResonance(MathF.Max(Shape(hit.A).DecayScale, Shape(hit.B).DecayScale));
     }
 
     /// <summary>同じ 2 つの物の当たった音を、続けては鳴らさない間 [s]（1 回の当たりの中で跳ね返って触れ直す時間より長く、続けて打つ間より短く）。</summary>
@@ -600,7 +616,8 @@ public sealed partial class BoxingGame
                 }
 
                 WeaponHits.Add(new WeaponHitEvent(swinger, victim, part.Kind, zone, hit.Point, hit.RemovedB.Count + crushed, contactSpeed,
-                    delivered, part.Kind == BodyPartKind.Head ? victim.LastHeadTwist : 0f, damage));
+                    delivered, part.Kind == BodyPartKind.Head ? victim.LastHeadTwist : 0f, damage, hit.FaceA,
+                    ContactPairs.Of(hit.FaceA, hit.FaceB) is { } pair ? ContactAudioOf(hit, pair, Math.Clamp(contactSpeed / ContactFullSpeed, 0f, 1f)) : null));
             }
         }
 
@@ -628,7 +645,8 @@ public sealed partial class BoxingGame
                     crushed = _chips.Count + _chunks.Sum(c => c.Cells.Count);
                 }
 
-                selfHit = new WeaponHitEvent(victim, victim, part.Kind, zone, hit.Point, hit.RemovedB.Count + crushed, contactSpeed, delivered, 0f, damage);
+                selfHit = new WeaponHitEvent(victim, victim, part.Kind, zone, hit.Point, hit.RemovedB.Count + crushed, contactSpeed, delivered, 0f, damage, hit.FaceA,
+                    ContactPairs.Of(hit.FaceA, hit.FaceB) is { } pair ? ContactAudioOf(hit, pair, Math.Clamp(contactSpeed / ContactFullSpeed, 0f, 1f)) : null);
             }
         }
 
@@ -963,4 +981,7 @@ public sealed partial class BoxingGame
 /// <param name="Momentum">相手へ運んだ運動量 [N·s]（体の重さの分 + 武器そのものの分）。</param>
 /// <param name="HeadTwist">頭を打ったなら、頭がねじられた速さ [rad/s]（意識の飛び方。拳と同じ）。</param>
 /// <param name="Damage">得点（拳と同じ物差し）。</param>
-public readonly record struct WeaponHitEvent(Fighter Attacker, Fighter Victim, BodyPartKind Part, HitZone Zone, Vector3 Point, int Cells, float Speed, float Momentum, float HeadTwist, float Damage);
+/// <param name="Face">打面の材質。表示・音専用。</param>
+/// <param name="Sound">形状・支持・接触力積から読む音専用メタデータ。</param>
+public readonly record struct WeaponHitEvent(Fighter Attacker, Fighter Victim, BodyPartKind Part, HitZone Zone, Vector3 Point, int Cells, float Speed, float Momentum, float HeadTwist, float Damage,
+    byte Face = 0, ContactSoundEvent? Sound = null);

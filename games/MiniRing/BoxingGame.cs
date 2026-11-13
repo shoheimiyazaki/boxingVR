@@ -1405,7 +1405,7 @@ public readonly record struct BoneBreakEvent(Fighter Victim, BodyPartKind Part, 
 /// ボクセルの物どうしが、何も壊さずにぶつかった瞬間（2026-11-12）。<paramref name="Pair"/> はぶつかった面の材質の組
 /// （金属どうし・グローブと皮膚など）、<paramref name="Strength"/> は近づく速さから決めた強さ（0..1）。
 /// </summary>
-public readonly record struct ContactSoundEvent(Vector3 Position, Audio.ContactPair Pair, float Strength);
+public readonly record struct ContactSoundEvent(Vector3 Position, Audio.ContactPair Pair, float Strength, Audio.ContactResonance? Resonance = null, float Energy = -1f);
 
 /// <summary>
 /// テレビ中継の試合の決まり（2026-11-12）: 1 ラウンド <paramref name="RoundSeconds"/> 秒 × <paramref name="Rounds"/> ラウンド、ラウンドの間

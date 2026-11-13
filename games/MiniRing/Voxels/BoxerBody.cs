@@ -90,8 +90,48 @@ public readonly record struct ImpactResult(int Carved, VoxelPart Part, BoneBreak
 /// <param name="Bent">打撃の曲げで折れた（骨のセルは残っている）か、削られて断たれたか。</param>
 public sealed record BoneBreak(VoxelPart Part, VoxelPart? Fragment, Vector3 Point, int BridgeCells, float TearForce, float BendTorque, bool Bent)
 {
+    public FleshBridge? Bridge { get; init; }
     /// <summary>肉がまだつないでいる（遠い側がぶら下がる）。</summary>
     public bool Hangs => Fragment is not null && BridgeCells > 0;
+}
+
+/// <summary>分割後も、折れ目の両側に残った皮膚・筋肉の対応セルを追跡する断面。</summary>
+public sealed record FleshBridge(VoxelBody Stub, VoxelBody Fragment, IReadOnlyList<FleshBridge.Cell> Cells, int FullCells)
+{
+    public readonly record struct Cell(int StubIndex, int FragmentIndex, float Tear, float Bend);
+
+    public (int Count, float Fraction, float Tear, float Bend) Measure()
+    {
+        var count = 0;
+        float tear = 0f, bend = 0f;
+        foreach (var cell in Cells)
+        {
+            if (Flesh(Stub.Grid, cell.StubIndex) && Flesh(Fragment.Grid, cell.FragmentIndex))
+            {
+                count++;
+                tear += cell.Tear;
+                bend += cell.Bend;
+            }
+        }
+        return (count, FullCells > 0 ? Math.Clamp((float)count / FullCells, 0f, 1f) : 0f, tear, bend);
+    }
+
+    private static bool Flesh(VoxelGrid grid, int i) => i >= 0 && grid.Palette[grid.MaterialAt(i)].Tissue == VoxelTissue.Flesh;
+
+    public FleshBridge MoveStub(VoxelBody next)
+    {
+        Matrix4x4.Invert(next.GridToWorld(), out var inverse);
+        var transform = Stub.GridToWorld() * inverse;
+        return this with { Stub = next, Cells = Cells.Select(c =>
+        {
+            if (c.StubIndex < 0)
+            {
+                return c;
+            }
+            var (x, y, z) = Stub.Grid.Coordinates(c.StubIndex);
+            return c with { StubIndex = next.Grid.CellAt(Vector3.Transform(Stub.Grid.CellCenter(x, y, z), transform)) };
+        }).ToArray() };
+    }
 }
 
 /// <summary>
@@ -523,6 +563,16 @@ public sealed class BoxerBody
         var bridge = grid.Bridge(axis, slice);
         var cell = grid.CellSize;
         var along = axis == 0 ? cell.X : axis == 1 ? cell.Y : cell.Z;
+        var step = (axis == 0 ? Vector3.UnitX : axis == 1 ? Vector3.UnitY : Vector3.UnitZ) * along * (part.DistalHigh ? 1f : -1f);
+        var full = Enumerable.Range(0, grid.CellCount).Count(i =>
+        {
+            var c = grid.Coordinates(i);
+            var far = grid.CellAt(grid.CellCenter(c.X, c.Y, c.Z) + step);
+            return (axis == 0 ? c.X : axis == 1 ? c.Y : c.Z) == slice && far >= 0 &&
+                grid.Palette[_originals[part].Materials[i]].Tissue == VoxelTissue.Flesh &&
+                grid.Palette[_originals[part].Materials[far]].Tissue == VoxelTissue.Flesh;
+        });
+        var samples = new List<(int Index, Vector3 Far, float Tear, float Bend)>();
         var area = grid.CellVolume / along;
         float tear = 0f, bend = 0f;
         foreach (var i in bridge)
@@ -531,6 +581,13 @@ public sealed class BoxerBody
             var (x, y, z) = grid.Coordinates(i);
             var at = grid.CellCenter(x, y, z);
             var across = axis == 0 ? new Vector2(at.Y, at.Z) : axis == 1 ? new Vector2(at.X, at.Z) : new Vector2(at.X, at.Y);
+            var far = at + step;
+            var farIndex = grid.CellAt(far);
+            if (grid.Palette[grid.MaterialAt(i)].Tissue != VoxelTissue.Flesh || farIndex < 0 || grid.Palette[grid.MaterialAt(farIndex)].Tissue != VoxelTissue.Flesh)
+            {
+                continue;
+            }
+            samples.Add((i, Vector3.Transform(far, body.GridToWorld()), strength * area, strength * area * across.Length()));
             tear += strength * area;
             bend += strength * area * across.Length();
         }
@@ -551,7 +608,14 @@ public sealed class BoxerBody
 
         _holdsFarEnd.Remove(body.BodyId); // 遠い側の関節は破片の側へ移る（何も残っていなければ外れる）
         var hangs = fragment is not null;
-        return new BoneBreak(part, fragment, point, hangs ? bridge.Count : 0, hangs ? tear : 0f, hangs ? bend : 0f, bent);
+        FleshBridge? tracked = null;
+        if (piece is not null)
+        {
+            Matrix4x4.Invert(piece.GridToWorld(), out var inverse);
+            tracked = new FleshBridge(body, piece, samples.Select(c => new FleshBridge.Cell(c.Index,
+                piece.Grid.CellAt(Vector3.Transform(c.Far, inverse)), c.Tear, c.Bend)).ToArray(), full);
+        }
+        return new BoneBreak(part, fragment, point, hangs ? samples.Count : 0, hangs ? tear : 0f, hangs ? bend : 0f, bent) { Bridge = tracked };
     }
 
     /// <summary>格子 <paramref name="grid"/> の骨の、軸 <paramref name="axis"/> に沿った両端のスライス（骨が無ければ null）。</summary>

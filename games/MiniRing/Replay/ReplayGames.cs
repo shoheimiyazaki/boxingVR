@@ -56,6 +56,8 @@ public sealed class ReplayGame : IGame<BoxingInput>
 {
     private readonly ReplayPlayer _player;
     private readonly List<HitEvent> _frameHits = [];
+    private readonly List<WeaponHitEvent> _frameWeaponHits = [];
+    public IReadOnlyList<WeaponHitEvent> FrameWeaponHits => _frameWeaponHits;
     private readonly List<ShatterEvent> _frameShatters = [];
     private readonly List<DebrisLanding> _frameLandings = [];
     private readonly List<SwingEvent> _frameSwings = [];
@@ -110,6 +112,7 @@ public sealed class ReplayGame : IGame<BoxingInput>
     {
         _clock += dt;
         _frameHits.Clear();
+        _frameWeaponHits.Clear();
         _frameShatters.Clear();
         _frameLandings.Clear();
         _frameSwings.Clear();
@@ -124,6 +127,8 @@ public sealed class ReplayGame : IGame<BoxingInput>
             _frameSevers.AddRange(game.RecentSevers);
             FrameBell = game.RecentBell == RoundBell.None ? FrameBell : game.RecentBell;
             _frameHits.AddRange(game.RecentHits);
+            _frameWeaponHits.AddRange(game.WeaponHits);
+            _frameWeaponHits.AddRange(game.SelfWeaponHits);
             _frameShatters.AddRange(game.RecentShatters);
             _frameLandings.AddRange(game.RecentLandings);
             _frameSwings.AddRange(game.RecentSwings);

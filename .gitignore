@@ -1,6 +1,8 @@
 # .NET build output
 bin/
 obj/
+TestResults/
+.testresults/
 *.user
 *.log
 

@@ -341,6 +341,129 @@ public sealed class BoneBreakTests
     private static Vector3 Axis(BoxingGame game, int body) => Vector3.Transform(Vector3.UnitX, game.World.GetState(body).Orientation);
 
     [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(true, false)]
+    [DataRow(false, true)]
+    [DataRow(true, true)]
+    public void FleshAtTheBreak_RemovedLater_ReleasesThePiece(bool fragmentSide, bool leg)
+    {
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
+        Play(game, 1f);
+        var part = leg ? game.Cpu.Parts.LeftShin : game.Cpu.ForearmId(Hand.Left);
+        var axis = leg ? 1 : 0;
+        var dimensions = game.Cpu.Voxels!.PartOf(part)!.Body.Grid.Dimensions;
+        var broken = game.Cpu.Voxels.BreakBent(part, new VoxelBreak(axis, (leg ? dimensions.Y : dimensions.X) / 2, true, 2f))!;
+        game.BreakBone(game.Cpu, broken, 1f);
+        var bridge = broken.Bridge!;
+        Assert.IsTrue(game.Cpu.HangsByFlesh(broken.Fragment!.Body.BodyId));
+        var removed = new List<RemovedVoxel>();
+        foreach (var cell in bridge.Cells)
+        {
+            (fragmentSide ? bridge.Fragment.Grid : bridge.Stub.Grid).Break(fragmentSide ? cell.FragmentIndex : cell.StubIndex, removed);
+        }
+        Play(game, 0.1f);
+        Assert.IsFalse(game.Cpu.HangsByFlesh(broken.Fragment.Body.BodyId), "no invisible link may survive missing flesh");
+    }
+
+    [TestMethod]
+    public void ASecondProximalBreak_MovesTheBridge_AndStillTracksItsFlesh()
+    {
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
+        Play(game, 1f);
+        var forearm = game.Cpu.ForearmId(Hand.Left);
+        var n = Slices(game, forearm);
+        var first = game.Cpu.Voxels!.BreakBent(forearm, new VoxelBreak(0, n / 2, true, 2f))!;
+        game.BreakBone(game.Cpu, first, 1f);
+        var proximal = first.Part.DistalHigh ? n / 4 : n * 3 / 4;
+        var second = game.Cpu.Voxels.BreakBent(forearm, new VoxelBreak(0, proximal, true, 2f))!;
+        game.BreakBone(game.Cpu, second, 1f);
+        Assert.IsTrue(game.Cpu.HangsByFlesh(first.Fragment!.Body.BodyId));
+        var grid = second.Fragment!.Body.Grid;
+        var removed = new List<RemovedVoxel>();
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            if (grid.Palette[grid.MaterialAt(i)].Tissue == VoxelTissue.Flesh)
+            {
+                grid.Break(i, removed);
+            }
+        }
+        Play(game, 0.1f);
+        Assert.IsFalse(game.Cpu.HangsByFlesh(first.Fragment.Body.BodyId));
+    }
+
+    [TestMethod]
+    public void RemainingSection_ContinuouslyReducesStiffnessAndTearStrength()
+    {
+        using var game = new BoxingGame(seed: 1);
+        var forearm = game.Cpu.ForearmId(Hand.Left);
+        var broken = game.Cpu.Voxels!.BreakBent(forearm, new VoxelBreak(0, Slices(game, forearm) / 2, true, 2f))!;
+        var bridge = broken.Bridge!;
+        var full = bridge.Measure();
+        Assert.IsInRange(0.95f, 1f, full.Fraction);
+        var removed = new List<RemovedVoxel>();
+        foreach (var cell in bridge.Cells.Take(bridge.Cells.Count / 2))
+        {
+            bridge.Fragment.Grid.Break(cell.FragmentIndex, removed);
+        }
+        var half = bridge.Measure();
+        Assert.IsGreaterThan(0f, half.Fraction);
+        Assert.IsLessThan(full.Fraction, half.Fraction);
+        Assert.IsLessThan(full.Tear, half.Tear);
+        Assert.IsLessThan(full.Bend, half.Bend);
+    }
+
+    [TestMethod]
+    public void NoFleshAtTheBreak_CreatesNoLink_AndThePieceFalls()
+    {
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
+        Play(game, 1f);
+        var forearm = game.Cpu.ForearmId(Hand.Left);
+        var broken = Cut(game, game.Cpu, forearm, [Slices(game, forearm) / 2])!;
+        Assert.IsFalse(broken.Hangs);
+        var id = broken.Fragment!.Body.BodyId;
+        Assert.IsFalse(game.Cpu.HangsByFlesh(id));
+        var start = game.World.GetState(id).Position;
+        Play(game, 0.4f);
+        Assert.IsLessThan(start.Y - 0.05f, game.World.GetState(id).Position.Y);
+    }
+
+    [TestMethod]
+    public void LessFlesh_AllowsMoreSagUnderTheSameWeight()
+    {
+        static float Sag(float fraction)
+        {
+            using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("reach", _ => new Scripted(s => Reach(s, high: false)), _ => new StandGuard()));
+            Play(game, 1f);
+            var forearm = game.Cpu.ForearmId(Hand.Left);
+            var broken = game.Cpu.Voxels!.BreakBent(forearm, new VoxelBreak(0, Slices(game, forearm) / 2, true, 2f))!;
+            var cells = broken.Bridge!.Cells;
+            var removed = new List<RemovedVoxel>();
+            foreach (var cell in cells.Skip((int)(cells.Count * fraction)))
+            {
+                broken.Bridge.Stub.Grid.Break(cell.StubIndex, removed);
+            }
+            game.BreakBone(game.Cpu, broken, 1f);
+            Play(game, 3f);
+            Assert.IsTrue(game.Cpu.HangsByFlesh(broken.Fragment!.Body.BodyId));
+            var sum = 0f;
+            for (var i = 0; i < 120; i++)
+            {
+                Play(game, 1f / 60f);
+                sum += MathF.Acos(Math.Clamp(Vector3.Dot(Axis(game, forearm), Axis(game, broken.Fragment.Body.BodyId)), -1f, 1f));
+            }
+            return sum / 120f;
+        }
+
+        var full = Sag(1f);
+        var half = Sag(0.5f);
+        var thin = Sag(0.125f);
+        Console.WriteLine($"Sag [rad]: full={full:F4}, half={half:F4}, thin={thin:F4}");
+        Assert.IsInRange(0.3f, 0.9f, full, "full flesh retains the 0.6 rad calibration under gravity");
+        Assert.IsGreaterThan(full, half);
+        Assert.IsGreaterThan(half, thin);
+    }
+
+    [TestMethod]
     public void TheBrokenPiece_SagsUnderItsWeight_ButDoesNotHangStraightDown()
     {
         // 拳を前へ突き出したまま、前腕の真ん中で折る: 折れた先は下へたわむが、真下へは垂れない（肉のバネが重さの多くを支える）。

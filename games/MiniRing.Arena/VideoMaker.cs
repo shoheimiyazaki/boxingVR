@@ -21,7 +21,7 @@ namespace MiniRing.Arena;
 /// （出来た動画を引き伸ばすのと違い、コマが重複しない）。音は映像の時刻に置き、音そのものの速さ・高さは変えない。</param>
 /// <param name="tv">テレビ中継風（<see cref="MatchRules.Tv"/> の 30 秒 × 5 ラウンド、得点表と時計、会場の歓声、実況用の出来事の記録 *.events.json）。</param>
 /// <param name="faceCam">試合中、画面の両脇に両コーナーの顔の窓を出す（<see cref="FaceCam"/>）。null なら出さない。</param>
-internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = false, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false)
+internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false)
 {
     /// <summary>試合を 1 歩進める時間の上限 [s]（ホストの 1 歩と同じ）。速さを落とすと 1 歩はこれより短くなる。</summary>
     private const float MaxStepDt = 1f / 60f;
@@ -53,16 +53,25 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// </param>
     /// <param name="redWear">赤コーナーが手にはめる物（既定 グローブ）。</param>
     /// <param name="blueWear">青コーナーが手にはめる物（既定 グローブ）。</param>
+    /// <param name="intentScript">赤の操作台本。指定時は指令を記録し、ボットの代わりに意図操作を使う。</param>
     public void Make(Contender red, Contender blue, int seed, float seconds, string outPath, TextWriter log, Action<float>? afterStep = null, bool untilKo = false,
-        MiniRing.Weapons.HandWear redWear = MiniRing.Weapons.HandWear.Glove, MiniRing.Weapons.HandWear blueWear = MiniRing.Weapons.HandWear.Glove)
+        MiniRing.Weapons.HandWear redWear = MiniRing.Weapons.HandWear.Glove, MiniRing.Weapons.HandWear blueWear = MiniRing.Weapons.HandWear.Glove,
+        IntentScript? intentScript = null)
     {
         var redBots = new List<IFighterControl>();
         var blueBots = new List<IFighterControl>();
-        var corners = new BoxingCorners(blue.Name, s => Keep(blueBots, blue.Create(s)), s => Keep(redBots, red.Create(s)), PlayerWear: redWear, CpuWear: blueWear, PlayerName: red.Name);
+        var corners = new BoxingCorners(blue.Name, s => Keep(blueBots, blue.Create(s)),
+            intentScript is null ? s => Keep(redBots, red.Create(s)) : null,
+            CpuStyleJson: intentScript is null ? null : (blue.Create(seed) as BoxerBot)?.Style.ToJson(),
+            PlayerWear: redWear, CpuWear: blueWear, PlayerName: red.Name);
         // 画面と実況ではリングネームで呼ぶ（ドリルで生まれた個体にもそれぞれの名前がある）。
         var redRing = BotNames.RingNameOf(red.Name);
         var blueRing = BotNames.RingNameOf(blue.Name);
         using var game = new BoxingGame(seed: seed, corners: corners, rules: tv ? MatchRules.Tv : null);
+        var intent = intentScript is null ? null : new IntentControl();
+        var intentRound = game.Round;
+        using var recordingFile = intentScript is null ? null : File.Create(Path.ChangeExtension(outPath, ".mrrep"));
+        using var recording = recordingFile is null ? null : new MiniRing.Replay.ReplayRecorder(recordingFile, game, "intentvideo");
         if (tv)
         {
             seconds = MathF.Max(seconds, MatchRules.Tv.TotalSeconds + AftermathSeconds + 1f); // テレビ中継は試合の終わりまで撮る（--seconds が短くても）
@@ -75,6 +84,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         // 顔の窓は窓の大きさで別に描いて書き写す（ヘッドレスの描画は 1 つのカメラで 1 枚。ホストでは重ねる窓として描く）。
         using var paneRenderer = faceCam is null ? null : new HeadlessRenderer((uint)panel.WidthPx, (uint)panel.HeightPx);
         var audio = new float[(int)((TitleSeconds + (seconds / speed) + ResultSeconds + 1f) * HitSound.SampleRate)];
+        var impactAudio = new ImpactAudio();
+        var audioTimeline = new ImpactTimeline();
         var videoPath = Path.ChangeExtension(outPath, ".video.mp4");
         var wavPath = Path.ChangeExtension(outPath, ".wav");
         var instances = new List<PrimitiveInstance>();
@@ -139,7 +150,22 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     float? endAt = null;
                     for (var step = 0; time < seconds && (endAt is null || time < endAt); step++)
                     {
-                        game.Step(default, stepDt);
+                        if (intentScript is not null)
+                        {
+                            if (intentRound != game.Round)
+                            {
+                                intent = new IntentControl();
+                                intentRound = game.Round;
+                            }
+
+                            intent!.Input = intentScript.At(time);
+                            var input = new BoxingInput(intent.Read(game.PlayerSense, stepDt));
+                            recording!.Step(game, input, stepDt);
+                        }
+                        else
+                        {
+                            game.Step(default, stepDt);
+                        }
                         time += stepDt;
                         var at = TitleSeconds + (time / speed); // 映像の時刻（音を置く所）
                         broadcast?.Observe(game, at, step);
@@ -156,9 +182,10 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             Mix(audio, gong, at, 1f);
                         }
 
-                        foreach (var graze in game.RecentGrazes)
+                        foreach (var voice in impactAudio.Push(time, ImpactAudio.Gather(game.RecentHits, game.RecentContacts, game.RecentShatters, hitSounds, [.. game.WeaponHits, .. game.SelfWeaponHits]), breakStyle))
                         {
-                            Mix(audio, GrazeSound.Synthesize(graze.Speed, step), at, 1f);
+                            Mix(audio, voice.Pcm, TitleSeconds + ((float)voice.OccurredAt / speed), 1f);
+                            audioTimeline.Add(voice, TitleSeconds + voice.OccurredAt / speed, frame / (double)fps);
                         }
 
                         foreach (var sever in game.RecentSevers)
@@ -174,10 +201,6 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                                 $"bone broken at {time:0.0} s (video {at:0.0} s): {(broken.Victim == game.Player ? "red" : "blue")} {broken.Part}"));
                         }
 
-                        foreach (var contact in game.RecentContacts)
-                        {
-                            Mix(audio, ContactSound.Synthesize(contact.Pair, contact.Strength, step), at, 1f);
-                        }
                         if (untilKo && endAt is null && game.RoundOver)
                         {
                             // ラウンドが終わった理由（K.O. の種類と勝者）。ゲームは RoundResetDelay の後に次のラウンドを始めるので、その前に止める。
@@ -186,7 +209,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             endAt = time + AftermathSeconds;
                             flashes.Add(("K.O.", Gold, endAt.Value));
                         }
-                        if (VoxelBreakSound.Landings(game.RecentLandings, step, breakStyle) is { } landed)
+                        if (VoxelBreakSound.Landings(game.RecentLandings, step, breakStyle) is { } landingPcm && impactAudio.LimitBackground(time, landingPcm) is { } landed)
                         {
                             Mix(audio, landed, at, 1f);
                         }
@@ -201,11 +224,6 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
                         foreach (var shatter in game.RecentShatters)
                         {
-                            if (shatter.Grains.Count > 0)
-                            {
-                                Mix(audio, VoxelBreakSound.Synthesize(shatter, step, breakStyle), at, 0.8f);
-                            }
-
                             if (shatter.Fatal)
                             {
                                 Mix(audio, VoxelBreakSound.Fatal(seed: 7, breakStyle), at, 1f);
@@ -224,12 +242,6 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             else
                             {
                                 blueDamage += hit.Damage;
-                            }
-
-                            var tone = HitTone.Of(hit);
-                            if (hitSounds)
-                            {
-                                Mix(audio, HitSound.Synthesize(tone, step), at, 0.55f + (0.45f * tone.Intensity));
                             }
 
                             if (hit.Damage >= BigHitDamage)
@@ -265,6 +277,13 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         }
 
                         BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
+                        if (intent is not null)
+                        {
+                            var keys = intent.Input;
+                            redCaption.Defense = $"KEYS ({keys.Direction.X:0.#},{keys.Direction.Y:0.#}) {(keys.Light ? "J" : "")} {(keys.Heavy ? "K" : "")} {(keys.Evade ? "SPACE" : "")}  {intent.CurrentDefense} {intent.CurrentTechnique}";
+                            redCaption.DefenseTime = time;
+                        }
+
                         var (vp, eye) = CameraAt(game, (TitleSeconds * 0.15f) + (time / speed * 0.15f));
                         Emit(vp, eye, MatchOverlay(redRing, blueRing, redCaption, blueCaption, flashes, redDamage, blueDamage, time, untilKo || tv ? null : seconds, game, vp),
                             [.. Bars(), .. tv ? TvHud.Shapes(game, screen) : StaminaBars(game), .. DownCountHud.Shapes(game, vp, screen)], withFace: true);
@@ -302,6 +321,11 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                 }
             }
 
+            foreach (var voice in impactAudio.Flush(breakStyle))
+            {
+                Mix(audio, voice.Pcm, TitleSeconds + ((float)voice.OccurredAt / speed), 1f);
+            }
+
             if (broadcast is not null)
             {
                 broadcast.MixInto(audio, HitSound.SampleRate, seed);
@@ -309,6 +333,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             }
 
             WriteWav(wavPath, audio, (float)frame / fps);
+            audioTimeline.Write(outPath);
             Run("ffmpeg", $"-y -loglevel error -i \"{videoPath}\" -i \"{wavPath}\" -c:v copy -c:a aac -b:a 160k -shortest \"{outPath}\"");
         }
         finally
@@ -505,7 +530,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     private static Vector4 Fade(Vector4 color, float alpha) => color with { W = Math.Clamp(alpha, 0f, 1f) };
 
     /// <summary>16-bit モノラル PCM を <paramref name="at"/> 秒の位置に足し込む。</summary>
-    private static void Mix(float[] audio, byte[] pcm, float at, float gain)
+    internal static void Mix(float[] audio, byte[] pcm, float at, float gain)
     {
         var start = (int)(at * HitSound.SampleRate);
         for (var i = 0; i + 1 < pcm.Length && start + (i / 2) < audio.Length; i += 2)
@@ -514,7 +539,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         }
     }
 
-    private static void WriteWav(string path, float[] audio, float seconds)
+    internal static void WriteWav(string path, float[] audio, float seconds)
     {
         var count = Math.Min(audio.Length, (int)(seconds * HitSound.SampleRate));
         using var writer = new BinaryWriter(File.Create(path));

@@ -21,11 +21,13 @@ public enum HitSurface
 
     /// <summary>鉄（ナックル・籠手）: 素手の作りに、短い金属の「ギッ」。</summary>
     Metal,
+    /// <summary>木の打面。芯は乾いた肉の衝撃、木の響きは接触層で重ねる。</summary>
+    Wood,
 }
 
 /// <summary>
 /// 一撃の音色。<paramref name="Intensity"/> はダメージの大きさ 0..1、<paramref name="Clean"/> は芯を食った度合い 0..1
-/// （体重が乗っているほど・急所ほど高く、ガードの上からは低い）。
+/// （体重が乗っているほど・実際のダメージが大きいほど高く、ガードの上からは低い）。
 /// </summary>
 /// <param name="Intensity">ダメージの大きさ 0..1。低く太く・長く・大きくなる。</param>
 /// <param name="Clean">芯を食った度合い 0..1。鋭い「パキッ」が乗る。</param>
@@ -44,10 +46,10 @@ public readonly record struct HitTone(float Intensity, float Clean, HitTarget Ta
             HitZone.Chin or HitZone.Temple or HitZone.Head or HitZone.Neck => HitTarget.Head,
             _ => HitTarget.Body,
         };
-        // 急所（顎・こめかみ・肝臓・みぞおち）は同じ重さでも「入った」音にする。
-        var sweetSpot = hit.Zone is HitZone.Chin or HitZone.Temple or HitZone.Liver or HitZone.SolarPlexus ? 0.25f : 0f;
-        var clean = target == HitTarget.Guard ? 0.1f * hit.BodyShare : 0.35f + (0.5f * hit.BodyShare) + sweetSpot;
-        return new HitTone(Math.Clamp(hit.Damage / FullDamage, 0f, 1f), Math.Clamp(clean, 0f, 1f), target, SurfaceOf(hit.Face));
+        var intensity = Math.Clamp(hit.Damage / FullDamage, 0f, 1f);
+        // 部位名で「急所」の音を上乗せせず、実際に伝わったダメージと連結度で連続に決める。
+        var clean = target == HitTarget.Guard ? 0.1f * hit.BodyShare : 0.35f + (0.5f * hit.BodyShare) + (0.25f * intensity);
+        return new HitTone(intensity, Math.Clamp(clean, 0f, 1f), target, SurfaceOf(hit.Face));
     }
 
     /// <summary>打った面の材質の番号（<see cref="BoxerAnatomy"/>）から音の作り方を選ぶ。分からない（0）・その他はグローブ。</summary>
@@ -55,6 +57,7 @@ public readonly record struct HitTone(float Intensity, float Clean, HitTarget Ta
     {
         BoxerAnatomy.Skin => HitSurface.Bare,
         BoxerAnatomy.Iron => HitSurface.Metal,
+        BoxerAnatomy.Wood => HitSurface.Wood,
         _ => HitSurface.Glove,
     };
 }
@@ -89,7 +92,7 @@ public static class HitSound
     private const float GuardRoom = 0.03f;
 
     /// <summary>16-bit モノラル PCM（リトルエンディアン）。</summary>
-    public static byte[] Synthesize(HitTone tone, int seed)
+    public static byte[] Synthesize(HitTone tone, int seed, bool immediate = false)
     {
         var intensity = Math.Clamp(tone.Intensity, 0f, 1f);
         var clean = Math.Clamp(tone.Clean, 0f, 1f);
@@ -102,7 +105,8 @@ public static class HitSound
         {
             HitSurface.Bare => StrikeRecipes.Bare(strike, random),
             HitSurface.Metal => StrikeRecipes.Metal(strike, random),
-            _ => StrikeRecipes.Glove(strike, random),
+            HitSurface.Wood => StrikeRecipes.Bare(strike, random),
+            _ => StrikeRecipes.Glove(strike, random, immediate),
         };
 
         Saturate(samples, Lerp(LightDrive, HeavyDrive, intensity));
@@ -412,7 +416,7 @@ internal static class StrikeRecipes
     private const float MetalEdgeHeadGain = 0.5f;
 
     /// <summary>グローブ: 「ドッ」→ 遅れて「バシッ」→ 体ごと沈む「ドォン」。</summary>
-    public static float[] Glove(Strike strike, Random random)
+    public static float[] Glove(Strike strike, Random random, bool immediate = false)
     {
         var w = Math.Clamp(strike.Weight, 0f, 1f);
         var low = strike.Pitch * MathF.Pow(2f, LowOctaves * (1f - w));
@@ -420,7 +424,8 @@ internal static class StrikeRecipes
         var bandGain = strike.Muffled ? MuffledBandGain : 1f;
         var lowGain = strike.Muffled ? MuffledLowGain : 1f;
 
-        var smackAt = Lerp(LightGloveSmackDelay, HeavyGloveSmackDelay, w);
+        // v7主音は鋭い層もイベントと同時に始める。従来レシピは音デモ・v6比較用に残す。
+        var smackAt = immediate ? 0f : Lerp(LightGloveSmackDelay, HeavyGloveSmackDelay, w);
         var boomHold = Lerp(LightGloveBoomHold, HeavyGloveBoomHold, w);
         var boomDecay = Lerp(LightGloveBoomDecay, HeavyGloveBoomDecay, w);
         var boomGain = Lerp(LightGloveBoomGain, 1f, w) * lowGain;

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using Aigis.Render;
+using MiniRing.Audio;
 using MiniRing.Weapons;
 
 namespace MiniRing.Arena;
@@ -125,9 +126,16 @@ internal sealed class SparVideo(int width, int height, int fps)
     /// <param name="plainLabels">赤・青の行に、渡した説明だけを書く（技の名前と「最後の技」を出さない。台本つきの場面）。</param>
     private void Render(string title, Func<Action<BoxingGame, float, string?, string?>, string> run, string outPath, TextWriter log, bool plainLabels = false)
     {
+        var impacts = new ImpactAudio();
+        var audioTimeline = new ImpactTimeline();
+        var clips = new List<(double At, byte[] Pcm)>();
+        var audioSeed = 0;
+        var wavPath = Path.ChangeExtension(outPath, ".wav");
+        var silentPath = Path.ChangeExtension(outPath, ".silent.mp4");
+        var frames = 0;
         using var renderer = new HeadlessRenderer((uint)width, (uint)height);
         using var ffmpeg = Process.Start(new ProcessStartInfo("ffmpeg",
-            $"-y -loglevel error -f rawvideo -pix_fmt rgba -s {width}x{height} -r {fps} -i - -c:v libx264 -pix_fmt yuv420p -crf 18 -preset medium \"{outPath}\"")
+            $"-y -loglevel error -f rawvideo -pix_fmt rgba -s {width}x{height} -r {fps} -i - -c:v libx264 -pix_fmt yuv420p -crf 18 -preset medium \"{silentPath}\"")
         {
             RedirectStandardInput = true,
             UseShellExecute = false,
@@ -139,12 +147,41 @@ internal sealed class SparVideo(int width, int height, int fps)
         string redLast = "—", blueLast = "—";
         var summary = run((game, t, redNow, blueNow) =>
         {
+            audioSeed++;
+            foreach (var voice in impacts.Push(t, ImpactAudio.Gather(game.RecentHits, game.RecentContacts, game.RecentShatters, weaponHits: [.. game.WeaponHits, .. game.SelfWeaponHits])))
+            {
+                clips.Add((voice.OccurredAt, voice.Pcm));
+                audioTimeline.Add(voice, voice.OccurredAt, frames / (double)fps);
+            }
+            if (VoxelBreakSound.Landings(game.RecentLandings, audioSeed) is { } landingPcm && impacts.LimitBackground(t, landingPcm) is { } landed)
+            {
+                clips.Add((t, landed));
+            }
+            foreach (var swing in game.RecentSwings)
+            {
+                if (SwingSound.Synthesize(swing.Speed, audioSeed) is { } whoosh)
+                {
+                    clips.Add((t, whoosh));
+                }
+            }
+            foreach (var sever in game.RecentSevers)
+            {
+                clips.Add((t, SeverSound.Synthesize(sever.Strength, audioSeed)));
+            }
+            foreach (var shatter in game.RecentShatters.Where(s => s.Fatal))
+            {
+                clips.Add((t, VoxelBreakSound.Fatal(audioSeed)));
+            }
+            if (GongSound.Synthesize(game.RecentBell) is { } gong)
+            {
+                clips.Add((t, gong));
+            }
             if (t < nextFrame)
             {
                 return;
             }
 
-            nextFrame = t + (1f / fps);
+            nextFrame += 1f / fps;
             var redCells = game.Player.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
             var blueCells = game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
             redStart ??= redCells;
@@ -170,6 +207,7 @@ internal sealed class SparVideo(int width, int height, int fps)
             var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),
                 shadow: game.BuildShadow(), cameraPosition: eye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
             ffmpeg.StandardInput.BaseStream.Write(rgba);
+            frames++;
         });
         ffmpeg.StandardInput.Close();
         ffmpeg.WaitForExit();
@@ -178,6 +216,25 @@ internal sealed class SparVideo(int width, int height, int fps)
             throw new IOException($"ffmpeg failed with exit code {ffmpeg.ExitCode}.");
         }
 
+        clips.AddRange(impacts.Flush().Select(v => (v.OccurredAt, v.Pcm)));
+        var duration = (float)frames / fps;
+        var track = new float[(int)(duration * HitSound.SampleRate)];
+        foreach (var (at, pcm) in clips)
+        {
+            VideoMaker.Mix(track, pcm, (float)at, 1f);
+        }
+        VideoMaker.WriteWav(wavPath, track, duration);
+        audioTimeline.Write(outPath);
+        using var mux = Process.Start(new ProcessStartInfo("ffmpeg",
+            $"-y -loglevel error -i \"{silentPath}\" -i \"{wavPath}\" -c:v copy -c:a aac -b:a 96k -t {((float)frames / fps).ToString(CultureInfo.InvariantCulture)} \"{outPath}\"") { UseShellExecute = false })
+            ?? throw new IOException("音声を結合する ffmpeg を起動できません。");
+        mux.WaitForExit();
+        if (mux.ExitCode != 0)
+        {
+            throw new IOException($"音声の結合に失敗しました: {mux.ExitCode}");
+        }
+
+        File.Delete(silentPath);
         log.WriteLine($"{title}: {summary}");
     }
 }

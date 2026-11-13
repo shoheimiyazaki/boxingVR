@@ -7,13 +7,20 @@ using MiniRing.Desktop;
 using MiniRing.Replay;
 using Silk.NET.Input;
 
+var classic = Option("--control") == "classic";
+if (args.Contains("--control") && Option("--control") is not ("classic" or "intent"))
+{
+    Console.Error.WriteLine("--control は intent / classic のどちらかです。");
+    return 1;
+}
+
 // Mini Ring Boxing（デスクトップ版）: VR なしで同じ試合を遊ぶ／確かめるためのホスト。
 // 操作は KeyboardControl を参照。中ボタンドラッグでカメラ回転、スクロールでズーム、Escape で終了。
 //   （引数なし）            遊ぶ。試合は replays/ に自動で記録される（--no-record で無効）
 //   --replay <file.mrrep>   記録した試合を実時間で再生する（VR の記録も可）
 //   --verify <file.mrrep>   ウィンドウを開かず最速で再生し、記録どおりに再現できるかを照合して終了
 //   --break-sound <glass|crumble|crunch|circuit|metal>  ボクセルが砕ける音の方式（既定 glass）
-//   --hit-sound <on|off>  パンチが当たる音（既定 off。風切り音とボクセルの音だけ）
+//   --hit-sound <on|off>  パンチが当たる音（既定 on。ダメージを知らせる音）
 //   --tv                    テレビ中継風: 30 秒 × 5 ラウンド・休み 10 秒（休みに体が治る）、得点表と時計、会場の歓声（このモードは記録しない）
 //   --no-facecam            画面の両脇の顔の窓を出さない（窓の分の描画が要らない）
 //   --speed <0.5|0.75|1>    最初の速さ（既定 0.75 倍）。遊んでいる間・再生中も 1 / 2 / 3 キーで 0.5 / 0.75 / 1.0 倍に切り替わる
@@ -59,7 +66,9 @@ var camera = new OrbitCamera(initialDistance: 0.9f) { Target = BoxingGame.RingCe
 camera.ApplyDrag(new Vector2(-MathF.PI / 0.005f, -60f));
 var options = new GameHost.Options(
     "Mini Ring Boxing",
-    "WASD: move, LMB/RMB: right/left hand (Ctrl: hook path, Shift: uppercut path, Alt: body), arrows: head, Q/E: grab, R: reset round, 1/2/3: speed 0.5x/0.75x/1.0x, middle-drag: orbit, Escape: quit.",
+    classic
+        ? "WASD: move, LMB/RMB: right/left hand (Ctrl: hook, Shift: uppercut, Alt: body), arrows: head, Q/E: grab, R: reset, 1/2/3: speed, middle-drag: orbit, Escape: quit."
+        : "Arrows/WASD: move, J/RMB: light, K/LMB: heavy, hold/release: load/punch, Space+direction: evade, Space: guard, R: reset, 1/2/3: speed, middle-drag: orbit, Escape: quit.",
     camera,
     "miniring",
     OrbitButton: MouseButton.Middle);
@@ -96,7 +105,7 @@ if (Option("--replay") is { } replayPath)
     using var replay = new ReplayGame(ReplayFile.Read(replayPath));
     replay.Game.FaceCam = faceCam;
     replay.Game.Speed = speed;
-    using var replayWithSound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => replay.FrameShatters, () => replay.FrameLandings, () => replay.FrameSwings, () => replay.FrameBell, () => replay.FrameGrazes, () => replay.FrameSevers, contacts: () => replay.FrameContacts);
+    using var replayWithSound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => replay.FrameShatters, () => replay.FrameLandings, () => replay.FrameSwings, () => replay.FrameBell, () => replay.FrameGrazes, () => replay.FrameSevers, contacts: () => replay.FrameContacts, weaponHits: () => replay.FrameWeaponHits);
     profiler.Mark("replay loaded");
     GameHost.Run(profiler, options with { DynamicViews = faceViews(replay.Game) }, replayWithSound, readInput: (input, _, _) =>
     {
@@ -121,6 +130,7 @@ catch (ArgumentException e)
 using var game = new BoxingGame(corners: BoxingCorners.Default with { PlayerWear = wear, CpuWear = wear }, rules: tv ? MatchRules.Tv : null) { FaceCam = faceCam, Speed = speed };
 profiler.Mark("BoxingGame constructed");
 var keyboard = new KeyboardControl();
+var intentKeyboard = new IntentKeyboardControl();
 ReplayRecorder? recorder = null;
 // テレビ中継の試合（ラウンドの時間・休み・体の再生）は記録の形式に入っていないので、記録しない。
 if (!args.Contains("--no-record") && !tv && wear == MiniRing.Weapons.HandWear.Glove)
@@ -132,12 +142,14 @@ if (!args.Contains("--no-record") && !tv && wear == MiniRing.Weapons.HandWear.Gl
 // 打撃音は試合の外側で鳴らす（記録・物理には触れない）。
 using var recording = recorder is null ? null : new RecordingGame(game, recorder);
 using var withSound = new HitSoundGame(recording ?? (IGame<BoxingInput>)game, () => game.RecentHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), () => game.RecentShatters, () => game.RecentLandings, () => game.RecentSwings, () => game.RecentBell, () => game.RecentGrazes, () => game.RecentSevers,
-    tv ? CrowdFor(game) : null, () => game.RecentContacts);
+    tv ? CrowdFor(game) : null, () => game.RecentContacts, () => [.. game.WeaponHits, .. game.SelfWeaponHits]);
 GameHost.Run(profiler, options with { DynamicViews = faceViews(game) }, withSound, readInput: (input, _, _) =>
 {
     ReadSpeed(input);
     // 拳の経路は試合の時間で進める（遅くしても体と同じ速さで遅くなる）。
-    return keyboard.Read(input, camera.YawRadians, game.PlayerSense, FixedStep.Default.Dt * speed.Value);
+    return classic
+        ? keyboard.Read(input, camera.YawRadians, game.PlayerSense, FixedStep.Default.Dt * speed.Value)
+        : intentKeyboard.Read(input, game.PlayerSense, FixedStep.Default.Dt * speed.Value, game.Round);
 });
 return 0;
 

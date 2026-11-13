@@ -256,9 +256,16 @@ public static class ContactSound
     private static readonly Voice[] Voices = BuildVoices();
 
     /// <summary>1 回の接触の音（16-bit モノラル）。<paramref name="strength01"/> は当たりの強さ 0..1、<paramref name="seed"/> は 1 回ごとの揺らぎ。</summary>
-    public static byte[] Synthesize(ContactPair pair, float strength01, int seed)
+    public static byte[] Synthesize(ContactPair pair, float strength01, int seed, ContactResonance? resonance = null)
     {
         var voice = VoiceOf(pair);
+        if (resonance is { } shape)
+        {
+            voice = voice with { Blade = voice.Blade with {
+                LightHold = voice.Blade.LightHold * shape.DecayScale,
+                HeavyHold = voice.Blade.HeavyHold * shape.DecayScale,
+                Decay = voice.Blade.Decay * shape.DecayScale } };
+        }
         var strength = Clamp01(strength01);
         var loudness = Loudness(pair, strength);
         var random = new Random(seed);
