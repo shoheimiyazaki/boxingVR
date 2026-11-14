@@ -173,3 +173,17 @@ dotnet run --project games/MiniRing.Arena -c Release -- selfcuts --seeds 8 --sec
 > **後からの変更（2026-11-11）**: 体・鉄・木の材質の強さを、人形の大きさの相似則で人の 0.32 倍にした（[SWORD_MOTION.md](SWORD_MOTION.md) 5 節）。ドリルの振りの速さもそれに合わせて √0.32 倍にした（ふつう 3.4 m/s、強く 9.1 m/s）ので、上の表の「6 m/s・16 m/s」の結果と同じ釣り合いになる。握った武器は、武器そのものの運動エネルギーに加えて、手が押し込む力の仕事でも斬り進む（`VoxelContact.Resolve` の drive）。[arena/weaponlab.md](arena/weaponlab.md) は変更の前の記録。
 
 折れた骨の肉の橋（PhysicsVersion 19）は、折れ目の両側の皮膚・筋肉を分割後も追跡します。向きの剛性は原型に対する残存断面積の比に比例し、裂ける力・曲げ上限も残存セルから更新します。刃で後から橋の肉を削り切れば位置・向きの拘束が両方外れ、破片が落ちます。詳細は [VOXEL_DAMAGE.md](VOXEL_DAMAGE.md)。
+
+## 刀接触時の CPU 計測
+
+`dotnet test tests/MiniRing.Tests -c Release -m:1 --filter FullyQualifiedName~KatanaPerformanceProbe --logger "console;verbosity=detailed"`
+
+日本刀を両手で持つ CPU 同士を 5 シード、各 300 ステップ進める。最初のシードをウォームアップに使い、残り 4 シードの物理ステップを計測。接触ありは `RecentCuts.Count > 0`（刃が触れて削れなかった場合も含む）。描画・音は計測外。
+
+| 実装 | 接触あり p50 | p95 | 最大 |
+|---|---:|---:|---:|
+| 変更前 | 65.595 ms | 186.145 ms | 279.324 ms |
+| 接触パッチの走査・押し戻しの処理量を削減 | 61.795 ms | 173.311 ms | 232.175 ms |
+| 曲げ判定でセルの慣性力を再利用 | 17.606 ms | 42.839 ms | 65.209 ms |
+
+各測定で接触あり 692、接触なし 508 ステップ。5 シードの最終状態のチェックサムは一致した。断面の曲げモーメントの減算は、再現性のため元のセル順を保つ。60 Hz の 16.7 ms を超える接触ステップは残る。

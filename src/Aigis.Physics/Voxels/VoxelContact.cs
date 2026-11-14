@@ -479,9 +479,9 @@ public static class VoxelContact
             return (turn * _q0, Vector3.Lerp(_t0, _t1, t));
         }
 
-        /// <summary>The probe cells inside a filled field cell at sample <paramref name="k"/> (moved on by <paramref name="offset"/>, field frame): (probe cell slot, field cell
+        /// <summary>The probe cells inside a filled field cell at sample <paramref name="k"/> (field frame): (probe cell slot, field cell
         /// index, probe cell centre in the field frame).</summary>
-        private List<(int Slot, int Field, Vector3 At)> Overlaps(int k, Vector3 offset = default)
+        private List<(int Slot, int Field, Vector3 At)> Overlaps(int k)
         {
             if (_cellCenter.Length == 0)
             {
@@ -498,7 +498,7 @@ public static class VoxelContact
                     continue;
                 }
 
-                var p = Vector3.Transform(_cellCenter[i], q) + t + offset;
+                var p = Vector3.Transform(_cellCenter[i], q) + t + Vector3.Zero;
                 var f = grid.CellAt(p);
                 if (f >= 0 && (grid.MaterialAt(f) != 0 || _brokenField.ContainsKey(f)))
                 {
@@ -614,16 +614,16 @@ public static class VoxelContact
                 var give = Give(now);
                 var push = (left / give) + drive;
                 var bins = PatchBins(k, fieldFront, give);
-                var patch = bins.ConvertAll(b => (b.Probe, b.Field));
-                if (k == first && patch.Count > 0)
+
+                if (k == first && bins.Count > 0)
                 {
-                    (faceProbe, faceField) = (Commonest(patch.Select(b => b.Probe)), Commonest(patch.Select(b => b.Field)));
+                    (faceProbe, faceField) = (Commonest(bins.Select(b => b.Probe)), Commonest(bins.Select(b => b.Field)));
                 }
 
                 // A patch that missed the field's heightfield (a corner between bins) falls back to the cells overlapping now.
-                var probeHold = patch.Count > 0 ? Hold(patch, probeSide: true) : Resistance(now, probeSide: true, localAlong);
-                var fieldHold = patch.Count > 0 ? Hold(patch, probeSide: false) : Resistance(now, probeSide: false, localAlong);
-                var patchArea = patch.Count > 0 ? patch.Count * _bin * _bin : Area(now, localAlong);
+                var probeHold = bins.Count > 0 ? Hold(bins, probeSide: true) : Resistance(now, probeSide: true, localAlong);
+                var fieldHold = bins.Count > 0 ? Hold(bins, probeSide: false) : Resistance(now, probeSide: false, localAlong);
+                var patchArea = bins.Count > 0 ? bins.Count * _bin * _bin : Area(now, localAlong);
                 // At the contact the force cannot go much past what the softer side bears: it flows first.
                 var force = MathF.Min(push, MathF.Min(probeHold, fieldHold) * FlowMargin);
                 var probeYields = force > probeHold;
@@ -878,37 +878,58 @@ public static class VoxelContact
             var (ru, rw, ra) = (Projected(_u), Projected(_w), Projected(along));
             var lo = _reachLo - half;
             var hi = _reachHi + half;
-            for (var i = 0; i < grid.CellCount; i++)
+            // Restrict traversal to the swept bounds while preserving the original index order and depth ties.
+            var (x0, x1) = AxisRange(grid.Dimensions.X, lo.X, hi.X, x => grid.CellCenter(x, 0, 0).X);
+            var (y0, y1) = AxisRange(grid.Dimensions.Y, lo.Y, hi.Y, y => grid.CellCenter(0, y, 0).Y);
+            var (z0, z1) = AxisRange(grid.Dimensions.Z, lo.Z, hi.Z, z => grid.CellCenter(0, 0, z).Z);
+            for (var z = z0; z < z1; z++)
             {
-                var material = FieldMaterial(i);
-                if (material == 0)
+                for (var y = y0; y < y1; y++)
                 {
-                    continue;
-                }
-
-                var (x, y, z) = grid.Coordinates(i);
-                var c = grid.CellCenter(x, y, z);
-                if (c.X < lo.X || c.Y < lo.Y || c.Z < lo.Z || c.X > hi.X || c.Y > hi.Y || c.Z > hi.Z)
-                {
-                    continue;
-                }
-
-                var depth = Vector3.Dot(c, along) - ra;
-                var cu = Vector3.Dot(c, _u);
-                var cw = Vector3.Dot(c, _w);
-                for (var bu = (int)MathF.Floor((cu - ru) / _bin); bu <= (int)MathF.Floor((cu + ru) / _bin); bu++)
-                {
-                    for (var bw = (int)MathF.Floor((cw - rw) / _bin); bw <= (int)MathF.Floor((cw + rw) / _bin); bw++)
+                    for (var x = x0; x < x1; x++)
                     {
-                        if (!front.TryGetValue((bu, bw), out var f) || depth < f.Item1)
+                        var material = FieldMaterial(grid.Index(x, y, z));
+                        if (material == 0)
                         {
-                            front[(bu, bw)] = (depth, material);
+                            continue;
+                        }
+
+                        var c = grid.CellCenter(x, y, z);
+                        var depth = Vector3.Dot(c, along) - ra;
+                        var cu = Vector3.Dot(c, _u);
+                        var cw = Vector3.Dot(c, _w);
+                        for (var bu = (int)MathF.Floor((cu - ru) / _bin); bu <= (int)MathF.Floor((cu + ru) / _bin); bu++)
+                        {
+                            for (var bw = (int)MathF.Floor((cw - rw) / _bin); bw <= (int)MathF.Floor((cw + rw) / _bin); bw++)
+                            {
+                                if (!front.TryGetValue((bu, bw), out var f) || depth < f.Item1)
+                                {
+                                    front[(bu, bw)] = (depth, material);
+                                }
+                            }
                         }
                     }
                 }
             }
 
             return front;
+        }
+
+        private static (int Start, int End) AxisRange(int count, float lo, float hi, Func<int, float> center)
+        {
+            var start = 0;
+            while (start < count && center(start) < lo)
+            {
+                start++;
+            }
+
+            var end = start;
+            while (end < count && center(end) <= hi)
+            {
+                end++;
+            }
+
+            return (start, end);
         }
 
         private Vector3 _u;
@@ -942,6 +963,11 @@ public static class VoxelContact
 
                 var p = Vector3.Transform(_cellCenter[i], q) + t;
                 var key = ((int)MathF.Floor(Vector3.Dot(p, _u) / _bin), (int)MathF.Floor(Vector3.Dot(p, _w) / _bin));
+                if (!fieldFront.ContainsKey(key))
+                {
+                    continue;
+                }
+
                 var lead = Vector3.Dot(p, _along) + reach;
                 if (!probeFront.TryGetValue(key, out var f) || lead > f.Front)
                 {
@@ -975,11 +1001,16 @@ public static class VoxelContact
 
         /// <summary>The force [N] it takes to push through one side of the <paramref name="patch"/> (as
         /// <see cref="Resistance"/>, over the patch's bins).</summary>
-        private float Hold(List<(byte Probe, byte Field)> patch, bool probeSide)
+        private float Hold(List<PatchBin> patch, bool probeSide)
         {
             var grid = probeSide ? _probe.Grid : _field.Grid;
-            var strengths = patch.Select(b => grid.Palette[probeSide ? b.Probe : b.Field].MechanicsOrDefault.Strength).ToArray();
-            Array.Sort(strengths);
+            Span<float> strengths = patch.Count <= 256 ? stackalloc float[patch.Count] : new float[patch.Count];
+            for (var i = 0; i < patch.Count; i++)
+            {
+                var bin = patch[i];
+                strengths[i] = grid.Palette[probeSide ? bin.Probe : bin.Field].MechanicsOrDefault.Strength;
+            }
+            strengths.Sort();
             // Strongest first: the i-th weakest has (n − i) bins at least as strong.
             var hold = 0f;
             for (var i = 0; i < strengths.Length; i++)
@@ -1123,15 +1154,41 @@ public static class VoxelContact
         /// </summary>
         private float PushOutDepth(Vector3 localNormal)
         {
+            var (rotation, translation) = Pose(_samples);
+            var grid = _field.Grid;
+            var points = new List<Vector3>(_cellCenter.Length);
+            for (var i = 0; i < _cellCenter.Length; i++)
+            {
+                if (_probe.Grid.MaterialAt(_cellIndex[i]) != 0)
+                {
+                    points.Add(Vector3.Transform(_cellCenter[i], rotation) + translation);
+                }
+            }
+
             for (var n = 1; n <= MaxPushOut; n++)
             {
-                if (Overlaps(_samples, localNormal * (n * _sample)).Count == 0)
+                var offset = localNormal * (n * _sample);
+                if (!Touches(offset))
                 {
                     return n * _sample;
                 }
             }
 
             return MaxPushOut * _sample;
+
+            bool Touches(Vector3 offset)
+            {
+                foreach (var point in points)
+                {
+                    var field = grid.CellAt(point + offset);
+                    if (field >= 0 && (grid.MaterialAt(field) != 0 || _brokenField.ContainsKey(field)))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
         }
 
         private static Vector3 VelocityAt(BodyState s, Vector3 point) => s.LinearVelocity + Vector3.Cross(s.AngularVelocity, point - s.Position);

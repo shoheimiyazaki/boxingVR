@@ -105,50 +105,43 @@ public static class VoxelBending
             bySlice[cells[c].Slice].Add(c);
         }
 
+        var inertialForces = new Vector3[cells.Count];
+        for (var c = 0; c < cells.Count; c++)
+        {
+            var voxel = cells[c];
+            inertialForces[c] = (accel + Vector3.Cross(spin, voxel.At - com)) * voxel.Mass;
+        }
+
+        var lowerCount = bySlice[0].Count;
         VoxelBreak? worst = null;
         for (var s = 1; s < slices - 1; s++)
         {
+            var higherCount = cells.Count - lowerCount - bySlice[s].Count;
+            var hasMaterialOnBothSides = lowerCount > 0 && higherCount > 0;
+            lowerCount += bySlice[s].Count;
+            if (!hasMaterialOnBothSides)
+            {
+                continue;
+            }
+
             var section = loadBearingOnly ? bySlice[s].FindAll(c => !float.IsNaN(cells[c].Tensile)) : bySlice[s];
             if (section.Count == 0)
             {
                 continue; // nothing carries this section (a limb whose bone is already broken here: the caller's joint holds it)
             }
 
-            // The far piece: the side the blow lands on. It needs material on both sides to be a break.
             var high = pointSlice > s;
-            int farCount = 0, nearCount = 0;
-            for (var c = 0; c < cells.Count; c++)
-            {
-                if (cells[c].Slice == s)
-                {
-                    continue;
-                }
-
-                if ((cells[c].Slice > s) == high)
-                {
-                    farCount++;
-                }
-                else
-                {
-                    nearCount++;
-                }
-            }
-
-            if (farCount == 0 || nearCount == 0)
-            {
-                continue;
-            }
-
             var origin = section.Aggregate(Vector3.Zero, (sum, c) => sum + cells[c].At) / section.Count;
             // What the section carries: the blow's moment, less what the far piece's own inertia takes.
             var carried = Vector3.Cross(point - origin, force);
-            foreach (var c in cells.Where(c => c.Slice != s && (c.Slice > s) == high))
+            for (var c = 0; c < cells.Count; c++)
             {
-                var r = c.At - origin;
-                var a = accel + Vector3.Cross(spin, c.At - com);
-                carried -= Vector3.Cross(r, a * c.Mass);
+                var voxel = cells[c];
+                if (voxel.Slice != s && (voxel.Slice > s) == high)
+                {
+                    carried -= Vector3.Cross(voxel.At - origin, inertialForces[c]);
+                }
             }
-
             var bending = carried - (lengthAxis * Vector3.Dot(carried, lengthAxis));
             var magnitude = bending.Length();
             if (magnitude <= 1e-9f)
