@@ -10,7 +10,8 @@ internal sealed class IntentKeyboardControl
     private IntentControl _control = new();
     private int? _round;
 
-    public BoxingInput Read(InputSnapshot input, FighterSense sense, float dt, int round)
+    // cameraYaw はカメラの向き（OrbitCamera.YawRadians）。矢印・WASD はカメラ基準で、入力の段階でワールドの方向へ直す。
+    public BoxingInput Read(InputSnapshot input, FighterSense sense, float dt, int round, float cameraYaw)
     {
         var reset = input.WasKeyPressed(Key.R);
         if (reset || _round != round)
@@ -20,12 +21,13 @@ internal sealed class IntentKeyboardControl
         }
 
         static float Axis(bool positive, bool negative) => (positive ? 1f : 0f) - (negative ? 1f : 0f);
-        var direction = new Vector2(
+        var keys = new Vector2(
             Axis(input.IsKeyDown(Key.Right) || input.IsKeyDown(Key.D), input.IsKeyDown(Key.Left) || input.IsKeyDown(Key.A)),
             Axis(input.IsKeyDown(Key.Up) || input.IsKeyDown(Key.W), input.IsKeyDown(Key.Down) || input.IsKeyDown(Key.S)));
-        _control.Input = new FighterIntent(direction,
+        _control.Input = new FighterIntent(Vector2.Zero,
             input.IsKeyDown(Key.J) || input.IsMouseButtonDown(MouseButton.Right),
-            input.IsKeyDown(Key.K) || input.IsMouseButtonDown(MouseButton.Left), input.IsKeyDown(Key.Space));
+            input.IsKeyDown(Key.K) || input.IsMouseButtonDown(MouseButton.Left), input.IsKeyDown(Key.Space),
+            CameraFollow.ToWorld(keys, cameraYaw));
         return new BoxingInput(_control.Read(sense, dt), reset);
     }
 }

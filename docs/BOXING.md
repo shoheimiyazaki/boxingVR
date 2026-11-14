@@ -151,6 +151,7 @@ coupling = ( a² + 0.55 · (1 − a²) ) × 関節の健全度
 | 体重の乗り方 | `PunchMechanics.LeverTransfer`、`FighterTuning.BodyDrive`、`WeightShiftShare` |
 | ダメージ量 | `PunchMechanics.DamageScale`、`MomentumThreshold`、`Sharpness`、`ZoneDamage.Multiplier` |
 | 体の軸 | `FighterTuning.MaxTorsoTwistRadians`、`HipTwistShare`、`MaxLeanRadians`、`HipHingeShare`・`MaxHingeRadians`（腰から前へ折る）、`HipsBackShare`（お尻を引く） |
+| 腰を落とす（ダッキング・スリップ） | `FighterTuning.HipHingeShare`（0.2: 頭を下げる量の大半を膝と股で。残りが腰のヒンジ）・`MaxCrouch`（0.34）、目標の腰が今より低いとき脚が力を抜いて重力に任せ、股・腹が腰を引き下げる `DropReleaseDepth`・`DropReleaseDeadband`・`DropBrakeKeep`・`DropPull`（`FighterMath.HoverAccel` の `release`）。0.2 秒で頭が 4.1 → 7.8 cm 沈む（意図操作）（`docs/INTENT_CONTROL.md` 第 6 回） |
 | 打撃音 | `HitTone.Of`（強さ・芯の決め方）、`HitSound.Synthesize`（各層の高さ・長さ・音量） |
 | 足の運び | `FighterTuning.Footwork`（構えの幅・歩幅・踏む時間・かかとの浮き・軸足の回し・体の遅れ）、`HipMaxTorque` などの脚のサーボ |
 | 首 | `FighterTuning.NeckServoHz`・`NeckDampingRatio`・`NeckMaxTorque`（硬く減衰の効いたバネ: 打たれていないときはぐらつかず、強い 1 発は首の力を押し切って頭が持っていかれる）、打撃で頭に残る運動量は `StrikeShare`・`FullStrikeSpeed` |

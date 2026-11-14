@@ -160,7 +160,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 19; // 19: 折れ目の皮膚・筋肉の断面でバネと裂ける力を更新し、断面0で切断。18: 折れた骨をつなぐ肉のバネは自分の重さで約 35° たわむ固さ（FractureSagRadians）・折れた腕も折れ目より体に近い側の筋肉は入力どおり動く（DriveStump）。17: claude/a-3d0203 をマージ（疲れ Vigor を肩・肘・手首のサーボにも出し、疲れた筋肉は拳を縮めて運ぶ速さに上限 TiredHandSlowness。ブランチの中では 14）。16: 骨が折れる（打撃の曲げ。骨だけが曲げを受ける梁、肉の橋の弱いバネでぶら下がる）・関節の端の骨や肉が削り取られたら外れる・使えなくなった手の握りが抜けていく・武器を放す（LetGo）と素手の拳。15: ダウンは腰・上体・手がマットに着いた・倒れたらすぐ、中腰なら意識が薄いまま 4 秒続いたら（腰の高さでは取らない）。14: 面の下へ伝わる圧力（グローブの拳が皮膚の下の肉を潰してへこませる。拳の後ろの腕と体の質量 massBehind）。13: claude/voxel-damage（武器同士は広いリング RingLayout・斬れずにめり込んだボクセルの押し戻し）をマージ。12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
+    public const int PhysicsVersion = 20; // 20: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ダッキング・スリップが速く沈む）。19: 折れ目の皮膚・筋肉の断面でバネと裂ける力を更新し、断面0で切断。18: 折れた骨をつなぐ肉のバネは自分の重さで約 35° たわむ固さ（FractureSagRadians）・折れた腕も折れ目より体に近い側の筋肉は入力どおり動く（DriveStump）。17: claude/a-3d0203 をマージ（疲れ Vigor を肩・肘・手首のサーボにも出し、疲れた筋肉は拳を縮めて運ぶ速さに上限 TiredHandSlowness。ブランチの中では 14）。16: 骨が折れる（打撃の曲げ。骨だけが曲げを受ける梁、肉の橋の弱いバネでぶら下がる）・関節の端の骨や肉が削り取られたら外れる・使えなくなった手の握りが抜けていく・武器を放す（LetGo）と素手の拳。15: ダウンは腰・上体・手がマットに着いた・倒れたらすぐ、中腰なら意識が薄いまま 4 秒続いたら（腰の高さでは取らない）。14: 面の下へ伝わる圧力（グローブの拳が皮膚の下の肉を潰してへこませる。拳の後ろの腕と体の質量 massBehind）。13: claude/voxel-damage（武器同士は広いリング RingLayout・斬れずにめり込んだボクセルの押し戻し）をマージ。12: はめる物（グローブ・素手・メリケンサック・カタール・籠手）が共通の傷の扱い（骨・臓器が壊れれば断つ・死ぬ）。11: 倒れている間は両手を床に着く。10: スタミナ（腕の力）・臓器の打撲と働き（腹の張り・息）。 7: 両手の武器を片手で持つと手首のバネが 1/3。8: グローブがボクセルの体（圧力のモデルで当たる）。9: master の倒れている間の試み・意識 0 の静止・脳の働きの半減と合わせた
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1532,8 +1532,14 @@ public sealed class Fighter
         _hoverIntegral = walking ? 0f : Math.Clamp(_hoverIntegral + (HoverKi * error * dt * Math.Clamp(hoverScale, 0f, 1f)), -0.3f * -_world.Gravity.Y, 0.3f * -_world.Gravity.Y);
         // 体重を支える力は、張りが FaintTone より抜けると減っていき、0 で無くなる（崩れ落ちる）。張りが残っている間は支える（腰が落ちるだけ）。
         var support = -_world.Gravity.Y * Math.Clamp(Tone / MathF.Max(1e-3f, _tuning.FaintTone), 0f, 1f);
+        // 目標が今の腰よりずっと低い（膝を折って腰を落とす）間は、脚が力を抜いて重力に任せ、股・腹が腰を引き下げる。
+        // 立っている間だけ（倒れて起き上がる途中の腰は従来どおり）。目標へ近づくほど（error が 0 へ戻るほど）ブレーキが戻って止まる。
+        var release = State == FighterState.Standing
+            ? Math.Clamp((-error - _tuning.DropReleaseDeadband) / MathF.Max(1e-4f, _tuning.DropReleaseDepth), 0f, 1f)
+            : 0f;
         var accel = FighterMath.HoverAccel(support + (_hoverIntegral * MathF.Max(0f, hoverScale)), error,
-            pelvis.LinearVelocity.Y, _tuning.HoverKp, _tuning.HoverKd, _tuning.MaxHoverAccel, hoverScale);
+            pelvis.LinearVelocity.Y, _tuning.HoverKp, _tuning.HoverKd, _tuning.MaxHoverAccel, hoverScale,
+            release, _tuning.DropBrakeKeep, _tuning.DropPull);
         // 足の運びの間は脚が床に立っていて、脚の重さは床が支える。浮かせるのは上体（骨盤から上）だけ。
         ApplySharedImpulse(new Vector3(0f, accel * (walking ? TotalMass : TotalMass - _legMass) * dt, 0f));
     }
