@@ -160,7 +160,7 @@ public sealed class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 26; // 26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
+    public const int PhysicsVersion = 27; // 27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1612,8 +1612,14 @@ public sealed class Fighter
         _hoverIntegral = walking ? 0f : Math.Clamp(_hoverIntegral + (HoverKi * error * dt * Math.Clamp(hoverScale, 0f, 1f)), -0.3f * -_world.Gravity.Y, 0.3f * -_world.Gravity.Y);
         // 体重を支える力は、張りが FaintTone より抜けると減っていき、0 で無くなる（崩れ落ちる）。張りが残っている間は支える（腰が落ちるだけ）。
         var support = -_world.Gravity.Y * Math.Clamp(Tone / MathF.Max(1e-3f, _tuning.FaintTone), 0f, 1f);
+        // 目標が今の腰よりずっと低い（膝を折って腰を落とす）間は、脚が力を抜いて重力に任せ、股・腹が腰を引き下げる。
+        // 立っている間だけ（倒れて起き上がる途中の腰は従来どおり）。目標へ近づくほど（error が 0 へ戻るほど）ブレーキが戻って止まる。
+        var release = State == FighterState.Standing
+            ? Math.Clamp((-error - _tuning.DropReleaseDeadband) / MathF.Max(1e-4f, _tuning.DropReleaseDepth), 0f, 1f)
+            : 0f;
         var accel = FighterMath.HoverAccel(support + (_hoverIntegral * MathF.Max(0f, hoverScale)), error,
-            pelvis.LinearVelocity.Y, _tuning.HoverKp, _tuning.HoverKd, _tuning.MaxHoverAccel, hoverScale);
+            pelvis.LinearVelocity.Y, _tuning.HoverKp, _tuning.HoverKd, _tuning.MaxHoverAccel, hoverScale,
+            release, _tuning.DropBrakeKeep, _tuning.DropPull);
         // 足の運びの間は脚が床に立っていて、脚の重さは床が支える。浮かせるのは上体（骨盤から上）だけ。
         ApplySharedImpulse(new Vector3(0f, accel * (walking ? TotalMass : TotalMass - _legMass) * dt, 0f));
     }

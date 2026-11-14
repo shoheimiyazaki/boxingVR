@@ -3,6 +3,14 @@ rem Mini Ring Boxing launcher (ASCII only on purpose: cmd.exe tracks its read po
 rem From PowerShell type .\run.cmd (PowerShell does not run files from the current folder by bare name).
 rem
 rem   run.cmd                    play on the desktop (keyboard/mouse). The match is recorded to replays\
+rem                              keys (intent control; "run.cmd --control classic" for the old keys):
+rem                                arrows/WASD  move relative to the camera (the camera follows you; the fighter keeps facing the opponent)
+rem                                J / right click   light (front hand): tap = quick flicking jab, hold + release = loaded pushing jab
+rem                                K / left click    heavy (rear hand): tap = quick, hold + release = loaded
+rem                                tap J J K in order for jab-jab-straight (up to 4 presses are queued for 0.5 s)
+rem                                Space             guard; Space + forward = slip/duck/weave, + back = sway, + side = quick side step
+rem                                J/K while holding Space = counter from the evasion (duck: body hook, slip: hook with the opposite hand)
+rem                                R reset, 1/2/3 speed, middle-drag orbit the camera, Escape quit
 rem   run.cmd vr [options]       play in VR. Default runtime: Meta Quest Link, then Virtual Desktop (no SteamVR)
 rem                              options: --runtime auto^|meta^|vd^|steamvr^|system^|file.json  --scale 0.3..1.0
 rem   run.cmd replay [file]      watch a recording in real time (default: the newest file in replays\)

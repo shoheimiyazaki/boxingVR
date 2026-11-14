@@ -55,6 +55,18 @@ public sealed record FighterTuning
     public float HoverKp { get; init; } = 100f;
     public float HoverKd { get; init; } = 14f;
     public float MaxHoverAccel { get; init; } = 2.2f * 9.81f;
+
+    /// <summary>
+    /// 脚の力を抜く（腰を重力で落とす）のに使う、目標が今の腰より低い量の幅 [m]。目標が <see cref="DropReleaseDeadband"/> より低くなってからこの幅で
+    /// 0 → 1 に連続に効く（段階ではない）。60 cm の体で、ダッキングの腰の沈み（数 cm）が全部効く幅。
+    /// </summary>
+    public float DropReleaseDepth { get; init; } = 0.02f;
+    /// <summary>目標の低さがこれ以下なら脚は力を抜かない [m]（立っている間の腰の揺れ・歩く上下動で緩めない）。</summary>
+    public float DropReleaseDeadband { get; init; } = 0.012f;
+    /// <summary>力を抜いて腰を落とすとき、落ちる速さへのブレーキ（<see cref="HoverKd"/>）が残る割合。重力に任せて速く沈み、目標に近づくほどブレーキが戻って止まる。</summary>
+    public float DropBrakeKeep { get; init; } = 0.15f;
+    /// <summary>股・腹の筋肉が腰を下へ引く加速度の上限 [m/s²]。重力（9.8）だけでは 0.2 秒に 20 cm 落ちるのが上限で、膝を折って頭を落とす速さに足りないぶん。</summary>
+    public float DropPull { get; init; } = 0.8f * 9.81f;
     public float UprightKp { get; init; } = 600f;
     public float UprightKd { get; init; } = 40f;
     public float MaxUprightAccel { get; init; } = 1500f;
@@ -174,10 +186,10 @@ public sealed record FighterTuning
     public float HipBackLeanShare { get; init; } = 0.6f;
 
     /// <summary>沈み込みの最大（立つ高さに対する割合）。膝と股を曲げて腰を落とす。0.4 では、ボディを打つ・かわすたびに膝が床近くまで落ち、ダウンと見分けにくかった（2026-11-12 に 0.28）。</summary>
-    public float MaxCrouch { get; init; } = 0.28f;
+    public float MaxCrouch { get; init; } = 0.3f;
 
     /// <summary>頭を下げる量のうち、腰から前へ折って（ヒップヒンジ）下げる割合。残りは膝と股を曲げて腰を落とす。ウィービング・ダッキングが膝だけで沈まない。</summary>
-    public float HipHingeShare { get; init; } = 0.6f;
+    public float HipHingeShare { get; init; } = 0.4f;
 
     /// <summary>腰から前へ折ったとき、頭が前へ出る分のうちお尻を後ろへ引いて打ち消す割合（1 で頭は足の上のまま）。</summary>
     public float HipsBackShare { get; init; } = 1f;

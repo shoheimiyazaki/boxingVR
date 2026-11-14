@@ -68,7 +68,7 @@ var options = new GameHost.Options(
     "Mini Ring Boxing",
     classic
         ? "WASD: move, LMB/RMB: right/left hand (Ctrl: hook, Shift: uppercut, Alt: body), arrows: head, Q/E: grab, R: reset, 1/2/3: speed, middle-drag: orbit, Escape: quit."
-        : "Arrows/WASD: move, J/RMB: light, K/LMB: heavy, hold/release: load/punch, Space+direction: evade, Space: guard, R: reset, 1/2/3: speed, middle-drag: orbit, Escape: quit.",
+        : "Arrows/WASD: move (camera-relative), J/RMB: light, K/LMB: heavy (tap: quick, hold+release: loaded; chain taps: J J K), Space+fwd: slip/duck, +back: sway, +side: side step, Space: guard, attack while evading: counter, R: reset, 1/2/3: speed, middle-drag: orbit, Escape: quit.",
     camera,
     "miniring",
     OrbitButton: MouseButton.Middle);
@@ -131,6 +131,7 @@ using var game = new BoxingGame(corners: BoxingCorners.Default with { PlayerWear
 profiler.Mark("BoxingGame constructed");
 var keyboard = new KeyboardControl();
 var intentKeyboard = new IntentKeyboardControl();
+var followCamera = new FollowCameraRig(camera, BoxingGame.RingSurfaceHeight + 0.2f);
 ReplayRecorder? recorder = null;
 // テレビ中継の試合（ラウンドの時間・休み・体の再生）は記録の形式に入っていないので、記録しない。
 if (!args.Contains("--no-record") && !tv && wear == MiniRing.Weapons.HandWear.Glove)
@@ -147,9 +148,14 @@ GameHost.Run(profiler, options with { DynamicViews = faceViews(game) }, withSoun
 {
     ReadSpeed(input);
     // 拳の経路は試合の時間で進める（遅くしても体と同じ速さで遅くなる）。
-    return classic
-        ? keyboard.Read(input, camera.YawRadians, game.PlayerSense, FixedStep.Default.Dt * speed.Value)
-        : intentKeyboard.Read(input, game.PlayerSense, FixedStep.Default.Dt * speed.Value, game.Round, camera.YawRadians);
+    if (classic)
+    {
+        return keyboard.Read(input, camera.YawRadians, game.PlayerSense, FixedStep.Default.Dt * speed.Value);
+    }
+
+    // カメラはプレイヤーの後ろへゆっくり追従する（描画だけ）。キーはカメラ基準で、ここでワールドの方向へ直してから渡す（記録は指令に残る）。
+    followCamera.Update(input, game.PlayerSense);
+    return intentKeyboard.Read(input, game.PlayerSense, FixedStep.Default.Dt * speed.Value, game.Round, camera.YawRadians);
 });
 return 0;
 

@@ -7,12 +7,18 @@ public static class FighterMath
 {
     /// <summary>
     /// 骨盤高さを保つ上向き加速度。重力は常に満額で打ち消し、<paramref name="scale"/> は PD 補正だけに掛ける
-    /// （被弾・掴まれで弱っても沈み込まない）。下向きには引かない。
+    /// （被弾・掴まれで弱っても沈み込まない）。
+    /// <para><paramref name="release"/>（0..1）は「脚の力を抜いて腰を落とす」度合い。目標が今の腰よりずっと低いとき、脚は伸ばす力を抜いて
+    /// 重力に任せる（ブレーキの粘り kd を <paramref name="brakeKeep"/> まで減らす）うえ、股・腹の筋肉が腰を下へ引く
+    /// （最大 <paramref name="pull"/> [m/s²]）。0 なら従来どおり: 下向きには引かず、落ちる速さには kd のブレーキが掛かる。</para>
     /// </summary>
-    public static float HoverAccel(float gravity, float heightError, float verticalVelocity, float kp, float kd, float maxAccel, float scale)
+    public static float HoverAccel(float gravity, float heightError, float verticalVelocity, float kp, float kd, float maxAccel, float scale,
+        float release = 0f, float brakeKeep = 1f, float pull = 0f)
     {
-        var correction = ((kp * heightError) - (kd * verticalVelocity)) * MathF.Max(0f, scale);
-        return Math.Clamp(gravity + correction, 0f, maxAccel);
+        var r = Math.Clamp(release, 0f, 1f);
+        var damping = kd * (1f - (r * (1f - Math.Clamp(brakeKeep, 0f, 1f))));
+        var correction = ((kp * heightError) - (damping * verticalVelocity)) * MathF.Max(0f, scale);
+        return Math.Clamp(gravity + correction, -MathF.Max(0f, pull) * r * MathF.Max(0f, scale), maxAccel);
     }
 
     /// <summary>水平速度を目標へ寄せる加速度（鉛直成分は無視・上限付き）。</summary>

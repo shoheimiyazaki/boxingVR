@@ -25,7 +25,7 @@ public sealed class IntentControlTests
     [TestMethod]
     public void CameraMovement_UsesWorldDirectionAndKeepsFacingOpponent()
     {
-        var control = new IntentControl { Input = new FighterIntent(Vector2.UnitY, MoveWorld: Vector3.UnitX) };
+        var control = new IntentControl { Input = new FighterIntent(Vector2.UnitY, World: Vector2.UnitX) };
         var command = control.Read(Sense, Dt);
         Assert.AreEqual(1f, command.MoveWorld.X, 1e-5f);
         Assert.AreEqual(0f, command.MoveWorld.Z, 1e-5f);
