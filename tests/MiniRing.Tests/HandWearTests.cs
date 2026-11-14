@@ -106,9 +106,9 @@ public sealed class HandWearTests
     /// 赤（<paramref name="wear"/> をはめたボット <paramref name="bot"/>）が、構えて立つだけの青（グローブ）を <paramref name="seconds"/> 秒打つ。
     /// どのはめる物でも、ボットは同じ拳の技（同じ種）で打つ。
     /// </summary>
-    private static BoutResult Bout(HandWear wear, string bot, float seconds = 12f)
+    private static BoutResult Bout(HandWear wear, string bot, float seconds = 12f, int seed = 1)
     {
-        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(), s => BotCatalog.Create(bot, s), PlayerWear: wear, CpuWear: HandWear.Glove));
+        using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("stand", _ => new StandGuard(), s => BotCatalog.Create(bot, s), PlayerWear: wear, CpuWear: HandWear.Glove));
         int Filled() => game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount) + game.Cpu.Voxels!.Fragments.Sum(p => p.Body.Grid.FilledCount);
         int Worn(byte? material = null) => new[] { Hand.Left, Hand.Right }.Sum(h =>
             game.GloveOf(game.Player, h)!.Body.Grid is var g && material is { } m ? g.Remaining(m) : g.FilledCount);
@@ -161,7 +161,15 @@ public sealed class HandWearTests
     {
         // 同じボット・同じ種で、構えて立つ相手を 12 秒打つ。違うのは拳にはめた物の形と材質だけ。1 本の試合は混沌としていて、何発当たるかが
         // 大きく揺れる（籠手は swarmer の 1 本で 4 発しか当たらず 7 セルのこともあった）ので、2 つのボットの合計で比べる（2026-11-13）。
-        var result = All.ToDictionary(w => w, w => Sum(Bout(w, "swarmer"), Bout(w, "champion")));
+        // 1 本ごとの揺れはさらに大きい（種 1 の swarmer でグローブ 1.4 セル/発・カタール 0、種 5 の swarmer でカタール 77）ので、
+        // 種 1〜6 × 2 つのボット（12 本）の合計で比べる（2026-11-14 に種 1 の 2 本だけでは、PhysicsVersion の変更のたびに閾値を緩めることになった）。
+        // 合計だと、統合後のコードで グローブ 0.48・素手 0.17・鉄の拳 6.8・籠手 5.9・カタール 22.9 セル/発と、元の主張（グローブ < 0.5・刃 > 鈍い鉄の 2 倍）どおり。
+        var seeds = new[] { 1, 2, 3, 4, 5, 6 };
+        var bots = new[] { "swarmer", "champion" };
+        var jobs = All.SelectMany(w => seeds.SelectMany(seed => bots.Select(bot => (w, seed, bot)))).ToArray();
+        var bouts = new BoutResult[jobs.Length];
+        Parallel.For(0, jobs.Length, i => bouts[i] = Bout(jobs[i].w, jobs[i].bot, 12f, jobs[i].seed));
+        var result = All.ToDictionary(w => w, w => Enumerable.Range(0, jobs.Length).Where(i => jobs[i].w == w).Select(i => bouts[i]).Aggregate(Sum));
         foreach (var (wear, r) in result)
         {
             TestContext.WriteLine($"{wear,-14} {r}");
@@ -179,15 +187,11 @@ public sealed class HandWearTests
         var glove = PerHit(HandWear.Glove);
         var bare = PerHit(HandWear.None);
         // 柔らかく広い面（詰め物・皮膚）はほとんど壊さない（2 発で 1 セル未満）。硬い鉄の面は同じ拳で肌と肉を潰し、刃先は深く刺さる。
-        // PhysicsVersion 20（腰の沈みの物理を変えた）で 1 試合の流れが変わり、グローブが 26 発ほどの小さい標本で 0.9 セル/発になった（以前 0.5 未満）。
-        // 面を壊す量そのものは変えていないので、上限を 1 セル/発に緩め、鉄の面との差（下の 1.5 セル/発）で「詰め物は壊さない」を見る。
-        Assert.IsLessThan(1f, glove, "a padded glove barely breaks the skin");
+        Assert.IsLessThan(0.5f, glove, "a padded glove barely breaks the skin");
         Assert.IsLessThan(0.5f, bare, "skin on skin barely breaks either");
         Assert.IsGreaterThan(glove + 1.5f, PerHit(HandWear.KnuckleDuster), "iron knuckles crush more than a padded glove");
         Assert.IsGreaterThan(glove + 1.5f, PerHit(HandWear.Gauntlet), "iron plates crush more than a padded glove");
-        // 刃先は鈍い面より 1 発あたりを多く削る。倍率は 2 → 1.1 に緩めた（2026-11-14）: 顔の起伏（鼻・耳・あご）で頭の形が変わり、
-        // 1 試合の当たり方で 1 発あたりが 11〜15 セル（鈍い面は 9.6）とばらつく（試合の流れの揺らぎ）。向きが合っていること（刃 > 鈍い面）を見る。
-        Assert.IsGreaterThan(1.1f * Math.Max(PerHit(HandWear.KnuckleDuster), PerHit(HandWear.Gauntlet)), PerHit(HandWear.Katar),
-            "a blade's edge and point concentrate the same punch more than any blunt face");
+        Assert.IsGreaterThan(2f * Math.Max(PerHit(HandWear.KnuckleDuster), PerHit(HandWear.Gauntlet)), PerHit(HandWear.Katar),
+            "a blade's edge and point concentrate the same punch far more than any blunt face");
     }
 }

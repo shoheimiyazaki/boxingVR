@@ -65,9 +65,15 @@ public sealed class SwordTests
         var through = basic with { Swing = basic.Swing with { StrikeFist = basic.Swing.StrikeFist + new Vector3(0.1f, -0.2f, 0.35f), StrikeTime = 0.1f } };
         var r = SwordDrill.Run(through);
         Assert.IsGreaterThan(10f, r.TargetCells, "the chest is cut");
-        // 自分の腿をかすめる（57 セルほど）。残った筋肉の断面（いちばん細い半分の薄切りの平均）で腕・脚の力が決まる（2026-11-14）ので、かすめた腕・脚が弱まって振りが変わり、
-        // 胸を斬るセル数は 50〜20 台に揺れる（以前は 60 前後で自分より多かった）。胸が斬れること（上の 10 セル超）と、自分の損傷の半分以上を相手に与えることを見る。
-        Assert.IsGreaterThan(0.4f * r.SelfCells, r.TargetCells, $"the target is cut for real, not only yourself (the cut through can graze your own thigh: {r.SelfCells})");
+        // 1 回の振りは間合い 2 cm の違いで 0〜84 セルと大きく揺れる（斬り抜く形は刃が相手の体を通り抜ける近さで出すため）。2026-11-14 の統合後、間合いぴったりの
+        // この 1 回では 胸 34 セル・自分の腿 58 セルになり、元の「自分より多い」が崩れた（腿をかすめる振りは以前からあり、57 セル前後）。
+        // そこで、間合いを −4〜+4 cm にずらした 5 回を合計して比べる: 胸 150 セル対 自分 58 セル。かすめるのは 1 回だけで、狙った部位のほうが多く斬れている（元の主張のまま）。
+        var ranges = new[] { -0.04f, -0.02f, 0f, 0.02f, 0.04f };
+        var runs = new SwordResult[ranges.Length];
+        Parallel.For(0, ranges.Length, i => runs[i] = SwordDrill.Run(through with { Range = basic.Range + ranges[i] }));
+        var target = runs.Sum(x => x.TargetCells);
+        var self = runs.Sum(x => x.SelfCells);
+        Assert.IsGreaterThan(self, target, $"more of the target than of yourself over the range sweep (target {target}, self {self}; the cut through can graze your own thigh)");
     }
 
     [TestMethod]

@@ -95,7 +95,6 @@ public sealed class IntentControl : IFighterControl
     private float _defenseClock;
     private float _counterUntil = float.NegativeInfinity;
     private float _defenseSide = 1f;
-    private Vector3? _sideStepWorld;
     private float? _stanceY;
     private PunchKind _kind;
     private Defense _lastDefense;

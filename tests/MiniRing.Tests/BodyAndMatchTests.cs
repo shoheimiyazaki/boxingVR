@@ -17,17 +17,30 @@ public sealed class BodyAndMatchTests
     public void Stamina_IsSpentByPunching_AndComesBackAtRest()
     {
         // 打ち合うボットは、立っているだけのボットよりスタミナを使う。休めば戻る（心肺の速さで）。
-        using var fight = new BoxingGame(seed: 5, corners: new BoxingCorners("slugger", s => BotCatalog.Create("slugger", s), s => BotCatalog.Create("jabber", s)));
+        // 1 試合では、片方がほとんど打たない流れ（種 5 で 0.96/1.00）がときどきある。種 1〜8 で測ると、最も疲れた側の消耗は
+        // 平均 0.43（統合前の master で 0.42）で、8 本とも一方は 0.28〜0.96。1 本の試合の流れでなく、平均の消耗で「打ち合うと使う」を見る。
+        var seeds = new[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        var spentSum = 0f;
+        foreach (var seed in seeds)
+        {
+            using var fight = new BoxingGame(seed: seed, corners: new BoxingCorners("slugger", s => BotCatalog.Create("slugger", s), s => BotCatalog.Create("jabber", s)));
+            for (var t = 0f; t < 12f; t += 1f / 60f)
+            {
+                fight.Step(default, 1f / 60f);
+            }
+
+            spentSum += 1f - MathF.Min(fight.Player.Stamina, fight.Cpu.Stamina);
+        }
+
         using var idle = StillGame();
         for (var t = 0f; t < 12f; t += 1f / 60f)
         {
-            fight.Step(default, 1f / 60f);
             idle.Step(default, 1f / 60f);
         }
 
-        var spent = MathF.Min(fight.Player.Stamina, fight.Cpu.Stamina);
-        Console.WriteLine($"after 12 s: fighting {fight.Player.Stamina:0.00}/{fight.Cpu.Stamina:0.00}, standing {idle.Cpu.Stamina:0.00}");
-        Assert.IsLessThan(idle.Cpu.Stamina - 0.1f, spent, "fighting costs energy");
+        var spent = spentSum / seeds.Length;
+        Console.WriteLine($"after 12 s: fighting spent {spent:0.00} on average (min of the two), standing {idle.Cpu.Stamina:0.00}");
+        Assert.IsGreaterThan(0.1f + (1f - idle.Cpu.Stamina), spent, "fighting costs energy");
         Assert.IsGreaterThan(0.95f, idle.Cpu.Stamina, "standing in guard costs less than the heart and lungs give back");
     }
 
