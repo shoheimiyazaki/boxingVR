@@ -194,6 +194,7 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
         }
 
         ReleaseIdle();
+        Dictionary<Resident, VoxelVolume>? pending = null;
         foreach (var draw in draws)
         {
             if (!_resident.TryGetValue(draw.Volume, out var resident))
@@ -211,8 +212,12 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
 
             if (resident.UploadedRevision != draw.Volume.Revision)
             {
-                Upload(resident, draw.Volume);
+                (pending ??= []).TryAdd(resident, draw.Volume);
             }
+        }
+        if (pending is not null)
+        {
+            Upload(pending);
         }
     }
 
@@ -337,7 +342,33 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
     /// Copies the texels up and leaves the image readable by the vertex shader. A later upload waits for the previous
     /// frame's vertex-shader reads first (source stage = vertex shader).
     /// </summary>
-    private void Upload(Resident resident, VoxelVolume volume)
+    private void Upload(Dictionary<Resident, VoxelVolume> pending)
+    {
+        var allocInfo = new CommandBufferAllocateInfo { SType = StructureType.CommandBufferAllocateInfo, CommandPool = _commandPool, Level = CommandBufferLevel.Primary, CommandBufferCount = 1 };
+        Check(_vk.AllocateCommandBuffers(_device, in allocInfo, out var cmd), "AllocateCommandBuffers(voxelUpload)");
+        var begin = new CommandBufferBeginInfo { SType = StructureType.CommandBufferBeginInfo, Flags = CommandBufferUsageFlags.OneTimeSubmitBit };
+        Check(_vk.BeginCommandBuffer(cmd, in begin), "BeginCommandBuffer(voxelUpload)");
+
+        foreach (var (resident, volume) in pending)
+        {
+            RecordUpload(cmd, resident, volume);
+        }
+        Check(_vk.EndCommandBuffer(cmd), "EndCommandBuffer(voxelUpload)");
+
+        var fenceInfo = new FenceCreateInfo { SType = StructureType.FenceCreateInfo };
+        Check(_vk.CreateFence(_device, in fenceInfo, null, out var fence), "CreateFence(voxelUpload)");
+        var submit = new SubmitInfo { SType = StructureType.SubmitInfo, CommandBufferCount = 1, PCommandBuffers = &cmd };
+        Check(_vk.QueueSubmit(_queue, 1, in submit, fence), "QueueSubmit(voxelUpload)");
+        Check(_vk.WaitForFences(_device, 1, in fence, true, ulong.MaxValue), "WaitForFences(voxelUpload)");
+        _vk.DestroyFence(_device, fence, null);
+        _vk.FreeCommandBuffers(_device, _commandPool, 1, in cmd);
+        foreach (var (resident, volume) in pending)
+        {
+            resident.UploadedRevision = volume.Revision;
+        }
+    }
+
+    private void RecordUpload(CommandBuffer cmd, Resident resident, VoxelVolume volume)
     {
         var size = (ulong)volume.Rgba.Length;
         void* mapped = null;
@@ -346,11 +377,6 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
         _vk.UnmapMemory(_device, resident.StagingMemory);
 
         var first = resident.UploadedRevision < 0;
-        var allocInfo = new CommandBufferAllocateInfo { SType = StructureType.CommandBufferAllocateInfo, CommandPool = _commandPool, Level = CommandBufferLevel.Primary, CommandBufferCount = 1 };
-        Check(_vk.AllocateCommandBuffers(_device, in allocInfo, out var cmd), "AllocateCommandBuffers(voxelUpload)");
-        var begin = new CommandBufferBeginInfo { SType = StructureType.CommandBufferBeginInfo, Flags = CommandBufferUsageFlags.OneTimeSubmitBit };
-        Check(_vk.BeginCommandBuffer(cmd, in begin), "BeginCommandBuffer(voxelUpload)");
-
         var range = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, 1, 0, 1);
         var toTransfer = new ImageMemoryBarrier
         {
@@ -386,16 +412,6 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
             DstAccessMask = AccessFlags.ShaderReadBit,
         };
         _vk.CmdPipelineBarrier(cmd, PipelineStageFlags.TransferBit, PipelineStageFlags.VertexShaderBit, 0, 0, null, 0, null, 1, in toRead);
-        Check(_vk.EndCommandBuffer(cmd), "EndCommandBuffer(voxelUpload)");
-
-        var fenceInfo = new FenceCreateInfo { SType = StructureType.FenceCreateInfo };
-        Check(_vk.CreateFence(_device, in fenceInfo, null, out var fence), "CreateFence(voxelUpload)");
-        var submit = new SubmitInfo { SType = StructureType.SubmitInfo, CommandBufferCount = 1, PCommandBuffers = &cmd };
-        Check(_vk.QueueSubmit(_queue, 1, in submit, fence), "QueueSubmit(voxelUpload)");
-        Check(_vk.WaitForFences(_device, 1, in fence, true, ulong.MaxValue), "WaitForFences(voxelUpload)");
-        _vk.DestroyFence(_device, fence, null);
-        _vk.FreeCommandBuffers(_device, _commandPool, 1, in cmd);
-        resident.UploadedRevision = volume.Revision;
     }
 
     private void EnsurePipeline(RenderPass renderPass, bool dynamicViewport, uint width, uint height)
