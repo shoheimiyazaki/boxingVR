@@ -96,10 +96,27 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
     var clear = ArenaLook.Background;
     // VR の仕上げ: 画面の隅の陰りは付けない（頭を動かしても付いてくる黒い縁は不自然）。
     var finish = ArenaLook.Finish(vignette: 0f);
-    IReadOnlyList<PrimitiveInstance> instances = [];
-    IReadOnlyList<DebugLine> lines = [];
-    IReadOnlyList<Aigis.Render.Voxels.VoxelVolumeDraw> voxels = [];
-    IReadOnlyList<ParticleInstance> particles = [];
+    var capture = new VrSceneCapture();
+    var scene = capture.Capture(game);
+    using var simulation = new VrSimulation(scene, (frame, dt) =>
+    {
+        var input = control.Read(frame, game.PlayerSense, dt);
+        if (recorder is null)
+        {
+            game.Step(input, dt);
+        }
+        else
+        {
+            recorder.Step(game, input, dt);
+        }
+        sounds.PlayImpacts(dt, game.RecentHits, game.RecentContacts, game.RecentShatters, [.. game.WeaponHits, .. game.SelfWeaponHits]);
+        sounds.PlayLandings(game.RecentLandings);
+        sounds.PlaySwings(game.RecentSwings);
+        sounds.PlayBell(game.RecentBell);
+        sounds.PlaySevers(game.RecentSevers);
+        return capture.Capture(game);
+    });
+    var frameTiming = args.Contains("--profile-frames") ? new VrFrameTiming() : null;
     var lastStatus = "";
     var idleHintAt = DateTime.UtcNow.AddSeconds(8);
     var idleHintShown = false;
@@ -114,48 +131,35 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
             quitDeadline = DateTime.UtcNow.AddSeconds(3);
         }
 
+        var rendered = false;
+        var timingStart = 0L;
         xr.RunFrame(
             update: (frame, dt) =>
             {
-                var input = control.Read(frame, game.PlayerSense, dt);
-                if (recorder is null)
+                timingStart = System.Diagnostics.Stopwatch.GetTimestamp();
+                simulation.Submit(frame, dt);
+                var latest = simulation.Latest;
+                if (!ReferenceEquals(scene, latest))
                 {
-                    game.Step(input, dt);
-                }
-                else
-                {
-                    recorder.Step(game, input, dt);
-                }
-
-                sounds.PlayImpacts(dt, game.RecentHits, game.RecentContacts, game.RecentShatters, [.. game.WeaponHits, .. game.SelfWeaponHits]);
-                sounds.PlayLandings(game.RecentLandings);
-                sounds.PlaySwings(game.RecentSwings);
-                sounds.PlayBell(game.RecentBell);
-                sounds.PlaySevers(game.RecentSevers);
-
-                foreach (var hit in game.RecentHits)
-                {
-                    if (hit.Attacker == game.Player)
+                    scene = latest;
+                    foreach (var haptic in scene.Haptics)
                     {
-                        xr.Haptic(hit.Hand, 0.3f + (hit.Damage / 25f), 0.06f + (hit.Damage / 300f));
-                    }
-                    else if (hit.Victim == game.Player)
-                    {
-                        xr.Haptic(Hand.Left, 0.5f, 0.1f);
-                        xr.Haptic(Hand.Right, 0.5f, 0.1f);
+                        xr.Haptic(haptic.Hand, haptic.Amplitude, haptic.Duration);
                     }
                 }
-
-                (instances, lines) = game.BuildRenderables();
-                voxels = game.BuildVoxelVolumes();
-                particles = game.BuildParticles();
             },
             renderEye: eye =>
             {
+                rendered = true;
                 var viewProjection = Camera.OffCenterViewProjection(eye.View, eye.Fov, 0.02f, 50f);
-                renderer.RenderPrimitiveSceneToImage(eye.TargetImage, clear, viewProjection, instances, lines, game.BuildLighting(), game.BuildShadow(),
-                    eye.Position, voxels, particles, finish);
+                renderer.RenderPrimitiveSceneToImage(eye.TargetImage, clear, viewProjection, scene.Instances, scene.Lines, scene.Lighting, scene.Shadow,
+                    eye.Position, scene.Voxels, scene.Particles, finish);
             });
+
+        if (rendered)
+        {
+            frameTiming?.Record(timingStart, xr.DisplayHz, scene);
+        }
 
         // ランタイムがセッションを READY にしない（ヘッドセットに表示されない）まま待ち続けるときの手がかり。
         if (!xr.Running && !idleHintShown && DateTime.UtcNow > idleHintAt)
@@ -167,7 +171,7 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
             Console.WriteLine("[vr]   3. The headset is on your head (the proximity sensor wakes it). Ctrl+C to quit.");
         }
 
-        var status = $"{xr.StateName} {xr.DisplayHz:0}Hz | {game.StatusLine} {game.Message}";
+        var status = $"{xr.StateName} {xr.DisplayHz:0}Hz | {scene.Status}";
         if (status != lastStatus)
         {
             Console.WriteLine(status);

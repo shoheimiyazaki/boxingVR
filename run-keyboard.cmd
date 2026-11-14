@@ -11,10 +11,16 @@ rem   J / right click light attack (lead hand). Hold to wind up, release to thro
 rem   K / left click  heavy attack (rear hand). Direction + attack changes the technique
 rem   Space           evade (forward = slip/duck/weave, back = sway, side = sidestep); no direction = guard
 rem   R               restart the round
+rem Gamepad (Xbox layout, intent mode):
+rem   Left stick      move relative to camera (analogue)
+rem   X / Y           light / heavy (hold then release to throw)
+rem   A               evade / guard; B is reserved
+rem   Right stick     orbit camera; Start / Back restart the round
 
 setlocal
 cd /d "%~dp0"
 echo Keys: move = Arrows/WASD, light = J, heavy = K, evade = Space, restart = R
+echo Pad: move = left stick, light = X, heavy = Y, evade = A, camera = right stick, restart = Start/Back
 dotnet build games\MiniRing.Desktop -c Release -v q -nologo
 if errorlevel 1 (
   echo Build failed.

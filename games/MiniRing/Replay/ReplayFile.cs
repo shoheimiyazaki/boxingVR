@@ -51,7 +51,7 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// </summary>
 public static class ReplayFile
 {
-    public const int Version = 6;
+    public const int Version = 7;
     public const string Extension = ".mrrep";
     /// <summary>1 ステップの時間刻みとして受け付ける上限 [s]（壊れたファイルの値を物理に渡さない）。</summary>
     public const float MaxDt = 0.25f;
@@ -83,7 +83,16 @@ public static class ReplayFile
         ArgumentNullException.ThrowIfNull(writer);
         writer.Write(StepTag);
         writer.Write(step.Dt);
-        var c = step.Input.Player;
+        WriteCommand(writer, step.Input.Player, step.Input.ResetRequested);
+        writer.Write(step.Input.Blue.HasValue);
+        if (step.Input.Blue is { } blue)
+        {
+            WriteCommand(writer, blue, false);
+        }
+    }
+
+    private static void WriteCommand(BinaryWriter writer, FighterCommand c, bool reset)
+    {
         Write(writer, c.MoveWorld);
         Write(writer, c.FaceDirection);
         Write(writer, c.Left.TargetLocal);
@@ -91,7 +100,7 @@ public static class ReplayFile
         Write(writer, c.Right.TargetLocal);
         writer.Write(c.Right.Grip);
         Write(writer, c.HeadOffset);
-        writer.Write(step.Input.ResetRequested);
+        writer.Write(reset);
         writer.Write(c.TwistBias);
         WriteHandExtras(writer, c.Left);
         WriteHandExtras(writer, c.Right);
@@ -109,7 +118,7 @@ public static class ReplayFile
         writer.Write(checksum);
     }
 
-    public static ReplayData Read(Stream stream)
+    public static ReplayData Read(Stream stream, int? comparisonPhysicsVersion = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
         using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
@@ -148,7 +157,8 @@ public static class ReplayFile
             }
 
             // 仕組みの違うボットで再生すると、黙ってどこかでずれる。読む前にはっきり断る。
-            if (header.CpuStyleJson.Length > 0 && header.CpuLogic != Bots.BoxerBot.LogicVersion)
+            if ((header.CpuStyleJson.Length > 0 || header.MatchSettings?.RedBotStyleJson is not null)
+                && header.CpuLogic != Bots.BoxerBot.LogicVersion)
             {
                 throw new InvalidDataException(
                     $"Replay CPU was recorded with bot logic v{header.CpuLogic}; this build has v{Bots.BoxerBot.LogicVersion} and cannot reproduce it.");
@@ -165,7 +175,7 @@ public static class ReplayFile
         }
 
         // 版 3 から体の物理の版を持つ。それより前の記録は、足の運び・関節の位置・非線形のダメージより前の体で記録したもので、再現できない。
-        if (recordedPhysics != Fighter.PhysicsVersion)
+        if (recordedPhysics != Fighter.PhysicsVersion && recordedPhysics != comparisonPhysicsVersion)
         {
             throw new InvalidDataException(
                 $"Replay was recorded with body physics v{recordedPhysics}; this build has v{Fighter.PhysicsVersion} and cannot reproduce it.");
@@ -187,33 +197,10 @@ public static class ReplayFile
                             throw new InvalidDataException($"Invalid timestep {dt} in step {steps.Count}.");
                         }
 
-                        var command = new FighterCommand(Read3(reader), Read3(reader),
-                            new HandCommand(Read3(reader), reader.ReadBoolean()),
-                            new HandCommand(Read3(reader), reader.ReadBoolean()),
-                            Read3(reader));
-                        var reset = reader.ReadBoolean();
-                        if (version >= 4)
-                        {
-                            command = command with
-                            {
-                                TwistBias = ReadFinite(reader),
-                                Left = ReadHandExtras(reader, command.Left),
-                                Right = ReadHandExtras(reader, command.Right),
-                            };
-                        }
-
-                        if (version >= 5)
-                        {
-                            command = command with
-                            {
-                                Left = command.Left with { Shape = ReadShape(reader) },
-                                Right = command.Right with { Shape = ReadShape(reader) },
-                                LeftLeg = ReadLeg(reader),
-                                RightLeg = ReadLeg(reader),
-                            };
-                        }
-
-                        steps.Add(new ReplayStep(new BoxingInput(command, reset), dt));
+                        var command = ReadCommand(reader, version, out var reset);
+                        FighterCommand? blue = version >= 7 && reader.ReadBoolean()
+                            ? ReadCommand(reader, version, out _) : null;
+                        steps.Add(new ReplayStep(new BoxingInput(command, reset, blue), dt));
                         break;
                     case ChecksumTag:
                         var index = reader.ReadInt32();
@@ -236,6 +223,37 @@ public static class ReplayFile
     {
         using var file = File.OpenRead(path);
         return Read(file);
+    }
+
+    private static FighterCommand ReadCommand(BinaryReader reader, int version, out bool reset)
+    {
+        var command = new FighterCommand(Read3(reader), Read3(reader),
+            new HandCommand(Read3(reader), reader.ReadBoolean()),
+            new HandCommand(Read3(reader), reader.ReadBoolean()),
+            Read3(reader));
+        reset = reader.ReadBoolean();
+        if (version >= 4)
+        {
+            command = command with
+            {
+                TwistBias = ReadFinite(reader),
+                Left = ReadHandExtras(reader, command.Left),
+                Right = ReadHandExtras(reader, command.Right),
+            };
+        }
+
+        if (version >= 5)
+        {
+            command = command with
+            {
+                Left = command.Left with { Shape = ReadShape(reader) },
+                Right = command.Right with { Shape = ReadShape(reader) },
+                LeftLeg = ReadLeg(reader),
+                RightLeg = ReadLeg(reader),
+            };
+        }
+
+        return command;
     }
 
     private static void Write(BinaryWriter writer, Vector3 v)

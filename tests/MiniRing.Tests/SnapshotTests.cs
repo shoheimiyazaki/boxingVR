@@ -17,6 +17,20 @@ public sealed class SnapshotTests
     private const int Height = 540;
 
     [TestMethod]
+    public void GameSelect_RendersJapaneseMenu()
+    {
+        var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
+        Directory.CreateDirectory(outDir);
+        var menu = new Desktop.MatchMenu(Weapons.HandWear.Glove, Path.Combine(outDir, "replays"));
+        using var renderer = new HeadlessRenderer(Width, Height);
+        var size = new Vector2(Width, Height);
+        var text = menu.Text(size);
+        Assert.IsTrue(ScreenText.BuildQuads(text).Count > 0);
+        var pixels = renderer.RenderPrimitiveScene(Vector4.Zero, Matrix4x4.Identity, [], [], text, shapes: menu.Shapes(size));
+        PngWriter.WriteRgba(Path.Combine(outDir, "miniring_menu.png"), Width, Height, pixels);
+    }
+
+    [TestMethod]
     public void Match_RendersFromPlayerViewpoint()
     {
         var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");

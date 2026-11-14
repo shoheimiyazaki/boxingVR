@@ -13,7 +13,7 @@ using MiniRing.Voxels;
 namespace MiniRing;
 
 /// <summary>ホストから毎ステップ渡される入力: プレイヤーの指令と、ラウンドのやり直し要求。</summary>
-public readonly record struct BoxingInput(FighterCommand Player, bool ResetRequested = false);
+public readonly record struct BoxingInput(FighterCommand Player, bool ResetRequested = false, FighterCommand? Blue = null);
 
 /// <summary>ラウンドごとに操作元を作る（引数はそのラウンドの乱数の種）。</summary>
 public delegate IFighterControl ControlFactory(int roundSeed);
@@ -35,7 +35,7 @@ public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFa
     Weapons.WeaponKind? CpuWeapon = null, Weapons.WeaponKind? PlayerWeapon = null, bool CpuTwoHanded = false, bool PlayerTwoHanded = false, bool VoxelGloves = true,
     Weapons.HandWear PlayerWear = Weapons.HandWear.Glove, Weapons.HandWear CpuWear = Weapons.HandWear.Glove,
     string? PlayerName = null, RingLayout? Ring = null, BodyBuild? PlayerBody = null, BodyBuild? CpuBody = null,
-    FaceParts? PlayerFace = null, FaceParts? CpuFace = null)
+    FaceParts? PlayerFace = null, FaceParts? CpuFace = null, bool ExternalBlue = false, Bots.BotStyle? RedBotStyle = null, bool UseWeaponBots = false)
 {
     /// <summary>ゲームの既定の CPU。</summary>
     public static BoxingCorners Default => Bots.BotCatalog.Corners(Bots.BotCatalog.DefaultCpu);
@@ -199,8 +199,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <summary>直近の <see cref="Step"/> で、骨が断たれて部位が切り離された瞬間（音のため）。</summary>
     public IReadOnlyList<SeverEvent> RecentSevers => _recentSevers;
 
+    private bool HasTwoNamedCorners => _corners.ExternalBlue || _corners.RedBotStyle is not null;
+    public string RedLabel => HasTwoNamedCorners ? "RED" : "YOU";
+    public string BlueLabel => HasTwoNamedCorners ? "BLUE" : "CPU";
+
     public string StatusLine => string.Create(CultureInfo.InvariantCulture,
-        $"Round {_round}  You {Cpu.Condition.TotalDamage:0} - CPU {Player.Condition.TotalDamage:0} damage  ({PlayerWins}-{CpuWins})");
+        $"Round {_round}  {RedLabel} {Cpu.Condition.TotalDamage:0} - {BlueLabel} {Player.Condition.TotalDamage:0} damage  ({PlayerWins}-{CpuWins})");
 
     public bool IsOver => false;
 
@@ -246,7 +250,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var sub = dt / substeps;
         for (var i = 0; i < substeps; i++)
         {
-            Substep(input.Player, sub);
+            Substep(input.Player, input.Blue, sub);
         }
 
         _messageTimer = MathF.Max(0f, _messageTimer - dt);
@@ -334,7 +338,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <summary>かすった音を出す拳の速さ [m/s]（振りの音 SwingSound.MinSpeed より少し下: 押し合いでは鳴らさない）。</summary>
     private const float GrazeMinSpeed = 1f;
 
-    private void Substep(in FighterCommand playerCommand, float dt)
+    private void Substep(in FighterCommand playerCommand, FighterCommand? blue, float dt)
     {
         UpdatePerception(dt);
         if (Resting)
@@ -357,7 +361,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
         else
         {
-            var cpuCommand = _cpuControl.Read(ArmedSense(Cpu, Player), dt);
+            var cpuCommand = _corners.ExternalBlue ? blue.GetValueOrDefault() : _cpuControl.Read(ArmedSense(Cpu, Player), dt);
             Drive(Player, Cpu, _playerControl?.Read(ArmedSense(Player, Cpu), dt) ?? playerCommand, dt);
             Drive(Cpu, Player, cpuCommand, dt);
         }
@@ -1039,7 +1043,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             var player = Cpu.Condition.TotalDamage;
             var cpu = Player.Condition.TotalDamage;
             var draw = MathF.Abs(player - cpu) <= MathF.Max(rules.DrawMinimum, rules.DrawShare * (player + cpu) * 0.5f);
-            Decision = draw ? "DRAW" : player > cpu ? "YOU WIN BY DECISION" : "CPU WINS BY DECISION";
+            Decision = draw ? "DRAW" : player > cpu ? $"{RedLabel} WIN BY DECISION" : $"{BlueLabel} WINS BY DECISION";
             if (!draw)
             {
                 if (player > cpu)
@@ -1096,7 +1100,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
         _roundOverTimer = RoundResetDelay;
         RecentBell = RoundBell.End;
-        ShowMessage($"{reason}  {(cpuWon ? "CPU WINS" : "YOU WIN")}", RoundResetDelay);
+        ShowMessage($"{reason}  {(cpuWon ? $"{BlueLabel} WINS" : $"{RedLabel} WIN")}", RoundResetDelay);
     }
 
     /// <summary>
@@ -1169,8 +1173,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 前のラウンドの操作元から、覚えたことを引き継がせる（学ぶボット。IFighterControl.CarryOver）。
         var previousCpu = _round > 1 ? _cpuControl : null;
         var previousPlayer = _playerControl;
-        _cpuControl = _corners.Cpu(_seed + _round);
-        _playerControl = _corners.Player?.Invoke((_seed * 7919) + _round);
+        var cpuSeed = _seed + _round;
+        _cpuControl = WeaponBot(_corners.CpuWeapon, cpuSeed) ?? _corners.Cpu(cpuSeed);
+        var playerSeed = (_seed * 7919) + _round;
+        _playerControl = _corners.RedBotStyle is { } style ? WeaponBot(_corners.PlayerWeapon, playerSeed) ?? new Bots.BoxerBot(style, playerSeed) : _corners.Player?.Invoke(playerSeed);
         if (previousCpu is not null)
         {
             _cpuControl.CarryOver(previousCpu);
@@ -1232,6 +1238,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public FighterSense PlayerSense => ArmedSense(Player, Cpu);
 
     /// <summary>CPU の入力元が今見ている物（調べもの・テスト用）。</summary>
+    private IFighterControl? WeaponBot(Weapons.WeaponKind? weapon, int seed) => !_corners.UseWeaponBots ? null : weapon switch
+    {
+        MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword => Bots.SwordBot.Basic(seed),
+        MiniRing.Weapons.WeaponKind.WoodenClub => Bots.ClubBot.Basic(seed),
+        _ => null,
+    };
+
     public FighterSense CpuSense => ArmedSense(Cpu, Player);
 
     private Fighter[] Fighters => _fighters;
@@ -1305,24 +1318,24 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var list = new List<ScreenTextDraw>();
         if (Rules is not null)
         {
-            list.AddRange(TvHud.Text(this, screenSizePixels, "YOU", "CPU")); // テレビ中継: 得点表と時計
+            list.AddRange(TvHud.Text(this, screenSizePixels, RedLabel, BlueLabel)); // テレビ中継: 得点表と時計
         }
         else
         {
             list.Add(new($"{PlayerWins} - {CpuWins}", new Vector2(screenSizePixels.X * 0.5f, 20f), 28f, white, TextAnchor.Center));
-            AddCondition(list, "YOU", Cpu, new Vector2(24f, 20f), TextAnchor.Left, new Vector4(1f, 0.45f, 0.4f, 1f));
-            AddCondition(list, "CPU", Player, new Vector2(screenSizePixels.X - 24f, 20f), TextAnchor.Right, new Vector4(0.5f, 0.65f, 1f, 1f));
+            AddCondition(list, RedLabel, Cpu, new Vector2(24f, 20f), TextAnchor.Left, new Vector4(1f, 0.45f, 0.4f, 1f));
+            AddCondition(list, BlueLabel, Player, new Vector2(screenSizePixels.X - 24f, 20f), TextAnchor.Right, new Vector4(0.5f, 0.65f, 1f, 1f));
         }
 
         if (LastHit is { } hit)
         {
-            var who = hit.Attacker == Player ? "YOU" : "CPU";
+            var who = hit.Attacker == Player ? RedLabel : BlueLabel;
             var text = $"{who} {(hit.Hand == Hand.Left ? "L" : "R")} > {HitZones.Label(hit.Zone)}  {hit.Damage:0}  " +
                 $"{hit.ImpactMass:0.0}kg x {hit.Speed:0.0}m/s  BODY {Percent(hit.BodyShare)}";
             list.Add(new ScreenTextDraw(text, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y - 44f), 22f, white, TextAnchor.Center));
         }
 
-        list.AddRange(DownCountHud.Text(this, viewProjection, screenSizePixels, f => f == Player ? "YOU" : "CPU",
+        list.AddRange(DownCountHud.Text(this, viewProjection, screenSizePixels, f => f == Player ? RedLabel : BlueLabel,
             f => f == Player ? new Vector4(1f, 0.45f, 0.4f, 1f) : new Vector4(0.5f, 0.65f, 1f, 1f)));
 
         if (Speed is { } speed)

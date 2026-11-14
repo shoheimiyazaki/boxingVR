@@ -6,6 +6,10 @@
     <NoWarn>$(NoWarn);CA1707</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\games\MiniRing.Desktop\GamepadIntent.cs" Link="GamepadIntent.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MatchMenu.cs" Link="MatchMenu.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\DesktopFighterControl.cs" Link="DesktopFighterControl.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MatchSelection.cs" Link="MatchSelection.cs" />
     <None Update="bot-execution-baseline.txt" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="..\..\games\MiniRing\MiniRing.csproj" />
     <ProjectReference Include="..\..\games\MiniRing.Vr\MiniRing.Vr.csproj" />

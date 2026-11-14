@@ -10,6 +10,50 @@ namespace MiniRing.Tests;
 public sealed class ReplayTests
 {
     [TestMethod]
+    public void LocalVersus_ReplaysBothControllers()
+    {
+        var corners = Bots.BotCatalog.Corners("boxer") with { ExternalBlue = true };
+        using var game = new BoxingGame(corners: corners);
+        using var stream = new MemoryStream();
+        var blue = new FighterCommand(Vector3.UnitX, -Vector3.UnitZ,
+            new HandCommand(Vector3.One, true), new HandCommand(Vector3.Zero, false), Vector3.Zero);
+        using (var recorder = new ReplayRecorder(stream, game, "test"))
+        {
+            for (var i = 0; i < ReplayRecorder.ChecksumInterval; i++)
+            {
+                recorder.Step(game, new BoxingInput(default, Blue: blue), 1f / 60f);
+            }
+        }
+
+        var data = ReplayFile.Read(new MemoryStream(stream.ToArray()));
+        Assert.AreEqual(blue, data.Steps[0].Input.Blue);
+        Assert.IsTrue(data.Header.Corners.ExternalBlue);
+        var result = ReplayPlayer.Verify(data);
+        Assert.IsTrue(result.Reproduced);
+        Assert.AreEqual(1, result.ChecksumsMatched);
+    }
+    [TestMethod]
+    public void SpectatorMatch_ReplaysBothBots()
+    {
+        var corners = Bots.BotCatalog.Corners("boxer") with { RedBotStyle = Bots.BotCatalog.Swarmer };
+        using var game = new BoxingGame(corners: corners);
+        using var stream = new MemoryStream();
+        using (var recorder = new ReplayRecorder(stream, game, "test"))
+        {
+            for (var i = 0; i < ReplayRecorder.ChecksumInterval; i++)
+            {
+                recorder.Step(game, default, 1f / 60f);
+            }
+        }
+
+        var data = ReplayFile.Read(new MemoryStream(stream.ToArray()));
+        Assert.AreEqual("swarmer", data.Header.Corners.RedBotStyle?.Name);
+        var result = ReplayPlayer.Verify(data);
+        Assert.IsTrue(result.Reproduced);
+        Assert.AreEqual(1, result.ChecksumsMatched);
+    }
+
+    [TestMethod]
     public void Replay_PreservesCustomMatchSettings()
     {
         var corners = Bots.BotCatalog.Corners("boxer") with

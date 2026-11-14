@@ -64,7 +64,7 @@ public sealed class IntentReplayTests
             recorder.Step(game, new BoxingInput(default), 1f / 60f);
         }
 
-        // v6 の設定を除いた見出しと、v4/v5 の追加を除いたステップから v3 を作る。
+        // v6 の設定を除いた見出しと、v4/v5/v7 の追加を除いたステップから v3 を作る。
         var bytes = output.ToArray();
         var header = ReplayFile.Read(new MemoryStream(bytes)).Header;
         using var v3 = new MemoryStream();
@@ -82,7 +82,7 @@ public sealed class IntentReplayTests
             writer.Write(header.CpuLogic);
             writer.Write(header.Physics);
             const int v3StepBytes = 4 + 1 + (15 * 4) + 3;
-            const int extraBytes = 26;
+            const int extraBytes = 26 + 1; // v4/v5 の指令 + v7 の青入力なしフラグ
             writer.Write(bytes.AsSpan(bytes.Length - v3StepBytes - extraBytes, v3StepBytes));
         }
 

@@ -41,50 +41,28 @@ public static class VoxelBending
             return null;
         }
 
-        // The body's mass, centre and inertia from its cells.
-        var volume = grid.CellVolume;
-        var cells = new List<(int Slice, Vector3 At, float Mass, float Tensile)>(grid.FilledCount);
-        float total = 0f;
-        var moment = Vector3.Zero;
-        for (var i = 0; i < grid.CellCount; i++)
+        var cached = Geometries.GetOrCreateValue(grid);
+        BeamGeometry? geometry;
+        lock (cached)
         {
-            var m = grid.MaterialAt(i);
-            if (m == 0)
+            if (cached.Version != grid.Version)
             {
-                continue;
+                cached.Entries.Clear();
+                cached.Version = grid.Version;
             }
 
-            var k = grid.Palette[m].MechanicsOrDefault;
-            if (k.Tensile is not { } tensile)
+            if (!cached.Entries.TryGetValue((axis, loadBearingOnly), out geometry))
             {
-                if (!loadBearingOnly)
-                {
-                    return null;
-                }
-
-                tensile = float.NaN; // only mass: it does not carry the section
+                geometry = BuildGeometry(grid, axis, slices, loadBearingOnly);
+                cached.Entries.Add((axis, loadBearingOnly), geometry);
             }
-
-            var (x, y, z) = grid.Coordinates(i);
-            var at = grid.CellCenter(x, y, z);
-            var mass = k.Density * volume;
-            cells.Add((axis == 0 ? x : axis == 1 ? y : z, at, mass, tensile));
-            total += mass;
-            moment += at * mass;
         }
-
-        if (cells.Count == 0 || total <= 0f || !cells.Exists(c => !float.IsNaN(c.Tensile)))
+        if (geometry is null)
         {
             return null;
         }
 
-        var com = moment / total;
-        var inertia = InertiaAbout(cells, com, grid.CellSize);
-        if (!Matrix4x4.Invert(inertia, out var inverseInertia))
-        {
-            return null;
-        }
-
+        var (cells, total, com, inverseInertia, bySlice) = geometry;
         // The blow's push and turn on the free body.
         var accel = force / total;
         var spin = Vector3.Transform(Vector3.Cross(point - com, force), inverseInertia);
@@ -94,28 +72,26 @@ public static class VoxelBending
         var sectionCellArea = grid.CellVolume / cellAlong;
         var pointSlice = (int)MathF.Floor((Vector3.Dot(point, lengthAxis) + Vector3.Dot(grid.HalfExtents, lengthAxis)) / cellAlong);
 
-        var bySlice = new List<int>[slices];
-        for (var s = 0; s < slices; s++)
+        var sliceLoads = new SectionLoad[slices];
+        foreach (var voxel in cells)
         {
-            bySlice[s] = [];
+            var inertial = (accel + Vector3.Cross(spin, voxel.At - com)) * voxel.Mass;
+            sliceLoads[voxel.Slice] += new SectionLoad(inertial, Vector3.Cross(voxel.At - com, inertial));
         }
 
-        for (var c = 0; c < cells.Count; c++)
+        var above = new SectionLoad[slices];
+        for (var s = slices - 2; s >= 0; s--)
         {
-            bySlice[cells[c].Slice].Add(c);
+            above[s] = above[s + 1] + sliceLoads[s + 1];
         }
 
-        var inertialForces = new Vector3[cells.Count];
-        for (var c = 0; c < cells.Count; c++)
-        {
-            var voxel = cells[c];
-            inertialForces[c] = (accel + Vector3.Cross(spin, voxel.At - com)) * voxel.Mass;
-        }
-
+        var below = sliceLoads[0];
         var lowerCount = bySlice[0].Count;
         VoxelBreak? worst = null;
         for (var s = 1; s < slices - 1; s++)
         {
+            var far = pointSlice > s ? above[s] : below;
+            below += sliceLoads[s];
             var higherCount = cells.Count - lowerCount - bySlice[s].Count;
             var hasMaterialOnBothSides = lowerCount > 0 && higherCount > 0;
             lowerCount += bySlice[s].Count;
@@ -133,15 +109,8 @@ public static class VoxelBending
             var high = pointSlice > s;
             var origin = section.Aggregate(Vector3.Zero, (sum, c) => sum + cells[c].At) / section.Count;
             // What the section carries: the blow's moment, less what the far piece's own inertia takes.
-            var carried = Vector3.Cross(point - origin, force);
-            for (var c = 0; c < cells.Count; c++)
-            {
-                var voxel = cells[c];
-                if (voxel.Slice != s && (voxel.Slice > s) == high)
-                {
-                    carried -= Vector3.Cross(voxel.At - origin, inertialForces[c]);
-                }
-            }
+            var carried = Vector3.Cross(point - origin, force)
+                - (far.Moment - Vector3.Cross(origin - com, far.Force));
             var bending = carried - (lengthAxis * Vector3.Dot(carried, lengthAxis));
             var magnitude = bending.Length();
             if (magnitude <= 1e-9f)
@@ -245,6 +214,83 @@ public static class VoxelBending
     }
 
     private static float Square(float v) => v * v;
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<VoxelGrid, GeometryCache> Geometries = new();
+
+    private sealed class GeometryCache
+    {
+        public int Version { get; set; }
+        public Dictionary<(int Axis, bool LoadBearingOnly), BeamGeometry?> Entries { get; } = [];
+    }
+
+    private sealed record BeamGeometry(List<(int Slice, Vector3 At, float Mass, float Tensile)> Cells,
+        float Total, Vector3 Com, Matrix4x4 InverseInertia, List<int>[] BySlice);
+
+    private static BeamGeometry? BuildGeometry(VoxelGrid grid, int axis, int slices, bool loadBearingOnly)
+    {
+        // The body's mass, centre and inertia from its cells.
+        var volume = grid.CellVolume;
+        var cells = new List<(int Slice, Vector3 At, float Mass, float Tensile)>(grid.FilledCount);
+        float total = 0f;
+        var moment = Vector3.Zero;
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            var m = grid.MaterialAt(i);
+            if (m == 0)
+            {
+                continue;
+            }
+
+            var k = grid.Palette[m].MechanicsOrDefault;
+            if (k.Tensile is not { } tensile)
+            {
+                if (!loadBearingOnly)
+                {
+                    return null;
+                }
+
+                tensile = float.NaN; // only mass: it does not carry the section
+            }
+
+            var (x, y, z) = grid.Coordinates(i);
+            var at = grid.CellCenter(x, y, z);
+            var mass = k.Density * volume;
+            cells.Add((axis == 0 ? x : axis == 1 ? y : z, at, mass, tensile));
+            total += mass;
+            moment += at * mass;
+        }
+
+        if (cells.Count == 0 || total <= 0f || !cells.Exists(c => !float.IsNaN(c.Tensile)))
+        {
+            return null;
+        }
+
+        var com = moment / total;
+        var inertia = InertiaAbout(cells, com, grid.CellSize);
+        if (!Matrix4x4.Invert(inertia, out var inverseInertia))
+        {
+            return null;
+        }
+
+        var bySlice = new List<int>[slices];
+        for (var s = 0; s < slices; s++)
+        {
+            bySlice[s] = [];
+        }
+
+        for (var c = 0; c < cells.Count; c++)
+        {
+            bySlice[cells[c].Slice].Add(c);
+        }
+
+        return new BeamGeometry(cells, total, com, inverseInertia, bySlice);
+    }
+
+    private readonly record struct SectionLoad(Vector3 Force, Vector3 Moment)
+    {
+        public static SectionLoad operator +(SectionLoad a, SectionLoad b) =>
+            new(a.Force + b.Force, a.Moment + b.Moment);
+    }
 
     /// <summary>The inertia tensor [kg·m²] of the cells about <paramref name="com"/> (each cell a small box).</summary>
     private static Matrix4x4 InertiaAbout(List<(int Slice, Vector3 At, float Mass, float Tensile)> cells, Vector3 com, Vector3 cell)

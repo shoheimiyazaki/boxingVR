@@ -35,6 +35,13 @@ internal sealed class FollowCameraRig(OrbitCamera camera, float focusHeight)
         }
 
         camera.Target = CameraFollow.DampTarget(camera.Target, focus, CameraFollow.DefaultRate, dt);
+        var stick = GamepadIntent.Stick(input.GetGamepadRightStick(0));
+        if (stick != Vector2.Zero)
+        {
+            camera.ApplyDrag(stick * (GamepadIntent.CameraRadiansPerSecond * dt / RadiansPerPixel), RadiansPerPixel);
+            _userOffset = MathF.IEEERemainder(camera.YawRadians - behind, 2f * MathF.PI);
+            return;
+        }
         if (input.IsMouseButtonDown(MouseButton.Middle))
         {
             _userOffset = MathF.IEEERemainder(camera.YawRadians - behind, 2f * MathF.PI);

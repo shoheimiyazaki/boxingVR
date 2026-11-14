@@ -8,12 +8,12 @@ public sealed record ReplayMatchSettings(
     WeaponKind? CpuWeapon, WeaponKind? PlayerWeapon, bool CpuTwoHanded, bool PlayerTwoHanded,
     bool VoxelGloves, HandWear PlayerWear, HandWear CpuWear, string? PlayerName,
     RingLayout? Ring, BodyBuild? PlayerBody, BodyBuild? CpuBody, FaceParts? PlayerFace, FaceParts? CpuFace,
-    MatchRules? Rules)
+    MatchRules? Rules, bool ExternalBlue = false, string? RedBotStyleJson = null, bool UseWeaponBots = false)
 {
     public static ReplayMatchSettings From(BoxingCorners corners, MatchRules? rules) => new(
         corners.CpuWeapon, corners.PlayerWeapon, corners.CpuTwoHanded, corners.PlayerTwoHanded,
         corners.VoxelGloves, corners.PlayerWear, corners.CpuWear, corners.PlayerName, corners.Ring,
-        corners.PlayerBody, corners.CpuBody, corners.PlayerFace, corners.CpuFace, rules);
+        corners.PlayerBody, corners.CpuBody, corners.PlayerFace, corners.CpuFace, rules, corners.ExternalBlue, corners.RedBotStyle?.ToJson(), corners.UseWeaponBots);
 
     public BoxingCorners Apply(BoxingCorners corners)
     {
@@ -31,6 +31,7 @@ public sealed record ReplayMatchSettings(
         return corners with { CpuWeapon = CpuWeapon, PlayerWeapon = PlayerWeapon, CpuTwoHanded = CpuTwoHanded,
             PlayerTwoHanded = PlayerTwoHanded, VoxelGloves = VoxelGloves, PlayerWear = PlayerWear, CpuWear = CpuWear,
             PlayerName = PlayerName, Ring = Ring, PlayerBody = PlayerBody, CpuBody = CpuBody,
-            PlayerFace = PlayerFace, CpuFace = CpuFace };
+            PlayerFace = PlayerFace, CpuFace = CpuFace, ExternalBlue = ExternalBlue,
+            UseWeaponBots = UseWeaponBots, RedBotStyle = RedBotStyleJson is { } json ? Bots.BotStyle.FromJson(json) : null };
     }
 }
