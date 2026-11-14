@@ -164,6 +164,12 @@ internal sealed class SwordLibraryLab(int seed)
         return game.Player.ArmReach;
     });
 
+    /// <summary>剣士の技のフレームに掛ける、自分の体を避ける刃の通り道（既定は使わない。<c>--clearance on</c> で入れて比べる）。</summary>
+    internal static SelfClearance? Clearance { get; set; }
+
+    /// <summary>剣士の技の時計の進め方（既定は使わない。<c>--pacing on</c>）。</summary>
+    internal static SwingPacing? Pacing { get; set; }
+
     /// <summary>剣士のボット（試合用）。武器を落としたら拳で戦う（<see cref="DisarmedFallback"/>）。</summary>
     internal static DisarmedFallback Bot(Library library, WeaponKind weapon, int seed, SwordDefense? defense = null, HitAndAway? hitAndAway = null, AimTuning? aim = null) =>
         DisarmedFallback.WithFists(new SwordsmanBot([.. library.Techniques.Where(t => t.Weapon == weapon)], library.Guards[weapon], seed, SwordStance.Rate,
@@ -172,6 +178,8 @@ internal sealed class SwordLibraryLab(int seed)
         {
             // 狙いのドリル（aimlab）で技ごとの打てる部位を測ってあれば、相手の構えの空いた所を狙う。
             AutoAim = library.Techniques.Any(t => t.Weapon == weapon && t.Skill is not null),
+            Clearance = Clearance,
+            Pacing = Pacing,
         }, seed); // 腕 1 + 剣 2 弱
 
     /// <summary>1 試合の測ったもの。</summary>

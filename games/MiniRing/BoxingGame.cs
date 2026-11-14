@@ -225,6 +225,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _recentCuts.Clear();
         WeaponHits.Clear();
         SelfWeaponHits.Clear();
+        SelfTouches.Clear();
         _recentShatters.Clear();
         _recentLandings.Clear();
         _recentSwings.Clear();
