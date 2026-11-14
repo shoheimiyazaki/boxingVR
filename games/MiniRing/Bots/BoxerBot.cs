@@ -46,7 +46,6 @@ public sealed class BoxerBot : IFighterControl
     /// 人の拳は打ち出したら行き先を直せない。以前は当たるまで毎回狙い直していたため、頭をどう動かしても拳が付いてきて、
     /// 合図と同時に回避を始めても右ストレートを 1 発もきれいに外せなかった（回避の基本動作 B2）。
     /// </summary>
-    private const float AimTrackShare = 0.15f;
     /// <summary>クリンチを考えるダメージ（約 1 秒の時定数で減っていく直近の被ダメージ。クリーンヒット 1〜2 発ぶん）。</summary>
     private const float ClinchDamage = 14f;
     private const float ClinchDuration = 0.9f;
@@ -180,7 +179,8 @@ public sealed class BoxerBot : IFighterControl
     // 15: 間合いの層の届く長さに相手の武器（握りから先）を足す（素手どうしの試合は変わらない）。
     // 16: claude/a-3d0203 の 15 と master の 13 を合わせた。
     // 17: karate hand shapes, fist parry and five kick goals.
-    public const int LogicVersion = 23; // 23: 目が傷むと見えない側の相手の拳・体の情報が遅れてぶれる（VisionPerception）・目と見えない側を狙う重み（AimWeights.Eye・BlindSide。相手の見えが悪いほど重みが増す）。22: パリーの手の経路を速く・前腕へ（TechniqueExecution.ParrySweepRate・ParryArmFraction）、パリーの効く拳の重みをフック中心に（DefenseBook.Parry。karatelab の測定）。21: 空手スタイルの手形の重みを karatelab の測定で設定（貫手・一本拳・手刀は 1 発あたりの削れが正拳の約 2 倍、自分の指の骨の欠けは 0）。20: 蹴りは蹴りごとの当てたい所（KickSpec.AimWorld: 前蹴り・膝は腹、ローは腿、ミドルは胸、ハイは頭）を狙う。19: パリーの頭の目標を中立にする。18: 空手の手形・パリー・蹴りの選択を追加。
+    public const int LogicVersion = 24; // 24: 攻撃判断に0.2秒の観測遅延を入れ、予測した打点を固定する。
+    // 23: 目が傷むと見えない側の相手の拳・体の情報が遅れてぶれる（VisionPerception）・目と見えない側を狙う重み（AimWeights.Eye・BlindSide。相手の見えが悪いほど重みが増す）。22: パリーの手の経路を速く・前腕へ（TechniqueExecution.ParrySweepRate・ParryArmFraction）、パリーの効く拳の重みをフック中心に（DefenseBook.Parry。karatelab の測定）。21: 空手スタイルの手形の重みを karatelab の測定で設定（貫手・一本拳・手刀は 1 発あたりの削れが正拳の約 2 倍、自分の指の骨の欠けは 0）。20: 蹴りは蹴りごとの当てたい所（KickSpec.AimWorld: 前蹴り・膝は腹、ローは腿、ミドルは胸、ハイは頭）を狙う。19: パリーの頭の目標を中立にする。18: 空手の手形・パリー・蹴りの選択を追加。
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;
@@ -210,7 +210,7 @@ public sealed class BoxerBot : IFighterControl
 
     public FighterCommand Read(in FighterSense sense, float dt)
     {
-        _targets = sense.OpponentTargets;
+        var attack = _attackPerception.Update(sense, dt);
         _faintness = float.IsFinite(sense.SelfFaintness) ? Math.Clamp(sense.SelfFaintness, 0f, 1f) : 0f;
         _stamina = float.IsFinite(sense.SelfStamina) ? Math.Clamp(sense.SelfStamina, 0f, 1f) : 1f;
         var self = sense.Self;
@@ -239,7 +239,6 @@ public sealed class BoxerBot : IFighterControl
             _stanceHeadY = self.Origin.Y + headLocal.Y;
         }
 
-        ReadOpponentGuard(sense);
         _seenHead = self.LocalToWorld(headLocal);
         _seenBody = self.Origin - new Vector3(0f, 0.3f * reach, 0f);
         if (_defense != Defense.None && Memory is not null)
@@ -263,10 +262,19 @@ public sealed class BoxerBot : IFighterControl
         UpdateGuess(sense, dt);
         UpdateThreats(sense, dt);
         UpdateDefense(distance, reach, dt);
-        UpdateStopJab(sense, dir, distance, reach, dt);
-        UpdateAttack(distance, reach, dt);
-        UpdateKick(sense, distance, dt);
-        UpdatePunches(dt);
+        if (attack is { } observed)
+        {
+            var seen = observed.Sense with { Self = self, SelfHead = sense.SelfHead, ArmReach = reach };
+            var offset = seen.OpponentChest - self.Origin;
+            offset.Y = 0f;
+            var attackDistance = offset.Length();
+            var attackDirection = attackDistance > 1e-3f ? offset / attackDistance : self.Forward;
+            ReadOpponentGuard(seen);
+            UpdateStopJab(seen, attackDirection, attackDistance, reach, dt);
+            UpdateAttack(attackDistance, reach, dt);
+            UpdateKick(seen, attackDistance, dt);
+            UpdatePunches(observed, sense.SelfHead, dt);
+        }
 
         var grip = (Left: false, Right: false);
         var left = Guard(Hand.Left, reach, headLocal);
@@ -276,16 +284,6 @@ public sealed class BoxerBot : IFighterControl
             var action = _hands[(int)hand];
             if (action.Active)
             {
-                // 溜めのある拳は、溜めの始め（決めた時）に狙いを決める。溜めの無い拳は打ち始めの少しの間だけ追う。
-                if (action.AimWorld == default || (!action.Loaded && action.Time <= action.Duration * AimTrackShare))
-                {
-                    var natural = action.Spec.ToBody ? sense.OpponentChest : sense.OpponentHead;
-                    // 狙いどころ（戦略が選んだ点）へ、無理のない範囲（Targeting）で寄せる。使えなくなった狙い（脳が隠れた等）は真ん中へ。
-                    var chosen = action.Goal == AimGoal.Center ? null : sense.OpponentTargets?.Point(action.Goal, sense.SelfHead);
-                    action = action with { AimWorld = chosen is { } point ? Targeting.Clamp(natural, point, sense.SelfHead, reach) : natural };
-                    _hands[(int)hand] = action;
-                }
-
                 var aim = self.WorldToLocal(action.AimWorld) + action.AimOffset;
                 var target = TechniqueExecution.Punch(action, hand, Style.Lead, Guard(hand, reach, headLocal), aim, reach);
 
@@ -962,7 +960,7 @@ public sealed class BoxerBot : IFighterControl
     }
 
     /// <summary>連打を進め（次のパンチの開始時刻が来て手が空いていれば打つ）、出ている拳の時計を進める。</summary>
-    private void UpdatePunches(float dt)
+    private void UpdatePunches(AttackObservation observation, Vector3 selfHead, float dt)
     {
         foreach (var hand in Hands)
         {
@@ -995,7 +993,7 @@ public sealed class BoxerBot : IFighterControl
         (technique, spec, var aimOffset) = AimAtGap(technique, spec);
         // 戦略の狙いどころ: 頭・胴を問わず重みで選び、拳の高さが合わなければ同じ手・同じ形の拳で打ち分ける。
         var goal = Style.Aim is { } aimWeights && technique != Technique.Feint
-            ? Targeting.PickAny(aimWeights, _targets, _random.NextSingle())
+            ? Targeting.PickAny(aimWeights, observation.Sense.OpponentTargets, _random.NextSingle())
             : AimGoal.Center;
         if ((Targeting.IsBodyGoal(goal) && !spec.ToBody) || (Targeting.IsHeadGoal(goal) && spec.ToBody))
         {
@@ -1023,7 +1021,9 @@ public sealed class BoxerBot : IFighterControl
         // カウンターとストップジャブは溜めない（回避の流れ・相手の踏み込みに合わせて、すぐ出す）。
         var load = _comboIndex == 0 && !_comboIsCounter && combo != StopJabCombo ? Style.Telegraph : 0f;
         _shapes[(int)puncher] = KarateHandChoice.Pick(Style.HandShapeWeights, goal, Style.HandShapeWeights.Count > 0 ? _random.NextSingle() : 0f);
-        _hands[(int)puncher] = new PunchAction(technique, spec, -load, duration, _comboIsCounter, aimOffset, Load: load, Goal: goal);
+        var lead = AttackPerception.DelaySeconds + load + duration * PunchSpec.OutboundShare;
+        var aim = observation.Aim(spec, goal, selfHead, _reach, lead);
+        _hands[(int)puncher] = new PunchAction(technique, spec, -load, duration, _comboIsCounter, aimOffset, AimWorld: aim, Load: load, Goal: goal);
         Stats.Thrown(technique, _comboIsCounter);
         _comboIndex++;
         _comboClock = load + (duration * combo.Gap); // 次の拳は、この拳が出てから数える（溜めを含めないと 1-2 がほぼ同時に出た。レビュー指摘）
@@ -1049,7 +1049,7 @@ public sealed class BoxerBot : IFighterControl
     private bool AnyPunchActive => _hands[0].Active || _hands[1].Active;
 
     /// <summary>相手の体の狙いどころ（最後に読んだ知覚）。</summary>
-    private TargetMap? _targets;
+    private readonly AttackPerception _attackPerception = new();
 
     private bool Grappling => _clinchTime >= 0f || _throwTime >= 0f;
 
