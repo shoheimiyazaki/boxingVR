@@ -64,13 +64,26 @@ public sealed class IntentReplayTests
             recorder.Step(game, new BoxingInput(default), 1f / 60f);
         }
 
-        // v4 の末尾追加（twist 4 + 両手 spring 4/bool 1/bool 1）を除いて、v3 の実レイアウトにする。
+        // v6 の設定を除いた見出しと、v4/v5 の追加を除いたステップから v3 を作る。
         var bytes = output.ToArray();
-        using var v3 = new MemoryStream(bytes.AsSpan(0, bytes.Length - 16).ToArray());
+        var header = ReplayFile.Read(new MemoryStream(bytes)).Header;
+        using var v3 = new MemoryStream();
         using (var writer = new BinaryWriter(v3, Encoding.UTF8, leaveOpen: true))
         {
-            v3.Position = 4;
+            writer.Write("MRRP"u8.ToArray());
             writer.Write(3);
+            writer.Write(header.Seed);
+            writer.Write(header.TuningJson);
+            writer.Write(header.Host);
+            writer.Write(header.AppVersion);
+            writer.Write(header.CreatedUtc.Ticks);
+            writer.Write(header.CpuName);
+            writer.Write(header.CpuStyleJson);
+            writer.Write(header.CpuLogic);
+            writer.Write(header.Physics);
+            const int v3StepBytes = 4 + 1 + (15 * 4) + 3;
+            const int extraBytes = 26;
+            writer.Write(bytes.AsSpan(bytes.Length - v3StepBytes - extraBytes, v3StepBytes));
         }
 
         v3.Position = 0;

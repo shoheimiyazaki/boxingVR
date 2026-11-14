@@ -28,6 +28,7 @@ public enum Hairstyle
 /// </summary>
 public sealed record FaceLook(Vector3 Skin, Vector3 Hair, Vector3 Pupil, Hairstyle Style, bool Brows, bool Beard)
 {
+    public FaceParts Parts { get; init; } = FaceParts.Default;
     private static readonly Vector3[] Skins =
     [
         new(0.96f, 0.78f, 0.64f), new(0.86f, 0.6f, 0.42f), new(0.74f, 0.5f, 0.33f),
@@ -70,6 +71,7 @@ public sealed record FaceLook(Vector3 Skin, Vector3 Hair, Vector3 Pupil, Hairsty
                 BoxerAnatomy.Skin => Skin,
                 BoxerAnatomy.Hair => Hair,
                 BoxerAnatomy.Pupil => Pupil,
+                BoxerAnatomy.Lip => Vector3.Lerp(Skin, new Vector3(0.72f, 0.22f, 0.24f), 0.55f),
                 _ => null,
             };
             materials.Add(color is { } c ? material with { Color = new Vector4(c, 1f), SurfaceColor = new Vector4(c, 1f) } : material);
@@ -79,69 +81,21 @@ public sealed record FaceLook(Vector3 Skin, Vector3 Hair, Vector3 Pupil, Hairsty
     }
 
     /// <summary>
-    /// 部位の格子をこの顔に作り直す: 色の表を替え、頭なら髪型・眉・ひげを置き直す（髪と皮膚の入れ替えだけ）。
+    /// 部位の格子をこの顔に作り直す: 色の表を替え、頭なら顔のテンプレートを巻き付ける（<see cref="FaceSculptor"/>: 起伏・目・眉・口・ひげ・髪）。
     /// 作った直後（削れる前）に呼ぶ。
     /// </summary>
     public VoxelGrid Restyle(BodyPartKind kind, VoxelGrid grid, VoxelPalette palette)
     {
         ArgumentNullException.ThrowIfNull(grid);
+        Parts.Validate();
         var (nx, ny, nz) = grid.Dimensions;
         var cell = grid.CellSize;
-        // 頭の外形（中身の詰まったセルの範囲）を −1..1 とする: 体を作るとき（BoxerAnatomy.Build）はメッシュの外形で正規化しているので、
-        // 格子の箱で割ると、箱がメッシュより大きいぶん眉・髪の帯がずれる（レビューの指摘）。
-        var (lo, hi) = (new Vector3(float.MaxValue), new Vector3(float.MinValue));
-        if (kind == BodyPartKind.Head)
-        {
-            for (var iz = 0; iz < nz; iz++)
-            {
-                for (var iy = 0; iy < ny; iy++)
-                {
-                    for (var ix = 0; ix < nx; ix++)
-                    {
-                        if (grid.At(ix, iy, iz) != 0)
-                        {
-                            lo = Vector3.Min(lo, new Vector3(ix, iy, iz));
-                            hi = Vector3.Max(hi, new Vector3(ix + 1, iy + 1, iz + 1));
-                        }
-                    }
-                }
-            }
-        }
-
-        var center = (lo + hi) * 0.5f;
-        var half = Vector3.Max((hi - lo) * 0.5f, Vector3.One);
+        var cells = kind == BodyPartKind.Head ? FaceSculptor.Sculpt(grid, this, out _) : null;
         return new VoxelGrid(palette, grid.HalfExtents, grid.Dimensions, (p, _) =>
         {
             var c = (p + grid.HalfExtents) / cell;
             var (x, y, z) = (Math.Clamp((int)c.X, 0, nx - 1), Math.Clamp((int)c.Y, 0, ny - 1), Math.Clamp((int)c.Z, 0, nz - 1));
-            var material = grid.At(x, y, z);
-            if (kind != BodyPartKind.Head || material is not (BoxerAnatomy.Skin or BoxerAnatomy.Hair))
-            {
-                return material;
-            }
-
-            // 頭の外形を −1..1 とした位置（前は +Z、上は +Y）。表のセルかどうか: 外側の隣が空。
-            var n = (new Vector3(x + 0.5f, y + 0.5f, z + 0.5f) - center) / half;
-            var surface = grid.IsExposed(x, y, z);
-            return HairOrSkin(material == BoxerAnatomy.Hair, surface, n);
+            return cells is null ? grid.At(x, y, z) : cells[x + (nx * (y + (ny * z)))];
         });
-    }
-
-    private byte HairOrSkin(bool wasHair, bool surface, Vector3 n)
-    {
-        var face = n.Z > 0.45f;
-        var hair = Style switch
-        {
-            Hairstyle.Full => wasHair,
-            Hairstyle.Bald => false,
-            Hairstyle.Crop => wasHair && n.Y > 0.45f,
-            Hairstyle.Mohawk => wasHair && n.Y > 0.2f && MathF.Abs(n.X) < 0.22f,
-            Hairstyle.Afro => wasHair || (surface && n.Y > 0.05f && !face),
-            _ => wasHair,
-        };
-        // 眉: 目（高さ 0.18、横 ±0.38）の少し上の、顔の表の帯。ひげ: あごと頬の下の表。
-        var brow = Brows && surface && n.Z > 0.6f && n.Y is > 0.3f and < 0.4f && MathF.Abs(n.X) is > 0.15f and < 0.62f;
-        var beard = Beard && surface && n.Z > 0.2f && n.Y < -0.42f;
-        return hair || brow || beard ? BoxerAnatomy.Hair : BoxerAnatomy.Skin;
     }
 }

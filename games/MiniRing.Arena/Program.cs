@@ -12,6 +12,8 @@ using MiniRing.Bots;
 //                                                                                   防御技ごとの最適化（ドリルで PDCA）
 //   attacklab [--combos 1,2,1-2] [--telegraphs 0,0.1,0.2] [--ranges 0.9,1.05,1.2] [--bouts N] [--seconds S] [--log f.md]
 //                                                                                   攻撃のドリル: 単発・連打 × 溜めの長さで、拳の速さ・体重の乗り・威力
+//   karatelab [--only shapes,parry,kicks] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md]
+//                                                                                   空手のドリル: 手の形 × 急所、パリー（拳の曲がり）、5 種の蹴り
 //   counterlab [--book f.json] [--defense a,b|evasions] [--bouts N] [--ranges 1.15,1.3] [--log f.md] [--out book.json]
 //                                                                                   回避からのカウンターの研究（型 × 打ち始めの総当たり）
 //   basics [--punch 2] [--slot Duck] [--style swarmer] [--guards 0.6,1.0,1.5] [--guard H] [--gens G] [--pop P] [--log f.md] [--out f.json]
@@ -26,6 +28,8 @@ using MiniRing.Bots;
 //            [--fight only] [--video f.mp4]
 //   swinglab [--gens G] [--lambda L] [--seed X] [--bouts N] [--seconds S] [--out report.md] [--best swings.json] [--video f.mp4]
 //                                                                                   棍棒の振りの研究（型ごとに威力を進化戦略で上げ、要素を外して比べ、拳のボットと戦わせる）
+//   visionlab [--only start,aim] [--bouts N] [--seconds S] [--seed X] [--log f.md]  目を潰されて始める・目を狙うスタイルの測定
+//   faces [--out f.png] [--names a,b|f.json] [--columns N]                                全キャラの顔（正面と斜め）を並べた画像
 //   voxexport [--out boxer.vox] [--from current|generated]                         ボクサーの中身を .vox へ（Vengi・MagicaVoxel で直す）
 //   voxcheck --in boxer.vox [--install yes]                                        直した .vox を確かめ、生成との差を出す（yes でゲームに組み込む）
 // ボットは名前（legacy, boxer, outboxer, swarmer, counter, slugger, champion）か、スタイルの JSON ファイルのパス。
@@ -44,6 +48,7 @@ try
         "drill" => Drill(Options.Parse(argv[1..], "book", "bouts", "seconds", "seed", "out")),
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
+        "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
         "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift")),
@@ -61,7 +66,9 @@ try
         "swinglab" => SwingLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "families")),
         "weaponlab" => WeaponLabCommand(Options.Parse(argv[1..], "out", "table", "width", "height", "fps", "slow", "video")),
         "intentvideo" => IntentVideo(Options.Parse(argv[1..], "script", "blue", "seed", "seconds", "width", "height", "out")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters")),
+        "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
+        "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
         "voxcheck" => VoxCheck(Options.Parse(argv[1..], "in", "install")),
         _ => Usage($"知らないコマンド: {command}"),
@@ -283,6 +290,25 @@ static int DrillTune(Options o)
         File.WriteAllText(outPath, json);
     }
 
+    return 0;
+}
+
+static int KarateLabCommand(Options o)
+{
+    var only = o.List("only", ["shapes", "parry", "kicks"]);
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    new KarateLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log,
+        o.List("cues", ["0", "0.06"]).Select(c => float.Parse(c, CultureInfo.InvariantCulture)).ToList())
+        .Run(only.Contains("shapes"), only.Contains("parry"), only.Contains("kicks"));
     return 0;
 }
 
@@ -874,7 +900,12 @@ static int Video(Options o)
     };
     new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), breakStyle, hitSounds, faceCam, speed, tv)
         .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 45f, min: 1f), output, Console.Out, untilKo: (o.Get("until-ko") ?? "no") switch { "yes" => true, "no" => false, _ => throw new ArgumentException("--until-ko は yes か no にしてください。") },
-            redWear: MiniRing.Weapons.HandWears.Parse(o.Get("red-wear") ?? "glove"), blueWear: MiniRing.Weapons.HandWears.Parse(o.Get("blue-wear") ?? "glove"));
+            redWear: MiniRing.Weapons.HandWears.Parse(o.Get("red-wear") ?? "glove"), blueWear: MiniRing.Weapons.HandWears.Parse(o.Get("blue-wear") ?? "glove"),
+            setup: game =>
+            {
+                BlindStart(game.Player, o.Get("blind-red"));
+                BlindStart(game.Cpu, o.Get("blind-blue"));
+            });
     return 0;
 }
 
@@ -883,6 +914,28 @@ static int Video(Options o)
 // --telegraph に攻め手の打つ前の溜め [s]、--predict に受け手の予測の度合い（--cue none と合わせて、読んで避ける様子を見る）、
 // --width-guard / --reach-guard に受け手の構えの開きと出し。
 // --style に受け手のスタイル（その守りの技の動き・返しと構えを使う）、--counters true で回避から打ち返す。
+// --blind-red / --blind-blue: 始めから目を潰しておく（left / right / both。本人の左 = +X）。
+static void BlindStart(MiniRing.Fighter fighter, string? which)
+{
+    switch (which)
+    {
+        case null or "none":
+            return;
+        case "left" or "both":
+            fighter.Voxels!.DestroyEye(left: true);
+            break;
+    }
+
+    if (which is "right" or "both")
+    {
+        fighter.Voxels!.DestroyEye(left: false);
+    }
+    else if (which is not ("left" or "both"))
+    {
+        throw new ArgumentException("--blind-red / --blind-blue は none / left / right / both のどれかです。");
+    }
+}
+
 static int DrillVideo(Options o, string punch)
 {
     var slot = Enum.Parse<Defense>(o.Get("defense") ?? "Duck", ignoreCase: true);
@@ -942,6 +995,30 @@ static BotStyle LoadStyle(string nameOrPath)
     => nameOrPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? BotStyle.FromJson(File.ReadAllText(nameOrPath)) : BotCatalog.Style(nameOrPath);
 
 static string Check(string name) => BotCatalog.Names.Contains(name) ? name : throw new ArgumentException($"ボット '{name}' はありません（{string.Join(", ", BotCatalog.Names)}）。");
+
+static int VisionLabCommand(Options o)
+{
+    var only = o.List("only", ["start", "aim"]);
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    new VisionLab(o.Int("bouts", 4, min: 1), o.Float("seconds", 30f, min: 1f), o.Int("seed", 1), Log)
+        .Run(only.Contains("start"), only.Contains("aim"));
+    return 0;
+}
+
+static int Faces(Options o)
+{
+    var names = o.List("names", [.. BotCatalog.Names]).Select(Load).ToList();
+    return FaceSheet.Run(o.Get("out") ?? "docs/images/gen13_faces.png", names, o.Int("columns", 3, min: 1));
+}
 
 static int VoxExport(Options o)
 {

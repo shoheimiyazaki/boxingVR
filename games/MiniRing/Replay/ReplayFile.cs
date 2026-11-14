@@ -6,14 +6,21 @@ namespace MiniRing.Replay;
 
 /// <summary>リプレイの見出し: 試合を作り直すのに必要なもの（乱数の種・調整値・CPU のボット名）と、記録の素性。</summary>
 public sealed record ReplayHeader(int Seed, string TuningJson, string Host, string AppVersion, DateTime CreatedUtc,
-    string CpuName = Bots.BotCatalog.Legacy, string CpuStyleJson = "", int CpuLogic = 0, int Physics = Fighter.PhysicsVersion)
+    string CpuName = Bots.BotCatalog.Legacy, string CpuStyleJson = "", int CpuLogic = 0, int Physics = Fighter.PhysicsVersion,
+    ReplayMatchSettings? MatchSettings = null)
 {
     /// <summary>
     /// 記録時と同じ CPU の両コーナー。名前ではなく記録したスタイルから作るので、あとで <c>champion</c> を調整し直しても再現できる。
     /// </summary>
-    public BoxingCorners Corners => CpuStyleJson.Length == 0
-        ? Bots.BotCatalog.Corners(Bots.BotCatalog.Legacy)
-        : Bots.BotCatalog.Corners(Bots.BotStyle.FromJson(CpuStyleJson) with { Name = CpuName });
+    public BoxingCorners Corners
+    {
+        get
+        {
+            var corners = CpuStyleJson.Length == 0 ? Bots.BotCatalog.Corners(Bots.BotCatalog.Legacy)
+                : Bots.BotCatalog.Corners(Bots.BotStyle.FromJson(CpuStyleJson) with { Name = CpuName });
+            return MatchSettings?.Apply(corners) ?? corners;
+        }
+    }
 
     public FighterTuning Tuning => JsonSerializer.Deserialize<FighterTuning>(TuningJson) ?? FighterTuning.Default;
 }
@@ -36,6 +43,7 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// 以降、レコードの並び:
 ///   0x01 Step:     float dt | BoxingInput（目標など float × 15 + bool × 3）
 ///                | v4: float 胴のひねり | 左右各(float Spring, bool LetGo, bool Orientation有無, あれば float×4)
+///                | v5: 左右の手形 int32 | 左右の脚指令（有無、目標、膝目標・向きの有無と値、Spring）
 ///   0x02 Checksum: int32 step（そのステップを終えた直後）| uint64 BoxingGame.StateChecksum()
 /// </code>
 /// v3 の Step は追加部分を持たず、Spring・ひねりは 0 として読む。
@@ -43,13 +51,14 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// </summary>
 public static class ReplayFile
 {
-    public const int Version = 4;
+    public const int Version = 6;
     public const string Extension = ".mrrep";
     /// <summary>1 ステップの時間刻みとして受け付ける上限 [s]（壊れたファイルの値を物理に渡さない）。</summary>
     public const float MaxDt = 0.25f;
     private const byte StepTag = 1;
     private const byte ChecksumTag = 2;
     private static readonly byte[] Magic = "MRRP"u8.ToArray();
+    private static readonly JsonSerializerOptions SettingsJsonOptions = new() { IncludeFields = true };
 
     public static void WriteHeader(BinaryWriter writer, ReplayHeader header)
     {
@@ -66,6 +75,7 @@ public static class ReplayFile
         writer.Write(header.CpuStyleJson);
         writer.Write(header.CpuLogic);
         writer.Write(header.Physics);
+        writer.Write(JsonSerializer.Serialize(header.MatchSettings, SettingsJsonOptions));
     }
 
     public static void WriteStep(BinaryWriter writer, in ReplayStep step)
@@ -85,6 +95,10 @@ public static class ReplayFile
         writer.Write(c.TwistBias);
         WriteHandExtras(writer, c.Left);
         WriteHandExtras(writer, c.Right);
+        writer.Write((int)c.Left.Shape);
+        writer.Write((int)c.Right.Shape);
+        WriteLeg(writer, c.LeftLeg);
+        WriteLeg(writer, c.RightLeg);
     }
 
     public static void WriteChecksum(BinaryWriter writer, int stepIndex, ulong checksum)
@@ -117,6 +131,17 @@ public static class ReplayFile
         {
             header = header with { CpuName = reader.ReadString(), CpuStyleJson = reader.ReadString(), CpuLogic = reader.ReadInt32() };
             recordedPhysics = version >= 3 ? reader.ReadInt32() : 0;
+            if (version >= 6)
+            {
+                try
+                {
+                    header = header with { MatchSettings = JsonSerializer.Deserialize<ReplayMatchSettings>(reader.ReadString(), SettingsJsonOptions) };
+                }
+                catch (JsonException e)
+                {
+                    throw new InvalidDataException("Replay match settings are invalid.", e);
+                }
+            }
             if (header.CpuStyleJson.Length == 0 && header.CpuName != Bots.BotCatalog.Legacy)
             {
                 throw new InvalidDataException($"Replay CPU '{header.CpuName}' has no recorded style.");
@@ -177,6 +202,17 @@ public static class ReplayFile
                             };
                         }
 
+                        if (version >= 5)
+                        {
+                            command = command with
+                            {
+                                Left = command.Left with { Shape = ReadShape(reader) },
+                                Right = command.Right with { Shape = ReadShape(reader) },
+                                LeftLeg = ReadLeg(reader),
+                                RightLeg = ReadLeg(reader),
+                            };
+                        }
+
                         steps.Add(new ReplayStep(new BoxingInput(command, reset), dt));
                         break;
                     case ChecksumTag:
@@ -221,6 +257,69 @@ public static class ReplayFile
             writer.Write(q.Z);
             writer.Write(q.W);
         }
+    }
+
+    private static void WriteLeg(BinaryWriter writer, LegCommand? leg)
+    {
+        writer.Write(leg.HasValue);
+        if (leg is not { } value)
+        {
+            return;
+        }
+
+        Write(writer, value.TargetLocal);
+        writer.Write(value.KneeTargetLocal.HasValue);
+        if (value.KneeTargetLocal is { } knee)
+        {
+            Write(writer, knee);
+        }
+
+        writer.Write(value.Orientation.HasValue);
+        if (value.Orientation is { } q)
+        {
+            writer.Write(q.X);
+            writer.Write(q.Y);
+            writer.Write(q.Z);
+            writer.Write(q.W);
+        }
+
+        writer.Write(value.Spring);
+    }
+
+    private static HandShape ReadShape(BinaryReader reader)
+    {
+        var shape = (HandShape)reader.ReadInt32();
+        return Enum.IsDefined(shape) ? shape : throw new InvalidDataException("記録の手の形が不正です。");
+    }
+
+    private static LegCommand? ReadLeg(BinaryReader reader)
+    {
+        if (!reader.ReadBoolean())
+        {
+            return null;
+        }
+
+        var target = Read3(reader);
+        Vector3? knee = reader.ReadBoolean() ? Read3(reader) : null;
+        Quaternion? orientation = null;
+        if (reader.ReadBoolean())
+        {
+            var q = new Quaternion(ReadFinite(reader), ReadFinite(reader), ReadFinite(reader), ReadFinite(reader));
+            if (MathF.Abs(q.LengthSquared() - 1f) > 0.01f)
+            {
+                throw new InvalidDataException("脚の向きは単位クォータニオンで指定してください。");
+            }
+
+            orientation = q;
+        }
+
+        var spring = ReadFinite(reader);
+        if (spring is < 0f or > 1f)
+        {
+            throw new InvalidDataException("脚のバネ伝達は 0..1 で指定してください。");
+        }
+
+        return new LegCommand(target, knee, orientation, spring);
     }
 
     private static HandCommand ReadHandExtras(BinaryReader reader, HandCommand hand)

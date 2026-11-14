@@ -54,20 +54,23 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// <param name="redWear">赤コーナーが手にはめる物（既定 グローブ）。</param>
     /// <param name="blueWear">青コーナーが手にはめる物（既定 グローブ）。</param>
     /// <param name="intentScript">赤の操作台本。指定時は指令を記録し、ボットの代わりに意図操作を使う。</param>
+    /// <param name="setup">試合を作った直後に呼ぶ（目を潰しておくなど）。</param>
     public void Make(Contender red, Contender blue, int seed, float seconds, string outPath, TextWriter log, Action<float>? afterStep = null, bool untilKo = false,
         MiniRing.Weapons.HandWear redWear = MiniRing.Weapons.HandWear.Glove, MiniRing.Weapons.HandWear blueWear = MiniRing.Weapons.HandWear.Glove,
-        IntentScript? intentScript = null)
+        IntentScript? intentScript = null, Action<BoxingGame>? setup = null)
     {
         var redBots = new List<IFighterControl>();
         var blueBots = new List<IFighterControl>();
         var corners = new BoxingCorners(blue.Name, s => Keep(blueBots, blue.Create(s)),
             intentScript is null ? s => Keep(redBots, red.Create(s)) : null,
             CpuStyleJson: intentScript is null ? null : (blue.Create(seed) as BoxerBot)?.Style.ToJson(),
-            PlayerWear: redWear, CpuWear: blueWear, PlayerName: red.Name);
+            PlayerWear: redWear, CpuWear: blueWear, PlayerName: red.Name,
+            PlayerBody: red.Build, CpuBody: blue.Build, PlayerFace: red.Face, CpuFace: blue.Face);
         // 画面と実況ではリングネームで呼ぶ（ドリルで生まれた個体にもそれぞれの名前がある）。
         var redRing = BotNames.RingNameOf(red.Name);
         var blueRing = BotNames.RingNameOf(blue.Name);
         using var game = new BoxingGame(seed: seed, corners: corners, rules: tv ? MatchRules.Tv : null);
+        setup?.Invoke(game);
         var intent = intentScript is null ? null : new IntentControl();
         var intentRound = game.Round;
         using var recordingFile = intentScript is null ? null : File.Create(Path.ChangeExtension(outPath, ".mrrep"));

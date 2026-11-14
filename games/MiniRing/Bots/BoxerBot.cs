@@ -179,7 +179,14 @@ public sealed class BoxerBot : IFighterControl
     // 間合いの層（RangeSense: 危険度・さらされ）とスタイルごとの使い方（RangePress・RangeGuard。boxer は基準として使わない）。
     // 15: 間合いの層の届く長さに相手の武器（握りから先）を足す（素手どうしの試合は変わらない）。
     // 16: claude/a-3d0203 の 15 と master の 13 を合わせた。
-    public const int LogicVersion = 16;
+    // 17: karate hand shapes, fist parry and five kick goals.
+    public const int LogicVersion = 23; // 23: 目が傷むと見えない側の相手の拳・体の情報が遅れてぶれる（VisionPerception）・目と見えない側を狙う重み（AimWeights.Eye・BlindSide。相手の見えが悪いほど重みが増す）。22: パリーの手の経路を速く・前腕へ（TechniqueExecution.ParrySweepRate・ParryArmFraction）、パリーの効く拳の重みをフック中心に（DefenseBook.Parry。karatelab の測定）。21: 空手スタイルの手形の重みを karatelab の測定で設定（貫手・一本拳・手刀は 1 発あたりの削れが正拳の約 2 倍、自分の指の骨の欠けは 0）。20: 蹴りは蹴りごとの当てたい所（KickSpec.AimWorld: 前蹴り・膝は腹、ローは腿、ミドルは胸、ハイは頭）を狙う。19: パリーの頭の目標を中立にする。18: 空手の手形・パリー・蹴りの選択を追加。
+    private readonly HandShape[] _shapes = new HandShape[2];
+    private KickTechnique? _kick;
+    private Hand _kickSide;
+    private float _kickTime;
+    private Vector3 _kickAim;
+    public KickTechnique? CurrentKick => _kick;
 
     public BotStyle Style { get; }
 
@@ -258,6 +265,7 @@ public sealed class BoxerBot : IFighterControl
         UpdateDefense(distance, reach, dt);
         UpdateStopJab(sense, dir, distance, reach, dt);
         UpdateAttack(distance, reach, dt);
+        UpdateKick(sense, distance, dt);
         UpdatePunches(dt);
 
         var grip = (Left: false, Right: false);
@@ -288,7 +296,7 @@ public sealed class BoxerBot : IFighterControl
         var move = Footwork(self, dir, distance, reach, sense.Arena, dt);
         if (_defense != Defense.None)
         {
-            DefenseGloves(reach, headLocal, self.Origin.Y, ref left, ref right);
+            DefenseGloves(sense, reach, headLocal, self.Origin.Y, ref left, ref right);
         }
 
         if (_clinchTime >= 0f || _throwTime >= 0f)
@@ -302,7 +310,9 @@ public sealed class BoxerBot : IFighterControl
         // 一度疲れたら、疲れが抜けきるまで（立ち上がって息を整えるまで）沈む守りを控える。
         _crouchTired = _crouchTime > CrouchBudget || (_crouchTired && _crouchTime > 0f);
         Stats.Tick(dt, crouched, _defense != Defense.None, _hands[0].Active || _hands[1].Active);
-        return new FighterCommand(move, dir, new HandCommand(left, grip.Left, Spring(Hand.Left)), new HandCommand(right, grip.Right, Spring(Hand.Right)), _head, LoadTwist());
+        var rest = new Vector3(_kickSide.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
+        var leg = _kick is { } kind ? KickSpec.Of(kind).Evaluate(_kickSide, _kickTime, Style.KickDuration, rest, _kickAim, reach) : (LegCommand?)null;
+        return new FighterCommand(move, dir, new HandCommand(left, grip.Left, Spring(Hand.Left), Shape: _shapes[0]), new HandCommand(right, grip.Right, Spring(Hand.Right), Shape: _shapes[1]), _head, LoadTwist(), LeftLeg: _kickSide == Hand.Left ? leg : null, RightLeg: _kickSide == Hand.Right ? leg : null);
     }
 
     /// <summary>
@@ -704,7 +714,7 @@ public sealed class BoxerBot : IFighterControl
         {
             // 溜めの途中の拳（まだ構えにある）は取りやめる。ブロックは両手で覆うので、出ている拳も引く（レビュー指摘: 回避の最中に溜めの拳が出ていた）。
             var action = _hands[(int)hand];
-            if (action.Time < 0f || defense == Defense.Block)
+            if (action.Time < 0f || defense is Defense.Block or Defense.Parry)
             {
                 _hands[(int)hand] = action with { Time = MathF.Max(action.Time, action.Duration) };
             }
@@ -761,9 +771,19 @@ public sealed class BoxerBot : IFighterControl
     /// 守りの間の拳: 顔を覆う位置（頭の中心から）へ <see cref="DefenseMove.HandsUp"/> だけ寄せる。
     /// 胴への拳には肘を締めて脇腹を覆い、フックには来る側の拳でこめかみを覆う。
     /// </summary>
-    private void DefenseGloves(float reach, Vector3 headLocal, float originY, ref Vector3 left, ref Vector3 right)
+    private void DefenseGloves(in FighterSense sense, float reach, Vector3 headLocal, float originY, ref Vector3 left, ref Vector3 right)
     {
         var m = _defenseMove;
+        if (_defense == Defense.Parry)
+        {
+            var hand = _defenseSide > 0f ? Hand.Left : Hand.Right;
+            if (!_hands[(int)hand].Active)
+            {
+                Set(hand, ref left, ref right, TechniqueExecution.ParryGlove(m, sense, _defenseSide, _defenseProgress));
+            }
+            return;
+        }
+
         if (m.HandsUp <= 0f)
         {
             return;
@@ -787,13 +807,48 @@ public sealed class BoxerBot : IFighterControl
 
     // ── 攻め ──
 
+    private void UpdateKick(in FighterSense sense, float distance, float dt)
+    {
+        if (_kick is not { } kind)
+        {
+            return;
+        }
+
+        if (_kickTime == 0f)
+        {
+            _kickSide = Style.Lead == Hand.Left ? Hand.Right : Hand.Left;
+            _kickAim = sense.Self.WorldToLocal(KickSpec.Of(kind).AimWorld(sense));
+        }
+        _kickTime += dt;
+        if (_kickTime >= Style.KickDuration)
+        {
+            _kick = null;
+            _kickTime = 0f;
+            _cooldown = Style.KickDuration;
+        }
+    }
+
+    private KickTechnique PickKick()
+    {
+        var value = _random.NextSingle() * Style.KickWeights.Values.Sum();
+        foreach (var pair in Style.KickWeights.OrderBy(p => p.Key))
+        {
+            value -= pair.Value;
+            if (value < 0f)
+            {
+                return pair.Key;
+            }
+        }
+        throw new InvalidOperationException("Kick selection requires positive weights.");
+    }
+
     private void UpdateAttack(float distance, float reach, float dt)
     {
         // 間合いの層: 危ない所に何もせず居続けるのが一番危ない。下がるのでなく打って解消する（消極的にならない）:
         // 危険度 × (1 + さらされ) に比例して、次の拳までの間を早く縮める（RangePress）。
         _cooldown -= dt * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure)));
         _exitTimer = MathF.Max(0f, _exitTimer - dt);
-        if (_defense != Defense.None || _clinchTime >= 0f || _throwTime >= 0f || _combo is not null)
+        if (_kick is not null || _defense != Defense.None || _clinchTime >= 0f || _throwTime >= 0f || _combo is not null)
         {
             return;
         }
@@ -810,7 +865,14 @@ public sealed class BoxerBot : IFighterControl
                 }
                 else
                 {
-                    StartCombo(PickCombo(), counter: false);
+                    if (Style.KickRate <= 0f || _random.NextSingle() >= Style.KickRate || Style.KickWeights.Values.Sum() <= 0f)
+                    {
+                        StartCombo(PickCombo(), counter: false);
+                    }
+                    else
+                    {
+                        _kick = PickKick();
+                    }
                 }
             }
             else if (_approachTime > ApproachTimeout || distance > EngageRange * reach * 1.3f)
@@ -960,6 +1022,7 @@ public sealed class BoxerBot : IFighterControl
         // 溜めの威力は物理に任せる（溜めの間に回した胴と踏み込みの勢いが拳に乗る）。打ち抜きを深くすると、外したはずの頭まで届いた。
         // カウンターとストップジャブは溜めない（回避の流れ・相手の踏み込みに合わせて、すぐ出す）。
         var load = _comboIndex == 0 && !_comboIsCounter && combo != StopJabCombo ? Style.Telegraph : 0f;
+        _shapes[(int)puncher] = KarateHandChoice.Pick(Style.HandShapeWeights, goal, Style.HandShapeWeights.Count > 0 ? _random.NextSingle() : 0f);
         _hands[(int)puncher] = new PunchAction(technique, spec, -load, duration, _comboIsCounter, aimOffset, Load: load, Goal: goal);
         Stats.Thrown(technique, _comboIsCounter);
         _comboIndex++;

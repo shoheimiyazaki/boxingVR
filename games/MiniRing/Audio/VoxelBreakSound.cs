@@ -104,7 +104,7 @@ public static class VoxelBreakSound
     public static GrainKind KindOf(byte material) => material switch
     {
         BoxerAnatomy.Skin => GrainKind.Skin,
-        _ when BoxerAnatomy.IsClothing(material) || material == BoxerAnatomy.Hair => GrainKind.Skin, // 布と革・髪は皮膚の代わりの層
+        _ when BoxerAnatomy.IsClothing(material) || material is BoxerAnatomy.Hair or BoxerAnatomy.Lip => GrainKind.Skin, // 布と革・髪は皮膚の代わりの層
         BoxerAnatomy.RedGlove or BoxerAnatomy.BlueGlove or BoxerAnatomy.Padding => GrainKind.Skin, // グローブの革と詰め物
         BoxerAnatomy.Bone or BoxerAnatomy.Iron or BoxerAnatomy.Wood => GrainKind.Bone,
         BoxerAnatomy.Brain => GrainKind.Brain,

@@ -228,6 +228,15 @@ public sealed record DefenseBook
         VsHook = 1f, VsStraight = 0.5f,
     };
 
+    public DefenseMove Parry { get; init; } = new()
+    {
+        Duration = 0.35f,
+        // karatelab（docs/arena/gen12_karatelab_parry_v3_forearm.md）の測定: パリーは来る拳の弧（フック）の頭への当たりを 0.92〜0.95 → 0.73〜0.78 に減らすが、
+        // ストレート・ジャブの直線は変えられない（1.00 → 1.00）。効く相手の重みを高くする。
+        VsStraight = 0.15f, VsBody = 0.3f, VsHook = 1f,
+        CounterStraight = "2", CounterStraightAt = 0.7f,
+    };
+
     public static DefenseBook Default { get; } = new();
 
     public DefenseMove Of(Defense defense) => defense switch
@@ -241,6 +250,7 @@ public sealed record DefenseBook
         Defense.SideStep => SideStep,
         Defense.SlipIn => SlipIn,
         Defense.Roll => Roll,
+        Defense.Parry => Parry,
         _ => throw new ArgumentOutOfRangeException(nameof(defense), defense, null),
     };
 
@@ -256,11 +266,12 @@ public sealed record DefenseBook
         Defense.SideStep => this with { SideStep = move },
         Defense.SlipIn => this with { SlipIn = move },
         Defense.Roll => this with { Roll = move },
+        Defense.Parry => this with { Parry = move },
         _ => throw new ArgumentOutOfRangeException(nameof(defense), defense, null),
     };
 
     /// <summary>回避技（拳で受けるブロックを除く、頭と足で外す技）。</summary>
-    public static IReadOnlyList<Defense> Evasions { get; } = [.. Enum.GetValues<Defense>().Where(d => d is not (Defense.None or Defense.Block))];
+    public static IReadOnlyList<Defense> Evasions { get; } = [.. Enum.GetValues<Defense>().Where(d => d is not (Defense.None or Defense.Block or Defense.Parry))];
 
     /// <summary>防御技の全部（<see cref="Defense.None"/> を除く）。</summary>
     public static IReadOnlyList<Defense> Techniques { get; } = [.. Enum.GetValues<Defense>().Where(d => d != Defense.None)];

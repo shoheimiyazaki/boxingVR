@@ -169,7 +169,8 @@ public static class DefenseDrill
     /// （決まった拳を打ってもらう練習。反応を除いて動きだけを測る）。null なら受け手自身の目と反応で守る。
     /// </param>
     /// <param name="telegraph">攻め手の打つ前の体の溜め [s]。合図は溜めの始めから数える。</param>
-    public static PunchDrillResult Punch(string punch, Defense defense, BotStyle defender, int seed, float seconds, float range = DefaultRange, float? cue = null, float telegraph = 0f)
+    /// <param name="setup">試合を作った直後に呼ぶ（目を潰すなど。省略なら何もしない）。</param>
+    public static PunchDrillResult Punch(string punch, Defense defense, BotStyle defender, int seed, float seconds, float range = DefaultRange, float? cue = null, float telegraph = 0f, Action<BoxingGame>? setup = null)
     {
         ArgumentNullException.ThrowIfNull(defender);
         var attackers = new List<BoxerBot>();
@@ -181,6 +182,7 @@ public static class DefenseDrill
             s => Keep(attackers, new BoxerBot(attacker, s)),
             s => Keep(defenders, new BoxerBot(style, s, defense)));
         using var game = new BoxingGame(seed: seed, corners: corners);
+        setup?.Invoke(game); // 目の損傷など、試合の始めに体を傷めておく（受け手は game.Player）
         int head = 0, guard = 0, other = 0, openHead = 0;
 
         // 1 発は 1 回だけ数える。ガードに触れてから頭に当たったら頭に数え直す

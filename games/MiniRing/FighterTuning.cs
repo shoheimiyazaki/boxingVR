@@ -15,6 +15,11 @@ namespace MiniRing;
 /// </summary>
 public sealed record FighterTuning
 {
+    public BodyBuild Build { get; init; } = BodyBuild.Standard;
+    /// <summary>見えない所を記憶・音で補う時定数 [s]。通常の反応 0.12 s より十分遅い。</summary>
+    public const float VisionLagSeconds = 0.45f;
+    /// <summary>視覚を失った方向の位置の振れ幅 [腕の長さ]。</summary>
+    public const float VisionNoiseReach = 0.35f;
     /// <summary>Aigis の既定体格（約 1.7m）に対する縮尺。0.355 ≒ 60cm。</summary>
     public float Scale { get; init; } = 0.355f;
 
@@ -436,10 +441,14 @@ public sealed record FighterTuning
         get
         {
             var d = HumanoidRagdoll.HalfExtents.Default;
-            return new HumanoidRagdoll.HalfExtents(
+            var h = new HumanoidRagdoll.HalfExtents(
                 d.Pelvis * Scale, d.Chest * Scale, d.Head * (Scale * HeadScale),
                 d.UpperArm * Scale * new Vector3(ArmLengthScale, 1f, 1f), d.Forearm * Scale * new Vector3(ArmLengthScale, 1f, 1f),
                 d.Thigh * Scale, d.Shin * Scale, d.Foot * Scale * new Vector3(1f, 1f, 1f - FootGeometry.ToeShare)); // 足はかかと側（つま先は別の部位）
+            var build = Build.Validate();
+            return new HumanoidRagdoll.HalfExtents(h.Pelvis * build.ScaleOf(BodyPartKind.Pelvis), h.Chest * build.ScaleOf(BodyPartKind.Chest),
+                h.Head * build.ScaleOf(BodyPartKind.Head), h.UpperArm * build.ScaleOf(BodyPartKind.UpperArm), h.Forearm * build.ScaleOf(BodyPartKind.Forearm),
+                h.Thigh * build.ScaleOf(BodyPartKind.Thigh), h.Shin * build.ScaleOf(BodyPartKind.Shin), h.Foot * build.ScaleOf(BodyPartKind.Foot));
         }
     }
 
@@ -449,11 +458,19 @@ public sealed record FighterTuning
         get
         {
             var m = HumanoidRagdoll.MassDistribution.Default;
+            // 質量は部位の体積（寸法の積）に比例させる: 体格を変えても密度は同じ（基準体格では 1 倍で、従来の値のまま）。
+            var build = Build.Validate();
+            float V(BodyPartKind kind)
+            {
+                var s = build.ScaleOf(kind);
+                return s.X * s.Y * s.Z;
+            }
+
             return m with
             {
-                Pelvis = m.Pelvis * MassScale, Chest = m.Chest * MassScale, Head = m.Head * MassScale,
-                UpperArm = m.UpperArm * MassScale, Forearm = m.Forearm * MassScale, Thigh = m.Thigh * MassScale,
-                Shin = m.Shin * MassScale, Foot = m.Foot * MassScale * (1f - FootGeometry.ToeShare), // かかと側（残りはつま先）
+                Pelvis = m.Pelvis * MassScale * V(BodyPartKind.Pelvis), Chest = m.Chest * MassScale * V(BodyPartKind.Chest), Head = m.Head * MassScale * V(BodyPartKind.Head),
+                UpperArm = m.UpperArm * MassScale * V(BodyPartKind.UpperArm), Forearm = m.Forearm * MassScale * V(BodyPartKind.Forearm), Thigh = m.Thigh * MassScale * V(BodyPartKind.Thigh),
+                Shin = m.Shin * MassScale * V(BodyPartKind.Shin), Foot = m.Foot * MassScale * V(BodyPartKind.Foot) * (1f - FootGeometry.ToeShare), // かかと側（残りはつま先）
             };
         }
     }

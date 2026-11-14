@@ -18,7 +18,7 @@ public sealed class ReplayPlayer : IDisposable
     {
         ArgumentNullException.ThrowIfNull(data);
         _data = data;
-        Game = new BoxingGame(data.Header.Tuning, data.Header.Seed, data.Header.Corners);
+        Game = new BoxingGame(data.Header.Tuning, data.Header.Seed, data.Header.Corners, data.Header.MatchSettings?.Rules);
     }
 
     public BoxingGame Game { get; }

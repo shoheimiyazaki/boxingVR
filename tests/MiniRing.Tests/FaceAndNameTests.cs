@@ -29,8 +29,10 @@ public sealed class FaceAndNameTests
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         using var plain = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
         using var styled = new BoxingGame(seed: 1, corners: new BoxingCorners("slugger", s => new BoxerBot(still, s), s => new BoxerBot(still, s), PlayerName: "jabber"));
-        int Filled(Fighter f) => f.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
-        Assert.AreEqual(Filled(plain.Player), Filled(styled.Player), "the same body: hair and skin only swap places");
+        // 顔の部位（鼻・耳・あご・目の寸法・口）は頭の表面の形を変える（皮膚の下の肉・骨は引き伸ばされる）が、脳と臓器は動かさない（死ぬ条件・意識が同じ）。
+        int Organs(Fighter f) => f.Voxels!.Parts.Sum(p => Enumerable.Range(0, p.Body.Grid.CellCount)
+            .Count(i => p.Body.Grid.MaterialAt(i) is BoxerAnatomy.Brain or BoxerAnatomy.Heart or BoxerAnatomy.Lung or BoxerAnatomy.Liver or BoxerAnatomy.Gut));
+        Assert.AreEqual(Organs(plain.Player), Organs(styled.Player), "the same organs: only the shell of the face differs");
         var head = styled.Cpu.Voxels!.PartOf(styled.Cpu.Parts.Head)!.Body.Grid;
         var look = FaceLook.For(BotNames.RingNameOf("slugger"));
         Assert.AreEqual(new Vector4(look.Skin, 1f), head.Palette[BoxerAnatomy.Skin].Color, "the bot's own skin tone");

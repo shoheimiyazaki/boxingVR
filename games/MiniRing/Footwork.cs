@@ -85,6 +85,12 @@ public sealed record FootworkTuning
     public float FootKd { get; init; } = 50f;
     public float MaxFootForce { get; init; } = 150f;
 
+    /// <summary>
+    /// 蹴っている脚の足首を引く力の上限が、歩く足の何倍か。歩く足の上限は床の摩擦に勝つ分で決めた値で、蹴りは脚の筋肉の全力（股・膝・足首）を
+    /// 足首の 1 点の力に置き換える近道。蹴りの足の速さが、人形の拳（3〜6 m/s）に比べて 1 m/s 台だったので上げた（KickContactTests の表）。
+    /// </summary>
+    public float KickFootForceGain { get; init; } = 4f;
+
     /// <summary>立っているときの膝の曲げ（骨盤の高さの上限を決める）。</summary>
     public float KneeBendDegrees { get; init; } = 30f;
 

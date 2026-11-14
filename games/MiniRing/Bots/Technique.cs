@@ -118,6 +118,7 @@ public enum Defense
 
     /// <summary>ローリング: 拳の進む向きへ頭を沈めながら流し、当たっても衝撃を逃がす。</summary>
     Roll,
+    Parry,
 }
 
 /// <summary>

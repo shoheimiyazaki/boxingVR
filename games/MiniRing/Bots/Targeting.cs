@@ -11,7 +11,7 @@ namespace MiniRing.Bots;
 /// <item>どちらの拳でも: <see cref="GuardArm"/>（ガードの腕を打って壊す。傷んでいる方を）。</item>
 /// </list>
 /// </summary>
-public sealed record AimWeights(float Chin = 0f, float Temple = 0f, float ExposedBrain = 0f, float Liver = 0f, float SolarPlexus = 0f, float Heart = 0f, float GuardArm = 0f)
+public sealed record AimWeights(float Chin = 0f, float Temple = 0f, float ExposedBrain = 0f, float Liver = 0f, float SolarPlexus = 0f, float Heart = 0f, float GuardArm = 0f, float Eye = 0f, float BlindSide = 0f)
 {
     /// <summary>真ん中だけを狙う（従来どおり）。</summary>
     public static AimWeights None { get; } = new();
@@ -20,7 +20,7 @@ public sealed record AimWeights(float Chin = 0f, float Temple = 0f, float Expose
     public AimWeights Validated()
     {
         static float W(float v) => float.IsFinite(v) ? Math.Clamp(v, 0f, 10f) : 0f;
-        return new AimWeights(W(Chin), W(Temple), W(ExposedBrain), W(Liver), W(SolarPlexus), W(Heart), W(GuardArm));
+        return new AimWeights(W(Chin), W(Temple), W(ExposedBrain), W(Liver), W(SolarPlexus), W(Heart), W(GuardArm), W(Eye), W(BlindSide));
     }
 
     /// <summary>狙いどころの重み。</summary>
@@ -34,6 +34,8 @@ public sealed record AimWeights(float Chin = 0f, float Temple = 0f, float Expose
         AimGoal.SolarPlexus => SolarPlexus,
         AimGoal.Heart => Heart,
         AimGoal.GuardArm => GuardArm,
+        AimGoal.Eye => Eye,
+        AimGoal.BlindSide => BlindSide,
         _ => 0f,
     };
 }
@@ -56,7 +58,14 @@ public static class Targeting
     public const float MaxAngleDegrees = 28f;
 
     /// <summary>頭へ打つ拳で狙える狙いどころ。</summary>
-    public static IReadOnlyList<AimGoal> HeadGoals { get; } = [AimGoal.Center, AimGoal.Chin, AimGoal.Temple, AimGoal.ExposedBrain, AimGoal.GuardArm];
+    public static IReadOnlyList<AimGoal> HeadGoals { get; } = [AimGoal.Center, AimGoal.Chin, AimGoal.Temple, AimGoal.ExposedBrain, AimGoal.GuardArm, AimGoal.Eye, AimGoal.BlindSide];
+
+    public static float Weight(AimWeights weights, AimGoal goal, TargetMap map) => weights.Of(goal) * (goal switch
+    {
+        AimGoal.Eye => 2f - map.Vision.Binocular,
+        AimGoal.BlindSide => 1f - MathF.Min(map.Vision.Left, map.Vision.Right),
+        _ => 1f,
+    });
 
     /// <summary>胴へ打つ拳で狙える狙いどころ。</summary>
     public static IReadOnlyList<AimGoal> BodyGoals { get; } = [AimGoal.Center, AimGoal.Liver, AimGoal.SolarPlexus, AimGoal.Heart, AimGoal.GuardArm];
@@ -74,11 +83,11 @@ public static class Targeting
         }
 
         var goals = HeadGoals.Concat(BodyGoals).Distinct().ToArray();
-        var total = goals.Sum(g => map.Available(g) ? weights.Of(g) : 0f);
+        var total = goals.Sum(g => map.Available(g) ? Weight(weights, g, map) : 0f);
         var pick = roll * total;
         foreach (var goal in goals)
         {
-            var w = map.Available(goal) ? weights.Of(goal) : 0f;
+            var w = map.Available(goal) ? Weight(weights, goal, map) : 0f;
             if (pick < w)
             {
                 return goal;
@@ -94,7 +103,7 @@ public static class Targeting
     public static bool IsBodyGoal(AimGoal goal) => goal is AimGoal.Liver or AimGoal.SolarPlexus or AimGoal.Heart;
 
     /// <summary>狙いどころが頭か（あご・こめかみ・露出した脳）。</summary>
-    public static bool IsHeadGoal(AimGoal goal) => goal is AimGoal.Chin or AimGoal.Temple or AimGoal.ExposedBrain;
+    public static bool IsHeadGoal(AimGoal goal) => goal is AimGoal.Chin or AimGoal.Temple or AimGoal.ExposedBrain or AimGoal.Eye or AimGoal.BlindSide;
 
     /// <summary>
     /// 狙いの高さに合わせて、同じ手・同じ形の拳へ打ち分ける（頭の拳を胴へ、胴の拳を頭へ）。アッパーとオーバーハンドは頭のまま
@@ -129,13 +138,13 @@ public static class Targeting
         var total = 0f;
         foreach (var goal in goals)
         {
-            total += map.Available(goal) ? weights.Of(goal) : 0f;
+            total += map.Available(goal) ? Weight(weights, goal, map) : 0f;
         }
 
         var pick = roll * total;
         foreach (var goal in goals)
         {
-            var w = map.Available(goal) ? weights.Of(goal) : 0f;
+            var w = map.Available(goal) ? Weight(weights, goal, map) : 0f;
             if (pick < w)
             {
                 return goal;

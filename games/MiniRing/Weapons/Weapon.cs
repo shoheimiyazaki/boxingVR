@@ -34,7 +34,7 @@ public enum WeaponKind
     Glove,
 
     /// <summary>
-    /// 素手の拳（<see cref="HandWear.None"/>）: 皮膚の球の芯に骨（拳の骨）。何もはめない手も、拳そのものをボクセルにして同じ圧力のモデルで打つ。
+    /// 素手の拳（<see cref="HandWear.None"/>）: 薄い皮膚の下に骨の指を握り込み、人さし指・中指の拳頭を前へ出す。
     /// 皮膚同士は強さが同じなので、打った拳の皮膚も削れる。
     /// </summary>
     Fist,
@@ -64,11 +64,17 @@ public enum WeaponKind
 /// </summary>
 public sealed class Weapon
 {
-    private Weapon(WeaponKind kind, VoxelBody body)
+    private Weapon(WeaponKind kind, VoxelBody body, bool initializeHand = true)
     {
         Kind = kind;
         Body = body;
         Volume = VoxelVolume.For(body.Grid);
+        if (kind == WeaponKind.Fist && initializeHand)
+        {
+            HandState = new BareHandState();
+            Body.ReplaceGrid(HandState.Build(HandShape.Seiken));
+            Volume = VoxelVolume.For(Body.Grid);
+        }
     }
 
     public WeaponKind Kind { get; }
@@ -76,7 +82,26 @@ public sealed class Weapon
     public VoxelBody Body { get; }
 
     /// <summary>描画用の 3D テクスチャ。</summary>
-    public VoxelVolume Volume { get; }
+    public VoxelVolume Volume { get; private set; }
+
+    public BareHandState? HandState { get; private set; }
+
+    public void SetHandShape(HandShape shape)
+    {
+        if (!Enum.IsDefined(shape))
+        {
+            throw new ArgumentOutOfRangeException(nameof(shape));
+        }
+
+        if (HandState is null || HandState.Shape == shape)
+        {
+            return;
+        }
+
+        HandState = HandState.Capture(Body.Grid).WithShape(shape);
+        Body.ReplaceGrid(HandState.Build(shape));
+        Volume = VoxelVolume.For(Body.Grid);
+    }
 
     /// <summary>この武器を描く指示（格子の変化をテクスチャへ写す）。</summary>
     public VoxelVolumeDraw Draw()
@@ -86,7 +111,7 @@ public sealed class Weapon
     }
 
     /// <summary>折れて飛んだ破片を、同じ種類の武器として包む。</summary>
-    internal static Weapon PieceOf(WeaponKind kind, VoxelBody piece) => new(kind, piece);
+    internal static Weapon PieceOf(WeaponKind kind, VoxelBody piece) => new(kind, piece, initializeHand: false);
 
     /// <summary>
     /// 武器を <paramref name="world"/> に置く。質量はボクセルの材質の密度 × 体積の合計（剛体の箱は格子の大きさ）。
@@ -207,7 +232,7 @@ public sealed class Weapon
         WeaponKind.Katana => new Vector3(KatanaHalfLength, KatanaSori, 0f),
         WeaponKind.Longsword => new Vector3(LongHalfLength, 0f, 0f),
         WeaponKind.Glove => new Vector3(GloveRadius, 0f, 0f),
-        WeaponKind.Fist => new Vector3(FistRadius, 0f, 0f) - WornBoundsOf(kind).Center,
+        WeaponKind.Fist => new Vector3(LeadingKnuckle + KnuckleRadius, 0.003f, -0.003f) - WornBoundsOf(kind).Center,
         WeaponKind.KnuckleDuster => new Vector3(DusterFront + DusterBoss, 0f, -0.5f * (2f * FistRadius / 4f)) - WornBoundsOf(kind).Center, // 中指の拳頭の突起の先
         WeaponKind.Katar => new Vector3(KatarTip, 0f, 0f) - WornBoundsOf(kind).Center,
         WeaponKind.Gauntlet => new Vector3(GauntletOuter, 0f, 0f) - WornBoundsOf(kind).Center,
@@ -225,7 +250,7 @@ public sealed class Weapon
         WeaponKind.Katana => Katana(),
         WeaponKind.Longsword => Longsword(),
         WeaponKind.Glove => Glove(leather),
-        WeaponKind.Fist => Worn(kind, WornCell, FistAt),
+        WeaponKind.Fist => KarateFist(),
         WeaponKind.KnuckleDuster => Worn(kind, WornCell, KnuckleDusterAt),
         WeaponKind.Katar => Worn(kind, KatarCell, KatarAt),
         WeaponKind.Gauntlet => Worn(kind, WornCell, p => GauntletAt(p, leather)),
@@ -486,7 +511,7 @@ public sealed class Weapon
     {
         var (from, to) = kind switch
         {
-            WeaponKind.Fist => (new Vector3(-FistRadius), new Vector3(FistRadius)),
+            WeaponKind.Fist => (new Vector3(-FistRadius), new Vector3(LeadingKnuckle + KnuckleRadius, FistRadius, FistRadius)),
             WeaponKind.KnuckleDuster => (new Vector3(-FistRadius, DusterPalm, -DusterHalfWidth), new Vector3(DusterFront + DusterBoss, FistRadius, DusterHalfWidth)),
             WeaponKind.Katar => (new Vector3(KatarBarBack, -FistRadius, -(KatarBarZ + KatarBarThick)), new Vector3(KatarTip, FistRadius, KatarBarZ + KatarBarThick)),
             WeaponKind.Gauntlet => (new Vector3(GauntletCuffFrom, -GauntletOuter, -GauntletOuter), new Vector3(GauntletOuter, GauntletOuter, GauntletOuter)),
@@ -508,6 +533,57 @@ public sealed class Weapon
     {
         var r = p.Length();
         return r > FistRadius ? (byte)0 : r > FistBone ? BoxerAnatomy.Skin : BoxerAnatomy.Bone;
+    }
+
+    // 正拳: 中手骨の塊と、握り込んだ4本の指。人さし指・中指の拳頭が先行する。
+    // 寸法は人形の拳幅26mmに合わせる。皮膚は1セルだけで、材質の強さは既存の皮膚と同じ。
+    private const float KnuckleRadius = 0.005f;
+    private const float KnuckleSkin = 0.0015f;
+    private const float FingerSpacing = 0.006f;
+    private const float LeadingKnuckle = 0.014f;
+    private const float FoldedKnuckle = 0.008f;
+
+    // 指の親データ（BareHandState）が元のセルを指・節に振り分けるための、正拳の寸法の公開名。
+    internal const float FingerPitch = FingerSpacing;
+    internal const float KnuckleFront = LeadingKnuckle;
+    internal const float FoldedKnuckleFront = FoldedKnuckle;
+    internal const float KnuckleRadiusOf = KnuckleRadius;
+
+    private static VoxelGrid KarateFist()
+    {
+        var grid = Worn(WeaponKind.Fist, WornCell, KarateFistAt);
+        // 格子の位相によって拳頭の端が骨のセルにならないよう、外側の1セルを必ず皮膚にする。
+        grid.Remap((_, material, surface) => surface ? BoxerAnatomy.Skin : material);
+        return grid;
+    }
+
+    private static byte KarateFistAt(Vector3 p)
+    {
+        // 掌・中手骨（丸みのある箱）。拳頭より後ろに収まり、広い掌側は筋肉で覆われる。
+        var palm = Vector3.Abs(p - new Vector3(-0.003f, 0f, 0f)) - new Vector3(0.007f, 0.007f, 0.010f);
+        var distance = Vector3.Max(palm, Vector3.Zero).Length() + MathF.Min(MathF.Max(palm.X, MathF.Max(palm.Y, palm.Z)), 0f) - 0.002f;
+        var fingerDistance = float.PositiveInfinity;
+        for (var finger = 0; finger < 4; finger++)
+        {
+            var z = (finger - 1.5f) * FingerSpacing;
+            var front = finger < 2 ? LeadingKnuckle : FoldedKnuckle;
+            var knuckle = Vector3.Distance(p, new Vector3(front, 0.003f, z)) - KnuckleRadius;
+            // 握り込んだ中節・末節は掌側に折り返し、拳頭の後ろに隠れる。
+            var a = new Vector3(0.007f, -0.004f, z);
+            var b = new Vector3(front, 0.003f, z);
+            var axis = b - a;
+            var folded = Vector3.Distance(p, a + axis * Math.Clamp(Vector3.Dot(p - a, axis) / axis.LengthSquared(), 0f, 1f)) - KnuckleRadius;
+            fingerDistance = MathF.Min(fingerDistance, MathF.Min(knuckle, folded));
+        }
+
+        var surface = MathF.Min(distance, fingerDistance);
+        if (surface > 0f)
+        {
+            return 0;
+        }
+
+        return surface > -KnuckleSkin ? BoxerAnatomy.Skin
+            : fingerDistance < 0f || p.Y >= -0.003f ? BoxerAnatomy.Bone : BoxerAnatomy.Muscle;
     }
 
     /// <summary>

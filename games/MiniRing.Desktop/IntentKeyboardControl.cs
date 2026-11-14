@@ -10,7 +10,7 @@ internal sealed class IntentKeyboardControl
     private IntentControl _control = new();
     private int? _round;
 
-    public BoxingInput Read(InputSnapshot input, FighterSense sense, float dt, int round)
+    public BoxingInput Read(InputSnapshot input, FighterSense sense, float dt, int round, float cameraYaw)
     {
         var reset = input.WasKeyPressed(Key.R);
         if (reset || _round != round)
@@ -23,9 +23,10 @@ internal sealed class IntentKeyboardControl
         var direction = new Vector2(
             Axis(input.IsKeyDown(Key.Right) || input.IsKeyDown(Key.D), input.IsKeyDown(Key.Left) || input.IsKeyDown(Key.A)),
             Axis(input.IsKeyDown(Key.Up) || input.IsKeyDown(Key.W), input.IsKeyDown(Key.Down) || input.IsKeyDown(Key.S)));
+        var worldMove = direction == Vector2.Zero ? Vector3.Zero : PuppetMapping.StickToWorld(direction, cameraYaw + MathF.PI, deadZone: 0f);
         _control.Input = new FighterIntent(direction,
             input.IsKeyDown(Key.J) || input.IsMouseButtonDown(MouseButton.Right),
-            input.IsKeyDown(Key.K) || input.IsMouseButtonDown(MouseButton.Left), input.IsKeyDown(Key.Space));
+            input.IsKeyDown(Key.K) || input.IsMouseButtonDown(MouseButton.Left), input.IsKeyDown(Key.Space), worldMove);
         return new BoxingInput(_control.Read(sense, dt), reset);
     }
 }

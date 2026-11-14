@@ -1,0 +1,10 @@
+﻿{
+  "Name": "karate", "RingName": "アキラ", "Aggression": 0.65, "Telegraph": 0.06,
+  "Aim": { "Chin": 1, "Temple": 1, "Liver": 2, "SolarPlexus": 2, "Heart": 0.3, "GuardArm": 0.2 },
+  "ComboWeights": { "1": 2, "2": 2, "1-2": 3, "3b-3": 1 },
+  "ParryWeight": 5, "BlockWeight": 0.15, "SlipWeight": 0.6, "SwayWeight": 0.4,
+  "DefenseRate": 0.8, "CounterRate": 0.9, "ReactionTime": 0.16, "Anticipation": 0.8,
+  "ThrowRate": 0, "ClinchRate": 0, "ReadGuard": 0.8,
+  "KickRate": 0.45, "KickWeights": { "Front": 2, "Low": 2, "Middle": 2, "High": 1, "Knee": 1 },
+  "HandShapeWeights": { "Seiken": 2, "SpearHand": 2, "OneKnuckle": 2, "KnifeHand": 1.5, "PalmHeel": 1, "BackFist": 1 }
+}

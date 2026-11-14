@@ -158,7 +158,9 @@ public static class BotCatalog
     /// </summary>
     public static BotStyle Champion { get; } = LoadEmbedded("MiniRing.Bots.champion.json");
 
-    public static IReadOnlyList<BotStyle> Styles { get; } = [Boxer, OutBoxer, Swarmer, Counter, Slugger, Jabber, ChampionV1, Champion];
+    public static BotStyle Karate { get; } = LoadEmbedded("MiniRing.Bots.karate.json");
+
+    public static IReadOnlyList<BotStyle> Styles { get; } = [Boxer, OutBoxer, Swarmer, Counter, Slugger, Jabber, ChampionV1, Champion, Karate];
 
     private static BotStyle LoadEmbedded(string resource)
     {
@@ -189,6 +191,6 @@ public static class BotCatalog
     {
         ArgumentNullException.ThrowIfNull(style);
         var validated = style.Validated();
-        return new BoxingCorners(validated.Name, seed => new BoxerBot(validated, seed), CpuStyleJson: validated.ToJson());
+        return new BoxingCorners(validated.Name, seed => new BoxerBot(validated, seed), CpuStyleJson: validated.ToJson(), CpuBody: validated.Build, CpuFace: validated.Face);
     }
 }

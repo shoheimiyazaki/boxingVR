@@ -212,7 +212,7 @@ public sealed class BotTests
         // 以前のインファイターは試合の 3 割をしゃがんで過ごし、続けて 4 秒しゃがんでいたこともあった（足運び編 F3）。
         // 1 試合では相手と種しだいで揺れる（同じ形で 19〜28 %）ので、3 つの種を足して見る。
         var stats = new BotStats();
-        foreach (var seed in new[] { 1, 2, 3, 4, 5 }) // 2026-11-12: K.O. で早く終わる試合が増えたので、種を足して 60 秒以上を見る
+        foreach (var seed in new[] { 1, 2, 3, 4, 5, 6, 7, 8 }) // 2026-11-12: K.O. で早く終わる試合が増えたので、種を足して 60 秒以上を見る。2026-11-14: 顔の寸法で頭の質量が変わり 5 種では 29 % に揺れたので、基準値（24.0 %）を測った 8 種で見る
         {
             stats.Merge(BotArena.Run(new BoutSpec(Contender.Named("swarmer"), Contender.Named("slugger"), Seed: seed, Seconds: 30f)).Red.Stats);
         }

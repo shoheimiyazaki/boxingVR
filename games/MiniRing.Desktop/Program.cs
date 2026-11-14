@@ -149,7 +149,7 @@ GameHost.Run(profiler, options with { DynamicViews = faceViews(game) }, withSoun
     // 拳の経路は試合の時間で進める（遅くしても体と同じ速さで遅くなる）。
     return classic
         ? keyboard.Read(input, camera.YawRadians, game.PlayerSense, FixedStep.Default.Dt * speed.Value)
-        : intentKeyboard.Read(input, game.PlayerSense, FixedStep.Default.Dt * speed.Value, game.Round);
+        : intentKeyboard.Read(input, game.PlayerSense, FixedStep.Default.Dt * speed.Value, game.Round, camera.YawRadians);
 });
 return 0;
 

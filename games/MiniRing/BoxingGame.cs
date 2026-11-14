@@ -34,7 +34,8 @@ public delegate IFighterControl ControlFactory(int roundSeed);
 public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFactory? Player = null, string? CpuStyleJson = null,
     Weapons.WeaponKind? CpuWeapon = null, Weapons.WeaponKind? PlayerWeapon = null, bool CpuTwoHanded = false, bool PlayerTwoHanded = false, bool VoxelGloves = true,
     Weapons.HandWear PlayerWear = Weapons.HandWear.Glove, Weapons.HandWear CpuWear = Weapons.HandWear.Glove,
-    string? PlayerName = null, RingLayout? Ring = null)
+    string? PlayerName = null, RingLayout? Ring = null, BodyBuild? PlayerBody = null, BodyBuild? CpuBody = null,
+    FaceParts? PlayerFace = null, FaceParts? CpuFace = null)
 {
     /// <summary>ゲームの既定の CPU。</summary>
     public static BoxingCorners Default => Bots.BotCatalog.Corners(Bots.BotCatalog.DefaultCpu);
@@ -99,6 +100,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private readonly Random _fx;
     private readonly Dictionary<(Fighter, Hand), Vector3> _preStepGloveVelocity = [];
     private readonly Dictionary<(Fighter, Hand), float> _hitCooldown = [];
+    /// <summary>蹴りの打ち直しまでの間（脚ごと。拳の <see cref="_hitCooldown"/> と同じ長さ）。</summary>
+    private readonly Dictionary<(Fighter, Hand), float> _kickCooldown = [];
     private readonly List<PrimitiveInstance> _renderInstances = [];
     private readonly List<DebugLine> _renderLines = [];
     private readonly List<VoxelVolumeDraw> _renderVoxels = [];
@@ -145,6 +148,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     /// <summary>CPU 側のボットのスタイル（JSON）。legacy や外から渡した操作元なら null。</summary>
     public string? CpuStyleJson => _corners.CpuStyleJson;
+
+    internal BoxingCorners InitialCorners => _corners;
 
     /// <summary>このラウンドの CPU 側の操作元。</summary>
     public IFighterControl CpuControl => _cpuControl;
@@ -330,6 +335,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     private void Substep(in FighterCommand playerCommand, float dt)
     {
+        UpdatePerception(dt);
         if (Resting)
         {
             // ラウンドの間（と試合の後）: 自分のコーナーへ歩いて戻り、ガードを下げて休む。入力元（ボット・プレイヤー）は読まない。
@@ -361,14 +367,17 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             {
                 _preStepGloveVelocity[(fighter, hand)] = fighter.GloveVelocity(hand);
                 _hitCooldown[(fighter, hand)] = MathF.Max(0f, _hitCooldown.GetValueOrDefault((fighter, hand)) - dt);
+                _kickCooldown[(fighter, hand)] = MathF.Max(0f, _kickCooldown.GetValueOrDefault((fighter, hand)) - dt);
             }
         }
 
+        FilterKickPairs();
         RememberBeforeStep();
         CoolWeapons(dt);
         _world.Step(dt);
         DetectHits();
         ResolveWeapons();
+        ResolveKicks();
         DetectGrazes();
         WatchRecoveries();
     }
@@ -431,6 +440,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
 
         BareFreeHands(self);
+        foreach (var hand in Hands)
+        {
+            GloveOf(self, hand)?.SetHandShape(command.For(hand).Shape);
+        }
+
         self.ApplyControl(command, dt);
     }
 
@@ -615,7 +629,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 体重の乗った拳は相手を押し込む: 物理の接触が運ぶのは腕の質量だけなので、体から来た分の運動量を足す。
         // 一部は当たった部位に残り（strike）、残りは相手の（付いている）全身へ一様な速度変化として配り（上限付き）、
         // 同じ運動量の反作用を打った側の全身へ返す（運動量は湧かない）。
-        var extraMass = hit.ImpactMass - hit.Attacker.ArmMass(hit.Hand);
+        // 物理の接触が運ぶのは打った四肢そのものの質量（腕、蹴りなら脚）だけ。残りの体の分を足す。
+        var extraMass = hit.ImpactMass - (hit.Kick ? hit.Attacker.KickingMass(hit.Hand) : hit.Attacker.ArmMass(hit.Hand));
         var push = extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f
             ? CarryBody(hit.Attacker, victim, victimBody, hit.Point, Vector3.Normalize(gloveVelocity) * (extraMass * hit.Speed * KnockbackTransfer), hit.Speed, alsoTwist)
             : Vector3.Zero;
@@ -639,7 +654,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
         _recentHits.Add(hit);
         LastHit = hit;
-        ControlOf(hit.Attacker)?.OnPunchLanded(hit.Hand, hit.Damage);
+        if (!hit.Kick)
+        {
+            ControlOf(hit.Attacker)?.OnPunchLanded(hit.Hand, hit.Damage);
+        }
+
         ControlOf(victim)?.OnPunchTaken(hit);
     }
 
@@ -1085,6 +1104,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// </summary>
     private void StartRound()
     {
+        _perception.Clear();
+        _perceived.Clear();
         _world?.Dispose();
         _weapons.Clear(); // 武器は世界ごと消える
         _recentCuts.Clear();
@@ -1098,22 +1119,29 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var surface = _ring.SurfaceCenter;
         var apart = new Vector3(0f, 0f, Layout.StartGap * 0.5f);
         // VR のプレイヤーには、手触りの調整が終わるまでスタミナの疲れを効かせない（FighterTuning.PlayerFatigue）。
-        Player = Fighter.Spawn(_world, _tuning.PlayerFatigue ? _tuning : _tuning with { TiredStrength = 1f, TiredHandSlowness = 0f }, "player", surface - apart, 0f);
-        Cpu = Fighter.Spawn(_world, _tuning, "cpu", surface + apart, MathF.PI);
-        PlayerSkin = new BoxerSkin(_model, Player, _tuning);
+        var playerTuning = (_tuning.PlayerFatigue ? _tuning : _tuning with { TiredStrength = 1f, TiredHandSlowness = 0f })
+            with { Build = _corners.PlayerBody ?? _tuning.Build };
+        var cpuTuning = _tuning with { Build = _corners.CpuBody ?? _tuning.Build };
+        Player = Fighter.Spawn(_world, playerTuning, "player", surface - apart, 0f);
+        Cpu = Fighter.Spawn(_world, cpuTuning, "cpu", surface + apart, MathF.PI);
+        var playerModel = Models.GetOrAdd((playerTuning.HalfExtents, _tuning.ModelSubdivisions), key => BoxerModel.Build(key.Item1, key.Item2));
+        var cpuModel = Models.GetOrAdd((cpuTuning.HalfExtents, _tuning.ModelSubdivisions), key => BoxerModel.Build(key.Item1, key.Item2));
+        PlayerSkin = new BoxerSkin(playerModel, Player, playerTuning);
         // 体の形はローポリのモデル（頭・胸・腕の形）。その内側をボクセルで埋める。トランクスはグローブと同じコーナーの色。
         // 顔はボットのリングネームから（同じボットはいつも同じ顔）。人が操る赤コーナーは名前が無ければ既定の顔。
-        Player.Voxels = new BoxerBody(Player, _world, _tuning, _model, Outfit.RedCorner, BoxerVoxelOverrides.Shipped,
-            _corners.PlayerName is { } redName ? FaceLook.For(Bots.BotNames.RingNameOf(redName)) : null);
-        Cpu.Voxels = new BoxerBody(Cpu, _world, _tuning, _model, Outfit.BlueCorner, BoxerVoxelOverrides.Shipped,
-            FaceLook.For(Bots.BotNames.RingNameOf(_corners.CpuName)));
+        Player.Voxels = new BoxerBody(Player, _world, playerTuning, playerModel, Outfit.RedCorner, BoxerVoxelOverrides.Shipped,
+            _corners.PlayerName is { } redName ? FaceLook.For(Bots.BotNames.RingNameOf(redName)) with { Parts = _corners.PlayerFace ?? FaceParts.For(redName) } : null);
+        Cpu.Voxels = new BoxerBody(Cpu, _world, cpuTuning, cpuModel, Outfit.BlueCorner, BoxerVoxelOverrides.Shipped,
+            FaceLook.For(Bots.BotNames.RingNameOf(_corners.CpuName)) with { Parts = _corners.CpuFace ?? FaceParts.For(_corners.CpuName) });
+        Player.RefreshVoxelMass();
+        Cpu.RefreshVoxelMass();
         // 破片はリングの上ならリングの面、その外は箱庭の台座・ローテーブルの天板、さらに外は床で止まる。
         _debris.Clear();
         _impacts.Clear();
         _wounds.Clear();
         _debris.GroundAt = p => LivingRoom.GroundAt(p, Layout, RingSurfaceHeight);
         _debris.Gravity = 9.81f * _tuning.DebrisGravityScale;
-        CpuSkin = new BoxerSkin(_model, Cpu, _tuning);
+        CpuSkin = new BoxerSkin(cpuModel, Cpu, cpuTuning);
         _fighters = [Player, Cpu];
         _wielders.Clear();
         _reach.Clear();
@@ -1155,6 +1183,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         LastHit = null;
         _preStepGloveVelocity.Clear();
         _hitCooldown.Clear();
+        _kickCooldown.Clear();
+        _kickFiltered.Clear(); // 世界ごと作り直すので、切った組も消える
         ShowMessage(Rules is null ? "FIGHT!" : "ROUND 1", 1.5f);
         _startBellPending = true;
         _regenBudget.Clear();
@@ -1193,7 +1223,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             new GloveSense(opponent.GloveCenter(Hand.Right), opponent.GloveVelocity(Hand.Right)),
             opponent.ChestVelocity,
             new BodySense(opponent.ShoulderPosition(Hand.Left), opponent.ShoulderPosition(Hand.Right), opponent.PelvisPosition),
-            self.Faintness, OpponentTargets: opponent.AsTarget, SelfStamina: self.Stamina);
+            self.Faintness, OpponentTargets: opponent.AsTarget, SelfStamina: self.Stamina,
+            SelfVision: self.Voxels?.Vision ?? VisionState.Healthy, OpponentVision: opponent.Voxels?.Vision ?? VisionState.Healthy,
+            OpponentArmReach: opponent.ArmReach);
     }
 
     public FighterSense PlayerSense => ArmedSense(Player, Cpu);
@@ -1251,7 +1283,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <summary>ホストが試合を進めている速さ（<see cref="GameSpeed"/>）。HUD に出すだけで、試合の計算には響かない（速さはホストが 1 歩の時間で決める）。</summary>
     public GameSpeed? Speed { get; set; }
 
-    /// <summary>HUD の図形: スタミナのメーター（テレビ中継なら得点表と時計）、10 カウントの目盛り、顔の窓の縁（<see cref="FaceCam"/> があるときだけ）。</summary>
+    /// <summary>HUD の図形: スタミナのメーター（テレビ中継なら得点表と時計）、10 カウントの目盛り、潰れた目の側を暗くする帯（<see cref="BlindHud"/>）、顔の窓の縁（<see cref="FaceCam"/> があるときだけ）。</summary>
     public IReadOnlyList<UiShapeDraw> BuildOverlayShapes(Matrix4x4 viewProjection, Vector2 screenSizePixels)
         => [
             .. Rules is not null
@@ -1259,6 +1291,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
                 : [.. TvHud.StaminaBar(new Vector2(24f, 102f), StaminaBarWidth, 8f, Player),
                    .. TvHud.StaminaBar(new Vector2(screenSizePixels.X - 24f - StaminaBarWidth, 102f), StaminaBarWidth, 8f, Cpu)],
             .. DownCountHud.Shapes(this, viewProjection, screenSizePixels),
+            .. BlindHud.Shapes(this, screenSizePixels),
             .. FaceCam?.Frames(this, screenSizePixels) ?? [],
         ];
 

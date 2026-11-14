@@ -23,16 +23,19 @@
 ## ファイル形式（`games/MiniRing/Replay/ReplayFile.cs`）
 
 ```
-"MRRP" | int32 版(4) | int32 種 | string 調整値 JSON | string ホスト | string ビルド版 | int64 作成日時(UTC)
+"MRRP" | int32 版(6) | int32 種 | string 調整値 JSON | string ホスト | string ビルド版 | int64 作成日時(UTC)
        | string CPU 名 | string CPU のスタイル JSON（legacy なら空）| int32 ボットの仕組みの版 | int32 体の物理の版
+       | string 試合条件 JSON（装備・リング・体格・顔・ルールなど）
 以降、レコードの並び:
   0x01 Step:     float dt | 移動 xyz | 向き xyz | 左手 xyz, 握り | 右手 xyz, 握り | 頭 xyz | リセット
                 | float 胴のひねり | 左右それぞれ: float Spring, bool 解放, bool 向き有無, あれば quaternion xyzw
+                | 左右の手形 | 左右の脚目標（有無と値）
   0x02 Checksum: int32 ステップ番号 | uint64 チェックサム
 ```
 
 - **ビルド版**: 記録時の `AssemblyInformationalVersion`（コミットハッシュ付き）を残します。
 - **CPU**: ボットの名前ではなく**スタイルそのもの**を残します。`champion` を調整し直しても、記録した時の相手で再生できます。CPU 欄は v2、体の物理版は v3 で追加しました。
+- **試合条件**: v6 は両者の装備・武器・体格・顔・リング・ルールを記録します。v5 以前にはこれらがなく、既定条件以外で記録した試合の再現は保証できません。
   - スタイルの値が同じでも、ボットの判断の仕組み（`BoxerBot.LogicVersion`）が変われば試合は変わります。仕組みの版が今のビルドと違う記録は、黙ってずれる代わりに「別の版で記録された」と報告して読みません。
 - **記録できない試合**: ボット同士の試合（ホストの入力が使われていない）と、スタイルの分からない CPU の試合は、記録を始める時点で拒みます。
 - **書き出しの間隔**: 約 1 秒ごとに書き出します。強制終了やクラッシュでも、最後の完全なレコードまでは読めて、そこまでは再現できます。

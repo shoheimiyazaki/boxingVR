@@ -127,6 +127,26 @@ public sealed partial class BoxingGame
     /// <see cref="Sense"/> に、握った武器の見え方を足したもの: 自分が武器を握っているか、相手の武器の握り・先・先の速度。
     /// </summary>
     private FighterSense ArmedSense(Fighter self, Fighter opponent)
+        => (self.Voxels?.Vision ?? VisionState.Healthy) != VisionState.Healthy && _perceived.TryGetValue(self, out var sense) ? sense : RawArmedSense(self, opponent); // 両目が無事なら遅れもぶれも無い: 今の状態をそのまま渡す（見えが傷んだときだけ、1 歩ごとに更新した遅れ・ぶれの写しを使う）
+
+    private readonly Dictionary<Fighter, VisionPerception> _perception = [];
+    private readonly Dictionary<Fighter, FighterSense> _perceived = [];
+
+    private void UpdatePerception(float dt)
+    {
+        foreach (var self in Fighters)
+        {
+            if (!_perception.TryGetValue(self, out var filter))
+            {
+                filter = new VisionPerception(_seed ^ (_round * 397) ^ (self == Player ? 0x1357 : 0x2468));
+                _perception.Add(self, filter);
+            }
+            var raw = RawArmedSense(self, self == Player ? Cpu : Player);
+            _perceived[self] = filter.Update(raw, self.Voxels?.Vision ?? VisionState.Healthy, dt);
+        }
+    }
+
+    private FighterSense RawArmedSense(Fighter self, Fighter opponent)
     {
         var sense = Sense(self, opponent) with { Ring = Layout };
         if (_wielders.Count == 0)
@@ -407,7 +427,7 @@ public sealed partial class BoxingGame
     private void RememberBeforeStep()
     {
         _beforeStep.Clear();
-        if (_weapons.Count == 0)
+        if (_weapons.Count == 0 && !Fighters.Any(f => Hands.Any(f.IsKicking)))
         {
             return;
         }
@@ -700,6 +720,13 @@ public sealed partial class BoxingGame
     /// 刃の無い物は拳と同じ散り方）。握った武器も手にはめた物も同じ。
     /// </summary>
     private void Wound(Weapon weapon, Fighter victim, VoxelPart part, VoxelContactResult hit)
+        => Wound(weapon.Body, Weapon.IsBlunt(weapon.Kind) ? null : weapon, victim, part, hit);
+
+    /// <summary>
+    /// 打った物（武器・蹴った脚の骨）<paramref name="striker"/> が相手の部位を壊した後始末。<paramref name="blade"/> は刃のある武器のとき
+    /// （斬った体の破片を振り抜けた向きへ飛ばす）。蹴りと刃の無い武器は拳と同じ散り方なので null。
+    /// </summary>
+    private void Wound(VoxelBody striker, Weapon? blade, Fighter victim, VoxelPart part, VoxelContactResult hit)
     {
         var fatal = false;
         // 打撃の曲げで骨が折れた（肉は断たれていないので、ふつうはぶら下がる）。削られて断たれたのと同じ道を通る。
@@ -724,7 +751,186 @@ public sealed partial class BoxingGame
         }
 
         // 刃で斬った肉と骨は、刃が振り抜けた向きへ、刃に沿って扇に広がって飛ぶ（血しぶきのように）。刃の無い武器は拳と同じ散り方。
-        Shatter(hit, weapon.Body, -hit.Normal, part.Body, hit.Normal, fatal, Weapon.IsBlunt(weapon.Kind) ? null : weapon);
+        Shatter(hit, striker, -hit.Normal, part.Body, hit.Normal, fatal, blade);
+    }
+
+    /// <summary>
+    /// 蹴り: 蹴っている脚の骨（すね・足・つま先、膝蹴りなら腿）のボクセルが、相手の部位のボクセルと拳と同じ接触
+    /// （<see cref="VoxelContact.Resolve"/>）で当たる。蹴り用の式・倍率は無い。脚の後ろの体の質量（<see cref="Fighter.KickImpactMass"/>）が
+    /// 面の下へ伝わる力に効く（拳の <see cref="MassBehind"/> と同じ役割）。打った側の脚の骨も曲げられ、折れることがある。
+    /// </summary>
+    private void ResolveKicks()
+    {
+        // （箱どうしの衝突は FilterKickPairs が歩の前に切ってある。）
+        foreach (var attacker in Fighters)
+        {
+            if (attacker.Voxels is not { } own)
+            {
+                continue;
+            }
+
+            var victim = attacker == Player ? Cpu : Player;
+            foreach (var side in Hands)
+            {
+                if (!attacker.IsKicking(side))
+                {
+                    continue;
+                }
+
+                foreach (var kicker in own.Parts.Where(p => attacker.IsKickingBody(side, p.Body.BodyId)).ToList())
+                {
+                    if (!_beforeStep.TryGetValue(kicker.Body.BodyId, out var kickerBefore))
+                    {
+                        continue;
+                    }
+
+                    var behind = KickMassBehind(attacker, side, kicker, kickerBefore);
+                    foreach (var part in VoxelPartsOf([victim]).ToList())
+                    {
+                        if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore) && MayTouch(kicker.Body, kickerBefore, part.Body, partBefore))
+                        {
+                            Kick(attacker, side, victim, kicker, part, VoxelContact.Resolve(kicker.Body, kickerBefore, part.Body, partBefore, massBehindA: behind));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>いま剛体の箱の衝突を切っている（蹴る脚の骨, 相手の部位）の組。</summary>
+    private readonly HashSet<(int Kicker, int Part)> _kickFiltered = [];
+
+    /// <summary>
+    /// 物理の 1 歩の前: 蹴っている脚の骨と相手の部位は、箱どうしでは当たらないようにする（武器・はめる物と同じ。箱は格子を囲む
+    /// 四角で、ボクセルの丸みより大きい。箱が先に止めると、ボクセルが重ならず接触（圧力のモデル）が起きない）。脚が蹴り終えたら戻す。
+    /// 当たった力は <see cref="VoxelContact.Resolve"/> の力積と <see cref="ApplyHit"/> の運動量の受け渡しが運ぶ。
+    /// </summary>
+    private void FilterKickPairs()
+    {
+        if (_kickFiltered.Count == 0 && !Fighters.Any(f => Hands.Any(f.IsKicking)))
+        {
+            return; // 蹴っている脚が無く、切った組も無い（毎歩の割り当てを避ける）
+        }
+
+        var wanted = new HashSet<(int, int)>();
+        foreach (var attacker in Fighters)
+        {
+            if (attacker.Voxels is not { } own)
+            {
+                continue;
+            }
+
+            var victim = attacker == Player ? Cpu : Player;
+            foreach (var side in Hands.Where(attacker.IsKicking))
+            {
+                foreach (var kicker in own.Parts.Where(p => attacker.IsKickingBody(side, p.Body.BodyId)))
+                {
+                    foreach (var part in VoxelPartsOf([victim]))
+                    {
+                        wanted.Add((kicker.Body.BodyId, part.Body.BodyId));
+                    }
+                }
+            }
+        }
+
+        foreach (var pair in _kickFiltered.Where(p => !wanted.Contains(p)).ToList())
+        {
+            _world.SetPairCollisionEnabled(pair.Kicker, pair.Part, true);
+            _kickFiltered.Remove(pair);
+        }
+
+        foreach (var pair in wanted)
+        {
+            if (_kickFiltered.Add(pair))
+            {
+                _world.SetPairCollisionEnabled(pair.Item1, pair.Item2, false);
+            }
+        }
+    }
+
+    /// <summary>蹴る骨の後ろで一緒に打ち込む質量 [kg]: 脚と体の有効質量（歩の前の速さの向きで）から、その骨自身を除いたもの。</summary>
+    private float KickMassBehind(Fighter attacker, Hand side, VoxelPart kicker, BodyState before)
+    {
+        var speed = before.LinearVelocity.Length();
+        if (speed < 1e-3f)
+        {
+            return 0f;
+        }
+
+        var total = attacker.KickImpactMass(side, before.Position, before.LinearVelocity / speed, out _);
+        return MathF.Max(0f, total - _world.GetMass(kicker.Body.BodyId));
+    }
+
+    private void Kick(Fighter attacker, Hand side, Fighter victim, VoxelPart kicker, VoxelPart part, VoxelContactResult hit)
+    {
+        if (!hit.Touched)
+        {
+            return;
+        }
+
+        _recentCuts.Add(hit);
+        var contactTwist = Vector3.Zero;
+        if (part.Kind == BodyPartKind.Head && part.FragmentOf is null && hit.ImpulseOnB.LengthSquared() > 0f)
+        {
+            var head = _world.GetState(part.Body.BodyId);
+            contactTwist = Vector3.Cross(hit.Point - head.Position, hit.ImpulseOnB);
+        }
+
+        if (!(part.FragmentOf is null && ScoreKick(attacker, side, victim, kicker, part, hit, contactTwist)))
+        {
+            if (contactTwist != Vector3.Zero && victim.State == FighterState.Standing)
+            {
+                victim.TwistHead(contactTwist);
+            }
+
+            NoteContact(hit);
+        }
+
+        Wound(kicker.Body, null, victim, part, hit);
+        // 蹴った脚の骨も、相手の硬い所に当たれば曲げられる・削られる（折れた脚は蹴れなくなる）。
+        if (attacker.Voxels is { } own)
+        {
+            if (hit.BentFor(kicker.Body) is { } bend && own.BreakBent(kicker.Body.BodyId, bend) is { } bent)
+            {
+                BreakBone(attacker, bent, 1f);
+            }
+
+            if (hit.RemovedA.Count > 0 && own.BreakIfSevered(kicker.Body.BodyId) is { } severed)
+            {
+                BreakBone(attacker, severed, 1f);
+            }
+        }
+    }
+
+    /// <summary>蹴りを打撃（<see cref="HitEvent"/>）として数える: 拳と同じ物差し（速さ・有効質量・部位の倍率）。数えたら true。</summary>
+    private bool ScoreKick(Fighter attacker, Hand side, Fighter victim, VoxelPart kicker, VoxelPart part, VoxelContactResult hit, Vector3 contactTwist)
+    {
+        if (RoundOver || Holding || victim.State != FighterState.Standing || _kickCooldown.GetValueOrDefault((attacker, side)) > 0f
+            || !_beforeStep.TryGetValue(kicker.Body.BodyId, out var before))
+        {
+            return false;
+        }
+
+        var velocity = before.LinearVelocity + Vector3.Cross(before.AngularVelocity, hit.Point - before.Position);
+        var speed = MathF.Max(0f, Vector3.Dot(velocity, hit.Direction));
+        if (speed <= 0f)
+        {
+            return false;
+        }
+
+        var impactMass = attacker.KickImpactMass(side, hit.Point, hit.Direction, out var bodyShare);
+        var (kind, normalized, armHand) = victim.Locate(part.Body.BodyId, hit.Point);
+        var zone = HitZones.Classify(kind, normalized, armHand.LocalSide());
+        var damage = PunchMechanics.Damage(impactMass * speed) * PunchMechanics.Sharpness(speed) * ZoneDamage.Multiplier(zone);
+        if (damage < MinimumDamage)
+        {
+            return false;
+        }
+
+        _kickCooldown[(attacker, side)] = RehitCooldown;
+        var face = hit.A == part.Body ? hit.FaceB : hit.FaceA;
+        ApplyHit(new HitEvent(attacker, side, victim, zone, hit.Point, speed, impactMass, bodyShare, damage, face, Kick: true), part.Body.BodyId, velocity, carve: false, alsoTwist: contactTwist);
+        return true;
     }
 
     /// <summary>

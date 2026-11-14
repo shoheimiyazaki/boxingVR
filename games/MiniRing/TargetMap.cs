@@ -29,6 +29,9 @@ public enum AimGoal
 
     /// <summary>ガードしている前腕（腕を壊す: 削れの進んだ方を）。</summary>
     GuardArm,
+
+    Eye,
+    BlindSide,
 }
 
 /// <summary>
@@ -38,11 +41,26 @@ public enum AimGoal
 /// </summary>
 public sealed class TargetMap(Fighter target)
 {
+    private readonly IReadOnlyDictionary<AimGoal, Vector3?>? _snapshot;
+    public VisionState Vision => _snapshot is null ? target.Voxels?.Vision ?? VisionState.Healthy : _observedVision;
+    private readonly VisionState _observedVision = VisionState.Healthy;
+
+    private TargetMap(IReadOnlyDictionary<AimGoal, Vector3?> snapshot, VisionState vision) : this(null!)
+    {
+        _snapshot = snapshot;
+        _observedVision = vision;
+    }
+
+    /// <summary>実体への参照を切った知覚の写し。細部と傷の知識は見える量に連続に縮める。</summary>
+    public TargetMap Perceived(Vector3 actualHead, Vector3 seenHead, Vector3 from, float clarity)
+        => new(Enum.GetValues<AimGoal>().ToDictionary(g => g, g => Point(g, from) is { } p
+            ? (Vector3?)(seenHead + (p - actualHead) * clarity) : null),
+            new VisionState(1f - (1f - Vision.Left) * clarity, 1f - (1f - Vision.Right) * clarity));
     private int _brainVersion = -1;
     private Vector3? _brainLocal;
 
     /// <summary>この狙いが今使えるか（露出した脳は露出しているときだけ、腕は付いているときだけ）。</summary>
-    public bool Available(AimGoal goal) => goal switch
+    public bool Available(AimGoal goal) => _snapshot is not null ? _snapshot.GetValueOrDefault(goal) is not null || goal == AimGoal.Center : goal switch
     {
         AimGoal.ExposedBrain => ExposedBrainLocal() is not null,
         AimGoal.GuardArm => !target.ArmSevered(Hand.Left) || !target.ArmSevered(Hand.Right),
@@ -52,6 +70,10 @@ public sealed class TargetMap(Fighter target)
     /// <summary>狙いの点（ワールド）。<paramref name="from"/> は打つ側の肩（こめかみ・腕は、その側から見えている方を選ぶ）。使えなければ null。</summary>
     public Vector3? Point(AimGoal goal, Vector3 from)
     {
+        if (_snapshot is not null)
+        {
+            return _snapshot.GetValueOrDefault(goal);
+        }
         var head = target.World.GetState(target.Parts.Head);
         var hh = target.HalfExtents.Head;
         var chest = target.World.GetState(target.Parts.Chest);
@@ -62,6 +84,11 @@ public sealed class TargetMap(Fighter target)
         {
             case AimGoal.Center:
                 return null;
+            case AimGoal.Eye:
+                var eyeSide = Vision.Left >= Vision.Right ? 1f : -1f;
+                return HeadAt(new Vector3(eyeSide * 0.38f * hh.X, 0.18f * hh.Y, 0.9f * hh.Z));
+            case AimGoal.BlindSide:
+                return HeadAt(new Vector3((Vision.Left < Vision.Right ? 1f : -1f) * hh.X * 0.8f, 0f, hh.Z * 0.5f));
             case AimGoal.Chin:
                 return HeadAt(new Vector3(0f, -0.75f * hh.Y, 0.85f * hh.Z));
             case AimGoal.Temple:

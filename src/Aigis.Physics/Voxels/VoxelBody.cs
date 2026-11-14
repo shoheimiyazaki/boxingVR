@@ -44,11 +44,12 @@ public sealed class VoxelBody
 {
     private readonly PhysicsWorld _world;
     private readonly float _massPerCell;
+    private readonly bool _materialMass;
     private (Vector3 Center, Vector3 Half, float Mass) _applied;
 
     /// <summary>The body must have been built as a box that matches the grid: <paramref name="grid"/>'s half extents,
     /// centred at <paramref name="gridCenterLocal"/>.</summary>
-    public VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, Vector3 gridCenterLocal = default)
+    public VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, Vector3 gridCenterLocal = default, bool materialMass = false)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(grid);
@@ -60,20 +61,33 @@ public sealed class VoxelBody
         var mass = world.GetMass(bodyId);
         _massPerCell = mass / cells;
         _applied = (gridCenterLocal, grid.HalfExtents, mass);
+        _materialMass = materialMass;
+        if (materialMass)
+        {
+            UpdateMass();
+        }
     }
 
-    private VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, float massPerCell)
+    private VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, float massPerCell, bool materialMass)
     {
         _world = world;
         BodyId = bodyId;
         Grid = grid;
         _massPerCell = massPerCell;
+        _materialMass = materialMass;
         _applied = (Vector3.Zero, grid.HalfExtents, world.GetMass(bodyId));
     }
 
     public int BodyId { get; }
 
-    public VoxelGrid Grid { get; }
+    public VoxelGrid Grid { get; private set; }
+
+    /// <summary>Changes the contact shape without moving the rigid body or its joints.</summary>
+    public void ReplaceGrid(VoxelGrid grid)
+    {
+        ArgumentNullException.ThrowIfNull(grid);
+        Grid = grid;
+    }
 
     /// <summary>
     /// The axis (0/1/2) along which this body is a beam held by its load-bearing cells (a limb: the bone carries the bending,
@@ -469,12 +483,12 @@ public sealed class VoxelBody
         // The new body is built around the piece's own grid (origin = grid centre).
         var pieceCenterLocal = GridCenterLocal + piece.CenterOffset;
         var pieceWorld = s.Position + Vector3.Transform(pieceCenterLocal, s.Orientation);
-        var pieceMass = MathF.Max(1e-4f, _massPerCell * piece.Piece.FilledCount);
+        var pieceMass = MassOf(piece.Piece);
         var id = _world.AddDynamicBox(pieceWorld, s.Orientation, piece.Piece.HalfExtents, pieceMass);
         _world.CopyCollisionFilter(BodyId, id);
         _world.SetLinearVelocity(id, s.LinearVelocity + Vector3.Cross(s.AngularVelocity, pieceWorld - s.Position));
         _world.SetAngularVelocity(id, s.AngularVelocity);
-        var fragment = new VoxelBody(_world, id, piece.Piece, _massPerCell);
+        var fragment = new VoxelBody(_world, id, piece.Piece, _massPerCell, _materialMass);
         fragment.UpdateMass();
         UpdateMass();
         return fragment;
@@ -488,18 +502,36 @@ public sealed class VoxelBody
     {
         var bounds = Grid.OccupiedBounds();
         var cells = Grid.FilledCount;
-        var mass = MathF.Max(1e-4f, _massPerCell * Math.Max(1, cells));
+        var mass = MassOf(Grid);
         var (center, half) = bounds ?? (Vector3.Zero, Grid.CellSize * 0.5f);
         var wantCenter = GridCenterLocal + center;
         // Only rebuild the collider when it actually changes (the rebuild is not free): a crater that does not move the
         // bounding box changes only the mass, and a small change in mass is not worth a rebuild either.
         var sameShape = Vector3.DistanceSquared(_applied.Center, wantCenter) < 1e-10f && Vector3.DistanceSquared(_applied.Half, half) < 1e-10f;
-        if (sameShape && MathF.Abs(_applied.Mass - mass) <= 0.02f * _applied.Mass)
+        if (sameShape && MathF.Abs(_applied.Mass - mass) <= (_materialMass ? 1e-6f : 0.02f) * _applied.Mass)
         {
             return;
         }
 
         _world.ReshapeDynamicBox(BodyId, wantCenter, half, mass);
         _applied = (wantCenter, half, mass);
+    }
+
+    private float MassOf(VoxelGrid grid)
+    {
+        if (!_materialMass)
+        {
+            return MathF.Max(1e-4f, _massPerCell * Math.Max(1, grid.FilledCount));
+        }
+        var volume = grid.CellSize.X * grid.CellSize.Y * grid.CellSize.Z;
+        var mass = 0f;
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            if (grid.MaterialAt(i) != 0)
+            {
+                mass += grid.Palette[grid.MaterialAt(i)].MechanicsOrDefault.Density * volume;
+            }
+        }
+        return MathF.Max(1e-4f, mass);
     }
 }

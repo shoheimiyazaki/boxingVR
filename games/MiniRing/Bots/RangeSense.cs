@@ -38,7 +38,7 @@ internal sealed class RangeSense
     /// </summary>
     public void Update(in FighterSense sense, Vector3 head, bool attacking, BotStyle style, float dt)
     {
-        var reach = sense.ArmReach;
+        var reach = sense.OpponentArmReach > 0f ? sense.OpponentArmReach : sense.ArmReach;
         var shoulder = sense.OpponentChest + new Vector3(0f, 0.25f * reach, 0f);
         var toMe = head - shoulder;
         var distance = toMe.Length();

@@ -223,6 +223,36 @@ public sealed class VoxelGrid
 
     public int CellCount => _cells.Length;
 
+    public float TotalHealth => _health.Sum();
+
+    public (byte Material, float Health, bool Surface, float Stain) CellState(int index)
+        => (_cells[index], _health[index], _surface[index], _stain[index]);
+
+    /// <summary>Transfers complete tissue state when a contact shape is rearranged.</summary>
+    public void SetCellState(int index, (byte Material, float Health, bool Surface, float Stain) state)
+    {
+        if (state.Material >= Palette.Count || !float.IsFinite(state.Health) || state.Health < 0f || !float.IsFinite(state.Stain))
+        {
+            throw new ArgumentOutOfRangeException(nameof(state));
+        }
+
+        if (_cells[index] != 0)
+        {
+            _remaining[_cells[index]]--;
+        }
+
+        _cells[index] = state.Material;
+        _health[index] = state.Material == 0 ? 0f : state.Health;
+        _surface[index] = state.Surface;
+        _stain[index] = state.Stain;
+        if (state.Material != 0)
+        {
+            _remaining[state.Material]++;
+        }
+
+        Version++;
+    }
+
     /// <summary>Cells of this material left now.</summary>
     public int Remaining(byte material) => _remaining[material];
 
@@ -419,6 +449,9 @@ public sealed class VoxelGrid
 
     /// <summary>The material at a cell index.</summary>
     public byte MaterialAt(int index) => _cells[index];
+
+    /// <summary>Remaining tissue health in a cell (zero after removal).</summary>
+    public float HealthAt(int index) => _health[index];
 
     /// <summary>
     /// Breaks one filled cell away whole (crushed or cut by a contact, not worn down like <see cref="Carve"/>), adds it to

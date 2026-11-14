@@ -3,8 +3,8 @@ using MiniRing.Bots;
 
 namespace MiniRing;
 
-/// <summary>相手基準の方向（X は右、Y は前）と行動。キー名を持たないホスト境界。</summary>
-public readonly record struct FighterIntent(Vector2 Direction, bool Light = false, bool Heavy = false, bool Evade = false);
+/// <summary>技選択の方向と行動。MoveWorld を指定すると移動だけワールド基準にする。</summary>
+public readonly record struct FighterIntent(Vector2 Direction, bool Light = false, bool Heavy = false, bool Evade = false, Vector3? MoveWorld = null);
 
 /// <summary>操作の時間・間合いの設定。威力の倍率は持たない。</summary>
 public sealed record IntentTuning
@@ -52,6 +52,7 @@ public sealed class IntentControl : IFighterControl
     private float _defenseClock;
     private float _counterUntil = float.NegativeInfinity;
     private float _defenseSide = 1f;
+    private Vector3? _sideStepWorld;
     private float? _stanceY;
     private PunchKind _kind;
     private Defense _lastDefense;
@@ -68,7 +69,8 @@ public sealed class IntentControl : IFighterControl
         get => _input;
         set
         {
-            if (!float.IsFinite(value.Direction.X) || !float.IsFinite(value.Direction.Y))
+            if (!float.IsFinite(value.Direction.X) || !float.IsFinite(value.Direction.Y)
+                || (value.MoveWorld is { } world && (!float.IsFinite(world.X) || !float.IsFinite(world.Y) || !float.IsFinite(world.Z))))
             {
                 throw new ArgumentOutOfRangeException(nameof(value), "方向は有限値で指定してください。");
             }
@@ -98,7 +100,7 @@ public sealed class IntentControl : IFighterControl
         _read.Observe(sense, dt);
         var face = sense.OpponentChest - self.Origin;
         var facing = new BodyFrame(self.Origin, BodyFrame.YawOf(face, self.YawRadians));
-        var move = (facing.Right * Input.Direction.X) + (facing.Forward * Input.Direction.Y);
+        var move = Input.MoveWorld ?? ((facing.Right * Input.Direction.X) + (facing.Forward * Input.Direction.Y));
         if (!sense.OpponentAlive)
         {
             CancelAttack();
@@ -180,7 +182,9 @@ public sealed class IntentControl : IFighterControl
         {
             var defense = _style.Defenses.Of(CurrentDefense);
             head = TechniqueExecution.DefenseHead(defense, _defenseSide, _defenseClock / defense.Duration) * reach;
-            move += (facing.Forward * defense.Move) + (facing.Rotate(Vector3.UnitX) * (defense.Step * _defenseSide));
+            var stepDirection = CurrentDefense == Defense.SideStep && _sideStepWorld is { } world
+                ? world : facing.Right * _defenseSide;
+            move += (facing.Forward * defense.Move) + (stepDirection * defense.Step);
             var stanceY = _stanceY.Value - self.Origin.Y;
             if (!_left.Active)
             {
@@ -332,7 +336,15 @@ public sealed class IntentControl : IFighterControl
             ? BoxerBot.Classify(sense.Self.InverseRotate(glove.Velocity), glove.Position.Y < sense.OpponentChest.Y)
             : forecast.Kind;
         _defenseSide = sense.Self.WorldToLocal(glove.Position).X >= 0f ? -1f : 1f;
+        var lateral = MathF.Abs(Input.Direction.X) > MathF.Abs(Input.Direction.Y);
+        if (lateral)
+        {
+            _defenseSide = MathF.Sign(Input.Direction.X);
+        }
+        var horizontal = Input.MoveWorld is { } move ? new Vector3(move.X, 0f, move.Z) : Vector3.Zero;
+        _sideStepWorld = lateral && horizontal.LengthSquared() > 1e-6f ? Vector3.Normalize(horizontal) : null;
         CurrentDefense = Input.Direction == Vector2.Zero ? Defense.Block
+            : lateral ? Defense.SideStep
             : Input.Direction.Y < 0f ? Defense.Sway
             : DefenseBook.Evasions.Where(d => d is Defense.Slip or Defense.Duck or Defense.Weave)
                 .OrderByDescending(d => _style.Defenses.Of(d).Against(_kind))

@@ -1,0 +1,35 @@
+  Aigis.Foundation -> E:\repos\ClaudeProjects\myvrgame1\src\Aigis.Foundation\bin\Release\net10.0\Aigis.Foundation.dll
+  Aigis.Platform -> E:\repos\ClaudeProjects\myvrgame1\src\Aigis.Platform\bin\Release\net10.0\Aigis.Platform.dll
+  Aigis.Audio -> E:\repos\ClaudeProjects\myvrgame1\src\Aigis.Audio\bin\Release\net10.0\Aigis.Audio.dll
+  Aigis.Physics -> E:\repos\ClaudeProjects\myvrgame1\src\Aigis.Physics\bin\Release\net10.0\Aigis.Physics.dll
+  Aigis.Render -> E:\repos\ClaudeProjects\myvrgame1\src\Aigis.Render\bin\Release\net10.0\Aigis.Render.dll
+  Aigis.Player -> E:\repos\ClaudeProjects\myvrgame1\src\Aigis.Player\bin\Release\net10.0\aigis-player.dll
+  MiniRing -> E:\repos\ClaudeProjects\myvrgame1\games\MiniRing\bin\Release\net10.0\MiniRing.dll
+  MiniRing.Vr -> E:\repos\ClaudeProjects\myvrgame1\games\MiniRing.Vr\bin\Release\net10.0\miniring-vr.dll
+  MiniRing.Tests -> E:\repos\ClaudeProjects\myvrgame1\tests\MiniRing.Tests\bin\Release\net10.0\MiniRing.Tests.dll
+E:\repos\ClaudeProjects\myvrgame1\tests\MiniRing.Tests\bin\Release\net10.0\MiniRing.Tests.dll (.NETCoreApp,Version=v10.0) のテスト実行
+合計 1 個のテスト ファイルが指定されたパターンと一致しました。
+E:\repos\ClaudeProjects\myvrgame1\tests\MiniRing.Tests\bin\Release\net10.0\MiniRing.Tests.dll
+  成功 BareFist_CloseUp_FromFrontAndPalm [2 s]
+  成功 BareFist_HasTwoLeadingKnuckles_WithBoneUnderThinSkin [19 ms]
+  成功 SameBlow_KnucklesConcentrateDamageComparedWithPalm_AndHurtTheirOwnSkin (7) [400 ms]
+  標準出力メッセージ:
+ 
+ 
+ TestContext メッセージ:
+ old=(56, 0, 0.012499999, 365890.06), knuckle=(50, 3, 0.012499999, 2549110.8), palm=(36, 0, 0.0075000003, 292034.06)
+
+
+  成功 SameBlow_KnucklesConcentrateDamageComparedWithPalm_AndHurtTheirOwnSkin (8) [344 ms]
+  標準出力メッセージ:
+ 
+ 
+ TestContext メッセージ:
+ old=(196, 140, 0.0325, 1212792.8), knuckle=(116, 20, 0.022499999, 1719593.4), palm=(36, 0, 0.0075000003, 323014.3)
+
+
+
+テストの実行に成功しました。
+テストの合計数: 4
+     成功: 4
+合計時間: 7.5144 秒

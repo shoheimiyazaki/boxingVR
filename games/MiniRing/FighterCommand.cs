@@ -26,7 +26,7 @@ public static class HandExtensions
 /// ローカル X が打つ側の先）。拳が位置の目標へバネで引かれるのと同じく、手首の筋肉が武器をこの向きへバネで回す。null なら前腕に沿わせる。</para>
 /// <para><paramref name="LetGo"/> は、その手が握っている武器（添えている武器）を放す。放した手は素手の拳になる（はめた物は外せない）。</para>
 /// </summary>
-public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float Spring = 0f, Quaternion? Orientation = null, bool LetGo = false);
+public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float Spring = 0f, Quaternion? Orientation = null, bool LetGo = false, HandShape Shape = HandShape.Seiken);
 
 /// <summary>
 /// 1 ステップ分の操作指令 — 入力元（VR / キーボード / AI）とラグドールの唯一の契約。
@@ -35,9 +35,11 @@ public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float 
 /// スリップ（横傾き）、下げればダッキング（沈み込み）。体の軸の向きは両手の位置とこの頭の位置から決まる。</para>
 /// <para><paramref name="TwistBias"/> は胴のひねりの上乗せ [rad]（正で右肩が前）。拳より先に腰と肩を回す（打つ前の溜め: 打つ手の肩を後ろへ引いて胴のバネを縮め、打ち出すと前へ回す）のに使う。</para>
 /// </summary>
-public readonly record struct FighterCommand(Vector3 MoveWorld, Vector3 FaceDirection, HandCommand Left, HandCommand Right, Vector3 HeadOffset = default, float TwistBias = 0f)
+public readonly record struct FighterCommand(Vector3 MoveWorld, Vector3 FaceDirection, HandCommand Left, HandCommand Right, Vector3 HeadOffset = default, float TwistBias = 0f, LegCommand? LeftLeg = null, LegCommand? RightLeg = null)
 {
     public HandCommand For(Hand hand) => hand == Hand.Left ? Left : Right;
+
+    public LegCommand? LegFor(Hand leg) => leg == Hand.Left ? LeftLeg : RightLeg;
 
     /// <summary>水平・長さ 1 以下に正規化した移動指令。</summary>
     public Vector3 ClampedMove
@@ -94,7 +96,8 @@ public readonly record struct FighterSense(
     BodyFrame Self, float ArmReach, Vector3 OpponentHead, Vector3 OpponentChest, bool OpponentAlive,
     Vector3 SelfHead = default, GloveSense OpponentLeft = default, GloveSense OpponentRight = default, Vector3 OpponentVelocity = default,
     BodySense OpponentBody = default, float SelfFaintness = 0f, BladeSense OpponentBlade = default, bool? SelfArmed = null,
-    TargetMap? OpponentTargets = null, RingLayout? Ring = null, WeaponSense SelfWeapon = default, float SelfStamina = 1f)
+    TargetMap? OpponentTargets = null, RingLayout? Ring = null, WeaponSense SelfWeapon = default, float SelfStamina = 1f,
+    VisionState? SelfVision = null, VisionState? OpponentVision = null, float OpponentArmReach = 0f)
 {
     public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
 

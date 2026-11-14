@@ -206,6 +206,21 @@ public sealed record BotStyle
     /// <summary>気づいた拳に守りを出す確率。</summary>
     public float DefenseRate { get; init; } = 0.55f;
 
+    /// <summary>キャラの顔の部位の寸法（null ならリングネームから決まる顔 <see cref="Voxels.FaceParts.For"/>）。</summary>
+    public Voxels.FaceParts? Face { get; init; }
+
+    /// <summary>キャラの体格（身長・腕・脚・筋肉の太さ。null なら基準体格）。</summary>
+    public BodyBuild? Build { get; init; }
+
+    /// <summary>Probability of selecting a kick. Zero preserves the old random sequence.</summary>
+    public float KickRate { get; init; }
+    /// <summary>Kick goal cycle duration in seconds.</summary>
+    public float KickDuration { get; init; } = 0.7f;
+    public SwordDefense Parry { get; init; } = SwordDefense.Parrying with { ThreatSpeed = 0.8f, Margin = 0.4f, Clearance = 0.18f };
+    public IReadOnlyDictionary<KickTechnique, float> KickWeights { get; init; } = new Dictionary<KickTechnique, float>();
+    public float ParryWeight { get; init; }
+    public IReadOnlyDictionary<HandShape, float> HandShapeWeights { get; init; } = new Dictionary<HandShape, float>();
+
     public float BlockWeight { get; init; } = 1f;
     public float DuckWeight { get; init; } = 0.5f;
     public float SlipWeight { get; init; } = 0.5f;
@@ -215,6 +230,7 @@ public sealed record BotStyle
     public float SideStepWeight { get; init; }
     public float SlipInWeight { get; init; }
     public float RollWeight { get; init; }
+    /// <summary>拳の横を手で押して軌道を外す好み。既存のボクサーは使わない。</summary>
 
     /// <summary>防御技それぞれの動き（頭・足・拳）。防御ドリルで最適化した値を持つ。</summary>
     public DefenseBook Defenses { get; init; } = DefenseBook.Default;
@@ -231,6 +247,7 @@ public sealed record BotStyle
     public float Weight(Defense defense) => defense switch
     {
         Defense.Block => BlockWeight,
+        Defense.Parry => ParryWeight,
         Defense.Duck => DuckWeight,
         Defense.Slip => SlipWeight,
         Defense.Sway => SwayWeight,
@@ -292,6 +309,14 @@ public sealed record BotStyle
             GuardReach = Range(GuardReach, 0.3f, 1.5f, 1f),
             ReactionTime = Range(ReactionTime, MinReactionTime, 0.5f, 0.5f),
             DefenseRate = Range(DefenseRate, 0f, MaxDefenseRate, 0f),
+            Face = Face?.Validate(),
+            Build = Build?.Validate(),
+            KickRate = Unit(KickRate),
+            KickDuration = Range(KickDuration, 0.4f, 1.2f, 0.7f),
+            Parry = Parry ?? SwordDefense.Parrying,
+            KickWeights = (KickWeights ?? new Dictionary<KickTechnique, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
+            HandShapeWeights = (HandShapeWeights ?? new Dictionary<HandShape, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
+            ParryWeight = NonNegative(ParryWeight),
             BlockWeight = NonNegative(BlockWeight),
             DuckWeight = NonNegative(DuckWeight),
             SlipWeight = NonNegative(SlipWeight),

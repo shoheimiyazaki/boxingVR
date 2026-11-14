@@ -10,6 +10,63 @@ namespace MiniRing.Tests;
 public sealed class ReplayTests
 {
     [TestMethod]
+    public void Replay_PreservesCustomMatchSettings()
+    {
+        var corners = Bots.BotCatalog.Corners("boxer") with
+        {
+            PlayerWear = Weapons.HandWear.None,
+            CpuWear = Weapons.HandWear.Katar,
+            PlayerBody = new BodyBuild(1.1f, 1.2f),
+            Ring = new RingLayout(2f, 0.8f),
+        };
+        var rules = new MatchRules { RestGuardDrop = new Vector3(0.1f, -0.2f, 0.3f) };
+        using var game = new BoxingGame(seed: 11, corners: corners, rules: rules);
+        using var stream = new MemoryStream();
+        using (var recorder = new ReplayRecorder(stream, game, "test")) { }
+        var header = ReplayFile.Read(new MemoryStream(stream.ToArray())).Header;
+        Assert.AreEqual(corners.PlayerWear, header.Corners.PlayerWear);
+        Assert.AreEqual(corners.CpuWear, header.Corners.CpuWear);
+        Assert.AreEqual(corners.PlayerBody, header.Corners.PlayerBody);
+        Assert.AreEqual(corners.Ring, header.Corners.Ring);
+        Assert.AreEqual(rules.RestGuardDrop, header.MatchSettings!.Rules!.RestGuardDrop);
+    }
+
+    [TestMethod]
+    public void Replay_PreservesHandShapesAndLegCommands()
+    {
+        var command = new FighterCommand(Vector3.Zero, Vector3.UnitZ,
+            new HandCommand(Vector3.One, false, Shape: HandShape.KnifeHand),
+            new HandCommand(Vector3.Zero, true, Shape: HandShape.SpearHand),
+            LeftLeg: new LegCommand(new Vector3(0.1f, 0.2f, 0.3f), new Vector3(0.4f, 0.5f, 0.6f), Quaternion.Identity, 0.7f),
+            RightLeg: new LegCommand(new Vector3(-0.1f, 0.2f, 0.3f)));
+        using var game = new BoxingGame(seed: 13, corners: Bots.BotCatalog.Corners("boxer") with
+        {
+            PlayerWear = Weapons.HandWear.None,
+            CpuWear = Weapons.HandWear.None,
+        });
+        using var stream = new MemoryStream();
+        using (var recorder = new ReplayRecorder(stream, game, "test"))
+        {
+            for (var i = 0; i < 120; i++)
+            {
+                recorder.Step(game, new BoxingInput(command), 1f / 60f);
+            }
+        }
+
+        var data = ReplayFile.Read(new MemoryStream(stream.ToArray()));
+        Assert.AreEqual(command, data.Steps[0].Input.Player);
+        using var player = new ReplayPlayer(data);
+        while (!player.Finished)
+        {
+            player.StepOnce();
+        }
+
+        Assert.IsNull(player.FirstDivergence);
+        Assert.IsGreaterThan(0, player.ChecksumsMatched);
+        Assert.AreEqual(game.StateChecksum(), player.Game.StateChecksum());
+    }
+
+    [TestMethod]
     public void RecordedMatch_ReplaysBitForBit()
     {
         var (bytes, finalChecksum, steps) = RecordMatch(seed: 5, seconds: 20f, variableDt: false);

@@ -144,6 +144,66 @@ public sealed record FleshBridge(VoxelBody Stub, VoxelBody Fragment, IReadOnlyLi
 /// </summary>
 public sealed class BoxerBody
 {
+    private (int Version, VisionState State)? _vision;
+
+    /// <summary>眼球・黒目の元の位置ごとの残存 HP。同じ組織が残る割合を左右別に数える。</summary>
+    public VisionState Vision
+    {
+        get
+        {
+            var head = _parts.Single(p => p.Kind == BodyPartKind.Head);
+            var grid = head.Body.Grid;
+            if (_vision is { } cached && cached.Version == grid.Version)
+            {
+                return cached.State;
+            }
+            var original = _originals[head];
+            float left = 0f, right = 0f, fullLeft = 0f, fullRight = 0f;
+            for (var i = 0; i < original.Materials.Length; i++)
+            {
+                var material = original.Materials[i];
+                if (material is not (BoxerAnatomy.Eye or BoxerAnatomy.Pupil))
+                {
+                    continue;
+                }
+                var (x, y, z) = grid.Coordinates(i);
+                var full = grid.Palette[material].Toughness;
+                var remaining = grid.MaterialAt(i) == material ? Math.Clamp(grid.HealthAt(i), 0f, full) : 0f;
+                if (grid.CellCenter(x, y, z).X > 0f)
+                {
+                    fullLeft += full;
+                    left += remaining;
+                }
+                else
+                {
+                    fullRight += full;
+                    right += remaining;
+                }
+            }
+            var state = new VisionState(fullLeft > 0f ? left / fullLeft : 0f, fullRight > 0f ? right / fullRight : 0f);
+            _vision = (grid.Version, state);
+            return state;
+        }
+    }
+    /// <summary>ドリル・テスト用: その側（+X が左）の目の白目・黒目を全部潰す（打撃で潰れたのと同じ、セルを空にする）。</summary>
+    public void DestroyEye(bool left)
+    {
+        var grid = _parts.Single(p => p.Kind == BodyPartKind.Head).Body.Grid;
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            if (grid.MaterialAt(i) is not (BoxerAnatomy.Eye or BoxerAnatomy.Pupil))
+            {
+                continue;
+            }
+
+            var (x, y, z) = grid.Coordinates(i);
+            if ((grid.CellCenter(x, y, z).X > 0f) == left)
+            {
+                grid.SetCellState(i, (0, 0f, false, 0f));
+            }
+        }
+    }
+
     private readonly Dictionary<int, VoxelPart> _byBody = [];
     private readonly List<VoxelPart> _parts = [];
     private readonly List<VoxelPart> _fragments = [];
@@ -173,7 +233,26 @@ public sealed class BoxerBody
         foreach (var id in fighter.AllParts)
         {
             var kind = fighter.KindOf(id);
-            var grid = BoxerAnatomy.Build(kind, fighter.HalfExtentsOf(id), tuning.VoxelSize, shapes?.Mesh(kind), outfit, overrides);
+            var half = fighter.HalfExtentsOf(id);
+            var sourceHalf = half / tuning.Build.ScaleOf(kind);
+            // 同じ材質セルを伸縮する。太さを変えてセルを増やすと解像度と筋肉量が混ざる。
+            var sourceShape = shapes?.Mesh(kind);
+            if (tuning.Build != BodyBuild.Standard)
+            {
+                sourceShape = LowPoly.BoxerModel.Build((tuning with { Build = BodyBuild.Standard }).HalfExtents, tuning.ModelSubdivisions).Mesh(kind);
+            }
+            var source = BoxerAnatomy.Build(kind, sourceHalf, tuning.VoxelSize, sourceShape, outfit, overrides);
+            var grid = source;
+            if (half != sourceHalf)
+            {
+                grid = new VoxelGrid(source.Palette, half, source.Dimensions, (point, _) =>
+                {
+                    var c = (point + half) / (2f * half);
+                    return source.At(Math.Clamp((int)(c.X * source.Dimensions.X), 0, source.Dimensions.X - 1),
+                        Math.Clamp((int)(c.Y * source.Dimensions.Y), 0, source.Dimensions.Y - 1),
+                        Math.Clamp((int)(c.Z * source.Dimensions.Z), 0, source.Dimensions.Z - 1));
+                });
+            }
             if (look is not null)
             {
                 lookPalette ??= look.Palette(grid.Palette);
@@ -187,7 +266,7 @@ public sealed class BoxerBody
                 _ => ((int?)null, false),
             };
             // 腕・脚は骨で曲げを受ける梁（肉は質量だけ）: 打撃の曲げが骨の強さを超えた所で折れる（VoxelContact が場所を返す）。
-            var part = new VoxelPart(kind, new VoxelBody(world, id, grid) { BeamAxis = axis }, VoxelVolume.For(grid), axis, distalHigh);
+            var part = new VoxelPart(kind, new VoxelBody(world, id, grid, materialMass: false) { BeamAxis = axis }, VoxelVolume.For(grid), axis, distalHigh);
             _parts.Add(part);
             _byBody[id] = part;
             AddOrganSites(part);
@@ -424,8 +503,69 @@ public sealed class BoxerBody
 
     public VoxelPart? PartOf(int bodyId) => _byBody.GetValueOrDefault(bodyId);
 
-    /// <summary>その部位の力（肉の残りの割合、0..1）。知らない剛体なら 1。</summary>
-    public float Muscle(int bodyId) => _byBody.TryGetValue(bodyId, out var part) ? part.Body.Grid.Fraction(VoxelTissue.Flesh) : 1f;
+    /// <summary>
+    /// その部位の力（残った筋肉の断面の割合、0..1）。知らない剛体なら 1。
+    /// 腕・脚（梁の軸のある部位）は、軸に沿った薄切りごとの肉（皮膚と筋肉）の残りを数え、いちばん細い半分の薄切り（肉のセルが最大の 4 分の 1 未満の端は除く）の平均を取る:
+    /// 筋肉は直列に力を伝えるので、どこか 1 か所が細くなればそこで力が決まる（体積の割合では、ごく一部が深く削れても力が落ちなかった）。
+    /// 一様に削れた部位では体積の割合と同じ。軸のない部位（頭・胴）は体積の割合。
+    /// </summary>
+    public float Muscle(int bodyId)
+    {
+        if (!_byBody.TryGetValue(bodyId, out var part))
+        {
+            return 1f;
+        }
+
+        var grid = part.Body.Grid;
+        if (part.Body.BeamAxis is not { } axis || !_originals.TryGetValue(part, out var original))
+        {
+            return grid.Fraction(VoxelTissue.Flesh);
+        }
+
+        if (_sectionCache.TryGetValue(bodyId, out var cached) && cached.Version == grid.Version)
+        {
+            return cached.Value;
+        }
+
+        var dims = grid.Dimensions;
+        var slices = axis == 0 ? dims.X : axis == 1 ? dims.Y : dims.Z;
+        var initial = new int[slices];
+        var left = new int[slices];
+        var palette = grid.Palette;
+        for (var i = 0; i < original.Materials.Length; i++)
+        {
+            var was = original.Materials[i];
+            if (was == 0 || palette[was].Tissue != VoxelTissue.Flesh)
+            {
+                continue;
+            }
+
+            var (x, y, z) = grid.Coordinates(i);
+            var slice = axis == 0 ? x : axis == 1 ? y : z;
+            initial[slice]++;
+            var now = grid.AtIndex(i);
+            left[slice] += now != 0 && palette[now].Tissue == VoxelTissue.Flesh ? 1 : 0;
+        }
+
+        // 丸い端・骨が断面の大半を占める所の薄切り（肉のセルが少ない）は数えない: 1 セル欠けただけで割合が大きく動くため。
+        var thick = initial.Max();
+        var fractions = new List<float>();
+        for (var k = 0; k < slices; k++)
+        {
+            if (initial[k] > 0 && initial[k] * 4 >= thick)
+            {
+                fractions.Add((float)left[k] / initial[k]);
+            }
+        }
+
+        fractions.Sort();
+        var weakest = Math.Max(1, (fractions.Count + 1) / 2);
+        var value = fractions.Count == 0 ? 1f : fractions.Take(weakest).Average();
+        _sectionCache[bodyId] = (grid.Version, value);
+        return value;
+    }
+
+    private readonly Dictionary<int, (int Version, float Value)> _sectionCache = [];
 
     /// <summary>
     /// 脳の働き（0..1）: 脳が削られた割合 <c>lost</c> について <c>0.5^(lost / halvingLoss)</c>。無傷で 1、

@@ -40,7 +40,8 @@ public sealed class ReplayRecorder : IDisposable
 
         _writer = new BinaryWriter(output);
         ReplayFile.WriteHeader(_writer, new ReplayHeader(game.Seed, JsonSerializer.Serialize(game.Tuning), host, AppVersion, DateTime.UtcNow,
-            game.CpuName, game.CpuStyleJson ?? "", game.CpuStyleJson is null ? 0 : Bots.BoxerBot.LogicVersion));
+            game.CpuName, game.CpuStyleJson ?? "", game.CpuStyleJson is null ? 0 : Bots.BoxerBot.LogicVersion,
+            MatchSettings: ReplayMatchSettings.From(game.InitialCorners, game.Rules)));
         _writer.Flush();
     }
 

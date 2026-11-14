@@ -4,23 +4,31 @@ namespace MiniRing.Bots;
 /// 対戦に出すボット: 名前と、ラウンドごとに新しい操作元を作る関数。<paramref name="Weapon"/> を渡すと右手に武器を握って戦う
 /// （<paramref name="TwoHanded"/> なら左手を添えて両手で）。
 /// </summary>
-public sealed record Contender(string Name, Func<int, IFighterControl> Create, Weapons.WeaponKind? Weapon = null, bool TwoHanded = false)
+public sealed record Contender(string Name, Func<int, IFighterControl> Create, Weapons.WeaponKind? Weapon = null, bool TwoHanded = false,
+    BodyBuild? Build = null, Voxels.FaceParts? Face = null)
 {
     public static Contender Of(BotStyle style)
     {
         ArgumentNullException.ThrowIfNull(style);
         var validated = style.Validated();
-        return new Contender(validated.Name, seed => new BoxerBot(validated, seed));
+        return new Contender(validated.Name, seed => new BoxerBot(validated, seed), Build: validated.Build, Face: validated.Face);
     }
 
     public static Contender Named(string name) => new(name, seed => BotCatalog.Create(name, seed));
 }
 
-/// <summary>1 試合の条件。<paramref name="Red"/> はプレイヤー側、<paramref name="Blue"/> は CPU 側のコーナー。</summary>
-public sealed record BoutSpec(Contender Red, Contender Blue, int Seed, float Seconds);
+/// <summary>1 試合の条件（<paramref name="Setup"/> は最初のラウンドの始めに 1 回だけ呼ぶ。ラウンドごとに世界は作り直される）。<paramref name="Red"/> はプレイヤー側、<paramref name="Blue"/> は CPU 側のコーナー。</summary>
+public sealed record BoutSpec(Contender Red, Contender Blue, int Seed, float Seconds, Action<BoxingGame>? Setup = null);
 
-/// <summary>片方のコーナーの成績。<paramref name="Stats"/> はボットが数えた技・守りの内訳（legacy は空）。</summary>
-public sealed record CornerResult(int RoundsWon, float DamageDealt, int Landed, int CleanHits, int Knockdowns, BotStats Stats);
+/// <summary>片方のコーナーの成績。</summary>
+/// <param name="RoundsWon">取ったラウンド数。</param>
+/// <param name="DamageDealt">与えたダメージ。</param>
+/// <param name="Landed">当てた数。</param>
+/// <param name="CleanHits">ガードに当たらなかった数。</param>
+/// <param name="Knockdowns">取ったダウン。</param>
+/// <param name="Stats">ボットが数えた技・守りの内訳（legacy は空）。</param>
+/// <param name="EyeLoss">この試合でこのコーナーが目を失った最大の割合（0 = 両目無事 … 1 = 両目とも潰された。<see cref="VisionState.Binocular"/> から）。</param>
+public sealed record CornerResult(int RoundsWon, float DamageDealt, int Landed, int CleanHits, int Knockdowns, BotStats Stats, float EyeLoss = 0f);
 
 /// <summary>1 試合の結果。</summary>
 public sealed record BoutResult(BoutSpec Spec, CornerResult Red, CornerResult Blue)
@@ -60,8 +68,10 @@ public static class BotArena
         var corners = new BoxingCorners(spec.Blue.Name,
             seed => Track(blueBots, Fallback(spec.Blue, seed)),
             seed => Track(redBots, Fallback(spec.Red, seed)), CpuWeapon: spec.Blue.Weapon, PlayerWeapon: spec.Red.Weapon,
-            CpuTwoHanded: spec.Blue.TwoHanded, PlayerTwoHanded: spec.Red.TwoHanded);
+            CpuTwoHanded: spec.Blue.TwoHanded, PlayerTwoHanded: spec.Red.TwoHanded,
+            PlayerName: spec.Red.Name, PlayerBody: spec.Red.Build, CpuBody: spec.Blue.Build, PlayerFace: spec.Red.Face, CpuFace: spec.Blue.Face);
         using var game = new BoxingGame(tuning, spec.Seed, corners);
+        spec.Setup?.Invoke(game); // 目を潰しておくなど、試合の始めの条件（省略なら何もしない）
 
         var red = new Tally();
         var blue = new Tally();
@@ -89,6 +99,8 @@ public static class BotArena
                 tally.Clean += hit.Zone != HitZone.Guard ? 1 : 0;
             }
 
+            red.EyeLoss = MathF.Max(red.EyeLoss, 1f - (game.Player.Voxels?.Vision.Binocular ?? 1f));
+            blue.EyeLoss = MathF.Max(blue.EyeLoss, 1f - (game.Cpu.Voxels?.Vision.Binocular ?? 1f));
             if (game.Round != round)
             {
                 round = game.Round;
@@ -169,6 +181,7 @@ public static class BotArena
         public int Landed;
         public int Clean;
         public int Knockdowns;
+        public float EyeLoss;
 
         public CornerResult Result(int roundsWon, IEnumerable<IFighterControl> bots)
         {
@@ -178,7 +191,7 @@ public static class BotArena
                 stats.Merge(bot.Stats);
             }
 
-            return new CornerResult(roundsWon, Damage, Landed, Clean, Knockdowns, stats);
+            return new CornerResult(roundsWon, Damage, Landed, Clean, Knockdowns, stats, EyeLoss);
         }
     }
 }

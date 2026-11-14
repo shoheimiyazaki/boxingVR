@@ -11,6 +11,28 @@ public sealed class IntentControlTests
         new(0f, 0.06f, 0.27f), new(0f, 0f, 0.27f), true, new(0f, 0.06f, 0f));
 
     [TestMethod]
+    public void LateralEvade_StepsInRequestedDirection()
+    {
+        foreach (var side in new[] { -1f, 1f })
+        {
+            var control = new IntentControl { Input = new FighterIntent(new Vector2(side, 0f), Evade: true) };
+            var command = control.Read(Sense, Dt);
+            Assert.AreEqual(Defense.SideStep, control.CurrentDefense);
+            Assert.IsGreaterThan(1f, Vector3.Dot(command.MoveWorld, Sense.Self.Right) * side);
+        }
+    }
+
+    [TestMethod]
+    public void CameraMovement_UsesWorldDirectionAndKeepsFacingOpponent()
+    {
+        var control = new IntentControl { Input = new FighterIntent(Vector2.UnitY, MoveWorld: Vector3.UnitX) };
+        var command = control.Read(Sense, Dt);
+        Assert.AreEqual(1f, command.MoveWorld.X, 1e-5f);
+        Assert.AreEqual(0f, command.MoveWorld.Z, 1e-5f);
+        Assert.AreEqual(Sense.OpponentChest, command.FaceDirection);
+    }
+
+    [TestMethod]
     public void Press_ChangesTargetOnSameStep()
     {
         var control = new IntentControl();

@@ -84,6 +84,23 @@ internal static class TechniqueExecution
         return new Vector3(x, m.HeadY * MathF.Sin(MathF.PI * t), m.HeadZ);
     }
 
+    /// <summary>パリーで手が外へ払う横の距離（腕の長さ倍）と、払い終える速さ（守りの進み具合の何倍で 1 になるか）。karatelab のパリーの表で調整する（拳は 5 m/s 前後で来るので、払う手が遅いと拳の軌道は曲がらない）。</summary>
+    internal const float ParrySweepReach = 1.2f;
+    internal const float ParrySweepRate = 4f;
+    /// <summary>手を当てる所: 来る拳から相手の肩へ向けて腕のどこか（0 = 拳、1 = 肩）。拳の少し手前の前腕を横へ押すと、梃子で拳が大きく外へ動く。</summary>
+    internal const float ParryArmFraction = 0.45f;
+
+    /// <summary>拳の内側へ手を差し入れて外へ払う。相手への力は接触物理だけで伝える。</summary>
+    internal static Vector3 ParryGlove(DefenseMove move, in FighterSense sense, float side, float progress)
+    {
+        var incoming = sense.Opponent(side > 0f ? Hand.Right : Hand.Left);
+        var local = sense.Self.WorldToLocal(incoming.Position);
+        var shoulder = sense.Self.WorldToLocal(side > 0f ? sense.OpponentBody.RightShoulder : sense.OpponentBody.LeftShoulder);
+        var contact = sense.OpponentBody == default ? local : Vector3.Lerp(local, shoulder, ParryArmFraction);
+        var sweep = Math.Clamp(progress * ParrySweepRate, 0f, 1f);
+        return contact + new Vector3(side * ParrySweepReach * sense.ArmReach * (sweep - 0.25f), 0f, 0f);
+    }
+
     internal static Vector3 DefenseGlove(DefenseMove m, PunchKind kind, float defenseSide, Hand hand, Vector3 headLocal, float stanceY, float reach, Vector3 current)
     {
         var anchor = headLocal with { Y = headLocal.Y + ((stanceY - headLocal.Y) * m.GloveAnchor) };
