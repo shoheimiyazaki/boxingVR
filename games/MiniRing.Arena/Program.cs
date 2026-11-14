@@ -51,8 +51,11 @@ try
         "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "breakdemo" => BreakDemoCommand(Options.Parse(argv[1..], "out", "seconds")),
         "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seconds", "out", "only", "variants", "video", "try")),
+        "selfcuts" => SelfCutCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "out", "hitaway", "passes", "clearance", "margin", "tilt", "pacing", "slack", "angle")),
+        "selfpath" => SelfPathCommand(Options.Parse(argv[1..], "margin", "from", "tilt", "out")),
+        "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes")),
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
-        "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway")),
+        "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway", "clearance", "passes", "margin", "tilt", "pacing", "slack", "angle")),
         "swordlib" => SwordLibCommand(Options.Parse(argv[1..], "out", "best", "bouts", "seconds", "seed", "fight", "video", "red", "blue")),
         "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead")),
         "mocap" => MocapCommand(Options.Parse(argv[1..], "bvh", "out", "from", "to", "speed", "width", "height", "fps", "strikes")),
@@ -454,6 +457,9 @@ static int SwingLabCommand(Options o)
 
 static int VersusCommand(Options o)
 {
+    MiniRing.BoxingGame.DefaultMaxContactPasses = o.Int("passes", 3, min: 1);
+    SwordLibraryLab.Pacing = o.Get("pacing") == "on" ? new MiniRing.Motion.SwingPacing(o.Float("slack", 0.25f, min: 0.01f), o.Float("angle", 0.6f, min: 0.01f)) : null;
+    SwordLibraryLab.Clearance = o.Get("clearance") == "on" ? new MiniRing.Motion.SelfClearance(o.Float("margin", MiniRing.Motion.SelfClearance.Adopted.Margin, min: 0f), MiniRing.Motion.SelfClearance.Adopted.FromGrip, o.Float("tilt", MiniRing.Motion.SelfClearance.Adopted.MaxTilt, min: 0f)) : null;
     // 武器ごとの練習試合（拳・棍棒・バット・日本刀・ロングソードの総当たり）。
     // --defense: off・legacy（はじめの守り）・step（足と頭で外す）・parry（受け流し＋足と頭）。既定は守りのドリルで選んだもの。
     var defense = o.Get("defense") switch
@@ -602,6 +608,57 @@ static int AwayLabCommand(Options o)
         o.Int("gens", 6, min: 0), o.Int("lambda", 6, min: 1), o.Int("bouts", 2, min: 2), o.Float("seconds", 30f, min: 1f), o.Int("seed", 1), Console.Out);
     Console.WriteLine(report);
     AwayLab.Save(o.Get("best") ?? "docs/arena/hit_and_away.json", best);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int TunnelCommand(Options o)
+{
+    // 調査: 刃が体のセルを通ったのに接触が何も言わなかった歩（すり抜け）を数える。
+    var contenders = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", DefenseDefaults.Value,
+        File.Exists("docs/arena/hit_and_away.json") ? AwayLab.Load("docs/arena/hit_and_away.json") : new MiniRing.Bots.HitAndAway(), AimDefaults.Tuning);
+    TunnelProbe.Passes = o.Int("passes", 3, min: 1);
+    var report = TunnelProbe.Run(contenders, [.. o.List("pairs", ["日本刀-日本刀", "ロングソード-日本刀", "日本刀-拳"])], o.Int("bouts", 4, min: 1), o.Float("seconds", 20f, min: 1f), Console.Out);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int SelfPathCommand(Options o)
+{
+    // 技の目標の通り道が自分の体を通るか（判断の側の自傷）。
+    var clearance = new MiniRing.Motion.SelfClearance(o.Float("margin", 0.1f, min: 0f), o.Float("from", 0.45f, min: 0f), o.Float("tilt", 0.6f, min: 0f));
+    var report = SelfPathLab.Run(SwordLibraryLab.Load("docs/arena/sword_library.json"), clearance);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int SelfCutCommand(Options o)
+{
+    // 自傷の物差し: 握った武器が自分の体に触れた回数を、技・姿勢で原因に分けて数える（--hitaway off で打って離れるのをやめる）。
+    var hitAway = o.Get("hitaway") == "off" ? null : File.Exists("docs/arena/hit_and_away.json") ? AwayLab.Load("docs/arena/hit_and_away.json") : new MiniRing.Bots.HitAndAway();
+    var contenders = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", DefenseDefaults.Value, hitAway, AimDefaults.Tuning);
+    var seconds = o.Float("seconds", 30f, min: 1f);
+    SelfCutLab.Passes = o.Int("passes", 3, min: 1);
+    MiniRing.BoxingGame.DefaultMaxContactPasses = SelfCutLab.Passes;
+    SwordLibraryLab.Pacing = o.Get("pacing") == "on" ? new MiniRing.Motion.SwingPacing(o.Float("slack", 0.25f, min: 0.01f), o.Float("angle", 0.6f, min: 0.01f)) : null;
+    SwordLibraryLab.Clearance = o.Get("clearance") == "on" ? new MiniRing.Motion.SelfClearance(o.Float("margin", MiniRing.Motion.SelfClearance.Adopted.Margin, min: 0f), MiniRing.Motion.SelfClearance.Adopted.FromGrip, o.Float("tilt", MiniRing.Motion.SelfClearance.Adopted.MaxTilt, min: 0f)) : null;
+    var bouts = SelfCutLab.Collect(contenders, [.. o.List("pairs", ["日本刀-日本刀", "ロングソード-ロングソード", "ロングソード-日本刀", "日本刀-拳"])], o.Int("seeds", 8, min: 1), seconds);
+    var report = SelfCutLab.Report(bouts, seconds);
+    Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {
         File.WriteAllText(path, report);

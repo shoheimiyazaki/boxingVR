@@ -34,6 +34,15 @@ public sealed partial class BoxingGame
     /// <summary>体の重さを運ぶ打撃と数える、当たる所の速さの下限 [m/s]（押し当てているだけの接触は数えない）。</summary>
     private const float MinimumBlowSpeed = 0.8f;
 
+    /// <summary>
+    /// 1 本の武器が体の部位に触れて押し戻され、別の部位の中へ入ったとき、同じ物理の 1 歩のうちに掃き直す回数の上限。
+    /// 肩・腰など部位が接する所で、押し戻された刃が隣の部位に入っても、2〜3 回で落ち着く（調べた: <c>docs/arena/tunnel_*.md</c>）。
+    /// </summary>
+    public int MaxContactPasses { get; set; } = DefaultMaxContactPasses;
+
+    /// <summary><see cref="MaxContactPasses"/> の既定（3。比べものの調べ（掃き直し 1 回 = 以前）のために変えられる）。</summary>
+    public static int DefaultMaxContactPasses { get; set; } = 3;
+
     /// <summary>武器の打撃の、次の打撃までの間を数える（物理の 1 歩ごと）。</summary>
     private void CoolWeapons(float dt)
     {
@@ -143,8 +152,17 @@ public sealed partial class BoxingGame
         }
 
         var held = WeaponOf(self) is { } mine && HolderOf(mine) == self ? mine : null;
-        var own = held is null ? default : new WeaponSense(true, ReachOf(held, self), FullReachOf(held, self));
+        var own = held is null ? default : OwnWeaponSense(held, self);
         return sense with { OpponentBlade = blade, SelfArmed = held is not null, SelfWeapon = own };
+    }
+
+    /// <summary>握っている武器の見え方: 長さと、今実際にある握りの位置・向き（手に感じる剣）。</summary>
+    private WeaponSense OwnWeaponSense(Weapon held, Fighter holder)
+    {
+        var state = _world.GetState(held.Body.BodyId);
+        var grip = (holder.WieldedGrip(HandOf(held)) ?? Weapon.GripOf(held.Kind));
+        return new WeaponSense(true, ReachOf(held, holder), FullReachOf(held, holder),
+            state.Position + Vector3.Transform(grip, state.Orientation), Vector3.Transform(Vector3.UnitX, state.Orientation));
     }
 
     /// <summary>武器ごとの、いちばん先のセルの端（武器のローカル X。格子の版が変わったときだけ数え直す）。</summary>
@@ -246,6 +264,9 @@ public sealed partial class BoxingGame
 
     /// <summary>握った武器が握った本人の体にも当たるか（既定 true。調べもので切って、自分の体が剣の道を塞いでいるかを見る）。</summary>
     public bool WeaponsHitHolder { get; set; } = true;
+
+    /// <summary>直近の <see cref="Step"/> で、握った武器が握った本人の体の部位に触れた接触の全て（調べもの用。打撃の速さの下限・間の取り方に関わらず、削れたセルの数を添える）。</summary>
+    public List<SelfTouchEvent> SelfTouches { get; } = [];
 
     /// <summary>直近の <see cref="Step"/> で、握られた武器が相手の体を壊した打撃。</summary>
     public List<WeaponHitEvent> WeaponHits { get; } = [];
@@ -459,30 +480,62 @@ public sealed partial class BoxingGame
 
             var drive = Drive(weapon);
             var behind = MassBehind(weapon);
-            foreach (var fighter in Fighters)
+            // 部位は 1 つずつ解くので、ある部位の接触が刃を押し戻すと、その先で別の部位（すでに解いた部位）の中へ入ることがある（肩の上腕と胸のつなぎ目など、
+            // 部位が接している所）。そのまま歩を終えると、刃が体の中にあるのに何も起きない 1 歩になる。刃が動いたら、まだ触れていない相手の部位だけを、
+            // 握りの押す力（drive・massBehind）を数えずに掃き直す（同じ部位を 2 度打たない・腕の力を 2 度払わない。<see cref="MaxContactPasses"/> まで。握った本人の体は 1 回だけ）。
+            // 手にはめた物（グローブなど）は 1 回だけ（拳はいつも相手の体に押し当てて動くので、掃き直すと拳の打撃の手触りまで変わる。調べたのは刃・棍棒）。
+            var passes = Weapon.IsWorn(weapon.Kind) ? 1 : MaxContactPasses;
+            var touched = new HashSet<VoxelPart>();
+            for (var pass = 0; pass < passes; pass++)
             {
-                // 握った本人の体にも当たる（振りかぶった棍棒が自分の頭を打つことも）。握っている手の前腕だけは除く: 拳と武器は
-                // 玉継手でつながっていて、握りはいつも前腕の先に触れている。
-                var holds = HolderOf(weapon) == fighter;
-                // 力の抜けた手（腕が切れた・折れた）がまだ握っている・はめている物も、その人の手に付いている。
-                var deadHand = fighter.DeadHandOn(weapon.Body.BodyId);
-                // 手にはめた物は自分の体を打たない（構えた拳はいつも自分の顔に触れている。自分を殴る力は乗らない）。
-                if ((holds || deadHand is not null) && (!WeaponsHitHolder || Weapon.IsWorn(weapon.Kind)))
+                var poseBefore = _world.GetState(weapon.Body.BodyId);
+                ResolveBodies(weapon, before, pass == 0 ? drive : default, pass == 0 ? behind : 0f, includeHolder: pass == 0, touched);
+                var poseNow = _world.GetState(weapon.Body.BodyId);
+                if (poseNow.Position == poseBefore.Position && poseNow.Orientation == poseBefore.Orientation)
                 {
-                    continue;
+                    break;
+                }
+            }
+        }
+    }
+
+    /// <summary>武器 <paramref name="weapon"/> を、全ての体の部位に対して歩の前の姿勢から今の姿勢まで掃く（1 回）。</summary>
+    private void ResolveBodies(Weapon weapon, BodyState before, Vector3 drive, float behind, bool includeHolder, HashSet<VoxelPart> touched)
+    {
+        foreach (var fighter in Fighters)
+        {
+            // 握った本人の体にも当たる（振りかぶった棍棒が自分の頭を打つことも）。握っている手の前腕だけは除く: 拳と武器は
+            // 玉継手でつながっていて、握りはいつも前腕の先に触れている。
+            var holds = HolderOf(weapon) == fighter;
+            if (holds && !includeHolder)
+            {
+                continue; // 掃き直しは相手の体だけ（握った本人の体は、握りに近く、毎歩どこかが触れて押し戻すので、掃き直すと握った刃が自分の体に押し返され続ける）
+            }
+
+            // 力の抜けた手（腕が切れた・折れた）がまだ握っている・はめている物も、その人の手に付いている。
+            var deadHand = fighter.DeadHandOn(weapon.Body.BodyId);
+            // 手にはめた物は自分の体を打たない（構えた拳はいつも自分の顔に触れている。自分を殴る力は乗らない）。
+            if ((holds || deadHand is not null) && (!WeaponsHitHolder || Weapon.IsWorn(weapon.Kind)))
+            {
+                continue;
+            }
+
+            foreach (var part in VoxelPartsOf([fighter]).ToList())
+            {
+                if ((holds && IsGripping(fighter, part.Body.BodyId)) || deadHand?.Hand == part.Body.BodyId || (!includeHolder && touched.Contains(part)))
+                {
+                    continue; // 握りはいつも手の剛体に触れている
                 }
 
-                foreach (var part in VoxelPartsOf([fighter]).ToList())
+                if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore) && MayTouch(weapon.Body, before, part.Body, partBefore))
                 {
-                    if ((holds && IsGripping(fighter, part.Body.BodyId)) || deadHand?.Hand == part.Body.BodyId)
+                    var hit = VoxelContact.Resolve(weapon.Body, before, part.Body, partBefore, drive, massBehindA: behind);
+                    if (hit.Touched)
                     {
-                        continue; // 握りはいつも手の剛体に触れている
+                        touched.Add(part);
                     }
 
-                    if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore) && MayTouch(weapon.Body, before, part.Body, partBefore))
-                    {
-                        Cut(weapon, fighter, part, VoxelContact.Resolve(weapon.Body, before, part.Body, partBefore, drive, massBehindA: behind));
-                    }
+                    Cut(weapon, fighter, part, hit);
                 }
             }
         }
@@ -552,6 +605,11 @@ public sealed partial class BoxingGame
 
         _recentCuts.Add(hit);
         Snapped(weapon, hit.SnappedA);
+        if (HolderOf(weapon) == victim && part.FragmentOf is null)
+        {
+            SelfTouches.Add(new SelfTouchEvent(victim, weapon, part.Kind, hit.RemovedB.Count, hit.Point));
+        }
+
         // 物理の接触が頭を回した分（棍棒そのものの運動量）。
         var contactTwist = Vector3.Zero;
         if (part.Kind == BodyPartKind.Head && part.FragmentOf is null && hit.ImpulseOnB.LengthSquared() > 0f)
@@ -985,3 +1043,6 @@ public sealed partial class BoxingGame
 /// <param name="Sound">形状・支持・接触力積から読む音専用メタデータ。</param>
 public readonly record struct WeaponHitEvent(Fighter Attacker, Fighter Victim, BodyPartKind Part, HitZone Zone, Vector3 Point, int Cells, float Speed, float Momentum, float HeadTwist, float Damage,
     byte Face = 0, ContactSoundEvent? Sound = null);
+
+/// <summary>握った武器が握った本人の体に触れた 1 回（<see cref="BoxingGame.SelfTouches"/>）。<paramref name="Removed"/> は削れたセルの数。</summary>
+public readonly record struct SelfTouchEvent(Fighter Fighter, Weapon Weapon, BodyPartKind Part, int Removed, Vector3 Point);

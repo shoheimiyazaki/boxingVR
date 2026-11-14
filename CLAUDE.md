@@ -121,6 +121,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | 防御・回避のドリル | `... -- drill` / `drilltune` / `basics --punch 2 --slot Duck --style swarmer` / `counterlab` |
 | 剣の守りのドリル（武器を選ばない） | `... -- guardlab [--only kesa,棍棒] [--variants 0,7] [--try "ParryAndStep:0.2:0.52:0.35:0.3:0.25:0.3"] [--video out.mp4]`（`docs/WEAPON_DEFENSE.md`） |
 | 剣士の守り・間合いを試合で育てる | `... -- guardspar --gens 5 --lambda 3 --bouts 4` / `awaylab`（どちらも世代ごとに種を変え、使わなかった種で比べ直して良いときだけ採る。1 回 3 時間ほど） |
+| 剣の自傷・すり抜けの物差し | `... -- selfcuts [--seeds 8 --seconds 30] [--passes 1] [--clearance on] [--pacing on]`（握った武器が自分の体を削った回数を原因別に）/ `tunnel`（刃が体のセルの中にあるのに接触が無かった歩）/ `selfpath`（技の目標の刃の線が自分の体を通るか）。`docs/VOXEL_WEAPONS.md` §5.5。`--passes 1` で掃き直し前の解き方 |
 | 試合の動画 | `... -- video --red champion --blue swarmer --seconds 40 --out docs/video/<名前>.mp4`（ffmpeg が要る。`--facecam on` で両コーナーの顔の窓を両脇に出す。`--until-ko yes` で K.O. まで続け、`--seconds` は上限になる。`--speed 0.5 / 0.75 / 1`（既定 0.75）は試合そのものを遅く進めて撮る。`--tv on` はテレビ中継風: 5 ラウンド・歓声・*.events.json） |
 | 実況・解説を入れる | `powershell -ExecutionPolicy Bypass -File tools\commentary\dub.ps1 -Video in.mp4 -Script script.json -Out out.mp4`（台本は *.events.json を見て書く。`tools/commentary/README.md`） |
 | ボクセルの書き出し・確かめ | `... -- voxexport --out boxer.vox` / `voxcheck --in boxer.vox [--install yes]` |
@@ -159,6 +160,8 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 - **折れた武器の判断**: 残った長さが腕の 0.35 倍未満なら捨てる（`DisarmedFallback.KeepReach`。ボットの判断の値）。
 - **倒れている間の手**: 倒れている間は入力元の拳の代わりに、両手を肩の下の床へ着く目標を体が自分で出す（`Fighter.PostOnTheCanvas`。反射のモデル。姿勢は書かず目標だけ）。
 - **起き上がろうとする試みの拍子**: 倒れている間の試み（`Fighter.Stir`）は意識の深さで強さ・間隔が連続に決まるが、力を込める山の形と間隔のずれ（体ごとの決まった数列）は意志のモデルで、物理からは出ていない。
+- **武器の接触の掃き直し**（2026-11-14、`PhysicsVersion` 20）: 武器 × 体の部位は 1 つずつ解くので、ある部位に押し戻された刃が、解き終えた隣の部位（肩の上腕と胸など）の中へ入って何も起きない歩があった。刃が動いたら、まだ触れていない相手の部位だけを、握りの押す力を数えずに掃き直す（`BoxingGame.MaxContactPasses` = 3。握った本人の体と手にはめた物（グローブなど）は 1 回のまま: 全部を腕の力も数えて掃き直すと握った剣の振りの手触りが変わった。調べたのは刃・棍棒だけで、拳の接触と扱いが違う近道）。本当は全部位の接触を同時に解く（連立）ところの近似で、3 回で落ち着かない深い重なりは次の歩に残る（調べ: `docs/arena/tunnel_*.md`、相手の体への残りは 8 秒 × 12 試合で 83 歩 → 13 歩（最大 2 セル）、握った本人の体は掃き直さないので 35 歩（最大 452 セル）残る）。
+- **剣士の自分の体を避ける通り道・技の時計**（2026-11-14、`SelfClearance`・`SwingPacing`。**既定では入れていない**: `LogicVersion` は 16 のまま、`SwordsmanBot.Clearance`・`Pacing` に渡したときだけ効く。Arena は `--clearance on`・`--pacing on`）: 自分の武器が自分の体を斬る（自傷）のを、物理で「自分には当たらない」とせず判断の側で減らす試み。体の見積もりは直立の人形の広がりに余裕を足した箱 3 つ（頭・胴・脚。腕は握りの側なので数えない）で、前傾は頭・胴の箱を広げて見る程度の近似。技の時計を「体が目標に付いてきた分だけ進める」（握りと剣の向きのずれから 1 / (1 + e²)）のは、速い振りが目標から遅れる体の力学（自傷の主因）を、判断の側で待つことで避ける近似。自傷のうち「目標が体を通る」類は 91 → 33 回に減るが、主因（体が目標から遅れる）は技の時計でも効きが見えず（事故でない自傷 462 → 533 回、揺らぎ ±30%）、0 にならないので既定にしていない（`docs/VOXEL_WEAPONS.md` §5.5）。
 - **ボットの読み**: 相手の肩・腰の動き出しから次の拳を読む（人が見ている情報の近似）。判断の部分は物理ではなくてよい（入力元の一つ）が、出力は必ず `FighterCommand`。
 
 ---

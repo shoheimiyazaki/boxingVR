@@ -59,9 +59,10 @@ public readonly record struct BladeSense(bool Present, Vector3 Hilt, Vector3 Tip
 
 /// <summary>
 /// 自分の握っている武器の見え方: 握っているか（<paramref name="Held"/>）、握る所から先の端までの長さ（今の <paramref name="Reach"/> と、
-/// 作ったときの <paramref name="FullReach"/>）[m]。折れて短くなった武器は Reach が FullReach より短い。
+/// 作ったときの <paramref name="FullReach"/>）[m]。折れて短くなった武器は Reach が FullReach より短い。<paramref name="Grip"/>（握る所）と
+/// <paramref name="Blade"/>（握りから先へ向かう単位ベクトル）は、今の武器が実際にある所（ワールド。手に感じる剣の位置と向き）。
 /// </summary>
-public readonly record struct WeaponSense(bool Held, float Reach, float FullReach)
+public readonly record struct WeaponSense(bool Held, float Reach, float FullReach, Vector3 Grip = default, Vector3 Blade = default)
 {
     /// <summary>折れて失った長さ [m]。</summary>
     public float Lost => Held ? MathF.Max(0f, FullReach - Reach) : 0f;

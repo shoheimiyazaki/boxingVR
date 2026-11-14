@@ -211,6 +211,40 @@ public sealed class SwordsmanBot : IFighterControl
     public bool AutoAim { get; init; }
 
     /// <summary>
+    /// 自分の体を避ける刃の通り道（<see cref="SelfClearance"/>）。技のフレームの剣を、刃の線が自分の頭・胴・脚から離れるまで外へ傾けて体へ渡す
+    /// （体は目標を追うので、目標が体を通れば刃は自分を斬る）。null なら技のまま。
+    /// </summary>
+    public SelfClearance? Clearance { get; init; }
+
+    private MotionFrame Clear(MotionFrame frame) => Clearance is { } c ? c.Keep(frame, _bladeLength) : frame;
+
+    /// <summary>
+    /// 技の時計の進め方（<see cref="SwingPacing"/>）。null なら録った速さのまま（体が付いてこなくても進む）。技の経路は変えず、時計だけを、
+    /// 体が目標にどれだけ付いてきているか（握りの位置と剣の向きのずれ）で遅らせる。
+    /// </summary>
+    public SwingPacing? Pacing { get; init; }
+
+    /// <summary>技の中の時計（録った速さの秒）。</summary>
+    private float _phase;
+
+    /// <summary>今の歩で時計を進める割合（<see cref="SwingPacing.Gate"/>）。</summary>
+    private float _gate = 1f;
+
+    /// <summary>体が今の目標のフレームにどれだけ付いてきているかから、時計の進む割合を出す。</summary>
+    private float GateOf(in FighterSense sense, MotionFrame target)
+    {
+        if (Pacing is not { } pacing || !sense.SelfWeapon.Held || sense.ArmReach <= 0f)
+        {
+            return 1f;
+        }
+
+        var grip = sense.Self.WorldToLocal(sense.SelfWeapon.Grip) / sense.ArmReach;
+        var blade = sense.Self.InverseRotate(sense.SelfWeapon.Blade);
+        var angle = MathF.Acos(Math.Clamp(Vector3.Dot(blade, target.Blade), -1f, 1f));
+        return pacing.Gate(Vector3.Distance(grip, target.Right), angle);
+    }
+
+    /// <summary>
     /// 相手の構えでいちばん空いている部位: 部位ごとに、相手の拳と剣（握りから先までの線）からの近さ（守られている度合い）と、その部位を打てる
     /// 自分の技の割合（<see cref="MotionTechnique.Skill"/>）を掛けた点がいちばん高い所。打てる技が 1 つも無ければ null。
     /// </summary>
@@ -346,10 +380,14 @@ public sealed class SwordsmanBot : IFighterControl
 
         if (_current is { } technique)
         {
-            var t = (_time - _start) * _rate;
+            // 技の時計は、体が目標に付いてきている間だけ進む（付いてこられない振りは、体の追いつきを待つ）。
+            _phase += dt * _rate * _gate;
+            var t = Pacing is null ? (_time - _start) * _rate : _phase;
             if (t < technique.Motion.Duration)
             {
-                return MotionImitation.ToCommand(technique.Motion.Sample(t), sense, face, _rate, _walkSpeed, _maxTwist);
+                var frame = technique.Motion.Sample(t);
+                _gate = GateOf(sense, frame);
+                return MotionImitation.ToCommand(Clear(frame), sense, face, _rate * _gate, _walkSpeed, _maxTwist);
             }
 
             _current = null;
@@ -438,9 +476,11 @@ public sealed class SwordsmanBot : IFighterControl
 
         _current = technique;
         _start = _time;
+        _phase = 0f;
+        _gate = 1f;
         Used.Add(technique.Name);
         UsedAt.Add(distance);
-        return MotionImitation.ToCommand(technique.Motion.Frames[0], sense, face, _rate, _walkSpeed, _maxTwist);
+        return MotionImitation.ToCommand(Clear(technique.Motion.Frames[0]), sense, face, _rate, _walkSpeed, _maxTwist);
     }
 
     /// <summary>
