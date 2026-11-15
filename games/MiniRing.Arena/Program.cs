@@ -28,6 +28,8 @@ using MiniRing.Bots;
 //            [--fight only] [--video f.mp4]
 //   swinglab [--gens G] [--lambda L] [--seed X] [--bouts N] [--seconds S] [--out report.md] [--best swings.json] [--video f.mp4]
 //                                                                                   棍棒の振りの研究（型ごとに威力を進化戦略で上げ、要素を外して比べ、拳のボットと戦わせる）
+//   noiselab [--only drill,match] [--match-n N] [--drill-n N] [--match-seconds a,b] [--drill-seconds a,b] [--seed X] [--parallel P] [--out f.md]
+//                                                                                   評価の雑音を測る（種による揺れ・小さな変更での揺れ・差を言うのに要る標本の数・1 標本の長さ）
 //   visionlab [--only start,aim] [--bouts N] [--seconds S] [--seed X] [--log f.md]  目を潰されて始める・目を狙うスタイルの測定
 //   faces [--out f.png] [--names a,b|f.json] [--columns N]                                全キャラの顔（正面と斜め）を並べた画像
 //   voxexport [--out boxer.vox] [--from current|generated]                         ボクサーの中身を .vox へ（Vengi・MagicaVoxel で直す）
@@ -55,6 +57,7 @@ try
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
         "formlab" => FormLabCommand(Options.Parse(argv[1..], "punch", "slot", "style", "move", "set", "cue", "bouts", "seconds", "seed", "log")),
         "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift")),
+        "noiselab" => NoiseLabCommand(Options.Parse(argv[1..], "only", "match-n", "drill-n", "match-seconds", "drill-seconds", "match-ref", "drill-ref", "seed", "parallel", "out")),
         "guardspar" => GuardSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "breakdemo" => BreakDemoCommand(Options.Parse(argv[1..], "out", "seconds")),
@@ -619,6 +622,31 @@ static int AimLabCommand(Options o)
         : [.. from gain in AimGrid.Gains from lead in AimGrid.Leads from forward in AimGrid.Forwards
               select new MiniRing.Motion.AimTuning(gain, lead, 0.6f, forward)];
     var report = AimLab.Run(SwordLibraryLab.Load(library), candidates, o.Get("library-out") ?? library, o.Get("tuning-out") ?? "docs/arena/aim_tuning.json", Console.Out);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int NoiseLabCommand(Options o)
+{
+    // 評価の雑音を測る（docs/arena/evo_noise.md）: 種による揺れ・小さな変更での揺れ・差を言うのに要る標本の数・1 標本の長さ。
+    var only = o.List("only", ["drill", "match"]).ToHashSet();
+    var unknown = only.FirstOrDefault(x => x is not ("drill" or "match"));
+    if (unknown is not null)
+    {
+        throw new ArgumentException($"--only は drill, match のどちらか（{unknown}）。");
+    }
+
+    float[] Floats(string name, float[] fallback) => o.List(name, fallback.Select(f => f.ToString(CultureInfo.InvariantCulture)).ToList()).Select(s => float.Parse(s, CultureInfo.InvariantCulture)).ToArray();
+    var matchSeconds = Floats("match-seconds", [30f, 45f, 60f]);
+    var drillSeconds = Floats("drill-seconds", [10f, 20f, 40f]);
+    var lab = new NoiseLab(o.Int("match-n", 12, min: 4), o.Int("drill-n", 48, min: 4), o.Int("seed", 1), o.Get("parallel") is null ? null : o.Int("parallel", 1, min: 1),
+        line => Console.Error.WriteLine($"{DateTime.Now:HH:mm:ss} {line}"));
+    var report = lab.Run(only, matchSeconds, drillSeconds, o.Float("match-ref", 45f, min: 1f), o.Float("drill-ref", 20f, min: 1f));
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {

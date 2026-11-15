@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\MiniRing\MiniRing.csproj" />
+    <InternalsVisibleTo Include="MiniRing.Tests" />
   </ItemGroup>
 </Project>
