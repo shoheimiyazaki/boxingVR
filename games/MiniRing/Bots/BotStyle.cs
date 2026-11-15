@@ -238,6 +238,9 @@ public sealed record BotStyle
     /// <summary>防御技それぞれの動き（頭・足・拳）。防御ドリルで最適化した値を持つ。</summary>
     public DefenseBook Defenses { get; init; } = DefenseBook.Default;
 
+    /// <summary>拳の技表（技ごとの経路・時間・体の使い方）。JSON に書いていない技・値は既定（<see cref="PunchBook.Default"/>）になる。</summary>
+    public PunchBook Punches { get; init; } = PunchBook.Default;
+
     /// <summary>守り切ったあとにすぐ打ち返す（カウンター）確率。</summary>
     public float CounterRate { get; init; } = 0.5f;
 
@@ -331,6 +334,7 @@ public sealed record BotStyle
             SlipInWeight = NonNegative(SlipInWeight),
             RollWeight = NonNegative(RollWeight),
             Defenses = (Defenses ?? DefenseBook.Default).Validated(),
+            Punches = (Punches ?? PunchBook.Default).Validated(),
             CounterRate = Unit(CounterRate),
             Anticipation = Unit(Anticipation),
             Prediction = Unit(Prediction),

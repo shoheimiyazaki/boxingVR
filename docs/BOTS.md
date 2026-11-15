@@ -27,6 +27,16 @@ CPU とボット同士の対戦に使う、ボクシングの技を持つボッ�
 
 「前の手」はオーソドックスなら左、サウスポー（`Southpaw`）なら右です。
 
+#### 技表はデータ（`PunchBook` / `BotStyle.Punches`）
+
+拳の技の値（溜めの横・低さ、打ち抜く量、時間、頭のずれ、踏み込み、振り抜き）は、守りの `DefenseBook` と同じく**スタイルの値**です（`games/MiniRing/Bots/PunchBook.cs`）。
+
+- 既定の値の出どころは `PunchBook.Default` の 1 か所（以前は `PunchSpec.Of` に直書き）。`PunchSpec.Of(t)` は既定の値を返すだけです。ボットの実行（`BoxerBot`）・意図操作（`IntentControl`）・守りのドリル（`DrillCue`）は `Style.Punches`（`_style.Punches`・`attacker.Punches`）を使います。
+- JSON 用の値は `PunchMove`（`HeadShiftX/Y/Z` は float。`Vector3` は JSON に出ないため）。書いていない技・値は既定になる（`PunchBook` の `JsonObjectCreationHandling.Populate`）ので、技 1 つ・値 1 つだけの JSON でよく、既存のスタイルの JSON は書き換えていない。
+- `Validated()` は技の正体（`Lead`・`ToBody`）を既定へ戻し、`Extend` を `Feint` 以外 1 に固定する（`TechniqueExecution.Spring` は `Extend >= 1` のときだけ体のバネを拳へ移すので、1 未満は「フェイント化」と「移送の切れ目」を混ぜてしまう）。ほかの値は `PunchRanges`（名前・最小・最大の表。根拠は値の横）へ収める。守りも同じ形で `DefenseRanges` を `DefenseMove.Validated()` と `Mutation.Move` が共有する。
+- `BoxerBot.KindOf`（技 → 拳の種類）だけは `PunchBook.Default` で決める。技の種類は技の番号で決まり、磨いた値で変わってはいけない（守りの選び方・合図・ドリルが使う）。
+- 既定の値では試合は 1 ビットも変わらない（`LogicVersion` は据え置き）。進化（CMA-ES）で磨く計画の最初の段（`docs/LEARNING_PLAN.md` §9 の P0a）。
+
 ### コンビネーション（`Combo.All`）
 
 `1`, `1-1`, `1-2`, `1-1-2`, `1-2-3`, `1-2-3-2`, `2-3-2`, `1b-2`, `1-2-3b`, `3b-3`, `2b-3`, `6-3`, `5-2`, `6-3-2`, `3-4`, `4b-3`, `1-oh`, `f-2`, `f-3`, `f-1-2`

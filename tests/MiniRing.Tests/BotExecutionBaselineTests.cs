@@ -10,6 +10,13 @@ public sealed class BotExecutionBaselineTests
     public void Execution_IsDeterministic_AndPreservesCapturedBaselineWhenRequested()
     {
         var actual = Checkpoints();
+        // 切り出し前の証跡を取るとき: MINIRING_CAPTURE_BASELINE=<出力パス> で今のチェックサムを書き出す。
+        var capture = Environment.GetEnvironmentVariable("MINIRING_CAPTURE_BASELINE");
+        if (!string.IsNullOrEmpty(capture))
+        {
+            File.WriteAllLines(capture, actual);
+        }
+
         // Bepu の決定性の保証は同じマシン内。通常 CI に CPU 固有の固定値を強制しない。
         var expected = Environment.GetEnvironmentVariable("MINIRING_VERIFY_EXTRACTION") == "1"
             ? File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "bot-execution-baseline.txt"))

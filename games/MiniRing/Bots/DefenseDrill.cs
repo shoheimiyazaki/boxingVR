@@ -300,7 +300,7 @@ public static class DefenseDrill
         {
             ArgumentNullException.ThrowIfNull(attacker);
             var technique = Combo.Named(punch).Steps[0];
-            var hand = PunchSpec.Of(technique).Lead ? attacker.Lead : Opposite(attacker.Lead);
+            var hand = attacker.Punches.Of(technique).Lead ? attacker.Lead : Opposite(attacker.Lead);
             return new DrillCue(hand, BoxerBot.KindOf(technique), delay);
         }
 

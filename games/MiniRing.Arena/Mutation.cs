@@ -35,27 +35,31 @@ internal sealed class Mutation(int seed)
         return next;
     }
 
+    /// <summary>範囲の表（<see cref="ValueRange"/>、<c>Validated()</c> と共有）で収める <see cref="Tweak(string, float, float, float, float, float)"/>。</summary>
+    public float Tweak(string label, float value, float sigma, ValueRange range, float chance = 0.35f)
+        => Tweak(label, value, sigma, range.Min, range.Max, chance);
+
     /// <summary>防御技の動きを揺らす（<paramref name="scale"/> で揺れ幅を変える。実戦での仕上げは小さく）。</summary>
     public DefenseMove Move(string prefix, DefenseMove m, float scale, float chance, bool handsFixed = false)
     {
         var moved = m with
         {
-            HeadX = Tweak(prefix + "頭の横", m.HeadX, 0.08f * scale, -0.6f, 0.6f, chance),
-            HeadY = Tweak(prefix + "頭の沈み", m.HeadY, 0.08f * scale, -0.7f, 0.2f, chance),
-            HeadZ = Tweak(prefix + "頭の前後", m.HeadZ, 0.06f * scale, -0.5f, 0.4f, chance),
-            EndX = m.Sweep ? Tweak(prefix + "抜ける横", m.EndX, 0.08f * scale, -0.6f, 0.6f, chance) : m.EndX,
-            Duration = Tweak(prefix + "時間", m.Duration, 0.05f * scale, 0.15f, 0.7f, chance),
-            Move = Tweak(prefix + "足の前後", m.Move, 0.2f * scale, -1f, 1f, chance),
-            Step = Tweak(prefix + "足の横", m.Step, 0.2f * scale, -1f, 1f, chance),
-            Rate = Tweak(prefix + "頭の速さ", m.Rate, 6f * scale, 6f, 60f, chance),
+            HeadX = Tweak(prefix + "頭の横", m.HeadX, 0.08f * scale, DefenseRanges.HeadX, chance),
+            HeadY = Tweak(prefix + "頭の沈み", m.HeadY, 0.08f * scale, DefenseRanges.HeadY, chance),
+            HeadZ = Tweak(prefix + "頭の前後", m.HeadZ, 0.06f * scale, DefenseRanges.HeadZ, chance),
+            EndX = m.Sweep ? Tweak(prefix + "抜ける横", m.EndX, 0.08f * scale, DefenseRanges.HeadX, chance) : m.EndX,
+            Duration = Tweak(prefix + "時間", m.Duration, 0.05f * scale, DefenseRanges.Duration, chance),
+            Move = Tweak(prefix + "足の前後", m.Move, 0.2f * scale, DefenseRanges.Move, chance),
+            Step = Tweak(prefix + "足の横", m.Step, 0.2f * scale, DefenseRanges.Step, chance),
+            Rate = Tweak(prefix + "頭の速さ", m.Rate, 6f * scale, DefenseRanges.Rate, chance),
             // ブロックは常に拳を上げる（Validated が 1 に戻す）ので揺らさない（変えていない値を記録しない）。
-            HandsUp = handsFixed ? m.HandsUp : Tweak(prefix + "拳を上げる", m.HandsUp, 0.2f * scale, 0f, 1f, chance),
-            GloveWidth = Tweak(prefix + "拳の幅", m.GloveWidth, 0.04f * scale, 0f, 0.35f, chance),
-            GloveHeight = Tweak(prefix + "拳の高さ", m.GloveHeight, 0.04f * scale, -0.3f, 0.2f, chance),
-            GloveForward = Tweak(prefix + "拳の前", m.GloveForward, 0.05f * scale, 0.05f, 0.5f, chance),
-            BodyDrop = Tweak(prefix + "肘を締める", m.BodyDrop, 0.08f * scale, 0.2f, 0.9f, chance),
-            TempleWidth = Tweak(prefix + "こめかみ", m.TempleWidth, 0.04f * scale, 0f, 0.4f, chance),
-            GloveAnchor = Tweak(prefix + "拳を残す", m.GloveAnchor, 0.15f * scale, 0f, 1f, chance),
+            HandsUp = handsFixed ? m.HandsUp : Tweak(prefix + "拳を上げる", m.HandsUp, 0.2f * scale, DefenseRanges.HandsUp, chance),
+            GloveWidth = Tweak(prefix + "拳の幅", m.GloveWidth, 0.04f * scale, DefenseRanges.GloveWidth, chance),
+            GloveHeight = Tweak(prefix + "拳の高さ", m.GloveHeight, 0.04f * scale, DefenseRanges.GloveHeight, chance),
+            GloveForward = Tweak(prefix + "拳の前", m.GloveForward, 0.05f * scale, DefenseRanges.GloveForward, chance),
+            BodyDrop = Tweak(prefix + "肘を締める", m.BodyDrop, 0.08f * scale, DefenseRanges.BodyDrop, chance),
+            TempleWidth = Tweak(prefix + "こめかみ", m.TempleWidth, 0.04f * scale, DefenseRanges.TempleWidth, chance),
+            GloveAnchor = Tweak(prefix + "拳を残す", m.GloveAnchor, 0.15f * scale, DefenseRanges.GloveAnchor, chance),
         };
         return moved.Validated();
     }

@@ -53,23 +53,8 @@ public readonly record struct PunchSpec(
     /// <summary>経路の曲がり（0 = 構えから狙いへまっすぐ … 1 = 溜めの点を通る）。溜めの横・下の大きさで決める（0.5 以上で 1）。</summary>
     public float Curve => Math.Clamp(MathF.Max(Lateral, MathF.Abs(Low)) / 0.5f, 0f, 1f);
 
-    public static PunchSpec Of(Technique technique) => technique switch
-    {
-        Technique.Jab => new(true, 0f, 0f, 0.25f, 0.30f, false, new(0.05f, 0f, 0.08f), 0.6f),
-        Technique.Cross => new(false, 0.1f, 0f, 0.35f, 0.40f, false, new(0.12f, -0.02f, 0.14f), 0.35f),
-        // 頭へのフックは肘の高さを越える溜め（Low 負）から、相手の顔を横切って振り抜く（PDCA サイクル 2）。
-        Technique.LeadHook => new(true, 0.85f, -0.3f, 0.05f, 0.42f, false, new(-0.10f, -0.03f, 0.05f), 0.1f, Sweep: 0.3f),
-        Technique.RearHook => new(false, 0.9f, -0.3f, 0.05f, 0.46f, false, new(0.12f, -0.03f, 0.06f), 0.1f, Sweep: 0.3f),
-        Technique.LeadUppercut => new(true, 0.15f, 0.9f, 0.2f, 0.42f, false, new(-0.04f, -0.15f, 0.06f), 0.15f),
-        Technique.RearUppercut => new(false, 0.2f, 1.0f, 0.2f, 0.46f, false, new(0.06f, -0.15f, 0.06f), 0.15f),
-        Technique.BodyJab => new(true, 0f, 0.3f, 0.25f, 0.32f, true, new(0.04f, -0.35f, 0.12f), 0.7f),
-        Technique.BodyCross => new(false, 0.1f, 0.3f, 0.3f, 0.42f, true, new(0.10f, -0.35f, 0.14f), 0.4f),
-        Technique.LeadBodyHook => new(true, 0.8f, 0.35f, 0.15f, 0.44f, true, new(0.10f, -0.3f, 0.06f), 0.15f),
-        Technique.RearBodyHook => new(false, 0.85f, 0.35f, 0.15f, 0.48f, true, new(-0.08f, -0.3f, 0.06f), 0.15f),
-        Technique.Overhand => new(false, 0.55f, -0.7f, 0.25f, 0.50f, false, new(0.15f, -0.08f, 0.2f), 0.3f),
-        Technique.Feint => new(true, 0f, 0f, 0f, 0.20f, false, new(0.03f, -0.04f, 0.06f), 0.2f, Extend: 0.35f),
-        _ => throw new ArgumentOutOfRangeException(nameof(technique), technique, null),
-    };
+    /// <summary>既定の技表（<see cref="PunchBook.Default"/>）の値。スタイルごとの値は <see cref="BotStyle.Punches"/>。</summary>
+    public static PunchSpec Of(Technique technique) => PunchBook.Default.Of(technique);
 
     /// <summary>
     /// 時刻 <paramref name="time"/> の拳の目標（体フレームのローカル）。前半で <see cref="PunchPath"/> を打ち出し、後半で構えへ戻す。

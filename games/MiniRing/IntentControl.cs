@@ -293,7 +293,7 @@ public sealed class IntentControl : IFighterControl
 
     private static Hand Opposite(Hand hand) => hand == Hand.Left ? Hand.Right : Hand.Left;
 
-    private Hand HandOf(Technique technique) => PunchSpec.Of(technique).Lead ? _style.Lead : Opposite(_style.Lead);
+    private Hand HandOf(Technique technique) => _style.Punches.Of(technique).Lead ? _style.Lead : Opposite(_style.Lead);
 
     /// <summary>回避の巻き込みの満ち具合（0..1）。ダッキングの沈み・スリップのひねりが満ちるほど、打ち返しへ移るバネが大きい。</summary>
     private float Coil()
@@ -328,7 +328,7 @@ public sealed class IntentControl : IFighterControl
             var counter = _style.Defenses.Of(_lastDefense).CounterFor(_kind);
             var combo = counter is { } selected ? Combo.Named(selected.Combo)
                 : CounterResponse.CounterFor(_lastDefense, _defenseSide, _style.Lead, 0f);
-            var response = combo.Steps.Cast<Technique?>().FirstOrDefault(t => PunchSpec.Of(t!.Value).Lead != heavy);
+            var response = combo.Steps.Cast<Technique?>().FirstOrDefault(t => _style.Punches.Of(t!.Value).Lead != heavy);
             if (response is { } technique)
             {
                 return technique;
@@ -378,7 +378,7 @@ public sealed class IntentControl : IFighterControl
 
     private void Start(Pending request, in FighterSense sense, float dt)
     {
-        var spec = PunchSpec.Of(request.Technique);
+        var spec = _style.Punches.Of(request.Technique);
         var hand = HandOf(request.Technique);
         var held = MathF.Min(request.Held, _tuning.FullLoadSeconds);
         _held = held;
