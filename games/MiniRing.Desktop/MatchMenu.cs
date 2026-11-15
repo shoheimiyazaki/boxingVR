@@ -56,7 +56,14 @@ internal sealed class MatchMenu(HandWear defaultWear, string replayDirectory, Ac
 
         if (cancel)
         {
-            QuitRequested = _page == Page.Modes;
+            // 一番上で戻る（B・Escape）は終了しない: 試合から B で戻った勢いの 1 押しでゲームが閉じていた。
+            // 「終了」の行へ移すだけにして、終了はその行を決定したときだけ。
+            if (_page == Page.Modes)
+            {
+                _mode = Modes.Length - 1;
+                playCue?.Invoke(false);
+                return default;
+            }
             Return(back);
             return default;
         }
