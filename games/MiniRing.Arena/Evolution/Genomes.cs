@@ -9,7 +9,7 @@ namespace MiniRing.Arena.Evolution;
 public sealed record Gene(string Name, float Lo, float Hi, float Center)
 {
     /// <summary>[0, 1] の位置から実際の値へ（範囲の外は端へ収める）。</summary>
-    public float Decode(double x) => (float)(Lo + (Math.Clamp(x, 0.0, 1.0) * (Hi - Lo)));
+    public float Decode(double x) => (float)(Lo + (Math.Clamp(double.IsFinite(x) ? x : 0.5, 0.0, 1.0) * (Hi - Lo)));
 
     /// <summary>実際の値から [0, 1] の位置へ（範囲の外は端へ収める。幅が 0 の遺伝子は 0.5）。</summary>
     public double Encode(float value)
@@ -121,7 +121,9 @@ public sealed class PunchGenome
     private static Gene Make(ValueRange range, float center)
     {
         var width = Widths[range.Name];
-        return new Gene(range.Name, Math.Max(range.Min, center - width), Math.Min(range.Max, center + width), center);
+        // 外から渡した中心（チャンピオンの JSON など）が範囲の外でも、先に範囲へ収めてから幅を取る（Lo > Hi で遺伝子が動かなくなるのを防ぐ。レビュー指摘）。
+        var inside = range.Clamp(center, range.Min);
+        return new Gene(range.Name, Math.Max(range.Min, inside - width), Math.Min(range.Max, inside + width), inside);
     }
 }
 

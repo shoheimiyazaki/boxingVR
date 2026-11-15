@@ -39,7 +39,7 @@
 | B5 | 技の経路の値（開始のタイミング・沈みの深さ）を戦いながら少し動かす | 未着手 | LogicVersion +1 |
 | B6 | 幾何の想像で回避の候補をふるい分ける | 保留（B1〜B3 の結果を見て） | — |
 | C | `_crouchTired`（ボットの中のしゃがみ疲れ）を体のスタミナへ一本化 | 保留（脚の仕事がスタミナに入ってから。`GRAPPLING.md` 段 1 と関係） | — |
-| P0〜P4 | 進化（CMA-ES・MAP-Elites）と強化学習（PPO）で技・戦術を育てる（下の §9） | P0a 未着手 | — |
+| P0〜P4 | 進化（CMA-ES・MAP-Elites）と強化学習（PPO）で技・戦術を育てる（下の §9） | P0a・P0b・P1a 済み（2026-11-16）、P1b へ | — |
 
 状態: 未着手 / 作業中 / 済（採用） / 済（不採用） / 保留。
 
@@ -342,9 +342,9 @@ master（剣士の守り `LogicVersion` 12、武器のリング `PhysicsVersion`
 
 | 段 | 内容 | 状態 | 指示書 |
 |---|---|---|---|
-| P0a | 拳の技表をデータへ（`PunchBook`。結果は変えない） | 未着手 | `plans/CODEX_BRIEF_14_2026-11-15.md` |
-| P0b | 対にした評価（`PairedEvaluation`）と雑音の測定（`noiselab`） | 未着手（P0a の後） | `plans/CODEX_BRIEF_15_2026-11-15.md` |
-| P1a | CMA-ES の本体と遺伝子への写し | 未着手（P0a の後。P0b と並行可） | `plans/CODEX_BRIEF_16_2026-11-15.md` |
+| P0a | 拳の技表をデータへ（`PunchBook`。結果は変えない） | 済み（2026-11-16。既定のままなら 1 ビットも変わらない） | `plans/CODEX_BRIEF_14_2026-11-15.md` |
+| P0b | 対にした評価（`PairedEvaluation`）と雑音の測定（`noiselab`） | 済み（2026-11-16。`docs/arena/evo_noise.md`: 0.001 の変更でも ρ≈0.1、試合は 45 秒 × n=16・λ=12、採否は使わなかった種の n=40） | `plans/CODEX_BRIEF_15_2026-11-15.md` |
+| P1a | CMA-ES の本体と遺伝子への写し | 済み（2026-11-16。`Evolution/CmaEs.cs`・`Genomes.cs`） | `plans/CODEX_BRIEF_16_2026-11-15.md` |
 | P1b | `cmatune`: CMA-ES をドリルにつなぐ | 未着手（P0b・P1a の後） | `plans/CODEX_BRIEF_17_2026-11-15.md` |
 | P1c | 測る: CMA-ES 対 (1+λ)、拳 3 技、動画のコマ | 未着手（P1b の後） | `plans/CODEX_BRIEF_18_2026-11-15.md` |
 | P2 | 戦術の PPO: `BoxerBot` の選ぶ部分（攻めの選択・守りの選択）を方策へ。学習用の step API、C# の推論、リーグで既存のボットに勝ち越すか | 未着手 | — |

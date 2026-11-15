@@ -361,6 +361,18 @@ public sealed class CmaEsTests
     }
 
     [TestMethod]
+    public void PunchGenome_OutOfRangeBaseline_StillHasAMovableGene()
+    {
+        // 回帰（レビュー指摘）: 範囲の外の中心（Duration 1.0 > 上限 0.8）で Lo > Hi になり、遺伝子が黙って動かなくなっていた。
+        var baseline = PunchBook.Default.MoveOf(Technique.Cross) with { Duration = 1.0f };
+        var duration = new PunchGenome(Technique.Cross, baseline).Genes.Single(g => g.Name == nameof(PunchMove.Duration));
+        Assert.IsTrue(duration.Lo < duration.Hi, $"Lo {duration.Lo} < Hi {duration.Hi}");
+        Assert.AreEqual(PunchRanges.Duration.Max, duration.Center, 1e-6f);
+        Assert.AreNotEqual(duration.Decode(0.0), duration.Decode(1.0));
+        Assert.AreEqual(duration.Decode(0.5), duration.Decode(double.NaN));
+    }
+
+    [TestMethod]
     public void PunchGenome_KeepsTheIdentityOfTheTechnique()
     {
         foreach (var technique in Enum.GetValues<Technique>())
