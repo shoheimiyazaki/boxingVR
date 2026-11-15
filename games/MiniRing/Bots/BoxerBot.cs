@@ -180,7 +180,7 @@ public sealed class BoxerBot : IFighterControl
     // 15: 間合いの層の届く長さに相手の武器（握りから先）を足す（素手どうしの試合は変わらない）。
     // 16: claude/a-3d0203 の 15 と master の 13 を合わせた。
     // 17: karate hand shapes, fist parry and five kick goals.
-    public const int LogicVersion = 26; // 26: 蓄えが少ないほど攻めの間隔を空け、RangeSense の届く範囲の外で休む。25: swarmer・champion の回避の形を formlab の測定で直した（スリップは斜め下へ・ダッキングは拳を頭と一緒に下げる・ウィービングは前へ出て U 字にくぐる）。
+    public const int LogicVersion = 27; // 27: 試合の刀・ロングソードの CPU は、その武器の型（SwordForms）で SwordsmanBot が戦う（FormSwordsman。以前は片手剣の汎用の振り）。26: 蓄えが少ないほど攻めの間隔を空け、RangeSense の届く範囲の外で休む。25: swarmer・champion の回避の形を formlab の測定で直した（スリップは斜め下へ・ダッキングは拳を頭と一緒に下げる・ウィービングは前へ出て U 字にくぐる）。
     // 24: 攻撃判断に0.2秒の観測遅延を入れ、予測した打点を固定する。
     // 23: 目が傷むと見えない側の相手の拳・体の情報が遅れてぶれる（VisionPerception）・目と見えない側を狙う重み（AimWeights.Eye・BlindSide。相手の見えが悪いほど重みが増す）。22: パリーの手の経路を速く・前腕へ（TechniqueExecution.ParrySweepRate・ParryArmFraction）、パリーの効く拳の重みをフック中心に（DefenseBook.Parry。karatelab の測定）。21: 空手スタイルの手形の重みを karatelab の測定で設定（貫手・一本拳・手刀は 1 発あたりの削れが正拳の約 2 倍、自分の指の骨の欠けは 0）。20: 蹴りは蹴りごとの当てたい所（KickSpec.AimWorld: 前蹴り・膝は腹、ローは腿、ミドルは胸、ハイは頭）を狙う。19: パリーの頭の目標を中立にする。18: 空手の手形・パリー・蹴りの選択を追加。
     private readonly HandShape[] _shapes = new HandShape[2];

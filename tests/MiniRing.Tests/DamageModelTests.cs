@@ -27,9 +27,11 @@ public sealed class DamageModelTests
         Console.WriteLine($"twist: chin {chin.Twist:0.0} rad/s, through the centre {centre.Twist:0.0} rad/s");
 
         Assert.IsGreaterThan(5f * centre.Twist, chin.Twist, "off the centre of rotation, the head is twisted on the neck");
-        // 2026-11-11: 真ん中への同じ 1 発は頭をほとんどねじらない（脳しんとうは小さい）が、顔を貫いて脳を 2 割削る。脳の働きは 10% ごとに半分
-        // （BrainHalvingLoss）なので 0.23 まで落ちて崩れる（以前の平方根では 0.8 ほどで立っていた）。倒れる理由はねじれでなく材料。
-        Assert.IsTrue(centre.WentDown, "the brain carved through the face drops him, though the head barely turns");
+        // 真ん中への同じ 1 発は頭をほとんどねじらない。倒れるかは材料（顔の下に何があるか）で決まる。
+        // 2026-11-11: 生成の頭は目の高さで皮膚のすぐ下が脳だったので、顔を貫いて脳を 2 割削り（働き 0.23）、崩れていた。
+        // 2026-11-15（PhysicsVersion 31）: 直した頭（boxer.vox）は鼻・眉・頬の皮膚の下に骨があり、拳はそこで止まって脳は 4% しか削れず
+        // （働き 0.77）立っている。ねじれでなく材料で決まることは同じ。
+        Assert.IsFalse(centre.WentDown, "the facial bone in front of the brain stops the fist, and the head barely turns");
     }
 
     [TestMethod]

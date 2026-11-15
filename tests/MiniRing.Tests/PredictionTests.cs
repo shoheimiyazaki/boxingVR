@@ -106,7 +106,9 @@ public sealed class PredictionTests
         Console.WriteLine($"reacting head {reactingHead:0.00} cover {reactingCover:0.00}; predicting head {predictingHead:0.00} cover {predictingCover:0.00}");
         // 見てから避ける（反応）だけでは、大半が頭に当たる（気づけずに受ける）。予測すると、ほぼ全部の拳に守りを出し、頭に当たる割合がはっきり減る。
         // 相手は溜めの始めに狙いを決めるので、溜めより前に動くと動いた先を狙われる。外せるのは溜めの始め近くに動き出したときだけ（足運び編 F6）。
-        Assert.IsGreaterThan(0.5f, reactingHead, "reacting: most punches reach the head");
+        // PhysicsVersion 31: 直した頭（boxer.vox）は顔の面が 1 セル（5 mm）後ろへ下がり、鼻だけが前に出るので、反応だけの頭の割合は 0.57 → 0.48、
+        // 予測は 0.40 → 0.19。差（予測の効き）はむしろ大きい。下限は「半分近くが頭に当たる」に合わせる。
+        Assert.IsGreaterThan(0.4f, reactingHead, "reacting: about half the punches reach the head");
         Assert.IsGreaterThan(reactingCover + 0.2f, predictingCover, $"predicting cover {predictingCover} vs reacting {reactingCover}");
         Assert.IsLessThan(reactingHead - 0.1f, predictingHead, $"predicting head {predictingHead} vs reacting {reactingHead}");
     }

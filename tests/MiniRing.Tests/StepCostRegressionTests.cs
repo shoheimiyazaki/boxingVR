@@ -11,7 +11,7 @@ namespace MiniRing.Tests;
 public sealed class StepCostRegressionTests
 {
     /// <summary>刀の試合（日本刀・両手持ち・<see cref="SwordBot.Basic"/> 同士）、シード 0 を 10 秒（240 Hz の 2400 歩）進めた最終チェックサム。作業 11・13 の前後で変わらない値。</summary>
-    private const ulong KatanaSeed0Checksum = 0xaaf619b2fb414c4fUL; // PhysicsVersion 30（サーボの仕事の精算）で更新。それより前は 0xbf23ffc3e767a185。
+    private const ulong KatanaSeed0Checksum = 0x09959a17dbf47803UL; // PhysicsVersion 31（直した頭 boxer.vox の組み込み）で更新。30 は 0xaaf619b2fb414c4f、それより前は 0xbf23ffc3e767a185。
 
     /// <summary>1 歩の割り当ての中央値の上限 [byte]。最適化前は 125 KB、後は 23 KB（刀の試合・Release）。戻ったら気づくための余裕付きの上限。</summary>
     private const long MedianAllocationLimit = 70_000;

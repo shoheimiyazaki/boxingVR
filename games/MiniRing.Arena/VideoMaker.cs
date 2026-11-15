@@ -55,9 +55,11 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// <param name="blueWear">青コーナーが手にはめる物（既定 グローブ）。</param>
     /// <param name="intentScript">赤の操作台本。指定時は指令を記録し、ボットの代わりに意図操作を使う。</param>
     /// <param name="setup">試合を作った直後に呼ぶ（目を潰しておくなど）。</param>
+    /// <param name="redWeapon">赤コーナーが握る武器（刀・ロングソードはゲームと同じ武器の型のボット）。</param>
+    /// <param name="blueWeapon">青コーナーが握る武器。</param>
     public void Make(Contender red, Contender blue, int seed, float seconds, string outPath, TextWriter log, Action<float>? afterStep = null, bool untilKo = false,
         MiniRing.Weapons.HandWear redWear = MiniRing.Weapons.HandWear.Glove, MiniRing.Weapons.HandWear blueWear = MiniRing.Weapons.HandWear.Glove,
-        IntentScript? intentScript = null, Action<BoxingGame>? setup = null)
+        IntentScript? intentScript = null, Action<BoxingGame>? setup = null, MiniRing.Weapons.WeaponKind? redWeapon = null, MiniRing.Weapons.WeaponKind? blueWeapon = null)
     {
         var redBots = new List<IFighterControl>();
         var blueBots = new List<IFighterControl>();
@@ -65,7 +67,11 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             intentScript is null ? s => Keep(redBots, red.Create(s)) : null,
             CpuStyleJson: intentScript is null ? null : (blue.Create(seed) as BoxerBot)?.Style.ToJson(),
             PlayerWear: redWear, CpuWear: blueWear, PlayerName: red.Name,
-            PlayerBody: red.Build, CpuBody: blue.Build, PlayerFace: red.Face, CpuFace: blue.Face);
+            PlayerBody: red.Build, CpuBody: blue.Build, PlayerFace: red.Face, CpuFace: blue.Face,
+            // 武器を持たせた試合は、ゲームと同じ道（UseWeaponBots: 刀・ロングソードは武器の型の剣士）で撮る。
+            CpuWeapon: blueWeapon, PlayerWeapon: redWeapon, CpuTwoHanded: FormSwordsman.Handles(blueWeapon), PlayerTwoHanded: FormSwordsman.Handles(redWeapon),
+            RedBotStyle: redWeapon is null && blueWeapon is null ? null : (red.Create(seed) as BoxerBot)?.Style ?? BotCatalog.Style("champion"),
+            UseWeaponBots: redWeapon is not null || blueWeapon is not null);
         // 画面と実況ではリングネームで呼ぶ（ドリルで生まれた個体にもそれぞれの名前がある）。
         var redRing = BotNames.RingNameOf(red.Name);
         var blueRing = BotNames.RingNameOf(blue.Name);

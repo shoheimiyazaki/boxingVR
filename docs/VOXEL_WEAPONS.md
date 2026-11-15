@@ -119,6 +119,17 @@
 
 詰め物と皮膚の広い面はほとんど壊さず、鉄の硬い面（突起・板）は肌と肉を潰し、刃の切っ先と刃先はその数倍を斬ります。動画は `video --red-wear <種類> --blue-wear <種類>`、デスクトップは `--wear <種類>`（両コーナー）。
 
+### 4.2 試合の刀・ロングソードは、その武器の型で動く（2026-11-15、`LogicVersion` 27）
+
+デスクトップ・VR ホストの試合（`UseWeaponBots`）の CPU は、以前は刀もロングソードも片手剣の汎用の振り（`SwordBot.Basic` = `SwordTechnique.Basics`）で、刀が刀らしく動かなかった。いまは `FormSwordsman`（`games/MiniRing/Bots/FormSwordsman.cs`）が、武器ごとの型から `SwordsmanBot`（両手・握りの間隔・守り・武器を落としたら拳）を組む。Arena の `SwordLibraryLab.Bot` も同じ関数を通る（§1.5、一つの組み方）。
+
+- 技は `SwordForms` の手で作った型だけ（外部のモーションキャプチャには頼らない）。刀は 突き・袈裟・逆袈裟・抜き胴・斬り上げ・払い面・引き面、ロングソードは Oberhau・Zornhau・Zwerchhau・Unterhau・Stich（最初の「構えの型」は構えとして使う）。
+- 構え: 刀は刀の型の始まり（中段）、ロングソードは構えの型の始まり（Vom Tag）。両手の間隔は `KatanaSpacing` / `LongswordSpacing`、刃の長さは `Weapon.TipOf` から。
+- 技の間合い: Arena と同じ「その型の動きの中で物打ちが届く距離」（`StrikeDrill.ReachOf`）。`FormSwordsman.MinReach`（0.33 m）より短い型（打ち込まず振る型）は残さない。標準の体では 刀 6 つ（引き面は除く）・ロングソード 4 つ（Zwerchhau は除く）。狙いのドリル（`aimlab`）の測定（部位ごとの得手）は試合では使わない（`AutoAim` なし）。
+- 守りは `SwordDefense.Adopted`（足と頭で外す）。Arena の `sword_defense.json`（練習試合で育てた値）は外部ファイルなのでゲームは読まない。
+- 体の調整はホストのまま（試合の `tuning`）。Arena は剣用の足構えと固い手首（`SwordStance.Tuning`）で試合を作るので、同じ型でも立ち方・手首の追従は Arena の方が剣向き。これは近道（§8 相当）で、ホストの体を剣用にするかは別の判断。
+- 確かめ: `FormSwordsmanTests`（CPU が出す技が自分の武器の型の名前だけ・全フレームの両手の間隔・プレイヤーの弱/強の型）、動画 `docs/video/gen13_katana_forms.mp4`・`gen13_longsword_forms.mp4`（`-- video --red champion --blue champion --red-weapon katana --blue-weapon katana --seconds 20`。ゲームと同じ道で撮る）。
+
 ## 5. 実験場（`MiniRing.Arena weaponlab`）
 
 構えて立っているだけの CPU（`StandGuard`）に武器を飛ばす 8 項目です（`WeaponDrills.Trials`。テストと同じ設定）。

@@ -1198,9 +1198,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var previousCpu = _round > 1 ? _cpuControl : null;
         var previousPlayer = _playerControl;
         var cpuSeed = _seed + _round;
-        _cpuControl = WeaponBot(_corners.CpuWeapon, cpuSeed) ?? _corners.Cpu(cpuSeed);
+        _cpuControl = WeaponBot(_corners.CpuWeapon, Cpu, cpuSeed) ?? _corners.Cpu(cpuSeed);
         var playerSeed = (_seed * 7919) + _round;
-        _playerControl = _corners.RedBotStyle is { } style ? WeaponBot(_corners.PlayerWeapon, playerSeed) ?? new Bots.BoxerBot(style, playerSeed) : _corners.Player?.Invoke(playerSeed);
+        _playerControl = _corners.RedBotStyle is { } style ? WeaponBot(_corners.PlayerWeapon, Player, playerSeed) ?? new Bots.BoxerBot(style, playerSeed) : _corners.Player?.Invoke(playerSeed);
         if (previousCpu is not null)
         {
             _cpuControl.CarryOver(previousCpu);
@@ -1262,9 +1262,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public FighterSense PlayerSense => ArmedSense(Player, Cpu);
 
     /// <summary>CPU の入力元が今見ている物（調べもの・テスト用）。</summary>
-    private IFighterControl? WeaponBot(Weapons.WeaponKind? weapon, int seed) => !_corners.UseWeaponBots ? null : weapon switch
+    private IFighterControl? WeaponBot(Weapons.WeaponKind? weapon, Fighter self, int seed) => !_corners.UseWeaponBots ? null : weapon switch
     {
-        MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword => Bots.SwordBot.Basic(seed),
+        MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning), // 刀・ロングソードは、その武器の型で
         MiniRing.Weapons.WeaponKind.WoodenClub => Bots.ClubBot.Basic(seed),
         _ => null,
     };

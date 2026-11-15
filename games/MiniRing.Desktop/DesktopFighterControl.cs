@@ -1,5 +1,6 @@
 using System.Numerics;
 using MiniRing.Bots;
+using MiniRing.Motion;
 using MiniRing.Weapons;
 
 namespace MiniRing.Desktop;
@@ -13,6 +14,9 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
     private static readonly WeaponSwing ClubLight = WeaponSwing.Default(SwingFamily.Thrust);
     private static readonly WeaponSwing ClubHeavy = WeaponSwing.Default(SwingFamily.Chop);
     private WeaponSwing? _swing;
+    private SwordMotion? _form;
+    private float _formTime;
+    private static readonly FighterTuning Body = FighterTuning.Default;
     private KickSpec? _kick;
     private Vector3 _kickAim;
     private float _time;
@@ -26,6 +30,43 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
         _intent.Input = input with { Light = input.Light && !sense.SelfWeapon.Held, Heavy = input.Heavy && !sense.SelfWeapon.Held && !karate };
         var command = _intent.Read(sense, dt);
 
+        if (FormSwordsman.Handles(weapon) && sense.SelfWeapon.Held)
+        {
+            // 刀・ロングソード: 弱・強は、その武器の型（FormSwordsman。ボットと同じ型・同じ ToCommand）。両手の構えから型を目標の経路として出す。
+            var kind = weapon!.Value;
+            if (_form is { } running && _formTime >= running.Duration)
+            {
+                _form = null;
+            }
+
+            if (_form is null && !input.Evade && (light || heavy))
+            {
+                var (lightForm, heavyForm) = FormSwordsman.PlayerForms(kind);
+                _form = heavy ? heavyForm : lightForm;
+                _formTime = 0f;
+            }
+
+            var held = _form is { } form
+                ? FormSwordsman.Command(form, _formTime, sense, command.FaceDirection, Body.WalkSpeed, Body.MaxTorsoTwistRadians, command.MoveWorld)
+                : FormSwordsman.GuardCommand(kind, sense, command.FaceDirection, Body.WalkSpeed, Body.MaxTorsoTwistRadians);
+            if (_form is null)
+            {
+                // 構え: 手の目標と胴のひねりだけ構えにして、歩き・回避の頭の動きは意図操作のまま。
+                return command with { Left = held.Left, Right = held.Right, TwistBias = held.TwistBias };
+            }
+
+            _formTime += dt * SwordStance.Rate;
+            return command with
+            {
+                Left = held.Left,
+                Right = held.Right,
+                HeadOffset = held.HeadOffset,
+                TwistBias = held.TwistBias,
+                MoveWorld = held.MoveWorld.LengthSquared() > 1f ? Vector3.Normalize(held.MoveWorld) : held.MoveWorld,
+            };
+        }
+
+        _form = null;
         if (weapon.HasValue && sense.SelfWeapon.Held)
         {
             var club = weapon == WeaponKind.WoodenClub;

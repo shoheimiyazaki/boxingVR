@@ -156,7 +156,7 @@ internal sealed class SwordLibraryLab(int seed)
     };
 
     /// <summary>剣の握り（右手）から先までの長さ [腕の長さ]（受けるとき、剣のどこで受けるか）。</summary>
-    internal static float BladeLength(WeaponKind weapon) => (Weapon.TipOf(weapon).X - Weapon.TwoHandGripsOf(weapon).Top.X) / ArmReach.Value;
+    internal static float BladeLength(WeaponKind weapon) => FormSwordsman.BladeLength(weapon, ArmReach.Value);
 
     private static readonly Lazy<float> ArmReach = new(() =>
     {
@@ -172,15 +172,10 @@ internal sealed class SwordLibraryLab(int seed)
 
     /// <summary>剣士のボット（試合用）。武器を落としたら拳で戦う（<see cref="DisarmedFallback"/>）。</summary>
     internal static DisarmedFallback Bot(Library library, WeaponKind weapon, int seed, SwordDefense? defense = null, HitAndAway? hitAndAway = null, AimTuning? aim = null) =>
-        DisarmedFallback.WithFists(new SwordsmanBot([.. library.Techniques.Where(t => t.Weapon == weapon)], library.Guards[weapon], seed, SwordStance.Rate,
-            tuning: SwordStance.Tuning, defense: defense ?? DefenseDefaults.Value, bladeLength: BladeLength(weapon),
-            spacing: weapon == WeaponKind.Longsword ? SwordForms.LongswordSpacing : SwordForms.KatanaSpacing, opponentReach: 3f, hitAndAway: hitAndAway, aim: aim)
-        {
+        FormSwordsman.Bot(weapon, [.. library.Techniques.Where(t => t.Weapon == weapon)], library.Guards[weapon], seed, ArmReach.Value, SwordStance.Tuning,
+            defense ?? DefenseDefaults.Value, hitAndAway, aim,
             // 狙いのドリル（aimlab）で技ごとの打てる部位を測ってあれば、相手の構えの空いた所を狙う。
-            AutoAim = library.Techniques.Any(t => t.Weapon == weapon && t.Skill is not null),
-            Clearance = Clearance,
-            Pacing = Pacing,
-        }, seed); // 腕 1 + 剣 2 弱
+            autoAim: library.Techniques.Any(t => t.Weapon == weapon && t.Skill is not null), clearance: Clearance, pacing: Pacing); // 組み方は試合と同じ（FormSwordsman）
 
     /// <summary>1 試合の測ったもの。</summary>
     internal sealed record BoutMeasure(float MeanDistance, float CloseShare, int RedLost, int BlueLost, bool RedDied, bool BlueDied, List<string> RedUsed, List<float> RedUsedAt, List<string> BlueUsed, List<float> BlueUsedAt,
