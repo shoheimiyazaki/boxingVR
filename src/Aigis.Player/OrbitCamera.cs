@@ -29,6 +29,16 @@ public sealed class OrbitCamera : IGameCamera
         Distance = Math.Clamp(initialDistance, MinDistance, MaxDistance);
     }
 
+    /// <summary>Places the camera at a new viewpoint and resets its orbit and zoom.</summary>
+    public void SetView(Vector3 eye, Vector3 target)
+    {
+        var offset = eye - target;
+        Target = target;
+        Distance = Math.Clamp(offset.Length(), MinDistance, MaxDistance);
+        YawRadians = MathF.Atan2(offset.X, offset.Z);
+        var horizontal = new Vector2(offset.X, offset.Z).Length();
+        PitchRadians = Math.Clamp(MathF.Atan2(offset.Y, horizontal), MinPitchRadians, MaxPitchRadians);
+    }
     /// <param name="pixelDelta">Mouse movement since the last tick, in window-space pixels
     /// (origin top-left, Y-down) — pass <c>InputSnapshot.MouseDelta</c> directly.</param>
     /// <param name="radiansPerPixel">Mouse sensitivity.</param>

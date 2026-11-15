@@ -41,6 +41,55 @@ public sealed class VoxelVolume
     /// <summary>Bumped by every change; the renderer uploads when the revision it holds differs.</summary>
     public int Revision { get; private set; }
 
+    private VoxelUploadBounds _lastChange;
+
+    /// <summary>Changed texels since a consecutive upload, or the whole volume when revisions were skipped.</summary>
+    public VoxelUploadBounds GetUploadBounds(int uploadedRevision) =>
+        uploadedRevision >= 0 && uploadedRevision == Revision - 1
+            ? _lastChange
+            : new(0, 0, 0, Width, Height, Depth);
+
+    internal void ApplySnapshot(ReadOnlySpan<byte> rgba)
+    {
+        if (rgba.Length != Rgba.Length)
+        {
+            throw new ArgumentException("Snapshot dimensions must match the render volume.", nameof(rgba));
+        }
+
+        var minX = Width;
+        var minY = Height;
+        var minZ = Depth;
+        var maxX = -1;
+        var maxY = -1;
+        var maxZ = -1;
+        for (var cell = 0; cell < CellCount; cell++)
+        {
+            var offset = cell * 4;
+            var texel = rgba.Slice(offset, 4);
+            if (texel.SequenceEqual(Rgba.AsSpan(offset, 4)))
+            {
+                continue;
+            }
+
+            texel.CopyTo(Rgba.AsSpan(offset, 4));
+            var x = cell % Width;
+            var y = (cell / Width) % Height;
+            var z = cell / (Width * Height);
+            minX = Math.Min(minX, x);
+            minY = Math.Min(minY, y);
+            minZ = Math.Min(minZ, z);
+            maxX = Math.Max(maxX, x);
+            maxY = Math.Max(maxY, y);
+            maxZ = Math.Max(maxZ, z);
+        }
+
+        if (maxX >= 0)
+        {
+            _lastChange = new(minX, minY, minZ, maxX - minX + 1, maxY - minY + 1, maxZ - minZ + 1);
+            Revision++;
+        }
+    }
+
     private int _colorKey;
 
     /// <summary>What a fully stained cell looks like (dried blood by default) — see <see cref="VoxelGrid.Stain"/>.</summary>
@@ -111,6 +160,7 @@ public sealed class VoxelVolume
             }
         }
 
+        _lastChange = new(0, 0, 0, Width, Height, Depth);
         Revision++;
     }
 
@@ -140,3 +190,6 @@ public delegate Vector4 VoxelRecolor(byte material, Vector4 color, int x, int y,
 /// <param name="Volume">The volume (uploaded on first use and whenever its revision changes).</param>
 /// <param name="CellToWorld">Cell coordinates → world (see <see cref="VoxelVolume.CellToWorld"/>).</param>
 public readonly record struct VoxelVolumeDraw(VoxelVolume Volume, Matrix4x4 CellToWorld);
+
+/// <summary>A rectangular texel region to upload into an existing GPU image.</summary>
+public readonly record struct VoxelUploadBounds(int X, int Y, int Z, int Width, int Height, int Depth);

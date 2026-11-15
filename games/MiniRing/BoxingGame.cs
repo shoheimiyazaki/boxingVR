@@ -61,7 +61,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// 止まるのは死んだ・完全に意識を失ったときだけ。ルールの値（物理量ではない）。
     /// </summary>
     public const float StillKoSeconds = 4f;
-    private const float SubstepRate = 240f;
+    /// <summary>物理のサブステップの速さ [Hz]。ホストの dt をこの速さの刻みに割る（既定は <see cref="DefaultSubstepRate"/> = 240）。試合ごとに変えられる（簡素化の測定用: 120・180）。ホストの dt がこの刻みの整数倍のときだけ割り切れる。記録の見出しには入らないので、既定以外で撮った記録は既定では再現しない。</summary>
+    public float SubstepRate { get; set; } = DefaultSubstepRate;
+
+    /// <summary><see cref="SubstepRate"/> の既定（240 Hz）。簡素化の測定が試合を作る前に変える。</summary>
+    public static float DefaultSubstepRate { get; set; } = 240f;
+
     private const float RoundResetDelay = 3.5f;
     private const float RehitCooldown = 0.18f;
     private const float MinimumDamage = 1f;
@@ -253,6 +258,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             Substep(input.Player, input.Blue, sub);
         }
 
+        var postStart = StepProfile.Begin();
         _messageTimer = MathF.Max(0f, _messageTimer - dt);
         _debris.Step(dt, _recentLandings);
         _impacts.Step(dt);
@@ -260,6 +266,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _lookTime += dt;
         DetectSwings();
         UpdateRound(dt);
+        StepProfile.End(StepProfile.Slot.PostStep, postStart);
     }
 
     /// <summary>
@@ -340,7 +347,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     private void Substep(in FighterCommand playerCommand, FighterCommand? blue, float dt)
     {
+        var controlStart = StepProfile.Begin();
+        var perceptionStart = StepProfile.Begin();
         UpdatePerception(dt);
+        StepProfile.End(StepProfile.Slot.Perception, perceptionStart);
         if (Resting)
         {
             // ラウンドの間（と試合の後）: 自分のコーナーへ歩いて戻り、ガードを下げて休む。入力元（ボット・プレイヤー）は読まない。
@@ -361,11 +371,15 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
         else
         {
+            var readStart = StepProfile.Begin();
             var cpuCommand = _corners.ExternalBlue ? blue.GetValueOrDefault() : _cpuControl.Read(ArmedSense(Cpu, Player), dt);
-            Drive(Player, Cpu, _playerControl?.Read(ArmedSense(Player, Cpu), dt) ?? playerCommand, dt);
+            var playerRead = _playerControl?.Read(ArmedSense(Player, Cpu), dt) ?? playerCommand;
+            StepProfile.End(StepProfile.Slot.BotRead, readStart);
+            Drive(Player, Cpu, playerRead, dt);
             Drive(Cpu, Player, cpuCommand, dt);
         }
 
+        var tailStart = StepProfile.Begin();
         foreach (var fighter in Fighters)
         {
             foreach (var hand in Hands)
@@ -377,14 +391,22 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
 
         FilterKickPairs();
+        StepProfile.End(StepProfile.Slot.ControlTail, tailStart);
+        StepProfile.End(StepProfile.Slot.Control, controlStart);
         RememberBeforeStep();
         CoolWeapons(dt);
+        var bepuStart = StepProfile.Begin();
         _world.Step(dt);
+        StepProfile.End(StepProfile.Slot.Bepu, bepuStart);
+        var hitsStart = StepProfile.Begin();
         DetectHits();
+        StepProfile.End(StepProfile.Slot.FistHits, hitsStart);
         ResolveWeapons();
         ResolveKicks();
+        var afterStart = StepProfile.Begin();
         DetectGrazes();
         WatchRecoveries();
+        StepProfile.End(StepProfile.Slot.After, afterStart);
     }
 
     /// <summary>
@@ -431,6 +453,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     private void Drive(Fighter self, Fighter opponent, in FighterCommand command, float dt)
     {
+        var driveStart = StepProfile.Begin();
         foreach (var hand in Hands)
         {
             if (command.For(hand).LetGo)
@@ -451,6 +474,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
 
         self.ApplyControl(command, dt);
+        StepProfile.End(StepProfile.Slot.DriveFighter, driveStart);
     }
 
     /// <summary>
@@ -649,7 +673,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 削る量は打撃そのものの強さ（部位の倍率を外したダメージ）。得点ではガードの上は 0.25 倍に割り引くが、
         // 受けた腕にかかる衝撃は同じ: ブロックし続けた腕は削れていく。破片は、のけぞる体の動き（push）に乗って流れる。
         // 削る量は拳の運動エネルギー（½ m v²）に比例: 体重の乗った速い 1 発ほど急に深く掘れる（非線形）。
-        var energy = 0.5f * hit.ImpactMass * hit.Speed * hit.Speed * PunchMechanics.Sharpness(hit.Speed);
+        var energy = hit.Energy;
         // 皮膚の上からでも、衝撃は組織を伝わって臓器を打つ（一時的な打撲。削れれば別に恒久的に効く）。
         victim.BruiseOrgans(hit.Point, energy);
         if (carve)
@@ -1124,7 +1148,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var surface = _ring.SurfaceCenter;
         var apart = new Vector3(0f, 0f, Layout.StartGap * 0.5f);
         // VR のプレイヤーには、手触りの調整が終わるまでスタミナの疲れを効かせない（FighterTuning.PlayerFatigue）。
-        var playerTuning = (_tuning.PlayerFatigue ? _tuning : _tuning with { TiredStrength = 1f, TiredHandSlowness = 0f })
+        var playerTuning = (_tuning.PlayerFatigue ? _tuning : _tuning with { StaminaFatigue = false })
             with { Build = _corners.PlayerBody ?? _tuning.Build };
         var cpuTuning = _tuning with { Build = _corners.CpuBody ?? _tuning.Build };
         Player = Fighter.Spawn(_world, playerTuning, "player", surface - apart, 0f);

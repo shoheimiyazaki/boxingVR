@@ -1,6 +1,8 @@
 using System.Numerics;
 using Aigis.Foundation;
 using Aigis.Render;
+using Aigis.Render.Voxels;
+using System.Diagnostics;
 using Silk.NET.Vulkan;
 
 namespace MiniRing.Vr;
@@ -15,6 +17,84 @@ internal static unsafe class SelfTest
 {
     private const uint Width = 640;
     private const uint Height = 360;
+
+    /// <summary>Measure the real two-eye external-device render path without an OpenXR runtime or VSync.</summary>
+    public static int Profile(bool katana, string outputDirectory)
+    {
+        var corners = katana ? BoxingCorners.Default with
+        {
+            RedBotStyle = Bots.BotCatalog.Boxer,
+            PlayerWeapon = Weapons.WeaponKind.Katana,
+            CpuWeapon = Weapons.WeaponKind.Katana,
+            PlayerTwoHanded = true,
+            CpuTwoHanded = true,
+            UseWeaponBots = true,
+        } : BoxingCorners.Default;
+        using var game = new BoxingGame(seed: 3, corners: corners);
+        var capture = new VrSceneCapture();
+        var scene = capture.Capture(game);
+        using var context = VulkanContext.CreateInstance([]);
+        var vk = Vk.GetApi();
+        uint count = 0;
+        CheckProfile(vk.EnumeratePhysicalDevices(context.Instance, ref count, null));
+        if (count == 0) { throw new InvalidOperationException("VR profiling requires a Vulkan GPU."); }
+        var devices = new PhysicalDevice[count];
+        fixed (PhysicalDevice* p = devices) { CheckProfile(vk.EnumeratePhysicalDevices(context.Instance, ref count, p)); }
+        context.CreateDevice(devices[0], []);
+        using var leftTarget = new SrgbTarget(vk, context);
+        using var rightTarget = new SrgbTarget(vk, context);
+        using var renderer = new HeadlessRenderer(Width, Height, context.External);
+        using var simulation = new VrSimulation(scene, (_, dt) =>
+        {
+            game.Step(default, dt);
+            return capture.Capture(game);
+        });
+        var consumer = new VoxelSnapshotConsumer();
+        var eyes = new[] { new Vector3(-0.032f, 1.55f, 0.05f), new Vector3(0.032f, 1.55f, 0.05f) };
+        var targets = new[] { leftTarget, rightTarget };
+        var aim = game.Layout.Center with { Y = BoxingGame.RingSurfaceHeight + 0.15f };
+        var views = eyes.Select(eye => Camera.OffCenterViewProjection(Matrix4x4.CreateLookAt(eye, aim, Vector3.UnitY),
+            new FrustumWindow(-0.6f, 0.6f, -0.34f, 0.34f), 0.02f, 50f)).ToArray();
+        var work = new List<double>();
+        var timer = Stopwatch.StartNew();
+        var frame = 0;
+        simulation.Submit(default, 1f / 90f);
+        while (timer.Elapsed.TotalSeconds < 12d || frame < 40)
+        {
+            if (frame == 30) { timer.Restart(); }
+            var start = Stopwatch.GetTimestamp();
+            scene = simulation.Latest;
+            var voxels = consumer.Resolve(scene.VoxelSnapshot!);
+            for (var eye = 0; eye < 2; eye++)
+            {
+                renderer.RenderPrimitiveSceneToImage(targets[eye].Image.Handle, ArenaLook.Background, views[eye],
+                    scene.Instances, scene.Lines, scene.Lighting, scene.Shadow, eyes[eye], voxels, scene.Particles,
+                    ArenaLook.Finish(vignette: 0f));
+            }
+            _ = simulation.DrainHaptics();
+            var milliseconds = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            if (frame++ >= 30) { work.Add(milliseconds); }
+        }
+        work.Sort();
+        double Percentile(double fraction) => work[Math.Clamp((int)Math.Ceiling(work.Count * fraction) - 1, 0, work.Count - 1)];
+        var report = $"[vr headless profile] {(katana ? "katana" : "normal")}, two eyes {Width}x{Height}, no VSync, "
+            + $"frames {work.Count}, fps {1000d / work.Average():F1}, render p95 {Percentile(0.95):F2} ms, "
+            + $"p99 {Percentile(0.99):F2} ms, max {work[^1]:F2} ms, physics max {simulation.MaximumStepMilliseconds:F2} ms, steps {simulation.CompletedSteps}";
+        Console.WriteLine(report);
+        Directory.CreateDirectory(outputDirectory);
+        File.WriteAllText(Path.Combine(outputDirectory, katana ? "vr_profile_katana.txt" : "vr_profile_normal.txt"), report);
+        for (var eye = 0; eye < 2; eye++)
+        {
+            PngWriter.WriteRgba(Path.Combine(outputDirectory, $"vr_profile_{(katana ? "katana" : "normal")}_eye{eye}.png"),
+                (int)Width, (int)Height, targets[eye].ReadBack());
+        }
+        return 0;
+    }
+
+    private static void CheckProfile(Result result)
+    {
+        if (result != Result.Success) { throw new InvalidOperationException($"Vulkan profiling call failed: {result}"); }
+    }
 
     public static int Run(string outputDirectory)
     {

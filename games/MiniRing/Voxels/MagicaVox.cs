@@ -5,8 +5,11 @@ namespace MiniRing.Voxels;
 /// <summary>
 /// .vox の 1 つのモデル（MagicaVoxel の座標: Z が上）。<see cref="Cells"/> は x + SizeX × (y + SizeY × z) の順の色番号（0 = 空、1..255）。
 /// <see cref="Rotated"/>: シーンの上で回転・反転されている（オブジェクトモードで回した。ボクセルの並びには表れない）。
+/// <see cref="Position"/>: シーンの上での角（最小の座標）の位置。読むときは nTRN の <c>_t</c> から必ず入る。書くときは null なら自動で横に並べ、
+/// 名前が <c>名前#番号</c> のモデルが Position を持つと、同じ名前のモデルをひとまとまりの 1 つとして、互いの相対位置どおりに並べる
+/// （256 を超える武器の分割。<see cref="WeaponVoxelModel"/>）。
 /// </summary>
-public sealed record VoxModel(string Name, (int X, int Y, int Z) Size, byte[] Cells, bool Rotated = false)
+public sealed record VoxModel(string Name, (int X, int Y, int Z) Size, byte[] Cells, bool Rotated = false, (int X, int Y, int Z)? Position = null)
 {
     public byte At(int x, int y, int z) => Cells[x + (Size.X * (y + (Size.Y * z)))];
 }
@@ -87,11 +90,30 @@ public static class MagicaVox
             }
         });
         var x0 = 0;
+        var groups = new Dictionary<string, int>(StringComparer.Ordinal);
         for (var i = 0; i < scene.Models.Count; i++)
         {
             var model = scene.Models[i];
-            var at = $"{x0 + (model.Size.X / 2)} 0 {model.Size.Z / 2}";
-            x0 += model.Size.X + Gap;
+            string at;
+            if (model.Position is { } position && GroupOf(model.Name) is { } group)
+            {
+                // 塊のひとまとまり: 最初の塊で場所を取り、同じ名前の塊はその場所から相対位置どおりに置く。
+                if (!groups.TryGetValue(group, out var origin))
+                {
+                    origin = x0;
+                    groups[group] = origin;
+                    var width = scene.Models.Where(m => m.Position is not null && GroupOf(m.Name) == group).Max(m => m.Position!.Value.X + m.Size.X);
+                    x0 += width + Gap;
+                }
+
+                at = $"{origin + position.X + (model.Size.X / 2)} {position.Y + (model.Size.Y / 2)} {position.Z + (model.Size.Z / 2)}";
+            }
+            else
+            {
+                at = $"{x0 + (model.Size.X / 2)} 0 {model.Size.Z / 2}";
+                x0 += model.Size.X + Gap;
+            }
+
             var index = i;
             Chunk(w, "nTRN", b => Transform(b, 2 + (2 * index), [("_name", model.Name)], 3 + (2 * index), at));
             Chunk(w, "nSHP", b =>
@@ -130,6 +152,13 @@ public static class MagicaVox
         output.Flush();
     }
 
+    /// <summary><c>名前#番号</c> の名前の部分。<c>#</c> が無ければ null。</summary>
+    private static string? GroupOf(string name)
+    {
+        var at = name.LastIndexOf('#');
+        return at > 0 ? name[..at] : null;
+    }
+
     public static VoxScene Read(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
@@ -165,7 +194,7 @@ public static class MagicaVox
         var sizes = new List<(int X, int Y, int Z)>();
         var cells = new List<byte[]>();
         var palette = DefaultPalette();
-        var transforms = new Dictionary<int, (string? Name, int Child, bool Rotated)>();
+        var transforms = new Dictionary<int, (string? Name, int Child, bool Rotated, (int X, int Y, int Z) Translation)>();
         var shapes = new Dictionary<int, (string? Name, int Model)>();
         while (stream.Position < end)
         {
@@ -222,13 +251,23 @@ public static class MagicaVox
                     body.ReadInt32(); // 予約
                     body.ReadInt32(); // レイヤー
                     var rotated = false;
+                    var translation = (0, 0, 0);
                     for (int f = 0, frames = body.ReadInt32(); f < frames; f++)
                     {
                         // _r は回転の行列を 1 バイトにしたもの。4 が回転なし。
-                        rotated |= ReadDict(body).TryGetValue("_r", out var rotation) && rotation.Trim() != "4";
+                        var frame = ReadDict(body);
+                        rotated |= frame.TryGetValue("_r", out var rotation) && rotation.Trim() != "4";
+                        if (f == 0 && frame.TryGetValue("_t", out var t))
+                        {
+                            var parts = t.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                            if (parts.Length == 3 && int.TryParse(parts[0], System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out var tx) && int.TryParse(parts[1], System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out var ty) && int.TryParse(parts[2], System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out var tz))
+                            {
+                                translation = (tx, ty, tz);
+                            }
+                        }
                     }
 
-                    transforms[node] = (attributes.GetValueOrDefault("_name"), child, rotated);
+                    transforms[node] = (attributes.GetValueOrDefault("_name"), child, rotated, translation);
                     break;
                 case "nSHP":
                     var shape = body.ReadInt32();
@@ -249,6 +288,7 @@ public static class MagicaVox
 
         var names = new string?[cells.Count];
         var turned = new bool[cells.Count];
+        var centers = new (int X, int Y, int Z)[cells.Count];
         foreach (var (shapeId, shape) in shapes)
         {
             if (shape.Model >= 0 && shape.Model < names.Length)
@@ -256,10 +296,12 @@ public static class MagicaVox
                 var parent = transforms.Values.FirstOrDefault(t => t.Child == shapeId);
                 names[shape.Model] = parent.Name ?? shape.Name ?? names[shape.Model];
                 turned[shape.Model] |= parent.Rotated;
+                centers[shape.Model] = parent.Translation;
             }
         }
 
-        var models = cells.Select((c, i) => new VoxModel(names[i] ?? $"model{i}", sizes[i], c, turned[i])).ToList();
+        var models = cells.Select((c, i) => new VoxModel(names[i] ?? $"model{i}", sizes[i], c, turned[i],
+            (centers[i].X - (sizes[i].X / 2), centers[i].Y - (sizes[i].Y / 2), centers[i].Z - (sizes[i].Z / 2)))).ToList();
         return new VoxScene(models, palette);
     }
 

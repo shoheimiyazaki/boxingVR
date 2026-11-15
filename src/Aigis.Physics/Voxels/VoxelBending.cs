@@ -45,12 +45,7 @@ public static class VoxelBending
         BeamGeometry? geometry;
         lock (cached)
         {
-            if (cached.Version != grid.Version)
-            {
-                cached.Entries.Clear();
-                cached.Version = grid.Version;
-            }
-
+            Validate(cached, grid);
             if (!cached.Entries.TryGetValue((axis, loadBearingOnly), out geometry))
             {
                 geometry = BuildGeometry(grid, axis, slices, loadBearingOnly);
@@ -63,6 +58,7 @@ public static class VoxelBending
         }
 
         var (cells, total, com, inverseInertia, bySlice) = geometry;
+        var (cellSlice, cellAt, cellMass, cellTensile) = (geometry.CellSlice, geometry.CellAt, geometry.CellMass, geometry.CellTensile);
         // The blow's push and turn on the free body.
         var accel = force / total;
         var spin = Vector3.Transform(Vector3.Cross(point - com, force), inverseInertia);
@@ -73,10 +69,10 @@ public static class VoxelBending
         var pointSlice = (int)MathF.Floor((Vector3.Dot(point, lengthAxis) + Vector3.Dot(grid.HalfExtents, lengthAxis)) / cellAlong);
 
         var sliceLoads = new SectionLoad[slices];
-        foreach (var voxel in cells)
+        for (var c = 0; c < cellAt.Length; c++)
         {
-            var inertial = (accel + Vector3.Cross(spin, voxel.At - com)) * voxel.Mass;
-            sliceLoads[voxel.Slice] += new SectionLoad(inertial, Vector3.Cross(voxel.At - com, inertial));
+            var inertial = (accel + Vector3.Cross(spin, cellAt[c] - com)) * cellMass[c];
+            sliceLoads[cellSlice[c]] += new SectionLoad(inertial, Vector3.Cross(cellAt[c] - com, inertial));
         }
 
         var above = new SectionLoad[slices];
@@ -100,14 +96,14 @@ public static class VoxelBending
                 continue;
             }
 
-            var section = loadBearingOnly ? bySlice[s].FindAll(c => !float.IsNaN(cells[c].Tensile)) : bySlice[s];
-            if (section.Count == 0)
+            var section = geometry.Sections[s];
+            if (section.Length == 0)
             {
                 continue; // nothing carries this section (a limb whose bone is already broken here: the caller's joint holds it)
             }
 
             var high = pointSlice > s;
-            var origin = section.Aggregate(Vector3.Zero, (sum, c) => sum + cells[c].At) / section.Count;
+            var origin = geometry.Origins[s];
             // What the section carries: the blow's moment, less what the far piece's own inertia takes.
             var carried = Vector3.Cross(point - origin, force)
                 - (far.Moment - Vector3.Cross(origin - com, far.Force));
@@ -124,18 +120,30 @@ public static class VoxelBending
             float secondMoment = 0f, reach = 0f, tensileMin = float.MaxValue;
             foreach (var c in section)
             {
-                var y = Vector3.Dot(cells[c].At - origin, e);
+                var y = Vector3.Dot(cellAt[c] - origin, e);
                 secondMoment += sectionCellArea * ((y * y) + (depth * depth / 12f));
                 reach = MathF.Max(reach, MathF.Abs(y) + (0.5f * depth));
-                tensileMin = MathF.Min(tensileMin, cells[c].Tensile);
+                tensileMin = MathF.Min(tensileMin, cellTensile[c]);
             }
 
             var ratio = magnitude * reach / secondMoment / tensileMin;
             if (ratio > 1f && (worst is null || ratio > worst.Value.Ratio))
             {
                 // The smaller piece breaks off.
-                var highCount = cells.Count(c => c.Slice > s);
-                var lowCount = cells.Count(c => c.Slice < s);
+                var highCount = 0;
+                var lowCount = 0;
+                for (var t = 0; t < slices; t++)
+                {
+                    if (t > s)
+                    {
+                        highCount += bySlice[t].Count;
+                    }
+                    else if (t < s)
+                    {
+                        lowCount += bySlice[t].Count;
+                    }
+                }
+
                 worst = new VoxelBreak(axis, s, highCount <= lowCount, ratio);
             }
         }
@@ -171,7 +179,83 @@ public static class VoxelBending
         var cellAlong = axis == 0 ? cell.X : axis == 1 ? cell.Y : cell.Z;
         var sectionCellArea = grid.CellVolume / cellAlong;
         var depth = MathF.Sqrt(Square(e.X * cell.X) + Square(e.Y * cell.Y) + Square(e.Z * cell.Z));
-        var sum = new (float Y, float YY, int N)[slices];
+        // The cells that carry the stiffness, in cell order (cached until the grid changes: the sums below run in this order, so
+        // they give the same floats as walking the grid).
+        StiffnessCells? bearing;
+        var cached = Geometries.GetOrCreateValue(grid);
+        lock (cached)
+        {
+            Validate(cached, grid);
+            if (!cached.Stiffness.TryGetValue((axis, loadBearingOnly), out bearing))
+            {
+                bearing = BuildStiffnessCells(grid, axis, slices, loadBearingOnly);
+                cached.Stiffness.Add((axis, loadBearingOnly), bearing);
+            }
+        }
+
+        if (bearing is null)
+        {
+            return null;
+        }
+
+        var sumY = new float[slices];
+        var sumYY = new float[slices];
+        var (at, sliceOf) = (bearing.At, bearing.Slice);
+        for (var i = 0; i < at.Length; i++)
+        {
+            var along = Vector3.Dot(at[i], e);
+            sumY[sliceOf[i]] += along;
+            sumYY[sliceOf[i]] += along * along;
+        }
+
+        // Each section's second moment about its own centroid: Σ a (y − ȳ)² = a (Σy² − (Σy)²/n), plus each cell's own depth.
+        // Averaged over the sections as Enumerable.Average does (summed in a double).
+        double momentSum = 0;
+        for (var s = 0; s < slices; s++)
+        {
+            var n = bearing.CountBySlice[s];
+            if (n > 0)
+            {
+                momentSum += sectionCellArea * ((sumYY[s] - (sumY[s] * sumY[s] / n)) + (n * depth * depth / 12f));
+            }
+        }
+
+        var secondMoment = (float)(momentSum / bearing.Filled);
+        var length = bearing.Filled * cellAlong;
+        return 48f * (bearing.Modulus / bearing.Count) * secondMoment / (length * length * length);
+    }
+
+    private static float Square(float v) => v * v;
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<VoxelGrid, GeometryCache> Geometries = new();
+
+    private sealed class GeometryCache
+    {
+        public int Version { get; set; }
+        public Dictionary<(int Axis, bool LoadBearingOnly), BeamGeometry?> Entries { get; } = [];
+        public Dictionary<(int Axis, bool LoadBearingOnly), StiffnessCells?> Stiffness { get; } = [];
+    }
+
+    /// <summary>Drops what was built from an older shape of the grid (call under the cache's lock).</summary>
+    private static void Validate(GeometryCache cached, VoxelGrid grid)
+    {
+        if (cached.Version != grid.GeometryVersion)
+        {
+            cached.Entries.Clear();
+            cached.Stiffness.Clear();
+            cached.Version = grid.GeometryVersion;
+        }
+    }
+
+    /// <summary>The cells that carry the bending stiffness (see <see cref="BeamStiffness"/>): centre and slice in cell order, and the sums that do not depend on the push.</summary>
+    private sealed record StiffnessCells(Vector3[] At, int[] Slice, int[] CountBySlice, float Modulus, int Count, int Filled);
+
+    /// <summary>Null if a material has no stiffness (and not only the load-bearing cells count), or no cell carries any.</summary>
+    private static StiffnessCells? BuildStiffnessCells(VoxelGrid grid, int axis, int slices, bool loadBearingOnly)
+    {
+        var at = new List<Vector3>();
+        var slice = new List<int>();
+        var countBySlice = new int[slices];
         float modulus = 0f;
         var count = 0;
         for (var i = 0; i < grid.CellCount; i++)
@@ -194,37 +278,31 @@ public static class VoxelBending
 
             var (x, y, z) = grid.Coordinates(i);
             var s = axis == 0 ? x : axis == 1 ? y : z;
-            var along = Vector3.Dot(grid.CellCenter(x, y, z), e);
-            sum[s] = (sum[s].Y + along, sum[s].YY + (along * along), sum[s].N + 1);
+            at.Add(grid.CellCenter(x, y, z));
+            slice.Add(s);
+            countBySlice[s]++;
             modulus += stiffness;
             count++;
         }
 
-        var filled = sum.Count(s => s.N > 0);
-        if (count == 0 || filled == 0)
-        {
-            return null;
-        }
-
-        // Each section's second moment about its own centroid: Σ a (y − ȳ)² = a (Σy² − (Σy)²/n), plus each cell's own depth.
-        var secondMoment = sum.Where(s => s.N > 0)
-            .Average(s => sectionCellArea * ((s.YY - (s.Y * s.Y / s.N)) + (s.N * depth * depth / 12f)));
-        var length = filled * cellAlong;
-        return 48f * (modulus / count) * secondMoment / (length * length * length);
-    }
-
-    private static float Square(float v) => v * v;
-
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<VoxelGrid, GeometryCache> Geometries = new();
-
-    private sealed class GeometryCache
-    {
-        public int Version { get; set; }
-        public Dictionary<(int Axis, bool LoadBearingOnly), BeamGeometry?> Entries { get; } = [];
+        var filled = countBySlice.Count(n => n > 0);
+        return count == 0 || filled == 0 ? null : new StiffnessCells([.. at], [.. slice], countBySlice, modulus, count, filled);
     }
 
     private sealed record BeamGeometry(List<(int Slice, Vector3 At, float Mass, float Tensile)> Cells,
-        float Total, Vector3 Com, Matrix4x4 InverseInertia, List<int>[] BySlice);
+        float Total, Vector3 Com, Matrix4x4 InverseInertia, List<int>[] BySlice)
+    {
+        public int[] CellSlice { get; init; } = [];
+        public Vector3[] CellAt { get; init; } = [];
+        public float[] CellMass { get; init; } = [];
+        public float[] CellTensile { get; init; } = [];
+
+        /// <summary>The cells that carry each slice (the ones with a tensile strength when only the load-bearing cells count).</summary>
+        public int[][] Sections { get; init; } = [];
+
+        /// <summary>Where each slice's carrying cells centre.</summary>
+        public Vector3[] Origins { get; init; } = [];
+    }
 
     private static BeamGeometry? BuildGeometry(VoxelGrid grid, int axis, int slices, bool loadBearingOnly)
     {
@@ -283,7 +361,23 @@ public static class VoxelBending
             bySlice[cells[c].Slice].Add(c);
         }
 
-        return new BeamGeometry(cells, total, com, inverseInertia, bySlice);
+        var sections = new int[slices][];
+        var origins = new Vector3[slices];
+        for (var s = 0; s < slices; s++)
+        {
+            sections[s] = loadBearingOnly ? bySlice[s].FindAll(c => !float.IsNaN(cells[c].Tensile)).ToArray() : bySlice[s].ToArray();
+            origins[s] = sections[s].Length == 0 ? Vector3.Zero : sections[s].Aggregate(Vector3.Zero, (sum, c) => sum + cells[c].At) / sections[s].Length;
+        }
+
+        return new BeamGeometry(cells, total, com, inverseInertia, bySlice)
+        {
+            CellSlice = cells.Select(c => c.Slice).ToArray(),
+            CellAt = cells.Select(c => c.At).ToArray(),
+            CellMass = cells.Select(c => c.Mass).ToArray(),
+            CellTensile = cells.Select(c => c.Tensile).ToArray(),
+            Sections = sections,
+            Origins = origins,
+        };
     }
 
     private readonly record struct SectionLoad(Vector3 Force, Vector3 Moment)

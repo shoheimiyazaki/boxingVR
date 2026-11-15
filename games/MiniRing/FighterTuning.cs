@@ -163,8 +163,8 @@ public sealed record FighterTuning
     /// <summary>
     /// スタミナが尽きたときの、腕の筋肉が拳を肩に対して動かせる速さの上限の逆数 [s/m]（Hill の力と速さの関係を直線で近似: 上限の速さで出せる力が 0）。
     /// 疲れていない筋肉は、この大きさの体では速さの上限が効かない（筋力が余っていて、力と速さの関係を入れると疲れていない剣の振り・鉄の拳まで
-    /// 遅くなり試合の結果が変わった。2026-11-12）。疲れた分だけ効く: 上限の逆数 = (1 − 疲れていない度合い) × この値。
-    /// 1 / 2.4 m/s: 疲れきるとフック（2.8 m/s）・ストレート（2.0 m/s）が目に見えて遅くなる。0 なら疲れても速さは落ちない。
+    /// 遅くなり試合の結果が変わった。2026-11-12）。上限の逆数 = (1 − Vigor) / max(Vigor, 0.001) × この値。
+    /// 1 / 2.4 s/m を尺度に、供給仕事率が下がるほど短縮速度も連続に落とす。0 なら短縮速度の上限だけを外す（仕事予算は残る）。
     /// </summary>
     public float TiredHandSlowness { get; init; } = 1f / 2.4f;
 
@@ -343,7 +343,7 @@ public sealed record FighterTuning
     /// <summary>
     /// スタミナの容量 [J]: 筋肉がすぐ使えるエネルギーの蓄え。拳を目標へ押す力がした仕事（力 × 拳の速さの正の分）・力を出し続ける
     /// 保持の分（<see cref="IsometricCost"/>）・歩いて体を運ぶ分（<see cref="WalkCost"/>）がここから出ていき、心肺が戻す
-    /// （<see cref="StaminaRecoveryPower"/>）。容量 90 J・戻り 2.7 W（10 秒休むと 3 割戻る）・息詰まり 0.1。60 J では、テレビ中継の試合で 13 秒で尽きかけた（2026-11-12）。
+    /// （<see cref="StaminaRecoveryPower"/>）。90 J、最大戻り 15 W: 仕事率の負債・保持費込みで、空から構えて 10 秒休むと 100 % まで戻る（サーボの精算を実際の速さで数え直した後の測定、15 W × 10 s が容量 90 J を超える。2026-11-15）。
     /// </summary>
     public float StaminaCapacity { get; init; } = 90f;
 
@@ -351,7 +351,19 @@ public sealed record FighterTuning
     public float StaminaPowerWindow { get; init; } = 0.08f;
 
     /// <summary>心肺がスタミナを戻す速さ [W]（心臓と肺の働きが満ちているとき。働きに比例して落ちる）。</summary>
-    public float StaminaRecoveryPower { get; init; } = 2.7f;
+    public float StaminaRecoveryPower { get; init; } = 15f;
+
+    /// <summary>仕事率の負債をならす時間 [s]。数発の連打が残り、離れて休むと数秒で抜ける。</summary>
+    public float StaminaRecoveryWindow { get; init; } = 2f;
+
+    /// <summary>回復率が最大の 1/e になる直近の要求仕事率 [W]。構えの保持と連打を連続に分ける（回復は exp(-比²)）。</summary>
+    public float StaminaRestPower { get; init; } = 0.7f;
+
+    /// <summary>低残量で蓄えを放出する時間 [s]。0.2 秒（打ち出し程度）へ連続に制限する。余裕があれば瞬発力として蓄え全量を使える。</summary>
+    public float StaminaReleaseWindow { get; init; } = 0.2f;
+
+    /// <summary>1 歩の仕事予算のうち肩・肘・手首サーボに先に取り置く割合。残りは両拳の PD・移送が共用する。</summary>
+    public float StaminaServoShare { get; init; } = 0.5f;
 
     /// <summary>力を出し続けるだけで使うエネルギー [J/(N·s)]: 筋肉は動かなくても力を保つのにエネルギーを使う（構えた腕を上げているだけで疲れる）。</summary>
     public float IsometricCost { get; init; } = 0.004f;
@@ -360,19 +372,19 @@ public sealed record FighterTuning
     public float WalkCost { get; init; } = 0.15f;
 
     /// <summary>
-    /// スタミナが尽きたときに残る、拳を運ぶ力の割合（スタミナに比例して戻る）。疲れは腕に出す: 脚まで弱めると、意識がはっきりしたまま
-    /// 疲れだけで何度も崩れ落ちた（テレビ中継の試合で 1 ラウンドに 5 回。2026-11-12）。
+    /// 駆動をスタミナの仕事予算で制限するか。偽は VR 調整と比較実験用の明示的な例外（出入りは計測する）。
+    /// 固定の最低筋力 TiredStrength は廃止。立位を支える力は意識で決め、移動指令の水平仕事だけを制限する。
     /// </summary>
-    public float TiredStrength { get; init; } = 0.45f;
+    public bool StaminaFatigue { get; init; } = true;
 
     /// <summary>
-    /// スタミナがこれより多い間は、力は落ちない（蓄えに余裕のあるうちは全力が出る）。これを下回ると、0 で <see cref="TiredStrength"/> まで
-    /// なめらかに落ちる。少し使っただけで力が落ちると、出だしの数 % の違いで剣の斬れ方まで変わった（2026-11-12）。
+    /// スタミナがこれより多い間は筋の駆動割合を落とさない。下回ると蓄えの割合から心肺の供給割合へなめらかに近づく。
+    /// 仕事予算そのものは残量によらず常に適用する。
     /// </summary>
     public float TiredKnee { get; init; } = 0.6f;
 
     /// <summary>
-    /// プレイヤー（赤コーナー）の体にスタミナの疲れ（腕の力が落ちる）を効かせるか。偽ならプレイヤーの体だけ <see cref="TiredStrength"/> = 1 で作る
+    /// プレイヤー（赤コーナー）の体にスタミナの疲れを効かせるか。偽ならプレイヤーの体だけ <see cref="StaminaFatigue"/> = false で作る
     /// （スタミナは数えるが、腕の力は落ちない）。VR は手触りの調整が終わるまで偽（2026-11-12 のユーザーの決定。CLAUDE.md §8 の例外）。
     /// 調整値に入れておくと、記録（TuningJson）に残って再生でも同じになる。
     /// </summary>

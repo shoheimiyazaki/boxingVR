@@ -25,6 +25,9 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     private readonly Func<IReadOnlyList<ContactSoundEvent>>? _contacts;
     private readonly Func<IReadOnlyList<WeaponHitEvent>>? _weaponHits;
     private readonly Action<HitSoundPlayer, float>? _afterStep;
+    private readonly ReliableEventWorker<Action> _pendingSounds = new(static play => play());
+    public bool DeferredPlayback { get; init; }
+    public Func<float, IReadOnlyList<CrowdCue>>? CaptureCrowd { get; init; }
 
     /// <param name="inner">包む試合。</param>
     /// <param name="hits">直前の <see cref="Step"/> で起きた打撃。</param>
@@ -67,6 +70,26 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     public void Step(BoxingInput input, float dt)
     {
         _inner.Step(input, dt);
+        if (DeferredPlayback)
+        {
+            var shatters = (_shatters?.Invoke() ?? []).Select(s => s with { Grains = s.Grains.ToArray() }).ToArray();
+            var cues = ImpactAudio.Gather(_hits(), _contacts?.Invoke() ?? [], shatters, _sounds.PlayHits, _weaponHits?.Invoke()).ToArray();
+            var landings = (_landings?.Invoke() ?? []).ToArray();
+            var swings = (_swings?.Invoke() ?? []).ToArray();
+            var bell = _bells?.Invoke() ?? RoundBell.None;
+            var severs = (_severs?.Invoke() ?? []).ToArray();
+            var crowd = CaptureCrowd?.Invoke(dt).ToArray() ?? [];
+            _pendingSounds.Enqueue(() =>
+            {
+                _sounds.PlayImpactCues(dt, cues, shatters);
+                _sounds.PlayLandings(landings);
+                _sounds.PlaySwings(swings);
+                _sounds.PlayBell(bell);
+                _sounds.PlaySevers(severs);
+                foreach (var cue in crowd) { _sounds.PlayCrowd(cue); }
+            });
+            return;
+        }
         _sounds.PlayImpacts(dt, _hits(), _contacts?.Invoke() ?? [], _shatters?.Invoke() ?? [], _weaponHits?.Invoke());
 
         if (_landings is not null)
@@ -113,5 +136,15 @@ public sealed class HitSoundGame : IGame<BoxingInput>
     public IReadOnlyList<UiShapeDraw> BuildOverlayShapes(Matrix4x4 viewProjection, Vector2 screenSizePixels)
         => _inner.BuildOverlayShapes(viewProjection, screenSizePixels);
 
-    public void Dispose() => _sounds.Dispose();
+    public void Dispose()
+    {
+        try { _pendingSounds.Dispose(); }
+        finally { _sounds.Dispose(); }
+    }
+
+    /// <summary>Reports audio-worker failure to presentation without waiting for playback.</summary>
+    public void PresentSounds()
+    {
+        _pendingSounds.ThrowIfFaulted();
+    }
 }

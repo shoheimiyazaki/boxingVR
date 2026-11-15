@@ -114,6 +114,8 @@ dotnet test tests/MiniRing.Tests -c Release --filter FullyQualifiedName~BotExecu
 
 ### 1. 追従カメラ（描画だけ）
 
+試合開始時は動画と同じ横側に置き、赤が画面左、青が右に並ぶ方向から二人を約29度見下ろす。追従はこの横向きを基準にする。
+
 `CameraFollow`（ゲーム側の純関数）と `FollowCameraRig`（Desktop）。注視点はプレイヤーから相手へ 3 割寄せた点、向きは「相手からプレイヤーを結ぶ線の外側」へ、どちらも減衰のバネ `1 - exp(-rate·dt)`（rate 3.2/s、時定数 0.3 秒、フレーム間隔に依らない）で追う。実時間の dt で動かすので試合の計算には入らない。中ボタンで回した分は「後ろからのずれ」として保つ。
 
 ### 2. カメラ基準の移動

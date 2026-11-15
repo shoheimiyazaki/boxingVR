@@ -759,7 +759,8 @@ public sealed class VoxelDamageTests
     [TestMethod]
     public void TheCpusPunches_AreHeardAsSwings_OncePerPunch()
     {
-        using var game = new BoxingGame(seed: 4);
+        // 音の発火回数を測る。疲労による攻撃停止は別の回帰テストで検証する。
+        using var game = new BoxingGame(FighterTuning.Default with { StaminaCapacity = 90_000f }, seed: 4);
         var swings = new List<SwingEvent>();
         for (var i = 0; i < 20 * 60; i++)
         {

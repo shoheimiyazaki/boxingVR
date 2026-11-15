@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using Aigis.Foundation;
@@ -154,6 +154,7 @@ public static class GameHost
     /// each step <c>Dt × TimeScale</c>, so a game that subdivides its step (fixed physics substeps) slows
     /// down without a coarser picture. Null (the default) is 1: every existing game is unchanged.
     /// Non-finite or non-positive values are treated as 1.</param>
+    /// <param name="StepBudgetMilliseconds">Optional soft CPU budget checked after each fixed step. Excess catch-up steps are discarded.</param>
     public sealed record Options(
         string Title,
         string HelpText,
@@ -168,7 +169,8 @@ public static class GameHost
         double FrameRateCap = PlatformWindowOptions.Uncapped,
         bool HidePointerWhenUnused = false,
         Func<float, CursorImage>? CursorImageForScale = null,
-        Func<float>? TimeScale = null);
+        Func<float>? TimeScale = null,
+        Func<double?>? StepBudgetMilliseconds = null);
 
     /// <summary>
     /// Reads the <c>AIGIS_FRAME_THROTTLE</c> override (<c>vsync</c>/<c>lowlatency</c>/<c>unlimited</c>,
@@ -534,7 +536,12 @@ public static class GameHost
                     (readInput, input, aspect, windowSizePixels),
                     static s => s.readInput(s.input, s.aspect, s.windowSizePixels),
                     default!);
-                var steps = loop.Advance(realDeltaSeconds);
+                var presentation = game as IPresentationGame<TInput>;
+                if (presentation is not null)
+                {
+                    barrier.Guard("game.SubmitPresentation", () => presentation.SubmitPresentation(gameInput));
+                }
+                var steps = presentation is null ? loop.Advance(realDeltaSeconds) : 0;
                 var timeScale = options.TimeScale?.Invoke() ?? 1f;
                 var stepDt = FixedStep.Default.Dt * (float.IsFinite(timeScale) && timeScale > 0f ? timeScale : 1f);
                 var stepsStarted = Stopwatch.GetTimestamp();
@@ -551,6 +558,13 @@ public static class GameHost
                         "game.Step",
                         (game, gameInput, stepDt),
                         static s => s.game.Step(s.gameInput, s.stepDt));
+                    // Opt-in: leave the rest of this update for presentation. Advance already
+                    // consumed these ticks, so dropped catch-up work does not accumulate.
+                    if (options.StepBudgetMilliseconds?.Invoke() is { } budget
+                        && Stopwatch.GetElapsedTime(stepsStarted).TotalMilliseconds >= budget)
+                    {
+                        break;
+                    }
                 }
 
                 frameProfiler.AddPhase("step", Stopwatch.GetElapsedTime(stepsStarted).TotalMilliseconds);

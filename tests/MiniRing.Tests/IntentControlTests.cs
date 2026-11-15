@@ -6,6 +6,19 @@ namespace MiniRing.Tests;
 [TestClass]
 public sealed class IntentControlTests
 {
+    [TestMethod]
+    public void ReusedPresentationSample_ObservesEdgesWithoutAdvancingTechniqueTime()
+    {
+        var control = new IntentControl { Input = new FighterIntent(Vector2.Zero, Heavy: true) };
+        var pressed = control.Read(Sense, 0f);
+        for (var i = 0; i < 100; i++) { Assert.AreEqual(pressed, control.Read(Sense, 0f)); }
+        Assert.AreEqual(1, control.AttacksStarted);
+        control.Input = new FighterIntent(Vector2.Zero);
+        var released = control.Read(Sense, 0f);
+        Assert.AreEqual(1, control.AttacksStarted);
+        Assert.AreNotEqual(released, pressed);
+    }
+
     private const float Dt = 1f / 60f;
     private static FighterSense Sense => new(new BodyFrame(Vector3.Zero, 0f), 0.2f,
         new(0f, 0.06f, 0.27f), new(0f, 0f, 0.27f), true, new(0f, 0.06f, 0f));

@@ -16,11 +16,14 @@ namespace MiniRing.Arena;
 /// </summary>
 internal static class TunnelProbe
 {
-    private const float Dt = 1f / 240f;
+    /// <summary>物理のサブステップの速さ [Hz]（<see cref="BoxingGame.SubstepRate"/>）。<c>--hz</c> で変える。1 歩 = 1 サブステップで調べる。</summary>
+    public static float Hz { get; set; } = 240f;
+
+    private static float Dt => 1f / Hz;
 
     /// <summary>接触を掃き直す回数（<see cref="BoxingGame.MaxContactPasses"/>）。<c>--passes</c> で変える。</summary>
     public static int Passes { get; set; } = 3;
-    private const int SubSteps = 16;
+    private static int SubSteps => (int)MathF.Round(16f * 240f / Hz); // 歩が長いほど姿勢の補いを細かく（既定は 16）
 
     internal sealed record Miss(string Pair, float At, string Weapon, string Victim, BodyPartKind Part, bool AlreadyInside, int Cells, float Speed, string Materials);
 
@@ -86,6 +89,7 @@ internal static class TunnelProbe
         using var game = new BoxingGame(VersusLab.Tuning, seed, new BoxingCorners(blue.Name, s => Make(blue, s), s => Make(red, s),
             CpuWeapon: blue.Weapon, PlayerWeapon: red.Weapon, CpuTwoHanded: blue.TwoHanded, PlayerTwoHanded: red.TwoHanded));
         game.MaxContactPasses = Passes;
+        game.SubstepRate = Hz;
         var misses = new List<Miss>();
         int steps = 0, checks = 0;
         var round = game.Round;

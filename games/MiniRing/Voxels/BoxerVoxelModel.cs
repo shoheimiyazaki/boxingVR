@@ -32,15 +32,39 @@ public static class BoxerVoxelModel
         return MagicaVox.Rgba(B(c.X), B(c.Y), B(c.Z));
     }
 
-    /// <summary>部位ごとの格子を .vox のシーンにする。</summary>
-    public static VoxScene ToVox(IReadOnlyDictionary<BodyPartKind, VoxelGrid> parts)
+    /// <summary>.vox の 256 色のパレット: 色番号 = 材質番号、使わない番号は目立つ色。武器の .vox（<see cref="WeaponVoxelModel"/>）も同じ。</summary>
+    internal static uint[] MaterialPalette()
     {
-        ArgumentNullException.ThrowIfNull(parts);
         var palette = Enumerable.Repeat(Unused, 256).ToArray();
         for (var m = 1; m < BoxerAnatomy.Palette.Count; m++)
         {
             palette[m] = ColorOf((byte)m);
         }
+
+        return palette;
+    }
+
+    /// <summary>色（透明度を除く）から材質を引く表。読み込みは色番号でなく色で材質に戻す。</summary>
+    internal static Dictionary<uint, byte> MaterialByColor()
+    {
+        var byColor = new Dictionary<uint, byte>();
+        for (var m = 1; m < BoxerAnatomy.Palette.Count; m++)
+        {
+            byColor.TryAdd(ColorOf((byte)m) | 0xFF000000u, (byte)m);
+        }
+
+        return byColor;
+    }
+
+    /// <summary>材質に無い色の一覧（多い順の「#RRGGBB × 個数」）。エラーの文に使う。</summary>
+    internal static string DescribeColours(Dictionary<uint, int> unknown) =>
+        string.Join(", ", unknown.OrderByDescending(u => u.Value).Select(u => $"#{u.Key & 0xFF:X2}{(u.Key >> 8) & 0xFF:X2}{(u.Key >> 16) & 0xFF:X2} × {u.Value}"));
+
+    /// <summary>部位ごとの格子を .vox のシーンにする。</summary>
+    public static VoxScene ToVox(IReadOnlyDictionary<BodyPartKind, VoxelGrid> parts)
+    {
+        ArgumentNullException.ThrowIfNull(parts);
+        var palette = MaterialPalette();
 
         var models = new List<VoxModel>();
         foreach (var (kind, grid) in parts.OrderBy(p => p.Key))
@@ -73,11 +97,7 @@ public static class BoxerVoxelModel
     public static BoxerVoxelOverrides FromVox(VoxScene scene)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        var byColor = new Dictionary<uint, byte>();
-        for (var m = 1; m < BoxerAnatomy.Palette.Count; m++)
-        {
-            byColor.TryAdd(ColorOf((byte)m) | 0xFF000000u, (byte)m);
-        }
+        var byColor = MaterialByColor();
 
         var problems = new List<string>();
         var parts = new Dictionary<BodyPartKind, BoxerVoxelOverrides.PartCells>();
@@ -134,8 +154,7 @@ public static class BoxerVoxelModel
 
             if (unknown.Count > 0)
             {
-                problems.Add($"'{kind}' has colours that are not a material: " +
-                    string.Join(", ", unknown.OrderByDescending(u => u.Value).Select(u => $"#{u.Key & 0xFF:X2}{(u.Key >> 8) & 0xFF:X2}{(u.Key >> 16) & 0xFF:X2} × {u.Value}")));
+                problems.Add($"'{kind}' has colours that are not a material: " + DescribeColours(unknown));
                 continue;
             }
 
@@ -173,7 +192,7 @@ public static class BoxerVoxelModel
         return parts;
     }
 
-    private static (int X, int Y, int Z) ToVoxAxes(int x, int y, int z, (int X, int Y, int Z) dims) => (x, dims.Z - 1 - z, y);
+    internal static (int X, int Y, int Z) ToVoxAxes(int x, int y, int z, (int X, int Y, int Z) dims) => (x, dims.Z - 1 - z, y);
 }
 
 /// <summary>

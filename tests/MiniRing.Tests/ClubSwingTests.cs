@@ -42,7 +42,16 @@ public sealed class ClubSwingTests
     {
         // 縦振りの出発点は胸に当たる。素の木の打撃は、拳の重い 1 発の上限（MaxCarve）より多くのセルを潰す（グローブ無しの相手: 構えた
         // ボクセルのグローブの詰め物は、棍棒を受け止めて和らげる）。
-        var r = SwingTest.Run(WeaponSwing.Default(SwingFamily.Chop), 0.38f, gloves: false);
+        // 材料による潰れ方は十分に休んだ 1 振りで比較する。スタミナ制約の検証とは分け、
+        // 構えて間合いへ入る間の疲労で、打ち出す前から弱っている条件を混ぜない。
+        var lowest = 1f;
+        var r = SwingTest.Run(WeaponSwing.Default(SwingFamily.Chop), 0.38f, (game, _, _) =>
+        {
+            lowest = MathF.Min(lowest, game.Player.Stamina);
+            game.Player.Stamina = 1f;
+            game.Cpu.Stamina = 1f;
+        }, gloves: false);
+        Console.WriteLine($"rested club: {r.Cells} cells, lowest reserve before refill {lowest:P2}");
         Assert.IsTrue(r.Landed);
         Assert.IsGreaterThan(FighterTuning.Default.MaxCarve * 0.35f, r.Cells, "a hard club crushes the flesh it strikes");
     }

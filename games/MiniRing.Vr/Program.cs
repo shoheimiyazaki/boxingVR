@@ -12,10 +12,16 @@ using MiniRing.Vr;
 //   --break-sound <glass|crumble|crunch|circuit|metal>  ボクセルが砕ける音の方式（既定 glass）
 //   --hit-sound <on|off>  パンチが当たる音（既定 on。ダメージを知らせる音）
 //   --selftest          HMD なしで VR 描画経路（外部デバイス・GPU コピー）を検証して終了
+//   --profile-headless [--profile-katana]  HMD なしで両目を12秒計測（各640x360・VSyncなし）
 
 if (args.Contains("--selftest"))
 {
     return SelfTest.Run(Path.Combine(Environment.CurrentDirectory, ".visualcheck"));
+}
+
+if (args.Contains("--profile-headless"))
+{
+    return SelfTest.Profile(args.Contains("--profile-katana"), Path.Combine(Environment.CurrentDirectory, ".visualcheck"));
 }
 
 if (!HitSoundOption.TryParse(args, out var hitSounds, out var hitError))
@@ -97,7 +103,10 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
     // VR の仕上げ: 画面の隅の陰りは付けない（頭を動かしても付いてくる黒い縁は不自然）。
     var finish = ArenaLook.Finish(vignette: 0f);
     var capture = new VrSceneCapture();
+    var voxelConsumer = new Aigis.Render.Voxels.VoxelSnapshotConsumer();
     var scene = capture.Capture(game);
+    var renderVoxels = voxelConsumer.Resolve(scene.VoxelSnapshot!);
+    using var audio = new VrAudioPlayback(sounds);
     using var simulation = new VrSimulation(scene, (frame, dt) =>
     {
         var input = control.Read(frame, game.PlayerSense, dt);
@@ -109,11 +118,7 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
         {
             recorder.Step(game, input, dt);
         }
-        sounds.PlayImpacts(dt, game.RecentHits, game.RecentContacts, game.RecentShatters, [.. game.WeaponHits, .. game.SelfWeaponHits]);
-        sounds.PlayLandings(game.RecentLandings);
-        sounds.PlaySwings(game.RecentSwings);
-        sounds.PlayBell(game.RecentBell);
-        sounds.PlaySevers(game.RecentSevers);
+        audio.Submit(VrAudioFrame.Capture(game, dt, hitSounds));
         return capture.Capture(game);
     });
     var frameTiming = args.Contains("--profile-frames") ? new VrFrameTiming() : null;
@@ -137,15 +142,17 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
             update: (frame, dt) =>
             {
                 timingStart = System.Diagnostics.Stopwatch.GetTimestamp();
+                audio.ThrowIfFaulted();
                 simulation.Submit(frame, dt);
                 var latest = simulation.Latest;
                 if (!ReferenceEquals(scene, latest))
                 {
                     scene = latest;
-                    foreach (var haptic in scene.Haptics)
-                    {
-                        xr.Haptic(haptic.Hand, haptic.Amplitude, haptic.Duration);
-                    }
+                    renderVoxels = voxelConsumer.Resolve(scene.VoxelSnapshot!);
+                }
+                foreach (var haptic in simulation.DrainHaptics())
+                {
+                    xr.Haptic(haptic.Hand, haptic.Amplitude, haptic.Duration);
                 }
             },
             renderEye: eye =>
@@ -153,12 +160,12 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
                 rendered = true;
                 var viewProjection = Camera.OffCenterViewProjection(eye.View, eye.Fov, 0.02f, 50f);
                 renderer.RenderPrimitiveSceneToImage(eye.TargetImage, clear, viewProjection, scene.Instances, scene.Lines, scene.Lighting, scene.Shadow,
-                    eye.Position, scene.Voxels, scene.Particles, finish);
+                    eye.Position, renderVoxels, scene.Particles, finish);
             });
 
         if (rendered)
         {
-            frameTiming?.Record(timingStart, xr.DisplayHz, scene);
+            frameTiming?.Record(timingStart, xr.DisplayHz, scene, simulation.MaximumStepMilliseconds);
         }
 
         // ランタイムがセッションを READY にしない（ヘッドセットに表示されない）まま待ち続けるときの手がかり。

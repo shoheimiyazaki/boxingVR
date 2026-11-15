@@ -5,24 +5,34 @@ using Aigis.Player;
 using Aigis.Render;
 using Aigis.Render.Voxels;
 using MiniRing.Replay;
+using MiniRing.Presentation;
 using Silk.NET.Input;
 
 namespace MiniRing.Desktop;
 
 internal sealed record MatchSession(BoxingGame Game, IGame<BoxingInput> Host,
-    Func<InputSnapshot, BoxingInput> Read, IDisposable Lifetime) : IDisposable
+    Func<InputSnapshot, BoxingInput> Read, IDisposable Lifetime, SnapshotMatchGame Presentation) : IDisposable
 {
-    public void Dispose() => Lifetime.Dispose();
+    public void Dispose()
+    {
+        try { Presentation.Dispose(); }
+        finally { Lifetime.Dispose(); }
+    }
 }
 
 internal sealed class MenuGame(MatchMenu menu, Func<MatchSelection, MatchSession> start,
-    Func<ReplayData, MatchSession> playback) : IGame<BoxingInput>
+    Func<ReplayData, MatchSession> playback) : IGame<BoxingInput>, IPresentationGame<BoxingInput>
 {
     private readonly PhysicsWorld _menuWorld = new(Vector3.Zero);
     private MatchSession? _session;
     private bool _escapeHeld, _backHeld;
+    private Task<MatchSession>? _loading;
+    private readonly List<Task> _retired = [];
+    public bool IsLiveMatch { get; private set; }
+    public bool IsLoadingMatch => _loading is not null;
 
     public BoxingGame? ActiveGame => _session?.Game;
+    public SnapshotMatchGame? Presentation => _session?.Presentation;
     public PhysicsWorld World => _session?.Host.World ?? _menuWorld;
     public string StatusLine => _session?.Host.StatusLine ?? "Game Select";
     public bool IsOver => false;
@@ -31,8 +41,9 @@ internal sealed class MenuGame(MatchMenu menu, Func<MatchSelection, MatchSession
     // GameHost combines Escape and Start. Handle them separately in Read so Start can still reset.
     public bool HandleSystemMenuKey(bool held) => true;
 
-    public BoxingInput Read(InputSnapshot input)
+    public BoxingInput Read(InputSnapshot input, Vector2 size)
     {
+        PollLoading();
         var escape = input.IsKeyDown(Key.Escape);
         var back = input.IsGamepadButtonDown(GamepadButton.East);
         var returnToMenu = input.WasKeyPressed(Key.Escape) || (escape && !_escapeHeld) || (back && !_backHeld);
@@ -42,47 +53,90 @@ internal sealed class MenuGame(MatchMenu menu, Func<MatchSelection, MatchSession
             if (returnToMenu)
             {
                 _session = null;
-                session.Dispose();
+                IsLiveMatch = false;
+                _retired.Add(Task.Run(session.Dispose));
                 menu.Return(back);
                 return default;
             }
             return session.Read(input);
         }
 
-        var (match, replay) = menu.Read(input);
+        if (IsLoadingMatch) { return default; }
+        var (match, replay) = menu.Read(input, size);
         if (match is not null)
         {
-            _session = start(match);
+            StartMatch(match);
         }
         else if (replay is not null)
         {
-            try
-            {
-                _session = playback(replay);
-            }
-            catch (Exception ex) when (ex is ArgumentException or InvalidDataException or InvalidOperationException)
-            {
-                menu.PlaybackFailed(ex);
-            }
+            _loading = Task.Run(() => playback(replay));
         }
         return _session?.Read(input) ?? default;
     }
 
-    public void Step(BoxingInput input, float dt) => _session?.Host.Step(input, dt);
+    internal void StartMatch(MatchSelection selection)
+    {
+        if (_loading is not null || _session is not null) { throw new InvalidOperationException("A match is already active or loading."); }
+        _loading = Task.Run(() => start(selection));
+    }
+
+    internal void PollLoading()
+    {
+        foreach (var retired in _retired.Where(t => t.IsCompleted).ToArray())
+        {
+            try { retired.GetAwaiter().GetResult(); }
+            catch (Exception error) { Console.Error.WriteLine($"Match cleanup failed: {error}"); menu.PlaybackFailed(error); }
+            _retired.Remove(retired);
+        }
+        if (_loading is not { IsCompleted: true } loading) { return; }
+        _loading = null;
+        try
+        {
+            _session = loading.GetAwaiter().GetResult();
+            IsLiveMatch = true;
+        }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine($"Match loading failed: {error}");
+            menu.PlaybackFailed(error);
+        }
+    }
+
+    public void Step(BoxingInput input, float dt)
+    {
+        _session?.Host.Step(input, dt);
+    }
+
+    public void SubmitPresentation(BoxingInput input) => _session?.Presentation.SubmitPresentation(input);
+
     public (IReadOnlyList<PrimitiveInstance> Instances, IReadOnlyList<DebugLine> Lines) BuildRenderables()
-        => _session?.Host.BuildRenderables() ?? ([], []);
+    {
+        PollLoading();
+        return _session?.Host.BuildRenderables() ?? ([], []);
+    }
     public IReadOnlyList<VoxelVolumeDraw> BuildVoxelVolumes() => _session?.Host.BuildVoxelVolumes() ?? [];
     public IReadOnlyList<ParticleInstance> BuildParticles() => _session?.Host.BuildParticles() ?? [];
     public SceneLighting BuildLighting() => _session?.Host.BuildLighting() ?? SceneLighting.Default;
     public ShadowMapConfig? BuildShadow() => _session?.Host.BuildShadow();
     public PostProcessSettings? BuildPostProcess() => _session?.Host.BuildPostProcess();
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 view, Vector2 size)
-        => _session?.Host.BuildOverlayText(view, size) ?? menu.Text(size);
+        => _session?.Host.BuildOverlayText(view, size) ?? (IsLoadingMatch
+            ? [new ScreenTextDraw("試合を準備中…", size * 0.5f, 32f, Vector4.One, TextAnchor.Center)]
+            : menu.Text(size));
     public IReadOnlyList<UiShapeDraw> BuildOverlayShapes(Matrix4x4 view, Vector2 size)
         => _session?.Host.BuildOverlayShapes(view, size) ?? menu.Shapes(size);
     public void Dispose()
     {
-        try { _session?.Dispose(); }
+        try
+        {
+            if (_loading is { } loading)
+            {
+                try { _session = loading.GetAwaiter().GetResult(); }
+                catch (Exception error) { Console.Error.WriteLine($"Match loading failed during shutdown: {error}"); }
+            }
+            try { _session?.Dispose(); }
+            finally { Task.WhenAll(_retired).GetAwaiter().GetResult(); }
+        }
         finally { _menuWorld.Dispose(); }
     }
 }

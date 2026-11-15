@@ -38,10 +38,12 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
     /// <summary>
     /// 技ごとの形（予測編 P7。頭を元の大きさに戻し、ずっとしゃがまないように磨き直す）。
     /// <list type="bullet">
-    /// <item>スリップ: ストレートの外側へ、頭を横へ大きく、沈みは浅く（膝を少し曲げる程度）。</item>
-    /// <item>ウィービング: 腰から前へ折って真ん中から U 字に沈み、来るフックの反対側へ抜けて起き上がる（頭を後ろへ引くとスウェーに見える。頭を前へ突き出すと、相手の頭のあった所の奥まで振り抜かれるフックの軌道へ自分から入る）。</item>
+    /// <item>スリップ: ストレートの外側へ、頭を斜め下へ滑らせる（横と下が同じくらい。後ろへ反らすとスウェーに見えるので、後ろは少しまで）。
+    /// 体は目標から遅れる（formlab で 100 ms に 3 cm）ので、目標は大きく取り、足も横へ運ぶ（2026-11-15、ユーザーの指摘「頭の動きが足りない」）。</item>
+    /// <item>ウィービング: 鉄棒をくぐるように、前へ出ながら頭を前へ下げ・腰を落として U 字に沈み、来るフックの反対側へ抜けて起き上がる
+    /// （頭を後ろへ引くとスウェーに見える。前へ出ないと沈みが浅く横へ抜けない。formlab: 前 12 cm・沈み 16 cm・横 13 cm）。</item>
     /// <item>ローリング: フックの進む向きへ頭を流しながら浅く沈む。</item>
-    /// <item>ダッキング: 腰から前へ折って短く深く沈み、すぐ起き上がる。</item>
+    /// <item>ダッキング: 腰から前へ折って短く深く沈み、すぐ起き上がる。拳は頭と一緒に下げる（構えの高さに残すと、拳が頭の上へ離れて万歳に見えた）。</item>
     /// </list>
     /// </summary>
     public static DefenseMove Form(DefenseMove m, Defense slot) => slot switch
@@ -49,14 +51,14 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
         Defense.Slip => (m with
         {
             Outside = true, Sweep = false,
-            HeadX = Math.Clamp(m.HeadX, 0.3f, 0.6f), HeadY = Math.Clamp(m.HeadY, -0.4f, -0.1f),
+            HeadX = Math.Clamp(m.HeadX, 0.4f, 0.9f), HeadY = Math.Clamp(m.HeadY, -0.7f, -0.3f), HeadZ = Math.Clamp(m.HeadZ, -0.2f, 0.3f),
             GloveAnchor = Math.Clamp(m.GloveAnchor, 0f, 0.3f), HandsUp = Math.Clamp(m.HandsUp, 0f, 0.5f),
         }).Validated(),
         Defense.Weave => (m with
         {
             Sweep = true, Outside = false,
-            HeadX = Math.Clamp(m.HeadX, -0.1f, 0.2f), EndX = Math.Clamp(m.EndX, 0.25f, 0.6f), HeadY = Math.Clamp(m.HeadY, -0.65f, -0.3f),
-            Duration = Math.Clamp(m.Duration, 0.25f, 0.5f), HeadZ = Math.Clamp(m.HeadZ, 0f, 0.35f),
+            HeadX = Math.Clamp(m.HeadX, -0.6f, 0f), EndX = Math.Clamp(m.EndX, 0.4f, 1f), HeadY = Math.Clamp(m.HeadY, -0.9f, -0.5f),
+            Duration = Math.Clamp(m.Duration, 0.25f, 0.5f), HeadZ = Math.Clamp(m.HeadZ, 0.15f, 0.5f), Move = Math.Clamp(m.Move, 0f, 1f),
         }).Validated(),
         Defense.Roll => (m with
         {
@@ -66,6 +68,7 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
         Defense.Duck => (m with
         {
             Sweep = false, HeadY = Math.Clamp(m.HeadY, -0.7f, -0.35f), Duration = Math.Clamp(m.Duration, 0.15f, 0.35f), HeadZ = Math.Clamp(m.HeadZ, 0f, 0.35f),
+            GloveAnchor = Math.Clamp(m.GloveAnchor, 0f, 0.2f),
         }).Validated(),
         _ => m.Validated(),
     };

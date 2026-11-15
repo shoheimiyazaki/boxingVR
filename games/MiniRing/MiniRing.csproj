@@ -23,5 +23,7 @@
     <EmbeddedResource Include="Assets\Textures\*.png" LogicalName="MiniRing.Assets.Textures.%(Filename)%(Extension)" />
     <!-- ボクセル編集ソフト（Vengi など）で直したボクサーの中身。無ければ生成のまま（docs/VOXEL_EDITING.md）。 -->
     <EmbeddedResource Include="Voxels\boxer.vox" LogicalName="MiniRing.Voxels.boxer.vox" Condition="Exists('Voxels\boxer.vox')" />
+    <!-- 同じく、直した武器・はめる物の中身（無ければ生成のまま）。組み込むと武器の質量・接触が変わるので PhysicsVersion を上げる。 -->
+    <EmbeddedResource Include="Voxels\weapons.vox" LogicalName="MiniRing.Voxels.weapons.vox" Condition="Exists('Voxels\weapons.vox')" />
   </ItemGroup>
 </Project>

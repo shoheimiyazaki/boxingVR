@@ -1,0 +1,57 @@
+using System.Globalization;
+
+namespace MiniRing.Tests;
+
+/// <summary>
+/// 入力なしで立っているだけなら、スタミナは減らない（サーボの仕事の精算が実際の速さで数えられていること）。
+/// 精算を力積²の上限で数えていた頃は、生成直後の姿勢の落ち着き・武器を支える力積が「仕事」になり、
+/// 剣・刀では 10 秒でほぼ 0 %、グローブでも始めの数秒で 66〜79 % まで落ちていた。直した後の測定（60 Hz、始め 5 秒の最低）:
+/// グローブ 91.6 %・剣 85.8 %・刀 84.5 %（60 秒後はどれも 100 %）。下限は測定から約 10 ポイントの余裕を取った値。残る数 % の落ちは
+/// 生成直後に姿勢が落ち着くときの本当の力積 × 速さの仕事。
+/// </summary>
+[TestClass]
+public sealed class StaminaIdleServoTests
+{
+    private const float Dt = 1f / 60f;
+
+    private static (float Final, float MinEarly) Run(Weapons.WeaponKind? weapon, bool twoHanded)
+    {
+        var corners = BoxingCorners.Default with
+        {
+            Player = _ => new IntentControl(),
+            Cpu = _ => new IntentControl(),
+            PlayerWeapon = weapon,
+            PlayerTwoHanded = twoHanded,
+            UseWeaponBots = true,
+        };
+        using var game = new BoxingGame(seed: 1, corners: corners);
+        var minEarly = 1f;
+        for (var step = 0; step < 60 * 60; step++)
+        {
+            game.Step(new BoxingInput(default), Dt);
+            if (step < 5 * 60)
+            {
+                minEarly = MathF.Min(minEarly, game.Player.Stamina);
+            }
+        }
+
+        return (game.Player.Stamina, minEarly);
+    }
+
+    private static void Check(string name, Weapons.WeaponKind? weapon, bool twoHanded, float earlyFloor)
+    {
+        var (final, minEarly) = Run(weapon, twoHanded);
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{name}: 60 s {final:P2}, min in first 5 s {minEarly:P2}"));
+        Assert.IsGreaterThanOrEqualTo(0.95f, final, $"{name}: 入力なしで 60 秒後に回復している");
+        Assert.IsGreaterThanOrEqualTo(earlyFloor, minEarly, $"{name}: 生成直後の姿勢の落ち着きで蓄えを削らない");
+    }
+
+    [TestMethod]
+    public void IdleGlove_StaminaStaysFull() => Check("glove", null, false, 0.8f);
+
+    [TestMethod]
+    public void IdleIronSword_StaminaStaysFull() => Check("sword", Weapons.WeaponKind.IronSword, false, 0.75f);
+
+    [TestMethod]
+    public void IdleKatana_StaminaStaysFull() => Check("katana", Weapons.WeaponKind.Katana, true, 0.75f);
+}

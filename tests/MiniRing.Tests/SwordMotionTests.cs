@@ -15,7 +15,19 @@ public sealed class SwordMotionTests
 {
     private static byte Material(Aigis.Foundation.Voxels.VoxelGrid grid, Vector3 local) => grid.FilledCellAt(local) is var i and >= 0 ? grid.MaterialAt(i) : (byte)0;
 
-    private static string Data(string file) => Path.Combine(AppContext.BaseDirectory, "../../../../../data/mocap/sfu_kendo/", file);
+    private static string Data(string file)
+    {
+        // --artifacts-path でも通常の bin 出力でも、リポジトリの実データを読む。
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "CLAUDE.md")))
+            {
+                return Path.Combine(directory.FullName, "data", "mocap", "sfu_kendo", file);
+            }
+        }
+
+        throw new DirectoryNotFoundException("Repository root containing CLAUDE.md was not found.");
+    }
 
     [TestMethod]
     public void Bvh_ForwardKinematics_PlacesAChildByItsParentsRotation()

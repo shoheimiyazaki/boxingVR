@@ -221,6 +221,9 @@ public sealed class VoxelGrid
     /// <summary>Bumped on every change, so a renderer can cache what it built from the grid.</summary>
     public int Version { get; private set; }
 
+    /// <summary>Revision of cell occupancy and materials, independent of surface wear and stain.</summary>
+    public int GeometryVersion { get; private set; }
+
     public int CellCount => _cells.Length;
 
     public float TotalHealth => _health.Sum();
@@ -251,6 +254,7 @@ public sealed class VoxelGrid
         }
 
         Version++;
+        GeometryVersion++;
     }
 
     /// <summary>Cells of this material left now.</summary>
@@ -341,6 +345,7 @@ public sealed class VoxelGrid
         }
 
         Version++;
+        GeometryVersion++;
     }
 
     /// <summary>
@@ -415,6 +420,7 @@ public sealed class VoxelGrid
         });
 
         Version++;
+        GeometryVersion++;
         return spent;
     }
 
@@ -481,6 +487,7 @@ public sealed class VoxelGrid
         }
 
         Version++;
+        GeometryVersion++;
         return true;
     }
 
@@ -686,27 +693,32 @@ public sealed class VoxelGrid
         half = axis == 0 ? half with { X = axisHalf } : axis == 1 ? half with { Y = axisHalf } : half with { Z = axisHalf };
         var piece = new VoxelGrid(Palette, half, dims);
         var moved = 0;
-        for (var i = 0; i < _cells.Length; i++)
+        // Only the slices that move, in cell order (x fastest, then y, then z): the same cells in the same order as a pass over the
+        // whole grid that skips the rest, without dividing every index back into coordinates.
+        var (xFrom, xTo) = axis == 0 ? (from, to) : (0, Dimensions.X);
+        var (yFrom, yTo) = axis == 1 ? (from, to) : (0, Dimensions.Y);
+        var (zFrom, zTo) = axis == 2 ? (from, to) : (0, Dimensions.Z);
+        for (var z = zFrom; z < zTo; z++)
         {
-            var (x, y, z) = Coordinates(i);
-            var s = axis == 0 ? x : axis == 1 ? y : z;
-            if (s < from || s >= to)
+            for (var y = yFrom; y < yTo; y++)
             {
-                continue;
-            }
-
-            var j = piece.Index(axis == 0 ? x - from : x, axis == 1 ? y - from : y, axis == 2 ? z - from : z);
-            var m = _cells[i];
-            piece._cells[j] = m;
-            piece._health[j] = _health[i];
-            piece._surface[j] = _surface[i];
-            piece._stain[j] = _stain[i];
-            piece._remaining[m] += m == 0 ? 0 : 1;
-            piece._initial[m] += m == 0 ? 0 : 1;
-            if (m != 0)
-            {
-                moved++;
-                Clear(i);
+                for (var x = xFrom; x < xTo; x++)
+                {
+                    var i = Index(x, y, z);
+                    var j = piece.Index(axis == 0 ? x - from : x, axis == 1 ? y - from : y, axis == 2 ? z - from : z);
+                    var m = _cells[i];
+                    piece._cells[j] = m;
+                    piece._health[j] = _health[i];
+                    piece._surface[j] = _surface[i];
+                    piece._stain[j] = _stain[i];
+                    piece._remaining[m] += m == 0 ? 0 : 1;
+                    piece._initial[m] += m == 0 ? 0 : 1;
+                    if (m != 0)
+                    {
+                        moved++;
+                        Clear(i);
+                    }
+                }
             }
         }
 
@@ -716,6 +728,7 @@ public sealed class VoxelGrid
         }
 
         Version++;
+        GeometryVersion++;
         var centerAxis = -Component(HalfExtents, axis) + (0.5f * (from + to) * Component(CellSize, axis));
         var offset = axis == 0 ? new Vector3(centerAxis, 0f, 0f) : axis == 1 ? new Vector3(0f, centerAxis, 0f) : new Vector3(0f, 0f, centerAxis);
         return (piece, offset);
@@ -726,17 +739,24 @@ public sealed class VoxelGrid
     {
         var min = new Vector3(float.MaxValue);
         var max = new Vector3(float.MinValue);
-        for (var i = 0; i < _cells.Length; i++)
+        // Cell order without dividing each index back into coordinates (min and max do not depend on the order anyway).
+        var i = 0;
+        for (var z = 0; z < Dimensions.Z; z++)
         {
-            if (_cells[i] == 0)
+            for (var y = 0; y < Dimensions.Y; y++)
             {
-                continue;
-            }
+                for (var x = 0; x < Dimensions.X; x++, i++)
+                {
+                    if (_cells[i] == 0)
+                    {
+                        continue;
+                    }
 
-            var (x, y, z) = Coordinates(i);
-            var c = CellCenter(x, y, z);
-            min = Vector3.Min(min, c - (CellSize * 0.5f));
-            max = Vector3.Max(max, c + (CellSize * 0.5f));
+                    var c = CellCenter(x, y, z);
+                    min = Vector3.Min(min, c - (CellSize * 0.5f));
+                    max = Vector3.Max(max, c + (CellSize * 0.5f));
+                }
+            }
         }
 
         return min.X > max.X ? null : ((min + max) * 0.5f, (max - min) * 0.5f);
@@ -774,6 +794,7 @@ public sealed class VoxelGrid
         _stain[index] = 0f;
         _remaining[material]++;
         Version++;
+        GeometryVersion++;
         return true;
     }
 
@@ -810,6 +831,7 @@ public sealed class VoxelGrid
         }
 
         Version++;
+        GeometryVersion++;
         return true;
     }
 
@@ -861,6 +883,7 @@ public sealed class VoxelGrid
         _surface[from] = false;
         _stain[from] = 0f;
         Version++;
+        GeometryVersion++;
         return true;
     }
 

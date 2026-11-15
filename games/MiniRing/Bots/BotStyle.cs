@@ -42,6 +42,9 @@ public sealed record BotStyle
     /// </summary>
     public float PaceDrop { get; init; }
 
+    /// <summary>この蓄えより少ないほど休息を優先。空で 1、この値で 0 へなめらかに変え、相手の届く範囲の外へ出る。</summary>
+    public float RestBelow { get; init; } = 0.25f;
+
     // ── 間合いの層（docs/LEARNING_PLAN.md の R、RangeSense）──
 
     /// <summary>相手の拳が届くとみなす、相手の肩から自分の頭までの距離 [腕の長さ]（踏み込み・体の傾きを含む）。危険度の物差し。</summary>
@@ -280,6 +283,7 @@ public sealed record BotStyle
             Aggression = Unit(Aggression),
             PaceKnee = Range(PaceKnee, 0.05f, 1f, 0.7f),
             PaceDrop = Unit(PaceDrop),
+            RestBelow = Range(RestBelow, 0.01f, 1f, 0.25f),
             RangeThreat = Range(RangeThreat, 0.5f, 2.5f, 1.2f),
             RangeGuard = Unit(RangeGuard),
             RangeHeadMove = Unit(RangeHeadMove),

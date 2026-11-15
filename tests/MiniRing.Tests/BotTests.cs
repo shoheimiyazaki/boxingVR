@@ -186,7 +186,7 @@ public sealed class BotTests
     }
 
     [TestMethod]
-    public void BoxerBot_OutpointsTheLegacyCpu_AndThrowsItsTechniques()
+    public void FreshBoxerBot_OutpointsTheLegacyCpu_AndThrowsItsTechniques()
     {
         // ゲームの CPU（champion）で確かめる。手書きのままの boxer は、頭を人の比率に小さくしてから legacy と 5-4-1 になった:
         // legacy の拳は当たるまで頭を追い続ける（BoxerBot は打ち出したら直せない。基本動作編 B2）ので、小さな頭ほど有利になる。
@@ -194,9 +194,13 @@ public sealed class BotTests
         // 1 試合では、相手がふらついてガードを下げている間はジャブとストレートだけで足りることもある（ダメージ編 D2）ので、3 つの種を合わせて見る。
         var stats = new BotStats();
         var landed = 0;
+        // PhysicsVersion 29: このテストは十分な蓄えでの技選択の基準。20 秒で疲労・休息判断が
+        // 非活性になる測定用容量にし、既存の全 seed の勝利・複数技・命中の期待を保つ。
+        // 既定容量の枯渇による勝敗は StaminaBudgetTests と StaminaLeagueProbe で別に測る。
+        var fresh = FighterTuning.Default with { StaminaCapacity = 90_000f };
         foreach (var seed in new[] { 1, 2, 3, 4, 5 }) // 2026-11-12: K.O. で早く終わる試合が増えたので、種を足して 60 秒以上を見る
         {
-            var result = BotArena.Run(new BoutSpec(Contender.Named(BotCatalog.DefaultCpu), Contender.Named(BotCatalog.Legacy), Seed: seed, Seconds: 20f));
+            var result = BotArena.Run(new BoutSpec(Contender.Named(BotCatalog.DefaultCpu), Contender.Named(BotCatalog.Legacy), Seed: seed, Seconds: 20f), fresh);
             Assert.AreEqual(1, result.Winner, $"seed {seed}: champion {result.Red.DamageDealt:0} vs legacy {result.Blue.DamageDealt:0}");
             stats.Merge(result.Red.Stats);
             landed += result.Red.Stats.Techniques.Values.Sum(t => t.Landed);

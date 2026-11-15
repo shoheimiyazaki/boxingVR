@@ -42,7 +42,7 @@ public sealed record DrillResult(Defense Defense, PunchKind Kind, int Punches, f
 /// </summary>
 public static class DefenseDrill
 {
-    private const float StepDt = 1f / 60f;
+    public const float StepDt = 1f / 60f;
 
     /// <summary>その種類の拳だけを打つ攻め手（守らない・回らない・頭を振らない）。</summary>
     /// <summary>ドリルの既定の間合い（受け手が保つ胸と胸の距離、腕の長さ倍）。攻め手はこれより 0.1 だけ踏み込んで打つ。</summary>
@@ -170,7 +170,9 @@ public static class DefenseDrill
     /// </param>
     /// <param name="telegraph">攻め手の打つ前の体の溜め [s]。合図は溜めの始めから数える。</param>
     /// <param name="setup">試合を作った直後に呼ぶ（目を潰すなど。省略なら何もしない）。</param>
-    public static PunchDrillResult Punch(string punch, Defense defense, BotStyle defender, int seed, float seconds, float range = DefaultRange, float? cue = null, float telegraph = 0f, Action<BoxingGame>? setup = null)
+    /// <param name="observe">呼び出し側が各ステップの試合状態と受け手を観測するためのコールバック。</param>
+    public static PunchDrillResult Punch(string punch, Defense defense, BotStyle defender, int seed, float seconds, float range = DefaultRange, float? cue = null, float telegraph = 0f, Action<BoxingGame>? setup = null,
+        Action<BoxingGame, BoxerBot>? observe = null)
     {
         ArgumentNullException.ThrowIfNull(defender);
         var attackers = new List<BoxerBot>();
@@ -193,6 +195,7 @@ public static class DefenseDrill
         {
             game.Step(default, StepDt);
             cues?.Update(t + StepDt, attackers, defenders[^1]);
+            observe?.Invoke(game, defenders[^1]); // 形の観測（頭の軌跡・拳と頭の距離。FormLab）
             var thrownNow = attackers.Sum(a => a.Stats.Techniques.Values.Sum(c => c.Thrown));
 
             foreach (var hit in game.RecentHits)

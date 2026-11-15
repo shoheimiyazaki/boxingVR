@@ -1,4 +1,5 @@
 using System.Numerics;
+using Aigis.Foundation.Voxels;
 
 namespace MiniRing.Bots;
 
@@ -179,7 +180,8 @@ public sealed class BoxerBot : IFighterControl
     // 15: 間合いの層の届く長さに相手の武器（握りから先）を足す（素手どうしの試合は変わらない）。
     // 16: claude/a-3d0203 の 15 と master の 13 を合わせた。
     // 17: karate hand shapes, fist parry and five kick goals.
-    public const int LogicVersion = 24; // 24: 攻撃判断に0.2秒の観測遅延を入れ、予測した打点を固定する。
+    public const int LogicVersion = 26; // 26: 蓄えが少ないほど攻めの間隔を空け、RangeSense の届く範囲の外で休む。25: swarmer・champion の回避の形を formlab の測定で直した（スリップは斜め下へ・ダッキングは拳を頭と一緒に下げる・ウィービングは前へ出て U 字にくぐる）。
+    // 24: 攻撃判断に0.2秒の観測遅延を入れ、予測した打点を固定する。
     // 23: 目が傷むと見えない側の相手の拳・体の情報が遅れてぶれる（VisionPerception）・目と見えない側を狙う重み（AimWeights.Eye・BlindSide。相手の見えが悪いほど重みが増す）。22: パリーの手の経路を速く・前腕へ（TechniqueExecution.ParrySweepRate・ParryArmFraction）、パリーの効く拳の重みをフック中心に（DefenseBook.Parry。karatelab の測定）。21: 空手スタイルの手形の重みを karatelab の測定で設定（貫手・一本拳・手刀は 1 発あたりの削れが正拳の約 2 倍、自分の指の骨の欠けは 0）。20: 蹴りは蹴りごとの当てたい所（KickSpec.AimWorld: 前蹴り・膝は腹、ローは腿、ミドルは胸、ハイは頭）を狙う。19: パリーの頭の目標を中立にする。18: 空手の手形・パリー・蹴りの選択を追加。
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
@@ -210,7 +212,9 @@ public sealed class BoxerBot : IFighterControl
 
     public FighterCommand Read(in FighterSense sense, float dt)
     {
+        var perceiveStart = StepProfile.Begin();
         var attack = _attackPerception.Update(sense, dt);
+        StepProfile.End(StepProfile.Slot.BotPerceive, perceiveStart);
         _faintness = float.IsFinite(sense.SelfFaintness) ? Math.Clamp(sense.SelfFaintness, 0f, 1f) : 0f;
         _stamina = float.IsFinite(sense.SelfStamina) ? Math.Clamp(sense.SelfStamina, 0f, 1f) : 1f;
         var self = sense.Self;
@@ -254,6 +258,7 @@ public sealed class BoxerBot : IFighterControl
             }
         }
 
+        var read2Start = StepProfile.Begin();
         _read.Observe(sense, dt);
         // 間合いの層: 危ない所にいるか（危険度）と、そこに居続けた時間を、ほかの判断より先に見る。
         _range.Update(sense, _seenHead, attacking: _combo is not null || _wantAttack || AnyPunchActive, Style, dt);
@@ -261,6 +266,8 @@ public sealed class BoxerBot : IFighterControl
         UpdatePrediction(sense, dt);
         UpdateGuess(sense, dt);
         UpdateThreats(sense, dt);
+        StepProfile.End(StepProfile.Slot.BotRead2, read2Start);
+        var chooseStart = StepProfile.Begin();
         UpdateDefense(distance, reach, dt);
         if (attack is { } observed)
         {
@@ -276,6 +283,8 @@ public sealed class BoxerBot : IFighterControl
             UpdatePunches(observed, sense.SelfHead, dt);
         }
 
+        StepProfile.End(StepProfile.Slot.BotChoose, chooseStart);
+        var executeStart = StepProfile.Begin();
         var grip = (Left: false, Right: false);
         var left = Guard(Hand.Left, reach, headLocal);
         var right = Guard(Hand.Right, reach, headLocal);
@@ -310,6 +319,7 @@ public sealed class BoxerBot : IFighterControl
         Stats.Tick(dt, crouched, _defense != Defense.None, _hands[0].Active || _hands[1].Active);
         var rest = new Vector3(_kickSide.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
         var leg = _kick is { } kind ? KickSpec.Of(kind).Evaluate(_kickSide, _kickTime, Style.KickDuration, rest, _kickAim, reach) : (LegCommand?)null;
+        StepProfile.End(StepProfile.Slot.BotExecute, executeStart);
         return new FighterCommand(move, dir, new HandCommand(left, grip.Left, Spring(Hand.Left), Shape: _shapes[0]), new HandCommand(right, grip.Right, Spring(Hand.Right), Shape: _shapes[1]), _head, LoadTwist(), LeftLeg: _kickSide == Hand.Left ? leg : null, RightLeg: _kickSide == Hand.Right ? leg : null);
     }
 
@@ -349,6 +359,15 @@ public sealed class BoxerBot : IFighterControl
 
     /// <summary>自分のスタミナ（<see cref="FighterSense.SelfStamina"/>、0..1）。</summary>
     private float _stamina = 1f;
+
+    private float RestNeed
+    {
+        get
+        {
+            var t = Math.Clamp(1f - (_stamina / Style.RestBelow), 0f, 1f);
+            return t * t * (3f - (2f * t));
+        }
+    }
 
     /// <summary>
     /// いまの手数（<see cref="BotStyle.Aggression"/> にペース配分を掛けたもの）: スタミナが <see cref="BotStyle.PaceKnee"/> を下回ると、
@@ -844,7 +863,7 @@ public sealed class BoxerBot : IFighterControl
     {
         // 間合いの層: 危ない所に何もせず居続けるのが一番危ない。下がるのでなく打って解消する（消極的にならない）:
         // 危険度 × (1 + さらされ) に比例して、次の拳までの間を早く縮める（RangePress）。
-        _cooldown -= dt * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure)));
+        _cooldown -= dt * (1f - RestNeed) * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure)));
         _exitTimer = MathF.Max(0f, _exitTimer - dt);
         if (_kick is not null || _defense != Defense.None || _clinchTime >= 0f || _throwTime >= 0f || _combo is not null)
         {
@@ -1166,6 +1185,9 @@ public sealed class BoxerBot : IFighterControl
         var desired = _wantAttack || _combo is not null ? Style.AttackRange
             : _exitTimer > 0f ? neutral + 0.3f
             : neutral;
+        // 疲れたときは相手の拳・武器の届く範囲の外へ。遠くへ逃げ続けず、届かない所で止まって息を整える。
+        var restRange = MathF.Max(desired, keepOut + (_range.WeaponLength / reach));
+        desired += (restRange - desired) * RestNeed;
         var approach = Math.Clamp((distance - (desired * reach)) / reach * 3f, -1f, 1f);
         // 間合いの層: 自分から打っていない間は、危ない所から外へ出る（危ない所に居続けるのが一番危ない）。居続けた時間が長いほど強く。
         if (!_wantAttack && _combo is null)
@@ -1222,7 +1244,7 @@ public sealed class BoxerBot : IFighterControl
             side += escapeSide * converted;
         }
 
-        var circling = _combo is null && !_wantAttack && _pivotTimer <= 0f ? Style.Circling * _circleDirection : 0f;
+        var circling = _combo is null && !_wantAttack && _pivotTimer <= 0f ? Style.Circling * _circleDirection * (1f - RestNeed) : 0f;
         var move = (dir * Math.Clamp(approach, -1f, 1f)) + (lateral * Math.Clamp(circling + side, -1f, 1f));
         return move + StayInside(self.Origin, reach, ring);
     }

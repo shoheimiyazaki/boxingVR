@@ -124,6 +124,23 @@ footer { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; color: var(-
     </svg>
     <figcaption>依存は上から下へ一方向。Bepu の型はエンジンの Physics の外へ出ない。</figcaption>
   </figure>
+  <h3>物理を待たずに描く</h3>
+  <p>Desktop と VR では、物理を専用の 1 本のスレッドで進め、表示側は最後に完成した状態の写しだけを読みます。物理が重いときは試合時間がゆっくり進み、描画は前の写しを使って続けます。描画の目標は 90 Hz 以上です。GPU の負荷や実行環境による遅れは、別に計測します。</p>
+  <figure>
+    <svg viewBox="0 0 900 340" role="img" aria-label="描画、物理、音のスレッド間で完成した状態とイベントを渡す流れ">
+      <rect class="box-blue" x="20" y="20" width="370" height="90" rx="10"/><text class="svg-text" x="205" y="48" text-anchor="middle">表示と入力（目標 90 Hz 以上）</text><text class="svg-muted" x="205" y="72" text-anchor="middle">最新の写しで描画・HUD・カメラ</text><text class="svg-muted" x="205" y="92" text-anchor="middle">VR は現在の頭の姿勢で両目を描く</text>
+      <rect class="box-accent" x="510" y="20" width="370" height="90" rx="10"/><text class="svg-text" x="695" y="48" text-anchor="middle">物理専用（1 歩 = 1/240 秒）</text><text class="svg-muted" x="695" y="72" text-anchor="middle">入力を採用 → 試合を進め、記録</text><text class="svg-muted" x="695" y="92" text-anchor="middle">完成した写しを最大 90 Hz で公開</text>
+      <path class="arrow" d="M390,42 H507"/><text class="svg-muted" x="450" y="31" text-anchor="middle">入力</text>
+      <path class="arrow" d="M510,90 H393"/><text class="svg-muted" x="450" y="80" text-anchor="middle">完成した写し</text>
+      <rect class="box-green" x="510" y="190" width="370" height="80" rx="10"/><text class="svg-text" x="695" y="220" text-anchor="middle">音専用スレッド</text><text class="svg-muted" x="695" y="245" text-anchor="middle">毎歩のイベントを順に受け取り、合成・再生</text>
+      <path class="arrow" d="M695,110 V187"/><text class="svg-muted" x="713" y="154">音を列で保持</text>
+      <rect class="box" x="20" y="190" width="370" height="80" rx="10"/><text class="svg-text" x="205" y="220" text-anchor="middle">描画専用の GPU テクスチャ</text><text class="svg-muted" x="205" y="245" text-anchor="middle">変わったセルの範囲だけ書き込む</text>
+      <path class="arrow" d="M205,110 V187"/>
+      <text class="svg-muted" x="450" y="316" text-anchor="middle">物理が遅れても表示は物理を待たない。音と振動は写しの差し替えで失わない。</text>
+    </svg>
+    <figcaption>試合の計算は 1 本のスレッドが所有します。表示・音から試合の計算へ状態を戻しません。</figcaption>
+  </figure>
+  <p>リセットの押下は処理されるまで残し、VR のキャリブレーションは押した瞬間の姿勢ごと保持します。音と振動は毎歩の列で渡すため、表示用の写しを飛ばしても消えません。メニューからの試合開始も裏で準備し、その間は「試合を準備中…」を表示します。Arena の動画撮影やヘッドレス計算は同期のままです。</p>
   <h3>1 サブステップ（1/240 秒）の流れ</h3>
 <pre>入力元.Read(FighterSense) → FighterCommand
 Fighter.ApplyControl
@@ -142,6 +159,8 @@ BoxingGame: 接触から「拳 × 相手の部位」→ 運動量の受け渡し
     <tr><td><code>Fighter.cs</code> / <code>FighterTuning.cs</code></td><td>アクティブラグドール本体と、その調整値のすべて</td></tr>
     <tr><td><code>PunchMechanics.cs</code></td><td>拳にどれだけ体の質量が乗るか（場合分けなし）</td></tr>
     <tr><td><code>BoxingGame.cs</code></td><td>リング・2 体・当たり・運動量の受け渡し・ラウンド・得点</td></tr>
+    <tr><td><code>Presentation/SnapshotMatchGame.cs</code></td><td>Desktop の物理専用スレッドと、完成した描画用の写しの境界</td></tr>
+    <tr><td><code>Aigis.Player/FixedSimulation.cs</code></td><td>固定歩の実行・入力の受け渡し・完成した写しの公開（Desktop と VR で共通）</td></tr>
     <tr><td><code>Voxels/</code></td><td>体の中身（材質）・削れ・断裂・死・.vox の行き来</td></tr>
     <tr><td><code>Bots/</code></td><td>技の経路・ボットの判断・相手の読み・スタイル（JSON）</td></tr>
     <tr><td><code>Replay/</code></td><td>入力だけの記録と完全再現</td></tr>
@@ -178,6 +197,8 @@ BoxingGame: 接触から「拳 × 相手の部位」→ 運動量の受け渡し
   <p>拳は体に<strong>バネでつながっている</strong>と考えます。予備動作（溜め）で打つ手の肩を逆へ引き、脚を沈め、胴をひねると、体のバネにエネルギーが貯まります。打ち出しの間だけ、体幹の運動エネルギー（打つ向きの成分・上向き・胸の回転）とバネのエネルギーを、時定数 0.04 秒で拳の目標の先回り（3 Hz のバネ）へ移し、体はそのぶん止まります。</p>
   <div class="callout"><strong>エネルギーは無から出ない。</strong> 移せるのは体が持っている分まで。踏み込みながら打てば拳が速くなり、体は遅くなる。下がりながらでは乗らない。ダッキングの沈みの反発も同じ仕組みで拳に乗る。結果として、溜めの大きいストレートは小さいものより重くなる（0.83 → 1.56 J）。</div>
 
+  <h3>スタミナと休息</h3>
+  <p>腕・移動・体から拳への移送は、90 J の共通の蓄えと心肺の供給から仕事を出します。使い切って連打するほど拳は遅く軽くなり、離れて構えて休むと回復が速まります（空から 10 秒で約 72 %）。ボットも疲れたら相手の拳や武器の届く範囲の外で息を整えます。残量はメーター・息遣い・顔色で伝え、立位を支える力は意識に従うため、疲れだけで崩れる仕組みにはしません。式・検証と物理の近似は <a href="arena/gen13_stamina.md">測定記録</a> を参照。</p>
   <h3>3.5 意識・体の張り・立てる高さ（連続）</h3>
   <p>意識 = 脳の働き（脳が 10% 削られるごとに半分）− 脳しんとう。倒れている間、意識が少しでもあれば体は 1.3〜2.6 秒ごとに起き上がろうと力を込めては抜き（意識が深いほど強く頻繁に）、まったく無ければ止まって、4 秒動かなければ審判がその場で K.O. にします。脳しんとうは打撃で頭がねじられた角速度の 2 乗に比例して溜まり、一定の速さ（0.07/秒）で抜けます。意識から体の張りと「腰を上げられる高さ」が連続に決まり、体はいつもその高さまで立とうとします（上がるのは 2.5 秒で床から立つ速さまで）。</p>
   <figure>
@@ -223,10 +244,11 @@ BoxingGame: 接触から「拳 × 相手の部位」→ 運動量の受け渡し
     <li><strong>記録</strong>: 仮説・測った結果・採否を <code>docs/BOT_PDCA.md</code> と <code>docs/arena/</code> に残す。</li>
   </ol>
   <h3>5.4 決定性と記録</h3>
-  <p>240 Hz の固定ステップ、単スレッドの物理、種付きの乱数。記録は入力・種・調整値・CPU のスタイルだけで、再生で全チェックサムが一致することをテストが確かめます。物理を変えたら <code>PhysicsVersion</code>、ボットの判断を変えたら <code>LogicVersion</code> を上げ、古い記録は黙ってずれる代わりに拒まれます。</p>
+  <p>240 Hz の固定ステップ、単スレッドの物理、種付きの乱数。入力は実際に採用した物理の歩番号の順に記録し、入力・刻み・種・調整値・CPU のスタイルから再現します。描画のフレーム数や壁時計は試合の計算へ入りません。再生で全チェックサムが一致することをテストが確かめます。物理を変えたら <code>PhysicsVersion</code>、ボットの判断を変えたら <code>LogicVersion</code> を上げ、古い記録は黙ってずれる代わりに拒まれます。</p>
+  <p>Desktop の試合速度（0.5・0.75・1 倍）は、固定の 1/240 秒を変えず、物理を実行する実時間の間隔で調整します。処理が重ければ試合はさらに遅くなりますが、表示や VR の頭の追跡は続きます。</p>
   <h3>5.5 描画</h3>
   <ul>
-    <li>ボクセルは 3D テクスチャで GPU に置き、空と中身の境に面を張る（削れればその場で形が変わる）。</li>
+    <li>ボクセルは 3D テクスチャで GPU に置き、空と中身の境に面を張る（削れればその場で形が変わる）。版が変わったときだけデータを複製し、描画側では同じテクスチャの変更範囲へ書き込む。損傷ごとにテクスチャを作り直さない。</li>
     <li>部屋の床・壁・布・木は CC0 の写真を R・G・B の 3 層にし、世界の向きから貼る（UV 不要の三方向投影。<code>TextureInColour</code>）。</li>
     <li>家具・照明・画面の仕上げは描画だけで、試合の計算には響かない（床・テーブル・台座の当たり判定だけは物理）。</li>
   </ul>

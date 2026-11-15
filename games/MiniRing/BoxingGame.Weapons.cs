@@ -61,14 +61,36 @@ public sealed partial class BoxingGame
     public const Hand WeaponHand = Hand.Right;
 
     /// <summary><paramref name="fighter"/> が握っている武器（無ければ null）。</summary>
-    public Weapon? WeaponOf(Fighter fighter) => _wielders.FirstOrDefault(kv => kv.Value == fighter && !Weapon.IsWorn(kv.Key.Kind)).Key;
+    public Weapon? WeaponOf(Fighter fighter)
+    {
+        // 毎歩何度も呼ばれるので、LINQ（クロージャと列挙子の割り当て）を使わず、辞書の順に最初の 1 つを返す（FirstOrDefault と同じ答え）。
+        foreach (var (weapon, holder) in _wielders)
+        {
+            if (holder == fighter && !Weapon.IsWorn(weapon.Kind))
+            {
+                return weapon;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// <paramref name="fighter"/> が手 <paramref name="hand"/> にはめている物（グローブ・素手の拳・メリケンサック・カタール・籠手。
     /// <see cref="Weapon.IsWorn"/>。はめていなければ null）。
     /// </summary>
-    public Weapon? GloveOf(Fighter fighter, Hand hand) =>
-        _wielders.FirstOrDefault(kv => kv.Value == fighter && Weapon.IsWorn(kv.Key.Kind) && _wieldHand[kv.Key] == hand).Key;
+    public Weapon? GloveOf(Fighter fighter, Hand hand)
+    {
+        foreach (var (weapon, holder) in _wielders)
+        {
+            if (holder == fighter && Weapon.IsWorn(weapon.Kind) && _wieldHand[weapon] == hand)
+            {
+                return weapon;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// <paramref name="fighter"/> の、武器を握っていない手に、<paramref name="wear"/>（既定はボクセルのグローブ。革はコーナーの色）をはめる。
@@ -193,23 +215,31 @@ public sealed partial class BoxingGame
 
     /// <summary><paramref name="holder"/> が握っている武器の、作ったときの握る所から先の端までの長さ [m]（<see cref="Track"/> で測った）。</summary>
     private float FullReachOf(Weapon weapon, Fighter holder) =>
-        MathF.Max(0f, _fullReach.GetValueOrDefault(weapon, FarEdge(weapon)) - (holder.WieldedGrip(HandOf(weapon)) ?? Weapon.GripOf(weapon.Kind)).X);
+        // 既定値の FarEdge は格子の全セルを歩くので、無いときだけ求める（引数に書くと毎回歩く）。
+        MathF.Max(0f, (_fullReach.TryGetValue(weapon, out var full) ? full : FarEdge(weapon)) - (holder.WieldedGrip(HandOf(weapon)) ?? Weapon.GripOf(weapon.Kind)).X);
 
     /// <summary>武器の今のいちばん先のセルの端（武器のローカル X）。</summary>
     private static float FarEdge(Weapon weapon)
     {
         var grid = weapon.Body.Grid;
-        var far = float.MinValue;
-        for (var i = 0; i < grid.CellCount; i++)
+        // 端の値はセルの x だけで決まり（x が大きいほど小さくならない）、いちばん大きい x の埋まったスライスの値が最大になる: 先のスライスから見て、
+        // 最初に埋まったセルがあるスライスで止める（全セルを割り算で座標に戻して歩くのと同じビット列の答え）。
+        var (nx, ny, nz) = grid.Dimensions;
+        for (var x = nx - 1; x >= 0; x--)
         {
-            if (grid.MaterialAt(i) != 0)
+            for (var z = 0; z < nz; z++)
             {
-                var (x, y, z) = grid.Coordinates(i);
-                far = MathF.Max(far, weapon.Body.GridCenterLocal.X + grid.CellCenter(x, y, z).X + (0.5f * grid.CellSize.X));
+                for (var y = 0; y < ny; y++)
+                {
+                    if (grid.At(x, y, z) != 0)
+                    {
+                        return weapon.Body.GridCenterLocal.X + grid.CellCenter(x, y, z).X + (0.5f * grid.CellSize.X);
+                    }
+                }
             }
         }
 
-        return far;
+        return float.MinValue;
     }
 
     /// <summary>
@@ -433,6 +463,14 @@ public sealed partial class BoxingGame
     /// </summary>
     private bool MayTouch(VoxelBody a, BodyState aBefore, VoxelBody b, BodyState bBefore)
     {
+        var profileStart = StepProfile.Begin();
+        var result = MayTouchCore(a, aBefore, b, bBefore);
+        StepProfile.End(StepProfile.Slot.MayTouch, profileStart);
+        return result;
+    }
+
+    private bool MayTouchCore(VoxelBody a, BodyState aBefore, VoxelBody b, BodyState bBefore)
+    {
         var aNow = _world.GetState(a.BodyId);
         var bNow = _world.GetState(b.BodyId);
         var reach = a.Grid.HalfExtents.Length() + b.Grid.HalfExtents.Length() + a.GridCenterLocal.Length() + b.GridCenterLocal.Length();
@@ -447,8 +485,15 @@ public sealed partial class BoxingGame
     /// <summary>物理の 1 歩の前: 武器と体の部位の姿勢を覚える（接触は歩の前後の動きを掃いて調べる）。</summary>
     private void RememberBeforeStep()
     {
+        var profileStart = StepProfile.Begin();
+        RememberBeforeStepCore();
+        StepProfile.End(StepProfile.Slot.Remember, profileStart);
+    }
+
+    private void RememberBeforeStepCore()
+    {
         _beforeStep.Clear();
-        if (_weapons.Count == 0 && !Fighters.Any(f => Hands.Any(f.IsKicking)))
+        if (_weapons.Count == 0 && !AnyoneKicking())
         {
             return;
         }
@@ -458,14 +503,55 @@ public sealed partial class BoxingGame
             _beforeStep[weapon.Body.BodyId] = _world.GetState(weapon.Body.BodyId);
         }
 
-        foreach (var part in VoxelPartsOf(Fighters))
+        foreach (var fighter in Fighters)
         {
-            _beforeStep[part.Body.BodyId] = _world.GetState(part.Body.BodyId);
+            if (fighter.Voxels is not { } body)
+            {
+                continue;
+            }
+
+            foreach (var part in body.Parts)
+            {
+                _beforeStep[part.Body.BodyId] = _world.GetState(part.Body.BodyId);
+            }
+
+            foreach (var part in body.Fragments)
+            {
+                _beforeStep[part.Body.BodyId] = _world.GetState(part.Body.BodyId);
+            }
         }
     }
 
+    /// <summary>誰かが脚を上げて蹴っているか（毎歩の問い合わせなので、LINQ を使わない）。</summary>
+    private bool AnyoneKicking()
+    {
+        foreach (var fighter in Fighters)
+        {
+            foreach (var hand in Hands)
+            {
+                if (fighter.IsKicking(hand))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>毎歩の掃きで使い回す一時置き場（武器の一覧・体の部位の一覧・触れた部位。掃きは再入しない）。</summary>
+    private readonly List<Weapon> _weaponScratch = [];
+    private readonly List<VoxelPart> _partScratch = [];
+    private readonly HashSet<VoxelPart> _touchedScratch = [];
     /// <summary>物理の 1 歩の後: 武器 × 武器、武器 × 体の部位の接触を解く。</summary>
     private void ResolveWeapons()
+    {
+        var profileStart = StepProfile.Begin();
+        ResolveWeaponsCore();
+        StepProfile.End(StepProfile.Slot.Weapons, profileStart);
+    }
+
+    private void ResolveWeaponsCore()
     {
         if (_weapons.Count == 0)
         {
@@ -473,7 +559,9 @@ public sealed partial class BoxingGame
         }
 
         // 接触で折れた破片は、この歩の後で加わる（今の歩の前の姿勢を持たない）。
-        var weapons = _weapons.ToList();
+        var weapons = _weaponScratch;
+        weapons.Clear();
+        weapons.AddRange(_weapons);
         for (var i = 0; i < weapons.Count; i++)
         {
             var weapon = weapons[i];
@@ -505,7 +593,8 @@ public sealed partial class BoxingGame
             // 握りの押す力（drive・massBehind）を数えずに掃き直す（同じ部位を 2 度打たない・腕の力を 2 度払わない。<see cref="MaxContactPasses"/> まで。握った本人の体は 1 回だけ）。
             // 手にはめた物（グローブなど）は 1 回だけ（拳はいつも相手の体に押し当てて動くので、掃き直すと拳の打撃の手触りまで変わる。調べたのは刃・棍棒）。
             var passes = Weapon.IsWorn(weapon.Kind) ? 1 : MaxContactPasses;
-            var touched = new HashSet<VoxelPart>();
+            var touched = _touchedScratch;
+            touched.Clear();
             for (var pass = 0; pass < passes; pass++)
             {
                 var poseBefore = _world.GetState(weapon.Body.BodyId);
@@ -540,7 +629,16 @@ public sealed partial class BoxingGame
                 continue;
             }
 
-            foreach (var part in VoxelPartsOf([fighter]).ToList())
+            // 部位の一覧の写し（接触で破片が増えても、この歩の分だけを回す）。
+            var parts = _partScratch;
+            parts.Clear();
+            if (fighter.Voxels is { } body)
+            {
+                parts.AddRange(body.Parts);
+                parts.AddRange(body.Fragments);
+            }
+
+            foreach (var part in parts)
             {
                 if ((holds && IsGripping(fighter, part.Body.BodyId)) || deadHand?.Hand == part.Body.BodyId || (!includeHolder && touched.Contains(part)))
                 {
@@ -617,6 +715,13 @@ public sealed partial class BoxingGame
 
     /// <summary>武器 × 体の部位: 切られた肉と骨を散らし、骨が断たれたら落とし、臓器が壊れたら死なせる。</summary>
     private void Cut(Weapon weapon, Fighter victim, VoxelPart part, VoxelContactResult hit)
+    {
+        var profileStart = StepProfile.Begin();
+        CutCore(weapon, victim, part, hit);
+        StepProfile.End(StepProfile.Slot.Cut, profileStart);
+    }
+
+    private void CutCore(Weapon weapon, Fighter victim, VoxelPart part, VoxelContactResult hit)
     {
         if (!hit.Touched)
         {
@@ -818,6 +923,13 @@ public sealed partial class BoxingGame
     /// 面の下へ伝わる力に効く（拳の <see cref="MassBehind"/> と同じ役割）。打った側の脚の骨も曲げられ、折れることがある。
     /// </summary>
     private void ResolveKicks()
+    {
+        var profileStart = StepProfile.Begin();
+        ResolveKicksCore();
+        StepProfile.End(StepProfile.Slot.Kicks, profileStart);
+    }
+
+    private void ResolveKicksCore()
     {
         // （箱どうしの衝突は FilterKickPairs が歩の前に切ってある。）
         foreach (var attacker in Fighters)
@@ -1065,6 +1177,13 @@ public sealed partial class BoxingGame
     /// 刃のある武器（<c>blade</c>）が体を斬ったときは、体の破片を振り抜けた向きへ飛ばす（<see cref="SliceOff"/>）。
     /// </summary>
     private void Shatter(VoxelContactResult hit, VoxelBody a, Vector3 outOfA, VoxelBody b, Vector3 outOfB, bool fatal, Weapon? blade = null)
+    {
+        var profileStart = StepProfile.Begin();
+        ShatterCore(hit, a, outOfA, b, outOfB, fatal, blade);
+        StepProfile.End(StepProfile.Slot.Debris, profileStart);
+    }
+
+    private void ShatterCore(VoxelContactResult hit, VoxelBody a, Vector3 outOfA, VoxelBody b, Vector3 outOfB, bool fatal, Weapon? blade = null)
     {
         var removed = hit.RemovedA.Count + hit.RemovedB.Count;
         if (removed == 0 && !fatal)

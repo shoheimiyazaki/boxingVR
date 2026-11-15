@@ -93,8 +93,15 @@ public sealed class EvasionBasicsTests
         var inside = new DefenseMove { HeadX = 0.5f, HeadY = -0.5f, HeadZ = -0.2f, Step = 1f, Duration = 0.3f, Rate = 60f, HandsUp = 0.3f, VsStraight = 1f };
         var book = DefenseBook.Default.With(Defense.Duck, inside);
         // 相手は打つ前に溜める（狙いは溜めの始めに決まる）。溜めの始めに外せば、拳は頭のあった所を通る（予測編 P2）。
-        var open = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: 5, seconds: 8f, telegraph: 0.08f);
-        var slipped = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: true, counters: false), seed: 5, seconds: 8f, cue: 0f, telegraph: 0.08f);
+        // 狙いの確定時点の検証なので、疲労による手数減と回避出力の低下は対照から除く。
+        static void KeepFresh(BoxingGame game, BoxerBot _)
+        {
+            game.Player.Stamina = 1f;
+            game.Cpu.Stamina = 1f;
+        }
+
+        var open = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: 5, seconds: 8f, telegraph: 0.08f, observe: KeepFresh);
+        var slipped = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: true, counters: false), seed: 5, seconds: 8f, cue: 0f, telegraph: 0.08f, observe: KeepFresh);
         Console.WriteLine($"open head {open.HeadRate:P0}, slipped head {slipped.HeadRate:P0} evade {slipped.EvadeRate:P0}");
 
         Assert.IsGreaterThan(5, open.Punches);

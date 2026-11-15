@@ -142,7 +142,9 @@ public sealed class IntentControl : IFighterControl
 
     public FighterCommand Read(in FighterSense sense, float dt)
     {
-        if (!float.IsFinite(dt) || dt <= 0f || dt > Replay.ReplayFile.MaxDt)
+        // A repeated presentation snapshot has no elapsed simulation time, but its
+        // press/release edges still need to be observed without advancing a technique.
+        if (!float.IsFinite(dt) || dt < 0f || dt > Replay.ReplayFile.MaxDt)
         {
             throw new ArgumentOutOfRangeException(nameof(dt), "操作の時間刻みが範囲外です。");
         }
@@ -152,7 +154,7 @@ public sealed class IntentControl : IFighterControl
         var self = sense.Self;
         var headLocal = sense.SelfHead == default ? new Vector3(0f, 0.3f * reach, 0f) : self.WorldToLocal(sense.SelfHead);
         _stanceY ??= sense.SelfHead.Y;
-        _read.Observe(sense, dt);
+        if (dt > 0f) { _read.Observe(sense, dt); }
         var face = sense.OpponentChest - self.Origin;
         var facing = new BodyFrame(self.Origin, BodyFrame.YawOf(face, self.YawRadians));
         Vector3 move;

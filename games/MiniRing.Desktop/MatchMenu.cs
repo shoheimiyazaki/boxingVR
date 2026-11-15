@@ -8,7 +8,7 @@ using Silk.NET.Input;
 
 namespace MiniRing.Desktop;
 
-internal sealed class MatchMenu(HandWear defaultWear, string replayDirectory)
+internal sealed class MatchMenu(HandWear defaultWear, string replayDirectory, Action<bool>? playCue = null)
 {
     private static readonly string[] Modes = ["シングルプレイ", "対戦", "観戦モード", "過去の試合のリプレイ", "終了"];
     private static readonly string[] ModeDetails = ["人 VS CPU", "人 VS 人", "CPU VS CPU", "試合の記録を再生", ""];
@@ -29,13 +29,14 @@ internal sealed class MatchMenu(HandWear defaultWear, string replayDirectory)
     private int _redWear = Array.FindIndex(Equipment, e => e.Value == defaultWear);
     private int _blueWear = Array.FindIndex(Equipment, e => e.Value == defaultWear);
     private string[] _files = [];
+    private int _firstRecord;
     private string? _error;
     private Vector2 _pad;
     private bool _confirm, _back;
 
     public bool QuitRequested { get; private set; }
 
-    public (MatchSelection? Match, ReplayData? Replay) Read(InputSnapshot input)
+    public (MatchSelection? Match, ReplayData? Replay) Read(InputSnapshot input, Vector2 size)
     {
         var pad = input.GetGamepadDPad(0);
         if (pad == Vector2.Zero)
@@ -47,10 +48,10 @@ internal sealed class MatchMenu(HandWear defaultWear, string replayDirectory)
         var back = input.IsGamepadButtonDown(GamepadButton.East);
         var select = input.WasKeyPressed(Key.Enter) || (confirm && !_confirm);
         var cancel = input.WasKeyPressed(Key.Escape) || (back && !_back);
-        var x = (input.WasKeyPressed(Key.Right) || (pad.X > 0 && _pad.X <= 0) ? 1 : 0)
-            - (input.WasKeyPressed(Key.Left) || (pad.X < 0 && _pad.X >= 0) ? 1 : 0);
-        var y = (input.WasKeyPressed(Key.Down) || (pad.Y < 0 && _pad.Y >= 0) ? 1 : 0)
-            - (input.WasKeyPressed(Key.Up) || (pad.Y > 0 && _pad.Y <= 0) ? 1 : 0);
+        var x = (input.WasKeyPressed(Key.Right) || input.WasKeyPressed(Key.D) || (pad.X > 0 && _pad.X <= 0) ? 1 : 0)
+            - (input.WasKeyPressed(Key.Left) || input.WasKeyPressed(Key.A) || (pad.X < 0 && _pad.X >= 0) ? 1 : 0);
+        var y = (input.WasKeyPressed(Key.Down) || input.WasKeyPressed(Key.S) || (pad.Y < 0 && _pad.Y >= 0) ? 1 : 0)
+            - (input.WasKeyPressed(Key.Up) || input.WasKeyPressed(Key.W) || (pad.Y > 0 && _pad.Y <= 0) ? 1 : 0);
         (_pad, _confirm, _back) = (pad, confirm, back);
 
         if (cancel)
@@ -58,6 +59,33 @@ internal sealed class MatchMenu(HandWear defaultWear, string replayDirectory)
             QuitRequested = _page == Page.Modes;
             Return(back);
             return default;
+        }
+
+        if (_page == Page.Replays && input.ScrollDelta != 0f)
+        {
+            y = -Math.Sign(input.ScrollDelta);
+        }
+
+        var oldMode = _mode;
+        var oldFocus = _focus;
+        var hit = HitRow(input.MousePosition, size, RowCount);
+        var click = input.WasMouseButtonPressed(MouseButton.Left);
+        if (hit is { } row && (click || input.MouseDelta != Vector2.Zero))
+        {
+            if (_page == Page.Modes) { _mode = row; }
+            else { _focus = row + (_page == Page.Replays ? FirstRecord : 0); }
+            y = 0;
+            select |= click;
+        }
+
+        if (select && RowCount > 0)
+        {
+            playCue?.Invoke(true);
+        }
+        else if (_mode != oldMode || _focus != oldFocus || (y != 0 && RowCount > 1)
+            || (_page == Page.Setup && _focus < 4 && x != 0))
+        {
+            playCue?.Invoke(false);
         }
 
         switch (_page)
@@ -97,7 +125,11 @@ internal sealed class MatchMenu(HandWear defaultWear, string replayDirectory)
                 break;
             case Page.Replays when _files.Length > 0:
                 _focus = Wrap(_focus + y, _files.Length);
-                if (y != 0) { _error = null; }
+                if (y != 0)
+                {
+                    _firstRecord = Math.Clamp(_focus - VisibleRecords / 2, 0, Math.Max(0, _files.Length - VisibleRecords));
+                }
+                if (_focus != oldFocus) { _error = null; }
                 if (select)
                 {
                     try
@@ -137,6 +169,7 @@ internal sealed class MatchMenu(HandWear defaultWear, string replayDirectory)
     private void Browse()
     {
         _page = Page.Replays;
+        _firstRecord = 0;
         _focus = 0;
         _files = [];
         try
@@ -165,7 +198,26 @@ internal sealed class MatchMenu(HandWear defaultWear, string replayDirectory)
     private static int Wrap(int index, int count) => (index + count) % count;
 
     private const int VisibleRecords = 5;
-    private int FirstRecord => Math.Clamp(_focus - VisibleRecords / 2, 0, Math.Max(0, _files.Length - VisibleRecords));
+    private const int FirstRowY = 125;
+    private const int RowStep = 49;
+    private const int RowWidth = 466;
+    private const int RowHeight = 38;
+    private int RowCount => _page == Page.Replays ? Math.Min(VisibleRecords, _files.Length) : 5;
+
+    internal static int? HitRow(Vector2 pointer, Vector2 size, int rows)
+    {
+        var canvas = new Canvas(size);
+        for (var row = 0; row < rows; row++)
+        {
+            var delta = Vector2.Abs(pointer - canvas.At(320, FirstRowY + row * RowStep));
+            if (canvas.Scale > 0f && delta.X <= RowWidth * canvas.Scale / 2 && delta.Y <= RowHeight * canvas.Scale / 2)
+            {
+                return row;
+            }
+        }
+        return null;
+    }
+    private int FirstRecord => _firstRecord;
 
     public IReadOnlyList<ScreenTextDraw> Text(Vector2 size)
     {
@@ -223,8 +275,7 @@ internal sealed class MatchMenu(HandWear defaultWear, string replayDirectory)
         }
 
         if (_error is { } error) { Add(error, 320, 384, 16, Gold, TextAnchor.Center); }
-        Add(_page == Page.Setup ? "↑↓ 項目   ←→ 変更   Enter / A 決定   Esc / B 戻る"
-            : "↑↓ 選択   Enter / A 決定   Esc / B 戻る", 320, 420, 16, Pale, TextAnchor.Center);
+        Add("WASD / 矢印   Enter / A / 左クリック   Esc / B", 320, 420, 16, Pale, TextAnchor.Center);
         return text;
     }
 
@@ -267,14 +318,14 @@ internal sealed class MatchMenu(HandWear defaultWear, string replayDirectory)
         Plate(320, 67, 532, 47, new(0.12f, 0.59f, 0.86f, 1), new(0.04f, 0.17f, 0.47f, 1));
         Frame(320, 67, 532, 47, Cyan, 2);
         var selected = _page == Page.Modes ? _mode : _page == Page.Replays ? _focus - FirstRecord : _focus;
-        var rows = _page == Page.Replays ? Math.Min(VisibleRecords, _files.Length) : 5;
+        var rows = RowCount;
         for (var row = 0; row < rows; row++)
         {
-            var y = 125 + row * 49;
-            Plate(324, y + 3, 466, 38, Shadow, Shadow);
-            Plate(320, y, 466, 38, row == selected ? new(0.16f, 0.50f, 0.72f, 1) : new(0.10f, 0.28f, 0.40f, 1),
+            var y = FirstRowY + row * RowStep;
+            Plate(324, y + 3, RowWidth, RowHeight, Shadow, Shadow);
+            Plate(320, y, RowWidth, RowHeight, row == selected ? new(0.16f, 0.50f, 0.72f, 1) : new(0.10f, 0.28f, 0.40f, 1),
                 new(0.04f, 0.13f, 0.26f, 1));
-            Frame(320, y, 466, 38, row == selected ? Cyan : new(0.19f, 0.38f, 0.51f, 1), 2);
+            Frame(320, y, RowWidth, RowHeight, row == selected ? Cyan : new(0.19f, 0.38f, 0.51f, 1), 2);
             if (row == selected) { Plate(94, y, 5, 24, Gold, Gold); }
         }
         Plate(320, 429, 532, 29, new(0.14f, 0.34f, 0.38f, 1), new(0.07f, 0.19f, 0.26f, 1));

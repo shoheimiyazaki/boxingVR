@@ -1,34 +1,27 @@
-using System.Runtime.CompilerServices;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using Aigis.Player;
 using Aigis.Render;
 using Aigis.Render.Voxels;
 
 namespace MiniRing.Vr;
 
 internal sealed record VrScene(PrimitiveInstance[] Instances, DebugLine[] Lines, VoxelVolumeDraw[] Voxels,
-    ParticleInstance[] Particles, SceneLighting Lighting, ShadowMapConfig? Shadow, string Status, VrHaptic[] Haptics);
+    ParticleInstance[] Particles, SceneLighting Lighting, ShadowMapConfig? Shadow, string Status, VrHaptic[] Haptics)
+{
+    public VoxelSnapshot? VoxelSnapshot { get; init; }
+}
 
 internal readonly record struct VrHaptic(Hand Hand, float Amplitude, float Duration);
 
 internal sealed class VrSceneCapture
 {
-    private readonly ConditionalWeakTable<VoxelVolume, VolumeCopy> _volumes = new();
+    private readonly VoxelSnapshotProducer _volumes = new();
+    private VrScene? _published;
+    private long _nextCapture;
 
     public VrScene Capture(BoxingGame game)
     {
-        var (instances, lines) = game.BuildRenderables();
-        var voxels = game.BuildVoxelVolumes().Select(draw =>
-        {
-            var cache = _volumes.GetOrCreateValue(draw.Volume);
-            if (cache.Revision != draw.Volume.Revision)
-            {
-                var source = draw.Volume;
-                var copy = new VoxelVolume(source.Width, source.Height, source.Depth);
-                source.Rgba.CopyTo(copy.Rgba, 0);
-                cache.Volume = copy;
-                cache.Revision = source.Revision;
-            }
-            return draw with { Volume = cache.Volume! };
-        }).ToArray();
         var haptics = new List<VrHaptic>();
         foreach (var hit in game.RecentHits)
         {
@@ -43,73 +36,57 @@ internal sealed class VrSceneCapture
             }
         }
 
-        return new(instances.ToArray(), lines.ToArray(), voxels, game.BuildParticles().ToArray(),
-            game.BuildLighting(), game.BuildShadow(), $"{game.StatusLine} {game.Message}", haptics.ToArray());
-    }
-
-    private sealed class VolumeCopy
-    {
-        public int Revision = -1;
-        public VoxelVolume? Volume;
+        var now = Stopwatch.GetTimestamp();
+        if (_published is null || now >= _nextCapture)
+        {
+            var (instances, lines) = game.BuildRenderables();
+            var voxels = _volumes.Capture(game.BuildVoxelVolumes());
+            _published = new(instances.ToArray(), lines.ToArray(), [], game.BuildParticles().ToArray(),
+                game.BuildLighting(), game.BuildShadow(), $"{game.StatusLine} {game.Message}", [])
+                { VoxelSnapshot = voxels };
+            _nextCapture = now + Stopwatch.Frequency / 90;
+        }
+        // Scene copies may run at 90 Hz; transient events are still collected at every 240 Hz physics step.
+        return haptics.Count == 0 ? _published : _published with { Haptics = haptics.ToArray() };
     }
 }
 
 internal sealed class VrSimulation : IDisposable
 {
-    private sealed record Request(XrInputFrame Input, float Dt);
-
-    private readonly AutoResetEvent _ready = new(false);
-    private readonly Task _worker;
-    private Request? _pending;
-    private VrScene _scene;
-    private volatile bool _stopping;
+    private readonly FixedSimulation<XrInputFrame, VrScene> _simulation;
+    private readonly ConcurrentQueue<XrInputFrame> _calibrations = new();
+    private readonly ConcurrentQueue<VrHaptic> _haptics = new();
 
     public VrSimulation(VrScene initial, Func<XrInputFrame, float, VrScene> advance)
     {
-        _scene = initial;
-        _worker = Task.Factory.StartNew(() =>
+        _simulation = new(initial, default, (_, latest) => latest,
+            input => input with { CalibratePressed = false }, (_, input, dt) =>
         {
-            while (!_stopping)
-            {
-                _ready.WaitOne();
-                if (!_stopping && Interlocked.Exchange(ref _pending, null) is { } request)
-                {
-                    Volatile.Write(ref _scene, advance(request.Input, request.Dt));
-                }
-            }
-        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            // Preserve the pose at the button press, even when many tracking frames arrive during a slow step.
+            var frame = _calibrations.TryDequeue(out var calibration) ? calibration : input;
+            var scene = advance(frame, dt);
+            foreach (var haptic in scene.Haptics) { _haptics.Enqueue(haptic); }
+            return scene;
+        });
     }
 
-    public VrScene Latest
-    {
-        get
-        {
-            if (_worker.IsFaulted)
-            {
-                _worker.GetAwaiter().GetResult();
-            }
-            return Volatile.Read(ref _scene);
-        }
-    }
+    public VrScene Latest => _simulation.Latest;
+    public long CompletedSteps => _simulation.CompletedSteps;
+    public double MaximumStepMilliseconds => _simulation.MaximumStepMilliseconds;
 
     public void Submit(XrInputFrame input, float dt)
     {
-        Request? previous;
-        Request next;
-        do
-        {
-            previous = Volatile.Read(ref _pending);
-            next = new Request(input with { CalibratePressed = input.CalibratePressed || previous?.Input.CalibratePressed == true }, dt);
-        }
-        while (!ReferenceEquals(Interlocked.CompareExchange(ref _pending, next, previous), previous));
-        _ready.Set();
+        _ = dt; // Display period is deliberately excluded from the deterministic physics clock.
+        if (input.CalibratePressed) { _calibrations.Enqueue(input); }
+        _simulation.Submit(input with { CalibratePressed = false });
     }
 
-    public void Dispose()
+    public VrHaptic[] DrainHaptics()
     {
-        _stopping = true;
-        _ready.Set();
-        try { _worker.GetAwaiter().GetResult(); }
-        finally { _ready.Dispose(); }
+        var result = new List<VrHaptic>();
+        while (_haptics.TryDequeue(out var haptic)) { result.Add(haptic); }
+        return result.ToArray();
     }
+
+    public void Dispose() => _simulation.Dispose();
 }

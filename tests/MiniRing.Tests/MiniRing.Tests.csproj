@@ -6,6 +6,7 @@
     <NoWarn>$(NoWarn);CA1707</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuGame.cs" Link="MenuGame.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\GamepadIntent.cs" Link="GamepadIntent.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MatchMenu.cs" Link="MatchMenu.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\DesktopFighterControl.cs" Link="DesktopFighterControl.cs" />

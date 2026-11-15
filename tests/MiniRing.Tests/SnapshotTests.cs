@@ -17,6 +17,22 @@ public sealed class SnapshotTests
     private const int Height = 540;
 
     [TestMethod]
+    public void Match_RendersOpeningSideView()
+    {
+        var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
+        Directory.CreateDirectory(outDir);
+        using var game = new BoxingGame();
+        using var renderer = new HeadlessRenderer(Width, Height);
+        var (eye, target) = CameraFollow.MatchOpeningView(game.Player.ChestPosition, game.Cpu.ChestPosition, 1f);
+        var camera = new Aigis.Player.OrbitCamera();
+        camera.SetView(eye, target);
+        Assert.IsLessThan(0.0001f, Vector3.Distance(eye, camera.Eye));
+        var view = camera.ViewProjection((float)Width / Height);
+        var (instances, lines) = game.BuildRenderables();
+        var pixels = Render(renderer, game, view, camera.Eye, instances, lines, []);
+        PngWriter.WriteRgba(Path.Combine(outDir, "miniring_opening_side.png"), Width, Height, pixels);
+    }
+    [TestMethod]
     public void GameSelect_RendersJapaneseMenu()
     {
         var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
@@ -24,6 +40,9 @@ public sealed class SnapshotTests
         var menu = new Desktop.MatchMenu(Weapons.HandWear.Glove, Path.Combine(outDir, "replays"));
         using var renderer = new HeadlessRenderer(Width, Height);
         var size = new Vector2(Width, Height);
+        Assert.AreEqual(0, Desktop.MatchMenu.HitRow(new Vector2(480, 125f * 540 / 464), size, 5));
+        Assert.IsNull(Desktop.MatchMenu.HitRow(new Vector2(480, 149f * 540 / 464), size, 5));
+        Assert.IsNull(Desktop.MatchMenu.HitRow(new Vector2(20, 145), size, 5));
         var text = menu.Text(size);
         Assert.IsTrue(ScreenText.BuildQuads(text).Count > 0);
         var pixels = renderer.RenderPrimitiveScene(Vector4.Zero, Matrix4x4.Identity, [], [], text, shapes: menu.Shapes(size));

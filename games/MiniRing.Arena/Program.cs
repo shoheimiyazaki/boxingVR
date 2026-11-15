@@ -32,6 +32,8 @@ using MiniRing.Bots;
 //   faces [--out f.png] [--names a,b|f.json] [--columns N]                                全キャラの顔（正面と斜め）を並べた画像
 //   voxexport [--out boxer.vox] [--from current|generated]                         ボクサーの中身を .vox へ（Vengi・MagicaVoxel で直す）
 //   voxcheck --in boxer.vox [--install yes]                                        直した .vox を確かめ、生成との差を出す（yes でゲームに組み込む）
+//   weaponexport [--out weapons.vox] [--from current|generated]                    武器・はめる物の中身を .vox へ（256 を超える軸は塊に分ける）
+//   weaponcheck --in weapons.vox [--install yes]                                   直した武器の .vox を確かめ、生成との差を出す（yes でゲームに組み込む）
 // ボットは名前（legacy, boxer, outboxer, swarmer, counter, slugger, champion）か、スタイルの JSON ファイルのパス。
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 var argv = args.Length == 0 ? ["league"] : args;
@@ -40,7 +42,7 @@ try
 {
     return command switch
     {
-        "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out")),
+        "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out", "hz", "passes", "sample")),
         "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
         "learnlab" => LearnLabCommand(Options.Parse(argv[1..], "first", "second", "seeds", "seconds", "seed", "prior", "scale", "combos", "defender", "out")),
         "rangelab" => RangeLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "weapons", "out")),
@@ -51,6 +53,7 @@ try
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
+        "formlab" => FormLabCommand(Options.Parse(argv[1..], "punch", "slot", "style", "move", "set", "cue", "bouts", "seconds", "seed", "log")),
         "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift")),
         "guardspar" => GuardSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
@@ -58,9 +61,9 @@ try
         "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seconds", "out", "only", "variants", "video", "try")),
         "selfcuts" => SelfCutCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "out", "hitaway", "passes", "clearance", "margin", "tilt", "pacing", "slack", "angle")),
         "selfpath" => SelfPathCommand(Options.Parse(argv[1..], "margin", "from", "tilt", "out")),
-        "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes")),
+        "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes", "hz", "sample")),
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
-        "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway", "clearance", "passes", "margin", "tilt", "pacing", "slack", "angle")),
+        "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway", "clearance", "passes", "hz", "sample", "margin", "tilt", "pacing", "slack", "angle")),
         "swordlib" => SwordLibCommand(Options.Parse(argv[1..], "out", "best", "bouts", "seconds", "seed", "fight", "video", "red", "blue")),
         "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead")),
         "mocap" => MocapCommand(Options.Parse(argv[1..], "bvh", "out", "from", "to", "speed", "width", "height", "fps", "strikes")),
@@ -74,6 +77,8 @@ try
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
         "voxcheck" => VoxCheck(Options.Parse(argv[1..], "in", "install")),
+        "weaponexport" => WeaponExport(Options.Parse(argv[1..], "out", "from")),
+        "weaponcheck" => WeaponCheck(Options.Parse(argv[1..], "in", "install")),
         _ => Usage($"知らないコマンド: {command}"),
     };
 }
@@ -83,8 +88,17 @@ catch (Exception e) when (e is ArgumentException or IOException or UnauthorizedA
     return 2;
 }
 
+// 簡素化の測定（docs/arena/gen13_simplify.md）: 既定は変えず、試合を作る前に静的な既定だけを変える。
+static void ApplySimplify(Options o)
+{
+    MiniRing.BoxingGame.DefaultSubstepRate = o.Float("hz", 240f, min: 30f);
+    MiniRing.BoxingGame.DefaultMaxContactPasses = o.Int("passes", 3, min: 1);
+    Aigis.Physics.Voxels.VoxelContact.SampleSpacingScale = o.Float("sample", 0.5f, min: 0.1f);
+}
+
 static int League(Options o)
 {
+    ApplySimplify(o);
     var contenders = o.List("bots", [.. BotCatalog.Names]).Select(Load).ToList();
     var bouts = o.Int("bouts", 6, min: 1);
     var seconds = o.Float("seconds", 60f, min: 1f);
@@ -435,6 +449,26 @@ static int Basics(Options o)
     return 0;
 }
 
+// 回避の形を体の動きとして測る（頭の沈み・横・前後、腰の沈み、拳と頭の距離）。--set で動きの値を試しに書き換える。
+static int FormLabCommand(Options o)
+{
+    var punch = o.Get("punch") ?? "2";
+    _ = Combo.Named(punch);
+    var slot = Enum.Parse<Defense>(o.Get("slot") ?? "Slip", ignoreCase: true);
+    var style = LoadStyle(o.Get("style") ?? "swarmer");
+    var move = FormLab.Apply(o.Get("move") is { } path ? LoadMove(path) : style.Defenses.Of(slot), o.Get("set"));
+    // 省略は 0 秒の合図（拳と同時に回避）。none は受け手自身の目と反応。
+    float? cue = o.Get("cue") switch { null => 0f, "none" => null, var c => float.Parse(c, CultureInfo.InvariantCulture) };
+    var text = FormLab.Run(punch, slot, style, move, cue, o.Int("bouts", 3, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1));
+    Console.WriteLine(text);
+    if (o.Get("log") is { } log)
+    {
+        File.AppendAllText(log, text + "\n");
+    }
+
+    return 0;
+}
+
 static DefenseMove LoadMove(string path)
     => (System.Text.Json.JsonSerializer.Deserialize<DefenseMove>(File.ReadAllText(path)) ?? throw new System.Text.Json.JsonException("空の動きです。")).Validated();
 
@@ -483,6 +517,7 @@ static int SwingLabCommand(Options o)
 
 static int VersusCommand(Options o)
 {
+    ApplySimplify(o);
     MiniRing.BoxingGame.DefaultMaxContactPasses = o.Int("passes", 3, min: 1);
     SwordLibraryLab.Pacing = o.Get("pacing") == "on" ? new MiniRing.Motion.SwingPacing(o.Float("slack", 0.25f, min: 0.01f), o.Float("angle", 0.6f, min: 0.01f)) : null;
     SwordLibraryLab.Clearance = o.Get("clearance") == "on" ? new MiniRing.Motion.SelfClearance(o.Float("margin", MiniRing.Motion.SelfClearance.Adopted.Margin, min: 0f), MiniRing.Motion.SelfClearance.Adopted.FromGrip, o.Float("tilt", MiniRing.Motion.SelfClearance.Adopted.MaxTilt, min: 0f)) : null;
@@ -648,6 +683,8 @@ static int TunnelCommand(Options o)
     var contenders = VersusLab.Contenders("docs/arena/sword_library.json", "docs/arena/club_swings.json", "docs/arena/bat_swings.json", DefenseDefaults.Value,
         File.Exists("docs/arena/hit_and_away.json") ? AwayLab.Load("docs/arena/hit_and_away.json") : new MiniRing.Bots.HitAndAway(), AimDefaults.Tuning);
     TunnelProbe.Passes = o.Int("passes", 3, min: 1);
+    TunnelProbe.Hz = o.Float("hz", 240f, min: 30f);
+    Aigis.Physics.Voxels.VoxelContact.SampleSpacingScale = o.Float("sample", 0.5f, min: 0.1f);
     var report = TunnelProbe.Run(contenders, [.. o.List("pairs", ["日本刀-日本刀", "ロングソード-日本刀", "日本刀-拳"])], o.Int("bouts", 4, min: 1), o.Float("seconds", 20f, min: 1f), Console.Out);
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
@@ -1092,6 +1129,21 @@ static int VoxCheck(Options o)
     return install is "yes" or "no" ? VoxelTool.Check(input, install == "yes") : throw new ArgumentException($"--install は yes か no です（{install}）。");
 }
 
+static int WeaponExport(Options o)
+{
+    var from = o.Get("from") ?? "current";
+    return from is "current" or "generated"
+        ? VoxelTool.ExportWeapons(o.Get("out") ?? "weapons.vox", generated: from == "generated")
+        : throw new ArgumentException($"--from は current か generated です（{from}）。");
+}
+
+static int WeaponCheck(Options o)
+{
+    var input = o.Get("in") ?? throw new ArgumentException("--in に直した .vox を渡してください。");
+    var install = o.Get("install") ?? "no";
+    return install is "yes" or "no" ? VoxelTool.CheckWeapons(input, install == "yes") : throw new ArgumentException($"--install は yes か no です（{install}）。");
+}
+
 static int Usage(string message)
 {
     Console.Error.WriteLine(message);
@@ -1190,3 +1242,4 @@ internal static class DefenseDefaults
 
     public static MiniRing.Bots.SwordDefense Value => Loaded.Value;
 }
+

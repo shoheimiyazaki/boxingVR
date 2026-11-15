@@ -51,13 +51,17 @@ public sealed class HitSoundPlayer : IDisposable
     /// <summary>全ホスト共通の衝撃音。重複した接触・破壊を集約してから1声として再生する。</summary>
     public void PlayImpacts(float dt, IReadOnlyList<HitEvent> hits, IReadOnlyList<ContactSoundEvent> contacts, IReadOnlyList<ShatterEvent> shatters,
         IReadOnlyList<WeaponHitEvent>? weaponHits = null)
+        => PlayImpactCues(dt, ImpactAudio.Gather(hits, contacts, shatters, PlayHits, weaponHits), shatters);
+
+    /// <summary>Plays value-only cues captured by the simulation owner; never reads a live fighter.</summary>
+    public void PlayImpactCues(float dt, IReadOnlyList<ImpactCue> cues, IReadOnlyList<ShatterEvent> shatters)
     {
         if (!float.IsFinite(dt) || dt < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(dt));
         }
         _impactTime += dt;
-        foreach (var voice in _impacts.Push(_impactTime, ImpactAudio.Gather(hits, contacts, shatters, PlayHits, weaponHits), BreakStyle))
+        foreach (var voice in _impacts.Push(_impactTime, cues, BreakStyle))
         {
             if (_backend.IsAvailable)
             {

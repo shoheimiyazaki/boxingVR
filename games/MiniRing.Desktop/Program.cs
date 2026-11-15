@@ -1,10 +1,11 @@
 using System.Numerics;
-using Aigis.Foundation;
+using Aigis.Audio;
 using Aigis.Player;
 using MiniRing;
 using MiniRing.Audio;
 using MiniRing.Desktop;
 using MiniRing.Replay;
+using MiniRing.Presentation;
 using Silk.NET.Input;
 
 var classic = Option("--control") == "classic";
@@ -75,8 +76,8 @@ var options = new GameHost.Options(
 
 // 画面の両脇に両ボクサーの顔の窓（左が自分・右が CPU）（頭のボクセルの格子に固定したカメラで、リングの上の実際の顔を正面から撮る）。
 var faceCam = args.Contains("--no-facecam") ? null : FaceCam.Default;
-Func<BoxingGame, Func<Vector2, IReadOnlyList<Aigis.Render.CameraView>?>?> faceViews =
-    g => faceCam is null ? null : size => faceCam.Views(camera, g, size);
+Func<SnapshotMatchGame, Func<Vector2, IReadOnlyList<Aigis.Render.CameraView>?>> faceViews =
+    g => size => g.Views(camera, size);
 
 // 試合の速さ（標準 0.75 倍）。1 / 2 / 3 キーで切り替える。
 if (args.Contains("--speed") && GameSpeed.Parse(Option("--speed")) is null)
@@ -98,7 +99,9 @@ void ReadSpeed(Aigis.Platform.InputSnapshot input)
     }
 }
 
+// Reserve part of the frame for drawing when an update is catching up.
 options = options with { TimeScale = () => speed.Value };
+VoxelBreakSound.Prewarm(breakStyle);
 
 var tv = args.Contains("--tv");
 MiniRing.Weapons.HandWear wear;
@@ -116,24 +119,43 @@ var replayDirectory = Path.Combine(Environment.CurrentDirectory, "replays");
 if (Option("--replay") is { } replayPath)
 {
     using var session = OpenReplay(ReplayFile.Read(replayPath));
-    GameHost.Run(profiler, options with { DynamicViews = faceViews(session.Game) }, session.Host,
+    GameHost.Run(profiler, options with { DynamicViews = faceViews(session.Presentation) }, session.Host,
         (input, _, _) => session.Read(input));
+}
+else if (args.Contains("--profile-katana"))
+{
+    var corners = BoxingCorners.Default with
+    {
+        RedBotStyle = MiniRing.Bots.BotCatalog.Boxer,
+        PlayerWeapon = MiniRing.Weapons.WeaponKind.Katana,
+        CpuWeapon = MiniRing.Weapons.WeaponKind.Katana,
+        PlayerTwoHanded = true,
+        CpuTwoHanded = true,
+        UseWeaponBots = true,
+    };
+    using var session = OpenMatch(corners, MatchMode.Spectate);
+    GameHost.Run(profiler, options with { DynamicViews = faceViews(session.Presentation) },
+        session.Host, (input, _, _) => session.Read(input));
 }
 else if (args.Contains("--quick"))
 {
     using var session = OpenMatch(BoxingCorners.Default with { PlayerWear = wear, CpuWear = wear }, MatchMode.Single);
-    GameHost.Run(profiler, options with { DynamicViews = faceViews(session.Game) }, session.Host,
+    GameHost.Run(profiler, options with { DynamicViews = faceViews(session.Presentation) }, session.Host,
         (input, _, _) => session.Read(input));
 }
 else
 {
-    using var menuGame = new MenuGame(new MatchMenu(wear, replayDirectory),
+    using var menuAudio = new OpenAlAudioBackend();
+    var moveCue = ToneGenerator.CreateToneClip("menu-move", 520, 680, 0.045f, 0.25f, attackSeconds: 0.003f, releaseSeconds: 0.02f);
+    var confirmCue = ToneGenerator.CreateToneClip("menu-confirm", 660, 1100, 0.10f, 0.35f, attackSeconds: 0.004f, releaseSeconds: 0.04f);
+    using var menuGame = new MenuGame(new MatchMenu(wear, replayDirectory,
+        confirmed => menuAudio.Play(confirmed ? confirmCue : moveCue, 1f, shouldLoop: false)),
         selection => OpenMatch(selection.Corners, selection.Mode), OpenReplay);
     GameHost.Run(profiler, options with
     {
-        HelpText = "Menu: arrows or D-pad, Enter/A to select, Escape/B to go back. In a match, Escape/B returns to Game Select.",
-        DynamicViews = size => menuGame.ActiveGame is { } game ? faceViews(game)?.Invoke(size) : null,
-    }, menuGame, (input, _, _) => menuGame.Read(input));
+        HelpText = "Menu: WASD, arrows, D-pad or mouse; Enter/A/left click to select; Escape/B to go back. In a match, Escape/B returns to Game Select.",
+        DynamicViews = size => menuGame.Presentation?.Views(camera, size),
+    }, menuGame, (input, _, size) => menuGame.Read(input, size));
 }
 return 0;
 
@@ -144,16 +166,19 @@ MatchSession OpenReplay(ReplayData data)
     {
         replay.Game.FaceCam = faceCam;
         replay.Game.Speed = speed;
-        camera.Target = replay.Game.Layout.Center with { Y = BoxingGame.RingSurfaceHeight + 0.2f };
+        var openingTarget = replay.Game.Layout.Center with { Y = BoxingGame.RingSurfaceHeight + 0.2f };
+        var placeCamera = true;
         var sound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds),
             () => replay.FrameShatters, () => replay.FrameLandings, () => replay.FrameSwings, () => replay.FrameBell,
             () => replay.FrameGrazes, () => replay.FrameSevers, contacts: () => replay.FrameContacts,
-            weaponHits: () => replay.FrameWeaponHits);
-        return new MatchSession(replay.Game, sound, input =>
+            weaponHits: () => replay.FrameWeaponHits) { DeferredPlayback = true };
+        var presentation = new SnapshotMatchGame(replay.Game, sound, () => speed.Value);
+        return new MatchSession(replay.Game, presentation, input =>
         {
+            if (placeCamera) { camera.Target = openingTarget; placeCamera = false; }
             ReadSpeed(input);
             return default;
-        }, new SessionResources(replay, null, sound));
+        }, new SessionResources(replay, null, sound), presentation);
     }
     catch
     {
@@ -168,7 +193,9 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
     ReplayRecorder? recorder = null;
     try
     {
-        camera.Target = game.Layout.Center with { Y = BoxingGame.RingSurfaceHeight + 0.2f };
+        var (eye, target) = CameraFollow.MatchOpeningView(game.Player.ChestPosition, game.Cpu.ChestPosition,
+            game.Layout.Size / BoxingGame.RingSize);
+        var placeCamera = true;
         var keyboard = new KeyboardControl();
         var intentKeyboard = new IntentKeyboardControl(corners.PlayerWeapon,
             LocalVersusControl.IsKarate(corners.PlayerName, corners.PlayerWear));
@@ -181,29 +208,37 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
         }
 
         IGame<BoxingInput> recorded = recorder is null ? game : new RecordingGame(game, recorder);
-        var sound = new HitSoundGame(recorded, () => game.RecentHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds),
+        var soundPlayer = HitSoundPlayer.CreateDefault(breakStyle, hitSounds);
+        if (tv) { soundPlayer.PrepareCrowd(seed: 7); }
+        var sound = new HitSoundGame(recorded, () => game.RecentHits, soundPlayer,
             () => game.RecentShatters, () => game.RecentLandings, () => game.RecentSwings, () => game.RecentBell,
-            () => game.RecentGrazes, () => game.RecentSevers, tv ? CrowdFor(game) : null,
-            () => game.RecentContacts, () => [.. game.WeaponHits, .. game.SelfWeaponHits]);
-        return new MatchSession(game, sound, input =>
+            () => game.RecentGrazes, () => game.RecentSevers, null,
+            () => game.RecentContacts, () => [.. game.WeaponHits, .. game.SelfWeaponHits])
+            { DeferredPlayback = true, CaptureCrowd = tv ? CrowdFor(game) : null };
+        var presentation = new SnapshotMatchGame(game, sound, () => speed.Value);
+        var previousStep = -1L;
+        return new MatchSession(game, presentation, input =>
         {
+            if (placeCamera) { camera.SetView(eye, target); placeCamera = false; }
             ReadSpeed(input);
-            var dt = FixedStep.Default.Dt * speed.Value;
+            var scene = presentation.Latest;
+            var dt = Math.Min(ReplayFile.MaxDt, Math.Max(0, scene.Step - previousStep) / 240f);
+            previousStep = scene.Step;
             if (mode == MatchMode.Spectate)
             {
                 return new BoxingInput(default, input.WasKeyPressed(Key.R));
             }
             if (mode == MatchMode.Versus)
             {
-                return local.Read(input, game, dt, camera.YawRadians);
+                return local.Read(input, scene.Player, scene.Cpu, scene.Round, dt, camera.YawRadians);
             }
             if (classic && corners.PlayerWeapon is null && !LocalVersusControl.IsKarate(corners.PlayerName, corners.PlayerWear))
             {
-                return keyboard.Read(input, camera.YawRadians, game.PlayerSense, dt);
+                return keyboard.Read(input, camera.YawRadians, scene.Player, dt);
             }
-            followCamera.Update(input, game.PlayerSense);
-            return intentKeyboard.Read(input, game.PlayerSense, dt, game.Round, camera.YawRadians);
-        }, new SessionResources(game, recorded == game ? null : recorded, sound));
+            followCamera.Update(input, scene.Player);
+            return intentKeyboard.Read(input, scene.Player, dt, scene.Round, camera.YawRadians);
+        }, new SessionResources(game, recorded == game ? null : recorded, sound), presentation);
     }
     catch
     {
@@ -219,28 +254,22 @@ string? Option(string name)
 }
 
 // テレビ中継のモードの会場: ざわめきを流し続け、試合を見て反応（歓声・どよめき・カウントの掛け声）を鳴らす。
-static Action<HitSoundPlayer, float> CrowdFor(BoxingGame game)
+static Func<float, IReadOnlyList<CrowdCue>> CrowdFor(BoxingGame game)
 {
     var broadcast = new Broadcast(game.RedLabel, game.BlueLabel);
     var clock = 0f;
     var step = 0;
     var played = 0;
-    var started = false;
-    return (sounds, dt) =>
+    return dt =>
     {
-        if (!started)
-        {
-            sounds.PrepareCrowd(seed: 7); // 別のスレッドで作る（試合を止めない）
-            started = true;
-        }
-
         clock += dt;
         broadcast.Observe(game, clock, step++);
-        sounds.PlayCrowd(new CrowdCue(clock, null, 0f, 0)); // ざわめきを（できていれば）流し始める
+        var cues = new List<CrowdCue> { new(clock, null, 0f, 0) };
         // 反応は時刻が来たものから鳴らす（どよめきの後の悲鳴のように、少し後に置かれたものがある）。
         for (; played < broadcast.Cues.Count && broadcast.Cues[played].At <= clock; played++)
         {
-            sounds.PlayCrowd(broadcast.Cues[played]);
+            cues.Add(broadcast.Cues[played]);
         }
+        return cues;
     };
 }

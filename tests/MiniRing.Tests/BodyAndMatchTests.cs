@@ -32,7 +32,9 @@ public sealed class BodyAndMatchTests
             spentSum += 1f - MathF.Min(fight.Player.Stamina, fight.Cpu.Stamina);
         }
 
-        using var idle = StillGame();
+        // Attacks=false の BoxerBot も回り込み・間合い調整・頭の動きを出すため、休息の対照にはならない。
+        // 移動と頭の指令が一定の StandGuard で、構えて休む条件を固定する。
+        using var idle = new BoxingGame(seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard()));
         for (var t = 0f; t < 12f; t += 1f / 60f)
         {
             idle.Step(default, 1f / 60f);

@@ -7,7 +7,7 @@ using Silk.NET.Input;
 namespace MiniRing.Desktop;
 
 /// <summary>
-/// 軌道カメラを、プレイヤーの後ろへ減衰のバネでゆっくり追従させる（描画だけ。試合の計算・記録には入らない）。
+/// 軌道カメラを、試合開始時の横アングルを基準に減衰のバネでゆっくり追従させる（描画だけ。試合の計算・記録には入らない）。
 /// 中ボタンで回した分は、そのまま「後ろからのずれ」として保つ（離しても元の後ろへは戻さない）。
 /// </summary>
 internal sealed class FollowCameraRig(OrbitCamera camera, float focusHeight)
@@ -30,7 +30,6 @@ internal sealed class FollowCameraRig(OrbitCamera camera, float focusHeight)
         {
             _placed = true;
             _userOffset = MathF.IEEERemainder(camera.YawRadians - behind, 2f * MathF.PI);
-            camera.Target = focus;
             return;
         }
 

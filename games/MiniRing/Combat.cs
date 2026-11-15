@@ -13,6 +13,9 @@ public readonly record struct HitEvent(
     float Speed, float ImpactMass, float BodyShare, float Damage, byte Face = 0, bool Kick = false)
 {
     public float Momentum => ImpactMass * Speed;
+
+    /// <summary>組織へ渡る打撃エネルギー [J]。削れ・臓器の打撲と測定はこの同じ値を使う。</summary>
+    public float Energy => 0.5f * ImpactMass * Speed * Speed * PunchMechanics.Sharpness(Speed);
 }
 
 /// <summary>部位ごとの効き目（ダメージの倍率）。ダメージは記録と音にだけ使い、動きは落とさない。</summary>

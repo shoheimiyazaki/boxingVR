@@ -24,9 +24,11 @@ public sealed class IntentFeelTests
         return BotCatalog.Boxer with { Defenses = book };
     }
 
-    private static (BoxingGame Game, IntentControl Control) Settled(Defense? only = null, int seed = 43, FighterTuning? tuning = null)
+    private static (BoxingGame Game, IntentControl Control) Settled(Defense? only = null, int seed = 43, FighterTuning? tuning = null, bool passiveCpu = false)
     {
-        var game = new BoxingGame(tuning, seed: seed);
+        // passiveCpu: 相手を入力なしの体にする（自分の体の動きだけで倒れないかを見る試験で、相手のパンチを混ぜないため）。
+        var corners = passiveCpu ? BoxingCorners.Default with { Cpu = _ => new IntentControl() } : null;
+        var game = new BoxingGame(tuning, seed: seed, corners: corners);
         var control = only is { } d ? new IntentControl(style: OnlyEvasion(d)) : new IntentControl();
         for (var i = 0; i < 60; i++)
         {
@@ -76,9 +78,11 @@ public sealed class IntentFeelTests
     public void HeldDuck_StaysStanding_EvenWithACounterFromTheSink()
     {
         // 沈んだまま 1.5 秒押し続けても、体を打ち返しても、ダウンにならない（膝を折るだけ。腰・手・上体がマットに着かない）。
+        // 相手は入力なし: 既定の CPU だと、サーボの仕事の精算を直して（PhysicsVersion 30）CPU が疲れなくなったため
+        // 相手の 15 J の打撃で倒れ、自分の沈みと打ち返しの試験にならなかった。
         foreach (var attack in new[] { false, true })
         {
-            var (game, control) = Settled(Defense.Duck);
+            var (game, control) = Settled(Defense.Duck, passiveCpu: true);
             using var _ = game;
             var lowest = float.PositiveInfinity;
             var minUpright = 1f;

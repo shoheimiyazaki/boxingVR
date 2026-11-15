@@ -22,7 +22,7 @@ internal static class StaminaLab
     /// </summary>
     public static (FighterTuning Tuning, bool Pacing) Variant(string name) => name switch
     {
-        "off" => (FighterTuning.Default with { TiredStrength = 1f, TiredHandSlowness = 0f }, false),
+        "off" => (FighterTuning.Default with { StaminaFatigue = false }, false),
         "on" => (FighterTuning.Default, false),
         "hard" => (Hard, false),
         "pace" => (FighterTuning.Default, true),

@@ -370,10 +370,23 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
 
     private void RecordUpload(CommandBuffer cmd, Resident resident, VoxelVolume volume)
     {
-        var size = (ulong)volume.Rgba.Length;
+        var bounds = volume.GetUploadBounds(resident.UploadedRevision);
+        var rowBytes = bounds.Width * 4;
+        var byteCount = rowBytes * bounds.Height * bounds.Depth;
+        var size = (ulong)byteCount;
         void* mapped = null;
         Check(_vk.MapMemory(_device, resident.StagingMemory, 0, size, 0, ref mapped), "MapMemory(voxelStaging)");
-        volume.Rgba.CopyTo(new Span<byte>(mapped, volume.Rgba.Length));
+        var target = new Span<byte>(mapped, byteCount);
+        for (var z = 0; z < bounds.Depth; z++)
+        {
+            for (var y = 0; y < bounds.Height; y++)
+            {
+                var sourceOffset = 4 * (bounds.X + (volume.Width * (bounds.Y + y + (volume.Height * (bounds.Z + z)))));
+                var targetOffset = rowBytes * (y + (bounds.Height * z));
+                volume.Rgba.AsSpan(sourceOffset, rowBytes).CopyTo(target.Slice(targetOffset, rowBytes));
+            }
+        }
+
         _vk.UnmapMemory(_device, resident.StagingMemory);
 
         var first = resident.UploadedRevision < 0;
@@ -395,7 +408,8 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
         var region = new BufferImageCopy
         {
             ImageSubresource = new ImageSubresourceLayers(ImageAspectFlags.ColorBit, 0, 0, 1),
-            ImageExtent = new Extent3D((uint)volume.Width, (uint)volume.Height, (uint)volume.Depth),
+            ImageOffset = new Offset3D(bounds.X, bounds.Y, bounds.Z),
+            ImageExtent = new Extent3D((uint)bounds.Width, (uint)bounds.Height, (uint)bounds.Depth),
         };
         _vk.CmdCopyBufferToImage(cmd, resident.Staging, resident.Image, ImageLayout.TransferDstOptimal, 1, in region);
 

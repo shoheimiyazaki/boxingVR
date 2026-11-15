@@ -242,8 +242,37 @@ public sealed class Weapon
     /// <summary>武器の格子（材質は <see cref="BoxerAnatomy.Palette"/> の鉄と木。手にはめる物の革は赤コーナーの色）。</summary>
     public static VoxelGrid Build(WeaponKind kind) => Build(kind, BoxerAnatomy.RedGlove);
 
-    /// <summary>武器の格子。<paramref name="leather"/> はグローブと籠手の革の材質（他の物では使わない）。</summary>
-    public static VoxelGrid Build(WeaponKind kind, byte leather) => kind switch
+    /// <summary>
+    /// 武器の格子。<paramref name="leather"/> はグローブと籠手の革の材質（他の物では使わない）。ボクセル編集ソフトで直した中身
+    /// （<see cref="WeaponVoxelOverrides.Shipped"/>、games/MiniRing/Voxels/weapons.vox）があればそれを使い、無ければ生成のまま。
+    /// </summary>
+    public static VoxelGrid Build(WeaponKind kind, byte leather) => Build(kind, leather, WeaponVoxelOverrides.Shipped);
+
+    /// <summary>
+    /// 武器の格子。<paramref name="overrides"/> にその種類の直しがあり、セルの数が生成した格子と同じならそれを使う（格子の大きさ・セルの大きさは生成と同じ。
+    /// 革は直しの中の赤い革を <paramref name="leather"/> に置き換える）。null・無い・大きさが違えば生成のまま。
+    /// 生成に付く後処理は、直しの対象の種類には無い（<see cref="WeaponKind.Fist"/> の外側を皮膚にする後処理だけで、拳は直しの対象外）。
+    /// </summary>
+    public static VoxelGrid Build(WeaponKind kind, byte leather, WeaponVoxelOverrides? overrides)
+    {
+        var generated = Generate(kind, leather);
+        if (overrides?.For(kind, generated.Dimensions) is not { } edited)
+        {
+            return generated;
+        }
+
+        var half = generated.HalfExtents;
+        var dims = generated.Dimensions;
+        var cell = 2f * half / new Vector3(dims.X, dims.Y, dims.Z);
+        return new VoxelGrid(BoxerAnatomy.Palette, half, dims, (p, _) =>
+        {
+            var c = (p + half) / cell;
+            var m = edited[(int)c.X + (dims.X * ((int)c.Y + (dims.Y * (int)c.Z)))];
+            return m == BoxerAnatomy.RedGlove ? leather : m;
+        });
+    }
+
+    private static VoxelGrid Generate(WeaponKind kind, byte leather) => kind switch
     {
         WeaponKind.IronSword => Sword(),
         WeaponKind.WoodenClub => Club(),

@@ -113,6 +113,9 @@ public static class VoxelContact
     /// <summary>Bounce of a stopped blow (0 = dead stop).</summary>
     public const float Restitution = 0.1f;
 
+    /// <summary>The sweep's sample spacing as a fraction of the smaller cell (default 0.5: half a cell). A coarser value (1.0) halves the samples but lets a thin blade step over more of a cell; it also scales the push-out distance. For measuring only: set before bodies are stepped.</summary>
+    public static float SampleSpacingScale { get; set; } = 0.5f;
+
     /// <summary>Most samples of the sweep in one step.</summary>
     private const int MaxSamples = 400;
 
@@ -163,22 +166,33 @@ public static class VoxelContact
         var aFiner = MinCell(a.Grid) < MinCell(b.Grid) - 1e-7f || (MathF.Abs(MinCell(a.Grid) - MinCell(b.Grid)) <= 1e-7f && a.Grid.FilledCount <= b.Grid.FilledCount);
         var (probe, probeBefore, field, fieldBefore) = aFiner ? (a, aBefore, b, bBefore) : (b, bBefore, a, aBefore);
         // The sweep moves the probe into the field: what pushes it on is the probe's drive less the field's.
+        var setupStart = StepProfile.Begin();
         var sweep = new Sweep(probe, probeBefore, field, fieldBefore, aFiner ? driveA - driveB : driveB - driveA,
             aFiner ? massBehindA : massBehindB, aFiner ? massBehindB : massBehindA, pressBeneath);
+        StepProfile.End(StepProfile.Slot.SweepSetup, setupStart);
+        var runStart = StepProfile.Begin();
         var hit = sweep.Run();
+        StepProfile.End(StepProfile.Slot.SweepRun, runStart);
         if (hit is null)
         {
+            StepProfile.CountResolve(false);
             return VoxelContactResult.Miss(a, b);
         }
 
+        StepProfile.CountResolve(true);
+
         var h = hit.Value;
+        var snapStart = StepProfile.Begin();
         var snapProbe = h.Force > 0f && probe.BeamAxis is null ? Snap(probe, h.Point, -h.Direction, h.Force, h.Energy) : null;
         var snapField = h.Force > 0f && field.BeamAxis is null ? Snap(field, h.Point, h.Direction, h.Force, h.Energy) : null;
+        StepProfile.End(StepProfile.Slot.Snap, snapStart);
+        var bendStart = StepProfile.Begin();
         // A limb is bent by the whole blow, the mass behind it included (the arm behind a glove bends the forearm it lands on),
         // up to what the face could pass on (the same force that presses beneath a face that held).
         var (blowForce, blowEnergy) = (MathF.Max(h.Force, h.BlowForce), MathF.Max(h.Energy, h.BlowEnergy));
         var bentProbe = blowForce > 0f && probe.BeamAxis is { } probeAxis ? Bend(probe, probeAxis, h.Point, -h.Direction, blowForce, blowEnergy) : null;
         var bentField = blowForce > 0f && field.BeamAxis is { } fieldAxis ? Bend(field, fieldAxis, h.Point, h.Direction, blowForce, blowEnergy) : null;
+        StepProfile.End(StepProfile.Slot.Bend, bendStart);
         // The sweep's normal points out of the field toward the probe; the result's normal points out of B toward A.
         var normal = aFiner ? h.Normal : -h.Normal;
         var direction = aFiner ? h.Direction : -h.Direction;
@@ -232,14 +246,22 @@ public static class VoxelContact
         var inverse = Quaternion.Conjugate(s.Orientation);
         var localPoint = body.WorldToGrid(worldPoint);
         var localDirection = Vector3.Transform(worldDirection, inverse);
+        var stiffStart = StepProfile.Begin();
         var stiffness = VoxelBending.BeamStiffness(grid, localDirection);
+        StepProfile.End(StepProfile.Slot.SnapStiffness, stiffStart);
         var force = stiffness is { } k ? MathF.Min(contactForce, MathF.Sqrt(2f * energy * k)) : contactForce;
-        if (VoxelBending.FindBreak(grid, localPoint, localDirection * force) is not { } cut)
+        var findStart = StepProfile.Begin();
+        var found = VoxelBending.FindBreak(grid, localPoint, localDirection * force);
+        StepProfile.End(StepProfile.Slot.SnapFind, findStart);
+        if (found is not { } cut)
         {
             return null;
         }
 
-        return body.SplitAt(cut.Axis, cut.Slice, cut.TakeHigh);
+        var splitStart = StepProfile.Begin();
+        var piece = body.SplitAt(cut.Axis, cut.Slice, cut.TakeHigh);
+        StepProfile.End(StepProfile.Slot.SnapSplit, splitStart);
+        return piece;
     }
 
     private readonly record struct Hit(
@@ -253,13 +275,19 @@ public static class VoxelContact
     /// <summary>A brick of filled cells: the sphere around their centres, and where they sit in the cell arrays.</summary>
     private readonly record struct Brick(Vector3 Center, float Radius, int Start, int Count);
 
-    /// <summary>The filled cells of a grid (index and centre), grouped by brick, cached until the grid changes.</summary>
-    private static readonly ConditionalWeakTable<VoxelGrid, StrongBox<(int Version, int[] Index, Vector3[] Center, Brick[] Bricks)>> Filled = new();
+    /// <summary>
+    /// The filled cells of a grid (index and centre), grouped by brick, and again in cell order (<see cref="RankIndex"/>, <see cref="RankCenter"/>;
+    /// <see cref="Rank"/> is where each brick-ordered cell sits in it).
+    /// </summary>
+    private sealed record FilledSet(int Version, int[] Index, Vector3[] Center, Brick[] Bricks, int[] Rank, int[] RankIndex, Vector3[] RankCenter);
 
-    private static (int[] Index, Vector3[] Center, Brick[] Bricks) FilledCells(VoxelGrid grid)
+    /// <summary>The filled cells of a grid, cached until the grid changes.</summary>
+    private static readonly ConditionalWeakTable<VoxelGrid, StrongBox<FilledSet>> Filled = new();
+
+    private static FilledSet FilledCells(VoxelGrid grid)
     {
-        var box = Filled.GetValue(grid, static _ => new StrongBox<(int, int[], Vector3[], Brick[])>((-1, [], [], [])));
-        if (box.Value.Version != grid.Version)
+        var box = Filled.GetValue(grid, static _ => new StrongBox<FilledSet>(new FilledSet(-1, [], [], [], [], [], [])));
+        if (box.Value!.Version != grid.GeometryVersion)
         {
             var groups = new Dictionary<(int, int, int), List<int>>();
             for (var i = 0; i < grid.CellCount; i++)
@@ -298,10 +326,30 @@ public static class VoxelContact
                 bricks.Add(new Brick((lo + hi) * 0.5f, 0.5f * Vector3.Distance(lo, hi), start, cells.Count));
             }
 
-            box.Value = (grid.Version, [.. index], [.. center], [.. bricks]);
+            var indexArray = index.ToArray();
+            var centerArray = center.ToArray();
+            // Where each cell sits in cell order: the candidates are handed on in that order (which cells are tried first decides what breaks first).
+            var order = new int[indexArray.Length];
+            for (var i = 0; i < order.Length; i++)
+            {
+                order[i] = i;
+            }
+
+            Array.Sort((int[])indexArray.Clone(), order);
+            var rank = new int[indexArray.Length];
+            var rankIndex = new int[indexArray.Length];
+            var rankCenter = new Vector3[indexArray.Length];
+            for (var r = 0; r < order.Length; r++)
+            {
+                rank[order[r]] = r;
+                rankIndex[r] = indexArray[order[r]];
+                rankCenter[r] = centerArray[order[r]];
+            }
+
+            box.Value = new FilledSet(grid.GeometryVersion, indexArray, centerArray, [.. bricks], rank, rankIndex, rankCenter);
         }
 
-        return (box.Value.Index, box.Value.Center, box.Value.Bricks);
+        return box.Value!;
     }
 
     /// <summary>
@@ -319,8 +367,11 @@ public static class VoxelContact
         private readonly float _angle;
         private readonly Vector3 _t0;
         private readonly Vector3 _t1;
+        // The candidate cells: the first _cellCount entries of these arrays (reused from sweep to sweep on a thread, so they may be longer, and hold stale
+        // cells past the count; a sweep is over before the next one begins).
         private readonly int[] _cellIndex;
         private readonly Vector3[] _cellCenter;
+        private readonly int _cellCount;
         private readonly float _sample;
         private readonly int _samples;
         private readonly float _advance;
@@ -347,8 +398,10 @@ public static class VoxelContact
             _field = field;
             _probeNow = probe.World.GetState(probe.BodyId);
             _fieldNow = field.World.GetState(field.BodyId);
+            var relativeStart = StepProfile.Begin();
             var (q0, t0) = Relative(probe.GridToWorld(probeBefore), field.GridToWorld(fieldBefore));
             var (q1, t1) = Relative(probe.GridToWorld(_probeNow), field.GridToWorld(_fieldNow));
+            StepProfile.End(StepProfile.Slot.SetupRelative, relativeStart);
             _q0 = q0;
             _t0 = t0;
             _t1 = t1;
@@ -362,7 +415,7 @@ public static class VoxelContact
             var sinHalf = new Vector3(dq.X, dq.Y, dq.Z).Length();
             _angle = 2f * MathF.Atan2(sinHalf, dq.W);
             _axis = sinHalf > 1e-7f ? new Vector3(dq.X, dq.Y, dq.Z) / sinHalf : Vector3.UnitX;
-            _sample = 0.5f * MathF.Min(MinCell(probe.Grid), MinCell(field.Grid));
+            _sample = SampleSpacingScale * MathF.Min(MinCell(probe.Grid), MinCell(field.Grid));
             var reach = probe.Grid.HalfExtents.Length();
             var travel = Vector3.Distance(t0, t1) + (_angle * reach);
             _samples = Math.Clamp((int)MathF.Ceiling(travel / _sample), 1, MaxSamples);
@@ -370,9 +423,15 @@ public static class VoxelContact
             // Far apart all step long (the probe's bounding sphere never comes near the field's box): nothing to sample.
             // Then the field's bounding sphere against the probe's box, in the probe's frame (a sword whose sphere reaches
             // every part of a fighter still misses most of them by its thin box).
+            var farStart = StepProfile.Begin();
             Far = DistanceToSegment(Vector3.Zero, t0, t1) > reach + field.Grid.HalfExtents.Length()
                 || BoxDistance(probe.Grid.HalfExtents, FieldOrigin(q0, t0), FieldOrigin(q1, t1)) > field.Grid.HalfExtents.Length() + MaxCell(probe.Grid);
-            (_cellIndex, _cellCenter) = Far ? ([], []) : Candidates(FilledCells(probe.Grid), reach);
+            StepProfile.End(StepProfile.Slot.SetupFar, farStart);
+            var candidatesStart = StepProfile.Begin();
+            (_cellIndex, _cellCenter, _cellCount) = Far ? ([], [], 0) : Candidates(FilledCells(probe.Grid), reach);
+            StepProfile.End(StepProfile.Slot.SetupCandidates, candidatesStart);
+            (_chunkStart, _chunkCenter, _chunkRadius, _chunkCount) = BuildChunks(_cellCenter, _cellCount, ChunkSize, ChunkScratch);
+            (_, _superCenter, _superRadius, _superCount) = BuildChunks(_cellCenter, _cellCount, ChunkSize * ChunksPerSuper, SuperScratch);
         }
 
         /// <summary>The field grid's centre in the probe grid's frame, for the probe's pose (<paramref name="q"/>, <paramref name="t"/>) in the field frame.</summary>
@@ -394,13 +453,28 @@ public static class VoxelContact
         /// cell's path, sampled at the start, middle, end and a half step on, boxed and widened by how far a turning path
         /// bows out between samples, must meet the field's box. Saves sampling the whole probe (a sword) every time.
         /// </summary>
-        private (int[] Index, Vector3[] Center) Candidates((int[] Index, Vector3[] Center, Brick[] Bricks) all, float reach)
+        [ThreadStatic]
+        private static ulong[]? FoundBuffer;
+
+        [ThreadStatic]
+        private static int[]? CandidateIndexBuffer;
+
+        [ThreadStatic]
+        private static Vector3[]? CandidateCenterBuffer;
+
+        private (int[] Index, Vector3[] Center, int Count) Candidates(FilledSet all, float reach)
         {
             var half = _field.Grid.HalfExtents + new Vector3(MaxCell(_field.Grid) + MaxCell(_probe.Grid));
             var bow = (reach * _angle * _angle / 8f) + (0.5f * travelStep());
-            var poses = new[] { Pose(0), Pose(_samples / 2), Pose(_samples), Pose(_samples + (_samples / 2) + MaxLookahead) };
-            var index = new List<int>();
-            var center = new List<Vector3>();
+            var (q0, t0) = Pose(0);
+            var (q1, t1) = Pose(_samples / 2);
+            var (q2, t2) = Pose(_samples);
+            var (q3, t3) = Pose(_samples + (_samples / 2) + MaxLookahead);
+            // The cells that meet, as bits in cell order (a buffer reused from sweep to sweep, cleared to the words this grid needs).
+            var words = (all.Index.Length + 63) / 64;
+            var found = FoundBuffer is { } buffer && buffer.Length >= words ? buffer : (FoundBuffer = new ulong[Math.Max(words, 1024)]);
+            Array.Clear(found, 0, words);
+            var foundCount = 0;
             bool Meets(Vector3 lo, Vector3 hi, float widen) =>
                 lo.X - widen <= half.X && hi.X + widen >= -half.X && lo.Y - widen <= half.Y && hi.Y + widen >= -half.Y && lo.Z - widen <= half.Z && hi.Z + widen >= -half.Z;
 
@@ -410,12 +484,12 @@ public static class VoxelContact
                 // has no cell that meets it.
                 var blo = new Vector3(float.MaxValue);
                 var bhi = new Vector3(float.MinValue);
-                foreach (var (q, t) in poses)
-                {
-                    var p = Vector3.Transform(brick.Center, q) + t;
-                    blo = Vector3.Min(blo, p);
-                    bhi = Vector3.Max(bhi, p);
-                }
+                var b0 = Vector3.Transform(brick.Center, q0) + t0;
+                var b1 = Vector3.Transform(brick.Center, q1) + t1;
+                var b2 = Vector3.Transform(brick.Center, q2) + t2;
+                var b3 = Vector3.Transform(brick.Center, q3) + t3;
+                blo = Vector3.Min(Vector3.Min(Vector3.Min(Vector3.Min(blo, b0), b1), b2), b3);
+                bhi = Vector3.Max(Vector3.Max(Vector3.Max(Vector3.Max(bhi, b0), b1), b2), b3);
 
                 if (!Meets(blo, bhi, bow + brick.Radius))
                 {
@@ -429,32 +503,129 @@ public static class VoxelContact
             }
 
             // In cell order, as without the bricks (which cells are tried first decides what breaks first).
-            var indexArray = index.ToArray();
-            var centerArray = center.ToArray();
-            Array.Sort(indexArray, centerArray);
-            return (indexArray, centerArray);
+            if (CandidateIndexBuffer is not { } indexArray || indexArray.Length < foundCount)
+            {
+                indexArray = CandidateIndexBuffer = new int[Math.Max(foundCount, 1024)];
+                CandidateCenterBuffer = new Vector3[indexArray.Length];
+            }
+
+            var centerArray = CandidateCenterBuffer!;
+            var n = 0;
+            for (var w = 0; w < words; w++)
+            {
+                for (var bits = found[w]; bits != 0; bits &= bits - 1)
+                {
+                    var r = (w * 64) + System.Numerics.BitOperations.TrailingZeroCount(bits);
+                    indexArray[n] = all.RankIndex[r];
+                    centerArray[n] = all.RankCenter[r];
+                    n++;
+                }
+            }
+
+            return (indexArray, centerArray, foundCount);
 
             void TestCell(int i)
             {
-                var lo = new Vector3(float.MaxValue);
-                var hi = new Vector3(float.MinValue);
-                foreach (var (q, t) in poses)
-                {
-                    var p = Vector3.Transform(all.Center[i], q) + t;
-                    lo = Vector3.Min(lo, p);
-                    hi = Vector3.Max(hi, p);
-                }
-
+                var c = all.Center[i];
+                var p0 = Vector3.Transform(c, q0) + t0;
+                var p1 = Vector3.Transform(c, q1) + t1;
+                var p2 = Vector3.Transform(c, q2) + t2;
+                var p3 = Vector3.Transform(c, q3) + t3;
+                var lo = Vector3.Min(Vector3.Min(p0, p1), Vector3.Min(p2, p3));
+                var hi = Vector3.Max(Vector3.Max(p0, p1), Vector3.Max(p2, p3));
                 if (Meets(lo, hi, bow))
                 {
-                    index.Add(all.Index[i]);
-                    center.Add(all.Center[i]);
+                    var r = all.Rank[i];
+                    found[r >> 6] |= 1UL << (r & 63);
+                    foundCount++;
                     _reachLo = Vector3.Min(_reachLo, lo - new Vector3(bow));
                     _reachHi = Vector3.Max(_reachHi, hi + new Vector3(bow));
                 }
             }
 
             float travelStep() => _advance * (MaxLookahead + 1);
+        }
+
+        /// <summary>Candidate cells per chunk (see <see cref="BuildChunks"/>).</summary>
+        private const int ChunkSize = 16;
+
+        /// <summary>Slack [m] added to a chunk's radius so float rounding of the rotated centre can never skip a chunk that holds a cell inside the field.</summary>
+        private const float ChunkSlack = 1e-4f;
+
+        /// <summary>Where each chunk of consecutive candidate cells starts, and the sphere (centre in the probe frame, radius) that holds its cells.</summary>
+        /// <summary>Chunks per super-chunk: a sphere over this many chunks, so a sample first rules out whole runs of them.</summary>
+        private const int ChunksPerSuper = 8;
+
+        // The first _superCount / _chunkCount entries of arrays reused from sweep to sweep on a thread (see BuildChunks).
+        private readonly Vector3[] _superCenter;
+        private readonly float[] _superRadius;
+        private readonly int _superCount;
+        private readonly int[] _chunkStart;
+        private readonly Vector3[] _chunkCenter;
+        private readonly float[] _chunkRadius;
+        private readonly int _chunkCount;
+
+        /// <summary>Arrays for one level of chunks, kept on the thread and grown as needed (a sweep is over before the next begins).</summary>
+        private sealed class ChunkBuffers
+        {
+            public int[] Start = new int[64];
+            public Vector3[] Center = new Vector3[64];
+            public float[] Radius = new float[64];
+        }
+
+        [ThreadStatic]
+        private static ChunkBuffers? _chunkScratch;
+
+        [ThreadStatic]
+        private static ChunkBuffers? _superScratch;
+
+        private static ChunkBuffers ChunkScratch => _chunkScratch ??= new ChunkBuffers();
+
+        private static ChunkBuffers SuperScratch => _superScratch ??= new ChunkBuffers();
+
+        /// <summary>
+        /// Groups the candidate cells (in cell order) into chunks of <see cref="ChunkSize"/> with a bounding sphere each, so a sample
+        /// can skip a whole chunk whose sphere lies outside the field's grid at once (only a skip of cells that cannot be in the grid:
+        /// the result is the same as testing every cell).
+        /// </summary>
+        private static (int[] Start, Vector3[] Center, float[] Radius, int Count) BuildChunks(Vector3[] cells, int cellCount, int size, ChunkBuffers buffers)
+        {
+            var count = (cellCount + size - 1) / size;
+            if (buffers.Start.Length < count + 1)
+            {
+                var length = Math.Max(count + 1, 2 * buffers.Start.Length);
+                buffers.Start = new int[length];
+                buffers.Center = new Vector3[length];
+                buffers.Radius = new float[length];
+            }
+
+            var (start, center, radius) = (buffers.Start, buffers.Center, buffers.Radius);
+            for (var c = 0; c < count; c++)
+            {
+                var from = c * size;
+                var to = Math.Min(cellCount, from + size);
+                var lo = new Vector3(float.MaxValue);
+                var hi = new Vector3(float.MinValue);
+                for (var i = from; i < to; i++)
+                {
+                    lo = Vector3.Min(lo, cells[i]);
+                    hi = Vector3.Max(hi, cells[i]);
+                }
+
+                var mid = (lo + hi) * 0.5f;
+                var far = 0f;
+                for (var i = from; i < to; i++)
+                {
+                    far = MathF.Max(far, Vector3.Distance(cells[i], mid));
+                }
+
+                start[c] = from;
+                center[c] = mid;
+                radius[c] = far + ChunkSlack;
+            }
+
+            start[count] = cellCount;
+            return (start, center, radius, count);
         }
 
         /// <summary>The box (field frame) the candidate probe cells sweep through: only field cells in it can be touched.</summary>
@@ -479,34 +650,59 @@ public static class VoxelContact
             return (turn * _q0, Vector3.Lerp(_t0, _t1, t));
         }
 
+        private static readonly List<(int Slot, int Field, Vector3 At)> NoOverlaps = [];
+
         /// <summary>The probe cells inside a filled field cell at sample <paramref name="k"/> (field frame): (probe cell slot, field cell
         /// index, probe cell centre in the field frame).</summary>
         private List<(int Slot, int Field, Vector3 At)> Overlaps(int k)
         {
-            if (_cellCenter.Length == 0)
+            if (_cellCount == 0)
             {
-                return [];
+                return NoOverlaps;
             }
 
             var (q, t) = Pose(k);
-            var hits = new List<(int, int, Vector3)>();
+            List<(int, int, Vector3)>? hits = null;
             var grid = _field.Grid;
-            for (var i = 0; i < _cellCenter.Length; i++)
+            var half = grid.HalfExtents;
+            for (var g = 0; g < _superCount; g++)
             {
-                if (_probe.Grid.MaterialAt(_cellIndex[i]) == 0)
+                // A run of chunks whose sphere is wholly outside the field's grid holds no cell that is inside it.
+                var around = Vector3.Transform(_superCenter[g], q) + t;
+                var span = _superRadius[g];
+                if (MathF.Abs(around.X) - span > half.X || MathF.Abs(around.Y) - span > half.Y || MathF.Abs(around.Z) - span > half.Z)
                 {
                     continue;
                 }
 
-                var p = Vector3.Transform(_cellCenter[i], q) + t + Vector3.Zero;
-                var f = grid.CellAt(p);
-                if (f >= 0 && (grid.MaterialAt(f) != 0 || _brokenField.ContainsKey(f)))
+                for (var c = g * ChunksPerSuper; c < Math.Min(_chunkCount, (g + 1) * ChunksPerSuper); c++)
                 {
-                    hits.Add((i, f, p));
+                    // Likewise a chunk.
+                    var middle = Vector3.Transform(_chunkCenter[c], q) + t;
+                    var reach = _chunkRadius[c];
+                    if (MathF.Abs(middle.X) - reach > half.X || MathF.Abs(middle.Y) - reach > half.Y || MathF.Abs(middle.Z) - reach > half.Z)
+                    {
+                        continue;
+                    }
+
+                    for (var i = _chunkStart[c]; i < _chunkStart[c + 1]; i++)
+                    {
+                        if (_probe.Grid.MaterialAt(_cellIndex[i]) == 0)
+                        {
+                            continue;
+                        }
+
+                        var p = Vector3.Transform(_cellCenter[i], q) + t + Vector3.Zero;
+                        var f = grid.CellAt(p);
+                        if (f >= 0 && (grid.MaterialAt(f) != 0 || _brokenField.ContainsKey(f)))
+                        {
+                            (hits ??= []).Add((i, f, p));
+                        }
+                    }
                 }
             }
 
-            return hits;
+            return hits ?? NoOverlaps;
         }
 
         /// <summary>The area [m²] the overlapping probe cells cover across the blow (projected on the plane square to
@@ -539,6 +735,7 @@ public static class VoxelContact
 
             var first = -1;
             List<(int Slot, int Field, Vector3 At)> touching = [];
+            var scanStart = StepProfile.Begin();
             for (var k = 0; k <= _samples; k++)
             {
                 touching = Overlaps(k);
@@ -548,6 +745,8 @@ public static class VoxelContact
                     break;
                 }
             }
+
+            StepProfile.End(StepProfile.Slot.RunScan, scanStart);
 
             if (first < 0)
             {
@@ -589,7 +788,9 @@ public static class VoxelContact
             var energy = 0.5f * mEff * speed * speed;
             var drive = MathF.Max(0f, Vector3.Dot(_drive, direction)); // only the push along the blow drives it on
             var left = energy;
+            var frontStart = StepProfile.Begin();
             var fieldFront = FieldFront(localAlong);
+            StepProfile.End(StepProfile.Slot.RunFront, frontStart);
             // The contact point riding on the probe: how far it moves along the blow from sample to sample is how far the cut
             // advances (a turning blade's tip moves further than the place it cuts with).
             var (qFirst, tFirst) = Pose(first);
@@ -602,7 +803,9 @@ public static class VoxelContact
             byte faceProbe = Commonest(touching, probeSide: true), faceField = Commonest(touching, probeSide: false);
             for (var k = first; k <= _samples; k++)
             {
+                var ovStart = StepProfile.Begin();
                 var now = k == first ? touching : Overlaps(k);
+                StepProfile.End(StepProfile.Slot.RunOverlaps, ovStart);
                 if (now.Count == 0)
                 {
                     continue;
@@ -611,9 +814,13 @@ public static class VoxelContact
                 // How hard the blow pushes: its energy over the give. What each side can bear: the force it takes to push
                 // through the patch the two touch over once the contact has given way by the give (its softer cells give
                 // first and leave the load on the harder ones, so a little bone under the blade carries the whole blow).
+                var holdStart = StepProfile.Begin();
                 var give = Give(now);
                 var push = (left / give) + drive;
+                StepProfile.End(StepProfile.Slot.RunHold, holdStart);
+                var patchStart = StepProfile.Begin();
                 var bins = PatchBins(k, fieldFront, give);
+                StepProfile.End(StepProfile.Slot.RunPatch, patchStart);
 
                 if (k == first && bins.Count > 0)
                 {
@@ -691,7 +898,9 @@ public static class VoxelContact
             }
 
             // The face held: the pressure goes on beneath it, as far as the blow gives.
+            var crushStart = StepProfile.Begin();
             var crushed = heldPatch is null || !_pressBeneath ? null : CrushBeneath(heldPatch, localAlong, heldGive, heldForce, blowEnergy, removedField);
+            StepProfile.End(StepProfile.Slot.RunCrush, crushStart);
 
             if (removedProbe.Count > 0)
             {
@@ -865,13 +1074,12 @@ public static class VoxelContact
         /// to <paramref name="along"/>, field frame), how far along the blow its nearest cell starts, and that cell's
         /// material. Cells broken during this sweep still count (they were in the way when the blow arrived).
         /// </summary>
-        private Dictionary<(int, int), (float Front, byte Material)> FieldFront(Vector3 along)
+        private Heightfield FieldFront(Vector3 along)
         {
             _bin = MinCell(_probe.Grid);
             (_u, _w) = Basis(along);
             _along = along;
             var grid = _field.Grid;
-            var front = new Dictionary<(int, int), (float, byte)>();
             // A cube seen at a slant covers more than half a cell on either side: its projected half extent along each axis.
             var half = grid.CellSize * 0.5f;
             float Projected(Vector3 axis) => (MathF.Abs(axis.X) * half.X) + (MathF.Abs(axis.Y) * half.Y) + (MathF.Abs(axis.Z) * half.Z);
@@ -882,6 +1090,7 @@ public static class VoxelContact
             var (x0, x1) = AxisRange(grid.Dimensions.X, lo.X, hi.X, x => grid.CellCenter(x, 0, 0).X);
             var (y0, y1) = AxisRange(grid.Dimensions.Y, lo.Y, hi.Y, y => grid.CellCenter(0, y, 0).Y);
             var (z0, z1) = AxisRange(grid.Dimensions.Z, lo.Z, hi.Z, z => grid.CellCenter(0, 0, z).Z);
+            var front = Heightfield.Rent(grid, (x0, x1), (y0, y1), (z0, z1), _u, _w, (ru, rw), _bin);
             for (var z = z0; z < z1; z++)
             {
                 for (var y = y0; y < y1; y++)
@@ -902,10 +1111,7 @@ public static class VoxelContact
                         {
                             for (var bw = (int)MathF.Floor((cw - rw) / _bin); bw <= (int)MathF.Floor((cw + rw) / _bin); bw++)
                             {
-                                if (!front.TryGetValue((bu, bw), out var f) || depth < f.Item1)
-                                {
-                                    front[(bu, bw)] = (depth, material);
-                                }
+                                front.SetNearer(bu, bw, depth, material);
                             }
                         }
                     }
@@ -913,6 +1119,119 @@ public static class VoxelContact
             }
 
             return front;
+        }
+
+        /// <summary>
+        /// The field's face seen from the blow: per bin (<see cref="FieldFront"/>), how far along the blow its nearest cell starts, and that cell's material
+        /// (0 = no cell). A flat array over the bins the swept region can reach, reused between sweeps on a thread (each field cell covers a
+        /// patch of bins, so a hash map here cost a lookup per bin per cell).
+        /// </summary>
+        private sealed class Heightfield
+        {
+            [ThreadStatic]
+            private static float[]? _frontBuffer;
+
+            [ThreadStatic]
+            private static byte[]? _materialBuffer;
+
+            private readonly int _u0;
+            private readonly int _w0;
+            private readonly int _nu;
+            private readonly int _nw;
+            private readonly float[] _front;
+            private readonly byte[] _material;
+
+            private Heightfield(int u0, int w0, int nu, int nw)
+            {
+                (_u0, _w0, _nu, _nw) = (u0, w0, nu, nw);
+                var size = Math.Max(1, nu * nw);
+                if (_frontBuffer is null || _frontBuffer.Length < size)
+                {
+                    _frontBuffer = new float[size];
+                    _materialBuffer = new byte[size];
+                }
+                else
+                {
+                    Array.Clear(_materialBuffer!, 0, size);
+                }
+
+                _front = _frontBuffer;
+                _material = _materialBuffer!;
+            }
+
+            /// <summary>An empty height field over every bin the cells of the given ranges can cover (the box of their centres, projected on the bin axes, with a bin to spare).</summary>
+            public static Heightfield Rent(VoxelGrid grid, (int From, int To) x, (int From, int To) y, (int From, int To) z, Vector3 u, Vector3 w, (float U, float W) extent, float bin)
+            {
+                if (x.To <= x.From || y.To <= y.From || z.To <= z.From)
+                {
+                    return new Heightfield(0, 0, 0, 0);
+                }
+
+                float minU = float.MaxValue, maxU = float.MinValue, minW = float.MaxValue, maxW = float.MinValue;
+                foreach (var cx in new[] { x.From, x.To - 1 })
+                {
+                    foreach (var cy in new[] { y.From, y.To - 1 })
+                    {
+                        foreach (var cz in new[] { z.From, z.To - 1 })
+                        {
+                            var c = grid.CellCenter(cx, cy, cz);
+                            var cu = Vector3.Dot(c, u);
+                            var cw = Vector3.Dot(c, w);
+                            minU = MathF.Min(minU, cu);
+                            maxU = MathF.Max(maxU, cu);
+                            minW = MathF.Min(minW, cw);
+                            maxW = MathF.Max(maxW, cw);
+                        }
+                    }
+                }
+
+                var u0 = (int)MathF.Floor((minU - extent.U) / bin) - 2;
+                var u1 = (int)MathF.Floor((maxU + extent.U) / bin) + 2;
+                var w0 = (int)MathF.Floor((minW - extent.W) / bin) - 2;
+                var w1 = (int)MathF.Floor((maxW + extent.W) / bin) + 2;
+                return new Heightfield(u0, w0, u1 - u0 + 1, w1 - w0 + 1);
+            }
+
+            /// <summary>Records the cell if its bin has none yet or it starts nearer.</summary>
+            public void SetNearer(int bu, int bw, float depth, byte material)
+            {
+                var iu = bu - _u0;
+                var iw = bw - _w0;
+                if ((uint)iu >= (uint)_nu || (uint)iw >= (uint)_nw)
+                {
+                    // The bounds cover every bin a cell of the region can reach; reaching past them would silently alias another bin.
+                    throw new InvalidOperationException("A field cell's bin lies outside the height field's bounds.");
+                }
+
+                var i = (iu * _nw) + iw;
+                if (_material[i] == 0 || depth < _front[i])
+                {
+                    _front[i] = depth;
+                    _material[i] = material;
+                }
+            }
+
+            /// <summary>Whether the bin has a field cell.</summary>
+            public bool Has(int bu, int bw) => TryGet(bu, bw, out _);
+
+            /// <summary>The bin's nearest field cell.</summary>
+            public bool TryGet(int bu, int bw, out (float Front, byte Material) cell)
+            {
+                var iu = bu - _u0;
+                var iw = bw - _w0;
+                if ((uint)iu < (uint)_nu && (uint)iw < (uint)_nw)
+                {
+                    var i = (iu * _nw) + iw;
+                    if (_material[i] != 0)
+                    {
+                        cell = (_front[i], _material[i]);
+                        return true;
+                    }
+                }
+
+                cell = default;
+                return false;
+            }
         }
 
         private static (int Start, int End) AxisRange(int count, float lo, float hi, Func<int, float> center)
@@ -948,12 +1267,12 @@ public static class VoxelContact
         /// they press over once the contact has given way. An edge or a point leaves a thin strip or a dot; a flat face
         /// against a round limb, the whole chord its curve allows. Each bin keeps the material at either face.
         /// </summary>
-        private List<PatchBin> PatchBins(int k, Dictionary<(int, int), (float Front, byte Material)> fieldFront, float give)
+        private List<PatchBin> PatchBins(int k, Heightfield fieldFront, float give)
         {
             var (q, t) = Pose(k);
             var reach = 0.5f * MaxCell(_probe.Grid);
             var probeFront = new Dictionary<(int, int), (float Front, byte Material)>();
-            for (var i = 0; i < _cellCenter.Length; i++)
+            for (var i = 0; i < _cellCount; i++)
             {
                 var material = _probe.Grid.MaterialAt(_cellIndex[i]);
                 if (material == 0)
@@ -963,7 +1282,7 @@ public static class VoxelContact
 
                 var p = Vector3.Transform(_cellCenter[i], q) + t;
                 var key = ((int)MathF.Floor(Vector3.Dot(p, _u) / _bin), (int)MathF.Floor(Vector3.Dot(p, _w) / _bin));
-                if (!fieldFront.ContainsKey(key))
+                if (!fieldFront.Has(key.Item1, key.Item2))
                 {
                     continue;
                 }
@@ -978,7 +1297,7 @@ public static class VoxelContact
             var deepest = float.MaxValue;
             foreach (var (key, pf) in probeFront)
             {
-                if (fieldFront.TryGetValue(key, out var ff))
+                if (fieldFront.TryGet(key.Item1, key.Item2, out var ff))
                 {
                     deepest = MathF.Min(deepest, ff.Front - pf.Front);
                 }
@@ -987,7 +1306,7 @@ public static class VoxelContact
             var patch = new List<PatchBin>();
             foreach (var (key, pf) in probeFront)
             {
-                if (fieldFront.TryGetValue(key, out var ff) && ff.Front - pf.Front <= deepest + give)
+                if (fieldFront.TryGet(key.Item1, key.Item2, out var ff) && ff.Front - pf.Front <= deepest + give)
                 {
                     patch.Add(new PatchBin(key, ff.Front, pf.Material, ff.Material));
                 }
@@ -1156,8 +1475,8 @@ public static class VoxelContact
         {
             var (rotation, translation) = Pose(_samples);
             var grid = _field.Grid;
-            var points = new List<Vector3>(_cellCenter.Length);
-            for (var i = 0; i < _cellCenter.Length; i++)
+            var points = new List<Vector3>(_cellCount);
+            for (var i = 0; i < _cellCount; i++)
             {
                 if (_probe.Grid.MaterialAt(_cellIndex[i]) != 0)
                 {

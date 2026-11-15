@@ -115,5 +115,100 @@ internal static class VoxelTool
         return 0;
     }
 
+    /// <summary>ゲームに組み込む武器の .vox の置き場所（リポジトリの根から）。</summary>
+    public const string WeaponInstallPath = "games/MiniRing/Voxels/weapons.vox";
+
+    public static int ExportWeapons(string output, bool generated)
+    {
+        var overrides = generated ? null : WeaponVoxelOverrides.Shipped;
+        var scene = WeaponVoxelModel.ToVox(WeaponVoxelModel.Parts(overrides));
+        using (var stream = File.Create(output))
+        {
+            MagicaVox.Write(stream, scene);
+        }
+
+        Console.WriteLine($"{output}: {scene.Models.Count} models ({string.Join(", ", scene.Models.Select(m => $"{m.Name} {m.Size.X}×{m.Size.Y}×{m.Size.Z}"))}), " +
+            $"{(overrides is null ? "generated" : "with the installed edits")}");
+        Console.WriteLine("colours: " + string.Join(", ", Enumerable.Range(1, BoxerAnatomy.Palette.Count - 1).Select(m => $"{m} {BoxerAnatomy.Palette[(byte)m].Name}")));
+        return 0;
+    }
+
+    public static int CheckWeapons(string input, bool install)
+    {
+        WeaponVoxelOverrides edited;
+        int[] chunkCounts;
+        try
+        {
+            using var file = File.OpenRead(input);
+            var scene = MagicaVox.Read(file);
+            edited = WeaponVoxelModel.FromVox(scene);
+            chunkCounts = [.. WeaponVoxelModel.Editable.Select(k => scene.Models.Count(m => m.Name == k.ToString() || m.Name.StartsWith(k + "#", StringComparison.Ordinal)))];
+        }
+        catch (InvalidDataException e)
+        {
+            Console.Error.WriteLine($"{input}: {e.Message}");
+            return 1;
+        }
+
+        var generated = WeaponVoxelModel.Parts(overrides: null);
+        var fits = true;
+        for (var i = 0; i < WeaponVoxelModel.Editable.Count; i++)
+        {
+            var kind = WeaponVoxelModel.Editable[i];
+            var part = edited[kind];
+            if (part is null)
+            {
+                Console.WriteLine($"{kind,-14} not in the file: stays generated");
+                continue;
+            }
+
+            var grid = generated[kind];
+            var size = $"{part.Dimensions.X}×{part.Dimensions.Y}×{part.Dimensions.Z}, {chunkCounts[i]} chunk{(chunkCounts[i] == 1 ? "" : "s")}";
+            if (part.Dimensions != grid.Dimensions)
+            {
+                fits = false;
+                Console.WriteLine($"{kind,-14} is {part.Dimensions} cells, the game needs {grid.Dimensions} (do not crop or resize the model)");
+                continue;
+            }
+
+            var changes = new Dictionary<(byte From, byte To), int>();
+            var (dx, dy, dz) = grid.Dimensions;
+            for (var z = 0; z < dz; z++)
+            {
+                for (var y = 0; y < dy; y++)
+                {
+                    for (var x = 0; x < dx; x++)
+                    {
+                        var from = grid.At(x, y, z);
+                        var to = part.Materials[x + (dx * (y + (dy * z)))];
+                        if (from != to)
+                        {
+                            changes[(from, to)] = changes.GetValueOrDefault((from, to)) + 1;
+                        }
+                    }
+                }
+            }
+
+            var summary = changes.Count == 0 ? "unchanged"
+                : string.Join(", ", changes.OrderByDescending(c => c.Value).Take(6).Select(c => $"{Name(c.Key.From)} → {Name(c.Key.To)} × {c.Value}"));
+            Console.WriteLine($"{kind,-14} ({size}) {summary}");
+        }
+
+        if (!fits)
+        {
+            Console.Error.WriteLine("Some weapons do not fit the game; it would use the generated weapon for them.");
+            return 1;
+        }
+
+        if (install)
+        {
+            var target = Path.Combine(RepositoryRoot(), WeaponInstallPath);
+            File.Copy(input, target, overwrite: true);
+            Console.WriteLine($"installed to {target} (rebuild to use it; raise Fighter.PhysicsVersion, the weapon mass and contacts change)");
+        }
+
+        return 0;
+    }
+
     private static string Name(byte material) => BoxerAnatomy.Palette[material].Name;
 }
