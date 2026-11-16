@@ -172,16 +172,17 @@ public sealed record WeaponStyle
 }
 
 /// <summary>
-/// 武器ごとの教科書（組み込みの JSON を読んだ <see cref="WeaponStyle"/>）。ボットを使う武器だけ（刀・ロングソード・こんぼう。鉄の剣・はめる物は無い）。
+/// 武器ごとの教科書（組み込みの JSON を読んだ <see cref="WeaponStyle"/>）。ボットを使う武器だけ（刀・ロングソード・こんぼう・棒。鉄の剣・はめる物は無い）。
 /// </summary>
 public static class WeaponCatalog
 {
     private static readonly Lazy<WeaponStyle> Katana = new(() => Load("katana"));
     private static readonly Lazy<WeaponStyle> Longsword = new(() => Load("longsword"));
     private static readonly Lazy<WeaponStyle> Club = new(() => Load("club"));
+    private static readonly Lazy<WeaponStyle> Staff = new(() => Load("staff"));
 
     /// <summary>この武器のボットを教科書の値で動かすか（<see cref="Textbook"/> がある武器）。</summary>
-    public static bool HasBot(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.WoodenClub;
+    public static bool HasBot(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.WoodenClub or WeaponKind.Staff;
 
     /// <summary>この武器の教科書。ボットの無い武器は <see cref="ArgumentOutOfRangeException"/>。</summary>
     public static WeaponStyle Textbook(WeaponKind weapon) => weapon switch
@@ -189,7 +190,8 @@ public static class WeaponCatalog
         WeaponKind.Katana => Katana.Value,
         WeaponKind.Longsword => Longsword.Value,
         WeaponKind.WoodenClub => Club.Value,
-        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・こんぼうだけに教科書があります。"),
+        WeaponKind.Staff => Staff.Value,
+        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・こんぼう・棒だけに教科書があります。"),
     };
 
     private static WeaponStyle Load(string name)
@@ -219,7 +221,7 @@ public static class WeaponEducation
         {
             if (education is { Count: > 0 })
             {
-                throw new InvalidDataException("education.weaponBot は、刀・ロングソード・こんぼうを握るキャラだけが持てます。");
+                throw new InvalidDataException("education.weaponBot は、刀・ロングソード・こんぼう・棒を握るキャラだけが持てます。");
             }
 
             return null;

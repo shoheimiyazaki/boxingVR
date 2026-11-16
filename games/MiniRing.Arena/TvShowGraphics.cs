@@ -28,6 +28,7 @@ internal sealed record TvCorner(string Name, string Discipline, string Detail, s
         {
             WeaponKind.Katana => ("日本刀", "両手持ち・刀の型"),
             WeaponKind.Longsword => ("ロングソード", "両手持ち・西洋剣の型"),
+            WeaponKind.Staff => ("棒術", "両手持ち・六尺棒の型"),
             WeaponKind.WoodenClub => ("こんぼう", $"片手持ち・{StyleLabel(styleName)}"),
             WeaponKind.IronSword => ("鉄の剣", $"片手持ち・{StyleLabel(styleName)}"),
             _ => wear switch

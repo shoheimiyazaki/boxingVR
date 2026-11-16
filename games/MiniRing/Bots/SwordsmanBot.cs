@@ -201,6 +201,11 @@ public sealed class SwordsmanBot : IFighterControl
     /// </summary>
     public bool Passive { get; init; }
 
+    /// <summary>
+    /// 右手から後ろの端までの長さ [腕の長さ]（両端を使う武器。棒）。受けるとき、体から離す線を左手の先ではなく後ろの端まで見る。null なら左手まで（刀・ロングソード）。
+    /// </summary>
+    public float? RearLength { get; init; }
+
     /// <summary>今出している技（出していなければ null）。</summary>
     public MotionTechnique? Current => _current;
 
@@ -727,7 +732,7 @@ public sealed class SwordsmanBot : IFighterControl
             {
                 // 折れて短くなった刀は、残った長さで受ける。
                 var blade = MathF.Max(0.1f, _bladeLength - (_lost / MathF.Max(1e-3f, sense.ArmReach)));
-                _block = parry ? WeaponDefense.Parry(sense, threat, _defense, blade, _spacing, _guard.Blade) : null;
+                _block = parry ? WeaponDefense.Parry(sense, threat, _defense, blade, _spacing, _guard.Blade, RearLength ?? float.NaN) : null;
                 _counter = parry && _defense.Counter && !Passive;
                 Blocks += parry ? 1 : 0;
                 _threatDirection = direction;

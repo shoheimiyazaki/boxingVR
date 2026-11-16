@@ -1,0 +1,22 @@
+{
+  "id": "daichi",
+  "order": 14,
+  "name": "玉城 大地",
+  "reading": "タマキ ダイチ",
+  "hudName": "ダイチ",
+  "origin": "日本（沖縄）",
+  "country": "japan",
+  "tagline": "六尺棒の棒術家",
+  "look": {
+    "skin": [0.8, 0.6, 0.45], "hair": [0.04, 0.04, 0.04], "hairstyle": "Crop", "eyes": [0.1, 0.06, 0.03],
+    "brows": true, "beard": false
+  },
+  "body": {
+    "build": { "height": 1.05, "arms": 1.05, "legs": 1.0, "muscle": 0.95 },
+    "wear": "glove",
+    "weapon": "staff"
+  },
+  "textbook": "champion",
+  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "record": []
+}

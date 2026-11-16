@@ -56,6 +56,12 @@ public enum WeaponKind
     /// 刃は無く、グローブより小さく硬い面で打つ。
     /// </summary>
     Gauntlet,
+
+    /// <summary>
+    /// 木の棒（六尺棒、両手）: 丸い断面がほぼ一定の太さで、両端が打つ所（どちらの端も同じ形）。両手を肩幅ほど離して中ほどを握る。
+    /// 刃はない。長さは基準体格の身長ほど。
+    /// </summary>
+    Staff,
 }
 
 /// <summary>
@@ -271,18 +277,18 @@ public sealed class Weapon
     {
         WeaponKind.IronSword => new Vector3((GuardFrom + PommelAt) * 0.5f, 0f, 0f),
         WeaponKind.WoodenClub => new Vector3(-ClubHalfLength + 0.015f, 0f, 0f),
-        WeaponKind.Katana or WeaponKind.Longsword => TwoHandGripsOf(kind).Top,
+        WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff => TwoHandGripsOf(kind).Top,
         WeaponKind.Glove => Vector3.Zero, // 拳はグローブの真ん中
         WeaponKind.Fist => HandSkeleton.Wrist, // 腕の先が手を握る所（手首）
         WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet => -WornBoundsOf(kind).Center, // 拳の中心
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
 
-    /// <summary>両手で握れる武器か（棍棒・日本刀・ロングソード。片手剣の握りは片手ぶんの長さ）。</summary>
-    public static bool CanTwoHand(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Katana or WeaponKind.Longsword;
+    /// <summary>両手で握れる武器か（棍棒・日本刀・ロングソード・棒。片手剣の握りは片手ぶんの長さ）。</summary>
+    public static bool CanTwoHand(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff;
 
     /// <summary>刃の無い（打って潰す）武器か。刃のある武器は、刃の形と材質だけで斬る（<see cref="VoxelContact"/>）。</summary>
-    public static bool IsBlunt(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Gauntlet;
+    public static bool IsBlunt(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Gauntlet;
 
     private static readonly Lazy<bool>[] RigidFaces =
         Enum.GetValues<WeaponKind>().Select(k => new Lazy<bool>(() => StrikesWithRigidFace(k))).ToArray();
@@ -332,6 +338,9 @@ public sealed class Weapon
             case WeaponKind.WoodenClub:
                 var bottom = GripOf(kind);
                 return (bottom + new Vector3(HandSpacing, 0f, 0f), bottom);
+            case WeaponKind.Staff:
+                // 棒の真ん中をはさんで、両手を肩幅ほど離す（右手が +X 側、左手が −X 側。棒は対称で、どちらの端も打つ）。
+                return (new Vector3(0.5f * StaffHandSpacing, 0f, 0f), new Vector3(-0.5f * StaffHandSpacing, 0f, 0f));
             default:
                 throw new ArgumentException($"{kind} は両手で握れません。", nameof(kind));
         }
@@ -344,6 +353,7 @@ public sealed class Weapon
         WeaponKind.WoodenClub => new Vector3(ClubHalfLength - 0.01f, 0f, 0f),
         WeaponKind.Katana => new Vector3(KatanaHalfLength, KatanaSori, 0f),
         WeaponKind.Longsword => new Vector3(LongHalfLength, 0f, 0f),
+        WeaponKind.Staff => new Vector3(StaffHalfLength - StaffTipInset, 0f, 0f),
         WeaponKind.Glove => new Vector3(GloveRadius, 0f, 0f),
         WeaponKind.Fist => HandSkeleton.SeikenTip,
         WeaponKind.KnuckleDuster => new Vector3(DusterFront + DusterBoss, 0f, -0.5f * (2f * FistRadius / 4f)) - WornBoundsOf(kind).Center, // 中指の拳頭の突起の先
@@ -351,6 +361,13 @@ public sealed class Weapon
         WeaponKind.Gauntlet => new Vector3(GauntletOuter, 0f, 0f) - WornBoundsOf(kind).Center,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
+
+    /// <summary>
+    /// 打つ端（武器のローカルの X。<see cref="TipOf"/> と同じ測り方）。棒だけ、+X と −X の両端が打つ（対称なので同じ形）。
+    /// 他の武器は先の 1 つだけ。
+    /// </summary>
+    public static IReadOnlyList<float> StrikeEndsX(WeaponKind kind) =>
+        kind == WeaponKind.Staff ? [TipOf(kind).X, -TipOf(kind).X] : [TipOf(kind).X];
 
     /// <summary>武器の格子（材質は <see cref="BoxerAnatomy.Palette"/> の鉄と木。手にはめる物の革は赤コーナーの色）。</summary>
     public static VoxelGrid Build(WeaponKind kind) => Build(kind, BoxerAnatomy.RedGlove);
@@ -391,6 +408,7 @@ public sealed class Weapon
         WeaponKind.WoodenClub => Club(),
         WeaponKind.Katana => Katana(),
         WeaponKind.Longsword => Longsword(),
+        WeaponKind.Staff => Staff(),
         WeaponKind.Glove => Glove(leather),
         WeaponKind.Fist => BareHandState.InitialGrid(),
         WeaponKind.KnuckleDuster => Worn(kind, WornCell, KnuckleDusterAt),
@@ -471,6 +489,39 @@ public sealed class Weapon
             if (fromEnd < ClubHeadRadius)
             {
                 radius = MathF.Min(radius, MathF.Sqrt(MathF.Max(0f, (ClubHeadRadius * ClubHeadRadius) - ((ClubHeadRadius - fromEnd) * (ClubHeadRadius - fromEnd)))));
+            }
+
+            return (p.Y * p.Y) + (p.Z * p.Z) <= radius * radius ? BoxerAnatomy.Wood : (byte)0;
+        });
+    }
+
+    // ── 棒（六尺棒。人形の縮尺 0.355: 実物の 180 cm → 64 cm、太さ 3 cm → 1.1 cm）。刃がないので棍棒と同じ 2.5 mm のセル。
+    // 棒の寸法の根拠: 長さは基準体格の身長（0.355 × 1.75 m = 62 cm）ほど（六尺棒は背丈ほど）。太さは実物の縮尺だと半径 5 mm で、
+    // 2.5 mm のセルで丸く見えるよう半径 6 mm（セル 5 個ぶん）にした。
+    private const float StaffCell = 0.0025f;
+    private const float StaffHalfLength = 0.31f;
+    private const float StaffRadius = 0.006f;
+
+    /// <summary>打つ所（<see cref="TipOf"/>）を、端の丸みの少し手前に置く距離 [m]（棍棒の頭と同じ 1 cm）。</summary>
+    private const float StaffTipInset = 0.01f;
+
+    /// <summary>
+    /// 両手の間隔 [m]: 肩幅ほど（人形の肩の幅 10.7 cm（測った）。<c>docs/BOJUTSU.md</c>）。棒は両手のてこで回すので、間隔が広いほど向きの指令が楽。
+    /// </summary>
+    public const float StaffHandSpacing = 0.11f;
+
+    /// <summary>丸い木の棒。両端は半球で丸める。太さは一定。</summary>
+    private static VoxelGrid Staff()
+    {
+        var half = new Vector3(StaffHalfLength, StaffRadius, StaffRadius);
+        return new VoxelGrid(BoxerAnatomy.Palette, half, StaffCell, (p, _) =>
+        {
+            var radius = StaffRadius;
+            var fromEnd = StaffHalfLength - MathF.Abs(p.X);
+            if (fromEnd < StaffRadius)
+            {
+                var back = StaffRadius - fromEnd;
+                radius = MathF.Sqrt(MathF.Max(0f, (StaffRadius * StaffRadius) - (back * back)));
             }
 
             return (p.Y * p.Y) + (p.Z * p.Z) <= radius * radius ? BoxerAnatomy.Wood : (byte)0;

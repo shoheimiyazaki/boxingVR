@@ -4,15 +4,15 @@ using MiniRing.Weapons;
 namespace MiniRing.Bots;
 
 /// <summary>
-/// 刀・ロングソードを、その武器の型（<see cref="SwordForms"/> の手で作った型）で動かす組み立て（試合のボットも、デスクトップのプレイヤーの意図操作も
+/// 刀・ロングソード・棒を、その武器の型（<see cref="SwordForms"/>・<see cref="StaffForms"/> の手で作った型）で動かす組み立て（試合のボットも、デスクトップのプレイヤーの意図操作も
 /// ここから技を取る。<c>CLAUDE.md</c> §1.5: 一つの組み方）。外部の動き（モーションキャプチャ）には頼らない。
 /// 構え・間合い（物打ちが届く距離 <see cref="StrikeDrill.ReachOf"/>）・刃の長さ・握りの間隔・剣士のボット（<see cref="SwordsmanBot"/>。
 /// 武器を落としたら拳 <see cref="DisarmedFallback.WithFists"/>）は Arena の <c>SwordLibraryLab.Bot</c> と同じ組み方。
 /// </summary>
 public static class FormSwordsman
 {
-    /// <summary>型で動かす武器か（刀・ロングソード。どちらも両手持ち）。</summary>
-    public static bool Handles(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword;
+    /// <summary>型で動かす武器か（刀・ロングソード・棒。どれも両手持ち）。</summary>
+    public static bool Handles(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff;
 
     private static readonly Lazy<IReadOnlyList<SwordMotion>> KatanaForms = new(SwordForms.Katana);
     private static readonly Lazy<IReadOnlyList<SwordMotion>> LongswordForms = new(SwordForms.Longsword);
@@ -25,7 +25,8 @@ public static class FormSwordsman
     {
         WeaponKind.Katana => KatanaForms.Value,
         WeaponKind.Longsword => [.. LongswordForms.Value.Skip(1)],
-        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀かロングソードだけ。"),
+        WeaponKind.Staff => StaffForms.Forms(),
+        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒だけ。"),
     };
 
     /// <summary>
@@ -51,14 +52,24 @@ public static class FormSwordsman
     {
         WeaponKind.Katana => KatanaForms.Value[0].Frames[0],
         WeaponKind.Longsword => LongswordForms.Value[0].Frames[0],
-        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀かロングソードだけ。"),
+        WeaponKind.Staff => StaffForms.Guard(),
+        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒だけ。"),
     };
 
     /// <summary>両手の間隔 [腕の長さ]。</summary>
-    public static float Spacing(WeaponKind weapon) => weapon == WeaponKind.Longsword ? SwordForms.LongswordSpacing : SwordForms.KatanaSpacing;
+    public static float Spacing(WeaponKind weapon) => weapon switch
+    {
+        WeaponKind.Longsword => SwordForms.LongswordSpacing,
+        WeaponKind.Staff => StaffForms.Spacing,
+        _ => SwordForms.KatanaSpacing,
+    };
 
     /// <summary>剣の握り（右手）から先までの長さ [腕の長さ]（受けるとき、剣のどこで受けるか）。</summary>
     public static float BladeLength(WeaponKind weapon, float armReach) => (Weapon.TipOf(weapon).X - Weapon.TwoHandGripsOf(weapon).Top.X) / armReach;
+
+    /// <summary>右手から後ろの端までの長さ [腕の長さ]（両端を使う武器の受けで、体から離す線を後ろの端まで見る）。端が 1 つの武器は null。</summary>
+    public static float? RearLength(WeaponKind weapon, float armReach) =>
+        Weapon.StrikeEndsX(weapon) is { Count: > 1 } ends ? (Weapon.TwoHandGripsOf(weapon).Top.X - ends.Min()) / armReach : null;
 
     /// <summary>これより間合いが短い型は残さない [m]（打ち込まずその場で振る型は、剣士同士の間合いの技ではない。Arena の <c>SwordLibraryLab.MinReach</c> と同じ）。</summary>
     public const float MinReach = 0.33f;
@@ -77,12 +88,17 @@ public static class FormSwordsman
     ];
 
     /// <summary>
-    /// プレイヤーの弱・強の型。刀: 弱 = 突き（tsuki）・強 = 袈裟（kesa）。ロングソード: 弱 = Stich・強 = Oberhau。
+    /// プレイヤーの弱・強の型。刀: 弱 = 突き（tsuki）・強 = 袈裟（kesa）。ロングソード: 弱 = Stich・強 = Oberhau。棒: 弱 = 突き（tsuki）・強 = 打ち下ろし（uchi-oroshi）。
     /// </summary>
     public static (SwordMotion Light, SwordMotion Heavy) PlayerForms(WeaponKind weapon)
     {
         var forms = Forms(weapon);
-        var (light, heavy) = weapon == WeaponKind.Katana ? ("tsuki", "kesa") : ("stich", "oberhau");
+        var (light, heavy) = weapon switch
+        {
+            WeaponKind.Katana => ("tsuki", "kesa"),
+            WeaponKind.Staff => ("tsuki", "uchi-oroshi"),
+            _ => ("stich", "oberhau"),
+        };
         return (forms.First(f => f.Name == light), forms.First(f => f.Name == heavy));
     }
 
@@ -127,6 +143,7 @@ public static class FormSwordsman
             Clearance = style.Clearance,
             Pacing = style.Pacing,
             Weights = style.TechniqueWeights,
+            RearLength = RearLength(weapon, armReach),
         };
         return new DisarmedFallback(bot, BotCatalog.Create(DisarmedFallback.FistStyle, seed), style.KeepReach);
     }

@@ -41,6 +41,7 @@ internal static class HandleLab
         public float OffPlane = float.NaN;  // 刃筋のずれ [度]
         public float BladeFraction = float.NaN;
         public int EdgeFirst = -1;   // 刀: 刃が先 1・峰が先 0（それ以外 -1）
+        public int RearEnd = -1;     // 棒: 後ろの端（武器のローカル −X 側）で当たった 1・前の端（+X 側）で当たった 0（それ以外 -1）
         public int Cells;
         public float Damage;
         public int Severs;
@@ -76,7 +77,7 @@ internal static class HandleLab
     internal sealed record Bout(Side Red, Side Blue, double Seconds);
 
     /// <summary>武器ごとの値の上書き（null の武器は教科書または教育のまま）。</summary>
-    internal sealed record Overrides(WeaponStyle? Katana = null, WeaponStyle? Longsword = null, WeaponStyle? Club = null, string? OnlyFor = null)
+    internal sealed record Overrides(WeaponStyle? Katana = null, WeaponStyle? Longsword = null, WeaponStyle? Club = null, string? OnlyFor = null, WeaponStyle? Staff = null)
     {
         public static Overrides None { get; } = new();
 
@@ -88,6 +89,7 @@ internal static class HandleLab
             WeaponKind.Katana => Katana,
             WeaponKind.Longsword => Longsword,
             WeaponKind.WoodenClub => Club,
+            WeaponKind.Staff => Staff,
             _ => null,
         };
     }
@@ -403,6 +405,12 @@ internal static class HandleLab
         var grip = Weapon.GripOf(kind).X;
         var tip = Weapon.TipOf(kind).X;
         swing.BladeFraction = Math.Clamp((at.X - grip) / MathF.Max(1e-4f, tip - grip), -0.5f, 1.5f);
+        if (kind == WeaponKind.Staff)
+        {
+            // 棒は両端が打つ: 当たった点が棒の真ん中（握りの間）より −X 側なら後ろの端。刃の位置は、当たった端の先からの近さ（0 = 握り・1 = 端）にする。
+            swing.RearEnd = at.X < 0f ? 1 : 0;
+            swing.BladeFraction = Math.Clamp((MathF.Abs(at.X) - (0.5f * Weapon.StaffHandSpacing)) / MathF.Max(1e-4f, tip - (0.5f * Weapon.StaffHandSpacing)), -0.5f, 1.5f);
+        }
     }
 
     // ---- 集計 ----
@@ -451,6 +459,7 @@ internal static class HandleLab
         WeaponKind.Katana => "日本刀",
         WeaponKind.Longsword => "ロングソード",
         WeaponKind.WoodenClub => "こんぼう",
+        WeaponKind.Staff => "棒",
         _ => "拳",
     };
 
@@ -461,7 +470,7 @@ internal static class HandleLab
     /// <summary>武器を握る側の組（武器 × 相手の種類）ごとの表。</summary>
     public static string Report(IReadOnlyList<Bout> bouts, float seconds, int seed, string heading)
     {
-        var sides = bouts.SelectMany(b => new[] { b.Red, b.Blue }).Where(s => s.Weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.WoodenClub).ToList();
+        var sides = bouts.SelectMany(b => new[] { b.Red, b.Blue }).Where(s => s.Weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.WoodenClub or WeaponKind.Staff).ToList();
         var groups = sides.GroupBy(s => (s.Weapon, s.OpponentClass)).OrderBy(g => g.Key.Weapon).ThenBy(g => g.Key.OpponentClass).ToList();
         var sb = new StringBuilder();
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"### {heading}（{bouts.Count} 試合 × {seconds:0} 秒、種 {seed}、LogicVersion {BoxerBot.LogicVersion}）"));
@@ -482,8 +491,8 @@ internal static class HandleLab
         sb.AppendLine();
         sb.AppendLine("#### 振りの質");
         sb.AppendLine();
-        sb.AppendLine("| 武器 | 相手 | 振り | 当たった振り | 刃筋のずれ [°]（当たった時） | 峰が先（刀） | 当たった刃の位置（0 握り・1 切っ先） | 刃先の速さ [m/s]（当たった時） | 1 振りで欠けたセル | 切断 / 折れ（100 振りあたり） | 外れた振りの間合いのずれ [cm] | 当たった振りの間合いのずれ [cm] |");
-        sb.AppendLine("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
+        sb.AppendLine("| 武器 | 相手 | 振り | 当たった振り | 刃筋のずれ [°]（当たった時） | 峰が先（刀） | 当たった刃の位置（0 握り・1 切っ先） | 刃先の速さ [m/s]（当たった時） | 1 振りで欠けたセル | 切断 / 折れ（100 振りあたり） | 外れた振りの間合いのずれ [cm] | 当たった振りの間合いのずれ [cm] | 後ろの端で当たった（棒） |");
+        sb.AppendLine("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
         foreach (var g in groups)
         {
             var swings = g.SelectMany(s => s.Swings).ToList();
@@ -491,7 +500,7 @@ internal static class HandleLab
             var misses = swings.Where(s => !s.Hit).ToList();
             var edged = hits.Where(s => s.EdgeFirst >= 0).ToList();
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                $"| {Label(g.Key.Weapon)} | {g.Key.OpponentClass} | {swings.Count} | {F(swings.Count == 0 ? double.NaN : 100.0 * hits.Count / swings.Count, "0")}% | {F(Mean(hits.Select(s => (double)s.OffPlane)))} | {(edged.Count == 0 ? "-" : F(100.0 * edged.Count(s => s.EdgeFirst == 0) / edged.Count, "0") + "%")} | {F(Mean(hits.Select(s => (double)s.BladeFraction)), "0.00")} | {F(Mean(hits.Select(s => (double)s.HitSpeed)))} | {F(swings.Count == 0 ? double.NaN : swings.Average(s => s.Cells))} | {F(swings.Count == 0 ? double.NaN : 100.0 * swings.Sum(s => s.Severs + s.Fractures) / swings.Count, "0.0")} | {F(Mean(misses.Select(s => 100.0 * (s.Distance - s.Range))), "0")} | {F(Mean(hits.Select(s => 100.0 * (s.Distance - s.Range))), "0")} |"));
+                $"| {Label(g.Key.Weapon)} | {g.Key.OpponentClass} | {swings.Count} | {F(swings.Count == 0 ? double.NaN : 100.0 * hits.Count / swings.Count, "0")}% | {F(Mean(hits.Select(s => (double)s.OffPlane)))} | {(edged.Count == 0 ? "-" : F(100.0 * edged.Count(s => s.EdgeFirst == 0) / edged.Count, "0") + "%")} | {F(Mean(hits.Select(s => (double)s.BladeFraction)), "0.00")} | {F(Mean(hits.Select(s => (double)s.HitSpeed)))} | {F(swings.Count == 0 ? double.NaN : swings.Average(s => s.Cells))} | {F(swings.Count == 0 ? double.NaN : 100.0 * swings.Sum(s => s.Severs + s.Fractures) / swings.Count, "0.0")} | {F(Mean(misses.Select(s => 100.0 * (s.Distance - s.Range))), "0")} | {F(Mean(hits.Select(s => 100.0 * (s.Distance - s.Range))), "0")} | {(hits.Any(s => s.RearEnd >= 0) ? F(100.0 * hits.Count(s => s.RearEnd == 1) / hits.Count(s => s.RearEnd >= 0), "0") + "%" : "-")} |"));
         }
 
         sb.AppendLine();

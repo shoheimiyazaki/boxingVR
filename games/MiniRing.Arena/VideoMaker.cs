@@ -663,6 +663,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         MiniRing.Weapons.WeaponKind.Katana => "刀",
         MiniRing.Weapons.WeaponKind.Longsword => "ロングソード",
         MiniRing.Weapons.WeaponKind.WoodenClub => "こんぼう",
+        MiniRing.Weapons.WeaponKind.Staff => "棒",
         MiniRing.Weapons.WeaponKind.IronSword => "剣",
         _ => null,
     };

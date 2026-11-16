@@ -12,7 +12,7 @@ namespace MiniRing.Tests;
 [TestClass]
 public sealed class CharacterRosterTests
 {
-    private static readonly string[] WeaponUsers = ["jin", "konrad", "sean"];
+    private static readonly string[] WeaponUsers = ["jin", "konrad", "sean", "daichi"];
     private static readonly string[] KarateUsers = ["akira"];
 
     /// <summary>組み込みの 1 人ぶんのファイル（roster/&lt;id&gt;.json）の中身。</summary>
@@ -38,13 +38,14 @@ public sealed class CharacterRosterTests
         ("joao", null, HandWear.KnuckleDuster, "swarmer", 0.98f, 1.0f, 1.0f, 1.05f),
         ("gaston", null, HandWear.Gauntlet, "outboxer", 1.05f, 1.05f, 1.0f, 1.0f),
         ("diego", null, HandWear.None, "taekwondo", 1.1f, 1.0f, 1.1f, 0.92f),
+        ("daichi", WeaponKind.Staff, HandWear.Glove, "champion", 1.05f, 1.05f, 1.0f, 0.95f),
     ];
 
     [TestMethod]
     public void Roster_HoldsTheDecidedTwelve_WithTheirEquipmentStyleAndBody()
     {
         var all = CharacterRoster.All;
-        Assert.HasCount(13, all);
+        Assert.HasCount(14, all);
         CollectionAssert.AreEqual(Decided.Select(d => d.Id).ToArray(), all.Select(c => c.Id).ToArray(), "the decided order");
         foreach (var d in Decided)
         {
@@ -66,7 +67,7 @@ public sealed class CharacterRosterTests
         Assert.HasCount(all.Count, all.Select(c => c.Name).Distinct().ToList());
         Assert.HasCount(all.Count, all.Select(c => c.HudName).Distinct().ToList());
         Assert.HasCount(all.Count, all.Select(c => (c.Look.Skin, c.Look.Hair, c.Build)).Distinct().ToList());
-        // 武器はキャラクターごとに固定: 握る武器のある人は 3 人だけ。
+        // 武器はキャラクターごとに固定: 握る武器のある人は 4 人だけ。
         CollectionAssert.AreEquivalent(WeaponUsers, all.Where(c => c.Weapon is not null).Select(c => c.Id).ToArray());
     }
 

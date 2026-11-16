@@ -105,3 +105,12 @@
 武器の教科書 JSON（`Bots/weapons/*.json`）とキャラの教育（`education.weaponBot`）で読み書きできる（`docs/CHARACTERS.md` §5）。試合の守りは今も `SwordDefense.Adopted`（足と頭で外す）。
 `handlelab` の守りの欄（基準・種 1）: 受け 0、外し 刀同士 9.2 回/試合、相手の振りのうち当たる割合 ロングソード 75〜82 %・こんぼう 83〜89 %・刀 48〜70 %。
 `handlespar`（`HandleSpar`）は `guardspar` と同じ考えを、ゲームと同じ道（`UseWeaponBots`・`WeaponStyle`）で回す。比べ直しは使っていない種・使っていない相手で。結果は `docs/BOT_PDCA.md`「武器の扱いを鍛える」。
+
+## 8. 棒の受け（2026-11-16、LogicVersion 35）
+
+棒（`WeaponKind.Staff`、[BOJUTSU.md](BOJUTSU.md)）も同じ `WeaponDefense`・`SwordsmanBot` で守る。違うのは寸法だけ: 棒は握り（右手）から +X の端まで 1.36 腕の長さ、両手の間隔 0.585（肩幅）。受けは来る線に棒の中ほど（右手から +X へ `Forte` 0.35 × 1.36 の所）を横たえ、左手は右手の「棒の向き × 間隔」後ろへ置く（`SwordForms.Block`）。
+
+- 受けるとき体から離す線（`Clearance`）は後ろの端まで見る（`Parry` の `rearLength`。棒は左手の後ろにも 1.4 腕の長さ伸びる。端が 1 つの武器は渡さず、今までと同じ）。`BojutsuTests.TheParry_KeepsTheWholeStaffClearOfTheBody_IncludingTheRearEnd`。
+- 相手が棒を握るとき、武器の線（握りから先まで）の「先」は、今速く動いている端（`BoxingGame.RawArmedSense`）。棒の両端のどちらが来ても読める（見える動きから。種類での分岐ではない）。1 本だけの武器は今までと同じ。
+- テスト: `BojutsuTests.TheStaff_ParriesAnOverheadCut_WithTheShaftAcrossIt`（上からの打ちに棒を横たえて頭の上で受け、両手は握りの間隔のまま）、`AStaffUser_WhoGuards_TakesFewerCutsFromASwordsmanThanOneWhoDoesNot`（刀の型に斬られる棒術家が、守るときの方が失うセルが少ない: 2 試合 × 20 秒）。
+- 近道: 棒の真ん中（両手の間）で受ける形は作っていない（`Forte` を手元寄りにした刀と同じ受け）。

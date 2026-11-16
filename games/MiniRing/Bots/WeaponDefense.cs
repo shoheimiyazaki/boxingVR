@@ -206,7 +206,9 @@ public static class WeaponDefense
     /// <param name="bladeLength">刀の右手から先までの長さ [腕の長さ]。</param>
     /// <param name="spacing">両手の間隔 [腕の長さ]。</param>
     /// <param name="current">今の刀の向き（体フレーム。構えの刀の向き）。</param>
-    public static MotionFrame Parry(in FighterSense sense, in WeaponThreat threat, SwordDefense defense, float bladeLength, float spacing, Vector3 current)
+    /// <param name="rearLength">右手から後ろの端（棒の −X の端）までの長さ [腕の長さ]。無ければ（NaN）左手まで（刀・ロングソード）。棒は左手の後ろにも 1.4 腕の長さ伸びるので、
+    /// 体から離す線（Clearance）は後ろの端まで見る。</param>
+    public static MotionFrame Parry(in FighterSense sense, in WeaponThreat threat, SwordDefense defense, float bladeLength, float spacing, Vector3 current, float rearLength = float.NaN)
     {
         ArgumentNullException.ThrowIfNull(defense);
         var reach = sense.ArmReach;
@@ -250,7 +252,7 @@ public static class WeaponDefense
         var bottom = sense.Self.WorldToLocal(bottomW) / reach;
         for (var pass = 0; pass < 3; pass++)
         {
-            var (gap, from, to) = Nearest(right - (axis * spacing), right + (axis * bladeLength), top, bottom);
+            var (gap, from, to) = Nearest(right - (axis * (float.IsNaN(rearLength) ? spacing : rearLength)), right + (axis * bladeLength), top, bottom);
             if (gap >= defense.Clearance)
             {
                 break;

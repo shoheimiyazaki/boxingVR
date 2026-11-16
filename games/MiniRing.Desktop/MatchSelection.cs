@@ -47,7 +47,7 @@ internal sealed record MatchSelection(MatchMode Mode, FighterCharacter Red, Figh
         Referee = Referee,
     };
 
-    private static bool TwoHanded(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword;
+    private static bool TwoHanded(WeaponKind? weapon) => FormSwordsman.Handles(weapon);
 }
 
 internal sealed class LocalVersusControl(BoxingCorners corners)

@@ -20,6 +20,10 @@ internal static class SwordBasics
         ("切り返し（左右面）", "0015_Kirikaeshi001.bvh", 2f, 30f),
     ];
 
+    /// <summary>棒術の型（<see cref="StaffForms"/>）をなぞる動画の 1 本ずつ。</summary>
+    public static IEnumerable<ImitationVideo.Shot> StaffShots(float rate) =>
+        StaffForms.Forms().Select(f => new ImitationVideo.Shot("棒: " + f.Name, WeaponKind.Staff, f, rate));
+
     public static IEnumerable<ImitationVideo.Shot> Shots(float rate)
     {
         var loaded = new Dictionary<string, BvhClip>();

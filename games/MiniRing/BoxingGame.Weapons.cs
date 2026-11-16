@@ -190,8 +190,21 @@ public sealed partial class BoxingGame
         if (WeaponOf(opponent) is { } weapon && HolderOf(weapon) == opponent)
         {
             var s = _world.GetState(weapon.Body.BodyId);
-            var tip = s.Position + Vector3.Transform(Weapon.TipOf(weapon.Kind), s.Orientation);
-            blade = new BladeSense(true, opponent.GloveCenter(HandOf(weapon)), tip, s.LinearVelocity + Vector3.Cross(s.AngularVelocity, tip - s.Position));
+            // 打つ端が 2 つある武器（棒）は、いま速く動いている端を相手の「切っ先」と読む（相手の見える動きから。種類での分岐ではない）。
+            var tip = Vector3.Zero;
+            var tipVelocity = Vector3.Zero;
+            var fastest = -1f;
+            foreach (var endX in Weapon.StrikeEndsX(weapon.Kind))
+            {
+                var end = s.Position + Vector3.Transform(Weapon.TipOf(weapon.Kind) with { X = endX }, s.Orientation);
+                var velocity = s.LinearVelocity + Vector3.Cross(s.AngularVelocity, end - s.Position);
+                if (velocity.LengthSquared() > fastest)
+                {
+                    (tip, tipVelocity, fastest) = (end, velocity, velocity.LengthSquared());
+                }
+            }
+
+            blade = new BladeSense(true, opponent.GloveCenter(HandOf(weapon)), tip, tipVelocity);
         }
 
         var held = WeaponOf(self) is { } mine && HolderOf(mine) == self ? mine : null;
