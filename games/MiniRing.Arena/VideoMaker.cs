@@ -51,7 +51,10 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
     /// <summary>試合を 1 歩進める時間の上限 [s]（ホストの 1 歩と同じ）。速さを落とすと 1 歩はこれより短くなる。</summary>
     private const float MaxStepDt = 1f / 60f;
-    private float TitleSeconds => tv ? ProgramSeconds + TvShowGraphics.OpeningSeconds : 3.5f;
+    private float TitleSeconds => tv ? ProgramSeconds + TvShowGraphics.OpeningSeconds + _tapeSeconds : 3.5f;
+
+    /// <summary>選手の比較の表の長さ [s]（両者が名簿のキャラクターでプロフィールを持つテレビ中継だけ。Make の始めに決める）。</summary>
+    private float _tapeSeconds;
 
     /// <summary>冒頭の「本日のプログラム」の表の長さ [s]（プログラムが無ければ 0）。</summary>
     private float ProgramSeconds => tv && tvProgram is not null ? tvProgram.Seconds : 0f;
@@ -114,6 +117,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             seconds = MathF.Max(seconds, _rules!.TotalSeconds + AftermathSeconds + 1f); // テレビ中継は試合の終わりまで撮る（--seconds が短くても）
         }
 
+        _tapeSeconds = tv && redCharacter?.Profile is not null && blueCharacter?.Profile is not null ? TvShowGraphics.TapeSeconds : 0f;
         var card = _rules is null ? null : new TvCard(tvEvent, tvBout,
             redCharacter is null ? TvCorner.Of(redRing, red.Name, redWear, redWeapon) : TvCorner.Of(redCharacter),
             blueCharacter is null ? TvCorner.Of(blueRing, blue.Name, blueWear, blueWeapon) : TvCorner.Of(blueCharacter), _rules);
@@ -138,7 +142,11 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                 + string.Join("。", tvProgram.Bouts.Select(b => $"{b.Bout} {b.Red} 対 {b.Blue}{(b.WinnerName is { } wn ? $"（{wn}の勝ち {b.Method}）" : b.Current ? "（この試合）" : "")}")));
         }
 
-        broadcast?.Note(ProgramSeconds, "opening", "", $"冒頭のタイトル（{TitleSeconds - ProgramSeconds:0} 秒）: {tvEvent} {tvBout}。赤 {redRing}、青 {blueRing} の紹介");
+        broadcast?.Note(ProgramSeconds, "opening", "", $"冒頭のタイトル（{TvShowGraphics.OpeningSeconds:0} 秒）: {tvEvent} {tvBout}。赤 {redRing}、青 {blueRing} の紹介");
+        if (_tapeSeconds > 0f)
+        {
+            broadcast?.Note(ProgramSeconds + TvShowGraphics.OpeningSeconds, "tape", "", $"選手の比較の表（{_tapeSeconds:0} 秒）: 年齢・身長・体重・戦績・出身・拠点・構え。両者のプロフィールを紹介する時間");
+        }
         var show = new TvShowGraphics(width, height);
         // 判定の得点（与えたダメージ = 相手の体の TotalDamage）の、各ラウンドの始まりの値。勝敗の画面の採点表に。
         var redRoundStart = new List<float>();
@@ -214,6 +222,11 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         {
                             var (programText, programShapes) = show.Program(tvProgram, t);
                             Emit(vp, eye, programText, programShapes);
+                        }
+                        else if (card is not null && t >= ProgramSeconds + TvShowGraphics.OpeningSeconds)
+                        {
+                            var (tapeText, tapeShapes) = show.Tape(card, t - ProgramSeconds - TvShowGraphics.OpeningSeconds);
+                            Emit(vp, eye, tapeText, tapeShapes);
                         }
                         else if (card is not null)
                         {
