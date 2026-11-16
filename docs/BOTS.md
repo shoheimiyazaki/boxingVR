@@ -183,6 +183,35 @@ run.cmd arena tune --base outboxer --gens 10 --pop 8 --log docs/arena/tune.md --
 | `basics [--punch 2] [--slot Duck] [--style swarmer] [--cue 0,0.04,0.08] [--move f.json] [--gens G] [--pop P] [--log f.md] [--out move.json]` | 回避の基本動作の最適化。攻め手は 1 つの型（既定は右ストレート `2`）だけを打ち、受け手は 1 つの回避で外す。値は「形」（拳の外側へ・腰から沈む・拳は構えの高さに残す）の中だけで動かす。`--cue` は拳が出てから回避を始めるまでの遅れ（練習の合図。複数なら全部で測る、`none` で受け手自身の目と反応）。最初に構えの形（`--guards` 高さ・`--widths` 開き・`--reaches` 出し）だけの表を出し、`--gens 0` ならそこで止める。`--cues=-1,0,0.04` で遅れごとの表 |
 | `video [--red A] [--blue B] [--seed X] [--seconds S] [--out f.mp4]` | ボット同士の試合を mp4 に描く（GPU のヘッドレス描画 + ffmpeg）。タイトル → 試合 → 結果の構成で、試合中は技・守り・重い一撃の字幕と打撃音が入る。既定は champion 対 jabber、45 秒、`videos/` へ。`--drill 2 --defense Duck --move f.json --cue 0.04` で基本動作のドリル（赤が回避、青が 1 つの型だけを打つ） |
 
+### `cmatune`（CMA-ES でドリルの点を上げる、作業 17）
+
+拳 1 技・守り 1 技の値を、CMA-ES（`Evolution/CmaEs.cs`・`Genomes.cs`）でドリルの点に向けて動かします。結果は**データとして出すだけ**で、`champion.json`・`BoxerBot` の判断・体の物理は変えません（`LogicVersion` も上げません）。
+
+```bash
+run.cmd arena cmatune --target punch:2 --gens 40 --out docs/arena/cma_punch2.md --json docs/arena/cma/punch2.json --resume docs/arena/cma/punch2.state.json
+run.cmd arena cmatune --target defense:Slip,defense:Duck   # 対象が複数なら順に回す（探索的、有意水準は対象の数で割る）
+```
+
+| 引数 | 内容 |
+|---|---|
+| `--target punch:<型>\|defense:<技>` | 拳は単発の型だけ（`2` = 右ストレート、`3`、`1b` …）。守りは `Block`・`Slip`・`Duck` など |
+| `--defenses Block,Slip` | 拳の対象で、受け手に**固定させる守り**の組。省略時は `punch:2` → Block・Slip・Duck、`punch:3` → Block・Weave・Duck、`punch:1b` → Block・StepBack。それ以外の型は明示しないと止まる |
+| `--gens 40` `--lambda 0` `--sigma 0.15` | 世代の数・1 世代の候補数（0 = 自動 = `evo_noise.md` の推奨 12）・初めの σ（[0, 1] に正規化した空間で） |
+| `--samples 48` `--seconds 40` `--seed 1` | 1 候補の標本（種）の数と 1 本の長さ（`evo_noise.md` のドリルの推奨）。同じ世代の候補は同じ種の組で測り（共通の乱数）、世代ごとに種を変える |
+| `--resume state.json` | 世代ごとに状態を書く。ファイルがあれば続きから（続けて回した場合と JSON まで一致する。設定が違えば止まる） |
+| `--confirm-n 96` | 最後の比べ直しの標本の数（使わなかった種）。0 で行わない |
+| `--match-n 16` `--match-seconds 45` | 試合での確認（champion の技表のその技だけを替えたスタイル 対 元の champion を、boxer・outboxer・swarmer・counter・slugger・jabber 相手に対にした試合の点で）。0 で行わない |
+| `--out` `--json` | 報告（Markdown）と、候補の本（`PunchBook`・`DefenseBook`）の JSON。同じ場所に champion へ重ねたスタイルを `*.style.json` で出す（`video --drill 2 --defense Slip --attacker-style <それ>` で撮れる） |
+| `--parallel P` | 並列の数の上限（結果は並列の数に依らない） |
+
+- **点**（大きいほど良い、1 標本 = 1 つの種）:
+  - 拳: 受け手は champion の構えと守りの表、守りは固定、合図 0.04 s、打ち返しあり、間合い 1.15。点 = Σ（守りの組を全部回して、頭と胴に与えたダメージ − 打ち返されたダメージ）/ 秒（`PunchDrillResult.AttackPoint`）。
+  - 守り: `DefenseTuner.SeedPoints`（守らない受け手との被ダメージの差 + 0.25 × 打ち返し）。
+- **世代の点は「その世代の種での比べ」で、世代の間では比べられない**（表の下に書く）。
+- **最後の比べ直し**: 使わなかった種・固定の n で、**始めの値**（champion）と**分布の平均 m**（最良の個体ではない。勝者の呪いを避ける）を対にして比べ（`PairedEvaluation.Confirm`）、信頼区間の下限が 0 より上のときだけ「改善」と書く。続けて試合でも悪くならないかを見る（ドリルで良くても試合で悪ければ、そう書く）。
+- **予算の数え方は 1 つ**: `DefenseDrill.Run`・`DefenseDrill.Punch`・`MeasureBaseline` を呼んだ回数 × 秒数（`DrillMeter`。キャッシュで呼ばなかった分は数えない）。`cmatune` と `drilltune` の最後に同じ形で出す。
+- 受け手・基準は champion（champion-v1 ではない）。`docs/arena/evo_noise.md` のとおり、今の物理では champion は champion-v1 に試合で負け越すので、試合の確認は「champion との比べ」であって強さの絶対値ではない。
+
 ボットは名前で指定するほか、スタイルの JSON ファイルのパスでも指定できます（書いていない値は `boxer` の値になります）。
 
 `tune` は 1 世代ごとに次の順で進みます（`StyleTuner`）。

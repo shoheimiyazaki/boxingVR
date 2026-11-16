@@ -10,6 +10,9 @@ using MiniRing.Bots;
 //   drill [--book f.json] [--bouts N] [--seconds S]                                防御ドリル: 防御技 × 拳の種類の効き目の表
 //   drilltune [--defense a,b|all] [--book f.json] [--gens G] [--pop P] [--log f.md] [--out book.json]
 //                                                                                   防御技ごとの最適化（ドリルで PDCA）
+//   cmatune --target punch:2|defense:Slip[,..] [--defenses Block,Slip] [--gens 40] [--lambda 0] [--sigma 0.15] [--samples N] [--seconds S] [--seed X]
+//           [--resume state.json] [--out docs/arena/cma_<名前>.md] [--json docs/arena/cma/<名前>.json] [--confirm-n N] [--match-n N] [--match-seconds S] [--parallel P]
+//                                                                                   CMA-ES でドリルの点を上げる（拳 1 技・守り 1 技。最後に使わなかった種で比べ直し、試合でも確かめる）
 //   attacklab [--combos 1,2,1-2] [--telegraphs 0,0.1,0.2] [--ranges 0.9,1.05,1.2] [--bouts N] [--seconds S] [--log f.md]
 //                                                                                   攻撃のドリル: 単発・連打 × 溜めの長さで、拳の速さ・体重の乗り・威力
 //   karatelab [--only shapes,parry,kicks] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md]
@@ -57,6 +60,7 @@ try
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
         "formlab" => FormLabCommand(Options.Parse(argv[1..], "punch", "slot", "style", "move", "set", "cue", "bouts", "seconds", "seed", "log")),
         "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift")),
+        "cmatune" => CmaTuneCommand(Options.Parse(argv[1..], "target", "defenses", "gens", "lambda", "sigma", "samples", "seconds", "seed", "resume", "out", "json", "confirm-n", "match-n", "match-seconds", "parallel")),
         "noiselab" => NoiseLabCommand(Options.Parse(argv[1..], "only", "match-n", "drill-n", "match-seconds", "drill-seconds", "match-ref", "drill-ref", "seed", "parallel", "out")),
         "guardspar" => GuardSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
@@ -75,7 +79,7 @@ try
         "swinglab" => SwingLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "families")),
         "weaponlab" => WeaponLabCommand(Options.Parse(argv[1..], "out", "table", "width", "height", "fps", "slow", "video")),
         "intentvideo" => IntentVideo(Options.Parse(argv[1..], "script", "blue", "seed", "seconds", "width", "height", "out")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters", "red-weapon", "blue-weapon")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
@@ -299,15 +303,49 @@ static int DrillTune(Options o)
     var counters = bool.Parse(o.Get("counters") ?? "true");
     var combos = bool.Parse(o.Get("combos") ?? "false");
     var tuner = new DefenseTuner(o.Int("bouts", 8, min: 1), o.Float("seconds", 20f, min: 1f), seed, Log, ranges, counters, combos);
+    var meterStart = DrillMeter.Total;
     var before = tuner.Matrix(book, seed + 500);
     Log("## 最適化の前の表\n\n" + DefenseTuner.MatrixTable(before.Results));
     var tuned = tuner.Optimize(book, techniques, o.Int("gens", 6, min: 0), o.Int("pop", 8, min: 1));
     var after = tuner.Matrix(tuned, seed + 500);
     Log("## 最適化の後の表（守りを選ぶ重みに使う）\n\n" + DefenseTuner.MatrixTable(after.Results));
+    var meterEnd = DrillMeter.Total;
+    Log(string.Create(CultureInfo.InvariantCulture,
+        $"## 予算（`DefenseDrill.Run`・`DefenseDrill.Punch`・`MeasureBaseline` を呼んだ回数 × 秒数。キャッシュで呼ばなかった分は数えない）\n\n{meterEnd.Calls - meterStart.Calls} 回、合計 {meterEnd.Seconds - meterStart.Seconds:0} 秒（シミュレーション上）。\n"));
     var json = System.Text.Json.JsonSerializer.Serialize(after.Book, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
     if (o.Get("out") is { } outPath)
     {
         File.WriteAllText(outPath, json);
+    }
+
+    return 0;
+}
+
+static int CmaTuneCommand(Options o)
+{
+    var targets = o.List("target", []);
+    if (targets.Count == 0)
+    {
+        throw new ArgumentException("--target に punch:<型> か defense:<技> を渡してください（例: --target punch:2）。");
+    }
+
+    var defenses = o.Get("defenses") is { } list
+        ? (IReadOnlyList<Defense>)list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(n => Enum.Parse<Defense>(n, ignoreCase: true)).ToList()
+        : null;
+    var config = new CmaTuneConfig(targets, defenses, o.Int("gens", 40, min: 1), o.Int("lambda", 0, min: 0), o.Float("sigma", 0.15f, min: 0.001f), o.Int("samples", 48, min: 1),
+        o.Float("seconds", 40f, min: 1f), o.Int("seed", 1), o.Int("confirm-n", 96, min: 0), o.Int("match-n", 16, min: 0), o.Float("match-seconds", 45f, min: 1f),
+        o.Get("parallel") is null ? null : o.Int("parallel", 1, min: 1));
+    if (config.Lambda is > 0 and < 4)
+    {
+        throw new ArgumentException("--lambda は 0（自動）か 4 以上にしてください。");
+    }
+
+    var report = new CmaTune(config, line => Console.Error.WriteLine(line)).Run(o.Get("resume"), o.Get("json"));
+    Console.WriteLine(report);
+    if (o.Get("out") is { } outPath)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
+        File.WriteAllText(outPath, report);
     }
 
     return 0;
@@ -1075,6 +1113,12 @@ static int DrillVideo(Options o, string punch)
     var range = o.Float("range", DefenseDrill.DefaultRange, min: 0.8f);
     float? cue = o.Get("cue") is { } c && c != "none" ? float.Parse(c, CultureInfo.InvariantCulture) : 0.04f;
     var attacker = DefenseDrill.PunchAttacker(punch, range, telegraph: o.Float("telegraph", 0f, min: 0f));
+    if (o.Get("attacker-style") is { } attackerStyleName)
+    {
+        // 攻め手の技の表だけを、そのスタイル（champion に磨いた技を重ねた *.style.json など）の物にする。攻め手の構え・単発の型・間合いはドリルのまま。
+        attacker = (attacker with { Punches = LoadStyle(attackerStyleName).Punches }).Validated();
+    }
+
     var defender = DefenseDrill.Defender(book, defend: true, range, counters: bool.Parse(o.Get("counters") ?? "false")) with
     {
         Name = style?.Name ?? "slip",

@@ -130,6 +130,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | 攻撃のドリル | `... -- attacklab --combos 1,2,1-2 --telegraphs 0,0.1,0.2` |
 | 空手のドリル | `... -- karatelab [--only shapes,parry,kicks] [--cues 0,0.06] [--bouts N] [--seconds S] [--log docs/arena/<名前>.md]`（手形 × 急所・パリー・5 種の蹴り。`docs/KARATE.md`） |
 | 防御・回避のドリル | `... -- drill` / `drilltune` / `basics --punch 2 --slot Duck --style swarmer` / `counterlab` |
+| CMA-ES で拳・守りの技を磨く | `... -- cmatune --target punch:2 [--defenses Block,Slip] [--gens 40] [--samples N] [--seconds S] [--resume state.json] [--out docs/arena/cma_<名前>.md] [--json docs/arena/cma/<名前>.json]`（結果はデータとして出すだけ。最後に使わなかった種で始めの値と分布の平均 m を比べ、試合でも確かめる。`docs/BOTS.md` §3） |
 | 剣の守りのドリル（武器を選ばない） | `... -- guardlab [--only kesa,棍棒] [--variants 0,7] [--try "ParryAndStep:0.2:0.52:0.35:0.3:0.25:0.3"] [--video out.mp4]`（`docs/WEAPON_DEFENSE.md`） |
 | 剣士の守り・間合いを試合で育てる | `... -- guardspar --gens 5 --lambda 3 --bouts 4` / `awaylab`（どちらも世代ごとに種を変え、使わなかった種で比べ直して良いときだけ採る。1 回 3 時間ほど） |
 | 剣の自傷・すり抜けの物差し | `... -- selfcuts [--seeds 8 --seconds 30] [--passes 1] [--clearance on] [--pacing on]`（握った武器が自分の体を削った回数を原因別に）/ `tunnel`（刃が体のセルの中にあるのに接触が無かった歩）/ `selfpath`（技の目標の刃の線が自分の体を通るか）。`docs/VOXEL_WEAPONS.md` §5.5。`--passes 1` で掃き直し前の解き方 |
