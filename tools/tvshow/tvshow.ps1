@@ -78,53 +78,133 @@ Write-Host '== build'
 & dotnet build (Join-Path $repo 'games\MiniRing.Arena') -c Release -nologo -v q | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'miniring-arena のビルドに失敗しました' }
 
-# 1. 種を決める（"auto" は下見で選び、決めた種を残す）。物理・ボットの版が変わると同じ種でも別の試合になるので、版も残し、
-#    版が変わっていたら選び直す（撮った動画も古いので撮り直しを知らせる）。
+# 1. 試合を札の順に 1 つずつ: 顔ぶれを決める → 種を決める → 撮る。
+#    顔ぶれ: red / blue は名簿の id か "winner:N"（N 試合目の勝者。トーナメントの勝ち上がり）。"winner:N" は N 試合目の
+#    中継の記録（bN.events.json の outcome）から決まるので、N 試合目を撮ってからでないと決まらない。引き分けは与えたダメージの
+#    多い側（outcome.lead）が勝ち上がる（大会の決まり）。
+#    種: "auto" は下見で一番見ごたえのある種を選んで残す。物理・ボットの版が変わると同じ種でも別の試合になるので版も残し、
+#    版が変わっていたら選び直す（撮った動画も古いので撮り直しを知らせる）。顔ぶれが変わった試合も選び直す。
+#    プログラム: 試合ごとに bN.program.json（その日の試合の順・済んだ試合の結果・この試合に懸かるもの）を書き、冒頭の
+#    「本日のプログラム」の表に出す。前の試合の結果が変わって表が変わったら、その試合は撮り直す。
 $versions = (Invoke-Arena @('version') | Select-Object -Last 1).Trim()
 $resolvedPath = Join-Path $out 'card.resolved.json'
 $resolved = @{}
+$resolvedFighters = @{}
 if ((Test-Path $resolvedPath) -and -not $Force) {
     $saved = Get-Content -Raw -Encoding UTF8 $resolvedPath | ConvertFrom-Json
     if ((Get-Field $saved 'versions' '') -eq $versions) {
         $saved.seeds.PSObject.Properties | ForEach-Object { $resolved[$_.Name] = [int]$_.Value }
+        $savedFighters = Get-Field $saved 'fighters' $null
+        if ($null -ne $savedFighters) { $savedFighters.PSObject.Properties | ForEach-Object { $resolvedFighters[$_.Name] = [string]$_.Value } }
     }
     else {
         Write-Warning "種を選んだときと版が違います（$(Get-Field $saved 'versions' '?') → $versions）。種を選び直します。撮影済みの動画は -Force で撮り直してください。"
     }
 }
 
+$programTitle = [string](Get-Field $cardData 'program' $eventTitle)
+
+function Get-BoutLabel([int]$index) { return [string](Get-Field $bouts[$index] 'bout' "第$($index + 1)試合") }
+
+# N 試合目（0 始まり）の結果: @{ winner = 'red'|'blue'; method = 'K.O.' など }。まだ撮っていなければ $null。
+function Get-Outcome([int]$index) {
+    $events = Join-Path $out "b$($index + 1).events.json"
+    if (-not (Test-Path $events)) { return $null }
+    $outcome = Get-Field (Get-Content -Raw -Encoding UTF8 $events | ConvertFrom-Json) 'outcome' $null
+    if ($null -eq $outcome) { throw "b$($index + 1).events.json に結果（outcome）がありません。-Force で撮り直してください。" }
+    $winner = [string]$outcome.winner
+    if ($winner -eq 'draw') { return @{ winner = [string]$outcome.lead; method = '優勢' } } # 引き分けは与えたダメージの多い側が勝ち上がる
+    return @{ winner = $winner; method = [string]$outcome.method }
+}
+
+# 試合の 1 つのコーナーの名簿の id。"winner:N" で N 試合目がまだなら $null。
+function Resolve-Fighter([int]$index, [string]$corner) {
+    $spec = [string]$bouts[$index].$corner
+    if ($spec -notmatch '^winner:(\d+)$') { return $spec }
+    $from = [int]$Matches[1] - 1
+    if ($from -lt 0 -or $from -ge $index) { throw "$(Get-BoutLabel $index) の $corner（$spec）は、この試合より前の試合を指してください。" }
+    $outcome = Get-Outcome $from
+    if ($null -eq $outcome) { return $null }
+    return Resolve-Fighter $from $outcome.winner
+}
+
+# この試合（0 始まり）の時点のプログラム（JSON の文字列）。
+function Get-ProgramJson([int]$current) {
+    $rows = for ($j = 0; $j -lt $bouts.Count; $j++) {
+        $row = [ordered]@{ bout = (Get-BoutLabel $j) }
+        foreach ($corner in @('red', 'blue')) {
+            $id = Resolve-Fighter $j $corner
+            if ($null -eq $id -or $j -gt $current) {
+                $spec = [string]$bouts[$j].$corner
+                $id = if ($spec -match '^winner:(\d+)$') { "$(Get-BoutLabel ([int]$Matches[1] - 1))の勝者" } else { $spec }
+            }
+            $row[$corner] = $id
+        }
+        if ($j -lt $current) {
+            $outcome = Get-Outcome $j
+            if ($null -eq $outcome) { throw "b$($j + 1).events.json がありません（$(Get-BoutLabel $j) の結果が読めない）。-Force で撮り直してください。" }
+            $row.winner = $outcome.winner
+            $row.method = $outcome.method
+        }
+        $row.current = ($j -eq $current)
+        $row.stake = [string](Get-Field $bouts[$j] 'stake' '')
+        $row.next = [string](Get-Field $bouts[$j] 'next' '')
+        $row
+    }
+    return ([ordered]@{ title = $programTitle; bouts = @($rows) } | ConvertTo-Json -Depth 4)
+}
+
+function Save-Resolved { @{ versions = $versions; seeds = $resolved; fighters = $resolvedFighters } | ConvertTo-Json | Set-Content -Encoding UTF8 $resolvedPath }
+
 for ($i = 0; $i -lt $bouts.Count; $i++) {
     $bout = $bouts[$i]
     $key = "b$($i + 1)"
-    $seed = Get-Field $bout 'seed' 'auto'
-    if ("$seed" -ne 'auto') { $resolved[$key] = [int]$seed; continue }
-    if ($resolved.ContainsKey($key)) { continue }
-    if ($Stage -notin @('all', 'scout', 'render')) { throw "$key の種が決まっていません（-Stage scout を先に）" }
-    Write-Host "== scout $key ($($bout.red) vs $($bout.blue))"
-    $lines = Invoke-Arena @('tvscout', '--red-char', $bout.red, '--blue-char', $bout.blue, '--rounds', "$rounds", '--break', "$breakSeconds", '--seeds', $scoutSeeds)
-    $lines | ForEach-Object { Write-Host $_ }
-    $best = $lines | Where-Object { $_ -match '^best seed (\d+)$' } | Select-Object -Last 1
-    if (-not $best) { throw "$key の種を選べませんでした" }
-    $resolved[$key] = [int]([regex]::Match($best, '\d+').Value)
-}
-
-@{ versions = $versions; seeds = $resolved } | ConvertTo-Json | Set-Content -Encoding UTF8 $resolvedPath
-if ($Stage -eq 'scout') { return }
-
-# 2. 撮る。
-if ($Stage -in @('all', 'render')) {
-    for ($i = 0; $i -lt $bouts.Count; $i++) {
-        $bout = $bouts[$i]
-        $key = "b$($i + 1)"
-        $video = Join-Path $out "$key.mp4"
-        if ((Test-Path $video) -and -not $Force) { Write-Host "== render ${key}: 撮影済み（-Force で撮り直す）"; continue }
-        $label = [string](Get-Field $bout 'bout' "第$($i + 1)試合")
-        Write-Host "== render $key ($($bout.red) vs $($bout.blue), seed $($resolved[$key]))"
-        $lines = Invoke-Arena @('video', '--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
-            '--event', $eventTitle, '--bout', $label, '--red-char', $bout.red, '--blue-char', $bout.blue, '--seed', "$($resolved[$key])", '--out', $video)
-        $lines | Where-Object { $_ -notmatch 'elapsed' } | Select-Object -Last 2 | ForEach-Object { Write-Host $_ }
+    $red = Resolve-Fighter $i 'red'
+    $blue = Resolve-Fighter $i 'blue'
+    if ($null -eq $red -or $null -eq $blue) {
+        if ($Stage -eq 'scout') { Write-Host "== scout ${key}: 前の試合を撮るまで顔ぶれが決まりません（飛ばす）"; continue }
+        throw "$key の顔ぶれが決まりません（前の試合の撮影がまだ）"
     }
+    $fighters = "$red-$blue"
+    if ($resolvedFighters.ContainsKey($key) -and $resolvedFighters[$key] -ne $fighters) {
+        Write-Host "== ${key}: 顔ぶれが変わりました（$($resolvedFighters[$key]) → $fighters）。種を選び直します"
+        $resolved.Remove($key)
+    }
+    $resolvedFighters[$key] = $fighters
+
+    $seed = Get-Field $bout 'seed' 'auto'
+    if ("$seed" -ne 'auto') { $resolved[$key] = [int]$seed }
+    elseif (-not $resolved.ContainsKey($key)) {
+        if ($Stage -notin @('all', 'scout', 'render')) { throw "$key の種が決まっていません（-Stage scout を先に）" }
+        Write-Host "== scout $key ($red vs $blue)"
+        $lines = Invoke-Arena @('tvscout', '--red-char', $red, '--blue-char', $blue, '--rounds', "$rounds", '--break', "$breakSeconds", '--seeds', $scoutSeeds)
+        $lines | ForEach-Object { Write-Host $_ }
+        $best = $lines | Where-Object { $_ -match '^best seed (\d+)$' } | Select-Object -Last 1
+        if (-not $best) { throw "$key の種を選べませんでした" }
+        $resolved[$key] = [int]([regex]::Match($best, '\d+').Value)
+    }
+    Save-Resolved
+    if ($Stage -notin @('all', 'render')) { continue }
+
+    # 2. 撮る（撮影済みでも、プログラムの表が変わっていたら撮り直す）。
+    $video = Join-Path $out "$key.mp4"
+    $programPath = Join-Path $out "$key.program.json"
+    $program = Get-ProgramJson $i
+    $programChanged = -not (Test-Path $programPath) -or ((Get-Content -Raw -Encoding UTF8 $programPath).Trim() -ne $program.Trim())
+    if ((Test-Path $video) -and -not $Force -and -not $programChanged) { Write-Host "== render ${key}: 撮影済み（-Force で撮り直す）"; continue }
+    # 撮影が途中で失敗したときに古い動画・古い結果が残って「撮影済み」と見なされないよう、先に消す。
+    Remove-Item -ErrorAction SilentlyContinue $video, (Join-Path $out "$key.events.json")
+    $program | Set-Content -Encoding UTF8 $programPath
+    Write-Host "== render $key ($red vs $blue, seed $($resolved[$key]))"
+    $lines = Invoke-Arena @('video', '--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
+        '--event', $eventTitle, '--bout', (Get-BoutLabel $i), '--red-char', $red, '--blue-char', $blue, '--seed', "$($resolved[$key])",
+        '--program', $programPath, '--out', $video)
+    $lines | Where-Object { $_ -notmatch 'elapsed' } | Select-Object -Last 2 | ForEach-Object { Write-Host $_ }
+    $outcome = Get-Outcome $i
+    Write-Host "   ${key}: $(if ($outcome.winner -eq 'red') { $red } else { $blue }) の勝ち（$($outcome.method)）"
 }
+
+if ($Stage -eq 'scout') { return }
 
 # 3. 台本の資料。
 if ($Stage -in @('all', 'render', 'digest')) {

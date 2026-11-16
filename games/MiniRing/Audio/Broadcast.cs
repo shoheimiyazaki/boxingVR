@@ -58,6 +58,12 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
     /// <summary>何試合目か（台本の資料）。</summary>
     public string? Bout { get; init; }
 
+    /// <summary>大会のプログラム（その日の試合の順と済んだ試合の結果。台本の資料）。null なら書かない。</summary>
+    public object? Program { get; init; }
+
+    /// <summary>試合の結果（勝者 red / blue / draw・決まり手・ラウンド。トーナメントの勝ち上がりを決める道具が読む）。決着の後に入れる。</summary>
+    public object? Outcome { get; set; }
+
     /// <summary>出来事を伝える相手: 実況（画面で見えること）。</summary>
     public const string Announcer = "実況";
 
@@ -355,6 +361,16 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
             ["rules"] = RulesSheet,
             ["events"] = _events.OrderBy(e => (float)e["t"]).ToList(), // 先の時刻で書いた注記（休みのカット割り）も時刻の順に
         };
+        if (Program is not null)
+        {
+            doc["program"] = Program;
+        }
+
+        if (Outcome is not null)
+        {
+            doc["outcome"] = Outcome;
+        }
+
         File.WriteAllText(path, JsonSerializer.Serialize(doc, JsonOptions));
     }
 

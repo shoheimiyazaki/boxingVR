@@ -25,8 +25,9 @@ namespace MiniRing.Arena;
 /// <param name="tvEvent">テレビ中継の冒頭に出す大会名。</param>
 /// <param name="tvBout">テレビ中継の冒頭に出す「第 1 試合」などの札（空なら出さない）。</param>
 /// <param name="tvBreak">テレビ中継のラウンドの間の休み [s]（休みの間に治る量は標準と同じ）。</param>
+/// <param name="tvProgram">大会のプログラム。あればテレビ中継の冒頭のタイトルの前に「本日のプログラム」の表を出し、記録（*.events.json）にも書く。</param>
 internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false,
-    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 10f)
+    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 10f, TvProgram? tvProgram = null)
 {
     /// <summary>
     /// テレビ中継の決まり。休みの長さを変えても、休みの間に治る量（速さ × 長さ）は標準（10 秒 × 150 個/秒）と同じにする（休みを長くした分だけ多く治らないように）。
@@ -50,7 +51,10 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
     /// <summary>試合を 1 歩進める時間の上限 [s]（ホストの 1 歩と同じ）。速さを落とすと 1 歩はこれより短くなる。</summary>
     private const float MaxStepDt = 1f / 60f;
-    private float TitleSeconds => tv ? TvShowGraphics.OpeningSeconds : 3.5f;
+    private float TitleSeconds => tv ? ProgramSeconds + TvShowGraphics.OpeningSeconds : 3.5f;
+
+    /// <summary>冒頭の「本日のプログラム」の表の長さ [s]（プログラムが無ければ 0）。</summary>
+    private float ProgramSeconds => tv && tvProgram is not null ? tvProgram.Seconds : 0f;
     private float ResultSeconds => tv ? TvShowGraphics.ResultSeconds : 5f;
 
     /// <summary>K.O. の後、結果へ進むまでに撮る長さ [s]。ゲームが次のラウンドを始める（3.5 s）より短く。</summary>
@@ -123,9 +127,16 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             BlueProfile = Profile(card.Blue),
             Event = tvEvent,
             Bout = tvBout,
+            Program = tvProgram,
         };
-        // 台本の資料: 冒頭のタイトルの間（試合の前）。
-        broadcast?.Note(0f, "opening", "", $"冒頭のタイトル（{TitleSeconds:0} 秒）: {tvEvent} {tvBout}。赤 {redRing}、青 {blueRing} の紹介");
+        // 台本の資料: 本日のプログラムの表と、冒頭のタイトルの間（試合の前）。
+        if (tvProgram is not null)
+        {
+            broadcast?.Note(0f, "program", "", $"本日のプログラムの表（{ProgramSeconds:0} 秒）: {tvProgram.Title}。"
+                + string.Join("。", tvProgram.Bouts.Select(b => $"{b.Bout} {b.Red} 対 {b.Blue}{(b.WinnerName is { } wn ? $"（{wn}の勝ち {b.Method}）" : b.Current ? "（この試合）" : "")}")));
+        }
+
+        broadcast?.Note(ProgramSeconds, "opening", "", $"冒頭のタイトル（{TitleSeconds - ProgramSeconds:0} 秒）: {tvEvent} {tvBout}。赤 {redRing}、青 {blueRing} の紹介");
         var show = new TvShowGraphics(width, height);
         // 判定の得点（与えたダメージ = 相手の体の TotalDamage）の、各ラウンドの始まりの値。勝敗の画面の採点表に。
         var redRoundStart = new List<float>();
@@ -197,9 +208,14 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     for (var t = 0f; t < TitleSeconds; t += 1f / fps)
                     {
                         var (vp, eye) = card is null ? CameraAt(game, t * 0.15f) : WideCameraAt(game, t);
-                        if (card is not null)
+                        if (card is not null && tvProgram is not null && t < ProgramSeconds)
                         {
-                            var (openingText, openingShapes) = show.Opening(card, t);
+                            var (programText, programShapes) = show.Program(tvProgram, t);
+                            Emit(vp, eye, programText, programShapes);
+                        }
+                        else if (card is not null)
+                        {
+                            var (openingText, openingShapes) = show.Opening(card, t - ProgramSeconds);
                             Emit(vp, eye, openingText, openingShapes);
                         }
                         else
@@ -572,6 +588,20 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     broadcast?.Note(frame / (float)fps, "result", "", $"勝敗の画面（{ResultSeconds:0} 秒）");
                     broadcast?.Note((frame / (float)fps) + ResultSeconds, "end", "", "動画の終わり");
                     var winner = koWinner ?? (MathF.Abs(redDamage - blueDamage) <= MathF.Max(1f, 0.05f * (redDamage + blueDamage) / 2f) ? 0 : MathF.Sign(redDamage - blueDamage));
+                    if (broadcast is not null && card is not null)
+                    {
+                        var outcome = new TvResult(winner, finish, finishRound, finishRoundTime, [], []);
+                        // 勝ち上がりを決める道具が読む。lead は引き分けのときに勝ち上がる側（与えたダメージの多い側）。
+                        broadcast.Outcome = new Dictionary<string, object>
+                        {
+                            ["winner"] = winner > 0 ? "red" : winner < 0 ? "blue" : "draw",
+                            ["lead"] = redDamage >= blueDamage ? "red" : "blue",
+                            ["method"] = outcome.Method,
+                            ["cause"] = outcome.Cause,
+                            ["round"] = finishRound,
+                            ["roundTime"] = MathF.Round(finishRoundTime, 1),
+                        };
+                    }
                     BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
                     for (var t = 0f; t < ResultSeconds; t += 1f / fps)
                     {

@@ -21,6 +21,7 @@ using MiniRing.Bots;
 //                                                                                   回避の基本動作の最適化（1 つの型だけを打たせて、外す形を磨く）
 //   video [--red A] [--blue B] [--seed X] [--seconds S] [--width W --height H --fps F] [--out file.mp4] [--red-weapon W --blue-weapon W]  [--red-char ID --blue-char ID]（名簿のキャラクター。武器・体格・顔・名前がそのキャラクターの値）
 //                                                                                   ボット同士の試合を字幕・打撃音つきの mp4 に（ffmpeg が必要）
+//                                                                                   [--program p.json]（--tv on のとき、冒頭に大会の「本日のプログラム」の表。tvshow.ps1 が書く）
 //   weaponlab [--out file.mp4] [--table file.md] [--width W --height H --fps F] [--slow X] [--video on|off]
 //                                                                                   武器の実験場: 鉄の剣と木の棍棒で斬る・打つ・突く・打ち合う（スロー動画と結果の表）
 //   sparlab [--gens G] [--lambda L] [--bouts N] [--seconds S] [--seed X] [--start techniques.json] [--best style.json] [--out report.md]
@@ -82,7 +83,7 @@ try
         "tvlint" => TvLintCommand(Options.Parse(argv[1..], "script", "events", "manifest")),
         "tvdigest" => TvDigestCommand(Options.Parse(argv[1..], "events", "out")),
         "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "program")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
@@ -1099,7 +1100,8 @@ static int Video(Options o)
     };
     new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), breakStyle, hitSounds, faceCam, speed, tv,
         tvRounds: o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1), tvEvent: o.Get("event") ?? "ファイトナイト", tvBout: o.Get("bout") ?? "",
-        tvBreak: o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f))
+        tvBreak: o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f),
+        tvProgram: o.Get("program") is { } programPath ? TvProgram.FromJson(File.ReadAllText(programPath), TvProgram.RosterName) : null)
         .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 45f, min: 1f), output, Console.Out, untilKo: (o.Get("until-ko") ?? "no") switch { "yes" => true, "no" => false, _ => throw new ArgumentException("--until-ko は yes か no にしてください。") },
             redWear: o.Get("red-wear") is { } rwear ? MiniRing.Weapons.HandWears.Parse(rwear) : redCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove,
             blueWear: o.Get("blue-wear") is { } bwear ? MiniRing.Weapons.HandWears.Parse(bwear) : blueCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove,

@@ -67,8 +67,14 @@ internal static partial class TvDraft
         int knockdowns = 0, getUps = 0, saved = 0, replays = 0;
         var severed = new HashSet<string>();
         var bout = Text("bout");
-        drafts.Add(new Draft(0.3f, $"{bout}{(bout.Length > 0 ? "。" : "")}赤、{Discipline(Text("redDiscipline"))}{red}。", false, true));
-        drafts.Add(new Draft(3.6f, $"青、{Discipline(Text("blueDiscipline"))}{blue}。", false, true));
+        var program = root.TryGetProperty("program", out var programJson) && programJson.ValueKind == JsonValueKind.Object
+            ? TvProgram.FromJson(programJson.GetRawText(), _ => null)
+            : null;
+        drafts.AddRange(ProgramLines(program));
+        // 選手紹介は冒頭のタイトル（両コーナーの板）が出てから。プログラムの表があればその後ろ。
+        var opening = events.FirstOrDefault(e => e.Type == "opening").T;
+        drafts.Add(new Draft(opening + 0.3f, $"{bout}{(bout.Length > 0 ? "。" : "")}赤、{Discipline(Text("redDiscipline"))}{red}。", false, true));
+        drafts.Add(new Draft(opening + 3.6f, $"青、{Discipline(Text("blueDiscipline"))}{blue}。", false, true));
 
         var roundStarts = events.Where(e => e.Type == "round_start").Select(e => e.T).ToList();
         var roundEnds = events.Where(e => e.Type is "round_end" or "ko" or "decision").Select(e => e.T).ToList();
@@ -208,6 +214,10 @@ internal static partial class TvDraft
                     if (who is not null)
                     {
                         drafts.Add(new Draft(e.T + 2.5f, $"勝者、{(who == red ? "赤" : "青")}コーナー、{who}！", true, true));
+                        if (program?.Current is { Next.Length: > 0 } stake)
+                        {
+                            drafts.Add(new Draft(e.T + 2.6f, $"{who}、{stake.Next}！", true, true));
+                        }
                     }
 
                     break;
@@ -217,7 +227,39 @@ internal static partial class TvDraft
         return Serialize(Place(drafts));
     }
 
-    /// <summary>リプレイの入り: 「第1ラウンド、スローでもう一度。」と「ザ・ハンマーの重い左で、アキラが倒れた所。」（説明の当たりの文から、誰の何で誰がどうなった所かを言う）。</summary>
+    /// <summary>
+    /// 本日のプログラムの表の間の台詞: 大会の名前 → 済んだ試合の結果（試合の順に）→ この試合に懸かるもの。
+    /// 欠かせない台詞として順に並べる（表の長さ <see cref="TvProgram.Seconds"/> はこの行数から決めてある）。
+    /// </summary>
+    private static IEnumerable<Draft> ProgramLines(TvProgram? program)
+    {
+        if (program is null)
+        {
+            yield break;
+        }
+
+        // 大会名は表の見出しに出ているので言わない（「WVC」を 1 字ずつ読むと 4.5 秒かかり、選手紹介が押し出された）。
+        yield return new Draft(0.3f, "本日のプログラムです。", false, true);
+        foreach (var done in program.Finished)
+        {
+            var method = done.Method switch
+            {
+                "K.O." => "KO勝ち",
+                "リングアウト" => "リングアウト勝ち",
+                "判定" => "判定勝ち",
+                "優勢" => "優勢勝ち", // 引き分けで、与えたダメージの多い側が勝ち上がった
+                _ => "勝ち",
+            };
+            yield return new Draft(0.4f, $"{done.Bout}は{done.WinnerName}の{method}。", false, true);
+        }
+
+        if (program.Current is { Stake.Length: > 0 } current)
+        {
+            yield return new Draft(0.5f, $"この{current.Bout}、{current.Stake}。", false, true);
+        }
+    }
+
+    /// <summary>リプレイの入り:「第1ラウンド、スローでもう一度。」と「ザ・ハンマーの重い左で、アキラが倒れた所。」（説明の当たりの文から、誰の何で誰がどうなった所かを言う）。</summary>
     private static string ReplayLine(string note, int index)
     {
         var finale = note.StartsWith("決着", StringComparison.Ordinal);

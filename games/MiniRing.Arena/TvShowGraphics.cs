@@ -180,6 +180,90 @@ internal sealed class TvShowGraphics(int width, int height)
     }
 
     /// <summary>
+    /// 本日のプログラム: 見出し → 試合の行が上から順に滑り込む。済んだ試合は勝者と決まり手、この試合は金の縁と「この試合」の札、
+    /// まだの試合は空欄。この試合に懸かるもの（「勝者は決勝へ」）を下の帯に。最後の 0.5 秒で消える。
+    /// </summary>
+    public (IReadOnlyList<ScreenTextDraw> Text, IReadOnlyList<UiShapeDraw> Shapes) Program(TvProgram program, float t)
+    {
+        ArgumentNullException.ThrowIfNull(program);
+        var w = (float)width;
+        var h = (float)height;
+        var text = new List<ScreenTextDraw>();
+        var shapes = new List<UiShapeDraw>();
+        var fade = 1f - Clamp01((t - (program.Seconds - 0.5f)) / 0.5f);
+        shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, h * 0.5f), new Vector2(w, h), new Vector4(0f, 0f, 0f, 0.62f * Clamp01(t / 0.4f) * fade)));
+        Logo(text, shapes, new Vector2(70f, 34f), 1f, fade);
+
+        var headIn = EaseOut(Clamp01(t / 0.6f));
+        Shadowed(text, "本日のプログラム", new Vector2(w * 0.5f, (h * 0.08f) - ((1f - headIn) * 20f)), 46f, Gold with { W = headIn * fade }, TextAnchor.Center);
+        shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, h * 0.08f + 58f), new Vector2(w * 0.4f * headIn, 1.5f), Gold with { W = fade }));
+        Shadowed(text, program.Title, new Vector2(w * 0.5f, h * 0.08f + 66f), 26f, White with { W = headIn * fade }, TextAnchor.Center);
+
+        var count = program.Bouts.Count;
+        var rowHeight = MathF.Min(78f, (h * 0.56f) / count);
+        var rowWidth = w * 0.84f;
+        var top = (h * 0.3f) + (rowHeight * 0.5f);
+        for (var i = 0; i < count; i++)
+        {
+            var bout = program.Bouts[i];
+            var slide = EaseOut(Clamp01((t - 0.6f - (i * 0.3f)) / 0.5f));
+            if (slide <= 0f)
+            {
+                continue;
+            }
+
+            var a = slide * fade;
+            var center = new Vector2((w * 0.5f) - ((1f - slide) * w * 0.3f), top + (i * rowHeight));
+            var size = new Vector2(rowWidth, rowHeight - 10f);
+            var band = UiShapeDraw.Rounded(center, size, 8f, Ink with { W = 0.9f * a });
+            shapes.Add(bout.Current ? band with { BorderColor = Gold with { W = a }, BorderPixels = 3f } : band);
+            var left = center.X - (size.X * 0.5f);
+            var textY = center.Y - 15f;
+            text.Add(new ScreenTextDraw(bout.Bout, new Vector2(left + 24f, textY), 24f, (bout.Current ? Gold : Grey) with { W = a }));
+
+            // 対戦: 赤の名前（右寄せ）・vs・青の名前（左寄せ）。勝った側を白く、負けた側を灰に。
+            var vsX = left + (size.X * 0.47f);
+            var redColor = bout.Winner == "blue" ? Grey : White;
+            var blueColor = bout.Winner == "red" ? Grey : White;
+            shapes.Add(UiShapeDraw.Rounded(new Vector2(vsX - 238f, center.Y), new Vector2(6f, size.Y * 0.56f), 2f, RedBright with { W = a }));
+            shapes.Add(UiShapeDraw.Rounded(new Vector2(vsX + 238f, center.Y), new Vector2(6f, size.Y * 0.56f), 2f, BlueBright with { W = a }));
+            // 名前は vs と色の棒の間（約 190 px）に収める（「準決勝第1試合の勝者」のような長い札は小さく）。
+            static float Fit(string name) => MathF.Min(28f, 190f / MathF.Max(1, name.Length));
+            text.Add(new ScreenTextDraw(bout.Red, new Vector2(vsX - 32f, textY - 2f + ((28f - Fit(bout.Red)) * 0.5f)), Fit(bout.Red), redColor with { W = a }, TextAnchor.Right));
+            text.Add(new ScreenTextDraw("vs", new Vector2(vsX, textY + 2f), 22f, Gold with { W = a }, TextAnchor.Center));
+            text.Add(new ScreenTextDraw(bout.Blue, new Vector2(vsX + 32f, textY - 2f + ((28f - Fit(bout.Blue)) * 0.5f)), Fit(bout.Blue), blueColor with { W = a }));
+
+            // 右端: 結果・この試合・まだ。
+            var right = center.X + (size.X * 0.5f) - 24f;
+            if (bout.WinnerName is { } winnerName)
+            {
+                var method = bout.Method.Length > 0 ? $"（{bout.Method}）" : "";
+                text.Add(new ScreenTextDraw($"{winnerName} 勝ち{method}", new Vector2(right, textY), 24f, Gold with { W = a }, TextAnchor.Right));
+            }
+            else if (bout.Current)
+            {
+                shapes.Add(UiShapeDraw.Rounded(new Vector2(right - 62f, center.Y), new Vector2(124f, 34f), 6f, Gold with { W = 0.95f * a }));
+                text.Add(new ScreenTextDraw("この試合", new Vector2(right - 62f, center.Y - 13f), 22f, Ink with { W = a }, TextAnchor.Center));
+            }
+            else
+            {
+                text.Add(new ScreenTextDraw("このあと", new Vector2(right, textY), 22f, Grey with { W = 0.8f * a }, TextAnchor.Right));
+            }
+        }
+
+        // この試合に懸かるもの。
+        if (program.Current is { Stake.Length: > 0 } current)
+        {
+            var stake = Clamp01((t - 0.9f - (count * 0.3f)) / 0.5f);
+            var ribbonY = h * 0.9f;
+            shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, ribbonY + 16f), new Vector2(w * 0.6f * EaseOut(stake), 46f), Ink with { W = 0.85f * fade }, UiShapeDraw.Uniform(6f)));
+            Shadowed(text, $"{current.Bout}　・　{current.Stake}", new Vector2(w * 0.5f, ribbonY), 26f, Gold with { W = stake * fade }, TextAnchor.Center);
+        }
+
+        return (text, shapes);
+    }
+
+    /// <summary>
     /// 勝敗の画面: 「試合終了」→ 決まり手（K.O. / 判定）が弾む → 勝者の帯が勝った側から → 決着の時刻 → ラウンドごとの採点表。
     /// </summary>
     public (IReadOnlyList<ScreenTextDraw> Text, IReadOnlyList<UiShapeDraw> Shapes) Result(TvCard card, TvResult result, float t)

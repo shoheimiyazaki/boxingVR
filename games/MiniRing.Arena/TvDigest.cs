@@ -112,6 +112,9 @@ internal static class TvDigest
         {
             switch (e.Type)
             {
+                case "program":
+                    marks.Add((e.T, "本日のプログラム"));
+                    break;
                 case "opening":
                     marks.Add((e.T, "冒頭のタイトル"));
                     break;
