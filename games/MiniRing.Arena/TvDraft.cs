@@ -47,6 +47,12 @@ internal static partial class TvDraft
 
     private sealed record Draft(float At, string Text, bool Excited, bool Essential);
 
+    /// <summary>
+    /// テレビ中継の標準の下書き: 実況の骨組み（<see cref="Build"/>）に、解説の台詞と休みの問いと答え（<see cref="TvAnalyst"/>）を
+    /// <see cref="Merge"/> で重ねた、実況と解説の 2 人の台本。入らなかった解説の台詞は落とす（骨組みは動かさない）。
+    /// </summary>
+    public static string BuildBroadcast(string eventsJson) => Merge(Build(eventsJson), TvAnalyst.Build(eventsJson), []);
+
     /// <summary>中継の記録から、実況の骨組みの台本（script.json の中身）を作る。</summary>
     public static string Build(string eventsJson)
     {

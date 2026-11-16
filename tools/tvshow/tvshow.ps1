@@ -43,7 +43,7 @@ function Get-Field($object, [string]$name, $default) {
 $out = Join-Path $repo (Get-Field $cardData 'out' 'docs\video\tvshow')
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 $rounds = [int](Get-Field $cardData 'rounds' 3)
-$breakSeconds = [double](Get-Field $cardData 'break' 20)
+$breakSeconds = [double](Get-Field $cardData 'break' 25) # 25 秒: 2 本目のリプレイの後に、解説のなぜ効くかと問いと答えが入る長さ
 $eventTitle = [string](Get-Field $cardData 'event' 'WVC')
 $scoutSeeds = @(Get-Field $cardData 'scoutSeeds' @(1, 2, 3, 4, 5, 6, 7, 8)) -join ','
 $PartLimitMiB = [double](Get-Field $cardData 'partLimitMiB' $PartLimitMiB)

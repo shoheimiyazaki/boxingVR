@@ -252,7 +252,10 @@ public static class CharacterRoster
             face.Hairstyle, face.Brows, face.Beard) { Parts = ValidParts(face.Parts) };
         return new FighterCharacter(c.Id!, name, Need(c.Reading, "reading"), Need(c.HudName, "hudName"),
             Need(c.Origin, "origin"), country, wear, weapon, textbook, build, look, Need(c.Tagline, "tagline"),
-            ToEducation(c.Education), ToRecord(c.Record));
+            ToEducation(c.Education), ToRecord(c.Record))
+        {
+            Profile = c.Profile?.Validate(build),
+        };
     }
 
     private static CharacterEducation ToEducation(EducationDto? e)
@@ -425,5 +428,6 @@ public static class CharacterRoster
         public string? Textbook { get; init; }
         public EducationDto? Education { get; init; }
         public List<JsonObject?>? Record { get; init; }
+        public CharacterProfile? Profile { get; init; }
     }
 }

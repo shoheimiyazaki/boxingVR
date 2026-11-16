@@ -22,6 +22,7 @@
     <Compile Include="..\..\games\MiniRing.Arena\TvLint.cs" Link="Arena\TvLint.cs" />
     <Compile Include="..\..\games\MiniRing.Arena\TvDraft.cs" Link="Arena\TvDraft.cs" />
     <Compile Include="..\..\games\MiniRing.Arena\TvProgram.cs" Link="Arena\TvProgram.cs" />
+    <Compile Include="..\..\games\MiniRing.Arena\TvAnalyst.cs" Link="Arena\TvAnalyst.cs" />
     <Compile Include="..\..\games\MiniRing.Arena\TvShowGraphics.cs" Link="Arena\TvShowGraphics.cs" />
     <None Update="bot-execution-baseline.txt" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="..\..\games\MiniRing\MiniRing.csproj" />

@@ -14,12 +14,23 @@ public sealed partial class Fighter
     private readonly record struct ServoWork(int Joint, int BodyA, int BodyB, float Speed, float Reserved);
 
     /// <summary>
-    /// 心肺が現在供給する仕事率 [W]（有酸素の供給）。直近に実際にした仕事の仕事率 P（<see cref="_recentMusclePower"/>）が大きいほど減る:
-    /// R = 最大 × Breath × exp(−(P / StaminaRestPower)²)。構えて立つ・歩く（P は 1 W 前後）では最大の 9 割以上、
-    /// 全力の攻め（P は 8〜10 W）では 3 割以下。動きながらでも P に応じた量は戻る。
+    /// 筋肉の量の基準体格に対する比（<see cref="BodyBuild.MassRatio"/>: 体積に比例する質量と同じ H³ × M²）。スタミナの蓄え・心肺の供給・
+    /// 回復を止める仕事率の尺度に掛ける。歩く・腕を振る・体を支える仕事は質量に比例して増えるので、蓄えと供給も筋肉の量に比例させないと、
+    /// 大きい体ほど同じ動きで早く尽きる（2026-11-16 の中継で、質量 1.9・2.2 倍の 2 人が試合のほとんどを空のまま動けなかった）。
+    /// 1 kg あたりの蓄え・供給は体格によらず同じ（§1.7: 強さは見える体から。基準体格では今までと同じ）。
     /// </summary>
-    internal float RecoveryPower => IsDead ? 0f : _tuning.StaminaRecoveryPower * Breath *
-        MathF.Exp(-MathF.Pow(_recentMusclePower / MathF.Max(1e-3f, _tuning.StaminaRestPower), 2f));
+    private float MuscleMassRatio => _tuning.Build.MassRatio;
+
+    /// <summary>スタミナの容量 [J] = <see cref="FighterTuning.StaminaCapacity"/> × 筋肉の量の比。</summary>
+    private float StaminaCapacityJoules => MathF.Max(1e-3f, _tuning.StaminaCapacity * MuscleMassRatio);
+
+    /// <summary>
+    /// 心肺が現在供給する仕事率 [W]（有酸素の供給）。直近に実際にした仕事の仕事率 P（<see cref="_recentMusclePower"/>）が大きいほど減る:
+    /// R = 最大 × Breath × exp(−(P / StaminaRestPower)²)。最大と StaminaRestPower は筋肉の量の比を掛けた値（1 kg あたりで同じ）。
+    /// 構えて立つ・歩く（基準体格で P は 1 W 前後）では最大の 9 割以上、全力の攻め（P は 8〜10 W）では 3 割以下。動きながらでも P に応じた量は戻る。
+    /// </summary>
+    internal float RecoveryPower => IsDead ? 0f : _tuning.StaminaRecoveryPower * MuscleMassRatio * Breath *
+        MathF.Exp(-MathF.Pow(_recentMusclePower / MathF.Max(1e-3f, _tuning.StaminaRestPower * MuscleMassRatio), 2f));
 
     /// <summary>直近に実際にした仕事の仕事率 [W]（なめらかにしたもの。回復を決める P）。</summary>
     internal float RecentMusclePower => _recentMusclePower;
@@ -56,14 +67,14 @@ public sealed partial class Fighter
         }
 
         _servoWork.Clear();
-        Stamina = MathF.Max(0f, Stamina - servoEnergy / MathF.Max(1e-3f, _tuning.StaminaCapacity));
+        Stamina = MathF.Max(0f, Stamina - servoEnergy / StaminaCapacityJoules);
         // 回復を止める仕事率は、この歩で実際に出た仕事（腕の PD・保持・歩行・体から拳への移送は SpendMuscleEnergy が数えた分、
         // サーボは精算した分）。押しても出せなかった分は数えない（空で押すだけでは回復は止まらない）。
         var demand = (_stepWork + servoEnergy) / dt;
         _stepWork = 0f;
         _recentMusclePower += (demand - _recentMusclePower) *
             (1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.StaminaRecoveryWindow)));
-        var capacity = MathF.Max(1e-3f, _tuning.StaminaCapacity);
+        var capacity = StaminaCapacityJoules;
         var reserve = Stamina * capacity;
         var recovery = RecoveryPower * dt;
         Stamina = Math.Clamp(Stamina + (recovery / capacity), 0f, 1f);
@@ -131,7 +142,7 @@ public sealed partial class Fighter
         var supplied = FatigueEnabled ? MathF.Min(requested, _muscleBudget) : requested;
         _muscleBudget = MathF.Max(0f, _muscleBudget - supplied);
         StepMuscleAuthorized += supplied;
-        Stamina = MathF.Max(0f, Stamina - supplied / MathF.Max(1e-3f, _tuning.StaminaCapacity));
+        Stamina = MathF.Max(0f, Stamina - supplied / StaminaCapacityJoules);
         _stepWork += supplied;
         return supplied;
     }

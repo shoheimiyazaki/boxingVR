@@ -142,4 +142,37 @@ public sealed class StaminaBudgetTests
         Assert.AreEqual(FighterState.Standing, fighter.State, "疲れだけで倒れない");
         return (fighter.Stamina, peaks, hits);
     }
+
+    /// <summary>
+    /// スタミナの蓄えは筋肉の量（質量の比 H³M²）に比例する: 構えて歩いて行き来する 6 秒（回復なし）で使う割合は、大きい体（ドミトリー:
+    /// 身長 1.15・筋肉 1.2、質量 2.2 倍）でも基準の体の 1.6 倍未満。残る差は、長い脚・腕を同じ拍子で動かすぶん 1 kg あたりの仕事が増える
+    /// 物理の差（測って 1.31 倍）。直す前は蓄えが体格によらず 60 J で、質量に比例して増えた仕事がそのまま効き 2.33 倍だった
+    /// （中継で質量 1.9・2.2 倍の 2 人が試合のほとんどを空のまま動けなかった。2026-11-16）。
+    /// </summary>
+    [TestMethod]
+    public void BigBody_SameWalk_UsesAboutTheSameShareOfItsReserve()
+    {
+        var standard = 1f - WalkWithoutRecovery(BodyBuild.Standard);
+        var big = 1f - WalkWithoutRecovery(new BodyBuild(Height: 1.15f, Muscle: 1.2f));
+        Console.WriteLine($"6 s walk, no recovery: standard used {standard:P1}, big used {big:P1}, ratio {big / standard:0.00}");
+        Assert.IsGreaterThan(0.05f, standard, "歩いて蓄えを使っている（比べる意味がある）");
+        Assert.IsTrue(big / standard is > 0.9f and < 1.6f, $"大きい体も蓄えの同じくらいの割合しか使わない（比 {big / standard:0.00}）");
+    }
+
+    private static float WalkWithoutRecovery(BodyBuild build)
+    {
+        using var world = new PhysicsWorld();
+        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        var fighter = Fighter.Spawn(world, FighterTuning.Default with { Build = build, StaminaRecoveryPower = 0f }, "walk", Vector3.Zero, 0f);
+        var left = new HandCommand(AiControl.Guard(Hand.Left, fighter.ArmReach), false);
+        var right = new HandCommand(AiControl.Guard(Hand.Right, fighter.ArmReach), false);
+        for (var step = 0; step < 6 * 240; step++)
+        {
+            var move = (step / 240) % 2 == 0 ? Vector3.UnitZ : -Vector3.UnitZ;
+            fighter.ApplyControl(new FighterCommand(move, Vector3.UnitZ, left, right), Dt);
+            world.Step(Dt);
+        }
+
+        return fighter.Stamina;
+    }
 }

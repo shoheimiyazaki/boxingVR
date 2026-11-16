@@ -340,4 +340,53 @@ public sealed class TvShowTests
         Assert.IsTrue(shapes.Count > 0);
         Assert.IsTrue(text.All(t => t.Color.W <= 1f && t.Color.W >= 0f));
     }
+
+    private const string TwoRoundEvents = """
+        {"red":"ザ・ハンマー","blue":"ドミトリー","redDiscipline":"ボクシング","blueDiscipline":"ボクシング","bout":"決勝","events":[
+          {"t":0,"for":"実況","type":"opening","who":"","text":"冒頭のタイトル"},
+          {"t":7,"for":"実況","type":"round_start","who":"","text":"第1ラウンド開始"},
+          {"t":15,"for":"解説","type":"tired","who":"ザ・ハンマー","text":"ザ・ハンマーはスタミナが尽きかけている。手数が落ち、パンチが軽くなる"},
+          {"t":25,"for":"解説","type":"tired","who":"ザ・ハンマー","text":"ザ・ハンマーはスタミナが尽きかけている。手数が落ち、パンチが軽くなる"},
+          {"t":37,"for":"実況","type":"round_end","who":"","text":"第1ラウンド終了"},
+          {"t":37.5,"for":"解説","type":"score","who":"","text":"ここまではザ・ハンマーがドミトリーを大きく上回っている"},
+          {"t":37.5,"for":"解説","type":"body","who":"ザ・ハンマー","text":"ザ・ハンマー: 左目が腫れて見えにくい。スタミナはほぼ尽きている"},
+          {"t":37.5,"for":"解説","type":"body","who":"ドミトリー","text":"ドミトリー: 大きな傷はない。疲れが見える"},
+          {"t":43,"for":"実況","type":"replay","who":"","text":"リプレイ（第1ラウンド、スロー）: ドミトリーの重い左がザ・ハンマーのこめかみに"},
+          {"t":51,"for":"実況","type":"replay","who":"","text":"リプレイ（第1ラウンド、スロー）: ザ・ハンマーのいい右がドミトリーのみぞおちに"},
+          {"t":70.3,"for":"実況","type":"round_start","who":"","text":"第2ラウンド開始"},
+          {"t":77.8,"for":"実況","type":"hit","who":"ドミトリー","text":"ドミトリーの強烈な左が、ザ・ハンマーのこめかみに入った"},
+          {"t":78.3,"for":"実況","type":"knockdown","who":"ザ・ハンマー","text":"ザ・ハンマー、ダウン"},
+          {"t":78.3,"for":"解説","type":"knockdown","who":"ザ・ハンマー","text":"ザ・ハンマーは頭を揺らされて、意識が飛んでいる"},
+          {"t":88.3,"for":"実況","type":"ko","who":"","text":"10カウントのノックアウト。ドミトリーの勝ち"},
+          {"t":92.3,"for":"実況","type":"replay","who":"","text":"決着のリプレイ（スロー）: ドミトリーの強烈な左がザ・ハンマーのこめかみに → ダウン → K.O."},
+          {"t":100.3,"for":"実況","type":"result","who":"","text":"勝敗の画面（9 秒）"},
+          {"t":109.3,"for":"実況","type":"end","who":"","text":"動画の終わり"}
+        ]}
+        """;
+
+    [TestMethod]
+    public void BroadcastDraft_IsTwoPeople_AsksTheAnalystInTheBreak_AndPassesTheLint()
+    {
+        var script = TvDraft.BuildBroadcast(TwoRoundEvents);
+        var lines = Lines(script);
+        foreach (var l in lines)
+        {
+            Console.WriteLine($"{l.At,5:0.0} {l.Speaker,-11} {l.Text}");
+        }
+
+        Assert.IsTrue(lines.Any(l => l.Speaker == "commentator"), "標準は実況と解説の 2 人");
+        var question = lines.Single(l => l.Text == "サエキさん、ザ・ハンマーの様子は？");
+        Assert.IsTrue(question.At is > 37f and < 70.3f, "休みの間に問う（傷のある方の選手を）");
+        var answer = lines.First(l => l.At > question.At);
+        Assert.AreEqual("commentator", answer.Speaker, "問いのすぐ後に解説が答える");
+        StringAssert.Contains(answer.Text, "左目");
+        Assert.AreEqual("肺に効いています。", TvAnalyst.Answer("ヨアンドリ: 肺に効いている。スタミナはまだある")?.Split('。')[0] + "。", "記録の文を話し言葉にする");
+        Assert.IsTrue(lines.Any(l => l.Speaker == "commentator" && l.Text.Contains("こめかみで", StringComparison.Ordinal) || l.Speaker == "commentator" && l.Text.Contains("みぞおちで", StringComparison.Ordinal)), "リプレイの後に、なぜ効くか");
+        Assert.AreEqual(1, lines.Count(l => l.Text.StartsWith("ザ・ハンマーはスタミナが尽きかけて", StringComparison.Ordinal)), "疲れの見立てはラウンドに 1 回まで");
+        Assert.IsTrue(lines.All(l => l.Text.Length <= 28), "1 台詞 28 字まで");
+        Assert.AreEqual(script, TvDraft.BuildBroadcast(TwoRoundEvents), "同じ記録からは同じ台本（乱数を使わない）");
+
+        var issues = TvLint.Check(script, TwoRoundEvents);
+        Assert.AreEqual(0, issues.Count, string.Join("\n", issues.Select(i => $"{i.At} {i.Rule} {i.Message}")));
+    }
 }

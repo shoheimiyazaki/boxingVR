@@ -1230,7 +1230,8 @@ static int TvDraftCommand(Options o)
     var events = o.Get("events") ?? throw new ArgumentException("--events <x.events.json> を渡してください。");
     var output = o.Get("out") ?? events.Replace(".events.json", ".draft.json", StringComparison.Ordinal);
     // 中身が同じなら書かない（ファイルの時刻が変わると、司令塔が台本を作り直して声を入れ直してしまう）。
-    var draft = TvDraft.Build(File.ReadAllText(events));
+    // テレビ中継の標準は実況と解説の 2 人: 実況の骨組みに、解説の台詞と休みの問いと答え（TvAnalyst）を重ねたものを下書きにする。
+    var draft = TvDraft.BuildBroadcast(File.ReadAllText(events));
     if (!File.Exists(output) || File.ReadAllText(output) != draft)
     {
         File.WriteAllText(output, draft);

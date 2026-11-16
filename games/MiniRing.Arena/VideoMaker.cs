@@ -128,6 +128,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             Event = tvEvent,
             Bout = tvBout,
             Program = tvProgram,
+            RedDossier = redCharacter?.Profile?.Briefing(redCharacter.Name, redCharacter.HudName, redCharacter.Tagline),
+            BlueDossier = blueCharacter?.Profile?.Briefing(blueCharacter.Name, blueCharacter.HudName, blueCharacter.Tagline),
         };
         // 台本の資料: 本日のプログラムの表と、冒頭のタイトルの間（試合の前）。
         if (tvProgram is not null)

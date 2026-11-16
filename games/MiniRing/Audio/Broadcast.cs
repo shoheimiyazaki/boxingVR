@@ -61,6 +61,12 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
     /// <summary>大会のプログラム（その日の試合の順と済んだ試合の結果。台本の資料）。null なら書かない。</summary>
     public object? Program { get; init; }
 
+    /// <summary>赤コーナーのプロフィール（経歴・人柄・戦績・エピソード。実況・解説の資料。CharacterProfile.Briefing）。無ければ書かない。</summary>
+    public string? RedDossier { get; init; }
+
+    /// <summary>青コーナーのプロフィール。</summary>
+    public string? BlueDossier { get; init; }
+
     /// <summary>試合の結果（勝者 red / blue / draw・決まり手・ラウンド。トーナメントの勝ち上がりを決める道具が読む）。決着の後に入れる。</summary>
     public object? Outcome { get; set; }
 
@@ -361,6 +367,16 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
             ["rules"] = RulesSheet,
             ["events"] = _events.OrderBy(e => (float)e["t"]).ToList(), // 先の時刻で書いた注記（休みのカット割り）も時刻の順に
         };
+        if (RedDossier is not null)
+        {
+            doc["redDossier"] = RedDossier;
+        }
+
+        if (BlueDossier is not null)
+        {
+            doc["blueDossier"] = BlueDossier;
+        }
+
         if (Program is not null)
         {
             doc["program"] = Program;
