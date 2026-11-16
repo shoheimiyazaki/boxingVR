@@ -25,9 +25,10 @@ namespace MiniRing.Bots;
 /// <param name="Bind">受け流しで、来る線のどこで迎えるか（0 = 相手の握り・1 = 先）。体へ来る点より握りの側なら、その分遅い所で迎える。</param>
 /// <param name="Flat">受け流しで、刃でなく鎬（刀の平らな面）を来る線へ向けるか。</param>
 /// <param name="Clearance">受け流しの刀（左手から先まで）を、自分の体の線（頭から腰）からこれより離しておく [腕の長さ]。</param>
+/// <param name="Cover">空いた手（左手）の物（盾・グローブ）を、来る線が体へ届く所へ差し入れて覆うか（<see cref="WeaponDefense.Cover"/>）。覆える広さは、その物の見える大きさ（<see cref="SwordsmanBot.OffhandRadius"/>）から。</param>
 public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, float Horizon = 0.25f, float Margin = 0.45f, float ThreatSpeed = 6f,
     float HoldTime = 0.3f, bool Counter = true, bool WatchFists = true, DefenseMode Mode = DefenseMode.Legacy, float Deflect = 0.5f, float Forte = 0.35f,
-    float Lead = 0.1f, float StepDelay = 0.05f, float HeadTime = 0.15f, float Clearance = 0.6f, float Drive = 0f, float Bind = 1f, bool Flat = false)
+    float Lead = 0.1f, float StepDelay = 0.05f, float HeadTime = 0.15f, float Clearance = 0.6f, float Drive = 0f, float Bind = 1f, bool Flat = false, bool Cover = false)
 {
     /// <summary>守らない。</summary>
     public static SwordDefense None { get; } = new(Enabled: false);
@@ -205,6 +206,12 @@ public sealed class SwordsmanBot : IFighterControl
     /// 右手から後ろの端までの長さ [腕の長さ]（両端を使う武器。棒）。受けるとき、体から離す線を左手の先ではなく後ろの端まで見る。null なら左手まで（刀・ロングソード）。
     /// </summary>
     public float? RearLength { get; init; }
+
+    /// <summary>
+    /// 空いた手（左手）の物が手の前に広げる面の半径 [腕の長さ]（盾・グローブ: <see cref="MiniRing.Weapons.Weapon.CoverRadiusOf"/> ÷ 腕の長さ。見えている寸法）。0 なら何も持たない。
+    /// 守り（<see cref="SwordDefense.Cover"/>）で、来る線をどれだけ離れた所まで受けられるかを決める。
+    /// </summary>
+    public float OffhandRadius { get; init; }
 
     /// <summary>今出している技（出していなければ null）。</summary>
     public MotionTechnique? Current => _current;
@@ -733,8 +740,21 @@ public sealed class SwordsmanBot : IFighterControl
                 // 折れて短くなった刀は、残った長さで受ける。
                 var blade = MathF.Max(0.1f, _bladeLength - (_lost / MathF.Max(1e-3f, sense.ArmReach)));
                 _block = parry ? WeaponDefense.Parry(sense, threat, _defense, blade, _spacing, _guard.Blade, RearLength ?? float.NaN) : null;
-                _counter = parry && _defense.Counter && !Passive;
-                Blocks += parry ? 1 : 0;
+                if (_block is { } parried && _guard.LeftFacing != default)
+                {
+                    _block = parried with { Left = _guard.Left, LeftFacing = _guard.LeftFacing }; // 左手は盾の位置（剣の握りの後ろではない）
+                }
+
+                // 空いた手の物（盾・グローブ）を、来る線が通る所へ差し入れる。受けの構えは、右手の剣の受け（あれば）に左手の目標を足したもの。
+                var covering = _defense.Cover && OffhandRadius > 0f;
+                if (covering)
+                {
+                    var basis = _block ?? _guard;
+                    _block = basis with { Left = WeaponDefense.Cover(sense, threat, basis.Left, basis.LeftFacing, OffhandRadius) };
+                }
+
+                _counter = (parry || covering) && _defense.Counter && !Passive;
+                Blocks += parry || covering ? 1 : 0;
                 _threatDirection = direction;
                 _evadedThisBlow = false;
             }

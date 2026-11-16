@@ -43,15 +43,15 @@ public static class StrikeDrill
     /// <paramref name="target"/> は的の構え（null ならその場で構えて立つ <see cref="StandGuard"/>）、<paramref name="aim"/> は狙う部位（<see cref="SwordsmanBot.Aim"/>）。
     /// </summary>
     public static StrikeResult Run(MotionTechnique technique, MotionFrame guard, float rate, FighterTuning? tuning = null, Action<BoxingGame, float, bool>? afterStep = null,
-        Func<IFighterControl>? target = null, BodyPartKind? aim = null, AimTuning? aimTuning = null)
+        Func<IFighterControl>? target = null, BodyPartKind? aim = null, AimTuning? aimTuning = null, HandWear wear = HandWear.Glove)
     {
         ArgumentNullException.ThrowIfNull(technique);
         var bot = new SwordsmanBot([technique], guard, seed: 1, rate, rest: 1000f, exact: true, tuning: tuning, aim: aimTuning) { Aim = aim };
-        using var game = new BoxingGame(tuning, seed: 1, corners: new BoxingCorners("stand", _ => target?.Invoke() ?? new StandGuard(), _ => bot, PlayerWeapon: technique.Weapon, PlayerTwoHanded: true));
+        using var game = new BoxingGame(tuning, seed: 1, corners: new BoxingCorners("stand", _ => target?.Invoke() ?? new StandGuard(), _ => bot, PlayerWeapon: technique.Weapon, PlayerTwoHanded: technique.Weapon != WeaponKind.IronSword, PlayerWear: wear));
         var victim = game.Cpu.Voxels!;
         var start = Count(victim);
         var sword = game.WeaponOf(game.Player)!;
-        var guardX = Weapon.TwoHandGripsOf(sword.Kind).Top.X + 0.012f;
+        var guardX = Weapon.GripOf(sword.Kind).X + 0.012f;
         var tipX = Weapon.TipOf(sword.Kind).X;
         var monouchi = 0;
         var own = Attached(game.Player.Voxels!);
@@ -123,7 +123,7 @@ public static class StrikeDrill
     public static float ReachOf(MotionTechnique technique, float armReach)
     {
         ArgumentNullException.ThrowIfNull(technique);
-        var (top, _) = Weapon.TwoHandGripsOf(technique.Weapon);
+        var top = Weapon.GripOf(technique.Weapon);
         var guardX = top.X + 0.012f;
         var frames = technique.Motion.Frames;
         var dt = technique.Motion.FrameTime;

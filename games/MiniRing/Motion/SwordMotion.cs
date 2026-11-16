@@ -13,7 +13,8 @@ namespace MiniRing.Motion;
 /// <param name="Head">頭の、中立の構えからのずれ（前へ出せば前傾、下げれば沈む）。</param>
 /// <param name="Twist">胴のひねり [rad]（胸の向き − 腰の向き。正で右肩が前）。</param>
 /// <param name="Velocity">腰の水平の速さ（体フレーム、腕の長さ / s。録った速さのまま）。</param>
-public readonly record struct MotionFrame(Vector3 Right, Vector3 Left, Vector3 Blade, Vector3 Edge, Vector3 Head, float Twist, Vector3 Velocity)
+/// <param name="LeftFacing">左手が持つ盾の向き（盾の表が向く単位ベクトル。体フレーム）。0（既定）なら向きの指令を出さず、盾は前腕に沿ったまま（両手持ち・盾の無い型）。</param>
+public readonly record struct MotionFrame(Vector3 Right, Vector3 Left, Vector3 Blade, Vector3 Edge, Vector3 Head, float Twist, Vector3 Velocity, Vector3 LeftFacing = default)
 {
     /// <summary>剣の向き（武器のローカル → 体フレーム）: ローカル X が <see cref="Blade"/>、ローカル −Y が <see cref="Edge"/>。</summary>
     public Quaternion Orientation
@@ -27,6 +28,37 @@ public readonly record struct MotionFrame(Vector3 Right, Vector3 Left, Vector3 B
         }
     }
 
+    /// <summary>
+    /// 左手の物（盾）の向きの指令 <see cref="LeftFacing"/> を、手首のサーボの向き（武器のローカル → 体フレームの回転）にする。物のローカル X が表の向き、
+    /// ローカル Y は上（真上を向く表の向きのときは前）に合わせる。向きの指令が無ければ null（前腕に沿ったまま）。
+    /// </summary>
+    public Quaternion? LeftOrientation
+    {
+        get
+        {
+            if (LeftFacing.LengthSquared() < 1e-8f)
+            {
+                return null;
+            }
+
+            var x = Vector3.Normalize(LeftFacing);
+            var up = MathF.Abs(x.Y) > 0.95f ? Vector3.UnitZ : Vector3.UnitY;
+            var z = Vector3.Normalize(Vector3.Cross(x, up));
+            var y = Vector3.Cross(z, x);
+            return Quaternion.Normalize(Quaternion.CreateFromRotationMatrix(new Matrix4x4(x.X, x.Y, x.Z, 0f, y.X, y.Y, y.Z, 0f, z.X, z.Y, z.Z, 0f, 0f, 0f, 0f, 1f)));
+        }
+    }
+
+    private static Vector3 LerpFacing(Vector3 a, Vector3 b, float t)
+    {
+        if (a.LengthSquared() < 1e-8f || b.LengthSquared() < 1e-8f)
+        {
+            return a.LengthSquared() < 1e-8f ? b : a;
+        }
+
+        return Vector3.Normalize(Vector3.Lerp(Vector3.Normalize(a), Vector3.Normalize(b), t));
+    }
+
     /// <summary>2 つのフレームの間（向きは正規化し直す）。</summary>
     public static MotionFrame Lerp(MotionFrame a, MotionFrame b, float t)
     {
@@ -34,7 +66,7 @@ public readonly record struct MotionFrame(Vector3 Right, Vector3 Left, Vector3 B
         var edge = Vector3.Lerp(a.Edge, b.Edge, t);
         edge = Vector3.Normalize(edge - (Vector3.Dot(edge, blade) * blade) + new Vector3(1e-6f));
         return new MotionFrame(Vector3.Lerp(a.Right, b.Right, t), Vector3.Lerp(a.Left, b.Left, t), blade, edge,
-            Vector3.Lerp(a.Head, b.Head, t), a.Twist + ((b.Twist - a.Twist) * t), Vector3.Lerp(a.Velocity, b.Velocity, t));
+            Vector3.Lerp(a.Head, b.Head, t), a.Twist + ((b.Twist - a.Twist) * t), Vector3.Lerp(a.Velocity, b.Velocity, t), LerpFacing(a.LeftFacing, b.LeftFacing, t));
     }
 }
 

@@ -268,6 +268,42 @@ public static class WeaponDefense
         return SwordForms.Block(right, axis, edge, spacing);
     }
 
+    /// <summary>左手の物が面を広げる所から肩まで、腕がいっぱいに届く長さ [腕の長さ]。これより先へは目標を置かない。</summary>
+    private const float CoverReach = 0.95f;
+
+    /// <summary>左の肩の位置（体フレーム、腕の長さ = 1。肩の幅 0.57 の半分）。</summary>
+    private static readonly Vector3 LeftShoulder = new(0.285f, 0f, 0f);
+
+    /// <summary>
+    /// 空いた手の物（盾・グローブ）で覆う: 来る線（<paramref name="threat"/> を、体の線へ近づく向きに逆にたどった道）が、手の前に広げた面（今の手の位置
+    /// <paramref name="rest"/> を通り、物の表が <paramref name="facing"/> を向く面）を通る点へ、物の面の中心を寄せる。
+    /// 動かす量は、通る点と面の中心との離れ（<paramref name="radius"/> = 物が面を広げる半径、<see cref="SwordsmanBot.OffhandRadius"/>）のうち、面の縁から 0.4 倍の内側まで
+    /// 届かない分だけ: 大きい盾は少し寄せるだけで覆え、小さい物（グローブ）はほぼそのまま通る点へ動く。盾かグローブかで式は分けず、見えている半径だけが違う。
+    /// 返すのは左手の目標（体フレーム、腕の長さ = 1）。肩から届く長さの外へは置かない。
+    /// </summary>
+    public static Vector3 Cover(in FighterSense sense, in WeaponThreat threat, Vector3 rest, Vector3 facing, float radius)
+    {
+        var reach = sense.ArmReach;
+        var q = sense.Self.WorldToLocal(threat.Point) / reach;
+        var v = sense.Self.InverseRotate(threat.Velocity);
+        v = v.LengthSquared() > 1e-10f ? Vector3.Normalize(v) : -Vector3.UnitZ;
+        var n = facing.LengthSquared() > 1e-8f ? Vector3.Normalize(facing) : Vector3.UnitZ;
+        var along = Vector3.Dot(v, n);
+        // 来る線が面を通る点。線が面とほぼ平行なら、読んだ所を面へ落とした点。
+        // 面を通るのは読んだ所より手前（来る向きの逆）。もう面を過ぎた線は、読んだ所を面へ落とした点。
+        var ahead = MathF.Abs(along) > 0.2f ? Vector3.Dot(rest - q, n) / along : 1f;
+        var through = ahead < 0f
+            ? q + (v * ahead)
+            : q - (n * Vector3.Dot(q - rest, n));
+        var off = through - rest;
+        off -= n * Vector3.Dot(off, n); // 面の中で動かす
+        var gap = off.Length();
+        var move = MathF.Max(0f, gap - (0.6f * radius));
+        var target = gap > 1e-6f ? rest + (off / gap * move) : rest;
+        var reachable = target - LeftShoulder;
+        return reachable.Length() > CoverReach ? LeftShoulder + (Vector3.Normalize(reachable) * CoverReach) : target;
+    }
+
     /// <summary>線分 ab（刀）と線分 cd（体の線）のいちばん近い 2 点と、その距離（ab を細かく分けて求める）。OnBody は cd の上、OnBlade は ab の上。</summary>
     private static (float Gap, Vector3 OnBody, Vector3 OnBlade) Nearest(Vector3 a, Vector3 b, Vector3 c, Vector3 d)
     {

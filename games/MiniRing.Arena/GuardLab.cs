@@ -20,7 +20,7 @@ internal static class GuardLab
     internal sealed record Attack(string Name, bool Holdout, WeaponKind? Weapon, bool TwoHanded, Func<int, IFighterControl> Create);
 
     /// <summary>1 本の結果。</summary>
-    internal sealed record Trial(Attack Attack, int Seed, int Cells, int Severed, bool Killed, float Concussion, int ClashSteps, int Blocks, int Evasions, int SelfCells = 0, int BladeLost = 0, int TheirLost = 0, int BladeCarved = 0, int BladeSnaps = 0)
+    internal sealed record Trial(Attack Attack, int Seed, int Cells, int Severed, bool Killed, float Concussion, int ClashSteps, int Blocks, int Evasions, int SelfCells = 0, int BladeLost = 0, int TheirLost = 0, int BladeCarved = 0, int BladeSnaps = 0, int ShieldClashSteps = 0, int ShieldLost = 0)
     {
         /// <summary>失ったものの重さ: ボクセル / 60 + 切り落とし × 2 + 死 × 3 + 脳しんとう（<see cref="StrikeResult.Effect"/> と同じ物差し）。</summary>
         public float Harm => (Cells / 60f) + (2f * Severed) + (Killed ? 3f : 0f) + Concussion;
@@ -79,9 +79,31 @@ internal static class GuardLab
         return list;
     }
 
-    /// <summary>日本刀の受け手（打たず、その場で守るだけ）。</summary>
+    /// <summary>受け手を、右手に片手剣・左手に盾（<c>--defender swordshield</c>）にするか。false なら日本刀。</summary>
+    public static bool Shielded { get; set; }
+
+    /// <summary>剣と盾の受け手の守り方（<see cref="Variants"/> の代わり。盾の覆う守り <see cref="SwordDefense.Cover"/> の有無と、剣の受け流しの有無を比べる）。</summary>
+    public static IReadOnlyList<Variant> ShieldVariants { get; } =
+    [
+        new("守らない", SwordDefense.None),
+        new("足と頭で外す（盾は構えのまま）", new SwordDefense(Counter: false, Mode: DefenseMode.Step)),
+        new("足と頭で外す ＋ 盾で覆う", new SwordDefense(Counter: false, Mode: DefenseMode.Step, Cover: true)),
+        new("剣で受け流し 30° ＋ 足と頭（盾は構えのまま）", new SwordDefense(Counter: false, Mode: DefenseMode.ParryAndStep, Deflect: 0.52f)),
+        new("剣で受け流し 30° ＋ 足と頭 ＋ 盾で覆う", new SwordDefense(Counter: false, Mode: DefenseMode.ParryAndStep, Deflect: 0.52f, Cover: true)),
+        new("間合いを保つ ＋ 足と頭 ＋ 盾で覆う", new SwordDefense(Counter: false, Mode: DefenseMode.Step, Cover: true), new HitAndAway()),
+    ];
+
+    /// <summary>日本刀（または剣と盾）の受け手（打たず、その場で守るだけ）。</summary>
     private static SwordsmanBot Defender(SwordLibraryLab.Library library, Variant variant, int seed) =>
-        new([.. library.Techniques.Where(t => t.Weapon == WeaponKind.Katana)], library.Guards[WeaponKind.Katana], seed, SwordStance.Rate,
+        Shielded
+        ? new([.. FormSwordsman.Techniques(WeaponKind.IronSword, SwordLibraryLab.ArmReachValue)], SwordShieldForms.Guard(), seed, SwordStance.Rate,
+            tuning: SwordStance.Tuning, defense: variant.Defense, bladeLength: SwordLibraryLab.BladeLength(WeaponKind.IronSword), spacing: 0f, opponentReach: 3f,
+            hitAndAway: variant.Away)
+        {
+            Passive = true,
+            OffhandRadius = Weapon.CoverRadiusOf(WeaponKind.Shield) / SwordLibraryLab.ArmReachValue,
+        }
+        : new([.. library.Techniques.Where(t => t.Weapon == WeaponKind.Katana)], library.Guards[WeaponKind.Katana], seed, SwordStance.Rate,
             tuning: SwordStance.Tuning, defense: variant.Defense, bladeLength: SwordLibraryLab.BladeLength(WeaponKind.Katana), spacing: SwordForms.KatanaSpacing, opponentReach: 3f,
             hitAndAway: variant.Away)
         {
@@ -94,10 +116,14 @@ internal static class GuardLab
         ArgumentNullException.ThrowIfNull(attack);
         var defender = Defender(library, variant, seed);
         using var game = new BoxingGame(VersusLab.Tuning, seed, new BoxingCorners("受け手", _ => defender, _ => attack.Create(seed),
-            CpuWeapon: WeaponKind.Katana, PlayerWeapon: attack.Weapon, CpuTwoHanded: true, PlayerTwoHanded: attack.TwoHanded));
+            CpuWeapon: Shielded ? WeaponKind.IronSword : WeaponKind.Katana, PlayerWeapon: attack.Weapon, CpuTwoHanded: !Shielded, PlayerTwoHanded: attack.TwoHanded,
+            CpuWear: Shielded ? HandWear.Shield : HandWear.Glove));
         var victim = game.Cpu.Voxels!;
         var start = victim.Parts.Sum(p => p.Body.Grid.FilledCount);
         var katana = game.WeaponOf(game.Cpu)!;
+        var shield = Shielded ? game.GloveOf(game.Cpu, Hand.Left) : null;
+        var shieldStart = shield?.Body.Grid.FilledCount ?? 0;
+        var shieldClashes = 0;
         var bladeStart = katana.Body.Grid.FilledCount;
         var theirWeapon = game.WeaponOf(game.Player);
         var theirStart = theirWeapon?.Body.Grid.FilledCount ?? 0;
@@ -109,7 +135,8 @@ internal static class GuardLab
         for (var t = 0f; t < seconds; t += Dt)
         {
             game.Step(default, Dt);
-            var theirs = game.Weapons.Where(w => w != katana).Select(w => w.Body).ToHashSet();
+            var theirs = game.Weapons.Where(w => w != katana && w != shield).Select(w => w.Body).ToHashSet();
+            shieldClashes += shield is not null && game.RecentCuts.Any(c => (c.A == shield.Body && theirs.Contains(c.B)) || (c.B == shield.Body && theirs.Contains(c.A))) ? 1 : 0;
             clashes += game.RecentCuts.Any(c => (c.A == katana.Body && theirs.Contains(c.B)) || (c.B == katana.Body && theirs.Contains(c.A))) ? 1 : 0;
             selfCells += game.RecentCuts.Where(c => c.A == katana.Body && parts.Contains(c.B)).Sum(c => c.RemovedB.Count);
             bladeCarved += game.RecentCuts.Sum(c => c.RemovedFor(katana.Body).Count);
@@ -122,7 +149,8 @@ internal static class GuardLab
         }
 
         var lost = start - victim.Parts.Sum(p => p.Body.Grid.FilledCount);
-        return new Trial(attack, seed, lost, victim.Fragments.Count, game.Cpu.IsDead, game.Cpu.Concussion, clashes, defender.Blocks, defender.Evasions, selfCells, bladeStart - katana.Body.Grid.FilledCount, theirStart - (theirWeapon?.Body.Grid.FilledCount ?? 0), bladeCarved, bladeSnaps);
+        return new Trial(attack, seed, lost, victim.Fragments.Count, game.Cpu.IsDead, game.Cpu.Concussion, clashes, defender.Blocks, defender.Evasions, selfCells, bladeStart - katana.Body.Grid.FilledCount, theirStart - (theirWeapon?.Body.Grid.FilledCount ?? 0), bladeCarved, bladeSnaps,
+            shieldClashes, shield is null ? 0 : shieldStart - shield.Body.Grid.FilledCount);
     }
 
     /// <summary>守り方ごとに全ての打ち手を回し、Markdown の表を返す。<paramref name="pick"/> は選んだ守り方の名前（練習の組で失ったものがいちばん少ない）。</summary>
@@ -150,7 +178,7 @@ internal static class GuardLab
         var byVariant = variants.Select((v, i) => (v.Name, Trials: results.Where((_, k) => jobs[k].v.Name == v.Name).ToList())).ToList();
         var text = new StringBuilder();
         text.AppendLine(string.Create(CultureInfo.InvariantCulture,
-            $"打ち手 {attacks.Count}（練習の組 {attacks.Count(a => !a.Holdout)}・確かめの組 {attacks.Count(a => a.Holdout)}）× 種 {seeds} × {seconds:0.#} 秒。受け手は日本刀（その場で構えて守るだけ）。"));
+            $"打ち手 {attacks.Count}（練習の組 {attacks.Count(a => !a.Holdout)}・確かめの組 {attacks.Count(a => a.Holdout)}）× 種 {seeds} × {seconds:0.#} 秒。受け手は{(Shielded ? "片手剣と盾（右手に剣・左手に盾。その場で構えて守るだけ）" : "日本刀（その場で構えて守るだけ）")}。"));
         text.AppendLine("失ったもの = ボクセル / 60 + 切り落とし × 2 + 死 × 3 + 脳しんとう。打たれた = ボクセル 6 以上・脳しんとう 0.05 以上・切り落とし・死のどれか。受けた = 刀と相手の武器が触れた本数。");
         text.AppendLine();
         text.AppendLine("| 守り方 | 練習: 失ったもの（1 本あたり） | 練習: 打たれた | 確かめ: 失ったもの | 確かめ: 打たれた | 刀で受けた本数 | 自分の刀で斬った（1 本あたり） | 刀が欠けた（1 本あたり） | 相手の武器が欠けた | 刀: 削れた・折れた | 死 |");
@@ -164,6 +192,19 @@ internal static class GuardLab
         }
 
         pick = byVariant.Skip(1).MinBy(x => Mean([.. x.Trials.Where(t => !t.Attack.Holdout)])).Name;
+        if (Shielded)
+        {
+            text.AppendLine();
+            text.AppendLine("盾の働き（受け手が盾を持つとき）: 盾で受けた本数 = 盾と相手の武器が触れた本数、盾が欠けた = 盾が失ったセル（1 本あたり）。");
+            text.AppendLine();
+            text.AppendLine("| 守り方 | 盾で受けた本数 | 盾が欠けた（1 本あたり） | 剣で受けた本数 |");
+            text.AppendLine("|---|---:|---:|---:|");
+            foreach (var (name, trials) in byVariant)
+            {
+                text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"| {name} | {trials.Count(t => t.ShieldClashSteps > 0)}/{trials.Count} | {trials.Average(t => t.ShieldLost):0} | {trials.Count(t => t.ClashSteps > 0)}/{trials.Count} |"));
+            }
+        }
+
         text.AppendLine();
         text.AppendLine(CultureInfo.InvariantCulture, $"練習の組で失ったものがいちばん少ない守り方: **{pick}**");
         text.AppendLine();

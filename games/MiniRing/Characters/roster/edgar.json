@@ -1,0 +1,22 @@
+{
+  "id": "edgar",
+  "order": 16,
+  "name": "エドガー・ソーンヒル",
+  "reading": "エドガー ソーンヒル",
+  "hudName": "エドガー",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "右手に剣、左手に円盾の戦士",
+  "look": {
+    "skin": [0.9, 0.72, 0.62], "hair": [0.32, 0.2, 0.1], "hairstyle": "Crop", "eyes": [0.25, 0.4, 0.5],
+    "brows": true, "beard": true
+  },
+  "body": {
+    "build": { "height": 1.05, "arms": 1.0, "legs": 1.0, "muscle": 1.15 },
+    "wear": "shield",
+    "weapon": "ironSword"
+  },
+  "textbook": "boxer",
+  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "record": []
+}

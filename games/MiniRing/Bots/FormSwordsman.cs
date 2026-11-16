@@ -14,6 +14,9 @@ public static class FormSwordsman
     /// <summary>型で動かす武器か（刀・ロングソード・棒。どれも両手持ち）。</summary>
     public static bool Handles(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff;
 
+    /// <summary>型で動かす武器か（両手持ちの <see cref="Handles"/> に、片手の剣 <see cref="WeaponKind.IronSword"/> を足したもの。片手剣の左手は盾（空いた手にはめた物）の経路を描く: <see cref="SwordShieldForms"/>）。</summary>
+    public static bool HasForms(WeaponKind? weapon) => Handles(weapon) || weapon == WeaponKind.IronSword;
+
     private static readonly Lazy<IReadOnlyList<SwordMotion>> KatanaForms = new(SwordForms.Katana);
     private static readonly Lazy<IReadOnlyList<SwordMotion>> LongswordForms = new(SwordForms.Longsword);
 
@@ -26,7 +29,8 @@ public static class FormSwordsman
         WeaponKind.Katana => KatanaForms.Value,
         WeaponKind.Longsword => [.. LongswordForms.Value.Skip(1)],
         WeaponKind.Staff => StaffForms.Forms(),
-        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒だけ。"),
+        WeaponKind.IronSword => SwordShieldForms.Forms(),
+        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒・片手剣だけ。"),
     };
 
     /// <summary>
@@ -35,7 +39,7 @@ public static class FormSwordsman
     /// </summary>
     public static void CheckTechniqueNames(WeaponKind? weapon, IReadOnlyDictionary<string, float>? weights)
     {
-        if (weights is null || !Handles(weapon))
+        if (weights is null || !HasForms(weapon))
         {
             return;
         }
@@ -53,7 +57,8 @@ public static class FormSwordsman
         WeaponKind.Katana => KatanaForms.Value[0].Frames[0],
         WeaponKind.Longsword => LongswordForms.Value[0].Frames[0],
         WeaponKind.Staff => StaffForms.Guard(),
-        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒だけ。"),
+        WeaponKind.IronSword => SwordShieldForms.Guard(),
+        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒・片手剣だけ。"),
     };
 
     /// <summary>両手の間隔 [腕の長さ]。</summary>
@@ -61,15 +66,16 @@ public static class FormSwordsman
     {
         WeaponKind.Longsword => SwordForms.LongswordSpacing,
         WeaponKind.Staff => StaffForms.Spacing,
+        WeaponKind.IronSword => 0f, // 片手: 左手は剣の握りでなく盾の位置（型のキーの Left）
         _ => SwordForms.KatanaSpacing,
     };
 
     /// <summary>剣の握り（右手）から先までの長さ [腕の長さ]（受けるとき、剣のどこで受けるか）。</summary>
-    public static float BladeLength(WeaponKind weapon, float armReach) => (Weapon.TipOf(weapon).X - Weapon.TwoHandGripsOf(weapon).Top.X) / armReach;
+    public static float BladeLength(WeaponKind weapon, float armReach) => (Weapon.TipOf(weapon).X - Weapon.GripOf(weapon).X) / armReach;
 
     /// <summary>右手から後ろの端までの長さ [腕の長さ]（両端を使う武器の受けで、体から離す線を後ろの端まで見る）。端が 1 つの武器は null。</summary>
     public static float? RearLength(WeaponKind weapon, float armReach) =>
-        Weapon.StrikeEndsX(weapon) is { Count: > 1 } ends ? (Weapon.TwoHandGripsOf(weapon).Top.X - ends.Min()) / armReach : null;
+        Weapon.StrikeEndsX(weapon) is { Count: > 1 } ends ? (Weapon.GripOf(weapon).X - ends.Min()) / armReach : null;
 
     /// <summary>これより間合いが短い型は残さない [m]（打ち込まずその場で振る型は、剣士同士の間合いの技ではない。Arena の <c>SwordLibraryLab.MinReach</c> と同じ）。</summary>
     public const float MinReach = 0.33f;
@@ -97,6 +103,7 @@ public static class FormSwordsman
         {
             WeaponKind.Katana => ("tsuki", "kesa"),
             WeaponKind.Staff => ("tsuki", "uchi-oroshi"),
+            WeaponKind.IronSword => ("tsuki", "kiri-oroshi"),
             _ => ("stich", "oberhau"),
         };
         return (forms.First(f => f.Name == light), forms.First(f => f.Name == heavy));
@@ -115,13 +122,14 @@ public static class FormSwordsman
     /// 剣士のボット（試合用）。技の一覧 <paramref name="techniques"/> と構え <paramref name="guard"/> で戦い、武器を落としたら拳で戦う。
     /// </summary>
     public static DisarmedFallback Bot(WeaponKind weapon, IReadOnlyList<MotionTechnique> techniques, MotionFrame guard, int seed, float armReach, FighterTuning tuning,
-        SwordDefense defense, HitAndAway? hitAndAway = null, AimTuning? aim = null, bool autoAim = false, SelfClearance? clearance = null, SwingPacing? pacing = null) =>
+        SwordDefense defense, HitAndAway? hitAndAway = null, AimTuning? aim = null, bool autoAim = false, SelfClearance? clearance = null, SwingPacing? pacing = null, float offhandRadius = 0f) =>
         DisarmedFallback.WithFists(new SwordsmanBot([.. techniques], guard, seed, SwordStance.Rate, tuning: tuning, defense: defense,
             bladeLength: BladeLength(weapon, armReach), spacing: Spacing(weapon), opponentReach: 3f, hitAndAway: hitAndAway, aim: aim)
         {
             AutoAim = autoAim,
             Clearance = clearance,
             Pacing = pacing,
+            OffhandRadius = offhandRadius,
         }, seed);
 
     /// <summary>試合の既定の剣士: 型の技、型の構え、採った守り（<see cref="SwordDefense.Adopted"/>）。</summary>
@@ -131,8 +139,9 @@ public static class FormSwordsman
     /// <summary>
     /// 武器の教科書（とキャラの教育を重ねた <see cref="WeaponStyle"/>）で動く試合の剣士。値は全部 <paramref name="style"/> から（コードに数字を埋めない）。
     /// 教科書が今までの既定と同じ値のとき、試合はビット単位で同じ。
+    /// <paramref name="offhandRadius"/> は空いた手の物（盾・グローブ）が面を広げる半径 [腕の長さ]（<see cref="SwordsmanBot.OffhandRadius"/>）。
     /// </summary>
-    public static DisarmedFallback Bot(WeaponKind weapon, int seed, float armReach, FighterTuning tuning, WeaponStyle style)
+    public static DisarmedFallback Bot(WeaponKind weapon, int seed, float armReach, FighterTuning tuning, WeaponStyle style, float offhandRadius = 0f)
     {
         ArgumentNullException.ThrowIfNull(style);
         CheckTechniqueNames(weapon, style.TechniqueWeights);
@@ -144,6 +153,7 @@ public static class FormSwordsman
             Pacing = style.Pacing,
             Weights = style.TechniqueWeights,
             RearLength = RearLength(weapon, armReach),
+            OffhandRadius = offhandRadius,
         };
         return new DisarmedFallback(bot, BotCatalog.Create(DisarmedFallback.FistStyle, seed), style.KeepReach);
     }

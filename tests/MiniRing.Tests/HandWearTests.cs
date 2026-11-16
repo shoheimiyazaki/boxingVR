@@ -82,7 +82,7 @@ public sealed class HandWearTests
     public void TheArmsPush_PassesThroughRigidFacesOnly()
     {
         // 打つ面の材質から: 鉄・木は腕の押す力を伝え、革・皮膚はその下の詰め物・肉が散らす。握る武器はこれまでどおり伝える。
-        foreach (var kind in new[] { WeaponKind.IronSword, WeaponKind.WoodenClub, WeaponKind.Katana, WeaponKind.Longsword, WeaponKind.KnuckleDuster, WeaponKind.Katar, WeaponKind.Gauntlet })
+        foreach (var kind in new[] { WeaponKind.IronSword, WeaponKind.WoodenClub, WeaponKind.Katana, WeaponKind.Longsword, WeaponKind.KnuckleDuster, WeaponKind.Katar, WeaponKind.Gauntlet, WeaponKind.Shield })
         {
             Assert.IsTrue(Weapon.HasRigidFace(kind), $"{kind} strikes with iron or wood");
         }

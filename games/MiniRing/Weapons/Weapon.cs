@@ -68,6 +68,12 @@ public enum WeaponKind
     /// 長い木の棒。棒の前の端は拳の少し前へ出る。素手の拳が握りを握る。材質は棍棒・棒と同じ木。
     /// </summary>
     Tonfa,
+
+    /// <summary>
+    /// 盾（<see cref="HandWear.Shield"/>、空いた手にはめる）: 拳が握る横の握り棒と、拳の前半分を覆う鉄の椀（ボス）、拳の中心の面にある丸い木の板、
+    /// 板の縁を巻く鉄の輪。素手の拳が握りを握る。材質は木と鉄（今の武器と同じ値）。
+    /// </summary>
+    Shield,
 }
 
 /// <summary>
@@ -267,7 +273,7 @@ public sealed class Weapon
     /// 手にはめる物か（グローブ・素手の拳・メリケンサック・カタール・籠手・トンファー）。はめた物は拳から離れず、拳の打撃（パンチ）として数え、
     /// 握った本人の体・同じ人のもう一方の手にはめた物とは当たらない。
     /// </summary>
-    public static bool IsWorn(WeaponKind kind) => kind is WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa;
+    public static bool IsWorn(WeaponKind kind) => kind is WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield;
 
     private static Weapon Create(PhysicsWorld world, WeaponKind kind, VoxelGrid grid, Vector3 position, Quaternion orientation)
     {
@@ -292,7 +298,7 @@ public sealed class Weapon
         WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff => TwoHandGripsOf(kind).Top,
         WeaponKind.Glove => Vector3.Zero, // 拳はグローブの真ん中
         WeaponKind.Fist => HandSkeleton.Wrist, // 腕の先が手を握る所（手首）
-        WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa => -WornBoundsOf(kind, mirrored).Center, // 拳の中心
+        WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield => -WornBoundsOf(kind, mirrored).Center, // 拳の中心
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
 
@@ -300,7 +306,7 @@ public sealed class Weapon
     public static bool CanTwoHand(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff;
 
     /// <summary>刃の無い（打って潰す）武器か。刃のある武器は、刃の形と材質だけで斬る（<see cref="VoxelContact"/>）。</summary>
-    public static bool IsBlunt(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Gauntlet or WeaponKind.Tonfa;
+    public static bool IsBlunt(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield;
 
     private static readonly Lazy<bool>[] RigidFaces =
         Enum.GetValues<WeaponKind>().Select(k => new Lazy<bool>(() => StrikesWithRigidFace(k))).ToArray();
@@ -372,6 +378,7 @@ public sealed class Weapon
         WeaponKind.Katar => new Vector3(KatarTip, 0f, 0f) - WornBoundsOf(kind).Center,
         WeaponKind.Gauntlet => new Vector3(GauntletOuter, 0f, 0f) - WornBoundsOf(kind).Center,
         WeaponKind.Tonfa => new Vector3(TonfaFront, 0f, TonfaStickZ) - WornBoundsOf(kind).Center, // 棒の前の端の先
+        WeaponKind.Shield => new Vector3(ShieldBossFront, 0f, 0f) - WornBoundsOf(kind).Center, // 椀（ボス）の頂き（盾で押す・打つ所）
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
 
@@ -432,6 +439,7 @@ public sealed class Weapon
         WeaponKind.Katar => Worn(kind, KatarCell, KatarAt),
         WeaponKind.Gauntlet => Worn(kind, WornCell, p => GauntletAt(p, leather)),
         WeaponKind.Tonfa => Worn(kind, WornCell, TonfaAt, mirrored),
+        WeaponKind.Shield => Worn(kind, WornCell, ShieldAt, mirrored),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
 
@@ -726,6 +734,29 @@ public sealed class Weapon
     private const float TonfaHandleRadius = 0.003f; // 握りの柄の太さ（直径 6 mm = 人の 2 cm）
     private const float TonfaHandleFrom = -0.014f;  // 握りの柄の拳の側の端（Z。拳の幅をわずかに越える）
 
+    // 盾（人の: 丸盾の直径 60 cm・板の厚さ 1.5 cm 前後・椀の直径 15 cm 前後 → 人形の縮尺。人形の肩の幅 10.7 cm ÷ 人の肩幅 40 cm = 0.27 倍で、直径 16 cm・
+    // 板の厚さ 4 mm（2 セル。0.27 倍の 4 mm）・椀の直径 4.8 cm）。拳の中心が板の面にあり、椀は拳の前（X が正）を覆う。
+    private const float ShieldRadius = 0.08f;       // 板の半径（直径 16 cm = 人の 60 cm の 0.27 倍）
+    private const float ShieldPlateHalf = 0.002f;   // 板の厚さの半分（厚さ 4 mm）
+    private const float ShieldRim = 0.002f;         // 縁を巻く鉄の輪の幅（1 セル）
+    private const float ShieldBossRadius = 0.024f;  // 椀の外の半径（拳の半径 1.3 cm の外に、握る手の分の隙間）
+    private const float ShieldBossShell = 0.003f;   // 椀の殻の厚さ（1.5 セル: 1 セルだと曲面で穴が開く）
+    private const float ShieldBossFront = 0.024f;   // 椀の頂き（拳の中心から前へ）
+    private const float ShieldGripRadius = 0.003f;  // 握り棒の太さ（直径 6 mm）
+
+    /// <summary>
+    /// その物が手の前に広げる面の半径 [m]（腕の軸に直角な面の、拳の中心から見える最大の広がり）。守りの目安: 盾の大きさ。
+    /// 手にはめる物は形の箱の Y・Z の広がり、グローブはその球の半径。武器は握りから離れた面を持たないので 0。
+    /// </summary>
+    public static float CoverRadiusOf(WeaponKind kind) => kind switch
+    {
+        WeaponKind.Glove => GloveRadius,
+        WeaponKind.Fist => FistRadius,
+        WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield
+            => MathF.Max(WornBoundsOf(kind).Half.Y, WornBoundsOf(kind).Half.Z),
+        _ => 0f,
+    };
+
     /// <summary>手にはめる物の形を囲む箱（拳の座標）の中心と半分の大きさ。</summary>
     private static (Vector3 Center, Vector3 Half) WornBoundsOf(WeaponKind kind, bool mirrored = false)
     {
@@ -735,6 +766,7 @@ public sealed class Weapon
             WeaponKind.Katar => (new Vector3(KatarBarBack, -FistRadius, -(KatarBarZ + KatarBarThick)), new Vector3(KatarTip, FistRadius, KatarBarZ + KatarBarThick)),
             WeaponKind.Gauntlet => (new Vector3(GauntletCuffFrom, -GauntletOuter, -GauntletOuter), new Vector3(GauntletOuter, GauntletOuter, GauntletOuter)),
             WeaponKind.Tonfa => (new Vector3(TonfaBack, -FistRadius, TonfaHandleFrom), new Vector3(TonfaFront, FistRadius, TonfaStickZ + TonfaStickRadius)),
+            WeaponKind.Shield => (new Vector3(-FistRadius, -ShieldRadius, -ShieldRadius), new Vector3(ShieldBossFront, ShieldRadius, ShieldRadius)),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "拳の座標で書く手にはめる物ではありません。"),
         };
         // 端のセルの中心が形の端に乗るよう、半セル広げる。
@@ -861,6 +893,36 @@ public sealed class Weapon
         }
 
         return FistAt(p);
+    }
+
+    /// <summary>
+    /// 盾: 素手の拳が握る鉄の握り棒（原点を通って Z に沿う）、拳の前半分を覆う鉄の椀（ボス: 半径 <see cref="ShieldBossRadius"/> の半球の殻）、拳の中心の面
+    /// （X が ±<see cref="ShieldPlateHalf"/>）に広がる丸い木の板（椀の内側から <see cref="ShieldRadius"/> まで）、板の縁を巻く鉄の輪。
+    /// 板は椀の中に穴を開けてあり、腕は後ろから椀の中へ入って握りを握る。
+    /// </summary>
+    private static byte ShieldAt(Vector3 p)
+    {
+        var radial = MathF.Sqrt((p.Y * p.Y) + (p.Z * p.Z));
+        var r = p.Length();
+        // 握り棒（拳が握る。椀の内側の両端へつながる）。
+        if (MathF.Abs(p.Z) <= ShieldBossRadius - ShieldBossShell && (p.X * p.X) + (p.Y * p.Y) <= ShieldGripRadius * ShieldGripRadius)
+        {
+            return BoxerAnatomy.Iron;
+        }
+
+        // 椀（前の半球の殻）。
+        if (p.X >= -ShieldPlateHalf && r <= ShieldBossRadius && r >= ShieldBossRadius - ShieldBossShell)
+        {
+            return BoxerAnatomy.Iron;
+        }
+
+        // 板と縁の輪（拳の中心の面の薄い層。椀の内側は穴）。
+        if (MathF.Abs(p.X) <= ShieldPlateHalf && radial <= ShieldRadius && radial >= ShieldBossRadius - ShieldBossShell)
+        {
+            return radial >= ShieldRadius - ShieldRim ? BoxerAnatomy.Iron : BoxerAnatomy.Wood;
+        }
+
+        return r <= FistRadius ? FistAt(p) : (byte)0;
     }
 
     /// <summary>

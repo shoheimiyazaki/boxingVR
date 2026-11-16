@@ -1226,9 +1226,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var previousCpu = _round > 1 ? _cpuControl : null;
         var previousPlayer = _playerControl;
         var cpuSeed = _seed + _round;
-        _cpuControl = WeaponBot(_corners.CpuWeapon, _corners.CpuWeaponStyle, Cpu, cpuSeed) ?? _corners.Cpu(cpuSeed);
+        _cpuControl = WeaponBot(_corners.CpuWeapon, _corners.CpuWeaponStyle, Cpu, cpuSeed, _corners.CpuWear) ?? _corners.Cpu(cpuSeed);
         var playerSeed = (_seed * 7919) + _round;
-        _playerControl = _corners.RedBotStyle is { } style ? WeaponBot(_corners.PlayerWeapon, _corners.PlayerWeaponStyle, Player, playerSeed) ?? new Bots.BoxerBot(style, playerSeed) : _corners.Player?.Invoke(playerSeed);
+        _playerControl = _corners.RedBotStyle is { } style ? WeaponBot(_corners.PlayerWeapon, _corners.PlayerWeaponStyle, Player, playerSeed, _corners.PlayerWear) ?? new Bots.BoxerBot(style, playerSeed) : _corners.Player?.Invoke(playerSeed);
         if (!_corners.Referee)
         {
             // レフェリーなし: ボットは倒れた相手への攻め（GroundStrike）を足す。レフェリーありの試合には何も足さない（振る舞いも記録も今のまま）。
@@ -1327,10 +1327,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public FighterSense PlayerSense => ArmedSense(Player, Cpu);
 
     /// <summary>CPU の入力元が今見ている物（調べもの・テスト用）。</summary>
-    private IFighterControl? WeaponBot(Weapons.WeaponKind? weapon, Bots.WeaponStyle? style, Fighter self, int seed) => !_corners.UseWeaponBots ? null : weapon switch
+    private IFighterControl? WeaponBot(Weapons.WeaponKind? weapon, Bots.WeaponStyle? style, Fighter self, int seed, MiniRing.Weapons.HandWear wear = MiniRing.Weapons.HandWear.Glove) => !_corners.UseWeaponBots ? null : weapon switch
     {
         // 値は武器の教科書（style が null ならその武器の組み込みの教科書。キャラなら教育を重ねた物が corners に入っている）。
         MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword or MiniRing.Weapons.WeaponKind.Staff => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning, style ?? Bots.WeaponCatalog.Textbook(weapon.Value)), // 刀・ロングソード・棒は、その武器の型で
+        // 片手剣も型で動かす（右手の剣の経路 + 左手の物の経路）。左手の物（盾・グローブ）の見える大きさを、守りの覆う広さとして渡す。
+        MiniRing.Weapons.WeaponKind.IronSword => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning, style ?? Bots.WeaponCatalog.Textbook(weapon.Value), MiniRing.Weapons.Weapon.CoverRadiusOf(MiniRing.Weapons.HandWears.Kind(wear)) / self.ArmReach),
         MiniRing.Weapons.WeaponKind.WoodenClub => Bots.ClubBot.FromStyle(style ?? Bots.WeaponCatalog.Textbook(weapon.Value), seed),
         _ => null,
     };

@@ -116,7 +116,7 @@ public sealed class MotionImitation : IFighterControl
         // 歩く: 腰の速さ（体フレーム）を、腕の長さ・再生の速さで当てはめ、歩く速さの上限で割った指令にする。
         var move = (sense.Self.Rotate(frame.Velocity * (reach * rate)) / walkSpeed) + extraMove;
         return new FighterCommand(move, face,
-            new HandCommand(left, false),
+            new HandCommand(left, false, Orientation: frame.LeftOrientation),
             new HandCommand(right, false, Orientation: frame.Orientation),
             HeadOffset: frame.Head * reach,
             TwistBias: twistBias);

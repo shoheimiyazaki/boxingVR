@@ -164,6 +164,9 @@ internal sealed class SwordLibraryLab(int seed)
         return game.Player.ArmReach;
     });
 
+    /// <summary>体の腕の長さ [m]（型の長さの単位）。</summary>
+    internal static float ArmReachValue => ArmReach.Value;
+
     /// <summary>剣士の技のフレームに掛ける、自分の体を避ける刃の通り道（既定は使わない。<c>--clearance on</c> で入れて比べる）。</summary>
     internal static SelfClearance? Clearance { get; set; }
 

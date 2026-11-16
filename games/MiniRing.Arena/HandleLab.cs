@@ -77,7 +77,7 @@ internal static class HandleLab
     internal sealed record Bout(Side Red, Side Blue, double Seconds);
 
     /// <summary>武器ごとの値の上書き（null の武器は教科書または教育のまま）。</summary>
-    internal sealed record Overrides(WeaponStyle? Katana = null, WeaponStyle? Longsword = null, WeaponStyle? Club = null, string? OnlyFor = null, WeaponStyle? Staff = null)
+    internal sealed record Overrides(WeaponStyle? Katana = null, WeaponStyle? Longsword = null, WeaponStyle? Club = null, string? OnlyFor = null, WeaponStyle? Staff = null, WeaponStyle? SwordShield = null)
     {
         public static Overrides None { get; } = new();
 
@@ -90,6 +90,7 @@ internal static class HandleLab
             WeaponKind.Longsword => Longsword,
             WeaponKind.WoodenClub => Club,
             WeaponKind.Staff => Staff,
+            WeaponKind.IronSword => SwordShield,
             _ => null,
         };
     }
@@ -460,6 +461,7 @@ internal static class HandleLab
         WeaponKind.Longsword => "ロングソード",
         WeaponKind.WoodenClub => "こんぼう",
         WeaponKind.Staff => "棒",
+        WeaponKind.IronSword => "剣盾",
         _ => "拳",
     };
 
@@ -470,7 +472,7 @@ internal static class HandleLab
     /// <summary>武器を握る側の組（武器 × 相手の種類）ごとの表。</summary>
     public static string Report(IReadOnlyList<Bout> bouts, float seconds, int seed, string heading)
     {
-        var sides = bouts.SelectMany(b => new[] { b.Red, b.Blue }).Where(s => s.Weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.WoodenClub or WeaponKind.Staff).ToList();
+        var sides = bouts.SelectMany(b => new[] { b.Red, b.Blue }).Where(s => s.Weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.IronSword).ToList();
         var groups = sides.GroupBy(s => (s.Weapon, s.OpponentClass)).OrderBy(g => g.Key.Weapon).ThenBy(g => g.Key.OpponentClass).ToList();
         var sb = new StringBuilder();
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"### {heading}（{bouts.Count} 試合 × {seconds:0} 秒、種 {seed}、LogicVersion {BoxerBot.LogicVersion}）"));

@@ -5,8 +5,9 @@ namespace MiniRing.Motion;
 /// <summary>
 /// 型のキー 1 つ（体フレーム、長さは腕の長さ = 1）: 時刻、右手（上の手）の位置、剣の向き（方位角: 0 = 前・正 = 左、仰角: 正 = 上）、
 /// 腰の前への速さ（腕の長さ / s、踏み込みは正・下がるは負）、前傾（頭の前へのずれ）、胴のひねり [rad]（正で右肩が前）。
+/// <paramref name="Left"/> は左手の位置（片手の剣と盾の型: 左手が盾を持って剣と別に動く）。null なら両手持ち（右手の後ろ、剣の向きに沿って間隔 spacing）。
 /// </summary>
-public readonly record struct SwordKey(float Time, Vector3 Right, float Azimuth, float Elevation, float Step = 0f, float Lean = 0f, float Twist = 0f);
+public readonly record struct SwordKey(float Time, Vector3 Right, float Azimuth, float Elevation, float Step = 0f, float Lean = 0f, float Twist = 0f, Vector3? Left = null);
 
 /// <summary>
 /// 手で作る型（キーを滑らかにつないだ <see cref="SwordMotion"/>）。ロングソードの型は、リヒテナウアーの流れ（ドイツ式）の 4 つの構え
@@ -33,6 +34,7 @@ public static class SwordForms
         var dt = 1f / rate;
         var n = (int)MathF.Floor((keys[^1].Time - keys[0].Time) / dt) + 1;
         var rights = new Vector3[n];
+        var lefts = new Vector3?[n];
         var blades = new Vector3[n];
         var heads = new Vector3[n];
         var twists = new float[n];
@@ -50,6 +52,7 @@ public static class SwordForms
             var u = Math.Clamp((t - a.Time) / (b.Time - a.Time), 0f, 1f);
             var s = u * u * (3f - (2f * u));
             rights[i] = Vector3.Lerp(a.Right, b.Right, s);
+            lefts[i] = a.Left is { } la && b.Left is { } lb ? Vector3.Lerp(la, lb, s) : null;
             // 剣の向きは球の上の最短の道で（方位角と仰角を別々に補うと、後ろ上から前への斬り下ろしが横へ回ってしまう）。
             blades[i] = Slerp(Direction(a.Azimuth, a.Elevation), Direction(b.Azimuth, b.Elevation), s);
             heads[i] = new Vector3(0f, 0f, Lerp(a.Lean, b.Lean, s));
@@ -73,7 +76,7 @@ public static class SwordForms
         var frames = new MotionFrame[n];
         for (var i = 0; i < n; i++)
         {
-            frames[i] = new MotionFrame(rights[i], rights[i] - (blades[i] * spacing), blades[i], edges[i], heads[i], twists[i], new Vector3(0f, 0f, steps[i]));
+            frames[i] = new MotionFrame(rights[i], lefts[i] ?? (rights[i] - (blades[i] * spacing)), blades[i], edges[i], heads[i], twists[i], new Vector3(0f, 0f, steps[i]));
         }
 
         return new SwordMotion(name, dt, frames);

@@ -62,7 +62,7 @@ public sealed record FighterCharacter(string Id, string Name, string Reading, st
     public bool IsKarate => StyleName == BotCatalog.Karate.Name && Wear == HandWear.None && Weapon is null;
 
     /// <summary>武器の表示名（握る物が無ければはめる物の名前）。</summary>
-    public string EquipmentName => Weapon is { } w ? WeaponLabel(w) : WearLabel(Wear, StyleName);
+    public string EquipmentName => Weapon is { } w ? (w == WeaponKind.IronSword && Wear == HandWear.Shield ? "剣と盾" : WeaponLabel(w)) : WearLabel(Wear, StyleName);
 
     public static string WeaponLabel(WeaponKind weapon) => weapon switch
     {
@@ -82,6 +82,7 @@ public sealed record FighterCharacter(string Id, string Name, string Reading, st
         HandWear.Katar => "カタール",
         HandWear.Gauntlet => "籠手",
         HandWear.Tonfa => "トンファー",
+        HandWear.Shield => "盾",
         _ => wear.ToString(),
     };
 }

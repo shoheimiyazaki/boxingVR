@@ -108,7 +108,18 @@ internal static class MenuIcons
     /// はめる物・武器の絵（横長: 幅は <paramref name="height"/> の 2 倍）。握る武器があればそれ、無ければはめる物。
     /// </summary>
     public static void DrawEquipment(List<UiShapeDraw> shapes, Vector2 center, float height, WeaponKind? weapon, HandWear wear)
-        => Emit(shapes, center, height, weapon is { } w ? WeaponParts(w) : WearParts(wear));
+        => Emit(shapes, center, height, weapon is { } w ? WithOffhand(WeaponParts(w), wear) : WearParts(wear));
+
+    /// <summary>握る武器の絵に、空いた手の盾を足す（剣と盾。剣を左へ縮めて、右に盾の円を置く）。盾でなければそのまま。</summary>
+    private static List<Part> WithOffhand(List<Part> weapon, HandWear wear)
+    {
+        if (wear != HandWear.Shield)
+        {
+            return weapon;
+        }
+
+        return [.. weapon.Select(p => p with { X = (p.X * 0.62f) - 0.42f, Y = p.Y * 0.62f, W = p.W * 0.62f, H = p.H * 0.62f }), .. WearParts(wear)];
+    }
 
     private static List<Part> WeaponParts(WeaponKind weapon) => weapon switch
     {
@@ -180,6 +191,10 @@ internal static class MenuIcons
         [
             Rect(0.1f, 0.3f, 1.5f, 0.15f, Wood, 0.06f), Rect(-0.35f, 0.14f, 0.1f, 0.3f, WoodDark, 0.03f),
             Rect(0.1f, -0.3f, 1.5f, 0.15f, Wood, 0.06f), Rect(-0.35f, -0.14f, 0.1f, 0.3f, WoodDark, 0.03f),
+        ],
+        HandWear.Shield =>
+        [
+            Disc(0.55f, 0f, 0.95f, Wood), Ring(0.55f, 0f, 0.95f, Steel, 0.06f), Disc(0.55f, 0f, 0.34f, Steel), Disc(0.55f, 0f, 0.18f, SteelDark),
         ],
         _ => [],
     };

@@ -33,7 +33,7 @@ public sealed class CharacterFileTests
     public void BuiltInRoster_IsOneFilePerCharacter_InTheDecidedOrder_WithEmptyEducation()
     {
         var all = CharacterRoster.All;
-        Assert.HasCount(15, all);
+        Assert.HasCount(16, all);
         Assert.HasCount(11, CharacterRoster.Countries.Keys.Where(k => all.Any(c => c.Country.Id == k)).ToList());
         foreach (var c in all)
         {
@@ -242,7 +242,7 @@ public sealed class CharacterFileTests
             Assert.AreEqual(0.8f, one.Resolve("marcus").Aggression, "vs a built-in character is allowed");
             Assert.AreEqual(0.5f, one.Resolve("akira").Aggression);
             Assert.HasCount(1, CharacterRoster.LoadDirectory(dir));
-            Assert.HasCount(15, CharacterRoster.All, "the built-in roster is untouched");
+            Assert.HasCount(16, CharacterRoster.All, "the built-in roster is untouched");
 
             File.WriteAllText(Path.Combine(dir, "jin.json"), Json("jin"));
             Assert.Contains("組み込み", Assert.ThrowsExactly<InvalidDataException>(() => CharacterRoster.LoadDirectory(dir)).Message);

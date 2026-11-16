@@ -25,7 +25,7 @@ public static class WeaponVoxelModel
 
     /// <summary>.vox で直せる種類（<see cref="WeaponKind.Fist"/> を除く全部）。</summary>
     public static IReadOnlyList<WeaponKind> Editable { get; } =
-        [WeaponKind.IronSword, WeaponKind.WoodenClub, WeaponKind.Katana, WeaponKind.Longsword, WeaponKind.Staff, WeaponKind.Glove, WeaponKind.KnuckleDuster, WeaponKind.Katar, WeaponKind.Gauntlet, WeaponKind.Tonfa];
+        [WeaponKind.IronSword, WeaponKind.WoodenClub, WeaponKind.Katana, WeaponKind.Longsword, WeaponKind.Staff, WeaponKind.Glove, WeaponKind.KnuckleDuster, WeaponKind.Katar, WeaponKind.Gauntlet, WeaponKind.Tonfa, WeaponKind.Shield];
 
     /// <summary>種類ごとの格子を .vox のシーンにする。256 を超える軸は塊に分ける。</summary>
     public static VoxScene ToVox(IReadOnlyDictionary<WeaponKind, VoxelGrid> weapons)

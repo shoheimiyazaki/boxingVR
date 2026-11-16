@@ -50,7 +50,7 @@ public sealed class WeaponStyleTests
         Assert.AreEqual(0.36f, WeaponCatalog.Textbook(WeaponKind.WoodenClub).ClubRange, "nothing trained for the club was adopted");
         Assert.AreEqual(0.36f, WeaponCatalog.Textbook(WeaponKind.Katana).ClubRange, "the club values of a sword textbook stay the old defaults (unused)");
         Assert.AreEqual("katana", WeaponCatalog.Textbook(WeaponKind.Katana).Name);
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => WeaponCatalog.Textbook(WeaponKind.IronSword));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => WeaponCatalog.Textbook(WeaponKind.Glove));
     }
 
     [TestMethod]
@@ -133,9 +133,9 @@ public sealed class WeaponStyleTests
         Assert.Contains("Rest", range.Message);
         Assert.Throws<InvalidDataException>(() => WeaponEducation.Resolve(WeaponKind.Katana, Edu("{ \"Defense\": { \"Blokshare\": 0.3 } }")));
         Assert.Throws<InvalidDataException>(() => WeaponEducation.Resolve(null, Edu("{ \"Rest\": 0.3 }")));
-        Assert.Throws<InvalidDataException>(() => WeaponEducation.Resolve(WeaponKind.IronSword, Edu("{ \"Rest\": 0.3 }")));
+        Assert.Throws<InvalidDataException>(() => WeaponEducation.Resolve(WeaponKind.Glove, Edu("{ \"Rest\": 0.3 }")));
         Assert.IsNull(WeaponEducation.Resolve(null, null));
-        Assert.IsNull(WeaponEducation.Resolve(WeaponKind.IronSword, new JsonObject()));
+        Assert.IsNull(WeaponEducation.Resolve(WeaponKind.Glove, new JsonObject()));
     }
 
     private static FighterCharacter WithWeaponBot(string id, string weaponBot)

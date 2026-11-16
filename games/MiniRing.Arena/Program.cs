@@ -44,7 +44,7 @@ try
     return command switch
     {
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out", "hz", "passes", "sample", "referee")),
-        "handlelab" => HandleLabCommand(Options.Parse(argv[1..], "pairs", "fist", "bouts", "seconds", "seed", "referee", "parallel", "out", "style-katana", "style-longsword", "style-club", "style-staff", "title")),
+        "handlelab" => HandleLabCommand(Options.Parse(argv[1..], "pairs", "fist", "bouts", "seconds", "seed", "referee", "parallel", "out", "style-katana", "style-longsword", "style-club", "style-staff", "style-swordshield", "title")),
         "handlespar" => HandleSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "held-out", "gens", "lambda", "bouts", "seconds", "seed", "referee", "parallel", "start", "best", "out")),
         "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain", "wear")),
         "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
@@ -62,7 +62,7 @@ try
         "guardspar" => GuardSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "breakdemo" => BreakDemoCommand(Options.Parse(argv[1..], "out", "seconds", "only", "fps")),
-        "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seconds", "out", "only", "variants", "video", "try")),
+        "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seconds", "out", "only", "variants", "video", "try", "defender")),
         "selfcuts" => SelfCutCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "out", "hitaway", "passes", "clearance", "margin", "tilt", "pacing", "slack", "angle")),
         "selfpath" => SelfPathCommand(Options.Parse(argv[1..], "margin", "from", "tilt", "out")),
         "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes", "hz", "sample")),
@@ -177,7 +177,7 @@ static int HandleLabCommand(Options o)
         ? [.. pairs.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Split(':') is { Length: 2 } ab ? new HandleLab.Matchup(ab[0], ab[1]) : throw new ArgumentException($"--pairs は a:b,c:d の形です（{p}）。"))]
         : HandleLab.DefaultMatchups(o.Get("fist") ?? "marcus");
     static MiniRing.Bots.WeaponStyle? Style(string? path) => path is null ? null : MiniRing.Bots.WeaponStyle.FromJson(File.ReadAllText(path));
-    var overrides = new HandleLab.Overrides(Style(o.Get("style-katana")), Style(o.Get("style-longsword")), Style(o.Get("style-club")), Staff: Style(o.Get("style-staff")));
+    var overrides = new HandleLab.Overrides(Style(o.Get("style-katana")), Style(o.Get("style-longsword")), Style(o.Get("style-club")), Staff: Style(o.Get("style-staff")), SwordShield: Style(o.Get("style-swordshield")));
     var bouts = o.Int("bouts", 6, min: 1);
     var seconds = o.Float("seconds", 40f, min: 1f);
     var seed = o.Int("seed", 1);
@@ -664,6 +664,8 @@ static int GuardLabCommand(Options o)
 {
     // 守りのドリル: 日本刀の受け手へ、いろいろな武器の打ち手が 1 本ずつ打ち込み、守り方ごとに失ったものを比べる。
     // --only 名前の一部（打ち手を絞る）、--variants 0,4,7（守り方を番号で選ぶ）。
+    // --defender swordshield: 受け手を片手剣と盾にする（--variants は GuardLab.ShieldVariants の番号）。
+    GuardLab.Shielded = o.Get("defender") == "swordshield";
     var library = SwordLibraryLab.Load("docs/arena/sword_library.json");
     var attacks = GuardLab.Attacks(library, SwingLab.Load("docs/arena/club_swings.json"), SwingLab.Load("docs/arena/bat_swings.json"));
     if (o.Get("only") is { } only)
@@ -672,8 +674,8 @@ static int GuardLabCommand(Options o)
     }
 
     var variants = o.Get("variants") is { } picked
-        ? [.. picked.Split(',').Select(s => GuardLab.Variants[int.Parse(s, System.Globalization.CultureInfo.InvariantCulture)])]
-        : GuardLab.Variants;
+        ? [.. picked.Split(',').Select(s => (GuardLab.Shielded ? GuardLab.ShieldVariants : GuardLab.Variants)[int.Parse(s, System.Globalization.CultureInfo.InvariantCulture)])]
+        : GuardLab.Shielded ? GuardLab.ShieldVariants : GuardLab.Variants;
     // --try "Parry:lead:deflect:forte;ParryAndStep:..."（受け流しの値を試す。値は腕の長さ・rad・刀の割合）。
     if (o.Get("try") is { } tries)
     {
