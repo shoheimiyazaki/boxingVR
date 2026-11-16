@@ -1,0 +1,22 @@
+{
+  "id": "tsuyoshi",
+  "order": 15,
+  "name": "新垣 剛",
+  "reading": "アラカキ ツヨシ",
+  "hudName": "ツヨシ",
+  "origin": "日本（沖縄）",
+  "country": "japan",
+  "tagline": "両手に木の棒を持つトンファー使い",
+  "look": {
+    "skin": [0.76, 0.56, 0.4], "hair": [0.07, 0.05, 0.04], "hairstyle": "Crop", "eyes": [0.1, 0.06, 0.03],
+    "brows": true, "beard": false
+  },
+  "body": {
+    "build": { "height": 1.0, "arms": 1.03, "legs": 1.0, "muscle": 1.0 },
+    "wear": "tonfa",
+    "weapon": null
+  },
+  "textbook": "tonfa",
+  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "record": []
+}

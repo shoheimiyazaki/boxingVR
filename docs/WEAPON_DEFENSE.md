@@ -114,3 +114,7 @@
 - 相手が棒を握るとき、武器の線（握りから先まで）の「先」は、今速く動いている端（`BoxingGame.RawArmedSense`）。棒の両端のどちらが来ても読める（見える動きから。種類での分岐ではない）。1 本だけの武器は今までと同じ。
 - テスト: `BojutsuTests.TheStaff_ParriesAnOverheadCut_WithTheShaftAcrossIt`（上からの打ちに棒を横たえて頭の上で受け、両手は握りの間隔のまま）、`AStaffUser_WhoGuards_TakesFewerCutsFromASwordsmanThanOneWhoDoesNot`（刀の型に斬られる棒術家が、守るときの方が失うセルが少ない: 2 試合 × 20 秒）。
 - 近道: 棒の真ん中（両手の間）で受ける形は作っていない（`Forte` を手元寄りにした刀と同じ受け）。
+
+## 9. 前腕の受け（トンファー、2026-11-16）
+
+トンファー（`HandWear.Tonfa`、[TONFA.md](TONFA.md)）は武器を握るのではなく拳にはめる物なので、守りは拳のボットの `DefenseBook`（ブロック・パリー）のまま。違うのは前腕の外側に付いた長さ 14 cm の木の棒で、来る拳・武器は腕の肉より先にこの木に当たる。新しい受けの式は無く、教科書 `tonfa.json` の `ParryWeight`・`BlockWeight`・`GuardWidth` を高くしただけ。測定: 刀の払い面を構えたガードへ繰り返し振ったとき、グローブは前腕の肉を 1 セル削られ、トンファーは棒が 15 セル削られて前腕の肉は 0（`TonfaTests.ASwordSweepingAtTheGuard_MeetsTheWoodOfTheStick_BeforeTheFleshOfTheForearm`）。試合では jin（刀）に 0/4・1/4 と負け、早い段階で腕の骨を断たれる（木の棒では止まりきらない）。

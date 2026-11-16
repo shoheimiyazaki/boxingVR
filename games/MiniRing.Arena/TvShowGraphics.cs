@@ -38,6 +38,7 @@ internal sealed record TvCorner(string Name, string Discipline, string Detail, s
                 HandWear.KnuckleDuster => ("メリケンサック", StyleLabel(styleName)),
                 HandWear.Katar => ("カタール", StyleLabel(styleName)),
                 HandWear.Gauntlet => ("籠手", StyleLabel(styleName)),
+                HandWear.Tonfa => ("トンファー", "両手に木の棒・前腕で受ける"),
                 _ => ("ボクシング", StyleLabel(styleName)),
             },
         };
