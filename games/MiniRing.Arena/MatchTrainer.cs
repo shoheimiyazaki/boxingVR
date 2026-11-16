@@ -96,8 +96,7 @@ internal sealed class MatchTrainer<T>(
     /// <summary>値 <paramref name="value"/> の戦い手を、相手たちと各 <paramref name="bouts"/> 試合（コーナーを半分ずつ入れ替え）戦わせた成績。</summary>
     public static Score Evaluate(Func<T, Contender> make, T value, IReadOnlyList<Contender> opponents, int bouts, float seconds, int seed)
     {
-        var baseMine = make(value);
-        var mine = baseMine with { Name = baseMine.Name + "（育てる）" };
+        var mine = MatchScore.Mark(make(value));
         var specs = opponents.SelectMany((o, i) => BotArena.Pair(mine, o, bouts, seconds, seed + (101 * i))).ToList();
         var results = BotArena.RunAll(specs, VersusLab.Tuning);
         int wins = 0, losses = 0, draws = 0;
@@ -123,7 +122,7 @@ internal sealed class MatchTrainer<T>(
         }
 
         // 勝ち越しが主、ダメージの差は同じ勝ち越しの間の順を決めるだけ（1 試合ぶんに届かない重さ）。
-        var value01 = wins - losses + (0.9f * MathF.Tanh((dealt - taken) / 400f));
+        var value01 = MatchScore.Of(wins, losses, dealt, taken);
         return new Score(value01, wins, losses, draws, dealt, taken, detail.ToString().Trim());
     }
 

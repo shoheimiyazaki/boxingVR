@@ -161,14 +161,51 @@ internal sealed class DefenseTuner(int bouts, float seconds, int seed, Action<st
         return sb.ToString();
     }
 
-    private (float Score, float Reduction, float Counter) Evaluate(DefenseBook book, Defense defense, IReadOnlyList<PunchKind> kinds, int evalSeed)
+    internal (float Score, float Reduction, float Counter) Evaluate(DefenseBook book, Defense defense, IReadOnlyList<PunchKind> kinds, int evalSeed)
     {
         var results = kinds.Select(k => Aggregate(book, defense, k, evalSeed)).ToList();
         return (results.Average(r => r.Score), results.Average(r => r.Reduction), results.Average(r => r.CounterReturn));
     }
 
+    /// <summary>
+    /// 種ごとの結果（<c>bouts × 間合いの数</c> 本、添字 = 間合い × <c>bouts</c> + 種の番号）を拳の種類ごとに返す。
+    /// <see cref="Evaluate"/> の点（合計からの比）はこれを足して出す。種ごとの点（<see cref="SeedPoint"/>）はこれから作る。
+    /// </summary>
+    internal IReadOnlyList<DrillResult[]> EvaluateBySeed(DefenseBook book, Defense defense, IReadOnlyList<PunchKind> kinds, int evalSeed)
+        => kinds.Select(k => Runs(book, defense, k, evalSeed)).ToList();
+
+    /// <summary>
+    /// ドリルの 1 標本（1 つの種）の点: （守らない受け手の被ダメージ − 被ダメージ）+ 0.25 × 打ち返しのダメージ。
+    /// 比（<see cref="DrillResult.Score"/>）でなく差にする: 基準のダメージが 0 に近い組で比が膨らみ、標本の分布の裾が重くなって検定の前提が崩れる。
+    /// 打ち返しの重み 0.25 は <see cref="DrillResult.Score"/> と同じ。守らない受け手との拳の数の違いは直さない（同じ種の同じ攻め手なので、数の差は動きの差として出る）。
+    /// </summary>
+    internal static double SeedPoint(DrillResult run) => (run.BaselineDamage - run.Damage) + (0.25 * run.CounterDamage);
+
+    /// <summary>種ごとの点（拳の種類が複数なら、同じ番号の種で足す）。</summary>
+    internal static double[] SeedPoints(IReadOnlyList<DrillResult[]> byKind)
+    {
+        var points = new double[byKind[0].Length];
+        foreach (var runs in byKind)
+        {
+            for (var j = 0; j < points.Length; j++)
+            {
+                points[j] += SeedPoint(runs[j]);
+            }
+        }
+
+        return points;
+    }
+
     /// <summary>同じ技・種類のドリルを <c>bouts</c> 本（種を変えて）並列に行い、合計した結果。</summary>
-    private DrillResult Aggregate(DefenseBook book, Defense defense, PunchKind kind, int evalSeed)
+    internal DrillResult Aggregate(DefenseBook book, Defense defense, PunchKind kind, int evalSeed)
+        => Sum(defense, kind, Runs(book, defense, kind, evalSeed));
+
+    private static DrillResult Sum(Defense defense, PunchKind kind, DrillResult[] runs)
+        => new(defense, kind, runs.Sum(r => r.Punches), runs.Sum(r => r.Damage), runs.Sum(r => r.BaselinePunches),
+            runs.Sum(r => r.BaselineDamage), runs.Sum(r => r.CounterDamage), runs.Sum(r => r.Defenses), runs.Sum(r => r.Failed));
+
+    /// <summary>種ごとの結果（結果は添字の位置に書くので、並列の数に依らず同じ）。</summary>
+    private DrillResult[] Runs(DefenseBook book, Defense defense, PunchKind kind, int evalSeed)
     {
         var runs = new DrillResult[bouts * _ranges.Count];
         Parallel.For(0, runs.Length, j =>
@@ -179,8 +216,7 @@ internal sealed class DefenseTuner(int bouts, float seconds, int seed, Action<st
             var baseline = _baselines.GetOrAdd((kind, s, range), key => DefenseDrill.MeasureBaseline(key.Item1, key.Item2, seconds, key.Item3, combos));
             runs[j] = DefenseDrill.Run(defense, kind, book, s, seconds, baseline, range, counters, combos);
         });
-        return new DrillResult(defense, kind, runs.Sum(r => r.Punches), runs.Sum(r => r.Damage), runs.Sum(r => r.BaselinePunches),
-            runs.Sum(r => r.BaselineDamage), runs.Sum(r => r.CounterDamage), runs.Sum(r => r.Defenses), runs.Sum(r => r.Failed));
+        return runs;
     }
 
     private (DefenseMove Move, string Changes) Mutate(DefenseMove parent, Defense defense)

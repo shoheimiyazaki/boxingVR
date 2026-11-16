@@ -6,7 +6,6 @@
     <NoWarn>$(NoWarn);CA1707</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\games\MiniRing.Arena\KarateVitals.cs" Link="KarateVitals.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuGame.cs" Link="MenuGame.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\GamepadIntent.cs" Link="GamepadIntent.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MatchMenu.cs" Link="MatchMenu.cs" />
@@ -16,19 +15,11 @@
     <Compile Include="..\..\games\MiniRing.Desktop\MenuView.cs" Link="MenuView.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuIcons.cs" Link="MenuIcons.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuSettings.cs" Link="MenuSettings.cs" />
-    <!-- テレビ中継の動画の道具のうち、描画と試合に触れない部分（Arena は実行ファイルなので、ファイルを取り込んで確かめる）。 -->
-    <Compile Include="..\..\games\MiniRing.Arena\TvShowRules.cs" Link="Arena\TvShowRules.cs" />
-    <Compile Include="..\..\games\MiniRing.Arena\TvDigest.cs" Link="Arena\TvDigest.cs" />
-    <Compile Include="..\..\games\MiniRing.Arena\TvLint.cs" Link="Arena\TvLint.cs" />
-    <Compile Include="..\..\games\MiniRing.Arena\TvDraft.cs" Link="Arena\TvDraft.cs" />
-    <Compile Include="..\..\games\MiniRing.Arena\LiveOutput.cs" Link="Arena\LiveOutput.cs" />
-    <Compile Include="..\..\games\MiniRing.Arena\LiveAudioMixer.cs" Link="Arena\LiveAudioMixer.cs" />
-    <Compile Include="..\..\games\MiniRing.Arena\TvProgram.cs" Link="Arena\TvProgram.cs" />
-    <Compile Include="..\..\games\MiniRing.Arena\TvAnalyst.cs" Link="Arena\TvAnalyst.cs" />
-    <Compile Include="..\..\games\MiniRing.Arena\TvShowGraphics.cs" Link="Arena\TvShowGraphics.cs" />
     <None Update="bot-execution-baseline.txt" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="..\..\games\MiniRing\MiniRing.csproj" />
     <ProjectReference Include="..\..\games\MiniRing.Vr\MiniRing.Vr.csproj" />
+    <!-- Arena（対戦場・テレビ中継の道具）は InternalsVisibleTo で中まで参照する（以前はファイルを取り込んでいた）。 -->
+    <ProjectReference Include="..\..\games\MiniRing.Arena\MiniRing.Arena.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />

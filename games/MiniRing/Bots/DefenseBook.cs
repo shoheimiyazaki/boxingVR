@@ -113,8 +113,7 @@ public sealed record DefenseMove
 
     public DefenseMove Validated()
     {
-        static float F(float v, float min, float max, float fallback) => Math.Clamp(float.IsFinite(v) ? v : fallback, min, max);
-        var headX = F(HeadX, -0.6f, 0.6f, 0f);
+        var headX = DefenseRanges.HeadX.Clamp(HeadX, 0f);
         foreach (var combo in new[] { CounterStraight, CounterHook, CounterUppercut })
         {
             if (!string.IsNullOrEmpty(combo))
@@ -128,30 +127,73 @@ public sealed record DefenseMove
             CounterStraight = CounterStraight ?? "",
             CounterHook = CounterHook ?? "",
             CounterUppercut = CounterUppercut ?? "",
-            CounterStraightAt = F(CounterStraightAt, 0.2f, 1f, 1f),
-            CounterHookAt = F(CounterHookAt, 0.2f, 1f, 1f),
-            CounterUppercutAt = F(CounterUppercutAt, 0.2f, 1f, 1f),
+            CounterStraightAt = DefenseRanges.CounterAt.Clamp(CounterStraightAt, 1f),
+            CounterHookAt = DefenseRanges.CounterAt.Clamp(CounterHookAt, 1f),
+            CounterUppercutAt = DefenseRanges.CounterAt.Clamp(CounterUppercutAt, 1f),
             HeadX = headX,
-            HeadY = F(HeadY, -0.7f, 0.2f, 0f),
-            HeadZ = F(HeadZ, -0.5f, 0.4f, 0f),
-            EndX = Sweep ? F(EndX, -0.6f, 0.6f, 0f) : headX, // 横へ抜けない技では使わないので、始めと同じにそろえる
-            Duration = F(Duration, 0.15f, 0.7f, 0.35f),
-            Move = F(Move, -1f, 1f, 0f),
-            Step = F(Step, -1f, 1f, 0f),
-            Rate = F(Rate, 6f, 60f, 26f),
-            HandsUp = F(HandsUp, 0f, 1f, 0f),
-            GloveAnchor = F(GloveAnchor, 0f, 1f, 0f),
-            GloveWidth = F(GloveWidth, 0f, 0.35f, 0.1f),
-            GloveHeight = F(GloveHeight, -0.3f, 0.2f, -0.03f),
-            GloveForward = F(GloveForward, 0.05f, 0.5f, 0.3f),
-            BodyDrop = F(BodyDrop, 0.2f, 0.9f, 0.55f),
-            TempleWidth = F(TempleWidth, 0f, 0.4f, 0.22f),
-            VsStraight = F(VsStraight, 0f, 1f, 0f),
-            VsHook = F(VsHook, 0f, 1f, 0f),
-            VsUppercut = F(VsUppercut, 0f, 1f, 0f),
-            VsBody = F(VsBody, 0f, 1f, 0f),
+            HeadY = DefenseRanges.HeadY.Clamp(HeadY, 0f),
+            HeadZ = DefenseRanges.HeadZ.Clamp(HeadZ, 0f),
+            EndX = Sweep ? DefenseRanges.HeadX.Clamp(EndX, 0f) : headX, // 横へ抜けない技では使わないので、始めと同じにそろえる
+            Duration = DefenseRanges.Duration.Clamp(Duration, 0.35f),
+            Move = DefenseRanges.Move.Clamp(Move, 0f),
+            Step = DefenseRanges.Step.Clamp(Step, 0f),
+            Rate = DefenseRanges.Rate.Clamp(Rate, 26f),
+            HandsUp = DefenseRanges.HandsUp.Clamp(HandsUp, 0f),
+            GloveAnchor = DefenseRanges.GloveAnchor.Clamp(GloveAnchor, 0f),
+            GloveWidth = DefenseRanges.GloveWidth.Clamp(GloveWidth, 0.1f),
+            GloveHeight = DefenseRanges.GloveHeight.Clamp(GloveHeight, -0.03f),
+            GloveForward = DefenseRanges.GloveForward.Clamp(GloveForward, 0.3f),
+            BodyDrop = DefenseRanges.BodyDrop.Clamp(BodyDrop, 0.55f),
+            TempleWidth = DefenseRanges.TempleWidth.Clamp(TempleWidth, 0.22f),
+            VsStraight = DefenseRanges.Effect.Clamp(VsStraight, 0f),
+            VsHook = DefenseRanges.Effect.Clamp(VsHook, 0f),
+            VsUppercut = DefenseRanges.Effect.Clamp(VsUppercut, 0f),
+            VsBody = DefenseRanges.Effect.Clamp(VsBody, 0f),
         };
     }
+}
+
+/// <summary>
+/// 防御技の値の範囲（<see cref="DefenseMove.Validated"/> が収める幅）。<c>Mutation.Move</c> も同じ表を参照する（範囲は 1 か所。
+/// 今は両者の範囲が一致している）。
+/// </summary>
+public static class DefenseRanges
+{
+    /// <summary>頭の横（始め・終わり）。0.6 腕長は体幹を傾けきった量。</summary>
+    public static ValueRange HeadX { get; } = new(nameof(DefenseMove.HeadX), -0.6f, 0.6f);
+
+    public static ValueRange HeadY { get; } = new(nameof(DefenseMove.HeadY), -0.7f, 0.2f);
+
+    public static ValueRange HeadZ { get; } = new(nameof(DefenseMove.HeadZ), -0.5f, 0.4f);
+
+    /// <summary>守りを続ける時間 [s]。</summary>
+    public static ValueRange Duration { get; } = new(nameof(DefenseMove.Duration), 0.15f, 0.7f);
+
+    public static ValueRange Move { get; } = new(nameof(DefenseMove.Move), -1f, 1f);
+
+    public static ValueRange Step { get; } = new(nameof(DefenseMove.Step), -1f, 1f);
+
+    public static ValueRange Rate { get; } = new(nameof(DefenseMove.Rate), 6f, 60f);
+
+    public static ValueRange HandsUp { get; } = new(nameof(DefenseMove.HandsUp), 0f, 1f);
+
+    public static ValueRange GloveAnchor { get; } = new(nameof(DefenseMove.GloveAnchor), 0f, 1f);
+
+    public static ValueRange GloveWidth { get; } = new(nameof(DefenseMove.GloveWidth), 0f, 0.35f);
+
+    public static ValueRange GloveHeight { get; } = new(nameof(DefenseMove.GloveHeight), -0.3f, 0.2f);
+
+    public static ValueRange GloveForward { get; } = new(nameof(DefenseMove.GloveForward), 0.05f, 0.5f);
+
+    public static ValueRange BodyDrop { get; } = new(nameof(DefenseMove.BodyDrop), 0.2f, 0.9f);
+
+    public static ValueRange TempleWidth { get; } = new(nameof(DefenseMove.TempleWidth), 0f, 0.4f);
+
+    /// <summary>拳の種類ごとの効き目（Vs*）。</summary>
+    public static ValueRange Effect { get; } = new("Vs", 0f, 1f);
+
+    /// <summary>カウンターを打ち始める守りの進み具合。</summary>
+    public static ValueRange CounterAt { get; } = new("CounterAt", 0.2f, 1f);
 }
 
 /// <summary>来る拳の種類（防御の選び分けに使う）。</summary>

@@ -104,6 +104,7 @@ public static class DefenseDrill
     {
         ArgumentNullException.ThrowIfNull(book);
         var open = baseline ?? MeasureBaseline(kind, seed, seconds, range, combos);
+        DrillMeter.Add(seconds);
         var (punches, damage, counter, stats) = Bout(kind, Defender(book, defend: true, range, counters), defense, seed, seconds, range, combos);
         var defended = stats.Defenses.Values;
         return new DrillResult(defense, kind, punches, damage, open.Punches, open.Damage, counter,
@@ -113,6 +114,7 @@ public static class DefenseDrill
     /// <summary>守らない受け手の成績（防御の動きに依らないので、同じ種・同じ種類なら使い回せる）。</summary>
     public static Baseline MeasureBaseline(PunchKind kind, int seed, float seconds, float range = DefaultRange, bool combos = false)
     {
+        DrillMeter.Add(seconds);
         var (punches, damage, _, _) = Bout(kind, Defender(DefenseBook.Default, defend: false, range), null, seed, seconds, range, combos);
         return new Baseline(punches, damage);
     }
@@ -171,13 +173,18 @@ public static class DefenseDrill
     /// <param name="telegraph">攻め手の打つ前の体の溜め [s]。合図は溜めの始めから数える。</param>
     /// <param name="setup">試合を作った直後に呼ぶ（目を潰すなど。省略なら何もしない）。</param>
     /// <param name="observe">呼び出し側が各ステップの試合状態と受け手を観測するためのコールバック。</param>
+    /// <param name="attackerStyle">
+    /// 攻め手のスタイル（<see cref="PunchAttacker"/> から作り、技の表 <see cref="BotStyle.Punches"/> を差し替えたものなど）。
+    /// 省略なら <see cref="PunchAttacker"/>(<paramref name="punch"/>, <paramref name="range"/>, telegraph: <paramref name="telegraph"/>)。合図（<paramref name="cue"/>）もこの攻め手の表から作る。
+    /// </param>
     public static PunchDrillResult Punch(string punch, Defense defense, BotStyle defender, int seed, float seconds, float range = DefaultRange, float? cue = null, float telegraph = 0f, Action<BoxingGame>? setup = null,
-        Action<BoxingGame, BoxerBot>? observe = null)
+        Action<BoxingGame, BoxerBot>? observe = null, BotStyle? attackerStyle = null)
     {
         ArgumentNullException.ThrowIfNull(defender);
+        DrillMeter.Add(seconds);
         var attackers = new List<BoxerBot>();
         var defenders = new List<BoxerBot>();
-        var attacker = PunchAttacker(punch, range, telegraph: telegraph);
+        var attacker = attackerStyle?.Validated() ?? PunchAttacker(punch, range, telegraph: telegraph);
         var style = (cue is null ? defender : defender with { DefenseRate = 0f }).Validated();
         var cues = cue is { } delay ? DrillCue.For(punch, attacker, delay) : null;
         var corners = new BoxingCorners(attacker.Name,
@@ -191,6 +198,8 @@ public static class DefenseDrill
         // （接触ごとに数えると、頭の割合が 1 を超えた。レビュー指摘）。
         var counted = new Dictionary<Hand, (int Punch, bool Head, bool Guard, bool Other)>();
         var headDamage = 0f;
+        var torsoDamage = 0f;
+        var counterDamage = 0f;
         for (var t = 0f; t < seconds; t += StepDt)
         {
             game.Step(default, StepDt);
@@ -202,7 +211,13 @@ public static class DefenseDrill
             {
                 if (hit.Attacker != game.Cpu)
                 {
+                    counterDamage += hit.Damage; // 受け手から攻め手への打ち返し（Bout と同じ数え方）
                     continue;
+                }
+
+                if (hit.Zone is HitZone.Heart or HitZone.Liver or HitZone.SolarPlexus or HitZone.Body)
+                {
+                    torsoDamage += hit.Damage;
                 }
 
                 var defending = defenders.Count > 0 && defenders[^1].CurrentDefense != Defense.None;
@@ -255,7 +270,7 @@ public static class DefenseDrill
 
         var count = stats.Defenses.GetValueOrDefault(defense);
         var punches = attackers.Sum(a => a.Stats.Techniques.Values.Sum(c => c.Thrown));
-        return new PunchDrillResult(punches, count.Attempts, count.Failed, head, guard, other, openHead, headDamage);
+        return new PunchDrillResult(punches, count.Attempts, count.Failed, head, guard, other, openHead, headDamage, counterDamage, torsoDamage);
     }
 
     /// <summary>その種類の拳を含む、実戦でよく出る連打（ストレートなら 1-2 や 1-1-2、フックなら 2-3-2 や 3-2）。</summary>
@@ -300,7 +315,7 @@ public static class DefenseDrill
         {
             ArgumentNullException.ThrowIfNull(attacker);
             var technique = Combo.Named(punch).Steps[0];
-            var hand = PunchSpec.Of(technique).Lead ? attacker.Lead : Opposite(attacker.Lead);
+            var hand = attacker.Punches.Of(technique).Lead ? attacker.Lead : Opposite(attacker.Lead);
             return new DrillCue(hand, BoxerBot.KindOf(technique), delay);
         }
 
@@ -347,8 +362,17 @@ public static class DefenseDrill
 /// <param name="OtherHits">回避の最中にそのほか（胴・肩など）へ当たった数。</param>
 /// <param name="OpenHeadHits">回避を出していない時に頭へ当たった数（気づけなかった・間に合わなかった拳）。</param>
 /// <param name="HeadDamage">頭へのダメージの合計（回避の最中かどうかを問わない）。</param>
-public sealed record PunchDrillResult(int Punches, int Defenses, int Failed, int HeadHits, int GuardHits, int OtherHits, int OpenHeadHits, float HeadDamage)
+/// <param name="CounterDamage">受け手の打ち返しが攻め手に与えたダメージの合計（<see cref="DefenseDrill"/> の防御ドリルと同じ数え方）。</param>
+/// <param name="TorsoDamage">胴（心臓・肝臓・みぞおち・腹）へのダメージの合計。</param>
+public sealed record PunchDrillResult(int Punches, int Defenses, int Failed, int HeadHits, int GuardHits, int OtherHits, int OpenHeadHits, float HeadDamage,
+    float CounterDamage, float TorsoDamage)
 {
+    /// <summary>
+    /// 攻めの差の点 [1/s]: 頭と胴に与えたダメージ − 打ち返されたダメージ（防御ドリルの点と同じく、比でなく差。
+    /// 拳の技を磨くとき（cmatune）の点で、<see cref="Score"/> とは別。秒で割るのは秒数の違う設定を比べやすくするため）。
+    /// </summary>
+    public float AttackPoint(float seconds) => (HeadDamage + TorsoDamage - CounterDamage) / Math.Max(1e-3f, seconds);
+
     /// <summary>回避が何にも触れられずに終わった割合（きれいに外した）。</summary>
     public float EvadeRate => Defenses > 0 ? 1f - ((float)Failed / Defenses) : 0f;
 
@@ -370,7 +394,26 @@ public sealed record PunchDrillResult(int Punches, int Defenses, int Failed, int
 
     public static PunchDrillResult operator +(PunchDrillResult a, PunchDrillResult b) => new(
         a.Punches + b.Punches, a.Defenses + b.Defenses, a.Failed + b.Failed, a.HeadHits + b.HeadHits, a.GuardHits + b.GuardHits,
-        a.OtherHits + b.OtherHits, a.OpenHeadHits + b.OpenHeadHits, a.HeadDamage + b.HeadDamage);
+        a.OtherHits + b.OtherHits, a.OpenHeadHits + b.OpenHeadHits, a.HeadDamage + b.HeadDamage, a.CounterDamage + b.CounterDamage, a.TorsoDamage + b.TorsoDamage);
 
-    public static PunchDrillResult Empty { get; } = new(0, 0, 0, 0, 0, 0, 0, 0f);
+    public static PunchDrillResult Empty { get; } = new(0, 0, 0, 0, 0, 0, 0, 0f, 0f, 0f);
+}
+
+/// <summary>
+/// ドリルの予算の数え方（1 つだけ）: <see cref="DefenseDrill.Run"/>・<see cref="DefenseDrill.Punch"/>・<see cref="DefenseDrill.MeasureBaseline"/> を
+/// 呼んだ回数と、その秒数の合計（キャッシュで呼ばなかった分は数えない）。プロセス全体の積算で、前後の差で使う。試合の結果には響かない。
+/// </summary>
+public static class DrillMeter
+{
+    private static long _calls;
+    private static long _microSeconds;
+
+    public static void Add(float seconds)
+    {
+        Interlocked.Increment(ref _calls);
+        Interlocked.Add(ref _microSeconds, (long)Math.Round(seconds * 1e6));
+    }
+
+    /// <summary>これまでの積算（呼んだ回数・秒数の合計）。</summary>
+    public static (long Calls, double Seconds) Total => (Interlocked.Read(ref _calls), Interlocked.Read(ref _microSeconds) / 1e6);
 }

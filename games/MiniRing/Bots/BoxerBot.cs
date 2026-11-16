@@ -586,7 +586,9 @@ public sealed class BoxerBot : IFighterControl
     /// <summary>技の拳の種類（打つ側が知っている種類。経路の形から: 胴打ち・横から（フック）・下から（アッパー）・まっすぐ）。</summary>
     internal static PunchKind KindOf(Technique technique)
     {
-        var spec = PunchSpec.Of(technique);
+        // 技の種類は技の番号で決まるもので、スタイルが磨いた値（Style.Punches）で変わってはいけない（守りの選び方・合図・ドリルが使う）ので、
+        // 既定の技表（PunchBook.Default）の値で決める。
+        var spec = PunchBook.Default.Of(technique);
         return spec.ToBody ? PunchKind.Body : spec.Lateral >= 0.5f ? PunchKind.Hook : spec.Low >= 0.5f ? PunchKind.Uppercut : PunchKind.Straight;
     }
 
@@ -1073,7 +1075,7 @@ public sealed class BoxerBot : IFighterControl
         }
 
         var technique = combo.Steps[_comboIndex];
-        var spec = PunchSpec.Of(technique);
+        var spec = Style.Punches.Of(technique);
         var puncher = spec.Lead ? Style.Lead : Opposite(Style.Lead);
         if (_hands[(int)puncher].Active)
         {
@@ -1092,10 +1094,10 @@ public sealed class BoxerBot : IFighterControl
         if ((Targeting.IsBodyGoal(goal) && !spec.ToBody) || (Targeting.IsHeadGoal(goal) && spec.ToBody))
         {
             var retargeted = Targeting.Retarget(technique, Targeting.IsBodyGoal(goal));
-            if (PunchSpec.Of(retargeted).ToBody == Targeting.IsBodyGoal(goal))
+            if (Style.Punches.Of(retargeted).ToBody == Targeting.IsBodyGoal(goal))
             {
                 technique = retargeted;
-                spec = PunchSpec.Of(retargeted);
+                spec = Style.Punches.Of(retargeted);
             }
             else
             {
@@ -1180,7 +1182,7 @@ public sealed class BoxerBot : IFighterControl
         if (_opponentHighGuard && technique is Technique.Jab or Technique.Cross)
         {
             var body = technique == Technique.Jab ? Technique.BodyJab : Technique.BodyCross;
-            return (body, PunchSpec.Of(body), Vector3.Zero);
+            return (body, Style.Punches.Of(body), Vector3.Zero);
         }
 
         return spec.ToBody ? (technique, spec, Vector3.Zero) : (technique, spec, new Vector3(_gapSide * 0.25f * _reach, 0f, 0f));

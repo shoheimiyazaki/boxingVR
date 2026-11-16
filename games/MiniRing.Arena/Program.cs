@@ -11,6 +11,9 @@ using MiniRing.Bots;
 //   drill [--book f.json] [--bouts N] [--seconds S]                                防御ドリル: 防御技 × 拳の種類の効き目の表
 //   drilltune [--defense a,b|all] [--book f.json] [--gens G] [--pop P] [--log f.md] [--out book.json]
 //                                                                                   防御技ごとの最適化（ドリルで PDCA）
+//   cmatune --target punch:2|defense:Slip[,..] [--defenses Block,Slip] [--gens 40] [--lambda 0] [--sigma 0.15] [--samples N] [--seconds S] [--seed X]
+//           [--resume state.json] [--out docs/arena/cma_<名前>.md] [--json docs/arena/cma/<名前>.json] [--confirm-n N] [--match-n N] [--match-seconds S] [--parallel P]
+//                                                                                   CMA-ES でドリルの点を上げる（拳 1 技・守り 1 技。最後に使わなかった種で比べ直し、試合でも確かめる）
 //   attacklab [--combos 1,2,1-2] [--telegraphs 0,0.1,0.2] [--ranges 0.9,1.05,1.2] [--bouts N] [--seconds S] [--log f.md]
 //                                                                                   攻撃のドリル: 単発・連打 × 溜めの長さで、拳の速さ・体重の乗り・威力
 //   karatelab [--only shapes,parry,kicks,video] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md] [--video media_tmp/karate_vitals]
@@ -30,6 +33,8 @@ using MiniRing.Bots;
 //            [--fight only] [--video f.mp4]
 //   swinglab [--gens G] [--lambda L] [--seed X] [--bouts N] [--seconds S] [--out report.md] [--best swings.json] [--video f.mp4]
 //                                                                                   棍棒の振りの研究（型ごとに威力を進化戦略で上げ、要素を外して比べ、拳のボットと戦わせる）
+//   noiselab [--only drill,match] [--match-n N] [--drill-n N] [--match-seconds a,b] [--drill-seconds a,b] [--seed X] [--parallel P] [--out f.md]
+//                                                                                   評価の雑音を測る（種による揺れ・小さな変更での揺れ・差を言うのに要る標本の数・1 標本の長さ）
 //   visionlab [--only start,aim] [--bouts N] [--seconds S] [--seed X] [--log f.md]  目を潰されて始める・目を狙うスタイルの測定
 //   faces [--out f.png] [--names a,b|f.json] [--columns N]                                全キャラの顔（正面と斜め）を並べた画像
 //   voxexport [--out boxer.vox] [--from current|generated]                         ボクサーの中身を .vox へ（Vengi・MagicaVoxel で直す）
@@ -60,6 +65,9 @@ try
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
         "formlab" => FormLabCommand(Options.Parse(argv[1..], "punch", "slot", "style", "move", "set", "cue", "bouts", "seconds", "seed", "log")),
         "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift")),
+        "cmatune" => CmaTuneCommand(Options.Parse(argv[1..], "target", "defenses", "gens", "lambda", "sigma", "samples", "seconds", "seed", "resume", "out", "json", "confirm-n", "match-n", "match-seconds", "parallel")),
+        "defconfirm" => DefConfirm.Run(Options.Parse(argv[1..], "defense", "book", "seed", "seconds", "confirm-n", "export-champion")),
+        "noiselab" => NoiseLabCommand(Options.Parse(argv[1..], "only", "match-n", "drill-n", "match-seconds", "drill-seconds", "match-ref", "drill-ref", "seed", "parallel", "out")),
         "guardspar" => GuardSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "breakdemo" => BreakDemoCommand(Options.Parse(argv[1..], "out", "seconds", "only", "fps")),
@@ -83,7 +91,7 @@ try
         "tvlint" => TvLintCommand(Options.Parse(argv[1..], "script", "events", "manifest")),
         "tvdigest" => TvDigestCommand(Options.Parse(argv[1..], "events", "out")),
         "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
@@ -388,15 +396,49 @@ static int DrillTune(Options o)
     var counters = bool.Parse(o.Get("counters") ?? "true");
     var combos = bool.Parse(o.Get("combos") ?? "false");
     var tuner = new DefenseTuner(o.Int("bouts", 8, min: 1), o.Float("seconds", 20f, min: 1f), seed, Log, ranges, counters, combos);
+    var meterStart = DrillMeter.Total;
     var before = tuner.Matrix(book, seed + 500);
     Log("## 最適化の前の表\n\n" + DefenseTuner.MatrixTable(before.Results));
     var tuned = tuner.Optimize(book, techniques, o.Int("gens", 6, min: 0), o.Int("pop", 8, min: 1));
     var after = tuner.Matrix(tuned, seed + 500);
     Log("## 最適化の後の表（守りを選ぶ重みに使う）\n\n" + DefenseTuner.MatrixTable(after.Results));
+    var meterEnd = DrillMeter.Total;
+    Log(string.Create(CultureInfo.InvariantCulture,
+        $"## 予算（`DefenseDrill.Run`・`DefenseDrill.Punch`・`MeasureBaseline` を呼んだ回数 × 秒数。キャッシュで呼ばなかった分は数えない）\n\n{meterEnd.Calls - meterStart.Calls} 回、合計 {meterEnd.Seconds - meterStart.Seconds:0} 秒（シミュレーション上）。\n"));
     var json = System.Text.Json.JsonSerializer.Serialize(after.Book, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
     if (o.Get("out") is { } outPath)
     {
         File.WriteAllText(outPath, json);
+    }
+
+    return 0;
+}
+
+static int CmaTuneCommand(Options o)
+{
+    var targets = o.List("target", []);
+    if (targets.Count == 0)
+    {
+        throw new ArgumentException("--target に punch:<型> か defense:<技> を渡してください（例: --target punch:2）。");
+    }
+
+    var defenses = o.Get("defenses") is { } list
+        ? (IReadOnlyList<Defense>)list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(n => Enum.Parse<Defense>(n, ignoreCase: true)).ToList()
+        : null;
+    var config = new CmaTuneConfig(targets, defenses, o.Int("gens", 40, min: 1), o.Int("lambda", 0, min: 0), o.Float("sigma", 0.15f, min: 0.001f), o.Int("samples", 48, min: 1),
+        o.Float("seconds", 40f, min: 1f), o.Int("seed", 1), o.Int("confirm-n", 96, min: 0), o.Int("match-n", 16, min: 0), o.Float("match-seconds", 45f, min: 1f),
+        o.Get("parallel") is null ? null : o.Int("parallel", 1, min: 1));
+    if (config.Lambda is > 0 and < 4)
+    {
+        throw new ArgumentException("--lambda は 0（自動）か 4 以上にしてください。");
+    }
+
+    var report = new CmaTune(config, line => Console.Error.WriteLine(line)).Run(o.Get("resume"), o.Get("json"));
+    Console.WriteLine(report);
+    if (o.Get("out") is { } outPath)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
+        File.WriteAllText(outPath, report);
     }
 
     return 0;
@@ -723,6 +765,31 @@ static int AimLabCommand(Options o)
         : [.. from gain in AimGrid.Gains from lead in AimGrid.Leads from forward in AimGrid.Forwards
               select new MiniRing.Motion.AimTuning(gain, lead, 0.6f, forward)];
     var report = AimLab.Run(SwordLibraryLab.Load(library), candidates, o.Get("library-out") ?? library, o.Get("tuning-out") ?? "docs/arena/aim_tuning.json", Console.Out);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int NoiseLabCommand(Options o)
+{
+    // 評価の雑音を測る（docs/arena/evo_noise.md）: 種による揺れ・小さな変更での揺れ・差を言うのに要る標本の数・1 標本の長さ。
+    var only = o.List("only", ["drill", "match"]).ToHashSet();
+    var unknown = only.FirstOrDefault(x => x is not ("drill" or "match"));
+    if (unknown is not null)
+    {
+        throw new ArgumentException($"--only は drill, match のどちらか（{unknown}）。");
+    }
+
+    float[] Floats(string name, float[] fallback) => o.List(name, fallback.Select(f => f.ToString(CultureInfo.InvariantCulture)).ToList()).Select(s => float.Parse(s, CultureInfo.InvariantCulture)).ToArray();
+    var matchSeconds = Floats("match-seconds", [30f, 45f, 60f]);
+    var drillSeconds = Floats("drill-seconds", [10f, 20f, 40f]);
+    var lab = new NoiseLab(o.Int("match-n", 12, min: 4), o.Int("drill-n", 48, min: 4), o.Int("seed", 1), o.Get("parallel") is null ? null : o.Int("parallel", 1, min: 1),
+        line => Console.Error.WriteLine($"{DateTime.Now:HH:mm:ss} {line}"));
+    var report = lab.Run(only, matchSeconds, drillSeconds, o.Float("match-ref", 45f, min: 1f), o.Float("drill-ref", 20f, min: 1f));
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {
@@ -1207,6 +1274,12 @@ static int DrillVideo(Options o, string punch)
     var range = o.Float("range", DefenseDrill.DefaultRange, min: 0.8f);
     float? cue = o.Get("cue") is { } c && c != "none" ? float.Parse(c, CultureInfo.InvariantCulture) : 0.04f;
     var attacker = DefenseDrill.PunchAttacker(punch, range, telegraph: o.Float("telegraph", 0f, min: 0f));
+    if (o.Get("attacker-style") is { } attackerStyleName)
+    {
+        // 攻め手の技の表だけを、そのスタイル（champion に磨いた技を重ねた *.style.json など）の物にする。攻め手の構え・単発の型・間合いはドリルのまま。
+        attacker = (attacker with { Punches = LoadStyle(attackerStyleName).Punches }).Validated();
+    }
+
     var defender = DefenseDrill.Defender(book, defend: true, range, counters: bool.Parse(o.Get("counters") ?? "false")) with
     {
         Name = style?.Name ?? "slip",

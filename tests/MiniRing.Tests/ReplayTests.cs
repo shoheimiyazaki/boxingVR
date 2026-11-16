@@ -287,6 +287,30 @@ public sealed class ReplayTests
     }
 
     [TestMethod]
+    public void ReplayStoresTheCpuPunchBook_SoATunedPunchTableReplaysIdentically()
+    {
+        // 技表（Punches）を変えた CPU のスタイルで記録して、見出しの JSON から作り直した相手で再生しても一致する（HeadShift を含む）。
+        var book = Bots.PunchBook.Default
+            .With(Bots.Technique.Jab, Bots.PunchBook.Default.Jab with { Duration = 0.24f, HeadShiftX = 0.11f, HeadShiftZ = 0.2f })
+            .With(Bots.Technique.Cross, Bots.PunchBook.Default.Cross with { Duration = 0.55f, Overshoot = 0.45f, HeadShiftY = -0.12f });
+        var tuned = Bots.BotCatalog.Champion with { Punches = book };
+        using var game = new BoxingGame(seed: 8, corners: Bots.BotCatalog.Corners(tuned));
+        var stream = new MemoryStream();
+        using (var recorder = new ReplayRecorder(stream, game, "test"))
+        {
+            for (var i = 0; i < 480; i++)
+            {
+                recorder.Step(game, new BoxingInput(default), 1f / 60f);
+            }
+        }
+
+        var data = ReplayFile.Read(new MemoryStream(stream.ToArray()));
+        Assert.AreEqual(0.55f, Bots.BotStyle.FromJson(data.Header.CpuStyleJson).Punches.Cross.Duration);
+        Assert.AreEqual(0.11f, Bots.BotStyle.FromJson(data.Header.CpuStyleJson).Punches.Jab.HeadShiftX);
+        Assert.IsTrue(ReplayPlayer.Verify(data).Reproduced);
+    }
+
+    [TestMethod]
     public void BotVersusBotMatch_IsNotRecorded_BecauseTheHostInputIsUnused()
     {
         var corners = Bots.BotCatalog.Corners("boxer") with { Player = seed => Bots.BotCatalog.Create("boxer", seed) };
