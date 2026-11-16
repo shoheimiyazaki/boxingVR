@@ -4,7 +4,7 @@ using MiniRing.Arena;
 using MiniRing.Bots;
 
 // ボット同士の対戦場。
-//   rosterleague [--chars a,b,...] [--bouts N] [--seconds S] [--seed X] [--referee on|off] [--parallel N] [--set A=v,B=v [--ab on [--layered id]]] [--out file.md]   名簿のキャラの総当たり（体格・距離の帯・打撃の表）
+//   rosterleague [--wear id=glove,...] [--chars a,b,...] [--bouts N] [--seconds S] [--seed X] [--referee on|off] [--parallel N] [--set A=v,B=v [--ab on [--layered id]]] [--out file.md]   名簿のキャラの総当たり（体格・距離の帯・打撃の表）
 //   league [--bots a,b,...] [--bouts N] [--seconds S] [--seed X] [--out file.md]   総当たりの順位表と技の内訳
 //   tune --base NAME [--gens G] [--pop P] [--bouts N] [--seconds S] [--gauntlet a,b] [--seed X] [--log file.md] [--out style.json]
 //                                                                                   スタイルの自動調整（PDCA を世代ごとに記録）
@@ -47,7 +47,7 @@ try
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out", "hz", "passes", "sample", "referee")),
         "handlelab" => HandleLabCommand(Options.Parse(argv[1..], "pairs", "fist", "bouts", "seconds", "seed", "referee", "parallel", "out", "style-katana", "style-longsword", "style-club", "style-staff", "title")),
         "handlespar" => HandleSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "held-out", "gens", "lambda", "bouts", "seconds", "seed", "referee", "parallel", "start", "best", "out")),
-        "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain")),
+        "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain", "wear")),
         "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
         "learnlab" => LearnLabCommand(Options.Parse(argv[1..], "first", "second", "seeds", "seconds", "seed", "prior", "scale", "combos", "defender", "out")),
         "rangelab" => RangeLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "weapons", "out")),
@@ -151,6 +151,9 @@ static int RosterLeagueCommand(Options o)
     ApplySimplify(o);
     var all = MiniRing.Characters.CharacterRoster.All;
     var roster = o.Get("chars") is null ? all : [.. o.List("chars", []).Select(MiniRing.Characters.CharacterRoster.Get)];
+    // --wear id=glove|none|tonfa|...: そのキャラのはめる物だけを替えて比べる（比べもの。体・教科書・武器はそのまま）。
+    var wearOf = o.List("wear", []).Select(p => p.Split('=')).ToDictionary(p => p.Length == 2 ? p[0] : throw new ArgumentException("--wear は 名前=はめる物 をカンマで区切ってください。"), p => MiniRing.Weapons.HandWears.Parse(p[1]));
+    roster = [.. roster.Select(c => wearOf.TryGetValue(c.Id, out var w) ? c with { Wear = w } : c)];
     if (roster.Count < 2)
     {
         throw new ArgumentException("--chars には 2 人以上が必要です。");

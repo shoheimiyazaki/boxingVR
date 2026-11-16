@@ -163,7 +163,10 @@ public static class BotCatalog
     /// <summary>テコンドー。蹴りが主（回し蹴り・横蹴り・後ろ蹴り・かかと落とし）、拳は補助。KickRangeFit で届く間合いに合う蹴りを選ぶ。</summary>
     public static BotStyle Taekwondo { get; } = LoadEmbedded("MiniRing.Bots.taekwondo.json");
 
-    public static IReadOnlyList<BotStyle> Styles { get; } = [Boxer, OutBoxer, Swarmer, Counter, Slugger, Jabber, ChampionV1, Champion, Karate, Taekwondo];
+    /// <summary>トンファー。両手の木の棒で突き、前腕に沿う棒で受ける。違いは JSON の値だけ（Bots/tonfa.json、docs/TONFA.md）。</summary>
+    public static BotStyle Tonfa { get; } = LoadEmbedded("MiniRing.Bots.tonfa.json");
+
+    public static IReadOnlyList<BotStyle> Styles { get; } = [Boxer, OutBoxer, Swarmer, Counter, Slugger, Jabber, ChampionV1, Champion, Karate, Taekwondo, Tonfa];
 
     private static BotStyle LoadEmbedded(string resource)
     {

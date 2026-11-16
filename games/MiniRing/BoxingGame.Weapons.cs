@@ -108,9 +108,10 @@ public sealed partial class BoxingGame
             }
 
             var leather = fighter == Player ? BoxerAnatomy.RedGlove : BoxerAnatomy.BlueGlove;
-            var worn = Weapon.CreateWorn(_world, kind, leather, fighter.GloveCenter(hand), Quaternion.Identity);
+            var mirrored = Weapon.MirroredOn(kind, hand);
+            var worn = Weapon.CreateWorn(_world, kind, leather, fighter.GloveCenter(hand), Quaternion.Identity, mirrored);
             Track(worn);
-            fighter.Wield(hand, worn.Body.BodyId, Weapon.GripOf(kind), glove: true);
+            fighter.Wield(hand, worn.Body.BodyId, Weapon.GripOf(kind, mirrored), glove: true);
             fighter.SetStrikeReach(hand, worn.HandState is null ? null : worn.StrikeOffset);
             _wielders[worn] = fighter;
             _wieldHand[worn] = hand;

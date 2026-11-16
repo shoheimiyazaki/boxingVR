@@ -176,6 +176,11 @@ internal static class MenuIcons
             Rect(-0.1f, 0f, 0.03f, 0.55f, SteelDark, 0f), Rect(0.2f, 0f, 0.03f, 0.55f, SteelDark, 0f), Rect(0.5f, 0f, 0.03f, 0.55f, SteelDark, 0f),
             Rect(-0.35f, 0f, 0.1f, 0.7f, Gold, 0.02f),
         ],
+        HandWear.Tonfa =>
+        [
+            Rect(0.1f, 0.3f, 1.5f, 0.15f, Wood, 0.06f), Rect(-0.35f, 0.14f, 0.1f, 0.3f, WoodDark, 0.03f),
+            Rect(0.1f, -0.3f, 1.5f, 0.15f, Wood, 0.06f), Rect(-0.35f, -0.14f, 0.1f, 0.3f, WoodDark, 0.03f),
+        ],
         _ => [],
     };
 

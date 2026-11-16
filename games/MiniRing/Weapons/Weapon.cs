@@ -62,6 +62,12 @@ public enum WeaponKind
     /// 刃はない。長さは基準体格の身長ほど。
     /// </summary>
     Staff,
+
+    /// <summary>
+    /// トンファー（<see cref="HandWear.Tonfa"/>、両手に 1 本ずつ）: 拳で握る横の握り（短い柄）と、その端から直角に前腕の外側に沿って後ろへ伸びる
+    /// 長い木の棒。棒の前の端は拳の少し前へ出る。素手の拳が握りを握る。材質は棍棒・棒と同じ木。
+    /// </summary>
+    Tonfa,
 }
 
 /// <summary>
@@ -241,21 +247,27 @@ public sealed class Weapon
     /// 手にはめる物（<see cref="IsWorn"/>）を置く。<paramref name="leather"/> はグローブと籠手の革の材質（コーナーの色:
     /// <see cref="BoxerAnatomy.RedGlove"/> か <see cref="BoxerAnatomy.BlueGlove"/>。革を使わない物では使わない）。
     /// </summary>
-    public static Weapon CreateWorn(PhysicsWorld world, WeaponKind kind, byte leather, Vector3 position, Quaternion orientation)
+    public static Weapon CreateWorn(PhysicsWorld world, WeaponKind kind, byte leather, Vector3 position, Quaternion orientation, bool mirrored = false)
     {
         if (!IsWorn(kind))
         {
             throw new ArgumentException($"{kind} は手にはめる物ではありません。", nameof(kind));
         }
 
-        return Create(world, kind, Build(kind, leather), position, orientation);
+        return Create(world, kind, Build(kind, leather, WeaponVoxelOverrides.Shipped, mirrored), position, orientation);
     }
 
     /// <summary>
-    /// 手にはめる物か（グローブ・素手の拳・メリケンサック・カタール・籠手）。はめた物は拳から離れず、拳の打撃（パンチ）として数え、
+    /// 左右が非対称な形（トンファーの棒は拳の片側にある）を、左右の手で鏡にするか。左の手の物は拳の幅の向き（Z）を裏返して作る
+    /// （手の座標は左右とも同じ向きの回転で付くので、そのままだと棒が一方では外側・他方では内側になる）。左右が対称な物は裏返さない。
+    /// </summary>
+    public static bool MirroredOn(WeaponKind kind, Hand hand) => kind == WeaponKind.Tonfa && hand == Hand.Left;
+
+    /// <summary>
+    /// 手にはめる物か（グローブ・素手の拳・メリケンサック・カタール・籠手・トンファー）。はめた物は拳から離れず、拳の打撃（パンチ）として数え、
     /// 握った本人の体・同じ人のもう一方の手にはめた物とは当たらない。
     /// </summary>
-    public static bool IsWorn(WeaponKind kind) => kind is WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet;
+    public static bool IsWorn(WeaponKind kind) => kind is WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa;
 
     private static Weapon Create(PhysicsWorld world, WeaponKind kind, VoxelGrid grid, Vector3 position, Quaternion orientation)
     {
@@ -273,14 +285,14 @@ public sealed class Weapon
     /// <summary>
     /// 片手で握る所（武器のローカル）: 剣は握りの真ん中、棍棒は握りの端から 1.5cm、両手持ちの刀剣は上の手（鍔の下）の所。
     /// </summary>
-    public static Vector3 GripOf(WeaponKind kind) => kind switch
+    public static Vector3 GripOf(WeaponKind kind, bool mirrored = false) => kind switch
     {
         WeaponKind.IronSword => new Vector3((GuardFrom + PommelAt) * 0.5f, 0f, 0f),
         WeaponKind.WoodenClub => new Vector3(-ClubHalfLength + 0.015f, 0f, 0f),
         WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff => TwoHandGripsOf(kind).Top,
         WeaponKind.Glove => Vector3.Zero, // 拳はグローブの真ん中
         WeaponKind.Fist => HandSkeleton.Wrist, // 腕の先が手を握る所（手首）
-        WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet => -WornBoundsOf(kind).Center, // 拳の中心
+        WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa => -WornBoundsOf(kind, mirrored).Center, // 拳の中心
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
 
@@ -288,7 +300,7 @@ public sealed class Weapon
     public static bool CanTwoHand(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff;
 
     /// <summary>刃の無い（打って潰す）武器か。刃のある武器は、刃の形と材質だけで斬る（<see cref="VoxelContact"/>）。</summary>
-    public static bool IsBlunt(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Gauntlet;
+    public static bool IsBlunt(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Gauntlet or WeaponKind.Tonfa;
 
     private static readonly Lazy<bool>[] RigidFaces =
         Enum.GetValues<WeaponKind>().Select(k => new Lazy<bool>(() => StrikesWithRigidFace(k))).ToArray();
@@ -359,6 +371,7 @@ public sealed class Weapon
         WeaponKind.KnuckleDuster => new Vector3(DusterFront + DusterBoss, 0f, -0.5f * (2f * FistRadius / 4f)) - WornBoundsOf(kind).Center, // 中指の拳頭の突起の先
         WeaponKind.Katar => new Vector3(KatarTip, 0f, 0f) - WornBoundsOf(kind).Center,
         WeaponKind.Gauntlet => new Vector3(GauntletOuter, 0f, 0f) - WornBoundsOf(kind).Center,
+        WeaponKind.Tonfa => new Vector3(TonfaFront, 0f, TonfaStickZ) - WornBoundsOf(kind).Center, // 棒の前の端の先
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
 
@@ -383,9 +396,12 @@ public sealed class Weapon
     /// 革は直しの中の赤い革を <paramref name="leather"/> に置き換える）。null・無い・大きさが違えば生成のまま。
     /// 生成に付く後処理は、直しの対象の種類には無い（<see cref="WeaponKind.Fist"/> の外側を皮膚にする後処理だけで、拳は直しの対象外）。
     /// </summary>
-    public static VoxelGrid Build(WeaponKind kind, byte leather, WeaponVoxelOverrides? overrides)
+    public static VoxelGrid Build(WeaponKind kind, byte leather, WeaponVoxelOverrides? overrides) => Build(kind, leather, overrides, mirrored: false);
+
+    /// <summary>左右が非対称な形を鏡にして作る（<see cref="MirroredOn"/>）。それ以外は上と同じ。</summary>
+    public static VoxelGrid Build(WeaponKind kind, byte leather, WeaponVoxelOverrides? overrides, bool mirrored)
     {
-        var generated = Generate(kind, leather);
+        var generated = Generate(kind, leather, mirrored);
         if (overrides?.For(kind, generated.Dimensions) is not { } edited)
         {
             return generated;
@@ -397,12 +413,13 @@ public sealed class Weapon
         return new VoxelGrid(BoxerAnatomy.Palette, half, dims, (p, _) =>
         {
             var c = (p + half) / cell;
-            var m = edited[(int)c.X + (dims.X * ((int)c.Y + (dims.Y * (int)c.Z)))];
+            var z = mirrored ? dims.Z - 1 - (int)c.Z : (int)c.Z;
+            var m = edited[(int)c.X + (dims.X * ((int)c.Y + (dims.Y * z)))];
             return m == BoxerAnatomy.RedGlove ? leather : m;
         });
     }
 
-    private static VoxelGrid Generate(WeaponKind kind, byte leather) => kind switch
+    private static VoxelGrid Generate(WeaponKind kind, byte leather, bool mirrored = false) => kind switch
     {
         WeaponKind.IronSword => Sword(),
         WeaponKind.WoodenClub => Club(),
@@ -414,6 +431,7 @@ public sealed class Weapon
         WeaponKind.KnuckleDuster => Worn(kind, WornCell, KnuckleDusterAt),
         WeaponKind.Katar => Worn(kind, KatarCell, KatarAt),
         WeaponKind.Gauntlet => Worn(kind, WornCell, p => GauntletAt(p, leather)),
+        WeaponKind.Tonfa => Worn(kind, WornCell, TonfaAt, mirrored),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
 
@@ -699,25 +717,40 @@ public sealed class Weapon
     private const float GauntletCuffInner = 0.0135f;
     private const float GauntletCuffOuter = 0.016f;
 
+    // トンファー（人の: 全長 50 cm 前後・握りの柄 12 cm 前後・棒の太さ 3 cm 前後 → 人形の縮尺 0.3 倍で 14 cm・3.6 cm・0.9 cm）。
+    // 棒は拳の外側（Z の正の側）に前腕と平行に置き、後ろの端は肘を少し越える。前の端は拳の前へ 1.7 cm（人の 6 cm）出る。
+    private const float TonfaFront = 0.03f;         // 棒の前の端（拳の中心から前へ。拳の表の 1.7 cm 前）
+    private const float TonfaBack = -0.11f;         // 棒の後ろの端（肘を少し越える）
+    private const float TonfaStickRadius = 0.0045f; // 棒の太さ（直径 9 mm = 人の 3 cm）
+    private const float TonfaStickZ = 0.0185f;      // 棒の中心の Z（拳の幅の外に、棒の太さと前腕の皮の分の隙間を足した所）
+    private const float TonfaHandleRadius = 0.003f; // 握りの柄の太さ（直径 6 mm = 人の 2 cm）
+    private const float TonfaHandleFrom = -0.014f;  // 握りの柄の拳の側の端（Z。拳の幅をわずかに越える）
+
     /// <summary>手にはめる物の形を囲む箱（拳の座標）の中心と半分の大きさ。</summary>
-    private static (Vector3 Center, Vector3 Half) WornBoundsOf(WeaponKind kind)
+    private static (Vector3 Center, Vector3 Half) WornBoundsOf(WeaponKind kind, bool mirrored = false)
     {
         var (from, to) = kind switch
         {
             WeaponKind.KnuckleDuster => (new Vector3(-FistRadius, DusterPalm, -DusterHalfWidth), new Vector3(DusterFront + DusterBoss, FistRadius, DusterHalfWidth)),
             WeaponKind.Katar => (new Vector3(KatarBarBack, -FistRadius, -(KatarBarZ + KatarBarThick)), new Vector3(KatarTip, FistRadius, KatarBarZ + KatarBarThick)),
             WeaponKind.Gauntlet => (new Vector3(GauntletCuffFrom, -GauntletOuter, -GauntletOuter), new Vector3(GauntletOuter, GauntletOuter, GauntletOuter)),
+            WeaponKind.Tonfa => (new Vector3(TonfaBack, -FistRadius, TonfaHandleFrom), new Vector3(TonfaFront, FistRadius, TonfaStickZ + TonfaStickRadius)),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "拳の座標で書く手にはめる物ではありません。"),
         };
         // 端のセルの中心が形の端に乗るよう、半セル広げる。
         var pad = new Vector3(0.5f * (kind == WeaponKind.Katar ? KatarCell : WornCell));
-        return ((from + to) * 0.5f, ((to - from) * 0.5f) + pad);
+        var center = (from + to) * 0.5f;
+        return (mirrored ? center with { Z = -center.Z } : center, ((to - from) * 0.5f) + pad);
     }
 
-    private static VoxelGrid Worn(WeaponKind kind, float cell, Func<Vector3, byte> fill)
+    private static VoxelGrid Worn(WeaponKind kind, float cell, Func<Vector3, byte> fill, bool mirrored = false)
     {
-        var (center, half) = WornBoundsOf(kind);
-        return new VoxelGrid(BoxerAnatomy.Palette, half, cell, (p, _) => fill(p + center));
+        var (center, half) = WornBoundsOf(kind, mirrored);
+        return new VoxelGrid(BoxerAnatomy.Palette, half, cell, (p, _) =>
+        {
+            var f = p + center;
+            return fill(mirrored ? f with { Z = -f.Z } : f);
+        });
     }
 
     /// <summary>素手の拳: 半径 <see cref="FistRadius"/> の皮膚の球、芯（半径 <see cref="FistBone"/>）は骨。</summary>
@@ -797,6 +830,34 @@ public sealed class Weapon
         if ((p.X * p.X) + (p.Y * p.Y) <= 0.002f * 0.002f && across <= KatarBarZ + KatarBarThick)
         {
             return BoxerAnatomy.Iron;
+        }
+
+        return FistAt(p);
+    }
+
+    /// <summary>
+    /// トンファー: 素手の拳が握る横の柄（原点を通って Z に沿い、拳の外側の棒へつながる）と、その端から前腕に沿って X に伸びる木の丸い棒
+    /// （後ろは肘を少し越え、前は拳の少し前へ出る。両端は丸める）。木の材質は棍棒・棒と同じ。
+    /// </summary>
+    private static byte TonfaAt(Vector3 p)
+    {
+        var dz = p.Z - TonfaStickZ;
+        var radial = MathF.Sqrt((p.Y * p.Y) + (dz * dz));
+        if (p.X >= TonfaBack && p.X <= TonfaFront && radial <= TonfaStickRadius)
+        {
+            // 両端は半球に丸める（角が立つと、受けのたびに端のセルだけが削れる）。
+            var overFront = p.X - (TonfaFront - TonfaStickRadius);
+            var overBack = (TonfaBack + TonfaStickRadius) - p.X;
+            var over = MathF.Max(overFront, overBack);
+            if (over <= 0f || (radial * radial) + (over * over) <= TonfaStickRadius * TonfaStickRadius)
+            {
+                return BoxerAnatomy.Wood;
+            }
+        }
+
+        if (p.Z >= TonfaHandleFrom && p.Z <= TonfaStickZ && (p.X * p.X) + (p.Y * p.Y) <= TonfaHandleRadius * TonfaHandleRadius)
+        {
+            return BoxerAnatomy.Wood;
         }
 
         return FistAt(p);
