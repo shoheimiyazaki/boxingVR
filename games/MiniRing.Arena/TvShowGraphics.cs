@@ -10,7 +10,8 @@ namespace MiniRing.Arena;
 /// <param name="Discipline">流派・武器の見出し（「ボクシング」「空手」「日本刀」）。</param>
 /// <param name="Detail">見出しの下の説明（スタイル・手にはめる物）。</param>
 /// <param name="FullName">紹介の板の上の行に出す本名（名簿のキャラクター）。空なら出さない。</param>
-internal sealed record TvCorner(string Name, string Discipline, string Detail, string FullName = "")
+/// <param name="Profile">プロフィール（名簿のキャラクター。比べる表に年齢・身長・体重・戦績を出す）。無ければ null。</param>
+internal sealed record TvCorner(string Name, string Discipline, string Detail, string FullName = "", MiniRing.Characters.CharacterProfile? Profile = null)
 {
     /// <summary>名簿のキャラクターの紹介: 試合の名前・武器（はめる物）・肩書きと出身・本名。</summary>
     public static TvCorner Of(MiniRing.Characters.FighterCharacter character)
@@ -18,7 +19,7 @@ internal sealed record TvCorner(string Name, string Discipline, string Detail, s
         ArgumentNullException.ThrowIfNull(character);
         // 流派の見出しはスタイル・はめる物・武器から（「グローブ」でなく「ボクシング」）。下の行は肩書きと出身。
         var discipline = Of(character.HudName, character.StyleName, character.Wear, character.Weapon).Discipline;
-        return new TvCorner(character.HudName, discipline, $"{character.Tagline}・{character.Origin}", character.Name);
+        return new TvCorner(character.HudName, discipline, $"{character.Tagline}・{character.Origin}", character.Name, character.Profile);
     }
 
     /// <summary>手にはめる物・握る武器・スタイルから、紹介の見出しを作る。</summary>
@@ -182,8 +183,75 @@ internal sealed class TvShowGraphics(int width, int height)
         return (text, shapes);
     }
 
+    /// <summary>選手の比較の表（テール・オブ・ザ・テープ）の長さ [s]。実況・解説が両者を経歴から紹介する時間（冒頭のタイトルの後）。</summary>
+    public const float TapeSeconds = 14f;
+
     /// <summary>
-    /// 本日のプログラム: 見出し → 試合の行が上から順に滑り込む。済んだ試合は勝者と決まり手、この試合は金の縁と「この試合」の札、
+    /// 選手の比較の表: 真ん中に項目（年齢・身長・体重・戦績・出身・拠点・スタンス）、左に赤、右に青の値。行が上から順に現れ、最後の 0.5 秒で消える。
+    /// 両者にプロフィールが無ければ何も出さない。
+    /// </summary>
+    public (IReadOnlyList<ScreenTextDraw> Text, IReadOnlyList<UiShapeDraw> Shapes) Tape(TvCard card, float t)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+        var text = new List<ScreenTextDraw>();
+        var shapes = new List<UiShapeDraw>();
+        if (card.Red.Profile is not { } red || card.Blue.Profile is not { } blue)
+        {
+            return (text, shapes);
+        }
+
+        var w = (float)width;
+        var h = (float)height;
+        var fade = Clamp01(t / 0.4f) * (1f - Clamp01((t - (TapeSeconds - 0.5f)) / 0.5f));
+        shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, h * 0.5f), new Vector2(w, h), new Vector4(0f, 0f, 0f, 0.6f * fade)));
+        Logo(text, shapes, new Vector2(70f, 34f), 1f, fade);
+        Shadowed(text, "選手の比較", new Vector2(w * 0.5f, h * 0.06f), 40f, Gold with { W = fade }, TextAnchor.Center);
+
+        // 名前の帯（赤は左、青は右）。
+        var headY = h * 0.17f;
+        foreach (var (corner, x, bright, deep) in new[] { (card.Red, w * 0.27f, RedBright, RedDeep), (card.Blue, w * 0.73f, BlueBright, BlueDeep) })
+        {
+            shapes.Add(new UiShapeDraw(new Vector2(x, headY + 22f), new Vector2(w * 0.36f, 58f), bright with { W = bright.W * fade }, UiShapeDraw.Uniform(8f),
+                FillColorEnd: deep with { W = deep.W * fade }, GradientAxis: Vector2.UnitY));
+            Shadowed(text, corner.Name, new Vector2(x, headY + 4f), 36f, White with { W = fade }, TextAnchor.Center);
+        }
+
+        static string Record(Characters.FightRecord r) => string.Create(CultureInfo.InvariantCulture, $"{r.Wins}勝{r.Losses}敗{(r.Draws > 0 ? $"{r.Draws}分" : "")}（{r.Kos}KO）");
+        var rows = new (string Label, string Red, string Blue)[]
+        {
+            ("年齢", $"{red.Age}歳", $"{blue.Age}歳"),
+            ("身長", $"{red.HeightCm} cm", $"{blue.HeightCm} cm"),
+            ("体重", $"{red.WeightKg} kg", $"{blue.WeightKg} kg"),
+            ("戦績", Record(red.FightRecord), Record(blue.FightRecord)),
+            ("出身", red.Birthplace, blue.Birthplace),
+            ("拠点", red.Hometown, blue.Hometown),
+            ("構え", red.Stance, blue.Stance),
+        };
+        var rowHeight = (h * 0.66f) / rows.Length;
+        var top = h * 0.29f;
+        for (var i = 0; i < rows.Length; i++)
+        {
+            var a = Clamp01((t - 0.6f - (i * 0.35f)) / 0.4f) * fade;
+            if (a <= 0f)
+            {
+                continue;
+            }
+
+            var y = top + (i * rowHeight);
+            shapes.Add(UiShapeDraw.Rounded(new Vector2(w * 0.5f, y + (rowHeight * 0.4f)), new Vector2(w * 0.9f, rowHeight - 8f), 6f, Ink with { W = 0.85f * a }));
+            text.Add(new ScreenTextDraw(rows[i].Label, new Vector2(w * 0.5f, y + (rowHeight * 0.4f) - 14f), 24f, Gold with { W = a }, TextAnchor.Center));
+            text.Add(new ScreenTextDraw(Fit(rows[i].Red), new Vector2(w * 0.27f, y + (rowHeight * 0.4f) - 15f), 26f, White with { W = a }, TextAnchor.Center));
+            text.Add(new ScreenTextDraw(Fit(rows[i].Blue), new Vector2(w * 0.73f, y + (rowHeight * 0.4f) - 15f), 26f, White with { W = a }, TextAnchor.Center));
+        }
+
+        return (text, shapes);
+
+        // 出身・拠点の長い値は表の幅（約 18 字）に収める。
+        static string Fit(string value) => value.Length <= 18 ? value : value[..17] + "…";
+    }
+
+    /// <summary>
+    /// 本日のプログラム:見出し → 試合の行が上から順に滑り込む。済んだ試合は勝者と決まり手、この試合は金の縁と「この試合」の札、
     /// まだの試合は空欄。この試合に懸かるもの（「勝者は決勝へ」）を下の帯に。最後の 0.5 秒で消える。
     /// </summary>
     public (IReadOnlyList<ScreenTextDraw> Text, IReadOnlyList<UiShapeDraw> Shapes) Program(TvProgram program, float t)

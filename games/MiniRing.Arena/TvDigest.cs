@@ -124,6 +124,9 @@ internal static class TvDigest
         {
             switch (e.Type)
             {
+                case "tape":
+                    marks.Add((e.T, "選手の比較の表（両者の紹介）"));
+                    break;
                 case "program":
                     marks.Add((e.T, "本日のプログラム"));
                     break;
