@@ -61,6 +61,7 @@ try
         "formlab" => FormLabCommand(Options.Parse(argv[1..], "punch", "slot", "style", "move", "set", "cue", "bouts", "seconds", "seed", "log")),
         "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift")),
         "cmatune" => CmaTuneCommand(Options.Parse(argv[1..], "target", "defenses", "gens", "lambda", "sigma", "samples", "seconds", "seed", "resume", "out", "json", "confirm-n", "match-n", "match-seconds", "parallel")),
+        "defconfirm" => DefConfirm.Run(Options.Parse(argv[1..], "defense", "book", "seed", "seconds", "confirm-n", "export-champion")),
         "noiselab" => NoiseLabCommand(Options.Parse(argv[1..], "only", "match-n", "drill-n", "match-seconds", "drill-seconds", "match-ref", "drill-ref", "seed", "parallel", "out")),
         "guardspar" => GuardSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),

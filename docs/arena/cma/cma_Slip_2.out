@@ -1,0 +1,72 @@
+[defense:Slip] 世代 1 〜 16、λ 12、標本 16
+[defense:Slip] 世代 1: σ 0.1500 最良 0.509 平均 0.086 最悪 -0.916（1.4 分）
+[defense:Slip] 世代 2: σ 0.1400 最良 13.149 平均 9.615 最悪 4.561（2.5 分）
+[defense:Slip] 世代 3: σ 0.1356 最良 10.695 平均 7.831 最悪 4.149（3.7 分）
+[defense:Slip] 世代 4: σ 0.1352 最良 13.492 平均 11.529 最悪 9.112（5.0 分）
+[defense:Slip] 世代 5: σ 0.1375 最良 6.945 平均 4.817 最悪 2.131（6.3 分）
+[defense:Slip] 世代 6: σ 0.1289 最良 8.336 平均 3.703 最悪 0.576（7.5 分）
+[defense:Slip] 世代 7: σ 0.1218 最良 8.779 平均 5.203 最悪 1.292（8.8 分）
+[defense:Slip] 世代 8: σ 0.1192 最良 12.251 平均 4.255 最悪 -2.580（9.9 分）
+[defense:Slip] 世代 9: σ 0.1154 最良 16.194 平均 9.583 最悪 4.076（10.9 分）
+[defense:Slip] 世代 10: σ 0.1149 最良 10.402 平均 8.713 最悪 7.174（11.8 分）
+[defense:Slip] 世代 11: σ 0.1159 最良 10.405 平均 7.661 最悪 4.909（12.7 分）
+[defense:Slip] 世代 12: σ 0.1132 最良 3.767 平均 0.787 最悪 -3.550（13.5 分）
+[defense:Slip] 世代 13: σ 0.1139 最良 5.070 平均 2.188 最悪 -1.161（14.4 分）
+[defense:Slip] 世代 14: σ 0.1092 最良 19.126 平均 10.012 最悪 2.303（15.3 分）
+[defense:Slip] 世代 15: σ 0.1028 最良 4.219 平均 -0.154 最悪 -2.823（16.2 分）
+[defense:Slip] 世代 16: σ 0.1012 最良 15.455 平均 12.693 最悪 9.879（17.2 分）
+# cmatune（CMA-ES でドリルの点を上げる）
+
+設定: 世代 16、λ 12、初めの σ 0.15000000596046448、1 候補の標本 16、20 秒、種 2、並列 既定。受け手と基準は champion（champion-v1 ではない）。
+
+## defense:Slip
+
+1 標本 = 1 つの種で、守り Slip が受け持つ拳（Straight）を打たせたドリルの差の点（守らない受け手の被ダメージ − 被ダメージ + 0.25 × 打ち返し）の和。受け手は champion の守りの表。
+
+遺伝子（14 次元）: HeadX [-0.6, 0.6]・HeadY [-0.7, 0.2]・HeadZ [-0.5, 0.4]・Duration [0.15, 0.7]・Move [-1, 1]・Step [-1, 1]・Rate [6, 60]・HandsUp [0, 1]・GloveWidth [0, 0.35]・GloveHeight [-0.3, 0.2]・GloveForward [0.05, 0.5]・BodyDrop [0.2, 0.9]・TempleWidth [0, 0.4]・GloveAnchor [0, 1]。
+
+| 世代 | σ | 最良 | 平均 | 最悪 | 平均 m の値 |
+|---:|---:|---:|---:|---:|---|
+| 1 | 0.1500 | 0.509 | 0.086 | -0.916 | HeadX=0.586 HeadY=-0.589 HeadZ=-0.149 Duration=0.297 Move=-0.119 Step=0.751 Rate=57.64 HandsUp=0.015 GloveWidth=0.228 GloveHeight=-0.067 GloveForward=0.328 BodyDrop=0.465 TempleWidth=0.183 GloveAnchor=0.155 |
+| 2 | 0.1400 | 13.149 | 9.615 | 4.561 | HeadX=0.56 HeadY=-0.514 HeadZ=-0.066 Duration=0.299 Move=0.217 Step=0.664 Rate=57.978 HandsUp=0.006 GloveWidth=0.188 GloveHeight=-0.069 GloveForward=0.301 BodyDrop=0.498 TempleWidth=0.205 GloveAnchor=0.115 |
+| 3 | 0.1356 | 10.695 | 7.831 | 4.149 | HeadX=0.482 HeadY=-0.544 HeadZ=-0.04 Duration=0.368 Move=0.415 Step=0.701 Rate=59.679 HandsUp=0.033 GloveWidth=0.211 GloveHeight=-0.104 GloveForward=0.303 BodyDrop=0.531 TempleWidth=0.222 GloveAnchor=0.198 |
+| 4 | 0.1352 | 13.492 | 11.529 | 9.112 | HeadX=0.575 HeadY=-0.449 HeadZ=-0.084 Duration=0.411 Move=0.528 Step=0.571 Rate=52.524 HandsUp=0.068 GloveWidth=0.202 GloveHeight=-0.086 GloveForward=0.331 BodyDrop=0.607 TempleWidth=0.221 GloveAnchor=0.183 |
+| 5 | 0.1375 | 6.945 | 4.817 | 2.131 | HeadX=0.479 HeadY=-0.601 HeadZ=-0.175 Duration=0.374 Move=0.18 Step=0.598 Rate=52.397 HandsUp=0.073 GloveWidth=0.207 GloveHeight=-0.079 GloveForward=0.32 BodyDrop=0.568 TempleWidth=0.237 GloveAnchor=0.191 |
+| 6 | 0.1289 | 8.336 | 3.703 | 0.576 | HeadX=0.548 HeadY=-0.565 HeadZ=-0.107 Duration=0.36 Move=0.219 Step=0.518 Rate=55.913 HandsUp=0.215 GloveWidth=0.216 GloveHeight=-0.036 GloveForward=0.308 BodyDrop=0.533 TempleWidth=0.256 GloveAnchor=0.207 |
+| 7 | 0.1218 | 8.779 | 5.203 | 1.292 | HeadX=0.541 HeadY=-0.569 HeadZ=-0.043 Duration=0.363 Move=0.189 Step=0.323 Rate=49.71 HandsUp=0.215 GloveWidth=0.225 GloveHeight=-0.1 GloveForward=0.315 BodyDrop=0.507 TempleWidth=0.277 GloveAnchor=0.194 |
+| 8 | 0.1192 | 12.251 | 4.255 | -2.580 | HeadX=0.517 HeadY=-0.596 HeadZ=-0.034 Duration=0.402 Move=0.394 Step=0.381 Rate=47.619 HandsUp=0.22 GloveWidth=0.212 GloveHeight=-0.054 GloveForward=0.282 BodyDrop=0.494 TempleWidth=0.279 GloveAnchor=0.17 |
+| 9 | 0.1154 | 16.194 | 9.583 | 4.076 | HeadX=0.495 HeadY=-0.534 HeadZ=0.009 Duration=0.371 Move=0.53 Step=0.63 Rate=50.196 HandsUp=0.196 GloveWidth=0.205 GloveHeight=-0.067 GloveForward=0.25 BodyDrop=0.418 TempleWidth=0.309 GloveAnchor=0.142 |
+| 10 | 0.1149 | 10.402 | 8.713 | 7.174 | HeadX=0.414 HeadY=-0.565 HeadZ=-0.002 Duration=0.375 Move=0.635 Step=0.696 Rate=51.076 HandsUp=0.206 GloveWidth=0.213 GloveHeight=-0.042 GloveForward=0.244 BodyDrop=0.357 TempleWidth=0.317 GloveAnchor=0.203 |
+| 11 | 0.1159 | 10.405 | 7.661 | 4.909 | HeadX=0.531 HeadY=-0.582 HeadZ=0.026 Duration=0.304 Move=0.48 Step=0.467 Rate=49.796 HandsUp=0.093 GloveWidth=0.212 GloveHeight=-0.067 GloveForward=0.309 BodyDrop=0.362 TempleWidth=0.317 GloveAnchor=0.094 |
+| 12 | 0.1132 | 3.767 | 0.787 | -3.550 | HeadX=0.449 HeadY=-0.539 HeadZ=-0.007 Duration=0.303 Move=0.49 Step=0.633 Rate=52.504 HandsUp=0.062 GloveWidth=0.235 GloveHeight=-0.033 GloveForward=0.36 BodyDrop=0.303 TempleWidth=0.272 GloveAnchor=0.091 |
+| 13 | 0.1139 | 5.070 | 2.188 | -1.161 | HeadX=0.582 HeadY=-0.549 HeadZ=0.028 Duration=0.301 Move=0.283 Step=0.678 Rate=56.505 HandsUp=0.046 GloveWidth=0.251 GloveHeight=-0.024 GloveForward=0.313 BodyDrop=0.341 TempleWidth=0.29 GloveAnchor=0.143 |
+| 14 | 0.1092 | 19.126 | 10.012 | 2.303 | HeadX=0.4 HeadY=-0.505 HeadZ=0 Duration=0.343 Move=0.513 Step=0.63 Rate=56.412 HandsUp=0.035 GloveWidth=0.252 GloveHeight=-0.047 GloveForward=0.3 BodyDrop=0.339 TempleWidth=0.301 GloveAnchor=0.216 |
+| 15 | 0.1028 | 4.219 | -0.154 | -2.823 | HeadX=0.369 HeadY=-0.466 HeadZ=-0.006 Duration=0.344 Move=0.426 Step=0.666 Rate=55.475 HandsUp=0.121 GloveWidth=0.284 GloveHeight=-0.076 GloveForward=0.33 BodyDrop=0.342 TempleWidth=0.3 GloveAnchor=0.294 |
+| 16 | 0.1012 | 15.455 | 12.693 | 9.879 | HeadX=0.414 HeadY=-0.481 HeadZ=-0.043 Duration=0.304 Move=0.611 Step=0.598 Rate=58.887 HandsUp=0.031 GloveWidth=0.297 GloveHeight=-0.056 GloveForward=0.329 BodyDrop=0.317 TempleWidth=0.306 GloveAnchor=0.414 |
+
+**世代の点は「その世代の種での比べ」で、世代の間では比べられない**（世代ごとに種を変えるので、点の水準が世代で動く）。止めた理由: 世代の数に届いた。
+
+### 最後の比べ直し（使わなかった種・固定の n）
+
+始めの値（champion）と、分布の平均 m（最良の個体ではない）を同じ種で対にした差の点: n=192 平均の差 +1.973 ± 0.856（95% 区間 0.285〜3.660）符号検定 p=0.0001（+40/-12/=140）ρ=0.50 → A が上（A = m、B = 始めの値、95% 区間）。
+
+→ **改善**（信頼区間の下限が 0 より上）。
+
+始めの値: HeadX=0.6 HeadY=-0.6 HeadZ=-0.15 Duration=0.3 Move=-0.2 Step=1 Rate=60 HandsUp=0.09 GloveWidth=0.21 GloveHeight=-0.054 GloveForward=0.357 BodyDrop=0.547 TempleWidth=0.158 GloveAnchor=0
+
+m の値: HeadX=0.414 HeadY=-0.481 HeadZ=-0.043 Duration=0.304 Move=0.611 Step=0.598 Rate=58.887 HandsUp=0.031 GloveWidth=0.297 GloveHeight=-0.056 GloveForward=0.329 BodyDrop=0.317 TempleWidth=0.306 GloveAnchor=0.414
+
+### 試合でも悪くならないか（champion の技表のその技だけを替えたスタイル 対 元の champion）
+
+（行わない: --match-n が 2 未満）
+
+
+### 予算（`DefenseDrill.Run`・`DefenseDrill.Punch`・`MeasureBaseline` を呼んだ回数 × 秒数。キャッシュで呼ばなかった分は数えない）
+
+4613 回、合計 92260 秒（シミュレーション上。最後の比べ直しのドリルの分を含み、試合の確認は含まない）。このプロセスの壁時計 19.5 分。
+
+候補（分布の平均 m）の本: `docs\arena\cma\cma_Slip_2.json`、champion に重ねたスタイル: `docs\arena\cma\cma_Slip_2.style.json`。
+
+
+全体の壁時計: 19.5 分（このプロセスの分。16 コア）。
+
