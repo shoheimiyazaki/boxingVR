@@ -37,13 +37,14 @@ public sealed class CharacterRosterTests
         ("dmitri", null, HandWear.Glove, "slugger", 1.15f, 1.0f, 1.0f, 1.2f),
         ("joao", null, HandWear.KnuckleDuster, "swarmer", 0.98f, 1.0f, 1.0f, 1.05f),
         ("gaston", null, HandWear.Gauntlet, "outboxer", 1.05f, 1.05f, 1.0f, 1.0f),
+        ("diego", null, HandWear.None, "taekwondo", 1.1f, 1.0f, 1.1f, 0.92f),
     ];
 
     [TestMethod]
     public void Roster_HoldsTheDecidedTwelve_WithTheirEquipmentStyleAndBody()
     {
         var all = CharacterRoster.All;
-        Assert.HasCount(12, all);
+        Assert.HasCount(13, all);
         CollectionAssert.AreEqual(Decided.Select(d => d.Id).ToArray(), all.Select(c => c.Id).ToArray(), "the decided order");
         foreach (var d in Decided)
         {

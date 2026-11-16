@@ -160,7 +160,10 @@ public static class BotCatalog
 
     public static BotStyle Karate { get; } = LoadEmbedded("MiniRing.Bots.karate.json");
 
-    public static IReadOnlyList<BotStyle> Styles { get; } = [Boxer, OutBoxer, Swarmer, Counter, Slugger, Jabber, ChampionV1, Champion, Karate];
+    /// <summary>テコンドー。蹴りが主（回し蹴り・横蹴り・後ろ蹴り・かかと落とし）、拳は補助。KickRangeFit で届く間合いに合う蹴りを選ぶ。</summary>
+    public static BotStyle Taekwondo { get; } = LoadEmbedded("MiniRing.Bots.taekwondo.json");
+
+    public static IReadOnlyList<BotStyle> Styles { get; } = [Boxer, OutBoxer, Swarmer, Counter, Slugger, Jabber, ChampionV1, Champion, Karate, Taekwondo];
 
     private static BotStyle LoadEmbedded(string resource)
     {

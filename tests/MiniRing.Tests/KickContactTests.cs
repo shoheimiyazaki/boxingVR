@@ -10,26 +10,21 @@ public sealed class KickContactTests
     private const float Dt = 1f / 240f;
 
     private sealed record KickResult(int Hits, int VictimCellsLost, float MinPelvis, float StartPelvis, FighterState AttackerState,
-        float MaxSpeed, float Mass, float MinAnkleToTarget);
+        float MaxSpeed, float Mass, float MinAnkleToTarget, IReadOnlyList<KickPart> Parts, float MaxYawDeviation);
 
     private static int Cells(Fighter f) => f.Voxels!.Parts.Concat(f.Voxels.Fragments).Sum(p => p.Body.Grid.FilledCount);
 
-    private static FighterCommand Command(Fighter self, Fighter opponent, Vector3 move, LegCommand? leg, Hand side)
+    private static FighterCommand Command(Fighter self, Fighter opponent, Vector3 move, LegCommand? leg, Hand side, float yaw = 0f, float twist = 0f)
     {
         var reach = self.ArmReach;
-        return new FighterCommand(move, opponent.ChestPosition - self.ChestPosition,
+        var face = Vector3.Transform(opponent.ChestPosition - self.ChestPosition, Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw));
+        return new FighterCommand(move, face,
             new HandCommand(AiControl.Guard(Hand.Left, reach), false), new HandCommand(AiControl.Guard(Hand.Right, reach), false),
-            LeftLeg: side == Hand.Left ? leg : null, RightLeg: side == Hand.Right ? leg : null);
+            TwistBias: twist, LeftLeg: side == Hand.Left ? leg : null, RightLeg: side == Hand.Right ? leg : null);
     }
 
     /// <summary>足は腕より短い（高い所ほど近づかないと届かない）: 蹴りごとの、胸と胸の距離（腕の長さ倍）。</summary>
-    private static float ApproachOf(KickTechnique kind) => kind switch
-    {
-        KickTechnique.High => 0.8f,
-        KickTechnique.Middle => 0.9f,
-        KickTechnique.Knee => 0.8f,
-        _ => 0.95f,
-    };
+    private static float ApproachOf(KickTechnique kind) => KickSpec.Of(kind).Standoff;
 
     private static KickResult Run(KickTechnique kind, Hand side = Hand.Right, float durationScale = 1f)
     {
@@ -66,24 +61,36 @@ public sealed class KickContactTests
         var minPelvis = startPelvis;
         var minAnkle = float.MaxValue;
         var hits = new HashSet<HitEvent>();
+        var parts = new List<KickPart>();
+        var maxYaw = 0f;
+        var startYaw = attacker.Frame.YawRadians;
         var maxSpeed = 0f;
         var mass = 0f;
         var steps = (int)((duration + 0.5f) / Dt);
         for (var i = 0; i < steps; i++)
         {
             var t = i * Dt;
+            var yaw = spec.Turns && t <= duration ? spec.FaceYaw(side, t, duration) : 0f;
+            var twist = spec.Turns && t <= duration ? spec.TorsoTwist(side, t, duration) : 0f;
+            maxYaw = MathF.Max(maxYaw, MathF.Abs(BodyFrame.DeltaAngle(startYaw, attacker.Frame.YawRadians)));
+            if (spec.Rotates)
+            {
+                aim = game.PlayerSense.Self.WorldToLocal(aimWorld); // 体が回ると、狙いの体フレームでの位置が動く
+            }
+
             var leg = t <= duration ? spec.Evaluate(side, t, duration, rest, aim, reach) : (LegCommand?)null;
-            game.Step(new BoxingInput(Command(attacker, victim, Vector3.Zero, leg, side)), Dt);
+            game.Step(new BoxingInput(Command(attacker, victim, Vector3.Zero, leg, side, yaw, twist)), Dt);
             minPelvis = MathF.Min(minPelvis, attacker.PelvisPosition.Y);
             minAnkle = MathF.Min(minAnkle, Vector3.Distance(attacker.AnklePosition(side), aimWorld));
             if (game.LastHit is { Kick: true } hit && hits.Add(hit))
             {
+                parts.Add(hit.KickerPart);
                 maxSpeed = MathF.Max(maxSpeed, hit.Speed);
                 mass = MathF.Max(mass, hit.ImpactMass);
             }
         }
 
-        return new KickResult(hits.Count, before - Cells(victim), minPelvis, startPelvis, attacker.State, maxSpeed, mass, minAnkle);
+        return new KickResult(hits.Count, before - Cells(victim), minPelvis, startPelvis, attacker.State, maxSpeed, mass, minAnkle, parts, maxYaw);
     }
 
     [TestMethod]
@@ -92,12 +99,34 @@ public sealed class KickContactTests
         foreach (var kind in Enum.GetValues<KickTechnique>())
         {
             var r = Run(kind);
-            Console.WriteLine($"{kind}: hits {r.Hits}, victim cells lost {r.VictimCellsLost}, speed {r.MaxSpeed:F2} m/s, mass {r.Mass:F2} kg, closest ankle to aim {r.MinAnkleToTarget:F3} m, pelvis {r.StartPelvis:F3} -> min {r.MinPelvis:F3}, {r.AttackerState}");
+            Console.WriteLine($"{kind}: parts [{string.Join(',', r.Parts)}], hits {r.Hits}, victim cells lost {r.VictimCellsLost}, speed {r.MaxSpeed:F2} m/s, mass {r.Mass:F2} kg, closest ankle to aim {r.MinAnkleToTarget:F3} m, pelvis {r.StartPelvis:F3} -> min {r.MinPelvis:F3}, {r.AttackerState}");
             Assert.IsGreaterThan(0, r.Hits, $"{kind} lands as a counted hit");
             Assert.IsGreaterThan(0f, r.MaxSpeed, $"{kind} moves into the victim");
             Assert.IsGreaterThan(r.StartPelvis * 0.7f, r.MinPelvis, $"{kind}: the standing leg keeps the body up");
             Assert.AreEqual(FighterState.Standing, r.AttackerState, $"{kind}: the kicker is still standing");
         }
+    }
+
+    [TestMethod]
+    public void TurningKicks_TurnTheBody_AndLandWithTheFootPartTheirPathPoints()
+    {
+        // 回し蹴り = すね・足の甲、横蹴り = 足の外側・かかと（足の箱）、かかと落とし = かかと（足の箱）。どの足の部位かは脚の骨のボクセルの接触で決まる（種類ごとの当たり判定は無い）。
+        var results = new Dictionary<KickTechnique, KickResult>();
+        foreach (var kind in new[] { KickTechnique.Roundhouse, KickTechnique.Side, KickTechnique.Back, KickTechnique.Axe })
+        {
+            results[kind] = Run(kind);
+            Console.WriteLine($"{kind}: parts [{string.Join(',', results[kind].Parts)}], body turned {results[kind].MaxYawDeviation:F2} rad");
+        }
+
+        CollectionAssert.IsSubsetOf(results[KickTechnique.Roundhouse].Parts.Distinct().ToList(), new[] { KickPart.Shin, KickPart.Toe, KickPart.Foot });
+        Assert.IsTrue(results[KickTechnique.Roundhouse].Parts.Any(p => p is KickPart.Shin or KickPart.Toe), "a roundhouse lands with the shin or the top of the foot");
+        Assert.Contains(KickPart.Foot, results[KickTechnique.Side].Parts, "a side kick lands with the foot's edge / heel box");
+        Assert.Contains(KickPart.Foot, results[KickTechnique.Axe].Parts, "an axe kick brings the heel down");
+        // 回る蹴りは、体の向きが実際に変わる（命令の向きを物理が追った結果）。かかと落としは体を回さない。
+        Assert.IsGreaterThan(0.3f, results[KickTechnique.Roundhouse].MaxYawDeviation);
+        Assert.IsGreaterThan(0.5f, results[KickTechnique.Side].MaxYawDeviation);
+        Assert.IsGreaterThan(1.0f, results[KickTechnique.Back].MaxYawDeviation);
+        Assert.IsLessThan(0.2f, results[KickTechnique.Axe].MaxYawDeviation);
     }
 
     [TestMethod]

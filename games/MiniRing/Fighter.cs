@@ -480,6 +480,14 @@ public sealed partial class Fighter
             || body == (side == Hand.Left ? Parts.RightThigh : Parts.LeftThigh));
     }
 
+    /// <summary>蹴る脚のどの部位（腿・すね・足・つま先）のボクセルか（当たった足の部位の確認・音用）。</summary>
+    public KickPart KickPartOf(Hand side, int body)
+    {
+        var leg = _legParts[(int)side];
+        return body == leg.Heel ? KickPart.Foot : body == leg.Toe ? KickPart.Toe : body == leg.Shin ? KickPart.Shin
+            : body == (side == Hand.Left ? Parts.RightThigh : Parts.LeftThigh) ? KickPart.Thigh : KickPart.None;
+    }
+
     public float ImpactMass(Hand hand, Vector3 direction, out float bodyShare)
     {
         var arm = _arms[(int)hand];

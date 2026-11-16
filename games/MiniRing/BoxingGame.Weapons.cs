@@ -1100,7 +1100,7 @@ public sealed partial class BoxingGame
 
         _kickCooldown[(attacker, side)] = RehitCooldown;
         var face = hit.A == part.Body ? hit.FaceB : hit.FaceA;
-        ApplyHit(new HitEvent(attacker, side, victim, zone, hit.Point, speed, impactMass, bodyShare, damage, face, Kick: true), part.Body.BodyId, velocity, carve: false, alsoTwist: contactTwist);
+        ApplyHit(new HitEvent(attacker, side, victim, zone, hit.Point, speed, impactMass, bodyShare, damage, face, Kick: true, KickerPart: attacker.KickPartOf(side, kicker.Body.BodyId)), part.Body.BodyId, velocity, carve: false, alsoTwist: contactTwist);
         return true;
     }
 

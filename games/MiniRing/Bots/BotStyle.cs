@@ -255,6 +255,11 @@ public sealed record BotStyle
     public float KickRate { get; init; }
     /// <summary>Kick goal cycle duration in seconds.</summary>
     public float KickDuration { get; init; } = 0.7f;
+    /// <summary>
+    /// 蹴りを選ぶとき、その蹴りが届く間合い（<see cref="KickSpec.Standoff"/>）と今の間合いの合い具合で重みを連続に変える強さ（0 なら今までどおり
+    /// 重みだけで選ぶ）。合わない間合いの蹴りほど exp(−強さ × (ずれ / 0.15)²) で選ばれにくくなる。種類での場合分けではなく、見える距離（腕の長さの倍数）から。
+    /// </summary>
+    public float KickRangeFit { get; init; }
 
     /// <summary>
     /// 倒れた相手を攻められる試合（レフェリーなし）で、倒れた相手へ打ち下ろす気（0..1）。立つ位置へ着いて届く間合いに沈めたとき、打ち始めを決める割合
@@ -376,6 +381,7 @@ public sealed record BotStyle
             Build = Build?.Validate(),
             KickRate = Unit(KickRate),
             KickDuration = Range(KickDuration, 0.4f, 1.2f, 0.7f),
+            KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
             GroundDrive = Unit(GroundDrive),
             GroundLoad = Range(GroundLoad, 0f, MaxTelegraph, 0.05f),
             GroundCut = Unit(GroundCut),

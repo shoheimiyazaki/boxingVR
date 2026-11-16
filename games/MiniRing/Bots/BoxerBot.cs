@@ -183,7 +183,7 @@ public sealed class BoxerBot : IFighterControl
     // 15: 間合いの層の届く長さに相手の武器（握りから先）を足す（素手どうしの試合は変わらない）。
     // 16: claude/a-3d0203 の 15 と master の 13 を合わせた。
     // 17: karate hand shapes, fist parry and five kick goals.
-    public const int LogicVersion = 33; // 33: 武器の教科書（Bots/weapons/*.json、WeaponStyle）を鍛えた（ブランチ claude/weapons の 31）: 刀・ロングソードは技の時計を体が目標に付いてきた分だけ進める（Pacing。使っていない種・相手の 28 試合で、刀は 1 試合あたりの自傷 58→6 セル、ロングソードは 330→140 セル・セル差 −312→−41）。こんぼうは試した値が揺らぎの内で採らなかった。docs/arena/weapon_handling_*.md。32: 急所の狙いの点を、頭の大きさの比の見積もりから実際のセル（目・骨・臓器の位置、BodyLandmarks）に変えた（狙いが変わるので判断の結果が変わる）。31: 急所のドリルに固定狙い forcedAim を追加（未指定の判断・乱数消費は不変）。30: 体格を読む層（BuildRead: 腕の長さの比で立ち位置・打つ間合い、身長の比で守りの選び方・胴を狙う重み、重さの比で打ち合う気。体格が同じなら従来と同じ。BotStyle.BuildStandOff など。docs/BOT_PDCA.md「体格に応じた戦い方」）。29: レフェリーなしの試合で、倒れた相手へ打ち下ろす（GroundStrike: 立つ位置へ歩く・沈む・鉄槌/突き下ろし/踏み下ろし/斬り下ろし。BotStyle.GroundDrive など）。レフェリーありの判断は変えない。28: 休息の始まりを蓄えの 25 %→50 % に（回復が動きながらも続くようになり、早めに手を止めて戻すほうが得。25 % では低い蓄えのまま攻め続けて回復が追いつかなかった）。27: 試合の刀・ロングソードの CPU は、その武器の型（SwordForms）で SwordsmanBot が戦う（FormSwordsman。以前は片手剣の汎用の振り）。26: 蓄えが少ないほど攻めの間隔を空け、RangeSense の届く範囲の外で休む。25: swarmer・champion の回避の形を formlab の測定で直した（スリップは斜め下へ・ダッキングは拳を頭と一緒に下げる・ウィービングは前へ出て U 字にくぐる）。
+    public const int LogicVersion = 34; // 34: テコンドーの蹴り 4 種（回し蹴り・横蹴り・後ろ蹴り・かかと落とし: KickSpec の目標の経路 + 体の向き・胴のひねりの経路）と、届く間合いに合わせた蹴りの選び方（BotStyle.KickRangeFit。0 なら今までどおり）。33: 武器の教科書（Bots/weapons/*.json、WeaponStyle）を鍛えた（ブランチ claude/weapons の 31）: 刀・ロングソードは技の時計を体が目標に付いてきた分だけ進める（Pacing。使っていない種・相手の 28 試合で、刀は 1 試合あたりの自傷 58→6 セル、ロングソードは 330→140 セル・セル差 −312→−41）。こんぼうは試した値が揺らぎの内で採らなかった。docs/arena/weapon_handling_*.md。32: 急所の狙いの点を、頭の大きさの比の見積もりから実際のセル（目・骨・臓器の位置、BodyLandmarks）に変えた（狙いが変わるので判断の結果が変わる）。31: 急所のドリルに固定狙い forcedAim を追加（未指定の判断・乱数消費は不変）。30: 体格を読む層（BuildRead: 腕の長さの比で立ち位置・打つ間合い、身長の比で守りの選び方・胴を狙う重み、重さの比で打ち合う気。体格が同じなら従来と同じ。BotStyle.BuildStandOff など。docs/BOT_PDCA.md「体格に応じた戦い方」）。29: レフェリーなしの試合で、倒れた相手へ打ち下ろす（GroundStrike: 立つ位置へ歩く・沈む・鉄槌/突き下ろし/踏み下ろし/斬り下ろし。BotStyle.GroundDrive など）。レフェリーありの判断は変えない。28: 休息の始まりを蓄えの 25 %→50 % に（回復が動きながらも続くようになり、早めに手を止めて戻すほうが得。25 % では低い蓄えのまま攻め続けて回復が追いつかなかった）。27: 試合の刀・ロングソードの CPU は、その武器の型（SwordForms）で SwordsmanBot が戦う（FormSwordsman。以前は片手剣の汎用の振り）。26: 蓄えが少ないほど攻めの間隔を空け、RangeSense の届く範囲の外で休む。25: swarmer・champion の回避の形を formlab の測定で直した（スリップは斜め下へ・ダッキングは拳を頭と一緒に下げる・ウィービングは前へ出て U 字にくぐる）。
     // 24: 攻撃判断に0.2秒の観測遅延を入れ、予測した打点を固定する。
     // 23: 目が傷むと見えない側の相手の拳・体の情報が遅れてぶれる（VisionPerception）・目と見えない側を狙う重み（AimWeights.Eye・BlindSide。相手の見えが悪いほど重みが増す）。22: パリーの手の経路を速く・前腕へ（TechniqueExecution.ParrySweepRate・ParryArmFraction）、パリーの効く拳の重みをフック中心に（DefenseBook.Parry。karatelab の測定）。21: 空手スタイルの手形の重みを karatelab の測定で設定（貫手・一本拳・手刀は 1 発あたりの削れが正拳の約 2 倍、自分の指の骨の欠けは 0）。20: 蹴りは蹴りごとの当てたい所（KickSpec.AimWorld: 前蹴り・膝は腹、ローは腿、ミドルは胸、ハイは頭）を狙う。19: パリーの頭の目標を中立にする。18: 空手の手形・パリー・蹴りの選択を追加。
     private readonly HandShape[] _shapes = new HandShape[2];
@@ -191,6 +191,7 @@ public sealed class BoxerBot : IFighterControl
     private Hand _kickSide;
     private float _kickTime;
     private Vector3 _kickAim;
+    private Vector3 _kickAimWorld;
     public KickTechnique? CurrentKick => _kick;
 
     public BotStyle Style { get; }
@@ -322,9 +323,24 @@ public sealed class BoxerBot : IFighterControl
         _crouchTired = _crouchTime > CrouchBudget || (_crouchTired && _crouchTime > 0f);
         Stats.Tick(dt, crouched, _defense != Defense.None, _hands[0].Active || _hands[1].Active);
         var rest = new Vector3(_kickSide.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
-        var leg = _kick is { } kind ? KickSpec.Of(kind).Evaluate(_kickSide, _kickTime, Style.KickDuration, rest, _kickAim, reach) : (LegCommand?)null;
+        var kickSpec = _kick is { } kickKind ? KickSpec.Of(kickKind) : (KickSpec?)null;
+        // 体の向きを回す蹴り: 向きは相手へ向けた向きから回す（FaceDirection の目標）。狙い（体フレーム）は体が回るにつれて動くので毎歩求め直す。
+        var kickTwist = 0f;
+        var kickFace = dir;
+        if (kickSpec is { Turns: true } turning)
+        {
+            kickTwist = turning.TorsoTwist(_kickSide, _kickTime, Style.KickDuration);
+            if (turning.Rotates)
+            {
+                var yaw = turning.FaceYaw(_kickSide, _kickTime, Style.KickDuration);
+                kickFace = Vector3.Transform(dir, Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw));
+                _kickAim = self.WorldToLocal(_kickAimWorld);
+            }
+        }
+
+        var leg = kickSpec is { } spec ? spec.Evaluate(_kickSide, _kickTime, Style.KickDuration, rest, _kickAim, reach) : (LegCommand?)null;
         StepProfile.End(StepProfile.Slot.BotExecute, executeStart);
-        return new FighterCommand(move, dir, new HandCommand(left, grip.Left, Spring(Hand.Left), Shape: _shapes[0]), new HandCommand(right, grip.Right, Spring(Hand.Right), Shape: _shapes[1]), _head, LoadTwist(), LeftLeg: _kickSide == Hand.Left ? leg : null, RightLeg: _kickSide == Hand.Right ? leg : null);
+        return new FighterCommand(move, kickFace, new HandCommand(left, grip.Left, Spring(Hand.Left), Shape: _shapes[0]), new HandCommand(right, grip.Right, Spring(Hand.Right), Shape: _shapes[1]), _head, LoadTwist() + kickTwist, LeftLeg: _kickSide == Hand.Left ? leg : null, RightLeg: _kickSide == Hand.Right ? leg : null);
     }
 
     /// <summary>
@@ -844,7 +860,8 @@ public sealed class BoxerBot : IFighterControl
         if (_kickTime == 0f)
         {
             _kickSide = Style.Lead == Hand.Left ? Hand.Right : Hand.Left;
-            _kickAim = sense.Self.WorldToLocal(KickSpec.Of(kind).AimWorld(sense));
+            _kickAimWorld = KickSpec.Of(kind).AimWorld(sense);
+            _kickAim = sense.Self.WorldToLocal(_kickAimWorld);
         }
         _kickTime += dt;
         if (_kickTime >= Style.KickDuration)
@@ -855,12 +872,29 @@ public sealed class BoxerBot : IFighterControl
         }
     }
 
-    private KickTechnique PickKick()
+    /// <summary>
+    /// 蹴りを重みで選ぶ。<see cref="BotStyle.KickRangeFit"/> が正なら、今の間合い（腕の長さの倍数）がその蹴りの届く間合い（<see cref="KickSpec.Standoff"/>）に
+    /// 近いほど重みを連続に大きくする（足は腕より短く、高い所・回る蹴りほど近づく）。0 なら重みだけ（乱数の消費も今までと同じ）。
+    /// </summary>
+    private KickTechnique PickKick(float distance, float reach)
     {
-        var value = _random.NextSingle() * Style.KickWeights.Values.Sum();
-        foreach (var pair in Style.KickWeights.OrderBy(p => p.Key))
+        float Weight(KeyValuePair<KickTechnique, float> pair)
         {
-            value -= pair.Value;
+            if (Style.KickRangeFit <= 0f)
+            {
+                return pair.Value;
+            }
+
+            var gap = ((distance / reach) - KickSpec.Of(pair.Key).Standoff) / 0.15f;
+            return pair.Value * MathF.Exp(-Style.KickRangeFit * gap * gap);
+        }
+
+        var ordered = Style.KickWeights.OrderBy(p => p.Key).ToList();
+        var total = Style.KickRangeFit <= 0f ? Style.KickWeights.Values.Sum() : ordered.Sum(Weight); // 0 のときは従来と同じ足し順（乱数の判定を変えない）
+        var value = _random.NextSingle() * total;
+        foreach (var pair in ordered)
+        {
+            value -= Weight(pair);
             if (value < 0f)
             {
                 return pair.Key;
@@ -898,7 +932,7 @@ public sealed class BoxerBot : IFighterControl
                     }
                     else
                     {
-                        _kick = PickKick();
+                        _kick = PickKick(distance, reach);
                     }
                 }
             }

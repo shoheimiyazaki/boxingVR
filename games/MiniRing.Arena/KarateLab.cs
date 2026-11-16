@@ -293,8 +293,8 @@ internal sealed class KarateLab(int bouts, float seconds, int seed, Action<strin
         log($"空手家が 1 種の蹴りだけを出し続け、相手は構えて立つだけ。{bouts} 本 × {seconds:0} 秒。");
         log("`当たり` = 蹴りとして数えた打撃（`HitEvent.Kick`）。`倒れた` = 蹴った側が立てなくなった本数（軸足で立ち続けられたか）。");
         log("");
-        log("| 蹴り | 出した数 | 当たり | 相手の欠けセル/当たり | 蹴りの速さ [m/s] | 乗った質量 [kg] | 蹴った側が倒れた本数 |");
-        log("|---|---|---|---|---|---|---|");
+        log("| 蹴り | 出した数 | 当たり | 相手の欠けセル/当たり | 蹴りの速さ [m/s] | 乗った質量 [kg] | 蹴った側が倒れた本数 | 当たった足の部位 |");
+        log("|---|---|---|---|---|---|---|---|");
         foreach (var kind in Enum.GetValues<KickTechnique>())
         {
             var style = (BotCatalog.Karate with
@@ -305,6 +305,7 @@ internal sealed class KarateLab(int bouts, float seconds, int seed, Action<strin
                 Aggression = 1f,
             }).Validated();
             var (hits, lost, speed, mass, fell, thrown) = (0, 0, 0f, 0f, 0, 0);
+            var partCount = new Dictionary<KickPart, int>();
             for (var b = 0; b < bouts; b++)
             {
                 BoxerBot? bot = null;
@@ -331,6 +332,7 @@ internal sealed class KarateLab(int bouts, float seconds, int seed, Action<strin
                             hits++;
                             speed += hit.Speed;
                             mass += hit.ImpactMass;
+                            partCount[hit.KickerPart] = partCount.GetValueOrDefault(hit.KickerPart) + 1;
                         }
                     }
                 }
@@ -343,7 +345,7 @@ internal sealed class KarateLab(int bouts, float seconds, int seed, Action<strin
             }
 
             var n = Math.Max(1, hits);
-            log($"| {kind} | {thrown} | {hits} | {F((float)lost / n)} | {F(speed / n)} | {F(mass / n)} | {fell} |");
+            log($"| {kind} | {thrown} | {hits} | {F((float)lost / n)} | {F(speed / n)} | {F(mass / n)} | {fell} | {string.Join(" ", partCount.OrderByDescending(p => p.Value).Select(p => $"{p.Key}:{p.Value}"))} |");
         }
 
         log("");

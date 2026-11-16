@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using Aigis.Render;
@@ -168,8 +168,11 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         // scene: 描く試合（リプレイは影の試合）。顔の窓は本番の試合だけ。
                         var g = scene ?? game;
                         var face = withFace && scene is null ? _faceCam : null;
-                        var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, text, particles: g.BuildParticles(), lighting: g.BuildLighting(),
-                            shadow: g.BuildShadow(), cameraPosition: eye, shapes: face is null ? shapes : [.. shapes, .. face.Frames(game, screen)], postProcess: g.BuildPostProcess(), voxels: g.BuildVoxelVolumes());
+                        var __x = Environment.GetEnvironmentVariable("RT_OFF") ?? "";
+                        var __t0 = Stopwatch.GetTimestamp();
+                        var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, __x.Contains("text") ? [] : text, particles: g.BuildParticles(), lighting: g.BuildLighting(),
+                            shadow: __x.Contains("shadow") ? null : g.BuildShadow(), cameraPosition: eye, shapes: face is null ? shapes : [.. shapes, .. face.Frames(game, screen)], postProcess: __x.Contains("post") ? null : g.BuildPostProcess(), voxels: __x.Contains("vox") ? [] : g.BuildVoxelVolumes());
+                        Prof.Main += Stopwatch.GetTimestamp() - __t0;
                         if (face is not null && paneRenderer is not null)
                         {
                             foreach (var facePane in face.Panes(game, screen))
@@ -365,6 +368,11 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         foreach (var hit in game.RecentHits)
                         {
                             var redHit = hit.Attacker == game.Player;
+                            if (hit.Kick && Environment.GetEnvironmentVariable("MINIRING_KICKLOG") == "1")
+                            {
+                                Console.Error.WriteLine($"kickhit t={time:0.00}s {(redHit ? "red" : "blue")} {hit.KickerPart} -> {hit.Zone} v={hit.Speed:0.0} m/s");
+                            }
+
                             if (redHit)
                             {
                                 redDamage += hit.Damage;
@@ -621,6 +629,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             File.Delete(wavPath);
         }
 
+        log.WriteLine($"PROF main {Prof.Main*1000.0/Stopwatch.Frequency/frame:0.0} ms/frame");
         log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{outPath}: {frame} frames ({(float)frame / fps:0.0}s) in {watch.Elapsed.TotalSeconds:0}s"));
     }
 
@@ -936,3 +945,5 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         public string? LastNotedDefense { get; set; }
     }
 }
+
+internal static class Prof { public static long Main; }
