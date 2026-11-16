@@ -45,6 +45,13 @@ internal sealed record CmaTuneState
 
     public int Seed { get; init; }
 
+    /// <summary>集団の大きさ・初めの σ・始めの値（champion のその技を遺伝子にしたもの）。再開の照合に使う（champion が途中で変わると、比べ直しの基準がずれるため。レビュー指摘）。</summary>
+    public int Lambda { get; init; }
+
+    public double Sigma { get; init; }
+
+    public double[] Initial { get; init; } = [];
+
     public string Cma { get; init; } = "";
 
     public List<CmaTuneRow> Rows { get; init; } = [];
@@ -299,6 +306,12 @@ internal sealed class CmaTune(CmaTuneConfig config, Action<string> log)
 
     private string RunTarget(CmaTarget target, BotStyle champion, string? resumePath, string? jsonPath, double alpha, bool exploratory)
     {
+        // 学習の種（seed + 1000 × (世代 × 標本 + k)）が比べ直しの種（seed + 1000 × 500000〜）・試合の種（600000〜）と重ならず、int があふれない範囲か（レビュー指摘）。
+        if ((long)config.Generations * config.Samples >= 500_000 || config.Seed is < 0 or > 1_000_000_000)
+        {
+            throw new ArgumentException($"世代 × 標本（{config.Generations} × {config.Samples}）は 500000 未満、種（{config.Seed}）は 0〜1e9 にしてください（種が比べ直しの種と重なるため）。");
+        }
+
         var watch = Stopwatch.StartNew();
         var meterStart = DrillMeter.Total;
         var defensesKey = config.Defenses?.Select(d => d.ToString()).ToArray() ?? [];
@@ -345,6 +358,9 @@ internal sealed class CmaTune(CmaTuneConfig config, Action<string> log)
                     Samples = config.Samples,
                     Seconds = config.Seconds,
                     Seed = config.Seed,
+                    Lambda = cma.Lambda,
+                    Sigma = config.Sigma,
+                    Initial = target.Initial(),
                     Cma = cma.SaveState(),
                     Rows = rows,
                     BudgetCalls = carryCalls + (now.Calls - meterStart.Calls),
@@ -472,10 +488,11 @@ internal sealed class CmaTune(CmaTuneConfig config, Action<string> log)
 
         var state = JsonSerializer.Deserialize<CmaTuneState>(File.ReadAllText(path), Json) ?? throw new JsonException($"{path} が空です。");
         var same = state.Target == target.Name && state.Samples == config.Samples && state.Seconds == config.Seconds && state.Seed == config.Seed
-            && state.Defenses.SequenceEqual(defensesKey);
+            && state.Defenses.SequenceEqual(defensesKey)
+            && state.Lambda == Lambda && state.Sigma == config.Sigma && state.Initial.SequenceEqual(target.Initial());
         return same
             ? state
-            : throw new InvalidOperationException($"{path} は別の設定の状態です（対象 {state.Target}、標本 {state.Samples}、{state.Seconds} 秒、種 {state.Seed}）。同じ設定で再開してください。");
+            : throw new InvalidOperationException($"{path} は別の設定の状態です（対象 {state.Target}、標本 {state.Samples}、{state.Seconds} 秒、種 {state.Seed}、λ {state.Lambda}、σ {state.Sigma}。champion の技の値が変わっても別の設定とみなす）。同じ設定で再開してください。");
     }
 
     private static void SaveState(string path, CmaTuneState state)

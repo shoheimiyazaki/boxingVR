@@ -144,6 +144,9 @@ public sealed class CmaTuneTests
 
             // 別の設定の状態では再開しない。
             Assert.Throws<InvalidOperationException>(() => new CmaTune(Small(2) with { Seed = 4 }, _ => { }).Run(resumed, null));
+            // 回帰（レビュー指摘）: λ・σ が違う再開も拒む（前は状態の λ で黙って続いた）。
+            Assert.Throws<InvalidOperationException>(() => new CmaTune(Small(2) with { Lambda = 6 }, _ => { }).Run(resumed, null));
+            Assert.Throws<InvalidOperationException>(() => new CmaTune(Small(2) with { Sigma = 0.2 }, _ => { }).Run(resumed, null));
         }
         finally
         {
