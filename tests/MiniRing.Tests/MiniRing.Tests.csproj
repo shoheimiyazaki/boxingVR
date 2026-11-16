@@ -23,6 +23,9 @@
     <Compile Include="..\..\games\MiniRing.Arena\TvDraft.cs" Link="Arena\TvDraft.cs" />
     <Compile Include="..\..\games\MiniRing.Arena\LiveOutput.cs" Link="Arena\LiveOutput.cs" />
     <Compile Include="..\..\games\MiniRing.Arena\LiveAudioMixer.cs" Link="Arena\LiveAudioMixer.cs" />
+    <Compile Include="..\..\games\MiniRing.Arena\TvProgram.cs" Link="Arena\TvProgram.cs" />
+    <Compile Include="..\..\games\MiniRing.Arena\TvAnalyst.cs" Link="Arena\TvAnalyst.cs" />
+    <Compile Include="..\..\games\MiniRing.Arena\TvShowGraphics.cs" Link="Arena\TvShowGraphics.cs" />
     <None Update="bot-execution-baseline.txt" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="..\..\games\MiniRing\MiniRing.csproj" />
     <ProjectReference Include="..\..\games\MiniRing.Vr\MiniRing.Vr.csproj" />

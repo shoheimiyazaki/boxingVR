@@ -44,6 +44,9 @@ public sealed record FighterCharacter(string Id, string Name, string Reading, st
     CharacterEducation Education, IReadOnlyList<System.Text.Json.Nodes.JsonObject> Record)
 {
     /// <summary>この人のボットのスタイル（相手を決めない教育まで。<see cref="Resolve"/> の <c>null</c>）。</summary>
+    /// <summary>プロフィール（経歴・人柄。実況・解説の資料。<see cref="CharacterProfile"/>）。ファイルに無ければ null。</summary>
+    public CharacterProfile? Profile { get; init; }
+
     public BotStyle Style => Resolve(null);
 
     /// <summary>

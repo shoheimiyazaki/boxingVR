@@ -80,18 +80,19 @@ public sealed class StaminaTempoTests
         return rig.StrongPunch(0.3f);
     }
 
+    /// <summary>容量 120 J（2026-11-16 に 60 J から倍。回復の速さは同じ）: 空から構えて立つと 6 秒で半分、12 秒でほぼ満タン（60 J のときは 3 秒・6 秒）。</summary>
     [TestMethod]
-    public void EmptyReserve_Standing_HalfAfterThreeSeconds_FullAfterSix()
+    public void EmptyReserve_Standing_HalfAfterSixSeconds_FullAfterTwelve()
     {
         using var rig = new Rig();
         rig.Fighter.Stamina = 0f;
-        rig.Hold(3f, Vector3.Zero);
-        var at3 = rig.Fighter.Stamina;
-        rig.Hold(3f, Vector3.Zero);
+        rig.Hold(6f, Vector3.Zero);
         var at6 = rig.Fighter.Stamina;
-        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"standing from empty: 3 s {at3:P1}, 6 s {at6:P1}"));
-        Assert.IsGreaterThanOrEqualTo(0.5f, at3);
-        Assert.IsGreaterThanOrEqualTo(0.95f, at6);
+        rig.Hold(6f, Vector3.Zero);
+        var at12 = rig.Fighter.Stamina;
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"standing from empty: 6 s {at6:P1}, 12 s {at12:P1}"));
+        Assert.IsGreaterThanOrEqualTo(0.5f, at6);
+        Assert.IsGreaterThanOrEqualTo(0.95f, at12);
     }
 
     [TestMethod]
@@ -125,12 +126,13 @@ public sealed class StaminaTempoTests
         Assert.IsLessThanOrEqualTo(2f, first);
     }
 
+    /// <summary>容量 120 J（60 J から倍）: 満タンから全力の連打で空まで 12〜20 秒（60 J のときは 6〜10 秒）。</summary>
     [TestMethod]
-    public void FullReserve_AllOutPunching_EmptiesInSixToTenSeconds()
+    public void FullReserve_AllOutPunching_EmptiesInTwelveToTwentySeconds()
     {
         using var rig = new Rig();
         var emptyAt = -1f;
-        for (var punch = 0; punch < 60 && emptyAt < 0f; punch++)
+        for (var punch = 0; punch < 120 && emptyAt < 0f; punch++)
         {
             rig.StrongPunch(0.3f);
             if (rig.Fighter.Stamina < 0.1f)
@@ -140,8 +142,8 @@ public sealed class StaminaTempoTests
         }
 
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"all-out punching from full: stamina < 10 % at {emptyAt:F1} s"));
-        Assert.IsGreaterThanOrEqualTo(6f, emptyAt);
-        Assert.IsLessThanOrEqualTo(10f, emptyAt);
+        Assert.IsGreaterThanOrEqualTo(12f, emptyAt);
+        Assert.IsLessThanOrEqualTo(20f, emptyAt);
     }
 
     /// <summary>

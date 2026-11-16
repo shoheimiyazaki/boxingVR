@@ -18,7 +18,7 @@
 # 1. 撮影と台本の資料（種の選び・撮影・要約）。台本が無ければここで止まり、書く場所を知らせる。
 powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvshow\cards\wvc-ishu.json
 # 2. 足す台詞を書く: <out>\bN.digest.md と bN.draft.json（実況の骨組みの下書き）を読み、<out>\bN.extras.json を書く（エージェントはスキル tv-commentary、§4.3）。
-#    エージェントなしで作るなら、札に "autoCommentary": true（下書きだけを台本にする）。
+#    エージェントなしで作るなら、札に "autoCommentary": true（下書きだけを台本にする。下書きは実況と解説の 2 人）。
 # 3. もう一度 1 を回す: 台本（下書き＋足す台詞 → bN.script.json）→ 声入れ（bN_live.mp4）→ 点検 → 結合（broadcast_full.mp4）→ 送れる大きさの部分（broadcast_partN.mp4）。
 ```
 
@@ -42,14 +42,31 @@ powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvs
 
 - `red` / `blue`: 名簿のキャラクターの id（`games/MiniRing/Characters/roster/<id>.json`）。武器・はめる物・体格・顔・名前はキャラクターの値。
 - `seed`: 数字か `"auto"`。`"auto"` は下見（`scoutSeeds` の種を全部回す）で一番見ごたえのある種を選び、`<out>\card.resolved.json` に**選んだときの物理・ボットの版と一緒に**残す。版（`Fighter.PhysicsVersion`・`BoxerBot.LogicVersion`）が変わると同じ種でも別の試合になるので、版が違えば選び直す（撮った動画は `-Force` で撮り直す）。
-- `rounds`・`break`: 30 秒のラウンドの数と、間の休み [s]。休みを延ばしても休みの間に治る量は標準（10 秒 × 150 個/秒）と同じ（`VideoMaker.TvRules`）。
+- `rounds`・`break`: 30 秒のラウンドの数と、間の休み [s]（既定 25。解説の問いと答えが入る長さ）。休みを延ばしても休みの間に治る量は標準（10 秒 × 150 個/秒）と同じ（`VideoMaker.TvRules`）。
+
+### 大会のプログラムとトーナメント（`tools/tvshow/cards/wvc-boxing-tournament.json`）
+
+札の `bouts` の順がその日のプログラム。試合は札の順に 1 つずつ「顔ぶれを決める → 下見 → 撮る」と進む。
+
+```json
+{ "event": "WVC ボクシングトーナメント", "program": "WVC ボクシングトーナメント",
+  "bouts": [
+    { "red": "marcus", "blue": "ramon", "bout": "準決勝第1試合", "stake": "勝者は決勝へ", "next": "決勝進出" },
+    { "red": "yoandry", "blue": "dmitri", "bout": "準決勝第2試合", "stake": "勝者は決勝へ", "next": "決勝進出" },
+    { "red": "winner:1", "blue": "winner:2", "bout": "決勝", "stake": "勝てば優勝", "next": "優勝" } ] }
+```
+
+- `red` / `blue` に `"winner:N"` と書くと、N 試合目の勝者（`bN.events.json` の `outcome`）がそのコーナーに立つ。N 試合目を撮るまで決まらない。引き分けは与えたダメージの多い側（`outcome.lead`）が勝ち上がる（大会の決まり）。
+- `program`: 「本日のプログラム」の表の見出し（無ければ `event`）。`stake`: この試合に懸かるもの（表の下の帯と実況）。`next`: 勝った人が得るもの（勝者のコールの後に「〇〇、決勝進出！」）。
+- 道具は試合ごとに `bN.program.json`（その試合の時点の表: 済んだ試合の勝者と決まり手・この試合・まだの試合）を書き、`video --program` に渡す。前の試合を撮り直して表が変わったら、その試合も撮り直す。顔ぶれが変わった試合は種を選び直す（`card.resolved.json` に種と顔ぶれを残す）。
+- 冒頭: 表（`TvProgram.Seconds`。見出しの台詞 約 2.6 秒＋済んだ試合ごと・懸かるもので 1 行 4 秒（声の実測）、最短 6 秒）→ いつものタイトル（7 秒）。実況の下書きが表の間に「本日のプログラムです」・済んだ試合の結果・懸かるものを言い（大会名は見出しに出ているので言わない）、選手紹介は両コーナーの板が出てから。
 
 ### 段の中身
 
 | 段 | 道具 | 出力 |
 |---|---|---|
 | 下見 | `miniring-arena tvscout --red-char A --blue-char B --rounds 3 --break 20 --seeds 1,2,...` | 種ごとの決着・ダウン・与えたダメージと見ごたえの点（`TvScout.Drama`）、最後の 2 行が版と `best seed N` |
-| 撮影 | `miniring-arena video --tv on --facecam on --rounds 3 --break 20 --event ... --bout ... --red-char A --blue-char B --seed N --out bN.mp4` | `bN.mp4`（声なし）と `bN.events.json`（中継の記録） |
+| 撮影 | `miniring-arena video --tv on --facecam on --rounds 3 --break 20 --event ... --bout ... --red-char A --blue-char B --seed N [--program bN.program.json] --out bN.mp4` | `bN.mp4`（声なし）と `bN.events.json`（中継の記録） |
 | 資料 | `miniring-arena tvdigest --events bN.events.json` | `bN.digest.md`（区間の表と、区間ごとの実況用・解説用の出来事） |
 | 下書き | `miniring-arena tvdraft --events bN.events.json --out bN.draft.json` | 実況の骨組み（§4.3） |
 | 重ねる | `miniring-arena tvmerge --draft bN.draft.json --extras bN.extras.json --out bN.script.json` | 台本。入らなかった台詞を表示 |
@@ -61,7 +78,7 @@ powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvs
 
 ## 3. 映像の演出（道具が決める）
 
-- **冒頭（7 秒）**: ボクセルを積んだ金の WVC ロゴ、WONDERFUL VOXING COUNCIL、大会名 → 何試合目 → 両コーナーの紹介の板（本名・流派・肩書きと出身）→ VS → 決まりの帯。
+- **冒頭（7 秒。プログラムがあればその前に「本日のプログラム」の表）**: ボクセルを積んだ金の WVC ロゴ、WONDERFUL VOXING COUNCIL、大会名 → 何試合目 → 両コーナーの紹介の板（本名・流派・肩書きと出身）→ VS → 決まりの帯。
 - **試合中**: 上の真ん中に時計、右上に LIVE、左上に WVC / VOXING の札、左下・右下に両者の顔の窓（画面の高さの 18%）とその下の名札・スタミナ。
 - **ダウン中**: 倒れる瞬間はいつものカメラ、0.8 秒後から天井のカメラ（真上）とリング脇のカメラマン（床の高さ、相手から遠い側）を 2.6 秒ずつ交互に。
 - **休み**: いつものカメラ → リングの中のカメラマン（多く打たれた側のコーナー）→ リプレイ → 反対のコーナー → リプレイ → コーナー → いつものカメラ。リプレイはそのラウンドの重い場面（ダウン・骨折・切断・重い当たり）を 2 つ、時刻の順に、当たった所へ回り込むカメラで 1 歩 1 コマのスロー（実時間の約 0.4 倍）。リプレイの出入りは金の帯のワイプ。
@@ -100,7 +117,7 @@ powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvs
 
 ### 4.3 作り方（下書き → 足す台詞 → 重ねる → 点検）
 
-1. **下書き**（`tvdraft`、道具）: ラジオで要る骨組みを決まった型で抜けなく置く。選手紹介（赤・青・流派）・ラウンドの頭（ダウンの数・倒れたままの選手）・ダウンのコール（**倒した側と倒れた側の両方の名前**と何が入ったか、何度目か）・カウントの後半（セブン〜ナイン）・立った（何カウントで）・骨折と切断・残り 10 秒・ラウンドの終わり（ゴングに救われた）・リプレイの入り（どの場面か）・決着（コール → 勝者 → 理由）・勝者のコール。言い回しは決まった順に回す（乱数なし: 同じ記録なら同じ下書き）。下書きだけでも動画にできる（札の `"autoCommentary": true`）。
+1. **下書き**（`tvdraft`、道具）: ラジオで要る骨組みを決まった型で抜けなく置く。選手紹介（赤・青・流派）・ラウンドの頭（ダウンの数・倒れたままの選手）・ダウンのコール（**倒した側と倒れた側の両方の名前**と何が入ったか、何度目か）・カウントの後半（セブン〜ナイン）・立った（何カウントで）・骨折と切断・残り 10 秒・ラウンドの終わり（ゴングに救われた）・リプレイの入り（どの場面か）・決着（コール → 勝者 → 理由）・勝者のコール。言い回しは決まった順に回す（乱数なし: 同じ記録なら同じ下書き）。**標準は実況と解説の 2 人**: 下書きには解説の台詞も入る（`TvAnalyst`。中継の記録の「解説」向けの出来事から）: 休みごとに実況の問い「サエキさん、〇〇の様子は？」→ 解説の答え（傷か疲れと、その理由。傷のある方・疲れのひどい方の選手を聞く）、リプレイの後に当たった所がなぜ効くか、ダウンの後に倒れた理由、ラウンドに 1 回まで疲れの見立て、問いと答えの後に空いていれば優勢の見立て。置き場所は骨組みの空き（`TvDraft.Merge`）で、入らない台詞は落とす。休みの台詞は「2 本目のリプレイの場面 → なぜ効くか → 問いと答え」の順で、休み 25 秒（映像 33 秒）で入る（札の `break` の既定は 25）。下書きだけでも動画にできる（札の `"autoCommentary": true`）。
 2. **足す台詞**（`bN.extras.json`、エージェント。スキル `.claude/skills/tv-commentary`）: 打ち合いの実況、問いと答え、解説の理由・見どころ。下書きの思い違いは `"drop"` に台詞を書いて消す。
 3. **重ねる**（`tvmerge`）: 下書きは時刻どおりに残し、足す台詞を空きへ入れる。打ち合いの実況（`excited`）は 1 秒まで遅らせて先に、問いと答えの組は前 2 秒〜後ろ 6 秒で続けて、ほかは前 1.5 秒〜後ろ 2.5 秒。**入らない台詞は時刻をずらさず落とす**（遅れた台詞は画面と合わず、ラジオではもっと混乱する）。落ちた台詞は表示される。
 4. **点検**（`tvlint`）: §4.2。声入れの後は manifest を渡して遅れも見る。
@@ -114,7 +131,7 @@ powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvs
 
 ## 5. 中継の記録（events.json）
 
-`MiniRing.Audio.Broadcast` が書く。出来事ごとに `for` が **実況**（画面で見えること: 誰が何でどこを打った・ダウン・カウント・ラウンド・カメラ・リプレイ）か **解説**（体の中で起きていること・狙い: どこが壊れた・何割失われた・何が効いている・疲れ・狙っている技）。言葉はゲームを知らない人が一言で分かるもの（内部の数値は書かない）。ほかに `opening`（冒頭）・`result`（勝敗の画面の始まり）・`end`（動画の終わり）の印と、両者の紹介（`redProfile`・`blueProfile`）・大会名（`event`）・何試合目（`bout`）。
+`MiniRing.Audio.Broadcast` が書く。出来事ごとに `for` が **実況**（画面で見えること: 誰が何でどこを打った・ダウン・カウント・ラウンド・カメラ・リプレイ）か **解説**（体の中で起きていること・狙い: どこが壊れた・何割失われた・何が効いている・疲れ・狙っている技）。言葉はゲームを知らない人が一言で分かるもの（内部の数値は書かない）。ほかに `opening`（冒頭）・`result`（勝敗の画面の始まり）・`end`（動画の終わり）の印と、両者の紹介（`redProfile`・`blueProfile`）・大会名（`event`）・何試合目（`bout`）。プログラムを渡した試合は `program`（その時点の表）と冒頭の `program` の印。決着の後に `outcome`（`winner`: red / blue / draw・`lead`: 与えたダメージの多い側・`method`・`cause`・`round`・`roundTime`）。トーナメントの勝ち上がりはこれを読む。
 
 ## 6. 限界
 

@@ -353,10 +353,11 @@ public sealed record FighterTuning
     /// <summary>
     /// スタミナの容量 [J]: 筋肉がすぐ使えるエネルギーの蓄え。拳を目標へ押す力がした仕事（力 × 拳の速さの正の分）・力を出し続ける
     /// 保持の分（<see cref="IsometricCost"/>）・歩いて体を運ぶ分（<see cref="WalkCost"/>）がここから出ていき、心肺が戻す
-    /// （<see cref="StaminaRecoveryPower"/>）。60 J、最大戻り 15 W: 空から構えて立つと 3 秒で 75 %・4 秒で満タン、全力の攻め（P 8〜10 W）を
+    /// （<see cref="StaminaRecoveryPower"/>）。120 J（2026-11-16、ユーザーの指定で 60 J から倍: 中継の試合で尽きるのが早すぎた）。最大戻り 15 W のままなので、
+    /// 空から満タンまでの時間も倍になる。以下は 60 J のときの測定: 空から構えて立つと 3 秒で 75 %・4 秒で満タン、全力の攻め（P 8〜10 W）を
     /// 続けると 10 秒余りで空（2026-11-15 の測定。以前は 90 J: 回復を直した後は全力の攻めが 15 秒近く続き、疲れが試合に効かなくなった）。
     /// </summary>
-    public float StaminaCapacity { get; init; } = 60f;
+    public float StaminaCapacity { get; init; } = 120f;
 
     /// <summary>心肺がスタミナを戻す速さ [W]（心臓と肺の働きが満ちているとき。働きに比例して落ちる）。</summary>
     public float StaminaRecoveryPower { get; init; } = 15f;

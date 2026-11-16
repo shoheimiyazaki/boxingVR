@@ -49,6 +49,18 @@ internal static class TvDigest
             sb.AppendLine(CultureInfo.InvariantCulture, $"- 動画の長さ: {e0:0.0} 秒（勝敗の画面は {result ?? e0:0.0} 秒から）");
         }
 
+        // 両者のプロフィール（経歴・人柄・戦績・エピソード）。実況・解説が選手を語る資料（キャラクターの軸）。
+        foreach (var (key, corner) in new[] { ("redDossier", "赤コーナー"), ("blueDossier", "青コーナー") })
+        {
+            if (Text(key) is { Length: > 0 } dossier)
+            {
+                sb.AppendLine();
+                sb.AppendLine(CultureInfo.InvariantCulture, $"## {corner}のプロフィール");
+                sb.AppendLine();
+                sb.Append(dossier);
+            }
+        }
+
         sb.AppendLine();
         sb.AppendLine("## 台本の決まり（docs/TV_BROADCAST.md の要約）");
         sb.AppendLine();
@@ -112,6 +124,9 @@ internal static class TvDigest
         {
             switch (e.Type)
             {
+                case "program":
+                    marks.Add((e.T, "本日のプログラム"));
+                    break;
                 case "opening":
                     marks.Add((e.T, "冒頭のタイトル"));
                     break;

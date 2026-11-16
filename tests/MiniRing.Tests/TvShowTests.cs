@@ -254,4 +254,139 @@ public sealed class TvShowTests
 
         Assert.AreEqual(1, issues.Count(i => i.Rule == "カウント中"), "カウントの最中は解説に問いを振らない");
     }
+
+    private const string TournamentProgram = """
+        {"title":"WVC ボクシングトーナメント","bouts":[
+          {"bout":"準決勝第1試合","red":"marcus","blue":"ramon","winner":"red","method":"K.O.","stake":"勝者は決勝へ","next":"決勝進出"},
+          {"bout":"準決勝第2試合","red":"yoandry","blue":"dmitri","winner":"blue","method":"判定","stake":"勝者は決勝へ","next":"決勝進出"},
+          {"bout":"決勝","red":"marcus","blue":"dmitri","current":true,"stake":"勝てば優勝","next":"優勝"}
+        ]}
+        """;
+
+    [TestMethod]
+    public void Program_ResolvesRosterIds_KeepsPlaceholders_AndRoundTripsThroughTheEventsRecord()
+    {
+        var program = TvProgram.FromJson(TournamentProgram, TvProgram.RosterName);
+
+        Assert.AreEqual("ザ・ハンマー", program.Bouts[0].Red, "名簿の id は画面の短い名前に");
+        Assert.AreEqual("ザ・ハンマー", program.Bouts[0].WinnerName);
+        Assert.AreEqual(program.Bouts[1].Blue, program.Bouts[1].WinnerName);
+        Assert.AreEqual("決勝", program.Current?.Bout);
+        Assert.AreEqual(2, program.Finished.Count());
+        Assert.IsTrue(program.Seconds > TvProgram.FromJson(TournamentProgram.Replace("\"winner\":\"red\",", "", StringComparison.Ordinal), TvProgram.RosterName).Seconds,
+            "済んだ試合が多いほど、実況が結果を言い切れるよう表を長く出す");
+
+        var placeholder = TvProgram.FromJson("""{"title":"T","bouts":[{"bout":"決勝","red":"準決勝第1試合の勝者","blue":"marcus","current":true}]}""", TvProgram.RosterName);
+        Assert.AreEqual("準決勝第1試合の勝者", placeholder.Bouts[0].Red, "名簿の id でなければ書いたまま");
+
+        // 中継の記録（Broadcast は既定の名前の付け方で書く）から読み戻しても同じ表。
+        var written = System.Text.Json.JsonSerializer.Serialize(program);
+        var reread = TvProgram.FromJson(written, _ => null);
+        CollectionAssert.AreEqual(program.Bouts.ToList(), reread.Bouts.ToList());
+
+        Assert.ThrowsExactly<InvalidDataException>(() => TvProgram.FromJson(TournamentProgram.Replace("\"winner\":\"red\"", "\"winner\":\"marcus\"", StringComparison.Ordinal), _ => null));
+        Assert.ThrowsExactly<InvalidDataException>(() => TvProgram.FromJson(TournamentProgram.Replace("\"winner\":\"red\",", "\"current\":true,", StringComparison.Ordinal), _ => null),
+            "今の試合は 1 つだけ");
+    }
+
+    [TestMethod]
+    public void Draft_WithAProgram_ReadsPastResultsAndTheStake_ThenIntroducesAfterTheTable_AndCallsTheAdvance()
+    {
+        var program = TvProgram.FromJson(TournamentProgram, TvProgram.RosterName);
+        var opening = program.Seconds;
+        var events = $$"""
+            {"red":"ザ・ハンマー","blue":"ドミトリー","redDiscipline":"ボクシング","blueDiscipline":"ボクシング","bout":"決勝",
+             "program":{{System.Text.Json.JsonSerializer.Serialize(program)}},"events":[
+              {"t":0,"for":"実況","type":"program","who":"","text":"本日のプログラムの表"},
+              {"t":{{opening.ToString(System.Globalization.CultureInfo.InvariantCulture)}},"for":"実況","type":"opening","who":"","text":"冒頭のタイトル"},
+              {"t":{{(opening + 7f).ToString(System.Globalization.CultureInfo.InvariantCulture)}},"for":"実況","type":"round_start","who":"","text":"第1ラウンド開始"},
+              {"t":40,"for":"実況","type":"decision","who":"","text":"判定でザ・ハンマーの勝ち"},
+              {"t":44,"for":"実況","type":"result","who":"","text":"勝敗の画面（9 秒）"},
+              {"t":53,"for":"実況","type":"end","who":"","text":"動画の終わり"}
+            ]}
+            """;
+
+        var draft = TvDraft.Build(events);
+        var lines = Lines(draft);
+        var texts = lines.Select(l => l.Text).ToList();
+
+        CollectionAssert.Contains(texts, "本日のプログラムです。");
+        CollectionAssert.Contains(texts, "準決勝第1試合はザ・ハンマーのKO勝ち。");
+        Assert.IsTrue(texts.Any(t => t.StartsWith("準決勝第2試合は", StringComparison.Ordinal) && t.EndsWith("の判定勝ち。", StringComparison.Ordinal)));
+        CollectionAssert.Contains(texts, "この決勝、勝てば優勝。");
+        var programLines = lines.Where(l => l.Text.Contains("試合は", StringComparison.Ordinal) || l.Text.Contains("本日", StringComparison.Ordinal) || l.Text.StartsWith("この決勝", StringComparison.Ordinal)).ToList();
+        Assert.AreEqual(4, programLines.Count);
+        Assert.IsTrue(programLines.All(l => l.At + TvDraft.Duration(l.Text, 0.15f) < opening + 0.5f), string.Join(" / ", programLines.Select(l => $"{l.At:0.0}+{TvDraft.Duration(l.Text, 0.15f):0.0} {l.Text}")) + $" opening {opening} — プログラムの台詞は表が出ている間に言い切る");
+        Assert.IsTrue(lines.Single(l => l.Text.StartsWith("決勝。赤、", StringComparison.Ordinal)).At >= opening, "選手紹介は両コーナーの板が出てから");
+        Assert.IsTrue(lines.Any(l => l.Text == "ザ・ハンマー、優勝！" && l.At > 44f), "勝者のコールの後に、勝って得たものを言う");
+
+        var issues = TvLint.Check(draft, events);
+        Assert.AreEqual(0, issues.Count, string.Join("\n", issues.Select(i => $"{i.At} {i.Rule} {i.Message}")));
+    }
+
+    [TestMethod]
+    public void ProgramBoard_ShowsEveryBout_TheResults_AndMarksThisBout()
+    {
+        var program = TvProgram.FromJson(TournamentProgram, TvProgram.RosterName);
+
+        var (text, shapes) = new TvShowGraphics(1280, 720).Program(program, 4f);
+        var words = text.Select(t => t.Text).ToList();
+
+        CollectionAssert.Contains(words, "本日のプログラム");
+        CollectionAssert.Contains(words, "準決勝第1試合");
+        CollectionAssert.Contains(words, "ザ・ハンマー 勝ち（K.O.）");
+        CollectionAssert.Contains(words, "この試合");
+        Assert.IsTrue(words.Any(w => w.Contains("勝てば優勝", StringComparison.Ordinal)));
+        Assert.IsTrue(shapes.Count > 0);
+        Assert.IsTrue(text.All(t => t.Color.W <= 1f && t.Color.W >= 0f));
+    }
+
+    private const string TwoRoundEvents = """
+        {"red":"ザ・ハンマー","blue":"ドミトリー","redDiscipline":"ボクシング","blueDiscipline":"ボクシング","bout":"決勝","events":[
+          {"t":0,"for":"実況","type":"opening","who":"","text":"冒頭のタイトル"},
+          {"t":7,"for":"実況","type":"round_start","who":"","text":"第1ラウンド開始"},
+          {"t":15,"for":"解説","type":"tired","who":"ザ・ハンマー","text":"ザ・ハンマーはスタミナが尽きかけている。手数が落ち、パンチが軽くなる"},
+          {"t":25,"for":"解説","type":"tired","who":"ザ・ハンマー","text":"ザ・ハンマーはスタミナが尽きかけている。手数が落ち、パンチが軽くなる"},
+          {"t":37,"for":"実況","type":"round_end","who":"","text":"第1ラウンド終了"},
+          {"t":37.5,"for":"解説","type":"score","who":"","text":"ここまではザ・ハンマーがドミトリーを大きく上回っている"},
+          {"t":37.5,"for":"解説","type":"body","who":"ザ・ハンマー","text":"ザ・ハンマー: 左目が腫れて見えにくい。スタミナはほぼ尽きている"},
+          {"t":37.5,"for":"解説","type":"body","who":"ドミトリー","text":"ドミトリー: 大きな傷はない。疲れが見える"},
+          {"t":43,"for":"実況","type":"replay","who":"","text":"リプレイ（第1ラウンド、スロー）: ドミトリーの重い左がザ・ハンマーのこめかみに"},
+          {"t":51,"for":"実況","type":"replay","who":"","text":"リプレイ（第1ラウンド、スロー）: ザ・ハンマーのいい右がドミトリーのみぞおちに"},
+          {"t":70.3,"for":"実況","type":"round_start","who":"","text":"第2ラウンド開始"},
+          {"t":77.8,"for":"実況","type":"hit","who":"ドミトリー","text":"ドミトリーの強烈な左が、ザ・ハンマーのこめかみに入った"},
+          {"t":78.3,"for":"実況","type":"knockdown","who":"ザ・ハンマー","text":"ザ・ハンマー、ダウン"},
+          {"t":78.3,"for":"解説","type":"knockdown","who":"ザ・ハンマー","text":"ザ・ハンマーは頭を揺らされて、意識が飛んでいる"},
+          {"t":88.3,"for":"実況","type":"ko","who":"","text":"10カウントのノックアウト。ドミトリーの勝ち"},
+          {"t":92.3,"for":"実況","type":"replay","who":"","text":"決着のリプレイ（スロー）: ドミトリーの強烈な左がザ・ハンマーのこめかみに → ダウン → K.O."},
+          {"t":100.3,"for":"実況","type":"result","who":"","text":"勝敗の画面（9 秒）"},
+          {"t":109.3,"for":"実況","type":"end","who":"","text":"動画の終わり"}
+        ]}
+        """;
+
+    [TestMethod]
+    public void BroadcastDraft_IsTwoPeople_AsksTheAnalystInTheBreak_AndPassesTheLint()
+    {
+        var script = TvDraft.BuildBroadcast(TwoRoundEvents);
+        var lines = Lines(script);
+        foreach (var l in lines)
+        {
+            Console.WriteLine($"{l.At,5:0.0} {l.Speaker,-11} {l.Text}");
+        }
+
+        Assert.IsTrue(lines.Any(l => l.Speaker == "commentator"), "標準は実況と解説の 2 人");
+        var question = lines.Single(l => l.Text == "サエキさん、ザ・ハンマーの様子は？");
+        Assert.IsTrue(question.At is > 37f and < 70.3f, "休みの間に問う（傷のある方の選手を）");
+        var answer = lines.First(l => l.At > question.At);
+        Assert.AreEqual("commentator", answer.Speaker, "問いのすぐ後に解説が答える");
+        StringAssert.Contains(answer.Text, "左目");
+        Assert.AreEqual("肺に効いています。", TvAnalyst.Answer("ヨアンドリ: 肺に効いている。スタミナはまだある")?.Split('。')[0] + "。", "記録の文を話し言葉にする");
+        Assert.IsTrue(lines.Any(l => l.Speaker == "commentator" && l.Text.Contains("こめかみで", StringComparison.Ordinal) || l.Speaker == "commentator" && l.Text.Contains("みぞおちで", StringComparison.Ordinal)), "リプレイの後に、なぜ効くか");
+        Assert.AreEqual(1, lines.Count(l => l.Text.StartsWith("ザ・ハンマーはスタミナが尽きかけて", StringComparison.Ordinal)), "疲れの見立てはラウンドに 1 回まで");
+        Assert.IsTrue(lines.All(l => l.Text.Length <= 28), "1 台詞 28 字まで");
+        Assert.AreEqual(script, TvDraft.BuildBroadcast(TwoRoundEvents), "同じ記録からは同じ台本（乱数を使わない）");
+
+        var issues = TvLint.Check(script, TwoRoundEvents);
+        Assert.AreEqual(0, issues.Count, string.Join("\n", issues.Select(i => $"{i.At} {i.Rule} {i.Message}")));
+    }
 }

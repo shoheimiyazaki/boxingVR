@@ -22,6 +22,9 @@ internal static class RosterLeague
     /// <summary>内側とみなす距離（相手の腕の長さ倍）。長い腕が窮屈になる所（打ち始めの AttackRange 0.95 より内）。</summary>
     internal const float InsideFactor = 0.8f;
 
+    /// <summary>「相手が弱った」とみなす相手の意識の薄れ（Fighter.Faintness）。測るためだけの本当の値（ボットはこれを読まない）。HurtCueProbe で構えが落ち始める所。</summary>
+    internal const float ChanceFaint = 0.2f;
+
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     /// <summary>1 人ぶんの集計（全試合・両コーナーの合計）。</summary>
@@ -37,6 +40,9 @@ internal static class RosterLeague
         public double ArmRatioSum; // 試合ごとの 自分の腕 / 相手の腕 の総和
         public double RatioOwn, RatioOpp; // d / Ls, d / Lo の総和
         public long Neither, MineOnly, Both, OppOnly, Inside;
+        public double ChanceSeconds, ChanceDamage, ChanceDistance; // 相手が弱った間（相手の意識が薄れて Faintness > ChanceFaint で、両方立っている）の時間・与えた量・d / 自分の腕 の総和（StepDt ごと）
+        public long ChanceSamples;
+        public double ChanceOpening; // 弱った間のボットの読み（BoxerBot.Opening）の総和（ChanceSamples ごと）
 
         public double Share(long n) => Samples > 0 ? (double)n / Samples : 0;
     }
@@ -64,14 +70,32 @@ internal static class RosterLeague
         for (var i = 0; i < steps; i++)
         {
             game.Step(default, StepDt);
+            var bothUp = game.Player.State == FighterState.Standing && game.Cpu.State == FighterState.Standing;
+            var redChance = bothUp && game.Cpu.Faintness > ChanceFaint;
+            var blueChance = bothUp && game.Player.Faintness > ChanceFaint;
+            if (redChance || blueChance)
+            {
+                var dNow = Flat(game.Player.ChestPosition - game.Cpu.ChestPosition);
+                Chance(redT, redChance, dNow / game.Player.ArmReach, OpeningOf(redBots));
+                Chance(blueT, blueChance, dNow / game.Cpu.ArmReach, OpeningOf(blueBots));
+            }
+
             foreach (var hit in game.RecentHits)
             {
                 Add(hit.Attacker == game.Player ? redT : blueT, hit.Attacker == game.Player ? blueT : redT, hit.Damage);
+                if (hit.Attacker == game.Player ? redChance : blueChance)
+                {
+                    (hit.Attacker == game.Player ? redT : blueT).ChanceDamage += hit.Damage;
+                }
             }
 
             foreach (var hit in game.WeaponHits)
             {
                 Add(hit.Attacker == game.Player ? redT : blueT, hit.Attacker == game.Player ? blueT : redT, hit.Damage);
+                if (hit.Attacker == game.Player ? redChance : blueChance)
+                {
+                    (hit.Attacker == game.Player ? redT : blueT).ChanceDamage += hit.Damage;
+                }
             }
 
             if (game.Round != round)
@@ -148,6 +172,21 @@ internal static class RosterLeague
 
     private static float Flat(System.Numerics.Vector3 v) => MathF.Sqrt((v.X * v.X) + (v.Z * v.Z));
 
+    private static float OpeningOf(List<IFighterControl> bots) => bots.Count > 0 && bots[^1] is BoxerBot b ? b.Opening : 0f;
+
+    private static void Chance(Tally t, bool chance, float distanceOverReach, float opening)
+    {
+        if (!chance)
+        {
+            return;
+        }
+
+        t.ChanceSeconds += StepDt;
+        t.ChanceDistance += distanceOverReach;
+        t.ChanceSamples++;
+        t.ChanceOpening += opening;
+    }
+
     internal static void Sample(Tally t, float d, float own, float opp, float threat)
     {
         t.Samples++;
@@ -213,6 +252,11 @@ internal static class RosterLeague
         into.Both += from.Both;
         into.OppOnly += from.OppOnly;
         into.Inside += from.Inside;
+        into.ChanceSeconds += from.ChanceSeconds;
+        into.ChanceDamage += from.ChanceDamage;
+        into.ChanceDistance += from.ChanceDistance;
+        into.ChanceSamples += from.ChanceSamples;
+        into.ChanceOpening += from.ChanceOpening;
         into.StaminaSamples += from.StaminaSamples;
         into.ArmRatioSum += from.ArmRatioSum;
     }
@@ -314,6 +358,19 @@ internal static class RosterLeague
                 $"| {c.Id} | {(float)t.HitsDealt / n:0.0} | {(float)t.HitsTaken / n:0.0} | {t.DamageDealt / n:0} | {t.DamageTaken / n:0} | {t.DamageDealt / Math.Max(1f, t.DamageTaken):0.00} | " +
                 $"{(t.Counted ? ((float)t.Thrown / n).ToString("0.0", Inv) : "-")} | {(t.Counted ? ((float)t.Landed / n).ToString("0.0", Inv) : "-")} | " +
                 $"{(t.Counted && t.Thrown > 0 ? ((float)t.Landed / t.Thrown).ToString("P0", Inv) : "-")} | {(t.StaminaSum / Math.Max(1.0, samples)):0.00} |"));
+        }
+
+        sb.AppendLine();
+        sb.AppendLine(Inv, $"#### 相手が弱った間（相手の意識が薄れて Faintness > {ChanceFaint:0.0}、両方立っている間。本当の値で測る: ボットはこれを読まない）");
+        sb.AppendLine();
+        sb.AppendLine("| キャラ | 弱った間 秒/試合 | 与えた量/秒（その間） | 平均 d/自分の腕（その間） | ボットの読んだ開き（その間） | 普段の与えた量/秒 |");
+        sb.AppendLine("|---|---|---|---|---|---|");
+        foreach (var c in order)
+        {
+            var t = totals[c.Id];
+            var n = Math.Max(1, t.Bouts);
+            sb.AppendLine(string.Create(Inv,
+                $"| {c.Id} | {t.ChanceSeconds / n:0.0} | {(t.ChanceSeconds > 0 ? (t.ChanceDamage / t.ChanceSeconds).ToString("0.0", Inv) : "-")} | {(t.ChanceSamples > 0 ? (t.ChanceDistance / t.ChanceSamples).ToString("0.00", Inv) : "-")} | {(t.ChanceSamples > 0 ? (t.ChanceOpening / t.ChanceSamples).ToString("0.00", Inv) : "-")} | {t.DamageDealt / Math.Max(1.0, n * seconds):0.0} |"));
         }
 
         sb.AppendLine();

@@ -113,6 +113,36 @@ public sealed record BotStyle
     /// </summary>
     public float BuildAimBody { get; init; } = 2f;
 
+    // ── 弱った相手を詰める層（HurtRead: 相手の構えの下がりと自分の手応えから開き 0..1 を読み、立ち回りを連続に変える。0 なら効かない）──
+    // 既定値の根拠（2026-11-16、rosterleague、拳のキャラ 8 人・各組 2 試合 × 60 秒、層を入れた 1 人 対 入れない全員: docs/arena/finish_*.md）: 基準では小柄な swarmer（ramon）が
+    // 相手を弱らせた間（相手の Faintness > 0.2）に 1 試合 20 秒もありながら、その間に与えた量は 8.0/秒（大きい 2 人は 16〜23/秒）で、腕の長さの 1.49 倍の所に立っていた。
+    // Tempo 1.5・Press 1.5・Spend 0.6 で、使った種 1 の平均の勝率 50 → 58 %、使っていない種 7 で 50 → 57 %（ramon 29 → 50 %・akira 14 → 36 %・yoandry 50 → 71 %）。
+    // 時間切れの近づきから今いる所で打つ案（v2）は種 1 で 58 %・種 7 で 55 %（ramon 18 %）で採らなかった。
+
+    /// <summary>構えの下がり（頭と両拳の高さの差 ÷ 相手の腕の長さ）が普段よりこれだけ下がってから開きと読み始める（測った健康な揺らぎの上）。</summary>
+    public float HurtSagStart { get; init; } = 0.06f;
+
+    /// <summary>構えの下がりが <see cref="HurtSagStart"/> からこれだけ増えると開き 1（意識が薄れると普段より 0.17〜0.23 下がる。HurtCueProbe）。</summary>
+    public float HurtSagSpan { get; init; } = 0.12f;
+
+    /// <summary>手応えの尺度（当てたダメージの和。これで開き 63 %。重い一撃 15 前後が 2 発で 6 割）。</summary>
+    public float HurtFeltScale { get; init; } = 30f;
+
+    /// <summary>手応えを忘れる時定数 [s]。</summary>
+    public float HurtMemory { get; init; } = 2.5f;
+
+    /// <summary>開きに応じて攻めの間隔を縮める強さ（間隔の縮む速さが 1 + これ × 開き 倍）。0 = 従来。</summary>
+    public float FinishTempo { get; init; } = 1.5f;
+
+    /// <summary>
+    /// 開きに応じて詰める強さ: 普段の立ち位置を打つ間合いへ（開き × これ の割合で、1 まで）寄せ、危ない所から出る動き（<see cref="RangeExit"/>）を
+    /// （1 − 開き × これ）倍に弱める。0 = 従来。
+    /// </summary>
+    public float FinishPress { get; init; } = 1.5f;
+
+    /// <summary>開きに応じて休みを後回しにする強さ（休む度合いを 1 − 開き × これ 倍）。蓄えが無ければ体は動かない（物理が上限）。0 = 従来。</summary>
+    public float FinishSpend { get; init; } = 0.6f;
+
     // ── 学ぶ（docs/LEARNING_PLAN.md の B1）──
 
     /// <summary>守りの効き目を経験で覚え、選び方を変えるか（<see cref="DefenseMemory"/>）。</summary>
@@ -355,6 +385,13 @@ public sealed record BotStyle
             BuildPush = Range(BuildPush, 0f, 1f, 0f),
             BuildDuck = Range(BuildDuck, 0f, 2f, 0f),
             BuildAimBody = Range(BuildAimBody, 0f, 4f, 0f),
+            HurtSagStart = Range(HurtSagStart, 0f, 0.5f, 0.06f),
+            HurtSagSpan = Range(HurtSagSpan, 0.01f, 1f, 0.12f),
+            HurtFeltScale = Range(HurtFeltScale, 1f, 500f, 30f),
+            HurtMemory = Range(HurtMemory, 0.1f, 20f, 2.5f),
+            FinishTempo = Range(FinishTempo, 0f, 5f, 1.5f),
+            FinishPress = Range(FinishPress, 0f, 2f, 1.5f),
+            FinishSpend = Range(FinishSpend, 0f, 1f, 0.6f),
             LearnPrior = Range(LearnPrior, 0.5f, 100f, 4f),
             LearnDamageScale = Range(LearnDamageScale, 0.5f, 100f, 10f),
             AttackRange = attack,
