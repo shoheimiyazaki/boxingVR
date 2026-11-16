@@ -19,7 +19,8 @@ public sealed class GroundStrikeTests
     /// <summary>倒れた相手に当てた打撃の記録（<paramref name="FirstHitAt"/> は打ち下ろしを始めてからの時刻）。</summary>
     internal sealed record DrillResult(int Hits, float? FirstHitAt, int Started, string Names, float Damage, bool Downed, float Wounded = 0f);
 
-    private static BotStyle Still => BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
+    // 攻めない的: 弱った相手を詰める層（FinishPress など）も切る（攻めない体が「相手の構えが下がった」と読んで前へ詰めると、的の位置が試合ごとに変わる）。
+    private static BotStyle Still => BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f, FinishTempo = 0f, FinishPress = 0f, FinishSpend = 0f };
 
     private static BoxingCorners Corners(BotStyle attacker, bool referee, WeaponKind? weapon = null, bool useWeaponBots = false, bool legacyWeapon = false)
         => new("attacker", s => new BoxerBot(attacker, s), s => new BoxerBot(Still, s), CpuStyleJson: attacker.ToJson(),

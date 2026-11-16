@@ -73,6 +73,11 @@ public static class DefenseDrill
         DefenseRate = 0f,
         CounterRate = 0f,
         ClinchRate = 0f,
+        // 弱った相手を詰める層も切る: ドリルは 1 つの技と 1 つの守りを比べる（回り込み・頭の動きと同じく、立ち回りの層は入れない）。
+        // 入れると、受け手のスリップ・ダッキングで頭が拳より下がるのを「構えが下がった（弱った）」と読み、間隔を縮めて詰める（HurtRead の読み違い）。
+        FinishTempo = 0f,
+        FinishPress = 0f,
+        FinishSpend = 0f,
     };
 
     /// <summary>
@@ -95,6 +100,9 @@ public static class DefenseDrill
         EvadeReach = 1.2f, // 届かない拳は避けない（回避編 E2）
         ClinchRate = 0f,
         ThrowRate = 0f,
+        FinishTempo = 0f, // 弱った相手を詰める層は切る（攻め手と同じ理由。受け手が詰めると間合いが変わる）
+        FinishPress = 0f,
+        FinishSpend = 0f,
         Defenses = book,
     };
 
