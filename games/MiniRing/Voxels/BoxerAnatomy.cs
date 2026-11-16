@@ -60,6 +60,9 @@ public static class BoxerAnatomy
     /// <summary>唇（顔の口の色の部位。皮膚と同じ強さ・密度・組織なので、試合の物理は変わらない。色だけ肌の色から赤みへ寄せる）。</summary>
     public const byte Lip = 21;
 
+    /// <summary>脊髄（背骨の中を通る神経の束。柔らかく弱い組織）。削れた残りの断面が、その下の筋の力を決める（<see cref="BoxerBody.CordFunction"/>）。</summary>
+    public const byte Cord = 22;
+
     // ── 押されたときのふるまい（VoxelContact）: 密度 [kg/m³]・降伏する圧力 [Pa]・たわむ距離 [m]・（武器だけ）折れる曲げ応力とヤング率 [Pa]。
     // 体の値は、人形の縮尺の剣（約 0.085kg）の刃が、ふつうの振り（6m/s）では皮膚と肉を切って骨で止まり、強い振り（16m/s）では
     // 骨まで断つように合わせている（docs/VOXEL_WEAPONS.md）。ボクセルの刃先は本物よりずっと鈍い（1.25mm）ので、肉の値は本物の切れにくさより低い。
@@ -94,6 +97,9 @@ public static class BoxerAnatomy
 
     /// <summary>ボクセルの骨の、曲げのたわみ（断面二次モーメント）の実効値の割合（<see cref="BoneSectionModulusShare"/> を見よ）。</summary>
     private const float BoneSectionInertiaShare = 0.031f;
+
+    /// <summary>脊髄: 柔らかく弱い神経組織（脳より少し弱い）。</summary>
+    private static readonly VoxelMechanics CordMechanics = Doll(new(1040f, 0.05e6f, 0.005f));
     private static readonly VoxelMechanics OrganMechanics = Doll(new(1050f, 0.2e6f, 0.005f));
     private static readonly VoxelMechanics BrainMechanics = Doll(new(1040f, 0.12e6f, 0.005f));
     private static readonly VoxelMechanics ClothMechanics = Doll(new(1100f, 1.2e6f, 0.005f));
@@ -153,6 +159,7 @@ public static class BoxerAnatomy
         new VoxelMaterial("blue glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.1f, 0.25f, 0.85f), Rgb(0.1f, 0.25f, 0.85f), Stainable: 0.6f, Mechanics: LeatherMechanics),
         new VoxelMaterial("padding", VoxelTissue.Solid, 1f, false, Rgb(0.92f, 0.9f, 0.82f), Rgb(0.92f, 0.9f, 0.82f), Stainable: 0.4f, Mechanics: PaddingMechanics),
         new VoxelMaterial("lip", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.8f, 0.4f, 0.38f), Rgb(0.8f, 0.4f, 0.38f), Stainable: 1f, Mechanics: SkinMechanics),
+        new VoxelMaterial("cord", VoxelTissue.Flesh, 0.5f, false, Rgb(0.5f, 1f, 0.15f), Rgb(0.5f, 1f, 0.15f), Stainable: 0f, Mechanics: CordMechanics),
     ]);
 
     /// <summary>腰のゴム: 骨盤の外形の上からこの高さ（正規化 Y）より上。</summary>

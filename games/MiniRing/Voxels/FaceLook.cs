@@ -29,6 +29,35 @@ public enum Hairstyle
 public sealed record FaceLook(Vector3 Skin, Vector3 Hair, Vector3 Pupil, Hairstyle Style, bool Brows, bool Beard)
 {
     public FaceParts Parts { get; init; } = FaceParts.Default;
+
+    /// <summary>
+    /// 値の検証（記録・名簿から読んだ顔を試合へ渡す前に呼ぶ）: 色は 0〜1 の有限値、髪型は定義済み、顔の部位は許す幅の中。
+    /// </summary>
+    public FaceLook Validate()
+    {
+        foreach (var (color, field) in new[] { (Skin, nameof(Skin)), (Hair, nameof(Hair)), (Pupil, nameof(Pupil)) })
+        {
+            if (!float.IsFinite(color.X) || !float.IsFinite(color.Y) || !float.IsFinite(color.Z)
+                || color.X is < 0f or > 1f || color.Y is < 0f or > 1f || color.Z is < 0f or > 1f)
+            {
+                throw new ArgumentOutOfRangeException(field, "顔の色は 0〜1 の有限値で指定してください。");
+            }
+        }
+
+        if (!Enum.IsDefined(Style))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Style), "知らない髪型です。");
+        }
+
+        if ((object?)Parts is null)
+        {
+            throw new ArgumentOutOfRangeException(nameof(Parts), "顔の部位がありません。");
+        }
+
+        _ = Parts.Validate();
+        return this;
+    }
+
     private static readonly Vector3[] Skins =
     [
         new(0.96f, 0.78f, 0.64f), new(0.86f, 0.6f, 0.42f), new(0.74f, 0.5f, 0.33f),

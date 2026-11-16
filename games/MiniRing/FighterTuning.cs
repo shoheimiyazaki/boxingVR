@@ -103,6 +103,9 @@ public sealed record FighterTuning
     /// <summary>首のバネが出せる最大トルク（TorqueScale 倍する前）。</summary>
     public float NeckMaxTorque { get; init; } = 60f;
 
+    /// <summary>折れた首の、胴に残った側の破片を胴に固定するサーボの最大トルク（TorqueScale 倍する前）。固定の役で、動かす筋ではない（首の筋は折れたとき外れる）。胴の側の首の根は動かない。</summary>
+    public float NeckWeldTorque { get; init; } = 500f;
+
     // ── 腕（サーボ + 拳への PD 力）
     public float ArmServoHz { get; init; } = 15f;
     public float ArmServoMaxSpeed { get; init; } = 40f;
@@ -187,6 +190,13 @@ public sealed record FighterTuning
 
     /// <summary>沈み込みの最大（立つ高さに対する割合）。膝と股を曲げて腰を落とす。0.4 では、ボディを打つ・かわすたびに膝が床近くまで落ち、ダウンと見分けにくかった（2026-11-12 に 0.28）。</summary>
     public float MaxCrouch { get; init; } = 0.3f;
+
+    /// <summary>
+    /// レフェリーなしの試合（<see cref="BoxingCorners.Referee"/> = false）で、<see cref="MaxCrouch"/> の代わりに使う沈み込みの最大。倒れた相手は床すれすれに横たわるので
+    /// （60 cm の体で肩から床まで腕の 2 倍ほど）、立った高さの 0.3 倍の沈みでは腕が届かない。膝を深く折って腰を落とす（しゃがむ・片膝をつく）ぶんの深さ。
+    /// 近道: 倒れた相手を打つとき専用に、腰を落とせる深さの上限だけ広げる（§8）。
+    /// </summary>
+    public float GroundCrouch { get; init; } = 0.75f;
 
     /// <summary>頭を下げる量のうち、腰から前へ折って（ヒップヒンジ）下げる割合。残りは膝と股を曲げて腰を落とす。ウィービング・ダッキングが膝だけで沈まない。</summary>
     public float HipHingeShare { get; init; } = 0.4f;
@@ -343,21 +353,26 @@ public sealed record FighterTuning
     /// <summary>
     /// スタミナの容量 [J]: 筋肉がすぐ使えるエネルギーの蓄え。拳を目標へ押す力がした仕事（力 × 拳の速さの正の分）・力を出し続ける
     /// 保持の分（<see cref="IsometricCost"/>）・歩いて体を運ぶ分（<see cref="WalkCost"/>）がここから出ていき、心肺が戻す
-    /// （<see cref="StaminaRecoveryPower"/>）。90 J、最大戻り 15 W: 仕事率の負債・保持費込みで、空から構えて 10 秒休むと 100 % まで戻る（サーボの精算を実際の速さで数え直した後の測定、15 W × 10 s が容量 90 J を超える。2026-11-15）。
+    /// （<see cref="StaminaRecoveryPower"/>）。60 J、最大戻り 15 W: 空から構えて立つと 3 秒で 75 %・4 秒で満タン、全力の攻め（P 8〜10 W）を
+    /// 続けると 10 秒余りで空（2026-11-15 の測定。以前は 90 J: 回復を直した後は全力の攻めが 15 秒近く続き、疲れが試合に効かなくなった）。
     /// </summary>
-    public float StaminaCapacity { get; init; } = 90f;
-
-    /// <summary>腕の仕事率をならす時間 [s]（これより短い行き来は打ち消し合う。拳を 1 回出す時間 0.15〜0.3 s より短く）。</summary>
-    public float StaminaPowerWindow { get; init; } = 0.08f;
+    public float StaminaCapacity { get; init; } = 60f;
 
     /// <summary>心肺がスタミナを戻す速さ [W]（心臓と肺の働きが満ちているとき。働きに比例して落ちる）。</summary>
     public float StaminaRecoveryPower { get; init; } = 15f;
 
-    /// <summary>仕事率の負債をならす時間 [s]。数発の連打が残り、離れて休むと数秒で抜ける。</summary>
-    public float StaminaRecoveryWindow { get; init; } = 2f;
+    /// <summary>
+    /// 実際にした仕事の仕事率 P をならす時間 [s]（回復を決める P の指数平均）。1 秒: 数発の連打の分が残り、手を止めると 1〜2 秒で抜ける。
+    /// 以前の 2 秒は、空になってから構え直しても回復が始まるまで数秒かかった（2026-11-15 の測定）。
+    /// </summary>
+    public float StaminaRecoveryWindow { get; init; } = 1f;
 
-    /// <summary>回復率が最大の 1/e になる直近の要求仕事率 [W]。構えの保持と連打を連続に分ける（回復は exp(-比²)）。</summary>
-    public float StaminaRestPower { get; init; } = 0.7f;
+    /// <summary>
+    /// 回復が最大の 1/e になる、直近に実際にした仕事の仕事率 [W]（回復は exp(−(P / この値)²)）。2026-11-15 に測った P: 構えて立つ 0.1 W・下がりながら歩く 0.6〜0.9 W・
+    /// 試合の立ち回り（休息中を含む）3〜5 W・全力の攻め 8〜10 W（平均）。7 W なら立つ・歩くで 9 割以上、攻めの平均 8 W で 3 割、10 W で 1 割強。
+    /// 以前の 0.7 W は「出そうとした仕事率」（出せなかった分を含む）の尺度で、立ち回りだけで回復が止まった。
+    /// </summary>
+    public float StaminaRestPower { get; init; } = 5f;
 
     /// <summary>低残量で蓄えを放出する時間 [s]。0.2 秒（打ち出し程度）へ連続に制限する。余裕があれば瞬発力として蓄え全量を使える。</summary>
     public float StaminaReleaseWindow { get; init; } = 0.2f;

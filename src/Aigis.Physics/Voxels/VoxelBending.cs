@@ -30,7 +30,11 @@ public static class VoxelBending
     /// Whether only the cells with a tensile strength carry the section (a limb: the bone carries the bending, the flesh
     /// around it only adds its mass and inertia). Without it, every material must have one (a weapon) or nothing snaps.
     /// </param>
-    public static VoxelBreak? FindBreak(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false)
+    /// <param name="candidates">
+    /// The slices (inclusive) where the body may snap (null: any). The rest of the body still carries the load and gives the inertia;
+    /// it only never breaks there (a head: the skull is not where it snaps, the neck is).
+    /// </param>
+    public static VoxelBreak? FindBreak(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null)
     {
         ArgumentNullException.ThrowIfNull(grid);
         var (nx, ny, nz) = grid.Dimensions;
@@ -91,7 +95,7 @@ public static class VoxelBending
             var higherCount = cells.Count - lowerCount - bySlice[s].Count;
             var hasMaterialOnBothSides = lowerCount > 0 && higherCount > 0;
             lowerCount += bySlice[s].Count;
-            if (!hasMaterialOnBothSides)
+            if (!hasMaterialOnBothSides || (candidates is { } range && (s < range.Low || s > range.High)))
             {
                 continue;
             }

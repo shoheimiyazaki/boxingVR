@@ -3,17 +3,35 @@ using MiniRing.Weapons;
 
 namespace MiniRing.Replay;
 
-/// <summary>操作元以外の、試合開始時の条件。</summary>
+/// <summary>
+/// 操作元以外の、試合開始時の条件。<c>RedBotStyleJson</c>（赤がボットのとき）・<c>PlayerStyleJson</c>（人が操る赤の意図の解釈に使う）は、
+/// 名簿のキャラクターなら教育を重ねた解決済みのスタイルの全体（名簿のファイルが後で変わっても同じ試合を再生するため）。青は見出しの <c>CpuStyleJson</c>。
+/// <c>PlayerStyleJson</c> は版 8 から（無い記録は null: 今までの決め方）。<c>PlayerWeaponStyleJson</c>・<c>CpuWeaponStyleJson</c> は版 9 から
+/// （握る武器のボットの判断の値の解決済み JSON。無い記録は null: その武器の組み込みの教科書）。
+/// </summary>
 public sealed record ReplayMatchSettings(
     WeaponKind? CpuWeapon, WeaponKind? PlayerWeapon, bool CpuTwoHanded, bool PlayerTwoHanded,
     bool VoxelGloves, HandWear PlayerWear, HandWear CpuWear, string? PlayerName,
     RingLayout? Ring, BodyBuild? PlayerBody, BodyBuild? CpuBody, FaceParts? PlayerFace, FaceParts? CpuFace,
-    MatchRules? Rules, bool ExternalBlue = false, string? RedBotStyleJson = null, bool UseWeaponBots = false)
+    MatchRules? Rules, bool ExternalBlue = false, string? RedBotStyleJson = null, bool UseWeaponBots = false,
+    FaceLook? PlayerLook = null, FaceLook? CpuLook = null, string? PlayerLabel = null, string? CpuLabel = null, bool Referee = true,
+    string? PlayerStyleJson = null, string? PlayerWeaponStyleJson = null, string? CpuWeaponStyleJson = null)
 {
     public static ReplayMatchSettings From(BoxingCorners corners, MatchRules? rules) => new(
         corners.CpuWeapon, corners.PlayerWeapon, corners.CpuTwoHanded, corners.PlayerTwoHanded,
         corners.VoxelGloves, corners.PlayerWear, corners.CpuWear, corners.PlayerName, corners.Ring,
-        corners.PlayerBody, corners.CpuBody, corners.PlayerFace, corners.CpuFace, rules, corners.ExternalBlue, corners.RedBotStyle?.ToJson(), corners.UseWeaponBots);
+        corners.PlayerBody, corners.CpuBody, corners.PlayerFace, corners.CpuFace, rules, corners.ExternalBlue, corners.RedBotStyle?.ToJson(), corners.UseWeaponBots,
+        corners.PlayerLook, corners.CpuLook, corners.PlayerLabel, corners.CpuLabel, corners.Referee, corners.PlayerStyle?.ToJson(),
+        corners.PlayerWeaponStyle?.ToJson(), corners.CpuWeaponStyle?.ToJson());
+
+    /// <summary>画面の名前の検証: あるなら空でなく、32 文字まで、制御文字なし（壊れた記録を画面に出さない）。</summary>
+    private static void ValidateLabel(string? label, string field)
+    {
+        if (label is not null && (label.Length is 0 or > 32 || label.Any(char.IsControl)))
+        {
+            throw new ArgumentException($"{field} は 1〜32 文字の制御文字なしで指定してください。", field);
+        }
+    }
 
     public BoxingCorners Apply(BoxingCorners corners)
     {
@@ -28,10 +46,18 @@ public sealed record ReplayMatchSettings(
         _ = CpuBody?.Validate();
         _ = PlayerFace?.Validate();
         _ = CpuFace?.Validate();
+        _ = PlayerLook?.Validate();
+        _ = CpuLook?.Validate();
+        ValidateLabel(PlayerLabel, nameof(PlayerLabel));
+        ValidateLabel(CpuLabel, nameof(CpuLabel));
         return corners with { CpuWeapon = CpuWeapon, PlayerWeapon = PlayerWeapon, CpuTwoHanded = CpuTwoHanded,
             PlayerTwoHanded = PlayerTwoHanded, VoxelGloves = VoxelGloves, PlayerWear = PlayerWear, CpuWear = CpuWear,
             PlayerName = PlayerName, Ring = Ring, PlayerBody = PlayerBody, CpuBody = CpuBody,
             PlayerFace = PlayerFace, CpuFace = CpuFace, ExternalBlue = ExternalBlue,
-            UseWeaponBots = UseWeaponBots, RedBotStyle = RedBotStyleJson is { } json ? Bots.BotStyle.FromJson(json) : null };
+            PlayerLook = PlayerLook, CpuLook = CpuLook, PlayerLabel = PlayerLabel, CpuLabel = CpuLabel, Referee = Referee,
+            UseWeaponBots = UseWeaponBots, RedBotStyle = RedBotStyleJson is { } json ? Bots.BotStyle.FromJson(json) : null,
+            PlayerStyle = PlayerStyleJson is { } playerJson ? Bots.BotStyle.FromJson(playerJson) : null,
+            PlayerWeaponStyle = PlayerWeaponStyleJson is { } playerWeapon ? Bots.WeaponStyle.FromJson(playerWeapon) : null,
+            CpuWeaponStyle = CpuWeaponStyleJson is { } cpuWeapon ? Bots.WeaponStyle.FromJson(cpuWeapon) : null };
     }
 }

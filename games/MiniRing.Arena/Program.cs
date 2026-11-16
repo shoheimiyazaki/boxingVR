@@ -4,6 +4,7 @@ using MiniRing.Arena;
 using MiniRing.Bots;
 
 // ボット同士の対戦場。
+//   rosterleague [--chars a,b,...] [--bouts N] [--seconds S] [--seed X] [--referee on|off] [--parallel N] [--set A=v,B=v [--ab on [--layered id]]] [--out file.md]   名簿のキャラの総当たり（体格・距離の帯・打撃の表）
 //   league [--bots a,b,...] [--bouts N] [--seconds S] [--seed X] [--out file.md]   総当たりの順位表と技の内訳
 //   tune --base NAME [--gens G] [--pop P] [--bouts N] [--seconds S] [--gauntlet a,b] [--seed X] [--log file.md] [--out style.json]
 //                                                                                   スタイルの自動調整（PDCA を世代ごとに記録）
@@ -12,13 +13,13 @@ using MiniRing.Bots;
 //                                                                                   防御技ごとの最適化（ドリルで PDCA）
 //   attacklab [--combos 1,2,1-2] [--telegraphs 0,0.1,0.2] [--ranges 0.9,1.05,1.2] [--bouts N] [--seconds S] [--log f.md]
 //                                                                                   攻撃のドリル: 単発・連打 × 溜めの長さで、拳の速さ・体重の乗り・威力
-//   karatelab [--only shapes,parry,kicks] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md]
+//   karatelab [--only shapes,parry,kicks,video] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md] [--video media_tmp/karate_vitals]
 //                                                                                   空手のドリル: 手の形 × 急所、パリー（拳の曲がり）、5 種の蹴り
 //   counterlab [--book f.json] [--defense a,b|evasions] [--bouts N] [--ranges 1.15,1.3] [--log f.md] [--out book.json]
 //                                                                                   回避からのカウンターの研究（型 × 打ち始めの総当たり）
 //   basics [--punch 2] [--slot Duck] [--style swarmer] [--guards 0.6,1.0,1.5] [--guard H] [--gens G] [--pop P] [--log f.md] [--out f.json]
 //                                                                                   回避の基本動作の最適化（1 つの型だけを打たせて、外す形を磨く）
-//   video [--red A] [--blue B] [--seed X] [--seconds S] [--width W --height H --fps F] [--out file.mp4] [--red-weapon W --blue-weapon W]
+//   video [--red A] [--blue B] [--seed X] [--seconds S] [--width W --height H --fps F] [--out file.mp4] [--red-weapon W --blue-weapon W]  [--red-char ID --blue-char ID]（名簿のキャラクター。武器・体格・顔・名前がそのキャラクターの値）
 //                                                                                   ボット同士の試合を字幕・打撃音つきの mp4 に（ffmpeg が必要）
 //   weaponlab [--out file.mp4] [--table file.md] [--width W --height H --fps F] [--slow X] [--video on|off]
 //                                                                                   武器の実験場: 鉄の剣と木の棍棒で斬る・打つ・突く・打ち合う（スロー動画と結果の表）
@@ -42,7 +43,10 @@ try
 {
     return command switch
     {
-        "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out", "hz", "passes", "sample")),
+        "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out", "hz", "passes", "sample", "referee")),
+        "handlelab" => HandleLabCommand(Options.Parse(argv[1..], "pairs", "fist", "bouts", "seconds", "seed", "referee", "parallel", "out", "style-katana", "style-longsword", "style-club", "title")),
+        "handlespar" => HandleSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "held-out", "gens", "lambda", "bouts", "seconds", "seed", "referee", "parallel", "start", "best", "out")),
+        "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain")),
         "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
         "learnlab" => LearnLabCommand(Options.Parse(argv[1..], "first", "second", "seeds", "seconds", "seed", "prior", "scale", "combos", "defender", "out")),
         "rangelab" => RangeLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "weapons", "out")),
@@ -50,14 +54,14 @@ try
         "drill" => Drill(Options.Parse(argv[1..], "book", "bouts", "seconds", "seed", "out")),
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
-        "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues")),
+        "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
         "formlab" => FormLabCommand(Options.Parse(argv[1..], "punch", "slot", "style", "move", "set", "cue", "bouts", "seconds", "seed", "log")),
         "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift")),
         "guardspar" => GuardSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
-        "breakdemo" => BreakDemoCommand(Options.Parse(argv[1..], "out", "seconds")),
+        "breakdemo" => BreakDemoCommand(Options.Parse(argv[1..], "out", "seconds", "only", "fps")),
         "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seconds", "out", "only", "variants", "video", "try")),
         "selfcuts" => SelfCutCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "out", "hitaway", "passes", "clearance", "margin", "tilt", "pacing", "slack", "angle")),
         "selfpath" => SelfPathCommand(Options.Parse(argv[1..], "margin", "from", "tilt", "out")),
@@ -72,7 +76,13 @@ try
         "swinglab" => SwingLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "families")),
         "weaponlab" => WeaponLabCommand(Options.Parse(argv[1..], "out", "table", "width", "height", "fps", "slow", "video")),
         "intentvideo" => IntentVideo(Options.Parse(argv[1..], "script", "blue", "seed", "seconds", "width", "height", "out")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters", "red-weapon", "blue-weapon")),
+        "version" => Print($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}"),
+        "tvdraft" => TvDraftCommand(Options.Parse(argv[1..], "events", "out")),
+        "tvmerge" => TvMergeCommand(Options.Parse(argv[1..], "draft", "extras", "out")),
+        "tvlint" => TvLintCommand(Options.Parse(argv[1..], "script", "events", "manifest")),
+        "tvdigest" => TvDigestCommand(Options.Parse(argv[1..], "events", "out")),
+        "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
@@ -96,6 +106,14 @@ static void ApplySimplify(Options o)
     Aigis.Physics.Voxels.VoxelContact.SampleSpacingScale = o.Float("sample", 0.5f, min: 0.1f);
 }
 
+// レフェリーの有無（--referee on|off、既定 on）。off ではダウンのカウント中も攻撃でき、立ち直った後の一呼吸も無い。
+static bool Referee(Options o) => (o.Get("referee") ?? "on") switch
+{
+    "on" => true,
+    "off" => false,
+    _ => throw new ArgumentException("--referee は on か off にしてください。"),
+};
+
 static int League(Options o)
 {
     ApplySimplify(o);
@@ -108,7 +126,8 @@ static int League(Options o)
     }
 
     var watch = Stopwatch.StartNew();
-    var results = BotArena.RunAll(BotArena.RoundRobin(contenders, bouts, seconds, o.Int("seed", 1)));
+    var referee = Referee(o);
+    var results = BotArena.RunAll([.. BotArena.RoundRobin(contenders, bouts, seconds, o.Int("seed", 1)).Select(s => s with { Referee = referee })]);
     var rows = Standing.From(results);
     var text = $"### 総当たり（各組 {bouts} 試合 × {seconds:0} 秒、種 {o.Int("seed", 1)}）\n\n" +
         Report.Standings(rows) + "\n" + Report.Matrix(results) + "\n" + Report.Breakdown(rows);
@@ -117,6 +136,75 @@ static int League(Options o)
     if (o.Get("out") is { } path)
     {
         File.WriteAllText(path, text);
+    }
+
+    return 0;
+}
+
+// --set "A=0.5,B=1": BotStyle の値を全員に上書きして試す（体格を読む層の係数を探すとき）。
+static IReadOnlyDictionary<string, float> SetOf(Options o)
+    => o.List("set", []).Select(p => p.Split('=')).ToDictionary(p => p.Length == 2 ? p[0] : throw new ArgumentException("--set は 名前=値 をカンマで区切ってください。"), p => float.Parse(p[1], CultureInfo.InvariantCulture));
+
+static int RosterLeagueCommand(Options o)
+{
+    ApplySimplify(o);
+    var all = MiniRing.Characters.CharacterRoster.All;
+    var roster = o.Get("chars") is null ? all : [.. o.List("chars", []).Select(MiniRing.Characters.CharacterRoster.Get)];
+    if (roster.Count < 2)
+    {
+        throw new ArgumentException("--chars には 2 人以上が必要です。");
+    }
+
+    var watch = Stopwatch.StartNew();
+    var text = RosterLeague.Run(roster, o.Int("bouts", 2, min: 1), o.Float("seconds", 40f, min: 1f), o.Int("seed", 1), Referee(o), o.Int("parallel", 2, min: 1), Console.Error, SetOf(o), o.Get("ab") == "on", o.Get("layered"), o.Get("plain"));
+    Console.WriteLine(text);
+    Console.Error.WriteLine($"rosterleague done in {watch.Elapsed.TotalSeconds:0.0}s");
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, text);
+    }
+
+    return 0;
+}
+
+// 武器の扱いの物差し（docs/arena/weapon_handling_*.md）。--style-katana 等は、その武器を握る全員に渡す WeaponStyle の JSON。
+static int HandleLabCommand(Options o)
+{
+    var matchups = o.Get("pairs") is { } pairs
+        ? [.. pairs.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Split(':') is { Length: 2 } ab ? new HandleLab.Matchup(ab[0], ab[1]) : throw new ArgumentException($"--pairs は a:b,c:d の形です（{p}）。"))]
+        : HandleLab.DefaultMatchups(o.Get("fist") ?? "marcus");
+    static MiniRing.Bots.WeaponStyle? Style(string? path) => path is null ? null : MiniRing.Bots.WeaponStyle.FromJson(File.ReadAllText(path));
+    var overrides = new HandleLab.Overrides(Style(o.Get("style-katana")), Style(o.Get("style-longsword")), Style(o.Get("style-club")));
+    var bouts = o.Int("bouts", 6, min: 1);
+    var seconds = o.Float("seconds", 40f, min: 1f);
+    var seed = o.Int("seed", 1);
+    var watch = Stopwatch.StartNew();
+    var results = HandleLab.Run(matchups, bouts, seconds, seed, Referee(o), o.Int("parallel", 2, min: 1), overrides, Console.Error);
+    var text = HandleLab.Report(results, seconds, seed, o.Get("title") ?? "武器の扱いの物差し");
+    Console.WriteLine(text);
+    Console.Error.WriteLine($"handlelab done in {watch.Elapsed.TotalSeconds:0.0}s");
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, text);
+    }
+
+    return 0;
+}
+
+// 武器の教科書を練習試合で育てる。--trainee は武器を握る名簿のキャラ（jin・konrad・sean）。採った（または始めの）値は --best（既定 docs/arena/weapon_<id>_best.json）へ。
+static int HandleSparCommand(Options o)
+{
+    var trainee = o.Get("trainee") ?? throw new ArgumentException("--trainee jin|konrad|sean を指定してください。");
+    var character = MiniRing.Characters.CharacterRoster.Get(trainee);
+    var start = o.Get("start") is { } from ? MiniRing.Bots.WeaponStyle.FromJson(File.ReadAllText(from)) : character.WeaponStyle ?? throw new ArgumentException($"{trainee} は武器のボットを持ちません。");
+    var (best, report) = HandleSpar.Run(trainee, start, o.List("opponents", ["konrad", "sean", "jin", "marcus"]).Where(x => x != trainee).ToList(),
+        o.List("held-out", ["dmitri", "albert", "vikram", "gaston"]), o.Int("gens", 4, min: 1), o.Int("lambda", 4, min: 1), o.Int("bouts", 2, min: 2), o.Float("seconds", 30f, min: 1f),
+        o.Int("seed", 1), Referee(o), o.Int("parallel", 2, min: 1), Console.Out);
+    Console.WriteLine(report);
+    File.WriteAllText(o.Get("best") ?? $"docs/arena/weapon_{trainee}_best.json", best.ToJson());
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
     }
 
     return 0;
@@ -321,6 +409,16 @@ static int KarateLabCommand(Options o)
         {
             File.AppendAllText(logPath, line + "\n");
         }
+    }
+
+    if (o.Get("handsheet") is { } handSheet)
+    {
+        KarateShapeVideo.HandSheet(handSheet, Log);
+    }
+
+    if (o.Get("video") is { } video)
+    {
+        KarateShapeVideo.Make(video, o.Float("seconds", 30f, min: 1f), o.Int("seed", 1), Log);
     }
 
     new KarateLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log,
@@ -911,7 +1009,9 @@ static int BreakDemoCommand(Options o)
 {
     var video = Path.GetFullPath(o.Get("out") ?? "videos/breakdemo.mp4");
     Directory.CreateDirectory(Path.GetDirectoryName(video)!);
-    new SparVideo(1280, 720, 30).MakeBreakDemo(BreakDemo.Scenes(), o.Float("seconds", 6f, min: 2f), video, Console.Out);
+    var only = o.Get("only");
+    var scenes = BreakDemo.Scenes().Where(s => only is null || s.Title.Contains(only, StringComparison.Ordinal)).ToList();
+    new SparVideo(1280, 720, o.Int("fps", 30, min: 10)).MakeBreakDemo(scenes, o.Float("seconds", 6f, min: 2f), video, Console.Out);
     Console.WriteLine(video);
     return 0;
 }
@@ -962,9 +1062,14 @@ static int Video(Options o)
         return DrillVideo(o, punch);
     }
 
-    var red = Load(o.Get("red") ?? "champion");
-    var blue = Load(o.Get("blue") ?? "jabber");
-    var output = Path.GetFullPath(o.Get("out") ?? $"miniring_{red.Name}_vs_{blue.Name}.mp4");
+    // 名簿のキャラクター（--red-char / --blue-char <id>。games/MiniRing/Characters/roster/<id>.json）: ボットのスタイル・武器・はめる物・体格・顔・表示名をそのキャラクターの値にする。
+    var redCharacter = o.Get("red-char") is { } redId ? MiniRing.Characters.CharacterRoster.Get(redId) : null;
+    var blueCharacter = o.Get("blue-char") is { } blueId ? MiniRing.Characters.CharacterRoster.Get(blueId) : null;
+    var set = SetOf(o);
+    // キャラクターは教科書に教育を重ねた解決済みのスタイル（相手ごとの備えは、もう片方がキャラクターのときだけ効く）。--set はその上にさらに重ねる。
+    var red = redCharacter is not null ? RosterLeague.ContenderOf(redCharacter, blueCharacter?.Id, set) : LoadWith(o.Get("red") ?? "champion", set);
+    var blue = blueCharacter is not null ? RosterLeague.ContenderOf(blueCharacter, redCharacter?.Id, set) : LoadWith(o.Get("blue") ?? "jabber", set);
+    var output = Path.GetFullPath(o.Get("out") ?? $"miniring_{redCharacter?.Id ?? red.Name}_vs_{blueCharacter?.Id ?? blue.Name}.mp4");
     Directory.CreateDirectory(Path.GetDirectoryName(output)!);
     var breakName = o.Get("break-sound") ?? MiniRing.Audio.VoxelBreakSound.DefaultStyle.ToString();
     if (!MiniRing.Audio.BreakSoundOption.TryName(breakName, out var breakStyle))
@@ -992,11 +1097,16 @@ static int Video(Options o)
         "off" => false,
         _ => throw new ArgumentException("--tv は on か off にしてください。"),
     };
-    new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), breakStyle, hitSounds, faceCam, speed, tv)
+    new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), breakStyle, hitSounds, faceCam, speed, tv,
+        tvRounds: o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1), tvEvent: o.Get("event") ?? "ファイトナイト", tvBout: o.Get("bout") ?? "",
+        tvBreak: o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f))
         .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 45f, min: 1f), output, Console.Out, untilKo: (o.Get("until-ko") ?? "no") switch { "yes" => true, "no" => false, _ => throw new ArgumentException("--until-ko は yes か no にしてください。") },
-            redWear: MiniRing.Weapons.HandWears.Parse(o.Get("red-wear") ?? "glove"), blueWear: MiniRing.Weapons.HandWears.Parse(o.Get("blue-wear") ?? "glove"),
-            redWeapon: o.Get("red-weapon") is { } rw ? Enum.Parse<MiniRing.Weapons.WeaponKind>(rw, ignoreCase: true) : null,
-            blueWeapon: o.Get("blue-weapon") is { } bw ? Enum.Parse<MiniRing.Weapons.WeaponKind>(bw, ignoreCase: true) : null,
+            redWear: o.Get("red-wear") is { } rwear ? MiniRing.Weapons.HandWears.Parse(rwear) : redCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove,
+            blueWear: o.Get("blue-wear") is { } bwear ? MiniRing.Weapons.HandWears.Parse(bwear) : blueCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove,
+            referee: Referee(o),
+            redWeapon: o.Get("red-weapon") is { } rw ? Enum.Parse<MiniRing.Weapons.WeaponKind>(rw, ignoreCase: true) : redCharacter?.Weapon,
+            blueWeapon: o.Get("blue-weapon") is { } bw ? Enum.Parse<MiniRing.Weapons.WeaponKind>(bw, ignoreCase: true) : blueCharacter?.Weapon,
+            redCharacter: redCharacter, blueCharacter: blueCharacter,
             setup: game =>
             {
                 BlindStart(game.Player, o.Get("blind-red"));
@@ -1075,6 +1185,99 @@ static int DrillVideo(Options o, string punch)
     }
 }
 
+// テレビ中継の動画の下見: 動画と同じ試合を描画せずに種ごとに回し、決着とダウンを並べる（--seeds 1,2,3）。
+static int TvScoutCommand(Options o)
+{
+    var speed = o.Get("speed") is { } speedText
+        ? MiniRing.GameSpeed.Parse(speedText) ?? throw new ArgumentException("--speed は 0.5 / 0.75 / 1 のどれかです。")
+        : MiniRing.GameSpeed.Standard;
+    // 名簿のキャラクター（--red-char / --blue-char）は video と同じ決め方（スタイル・武器・はめる物・体格・顔）。
+    var redCharacter = o.Get("red-char") is { } redId ? MiniRing.Characters.CharacterRoster.Get(redId) : null;
+    var blueCharacter = o.Get("blue-char") is { } blueId ? MiniRing.Characters.CharacterRoster.Get(blueId) : null;
+    var rounds = o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1);
+    var red = redCharacter is not null ? RosterLeague.ContenderOf(redCharacter, blueCharacter?.Id, null) : Load(o.Get("red") ?? "champion");
+    var blue = blueCharacter is not null ? RosterLeague.ContenderOf(blueCharacter, redCharacter?.Id, null) : Load(o.Get("blue") ?? "karate");
+    var redWear = o.Get("red-wear") is { } rwear ? MiniRing.Weapons.HandWears.Parse(rwear) : redCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove;
+    var blueWear = o.Get("blue-wear") is { } bwear ? MiniRing.Weapons.HandWears.Parse(bwear) : blueCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove;
+    var redWeapon = o.Get("red-weapon") is { } rw ? Enum.Parse<MiniRing.Weapons.WeaponKind>(rw, ignoreCase: true) : redCharacter?.Weapon;
+    var blueWeapon = o.Get("blue-weapon") is { } bw ? Enum.Parse<MiniRing.Weapons.WeaponKind>(bw, ignoreCase: true) : blueCharacter?.Weapon;
+    Console.WriteLine($"{redCharacter?.Id ?? red.Name}({redWear}{(redWeapon is null ? "" : "+" + redWeapon)}) vs {blueCharacter?.Id ?? blue.Name}({blueWear}{(blueWeapon is null ? "" : "+" + blueWeapon)}), {rounds} R");
+    var results = TvScout.Run(red, blue, redWear, blueWear, redWeapon, blueWeapon,
+        rounds, o.List("seeds", ["1", "2", "3", "4", "5", "6", "7", "8"]).Select(s => int.Parse(s, CultureInfo.InvariantCulture)), speed, o.Int("fps", 30, min: 10),
+        redCharacter, blueCharacter, Referee(o), o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f));
+    var roundSeconds = MiniRing.MatchRules.Tv.RoundSeconds;
+    TvScout.Print(results, rounds, roundSeconds, Console.Out);
+    // 最後の 2 行は機械が読む（tools/tvshow/tvshow.ps1 が種を選び、どの版の物理・ボットで選んだかを残す）。
+    Console.WriteLine($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}");
+    Console.WriteLine($"best seed {TvShowRules.Best(results, rounds, roundSeconds).Seed}");
+    return 0;
+}
+
+static int Print(string line)
+{
+    Console.WriteLine(line);
+    return 0;
+}
+
+// テレビ中継の実況の骨組みの下書き（events.json → script.json）。書き手はこれに解説との掛け合いを足す。
+static int TvDraftCommand(Options o)
+{
+    var events = o.Get("events") ?? throw new ArgumentException("--events <x.events.json> を渡してください。");
+    var output = o.Get("out") ?? events.Replace(".events.json", ".draft.json", StringComparison.Ordinal);
+    // 中身が同じなら書かない（ファイルの時刻が変わると、司令塔が台本を作り直して声を入れ直してしまう）。
+    var draft = TvDraft.Build(File.ReadAllText(events));
+    if (!File.Exists(output) || File.ReadAllText(output) != draft)
+    {
+        File.WriteAllText(output, draft);
+    }
+
+    Console.WriteLine(output);
+    return 0;
+}
+
+// 下書き（骨組み）に書き手の足す台詞（extras.json）を重ねて台本にする。入らなかった台詞を知らせる。
+static int TvMergeCommand(Options o)
+{
+    var draft = o.Get("draft") ?? throw new ArgumentException("--draft <x.draft.json> を渡してください。");
+    var extras = o.Get("extras") ?? draft.Replace(".draft.json", ".extras.json", StringComparison.Ordinal);
+    var output = o.Get("out") ?? draft.Replace(".draft.json", ".script.json", StringComparison.Ordinal);
+    var dropped = new List<string>();
+    File.WriteAllText(output, TvDraft.Merge(File.ReadAllText(draft), File.ReadAllText(extras), dropped));
+    foreach (var line in dropped)
+    {
+        Console.WriteLine($"入らなかった台詞: {line}");
+    }
+
+    Console.WriteLine(output);
+    return 0;
+}
+
+// テレビ中継の台本の点検（主語・長さ・言わない言葉・言い直し・掛け合い・コール・ずれ）。見つからなければ「OK」、あれば 1 行ずつ。
+static int TvLintCommand(Options o)
+{
+    var script = o.Get("script") ?? throw new ArgumentException("--script <x.script.json> を渡してください。");
+    var events = o.Get("events") ?? script.Replace(".script.json", ".events.json", StringComparison.Ordinal);
+    var manifest = o.Get("manifest") is { } m && File.Exists(m) ? File.ReadAllText(m) : null;
+    var issues = TvLint.Check(File.ReadAllText(script), File.ReadAllText(events), manifest);
+    foreach (var issue in issues)
+    {
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{issue.At,6:0.0}s [{issue.Rule}] {issue.Message}"));
+    }
+
+    Console.WriteLine(issues.Count == 0 ? "OK" : $"{issues.Count} issues");
+    return 0;
+}
+
+// テレビ中継の台本を書くための要約（events.json → Markdown）。実況・解説の台本を書く人（エージェント）はこれを読む。
+static int TvDigestCommand(Options o)
+{
+    var events = o.Get("events") ?? throw new ArgumentException("--events <x.events.json> を渡してください。");
+    var output = o.Get("out") ?? Path.ChangeExtension(events, null).Replace(".events", "", StringComparison.Ordinal) + ".digest.md";
+    File.WriteAllText(output, TvDigest.Build(File.ReadAllText(events)));
+    Console.WriteLine(output);
+    return 0;
+}
+
 static Contender Load(string nameOrPath)
 {
     if (!nameOrPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
@@ -1086,6 +1289,9 @@ static Contender Load(string nameOrPath)
     var style = LoadStyle(nameOrPath);
     return Contender.Of(BotCatalog.Names.Contains(style.Name) ? style with { Name = Path.GetFileNameWithoutExtension(nameOrPath) } : style);
 }
+
+static Contender LoadWith(string nameOrPath, IReadOnlyDictionary<string, float> set)
+    => set.Count == 0 ? Load(nameOrPath) : Contender.Of(StyleSet.Apply(LoadStyle(nameOrPath), set));
 
 static BotStyle LoadStyle(string nameOrPath)
     => nameOrPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? BotStyle.FromJson(File.ReadAllText(nameOrPath)) : BotCatalog.Style(nameOrPath);

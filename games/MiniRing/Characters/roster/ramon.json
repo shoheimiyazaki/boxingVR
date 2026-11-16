@@ -1,0 +1,23 @@
+{
+  "id": "ramon",
+  "order": 6,
+  "name": "ラモン・\"エル・トロ\"・カスティージョ",
+  "reading": "ラモン エル・トロ カスティージョ",
+  "hudName": "エル・トロ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "前へ出続ける打ち合い屋",
+  "look": {
+    "skin": [0.76, 0.53, 0.36], "hair": [0.05, 0.05, 0.05], "hairstyle": "Crop", "eyes": [0.12, 0.07, 0.03],
+    "brows": true, "beard": true,
+    "parts": { "jaw": 1.05 }
+  },
+  "body": {
+    "build": { "height": 0.92, "arms": 0.95, "legs": 1, "muscle": 1.1 },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "record": []
+}

@@ -1,0 +1,14 @@
+{
+  "event": "WVC 異種格闘技王者決定戦",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-ishu",
+  "scoutSeeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "partLimitMiB": 29,
+  "bouts": [
+    { "red": "marcus", "blue": "akira", "seed": "auto", "bout": "第1試合" },
+    { "red": "jin", "blue": "konrad", "seed": "auto", "bout": "第2試合" },
+    { "red": "vikram", "blue": "gaston", "seed": "auto", "bout": "第3試合" },
+    { "red": "joao", "blue": "sean", "seed": "auto", "bout": "第4試合" }
+  ]
+}

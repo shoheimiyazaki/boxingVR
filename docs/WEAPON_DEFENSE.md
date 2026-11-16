@@ -98,3 +98,10 @@
 - **ドリルで選んだ「足と頭で外す」は試合でも強い**: 日本刀は比べ直しで 30-9（拳 8-0・棍棒 7-1・ロングソード 8-0）。
 - **ロングソードの負けは守りでは変わらない**（どちらの値でもバット・日本刀に 0-8）。打ちが遅く届くのも遅い、攻めの側の問題。
 - `docs/arena/sword_defense.json` は採った値（＝始めの値）。練習試合（versus など）は、このファイルがあればそれを守りに使う（`DefenseDefaults`）。
+
+## 7. 武器の扱い全体の物差しと教科書（2026-11-16）
+
+守りだけでなく「振りの質・自傷・勝敗」を試合から数える `handlelab`（`docs/arena/weapon_handling_baseline.md`）を作った。守りの値（`SwordDefense`）は、他の判断の値（間合いの取り合い・技の時計・こんぼうの間合い）と一緒に `WeaponStyle` にまとまり、
+武器の教科書 JSON（`Bots/weapons/*.json`）とキャラの教育（`education.weaponBot`）で読み書きできる（`docs/CHARACTERS.md` §5）。試合の守りは今も `SwordDefense.Adopted`（足と頭で外す）。
+`handlelab` の守りの欄（基準・種 1）: 受け 0、外し 刀同士 9.2 回/試合、相手の振りのうち当たる割合 ロングソード 75〜82 %・こんぼう 83〜89 %・刀 48〜70 %。
+`handlespar`（`HandleSpar`）は `guardspar` と同じ考えを、ゲームと同じ道（`UseWeaponBots`・`WeaponStyle`）で回す。比べ直しは使っていない種・使っていない相手で。結果は `docs/BOT_PDCA.md`「武器の扱いを鍛える」。

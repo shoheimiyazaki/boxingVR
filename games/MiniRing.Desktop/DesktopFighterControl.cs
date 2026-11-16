@@ -6,8 +6,11 @@ using MiniRing.Weapons;
 namespace MiniRing.Desktop;
 
 /// <summary>既存の意図操作に、装備と空手に応じた攻撃の経路を重ねる。</summary>
-internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool karate = false)
+internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool karate = false, BotStyle? style = null)
 {
+    /// <summary>この操作に渡された、人が操る側のスタイル（名簿のキャラクターなら教育を重ねた解決済みのもの。倒れた相手への攻めの好みに使う）。</summary>
+    internal BotStyle? Style { get; } = style;
+
     private readonly IntentControl _intent = new();
     private static readonly WeaponSwing SwordLight = SwordTechnique.Basics.First(t => t.Name == "kote").Swing;
     private static readonly WeaponSwing SwordHeavy = SwordTechnique.Basics.First(t => t.Name == "men").Swing;
@@ -21,14 +24,53 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
     private Vector3 _kickAim;
     private float _time;
     private bool _light, _heavy;
+    private readonly GroundTrigger _trigger = new();
+
+    // 武器を握っていれば、その長さ（握っている間は sense の今の長さに置き換わる）と握りで。
+    private readonly GroundStrike _ground = new(style ?? (karate ? BotCatalog.Karate : BotCatalog.Boxer),
+        weapon is { } kind && !Weapon.IsWorn(kind) ? new GroundTool(1f, FormSwordsman.Handles(kind), FormSwordsman.Handles(kind) ? FormSwordsman.Spacing(kind) : 0f) : GroundTool.Fist,
+        0x6a6a, club: weapon == WeaponKind.WoodenClub);
+
+    /// <summary>倒れた相手を打ち下ろす前の構え（武器を握っていればその構え）。</summary>
+    private FighterCommand GuardedBasis(in FighterCommand command, in FighterSense sense)
+    {
+        if (weapon is not { } kind || !sense.SelfWeapon.Held)
+        {
+            return command;
+        }
+
+        if (FormSwordsman.Handles(kind))
+        {
+            var held = FormSwordsman.GuardCommand(kind, sense, command.FaceDirection, Body.WalkSpeed, Body.MaxTorsoTwistRadians);
+            return command with { Left = held.Left, Right = held.Right, TwistBias = held.TwistBias };
+        }
+
+        return command with { Right = WeaponSwing.GuardCommand(sense.ArmReach, kind == WeaponKind.WoodenClub ? SwingFamily.Chop : SwingFamily.Sword) };
+    }
 
     public FighterCommand Read(FighterIntent input, in FighterSense sense, float dt)
     {
         var light = input.Light && !_light;
         var heavy = input.Heavy && !_heavy;
         (_light, _heavy) = (input.Light, input.Heavy);
-        _intent.Input = input with { Light = input.Light && !sense.SelfWeapon.Held, Heavy = input.Heavy && !sense.SelfWeapon.Held && !karate };
+        // 倒れた相手を攻める場面では、意図操作へ弱・強を渡さない（普通の技を始めて、立ち上がった時に突然続きが出ないように）。
+        var ground = GroundStrike.Applies(sense);
+        _intent.Input = GroundTrigger.ForIntent(input with { Light = input.Light && !sense.SelfWeapon.Held, Heavy = input.Heavy && !sense.SelfWeapon.Held && !karate }, ground);
         var command = _intent.Read(sense, dt);
+
+        // レフェリーなしで相手が倒れている間: 弱・強は倒れた相手への打ち下ろし（ボットと同じ GroundStrike。弱 = 振り下ろす系、強 = 突き下ろす系・空手は踏み下ろし）。
+        // 押している間は溜め、離して打つ。移動は今のまま（相手の横へ回るのはプレイヤーの操作）。
+        var call = _trigger.Update(ground, input.Light, input.Heavy, dt, karate && !sense.SelfWeapon.Held ? GroundCall.Stomp : GroundCall.Thrust, out var load);
+        if (ground)
+        {
+            _form = null;
+            _swing = null;
+            _kick = null;
+            var basis = GuardedBasis(command, sense);
+            return _ground.Read(sense, basis, dt, call, load, steer: false);
+        }
+
+        _ground.Cancel();
 
         if (FormSwordsman.Handles(weapon) && sense.SelfWeapon.Held)
         {

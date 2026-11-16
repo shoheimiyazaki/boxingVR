@@ -1,0 +1,22 @@
+{
+  "id": "joao",
+  "order": 11,
+  "name": "ジョアン・\"ガロ\"・シルバ",
+  "reading": "ジョアン ガロ シルバ",
+  "hudName": "ガロ",
+  "origin": "ブラジル",
+  "country": "brazil",
+  "tagline": "路上の闘鶏",
+  "look": {
+    "skin": [0.58, 0.38, 0.24], "hair": [0.05, 0.05, 0.05], "hairstyle": "Mohawk", "eyes": [0.12, 0.07, 0.03],
+    "brows": true, "beard": false
+  },
+  "body": {
+    "build": { "height": 0.98, "arms": 1, "legs": 1, "muscle": 1.05 },
+    "wear": "knuckles",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "record": []
+}

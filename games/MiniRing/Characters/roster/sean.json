@@ -1,0 +1,23 @@
+{
+  "id": "sean",
+  "order": 4,
+  "name": "ショーン・オマリー",
+  "reading": "ショーン オマリー",
+  "hudName": "ショーン",
+  "origin": "アイルランド",
+  "country": "ireland",
+  "tagline": "棒術の荒くれ",
+  "look": {
+    "skin": [0.97, 0.8, 0.72], "hair": [0.62, 0.22, 0.08], "hairstyle": "Crop", "eyes": [0.1, 0.35, 0.15],
+    "brows": true, "beard": true,
+    "parts": { "cheekbones": 1.2 }
+  },
+  "body": {
+    "build": { "height": 1.05, "arms": 1, "legs": 1, "muscle": 1.15 },
+    "wear": "glove",
+    "weapon": "club"
+  },
+  "textbook": "slugger",
+  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "record": []
+}

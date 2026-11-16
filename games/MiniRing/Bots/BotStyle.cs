@@ -43,7 +43,7 @@ public sealed record BotStyle
     public float PaceDrop { get; init; }
 
     /// <summary>この蓄えより少ないほど休息を優先。空で 1、この値で 0 へなめらかに変え、相手の届く範囲の外へ出る。</summary>
-    public float RestBelow { get; init; } = 0.25f;
+    public float RestBelow { get; init; } = 0.5f;
 
     // ── 間合いの層（docs/LEARNING_PLAN.md の R、RangeSense）──
 
@@ -76,6 +76,42 @@ public sealed record BotStyle
     /// 早く縮める。下がる（<see cref="RangeExit"/>・<see cref="RangeKeepOut"/>）と違って消極的にならない（R3: 下がる版は試合がつまらなかった）。
     /// </summary>
     public float RangePress { get; init; }
+
+    // ── 体格を読む層（BuildRead。見えている寸法の比から連続に出す。体格が同じなら効かない: docs/BOT_PDCA.md「体格に応じた戦い方」）──
+    // 既定値の根拠（2026-11-16、docs/arena/build_tactics_*.md、拳のキャラ 9 人。層を入れた 1 人 対 入れない全員、40 秒）: 立ち位置（BuildStandOff 0.8・BuildInside 0.5）は、
+    // 長い腕が自分だけ届く帯にいる割合を 22→35 %（marcus）、短い腕が相手だけ届く帯にいる割合を 24→15 %（akira）に動かし、使っていない種 7 で 56.6 %（144 試合）、種 1 で 48.6 %（72 試合）。
+    // 守りの重み（BuildDuck 0.5）・胴の重み（BuildAimBody 2）は点に出ない（種 1 で 46.5 %、種 7 で 53.8 %）が害も無いので入れた（見た目の道理: 低い頭は潜り、高い相手は胴が近い）。
+    // 打ち合う気（BuildPush）は点に出ず（種 1: 0.3 で 46.5 %・0.6 で 50.7 %、種 7: 0.4 を足して 51.7 %）、重い体はスタミナが先に尽きる（champion の marcus は平均 0.22）ので手数を増やすほど不利になりうる: 既定は 0（機構は残す）。
+
+    /// <summary>
+    /// 立ち位置の腕の長さの読み方（0 = 自分の腕だけで測る（従来）… 1 = 相手の腕で測る）。普段の立ち位置・打ちに入る間合い・休む間合いを
+    /// ρ^(−これ) 倍する（ρ = 自分の腕 / 相手の腕）。長い腕は相手の届かない所の端（自分だけ届く帯）へ詰め、短い腕は相手だけが届く帯にいつかず、
+    /// 相手の届く所の外から打ちに入る。
+    /// </summary>
+    public float BuildStandOff { get; init; } = 0.8f;
+
+    /// <summary>
+    /// 腕が相手より短いとき、打つ間合い（<see cref="AttackRange"/>）を ρ^これ 倍して相手の腕の内側へ深く入る（0 = 従来）。長い方は変えない（min(ρ, 1)）。
+    /// </summary>
+    public float BuildInside { get; init; } = 0.5f;
+
+    /// <summary>
+    /// 重さの比（H³M² の比 μ = 自分 / 相手、<see cref="BodyBuild.MassRatio"/>）で打ち合う気を変える強さ（0 = 従来）。攻めの間隔が exp(これ × ln μ) 倍の速さで縮み、
+    /// 打ったあとに離れる確率が exp(−これ × ln μ) 倍になる（重い方は押し負けず前で打ち合い、軽い方は打って離れる）。
+    /// </summary>
+    public float BuildPush { get; init; }
+
+    /// <summary>
+    /// 頭の高さの比（自分 / 相手の身長）で守りの選び方の重みを変える強さ（0 = 従来）。自分の頭が低いほど潜る守り（ダッキング・ウィービング・ロール）の重みが
+    /// exp(−これ × ln η) 倍、高いほど引く守り（スウェー・ステップバック）の重みが exp(これ × ln η) 倍（η = 自分の身長 / 相手の身長）。守りの経路は変えない。
+    /// </summary>
+    public float BuildDuck { get; init; } = 0.5f;
+
+    /// <summary>
+    /// 相手が自分より背が高いほど、胴（肝臓・みぞおち・心臓）を狙う重みを足す強さ（0 = 従来）。足す重みの合計 = これ × max(0, −ln η)（真ん中の重みは 1）。
+    /// 狙いの位置そのものは今の見た位置から出す。
+    /// </summary>
+    public float BuildAimBody { get; init; } = 2f;
 
     // ── 学ぶ（docs/LEARNING_PLAN.md の B1）──
 
@@ -219,6 +255,24 @@ public sealed record BotStyle
     public float KickRate { get; init; }
     /// <summary>Kick goal cycle duration in seconds.</summary>
     public float KickDuration { get; init; } = 0.7f;
+
+    /// <summary>
+    /// 倒れた相手を攻められる試合（レフェリーなし）で、倒れた相手へ打ち下ろす気（0..1）。立つ位置へ着いて届く間合いに沈めたとき、打ち始めを決める割合
+    /// （0 なら倒れた相手へ手を出さない。レフェリーのいる試合では使わない）。
+    /// </summary>
+    public float GroundDrive { get; init; } = 0.8f;
+
+    /// <summary>倒れた相手への打ち下ろしの溜め [s]（振りかぶったまま構えて体のバネを縮める時間。<see cref="MaxTelegraph"/> まで）。</summary>
+    public float GroundLoad { get; init; } = 0.05f;
+
+    /// <summary>倒れた相手への攻めのうち、振り下ろす系（鉄槌・斬り下ろし・棍棒の打ち下ろし）を選ぶ割合（残りは突き下ろす系。棍棒は振り下ろす系だけ）。</summary>
+    public float GroundCut { get; init; } = 0.5f;
+
+    /// <summary>倒れた相手を拳で攻めるとき、踏みつけ（足）を選ぶ割合（武器を握っていないときだけ。空手向き）。</summary>
+    public float GroundStomp { get; init; }
+
+    /// <summary>倒れた相手への打ち下ろしの合間 [s]（次を決めるまで）。</summary>
+    public float GroundRest { get; init; } = 0.35f;
     public SwordDefense Parry { get; init; } = SwordDefense.Parrying with { ThreatSpeed = 0.8f, Margin = 0.4f, Clearance = 0.18f };
     public IReadOnlyDictionary<KickTechnique, float> KickWeights { get; init; } = new Dictionary<KickTechnique, float>();
     public float ParryWeight { get; init; }
@@ -283,7 +337,7 @@ public sealed record BotStyle
             Aggression = Unit(Aggression),
             PaceKnee = Range(PaceKnee, 0.05f, 1f, 0.7f),
             PaceDrop = Unit(PaceDrop),
-            RestBelow = Range(RestBelow, 0.01f, 1f, 0.25f),
+            RestBelow = Range(RestBelow, 0.01f, 1f, 0.5f),
             RangeThreat = Range(RangeThreat, 0.5f, 2.5f, 1.2f),
             RangeGuard = Unit(RangeGuard),
             RangeHeadMove = Unit(RangeHeadMove),
@@ -291,6 +345,11 @@ public sealed record BotStyle
             RangeExit = Unit(RangeExit),
             RangeKeepOut = Unit(RangeKeepOut),
             RangePress = Range(RangePress, 0f, 10f, 0f),
+            BuildStandOff = Range(BuildStandOff, 0f, 1.5f, 0f),
+            BuildInside = Range(BuildInside, 0f, 2f, 0f),
+            BuildPush = Range(BuildPush, 0f, 1f, 0f),
+            BuildDuck = Range(BuildDuck, 0f, 2f, 0f),
+            BuildAimBody = Range(BuildAimBody, 0f, 4f, 0f),
             LearnPrior = Range(LearnPrior, 0.5f, 100f, 4f),
             LearnDamageScale = Range(LearnDamageScale, 0.5f, 100f, 10f),
             AttackRange = attack,
@@ -317,6 +376,11 @@ public sealed record BotStyle
             Build = Build?.Validate(),
             KickRate = Unit(KickRate),
             KickDuration = Range(KickDuration, 0.4f, 1.2f, 0.7f),
+            GroundDrive = Unit(GroundDrive),
+            GroundLoad = Range(GroundLoad, 0f, MaxTelegraph, 0.05f),
+            GroundCut = Unit(GroundCut),
+            GroundStomp = Unit(GroundStomp),
+            GroundRest = Range(GroundRest, 0.1f, 3f, 0.35f),
             Parry = Parry ?? SwordDefense.Parrying,
             KickWeights = (KickWeights ?? new Dictionary<KickTechnique, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
             HandShapeWeights = (HandShapeWeights ?? new Dictionary<HandShape, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),

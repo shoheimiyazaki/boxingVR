@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-  Synthesizes Japanese two-speaker commentary lines (announcer / commentator) to WAV files
+  Synthesizes Japanese commentary lines to WAV files (default cast: announcer / commentator;
+  a script may declare its own cast in "speakers": voice and prosody per speaker id)
   with Windows OneCore voices (WinRT SpeechSynthesizer), and writes a manifest with the
   actual start time and duration of each line. Lines never overlap: a line that would run
   into the next one pushes the next one later (order is kept).
@@ -128,12 +129,37 @@ if (-not $json.PSObject.Properties['lines']) { throw "Script has no 'lines' arra
 $lines = @($json.lines)
 if ($lines.Count -eq 0) { throw "Script has no lines: $Script" }
 
+# Cast: the two defaults, plus/overridden by the script's "speakers" map
+#   "speakers": { "red_inner": { "voice": ["Sayaka"], "rate": "+0%", "pitch": "-4%", "volume": "-10%",
+#                                "excited": { "rate": "+20%", "pitch": "+6%", "volume": "+0%" } } }
+# Speaker ids are case-sensitive (as in the C# merge tool) and must be file-name safe.
+$cast = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
+$cast['announcer'] = @{ voice = $AnnouncerVoice; base = $Prosody.announcer; excited = $Prosody.announcer_excited }
+$cast['commentator'] = @{ voice = $CommentatorVoice; base = $Prosody.commentator; excited = $Prosody.commentator_excited }
+function Get-Field($o, [string]$name, $default) { if ($null -ne $o -and $o.PSObject.Properties[$name]) { return $o.$name } return $default }
+if ($json.PSObject.Properties['speakers'] -and $null -ne $json.speakers) {
+    if ($json.speakers -isnot [pscustomobject]) { throw "'speakers' must be an object of speaker id -> { voice, rate, pitch, volume, excited }" }
+    foreach ($sp in $json.speakers.PSObject.Properties) {
+        if ($sp.Name -notmatch '^[A-Za-z0-9_-]+$') { throw "Speaker id '$($sp.Name)' must match [A-Za-z0-9_-]+" }
+        $d = $sp.Value
+        if ($d -isnot [pscustomobject]) { throw "speakers.$($sp.Name) must be an object" }
+        $old = if ($cast.ContainsKey($sp.Name)) { $cast[$sp.Name] } else { @{ voice = @('Haruka'); base = @{ rate = '+0%'; pitch = '+0%'; volume = '+0%' }; excited = $null } }
+        $base = @{ rate = [string](Get-Field $d 'rate' $old.base.rate); pitch = [string](Get-Field $d 'pitch' $old.base.pitch); volume = [string](Get-Field $d 'volume' $old.base.volume) }
+        $ex = Get-Field $d 'excited' $null
+        $exOld = if ($old.excited) { $old.excited } else { $base }
+        $excitedP = @{ rate = [string](Get-Field $ex 'rate' $exOld.rate); pitch = [string](Get-Field $ex 'pitch' $exOld.pitch); volume = [string](Get-Field $ex 'volume' $exOld.volume) }
+        $voiceList = @(Get-Field $d 'voice' $null | Where-Object { $_ })
+        if ($voiceList.Count -eq 0) { $voiceList = @($old.voice) }
+        $cast[$sp.Name] = @{ voice = $voiceList; base = $base; excited = $excitedP }
+    }
+}
+
 $i = 0
 foreach ($l in $lines) {
     foreach ($k in 'at', 'speaker', 'text') {
         if (-not $l.PSObject.Properties[$k]) { throw "Line #$i is missing '$k'" }
     }
-    if ($l.speaker -notin 'announcer', 'commentator') { throw "Line #${i}: speaker must be announcer|commentator (got '$($l.speaker)')" }
+    if (-not $cast.ContainsKey([string]$l.speaker)) { throw "Line #${i}: speaker '$($l.speaker)' is not in the cast ($($cast.Keys -join '|'))" }
     if ([string]::IsNullOrWhiteSpace($l.text)) { throw "Line #${i}: empty text" }
     if ([double]$l.at -lt 0) { throw "Line #${i}: 'at' must be >= 0" }
     $i++
@@ -146,10 +172,9 @@ $ordered = @($lines | ForEach-Object -Begin { $n = 0 } -Process {
 $null = New-Item -ItemType Directory -Force -Path $OutDir
 $OutDir = (Resolve-Path -LiteralPath $OutDir).Path
 
-$voices = @{
-    announcer   = Find-Voice $AnnouncerVoice
-    commentator = Find-Voice $CommentatorVoice
-}
+$used = @($lines | ForEach-Object { [string]$_.speaker } | Sort-Object -Unique)
+$voices = @{}
+foreach ($k in $used) { $voices[$k] = Find-Voice $cast[$k].voice }
 foreach ($k in $voices.Keys) { Write-Host ("{0,-12} -> {1} ({2})" -f $k, $voices[$k].DisplayName, $voices[$k].Id) }
 
 $synth = New-Object Windows.Media.SpeechSynthesis.SpeechSynthesizer
@@ -163,8 +188,7 @@ foreach ($entry in $ordered) {
     $speaker = [string]$l.speaker
     $excited = $false
     if ($l.PSObject.Properties['excited']) { $excited = [bool]$l.excited }
-    $key = if ($excited) { "${speaker}_excited" } else { $speaker }
-    $p = $Prosody[$key]
+    $p = if ($excited) { $cast[$speaker].excited } else { $cast[$speaker].base }
     $voice = $voices[$speaker]
 
     $ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='$($voice.Language)'>" +
@@ -213,9 +237,9 @@ $shifted = @($results | Where-Object { $_.shift -gt 0.0005 })
 $manifest = [pscustomobject]@{
     source       = (Resolve-Path -LiteralPath $Script).Path
     gap          = $Gap
-    voices       = [pscustomobject]@{ announcer = $voices.announcer.DisplayName; commentator = $voices.commentator.DisplayName }
+    voices       = [pscustomobject]($used | ForEach-Object -Begin { $m = [ordered]@{} } -Process { $m[$_] = $voices[$_].DisplayName } -End { $m })
     shiftedCount = $shifted.Count
-    totalShift   = [Math]::Round((($shifted | Measure-Object -Property shift -Sum).Sum + 0), 3)
+    totalShift   = [Math]::Round(([double](@($shifted) | ForEach-Object { $_.shift } | Measure-Object -Sum | ForEach-Object { $_.Sum } | Select-Object -First 1) + 0), 3) # ずれた台詞が無くても 0
     end          = ($results | Select-Object -Last 1).end
     lines        = $results
 }

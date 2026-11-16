@@ -90,6 +90,8 @@ public readonly record struct BodySense(Vector3 LeftShoulder, Vector3 RightShoul
 /// （打つ前の体の動きを読むため。見えないホストでは既定値）。<paramref name="SelfFaintness"/> は自分の意識が薄れた度合い（<see cref="Fighter.Faintness"/>、0..1）。</para>
 /// <para><paramref name="OpponentBlade"/> は相手の握った武器の見え方、<paramref name="SelfArmed"/> は自分が武器を握っているか（null は分からない:
 /// 武器を扱わない入力元のため）。武器を落とした剣士は拳で戦う（<see cref="Bots.DisarmedFallback"/>）。</para>
+/// <para><paramref name="OpponentDowned"/> は相手の体が倒れている（ダウン・起き上がり中）、<paramref name="MayStrikeDowned"/> はその相手を攻めてよい（レフェリーがいない試合。
+/// <see cref="BoxingCorners.Referee"/>）。<paramref name="OpponentAlive"/>（立っていて打ってよい）の意味は変わらない。レフェリーがいる試合では <paramref name="MayStrikeDowned"/> は常に false で、入力元は今までどおり倒れた相手へ手を出さない。</para>
 /// <para><paramref name="Ring"/> はこの試合のリング（null は拳の試合の標準 <see cref="RingLayout.Boxing"/>）。ロープ際を知り、下がる余地を測るため。</para>
 /// <para><paramref name="SelfWeapon"/> は自分の握っている武器の長さ（折れて短くなったか。<see cref="WeaponSense"/>）。</para>
 /// </summary>
@@ -98,7 +100,8 @@ public readonly record struct FighterSense(
     Vector3 SelfHead = default, GloveSense OpponentLeft = default, GloveSense OpponentRight = default, Vector3 OpponentVelocity = default,
     BodySense OpponentBody = default, float SelfFaintness = 0f, BladeSense OpponentBlade = default, bool? SelfArmed = null,
     TargetMap? OpponentTargets = null, RingLayout? Ring = null, WeaponSense SelfWeapon = default, float SelfStamina = 1f,
-    VisionState? SelfVision = null, VisionState? OpponentVision = null, float OpponentArmReach = 0f)
+    VisionState? SelfVision = null, VisionState? OpponentVision = null, float OpponentArmReach = 0f,
+    bool OpponentDowned = false, bool MayStrikeDowned = false, BodyBuild? SelfBuild = null, BodyBuild? OpponentBuild = null)
 {
     public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
 

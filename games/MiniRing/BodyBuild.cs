@@ -29,6 +29,12 @@ public sealed record BodyBuild(float Height = 1f, float Arms = 1f, float Legs = 
 
     public float SectionRatio => Height * Height * Muscle * Muscle;
 
+    /// <summary>
+    /// 見えている大きさから見積もる体の重さの比 H³ × M²（基準体格で 1）。部位の質量は体積（<see cref="ScaleOf"/> の 3 辺の積）に比例させて
+    /// いるので、胴・頭は H³M² / H³、腕・脚は長さの比が 1 つ掛かる。ボットが相手の重さを「見た目の大きさから」見積もるときの 1 つの式で、他で書き直さない。
+    /// </summary>
+    public float MassRatio => Height * Height * Height * Muscle * Muscle;
+
     /// <summary>脚の関節トルクの比: 断面積の比 × 脚の長さの比（てこの腕）。基準体格で 1。</summary>
     public float LegTorqueRatio => SectionRatio * Height * Legs;
 }

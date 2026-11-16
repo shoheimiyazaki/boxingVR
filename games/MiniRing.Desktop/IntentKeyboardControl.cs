@@ -6,21 +6,18 @@ using MiniRing.Weapons;
 namespace MiniRing.Desktop;
 
 /// <summary>キーを意図へ写すだけのホスト側。経路の生成はゲーム本体へ委ねる。</summary>
-internal sealed class IntentKeyboardControl(WeaponKind? weapon = null, bool karate = false)
+internal sealed class IntentKeyboardControl(WeaponKind? weapon = null, bool karate = false, MiniRing.Bots.BotStyle? style = null)
 {
-    private DesktopFighterControl _control = new(weapon, karate);
+    private DesktopFighterControl _control = new(weapon, karate, style);
     private int? _round;
-    private bool _resetHeld;
-
     // cameraYaw はカメラの向き（OrbitCamera.YawRadians）。矢印・WASD はカメラ基準で、入力の段階でワールドの方向へ直す。
     public BoxingInput Read(InputSnapshot input, FighterSense sense, float dt, int round, float cameraYaw)
     {
-        var padReset = input.IsGamepadButtonDown(GamepadButton.Start) || input.IsGamepadButtonDown(GamepadButton.Select);
-        var reset = input.WasKeyPressed(Key.R) || (padReset && !_resetHeld);
-        _resetHeld = padReset;
+        // ラウンドのやり直しはキーボードの R だけ。コントローラの Start / Back では押し間違えで試合が戻っていた（ユーザーの指定）。
+        var reset = input.WasKeyPressed(Key.R);
         if (reset || _round != round)
         {
-            _control = new DesktopFighterControl(weapon, karate);
+            _control = new DesktopFighterControl(weapon, karate, style);
             _round = round;
         }
 

@@ -215,6 +215,42 @@ public sealed class BoxerBody
     /// <summary>遠い側の端がまだ次の部位の関節を受けている部位（上腕・太もも・すね。骨が切れたら、その先は破片の側へ移る）。</summary>
     private readonly HashSet<int> _holdsFarEnd = [];
 
+    /// <summary>
+    /// 部位 <paramref name="kind"/>（箱の半分の大きさ <paramref name="half"/>）のボクセルの格子を、試合の体と同じ手順で作る
+    /// （基準体格の格子を作り、体格の寸法へ同じ材質のセルを伸縮し、顔の色・形を巻き付ける）。体の構築とメニューの肖像
+    /// （<see cref="Characters.CharacterPortraits"/>）が同じ関数を通る（見えている体 = 試合の体）。
+    /// </summary>
+    /// <remarks><c>standardShapes</c>: 体格が基準でないときの、基準体格の形（呼び出し側が 1 度だけ作って渡す）。</remarks>
+    /// <remarks><c>lookPalette</c>: 顔の色の表（最初の部位で作り、以降は使い回す）。</remarks>
+    internal static VoxelGrid BuildPartGrid(BodyPartKind kind, Vector3 half, FighterTuning tuning, LowPoly.BoxerModel? shapes,
+        LowPoly.BoxerModel? standardShapes, Outfit? outfit, BoxerVoxelOverrides? overrides, FaceLook? look, ref VoxelPalette? lookPalette)
+    {
+        var sourceHalf = half / tuning.Build.ScaleOf(kind);
+        // 同じ材質セルを伸縮する。太さを変えてセルを増やすと解像度と筋肉量が混ざる。
+        var sourceShape = tuning.Build != BodyBuild.Standard ? standardShapes?.Mesh(kind) : shapes?.Mesh(kind);
+        var source = BoxerAnatomy.Build(kind, sourceHalf, tuning.VoxelSize, sourceShape, outfit, overrides);
+        var grid = source;
+        if (half != sourceHalf)
+        {
+            grid = new VoxelGrid(source.Palette, half, source.Dimensions, (point, _) =>
+            {
+                var c = (point + half) / (2f * half);
+                return source.At(Math.Clamp((int)(c.X * source.Dimensions.X), 0, source.Dimensions.X - 1),
+                    Math.Clamp((int)(c.Y * source.Dimensions.Y), 0, source.Dimensions.Y - 1),
+                    Math.Clamp((int)(c.Z * source.Dimensions.Z), 0, source.Dimensions.Z - 1));
+            });
+        }
+
+        if (look is not null)
+        {
+            lookPalette ??= look.Palette(grid.Palette);
+            grid = look.Restyle(kind, grid, lookPalette);
+        }
+
+        BoxerSpine.Place(kind, grid); // 頸椎・脊髄は外見のセルに触れず、中の材質だけ（顔の彫り直しの後に置いて位置を保つ）
+        return grid;
+    }
+
     /// <param name="fighter">体の持ち主。</param>
     /// <param name="world">物理のワールド。</param>
     /// <param name="tuning">ボクセルの大きさ・死ぬ条件。</param>
@@ -230,46 +266,34 @@ public sealed class BoxerBody
         _deathFraction = tuning.OrganDeathFraction;
         var p = fighter.Parts;
         VoxelPalette? lookPalette = null;
+        LowPoly.BoxerModel? standardShapes = null;
         foreach (var id in fighter.AllParts)
         {
             var kind = fighter.KindOf(id);
             var half = fighter.HalfExtentsOf(id);
-            var sourceHalf = half / tuning.Build.ScaleOf(kind);
-            // 同じ材質セルを伸縮する。太さを変えてセルを増やすと解像度と筋肉量が混ざる。
-            var sourceShape = shapes?.Mesh(kind);
-            if (tuning.Build != BodyBuild.Standard)
-            {
-                sourceShape = LowPoly.BoxerModel.Build((tuning with { Build = BodyBuild.Standard }).HalfExtents, tuning.ModelSubdivisions).Mesh(kind);
-            }
-            var source = BoxerAnatomy.Build(kind, sourceHalf, tuning.VoxelSize, sourceShape, outfit, overrides);
-            var grid = source;
-            if (half != sourceHalf)
-            {
-                grid = new VoxelGrid(source.Palette, half, source.Dimensions, (point, _) =>
-                {
-                    var c = (point + half) / (2f * half);
-                    return source.At(Math.Clamp((int)(c.X * source.Dimensions.X), 0, source.Dimensions.X - 1),
-                        Math.Clamp((int)(c.Y * source.Dimensions.Y), 0, source.Dimensions.Y - 1),
-                        Math.Clamp((int)(c.Z * source.Dimensions.Z), 0, source.Dimensions.Z - 1));
-                });
-            }
-            if (look is not null)
-            {
-                lookPalette ??= look.Palette(grid.Palette);
-                grid = look.Restyle(kind, grid, lookPalette);
-            }
+            standardShapes ??= tuning.Build != BodyBuild.Standard
+                ? LowPoly.BoxerModel.Build((tuning with { Build = BodyBuild.Standard }).HalfExtents, tuning.ModelSubdivisions) : null;
+            var grid = BuildPartGrid(kind, half, tuning, shapes, standardShapes, outfit, overrides, look, ref lookPalette);
             // 腕は長さが X: Aigis の Left 腕は −X 側に付くので体から遠いのは −X、Right 腕は +X。脚は Y で、遠いのは下。
             var (axis, distalHigh) = kind switch
             {
                 BodyPartKind.UpperArm or BodyPartKind.Forearm => ((int?)0, id == p.RightUpperArm || id == p.RightForearm),
                 BodyPartKind.Thigh or BodyPartKind.Shin => ((int?)1, false),
+                // 頭は首の上の梁（上が頭蓋、下が首）: 首で折れると、首の側（下、DistalHigh = false）が小さな破片になり、胴につながったまま残る。
+                BodyPartKind.Head when NeckBoneSlices(grid) is not null => ((int?)1, false),
                 _ => ((int?)null, false),
             };
-            // 腕・脚は骨で曲げを受ける梁（肉は質量だけ）: 打撃の曲げが骨の強さを超えた所で折れる（VoxelContact が場所を返す）。
-            var part = new VoxelPart(kind, new VoxelBody(world, id, grid, materialMass: false) { BeamAxis = axis }, VoxelVolume.For(grid), axis, distalHigh);
+            // 腕・脚は骨で曲げを受ける梁（肉は質量だけ）: 打撃の曲げが骨の強さを超えた所で折れる（VoxelContact が場所を返す）。頭は首の段だけで折れる。
+            var body = new VoxelBody(world, id, grid, materialMass: false) { BeamAxis = axis, BeamSlices = kind == BodyPartKind.Head ? NeckBoneSlices(grid) : null };
+            var part = new VoxelPart(kind, body, VoxelVolume.For(grid), axis, distalHigh);
             _parts.Add(part);
             _byBody[id] = part;
             AddOrganSites(part);
+            AddCord(part);
+            if (kind == BodyPartKind.Head)
+            {
+                _neckSlices = NeckBoneSlices(grid);
+            }
             _originals[part] = Original.Of(grid);
             if (axis is { } along && BoneSpan(grid, along) is { } span)
             {
@@ -280,7 +304,12 @@ public sealed class BoxerBody
                 }
             }
         }
+
+        Landmarks = new BodyLandmarks(_parts);
     }
+
+    /// <summary>急所の位置（作ったセルから求めた目・こめかみ・あご・みぞおち。<see cref="BodyLandmarks"/>）。</summary>
+    public BodyLandmarks Landmarks { get; }
 
     /// <summary>
     /// 部位の格子の、作ったときの中身: 各セルの材質と表面だったか、と、治す順（格子の中心に近い順 = 内側から外へ。浮いたボクセルを作らない）。
@@ -373,6 +402,108 @@ public sealed class BoxerBody
         }
 
         return restored;
+    }
+
+    /// <summary>脊髄の 1 セル: どの部位の格子の、どのセルか（首が折れて部位が分かれたら、新しい格子のセルへ付け替える）。</summary>
+    private sealed class CordCell(VoxelPart part, int index)
+    {
+        public VoxelPart Part { get; set; } = part;
+
+        public int Index { get; set; } = index;
+    }
+
+    /// <summary>高さごとの脊髄の薄切り（背骨に直角な 1 段 = 断面）。薄切りごとのセル。</summary>
+    private readonly Dictionary<CordLevel, List<List<CordCell>>> _cordSlices = [];
+
+    /// <summary>作った体の格子から、脊髄のセルを段ごとに拾う（その部位の脊髄の高さ <see cref="BoxerSpine.LevelOf"/> へ）。</summary>
+    private void AddCord(VoxelPart part)
+    {
+        if (BoxerSpine.LevelOf(part.Kind) is not { } level)
+        {
+            return;
+        }
+
+        var grid = part.Body.Grid;
+        var rows = new SortedDictionary<int, List<CordCell>>();
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            if (grid.AtIndex(i) == BoxerAnatomy.Cord)
+            {
+                var (_, y, _) = grid.Coordinates(i);
+                if (!rows.TryGetValue(y, out var row))
+                {
+                    rows[y] = row = [];
+                }
+
+                row.Add(new CordCell(part, i));
+            }
+        }
+
+        if (!_cordSlices.TryGetValue(level, out var slices))
+        {
+            _cordSlices[level] = slices = [];
+        }
+
+        slices.AddRange(rows.Values);
+    }
+
+    /// <summary>頭の、首が折れうる段（<see cref="NeckBoneSlices"/>。作ったときに骨があった段）。首の骨が無い頭（形の違う体）は null。</summary>
+    private (int Low, int High)? _neckSlices;
+
+    /// <summary>
+    /// 頭の格子 <paramref name="head"/> の首の段（<see cref="BoxerSpine.NeckSlices"/>）のうち、作ったときに骨があった段の範囲（骨のある段が無ければ null:
+    /// 骨の無い段は「骨が断たれた段」と区別できないので、折れうる段にしない）。
+    /// </summary>
+    internal static (int Low, int High)? NeckBoneSlices(VoxelGrid head)
+    {
+        var (low, high) = BoxerSpine.NeckSlices;
+        int? first = null, last = null;
+        for (var s = low; s <= high && s < head.Dimensions.Y; s++)
+        {
+            var bone = false;
+            for (var i = 0; i < head.CellCount && !bone; i++)
+            {
+                bone = head.Coordinates(i).Y == s && head.AtIndex(i) != 0 && head.Palette[head.AtIndex(i)].Tissue == VoxelTissue.Bone;
+            }
+
+            if (bone)
+            {
+                first ??= s;
+                last = s;
+            }
+        }
+
+        return first is { } f ? (f, last!.Value) : null;
+    }
+
+    /// <summary>首の骨が折れた・断たれた（頭の部位が分かれた）か。</summary>
+    public bool NeckBroken => _fragments.Exists(f => f.Kind == BodyPartKind.Head);
+
+    /// <summary>
+    /// 脊髄の働き（0..1）: 高さ <paramref name="level"/> の、いちばん細くなった薄切りで残っている脊髄のセルの割合。神経は直列に信号を通すので、
+    /// どこか 1 か所が細くなればそこで決まる（1 段まるごと断たれれば 0、半分削れれば 0.5）。無傷で 1。その下の筋の力と息は、これに比例する
+    /// （<see cref="Fighter"/> が読む）。脊髄が無い体は 1。
+    /// </summary>
+    public float CordFunction(CordLevel level)
+    {
+        if (!_cordSlices.TryGetValue(level, out var slices))
+        {
+            return 1f;
+        }
+
+        var weakest = 1f;
+        foreach (var slice in slices)
+        {
+            var alive = 0;
+            foreach (var cell in slice)
+            {
+                alive += cell.Index >= 0 && cell.Part.Body.Grid.MaterialAt(cell.Index) == BoxerAnatomy.Cord ? 1 : 0;
+            }
+
+            weakest = MathF.Min(weakest, (float)alive / slice.Count);
+        }
+
+        return weakest;
     }
 
     /// <summary>胴の臓器（打撲と働きを持つもの）: 心臓・肺・肝臓・腸。脳は意識（<see cref="BrainFunction"/>）、目は見た目だけ。</summary>
@@ -472,6 +603,21 @@ public sealed class BoxerBody
         }
 
         return best is { } s ? Vector3.Transform(s.LocalCentroid, s.Part.Body.GridToWorld()) : null;
+    }
+
+    /// <summary>臓器のいちばん大きな置き場所（部位と格子のローカルの重心）。その臓器が無ければ null。</summary>
+    internal BodyLandmarks.Site? OrganLandmark(byte organ)
+    {
+        OrganSite? best = null;
+        foreach (var site in _organSites)
+        {
+            if (site.Organ == organ && (best is null || site.Radius > best.Value.Radius))
+            {
+                best = site;
+            }
+        }
+
+        return best is { } s ? new BodyLandmarks.Site(s.Part, s.LocalCentroid) : null;
     }
 
     /// <summary>臓器の今の打撲（0..1、一時的）。</summary>
@@ -649,6 +795,18 @@ public sealed class BoxerBody
             return null;
         }
 
+        if (part.Kind == BodyPartKind.Head)
+        {
+            if (NeckBroken || _neckSlices is not { } neckRange)
+            {
+                return null; // 首は 1 度だけ折れる（折れた首の先は、さらに分けない）。首の骨が無い頭は折れない
+            }
+
+            // 首: 胴の関節が頸椎の下の端（首の段の 1 つ下）を受けている。首の段のどれかが骨の無い段になれば、そこで頭が離れる。
+            var neck = part.Body.Grid.FindBoneBreak(axis, fromHigh: true, lowJoint: neckRange.Low - 1, highJoint: null, searchLow: neckRange.Low, searchHigh: neckRange.High);
+            return neck is { } cut ? BreakAt(part, axis, cut, bent: false) : null;
+        }
+
         // 体に近い側の関節は、元の部位にいつも付いている。遠い側の関節は、まだその端を受けていれば。
         var near = part.DistalHigh ? span.Low - 1 : span.High + 1;
         int? far = _holdsFarEnd.Contains(bodyId) ? (part.DistalHigh ? span.High + 1 : span.Low - 1) : null;
@@ -687,7 +845,7 @@ public sealed class BoxerBody
     /// </summary>
     public BoneBreak? BreakBent(int bodyId, VoxelBreak bend)
     {
-        if (!_byBody.TryGetValue(bodyId, out var part) || part.SeverAxis is not { } axis || axis != bend.Axis)
+        if (!_byBody.TryGetValue(bodyId, out var part) || part.SeverAxis is not { } axis || axis != bend.Axis || (part.Kind == BodyPartKind.Head && NeckBroken))
         {
             return null;
         }
@@ -737,13 +895,40 @@ public sealed class BoxerBody
         var face = -half + ((slice + (part.DistalHigh ? 1 : 0)) * along);
         var local = axis == 0 ? new Vector3(face, 0f, 0f) : axis == 1 ? new Vector3(0f, face, 0f) : new Vector3(0f, 0f, face);
         var point = Vector3.Transform(local, body.GridToWorld());
+        // 切れ目より先の脊髄のセルは、新しい格子へ付け替える（分ける前のワールドの位置を覚えておく）。
+        var cordMoves = new List<(CordCell Cell, Vector3 World)>();
+        foreach (var slices in _cordSlices.Values)
+        {
+            foreach (var cordCell in slices.SelectMany(s => s).Where(c => c.Part == part))
+            {
+                var (cx, cy, cz) = grid.Coordinates(cordCell.Index);
+                var position = axis == 0 ? cx : axis == 1 ? cy : cz;
+                if (part.DistalHigh ? position > slice : position < slice)
+                {
+                    cordMoves.Add((cordCell, Vector3.Transform(grid.CellCenter(cx, cy, cz), body.GridToWorld())));
+                }
+            }
+        }
+
         var piece = body.SplitAt(axis, slice, part.DistalHigh);
+        if (part.Kind == BodyPartKind.Head)
+        {
+            body.BeamAxis = null; // 首は 1 度だけ折れる: 折れたあとの頭は曲げを調べない
+            body.BeamSlices = null;
+        }
+
         VoxelPart? fragment = null;
         if (piece is not null)
         {
             piece.BeamAxis = axis; // 破片も骨で曲げを受ける梁（武器のように Snap で飛ばない。破片はそれ以上は分けない）
             fragment = new VoxelPart(part.Kind, piece, VoxelVolume.For(piece.Grid), axis, part.DistalHigh, body.BodyId);
             _fragments.Add(fragment);
+            Matrix4x4.Invert(piece.GridToWorld(), out var toPiece);
+            foreach (var (moved, world) in cordMoves)
+            {
+                moved.Part = fragment;
+                moved.Index = piece.Grid.CellAt(Vector3.Transform(world, toPiece));
+            }
         }
 
         _holdsFarEnd.Remove(body.BodyId); // 遠い側の関節は破片の側へ移る（何も残っていなければ外れる）

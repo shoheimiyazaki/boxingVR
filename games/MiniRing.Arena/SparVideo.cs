@@ -75,6 +75,7 @@ internal sealed class SparVideo(int width, int height, int fps)
             var offset = 0f;
             foreach (var scene in scenes)
             {
+                _closeUp = scene.CloseUp;
                 using var game = scene.Create();
                 var done = false;
                 for (var t = 0f; t < seconds; t += 1f / 60f)
@@ -94,6 +95,9 @@ internal sealed class SparVideo(int width, int height, int fps)
 
             return $"{scenes.Count} scenes";
         }, outPath, log, plainLabels: true);
+
+    /// <summary>台本の場面が指定した、カメラが寄る先（null なら 2 人を横から）。</summary>
+    private Func<BoxingGame, Vector3>? _closeUp;
 
     /// <summary>守りのドリル（<see cref="GuardLab"/>）の何本かを続けて撮る。画面には打ち手と、受け手の今の守り（受け・外し）。</summary>
     public void MakeGuard(SwordLibraryLab.Library library, IReadOnlyList<GuardLab.Attack> attacks, GuardLab.Variant variant, int seed, float seconds, string outPath, TextWriter log) =>
@@ -195,7 +199,15 @@ internal sealed class SparVideo(int width, int height, int fps)
             var distance = axis.Length();
             var side = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(Vector3.Cross(axis, Vector3.UnitY)) : -Vector3.UnitX;
             var eye = mid + (side * MathF.Max(0.85f, 1.6f * distance)) + new Vector3(0f, 0.15f, 0f);
-            var vp = Camera.ViewProjection(eye, mid + new Vector3(0f, 0.05f, 0f), Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
+            var look = mid + new Vector3(0f, 0.05f, 0f);
+            if (_closeUp?.Invoke(game) is { } focus)
+            {
+                // 場面が指す所（首のあたりなど）へ寄る: 横から 0.4 m。
+                look = focus;
+                eye = focus + (side * 0.4f) + new Vector3(0f, 0.03f, 0f);
+            }
+
+            var vp = Camera.ViewProjection(eye, look, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
             ScreenTextDraw[] text =
             [
                 new(title, new Vector2(40f, 40f), 34f, White, TextAnchor.Left),

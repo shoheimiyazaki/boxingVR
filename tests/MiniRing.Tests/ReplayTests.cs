@@ -54,6 +54,45 @@ public sealed class ReplayTests
     }
 
     [TestMethod]
+    public void NoReferee_MatchReplaysAndKeepsTheSetting()
+    {
+        var corners = Bots.BotCatalog.Corners("boxer") with { RedBotStyle = Bots.BotCatalog.Swarmer, Referee = false };
+        using var game = new BoxingGame(corners: corners);
+        using var stream = new MemoryStream();
+        using (var recorder = new ReplayRecorder(stream, game, "test"))
+        {
+            // 倒れた相手への攻めが入る長さまで（ボット同士で 30 秒）。
+            for (var i = 0; i < ReplayRecorder.ChecksumInterval * 30; i++)
+            {
+                recorder.Step(game, default, 1f / 60f);
+            }
+        }
+
+        var data = ReplayFile.Read(new MemoryStream(stream.ToArray()));
+        Assert.IsFalse(data.Header.Corners.Referee, "the referee setting is in the replay header");
+        var result = ReplayPlayer.Verify(data);
+        Assert.IsTrue(result.Reproduced);
+        Assert.IsGreaterThan(1, result.ChecksumsMatched);
+    }
+
+    private static readonly System.Text.Json.JsonSerializerOptions Fields = new() { IncludeFields = true };
+
+    [TestMethod]
+    public void Replay_OldHeaderWithoutRefereeReadsAsReferee()
+    {
+        var corners = Bots.BotCatalog.Corners("boxer");
+        using var game = new BoxingGame(corners: corners);
+        using var stream = new MemoryStream();
+        using (var recorder = new ReplayRecorder(stream, game, "test")) { }
+        var json = System.Text.Json.JsonSerializer.Serialize(ReplayMatchSettings.From(corners, null), Fields);
+        var old = json.Replace(",\"Referee\":true", string.Empty, StringComparison.Ordinal);
+        Assert.AreNotEqual(json, old, "the new header has the Referee field");
+        var parsed = System.Text.Json.JsonSerializer.Deserialize<ReplayMatchSettings>(old, Fields);
+        Assert.IsNotNull(parsed);
+        Assert.IsTrue(parsed.Referee, "an old replay without the field is read as a match with a referee");
+    }
+
+    [TestMethod]
     public void Replay_PreservesCustomMatchSettings()
     {
         var corners = Bots.BotCatalog.Corners("boxer") with

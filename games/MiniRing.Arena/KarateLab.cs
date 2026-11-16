@@ -44,36 +44,51 @@ internal sealed class KarateLab(int bouts, float seconds, int seed, Action<strin
 
     private void Shapes()
     {
-        log("## 手形 × 急所");
+        log("## 手形 × 急所の損傷");
         log("");
-        log($"素手の攻め手が 1 つの形で 1 つの急所だけを狙い続ける。受け手は構えて立つだけ。{bouts} 本 × {seconds:0} 秒、種 {seed}〜。");
-        log("`相手の欠け/打` = 打った 1 発あたりに相手から欠けたセル数。`自分の指の骨/打` = 打った 1 発あたりに自分の指（4 本・拳頭と畳んだ節）から失った骨の割合（0..1 を指の数で合計）。");
+        log($"{bouts} 本 × 上限 {seconds:0} 秒、種 {seed}〜。素手、受け手 StandGuard、正拳 Seiken が対照。KO/ラウンド終了で停止し、新しい体を混ぜない。物理版 {Fighter.PhysicsVersion}。");
+        log("発動 = BotStats の Thrown、命中 = HitEvent（空振りは含まない。同じ打ち出しの複数接触を含みうる）。/命中は全命中イベント数で割った量。終値は各本の平均。欠損は材質の残数の差、HP 低下は視界に別計上。");
+        log("局所 = 初期 TargetMap の狙い点を中心に頭は半径 15 mm、腹は 30 mm の球内で接触により削れ・潰れたセル。部位ローカルに固定して追跡（初期の側を固定）。外 = 全身欠損 − 局所。局所欠損は急所内部の破壊を意味しない。");
+        log("意識最大落ちは命中を含む 1/240 秒の前後差の最大（同じ歩に複数命中なら合計、回復分を含む）。ねじれは全歩の LastHeadTwist 最大（歩内で最後の呼び出し値。採点未満の接触も含む） [rad/s]。供給は Breath（心肺由来の供給上限の比）で、実回復 W ではない。打撲は心/肺/肝/腸の順。");
         log("");
-        log("| 形 | 急所 | 打った数 | 相手の欠け/打 | 自分の指の骨/打 | 手の皮膚の欠け/打 |");
-        log("|---|---|---|---|---|---|");
+        log("| 形 | 急所 | 発動 | 命中 | 全欠損/命中 | 局所/命中 | 外/命中 | 全欠損 終 | 局所 終 | 外 終 | 指骨/命中 | 指骨 終 | 皮膚 終 | 秒 平均 |");
+        log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        var results = new List<ShapeResult>();
         foreach (var shape in Enum.GetValues<HandShape>())
         {
             foreach (var goal in Goals)
             {
-                var (punches, lost, bone, skin) = (0, 0, 0f, 0f);
-                for (var b = 0; b < bouts; b++)
-                {
-                    var r = ShapeBout(shape, goal, seed + b);
-                    punches += r.Punches;
-                    lost += r.Lost;
-                    bone += r.Bone;
-                    skin += r.Skin;
-                }
-
-                var n = Math.Max(1, punches);
-                log($"| {shape} | {goal} | {punches} | {F((float)lost / n)} | {F(bone / n, "0.000")} | {F(skin / n)} |");
+                var runs = Enumerable.Range(0, bouts).Select(b => ShapeBout(shape, goal, seed + b)).ToArray();
+                results.AddRange(runs);
+                var hits = runs.Sum(r => r.Hits);
+                string Per(float sum) => hits > 0 ? F(sum / hits, "0.0000") : "-";
+                string Avg(Func<ShapeResult, float> f) => F(runs.Average(f), "0.0000");
+                log($"| {shape} | {goal} | {runs.Sum(r => r.Thrown)} | {hits} | {Per(runs.Sum(r => r.End.Total))} | {Per(runs.Sum(r => r.End.Near))} | {Per(runs.Sum(r => r.End.Outside))} | {Avg(r => r.End.Total)} | {Avg(r => r.End.Near)} | {Avg(r => r.End.Outside)} | {Per(runs.Sum(r => r.Bone))} | {Avg(r => r.Bone)} | {Avg(r => r.Skin)} | {Avg(r => r.Elapsed)} |");
             }
         }
 
         log("");
+        log("| 形 | 急所 | 目欠損/命中;終 | 視界低下/命中;終(左/右) | 脳欠損/命中;終 | 意識落ち/命中;最大;終意識 | ねじれ最大 | 臓器欠損 心/肺/肝/腸 /命中;終 | 打撲増加 心/肺/肝/腸 /命中;終 | 蓄え低下/命中;終 | 供給低下/命中;終 | 腹機能 終 | 非命中歩の意識落ち 累計平均;最大 |");
+        log("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        foreach (var group in results.GroupBy(r => (r.Shape, r.Goal)))
+        {
+            var runs = group.ToArray();
+            var hits = runs.Sum(r => r.Hits);
+            string Per(float sum) => hits > 0 ? F(sum / hits, "0.0000") : "-";
+            string Avg(Func<ShapeResult, float> f) => F(runs.Average(f), "0.0000");
+            string Org(Func<ShapeResult, int, float> f, bool per) => string.Join("/", Enumerable.Range(0, 4).Select(i => per ? Per(runs.Sum(r => f(r, i))) : Avg(r => f(r, i))));
+            log($"| {group.Key.Shape} | {group.Key.Goal} | {Per(runs.Sum(r => r.End.Eye))};{Avg(r => r.End.Eye)} | {Per(runs.Sum(r => 1f - r.End.Vision.Binocular))};{Avg(r => r.End.Vision.Left)}/{Avg(r => r.End.Vision.Right)} | {Per(runs.Sum(r => r.End.Brain))};{Avg(r => r.End.Brain)} | {Per(runs.Sum(r => r.ConsciousDrop))};{F(runs.Max(r => r.MaxDrop), "0.0000")};{Avg(r => r.End.Consciousness)} | {F(runs.Max(r => r.MaxTwist), "0.0000")} | {Org((r, i) => r.End.Organs[i], true)};{Org((r, i) => r.End.Organs[i], false)} | {Org((r, i) => r.BruiseAdded[i], true)};{Org((r, i) => r.End.Bruises[i], false)} | {Per(runs.Sum(r => r.StaminaDrop))};{Avg(r => r.End.Stamina)} | {Per(runs.Sum(r => r.BreathDrop))};{Avg(r => r.End.Breath)} | {Avg(r => r.End.Core)} | {Avg(r => r.UnscoredConsciousDrop)};{F(runs.Max(r => r.MaxUnscoredDrop), "0.0000")} |");
+        }
+
+        log("");
+        log("視界は /命中 が両眼平均の低下、終は残存機能の左/右。蓄え・供給の /命中 は試合中の正の低下の累計（疲労・回復の影響を含み、打撃単独の因果量ではない）。打撲 /命中 は回復で消えた分も含む正の増加の累計。");
+        log("以下の JSON は各本の生値。最大値・終値を再集計できるように残す。");
+        log("```json");
+        log(System.Text.Json.JsonSerializer.Serialize(results));
+        log("```");
     }
 
-    private (int Punches, int Lost, float Bone, float Skin) ShapeBout(HandShape shape, AimGoal goal, int boutSeed)
+    internal static BotStyle ShapeStyle(HandShape shape, AimGoal goal)
     {
         var aim = goal switch
         {
@@ -83,9 +98,9 @@ internal sealed class KarateLab(int bouts, float seconds, int seed, Action<strin
             AimGoal.Liver => new AimWeights(Liver: 1f),
             _ => new AimWeights(Eye: 1f),
         };
-        var attacker = (BotCatalog.Karate with
+        return (BotCatalog.Karate with
         {
-            Name = $"shape-{shape}-{goal}",
+            Name = "karate-vitals",
             KickRate = 0f,
             KickWeights = new Dictionary<KickTechnique, float>(),
             HandShapeWeights = new Dictionary<HandShape, float> { [shape] = 1f },
@@ -93,27 +108,66 @@ internal sealed class KarateLab(int bouts, float seconds, int seed, Action<strin
             ComboWeights = new Dictionary<string, float> { ["1"] = 1f, ["2"] = 1f },
             CounterRate = 0f,
         }).Validated();
-        var corners = new BoxingCorners(attacker.Name, s => new BoxerBot(attacker, s), _ => new StandGuard(),
+    }
+
+    internal sealed record ShapeResult(HandShape Shape, AimGoal Goal, int Seed, int Thrown, int Hits,
+        KarateVitals.Reading End, float ConsciousDrop, float MaxDrop, float MaxTwist,
+        float[] BruiseAdded, float StaminaDrop, float BreathDrop, float Bone, float Skin, float Elapsed,
+        float UnscoredConsciousDrop, float MaxUnscoredDrop);
+
+    internal ShapeResult ShapeBout(HandShape shape, AimGoal goal, int boutSeed, Action<BoxingGame, float, bool>? afterStep = null)
+    {
+        var attacker = ShapeStyle(shape, goal);
+        BoxerBot? bot = null;
+        var corners = new BoxingCorners(attacker.Name, s => bot = new BoxerBot(attacker, s, forcedAim: goal), _ => new StandGuard(),
             PlayerWear: HandWear.None, CpuWear: HandWear.None);
         using var game = new BoxingGame(seed: boutSeed, corners: corners);
         var victim = game.Player;
-        var before = victim.Voxels!.Parts.Concat(victim.Voxels.Fragments).Sum(p => p.Body.Grid.FilledCount);
-        var punches = 0;
-        var seen = new HashSet<HitEvent>();
-        var states = new List<BareHandState>();
-        for (var t = 0f; t < seconds; t += StepDt)
+        var meter = new KarateVitals(victim, goal, game.Cpu.ShoulderCenter);
+        var previous = meter.Read();
+        var hits = 0;
+        float drop = 0f, maxDrop = 0f, twist = 0f, staminaDrop = 0f, breathDrop = 0f, elapsed = 0f;
+        float unscoredDrop = 0f, maxUnscoredDrop = 0f;
+        var bruises = new float[4];
+        // 1 物理歩ごとに観測し、回復前後の差を 60 Hz の複数歩にまとめない。
+        const float sampleDt = 1f / 240f;
+        for (var step = 0; step < (int)MathF.Ceiling(seconds / sampleDt); step++)
         {
-            game.Step(default, StepDt);
-            foreach (var hit in game.RecentHits)
+            game.Step(default, sampleDt);
+            elapsed = (step + 1) * sampleDt;
+            meter.Observe(game.RecentCuts);
+            var current = meter.Read();
+            var landed = game.RecentHits.Where(h => h.Attacker == game.Cpu && !h.Kick).ToArray();
+            hits += landed.Length;
+            var d = MathF.Max(0f, previous.Consciousness - current.Consciousness);
+            // 採点に満たない接触も TwistHead を呼ぶので、全歩の最終呼び出し値を観測する。
+            twist = MathF.Max(twist, victim.LastHeadTwist);
+            if (landed.Length > 0)
             {
-                if (hit.Attacker == game.Cpu && !hit.Kick && seen.Add(hit))
-                {
-                    punches++;
-                }
+                drop += d;
+                maxDrop = MathF.Max(maxDrop, d);
+            }
+            else
+            {
+                unscoredDrop += d;
+                maxUnscoredDrop = MathF.Max(maxUnscoredDrop, d);
+            }
+
+            for (var i = 0; i < bruises.Length; i++)
+            {
+                bruises[i] += MathF.Max(0f, current.Bruises[i] - previous.Bruises[i]);
+            }
+
+            staminaDrop += MathF.Max(0f, previous.Stamina - current.Stamina);
+            breathDrop += MathF.Max(0f, previous.Breath - current.Breath);
+            previous = current;
+            afterStep?.Invoke(game, elapsed, landed.Length > 0);
+            if (game.RoundOver)
+            {
+                break;
             }
         }
 
-        // 自分の指: 両手の素手の親データから、骨の欠けと皮膚の欠けを集める。
         float bone = 0f, skin = 0f;
         foreach (var hand in new[] { Hand.Left, Hand.Right })
         {
@@ -122,7 +176,7 @@ internal sealed class KarateLab(int bouts, float seconds, int seed, Action<strin
                 var now = state.Capture(glove.Body.Grid);
                 for (var f = 0; f < BareHandState.FingerCount; f++)
                 {
-                    foreach (var segment in new[] { FingerSegment.Knuckle, FingerSegment.Folded })
+                    foreach (var segment in new[] { FingerSegment.Proximal, FingerSegment.Middle, FingerSegment.Distal })
                     {
                         var part = now.Part(f, segment);
                         bone += part.Cracked;
@@ -132,10 +186,9 @@ internal sealed class KarateLab(int bouts, float seconds, int seed, Action<strin
             }
         }
 
-        var lost = before - victim.Voxels.Parts.Concat(victim.Voxels.Fragments).Sum(p => p.Body.Grid.FilledCount);
-        return (punches, lost, bone, skin);
+        return new ShapeResult(shape, goal, boutSeed, bot!.Stats.Techniques.Values.Sum(c => c.Thrown), hits,
+            previous, drop, maxDrop, twist, bruises, staminaDrop, breathDrop, bone, skin, elapsed, unscoredDrop, maxUnscoredDrop);
     }
-
     // ── パリー ──
 
     private void Parry()

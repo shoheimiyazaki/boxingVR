@@ -1,0 +1,22 @@
+{
+  "id": "yoandry",
+  "order": 7,
+  "name": "ヨアンドリ・モラレス",
+  "reading": "ヨアンドリ モラレス",
+  "hudName": "ヨアンドリ",
+  "origin": "キューバ",
+  "country": "cuba",
+  "tagline": "返しの名手",
+  "look": {
+    "skin": [0.4, 0.26, 0.17], "hair": [0.05, 0.05, 0.05], "hairstyle": "Crop", "eyes": [0.12, 0.07, 0.03],
+    "brows": true, "beard": false
+  },
+  "body": {
+    "build": { "height": 1.02, "arms": 1.06, "legs": 1, "muscle": 1 },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "record": []
+}

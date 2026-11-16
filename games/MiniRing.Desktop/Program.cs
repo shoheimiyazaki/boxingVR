@@ -25,7 +25,7 @@ if (args.Contains("--control") && Option("--control") is not ("classic" or "inte
 //   --tv                    テレビ中継風: 30 秒 × 5 ラウンド・休み 10 秒（休みに体が治る）、得点表と時計、会場の歓声
 //   --no-facecam            画面の両脇の顔の窓を出さない（窓の分の描画が要らない）
 //   --speed <0.5|0.75|1>    最初の速さ（既定 0.75 倍）。遊んでいる間・再生中も 1 / 2 / 3 キーで 0.5 / 0.75 / 1.0 倍に切り替わる
-//   --wear <glove|none|knuckles|katar|gauntlet>  両コーナーが手にはめる物（既定 glove）
+//   --wear <glove|none|knuckles|katar|gauntlet>  両コーナーが手にはめる物（既定 glove。--quick のときだけ。メニューからの試合は、はめる物・武器をキャラクターが決める）
 
 if (!HitSoundOption.TryParse(args, out var hitSounds, out var hitError))
 {
@@ -148,9 +148,10 @@ else
     using var menuAudio = new OpenAlAudioBackend();
     var moveCue = ToneGenerator.CreateToneClip("menu-move", 520, 680, 0.045f, 0.25f, attackSeconds: 0.003f, releaseSeconds: 0.02f);
     var confirmCue = ToneGenerator.CreateToneClip("menu-confirm", 660, 1100, 0.10f, 0.35f, attackSeconds: 0.004f, releaseSeconds: 0.04f);
-    using var menuGame = new MenuGame(new MatchMenu(wear, replayDirectory,
-        confirmed => menuAudio.Play(confirmed ? confirmCue : moveCue, 1f, shouldLoop: false)),
-        selection => OpenMatch(selection.Corners, selection.Mode), OpenReplay);
+    // 設定（レフェリーの有無など）は記録と同じ場所（作業フォルダー）の settings.json に残す。
+    using var menu = new MatchMenu(replayDirectory, Path.Combine(Environment.CurrentDirectory, "settings.json"),
+        confirmed => menuAudio.Play(confirmed ? confirmCue : moveCue, 1f, shouldLoop: false));
+    using var menuGame = new MenuGame(menu, selection => OpenMatch(selection.Corners, selection.Mode), OpenReplay);
     GameHost.Run(profiler, options with
     {
         HelpText = "Menu: WASD, arrows, D-pad or mouse; Enter/A/left click to select; Escape/B to go back. In a match, Escape/B returns to Game Select.",
@@ -198,7 +199,8 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
         var placeCamera = true;
         var keyboard = new KeyboardControl();
         var intentKeyboard = new IntentKeyboardControl(corners.PlayerWeapon,
-            LocalVersusControl.IsKarate(corners.PlayerName, corners.PlayerWear));
+            LocalVersusControl.IsKarate(corners.PlayerName, corners.PlayerWear),
+            corners.PlayerStyle);
         var local = new LocalVersusControl(corners);
         var followCamera = new FollowCameraRig(camera, BoxingGame.RingSurfaceHeight + 0.2f);
         if (!args.Contains("--no-record"))

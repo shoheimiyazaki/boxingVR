@@ -25,7 +25,7 @@ internal sealed class MenuGame(MatchMenu menu, Func<MatchSelection, MatchSession
 {
     private readonly PhysicsWorld _menuWorld = new(Vector3.Zero);
     private MatchSession? _session;
-    private bool _escapeHeld, _backHeld;
+    private bool _escapeHeld;
     private Task<MatchSession>? _loading;
     private readonly List<Task> _retired = [];
     public bool IsLiveMatch { get; private set; }
@@ -44,10 +44,11 @@ internal sealed class MenuGame(MatchMenu menu, Func<MatchSelection, MatchSession
     public BoxingInput Read(InputSnapshot input, Vector2 size)
     {
         PollLoading();
+        // 試合からメニューへ戻るのはキーボードの Escape だけ。コントローラのボタンでは戻らない
+        // （試合中に押し間違えて抜けていた。ユーザーの指定）。
         var escape = input.IsKeyDown(Key.Escape);
-        var back = input.IsGamepadButtonDown(GamepadButton.East);
-        var returnToMenu = input.WasKeyPressed(Key.Escape) || (escape && !_escapeHeld) || (back && !_backHeld);
-        (_escapeHeld, _backHeld) = (escape, back);
+        var returnToMenu = input.WasKeyPressed(Key.Escape) || (escape && !_escapeHeld);
+        _escapeHeld = escape;
         if (_session is { } session)
         {
             if (returnToMenu)
@@ -55,7 +56,7 @@ internal sealed class MenuGame(MatchMenu menu, Func<MatchSelection, MatchSession
                 _session = null;
                 IsLiveMatch = false;
                 _retired.Add(Task.Run(session.Dispose));
-                menu.Return(back);
+                menu.Return(input.IsGamepadButtonDown(GamepadButton.East));
                 return default;
             }
             return session.Read(input);

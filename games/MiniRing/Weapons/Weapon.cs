@@ -71,8 +71,9 @@ public sealed class Weapon
         Volume = VoxelVolume.For(body.Grid);
         if (kind == WeaponKind.Fist && initializeHand)
         {
-            HandState = new BareHandState();
-            Body.ReplaceGrid(HandState.Build(HandShape.Seiken));
+            _motion = new HandMotion(HandSkeleton.PoseOf(HandShape.Seiken));
+            HandState = new BareHandState().Placed(_motion.Pose, out var grid);
+            Body.ReplaceGrid(grid);
             Volume = VoxelVolume.For(Body.Grid);
         }
     }
@@ -86,21 +87,132 @@ public sealed class Weapon
 
     public BareHandState? HandState { get; private set; }
 
-    public void SetHandShape(HandShape shape)
+    private readonly HandMotion? _motion;
+    private float[] _strength = [];
+    private (VoxelGrid Grid, int Version) _strengthOf;
+
+    /// <summary>
+    /// 手形を指令する（<see cref="BoxingGame"/> が毎歩呼ぶ）。手の関節は目標の曲げ角（<see cref="HandSkeleton.PoseOf"/>）を、バネ・ダンパ（<see cref="HandMotion"/>）で
+    /// <paramref name="dt"/> 秒ぶん追う: 手形を変えるには時間がかかり、骨の欠けた指は力が入らない。関節の角度がセル 1 つぶん動くたびに、
+    /// 親セルを節の向きに沿って置き直す（損傷は台帳のまま）。<paramref name="dt"/> が 0 以下なら、一気に目標の姿勢へ（損傷に依らない）。
+    /// </summary>
+    public void SetHandShape(HandShape shape, float dt = 0f)
     {
         if (!Enum.IsDefined(shape))
         {
             throw new ArgumentOutOfRangeException(nameof(shape));
         }
 
-        if (HandState is null || HandState.Shape == shape)
+        if (HandState is null || _motion is null)
         {
             return;
         }
 
-        HandState = HandState.Capture(Body.Grid).WithShape(shape);
-        Body.ReplaceGrid(HandState.Build(shape));
+        var target = HandSkeleton.PoseOf(shape);
+        if (dt <= 0f)
+        {
+            _motion.Snap(target);
+        }
+        else
+        {
+            var settled = _motion.Step(target, dt, BoneStrength());
+            var drift = _motion.Pose.MaxDifference(HandState.Pose);
+            if (drift < ReplaceAngle && !(settled && drift > 1e-6f))
+            {
+                if (HandState.Shape != shape)
+                {
+                    HandState = HandState.WithShape(shape);
+                }
+
+                return;
+            }
+        }
+
+        if (HandState.Shape == shape && _motion.Pose.MaxDifference(HandState.Pose) < 1e-6f)
+        {
+            return;
+        }
+
+        HandState = HandState.Capture(Body.Grid).WithShape(shape).Placed(_motion.Pose, out var grid);
+        Body.ReplaceGrid(grid);
         Volume = VoxelVolume.For(Body.Grid);
+    }
+
+    /// <summary>
+    /// 打つ面の点: 手の骨格のいまの置き場（残っているセル）のうち、向き <paramref name="direction"/>（手の格子のローカル）に最も前にあるセル
+    /// （前から半セル以内）の重心から、握りの点（<see cref="HandSkeleton.Wrist"/>）までのずれ。手形ごとに分けず、関節角が決めた形から 1 つの式で出す
+    /// （貫手は指先、正拳は拳頭、掌底は掌の根元、裏拳は手の甲）。手の無い物（グローブなど）は null。
+    /// </summary>
+    public Vector3? StrikeOffset(Vector3 direction)
+    {
+        if (HandState is null || direction.LengthSquared() < 1e-12f)
+        {
+            return null;
+        }
+
+        var grid = Body.Grid;
+        var place = HandState.Placement;
+        var unit = Vector3.Normalize(direction);
+        var front = float.NegativeInfinity;
+        for (var i = 0; i < place.Count; i++)
+        {
+            if (grid.MaterialAt(place[i]) != 0)
+            {
+                var (x, y, z) = grid.Coordinates(place[i]);
+                front = MathF.Max(front, Vector3.Dot(grid.CellCenter(x, y, z), unit));
+            }
+        }
+
+        var sum = Vector3.Zero;
+        var count = 0;
+        for (var i = 0; i < place.Count; i++)
+        {
+            if (grid.MaterialAt(place[i]) == 0)
+            {
+                continue;
+            }
+
+            var (x, y, z) = grid.Coordinates(place[i]);
+            var c = grid.CellCenter(x, y, z);
+            if (Vector3.Dot(c, unit) >= front - (0.5f * HandSkeleton.Cell))
+            {
+                sum += c;
+                count++;
+            }
+        }
+
+        return count == 0 ? null : (sum / count) - HandSkeleton.Wrist;
+    }
+
+    /// <summary>
+    /// 親セルを置き直す関節角のずれ [rad]: 指先がセル 1 つぶん（2 mm）動く角度（指の長さ 16 mm に対して 2 / 16）。これより細かいずれは、
+    /// セルの置き場が変わらない。
+    /// </summary>
+    private const float ReplaceAngle = HandSkeleton.Cell / 0.016f;
+
+    /// <summary>関節ごとの骨の強さ（<see cref="BareHandState.Part"/> の最も傷んだ骨のセルの残り。格子が変わったときだけ数え直す）。</summary>
+    private float[] BoneStrength()
+    {
+        if (_strengthOf.Grid != Body.Grid || _strengthOf.Version != Body.Grid.Version)
+        {
+            var state = HandState!.Capture(Body.Grid);
+            var palm = state.Part(BareHandState.FingerCount, FingerSegment.Palm).BoneWeakest;
+            var strength = new float[HandPose.JointCount];
+            strength[0] = palm;
+            strength[1] = palm;
+            for (var f = 0; f < BareHandState.FingerCount; f++)
+            {
+                for (var j = 0; j < 3; j++)
+                {
+                    strength[2 + (f * 3) + j] = state.Part(f, (FingerSegment)j).BoneWeakest;
+                }
+            }
+
+            _strength = strength;
+            _strengthOf = (Body.Grid, Body.Grid.Version);
+        }
+
+        return _strength;
     }
 
     /// <summary>この武器を描く指示（格子の変化をテクスチャへ写す）。</summary>
@@ -161,7 +273,8 @@ public sealed class Weapon
         WeaponKind.WoodenClub => new Vector3(-ClubHalfLength + 0.015f, 0f, 0f),
         WeaponKind.Katana or WeaponKind.Longsword => TwoHandGripsOf(kind).Top,
         WeaponKind.Glove => Vector3.Zero, // 拳はグローブの真ん中
-        WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet => -WornBoundsOf(kind).Center, // 拳の中心
+        WeaponKind.Fist => HandSkeleton.Wrist, // 腕の先が手を握る所（手首）
+        WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet => -WornBoundsOf(kind).Center, // 拳の中心
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
 
@@ -232,7 +345,7 @@ public sealed class Weapon
         WeaponKind.Katana => new Vector3(KatanaHalfLength, KatanaSori, 0f),
         WeaponKind.Longsword => new Vector3(LongHalfLength, 0f, 0f),
         WeaponKind.Glove => new Vector3(GloveRadius, 0f, 0f),
-        WeaponKind.Fist => new Vector3(LeadingKnuckle + KnuckleRadius, 0.003f, -0.003f) - WornBoundsOf(kind).Center,
+        WeaponKind.Fist => HandSkeleton.SeikenTip,
         WeaponKind.KnuckleDuster => new Vector3(DusterFront + DusterBoss, 0f, -0.5f * (2f * FistRadius / 4f)) - WornBoundsOf(kind).Center, // 中指の拳頭の突起の先
         WeaponKind.Katar => new Vector3(KatarTip, 0f, 0f) - WornBoundsOf(kind).Center,
         WeaponKind.Gauntlet => new Vector3(GauntletOuter, 0f, 0f) - WornBoundsOf(kind).Center,
@@ -279,7 +392,7 @@ public sealed class Weapon
         WeaponKind.Katana => Katana(),
         WeaponKind.Longsword => Longsword(),
         WeaponKind.Glove => Glove(leather),
-        WeaponKind.Fist => KarateFist(),
+        WeaponKind.Fist => BareHandState.InitialGrid(),
         WeaponKind.KnuckleDuster => Worn(kind, WornCell, KnuckleDusterAt),
         WeaponKind.Katar => Worn(kind, KatarCell, KatarAt),
         WeaponKind.Gauntlet => Worn(kind, WornCell, p => GauntletAt(p, leather)),
@@ -540,7 +653,6 @@ public sealed class Weapon
     {
         var (from, to) = kind switch
         {
-            WeaponKind.Fist => (new Vector3(-FistRadius), new Vector3(LeadingKnuckle + KnuckleRadius, FistRadius, FistRadius)),
             WeaponKind.KnuckleDuster => (new Vector3(-FistRadius, DusterPalm, -DusterHalfWidth), new Vector3(DusterFront + DusterBoss, FistRadius, DusterHalfWidth)),
             WeaponKind.Katar => (new Vector3(KatarBarBack, -FistRadius, -(KatarBarZ + KatarBarThick)), new Vector3(KatarTip, FistRadius, KatarBarZ + KatarBarThick)),
             WeaponKind.Gauntlet => (new Vector3(GauntletCuffFrom, -GauntletOuter, -GauntletOuter), new Vector3(GauntletOuter, GauntletOuter, GauntletOuter)),
@@ -562,57 +674,6 @@ public sealed class Weapon
     {
         var r = p.Length();
         return r > FistRadius ? (byte)0 : r > FistBone ? BoxerAnatomy.Skin : BoxerAnatomy.Bone;
-    }
-
-    // 正拳: 中手骨の塊と、握り込んだ4本の指。人さし指・中指の拳頭が先行する。
-    // 寸法は人形の拳幅26mmに合わせる。皮膚は1セルだけで、材質の強さは既存の皮膚と同じ。
-    private const float KnuckleRadius = 0.005f;
-    private const float KnuckleSkin = 0.0015f;
-    private const float FingerSpacing = 0.006f;
-    private const float LeadingKnuckle = 0.014f;
-    private const float FoldedKnuckle = 0.008f;
-
-    // 指の親データ（BareHandState）が元のセルを指・節に振り分けるための、正拳の寸法の公開名。
-    internal const float FingerPitch = FingerSpacing;
-    internal const float KnuckleFront = LeadingKnuckle;
-    internal const float FoldedKnuckleFront = FoldedKnuckle;
-    internal const float KnuckleRadiusOf = KnuckleRadius;
-
-    private static VoxelGrid KarateFist()
-    {
-        var grid = Worn(WeaponKind.Fist, WornCell, KarateFistAt);
-        // 格子の位相によって拳頭の端が骨のセルにならないよう、外側の1セルを必ず皮膚にする。
-        grid.Remap((_, material, surface) => surface ? BoxerAnatomy.Skin : material);
-        return grid;
-    }
-
-    private static byte KarateFistAt(Vector3 p)
-    {
-        // 掌・中手骨（丸みのある箱）。拳頭より後ろに収まり、広い掌側は筋肉で覆われる。
-        var palm = Vector3.Abs(p - new Vector3(-0.003f, 0f, 0f)) - new Vector3(0.007f, 0.007f, 0.010f);
-        var distance = Vector3.Max(palm, Vector3.Zero).Length() + MathF.Min(MathF.Max(palm.X, MathF.Max(palm.Y, palm.Z)), 0f) - 0.002f;
-        var fingerDistance = float.PositiveInfinity;
-        for (var finger = 0; finger < 4; finger++)
-        {
-            var z = (finger - 1.5f) * FingerSpacing;
-            var front = finger < 2 ? LeadingKnuckle : FoldedKnuckle;
-            var knuckle = Vector3.Distance(p, new Vector3(front, 0.003f, z)) - KnuckleRadius;
-            // 握り込んだ中節・末節は掌側に折り返し、拳頭の後ろに隠れる。
-            var a = new Vector3(0.007f, -0.004f, z);
-            var b = new Vector3(front, 0.003f, z);
-            var axis = b - a;
-            var folded = Vector3.Distance(p, a + axis * Math.Clamp(Vector3.Dot(p - a, axis) / axis.LengthSquared(), 0f, 1f)) - KnuckleRadius;
-            fingerDistance = MathF.Min(fingerDistance, MathF.Min(knuckle, folded));
-        }
-
-        var surface = MathF.Min(distance, fingerDistance);
-        if (surface > 0f)
-        {
-            return 0;
-        }
-
-        return surface > -KnuckleSkin ? BoxerAnatomy.Skin
-            : fingerDistance < 0f || p.Y >= -0.003f ? BoxerAnatomy.Bone : BoxerAnatomy.Muscle;
     }
 
     /// <summary>

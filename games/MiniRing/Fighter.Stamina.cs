@@ -5,7 +5,7 @@ namespace MiniRing;
 public sealed partial class Fighter
 {
     private float _recentMusclePower;
-    private float _transferDemand;
+    private float _stepWork;
     private float _muscleBudget;
     internal float StepMuscleBudget { get; private set; }
     internal float StepMuscleAuthorized { get; private set; }
@@ -13,9 +13,16 @@ public sealed partial class Fighter
 
     private readonly record struct ServoWork(int Joint, int BodyA, int BodyB, float Speed, float Reserved);
 
-    /// <summary>心肺が現在供給する仕事率 [W]。仕事の負債が抜けるほど最大値へ戻る。</summary>
+    /// <summary>
+    /// 心肺が現在供給する仕事率 [W]（有酸素の供給）。直近に実際にした仕事の仕事率 P（<see cref="_recentMusclePower"/>）が大きいほど減る:
+    /// R = 最大 × Breath × exp(−(P / StaminaRestPower)²)。構えて立つ・歩く（P は 1 W 前後）では最大の 9 割以上、
+    /// 全力の攻め（P は 8〜10 W）では 3 割以下。動きながらでも P に応じた量は戻る。
+    /// </summary>
     internal float RecoveryPower => IsDead ? 0f : _tuning.StaminaRecoveryPower * Breath *
         MathF.Exp(-MathF.Pow(_recentMusclePower / MathF.Max(1e-3f, _tuning.StaminaRestPower), 2f));
+
+    /// <summary>直近に実際にした仕事の仕事率 [W]（なめらかにしたもの。回復を決める P）。</summary>
+    internal float RecentMusclePower => _recentMusclePower;
 
     private bool FatigueEnabled => _tuning.StaminaFatigue;
 
@@ -50,20 +57,10 @@ public sealed partial class Fighter
 
         _servoWork.Clear();
         Stamina = MathF.Max(0f, Stamina - servoEnergy / MathF.Max(1e-3f, _tuning.StaminaCapacity));
-        var demand = (_transferDemand + servoEnergy) / dt;
-        _transferDemand = 0f;
-        var blend = 1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.StaminaPowerWindow));
-        for (var index = 0; index < _arms.Length; index++)
-        {
-            var arm = _arms[index];
-            // 無効な腕に以前の仕事率を残さない。
-            _armPower[index] += ((arm.Severed ? 0f : arm.RequestedPower) - _armPower[index]) * blend;
-            demand += MathF.Max(0f, _armPower[index]) + (_tuning.IsometricCost * arm.LastForce.Length());
-        }
-
-        var pelvis = _world.GetState(Parts.Pelvis).LinearVelocity;
-        var walking = _tuning.WalkCost * TotalMass * new Vector2(pelvis.X, pelvis.Z).Length() * LastCommand.ClampedMove.Length();
-        demand += walking;
+        // 回復を止める仕事率は、この歩で実際に出た仕事（腕の PD・保持・歩行・体から拳への移送は SpendMuscleEnergy が数えた分、
+        // サーボは精算した分）。押しても出せなかった分は数えない（空で押すだけでは回復は止まらない）。
+        var demand = (_stepWork + servoEnergy) / dt;
+        _stepWork = 0f;
         _recentMusclePower += (demand - _recentMusclePower) *
             (1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.StaminaRecoveryWindow)));
         var capacity = MathF.Max(1e-3f, _tuning.StaminaCapacity);
@@ -135,6 +132,7 @@ public sealed partial class Fighter
         _muscleBudget = MathF.Max(0f, _muscleBudget - supplied);
         StepMuscleAuthorized += supplied;
         Stamina = MathF.Max(0f, Stamina - supplied / MathF.Max(1e-3f, _tuning.StaminaCapacity));
+        _stepWork += supplied;
         return supplied;
     }
 

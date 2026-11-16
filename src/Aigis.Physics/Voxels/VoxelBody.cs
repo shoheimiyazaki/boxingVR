@@ -98,6 +98,12 @@ public sealed class VoxelBody
     /// </summary>
     public int? BeamAxis { get; set; }
 
+    /// <summary>
+    /// The slices (inclusive) along <see cref="BeamAxis"/> where this beam may break (null: anywhere along it). A head sits on a thin
+    /// neck: the whole head is a beam that carries the blow (the skull's inertia and bone), but it can only snap in the neck.
+    /// </summary>
+    public (int Low, int High)? BeamSlices { get; set; }
+
     /// <summary>Where the grid's centre sits in the body's frame.</summary>
     public Vector3 GridCenterLocal { get; }
 

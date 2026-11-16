@@ -1,5 +1,7 @@
 # Gen13: スタミナの仕事予算と休息（2026-11-15）
 
+> 2026-11-15 に回復の式・容量・値を直した（PhysicsVersion 32）。現行の式と値は [gen13_stamina_tempo.md](gen13_stamina_tempo.md)。この記録は 29 の時点のもの。
+
 PhysicsVersion **29** / LogicVersion **26**。作業指示は [CODEX_BRIEF_9](../plans/CODEX_BRIEF_9_2026-11-15.md)。コミット・プッシュはしていない。
 
 ## 仮説と実装

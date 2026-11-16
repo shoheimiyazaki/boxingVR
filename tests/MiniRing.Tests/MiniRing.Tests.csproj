@@ -6,11 +6,21 @@
     <NoWarn>$(NoWarn);CA1707</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\games\MiniRing.Arena\KarateVitals.cs" Link="KarateVitals.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuGame.cs" Link="MenuGame.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\GamepadIntent.cs" Link="GamepadIntent.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MatchMenu.cs" Link="MatchMenu.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\DesktopFighterControl.cs" Link="DesktopFighterControl.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MatchSelection.cs" Link="MatchSelection.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuState.cs" Link="MenuState.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuView.cs" Link="MenuView.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuIcons.cs" Link="MenuIcons.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuSettings.cs" Link="MenuSettings.cs" />
+    <!-- テレビ中継の動画の道具のうち、描画と試合に触れない部分（Arena は実行ファイルなので、ファイルを取り込んで確かめる）。 -->
+    <Compile Include="..\..\games\MiniRing.Arena\TvShowRules.cs" Link="Arena\TvShowRules.cs" />
+    <Compile Include="..\..\games\MiniRing.Arena\TvDigest.cs" Link="Arena\TvDigest.cs" />
+    <Compile Include="..\..\games\MiniRing.Arena\TvLint.cs" Link="Arena\TvLint.cs" />
+    <Compile Include="..\..\games\MiniRing.Arena\TvDraft.cs" Link="Arena\TvDraft.cs" />
     <None Update="bot-execution-baseline.txt" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="..\..\games\MiniRing\MiniRing.csproj" />
     <ProjectReference Include="..\..\games\MiniRing.Vr\MiniRing.Vr.csproj" />

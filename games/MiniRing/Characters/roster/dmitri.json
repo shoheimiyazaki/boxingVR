@@ -1,0 +1,23 @@
+{
+  "id": "dmitri",
+  "order": 10,
+  "name": "ドミトリー・ヴォルコフ",
+  "reading": "ドミトリー ヴォルコフ",
+  "hudName": "ドミトリー",
+  "origin": "ロシア",
+  "country": "russia",
+  "tagline": "北の重戦車",
+  "look": {
+    "skin": [0.97, 0.83, 0.74], "hair": [0.8, 0.72, 0.5], "hairstyle": "Crop", "eyes": [0.1, 0.3, 0.6],
+    "brows": true, "beard": false,
+    "parts": { "jawWidth": 1.1, "browThickness": 1.3 }
+  },
+  "body": {
+    "build": { "height": 1.15, "arms": 1, "legs": 1, "muscle": 1.2 },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "record": []
+}

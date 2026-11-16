@@ -8,6 +8,14 @@ public sealed class StaminaBudgetTests
 {
     private const float Dt = 1f / 240f;
 
+    // 連打の型: 0.3 秒に 1 発（出す 0.12 秒・拳の目標は腕の長さの 1.6 倍先・0.06 秒で届かせる強い一発。拳の速さは胸に対して約 3.3 m/s、
+    // 1 発 3 J 前後）。1 秒に 3 発強で、10 W 前後を使い続ける全力の攻めの仕事率（P、試合の全力の攻めの平均 8〜10 W と同じ桁）。
+    private const int CycleSteps = 72;
+    private const int ExtendSteps = 29;
+    private const float PunchReach = 1.6f;
+    private const float PunchRamp = 0.06f;
+    private const int PunchesPerRun = 33;
+
     [TestMethod]
     [DataRow(0f, 1f, 0f, 0f)]
     [DataRow(2f, 1f, 0.1f, 0.3f)]
@@ -53,8 +61,8 @@ public sealed class StaminaBudgetTests
         var rest = Run(attacking: false, full: false);
         var attack = Run(attacking: true, full: false);
         Console.WriteLine($"10 s: rest {rest.Stamina:P2}, attack {attack.Stamina:P2}");
-        Assert.IsGreaterThanOrEqualTo(0.6f, rest.Stamina);
-        Assert.IsLessThan(0.1f, attack.Stamina);
+        Assert.IsGreaterThanOrEqualTo(0.95f, rest.Stamina, "構えて休めば 10 秒で満タンへ戻る");
+        Assert.IsLessThan(0.1f, attack.Stamina, "全力の連打を続けるあいだは、戻った分もすぐ使い切る");
     }
 
     [TestMethod]
@@ -65,9 +73,12 @@ public sealed class StaminaBudgetTests
         Console.WriteLine($"empty peaks: {string.Join(", ", empty.Peaks.Select(p => p.ToString("F3", System.Globalization.CultureInfo.InvariantCulture)))}");
         Console.WriteLine($"full peaks: {string.Join(", ", full.Peaks.Select(p => p.ToString("F3", System.Globalization.CultureInfo.InvariantCulture)))}");
         Assert.IsGreaterThan(0.1f, empty.Peaks[0], "初発が実際に出ている");
-        Assert.IsLessThanOrEqualTo(empty.Peaks[0] * 0.5f, empty.Peaks[9]);
         Console.WriteLine($"impact energy [J]: empty {empty.Hits[0].Energy:F4} -> {empty.Hits[9].Energy:F4}; full {full.Hits[0].Energy:F4} -> {full.Hits[9].Energy:F4}");
-        Assert.IsLessThanOrEqualTo(empty.Hits[0].Energy * 0.5f, empty.Hits[9].Energy);
+        // 空から連打し続けると、心肺の供給の分（連打の P で減る回復、約 5 W）しか仕事が出ない。満タンの 1 発目に対して、拳の速さは 0.65 倍以下、
+        // 打撃のエネルギーは半分以下（2026-11-15 の測定: 速さ 0.585 倍・エネルギー 0.445 倍）。以前は「空の 1 発目の半分以下」（10 発目は 0.17 m/s・0 J）で、
+        // 出せなかった仕事まで回復を止めていたため空で押すと何もできなくなっていた。今は動きながらも戻る分だけ打てる。
+        Assert.IsLessThanOrEqualTo(full.Peaks[0] * 0.65f, empty.Peaks[9]);
+        Assert.IsLessThanOrEqualTo(full.Hits[0].Energy * 0.5f, empty.Hits[9].Energy);
         Assert.IsGreaterThan(full.Peaks[0] * 0.9f, full.Peaks[9]);
         Assert.IsGreaterThan(full.Hits[0].Energy * 0.8f, full.Hits[9].Energy);
 
@@ -98,20 +109,20 @@ public sealed class StaminaBudgetTests
         }
 
         fighter.Stamina = full ? 1f : 0f;
-        var peaks = new float[20];
-        var hits = new HitEvent[20];
-        for (var step = 0; step < 2400; step++)
+        var peaks = new float[PunchesPerRun];
+        var hits = new HitEvent[PunchesPerRun];
+        for (var step = 0; step < PunchesPerRun * CycleSteps; step++)
         {
             if (full)
             {
                 fighter.Stamina = 1f; // 満タンの対照実験。疲れ以外のドリフトを区別する。
             }
 
-            var punch = step / 120;
-            var phase = step % 120;
-            var extending = attacking && phase < 48;
-            var aim = guard + new Vector3(0f, 0.05f, 0.75f) * fighter.ArmReach;
-            var target = extending ? Vector3.Lerp(guard, aim, MathF.Min(1f, phase * Dt / 0.12f)) : guard;
+            var punch = step / CycleSteps;
+            var phase = step % CycleSteps;
+            var extending = attacking && phase < ExtendSteps;
+            var aim = guard + new Vector3(0f, 0.05f, PunchReach) * fighter.ArmReach;
+            var target = extending ? Vector3.Lerp(guard, aim, MathF.Min(1f, phase * Dt / PunchRamp)) : guard;
             fighter.ApplyControl(Command(target, extending ? 1f : 0f), Dt);
             world.Step(Dt);
             if (extending)

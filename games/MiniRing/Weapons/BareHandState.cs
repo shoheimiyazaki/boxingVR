@@ -1,50 +1,58 @@
 ﻿using System.Numerics;
 using Aigis.Foundation.Voxels;
+using MiniRing.Voxels;
 
 namespace MiniRing.Weapons;
 
-/// <summary>各組織セルを親として保持する。接触形を変えても損傷・体積は変わらない。</summary>
+/// <summary>
+/// 素手の組織の台帳: 親セル（<see cref="HandSkeleton.Parents"/>。どの指のどの節の骨・肉・皮膚か）ごとの材質・残り・ひび・染みを持つ。
+/// 手の姿勢（関節の曲げ角。<see cref="HandPose"/>）を変えると、親セルは節の向きに沿って格子の別のセルへ置き直される（<see cref="Placed"/>）が、
+/// 台帳は同じなので、ある姿勢で削れた節は、どの姿勢でも同じ節の欠けとして数えられ、効く。
+/// </summary>
 public sealed class BareHandState
 {
-    private static readonly VoxelGrid Closed = Weapon.Build(WeaponKind.Fist);
-    private static readonly int[] Source = Enumerable.Range(0, Closed.CellCount).Where(i => Closed.MaterialAt(i) != 0).ToArray();
-    private static readonly Lazy<int[][]> Maps = new(CreateMaps);
+    /// <summary>指の本数（人さし指・中指・薬指・小指。掌は別の部品）。</summary>
+    public const int FingerCount = 4;
+
     private readonly (byte Material, float Health, bool Surface, float Stain)[] _cells;
-    public BareHandState() : this(Source.Select(Closed.CellState).ToArray(), HandShape.Seiken) { }
-    private BareHandState((byte Material, float Health, bool Surface, float Stain)[] cells, HandShape shape)
+    private readonly int[]? _placement;
+
+    public BareHandState() : this(Fresh(), HandShape.Seiken, HandSkeleton.PoseOf(HandShape.Seiken), null)
+    {
+    }
+
+    private BareHandState((byte Material, float Health, bool Surface, float Stain)[] cells, HandShape shape, HandPose pose, int[]? placement)
     {
         _cells = cells;
         Shape = shape;
+        Pose = pose;
+        _placement = placement;
     }
 
+    /// <summary>指令された手形（形そのものは <see cref="Pose"/> の関節角で決まる）。</summary>
     public HandShape Shape { get; }
+
+    /// <summary>いまセルを置いてある関節の姿勢。</summary>
+    public HandPose Pose { get; }
+
     public IReadOnlyList<(byte Material, float Health, bool Surface, float Stain)> Cells => Array.AsReadOnly(_cells);
 
-    /// <summary>指の本数（人さし指・中指・薬指・小指）。握りの寸法は <see cref="Weapon"/> の正拳（FingerSpacing 6 mm）に合わせる。</summary>
-    public const int FingerCount = 4;
+    /// <summary>親セルごとの、いまの格子でのセルの番号（置いたことが無ければ空）。</summary>
+    internal IReadOnlyList<int> Placement => _placement ?? [];
 
-    /// <summary>
-    /// 元のセルがどの指のどの節か（<see cref="FingerCount"/> = 掌・中手骨）。指の骨・皮膚のセルは正拳の生成時の位置で決める
-    /// （指の帯 z と、前へ出た拳頭か畳んだ指かの x）。どの手形に変えても同じセルは同じ指・同じ節の部品として数える。
-    /// </summary>
-    private static readonly (int Finger, FingerSegment Segment)[] Assignment = Source.Select(index =>
+    private static (byte Material, float Health, bool Surface, float Stain)[] Fresh()
+        => [.. HandSkeleton.Parents.Select(p => (p.Material, BoxerAnatomy.Palette[p.Material].Toughness, p.Material == BoxerAnatomy.Skin, 0f))];
+
+    /// <summary>無傷の素手を正拳に握った格子（武器の剛体を作るときの初期の形）。</summary>
+    internal static VoxelGrid InitialGrid()
     {
-        var c = Closed.Coordinates(index);
-        var p = Closed.CellCenter(c.X, c.Y, c.Z);
-        if (p.X < 0.002f)
-        {
-            return (FingerCount, FingerSegment.Palm);
-        }
-
-        var finger = Math.Clamp((int)MathF.Round((p.Z / Weapon.FingerPitch) + 1.5f), 0, FingerCount - 1);
-        var front = finger < 2 ? Weapon.KnuckleFront : Weapon.FoldedKnuckleFront;
-        return (finger, p.X >= front - Weapon.KnuckleRadiusOf ? FingerSegment.Knuckle : FingerSegment.Folded);
-    }).ToArray();
+        _ = new BareHandState().Placed(HandSkeleton.PoseOf(HandShape.Seiken), out var grid);
+        return grid;
+    }
 
     /// <summary>
-    /// 指ごと・節ごとの親データ（残っている骨・皮膚の割合と、ひび）。手形に依らず元のセルから数えるので、ある形で打って削れた節は
-    /// ほかのどの形でも同じ量だけ欠けて見え、効く（折れた指で貫手を打てば、その指の骨が足りない）。ひび = 1 − 骨の残りで、
-    /// 骨が削られた量がそのまま折れやすさの目安になる。
+    /// 節 <paramref name="segment"/>（掌は <paramref name="finger"/> = <see cref="FingerCount"/>）の親データ: 残っている骨・皮膚の割合と、ひび（1 − 骨の残り）。
+    /// 骨は直列に力を伝えるので、節の強さ（<see cref="FingerPartState.BoneWeakest"/>）は骨のセルのうち最も傷んだものの残りで決まる。
     /// </summary>
     public FingerPartState Part(int finger, FingerSegment segment)
     {
@@ -53,24 +61,25 @@ public sealed class BareHandState
             throw new ArgumentOutOfRangeException(nameof(finger));
         }
 
-        float bone = 0f, boneFull = 0f, skin = 0f, skinFull = 0f;
+        float bone = 0f, boneFull = 0f, skin = 0f, skinFull = 0f, weakest = 1f;
         var cells = 0;
         for (var i = 0; i < _cells.Length; i++)
         {
-            if (Assignment[i].Finger != finger || Assignment[i].Segment != segment)
+            var parent = HandSkeleton.Parents[i];
+            if (parent.Finger != finger || parent.Segment != segment)
             {
                 continue;
             }
 
-            var original = Closed.MaterialAt(Source[i]);
-            var full = Closed.Palette[original].Toughness;
+            var full = BoxerAnatomy.Palette[parent.Material].Toughness;
             var left = _cells[i].Material == 0 ? 0f : Math.Clamp(_cells[i].Health, 0f, full);
-            if (original == Voxels.BoxerAnatomy.Bone)
+            if (parent.Material == BoxerAnatomy.Bone)
             {
                 bone += left;
                 boneFull += full;
+                weakest = full > 0f ? MathF.Min(weakest, left / full) : weakest;
             }
-            else if (original == Voxels.BoxerAnatomy.Skin)
+            else if (parent.Material == BoxerAnatomy.Skin)
             {
                 skin += left;
                 skinFull += full;
@@ -80,79 +89,205 @@ public sealed class BareHandState
         }
 
         var boneLeft = boneFull > 0f ? bone / boneFull : 1f;
-        return new FingerPartState(cells, boneLeft, skinFull > 0f ? skin / skinFull : 1f, 1f - boneLeft);
+        return new FingerPartState(cells, boneLeft, skinFull > 0f ? skin / skinFull : 1f, 1f - boneLeft, weakest);
     }
 
-    /// <summary>その指の骨の残り（0..1、節ごとの最小。拳頭か畳んだ節のどちらかが削られれば、その指の骨は弱い）。</summary>
-    public float FingerBone(int finger) => MathF.Min(Part(finger, FingerSegment.Knuckle).Bone, Part(finger, FingerSegment.Folded).Bone);
-    public BareHandState Capture(VoxelGrid grid) => new(Maps.Value[(int)Shape].Select(grid.CellState).ToArray(), Shape);
-    public BareHandState WithShape(HandShape shape)
-    {
-        Validate(shape);
-        return new([.. _cells], shape);
-    }
+    /// <summary>その指の骨の残り（0..1、節ごとの最小。どれかの節の骨が削られれば、その指の骨は弱い）。</summary>
+    public float FingerBone(int finger) => Enumerable.Range(0, 3).Min(s => Part(finger, (FingerSegment)s).Bone);
 
-    public VoxelGrid Build(HandShape shape)
+    /// <summary>格子 <paramref name="grid"/>（この台帳から <see cref="Placed"/> で作ったもの）から、いまの親セルの状態を読み直す。</summary>
+    public BareHandState Capture(VoxelGrid grid)
     {
-        Validate(shape);
-        var map = Maps.Value[(int)shape];
-        var lookup = map.Select((index, cell) => (index, cell)).ToDictionary(p => p.index, p => p.cell);
-        var grid = Empty((_, index) => lookup.TryGetValue(index, out var cell) ? SourceMaterial(cell) : (byte)0);
-        for (var i = 0; i < map.Length; i++)
+        ArgumentNullException.ThrowIfNull(grid);
+        if (_placement is null)
         {
-            grid.SetCellState(map[i], _cells[i]);
+            throw new InvalidOperationException("格子へ置いたことのない手の台帳は読み直せません。");
         }
 
-        return grid;
+        return new([.. _placement.Select(grid.CellState)], Shape, Pose, _placement);
     }
 
-    private static byte SourceMaterial(int cell) => Closed.MaterialAt(Source[cell]);
-    private static VoxelGrid Empty(Func<Vector3, int, byte> fill)
-    {
-        var index = 0;
-        return new(Closed.Palette, Closed.HalfExtents + new Vector3(Closed.CellSize.X * Closed.Dimensions.X, 0f, 0f),
-            Closed.CellSize.X, (p, _) => fill(p, index++));
-    }
-
-    private static int[][] CreateMaps()
-    {
-        var grid = Empty((_, _) => 0);
-        return Enum.GetValues<HandShape>().Select(shape =>
-        {
-            var used = new HashSet<int>();
-            return Source.Select(index =>
-            {
-                var c = Closed.Coordinates(index);
-                var p = Closed.CellCenter(c.X, c.Y, c.Z);
-                var target = shape switch
-                {
-                    HandShape.SpearHand => p with { X = p.X * 1.8f + 0.007f },
-                    HandShape.KnifeHand => p with { X = p.X * 1.5f + 0.004f },
-                    HandShape.OneKnuckle => p with { X = p.X + (p.Z < 0f && p.Z > -0.007f ? 0.009f : 0f) },
-                    HandShape.PalmHeel => p with { X = -p.X },
-                    HandShape.BackFist => p with { X = p.Y, Y = -p.X },
-                    _ => p,
-                };
-                // A stable nearest vacant cell conserves every tissue cell at all shapes.
-                var selected = Enumerable.Range(0, grid.CellCount).Where(i => !used.Contains(i))
-                    .MinBy(i => { var q = grid.Coordinates(i); return Vector3.DistanceSquared(target, grid.CellCenter(q.X, q.Y, q.Z)); });
-                used.Add(selected);
-                return selected;
-            }).ToArray();
-        }).ToArray();
-    }
-
-    private static void Validate(HandShape shape)
+    /// <summary>同じ台帳・同じ置き場で、指令された手形だけ変える。</summary>
+    public BareHandState WithShape(HandShape shape)
     {
         if (!Enum.IsDefined(shape))
         {
             throw new ArgumentOutOfRangeException(nameof(shape));
         }
+
+        return new([.. _cells], shape, Pose, _placement);
+    }
+
+    /// <summary>
+    /// 姿勢 <paramref name="pose"/> に親セルを置き直した格子を作る。親セルを関節の曲げ角どおりの位置（<see cref="HandSkeleton.Positions"/>）の
+    /// セルへ置き、先に置いたセル（骨 → 肉 → 皮膚）が場所を取る。重なったセルは、いちばん近い空きセルへ押しのけられる（組織は減らない）。
+    /// 削れて無くなった親セルの場所も取ったままにするので、置き場は傷に依らず姿勢だけで決まる。
+    /// </summary>
+    /// <returns>台帳を新しい置き場に付け替えたもの（<see cref="Pose"/> = <paramref name="pose"/>）。</returns>
+    public BareHandState Placed(HandPose pose, out VoxelGrid grid)
+    {
+        ArgumentNullException.ThrowIfNull(pose);
+        var positions = HandSkeleton.Positions(pose);
+        const int Margin = 3;
+        int Dim(Func<Vector3, float> axis) => 2 * ((int)MathF.Ceiling(positions.Max(p => MathF.Abs(axis(p))) / HandSkeleton.Cell) + Margin);
+        var (nx, ny, nz) = (Dim(p => p.X), Dim(p => p.Y), Dim(p => p.Z));
+        var half = new Vector3(nx, ny, nz) * (0.5f * HandSkeleton.Cell);
+        var result = new VoxelGrid(BoxerAnatomy.Palette, half, (nx, ny, nz), (_, _) => 0);
+        var taken = new bool[nx * ny * nz];
+        var placement = new int[positions.Length];
+        for (var i = 0; i < positions.Length; i++)
+        {
+            var f = (positions[i] + half) / HandSkeleton.Cell;
+            var (cx, cy, cz) = ((int)MathF.Floor(f.X), (int)MathF.Floor(f.Y), (int)MathF.Floor(f.Z));
+            placement[i] = Vacant(taken, (nx, ny, nz), (cx, cy, cz), f);
+            taken[placement[i]] = true;
+        }
+
+        Reskin(placement, taken, (nx, ny, nz));
+        for (var i = 0; i < positions.Length; i++)
+        {
+            if (_cells[i].Material != 0)
+            {
+                result.SetCellState(placement[i], _cells[i]);
+            }
+        }
+
+        grid = result;
+        return new BareHandState([.. _cells], Shape, pose, placement);
+    }
+
+    /// <summary>
+    /// 皮膚が外を覆うように、置き場を入れ替える: 斜めに回した形や重なりで押しのけられた皮膚は、体の中に埋もれ、代わりに筋肉・骨が外に出る（赤・白のセル）。
+    /// 外に出た筋肉と、いちばん近い埋もれた皮膚の置き場を入れ替える（組織の数は同じ、置き場の違いは数セル）。傷には依らない（親セルの元の材質で決める）。
+    /// </summary>
+    private static void Reskin(int[] placement, bool[] taken, (int X, int Y, int Z) size)
+    {
+        bool Exposed(int index)
+        {
+            var x = index % size.X;
+            var y = index / size.X % size.Y;
+            var z = index / (size.X * size.Y);
+            foreach (var (dx, dy, dz) in Faces)
+            {
+                var (xx, yy, zz) = (x + dx, y + dy, z + dz);
+                if (xx < 0 || yy < 0 || zz < 0 || xx >= size.X || yy >= size.Y || zz >= size.Z || !taken[xx + (size.X * (yy + (size.Y * zz)))])
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        float Distance(int a, int b)
+        {
+            var (ax, ay, az) = (a % size.X, a / size.X % size.Y, a / (size.X * size.Y));
+            var (bx, by, bz) = (b % size.X, b / size.X % size.Y, b / (size.X * size.Y));
+            return ((ax - bx) * (ax - bx)) + ((ay - by) * (ay - by)) + ((az - bz) * (az - bz));
+        }
+
+        for (var pass = 0; pass < 3; pass++)
+        {
+            var buried = Enumerable.Range(0, placement.Length)
+                .Where(i => HandSkeleton.Parents[i].Material == BoxerAnatomy.Skin && !Exposed(placement[i])).ToList();
+            var changed = false;
+            for (var i = 0; i < placement.Length && buried.Count > 0; i++)
+            {
+                if (HandSkeleton.Parents[i].Material == BoxerAnatomy.Skin || !Exposed(placement[i]))
+                {
+                    continue;
+                }
+
+                var j = buried.MinBy(k => Distance(placement[k], placement[i]));
+                // 骨の置き場は関節の角度が決めるので、骨は隣のセル（1 セル + 斜め）までしか動かさない。筋肉は 3 セルまで。
+                if (Distance(placement[j], placement[i]) > (HandSkeleton.Parents[i].Material == BoxerAnatomy.Bone ? MaxBoneSwapCells2 : MaxSwapCells2))
+                {
+                    continue; // 遠すぎる入れ替えは形を崩す（骨が本来の場所から離れる）ので、その外に出た組織はそのまま
+                }
+
+                (placement[i], placement[j]) = (placement[j], placement[i]);
+                buried.Remove(j);
+                changed = true;
+            }
+
+            if (!changed)
+            {
+                break;
+            }
+        }
+    }
+
+    /// <summary>入れ替えてよい距離の上限（セルの数の 2 乗）: 筋肉は 3 セル = 6 mm、骨は 1 セル + 斜めまで。</summary>
+    private const float MaxSwapCells2 = 9f;
+
+    private const float MaxBoneSwapCells2 = 3f;
+
+    private static readonly (int X, int Y, int Z)[] Faces = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)];
+
+    /// <summary>近い順に並べた、まわりのセルへのずれ（距離 4 セルまで）。</summary>
+    private static readonly (int X, int Y, int Z)[] Around = [.. Enumerable.Range(-4, 9).SelectMany(x => Enumerable.Range(-4, 9)
+        .SelectMany(y => Enumerable.Range(-4, 9).Select(z => (X: x, Y: y, Z: z))))
+        .OrderBy(o => (o.X * o.X) + (o.Y * o.Y) + (o.Z * o.Z)).ThenBy(o => o.X).ThenBy(o => o.Y).ThenBy(o => o.Z)];
+
+    /// <summary>
+    /// 場所 <paramref name="exact"/>（セルの単位の連続値）に最も近い空きセル。まず本来のセルを見て、塞がっていれば 1 セルまわりの空きのうち連続値に最も近いもの、
+    /// それも無ければ近い順に外へ（斜めに回した形が穴だらけ・散らばりにならないよう、押しのけ先も本来の位置に近い所を選ぶ）。
+    /// </summary>
+    private static int Vacant(bool[] taken, (int X, int Y, int Z) size, (int X, int Y, int Z) at, Vector3 exact)
+    {
+        int? best = null;
+        var bestDistance = float.MaxValue;
+        var bestRing = int.MaxValue;
+        foreach (var (dx, dy, dz) in Around)
+        {
+            var ring = (dx * dx) + (dy * dy) + (dz * dz);
+            if (best is not null && ring > bestRing)
+            {
+                break;
+            }
+
+            var (x, y, z) = (at.X + dx, at.Y + dy, at.Z + dz);
+            if (x < 0 || y < 0 || z < 0 || x >= size.X || y >= size.Y || z >= size.Z)
+            {
+                continue;
+            }
+
+            var index = x + (size.X * (y + (size.Y * z)));
+            if (taken[index])
+            {
+                continue;
+            }
+
+            if (best is null)
+            {
+                // 最初に見つかった空きの距離の層 + 1 セルぶんの余裕まで、連続値に最も近いものを探す。
+                bestRing = ring + 3;
+            }
+
+            var d = Vector3.DistanceSquared(new Vector3(x + 0.5f, y + 0.5f, z + 0.5f), exact);
+            if (d < bestDistance)
+            {
+                (best, bestDistance) = (index, d);
+            }
+        }
+
+        if (best is { } found)
+        {
+            return found;
+        }
+
+        // 近くに空きが無ければ、格子の中で最初の空き（番号順。決定的）。
+        for (var index = 0; index < taken.Length; index++)
+        {
+            if (!taken[index])
+            {
+                return index;
+            }
+        }
+
+        throw new InvalidOperationException("手のセルを置く空きがありません。");
     }
 }
 
-/// <summary>指・掌の節。</summary>
-public enum FingerSegment { Knuckle, Folded, Palm }
-
-/// <summary>1 つの節の親データ: セル数・骨の残り・皮膚の残り（0..1）・ひび（1 − 骨の残り）。</summary>
-public readonly record struct FingerPartState(int Cells, float Bone, float Skin, float Cracked);
+/// <summary>1 つの節の親データ: セル数・骨の残り・皮膚の残り（0..1）・ひび（1 − 骨の残り）・節の強さ（最も傷んだ骨のセルの残り、0..1）。</summary>
+public readonly record struct FingerPartState(int Cells, float Bone, float Skin, float Cracked, float BoneWeakest);

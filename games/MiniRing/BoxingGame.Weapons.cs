@@ -111,6 +111,7 @@ public sealed partial class BoxingGame
             var worn = Weapon.CreateWorn(_world, kind, leather, fighter.GloveCenter(hand), Quaternion.Identity);
             Track(worn);
             fighter.Wield(hand, worn.Body.BodyId, Weapon.GripOf(kind), glove: true);
+            fighter.SetStrikeReach(hand, worn.HandState is null ? null : worn.StrikeOffset);
             _wielders[worn] = fighter;
             _wieldHand[worn] = hand;
         }
@@ -179,7 +180,7 @@ public sealed partial class BoxingGame
 
     private FighterSense RawArmedSense(Fighter self, Fighter opponent)
     {
-        var sense = Sense(self, opponent) with { Ring = Layout };
+        var sense = Sense(self, opponent) with { Ring = Layout, MayStrikeDowned = !_corners.Referee };
         if (_wielders.Count == 0)
         {
             return sense;
@@ -749,7 +750,7 @@ public sealed partial class BoxingGame
         {
             if (!(part.FragmentOf is null && HolderOf(weapon) is { } puncher && puncher != victim && Punch(puncher, HandOf(weapon), victim, part, hit, contactTwist)))
             {
-                if (contactTwist != Vector3.Zero && victim.State == FighterState.Standing)
+                if (contactTwist != Vector3.Zero && MayStrike(victim))
                 {
                     victim.TwistHead(contactTwist);
                 }
@@ -763,7 +764,7 @@ public sealed partial class BoxingGame
 
         // 握った武器の打撃は、拳の打撃と同じく、拳の後ろの体の重さも運ぶ（武器は梃子で速さを、体は重さを足す）。1 振りに 1 度。
         var carried = false;
-        if (!RoundOver && !Holding && part.FragmentOf is null && HolderOf(weapon) is { } swinger && swinger != victim && victim.State == FighterState.Standing
+        if (!RoundOver && !Holding && part.FragmentOf is null && HolderOf(weapon) is { } swinger && swinger != victim && MayStrike(victim)
             && _weaponCooldown.GetValueOrDefault(weapon) <= 0f && _beforeStep.TryGetValue(weapon.Body.BodyId, out var weaponBefore))
         {
             var contactVelocity = weaponBefore.LinearVelocity + Vector3.Cross(weaponBefore.AngularVelocity, hit.Point - weaponBefore.Position);
@@ -866,13 +867,13 @@ public sealed partial class BoxingGame
 
         if (broken.Hangs)
         {
-            BrokenBones.Add(new BoneBreakEvent(victim, broken.Part.Kind, broken.Point, broken.Bent));
-            ShowMessage(arm ? "ARM BROKEN!" : "LEG BROKEN!", 1.2f);
+            BrokenBones.Add(new BoneBreakEvent(victim, broken.Part.Kind, broken.Point, broken.Bent, broken.Part.Body.BodyId));
+            ShowMessage(arm ? "ARM BROKEN!" : broken.Part.Kind == BodyPartKind.Head ? "NECK BROKEN!" : "LEG BROKEN!", 1.2f);
             return;
         }
 
-        _recentSevers.Add(new SeverEvent(broken.Point, strength));
-        ShowMessage(arm ? "ARM OFF!" : "LEG OFF!", 1.2f);
+        _recentSevers.Add(new SeverEvent(broken.Point, strength, victim, broken.Part.Body.BodyId));
+        ShowMessage(arm ? "ARM OFF!" : broken.Part.Kind == BodyPartKind.Head ? "HEAD OFF!" : "LEG OFF!", 1.2f);
     }
 
     /// <summary>直近の <see cref="Step"/> で骨が折れて、肉だけでつながった所（切り落とされたものは <see cref="RecentSevers"/>）。</summary>
@@ -1048,7 +1049,7 @@ public sealed partial class BoxingGame
 
         if (!(part.FragmentOf is null && ScoreKick(attacker, side, victim, kicker, part, hit, contactTwist)))
         {
-            if (contactTwist != Vector3.Zero && victim.State == FighterState.Standing)
+            if (contactTwist != Vector3.Zero && MayStrike(victim))
             {
                 victim.TwistHead(contactTwist);
             }
@@ -1075,7 +1076,7 @@ public sealed partial class BoxingGame
     /// <summary>蹴りを打撃（<see cref="HitEvent"/>）として数える: 拳と同じ物差し（速さ・有効質量・部位の倍率）。数えたら true。</summary>
     private bool ScoreKick(Fighter attacker, Hand side, Fighter victim, VoxelPart kicker, VoxelPart part, VoxelContactResult hit, Vector3 contactTwist)
     {
-        if (RoundOver || Holding || victim.State != FighterState.Standing || _kickCooldown.GetValueOrDefault((attacker, side)) > 0f
+        if (RoundOver || Holding || !MayStrike(victim) || _kickCooldown.GetValueOrDefault((attacker, side)) > 0f
             || !_beforeStep.TryGetValue(kicker.Body.BodyId, out var before))
         {
             return false;
@@ -1110,7 +1111,7 @@ public sealed partial class BoxingGame
     /// </summary>
     private bool Punch(Fighter attacker, Hand hand, Fighter victim, VoxelPart part, VoxelContactResult hit, Vector3 contactTwist)
     {
-        if (RoundOver || Holding || victim.State != FighterState.Standing || _hitCooldown[(attacker, hand)] > 0f)
+        if (RoundOver || Holding || !MayStrike(victim) || _hitCooldown[(attacker, hand)] > 0f)
         {
             return false; // ダウンから立ち直った直後の一呼吸も、拳の打撃は数えない
         }

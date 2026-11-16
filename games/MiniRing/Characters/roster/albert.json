@@ -1,0 +1,23 @@
+{
+  "id": "albert",
+  "order": 9,
+  "name": "アルバート・クロムウェル",
+  "reading": "アルバート クロムウェル",
+  "hudName": "アルバート",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "ベアナックルの拳闘家",
+  "look": {
+    "skin": [0.95, 0.78, 0.66], "hair": [0.35, 0.2, 0.1], "hairstyle": "Full", "eyes": [0.25, 0.13, 0.05],
+    "brows": true, "beard": true,
+    "parts": { "jaw": 1.08 }
+  },
+  "body": {
+    "build": { "height": 1, "arms": 1.04, "legs": 1, "muscle": 1 },
+    "wear": "none",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "record": []
+}

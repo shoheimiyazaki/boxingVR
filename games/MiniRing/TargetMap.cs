@@ -64,7 +64,9 @@ public sealed class TargetMap(Fighter target)
     {
         AimGoal.ExposedBrain => ExposedBrainLocal() is not null,
         AimGoal.GuardArm => !target.ArmSevered(Hand.Left) || !target.ArmSevered(Hand.Right),
-        _ => true,
+        AimGoal.Center => true,
+        // 急所は、その体に実際のセルがあるときだけ狙える（潰れた目は狙えない。体の無いファイターには急所が無い）。
+        _ => Point(goal, target.HeadPosition) is not null,
     };
 
     /// <summary>狙いの点（ワールド）。<paramref name="from"/> は打つ側の肩（こめかみ・腕は、その側から見えている方を選ぶ）。使えなければ null。</summary>
@@ -74,37 +76,34 @@ public sealed class TargetMap(Fighter target)
         {
             return _snapshot.GetValueOrDefault(goal);
         }
-        var head = target.World.GetState(target.Parts.Head);
-        var hh = target.HalfExtents.Head;
-        var chest = target.World.GetState(target.Parts.Chest);
-        var hc = target.HalfExtents.Chest;
-        Vector3 HeadAt(Vector3 local) => head.Position + Vector3.Transform(local, head.Orientation);
-        Vector3 ChestAt(Vector3 local) => chest.Position + Vector3.Transform(local, chest.Orientation);
+        var marks = target.Voxels?.Landmarks;
         switch (goal)
         {
             case AimGoal.Center:
                 return null;
             case AimGoal.Eye:
-                var eyeSide = Vision.Left >= Vision.Right ? 1f : -1f;
-                return HeadAt(new Vector3(eyeSide * 0.38f * hh.X, 0.18f * hh.Y, 0.9f * hh.Z));
+                return BetterEye(marks, from);
             case AimGoal.BlindSide:
-                return HeadAt(new Vector3((Vision.Left < Vision.Right ? 1f : -1f) * hh.X * 0.8f, 0f, hh.Z * 0.5f));
+                // 見えにくい側のこめかみ（その側の横から見えない）。
+                return marks?.Temple(Vision.Left < Vision.Right);
             case AimGoal.Chin:
-                return HeadAt(new Vector3(0f, -0.75f * hh.Y, 0.85f * hh.Z));
+                return marks?.Chin();
             case AimGoal.Temple:
-                var left = HeadAt(new Vector3(-hh.X, 0.25f * hh.Y, 0.3f * hh.Z));
-                var right = HeadAt(new Vector3(hh.X, 0.25f * hh.Y, 0.3f * hh.Z));
-                return Vector3.DistanceSquared(left, from) < Vector3.DistanceSquared(right, from) ? left : right;
+                var left = marks?.Temple(true);
+                var right = marks?.Temple(false);
+                return left is { } l && right is { } r
+                    ? Vector3.DistanceSquared(l, from) < Vector3.DistanceSquared(r, from) ? l : r
+                    : left ?? right;
             case AimGoal.ExposedBrain:
                 return ExposedBrainLocal() is { } local && target.Voxels?.PartOf(target.Parts.Head) is { } part
                     ? Vector3.Transform(local, part.Body.GridToWorld())
                     : null;
             case AimGoal.Liver:
-                return target.Voxels?.OrganCenter(BoxerAnatomy.Liver) ?? ChestAt(new Vector3(-0.5f * hc.X, -0.8f * hc.Y, hc.Z));
+                return BodyLandmarks.OrganSkin(target.Voxels?.OrganLandmark(BoxerAnatomy.Liver), from);
             case AimGoal.SolarPlexus:
-                return ChestAt(new Vector3(0f, -0.55f * hc.Y, hc.Z));
+                return marks?.SolarPlexus();
             case AimGoal.Heart:
-                return target.Voxels?.OrganCenter(BoxerAnatomy.Heart) ?? ChestAt(new Vector3(0.3f * hc.X, 0.2f * hc.Y, hc.Z));
+                return BodyLandmarks.OrganSkin(target.Voxels?.OrganLandmark(BoxerAnatomy.Heart), from);
             case AimGoal.GuardArm:
                 // 傷んでいる方の腕（肉の残りが少ない方）を、同じなら打つ側に近い方を。
                 Hand? best = null;
@@ -129,6 +128,27 @@ public sealed class TargetMap(Fighter target)
             default:
                 return null;
         }
+    }
+
+    /// <summary>
+    /// 狙う目: よく見えている方（見えを奪う）。左右の見えが同じなら、打つ側（<paramref name="from"/>）から近い方（鼻を越えて遠い目へ手を伸ばさない）。
+    /// 潰れた目（残りのセルが無い）は選ばない。
+    /// </summary>
+    private Vector3? BetterEye(BodyLandmarks? marks, Vector3 from)
+    {
+        var left = marks?.EyeCenter(true);
+        var right = marks?.EyeCenter(false);
+        if (left is not { } l || right is not { } r)
+        {
+            return left ?? right;
+        }
+
+        if (Vision.Left != Vision.Right)
+        {
+            return Vision.Left > Vision.Right ? l : r;
+        }
+
+        return Vector3.DistanceSquared(l, from) <= Vector3.DistanceSquared(r, from) ? l : r;
     }
 
     /// <summary>頭の格子の、外に出ている（空のセルと接する）脳のセルの重心（格子のローカル）。無ければ null。</summary>

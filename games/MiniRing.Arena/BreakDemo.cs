@@ -12,7 +12,7 @@ namespace MiniRing.Arena;
 internal static class BreakDemo
 {
     /// <summary>1 つの場面: 名前、試合の作り方、起こす瞬間 [s]、起こすこと、画面の説明。</summary>
-    internal sealed record Scene(string Title, Func<BoxingGame> Create, float At, Action<BoxingGame> Act, Func<BoxingGame, bool, string> Describe);
+    internal sealed record Scene(string Title, Func<BoxingGame> Create, float At, Action<BoxingGame> Act, Func<BoxingGame, bool, string> Describe, Func<BoxingGame, Vector3>? CloseUp = null);
 
     private sealed class Scripted(Func<FighterSense, FighterCommand> read) : IFighterControl
     {
@@ -101,5 +101,41 @@ internal static class BreakDemo
                 }
             },
             (game, after) => !after ? "構える" : game.Cpu.Fractures > 0 ? "折れた先が肉でぶら下がる（駆動の無い弱いバネ）" : "肉が千切れて落ちた"),
+        new("首の骨が折れる（頭が肉でぶら下がる）", () => new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard())), 1.5f,
+            game =>
+            {
+                // 折れた瞬間に、頭を前へ倒す打撃（頭への回転の力積）が入ったことにする。折れたあとの動き（垂れる・揺れる）は肉のバネと重さだけ。
+                var head = game.Cpu.Parts.Head;
+                if (game.Cpu.Voxels!.BreakBent(head, new Aigis.Physics.Voxels.VoxelBreak(1, MiniRing.Voxels.BoxerSpine.NeckSlices.High, false, 2f)) is { } broken)
+                {
+                    game.BreakBone(game.Cpu, broken, 1f);
+                    game.World.ApplyAngularImpulse(head, Vector3.Transform(Vector3.UnitX, game.World.GetState(game.Cpu.Parts.Chest).Orientation) * 0.1f);
+                }
+            },
+            (game, after) => !after ? "構える" : game.Cpu.IsDead ? "頭が離れて死んだ" : game.Cpu.HangsByFlesh(game.Cpu.Parts.Head) ? "首が折れた: 頭が肉でぶら下がる（首の筋は外れ、肉の断面に比例する弱いバネ）" : "肉が千切れた",
+            game => game.World.GetState(game.Cpu.Parts.Chest).Position + new Vector3(0f, 0.1f, 0f)),
+        new("首を斬る（頭が離れて落ち、その体は死ぬ）", () => new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard())), 1.5f,
+            game =>
+            {
+                // 首の段（皮膚・筋肉・骨・脊髄のすべて）を斬り取った結果だけを起こす。頭が離れて落ちる・死ぬ・試合が終わるのは物理とゲームの決まり。
+                var head = game.Cpu.Parts.Head;
+                var body = game.Cpu.Voxels!;
+                var grid = body.PartOf(head)!.Body.Grid;
+                var removed = new List<RemovedVoxel>();
+                for (var i = 0; i < grid.CellCount; i++)
+                {
+                    if (grid.Coordinates(i).Y == MiniRing.Voxels.BoxerSpine.NeckSlices.High && grid.MaterialAt(i) != 0)
+                    {
+                        grid.Break(i, removed);
+                    }
+                }
+
+                if (body.BreakIfSevered(head) is { } broken)
+                {
+                    game.BreakBone(game.Cpu, broken, 1f);
+                }
+            },
+            (game, after) => !after ? "構える" : game.Cpu.IsDead ? $"首が断たれた: 頭が離れて落ちる、体は死ぬ（{game.Cpu.DeathCause}）" : "首は繋がっている",
+            game => game.World.GetState(game.Cpu.Parts.Chest).Position + new Vector3(0f, 0.1f, 0f)),
     ];
 }

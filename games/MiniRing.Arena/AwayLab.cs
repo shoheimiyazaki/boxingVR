@@ -27,7 +27,7 @@ internal static class AwayLab
 
     public static void Save(string path, HitAndAway value) => File.WriteAllText(path, JsonSerializer.Serialize(value, Json));
 
-    private static HitAndAway Mutate(HitAndAway p, Random random)
+    internal static HitAndAway Mutate(HitAndAway p, Random random)
     {
         float Gauss() => (float)(Math.Sqrt(-2.0 * Math.Log(1.0 - random.NextDouble())) * Math.Cos(2.0 * Math.PI * random.NextDouble()));
         return new HitAndAway(

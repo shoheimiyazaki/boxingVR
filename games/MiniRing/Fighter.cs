@@ -161,7 +161,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 31; // 31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
+    public const int PhysicsVersion = 35; // 35: 素手を指の関節で組む（掌 + 4 本 × 3 節の骨・肉・皮膚のセルを関節の曲げ角 HandSkeleton.PoseOf どおりに並べ、手形の変更は関節のバネ・ダンパ HandMotion で時間がかかる。折れた指は力が入らず力を抜いた形へ落ちる。素手の質量・形が変わる。docs/KARATE.md §指）。急所の狙いの点は実際のセルから（BodyLandmarks）。34: 首の骨折・首の切断・脊椎の損傷（頭を首の梁にして頸椎 4 セルが折れる・断たれると頭が離れて死ぬ・脊髄 Cord が削れた残りの断面で頸/胸/腰の筋の力と息を決める。docs/VOXEL_DAMAGE.md §首と脊椎）。無傷の体のセルの数・質量は同じ（中身の材質だけ置き換え）。33: 足の運びで、刻み（半歩に満たない 1 歩）の足を選び続けて、伸びきったもう一方の足が置き直されず体が止まる行き詰まりを直す（FootworkTuning.ShuffleShare。docs/arena/boot_snag.md）。32: スタミナの回復を止める仕事率 P を、出そうとした仕事ではなく実際にした仕事（SpendMuscleEnergy・サーボの精算）で数える。回復は exp(−(P / StaminaRestPower)²)、StaminaRestPower 0.7→5 W・StaminaCapacity 90→60 J・StaminaRecoveryWindow 2→1 s（動きながらも戻る。StaminaPowerWindow は廃止）。31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -199,8 +199,55 @@ public sealed partial class Fighter
     public float Strength(int part)
     {
         var m = _tuning.MinMuscleStrength;
-        return Voxels is null ? 1f : m + ((1f - m) * Voxels.Muscle(part));
+        return Voxels is null ? 1f : m + ((1f - m) * Voxels.Muscle(part) * Innervation(part));
     }
+
+    /// <summary>
+    /// 脊髄の働き（頸・胸・腰。<see cref="Voxels.BoxerBody.CordFunction"/>）を、神経が絶たれた筋がほどける速さ（<see cref="FighterTuning.DeadGripRelaxSeconds"/>）でならしたもの。
+    /// 神経が絶たれても筋の力は一瞬で 0 にならず、使えなくなった手の握りと同じ速さで抜けていく。
+    /// </summary>
+    private readonly float[] _cord = [1f, 1f, 1f];
+
+    /// <summary>
+    /// 部位 <paramref name="part"/> の筋を動かす神経の働き（0..1）: 脊髄は上から下へ信号を通すので、その部位の高さまでの脊髄の働きの積。
+    /// 腕は頸、胸（胴）は頸と胸、腰・脚は頸・胸・腰のすべて。頭（首の筋は別扱い）は 1。腕の力・脚の支え・胴の軸を保つ力は <see cref="Strength"/> を通ってこれに比例する。
+    /// 段階の状態（麻痺）は無く、残った脊髄の断面の割合から連続に出る。
+    /// </summary>
+    private float Innervation(int part) => KindOf(part) switch
+    {
+        BodyPartKind.UpperArm or BodyPartKind.Forearm => _cord[0],
+        BodyPartKind.Chest => _cord[0] * _cord[1],
+        BodyPartKind.Head => 1f,
+        _ => _cord[0] * _cord[1] * _cord[2],
+    };
+
+    /// <summary>脊髄の働き（頸・胸・腰）の今の値へ、<paramref name="dt"/> だけ近づける（神経が絶たれた筋がほどける速さで）。</summary>
+    private void UpdateCord(float dt)
+    {
+        if (Voxels is not { } v)
+        {
+            return;
+        }
+
+        var follow = 1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.DeadGripRelaxSeconds));
+        for (var i = 0; i < _cord.Length; i++)
+        {
+            var target = v.CordFunction((MiniRing.Voxels.CordLevel)i);
+            if (target != _cord[i])
+            {
+                _cord[i] += (target - _cord[i]) * follow;
+            }
+        }
+    }
+
+    /// <summary>頸の脊髄の働き（ならした値。1 = 無傷）。首の筋・腕・息に効く。</summary>
+    public float CervicalCord => _cord[0];
+
+    /// <summary>胸の脊髄の働き（ならした値）。</summary>
+    public float ThoracicCord => _cord[1];
+
+    /// <summary>腰の脊髄の働き（ならした値）。</summary>
+    public float LumbarCord => _cord[2];
 
     /// <summary>
     /// その腕の力（上腕と前腕の平均 × 筋肉の断面積の基準体格に対する比 <see cref="BodyBuild.SectionRatio"/>）。切れていれば 0。
@@ -247,6 +294,9 @@ public sealed partial class Fighter
     public FighterCommand LastCommand { get; private set; }
     public bool IsGrabbed => _grabbedByCount > 0;
     public float ArmReach => _arms[0].UpperLength + _arms[0].LowerLength;
+
+    /// <summary>この体の寸法（見えている箱の寸法の基準体格に対する比）。</summary>
+    public BodyBuild Build => _tuning.Build;
 
     /// <summary>グローブ（拳）の半径（見た目と拳の判定に使う）。</summary>
     public float GloveRadius => _tuning.GloveRadius;
@@ -484,6 +534,14 @@ public sealed partial class Fighter
 
     public Vector3 HandTargetWorld(Hand hand) => _arms[(int)hand].LastTarget;
 
+    private readonly Func<Vector3, Vector3?>?[] _strikeReach = new Func<Vector3, Vector3?>?[2];
+
+    /// <summary>
+    /// 手の打つ面の点（<see cref="Weapons.Weapon.StrikeOffset"/>）の取り方を渡す: 向き（手の剛体のローカル）→ 握りの点から打つ面の点へのずれ（手の剛体のローカル）。
+    /// 渡すと、入力の拳の目標（<see cref="HandCommand.TargetLocal"/>）は握りの点ではなく「打つ面の点」を運ぶ目標として扱われる。
+    /// </summary>
+    internal void SetStrikeReach(Hand hand, Func<Vector3, Vector3?>? reach) => _strikeReach[(int)hand] = reach;
+
     /// <summary>拳の目標の先走り [m]（体の動きから移った運動量。調べもの用）。</summary>
     internal Vector3 HandLead(Hand hand) => _arms[(int)hand].Lead;
 
@@ -698,6 +756,7 @@ public sealed partial class Fighter
         UpdateStamina(dt);
         StepProfile.End(StepProfile.Slot.FighterStamina, staminaStart);
         RelaxDeadGrips(dt);
+        UpdateCord(dt);
         WatchFleshLinks();
         if (!IsDead)
         {
@@ -801,13 +860,12 @@ public sealed partial class Fighter
 
         var h = _tuning.OrganHalvingLoss;
         Core = MathF.Min(v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Liver, h), v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Gut, h));
-        Breath = MathF.Min(v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Heart, h), v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Lung, h));
+        // 息は心臓と肺、そして横隔膜を動かす頸の脊髄（近道: 本当は頸の上の方の神経だけ。頸の脊髄全体で数える）。
+        Breath = MathF.Min(v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Heart, h), v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Lung, h)) * _cord[0];
     }
 
     /// <summary>スタミナ（0..1）: 筋肉がすぐ使えるエネルギーの蓄えの残り（<see cref="FighterTuning.StaminaCapacity"/> に対する割合）。</summary>
     public float Stamina { get; internal set; } = 1f; // internal: テストが疲れた体を作る
-
-    private readonly float[] _armPower = new float[2];
 
     /// <summary>
     /// チアノーゼの度合い（0..1、見た目だけ）: 酸素が足りないほど皮膚が青紫になる。スタミナが <see cref="FighterTuning.TiredKnee"/> を下回るほど、
@@ -1712,6 +1770,19 @@ public sealed partial class Fighter
             {
                 target = SupportTarget(arm, support, command, frame);
             }
+            else if (_strikeReach[(int)arm.Hand] is { } reach && arm.Glove && arm.Held is { } worn)
+            {
+                // 目標は「打つ面の点」を運ぶ点: 肩から目標への向きにいちばん前に出ている手のセル（指先・拳頭・掌の根元…）が目標へ届くよう、
+                // 握りの点の目標を、いまの手の向きで回した「握りの点 → 打つ面の点」のずれだけ引く。
+                var handState = _world.GetState(worn.Body);
+                var aim = frame.LocalToWorld(target);
+                var toward = aim - arm.ShoulderPosition(_world, Parts.Chest);
+                if (toward.LengthSquared() > 1e-8f
+                    && reach(Vector3.Transform(toward, Quaternion.Conjugate(handState.Orientation))) is { } offset)
+                {
+                    target = frame.WorldToLocal(aim - Vector3.Transform(offset, handState.Orientation));
+                }
+            }
 
             arm.CarriedMass = CarriedMass(arm);
             arm.UpdateLead(_tuning.LeadSpringHz, _tuning.LeadSpringDamping, dt);
@@ -1823,7 +1894,6 @@ public sealed partial class Fighter
         // その時々の体の動きのうち時定数で抜ける分（体はゆっくりになっても動き続ける）。出し始めの蓄えより多くは渡さない。
         var requested = MathF.Min(arm.BodyStore.Value, motionEnergy * Math.Clamp(share, 0f, 1f) * (1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.BodyToFistTime))));
         var released = SpendMuscleEnergy(requested);
-        _transferDemand += requested;
         arm.BodyStore -= released;
         // 体幹: 拳に乗せた動き（並進のうち乗せられる成分と、胸の回転）の運動エネルギーが released だけ減るよう、同じ割合で縮める。
         var keep = MathF.Sqrt(MathF.Max(0f, 1f - (released / motionEnergy)));
@@ -1878,9 +1948,10 @@ public sealed partial class Fighter
             SetTwistStrength(_legParts[Footwork.Lead].ToeServo, _tuning.LegServoHz, _tuning.ToeMaxTorque * right);
         }
 
-        if (Changed(1, t))
+        // 首の筋も頸の脊髄が動かす（絶たれれば頭を支えられず垂れる）。首が折れて外した関節の筋は、もう無い。
+        if (Changed(1, t * _cord[0]) && _world.HasConstraint(_neck))
         {
-            _world.SetAngularServoSettings(_neck, _tuning.NeckServoHz, _tuning.NeckMaxTorque * t, _tuning.NeckDampingRatio);
+            _world.SetAngularServoSettings(_neck, _tuning.NeckServoHz, _tuning.NeckMaxTorque * t * _cord[0], _tuning.NeckDampingRatio);
         }
 
         foreach (var arm in _arms)
@@ -1952,6 +2023,12 @@ public sealed partial class Fighter
     internal void Break(BoneBreak broken)
     {
         ArgumentNullException.ThrowIfNull(broken);
+        if (broken.Part.Kind == BodyPartKind.Head)
+        {
+            BreakNeck(broken);
+            return;
+        }
+
         var part = broken.Part.Body.BodyId;
         var fragment = broken.Fragment?.Body;
         for (var i = 0; i < _joints.Count; i++)
@@ -2066,6 +2143,77 @@ public sealed partial class Fighter
         if (part == p.RightThigh || part == p.RightShin)
         {
             _legSevered[1] = true;
+        }
+    }
+
+    /// <summary>
+    /// 首の骨が折れた・断たれた（<see cref="BoneBreak"/>、<see cref="BodyPartKind.Head"/>）。腕・脚の折れ（<see cref="Break"/>）と同じ式で、向きだけ逆:
+    /// 頭の部位は首の段で 2 つに分かれ、上（頭蓋。頭として残る剛体）が <see cref="BoneBreak.Part"/>、下の首の側が <see cref="BoneBreak.Fragment"/>。
+    /// 首の側の破片は胴の首の関節に付け替えて、胴に溶接したまま残す。首の筋（サーボ）と首の関節の角度の制限は外す。
+    /// 頭蓋と首の側を、切れ目をまたいで残った肉がつなぐなら、腕・脚の折れと同じ <see cref="Link"/>（玉継手 + 肉の断面に比例する固さの向きのバネ）で
+    /// 頭がぶら下がる。肉まで断たれていれば、頭は離れて落ち（体の一部として数えない）、その体は死ぬ（脳と体のつながりが断たれた）。
+    /// </summary>
+    private void BreakNeck(BoneBreak broken)
+    {
+        var head = broken.Part.Body.BodyId;
+        var stub = broken.Fragment?.Body.BodyId;
+        var index = _joints.FindIndex(j => j.Joint == HumanoidRagdoll.RagdollJoint.Neck);
+        if (index < 0 || _joints[index].ChildPart != head)
+        {
+            return; // 首はもう分かれている（2 度目の折れは見ない）
+        }
+
+        var joint = _joints[index];
+        var anchor = _world.GetJointAnchors(joint.PrimaryConstraintId)?.AnchorA ?? _world.GetState(head).Position;
+        foreach (var id in joint.AllConstraintIds)
+        {
+            if (_world.HasConstraint(id))
+            {
+                _world.RemoveConstraint(id);
+            }
+        }
+
+        if (_world.HasConstraint(_neck))
+        {
+            _world.RemoveConstraint(_neck);
+        }
+
+        // つながりを外した頭は、静かに立っていた体の一部としてすでに眠りの候補だったので、そのままだと空中で眠って落ちない。自分の速度を書き直して起こす。
+        _world.SetSleepThreshold(head, -1f); // 眠らせない
+        var before = _world.GetState(head);
+        _world.SetLinearVelocity(head, before.LinearVelocity + new Vector3(0f, -0.01f, 0f)); // 速度が変わらないと起きない
+
+        if (stub is { } neck)
+        {
+            // 首の側の破片は、首の関節があった所で胴に溶接する（玉継手 + 向きを固定するサーボ。固さは肉のつなぎと同じ速さ、力は十分に大きく）。
+            var c = _world.GetState(Parts.Chest);
+            var n = _world.GetState(neck);
+            var socket = _world.AddBallSocket(Parts.Chest, neck,
+                Vector3.Transform(anchor - c.Position, Quaternion.Conjugate(c.Orientation)),
+                Vector3.Transform(anchor - n.Position, Quaternion.Conjugate(n.Orientation)),
+                frequency: _tuning.FractureLinkHz, dampingRatio: 1f);
+            var weld = _world.AddAngularServo(Parts.Chest, neck, Quaternion.Concatenate(n.Orientation, Quaternion.Conjugate(c.Orientation)),
+                _tuning.FractureLinkHz, 1f, _tuning.ArmServoMaxSpeed, 0f, _tuning.NeckWeldTorque * _tuning.TorqueScale);
+            _joints[index] = joint with { ChildPart = neck, PrimaryConstraintId = socket, TorqueConstraintId = socket, AllConstraintIds = [socket, weld] };
+            SeparateCollisions(neck, head); // 頭は胴・腕・床・相手とぶつかる。首の側の破片との間は切り口で接しているのでぶつけない
+            if (broken.Hangs)
+            {
+                Link(neck, head, broken.Point, broken.TearForce, broken.BendTorque, broken.Bridge);
+            }
+        }
+
+        if (stub is null)
+        {
+            _joints[index] = joint with { ParentPart = -1, PrimaryConstraintId = -1, TorqueConstraintId = -1, AllConstraintIds = [] };
+        }
+
+        if (!HangsByFlesh(head))
+        {
+            // 肉がつなぐ見込みでも、つなぎが作れなかった（Link は断面が 0 なら作らない）なら、頭は離れている。
+            _detached.Add(head);
+            // 頭の箱は首の関節の所で胴の箱と重なっている。離れた頭が胴に押し出されて飛ばないよう、胴とはぶつけない（床・相手とはぶつかる）。
+            _world.SetPairCollisionEnabled(head, Parts.Chest, false);
+            Die("neck");
         }
     }
 
@@ -2260,6 +2408,12 @@ public sealed partial class Fighter
             }
 
             _fleshLinks.RemoveAt(i);
+            if (link.Fragment == Parts.Head)
+            {
+                // 首をつないでいた肉が千切れた（裂ける力を超えた・肉が削られきった）: 頭が離れた。
+                _detached.Add(Parts.Head);
+                Die("neck");
+            }
         }
     }
 
@@ -2692,8 +2846,6 @@ public sealed partial class Fighter
         /// <summary>この歩で拳を目標へ押した力 [N]（ワールド。<see cref="Fighter.HandPush"/>）。</summary>
         public Vector3 LastForce { get; set; }
 
-        public float RequestedPower { get; private set; }
-
         /// <summary>拳の先に引いている武器の質量（<see cref="Fighter.CarriedMass"/> が毎歩決める）。</summary>
         public float CarriedMass { get; set; }
 
@@ -2889,8 +3041,6 @@ public sealed partial class Fighter
             var multiplier = PunchMechanics.ForceMultiplier(coupling, bodyEffective, totalMass, tuning.BodyDrive);
             var muscleCap = tuning.MaxHandForce * multiplier;
             var cap = armForce * multiplier;
-            // 低出力で動けない間も、目標を追おうとする筋の要求は残る（等尺性の努力）。
-            RequestedPower = Vector3.Dot(ClampLength(desired, muscleCap), frame.Rotate(_effortVelocity));
             // 疲れた筋肉の力と速さの関係（Hill の式を直線で近似）: 拳が肩に対して力の向きへ速く動いているほど、出せる力は減り、
             // 縮む速さの上限（1 / slowness）で 0 になる。疲れていなければ slowness = 0 で上限なし（力の上限を下げても、
             // この大きさの体では筋力が余っていて拳の速さは変わらなかった。A3、2026-11-12）。

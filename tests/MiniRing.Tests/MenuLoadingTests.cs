@@ -1,7 +1,5 @@
 using System.Numerics;
-using MiniRing.Bots;
 using MiniRing.Desktop;
-using MiniRing.Weapons;
 
 namespace MiniRing.Tests;
 
@@ -13,13 +11,14 @@ public sealed class MenuLoadingTests
     {
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
-        using var menu = new MenuGame(new MatchMenu(HandWear.Glove, "unused"), _ =>
+        using var shell = new MatchMenu("unused", Path.Combine(Path.GetTempPath(), "miniring-menu-test-settings.json"), loadPortraits: false);
+        using var menu = new MenuGame(shell, _ =>
         {
             entered.Set();
             Assert.IsTrue(release.Wait(TimeSpan.FromSeconds(10)));
             throw new InvalidOperationException("load failure");
         }, _ => throw new NotSupportedException());
-        menu.StartMatch(new(MatchMode.Spectate, BotCatalog.Boxer, BotCatalog.Boxer, HandWear.Glove, HandWear.Glove));
+        menu.StartMatch(new(MatchMode.Spectate, Characters.CharacterRoster.Get("konrad"), Characters.CharacterRoster.Get("sean")));
         try
         {
             Assert.IsTrue(entered.Wait(TimeSpan.FromSeconds(10)));

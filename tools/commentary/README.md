@@ -42,7 +42,13 @@ UTF-8 で書く。
 ```
 
 - `at`: 動画の中で話し始めたい時刻（秒）。
-- `speaker`: `announcer`（実況）か `commentator`（解説）。
+- `speaker`: `announcer`（実況）か `commentator`（解説）、または台本の `speakers` に書いた話し手の id。
+- `speakers`（省略可、台本の一番上）: 話し手ごとの声と話し方。`announcer`・`commentator` の既定を変えるときにも書く。書かなかった値は既定（新しい id なら Haruka・±0%）。語りの型と個性の説明書は `docs/commentary/README.md`。
+
+```json
+"speakers": { "red_inner": { "voice": ["Ichiro"], "rate": "-8%", "pitch": "-10%", "volume": "-6%",
+                             "excited": { "rate": "+15%", "pitch": "+0%", "volume": "+6%" } } }
+```
 - `text`: 台詞。
 - `excited`（省略可、既定 false）: 盛り上がる場面。速く・高く・大きく話す。
 

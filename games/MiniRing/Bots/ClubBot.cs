@@ -14,6 +14,7 @@ public sealed class ClubBot : IFighterControl
     private readonly IReadOnlyList<WeaponSwing> _swings;
     private readonly Random _random;
     private readonly SwingFamily _stance;
+    private readonly IReadOnlyList<float>? _weights;
     private readonly bool _exact;
     private WeaponSwing? _swing;
     private float _time;
@@ -27,7 +28,8 @@ public sealed class ClubBot : IFighterControl
     /// <param name="standOff">打たない間に構えて待つ距離 [m]。</param>
     /// <param name="exact">振るのを間合いが <see cref="Range"/> ± 3 cm に入ったときだけにする（近すぎれば下がってから振る）。
     /// false なら間合いより近ければすぐ振る。</param>
-    public ClubBot(IReadOnlyList<WeaponSwing> swings, int seed, float range = 0.36f, float rest = 0.25f, float standOff = 0.48f, bool exact = false)
+    /// <param name="weights">振りごとの選ばれやすさ（<paramref name="swings"/> と同じ数の、0 以上の数。合計は正）。null なら同じ割合（今までの選び方: 乱数の使い方も同じ）。</param>
+    public ClubBot(IReadOnlyList<WeaponSwing> swings, int seed, float range = 0.36f, float rest = 0.25f, float standOff = 0.48f, bool exact = false, IReadOnlyList<float>? weights = null)
     {
         _exact = exact;
         ArgumentNullException.ThrowIfNull(swings);
@@ -36,6 +38,12 @@ public sealed class ClubBot : IFighterControl
             throw new ArgumentException("振りが 1 つも無い。", nameof(swings));
         }
 
+        if (weights is not null && (weights.Count != swings.Count || weights.Any(w => !(w >= 0f) || !float.IsFinite(w)) || weights.Sum() <= 0f))
+        {
+            throw new ArgumentException("選ばれやすさは振りと同じ数の、0 以上の数（合計は正）。", nameof(weights));
+        }
+
+        _weights = weights;
         _swings = swings;
         _stance = swings[0].Family;
         _random = new Random(seed);
@@ -59,8 +67,47 @@ public sealed class ClubBot : IFighterControl
     /// <summary>研究の出発点の 3 つの振り（縦・横・突き）で戦うボット。</summary>
     public static ClubBot Basic(int seed) => new([.. OneHanded.Select(WeaponSwing.Default)], seed, rest: 0.6f);
 
+    /// <summary>
+    /// 武器の教科書（とキャラの教育を重ねた <see cref="WeaponStyle"/>）で動くこんぼうのボット。振りは片手の 3 つの型（<see cref="OneHanded"/>）、
+    /// 間合い・休み・待つ距離・振り始めの厳しさは <paramref name="style"/> から。教科書が今までの既定と同じ値のとき、<see cref="Basic"/> と同じ。
+    /// </summary>
+    public static ClubBot FromStyle(WeaponStyle style, int seed)
+    {
+        ArgumentNullException.ThrowIfNull(style);
+        // 重みは OneHanded の並び（Chop・Side・Thrust）に合わせる。書いていない振りは 1。
+        var weights = style.ClubSwingWeights is { } w ? OneHanded.Select(f => w.GetValueOrDefault(f.ToString(), 1f)).ToList() : null;
+        return new ClubBot([.. OneHanded.Select(WeaponSwing.Default)], seed, range: style.ClubRange, rest: style.ClubRest, standOff: style.ClubStandOff, exact: style.ClubExact, weights: weights);
+    }
+
     /// <summary>片手で振る型（縦・横・突き）。両手のバットの振りとは握り方が違うので、同じボットには混ぜない。</summary>
     public static IReadOnlyList<SwingFamily> OneHanded { get; } = [SwingFamily.Chop, SwingFamily.Side, SwingFamily.Thrust];
+
+    private int PickIndex()
+    {
+        if (_weights is null)
+        {
+            return _random.Next(_swings.Count);
+        }
+
+        var x = (float)_random.NextDouble() * _weights.Sum();
+        var last = 0;
+        for (var i = 0; i < _weights.Count; i++)
+        {
+            if (_weights[i] <= 0f)
+            {
+                continue;
+            }
+
+            last = i;
+            x -= _weights[i];
+            if (x <= 0f)
+            {
+                return i;
+            }
+        }
+
+        return last;
+    }
 
     public FighterCommand Read(in FighterSense sense, float dt)
     {
@@ -100,7 +147,7 @@ public sealed class ClubBot : IFighterControl
         var move = distance > want + 0.03f ? face : distance < want - 0.03f ? -face : Vector3.Zero;
         if (!resting && distance <= Range + 0.03f && (!_exact || distance >= Range - 0.03f))
         {
-            _swing = _swings[_random.Next(_swings.Count)];
+            _swing = _swings[PickIndex()];
             _swingStart = _time;
         }
 

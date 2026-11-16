@@ -87,6 +87,7 @@ public sealed class BoxerBot : IFighterControl
     private readonly PunchAction[] _hands = new PunchAction[2];
     private readonly ThreatTrack[] _threats = new ThreatTrack[2];
     private readonly Defense? _forcedDefense;
+    private readonly AimGoal? _forcedAim;
     private readonly OpponentRead _read = new();
 
     /// <summary>間合いの層（危険度・さらされ）。</summary>
@@ -151,12 +152,14 @@ public sealed class BoxerBot : IFighterControl
     /// 防御ドリル用: 気づいた拳には（効き目の表に関わらず）必ずこの技で守る。守る率は <see cref="BotStyle.DefenseRate"/> のまま。
     /// </param>
     /// <param name="memory">守りの効き目の記憶（<see cref="BotStyle.LearnDefense"/> のとき）。ラウンドをまたいで覚えるなら同じものを渡す。null なら新しく作る。</param>
-    public BoxerBot(BotStyle style, int seed, Defense? forcedDefense = null, DefenseMemory? memory = null)
+    /// <param name="forcedAim">ドリル用の固定した狙い。null なら通常の重み抽選。体・威力は変えない。</param>
+    public BoxerBot(BotStyle style, int seed, Defense? forcedDefense = null, DefenseMemory? memory = null, AimGoal? forcedAim = null)
     {
         ArgumentNullException.ThrowIfNull(style);
         Style = style.Validated();
         _random = new Random(seed);
         _forcedDefense = forcedDefense is Defense.None ? null : forcedDefense;
+        _forcedAim = forcedAim;
         Memory = Style.LearnDefense ? memory ?? new DefenseMemory(Style) : null;
         // 名前順の累積の重み。辞書の並び（JSON の読み書きで変わりうる）に依らず、同じ種なら同じ型を選ぶ。
         var cumulative = 0f;
@@ -180,7 +183,7 @@ public sealed class BoxerBot : IFighterControl
     // 15: 間合いの層の届く長さに相手の武器（握りから先）を足す（素手どうしの試合は変わらない）。
     // 16: claude/a-3d0203 の 15 と master の 13 を合わせた。
     // 17: karate hand shapes, fist parry and five kick goals.
-    public const int LogicVersion = 27; // 27: 試合の刀・ロングソードの CPU は、その武器の型（SwordForms）で SwordsmanBot が戦う（FormSwordsman。以前は片手剣の汎用の振り）。26: 蓄えが少ないほど攻めの間隔を空け、RangeSense の届く範囲の外で休む。25: swarmer・champion の回避の形を formlab の測定で直した（スリップは斜め下へ・ダッキングは拳を頭と一緒に下げる・ウィービングは前へ出て U 字にくぐる）。
+    public const int LogicVersion = 33; // 33: 武器の教科書（Bots/weapons/*.json、WeaponStyle）を鍛えた（ブランチ claude/weapons の 31）: 刀・ロングソードは技の時計を体が目標に付いてきた分だけ進める（Pacing。使っていない種・相手の 28 試合で、刀は 1 試合あたりの自傷 58→6 セル、ロングソードは 330→140 セル・セル差 −312→−41）。こんぼうは試した値が揺らぎの内で採らなかった。docs/arena/weapon_handling_*.md。32: 急所の狙いの点を、頭の大きさの比の見積もりから実際のセル（目・骨・臓器の位置、BodyLandmarks）に変えた（狙いが変わるので判断の結果が変わる）。31: 急所のドリルに固定狙い forcedAim を追加（未指定の判断・乱数消費は不変）。30: 体格を読む層（BuildRead: 腕の長さの比で立ち位置・打つ間合い、身長の比で守りの選び方・胴を狙う重み、重さの比で打ち合う気。体格が同じなら従来と同じ。BotStyle.BuildStandOff など。docs/BOT_PDCA.md「体格に応じた戦い方」）。29: レフェリーなしの試合で、倒れた相手へ打ち下ろす（GroundStrike: 立つ位置へ歩く・沈む・鉄槌/突き下ろし/踏み下ろし/斬り下ろし。BotStyle.GroundDrive など）。レフェリーありの判断は変えない。28: 休息の始まりを蓄えの 25 %→50 % に（回復が動きながらも続くようになり、早めに手を止めて戻すほうが得。25 % では低い蓄えのまま攻め続けて回復が追いつかなかった）。27: 試合の刀・ロングソードの CPU は、その武器の型（SwordForms）で SwordsmanBot が戦う（FormSwordsman。以前は片手剣の汎用の振り）。26: 蓄えが少ないほど攻めの間隔を空け、RangeSense の届く範囲の外で休む。25: swarmer・champion の回避の形を formlab の測定で直した（スリップは斜め下へ・ダッキングは拳を頭と一緒に下げる・ウィービングは前へ出て U 字にくぐる）。
     // 24: 攻撃判断に0.2秒の観測遅延を入れ、予測した打点を固定する。
     // 23: 目が傷むと見えない側の相手の拳・体の情報が遅れてぶれる（VisionPerception）・目と見えない側を狙う重み（AimWeights.Eye・BlindSide。相手の見えが悪いほど重みが増す）。22: パリーの手の経路を速く・前腕へ（TechniqueExecution.ParrySweepRate・ParryArmFraction）、パリーの効く拳の重みをフック中心に（DefenseBook.Parry。karatelab の測定）。21: 空手スタイルの手形の重みを karatelab の測定で設定（貫手・一本拳・手刀は 1 発あたりの削れが正拳の約 2 倍、自分の指の骨の欠けは 0）。20: 蹴りは蹴りごとの当てたい所（KickSpec.AimWorld: 前蹴り・膝は腹、ローは腿、ミドルは胸、ハイは頭）を狙う。19: パリーの頭の目標を中立にする。18: 空手の手形・パリー・蹴りの選択を追加。
     private readonly HandShape[] _shapes = new HandShape[2];
@@ -220,6 +223,7 @@ public sealed class BoxerBot : IFighterControl
         var self = sense.Self;
         var reach = sense.ArmReach;
         _reach = reach;
+        _build = BuildRead.From(sense);
         var toOpponent = sense.OpponentChest - self.Origin;
         toOpponent.Y = 0f;
         var distance = toOpponent.Length();
@@ -616,7 +620,7 @@ public sealed class BoxerBot : IFighterControl
         }
 
         var effect = Memory is { } memory ? memory.Sample(kind, defense, _random) : against;
-        var w = Style.Weight(defense) * effect;
+        var w = Style.Weight(defense) * _build.DefenseScale(Style, defense) * effect;
         return _crouchTired && move.HeadY < -CrouchDepth ? w * TiredCrouchWeight : w;
     }
 
@@ -648,7 +652,13 @@ public sealed class BoxerBot : IFighterControl
     private float _keepOutShift;
 
     /// <summary>打ちに入る間合い（胸と胸、腕の長さ倍）: スタイルの値に、立ち位置を外へ寄せた分を足す（寄せた所から打ちに入れるように）。</summary>
-    private float EngageRange => Style.EngageRange + _keepOutShift;
+    private float EngageRange => (Style.EngageRange * _build.StandOff(Style)) + _keepOutShift;
+
+    /// <summary>体格を読む層（<see cref="BuildRead"/>）: 自分と相手の寸法の比。同じ体格なら全ての倍率が 1。</summary>
+    private BuildRead _build;
+
+    /// <summary>打ちに入る間合い（胸と胸、腕の長さ倍）: 腕が相手より短いほど相手の腕の内側へ深く入る（<see cref="BotStyle.BuildInside"/>）。</summary>
+    private float AttackRangeNow => Style.AttackRange * _build.Inside(Style);
 
     /// <summary>拳が守りを始めた時の頭（胴）の所まで「届いた」とみなす、拳の中心からの距離 [腕の長さ]（頭の半径 + 拳の半径 ≈ 6.6 cm、腕の長さ 0.188 m）。</summary>
     private const float PunchArrivedDistance = 0.35f;
@@ -863,7 +873,7 @@ public sealed class BoxerBot : IFighterControl
     {
         // 間合いの層: 危ない所に何もせず居続けるのが一番危ない。下がるのでなく打って解消する（消極的にならない）:
         // 危険度 × (1 + さらされ) に比例して、次の拳までの間を早く縮める（RangePress）。
-        _cooldown -= dt * (1f - RestNeed) * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure)));
+        _cooldown -= dt * (1f - RestNeed) * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure))) * _build.Tempo(Style);
         _exitTimer = MathF.Max(0f, _exitTimer - dt);
         if (_kick is not null || _defense != Defense.None || _clinchTime >= 0f || _throwTime >= 0f || _combo is not null)
         {
@@ -873,7 +883,7 @@ public sealed class BoxerBot : IFighterControl
         if (_wantAttack)
         {
             _approachTime += dt;
-            if (distance <= Style.AttackRange * reach * 1.15f)
+            if (distance <= AttackRangeNow * reach * 1.15f)
             {
                 _wantAttack = false;
                 if (distance < 0.95f * reach && _random.NextSingle() < Style.ThrowRate)
@@ -937,7 +947,7 @@ public sealed class BoxerBot : IFighterControl
             return;
         }
 
-        if (_opponentClosing > 1.5f * reach && distance < Style.NeutralRange * reach && distance > 0.8f * reach)
+        if (_opponentClosing > 1.5f * reach && distance < Style.NeutralRange * _build.StandOff(Style) * reach && distance > 0.8f * reach)
         {
             _stopJabCooldown = 0.6f;
             if (_random.NextSingle() < Style.StopJab)
@@ -1011,9 +1021,13 @@ public sealed class BoxerBot : IFighterControl
 
         (technique, spec, var aimOffset) = AimAtGap(technique, spec);
         // 戦略の狙いどころ: 頭・胴を問わず重みで選び、拳の高さが合わなければ同じ手・同じ形の拳で打ち分ける。
-        var goal = Style.Aim is { } aimWeights && technique != Technique.Feint
+        var goal = _build.WithBody(Style, Style.Aim) is { } aimWeights && technique != Technique.Feint
             ? Targeting.PickAny(aimWeights, observation.Sense.OpponentTargets, _random.NextSingle())
             : AimGoal.Center;
+        if (_forcedAim is { } drillAim && technique != Technique.Feint)
+        {
+            goal = drillAim;
+        }
         if ((Targeting.IsBodyGoal(goal) && !spec.ToBody) || (Targeting.IsHeadGoal(goal) && spec.ToBody))
         {
             var retargeted = Targeting.Retarget(technique, Targeting.IsBodyGoal(goal));
@@ -1050,7 +1064,7 @@ public sealed class BoxerBot : IFighterControl
         {
             _combo = null;
             _cooldown = ((1.3f + ((0.3f - 1.3f) * PacedAggression)) * Range(0.7f, 1.3f)) + duration + load;
-            if (_random.NextSingle() < Style.ExitAfterCombo)
+            if (_random.NextSingle() < Style.ExitAfterCombo * _build.Leave(Style))
             {
                 _exitTimer = load + duration + 0.5f;
             }
@@ -1177,12 +1191,15 @@ public sealed class BoxerBot : IFighterControl
         var neutral = Style.EdgeRange > 0f && _read.AttackDistance is { } edge
             ? Style.NeutralRange + ((MathF.Max(Style.AttackRange, edge + EdgeMargin) - Style.NeutralRange) * Style.EdgeRange)
             : Style.NeutralRange;
+        // 体格を読む層: 立ち位置は、自分の腕だけでなく相手の腕の長さでも測る（BuildStandOff）。長い腕は相手の届かない所の端へ、短い腕は相手だけが届く帯の外へ。
+        var standOff = _build.StandOff(Style);
+        neutral = MathF.Max(neutral * standOff, AttackRangeNow);
         // 間合いの層: 普段は相手の拳の届かない所（危険度 0）に立つ。届く長さは相手の肩から自分の頭までで測るので、胸と胸では
         // 頭が前へ出る分（RangeHeadLead）を足す。打つときだけ入る（下の desired）。
-        var keepOut = Style.RangeThreat + RangeSense.Width + RangeHeadLead;
+        var keepOut = (Style.RangeThreat + RangeSense.Width + RangeHeadLead) * standOff;
         _keepOutShift = MathF.Max(0f, keepOut - neutral) * Style.RangeKeepOut;
         neutral += _keepOutShift;
-        var desired = _wantAttack || _combo is not null ? Style.AttackRange
+        var desired = _wantAttack || _combo is not null ? AttackRangeNow
             : _exitTimer > 0f ? neutral + 0.3f
             : neutral;
         // 疲れたときは相手の拳・武器の届く範囲の外へ。遠くへ逃げ続けず、届かない所で止まって息を整える。

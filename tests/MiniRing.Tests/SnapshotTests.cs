@@ -37,12 +37,15 @@ public sealed class SnapshotTests
     {
         var outDir = Path.Combine(FindRepoRoot(), ".visualcheck");
         Directory.CreateDirectory(outDir);
-        var menu = new Desktop.MatchMenu(Weapons.HandWear.Glove, Path.Combine(outDir, "replays"));
+        using var menu = new Desktop.MatchMenu(Path.Combine(outDir, "replays"), Path.Combine(outDir, "menu-settings-test.json"), loadPortraits: false);
         using var renderer = new HeadlessRenderer(Width, Height);
         var size = new Vector2(Width, Height);
-        Assert.AreEqual(0, Desktop.MatchMenu.HitRow(new Vector2(480, 125f * 540 / 464), size, 5));
-        Assert.IsNull(Desktop.MatchMenu.HitRow(new Vector2(480, 149f * 540 / 464), size, 5));
-        Assert.IsNull(Desktop.MatchMenu.HitRow(new Vector2(20, 145), size, 5));
+        // 画面の位置 → 設計の座標 → 最初の画面のボタン（1 つ目のボタンの中心・その外・画面の外）。
+        var canvas = new Desktop.MenuCanvas(size);
+        Assert.AreEqual(0, Desktop.MenuLayout.HitCenters(canvas.ToDesign(canvas.At(Desktop.MenuLayout.TopButtonCenter(0))), 6,
+            Desktop.MenuLayout.TopButtonCenter, Desktop.MenuLayout.TopButtonSize));
+        Assert.IsNull(Desktop.MenuLayout.HitCenters(canvas.ToDesign(new Vector2(20, 145)), 6,
+            Desktop.MenuLayout.TopButtonCenter, Desktop.MenuLayout.TopButtonSize));
         var text = menu.Text(size);
         Assert.IsTrue(ScreenText.BuildQuads(text).Count > 0);
         var pixels = renderer.RenderPrimitiveScene(Vector4.Zero, Matrix4x4.Identity, [], [], text, shapes: menu.Shapes(size));

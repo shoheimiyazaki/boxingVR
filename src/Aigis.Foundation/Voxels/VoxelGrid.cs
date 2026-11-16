@@ -503,8 +503,12 @@ public sealed class VoxelGrid
     /// holds the bone's end. With them, bone carved away right at its end — the elbow end of an upper arm — is a break
     /// between the joint and what is left, not a bone that merely got shorter.
     /// </para>
+    /// <para>
+    /// <paramref name="searchLow"/> / <paramref name="searchHigh"/> limit which slices may be reported (inclusive; a body whose bone
+    /// is a long column but that only breaks in one short stretch, like a head on its neck). The bone on both sides still counts.
+    /// </para>
     /// </summary>
-    public int? FindBoneBreak(int axis, bool fromHigh, int? lowJoint = null, int? highJoint = null)
+    public int? FindBoneBreak(int axis, bool fromHigh, int? lowJoint = null, int? highJoint = null, int? searchLow = null, int? searchHigh = null)
     {
         var slices = Slices(axis);
         var bone = new int[slices];
@@ -538,7 +542,8 @@ public sealed class VoxelGrid
             return null;
         }
 
-        bool Empty(int s) => s >= 0 && s < slices && s != lowJoint && s != highJoint && bone[s] == 0;
+        bool Empty(int s) => s >= 0 && s < slices && s != lowJoint && s != highJoint && bone[s] == 0
+            && s >= (searchLow ?? 0) && s <= (searchHigh ?? int.MaxValue);
         if (fromHigh)
         {
             for (var s = last; s > first; s--)

@@ -32,6 +32,30 @@ public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, 
     /// <summary>守らない。</summary>
     public static SwordDefense None { get; } = new(Enabled: false);
 
+    /// <summary>範囲の検査をして自分を返す（外なら <see cref="ArgumentOutOfRangeException"/>）。範囲は、試して採った値（<see cref="Adopted"/>・<see cref="Parrying"/>・guardspar の探索）を含む余裕。</summary>
+    public SwordDefense Validated()
+    {
+        if (!Enum.IsDefined(Mode))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Mode), Mode, "守りの組み立て方を知りません。");
+        }
+
+        WeaponStyle.InRange(BlockShare, 0f, 1f, "Defense.BlockShare");
+        WeaponStyle.InRange(Horizon, 0.02f, 1f, "Defense.Horizon");
+        WeaponStyle.InRange(Margin, 0f, 1.5f, "Defense.Margin");
+        WeaponStyle.InRange(ThreatSpeed, 0.5f, 20f, "Defense.ThreatSpeed");
+        WeaponStyle.InRange(HoldTime, 0f, 2f, "Defense.HoldTime");
+        WeaponStyle.InRange(Deflect, -1.2f, 1.2f, "Defense.Deflect");
+        WeaponStyle.InRange(Forte, 0f, 1f, "Defense.Forte");
+        WeaponStyle.InRange(Lead, -0.5f, 1f, "Defense.Lead");
+        WeaponStyle.InRange(StepDelay, 0f, 0.5f, "Defense.StepDelay");
+        WeaponStyle.InRange(HeadTime, 0f, 0.8f, "Defense.HeadTime");
+        WeaponStyle.InRange(Clearance, 0f, 2f, "Defense.Clearance");
+        WeaponStyle.InRange(Drive, 0f, 1.5f, "Defense.Drive");
+        WeaponStyle.InRange(Bind, 0f, 1f, "Defense.Bind");
+        return this;
+    }
+
     /// <summary>
     /// 守りのドリル（guardlab）と練習試合で選んだ守り: 武器を握りから先までの線として読み、足と頭で、振られている武器の届く範囲から出る
     /// （<see cref="WeaponDefense"/>。docs/WEAPON_DEFENSE.md）。
@@ -211,6 +235,41 @@ public sealed class SwordsmanBot : IFighterControl
     public bool AutoAim { get; init; }
 
     /// <summary>
+    /// 技の選ばれやすさ（技の名前 → 重み。書いていない技は 1、0 の技は出さない）。null なら全部の技を同じ割合で（今までの選び方: 乱数の使い方も同じ）。
+    /// 狙いを決めたとき（<see cref="Aim"/>）の選び方には効かない。
+    /// </summary>
+    public IReadOnlyDictionary<string, float>? Weights { get; init; }
+
+    private IReadOnlyList<MotionTechnique>? _pool;
+
+    /// <summary>選ぶ技の集まり: 重みが 0 でない技（<see cref="Weights"/> が null なら全部の技）。全部 0 なら全部の技。</summary>
+    private IReadOnlyList<MotionTechnique> Pool => _pool ??= Weights is null
+        ? _techniques
+        : _techniques.Where(t => Weights.GetValueOrDefault(t.Name, 1f) > 0f).ToList() is { Count: > 0 } positive ? positive : _techniques;
+
+    /// <summary><paramref name="from"/> から 1 つ選ぶ（<see cref="Weights"/> が null なら同じ割合）。</summary>
+    private MotionTechnique PickFrom(IReadOnlyList<MotionTechnique> from)
+    {
+        if (Weights is null)
+        {
+            return from[_random.Next(from.Count)];
+        }
+
+        var total = from.Sum(t => Weights.GetValueOrDefault(t.Name, 1f));
+        var x = (float)_random.NextDouble() * total;
+        foreach (var t in from)
+        {
+            x -= Weights.GetValueOrDefault(t.Name, 1f);
+            if (x <= 0f)
+            {
+                return t;
+            }
+        }
+
+        return from[^1];
+    }
+
+    /// <summary>
     /// 自分の体を避ける刃の通り道（<see cref="SelfClearance"/>）。技のフレームの剣を、刃の線が自分の頭・胴・脚から離れるまで外へ傾けて体へ渡す
     /// （体は目標を追うので、目標が体を通れば刃は自分を斬る）。null なら技のまま。
     /// </summary>
@@ -315,7 +374,7 @@ public sealed class SwordsmanBot : IFighterControl
 
         if (Aim is not { } aimAt)
         {
-            return _techniques[_random.Next(_techniques.Count)];
+            return PickFrom(Pool);
         }
 
         var best = _techniques.Max(t => t.Skill?.GetValueOrDefault(aimAt) ?? 0f);
@@ -430,7 +489,7 @@ public sealed class SwordsmanBot : IFighterControl
             // 受けた直後: 休まず、近い間合いの技で打ち返す。
             _counter = false;
             _restUntil = _time;
-            _plan = _techniques.MinBy(x => MathF.Abs(RangeOf(x) - distance));
+            _plan = Pool.MinBy(x => MathF.Abs(RangeOf(x) - distance));
             _plannedAt = _time;
             _attacking = _hitAndAway is not null;
             _retreating = false;
@@ -452,10 +511,10 @@ public sealed class SwordsmanBot : IFighterControl
                 _plannedAt = _time;
             }
 
-            var fits = _techniques.Where(x => Fits(x, distance)).ToList();
+            var fits = Pool.Where(x => Fits(x, distance)).ToList();
             if (fits.Count > 0 && (pressed || fits.Contains(_plan)))
             {
-                return Strike(fits.Contains(_plan) ? _plan : fits[_random.Next(fits.Count)], sense, face, distance);
+                return Strike(fits.Contains(_plan) ? _plan : PickFrom(fits), sense, face, distance);
             }
         }
 
@@ -557,13 +616,13 @@ public sealed class SwordsmanBot : IFighterControl
         {
             // 出端: 相手がこちらへ歩いて詰めてきて、今の間合いで出せる技がある（下がっている最中に追ってきた相手にも）。
             var advancing = Vector3.Dot(sense.OpponentVelocity, -face) > 0.25f * _walkSpeed;
-            var ready = _techniques.Where(x => Fits(x, distance)).ToList();
+            var ready = Pool.Where(x => Fits(x, distance)).ToList();
             if (h.Debana && advancing && ready.Count > 0 && !Passive)
             {
                 Debanas++;
                 _attacking = true;
                 _retreating = false;
-                return Strike(ready[_random.Next(ready.Count)], sense, face, distance);
+                return Strike(PickFrom(ready), sense, face, distance);
             }
         }
 
@@ -582,10 +641,10 @@ public sealed class SwordsmanBot : IFighterControl
 
         if (_attacking && _plan is { } plan)
         {
-            var fits = _techniques.Where(x => Fits(x, distance)).ToList();
+            var fits = Pool.Where(x => Fits(x, distance)).ToList();
             if (fits.Count > 0 && (fits.Contains(plan) || distance < RangeOf(plan) - MotionTechnique.Window))
             {
-                return Strike(fits.Contains(plan) ? plan : fits[_random.Next(fits.Count)], sense, face, distance);
+                return Strike(fits.Contains(plan) ? plan : PickFrom(fits), sense, face, distance);
             }
 
             if (_time - _plannedAt <= PlanPatience)

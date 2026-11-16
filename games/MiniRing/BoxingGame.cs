@@ -31,12 +31,24 @@ public delegate IFighterControl ControlFactory(int roundSeed);
 /// どちらの手にも何もはめず、これまでの拳（前腕の箱の当たりと、運動エネルギーで掘る近道。§8）で打つ（比べもの用）。</para>
 /// <para><paramref name="Ring"/> はリングの大きさと始めの間。null なら、両方が武器を握る試合は <see cref="RingLayout.Weapons"/>（広いリングで遠間から）、
 /// それ以外は <see cref="RingLayout.Boxing"/>。</para>
+/// <para><paramref name="PlayerLook"/> / <paramref name="CpuLook"/> は名簿のキャラクター（<see cref="Characters.FighterCharacter"/>）の顔そのもの（肌・髪・瞳・髪型・眉・ひげ・顔の部位）。
+/// null なら従来どおり名前（<see cref="PlayerName"/> / <see cref="CpuName"/>）から決めた顔。<paramref name="PlayerLabel"/> / <paramref name="CpuLabel"/> は
+/// 画面（得点・状態・実況）に出す名前（null なら YOU / CPU や RED / BLUE）。</para>
+/// <para><paramref name="PlayerStyle"/> は赤（プレイヤー側）のスタイル（名簿のキャラクターなら教育を重ねた解決済みの全体。<see cref="Characters.FighterCharacter.Resolve"/>）。
+/// 人が操る赤の意図の解釈（技の選び方・倒れた相手への攻めの好み）に渡す。赤がボットなら <paramref name="RedBotStyle"/> が同じ物を持つ。null ならスタイルを持たない赤（既定の拳か空手）。
+/// 名前（<paramref name="PlayerName"/> / <paramref name="CpuName"/>）で <see cref="Bots.BotCatalog"/> を引き直さない: 解決したスタイルをこの値・<paramref name="CpuStyleJson"/> で通す。</para>
+/// <para><paramref name="Referee"/> はレフェリーがいるか（既定はいる）。いないときもダウンは数える（10 カウントで K.O.）が、数えている間の攻撃も打撃に数え、立ち直った後の一呼吸も無い（ゲームの決まり。2026-11-16、ユーザーの指定）。</para>
 public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFactory? Player = null, string? CpuStyleJson = null,
     Weapons.WeaponKind? CpuWeapon = null, Weapons.WeaponKind? PlayerWeapon = null, bool CpuTwoHanded = false, bool PlayerTwoHanded = false, bool VoxelGloves = true,
     Weapons.HandWear PlayerWear = Weapons.HandWear.Glove, Weapons.HandWear CpuWear = Weapons.HandWear.Glove,
     string? PlayerName = null, RingLayout? Ring = null, BodyBuild? PlayerBody = null, BodyBuild? CpuBody = null,
-    FaceParts? PlayerFace = null, FaceParts? CpuFace = null, bool ExternalBlue = false, Bots.BotStyle? RedBotStyle = null, bool UseWeaponBots = false)
+    FaceParts? PlayerFace = null, FaceParts? CpuFace = null, bool ExternalBlue = false, Bots.BotStyle? RedBotStyle = null, bool UseWeaponBots = false,
+    bool Referee = true, Voxels.FaceLook? PlayerLook = null, Voxels.FaceLook? CpuLook = null, string? PlayerLabel = null, string? CpuLabel = null,
+    Bots.BotStyle? PlayerStyle = null, Bots.WeaponStyle? PlayerWeaponStyle = null, Bots.WeaponStyle? CpuWeaponStyle = null)
 {
+    /// <summary>CPU 側のスタイル（<see cref="CpuStyleJson"/> を読んだもの。解決済みの全体）。スタイルを持たない CPU（legacy・外の入力）は null。</summary>
+    public Bots.BotStyle? CpuStyle => CpuStyleJson is { } json ? Bots.BotStyle.FromJson(json) : null;
+
     /// <summary>ゲームの既定の CPU。</summary>
     public static BoxingCorners Default => Bots.BotCatalog.Corners(Bots.BotCatalog.DefaultCpu);
 
@@ -205,8 +217,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public IReadOnlyList<SeverEvent> RecentSevers => _recentSevers;
 
     private bool HasTwoNamedCorners => _corners.ExternalBlue || _corners.RedBotStyle is not null;
-    public string RedLabel => HasTwoNamedCorners ? "RED" : "YOU";
-    public string BlueLabel => HasTwoNamedCorners ? "BLUE" : "CPU";
+    public string RedLabel => _corners.PlayerLabel ?? (HasTwoNamedCorners ? "RED" : "YOU");
+    public string BlueLabel => _corners.CpuLabel ?? (HasTwoNamedCorners ? "BLUE" : "CPU");
 
     public string StatusLine => string.Create(CultureInfo.InvariantCulture,
         $"Round {_round}  {RedLabel} {Cpu.Condition.TotalDamage:0} - {BlueLabel} {Player.Condition.TotalDamage:0} damage  ({PlayerWins}-{CpuWins})");
@@ -421,6 +433,15 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <summary>前の物理の歩で、ダウン（審判が数えていた）だった両者。</summary>
     private readonly HashSet<Fighter> _wasCounted = [];
 
+    /// <summary>
+    /// 相手の体への打撃を数えてよいか（ゲームの決まり。物理は同じ）。立っている相手には常に数える。倒れている相手（起き上がり中を含む）は、
+    /// レフェリーがいれば数えない（ダウンはカウントで決着）、いなければ数える（<see cref="BoxingCorners.Referee"/>。技の種類では分けない）。
+    /// </summary>
+    private bool MayStrike(Fighter victim) => victim.State == FighterState.Standing || !_corners.Referee;
+
+    /// <summary>レフェリーがいるか（いなければ数えている間も攻撃でき、立ち直った後の一呼吸も無い）。</summary>
+    public bool Referee => _corners.Referee;
+
     /// <summary>試合を一呼吸止めているか（ダウンから立ち直った直後）。打撃は数えず、両者その場で構える。</summary>
     public bool Holding => _resumeHold > 0f && !Resting && !RoundOver;
 
@@ -429,7 +450,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     {
         foreach (var fighter in Fighters)
         {
-            if (_wasCounted.Contains(fighter) && fighter.State == FighterState.Standing && !Resting)
+            if (_corners.Referee && _wasCounted.Contains(fighter) && fighter.State == FighterState.Standing && !Resting)
             {
                 _resumeHold = ResumePause;
             }
@@ -470,7 +491,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         BareFreeHands(self);
         foreach (var hand in Hands)
         {
-            GloveOf(self, hand)?.SetHandShape(command.For(hand).Shape);
+            GloveOf(self, hand)?.SetHandShape(command.For(hand).Shape, dt);
         }
 
         self.ApplyControl(command, dt);
@@ -560,7 +581,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private void TryHit(Fighter attacker, Fighter victim, int attackerBody, int victimBody)
     {
         // 倒れている相手（起き上がり中を含む）への打撃は数えない: ダウンはカウントで決着させる。
-        if (!victim.Owns(victimBody) || victim.State != FighterState.Standing)
+        if (!victim.Owns(victimBody) || !MayStrike(victim))
         {
             return;
         }
@@ -1151,6 +1172,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var playerTuning = (_tuning.PlayerFatigue ? _tuning : _tuning with { StaminaFatigue = false })
             with { Build = _corners.PlayerBody ?? _tuning.Build };
         var cpuTuning = _tuning with { Build = _corners.CpuBody ?? _tuning.Build };
+        if (!_corners.Referee)
+        {
+            // レフェリーなし: 倒れた相手を打ち下ろせるよう、腰を落とせる深さを広げる（レフェリーありの試合の体は変わらない）。
+            playerTuning = playerTuning with { MaxCrouch = playerTuning.GroundCrouch };
+            cpuTuning = cpuTuning with { MaxCrouch = cpuTuning.GroundCrouch };
+        }
+
         Player = Fighter.Spawn(_world, playerTuning, "player", surface - apart, 0f);
         Cpu = Fighter.Spawn(_world, cpuTuning, "cpu", surface + apart, MathF.PI);
         var playerModel = Models.GetOrAdd((playerTuning.HalfExtents, _tuning.ModelSubdivisions), key => BoxerModel.Build(key.Item1, key.Item2));
@@ -1159,9 +1187,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 体の形はローポリのモデル（頭・胸・腕の形）。その内側をボクセルで埋める。トランクスはグローブと同じコーナーの色。
         // 顔はボットのリングネームから（同じボットはいつも同じ顔）。人が操る赤コーナーは名前が無ければ既定の顔。
         Player.Voxels = new BoxerBody(Player, _world, playerTuning, playerModel, Outfit.RedCorner, BoxerVoxelOverrides.Shipped,
-            _corners.PlayerName is { } redName ? FaceLook.For(Bots.BotNames.RingNameOf(redName)) with { Parts = _corners.PlayerFace ?? FaceParts.For(redName) } : null);
+            _corners.PlayerLook ?? (_corners.PlayerName is { } redName ? FaceLook.For(Bots.BotNames.RingNameOf(redName)) with { Parts = _corners.PlayerFace ?? FaceParts.For(redName) } : null));
         Cpu.Voxels = new BoxerBody(Cpu, _world, cpuTuning, cpuModel, Outfit.BlueCorner, BoxerVoxelOverrides.Shipped,
-            FaceLook.For(Bots.BotNames.RingNameOf(_corners.CpuName)) with { Parts = _corners.CpuFace ?? FaceParts.For(_corners.CpuName) });
+            _corners.CpuLook ?? (FaceLook.For(Bots.BotNames.RingNameOf(_corners.CpuName)) with { Parts = _corners.CpuFace ?? FaceParts.For(_corners.CpuName) }));
         Player.RefreshVoxelMass();
         Cpu.RefreshVoxelMass();
         // 破片はリングの上ならリングの面、その外は箱庭の台座・ローテーブルの天板、さらに外は床で止まる。
@@ -1198,9 +1226,23 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var previousCpu = _round > 1 ? _cpuControl : null;
         var previousPlayer = _playerControl;
         var cpuSeed = _seed + _round;
-        _cpuControl = WeaponBot(_corners.CpuWeapon, Cpu, cpuSeed) ?? _corners.Cpu(cpuSeed);
+        _cpuControl = WeaponBot(_corners.CpuWeapon, _corners.CpuWeaponStyle, Cpu, cpuSeed) ?? _corners.Cpu(cpuSeed);
         var playerSeed = (_seed * 7919) + _round;
-        _playerControl = _corners.RedBotStyle is { } style ? WeaponBot(_corners.PlayerWeapon, Player, playerSeed) ?? new Bots.BoxerBot(style, playerSeed) : _corners.Player?.Invoke(playerSeed);
+        _playerControl = _corners.RedBotStyle is { } style ? WeaponBot(_corners.PlayerWeapon, _corners.PlayerWeaponStyle, Player, playerSeed) ?? new Bots.BoxerBot(style, playerSeed) : _corners.Player?.Invoke(playerSeed);
+        if (!_corners.Referee)
+        {
+            // レフェリーなし: ボットは倒れた相手への攻め（GroundStrike）を足す。レフェリーありの試合には何も足さない（振る舞いも記録も今のまま）。
+            if (!_corners.ExternalBlue && _cpuControl is not (IntentControl or ExternalControl))
+            {
+                _cpuControl = GroundStriking(_cpuControl, Cpu, GroundStyle(_corners.CpuStyle), _corners.CpuWeapon, _corners.CpuTwoHanded, cpuSeed);
+            }
+
+            if (_playerControl is not null and not (IntentControl or ExternalControl))
+            {
+                _playerControl = GroundStriking(_playerControl, Player, GroundStyle(_corners.RedBotStyle ?? _corners.PlayerStyle), _corners.PlayerWeapon, _corners.PlayerTwoHanded, playerSeed);
+            }
+        }
+
         if (previousCpu is not null)
         {
             _cpuControl.CarryOver(previousCpu);
@@ -1241,6 +1283,28 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _messageTimer = seconds;
     }
 
+    /// <summary>
+    /// 倒れた相手への好み（<c>Ground*</c>）を持つスタイル: コーナーの解決済みのスタイル（名簿のキャラクターなら教育を重ねたもの）、無ければボクサー。
+    /// 武器のボット（BoxerBot ではない）にも、そのスタイルの好み（空手の踏みつけなど）を効かせる。名前では引き直さない。
+    /// </summary>
+    private static Bots.BotStyle GroundStyle(Bots.BotStyle? resolved) => resolved ?? Bots.BotCatalog.Boxer;
+
+    /// <summary>ボットに倒れた相手への攻めを足す（武器を握る側は、その武器の長さ・握りで）。</summary>
+    private static Bots.GroundStriker GroundStriking(IFighterControl bot, Fighter self, Bots.BotStyle style, MiniRing.Weapons.WeaponKind? weapon, bool twoHanded, int seed)
+    {
+        var tool = Bots.GroundTool.Fist;
+        var club = false;
+        if (weapon is { } kind && !MiniRing.Weapons.Weapon.IsWorn(kind))
+        {
+            var length = MiniRing.Weapons.Weapon.TipOf(kind).X - MiniRing.Weapons.Weapon.GripOf(kind).X;
+            var spacing = !twoHanded ? 0f : Bots.FormSwordsman.Handles(kind) ? Bots.FormSwordsman.Spacing(kind) : MiniRing.Weapons.Weapon.HandSpacing / self.ArmReach;
+            tool = new Bots.GroundTool(length / self.ArmReach, twoHanded, spacing);
+            club = kind == MiniRing.Weapons.WeaponKind.WoodenClub;
+        }
+
+        return new Bots.GroundStriker(bot, bot is Bots.BoxerBot boxer ? boxer.Style : style, tool, seed ^ 0x2a2a, club);
+    }
+
     private IFighterControl? ControlOf(Fighter fighter) => fighter == Cpu ? _cpuControl : _playerControl;
 
     /// <summary>入力元に渡す、<paramref name="self"/> から見た状況。</summary>
@@ -1256,16 +1320,18 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             new BodySense(opponent.ShoulderPosition(Hand.Left), opponent.ShoulderPosition(Hand.Right), opponent.PelvisPosition),
             self.Faintness, OpponentTargets: opponent.AsTarget, SelfStamina: self.Stamina,
             SelfVision: self.Voxels?.Vision ?? VisionState.Healthy, OpponentVision: opponent.Voxels?.Vision ?? VisionState.Healthy,
-            OpponentArmReach: opponent.ArmReach);
+            OpponentArmReach: opponent.ArmReach, OpponentDowned: opponent.State != FighterState.Standing,
+            SelfBuild: self.Build, OpponentBuild: opponent.Build);
     }
 
     public FighterSense PlayerSense => ArmedSense(Player, Cpu);
 
     /// <summary>CPU の入力元が今見ている物（調べもの・テスト用）。</summary>
-    private IFighterControl? WeaponBot(Weapons.WeaponKind? weapon, Fighter self, int seed) => !_corners.UseWeaponBots ? null : weapon switch
+    private IFighterControl? WeaponBot(Weapons.WeaponKind? weapon, Bots.WeaponStyle? style, Fighter self, int seed) => !_corners.UseWeaponBots ? null : weapon switch
     {
-        MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning), // 刀・ロングソードは、その武器の型で
-        MiniRing.Weapons.WeaponKind.WoodenClub => Bots.ClubBot.Basic(seed),
+        // 値は武器の教科書（style が null ならその武器の組み込みの教科書。キャラなら教育を重ねた物が corners に入っている）。
+        MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning, style ?? Bots.WeaponCatalog.Textbook(weapon.Value)), // 刀・ロングソードは、その武器の型で
+        MiniRing.Weapons.WeaponKind.WoodenClub => Bots.ClubBot.FromStyle(style ?? Bots.WeaponCatalog.Textbook(weapon.Value), seed),
         _ => null,
     };
 
@@ -1466,11 +1532,14 @@ public enum RoundBell
 /// <summary>拳が相手の体をかすめた（皮膚に触れる・ぎりぎりで外れた）瞬間。<paramref name="Speed"/> は拳の速さ [m/s]。</summary>
 public readonly record struct GrazeEvent(Vector3 Position, float Speed);
 
-/// <summary>骨が断たれて部位が切り離された瞬間。<paramref name="Strength"/> は打撃の強さ（0..1）。</summary>
-public readonly record struct SeverEvent(Vector3 Position, float Strength);
+/// <summary>
+/// 骨が断たれて部位が切り離された瞬間。<paramref name="Strength"/> は打撃の強さ（0..1）。<paramref name="Victim"/> と <paramref name="Body"/>
+/// （切り離された部位の剛体 id）は実況の資料用（音や記録の再生では無いこともある）。
+/// </summary>
+public readonly record struct SeverEvent(Vector3 Position, float Strength, Fighter? Victim = null, int Body = -1);
 
 /// <summary>骨が折れて、肉だけでつながった（<paramref name="Bent"/> なら打撃の曲げで、でなければ削られて断たれた）。</summary>
-public readonly record struct BoneBreakEvent(Fighter Victim, BodyPartKind Part, Vector3 Position, bool Bent);
+public readonly record struct BoneBreakEvent(Fighter Victim, BodyPartKind Part, Vector3 Position, bool Bent, int Body = -1);
 
 /// <summary>
 /// ボクセルの物どうしが、何も壊さずにぶつかった瞬間（2026-11-12）。<paramref name="Pair"/> はぶつかった面の材質の組

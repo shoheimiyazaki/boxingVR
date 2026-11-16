@@ -94,6 +94,13 @@ public sealed record FootworkTuning
     /// <summary>立っているときの膝の曲げ（骨盤の高さの上限を決める）。</summary>
     public float KneeBendDegrees { get; init; } = 30f;
 
+    /// <summary>
+    /// 踏み出す足の 1 歩が <c>StepThreshold × 脚の長さ</c> のこの割合に満たない（刻み）とき、もう一方の足の脚が伸びきっていて（IK の届き具合 0.995 以上）大きく動けるなら、
+    /// そちらから出る。前足が伸びきって置き直しを待つ間、後ろ足が前足より前へ出られず 1 cm ずつ刻み続けて足が運べなくなった
+    /// （対角に歩く 25 秒のうち 19 秒止まった、docs/arena/boot_snag.md）。0 で従来（刻んでも先の足のまま）。
+    /// </summary>
+    public float ShuffleShare { get; init; } = 1f;
+
     /// <summary>前後の体重のかけ方の幅（0.5 ± これ）。前へ出した頭・打つ拳で前足へ、反らした頭で後ろ足へ。</summary>
     public float WeightShift { get; init; } = 0.25f;
 }
@@ -322,7 +329,13 @@ public sealed class Footwork
         }
 
         // 構えの制約（足を交差させない・開きすぎない）で先の足が動けなければ、もう一方の足から出る。
-        if (!TryTarget(foot0, home, input.FacingYaw, out var target, out var targetYaw))
+        var moved = TryTarget(foot0, home, input.FacingYaw, out var target, out var targetYaw);
+        // 動けても、半歩にも満たない刻み（後ろ足が前足より前へ出られず 1 cm ずつ刻む）で、もう一方の足が脚を伸びきらせていて（届かない所にある）大きく動けるなら、
+        // そちらから出る。刻みの足を選び続けると、前足は伸びきったまま置き直されず、体は足に引かれて止まる（引っかかりに見える）。
+        var shuffle = t.ShuffleShare * t.StepThreshold * leg;
+        if (!moved || (Vector2.Distance(target, _ball[foot0]) < shuffle && (foot0 == Lead ? input.RearOverreach : input.LeadOverreach)
+            && TryTarget(1 - foot0, home, input.FacingYaw, out var other, out var otherYaw)
+            && Vector2.Distance(other, _ball[1 - foot0]) >= shuffle))
         {
             foot0 = 1 - foot0;
             if (!TryTarget(foot0, home, input.FacingYaw, out target, out targetYaw))

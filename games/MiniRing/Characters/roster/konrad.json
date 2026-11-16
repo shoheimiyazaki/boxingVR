@@ -1,0 +1,23 @@
+{
+  "id": "konrad",
+  "order": 3,
+  "name": "コンラート・アイゼンハルト",
+  "reading": "コンラート アイゼンハルト",
+  "hudName": "コンラート",
+  "origin": "ドイツ",
+  "country": "germany",
+  "tagline": "リヒテナウアー流の剣士",
+  "look": {
+    "skin": [0.96, 0.8, 0.7], "hair": [0.85, 0.68, 0.35], "hairstyle": "Full", "eyes": [0.1, 0.3, 0.6],
+    "brows": true, "beard": true,
+    "parts": { "jaw": 1.1, "jawWidth": 1.05 }
+  },
+  "body": {
+    "build": { "height": 1.15, "arms": 1.05, "legs": 1.05, "muscle": 1.1 },
+    "wear": "glove",
+    "weapon": "longsword"
+  },
+  "textbook": "boxer",
+  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "record": []
+}

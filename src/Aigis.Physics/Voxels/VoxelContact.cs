@@ -219,7 +219,7 @@ public static class VoxelContact
         var localDirection = Vector3.Transform(worldDirection, Quaternion.Conjugate(s.Orientation));
         var stiffness = VoxelBending.BeamStiffness(grid, localDirection, axis, loadBearingOnly: true);
         var force = stiffness is { } k ? MathF.Min(contactForce, MathF.Sqrt(2f * energy * k)) : contactForce;
-        return VoxelBending.FindBreak(grid, localPoint, localDirection * force, axis, loadBearingOnly: true);
+        return VoxelBending.FindBreak(grid, localPoint, localDirection * force, axis, loadBearingOnly: true, body.BeamSlices);
     }
 
     private static float MinCell(VoxelGrid grid) => MathF.Min(grid.CellSize.X, MathF.Min(grid.CellSize.Y, grid.CellSize.Z));

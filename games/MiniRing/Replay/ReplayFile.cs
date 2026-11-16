@@ -46,12 +46,14 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 ///                | v5: 左右の手形 int32 | 左右の脚指令（有無、目標、膝目標・向きの有無と値、Spring）
 ///   0x02 Checksum: int32 step（そのステップを終えた直後）| uint64 BoxingGame.StateChecksum()
 /// </code>
+/// 版 9: 見出しの並びは版 8 と同じで、matchSettings の JSON に PlayerWeaponStyleJson・CpuWeaponStyleJson（武器のボットの判断の値。教科書に教育を重ねた解決済みの <see cref="Bots.WeaponStyle"/>）が入りうる（無ければ null = その武器の組み込みの教科書）。
+/// 版 8: 見出しの並びは版 7 と同じで、matchSettings の JSON に PlayerStyleJson（人が操る赤の意図の解釈に使う、教育を重ねた解決済みのスタイル）が入りうる（無ければ null = 今までの決め方）。
 /// v3 の Step は追加部分を持たず、Spring・ひねりは 0 として読む。
 /// 途中で終わっていても（クラッシュ・強制終了）、最後の完全なレコードまで読める。
 /// </summary>
 public static class ReplayFile
 {
-    public const int Version = 7;
+    public const int Version = 9;
     public const string Extension = ".mrrep";
     /// <summary>1 ステップの時間刻みとして受け付ける上限 [s]（壊れたファイルの値を物理に渡さない）。</summary>
     public const float MaxDt = 0.25f;

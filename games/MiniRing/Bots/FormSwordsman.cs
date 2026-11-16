@@ -28,6 +28,24 @@ public static class FormSwordsman
         _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀かロングソードだけ。"),
     };
 
+    /// <summary>
+    /// 技の重み（<see cref="WeaponStyle.TechniqueWeights"/>）の鍵が、その武器の型の名前にあるか確かめる（綴りの誤りを黙って無視しない）。
+    /// <paramref name="weights"/> が null か、武器が型で動かない（こんぼう）なら何もしない。
+    /// </summary>
+    public static void CheckTechniqueNames(WeaponKind? weapon, IReadOnlyDictionary<string, float>? weights)
+    {
+        if (weights is null || !Handles(weapon))
+        {
+            return;
+        }
+
+        var names = Forms(weapon!.Value).Select(f => f.Name).ToList();
+        foreach (var key in weights.Keys.Where(k => !names.Contains(k)))
+        {
+            throw new ArgumentOutOfRangeException(nameof(weights), key, $"技 '{key}' は {weapon} の型にありません（{string.Join(", ", names)}）。");
+        }
+    }
+
     /// <summary>構え（技を出していない間のフレーム）。刀は刀の型の始まり（中段）、ロングソードは構えの型の始まり（Vom Tag）。</summary>
     public static MotionFrame Guard(WeaponKind weapon) => weapon switch
     {
@@ -48,11 +66,14 @@ public static class FormSwordsman
     /// <summary>
     /// 型から作った技: 間合いは、その型の動きの中で物打ちが届く距離（<see cref="StrikeDrill.ReachOf"/>）。<see cref="MinReach"/> より短い型は除く。
     /// </summary>
-    public static IReadOnlyList<MotionTechnique> Techniques(WeaponKind weapon, float armReach) =>
+    public static IReadOnlyList<MotionTechnique> Techniques(WeaponKind weapon, float armReach) => Techniques(weapon, armReach, MinReach);
+
+    /// <summary><see cref="Techniques(WeaponKind, float)"/> の、間合いの下限 <paramref name="minReach"/> [m] を選べる版（武器の教科書の <see cref="WeaponStyle.MinReach"/>）。</summary>
+    public static IReadOnlyList<MotionTechnique> Techniques(WeaponKind weapon, float armReach, float minReach) =>
     [
         .. Forms(weapon).Select(f => new MotionTechnique(f.Name, weapon, f, 0.5f))
             .Select(t => t with { Range = StrikeDrill.ReachOf(t, armReach) })
-            .Where(t => t.Range >= MinReach),
+            .Where(t => t.Range >= minReach),
     ];
 
     /// <summary>
@@ -89,5 +110,24 @@ public static class FormSwordsman
 
     /// <summary>試合の既定の剣士: 型の技、型の構え、採った守り（<see cref="SwordDefense.Adopted"/>）。</summary>
     public static DisarmedFallback Bot(WeaponKind weapon, int seed, float armReach, FighterTuning tuning) =>
-        Bot(weapon, Techniques(weapon, armReach), Guard(weapon), seed, armReach, tuning, SwordDefense.Adopted);
+        Bot(weapon, seed, armReach, tuning, WeaponCatalog.Textbook(weapon));
+
+    /// <summary>
+    /// 武器の教科書（とキャラの教育を重ねた <see cref="WeaponStyle"/>）で動く試合の剣士。値は全部 <paramref name="style"/> から（コードに数字を埋めない）。
+    /// 教科書が今までの既定と同じ値のとき、試合はビット単位で同じ。
+    /// </summary>
+    public static DisarmedFallback Bot(WeaponKind weapon, int seed, float armReach, FighterTuning tuning, WeaponStyle style)
+    {
+        ArgumentNullException.ThrowIfNull(style);
+        CheckTechniqueNames(weapon, style.TechniqueWeights);
+        var bot = new SwordsmanBot([.. Techniques(weapon, armReach, style.MinReach)], Guard(weapon), seed, SwordStance.Rate, rest: style.Rest, tuning: tuning,
+            defense: style.Defense, bladeLength: BladeLength(weapon, armReach), spacing: Spacing(weapon), opponentReach: 3f, hitAndAway: style.HitAndAway, aim: style.Aim)
+        {
+            AutoAim = style.AutoAim,
+            Clearance = style.Clearance,
+            Pacing = style.Pacing,
+            Weights = style.TechniqueWeights,
+        };
+        return new DisarmedFallback(bot, BotCatalog.Create(DisarmedFallback.FistStyle, seed), style.KeepReach);
+    }
 }

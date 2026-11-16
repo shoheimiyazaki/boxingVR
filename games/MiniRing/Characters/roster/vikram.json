@@ -1,0 +1,23 @@
+{
+  "id": "vikram",
+  "order": 5,
+  "name": "ヴィクラム・ラトール",
+  "reading": "ヴィクラム ラトール",
+  "hudName": "ヴィクラム",
+  "origin": "インド",
+  "country": "india",
+  "tagline": "ラージプートの戦士",
+  "look": {
+    "skin": [0.6, 0.4, 0.26], "hair": [0.05, 0.05, 0.05], "hairstyle": "Full", "eyes": [0.12, 0.07, 0.03],
+    "brows": true, "beard": true,
+    "parts": { "browThickness": 1.3 }
+  },
+  "body": {
+    "build": { "height": 1, "arms": 1, "legs": 1, "muscle": 1 },
+    "wear": "katar",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "record": []
+}

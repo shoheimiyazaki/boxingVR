@@ -18,7 +18,7 @@ public sealed record Contender(string Name, Func<int, IFighterControl> Create, W
 }
 
 /// <summary>1 試合の条件（<paramref name="Setup"/> は最初のラウンドの始めに 1 回だけ呼ぶ。ラウンドごとに世界は作り直される）。<paramref name="Red"/> はプレイヤー側、<paramref name="Blue"/> は CPU 側のコーナー。</summary>
-public sealed record BoutSpec(Contender Red, Contender Blue, int Seed, float Seconds, Action<BoxingGame>? Setup = null);
+public sealed record BoutSpec(Contender Red, Contender Blue, int Seed, float Seconds, Action<BoxingGame>? Setup = null, bool Referee = true);
 
 /// <summary>片方のコーナーの成績。</summary>
 /// <param name="RoundsWon">取ったラウンド数。</param>
@@ -69,7 +69,8 @@ public static class BotArena
             seed => Track(blueBots, Fallback(spec.Blue, seed)),
             seed => Track(redBots, Fallback(spec.Red, seed)), CpuWeapon: spec.Blue.Weapon, PlayerWeapon: spec.Red.Weapon,
             CpuTwoHanded: spec.Blue.TwoHanded, PlayerTwoHanded: spec.Red.TwoHanded,
-            PlayerName: spec.Red.Name, PlayerBody: spec.Red.Build, CpuBody: spec.Blue.Build, PlayerFace: spec.Red.Face, CpuFace: spec.Blue.Face);
+            PlayerName: spec.Red.Name, PlayerBody: spec.Red.Build, CpuBody: spec.Blue.Build, PlayerFace: spec.Red.Face, CpuFace: spec.Blue.Face,
+            Referee: spec.Referee);
         using var game = new BoxingGame(tuning, spec.Seed, corners);
         spec.Setup?.Invoke(game); // 目を潰しておくなど、試合の始めの条件（省略なら何もしない）
 
