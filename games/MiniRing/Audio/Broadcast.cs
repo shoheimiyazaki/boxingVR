@@ -312,14 +312,29 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
     /// <summary>会場のざわめき（全体）と反応を、音の列 <paramref name="audio"/> に混ぜる。</summary>
     public void MixInto(float[] audio, int sampleRate, int seed)
     {
+        MixAmbience(audio, sampleRate, seed);
+        MixCues(audio, sampleRate, 0);
+    }
+
+    /// <summary>会場のざわめき（地の歓声。長さは <paramref name="audio"/> 全体）だけを混ぜる。生配信は始めに 1 回混ぜる。</summary>
+    public static void MixAmbience(float[] audio, int sampleRate, int seed)
+    {
         var ambience = CrowdSound.Ambience(audio.Length / (float)sampleRate, seed);
         for (var i = 0; i < audio.Length && i < ambience.Length; i++)
         {
             audio[i] += ambience[i];
         }
+    }
 
-        foreach (var cue in _cues)
+    /// <summary>
+    /// 反応（<see cref="Cues"/>）のうち <paramref name="fromCue"/> 番目から後を混ぜ、混ぜ終えた反応の数（次の <paramref name="fromCue"/>）を返す。
+    /// 生配信は、増えた分だけを書き出す前に混ぜる。
+    /// </summary>
+    public int MixCues(float[] audio, int sampleRate, int fromCue)
+    {
+        for (var c = fromCue; c < _cues.Count; c++)
         {
+            var cue = _cues[c];
             if (cue.Reaction is not { } reaction)
             {
                 continue;
@@ -335,6 +350,8 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
                 }
             }
         }
+
+        return _cues.Count;
     }
 
     /// <summary>出来事の記録を JSON に書く（{"red":…, "blue":…, "events":[{"t":秒, "type":…, "who":…, "text":…}]}）。</summary>

@@ -82,7 +82,7 @@ try
         "tvlint" => TvLintCommand(Options.Parse(argv[1..], "script", "events", "manifest")),
         "tvdigest" => TvDigestCommand(Options.Parse(argv[1..], "events", "out")),
         "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
@@ -1060,6 +1060,40 @@ static int IntentVideo(Options o)
     return result.Reproduced ? 0 : 2;
 }
 
+// --live の設定。--live が無ければ null。--render off とは一緒に使えない。
+static LiveOptions? LiveOf(Options o, bool render)
+{
+    if (o.Get("live") is not { } url)
+    {
+        if (o.Get("voices") is not null || o.Get("encoder") is not null || o.Get("bitrate") is not null || o.Get("wait") is not null || o.Get("delay") is not null)
+        {
+            throw new ArgumentException("--voices / --encoder / --bitrate / --wait / --delay は --live と一緒に使います。");
+        }
+
+        return null;
+    }
+
+    if (!render)
+    {
+        throw new ArgumentException("--live と --render off は一緒に使えません。");
+    }
+
+    var voices = o.Get("voices");
+    if (voices is not null && !File.Exists(voices))
+    {
+        throw new ArgumentException($"--voices の manifest.json がありません: {voices}");
+    }
+
+    var encoder = o.Get("encoder") ?? LiveOutput.DefaultEncoder;
+    LiveOutput.EncoderArguments(encoder, LiveOutput.DefaultBitrate, 30); // 知らないエンコーダは、ここで（試合を回す前に）はねる
+    var target = url == "on" ? LiveOutput.DefaultUrl : url;
+    LiveOutput.Format(target); // 形式の分からない出口も、ここではねる
+    LiveOutput.ValidateDelay(o.Float("delay", (float)LiveOutput.DefaultDelaySeconds, min: 0f), o.Get("bitrate") ?? LiveOutput.DefaultBitrate); // 緩衝に収まらない遅延は、試合を回す前にはねる
+    return new LiveOptions(target, encoder, o.Get("bitrate") ?? LiveOutput.DefaultBitrate, voices is null ? null : Path.GetFullPath(voices),
+        o.Float("wait", (float)LiveOutput.DefaultWaitSeconds, min: 1f),
+        o.Float("delay", (float)LiveOutput.DefaultDelaySeconds, min: 0f)); // 配信の遅延 [s]: この秒数ぶんのコマを作ってから送り側を始める // 受け手が繋ぐのを待つ上限 [s]。過ぎたら ffmpeg を止めて失敗にする
+}
+
 static int Video(Options o)
 {
     if (o.Get("drill") is { } punch)
@@ -1074,7 +1108,16 @@ static int Video(Options o)
     // キャラクターは教科書に教育を重ねた解決済みのスタイル（相手ごとの備えは、もう片方がキャラクターのときだけ効く）。--set はその上にさらに重ねる。
     var red = redCharacter is not null ? RosterLeague.ContenderOf(redCharacter, blueCharacter?.Id, set) : LoadWith(o.Get("red") ?? "champion", set);
     var blue = blueCharacter is not null ? RosterLeague.ContenderOf(blueCharacter, redCharacter?.Id, set) : LoadWith(o.Get("blue") ?? "jabber", set);
-    var output = Path.GetFullPath(o.Get("out") ?? $"miniring_{redCharacter?.Id ?? red.Name}_vs_{blueCharacter?.Id ?? blue.Name}.mp4");
+    // 描かずに出来事だけ作る下回し（--render off）と、実時間で描いて流す生配信（--live <url> | on。--voices は実況の声の manifest.json）。
+    var render = (o.Get("render") ?? "on") switch
+    {
+        "on" => true,
+        "off" => false,
+        _ => throw new ArgumentException("--render は on か off にしてください。"),
+    };
+    var live = LiveOf(o, render);
+    // 生配信の既定の --out は出来事の記録（*.events.json）の置き場所を決めるだけ（映像のファイルは書かない）。
+    var output = Path.GetFullPath(o.Get("out") ?? (live is not null ? "videos/live.ts" : $"miniring_{redCharacter?.Id ?? red.Name}_vs_{blueCharacter?.Id ?? blue.Name}.mp4"));
     Directory.CreateDirectory(Path.GetDirectoryName(output)!);
     var breakName = o.Get("break-sound") ?? MiniRing.Audio.VoxelBreakSound.DefaultStyle.ToString();
     if (!MiniRing.Audio.BreakSoundOption.TryName(breakName, out var breakStyle))
@@ -1104,7 +1147,7 @@ static int Video(Options o)
     };
     new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), breakStyle, hitSounds, faceCam, speed, tv,
         tvRounds: o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1), tvEvent: o.Get("event") ?? "ファイトナイト", tvBout: o.Get("bout") ?? "",
-        tvBreak: o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f))
+        tvBreak: o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f), render: render, live: live)
         .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 45f, min: 1f), output, Console.Out, untilKo: (o.Get("until-ko") ?? "no") switch { "yes" => true, "no" => false, _ => throw new ArgumentException("--until-ko は yes か no にしてください。") },
             redWear: o.Get("red-wear") is { } rwear ? MiniRing.Weapons.HandWears.Parse(rwear) : redCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove,
             blueWear: o.Get("blue-wear") is { } bwear ? MiniRing.Weapons.HandWears.Parse(bwear) : blueCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove,

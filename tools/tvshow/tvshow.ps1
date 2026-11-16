@@ -8,6 +8,8 @@
     render   各試合を撮る（<out>\bN.mp4 と bN.events.json。あれば飛ばす。-Force で撮り直す）
     digest   台本の資料（<out>\bN.digest.md）と実況の骨組みの下書き（bN.draft.json）を書く
     dub      台本（下書き bN.draft.json ＋ 足す台詞 bN.extras.json → bN.script.json）に声を入れ（bN_live.mp4）、台本を点検する
+    liveprep 生の中継の準備だけ（種 → 各試合を描かずに下回しして出来事 → 資料・下書き → 台本 → 声）。<out>\bN_live_voices\manifest.json まで作る
+    live     生の中継: 準備（liveprep）のあと、試合を順に、実時間で描いて声を混ぜながら札の live.url へ流す（OBS の受け側は docs\TV_BROADCAST.md「生配信」）
     package  全試合をつなぎ（<out>\broadcast_full.mp4）、送れる大きさ（既定 29 MiB）ごとの部分（broadcast_partN.mp4）に縮める（音は残す）
     all      上をすべて（既定）。台本が無い試合があれば dub・package の前で止まり、書くべき台本の場所を言う
 
@@ -22,7 +24,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$Card,
-    [ValidateSet('all', 'scout', 'render', 'digest', 'dub', 'package')][string]$Stage = 'all',
+    [ValidateSet('all', 'scout', 'render', 'digest', 'dub', 'package', 'liveprep', 'live')][string]$Stage = 'all',
     [switch]$Force,
     # 部分の大きさの上限 [MiB]（スマホへ送れる大きさ）。札の partLimitMiB があればそちら。
     [double]$PartLimitMiB = 29
@@ -57,8 +59,23 @@ function Invoke-Arena([string[]]$arguments) {
     # 外の道具が標準エラーに書いた行を、PowerShell 5.1 は Stop のときエラーとして止めるので、ここだけ Continue（失敗は終了コードで見る）。
     $ErrorActionPreference = 'Continue'
     $lines = & $exe @arguments 2>&1 | ForEach-Object { "$_" }
-    if ($LASTEXITCODE -ne 0) { throw "miniring-arena $($arguments -join ' ') が失敗しました:`n$($lines -join "`n")" }
+    if ($LASTEXITCODE -ne 0) { throw "miniring-arena $(Hide-Secrets ($arguments -join ' ')) が失敗しました:`n$(Hide-Secrets ($lines -join "`n"))" }
     return $lines
+}
+
+# 配信先の URL には鍵・passphrase が入りうる。ログ・例外に出す前に、--live の値と srt/udp/rtmp の URL を伏せる。
+function Hide-Secrets([string]$text) {
+    $text = $text -replace '(--live\s+)\S+', '$1<url>'
+    return $text -replace '(?i)(srt|udp|rtmps?)://\S+', '$1://<url>'
+}
+
+# 流しながら画面へ出す版（生配信: 受け手を待っている間の「受け手を待っています」を、その場で見せる）。出力は arena が伏せたもの。
+function Invoke-ArenaStreaming([string[]]$arguments) {
+    $ErrorActionPreference = 'Continue'
+    $collected = New-Object System.Collections.Generic.List[string]
+    & $exe @arguments 2>&1 | ForEach-Object { $line = "$_"; Write-Host $line; $collected.Add($line) }
+    if ($LASTEXITCODE -ne 0) { throw "miniring-arena $(Hide-Secrets ($arguments -join ' ')) が失敗しました:`n$(Hide-Secrets ($collected -join "`n"))" }
+    return $collected
 }
 
 function Get-Duration([string]$path) {
@@ -99,7 +116,7 @@ for ($i = 0; $i -lt $bouts.Count; $i++) {
     $seed = Get-Field $bout 'seed' 'auto'
     if ("$seed" -ne 'auto') { $resolved[$key] = [int]$seed; continue }
     if ($resolved.ContainsKey($key)) { continue }
-    if ($Stage -notin @('all', 'scout', 'render')) { throw "$key の種が決まっていません（-Stage scout を先に）" }
+    if ($Stage -notin @('all', 'scout', 'render', 'liveprep', 'live')) { throw "$key の種が決まっていません（-Stage scout を先に）" }
     Write-Host "== scout $key ($($bout.red) vs $($bout.blue))"
     $lines = Invoke-Arena @('tvscout', '--red-char', $bout.red, '--blue-char', $bout.blue, '--rounds', "$rounds", '--break', "$breakSeconds", '--seeds', $scoutSeeds)
     $lines | ForEach-Object { Write-Host $_ }
@@ -110,6 +127,80 @@ for ($i = 0; $i -lt $bouts.Count; $i++) {
 
 @{ versions = $versions; seeds = $resolved } | ConvertTo-Json | Set-Content -Encoding UTF8 $resolvedPath
 if ($Stage -eq 'scout') { return }
+
+# 生の中継（liveprep・live）。準備 = 各試合を描かずに回して出来事を作り（撮影済みの bN.events.json があればそれを使う。同じ内容）、
+# 資料・下書き・台本・声を作る。流す段 = 試合ごとに実時間で描き、声を混ぜながら札の live.url へ流す（試合と試合の間で接続は切れる）。
+if ($Stage -in @('liveprep', 'live')) {
+    $liveCard = Get-Field $cardData 'live' ([pscustomobject]@{})
+    $liveUrl = [string](Get-Field $liveCard 'url' 'on')
+    $liveWidth = [int](Get-Field $liveCard 'width' 1280)
+    $liveHeight = [int](Get-Field $liveCard 'height' 720)
+    $liveEncoder = [string](Get-Field $liveCard 'encoder' 'nvenc')
+    $liveBitrate = [string](Get-Field $liveCard 'bitrate' '6M')
+    $liveWait = Get-Field $liveCard 'wait' $null # 受け手が繋ぐのを待つ上限 [s]（省略時は video の既定 120）
+    $liveDelay = Get-Field $liveCard 'delay' $null # 配信の遅延 [s]（省略時は video の既定 15）
+    $synth = Join-Path $repo 'tools\commentary\Synthesize.ps1'
+
+    function Get-BoutArguments($bout, [int]$i) {
+        $key = "b$($i + 1)"
+        $label = [string](Get-Field $bout 'bout' "第$($i + 1)試合")
+        return @('--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
+            '--event', $eventTitle, '--bout', $label, '--red-char', $bout.red, '--blue-char', $bout.blue, '--seed', "$($resolved[$key])")
+    }
+
+    for ($i = 0; $i -lt $bouts.Count; $i++) {
+        $bout = $bouts[$i]
+        $key = "b$($i + 1)"
+        $events = Join-Path $out "$key.events.json"
+        # 出来事は毎回作り直す（描かないので 1 試合 20 秒ほど）。前に作った bN.events.json を使い回すと、物理・ボットの版が
+        # 変わったとき、流す試合と実況の台本がずれる（中身が同じなら tvdraft は書き直さないので、声も作り直さない）。
+        Write-Host "== liveprep $key ($($bout.red) vs $($bout.blue), seed $($resolved[$key])): 描かずに出来事だけ作る"
+        $lines = Invoke-Arena (@('video') + (Get-BoutArguments $bout $i) + @('--render', 'off', '--out', (Join-Path $out "$key.mp4")))
+        $lines | Where-Object { $_ -notmatch 'elapsed' } | Select-Object -Last 1 | ForEach-Object { Write-Host $_ }
+
+        $digest = Join-Path $out "$key.digest.md"
+        $draft = Join-Path $out "$key.draft.json"
+        $extras = Join-Path $out "$key.extras.json"
+        $script = Join-Path $out "$key.script.json"
+        Invoke-Arena @('tvdigest', '--events', $events, '--out', $digest) | Out-Null
+        Invoke-Arena @('tvdraft', '--events', $events, '--out', $draft) | Out-Null
+        # 台本: 足す台詞があれば下書きに重ね、無ければ下書きだけ（生配信は autoCommentary を問わない）。
+        if (Test-Path $extras) {
+            Invoke-Arena @('tvmerge', '--draft', $draft, '--extras', $extras, '--out', $script) | Where-Object { $_ -match '入らなかった' } | ForEach-Object { Write-Warning "${key}: $_" }
+        }
+        else { Copy-Item $draft $script -Force }
+
+        # 声だけ作る（本番で混ぜる）。
+        $voiceDir = Join-Path $out "${key}_live_voices"
+        $ErrorActionPreference = 'Continue'
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $synth -Script $script -OutDir $voiceDir | Out-Null
+        $code = $LASTEXITCODE
+        $ErrorActionPreference = 'Stop'
+        if ($code -ne 0) { throw "$key の声の合成に失敗しました（tools\commentary\Synthesize.ps1 を直接動かすと理由が出ます）" }
+        Invoke-Arena @('tvlint', '--script', $script, '--events', $events, '--manifest', (Join-Path $voiceDir 'manifest.json')) |
+            ForEach-Object { if ($_ -eq 'OK') { Write-Host "   ${key}: 点検 OK" } else { Write-Warning "${key}: $_" } }
+    }
+
+    Write-Host "== liveprep 完了: <out>\bN_live_voices\manifest.json"
+    if ($Stage -eq 'liveprep') { return }
+
+    # 流す。試合ごとに 1 回。出来事は <out>\bN.live.events.json（下回しの bN.events.json と同じ内容になるはず）。
+    for ($i = 0; $i -lt $bouts.Count; $i++) {
+        $bout = $bouts[$i]
+        $key = "b$($i + 1)"
+        $manifest = Join-Path $out "${key}_live_voices\manifest.json"
+        Write-Host "== live $key ($($bout.red) vs $($bout.blue)) -> $(Hide-Secrets $liveUrl)"
+        $waitArguments = @(if ($null -ne $liveWait) { '--wait', "$liveWait" }) + @(if ($null -ne $liveDelay) { '--delay', "$liveDelay" })
+        $lines = Invoke-ArenaStreaming (@('video') + (Get-BoutArguments $bout $i) + @('--width', "$liveWidth", '--height', "$liveHeight",
+            '--live', $liveUrl, '--voices', $manifest, '--encoder', $liveEncoder, '--bitrate', $liveBitrate) + $waitArguments + @('--out', (Join-Path $out "$key.live.ts")))
+        $lines | Where-Object { $_ -match '^live:' } | ForEach-Object { Write-Host "   $key $_" }
+        $same = (Get-FileHash (Join-Path $out "$key.events.json")).Hash -eq (Get-FileHash (Join-Path $out "$key.live.events.json")).Hash
+        if (-not $same) { Write-Warning "${key}: 本番の出来事が下回しと違います（試合が決定的でなくなっています）" }
+    }
+
+    Write-Host '== live 完了'
+    return
+}
 
 # 2. 撮る。
 if ($Stage -in @('all', 'render')) {

@@ -21,3 +21,7 @@ docs/video/
 # Archived videos and replays by development generation (docs/MEDIA.md is the index)
 media/
 media_tmp/
+
+# Claude Code worktrees and locks (local only)
+.claude/worktrees/
+.claude/scheduled_tasks.lock

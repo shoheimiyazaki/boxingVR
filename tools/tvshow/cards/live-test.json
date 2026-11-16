@@ -1,0 +1,10 @@
+{
+  "event": "WVC ライブ配信のテスト",
+  "rounds": 1,
+  "break": 20,
+  "out": "docs/video/live-test",
+  "live": { "url": "srt://127.0.0.1:9000?mode=listener&pkt_size=1316", "width": 1280, "height": 720, "encoder": "nvenc", "bitrate": "6M" },
+  "bouts": [
+    { "red": "marcus", "blue": "akira", "seed": 1, "bout": "第1試合" }
+  ]
+}

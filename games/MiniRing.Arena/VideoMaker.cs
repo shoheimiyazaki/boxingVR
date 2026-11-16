@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using Aigis.Render;
@@ -25,9 +25,21 @@ namespace MiniRing.Arena;
 /// <param name="tvEvent">テレビ中継の冒頭に出す大会名。</param>
 /// <param name="tvBout">テレビ中継の冒頭に出す「第 1 試合」などの札（空なら出さない）。</param>
 /// <param name="tvBreak">テレビ中継のラウンドの間の休み [s]（休みの間に治る量は標準と同じ）。</param>
+/// <param name="render">
+/// false なら描かない下回し: <see cref="HeadlessRenderer"/>・ffmpeg・音を作らず、試合と演出（<see cref="TvDirector"/>・リプレイの影の試合・<see cref="Broadcast"/>）だけを同じに回して
+/// *.events.json だけを書く（コマは数えるだけ。物理の速さで終わる）。mp4・wav・タイムラインは書かない。
+/// </param>
+/// <param name="live">
+/// 生配信（<see cref="LiveOutput"/>）: mp4 の代わりに実時間で描いて URL へ流す。音は置いたそばから書き出す。events.json は書く（下回しと比べるため）。
+/// <paramref name="render"/> が false とは一緒に使えない。
+/// </param>
 internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false,
-    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 10f)
+    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 10f, bool render = true, LiveOptions? live = null)
 {
+    private readonly bool _off = live is not null && !render
+        ? throw new ArgumentException("--live と --render off は一緒に使えません（生配信は描かないと流せません）。")
+        : !render;
+
     /// <summary>
     /// テレビ中継の決まり。休みの長さを変えても、休みの間に治る量（速さ × 長さ）は標準（10 秒 × 150 個/秒）と同じにする（休みを長くした分だけ多く治らないように）。
     /// </summary>
@@ -132,12 +144,32 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         var blueRoundStart = new List<float>();
         var finishRound = 1;
         var finishRoundTime = 0f;
-        using var renderer = new HeadlessRenderer((uint)width, (uint)height);
+        using var renderer = _off ? null : new HeadlessRenderer((uint)width, (uint)height);
         var screen = new Vector2(width, height);
         var panel = _faceCam?.Panel(screen, FaceSide.Left) ?? default; // 左右の窓は同じ大きさ
         // 顔の窓は窓の大きさで別に描いて書き写す（ヘッドレスの描画は 1 つのカメラで 1 枚。ホストでは重ねる窓として描く）。
-        using var paneRenderer = _faceCam is null ? null : new HeadlessRenderer((uint)panel.WidthPx, (uint)panel.HeightPx);
-        var audio = new float[(int)((TitleSeconds + (seconds / speed) + ResultSeconds + 1f) * HitSound.SampleRate)];
+        using var paneRenderer = _off || _faceCam is null ? null : new HeadlessRenderer((uint)panel.WidthPx, (uint)panel.HeightPx);
+        // 下回し（描かない）は音も作らない（events.json に音は要らない）。
+        var audioOn = !_off;
+        var audio = new float[audioOn ? (int)((TitleSeconds + (seconds / speed) + ResultSeconds + 1f) * HitSound.SampleRate) : 0];
+        // 生配信の音の混ぜ: 地の歓声は始めに混ぜ（会場の音の長さは audio 全体）、声は前もって声の線に置く。反応は増えた分だけ書き出す前に混ぜる。
+        LiveAudioMixer? liveMixer = null;
+        var cuesMixed = 0;
+        if (live is not null)
+        {
+            if (broadcast is not null)
+            {
+                Broadcast.MixAmbience(audio, HitSound.SampleRate, seed);
+            }
+
+            liveMixer = new LiveAudioMixer(HitSound.SampleRate, audio.Length);
+            if (live.VoicesManifest is { } manifest)
+            {
+                liveMixer.LoadManifest(manifest);
+                log.WriteLine($"実況の声: {liveMixer.VoiceCount} 台詞（{manifest}）");
+            }
+        }
+
         var impactAudio = new ImpactAudio();
         var audioTimeline = new ImpactTimeline();
         var videoPath = Path.ChangeExtension(outPath, ".video.mp4");
@@ -154,25 +186,32 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         string? finish = null;
         int? koWinner = null;
         var watch = Stopwatch.StartNew();
+        long renderTicks = 0, writeTicks = 0; // 生配信の診断（環境変数 LIVE_TIMING=1 で最後に内訳を出す）: 描画・書き込み（歩調の待ちを含む）に使った時間
 
         // 途中で失敗しても、作りかけの映像・音声ファイルと ffmpeg を残さない。
         try
         {
-            using (var ffmpeg = StartFfmpeg(videoPath))
+            // 書き出しの道は 3 つ: ファイル（ffmpeg → mp4）、生配信（LiveOutput）、下回し（描かない。コマを数えるだけ）。
+            using var liveOutput = live is null ? null : new LiveOutput(live, width, height, fps, HitSound.SampleRate, audio, liveMixer!, log);
+            using (var ffmpeg = _off || live is not null ? null : StartFfmpeg(videoPath))
             {
                 try
                 {
-                    var stdin = ffmpeg.StandardInput.BaseStream;
+                    var stdin = ffmpeg?.StandardInput.BaseStream;
                     void Emit(Matrix4x4 viewProjection, Vector3 eye, IReadOnlyList<ScreenTextDraw> text, IReadOnlyList<UiShapeDraw> shapes, bool withFace = false, BoxingGame? scene = null)
                     {
+                        if (_off)
+                        {
+                            frame++;
+                            return;
+                        }
+
                         // scene: 描く試合（リプレイは影の試合）。顔の窓は本番の試合だけ。
                         var g = scene ?? game;
                         var face = withFace && scene is null ? _faceCam : null;
-                        var __x = Environment.GetEnvironmentVariable("RT_OFF") ?? "";
-                        var __t0 = Stopwatch.GetTimestamp();
-                        var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, __x.Contains("text") ? [] : text, particles: g.BuildParticles(), lighting: g.BuildLighting(),
-                            shadow: __x.Contains("shadow") ? null : g.BuildShadow(), cameraPosition: eye, shapes: face is null ? shapes : [.. shapes, .. face.Frames(game, screen)], postProcess: __x.Contains("post") ? null : g.BuildPostProcess(), voxels: __x.Contains("vox") ? [] : g.BuildVoxelVolumes());
-                        Prof.Main += Stopwatch.GetTimestamp() - __t0;
+                        var renderStart = Stopwatch.GetTimestamp();
+                        var rgba = renderer!.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, text, particles: g.BuildParticles(), lighting: g.BuildLighting(),
+                            shadow: g.BuildShadow(), cameraPosition: eye, shapes: face is null ? shapes : [.. shapes, .. face.Frames(game, screen)], postProcess: g.BuildPostProcess(), voxels: g.BuildVoxelVolumes());
                         if (face is not null && paneRenderer is not null)
                         {
                             foreach (var facePane in face.Panes(game, screen))
@@ -188,7 +227,20 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             }
                         }
 
-                        stdin.Write(rgba);
+                        if (liveOutput is not null)
+                        {
+                            // 生配信: 増えた歓声の反応を混ぜてから、そのコマまでの音とともに実時間の歩調で流す。
+                            renderTicks += Stopwatch.GetTimestamp() - renderStart;
+                            var writeStart = Stopwatch.GetTimestamp();
+                            cuesMixed = broadcast?.MixCues(audio, HitSound.SampleRate, cuesMixed) ?? cuesMixed;
+                            liveOutput.WriteFrame(rgba, audio, liveMixer!);
+                            writeTicks += Stopwatch.GetTimestamp() - writeStart;
+                        }
+                        else
+                        {
+                            stdin!.Write(rgba);
+                        }
+
                         frame++;
                     }
 
@@ -310,18 +362,18 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             endAt = time + AftermathSeconds;
                         }
 
-                        if (GongSound.Synthesize(game.RecentBell) is { } gong)
+                        if (audioOn && GongSound.Synthesize(game.RecentBell) is { } gong)
                         {
                             Mix(audio, gong, at, 1f);
                         }
 
-                        foreach (var voice in impactAudio.Push(time, ImpactAudio.Gather(game.RecentHits, game.RecentContacts, game.RecentShatters, hitSounds, [.. game.WeaponHits, .. game.SelfWeaponHits]), breakStyle))
+                        foreach (var voice in audioOn ? impactAudio.Push(time, ImpactAudio.Gather(game.RecentHits, game.RecentContacts, game.RecentShatters, hitSounds, [.. game.WeaponHits, .. game.SelfWeaponHits]), breakStyle) : [])
                         {
                             Mix(audio, voice.Pcm, TitleSeconds + ((float)voice.OccurredAt / speed), 1f);
                             audioTimeline.Add(voice, TitleSeconds + voice.OccurredAt / speed, frame / (double)fps);
                         }
 
-                        foreach (var sever in game.RecentSevers)
+                        foreach (var sever in audioOn ? game.RecentSevers : [])
                         {
                             Mix(audio, SeverSound.Synthesize(sever.Strength, step), at, 1f);
                         }
@@ -342,12 +394,12 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             endAt = time + AftermathSeconds;
                             flashes.Add(("K.O.", Gold, endAt.Value));
                         }
-                        if (VoxelBreakSound.Landings(game.RecentLandings, step, breakStyle) is { } landingPcm && impactAudio.LimitBackground(time, landingPcm) is { } landed)
+                        if (audioOn && VoxelBreakSound.Landings(game.RecentLandings, step, breakStyle) is { } landingPcm && impactAudio.LimitBackground(time, landingPcm) is { } landed)
                         {
                             Mix(audio, landed, at, 1f);
                         }
 
-                        foreach (var swing in game.RecentSwings)
+                        foreach (var swing in audioOn ? game.RecentSwings : [])
                         {
                             if (SwingSound.Synthesize(swing.Speed, step) is { } whoosh)
                             {
@@ -359,7 +411,11 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         {
                             if (shatter.Fatal)
                             {
-                                Mix(audio, VoxelBreakSound.Fatal(seed: 7, breakStyle), at, 1f);
+                                if (audioOn)
+                                {
+                                    Mix(audio, VoxelBreakSound.Fatal(seed: 7, breakStyle), at, 1f);
+                                }
+
                                 flashes.Add(("FATAL", Gold, time + (1.2f * speed))); // 表示の長さは映像の秒で
                             }
                         }
@@ -368,11 +424,6 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         foreach (var hit in game.RecentHits)
                         {
                             var redHit = hit.Attacker == game.Player;
-                            if (hit.Kick && Environment.GetEnvironmentVariable("MINIRING_KICKLOG") == "1")
-                            {
-                                Console.Error.WriteLine($"kickhit t={time:0.00}s {(redHit ? "red" : "blue")} {hit.KickerPart} -> {hit.Zone} v={hit.Speed:0.0} m/s");
-                            }
-
                             if (redHit)
                             {
                                 redDamage += hit.Damage;
@@ -589,16 +640,37 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         }
                     }
 
-                    stdin.Close();
-                    ffmpeg.WaitForExit();
-                    if (ffmpeg.ExitCode != 0)
+                    if (liveOutput is not null)
                     {
-                        throw new IOException($"ffmpeg (video) failed with exit code {ffmpeg.ExitCode}.");
+                        // 生配信の終わり: 残りの音（保留の打撃・反応）を混ぜ、動画の長さまで書き切る。
+                        foreach (var voice in impactAudio.Flush(breakStyle))
+                        {
+                            Mix(audio, voice.Pcm, TitleSeconds + ((float)voice.OccurredAt / speed), 1f);
+                        }
+
+                        cuesMixed = broadcast?.MixCues(audio, HitSound.SampleRate, cuesMixed) ?? cuesMixed;
+                        liveOutput.Finish(audio, liveMixer!);
+                        if (Environment.GetEnvironmentVariable("LIVE_TIMING") == "1")
+                        {
+                            var total = watch.Elapsed.TotalSeconds;
+                            var toSeconds = 1.0 / Stopwatch.Frequency;
+                            log.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                                $"live timing: total {total:0.0}s = render {renderTicks * toSeconds:0.0}s + write(frame hand-off) {writeTicks * toSeconds:0.0}s [encoder stdin blocked {liveOutput.SendSeconds:0.0}s] + physics/other {total - ((renderTicks + writeTicks) * toSeconds):0.0}s"));
+                        }
+                    }
+                    else if (ffmpeg is not null)
+                    {
+                        stdin!.Close();
+                        ffmpeg.WaitForExit();
+                        if (ffmpeg.ExitCode != 0)
+                        {
+                            throw new IOException($"ffmpeg (video) failed with exit code {ffmpeg.ExitCode}.");
+                        }
                     }
                 }
                 catch
                 {
-                    if (!ffmpeg.HasExited)
+                    if (ffmpeg is not null && !ffmpeg.HasExited)
                     {
                         ffmpeg.Kill();
                         ffmpeg.WaitForExit();
@@ -608,20 +680,28 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                 }
             }
 
-            foreach (var voice in impactAudio.Flush(breakStyle))
+            if (_off || live is not null)
             {
-                Mix(audio, voice.Pcm, TitleSeconds + ((float)voice.OccurredAt / speed), 1f);
+                // 下回しと生配信は、ファイル（wav・mp4）を書かない。出来事の記録だけ書く（下回しと本番の events.json が同じことを比べられるように）。
+                broadcast?.WriteEvents(Path.ChangeExtension(outPath, ".events.json"));
             }
-
-            if (broadcast is not null)
+            else
             {
-                broadcast.MixInto(audio, HitSound.SampleRate, seed);
-                broadcast.WriteEvents(Path.ChangeExtension(outPath, ".events.json"));
-            }
+                foreach (var voice in impactAudio.Flush(breakStyle))
+                {
+                    Mix(audio, voice.Pcm, TitleSeconds + ((float)voice.OccurredAt / speed), 1f);
+                }
 
-            WriteWav(wavPath, audio, (float)frame / fps);
-            audioTimeline.Write(outPath);
-            Run("ffmpeg", $"-y -loglevel error -i \"{videoPath}\" -i \"{wavPath}\" -c:v copy -c:a aac -b:a 160k -shortest \"{outPath}\"");
+                if (broadcast is not null)
+                {
+                    broadcast.MixInto(audio, HitSound.SampleRate, seed);
+                    broadcast.WriteEvents(Path.ChangeExtension(outPath, ".events.json"));
+                }
+
+                WriteWav(wavPath, audio, (float)frame / fps);
+                audioTimeline.Write(outPath);
+                Run("ffmpeg", $"-y -loglevel error -i \"{videoPath}\" -i \"{wavPath}\" -c:v copy -c:a aac -b:a 160k -shortest \"{outPath}\"");
+            }
         }
         finally
         {
@@ -629,8 +709,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             File.Delete(wavPath);
         }
 
-        log.WriteLine($"PROF main {Prof.Main*1000.0/Stopwatch.Frequency/frame:0.0} ms/frame");
-        log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{outPath}: {frame} frames ({(float)frame / fps:0.0}s) in {watch.Elapsed.TotalSeconds:0}s"));
+        var mode = _off ? " [events only, not rendered]" : live is not null ? " [live]" : "";
+        log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{outPath}{mode}: {frame} frames ({(float)frame / fps:0.0}s) in {watch.Elapsed.TotalSeconds:0}s"));
     }
 
     /// <summary>
@@ -946,5 +1026,3 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         public string? LastNotedDefense { get; set; }
     }
 }
-
-internal static class Prof { public static long Main; }

@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Silk.NET.Vulkan;
 
 namespace Aigis.Render;
@@ -270,7 +270,9 @@ public sealed unsafe partial class HeadlessRenderer : IDisposable
         Check(_vk.CreateBuffer(_device, in info, null, out _readbackBuffer), "CreateBuffer");
 
         _vk.GetBufferMemoryRequirements(_device, _readbackBuffer, out var req);
-        _readbackMemory = AllocateMemory(req, MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit);
+        _readbackMemory = AllocateMemory(req, HasMemoryType(req.MemoryTypeBits, ReadbackCached)
+            ? ReadbackCached
+            : MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit);
         Check(_vk.BindBufferMemory(_device, _readbackBuffer, _readbackMemory, 0), "BindBufferMemory");
     }
 
@@ -378,6 +380,29 @@ public sealed unsafe partial class HeadlessRenderer : IDisposable
         };
         Check(_vk.AllocateMemory(_device, in allocInfo, null, out var memory), "AllocateMemory");
         return memory;
+    }
+
+    /// <summary>
+    /// Memory for the pixel readback: the CPU READS it every frame, so it must be host-cached. Plain
+    /// HostVisible|HostCoherent picks write-combined (uncached) memory, where the CPU copy of one frame
+    /// crawls at ~140 MB/s — measured 2026-11-16 on an RTX 3060 Ti: 69 ms per 1080p frame and 28 ms per
+    /// 720p frame, almost all of it this copy; with the cached type 22 ms and 7 ms, same pixels bit for bit.
+    /// Falls back to the uncached type on a device without a cached host-visible type.
+    /// </summary>
+    private const MemoryPropertyFlags ReadbackCached = MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit | MemoryPropertyFlags.HostCachedBit;
+
+    private bool HasMemoryType(uint typeBits, MemoryPropertyFlags flags)
+    {
+        _vk.GetPhysicalDeviceMemoryProperties(_physicalDevice, out var props);
+        for (uint i = 0; i < props.MemoryTypeCount; i++)
+        {
+            if ((typeBits & (1u << (int)i)) != 0 && (props.MemoryTypes[(int)i].PropertyFlags & flags) == flags)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private uint FindMemoryType(uint typeBits, MemoryPropertyFlags flags)

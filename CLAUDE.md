@@ -152,6 +152,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | 試合の動画 | `... -- video --red champion --blue swarmer --seconds 40 --out docs/video/<名前>.mp4`（ffmpeg が要る。`--facecam on` で両コーナーの顔の窓を両脇に出す。`--until-ko yes` で K.O. まで続け、`--seconds` は上限になる。`--speed 0.5 / 0.75 / 1`（既定 0.75）は試合そのものを遅く進めて撮る。`--tv on` はテレビ中継風: 5 ラウンド・歓声・*.events.json） |
 | 実況・解説を入れる | `powershell -ExecutionPolicy Bypass -File tools\commentary\dub.ps1 -Video in.mp4 -Script script.json -Out out.mp4`（台本は *.events.json を見て書く。`tools/commentary/README.md`） |
 | WVC のテレビ中継（撮影〜結合を札 1 枚で） | `powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvshow\cards\wvc-ishu.json`（種の下見・撮影・資料・実況の下書き・声入れ・点検・結合。エージェントが書くのは `bN.extras.json` だけ: スキル `tv-commentary`。札に `"autoCommentary": true` なら下書きだけで作る。`docs/TV_BROADCAST.md`） |
+| WVC のテレビ中継を生で流す（OBS へ） | `powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvshow\cards\live-test.json -Stage liveprep`（準備: 種 → 描かない下回し `video --render off` → 台本 → 声）→ `-Stage live`（試合ごとに `video --tv on --facecam on ... --live srt://127.0.0.1:9000?mode=listener --voices bN_live_voices\manifest.json` で実時間に描いて流す。受け方・遅延・鍵は `docs/TV_BROADCAST.md`「生配信」） |
 | 回避の形を体の動きで測る | `... -- formlab --punch 3 --slot Weave --style swarmer [--set "HeadY=-0.8,Step=0.8"] [--cue 0] [--bouts 3]`（頭の横・上下・前の軌跡、腰の沈み、拳と頭の距離。`docs/BOT_PDCA.md`） |
 | ボクセルの書き出し・確かめ | `... -- voxexport --out boxer.vox` / `voxcheck --in boxer.vox [--install yes]`（武器・はめる物は `weaponexport --out weapons.vox` / `weaponcheck --in weapons.vox [--install yes]`） |
 
