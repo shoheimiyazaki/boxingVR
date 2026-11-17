@@ -414,6 +414,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         DetectHits();
         StepProfile.End(StepProfile.Slot.FistHits, hitsStart);
         ResolveWeapons();
+        SplitDisconnectedWeapons();
         ResolveKicks();
         var afterStart = StepProfile.Begin();
         DetectGrazes();
@@ -1158,6 +1159,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _perceived.Clear();
         _world?.Dispose();
         _weapons.Clear(); // 武器は世界ごと消える
+        _connectedAt.Clear();
         _recentCuts.Clear();
         _beforeStep.Clear();
         _resumeHold = 0f;

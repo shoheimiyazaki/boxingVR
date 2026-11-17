@@ -523,8 +523,22 @@ public sealed class Weapon
                 return BoxerAnatomy.Iron;
             }
 
-            return (p.Y * p.Y) + (p.Z * p.Z) <= GripRadius * GripRadius ? BoxerAnatomy.Wood : (byte)0;
+            return RoundTang(p, GripRadius) ? BoxerAnatomy.Iron : (p.Y * p.Y) + (p.Z * p.Z) <= GripRadius * GripRadius ? BoxerAnatomy.Wood : (byte)0;
         });
+    }
+
+    /// <summary>
+    /// 柄の中を通る鉄の芯（茎・タング）の断面の割合: 握りの半径に対する芯の半径。実物の片手剣・長剣のタングは握りの木の中を柄頭まで通り、
+    /// 柄頭で留める（芯の太さは握りの太さの 4〜5 割）。握りの曲げの強さは断面二次モーメント（半径の 4 乗）で効くので、
+    /// 木だけの断面より鉄の芯（木よりずっと引張が強い）が曲げを受け持つ。指示書 docs/plans/CODEX_BRIEF_WEAPON_TANG_AND_SPLIT.md、docs/VOXEL_WEAPONS.md「柄の芯」。
+    /// </summary>
+    private const float TangRadiusShare = 0.45f;
+
+    /// <summary>握りの丸い芯: 軸（X）から半径 <paramref name="gripRadius"/> × <see cref="TangRadiusShare"/> 以内の点か。</summary>
+    private static bool RoundTang(Vector3 p, float gripRadius)
+    {
+        var r = gripRadius * TangRadiusShare;
+        return (p.Y * p.Y) + (p.Z * p.Z) <= r * r;
     }
 
     // ── 棍棒（人形の縮尺: 長さ 21cm、握りの太さ 1.4cm から頭の太さ 2.4cm）。刃がないので 2.5mm のセル。
@@ -604,6 +618,12 @@ public sealed class Weapon
     private const float KatanaGripHalfWidth = 0.0045f;
     private const float KatanaGripHalfThick = 0.0035f;
 
+    // 茎の寸法の根拠（人形の縮尺 0.32 倍、柄の幅 9 mm・厚さ 7 mm に対して）: 実物の刀の茎は刀身の幅を保って柄頭の近くまで通り、
+    // 柄木・柄巻きがまわりを覆う。根元は柄の幅の 5〜6 割（0.55）、端は少し細る（0.4）。厚さは柄の厚さ 7 mm の半分ほどの 3.7 mm（セル 3 個。刀身の峰 2.5 mm より少し厚い）。
+    private const float KatanaTangRootShare = 0.55f;
+    private const float KatanaTangEndShare = 0.4f;
+    private const float KatanaTangHalfThick = 0.0014f;
+
     /// <summary>
     /// 刀身（鍔から先）: 中心線は鍔から切っ先へ放物線で +Y（峰の側）へ反る。幅（Y）は刃（−Y の縁）から峰まで、厚さ（Z）は峰で
     /// <see cref="KatanaBack"/>、刃先へ向かって 1 セルまで薄くなる楔。切っ先の手前 <see cref="KatanaPoint"/> から刃の側が峰へ向かって
@@ -641,6 +661,15 @@ public sealed class Weapon
             if (p.X >= KatanaGuardAt - KatanaTsubaHalf)
             {
                 return (p.Y * p.Y) + (p.Z * p.Z) <= KatanaTsubaRadius * KatanaTsubaRadius ? BoxerAnatomy.Iron : (byte)0;
+            }
+
+            // 茎（なかご）: 鍔から柄頭の端まで通る鉄の平たい板。根元（鍔側）は柄の幅の KatanaTangRootShare、柄頭の端へ向かって
+            // KatanaTangEndShare まで細る。厚さは 2 セル以上（KatanaTangHalfThick）。
+            var along = (p.X - (-KatanaHalfLength)) / (KatanaGuardAt - KatanaTsubaHalf + KatanaHalfLength);
+            var tangHalfWidth = KatanaGripHalfWidth * (KatanaTangEndShare + ((KatanaTangRootShare - KatanaTangEndShare) * MathF.Min(1f, along)));
+            if (MathF.Abs(p.Y) <= tangHalfWidth && MathF.Abs(p.Z) <= KatanaTangHalfThick)
+            {
+                return BoxerAnatomy.Iron;
             }
 
             var ey = p.Y / KatanaGripHalfWidth;
@@ -697,7 +726,7 @@ public sealed class Weapon
                 return BoxerAnatomy.Iron;
             }
 
-            return (p.Y * p.Y) + (p.Z * p.Z) <= LongGripRadius * LongGripRadius ? BoxerAnatomy.Wood : (byte)0;
+            return RoundTang(p, LongGripRadius) ? BoxerAnatomy.Iron : (p.Y * p.Y) + (p.Z * p.Z) <= LongGripRadius * LongGripRadius ? BoxerAnatomy.Wood : (byte)0;
         });
     }
 

@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// E0: 教育が空なら、名簿を 1 人 1 ファイルにしても試合はビット単位で同じ（CLAUDE.md §1.8・§1.6）。
 /// 期待値は characters.json の時代に <see cref="CharacterSamenessProbe"/> で取ったチェックサム（途中と最後）。
 /// PhysicsVersion 40 で取り直した（2026-11-17: 脚の骨の端を骨の胴と同じ太さにした・体が支える質量から外れた部位を除く・倒れている間の手を腰が戻ったら床から離す。グローブ同士のレフェリーなし・こんぼう同士は同じ。LegLossProbe.Probe_WhichRecordedMatchesLoseALimb）。その前は PhysicsVersion 39 で、腕・脚を失う試合だけ取り直した（2026-11-17: 脚を失っても残った脚の長さで立って戦い続ける・切り株の筋肉の断面を切れ目の手前だけで測る。腕も脚も失わない試合（グローブ同士・ロングソード同士など）はビット単位で同じことを確かめた: LegLossProbe.Probe_WhichRecordedMatchesLoseALimb）。その前は PhysicsVersion 38・LogicVersion 38 で取り直した（2026-11-17: スタミナを臨界パワーのモデルに・休む間の足と手数・拳の狙い・肘の締め）。その前は PhysicsVersion 37・LogicVersion 36（2026-11-16。37 はスタミナの容量を倍。36 の理由: スタミナの蓄え・供給を筋肉の量に比例させた（体格のあるキャラの試合が変わる）のと、弱った相手を詰める層を既定にした（ボットの立ち回りが変わる）。その前は PhysicsVersion 35・LogicVersion 32 で取り直した（前は PhysicsVersion 34）。理由: 素手を指の関節で組み直した（素手の質量・形が変わる）のと、急所の狙いの点を実際のセルから求めるようにした（ボットの狙いが変わる）。katana-longsword の途中（half）だけは手も急所も関わらず値が同じ。
+/// PhysicsVersion 44（2026-11-17: 剣・刀・ロングソードの柄に鉄の芯を通した・削り切れた武器を分ける）で、剣を握る組（katana-longsword・single-karate-vs-katana・w-katana*・w-longsword*・w-club-katana）だけ取り直した。拳同士・こんぼう同士・空手・カタール・ガントレットの試合はビット単位で同じ。
 /// 名簿・ボット・物理の版を意図して変えたら、Probe で取り直して値を差し替える（古い値のまま黙って合わせない）。
 /// </summary>
 [TestClass]
@@ -18,21 +19,21 @@ public sealed class CharacterSamenessTests
         ["glove-glove-referee"] = (0x4A464CA23C7F33BC, 0xE07D0FC9984DCAC8),
         ["glove-glove-noref"] = (0xE02C484AF63AADF2, 0x9D085D00376429CE),
         ["karate-swarmer-noref"] = (0xCDF6A76BFD09BEB8, 0x96694C0BA4D7A389),
-        ["katana-longsword-noref"] = (0xFE19B6EB1CC7A579, 0xA07A564EDFBCDFC0),
+        ["katana-longsword-noref"] = (0x1005BA574AFF0A3C, 0x45D231F7016438ED),
         ["club-bare-noref"] = (0x78C6B2D00870ACA4, 0x3F443483D32C6A2A),
         ["katar-gauntlet-referee"] = (0x42F28CD965070FC3, 0x8902CC4A8767093F),
         ["single-counter-vs-knuckles-noref"] = (0xCAEABE8E9E6493B5, 0x3A1DB5C73031A878),
-        ["single-karate-vs-katana"] = (0x3B77AA256081C7E3, 0x1AAA60B1A6704F04),
+        ["single-karate-vs-katana"] = (0x5DEFF120BDA1F829, 0x0EB281BD83B23BA3),
     };
 
     /// <summary>武器の教科書を JSON へ移す前（`weapon handling` 段 1 の最初）に <see cref="CharacterSamenessProbe"/> で取った値（master へ入れるとき、首・脊椎と指の手（PhysicsVersion 35）の上で LEGACY の行から取り直した。拳の組の LEGACY が既存の値と全部一致することを確かめてから。2026-11-16）。</summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedWeapons = new()
     {
-        ["w-katana-katana-referee"] = (0xB6B839A289987AD1, 0x0F1FFBB32A252656),
-        ["w-longsword-longsword-noref"] = (0x24EFD3040133326D, 0x92FAB3FD49623B6B),
-        ["w-katana-longsword-referee"] = (0x42078D844E0B900F, 0x46E52752A9CC6A22),
-        ["w-club-katana-noref"] = (0x1D2D8B6A7B5AF334, 0x84164D2D4EBB2FF1),
-        ["w-longsword-club-referee"] = (0x3411DCB15479DDEC, 0x26CD20897BAEDA2C),
+        ["w-katana-katana-referee"] = (0x20A20B475A4D360F, 0x49FE7F17F15B1BE1),
+        ["w-longsword-longsword-noref"] = (0xE022583ABC7C864F, 0xD83502AEFC9CC685),
+        ["w-katana-longsword-referee"] = (0x15A7104C20E68CF3, 0x4E7DE647362850E3),
+        ["w-club-katana-noref"] = (0xF057E45930EAD7B3, 0x520443367247FCF2),
+        ["w-longsword-club-referee"] = (0xE77C7DFFCE3C057D, 0xE242D971C61B868C),
         ["w-club-club-noref"] = (0x7C19AB725FA1FF8B, 0x28F64F242E6370EC),
     };
 
@@ -65,13 +66,13 @@ public sealed class CharacterSamenessTests
     /// </summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedAdopted = new()
     {
-        ["katana-longsword-noref"] = (0x8840E6C94CD46A51, 0xF2AA513706223292),
-        ["single-karate-vs-katana"] = (0xEEA9CDB8DCC1D24A, 0x18221ACB29A4379B),
-        ["w-katana-katana-referee"] = (0x5BE985A461672609, 0xFC24C5B8D2691B12),
-        ["w-longsword-longsword-noref"] = (0x148E3D016DA3E787, 0x949BEFB15369705B),
-        ["w-katana-longsword-referee"] = (0x2CD8F409304ACDE6, 0xC455797CD6E2372A),
-        ["w-club-katana-noref"] = (0x6439802F18181BDC, 0x1D6C61B5F8E34FA3),
-        ["w-longsword-club-referee"] = (0x6996F2F4570121E8, 0x5C0B62FD0F22D3A1),
+        ["katana-longsword-noref"] = (0x0BDFF57534D24380, 0x0E3AD3991437ECD9),
+        ["single-karate-vs-katana"] = (0xF1B0372A52A62F0A, 0x01CB722142002820),
+        ["w-katana-katana-referee"] = (0xD6728AA781B2BB16, 0xB99ABE39F6304416),
+        ["w-longsword-longsword-noref"] = (0x96BA996B40C6829F, 0xE80806A0A35B9A59),
+        ["w-katana-longsword-referee"] = (0xDD493934F0A77194, 0xED170D2285885270),
+        ["w-club-katana-noref"] = (0x9301B17F87F04870, 0x4D5874D46507454B),
+        ["w-longsword-club-referee"] = (0xAF484217415C808A, 0x4E2D05E56A9A35E5),
     };
 
     /// <summary>

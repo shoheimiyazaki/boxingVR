@@ -90,6 +90,8 @@ public static class StepProfile
         BotExecute,
         /// <summary>Control のうち、歩の前の拳の速さの記録・冷却・蹴りの振り分け。</summary>
         ControlTail,
+        /// <summary>武器の格子が削れた歩の、つながっていない部分の切り離し（連結成分の探索と <c>SeverDisconnected</c>）。</summary>
+        Disconnect,
     }
 
     /// <summary>この歩のこのスレッドの割り当て [byte]（計測を取る間だけ、<see cref="Reset"/> で基準を取る）。</summary>
