@@ -508,7 +508,7 @@ public sealed partial class BoxingGame
     private void RememberBeforeStepCore()
     {
         _beforeStep.Clear();
-        if (_weapons.Count == 0 && !AnyoneKicking())
+        if (_weapons.Count == 0 && !AnyoneKicking() && !AnyoneElbowing())
         {
             return;
         }
@@ -545,6 +545,23 @@ public sealed partial class BoxingGame
             foreach (var hand in Hands)
             {
                 if (fighter.IsKicking(hand))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>誰かが肘を打ちに出しているか（毎歩の問い合わせなので、LINQ を使わない）。</summary>
+    private bool AnyoneElbowing()
+    {
+        foreach (var fighter in Fighters)
+        {
+            foreach (var hand in Hands)
+            {
+                if (fighter.IsElbowing(hand))
                 {
                     return true;
                 }
@@ -1117,6 +1134,180 @@ public sealed partial class BoxingGame
         _kickCooldown[(attacker, side)] = RehitCooldown;
         var face = hit.A == part.Body ? hit.FaceB : hit.FaceA;
         ApplyHit(new HitEvent(attacker, side, victim, zone, hit.Point, speed, impactMass, bodyShare, damage, face, Kick: true, KickerPart: attacker.KickPartOf(side, kicker.Body.BodyId)), part.Body.BodyId, velocity, carve: false, alsoTwist: contactTwist);
+        return true;
+    }
+
+    /// <summary>
+    /// 肘打ち: 肘を出している腕の上腕・前腕の骨のセルが、相手の部位のセルと拳・蹴りと同じ接触（<see cref="VoxelContact.Resolve"/>）で当たる。
+    /// 肘用の式・倍率は無い。肩・体の質量（<see cref="Fighter.ElbowImpactMass"/>）が面の下へ伝わる力に効き、肘の先の狭い面（骨・肘頭の小さな接触面積）に
+    /// 力が集まる（圧力）ぶん、同じ速さの拳（グローブの広い面）より深く削れる。
+    /// </summary>
+    private void ResolveElbows()
+    {
+        foreach (var attacker in Fighters)
+        {
+            if (attacker.Voxels is not { } own)
+            {
+                continue;
+            }
+
+            var victim = attacker == Player ? Cpu : Player;
+            foreach (var side in Hands)
+            {
+                if (!attacker.IsElbowing(side))
+                {
+                    continue;
+                }
+
+                foreach (var striker in own.Parts.Where(p => attacker.IsElbowingBody(side, p.Body.BodyId)).ToList())
+                {
+                    if (!_beforeStep.TryGetValue(striker.Body.BodyId, out var strikerBefore))
+                    {
+                        continue;
+                    }
+
+                    var behind = ElbowMassBehind(attacker, side, striker, strikerBefore);
+                    foreach (var part in VoxelPartsOf([victim]).ToList())
+                    {
+                        if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore) && MayTouch(striker.Body, strikerBefore, part.Body, partBefore))
+                        {
+                            Elbow(attacker, side, victim, striker, part, VoxelContact.Resolve(striker.Body, strikerBefore, part.Body, partBefore, massBehindA: behind));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>いま剛体の箱の衝突を切っている（肘を出している腕の骨, 相手の部位）の組。</summary>
+    private readonly HashSet<(int Striker, int Part)> _elbowFiltered = [];
+
+    /// <summary>物理の 1 歩の前: 肘を出している腕の骨と相手の部位は、箱どうしでは当たらないようにする（蹴りと同じ理由: 箱が先に止めるとボクセルの接触が起きない）。</summary>
+    private void FilterElbowPairs()
+    {
+        if (_elbowFiltered.Count == 0 && !AnyoneElbowing())
+        {
+            return;
+        }
+
+        var wanted = new HashSet<(int, int)>();
+        foreach (var attacker in Fighters)
+        {
+            if (attacker.Voxels is not { } own)
+            {
+                continue;
+            }
+
+            var victim = attacker == Player ? Cpu : Player;
+            foreach (var side in Hands.Where(attacker.IsElbowing))
+            {
+                foreach (var striker in own.Parts.Where(p => attacker.IsElbowingBody(side, p.Body.BodyId)))
+                {
+                    foreach (var part in VoxelPartsOf([victim]))
+                    {
+                        wanted.Add((striker.Body.BodyId, part.Body.BodyId));
+                    }
+                }
+            }
+        }
+
+        foreach (var pair in _elbowFiltered.Where(p => !wanted.Contains(p)).ToList())
+        {
+            _world.SetPairCollisionEnabled(pair.Striker, pair.Part, true);
+            _elbowFiltered.Remove(pair);
+        }
+
+        foreach (var pair in wanted)
+        {
+            if (_elbowFiltered.Add(pair))
+            {
+                _world.SetPairCollisionEnabled(pair.Item1, pair.Item2, false);
+            }
+        }
+    }
+
+    /// <summary>肘の骨の後ろで一緒に打ち込む質量 [kg]: 腕と体の有効質量（歩の前の速さの向きで）から、その骨自身を除いたもの。</summary>
+    private float ElbowMassBehind(Fighter attacker, Hand side, VoxelPart striker, BodyState before)
+    {
+        var speed = before.LinearVelocity.Length();
+        if (speed < 1e-3f)
+        {
+            return 0f;
+        }
+
+        var total = attacker.ElbowImpactMass(side, before.Position, before.LinearVelocity / speed, out _);
+        return MathF.Max(0f, total - _world.GetMass(striker.Body.BodyId));
+    }
+
+    private void Elbow(Fighter attacker, Hand side, Fighter victim, VoxelPart striker, VoxelPart part, VoxelContactResult hit)
+    {
+        if (!hit.Touched)
+        {
+            return;
+        }
+
+        _recentCuts.Add(hit);
+        var contactTwist = Vector3.Zero;
+        if (part.Kind == BodyPartKind.Head && part.FragmentOf is null && hit.ImpulseOnB.LengthSquared() > 0f)
+        {
+            var head = _world.GetState(part.Body.BodyId);
+            contactTwist = Vector3.Cross(hit.Point - head.Position, hit.ImpulseOnB);
+        }
+
+        if (!(part.FragmentOf is null && ScoreElbow(attacker, side, victim, striker, part, hit, contactTwist)))
+        {
+            if (contactTwist != Vector3.Zero && MayStrike(victim))
+            {
+                victim.TwistHead(contactTwist);
+            }
+
+            NoteContact(hit);
+        }
+
+        Wound(striker.Body, null, victim, part, hit);
+        // 打った側の腕の骨も、相手の硬い所に当たれば曲げられる・削られる（折れた腕は肘を出せない）。
+        if (attacker.Voxels is { } own)
+        {
+            if (hit.BentFor(striker.Body) is { } bend && own.BreakBent(striker.Body.BodyId, bend) is { } bent)
+            {
+                BreakBone(attacker, bent, 1f);
+            }
+
+            if (hit.RemovedA.Count > 0 && own.BreakIfSevered(striker.Body.BodyId) is { } severed)
+            {
+                BreakBone(attacker, severed, 1f);
+            }
+        }
+    }
+
+    /// <summary>肘打ちを打撃（<see cref="HitEvent"/>）として数える: 拳・蹴りと同じ物差し（速さ・有効質量・部位の倍率）。数えたら true。</summary>
+    private bool ScoreElbow(Fighter attacker, Hand side, Fighter victim, VoxelPart striker, VoxelPart part, VoxelContactResult hit, Vector3 contactTwist)
+    {
+        if (RoundOver || Holding || !MayStrike(victim) || _elbowCooldown.GetValueOrDefault((attacker, side)) > 0f
+            || !_beforeStep.TryGetValue(striker.Body.BodyId, out var before))
+        {
+            return false;
+        }
+
+        var velocity = before.LinearVelocity + Vector3.Cross(before.AngularVelocity, hit.Point - before.Position);
+        var speed = MathF.Max(0f, Vector3.Dot(velocity, hit.Direction));
+        if (speed <= 0f)
+        {
+            return false;
+        }
+
+        var impactMass = attacker.ElbowImpactMass(side, hit.Point, hit.Direction, out var bodyShare);
+        var (kind, normalized, armHand) = victim.Locate(part.Body.BodyId, hit.Point);
+        var zone = HitZones.Classify(kind, normalized, armHand.LocalSide());
+        var damage = PunchMechanics.Damage(impactMass * speed) * PunchMechanics.Sharpness(speed) * ZoneDamage.Multiplier(zone);
+        if (damage < MinimumDamage)
+        {
+            return false;
+        }
+
+        _elbowCooldown[(attacker, side)] = RehitCooldown;
+        var face = hit.A == part.Body ? hit.FaceB : hit.FaceA;
+        ApplyHit(new HitEvent(attacker, side, victim, zone, hit.Point, speed, impactMass, bodyShare, damage, face, Elbow: true), part.Body.BodyId, velocity, carve: false, alsoTwist: contactTwist);
         return true;
     }
 

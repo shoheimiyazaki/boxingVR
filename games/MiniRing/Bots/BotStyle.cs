@@ -311,6 +311,18 @@ public sealed record BotStyle
     public float KickRangeFit { get; init; }
 
     /// <summary>
+    /// 攻めるとき、拳・蹴りの代わりに肘打ち（<see cref="ElbowSpec"/>）を選ぶ気（0..1）。0 なら肘を使わない（乱数の消費も今までと同じ）。
+    /// 実際に選ぶ確率は、この値 × 今の間合いが肘の届く間合いに合う度合い（<see cref="ElbowRangeFit"/>）。
+    /// </summary>
+    public float ElbowRate { get; init; }
+
+    /// <summary>肘を選ぶとき、今の間合いと肘の届く間合い（<see cref="ElbowSpec.Standoff"/>）の合い具合で重みを連続に変える強さ（<see cref="KickRangeFit"/> と同じ式。0 なら間合いを見ない）。</summary>
+    public float ElbowRangeFit { get; init; }
+
+    /// <summary>肘の種類ごとの好み（相対の重み）。</summary>
+    public IReadOnlyDictionary<ElbowTechnique, float> ElbowWeights { get; init; } = new Dictionary<ElbowTechnique, float>();
+
+    /// <summary>
     /// 倒れた相手を攻められる試合（レフェリーなし）で、倒れた相手へ打ち下ろす気（0..1）。立つ位置へ着いて届く間合いに沈めたとき、打ち始めを決める割合
     /// （0 なら倒れた相手へ手を出さない。レフェリーのいる試合では使わない）。
     /// </summary>
@@ -444,6 +456,9 @@ public sealed record BotStyle
             KickRate = Unit(KickRate),
             KickDuration = Range(KickDuration, 0.4f, 1.2f, 0.7f),
             KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
+            ElbowRate = Unit(ElbowRate),
+            ElbowRangeFit = Range(ElbowRangeFit, 0f, 4f, 0f),
+            ElbowWeights = (ElbowWeights ?? new Dictionary<ElbowTechnique, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
             GroundDrive = Unit(GroundDrive),
             GroundLoad = Range(GroundLoad, 0f, MaxTelegraph, 0.05f),
             GroundCut = Unit(GroundCut),

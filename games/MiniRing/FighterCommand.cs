@@ -31,7 +31,11 @@ public static class HandExtensions
 /// <para><paramref name="Slide"/>（2026-11-17）は、握っている棒を手の中で滑らせる（VR のトリガーを離している）。滑っている手は棒に力を伝えず、
 /// 握り直した所が新しい握りになる。棒のように握りの位置を選べる武器（<c>Weapon.SlideSpanOf</c>）だけで効き、他の武器・素手では無視する。
 /// 既定の false は今まで通り握ったまま。</para>
-public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float Spring = 0f, Quaternion? Orientation = null, bool LetGo = false, HandShape Shape = HandShape.Seiken, float Tuck = 0f, bool Slide = false);
+/// <para><paramref name="ElbowTarget"/>（2026-11-17、肘打ち）は肘の点の目標（体フレームのローカル）。渡している間は、肘がその点の向きへ出る（IK の極。
+/// <paramref name="Tuck"/> の代わり）うえ、上腕・前腕の骨のセルが拳・蹴りと同じ接触で相手に当たる。拳の目標（<paramref name="TargetLocal"/>）は
+/// 畳んだ手を置く所（耳・こめかみ）。肘の点を速く動かす経路（<c>Bots.ElbowSpec</c>）と胴のひねりで、肘が物理から速さと質量を得る。
+/// 威力・種類の倍率は持たない。</para>
+public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float Spring = 0f, Quaternion? Orientation = null, bool LetGo = false, HandShape Shape = HandShape.Seiken, float Tuck = 0f, bool Slide = false, Vector3? ElbowTarget = null);
 
 /// <summary>
 /// 1 ステップ分の操作指令 — 入力元（VR / キーボード / AI）とラグドールの唯一の契約。
