@@ -330,7 +330,7 @@ public sealed class SwordsmanBot : IFighterControl
     private float _distance = float.MaxValue;
 
     /// <summary>すでに近いときに、今の距離に合う技として数える間合いの幅 [m]（出す窓 <see cref="MotionTechnique.Window"/> より広い: 数 cm 歩いて合わせてから出す。手で決めた値）。</summary>
-    public const float CloseWindow = 0.08f;
+    public const float CloseWindow = 0.15f;
 
     /// <summary><paramref name="from"/> から 1 つ選ぶ（<see cref="Weights"/> が null なら同じ割合）。</summary>
     private MotionTechnique PickFrom(IReadOnlyList<MotionTechnique> from)
