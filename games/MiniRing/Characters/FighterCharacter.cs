@@ -75,6 +75,7 @@ public sealed record FighterCharacter(string Id, string Name, string Reading, st
         WeaponKind.WoodenClub => "こんぼう",
         WeaponKind.Staff => "六尺棒",
         WeaponKind.Jo => "杖",
+        WeaponKind.Bat => "バット",
         _ => weapon.ToString(),
     };
 

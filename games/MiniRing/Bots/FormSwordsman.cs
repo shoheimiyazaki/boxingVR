@@ -11,8 +11,8 @@ namespace MiniRing.Bots;
 /// </summary>
 public static class FormSwordsman
 {
-    /// <summary>型で動かす武器か（刀・ロングソード・棒。どれも両手持ち）。</summary>
-    public static bool Handles(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo;
+    /// <summary>型で動かす武器か（刀・ロングソード・棒・バット。どれも両手持ち）。</summary>
+    public static bool Handles(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.Bat;
 
     /// <summary>型で動かす武器か（両手持ちの <see cref="Handles"/> に、片手の剣 <see cref="WeaponKind.IronSword"/> を足したもの。片手剣の左手は盾（空いた手にはめた物）の経路を描く: <see cref="SwordShieldForms"/>）。</summary>
     public static bool HasForms(WeaponKind? weapon) => Handles(weapon) || weapon == WeaponKind.IronSword;
@@ -30,7 +30,8 @@ public static class FormSwordsman
         WeaponKind.Longsword => [.. LongswordForms.Value.Skip(1)],
         WeaponKind.Staff or WeaponKind.Jo => StaffForms.Forms(), // 杖も今は六尺棒の型（杖道の型は未作成。VR の記録から作る: docs/VR_MOTION.md）
         WeaponKind.IronSword => SwordShieldForms.Forms(),
-        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒・片手剣だけ。"),
+        WeaponKind.Bat => BatForms.Forms(),
+        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒・片手剣・バットだけ。"),
     };
 
     /// <summary>
@@ -58,7 +59,8 @@ public static class FormSwordsman
         WeaponKind.Longsword => LongswordForms.Value[0].Frames[0],
         WeaponKind.Staff or WeaponKind.Jo => StaffForms.Guard(),
         WeaponKind.IronSword => SwordShieldForms.Guard(),
-        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒・片手剣だけ。"),
+        WeaponKind.Bat => BatForms.Guard(),
+        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒・片手剣・バットだけ。"),
     };
 
     /// <summary>両手の間隔 [腕の長さ]。</summary>
@@ -66,6 +68,7 @@ public static class FormSwordsman
     {
         WeaponKind.Longsword => SwordForms.LongswordSpacing,
         WeaponKind.Staff or WeaponKind.Jo => StaffForms.Spacing,
+        WeaponKind.Bat => BatForms.Spacing,
         WeaponKind.IronSword => 0f, // 片手: 左手は剣の握りでなく盾の位置（型のキーの Left）
         _ => SwordForms.KatanaSpacing,
     };
@@ -104,6 +107,7 @@ public static class FormSwordsman
             WeaponKind.Katana => ("tsuki", "kesa"),
             WeaponKind.Staff or WeaponKind.Jo => ("tsuki", "uchi-oroshi"),
             WeaponKind.IronSword => ("tsuki", "kiri-oroshi"),
+            WeaponKind.Bat => ("poke-body", "chop"),
             _ => ("stich", "oberhau"),
         };
         return (forms.First(f => f.Name == light), forms.First(f => f.Name == heavy));

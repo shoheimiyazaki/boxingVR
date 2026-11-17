@@ -297,7 +297,8 @@ public static class CharacterRoster
         "club" or "woodenclub" => WeaponKind.WoodenClub,
         "staff" or "bo" => WeaponKind.Staff,
         "jo" => WeaponKind.Jo,
-        _ => throw new InvalidDataException($"武器 '{name}' は知りません（katana|longsword|ironSword|club|staff|jo）。"),
+        "bat" => WeaponKind.Bat,
+        _ => throw new InvalidDataException($"武器 '{name}' は知りません（katana|longsword|ironSword|club|staff|jo|bat）。"),
     };
 
     private static Vector3 Color(float[]? rgb, string field)

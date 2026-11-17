@@ -1305,7 +1305,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             var length = MiniRing.Weapons.Weapon.TipOf(kind).X - MiniRing.Weapons.Weapon.GripOf(kind).X;
             var spacing = !twoHanded ? 0f : Bots.FormSwordsman.Handles(kind) ? Bots.FormSwordsman.Spacing(kind) : MiniRing.Weapons.Weapon.HandSpacing / self.ArmReach;
             tool = new Bots.GroundTool(length / self.ArmReach, twoHanded, spacing);
-            club = kind == MiniRing.Weapons.WeaponKind.WoodenClub;
+            club = kind is MiniRing.Weapons.WeaponKind.WoodenClub or MiniRing.Weapons.WeaponKind.Bat;
         }
 
         return new Bots.GroundStriker(bot, bot is Bots.BoxerBot boxer ? boxer.Style : style, tool, seed ^ 0x2a2a, club);
@@ -1337,7 +1337,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private IFighterControl? WeaponBot(Weapons.WeaponKind? weapon, Bots.WeaponStyle? style, Fighter self, int seed, MiniRing.Weapons.HandWear wear = MiniRing.Weapons.HandWear.Glove) => !_corners.UseWeaponBots ? null : weapon switch
     {
         // 値は武器の教科書（style が null ならその武器の組み込みの教科書。キャラなら教育を重ねた物が corners に入っている）。
-        MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword or MiniRing.Weapons.WeaponKind.Staff or MiniRing.Weapons.WeaponKind.Jo => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning, style ?? Bots.WeaponCatalog.Textbook(weapon.Value)), // 刀・ロングソード・棒は、その武器の型で
+        MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword or MiniRing.Weapons.WeaponKind.Staff or MiniRing.Weapons.WeaponKind.Jo or MiniRing.Weapons.WeaponKind.Bat => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning, style ?? Bots.WeaponCatalog.Textbook(weapon.Value)), // 刀・ロングソード・棒・バットは、その武器の型で
         // 片手剣も型で動かす（右手の剣の経路 + 左手の物の経路）。左手の物（盾・グローブ）の見える大きさを、守りの覆う広さとして渡す。
         MiniRing.Weapons.WeaponKind.IronSword => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning, style ?? Bots.WeaponCatalog.Textbook(weapon.Value), MiniRing.Weapons.Weapon.CoverRadiusOf(MiniRing.Weapons.HandWears.Kind(wear)) / self.ArmReach),
         MiniRing.Weapons.WeaponKind.WoodenClub => Bots.ClubBot.FromStyle(style ?? Bots.WeaponCatalog.Textbook(weapon.Value), seed),

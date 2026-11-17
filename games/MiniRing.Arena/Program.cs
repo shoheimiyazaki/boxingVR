@@ -52,7 +52,7 @@ try
     return command switch
     {
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out", "hz", "passes", "sample", "referee")),
-        "handlelab" => HandleLabCommand(Options.Parse(argv[1..], "pairs", "fist", "bouts", "seconds", "seed", "referee", "parallel", "out", "style-katana", "style-longsword", "style-club", "style-staff", "style-swordshield", "title")),
+        "handlelab" => HandleLabCommand(Options.Parse(argv[1..], "pairs", "fist", "bouts", "seconds", "seed", "referee", "parallel", "out", "style-katana", "style-longsword", "style-club", "style-staff", "style-swordshield", "style-bat", "title")),
         "handlespar" => HandleSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "held-out", "gens", "lambda", "bouts", "seconds", "seed", "referee", "parallel", "start", "best", "out")),
         "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain", "wear")),
         "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
@@ -194,7 +194,7 @@ static int HandleLabCommand(Options o)
         ? [.. pairs.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Split(':') is { Length: 2 } ab ? new HandleLab.Matchup(ab[0], ab[1]) : throw new ArgumentException($"--pairs は a:b,c:d の形です（{p}）。"))]
         : HandleLab.DefaultMatchups(o.Get("fist") ?? "marcus");
     static MiniRing.Bots.WeaponStyle? Style(string? path) => path is null ? null : MiniRing.Bots.WeaponStyle.FromJson(File.ReadAllText(path));
-    var overrides = new HandleLab.Overrides(Style(o.Get("style-katana")), Style(o.Get("style-longsword")), Style(o.Get("style-club")), Staff: Style(o.Get("style-staff")), SwordShield: Style(o.Get("style-swordshield")));
+    var overrides = new HandleLab.Overrides(Style(o.Get("style-katana")), Style(o.Get("style-longsword")), Style(o.Get("style-club")), Staff: Style(o.Get("style-staff")), SwordShield: Style(o.Get("style-swordshield")), Bat: Style(o.Get("style-bat")));
     var bouts = o.Int("bouts", 6, min: 1);
     var seconds = o.Float("seconds", 40f, min: 1f);
     var seed = o.Int("seed", 1);
@@ -1145,8 +1145,9 @@ static int ImitateCommand(Options o)
     {
         "katana" => MiniRing.Bots.FormSwordsman.Forms(MiniRing.Weapons.WeaponKind.Katana).Select(f => new ImitationVideo.Shot(f.Name, MiniRing.Weapons.WeaponKind.Katana, f, rate)).ToList(),
         "longsword" => MiniRing.Bots.FormSwordsman.Forms(MiniRing.Weapons.WeaponKind.Longsword).Select(f => new ImitationVideo.Shot(f.Name, MiniRing.Weapons.WeaponKind.Longsword, f, rate)).ToList(),
+        "bat" => MiniRing.Bots.FormSwordsman.Forms(MiniRing.Weapons.WeaponKind.Bat).Select(f => new ImitationVideo.Shot(f.Name, MiniRing.Weapons.WeaponKind.Bat, f, rate)).ToList(),
         "staff" => SwordBasics.StaffShots(rate), "jo" => SwordBasics.JoShots(rate), _ => SwordBasics.Shots(rate),
-    }).Where(s => o.Get("only") is not { } only || (o.Get("weapon") is "katana" or "longsword" ? s.Title == only : s.Title.Contains(only, StringComparison.Ordinal))).ToList();
+    }).Where(s => o.Get("only") is not { } only || (o.Get("weapon") is "katana" or "longsword" or "bat" ? s.Title == only : s.Title.Contains(only, StringComparison.Ordinal))).ToList();
     if (shots.Count == 0)
     {
         throw new ArgumentException("指定された型がありません。");

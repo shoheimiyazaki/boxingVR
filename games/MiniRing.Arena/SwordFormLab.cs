@@ -10,7 +10,7 @@ internal static class SwordFormLab
     public static SwordLibraryLab.Library Library()
     {
         using var game = new BoxingGame(SwordStance.Tuning);
-        var weapons = new[] { WeaponKind.Katana, WeaponKind.Longsword };
+        var weapons = new[] { WeaponKind.Katana, WeaponKind.Longsword, WeaponKind.Bat };
         return new(weapons.ToDictionary(w => w, FormSwordsman.Guard),
             [.. weapons.SelectMany(w => FormSwordsman.Techniques(w, game.Player.ArmReach, 0f))]);
     }
