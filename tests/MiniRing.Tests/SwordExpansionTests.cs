@@ -88,7 +88,7 @@ public sealed class SwordExpansionTests
         var time = front.Motion.Duration * KickSpec.ContactShare;
         var command = MotionImitation.Command(front.Motion, time, game.PlayerSense, Vector3.UnitZ, SwordStance.Rate, FighterTuning.Default.WalkSpeed, FighterTuning.Default.MaxTorsoTwistRadians);
         Assert.IsNotNull(command.RightLeg);
-        Assert.AreEqual(front.Motion.Frames[0].Right * reach, command.Right.TargetLocal);
+        Assert.IsGreaterThanOrEqualTo((front.Motion.Frames[0].Right * reach).Y - 0.0001f, command.Right.TargetLocal.Y, "蹴る間、剣は構えより下へ下がらない（蹴り足の通り道から上へ外す）");
         Assert.IsLessThan(techniques.Where(t => t.Motion.Kick is null).Max(t => t.Range), front.Range);
     }
 

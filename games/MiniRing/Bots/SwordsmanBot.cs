@@ -304,6 +304,48 @@ public sealed class SwordsmanBot : IFighterControl
         ? _techniques
         : _techniques.Where(t => Weights.GetValueOrDefault(t.Name, 1f) > 0f).ToList() is { Count: > 0 } positive ? positive : _techniques;
 
+    /// <summary>
+    /// 技を決めて歩いて詰める（計画）の候補にする技の間合いの下限 [m]（<see cref="MotionTechnique.Range"/>）。
+    /// これより間合いが短い技（柄頭打ち・前蹴り・押し斬りなど、剣の間合いの内側の技）は、自分から近づいて出す技にはならず、
+    /// 相手がすでに近い（今の距離が計画の候補でいちばん短い技の間合いより短い）とき、または相手が詰めてきて迎え撃つときだけ、
+    /// 全部の技の中から今の距離に間合いが合う技として選ばれる。0 なら全部が計画の候補（今までの選び方）。
+    /// </summary>
+    public float PlanMinReach { get; init; }
+
+    private IReadOnlyList<MotionTechnique>? _planPool;
+
+    /// <summary>計画の候補: <see cref="Pool"/> のうち間合いが <see cref="PlanMinReach"/> 以上の技（内側の技が <see cref="Pool"/> に無ければ <see cref="Pool"/> そのもの）。</summary>
+    private IReadOnlyList<MotionTechnique> PlanPool => _planPool ??= PlanMinReach <= 0f
+        ? Pool
+        : Pool.Where(t => t.Range >= PlanMinReach).ToList() is { Count: > 0 } far && far.Count < Pool.Count ? far : Pool;
+
+    /// <summary>テスト用: 相手が距離 <paramref name="distance"/> [m] にいるときに決める計画の技（<see cref="ChoosePlan"/> と同じ）。</summary>
+    internal MotionTechnique PlanAt(float distance)
+    {
+        _distance = distance;
+        return ChoosePlan();
+    }
+
+    /// <summary>今の相手との水平の距離 [m]（毎歩）。技を決めるとき、すでに近いかを見る。</summary>
+    private float _distance = float.MaxValue;
+
+    /// <summary>すでに近いときに、今の距離に合う技として数える間合いの幅 [m]（出す窓 <see cref="MotionTechnique.Window"/> より広い: 数 cm 歩いて合わせてから出す。手で決めた値）。</summary>
+    public const float CloseWindow = 0.15f;
+
+    /// <summary>テスト用: 全部の技（<see cref="Pool"/>）のうち、間合いが今の距離 <paramref name="distance"/> にいちばん近い技（<see cref="NearestByRange"/>）。</summary>
+    internal MotionTechnique NearestAt(float distance) => NearestByRange(Pool, distance);
+
+    /// <summary>
+    /// <paramref name="from"/> のうち、間合いが今の距離 <paramref name="distance"/> にいちばん近い技。間合いが同じ（1 mm 以内）技が複数あるときは、
+    /// 並びの順でなく教科書の重みで種付きの乱数から選ぶ（同じ間合いの技が並びの先頭へ偏らない。1 つだけなら乱数を使わない）。
+    /// </summary>
+    private MotionTechnique NearestByRange(IReadOnlyList<MotionTechnique> from, float distance)
+    {
+        var best = from.Min(t => MathF.Abs(RangeOf(t) - distance));
+        var ties = from.Where(t => MathF.Abs(RangeOf(t) - distance) - best <= 0.001f).ToList();
+        return ties.Count == 1 ? ties[0] : PickFrom(ties);
+    }
+
     /// <summary><paramref name="from"/> から 1 つ選ぶ（<see cref="Weights"/> が null なら同じ割合）。</summary>
     private MotionTechnique PickFrom(IReadOnlyList<MotionTechnique> from)
     {
@@ -432,15 +474,24 @@ public sealed class SwordsmanBot : IFighterControl
             _aimForward = Aim is { } chosen ? _forwardNow.GetValueOrDefault(chosen) : 0f;
         }
 
-        if (Aim is not { } aimAt)
+        // すでに近い（計画の候補でいちばん短い技より内側）: 歩いて詰める必要が無いので、全部の技から今の距離に間合いが合う技
+        // （|間合い − 距離| が窓の中。1 つも無ければ、いちばん近い間合いの技）を、教科書の重みで選ぶ。
+        // 連続の量（距離と間合い）と重みだけで決め、技の種類で分けない。
+        if (!ReferenceEquals(PlanPool, Pool) && _distance < PlanPool.Min(RangeOf) - MotionTechnique.Window)
         {
-            return PickFrom(Pool);
+            var fitting = Pool.Where(t => MathF.Abs(RangeOf(t) - _distance) <= CloseWindow).ToList();
+            return fitting.Count > 0 ? PickFrom(fitting) : NearestByRange(Pool, _distance);
         }
 
-        var best = Pool.Max(t => t.Skill?.GetValueOrDefault(aimAt) ?? 0f);
+        if (Aim is not { } aimAt)
+        {
+            return PickFrom(PlanPool);
+        }
+
+        var best = PlanPool.Max(t => t.Skill?.GetValueOrDefault(aimAt) ?? 0f);
         IReadOnlyList<MotionTechnique> pool = best > 0f
-            ? [.. Pool.Where(t => (t.Skill?.GetValueOrDefault(aimAt) ?? 0f) >= 0.8f * best)]
-            : Pool.Where(t => t.Target == aimAt).ToList() is { Count: > 0 } named ? named : Pool;
+            ? [.. PlanPool.Where(t => (t.Skill?.GetValueOrDefault(aimAt) ?? 0f) >= 0.8f * best)]
+            : PlanPool.Where(t => t.Target == aimAt).ToList() is { Count: > 0 } named ? named : PlanPool;
         return PickFrom(pool);
     }
 
@@ -478,6 +529,7 @@ public sealed class SwordsmanBot : IFighterControl
         var toOpponent = sense.OpponentChest - sense.Self.Origin;
         toOpponent.Y = 0f;
         var distance = toOpponent.Length();
+        _distance = distance;
         var face = distance > 1e-4f ? toOpponent / distance : sense.Self.Forward;
         _lines = WeaponDefense.Lines(sense, _defense.WatchFists);
         WatchOpponent(sense);
@@ -557,7 +609,7 @@ public sealed class SwordsmanBot : IFighterControl
             _counter = false;
             _counterPlanned = true;
             _restUntil = _time;
-            _plan = Pool.MinBy(x => MathF.Abs(RangeOf(x) - distance));
+            _plan = NearestByRange(Pool, distance);
             _plannedAt = _time;
             _attacking = _hitAndAway is not null;
             _retreating = false;
@@ -569,7 +621,7 @@ public sealed class SwordsmanBot : IFighterControl
         }
 
         var resting = _time < _restUntil;
-        var closest = Pool.Min(RangeOf);
+        var closest = PlanPool.Min(RangeOf);
         var pressed = !Exact && (resting ? distance <= closest + MotionTechnique.Window : _plan is { } p && distance < RangeOf(p) - MotionTechnique.Window);
         if (!resting || pressed)
         {

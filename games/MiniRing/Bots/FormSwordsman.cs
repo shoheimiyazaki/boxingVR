@@ -149,13 +149,14 @@ public static class FormSwordsman
     {
         ArgumentNullException.ThrowIfNull(style);
         CheckTechniqueNames(weapon, style.TechniqueWeights);
-        var bot = new SwordsmanBot([.. Techniques(weapon, armReach, style.MinReach)], Guard(weapon), seed, SwordStance.Rate, rest: style.Rest, tuning: tuning,
+        var bot = new SwordsmanBot([.. Techniques(weapon, armReach, style.InnerMinReach ?? style.MinReach)], Guard(weapon), seed, SwordStance.Rate, rest: style.Rest, tuning: tuning,
             defense: style.Defense, bladeLength: BladeLength(weapon, armReach), spacing: Spacing(weapon), opponentReach: 3f, hitAndAway: style.HitAndAway, aim: style.Aim)
         {
             AutoAim = style.AutoAim,
             Clearance = style.Clearance,
             Pacing = style.Pacing,
             Weights = style.TechniqueWeights,
+            PlanMinReach = style.InnerMinReach is null ? 0f : style.MinReach,
             RearLength = RearLength(weapon, armReach),
             OffhandRadius = offhandRadius,
         };
