@@ -99,7 +99,31 @@ public sealed class MotionImitation : IFighterControl
         }
 
         face = face.LengthSquared() > 1e-8f ? Vector3.Normalize(face) : sense.Self.Forward;
-        return ToCommand(frame, sense, face, Started ? Rate : 0f, _walkSpeed, _maxTwist);
+        var command = ToCommand(frame, sense, face, Started ? Rate : 0f, _walkSpeed, _maxTwist);
+        // 一人稽古は相手に背を向ける。背後の相手でなく、同じ高さの前方の仮想の的を蹴る。
+        Vector3? soloAim = null;
+        if (_faceAway && Motion.Kick is { } kick)
+        {
+            soloAim = (sense.Self.Origin + (face * kick.Standoff * sense.ArmReach)) with { Y = kick.AimWorld(sense).Y };
+        }
+        return WithKick(command, Motion, ahead, sense, soloAim);
+    }
+
+    /// <summary>型の両手と脚を同じ指令へ落とす（稽古・試合・意図操作で共用）。</summary>
+    public static FighterCommand Command(SwordMotion motion, float time, in FighterSense sense, Vector3 face, float rate, float walkSpeed, float maxTwist, Vector3 extraMove = default) =>
+        WithKick(ToCommand(motion.Sample(time), sense, face, rate, walkSpeed, maxTwist, extraMove), motion, time, sense);
+
+    /// <summary>脚の経路は既存の KickSpec。腕は構えの目標を保ち、接触の運動量で相手を押す。</summary>
+    public static FighterCommand WithKick(FighterCommand command, SwordMotion motion, float time, in FighterSense sense, Vector3? aimWorld = null)
+    {
+        if (motion.Kick is not { } kick || time <= 0f || time >= motion.Duration)
+        {
+            return command;
+        }
+
+        var rest = new Vector3(Hand.Right.LocalSide() * 0.2f * sense.ArmReach, -1.4f * sense.ArmReach, 0f);
+        var aim = sense.Self.WorldToLocal(aimWorld ?? kick.AimWorld(sense));
+        return command with { RightLeg = kick.Evaluate(Hand.Right, time, motion.Duration, rest, aim, sense.ArmReach, sense.SelfLeg(Hand.Right)) };
     }
 
     /// <summary>

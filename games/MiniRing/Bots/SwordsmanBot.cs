@@ -119,6 +119,8 @@ public sealed record HitAndAway(float Margin = 0.06f, float Lunge = 0.35f, float
 /// </summary>
 public sealed class SwordsmanBot : IFighterControl
 {
+    // 前蹴りの後は、通常の HitAndAway と同じ読み・余裕・下がりを使う。
+    private static readonly HitAndAway CloseRecovery = new();
     private readonly IReadOnlyList<MotionTechnique> _techniques;
     private readonly MotionFrame _guard;
     private readonly Random _random;
@@ -352,7 +354,7 @@ public sealed class SwordsmanBot : IFighterControl
         var bestScore = 0f;
         foreach (var part in MotionAim.Targets)
         {
-            var skill = _techniques.Max(t => t.Skill?.GetValueOrDefault(part) ?? 0f);
+            var skill = Pool.Max(t => t.Skill?.GetValueOrDefault(part) ?? 0f);
             if (skill <= 0f)
             {
                 continue;
@@ -391,7 +393,10 @@ public sealed class SwordsmanBot : IFighterControl
     /// 技 <paramref name="technique"/> を出す間合い: 技の間合いに、狙う所が相手の胸より手前にある分を足し、武器が折れて失った長さ
     /// （<see cref="WeaponSense.Lost"/>）だけ近づく（短くなった武器のまま使う）。
     /// </summary>
-    private float RangeOf(MotionTechnique technique) => technique.Range + _aimForward - _lost;
+    private float RangeOf(MotionTechnique technique) => technique.Motion.Kick is not null ? technique.Range
+        : technique.Range + _aimForward - (MotionAim.StrikingEndX(technique, _armReach) > MiniRing.Weapons.Weapon.GripOf(technique.Weapon).X ? _lost : 0f);
+
+    private float _armReach;
 
     /// <summary>自分の武器が折れて失った長さ [m]（毎歩 <see cref="FighterSense.SelfWeapon"/> から）。</summary>
     private float _lost;
@@ -416,11 +421,11 @@ public sealed class SwordsmanBot : IFighterControl
             return PickFrom(Pool);
         }
 
-        var best = _techniques.Max(t => t.Skill?.GetValueOrDefault(aimAt) ?? 0f);
+        var best = Pool.Max(t => t.Skill?.GetValueOrDefault(aimAt) ?? 0f);
         IReadOnlyList<MotionTechnique> pool = best > 0f
-            ? [.. _techniques.Where(t => (t.Skill?.GetValueOrDefault(aimAt) ?? 0f) >= 0.8f * best)]
-            : _techniques.Where(t => t.Target == aimAt).ToList() is { Count: > 0 } named ? named : _techniques;
-        return pool[_random.Next(pool.Count)];
+            ? [.. Pool.Where(t => (t.Skill?.GetValueOrDefault(aimAt) ?? 0f) >= 0.8f * best)]
+            : Pool.Where(t => t.Target == aimAt).ToList() is { Count: > 0 } named ? named : Pool;
+        return PickFrom(pool);
     }
 
     /// <summary>相手の隙（振り終えた直後）を見て打ちに出た回数（<see cref="HitAndAway"/>）。</summary>
@@ -452,6 +457,7 @@ public sealed class SwordsmanBot : IFighterControl
     public FighterCommand Read(in FighterSense sense, float dt)
     {
         _time += dt;
+        _armReach = sense.ArmReach;
         _lost = sense.SelfWeapon.Lost;
         var toOpponent = sense.OpponentChest - sense.Self.Origin;
         toOpponent.Y = 0f;
@@ -484,15 +490,15 @@ public sealed class SwordsmanBot : IFighterControl
             if (t < technique.Motion.Duration)
             {
                 var frame = technique.Motion.Sample(t);
-                _gate = GateOf(sense, frame);
-                return MotionImitation.ToCommand(Clear(frame), sense, face, _rate * _gate, _walkSpeed, _maxTwist);
+                _gate = technique.Motion.Kick is null ? GateOf(sense, frame) : 1f;
+                return MotionImitation.WithKick(MotionImitation.ToCommand(Clear(frame), sense, face, _rate * _gate, _walkSpeed, _maxTwist), technique.Motion, t, sense);
             }
 
             _current = null;
             _plan = null;
             _restUntil = _time + Rest;
             _attacking = false;
-            _retreating = _hitAndAway is not null; // 打ったらすぐ遠間へ下がる
+            _retreating = _hitAndAway is not null || technique.Motion.Kick is not null; // 蹴った後も同じ下がりで剣の間合いへ
             _retreatStart = _time;
         }
 
@@ -541,13 +547,13 @@ public sealed class SwordsmanBot : IFighterControl
             _retreating = false;
         }
 
-        if (_hitAndAway is { } h)
+        if ((_hitAndAway ?? (_retreating ? CloseRecovery : null)) is { } h)
         {
             return HitAndAwayStep(sense, h, distance, face);
         }
 
         var resting = _time < _restUntil;
-        var closest = _techniques.Min(RangeOf);
+        var closest = Pool.Min(RangeOf);
         var pressed = !Exact && (resting ? distance <= closest + MotionTechnique.Window : _plan is { } p && distance < RangeOf(p) - MotionTechnique.Window);
         if (!resting || pressed)
         {

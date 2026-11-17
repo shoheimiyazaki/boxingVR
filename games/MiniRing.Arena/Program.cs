@@ -71,7 +71,7 @@ try
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
         "formlab" => FormLabCommand(Options.Parse(argv[1..], "punch", "slot", "style", "move", "set", "cue", "bouts", "seconds", "seed", "log")),
-        "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift")),
+        "aimlab" => AimLabCommand(Options.Parse(argv[1..], "library", "library-out", "tuning-out", "out", "quick", "maxshift", "forms", "only")),
         "cmatune" => CmaTuneCommand(Options.Parse(argv[1..], "target", "defenses", "gens", "lambda", "sigma", "samples", "seconds", "seed", "resume", "out", "json", "confirm-n", "match-n", "match-seconds", "parallel")),
         "defconfirm" => DefConfirm.Run(Options.Parse(argv[1..], "defense", "book", "seed", "seconds", "confirm-n", "export-champion")),
         "noiselab" => NoiseLabCommand(Options.Parse(argv[1..], "only", "match-n", "drill-n", "match-seconds", "drill-seconds", "match-ref", "drill-ref", "seed", "parallel", "out")),
@@ -80,7 +80,7 @@ try
         "breakdemo" => BreakDemoCommand(Options.Parse(argv[1..], "out", "seconds", "only", "fps")),
         "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seed", "parallel", "seconds", "out", "only", "variants", "video", "try", "defender", "forms", "techniques", "compare")),
         "selfcuts" => SelfCutCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "out", "hitaway", "passes", "clearance", "margin", "tilt", "pacing", "slack", "angle")),
-        "selfpath" => SelfPathCommand(Options.Parse(argv[1..], "margin", "from", "tilt", "out")),
+        "selfpath" => SelfPathCommand(Options.Parse(argv[1..], "margin", "from", "tilt", "out", "forms")),
         "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes", "hz", "sample")),
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
         "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway", "clearance", "passes", "hz", "sample", "margin", "tilt", "pacing", "slack", "angle")),
@@ -912,7 +912,14 @@ static int AimLabCommand(Options o)
         ? [new()]
         : [.. from gain in AimGrid.Gains from lead in AimGrid.Leads from forward in AimGrid.Forwards
               select new MiniRing.Motion.AimTuning(gain, lead, 0.6f, forward)];
-    var report = AimLab.Run(SwordLibraryLab.Load(library), candidates, o.Get("library-out") ?? library, o.Get("tuning-out") ?? "docs/arena/aim_tuning.json", Console.Out);
+    var input = o.Get("forms") == "yes" ? SwordFormLab.Library() : SwordLibraryLab.Load(library);
+    if (o.Get("only") is { } only)
+    {
+        var names = only.Split(',').ToHashSet(StringComparer.Ordinal);
+        input = input with { Techniques = [.. input.Techniques.Where(t => names.Contains(t.Name))] };
+        if (input.Techniques.Count == 0) { throw new ArgumentException("指定された型がありません。"); }
+    }
+    var report = AimLab.Run(input, candidates, o.Get("library-out") ?? library, o.Get("tuning-out") ?? "docs/arena/aim_tuning.json", Console.Out);
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {
@@ -1018,7 +1025,7 @@ static int SelfPathCommand(Options o)
 {
     // 技の目標の通り道が自分の体を通るか（判断の側の自傷）。
     var clearance = new MiniRing.Motion.SelfClearance(o.Float("margin", 0.1f, min: 0f), o.Float("from", 0.45f, min: 0f), o.Float("tilt", 0.6f, min: 0f));
-    var report = SelfPathLab.Run(SwordLibraryLab.Load("docs/arena/sword_library.json"), clearance);
+    var report = SelfPathLab.Run(o.Get("forms") == "yes" ? SwordFormLab.Library() : SwordLibraryLab.Load("docs/arena/sword_library.json"), clearance);
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {
@@ -1132,7 +1139,16 @@ static int ImitateCommand(Options o)
     var output = o.Get("out") ?? "videos/sword_basics.mp4";
     Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
     var rate = o.Float("rate", 1.77f, min: 0.1f); // 体の大きさの比 0.32 の 1/√（同じ重力の下でつり合う速さ）
-    var shots = (o.Get("weapon") switch { "staff" => SwordBasics.StaffShots(rate), "jo" => SwordBasics.JoShots(rate), _ => SwordBasics.Shots(rate) }).Where(s => o.Get("only") is not { } only || s.Title.Contains(only, StringComparison.Ordinal)).ToList();
+    var shots = (o.Get("weapon") switch
+    {
+        "katana" => MiniRing.Bots.FormSwordsman.Forms(MiniRing.Weapons.WeaponKind.Katana).Select(f => new ImitationVideo.Shot(f.Name, MiniRing.Weapons.WeaponKind.Katana, f, rate)).ToList(),
+        "longsword" => MiniRing.Bots.FormSwordsman.Forms(MiniRing.Weapons.WeaponKind.Longsword).Select(f => new ImitationVideo.Shot(f.Name, MiniRing.Weapons.WeaponKind.Longsword, f, rate)).ToList(),
+        "staff" => SwordBasics.StaffShots(rate), "jo" => SwordBasics.JoShots(rate), _ => SwordBasics.Shots(rate),
+    }).Where(s => o.Get("only") is not { } only || (o.Get("weapon") is "katana" or "longsword" ? s.Title == only : s.Title.Contains(only, StringComparison.Ordinal))).ToList();
+    if (shots.Count == 0)
+    {
+        throw new ArgumentException("指定された型がありません。");
+    }
     // 調べもの: 手首の強さ・固さを変えて、なぞれ方がどう変わるか（--measure なら動画を作らずに数字だけ）。
     var tuning = ImitationVideo.SwordStance with
     {

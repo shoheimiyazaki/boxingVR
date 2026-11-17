@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using Aigis.Render;
+using MiniRing.Audio;
 using MiniRing.Motion;
 using MiniRing.Weapons;
 
@@ -37,15 +38,40 @@ internal sealed class ImitationVideo(int width, int height, int fps, float slow,
     public void Make(IReadOnlyList<Shot> shots, string outPath, TextWriter log)
     {
         using var renderer = new HeadlessRenderer((uint)width, (uint)height);
+        var silentPath = Path.ChangeExtension(outPath, ".silent.mp4");
+        var wavPath = Path.ChangeExtension(outPath, ".wav");
+        var clips = new List<(float At, byte[] Pcm)>();
+        var frames = 0;
         using var ffmpeg = Process.Start(new ProcessStartInfo("ffmpeg",
-            $"-y -loglevel error -f rawvideo -pix_fmt rgba -s {width}x{height} -r {fps} -i - -c:v libx264 -pix_fmt yuv420p -crf 18 -preset medium \"{outPath}\"")
+            $"-y -loglevel error -f rawvideo -pix_fmt rgba -s {width}x{height} -r {fps} -i - -c:v libx264 -pix_fmt yuv420p -crf 23 -preset fast \"{silentPath}\"")
         {
             RedirectStandardInput = true,
             UseShellExecute = false,
         }) ?? throw new IOException("ffmpeg を起動できません（PATH にありますか）。");
         foreach (var shot in shots)
         {
-            var t = Run(shot, (game, frameText, lines, dim) => Emit(renderer, ffmpeg, game, frameText, lines, dim));
+            var offset = ((float)frames / fps) + TitleSeconds;
+            var impacts = new ImpactAudio();
+            var audioSeed = 0;
+            var t = Run(shot, (game, frameText, lines, dim) =>
+            {
+                Emit(renderer, ffmpeg, game, frameText, lines, dim);
+                frames++;
+            }, afterStep: (game, time) =>
+            {
+                foreach (var voice in impacts.Push(time, ImpactAudio.Gather(game.RecentHits, game.RecentContacts, game.RecentShatters, weaponHits: [.. game.WeaponHits, .. game.SelfWeaponHits])))
+                {
+                    clips.Add((offset + ((float)voice.OccurredAt * slow), voice.Pcm));
+                }
+                foreach (var swing in game.RecentSwings)
+                {
+                    if (SwingSound.Synthesize(swing.Speed, ++audioSeed) is { } pcm)
+                    {
+                        clips.Add((offset + (time * slow), pcm));
+                    }
+                }
+            });
+            clips.AddRange(impacts.Flush().Select(v => (offset + ((float)v.OccurredAt * slow), v.Pcm)));
             log.WriteLine(string.Create(CultureInfo.InvariantCulture,
                 $"{shot.Title}: tip error mean {t.MeanTipError:0.00} max {t.MaxTipError:0.00} hand error {t.MeanHandError:0.00} (arm lengths)"));
         }
@@ -56,10 +82,22 @@ internal sealed class ImitationVideo(int width, int height, int fps, float slow,
         {
             throw new IOException($"ffmpeg failed with exit code {ffmpeg.ExitCode}.");
         }
+
+        var duration = (float)frames / fps;
+        var track = new float[(int)(duration * HitSound.SampleRate)];
+        foreach (var (at, pcm) in clips) { VideoMaker.Mix(track, pcm, at, 1f); }
+        VideoMaker.WriteWav(wavPath, track, duration);
+        using var mux = Process.Start(new ProcessStartInfo("ffmpeg",
+            $"-y -loglevel error -i \"{silentPath}\" -i \"{wavPath}\" -c:v copy -c:a aac -b:a 96k -t {duration.ToString(CultureInfo.InvariantCulture)} \"{outPath}\"") { UseShellExecute = false })
+            ?? throw new IOException("型の動画の音声を結合できません。");
+        mux.WaitForExit();
+        if (mux.ExitCode != 0) { throw new IOException($"音声の結合に失敗: {mux.ExitCode}"); }
+        File.Delete(silentPath);
+        File.Delete(wavPath);
     }
 
     /// <summary>1 本をなぞらせ、<paramref name="emit"/> へ絵を出す（null なら測るだけ）。</summary>
-    internal Tracking Run(Shot shot, Action<BoxingGame, IReadOnlyList<ScreenTextDraw>, IReadOnlyList<DebugLine>, float>? emit, TextWriter? trace = null)
+    internal Tracking Run(Shot shot, Action<BoxingGame, IReadOnlyList<ScreenTextDraw>, IReadOnlyList<DebugLine>, float>? emit, TextWriter? trace = null, Action<BoxingGame, float>? afterStep = null)
     {
         var nextTrace = 0f;
         // 相手に背を向けて稽古する（動きの踏み込みで相手にぶつからないように）。
@@ -97,6 +135,7 @@ internal sealed class ImitationVideo(int width, int height, int fps, float slow,
         for (var t = 0f; t < length; t += dt)
         {
             game.Step(default, dt);
+            afterStep?.Invoke(game, t);
             var frame = game.Player.Frame;
             var target = control.Current;
             var s = game.World.GetState(sword.Body.BodyId);
