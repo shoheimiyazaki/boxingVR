@@ -25,3 +25,7 @@ H1（届く受けだけ）・H2（構えが線を覆う）・H3（弧で読む�
 ## 残り
 
 突き・横で受けを試みる割合を増やすこと（向きを回さない候補）、ロングソードの自傷、弧に手首・肘の回りを含めること、`HandSpeed`・`TurnSpeed` を実体の握りの追従で測ること。
+
+## 全テスト
+
+Probe を除く全体（raytrek、Release）: 954 件中 成功 945・スキップ 5・失敗 4。失敗 4 件（`WeaponTextbooksInJson_WithTheOldValues_PlayTheSameMatchesAsTheHardCodedWeaponBots`・`AdoptedWeaponTextbooks_PlayTheRecordedMatches_AndDifferFromTheOldOnes`・`EmptyEducation_PlaysTheSameMatchesAsBeforeTheFilesWereSplit`・`WeaponStyleTests.Json_RoundTripsEveryValue_IncludingTheOptionalSections`）は、この作業の前の fb460ba（型の WIP のマージ）で既に同じく失敗する（確認済み）。この作業の既定の判断は変えていない。技の作業の側で直すもの。新しい `ReachableDefenseTests` 8 件と `ContinuousDefenseTests`・再生のテストは成功。README の件数は、並行の作業と合わせて変わるので触っていない。
