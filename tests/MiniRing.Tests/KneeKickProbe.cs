@@ -14,7 +14,7 @@ public sealed class KneeKickProbe
     {
         foreach (var standoff in new[] { 1.2f })
         {
-            using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("still", _ => new StandGuard(), PlayerBody: MiniRing.Characters.CharacterRoster.Get("diego").Build));
+            using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("still", _ => new StandGuard(), PlayerBody: MiniRing.Characters.CharacterRoster.Get("taeyun").Build));
             var a = game.Player;
             var v = game.Cpu;
             var side = Hand.Right;

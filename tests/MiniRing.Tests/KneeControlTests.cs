@@ -197,10 +197,10 @@ public sealed class KneeControlTests
     [TestMethod]
     public void PracticedRoundhouse_ClosedBeforeTheImpact_OpenAtIt_AndLandsAtTwoStandoffs()
     {
-        // 磨いた回し蹴り（左脚、diego）を 2 つの間合いで蹴る: 当たる。当たる 0.5 秒前は実際の膝が閉じ（曲げ 1 rad 以上）、当たった瞬間は開いている（曲げ 0.6 rad 以下）。
+        // 磨いた回し蹴り（左脚、taeyun）を 2 つの間合いで蹴る: 当たる。当たる 0.5 秒前は実際の膝が閉じ（曲げ 1 rad 以上）、当たった瞬間は開いている（曲げ 0.6 rad 以下）。
         // 当たったすねの点は膝から 0.5〜1.6（下すね〜足の甲・つま先。0.6〜0.9 には入らない: docs/TAEKWONDO.md の残った問題）。
         var spec = KickSpec.HandmadeRoundhouse;
-        var body = MiniRing.Characters.CharacterRoster.Get("diego").Build;
+        var body = MiniRing.Characters.CharacterRoster.Get("taeyun").Build;
         var duration = spec.Seconds!.Value;
         foreach (var approach in new[] { 1.3f, 1.1f })
         {
@@ -276,7 +276,7 @@ public sealed class KneeControlTests
         // 回し蹴りを kicklab が採った間合い（KickSpec.Standoff）で、種と左右の脚を替えて蹴る（相手は立つだけ）。
         // 当たった中でいちばん強い当たり（その蹴りの本命）の点が、膝から 0.5〜1.2（下すね〜足首のそば〜足の甲）に入る。
         var spec = KickSpec.Of(KickTechnique.Roundhouse);
-        var body = MiniRing.Characters.CharacterRoster.Get("diego").Build;
+        var body = MiniRing.Characters.CharacterRoster.Get("taeyun").Build;
         var inBand = 0;
         var landed = 0;
         var trials = 0;

@@ -92,7 +92,7 @@ internal static class KickMocap
     {
         const int width = 1280, height = 720, fps = 30;
         const float slow = 0.25f;
-        var body = Characters.CharacterRoster.Get("diego").Build;
+        var body = Characters.CharacterRoster.Get("taeyun").Build;
         using var renderer = new Aigis.Render.HeadlessRenderer(width, height);
         using var ffmpeg = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ffmpeg",
             $"-y -loglevel error -f rawvideo -pix_fmt rgba -s {width}x{height} -r {fps} -i - -c:v libx264 -pix_fmt yuv420p -crf 18 -preset medium \"{outPath}\"")
