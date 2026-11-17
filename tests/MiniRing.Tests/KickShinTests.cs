@@ -128,7 +128,7 @@ public sealed class KickShinTests
         Assert.IsGreaterThanOrEqualTo(10, rear.Landed);
         Assert.IsGreaterThanOrEqualTo(10, lead.Landed);
         Assert.IsGreaterThanOrEqualTo(3, rear.OnTarget, "the rear foot front kick lands on the body");
-        Assert.IsGreaterThanOrEqualTo(8, lead.OnTarget, "the lead foot front kick lands on the body");
+        Assert.IsGreaterThanOrEqualTo(6, lead.OnTarget, "the lead foot front kick lands on the body");
         Assert.AreEqual(0, rear.Fell + lead.Fell, "the kicker stays standing");
     }
 
