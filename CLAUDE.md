@@ -175,6 +175,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 - **ボクセルの武器（ワークツリー `.claude/worktrees/voxel-damage`、ブランチ `claude/voxel-damage`）**: 鉄の剣・木の棍棒・はめる物。`VoxelContact`（圧力の接触）、`VoxelBending`（梁の曲げ）、`Fighter.Wield`、武器同士の広いリング（`RingLayout`）、武器を選ばない剣の守り（`docs/WEAPON_DEFENSE.md`）。2026-11-12 の時点で master へマージ済み（`PhysicsVersion` 13・`LogicVersion` 12）。続きを入れるときは、master 側の変更（スタミナ・臓器・テレビ中継・狙い・はめる物・顔）とぶつかる所を確かめる。
 - **スタミナの効き方・間合いの層・学ぶボット（ワークツリー `.claude/worktrees/a-3d0203`、ブランチ `claude/a-3d0203`）**: 疲れが肩・肘・手首のサーボと拳を縮める速さに出る（`TiredHandSlowness`）、間合いの層（`RangeSense`・`RangePress`・`RangeGuard`）、守りの効き目を経験で覚える（`DefenseMemory`、既定は使わない）。計画と記録は `docs/LEARNING_PLAN.md`。2026-11-13 に master へマージ済み（`PhysicsVersion` 17・`LogicVersion` 16）。
 - **技の進化と強化学習（ブランチ `claude/evo-p0b`、作業指示 14〜18）**: 拳の技表のデータ化（`PunchBook`）、対にした評価・雑音の測定（`noiselab`）、CMA-ES（`cmatune`・`defconfirm`）。2026-11-16 に master へマージ済み（判断の既定値は変えていない）。測定の結論は「CMA-ES は道具として採る・固定した 1 守りのドリルで磨いた拳は試合で強くならないので既定に採らない」。次は目的の点を直す P1d → PPO の P2。**続けるときは先に `docs/plans/EVO_HANDOFF_2026-11-17.md` を読む**（計画の表は `docs/LEARNING_PLAN.md` §9）。
+- **テレビ中継の生配信（OBS へ）**: ゲームが NVENC でエンコードして SRT で同じ PC の OBS へ流す（`video --live`・`tvshow.ps1 -Stage liveprep|live`）。実況の声は描かない下回し（`--render off`）から前もって作る。2026-11-17 に master に入っている（ffmpeg を受け手にして 720p で途切れ 0）。OBS 実機・YouTube/Twitch への実送信・1080p は未確認。**続けるときは先に `docs/plans/LIVE_STREAM_HANDOFF_2026-11-17.md` を読む**（本文は `docs/TV_BROADCAST.md` §7・§8）。
 
 ## 8. 軸から外れている所（技術的な負債。直す方向は軸へ寄せること）
 
