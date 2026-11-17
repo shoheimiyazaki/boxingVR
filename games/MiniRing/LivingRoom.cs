@@ -208,7 +208,8 @@ public static class LivingRoom
         ArgumentNullException.ThrowIfNull(layout);
         var c = layout.Center;
         var d = MathF.Max(MathF.Abs(p.X - c.X), MathF.Abs(p.Z - c.Z));
-        return d < layout.Half + 0.02f ? canvasHeight
+        var onCanvas = layout.IsCage ? layout.EdgeDistance(p) > -0.02f : d < layout.Half + 0.02f; // 檻は六角形のキャンバス
+        return onCanvas ? canvasHeight
             : d < layout.PlinthHalf ? StageBase
             : d < layout.TableHalf ? TableTop
             : 0f;

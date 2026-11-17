@@ -443,6 +443,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// </summary>
     private bool MayStrike(Fighter victim) => victim.State == FighterState.Standing || !_corners.Referee;
 
+    /// <summary>ダウンを数えるか（<see cref="MatchRules.CountsDowns"/>。<see cref="Rules"/> が無ければ数える）。数えないなら 10 カウント・動かないままの K.O. で決着せず、一呼吸も無い。</summary>
+    public bool CountsDowns => Rules?.CountsDowns ?? true;
+
     /// <summary>レフェリーがいるか（いなければ数えている間も攻撃でき、立ち直った後の一呼吸も無い）。</summary>
     public bool Referee => _corners.Referee;
 
@@ -454,7 +457,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     {
         foreach (var fighter in Fighters)
         {
-            if (_corners.Referee && _wasCounted.Contains(fighter) && fighter.State == FighterState.Standing && !Resting)
+            if (_corners.Referee && CountsDowns && _wasCounted.Contains(fighter) && fighter.State == FighterState.Standing && !Resting)
             {
                 _resumeHold = ResumePause;
             }
@@ -976,7 +979,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             var dead = Player.IsDead ? Player : Cpu;
             EndRound(cpuWon: dead == Player, $"K.O. — {dead.DeathCause!.ToUpperInvariant()} DESTROYED");
         }
-        else if (Fighters.FirstOrDefault(f => f.StillTime > StillKoSeconds) is { } still)
+        else if (CountsDowns && Fighters.FirstOrDefault(f => f.StillTime > StillKoSeconds) is { } still)
         {
             EndRound(cpuWon: still == Player, "K.O. — OUT COLD");
         }
@@ -988,11 +991,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         {
             EndRound(cpuWon: false, "RING OUT");
         }
-        else if (Player.DownTime > CountSeconds)
+        else if (CountsDowns && Player.DownTime > CountSeconds)
         {
             EndRound(cpuWon: true, "10 COUNT K.O.");
         }
-        else if (Cpu.DownTime > CountSeconds)
+        else if (CountsDowns && Cpu.DownTime > CountSeconds)
         {
             EndRound(cpuWon: false, "10 COUNT K.O.");
         }
@@ -1040,6 +1043,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             foreach (var fighter in Fighters)
             {
                 // 削れた体は一定の速さで治る（RegenVoxelsPerSecond 個/秒）。打撲・スタミナ・脳しんとうはそれぞれの速さで戻る。
+                if (rules.RegenVoxelsPerSecond <= 0f)
+                {
+                    continue; // 治らない団体
+                }
+
                 var budget = _regenBudget.GetValueOrDefault(fighter) + (rules.RegenVoxelsPerSecond * dt);
                 var whole = (int)budget;
                 if (whole > 0)
@@ -1086,6 +1094,15 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
         RoundLeft = 0f;
         RecentBell = RoundBell.End;
+        if (MatchRound >= rules.Rounds && !rules.JudgesDecision)
+        {
+            // 判定しない団体: 5 ラウンドを終えて両者が生きていれば引き分け（勝ち数は増やさない）。
+            Decision = "DRAW — BOTH SURVIVE";
+            MatchOver = true;
+            ShowMessage(Decision, 1e6f);
+            return;
+        }
+
         if (MatchRound >= rules.Rounds)
         {
             // 判定: 与えたダメージ（得点）の多い方。差がわずかなら引き分け。
@@ -1119,8 +1136,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private FighterCommand RestCommand(Fighter self, Fighter opponent)
     {
         var rules = Rules ?? MatchRules.Tv;
-        var inset = (Layout.Size * 0.5f) - rules.CornerInset;
-        var corner = Layout.Center + (self == Player ? new Vector3(-inset, 0f, -inset) : new Vector3(inset, 0f, inset));
+        var corner = Layout.RestCorner(self == Player, rules.CornerInset);
         var toCorner = corner - self.PelvisPosition;
         toCorner.Y = 0f;
         var distance = toCorner.Length();
@@ -1169,7 +1185,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _round++;
         _world = new PhysicsWorld();
         LivingRoom.AddColliders(_world, Layout);
-        _ring = new Ring(_world, Layout.Center, Layout.Size, RingSurfaceHeight, LivingRoom.StageBase);
+        _ring = new Ring(_world, Layout, RingSurfaceHeight, LivingRoom.StageBase);
         var surface = _ring.SurfaceCenter;
         var apart = new Vector3(0f, 0f, Layout.StartGap * 0.5f);
         // VR のプレイヤーには、手触りの調整が終わるまでスタミナの疲れを効かせない（FighterTuning.PlayerFatigue）。
@@ -1559,7 +1575,8 @@ public readonly record struct ContactSoundEvent(Vector3 Position, Audio.ContactP
 /// <summary>
 /// テレビ中継の試合の決まり（2026-11-12）: 1 ラウンド <paramref name="RoundSeconds"/> 秒 × <paramref name="Rounds"/> ラウンド、ラウンドの間
 /// <paramref name="BreakSeconds"/> 秒。休みの間、削れた体は一定の速さ（<paramref name="RegenVoxelsPerSecond"/> 個/秒）で内側から治る。
-/// K.O. で試合が終わり、最終ラウンドの終わりは判定（与えたダメージ）。
+/// K.O. で試合が終わり、最終ラウンドの終わりは判定（与えたダメージ）。団体によってダウンを数えない（<see cref="CountsDowns"/>）・判定しない（<see cref="JudgesDecision"/>）・
+/// 体を治さない（<paramref name="RegenVoxelsPerSecond"/> = 0）決まりもある（<see cref="Vfc"/>）。
 /// </summary>
 /// <param name="RoundSeconds">1 ラウンドの長さ [s]。</param>
 /// <param name="Rounds">ラウンドの数。</param>
@@ -1591,6 +1608,24 @@ public sealed record MatchRules(float RoundSeconds = 30f, int Rounds = 5, float 
     /// <summary>休むときに拳を構えから下げる量（腕の長さ単位: 下へ・前へ）。</summary>
     public Vector3 RestGuardDrop { get; init; } = new(0f, -0.12f, 0.15f);
 
+    /// <summary>
+    /// ダウンを数えるか。false なら動かないままの K.O.（<see cref="BoxingGame.StillKoSeconds"/>）も 10 カウント K.O. も無い（死とリングアウトは今のまま決着する）。
+    /// 倒れた体の状態（<c>DownTime</c> など）そのものは体の状態として残る（数えないだけ）。既定は数える（WVC）。
+    /// </summary>
+    public bool CountsDowns { get; init; } = true;
+
+    /// <summary>
+    /// 最終ラウンドの終わりに判定するか。false なら判定せず、両者生還の引き分け（<c>"DRAW — BOTH SURVIVE"</c>、勝ち数は増やさない）。既定は判定する（WVC）。
+    /// </summary>
+    public bool JudgesDecision { get; init; } = true;
+
     /// <summary>テレビ中継の標準: 30 秒 × 5 ラウンド、休み 10 秒。</summary>
     public static MatchRules Tv { get; } = new();
+
+    /// <summary>
+    /// VFC（何でもありの団体、ユーザーの指定 2026-11-18）: 30 秒 × 5 ラウンド、休み 25 秒。休みで体は治らない（<c>RegenVoxelsPerSecond</c> 0。
+    /// スタミナ・意識・打撲は今の生理の速さで戻る）。ダウンは数えず（<see cref="CountsDowns"/> false）、判定もしない（<see cref="JudgesDecision"/> false）。
+    /// 決着は死だけで、5 ラウンドを終えて両者が生きていれば両者生還の引き分け。
+    /// </summary>
+    public static MatchRules Vfc { get; } = new(30f, 5, 25f, 0f) { CountsDowns = false, JudgesDecision = false };
 }

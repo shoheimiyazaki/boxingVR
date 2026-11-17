@@ -19,6 +19,17 @@ public sealed class Ring
     /// <param name="surfaceHeight">キャンバスの高さ（床から）。</param>
     /// <param name="baseHeight">リングの台が立つ高さ（テーブルに置いた台座の上面）。</param>
     public Ring(PhysicsWorld world, Vector3 center, float size, float surfaceHeight, float baseHeight)
+        : this(world, center, size, surfaceHeight, baseHeight, null)
+    {
+    }
+
+    /// <summary>場の形（<see cref="RingLayout.Shape"/>）で作る: 四角いリングは上と同じ、檻は六角形の金網（<see cref="HexCage"/>）。</summary>
+    public Ring(PhysicsWorld world, RingLayout layout, float surfaceHeight, float baseHeight)
+        : this(world, layout?.Center ?? throw new ArgumentNullException(nameof(layout)), layout.Size, surfaceHeight, baseHeight, layout.IsCage ? layout : null)
+    {
+    }
+
+    private Ring(PhysicsWorld world, Vector3 center, float size, float surfaceHeight, float baseHeight, RingLayout? cage)
     {
         ArgumentNullException.ThrowIfNull(world);
         if (!(baseHeight >= 0f && baseHeight < surfaceHeight - 0.06f))
@@ -30,6 +41,11 @@ public sealed class Ring
         Size = size;
         SurfaceHeight = surfaceHeight;
         var half = size * 0.5f;
+        if (cage is not null)
+        {
+            HexCage.Build(world, cage, surfaceHeight, baseHeight, _visuals);
+            return;
+        }
 
         // 台（箱庭の台座の上から）・エプロン・キャンバス。床とテーブルは部屋（LivingRoom）。
         var stand = surfaceHeight - 0.06f - baseHeight;
