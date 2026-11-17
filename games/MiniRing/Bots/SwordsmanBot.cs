@@ -332,12 +332,13 @@ public sealed class SwordsmanBot : IFighterControl
     /// <summary>すでに近いときに、今の距離に合う技として数える間合いの幅 [m]（出す窓 <see cref="MotionTechnique.Window"/> より広い: 数 cm 歩いて合わせてから出す。手で決めた値）。</summary>
     public const float CloseWindow = 0.15f;
 
+    /// <summary>テスト用: 全部の技（<see cref="Pool"/>）のうち、間合いが今の距離 <paramref name="distance"/> にいちばん近い技（<see cref="NearestByRange"/>）。</summary>
+    internal MotionTechnique NearestAt(float distance) => NearestByRange(Pool, distance);
+
     /// <summary>
     /// <paramref name="from"/> のうち、間合いが今の距離 <paramref name="distance"/> にいちばん近い技。間合いが同じ（1 mm 以内）技が複数あるときは、
     /// 並びの順でなく教科書の重みで種付きの乱数から選ぶ（同じ間合いの技が並びの先頭へ偏らない。1 つだけなら乱数を使わない）。
     /// </summary>
-    internal MotionTechnique NearestAt(float distance) => NearestByRange(Pool, distance);
-
     private MotionTechnique NearestByRange(IReadOnlyList<MotionTechnique> from, float distance)
     {
         var best = from.Min(t => MathF.Abs(RangeOf(t) - distance));
