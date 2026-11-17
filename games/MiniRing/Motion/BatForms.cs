@@ -43,26 +43,29 @@ public static class BatForms
 
     private static IReadOnlyList<SwordMotion> Make() =>
     [
-        Horizontal("swing-right", -1f, height: 0.15f, drop: 0f),
-        Horizontal("swing-left", 1f, height: 0.15f, drop: 0f),
-        Horizontal("swing-mid", -1f, height: -0.4f, drop: -0.25f),
-        Horizontal("swing-low", -1f, height: -0.7f, drop: -0.6f),
+        Horizontal("swing-right", -1f, height: 0.15f, drop: 0f, forward: 0.95f),
+        Horizontal("swing-left", 1f, height: 0.15f, drop: 0f, forward: 0.95f),
+        Horizontal("swing-mid", -1f, height: -0.35f, drop: -0.3f, forward: 0.9f),
+        Horizontal("swing-low", -1f, height: -0.65f, drop: -0.8f, forward: 0.7f),
 
         // 真上から: 棒を頭の上で立て、前へ振り下ろす（前の面の縦の弧）。
         FromKeys("chop", [Hold(0f, Ready), Hold(0.2f, Ready),
             new(0.75f, new(-0.3f, 0.6f, 0.4f), 0.1f, 1.45f, Twist: -0.1f),
             new(1.15f, new(-0.3f, -0.1f, 0.95f), 0f, -0.3f, Step: 1.8f, Lean: 0.12f, Twist: 0.15f),
-            Hold(2.2f, Ready)]),
+            new(1.4f, new(-0.3f, -0.2f, 0.9f), 0f, -0.5f, Lean: 0.1f, Twist: 0.1f),
+            Hold(2.3f, Ready)]),
         // 右上から斜めに（相手の左肩から右へ）。
         FromKeys("chop-right", [Hold(0f, Ready), Hold(0.2f, Ready),
             new(0.75f, new(-0.4f, 0.4f, 0.2f), -2.3f, 0.9f, Twist: -0.3f),
             new(1.15f, new(0.1f, -0.2f, 0.9f), 0.5f, -0.35f, Step: 1.8f, Lean: 0.12f, Twist: 0.35f),
-            Hold(2.3f, Ready)]),
+            new(1.4f, new(0.2f, -0.35f, 0.8f), 0.8f, -0.6f, Lean: 0.1f, Twist: 0.3f),
+            Hold(2.4f, Ready)]),
         // 左上から斜めに（相手の右肩から左へ）。
         FromKeys("chop-left", [Hold(0f, Ready), Hold(0.2f, Ready),
             new(0.75f, new(0.3f, 0.35f, 0.3f), 2.3f, 0.9f, Twist: 0.25f),
             new(1.15f, new(-0.35f, -0.3f, 0.9f), -0.6f, -0.4f, Step: 1.8f, Lean: 0.12f, Twist: -0.25f),
-            Hold(2.3f, Ready)]),
+            new(1.4f, new(-0.45f, -0.45f, 0.8f), -0.9f, -0.6f, Lean: 0.1f, Twist: -0.3f),
+            Hold(2.4f, Ready)]),
 
         // 下からのすくい上げ（右下・左下から、あご・手へ）。
         Scoop("scoop-right", -1f),
@@ -76,7 +79,8 @@ public static class BatForms
         FromKeys("snap", [Hold(0f, Ready), Hold(0.15f, Ready),
             new(0.4f, new(-0.3f, 0.15f, 0.55f), 0.1f, 1.2f),
             new(0.65f, new(-0.25f, -0.3f, 0.95f), 0.2f, -0.1f, Step: 1.2f, Lean: 0.08f),
-            Hold(1.4f, Ready)]),
+            new(0.85f, new(-0.25f, -0.4f, 0.9f), 0.2f, -0.3f, Lean: 0.06f),
+            Hold(1.5f, Ready)]),
 
         // グリップエンド: 棒を頭の上から後ろへ返して逆さにし、右手を前へ突き出して握りの端で殴る。
         FromKeys("butt", [Hold(0f, Ready), Hold(0.2f, Ready),
@@ -95,17 +99,19 @@ public static class BatForms
     /// 水平の振り: 構えから、棒を横へ引いて（手を引く側・棒を横へ向ける）、反対の側へ払って、構えへ戻す。<paramref name="side"/> は −1 で右から・+1 で左から
     /// （+X は自分の左）。<paramref name="drop"/> は棒の先の高さ（仰角 [rad]。負で下げる）。
     /// </summary>
-    private static SwordMotion Horizontal(string name, float side, float height, float drop) =>
+    private static SwordMotion Horizontal(string name, float side, float height, float drop, float forward) =>
         FromKeys(name, [Hold(0f, Ready), Hold(0.2f, Ready),
             new(0.6f, new(side * 0.5f, height, 0.5f), side * 1.3f, drop, Twist: side * 0.3f),
-            new(1.1f, new(-side * 0.2f, height, 0.95f), -side * 1.15f, drop, Step: 2.0f, Lean: 0.08f, Twist: -side * 0.3f),
-            Hold(2.2f, Ready)]);
+            new(1.1f, new(-side * 0.2f, height, forward), -side * 1.15f, drop, Step: 2.0f, Lean: 0.08f, Twist: -side * 0.3f),
+            new(1.3f, new(-side * 0.35f, height, forward - 0.1f), -side * 1.5f, drop, Lean: 0.06f, Twist: -side * 0.3f),
+            Hold(2.3f, Ready)]);
 
     private static SwordMotion Scoop(string name, float side) =>
         FromKeys(name, [Hold(0f, Ready), Hold(0.2f, Ready),
             new(0.6f, new(side * 0.45f, -0.55f, 0.25f), side * 1.9f, -0.7f, Twist: side * 0.3f),
             new(1.1f, new(-side * 0.1f, 0.15f, 0.85f), -side * 0.7f, 0.45f, Step: 1.8f, Lean: 0.08f, Twist: -side * 0.3f),
-            Hold(2.2f, Ready)]);
+            new(1.35f, new(-side * 0.2f, 0.25f, 0.8f), -side * 0.5f, 0.8f, Lean: 0.06f, Twist: -side * 0.3f),
+            Hold(2.3f, Ready)]);
 
     private static SwordMotion Poke(string name, float height, float forward) =>
         FromKeys(name, [Hold(0f, Ready), Hold(0.2f, Ready),
