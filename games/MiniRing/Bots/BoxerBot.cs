@@ -191,24 +191,10 @@ public sealed class BoxerBot : IFighterControl
     }
 
     /// <summary>
-    /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、リプレイの見出しに残して照らし合わせる。
-    /// 変えたら 1 増やす（1: 最初のボット、2: 防御技の表・動き出しの読み・ストップジャブ・ピボット、
-    /// 3: インサイドスリップ・ローリング、回避しながら打つカウンターと拳の種類ごとの打ち返し、4: 狙いの固定・外側への回避・守りの拳の高さ、
-    /// 5: 打つ前の溜め（腰と肩のひねり）・相手の読みによる予測の回避・相手の届く間合いのすぐ外に立つ、6: しゃがみの疲れ・予測の回避の読み直し、
-    /// 7: 意識が薄れるとガードを下げる、8: 回避からの返しの拳に体の動きを移す（HandCommand.Spring）、9: 溜めは逆へ引いて体のバネを縮め、全ての拳に体の動きとタメを移す、
-    /// 10: ロープの位置を試合のリング（RingLayout）から読む。剣士（SwordsmanBot）は間合いを読んで打って離れる（HitAndAway）、
-    /// 11: 剣士は相手の武器を握りから先までの線として読み、受け流し・足と頭で外す（WeaponDefense）。遠間に、見て覚えた相手の届く距離を入れる（SeenReach））。
+    /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
+    /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    // 10: 狙いどころ（AimWeights: あご・こめかみ・露出した脳・肝臓・みぞおち・心臓・ガードの腕）を選んで、無理のない範囲で狙う。11: 剣士の守り（claude/voxel-damage）。12: 10 と 11 を合わせた。13（master）: 折れた武器を、残った長さで短いまま使う（失った分だけ間合いを詰める）か、柄だけなら捨てて素手で戦う（DisarmedFallback）。
-    // 13（claude/a-3d0203 の中だけの番号: 11 = 手数の配分・守りの効き目を経験で覚える、12 = 間合いの層、13 = スタイルごとの間合いの層）を master の 12 と合わせて 14:
-    // 自分のスタミナで手数を配分する（PaceKnee・PaceDrop、既定は使わない）、守りの効き目を経験で覚える（LearnDefense: DefenseMemory、ラウンドをまたいで CarryOver、既定は使わない）、
-    // 間合いの層（RangeSense: 危険度・さらされ）とスタイルごとの使い方（RangePress・RangeGuard。boxer は基準として使わない）。
-    // 15: 間合いの層の届く長さに相手の武器（握りから先）を足す（素手どうしの試合は変わらない）。
-    // 16: claude/a-3d0203 の 15 と master の 13 を合わせた。
-    // 17: karate hand shapes, fist parry and five kick goals.
-    public const int LogicVersion = 41; // 41: 回し蹴り（下段・上段 RoundhouseHigh）を人の動き（極真空手の廻し蹴りのモーションキャプチャ、KickCapture・CapturedKick、Bots/kicks/*.json）から作った膝の制御の手本で蹴る・技が自分の長さを持つ（KickSpec.Seconds）・taekwondo の KickDuration を 0.95 に戻した。40: 回し蹴りを練習で磨いた膝の通り道（KneePath。kneelab 段 1・2）で蹴る・taekwondo の KickDuration 0.95→1.14。39: 回し蹴りを膝の制御で蹴る（KickSpec.EvaluateKnee: 膝を横へ上げ、前へ回しながらねじり・曲げを伸ばす。狙いは脇腹、届く間合い Standoff 0.9→1.25 は kicklab で測った値。docs/arena/kicklab_roundhouse.md）。38: 休む間も回り込み、手数を RestTempo（0.35）だけ残す（臨界パワーより下ならスタミナは戻る。棒立ちが減った）・拳の狙いは相手の体（胴）の速さを 0.15 秒でならした分だけ先へ延ばし、頭が体の上で揺れる分は延ばさない。延ばす割合は AimLead（詰めのドリル finishlab: 頭の 1 歩の差の速さで 0.4 秒先へ延ばすと狙いが腕の 0.7 倍ずれた）・構えの手の肘を締める（HandCommand.Tuck = ElbowTuck、胴へ来る拳を守る間は 1）。37: マージ（2026-11-17）: 弱った相手を詰める層（ブランチ claude/tvprogram の 36。HurtRead: 相手の構えの下がり（頭と拳の高さの差が普段より下がる）と自分の手応えから開き 0..1 を読む。開きに応じて攻めの間隔を縮め（FinishTempo 1.5）、立ち位置を打つ間合いへ寄せて回り込み・離れる足を詰める足に替え（FinishPress 1.5）、休みを後回しにする（FinishSpend 0.6）。docs/BOT_PDCA.md「弱った相手を詰める」）を片手剣と盾（36）に合わせた。36: 片手剣と盾（右手の IronSword を型 SwordShieldForms で動かす FormSwordsman・左手の物で覆う守り SwordDefense.Cover・教科書 weapons/swordshield.json・WeaponKind.Shield / HandWear.Shield）。IronSword を握る名簿のキャラが今まで居なかったので、既存の試合の判断は変えない（SwordsmanBot.Guard は Cover が無ければ今まで通り）。35: 棒術（木の六尺棒 WeaponKind.Staff）の型（StaffForms: 突き・打ち下ろし・横打ち・足払い・返し）と教科書 weapons/staff.json。既存の試合の判断は変えない。34: テコンドーの蹴り 4 種（回し蹴り・横蹴り・後ろ蹴り・かかと落とし: KickSpec の目標の経路 + 体の向き・胴のひねりの経路）と、届く間合いに合わせた蹴りの選び方（BotStyle.KickRangeFit。0 なら今までどおり）。33: 武器の教科書（Bots/weapons/*.json、WeaponStyle）を鍛えた（ブランチ claude/weapons の 31）: 刀・ロングソードは技の時計を体が目標に付いてきた分だけ進める（Pacing。使っていない種・相手の 28 試合で、刀は 1 試合あたりの自傷 58→6 セル、ロングソードは 330→140 セル・セル差 −312→−41）。こんぼうは試した値が揺らぎの内で採らなかった。docs/arena/weapon_handling_*.md。32: 急所の狙いの点を、頭の大きさの比の見積もりから実際のセル（目・骨・臓器の位置、BodyLandmarks）に変えた（狙いが変わるので判断の結果が変わる）。31: 急所のドリルに固定狙い forcedAim を追加（未指定の判断・乱数消費は不変）。30: 体格を読む層（BuildRead: 腕の長さの比で立ち位置・打つ間合い、身長の比で守りの選び方・胴を狙う重み、重さの比で打ち合う気。体格が同じなら従来と同じ。BotStyle.BuildStandOff など。docs/BOT_PDCA.md「体格に応じた戦い方」）。29: レフェリーなしの試合で、倒れた相手へ打ち下ろす（GroundStrike: 立つ位置へ歩く・沈む・鉄槌/突き下ろし/踏み下ろし/斬り下ろし。BotStyle.GroundDrive など）。レフェリーありの判断は変えない。28: 休息の始まりを蓄えの 25 %→50 % に（回復が動きながらも続くようになり、早めに手を止めて戻すほうが得。25 % では低い蓄えのまま攻め続けて回復が追いつかなかった）。27: 試合の刀・ロングソードの CPU は、その武器の型（SwordForms）で SwordsmanBot が戦う（FormSwordsman。以前は片手剣の汎用の振り）。26: 蓄えが少ないほど攻めの間隔を空け、RangeSense の届く範囲の外で休む。25: swarmer・champion の回避の形を formlab の測定で直した（スリップは斜め下へ・ダッキングは拳を頭と一緒に下げる・ウィービングは前へ出て U 字にくぐる）。
-    // 24: 攻撃判断に0.2秒の観測遅延を入れ、予測した打点を固定する。
-    // 23: 目が傷むと見えない側の相手の拳・体の情報が遅れてぶれる（VisionPerception）・目と見えない側を狙う重み（AimWeights.Eye・BlindSide。相手の見えが悪いほど重みが増す）。22: パリーの手の経路を速く・前腕へ（TechniqueExecution.ParrySweepRate・ParryArmFraction）、パリーの効く拳の重みをフック中心に（DefenseBook.Parry。karatelab の測定）。21: 空手スタイルの手形の重みを karatelab の測定で設定（貫手・一本拳・手刀は 1 発あたりの削れが正拳の約 2 倍、自分の指の骨の欠けは 0）。20: 蹴りは蹴りごとの当てたい所（KickSpec.AimWorld: 前蹴り・膝は腹、ローは腿、ミドルは胸、ハイは頭）を狙う。19: パリーの頭の目標を中立にする。18: 空手の手形・パリー・蹴りの選択を追加。
+    public const int LogicVersion = 41; // 41: 回し蹴りを人の動き（極真空手のモーションキャプチャ）から作った膝の制御で蹴る。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;

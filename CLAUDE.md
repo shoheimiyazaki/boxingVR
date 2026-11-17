@@ -100,6 +100,10 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | 文書 | 中身 |
 |---|---|
 | `docs/ARCHITECTURE.md` | 層と制御の流れ、VR ホスト、座標系 |
+| `docs/DEBT.md` | 軸から外れている所（近道）の中身（§8） |
+| `docs/VERSIONS.md` | `PhysicsVersion`・`LogicVersion` の履歴 |
+| `docs/TOOLS.md` | 確かめ方の道具の全部（§5） |
+| `docs/DELEGATION.md` | Codex・Sonnet・raytrek への渡し方（§10） |
 | `docs/BOXING.md` | パンチの力学・足の運び・部位ダメージ・打撃音・調整表 |
 | `docs/VOXEL_DAMAGE.md` | ボクセルの体（削れ・弱り・断裂・死・意識）、砕け散る見た目と音 |
 | `docs/BOTS.md` / `docs/BOT_PDCA.md` | ボットの技と、改善の記録（サイクルごとの仮説・結果・採否） |
@@ -127,7 +131,8 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 2. **調整値は `FighterTuning`（体・物理）か `BotStyle`/JSON（ボット）へ**。コードに数字を埋めない。値の横に「何の量か・なぜその値か（測った結果）」を書く。
 3. **版を上げる**:
    - 体の物理・当たり・静的な形（リング・部屋の当たり判定を含む）を変えたら `Fighter.PhysicsVersion` を上げる。
-   - ボットの判断を変えたら `BoxerBot.LogicVersion` を上げ、履歴のコメントに 1 行足す。
+   - ボットの判断を変えたら `BoxerBot.LogicVersion` を上げる。
+   - どちらも履歴は [docs/VERSIONS.md](docs/VERSIONS.md) の先頭に 1 行足す（コードの注釈は今の版の 1 行だけ）。並行の枝で番号がぶつかったら、マージで次の番号にして両方の枝の名前を書く。
    - 古い記録が再生できなくなるのは正しい（黙ってずれるより良い）。
 4. **シェーダー（`ShaderSource` の GLSL）を変えたら `PrecompiledShaders` の SPIR-V を作り直す**（shaderc で再コンパイルし、配列を置き換える。変更前に「今のソースを再コンパイルすると今の配列と一致する」ことを確かめてから）。
 5. **テスト**: 新しい振る舞いには、それが物理として起きていることを数値で確かめるテストを書く（例: 「踏み込みながら打つと拳が速く、体はそのぶん遅くなる」）。バグ修正には再発防止のテストを 1 つ。期待値が物理として間違っていたらテストを直す（説明を添える）。
@@ -138,30 +143,18 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 
 ## 5. 確かめ方（道具）
 
+よく使う物だけ。全部（剣・棒・蹴り・中継・生配信・CMA-ES など）は [docs/TOOLS.md](docs/TOOLS.md)。Arena は `dotnet run --project games/MiniRing.Arena -c Release -- <コマンド>`（以下 `...`）。
+
 | 目的 | コマンド（リポジトリの根で） |
 |---|---|
 | 全テスト | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName!~Probe"` |
 | 調査用の Probe | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~<名前>" --logger "console;verbosity=detailed"` |
-| 総当たり | `dotnet run --project games/MiniRing.Arena -c Release -- league --bouts 4 --seconds 60 --out docs/arena/<名前>.md` |
-| 攻撃のドリル | `... -- attacklab --combos 1,2,1-2 --telegraphs 0,0.1,0.2` |
-| 詰めのドリル（弱った相手の顔に当たるか） | `... -- finishlab [--attackers ramon,yoandry,marcus] [--victims dmitri,joao,ramon] [--levels 0.45,0.6] [--bouts 2] [--seconds 20] [--set AimLead=0] [--log docs/arena/<名前>.md]`（相手の意識を決まった深さで止め、拳ごとに顔・胴・ガード・空振りと外れた向き、技ごとの当たり・狙いのずれ。`docs/BOT_PDCA.md`「詰めのドリル」） |
-| 空手のドリル | `... -- karatelab [--only shapes,parry,kicks] [--cues 0,0.06] [--bouts N] [--seconds S] [--log docs/arena/<名前>.md]`（手形 × 急所・パリー・5 種の蹴り。`docs/KARATE.md`） |
-| 防御・回避のドリル | `... -- drill` / `drilltune` / `basics --punch 2 --slot Duck --style swarmer` / `counterlab` |
-| CMA-ES で拳・守りの技を磨く | `... -- cmatune --target punch:2 [--defenses Block,Slip] [--gens 40] [--samples N] [--seconds S] [--resume state.json] [--out docs/arena/cma_<名前>.md] [--json docs/arena/cma/<名前>.json]`（結果はデータとして出すだけ。最後に使わなかった種で始めの値と分布の平均 m を比べ、試合でも確かめる。`docs/BOTS.md` §3） |
-| 剣の守りのドリル（武器を選ばない） | `... -- guardlab [--only kesa,棍棒] [--variants 0,7] [--try "ParryAndStep:0.2:0.52:0.35:0.3:0.25:0.3"] [--video out.mp4]`（`docs/WEAPON_DEFENSE.md`） |
-| 武器の扱いの物差し・棒術の型の動画 | `... -- handlelab --pairs daichi:jin,daichi:konrad --bouts 4 --seconds 40 [--style-staff x.json] --out docs/arena/<名前>.md`（振りの質・自傷・勝敗。棒の後ろの端で当たった割合も）/ `... -- imitate --weapon staff [--only tsuki] [--slow 4] [--measure yes] --out x.mp4`（棒の型を構えて立つ相手へ。目標とのずれの測定は `--measure yes`。`docs/BOJUTSU.md`） |
-| 剣士の守り・間合いを試合で育てる | `... -- guardspar --gens 5 --lambda 3 --bouts 4` / `awaylab`（どちらも世代ごとに種を変え、使わなかった種で比べ直して良いときだけ採る。1 回 3 時間ほど） |
-| 剣の自傷・すり抜けの物差し | `... -- selfcuts [--seeds 8 --seconds 30] [--passes 1] [--clearance on] [--pacing on]`（握った武器が自分の体を削った回数を原因別に）/ `tunnel`（刃が体のセルの中にあるのに接触が無かった歩）/ `selfpath`（技の目標の刃の線が自分の体を通るか）。`docs/VOXEL_WEAPONS.md` §5.5。`--passes 1` で掃き直し前の解き方 |
-| 試合の動画 | `... -- video --red champion --blue swarmer --seconds 40 --out docs/video/<名前>.mp4`（ffmpeg が要る。`--facecam on` で両コーナーの顔の窓を両脇に出す。`--until-ko yes` で K.O. まで続け、`--seconds` は上限になる。`--speed 0.5 / 0.75 / 1`（既定 0.75）は試合そのものを遅く進めて撮る。`--tv on` はテレビ中継風: 5 ラウンド・歓声・*.events.json） |
-| 実況・解説を入れる | `powershell -ExecutionPolicy Bypass -File tools\commentary\dub.ps1 -Video in.mp4 -Script script.json -Out out.mp4`（台本は *.events.json を見て書く。`tools/commentary/README.md`） |
-| WVC のテレビ中継（撮影〜結合を札 1 枚で） | `powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvshow\cards\wvc-ishu.json`（種の下見・撮影・資料・実況の下書き・声入れ・点検・結合。台詞は札の `"commentary": { "writer": "llm" }` で LLM（Haiku）がテイクとして書く（`-Stage write`・`tools	vshowwrite-commentary.ps1`、テイクは `<out>	akesbN`）か、エージェントが `bN.extras.json` を書く: スキル `tv-commentary`。札に `"autoCommentary": true` なら下書きだけで作る。`docs/TV_BROADCAST.md`） |
-| WVC のテレビ中継を生で流す（OBS へ） | `powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvshow\cards\live-test.json -Stage liveprep`（準備: 種 → 描かない下回し `video --render off` → 台本 → 声）→ `-Stage live`（試合ごとに `video --tv on --facecam on ... --live srt://127.0.0.1:9000?mode=listener --voices bN_live_voices\manifest.json` で実時間に描いて流す。受け方・遅延・鍵は `docs/TV_BROADCAST.md`「生配信」） |
-| 回避の形を体の動きで測る | `... -- formlab --punch 3 --slot Weave --style swarmer [--set "HeadY=-0.8,Step=0.8"] [--cue 0] [--bouts 3]`（頭の横・上下・前の軌跡、腰の沈み、拳と頭の距離。`docs/BOT_PDCA.md`） |
-| ボクセルの書き出し・確かめ | `... -- voxexport --out boxer.vox` / `voxcheck --in boxer.vox [--install yes]`（武器・はめる物は `weaponexport --out weapons.vox` / `weaponcheck --in weapons.vox [--install yes]`） |
+| 版 | `... version` |
+| 総当たり | `... league --bouts 4 --seconds 60 --out docs/arena/<名前>.md`（名簿のキャラどうしは `rosterleague`） |
+| ドリル | `attacklab`・`finishlab`・`karatelab`・`drill`・`basics`・`formlab`・`guardlab`（引数は docs/TOOLS.md） |
+| 試合の動画 | `... video --red champion --blue swarmer --seconds 40 --out docs/video/<名前>.mp4`（ffmpeg が要る） |
 
-撮った動画・記録は、世代を区切るとき（`PhysicsVersion` を上げたマージ・大きな機能が master に入った）にワークツリーの分も含めて `media/<世代>/` へ移し、`docs/MEDIA.md` に足す。
-
-動画を縮めるときは**音を残す**: `ffmpeg -i in.mp4 -vcodec libx264 -crf 30 -preset slow -vf scale=960:-2 -c:a aac -b:a 96k out_small.mp4`（`-an` は音を消す。過去にこれで音が消えた）。
+撮った動画・記録は、世代を区切るときに `media/<世代>/` へ移し、`docs/MEDIA.md` に足す。動画を縮めるときは**音を残す**: `ffmpeg -i in.mp4 -vcodec libx264 -crf 30 -preset slow -vf scale=960:-2 -c:a aac -b:a 96k out_small.mp4`（`-an` は音を消す）。
 
 ## 6. 過去の失敗から（同じことをしない）
 
@@ -173,45 +166,17 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 
 ## 7. 並行して進んでいる作業
 
-- **ボクセルの武器（ワークツリー `.claude/worktrees/voxel-damage`、ブランチ `claude/voxel-damage`）**: 鉄の剣・木の棍棒・はめる物。`VoxelContact`（圧力の接触）、`VoxelBending`（梁の曲げ）、`Fighter.Wield`、武器同士の広いリング（`RingLayout`）、武器を選ばない剣の守り（`docs/WEAPON_DEFENSE.md`）。2026-11-12 の時点で master へマージ済み（`PhysicsVersion` 13・`LogicVersion` 12）。続きを入れるときは、master 側の変更（スタミナ・臓器・テレビ中継・狙い・はめる物・顔）とぶつかる所を確かめる。
-- **スタミナの効き方・間合いの層・学ぶボット（ワークツリー `.claude/worktrees/a-3d0203`、ブランチ `claude/a-3d0203`）**: 疲れが肩・肘・手首のサーボと拳を縮める速さに出る（`TiredHandSlowness`）、間合いの層（`RangeSense`・`RangePress`・`RangeGuard`）、守りの効き目を経験で覚える（`DefenseMemory`、既定は使わない）。計画と記録は `docs/LEARNING_PLAN.md`。2026-11-13 に master へマージ済み（`PhysicsVersion` 17・`LogicVersion` 16）。
-- **技の進化と強化学習（ブランチ `claude/evo-p0b`、作業指示 14〜18）**: 拳の技表のデータ化（`PunchBook`）、対にした評価・雑音の測定（`noiselab`）、CMA-ES（`cmatune`・`defconfirm`）。2026-11-16 に master へマージ済み（判断の既定値は変えていない）。測定の結論は「CMA-ES は道具として採る・固定した 1 守りのドリルで磨いた拳は試合で強くならないので既定に採らない」。次は目的の点を直す P1d → PPO の P2。**続けるときは先に `docs/plans/EVO_HANDOFF_2026-11-17.md` を読む**（計画の表は `docs/LEARNING_PLAN.md` §9）。
-- **テレビ中継の生配信（OBS へ）**: ゲームが NVENC でエンコードして SRT で同じ PC の OBS へ流す（`video --live`・`tvshow.ps1 -Stage liveprep|live`）。実況の声は描かない下回し（`--render off`）から前もって作る。2026-11-17 に master に入っている（ffmpeg を受け手にして 720p で途切れ 0）。OBS 実機・YouTube/Twitch への実送信・1080p は未確認。**続けるときは先に `docs/plans/LIVE_STREAM_HANDOFF_2026-11-17.md` を読む**（本文は `docs/TV_BROADCAST.md` §7・§8）。
+続けるときは、先に引き継ぎの文書を読む。マージ済みの流れ（ボクセルの武器・スタミナと間合いの層）は各 docs にある。
+
+- **技の進化と強化学習**（`claude/evo-p0b`、master に入った）: 次は P1d → PPO の P2。`docs/plans/EVO_HANDOFF_2026-11-17.md`。
+- **テレビ中継の生配信**（master に入った）: OBS 実機・実送信・1080p は未確認。`docs/plans/LIVE_STREAM_HANDOFF_2026-11-17.md`。
+- **エージェントの開発しやすさ**（`claude/agent-dx`）: `docs/plans/AGENT_DX_PLAN.md`（計画と記録）。
 
 ## 8. 軸から外れている所（技術的な負債。直す方向は軸へ寄せること）
 
-- **棒術（`docs/BOJUTSU.md`、2026-11-16、LogicVersion 35）**: (1) 型（`StaffForms`）は手作りのキーで、人のモーションキャプチャではない。棒の線が体の箱（`SelfClearance.Nearest`）を通らない・両手が肩から届くよう、小さな探索で値を直した設計の近道（体は目標から遅れるので、試合では自傷が残る: 1 試合あたり 111〜114 セル。刀は 9〜83、ロングソード 90〜124）。(2) 両手の握りは棒の真ん中をはさんだ 2 点（肩幅 11 cm）から始まり、手の中で滑らせられる（`HandCommand.Slide`・`Weapon.SlideSpanOf`、2026-11-17、PhysicsVersion 39、`docs/BOJUTSU.md`「滑る握り」）: 滑っている手は棒に力を伝えない（摩擦は持たない）、両手で握るときは手首のサーボを外して 2 つの拳の位置のバネの偶力だけで回し、片手だけのときは手首のバネ（向きは指令。`OneHandWristShare` の 1/3）。両手の目標の距離と握りの間隔の食い違いは、棒の中心に近い手を `GripSlideSpeed`（1.5 m/s）で棒に沿って滑らせて詰める近道（握ったまま滑る。摩擦の上限から出した値ではない）。滑らせられる武器の一覧（`SlideSpanOf`）は種類の表（`CanTwoHand` と同じ近道）で、棒だけ。利き手・添え手の役は握りが滑っても入れ替えない（持ち主 = `Held` の手のまま、握っているかは別に持つ）。手首のサーボが無くなったので、棒の向きの追従は拳の位置の追従だけで決まり、返しの後ろの端が当たらなくなった（`BojutsuTests`）。(3) 棒の打つ端は +X・−X の 2 つ（`Weapon.StrikeEndsX`）で、種類の一覧（`IsBlunt`・`CanTwoHand`・`FormSwordsman` の型の表）に足した。間合い（`StrikeDrill.ReachOf`）はいちばん前へ届く端から、相手の棒の「切っ先」（`RawArmedSense`）はいま速い端から出すが、自分の武器の折れ・欠け（`FarEdge`・`WeaponSense.Lost`）は +X の端だけを数えるので、後ろの端が折れても失った長さに出ない。(4) 棒の受けは刀と同じ `WeaponDefense.Parry`（来る線に右手から +X へ `Forte` 0.35 の所を合わせる）で、棒の真ん中（両手の間）を使う形にはしていない。(5) 足払いは腰・腿の高さ（膝・すねまでは下げられない）。(6) 返しの 2 打目（後ろの端）は勢いが少なく当たる割合が低い。 (7) 杖（`WeaponKind.Jo`、130 cm、2026-11-17）は六尺棒と同じ丸棒（`Weapon.IsRod`）の短く細い物で、型・教科書は六尺棒の物を写して使う（杖道の型は未作成。杖の長さに合わせていない）。
-- **空手（`docs/KARATE.md`）**: (1) 手形は関節の曲げ角で決まり（`HandSkeleton.PoseOf`）、親セル（指ごと・節ごとの骨・肉・皮膚、`BareHandState`）は節の向きに沿って置き直す（2026-11-16、PhysicsVersion 35）。動きは関節ごとのバネ・ダンパ（`HandMotion`）、骨の欠けた節は力が入らない。近道: 指は 2 mm のセル 1 つぶんの骨に皮膚が十字に付いただけ（筋肉・腱・親指は無い）、重なったセルは近い空きセルへ押しのける（セルの衝突の近似）、手首・指の関節角は人の可動域の中（`HandSkeleton.Range`）だが、前腕の回内・回外は持たないので手刀は貫手とほぼ同じ形（縁を前へ向ける向きは入力の手の向きの指令の仕事で、ボットはまだ出さない）、斜めに回した手刀・掌底は格子への丸めで数セルの筋肉・骨が外に出る（`BareHandState.Reskin` で減らしてある）、拳の目標は「打つ面の点」を運ぶ点として扱う（`Weapon.StrikeOffset`。いまの手の向きで毎歩引くので、向きが手形・動きで変わるとずれる。グローブは対象外）、指は打撃でたわまず削れ・折れるだけ、打たれて動いたセル（`Shift`）は置き直しのとき失われる。急所の狙いは実際のセルから（`BodyLandmarks`）。内臓は「体の中のこの辺り」という作ったときの置き場の知識（見える物ではない）。(2) 蹴りは脚の骨のボクセルが拳と同じ接触・`ApplyHit` で当たる（蹴る脚の骨と相手の部位の箱の衝突は切る）が、蹴りを動かす力は、回し蹴り（2026-11-17）は膝の点を引く力の上限（歩く足の `Footwork.KickKneeForceGain` 4 倍）・股と膝のサーボのトルク倍率（`KickLegTorqueGain` 3）・関節の速さの上限（`KickLegServoSpeed` 30 rad/s）で、ほかの蹴りは足首を引く力の上限（歩く足の 4 倍、`Footwork.KickFootForceGain`）という 1 点の近道（膝の制御へ未移行。`KickSpec.UsesKnee`）で、どちらも股・膝・足首の関節トルクの全力を測って置いた値ではない。軸足の支えは既存のホバー（脚が床を押す力の近似）のままで、軸足の関節トルクだけで立つモデルではない。蹴りの足の速さは 2〜3.6 m/s（拳は 3〜6 m/s）。(3) パリーは手の目標経路（拳の位置へ手を差し入れて外へ払う）と接触の物理で、拳の軌道を変える。効果は `karatelab` の表（`docs/arena/gen12_karatelab_parry*.md`）に測ってあり、ブロックより効かない間はスタイルの好みと食い違う。(4) 手形の選び方（`KarateHandChoice.Affinity`）は急所ごとの好みの表（ボットの判断の部分。威力は物理から）。(5) 体格は部位の質量を体積に比例させ（密度は一定）、腕の力は筋肉の断面積に比例させる近道で、体の質量を材質の密度から直接出してはいない（試した変更は基準体格の物理を変えて既存の物理テストを壊した）。(6) 顔の寸法（鼻・あご・目の間隔）は表面の皮膚と目の位置だけを動かす（低解像度の頭では皮膚 1 セルを引っ込めて中身を出さない）。
-- **トンファー（`docs/TONFA.md`、2026-11-16）**: (1) 手に固定で、握りを軸に回らない（回す打ちは未実装。握りの軸だけで回れる関節が要る）。突きは前の短い端、受けは前腕に沿う棒で、どちらも今の拳の接触（`VoxelContact`）。(2) 棒の外側（Z）の側は左右の手で鏡にするため、左の手の物だけ Z を裏返して作る（`Weapon.MirroredOn`。手の座標が左右とも同じ回転で付くので、そのままだと棒が一方は外・他方は内になる）。(3) 寸法は人の 0.3 倍の写しで、素手の拳と重なる所は柄（木）が占める。(4) 前腕で受ける重み（`ParryWeight`・`BlockWeight`・`GuardWidth`）は教科書 JSON の値で、判断の式は他の拳のスタイルと同じ。
-- **片手剣と盾（`docs/SWORD_SHIELD.md`、2026-11-16、LogicVersion 36）**: (1) 型（`SwordShieldForms`）は手作りのキーで、左手（盾）の経路は右手の剣とは別に書いた固定の値。盾の向きは前向きのまま（来る線へ傾けない）。(2) 盾の守り（`WeaponDefense.Cover`）は、来る線が盾の面を通る点へ盾の中心を寄せるだけの式で、盾の半径（見える寸法）から動かす量が出る。肩から届く長さ 0.95・肩の位置 0.285・0.6 倍の余裕は手で決めた値。盾を持たない片手剣（グローブ）も同じ式を通る。(3) 右手の剣と左手にはめた盾は、既存の規則（はめた物どうしだけが打ち合わない）のままなので打ち合う（自分の盾を剣が削る）。規則を広げると既存の試合（こんぼう × 素手）のチェックサムが変わるので入れていない。(4) 盾で押す・打つ型は未実装。(5) 盾の質量は格子から出るが、寸法は人形の肩幅比 0.27 倍の写し。(6) 盾の守りは剣の受け流しとは併用しない（併用すると自傷が増えた）。
-- **テコンドーの蹴り（`docs/TAEKWONDO.md`）**: 回し蹴り・横蹴り・後ろ蹴り・かかと落としは足首の目標の経路に加え、体の向き（`FaceDirection` の回転）と胴のひねりの経路（`KickSpec.FaceYaw`・`TorsoTwist`）で回転を作る。回転は体の向きの目標を変える近道を含み（胴のひねりの上限は 35°）。回し蹴り（下段 Roundhouse・上段 RoundhouseHigh）の既定は人の動き（極真空手のモーションキャプチャ、`CapturedKick`・`data/mocap/kyokushin`。12 本の平均で、長さ・間合いは人形で振って選び、体の向きは回る速さの上限で遅れ、左脚は強く右脚は弱い）から作った膝の制御。手作り（比べもの）は、練習で磨いた通り道（`KneePath`、kneelab 段 2。CMA-ES 12 世代 λ=8 の少ない探索。当たるのは足の甲・つま先で、相手の膝・腿に当たり胴・頭には当たらず、右脚は弱い）の膝の制御（`LegCommand.KneeLocal`・`KneeTwist`・`KneeBend`。膝の点にバネの制御点を置き、すねは曲げ伸ばしの 1 次元だけ。足の速さは関節の速さの上限と慣性で 1.4〜2.4 m/s）で、当たるのは足の甲・つま先が多く（すねの中ほどに当たらない）、腿の軸まわりのねじりは人の可動域を持たない。横蹴り・後ろ蹴り・かかと落としは足首の目標の経路で、足の速さは空手と同じ足首 1 点の力の上限（`KickFootForceGain`）のまま（0.6〜3.5 m/s）。足の形は足首の曲げの目標だけで、足刀・かかとの向きは持たない（足のどの部位が当たるかは脚の骨のセルの接触の結果）。蹴りの選び方の間合い合わせ（`BotStyle.KickRangeFit`）は見える距離だけを使う判断の値。
+中身は [docs/DEBT.md](docs/DEBT.md)。ゲーム的な近道を入れたら DEBT.md に足し（§1.5）、関わる部分を触る前にその項目を読む。直したら項目を消す。
 
-- **キャラクター（体格・顔・目、`docs/CHARACTERS.md`）**: (1) 質量は部位の体積に比例させ（密度は一定）、材質の密度から直接は出していない（試した変更は基準体格の物理を変えて既存の物理テストを壊した）。(2) 腕の力 = 筋肉の断面積比（`Height² × Muscle²`）、脚の力 = 断面積比 × 脚の長さ比（てこ）は、基準体格との比で掛ける生理の近似で、セルから積み上げた力ではない。残った断面（`BoxerBody.Muscle`）は腕・脚だけ軸に沿った薄切りの細い所で決め、頭・胴は体積の割合。(3) 頭は 10 × 14 × 10 セル（5 mm）しかなく、顔の部位は 1〜3 セルの階段状（連続なパラメータはセルに丸められる）。唇は肌の色から赤みへ寄せただけの材質（皮膚と同じ強さ）。(4) 見えない側の遅れ・ぶれ（`VisionLagSeconds`・`VisionNoiseReach`）は感覚のモデルの値で、視覚の物理ではない。目を狙う重み（`AimWeights.Eye`・`BlindSide`）は戦略の好み。プレイヤーへの罰は、意図の解釈への情報（ボットと同じ `ArmedSense`）とデスクトップの画面の暗転（`BlindHud`）まで。VR の画面の暗転は未実装。
-- **見えにくい身体状態**: スタミナ・意識・臓器の状態は見た目だけでは十分に伝わらない。既存の TiredLook に加え、息遣い・顔色・ふらつきの手がかりを状態と対応させる必要がある。打撲は皮膚の色で見せる（2026-11-17、VoxelPart.AddSkinBruise・BoxerBody.BruiseSkin。見た目だけ）: 打たれた点の近くの皮膚にエネルギーに比例した量を残し、量が多いほど濃く、時間とともに赤い腫れ → 青紫、とても強いとどす黒く、セルごとの決まった揺らぎでまだら。近道: 色の変わる時間（8 秒）・濃さ（0.25 /J）・広がり（2.5 セル）は見た目の値で生理ではない。腫れは色だけで形は変えない。武器の当たりは臓器の打撲を起こさない作りのままなので、あざだけ運動量 × 速さ ÷ 2 の見積もりのエネルギーで付ける。
-
-- **拳の打撃の削れ方**: グローブ・はめる物の拳は圧力のモデル（§1.4、`VoxelContact`）で当たる。面が破れなくても、面の下へ伝わる圧力で肉が潰れてへこみ、面は 1 発ごとに擦り減って赤くなり、やがて裂ける（2026-11-12）。近道が残る所: (1) 腕と体の質量（`massBehind`）は面の下へ伝わる力にだけ効き、面が壊れるかは 2 つの物そのものの打撃で決める（材質の値をそれに合わせてあるため）。(2) 面の下を押されるのは打たれた体の側だけ（グローブの詰め物・刃の内側は固い物として扱う）。(3) 握った武器は `massBehind` を渡さない（腕は押す力 `drive` で効く）。(4) 棍棒の打撲はまだエネルギーで掘る近道（`WeaponCarveScale`）。はめる物を付けない古い拳（`VoxelGloves: false`、比べもの用）は「運動エネルギー × `CarvePerJoule`」で掘る。
-- **体を支える力**: 骨盤を目標の高さへ持ち上げる「ホバー」の力（脚が床を押す力の近似）。脚の関節トルクだけで立つモデルではない。上体を起こすねじり（`ApplyUprightImpulse`）と支えの中心へ寄せる力も世界から直接かかり、足の支えの範囲で制限されないので、引いても姿勢が崩れない（直し方は `docs/GRAPPLING.md` 段 1）。
-- **脚を失った体**（2026-11-17、PhysicsVersion 39、`docs/VOXEL_DAMAGE.md`「脚を失った体」）: 脚が折れた・切れたら、残った脚の長さ（股から骨の切れ目）の高さで立って戦い続ける。近道: (1) 腰の高さはホバー（上の「体を支える力」）の目標を短い脚の長さまで下げるだけで、切り株の端・膝が床を押して体を支える力から出してはいない。片脚が無傷でも短い方の脚に合わせる（片脚で立つ・跳ぶは無い）。(2) 長い脚の曲げは旧来の歩行の形（`ApplyGait`）の脚ごとの角度で、足の運び（`Footwork`）は脚を失ったら使わない。(3) 骨盤で座る体（`SeatedOnPelvis`）が骨盤の着地をダウンに数えないのはルールの値。(4) 這う・膝で進むのは歩くときと同じ骨盤への水平の力（`ApplyMovement`）で、速さを残った脚の長さの平方根（下限は上腕の長さ: 腕で床を引く 1 回の長さ）に比例させるだけ。腕で床を引く動き（手を床に着いて体を引き寄せる経路）は無く、両手は打つ・守るのに使ったまま進む。(5) 折れてぶら下がる脚の先も、体重を受けない（骨の切れ目までしか数えない）。(6) 体が支える質量（`SupportedMass`）は外れた部位を全部除くので、肉でぶら下がる先の重さも体から外す（本当は肉が体へ引っぱる）。(7) 脚の骨の端（骨端）は骨の胴と同じ断面にしただけで、関節の所がもっと太い人の骨の形ではない（PhysicsVersion 40、`BoxerAnatomy.WithJointEnds`）。
-- **投げ**: 掴んだ手を離した瞬間の手の速さが `ThrowSpeed` を超えると、相手を押して `Knockdown`（状態の切り替え）にする場合分け。崩し（重心が足の外へ出る）と足を刈ることから倒れるように直す（`docs/GRAPPLING.md` 段 3）。
-- **意識**: 頭のねじれの角速度² × 係数で脳しんとう（脳の材料の損傷ではなく、意識の量のモデル）。脳のボクセルが削られる分は材料で効く。
-- **首と脊椎**（2026-11-16、`docs/VOXEL_DAMAGE.md`「首と脊椎」、PhysicsVersion 34）: 首の骨折・切断は腕・脚と同じ式（`VoxelBending`・`FindBoneBreak`・`BreakAt`・肉のつなぎ `Fighter.Link`）だが、(1) 頭の箱は 10 × 14 × 10 セルで底の段は空・次の段は皮膚だけなので、首の骨は 2 段 × 4 セルの細い柱（脊髄は 2 × 2）しか置けず、折れうる段はその 2 段だけ（`BoxerSpine.NeckSlices`。頭蓋の殻では折れない）。(2) 骨の曲げの実効値は前腕で決めた `BoneSectionModulusShare` 0.076 のまま首にも使い、首の筋肉・靭帯が曲げを支える分は式に入れていない（無傷の首の折れる力は真横で 467〜938 N、グローブの頭への打撃は最大 129 N・剣は 65 N なので試合では折れない。骨が削られて細くなると折れる）。折れた首の頭の垂れ方は前腕の折れと同じ校正（`FractureSagRadians`）で、頭の重さの校正はしていない。(3) 折れただけでは脊髄のセルは削れない（骨折の変位が脊髄を切る効果は無い。脊髄が絶たれるのは削り取られたとき）。(4) 頭が離れたら死ぬのは `Die("neck")` で状態を直接付ける近道（臓器が半分壊れたら死ぬ道ではなく、脳と体のつながりが断たれたことを死とする）。首の側の破片は胴に溶接する（`NeckWeldTorque`）近道で、首の関節の角度の制限は折れたら外す。(5) 脊髄の働き = 高さごとの、いちばん細くなった段の残りの割合（神経は直列）、部位の筋の力 = 肉の残り × 上の高さまでの積（腕 = 頸、胸 = 頸 × 胸、腰・脚 = 頸 × 胸 × 腰）。神経が絶たれた筋がほどける速さは使えなくなった手の握りの値（`DeadGripRelaxSeconds`）を転用しただけで、神経・筋の測定ではない。息は頸の脊髄全体で数える（本当は横隔膜を動かす頸の上の方だけ）。首の筋（首のサーボ）は頸に比例。(6) 胸・腰の背骨は折れない・切れない（背骨の骨折・胴の切断は未実装。削り取られたときの脊髄の損傷だけ）。腰の脊髄は皮膚の下の 1 × 2 セルだけ（柱の奥の列は皮膚に接していて置けない）。
-- **ダウンの判定**（2026-11-13、ユーザーの指定）: 腰・上体・手がマットに着いた（`Fighter.TouchesCanvas`、`CanvasTouch` 1.2 cm）・倒れた・脚で立てなくなったらすぐダウン。中腰でまだ立っているなら、意識が `KnockoutConsciousness`（0.3）を下回ったまま `DownFaintTime`（4 秒）待ってからダウン（その間は相手が攻め続けてよい）。立ち直って構えたら、一呼吸（`BoxingGame.ResumePause` 1.2 秒）その場で構えさせてから試合を戻す（その間の打撃は数えない）。**レフェリーなし**（2026-11-16、`BoxingCorners.Referee = false`、Arena は `--referee off`）: ダウンの数え・10 カウントの K.O.・動かないままの K.O. は今のまま数えるが、倒れている相手への打撃も立っている相手と同じ `ApplyHit`・接触の物理で数え（`BoxingGame.MayStrike`）、立ち直った後の一呼吸も無い（ルールの値。物理は同じ）。ボットは倒れた相手へ打ち下ろす（`GroundStrike`。近道: 倒れた相手に届くよう、レフェリーなしの試合だけ沈める深さの上限を `FighterTuning.GroundCrouch`（0.75）へ広げる。倒れた相手の狙いは体の軸の最寄りの点で、立つ位置・沈み方・振りかぶりの寸法は `GroundMove` の手で決めた値）。秒数・距離は審判のルールの値で、体の動き自体は連続。倒れている間の床・起き上がり途中の区別（0.55・0.85）と、動かないまま 4 秒でその場の K.O.（`StillKoSeconds`・`StillSpeed`）もルールの値。
-- **スタミナと臓器の効き方**（PhysicsVersion 32、回復は 38）: 腕の PD（反作用・体重移動込み）・歩行の水平駆動・肩/肘/手首のサーボ・体から拳への移送は、蓄え（W′）300 J と心肺の供給による仕事予算を使う（基準体格の値。蓄え・供給・持久の蓄えは筋肉の量 `BodyBuild.MassRatio` = H³M² に比例: 1 kg あたりで同じ）。回復は運動生理の臨界パワーのモデル（2026-11-17、ユーザーの目標: 弱強の連打が 10 秒全力・さらに 10 秒落ちながら打てる、1 ラウンド目は全力で続けられる、打ち合っていないときは減らない）: 直近 1 秒でならした実際にした仕事の仕事率 P が臨界パワー C（最大の戻り 20 W × `StaminaCriticalShare` 0.45 = 9 W）より下なら R − (R − C) P / C で戻り、上なら C だけ供給されて P − C で減る。R と C には試合を通した持久力 `Endurance` = exp(−した仕事の合計 / 1500 J) が掛かる（筋肉の糖が減る近似。ラウンドの間で戻らない）。打撲で失う分は 12 J × 打撲（`WindPerBruise`、エネルギーで）。拳を運ぶ力が落ち始めるのは蓄えの 45 %（`TiredKnee`）。ボットの休息の始まりは蓄えの 50 %（`RestBelow`）で、休む間も回り込み、手数は `RestTempo` 0.35 を残す。近似: 臨界パワーの割合・持久の蓄えは測定に合わせた値で、乳酸・酸素の負債の時間の遅れは持たない（P の 1 秒のならしだけ）。サーボは、取り置き（解く前）は力積の大きさ・相対角速度・最大逆慣性の 2 乗の上限、精算（解いた後）は実際の力積 × 前後の相対角速度の大きい方（止まった体を重さだけ支える力積を仕事に数えない）という安全側の仕事推定で、接触や全拘束を連立した厳密な保存則ではない。脚の関節そのもの・直立/支持点へ戻る反射の仕事は未計上で、疲れだけで崩れない既存の立位モデルを残す。体のバネの移送にも同額の筋の予算を要求する近似（体幹の運動エネルギーも従来どおり減らす）。臓器の打撲は「エネルギー × 距離の指数」の近似で、息 = 心臓・肺、腹 = 肝臓・腸は生理の対応表。測定は `StaminaFeelProbe`・`StaminaMatchProbe`・`StaminaRushTests`（前の式は `docs/arena/gen13_stamina.md`）。
-- **VR のプレイヤーにはスタミナの疲れが効かない**: VR の手触りの調整が終わるまで、VR のホストは `FighterTuning.PlayerFatigue = false` で試合を作り、プレイヤーの体だけ腕の力が落ちない（スタミナは数える）。同じ体・同じ物理（§1.5）からの例外。調整が終わったら外す（`docs/LEARNING_PLAN.md` A0v）。
-- **ラウンドの間の再生**: テレビ中継のモードで、削れたボクセルを一定の速さで元に戻す（ゲームのルール。治る仕組みのモデルではない）。
-- **はめる物の近道**: 刃の無い物の扱い（`IsBlunt`）は種類の一覧、腕の押し込みを武器に通すか（`HasRigidFace`: 打つ面が鉄・木か）は入るか切るかの二択。はめる物は持ち主自身には当たらない（グローブが顔の前にあるため。7 cm のカタールの刃でも同じ扱いの近道）。カタールの刃はボットに見えていない（`BladeSense` が空）。
-- **骨の曲げの実効値**: 5 mm のセルでは骨が本物より太い（前腕で 1 cm 角対 4 mm 2 本）ので、骨の引張・ヤング率に断面係数・断面二次モーメントの比（0.076・0.031、前腕で決めた）を掛けた実効値を使う。上腕・脚の骨はさらに太めに作ってあるので少し折れにくい。腕・脚は関節の先の重さを見ない自由な梁として曲げる（支えられた梁なら真ん中の曲げは最大 2 倍）。
-- **折れた骨をつなぐ肉の固さ**: 位置の玉継手は 60 Hz（`FractureLinkHz`）で折れ目の面を近く保つ近似。向きのバネは無傷の断面で自分の重さ（はめたグローブを含む）によるたわみ 0.6 rad（`FractureSagRadians`）を基準に、残存断面 A / 原型の断面 A0 に比例する剛性にする（並列の肉のせん断ばねの近似）。裂ける力・曲げ上限も残存断面から毎歩求め、両側の皮膚・筋肉が 0 なら初回も後から削れた場合も切断する（PhysicsVersion 19）。折れた・切れた腕は折れ目より体に近い側の筋肉だけが入力の拳の目標へ動く（`Arm.DriveStump`）。折れた先・切り落とされた破片はさらに折れない・切れない（肉のつなぎの削れは監視する）。
-- **力の抜けていく手**: 使えなくなった腕の手の握りは exp(−t / 0.5 s) で抜ける（`DeadGripRelaxSeconds`。神経・血が絶たれた手の指がほどける速さの近似）。
-- **折れた武器の判断**: 残った長さが腕の 0.35 倍未満なら捨てる（`DisarmedFallback.KeepReach`。ボットの判断の値）。
-- **倒れている間の手**: 倒れている間は入力元の拳の代わりに、両手を肩の下の床へ着く目標を体が自分で出す（`Fighter.PostOnTheCanvas`。反射のモデル。姿勢は書かず目標だけ）。
-- **起き上がろうとする試みの拍子**: 倒れている間の試み（`Fighter.Stir`）は意識の深さで強さ・間隔が連続に決まるが、力を込める山の形と間隔のずれ（体ごとの決まった数列）は意志のモデルで、物理からは出ていない。
-- **武器の接触の掃き直し**（2026-11-14、`PhysicsVersion` 20）: 武器 × 体の部位は 1 つずつ解くので、ある部位に押し戻された刃が、解き終えた隣の部位（肩の上腕と胸など）の中へ入って何も起きない歩があった。刃が動いたら、まだ触れていない相手の部位だけを、握りの押す力を数えずに掃き直す（`BoxingGame.MaxContactPasses` = 3。握った本人の体と手にはめた物（グローブなど）は 1 回のまま: 全部を腕の力も数えて掃き直すと握った剣の振りの手触りが変わった。調べたのは刃・棍棒だけで、拳の接触と扱いが違う近道）。本当は全部位の接触を同時に解く（連立）ところの近似で、3 回で落ち着かない深い重なりは次の歩に残る（調べ: `docs/arena/tunnel_*.md`、相手の体への残りは 8 秒 × 12 試合で 83 歩 → 13 歩（最大 2 セル）、握った本人の体は掃き直さないので 35 歩（最大 452 セル）残る）。
-- **剣士の自分の体を避ける通り道・技の時計**（2026-11-14、`SelfClearance`・`SwingPacing`。**既定では入れていない**: `LogicVersion` は 16 のまま、`SwordsmanBot.Clearance`・`Pacing` に渡したときだけ効く。Arena は `--clearance on`・`--pacing on`）: 自分の武器が自分の体を斬る（自傷）のを、物理で「自分には当たらない」とせず判断の側で減らす試み。体の見積もりは直立の人形の広がりに余裕を足した箱 3 つ（頭・胴・脚。腕は握りの側なので数えない）で、前傾は頭・胴の箱を広げて見る程度の近似。技の時計を「体が目標に付いてきた分だけ進める」（握りと剣の向きのずれから 1 / (1 + e²)）のは、速い振りが目標から遅れる体の力学（自傷の主因）を、判断の側で待つことで避ける近似。自傷のうち「目標が体を通る」類は 91 → 33 回に減るが、主因（体が目標から遅れる）は技の時計でも効きが見えず（事故でない自傷 462 → 533 回、揺らぎ ±30%）、0 にならないので既定にしていない（`docs/VOXEL_WEAPONS.md` §5.5）。**2026-11-16: 技の時計だけは、試合と同じ道（型の技・`UseWeaponBots`）で測り直して良かったので、試合の教科書（`Bots/weapons/katana.json`・`longsword.json`）に入れた（`LogicVersion` 31。自傷は刀 58 → 6・ロングソード 330 → 140 セル/試合。`docs/VOXEL_WEAPONS.md` §5.6）。`SelfClearance` は今も入れていない。**
-- **肘の締めと拳の狙い**（2026-11-17、LogicVersion 38）: 肘の目標 `HandCommand.Tuck` を、ボット・意図操作は「拳を出している手は 0、胴へ来る拳を守っている間は 1、ほかは構えの値 `ElbowTuck`」と切り替える（`TechniqueExecution.Tuck`。肘は目標として追うので体の動きは連続だが、判断は守りの種類で分けている）。来る拳の高さ・距離から連続に決める形へ寄せる。拳の狙いは見えた体（胴）の速さだけを先へ延ばし、頭が体の上で揺れる分は延ばさない近似（`AttackObservation`）。
-- **ボットの読み**: 相手の肩・腰の動き出しから次の拳を読む（人が見ている情報の近似）。判断の部分は物理ではなくてよい（入力元の一つ）が、出力は必ず `FighterCommand`。
-
----
+項目: 棒術・空手・トンファー・片手剣と盾・テコンドーの蹴り・キャラクター・見えにくい身体状態・拳の打撃の削れ方・体を支える力・脚を失った体・投げ・意識・首と脊椎・ダウンの判定・スタミナと臓器の効き方・VR のプレイヤーにはスタミナの疲れが効かない・ラウンドの間の再生・はめる物の近道・骨の曲げの実効値・折れた骨をつなぐ肉の固さ・力の抜けていく手・折れた武器の判断・倒れている間の手・起き上がろうとする試みの拍子・武器の接触の掃き直し・剣士の自分の体を避ける通り道・技の時計・肘の締めと拳の狙い・ボットの読み
 
 ## 9. ユーザーとのやり取り
 
@@ -221,14 +186,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 
 ## 10. 作業の分担（Claude が判断し、実装は Codex / Sonnet へ）
 
-- **役割**: 重い判断（設計・軸との整合・採否・結果の検証）は Claude（指示する側）が行い、指示書 `docs/plans/CODEX_BRIEF_*.md` に決めたことを書く。実装・測定・動画は Codex に渡す。Codex の残量が無いときは Sonnet（Claude Code のサブエージェント、`model: sonnet`）に渡す。
-- **モデルと推論の強さは依頼ごとに選ぶ**:
-  - Codex `gpt-6.1-sol`: 設計の判断が混ざる・原因調査・物理の新しい仕組み（推論 medium〜high）。
-  - Codex `gpt-6.1-terra`: 範囲がはっきりした実装・移植・テスト追加・文書（推論 medium。low は進みが小さく空回りした）。
-  - Sonnet: Codex が尽きたときの代わり。同じ指示書を渡す。
-- **粒度**: 1 回の実行で終わる大きさに分けてから渡す（例: ゲームパッド対応は 1 回で終わった。空手家 1 本に拳・指・パリー・蹴り 5 種・ドリルを詰めたら何度も再開になった）。指示書には優先順・完了の条件・確かめ方（数値のテスト・動画のコマ・全テスト）を書く。
-- **並列**: 触るファイルが重ならない作業だけを並列にし、それぞれ別の git worktree で動かす（同じ作業ツリーで 2 つ動かすと、互いの途中の変更を「他人の変更」と見て止まった）。開発の速さだけでなくトークンの効率も見る: 合わせる作業・版の番号の整理が要るので、小さい作業は並列にせず順に流す。
-- **Codex の残量**: `bash tools/codex-usage.sh`（最新のセッション記録の 5 時間枠・1 週間枠の使用率とリセット時刻）。依頼の前に見て、1 週間枠が残り少なければ terra・小さい粒度・Sonnet へ寄せる。
-- **raytrek の Codex（別の PC・別の枠）**: `ssh raytrek`（ユーザーの全体の CLAUDE.md）。Codex はデスクトップアプリの `C:\Program Files\WindowsApps\OpenAI.Codex_*\app\resources\codex.exe` を使う（CLI は未導入）。**ssh から `codex exec` を直に叩くとサンドボックスが立ち上がらない**（`timed out ... connecting runner pipe-in`。ssh はログインした画面の外で動くため）。代わりに、指示書を `C:\Users\smiya\repos\p_test.txt` に置いて `ssh raytrek "schtasks /run /tn codexjob"` で起動する（ログイン中の画面の中で `C:\Users\smiya\repos\run-codex.ps1` が動き、`test1.log`・`test1.report.md`・終わりの印 `test1.done` を `C:\Users\smiya\repos\` に書く。モデルの既定は sol・medium）。サンドボックスの中の git は、raytrek の `.codex\config.toml` の `[shell_environment_policy.set]` で `safe.directory = C:/Users/smiya/Repos/myvrgame1`（大文字の `Repos`。小文字では一致しなかった）を渡して通している。リポジトリは `C:\Users\smiya\repos\myvrgame1`（git bundle と未コミットの差分を送って作る）。こちらの Codex が尽きたとき・並列で別の作業を回すときに使い、終わったら差分を持ち帰って確かめてから取り込む。
-- **Codex の起動**: `codex exec -m <model> -c model_reasoning_effort="<effort>" -s workspace-write -C . --output-last-message <報告> "<依頼>" < /dev/null > <ログ> 2>&1`。`< /dev/null` を必ず付ける（無いと入力待ちで止まった）。起動後にログが進むことを確かめる。止めるときはプロセスの木ごと（`taskkill //PID <pid> //T //F`）止め、`codex.js exec` が残っていないことを確かめてから次を起動する（残った実行が同じファイルを同時に書き換えた）。ログに `usage limit` が出たら、Sonnet に引き継ぐか回復を待つ。
-- **報告はうのみにしない**: テストを緩めた所・測った数字・動画は、Claude が確かめてからユーザーに伝える。確かめていない数字は「報告では」と書く。
+- 重い判断（設計・軸との整合・採否・結果の検証）は Claude が行い、指示書 `docs/plans/CODEX_BRIEF_*.md` に書く。実装・測定・動画は Codex（無ければ Sonnet）に渡す。
+- 1 回の実行で終わる大きさに分け、優先順・完了の条件・確かめ方を書く。並列は触るファイルが重ならない作業だけ、別のワークツリーで。
+- 報告はうのみにしない: テストを緩めた所・数字・動画は Claude が確かめてから伝える。
+- Codex の起動・止め方・残量、raytrek での実行の手順は [docs/DELEGATION.md](docs/DELEGATION.md)。
