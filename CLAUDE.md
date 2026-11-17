@@ -120,6 +120,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | `docs/commentary/README.md` | 動画の語りの LLM 向け説明書: 型（テレビの実況＋解説・一人実況・心の声）× 役 × 個性の層と組み合わせ（`docs/TV_BROADCAST.md` が中継の道具） |
 | `docs/BREAK_ROUTINE.md` | ラウンドの間の休みの選手の動作（水を飲む・汗を拭く・スマホ・電話・深呼吸…）: 目標の経路・選び方・小物（ボクセルの物）・近道 |
 | `docs/MEDIA.md` | 動画・リプレイの保管（`media/<世代>/`、git の外）の索引と、世代の区切り方 |
+| `docs/ROSTER_REPORT.md` | 名簿の総当たり（組ごとの勝率と区間）・技ごとの間合いとダメージ・得意 / 不得意の距離を測り、ゲームの画像入りのレポート（Data 型の Artifact）にする手順・定義・考察の書き方（道具は `tools/roster-report/`） |
 
 ---
 
@@ -145,6 +146,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | 全テスト | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName!~Probe"` |
 | 調査用の Probe | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~<名前>" --logger "console;verbosity=detailed"` |
 | 総当たり | `dotnet run --project games/MiniRing.Arena -c Release -- league --bouts 4 --seconds 60 --out docs/arena/<名前>.md` |
+| 名簿の総当たりと間合いのレポート（勝率・技ごとの間合い・得意 / 不得意の距離・画像入り） | `bash tools/roster-report/run-raytrek.sh media_tmp/roster-<日付>`（raytrek で約 2 時間）→ `shots.sh` → `build-data.mjs` → `analyze.mjs` → `build-images.mjs` → `build-page.mjs` → `preview.mjs` → 公開。手順は `docs/ROSTER_REPORT.md`。部品は `rosterleague --matrix <csv>`（1 試合 1 行）・`maailab [--ranges <接頭辞>]`（1 打ずつの間合いとダメージ、距離の帯ごとの与えた / 受けた）・`portraits --out <dir>`（肖像の PNG） |
 | 攻撃のドリル | `... -- attacklab --combos 1,2,1-2 --telegraphs 0,0.1,0.2` |
 | 詰めのドリル（弱った相手の顔に当たるか） | `... -- finishlab [--attackers ramon,yoandry,marcus] [--victims dmitri,joao,ramon] [--levels 0.45,0.6] [--bouts 2] [--seconds 20] [--set AimLead=0] [--log docs/arena/<名前>.md]`（相手の意識を決まった深さで止め、拳ごとに顔・胴・ガード・空振りと外れた向き、技ごとの当たり・狙いのずれ。`docs/BOT_PDCA.md`「詰めのドリル」） |
 | 空手のドリル | `... -- karatelab [--only shapes,parry,kicks] [--cues 0,0.06] [--bouts N] [--seconds S] [--log docs/arena/<名前>.md]`（手形 × 急所・パリー・5 種の蹴り。`docs/KARATE.md`） |

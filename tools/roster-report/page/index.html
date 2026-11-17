@@ -1,0 +1,500 @@
+<meta name="dash-one-writer">
+<style>
+  .mx { display: flex; flex-direction: column; gap: var(--cds-gap-xl); }
+  .mx h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+  .mx h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; text-wrap: balance; }
+  .mx p { margin: 0; max-width: 72ch; line-height: 1.6; }
+  .mx .muted { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .mx .lede { font-size: var(--cds-font-size-body); }
+  .mx .num { font-variant-numeric: tabular-nums; }
+  .mx section { display: flex; flex-direction: column; gap: var(--cds-gap-md); }
+  .mx .row { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); align-items: center; }
+  .mx .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--cds-gap-lg); }
+  .mx .card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-sm); min-width: 0; }
+  .mx .card h3 { margin: 0; font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); }
+  .mx .chart { position: relative; min-height: 260px; }
+  .mx .chart svg { display: block; width: 100%; overflow: visible; }
+  .mx .chart text { fill: var(--cds-text-secondary); font-size: var(--cds-font-size-caption); }
+  .mx .chart .grid line { stroke: var(--cds-chart-grid); }
+  .mx .chart .domain { stroke: var(--cds-chart-axis); }
+  .mx .tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); box-shadow: var(--cds-shadow-popover); border-radius: var(--cds-radius); padding: var(--cds-pad-sm); font-size: var(--cds-font-size-caption); line-height: 1.5; white-space: nowrap; z-index: 2; }
+  .mx .legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-md); font-size: var(--cds-font-size-caption); }
+  .mx .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .mx .legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .mx .wrap { overflow-x: auto; }
+  .mx table { border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; min-width: 100%; }
+  .mx th, .mx td { padding: 6px 8px; border-bottom: 1px solid var(--color-border-line); text-align: right; white-space: nowrap; }
+  .mx th { color: var(--color-fg-muted); font-weight: var(--cds-font-weight-medium); vertical-align: bottom; }
+  .mx th:first-child, .mx td:first-child, .mx td.l, .mx th.l { text-align: left; }
+  .mx tr.other td { color: var(--color-fg-muted); }
+  .mx details summary { cursor: pointer; font-weight: var(--cds-font-weight-medium); }
+  .mx details ul { margin: var(--cds-gap-sm) 0 0; padding-left: 1.2em; line-height: 1.7; max-width: 80ch; }
+  .mx .rp-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--cds-gap-md); }
+  .mx .rp-fighter { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+  .mx .rp-shot { position: relative; aspect-ratio: 16 / 9; background: var(--color-bg); max-width: 100%; }
+  .mx .rp-shot img.shot { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .mx .rp-shot img.face { position: absolute; left: 6px; bottom: 6px; width: 34px; height: auto; image-rendering: pixelated; background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: 4px; padding: 2px; }
+  .mx .rp-shot .rank { position: absolute; right: 6px; top: 6px; background: var(--cds-surface-popover); border-radius: 999px; padding: 2px 8px; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .mx .rp-meta { padding: var(--cds-pad-sm) var(--cds-pad-md); display: flex; flex-direction: column; gap: 4px; }
+  .mx .rp-meta .nm { font-weight: var(--cds-font-weight-medium); }
+  .mx .rp-meta .sub { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .mx .rp-meta .bar { position: relative; height: 6px; background: var(--cds-chart-grid); border-radius: 3px; overflow: hidden; }
+  .mx .rp-meta .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+  .mx .rp-key { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); align-items: center; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .mx .rp-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin-right: 4px; }
+  .mx .rp-findings { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: var(--cds-gap-sm); line-height: 1.7; max-width: 80ch; }
+</style>
+
+<div class="mx">
+  <header id="top" class="mx-head" style="display:flex;flex-direction:column;gap:var(--cds-gap-sm)">
+    <h1>{{FIGHTERS}} 人の総当たりと間合い</h1>
+    <p class="lede" data-read lang="ja">名簿の {{FIGHTERS}} 人を全員と {{BOUTS_PER_PAIR}} 試合ずつ戦わせ（{{LEAGUE_BOUTS}} 試合）、別に技ごとの距離とダメージを数えました（{{MAAI_BOUTS}} 試合・{{THROWS}} 打）。いちばん勝ったのは <b data-draw="rp-top">—</b> で、勝ち点率 <b data-draw="rp-top-score" class="num">—</b> でした。勝ちを決めていたのはダメージの点よりもダウンで、ほとんどの選手は自分の得意な距離の外で戦っていました。</p>
+    <p class="muted">PhysicsVersion {{PHYSICS}}・LogicVersion {{LOGIC}}。1 試合 {{SECONDS}} 秒、レフェリーあり。勝ち点 = 勝ち 1・引き分け 0.5。画像はすべてゲームの画面（試合の動画のコマと、試合の体のボクセルから写したメニューの肖像）です。</p>
+  </header>
+
+  <section id="gallery">
+    <h2>選手たち</h2>
+    <p class="muted">勝ち点率の順。写真は {{SHOT_OPPONENT}} と戦っている試合の 1 コマ（{{SHOT_OPPONENT}} 本人は marcus と）。左下の顔はメニューの肖像です。</p>
+    <div class="rp-gallery" data-draw="rp-gallery" data-source="profiles"></div>
+  </section>
+
+  <section id="league">
+    <h2>総当たりの勝ち点率</h2>
+    <div class="card" id="rp-rank-card">
+      <h3>勝ち点率と 95% 区間（{{BOUTS_PER_FIGHTER}} 試合ずつ）</h3>
+      <div class="chart" data-draw="rp-rank" data-source="profiles"></div>
+      <p class="muted">線は 95% 区間、点が勝ち点率。武器を持つ選手は四角、素手・はめる物の選手は丸です。</p>
+    </div>
+    <div class="card" id="rp-matrix-card">
+      <h3>組ごとの勝ち点率（行の選手から見て、{{BOUTS_PER_PAIR}} 試合ずつ）</h3>
+      <div class="rp-key">
+        <span><span class="rp-swatch" style="background:var(--cds-chart-status-critical)"></span>負け越し</span>
+        <span><span class="rp-swatch" style="background:var(--cds-chart-grid)"></span>五分</span>
+        <span><span class="rp-swatch" style="background:var(--color-ok)"></span>勝ち越し</span>
+        <span>● = 95% 区間が 50% をまたがない組</span>
+      </div>
+      <div class="wrap chart rp-matrix" data-draw="rp-matrix" data-source="matchups profiles"></div>
+      <p class="muted">{{BOUTS_PER_PAIR}} 試合の区間はおよそ ±{{CI_HALF}} ポイントなので、● の無い升の色の差は偶然の範囲です。升を指すと勝敗とダウンが出ます。</p>
+    </div>
+  </section>
+
+  <section id="analysis">
+    <h2>考察</h2>
+    <div class="charts">
+      <div class="card" id="rp-kd-card">
+        <h3>ダウンを取った数と勝ち点率</h3>
+        <div class="chart" data-draw="rp-scatter-kd" data-source="profiles"></div>
+      </div>
+      <div class="card" id="rp-dmg-card">
+        <h3>与えたダメージの点と勝ち点率</h3>
+        <div class="chart" data-draw="rp-scatter-dmg" data-source="profiles"></div>
+      </div>
+      <div class="card" id="rp-mass-card">
+        <h3>体の重さ（基準 = 1）と勝ち点率</h3>
+        <div class="chart" data-draw="rp-scatter-mass" data-source="profiles"></div>
+      </div>
+    </div>
+<!-- findings -->
+    <p class="muted">相関は {{FIGHTERS}} 人（素手は {{UNARMED}} 人）の値どうしのピアソンの相関で、人数が少ないので目安です。</p>
+  </section>
+
+  <section id="distance">
+    <h2>得意な距離と、いつもいる距離</h2>
+    <div class="card" id="rp-dumbbell-card">
+      <div class="chart" data-draw="rp-dumbbell" data-source="profiles"></div>
+      <div class="rp-key">
+        <span><span class="rp-swatch" style="background:var(--color-ok)"></span>得意な距離（差し引き / 秒が最大の 2 cm）</span>
+        <span><span class="rp-swatch" style="background:var(--cds-chart-status-critical)"></span>不得意な距離</span>
+        <span>● いつもいる距離（時間の中央）</span>
+        <span>| 腕の長さ</span>
+      </div>
+      <p class="muted">勝ち点率の順。胸と胸の水平距離です。灰色の点が緑の帯から離れているほど、得意な距離の外で戦っています。</p>
+    </div>
+  </section>
+
+  <section id="ranges">
+    <h2>得意な距離・不得意な距離</h2>
+    <p class="muted">両方が立っている間の胸と胸の距離を 2 cm の帯に分け、その帯にいた 1 秒あたりの「与えたダメージ − 受けたダメージ」（差し引き）を出しました。得意 = 差し引きが最大の帯、不得意 = 最小の帯です（全試合でその帯に 30 秒以上いた帯だけ）。± は試合を単位にした標準誤差です。</p>
+    <div class="wrap">
+      <table data-source="range_summary" data-row-key="fighter">
+        <thead>
+          <tr>
+            <th class="l" data-field="fighter">選手</th>
+            <th data-field="reach_cm">腕 [cm]</th>
+            <th data-field="median_cm">よくいる距離 [cm]</th>
+            <th data-field="best_from_cm">得意 [cm]〜</th>
+            <th data-field="best_to_cm">〜[cm]</th>
+            <th data-field="best_net_per_s">差し引き / 秒</th>
+            <th data-field="best_net_se">±</th>
+            <th data-field="worst_from_cm">不得意 [cm]〜</th>
+            <th data-field="worst_to_cm">〜[cm]</th>
+            <th data-field="worst_net_per_s">差し引き / 秒</th>
+            <th data-field="worst_net_se">±</th>
+            <th data-field="dealt_from_cm">いちばん与える [cm]〜</th>
+            <th data-field="taken_from_cm">いちばん受ける [cm]〜</th>
+          </tr>
+        </thead>
+        <tbody data-draw="range-summary"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="overview">
+    <h2>選手ごとの、いちばん効いた技と間合い</h2>
+    <p class="muted">打った数が 30 以上の技のうち、1 打あたりのダメージが最大の技。最適な間合いは、打った数 8 以上の距離の帯で 1 打あたりが最大の帯です。</p>
+    <div class="wrap">
+      <table data-source="techniques" data-row-key="fighter,technique">
+        <thead>
+          <tr>
+            <th class="l" data-field="fighter">選手</th>
+            <th class="l" data-field="equipment">道具</th>
+            <th data-field="reach_cm">腕 [cm]</th>
+            <th class="l" data-field="technique">技</th>
+            <th data-field="throws">打ち</th>
+            <th data-field="hit_rate">当たり率</th>
+            <th data-field="launch_median_cm">間合い 中央 [cm]</th>
+            <th data-field="hit_mean">当たり 平均</th>
+            <th data-field="hit_max">当たり 最大</th>
+            <th data-field="per_throw">1 打あたり</th>
+            <th data-field="best_from_cm">最適 [cm]〜</th>
+            <th data-field="best_to_cm">〜[cm]</th>
+          </tr>
+        </thead>
+        <tbody data-draw="overview"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="fighter">
+    <h2>選手を選ぶ</h2>
+    <div class="row">
+      <select class="dash-select" id="fighter-select" aria-label="選手" data-draw="fighter-select" data-source="techniques"></select>
+      <span class="muted" data-draw="fighter-info">—</span>
+    </div>
+
+    <div class="card" id="chart-range-card">
+      <h3>距離ごとの 1 秒あたりのダメージ（与えた・受けた・差し引き）</h3>
+      <div class="chart" data-draw="chart-range" data-source="range_bins"></div>
+      <p class="muted">灰色の柱はその距離にいた時間の割合（右の目盛り）。30 秒未満しかいなかった帯は描いていません。差し引きが 0 より上の距離が得意、下が不得意です。</p>
+    </div>
+
+    <div class="charts">
+      <div class="card" id="chart-per-card">
+        <h3>1 打あたりのダメージ（空振り込み）と距離</h3>
+        <div class="chart" data-draw="chart-per" data-source="curve"></div>
+      </div>
+      <div class="card" id="chart-hit-card">
+        <h3>当たり率と距離</h3>
+        <div class="chart" data-draw="chart-hit" data-source="curve"></div>
+      </div>
+      <div class="card" id="chart-mean-card">
+        <h3>当たったときのダメージ（平均と最大）と距離</h3>
+        <div class="chart" data-draw="chart-mean" data-source="curve"></div>
+      </div>
+    </div>
+    <p class="muted">点は距離の帯（腕の長さの 0.1 倍ごと）の真ん中。打った数が 3 未満の帯は描いていません。点の大きさは打った数です。打った数が 20 以上の技だけを線にしています（全部の技は下の表）。</p>
+
+    <h2 id="stats">技ごとの間合いとダメージの統計</h2>
+    <div class="wrap">
+      <table data-source="techniques" data-row-key="fighter,technique">
+        <thead>
+          <tr>
+            <th class="l" data-field="technique">技</th>
+            <th data-field="throws">打ち</th>
+            <th data-field="landed">当たり</th>
+            <th data-field="hit_rate">当たり率</th>
+            <th data-field="clean_rate">クリーン率</th>
+            <th data-field="share">与えた割合</th>
+            <th data-field="launch_mean_cm">間合い 平均</th>
+            <th data-field="launch_median_cm">中央</th>
+            <th data-field="launch_min_cm">最小</th>
+            <th data-field="launch_max_cm">最大</th>
+            <th data-field="launch_p10_cm">P10</th>
+            <th data-field="launch_p90_cm">P90</th>
+            <th data-field="ratio_median">中央 d/腕</th>
+            <th data-field="landed_launch_median_cm">当たった打ちの間合い 中央</th>
+            <th data-field="hit_mean">当たり 平均</th>
+            <th data-field="hit_median">中央</th>
+            <th data-field="hit_max">最大</th>
+            <th data-field="hit_p90">P90</th>
+            <th data-field="hit_sd">標準偏差</th>
+            <th data-field="per_throw">1 打あたり</th>
+            <th data-field="best_from_cm">最適 [cm]〜</th>
+            <th data-field="best_to_cm">〜[cm]</th>
+            <th data-field="best_per_throw">最適の 1 打あたり</th>
+          </tr>
+        </thead>
+        <tbody data-draw="stats"></tbody>
+      </table>
+    </div>
+    <p class="muted">武器の選手の拳の技は、武器を落とした・折られた後にだけ出たものです。当たり率はガードの上への当たりも含みます。クリーン率はガード以外に 1 度でも当たった打ちの割合です。間合いの列は cm。「(構えの…が当たった)」は技を出していない間（構え・守り）に当たったもので、技ではないので最適な間合いは出していません。</p>
+  </section>
+
+  <details id="method">
+    <summary>測り方</summary>
+    <ul data-read lang="ja">
+      <li>1 打 = ボットが技を出した 1 回。当たらなかった打ちもダメージ 0 として数えます。溜めの途中でやめた拳は数えません。</li>
+      <li>当たりは、打った手（蹴りは脚、武器は握った武器）がその時に出していた技に付けます。技の時計が終わってから 0.15 秒までの当たりもその打ちに入れます。1 打で何度か触れたら合計します。</li>
+      <li>倒れた相手への打ち下ろしは「倒れた相手へ:…」として別に数えます。</li>
+      <li>距離の帯は自分の腕の長さで割った値（0.1 刻み）。選手ごとに腕の長さが違うので、cm に直した帯の幅は選手ごとに違います。</li>
+      <li>相手は名簿の全員（武器の選手を含む）なので、間合いとダメージは相手の混ざり方に影響されます。</li>
+      <li>コマンド: <code>miniring-arena maailab --bouts 4 --seconds 60</code>。生の記録（1 打ずつ）は docs/arena に置いてあります。</li>
+    </ul>
+  </details>
+</div>
+
+<script>
+  window.maai = window.maai || { fighter: null };
+  const f2 = d3.format('.2f');
+  const f1 = d3.format('.1f');
+  const pct = d3.format('.0%');
+  const n = (v) => (v === '' || v === null || v === undefined ? NaN : +v);
+  const show = (v, fmt) => (Number.isNaN(n(v)) ? '-' : fmt(n(v)));
+
+  window.maaiRows = () => {
+    const t = dash.data('techniques');
+    return t.status === 'ok' ? t.data : [];
+  };
+
+  window.maaiFighter = () => {
+    const rows = window.maaiRows();
+    const ids = [...new Set(rows.map((r) => r.fighter))];
+    if (!ids.includes(window.maai.fighter)) window.maai.fighter = ids[0] ?? null;
+    return window.maai.fighter;
+  };
+
+  window.maaiRedraw = () => ['fighter-info', 'chart-range', 'chart-per', 'chart-hit', 'chart-mean', 'stats'].forEach((d) => dash.draw(d));
+
+  dash.draw('range-summary', (tbody) => {
+    const s = dash.data('range_summary');
+    tbody.replaceChildren();
+    if (s.status !== 'ok') return;
+    const band = (a, b) => (a === '' ? '-' : `${a}`);
+    const signed = (v) => (Number.isNaN(n(v)) ? '-' : d3.format('+.2f')(n(v)));
+    for (const r of [...s.data].sort((a, b) => n(b.best_net_per_s) - n(a.best_net_per_s))) {
+      const tr = tbody.insertRow();
+      tr.dataset.key = encodeURIComponent(r.fighter);
+      const cells = [[r.fighter, 'l'], [show(r.reach_cm, f1)], [r.median_cm], [band(r.best_from_cm)], [band(r.best_to_cm)], [signed(r.best_net_per_s)], [show(r.best_net_se, f2)],
+        [band(r.worst_from_cm)], [band(r.worst_to_cm)], [signed(r.worst_net_per_s)], [show(r.worst_net_se, f2)], [band(r.dealt_from_cm)], [band(r.taken_from_cm)]];
+      for (const [v, c] of cells) { const td = tr.insertCell(); td.textContent = v; if (c) td.className = c; }
+    }
+  });
+
+  dash.draw('chart-range', (el) => {
+    const src = dash.data('range_bins');
+    el.replaceChildren();
+    if (src.status === 'error') { el.textContent = '読み込めませんでした'; return; }
+    if (src.status !== 'ok') { el.textContent = '—'; return; }
+    const id = window.maaiFighter();
+    const rows = src.data.filter((r) => r.fighter === id && n(r.seconds) >= 30).sort((a, b) => n(a.mid_cm) - n(b.mid_cm));
+    if (!rows.length) { el.textContent = 'この選手には 30 秒以上いた距離がありません'; return; }
+    const series = [
+      { key: 'dealt_per_s', label: '与えた / 秒', color: 'var(--color-ok)' },
+      { key: 'taken_per_s', label: '受けた / 秒', color: 'var(--cds-chart-status-critical)' },
+      { key: 'net_per_s', label: '差し引き / 秒', color: dash.colors[0] },
+    ];
+    const legend = document.createElement('div');
+    legend.className = 'legend';
+    for (const s of series) { const span = document.createElement('span'); const i = document.createElement('i'); i.style.background = s.color; span.append(i, document.createTextNode(s.label)); legend.append(span); }
+    const W = Math.max(280, el.clientWidth || 600);
+    const H = 260;
+    const lo = Math.min(0, d3.min(rows, (r) => n(r.net_per_s) - (n(r.net_se) || 0)));
+    const hi = Math.max(d3.max(rows, (r) => Math.max(n(r.dealt_per_s), n(r.taken_per_s), n(r.net_per_s) + (n(r.net_se) || 0))), 1);
+    const y = d3.scaleLinear().domain([lo, hi]).nice();
+    const yt = d3.scaleLinear().domain([0, d3.max(rows, (r) => n(r.share))]).nice();
+    const svg = d3.create('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', `${id} の距離ごとの、1 秒あたりに与えた・受けたダメージと差し引き`);
+    el.append(svg.node(), legend);
+    const yAxis = svg.append('g').call(d3.axisLeft(y).ticks(5));
+    const left = Math.ceil(d3.max(yAxis.selectAll('text').nodes(), (t) => t.getComputedTextLength()) || 24) + 12;
+    const m = { top: 8, right: 40, bottom: 34, left };
+    const x = d3.scaleLinear().domain([d3.min(rows, (r) => n(r.from_cm)), d3.max(rows, (r) => n(r.to_cm))]).range([m.left, W - m.right]);
+    y.range([H - m.bottom, m.top]);
+    yt.range([H - m.bottom, m.top]);
+    yAxis.attr('transform', `translate(${m.left},0)`).call(d3.axisLeft(y).ticks(5).tickSize(-(W - m.left - m.right)))
+      .call((g) => g.selectAll('.tick line').attr('stroke', 'var(--cds-chart-grid)')).call((g) => g.select('.domain').remove());
+    svg.append('g').attr('transform', `translate(${W - m.right},0)`).call(d3.axisRight(yt).ticks(4).tickFormat(d3.format('.0%'))).call((g) => g.select('.domain').remove());
+    svg.append('g').attr('transform', `translate(0,${H - m.bottom})`).call(d3.axisBottom(x).ticks(Math.max(3, Math.floor(W / 70))));
+    svg.append('text').attr('x', W - m.right).attr('y', H - 4).attr('text-anchor', 'end').text('胸と胸の距離 [cm]');
+    svg.append('g').selectAll('rect').data(rows).join('rect')
+      .attr('x', (r) => x(n(r.from_cm)) + 1).attr('width', (r) => Math.max(1, x(n(r.to_cm)) - x(n(r.from_cm)) - 2))
+      .attr('y', (r) => yt(n(r.share))).attr('height', (r) => yt(0) - yt(n(r.share))).style('fill', 'var(--cds-chart-muted)').attr('opacity', 0.35);
+    svg.append('line').attr('x1', m.left).attr('x2', W - m.right).attr('y1', y(0)).attr('y2', y(0)).style('stroke', 'var(--cds-chart-reference)');
+    svg.append('g').selectAll('line').data(rows.filter((r) => !Number.isNaN(n(r.net_se)))).join('line')
+      .attr('x1', (r) => x(n(r.mid_cm))).attr('x2', (r) => x(n(r.mid_cm)))
+      .attr('y1', (r) => y(n(r.net_per_s) - n(r.net_se))).attr('y2', (r) => y(n(r.net_per_s) + n(r.net_se))).style('stroke', dash.colors[0]).attr('opacity', 0.5);
+    for (const s of series) {
+      svg.append('path').datum(rows).attr('fill', 'none').style('stroke', s.color).attr('stroke-width', s.key === 'net_per_s' ? 2.5 : 1.5)
+        .attr('d', d3.line().x((r) => x(n(r.mid_cm))).y((r) => y(n(r[s.key]))));
+      svg.append('g').selectAll('circle').data(rows).join('circle').attr('cx', (r) => x(n(r.mid_cm))).attr('cy', (r) => y(n(r[s.key]))).attr('r', 2.5).style('fill', s.color);
+    }
+    const tip = document.createElement('div');
+    tip.className = 'tip';
+    tip.hidden = true;
+    el.append(tip);
+    const hover = (event) => {
+      const [px] = d3.pointer(event, svg.node());
+      const r = d3.least(rows, (d) => Math.abs(x(n(d.mid_cm)) - px));
+      if (!r) return;
+      tip.replaceChildren();
+      [`${r.from_cm}〜${r.to_cm} cm（腕の ${d3.format('.2f')(n(r.ratio_from))}〜${d3.format('.2f')(n(r.ratio_to))} 倍）`,
+        `いた時間 ${f1(n(r.seconds))} 秒（${pct(n(r.share))}、${r.bouts} 試合）`,
+        `与えた ${f2(n(r.dealt_per_s))} / 秒・受けた ${f2(n(r.taken_per_s))} / 秒`,
+        `差し引き ${d3.format('+.2f')(n(r.net_per_s))} ± ${show(r.net_se, f2)} / 秒`]
+        .forEach((line, i) => { const div = document.createElement('div'); div.textContent = line; if (i === 0) div.style.fontWeight = '600'; tip.append(div); });
+      tip.hidden = false;
+      const scale = (svg.node().getBoundingClientRect().width || W) / W;
+      const tw = tip.offsetWidth;
+      tip.style.left = `${Math.min(Math.max(0, x(n(r.mid_cm)) * scale - tw / 2), Math.max(0, el.clientWidth - tw))}px`;
+      tip.style.top = '0px';
+    };
+    svg.on('pointermove', hover).on('pointerdown', hover).on('pointerleave', () => { tip.hidden = true; });
+  });
+
+  // 全員のうち 1 打あたりが最大の技（打った数 30 以上）。
+  window.maaiTop = () => {
+    const rows = window.maaiRows().filter((r) => r.kind !== 'other' && n(r.throws) >= 30);
+    return rows.length ? rows.reduce((a, b) => (n(b.per_throw) > n(a.per_throw) ? b : a)) : null;
+  };
+  dash.draw('top-who', (el) => { const t = window.maaiTop(); el.textContent = t ? t.fighter : '—'; });
+  dash.draw('top-tech', (el) => { const t = window.maaiTop(); el.textContent = t ? t.technique : '—'; });
+  dash.draw('top-per', (el) => {
+    const t = window.maaiTop();
+    el.textContent = t ? f2(n(t.per_throw)) : '—';
+    if (t) { el.setAttribute('data-source', 'techniques'); el.setAttribute('data-field', 'per_throw'); el.setAttribute('data-where', `fighter=${encodeURIComponent(t.fighter)}&technique=${encodeURIComponent(t.technique)}`); }
+  });
+
+  dash.draw('overview', (tbody) => {
+    const rows = window.maaiRows();
+    const best = d3.groups(rows.filter((r) => r.kind !== 'other' && n(r.throws) >= 30), (r) => r.fighter)
+      .map(([, g]) => g.reduce((a, b) => (n(b.per_throw) > n(a.per_throw) ? b : a)))
+      .sort((a, b) => n(b.per_throw) - n(a.per_throw));
+    tbody.replaceChildren();
+    for (const r of best) {
+      const tr = tbody.insertRow();
+      tr.dataset.key = `${encodeURIComponent(r.fighter)},${encodeURIComponent(r.technique)}`;
+      [[r.fighter, 'l'], [r.equipment, 'l'], [show(r.reach_cm, f1)], [r.technique, 'l'], [r.throws], [show(r.hit_rate, pct)], [show(r.launch_median_cm, f1)],
+        [show(r.hit_mean, f2)], [show(r.hit_max, f2)], [show(r.per_throw, f2)], [show(r.best_from_cm, f1)], [show(r.best_to_cm, f1)]]
+        .forEach(([v, cls]) => { const td = tr.insertCell(); td.textContent = v; if (cls) td.className = cls; });
+    }
+  });
+
+  dash.draw('fighter-select', (sel) => {
+    const rows = window.maaiRows();
+    const people = d3.groups(rows, (r) => r.fighter).map(([id, g]) => ({ id, name: g[0].name, eq: g[0].equipment }));
+    sel.replaceChildren(...people.map((p) => new Option(`${p.id}（${p.name}・${p.eq}）`, p.id)));
+    sel.value = window.maaiFighter() ?? '';
+    sel.onchange = () => { window.maai.fighter = sel.value; window.maaiRedraw(); };
+  });
+
+  dash.draw('fighter-info', (el) => {
+    const id = window.maaiFighter();
+    const g = window.maaiRows().filter((r) => r.fighter === id);
+    if (!g.length) { el.textContent = '—'; return; }
+    const throws = d3.sum(g, (r) => n(r.throws));
+    const landed = d3.sum(g, (r) => n(r.landed));
+    el.textContent = `教科書 ${g[0].style}・腕 ${f1(n(g[0].reach_cm))} cm・打ち ${throws}・当たり率 ${pct(landed / throws)}・与えた合計 ${f1(d3.sum(g, (r) => n(r.total_damage)))}`;
+  });
+
+  // 距離の曲線: 選んだ選手の、打った数 20 以上の技（構えの当たりは除く）。
+  window.maaiCurve = (el, field, label, fmt, withMax) => {
+    const c = dash.data('curve');
+    el.replaceChildren();
+    if (c.status === 'error') { el.textContent = '読み込めませんでした'; return; }
+    if (c.status !== 'ok') { el.textContent = '—'; return; }
+    const id = window.maaiFighter();
+    const techs = window.maaiRows().filter((r) => r.fighter === id && r.kind !== 'other' && n(r.throws) >= 20).map((r) => r.technique);
+    const rows = c.data.filter((r) => r.fighter === id && techs.includes(r.technique) && n(r.throws) >= 3 && !Number.isNaN(n(r[field])));
+    if (!rows.length) { el.textContent = 'この選手には線にできる技がありません'; return; }
+    const series = techs.map((t, i) => ({ t, color: dash.colors[i % dash.colors.length], pts: rows.filter((r) => r.technique === t).sort((a, b) => n(a.mid_cm) - n(b.mid_cm)) })).filter((s) => s.pts.length);
+
+    const legend = document.createElement('div');
+    legend.className = 'legend';
+    for (const s of series) {
+      const span = document.createElement('span');
+      const i = document.createElement('i');
+      i.style.background = s.color;
+      span.append(i, document.createTextNode(s.t));
+      legend.append(span);
+    }
+
+    const W = Math.max(280, el.clientWidth || 320);
+    const H = 240;
+    const yMax = d3.max(rows, (r) => n(withMax ? r.hit_max : r[field])) || 1;
+    const x = d3.scaleLinear().domain(d3.extent(rows, (r) => n(r.mid_cm))).nice();
+    const y = d3.scaleLinear().domain([0, field === 'hit_rate' ? 1 : yMax]).nice();
+    const svg = d3.create('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', `${id} の技ごとの${label}と距離`);
+    el.append(svg.node(), legend);
+    const yAxis = svg.append('g');
+    yAxis.call(d3.axisLeft(y).ticks(5).tickFormat(fmt));
+    const left = Math.ceil(d3.max(yAxis.selectAll('text').nodes(), (t) => t.getComputedTextLength()) || 24) + 12;
+    const m = { top: 8, right: 12, bottom: 34, left };
+    x.range([m.left, W - m.right]);
+    y.range([H - m.bottom, m.top]);
+    yAxis.attr('transform', `translate(${m.left},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(fmt).tickSize(-(W - m.left - m.right)))
+      .call((g) => g.selectAll('.tick line').attr('stroke', 'var(--cds-chart-grid)')).call((g) => g.select('.domain').remove());
+    svg.append('g').attr('transform', `translate(0,${H - m.bottom})`).call(d3.axisBottom(x).ticks(Math.max(3, Math.floor(W / 80))).tickFormat((v) => `${v}`));
+    svg.append('text').attr('x', W - m.right).attr('y', H - 4).attr('text-anchor', 'end').text('打ち出した距離 [cm]');
+
+    const r = d3.scaleSqrt().domain([0, d3.max(rows, (d) => n(d.throws))]).range([2, 7]);
+    for (const s of series) {
+      svg.append('path').datum(s.pts).attr('fill', 'none').style('stroke', s.color).attr('stroke-width', 2)
+        .attr('d', d3.line().x((d) => x(n(d.mid_cm))).y((d) => y(n(d[field]))));
+      if (withMax) {
+        svg.append('g').selectAll('path').data(s.pts.filter((d) => !Number.isNaN(n(d.hit_max)))).join('path')
+          .attr('d', d3.symbol(d3.symbolTriangle, 28)).attr('transform', (d) => `translate(${x(n(d.mid_cm))},${y(n(d.hit_max))})`)
+          .style('fill', s.color).attr('opacity', 0.55);
+      }
+      svg.append('g').selectAll('circle').data(s.pts).join('circle')
+        .attr('cx', (d) => x(n(d.mid_cm))).attr('cy', (d) => y(n(d[field]))).attr('r', (d) => r(n(d.throws)))
+        .style('fill', s.color).style('stroke', 'var(--color-bg)').attr('stroke-width', 1);
+    }
+
+    const tip = document.createElement('div');
+    tip.className = 'tip';
+    tip.hidden = true;
+    el.append(tip);
+    const all = series.flatMap((s) => s.pts.map((d) => ({ d, s })));
+    const hover = (event) => {
+      const [px, py] = d3.pointer(event, svg.node());
+      const scale = (svg.node().getBoundingClientRect().width || W) / W;
+      const near = d3.least(all, (a) => (x(n(a.d.mid_cm)) - px) ** 2 + (y(n(a.d[field])) - py) ** 2);
+      if (!near) return;
+      const d = near.d;
+      tip.replaceChildren();
+      [
+        `${near.s.t}  ${f1(n(d.from_cm))}〜${f1(n(d.to_cm))} cm（腕の ${d.ratio_from}〜${d.ratio_to} 倍）`,
+        `打ち ${d.throws}・当たり ${d.landed}（${show(d.hit_rate, pct)}）`,
+        `1 打あたり ${show(d.per_throw, f2)}`,
+        `当たり 平均 ${show(d.hit_mean, f2)}・中央 ${show(d.hit_median, f2)}・最大 ${show(d.hit_max, f2)}`,
+      ].forEach((line, i) => { const div = document.createElement('div'); div.textContent = line; if (i === 0) div.style.fontWeight = '600'; tip.append(div); });
+      tip.hidden = false;
+      const cx = x(n(d.mid_cm)) * scale;
+      const cy = y(n(d[field])) * scale;
+      const tw = tip.offsetWidth;
+      tip.style.left = `${Math.min(Math.max(0, cx - tw / 2), Math.max(0, el.clientWidth - tw))}px`;
+      tip.style.top = `${Math.max(0, cy - tip.offsetHeight - 10)}px`;
+    };
+    svg.on('pointermove', hover).on('pointerdown', hover).on('pointerleave', () => { tip.hidden = true; });
+  };
+
+  dash.draw('chart-per', (el) => window.maaiCurve(el, 'per_throw', '1 打あたりのダメージ', f2, false));
+  dash.draw('chart-hit', (el) => window.maaiCurve(el, 'hit_rate', '当たり率', pct, false));
+  dash.draw('chart-mean', (el) => window.maaiCurve(el, 'hit_mean', '当たったときのダメージ', f2, true));
+
+  dash.draw('stats', (tbody) => {
+    const id = window.maaiFighter();
+    const rows = window.maaiRows().filter((r) => r.fighter === id).sort((a, b) => (a.kind === 'other') - (b.kind === 'other') || n(b.throws) - n(a.throws));
+    tbody.replaceChildren();
+    for (const r of rows) {
+      const tr = tbody.insertRow();
+      tr.dataset.key = `${encodeURIComponent(r.fighter)},${encodeURIComponent(r.technique)}`;
+      if (r.kind === 'other') tr.className = 'other';
+      [r.technique, r.throws, r.landed, show(r.hit_rate, pct), show(r.clean_rate, pct), show(r.share, pct), show(r.launch_mean_cm, f1), show(r.launch_median_cm, f1), show(r.launch_min_cm, f1), show(r.launch_max_cm, f1),
+        show(r.launch_p10_cm, f1), show(r.launch_p90_cm, f1), show(r.ratio_median, f2), show(r.landed_launch_median_cm, f1), show(r.hit_mean, f2), show(r.hit_median, f2), show(r.hit_max, f2),
+        show(r.hit_p90, f2), show(r.hit_sd, f2), show(r.per_throw, f2), show(r.best_from_cm, f1), show(r.best_to_cm, f1), show(r.best_per_throw, f2)]
+        .forEach((v) => { tr.insertCell().textContent = v; });
+    }
+  });
+</script>
+<!-- images -->
+<script src="report.js"></script>
