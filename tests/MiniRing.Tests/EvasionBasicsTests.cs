@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>回避の基本動作: 腰から沈む体、外側へのスリップ、ブロックの下へ入る頭、打ち出したら直せない拳。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class EvasionBasicsTests
 {
     private const float Reach = 0.19f;

@@ -10,6 +10,7 @@ namespace MiniRing.Tests;
 /// 相手が倒れて連打が止まった間は数えない（脳しんとうは切る。崩れて倒れることはある）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class StaminaRushTests
 {
     private const float Dt = 1f / 60f;

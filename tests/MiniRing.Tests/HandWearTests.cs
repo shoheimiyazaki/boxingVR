@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 圧力のモデルの接触で起きる。違いは形と材質だけ（種類ごとの倍率は無い）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class HandWearTests
 {
     public TestContext TestContext { get; set; } = null!;

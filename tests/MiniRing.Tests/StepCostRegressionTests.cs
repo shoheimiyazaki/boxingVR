@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 割り当てが戻っていないことを確かめる。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class StepCostRegressionTests
 {
     /// <summary>刀の試合（日本刀・両手持ち・<see cref="SwordBot.Basic"/> 同士）、シード 0 を 10 秒（240 Hz の 2400 歩）進めた最終チェックサム。作業 11・13 の前後で変わらない値。</summary>

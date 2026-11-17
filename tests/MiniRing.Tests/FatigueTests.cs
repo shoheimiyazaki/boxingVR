@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 比べると、ガードに当たったか・どこで当たったかで揺れて、試合の流れが少し変わるだけで逆転した（2026-11-13、master のマージ後）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class FatigueTests
 {
     private const float Dt = 1f / 240f;

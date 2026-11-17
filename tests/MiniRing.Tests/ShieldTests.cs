@@ -11,6 +11,7 @@ namespace MiniRing.Tests;
 
 /// <summary>2026-11-16: 片手剣と盾（<see cref="HandWear.Shield"/>・<see cref="SwordShieldForms"/>）。形・質量・両手・型・盾の受け・自傷・教科書・キャラ。docs/SWORD_SHIELD.md。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class ShieldTests
 {
     public TestContext TestContext { get; set; } = null!;

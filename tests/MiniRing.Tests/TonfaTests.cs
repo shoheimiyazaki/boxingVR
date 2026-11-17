@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 
 /// <summary>2026-11-16: トンファー（<see cref="HandWear.Tonfa"/>）。形・質量・両手・当たり・受け・教科書・キャラ。docs/TONFA.md。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class TonfaTests
 {
     public TestContext TestContext { get; set; } = null!;

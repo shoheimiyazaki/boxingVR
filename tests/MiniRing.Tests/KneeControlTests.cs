@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 膝の点が目標へ近づく・ねじりが目標へ向かう（フリーならトルクを掛けない）・膝が曲がり伸びる（フリーなら戻らない）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class KneeControlTests
 {
     private const float Dt = 1f / 240f;

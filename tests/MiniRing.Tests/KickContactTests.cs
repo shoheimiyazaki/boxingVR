@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>蹴りが拳と同じ接触（VoxelContact → ApplyHit）で相手の体に当たり、軸足が体を支えていることの数値の確認。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class KickContactTests
 {
     private const float Dt = 1f / 240f;

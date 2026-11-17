@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>ボクサーの中身をボクセル編集ソフト（Vengi・MagicaVoxel）の .vox と行き来する。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class VoxelModelFileTests
 {
     private static readonly Lazy<IReadOnlyDictionary<BodyPartKind, Aigis.Foundation.Voxels.VoxelGrid>> Generated =

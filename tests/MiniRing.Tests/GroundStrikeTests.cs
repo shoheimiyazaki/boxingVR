@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 倒した相手は意識を落として（<see cref="Fighter.Concussion"/>）倒れたままにし、攻め手のボットが何秒で何発当てるかを測る。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class GroundStrikeTests
 {
     private const float Dt = 1f / 240f;

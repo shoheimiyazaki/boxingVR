@@ -14,6 +14,7 @@ namespace MiniRing.Tests;
 /// 値を JSON へ移しただけの段階で試合が同じことは <see cref="CharacterSamenessTests"/>（チェックサム）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class WeaponStyleTests
 {
     private static readonly WeaponKind[] Kinds = [WeaponKind.Katana, WeaponKind.Longsword, WeaponKind.WoodenClub];

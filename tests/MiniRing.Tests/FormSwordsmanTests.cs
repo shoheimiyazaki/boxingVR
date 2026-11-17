@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 以前は刀もロングソードも片手剣の汎用の振り（<see cref="SwordTechnique.Basics"/>）だった。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class FormSwordsmanTests
 {
     private const float Dt = 1f / 60f;
