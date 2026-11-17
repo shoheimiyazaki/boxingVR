@@ -34,11 +34,11 @@ public sealed class SwordInnerRangeTests
             Assert.IsGreaterThanOrEqualTo(style.MinReach, far.Range, $"遠間では剣の間合いの技だけ（seed {seed}: {far.Name}）");
         }
 
-        // 近い距離では、重みが 0 でない技のうち、間合いが今の距離にいちばん合う技（重みで割った差が最小）。
+        // 近い距離では、重みが 0 でない技のうち、間合いが今の距離にいちばん合う技（差が最小）。
         foreach (var distance in new[] { 0.12f, 0.2f })
         {
             var expected = all.Where(t => style.TechniqueWeights!.GetValueOrDefault(t.Name, 1f) > 0f)
-                .MinBy(t => MathF.Abs(t.Range - distance) / style.TechniqueWeights!.GetValueOrDefault(t.Name, 1f))!;
+                .MinBy(t => MathF.Abs(t.Range - distance))!;
             var chosen = Bot(weapon, 7).PlanAt(distance);
             Assert.AreEqual(expected.Name, chosen.Name, $"距離 {distance}");
             Assert.IsLessThan(style.MinReach, chosen.Range);

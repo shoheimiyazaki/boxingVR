@@ -458,10 +458,10 @@ public sealed class SwordsmanBot : IFighterControl
         }
 
         // すでに近い（計画の候補でいちばん短い技より内側）: 歩いて詰める必要が無いので、全部の技から今の距離に間合いが合う技を選ぶ
-        // （|間合い − 距離| ÷ 教科書の重み がいちばん小さい技。連続の量だけで決め、技の種類で分けない）。
+        // （|間合い − 距離| がいちばん小さい技。重みが 0 の技は Pool に無い。連続の量だけで決め、技の種類で分けない）。
         if (!ReferenceEquals(PlanPool, Pool) && _distance < PlanPool.Min(RangeOf) - MotionTechnique.Window)
         {
-            return Pool.MinBy(t => MathF.Abs(RangeOf(t) - _distance) / (Weights?.GetValueOrDefault(t.Name, 1f) ?? 1f))!;
+            return Pool.MinBy(t => MathF.Abs(RangeOf(t) - _distance))!;
         }
 
         if (Aim is not { } aimAt)
