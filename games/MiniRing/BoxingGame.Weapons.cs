@@ -143,12 +143,12 @@ public sealed partial class BoxingGame
         if (twoHanded)
         {
             var (top, bottom) = Weapon.TwoHandGripsOf(kind);
-            fighter.Wield(WeaponHand, weapon.Body.BodyId, top);
+            fighter.Wield(WeaponHand, weapon.Body.BodyId, top, slideSpan: Weapon.SlideSpanOf(kind));
             fighter.Support(SupportHand, WeaponHand, bottom);
         }
         else
         {
-            fighter.Wield(WeaponHand, weapon.Body.BodyId, Weapon.GripOf(kind));
+            fighter.Wield(WeaponHand, weapon.Body.BodyId, Weapon.GripOf(kind), slideSpan: Weapon.SlideSpanOf(kind));
         }
 
         _wielders[weapon] = fighter;

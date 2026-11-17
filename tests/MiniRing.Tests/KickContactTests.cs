@@ -51,7 +51,7 @@ public sealed class KickContactTests
 
         var reach = attacker.ArmReach;
         var spec = KickSpec.Of(kind);
-        var duration = spec.Duration * durationScale;
+        var duration = (spec.Seconds ?? spec.Duration) * durationScale;
         var sense = game.PlayerSense;
         var aimWorld = spec.AimWorld(sense);
         var aim = sense.Self.WorldToLocal(aimWorld);
@@ -78,7 +78,7 @@ public sealed class KickContactTests
                 aim = game.PlayerSense.Self.WorldToLocal(aimWorld); // 体が回ると、狙いの体フレームでの位置が動く
             }
 
-            var leg = t <= duration ? spec.Evaluate(side, t, duration, rest, aim, reach) : (LegCommand?)null;
+            var leg = t <= duration ? spec.Evaluate(side, t, duration, rest, aim, reach, game.PlayerSense.SelfLeg(side)) : (LegCommand?)null;
             game.Step(new BoxingInput(Command(attacker, victim, Vector3.Zero, leg, side, yaw, twist)), Dt);
             minPelvis = MathF.Min(minPelvis, attacker.PelvisPosition.Y);
             minAnkle = MathF.Min(minAnkle, Vector3.Distance(attacker.AnklePosition(side), aimWorld));

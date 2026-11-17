@@ -18,6 +18,8 @@ using MiniRing.Bots;
 //                                                                                   攻撃のドリル: 単発・連打 × 溜めの長さで、拳の速さ・体重の乗り・威力
 //   karatelab [--only shapes,parry,kicks,video] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md] [--video media_tmp/karate_vitals]
 //                                                                                   空手のドリル: 手の形 × 急所、パリー（拳の曲がり）、5 種の蹴り
+//   kicklab [--body diego] [--kick Roundhouse] [--distances 1.0,1.1,...] [--seeds 1,2,..] [--confirm-seeds 11,12,..] [--shin 0.75] [--overshoot -0.2] [--log f.md]
+//                                                                                   蹴りの間合いのドリル: 間合いを刻んで蹴り、当たり・すねの当たった点・渡したエネルギーの表（採る間合いは使っていない種で比べ直す）
 //   counterlab [--book f.json] [--defense a,b|evasions] [--bouts N] [--ranges 1.15,1.3] [--log f.md] [--out book.json]
 //                                                                                   回避からのカウンターの研究（型 × 打ち始めの総当たり）
 //   basics [--punch 2] [--slot Duck] [--style swarmer] [--guards 0.6,1.0,1.5] [--guard H] [--gens G] [--pop P] [--log f.md] [--out f.json]
@@ -62,6 +64,10 @@ try
         "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
+        "kicklab" => KickLabCommand(Options.Parse(argv[1..], "body", "kick", "distances", "seeds", "confirm-seeds", "shin", "overshoot", "side", "log")),
+        "kickvideo" => KickVideoCommand(Options.Parse(argv[1..], "body", "kick", "distances", "side", "slow", "width", "height", "fps", "out")),
+        "kickmocap" => KickMocapCommand(Options.Parse(argv[1..], "dir", "export", "log", "video", "doll", "durations", "distances")),
+        "kneelab" => KneeLabCommand(Options.Parse(argv[1..], "stage", "bodies", "body", "distances", "distance", "confirm", "azimuths", "elevations", "twists", "sides", "log", "impact-az", "impact-el", "impact-twist", "foot", "gens", "lambda", "video")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
         "formlab" => FormLabCommand(Options.Parse(argv[1..], "punch", "slot", "style", "move", "set", "cue", "bouts", "seconds", "seed", "log")),
@@ -79,7 +85,8 @@ try
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
         "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway", "clearance", "passes", "hz", "sample", "margin", "tilt", "pacing", "slack", "angle")),
         "swordlib" => SwordLibCommand(Options.Parse(argv[1..], "out", "best", "bouts", "seconds", "seed", "fight", "video", "red", "blue")),
-        "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead", "weapon")),
+        "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead", "weapon", "vrmotion")),
+        "vrmotion-synth" => VrMotionSynthCommand(Options.Parse(argv[1..], "out")),
         "mocap" => MocapCommand(Options.Parse(argv[1..], "bvh", "out", "from", "to", "speed", "width", "height", "fps", "strikes")),
         "sparlab" => SparLabCommand(Options.Parse(argv[1..], "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out", "final-bouts", "final-seconds", "video", "width", "height", "fps")),
         "swordlab" => SwordLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "techniques")),
@@ -471,6 +478,106 @@ static int KarateLabCommand(Options o)
     new KarateLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log,
         o.List("cues", ["0", "0.06"]).Select(c => float.Parse(c, CultureInfo.InvariantCulture)).ToList())
         .Run(only.Contains("shapes"), only.Contains("parry"), only.Contains("kicks"));
+    return 0;
+}
+
+// 蹴りの間合いのドリル: テコンドー家の体が、立つだけの相手へ間合いを刻んで回し蹴りを蹴り、当たり・すねの当たった点・渡したエネルギーを表にする（docs/TAEKWONDO.md）。
+static int KickLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    float[] Floats(string key, string[] fallback) => o.List(key, fallback).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToArray();
+    int[] Ints(string key, string[] fallback) => o.List(key, fallback).Select(t => int.Parse(t, CultureInfo.InvariantCulture)).ToArray();
+    KickLab.Report(o.Get("body") ?? "diego", Enum.Parse<MiniRing.Bots.KickTechnique>(o.Get("kick") ?? "Roundhouse", ignoreCase: true),
+        Floats("distances", ["1.0", "1.05", "1.1", "1.15", "1.2", "1.25", "1.3", "1.4"]), Ints("seeds", ["1", "2", "3", "4", "5", "6"]),
+        Ints("confirm-seeds", ["11", "12", "13", "14", "15", "16"]),
+        o.Get("shin") is { } shin ? float.Parse(shin, CultureInfo.InvariantCulture) : null,
+        o.Get("overshoot") is { } overshoot ? float.Parse(overshoot, CultureInfo.InvariantCulture) : null,
+        o.Get("side") is { } side ? Enum.Parse<MiniRing.Hand>(side, ignoreCase: true) : null, Log);
+    return 0;
+}
+
+// 人の回し蹴りのモーションキャプチャ: 読み替えの表と、手本の書き出し（--export games/MiniRing/Bots/kicks）。
+static int KickMocapCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    if (o.Get("video") is { } videoPath)
+    {
+        KickMocap.Video(o.Get("dir") ?? "data/mocap/kyokushin", videoPath, Log);
+        return 0;
+    }
+
+    if (o.Get("doll") is { } doll)
+    {
+        float[] Floats(string key, string[] fallback) => o.List(key, fallback).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToArray();
+        KickMocap.Compare(doll, Floats("durations", ["0.5", "0.6", "0.75", "0.9"]), Floats("distances", ["1.0", "1.2", "1.4"]), Log);
+        return 0;
+    }
+
+    KickMocap.Report(o.Get("dir") ?? "data/mocap/kyokushin", o.Get("export"), Log);
+    return 0;
+}
+
+// 回し蹴りの段階練習: 段 1 = 膝を空中に止めて伸ばすだけで蹴り、当てる所（膝の位置・ねじり）を探す。
+static int KneeLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    float[] Floats(string key, string[] fallback) => o.List(key, fallback).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToArray();
+    float[] Radians(string key, string[] fallback) => Floats(key, fallback).Select(d => d * MathF.PI / 180f).ToArray();
+    var sides = o.List("sides", ["Left", "Right"]).Select(s => Enum.Parse<MiniRing.Hand>(s, ignoreCase: true)).ToArray();
+    if (o.Int("stage", 1) == 2)
+    {
+        var impact = new KneeLab.Spot(o.Float("impact-az", 20f) * MathF.PI / 180f, o.Float("impact-el", 10f) * MathF.PI / 180f, o.Float("impact-twist", 0f));
+        KneePractice.Stage2(o.Get("body") ?? "diego", impact, o.Float("foot", MiniRing.Bots.KickSpec.Of(MiniRing.Bots.KickTechnique.Roundhouse).FootPitch),
+            Floats("distances", ["1.2", "1.4"]), Floats("confirm", ["1.1", "1.3"]), o.Int("gens", 12, min: 1), o.Int("lambda", 8, min: 4), o.Get("video"), Log);
+        return 0;
+    }
+
+    if (o.Get("video") is { } video1)
+    {
+        var spot = new KneeLab.Spot(o.Float("impact-az", 20f) * MathF.PI / 180f, o.Float("impact-el", 10f) * MathF.PI / 180f, o.Float("impact-twist", 0f));
+        KneeLab.Stage1Video(o.Get("body") ?? "diego", spot, sides[0], o.Float("distance", 1.2f), video1, Log);
+        return 0;
+    }
+
+    KneeLab.Stage1(o.List("bodies", ["diego", "standard"]), Floats("distances", ["1.2"]), Radians("azimuths", ["20", "50", "80"]),
+        Radians("elevations", ["0", "25", "50"]), Floats("twists", ["-1.5", "0", "1.5", "3"]), sides, Log);
+    return 0;
+}
+
+// 膝の制御の回し蹴りの動画: 間合いを変えて 1 本ずつ、真横から撮る（金の線 = 膝の制御点、隅に曲げ・ねじり・当たった点とエネルギー）。
+static int KickVideoCommand(Options o)
+{
+    var distances = o.List("distances", ["1.05", "1.25", "1.5"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToArray();
+    KickVideo.Make(o.Get("body") ?? "diego", Enum.Parse<MiniRing.Bots.KickTechnique>(o.Get("kick") ?? "Roundhouse", ignoreCase: true), distances,
+        Enum.Parse<MiniRing.Hand>(o.Get("side") ?? "Left", ignoreCase: true), o.Float("slow", 0.25f, min: 0.05f), o.Int("width", 1280, min: 320), o.Int("height", 720, min: 240),
+        o.Int("fps", 30, min: 5), o.Get("out") ?? "kick.mp4", Console.Out);
     return 0;
 }
 
@@ -966,13 +1073,47 @@ static int SwordLibCommand(Options o)
     return 0;
 }
 
+static int VrMotionSynthCommand(Options o)
+{
+    // VR の実機なしで、記録 → なぞりの道を確かめる合成の記録（棒の突き）を書く。
+    var output = o.Get("out") ?? "motions/synthetic_staff_thrust.vrmotion";
+    var clip = MiniRing.Motion.VrMotionSynth.StaffThrust();
+    clip.Save(output);
+    Console.WriteLine($"wrote {output}: {clip.Frames.Count} frames, {clip.Duration:0.00} s, arm {clip.Header.PlayerArmReach:0.000} m");
+    return 0;
+}
+
 static int ImitateCommand(Options o)
 {
+    if (o.Get("vrmotion") is { } vrPath)
+    {
+        // 記録した VR の動き（.vrmotion）を、人形がなぞる動画。武器は見出しのもの（--weapon で上書き）。
+        var vrClip = MiniRing.Motion.VrMotionClip.Load(vrPath);
+        var weaponName = o.Get("weapon") ?? vrClip.Header.Weapon;
+        MiniRing.Weapons.WeaponKind? vrWeapon = weaponName is null ? null
+            : Enum.TryParse<MiniRing.Weapons.WeaponKind>(weaponName, ignoreCase: true, out var kind) ? kind
+            : throw new ArgumentException($"Unknown weapon '{weaponName}'.");
+        var vrOut = o.Get("out") ?? "videos/vrmotion.mp4";
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(vrOut))!);
+        var vrVideo = new VrMotionVideo(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), o.Float("slow", 1f, min: 0.25f));
+        var vrRate = o.Float("rate", 1f, min: 0.1f);
+        var vrTitle = Path.GetFileNameWithoutExtension(vrPath);
+        if (o.Get("measure") is not null)
+        {
+            var r = vrVideo.Run(vrClip, vrWeapon, vrRate, vrTitle, null);
+            Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{vrTitle}: right hand error {r.MeanRightError:0.00} left {r.MeanLeftError:0.00} ({r.Steps} steps)"));
+            return 0;
+        }
+
+        vrVideo.Make(vrClip, vrWeapon, vrRate, vrTitle, vrOut, Console.Out);
+        return 0;
+    }
+
     // 日本刀（剣道のモーションキャプチャ）とロングソード（型のキー）の基本を、ラグドールがなぞる動画。
     var output = o.Get("out") ?? "videos/sword_basics.mp4";
     Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
     var rate = o.Float("rate", 1.77f, min: 0.1f); // 体の大きさの比 0.32 の 1/√（同じ重力の下でつり合う速さ）
-    var shots = (o.Get("weapon") == "staff" ? SwordBasics.StaffShots(rate) : SwordBasics.Shots(rate)).Where(s => o.Get("only") is not { } only || s.Title.Contains(only, StringComparison.Ordinal)).ToList();
+    var shots = (o.Get("weapon") switch { "staff" => SwordBasics.StaffShots(rate), "jo" => SwordBasics.JoShots(rate), _ => SwordBasics.Shots(rate) }).Where(s => o.Get("only") is not { } only || s.Title.Contains(only, StringComparison.Ordinal)).ToList();
     // 調べもの: 手首の強さ・固さを変えて、なぞれ方がどう変わるか（--measure なら動画を作らずに数字だけ）。
     var tuning = ImitationVideo.SwordStance with
     {

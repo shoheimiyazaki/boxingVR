@@ -9,5 +9,5 @@
   "ThrowRate": 0, "ClinchRate": 0, "ReadGuard": 0.6,
   "KickRate": 0.75, "KickDuration": 0.95, "KickRangeFit": 1.5,
   "GroundStomp": 0.4, "GroundCut": 0.4, "GroundLoad": 0.03,
-  "KickWeights": { "Front": 1, "Low": 1, "Middle": 1, "High": 1, "Knee": 0.3, "Roundhouse": 3, "Side": 2, "Back": 1, "Axe": 1 }
+  "KickWeights": { "Front": 1, "Low": 1, "Middle": 1, "High": 1, "Knee": 0.3, "Roundhouse": 3, "Side": 2, "Back": 1, "Axe": 1, "RoundhouseHigh": 1.5 }
 }

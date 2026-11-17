@@ -1321,7 +1321,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             self.Faintness, OpponentTargets: opponent.AsTarget, SelfStamina: self.Stamina,
             SelfVision: self.Voxels?.Vision ?? VisionState.Healthy, OpponentVision: opponent.Voxels?.Vision ?? VisionState.Healthy,
             OpponentArmReach: opponent.ArmReach, OpponentDowned: opponent.State != FighterState.Standing,
-            SelfBuild: self.Build, OpponentBuild: opponent.Build);
+            SelfBuild: self.Build, OpponentBuild: opponent.Build,
+            SelfLegLeft: self.LegBodyOf(Hand.Left), SelfLegRight: self.LegBodyOf(Hand.Right));
     }
 
     public FighterSense PlayerSense => ArmedSense(Player, Cpu);
@@ -1330,7 +1331,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private IFighterControl? WeaponBot(Weapons.WeaponKind? weapon, Bots.WeaponStyle? style, Fighter self, int seed, MiniRing.Weapons.HandWear wear = MiniRing.Weapons.HandWear.Glove) => !_corners.UseWeaponBots ? null : weapon switch
     {
         // 値は武器の教科書（style が null ならその武器の組み込みの教科書。キャラなら教育を重ねた物が corners に入っている）。
-        MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword or MiniRing.Weapons.WeaponKind.Staff => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning, style ?? Bots.WeaponCatalog.Textbook(weapon.Value)), // 刀・ロングソード・棒は、その武器の型で
+        MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword or MiniRing.Weapons.WeaponKind.Staff or MiniRing.Weapons.WeaponKind.Jo => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning, style ?? Bots.WeaponCatalog.Textbook(weapon.Value)), // 刀・ロングソード・棒は、その武器の型で
         // 片手剣も型で動かす（右手の剣の経路 + 左手の物の経路）。左手の物（盾・グローブ）の見える大きさを、守りの覆う広さとして渡す。
         MiniRing.Weapons.WeaponKind.IronSword => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning, style ?? Bots.WeaponCatalog.Textbook(weapon.Value), MiniRing.Weapons.Weapon.CoverRadiusOf(MiniRing.Weapons.HandWears.Kind(wear)) / self.ArmReach),
         MiniRing.Weapons.WeaponKind.WoodenClub => Bots.ClubBot.FromStyle(style ?? Bots.WeaponCatalog.Textbook(weapon.Value), seed),

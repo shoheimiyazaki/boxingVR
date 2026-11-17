@@ -60,7 +60,7 @@ internal sealed class VrSimulation : IDisposable
     public VrSimulation(VrScene initial, Func<XrInputFrame, float, VrScene> advance)
     {
         _simulation = new(initial, default, (_, latest) => latest,
-            input => input with { CalibratePressed = false }, (_, input, dt) =>
+            input => input with { CalibratePressed = false, RecordTogglePressed = false }, (_, input, dt) =>
         {
             // Preserve the pose at the button press, even when many tracking frames arrive during a slow step.
             var frame = _calibrations.TryDequeue(out var calibration) ? calibration : input;
@@ -77,8 +77,9 @@ internal sealed class VrSimulation : IDisposable
     public void Submit(XrInputFrame input, float dt)
     {
         _ = dt; // Display period is deliberately excluded from the deterministic physics clock.
-        if (input.CalibratePressed) { _calibrations.Enqueue(input); }
-        _simulation.Submit(input with { CalibratePressed = false });
+        // ボタンの立ち上がり（キャリブレーション・記録の開始停止）は 1 歩ずつ確実に届ける。
+        if (input.CalibratePressed || input.RecordTogglePressed) { _calibrations.Enqueue(input); }
+        _simulation.Submit(input with { CalibratePressed = false, RecordTogglePressed = false });
     }
 
     public VrHaptic[] DrainHaptics()

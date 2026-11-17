@@ -375,16 +375,16 @@ public sealed partial class PhysicsWorld
     /// Added for <c>Game.Triage</c>'s writhe lab, which tunes exactly those two live.</para>
     /// <para><paramref name="dampingRatio"/> defaults to 1 (critically damped) to match
     /// <see cref="AddAngularServo"/>'s own default, so a caller that only wants to move the frequency
-    /// or the force does not silently re-tune the damping as a side effect. Both speed limits
-    /// (<c>maxSpeed</c>/<c>baseSpeed</c>) are deliberately left alone: this game never sets them.</para></summary>
-    public void SetAngularServoSettings(int id, float frequency, float maxForce, float dampingRatio = 1f)
+    /// or the force does not silently re-tune the damping as a side effect. The speed limits
+    /// (<c>maxSpeed</c>/<c>baseSpeed</c>) are left alone unless <paramref name="maxSpeed"/> is given (MiniRing raises the leg servos' speed limit while a kick is driven by the knee).</para></summary>
+    public void SetAngularServoSettings(int id, float frequency, float maxForce, float dampingRatio = 1f, float? maxSpeed = null)
     {
         ThrowIfDisposed();
         var handle = _constraints[id];
         _simulation.Solver.GetDescription(handle, out AngularServo description);
         description.SpringSettings = new SpringSettings(frequency, dampingRatio);
         description.ServoSettings = new ServoSettings(
-            description.ServoSettings.MaximumSpeed, description.ServoSettings.BaseSpeed, maxForce);
+            maxSpeed ?? description.ServoSettings.MaximumSpeed, description.ServoSettings.BaseSpeed, maxForce);
         _simulation.Solver.ApplyDescription(handle, description);
     }
 
@@ -427,14 +427,14 @@ public sealed partial class PhysicsWorld
 
     /// <summary>Re-tunes a live <see cref="AddTwistServo"/> joint's spring and force ceiling in place — the
     /// twin of <see cref="SetAngularServoSettings"/> (added for MiniRing: an injured elbow loses strength).</summary>
-    public void SetTwistServoSettings(int id, float frequency, float maxForce, float dampingRatio = 1f)
+    public void SetTwistServoSettings(int id, float frequency, float maxForce, float dampingRatio = 1f, float? maxSpeed = null)
     {
         ThrowIfDisposed();
         var handle = _constraints[id];
         _simulation.Solver.GetDescription(handle, out TwistServo description);
         description.SpringSettings = new SpringSettings(frequency, dampingRatio);
         description.ServoSettings = new ServoSettings(
-            description.ServoSettings.MaximumSpeed, description.ServoSettings.BaseSpeed, maxForce);
+            maxSpeed ?? description.ServoSettings.MaximumSpeed, description.ServoSettings.BaseSpeed, maxForce);
         _simulation.Solver.ApplyDescription(handle, description);
     }
 
