@@ -300,6 +300,12 @@ public sealed record BotStyle
     /// <summary>キャラの体格（身長・腕・脚・筋肉の太さ。null なら基準体格）。</summary>
     public BodyBuild? Build { get; init; }
 
+    /// <summary>
+    /// 組み技の教科書の名前（<see cref="GrappleBook.Named"/>、例 <c>jujutsu</c>）。null なら組み技を使わない（今までのボット）。
+    /// あれば、このスタイルのボットを <see cref="JujutsuBot"/> が包み、組める間合いで技をかける。
+    /// </summary>
+    public string? Grapple { get; init; }
+
     /// <summary>Probability of selecting a kick. Zero preserves the old random sequence.</summary>
     public float KickRate { get; init; }
     /// <summary>Kick goal cycle duration in seconds.</summary>
@@ -324,6 +330,25 @@ public sealed record BotStyle
 
     /// <summary>休みの間の過ごし方の好み（動作の名前 → 選ばれやすさへ掛ける倍率。<c>Break.BreakBook</c> の動作名。無い名前は 1。入力の側の個性であって体の強さではない）。</summary>
     public IReadOnlyDictionary<string, float> BreakLikes { get; init; } = new Dictionary<string, float>();
+
+    /// <summary>
+    /// 蹴る前に体重を軸足（前足）へ移す間 [s]（教育の値: 技の時間の経路。0 なら今までどおり、脚を上げ始めるのと同時に移す）。
+    /// この間は脚を上げず、頭を <see cref="KickLeanForward"/>・<see cref="KickLeanSide"/> だけ軸足の上へ寄せる（体重のかけ方の指令）。
+    /// 体がそれを追って重心が軸足に乗ってから、蹴る脚を上げる（docs/TAEKWONDO.md「軸足に乗って蹴る」）。
+    /// </summary>
+    public float KickShift { get; init; }
+
+    /// <summary>
+    /// 倒れた相手への攻めの技の経路（<see cref="GroundTuning"/>: 鉄槌・真下への突き・踏みつけ・斬り下ろしの寸法）。教科書・教育の値（技の経路）で、
+    /// null なら <see cref="GroundTuning.Default"/>。groundlab の練習の結果をここへ書く。
+    /// </summary>
+    public GroundTuning? Ground { get; init; }
+
+    /// <summary>蹴りの間、頭を前（相手の方、腕の長さの倍数）へ寄せる量。軸足は前足なので、前へ寄せるほど体重が軸足に乗る。</summary>
+    public float KickLeanForward { get; init; }
+
+    /// <summary>蹴りの間、頭を前足の側（腕の長さの倍数）へ寄せる量。</summary>
+    public float KickLeanSide { get; init; }
 
     /// <summary>
     /// 倒れた相手を攻められる試合（レフェリーなし）で、倒れた相手へ打ち下ろす気（0..1）。立つ位置へ着いて届く間合いに沈めたとき、打ち始めを決める割合
@@ -463,6 +488,10 @@ public sealed record BotStyle
             ElbowRate = Unit(ElbowRate),
             ElbowRangeFit = Range(ElbowRangeFit, 0f, 4f, 0f),
             ElbowWeights = (ElbowWeights ?? new Dictionary<ElbowTechnique, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
+            KickShift = Range(KickShift, 0f, 0.6f, 0f),
+            Ground = Ground?.Validated(),
+            KickLeanForward = Range(KickLeanForward, -0.4f, 0.4f, 0f),
+            KickLeanSide = Range(KickLeanSide, -0.4f, 0.4f, 0f),
             GroundDrive = Unit(GroundDrive),
             GroundLoad = Range(GroundLoad, 0f, MaxTelegraph, 0.05f),
             GroundCut = Unit(GroundCut),

@@ -1,0 +1,18 @@
+{
+  "name": "seoi-nage reference from published motion-capture studies (human scale)",
+  "notes": "人の値（身長 1.65 m 前後の男子柔道選手）。ゲームの人形へは長さを身長の比、速さと時間を身長の比の平方根で縮めて使う（Froude 相似、蹴りのモーションキャプチャと同じ考え方）。段の定義: 回り込み（崩し・作り）= 取りの軸足が床を離れてから両足が床に着くまで、投げ（掛け）= その後、受けの体が床に着くまで。",
+  "humanHeight": 1.65,
+  "uke": {
+    "source": "Ishii & Koshida (2025) Research Journal of Budo 57(2):153-169, doi なし（J-STAGE 57_2420）。19 名（世界選手権メダリストを含む）、Vicon 250 Hz、フォースプレート。重心の変位は身長に対する割合、AP は投げる向き（受けが前へ出る向き）を正にそろえた。",
+    "turnEnd":   { "comForward": 0.09, "comUp": 0.02,  "comSide": 0.0,   "speed": 0.71, "forwardSpeed": 0.67, "downSpeed": 0.06 },
+    "landing":   { "comForward": 0.37, "comUp": -0.31, "comSide": -0.03, "speed": 2.53, "forwardSpeed": 0.78, "downSpeed": 2.38 }
+  },
+  "tori": {
+    "source": "Ishii & Ae (2015) ISBS Proceedings 33, 616-619（一流 3 名・学生 9 名、Vicon 250 Hz）。Ishii et al. (2018) Sports Biomechanics 17(2):238-250 の要旨。",
+    "throwStart": { "forwardSpeedElite": [1.21, 1.30], "downSpeedElite": [1.11, 1.44], "forwardSpeedStudent": 0.89, "downSpeedStudent": 0.88 },
+    "kneeExtensionTorquePerKg": { "swingElite": [2.80, 3.42], "pivotElite": [2.40, 2.43], "swingStudent": 1.87, "pivotStudent": 1.70 },
+    "peakKneeExtensionSpeed": { "pivotElite": [6.4, 7.5], "swingElite": [7.0, 8.6], "pivotStudent": 4.0, "swingStudent": 4.7 },
+    "turnPeakRelativeComSpeed": { "elite": 2.74, "college": 1.62, "note": "要旨のみ。何に対する速さか（受けに対する取りか）は要旨からは確かめられない" },
+    "pattern": "投げの段の始めに両脚の膝を素早く曲げ（取りの重心が下へ 1.1〜1.4 m/s）、続いて膝を伸ばす力で受けを跳ね上げる。回り込みの時間は一流と学生で差が無い。"
+  }
+}

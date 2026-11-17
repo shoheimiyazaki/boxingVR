@@ -150,7 +150,7 @@ internal static class RosterLeague
         var style = character.Resolve(opponentId);
         if (set is null || set.Count == 0)
         {
-            return new Contender(style.Name, seed => new BoxerBot(style, seed));
+            return new Contender(style.Name, seed => BotCatalog.Bot(style, seed));
         }
 
         return Contender.Of(StyleSet.Apply(style, set));

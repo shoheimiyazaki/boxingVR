@@ -322,6 +322,52 @@ public sealed partial class PhysicsWorld
         return id;
     }
 
+    /// <summary>
+    /// Changes a live <see cref="AddTwistLimit"/>'s angle range in place (no remove/re-add, so the solver
+    /// keeps its warm start) — a joint whose ligament has been stretched or torn and now allows more
+    /// travel (MiniRing joint locks, 2026-11-17). Wakes both bodies first, like <see cref="SetDistanceLimit"/>.
+    /// </summary>
+    public void SetTwistLimitRange(int id, float minRadians, float maxRadians)
+    {
+        ThrowIfDisposed();
+        var handle = _constraints[id];
+        _simulation.Solver.GetDescription(handle, out TwistLimit description);
+        if (description.MinimumAngle == minRadians && description.MaximumAngle == maxRadians)
+        {
+            return;
+        }
+
+        if (!(minRadians <= maxRadians) || !float.IsFinite(minRadians) || !float.IsFinite(maxRadians))
+        {
+            throw new ArgumentOutOfRangeException(nameof(minRadians), "Require finite min <= max.");
+        }
+
+        var joint = _jointDescriptors[id];
+        _simulation.Awakener.AwakenBody(new BodyHandle(joint.BodyA));
+        _simulation.Awakener.AwakenBody(new BodyHandle(joint.BodyB));
+        description.MinimumAngle = minRadians;
+        description.MaximumAngle = maxRadians;
+        _simulation.Solver.ApplyDescription(handle, description);
+        _jointDescriptors[id] = joint with { MinTwistRadians = minRadians, MaxTwistRadians = maxRadians };
+    }
+
+    /// <summary>
+    /// Changes a live <see cref="AddTwistLimit"/>'s spring (how stiffly the limit stops the joint). A soft limit on a light
+    /// body (a forearm) sinks tens of degrees past its angle under a torque of a few N·m and can even let the body spin
+    /// through; a joint stop made of ligament and bone wants a stiffer spring (MiniRing joint locks, 2026-11-17).
+    /// </summary>
+    public void SetTwistLimitSpring(int id, float frequency, float dampingRatio = 1f)
+    {
+        ThrowIfDisposed();
+        var handle = _constraints[id];
+        _simulation.Solver.GetDescription(handle, out TwistLimit description);
+        var joint = _jointDescriptors[id];
+        _simulation.Awakener.AwakenBody(new BodyHandle(joint.BodyA));
+        _simulation.Awakener.AwakenBody(new BodyHandle(joint.BodyB));
+        description.SpringSettings = new SpringSettings(frequency, dampingRatio);
+        _simulation.Solver.ApplyDescription(handle, description);
+    }
+
     /// <summary>A 1-DOF hinge (e.g. an elbow/knee/ankle): pins a point (like <see cref="AddBallSocket"/>)
     /// and additionally constrains the two bodies' hinge axes to stay coincident, leaving only rotation
     /// about that shared axis free — unlike a ball-and-socket, which leaves all 3 rotational DOF free.
@@ -1029,6 +1075,14 @@ public sealed partial class PhysicsWorld
         var axisA = Vector3.Normalize(Vector3.Transform(descriptor.AxisLocalA, a.Orientation));
         var axisB = Vector3.Normalize(Vector3.Transform(descriptor.AxisLocalB, b.Orientation));
         return MathF.Acos(Math.Clamp(Vector3.Dot(axisA, axisB), -1f, 1f));
+    }
+
+    /// <summary>The current twist angle [rad] of a live <see cref="AddTwistLimit"/>/<see cref="AddTwistServo"/>
+    /// joint, measured exactly as the joint itself measures it (its two bases).</summary>
+    public float GetTwistAngle(int id)
+    {
+        ThrowIfDisposed();
+        return TwistAngle(_jointDescriptors[id]);
     }
 
     private float TwistAngle(JointDescriptor descriptor)

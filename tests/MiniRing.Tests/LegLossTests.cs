@@ -70,7 +70,8 @@ public sealed class LegLossTests
     [TestMethod]
     public void BothLegsGone_SitsOnThePelvis_AndIsNotCountedDown()
     {
-        using var game = new BoxingGame(seed: 2);
+        // 近道あり（FighterTuning.LegLossSupportShortcut）の比べもの。既定（近道なし）は下の WithoutTheShortcut_BothLegsGone_*。
+        using var game = new BoxingGame(Shortcut, seed: 2);
         var cpu = game.Cpu;
         Play(game, 0.5f);
         var full = cpu.LegSupportLength(true);
@@ -101,6 +102,59 @@ public sealed class LegLossTests
         Assert.IsGreaterThan(0.5f, share, "sitting up on the pelvis and fighting more than half the time (measured 58 %)");
         Assert.IsLessThan(5f, longestDown, "never down long enough to be counted out");
         Assert.IsLessThan(standingHips, highest, "the hips never go above where they stood on whole legs (no launch)");
+    }
+
+    private static readonly FighterTuning Shortcut = FighterTuning.Default with { LegLossSupportShortcut = true };
+
+    [TestMethod]
+    public void WithoutTheShortcut_BothLegsGone_CannotSitBackUp_AndIsCountedOut()
+    {
+        // 2026-11-17（ユーザーの指定: 近道なしを採る）: 両脚を付け根近くで失った体は、支えのモデルの中では骨盤の上へ上体を起こせず
+        // （腹筋で起き上がる仕組みが無い）、床でもがいたまま 10 カウントになる。体は浮き上がらない。
+        using var game = new BoxingGame(seed: 2);
+        var cpu = game.Cpu;
+        Play(game, 0.5f);
+        var standingHips = cpu.PelvisPosition.Y;
+        Cut(game, cpu, cpu.Parts.LeftThigh, 0.2f);
+        Cut(game, cpu, cpu.Parts.RightThigh, 0.2f);
+        var highest = 0f;
+        var standing = 0;
+        var steps = 0;
+        for (; steps < 16 * 60 && !game.RoundOver; steps++)
+        {
+            game.Step(default, Dt);
+            highest = MathF.Max(highest, cpu.PelvisPosition.Y);
+            standing += cpu.State == FighterState.Standing ? 1 : 0;
+        }
+
+        TestContext.WriteLine($"round over {game.RoundOver} after {steps * Dt:F1}s  standing {standing * Dt:F1}s  {game.Message}");
+        Assert.IsTrue(game.RoundOver && game.PlayerWins > 0, "counted out on the canvas");
+        Assert.IsLessThan(2f, standing * Dt, "never back up for long");
+        Assert.IsLessThan(standingHips, highest, "the hips never go above where they stood on whole legs (no launch)");
+    }
+
+    [TestMethod]
+    public void WithoutTheShortcut_ACutThigh_CannotStepToKeepItsBalance_AndGoesDown()
+    {
+        // 片方の腿を失った体は足の運びで踏み直せないので、短い脚と長い脚の支えの外へ重心が出ると倒れる（近道ありなら立ち続けた）。
+        using var game = new BoxingGame(seed: 2);
+        var cpu = game.Cpu;
+        Play(game, 1f);
+        var standingHips = cpu.PelvisPosition.Y;
+        Cut(game, cpu, cpu.Parts.LeftThigh, 0.5f);
+        var fell = false;
+        var highest = 0f;
+        for (var t = 0; t < 8 * 60 && !game.RoundOver; t++)
+        {
+            game.Step(default, Dt);
+            fell |= cpu.State != FighterState.Standing;
+            highest = MathF.Max(highest, cpu.PelvisPosition.Y);
+        }
+
+        TestContext.WriteLine($"fell {fell}  state {cpu.State}  shortfall {cpu.LegShortfall:F3}");
+        Assert.IsTrue(cpu.CanStand, "the stump still has the strength to bear weight");
+        Assert.IsTrue(fell, "without stepping, the body falls off its stump");
+        Assert.IsLessThan(standingHips, highest, "and is never lifted from nowhere");
     }
 
     [TestMethod]
