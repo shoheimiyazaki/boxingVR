@@ -117,6 +117,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | `docs/VR_MOTION.md` | VR で武器を持つ（`--weapon`・トリガーで握る／離すと滑る・コントローラの向き）、VR の動きの記録（`.vrmotion`）と、記録をなぞる（`imitate --vrmotion`）、実機で試す手順 |
 | `docs/REUSE.md` | エンジン（Aigis）と iTVision から持ってきたもの、エンジンへの変更 |
 | `docs/arena/*.md` | ドリル・リーグの生の記録 |
+| `docs/LLM_CONTENT.md` | LLM で作るコンテンツ（実況・台本・台詞）の軸: 誘導しない・繰り返しは入力から直す・生の情報を数字と言葉で・時間を資源に・映像と揃える・コストと再現性・確かめ方 |
 | `docs/commentary/README.md` | 動画の語りの LLM 向け説明書: 型（テレビの実況＋解説・一人実況・心の声）× 役 × 個性の層と組み合わせ（`docs/TV_BROADCAST.md` が中継の道具） |
 | `docs/BREAK_ROUTINE.md` | ラウンドの間の休みの選手の動作（水を飲む・汗を拭く・スマホ・電話・深呼吸…）: 目標の経路・選び方・小物（ボクセルの物）・近道 |
 | `docs/MEDIA.md` | 動画・リプレイの保管（`media/<世代>/`、git の外）の索引と、世代の区切り方 |
