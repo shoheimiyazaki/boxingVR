@@ -191,40 +191,47 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     public float ReplaySeconds => ((ReplayBefore + ReplayAfter) / stepDt) / fps;
 
     /// <summary>
-    /// 休みのカット割り（休みの始まりからの映像の秒）。いつものカメラ 2.5 秒 → コーナー → リプレイ → 反対のコーナー → リプレイ → コーナーを交互 → 最後の 2.5 秒はいつものカメラ。
-    /// 先に映すコーナーは、そのラウンドで多く打たれた側。
+    /// 休みのカット割り（休みの始まりからの映像の秒）: いつものカメラ 2.5 秒 → 多く打たれた側のコーナー → リプレイを続けて（2〜3 本。間は金の帯のワイプ）
+    /// → コーナー・リング脇（低い所から）・天井（真上から）を約 2.6 秒ずつ回す → 最後の 2.5 秒はいつものカメラ。
+    /// リプレイの間に選手の顔（コーナー）を挟むと流れが切れて見えた（2026-11-17、ユーザーの指摘）ので続けて流し、休みの残りでカメラを多く切り替える。
     /// </summary>
     public IReadOnlyList<TvSegment> PlanBreak(float breakVideoSeconds, IReadOnlyList<TvHighlight> highlights, bool redFirst)
     {
         const float Lead = 2.5f;
-        const float CornerShot = 3.5f;
+        const float CornerShot = 3f;
+        const float Cut = 2.6f;
         var plan = new List<TvSegment> { new(0f, Lead, TvShot.Main, redFirst, null) };
         var t = Lead;
-        var red = redFirst;
         var end = breakVideoSeconds - Lead;
+        plan.Add(new TvSegment(t, MathF.Min(end, t + CornerShot), TvShot.Corner, redFirst, null));
+        t = MathF.Min(end, t + CornerShot);
         foreach (var highlight in highlights)
         {
-            if (t + CornerShot + ReplaySeconds > end)
+            if (t + ReplaySeconds > end)
             {
                 break;
             }
 
-            plan.Add(new TvSegment(t, t + CornerShot, TvShot.Corner, red, null));
-            t += CornerShot;
-            red = !red;
             plan.Add(new TvSegment(t, t + ReplaySeconds, TvShot.Replay, highlight.RedVictim, highlight));
             t += ReplaySeconds;
         }
 
+        // 休みの残り: 2 人を交互に、カメラの種類を回す（同じ絵を続けない）。
+        var rotation = new (TvShot Shot, bool Red)[]
+        {
+            (TvShot.Corner, !redFirst), (TvShot.Ringside, redFirst), (TvShot.Ceiling, !redFirst),
+            (TvShot.Corner, redFirst), (TvShot.Ringside, !redFirst), (TvShot.Ceiling, redFirst),
+        };
+        var k = 0;
         while (t < end - 0.5f)
         {
-            var next = MathF.Min(end, t + CornerShot);
-            plan.Add(new TvSegment(t, next, TvShot.Corner, red, null));
-            red = !red;
+            var next = MathF.Min(end, t + Cut);
+            var (shot, red) = rotation[k++ % rotation.Length];
+            plan.Add(new TvSegment(t, next, shot, red, null));
             t = next;
         }
 
-        plan.Add(new TvSegment(t, breakVideoSeconds + 5f, TvShot.Main, red, null));
+        plan.Add(new TvSegment(t, breakVideoSeconds + 5f, TvShot.Main, redFirst, null));
         return plan;
     }
 

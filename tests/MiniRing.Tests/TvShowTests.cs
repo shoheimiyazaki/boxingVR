@@ -73,7 +73,7 @@ public sealed class TvShowTests
 
         var rules = TvLint.Check(script, Events).Select(i => i.Rule).ToList();
 
-        CollectionAssert.Contains(rules, "主語", "「左が入った！」はどちらの選手か分からない");
+        CollectionAssert.DoesNotContain(rules, "主語", "主語の決まりはやめた（2026-11-17: 喋り方を不自然に縛っていた。誰の話かは文脈で分かればよい）");
         CollectionAssert.Contains(rules, "コール", "ダウンを 1.5 秒遅れて言った");
         CollectionAssert.Contains(rules, "言わない言葉", "ダメージの数値は言わない");
         CollectionAssert.Contains(rules, "言い直し", "ラウンドの始まりに「第1ラウンド」と言っていない");

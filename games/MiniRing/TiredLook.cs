@@ -53,8 +53,8 @@ public static class TiredLook
     private const float SmallPuffShare = 0.3f;
 
     /// <summary>
-    /// メーターの「ヤバい」区域の上端で、点滅し始めるスタミナ。鈍り始め（<see cref="FighterTuning.TiredKnee"/> 0.6）の半分:
-    /// ここでは拳を運ぶ力がすでに 0.7 倍ほどへ落ちていて、あと数発で尽きる。
+    /// メーターの「ヤバい」区域の上端で、点滅し始めるスタミナ。鈍り始め（<see cref="FighterTuning.TiredKnee"/> 0.45）の 2/3:
+    /// ここでは拳を運ぶ力がすでに落ち始めていて、全力の連打ならあと数秒で尽きる（2026-11-17 の 300 J・臨界パワーのモデル）。
     /// </summary>
     public const float DangerBelow = 0.3f;
 

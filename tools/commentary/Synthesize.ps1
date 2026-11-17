@@ -28,10 +28,10 @@ Set-StrictMode -Version 2
 
 # Prosody per speaker. "excited" overrides the announcer/commentator base when set on a line.
 $Prosody = @{
-    announcer          = @{ rate = '+15%'; pitch = '+5%';  volume = '+0%' }
-    announcer_excited  = @{ rate = '+35%'; pitch = '+12%'; volume = '+20%' }
-    commentator        = @{ rate = '-3%';  pitch = '-2%';  volume = '+0%' }
-    commentator_excited = @{ rate = '+10%'; pitch = '+4%'; volume = '+10%' }
+    announcer          = @{ rate = '+30%'; pitch = '+5%';  volume = '+0%' }   # 2026-11-17: faster at the user's request (+15 -> +30 %)
+    announcer_excited  = @{ rate = '+50%'; pitch = '+12%'; volume = '+20%' }
+    commentator        = @{ rate = '+15%'; pitch = '-2%';  volume = '+0%' }   # 2026-11-17: faster (-3 -> +15 %)
+    commentator_excited = @{ rate = '+28%'; pitch = '+4%'; volume = '+10%' }
 }
 
 # ---- WinRT bootstrap -------------------------------------------------------
@@ -61,6 +61,9 @@ function Find-Voice([string[]]$fragments) {
 }
 
 function Escape-Xml([string]$s) { return [System.Security.SecurityElement]::Escape($s) }
+
+# Spoken text: drop the middle dot inside names (U+30FB, U+FF65) so a name such as 'za-hanma' is read as one word (reading it put a long pause between the parts; 2026-11-17). Subtitles and scripts keep the dot.
+function Spoken([string]$s) { return $s.Replace([string][char]0x30FB, "").Replace([string][char]0xFF65, "") }
 
 # Parses a PCM WAV (fmt + data chunks) from bytes.
 function Read-Wav([byte[]]$bytes) {
@@ -193,7 +196,7 @@ foreach ($entry in $ordered) {
 
     $ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='$($voice.Language)'>" +
             "<voice name='$(Escape-Xml $voice.DisplayName)'>" +
-            "<prosody rate='$($p.rate)' pitch='$($p.pitch)' volume='$($p.volume)'>$(Escape-Xml ([string]$l.text))</prosody>" +
+            "<prosody rate='$($p.rate)' pitch='$($p.pitch)' volume='$($p.volume)'>$(Escape-Xml (Spoken ([string]$l.text)))</prosody>" +
             "</voice></speak>"
 
     $synth.Voice = $voice

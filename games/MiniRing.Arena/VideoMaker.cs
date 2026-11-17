@@ -356,7 +356,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         if (tv && intentScript is null && game.InBreak && breakPlan is null)
                         {
                             // 休みに入った: そのラウンドの見どころを選び、カット割りを決める（先に映すのは多く打たれた側のコーナー）。
-                            var highlights = director.Highlights(game.MatchRound, 2, replayDone);
+                            var highlights = director.Highlights(game.MatchRound, 3, replayDone); // 休みに続けて流すリプレイは 3 本まで（入る長さだけ）
                             var redTook = game.Player.Condition.TotalDamage - (blueRoundStart.Count > 0 ? blueRoundStart[^1] : 0f);
                             var blueTook = game.Cpu.Condition.TotalDamage - (redRoundStart.Count > 0 ? redRoundStart[^1] : 0f);
                             breakStartAt = at;
@@ -367,6 +367,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                                 {
                                     TvShot.Replay => $"リプレイ（第{segment.Highlight!.Round}ラウンド、スロー）: {segment.Highlight.Text}",
                                     TvShot.Corner => $"リングの中のカメラ: {(segment.Red ? redRing : blueRing)} のコーナー",
+                                    TvShot.Ringside => $"リング脇のカメラマン: {(segment.Red ? redRing : blueRing)} を低い所から",
+                                    TvShot.Ceiling => $"天井のカメラ: {(segment.Red ? redRing : blueRing)} を真上から",
                                     _ => "中継カメラ",
                                 };
                                 broadcast?.Note(at + segment.Start, segment.Shot == TvShot.Replay ? "replay" : "cut", "", what);
@@ -526,7 +528,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             if (shot is TvShot.Ceiling or TvShot.Ringside)
                             {
                                 broadcast?.Note(at, "camera", subject == game.Player ? redRing : blueRing,
-                                    shot == TvShot.Ceiling ? "天井のカメラ（倒れた選手を真上から）" : "リング脇のカメラマン（床の高さから）");
+                                    shot == TvShot.Ceiling ? (game.InBreak ? "天井のカメラ（コーナーの選手を真上から）" : "天井のカメラ（倒れた選手を真上から）")
+                                    : game.InBreak ? "リング脇のカメラマン（コーナーの選手を低い所から）" : "リング脇のカメラマン（床の高さから）");
                             }
                         }
 

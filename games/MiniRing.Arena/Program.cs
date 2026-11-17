@@ -59,6 +59,7 @@ try
         "tune" => Tune(Options.Parse(argv[1..], "base", "gens", "pop", "bouts", "seconds", "gauntlet", "seed", "log", "out", "focus")),
         "drill" => Drill(Options.Parse(argv[1..], "book", "bouts", "seconds", "seed", "out")),
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
+        "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
@@ -470,6 +471,27 @@ static int KarateLabCommand(Options o)
     new KarateLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log,
         o.List("cues", ["0", "0.06"]).Select(c => float.Parse(c, CultureInfo.InvariantCulture)).ToList())
         .Run(only.Contains("shapes"), only.Contains("parry"), only.Contains("kicks"));
+    return 0;
+}
+
+// 詰めのドリル: 意識を止めた相手へ名簿のボットが詰めて打ち、拳ごとに顔・胴・ガード・空振り（外れた向き）を数える（docs/BOT_PDCA.md「詰めのドリル」）。
+static int FinishLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    var levels = o.List("levels", ["0.45", "0.6"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
+    FinishLab.Report(o.List("attackers", ["ramon", "yoandry", "marcus"]), o.List("victims", ["dmitri", "joao", "ramon"]), levels,
+        o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), SetOf(o), Log,
+        o.Get("aim") is { } aim ? Enum.Parse<MiniRing.AimGoal>(aim, ignoreCase: true) : (MiniRing.AimGoal?)null,
+        o.List("victim-set", []).Select(p => p.Split('=')).ToDictionary(p => p[0], p => float.Parse(p[1], CultureInfo.InvariantCulture)));
     return 0;
 }
 

@@ -80,29 +80,40 @@ public sealed class StaminaTempoTests
         return rig.StrongPunch(0.3f);
     }
 
-    /// <summary>容量 120 J（2026-11-16 に 60 J から倍。回復の速さは同じ）: 空から構えて立つと 6 秒で半分、12 秒でほぼ満タン（60 J のときは 3 秒・6 秒）。</summary>
+    /// <summary>
+    /// 容量 300 J・休んだときの戻り 20 W（2026-11-17）: 空から構えて立つと、ラウンドの間の 10 秒で 6 割ほど、16 秒でほぼ満タン
+    /// （測定 6 秒 39 %・12 秒 79 %）。
+    /// </summary>
     [TestMethod]
-    public void EmptyReserve_Standing_HalfAfterSixSeconds_FullAfterTwelve()
+    public void EmptyReserve_Standing_RoundBreakRecoversMoreThanHalf_FullAfterSixteen()
     {
         using var rig = new Rig();
         rig.Fighter.Stamina = 0f;
+        rig.Hold(10f, Vector3.Zero);
+        var at10 = rig.Fighter.Stamina;
         rig.Hold(6f, Vector3.Zero);
-        var at6 = rig.Fighter.Stamina;
-        rig.Hold(6f, Vector3.Zero);
-        var at12 = rig.Fighter.Stamina;
-        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"standing from empty: 6 s {at6:P1}, 12 s {at12:P1}"));
-        Assert.IsGreaterThanOrEqualTo(0.5f, at6);
-        Assert.IsGreaterThanOrEqualTo(0.95f, at12);
+        var at16 = rig.Fighter.Stamina;
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"standing from empty: 10 s {at10:P1}, 16 s {at16:P1}"));
+        Assert.IsGreaterThanOrEqualTo(0.55f, at10);
+        Assert.IsGreaterThanOrEqualTo(0.9f, at16);
     }
 
+    /// <summary>
+    /// 足を使っても回復はほとんど止まらない（臨界パワーのモデル、2026-11-17）: 下がりながら歩く仕事率（約 1.7 W）は臨界パワー（9 W）よりずっと下。
+    /// 前の式では打ち合っていない立ち回りでも減る場面があり、ボットが休むために棒立ちになった（ユーザーの指摘）。
+    /// </summary>
     [TestMethod]
-    public void EmptyReserve_RetreatingOnFoot_EightyPercentAfterEightSeconds()
+    public void EmptyReserve_RetreatingOnFoot_RecoversNearlyAsFastAsStanding()
     {
+        using var standing = new Rig();
+        standing.Fighter.Stamina = 0f;
+        standing.Hold(8f, Vector3.Zero);
         using var rig = new Rig();
         rig.Fighter.Stamina = 0f;
         rig.Hold(8f, new Vector3(0f, 0f, -1f));
-        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"retreating from empty: 8 s {rig.Fighter.Stamina:P1}, P {rig.Fighter.RecentMusclePower:F2} W"));
-        Assert.IsGreaterThanOrEqualTo(0.8f, rig.Fighter.Stamina);
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"from empty for 8 s: retreating {rig.Fighter.Stamina:P1} (P {rig.Fighter.RecentMusclePower:F2} W), standing {standing.Fighter.Stamina:P1}"));
+        Assert.IsGreaterThanOrEqualTo(0.8f * standing.Fighter.Stamina, rig.Fighter.Stamina);
     }
 
     [TestMethod]
@@ -126,24 +137,21 @@ public sealed class StaminaTempoTests
         Assert.IsLessThanOrEqualTo(2f, first);
     }
 
-    /// <summary>容量 120 J（60 J から倍）: 満タンから全力の連打で空まで 12〜20 秒（60 J のときは 6〜10 秒）。</summary>
+    /// <summary>
+    /// 片手の強い 1 発を 0.3 秒ごと（約 8 W、臨界パワー 9 W より下）は続けられる: 30 秒打ち続けても蓄えは尽きない（2026-11-17）。
+    /// 尽きるのは両手の全力の連打（20〜40 W、<see cref="StaminaRushTests"/>）。前の目標は「この打ち方で 12〜20 秒で空」だった。
+    /// </summary>
     [TestMethod]
-    public void FullReserve_AllOutPunching_EmptiesInTwelveToTwentySeconds()
+    public void FullReserve_OneHandStrongPace_BelowCriticalPower_DoesNotEmpty()
     {
         using var rig = new Rig();
-        var emptyAt = -1f;
-        for (var punch = 0; punch < 120 && emptyAt < 0f; punch++)
+        while (rig.Time < 30f)
         {
             rig.StrongPunch(0.3f);
-            if (rig.Fighter.Stamina < 0.1f)
-            {
-                emptyAt = rig.Time;
-            }
         }
 
-        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"all-out punching from full: stamina < 10 % at {emptyAt:F1} s"));
-        Assert.IsGreaterThanOrEqualTo(12f, emptyAt);
-        Assert.IsLessThanOrEqualTo(20f, emptyAt);
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"one-hand strong pace for 30 s: stamina {rig.Fighter.Stamina:P1}, P {rig.Fighter.RecentMusclePower:F2} W"));
+        Assert.IsGreaterThan(0.3f, rig.Fighter.Stamina);
     }
 
     /// <summary>

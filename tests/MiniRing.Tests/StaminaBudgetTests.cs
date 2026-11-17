@@ -61,12 +61,13 @@ public sealed class StaminaBudgetTests
         var rest = Run(attacking: false, full: false);
         var attack = Run(attacking: true, full: false);
         Console.WriteLine($"10 s: rest {rest.Stamina:P2}, attack {attack.Stamina:P2}");
-        Assert.IsGreaterThanOrEqualTo(0.95f, rest.Stamina, "構えて休めば 10 秒で満タンへ戻る");
-        Assert.IsLessThan(0.1f, attack.Stamina, "全力の連打を続けるあいだは、戻った分もすぐ使い切る");
+        // 容量 300 J・休んだときの戻り 20 W（2026-11-17）: 10 秒（ラウンドの間）で 6 割ほど戻る（測定 65 %）。
+        Assert.IsGreaterThanOrEqualTo(0.55f, rest.Stamina, "構えて休めば 10 秒で半分を超えて戻る");
+        Assert.IsLessThan(0.2f, attack.Stamina, "強い連打を続けるあいだは、戻った分をほとんど使い切る");
     }
 
     [TestMethod]
-    public void EmptyReserve_TenthPunchLosesSpeedAndImpactEnergy_WhileFullReserveDoesNot()
+    public void EmptyReserve_FirstPunchIsWeak_RecoversAtSustainablePace_WhileFullReserveDoesNotFade()
     {
         var empty = Run(attacking: true, full: false);
         var full = Run(attacking: true, full: true);
@@ -74,11 +75,12 @@ public sealed class StaminaBudgetTests
         Console.WriteLine($"full peaks: {string.Join(", ", full.Peaks.Select(p => p.ToString("F3", System.Globalization.CultureInfo.InvariantCulture)))}");
         Assert.IsGreaterThan(0.1f, empty.Peaks[0], "初発が実際に出ている");
         Console.WriteLine($"impact energy [J]: empty {empty.Hits[0].Energy:F4} -> {empty.Hits[9].Energy:F4}; full {full.Hits[0].Energy:F4} -> {full.Hits[9].Energy:F4}");
-        // 空から連打し続けると、心肺の供給の分（連打の P で減る回復、約 5 W）しか仕事が出ない。満タンの 1 発目に対して、拳の速さは 0.65 倍以下、
-        // 打撃のエネルギーは半分以下（2026-11-15 の測定: 速さ 0.585 倍・エネルギー 0.445 倍）。以前は「空の 1 発目の半分以下」（10 発目は 0.17 m/s・0 J）で、
-        // 出せなかった仕事まで回復を止めていたため空で押すと何もできなくなっていた。今は動きながらも戻る分だけ打てる。
-        Assert.IsLessThanOrEqualTo(full.Peaks[0] * 0.65f, empty.Peaks[9]);
-        Assert.IsLessThanOrEqualTo(full.Hits[0].Energy * 0.5f, empty.Hits[9].Energy);
+        // 空の 1 発目は、蓄えが無く心肺の供給の分しか仕事が出ないので弱い（2026-11-17 の測定: 満タンの 1 発目に対して速さ 0.59 倍・エネルギー 0.39 倍）。
+        // 片手で 0.3 秒ごとの強い拳は臨界パワー（9 W）より下の仕事なので、打ちながらも蓄えは戻り、10 発目には 0.9 倍ほどまで戻る（満タンには届かない）。
+        // 以前（回復が exp(−(P/5W)²) の式）は 10 発目も 0.585 倍のままだった。
+        Assert.IsLessThanOrEqualTo(full.Peaks[0] * 0.65f, empty.Peaks[0]);
+        Assert.IsLessThanOrEqualTo(full.Hits[0].Energy * 0.5f, empty.Hits[0].Energy);
+        Assert.IsTrue(empty.Peaks[9] > empty.Peaks[0] && empty.Peaks[9] < full.Peaks[9] * 0.95f, "打ちながら戻るが満タンには届かない");
         Assert.IsGreaterThan(full.Peaks[0] * 0.9f, full.Peaks[9]);
         Assert.IsGreaterThan(full.Hits[0].Energy * 0.8f, full.Hits[9].Energy);
 

@@ -7,6 +7,7 @@
     scout    種が "auto" の試合を下見して、一番見ごたえのある種を選ぶ（結果は <out>\card.resolved.json に残す。次からは下見しない）
     render   各試合を撮る（<out>\bN.mp4 と bN.events.json。あれば飛ばす。-Force で撮り直す）
     digest   台本の資料（<out>\bN.digest.md）と実況の骨組みの下書き（bN.draft.json）を書く
+    write    LLM（札の commentary.model、既定 haiku）に全試合の台詞の新しいテイクを書かせる（tools\tvshow\write-commentary.ps1。テイクは <out>\takes\bN\ に残る）
     dub      台本（下書き bN.draft.json ＋ 足す台詞 bN.extras.json → bN.script.json）に声を入れ（bN_live.mp4）、台本を点検する
     liveprep 生の中継の準備だけ（種 → 各試合を描かずに下回しして出来事 → 資料・下書き → 台本 → 声）。<out>\bN_live_voices\manifest.json まで作る
     live     生の中継: 準備（liveprep）のあと、試合を順に、実時間で描いて声を混ぜながら札の live.url へ流す（OBS の受け側は docs\TV_BROADCAST.md「生配信」）
@@ -24,7 +25,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$Card,
-    [ValidateSet('all', 'scout', 'render', 'digest', 'dub', 'package', 'liveprep', 'live')][string]$Stage = 'all',
+    [ValidateSet('all', 'scout', 'render', 'digest', 'write', 'dub', 'package', 'liveprep', 'live')][string]$Stage = 'all',
     [switch]$Force,
     # 部分の大きさの上限 [MiB]（スマホへ送れる大きさ）。札の partLimitMiB があればそちら。
     [double]$PartLimitMiB = 29
@@ -315,7 +316,20 @@ if ($Stage -in @('all', 'render', 'digest')) {
 if ($Stage -in @('render', 'digest')) { return }
 
 # 4. 台本を作って声を入れる。台本 = 下書き（bN.draft.json）＋書き手の足す台詞（bN.extras.json。tvmerge で重ねる）。
+#    札の commentary.writer が "llm" なら、足す台詞の無い試合は LLM が書く（tools\tvshow\write-commentary.ps1。-Stage write は全試合の新しいテイク）。
 #    足す台詞が無く、札の autoCommentary が true なら、下書きだけで台本にする（エージェントなしの実況）。
+$commentaryCard = Get-Field $cardData 'commentary' $null
+$llmWriter = [string](Get-Field $commentaryCard 'writer' '') -eq 'llm'
+if ($Stage -eq 'write' -or ($Stage -in @('all', 'dub') -and $llmWriter)) {
+    $writer = Join-Path $PSScriptRoot 'write-commentary.ps1'
+    for ($i = 0; $i -lt $bouts.Count; $i++) {
+        $key = "b$($i + 1)"
+        if ($Stage -ne 'write' -and (Test-Path (Join-Path $out "$key.extras.json"))) { continue }
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $writer -Card $cardPath -Bout $key
+        if ($LASTEXITCODE -ne 0) { throw "$key の台本を LLM が書けませんでした（$out\takes\$key の claude.log）" }
+    }
+    if ($Stage -eq 'write') { return }
+}
 $autoCommentary = [bool](Get-Field $cardData 'autoCommentary' $false)
 $missing = @()
 for ($i = 0; $i -lt $bouts.Count; $i++) {

@@ -130,7 +130,8 @@ public sealed class CharacterFileTests
 
     private static (FighterCharacter Red, FighterCharacter Blue) Educated()
     {
-        var red = Load("marcus", "{ \"style\": { \"Aggression\": 0.2, \"RangePress\": 3 }, \"vs\": { \"dmitri\": { \"Aggression\": 0.4 } }, \"weaponBot\": null }");
+        // GuardHeight: 構えの高さはいつも見える違い（手数 Aggression と RangePress は攻めの間にしか効かず、打ち合いの続く試合では、弱った相手を詰める層（LogicVersion 36）が間を縮めて差が出ないことがある）。
+        var red = Load("marcus", "{ \"style\": { \"Aggression\": 0.2, \"RangePress\": 3, \"GuardHeight\": 1.4 }, \"vs\": { \"dmitri\": { \"Aggression\": 0.4 } }, \"weaponBot\": null }");
         var blue = Load("dmitri", "{ \"style\": { \"Aggression\": 0.6 }, \"vs\": {}, \"weaponBot\": null }");
         return (red, blue);
     }
@@ -168,9 +169,10 @@ public sealed class CharacterFileTests
     public void Education_ChangesTheMatch_AndReplayKeepsTheRecordedStyleWhateverTheFilesSayLater()
     {
         var (red, blue) = Educated();
-        var plainChecksum = RunChecksum(new MatchSelection(MatchMode.Spectate, CharacterRoster.Get("marcus"), CharacterRoster.Get("dmitri")).Corners, 4f);
-        var educatedChecksum = RunChecksum(new MatchSelection(MatchMode.Spectate, red, blue).Corners, 4f);
-        Assert.AreNotEqual(plainChecksum, educatedChecksum, "the education reaches the bots");
+        // 途中の毎秒の状態で比べる（試合の終わりの 1 点だけでは、ダウンでラウンドが作り直されると両方が同じ初めの状態に戻り、差が見えないことがある: LogicVersion 36 で起きた）。
+        var plainChecksum = RunChecksums(new MatchSelection(MatchMode.Spectate, CharacterRoster.Get("marcus"), CharacterRoster.Get("dmitri")).Corners, 8f);
+        var educatedChecksum = RunChecksums(new MatchSelection(MatchMode.Spectate, red, blue).Corners, 8f);
+        Assert.IsTrue(plainChecksum.Zip(educatedChecksum).Any(p => p.First != p.Second), "the education reaches the bots");
 
         foreach (var mode in new[] { MatchMode.Spectate, MatchMode.Single })
         {
@@ -201,7 +203,7 @@ public sealed class CharacterFileTests
     public void OldRecordings_WithoutAPlayerStyle_StillRead_AndTheVersionWasRaised()
     {
         var version = ReplayFile.Version;
-        Assert.AreEqual(9, version, "v9: matchSettings may carry PlayerStyleJson (v8) and the weapon-bot style JSONs (v9)");
+        Assert.AreEqual(10, version, "v10: steps carry the elbow tuck; v9: matchSettings may carry PlayerStyleJson (v8) and the weapon-bot style JSONs (v9)");
         var corners = new MatchSelection(MatchMode.Single, CharacterRoster.Get("marcus"), CharacterRoster.Get("dmitri")).Corners;
         var options = new JsonSerializerOptions { IncludeFields = true };
         var node = JsonNode.Parse(JsonSerializer.Serialize(ReplayMatchSettings.From(corners, null), options))!.AsObject();
@@ -210,6 +212,22 @@ public sealed class CharacterFileTests
         var old = JsonSerializer.Deserialize<ReplayMatchSettings>(node.ToJsonString(), options)!;
         Assert.IsNull(old.PlayerStyleJson, "a record without the field reads as null (the old way of deciding)");
         Assert.IsNull(old.Apply(corners).PlayerStyle);
+    }
+
+    private static List<ulong> RunChecksums(BoxingCorners corners, float seconds)
+    {
+        using var game = new BoxingGame(seed: 3, corners: corners);
+        var sums = new List<ulong>();
+        for (var i = 0; i < (int)(seconds * 60f); i++)
+        {
+            game.Step(default, 1f / 60f);
+            if (i % 60 == 59)
+            {
+                sums.Add(game.StateChecksum());
+            }
+        }
+
+        return sums;
     }
 
     private static ulong RunChecksum(BoxingCorners corners, float seconds)

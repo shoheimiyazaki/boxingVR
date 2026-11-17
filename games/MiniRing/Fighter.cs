@@ -161,7 +161,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 37; // 37: スタミナの容量 60→120 J（ユーザーの指定。尽きるのが早すぎた。回復の速さは同じなので満タンまでの時間も倍）。36: スタミナの蓄え・心肺の供給・回復を止める仕事率の尺度を筋肉の量（BodyBuild.MassRatio = H³M²）に比例させる（1 kg あたりで同じ。大きい体が質量に比例して増えた仕事で早く尽きていた。基準体格は不変）。35: 素手を指の関節で組む（掌 + 4 本 × 3 節の骨・肉・皮膚のセルを関節の曲げ角 HandSkeleton.PoseOf どおりに並べ、手形の変更は関節のバネ・ダンパ HandMotion で時間がかかる。折れた指は力が入らず力を抜いた形へ落ちる。素手の質量・形が変わる。docs/KARATE.md §指）。急所の狙いの点は実際のセルから（BodyLandmarks）。34: 首の骨折・首の切断・脊椎の損傷（頭を首の梁にして頸椎 4 セルが折れる・断たれると頭が離れて死ぬ・脊髄 Cord が削れた残りの断面で頸/胸/腰の筋の力と息を決める。docs/VOXEL_DAMAGE.md §首と脊椎）。無傷の体のセルの数・質量は同じ（中身の材質だけ置き換え）。33: 足の運びで、刻み（半歩に満たない 1 歩）の足を選び続けて、伸びきったもう一方の足が置き直されず体が止まる行き詰まりを直す（FootworkTuning.ShuffleShare。docs/arena/boot_snag.md）。32: スタミナの回復を止める仕事率 P を、出そうとした仕事ではなく実際にした仕事（SpendMuscleEnergy・サーボの精算）で数える。回復は exp(−(P / StaminaRestPower)²)、StaminaRestPower 0.7→5 W・StaminaCapacity 90→60 J・StaminaRecoveryWindow 2→1 s（動きながらも戻る。StaminaPowerWindow は廃止）。31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
+    public const int PhysicsVersion = 38; // 38: スタミナを臨界パワーと W′ のモデルに（RecoveryPower: 直近の仕事率が臨界パワー C = 最大の戻り × StaminaCriticalShare より下なら R − (R − C) P / C で戻り、上なら C だけ供給されて差で減る。前の exp(−(P/5W)²) は立ち回りの 5〜6 W で減った）・試合を通した持久力 Endurance = exp(−した仕事 / StaminaEndurance) が供給と臨界パワーに掛かる（後のラウンドほど疲れる）・StaminaCapacity 120→300 J・StaminaRecoveryPower 15→20 W・TiredKnee 0.6→0.45・打撲で失うスタミナを割合からエネルギー（WindPerBruise 12 J）へ。ユーザーの目標: 弱強の連打が 10 秒全力・さらに 10 秒落ちながら打てる、1 ラウンド目は全力で続けられる（StaminaFeelProbe・StaminaMatchProbe）。37: スタミナの容量 60→120 J（ユーザーの指定。尽きるのが早すぎた。回復の速さは同じなので満タンまでの時間も倍）。36: スタミナの蓄え・心肺の供給・回復を止める仕事率の尺度を筋肉の量（BodyBuild.MassRatio = H³M²）に比例させる（1 kg あたりで同じ。大きい体が質量に比例して増えた仕事で早く尽きていた。基準体格は不変）。35: 素手を指の関節で組む（掌 + 4 本 × 3 節の骨・肉・皮膚のセルを関節の曲げ角 HandSkeleton.PoseOf どおりに並べ、手形の変更は関節のバネ・ダンパ HandMotion で時間がかかる。折れた指は力が入らず力を抜いた形へ落ちる。素手の質量・形が変わる。docs/KARATE.md §指）。急所の狙いの点は実際のセルから（BodyLandmarks）。34: 首の骨折・首の切断・脊椎の損傷（頭を首の梁にして頸椎 4 セルが折れる・断たれると頭が離れて死ぬ・脊髄 Cord が削れた残りの断面で頸/胸/腰の筋の力と息を決める。docs/VOXEL_DAMAGE.md §首と脊椎）。無傷の体のセルの数・質量は同じ（中身の材質だけ置き換え）。33: 足の運びで、刻み（半歩に満たない 1 歩）の足を選び続けて、伸びきったもう一方の足が置き直されず体が止まる行き詰まりを直す（FootworkTuning.ShuffleShare。docs/arena/boot_snag.md）。32: スタミナの回復を止める仕事率 P を、出そうとした仕事ではなく実際にした仕事（SpendMuscleEnergy・サーボの精算）で数える。回復は exp(−(P / StaminaRestPower)²)、StaminaRestPower 0.7→5 W・StaminaCapacity 90→60 J・StaminaRecoveryWindow 2→1 s（動きながらも戻る。StaminaPowerWindow は廃止）。31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -902,6 +902,9 @@ public sealed partial class Fighter
     /// <summary>スタミナがこれを下回ると拳を運ぶ力が落ち始める（<see cref="FighterTuning.TiredKnee"/>。メーターの「動きが鈍る」区域の上端）。</summary>
     public float SluggishBelow => _tuning.TiredKnee;
 
+    /// <summary>調べもの用: 打撲で息が詰まって失ったスタミナの合計 [J]（試合の数え方には使わない）。</summary>
+    internal float WindLost { get; private set; }
+
     /// <summary>
     /// 打撃の衝撃を臓器へ伝える（<see cref="Voxels.BoxerBody.Bruise"/>）。打撲が増えた分だけ息が詰まってスタミナを失う
     /// （<see cref="FighterTuning.WindPerBruise"/>）。ガードの上でも、拳でも武器でも同じ（当たった点と運動エネルギーだけで決まる）。
@@ -920,7 +923,9 @@ public sealed partial class Fighter
             total += amount;
         }
 
-        Stamina = MathF.Max(0f, Stamina - (_tuning.WindPerBruise * total));
+        var winded = MathF.Min(Stamina, _tuning.WindPerBruise * MuscleMassRatio * total / StaminaCapacityJoules);
+        Stamina -= winded;
+        WindLost += winded * StaminaCapacityJoules;
         RefreshOrgans(); // 打たれた直後から効く（腹の張り・息）
     }
 
@@ -1769,7 +1774,7 @@ public sealed partial class Fighter
             {
                 // 折れた・切れた腕: 折れ目より体に近い側（残った肩・肘の筋肉）は、入力の拳の目標から決まる本来の形へ動く。その先は肉のバネで
                 // ぶら下がるだけ（拳を目標へ引く力は掛けない: 手は駆動していない先に付いている）。
-                arm.DriveStump(_world, frame, hand.TargetLocal, Parts.Chest);
+                arm.DriveStump(_world, frame, hand.TargetLocal, Parts.Chest, hand.Tuck);
                 continue;
             }
 
@@ -1804,7 +1809,7 @@ public sealed partial class Fighter
                 arm.BodyStore = null; // 次の拳の出し始めで蓄え直す
             }
 
-            var drive = arm.Drive(_world, _tuning, frame, target, scale * ArmStrength(arm.Hand), _inertia, com, torso, TotalMass, dt, Parts.Chest, spring, HandSlowness);
+            var drive = arm.Drive(_world, _tuning, frame, target, scale * ArmStrength(arm.Hand), _inertia, com, torso, TotalMass, dt, Parts.Chest, spring, HandSlowness, hand.Tuck);
             ApplyArmDrive(arm, drive.Force, drive.ArmPart, weightShift, dt);
             arm.DriveWrist(_world, frame, arm.Support is { } held ? command.For(held.Main).Orientation : hand.Orientation);
         }
@@ -2974,10 +2979,22 @@ public sealed partial class Fighter
         }
 
         /// <summary>
+        /// 肘を向ける点（IK の極）。Tuck 0: 肩から下・外・やや後ろ（今までの形）。Tuck 1: 下・わずかに内・前（脇を締めて肘を脇腹の前へ）。
+        /// 間はなめらかにつなぐ（場合分けしない）。
+        /// </summary>
+        private Vector3 Pole(Vector3 shoulder, BodyFrame frame, float reach, float tuck)
+        {
+            var t = float.IsFinite(tuck) ? Math.Clamp(tuck, 0f, 1f) : 0f;
+            var outward = 0.6f - (0.75f * t);
+            var back = 0.3f - (0.45f * t);
+            return shoulder + (((-Vector3.UnitY * 1.0f) + (frame.Rotate(Vector3.UnitX * Side) * outward) - (frame.Forward * back)) * reach);
+        }
+
+        /// <summary>
         /// 折れた・切れた腕の、残った筋肉だけを駆動する: 拳の目標から IK で決まる肩・肘の角度を、まだある肩・肘のサーボの目標にする（骨折より
         /// 体に近い側は入力どおりの形へ動く）。拳を引く力は掛けない。サーボが外れた関節（折れ目より先）には何も書かない。
         /// </summary>
-        public void DriveStump(PhysicsWorld world, BodyFrame frame, Vector3 targetLocal, int chestId)
+        public void DriveStump(PhysicsWorld world, BodyFrame frame, Vector3 targetLocal, int chestId, float tuck = 0f)
         {
             LastForce = Vector3.Zero;
             var shoulder = ShoulderPosition(world, chestId);
@@ -2985,7 +3002,7 @@ public sealed partial class Fighter
             var target = ArmIk.ClampReach(shoulder, frame.LocalToWorld(targetLocal), reach);
             PlannedTarget = target;
             LastTarget = target;
-            var pole = shoulder + (((-Vector3.UnitY * 1.0f) + (frame.Rotate(Vector3.UnitX * Side) * 0.6f) - (frame.Forward * 0.3f)) * reach);
+            var pole = Pole(shoulder, frame, reach, tuck);
             var (elbow, hand) = ArmIk.SolveTwoBone(shoulder, target, pole, UpperLength, LowerLength);
             var (upperRotation, elbowAngle) = ArmIk.JointTargets(shoulder, elbow, hand, ArmIk.BendNormal(shoulder, target, pole), Side);
             if (world.HasConstraint(ShoulderServo))
@@ -3001,7 +3018,7 @@ public sealed partial class Fighter
 
         /// <summary>腕を目標へ駆動し、体から借りた力 [N]（脚と腰が地面を押して出す分）を返す。</summary>
         public (Vector3 Force, Vector3 ArmPart) Drive(PhysicsWorld world, FighterTuning tuning, BodyFrame frame, Vector3 targetLocal, float forceScale,
-            BodyInertia inertia, Vector3 centerOfMass, Quaternion torso, float totalMass, float dt, int chestId, float spring = 0f, float slowness = 0f)
+            BodyInertia inertia, Vector3 centerOfMass, Quaternion torso, float totalMass, float dt, int chestId, float spring = 0f, float slowness = 0f, float tuck = 0f)
         {
             var shoulder = ShoulderPosition(world, chestId);
             var reach = UpperLength + LowerLength;
@@ -3024,9 +3041,9 @@ public sealed partial class Fighter
             _previousLocalTarget = targetLocal;
             _hasPrevious = true;
 
-            // 1) IK → 肩・肘サーボの目標（腕の「形」）。肘は下・外・やや後ろへ逃がす。
+            // 1) IK → 肩・肘サーボの目標（腕の「形」）。肘の向きは入力の目標（Tuck: 逃がす … 脇を締める）。
             var chest = world.GetState(chestId);
-            var pole = shoulder + (((-Vector3.UnitY * 1.0f) + (frame.Rotate(Vector3.UnitX * Side) * 0.6f) - (frame.Forward * 0.3f)) * reach);
+            var pole = Pole(shoulder, frame, reach, tuck);
             var (elbow, hand) = ArmIk.SolveTwoBone(shoulder, target, pole, UpperLength, LowerLength);
             var (upperRotation, elbowAngle) = ArmIk.JointTargets(shoulder, elbow, hand, ArmIk.BendNormal(shoulder, target, pole), Side);
             world.SetAngularServoTarget(ShoulderServo, Quaternion.Concatenate(upperRotation, Quaternion.Conjugate(chest.Orientation)));

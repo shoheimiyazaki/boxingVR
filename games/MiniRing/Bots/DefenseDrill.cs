@@ -56,6 +56,10 @@ public static class DefenseDrill
     {
         Name = $"drill-{kind}",
         Aggression = 0.8f,
+        // ドリルは同じ拳を決まった拍子で打たせる。弱った相手を詰める層（当てた手応えで間隔を縮める）は入れない（LogicVersion 36 で既定にした層）。
+        FinishTempo = 0f,
+        FinishPress = 0f,
+        FinishSpend = 0f,
         AttackRange = range - 0.1f,
         NeutralRange = range,
         EngageRange = 1.6f,
