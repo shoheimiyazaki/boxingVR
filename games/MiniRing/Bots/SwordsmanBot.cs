@@ -329,6 +329,9 @@ public sealed class SwordsmanBot : IFighterControl
     /// <summary>今の相手との水平の距離 [m]（毎歩）。技を決めるとき、すでに近いかを見る。</summary>
     private float _distance = float.MaxValue;
 
+    /// <summary>すでに近いときに、今の距離に合う技として数える間合いの幅 [m]（出す窓 <see cref="MotionTechnique.Window"/> より広い: 数 cm 歩いて合わせてから出す。手で決めた値）。</summary>
+    public const float CloseWindow = 0.08f;
+
     /// <summary><paramref name="from"/> から 1 つ選ぶ（<see cref="Weights"/> が null なら同じ割合）。</summary>
     private MotionTechnique PickFrom(IReadOnlyList<MotionTechnique> from)
     {
@@ -457,11 +460,13 @@ public sealed class SwordsmanBot : IFighterControl
             _aimForward = Aim is { } chosen ? _forwardNow.GetValueOrDefault(chosen) : 0f;
         }
 
-        // すでに近い（計画の候補でいちばん短い技より内側）: 歩いて詰める必要が無いので、全部の技から今の距離に間合いが合う技を選ぶ
-        // （|間合い − 距離| がいちばん小さい技。重みが 0 の技は Pool に無い。連続の量だけで決め、技の種類で分けない）。
+        // すでに近い（計画の候補でいちばん短い技より内側）: 歩いて詰める必要が無いので、全部の技から今の距離に間合いが合う技
+        // （|間合い − 距離| が窓の中。1 つも無ければ、いちばん近い間合いの技）を、教科書の重みで選ぶ。
+        // 連続の量（距離と間合い）と重みだけで決め、技の種類で分けない。
         if (!ReferenceEquals(PlanPool, Pool) && _distance < PlanPool.Min(RangeOf) - MotionTechnique.Window)
         {
-            return Pool.MinBy(t => MathF.Abs(RangeOf(t) - _distance))!;
+            var fitting = Pool.Where(t => MathF.Abs(RangeOf(t) - _distance) <= CloseWindow).ToList();
+            return fitting.Count > 0 ? PickFrom(fitting) : Pool.MinBy(t => MathF.Abs(RangeOf(t) - _distance))!;
         }
 
         if (Aim is not { } aimAt)

@@ -1,4 +1,5 @@
 using MiniRing.Bots;
+using MiniRing.Motion;
 using MiniRing.Weapons;
 
 namespace MiniRing.Tests;
@@ -34,17 +35,28 @@ public sealed class SwordInnerRangeTests
             Assert.IsGreaterThanOrEqualTo(style.MinReach, far.Range, $"遠間では剣の間合いの技だけ（seed {seed}: {far.Name}）");
         }
 
-        // 近い距離では、重みが 0 でない技のうち、間合いが今の距離にいちばん合う技（差が最小）。
+        // 近い距離では、重みが 0 でない技のうち、間合いが今の距離の窓（SwordsmanBot.CloseWindow）に入る技（1 つも無ければいちばん近い技）から選ぶ。
+        var chosenNames = new HashSet<string>();
         foreach (var distance in new[] { 0.12f, 0.2f })
         {
-            var expected = all.Where(t => style.TechniqueWeights!.GetValueOrDefault(t.Name, 1f) > 0f)
-                .MinBy(t => MathF.Abs(t.Range - distance))!;
-            var chosen = Bot(weapon, 7).PlanAt(distance);
-            Assert.AreEqual(expected.Name, chosen.Name, $"距離 {distance}");
-            Assert.IsLessThan(style.MinReach, chosen.Range);
+            var live = all.Where(t => style.TechniqueWeights!.GetValueOrDefault(t.Name, 1f) > 0f).ToList();
+            var fitting = live.Where(t => MathF.Abs(t.Range - distance) <= SwordsmanBot.CloseWindow).Select(t => t.Name).ToHashSet();
+            if (fitting.Count == 0)
+            {
+                fitting.Add(live.MinBy(t => MathF.Abs(t.Range - distance))!.Name);
+            }
+
+            for (var seed = 1; seed <= 40; seed++)
+            {
+                var chosen = Bot(weapon, seed).PlanAt(distance);
+                Assert.Contains(chosen.Name, fitting, $"距離 {distance} seed {seed}");
+                chosenNames.Add(chosen.Name);
+            }
         }
 
-        // 同じ距離なら乱数に依らず同じ（決定的）。
-        Assert.AreEqual(Bot(weapon, 1).PlanAt(0.15f).Name, Bot(weapon, 99).PlanAt(0.15f).Name);
+        Assert.IsGreaterThan(1, chosenNames.Count, "重みの付いた技がばらけて選ばれる");
+
+        // 同じ種・同じ距離なら同じ技（決定的）。
+        Assert.AreEqual(Bot(weapon, 5).PlanAt(0.15f).Name, Bot(weapon, 5).PlanAt(0.15f).Name);
     }
 }
