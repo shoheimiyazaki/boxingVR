@@ -25,10 +25,17 @@ namespace MiniRing.Bots;
 /// <param name="Bind">受け流しで、来る線のどこで迎えるか（0 = 相手の握り・1 = 先）。体へ来る点より握りの側なら、その分遅い所で迎える。</param>
 /// <param name="Flat">受け流しで、刃でなく鎬（刀の平らな面）を来る線へ向けるか。</param>
 /// <param name="Clearance">受け流しの刀（左手から先まで）を、自分の体の線（頭から腰）からこれより離しておく [腕の長さ]。</param>
+/// <param name="Adaptive">速さの 2 乗と残り時間から、受け・そらし・流しを連続に決めるか。</param>
+/// <param name="LoadSpeed">流す割合が半分になる基準の速さ [腕の長さ/s]（到達時間が Horizon のとき）。質量を見ない速さの 2 乗による負荷の近似。</param>
+/// <param name="YieldAngle">負荷が十分大きいときの傾き [rad]。軽い打ちは Deflect へ近づく。</param>
+/// <param name="YieldDistance">負荷が十分大きいとき、来る向きへ手を逃がす長さ [腕の長さ]。</param>
+/// <param name="CounterClearance">返しに移るとき、相手の刃の線と体の線に必要な離れ [腕の長さ]。</param>
+/// <param name="CounterTime">返す前に、相手の刃の線が体へ戻らないか先を見る時間 [s]。</param>
 /// <param name="Cover">空いた手（左手）の物（盾・グローブ）を、来る線が体へ届く所へ差し入れて覆うか（<see cref="WeaponDefense.Cover"/>）。覆える広さは、その物の見える大きさ（<see cref="SwordsmanBot.OffhandRadius"/>）から。</param>
 public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, float Horizon = 0.25f, float Margin = 0.45f, float ThreatSpeed = 6f,
     float HoldTime = 0.3f, bool Counter = true, bool WatchFists = true, DefenseMode Mode = DefenseMode.Legacy, float Deflect = 0.5f, float Forte = 0.35f,
-    float Lead = 0.1f, float StepDelay = 0.05f, float HeadTime = 0.15f, float Clearance = 0.6f, float Drive = 0f, float Bind = 1f, bool Flat = false, bool Cover = false)
+    float Lead = 0.1f, float StepDelay = 0.05f, float HeadTime = 0.15f, float Clearance = 0.6f, float Drive = 0f, float Bind = 1f, bool Flat = false, bool Cover = false,
+    bool Adaptive = false, float LoadSpeed = 12f, float YieldAngle = 1.1f, float YieldDistance = 0.08f, float CounterClearance = 0.6f, float CounterTime = 0.12f)
 {
     /// <summary>守らない。</summary>
     public static SwordDefense None { get; } = new(Enabled: false);
@@ -54,6 +61,11 @@ public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, 
         WeaponStyle.InRange(Clearance, 0f, 2f, "Defense.Clearance");
         WeaponStyle.InRange(Drive, 0f, 1.5f, "Defense.Drive");
         WeaponStyle.InRange(Bind, 0f, 1f, "Defense.Bind");
+        WeaponStyle.InRange(LoadSpeed, 0.5f, 50f, "Defense.LoadSpeed");
+        WeaponStyle.InRange(YieldAngle, 0f, 1.5f, "Defense.YieldAngle");
+        WeaponStyle.InRange(YieldDistance, 0f, 1f, "Defense.YieldDistance");
+        WeaponStyle.InRange(CounterClearance, 0f, 2f, "Defense.CounterClearance");
+        WeaponStyle.InRange(CounterTime, 0.01f, 0.5f, "Defense.CounterTime");
         return this;
     }
 
@@ -68,6 +80,9 @@ public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, 
     /// 迎える所より 0.3 腕の長さ先を手の目標にして払う。docs/WEAPON_DEFENSE.md）。
     /// </summary>
     public static SwordDefense Parrying { get; } = new(Mode: DefenseMode.ParryAndStep, Deflect: 0.52f, Lead: 0.2f, Drive: 0.3f, Bind: 0.3f);
+
+    /// <summary>比較用の連続の守り。基準速度 12 腕/s、最大約 63°、引き 0.08 腕。採否は docs/WEAPON_DEFENSE.md の測定で決める。</summary>
+    public static SwordDefense Continuous { get; } = new(Mode: DefenseMode.ParryAndStep, Adaptive: true, Deflect: 0.05f, Lead: 0.3f, Drive: 0.3f, Bind: 0.3f);
 }
 
 /// <summary>
@@ -127,8 +142,11 @@ public sealed class SwordsmanBot : IFighterControl
     private IReadOnlyList<WeaponLine> _lines = [];
     private Vector3 _threatHilt;
     private Vector3 _threatDirection;
+    private WeaponThreat _parryThreat;
     private bool _evadedThisBlow;
     private bool _counter;
+    private bool _counterPlanned;
+    private bool _counterStrike;
     private readonly HitAndAway? _hitAndAway;
     private bool _attacking;
     private bool _retreating;
@@ -202,6 +220,9 @@ public sealed class SwordsmanBot : IFighterControl
     /// </summary>
     public bool Passive { get; init; }
 
+    /// <summary>ドリル用: 自分から攻めず、守りからの返しだけを許す。</summary>
+    public bool CounterOnly { get; init; }
+
     /// <summary>
     /// 右手から後ろの端までの長さ [腕の長さ]（両端を使う武器。棒）。受けるとき、体から離す線を左手の先ではなく後ろの端まで見る。null なら左手まで（刀・ロングソード）。
     /// </summary>
@@ -233,6 +254,12 @@ public sealed class SwordsmanBot : IFighterControl
 
     /// <summary>足で外した回数。</summary>
     public int Evasions { get; private set; }
+
+    /// <summary>返しとして技を出している間か（ドリルで返しの当たりを数える）。</summary>
+    public bool Countering => _current is not null && _counterStrike;
+
+    /// <summary>返しの技を出した回数。</summary>
+    public int Counters { get; private set; }
 
     /// <summary>
     /// 狙う相手の部位（<see cref="MotionAim.Targets"/> のどれか。null なら技そのままの通り道）。入力元の意図（コントローラの方向など）から
@@ -491,7 +518,13 @@ public sealed class SwordsmanBot : IFighterControl
 
         // 打たない受け手: 間合いの取り合いが無ければその場で構え、あれば遠間を保って回るだけ。
         _counter &= !Passive;
-        if (Passive && _hitAndAway is null)
+        if (_counterPlanned && _time - _plannedAt > PlanPatience)
+        {
+            _counterPlanned = false;
+            _plan = null;
+            _attacking = false;
+        }
+        if ((Passive || (CounterOnly && !_counter && !_counterPlanned)) && _hitAndAway is null)
         {
             return MotionImitation.ToCommand(_guard, sense, face, 0f, _walkSpeed, _maxTwist);
         }
@@ -500,6 +533,7 @@ public sealed class SwordsmanBot : IFighterControl
         {
             // 受けた直後: 休まず、近い間合いの技で打ち返す。
             _counter = false;
+            _counterPlanned = true;
             _restUntil = _time;
             _plan = Pool.MinBy(x => MathF.Abs(RangeOf(x) - distance));
             _plannedAt = _time;
@@ -545,6 +579,9 @@ public sealed class SwordsmanBot : IFighterControl
             technique = MotionAim.Aimed(technique, target, sense.ArmReach, _aimTuning) with { Name = technique.Name };
         }
 
+        _counterStrike = _counterPlanned;
+        Counters += _counterStrike ? 1 : 0;
+        _counterPlanned = false;
         _current = technique;
         _start = _time;
         _phase = 0f;
@@ -728,6 +765,13 @@ public sealed class SwordsmanBot : IFighterControl
         var lines = _lines;
         if (WeaponDefense.Read(sense, lines, _defense) is { } threat)
         {
+            // 返しの間合いを詰める途中でも、新しい脅威が来たらその計画を取り消す。
+            if (_counterPlanned)
+            {
+                _counterPlanned = false;
+                _plan = null;
+                _attacking = false;
+            }
             var parry = _defense.Mode is DefenseMode.Parry or DefenseMode.ParryAndStep;
             var step = _defense.Mode is DefenseMode.Step or DefenseMode.ParryAndStep;
             var fresh = !Defending;
@@ -737,6 +781,7 @@ public sealed class SwordsmanBot : IFighterControl
             var newBlow = fresh || Vector3.Distance(threat.Line.Hilt, _threatHilt) > 0.5f * sense.ArmReach || Vector3.Dot(direction, _threatDirection) < 0.5f;
             if (newBlow)
             {
+                _parryThreat = threat;
                 // 折れて短くなった刀は、残った長さで受ける。
                 var blade = MathF.Max(0.1f, _bladeLength - (_lost / MathF.Max(1e-3f, sense.ArmReach)));
                 _block = parry ? WeaponDefense.Parry(sense, threat, _defense, blade, _spacing, _guard.Blade, RearLength ?? float.NaN) : null;
@@ -759,8 +804,33 @@ public sealed class SwordsmanBot : IFighterControl
                 _evadedThisBlow = false;
             }
 
+            if (_defense.Adaptive && parry)
+            {
+                // 迎える線は打ち始めに固定し、負荷の連続量だけ追う。刀の向きの符号は前の受けを基準にして揺れ返しを避ける。
+                var blade = MathF.Max(0.1f, _bladeLength - (_lost / MathF.Max(1e-3f, sense.ArmReach)));
+                var adapted = WeaponDefense.Parry(sense, _parryThreat, _defense, blade, _spacing, _block?.Blade ?? _guard.Blade, RearLength ?? float.NaN,
+                    WeaponDefense.Response(sense, threat, _defense));
+                if (_guard.LeftFacing != default)
+                {
+                    adapted = adapted with { Left = _guard.Left, LeftFacing = _guard.LeftFacing };
+                }
+
+                if (_defense.Cover && OffhandRadius > 0f)
+                {
+                    adapted = adapted with { Left = WeaponDefense.Cover(sense, threat, adapted.Left, adapted.LeftFacing, OffhandRadius) };
+                }
+                _block = adapted;
+            }
+
             _threatHilt = threat.Line.Hilt;
             (_evade, _head) = step ? WeaponDefense.BestStep(sense, lines, _defense, _walkSpeed, face) : (Vector3.Zero, Vector3.Zero);
+            if (_defense.Adaptive && parry && step)
+            {
+                // 残り時間が短い・届く範囲へ深く入る・負荷が大きいほど、足と頭へ寄せる。
+                var share = WeaponDefense.Response(sense, threat, _defense).StepShare;
+                _evade *= share;
+                _head *= share;
+            }
             if (!_evadedThisBlow && (_evade != Vector3.Zero || _head != Vector3.Zero))
             {
                 Evasions++;
@@ -768,6 +838,20 @@ public sealed class SwordsmanBot : IFighterControl
             }
 
             _defendUntil = _time + _defense.HoldTime;
+        }
+        else if (_defense.Adaptive && _counter)
+        {
+            // ただ時間が過ぎたから返すのではなく、刃の向きと動きが体の線から外れたことを確かめる。
+            if (WeaponDefense.CounterOpening(sense, _defense))
+            {
+                _defendUntil = _time;
+                _block = null;
+                _evade = _head = Vector3.Zero;
+            }
+            else if (!Defending)
+            {
+                _counter = false;
+            }
         }
 
         return Defending
