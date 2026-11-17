@@ -9,13 +9,13 @@ namespace MiniRing.Tests;
 public sealed class WeaponContactPassTests
 {
     /// <summary>
-    /// 掃き直しが 1 回（以前の解き方）のとき、刃が体の中に残った押し込み（<c>ShoulderSeamProbe.EmbeddedBladesAtTheShoulder</c> の格子から拾った）:
+    /// 掃き直しが 1 回（以前の解き方）のとき、刃が体の中に残った押し込み（<c>ShoulderSeamProbe.EmbeddedBladesAtTheShoulder</c> の格子から拾った。PhysicsVersion 44 で刀の柄に鉄の芯を通して重さが変わったので、拾い直した）:
     /// 刃の向き番号、手、関節からの横のずれ [mm]。刃は 2 m/s で押し込む。
     /// </summary>
     private static readonly (int Cut, Hand Hand, float OffsetMm)[] Cases =
     [
-        (0, Hand.Left, 6f), (0, Hand.Left, 9f), (0, Hand.Right, 9f), (1, Hand.Left, 9f),
-        (4, Hand.Left, 6f), (4, Hand.Right, -3f), (6, Hand.Right, -12f), (6, Hand.Right, 9f),
+        (0, Hand.Left, 12f), (1, Hand.Left, 6f), (1, Hand.Left, 12f), (1, Hand.Right, 6f), (2, Hand.Left, 0f),
+        (4, Hand.Right, -9f), (4, Hand.Right, 6f), (6, Hand.Left, -3f), (6, Hand.Right, -6f), (6, Hand.Right, 6f),
     ];
 
     [TestMethod]
