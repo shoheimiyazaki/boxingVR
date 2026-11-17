@@ -37,7 +37,7 @@ public sealed class WeaponStyleTests
             else { Assert.IsNotNull(t.TechniqueWeights); }
             Assert.IsNull(t.ClubSwingWeights);
             Assert.AreEqual(0.6f, t.Rest);
-            Assert.AreEqual(kind == WeaponKind.WoodenClub ? FormSwordsman.MinReach : 0.1f, t.MinReach);
+            Assert.AreEqual(FormSwordsman.MinReach, t.MinReach, "inner-range forms (pommel, front kick) stay out of the bot pool: they cost wins and self-cuts (docs/BOT_PDCA.md)");
             Assert.AreEqual(DisarmedFallback.DefaultKeepReach, t.KeepReach);
             Assert.AreEqual(0.6f, t.ClubRest);
             Assert.AreEqual(0.48f, t.ClubStandOff);
@@ -76,7 +76,8 @@ public sealed class WeaponStyleTests
         };
         Assert.AreEqual(style, WeaponStyle.FromJson(style.ToJson()));
         var textbook = WeaponCatalog.Textbook(WeaponKind.Katana);
-        Assert.AreEqual(textbook, WeaponStyle.FromJson(textbook.ToJson()));
+        // 技の重みは辞書（参照の比較になる）なので、JSON を通して書き戻した文字列で比べる。
+        Assert.AreEqual(textbook.ToJson(), WeaponStyle.FromJson(textbook.ToJson()).ToJson());
     }
 
     [TestMethod]
