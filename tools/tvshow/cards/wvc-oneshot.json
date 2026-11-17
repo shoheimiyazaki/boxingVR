@@ -1,0 +1,14 @@
+{
+  "_comment": "Haiku だけで一発で作る中継の札（2 エージェントのプロスペクティブ制・生の情報・傷のアップ・皮膚のあざ）。動かし方: powershell -ExecutionPolicy Bypass -File tools/tvshow/tvshow.ps1 -Card tools/tvshow/cards/wvc-oneshot.json",
+  "event": "WVC ナイトマッチ",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-oneshot",
+  "scoutSeeds": [21, 22, 23, 24, 25, 26],
+  "partLimitMiB": 29,
+  "commentary": { "writer": "prospective", "model": "haiku", "parallel": 2 },
+  "bouts": [
+    { "red": "ramon", "blue": "gaston", "seed": "auto", "bout": "第1試合" },
+    { "red": "joao", "blue": "albert", "seed": "auto", "bout": "第2試合" }
+  ]
+}

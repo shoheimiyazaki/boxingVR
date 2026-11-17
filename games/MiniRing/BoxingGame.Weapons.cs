@@ -813,6 +813,8 @@ public sealed partial class BoxingGame
                     crushed = _chips.Count + _chunks.Sum(c => c.Cells.Count); // 潰れて飛んだセル（切り落とされた先は数えない）
                 }
 
+                // 見た目のあざ（皮膚の色だけ。臓器の打撲・スタミナには触れない）: 運んだ運動量 × 当たった速さ ÷ 2 を当たりのエネルギーの見積もりにする。
+                victim.Voxels?.BruiseSkin(hit.Point, 0.5f * delivered * contactSpeed);
                 WeaponHits.Add(new WeaponHitEvent(swinger, victim, part.Kind, zone, hit.Point, hit.RemovedB.Count + crushed, contactSpeed,
                     delivered, part.Kind == BodyPartKind.Head ? victim.LastHeadTwist : 0f, damage, hit.FaceA,
                     ContactPairs.Of(hit.FaceA, hit.FaceB) is { } pair ? ContactAudioOf(hit, pair, Math.Clamp(contactSpeed / ContactFullSpeed, 0f, 1f)) : null));

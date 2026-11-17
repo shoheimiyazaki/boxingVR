@@ -427,4 +427,38 @@ public sealed class TvShowTests
         var issues = TvLint.Check(script, TwoRoundEvents);
         Assert.AreEqual(0, issues.Count, string.Join("\n", issues.Select(i => $"{i.At} {i.Rule} {i.Message}")));
     }
+
+    [TestMethod]
+    public void BodyWords_NameTheFineRegionsOfTheHeadAndTrunk_WithTheFightersOwnLeftAndRight()
+    {
+        // 部位の箱の中の点（+X が本人の左・+Y が上・+Z が前）から、実況・解説に渡す細かい呼び名。
+        Assert.AreEqual("おでこ", TvBodyWords.Region(BodyPartKind.Head, new(0f, 0.6f, 0.8f), "頭"));
+        Assert.AreEqual("左の目", TvBodyWords.Region(BodyPartKind.Head, new(0.4f, 0.25f, 0.9f), "頭"));
+        Assert.AreEqual("右の頬", TvBodyWords.Region(BodyPartKind.Head, new(-0.5f, -0.1f, 0.8f), "頭"));
+        Assert.AreEqual("左のこめかみ", TvBodyWords.Region(BodyPartKind.Head, new(0.9f, 0.3f, 0.1f), "頭"));
+        Assert.AreEqual("あご", TvBodyWords.Region(BodyPartKind.Head, new(0f, -0.8f, 0.7f), "頭"));
+        Assert.AreEqual("後頭部", TvBodyWords.Region(BodyPartKind.Head, new(0f, 0.2f, -0.8f), "頭"));
+        Assert.AreEqual("みぞおち", TvBodyWords.Region(BodyPartKind.Chest, new(0f, -0.5f, 0.9f), "胸"));
+        Assert.AreEqual("右の脇腹", TvBodyWords.Region(BodyPartKind.Chest, new(-0.5f, -0.5f, 0.6f), "胸"));
+        Assert.AreEqual("右前腕", TvBodyWords.Region(BodyPartKind.Forearm, new(0.3f, 0.2f, 0.1f), "右前腕"), "手足は部位の名前");
+        Assert.AreEqual("皮膚", TvBodyWords.Material(MiniRing.Voxels.BoxerAnatomy.Skin));
+    }
+
+    [TestMethod]
+    public void PlanBreak_PutsTheWoundCloseUpAfterTheReplays_AndOnlyWhenThereIsAWound()
+    {
+        // 2026-11-17、ユーザーの指定: 休みに、傷へ手持ちで寄るカット（切り替えない 1 カット）を入れる。
+        var director = new TvDirector(1280, 720, 30, 1f / 240f, "赤", "青");
+        var wound = new TvWound(Red: false, Body: null!, Grid: default, Name: "右すね", Score: 60f);
+
+        var plan = director.PlanBreak(20f, [], redFirst: true, [wound]);
+        var close = plan.Where(s => s.Shot == TvShot.Wound).ToList();
+
+        Assert.AreEqual(1, close.Count);
+        Assert.AreEqual(TvDirector.WoundSeconds, close[0].End - close[0].Start, 1e-4f, "寄り切るまでの 1 カット");
+        Assert.IsFalse(close[0].Red);
+        Assert.AreSame(wound, close[0].Wound);
+        Assert.IsTrue(close[0].End <= 20f - 2.5f, "最後のいつものカメラの前に収まる");
+        Assert.IsFalse(director.PlanBreak(20f, [], redFirst: true).Any(s => s.Shot == TvShot.Wound), "傷が無ければ寄らない");
+    }
 }
