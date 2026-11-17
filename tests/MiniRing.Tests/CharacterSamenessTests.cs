@@ -18,21 +18,23 @@ public sealed class CharacterSamenessTests
         ["glove-glove-referee"] = (0x4A464CA23C7F33BC, 0xE07D0FC9984DCAC8),
         ["glove-glove-noref"] = (0xE02C484AF63AADF2, 0x9D085D00376429CE),
         ["karate-swarmer-noref"] = (0xCDF6A76BFD09BEB8, 0x96694C0BA4D7A389),
-        ["katana-longsword-noref"] = (0xFE19B6EB1CC7A579, 0xA07A564EDFBCDFC0),
+        ["katana-longsword-noref"] = (0x97D8FD8E25E1DA4A, 0xF7FC2F916B494422),
         ["club-bare-noref"] = (0x78C6B2D00870ACA4, 0x3F443483D32C6A2A),
         ["katar-gauntlet-referee"] = (0x42F28CD965070FC3, 0x8902CC4A8767093F),
         ["single-counter-vs-knuckles-noref"] = (0xCAEABE8E9E6493B5, 0x3A1DB5C73031A878),
-        ["single-karate-vs-katana"] = (0x3B77AA256081C7E3, 0x1AAA60B1A6704F04),
+        ["single-karate-vs-katana"] = (0x494DBD2F1DAB123D, 0x0B3906EEE985A556),
     };
 
+    // 注（LogicVersion 46）: 刀・ロングソードの型を増やして技の集まりと乱数の引き方が変わったので、剣を握る組（katana-longsword-noref・single-karate-vs-katana・w-*）の
+    // 「教科書を JSON へ移す前」の値は、今の LEGACY の行（教科書の古い値）から取り直した。コードに埋めていた頃の試合とのビット一致は、拳・こんぼう同士の組だけが今も確かめている。
     /// <summary>武器の教科書を JSON へ移す前（`weapon handling` 段 1 の最初）に <see cref="CharacterSamenessProbe"/> で取った値（master へ入れるとき、首・脊椎と指の手（PhysicsVersion 35）の上で LEGACY の行から取り直した。拳の組の LEGACY が既存の値と全部一致することを確かめてから。2026-11-16）。</summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedWeapons = new()
     {
-        ["w-katana-katana-referee"] = (0xB6B839A289987AD1, 0x0F1FFBB32A252656),
-        ["w-longsword-longsword-noref"] = (0x24EFD3040133326D, 0x92FAB3FD49623B6B),
-        ["w-katana-longsword-referee"] = (0x42078D844E0B900F, 0x46E52752A9CC6A22),
-        ["w-club-katana-noref"] = (0x1D2D8B6A7B5AF334, 0x84164D2D4EBB2FF1),
-        ["w-longsword-club-referee"] = (0x3411DCB15479DDEC, 0x26CD20897BAEDA2C),
+        ["w-katana-katana-referee"] = (0x52EB7DF87AD40841, 0x0E830495DCF9A32D),
+        ["w-longsword-longsword-noref"] = (0x7C8C2AFB37C0ACB3, 0x7D3748764EBE13BD),
+        ["w-katana-longsword-referee"] = (0xF45A425F6C613184, 0x7EAA94516785DC26),
+        ["w-club-katana-noref"] = (0xCF1EB18FAFB10428, 0x523F3F1CFB5867D4),
+        ["w-longsword-club-referee"] = (0x801E36AAFE9873D2, 0x81F804E929195F01),
         ["w-club-club-noref"] = (0x7C19AB725FA1FF8B, 0x28F64F242E6370EC),
     };
 
@@ -65,13 +67,13 @@ public sealed class CharacterSamenessTests
     /// </summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedAdopted = new()
     {
-        ["katana-longsword-noref"] = (0x8840E6C94CD46A51, 0xF2AA513706223292),
-        ["single-karate-vs-katana"] = (0xEEA9CDB8DCC1D24A, 0x18221ACB29A4379B),
-        ["w-katana-katana-referee"] = (0x5BE985A461672609, 0xFC24C5B8D2691B12),
-        ["w-longsword-longsword-noref"] = (0x148E3D016DA3E787, 0x949BEFB15369705B),
-        ["w-katana-longsword-referee"] = (0x2CD8F409304ACDE6, 0xC455797CD6E2372A),
-        ["w-club-katana-noref"] = (0x6439802F18181BDC, 0x1D6C61B5F8E34FA3),
-        ["w-longsword-club-referee"] = (0x6996F2F4570121E8, 0x5C0B62FD0F22D3A1),
+        ["katana-longsword-noref"] = (0x22CFC13C78AB3042, 0xA9849C9B5A739D3F),
+        ["single-karate-vs-katana"] = (0xB5AD2098894F1C35, 0x0D53ED27CC803F5A),
+        ["w-katana-katana-referee"] = (0x1036ED5C4BD83ACC, 0x20034730F26819B5),
+        ["w-longsword-longsword-noref"] = (0x79A3E016A7F201F7, 0x9C13C6AA383DF9A9),
+        ["w-katana-longsword-referee"] = (0x646B1EBE835CF994, 0x2BC436E2388AD25B),
+        ["w-club-katana-noref"] = (0x7D7A4282E2CB8B9E, 0xCADC57BD892A95E6),
+        ["w-longsword-club-referee"] = (0x06130CBCE388A387, 0x29DCDCE42BC9ABAD),
     };
 
     /// <summary>

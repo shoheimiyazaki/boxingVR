@@ -1,0 +1,13 @@
+[1/12] jin vs konrad seed 271: 3.8s (total 4s)
+[2/12] jin vs jin seed 1272: 7.3s (total 7s)
+[3/12] konrad vs jin seed 272: 8.1s (total 8s)
+[4/12] konrad vs jin seed 271: 5.4s (total 9s)
+[5/12] sean vs konrad seed 2271: 9.7s (total 10s)
+[6/12] jin vs jin seed 1272: 3.5s (total 11s)
+[7/12] konrad vs sean seed 2271: 1.8s (total 13s)
+[8/12] jin vs jin seed 1271: 5.0s (total 13s)
+[9/12] jin vs konrad seed 272: 5.3s (total 15s)
+[10/12] konrad vs sean seed 2272: 4.9s (total 15s)
+[11/12] jin vs jin seed 1271: 4.1s (total 17s)
+[12/12] sean vs konrad seed 2272: 5.3s (total 20s)
+handlelab done in 20.1s
