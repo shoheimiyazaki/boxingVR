@@ -1,4 +1,5 @@
 using MiniRing.Bots;
+using MiniRing.Motion;
 using MiniRing.Weapons;
 
 namespace MiniRing.Tests;
