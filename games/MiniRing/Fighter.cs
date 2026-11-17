@@ -161,7 +161,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 38; // 38: スタミナを臨界パワーと W′ のモデルに（RecoveryPower: 直近の仕事率が臨界パワー C = 最大の戻り × StaminaCriticalShare より下なら R − (R − C) P / C で戻り、上なら C だけ供給されて差で減る。前の exp(−(P/5W)²) は立ち回りの 5〜6 W で減った）・試合を通した持久力 Endurance = exp(−した仕事 / StaminaEndurance) が供給と臨界パワーに掛かる（後のラウンドほど疲れる）・StaminaCapacity 120→300 J・StaminaRecoveryPower 15→20 W・TiredKnee 0.6→0.45・打撲で失うスタミナを割合からエネルギー（WindPerBruise 12 J）へ。ユーザーの目標: 弱強の連打が 10 秒全力・さらに 10 秒落ちながら打てる、1 ラウンド目は全力で続けられる（StaminaFeelProbe・StaminaMatchProbe）。37: スタミナの容量 60→120 J（ユーザーの指定。尽きるのが早すぎた。回復の速さは同じなので満タンまでの時間も倍）。36: スタミナの蓄え・心肺の供給・回復を止める仕事率の尺度を筋肉の量（BodyBuild.MassRatio = H³M²）に比例させる（1 kg あたりで同じ。大きい体が質量に比例して増えた仕事で早く尽きていた。基準体格は不変）。35: 素手を指の関節で組む（掌 + 4 本 × 3 節の骨・肉・皮膚のセルを関節の曲げ角 HandSkeleton.PoseOf どおりに並べ、手形の変更は関節のバネ・ダンパ HandMotion で時間がかかる。折れた指は力が入らず力を抜いた形へ落ちる。素手の質量・形が変わる。docs/KARATE.md §指）。急所の狙いの点は実際のセルから（BodyLandmarks）。34: 首の骨折・首の切断・脊椎の損傷（頭を首の梁にして頸椎 4 セルが折れる・断たれると頭が離れて死ぬ・脊髄 Cord が削れた残りの断面で頸/胸/腰の筋の力と息を決める。docs/VOXEL_DAMAGE.md §首と脊椎）。無傷の体のセルの数・質量は同じ（中身の材質だけ置き換え）。33: 足の運びで、刻み（半歩に満たない 1 歩）の足を選び続けて、伸びきったもう一方の足が置き直されず体が止まる行き詰まりを直す（FootworkTuning.ShuffleShare。docs/arena/boot_snag.md）。32: スタミナの回復を止める仕事率 P を、出そうとした仕事ではなく実際にした仕事（SpendMuscleEnergy・サーボの精算）で数える。回復は exp(−(P / StaminaRestPower)²)、StaminaRestPower 0.7→5 W・StaminaCapacity 90→60 J・StaminaRecoveryWindow 2→1 s（動きながらも戻る。StaminaPowerWindow は廃止）。31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
+    public const int PhysicsVersion = 39; // 39: 肘打ち（HandCommand.ElbowTarget: 肘の点の目標を IK の極にし、肘を出している間は上腕・前腕の骨のセルが拳・蹴りと同じ接触（VoxelContact → ApplyHit）で相手に当たる。腕の骨と相手の部位の箱の衝突は切る。肘の有効質量は腕の質量 + 連結度 × 体の有効質量で拳と同じ式。肘を出さない試合の物理は不変。docs/MUAYTHAI.md）。38: スタミナを臨界パワーと W′ のモデルに（RecoveryPower: 直近の仕事率が臨界パワー C = 最大の戻り × StaminaCriticalShare より下なら R − (R − C) P / C で戻り、上なら C だけ供給されて差で減る。前の exp(−(P/5W)²) は立ち回りの 5〜6 W で減った）・試合を通した持久力 Endurance = exp(−した仕事 / StaminaEndurance) が供給と臨界パワーに掛かる（後のラウンドほど疲れる）・StaminaCapacity 120→300 J・StaminaRecoveryPower 15→20 W・TiredKnee 0.6→0.45・打撲で失うスタミナを割合からエネルギー（WindPerBruise 12 J）へ。ユーザーの目標: 弱強の連打が 10 秒全力・さらに 10 秒落ちながら打てる、1 ラウンド目は全力で続けられる（StaminaFeelProbe・StaminaMatchProbe）。37: スタミナの容量 60→120 J（ユーザーの指定。尽きるのが早すぎた。回復の速さは同じなので満タンまでの時間も倍）。36: スタミナの蓄え・心肺の供給・回復を止める仕事率の尺度を筋肉の量（BodyBuild.MassRatio = H³M²）に比例させる（1 kg あたりで同じ。大きい体が質量に比例して増えた仕事で早く尽きていた。基準体格は不変）。35: 素手を指の関節で組む（掌 + 4 本 × 3 節の骨・肉・皮膚のセルを関節の曲げ角 HandSkeleton.PoseOf どおりに並べ、手形の変更は関節のバネ・ダンパ HandMotion で時間がかかる。折れた指は力が入らず力を抜いた形へ落ちる。素手の質量・形が変わる。docs/KARATE.md §指）。急所の狙いの点は実際のセルから（BodyLandmarks）。34: 首の骨折・首の切断・脊椎の損傷（頭を首の梁にして頸椎 4 セルが折れる・断たれると頭が離れて死ぬ・脊髄 Cord が削れた残りの断面で頸/胸/腰の筋の力と息を決める。docs/VOXEL_DAMAGE.md §首と脊椎）。無傷の体のセルの数・質量は同じ（中身の材質だけ置き換え）。33: 足の運びで、刻み（半歩に満たない 1 歩）の足を選び続けて、伸びきったもう一方の足が置き直されず体が止まる行き詰まりを直す（FootworkTuning.ShuffleShare。docs/arena/boot_snag.md）。32: スタミナの回復を止める仕事率 P を、出そうとした仕事ではなく実際にした仕事（SpendMuscleEnergy・サーボの精算）で数える。回復は exp(−(P / StaminaRestPower)²)、StaminaRestPower 0.7→5 W・StaminaCapacity 90→60 J・StaminaRecoveryWindow 2→1 s（動きながらも戻る。StaminaPowerWindow は廃止）。31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -469,6 +469,39 @@ public sealed partial class Fighter
     }
 
     public bool IsKicking(Hand side) => _legParts[(int)side].Command is not null;
+
+    /// <summary>その手の側の肘を打ちに出しているか（<see cref="HandCommand.ElbowTarget"/> を渡している間。折れた・切れた腕は出せない）。</summary>
+    public bool IsElbowing(Hand side) => _arms[(int)side] is { Severed: false, ElbowAim: not null };
+
+    /// <summary>肘（上腕と前腕の継ぎ目）の位置（ワールド）。前腕の肘側の端（グローブと反対の端）。</summary>
+    public Vector3 ElbowPosition(Hand side)
+    {
+        var arm = _arms[(int)side];
+        var forearm = _world.GetState(arm.Forearm);
+        return forearm.Position - Vector3.Transform(Vector3.UnitX * (arm.Side * HalfExtentsOf(arm.Forearm).X), forearm.Orientation);
+    }
+
+    /// <summary>肘打ちで相手に当たる骨: 肘を出している腕の上腕と前腕（肘の関節の両側。当たるのは先に出ている肘のセル）。</summary>
+    public bool IsElbowingBody(Hand side, int body)
+    {
+        var arm = _arms[(int)side];
+        return IsElbowing(side) && !_detached.Contains(body) && (body == arm.UpperArm || body == arm.Forearm);
+    }
+
+    /// <summary>
+    /// 肘の先 <paramref name="point"/> が方向 <paramref name="direction"/> に当たったときに乗る質量 [kg]。拳と同じ式（<see cref="PunchMechanics"/>）:
+    /// 腕の質量 + 連結度（肩→当たる点の線と向きの揃い具合）× 体の有効質量。肘は肩に近いので、拳より体の質量が乗りやすい（見えている寸法から出る）。
+    /// </summary>
+    public float ElbowImpactMass(Hand side, Vector3 point, Vector3 direction, out float bodyShare)
+    {
+        var arm = _arms[(int)side];
+        var effective = PunchMechanics.BodyEffectiveMass(_inertia, TorsoOrientation, point - CenterOfMass, direction);
+        var coupling = PunchMechanics.Coupling(point - arm.ShoulderPosition(_world, Parts.Chest), direction, jointIntegrity: 1f);
+        var mass = ArmMass(side);
+        var total = PunchMechanics.ImpactMass(mass, effective, coupling);
+        bodyShare = (total - mass) / total;
+        return total;
+    }
 
     /// <summary>足首の目標までの距離 ÷ 脚が届く長さ（1 を超えれば届かない。蹴りの検証・調整用）。</summary>
     public float LegReachRatio(Hand side) => _legParts[(int)side].ReachRatio;
@@ -1774,10 +1807,12 @@ public sealed partial class Fighter
             {
                 // 折れた・切れた腕: 折れ目より体に近い側（残った肩・肘の筋肉）は、入力の拳の目標から決まる本来の形へ動く。その先は肉のバネで
                 // ぶら下がるだけ（拳を目標へ引く力は掛けない: 手は駆動していない先に付いている）。
+                arm.ElbowAim = null; // 折れた腕は肘で打たない
                 arm.DriveStump(_world, frame, hand.TargetLocal, Parts.Chest, hand.Tuck);
                 continue;
             }
 
+            arm.ElbowAim = hand.ElbowTarget is { } elbowTarget && float.IsFinite(elbowTarget.X + elbowTarget.Y + elbowTarget.Z) ? elbowTarget : null;
             var target = hand.TargetLocal;
             if (arm.Support is { } support)
             {
@@ -2734,6 +2769,9 @@ public sealed partial class Fighter
         /// <summary>返しの拳を出し始めた瞬間の体幹の運動エネルギーのうち、まだ拳へ渡していない分 [J]（出していない間は null）。</summary>
         public float? BodyStore { get; set; }
 
+        /// <summary>肘打ちの間の、肘の点の目標（体フレーム。<see cref="HandCommand.ElbowTarget"/>）。null なら肘は出していない。</summary>
+        public Vector3? ElbowAim { get; set; }
+
         /// <summary>目標の先走りの、拳の目標へ向かう向きの速さ [m/s]。</summary>
         public float LeadSpeedAlong(Vector3 direction) => Vector3.Dot(_leadVelocity, direction);
 
@@ -2984,6 +3022,12 @@ public sealed partial class Fighter
         /// </summary>
         private Vector3 Pole(Vector3 shoulder, BodyFrame frame, float reach, float tuck)
         {
+            // 肘打ち: 肘の点の目標（体フレーム）がそのまま極になる（肘がその点の向きへ出る）。
+            if (ElbowAim is { } elbowAim)
+            {
+                return frame.LocalToWorld(elbowAim);
+            }
+
             var t = float.IsFinite(tuck) ? Math.Clamp(tuck, 0f, 1f) : 0f;
             var outward = 0.6f - (0.75f * t);
             var back = 0.3f - (0.45f * t);

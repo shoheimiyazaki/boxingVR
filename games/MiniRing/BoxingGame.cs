@@ -119,6 +119,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private readonly Dictionary<(Fighter, Hand), float> _hitCooldown = [];
     /// <summary>蹴りの打ち直しまでの間（脚ごと。拳の <see cref="_hitCooldown"/> と同じ長さ）。</summary>
     private readonly Dictionary<(Fighter, Hand), float> _kickCooldown = [];
+    private readonly Dictionary<(Fighter, Hand), float> _elbowCooldown = [];
     private readonly List<PrimitiveInstance> _renderInstances = [];
     private readonly List<DebugLine> _renderLines = [];
     private readonly List<VoxelVolumeDraw> _renderVoxels = [];
@@ -399,10 +400,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
                 _preStepGloveVelocity[(fighter, hand)] = fighter.GloveVelocity(hand);
                 _hitCooldown[(fighter, hand)] = MathF.Max(0f, _hitCooldown.GetValueOrDefault((fighter, hand)) - dt);
                 _kickCooldown[(fighter, hand)] = MathF.Max(0f, _kickCooldown.GetValueOrDefault((fighter, hand)) - dt);
+                _elbowCooldown[(fighter, hand)] = MathF.Max(0f, _elbowCooldown.GetValueOrDefault((fighter, hand)) - dt);
             }
         }
 
         FilterKickPairs();
+        FilterElbowPairs();
         StepProfile.End(StepProfile.Slot.ControlTail, tailStart);
         StepProfile.End(StepProfile.Slot.Control, controlStart);
         RememberBeforeStep();
@@ -415,6 +418,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         StepProfile.End(StepProfile.Slot.FistHits, hitsStart);
         ResolveWeapons();
         ResolveKicks();
+        ResolveElbows();
         var afterStart = StepProfile.Begin();
         DetectGrazes();
         WatchRecoveries();
@@ -1257,6 +1261,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _preStepGloveVelocity.Clear();
         _hitCooldown.Clear();
         _kickCooldown.Clear();
+        _elbowCooldown.Clear();
+        _elbowFiltered.Clear();
         _kickFiltered.Clear(); // 世界ごと作り直すので、切った組も消える
         ShowMessage(Rules is null ? "FIGHT!" : "ROUND 1", 1.5f);
         _startBellPending = true;

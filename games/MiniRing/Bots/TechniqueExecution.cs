@@ -41,6 +41,10 @@ internal static class TechniqueExecution
     internal static float Tuck(in PunchAction action, float guardTuck, bool guardingBody)
         => action.Active ? 0f : guardingBody ? 1f : Math.Clamp(guardTuck, 0f, 1f);
 
+    /// <summary>肘打ちの片手の指令（経路は <see cref="ElbowSpec"/>。拳の技とは別の手の使い方で、ボットと意図操作が共有する）。</summary>
+    internal static HandCommand Elbow(in ElbowSpec spec, Hand hand, float time, float duration, Vector3 guardHand, Vector3 aim, float reach)
+        => spec.Command(hand, time, duration, guardHand, aim, reach);
+
     internal static float Spring(in PunchAction action)
         => action.Active && action.Spec.Extend >= 1f && action.Time >= 0f && action.Time < action.Duration * PunchSpec.OutboundShare ? 1f : 0f;
 

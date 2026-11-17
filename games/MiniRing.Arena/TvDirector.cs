@@ -75,7 +75,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
             if (hit.Damage >= 8f)
             {
                 _candidates.Add(new TvHighlight(step, hit.Victim == game.Player, hit.Point, hit.Damage,
-                    string.Create(CultureInfo.InvariantCulture, $"{Name(hit.Attacker)}の{MiniRing.Audio.Broadcast.Strength(hit.Damage)}{(hit.Kick ? "蹴り" : hit.Hand == Hand.Left ? "左" : "右")}が{Name(hit.Victim)}の{MiniRing.Audio.Broadcast.ZoneName(hit.Zone)}に"), game.MatchRound));
+                    string.Create(CultureInfo.InvariantCulture, $"{Name(hit.Attacker)}の{MiniRing.Audio.Broadcast.Strength(hit.Damage)}{(hit.Elbow ? "肘" : hit.Kick ? "蹴り" : hit.Hand == Hand.Left ? "左" : "右")}が{Name(hit.Victim)}の{MiniRing.Audio.Broadcast.ZoneName(hit.Zone)}に"), game.MatchRound));
             }
         }
 

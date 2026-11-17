@@ -160,7 +160,7 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
             var victim = hit.Victim;
             if (hit.Damage >= MentionDamage)
             {
-                var blow = hit.Kick ? "蹴り" : hit.Hand == Hand.Left ? "左" : "右";
+                var blow = hit.Elbow ? "肘" : hit.Kick ? "蹴り" : hit.Hand == Hand.Left ? "左" : "右";
                 Log(at, "hit", who, $"{who}の{Strength(hit.Damage)}{blow}が、{NameOf(game, victim)}の{ZoneName(hit.Zone)}に入った", Announcer);
                 if (Effect(victim, hit.Zone) is { } effect)
                 {

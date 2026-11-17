@@ -10,7 +10,7 @@ namespace MiniRing;
 /// </summary>
 public readonly record struct HitEvent(
     Fighter Attacker, Hand Hand, Fighter Victim, HitZone Zone, Vector3 Point,
-    float Speed, float ImpactMass, float BodyShare, float Damage, byte Face = 0, bool Kick = false, KickPart KickerPart = KickPart.None)
+    float Speed, float ImpactMass, float BodyShare, float Damage, byte Face = 0, bool Kick = false, KickPart KickerPart = KickPart.None, bool Elbow = false)
 {
     public float Momentum => ImpactMass * Speed;
 

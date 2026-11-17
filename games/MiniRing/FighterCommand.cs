@@ -28,7 +28,11 @@ public static class HandExtensions
 /// </summary>
 /// <para><paramref name="Tuck"/>（0..1、2026-11-17）は肘の目標: 0 = 肘を下・外・やや後ろへ逃がす（今までの形。拳を出す・フックを振る腕）、
 /// 1 = 脇を締めて肘を脇腹の前へ寄せる（胴を肘と前腕で覆う守り）。拳の目標と同じく腕の形の目標で、肩・肘のサーボが追う。</para>
-public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float Spring = 0f, Quaternion? Orientation = null, bool LetGo = false, HandShape Shape = HandShape.Seiken, float Tuck = 0f);
+/// <para><paramref name="ElbowTarget"/>（2026-11-17、肘打ち）は肘の点の目標（体フレームのローカル）。渡している間は、肘がその点の向きへ出る（IK の極。
+/// <paramref name="Tuck"/> の代わり）うえ、上腕・前腕の骨のセルが拳・蹴りと同じ接触で相手に当たる。拳の目標（<paramref name="TargetLocal"/>）は
+/// 畳んだ手を置く所（耳・こめかみ）。肘の点を速く動かす経路（<c>Bots.ElbowSpec</c>）と胴のひねりで、肘が物理から速さと質量を得る。
+/// 威力・種類の倍率は持たない。</para>
+public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float Spring = 0f, Quaternion? Orientation = null, bool LetGo = false, HandShape Shape = HandShape.Seiken, float Tuck = 0f, Vector3? ElbowTarget = null);
 
 /// <summary>
 /// 1 ステップ分の操作指令 — 入力元（VR / キーボード / AI）とラグドールの唯一の契約。
