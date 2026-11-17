@@ -304,5 +304,19 @@
                               "Forearm":  0.2,
                               "Thigh":  0.2,
                               "Shin":  0
-                          }
+                          },
+    "Bat/swing-right":  {"Head":0,"Chest":0.6,"Pelvis":0,"UpperArm":0.6,"Forearm":0.4,"Thigh":0,"Shin":0},
+    "Bat/swing-left":  {"Head":0.4,"Chest":0.8,"Pelvis":0.6,"UpperArm":0,"Forearm":0.4,"Thigh":0,"Shin":0},
+    "Bat/swing-mid":  {"Head":0,"Chest":0,"Pelvis":0,"UpperArm":0.4,"Forearm":0,"Thigh":0.4,"Shin":0},
+    "Bat/swing-low":  {"Head":0,"Chest":0.6,"Pelvis":0,"UpperArm":0.2,"Forearm":0,"Thigh":0,"Shin":0},
+    "Bat/chop":  {"Head":1,"Chest":0,"Pelvis":0,"UpperArm":0,"Forearm":0,"Thigh":0,"Shin":0},
+    "Bat/chop-right":  {"Head":0.8,"Chest":0,"Pelvis":0,"UpperArm":0,"Forearm":0.4,"Thigh":0,"Shin":0},
+    "Bat/chop-left":  {"Head":0.8,"Chest":0.2,"Pelvis":0,"UpperArm":0,"Forearm":0.2,"Thigh":0,"Shin":0},
+    "Bat/scoop-right":  {"Head":0,"Chest":0.4,"Pelvis":0,"UpperArm":0.8,"Forearm":0.2,"Thigh":0.2,"Shin":0},
+    "Bat/scoop-left":  {"Head":0,"Chest":0.2,"Pelvis":0.4,"UpperArm":0,"Forearm":0,"Thigh":0,"Shin":0},
+    "Bat/poke-body":  {"Head":0.6,"Chest":0.4,"Pelvis":0.2,"UpperArm":0,"Forearm":0,"Thigh":0,"Shin":0},
+    "Bat/poke-face":  {"Head":0.8,"Chest":0.8,"Pelvis":0.2,"UpperArm":0.2,"Forearm":0.2,"Thigh":0,"Shin":0},
+    "Bat/snap":  {"Head":0.8,"Chest":0,"Pelvis":0,"UpperArm":0,"Forearm":0.2,"Thigh":0,"Shin":0},
+    "Bat/butt":  {"Head":0.4,"Chest":0.4,"Pelvis":0.2,"UpperArm":0.6,"Forearm":0.2,"Thigh":0,"Shin":0},
+    "Bat/front-kick":  {"Head":0,"Chest":0,"Pelvis":0.4,"UpperArm":0,"Forearm":0.6,"Thigh":0,"Shin":0}
 }
