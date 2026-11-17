@@ -1,6 +1,6 @@
 # テコンドー（2026-11-16）
 
-教科書 `Bots/taekwondo.json`（スタイル名 `taekwondo`）と、キャラクター 1 人 `Characters/roster/diego.json`（ディエゴ・ソリス、メキシコ、素手、身長 1.1・脚 1.1・筋肉 0.92、教育は空）。ユーザーの指示「トンファー、片手剣と盾、テコンドー、棒術」の最初の 1 つ（素手・足技が主）。
+教科書 `Bots/taekwondo.json`（スタイル名 `taekwondo`）と、キャラクター 1 人 `Characters/roster/taeyun.json`（カン・テユン、韓国、素手、身長 1.1・脚 1.1・筋肉 0.92、教育は空）。ユーザーの指示「トンファー、片手剣と盾、テコンドー、棒術」の最初の 1 つ（素手・足技が主）。
 
 ## 蹴りの経路（`KickSpec`、`KickTechnique` の末尾に 4 つ）
 
@@ -19,7 +19,7 @@
 
 - 蹴りの表（`karatelab --only kicks`、2 本 × 20 秒）: `docs/arena/taekwondo_kicks.md`。9 種すべてが当たり、蹴った側が倒れたのはミドルとかかと落としの各 1 本。足の速さは 1.5〜3.3 m/s（足首 1 点の力の近道のまま）。
 - `KickContactTests`（台本の指令）: 回し蹴りはすね、横蹴りはつま先・足の箱、後ろ蹴りはつま先、かかと落としはすね → 足の箱の順で当たる。体の向きは回し蹴り 1.1 rad・横蹴り 1.5 rad・後ろ蹴り 2.6 rad 回る（測った値）。
-- 試合（`rosterleague --ab on --layered diego`、4 試合ずつ × 45 秒）: `docs/arena/taekwondo_league.md`（種 1）。ディエゴは 2 勝 10 敗（空手家 1/4・ramon 1/4・jin 0/4）。間合いの値を詰めた案（AttackRange 0.85）は種 1 で 5 勝、使っていない種 7 で 2.5 勝（元は種 7 で 4.5 勝）と食い違ったので採らなかった（`taekwondo_league_v2_seed*.md`・`taekwondo_league_v1_seed7.md`）。
+- 試合（`rosterleague --ab on --layered taeyun`、4 試合ずつ × 45 秒）: `docs/arena/taekwondo_league.md`（種 1）。テユンは 2 勝 10 敗（空手家 1/4・ramon 1/4・jin 0/4）。間合いの値を詰めた案（AttackRange 0.85）は種 1 で 5 勝、使っていない種 7 で 2.5 勝（元は種 7 で 4.5 勝）と食い違ったので採らなかった（`taekwondo_league_v2_seed*.md`・`taekwondo_league_v1_seed7.md`）。
 
 ## 弱いところ・近道
 
