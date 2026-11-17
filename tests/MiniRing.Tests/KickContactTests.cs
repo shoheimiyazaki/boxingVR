@@ -51,7 +51,7 @@ public sealed class KickContactTests
 
         var reach = attacker.ArmReach;
         var spec = KickSpec.Of(kind);
-        var duration = spec.Duration * durationScale;
+        var duration = (spec.Seconds ?? spec.Duration) * durationScale;
         var sense = game.PlayerSense;
         var aimWorld = spec.AimWorld(sense);
         var aim = sense.Self.WorldToLocal(aimWorld);

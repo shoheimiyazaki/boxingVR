@@ -7,7 +7,7 @@ namespace MiniRing.Bots;
 /// Back = 後ろ蹴り（背を向ける回転から足裏・かかとを後ろへ）、Axe = かかと落とし（脚を上げて振り下ろす）。
 /// 後から足した 4 種は列挙の末尾（既存の番号は不変）。
 /// </summary>
-public enum KickTechnique { Front, Low, Middle, High, Knee, Roundhouse, Side, Back, Axe }
+public enum KickTechnique { Front, Low, Middle, High, Knee, Roundhouse, Side, Back, Axe, RoundhouseHigh }
 
 /// <summary>
 /// 蹴りも筋肉が追う目標の経路。威力の倍率を持たず、質量・速さ・接触する骨と皮膚が結果を決める。
@@ -19,10 +19,18 @@ public enum KickTechnique { Front, Low, Middle, High, Knee, Roundhouse, Side, Ba
 /// </para>
 /// </summary>
 public readonly record struct KickSpec(KickTechnique Technique, float Duration, float Lateral, float ChamberHeight, float Overshoot,
-    float Twist = 0f, float Spin = 0f, float Standoff = 0.9f, float FootPitch = 0.25f, float ShinPoint = 0.75f)
+    float Twist = 0f, float Spin = 0f, float Standoff = 0.9f, float FootPitch = 0.25f, float ShinPoint = 0.75f, KneePath? Practiced = null,
+    float? Seconds = null, CapturedKick? Captured = null)
 {
     public const float ChamberShare = 0.28f;
     public const float ContactShare = 0.53f;
+
+    private static readonly Lazy<CapturedKick> LowCapture = new(() => CapturedKick.Load("roundhouse_low"));
+
+    private static readonly Lazy<CapturedKick> HighCapture = new(() => CapturedKick.Load("roundhouse_high"));
+
+    /// <summary>手作りの回し蹴り（kneelab 段 2 の通り道）。人の動きから作った既定との比べもの用。</summary>
+    public static KickSpec HandmadeRoundhouse => Of(KickTechnique.Roundhouse) with { Captured = null, Seconds = 1.14f };
 
     public static KickSpec Of(KickTechnique technique) => technique switch
     {
@@ -32,7 +40,15 @@ public readonly record struct KickSpec(KickTechnique Technique, float Duration, 
         KickTechnique.High => new(technique, 1.12f, 0.78f, 0.82f, 0.12f, Standoff: 0.8f),
         KickTechnique.Knee => new(technique, 0.75f, 0f, 0.56f, 0.08f, Standoff: 0.8f, FootPitch: 0.9f),
         // 回し蹴り: 膝を横へ張り出してたたみ、腰を回しながら横から振り抜く（足の甲が先に当たる: つま先を伸ばす）。
-        KickTechnique.Roundhouse => new(technique, 0.90f, 0.85f, 0.60f, -0.20f, Twist: 0.6f, Spin: 1.0f, Standoff: 1.25f, FootPitch: -0.5f),
+        KickTechnique.Roundhouse => new(technique, 0.90f, 0.85f, 0.60f, -0.20f, Twist: 0.6f, Spin: 1.0f, Standoff: 1.0f, FootPitch: -0.5f,
+            // 練習で磨いた通り道（kneelab 段 2、docs/arena/kneelab_stage2_diego.md。蹴りの長さ 1.14 s で磨いた: taekwondo.json の KickDuration）。
+            Practiced: new KneePath(0.938f, 0.101f, 1.194f, -0.022f, 0f, 0f, 0f, 1.345f, 0.47f, 0.275f, 0.706f, 0.424f),
+            // 既定は人の動き（極真空手の廻し蹴り下段、docs/arena/kick_mocap_*.md）から作った手本。手作り（上の Practiced）は比べもの用: HandmadeRoundhouse。
+            // 長さ 0.65 s・間合い 1.0 は人形で振って選んだ（docs/arena/kick_mocap_doll.md）。
+            Seconds: 0.65f, Captured: LowCapture.Value),
+        // 回し蹴り（上段）: 人の廻し蹴り上段（肩〜頭）の手本。狙いは頭。
+        KickTechnique.RoundhouseHigh => new(technique, 0.90f, 0.85f, 0.60f, -0.20f, Twist: 0.6f, Spin: 1.0f, Standoff: 1.2f, FootPitch: -0.5f,
+            Seconds: 0.55f, Captured: HighCapture.Value),
         // 横蹴り: 膝を胸へたたみ、体を横へ向けて（足が相手へ向く）、足の外側・かかとで真っすぐ押し出す。
         KickTechnique.Side => new(technique, 0.95f, 0.30f, 0.55f, 0.16f, Twist: 0.5f, Spin: 1.45f, Standoff: 0.95f, FootPitch: 0f),
         // 後ろ蹴り: 背を向ける回転（体ごと 150°）の中で脚を畳み、後ろへ伸ばす。足裏・かかとが当たる。
@@ -61,6 +77,7 @@ public readonly record struct KickSpec(KickTechnique Technique, float Duration, 
             KickTechnique.Middle => sense.OpponentChest,
             // 回し蹴りは脇腹・みぞおち（胸と腰の間）を狙う。胸の中心は高く、脚がほぼ伸びきらないと届かない（膝の制御の蹴りは曲げた脚で当てる）。
             KickTechnique.Roundhouse => (sense.OpponentChest + pelvis) * 0.5f,
+            KickTechnique.RoundhouseHigh => sense.OpponentHead,
             KickTechnique.Side or KickTechnique.Back => (sense.OpponentChest + pelvis) * 0.5f,
             KickTechnique.Axe => sense.OpponentHead + new Vector3(0f, 0.10f * sense.ArmReach, 0f), // 頭のてっぺん・肩の上
             KickTechnique.Low => pelvis - new Vector3(0f, 0.5f * sense.ArmReach, 0f),
@@ -79,7 +96,9 @@ public readonly record struct KickSpec(KickTechnique Technique, float Duration, 
         var t = Math.Clamp(time / duration, 0f, 1f);
         if (UsesKnee)
         {
-            return EvaluateKnee(leg, t, aim, reach, body ?? LegBody.FromReach(leg, reach));
+            var lb = body ?? LegBody.FromReach(leg, reach);
+            return Captured is { } captured ? captured.Evaluate(leg, t, aim, lb, FootPitch)
+                : Practiced is { } practiced ? practiced.Evaluate(leg, t, aim, lb, FootPitch) : EvaluateKnee(leg, t, aim, reach, lb);
         }
 
         if (Turns)
@@ -105,7 +124,7 @@ public readonly record struct KickSpec(KickTechnique Technique, float Duration, 
     }
 
     /// <summary>膝の制御（<see cref="LegCommand.KneeLocal"/>）で動かす蹴りか。回し蹴りから順に移す（他は足首の経路のまま。docs/TAEKWONDO.md）。</summary>
-    public bool UsesKnee => Technique == KickTechnique.Roundhouse;
+    public bool UsesKnee => Technique is KickTechnique.Roundhouse or KickTechnique.RoundhouseHigh;
 
     /// <summary>回し蹴りの構え（抱え）の膝の向き: 前（相手の方）から横（蹴る脚の側）へ回した角 [rad]（1.2 ≈ 69°）。</summary>
     public const float KneeChamberAzimuth = 1.2f;
@@ -239,10 +258,10 @@ public readonly record struct KickSpec(KickTechnique Technique, float Duration, 
     }
 
     /// <summary>体の向きを相手へ向けた向きから回す角度 [rad]（ヨー、正で左回り。蹴る脚の側の腰が前へ出る向きに回る）。</summary>
-    public float FaceYaw(Hand leg, float time, float duration) => -leg.LocalSide() * Spin * TurnProfile(time, duration);
+    public float FaceYaw(Hand leg, float time, float duration) => Captured is { } captured ? captured.YawAt(leg, Math.Clamp(time / MathF.Max(1e-3f, duration), 0f, 1f)) : -leg.LocalSide() * (Practiced?.Spin ?? Spin) * TurnProfile(time, duration);
 
     /// <summary>胴のひねりの上乗せ [rad]（正で右肩が前）。蹴る脚の側の肩・腰が前へ出る向き。</summary>
-    public float TorsoTwist(Hand leg, float time, float duration) => -leg.LocalSide() * Twist * TurnProfile(time, duration);
+    public float TorsoTwist(Hand leg, float time, float duration) => Captured is { } captured ? captured.TorsoAt(leg, Math.Clamp(time / MathF.Max(1e-3f, duration), 0f, 1f)) : -leg.LocalSide() * (Practiced?.Torso ?? Twist) * TurnProfile(time, duration);
 
     private static float Smooth(float t) => t * t * (3f - (2f * t));
 }

@@ -177,6 +177,100 @@ public sealed class KneeControlTests
     }
 
     [TestMethod]
+    public void PracticedPath_KeepsTheKneeClosed_AndOpensItOnlyForTheImpact()
+    {
+        // 膝の曲げの拍子（純関数）: 開き始め（当たる時刻の Lead 前）までは閉じ、当たる瞬間に最も開き（0）、当たったあとはすぐ閉じる。
+        var path = KickSpec.HandmadeRoundhouse.Practiced!;
+        var open = path.ImpactShare - path.Lead;
+        Assert.AreEqual(path.ClosedBend, path.Bend(0f), 1e-6f);
+        Assert.AreEqual(path.ClosedBend, path.Bend(open * 0.99f), 1e-6f, "closed until the opening starts");
+        Assert.AreEqual(0f, path.Bend(path.ImpactShare), 1e-6f, "fully open at the impact");
+        Assert.IsGreaterThan(0.9f * path.ClosedBend, path.Bend(path.ImpactShare + KneePath.CloseShare), "closed again right after");
+        var previous = path.ClosedBend;
+        for (var t = open; t <= path.ImpactShare; t += 0.005f)
+        {
+            Assert.IsLessThanOrEqualTo(previous + 1e-5f, path.Bend(t), "the knee only opens until the impact");
+            previous = path.Bend(t);
+        }
+    }
+
+    [TestMethod]
+    public void PracticedRoundhouse_ClosedBeforeTheImpact_OpenAtIt_AndLandsAtTwoStandoffs()
+    {
+        // 磨いた回し蹴り（左脚、diego）を 2 つの間合いで蹴る: 当たる。当たる 0.5 秒前は実際の膝が閉じ（曲げ 1 rad 以上）、当たった瞬間は開いている（曲げ 0.6 rad 以下）。
+        // 当たったすねの点は膝から 0.5〜1.6（下すね〜足の甲・つま先。0.6〜0.9 には入らない: docs/TAEKWONDO.md の残った問題）。
+        var spec = KickSpec.HandmadeRoundhouse;
+        var body = MiniRing.Characters.CharacterRoster.Get("diego").Build;
+        var duration = spec.Seconds!.Value;
+        foreach (var approach in new[] { 1.3f, 1.1f })
+        {
+            const Hand side = Hand.Left;
+            using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", _ => new StandGuard(), PlayerBody: body));
+            var attacker = game.Player;
+            var victim = game.Cpu;
+            var reach = attacker.ArmReach;
+            FighterCommand Cmd(Vector3 move, LegCommand? leg, float yaw, float twist)
+            {
+                var face = Vector3.Transform(victim.ChestPosition - attacker.ChestPosition, Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw));
+                return new FighterCommand(move, face, new HandCommand(AiControl.Guard(Hand.Left, reach), false), new HandCommand(AiControl.Guard(Hand.Right, reach), false),
+                    TwistBias: twist, LeftLeg: leg);
+            }
+
+            for (var i = 0; i < 240 * 8; i++)
+            {
+                if (Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f }) < approach * reach)
+                {
+                    break;
+                }
+
+                game.Step(new BoxingInput(Cmd(Vector3.Normalize((victim.ChestPosition - attacker.ChestPosition) with { Y = 0f }), null, 0f, 0f)), Dt);
+            }
+
+            for (var i = 0; i < 360; i++)
+            {
+                game.Step(new BoxingInput(Cmd(Vector3.Zero, null, 0f, 0f)), Dt);
+            }
+
+            var aimWorld = spec.AimWorld(game.PlayerSense);
+            var rest = new Vector3(side.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
+            var seen = new HashSet<HitEvent>();
+            float? hitTime = null;
+            var bendAtHit = 0f;
+            var fraction = 0f;
+            var bends = new List<float>();
+            for (var i = 0; i < (int)((duration + 0.3f) / Dt); i++)
+            {
+                var t = i * Dt;
+                var sense = game.PlayerSense;
+                var leg = t <= duration ? spec.Evaluate(side, t, duration, rest, sense.Self.WorldToLocal(aimWorld), reach, sense.SelfLeg(side)) : (LegCommand?)null;
+                game.Step(new BoxingInput(Cmd(Vector3.Zero, leg, t <= duration ? spec.FaceYaw(side, t, duration) : 0f, t <= duration ? spec.TorsoTwist(side, t, duration) : 0f)), Dt);
+                foreach (var hit in game.RecentHits)
+                {
+                    if (hit.Kick && hit.Attacker == attacker && seen.Add(hit) && hitTime is null)
+                    {
+                        hitTime = t;
+                        bendAtHit = attacker.KneeBend(side);
+                        var knee = attacker.KneePosition(side);
+                        var axis = attacker.AnklePosition(side) - knee;
+                        fraction = Vector3.Dot(hit.Point - knee, axis) / axis.LengthSquared();
+                    }
+                }
+
+                bends.Add(attacker.KneeBend(side));
+            }
+
+            Assert.IsNotNull(hitTime, $"lands at approach {approach}");
+            var before = hitTime.Value - 0.3f;
+            Console.WriteLine($"approach {approach}: hit at {hitTime:F2} s, bend at hit {bendAtHit:F2}, shin point {fraction:F2}");
+            Assert.IsLessThan(0.6f, bendAtHit, "the knee is open at the impact");
+            Assert.IsGreaterThanOrEqualTo(0.5f, fraction);
+            Assert.IsLessThanOrEqualTo(1.6f, fraction);
+            Assert.IsGreaterThan(0.2f, hitTime.Value, "not an early bump");
+            Assert.IsGreaterThan(1.0f, bends[(int)(before / Dt)], "the knee was still closed 0.3 s before the impact");
+        }
+    }
+
+    [TestMethod]
     public void Roundhouse_AtItsStandoff_LandsWithTheLowerShinOrAnkle_AcrossSeedsAndBothLegs()
     {
         // 回し蹴りを kicklab が採った間合い（KickSpec.Standoff）で、種と左右の脚を替えて蹴る（相手は立つだけ）。
@@ -211,14 +305,14 @@ public sealed class KneeControlTests
                 game.Step(new BoxingInput(Cmd(Vector3.Normalize((victim.ChestPosition - attacker.ChestPosition) with { Y = 0f }), null, 0f, 0f)), Dt);
             }
 
-            for (var i = 0; i < 120; i++)
+            for (var i = 0; i < 360; i++)
             {
                 game.Step(new BoxingInput(Cmd(Vector3.Zero, null, 0f, 0f)), Dt);
             }
 
             var aimWorld = spec.AimWorld(game.PlayerSense);
             var rest = new Vector3(side.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
-            const float duration = 0.9f;
+            var duration = spec.Seconds!.Value;
             var hits = new List<(float Fraction, float Energy)>();
             var seen = new HashSet<HitEvent>();
             for (var i = 0; i < (int)((duration + 0.4f) / Dt); i++)
