@@ -56,6 +56,14 @@ function Get-Field($object, [string]$name, $default) {
 
 function Get-Relative([string]$path) { return $path.Substring($repo.Length + 1).Replace('\', '/') }
 
+# 主催団体（札の org、既定 wvc）。団体のファイル（games\MiniRing.Arena\Orgs\<id>.json）の名前・競技・語り口をプロンプトへ差し込む。
+# ファイルには // の行コメントがあるので、行ごと外してから読む。
+$orgId = ([string](Get-Field $cardData 'org' 'wvc')).ToLowerInvariant()
+$orgFileRel = "games/MiniRing.Arena/Orgs/$orgId.json"
+$orgPath = Join-Path $repo $orgFileRel.Replace('/', '\')
+if (-not (Test-Path $orgPath)) { throw "団体のファイルがありません: $orgFileRel（札の org: $orgId）" }
+$orgData = (Get-Content -Raw -Encoding UTF8 $orgPath) -replace '(?m)^\s*//.*$', '' | ConvertFrom-Json
+
 $outRel = ([string](Get-Field $cardData 'out' 'docs\video\tvshow')).Replace('\', '/')
 $out = Join-Path $repo $outRel
 $commentary = Get-Field $cardData 'commentary' $null
@@ -158,7 +166,10 @@ function New-Take([string]$key) {
     $length = '?'
     if ((Get-Content -Raw -Encoding UTF8 (Join-Path $out "$key.digest.md")) -match '動画の長さ: ([0-9.]+) 秒') { $length = $Matches[1] }
     $fill = [ordered]@{
-        '{{length}}' = $length; '{{event}}' = [string](Get-Field $cardData 'event' 'WVC'); '{{key}}' = $key
+        '{{length}}' = $length; '{{event}}' = [string](Get-Field $cardData 'event' ([string]$orgData.logoText)); '{{key}}' = $key
+        '{{org}}' = [string]$orgData.logoText; '{{orgName}}' = [string]$orgData.name; '{{sport}}' = [string]$orgData.sport; '{{orgFile}}' = "``$orgFileRel``"
+        '{{orgIntro}}' = [string]$orgData.commentary.intro; '{{announcerTone}}' = [string]$orgData.commentary.announcerTone; '{{analystTone}}' = [string]$orgData.commentary.analystTone
+        '{{callThing}}' = [string]$orgData.commentary.callThing; '{{callExamples}}' = [string]$orgData.commentary.callExamples
         '{{bout}}' = [string](Get-Field $boutData 'bout' $key); '{{out}}' = $outRel; 'OUT/' = "$outRel/"
         '{{exe}}' = "./$exeRel"; '{{previous}}' = $previous; '{{seed}}' = [string]$takeSeed
         '{{mood}}' = $pick.mood; '{{topics}}' = ($pick.topics -join '、'); '{{cardNotes}}' = $cardNotes

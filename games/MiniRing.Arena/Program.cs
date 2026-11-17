@@ -94,12 +94,12 @@ try
         "weaponlab" => WeaponLabCommand(Options.Parse(argv[1..], "out", "table", "width", "height", "fps", "slow", "video")),
         "intentvideo" => IntentVideo(Options.Parse(argv[1..], "script", "blue", "seed", "seconds", "width", "height", "out")),
         "version" => Print($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}"),
-        "tvdraft" => TvDraftCommand(Options.Parse(argv[1..], "events", "out")),
+        "tvdraft" => TvDraftCommand(Options.Parse(argv[1..], "events", "out", "org")),
         "tvmerge" => TvMergeCommand(Options.Parse(argv[1..], "draft", "extras", "out")),
-        "tvlint" => TvLintCommand(Options.Parse(argv[1..], "script", "events", "manifest")),
-        "tvdigest" => TvDigestCommand(Options.Parse(argv[1..], "events", "out")),
-        "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program")),
+        "tvlint" => TvLintCommand(Options.Parse(argv[1..], "script", "events", "manifest", "org")),
+        "tvdigest" => TvDigestCommand(Options.Parse(argv[1..], "events", "out", "org")),
+        "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break", "org")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
@@ -1379,7 +1379,8 @@ static int Video(Options o)
     new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), breakStyle, hitSounds, faceCam, speed, tv,
         tvRounds: o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1), tvEvent: o.Get("event") ?? "ファイトナイト", tvBout: o.Get("bout") ?? "",
         tvBreak: o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f), render: render, live: live,
-        tvProgram: o.Get("program") is { } programPath ? TvProgram.FromJson(File.ReadAllText(programPath), TvProgram.RosterName) : null)
+        tvProgram: o.Get("program") is { } programPath ? TvProgram.FromJson(File.ReadAllText(programPath), TvProgram.RosterName) : null,
+        org: OrgOption(o))
         .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 45f, min: 1f), output, Console.Out, untilKo: (o.Get("until-ko") ?? "no") switch { "yes" => true, "no" => false, _ => throw new ArgumentException("--until-ko は yes か no にしてください。") },
             redWear: o.Get("red-wear") is { } rwear ? MiniRing.Weapons.HandWears.Parse(rwear) : redCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove,
             blueWear: o.Get("blue-wear") is { } bwear ? MiniRing.Weapons.HandWears.Parse(bwear) : blueCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove,
@@ -1492,10 +1493,12 @@ static int TvScoutCommand(Options o)
         rounds, o.List("seeds", ["1", "2", "3", "4", "5", "6", "7", "8"]).Select(s => int.Parse(s, CultureInfo.InvariantCulture)), speed, o.Int("fps", 30, min: 10),
         redCharacter, blueCharacter, Referee(o), o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f));
     var roundSeconds = MiniRing.MatchRules.Tv.RoundSeconds;
-    TvScout.Print(results, rounds, roundSeconds, Console.Out);
+    var org = OrgOption(o) ?? Organization.Default;
+    Console.WriteLine($"org {org.Id}");
+    TvScout.Print(results, rounds, roundSeconds, Console.Out, org.Drama);
     // 最後の 2 行は機械が読む（tools/tvshow/tvshow.ps1 が種を選び、どの版の物理・ボットで選んだかを残す）。
     Console.WriteLine($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}");
-    Console.WriteLine($"best seed {TvShowRules.Best(results, rounds, roundSeconds).Seed}");
+    Console.WriteLine($"best seed {TvShowRules.Best(results, rounds, roundSeconds, org.Drama).Seed}");
     return 0;
 }
 
@@ -1512,7 +1515,7 @@ static int TvDraftCommand(Options o)
     var output = o.Get("out") ?? events.Replace(".events.json", ".draft.json", StringComparison.Ordinal);
     // 中身が同じなら書かない（ファイルの時刻が変わると、司令塔が台本を作り直して声を入れ直してしまう）。
     // テレビ中継の標準は実況と解説の 2 人: 実況の骨組みに、解説の台詞と休みの問いと答え（TvAnalyst）を重ねたものを下書きにする。
-    var draft = TvDraft.BuildBroadcast(File.ReadAllText(events));
+    var draft = TvDraft.BuildBroadcast(File.ReadAllText(events), OrgOption(o));
     if (!File.Exists(output) || File.ReadAllText(output) != draft)
     {
         File.WriteAllText(output, draft);
@@ -1545,7 +1548,7 @@ static int TvLintCommand(Options o)
     var script = o.Get("script") ?? throw new ArgumentException("--script <x.script.json> を渡してください。");
     var events = o.Get("events") ?? script.Replace(".script.json", ".events.json", StringComparison.Ordinal);
     var manifest = o.Get("manifest") is { } m && File.Exists(m) ? File.ReadAllText(m) : null;
-    var issues = TvLint.Check(File.ReadAllText(script), File.ReadAllText(events), manifest);
+    var issues = TvLint.Check(File.ReadAllText(script), File.ReadAllText(events), manifest, OrgOption(o));
     foreach (var issue in issues)
     {
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{issue.At,6:0.0}s [{issue.Rule}] {issue.Message}"));
@@ -1560,10 +1563,13 @@ static int TvDigestCommand(Options o)
 {
     var events = o.Get("events") ?? throw new ArgumentException("--events <x.events.json> を渡してください。");
     var output = o.Get("out") ?? Path.ChangeExtension(events, null).Replace(".events", "", StringComparison.Ordinal) + ".digest.md";
-    File.WriteAllText(output, TvDigest.Build(File.ReadAllText(events)));
+    File.WriteAllText(output, TvDigest.Build(File.ReadAllText(events), OrgOption(o)));
     Console.WriteLine(output);
     return 0;
 }
+
+// 中継の主催団体（--org wvc|vfc）。指定が無ければ null（動画・下見は WVC、台本の道具は記録の org に従う）。
+static Organization? OrgOption(Options o) => o.Get("org") is { } id ? Organizations.Get(id) : null;
 
 static Contender Load(string nameOrPath)
 {
