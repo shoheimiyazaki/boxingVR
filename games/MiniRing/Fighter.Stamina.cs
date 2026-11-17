@@ -190,7 +190,7 @@ public sealed partial class Fighter
             (_world.GetState(Parts.Pelvis).LinearVelocity * pelvisMass)) / mass;
         var linear = MathF.Max(0f, Vector3.Dot(force, velocity)) * dt;
         var quadratic = force.LengthSquared() * dt * dt / (2f * mass);
-        var walking = _tuning.WalkCost * TotalMass * new Vector2(velocity.X, velocity.Z).Length() * LastCommand.ClampedMove.Length() * dt;
+        var walking = _tuning.WalkCost * SupportedMass * new Vector2(velocity.X, velocity.Z).Length() * LastCommand.ClampedMove.Length() * dt;
         var budget = FatigueEnabled ? _muscleBudget : linear + quadratic + walking;
         var scale = MuscleWork.ForceScale(linear, quadratic, walking, budget);
         SpendMuscleEnergy((linear * scale) + (quadratic * scale * scale) + (walking * scale));

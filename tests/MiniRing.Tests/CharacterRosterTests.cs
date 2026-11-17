@@ -37,7 +37,7 @@ public sealed class CharacterRosterTests
         ("dmitri", null, HandWear.Glove, "slugger", 1.15f, 1.0f, 1.0f, 1.2f),
         ("joao", null, HandWear.KnuckleDuster, "swarmer", 0.98f, 1.0f, 1.0f, 1.05f),
         ("gaston", null, HandWear.Gauntlet, "outboxer", 1.05f, 1.05f, 1.0f, 1.0f),
-        ("diego", null, HandWear.None, "taekwondo", 1.1f, 1.0f, 1.1f, 0.92f),
+        ("taeyun", null, HandWear.None, "taekwondo", 1.1f, 1.0f, 1.1f, 0.92f),
         ("daichi", WeaponKind.Staff, HandWear.Glove, "champion", 1.05f, 1.05f, 1.0f, 0.95f),
         ("tsuyoshi", null, HandWear.Tonfa, "tonfa", 1.0f, 1.03f, 1.0f, 1.0f),
         ("edgar", WeaponKind.IronSword, HandWear.Shield, "boxer", 1.05f, 1.0f, 1.0f, 1.15f),

@@ -39,7 +39,7 @@ public sealed partial class BoxingGame
                 continue;
             }
 
-            var upper = other.TotalMass - other.LegMass;
+            var upper = other.SupportedMass - other.LegMass;
             self.CarriedLoad = (1f - other.VerticalBalance) * upper * -_world.Gravity.Y;
             self.CarriedCenter = other.CenterOfMass;
         }
@@ -128,7 +128,7 @@ public sealed partial class BoxingGame
             }
 
             // 床の衝撃の力積 = 全身の上向きの運動量の変化 − 近似の支えの分。床に乗っている体の重さを支える分（M g dt）は衝撃ではないので数えない。
-            var total = MathF.Max(0f, (fighter.TotalMass * (fighter.CenterOfMassVelocity.Y - comBefore.Y)) - fighter.SupportLift);
+            var total = MathF.Max(0f, (fighter.SupportedMass * (fighter.CenterOfMassVelocity.Y - comBefore.Y)) - fighter.SupportLift);
             _ = dt;
             foreach (var (id, stop, point, weight) in _landing)
             {

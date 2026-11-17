@@ -3,7 +3,7 @@
   Synthesizes Japanese commentary lines to WAV files (default cast: announcer / commentator;
   a script may declare its own cast in "speakers": voice and prosody per speaker id)
   with Windows OneCore voices (WinRT SpeechSynthesizer), and writes a manifest with the
-  actual start time and duration of each line. Lines never overlap: a line that would run
+  actual start time and duration of each line. Lines never overlap (except lines marked "overlap": true, short exclamations placed as requested): a line that would run
   into the next one pushes the next one later (order is kept).
 
 .EXAMPLE
@@ -213,9 +213,11 @@ foreach ($entry in $ordered) {
     $keep = Get-TrimmedLength $wav $bytes $SilenceDb $TailSeconds
     $duration = Write-Wav $file $wav.fmt $bytes $wav.dataOffset $keep
     $requested = [double]$l.at
-    $start = [Math]::Max($requested, $cursor)
+    # Lines marked "overlap": true (short excited exclamations) are outside the one-microphone order: placed at the requested time, overlapping, without pushing later lines.
+    $overlap = $l.PSObject.Properties['overlap'] -and [bool]$l.overlap
+    $start = if ($overlap) { $requested } else { [Math]::Max($requested, $cursor) }
     $shift = $start - $requested
-    $cursor = $start + $duration + $Gap
+    if (-not $overlap) { $cursor = $start + $duration + $Gap }
 
     $results += [pscustomobject]@{
         index       = $entry.Index

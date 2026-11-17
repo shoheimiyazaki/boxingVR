@@ -4,7 +4,7 @@ using MiniRing.Weapons;
 
 namespace MiniRing.Tests;
 
-/// <summary>2026-11-16: テコンドーの教科書（Bots/taekwondo.json）とテコンドー家（roster/diego.json）。蹴りの経路・接触は KickContactTests。</summary>
+/// <summary>2026-11-16: テコンドーの教科書（Bots/taekwondo.json）とテコンドー家（roster/taeyun.json）。蹴りの経路・接触は KickContactTests。</summary>
 [TestClass]
 public sealed class TaekwondoTests
 {
@@ -36,9 +36,9 @@ public sealed class TaekwondoTests
     }
 
     [TestMethod]
-    public void Diego_IsATallLongLeggedBareHandedFighter_OfTheTaekwondoTextbook()
+    public void Taeyun_IsATallLongLeggedBareHandedFighter_OfTheTaekwondoTextbook()
     {
-        var c = CharacterRoster.Get("diego");
+        var c = CharacterRoster.Get("taeyun");
         Assert.AreEqual("taekwondo", c.StyleName);
         Assert.AreEqual(HandWear.None, c.Wear);
         Assert.IsNull(c.Weapon);

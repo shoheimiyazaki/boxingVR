@@ -315,6 +315,26 @@ public sealed class BoneBreakTests
     }
 
     [TestMethod]
+    public void ABrokenGlovedArm_KeepsItsVoxelGloveOnTheLimpHand_AndNoOldStyleGloveIsDrawn()
+    {
+        // 再発防止（2026-11-17、ユーザーの指摘: 折れた腕の先に古い形式のグローブが付いている）: 腕が折れると、はめたグローブは
+        // 持ち主の手から外れて（WearsGlove は false）力の抜けた手にぶら下がる。描き手は WearsGlove だけを見て、はめる物が無かった頃の
+        // 球のグローブを拳の位置に足していた。
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
+        Play(game, 1f);
+        Assert.IsTrue(game.Cpu.WearsGlove(Hand.Left) && game.Cpu.FistCovered(Hand.Left), "a gloved fist before the break");
+        var forearm = game.Cpu.ForearmId(Hand.Left);
+        var broken = game.Cpu.Voxels!.BreakBent(forearm, new VoxelBreak(0, Slices(game, forearm) / 2, true, 2f));
+        Assert.IsNotNull(broken);
+        game.BreakBone(game.Cpu, broken, 1f);
+        Play(game, 1f);
+
+        Assert.IsFalse(game.Cpu.WearsGlove(Hand.Left), "the dead hand no longer boxes with it");
+        Assert.IsTrue(game.Cpu.FistCovered(Hand.Left), "but the voxel glove is still on it, so no sphere glove is added");
+        Assert.IsFalse(game.Cpu.FistCovered(Hand.Right) && !game.Cpu.WearsGlove(Hand.Right), "the other hand is unchanged");
+    }
+
+    [TestMethod]
     public void ABentBone_LeavesThePieceHangingByTheFlesh_UndrivenAndLimp()
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));

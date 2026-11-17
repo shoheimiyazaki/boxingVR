@@ -167,7 +167,7 @@ public sealed partial class Fighter
         {
             // 背負った相手の重さを含めた重心で釣り合いを見る（相手の重さ m = 荷重 / g）。
             var m = CarriedLoad / -_world.Gravity.Y;
-            c = ((c * TotalMass) + (CarriedCenter * m)) / (TotalMass + m);
+            c = ((c * SupportedMass) + (CarriedCenter * m)) / (SupportedMass + m);
         }
 
         var c2 = new Vector2(c.X, c.Z);
@@ -223,7 +223,7 @@ public sealed partial class Fighter
 
         var torque = _supportTorque / dt;
         var force = _supportForce / dt;
-        var normal = MathF.Max(1e-3f, MathF.Max(0f, force.Y) + (_legMass * -_world.Gravity.Y));
+        var normal = MathF.Max(1e-3f, MathF.Max(0f, force.Y) + (SupportedLegMass * -_world.Gravity.Y));
         var horizontal = new Vector2(force.X, force.Z);
         var friction = _tuning.SoleFriction * normal;
         if (horizontal.Length() > friction)
@@ -327,7 +327,7 @@ public sealed partial class Fighter
 
             // 押されて動くのは腰（お尻を足の上へ引く）。手が床を押す反作用は胸へ（腕が胴と床の間で出す力）。
             // 手で押すのは起き上がろうとする体だけ（起き上がる力 ControlScale と、意識の分）。
-            var push = accel * ((1f - feet) * ControlScale * Awareness * (TotalMass - _legMass) * dt);
+            var push = accel * ((1f - feet) * ControlScale * Awareness * (SupportedMass - SupportedLegMass) * dt);
             _world.ApplyLinearImpulse(Parts.Pelvis, new Vector3(push.X, 0f, push.Y));
         }
     }

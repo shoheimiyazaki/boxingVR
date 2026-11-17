@@ -180,10 +180,11 @@ public static class WeaponCatalog
     private static readonly Lazy<WeaponStyle> Longsword = new(() => Load("longsword"));
     private static readonly Lazy<WeaponStyle> Club = new(() => Load("club"));
     private static readonly Lazy<WeaponStyle> Staff = new(() => Load("staff"));
+    private static readonly Lazy<WeaponStyle> Jo = new(() => Load("jo"));
     private static readonly Lazy<WeaponStyle> SwordShield = new(() => Load("swordshield"));
 
     /// <summary>この武器のボットを教科書の値で動かすか（<see cref="Textbook"/> がある武器）。</summary>
-    public static bool HasBot(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.IronSword;
+    public static bool HasBot(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.IronSword;
 
     /// <summary>この武器の教科書。ボットの無い武器は <see cref="ArgumentOutOfRangeException"/>。</summary>
     public static WeaponStyle Textbook(WeaponKind weapon) => weapon switch
@@ -192,6 +193,7 @@ public static class WeaponCatalog
         WeaponKind.Longsword => Longsword.Value,
         WeaponKind.WoodenClub => Club.Value,
         WeaponKind.Staff => Staff.Value,
+        WeaponKind.Jo => Jo.Value,
         WeaponKind.IronSword => SwordShield.Value,
         _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・こんぼう・棒・片手剣（剣盾）だけに教科書があります。"),
     };

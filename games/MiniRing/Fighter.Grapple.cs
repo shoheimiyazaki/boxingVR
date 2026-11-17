@@ -32,7 +32,7 @@ public sealed partial class Fighter
     public const float WristShare = 0.3f;
 
     /// <summary>脚（腿・すね・足・つま先）の質量の合計 [kg]。</summary>
-    public float LegMass => _legMass;
+    public float LegMass => SupportedLegMass;
 
     /// <summary>切り離された（切り落とされた・折れて離れた）部位か。</summary>
     internal bool IsDetachedPart(int id) => _detached.Contains(id);

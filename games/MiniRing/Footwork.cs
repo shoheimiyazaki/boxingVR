@@ -91,6 +91,23 @@ public sealed record FootworkTuning
     /// </summary>
     public float KickFootForceGain { get; init; } = 4f;
 
+    /// <summary>
+    /// 膝の制御（蹴り、<see cref="LegCommand.KneeLocal"/>）の膝の点を目標へ引くバネと減衰 [1/s², 1/s]（拳・足首と同じ PD）と、力の上限が歩く足の上限の何倍か。
+    /// 足首 1 点だった蹴りの力（<see cref="KickFootForceGain"/>）の考え方を膝へ移した値（調べ方は docs/TAEKWONDO.md）。
+    /// </summary>
+    public float KneeKp { get; init; } = 900f;
+    public float KneeKd { get; init; } = 50f;
+    public float KickKneeForceGain { get; init; } = 4f;
+
+    /// <summary>
+    /// 膝の制御で蹴っている脚の、股と膝のサーボが出せるトルクの倍率（歩く足の値に対して）。歩く足のトルクは床へ足を置く強さで決めた値で、
+    /// 蹴りの腿の振りとすねの伸ばしは脚の筋肉の全力（足首 1 点の近道 <see cref="KickFootForceGain"/> と同じ事情）。
+    /// </summary>
+    public float KickLegTorqueGain { get; init; } = 3f;
+
+    /// <summary>膝の制御で蹴っている脚の、股・膝のサーボの最大の速さ [rad/s]（歩く足は 10）。すねを振る速さの上限（足首 1 点の近道の代わりに、関節の速さの上限で決める）。</summary>
+    public float KickLegServoSpeed { get; init; } = 30f;
+
     /// <summary>立っているときの膝の曲げ（骨盤の高さの上限を決める）。</summary>
     public float KneeBendDegrees { get; init; } = 30f;
 

@@ -70,8 +70,6 @@ public sealed class SwordTests
             game.Cpu.Stamina = 1f;
         }
 
-        var r = SwordDrill.Run(through, KeepFresh);
-        Assert.IsGreaterThan(10f, r.TargetCells, "the chest is cut");
         // 1 回の振りは間合い 2 cm の違いで 0〜84 セルと大きく揺れる（斬り抜く形は刃が相手の体を通り抜ける近さで出すため）。2026-11-14 の統合後、間合いぴったりの
         // この 1 回では 胸 34 セル・自分の腿 58 セルになり、元の「自分より多い」が崩れた（腿をかすめる振りは以前からあり、57 セル前後）。
         // そこで、間合いを −4〜+4 cm にずらした 5 回を合計して比べる: 胸 150 セル対 自分 58 セル。かすめるのは 1 回だけで、狙った部位のほうが多く斬れている（元の主張のまま）。
@@ -80,6 +78,9 @@ public sealed class SwordTests
         Parallel.For(0, ranges.Length, i => runs[i] = SwordDrill.Run(through with { Range = basic.Range + ranges[i] }, KeepFresh));
         var target = runs.Sum(x => x.TargetCells);
         var self = runs.Sum(x => x.SelfCells);
+        // 2026-11-17（PhysicsVersion 40、脚の骨の端を太くした: 体の質量と立ち方がわずかに変わる）: 間合いぴったりの 1 回は胸 0 セル・自分の腿 60 セルになった
+        // （ほかの 4 回は胸 50・44・19・19、自分 0）。1 回の振りの「胸を斬る」は揺れに負けるので、5 回の合計で見る（胸 132 セル対 自分 60 セル）。
+        Assert.IsGreaterThan(10f, target, "the chest is cut");
         Assert.IsGreaterThan(self, target, $"more of the target than of yourself over the range sweep (target {target}, self {self}; the cut through can graze your own thigh)");
     }
 

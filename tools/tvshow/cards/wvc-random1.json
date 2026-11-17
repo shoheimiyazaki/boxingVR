@@ -1,0 +1,41 @@
+{
+  "_comment": "組み合わせをランダムに選んだプロスペクティブ制の中継（選んだ種 92846）。動かし方: powershell -ExecutionPolicy Bypass -File tools/tvshow/tvshow.ps1 -Card tools/tvshow/cards/wvc-random1.json",
+  "event": "WVC シャッフルナイト",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-random1",
+  "scoutSeeds": [
+    31,
+    32,
+    33,
+    34,
+    35,
+    36
+  ],
+  "partLimitMiB": 29,
+  "commentary": {
+    "writer": "prospective",
+    "model": "haiku",
+    "parallel": 2
+  },
+  "bouts": [
+    {
+      "red": "taeyun",
+      "blue": "albert",
+      "seed": "auto",
+      "bout": "第1試合"
+    },
+    {
+      "red": "gaston",
+      "blue": "jin",
+      "seed": "auto",
+      "bout": "第2試合"
+    },
+    {
+      "red": "konrad",
+      "blue": "yoandry",
+      "seed": "auto",
+      "bout": "第3試合"
+    }
+  ]
+}

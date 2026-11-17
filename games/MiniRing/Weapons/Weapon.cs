@@ -74,6 +74,12 @@ public enum WeaponKind
     /// 板の縁を巻く鉄の輪。素手の拳が握りを握る。材質は木と鉄（今の武器と同じ値）。
     /// </summary>
     Shield,
+
+    /// <summary>
+    /// 杖（じょう、両手。合気道・杖道で使う 4 尺 2 寸 ≒ 128〜130 cm の木の丸棒）: 六尺棒（<see cref="Staff"/>）と同じ作りで、短く細い。
+    /// 両端が打つ所。握りを手の中で滑らせて持ち替える（<see cref="HandCommand.Slide"/>）。
+    /// </summary>
+    Jo,
 }
 
 /// <summary>
@@ -295,7 +301,7 @@ public sealed class Weapon
     {
         WeaponKind.IronSword => new Vector3((GuardFrom + PommelAt) * 0.5f, 0f, 0f),
         WeaponKind.WoodenClub => new Vector3(-ClubHalfLength + 0.015f, 0f, 0f),
-        WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff => TwoHandGripsOf(kind).Top,
+        WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo => TwoHandGripsOf(kind).Top,
         WeaponKind.Glove => Vector3.Zero, // 拳はグローブの真ん中
         WeaponKind.Fist => HandSkeleton.Wrist, // 腕の先が手を握る所（手首）
         WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield => -WornBoundsOf(kind, mirrored).Center, // 拳の中心
@@ -303,10 +309,35 @@ public sealed class Weapon
     };
 
     /// <summary>両手で握れる武器か（棍棒・日本刀・ロングソード・棒。片手剣の握りは片手ぶんの長さ）。</summary>
-    public static bool CanTwoHand(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff;
+    public static bool CanTwoHand(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo;
+
+    /// <summary>
+    /// 丸棒（六尺棒・杖）か: 太さが一定の木の丸い軸で、両端が打つ所・握りを軸に沿って滑らせられる。形の種類（長さ・太さ）だけが違い、
+    /// 握り・型・受けの扱いは同じ（CLAUDE.md §8 の種類の一覧の近道）。
+    /// </summary>
+    public static bool IsRod(WeaponKind kind) => kind is WeaponKind.Staff or WeaponKind.Jo;
+
+    /// <summary>丸棒の半分の長さと半径 [m]（<see cref="IsRod"/> の物だけ）。</summary>
+    private static (float HalfLength, float Radius) RodOf(WeaponKind kind) => kind switch
+    {
+        WeaponKind.Staff => (StaffHalfLength, StaffRadius),
+        WeaponKind.Jo => (JoHalfLength, JoRadius),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "丸棒（六尺棒・杖）だけ。"),
+    };
+
+    /// <summary>
+    /// 手の中で滑らせて握り直せる範囲（武器のローカル X の最小・最大 [m]。滑らせられない武器は null）。棒は、両端の半球と打つ所の手前
+    /// （<see cref="StaffTipInset"/>）を除いた、軸が一定の太さのほぼ全体。刀・ロングソード・こんぼうは柄が短く握る所が決まっているので
+    /// null（<see cref="HandCommand.Slide"/> は無視）。種類の一覧に足す形は <see cref="CanTwoHand"/> と同じ近道（CLAUDE.md §8）。
+    /// </summary>
+    public static (float Min, float Max)? SlideSpanOf(WeaponKind kind) => kind switch
+    {
+        WeaponKind.Staff or WeaponKind.Jo => (-(RodOf(kind).HalfLength - RodOf(kind).Radius - StaffTipInset), RodOf(kind).HalfLength - RodOf(kind).Radius - StaffTipInset),
+        _ => null,
+    };
 
     /// <summary>刃の無い（打って潰す）武器か。刃のある武器は、刃の形と材質だけで斬る（<see cref="VoxelContact"/>）。</summary>
-    public static bool IsBlunt(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield;
+    public static bool IsBlunt(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield;
 
     private static readonly Lazy<bool>[] RigidFaces =
         Enum.GetValues<WeaponKind>().Select(k => new Lazy<bool>(() => StrikesWithRigidFace(k))).ToArray();
@@ -356,7 +387,7 @@ public sealed class Weapon
             case WeaponKind.WoodenClub:
                 var bottom = GripOf(kind);
                 return (bottom + new Vector3(HandSpacing, 0f, 0f), bottom);
-            case WeaponKind.Staff:
+            case WeaponKind.Staff or WeaponKind.Jo:
                 // 棒の真ん中をはさんで、両手を肩幅ほど離す（右手が +X 側、左手が −X 側。棒は対称で、どちらの端も打つ）。
                 return (new Vector3(0.5f * StaffHandSpacing, 0f, 0f), new Vector3(-0.5f * StaffHandSpacing, 0f, 0f));
             default:
@@ -371,7 +402,7 @@ public sealed class Weapon
         WeaponKind.WoodenClub => new Vector3(ClubHalfLength - 0.01f, 0f, 0f),
         WeaponKind.Katana => new Vector3(KatanaHalfLength, KatanaSori, 0f),
         WeaponKind.Longsword => new Vector3(LongHalfLength, 0f, 0f),
-        WeaponKind.Staff => new Vector3(StaffHalfLength - StaffTipInset, 0f, 0f),
+        WeaponKind.Staff or WeaponKind.Jo => new Vector3(RodOf(kind).HalfLength - StaffTipInset, 0f, 0f),
         WeaponKind.Glove => new Vector3(GloveRadius, 0f, 0f),
         WeaponKind.Fist => HandSkeleton.SeikenTip,
         WeaponKind.KnuckleDuster => new Vector3(DusterFront + DusterBoss, 0f, -0.5f * (2f * FistRadius / 4f)) - WornBoundsOf(kind).Center, // 中指の拳頭の突起の先
@@ -387,7 +418,7 @@ public sealed class Weapon
     /// 他の武器は先の 1 つだけ。
     /// </summary>
     public static IReadOnlyList<float> StrikeEndsX(WeaponKind kind) =>
-        kind == WeaponKind.Staff ? [TipOf(kind).X, -TipOf(kind).X] : [TipOf(kind).X];
+        IsRod(kind) ? [TipOf(kind).X, -TipOf(kind).X] : [TipOf(kind).X];
 
     /// <summary>武器の格子（材質は <see cref="BoxerAnatomy.Palette"/> の鉄と木。手にはめる物の革は赤コーナーの色）。</summary>
     public static VoxelGrid Build(WeaponKind kind) => Build(kind, BoxerAnatomy.RedGlove);
@@ -432,7 +463,7 @@ public sealed class Weapon
         WeaponKind.WoodenClub => Club(),
         WeaponKind.Katana => Katana(),
         WeaponKind.Longsword => Longsword(),
-        WeaponKind.Staff => Staff(),
+        WeaponKind.Staff or WeaponKind.Jo => Rod(kind),
         WeaponKind.Glove => Glove(leather),
         WeaponKind.Fist => BareHandState.InitialGrid(),
         WeaponKind.KnuckleDuster => Worn(kind, WornCell, KnuckleDusterAt),
@@ -536,18 +567,24 @@ public sealed class Weapon
     /// </summary>
     public const float StaffHandSpacing = 0.11f;
 
-    /// <summary>丸い木の棒。両端は半球で丸める。太さは一定。</summary>
-    private static VoxelGrid Staff()
+    // ── 杖（4 尺 2 寸 ≒ 128 cm、ユーザーの指定で 130 cm。人形の縮尺 0.355: 130 cm → 46 cm、太さ 2.4 cm → 0.85 cm）。
+    // 実物の縮尺の半径 4.3 mm を、2.5 mm のセルで丸く見えるよう 5 mm（セル 4 個ぶん）にした（六尺棒と同じ丸め方）。
+    private const float JoHalfLength = 0.23f;
+    private const float JoRadius = 0.005f;
+
+    /// <summary>丸い木の棒（六尺棒・杖）。両端は半球で丸める。太さは一定。</summary>
+    private static VoxelGrid Rod(WeaponKind kind)
     {
-        var half = new Vector3(StaffHalfLength, StaffRadius, StaffRadius);
+        var (length, rodRadius) = RodOf(kind);
+        var half = new Vector3(length, rodRadius, rodRadius);
         return new VoxelGrid(BoxerAnatomy.Palette, half, StaffCell, (p, _) =>
         {
-            var radius = StaffRadius;
-            var fromEnd = StaffHalfLength - MathF.Abs(p.X);
-            if (fromEnd < StaffRadius)
+            var radius = rodRadius;
+            var fromEnd = length - MathF.Abs(p.X);
+            if (fromEnd < rodRadius)
             {
-                var back = StaffRadius - fromEnd;
-                radius = MathF.Sqrt(MathF.Max(0f, (StaffRadius * StaffRadius) - (back * back)));
+                var back = rodRadius - fromEnd;
+                radius = MathF.Sqrt(MathF.Max(0f, (rodRadius * rodRadius) - (back * back)));
             }
 
             return (p.Y * p.Y) + (p.Z * p.Z) <= radius * radius ? BoxerAnatomy.Wood : (byte)0;

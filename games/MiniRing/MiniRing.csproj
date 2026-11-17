@@ -16,6 +16,7 @@
     <!-- ゲームの CPU（champion）のスタイル。値が多い（防御技の表を含む）ので JSON のまま組み込む。docs/BOT_PDCA.md -->
     <EmbeddedResource Include="Bots\karate.json" LogicalName="MiniRing.Bots.karate.json" />
     <EmbeddedResource Include="Bots/taekwondo.json" LogicalName="MiniRing.Bots.taekwondo.json" />
+    <EmbeddedResource Include="Bots/kicks/*.json" LogicalName="MiniRing.Bots.kicks.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Bots/tonfa.json" LogicalName="MiniRing.Bots.tonfa.json" />
     <EmbeddedResource Include="Bots/jujutsu.json" LogicalName="MiniRing.Bots.jujutsu.json" />
     <EmbeddedResource Include="Bots\champion.json" LogicalName="MiniRing.Bots.champion.json" />

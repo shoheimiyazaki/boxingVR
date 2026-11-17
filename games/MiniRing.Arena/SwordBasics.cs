@@ -24,6 +24,10 @@ internal static class SwordBasics
     public static IEnumerable<ImitationVideo.Shot> StaffShots(float rate) =>
         StaffForms.Forms().Select(f => new ImitationVideo.Shot("棒: " + f.Name, WeaponKind.Staff, f, rate));
 
+    /// <summary>杖（<see cref="WeaponKind.Jo"/>）で棒術の型をなぞる動画の 1 本ずつ（杖道の型はまだ無いので六尺棒の型）。</summary>
+    public static IEnumerable<ImitationVideo.Shot> JoShots(float rate) =>
+        StaffForms.Forms().Select(f => new ImitationVideo.Shot("杖: " + f.Name, WeaponKind.Jo, f, rate));
+
     public static IEnumerable<ImitationVideo.Shot> Shots(float rate)
     {
         var loaded = new Dictionary<string, BvhClip>();

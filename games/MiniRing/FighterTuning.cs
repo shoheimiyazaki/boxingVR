@@ -145,6 +145,16 @@ public sealed record FighterTuning
     /// </summary>
     public float OneHandWristShare { get; init; } = 1f / 3f;
 
+    /// <summary>
+    /// 両手で握った棒の握りの点を棒に沿って動かす速さの上限 [m/s]（<see cref="Fighter"/> の握りの矛盾の解消）。両手の拳の目標の距離と
+    /// 握りの間隔のずれを、棒の中心に近い方の手が滑って詰める。棒術の持ち替えで手が棒の上を滑る速さ（1〜2 m/s）の下の方: 握りの間隔
+    /// 11 cm のずれは 0.07 秒で詰まる。摩擦の上限から出した値ではなく、握ったまま滑る近道（CLAUDE.md §8）。
+    /// </summary>
+    public float GripSlideSpeed { get; init; } = 1.5f;
+
+    /// <summary>棒を握る 2 つの手の間隔の下限 [m]（拳の幅ほど: 素手の拳 2.8 cm = <c>Weapon.HandSpacing</c>）。これより近づく握りにはしない。</summary>
+    public float GripMinSpacing { get; init; } = 0.03f;
+
     /// <summary>両手持ちで、添える手が握りをつかめる、拳と握る所の距離 [m]（これより近づいたら玉継手でつなぐ）。</summary>
     public float SupportGripReach { get; init; } = 0.02f;
 
