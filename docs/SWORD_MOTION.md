@@ -211,3 +211,30 @@ dotnet run --project games/MiniRing.Arena -c Release -- swordlib --bouts 4 --sec
 ### 見た目（`imitate --weapon katana --only <名前>` の動画のコマ）
 
 右薙ぎは剣先が胴の高さで横へ水平に払われて構えへ戻ります（動くカメラのコマでは「右から」かまでは読み取れないので、左右は `HorizontalCuts_CrossFromTheNamedSide_AtTheSameHeight` の数値で確かめています）。逆風は剣が前の低い所から真上へ上がり、真っ向は頭上の垂直から真下へ落ちます。柄頭打ちは剣先が自分の肩の後ろへ回り、柄頭が相手の顔の高さへ前へ出ます（ロングソードの `knaufschlag` では当たって血しぶきが出る）。前蹴りは剣を構えたまま脚が出て、相手が押し下げられます。
+
+## 10. バットの型（2026-11-18、LogicVersion 48）
+
+バット（`WeaponKind.Bat`）は、木の棍棒（21 cm、腕の 1.1 倍）と同じ形・材質を両手で握る種類です（片手で振るこんぼうは別の種類のまま）。型（`games/MiniRing/Motion/BatForms.cs`）は `SwordForms.FromKeys` のキー（両手の位置・棒の向きの目標の経路）で、姿勢の書き込みはありません。技の選び方・狙い・守りは剣と同じ（`FormSwordsman`・`SwordsmanBot`・`MotionAim`・`WeaponDefense`）で、バットのための分岐はありません。棍棒は刃が無い（`IsBlunt`）ので、当たりの違いは材料から出ます。教科書は `Bots/weapons/bat.json`（重みなし）。
+
+棒が短いので、どの打ちも腕を伸ばして踏み込み（`Step`）で届かせます。握りの端（グリップエンド）は 2 つ目の打つ端（`Weapon.StrikeEndsX`）です。構えは両手を胸の前、棒を斜め上へ立てる形（`BatForms.Ready`）。
+
+| 型 | 経路 | 間合い | 狙いの測定（aimlab、5 構え中） |
+|---|---|---:|---|
+| `swing-right` | 右から左への水平（頭〜肩の高さ） | 34 cm | 胸 60%・上腕 60% |
+| `swing-left` | 左から右への返し（バックハンド） | 34 cm | 胸 80%・頭 40% |
+| `swing-mid` | 右から胴の高さの水平 | 34 cm | 上腕・腿 40% |
+| `swing-low` | 右から脚の高さへ低く | 34 cm | 胸 60% |
+| `chop` | 真上から振り下ろす | 40 cm | 頭 100% |
+| `chop-right` / `chop-left` | 右上・左上から斜めに | 36 cm | 頭 80% |
+| `scoop-right` / `scoop-left` | 右下・左下から斜めにすくい上げ（あご・手） | 36 cm | 上腕 80% |
+| `poke-body` / `poke-face` | 頭の端での突き（胴・顔） | 41 / 40 cm | 頭 60〜80% |
+| `snap` | 小さく速い手打ち（前の手・前腕へ） | 34 cm | 頭 80% |
+| `butt` | 棒を返して頭の端を右肩の上へ立て、握りの端で殴る | 31 cm | 頭・胸・上腕 40〜60% |
+| `front-kick` | 構えのまま既存の前蹴り（`KickSpec.Front`） | 18 cm | 腰・前腕 |
+
+（測定の全表は `docs/arena/bat_forms_aim.md`。値は `SwordFormSkills.json` の `Bat/*`）
+
+- 試合の技の集まりは間合いの下限 0.33 m 以上の 12 本。`butt`・`front-kick` は間合いの内側の型で、意図操作・キャラの教育・並行して作る「いまの距離で出せる技」の仕組みで使う。
+- 試し方: `handlelab --pairs bat:jin,bat:sean,bat:bat`（`bat` は名簿に無い試験用のキャラ。jin の体でバットを持つ）、`video --red-weapon bat`、`imitate --weapon bat [--only chop]`、`selfpath --forms yes`、`aimlab --forms yes`。
+- 型は目標の経路。体が追いきれない所は 2 つ: 斜めの振り下ろし（`chop-right`・`chop-left`）で棒の先が目標から最大 1.1 腕遅れる（imitate の測定）、脚の高さ（腿・すね）は 21 cm の棒では届きにくい。近道は `CLAUDE.md` §8「バットの型」。
+- 測定と採否は `docs/BOT_PDCA.md`「バットの型」、`docs/arena/bat_forms_*.md`。型の動画 `docs/video/bat_forms_all.mp4`（コマの抜粋は同じ場所の `bat_forms_*_frames.jpg`）。
