@@ -27,3 +27,9 @@
 - 報告: `docs/plans/CODEX_REPORT_SWORD_DEFENSE2_2026-11-18.md`。
 
 外部からのダウンロード（ffmpeg など）はしないこと。LiveStream のテストが環境の ffmpeg で落ちるのは既知として、報告に書けばよい。
+
+## 追記（Sonnet が引き継ぐとき、2026-11-18）
+Codex はクレジット切れで、この 2 周目をほぼ始める前に止まった。最初から行う。
+- コミットはワークツリーのブランチへ（git は使える）。報告は `docs/plans/SONNET_REPORT_SWORD_DEFENSE2_2026-11-18.md`。
+- 技の作業（`SwordForms.Additional.cs` などの新しい型）はもうマージされている。打ち手に新しい型（`shomen`・`migi-nagi`・`gyakufu`・`do-tsuki` など）も入れてよい。
+- **実行の場所**: この PC は空きメモリが 1 GB も無いので、ビルド・テスト・Arena の測定はこの PC で走らせない。`bash C:/Users/smiya/AppData/Local/Temp/claude/edeb7fa9e714dd6f/db419768-03ca-4cb0-99f5-fe8c5b7ff5c3/scratchpad/rt.sh sword-defense "<cmd.exe のコマンド>"` で raytrek のクローン `C:\Users\smiya\repos\sword-defense` に今のローカルの HEAD を送って走らせる（先に commit。途中は `wip:` でよい）。結果のファイルは `rt.sh sword-defense --get <リモートの相対パス> <ローカルのパス>`。長い測定は Bash の `run_in_background`。動画は git の外、確かめる PNG のコマだけ持ってきて Read で見る。
