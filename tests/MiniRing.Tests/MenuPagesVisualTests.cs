@@ -91,7 +91,7 @@ public sealed class MenuPagesVisualTests
         File.Delete(settings);
         using var menu = new MatchMenu(replays, settings, loadPortraits: true);
         menu.Portraits.Complete();
-        Assert.AreEqual(16, menu.Portraits.ReadyCount, "every character has a portrait");
+        Assert.AreEqual(17, menu.Portraits.ReadyCount, "every character has a portrait");
         using var renderer = new HeadlessRenderer(Width, Height);
 
         // 最初の画面（カーソルは観戦）。
