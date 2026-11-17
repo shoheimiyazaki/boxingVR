@@ -291,13 +291,13 @@ internal static class KickShin
                 var middle = ((a + v) * 0.5f) + new Vector3(0f, -0.14f, 0f);
                 var direction = Vector3.Normalize((v - a) with { Y = 0f });
                 var toKickingSide = Vector3.Cross(Vector3.UnitY, direction) * (rear ? -1f : 1f);
-                var offset = oblique ? (toKickingSide * 0.55f) + (direction * 0.8f) : toKickingSide * 0.9f;
+                var offset = oblique ? (toKickingSide * 0.7f) + (direction * 1.0f) : toKickingSide * 1.25f;
                 var eye = middle + offset + new Vector3(0f, 0.12f, 0f);
-                var half = (game.Ring.Size * 0.5f) - 0.12f;
+                var half = (game.Ring.Size * 0.5f) - 0.06f;
                 eye = new Vector3(Math.Clamp(eye.X, game.Ring.Center.X - half, game.Ring.Center.X + half), eye.Y, Math.Clamp(eye.Z, game.Ring.Center.Z - half, game.Ring.Center.Z + half));
                 var instances = new List<Aigis.Render.PrimitiveInstance>();
                 BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
-                var vp = Aigis.Render.Camera.ViewProjection(eye, middle, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
+                var vp = Aigis.Render.Camera.ViewProjection(eye, middle, Vector3.UnitY, 55f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
                 var text = new Aigis.Render.ScreenTextDraw[]
                 {
                     new($"{h.Name}・{(rear ? "後ろの足（右）" : "前の足（左）")}・{(oblique ? "斜め前" : "真横")}（蹴る人 {bodyId}、受ける人 {victimId}）", new Vector2(40f, 40f), 26f, white, Aigis.Render.TextAnchor.Left),

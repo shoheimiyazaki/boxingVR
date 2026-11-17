@@ -80,6 +80,58 @@ public sealed class KickShinTests
         Assert.AreEqual(1f, probe.For(Hand.Left, Hand.Right).Standoff);
     }
 
+    private static (int Landed, int OnTarget, int Fell, float MeanShin) Run(KickShin.Height h, bool rear)
+    {
+        var tune = KickSpec.Of(h.Technique).TuneFor(rear ? Hand.Right : Hand.Left)!;
+        var outcomes = KickShin.TuneConditions.Concat(KickShin.ConfirmConditions).Select(c => KickShin.Kick(h, rear, tune, c)).ToArray();
+        var landed = outcomes.Where(o => o.Landed).ToArray();
+        return (landed.Length, outcomes.Count(o => KickShin.InBand(h, o)), outcomes.Count(o => o.Fell), landed.Length == 0 ? 0f : landed.Average(o => o.Fraction));
+    }
+
+    [TestMethod]
+    public void TheRearFootRoundhouses_AtEachHeight_LandOnTheirTarget_WithTheLowerShin()
+    {
+        // 調整に使った 6 条件と使っていない 6 条件（受ける人・種が違う）。数は docs/arena/kick_shin_lmh_*.md の表で測った値から、少し余裕を引いて置く。
+        var (low, mid, high) = (Run(KickShin.Heights[0], true), Run(KickShin.Heights[1], true), Run(KickShin.Heights[2], true));
+        Console.WriteLine($"low {low}  mid {mid}  high {high}");
+        Assert.IsGreaterThanOrEqualTo(11, low.Landed);
+        Assert.IsGreaterThanOrEqualTo(9, low.OnTarget, "low: the shin (0.55-0.9) lands on the thigh/knee");
+        Assert.IsGreaterThanOrEqualTo(3, mid.OnTarget, "middle: the shin lands on the body");
+        Assert.IsGreaterThanOrEqualTo(3, high.OnTarget, "high: the shin lands on the head");
+        foreach (var r in new[] { low, mid, high })
+        {
+            Assert.AreEqual(0, r.Fell, "the kicker stays standing");
+            Assert.IsInRange(0.5f, 0.95f, r.MeanShin, "on average the contact is on the lower shin");
+        }
+    }
+
+    [TestMethod]
+    public void TheFrontFootRoundhouses_Land_WithoutFalling_AndTheLowOneUsesTheShin()
+    {
+        var low = Run(KickShin.Heights[0], false);
+        var mid = Run(KickShin.Heights[1], false);
+        Console.WriteLine($"front-foot low {low}  mid {mid}");
+        Assert.IsGreaterThanOrEqualTo(10, low.Landed);
+        Assert.IsGreaterThanOrEqualTo(3, low.OnTarget);
+        Assert.IsGreaterThanOrEqualTo(2, mid.OnTarget);
+        Assert.AreEqual(0, low.Fell + mid.Fell, "the kicker stays standing");
+    }
+
+    [TestMethod]
+    public void TheHumanFrontKick_LandsOnTheBody_WithBothLegs_AndTheKickerStaysStanding()
+    {
+        var front = KickShin.Heights[3];
+        Assert.IsNotNull(KickSpec.Of(KickTechnique.Front).Captured, "the front kick follows the captured model");
+        var rear = Run(front, true);
+        var lead = Run(front, false);
+        Console.WriteLine($"front kick rear {rear}  lead {lead}");
+        Assert.IsGreaterThanOrEqualTo(10, rear.Landed);
+        Assert.IsGreaterThanOrEqualTo(10, lead.Landed);
+        Assert.IsGreaterThanOrEqualTo(3, rear.OnTarget, "the rear foot front kick lands on the body");
+        Assert.IsGreaterThanOrEqualTo(8, lead.OnTarget, "the lead foot front kick lands on the body");
+        Assert.AreEqual(0, rear.Fell + lead.Fell, "the kicker stays standing");
+    }
+
     [TestMethod]
     public void TheFrontFootKick_MovesTheHipAwayFromTheTarget_AndTheRearFootKick_MovesItCloser()
     {
