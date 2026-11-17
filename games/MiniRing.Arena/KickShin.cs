@@ -129,6 +129,7 @@ internal static class KickShin
         log("");
         var summary = new List<string>();
         var rows = new List<string>();
+        var all = new List<KneePractice.Outcome>();
         foreach (var h in heights)
         {
             var embedded = practice ? null : KickTunes.Load(h.File);
@@ -166,6 +167,7 @@ internal static class KickShin
                         foreach (var (c, o) in outcomes)
                         {
                             rows.Add(Row($"{label}（{setName}）", h, rear, tune, c, o));
+                            all.Add(o);
                         }
 
                         var hit = outcomes.Where(p => p.o.Landed).ToArray();
@@ -182,6 +184,15 @@ internal static class KickShin
         foreach (var line in summary)
         {
             log(line);
+        }
+
+        log("");
+        log("## 足の部位ごと（上の全部の蹴りを、最初に当たった足の部位で分けた平均。すねの方がダメージが小さい理由を見る）");
+        log("| 足の部位 | 本数 | 当たった瞬間の足の速さ [m/s] | 運動量 | ダメージ | エネルギー [J] |");
+        log("|---|---|---|---|---|---|");
+        foreach (var g in all.Where(o => o.Landed).GroupBy(o => o.Part).OrderBy(g => g.Key))
+        {
+            log($"| {g.Key} | {g.Count()} | {F(g.Average(o => o.Speed))} | {F(g.Average(o => o.Momentum))} | {F(g.Average(o => o.Damage))} | {F(g.Average(o => o.Energy))} |");
         }
 
         log("");
