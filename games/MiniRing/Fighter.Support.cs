@@ -190,6 +190,17 @@ public sealed partial class Fighter
             return;
         }
 
+        if (LegShortfall > 1e-3f)
+        {
+            // 脚を失った体（膝・切り株・骨盤で立つ）は足の運びで踏み直せず、立つのもホバーで腰を短い脚の高さに保つ近道なので、
+            // 釣り合い・起き上がりの手足の制限は掛けない（前の体と同じ。CLAUDE.md §8「脚を失った体」）。床に着いていない体に力を出さないのは同じ。
+            // 掛けると、片方の腿を失った体は踏み直せずに倒れ、骨盤で座る体は「重心が足の上」にならず起き上がれなかった（master とのマージで分かった）。
+            (Balance, VerticalBalance) = (1f, 1f);
+            LimbSupport = 1f;
+            RiseCap = 1f;
+            return;
+        }
+
         // 支えの残り（連続の釣り合いのモデル）: 捕捉点が支えの領域の外へ出た距離で 1 → 0 へ。
         // 起き上がる間（手・膝で床を押す多点の物理が無い）は、床に着いていれば前の立たせる力のまま（近道、CLAUDE.md §8）。
         (Balance, VerticalBalance) = State == FighterState.Standing ? BalanceOf(c, groundY) : (1f, 1f);
