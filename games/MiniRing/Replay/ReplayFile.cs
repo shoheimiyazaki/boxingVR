@@ -46,6 +46,7 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 ///                | v5: 左右の手形 int32 | 左右の脚指令（有無、目標、膝目標・向きの有無と値、Spring）
 ///   0x02 Checksum: int32 step（そのステップを終えた直後）| uint64 BoxingGame.StateChecksum()
 /// </code>
+/// 版 11: Step の最後に左右の握りを滑らせる指令（bool Slide。<see cref="HandCommand.Slide"/>。版 10 までの記録は false）。
 /// 版 10: Step の最後に左右の肘の締め（float Tuck、0..1。<see cref="HandCommand.Tuck"/>）。
 /// 版 9: 見出しの並びは版 8 と同じで、matchSettings の JSON に PlayerWeaponStyleJson・CpuWeaponStyleJson（武器のボットの判断の値。教科書に教育を重ねた解決済みの <see cref="Bots.WeaponStyle"/>）が入りうる（無ければ null = その武器の組み込みの教科書）。
 /// 版 8: 見出しの並びは版 7 と同じで、matchSettings の JSON に PlayerStyleJson（人が操る赤の意図の解釈に使う、教育を重ねた解決済みのスタイル）が入りうる（無ければ null = 今までの決め方）。
@@ -54,7 +55,7 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// </summary>
 public static class ReplayFile
 {
-    public const int Version = 10;
+    public const int Version = 11;
     public const string Extension = ".mrrep";
     /// <summary>1 ステップの時間刻みとして受け付ける上限 [s]（壊れたファイルの値を物理に渡さない）。</summary>
     public const float MaxDt = 0.25f;
@@ -114,6 +115,8 @@ public static class ReplayFile
         // 読む側は 0..1 の有限値だけ受け付けるので、書く側で揃える（体も同じ範囲に丸めて使う: Arm.Pole）。
         writer.Write(float.IsFinite(c.Left.Tuck) ? Math.Clamp(c.Left.Tuck, 0f, 1f) : 0f);
         writer.Write(float.IsFinite(c.Right.Tuck) ? Math.Clamp(c.Right.Tuck, 0f, 1f) : 0f);
+        writer.Write(c.Left.Slide);
+        writer.Write(c.Right.Slide);
     }
 
     public static void WriteChecksum(BinaryWriter writer, int stepIndex, ulong checksum)
@@ -265,6 +268,15 @@ public static class ReplayFile
             {
                 Left = command.Left with { Tuck = ReadTuck(reader) },
                 Right = command.Right with { Tuck = ReadTuck(reader) },
+            };
+        }
+
+        if (version >= 11)
+        {
+            command = command with
+            {
+                Left = command.Left with { Slide = reader.ReadBoolean() },
+                Right = command.Right with { Slide = reader.ReadBoolean() },
             };
         }
 

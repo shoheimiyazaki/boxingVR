@@ -305,6 +305,17 @@ public sealed class Weapon
     /// <summary>両手で握れる武器か（棍棒・日本刀・ロングソード・棒。片手剣の握りは片手ぶんの長さ）。</summary>
     public static bool CanTwoHand(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff;
 
+    /// <summary>
+    /// 手の中で滑らせて握り直せる範囲（武器のローカル X の最小・最大 [m]。滑らせられない武器は null）。棒は、両端の半球と打つ所の手前
+    /// （<see cref="StaffTipInset"/>）を除いた、軸が一定の太さのほぼ全体。刀・ロングソード・こんぼうは柄が短く握る所が決まっているので
+    /// null（<see cref="HandCommand.Slide"/> は無視）。種類の一覧に足す形は <see cref="CanTwoHand"/> と同じ近道（CLAUDE.md §8）。
+    /// </summary>
+    public static (float Min, float Max)? SlideSpanOf(WeaponKind kind) => kind switch
+    {
+        WeaponKind.Staff => (-(StaffHalfLength - StaffRadius - StaffTipInset), StaffHalfLength - StaffRadius - StaffTipInset),
+        _ => null,
+    };
+
     /// <summary>刃の無い（打って潰す）武器か。刃のある武器は、刃の形と材質だけで斬る（<see cref="VoxelContact"/>）。</summary>
     public static bool IsBlunt(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield;
 
