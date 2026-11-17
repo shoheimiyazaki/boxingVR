@@ -103,6 +103,10 @@ XrSession.Create
 物理専用スレッド: 入力を採用 → game.Step(入力, 1/240 秒) → 写しを公開（表示スレッドを待たせない）
 ```
 
+### 武器と動きの記録（2026-11-17）
+
+`--weapon <kind>` で VR でも武器を持てます（トリガーを引いている手は握り、離すと棒の上を滑る。コントローラの向きが武器の向きの目標）。B/Y ボタン・`--record-motion` で VR の動きを `motions/*.vrmotion` に記録し、Arena の `imitate --vrmotion` で人形になぞらせられます。写像は `games/MiniRing/Motion/VrPlayerMapper.cs`（ホスト非依存）、記録は `VrMotionClip`・`VrMotionRecorder`、なぞる操作元は `VrMotionImitation`。起動の引数・ボタン・実機で試す手順は [VR_MOTION.md](VR_MOTION.md)。
+
 ### 描画の流れ
 
 Aigis のレンダラーは自前のデバイスを作り、出力先は自分のウィンドウか CPU 読み戻しに限られます。そこで `HeadlessRenderer` に**外部デバイスモード**を追加しました。

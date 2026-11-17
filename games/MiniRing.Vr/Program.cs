@@ -13,6 +13,9 @@ using MiniRing.Vr;
 //   --hit-sound <on|off>  パンチが当たる音（既定 on。ダメージを知らせる音）
 //   --selftest          HMD なしで VR 描画経路（外部デバイス・GPU コピー）を検証して終了
 //   --profile-headless [--profile-katana]  HMD なしで両目を12秒計測（各640x360・VSyncなし）
+//   --weapon <staff|katana|longsword|ironsword|woodenclub>  自分が武器を持つ（トリガーを引いている手は握り、離すと棒の上を滑る）
+//   --cpu-weapon <kind|none>  相手の武器（既定は自分と同じ。none で素手）  --cpu <style>  相手のスタイル（既定 champion）
+//   --record-motion      起動から終了まで VR の動きを motions/<日時>_<武器>.vrmotion に記録（B/Y ボタンでも開始・停止。docs/VR_MOTION.md）
 
 if (args.Contains("--selftest"))
 {
@@ -48,6 +51,12 @@ for (var i = 0; i < args.Length - 1; i++)
     {
         runtimeRequest = args[i + 1];
     }
+}
+
+if (!VrMatchOptions.TryParse(args, out var match, out var matchError))
+{
+    Console.Error.WriteLine(matchError);
+    return 1;
 }
 
 // OpenXR ローダーは xrCreateInstance の時点で XR_RUNTIME_JSON を読むので、XrSession を作る前に固定する。
@@ -91,14 +100,20 @@ catch (InvalidOperationException ex)
 
 // 試合は replays/ に自動で記録する（デスクトップ版の --replay で再生、--verify で照合できる）。
 using (xr)
-using (var game = new BoxingGame(FighterTuning.Default with { PlayerFatigue = false })) // VR の手触りの調整が終わるまで、自分の腕は疲れない
+using (var game = new BoxingGame(FighterTuning.Default with { PlayerFatigue = false }, corners: match.Corners)) // VR の手触りの調整が終わるまで、自分の腕は疲れない
 using (var recorder = ReplayRecorder.TryStartFile(Path.Combine(Environment.CurrentDirectory, "replays"), game, "vr", out var recordingMessage))
 using (var renderer = new HeadlessRenderer(xr.EyeWidth, xr.EyeHeight, xr.Vulkan.External))
 using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
 {
     Console.WriteLine($"[vr] eye {xr.EyeWidth}x{xr.EyeHeight}, sRGB={xr.IsSrgb}. Put the headset on.");
     Console.WriteLine($"[vr] {recordingMessage}");
-    var control = new VrPlayerControl();
+    var control = new VrPlayerControl(weaponMode: match.PlayerWeapon is not null);
+    using var motion = new VrMotionSession(match.PlayerWeapon, Path.Combine(Environment.CurrentDirectory, "motions"), args.Contains("--record-motion"));
+    if (match.PlayerWeapon is { } held)
+    {
+        Console.WriteLine($"[vr] weapon: {held} (trigger = hold, release = slide the grip)");
+    }
+    Console.WriteLine("[vr] B/Y button: start/stop recording the motion (motions/*.vrmotion)");
     var clear = ArenaLook.Background;
     // VR の仕上げ: 画面の隅の陰りは付けない（頭を動かしても付いてくる黒い縁は不自然）。
     var finish = ArenaLook.Finish(vignette: 0f);
@@ -110,6 +125,7 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
     using var simulation = new VrSimulation(scene, (frame, dt) =>
     {
         var input = control.Read(frame, game.PlayerSense, dt);
+        motion.Step(frame, input.Player, control.Mapper, game.PlayerSense.ArmReach, dt);
         if (recorder is null)
         {
             game.Step(input, dt);

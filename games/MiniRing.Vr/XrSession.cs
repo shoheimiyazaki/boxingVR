@@ -12,7 +12,14 @@ internal readonly record struct XrInputFrame(
     Vector3 HeadPosition, Quaternion HeadOrientation,
     Vector3 LeftHand, Vector3 RightHand, bool LeftTracked, bool RightTracked,
     Vector2 LeftStick, Vector2 RightStick, float LeftGrip, float RightGrip,
-    bool CalibratePressed, bool Focused);
+    bool CalibratePressed, bool Focused,
+    Quaternion LeftHandOrientation = default, Quaternion RightHandOrientation = default,
+    float LeftTrigger = 0f, float RightTrigger = 0f, bool RecordTogglePressed = false)
+{
+    /// <summary>OpenXR に依らない生の入力（写像・記録が使う形）。</summary>
+    public MiniRing.Motion.VrRawFrame ToRaw() => new(HeadPosition, HeadOrientation, LeftHand, RightHand, LeftTracked, RightTracked,
+        LeftStick, RightStick, LeftGrip, RightGrip, CalibratePressed, Focused, LeftHandOrientation, RightHandOrientation, LeftTrigger, RightTrigger);
+}
 
 /// <summary>1 つの目の描画指示。</summary>
 internal readonly record struct XrEyeView(int Eye, Matrix4x4 View, Aigis.Render.FrustumWindow Fov, Vector3 Position, ulong TargetImage);
@@ -23,7 +30,7 @@ internal readonly record struct XrEyeView(int Eye, Matrix4x4 View, Aigis.Render.
 /// <item>XR_KHR_vulkan_enable（v1）: ランタイムが求める拡張でアプリが Vulkan を作る（<see cref="VulkanContext"/>）。</item>
 /// <item>Stage 空間（床 y=0）。初回の頭の向きで空間を作り直し、前方を固定する（iTVision RecenterAppSpace）。</item>
 /// <item>目ごとのスワップチェーン（R8G8B8A8_SRGB 優先）。描画は呼び出し側が <see cref="XrEyeView.TargetImage"/> へ書く。</item>
-/// <item>操作: grip 姿勢・スティック・squeeze・A/X・振動（iTVision に無かった A/X と振動を追加）。</item>
+/// <item>操作: grip 姿勢・スティック・squeeze・トリガー・A/X・B/Y・振動（iTVision に無かった A/X と振動を追加）。</item>
 /// </list>
 /// <para><b>座標系</b>: OpenXR は −Z 前方。ゲームは +Z 前方（プレイヤーはリング＝+Z を向いて立つ）なので、
 /// XR 空間 → ワールドは Y 軸 180° 回転（<see cref="WorldFromXr"/>）。</para>
@@ -49,6 +56,8 @@ internal sealed unsafe class XrSession : IDisposable
     private ActionSet _actionSet;
     private Silk.NET.OpenXR.Action _poseAction;
     private Silk.NET.OpenXR.Action _squeezeAction;
+    private Silk.NET.OpenXR.Action _triggerAction;
+    private Silk.NET.OpenXR.Action _recordAction;
     private Silk.NET.OpenXR.Action _stickAction;
     private Silk.NET.OpenXR.Action _calibrateAction;
     private Silk.NET.OpenXR.Action _hapticAction;
@@ -291,7 +300,10 @@ internal sealed unsafe class XrSession : IDisposable
         var tracked = new bool[2];
         var sticks = new Vector2[2];
         var grips = new float[2];
+        var triggers = new float[2];
+        var handRotations = new Quaternion[2];
         var calibrate = false;
+        var record = false;
         for (var h = 0; h < 2; h++)
         {
             var location = new SpaceLocation { Type = StructureType.SpaceLocation };
@@ -299,11 +311,16 @@ internal sealed unsafe class XrSession : IDisposable
             const SpaceLocationFlags valid = SpaceLocationFlags.PositionValidBit | SpaceLocationFlags.OrientationValidBit;
             tracked[h] = focused && (location.LocationFlags & valid) == valid;
             hands[h] = ToWorld(ToVector(location.Pose.Position));
+            handRotations[h] = Quaternion.Concatenate(ToQuaternion(location.Pose.Orientation), WorldFromXr);
 
             var get = new ActionStateGetInfo { Type = StructureType.ActionStateGetInfo, SubactionPath = _handPaths[h] };
             get.Action = _squeezeAction;
             var squeeze = new ActionStateFloat { Type = StructureType.ActionStateFloat };
             grips[h] = focused && _xr.GetActionStateFloat(_session, &get, &squeeze) == Result.Success && squeeze.IsActive != 0 ? squeeze.CurrentState : 0f;
+
+            get.Action = _triggerAction;
+            var trigger = new ActionStateFloat { Type = StructureType.ActionStateFloat };
+            triggers[h] = focused && _xr.GetActionStateFloat(_session, &get, &trigger) == Result.Success && trigger.IsActive != 0 ? trigger.CurrentState : 0f;
 
             get.Action = _stickAction;
             var stick = new ActionStateVector2f { Type = StructureType.ActionStateVector2f };
@@ -315,10 +332,16 @@ internal sealed unsafe class XrSession : IDisposable
             var button = new ActionStateBoolean { Type = StructureType.ActionStateBoolean };
             calibrate |= focused && _xr.GetActionStateBoolean(_session, &get, &button) == Result.Success
                 && button.IsActive != 0 && button.ChangedSinceLastSync != 0 && button.CurrentState != 0;
+
+            get.Action = _recordAction;
+            var recordButton = new ActionStateBoolean { Type = StructureType.ActionStateBoolean };
+            record |= focused && _xr.GetActionStateBoolean(_session, &get, &recordButton) == Result.Success
+                && recordButton.IsActive != 0 && recordButton.ChangedSinceLastSync != 0 && recordButton.CurrentState != 0;
         }
 
         return new XrInputFrame(ToWorld(headXr), Quaternion.Concatenate(headRotXr, WorldFromXr),
-            hands[0], hands[1], tracked[0], tracked[1], sticks[0], sticks[1], grips[0], grips[1], calibrate, focused);
+            hands[0], hands[1], tracked[0], tracked[1], sticks[0], sticks[1], grips[0], grips[1], calibrate, focused,
+            handRotations[0], handRotations[1], triggers[0], triggers[1], record);
     }
 
     private static Vector3 ToWorld(Vector3 xr) => Vector3.Transform(xr, WorldFromXr);
@@ -511,6 +534,8 @@ internal sealed unsafe class XrSession : IDisposable
 
         _poseAction = CreateAction("hand_pose", "Hand Pose", ActionType.PoseInput);
         _squeezeAction = CreateAction("squeeze", "Grab", ActionType.FloatInput);
+        _triggerAction = CreateAction("trigger", "Hold weapon", ActionType.FloatInput);
+        _recordAction = CreateAction("record_motion", "Record motion", ActionType.BooleanInput);
         _stickAction = CreateAction("thumbstick", "Move", ActionType.Vector2fInput);
         _calibrateAction = CreateAction("calibrate", "Calibrate Height", ActionType.BooleanInput);
         _hapticAction = CreateAction("haptic", "Haptic", ActionType.VibrationOutput);
@@ -522,6 +547,8 @@ internal sealed unsafe class XrSession : IDisposable
             (_squeezeAction, "/user/hand/left/input/squeeze/value"), (_squeezeAction, "/user/hand/right/input/squeeze/value"),
             (_stickAction, "/user/hand/left/input/thumbstick"), (_stickAction, "/user/hand/right/input/thumbstick"),
             (_calibrateAction, "/user/hand/left/input/x/click"), (_calibrateAction, "/user/hand/right/input/a/click"),
+            (_triggerAction, "/user/hand/left/input/trigger/value"), (_triggerAction, "/user/hand/right/input/trigger/value"),
+            (_recordAction, "/user/hand/left/input/y/click"), (_recordAction, "/user/hand/right/input/b/click"),
             (_hapticAction, "/user/hand/left/output/haptic"), (_hapticAction, "/user/hand/right/output/haptic"),
         ]);
         Suggest("/interaction_profiles/valve/index_controller",
@@ -530,6 +557,8 @@ internal sealed unsafe class XrSession : IDisposable
             (_squeezeAction, "/user/hand/left/input/squeeze/value"), (_squeezeAction, "/user/hand/right/input/squeeze/value"),
             (_stickAction, "/user/hand/left/input/thumbstick"), (_stickAction, "/user/hand/right/input/thumbstick"),
             (_calibrateAction, "/user/hand/left/input/a/click"), (_calibrateAction, "/user/hand/right/input/a/click"),
+            (_triggerAction, "/user/hand/left/input/trigger/value"), (_triggerAction, "/user/hand/right/input/trigger/value"),
+            (_recordAction, "/user/hand/left/input/b/click"), (_recordAction, "/user/hand/right/input/b/click"),
             (_hapticAction, "/user/hand/left/output/haptic"), (_hapticAction, "/user/hand/right/output/haptic"),
         ]);
         Suggest("/interaction_profiles/khr/simple_controller",
@@ -537,6 +566,7 @@ internal sealed unsafe class XrSession : IDisposable
             (_poseAction, "/user/hand/left/input/grip/pose"), (_poseAction, "/user/hand/right/input/grip/pose"),
             (_squeezeAction, "/user/hand/left/input/select/click"), (_squeezeAction, "/user/hand/right/input/select/click"),
             (_calibrateAction, "/user/hand/left/input/menu/click"), (_calibrateAction, "/user/hand/right/input/menu/click"),
+            (_triggerAction, "/user/hand/left/input/select/click"), (_triggerAction, "/user/hand/right/input/select/click"),
             (_hapticAction, "/user/hand/left/output/haptic"), (_hapticAction, "/user/hand/right/output/haptic"),
         ]);
 

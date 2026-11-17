@@ -12,6 +12,7 @@ TestResults/
 # Per-user Claude Code settings
 .claude/settings.local.json
 replays/
+motions/
 
 # Rendered videos (run.cmd arena video)
 videos/

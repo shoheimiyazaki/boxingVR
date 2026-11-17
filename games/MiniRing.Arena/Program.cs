@@ -79,7 +79,8 @@ try
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
         "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway", "clearance", "passes", "hz", "sample", "margin", "tilt", "pacing", "slack", "angle")),
         "swordlib" => SwordLibCommand(Options.Parse(argv[1..], "out", "best", "bouts", "seconds", "seed", "fight", "video", "red", "blue")),
-        "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead", "weapon")),
+        "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead", "weapon", "vrmotion")),
+        "vrmotion-synth" => VrMotionSynthCommand(Options.Parse(argv[1..], "out")),
         "mocap" => MocapCommand(Options.Parse(argv[1..], "bvh", "out", "from", "to", "speed", "width", "height", "fps", "strikes")),
         "sparlab" => SparLabCommand(Options.Parse(argv[1..], "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out", "final-bouts", "final-seconds", "video", "width", "height", "fps")),
         "swordlab" => SwordLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "techniques")),
@@ -966,8 +967,42 @@ static int SwordLibCommand(Options o)
     return 0;
 }
 
+static int VrMotionSynthCommand(Options o)
+{
+    // VR の実機なしで、記録 → なぞりの道を確かめる合成の記録（棒の突き）を書く。
+    var output = o.Get("out") ?? "motions/synthetic_staff_thrust.vrmotion";
+    var clip = MiniRing.Motion.VrMotionSynth.StaffThrust();
+    clip.Save(output);
+    Console.WriteLine($"wrote {output}: {clip.Frames.Count} frames, {clip.Duration:0.00} s, arm {clip.Header.PlayerArmReach:0.000} m");
+    return 0;
+}
+
 static int ImitateCommand(Options o)
 {
+    if (o.Get("vrmotion") is { } vrPath)
+    {
+        // 記録した VR の動き（.vrmotion）を、人形がなぞる動画。武器は見出しのもの（--weapon で上書き）。
+        var vrClip = MiniRing.Motion.VrMotionClip.Load(vrPath);
+        var weaponName = o.Get("weapon") ?? vrClip.Header.Weapon;
+        MiniRing.Weapons.WeaponKind? vrWeapon = weaponName is null ? null
+            : Enum.TryParse<MiniRing.Weapons.WeaponKind>(weaponName, ignoreCase: true, out var kind) ? kind
+            : throw new ArgumentException($"Unknown weapon '{weaponName}'.");
+        var vrOut = o.Get("out") ?? "videos/vrmotion.mp4";
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(vrOut))!);
+        var vrVideo = new VrMotionVideo(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), o.Float("slow", 1f, min: 0.25f));
+        var vrRate = o.Float("rate", 1f, min: 0.1f);
+        var vrTitle = Path.GetFileNameWithoutExtension(vrPath);
+        if (o.Get("measure") is not null)
+        {
+            var r = vrVideo.Run(vrClip, vrWeapon, vrRate, vrTitle, null);
+            Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{vrTitle}: right hand error {r.MeanRightError:0.00} left {r.MeanLeftError:0.00} ({r.Steps} steps)"));
+            return 0;
+        }
+
+        vrVideo.Make(vrClip, vrWeapon, vrRate, vrTitle, vrOut, Console.Out);
+        return 0;
+    }
+
     // 日本刀（剣道のモーションキャプチャ）とロングソード（型のキー）の基本を、ラグドールがなぞる動画。
     var output = o.Get("out") ?? "videos/sword_basics.mp4";
     Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
