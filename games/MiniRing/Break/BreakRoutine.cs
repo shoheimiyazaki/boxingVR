@@ -18,6 +18,9 @@ public interface IBreakSource
 
     /// <summary>いま手に持っている小物。無ければ null。</summary>
     public BreakHold? Holding { get; }
+
+    /// <summary>いま行っている動作の名前（<see cref="BreakBook"/> の定数）。動作の間・休みの構えなら null。中継の出来事に使う。</summary>
+    public string? CurrentName { get; }
 }
 
 /// <summary>

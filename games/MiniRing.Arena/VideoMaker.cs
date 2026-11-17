@@ -305,6 +305,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     TvHighlight? replaying = null;
                     var replayDeviation = 0f; // 影の試合と本番の胸の位置の差の最大 [m]（決定的なら 0）
                     var mainTrack = new List<(Vector3 Red, Vector3 Blue)>();
+                    var breakDoing = new Dictionary<Fighter, string?>(); // 休みの動作の、いま中継に伝えてある名前（選手ごと）
                     IReadOnlyList<TvSegment>? breakPlan = null;
                     var breakStartAt = 0f;
                     var lastShot = (TvShot.Main, (Fighter?)null);
@@ -353,6 +354,22 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         var at = TitleSeconds + (time / speed); // 映像の時刻（音を置く所）
                         broadcast?.Observe(game, at, step);
                         director.Observe(game, step);
+                        if (tv && game.InBreak)
+                        {
+                            // 休みの動作が始まったら、中継の出来事にする（実況・解説が、選手が休みに何をしているかを知る）。
+                            foreach (var (fighter, name) in new[] { (game.Player, redRing), (game.Cpu, blueRing) })
+                            {
+                                var doing = game.BreakSourceOf(fighter)?.CurrentName;
+                                if (doing != breakDoing.GetValueOrDefault(fighter))
+                                {
+                                    breakDoing[fighter] = doing;
+                                    if (doing is not null)
+                                    {
+                                        broadcast?.Note(at, "break_action", name, $"{name}が休みの間に{BreakActionWords(doing)}");
+                                    }
+                                }
+                            }
+                        }
                         mainTrack.Add((game.Player.ChestPosition, game.Cpu.ChestPosition));
                         // リプレイは同じ試合を回し直すので、ボット同士の試合だけ（操作の台本で動かす赤は回し直せない）。
                         if (tv && intentScript is null && game.InBreak && breakPlan is null)
@@ -798,6 +815,23 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
     /// <summary>紹介の板の中身を 1 行に（台本の資料）。</summary>
     private static string Profile(TvCorner corner) => $"{corner.Name}（{(corner.FullName.Length > 0 ? corner.FullName + "・" : "")}{corner.Discipline}・{corner.Detail}）";
+
+    /// <summary>休みの動作の中継の言葉（<see cref="MiniRing.Break.BreakBook"/> の名前から）。</summary>
+    private static string BreakActionWords(string name) => name switch
+    {
+        MiniRing.Break.BreakBook.DeepBreath => "深呼吸をしている",
+        MiniRing.Break.BreakBook.Drink => "ボトルの水を飲んでいる",
+        MiniRing.Break.BreakBook.Wipe => "タオルで顔と首の汗を拭いている",
+        MiniRing.Break.BreakBook.Phone => "スマホの画面を見ている",
+        MiniRing.Break.BreakBook.Call => "スマホを耳に当てて電話をしている",
+        MiniRing.Break.BreakBook.ShoulderRoll => "肩を回している",
+        MiniRing.Break.BreakBook.NeckRoll => "首を回している",
+        MiniRing.Break.BreakBook.SlapFace => "グローブで自分の顔を叩いて気合を入れている",
+        MiniRing.Break.BreakBook.Ropes => "コーナーのロープに腕を掛けてもたれている",
+        MiniRing.Break.BreakBook.Glare => "相手のコーナーをにらんでいる",
+        MiniRing.Break.BreakBook.ShakeArms => "腕をぶらぶらと振ってほぐしている",
+        _ => name,
+    };
 
     /// <summary>握る武器の呼び名（中継の言葉）。拳なら null。</summary>
     private static string? GearName(MiniRing.Weapons.WeaponKind? weapon) => weapon switch
