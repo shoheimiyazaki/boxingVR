@@ -11,8 +11,8 @@ namespace MiniRing.Bots;
 /// </summary>
 public static class FormSwordsman
 {
-    /// <summary>型で動かす武器か（刀・ロングソード・棒。どれも両手持ち）。</summary>
-    public static bool Handles(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo;
+    /// <summary>型で動かす武器か（刀・ロングソード・棒・バット。どれも両手持ち）。</summary>
+    public static bool Handles(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.Bat;
 
     /// <summary>型で動かす武器か（両手持ちの <see cref="Handles"/> に、片手の剣 <see cref="WeaponKind.IronSword"/> を足したもの。片手剣の左手は盾（空いた手にはめた物）の経路を描く: <see cref="SwordShieldForms"/>）。</summary>
     public static bool HasForms(WeaponKind? weapon) => Handles(weapon) || weapon == WeaponKind.IronSword;
@@ -30,7 +30,8 @@ public static class FormSwordsman
         WeaponKind.Longsword => [.. LongswordForms.Value.Skip(1)],
         WeaponKind.Staff or WeaponKind.Jo => StaffForms.Forms(), // 杖も今は六尺棒の型（杖道の型は未作成。VR の記録から作る: docs/VR_MOTION.md）
         WeaponKind.IronSword => SwordShieldForms.Forms(),
-        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒・片手剣だけ。"),
+        WeaponKind.Bat => BatForms.Forms(),
+        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒・片手剣・バットだけ。"),
     };
 
     /// <summary>
@@ -58,7 +59,8 @@ public static class FormSwordsman
         WeaponKind.Longsword => LongswordForms.Value[0].Frames[0],
         WeaponKind.Staff or WeaponKind.Jo => StaffForms.Guard(),
         WeaponKind.IronSword => SwordShieldForms.Guard(),
-        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒・片手剣だけ。"),
+        WeaponKind.Bat => BatForms.Guard(),
+        _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・棒・片手剣・バットだけ。"),
     };
 
     /// <summary>両手の間隔 [腕の長さ]。</summary>
@@ -66,6 +68,7 @@ public static class FormSwordsman
     {
         WeaponKind.Longsword => SwordForms.LongswordSpacing,
         WeaponKind.Staff or WeaponKind.Jo => StaffForms.Spacing,
+        WeaponKind.Bat => BatForms.Spacing,
         WeaponKind.IronSword => 0f, // 片手: 左手は剣の握りでなく盾の位置（型のキーの Left）
         _ => SwordForms.KatanaSpacing,
     };
@@ -75,7 +78,7 @@ public static class FormSwordsman
 
     /// <summary>右手から後ろの端までの長さ [腕の長さ]（両端を使う武器の受けで、体から離す線を後ろの端まで見る）。端が 1 つの武器は null。</summary>
     public static float? RearLength(WeaponKind weapon, float armReach) =>
-        Weapon.StrikeEndsX(weapon) is { Count: > 1 } ends ? (Weapon.GripOf(weapon).X - ends.Min()) / armReach : null;
+        Weapon.IsRod(weapon) && Weapon.StrikeEndsX(weapon) is { Count: > 1 } ends ? (Weapon.GripOf(weapon).X - ends.Min()) / armReach : null;
 
     /// <summary>これより間合いが短い型は残さない [m]（打ち込まずその場で振る型は、剣士同士の間合いの技ではない。Arena の <c>SwordLibraryLab.MinReach</c> と同じ）。</summary>
     public const float MinReach = 0.33f;
@@ -88,7 +91,7 @@ public static class FormSwordsman
     /// <summary><see cref="Techniques(WeaponKind, float)"/> の、間合いの下限 <paramref name="minReach"/> [m] を選べる版（武器の教科書の <see cref="WeaponStyle.MinReach"/>）。</summary>
     public static IReadOnlyList<MotionTechnique> Techniques(WeaponKind weapon, float armReach, float minReach) =>
     [
-        .. Forms(weapon).Select(f => new MotionTechnique(f.Name, weapon, f, 0.5f))
+        .. Forms(weapon).Select(f => new MotionTechnique(f.Name, weapon, f, 0.5f, Skill: SwordFormSkills.For(weapon, f.Name)))
             .Select(t => t with { Range = StrikeDrill.ReachOf(t, armReach) })
             .Where(t => t.Range >= minReach),
     ];
@@ -104,6 +107,7 @@ public static class FormSwordsman
             WeaponKind.Katana => ("tsuki", "kesa"),
             WeaponKind.Staff or WeaponKind.Jo => ("tsuki", "uchi-oroshi"),
             WeaponKind.IronSword => ("tsuki", "kiri-oroshi"),
+            WeaponKind.Bat => ("poke-body", "chop"),
             _ => ("stich", "oberhau"),
         };
         return (forms.First(f => f.Name == light), forms.First(f => f.Name == heavy));
@@ -112,7 +116,7 @@ public static class FormSwordsman
     /// <summary>型 <paramref name="motion"/> の時刻 <paramref name="time"/>（動きの中の秒）の指令（ボットと同じ <see cref="MotionImitation.ToCommand"/>）。</summary>
     public static FighterCommand Command(SwordMotion motion, float time, in FighterSense sense, System.Numerics.Vector3 face, float walkSpeed, float maxTwist,
         System.Numerics.Vector3 extraMove = default)
-        => MotionImitation.ToCommand(motion.Sample(time), sense, face, SwordStance.Rate, walkSpeed, maxTwist, extraMove);
+        => MotionImitation.Command(motion, time, sense, face, SwordStance.Rate, walkSpeed, maxTwist, extraMove);
 
     /// <summary>構えたままの指令（歩かない）。</summary>
     public static FighterCommand GuardCommand(WeaponKind weapon, in FighterSense sense, System.Numerics.Vector3 face, float walkSpeed, float maxTwist)
@@ -145,13 +149,14 @@ public static class FormSwordsman
     {
         ArgumentNullException.ThrowIfNull(style);
         CheckTechniqueNames(weapon, style.TechniqueWeights);
-        var bot = new SwordsmanBot([.. Techniques(weapon, armReach, style.MinReach)], Guard(weapon), seed, SwordStance.Rate, rest: style.Rest, tuning: tuning,
+        var bot = new SwordsmanBot([.. Techniques(weapon, armReach, style.InnerMinReach ?? style.MinReach)], Guard(weapon), seed, SwordStance.Rate, rest: style.Rest, tuning: tuning,
             defense: style.Defense, bladeLength: BladeLength(weapon, armReach), spacing: Spacing(weapon), opponentReach: 3f, hitAndAway: style.HitAndAway, aim: style.Aim)
         {
             AutoAim = style.AutoAim,
             Clearance = style.Clearance,
             Pacing = style.Pacing,
             Weights = style.TechniqueWeights,
+            PlanMinReach = style.InnerMinReach is null ? 0f : style.MinReach,
             RearLength = RearLength(weapon, armReach),
             OffhandRadius = offhandRadius,
         };

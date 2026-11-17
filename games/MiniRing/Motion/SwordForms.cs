@@ -14,7 +14,7 @@ public readonly record struct SwordKey(float Time, Vector3 Right, float Azimuth,
 /// （Vom Tag・Ochs・Pflug・Alber）と、5 つの打ち（Oberhau・Zornhau・Zwerchhau・Unterhau・Stich）を、右利き・両手持ちで。
 /// 時間は実寸の人の速さ。左手は剣の握りに沿って右手の下（柄頭の側）。刃筋は剣の先の動きの面へ合わせる（<see cref="SwordMotion.FollowCut"/>）。
 /// </summary>
-public static class SwordForms
+public static partial class SwordForms
 {
     /// <summary>ロングソードの両手の間隔（腕の長さ = 1。実寸およそ 17 cm / 腕 53 cm）。</summary>
     public const float LongswordSpacing = 0.32f;
@@ -173,6 +173,7 @@ public static class SwordForms
             new(0.95f, new Vector3(-0.1f, 0.15f, 1.0f), 0.05f, -0.05f, Lean: 0.12f, Twist: 0.2f),
             Hold(1.7f, Ochs, -0.15f),
         ], LongswordSpacing),
+        .. LongswordAdditional(),
     ];
 
     // ── 日本刀の型（両手、右手が鍔元・左手が柄頭）。構えは剣道の中段（剣道のモーションキャプチャの中段から取った値）。
@@ -198,8 +199,8 @@ public static class SwordForms
     [
         FromKeys("tsuki", [
             Hold(0f, Chudan), Hold(0.2f, Chudan),
-            new(0.45f, new Vector3(-0.12f, -0.2f, 1.15f), 0f, 0.15f, Step: 1.8f, Lean: 0.15f),
-            new(0.65f, new Vector3(-0.12f, -0.2f, 1.1f), 0f, 0.15f, Lean: 0.12f),
+            new(0.45f, new Vector3(-0.12f, 0.15f, 1.15f), 0f, 0.05f, Step: 1.8f, Lean: 0.15f),
+            new(0.65f, new Vector3(-0.12f, 0.15f, 1.1f), 0f, 0.05f, Lean: 0.12f),
             Hold(1.2f, Chudan),
         ], KatanaSpacing),
         FromKeys("kesa", [
@@ -245,6 +246,7 @@ public static class SwordForms
             new(0.9f, new Vector3(-0.1f, -0.35f, 0.75f), 0f, 0.3f, Step: -1.0f),
             Hold(1.5f, Chudan),
         ], KatanaSpacing),
+        .. KatanaAdditional(),
     ];
 
     /// <summary>

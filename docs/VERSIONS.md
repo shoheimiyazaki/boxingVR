@@ -40,6 +40,12 @@
 ボットの判断の仕組みを変えたら上げる。
 
 - **1〜11**（最初の注釈のまとめ）: ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、リプレイの見出しに残して照らし合わせる。 変えたら 1 増やす（1: 最初のボット、2: 防御技の表・動き出しの読み・ストップジャブ・ピボット、
+- **49**: master の 43（休みの過ごし方）・44（回し蹴りを高さで 3 つに）と、ブランチ claude/sword-combat-techniques の 43〜48 を合わせた（2026-11-18 のマージ）。
+- **48** ⚠ 同じ番号が別の枝で別の意味（claude/sword-combat-techniques）: バット（WeaponKind.Bat。木の棍棒を両手で握る）を剣と同じ型の組み方（FormSwordsman・SwordsmanBot）で動かす: BatForms の型（右・左・胴・脚の水平、真上・右上・左上の振り下ろし、右下・左下のすくい上げ、胴・顔の突き、手打ち、グリップエンド、前蹴り）と教科書 Bots/weapons/bat.json。新しい武器の種類なので既存の試合（こんぼう・刀・ロングソード・拳）の判断は変えない。47 は剣の間合いの内側の技の作業用。
+- **47** ⚠ 同じ番号が別の枝で別の意味（claude/sword-combat-techniques）: 間合いの内側の技（柄頭打ち・前蹴り・押し斬り）を、計画（歩いて詰める）の候補とは分けて技の集まりに入れた（SwordsmanBot.PlanMinReach・WeaponStyle.InnerMinReach）。すでに近いとき・迎え撃つときだけ、全部の技から今の距離に間合いが合う技を選ぶ。
+- **46** ⚠ 同じ番号が別の枝で別の意味（claude/sword-combat-techniques）: 刀・ロングソードの教科書を、増やした型の上で鍛え直した（間合いの下限 0.33 を戻す: 柄頭・前蹴りは試合のボットの技の集まりに入れない。ロングソードは AutoAim、重みは docs/BOT_PDCA.md）。45 は剣の守りの作業用に空けてある。
+- **44** ⚠ 同じ番号が別の枝で別の意味（claude/sword-combat-techniques）: 剣の連続の守り（速さ²・到達時間から傾き・押し込み・引き・足の割合、刃が体の線から外れた後の返し）。比較用で既定は Step のまま。
+- **43** ⚠ 同じ番号が別の枝で別の意味（claude/sword-combat-techniques）: 刀・長剣の型を拡張。柄頭を打つ端に加え、狙いと間合いを共通化。構えたまま既存の前蹴りで近間から離れる。
 - **44**: ブランチ claude/staff-vr-motion-kick の 42（回し蹴りを高さで 3 つに分け（RoundhouseLow = 腿・Roundhouse = 胴（下段と上段の手本を狙いの高さで混ぜた roundhouse_mid.json）・RoundhouseHigh = 頭）、蹴る脚が前の足か後ろの足かで間合い・長さ・膝・足首の練習の差分（KickTune・KickTunes、Bots/kicks/*.tune.json）を持つ・前蹴り（Front）も人の動き（極真空手の中段の前蹴り S02）の手本 front_mid.json を膝の制御でなぞる・手本の角の補間を ±π をまたぐとき短い方へ回す（AtAngle）・蹴りの間合い合わせ・長さは後ろの足の差分（ボットは後ろの足で蹴る）。docs/arena/kick_shin_lmh_*.md。）を、master の 43（休みの過ごし方）と 42（肘打ち）に合わせた（2026-11-18 のマージ）。
 - **43**: 休み（ラウンドの間）の過ごし方（Break.BreakRoutine: コーナーへ着いたら 2〜4 個の動作 = 水を飲む・汗を拭く・スマホを見る・電話・深呼吸・肩/首を回す・グローブで顔を叩く・ロープにもたれる・にらむ・腕を振る を目標の経路で行う。選び方は種付きの乱数 + スタミナ・意識の薄れから連続に出す重み + BotStyle.BreakLikes。小物は描くだけのボクセル物 BreakProp。docs/BREAK_ROUTINE.md）。休みのある試合の手・頭・胴の入力が変わる（休みのない試合・休み中の体の物理は不変）。
 - **42**: 肘打ち（ElbowSpec: 横肘・上げ肘・振り下ろし肘の目標の経路 + 胴のひねり・踏み込み・前傾。BotStyle.ElbowRate・ElbowRangeFit・ElbowWeights。0 なら今までの判断・乱数の消費と同じ）とムエタイの教科書 Bots/muaythai.json（docs/MUAYTHAI.md）。

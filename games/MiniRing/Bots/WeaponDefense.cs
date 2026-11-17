@@ -44,6 +44,53 @@ public readonly record struct WeaponLine(Vector3 Hilt, Vector3 Tip, Vector3 Hilt
     /// <summary>その点が肩から届く長さ [m]（腕の長さ + 握りからの距離）。</summary>
     public float LimitAt(float s) => ArmLimit + (s * Length);
 
+    /// <summary>弧で読むときの、肩まわりの回りの上限 [rad]。振りは肩の可動域で止まるので、直線の読みのように行き過ぎない（約 90°）。</summary>
+    public const float MaxArcAngle = 1.6f;
+
+    /// <summary>
+    /// 線の上の点（<paramref name="s"/>）の <paramref name="tau"/> 秒後の位置。<paramref name="arc"/> が false なら今の速度のまま進める（直線）。
+    /// true なら、相手の振りは肩を中心にした弧なので、胴の動きを引いた速度から肩まわりの角速度 ω = r × v / |r|² を求め、肩からの距離を保ったまま
+    /// 回し（<see cref="MaxArcAngle"/> まで）、胴の動きの分だけ運ぶ。肩へ向かう・離れる動き（突き）は ω が 0 で直線のまま。
+    /// </summary>
+    public Vector3 Predict(float s, float tau, bool arc)
+    {
+        var p0 = At(s);
+        var v = VelocityAt(s);
+        if (!arc || !TryArc(p0, v, out var axis, out var omega))
+        {
+            return p0 + (v * tau);
+        }
+
+        var theta = MathF.Min(omega * tau, MaxArcAngle);
+        return Shoulder + (BodyVelocity * tau) + Rotate(p0 - Shoulder, axis, theta);
+    }
+
+    /// <summary><see cref="Predict"/> の <paramref name="tau"/> 秒後の速度（弧なら回った後の向き。回りの上限に達したら胴の速度だけ）。</summary>
+    public Vector3 PredictVelocity(float s, float tau, bool arc)
+    {
+        var p0 = At(s);
+        var v = VelocityAt(s);
+        if (!arc || !TryArc(p0, v, out var axis, out var omega))
+        {
+            return v;
+        }
+
+        return omega * tau >= MaxArcAngle ? BodyVelocity : BodyVelocity + (Vector3.Cross(axis, Rotate(p0 - Shoulder, axis, omega * tau)) * omega);
+    }
+
+    private static Vector3 Rotate(Vector3 r, Vector3 axis, float theta) =>
+        (r * MathF.Cos(theta)) + (Vector3.Cross(axis, r) * MathF.Sin(theta)) + (axis * Vector3.Dot(axis, r) * (1f - MathF.Cos(theta)));
+
+    private bool TryArc(Vector3 p0, Vector3 v, out Vector3 axis, out float omega)
+    {
+        var r = p0 - Shoulder;
+        var r2 = r.LengthSquared();
+        var w = r2 > 1e-8f ? Vector3.Cross(r, v - BodyVelocity) / r2 : default;
+        omega = w.Length();
+        axis = omega > 1e-4f ? w / omega : default;
+        return omega > 1e-4f;
+    }
+
     /// <summary>振っている速さ: 胴の動きを差し引いた、いちばん速い点（先か握り）の速さ [m/s]。</summary>
     public float SwingSpeed => MathF.Max((TipVelocity - BodyVelocity).Length(), (HiltVelocity - BodyVelocity).Length());
 }
@@ -55,7 +102,8 @@ public readonly record struct WeaponLine(Vector3 Hilt, Vector3 Tip, Vector3 Hilt
 /// <param name="BodyPoint">体の線（頭から腰）のうち、いちばん近い所。</param>
 /// <param name="Along">武器の線のどこか（0 = 握り、1 = 先）。</param>
 /// <param name="Line">その武器の線。</param>
-public readonly record struct WeaponThreat(Vector3 Point, Vector3 Velocity, float Time, Vector3 BodyPoint, float Along, WeaponLine Line);
+/// <param name="Arc">肩まわりの弧で読んだ脅威か（<see cref="WeaponLine.Predict"/>）。迎える所の見積もりも同じ読み方にそろえる。</param>
+public readonly record struct WeaponThreat(Vector3 Point, Vector3 Velocity, float Time, Vector3 BodyPoint, float Along, WeaponLine Line, bool Arc = false);
 
 /// <summary>
 /// 武器を選ばない守り。相手の武器（剣・棍棒・バット・これから足す武器、拳も）を「握りから先までの硬い線」として読むので、
@@ -168,7 +216,7 @@ public static class WeaponDefense
                         break;
                     }
 
-                    var p = p0 + (v * tau);
+                    var p = line.Predict(s, tau, defense.Arc);
                     if (Vector3.Distance(p, line.Shoulder) > line.LimitAt(s))
                     {
                         break; // ここから先へは届かない
@@ -180,7 +228,7 @@ public static class WeaponDefense
                     {
                         if (best is null || tau < best.Value.Time || gap < bestGap)
                         {
-                            best = new WeaponThreat(p, v, tau, at, s, line);
+                            best = new WeaponThreat(p, defense.Arc ? line.PredictVelocity(s, tau, true) : v, tau, at, s, line, defense.Arc);
                             bestGap = gap;
                         }
 
@@ -191,6 +239,71 @@ public static class WeaponDefense
         }
 
         return best;
+    }
+
+    /// <summary>受けの連続量。傾き [rad]、押し込み・引き [腕の長さ]、流す割合・足へ寄せる割合 [0..1]。</summary>
+    public readonly record struct ParryResponse(float Angle, float Drive, float Yield, float YieldShare, float StepShare);
+
+    /// <summary>
+    /// 速さの 2 乗を負荷の代理とし、残り時間が短いほど流す。r = (v / LoadSpeed)² × (Horizon + CounterTime) / (Time + CounterTime)、
+    /// 流す割合 = r / (1 + r)。係数は教育の値であり、腕の力・武器の材質には触れない。Adaptive が false なら従来の固定値。
+    /// </summary>
+    public static ParryResponse Response(in FighterSense sense, in WeaponThreat threat, SwordDefense defense)
+    {
+        ArgumentNullException.ThrowIfNull(defense);
+        if (!defense.Adaptive)
+        {
+            return new(defense.Deflect, defense.Drive, 0f, 0f, 1f);
+        }
+
+        var speed = threat.Velocity.Length() / sense.ArmReach;
+        var ratio = speed / defense.LoadSpeed;
+        var load = ratio * ratio * (defense.Horizon + defense.CounterTime) / (MathF.Max(0f, threat.Time) + defense.CounterTime);
+        var yield = load / (1f + load);
+        var (top, bottom) = BodyLine(sense);
+        var shoulderGap = Vector3.Distance(threat.Line.Shoulder, ClosestOnSegment(threat.Line.Shoulder, top, bottom));
+        var depth = MathF.Max(0f, threat.Line.LimitAt(threat.Along) + (defense.Margin * sense.ArmReach) - shoulderGap) / sense.ArmReach;
+        var time = MathF.Max(0f, threat.Time);
+        var step = 1f - ((1f - yield) * time / (time + defense.CounterTime) / (1f + depth));
+        return new(defense.Deflect + ((defense.YieldAngle - defense.Deflect) * yield), defense.Drive * (1f - yield), defense.YieldDistance * yield, yield, step);
+    }
+
+    /// <summary>
+    /// 返しの隙: 剣先の向きが体の外を向き、相手の胴の移動を含む先の速度も体から離れ、刃の線全体が CounterTime 秒先まで体を通らない。
+    /// 武器を落とした相手にも返せる。攻撃の名前・種類は見ない。
+    /// </summary>
+    public static bool CounterOpening(in FighterSense sense, SwordDefense defense)
+    {
+        ArgumentNullException.ThrowIfNull(defense);
+        if (!sense.OpponentBlade.Present)
+        {
+            return true;
+        }
+
+        var (top, bottom) = BodyLine(sense);
+        var blade = sense.OpponentBlade;
+        var away = blade.Tip - ClosestOnSegment(blade.Tip, top, bottom);
+        if (Vector3.Dot(blade.Tip - blade.Hilt, away) <= 0f || Vector3.Dot(blade.TipVelocity, away) <= 0f)
+        {
+            return false;
+        }
+
+        foreach (var line in Lines(sense, watchFists: false))
+        {
+            // 現在から予測位置への線分も見るので、その間に体を横切る刃を隙と誤認しない。
+            for (var i = 0; i < LineSamples; i++)
+            {
+                var along = i / (float)(LineSamples - 1);
+                var start = line.At(along);
+                var end = start + (line.VelocityAt(along) * defense.CounterTime);
+                if (Nearest(start, end, top, bottom).Gap < defense.CounterClearance * sense.ArmReach)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -208,14 +321,16 @@ public static class WeaponDefense
     /// <param name="current">今の刀の向き（体フレーム。構えの刀の向き）。</param>
     /// <param name="rearLength">右手から後ろの端（棒の −X の端）までの長さ [腕の長さ]。無ければ（NaN）左手まで（刀・ロングソード）。棒は左手の後ろにも 1.4 腕の長さ伸びるので、
     /// 体から離す線（Clearance）は後ろの端まで見る。</param>
-    public static MotionFrame Parry(in FighterSense sense, in WeaponThreat threat, SwordDefense defense, float bladeLength, float spacing, Vector3 current, float rearLength = float.NaN)
+    /// <param name="response">迎える線を保ったまま毎歩追う負荷の量。null なら、その脅威から計算する。</param>
+    public static MotionFrame Parry(in FighterSense sense, in WeaponThreat threat, SwordDefense defense, float bladeLength, float spacing, Vector3 current, float rearLength = float.NaN, ParryResponse? response = null)
     {
         ArgumentNullException.ThrowIfNull(defense);
         var reach = sense.ArmReach;
+        var action = response ?? Response(sense, threat, defense);
         // 迎える所: 来る線のうち、体へ来る点（Along）より握りの側 Bind までの所が、その点が体へ着く時にいる所。振りは握りの側ほど遅い
         // （回る物の速さは回る中心からの距離に比例）ので、握りの側で迎えるほど止める運動量が小さい。
         var bind = MathF.Min(threat.Along, defense.Bind);
-        var q = sense.Self.WorldToLocal(threat.Line.At(bind) + (threat.Line.VelocityAt(bind) * threat.Time)) / reach;
+        var q = sense.Self.WorldToLocal(threat.Line.Predict(bind, threat.Time, threat.Arc)) / reach;
         var body = sense.Self.WorldToLocal(threat.BodyPoint) / reach;
         var v = sense.Self.InverseRotate(threat.Velocity);
         v = v.LengthSquared() > 1e-10f ? Vector3.Normalize(v) : -Vector3.UnitZ;
@@ -227,7 +342,7 @@ public static class WeaponDefense
         }
 
         side = side.LengthSquared() > 1e-8f ? Vector3.Normalize(side) : Vector3.UnitX;
-        var push = Vector3.Normalize((-v * MathF.Cos(defense.Deflect)) + (side * MathF.Sin(defense.Deflect)));
+        var push = Vector3.Normalize((-v * MathF.Cos(action.Angle)) + (side * MathF.Sin(action.Angle)));
         // 来る線の向き（拳は長さが無いので、来る向きと横の向きに直角な仮の向き）。
         var w = threat.Line.Length > 1e-4f ? sense.Self.InverseRotate(threat.Line.Tip - threat.Line.Hilt) : Vector3.Cross(v, side);
         w = w.LengthSquared() > 1e-10f ? Vector3.Normalize(w) : Vector3.UnitY;
@@ -243,30 +358,161 @@ public static class WeaponDefense
         // 刀の向きの 2 つのうち、今の刀の向き（構え）からの回りが少ない方（刀を大きく回すと、回る途中で自分の体を通る）。
         axis = Vector3.Dot(axis, current) < 0f ? -axis : axis;
         // 迎える所より押す向きへ Drive だけ先を目標にする: 腕のバネが当たる時にもまだ押していて、来る線を払う（置いただけの刀は押し負ける）。
-        var meet = q - (v * defense.Lead) + (normal * defense.Drive);
+        // 負荷が大きいほど押し込みを弱め、来る向きへ手を逃がして刃の上を滑らせる。
+        var meet = q - (v * defense.Lead) + (normal * action.Drive) + (v * action.Yield);
         var right = meet - (axis * (defense.Forte * bladeLength));
-        // 自分の刀は自分の体から離しておく: 左手から先までの線が、体の線（頭から腰）へ Clearance より近ければ、その分だけ体から遠ざける
-        // （押し負けた刀が自分を斬らない余地。刀の向きはそのまま）。
+        right = KeepClear(sense, right, axis, bladeLength, spacing, rearLength, defense.Clearance);
+        // 刃の向き: Flat なら鎬（刀の平らな面）を来る線へ向けて受ける（刃と刃で受けると、同じ鉄同士の細い所に力が集まって両方が欠ける）。
+        var edge = defense.Flat ? Vector3.Normalize(Vector3.Cross(axis, normal)) : normal;
+        return SwordForms.Block(right, axis, edge, spacing);
+    }
+
+    /// <summary>
+    /// 自分の刀は自分の体から離しておく: 左手（または後ろの端）から先までの線が、体の線（頭から腰）へ <paramref name="clearance"/> より近ければ、その分だけ
+    /// 体から遠ざける（押し負けた刀が自分を斬らない余地。刀の向きはそのまま）。右手の位置（体フレーム、腕の長さ = 1）を返す。
+    /// </summary>
+    private static Vector3 KeepClear(in FighterSense sense, Vector3 right, Vector3 axis, float bladeLength, float spacing, float rearLength, float clearance)
+    {
+        var reach = sense.ArmReach;
         var (topW, bottomW) = BodyLine(sense);
         var top = sense.Self.WorldToLocal(topW) / reach;
         var bottom = sense.Self.WorldToLocal(bottomW) / reach;
         for (var pass = 0; pass < 3; pass++)
         {
             var (gap, from, to) = Nearest(right - (axis * (float.IsNaN(rearLength) ? spacing : rearLength)), right + (axis * bladeLength), top, bottom);
-            if (gap >= defense.Clearance)
+            if (gap >= clearance)
             {
                 break;
             }
 
             var away = to - from;
             away = away.LengthSquared() > 1e-8f ? Vector3.Normalize(away) : Vector3.UnitZ;
-            right += away * (defense.Clearance - gap);
+            right += away * (clearance - gap);
         }
 
-        // 刃の向き: Flat なら鎬（刀の平らな面）を来る線へ向けて受ける（刃と刃で受けると、同じ鉄同士の細い所に力が集まって両方が欠ける）。
-        var edge = defense.Flat ? Vector3.Normalize(Vector3.Cross(axis, normal)) : normal;
-        return SwordForms.Block(right, axis, edge, spacing);
+        return right;
     }
+
+    /// <summary>
+    /// 間に合う受け: <see cref="Parry"/> の理想の受け（<paramref name="ideal"/>）を、残り時間のうちに手と刀の向きが動ける範囲（<see cref="SwordDefense.HandSpeed"/>・
+    /// <see cref="SwordDefense.TurnSpeed"/> × 反応の遅れ <see cref="SwordDefense.ReactDelay"/> を引いた時間）へ置き直す。理想の所へ届くならそのまま、届かないなら届く範囲の
+    /// 候補（理想へ向かう最も遠い点・今の手のまわりの点・構え）のうち、来る線と自分の刀の線の距離が最小（に、構えからの動きの大きさ × <see cref="SwordDefense.Economy"/> を足した値が最小）
+    /// の所へ。どこも <see cref="SwordDefense.InterceptGap"/> 以内で遮れなければ受けない（null。足と頭だけで外す）。種類の分岐は無く、届く範囲と遮る量の連続の比べ。
+    /// 来る線は、読んだ時から着くまでの後ろ 4 割の間の線（刃が通り過ぎる幅）で見る。
+    /// </summary>
+    /// <param name="sense">自分の見え方。</param>
+    /// <param name="threat">読んだ脅威。</param>
+    /// <param name="defense">守り方。</param>
+    /// <param name="ideal">理想の受け（<see cref="Parry"/> の結果）。</param>
+    /// <param name="handFrom">今の右手の位置（体フレーム、腕の長さ = 1）。</param>
+    /// <param name="currentBlade">今の刀の向き（体フレーム）。</param>
+    /// <param name="rest">構えのフレーム（動きの小ささを測る基準）。</param>
+    /// <param name="bladeLength">刀の右手から先までの長さ [腕の長さ]。</param>
+    /// <param name="spacing">両手の間隔 [腕の長さ]。</param>
+    /// <param name="rearLength">右手から後ろの端までの長さ [腕の長さ]（NaN なら左手まで）。</param>
+    /// <param name="elapsed">脅威を読んでからの経過 [s]（同じ打ちを読み直す間は残り時間が減る）。</param>
+    public static MotionFrame? ReachableParry(in FighterSense sense, in WeaponThreat threat, SwordDefense defense, MotionFrame ideal, Vector3 handFrom, Vector3 currentBlade,
+        MotionFrame rest, float bladeLength, float spacing, float rearLength = float.NaN, float elapsed = 0f)
+    {
+        ArgumentNullException.ThrowIfNull(defense);
+        var reach = sense.ArmReach;
+        var time = MathF.Max(0f, threat.Time);
+        var usable = MathF.Max(0f, time - elapsed - defense.ReactDelay);
+        var budget = defense.HandSpeed * usable;
+        var axis = TurnToward(currentBlade, ideal.Blade, defense.TurnSpeed * usable);
+        var edge = SwordMotion.Perpendicular(ideal.Edge, axis);
+        var rear = float.IsNaN(rearLength) ? spacing : rearLength;
+
+        // 来る線: 着くまでの後ろ 4 割の間（刃が通り過ぎる幅）の、握りから先までの線。
+        var incoming = new (Vector3 A, Vector3 B)[3];
+        for (var j = 0; j < incoming.Length; j++)
+        {
+            var tau = time * (0.6f + (0.2f * j));
+            incoming[j] = (sense.Self.WorldToLocal(threat.Line.Predict(0f, tau, threat.Arc)) / reach, sense.Self.WorldToLocal(threat.Line.Predict(1f, tau, threat.Arc)) / reach);
+        }
+
+        float Gap(Vector3 right)
+        {
+            var best = float.MaxValue;
+            for (var i = 0; i <= 24; i++)
+            {
+                var p = (right - (axis * rear)) + (axis * ((rear + bladeLength) * (i / 24f)));
+                foreach (var (a, b) in incoming)
+                {
+                    best = MathF.Min(best, Vector3.Distance(p, ClosestOnSegment(p, a, b)));
+                }
+            }
+
+            return best;
+        }
+
+        float Score(Vector3 right) => Gap(right) + (defense.Economy * (Vector3.Distance(right, rest.Right) + (0.3f * AngleBetween(axis, rest.Blade))));
+
+        var candidates = new List<Vector3> { ideal.Right, rest.Right };
+        var toIdeal = ideal.Right - handFrom;
+        if (toIdeal.Length() > 1e-6f)
+        {
+            candidates.Add(handFrom + (Vector3.Normalize(toIdeal) * MathF.Min(budget, toIdeal.Length())));
+        }
+
+        for (var x = -1; x <= 1; x++)
+        {
+            for (var y = -1; y <= 1; y++)
+            {
+                for (var z = -1; z <= 1; z++)
+                {
+                    if (x == 0 && y == 0 && z == 0)
+                    {
+                        continue;
+                    }
+
+                    var dir = Vector3.Normalize(new Vector3(x, y, z));
+                    candidates.Add(handFrom + (dir * budget));
+                    candidates.Add(handFrom + (dir * (0.5f * budget)));
+                }
+            }
+        }
+
+        candidates.Add(handFrom);
+        var bestRight = Vector3.Zero;
+        var bestScore = float.MaxValue;
+        foreach (var raw in candidates)
+        {
+            // 届く範囲（今の手から budget）の内だけ。体から離す余地（KeepClear）を足してから、もう一度届くか見る。
+            var right = KeepClear(sense, raw, axis, bladeLength, spacing, rearLength, defense.Clearance);
+            if (Vector3.Distance(right, handFrom) > budget + 1e-4f && Vector3.Distance(right, handFrom) > 1e-4f)
+            {
+                right = handFrom + (Vector3.Normalize(right - handFrom) * budget);
+            }
+
+            var score = Score(right);
+            if (score < bestScore)
+            {
+                bestScore = score;
+                bestRight = right;
+            }
+        }
+
+        return Gap(bestRight) > defense.InterceptGap ? null : SwordForms.Block(bestRight, axis, edge, spacing);
+    }
+
+    /// <summary>向き <paramref name="from"/> から <paramref name="to"/> へ、最大 <paramref name="limit"/> [rad] だけ回した単位ベクトル。</summary>
+    private static Vector3 TurnToward(Vector3 from, Vector3 to, float limit)
+    {
+        var a = from.LengthSquared() > 1e-8f ? Vector3.Normalize(from) : to;
+        var b = to.LengthSquared() > 1e-8f ? Vector3.Normalize(to) : a;
+        var angle = AngleBetween(a, b);
+        if (angle <= limit || angle < 1e-5f)
+        {
+            return b;
+        }
+
+        var t = limit / angle;
+        var mixed = Vector3.Lerp(a, b, t);
+        return mixed.LengthSquared() > 1e-8f ? Vector3.Normalize(mixed) : a;
+    }
+
+    private static float AngleBetween(Vector3 a, Vector3 b) => MathF.Acos(Math.Clamp(Vector3.Dot(Vector3.Normalize(a), Vector3.Normalize(b)), -1f, 1f));
 
     /// <summary>左手の物が面を広げる所から肩まで、腕がいっぱいに届く長さ [腕の長さ]。これより先へは目標を置かない。</summary>
     private const float CoverReach = 0.95f;

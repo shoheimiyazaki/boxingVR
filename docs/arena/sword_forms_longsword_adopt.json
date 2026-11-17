@@ -1,0 +1,46 @@
+{
+  "Name": "longsword",
+  "Defense": {
+    "Enabled": true,
+    "BlockShare": 0.6,
+    "Horizon": 0.25,
+    "Margin": 0.45,
+    "ThreatSpeed": 6,
+    "HoldTime": 0.3,
+    "Counter": true,
+    "WatchFists": true,
+    "Mode": 2,
+    "Deflect": 0.5,
+    "Forte": 0.35,
+    "Lead": 0.1,
+    "StepDelay": 0.05,
+    "HeadTime": 0.15,
+    "Clearance": 0.6,
+    "Drive": 0,
+    "Bind": 1,
+    "Flat": false
+  },
+  "HitAndAway": null,
+  "Aim": {
+    "Gain": 1,
+    "Lead": 0.6,
+    "MaxShift": 0.6,
+    "ForwardGain": 1
+  },
+  "AutoAim": true,
+  "Clearance": null,
+  "Pacing": {
+    "GripSlack": 0.25,
+    "AngleSlack": 0.6,
+    "Floor": 0.15
+  },
+  "Rest": 0.6,
+  "TechniqueWeights": {"scheitelhau":0.8,"zwerchhau-left":0.5,"stich-low":0.5,"knaufschlag":0,"unterhau":0.25,"zwerchhau":0.3,"schnitt":0},
+  "MinReach": 0.1,
+  "KeepReach": 0.35,
+  "ClubRange": 0.36,
+  "ClubRest": 0.6,
+  "ClubStandOff": 0.48,
+  "ClubExact": false,
+  "ClubSwingWeights": null
+}

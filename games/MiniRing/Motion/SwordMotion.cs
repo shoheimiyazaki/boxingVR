@@ -76,6 +76,12 @@ public readonly record struct MotionFrame(Vector3 Right, Vector3 Left, Vector3 B
 /// <param name="Frames">フレーム。</param>
 public sealed record SwordMotion(string Name, float FrameTime, IReadOnlyList<MotionFrame> Frames)
 {
+    /// <summary>両手の型と同時に出す脚の経路。null なら脚は既存の歩行だけ（力・材質は変えない）。</summary>
+    public MiniRing.Bots.KickSpec? Kick { get; init; }
+
+    /// <summary>打ち終わりの時刻 [型の秒]。長い戻しが打点の測定へ混じらないよう、キーで決める。null は全区間。</summary>
+    public float? StrikeUntil { get; init; }
+
     /// <summary>長さ [s]（録った速さ）。</summary>
     public float Duration => (Frames.Count - 1) * FrameTime;
 

@@ -145,7 +145,7 @@ internal static class MenuIcons
         [
             Rect(0f, 0f, 1.45f, 0.08f, Wood, 0.04f), Rect(-0.65f, 0f, 0.15f, 0.08f, WoodDark, 0.04f), Rect(0.65f, 0f, 0.15f, 0.08f, WoodDark, 0.04f),
         ],
-        WeaponKind.WoodenClub =>
+        WeaponKind.WoodenClub or WeaponKind.Bat =>
         [
             Rect(-0.78f, 0f, 0.42f, 0.10f, WoodDark, 0.04f), Rect(-0.40f, 0f, 0.4f, 0.14f, Wood, 0.05f),
             Rect(0f, 0f, 0.4f, 0.19f, Wood, 0.06f), Rect(0.4f, 0f, 0.4f, 0.25f, Wood, 0.08f),

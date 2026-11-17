@@ -72,8 +72,8 @@ internal static class AimLab
         report.AppendLine();
         report.AppendLine("技ごとの打てた割合（採った付け方、5 つの構えのうち）:");
         report.AppendLine();
-        report.AppendLine("| 技 | 剣 | 間合い | 頭 | 胸 | 腰 | 上腕 | 前腕 |");
-        report.AppendLine("|---|---|---:|---:|---:|---:|---:|---:|");
+        report.AppendLine("| 技 | 剣 | 間合い | " + string.Join(" | ", MotionAim.Targets.Select(Ja)) + " |");
+        report.AppendLine("|---|---|---:|" + string.Concat(MotionAim.Targets.Select(_ => "---:|")));
         foreach (var t in skilled)
         {
             report.AppendLine(string.Create(CultureInfo.InvariantCulture,
@@ -98,18 +98,38 @@ internal static class AimLab
 
     private static List<Trial> Trials(SwordLibraryLab.Library library, AimTuning? tuning, TextWriter log)
     {
+        // 狙わないときは部位を変えても同じ試行なので、技 × 構えを一度だけ回して各部位へ集計する。
+        if (tuning is null)
+        {
+            var poses = (from technique in library.Techniques from posture in GuardPosture.All select (technique, posture)).ToArray();
+            var raw = new StrikeResult[poses.Length];
+            Parallel.For(0, poses.Length, new ParallelOptions { MaxDegreeOfParallelism = 4 }, i =>
+            {
+                var (technique, posture) = poses[i];
+                raw[i] = StrikeDrill.Run(technique, library.Guards[technique.Weapon], SwordStance.Rate, SwordStance.Tuning, target: () => new StandGuard(posture));
+            });
+            return [.. poses.SelectMany((p, i) => MotionAim.Targets.Select(target => new Trial(p.technique, target, p.posture,
+                raw[i].CellsByPart.GetValueOrDefault(target) > 0 && raw[i].MostCut == target, raw[i].CellsByPart.GetValueOrDefault(target), raw[i].MostCut)))];
+        }
+
         var jobs = (from technique in library.Techniques
                     from target in MotionAim.Targets
                     from posture in GuardPosture.All
                     select (technique, target, posture)).ToList();
         var trials = new Trial[jobs.Count];
-        Parallel.For(0, jobs.Count, i =>
+        var done = 0;
+        Parallel.For(0, jobs.Count, new ParallelOptions { MaxDegreeOfParallelism = 4 }, i =>
         {
             var (technique, target, posture) = jobs[i];
             var r = StrikeDrill.Run(technique, library.Guards[technique.Weapon], SwordStance.Rate, SwordStance.Tuning,
                 target: () => new StandGuard(posture), aim: tuning is null ? null : target, aimTuning: tuning);
             var on = r.CellsByPart.GetValueOrDefault(target);
             trials[i] = new Trial(technique, target, posture, on > 0 && r.MostCut == target, on, r.MostCut);
+            var n = Interlocked.Increment(ref done);
+            if (n % 100 == 0)
+            {
+                lock (log) { log.WriteLine($"aimlab {n}/{jobs.Count}"); }
+            }
         });
         log.WriteLine($"{(tuning is null ? "no aim" : Describe(tuning))}: {trials.Count(t => t.Hit)}/{trials.Length}");
         return [.. trials];
@@ -136,6 +156,8 @@ internal static class AimLab
         BodyPartKind.Pelvis => "腰",
         BodyPartKind.UpperArm => "上腕",
         BodyPartKind.Forearm => "前腕",
+        BodyPartKind.Thigh => "腿",
+        BodyPartKind.Shin => "すね",
         _ => part.ToString(),
     };
 

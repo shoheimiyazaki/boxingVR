@@ -77,7 +77,7 @@ internal static class HandleLab
     internal sealed record Bout(Side Red, Side Blue, double Seconds);
 
     /// <summary>武器ごとの値の上書き（null の武器は教科書または教育のまま）。</summary>
-    internal sealed record Overrides(WeaponStyle? Katana = null, WeaponStyle? Longsword = null, WeaponStyle? Club = null, string? OnlyFor = null, WeaponStyle? Staff = null, WeaponStyle? SwordShield = null)
+    internal sealed record Overrides(WeaponStyle? Katana = null, WeaponStyle? Longsword = null, WeaponStyle? Club = null, string? OnlyFor = null, WeaponStyle? Staff = null, WeaponStyle? SwordShield = null, WeaponStyle? Bat = null)
     {
         public static Overrides None { get; } = new();
 
@@ -91,6 +91,7 @@ internal static class HandleLab
             WeaponKind.WoodenClub => Club,
             WeaponKind.Staff or WeaponKind.Jo => Staff,
             WeaponKind.IronSword => SwordShield,
+            WeaponKind.Bat => Bat,
             _ => null,
         };
     }
@@ -406,7 +407,11 @@ internal static class HandleLab
         var grip = Weapon.GripOf(kind).X;
         var tip = Weapon.TipOf(kind).X;
         swing.BladeFraction = Math.Clamp((at.X - grip) / MathF.Max(1e-4f, tip - grip), -0.5f, 1.5f);
-        if (Weapon.IsRod(kind))
+        if (kind == WeaponKind.Bat)
+        {
+            swing.RearEnd = at.X < grip ? 1 : 0; // バットは握りの端（グリップエンド）も打つ: 上の手の握りより後ろなら後ろの端
+        }
+        else if (Weapon.IsRod(kind))
         {
             // 棒は両端が打つ: 当たった点が棒の真ん中（握りの間）より −X 側なら後ろの端。刃の位置は、当たった端の先からの近さ（0 = 握り・1 = 端）にする。
             swing.RearEnd = at.X < 0f ? 1 : 0;
@@ -426,13 +431,18 @@ internal static class HandleLab
         new("jin", fist), new("konrad", fist), new("sean", fist),
     ];
 
+    /// <summary>名簿の id、または "bat"（名簿の jin の体と教科書で、日本刀の代わりにバットを両手で握る試験用のキャラ。名簿には足さない）。</summary>
+    internal static FighterCharacter Resolve(string id) => id == "bat"
+        ? CharacterRoster.Get("jin") with { Id = "bat", Name = "バット", HudName = "バット", Weapon = WeaponKind.Bat }
+        : CharacterRoster.Get(id);
+
     public static IReadOnlyList<Bout> Run(IReadOnlyList<Matchup> matchups, int bouts, float seconds, int seed, bool referee, int parallel, Overrides overrides, TextWriter progress)
     {
         var jobs = new List<(FighterCharacter Red, FighterCharacter Blue, int Seed)>();
         for (var m = 0; m < matchups.Count; m++)
         {
-            var a = CharacterRoster.Get(matchups[m].A);
-            var b = CharacterRoster.Get(matchups[m].B);
+            var a = Resolve(matchups[m].A);
+            var b = Resolve(matchups[m].B);
             for (var i = 0; i < bouts; i++)
             {
                 var s = seed + (1000 * m) + (i / 2);
@@ -462,6 +472,7 @@ internal static class HandleLab
         WeaponKind.WoodenClub => "こんぼう",
         WeaponKind.Staff => "棒",
         WeaponKind.Jo => "杖",
+        WeaponKind.Bat => "バット",
         WeaponKind.IronSword => "剣盾",
         _ => "拳",
     };
@@ -473,7 +484,7 @@ internal static class HandleLab
     /// <summary>武器を握る側の組（武器 × 相手の種類）ごとの表。</summary>
     public static string Report(IReadOnlyList<Bout> bouts, float seconds, int seed, string heading)
     {
-        var sides = bouts.SelectMany(b => new[] { b.Red, b.Blue }).Where(s => s.Weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.IronSword).ToList();
+        var sides = bouts.SelectMany(b => new[] { b.Red, b.Blue }).Where(s => s.Weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.IronSword or WeaponKind.Bat).ToList();
         var groups = sides.GroupBy(s => (s.Weapon, s.OpponentClass)).OrderBy(g => g.Key.Weapon).ThenBy(g => g.Key.OpponentClass).ToList();
         var sb = new StringBuilder();
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"### {heading}（{bouts.Count} 試合 × {seconds:0} 秒、種 {seed}、LogicVersion {BoxerBot.LogicVersion}）"));

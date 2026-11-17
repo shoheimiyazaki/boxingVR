@@ -200,7 +200,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 44; // 44: 回し蹴りを高さで 3 つに・前の足と後ろの足の練習の差分・前蹴りの手本（claude/staff-vr-motion-kick の 42 を合わせた）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 49; // 49: master の 43（休み）・44（回し蹴りの高さ）と claude/sword-combat-techniques の 43〜48（剣の型・連続の守り・内側の技・バット）を合わせた（2026-11-18 のマージ）。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;

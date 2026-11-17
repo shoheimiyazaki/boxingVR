@@ -32,12 +32,14 @@ public sealed class WeaponStyleTests
             Assert.AreEqual(SwordDefense.Adopted, t.Defense, kind.ToString());
             Assert.IsNull(t.HitAndAway, kind.ToString());
             Assert.AreEqual(new AimTuning(), t.Aim, kind.ToString());
-            Assert.IsFalse(t.AutoAim);
+            Assert.AreEqual(kind == WeaponKind.Longsword, t.AutoAim);
             Assert.IsNull(t.Clearance);
-            Assert.IsNull(t.TechniqueWeights);
+            if (kind == WeaponKind.WoodenClub) { Assert.IsNull(t.TechniqueWeights); }
+            else { Assert.IsNotNull(t.TechniqueWeights); }
             Assert.IsNull(t.ClubSwingWeights);
             Assert.AreEqual(0.6f, t.Rest);
-            Assert.AreEqual(FormSwordsman.MinReach, t.MinReach);
+            Assert.AreEqual(FormSwordsman.MinReach, t.MinReach, "plan candidates (walk in to strike) stay at the sword's reach");
+            Assert.AreEqual(kind is WeaponKind.Katana or WeaponKind.Longsword ? 0.1f : null, t.InnerMinReach, "only the sword textbooks add inner-range forms (used when already close)");
             Assert.AreEqual(DisarmedFallback.DefaultKeepReach, t.KeepReach);
             Assert.AreEqual(0.6f, t.ClubRest);
             Assert.AreEqual(0.48f, t.ClubStandOff);
@@ -68,6 +70,7 @@ public sealed class WeaponStyleTests
             Pacing = new SwingPacing(Floor: 0.3f),
             Rest = 0.4f,
             MinReach = 0.4f,
+            InnerMinReach = 0.2f,
             KeepReach = 0.5f,
             ClubRange = 0.4f,
             ClubRest = 0.5f,
@@ -76,7 +79,8 @@ public sealed class WeaponStyleTests
         };
         Assert.AreEqual(style, WeaponStyle.FromJson(style.ToJson()));
         var textbook = WeaponCatalog.Textbook(WeaponKind.Katana);
-        Assert.AreEqual(textbook, WeaponStyle.FromJson(textbook.ToJson()));
+        // 技の重みは辞書（参照の比較になる）なので、JSON を通して書き戻した文字列で比べる。
+        Assert.AreEqual(textbook.ToJson(), WeaponStyle.FromJson(textbook.ToJson()).ToJson());
     }
 
     [TestMethod]
@@ -234,7 +238,7 @@ public sealed class WeaponStyleTests
     {
         var only = WeaponCatalog.Textbook(WeaponKind.Katana) with
         {
-            TechniqueWeights = new Dictionary<string, float> { ["tsuki"] = 1f, ["kesa"] = 0f, ["gyaku-kesa"] = 0f, ["nuki-do"] = 0f, ["kiriage"] = 0f, ["harai-men"] = 0f, ["hiki-men"] = 0f },
+            TechniqueWeights = FormSwordsman.Forms(WeaponKind.Katana).ToDictionary(f => f.Name, f => f.Name == "tsuki" ? 1f : 0f),
         };
         var corners = BoxingCorners.Default with
         {

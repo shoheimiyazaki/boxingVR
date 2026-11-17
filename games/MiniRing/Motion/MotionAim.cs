@@ -34,9 +34,9 @@ public sealed record AimTuning(float Gain = 1f, float Lead = 0.6f, float MaxShif
 public static class MotionAim
 {
     /// <summary>狙える部位（入力元が見える相手の体の位置から決まる所）。</summary>
-    public static IReadOnlyList<BodyPartKind> Targets { get; } = [BodyPartKind.Head, BodyPartKind.Chest, BodyPartKind.Pelvis, BodyPartKind.UpperArm, BodyPartKind.Forearm];
+    public static IReadOnlyList<BodyPartKind> Targets { get; } = [BodyPartKind.Head, BodyPartKind.Chest, BodyPartKind.Pelvis, BodyPartKind.UpperArm, BodyPartKind.Forearm, BodyPartKind.Thigh, BodyPartKind.Shin];
 
-    private static readonly ConcurrentDictionary<(MotionTechnique, float), (Vector3 Point, int Frame)> Landings = new();
+    private static readonly ConcurrentDictionary<(MotionTechnique, float), (Vector3 Point, int Frame, float EndX)> Landings = new();
 
     /// <summary>
     /// 技が落ちる所（体フレーム、腕の長さを 1 とした値。踏み込んだ分の前進を Z に足す）と、そのフレームの番号。
@@ -44,50 +44,72 @@ public static class MotionAim
     public static (Vector3 Point, int Frame) Landing(MotionTechnique technique, float armReach)
     {
         ArgumentNullException.ThrowIfNull(technique);
-        return Landings.GetOrAdd((technique, armReach), key => Compute(key.Item1, key.Item2));
+        var landing = Landings.GetOrAdd((technique, armReach), key => Compute(key.Item1, key.Item2));
+        return (landing.Point, landing.Frame);
     }
 
-    private static (Vector3 Point, int Frame) Compute(MotionTechnique technique, float armReach)
+    /// <summary>この型で最も速く前へ出る端（戻しを除く）。間合いと狙いで同じ端を使う。</summary>
+    public static float StrikingEndX(MotionTechnique technique, float armReach) =>
+        Landings.GetOrAdd((technique, armReach), key => Compute(key.Item1, key.Item2)).EndX;
+
+    private static (Vector3 Point, int Frame, float EndX) Compute(MotionTechnique technique, float armReach)
     {
-        var (top, _) = Weapon.TwoHandGripsOf(technique.Weapon);
+        var top = Weapon.GripOf(technique.Weapon);
         var guardX = top.X + 0.012f;
-        var tipX = Weapon.TipOf(technique.Weapon).X;
-        var monouchi = ((guardX - top.X) + (0.8f * (tipX - guardX))) / armReach;
-        var tip = (tipX - top.X) / armReach;
         var frames = technique.Motion.Frames;
         var dt = technique.Motion.FrameTime;
         var advance = new float[frames.Count];
-        var speed = new float[frames.Count];
         for (var i = 0; i < frames.Count; i++)
         {
             advance[i] = (i > 0 ? advance[i - 1] : 0f) + (frames[i].Velocity.Z * dt);
-            if (i > 0)
+        }
+
+        var until = Math.Clamp((int)((technique.Motion.StrikeUntil ?? technique.Motion.Duration) / dt), 1, frames.Count - 1);
+        var chosen = (Point: Vector3.Zero, Frame: 0, EndX: Weapon.TipOf(technique.Weapon).X);
+        var fastest = float.MinValue;
+        foreach (var tipX in Weapon.StrikeEndsX(technique.Weapon))
+        {
+            var tip = (tipX - top.X) / armReach;
+            var monouchi = (tipX < top.X ? tipX - top.X : (guardX - top.X) + (0.8f * (tipX - guardX))) / armReach;
+            var speed = new float[until + 1];
+            var forward = 0f;
+            for (var i = 1; i <= until; i++)
             {
                 Vector3 Tip(int k) => frames[k].Right + (frames[k].Blade * tip) + new Vector3(0f, 0f, advance[k]);
                 speed[i] = Vector3.Distance(Tip(i), Tip(i - 1)) / dt;
+                // 手より前を向いた端の打ち出しを見る。後ろを向く切っ先の並進を柄頭の打ちと取り違えない。
+                if (frames[i].Blade.Z * tip >= 0f)
+                {
+                    forward = MathF.Max(forward, (Tip(i).Z - Tip(i - 1).Z) / dt);
+                }
             }
-        }
 
-        var peak = Array.IndexOf(speed, speed.Max());
-        var best = peak;
-        var reach = float.MinValue;
-        for (var i = peak; i < frames.Count; i++)
-        {
-            var z = (frames[i].Right + (frames[i].Blade * monouchi)).Z + advance[i];
-            if (z > reach)
+            var peak = Array.IndexOf(speed, speed.Max());
+            var best = peak;
+            var reach = float.MinValue;
+            for (var i = peak; i <= until; i++)
             {
-                reach = z;
-                best = i;
+                var z = (frames[i].Right + (frames[i].Blade * monouchi)).Z + advance[i];
+                if (z > reach)
+                {
+                    reach = z;
+                    best = i;
+                }
+            }
+
+            if (forward > fastest)
+            {
+                fastest = forward;
+                chosen = (frames[best].Right + (frames[best].Blade * monouchi) + new Vector3(0f, 0f, advance[best]), best, tipX);
             }
         }
 
-        var point = frames[best].Right + (frames[best].Blade * monouchi) + new Vector3(0f, 0f, advance[best]);
-        return (point, best);
+        return chosen;
     }
 
     /// <summary>
-    /// 相手の部位 <paramref name="part"/> の今の位置（ワールド）。見える所から決める: 頭・胸・腰はそのまま、上腕は肩から拳の 3 割、前腕は
-    /// 拳から肩の 2 割（小手）。左右は、こちらの右手（剣の側）に近い方の腕。
+    /// 相手の部位 <paramref name="part"/> の今の位置（ワールド）。頭・胸・腰はそのまま、上腕は肩、前腕は手首（小手）。
+    /// 左右は、こちらの右手（剣の側）に近い方の腕。脚は見える腰の下へ腕長で比例した腿・すねの高さを使う近似。
     /// </summary>
     public static Vector3 TargetPoint(in FighterSense sense, BodyPartKind part)
     {
@@ -99,6 +121,10 @@ public static class MotionAim
                 return sense.OpponentHead;
             case BodyPartKind.Pelvis:
                 return pelvis;
+            case BodyPartKind.Thigh:
+                return pelvis - new Vector3(0f, 0.35f * sense.ArmReach, 0f);
+            case BodyPartKind.Shin:
+                return pelvis - new Vector3(0f, 1f * sense.ArmReach, 0f);
             case BodyPartKind.UpperArm:
             case BodyPartKind.Forearm:
                 var mine = sense.Self.LocalToWorld(new Vector3(-0.3f * sense.ArmReach, 0f, 0f)); // 右手の側（体フレームの −X）
@@ -109,7 +135,7 @@ public static class MotionAim
                     (shoulder, fist) = (shoulder2, fist2);
                 }
 
-                return part == BodyPartKind.UpperArm ? Vector3.Lerp(shoulder, fist, 0.3f) : Vector3.Lerp(fist, shoulder, 0.2f);
+                return part == BodyPartKind.UpperArm ? shoulder : fist;
             default:
                 return sense.OpponentChest;
         }
@@ -147,7 +173,7 @@ public static class MotionAim
             shift = Vector3.Normalize(shift) * tuning.MaxShift;
         }
 
-        if (shift.LengthSquared() < 1e-8f)
+        if (shift.LengthSquared() < 1e-8f || technique.Motion.Kick is not null)
         {
             return technique;
         }
