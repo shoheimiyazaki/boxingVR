@@ -136,16 +136,21 @@ internal sealed class TvShowGraphics(int width, int height)
         // 大会名: 中央に出て、紹介が入る前に上へ上がる。
         var logoIn = EaseOut(Clamp01(t / 0.7f));
         var logoUp = EaseInOut(Clamp01((t - 1.1f) / 0.6f));
-        var logoY = Lerp(h * 0.42f, h * 0.13f, logoUp);
+        var logoY = Lerp(h * 0.45f, h * 0.155f, logoUp);
         var logoSize = Lerp(1.25f, 0.8f, logoUp);
         var bandWidth = w * logoIn;
-        shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, logoY + (6f * logoSize)), new Vector2(bandWidth, 176f * logoSize), Ink with { W = 0.88f * fade },
+        shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, logoY - (10f * logoSize)), new Vector2(bandWidth, 270f * logoSize), Ink with { W = 0.88f * fade },
             FillColorEnd: Ink with { W = 0.15f * fade }, GradientAxis: Vector2.UnitY));
-        // ボクセルを積んだ金の WVC、その下に字間を空けた団体の名前と、金の細い罫、大会名。
-        VoxelWord(shapes, LogoText, new Vector2(w * 0.5f, logoY - (40f * logoSize)), 10f * logoSize, logoIn * fade);
-        text.Add(new ScreenTextDraw(Spaced(OrganizationName.ToUpperInvariant()), new Vector2(w * 0.5f, logoY + (6f * logoSize)), 20f * logoSize, White with { W = 0.9f * logoIn * fade }, TextAnchor.Center));
-        shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, logoY + (36f * logoSize)), new Vector2(bandWidth * 0.36f, 1.5f), Gold with { W = fade }));
-        Shadowed(text, card.EventTitle, new Vector2(w * 0.5f, logoY + (44f * logoSize)), 30f * logoSize, Gold with { W = logoIn * fade }, TextAnchor.Center);
+        // WVC の紋章（光の帯が文字を斜めに横切る: 0.5〜1.4 秒）、その下に字間を空けた団体の名前と、金の細い罫、大会名。
+        var emblemCenter = new Vector2(w * 0.5f, logoY - (56f * logoSize));
+        var emblemUnit = 7.2f * logoSize * (0.85f + (0.15f * logoIn));
+        var sweepFrom = emblemCenter.X - (16f * emblemUnit);
+        var shine = Lerp(sweepFrom, (2f * emblemCenter.X) - sweepFrom, Clamp01((t - 0.5f) / 0.9f));
+        WvcEmblem.Draw(text, shapes, emblemCenter, emblemUnit, logoIn * fade, shine);
+        text.Add(new ScreenTextDraw(Spaced(OrganizationName.ToUpperInvariant()), new Vector2(w * 0.5f, logoY + (22f * logoSize)), 17f * logoSize, White with { W = 0.9f * logoIn * fade }, TextAnchor.Center));
+        shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, logoY + (40f * logoSize)), new Vector2(bandWidth * 0.36f, 1.5f), Gold with { W = fade }));
+        RuleGems(shapes, new Vector2(w * 0.5f, logoY + (40f * logoSize)), bandWidth * 0.18f, 2.6f * logoSize, logoIn * fade);
+        Shadowed(text, card.EventTitle, new Vector2(w * 0.5f, logoY + (48f * logoSize)), 30f * logoSize, Gold with { W = logoIn * fade }, TextAnchor.Center);
 
         // 何試合目か。
         var boutIn = Clamp01((t - 1.5f) / 0.4f);
@@ -204,7 +209,7 @@ internal sealed class TvShowGraphics(int width, int height)
         var h = (float)height;
         var fade = Clamp01(t / 0.4f) * (1f - Clamp01((t - (TapeSeconds - 0.5f)) / 0.5f));
         shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, h * 0.5f), new Vector2(w, h), new Vector4(0f, 0f, 0f, 0.6f * fade)));
-        Logo(text, shapes, new Vector2(70f, 34f), 1f, fade);
+        Logo(text, shapes, new Vector2(74f, 34f), 1f, fade);
         Shadowed(text, "選手の比較", new Vector2(w * 0.5f, h * 0.06f), 40f, Gold with { W = fade }, TextAnchor.Center);
 
         // 名前の帯（赤は左、青は右）。
@@ -263,7 +268,7 @@ internal sealed class TvShowGraphics(int width, int height)
         var shapes = new List<UiShapeDraw>();
         var fade = 1f - Clamp01((t - (program.Seconds - 0.5f)) / 0.5f);
         shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, h * 0.5f), new Vector2(w, h), new Vector4(0f, 0f, 0f, 0.62f * Clamp01(t / 0.4f) * fade)));
-        Logo(text, shapes, new Vector2(70f, 34f), 1f, fade);
+        Logo(text, shapes, new Vector2(74f, 34f), 1f, fade);
 
         var headIn = EaseOut(Clamp01(t / 0.6f));
         Shadowed(text, "本日のプログラム", new Vector2(w * 0.5f, (h * 0.08f) - ((1f - headIn) * 20f)), 46f, Gold with { W = headIn * fade }, TextAnchor.Center);
@@ -346,7 +351,7 @@ internal sealed class TvShowGraphics(int width, int height)
         var text = new List<ScreenTextDraw>();
         var shapes = new List<UiShapeDraw>();
         shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, h * 0.5f), new Vector2(w, h), new Vector4(0f, 0f, 0f, 0.55f * Clamp01(t / 0.5f))));
-        Logo(text, shapes, new Vector2(70f, 34f), 1f);
+        Logo(text, shapes, new Vector2(74f, 34f), 1f);
 
         // 試合終了の札。
         var tagIn = Clamp01(t / 0.4f);
@@ -473,7 +478,7 @@ internal sealed class TvShowGraphics(int width, int height)
         text.Add(new ScreenTextDraw(clock, clockCenter - new Vector2(0f, 12f), 36f, new Vector4(0.06f, 0.06f, 0.08f, 1f), TextAnchor.Center));
         shapes.Add(UiShapeDraw.Rounded(new Vector2(w - 62f, 30f), new Vector2(72f, 28f), 5f, new Vector4(0.85f, 0.1f, 0.1f, 0.95f)));
         text.Add(new ScreenTextDraw("LIVE", new Vector2(w - 62f, 20f), 20f, White, TextAnchor.Center));
-        Logo(text, shapes, new Vector2(70f, 34f), 1f);
+        Logo(text, shapes, new Vector2(74f, 34f), 1f);
 
         foreach (var (panel, name, fighter, bright, deep) in new[] { (redPanel, red, game.Player, RedBright, RedDeep), (bluePanel, blue, game.Cpu, BlueBright, BlueDeep) })
         {
@@ -510,7 +515,7 @@ internal sealed class TvShowGraphics(int width, int height)
         text.Add(new ScreenTextDraw("REPLAY", new Vector2(100f, 13f), 24f, White, TextAnchor.Center));
         text.Add(new ScreenTextDraw($"第{round}ラウンド　スロー", new Vector2(170f, 14f), 22f, Gold));
         Shadowed(text, description, new Vector2(w * 0.5f, h - 50f), 24f, White, TextAnchor.Center);
-        Logo(text, shapes, new Vector2(w - 70f, 26f), 0.8f);
+        Logo(text, shapes, new Vector2(w - 74f, 26f), 0.8f);
         return (text, shapes);
     }
 
@@ -527,17 +532,37 @@ internal sealed class TvShowGraphics(int width, int height)
     public const string SportName = "Voxing";
 
     /// <summary>
-    /// 中継のロゴの札: 黒から焦げ茶へのグラデーションの板に金の二重の縁、ボクセルを積んだ金の「WVC」、その下に字間を空けた競技の名前。
+    /// 中継のロゴの札: WVC の紋章（<see cref="WvcEmblem"/>）を小さく描く。
     /// <paramref name="center"/> は札の中心、<paramref name="scale"/> は大きさ。
     /// </summary>
     public static void Logo(List<ScreenTextDraw> text, List<UiShapeDraw> shapes, Vector2 center, float scale, float alpha = 1f)
     {
-        var size = new Vector2(124f, 58f) * scale;
-        shapes.Add(new UiShapeDraw(center, size, new Vector4(0.03f, 0.03f, 0.04f, 0.94f * alpha), UiShapeDraw.Uniform(4f * scale), Gold with { W = alpha }, 2f * scale,
-            FillColorEnd: new Vector4(0.13f, 0.1f, 0.05f, 0.94f * alpha), GradientAxis: Vector2.UnitY));
-        shapes.Add(new UiShapeDraw(center, size - new Vector2(8f * scale), default, UiShapeDraw.Uniform(2f * scale), Gold with { W = 0.55f * alpha }, 1f));
-        VoxelWord(shapes, LogoText, center - new Vector2(0f, 8f * scale), 3.4f * scale, alpha);
-        text.Add(new ScreenTextDraw(Spaced(SportName.ToUpperInvariant()), center + new Vector2(0f, 11.5f * scale), 9f * scale, new Vector4(0.95f, 0.9f, 0.75f, 0.9f * alpha), TextAnchor.Center));
+        WvcEmblem.Draw(text, shapes, center, 3.1f * scale, alpha);
+    }
+
+    /// <summary>ロゴの文字列の横幅 [px]（<see cref="VoxelWord"/> と同じ組み方）。</summary>
+    private static float VoxelWordWidth(string word, float cell) => ((word.Length * 5) + ((word.Length - 1) * 1.5f)) * cell;
+
+    /// <summary>罫の飾り: 中央の大きな菱形と、罫の両端の小さな菱形（ボクセルを積んだ金）。<paramref name="halfWidth"/> は罫の半分の長さ [px]。</summary>
+    public static void RuleGems(List<UiShapeDraw> shapes, Vector2 center, float halfWidth, float cell, float alpha = 1f)
+    {
+        var cells = new List<Vector2>();
+        void Lozenge(Vector2 at, int radius)
+        {
+            for (var dy = -radius; dy <= radius; dy++)
+            {
+                var span = radius - Math.Abs(dy);
+                for (var dx = -span; dx <= span; dx++)
+                {
+                    cells.Add(at + (new Vector2(dx, dy) * cell));
+                }
+            }
+        }
+
+        Lozenge(center, 2);
+        Lozenge(center + new Vector2(halfWidth, 0f), 1);
+        Lozenge(center - new Vector2(halfWidth, 0f), 1);
+        VoxelCells(shapes, cells, cell, alpha, float.NaN);
     }
 
     /// <summary>文字の間に細い空白を入れる（高級感のある字間の広い組み方）。</summary>
@@ -555,21 +580,16 @@ internal sealed class TvShowGraphics(int width, int height)
     };
 
     /// <summary>
-    /// ボクセルを積んだ金の文字: マスごとに、右下へずらした暗い銅色の側面（奥行き）を置き、その上に上が明るく下が深い金の面を置く（立方体の斜め見え）。
-    /// <paramref name="center"/> は文字列の中心、<paramref name="cell"/> は 1 マスの大きさ [px]。
+    /// ボクセルを積んだ金の文字。<paramref name="center"/> は文字列の中心、<paramref name="cell"/> は 1 マスの大きさ [px]、
+    /// <paramref name="shine"/> は光の帯が通る X [px]（NaN なら光らない）。
     /// </summary>
-    public static void VoxelWord(List<UiShapeDraw> shapes, string word, Vector2 center, float cell, float alpha = 1f)
+    public static void VoxelWord(List<UiShapeDraw> shapes, string word, Vector2 center, float cell, float alpha = 1f, float shine = float.NaN)
     {
         const int GlyphWidth = 5;
         const int GlyphHeight = 7;
         const float Gap = 1.5f; // 文字の間（マス）
         var columns = (word.Length * GlyphWidth) + ((word.Length - 1) * Gap);
         var origin = center - new Vector2(columns * cell * 0.5f, GlyphHeight * cell * 0.5f);
-        var depth = new Vector2(cell * 0.4f);
-        var face = new Vector2(cell * 0.9f);
-        var side = new Vector4(0.36f, 0.22f, 0.07f, alpha);
-        var top = new Vector4(1f, 0.93f, 0.62f, alpha);
-        var bottom = new Vector4(0.8f, 0.55f, 0.16f, alpha);
         var cells = new List<Vector2>();
         for (var i = 0; i < word.Length; i++)
         {
@@ -591,6 +611,22 @@ internal sealed class TvShowGraphics(int width, int height)
             }
         }
 
+        VoxelCells(shapes, cells, cell, alpha, shine);
+    }
+
+    /// <summary>
+    /// 金のボクセルを並べる: マスごとに、右下へずらした暗い銅色の側面（奥行き）を置き、その上に上が明るく下が深い金の面を置く（立方体の斜め見え）。
+    /// 光の帯（<paramref name="shine"/> の X の前後 2.5 マス）にかかるマスは白へ寄せる。<paramref name="tone"/> は金の明るさ（翼は 0.8 で文字より沈める）。
+    /// </summary>
+    private static void VoxelCells(List<UiShapeDraw> shapes, List<Vector2> cells, float cell, float alpha, float shine, float tone = 1f)
+    {
+        var depth = new Vector2(cell * 0.4f);
+        var face = new Vector2(cell * 0.9f);
+        var side = new Vector4(0.36f, 0.22f, 0.07f, alpha);
+        var top = new Vector4(new Vector3(1f, 0.93f, 0.62f) * tone, alpha);
+        var bottom = new Vector4(new Vector3(0.8f, 0.55f, 0.16f) * tone, alpha);
+        var white = new Vector4(1f, 1f, 1f, alpha);
+
         // 側面を先に全部、その上に面（隣のマスの面が側面を隠す）。
         foreach (var c in cells)
         {
@@ -599,7 +635,8 @@ internal sealed class TvShowGraphics(int width, int height)
 
         foreach (var c in cells)
         {
-            shapes.Add(new UiShapeDraw(c, face, top, FillColorEnd: bottom, GradientAxis: Vector2.UnitY));
+            var glow = float.IsNaN(shine) ? 0f : MathF.Exp(-MathF.Pow((c.X - shine - ((c.Y - cells[0].Y) * 0.5f)) / (2.5f * cell), 2f));
+            shapes.Add(new UiShapeDraw(c, face, Vector4.Lerp(top, white, 0.85f * glow), FillColorEnd: Vector4.Lerp(bottom, white, 0.7f * glow), GradientAxis: Vector2.UnitY));
             shapes.Add(new UiShapeDraw(c - new Vector2(0f, face.Y * 0.4f), new Vector2(face.X, face.Y * 0.12f), new Vector4(1f, 1f, 0.9f, 0.35f * alpha)));
         }
     }
