@@ -54,7 +54,8 @@ try
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out", "hz", "passes", "sample", "referee")),
         "handlelab" => HandleLabCommand(Options.Parse(argv[1..], "pairs", "fist", "bouts", "seconds", "seed", "referee", "parallel", "out", "style-katana", "style-longsword", "style-club", "style-staff", "style-swordshield", "title")),
         "handlespar" => HandleSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "held-out", "gens", "lambda", "bouts", "seconds", "seed", "referee", "parallel", "start", "best", "out")),
-        "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain", "wear")),
+        "maailab" => MaaiLabCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "parallel", "out", "json", "csv", "ranges")),
+        "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain", "wear", "matrix")),
         "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
         "learnlab" => LearnLabCommand(Options.Parse(argv[1..], "first", "second", "seeds", "seconds", "seed", "prior", "scale", "combos", "defender", "out")),
         "rangelab" => RangeLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "weapons", "out")),
@@ -102,6 +103,7 @@ try
         "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns")),
+        "portraits" => Portraits(Options.Parse(argv[1..], "out", "scale")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
         "voxcheck" => VoxCheck(Options.Parse(argv[1..], "in", "install")),
         "weaponexport" => WeaponExport(Options.Parse(argv[1..], "out", "from")),
@@ -162,6 +164,57 @@ static int League(Options o)
 static IReadOnlyDictionary<string, float> SetOf(Options o)
     => o.List("set", []).Select(p => p.Split('=')).ToDictionary(p => p.Length == 2 ? p[0] : throw new ArgumentException("--set は 名前=値 をカンマで区切ってください。"), p => float.Parse(p[1], CultureInfo.InvariantCulture));
 
+// 技ごとの間合いとダメージの曲線（名簿の総当たり）。--out は Markdown、--json は集計（HTML のレポート用）、--csv は 1 打ずつの生の記録。
+static int MaaiLabCommand(Options o)
+{
+    var all = MiniRing.Characters.CharacterRoster.All;
+    var roster = o.Get("chars") is null ? all : [.. o.List("chars", []).Select(MiniRing.Characters.CharacterRoster.Get)];
+    if (roster.Count < 2)
+    {
+        throw new ArgumentException("--chars には 2 人以上が必要です。");
+    }
+
+    var bouts = o.Int("bouts", 2, min: 1);
+    var seconds = o.Float("seconds", 60f, min: 1f);
+    var seed = o.Int("seed", 1);
+    var referee = Referee(o);
+    var watch = Stopwatch.StartNew();
+    var cells = new List<MaaiLab.RangeCell>();
+    var throws = MaaiLab.Collect(roster, bouts, seconds, seed, referee, o.Int("parallel", 2, min: 1), Console.Error, cells);
+    var boutCount = roster.Count * (roster.Count - 1) / 2 * bouts;
+    var summary = MaaiLab.Summarize(roster, throws);
+    var (rangeBins, rangeSummary) = MaaiLab.Ranges(roster, cells, throws);
+    var text = MaaiLab.Markdown(summary, bouts, seconds, seed, referee, boutCount, throws.Count) + MaaiLab.RangesMarkdown(rangeSummary);
+    // --ranges <接頭辞>: 得意・不得意の距離（<接頭辞>_bins.csv が帯ごと、<接頭辞>_summary.csv が選手ごと）。
+    if (o.Get("ranges") is { } ranges)
+    {
+        File.WriteAllText(ranges + "_bins.csv", MaaiLab.RangesCsv(rangeBins));
+        File.WriteAllText(ranges + "_summary.csv", MaaiLab.RangeSummaryCsv(rangeSummary));
+    }
+
+    Console.Error.WriteLine($"maailab done in {watch.Elapsed.TotalSeconds:0.0}s, {throws.Count} throws");
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, text);
+    }
+    else
+    {
+        Console.WriteLine(text);
+    }
+
+    if (o.Get("json") is { } json)
+    {
+        File.WriteAllText(json, MaaiLab.Json(summary, new { bouts, seconds, seed, referee, boutCount, throws = throws.Count, physics = MiniRing.Fighter.PhysicsVersion, logic = MiniRing.Bots.BoxerBot.LogicVersion, binWidth = 0.1 }));
+    }
+
+    if (o.Get("csv") is { } csv)
+    {
+        File.WriteAllText(csv, MaaiLab.Csv(throws));
+    }
+
+    return 0;
+}
+
 static int RosterLeagueCommand(Options o)
 {
     ApplySimplify(o);
@@ -176,7 +229,7 @@ static int RosterLeagueCommand(Options o)
     }
 
     var watch = Stopwatch.StartNew();
-    var text = RosterLeague.Run(roster, o.Int("bouts", 2, min: 1), o.Float("seconds", 40f, min: 1f), o.Int("seed", 1), Referee(o), o.Int("parallel", 2, min: 1), Console.Error, SetOf(o), o.Get("ab") == "on", o.Get("layered"), o.Get("plain"));
+    var text = RosterLeague.Run(roster, o.Int("bouts", 2, min: 1), o.Float("seconds", 40f, min: 1f), o.Int("seed", 1), Referee(o), o.Int("parallel", 2, min: 1), Console.Error, SetOf(o), o.Get("ab") == "on", o.Get("layered"), o.Get("plain"), o.Get("matrix"));
     Console.WriteLine(text);
     Console.Error.WriteLine($"rosterleague done in {watch.Elapsed.TotalSeconds:0.0}s");
     if (o.Get("out") is { } path)
@@ -1608,6 +1661,9 @@ static int Faces(Options o)
     var names = o.List("names", [.. BotCatalog.Names]).Select(Load).ToList();
     return FaceSheet.Run(o.Get("out") ?? "docs/images/gen13_faces.png", names, o.Int("columns", 3, min: 1));
 }
+
+// 名簿の肖像（メニューの顔・全身の絵）を PNG に（--out フォルダ、--scale 1 ピクセルの拡大、既定 4）。
+static int Portraits(Options o) => PortraitExport.Run(o.Get("out") ?? "portraits", MiniRing.Characters.CharacterRoster.All, o.Int("scale", 4, min: 1));
 
 static int VoxExport(Options o)
 {
