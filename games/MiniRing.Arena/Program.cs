@@ -64,6 +64,8 @@ try
         "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
+        "groundlab" => GroundLabCommand(Options.Parse(argv[1..], "style", "moves", "bouts", "seconds", "seed", "log", "video", "practice", "candidates", "sigma", "validate")),
+        "kickbalance" => KickBalanceCommand(Options.Parse(argv[1..], "style", "kicks", "teachings", "bouts", "seconds", "seed", "confirm", "log", "video")),
         "kicklab" => KickLabCommand(Options.Parse(argv[1..], "body", "kick", "distances", "seeds", "confirm-seeds", "shin", "overshoot", "side", "log")),
         "kickvideo" => KickVideoCommand(Options.Parse(argv[1..], "body", "kick", "distances", "side", "slow", "width", "height", "fps", "out")),
         "kickmocap" => KickMocapCommand(Options.Parse(argv[1..], "dir", "export", "log", "video", "doll", "durations", "distances")),
@@ -618,6 +620,76 @@ static int ThrowLabCommand(Options o)
 
     new ThrowLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log, o.Get("trace") == "yes")
         .Run(techniques, o.List("victims", ["stand", "champion"]));
+    return 0;
+}
+
+// 倒れた相手への攻めのドリル: 受け手を気絶させて倒したまま、攻め手が 1 つの技を選んで打ち下ろす（鉄槌 hammer・突き下ろし thrust・踏みつけ stomp）。
+static int GroundLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    var style = o.Get("style") ?? "karate";
+    var moves = o.List("moves", ["hammer", "thrust", "stomp"]);
+    if (o.Get("video") is { } video)
+    {
+        var output = Path.GetFullPath(video);
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        GroundLab.Video(style, moves[0], o.Int("seed", 1), o.Float("seconds", 12f, min: 2f), output, Console.Out);
+        return 0;
+    }
+
+    var lab = new GroundLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 12f, min: 2f), o.Int("seed", 1), Log);
+    if (o.Get("practice") == "yes")
+    {
+        foreach (var move in moves)
+        {
+            lab.Practice(style, move, o.Int("candidates", 20, min: 1), o.Float("sigma", 0.08f, min: 0.001f), o.Int("validate", 301));
+        }
+
+        return 0;
+    }
+
+    lab.Run(style, moves);
+    return 0;
+}
+
+// 軸足に乗って蹴る練習: 1 種の蹴りだけを出し続け、蹴り 1 本ごとに倒れた・当たった・渡したエネルギーを、教育の値の組（体重を移す間・頭の寄せ）ごとに数える。
+static int KickBalanceCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    var kinds = o.List("kicks", ["Front", "Side"]).Select(k => Enum.Parse<MiniRing.Bots.KickTechnique>(k, ignoreCase: true)).ToList();
+    var teachings = o.List("teachings", ["0:0:0"]).Select(t =>
+    {
+        var v = t.Split(':').Select(x => float.Parse(x, CultureInfo.InvariantCulture)).ToArray();
+        return new KickBalanceLab.Teaching(v[0], v.Length > 1 ? v[1] : 0f, v.Length > 2 ? v[2] : 0f);
+    }).ToList();
+    if (o.Get("video") is { } video)
+    {
+        var output = Path.GetFullPath(video);
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        KickBalanceLab.Video(o.Get("style") ?? "karate", kinds[0], teachings[0], o.Int("seed", 1), o.Float("seconds", 12f, min: 2f), output, Console.Out);
+        return 0;
+    }
+
+    new KickBalanceLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log)
+        .Run(o.Get("style") ?? "karate", kinds, teachings, o.Int("confirm", 0));
     return 0;
 }
 

@@ -323,6 +323,12 @@ public sealed record BotStyle
     /// </summary>
     public float KickShift { get; init; }
 
+    /// <summary>
+    /// 倒れた相手への攻めの技の経路（<see cref="GroundTuning"/>: 鉄槌・真下への突き・踏みつけ・斬り下ろしの寸法）。教科書・教育の値（技の経路）で、
+    /// null なら <see cref="GroundTuning.Default"/>。groundlab の練習の結果をここへ書く。
+    /// </summary>
+    public GroundTuning? Ground { get; init; }
+
     /// <summary>蹴りの間、頭を前（相手の方、腕の長さの倍数）へ寄せる量。軸足は前足なので、前へ寄せるほど体重が軸足に乗る。</summary>
     public float KickLeanForward { get; init; }
 
@@ -464,6 +470,7 @@ public sealed record BotStyle
             KickDuration = Range(KickDuration, 0.4f, 1.2f, 0.7f),
             KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
             KickShift = Range(KickShift, 0f, 0.6f, 0f),
+            Ground = Ground?.Validated(),
             KickLeanForward = Range(KickLeanForward, -0.4f, 0.4f, 0f),
             KickLeanSide = Range(KickLeanSide, -0.4f, 0.4f, 0f),
             GroundDrive = Unit(GroundDrive),
