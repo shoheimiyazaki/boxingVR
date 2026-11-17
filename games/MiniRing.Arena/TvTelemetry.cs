@@ -137,7 +137,7 @@ internal sealed class TvTelemetry
         var cut = Carved(game);
         foreach (var hit in game.RecentHits)
         {
-            var limb = hit.Kick ? $"{(hit.Hand == Hand.Left ? "左" : "右")}{KickName(hit.KickerPart)}" : hit.Hand == Hand.Left ? "左拳" : "右拳";
+            var limb = hit.Elbow ? $"{(hit.Hand == Hand.Left ? "左" : "右")}肘" : hit.Kick ? $"{(hit.Hand == Hand.Left ? "左" : "右")}{KickName(hit.KickerPart)}" : hit.Hand == Hand.Left ? "左拳" : "右拳";
             AddHit(game, at, hit.Attacker, hit.Victim, limb, hit.Point, hit.Zone, hit.Speed, hit.Momentum, hit.Energy, hit.Damage, cut, hit.Attacker == game.Player ? red : blue);
         }
 

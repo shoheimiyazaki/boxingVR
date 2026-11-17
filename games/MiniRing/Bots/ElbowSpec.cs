@@ -20,7 +20,7 @@ public enum ElbowTechnique { Horizontal, Upward, Downward }
 /// </para>
 /// </summary>
 public readonly record struct ElbowSpec(ElbowTechnique Technique, float Duration, float Standoff, Vector3 Chamber, Vector3 Through, Vector3 HandAnchor,
-    float Twist, float StepIn)
+    float Twist, float StepIn, Vector3 Lean)
 {
     /// <summary>肘を引き終える割合。</summary>
     public const float ChamberShare = 0.30f;
@@ -37,11 +37,11 @@ public readonly record struct ElbowSpec(ElbowTechnique Technique, float Duration
     public static ElbowSpec Of(ElbowTechnique technique) => technique switch
     {
         // 横肘: 肘を外・やや後ろへ引き、拳を耳（こめかみ）へ畳む。肩と胴のひねりで、肘を顔の高さの横から相手の顔の前を横切らせる。
-        ElbowTechnique.Horizontal => new(technique, 0.60f, 0.70f, new Vector3(0.9f, 0.1f, -0.5f), new Vector3(-0.9f, 0f, 0f), new Vector3(0.20f, 0.27f, 0.05f), Twist: 0.7f, StepIn: 0.8f),
+        ElbowTechnique.Horizontal => new(technique, 0.60f, 0.90f, new Vector3(0.9f, 0.1f, -0.5f), new Vector3(-0.9f, 0f, 0f), new Vector3(0.20f, 0.27f, 0.05f), Twist: 0.7f, StepIn: 0.8f, Lean: new Vector3(0f, -0.03f, 0.30f)),
         // 上げ肘: 肘を下へ引き、拳を顎の横へ。肘を相手の顎の下から突き上げる。
-        ElbowTechnique.Upward => new(technique, 0.55f, 0.65f, new Vector3(0.35f, -0.95f, 0.1f), new Vector3(0f, 0.9f, 0f), new Vector3(0.15f, 0.10f, 0.20f), Twist: 0.4f, StepIn: 0.8f),
+        ElbowTechnique.Upward => new(technique, 0.55f, 0.90f, new Vector3(0.35f, -0.95f, 0.1f), new Vector3(0f, 0.9f, 0f), new Vector3(0.15f, 0.10f, 0.20f), Twist: 0.4f, StepIn: 0.8f, Lean: new Vector3(0f, -0.10f, 0.25f)),
         // 振り下ろし肘: 肘を高く引き、拳を頭の上へ。肘を上から斜めに打ち下ろす。
-        ElbowTechnique.Downward => new(technique, 0.60f, 0.70f, new Vector3(0.2f, 0.95f, -0.2f), new Vector3(0f, -0.9f, 0f), new Vector3(0.15f, 0.55f, 0.05f), Twist: 0.5f, StepIn: 0.8f),
+        ElbowTechnique.Downward => new(technique, 0.60f, 0.90f, new Vector3(0.2f, 0.95f, -0.2f), new Vector3(0f, -0.9f, 0f), new Vector3(0.15f, 0.55f, 0.05f), Twist: 0.5f, StepIn: 0.8f, Lean: new Vector3(0f, -0.03f, 0.30f)),
         _ => throw new ArgumentOutOfRangeException(nameof(technique)),
     };
 
@@ -122,12 +122,19 @@ public readonly record struct ElbowSpec(ElbowTechnique Technique, float Duration
         return -hand.LocalSide() * Twist * profile;
     }
 
-    /// <summary>踏み込みの強さ（0..1）: 引く間は 0、当てるころ最大、戻す間に 0 へ。移動指令の前向き成分の上乗せに使う。</summary>
-    public float StepEnvelope(float time, float duration)
+    /// <summary>体を出す強さ（0..1）: 引く間は 0、当てるころ最大、戻す間に 0 へ（踏み込み・頭の前傾の山）。</summary>
+    public static float Envelope(float time, float duration)
     {
         var t = Math.Clamp(time / MathF.Max(1e-3f, duration), 0f, 1f);
-        return t < ChamberShare ? 0f : MathF.Sin(MathF.PI * Math.Clamp((t - ChamberShare) / (0.70f - ChamberShare), 0f, 1f)) * StepIn;
+        return t < ChamberShare ? 0f : MathF.Sin(MathF.PI * Math.Clamp((t - ChamberShare) / (0.70f - ChamberShare), 0f, 1f));
     }
+
+    /// <summary>踏み込みの強さ（移動指令の前向き成分の上乗せ）。</summary>
+    public float StepEnvelope(float time, float duration) => Envelope(time, duration) * StepIn;
+
+    /// <summary>頭の構えからのずれ（<see cref="FighterCommand.HeadOffset"/>）: 肘を出すとき上体を前へ傾け、肩を相手へ寄せる（腕の長さ倍 × 山）。</summary>
+    public Vector3 HeadShift(Hand hand, float time, float duration, float reach)
+        => new Vector3(hand.LocalSide() * Lean.X, Lean.Y, Lean.Z) * (reach * Envelope(time, duration));
 
     private static Vector3 Unit(Vector3 v) => v.LengthSquared() > 1e-8f ? Vector3.Normalize(v) : Vector3.UnitZ;
 

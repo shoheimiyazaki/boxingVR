@@ -17,13 +17,13 @@ public sealed class ElbowContactTests
 
     private static int Cells(Fighter f) => f.Voxels!.Parts.Concat(f.Voxels.Fragments).Sum(p => p.Body.Grid.FilledCount);
 
-    private static FighterCommand Command(Fighter self, Fighter opponent, Vector3 move, HandCommand? elbow, Hand side, float twist)
+    private static FighterCommand Command(Fighter self, Fighter opponent, Vector3 move, HandCommand? elbow, Hand side, float twist, Vector3 head = default)
     {
         var reach = self.ArmReach;
         var face = opponent.ChestPosition - self.ChestPosition;
         var left = side == Hand.Left && elbow is { } l ? l : new HandCommand(AiControl.Guard(Hand.Left, reach), false);
         var right = side == Hand.Right && elbow is { } r ? r : new HandCommand(AiControl.Guard(Hand.Right, reach), false);
-        return new FighterCommand(move, face, left, right, TwistBias: twist);
+        return new FighterCommand(move, face, left, right, head, TwistBias: twist);
     }
 
     /// <summary>
@@ -62,7 +62,9 @@ public sealed class ElbowContactTests
         var maxEnergy = 0f;
         var total = 0f;
         var maxElbowSpeed = 0f;
-        var minToAim = float.MaxValue; var zones = new List<string>(); var startDistance = Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f }) / attacker.ArmReach;
+        var minToAim = float.MaxValue;
+        var zones = new List<string>();
+        var startDistance = Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f }) / attacker.ArmReach;
         var steps = (int)((duration + 0.5f) / Dt);
         var previous = ElbowTip(attacker, side);
         for (var i = 0; i < steps; i++)
@@ -72,14 +74,18 @@ public sealed class ElbowContactTests
             var aim = sense.Self.WorldToLocal(aimWorld);
             var command = t <= duration ? spec.Command(side, t, duration, AiControl.Guard(side, reach), aim, reach) : (HandCommand?)null;
             var twist = t <= duration ? spec.TorsoTwist(side, t, duration) : 0f;
-            game.Step(new BoxingInput(Command(attacker, victim, Vector3.Zero, command, side, twist)), Dt);
+            var toward2 = Vector3.Normalize((victim.ChestPosition - attacker.ChestPosition) with { Y = 0f });
+            var head = t <= duration ? spec.HeadShift(side, t, duration, reach) : Vector3.Zero;
+            var move = t <= duration ? toward2 * spec.StepEnvelope(t, duration) : Vector3.Zero;
+            game.Step(new BoxingInput(Command(attacker, victim, move, command, side, twist, head)), Dt);
             var tip = ElbowTip(attacker, side);
             maxElbowSpeed = MathF.Max(maxElbowSpeed, Vector3.Distance(tip, previous) / Dt);
             previous = tip;
             minToAim = MathF.Min(minToAim, Vector3.Distance(tip, aimWorld));
             if (game.LastHit is { Elbow: true } hit && hits.Add(hit))
             {
-                zones.Add(hit.Zone.ToString()); maxSpeed = MathF.Max(maxSpeed, hit.Speed);
+                zones.Add(hit.Zone.ToString());
+                maxSpeed = MathF.Max(maxSpeed, hit.Speed);
                 maxMass = MathF.Max(maxMass, hit.ImpactMass);
                 maxEnergy = MathF.Max(maxEnergy, hit.Energy);
                 total += hit.Energy;
@@ -158,7 +164,7 @@ public sealed class ElbowContactTests
         Console.WriteLine(Describe("Jab x0.9", RunPunch(Technique.Jab, 0.9f, 0.35f)));
         foreach (var kind in Enum.GetValues<ElbowTechnique>())
         {
-            foreach (var scale in new[] { 0.8f, 0.9f, 1.0f, 1.1f, 1.2f })
+            foreach (var scale in new[] { 1.0f })
             {
                 Console.WriteLine(Describe(kind + " x" + scale.ToString(CultureInfo.InvariantCulture), Run(kind, distanceScale: scale)));
             }
