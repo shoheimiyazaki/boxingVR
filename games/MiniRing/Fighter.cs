@@ -636,6 +636,13 @@ public sealed partial class Fighter
     public bool WearsGlove(Hand hand) => _arms[(int)hand].Held is not null && _arms[(int)hand].Glove;
 
     /// <summary>
+    /// その手の拳はボクセルの物（はめたグローブ・はめた物）に覆われているか、手そのものが無い: 拳の代わりの球（はめる物が無かった頃の
+    /// グローブ・素手の拳）を描かない。腕が折れた・切れた後は、はめた物は持ち主の手から外れて（<see cref="WearsGlove"/> は false）
+    /// 力の抜けた手に付いたままぶら下がる。
+    /// </summary>
+    public bool FistCovered(Hand hand) => WearsGlove(hand) || _arms[(int)hand].WornLoose || _arms[(int)hand].HandGone;
+
+    /// <summary>
     /// 両手で握っているなら、<paramref name="main"/>（武器を握った利き手）に添えて同じ武器を握っているもう一方の手（握れていなければ null）。
     /// </summary>
     public Hand? SupportOf(Hand main)
@@ -2520,6 +2527,7 @@ public sealed partial class Fighter
             // 前の骨折・切断から、力の抜けた手がまだ握っている物・はめた物は、手と一緒に移す（手が無くなれば放す）。
             MoveHeldBy(part, arm, handGone);
             arm.Severed = true;
+            arm.HandGone |= handGone;
             LoosenGrip(arm, handGone);
             if (arm.GrabConstraint is { } grab)
             {
@@ -2906,6 +2914,8 @@ public sealed partial class Fighter
         {
             return;
         }
+
+        arm.WornLoose |= worn;
 
         // 手が付いている剛体（前腕、前腕が切れたら破片）と握る所を、つなぎ直す（切れた前腕の切り株の側に残った玉継手は、空を握っている）。
         var link = _world.AddBallSocket(arm.GloveBody, body, arm.GloveLocal, grip, frequency: 30f, dampingRatio: 1f);
@@ -3464,6 +3474,12 @@ public sealed partial class Fighter
 
         /// <summary>拳に付けているのはボクセルのグローブ（握った武器ではない）。</summary>
         public bool Glove { get; set; }
+
+        /// <summary>はめた物が、腕の骨折・切断の後も力の抜けた手に付いたまま（持ち主の手としては外れている）。</summary>
+        public bool WornLoose { get; set; }
+
+        /// <summary>手のある先まで削り取られた（拳が無い）。</summary>
+        public bool HandGone { get; set; }
 
         /// <summary>
         /// 手首の角度のサーボの強さ: バネの固さ（∝ 周波数²）と出せるトルクに、<paramref name="scale"/>（肉の残り・意識）と

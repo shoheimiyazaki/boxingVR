@@ -94,9 +94,9 @@ public static class BoxingRenderer
         foreach (var hand in new[] { Hand.Left, Hand.Right })
         {
             // 武器を握る手はグローブを外した素手（肌色の小さな拳）。
-            if (fighter.WearsGlove(hand))
+            if (fighter.FistCovered(hand))
             {
-                continue; // ボクセルのグローブ（武器と同じに描く）
+                continue; // ボクセルのグローブ（武器と同じに描く。腕が折れた後もぶら下がる）か、手が無い
             }
 
             var wields = fighter.BareFist(hand); // 武器を放した後も素手のまま
@@ -190,9 +190,9 @@ public static class BoxingRenderer
         foreach (var hand in new[] { Hand.Left, Hand.Right })
         {
             // 武器を握る手はグローブを外した素手（肌色の小さな拳）。
-            if (fighter.WearsGlove(hand))
+            if (fighter.FistCovered(hand))
             {
-                continue; // ボクセルのグローブ（武器と同じに描く）
+                continue; // ボクセルのグローブ（武器と同じに描く。腕が折れた後もぶら下がる）か、手が無い
             }
 
             var wields = fighter.BareFist(hand); // 武器を放した後も素手のまま
