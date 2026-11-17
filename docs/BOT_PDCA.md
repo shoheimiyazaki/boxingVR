@@ -1213,3 +1213,13 @@ CLAUDE.md §1.8 の「教科書」のうち、剣士（刀・ロングソード�
 数値テストは速さに対する単調性・連続性、頭上の水平な刀、突きの横への押し、決定性、同じ打ちの途中での負荷更新、返し計画の中断・時間切れを追加。レビューで接触集合が自分のグローブ・破片を含む既存の誤集計を直した。
 
 式・表: [WEAPON_DEFENSE.md §11](WEAPON_DEFENSE.md#11-受けそらし流しを連続にする2026-11-18logicversion-44)。生の記録: [練習](arena/sword_defense_train.md) / [未使用種](arena/sword_defense_holdout.md) / [Step の試合](arena/sword_defense_matches_step.md) / [連続の試合](arena/sword_defense_matches_continuous.md)。動画・コマ・残り: [報告](plans/CODEX_REPORT_SWORD_DEFENSE_2026-11-18.md)。
+
+## 剣の守り 2 周目: 間に合う受け（2026-11-18、LogicVersion 44 のまま）
+
+**仮説**（1 周目の読み: 体の刀が目標に間に合わない）: (H1) 受けの目標を残り時間のうちに手・刀の向きが届く範囲に置き、遮れないなら受けず足と頭だけにする、(H2) 構えからの動きが小さい受けを好む、(H3) 相手の振りを肩まわりの弧として読み Horizon を延ばす、(H4) 1 周目の連続の傾きをその上に重ねる。1 つずつ同じ物差し（guardlab 21 打ち手 × 種 1..8 で調整・101..108 で確認、handlelab で使っていない種）で比べた。新しい列は「受けを試みた本のうち、相手の武器との接触が体への当たりより先だった割合（遮り率）」。
+
+**結果**: H1 + H2（手 6 腕/s・動き 0.5）が Step と並んだ（練習 1.59 / 1.53、確かめ 1.43 / 1.08、Step は 1.52 / 1.57・1.73 / 1.27）。上の遮り率は 1 周目の 64% → 96〜100%、総セルは練習 −2%・使っていない種 −7.5%。H3（弧）は悪化（弧のみ 2.31 / 2.54）、H4 は悪化（2.04 / 1.88〜2.57）。手の速さ 3・6・12 腕/s は揺らぎの内。試合（種 3001・4001）では、刀の自傷・セル差が種で逆向き、ロングソードの自傷が 2〜2.6 倍になった。
+
+**採否**: 教科書には採らない（既定は Step、`LogicVersion` は 44 のまま）。`Reach`・`Economy`・`Arc` と `guardlab --compare cycle2` は選択肢として残す。H3・H4 は採らない。次: 突き・横で受けを試みる割合を増やす（向きを回さず位置だけで遮る候補）、ロングソードの自傷、弧に肩だけでなく手首・肘の回りを入れる。
+
+式・表・コマの所見: [WEAPON_DEFENSE.md §12](WEAPON_DEFENSE.md#12-間に合う受け2-周目2026-11-18logicversion-44-のまま)。生の記録: [練習](arena/sword_defense2_train.md) / [追加掃引](arena/sword_defense2_train_b.md) / [未使用種](arena/sword_defense2_holdout.md) / [試合 Step 3001](arena/sword_defense2_matches_step_3001.md)・[H1+H2 3001](arena/sword_defense2_matches_h12_3001.md)・[Step 4001](arena/sword_defense2_matches_step_4001.md)・[H1+H2 4001](arena/sword_defense2_matches_h12_4001.md)。報告: [Sonnet 報告](plans/SONNET_REPORT_SWORD_DEFENSE2_2026-11-18.md)。

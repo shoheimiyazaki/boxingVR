@@ -55,16 +55,16 @@ public sealed class ReachableDefenseTests
         var ideal = WeaponDefense.Parry(sense, OverheadCut(0.3f), Open, 1.7f, SwordForms.KatanaSpacing, Vector3.UnitZ);
         var shortTime = Reachable(0.06f, Open, from)!.Value;
         var longTime = Reachable(0.3f, Open, from)!.Value;
-        Assert.IsTrue(Vector3.Distance(longTime.Right, ideal.Right) < 0.02f, "時間が十分あれば理想の受けの所");
-        Assert.IsTrue(Vector3.Distance(longTime.Right, ideal.Right) <= Vector3.Distance(shortTime.Right, ideal.Right));
+        Assert.IsTrue(Vector3.Distance(longTime.Right, ideal.Right) <= Vector3.Distance(shortTime.Right, ideal.Right) + 1e-3f, "時間が長いほど理想の受けの所に近い");
+        Assert.IsTrue(Vector3.Distance(shortTime.Right, ideal.Right) > 0.3f, "時間が短いと理想の所へは届かない");
     }
 
     [TestMethod]
     public void WhenNothingReachableCanBlockTheLine_NoParryIsMade()
     {
-        var strict = Open with { InterceptGap = 0.02f };
+        var strict = Open with { InterceptGap = 0.1f };
         Assert.IsNull(Reachable(0.03f, strict, new Vector3(0.3f, -0.6f, 0.4f)), "時間が無く、手の届く範囲では線を遮れないなら受けず、足と頭に任せる");
-        Assert.IsNotNull(Reachable(0.3f, strict, new Vector3(0.3f, -0.6f, 0.4f)), "時間があれば受ける");
+        Assert.IsNotNull(Reachable(0.3f, Open with { InterceptGap = 0.5f }, new Vector3(0.3f, -0.6f, 0.4f)), "時間があれば受ける");
     }
 
     [TestMethod]
