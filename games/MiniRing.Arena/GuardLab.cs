@@ -72,6 +72,12 @@ internal static class GuardLab
         new("H1 + H2 構えが線を覆う", SwordDefense.Parrying with { Reach = true, Economy = 0.5f }, CounterAttack: true),
         new("H1 + H2 + H3 弧の読み", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Arc = true, Horizon = 0.35f }, CounterAttack: true),
         new("H4 連続の傾き + H1〜H3", SwordDefense.Continuous with { Reach = true, Economy = 0.5f, Arc = true, Horizon = 0.35f }, CounterAttack: true),
+        new("H1 + H2 動きの重み 1.5", SwordDefense.Parrying with { Reach = true, Economy = 1.5f }, CounterAttack: true),
+        new("H1 + H2 手 3 腕/s", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, HandSpeed = 3f }, CounterAttack: true),
+        new("H1 + H2 手 12 腕/s", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, HandSpeed = 12f }, CounterAttack: true),
+        new("H1 + H2 + 弧のみ（Horizon 0.25）", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Arc = true }, CounterAttack: true),
+        new("H1 + H2 + Horizon 0.35（弧なし）", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Horizon = 0.35f }, CounterAttack: true),
+        new("H4' 連続の傾き + H1 + H2（弧なし）", SwordDefense.Continuous with { Reach = true, Economy = 0.5f }, CounterAttack: true),
     ];
 
     /// <summary>
