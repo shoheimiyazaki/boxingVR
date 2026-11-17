@@ -58,6 +58,24 @@ public sealed class SwordInnerRangeTests
     }
 
     [TestMethod]
+    public void TechniquesOfTheSameReach_AreChosenByWeight_NotByListOrder()
+    {
+        var forms = FormSwordsman.Techniques(WeaponKind.Katana, ArmReach, 0f).Take(3).Select(t => t with { Range = 0.34f }).ToList();
+        var weights = new Dictionary<string, float> { [forms[0].Name] = 1f, [forms[1].Name] = 1f, [forms[2].Name] = 0.0001f };
+        var counts = new Dictionary<string, int>();
+        for (var seed = 1; seed <= 200; seed++)
+        {
+            var bot = new SwordsmanBot(forms, FormSwordsman.Guard(WeaponKind.Katana), seed, SwordStance.Rate) { Weights = weights };
+            var name = bot.NearestAt(0.34f).Name;
+            counts[name] = counts.GetValueOrDefault(name) + 1;
+        }
+
+        Assert.IsGreaterThan(40, counts.GetValueOrDefault(forms[0].Name), "先頭の技");
+        Assert.IsGreaterThan(40, counts.GetValueOrDefault(forms[1].Name), "先頭でない技も同じくらい選ばれる（並びの先頭へ偏らない）");
+        Assert.IsLessThan(5, counts.GetValueOrDefault(forms[2].Name), "重みの小さい技はほとんど選ばれない");
+    }
+
+    [TestMethod]
     public void Longsword_InnerFormsAreWeightedOut_SoCloseOrFarItPlansTheSameForms()
     {
         // ロングソードの柄頭打ち・前蹴りは、自傷が大きく（柄頭）・当たらない（前蹴り）ので教科書で重み 0。内側の技が選べないときは、近くても計画の技のまま（今までと同じ）。
