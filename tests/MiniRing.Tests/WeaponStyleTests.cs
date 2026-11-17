@@ -37,7 +37,8 @@ public sealed class WeaponStyleTests
             else { Assert.IsNotNull(t.TechniqueWeights); }
             Assert.IsNull(t.ClubSwingWeights);
             Assert.AreEqual(0.6f, t.Rest);
-            Assert.AreEqual(FormSwordsman.MinReach, t.MinReach, "inner-range forms (pommel, front kick) stay out of the bot pool: they cost wins and self-cuts (docs/BOT_PDCA.md)");
+            Assert.AreEqual(FormSwordsman.MinReach, t.MinReach, "plan candidates (walk in to strike) stay at the sword's reach");
+            Assert.AreEqual(kind is WeaponKind.Katana or WeaponKind.Longsword ? 0.1f : null, t.InnerMinReach, "only the sword textbooks add inner-range forms (used when already close)");
             Assert.AreEqual(DisarmedFallback.DefaultKeepReach, t.KeepReach);
             Assert.AreEqual(0.6f, t.ClubRest);
             Assert.AreEqual(0.48f, t.ClubStandOff);
@@ -68,6 +69,7 @@ public sealed class WeaponStyleTests
             Pacing = new SwingPacing(Floor: 0.3f),
             Rest = 0.4f,
             MinReach = 0.4f,
+            InnerMinReach = 0.2f,
             KeepReach = 0.5f,
             ClubRange = 0.4f,
             ClubRest = 0.5f,
