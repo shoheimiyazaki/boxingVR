@@ -203,7 +203,7 @@ public sealed class CharacterFileTests
     public void OldRecordings_WithoutAPlayerStyle_StillRead_AndTheVersionWasRaised()
     {
         var version = ReplayFile.Version;
-        Assert.AreEqual(10, version, "v10: steps carry the elbow tuck; v9: matchSettings may carry PlayerStyleJson (v8) and the weapon-bot style JSONs (v9)");
+        Assert.AreEqual(11, version, "v11: steps carry the hand Slide flags; v10: steps carry the elbow tuck; v9: matchSettings may carry PlayerStyleJson (v8) and the weapon-bot style JSONs (v9)");
         var corners = new MatchSelection(MatchMode.Single, CharacterRoster.Get("marcus"), CharacterRoster.Get("dmitri")).Corners;
         var options = new JsonSerializerOptions { IncludeFields = true };
         var node = JsonNode.Parse(JsonSerializer.Serialize(ReplayMatchSettings.From(corners, null), options))!.AsObject();
