@@ -72,14 +72,14 @@ public static class VoxelBending
         var sectionCellArea = grid.CellVolume / cellAlong;
         var pointSlice = (int)MathF.Floor((Vector3.Dot(point, lengthAxis) + Vector3.Dot(grid.HalfExtents, lengthAxis)) / cellAlong);
 
-        var sliceLoads = new SectionLoad[slices];
+        var sliceLoads = Scratch(ref _sliceLoadsScratch, slices);
         for (var c = 0; c < cellAt.Length; c++)
         {
             var inertial = (accel + Vector3.Cross(spin, cellAt[c] - com)) * cellMass[c];
             sliceLoads[cellSlice[c]] += new SectionLoad(inertial, Vector3.Cross(cellAt[c] - com, inertial));
         }
 
-        var above = new SectionLoad[slices];
+        var above = Scratch(ref _aboveScratch, slices);
         for (var s = slices - 2; s >= 0; s--)
         {
             above[s] = above[s + 1] + sliceLoads[s + 1];
@@ -209,8 +209,8 @@ public static class VoxelBending
             return null;
         }
 
-        var sumY = new float[slices];
-        var sumYY = new float[slices];
+        var sumY = ScratchFloats(ref _sumYScratch, slices);
+        var sumYY = ScratchFloats(ref _sumYYScratch, slices);
         var (at, sliceOf) = (bearing.At, bearing.Slice);
         for (var i = 0; i < at.Length; i++)
         {
@@ -237,6 +237,47 @@ public static class VoxelBending
     }
 
     private static float Square(float v) => v * v;
+
+    // 梁の断面ごとの荷重の作業用の配列（毎回の割り当てを避ける。1 回の FindBreak の中だけで使い、毎回ゼロから積み直す）。
+    [ThreadStatic]
+    private static SectionLoad[]? _sliceLoadsScratch;
+
+    [ThreadStatic]
+    private static SectionLoad[]? _aboveScratch;
+
+    [ThreadStatic]
+    private static float[]? _sumYScratch;
+
+    [ThreadStatic]
+    private static float[]? _sumYYScratch;
+
+    private static float[] ScratchFloats(ref float[]? buffer, int length)
+    {
+        if (buffer is null || buffer.Length < length)
+        {
+            buffer = new float[length];
+        }
+        else
+        {
+            Array.Clear(buffer, 0, length);
+        }
+
+        return buffer;
+    }
+
+    private static SectionLoad[] Scratch(ref SectionLoad[]? buffer, int length)
+    {
+        if (buffer is null || buffer.Length < length)
+        {
+            buffer = new SectionLoad[length];
+        }
+        else
+        {
+            Array.Clear(buffer, 0, length);
+        }
+
+        return buffer;
+    }
 
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<VoxelGrid, GeometryCache> Geometries = new();
 
@@ -385,9 +426,15 @@ public static class VoxelBending
         {
             sections[s] = loadBearingOnly ? bySlice[s].FindAll(c => !float.IsNaN(cells[c].Tensile)).ToArray() : bySlice[s].ToArray();
             // 断面の中心 = 曲げの剛性（E）で重みを付けた重心（合成断面の中立軸の通る所。1 種類の材料ならセルの重心）。
-            origins[s] = sections[s].Length == 0
-                ? Vector3.Zero
-                : sections[s].Aggregate(Vector3.Zero, (sum, c) => sum + (cells[c].At * stiffnesses[c])) / sections[s].Sum(c => stiffnesses[c]);
+            var weighted = Vector3.Zero;
+            var weight = 0f;
+            foreach (var c in sections[s])
+            {
+                weighted += cells[c].At * stiffnesses[c];
+                weight += stiffnesses[c];
+            }
+
+            origins[s] = weight > 0f ? weighted / weight : Vector3.Zero;
         }
 
         return new BeamGeometry(cells, total, com, inverseInertia, bySlice)
@@ -396,7 +443,7 @@ public static class VoxelBending
             CellAt = cells.Select(c => c.At).ToArray(),
             CellMass = cells.Select(c => c.Mass).ToArray(),
             CellTensile = cells.Select(c => c.Tensile).ToArray(),
-            CellStiffness = [.. stiffnesses],
+            CellStiffness = stiffnesses.ToArray(),
             Sections = sections,
             Origins = origins,
         };
