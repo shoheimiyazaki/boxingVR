@@ -1,0 +1,41 @@
+{
+  "_comment": "武器なしの 3 試合（ムエタイを含む）。プロスペクティブ制の中継。",
+  "event": "WVC ストライカーズナイト",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-barehand",
+  "scoutSeeds": [
+    31,
+    32,
+    33,
+    34,
+    35,
+    36
+  ],
+  "partLimitMiB": 29,
+  "commentary": {
+    "writer": "prospective",
+    "model": "haiku",
+    "parallel": 2
+  },
+  "bouts": [
+    {
+      "red": "narong",
+      "blue": "taeyun",
+      "seed": "auto",
+      "bout": "第1試合"
+    },
+    {
+      "red": "akira",
+      "blue": "yoandry",
+      "seed": "auto",
+      "bout": "第2試合"
+    },
+    {
+      "red": "dmitri",
+      "blue": "marcus",
+      "seed": "auto",
+      "bout": "第3試合"
+    }
+  ]
+}
