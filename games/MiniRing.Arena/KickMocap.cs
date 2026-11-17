@@ -13,9 +13,9 @@ internal static class KickMocap
     private static float Deg(float rad) => rad * 180f / MathF.PI;
 
     /// <summary>人形の 1 本の蹴り（技の値 <paramref name="spec"/> を試合と同じ道で。間合い <paramref name="standoff"/> の目標まで歩いて止まってから）。</summary>
-    internal static KneePractice.Outcome Doll(BodyBuild body, KickSpec spec, Hand side, float standoff, float duration, int seed, Action<BoxingGame, Vector3?, float>? onStep = null)
+    internal static KneePractice.Outcome Doll(BodyBuild body, KickSpec spec, Hand side, float standoff, float duration, int seed, Action<BoxingGame, Vector3?, float>? onStep = null, Action<BoxingGame, LegCommand?, float>? onCommand = null, BodyBuild? victimBody = null)
     {
-        using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("still", _ => new StandGuard(), PlayerBody: body));
+        using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("still", _ => new StandGuard(), PlayerBody: body, CpuBody: victimBody));
         var attacker = game.Player;
         var victim = game.Cpu;
         var reach = attacker.ArmReach;
@@ -60,8 +60,9 @@ internal static class KickMocap
         {
             var t = i * dt;
             var sense = game.PlayerSense;
-            LegCommand? leg = t <= duration ? spec.Evaluate(side, t, duration, rest, sense.Self.WorldToLocal(aimWorld), reach, sense.SelfLeg(side)) : null;
+            LegCommand? leg = t <= duration ? spec.Evaluate(side, t, duration, rest, sense.Self.WorldToLocal(aimWorld), reach, sense.SelfLeg(side), Hand.Left) : null;
             game.Step(new BoxingInput(Command(Vector3.Zero, leg, t <= duration ? spec.FaceYaw(side, t, duration) : 0f, t <= duration ? spec.TorsoTwist(side, t, duration) : 0f)), dt);
+            onCommand?.Invoke(game, leg, t);
             onStep?.Invoke(game, leg?.KneeLocal is { } k ? attacker.Frame.LocalToWorld(k) : null, t);
             if (first is null)
             {
@@ -227,6 +228,42 @@ internal static class KickMocap
         }
     }
 
+    /// <summary>
+    /// 中段の手本（roundhouse_mid.json）を、下段と上段の手本から高さの割合で混ぜて書き出す。割合 = (狙いの高さ / 脚の長さ − 下段のミット / 脚の長さ) /
+    /// (上段のミット / 脚の長さ − 下段のミット / 脚の長さ)。人は 0.63・1.37 m のミットを自分の脚（腿 + すね）の長さで割り、人形は中段の狙い（胸と腰の中点）の高さを
+    /// 人形の脚の長さで割る。
+    /// </summary>
+    public static void ExportMid(string dir, string exportDir, string bodyId, Action<string> log)
+    {
+        float Ratio(string tag)
+        {
+            var tracks = Directory.GetFiles(dir, $"kick_{tag}-*.csv").Select(f => KickCapture.Load(f).Analyze()).ToList();
+            var mitt = tracks.Average(t => t.Mitt.Y - t.Samples[0].Ankle.Y); // 構えの足首からの高さ（人形も足首から測る）
+            var leg = tracks.Average(t => t.Samples[t.ImpactIndex].ThighLength + t.Samples[t.ImpactIndex].ShinLength);
+            log($"人 {tag}: ミットの高さ {F(mitt)} m / 脚 {F(leg)} m = {F(mitt / leg)}（{tracks.Count} 本）");
+            return mitt / leg;
+        }
+
+        var low = Ratio("S03");
+        var high = Ratio("S04");
+        var body = bodyId == "standard" ? BodyBuild.Standard : Characters.CharacterRoster.Get(bodyId).Build;
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", _ => new StandGuard(), PlayerBody: body));
+        var sense = game.PlayerSense;
+        var pelvis = sense.OpponentBody == default ? sense.OpponentChest - new Vector3(0f, 0.5f * sense.ArmReach, 0f) : sense.OpponentBody.Pelvis;
+        var aim = (sense.OpponentChest + pelvis) * 0.5f;
+        var legBody = game.Player.LegBodyOf(Hand.Right);
+        var floor = game.Player.AnklePosition(Hand.Right).Y;
+        var height = aim.Y - floor;
+        var legLength = legBody.Thigh + legBody.Shin;
+        var doll = height / legLength;
+        var share = Math.Clamp((doll - low) / (high - low), 0f, 1f);
+        log($"人形（{bodyId}）: 中段の狙いの高さ {F(height)} m（足首から。胸と腰の中点）/ 脚 {F(legLength)} m = {F(doll)}  → 上段の手本の割合 {F(share)}");
+        var mid = CapturedKick.Blend("roundhouse_mid", CapturedKick.Load("roundhouse_low"), CapturedKick.Load("roundhouse_high"), share);
+        Directory.CreateDirectory(exportDir);
+        File.WriteAllText(Path.Combine(exportDir, "roundhouse_mid.json"), mid.ToJson());
+        log($"roundhouse_mid.json を書いた（当たる瞬間 {F(mid.ImpactShare)}、区間 {F(mid.HumanSeconds)} s）");
+    }
+
     public static void Report(string dir, string? exportDir, Action<string> log)
     {
         log("# kickmocap: 極真空手の廻し蹴り（ミットを蹴る E02、右脚 12 本）の読み替え");
@@ -240,7 +277,8 @@ internal static class KickMocap
         {
             var track = KickCapture.Load(file).Analyze();
             var s = track.Samples[track.ImpactIndex];
-            var key = Path.GetFileName(file).Contains("S03", StringComparison.Ordinal) ? "roundhouse_low" : "roundhouse_high";
+            var name = Path.GetFileName(file);
+            var key = name.Contains("S02", StringComparison.Ordinal) ? "front_mid" : name.Contains("S03", StringComparison.Ordinal) ? "roundhouse_low" : "roundhouse_high";
             if (!groups.TryGetValue(key, out var list))
             {
                 groups[key] = list = [];
