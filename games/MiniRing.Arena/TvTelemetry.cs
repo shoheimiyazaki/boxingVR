@@ -143,7 +143,7 @@ internal sealed class TvTelemetry
 
         foreach (var hit in game.WeaponHits)
         {
-            AddHit(game, at, hit.Attacker, hit.Victim, "武器", hit.Point, hit.Zone, hit.Speed, hit.Momentum, 0.5f * hit.Momentum * hit.Speed, hit.Damage, cut, hit.Attacker == game.Player ? red : blue); // エネルギーは見積もり（運動量 × 速さ ÷ 2）
+            AddHit(game, at, hit.Attacker, hit.Victim, WeaponPart(game, hit.Attacker, hit.Point), hit.Point, hit.Zone, hit.Speed, hit.Momentum, 0.5f * hit.Momentum * hit.Speed, hit.Damage, cut, hit.Attacker == game.Player ? red : blue); // エネルギーは見積もり（運動量 × 速さ ÷ 2）
         }
 
         foreach (var broken in game.BrokenBones)
@@ -162,6 +162,40 @@ internal sealed class TvTelemetry
             _nextSample = matchTime + SampleSeconds;
             _samples.Add(new { t = R(at, 2), red = Pose(game, game.Player, game.Cpu, red), blue = Pose(game, game.Cpu, game.Player, blue) });
         }
+    }
+
+    /// <summary>
+    /// 武器の当たりの「何のどこで」（例: 刀の切っ先・棒の端・こんぼうの頭・右の籠手）。当たった点を、打った選手の握った物・はめた物のうち
+    /// いちばん近い物の長さに沿った位置で言葉にする（中継の言葉。どこで当たったかは生の情報で、強さの形容は付けない）。
+    /// </summary>
+    private static string WeaponPart(BoxingGame game, Fighter attacker, Vector3 point)
+    {
+        var candidates = new[] { game.WeaponOf(attacker), game.GloveOf(attacker, Hand.Left), game.GloveOf(attacker, Hand.Right) }
+            .OfType<MiniRing.Weapons.Weapon>().Distinct().ToList();
+        if (candidates.Count == 0)
+        {
+            return "武器";
+        }
+
+        var weapon = candidates.MinBy(w => Vector3.DistanceSquared(game.World.GetState(w.Body.BodyId).Position, point))!;
+        var tip = MiniRing.Weapons.Weapon.TipOf(weapon.Kind).X;
+        var u = MathF.Abs(tip) < 1e-4f ? 0f : weapon.Body.WorldToGrid(point).X / tip; // 先 = 1、真ん中 = 0、後ろの端 = −1
+        var side = game.GloveOf(attacker, Hand.Left) == weapon ? "左の" : game.GloveOf(attacker, Hand.Right) == weapon ? "右の" : "";
+        return weapon.Kind switch
+        {
+            MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword or MiniRing.Weapons.WeaponKind.IronSword =>
+                $"{(weapon.Kind == MiniRing.Weapons.WeaponKind.Katana ? "刀" : weapon.Kind == MiniRing.Weapons.WeaponKind.Longsword ? "ロングソード" : "剣")}の{(u > 0.75f ? "切っ先" : u > 0.35f ? "刃の中ほど" : u > 0f ? "刃の根元" : "柄")}",
+            MiniRing.Weapons.WeaponKind.WoodenClub => u > 0.5f ? "こんぼうの頭" : u > -0.3f ? "こんぼうの中ほど" : "こんぼうの柄",
+            MiniRing.Weapons.WeaponKind.Staff or MiniRing.Weapons.WeaponKind.Jo =>
+                $"{(weapon.Kind == MiniRing.Weapons.WeaponKind.Staff ? "棒" : "杖")}の{(u > 0.6f ? "先の端" : u < -0.6f ? "後ろの端" : "中ほど")}",
+            MiniRing.Weapons.WeaponKind.Tonfa => $"{side}トンファー",
+            MiniRing.Weapons.WeaponKind.Katar => $"{side}カタールの刃",
+            MiniRing.Weapons.WeaponKind.KnuckleDuster => $"{side}ナックル",
+            MiniRing.Weapons.WeaponKind.Gauntlet => $"{side}籠手",
+            MiniRing.Weapons.WeaponKind.Shield => "盾",
+            MiniRing.Weapons.WeaponKind.Glove => $"{side}グローブ",
+            _ => $"{side}拳",
+        };
     }
 
     private static string KickName(KickPart part) => part switch
