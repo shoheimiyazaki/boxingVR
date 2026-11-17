@@ -51,13 +51,29 @@ internal static partial class TvDraft
     /// テレビ中継の標準の下書き: 実況の骨組み（<see cref="Build"/>）に、解説の台詞と休みの問いと答え（<see cref="TvAnalyst"/>）を
     /// <see cref="Merge"/> で重ねた、実況と解説の 2 人の台本。入らなかった解説の台詞は落とす（骨組みは動かさない）。
     /// </summary>
-    public static string BuildBroadcast(string eventsJson) => Merge(Build(eventsJson), TvAnalyst.Build(eventsJson), []);
+    public static string BuildBroadcast(string eventsJson, Organization? org = null) => Merge(Build(eventsJson, org), TvAnalyst.Build(eventsJson), []);
 
-    /// <summary>中継の記録から、実況の骨組みの台本（script.json の中身）を作る。</summary>
-    public static string Build(string eventsJson)
+    /// <summary>記録（events.json）の <c>org</c> の団体。無ければ WVC。台本・点検・要約の道具が、<c>--org</c> が無いときに使う。</summary>
+    public static Organization OrgOf(string eventsJson)
+    {
+        using var doc = JsonDocument.Parse(eventsJson);
+        return OrgOf(doc.RootElement);
+    }
+
+    private static Organization OrgOf(JsonElement root)
+        => Organization.Of(root.TryGetProperty("org", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null);
+
+    /// <summary>
+    /// 中継の記録から、実況の骨組みの台本（script.json の中身）を作る。<paramref name="org"/> の言い回し（ラウンドの合図・決着のコール）で書き、
+    /// ダウンを数えない団体（<see cref="Organization.CountsDowns"/> が false）では、ダウンの数・カウント・「ダウン」と言わない。
+    /// <paramref name="org"/> が null なら記録の <c>org</c>（無ければ WVC）。
+    /// </summary>
+    public static string Build(string eventsJson, Organization? org = null)
     {
         using var doc = JsonDocument.Parse(eventsJson);
         var root = doc.RootElement;
+        org ??= OrgOf(root);
+        var phrases = org.Draft;
         string Text(string name) => root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
         var red = Text("red");
         var blue = Text("blue");
@@ -91,8 +107,8 @@ internal static partial class TvDraft
             {
                 case "round_start":
                     round++;
-                    drafts.Add(new Draft(e.T + 0.1f, $"第{round}ラウンド、ゴング！", true, true));
-                    if (round > 1)
+                    drafts.Add(new Draft(e.T + 0.1f, $"第{round}ラウンド、{phrases.BellWord}！", true, true));
+                    if (round > 1 && org.CountsDowns)
                     {
                         drafts.Add(new Draft(e.T + 2f, Tally(red, blue, downs), false, false));
                     }
@@ -110,6 +126,11 @@ internal static partial class TvDraft
                         drafts.Add(new Draft(e.T + ((end - e.T) * 2f / 3f), $"第{round}ラウンド、残り10秒！", true, false));
                     }
 
+                    break;
+
+                case "knockdown" when e.For == "実況" && !org.CountsDowns:
+                    // ダウンを取らない団体: 倒れたと言うだけ（数えない・カウントしない・倒れたままを覚えない）。
+                    drafts.Add(new Draft(e.T, phrases.FallenCall.Replace("{victim}", e.Who, StringComparison.Ordinal), true, true));
                     break;
 
                 case "knockdown" when e.For == "実況":
@@ -134,7 +155,7 @@ internal static partial class TvDraft
 
                     break;
 
-                case "count" when e.For == "実況" && CountWord(e.Text) is { } word:
+                case "count" when e.For == "実況" && org.CountsDowns && CountWord(e.Text) is { } word:
                     // レフェリーのカウントを後半だけ声に出す（ラジオでは数えないと立てるかどうかの緊張が伝わらない）。
                     // 8・9 は欠かせない台詞、7 は空いていれば。前半は数えず、実況は誰が何で倒れたか・解説はなぜ倒れたかを言う時間に使う。
                     drafts.Add(new Draft(e.T, $"{word}！", true, CountNumber(e.Text) >= 8));
@@ -146,7 +167,7 @@ internal static partial class TvDraft
 
                 case "get_up":
                     lying.Remove(e.Who);
-                    var count = Regex.Match(e.Text, "カウント (\\d+)") is { Success: true } cm ? cm.Groups[1].Value : "";
+                    var count = org.CountsDowns && Regex.Match(e.Text, "カウント (\\d+)") is { Success: true } cm ? cm.Groups[1].Value : "";
                     var counted = count is "" or "0" ? "" : $"カウント{count}";
                     drafts.Add(new Draft(e.T, (getUps++ % 3) switch
                     {
@@ -157,7 +178,7 @@ internal static partial class TvDraft
                     break;
 
                 case "round_end":
-                    drafts.Add(new Draft(e.T + 0.2f, $"ゴング！第{round}ラウンド終了。", false, true));
+                    drafts.Add(new Draft(e.T + 0.2f, $"{phrases.BellWord}！第{round}ラウンド終了。", false, true));
                     foreach (var name in lying)
                     {
                         drafts.Add(new Draft(e.T + 2.3f, (saved++ % 3) switch
@@ -168,7 +189,11 @@ internal static partial class TvDraft
                         }, false, true));
                     }
 
-                    drafts.Add(new Draft(e.T + 4.5f, Tally(red, blue, downs), false, false));
+                    if (org.CountsDowns)
+                    {
+                        drafts.Add(new Draft(e.T + 4.5f, Tally(red, blue, downs), false, false));
+                    }
+
                     break;
 
                 case "fracture" or "severed" when e.For == "実況":
@@ -193,15 +218,16 @@ internal static partial class TvDraft
                     var loser = winner is null ? null : winner == red ? blue : red;
                     // コール → 勝者を欠かせない台詞に（すぐ決着のリプレイが入るので短く）。理由（誰がどうなったか）は空いていれば。
                     // 「レフェリーが止めた」とは言わない（レフェリーなしの試合もある。動けない・立てないは見て分かる）。
-                    var (callLine, why) = loser is null ? ("ノックアウト！", "")
+                    var finishCall = phrases.FinishCall;
+                    var (callLine, why) = loser is null ? (finishCall, "")
                         : e.Text.StartsWith("10カウント", StringComparison.Ordinal) ? ("テン！", $"{loser}、立てなかった。")
-                        : e.Text.StartsWith("心臓", StringComparison.Ordinal) || e.Text.StartsWith('脳') ? ($"ノックアウト！{loser}、動かない！", "")
+                        : e.Text.StartsWith("心臓", StringComparison.Ordinal) || e.Text.StartsWith('脳') ? ($"{finishCall}{loser}、動かない！", "")
                         : e.Text.StartsWith("リング", StringComparison.Ordinal) ? ($"リングアウト！{loser}、場外へ！", "")
-                        : ($"ノックアウト！{loser}、動けない！", $"{loser}、意識がない。");
+                        : ($"{finishCall}{loser}、動けない！", $"{loser}、意識がない。");
                     drafts.Add(new Draft(e.T, callLine, true, true));
                     if (winner is not null)
                     {
-                        drafts.Add(new Draft(e.T + 0.1f, $"{winner}のKO勝ち！", true, true));
+                        drafts.Add(new Draft(e.T + 0.1f, phrases.WinLine.Replace("{winner}", winner, StringComparison.Ordinal), true, true));
                     }
 
                     if (why.Length > 0)
@@ -212,7 +238,7 @@ internal static partial class TvDraft
                     break;
 
                 case "decision":
-                    drafts.Add(new Draft(e.T + 0.2f, $"試合終了のゴング。{e.Text}。", true, true));
+                    drafts.Add(new Draft(e.T + 0.2f, phrases.DrawLine.Length > 0 && Winner(e.Text, red, blue) is null ? phrases.DrawLine : $"試合終了の{phrases.BellWord}。{e.Text}。", true, true));
                     break;
 
                 case "result":

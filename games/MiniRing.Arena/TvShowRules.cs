@@ -11,7 +11,12 @@ namespace MiniRing.Arena;
 /// <param name="RedDowns">赤が取られたダウンの数。</param>
 /// <param name="BlueDowns">青が取られたダウンの数。</param>
 /// <param name="Winner">1 = 赤、−1 = 青、0 = 引き分け。</param>
-internal sealed record TvScoutResult(int Seed, string Finish, bool Ko, int Round, float RoundTime, float RedDealt, float BlueDealt, int RedDowns, int BlueDowns, int Winner);
+/// <param name="Death">臓器・首が壊れて死んだ（K.O. のうち、気絶や 10 カウントでない。VFC の決着）。</param>
+internal sealed record TvScoutResult(int Seed, string Finish, bool Ko, int Round, float RoundTime, float RedDealt, float BlueDealt, int RedDowns, int BlueDowns, int Winner, bool Death = false)
+{
+    /// <summary>ゲームの決着の文（"K.O. — BRAIN DESTROYED"）が死（臓器・首の破壊）か。</summary>
+    public static bool IsDeath(string finish) => finish.StartsWith("K.O. — ", StringComparison.Ordinal) && finish.Contains("DESTROYED", StringComparison.Ordinal);
+}
 
 /// <summary>
 /// テレビ中継の決まりと下見の点数（描画にも試合にも触れない計算だけ。テストから直に確かめる）。
@@ -23,30 +28,34 @@ internal static class TvShowRules
         => MatchRules.Tv with { Rounds = rounds, BreakSeconds = breakSeconds, RegenVoxelsPerSecond = MatchRules.Tv.RegenVoxelsPerSecond * MatchRules.Tv.BreakSeconds / breakSeconds };
 
     /// <summary>
-    /// 見ごたえの点（中継に向く試合ほど高い）。決まった重みの和で、撮った試合を見て決めた目安:
-    /// 長く続く（最終ラウンドの終わりまでで最大 3 × ラウンド数）、ダウン（1 回 1.5、5 回まで）、両者がダウンを奪い合う（+3）、
+    /// 見ごたえの点（中継に向く試合ほど高い）。団体の重み（<see cref="DramaWeights"/>、団体のファイルの <c>drama</c>）の和。<paramref name="weights"/> が null なら WVC の重み。
+    /// WVC の重み: 長く続く（最終ラウンドの終わりまでで最大 3 × ラウンド数）、ダウン（1 回 1.5、5 回まで）、両者がダウンを奪い合う（+3）、
     /// K.O. で決着（+2、最終ラウンドなら +1）、ダメージで負けていた側の逆転勝ち（+4）、第 1 ラウンド 15 秒より前に終わる（−6）、引き分け（−1）。
+    /// VFC の重み: 長く続く・死で決着（後半ほど高い）・逆転・両者が深く傷んでいるで上がり、序盤の決着と両者生還（引き分け）で下がる。ダウンは数えない（重み 0）。
     /// </summary>
-    public static float Drama(TvScoutResult r, int rounds, float roundSeconds)
+    public static float Drama(TvScoutResult r, int rounds, float roundSeconds, DramaWeights? weights = null)
     {
         ArgumentNullException.ThrowIfNull(r);
-        var score = 3f * ((r.Round - 1) + Math.Clamp(r.RoundTime / roundSeconds, 0f, 1f));
+        var w = weights ?? Organization.Default.Drama;
+        var score = w.PerRound * ((r.Round - 1) + Math.Clamp(r.RoundTime / roundSeconds, 0f, 1f));
         var downs = r.RedDowns + r.BlueDowns;
-        score += 1.5f * Math.Min(downs, 5);
-        score += r.RedDowns > 0 && r.BlueDowns > 0 ? 3f : 0f;
-        score += r.Ko ? 2f + (r.Round >= rounds ? 1f : 0f) : 0f;
+        score += w.PerDown * Math.Min(downs, w.DownCap);
+        score += r.RedDowns > 0 && r.BlueDowns > 0 ? w.BothDowns : 0f;
+        score += r.Ko ? w.Ko + (r.Round >= rounds ? w.KoLastRound : 0f) : 0f;
+        score += r.Death ? w.Death + (w.DeathPerRound * (r.Round - 1)) : 0f;
         var winnerDealt = r.Winner > 0 ? r.RedDealt : r.BlueDealt;
         var loserDealt = r.Winner > 0 ? r.BlueDealt : r.RedDealt;
-        score += r.Winner != 0 && winnerDealt < loserDealt ? 4f : 0f;
-        score -= r.Round == 1 && r.RoundTime < 15f ? 6f : 0f;
-        score -= r.Winner == 0 ? 1f : 0f;
+        score += r.Winner != 0 && winnerDealt < loserDealt ? w.Comeback : 0f;
+        score += w.BothHurt * Math.Min(1f, Math.Min(r.RedDealt, r.BlueDealt) / w.BothHurtDamage);
+        score -= r.Round == 1 && r.RoundTime < w.QuickSeconds ? w.QuickPenalty : 0f;
+        score -= r.Winner == 0 ? w.DrawPenalty : 0f;
         return score;
     }
 
     /// <summary>一番見ごたえのある種（同点なら小さい種）。</summary>
-    public static TvScoutResult Best(IReadOnlyList<TvScoutResult> results, int rounds, float roundSeconds)
+    public static TvScoutResult Best(IReadOnlyList<TvScoutResult> results, int rounds, float roundSeconds, DramaWeights? weights = null)
     {
         ArgumentNullException.ThrowIfNull(results);
-        return results.OrderByDescending(r => Drama(r, rounds, roundSeconds)).ThenBy(r => r.Seed).First();
+        return results.OrderByDescending(r => Drama(r, rounds, roundSeconds, weights)).ThenBy(r => r.Seed).First();
     }
 }

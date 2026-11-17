@@ -43,20 +43,21 @@ internal static class TvScout
 
             var winner = game.PlayerWins > game.CpuWins ? 1 : game.CpuWins > game.PlayerWins ? -1 : 0;
             results.Add(new TvScoutResult(seed, game.Decision ?? game.Message, game.Decision is null, game.MatchRound, rules.RoundSeconds - game.RoundLeft,
-                game.Cpu.Condition.TotalDamage, game.Player.Condition.TotalDamage, redDowns, blueDowns, winner));
+                game.Cpu.Condition.TotalDamage, game.Player.Condition.TotalDamage, redDowns, blueDowns, winner,
+                Death: game.Decision is null && TvScoutResult.IsDeath(game.Message)));
         }
         return [.. results.OrderBy(r => r.Seed)];
     }
 
     /// <summary>結果を 1 行ずつ書く（見ごたえの点つき）。</summary>
-    public static void Print(IReadOnlyList<TvScoutResult> results, int rounds, float roundSeconds, TextWriter log)
+    public static void Print(IReadOnlyList<TvScoutResult> results, int rounds, float roundSeconds, TextWriter log, DramaWeights? weights = null)
     {
         ArgumentNullException.ThrowIfNull(results);
         ArgumentNullException.ThrowIfNull(log);
         foreach (var r in results)
         {
             log.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                $"  seed {r.Seed,3}: {r.Finish,-40} R{r.Round} {r.RoundTime,4:0.0}s  dmg red {r.RedDealt,5:0} / blue {r.BlueDealt,5:0}  downs red {r.RedDowns} / blue {r.BlueDowns}  drama {TvShowRules.Drama(r, rounds, roundSeconds),5:0.0}"));
+                $"  seed {r.Seed,3}: {r.Finish,-40} R{r.Round} {r.RoundTime,4:0.0}s  dmg red {r.RedDealt,5:0} / blue {r.BlueDealt,5:0}  downs red {r.RedDowns} / blue {r.BlueDowns}  drama {TvShowRules.Drama(r, rounds, roundSeconds, weights),5:0.0}"));
         }
     }
 
