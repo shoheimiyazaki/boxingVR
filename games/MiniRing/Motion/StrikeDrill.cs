@@ -123,40 +123,7 @@ public static class StrikeDrill
     public static float ReachOf(MotionTechnique technique, float armReach)
     {
         ArgumentNullException.ThrowIfNull(technique);
-        var top = Weapon.GripOf(technique.Weapon);
-        var guardX = top.X + 0.012f;
-        var frames = technique.Motion.Frames;
-        var dt = technique.Motion.FrameTime;
-        var advance = new float[frames.Count];
-        for (var i = 0; i < frames.Count; i++)
-        {
-            advance[i] = (i > 0 ? advance[i - 1] : 0f) + (frames[i].Velocity.Z * dt);
-        }
-
-        // 打つ端が 2 つある武器（棒）は、動きの中でいちばん前へ届く端が打つ端（種類での分岐ではなく、動きの経路で決まる）。
-        var best = float.MinValue;
-        foreach (var tipX in Weapon.StrikeEndsX(technique.Weapon))
-        {
-            var monouchi = ((guardX - top.X) + (0.8f * (tipX - guardX))) / armReach;
-            var tip = (tipX - top.X) / armReach;
-            var speed = new float[frames.Count];
-            for (var i = 1; i < frames.Count; i++)
-            {
-                Vector3 Tip(int k) => frames[k].Right + (frames[k].Blade * tip) + new Vector3(0f, 0f, advance[k]);
-                speed[i] = Vector3.Distance(Tip(i), Tip(i - 1)) / dt;
-            }
-
-            var peak = Array.IndexOf(speed, speed.Max());
-            var reach = float.MinValue;
-            for (var i = peak; i < frames.Count; i++)
-            {
-                reach = MathF.Max(reach, (frames[i].Right + (frames[i].Blade * monouchi)).Z + advance[i]);
-            }
-
-            best = MathF.Max(best, reach);
-        }
-
-        return best * armReach;
+        return technique.Motion.Kick is { } kick ? kick.Standoff * armReach : MotionAim.Landing(technique, armReach).Point.Z * armReach;
     }
 
     /// <summary>体の部位（胴につながっている所）ごとに残っているボクセル。</summary>

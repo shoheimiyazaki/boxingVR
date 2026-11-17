@@ -75,7 +75,7 @@ public static class FormSwordsman
 
     /// <summary>右手から後ろの端までの長さ [腕の長さ]（両端を使う武器の受けで、体から離す線を後ろの端まで見る）。端が 1 つの武器は null。</summary>
     public static float? RearLength(WeaponKind weapon, float armReach) =>
-        Weapon.StrikeEndsX(weapon) is { Count: > 1 } ends ? (Weapon.GripOf(weapon).X - ends.Min()) / armReach : null;
+        Weapon.IsRod(weapon) && Weapon.StrikeEndsX(weapon) is { Count: > 1 } ends ? (Weapon.GripOf(weapon).X - ends.Min()) / armReach : null;
 
     /// <summary>これより間合いが短い型は残さない [m]（打ち込まずその場で振る型は、剣士同士の間合いの技ではない。Arena の <c>SwordLibraryLab.MinReach</c> と同じ）。</summary>
     public const float MinReach = 0.33f;
@@ -88,7 +88,7 @@ public static class FormSwordsman
     /// <summary><see cref="Techniques(WeaponKind, float)"/> の、間合いの下限 <paramref name="minReach"/> [m] を選べる版（武器の教科書の <see cref="WeaponStyle.MinReach"/>）。</summary>
     public static IReadOnlyList<MotionTechnique> Techniques(WeaponKind weapon, float armReach, float minReach) =>
     [
-        .. Forms(weapon).Select(f => new MotionTechnique(f.Name, weapon, f, 0.5f))
+        .. Forms(weapon).Select(f => new MotionTechnique(f.Name, weapon, f, 0.5f, Skill: SwordFormSkills.For(weapon, f.Name)))
             .Select(t => t with { Range = StrikeDrill.ReachOf(t, armReach) })
             .Where(t => t.Range >= minReach),
     ];
@@ -112,7 +112,7 @@ public static class FormSwordsman
     /// <summary>型 <paramref name="motion"/> の時刻 <paramref name="time"/>（動きの中の秒）の指令（ボットと同じ <see cref="MotionImitation.ToCommand"/>）。</summary>
     public static FighterCommand Command(SwordMotion motion, float time, in FighterSense sense, System.Numerics.Vector3 face, float walkSpeed, float maxTwist,
         System.Numerics.Vector3 extraMove = default)
-        => MotionImitation.ToCommand(motion.Sample(time), sense, face, SwordStance.Rate, walkSpeed, maxTwist, extraMove);
+        => MotionImitation.Command(motion, time, sense, face, SwordStance.Rate, walkSpeed, maxTwist, extraMove);
 
     /// <summary>構えたままの指令（歩かない）。</summary>
     public static FighterCommand GuardCommand(WeaponKind weapon, in FighterSense sense, System.Numerics.Vector3 face, float walkSpeed, float maxTwist)

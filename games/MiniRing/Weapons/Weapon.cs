@@ -414,11 +414,15 @@ public sealed class Weapon
     };
 
     /// <summary>
-    /// 打つ端（武器のローカルの X。<see cref="TipOf"/> と同じ測り方）。棒だけ、+X と −X の両端が打つ（対称なので同じ形）。
-    /// 他の武器は先の 1 つだけ。
+    /// 打つ端（武器のローカルの X。<see cref="TipOf"/> と同じ測り方）。棒は両端、刀・ロングソードは切っ先と柄頭。
+    /// 接触の形と材質は変えず、入力元の間合いと見える速さを測る点だけを列挙する。
     /// </summary>
-    public static IReadOnlyList<float> StrikeEndsX(WeaponKind kind) =>
-        IsRod(kind) ? [TipOf(kind).X, -TipOf(kind).X] : [TipOf(kind).X];
+    public static IReadOnlyList<float> StrikeEndsX(WeaponKind kind) => kind switch
+    {
+        WeaponKind.Katana => [TipOf(kind).X, -KatanaHalfLength],
+        WeaponKind.Longsword => [TipOf(kind).X, LongPommelAt - LongPommelRadius],
+        _ => IsRod(kind) ? [TipOf(kind).X, -TipOf(kind).X] : [TipOf(kind).X],
+    };
 
     /// <summary>武器の格子（材質は <see cref="BoxerAnatomy.Palette"/> の鉄と木。手にはめる物の革は赤コーナーの色）。</summary>
     public static VoxelGrid Build(WeaponKind kind) => Build(kind, BoxerAnatomy.RedGlove);

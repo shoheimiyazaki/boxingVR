@@ -27,7 +27,7 @@
     "MaxShift": 0.6,
     "ForwardGain": 1
   },
-  "AutoAim": false,
+  "AutoAim": true,
   "Clearance": null,
   "Pacing": {
     "GripSlack": 0.25,
@@ -35,8 +35,8 @@
     "Floor": 0.15
   },
   "Rest": 0.6,
-  "TechniqueWeights": null,
-  "MinReach": 0.33,
+  "TechniqueWeights": {"scheitelhau":0.8,"zwerchhau-left":0.5,"stich-low":0.5,"knaufschlag":0,"unterhau":0.25,"zwerchhau":0.3,"schnitt":0},
+  "MinReach": 0.1,
   "KeepReach": 0.35,
   "ClubRange": 0.36,
   "ClubRest": 0.6,
