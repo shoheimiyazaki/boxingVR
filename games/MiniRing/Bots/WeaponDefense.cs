@@ -400,10 +400,16 @@ public static class WeaponDefense
     /// の所へ。どこも <see cref="SwordDefense.InterceptGap"/> 以内で遮れなければ受けない（null。足と頭だけで外す）。種類の分岐は無く、届く範囲と遮る量の連続の比べ。
     /// 来る線は、読んだ時から着くまでの後ろ 4 割の間の線（刃が通り過ぎる幅）で見る。
     /// </summary>
+    /// <param name="sense">自分の見え方。</param>
+    /// <param name="threat">読んだ脅威。</param>
+    /// <param name="defense">守り方。</param>
     /// <param name="ideal">理想の受け（<see cref="Parry"/> の結果）。</param>
     /// <param name="handFrom">今の右手の位置（体フレーム、腕の長さ = 1）。</param>
     /// <param name="currentBlade">今の刀の向き（体フレーム）。</param>
     /// <param name="rest">構えのフレーム（動きの小ささを測る基準）。</param>
+    /// <param name="bladeLength">刀の右手から先までの長さ [腕の長さ]。</param>
+    /// <param name="spacing">両手の間隔 [腕の長さ]。</param>
+    /// <param name="rearLength">右手から後ろの端までの長さ [腕の長さ]（NaN なら左手まで）。</param>
     /// <param name="elapsed">脅威を読んでからの経過 [s]（同じ打ちを読み直す間は残り時間が減る）。</param>
     public static MotionFrame? ReachableParry(in FighterSense sense, in WeaponThreat threat, SwordDefense defense, MotionFrame ideal, Vector3 handFrom, Vector3 currentBlade,
         MotionFrame rest, float bladeLength, float spacing, float rearLength = float.NaN, float elapsed = 0f)
