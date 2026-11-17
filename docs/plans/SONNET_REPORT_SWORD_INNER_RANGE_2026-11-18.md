@@ -37,7 +37,7 @@
 ## 版・テスト
 - `LogicVersion` 47、履歴 1 行。`CharacterSamenessTests` の剣を握る組（LEGACY は `Expected`・`ExpectedWeapons`、SAME は `ExpectedAdopted`）を Probe から取り直した。理由: 同じ間合いの技の選びが重みの乱数になった（迎え撃つ所は旧版の教科書でも通る）・技の集まりが変わった。拳・こんぼう同士の組は元のまま一致。
 - 新しいテスト: `SwordInnerRangeTests`（遠いときは計画の技だけ・近いときは窓の中の技から重みで・同じ間合いの技が重みで選ばれる・ロングソードは内側が重み 0）、`WeaponStyleTests`（`InnerMinReach`）、`SwordExpansionTests`（前蹴りの間の剣の高さ）。
-- 全テスト（Probe 以外）は最後の実行結果を下に書く。
+- 全テスト（Probe 以外）: 952 件成功・スキップ 5・失敗 0（raytrek、26 分）。
 
 ## 残り
 - 前蹴りの自傷が 1 回 4〜15 セル残る。押し斬りの当たりが低い（約 30%）。柄頭打ちは間合い 26 cm の窓に入る距離が狭く、めったに選ばれない。
