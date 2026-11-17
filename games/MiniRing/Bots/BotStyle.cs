@@ -322,6 +322,9 @@ public sealed record BotStyle
     /// <summary>肘の種類ごとの好み（相対の重み）。</summary>
     public IReadOnlyDictionary<ElbowTechnique, float> ElbowWeights { get; init; } = new Dictionary<ElbowTechnique, float>();
 
+    /// <summary>休みの間の過ごし方の好み（動作の名前 → 選ばれやすさへ掛ける倍率。<c>Break.BreakBook</c> の動作名。無い名前は 1。入力の側の個性であって体の強さではない）。</summary>
+    public IReadOnlyDictionary<string, float> BreakLikes { get; init; } = new Dictionary<string, float>();
+
     /// <summary>
     /// 倒れた相手を攻められる試合（レフェリーなし）で、倒れた相手へ打ち下ろす気（0..1）。立つ位置へ着いて届く間合いに沈めたとき、打ち始めを決める割合
     /// （0 なら倒れた相手へ手を出さない。レフェリーのいる試合では使わない）。
@@ -456,6 +459,7 @@ public sealed record BotStyle
             KickRate = Unit(KickRate),
             KickDuration = Range(KickDuration, 0.4f, 1.2f, 0.7f),
             KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
+            BreakLikes = (BreakLikes ?? new Dictionary<string, float>()).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
             ElbowRate = Unit(ElbowRate),
             ElbowRangeFit = Range(ElbowRangeFit, 0f, 4f, 0f),
             ElbowWeights = (ElbowWeights ?? new Dictionary<ElbowTechnique, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),

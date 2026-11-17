@@ -37,6 +37,8 @@ public delegate IFighterControl ControlFactory(int roundSeed);
 /// <para><paramref name="PlayerStyle"/> は赤（プレイヤー側）のスタイル（名簿のキャラクターなら教育を重ねた解決済みの全体。<see cref="Characters.FighterCharacter.Resolve"/>）。
 /// 人が操る赤の意図の解釈（技の選び方・倒れた相手への攻めの好み）に渡す。赤がボットなら <paramref name="RedBotStyle"/> が同じ物を持つ。null ならスタイルを持たない赤（既定の拳か空手）。
 /// 名前（<paramref name="PlayerName"/> / <paramref name="CpuName"/>）で <see cref="Bots.BotCatalog"/> を引き直さない: 解決したスタイルをこの値・<paramref name="CpuStyleJson"/> で通す。</para>
+/// <para><paramref name="BreakActions"/>（既定 true）は、ラウンドの間の休みに選手が動作（水を飲む・汗を拭く・電話・深呼吸…、<see cref="Break.BreakRoutine"/>）をするか。false なら休みはコーナーで構えを下げて立つだけ。
+/// <paramref name="BreakSource"/> は休みの入力元の差し替え（種と選手から作る。null なら <see cref="Break.BreakRoutine"/>。null を返すとその選手は動作をしない）。</para>
 /// <para><paramref name="Referee"/> はレフェリーがいるか（既定はいる）。いないときもダウンは数える（10 カウントで K.O.）が、数えている間の攻撃も打撃に数え、立ち直った後の一呼吸も無い（ゲームの決まり。2026-11-16、ユーザーの指定）。</para>
 public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFactory? Player = null, string? CpuStyleJson = null,
     Weapons.WeaponKind? CpuWeapon = null, Weapons.WeaponKind? PlayerWeapon = null, bool CpuTwoHanded = false, bool PlayerTwoHanded = false, bool VoxelGloves = true,
@@ -44,7 +46,8 @@ public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFa
     string? PlayerName = null, RingLayout? Ring = null, BodyBuild? PlayerBody = null, BodyBuild? CpuBody = null,
     FaceParts? PlayerFace = null, FaceParts? CpuFace = null, bool ExternalBlue = false, Bots.BotStyle? RedBotStyle = null, bool UseWeaponBots = false,
     bool Referee = true, Voxels.FaceLook? PlayerLook = null, Voxels.FaceLook? CpuLook = null, string? PlayerLabel = null, string? CpuLabel = null,
-    Bots.BotStyle? PlayerStyle = null, Bots.WeaponStyle? PlayerWeaponStyle = null, Bots.WeaponStyle? CpuWeaponStyle = null)
+    Bots.BotStyle? PlayerStyle = null, Bots.WeaponStyle? PlayerWeaponStyle = null, Bots.WeaponStyle? CpuWeaponStyle = null,
+    bool BreakActions = true, Func<int, Fighter, Break.IBreakSource?>? BreakSource = null)
 {
     /// <summary>CPU 側のスタイル（<see cref="CpuStyleJson"/> を読んだもの。解決済みの全体）。スタイルを持たない CPU（legacy・外の入力）は null。</summary>
     public Bots.BotStyle? CpuStyle => CpuStyleJson is { } json ? Bots.BotStyle.FromJson(json) : null;
@@ -367,8 +370,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         if (Resting)
         {
             // ラウンドの間（と試合の後）: 自分のコーナーへ歩いて戻り、ガードを下げて休む。入力元（ボット・プレイヤー）は読まない。
-            Drive(Player, Cpu, RestCommand(Player, Cpu), dt);
-            Drive(Cpu, Player, RestCommand(Cpu, Player), dt);
+            // 休みの間（試合の後は除く）は、休みの入力元（水を飲む・汗を拭く…の目標の経路）が休みの構えへ重ねる。
+            Drive(Player, Cpu, BreakCommand(Player, Cpu, dt), dt);
+            Drive(Cpu, Player, BreakCommand(Cpu, Player, dt), dt);
             _resumeHold = 0f; // 休みに入ったら一呼吸は持ち越さない（次のラウンドはゴングで始まる）
         }
         else if (Holding)
@@ -384,6 +388,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
         else
         {
+            EndBreakActions();
             var readStart = StepProfile.Begin();
             var cpuCommand = _corners.ExternalBlue ? blue.GetValueOrDefault() : _cpuControl.Read(ArmedSense(Cpu, Player), dt);
             var playerRead = _playerControl?.Read(ArmedSense(Player, Cpu), dt) ?? playerCommand;
@@ -1166,6 +1171,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _world?.Dispose();
         _weapons.Clear(); // 武器は世界ごと消える
         _connectedAt.Clear();
+        EndBreakActions(); // 休みの小物・入力元も世界と一緒に捨てる
         _recentCuts.Clear();
         _beforeStep.Clear();
         _resumeHold = 0f;
