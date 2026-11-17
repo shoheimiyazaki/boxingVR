@@ -1049,6 +1049,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
                 }
 
                 _regenBudget[fighter] = budget - whole;
+                // 皮膚のあざも休みの間だけ少しずつ引く（見た目だけ。ラウンド中は引かない）。
+                fighter.Voxels?.FadeSkinBruises(dt, rules.BruiseHalfLifeSeconds);
             }
 
             if (BreakLeft <= 0f)
@@ -1592,6 +1594,12 @@ public sealed record MatchRules(float RoundSeconds = 30f, int Rounds = 5, float 
 
     /// <summary>休むときに拳を構えから下げる量（腕の長さ単位: 下へ・前へ）。</summary>
     public Vector3 RestGuardDrop { get; init; } = new(0f, -0.12f, 0.15f);
+
+    /// <summary>
+    /// 休みの間に皮膚のあざが半分に引く時間 [s]（見た目だけのルール。生理ではない）: 休み 20 秒で中くらいのあざが半分ほどに見える。
+    /// 0 以下ならあざは引かない。ラウンド中は引かない。臓器の打撲（別の物）には触れない。
+    /// </summary>
+    public float BruiseHalfLifeSeconds { get; init; } = 20f;
 
     /// <summary>テレビ中継の標準: 30 秒 × 5 ラウンド、休み 10 秒。</summary>
     public static MatchRules Tv { get; } = new();

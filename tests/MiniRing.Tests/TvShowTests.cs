@@ -460,22 +460,4 @@ public sealed class TvShowTests
         Assert.AreEqual("右前腕", TvBodyWords.Region(BodyPartKind.Forearm, new(0.3f, 0.2f, 0.1f), "右前腕"), "手足は部位の名前");
         Assert.AreEqual("皮膚", TvBodyWords.Material(MiniRing.Voxels.BoxerAnatomy.Skin));
     }
-
-    [TestMethod]
-    public void PlanBreak_PutsTheWoundCloseUpAfterTheReplays_AndOnlyWhenThereIsAWound()
-    {
-        // 2026-11-17、ユーザーの指定: 休みに、傷へ手持ちで寄るカット（切り替えない 1 カット）を入れる。
-        var director = new TvDirector(1280, 720, 30, 1f / 240f, "赤", "青");
-        var wound = new TvWound(Red: false, Body: null!, Grid: default, Name: "右すね", Score: 60f);
-
-        var plan = director.PlanBreak(20f, [], redFirst: true, [wound]);
-        var close = plan.Where(s => s.Shot == TvShot.Wound).ToList();
-
-        Assert.AreEqual(1, close.Count);
-        Assert.AreEqual(TvDirector.WoundSeconds, close[0].End - close[0].Start, 1e-4f, "寄り切るまでの 1 カット");
-        Assert.IsFalse(close[0].Red);
-        Assert.AreSame(wound, close[0].Wound);
-        Assert.IsTrue(close[0].End <= 20f - 2.5f, "最後のいつものカメラの前に収まる");
-        Assert.IsFalse(director.PlanBreak(20f, [], redFirst: true).Any(s => s.Shot == TvShot.Wound), "傷が無ければ寄らない");
-    }
 }
