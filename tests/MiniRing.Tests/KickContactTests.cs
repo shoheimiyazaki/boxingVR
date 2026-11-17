@@ -126,7 +126,9 @@ public sealed class KickContactTests
         Assert.IsGreaterThan(0.3f, results[KickTechnique.Roundhouse].MaxYawDeviation);
         Assert.IsGreaterThan(0.5f, results[KickTechnique.Side].MaxYawDeviation);
         Assert.IsGreaterThan(1.0f, results[KickTechnique.Back].MaxYawDeviation);
-        Assert.IsLessThan(0.2f, results[KickTechnique.Axe].MaxYawDeviation);
+        // 0.2 → 0.3（PhysicsVersion 43）: 足・つま先を平たい靴の形にしたら、かかと落としの足が相手に触れる回数が増え（すね 2・足 2 → すね 2・足 3）、
+        // その反作用で体が 0.12 → 0.24 rad 回った（命令の向きは変えていない）。回る蹴り（1.5〜2.6 rad）とは十分に分かれる。
+        Assert.IsLessThan(0.3f, results[KickTechnique.Axe].MaxYawDeviation);
     }
 
     [TestMethod]
