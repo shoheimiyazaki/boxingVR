@@ -1,0 +1,160 @@
+{
+  // 柔術の組み技の教科書（docs/GRAPPLING.md）。長さは自分の腕の長さ = 1、左右は取り（自分）から見た左右。
+  // 点 L/R: 向かい合った相手の右腕・右足は取りの左（L）に見える。Limb のずれは相手の腕の座標（x 肩→手首、y 肘を反らせる向き、z 直交）。
+  // 値は手で書いた最初の経路（throwlab で測って直す。docs/arena/throwlab_*.md）。
+  "Name": "jujutsu",
+  "Engage": 0.95,
+  "Rate": 0.8,
+  "GripTimeout": 0.5,
+  "Cooldown": 1.2,
+  "EscapeLoad": 0.6,
+  "Techniques": [
+    {
+      // 隅落とし: 袖（相手の右肘）と襟（相手の左肩の下）を持ち、取りの左後ろへ下がりながら、相手を前の右隅へ引き落とす。足は使わない（崩しだけ）。
+      "Name": "sumi-otoshi", "Weight": 1, "Kuzushi": [0.7, -0.7],
+      "Keys": [
+        { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0] } },
+        { "T": 0.25, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
+        { "T": 0.45, "Left": { "Anchor": "Self", "Offset": [0.3, -0.15, 0.5], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.0, -0.1, 0.55], "Grip": true },
+          "Move": [0.5, -0.5], "Head": [0, -0.05, -0.25], "Spring": 0.4 },
+        { "T": 1.1,  "Left": { "Anchor": "Self", "Offset": [0.45, -0.3, 0.3], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.25, -0.35, 0.4], "Grip": true },
+          "Move": [0.5, -0.5], "Head": [0, -0.1, -0.35], "Spring": 0.4 },
+        { "T": 1.3,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+      ]
+    },
+    {
+      // 大外刈り（右）: 袖と襟を持ち、相手を右の後ろ隅（右のかかと）へ押し込みながら左足を相手の右足の脇へ踏み込み、
+      // 右脚を相手の右脚の後ろへ振り入れて、ふくらはぎを手前へ刈る。
+      "Name": "osoto-gari", "Weight": 1, "Kuzushi": [0.5, 0.85],
+      "Keys": [
+        { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0] } },
+        { "T": 0.25, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
+        { "T": 0.6,  "Left": { "Anchor": "Self", "Offset": [0.4, -0.35, 0.3], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.05, 0.35], "Grip": true },
+          "Move": [0.5, 1.0], "Head": [0, 0, 0.1], "Spring": 0.3 },
+        { "T": 0.8,  "Left": { "Anchor": "Self", "Offset": [0.4, -0.35, 0.3], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.1, 0.4], "Grip": true },
+          "Leg": { "Side": "Right", "Anchor": "AnkleL", "Offset": [0, 0.2, 0.3] }, "Head": [0, 0, 0.1], "Spring": 0.3 },
+        { "T": 1.05, "Left": { "Anchor": "Self", "Offset": [0.45, -0.4, 0.2], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.3, 0.45], "Grip": true },
+          "Leg": { "Side": "Right", "Anchor": "AnkleL", "Offset": [0, 0.2, -0.35] }, "Head": [0, -0.1, 0.1], "Spring": 0.5 },
+        { "T": 1.35, "Left": { "Anchor": "Self", "Offset": [0.45, -0.45, 0.2], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0, -0.4, 0.6], "Grip": true },
+          "Head": [0, -0.15, 0] },
+        { "T": 1.5,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+      ]
+    },
+    {
+      // 出足払い: 袖と襟で相手を取りの右へ吊り上げて相手の右足から体重を抜き、取りの左足の裏で相手の右足首を横へ払う。
+      "Name": "deashi-barai", "Weight": 1, "Kuzushi": [-1, 0.2],
+      "Keys": [
+        { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0] } },
+        { "T": 0.25, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
+        { "T": 0.45, "Left": { "Anchor": "ElbowL", "Offset": [-0.3, 0.15, 0], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [-0.25, 0.1, 0.1], "Grip": true },
+          "Leg": { "Side": "Left", "Anchor": "AnkleL", "Offset": [0.25, 0.05, -0.05] }, "Spring": 0.3 },
+        { "T": 0.7,  "Left": { "Anchor": "ElbowL", "Offset": [-0.4, 0.1, -0.1], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [-0.35, -0.1, 0.1], "Grip": true },
+          "Leg": { "Side": "Left", "Anchor": "AnkleL", "Offset": [-0.45, 0.06, 0] }, "Spring": 0.5 },
+        { "T": 1.0,  "Left": { "Anchor": "Self", "Offset": [-0.1, -0.3, 0.4], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.3, -0.4, 0.4], "Grip": true } },
+        { "T": 1.2,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+      ]
+    },
+    {
+      // 支え釣り込み足: 袖と襟を持ち、相手を取りの左後ろへ釣り出す（相手は右足を前へ踏み直して受け止めようとする）。
+      // その右足首の前へ取りの左足の裏を当てて止め、踏み直しを塞ぐ。止められた相手は前の右隅へ倒れる。
+      "Name": "sasae-tsurikomi-ashi", "Weight": 1, "Kuzushi": [0.7, -0.7],
+      "Keys": [
+        { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0] } },
+        { "T": 0.25, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
+        { "T": 0.45, "Left": { "Anchor": "Self", "Offset": [0.35, -0.15, 0.45], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.05, -0.1, 0.5], "Grip": true },
+          "Leg": { "Side": "Left", "Anchor": "AnkleL", "Offset": [0, 0.04, -0.1] }, "Head": [0, -0.05, -0.15], "Spring": 0.3 },
+        { "T": 1.2,  "Left": { "Anchor": "Self", "Offset": [0.5, -0.3, 0.25], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.3, -0.35, 0.35], "Grip": true },
+          "Leg": { "Side": "Left", "Anchor": "AnkleL", "Offset": [0, 0.04, -0.05] }, "Head": [0, -0.1, -0.25], "Twist": -0.3, "Spring": 0.4 },
+        { "T": 1.4,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+      ]
+    },
+    {
+      // 大外落とし（頭を落とす。危険）: 袖を持ち、右手で相手の頭を掴んで後ろ下へ押し込みながら、右脚で相手の右脚を刈る。
+      // 支えを刈られた相手は、押し込まれた頭から後ろへ落ちる（受け身を取らせない）。床に当たる衝撃は物理から（BoxingGame.Canvas）。
+      "Name": "osoto-otoshi", "Weight": 0.6, "Kuzushi": [0.4, 0.9],
+      "Keys": [
+        { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "Head", "Offset": [0, -0.05, 0] } },
+        { "T": 0.25, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.05, 0], "Grip": true } },
+        { "T": 0.55, "Left": { "Anchor": "Self", "Offset": [0.4, -0.3, 0.3], "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.15, 0.35], "Grip": true },
+          "Move": [0.5, 1.0], "Head": [0, 0, 0.1], "Spring": 0.4 },
+        { "T": 0.75, "Left": { "Anchor": "Self", "Offset": [0.4, -0.35, 0.3], "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.3, 0.45], "Grip": true },
+          "Leg": { "Side": "Right", "Anchor": "AnkleL", "Offset": [0, 0.2, 0.3] }, "Spring": 0.5 },
+        { "T": 1.0,  "Left": { "Anchor": "Self", "Offset": [0.45, -0.4, 0.2], "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.7, 0.5], "Grip": true },
+          "Leg": { "Side": "Right", "Anchor": "AnkleL", "Offset": [0, 0.2, -0.35] }, "Head": [0, -0.2, 0.15], "Spring": 0.8 },
+        { "T": 1.35, "Left": { "Anchor": "Self", "Offset": [0.45, -0.5, 0.2], "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.8, 0.4], "Grip": true },
+          "Head": [0, -0.3, 0.1], "Spring": 0.8 },
+        { "T": 1.5,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+      ]
+    },
+    {
+      // 首投げ（危険）: 右腕で相手の首を抱え（右手を頭の後ろへ回して握る）、左手で袖を持ち、腰を落として体を左へ回しながら、
+      // 抱えた頭を取りの左前の床へ引き落とす。相手は首から回って、肩・頭から落ちる。
+      "Name": "kubi-nage", "Weight": 0.6, "Kuzushi": [0.8, 0.3],
+      "Keys": [
+        { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "Head", "Offset": [-0.1, 0, 0.12] } },
+        { "T": 0.3,  "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "Head", "Offset": [-0.1, 0, 0.12], "Grip": true },
+          "Move": [0, 0.6] },
+        { "T": 0.65, "Left": { "Anchor": "Self", "Offset": [0.5, -0.3, 0.1], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.3, -0.2, 0.35], "Grip": true },
+          "Head": [0, -0.25, 0], "Twist": 0.6, "Move": [-0.3, 0.3], "Spring": 0.5 },
+        { "T": 1.05, "Left": { "Anchor": "Self", "Offset": [0.55, -0.55, -0.1], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.6, -0.7, 0.25], "Grip": true },
+          "Head": [0, -0.4, 0.1], "Twist": 0.6, "Spring": 0.8 },
+        { "T": 1.3,  "Left": { "Anchor": "Self", "Offset": [0.5, -0.6, 0], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.6, -0.8, 0.2], "Grip": true },
+          "Head": [0, -0.4, 0.1] },
+        { "T": 1.45, "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+      ]
+    },
+    {
+      // 背負い投げ（諸手、2026-11-17 seoilab。docs/GRAPPLING.md §11）: 袖（肘）と襟（肩の下）を取ったら、両手を取りの体に固定する
+      // （左手は胸の前で袖を釣り、右手は右肩の前で襟を持つ）。腕では引かない: 回って背を向けながら、立ち位置を相手の腰のすぐ前
+      // （背中が相手のお腹に付く所、Stand）へ運び、腰を落とす。受けは取りの体の回転と踏み込みで運ばれる。
+      // 背中を付けたまま止まり、膝を伸ばして腰で跳ね上げ、前へ体を折る。最後に両手を前下へ。
+      "Name": "seoi-nage", "Weight": 0.8, "Kuzushi": [0, -1],
+      "Keys": [
+        { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0] } },
+        { "T": 0.25, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
+        { "T": 0.45, "Left": { "Anchor": "Self", "Offset": [0.2, 0.05, 0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, 0.1, 0.2], "Grip": true },
+          "Head": [0, -0.225, 0], "Turn": 1.5, "Stand": { "Anchor": "Pelvis", "Offset": [0, 0, -0.05] } },
+        { "T": 0.65, "Left": { "Anchor": "Self", "Offset": [0.2, 0.05, 0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, 0.1, 0.2], "Grip": true },
+          "Head": [0, -0.45, 0.05], "Turn": 3.0, "Stand": { "Anchor": "Pelvis", "Offset": [0, 0, -0.05] } },
+        { "T": 0.8,  "Left": { "Anchor": "Self", "Offset": [0.2, 0.05, 0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, 0.1, 0.2], "Grip": true },
+          "Head": [0, -0.45, 0.1], "Turn": 3.0, "Stand": { "Anchor": "Pelvis", "Offset": [0, 0, -0.05] } },
+        { "T": 1.15, "Left": { "Anchor": "Self", "Offset": [0.2, 0.05, 0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, 0.1, 0.2], "Grip": true },
+          "Head": [0, 0, 0.75], "Turn": 3.0, "Spring": 0.6 },
+        { "T": 1.45, "Left": { "Anchor": "Self", "Offset": [0.1, -0.55, 0.4], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, -0.55, 0.45], "Grip": true },
+          "Head": [0, -0.1, 0.85], "Turn": 3.0, "Spring": 0.6 },
+        { "T": 1.65, "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] }, "Turn": 3.0 }
+      ]
+    },
+    {
+      // 巴投げ（捨て身）: 両襟を取って相手を前へ引き出し、取りは腰を落として後ろへ倒れながら右足の裏を相手の腰（下腹）に当てる。
+      // 両手を頭越しに引きながら脚を伸ばすと、前へ引かれた相手は足の上で回り、取りの頭越しに背中から落ちる。
+      // 取りが倒れても、握り続けていれば離さず、足の目標も効く（意識がはっきりしていれば。Fighter.UpdateGrab・RiseOnLimbs）。
+      "Name": "tomoe-nage", "Weight": 0.6, "Kuzushi": [0, -1],
+      "Keys": [
+        { "T": 0,    "Left": { "Anchor": "ShoulderL", "Offset": [0, -0.15, 0] }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0] } },
+        { "T": 0.25, "Left": { "Anchor": "ShoulderL", "Offset": [0, -0.15, 0], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
+        { "T": 0.6,  "Left": { "Anchor": "Self", "Offset": [0.15, -0.1, 0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.15, -0.1, 0.35], "Grip": true },
+          "Leg": { "Side": "Right", "Anchor": "Pelvis", "Offset": [0, -0.05, -0.08] }, "Move": [0, 0.4], "Head": [0, -0.45, -0.35], "Spring": 0.3 },
+        { "T": 1.0,  "Left": { "Anchor": "Self", "Offset": [0.12, -0.2, 0.15], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.12, -0.2, 0.15], "Grip": true },
+          "Leg": { "Side": "Right", "Anchor": "Pelvis", "Offset": [0, 0, -0.05] }, "Head": [0, -0.6, -0.5], "Spring": 0.5 },
+        { "T": 1.35, "Left": { "Anchor": "Self", "Offset": [0.1, 0.05, -0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, 0.05, -0.35], "Grip": true },
+          "Leg": { "Side": "Right", "Anchor": "Pelvis", "Offset": [0, 0.45, 0.25] }, "Head": [0, -0.6, -0.5], "Spring": 0.8 },
+        { "T": 1.55, "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+      ]
+    },
+    {
+      // 腕挫腋固（立ち）: 相手の右の手首を左手で、肘の少し上を右手で持ち、手首を腕の伸びる向きへ引きながら肘を反らせる向きへ押す（梃子）。
+      // 取りは左後ろへ下がって体重を乗せる。極まるか・逃げられるかは、相手の腕の力と梃子の力、靭帯の材料で決まる。
+      "Name": "waki-gatame", "Weight": 0.8, "Kuzushi": [0.6, -0.6], "Extension": 1,
+      "Keys": [
+        { "T": 0,    "Left": { "Anchor": "WristL" }, "Right": { "Anchor": "ElbowL", "Offset": [-0.12, 0, 0], "Limb": true } },
+        { "T": 0.25, "Left": { "Anchor": "WristL", "Grip": true }, "Right": { "Anchor": "ElbowL", "Offset": [-0.12, 0, 0], "Limb": true, "Grip": true } },
+        { "T": 0.8,  "Left": { "Anchor": "WristL", "Offset": [0.35, 0, 0], "Limb": true, "Grip": true }, "Right": { "Anchor": "ElbowL", "Offset": [-0.08, 0.3, 0], "Limb": true, "Grip": true },
+          "Move": [0.4, -0.4], "Head": [0, -0.15, 0], "Spring": 0.3 },
+        { "T": 1.8,  "Left": { "Anchor": "WristL", "Offset": [0.4, 0, 0], "Limb": true, "Grip": true }, "Right": { "Anchor": "ElbowL", "Offset": [-0.08, 0.45, 0], "Limb": true, "Grip": true },
+          "Move": [0.3, -0.3], "Head": [0, -0.2, 0], "Spring": 0.3 },
+        { "T": 2.0,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+      ]
+    }
+  ]
+}

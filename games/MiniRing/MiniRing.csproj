@@ -17,11 +17,13 @@
     <EmbeddedResource Include="Bots\karate.json" LogicalName="MiniRing.Bots.karate.json" />
     <EmbeddedResource Include="Bots/taekwondo.json" LogicalName="MiniRing.Bots.taekwondo.json" />
     <EmbeddedResource Include="Bots/tonfa.json" LogicalName="MiniRing.Bots.tonfa.json" />
+    <EmbeddedResource Include="Bots/jujutsu.json" LogicalName="MiniRing.Bots.jujutsu.json" />
     <EmbeddedResource Include="Bots\champion.json" LogicalName="MiniRing.Bots.champion.json" />
     <!-- インファイター。回避編で磨いた回避技と、回避からのカウンターの表を持つ（docs/BOT_PDCA.md 回避編）。 -->
     <EmbeddedResource Include="Bots\swarmer.json" LogicalName="MiniRing.Bots.swarmer.json" />
     <!-- 武器の教科書（刀・ロングソード・こんぼうのボットの判断の値。CLAUDE.md §1.8、docs/CHARACTERS.md §5 の weaponBot が差分で重なる）。 -->
     <EmbeddedResource Include="Bots\weapons\*.json" LogicalName="MiniRing.Bots.weapons.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Bots\grapple\*.json" LogicalName="MiniRing.Bots.grapple.%(Filename)%(Extension)" />
     <!-- キャラクターの名簿（国籍・武器・肌の色・体格・名前。docs/CHARACTERS.md）。 -->
     <EmbeddedResource Include="Characters\countries.json" LogicalName="MiniRing.Characters.countries.json" />
     <EmbeddedResource Include="Characters\roster\*.json" LogicalName="MiniRing.Characters.roster.%(Filename)%(Extension)" />

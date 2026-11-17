@@ -41,13 +41,14 @@ public sealed class CharacterRosterTests
         ("daichi", WeaponKind.Staff, HandWear.Glove, "champion", 1.05f, 1.05f, 1.0f, 0.95f),
         ("tsuyoshi", null, HandWear.Tonfa, "tonfa", 1.0f, 1.03f, 1.0f, 1.0f),
         ("edgar", WeaponKind.IronSword, HandWear.Shield, "boxer", 1.05f, 1.0f, 1.0f, 1.15f),
+        ("ren", null, HandWear.None, "jujutsu", 1.0f, 1.02f, 1.0f, 1.05f), // 2026-11-17: 柔術家（組み技の教科書、docs/GRAPPLING.md）
     ];
 
     [TestMethod]
     public void Roster_HoldsTheDecidedTwelve_WithTheirEquipmentStyleAndBody()
     {
         var all = CharacterRoster.All;
-        Assert.HasCount(16, all);
+        Assert.HasCount(17, all);
         CollectionAssert.AreEqual(Decided.Select(d => d.Id).ToArray(), all.Select(c => c.Id).ToArray(), "the decided order");
         foreach (var d in Decided)
         {

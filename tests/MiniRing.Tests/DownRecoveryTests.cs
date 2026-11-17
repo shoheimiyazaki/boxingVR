@@ -23,7 +23,8 @@ public sealed class DownRecoveryTests
             Assert.IsLessThan(heights[i - 1] + 0.03f, heights[i], $"lower consciousness, lower hips ({levels[i]})");
         }
 
-        Assert.IsGreaterThan(0.4f, heights[2], "half-conscious: neither standing nor flat");
+        // 起き上がりを手足の支えから出す体（docs/GRAPPLING.md §8）では、半ば意識のある体は手と膝で支えた低い膝立ちに落ち着く（39%）。
+        Assert.IsGreaterThan(0.35f, heights[2], "half-conscious: neither standing nor flat");
         Assert.IsLessThan(0.85f, heights[2], "half-conscious: neither standing nor flat");
         Assert.IsLessThan(0.3f, heights[3], "barely conscious: on the floor");
     }

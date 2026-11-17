@@ -103,12 +103,37 @@ public readonly record struct FighterSense(
     BodySense OpponentBody = default, float SelfFaintness = 0f, BladeSense OpponentBlade = default, bool? SelfArmed = null,
     TargetMap? OpponentTargets = null, RingLayout? Ring = null, WeaponSense SelfWeapon = default, float SelfStamina = 1f,
     VisionState? SelfVision = null, VisionState? OpponentVision = null, float OpponentArmReach = 0f,
-    bool OpponentDowned = false, bool MayStrikeDowned = false, BodyBuild? SelfBuild = null, BodyBuild? OpponentBuild = null)
+    bool OpponentDowned = false, bool MayStrikeDowned = false, BodyBuild? SelfBuild = null, BodyBuild? OpponentBuild = null,
+    GrappleSense? Grapple = null)
 {
     public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
 
     /// <summary>この試合のリング（分からなければ拳の試合の標準）。</summary>
     public RingLayout Arena => Ring ?? RingLayout.Boxing;
+}
+
+/// <summary>
+/// 組み技のための見え方（docs/GRAPPLING.md）。相手の体の見える所（肘・手首・足首・重心とその速さ）と、相手の崩れ
+/// （重心が足の支えの外へ出ている距離 <paramref name="OpponentMargin"/>、中なら負）、自分が掴んでいるか・掴まれているか、
+/// 自分の肘にかかる過伸展の力の、靭帯の降伏に対する割合（<paramref name="SelfElbowLoadLeft"/> など。関節を極められた痛み）。
+/// 左右は相手の本人の左右（Hand）。
+/// </summary>
+public readonly record struct GrappleSense(
+    Vector3 OpponentCom, Vector3 OpponentComVelocity, float OpponentMargin,
+    Vector3 OpponentLeftElbow, Vector3 OpponentRightElbow, Vector3 OpponentLeftWrist, Vector3 OpponentRightWrist,
+    Vector3 OpponentLeftAnkle, Vector3 OpponentRightAnkle,
+    bool HoldingLeft, bool HoldingRight, bool SelfGrabbed, float SelfElbowLoadLeft, float SelfElbowLoadRight,
+    float OpponentElbowLoadLeft, float OpponentElbowLoadRight, float SelfMargin)
+{
+    public Vector3 OpponentElbow(Hand hand) => hand == Hand.Left ? OpponentLeftElbow : OpponentRightElbow;
+
+    public Vector3 OpponentWrist(Hand hand) => hand == Hand.Left ? OpponentLeftWrist : OpponentRightWrist;
+
+    public Vector3 OpponentAnkle(Hand leg) => leg == Hand.Left ? OpponentLeftAnkle : OpponentRightAnkle;
+
+    public bool Holding(Hand hand) => hand == Hand.Left ? HoldingLeft : HoldingRight;
+
+    public float OpponentElbowLoad(Hand hand) => hand == Hand.Left ? OpponentElbowLoadLeft : OpponentElbowLoadRight;
 }
 
 /// <summary>ファイターの操作元。VR・キーボード・AI がこれを実装する。</summary>
