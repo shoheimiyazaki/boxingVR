@@ -54,8 +54,8 @@ public sealed class BatFormsTests
         Assert.IsTrue(WeaponCatalog.HasBot(WeaponKind.Bat));
         Assert.AreEqual("bat", WeaponCatalog.Textbook(WeaponKind.Bat).Name);
         Assert.AreEqual("バット", MiniRing.Characters.FighterCharacter.WeaponLabel(WeaponKind.Bat));
-        Assert.AreEqual(BatForms.Spacing, FormSwordsman.Spacing(WeaponKind.Bat));
-        Assert.AreEqual(Weapon.HandSpacing / ArmReach(), BatForms.Spacing, 0.003f, "the hand spacing is the bat's own, in arm lengths");
+        Assert.AreEqual(BatForms.Spacing, FormSwordsman.Spacing(WeaponKind.Bat), 0f);
+        Assert.AreEqual(BatForms.Spacing, Weapon.HandSpacing / ArmReach(), 0.003f, "the hand spacing is the bat's own, in arm lengths");
         var (light, heavy) = FormSwordsman.PlayerForms(WeaponKind.Bat);
         Assert.AreEqual("poke-body", light.Name);
         Assert.AreEqual("chop", heavy.Name);
