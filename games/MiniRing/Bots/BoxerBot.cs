@@ -105,6 +105,12 @@ public sealed class BoxerBot : IFighterControl
     internal (Technique? Technique, bool ToBody, Vector3 Aim) PunchOf(Hand hand)
         => _hands[(int)hand] is { Active: true, Time: >= 0f } action ? (action.Technique, action.Spec.ToBody, action.AimWorld) : (null, false, default);
 
+    /// <summary>調べもの用: その手の技の状態そのもの（溜め・打ち出し・戻りの時計を含む。当たった後は Technique が null になる）。</summary>
+    internal PunchAction ActionOf(Hand hand) => _hands[(int)hand];
+
+    /// <summary>調べもの用: 今の蹴りの経過時間 [s]（蹴っていなければ 0）。</summary>
+    internal float KickTime => _kickTime;
+
     /// <summary>調べもの用: 足の運びが最後に目指した距離（自分の腕の長さ倍）・休む度合い・守り中か・打ちに行っているか。</summary>
     internal (float Desired, float RestNeed, bool Defending, bool Attacking) ProbeState => (_lastDesired, RestNeed, _defense != Defense.None, _wantAttack || _combo is not null || AnyPunchActive);
 

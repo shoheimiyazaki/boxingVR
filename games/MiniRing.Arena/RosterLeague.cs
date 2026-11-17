@@ -261,7 +261,7 @@ internal static class RosterLeague
         into.ArmRatioSum += from.ArmRatioSum;
     }
 
-    public static string Run(IReadOnlyList<FighterCharacter> roster, int bouts, float seconds, int seed, bool referee, int parallel, TextWriter progress, IReadOnlyDictionary<string, float>? set = null, bool ab = false, string? onlyLayered = null, string? onlyPlain = null)
+    public static string Run(IReadOnlyList<FighterCharacter> roster, int bouts, float seconds, int seed, bool referee, int parallel, TextWriter progress, IReadOnlyDictionary<string, float>? set = null, bool ab = false, string? onlyLayered = null, string? onlyPlain = null, string? matrixPath = null)
     {
         var jobs = new List<(FighterCharacter Red, FighterCharacter Blue, int Seed, bool RedLayered, bool BlueLayered)>();
         for (var a = 0; a < roster.Count; a++)
@@ -295,7 +295,26 @@ internal static class RosterLeague
                 progress.WriteLine(string.Create(Inv, $"[{n}/{jobs.Count}] {jobs[i].Red.Id} vs {jobs[i].Blue.Id}: {outcomes[i].Seconds:0.0}s (total {watch.Elapsed.TotalSeconds:0}s)"));
             }
         });
+        if (matrixPath is not null)
+        {
+            File.WriteAllText(matrixPath, OutcomeCsv(jobs.Select(j => j.Seed).ToList(), outcomes));
+        }
+
         return Report(roster, outcomes, bouts, seconds, seed, referee, logicVersion: BoxerBot.LogicVersion, set);
+    }
+
+    /// <summary>1 試合ずつの結果（組ごとの勝率を出すため）。winner は +1 = 赤、−1 = 青、0 = 引き分け。</summary>
+    internal static string OutcomeCsv(IReadOnlyList<int> seeds, IReadOnlyList<BoutOutcome> outcomes)
+    {
+        var sb = new StringBuilder("red,blue,seed,winner,red_rounds,blue_rounds,red_damage,blue_damage,red_knockdowns,blue_knockdowns,red_hits,blue_hits\n");
+        for (var i = 0; i < outcomes.Count; i++)
+        {
+            var o = outcomes[i];
+            sb.AppendLine(string.Create(Inv,
+                $"{o.Red},{o.Blue},{seeds[i]},{o.Winner},{o.RedTally.RoundsWon},{o.BlueTally.RoundsWon},{o.RedTally.DamageDealt:0.0},{o.BlueTally.DamageDealt:0.0},{o.RedTally.Knockdowns},{o.BlueTally.Knockdowns},{o.RedTally.HitsDealt},{o.BlueTally.HitsDealt}"));
+        }
+
+        return sb.ToString();
     }
 
     internal static Dictionary<string, Tally> Totals(IReadOnlyList<FighterCharacter> roster, IEnumerable<BoutOutcome> outcomes)

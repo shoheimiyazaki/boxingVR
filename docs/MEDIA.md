@@ -11,7 +11,7 @@
 
 ## 世代の一覧
 
-未マージの物理19・音v7の作業動画はまだ `docs/video/` に置く。マージ時に次の世代へ移す対象と検証記録は [CODEX_REPORT_3_2026-11-13.md](plans/CODEX_REPORT_3_2026-11-13.md)。音の比較3本、種3の骨折試合、前腕の接続・切断診断、種2のカタール切断を含む（縮小版も音声を保持）。
+ワークツリー `.claude/worktrees/*` と本体の `docs/video/`・`videos/`・`replays/`・`media_tmp/` から、2026-11-17 22:24 に gen11〜gen15 を回収した（撮った時刻の次の節目へ。テレビ中継などのフォルダは丸ごと同じ世代）。ワークツリーの `.visualcheck/`（テストのたびに作り直す静止画）と `media_tmp/binrun/`（ビルドの写し）は移していない。まだ master に入っていない作業の分（ムエタイの肘 `agent-a9d77545…`・蹴りの練習 `agent-a9402fb…`・投げと関節技 `throwing-grappling-mechanics-de662d`）と、回収の直前 30 分に書かれたファイルは元の場所に残した。マージしたときに次の世代へ移す。
 
 | 世代 | master に入った節目（〜） | 中身 | ファイル | 大きさ |
 |---|---|---|---:|---:|
@@ -24,7 +24,12 @@
 | `gen07_1112_weapons-gloves` | 2026-11-12 08:49 | 顔の窓・起き上がりの試み・0.75 倍速 / ボクセルの武器・グローブ・versus（PhysicsVersion 7–8） | 70 | 1,014 MiB |
 | `gen08_1112_stamina-tv` | 2026-11-12 19:27 | スタミナと臓器・テレビ中継・狙い / 武器リング・打って離れる・武器を選ばない守り（PhysicsVersion 9–13） | 120 | 769 MiB |
 | `gen09_1113_pressure-fracture` | 2026-11-13 08:34 | 皮膚の下の圧力・擦り減り・材質の接触音・審判のダウン・骨折 / guardspar（PhysicsVersion 16） | 21 | 772 MiB |
-| `gen10_1113_range-fatigue` | 2026-11-13 〜（今） | claude/a-3d0203 のマージ（疲れが拳の速さに出る・間合いの層・学ぶ守り）・折れた骨をつなぐ肉（PhysicsVersion 17–18） | 17 | 439 MiB |
+| `gen10_1113_range-fatigue` | 2026-11-13 13:02 | claude/a-3d0203 のマージ（疲れが拳の速さに出る・間合いの層・学ぶ守り）・折れた骨をつなぐ肉（PhysicsVersion 17–18） | 17 | 439 MiB |
+| `gen11_1114_intent-karate` | 2026-11-14 17:27 | 意図の操作（キーボード）・1 打 1 音・肉でつながる骨折と切断 / 空手（蹴り・指・パリー）・目と見え・顔・体格・剣の接触の掃き直し（PhysicsVersion 19–27） | 102 | 815 MiB |
+| `gen12_1115_stamina-swords` | 2026-11-15 20:56 | デスクトップのゲーム選択・対戦・再生 / スタミナの予算・描画と物理の分離 / 刀とロングソードの型・頭の作り直し | 58 | 532 MiB |
+| `gen13_1116_characters` | 2026-11-16 17:09 | キャラクターファイル・首と脊椎・指の手・武器の教科書・レフェリーなし / 実況の PDCA・テレビ中継の札（tvcard 1–4） | 3074 | 11,774 MiB |
+| `gen14_1117_tvprogram-cmaes` | 2026-11-17 10:52 | 大会の番組・弱った相手の詰め・解説・CMA-ES（cmatune）・臨界パワーのスタミナ（PhysicsVersion 38）/ 棒術・トンファー・テコンドー・片手剣と盾・生配信の試し | 446 | 2,915 MiB |
+| `gen15_1117_legs-woundcam` | 2026-11-17 22:09 | 脚を失っても戦う（PhysicsVersion 39）・棒の滑る握り・VR の武器と動きの記録・回し蹴り・傷のカメラ（wound-cam）・WVC 再戦の中継 | 4111 | 17,392 MiB |
 
 ## gen01_1107_vr-poc
 
@@ -352,3 +357,235 @@ claude/a-3d0203 のマージ（疲れが拳の速さに出る・間合いの層�
 | `video/range_keep_guard_small.mp4` | ワークツリー a-3d0203 の docs/video | 11-12 20:42 |
 | `video/range_press_guard.mp4` | ワークツリー a-3d0203 の docs/video | 11-12 22:40 |
 | `video/range_press_guard_small.mp4` | ワークツリー a-3d0203 の docs/video | 11-12 22:40 |
+
+## gen11_1114_intent-karate
+
+意図の操作（キーボード）・1 打 1 音・肉でつながる骨折と切断 / 空手（蹴り・指・パリー）・目と見え・顔・体格・剣の接触の掃き直し（PhysicsVersion 19–27）
+
+| ファイル | 元の場所 | 撮った時刻 |
+|---|---|---|
+| `replays/miniring_desktop_20261114_003408.mrrep` | replays | 11-14 00:41 |
+| `video/gen10_champion_vs_slugger_glove.mp4` | docs/video | 11-13 13:04 |
+| `video/gen10_champion_vs_slugger_glove_small.mp4` | docs/video | 11-13 13:06 |
+| `video/gen10_fracture_check.png` | docs/video | 11-13 14:49 |
+| `video/gen10_fracture_detail.png` | docs/video | 11-13 14:49 |
+| `video/gen10_fracture_final_check.png` | docs/video | 11-13 14:50 |
+| `video/gen10_fracture_search1.mp4` | docs/video | 11-13 14:45 |
+| `video/gen10_fracture_search2.mp4` | docs/video | 11-13 14:46 |
+| `video/gen10_fracture_search3.mp4` | docs/video | 11-13 14:47 |
+| `video/gen10_fracture_search4.mp4` | docs/video | 11-13 14:47 |
+| `video/gen10_fracture_search5.mp4` | docs/video | 11-13 14:48 |
+| `video/gen10_fracture_search6.mp4` | docs/video | 11-13 14:48 |
+| `video/gen10_fracture_swarmer_champion_seed3.mp4` | docs/video | 11-13 14:50 |
+| `video/gen10_fracture_swarmer_champion_seed3_small.mp4` | docs/video | 11-13 14:50 |
+| `video/gen10_intent.mp4` | docs/video | 11-13 15:04 |
+| `video/gen10_intent.mrrep` | docs/video | 11-13 15:04 |
+| `video/gen10_intent_check.png` | docs/video | 11-13 15:04 |
+| `video/gen10_intent_demonstration.mp4` | docs/video | 11-13 15:06 |
+| `video/gen10_intent_demonstration.mrrep` | docs/video | 11-13 15:06 |
+| `video/gen10_intent_demonstration_check.png` | docs/video | 11-13 15:07 |
+| `video/gen10_intent_demonstration_small.mp4` | docs/video | 11-13 15:08 |
+| `video/gen10_intent_small.mp4` | docs/video | 11-13 15:04 |
+| `video/gen10_knuckles_champion_vs_slugger.mp4` | docs/video | 11-13 13:05 |
+| `video/gen10_knuckles_champion_vs_slugger_small.mp4` | docs/video | 11-13 13:06 |
+| `video/gen11_flesh_bridge_diagnostic.mp4` | docs/video | 11-13 20:14 |
+| `video/gen11_flesh_bridge_diagnostic.t2.0.png` | docs/video | 11-13 20:14 |
+| `video/gen11_flesh_bridge_diagnostic.t4.0.png` | docs/video | 11-13 20:14 |
+| `video/gen11_flesh_bridge_diagnostic.t5.0.png` | docs/video | 11-13 20:14 |
+| `video/gen11_flesh_bridge_diagnostic.t5.5.png` | docs/video | 11-13 20:14 |
+| `video/gen11_flesh_bridge_diagnostic.t6.0.png` | docs/video | 11-13 20:14 |
+| `video/gen11_fracture_check.png` | docs/video | 11-13 20:02 |
+| `video/gen11_fracture_detail.png` | docs/video | 11-13 20:02 |
+| `video/gen11_fracture_swarmer_champion_seed3.mp4` | docs/video | 11-13 20:01 |
+| `video/gen11_fracture_swarmer_champion_seed3_small.mp4` | docs/video | 11-13 20:02 |
+| `video/gen11_intent_feel.audio.csv` | ワークツリー agent-aa499444c2e84c5ae の docs/video | 11-14 13:08 |
+| `video/gen11_intent_feel.mp4` | ワークツリー agent-aa499444c2e84c5ae の docs/video | 11-14 13:08 |
+| `video/gen11_intent_feel.mrrep` | ワークツリー agent-aa499444c2e84c5ae の docs/video | 11-14 13:08 |
+| `video/gen11_intent_feel_small.mp4` | ワークツリー agent-aa499444c2e84c5ae の docs/video | 11-14 13:15 |
+| `video/gen11_katar_check.png` | docs/video | 11-13 20:12 |
+| `video/gen11_katar_seed613_small.mp4` | docs/video | 11-13 20:14 |
+| `video/gen11_katar_sever_check.png` | docs/video | 11-13 20:21 |
+| `video/gen11_katar_sever_detail.png` | docs/video | 11-13 20:21 |
+| `video/gen11_katar_sever_seed613.audio.csv` | docs/video | 11-13 20:11 |
+| `video/gen11_katar_sever_seed613.mp4` | docs/video | 11-13 20:11 |
+| `video/gen11_katar_sever_slugger_swarmer_seed2.audio.csv` | docs/video | 11-13 20:20 |
+| `video/gen11_katar_sever_slugger_swarmer_seed2.mp4` | docs/video | 11-13 20:20 |
+| `video/gen11_katar_sever_slugger_swarmer_seed2_small.mp4` | docs/video | 11-13 20:21 |
+| `video/gen11_sword_check.png` | docs/video | 11-13 20:02 |
+| `video/gen11_sword_sever_detail.png` | docs/video | 11-13 20:02 |
+| `video/gen12_bare_fist.audio.csv` | docs/video | 11-13 21:12 |
+| `video/gen12_bare_fist.mp4` | docs/video | 11-13 21:12 |
+| `video/gen12_bare_fist_sheet.png` | docs/video | 11-13 21:13 |
+| `video/gen12_bare_fist_small.mp4` | docs/video | 11-13 21:13 |
+| `video/gen12_karate_vs_boxer.audio.csv` | docs/video | 11-14 12:50 |
+| `video/gen12_karate_vs_boxer.mp4` | docs/video | 11-14 12:50 |
+| `video/gen12_karate_vs_boxer_knee.png` | docs/video | 11-14 12:52 |
+| `video/gen12_karate_vs_boxer_sheet.png` | docs/video | 11-14 12:52 |
+| `video/gen12_karate_vs_boxer_small.mp4` | docs/video | 11-14 12:52 |
+| `video/gen13_big_vs_small.mp4` | docs/video | 11-14 14:25 |
+| `video/gen13_big_vs_small_small.mp4` | docs/video | 11-14 14:25 |
+| `video/gen13_blinded.mp4` | docs/video | 11-14 14:21 |
+| `video/gen13_blinded_small.mp4` | docs/video | 11-14 14:21 |
+| `video/sound_v6_glove_after.mp4` | docs/video | 11-13 15:41 |
+| `video/sound_v6_glove_before.mp4` | docs/video | 11-13 15:15 |
+| `video/sound_v6_glove_compare.mp4` | docs/video | 11-13 15:44 |
+| `video/sound_v6_knuckles_after.mp4` | docs/video | 11-13 15:42 |
+| `video/sound_v6_knuckles_before.mp4` | docs/video | 11-13 15:15 |
+| `video/sound_v6_knuckles_compare.mp4` | docs/video | 11-13 15:44 |
+| `video/sound_v6_sword_after.mp4` | docs/video | 11-13 15:45 |
+| `video/sound_v6_sword_after.wav` | docs/video | 11-13 15:45 |
+| `video/sound_v6_sword_before.mp4` | docs/video | 11-13 15:46 |
+| `video/sound_v6_sword_before.wav` | docs/video | 11-13 15:19 |
+| `video/sound_v6_sword_before_aligned.mp4` | docs/video | 11-13 15:38 |
+| `video/sound_v6_sword_compare.mp4` | docs/video | 11-13 15:46 |
+| `video/sound_v7_final_labels_check.png` | docs/video | 11-13 20:14 |
+| `video/sound_v7_glove_after.audio.csv` | docs/video | 11-13 20:16 |
+| `video/sound_v7_glove_after.mp4` | docs/video | 11-13 20:16 |
+| `video/sound_v7_glove_compare.mp4` | docs/video | 11-13 20:17 |
+| `video/sound_v7_glove_contact_frame.png` | docs/video | 11-13 20:12 |
+| `video/sound_v7_glove_onset_wave.png` | docs/video | 11-13 20:17 |
+| `video/sound_v7_glove_v6_same_scene.mp4` | docs/video | 11-13 20:06 |
+| `video/sound_v7_knuckles_after.audio.csv` | docs/video | 11-13 20:11 |
+| `video/sound_v7_knuckles_after.mp4` | docs/video | 11-13 20:11 |
+| `video/sound_v7_knuckles_compare.mp4` | docs/video | 11-13 20:17 |
+| `video/sound_v7_knuckles_contact_frame.png` | docs/video | 11-13 20:12 |
+| `video/sound_v7_knuckles_onset_wave.png` | docs/video | 11-13 20:12 |
+| `video/sound_v7_knuckles_v6_same_scene.mp4` | docs/video | 11-13 20:06 |
+| `video/sound_v7_labels_check.png` | docs/video | 11-13 20:02 |
+| `video/sound_v7_sword_after.audio.csv` | docs/video | 11-13 20:12 |
+| `video/sound_v7_sword_after.mp4` | docs/video | 11-13 20:12 |
+| `video/sound_v7_sword_after.wav` | docs/video | 11-13 20:12 |
+| `video/sound_v7_sword_compare.mp4` | docs/video | 11-13 20:17 |
+| `video/sound_v7_sword_contact_frame.png` | docs/video | 11-13 20:19 |
+| `video/sound_v7_sword_onset_wave.png` | docs/video | 11-13 20:19 |
+| `video/sound_v7_sword_v6_same_scene.mp4` | docs/video | 11-13 20:10 |
+| `video/sound_v7_sword_v6_same_scene.wav` | docs/video | 11-13 20:10 |
+| `video/sword_seam_after_2026-11-14.audio.csv` | ワークツリー agent-a420dd56239c09f61 の docs/video | 11-14 14:53 |
+| `video/sword_seam_after_2026-11-14.mp4` | ワークツリー agent-a420dd56239c09f61 の docs/video | 11-14 14:53 |
+| `video/sword_seam_after_2026-11-14.wav` | ワークツリー agent-a420dd56239c09f61 の docs/video | 11-14 14:53 |
+| `video/sword_seam_before_2026-11-14.audio.csv` | ワークツリー agent-a420dd56239c09f61 の docs/video | 11-14 12:47 |
+| `video/sword_seam_before_2026-11-14.mp4` | ワークツリー agent-a420dd56239c09f61 の docs/video | 11-14 12:47 |
+| `video/sword_seam_before_2026-11-14.wav` | ワークツリー agent-a420dd56239c09f61 の docs/video | 11-14 12:47 |
+
+## gen12_1115_stamina-swords
+
+デスクトップのゲーム選択・対戦・再生 / スタミナの予算・描画と物理の分離 / 刀とロングソードの型・頭の作り直し
+
+| ファイル | 元の場所 | 撮った時刻 |
+|---|---|---|
+| `replays/miniring_desktop_20261114_182956.mrrep` | replays | 11-14 18:37 |
+| `replays/miniring_desktop_20261114_192820.mrrep` | replays | 11-14 19:30 |
+| `replays/miniring_desktop_20261114_193107.mrrep` | replays | 11-14 19:32 |
+| `replays/miniring_desktop_20261114_193220.mrrep` | replays | 11-14 19:32 |
+| `replays/miniring_desktop_20261114_193238.mrrep` | replays | 11-14 19:44 |
+| `replays/miniring_desktop_20261114_194431.mrrep` | replays | 11-14 19:49 |
+| `replays/miniring_desktop_20261114_194941.mrrep` | replays | 11-14 19:57 |
+| `replays/miniring_desktop_20261114_204507.mrrep` | replays | 11-14 20:49 |
+| `replays/miniring_desktop_20261114_204945.mrrep` | replays | 11-14 20:51 |
+| `replays/miniring_desktop_20261115_094108.mrrep` | replays | 11-15 09:41 |
+| `replays/miniring_desktop_20261115_164735.mrrep` | replays | 11-15 16:48 |
+| `replays/miniring_desktop_20261115_164907.mrrep` | replays | 11-15 16:50 |
+| `replays/miniring_desktop_20261115_182205.mrrep` | replays | 11-15 18:23 |
+| `replays/miniring_desktop_20261115_182314.mrrep` | replays | 11-15 18:25 |
+| `video/cpu_perception_delay.audio.csv` | docs/video | 11-15 09:09 |
+| `video/cpu_perception_delay.mp4` | docs/video | 11-15 09:09 |
+| `video/cpu_perception_delay_small.mp4` | docs/video | 11-15 09:09 |
+| `video/delay/`（35 ファイル） | docs/video | 11-15 10:11〜10:40 |
+| `video/gen13_katana_forms.audio.csv` | docs/video | 11-15 20:09 |
+| `video/gen13_katana_forms.mp4` | docs/video | 11-15 20:09 |
+| `video/gen13_longsword_forms.audio.csv` | docs/video | 11-15 20:10 |
+| `video/gen13_longsword_forms.mp4` | docs/video | 11-15 20:10 |
+| `video/gen13_stamina.audio.csv` | docs/video | 11-15 11:51 |
+| `video/gen13_stamina.mp4` | docs/video | 11-15 11:51 |
+
+## gen13_1116_characters
+
+キャラクターファイル・首と脊椎・指の手・武器の教科書・レフェリーなし / 実況の PDCA・テレビ中継の札（tvcard 1–4）
+
+| ファイル | 元の場所 | 撮った時刻 |
+|---|---|---|
+| `replays/miniring_desktop_20261115_210202.mrrep` | replays | 11-15 21:02 |
+| `replays/miniring_desktop_20261115_210303.mrrep` | replays | 11-15 21:03 |
+| `replays/miniring_desktop_20261115_210631.mrrep` | replays | 11-15 21:07 |
+| `replays/miniring_desktop_20261115_210734.mrrep` | replays | 11-15 21:08 |
+| `replays/miniring_desktop_20261115_211525.mrrep` | replays | 11-15 21:22 |
+| `video/boot_snag_after.audio.csv` | ワークツリー boots の docs/video | 11-16 08:16 |
+| `video/boot_snag_after.mp4` | ワークツリー boots の docs/video | 11-16 08:16 |
+| `video/boot_snag_before.audio.csv` | ワークツリー boots の docs/video | 11-16 08:14 |
+| `video/boot_snag_before.mp4` | ワークツリー boots の docs/video | 11-16 08:14 |
+| `video/commentary-pdca/`（1774 ファイル） | docs/video | 11-16 12:25〜14:56 |
+| `video/media_tmp_build-tactics/`（19 ファイル） | ワークツリー build-tactics の media_tmp | 11-16 11:58〜12:16 |
+| `video/media_tmp_fingers/`（248 ファイル） | ワークツリー fingers の media_tmp | 11-16 15:09 |
+| `video/media_tmp_neck/`（25 ファイル） | ワークツリー neck の media_tmp | 11-16 13:08〜13:28 |
+| `video/media_tmp_referee/`（7 ファイル） | ワークツリー referee の media_tmp | 11-16 08:13〜08:41 |
+| `video/media_tmp_weapons/`（16 ファイル） | ワークツリー weapons の media_tmp | 11-16 14:48〜15:49 |
+| `video/tvcard/`（140 ファイル） | docs/video | 11-15 21:16〜21:27 |
+| `video/tvcard2/`（152 ファイル） | ワークツリー tvcard2 の docs/video | 11-16 09:10〜09:23 |
+| `video/tvcard3/`（265 ファイル） | ワークツリー tvcard2 の docs/video | 11-16 10:26〜10:45 |
+| `video/tvcard4/`（394 ファイル） | ワークツリー tvcard2 の docs/video | 11-16 11:26〜11:46 |
+| `video/tvshow-test/`（24 ファイル） | docs/video | 11-16 12:16〜12:18 |
+| `video/tvshow/`（1 ファイル） | docs/video | 11-16 12:12 |
+
+## gen14_1117_tvprogram-cmaes
+
+大会の番組・弱った相手の詰め・解説・CMA-ES（cmatune）・臨界パワーのスタミナ（PhysicsVersion 38）/ 棒術・トンファー・テコンドー・片手剣と盾・生配信の試し
+
+| ファイル | 元の場所 | 撮った時刻 |
+|---|---|---|
+| `video/cma_punch2_Slip_after.mp4` | ワークツリー evo-p0b の docs/video | 11-16 19:18 |
+| `video/cma_punch2_Slip_before.mp4` | ワークツリー evo-p0b の docs/video | 11-16 19:18 |
+| `video/cma_punch3_Weave_after.mp4` | ワークツリー evo-p0b の docs/video | 11-16 20:22 |
+| `video/cma_punch3_Weave_before.mp4` | ワークツリー evo-p0b の docs/video | 11-16 20:22 |
+| `video/live-test/`（32 ファイル） | docs/video | 11-16 20:12〜23:00 |
+| `video/media_tmp_bojutsu/`（27 ファイル） | ワークツリー bojutsu の media_tmp | 11-16 18:00〜19:35 |
+| `video/media_tmp_master/`（60 ファイル） | media_tmp | 11-17 01:25〜01:46 |
+| `video/media_tmp_swordshield/`（31 ファイル） | ワークツリー swordshield の media_tmp | 11-16 21:08〜22:08 |
+| `video/media_tmp_taekwondo/`（17 ファイル） | ワークツリー taekwondo の media_tmp | 11-16 17:31〜17:42 |
+| `video/media_tmp_tonfa/`（18 ファイル） | ワークツリー tonfa の media_tmp | 11-16 19:55〜20:33 |
+| `video/wvc-boxing-tournament/`（257 ファイル） | ワークツリー tvprogram の docs/video | 11-16 20:50〜11-17 08:03 |
+
+## gen15_1117_legs-woundcam
+
+脚を失っても戦う（PhysicsVersion 39）・棒の滑る握り・VR の武器と動きの記録・回し蹴り・傷のカメラ（wound-cam）・WVC 再戦の中継
+
+| ファイル | 元の場所 | 撮った時刻 |
+|---|---|---|
+| `video/f_01.png` | ワークツリー agent-ab89385668f2ae181 の docs/video | 11-17 21:05 |
+| `video/f_02.png` | ワークツリー agent-ab89385668f2ae181 の docs/video | 11-17 21:05 |
+| `video/f_03.png` | ワークツリー agent-ab89385668f2ae181 の docs/video | 11-17 21:05 |
+| `video/f_04.png` | ワークツリー agent-ab89385668f2ae181 の docs/video | 11-17 21:05 |
+| `video/f_05.png` | ワークツリー agent-ab89385668f2ae181 の docs/video | 11-17 21:05 |
+| `video/f_06.png` | ワークツリー agent-ab89385668f2ae181 の docs/video | 11-17 21:05 |
+| `video/f_07.png` | ワークツリー agent-ab89385668f2ae181 の docs/video | 11-17 21:05 |
+| `video/f_08.png` | ワークツリー agent-ab89385668f2ae181 の docs/video | 11-17 21:05 |
+| `video/gen38/`（16 ファイル） | ワークツリー tvprogram の docs/video | 11-17 15:59〜16:04 |
+| `video/jo_tsuki.mp4` | ワークツリー staff-vr-motion-kick-d8bd9a の videos | 11-17 15:20 |
+| `video/korean_check.audio.csv` | ワークツリー agent-ab89385668f2ae181 の docs/video | 11-17 21:05 |
+| `video/korean_check.events.json` | ワークツリー agent-ab89385668f2ae181 の docs/video | 11-17 21:05 |
+| `video/korean_check.mp4` | ワークツリー agent-ab89385668f2ae181 の docs/video | 11-17 21:05 |
+| `video/legends_akira_diego_s5.audio.csv` | docs/video | 11-17 19:42 |
+| `video/legends_akira_diego_s5.mp4` | docs/video | 11-17 19:42 |
+| `video/legloss_akira_diego_s1.audio.csv` | docs/video | 11-17 17:00 |
+| `video/legloss_akira_diego_s1.mp4` | docs/video | 11-17 17:00 |
+| `video/legloss_akira_diego_s5.audio.csv` | docs/video | 11-17 16:59 |
+| `video/legloss_akira_diego_s5.mp4` | docs/video | 11-17 16:59 |
+| `video/legloss_akira_diego_s5_small.mp4` | docs/video | 11-17 17:05 |
+| `video/legloss_breakdemo.audio.csv` | docs/video | 11-17 11:59 |
+| `video/legloss_breakdemo.mp4` | docs/video | 11-17 11:59 |
+| `video/legloss_breakdemo.wav` | docs/video | 11-17 11:59 |
+| `video/legloss_jin_konrad_s23.audio.csv` | docs/video | 11-17 17:05 |
+| `video/legloss_jin_konrad_s23.mp4` | docs/video | 11-17 17:05 |
+| `video/legloss_jin_konrad_s23_small.mp4` | docs/video | 11-17 17:05 |
+| `video/legloss_jin_konrad_s8.audio.csv` | docs/video | 11-17 16:58 |
+| `video/legloss_jin_konrad_s8.mp4` | docs/video | 11-17 16:58 |
+| `video/media_tmp_agent-a5637c51405f75878/`（16 ファイル） | ワークツリー agent-a5637c51405f75878 の media_tmp | 11-17 12:52〜18:09 |
+| `video/staff_slide_tsuki.mp4` | ワークツリー agent-acff62314be37d49b の docs/video | 11-17 12:41 |
+| `video/vrmotion_thrust.mp4` | ワークツリー agent-a260c86478850153a の videos | 11-17 11:58 |
+| `video/wvc-oneshot/`（507 ファイル） | ワークツリー wound-cam の docs/video | 11-17 19:47〜20:52 |
+| `video/wvc-random1/`（532 ファイル） | ワークツリー wound-cam の docs/video | 11-17 20:59〜21:49 |
+| `video/wvc-rematch-free/`（465 ファイル） | docs/video | 11-17 12:31〜14:46 |
+| `video/wvc-rematch-open/`（356 ファイル） | docs/video | 11-17 12:31〜12:53 |
+| `video/wvc-rematch-prospective/`（427 ファイル） | docs/video | 11-17 13:36〜14:53 |
+| `video/wvc-rematch-prospective2/`（478 ファイル） | docs/video | 11-17 14:33〜16:07 |
+| `video/wvc-rematch-wound/`（899 ファイル） | ワークツリー wound-cam の docs/video | 11-17 15:19〜18:55 |
+| `video/wvc-rematch/`（386 ファイル） | docs/video | 11-17 10:53〜11:22 |
