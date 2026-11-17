@@ -81,12 +81,12 @@ public sealed class LegLossProbe
     }
 
     /// <summary>
-    /// 名簿のキャラ同士（刀 jin × ロングソード konrad、空手 akira × テコンドー diego）を種ごとに回し、脚が切れた・折れた最初の時刻と、
+    /// 名簿のキャラ同士（刀 jin × ロングソード konrad、空手 akira × テコンドー taeyun）を種ごとに回し、脚が切れた・折れた最初の時刻と、
     /// その後も戦い続けたか（終わりの状態）を書く。動画に撮る種を探す。
     /// </summary>
     [TestMethod]
     [DataRow("jin", "konrad")]
-    [DataRow("akira", "diego")]
+    [DataRow("akira", "taeyun")]
     public void Probe_SeedsThatCutALeg(string red, string blue)
     {
         var seeds = int.TryParse(Environment.GetEnvironmentVariable("LEGLOSS_SEEDS"), out var n) ? n : 8;
@@ -120,7 +120,7 @@ public sealed class LegLossProbe
     /// <summary>脚を失った後、ダウンから立ち直れずに 10 カウントになる流れを 0.5 秒ごとに追う（状態・腰の高さの目標と実際・傾き・意識・立てるか）。</summary>
     [TestMethod]
     [DataRow("jin", "konrad", 8, false)]
-    [DataRow("akira", "diego", 1, true)]
+    [DataRow("akira", "taeyun", 1, true)]
     public void Probe_TraceAfterLegLoss(string red, string blue, int seed, bool watchRed)
     {
         var selection = new MatchSelection(MatchMode.Spectate, CharacterRoster.Get(red), CharacterRoster.Get(blue), false);
@@ -142,7 +142,7 @@ public sealed class LegLossProbe
     /// 相手の部位・削れたセルの数を書く。脚が折れやすすぎる原因を探す。
     /// </summary>
     [TestMethod]
-    [DataRow("akira", "diego")]
+    [DataRow("akira", "taeyun")]
     [DataRow("akira", "ramon")]
     public void Probe_HowLegsBreak(string red, string blue)
     {
@@ -232,8 +232,8 @@ public sealed class LegLossProbe
 
     /// <summary>試合の間、両者の腿・すねの骨のセルの残り（全体と、いちばん細い断面のセル数）と肉の残りを 0.5 秒ごとに書く（脚が折れるまで）。</summary>
     [TestMethod]
-    [DataRow("akira", "diego", 1)]
-    [DataRow("akira", "diego", 3)]
+    [DataRow("akira", "taeyun", 1)]
+    [DataRow("akira", "taeyun", 3)]
     public void Probe_LegBoneWear(string red, string blue, int seed)
     {
         var selection = new MatchSelection(MatchMode.Spectate, CharacterRoster.Get(red), CharacterRoster.Get(blue), false);
@@ -283,7 +283,7 @@ public sealed class LegLossProbe
     /// <summary>試合で使う体（名簿のキャラ）の腕・脚の格子: 骨の軸に沿った断面ごとの骨のセルの数、折れうる段（BeamSlices）、5 か所で折れる力。</summary>
     [TestMethod]
     [DataRow("akira")]
-    [DataRow("diego")]
+    [DataRow("taeyun")]
     [DataRow("marcus")]
     public void Probe_InGameLimbBones(string id)
     {

@@ -7,7 +7,7 @@
   "partLimitMiB": 29,
   "commentary": { "writer": "llm", "model": "haiku" },
   "bouts": [
-    { "red": "diego", "blue": "akira", "seed": "auto", "bout": "第1試合" },
+    { "red": "taeyun", "blue": "akira", "seed": "auto", "bout": "第1試合" },
     { "red": "dmitri", "blue": "edgar", "seed": "auto", "bout": "第2試合" },
     { "red": "konrad", "blue": "daichi", "seed": "auto", "bout": "第3試合" },
     { "red": "tsuyoshi", "blue": "jin", "seed": "auto", "bout": "第4試合" },

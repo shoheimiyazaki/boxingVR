@@ -18,7 +18,7 @@ using MiniRing.Bots;
 //                                                                                   攻撃のドリル: 単発・連打 × 溜めの長さで、拳の速さ・体重の乗り・威力
 //   karatelab [--only shapes,parry,kicks,video] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md] [--video media_tmp/karate_vitals]
 //                                                                                   空手のドリル: 手の形 × 急所、パリー（拳の曲がり）、5 種の蹴り
-//   kicklab [--body diego] [--kick Roundhouse] [--distances 1.0,1.1,...] [--seeds 1,2,..] [--confirm-seeds 11,12,..] [--shin 0.75] [--overshoot -0.2] [--log f.md]
+//   kicklab [--body taeyun] [--kick Roundhouse] [--distances 1.0,1.1,...] [--seeds 1,2,..] [--confirm-seeds 11,12,..] [--shin 0.75] [--overshoot -0.2] [--log f.md]
 //                                                                                   蹴りの間合いのドリル: 間合いを刻んで蹴り、当たり・すねの当たった点・渡したエネルギーの表（採る間合いは使っていない種で比べ直す）
 //   counterlab [--book f.json] [--defense a,b|evasions] [--bouts N] [--ranges 1.15,1.3] [--log f.md] [--out book.json]
 //                                                                                   回避からのカウンターの研究（型 × 打ち始めの総当たり）
@@ -496,7 +496,7 @@ static int KickLabCommand(Options o)
 
     float[] Floats(string key, string[] fallback) => o.List(key, fallback).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToArray();
     int[] Ints(string key, string[] fallback) => o.List(key, fallback).Select(t => int.Parse(t, CultureInfo.InvariantCulture)).ToArray();
-    KickLab.Report(o.Get("body") ?? "diego", Enum.Parse<MiniRing.Bots.KickTechnique>(o.Get("kick") ?? "Roundhouse", ignoreCase: true),
+    KickLab.Report(o.Get("body") ?? "taeyun", Enum.Parse<MiniRing.Bots.KickTechnique>(o.Get("kick") ?? "Roundhouse", ignoreCase: true),
         Floats("distances", ["1.0", "1.05", "1.1", "1.15", "1.2", "1.25", "1.3", "1.4"]), Ints("seeds", ["1", "2", "3", "4", "5", "6"]),
         Ints("confirm-seeds", ["11", "12", "13", "14", "15", "16"]),
         o.Get("shin") is { } shin ? float.Parse(shin, CultureInfo.InvariantCulture) : null,
@@ -554,7 +554,7 @@ static int KneeLabCommand(Options o)
     if (o.Int("stage", 1) == 2)
     {
         var impact = new KneeLab.Spot(o.Float("impact-az", 20f) * MathF.PI / 180f, o.Float("impact-el", 10f) * MathF.PI / 180f, o.Float("impact-twist", 0f));
-        KneePractice.Stage2(o.Get("body") ?? "diego", impact, o.Float("foot", MiniRing.Bots.KickSpec.Of(MiniRing.Bots.KickTechnique.Roundhouse).FootPitch),
+        KneePractice.Stage2(o.Get("body") ?? "taeyun", impact, o.Float("foot", MiniRing.Bots.KickSpec.Of(MiniRing.Bots.KickTechnique.Roundhouse).FootPitch),
             Floats("distances", ["1.2", "1.4"]), Floats("confirm", ["1.1", "1.3"]), o.Int("gens", 12, min: 1), o.Int("lambda", 8, min: 4), o.Get("video"), Log);
         return 0;
     }
@@ -562,11 +562,11 @@ static int KneeLabCommand(Options o)
     if (o.Get("video") is { } video1)
     {
         var spot = new KneeLab.Spot(o.Float("impact-az", 20f) * MathF.PI / 180f, o.Float("impact-el", 10f) * MathF.PI / 180f, o.Float("impact-twist", 0f));
-        KneeLab.Stage1Video(o.Get("body") ?? "diego", spot, sides[0], o.Float("distance", 1.2f), video1, Log);
+        KneeLab.Stage1Video(o.Get("body") ?? "taeyun", spot, sides[0], o.Float("distance", 1.2f), video1, Log);
         return 0;
     }
 
-    KneeLab.Stage1(o.List("bodies", ["diego", "standard"]), Floats("distances", ["1.2"]), Radians("azimuths", ["20", "50", "80"]),
+    KneeLab.Stage1(o.List("bodies", ["taeyun", "standard"]), Floats("distances", ["1.2"]), Radians("azimuths", ["20", "50", "80"]),
         Radians("elevations", ["0", "25", "50"]), Floats("twists", ["-1.5", "0", "1.5", "3"]), sides, Log);
     return 0;
 }
@@ -575,7 +575,7 @@ static int KneeLabCommand(Options o)
 static int KickVideoCommand(Options o)
 {
     var distances = o.List("distances", ["1.05", "1.25", "1.5"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToArray();
-    KickVideo.Make(o.Get("body") ?? "diego", Enum.Parse<MiniRing.Bots.KickTechnique>(o.Get("kick") ?? "Roundhouse", ignoreCase: true), distances,
+    KickVideo.Make(o.Get("body") ?? "taeyun", Enum.Parse<MiniRing.Bots.KickTechnique>(o.Get("kick") ?? "Roundhouse", ignoreCase: true), distances,
         Enum.Parse<MiniRing.Hand>(o.Get("side") ?? "Left", ignoreCase: true), o.Float("slow", 0.25f, min: 0.05f), o.Int("width", 1280, min: 320), o.Int("height", 720, min: 240),
         o.Int("fps", 30, min: 5), o.Get("out") ?? "kick.mp4", Console.Out);
     return 0;

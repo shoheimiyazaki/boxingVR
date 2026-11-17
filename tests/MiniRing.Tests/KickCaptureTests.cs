@@ -140,7 +140,7 @@ public sealed class KickCaptureTests
     [TestMethod]
     public void TheHumanDerivedRoundhouse_LandsOnTheBody_AtItsStandoff_WithBothLegs()
     {
-        var body = MiniRing.Characters.CharacterRoster.Get("diego").Build;
+        var body = MiniRing.Characters.CharacterRoster.Get("taeyun").Build;
         foreach (var kind in new[] { KickTechnique.Roundhouse })
         {
             var spec = KickSpec.Of(kind);
