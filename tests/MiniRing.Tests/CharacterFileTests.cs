@@ -34,7 +34,7 @@ public sealed class CharacterFileTests
     {
         var all = CharacterRoster.All;
         Assert.HasCount(16, all);
-        Assert.HasCount(11, CharacterRoster.Countries.Keys.Where(k => all.Any(c => c.Country.Id == k)).ToList());
+        Assert.HasCount(12, CharacterRoster.Countries.Keys.Where(k => all.Any(c => c.Country.Id == k)).ToList());
         foreach (var c in all)
         {
             Assert.AreEqual(0, c.Education.Style.Count, c.Id);
