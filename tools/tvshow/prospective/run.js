@@ -229,7 +229,25 @@ async function main() {
   const zoomed = events.events.filter((e) => e.type === 'wound_cam').map((e) => ({
     ...e, t: e.t + ((config.frameOffsets || {}).wound_cam ?? config.frameOffset), type: 'wound_zoom', text: e.text.replace('にズームで寄る', 'に寄り切った'),
   }));
-  const all = events.events.concat(zoomed).sort((a, b) => a.t - b.t);
+  // 撮影のときの生の記録（姿勢・当たりの中身・削れた場所。TvTelemetry）。無い動画（前の撮影）では使わない。
+  const telemetryPath = path.join(out, `${key}.telemetry.json`);
+  const tele = fs.existsSync(telemetryPath) ? readJson(telemetryPath) : null;
+  // 出来事の文は、もとは決まり文句で読み上げる中継（Broadcast）のために書かれた台詞の形（「X のいい左が、Y のこめかみに入った」）。
+  // そのまま渡すと 2 人がその言い回しを写して同じ形の台詞が並ぶので、事実だけにして、言葉にするのは 2 人に任せる。
+  // 当たりは誰の何がどこへ（強さの形容は、生の情報の速さ・エネルギー・削れで分かる）。体の中の様子を一文で言い切った解釈
+  // （効いている・膝が落ちやすい）は、生の情報（意識・スタミナ・臓器の打撲）があれば渡さない。
+  const STRENGTH = /(強烈な|重い|いい)(?=左|右|蹴り|肘|ひじ|膝|一撃|拳)/g;
+  const interpreted = new Set(['condition', 'body_hurt', 'effect']);
+  const factual = (e) => {
+    if (tele && (e.type === 'hit' || e.type === 'weapon_hit')) {
+      const h = tele.hits.filter((x) => x.attacker === e.who && Math.abs(x.t - e.t) < 0.06).sort((a, b) => Math.abs(a.t - e.t) - Math.abs(b.t - e.t))[0];
+      if (h) return { ...e, text: `当たり: ${h.attacker}の${h.limb} → ${h.victim}の${h.region || h.zone}（${h.zone}）` };
+    }
+    return { ...e, text: e.text.replace(STRENGTH, '') };
+  };
+  const all = events.events.concat(zoomed)
+    .filter((e) => !(tele && e.for === '解説' && (interpreted.has(e.type) || e.type === 'knockdown')))
+    .map(factual).sort((a, b) => a.t - b.t);
   const endEvent = all.find((e) => e.type === 'end');
   const length = endEvent ? endEvent.t : all[all.length - 1].t;
   const seats = Object.keys(config.seats);
@@ -263,9 +281,6 @@ async function main() {
   const drivers = new Drivers(args, work);
   for (const s of seats) drivers.system[s] = intro(s);
   drivers.recapFor = (s) => recap(s);
-  // 撮影のときの生の記録（姿勢・当たりの中身・削れた場所。TvTelemetry）。無い動画（前の撮影）では使わない。
-  const telemetryPath = path.join(out, `${key}.telemetry.json`);
-  const tele = fs.existsSync(telemetryPath) ? readJson(telemetryPath) : null;
   const measure = makeMeasure(work, args.driver);
   const lines = []; // { seat, start, end, text, said, cutBy }
   const log = [];
@@ -473,15 +488,16 @@ async function main() {
     return `いまの様子: ${phase}・倒れている選手: ${down.length ? down.join('、') : 'なし'}・画面: ${screen}・直近 3 秒の打撃 ${hits} 発\n${plan ? plan + '\n' : ''}いまの画面（見たければ Read で開ける）: ${rel(frameNow())}`;
   }
 
-  // 会話を作り直したときの、それまでの流れ（その席に見えた大きな出来事と、直近の 2 人の台詞）。
+  // 会話を作り直したときの、それまでの流れ（その席に見えた大きな出来事と、ここまでの 2 人の台詞の全部）。
   function recap(seat) {
     const big = all.filter((e) => e.t <= T + 1e-6 && sees(seat, e) && e.for === '実況'
       && ['round_start', 'round_end', 'knockdown', 'get_up', 'fracture', 'severed', 'ko', 'decision'].includes(e.type));
-    const recent = lines.filter((l) => l.start <= T + 1e-6).slice(-8)
+    // 台詞はここまでの全部（自分がもう使った言い回し・もう伝えたことが見えるように。1 試合で数千字）。
+    const recent = lines.filter((l) => l.start <= T + 1e-6)
       .map((l) => `- ${fmt(l.start)}s ${l.seat === seat ? 'あなた' : config.seats[l.seat].label}: 「${l.said || l.text}」`);
     return ['（会話が長くなったので、ここで区切り直しました。ここまでの流れ）',
       '大きな出来事:', ...big.map((e) => `- ${fmt(e.t)}s ${e.text}`),
-      '直近の台詞:', ...recent].join('\n') + '\n\n';
+      'ここまでの台詞（全部）:', ...recent].join('\n') + '\n\n';
   }
 
   function prompt(seat, situation, format) {
