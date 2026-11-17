@@ -358,7 +358,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         if (tv && intentScript is null && game.InBreak && breakPlan is null)
                         {
                             // 休みに入った: そのラウンドの見どころを選び、カット割りを決める（先に映すのは多く打たれた側のコーナー）。
-                            var highlights = director.Highlights(game.MatchRound, 3, replayDone); // 休みに続けて流すリプレイは 3 本まで（入る長さだけ）
+                            var highlights = director.Highlights(game.MatchRound, 2, replayDone); // 休みのリプレイは 1〜2 本（重い順。PlanBreak が休みの長さで絞る）
                             var redTook = game.Player.Condition.TotalDamage - (blueRoundStart.Count > 0 ? blueRoundStart[^1] : 0f);
                             var blueTook = game.Cpu.Condition.TotalDamage - (redRoundStart.Count > 0 ? redRoundStart[^1] : 0f);
                             breakStartAt = at;
@@ -371,7 +371,10 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                                     TvShot.Corner => $"リングの中のカメラ: {(segment.Red ? redRing : blueRing)} のコーナー",
                                     TvShot.Ringside => $"リング脇のカメラマン: {(segment.Red ? redRing : blueRing)} を低い所から",
                                     TvShot.Ceiling => $"天井のカメラ: {(segment.Red ? redRing : blueRing)} を真上から",
+                                    TvShot.Wound when segment.Wound!.Healing => $"手持ちカメラが {(segment.Red ? redRing : blueRing)} の{segment.Wound.Name}の傷にズームで寄る（アップ。治りかけ: 休みの間に削れた所が戻っていく）",
                                     TvShot.Wound => $"手持ちカメラが {(segment.Red ? redRing : blueRing)} の{segment.Wound!.Name}の傷にズームで寄る（アップ）",
+                                    TvShot.Handheld => $"リングの中のカメラマンの手持ち: {(segment.Red ? redRing : blueRing)} を斜め前から（胸から上）",
+                                    TvShot.Wide => "リング全体のカメラ（高い所から、リングの 2 人を引きで）",
                                     _ => "中継カメラ",
                                 };
                                 var type = segment.Shot switch { TvShot.Replay => "replay", TvShot.Wound => "wound_cam", _ => "cut" };
@@ -596,6 +599,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             TvShot.Ringside => director.Ringside(game, subject!, shotTime),
                             TvShot.Corner => director.Corner(game, subject!, shotTime, at),
                             TvShot.Wound => director.Wound(game, subject!, cut!.Value.Wound!, shotTime, at),
+                            TvShot.Handheld => director.Handheld(game, subject!, shotTime, at),
+                            TvShot.Wide => director.Wide(game, shotTime),
                             _ => CameraAt(game, (TitleSeconds * 0.15f) + (time / speed * 0.15f)),
                         };
                         var overlay = MatchOverlay(redRing, blueRing, redCaption, blueCaption, flashes, redDamage, blueDamage, time, untilKo || tv ? null : seconds, game, vp);

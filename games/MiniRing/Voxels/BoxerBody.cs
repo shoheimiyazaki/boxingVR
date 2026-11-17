@@ -79,6 +79,34 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
     /// <summary>体の時計を進める（あざの色が時間で変わる）。</summary>
     internal void Tick(float clock) => _cache.Clock = clock;
 
+    /// <summary>皮膚のあざの量に <paramref name="factor"/>（0..1）を掛ける。変わったら塗り直しの鍵を上げる。見た目だけ。</summary>
+    internal void FadeBruise(float factor)
+    {
+        if (_cache.Bruise is not { } bruise)
+        {
+            return;
+        }
+
+        var changed = false;
+        for (var i = 0; i < bruise.Length; i++)
+        {
+            if (bruise[i] > 0f)
+            {
+                var faded = bruise[i] * factor;
+                bruise[i] = faded < 0.01f ? 0f : faded;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            _cache.BruiseVersion++;
+        }
+    }
+
+    /// <summary>皮膚のあざの量の合計（見た目だけ。テスト・調べ用）。</summary>
+    internal float BruiseTotal() => _cache.Bruise?.Sum() ?? 0f;
+
     /// <summary>
     /// 打撲を皮膚の色として残す（見た目だけ）: 打たれた点の近くの皮膚のセルに、<paramref name="dose"/> を距離で減らしながら足す
     /// （<paramref name="radius"/> の距離で 1/e）。中の傷（臓器の打撲・脳しんとう）は外から見えないので、皮膚の色で伝える
@@ -739,6 +767,38 @@ public sealed class BoxerBody
     private const float SkinBruiseRadiusCells = 2.5f;
 
     private float _clock;
+    private float _fadeAccum;
+
+    /// <summary>
+    /// 皮膚のあざを休みの間に引かせる（指数: <paramref name="halfLifeSeconds"/> で半分。見た目だけのルール）。
+    /// テクスチャの書き直しは重いので、0.5 秒ぶんためてからまとめて掛ける。
+    /// </summary>
+    public void FadeSkinBruises(float dt, float halfLifeSeconds)
+    {
+        if (halfLifeSeconds <= 0f)
+        {
+            return;
+        }
+
+        _fadeAccum += dt;
+        if (_fadeAccum < SkinBruiseFadeInterval)
+        {
+            return;
+        }
+
+        var factor = MathF.Pow(0.5f, _fadeAccum / halfLifeSeconds);
+        _fadeAccum = 0f;
+        foreach (var part in _parts)
+        {
+            part.FadeBruise(factor);
+        }
+    }
+
+    /// <summary>あざを引かせる間隔 [s]（塗り直しをまとめる。見た目だけ）。</summary>
+    private const float SkinBruiseFadeInterval = 0.5f;
+
+    /// <summary>皮膚のあざの量の合計（全部位。見た目だけ。テスト・調べ用）。</summary>
+    public float SkinBruiseTotal() => _parts.Sum(p => p.BruiseTotal());
 
     /// <summary>打撲が時間とともに引く（一定の速さ <paramref name="rate"/> [/s]）。体の時計も進める（あざの色が時間で変わる）。</summary>
     public void HealBruises(float dt, float rate)
