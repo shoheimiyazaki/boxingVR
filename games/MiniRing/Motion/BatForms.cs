@@ -82,11 +82,11 @@ public static class BatForms
             new(0.85f, new(-0.25f, -0.4f, 0.9f), 0.2f, -0.3f, Lean: 0.06f),
             Hold(1.5f, Ready)]),
 
-        // グリップエンド: 棒を頭の上から後ろへ返して逆さにし、右手を前へ突き出して握りの端で殴る。
+        // グリップエンド: 棒を返して頭の端を右肩の上の後ろへ立て（棒の線が体を通らない）、右手を前へ突き出して握りの端で殴る。
         FromKeys("butt", [Hold(0f, Ready), Hold(0.2f, Ready),
-            new(0.6f, new(-0.35f, -0.1f, 0.35f), -MathF.PI, 0.15f, Twist: -0.2f),
-            new(0.9f, new(-0.2f, 0f, 1.0f), -MathF.PI, 0.1f, Step: 1.8f, Lean: 0.1f, Twist: 0.25f),
-            new(1.1f, new(-0.2f, 0f, 1.0f), -MathF.PI, 0.1f, Lean: 0.1f, Twist: 0.25f),
+            new(0.6f, new(-0.5f, -0.1f, 0.35f), -MathF.PI, 0.9f, Twist: -0.2f),
+            new(0.9f, new(-0.25f, 0f, 1.0f), -MathF.PI, 0.9f, Step: 1.8f, Lean: 0.1f, Twist: 0.25f),
+            new(1.1f, new(-0.25f, 0f, 1.0f), -MathF.PI, 0.9f, Lean: 0.1f, Twist: 0.25f),
             Hold(2.0f, Ready)]) with { StrikeUntil = 1.1f },
 
         // 前蹴り: 構えの両手を保ち、空手と同じ前蹴りを出して戻す。押す力は既存の脚の接触から。
