@@ -78,7 +78,7 @@ try
         "guardspar" => GuardSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "awaylab" => AwayLabCommand(Options.Parse(argv[1..], "trainee", "opponents", "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out")),
         "breakdemo" => BreakDemoCommand(Options.Parse(argv[1..], "out", "seconds", "only", "fps")),
-        "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seconds", "out", "only", "variants", "video", "try", "defender")),
+        "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seed", "parallel", "seconds", "out", "only", "variants", "video", "try", "defender", "forms", "techniques", "compare")),
         "selfcuts" => SelfCutCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "out", "hitaway", "passes", "clearance", "margin", "tilt", "pacing", "slack", "angle")),
         "selfpath" => SelfPathCommand(Options.Parse(argv[1..], "margin", "from", "tilt", "out")),
         "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes", "hz", "sample")),
@@ -839,7 +839,22 @@ static int GuardLabCommand(Options o)
     // --defender swordshield: 受け手を片手剣と盾にする（--variants は GuardLab.ShieldVariants の番号）。
     GuardLab.Shielded = o.Get("defender") == "swordshield";
     var library = SwordLibraryLab.Load("docs/arena/sword_library.json");
-    var attacks = GuardLab.Attacks(library, SwingLab.Load("docs/arena/club_swings.json"), SwingLab.Load("docs/arena/bat_swings.json"));
+    var attacks = o.Get("forms") == "yes"
+        ? GuardLab.DirectionalAttacks(SwingLab.Load("docs/arena/club_swings.json"))
+        : GuardLab.Attacks(library, SwingLab.Load("docs/arena/club_swings.json"), SwingLab.Load("docs/arena/bat_swings.json"));
+    if (o.Get("techniques") is { } names)
+    {
+        var selected = names.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var name in selected)
+        {
+            if (!attacks.Any(a => a.Technique == name))
+            {
+                throw new ArgumentException($"技がありません: {name}（--forms yes と型の技名を指定）。");
+            }
+        }
+
+        attacks = [.. attacks.Where(a => selected.Contains(a.Technique, StringComparer.Ordinal))];
+    }
     if (o.Get("only") is { } only)
     {
         attacks = [.. attacks.Where(a => only.Split(',').Any(x => a.Name.Contains(x, StringComparison.Ordinal)))];
@@ -847,7 +862,11 @@ static int GuardLabCommand(Options o)
 
     var variants = o.Get("variants") is { } picked
         ? [.. picked.Split(',').Select(s => (GuardLab.Shielded ? GuardLab.ShieldVariants : GuardLab.Variants)[int.Parse(s, System.Globalization.CultureInfo.InvariantCulture)])]
-        : GuardLab.Shielded ? GuardLab.ShieldVariants : GuardLab.Variants;
+        : o.Get("compare") == "yes" ? GuardLab.Comparison : GuardLab.Shielded ? GuardLab.ShieldVariants : GuardLab.Variants;
+    if (attacks.Count == 0 || variants.Count == 0)
+    {
+        throw new ArgumentException("打ち手と守り方を 1 つ以上選んでください。");
+    }
     // --try "Parry:lead:deflect:forte;ParryAndStep:..."（受け流しの値を試す。値は腕の長さ・rad・刀の割合）。
     if (o.Get("try") is { } tries)
     {
@@ -868,11 +887,11 @@ static int GuardLabCommand(Options o)
     if (o.Get("video") is { } video)
     {
         // 動画: 選んだ打ち手を、選んだ守り方（最後の 1 つ。--try があればそれ）で続けて撮る。
-        new SparVideo(1280, 720, 30).MakeGuard(library, attacks, variants[^1], 1, o.Float("seconds", 4.5f), video, Console.Out);
+        new SparVideo(1280, 720, 30).MakeGuard(library, attacks, variants[^1], o.Int("seed", 1), o.Float("seconds", 4.5f), video, Console.Out);
         return 0;
     }
 
-    var report = GuardLab.Run(library, attacks, variants, o.Int("seeds", 2), o.Float("seconds", 4.5f), Console.Out, out _);
+    var report = GuardLab.Run(library, attacks, variants, o.Int("seeds", 2), o.Float("seconds", 4.5f), Console.Out, out _, o.Int("seed", 1), o.Int("parallel", 2, min: 1));
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {
