@@ -29,8 +29,8 @@ internal static partial class TvDraft
     /// <summary>話し手の既定の速さ（Synthesize.ps1 の既定の prosody の rate と同じ）。</summary>
     private static readonly Dictionary<string, (float Normal, float Excited)> DefaultRates = new(StringComparer.Ordinal)
     {
-        ["announcer"] = (0.15f, 0.35f),
-        ["commentator"] = (-0.03f, 0.10f),
+        ["announcer"] = (0.30f, 0.50f),
+        ["commentator"] = (0.15f, 0.28f),
     };
 
     /// <summary>台詞の間 [s]（声入れの <c>-Gap</c> と同じ）。</summary>

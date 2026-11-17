@@ -45,6 +45,25 @@ public sealed record BotStyle
     /// <summary>この蓄えより少ないほど休息を優先。空で 1、この値で 0 へなめらかに変え、相手の届く範囲の外へ出る。</summary>
     public float RestBelow { get; init; } = 0.5f;
 
+    /// <summary>
+    /// 休みたい度合いが 1 のときに残す手数の割合（2026-11-17）。スタミナは臨界パワー（基準体格で 9 W）より下の仕事なら戻るので、休む間も
+    /// 足を使い（回り込みは休みで減らさない。この値に依らない）、軽く打ち続けられる。0 は休む間は打たない（以前の形。以前は回り込みも止めて棒立ちが目立った）。
+    /// </summary>
+    public float RestTempo { get; init; } = 0.35f;
+
+    /// <summary>
+    /// 拳の狙いを相手の動きの先へ延ばす割合（0 = 見えた所へ打つ … 1 = 見えるまでの遅れ・溜め・拳が届くまでの時間ぶん、見えた体（胴）の速さで先へ延ばす。
+    /// 頭が体の上で揺れる分は延ばさない: AttackObservation）。
+    /// 読みの上手さ（判断の値）。
+    /// </summary>
+    public float AimLead { get; init; } = 1f;
+
+    /// <summary>
+    /// 構えの手の肘の締め（0 = 肘を外へ逃がす … 1 = 脇を締めて肘を脇腹の前へ。<see cref="HandCommand.Tuck"/>）。胴へ来る拳を守る間は 1。
+    /// 胴への打撃は臓器の打撲で息が詰まってスタミナを失う（1 発 17 J ほど）が、肘・グローブで受ければ 2 J ほど（StaminaMatchProbe、2026-11-17）。
+    /// </summary>
+    public float ElbowTuck { get; init; } = 0.5f;
+
     // ── 間合いの層（docs/LEARNING_PLAN.md の R、RangeSense）──
 
     /// <summary>相手の拳が届くとみなす、相手の肩から自分の頭までの距離 [腕の長さ]（踏み込み・体の傾きを含む）。危険度の物差し。</summary>
@@ -376,6 +395,9 @@ public sealed record BotStyle
             PaceKnee = Range(PaceKnee, 0.05f, 1f, 0.7f),
             PaceDrop = Unit(PaceDrop),
             RestBelow = Range(RestBelow, 0.01f, 1f, 0.5f),
+            RestTempo = Range(RestTempo, 0f, 1f, 0.35f),
+            AimLead = Range(AimLead, 0f, 1.5f, 1f),
+            ElbowTuck = Range(ElbowTuck, 0f, 1f, 0.5f),
             RangeThreat = Range(RangeThreat, 0.5f, 2.5f, 1.2f),
             RangeGuard = Unit(RangeGuard),
             RangeHeadMove = Unit(RangeHeadMove),

@@ -15,7 +15,7 @@ WVC 中継の顔。20 年以上格闘技を実況してきたベテランのア�
 ## 声（`speakers.announcer`）
 
 ```json
-{ "voice": ["IchiroM", "Ichiro"], "rate": "+15%", "pitch": "+5%", "volume": "+0%", "excited": { "rate": "+35%", "pitch": "+12%", "volume": "+20%" } }
+{ "voice": ["IchiroM", "Ichiro"], "rate": "+30%", "pitch": "+5%", "volume": "+0%", "excited": { "rate": "+50%", "pitch": "+12%", "volume": "+20%" } }
 ```
 
 （`announcer` の既定と同じなので、書かなくてもよい。）

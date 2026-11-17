@@ -5,6 +5,7 @@
   "out": "docs/video/wvc-rematch",
   "scoutSeeds": [11, 12, 13, 14, 15, 16, 17, 18],
   "partLimitMiB": 29,
+  "commentary": { "writer": "llm", "model": "haiku" },
   "bouts": [
     { "red": "diego", "blue": "akira", "seed": "auto", "bout": "第1試合" },
     { "red": "dmitri", "blue": "edgar", "seed": "auto", "bout": "第2試合" },

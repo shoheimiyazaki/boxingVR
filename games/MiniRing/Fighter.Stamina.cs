@@ -5,6 +5,7 @@ namespace MiniRing;
 public sealed partial class Fighter
 {
     private float _recentMusclePower;
+    private float _workDone;
     private float _stepWork;
     private float _muscleBudget;
     internal float StepMuscleBudget { get; private set; }
@@ -25,12 +26,36 @@ public sealed partial class Fighter
     private float StaminaCapacityJoules => MathF.Max(1e-3f, _tuning.StaminaCapacity * MuscleMassRatio);
 
     /// <summary>
-    /// 心肺が現在供給する仕事率 [W]（有酸素の供給）。直近に実際にした仕事の仕事率 P（<see cref="_recentMusclePower"/>）が大きいほど減る:
-    /// R = 最大 × Breath × exp(−(P / StaminaRestPower)²)。最大と StaminaRestPower は筋肉の量の比を掛けた値（1 kg あたりで同じ）。
-    /// 構えて立つ・歩く（基準体格で P は 1 W 前後）では最大の 9 割以上、全力の攻め（P は 8〜10 W）では 3 割以下。動きながらでも P に応じた量は戻る。
+    /// 心肺が現在供給する仕事率 [W]（有酸素の供給。運動生理の臨界パワー CP と W′ のモデル、2026-11-17）。直近に実際にした仕事の仕事率 P
+    /// （<see cref="_recentMusclePower"/>）に対して、P が臨界パワー C 以上なら供給は C（蓄えは P − C の速さで減る）、C より下なら
+    /// R − (R − C) × P / C（休むほど速く戻り、C で戻りが 0 になる。P = 0 で最大 R）。R = 最大 × 筋肉の量の比 × Breath × <see cref="Endurance"/>、
+    /// C = R × <see cref="FighterTuning.StaminaCriticalShare"/>。足を使う・軽く打ち合う（C より下）では必ず戻り、全力の連打（C の数倍）でだけ減る。
+    /// 前の式（R × exp(−(P / 5 W)²)）は立ち回りの仕事率 5〜6 W で戻りが仕事を下回り、打ち合っていないのに減った。
     /// </summary>
-    internal float RecoveryPower => IsDead ? 0f : _tuning.StaminaRecoveryPower * MuscleMassRatio * Breath *
-        MathF.Exp(-MathF.Pow(_recentMusclePower / MathF.Max(1e-3f, _tuning.StaminaRestPower * MuscleMassRatio), 2f));
+    internal float RecoveryPower
+    {
+        get
+        {
+            if (IsDead)
+            {
+                return 0f;
+            }
+
+            var most = _tuning.StaminaRecoveryPower * MuscleMassRatio * Breath * Endurance;
+            var critical = most * Math.Clamp(_tuning.StaminaCriticalShare, 1e-3f, 1f);
+            return _recentMusclePower >= critical ? critical : most - ((most - critical) * _recentMusclePower / critical);
+        }
+    }
+
+    /// <summary>
+    /// 試合を通した持久力（0..1]: exp(−試合でした筋肉の仕事の合計 / 持久の蓄え）。筋肉の糖（グリコーゲン）が減るほど心肺の供給と臨界パワーが
+    /// 落ちる近似。ラウンドの間の休みでは戻らないので、後のラウンドほど疲れやすい。持久の蓄え = <see cref="FighterTuning.StaminaEndurance"/>
+    /// × 筋肉の量の比（1 kg あたりで同じ）。
+    /// </summary>
+    public float Endurance => MathF.Exp(-_workDone / MathF.Max(1e-3f, _tuning.StaminaEndurance * MuscleMassRatio));
+
+    /// <summary>この試合で筋肉がした仕事の合計 [J]（<see cref="Endurance"/> の元）。</summary>
+    internal float WorkDone => _workDone;
 
     /// <summary>直近に実際にした仕事の仕事率 [W]（なめらかにしたもの。回復を決める P）。</summary>
     internal float RecentMusclePower => _recentMusclePower;
@@ -71,6 +96,7 @@ public sealed partial class Fighter
         // 回復を止める仕事率は、この歩で実際に出た仕事（腕の PD・保持・歩行・体から拳への移送は SpendMuscleEnergy が数えた分、
         // サーボは精算した分）。押しても出せなかった分は数えない（空で押すだけでは回復は止まらない）。
         var demand = (_stepWork + servoEnergy) / dt;
+        _workDone += _stepWork + servoEnergy;
         _stepWork = 0f;
         _recentMusclePower += (demand - _recentMusclePower) *
             (1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.StaminaRecoveryWindow)));

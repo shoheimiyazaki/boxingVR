@@ -56,6 +56,11 @@ public static class DefenseDrill
     {
         Name = $"drill-{kind}",
         Aggression = 0.8f,
+        // ドリルは同じ拳を決まった拍子で打たせる。弱った相手を詰める層（当てた手応えで間隔を縮める）は入れない（LogicVersion 36 で既定にした層）。
+        // 入れると、受け手のスリップ・ダッキングで頭が拳より下がるのを「構えが下がった（弱った）」と読み、間隔を縮めて詰める（HurtRead の読み違い）。
+        FinishTempo = 0f,
+        FinishPress = 0f,
+        FinishSpend = 0f,
         AttackRange = range - 0.1f,
         NeutralRange = range,
         EngageRange = 1.6f,
@@ -73,11 +78,6 @@ public static class DefenseDrill
         DefenseRate = 0f,
         CounterRate = 0f,
         ClinchRate = 0f,
-        // 弱った相手を詰める層も切る: ドリルは 1 つの技と 1 つの守りを比べる（回り込み・頭の動きと同じく、立ち回りの層は入れない）。
-        // 入れると、受け手のスリップ・ダッキングで頭が拳より下がるのを「構えが下がった（弱った）」と読み、間隔を縮めて詰める（HurtRead の読み違い）。
-        FinishTempo = 0f,
-        FinishPress = 0f,
-        FinishSpend = 0f,
     };
 
     /// <summary>

@@ -106,7 +106,8 @@ public sealed class EvasionBasicsTests
 
         Assert.IsGreaterThan(5, open.Punches);
         // 頭を人の比率（HeadScale 0.8）に小さくしてから、打たれてのけぞった頭は溜めの始めに決めた狙いから外れやすくなった（82 % → 71 %。ダメージ編 D2）。
-        Assert.IsGreaterThan(0.6f, open.HeadRate, "standing still, the right straight mostly lands");
+        // 2026-11-17: 狙いを体（胴）の速さで延ばすようにしてから 57 %（打たれて下がった体の速さの分だけ奥を狙い、戻った頭の手前を通る拳が出る。詰めのドリルでは顔に当たる割合が上がった）。
+        Assert.IsGreaterThan(0.5f, open.HeadRate, "standing still, the right straight mostly lands");
         Assert.IsLessThan(0.6f, slipped.HeadRate, "slipping as it is thrown, the head is often missed");
         Assert.IsGreaterThan(0.3f, slipped.EvadeRate, "and the punch passes without touching anything");
     }

@@ -1,43 +1,44 @@
 ---
 name: tv-commentary
-description: WVC の試合動画に、実況・解説・選手の心の声などの語り（bN.extras.json）を書く。tools/tvshow/tvshow.ps1 が「足す台詞がまだありません」で止まったとき、中継の実況・解説を直すとき、別の語りの型（一人実況・心の声・別の個性の組み合わせ）で作るときに使う。
+description: WVC の試合動画に、実況・解説・選手の心の声などの語り（bN.extras.json）を書く。tools/tvshow/tvshow.ps1 が「足す台詞がまだありません」で止まったとき、LLM（Haiku）に台本のテイクを書かせるとき、中継の実況・解説を直すとき、別の語りの型（一人実況・心の声・別の個性の組み合わせ）で作るときに使う。
 ---
 
-# 実況・解説の足す台詞を書く
+# 実況・解説の台詞を書く
 
-**まず [docs/commentary/README.md](../../../docs/commentary/README.md) を読む**（LLM 向けの説明書: 型 style・役 role・個性 persona の層と組み合わせ）。組み合わせが指定されていなければ tv-duo（実況 tachibana ＋ 解説 saeki）。下はその既定の型の要約。決まりの本体は `docs/TV_BROADCAST.md` §4。PDCA の記録は `docs/TV_COMMENTARY_PDCA.md`。
+**まず [docs/commentary/README.md](../../../docs/commentary/README.md) §2 を読む**（共通の決まり: 自然な話し言葉・60 字・自由に語る・言わない言葉）。組み合わせが指定されていなければ tv-duo（実況 tachibana ＋ 解説 saeki）。決まりの本体は `docs/TV_BROADCAST.md` §4。
 
-## 読むもの（試合ごと、`<out>` は札の `out`）
+## 既定: LLM のテイク（`docs/TV_BROADCAST.md` §4.4）
 
-- `<out>/bN.digest.md`: 区間（冒頭・ラウンド・休み・決着の後・勝敗の画面）ごとの出来事。`実況:` は画面で見えること、`解説:` は体の中・狙い。
-- `<out>/bN.draft.json`: 道具が置いた骨組み（選手紹介・ダウンのコール・カウント・立った・骨折と切断・ラウンドの区切り・リプレイの入り・決着・勝者）。**これは書き直さない**。足りない所に足す。
+札に `"commentary": { "writer": "llm", "model": "haiku" }` があれば、台詞は LLM が全部書く。手順はリポジトリに固めてあり、テイクごとの味付け（空気・話題。種で選ぶ）だけが変わる。**プロンプトを自分で書き直さない**（方針を変えるなら `tools/tvshow/prompts/tv-duo-free.md` を直す）。
 
-## 書くもの: `<out>/bN.extras.json`
+CLI（`claude -p`）のログインが生きていれば `tvshow.ps1 -Stage write`（全試合）か `write-commentary.ps1 -Bout bN` だけでよい。エージェントの中から（CLI が使えないとき）は、試合ごとに:
+
+1. `powershell -ExecutionPolicy Bypass -File tools\tvshow\write-commentary.ps1 -Card <札> -Bout bN -Mode prepare` → `PROMPT: <path>` が出る。
+2. Haiku のサブエージェント（`model: haiku`）に、作業場所（このワークツリーの根）と「`<path>` を読んで、その通りにする。日本語で」だけを渡す。中身を言い足さない（テイクの再現のため。言い足したいことは札の試合の `notes` に書く）。試合ごとのサブエージェントは並列でよい。
+3. `... -Mode finish` → 点検 OK なら記録して終わり。`FIX: <path>` と終了コード 2 なら、同じサブエージェントに「`<path>` を読んで直す」と送り、もう一度 finish（最大 2 回、その後は NG のまま記録される）。
+4. `tvshow.ps1 -Card <札> -Stage dub` → `-Stage package`。声入れ後の点検の「ずれ」は、前の台詞を短くして直す。
+
+前のテイクへ戻す: `write-commentary.ps1 -Card <札> -Bout bN -Use <out>\takes\bN\<テイク>`。テイクの記録は `take.json`（種・味付け・台詞の数・点検）。
+
+**見る所**（数字が OK でも聞いて確かめる）: 解説が全体の 4 割前後あるか、休みに見立て・プロフィールの話があるか、体言止め・辞書の形の伝聞が続いていないか、事実（勝敗・ダウン・骨折）が記録どおりか。良くなければ新しいテイク（ばらつきは味方）。
+
+## 手で足す（下書きを使う型、別の型）
+
+`<out>/bN.digest.md`（区間ごとの出来事・プロフィール）と `<out>/bN.draft.json`（道具の骨組み: 紹介・コール・カウント・リプレイの入り・決着）を読み、足りない所を `<out>/bN.extras.json` に足す。下書きは書き直さない（思い違いは `"drop"` で消す）。
 
 ```json
 { "drop": ["下書きの思い違いの台詞（そのままの文）"],
-  "lines": [ { "at": 13.6, "speaker": "announcer", "text": "サエキさん、アキラ選手の作戦は？", "excited": false },
-             { "at": 16.4, "speaker": "commentator", "text": "蹴りで足を止めて、それから腹です。", "excited": false } ] }
+  "lines": [ { "at": 13.6, "speaker": "announcer", "text": "佐伯さん、アキラ選手の作戦は？", "excited": false },
+             { "at": 16.4, "speaker": "commentator", "text": "蹴りで足を止めてから、腹を狙いたいところですね。", "excited": false } ] }
 ```
 
-`at` は言ってほしい時刻 [s]（digest の時刻）。`tvmerge` が下書きの空きに入れ、入らない台詞は落とす（落ちた台詞は表示される。大事なら時刻か長さを変える）。
+`at` は言ってほしい時刻 [s]。`tvmerge` が空きに入れ、入らない台詞は落とす（表示される）。
 
-## 書き方（ラジオで聞いても分かること）
+## 欠かせないもの（点検 `tvlint` が見る）
 
-1. **主語**: 動き・体の状態の台詞には必ず選手の名前（「ハンマーの左、アキラの顔に入った！」）。「左が入った！」は誰か分からない。
-2. **実況**（`announcer`）: 打ち合いの最中に見えることを短く。`excited: true` は打ち合いの声だけ。
-3. **解説**（`commentator`、サエキ）: 間（休み・ダウンの後・リプレイ・打ち合いが途切れた所）に、理由と見通し。「〜が効いた」だけでなく「肝臓が効いて足が止まった」。
-4. **掛け合い**: 休みごとに 1 組以上。実況が「サエキさん、〇〇選手の××は？」と**名前を入れて**問い、すぐ後に解説が答える（組は続けて書く）。**ダウンのカウント中は問いを振らない**（解説が自分から理由を言うのは良い）。
-5. **短く**: 1 台詞 28 字まで。長い説明は 2 台詞に分ける。
-6. **言わない**: ダメージの数値・打撲・％・VGV・ボット・物理・セル。割合は「3割」「半分」。ゲームを知らない人が一言で分かる言葉（「心臓の3割が壊れています」）。
-7. **型を変える**: 「〜の…が、〜の…に」を続けない。「打ち返す！」「もう一発！」を混ぜる。
-8. 下書きと同じことを言わない（コール・カウント・立った・勝者は下書きが言う）。同じ台詞を 2 度書かない。
-
-## 確かめる
+ラウンドの始まりから 6 秒以内に「第Nラウンド」／ダウン・決着は 1 秒以内に実況がコール／リプレイに変わったら 2 秒以内に「リプレイ」「スロー」とどの場面か／カウントの最中は解説に問いを振らない／休みごとに掛け合い 1 組以上／1 台詞 60 字まで／言わない言葉（ダメージ＋数字・打撲・％・VGV・ボット・物理・セル）。
 
 ```bash
-dotnet run --project games/MiniRing.Arena -c Release -- tvmerge --draft <out>/bN.draft.json --extras <out>/bN.extras.json --out <out>/bN.script.json
-dotnet run --project games/MiniRing.Arena -c Release -- tvlint --script <out>/bN.script.json --events <out>/bN.events.json
+games/MiniRing.Arena/bin/Release/net10.0/miniring-arena.exe tvmerge --draft <out>/bN.draft.json --extras <out>/bN.extras.json --out <out>/bN.script.json
+games/MiniRing.Arena/bin/Release/net10.0/miniring-arena.exe tvlint --script <out>/bN.script.json --events <out>/bN.events.json
 ```
-
-点検が OK になったら、`tools/tvshow/tvshow.ps1 -Card <札> -Stage dub` のあと `-Stage package` で声入れと結合。声入れ後の点検で「ずれ」が出たら、前の台詞を短くする。

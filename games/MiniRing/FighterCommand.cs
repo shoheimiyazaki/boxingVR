@@ -26,7 +26,9 @@ public static class HandExtensions
 /// ローカル X が打つ側の先）。拳が位置の目標へバネで引かれるのと同じく、手首の筋肉が武器をこの向きへバネで回す。null なら前腕に沿わせる。</para>
 /// <para><paramref name="LetGo"/> は、その手が握っている武器（添えている武器）を放す。放した手は素手の拳になる（はめた物は外せない）。</para>
 /// </summary>
-public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float Spring = 0f, Quaternion? Orientation = null, bool LetGo = false, HandShape Shape = HandShape.Seiken);
+/// <para><paramref name="Tuck"/>（0..1、2026-11-17）は肘の目標: 0 = 肘を下・外・やや後ろへ逃がす（今までの形。拳を出す・フックを振る腕）、
+/// 1 = 脇を締めて肘を脇腹の前へ寄せる（胴を肘と前腕で覆う守り）。拳の目標と同じく腕の形の目標で、肩・肘のサーボが追う。</para>
+public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float Spring = 0f, Quaternion? Orientation = null, bool LetGo = false, HandShape Shape = HandShape.Seiken, float Tuck = 0f);
 
 /// <summary>
 /// 1 ステップ分の操作指令 — 入力元（VR / キーボード / AI）とラグドールの唯一の契約。

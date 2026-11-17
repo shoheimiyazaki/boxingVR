@@ -17,12 +17,13 @@
 ```powershell
 # 1. 撮影と台本の資料（種の選び・撮影・要約）。台本が無ければここで止まり、書く場所を知らせる。
 powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvshow\cards\wvc-ishu.json
-# 2. 足す台詞を書く: <out>\bN.digest.md と bN.draft.json（実況の骨組みの下書き）を読み、<out>\bN.extras.json を書く（エージェントはスキル tv-commentary、§4.3）。
+# 2. 台詞を書く。札に "commentary": { "writer": "llm", "model": "haiku" } があれば、台本の無い試合は LLM が全部の台詞を書く（§4.4。
+#    1 回 = 1 テイク。-Stage write で全試合の新しいテイク）。無ければ <out>\bN.digest.md と bN.draft.json を読み、<out>\bN.extras.json を書く（スキル tv-commentary、§4.3）。
 #    エージェントなしで作るなら、札に "autoCommentary": true（下書きだけを台本にする。下書きは実況と解説の 2 人）。
 # 3. もう一度 1 を回す: 台本（下書き＋足す台詞 → bN.script.json）→ 声入れ（bN_live.mp4）→ 点検 → 結合（broadcast_full.mp4）→ 送れる大きさの部分（broadcast_partN.mp4）。
 ```
 
-段だけを回すときは `-Stage scout | render | digest | dub | package`。撮り直しは `-Force`。生の中継は `-Stage liveprep | live`（§8）。
+段だけを回すときは `-Stage scout | render | digest | write | dub | package`。撮り直しは `-Force`。生の中継は `-Stage liveprep | live`（§8）。
 
 ### 札（card JSON）
 
@@ -78,7 +79,7 @@ powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvs
 
 ## 3. 映像の演出（道具が決める）
 
-- **冒頭（7 秒。プログラムがあればその前に「本日のプログラム」の表）**: ボクセルを積んだ金の WVC ロゴ、WONDERFUL VOXING COUNCIL、大会名 → 何試合目 → 両コーナーの紹介の板（本名・流派・肩書きと出身）→ VS → 決まりの帯。
+- **冒頭（7 秒。プログラムがあればその前に「本日のプログラム」の表、両者にプロフィールがあればその後に「選手の比較の表」14 秒: 年齢・身長・体重・戦績・出身・拠点・構え）**: ボクセルを積んだ金の WVC ロゴ、WONDERFUL VOXING COUNCIL、大会名 → 何試合目 → 両コーナーの紹介の板（本名・流派・肩書きと出身）→ VS → 決まりの帯。
 - **試合中**: 上の真ん中に時計、右上に LIVE、左上に WVC / VOXING の札、左下・右下に両者の顔の窓（画面の高さの 18%）とその下の名札・スタミナ。
 - **ダウン中**: 倒れる瞬間はいつものカメラ、0.8 秒後から天井のカメラ（真上）とリング脇のカメラマン（床の高さ、相手から遠い側）を 2.6 秒ずつ交互に。
 - **休み**: いつものカメラ → リングの中のカメラマン（多く打たれた側のコーナー）→ リプレイ → 反対のコーナー → リプレイ → コーナー → いつものカメラ。リプレイはそのラウンドの重い場面（ダウン・骨折・切断・重い当たり）を 2 つ、時刻の順に、当たった所へ回り込むカメラで 1 歩 1 コマのスロー（実時間の約 0.4 倍）。リプレイの出入りは金の帯のワイプ。
@@ -103,11 +104,11 @@ powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvs
 
 | 決まり | 中身 |
 |---|---|
-| 主語 | 動き・体の状態を言う台詞には選手の名前を入れる。続きの短い台詞（3 秒以内・12 字まで）と、名前を出した問いへの答えは省いてよい |
-| 長さ | 1 台詞 28 字まで（息継ぎ 1 回で言える長さ） |
+| （主語） | やめた（2026-11-17: すべての台詞に名前を求めると喋り方が不自然になった。誰の話か文脈で分かればよい） |
+| 長さ | 1 台詞 60 字まで（1 息で言える長さ。2026-11-17 に 28 字から改めた: 28 字では体言止め・電報のような文になった） |
 | 言わない言葉 | ダメージ＋数字・打撲・％・VGV・ボット・物理・セル。割合は「3割」「半分」のように言う |
 | 呼びかけ | 「サエキさん！」だけで終わらせない（何を聞くかを添える） |
-| 型 | 「〜の…が、〜の…に」を 3 回続けない（「入った！」「打ち返す！」のような短い声を混ぜる） |
+| （型） | やめた（2026-11-17: 文の形の繰り返しは書き手の判断に任せる） |
 | 言い直し | ラウンドの頭 6 秒以内に「第Nラウンド」と言う（途中から聞いた人のため。ダウンの数の整理も下書きが入れる） |
 | 掛け合い | 休みごとに、実況の問い → 解説の答えの組を 1 つ以上 |
 | コール | ダウン・決着を 1 秒以内に実況が言う（「ダウン」「倒れる」「止めた」「テン」「ノックアウト」「リングアウト」「KO」「判定」） |
@@ -129,9 +130,28 @@ powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvs
              { "at": 16.4, "speaker": "commentator", "text": "蹴りで足を止めて、それから腹です。", "excited": false } ] }
 ```
 
+### 4.4 LLM の台本（テイク。2026-11-17）
+
+LLM（既定 Haiku）が、下書きを使わずに実況と解説の**全部の台詞**を書く（`"useDraft": false`）。決まった台詞を言わせるのでなく、プロフィールと試合から自由に見立てを語らせるため。道具は `tools/tvshow/write-commentary.ps1`。
+
+- **固めるもの（再現の土台）**: プロンプトの本体 `tools/tvshow/prompts/tv-duo-free.md`（方針・言わない言葉・長さの目安・点検の決まり）と、資料（`bN.digest.md`・`events.json`・`draft.json`。試合の記録から決まる）。守らせる決まりは点検（`tvlint`）が見るものと事実だけで、ほかは目安。
+- **ばらつかせるもの**: テイクごとの「味付け」。`tools/tvshow/prompts/angles.json` から種で、二人の空気を 1 つ・触れるとよい話題を 3 つ選んで渡す（提案であって決まりではない）。前のテイクがあれば、それを読ませて同じ言い回し・話題の並びを避けさせる。札の試合ごとの `notes` があれば一言添える。種は味付けだけを決め、LLM の出力は同じ種でも毎回違う。
+- **再現**: 採ったテイクの台本（`bN.extras.json`）があれば、声入れ・点検・結合は同じ結果になる（試合も種と版で同じ）。テイクは `<out>/takes/bN/<時刻>-s<種>/` に `prompt.md`・`extras.json`・`take.json`（種・味付け・モデル・プロンプトのハッシュ・点検の結果・実況と解説の台詞の数）として全部残る。今の台本がどのテイクにも無ければ、上書きの前に `<時刻>-kept` として残す。前のテイクへ戻すには `-Use <テイクのフォルダ>`。
+- **書き手**: `-Mode cli`（既定。`claude -p --model haiku` を子として動かし、点検が OK になるまで最大 2 回直させる。CLI のログインが要る）。エージェントの中からは `-Mode prepare`（`PROMPT: <path>` を出す）→ Haiku のサブエージェントに「そのファイルを読んで、その通りにする」と頼む → `-Mode finish`（点検して記録。だめなら `FIX: <path>` と終了コード 2 → その直しの頼みを同じ LLM に渡して、もう一度 finish）。スキル `tv-commentary` の手順。
+
+```powershell
+# 札 1 枚で（台本の無い試合だけ LLM が書く）
+powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvshow\cards\wvc-boxing-tournament.json
+# 全試合の新しいテイク → 聞き比べて、良い方を -Use で戻す
+powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvshow\cards\wvc-boxing-tournament.json -Stage write
+powershell -ExecutionPolicy Bypass -File tools\tvshow\write-commentary.ps1 -Card tools\tvshow\cards\wvc-boxing-tournament.json -Bout b1 -Use docs\video\wvc-boxing-tournament\takes\b1\<テイク>
+```
+
+味付けの候補を足すときは、選手・試合を選ばない書き方で `angles.json` へ。方針そのものを変えるときは `tv-duo-free.md` と `docs/commentary/README.md` §2 を一緒に直す（プロンプトのハッシュが変わるので、どのテイクがどの版で書かれたかは `take.json` で分かる）。
+
 ## 5. 中継の記録（events.json）
 
-`MiniRing.Audio.Broadcast` が書く。出来事ごとに `for` が **実況**（画面で見えること: 誰が何でどこを打った・ダウン・カウント・ラウンド・カメラ・リプレイ）か **解説**（体の中で起きていること・狙い: どこが壊れた・何割失われた・何が効いている・疲れ・狙っている技）。言葉はゲームを知らない人が一言で分かるもの（内部の数値は書かない）。ほかに `opening`（冒頭）・`result`（勝敗の画面の始まり）・`end`（動画の終わり）の印と、両者の紹介（`redProfile`・`blueProfile`）・大会名（`event`）・何試合目（`bout`）。プログラムを渡した試合は `program`（その時点の表）と冒頭の `program` の印。決着の後に `outcome`（`winner`: red / blue / draw・`lead`: 与えたダメージの多い側・`method`・`cause`・`round`・`roundTime`）。トーナメントの勝ち上がりはこれを読む。
+`MiniRing.Audio.Broadcast` が書く。出来事ごとに `for` が **実況**（画面で見えること: 誰が何でどこを打った・ダウン・カウント・ラウンド・カメラ・リプレイ）か **解説**（体の中で起きていること・狙い: どこが壊れた・何割失われた・何が効いている・疲れ・狙っている技）。言葉はゲームを知らない人が一言で分かるもの（内部の数値は書かない）。ほかに `opening`（冒頭）・`result`（勝敗の画面の始まり）・`end`（動画の終わり）の印と、両者の紹介（`redProfile`・`blueProfile`）・大会名（`event`）・何試合目（`bout`）。プログラムを渡した試合は `program`（その時点の表）と冒頭の `program` の印。決着の後に `outcome`（`winner`: red / blue / draw・`lead`: 与えたダメージの多い側・`method`・`cause`・`round`・`roundTime`）。トーナメントの勝ち上がりはこれを読む。名簿のキャラクターは `redDossier`・`blueDossier`（プロフィール: 年齢・身長・体重・戦績・出身・経歴・人柄・趣味・家族・エピソード・口癖・中継の小ネタ。`CharacterProfile.Briefing`）を持ち、`tvdigest` が台本の資料（bN.digest.md）に「赤コーナーのプロフィール」として載せる。比較の表の始まりは `tape` の印。
 
 ## 6. 限界
 

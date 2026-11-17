@@ -17,8 +17,11 @@ internal sealed record TvLintIssue(float At, string Rule, string Message);
 /// </summary>
 internal static partial class TvLint
 {
-    /// <summary>台詞の長さの上限 [字]。これより長いと次の台詞を押し出しやすい（1 字 0.15〜0.24 秒）。</summary>
-    public const int MaxChars = 28;
+    /// <summary>
+    /// 台詞の長さの上限 [字]: 話し言葉として 1 息で言える長さ。2026-11-17 に 28 → 60（ユーザーの指摘: 28 字では体言止め・電報のような文になり、
+    /// 実況・解説の喋り方が不自然だった。長い台詞は次を押し出すので、詰め込みすぎないのは書き手の判断）。
+    /// </summary>
+    public const int MaxChars = 60;
 
     /// <summary>ダウン・決着のコールが出来事から遅れてよい時間 [s]。</summary>
     public const float CallDelay = 1.0f;
@@ -194,7 +197,7 @@ internal static partial class TvLint
 
         // 型（script.json の "style"、docs/commentary/styles/）ごとに、その型に無い役の決まりは見ない。
         var style = script.RootElement.TryGetProperty("style", out var st) && st.ValueKind == JsonValueKind.String ? st.GetString() ?? "" : "";
-        var skipped = SkippedRules.TryGetValue(style, out var rules) ? rules : [];
+        var skipped = SkippedRules.TryGetValue(style, out var rules) ? [.. rules, .. Retired] : Retired;
         return [.. issues.Where(i => !skipped.Contains(i.Rule)).OrderBy(i => i.At)];
     }
 
@@ -202,6 +205,12 @@ internal static partial class TvLint
     /// 型ごとに見ない決まり。tv-duo（実況＋解説、既定）はすべて見る。solo（実況 1 人）は解説との掛け合いが無い。
     /// inner-voice（選手の心の声）は実況がいないので、コール・言い直し・リプレイの入り・主語（本人の声で分かる）も見ない。
     /// </summary>
+    /// <summary>
+    /// やめた決まり（2026-11-17、ユーザーの指摘: 実況と解説の喋り方を不自然に縛っていた）。主語: すべての台詞に選手の名前を求めると「ドミトリー、…」で始まる文が続き、
+    /// 会話にならなかった（誰の話かは前後の文脈で分かればよい）。型: 文の形の繰り返しを機械的に数えるのは書き手の判断に任せる。
+    /// </summary>
+    private static readonly HashSet<string> Retired = ["主語", "型"];
+
     private static readonly Dictionary<string, HashSet<string>> SkippedRules = new(StringComparer.Ordinal)
     {
         ["solo"] = ["掛け合い", "カウント中"],

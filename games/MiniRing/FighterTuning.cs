@@ -353,14 +353,18 @@ public sealed record FighterTuning
     /// <summary>
     /// スタミナの容量 [J]: 筋肉がすぐ使えるエネルギーの蓄え。拳を目標へ押す力がした仕事（力 × 拳の速さの正の分）・力を出し続ける
     /// 保持の分（<see cref="IsometricCost"/>）・歩いて体を運ぶ分（<see cref="WalkCost"/>）がここから出ていき、心肺が戻す
-    /// （<see cref="StaminaRecoveryPower"/>）。120 J（2026-11-16、ユーザーの指定で 60 J から倍: 中継の試合で尽きるのが早すぎた）。最大戻り 15 W のままなので、
-    /// 空から満タンまでの時間も倍になる。以下は 60 J のときの測定: 空から構えて立つと 3 秒で 75 %・4 秒で満タン、全力の攻め（P 8〜10 W）を
-    /// 続けると 10 秒余りで空（2026-11-15 の測定。以前は 90 J: 回復を直した後は全力の攻めが 15 秒近く続き、疲れが試合に効かなくなった）。
+    /// （<see cref="StaminaRecoveryPower"/>）。運動生理の W′（臨界パワーを超えた分だけ使う蓄え）にあたる。300 J（2026-11-17、ユーザーの目標:
+    /// 弱強を交互に連打する全力のラッシュが 10 秒、力が落ちながらさらに 10 秒まともに打てる）。StaminaFeelProbe（基準体格、ガードした相手へ連打、
+    /// 仕事率 20〜40 W）: 10 秒は拳の最大 3.0〜4.4 m/s のまま、次の 10 秒で 3.0 → 1.3 m/s、その後は臨界パワーで打てる 1.0〜1.5 m/s。
+    /// 経緯: 90 J → 60 J（2026-11-15）→ 120 J（2026-11-16、中継で尽きるのが早すぎた）→ 300 J（回復の式を臨界パワーのモデルにしたのと同時）。
     /// </summary>
-    public float StaminaCapacity { get; init; } = 120f;
+    public float StaminaCapacity { get; init; } = 300f;
 
-    /// <summary>心肺がスタミナを戻す速さ [W]（心臓と肺の働きが満ちているとき。働きに比例して落ちる）。</summary>
-    public float StaminaRecoveryPower { get; init; } = 15f;
+    /// <summary>
+    /// 休んでいるときに心肺がスタミナを戻す最大の速さ [W]（基準体格、心臓と肺の働きが満ちていて持久力が 1 のとき。働きと持久力に比例して落ちる）。
+    /// 20 W: 10 秒の休み（ラウンドの間）で空から 6 割ほど戻る（2026-11-17。前は 15 W）。
+    /// </summary>
+    public float StaminaRecoveryPower { get; init; } = 20f;
 
     /// <summary>
     /// 実際にした仕事の仕事率 P をならす時間 [s]（回復を決める P の指数平均）。1 秒: 数発の連打の分が残り、手を止めると 1〜2 秒で抜ける。
@@ -369,11 +373,19 @@ public sealed record FighterTuning
     public float StaminaRecoveryWindow { get; init; } = 1f;
 
     /// <summary>
-    /// 回復が最大の 1/e になる、直近に実際にした仕事の仕事率 [W]（回復は exp(−(P / この値)²)）。2026-11-15 に測った P: 構えて立つ 0.1 W・下がりながら歩く 0.6〜0.9 W・
-    /// 試合の立ち回り（休息中を含む）3〜5 W・全力の攻め 8〜10 W（平均）。7 W なら立つ・歩くで 9 割以上、攻めの平均 8 W で 3 割、10 W で 1 割強。
-    /// 以前の 0.7 W は「出そうとした仕事率」（出せなかった分を含む）の尺度で、立ち回りだけで回復が止まった。
+    /// 臨界パワーの割合: 心肺が休まず出し続けられる仕事率（臨界パワー C）の、休んだときの最大の戻り <see cref="StaminaRecoveryPower"/> に対する割合
+    /// （2026-11-17）。直近の仕事率がこれより下なら蓄えは戻り、上ならその差で減る（<see cref="Fighter.RecoveryPower"/>）。
+    /// 0.45（基準体格で 9 W）: 測った仕事率は、構えて立つ 0.1 W・足だけで回る 2〜5 W・ボット同士の 1 ラウンド目の平均 8〜10 W・弱強の全力の連打 20〜40 W
+    /// （StaminaFeelProbe・StaminaMatchProbe）。0.4（6 W）では 1 ラウンド目の普通の攻めで蓄えが減り続けた。
+    /// 足と普通の攻めは C の近くで減らず、全力の連打だけが蓄えを使う。
     /// </summary>
-    public float StaminaRestPower { get; init; } = 5f;
+    public float StaminaCriticalShare { get; init; } = 0.45f;
+
+    /// <summary>
+    /// 持久の蓄え [J]（基準体格）: 試合でした筋肉の仕事の合計がこれだけになると、心肺の供給と臨界パワーが 1/e に落ちる（<see cref="Fighter.Endurance"/>。
+    /// 筋肉の糖が減っていく近似。ラウンドの間では戻らない）。1 ラウンド目は全力で動け、3 ラウンド目には疲れやすくなる長さに合わせる（StaminaFeelProbe）。
+    /// </summary>
+    public float StaminaEndurance { get; init; } = 1500f;
 
     /// <summary>低残量で蓄えを放出する時間 [s]。0.2 秒（打ち出し程度）へ連続に制限する。余裕があれば瞬発力として蓄え全量を使える。</summary>
     public float StaminaReleaseWindow { get; init; } = 0.2f;
@@ -395,9 +407,9 @@ public sealed record FighterTuning
 
     /// <summary>
     /// スタミナがこれより多い間は筋の駆動割合を落とさない。下回ると蓄えの割合から心肺の供給割合へなめらかに近づく。
-    /// 仕事予算そのものは残量によらず常に適用する。
+    /// 仕事予算そのものは残量によらず常に適用する。0.45（2026-11-17、0.6 から）: 全力のラッシュが蓄えの 55 % を使う 10 秒は落ちず、残りの 10 秒で落ちていく。
     /// </summary>
-    public float TiredKnee { get; init; } = 0.6f;
+    public float TiredKnee { get; init; } = 0.45f;
 
     /// <summary>
     /// プレイヤー（赤コーナー）の体にスタミナの疲れを効かせるか。偽ならプレイヤーの体だけ <see cref="StaminaFatigue"/> = false で作る
@@ -429,8 +441,11 @@ public sealed record FighterTuning
     /// </summary>
     public float CoreToneFloor { get; init; } = 0.25f;
 
-    /// <summary>胴の臓器の打撲が 1 増えるごとに、その場で失うスタミナ（息が詰まる）。</summary>
-    public float WindPerBruise { get; init; } = 0.1f;
+    /// <summary>
+    /// 胴の臓器の打撲が 1 増えるごとに、その場で失うスタミナの蓄え [J]（息が詰まる。基準体格の値で、筋肉の量の比を掛ける）。12 J: 容量 120 J のときの
+    /// 割合 0.1 と同じ量（2026-11-17 に割合からエネルギーへ。容量を増やしたとき、同じ打撃で失うエネルギーが容量に比例して増えないように）。
+    /// </summary>
+    public float WindPerBruise { get; init; } = 12f;
 
     /// <summary>
     /// 中腰でまだ立っている体の意識が <see cref="KnockoutConsciousness"/> を下回ったまま、これだけ続いたらダウン（審判の判断の値:

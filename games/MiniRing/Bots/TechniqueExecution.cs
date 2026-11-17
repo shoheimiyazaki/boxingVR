@@ -34,6 +34,13 @@ internal static class TechniqueExecution
         return target;
     }
 
+    /// <summary>
+    /// 肘の締め（<see cref="HandCommand.Tuck"/>）: 拳を出している手は 0（肘を逃がして腕を伸ばす）。構えの手はスタイルの締め（<see cref="BotStyle.ElbowTuck"/>）、
+    /// 胴へ来る拳を守っている間は 1（脇を締めて肘と前腕で脇腹を覆う）。ボットと意図操作が共有する。
+    /// </summary>
+    internal static float Tuck(in PunchAction action, float guardTuck, bool guardingBody)
+        => action.Active ? 0f : guardingBody ? 1f : Math.Clamp(guardTuck, 0f, 1f);
+
     internal static float Spring(in PunchAction action)
         => action.Active && action.Spec.Extend >= 1f && action.Time >= 0f && action.Time < action.Duration * PunchSpec.OutboundShare ? 1f : 0f;
 
