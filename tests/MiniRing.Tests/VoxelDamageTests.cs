@@ -549,7 +549,8 @@ public sealed class VoxelDamageTests
     {
         // 2026-11-17（PhysicsVersion 39、ユーザーの指定）: 以前は「脚が切れたら立てずに倒れたまま」だった。今は残った脚の長さの高さで
         // 立って（ここでは腿の付け根近くで切れたので骨盤で座って）戦い続ける。くわしくは LegLossTests。
-        using var game = new BoxingGame(seed: 2);
+        // 2026-11-17: 既定は近道なし（脚を失った体も支えのモデルを通り、倒れる: LegLossTests.WithoutTheShortcut_*）。これは近道ありの比べもの。
+        using var game = new BoxingGame(FighterTuning.Default with { LegLossSupportShortcut = true }, seed: 2);
         var cpu = game.Cpu;
         StrikeUntil(game, cpu, cpu.Parts.LeftThigh, () => cpu.LegSevered, damage: 25f);
 

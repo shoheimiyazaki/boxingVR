@@ -230,6 +230,12 @@ public sealed record FighterTuning
     /// </summary>
     public bool SupportFromGround { get; init; } = true;
 
+    /// <summary>
+    /// 脚を失った体（<see cref="Fighter.LegShortfall"/> &gt; 0）には、釣り合い・起き上がりの手足の制限を掛けない近道（比べもの用。2026-11-17 にユーザーの指定で既定は false = 近道なし: 片脚を失った体は踏み直せずに倒れ、這う）。
+    /// false（既定）は脚を失った体も無傷の体と同じ支えのモデルを通る。true は前の近道（breakdemo の比べもの用）。
+    /// </summary>
+    public bool LegLossSupportShortcut { get; init; }
+
     /// <summary>立たせる力の制限のしかた（<see cref="MiniRing.SupportModel"/>）。比べるための切り替え。</summary>
     public SupportModel SupportModel { get; init; } = SupportModel.Soft;
 

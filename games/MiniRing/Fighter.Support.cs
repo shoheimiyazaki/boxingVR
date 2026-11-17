@@ -190,7 +190,7 @@ public sealed partial class Fighter
             return;
         }
 
-        if (LegShortfall > 1e-3f)
+        if (_tuning.LegLossSupportShortcut && LegShortfall > 1e-3f)
         {
             // 脚を失った体（膝・切り株・骨盤で立つ）は足の運びで踏み直せず、立つのもホバーで腰を短い脚の高さに保つ近道なので、
             // 釣り合い・起き上がりの手足の制限は掛けない（前の体と同じ。CLAUDE.md §8「脚を失った体」）。床に着いていない体に力を出さないのは同じ。

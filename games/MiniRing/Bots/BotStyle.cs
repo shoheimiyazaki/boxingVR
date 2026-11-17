@@ -317,6 +317,19 @@ public sealed record BotStyle
     public float KickRangeFit { get; init; }
 
     /// <summary>
+    /// 蹴る前に体重を軸足（前足）へ移す間 [s]（教育の値: 技の時間の経路。0 なら今までどおり、脚を上げ始めるのと同時に移す）。
+    /// この間は脚を上げず、頭を <see cref="KickLeanForward"/>・<see cref="KickLeanSide"/> だけ軸足の上へ寄せる（体重のかけ方の指令）。
+    /// 体がそれを追って重心が軸足に乗ってから、蹴る脚を上げる（docs/TAEKWONDO.md「軸足に乗って蹴る」）。
+    /// </summary>
+    public float KickShift { get; init; }
+
+    /// <summary>蹴りの間、頭を前（相手の方、腕の長さの倍数）へ寄せる量。軸足は前足なので、前へ寄せるほど体重が軸足に乗る。</summary>
+    public float KickLeanForward { get; init; }
+
+    /// <summary>蹴りの間、頭を前足の側（腕の長さの倍数）へ寄せる量。</summary>
+    public float KickLeanSide { get; init; }
+
+    /// <summary>
     /// 倒れた相手を攻められる試合（レフェリーなし）で、倒れた相手へ打ち下ろす気（0..1）。立つ位置へ着いて届く間合いに沈めたとき、打ち始めを決める割合
     /// （0 なら倒れた相手へ手を出さない。レフェリーのいる試合では使わない）。
     /// </summary>
@@ -450,6 +463,9 @@ public sealed record BotStyle
             KickRate = Unit(KickRate),
             KickDuration = Range(KickDuration, 0.4f, 1.2f, 0.7f),
             KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
+            KickShift = Range(KickShift, 0f, 0.6f, 0f),
+            KickLeanForward = Range(KickLeanForward, -0.4f, 0.4f, 0f),
+            KickLeanSide = Range(KickLeanSide, -0.4f, 0.4f, 0f),
             GroundDrive = Unit(GroundDrive),
             GroundLoad = Range(GroundLoad, 0f, MaxTelegraph, 0.05f),
             GroundCut = Unit(GroundCut),
