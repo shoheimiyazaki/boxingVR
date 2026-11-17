@@ -338,7 +338,9 @@ if ($writerKind -eq 'prospective' -and ($Stage -eq 'write' -or $Stage -in @('all
                 $arguments = @("`"$runJs`"", '--card', "`"$cardPath`"", '--bout', $key, '--model', $model)
                 if ($Stage -eq 'write' -and $attempt -eq 1) { $arguments += '--fresh' }
                 Write-Host "== prospective $key（$model）"
-                @{ key = $key; proc = (Start-Process node -ArgumentList $arguments -NoNewWindow -PassThru -RedirectStandardOutput $log -RedirectStandardError "$log.err") }
+                $proc = Start-Process node -ArgumentList $arguments -NoNewWindow -PassThru -RedirectStandardOutput $log -RedirectStandardError "$log.err"
+                $null = $proc.Handle # ハンドルを先に握る（握らないと終わった後の ExitCode が空になり、成功しても止まったと見なした）
+                @{ key = $key; proc = $proc }
             }
             foreach ($p in $procs) {
                 $p.proc.WaitForExit()
