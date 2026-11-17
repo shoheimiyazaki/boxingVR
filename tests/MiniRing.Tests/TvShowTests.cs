@@ -247,6 +247,23 @@ public sealed class TvShowTests
     }
 
     [TestMethod]
+    public void Merge_KeepsTheOverlapMarkOfExclamations()
+    {
+        // 興奮の感嘆はマイク 1 本の順番の外（声入れが重ねて鳴らす）: 台本に印が残る。ふつうの台詞には付かない。
+        const string extras = """
+            {"style":"prospective","useDraft":false,"placed":true,
+             "lines":[{"at":20.1,"speaker":"announcer","text":"右が入った、ダウン！","excited":true},
+                      {"at":20.3,"speaker":"commentator","text":"おお！","excited":true,"overlap":true}]}
+            """;
+        var merged = TvDraft.Merge(TvDraft.Build(KnockoutEvents), extras, []);
+        using var doc = System.Text.Json.JsonDocument.Parse(merged);
+        var lines = doc.RootElement.GetProperty("lines").EnumerateArray().ToList();
+
+        Assert.IsFalse(lines[0].TryGetProperty("overlap", out _));
+        Assert.IsTrue(lines[1].GetProperty("overlap").GetBoolean());
+    }
+
+    [TestMethod]
     public void Lint_OpenStyle_KeepsTheCallsButNotTheQuestionRule_FreeStyleKeepsOnlyLengthAndWords()
     {
         // 2026-11-17、ユーザーの指摘（決まりで台詞を誘導して単調だった）: open は役だけ、free は役も無い。

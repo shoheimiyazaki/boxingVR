@@ -307,17 +307,21 @@ async function main() {
   function intro(seat) {
     const me = config.seats[seat];
     const you = config.seats[other(seat)];
+    const character = seat === 'announcer'
+      ? 'あなたは試合の熱をそのまま声に乗せる人です。'
+      : 'あなたは見えたものの理由を語る人です。';
     return [
-      `あなたは WVC（Wonderful Voxing Council）のテレビ中継の${me.label}、${me.name}です。相方は${you.label}の${you.name}。競技は Voxing。日本語の話し言葉で話します。`,
+      `あなたは WVC（Wonderful Voxing Council）のテレビ中継の${me.label}、${me.name}です。相方は${you.label}の${you.name}。競技は Voxing。日本語の話し言葉で話します。${character}`,
       '',
       '## 中継のしくみ',
       `- 試合の進行に合わせて、その場で話します。中継の時間は動画の ${fmt(length)} 秒で決まっていて、それが 2 人で使える時間のすべてです。`,
-      '- マイクは 1 本で、同時に話せるのは 1 人。あなたにマイクが来たら、話すか、パスするかを決めます。考えている間、試合は止まっています。',
+      '- マイクは 1 本で、ふつうの言葉を話せるのは 1 人ずつ。あなたにマイクが来たら、話すか、パスするかを決めます。考えている間、試合は止まっています。',
+      '- 思わず出る短い感嘆（exclaim）だけは、マイクの順番の外です。どの答えにも付けられ、相方が話していても重ねて声になります。',
       '- 話すなら、何秒くらい話すつもりか（seconds）と、話す言葉を決めます。言葉は 2 段: 今この瞬間に画面で起きていることの一言（now）と、その続き（then、無くてもよい）。now が先に声になります。長さの決まりはありません。言葉が長ければ、そのぶん時間を使います。',
-      '- マイクが来るたびに、いまの様子（試合の段階・倒れている選手・映っているカメラ）と、いまの画面の画像が届きます。',
+      '- マイクが来るたびに、いまの様子（試合の段階・倒れている選手・映っているカメラ）と、いまの画面の画像と、番組の予定（いまの場面があと何秒続くか、その先に決まっている場面: タイトル・選手の比較・リプレイ・傷のアップ・次のラウンドの開始・勝敗の画面）が届きます。',
       `- 「生の情報」も届きます: 前に聞いてから今までの当たり（誰が何の技で、どの手足で、相手の体のどこ（おでこ・目・頬・こめかみ・みぞおち…）に、どれだけの速さ・重さで当てたか、そこが何セル削れたか）と、直近 1 秒の 2 人の動き（頭と両拳の位置と動き、腰の高さ、体の傾き、相手との距離）。長さは選手の身長に合わせた人の大きさの cm。${seat === 'commentator' ? 'あなたには体の中（意識・スタミナ・臓器の打撲・これまでに失った場所）も届きます。' : '体の外から見える損傷（これまでに削れた場所）と、疲れの見え方も届きます。'}数字はそのまま言わなくてよい。情景を思い描くのに使ってください。`,
-      `- 話している途中で出来事が起きると、その瞬間にマイクがあなたに戻ってきます（どこまで言えたかと、何が起きたかが届きます）。そのまま言い続けるか、言い直すか、黙るかを決めます。`,
-      '- 相方が話し始めると、その言葉があなたに届きます。途中で割り込む（何秒後か）、話し終わってから返す、何もしない、から選べます。あなたが話しているときも、相方は同じように割り込めます。返すと決めてから声に出すまでに試合が進んでいたら、言う前にもう一度聞きます（そのまま言う・言い直す・やめる）。',
+      `- 話している途中で出来事が起きると、その瞬間にマイクがあなたに戻ってきます。どこまで言えたか、何が起きたか、今の言葉を終えられる所（いま止める・次の区切り・文の終わり・最後まで。それぞれあと何秒か）が届きます。終える所（stop）と、そこへ足す短い締めの言葉（close、無くてもよい）、その後に新しく言うことがあるかを決めます。今話していることの大事さ、新しく伝えることの大事さと急ぎ具合、言葉の途中で切れる聞き苦しさを比べて、あなたが決めてください。`,
+      '- 相方が話し始めると、その言葉と、言葉の中の区切りが何秒目にあるかがあなたに届きます。途中で割り込む（何秒後か）、話し終わってから返す、何もしない、から選べます。割り込まれた相方の言葉は、その瞬間で切れます。あなたが話しているときも、相方は同じように割り込めます。返すと決めてから声に出すまでに試合が進んでいたら、言う前にもう一度聞きます（そのまま言う・言い直す・やめる）。',
       `- 誰も話さないまま ${config.silenceSeconds} 秒たつと、マイクは${config.seats.announcer.label}に渡ります。`,
       `- 声の速さの目安: あなたは 1 秒に約 ${Math.round(1 / speechSeconds('あ', seat, false))} 字。`,
       '',
@@ -330,9 +334,11 @@ async function main() {
       `- この試合の両選手の資料: ${rel(dossier)}`,
       '',
       '## 答え方（JSON だけを返す）',
-      'マイクが来たとき: {"action":"speak","seconds":4,"now":"…","then":"…","excited":false,"handTo":null} か {"action":"pass","wait":null}',
-      '- excited: true で声が高く速くなる。handTo: "partner" にすると、話し終わったらマイクを相方へ渡す。wait: パスのあと、無言でマイクが戻ってくるのを何秒待つか（null なら次の出来事まで）。',
-      '相方が話し始めたとき: {"action":"interrupt","after":1.5,"text":"…","excited":false} か {"action":"reply","text":"…","excited":false} か {"action":"none"}',
+      'マイクが来たとき: {"action":"speak","seconds":4,"now":"…","then":"…","excited":false,"handTo":null,"exclaim":null} か {"action":"pass","wait":null,"exclaim":null}',
+      '- excited: true で声が高く速くなる。handTo: "partner" にすると、話し終わったらマイクを相方へ渡す。wait: パスのあと、無言でマイクが戻ってくるのを何秒待つか（null なら次の出来事まで）。exclaim: 重ねて言う短い感嘆（無ければ null）。',
+      '話している途中でマイクが戻ったとき: {"stop":"now|comma|sentence|end","close":null,"action":"speak","now":"…","then":"…","excited":false,"exclaim":null} （新しく言うことが無ければ "action":"pass"）',
+      '- stop: どこで今の言葉を終えるか。close: 終える所に足す短い言葉（無ければ null）。新しい言葉は、今の言葉を終えた後から声になる。',
+      '相方が話し始めたとき: {"action":"interrupt","after":1.5,"text":"…","excited":false,"exclaim":null} か {"action":"reply","text":"…","excited":false,"exclaim":null} か {"action":"none","exclaim":null}',
       '- after: 相方が話し始めてから何秒後に割り込むか。',
     ].join('\n');
   }
@@ -424,6 +430,32 @@ async function main() {
     return out.join('\n');
   }
 
+  // 番組の予定（2026-11-17、ユーザーの指定: 秒数の決まった場面は前もって知らせ、どのくらい話すかを決められるように）。
+  // その時点で決まっている場面だけ: 試合の前の場面（プログラム・タイトル・選手の比較・第1ラウンド）は始めから、休みの場面
+  // （リプレイ・中継の切り替え・傷のアップ・次のラウンド）はラウンドの終わりから、勝敗の画面は決着から決まっている。
+  const SCREEN = ['program', 'opening', 'tape', 'round_start', 'replay', 'cut', 'wound_cam', 'result', 'end'];
+  const screens = all.filter((e) => e.for === '実況' && SCREEN.includes(e.type));
+  const breakers = all.filter((e) => ['round_end', 'ko', 'decision'].includes(e.type) && e.for === '実況');
+  function knownFrom(e) {
+    if (['program', 'opening', 'tape'].includes(e.type)) return 0;
+    if (e.type === 'round_start' && !all.some((x) => x.type === 'round_end' && x.t < e.t)) return 0;
+    const before = breakers.filter((b) => b.t <= e.t + 1e-6);
+    return before.length ? before[before.length - 1].t : 0;
+  }
+  const screenName = (e) => e.type === 'wound_cam' ? `傷のアップ（${e.text.replace(/（アップ）$/, '')}）` : e.text.split(': ')[0]; // 表の中身までは書かない（場面の名前と秒数）
+  function scheduleNow() {
+    const nowIdx = screens.findLastIndex((e) => e.t <= T + 1e-6);
+    const parts = [];
+    if (nowIdx >= 0) {
+      const cur = screens[nowIdx];
+      const next = screens[nowIdx + 1];
+      if (next && knownFrom(next) <= T + 1e-6 && cur.type !== 'round_start') parts.push(`いまの場面: ${screenName(cur)}（あと ${fmt(next.t - T)} 秒）`);
+    }
+    const ahead = screens.filter((e) => e.t > T + 1e-6 && e.t <= T + 40 && knownFrom(e) <= T + 1e-6);
+    if (ahead.length) parts.push(`この先: ${ahead.map((e) => `${fmt(e.t)}s ${screenName(e)}`).join(' → ')}`);
+    return parts.length ? `番組の予定: ${parts.join('。')}` : '';
+  }
+
   function stateNow(seat) {
     const past = all.filter((e) => e.t <= T + 1e-6 && sees(seat, e) && e.for === '実況');
     const last = (types) => [...past].reverse().find((e) => types.includes(e.type));
@@ -437,7 +469,8 @@ async function main() {
     const camera = last(['cut', 'camera', 'replay', 'wound_cam', 'wound_zoom', 'round_start']);
     const screen = !camera || camera.type === 'round_start' ? '中継カメラ' : camera.text;
     const hits = past.filter((e) => (e.type === 'hit' || e.type === 'weapon_hit') && e.t > T - 3).length;
-    return `いまの様子: ${phase}・倒れている選手: ${down.length ? down.join('、') : 'なし'}・画面: ${screen}・直近 3 秒の打撃 ${hits} 発\nいまの画面（見たければ Read で開ける）: ${rel(frameNow())}`;
+    const plan = scheduleNow();
+    return `いまの様子: ${phase}・倒れている選手: ${down.length ? down.join('、') : 'なし'}・画面: ${screen}・直近 3 秒の打撃 ${hits} 発\n${plan ? plan + '\n' : ''}いまの画面（見たければ Read で開ける）: ${rel(frameNow())}`;
   }
 
   // 会話を作り直したときの、それまでの流れ（その席に見えた大きな出来事と、直近の 2 人の台詞）。
@@ -462,7 +495,7 @@ async function main() {
   }
 
   const MIC_FORMAT = '答え: {"action":"speak",...} か {"action":"pass",...} の JSON だけ。';
-  const MIC_SPEAKING_FORMAT = '答え: そのまま言い続けるなら {"action":"continue"}（残りをそのまま言う）、言い直す・別のことを言うなら {"action":"speak",...}（今の言葉はそこで切れる）、黙るなら {"action":"pass",...}。JSON だけ。';
+  const MIC_SPEAKING_FORMAT = '答え: {"stop":"now|comma|sentence|end","close":null,"action":"speak|pass",...} の JSON だけ（新しく言う言葉は、今の言葉を終えた後から声になる）。';
   const MIC_PLANNED_FORMAT = '答え: 決めたとおりに言うなら {"action":"continue"}、言い直すなら {"action":"speak",...}、やめるなら {"action":"pass",...}。JSON だけ。';
   const REACT_FORMAT = '答え: {"action":"interrupt",...} か {"action":"reply",...} か {"action":"none"} の JSON だけ。';
 
@@ -476,6 +509,51 @@ async function main() {
     if (g && e.t - g.t <= config.together) g.events.push(e); else groups.push({ t: e.t, events: [e] });
   }
   let gi = 0;
+
+  // ---- 言葉の終え方（2026-11-17、ユーザーの指定: 言葉の途中で切れると聞き苦しい。どこで終えるかは話し手が大事さを比べて決める） ----
+  const PAUSE = /[、。！？!?…]/;
+  const SENTENCE = /[。！？!?]/;
+  // 今の言葉を終えられる所: いま止める（言葉の途中のことがある）・次の区切り・文の終わり・最後まで。時刻は字の割合で見積もる。
+  function stopOptions(line) {
+    const len = Math.max(1, line.text.length);
+    const i = Math.min(len, Math.floor(len * Math.min(1, Math.max(0, (T - line.start) / line.full))));
+    const at = (idx) => Math.max(T, line.start + (line.full * idx / len));
+    const upTo = (re) => { for (let j = i; j < len; j++) if (re.test(line.text[j])) return j + 1; return len; };
+    const comma = upTo(PAUSE);
+    const sentence = upTo(SENTENCE);
+    return {
+      now: { idx: i, at: T, words: line.text.slice(0, i) },
+      comma: { idx: comma, at: at(comma), words: line.text.slice(0, comma) },
+      sentence: { idx: sentence, at: at(sentence), words: line.text.slice(0, sentence) },
+      end: { idx: len, at: line.end, words: line.text },
+    };
+  }
+
+  function stopText(line) {
+    const o = stopOptions(line);
+    const rows = [`- now: いま止める（「${o.now.words}」で切れる）`];
+    if (o.comma.idx < o.end.idx) rows.push(`- comma: 次の区切りまで言う（「${o.comma.words}」、あと ${fmt(o.comma.at - T)} 秒）`);
+    if (o.sentence.idx < o.end.idx && o.sentence.idx > o.comma.idx) rows.push(`- sentence: 文の終わりまで言う（「${o.sentence.words}」、あと ${fmt(o.sentence.at - T)} 秒）`);
+    rows.push(`- end: 最後まで言う（あと ${fmt(o.end.at - T)} 秒）`);
+    return `今の言葉の終え方:\n${rows.join('\n')}`;
+  }
+
+  // 相方の言葉の中の区切りが、話し始めから何秒目にあるか（割り込む側が、どこで入るかを決める材料）。
+  function pausesOf(line) {
+    const len = Math.max(1, line.text.length);
+    const at = [];
+    for (let j = 0; j < len - 1; j++) if (PAUSE.test(line.text[j])) at.push(`${fmt(line.full * (j + 1) / len)} 秒（「${line.text.slice(Math.max(0, j - 7), j + 1)}」まで）`);
+    return at.length ? `言葉の中の区切り: ${at.join('・')}` : '言葉の中に区切りはありません';
+  }
+
+  // 重ねて言う短い感嘆（マイクの順番の外。相方の声に重ねて鳴らす）。
+  const overlaps = [];
+  function addExclaim(seat, r) {
+    const text = r && typeof r.exclaim === 'string' ? r.exclaim.trim() : '';
+    if (!text) return;
+    overlaps.push({ seat, start: T, text, excited: true, full: measure(text, seat, true) });
+    log.push(`${fmt(T)}s ${seat} の感嘆（重ねて）: 「${text}」`);
+  }
 
   function finish(line, at, cutBy) {
     line.end = at;
@@ -492,10 +570,38 @@ async function main() {
     const r = speaking
       ? await drivers.ask(seat, 'mic-speaking', prompt(seat, situation, MIC_SPEAKING_FORMAT), mock)
       : await drivers.ask(seat, 'mic', prompt(seat, situation, MIC_FORMAT), mock);
-    log.push(`${fmt(T)}s マイク → ${seat}（${situation.split('\n')[0]}）: ${r.action}${r.text ? ' 「' + r.text + '」' : ''}`);
-    if (r.action === 'continue') return true;
-    if (speaking) { finish(speaking, T, '出来事'); cur = null; }
-    if (r.action === 'speak') { await start(seat, r); return true; }
+    log.push(`${fmt(T)}s マイク → ${seat}（${situation.split('\n')[0]}）: ${r.action}${r.stop ? ' stop ' + r.stop : ''}${r.close ? ' close 「' + r.close + '」' : ''}${r.text ? ' 「' + r.text + '」' : ''}`);
+    if (!(r.action === 'speak' && !speaking)) addExclaim(seat, r);
+    if (speaking) {
+      // 話し手が選んだ所で今の言葉を終える。区切り・文の終わりまでは言い切り、締めの言葉があれば足す。新しい言葉はその後から。
+      const opts = stopOptions(speaking);
+      const choice = r.action === 'continue' ? 'end' : opts[r.stop] ? r.stop : r.action === 'speak' ? 'comma' : 'end';
+      const o = opts[choice];
+      const close = typeof r.close === 'string' && r.close.trim() ? r.close.trim() : '';
+      if (choice === 'now' && !close) {
+        finish(speaking, T, '出来事');
+        cur = null;
+      }
+      else {
+        const text = o.words + close;
+        const endAt = (choice === 'now' ? T : o.at) + (close ? measure(close, seat, speaking.excited) : 0);
+        speaking.text = text;
+        speaking.said = text;
+        speaking.full = Math.max(1e-3, endAt - speaking.start);
+        speaking.end = endAt;
+        speaking.wrapping = choice !== 'end' || !!close; // 言い切るまでの間に来た出来事は、次に話すときの記録として渡す
+      }
+      if (r.action === 'speak') {
+        if (cur === speaking && speaking.end > T + EPS) {
+          pending = { seat, at: speaking.end + config.gap, kind: 'self', reply: r, decidedAt: T };
+          return true;
+        }
+        await start(seat, r);
+        return true;
+      }
+      if (cur === speaking) return true;
+    }
+    else if (r.action === 'speak') { await start(seat, r); return true; }
     // パスのあとの無言: 待つ秒数を言えばその後に、言わなければ、実況のパスは次の出来事まで・解説のパスは決まりどおり 1 秒で実況へ。
     const wait = typeof r.wait === 'number' && r.wait > 0 ? Math.max(config.silenceSeconds, r.wait) : null;
     if (!cur) silenceAt = wait !== null ? T + wait : seat === 'announcer' ? Infinity : T + config.silenceSeconds;
@@ -516,10 +622,11 @@ async function main() {
     silenceAt = Infinity;
     // 相方へ、その言葉を伝える（割り込み・返事・何もしない）。
     const partner = other(seat);
-    const situation = `${config.seats[seat].label}（${config.seats[seat].name}）が ${fmt(T)} 秒から話し始めました（約 ${fmt(full)} 秒）: 「${text}」`;
+    const situation = `${config.seats[seat].label}（${config.seats[seat].name}）が ${fmt(T)} 秒から話し始めました（約 ${fmt(full)} 秒）: 「${text}」\n${pausesOf(line)}`;
     const mock = () => mockReact(partner, line);
     const a = await drivers.ask(partner, 'react', prompt(partner, situation, REACT_FORMAT), mock);
     log.push(`${fmt(T)}s ${partner} の反応: ${a.action}${a.text ? ' 「' + a.text + '」' : ''}${a.after != null ? ' after ' + a.after : ''}`);
+    addExclaim(partner, a);
     if (a.action === 'interrupt') {
       const after = Math.min(Math.max(Number(a.after) || 0, 0.3), Math.max(0.3, full - 0.1));
       pending = { seat: partner, at: T + after, kind: 'interrupt', reply: a, decidedAt: T };
@@ -552,20 +659,25 @@ async function main() {
       const g = groups[gi++];
       T = Math.max(T, g.t);
       const text = (s) => g.events.filter((e) => sees(s, e)).map((e) => e.text).join(' / ');
-      if (cur && sees(cur.seat, g.events[0]) || cur && g.events.some((e) => sees(cur.seat, e))) {
+      if (cur && cur.wrapping && g.events.some((e) => sees(cur.seat, e))) {
+        // 言い切ると決めた言葉の途中: 新しい出来事は、次に話すときの記録として渡す（マイクは動かさない）。
+        log.push(`${fmt(T)}s ${cur.seat} は言い切る途中（${g.events.map((e) => e.type).join('・')} は次に渡す）`);
+      }
+      else if (cur && g.events.some((e) => sees(cur.seat, e))) {
         const holder = cur.seat;
         const speaking = cur;
         pending = null; // 出来事が起きたので、相方の割り込み・返事の予定は取り消す
         const said = spokenPart(speaking.text, (T - speaking.start) / speaking.full);
-        await mic(holder, `話している途中で出来事が起きたので、マイクがあなたに戻りました: ${text(holder)}\nあなたは「${speaking.text}」のうち「${said}」まで言ったところです。`, speaking);
+        await mic(holder, `話している途中で出来事が起きたので、マイクがあなたに戻りました: ${text(holder)}\nあなたは「${speaking.text}」のうち「${said}」まで言ったところです。\n${stopText(speaking)}`, speaking);
       }
       else if (cur) {
         // 話している人には見えない出来事（解説だけに見える体の中など）: 見えた側に割り込む機会。
         const seat = other(cur.seat);
         const speaking = cur;
-        pending = null; // 出来事が起きたので、前に決めた割り込み・返事は取り消す
+        if (pending && pending.kind !== 'self') pending = null; // 出来事が起きたので、前に決めた割り込み・返事は取り消す（話し手が言い切った後の言葉は残す）
         const r = await drivers.ask(seat, 'mic', prompt(seat, `相方が話している最中に、あなたにだけ見える出来事がありました: ${text(seat)}\n割り込むなら speak（相方の言葉はそこで切れます）、待つなら pass。`, MIC_FORMAT), () => ({ action: 'pass' }));
         log.push(`${fmt(T)}s ${seat} だけに見える出来事: ${r.action}`);
+        addExclaim(seat, r);
         if (r.action === 'speak') { finish(speaking, T, `${config.seats[seat].label}の割り込み`); cur = null; await start(seat, r); }
       }
       else {
@@ -587,6 +699,7 @@ async function main() {
         const situation = `${fmt(p.decidedAt)} 秒に、あなたは相方が話し終わったら「${p.reply.text}」と返すと決めました。いま声に出せます（決めてから ${fmt(T - p.decidedAt)} 秒たちました）。`;
         const r = await drivers.ask(p.seat, 'mic-planned', prompt(p.seat, situation, MIC_PLANNED_FORMAT), () => ({ action: 'continue' }));
         log.push(`${fmt(T)}s ${p.seat} の返事を聞き直した: ${r.action}${r.text ? ' 「' + r.text + '」' : ''}`);
+        addExclaim(p.seat, r);
         if (r.action === 'continue') await start(p.seat, p.reply);
         else if (r.action === 'speak') await start(p.seat, r);
         else silenceAt = T + config.silenceSeconds;
@@ -614,13 +727,17 @@ async function main() {
     return text;
   }
   const out_lines = lines.map((l) => ({ l, text: fitted(l) })).filter((x) => x.text.trim().length >= config.minSaid)
-    .map(({ l, text }) => ({ at: round1(l.start), speaker: l.seat, text, excited: l.excited }));
+    .map(({ l, text }) => ({ at: round1(l.start), speaker: l.seat, text, excited: l.excited }))
+    .concat(overlaps.map((o) => ({ at: round1(o.start), speaker: o.seat, text: o.text, excited: true, overlap: true })))
+    .sort((a, b) => a.at - b.at);
   const extras = { style: 'prospective', useDraft: false, placed: true, lines: out_lines };
   fs.writeFileSync(path.join(out, `${key}.extras.json`), JSON.stringify(extras, null, 2) + '\n');
   const transcript = [
     `# ${events.bout || key} 2 エージェントのプロスペクティブ制（${args.driver}・${args.model}）`, '',
     `呼び出し ${drivers.n} 回、台詞 ${out_lines.length}（実況 ${out_lines.filter((l) => l.speaker === 'announcer').length}・解説 ${out_lines.filter((l) => l.speaker === 'commentator').length}）、話した時間 ${fmt(lines.reduce((s, l) => s + (l.end - l.start), 0))} / ${fmt(length)} 秒`, '',
-    '## 台詞', '', ...lines.map((l) => `- ${fmt(l.start)}–${fmt(l.end)}s ${config.seats[l.seat].label}: 「${l.said}」${l.cutBy ? `（${l.cutBy}で切れた）` : ''}`), '',
+    '## 台詞', '', ...lines.map((l) => ({ t: l.start, s: `- ${fmt(l.start)}–${fmt(l.end)}s ${config.seats[l.seat].label}: 「${l.said}」${l.cutBy ? `（${l.cutBy}で切れた）` : ''}` }))
+      .concat(overlaps.map((o) => ({ t: o.start, s: `- ${fmt(o.start)}s ${config.seats[o.seat].label}（重ねて）: 「${o.text}」` })))
+      .sort((a, b) => a.t - b.t).map((x) => x.s), '',
     '## マイクの動き', '', ...log.map((x) => `- ${x}`), '',
   ].join('\n');
   fs.writeFileSync(path.join(work, 'transcript.md'), transcript);
@@ -635,13 +752,14 @@ function mockMic(seat, situation) {
     return { action: 'speak', seconds: 3, text: what.slice(0, 30) + '。', excited: /ダウン|ノックアウト/.test(what), handTo: /ラウンド終了/.test(what) ? 'partner' : null };
   }
   if (seat === 'commentator' && situation.includes('マイクをあなたに渡しました')) return { action: 'speak', text: 'そうですね、ここまでは互角の流れです。' };
-  if (situation.includes('戻りました') && !/ダウン|ノックアウト|ラウンド/.test(situation.split('\n')[0])) return { action: 'continue' };
+  if (situation.includes('戻りました') && !/ダウン|ノックアウト|ラウンド/.test(situation.split('\n')[0])) return { stop: 'comma', action: 'pass' };
+  if (situation.includes('戻りました') && /ダウン/.test(situation.split('\n')[0])) return { stop: 'now', close: 'あっと！', action: 'speak', text: 'ダウンです！', excited: true };
   if (situation.includes('戻りました')) return { action: 'speak', text: situation.split(': ').slice(1).join(': ').slice(0, 20) + '！', excited: true };
   return { action: 'pass', wait: 4 };
 }
 
 function mockReact(seat, line) {
-  if (seat === 'commentator' && /ダウン/.test(line.text)) return { action: 'interrupt', after: 0.8, text: '効いていますね。' };
+  if (seat === 'commentator' && /ダウン/.test(line.text)) return { action: 'interrupt', after: 0.8, text: '効いていますね。', exclaim: 'おお！' };
   if (seat === 'commentator' && /入った/.test(line.text)) return { action: 'reply', text: 'いい当たりでした。' };
   return { action: 'none' };
 }
