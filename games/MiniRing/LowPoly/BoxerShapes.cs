@@ -75,10 +75,71 @@ public static class BoxerShapes
         BodyPartKind.Forearm => Forearm().Rotated(LimbAlongX),
         BodyPartKind.Thigh => Limb(0.95f, 1.0f, 0.72f),
         BodyPartKind.Shin => Limb(0.88f, 1.0f, 0.62f),
-        BodyPartKind.Foot => Limb(0.85f, 1.0f, 0.9f).Rotated(LimbAlongZ),
-        BodyPartKind.Toe => Limb(0.95f, 0.9f, 0.7f).Rotated(LimbAlongZ),
+        BodyPartKind.Foot => Heel(),
+        BodyPartKind.Toe => Toe(),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "形状の無い部位です。"),
     };
+
+    /// <summary>
+    /// 足（かかと側、母指球まで）: 靴の形。足裏（−Y）は平らで箱の幅いっぱい、上（+Y）は足首へ向けて細る。上から見ると、かかと（−Z）は丸く、
+    /// 前（+Z）はつま先とそろう直線。以前は Z に沿った丸い六角柱で、足裏が 3 セル幅しかなく、平たいつま先とつながらなかった。
+    /// </summary>
+    private static LowPolyMesh Heel() => Lathe.Build(
+        new Vector3(0f, 1f, -0.15f),
+        [
+            FootOutline(0.9f, 0.7f, -0.75f, 0.45f, backRound: 0.6f, frontRound: 0.6f),
+            FootOutline(0.3f, 0.92f, -0.95f, 0.95f, backRound: 0.8f, frontRound: 0.1f),
+            FootOutline(-0.55f, 1f, -1f, 1f, backRound: 0.8f, frontRound: 0f),
+            FootOutline(-0.97f, 0.98f, -0.97f, 1f, backRound: 0.8f, frontRound: 0f),
+        ],
+        new Vector3(0f, -1f, 0f));
+
+    /// <summary>
+    /// つま先（母指球より前）: 平たい足先。足裏（−Y）は平らで箱の幅いっぱい、甲（+Y）は母指球（後ろ −Z）から指先（前 +Z）へ下がり、
+    /// 上から見ると後ろはかかと側とそろう直線、前は指の並びの丸み。Y 軸のろくろで、輪は高さごとの平面の輪郭。
+    /// 以前は Z に沿った丸い六角柱で、両端がとがって丸い塊に見えた。
+    /// </summary>
+    private static LowPolyMesh Toe() => Lathe.Build(
+        new Vector3(0f, 1f, -0.7f),
+        [
+            FootOutline(0.92f, 0.85f, -1f, -0.35f, backRound: 0f, frontRound: 1f),
+            FootOutline(0.35f, 0.95f, -1f, 0.35f, backRound: 0f, frontRound: 1f),
+            FootOutline(-0.45f, 1f, -1f, 0.85f, backRound: 0f, frontRound: 1f),
+            FootOutline(-0.97f, 0.98f, -1f, 0.92f, backRound: 0f, frontRound: 1f),
+        ],
+        new Vector3(0f, -1f, 0f));
+
+    /// <summary>
+    /// 足の、高さ <paramref name="y"/> での平面の輪郭: 幅 ±<paramref name="halfWidth"/>、Z は <paramref name="back"/>..<paramref name="front"/> の角の丸い長方形。
+    /// 前後の角の丸みは、取れる最大の丸み（幅の半分と長さの半分の小さい方）に対する割合（1 = 半円。0 でも 1 割は面取りして点が重ならないようにする）。
+    /// 4 つの角の丸みの円に 3 点ずつ（0°・45°・90°）、θ（+Z から +X へ）の順に 12 点。長方形の角の位置に点が来るので、つなぎ目（かかと側の前・つま先の後ろ）が
+    /// 幅いっぱいの直線になる。4 つの輪で三角形 96 枚（低ポリの上限 112 の内）。
+    /// </summary>
+    private static List<Vector3> FootOutline(float y, float halfWidth, float back, float front, float backRound, float frontRound)
+    {
+        const float LeastRound = 0.1f;
+        var most = MathF.Min(halfWidth, 0.5f * (front - back));
+        var rf = MathF.Max(LeastRound, frontRound) * most;
+        var rb = MathF.Max(LeastRound, backRound) * most;
+        var points = new List<Vector3>(12);
+        foreach (var (sx, r, cz, start) in new[]
+        {
+            (1f, rf, front - rf, 0f), // 右前: +Z → +X
+            (1f, rb, back + rb, 90f), // 右後ろ: +X → −Z
+            (-1f, rb, back + rb, 180f), // 左後ろ: −Z → −X
+            (-1f, rf, front - rf, 270f), // 左前: −X → +Z
+        })
+        {
+            var cx = sx * (halfWidth - r);
+            for (var k = 0; k < 3; k++)
+            {
+                var a = (start + (45f * k)) * MathF.PI / 180f;
+                points.Add(new Vector3(cx + (r * MathF.Sin(a)), y, cz + (r * MathF.Cos(a))));
+            }
+        }
+
+        return points;
+    }
 
     /// <summary>Y 軸の六角柱（上端・中ほど・下端の太さ）。</summary>
     private static LowPolyMesh Limb(float upper, float middle, float lower) => Lathe.Build(
@@ -112,7 +173,4 @@ public static class BoxerShapes
 
     /// <summary>Y → X（Z まわり −90°）。鏡映ではなく回転なので面の表裏が保たれる。</summary>
     private static Quaternion LimbAlongX => Quaternion.CreateFromAxisAngle(Vector3.UnitZ, -MathF.PI / 2f);
-
-    /// <summary>Y → Z（X まわり +90°）。つま先が +Z。</summary>
-    private static Quaternion LimbAlongZ => Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI / 2f);
 }

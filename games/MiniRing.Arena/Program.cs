@@ -67,7 +67,8 @@ try
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
         "kicklab" => KickLabCommand(Options.Parse(argv[1..], "body", "kick", "distances", "seeds", "confirm-seeds", "shin", "overshoot", "side", "log")),
         "kickvideo" => KickVideoCommand(Options.Parse(argv[1..], "body", "kick", "distances", "side", "slow", "width", "height", "fps", "out")),
-        "kickmocap" => KickMocapCommand(Options.Parse(argv[1..], "dir", "export", "log", "video", "doll", "durations", "distances")),
+        "kickmocap" => KickMocapCommand(Options.Parse(argv[1..], "dir", "export", "log", "video", "doll", "durations", "distances", "export-mid", "body")),
+        "kickshin" => KickShinCommand(Options.Parse(argv[1..], "body", "kick", "standoff", "seconds", "diag", "log", "heights", "practice", "gens", "lambda", "parallel", "json", "video", "victim", "dir")),
         "kneelab" => KneeLabCommand(Options.Parse(argv[1..], "stage", "bodies", "body", "distances", "distance", "confirm", "azimuths", "elevations", "twists", "sides", "log", "impact-az", "impact-el", "impact-twist", "foot", "gens", "lambda", "video")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
@@ -574,6 +575,12 @@ static int KickMocapCommand(Options o)
     if (o.Get("video") is { } videoPath)
     {
         KickMocap.Video(o.Get("dir") ?? "data/mocap/kyokushin", videoPath, Log);
+        return 0;
+    }
+
+    if (o.Get("export-mid") is { } midDir)
+    {
+        KickMocap.ExportMid(o.Get("dir") ?? "data/mocap/kyokushin", midDir, o.Get("body") ?? "standard", Log);
         return 0;
     }
 
@@ -1693,6 +1700,38 @@ static int WeaponCheck(Options o)
     var input = o.Get("in") ?? throw new ArgumentException("--in に直した .vox を渡してください。");
     var install = o.Get("install") ?? "no";
     return install is "yes" or "no" ? VoxelTool.CheckWeapons(input, install == "yes") : throw new ArgumentException($"--install は yes か no です（{install}）。");
+}
+
+static int KickShinCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    var kind = Enum.Parse<MiniRing.Bots.KickTechnique>(o.Get("kick") ?? "Roundhouse", ignoreCase: true);
+    var spec = MiniRing.Bots.KickSpec.Of(kind);
+    if (o.Get("diag") is not null)
+    {
+        KickShin.Diag(o.Get("body") ?? "standard", spec, o.Float("standoff", spec.Standoff), o.Float("seconds", spec.Seconds ?? 0.65f), Log);
+        return 0;
+    }
+
+    var wanted = o.List("heights", ["low", "mid", "high"]);
+    var heights = KickShin.Heights.Where(h => wanted.Contains(h.File.Replace("roundhouse_", "", StringComparison.Ordinal))).ToList();
+    if (o.Get("video") is { } videoOut)
+    {
+        KickShin.Video(o.Get("dir") ?? "data/mocap/kyokushin", videoOut, o.Get("body") ?? "taeyun", o.Get("victim") ?? "standard", heights, Log);
+        return 0;
+    }
+
+    KickShin.Run(heights,o.Get("practice") is "yes", o.Int("gens", 8, min: 1), o.Int("lambda", 12, min: 4), o.Int("parallel", 6, min: 1), o.Get("json"), Log);
+    return 0;
 }
 
 static int Usage(string message)
