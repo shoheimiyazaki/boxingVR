@@ -26,3 +26,10 @@
 
 ## 報告
 `docs/plans/CODEX_REPORT_BAT_FORMS_2026-11-18.md`: 技の表・測った数字・採否・動画のコマの所見・残り。最後にコミット。
+
+## 追記（Sonnet が行うとき、2026-11-18）
+- 直前の作業の報告は `docs/plans/SONNET_REPORT_SWORD_FORMS_2026-11-18.md`（Codex の報告は無い）。
+- `LogicVersion` は 48（47 は並行の作業が使う）。並行して別の作業者が `SwordsmanBot.cs`（間合いの内側の技の選び方）と刀の教科書を触る。`SwordsmanBot.cs` は触らない。バットに要る変更がそこにあれば報告に書く。
+- バットの間合いの内側の技（グリップエンド・前蹴り）は、並行の作業が入れる「いまの距離で出せる技」の仕組みで使われる予定。バットの側では型と教科書を用意し、`MinReach` は剣と同じ 0.33 にしておく。
+- コミットはワークツリーのブランチへ。報告は `docs/plans/SONNET_REPORT_BAT_FORMS_2026-11-18.md`。
+- **実行の場所**: この PC は空きメモリが 1 GB も無い。ビルド・テスト・測定は `bash C:/Users/smiya/AppData/Local/Temp/claude/edeb7fa9e714dd6f/db419768-03ca-4cb0-99f5-fe8c5b7ff5c3/scratchpad/rt.sh sword-defense "<cmd.exe のコマンド>"`（raytrek のクローン `sword-defense` を使う。先に commit）、結果は `rt.sh sword-defense --get <リモート> <ローカル>`。動画のコマは ffmpeg で PNG/JPG に抜いて持ってきて Read で見る。
