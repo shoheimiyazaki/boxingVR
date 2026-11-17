@@ -180,7 +180,7 @@ public sealed class KneeControlTests
     public void PracticedPath_KeepsTheKneeClosed_AndOpensItOnlyForTheImpact()
     {
         // 膝の曲げの拍子（純関数）: 開き始め（当たる時刻の Lead 前）までは閉じ、当たる瞬間に最も開き（0）、当たったあとはすぐ閉じる。
-        var path = KickSpec.Of(KickTechnique.Roundhouse).Practiced!;
+        var path = KickSpec.HandmadeRoundhouse.Practiced!;
         var open = path.ImpactShare - path.Lead;
         Assert.AreEqual(path.ClosedBend, path.Bend(0f), 1e-6f);
         Assert.AreEqual(path.ClosedBend, path.Bend(open * 0.99f), 1e-6f, "closed until the opening starts");
@@ -199,9 +199,9 @@ public sealed class KneeControlTests
     {
         // 磨いた回し蹴り（左脚、diego）を 2 つの間合いで蹴る: 当たる。当たる 0.5 秒前は実際の膝が閉じ（曲げ 1 rad 以上）、当たった瞬間は開いている（曲げ 0.6 rad 以下）。
         // 当たったすねの点は膝から 0.5〜1.6（下すね〜足の甲・つま先。0.6〜0.9 には入らない: docs/TAEKWONDO.md の残った問題）。
-        var spec = KickSpec.Of(KickTechnique.Roundhouse);
+        var spec = KickSpec.HandmadeRoundhouse;
         var body = MiniRing.Characters.CharacterRoster.Get("diego").Build;
-        var duration = BotCatalog.Taekwondo.KickDuration;
+        var duration = spec.Seconds!.Value;
         foreach (var approach in new[] { 1.3f, 1.1f })
         {
             const Hand side = Hand.Left;
@@ -312,7 +312,7 @@ public sealed class KneeControlTests
 
             var aimWorld = spec.AimWorld(game.PlayerSense);
             var rest = new Vector3(side.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
-            var duration = BotCatalog.Taekwondo.KickDuration;
+            var duration = spec.Seconds!.Value;
             var hits = new List<(float Fraction, float Energy)>();
             var seen = new HashSet<HitEvent>();
             for (var i = 0; i < (int)((duration + 0.4f) / Dt); i++)

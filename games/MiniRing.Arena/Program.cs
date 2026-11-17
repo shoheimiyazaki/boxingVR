@@ -66,6 +66,7 @@ try
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
         "kicklab" => KickLabCommand(Options.Parse(argv[1..], "body", "kick", "distances", "seeds", "confirm-seeds", "shin", "overshoot", "side", "log")),
         "kickvideo" => KickVideoCommand(Options.Parse(argv[1..], "body", "kick", "distances", "side", "slow", "width", "height", "fps", "out")),
+        "kickmocap" => KickMocapCommand(Options.Parse(argv[1..], "dir", "export", "log", "video", "doll", "durations", "distances")),
         "kneelab" => KneeLabCommand(Options.Parse(argv[1..], "stage", "bodies", "body", "distances", "distance", "confirm", "azimuths", "elevations", "twists", "sides", "log", "impact-az", "impact-el", "impact-twist", "foot", "gens", "lambda", "video")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
@@ -501,6 +502,36 @@ static int KickLabCommand(Options o)
         o.Get("shin") is { } shin ? float.Parse(shin, CultureInfo.InvariantCulture) : null,
         o.Get("overshoot") is { } overshoot ? float.Parse(overshoot, CultureInfo.InvariantCulture) : null,
         o.Get("side") is { } side ? Enum.Parse<MiniRing.Hand>(side, ignoreCase: true) : null, Log);
+    return 0;
+}
+
+// 人の回し蹴りのモーションキャプチャ: 読み替えの表と、手本の書き出し（--export games/MiniRing/Bots/kicks）。
+static int KickMocapCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    if (o.Get("video") is { } videoPath)
+    {
+        KickMocap.Video(o.Get("dir") ?? "data/mocap/kyokushin", videoPath, Log);
+        return 0;
+    }
+
+    if (o.Get("doll") is { } doll)
+    {
+        float[] Floats(string key, string[] fallback) => o.List(key, fallback).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToArray();
+        KickMocap.Compare(doll, Floats("durations", ["0.5", "0.6", "0.75", "0.9"]), Floats("distances", ["1.0", "1.2", "1.4"]), Log);
+        return 0;
+    }
+
+    KickMocap.Report(o.Get("dir") ?? "data/mocap/kyokushin", o.Get("export"), Log);
     return 0;
 }
 
