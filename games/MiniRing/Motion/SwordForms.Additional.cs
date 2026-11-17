@@ -114,6 +114,8 @@ public static partial class SwordForms
     private static SwordMotion FrontKick(string name, (Vector3 R, float Az, float El) guard, float spacing)
     {
         var kick = KickSpec.Of(KickTechnique.Front);
-        return FromKeys(name, [Hold(0f, guard), Hold(kick.Duration * SwordStance.Rate, guard)], spacing) with { Kick = kick };
+        // 蹴る間、剣は蹴り足の通り道（体の前）から外へ上げる（Tag: 右肩の上で立てる）。構えのままだと剣が蹴り足を斬る（自傷）。両手の目標の通り道だけで、足の動きは KickSpec のまま。
+        var d = kick.Duration * SwordStance.Rate;
+        return FromKeys(name, [Hold(0f, guard), Hold(0.3f * d, Tag), Hold(0.75f * d, Tag), Hold(d, guard)], spacing) with { Kick = kick };
     }
 }
