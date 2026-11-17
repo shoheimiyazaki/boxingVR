@@ -7,7 +7,7 @@ namespace MiniRing.Tests;
 /// <summary>
 /// E0: 教育が空なら、名簿を 1 人 1 ファイルにしても試合はビット単位で同じ（CLAUDE.md §1.8・§1.6）。
 /// 期待値は characters.json の時代に <see cref="CharacterSamenessProbe"/> で取ったチェックサム（途中と最後）。
-/// PhysicsVersion 38・LogicVersion 38 で取り直した（2026-11-17: スタミナを臨界パワーのモデルに・休む間の足と手数・拳の狙い・肘の締め）。その前は PhysicsVersion 37・LogicVersion 36（2026-11-16。37 はスタミナの容量を倍。36 の理由: スタミナの蓄え・供給を筋肉の量に比例させた（体格のあるキャラの試合が変わる）のと、弱った相手を詰める層を既定にした（ボットの立ち回りが変わる）。その前は PhysicsVersion 35・LogicVersion 32 で取り直した（前は PhysicsVersion 34）。理由: 素手を指の関節で組み直した（素手の質量・形が変わる）のと、急所の狙いの点を実際のセルから求めるようにした（ボットの狙いが変わる）。katana-longsword の途中（half）だけは手も急所も関わらず値が同じ。
+/// PhysicsVersion 39 で、腕・脚を失う試合だけ取り直した（2026-11-17: 脚を失っても残った脚の長さで立って戦い続ける・切り株の筋肉の断面を切れ目の手前だけで測る。腕も脚も失わない試合（グローブ同士・ロングソード同士など）はビット単位で同じことを確かめた: LegLossProbe.Probe_WhichRecordedMatchesLoseALimb）。その前は PhysicsVersion 38・LogicVersion 38 で取り直した（2026-11-17: スタミナを臨界パワーのモデルに・休む間の足と手数・拳の狙い・肘の締め）。その前は PhysicsVersion 37・LogicVersion 36（2026-11-16。37 はスタミナの容量を倍。36 の理由: スタミナの蓄え・供給を筋肉の量に比例させた（体格のあるキャラの試合が変わる）のと、弱った相手を詰める層を既定にした（ボットの立ち回りが変わる）。その前は PhysicsVersion 35・LogicVersion 32 で取り直した（前は PhysicsVersion 34）。理由: 素手を指の関節で組み直した（素手の質量・形が変わる）のと、急所の狙いの点を実際のセルから求めるようにした（ボットの狙いが変わる）。katana-longsword の途中（half）だけは手も急所も関わらず値が同じ。
 /// 名簿・ボット・物理の版を意図して変えたら、Probe で取り直して値を差し替える（古い値のまま黙って合わせない）。
 /// </summary>
 [TestClass]
@@ -17,21 +17,21 @@ public sealed class CharacterSamenessTests
     {
         ["glove-glove-referee"] = (0x4A464CA23C7F33BC, 0xAEB721C6603D1462),
         ["glove-glove-noref"] = (0xE02C484AF63AADF2, 0x9D085D00376429CE),
-        ["karate-swarmer-noref"] = (0x945322436CC869DF, 0x165448F0C1A19DBD),
+        ["karate-swarmer-noref"] = (0xAB1424A9C6CE4764, 0x639ADF0CB971E2F4),
         ["katana-longsword-noref"] = (0xD365E042DA704387, 0x6A4C1AAFF10940C3),
-        ["club-bare-noref"] = (0x4B35B2340E9B285D, 0x46344ABB2A732B4D),
-        ["katar-gauntlet-referee"] = (0x9A557DFDC3B33802, 0xBD1C1CA251748DE9),
+        ["club-bare-noref"] = (0x4B35B2340E9B285D, 0xB80D03FBFA9A770C),
+        ["katar-gauntlet-referee"] = (0x42F28CD965070FC3, 0x4F9958E0C0B16D3C),
         ["single-counter-vs-knuckles-noref"] = (0xB9CA8E1645B0D3FC, 0xA3CB7FE6ECC6D397),
-        ["single-karate-vs-katana"] = (0x2E7E13CBFE72024A, 0xA168878B7396C0B2),
+        ["single-karate-vs-katana"] = (0x42CDFF9DEA701301, 0x417083E9818F409F),
     };
 
     /// <summary>武器の教科書を JSON へ移す前（`weapon handling` 段 1 の最初）に <see cref="CharacterSamenessProbe"/> で取った値（master へ入れるとき、首・脊椎と指の手（PhysicsVersion 35）の上で LEGACY の行から取り直した。拳の組の LEGACY が既存の値と全部一致することを確かめてから。2026-11-16）。</summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedWeapons = new()
     {
-        ["w-katana-katana-referee"] = (0x90EB1DDA553AB22B, 0xA19AEA5A228349BC),
+        ["w-katana-katana-referee"] = (0xC69A9B4CD80D5297, 0xA19AEA5A228349BC),
         ["w-longsword-longsword-noref"] = (0xF6196701415CAE18, 0x92FAB3FD49623B6B),
         ["w-katana-longsword-referee"] = (0xC244E1F8748C67F9, 0xF773B2406A9CD074),
-        ["w-club-katana-noref"] = (0xC14A0163AF7B34CB, 0x0A46B025D532A56A),
+        ["w-club-katana-noref"] = (0xF6BEBC8ADCBAB7DD, 0x2A66974A2114B4C0),
         ["w-longsword-club-referee"] = (0x12F429B73501967E, 0x5DD777DC0D27F827),
         ["w-club-club-noref"] = (0x7C19AB725FA1FF8B, 0x28F64F242E6370EC),
     };
@@ -67,10 +67,10 @@ public sealed class CharacterSamenessTests
     {
         ["katana-longsword-noref"] = (0x69DE8A84F5D8D755, 0xA7DC1CF08B0D51CF),
         ["single-karate-vs-katana"] = (0xEEA9CDB8DCC1D24A, 0x18221ACB29A4379B),
-        ["w-katana-katana-referee"] = (0x7D1FD37F6E0926D1, 0x882E0C0720F0DF86),
+        ["w-katana-katana-referee"] = (0x1074011FB1918488, 0xC76D7CD7D1F4C5D5),
         ["w-longsword-longsword-noref"] = (0x458D0C361D42E727, 0x8CD054413D20C638),
         ["w-katana-longsword-referee"] = (0x7A100352645AC682, 0xA1BBC7402F19E502),
-        ["w-club-katana-noref"] = (0xB35E8DED42A5CCEC, 0x94ABF1E1EB44E125),
+        ["w-club-katana-noref"] = (0x26AFA0ECBB5BDCF6, 0x926DF0E9EE36AC01),
         ["w-longsword-club-referee"] = (0x02B69244E56D4C96, 0xFF55E9ABEA775F57),
     };
 

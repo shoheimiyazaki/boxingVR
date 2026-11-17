@@ -688,6 +688,11 @@ public sealed class BoxerBody
 
             var (x, y, z) = grid.Coordinates(i);
             var slice = axis == 0 ? x : axis == 1 ? y : z;
+            if (_cutAt.TryGetValue(bodyId, out var cut) && (part.DistalHigh ? slice > cut : slice < cut))
+            {
+                continue; // 切れ目より先（破片へ移った所）は、この切り株の断面ではない
+            }
+
             initial[slice]++;
             var now = grid.AtIndex(i);
             left[slice] += now != 0 && palette[now].Tissue == VoxelTissue.Flesh ? 1 : 0;
@@ -712,6 +717,9 @@ public sealed class BoxerBody
     }
 
     private readonly Dictionary<int, (int Version, float Value)> _sectionCache = [];
+
+    /// <summary>腕・脚の部位（剛体）ごとの、いちばん体に近い切れ目のスライス（分けたときの <c>SplitAt</c> の位置。その先は破片へ移った）。</summary>
+    private readonly Dictionary<int, int> _cutAt = [];
 
     /// <summary>
     /// 脳の働き（0..1）: 脳が削られた割合 <c>lost</c> について <c>0.5^(lost / halvingLoss)</c>。無傷で 1、
@@ -911,6 +919,10 @@ public sealed class BoxerBody
         }
 
         var piece = body.SplitAt(axis, slice, part.DistalHigh);
+        // 切れ目より先のスライスは破片へ移った: 残った部位（切り株）の筋肉の断面は、切れ目より体に近い側だけで測る（Muscle）。
+        _cutAt[body.BodyId] = _cutAt.TryGetValue(body.BodyId, out var earlier)
+            ? (part.DistalHigh ? Math.Min(earlier, slice) : Math.Max(earlier, slice))
+            : slice;
         if (part.Kind == BodyPartKind.Head)
         {
             body.BeamAxis = null; // 首は 1 度だけ折れる: 折れたあとの頭は曲げを調べない
