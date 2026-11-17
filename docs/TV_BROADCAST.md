@@ -134,8 +134,10 @@ powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvs
 
 LLM（既定 Haiku）が、下書きを使わずに実況と解説の**全部の台詞**を書く（`"useDraft": false`）。決まった台詞を言わせるのでなく、プロフィールと試合から自由に見立てを語らせるため。道具は `tools/tvshow/write-commentary.ps1`。
 
-- **固めるもの（再現の土台）**: プロンプトの本体 `tools/tvshow/prompts/tv-duo-free.md`（方針・言わない言葉・長さの目安・点検の決まり）と、資料（`bN.digest.md`・`events.json`・`draft.json`。試合の記録から決まる）。守らせる決まりは点検（`tvlint`）が見るものと事実だけで、ほかは目安。
-- **ばらつかせるもの**: テイクごとの「味付け」。`tools/tvshow/prompts/angles.json` から種で、二人の空気を 1 つ・触れるとよい話題を 3 つ選んで渡す（提案であって決まりではない）。前のテイクがあれば、それを読ませて同じ言い回し・話題の並びを避けさせる。札の試合ごとの `notes` があれば一言添える。種は味付けだけを決め、LLM の出力は同じ種でも毎回違う。
+- **型**（札の `commentary.style`、または `-Style`）: `open`（既定）は役（実況・解説）だけ与えて話す中身は自由、`free` は役も無い 2 人（声 `a`・`b`）に話せる時間だけ与えるフリートーク、`duo` は前の誘導つきの書き方（下の味付け・例・掛け合いの決まり）。2026-11-17、ユーザーの指摘（毎回身長・体重の話で単調）で open を既定にした。open・free で渡すのは資料と、守ること（記録と違えない・作中の言葉・1 台詞 60 字と声の長さ。open は実況の入りのコール: 第Nラウンド・ダウン・決着・リプレイ）だけ。点検（`tvlint`）は型ごとに見る決まりを減らす（open は掛け合い・カウント中・呼びかけを見ない、free は長さ・言わない言葉・ずれだけ）。
+- **2 エージェントプロスペクティブ制**（札の `"commentary": { "writer": "prospective" }`）: 台本を後から書くのでなく、実況と解説の 2 つの LLM が試合の進行に合わせてマイク 1 本を取り合って話す（`tools/tvshow/prospective/run.js`、決まりは `docs/commentary/styles/prospective.md`）。2 人は参照用の文書（`docs/commentary/kb/`）を、席ごとに違う索引から必要なときに開く。
+- **固めるもの（再現の土台）**: プロンプトの本体（`tools/tvshow/prompts/` の `tv-duo-open.md`・`free-talk.md`・`tv-duo-free.md`）と、資料（`bN.digest.md`・`events.json`・`draft.json`。試合の記録から決まる）。守らせる決まりは点検（`tvlint`）が見るものと事実だけで、ほかは目安。
+- **ばらつかせるもの**（duo だけ）: テイクごとの「味付け」。`tools/tvshow/prompts/angles.json` から種で、二人の空気を 1 つ・触れるとよい話題を 3 つ選んで渡す（提案であって決まりではない）。前のテイクがあれば、それを読ませて同じ言い回し・話題の並びを避けさせる。札の試合ごとの `notes` があれば一言添える。種は味付けだけを決め、LLM の出力は同じ種でも毎回違う。
 - **再現**: 採ったテイクの台本（`bN.extras.json`）があれば、声入れ・点検・結合は同じ結果になる（試合も種と版で同じ）。テイクは `<out>/takes/bN/<時刻>-s<種>/` に `prompt.md`・`extras.json`・`take.json`（種・味付け・モデル・プロンプトのハッシュ・点検の結果・実況と解説の台詞の数）として全部残る。今の台本がどのテイクにも無ければ、上書きの前に `<時刻>-kept` として残す。前のテイクへ戻すには `-Use <テイクのフォルダ>`。
 - **書き手**: `-Mode cli`（既定。`claude -p --model haiku` を子として動かし、点検が OK になるまで最大 2 回直させる。CLI のログインが要る）。エージェントの中からは `-Mode prepare`（`PROMPT: <path>` を出す）→ Haiku のサブエージェントに「そのファイルを読んで、その通りにする」と頼む → `-Mode finish`（点検して記録。だめなら `FIX: <path>` と終了コード 2 → その直しの頼みを同じ LLM に渡して、もう一度 finish）。スキル `tv-commentary` の手順。
 

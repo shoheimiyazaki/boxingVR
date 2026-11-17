@@ -319,12 +319,19 @@ if ($Stage -in @('render', 'digest')) { return }
 #    札の commentary.writer が "llm" なら、足す台詞の無い試合は LLM が書く（tools\tvshow\write-commentary.ps1。-Stage write は全試合の新しいテイク）。
 #    足す台詞が無く、札の autoCommentary が true なら、下書きだけで台本にする（エージェントなしの実況）。
 $commentaryCard = Get-Field $cardData 'commentary' $null
-$llmWriter = [string](Get-Field $commentaryCard 'writer' '') -eq 'llm'
+#    "prospective" なら、2 エージェントのプロスペクティブ制（tools\tvshow\prospective\run.js、docs\commentary\styles\prospective.md）。
+$writerKind = [string](Get-Field $commentaryCard 'writer' '')
+$llmWriter = $writerKind -in @('llm', 'prospective')
 if ($Stage -eq 'write' -or ($Stage -in @('all', 'dub') -and $llmWriter)) {
     $writer = Join-Path $PSScriptRoot 'write-commentary.ps1'
     for ($i = 0; $i -lt $bouts.Count; $i++) {
         $key = "b$($i + 1)"
         if ($Stage -ne 'write' -and (Test-Path (Join-Path $out "$key.extras.json"))) { continue }
+        if ($writerKind -eq 'prospective') {
+            & node (Join-Path $PSScriptRoot 'prospective\run.js') --card $cardPath --bout $key --model ([string](Get-Field $commentaryCard 'model' 'haiku'))
+            if ($LASTEXITCODE -ne 0) { throw "$key のプロスペクティブ制の中継が止まりました（$out\prospective\$key\calls.jsonl）" }
+            continue
+        }
         & powershell -NoProfile -ExecutionPolicy Bypass -File $writer -Card $cardPath -Bout $key
         if ($LASTEXITCODE -ne 0) { throw "$key の台本を LLM が書けませんでした（$out\takes\$key の claude.log）" }
     }

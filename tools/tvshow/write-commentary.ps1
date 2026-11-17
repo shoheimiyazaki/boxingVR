@@ -30,6 +30,9 @@ param(
     # 書く試合（b1, b2 ...）。省くと全試合。
     [string[]]$Bout,
     [ValidateSet('cli', 'prepare', 'finish')][string]$Mode = 'cli',
+    # 語りの型。open = 実況・解説の役だけ与えて中身は自由（既定）、free = 役も無い 2 人のフリートーク、duo = 前の誘導つき（味付け・例・掛け合いの決まり）。
+    # 省くと札の commentary.style、それも無ければ open。
+    [ValidateSet('', 'open', 'free', 'duo')][string]$Style = '',
     # 味付けを選ぶ種。省くと毎回ちがう種（take.json に残る）。
     [int]$Seed = -1,
     # 省くと札の commentary.model、それも無ければ haiku。
@@ -57,7 +60,10 @@ $outRel = ([string](Get-Field $cardData 'out' 'docs\video\tvshow')).Replace('\',
 $out = Join-Path $repo $outRel
 $commentary = Get-Field $cardData 'commentary' $null
 if (-not $Model) { $Model = [string](Get-Field $commentary 'model' 'haiku') }
-$template = Join-Path $PSScriptRoot 'prompts\tv-duo-free.md'
+if (-not $Style) { $Style = [string](Get-Field $commentary 'style' 'open') }
+# 2026-11-17、ユーザーの指摘: 台詞の中身を例・話題の候補・決まった運びで誘導すると、毎回身長・体重の話になって単調だった。
+# open / free は役（free は話せる時間だけ）と守ること（事実・作中の言葉・長さ。open は実況の入りのコールも）だけを渡し、味付けも前のテイクも見せない。
+$template = Join-Path $PSScriptRoot ('prompts\' + @{ open = 'tv-duo-open.md'; free = 'free-talk.md'; duo = 'tv-duo-free.md' }[$Style])
 $anglesPath = Join-Path $PSScriptRoot 'prompts\angles.json'
 $angles = Get-Content -Raw -Encoding UTF8 $anglesPath | ConvertFrom-Json
 $exeRel = 'games/MiniRing.Arena/bin/Release/net10.0/miniring-arena.exe'
@@ -84,7 +90,26 @@ function Select-Angles([int]$seed) {
     return @{ mood = $mood; topics = $topics }
 }
 
+# 書き手が付け忘れても、台本の型（点検が見る決まり）と、フリートークの 2 人の声をそろえる。
+function Set-ScriptStyle([string]$key) {
+    if ($Style -eq 'duo') { return }
+    $path = Join-Path $out "$key.extras.json"
+    $extras = Get-Content -Raw -Encoding UTF8 $path | ConvertFrom-Json
+    $extras | Add-Member -Force -NotePropertyName style -NotePropertyValue $Style
+    $extras | Add-Member -Force -NotePropertyName useDraft -NotePropertyValue $false
+    if ($Style -eq 'free') {
+        # 役が無いので 2 人とも同じ速さ（実況と解説の間）。声だけ男女で聞き分ける。
+        $excited = [ordered]@{ rate = '+30%'; pitch = '+8%'; volume = '+10%' }
+        $extras | Add-Member -Force -NotePropertyName speakers -NotePropertyValue ([ordered]@{
+                a = [ordered]@{ voice = @('IchiroM', 'Ichiro'); rate = '+15%'; pitch = '+0%'; volume = '+0%'; excited = $excited }
+                b = [ordered]@{ voice = @('AyumiM', 'Ayumi', 'HarukaM', 'Haruka'); rate = '+15%'; pitch = '+0%'; volume = '+0%'; excited = $excited }
+            })
+    }
+    [IO.File]::WriteAllText($path, ($extras | ConvertTo-Json -Depth 6), $utf8)
+}
+
 function Test-Script([string]$key) {
+    Set-ScriptStyle $key
     $script = Join-Path $out "$key.script.json"
     $merge = @(Invoke-Arena @('tvmerge', '--draft', (Join-Path $out "$key.draft.json"), '--extras', (Join-Path $out "$key.extras.json"), '--out', $script))
     $lint = @(Invoke-Arena @('tvlint', '--script', $script, '--events', (Join-Path $out "$key.events.json")))
@@ -100,7 +125,7 @@ function New-Take([string]$key) {
     $index = [int]$key.Substring(1) - 1
     $boutData = if ($index -lt $bouts.Count) { $bouts[$index] } else { $null }
     $takeSeed = if ($Seed -ge 0) { $Seed } else { Get-Random -Minimum 1 -Maximum 1000000 }
-    $pick = Select-Angles $takeSeed
+    $pick = if ($Style -eq 'duo') { Select-Angles $takeSeed } else { @{ mood = ''; topics = @() } }
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $takesRoot = Get-TakesRoot $key
     $take = Join-Path $takesRoot "$stamp-s$takeSeed"
@@ -123,15 +148,17 @@ function New-Take([string]$key) {
     }
 
     $previous = ''
-    if ($previousTake) {
+    if ($previousTake -and $Style -eq 'duo') {
         $previous = "- 前のテイク ``$(Get-Relative $previousTake)``（読んで、**同じ言い回し・同じ話題の並びをなるべく避け**、違う切り口で書く。事実は同じでよい）"
     }
     $cardNotes = ''
     $notes = [string](Get-Field $boutData 'notes' '')
     if ($notes) { $cardNotes = "- この試合について（札から）: $notes" }
 
+    $length = '?'
+    if ((Get-Content -Raw -Encoding UTF8 (Join-Path $out "$key.digest.md")) -match '動画の長さ: ([0-9.]+) 秒') { $length = $Matches[1] }
     $fill = [ordered]@{
-        '{{event}}' = [string](Get-Field $cardData 'event' 'WVC'); '{{key}}' = $key
+        '{{length}}' = $length; '{{event}}' = [string](Get-Field $cardData 'event' 'WVC'); '{{key}}' = $key
         '{{bout}}' = [string](Get-Field $boutData 'bout' $key); '{{out}}' = $outRel; 'OUT/' = "$outRel/"
         '{{exe}}' = "./$exeRel"; '{{previous}}' = $previous; '{{seed}}' = [string]$takeSeed
         '{{mood}}' = $pick.mood; '{{topics}}' = ($pick.topics -join '、'); '{{cardNotes}}' = $cardNotes
@@ -142,13 +169,13 @@ function New-Take([string]$key) {
     [IO.File]::WriteAllText($promptPath, $prompt, $utf8)
 
     $record = [ordered]@{
-        bout = $key; status = 'pending'; seed = $takeSeed; model = $Model; mood = $pick.mood; topics = $pick.topics
+        bout = $key; status = 'pending'; style = $Style; seed = $takeSeed; model = $Model; mood = $pick.mood; topics = $pick.topics
         promptSha256 = (Get-FileHash $template).Hash; anglesSha256 = (Get-FileHash $anglesPath).Hash
         previous = $(if ($previousTake) { Get-Relative $previousTake } else { $null }); before = $(if (Test-Path $current) { (Get-FileHash $current).Hash } else { '' })
         at = (Get-Date -Format 'o')
     }
     Save-Record $take $record
-    Write-Host "== $key のテイク（種 $takeSeed・$Model）: $($pick.mood) / $($pick.topics -join '、')"
+    Write-Host "== $key のテイク（$Style・種 $takeSeed・$Model）: $($pick.mood) / $($pick.topics -join '、')"
     return @{ path = $take; prompt = $promptPath; record = $record }
 }
 
@@ -168,7 +195,7 @@ function Write-FixRequest([string]$key, [string]$take, $check, [int]$round) {
     $body = @(
         "``$outRel/$key.extras.json`` の点検が通りませんでした。下の指摘だけを直してください（ほかの台詞の中身・味付けは変えない）。"
         "直したら ``./$exeRel tvmerge --draft $outRel/$key.draft.json --extras $outRel/$key.extras.json --out $outRel/$key.script.json`` と"
-        "``./$exeRel tvlint --script $outRel/$key.script.json --events $outRel/$key.events.json`` で OK を確かめる。決まりは ``$(Get-Relative (Join-Path $take 'prompt.md'))`` の「欠かせないもの」。"
+        "``./$exeRel tvlint --script $outRel/$key.script.json --events $outRel/$key.events.json`` で OK を確かめる。決まりは ``$(Get-Relative (Join-Path $take 'prompt.md'))`` にある。"
         ''
         '点検の指摘:'
     ) + @($check.lint | ForEach-Object { "- $_" })
@@ -186,14 +213,14 @@ function Complete-Take([string]$key, [string]$take, $check) {
     $done = [ordered]@{}
     foreach ($property in $record.PSObject.Properties) { $done[$property.Name] = $property.Value }
     $done.status = $(if ($check.ok) { 'ok' } else { 'lint' })
-    $done.announcer = @($lines | Where-Object { $_.speaker -eq 'announcer' }).Count
-    $done.commentator = @($lines | Where-Object { $_.speaker -eq 'commentator' }).Count
+    $done.lines = [ordered]@{}
+    foreach ($group in @($lines | Group-Object speaker)) { $done.lines[$group.Name] = $group.Count }
     $done.lint = $check.lint
     $done.dropped = $check.dropped
     $done.finished = (Get-Date -Format 'o')
     Save-Record $take $done
     $state = if ($check.ok) { '点検 OK' } else { "点検 NG（$($check.lint.Count) 行）" }
-    Write-Host "   ${key}: 実況 $($done.announcer)・解説 $($done.commentator)・$state → $(Get-Relative $take)"
+    Write-Host "   ${key}: $(@($done.lines.GetEnumerator() | ForEach-Object { "$($_.Key) $($_.Value)" }) -join '・')・$state → $(Get-Relative $take)"
 }
 
 function Invoke-Claude([string]$promptPath, [string]$log) {
@@ -229,6 +256,9 @@ foreach ($key in $keys) {
         }
         'finish' {
             $take = Get-PendingTake $key
+            # 型はテイクを作ったときのもの（-Style を付けずに仕上げても、型と点検の決まりがずれない）。
+            $takeStyle = [string](Get-Field (Get-Content -Raw -Encoding UTF8 (Join-Path $take 'take.json') | ConvertFrom-Json) 'style' '')
+            if ($takeStyle) { $Style = $takeStyle }
             $check = Test-Script $key
             if ($check.ok) { Complete-Take $key $take $check; continue }
             $round = @(Get-ChildItem -Path $take -Filter 'fix*.md').Count + 1

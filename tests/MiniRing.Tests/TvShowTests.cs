@@ -228,6 +228,44 @@ public sealed class TvShowTests
     }
 
     [TestMethod]
+    public void Merge_PlacedLines_KeepTheirTimes_AndProspectiveLintIgnoresLength()
+    {
+        // 2 エージェントのプロスペクティブ制: マイク 1 本で順に話した記録なので、時刻を動かさない。1 台詞の長さにも決まりが無い。
+        var longLine = new string('あ', 80) + "。";
+        var extras = $$"""
+            {"style":"prospective","useDraft":false,"placed":true,
+             "lines":[{"at":20.1,"speaker":"announcer","text":"{{longLine}}","excited":false},
+                      {"at":20.4,"speaker":"commentator","text":"割り込みます。","excited":false}]}
+            """;
+        var merged = TvDraft.Merge(TvDraft.Build(KnockoutEvents), extras, []);
+        using var doc = System.Text.Json.JsonDocument.Parse(merged);
+        var ats = doc.RootElement.GetProperty("lines").EnumerateArray().Select(l => l.GetProperty("at").GetDouble()).ToList();
+
+        Assert.AreEqual("20.1,20.4", string.Join(",", ats.Select(a => a.ToString(System.Globalization.CultureInfo.InvariantCulture))), "重なって見えても動かさない（割り込みで前の台詞は切れている）");
+        Assert.AreEqual(0, TvLint.Check(merged, KnockoutEvents).Count);
+        Assert.IsTrue(TvLint.Check(merged.Replace("\"prospective\"", "\"free\"", StringComparison.Ordinal), KnockoutEvents).Any(i => i.Rule == "長さ"));
+    }
+
+    [TestMethod]
+    public void Lint_OpenStyle_KeepsTheCallsButNotTheQuestionRule_FreeStyleKeepsOnlyLengthAndWords()
+    {
+        // 2026-11-17、ユーザーの指摘（決まりで台詞を誘導して単調だった）: open は役だけ、free は役も無い。
+        const string extras = """
+            {"style":"open","useDraft":false,
+             "lines":[{"at":20.1,"speaker":"commentator","text":"いい形で入りましたね。","excited":false}]}
+            """;
+        var open = TvDraft.Merge(TvDraft.Build(KnockoutEvents), extras, []);
+        var openRules = TvLint.Check(open, KnockoutEvents).Select(i => i.Rule).ToHashSet();
+        Assert.IsTrue(openRules.Contains("コール"), "open でも実況の入りのコールは見る");
+        Assert.IsFalse(openRules.Contains("掛け合い"), "open は問いを振る決まりを見ない");
+
+        var free = open.Replace("\"open\"", "\"free\"", StringComparison.Ordinal);
+        Assert.AreEqual(0, TvLint.Check(free, KnockoutEvents).Count, "free はコールも求めない");
+        var banned = free.Replace("いい形で入りましたね。", "ボットの動きですね。", StringComparison.Ordinal);
+        Assert.IsTrue(TvLint.Check(banned, KnockoutEvents).Any(i => i.Rule == "言わない言葉"), "作中の世界の言葉は free でも見る");
+    }
+
+    [TestMethod]
     public void Duration_GrowsWithPausesAndSlowSpeech()
     {
         // 実測（2026-11-16）: 遅い心の声（rate −12%）の「相手はジン、居合か。間合いは俺が長い。」19 字が 4.8 秒。

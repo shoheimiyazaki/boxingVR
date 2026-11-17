@@ -422,6 +422,14 @@ internal static partial class TvDraft
             ? draft.RootElement.GetProperty("lines").EnumerateArray().Select(Line).Where(l => !drop.Contains(l.Text)).Select(Timed).ToList()
             : [];
         var adds = extraLines.EnumerateArray().Select(Line).Select(Timed).OrderBy(l => l.At).ToList();
+        // "placed": true なら書き手が時刻を決め切っている（2 エージェントのプロスペクティブ制: マイク 1 本で順に話した記録。
+        // tools/tvshow/prospective/）。空きを探して動かさず、そのまま台本にする（重なりは声入れが後ろへ押す）。
+        if (!useDraft && extras.RootElement.TryGetProperty("placed", out var p) && p.ValueKind == JsonValueKind.True)
+        {
+            placed.AddRange(adds);
+            adds = [];
+        }
+
         var groups = new List<List<Spoken>>();
         for (var i = 0; i < adds.Count; i++)
         {

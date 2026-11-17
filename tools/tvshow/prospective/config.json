@@ -1,0 +1,29 @@
+{
+  "_comment": "2 エージェントのプロスペクティブ制の決まり（docs/commentary/styles/prospective.md）。値は手で決めたもの。",
+  "seats": {
+    "announcer": { "label": "実況", "name": "立花", "sees": ["実況"], "index": "docs/commentary/kb/index-announcer.md" },
+    "commentator": { "label": "解説", "name": "佐伯", "sees": ["実況", "解説"], "index": "docs/commentary/kb/index-analyst.md" }
+  },
+  "_triggers": "話している途中でもマイクを渡し直す出来事（席から見えるものだけ）。数の多い細かい出来事（カメラ・カウント・守り・狙い・体の中の様子）は履歴には入るが、マイクは動かさない。",
+  "triggers": ["program", "opening", "tape", "round_start", "round_end", "hit", "weapon_hit", "knockdown", "get_up", "fracture", "severed", "eye", "replay", "ko", "decision", "result"],
+  "_frames": "キーとなるフレーム（画像）を切り出す出来事。出来事の時刻から offset 秒後の 1 枚。",
+  "frames": ["opening", "tape", "round_start", "knockdown", "fracture", "severed", "replay", "ko", "result"],
+  "frameOffset": 0.4,
+  "_together": "この秒数の中に続いた出来事は 1 回の知らせにまとめる。",
+  "together": 0.3,
+  "silenceSeconds": 1.0,
+  "_minSaid": "言い出してすぐ切れた台詞は、この字数に満たなければ声に出さない（「意」「ディエ」のような切れ端）。",
+  "minSaid": 3,
+  "gap": 0.15,
+  "speech": {
+    "_comment": "台詞の長さの見積もり（TvDraft.Duration と同じ式）。rate は声入れの速さ。",
+    "charSeconds": 0.16,
+    "pauseSeconds": 0.48,
+    "_margin": "mock だけ: 見積もりに掛ける倍率（実測の中央値 1.1〜1.2）。本番は読み上げて測る。",
+    "margin": 1.15,
+    "rates": {
+      "announcer": { "normal": 0.30, "excited": 0.50 },
+      "commentator": { "normal": 0.15, "excited": 0.28 }
+    }
+  }
+}
