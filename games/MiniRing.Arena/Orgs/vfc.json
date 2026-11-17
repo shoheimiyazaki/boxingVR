@@ -32,6 +32,8 @@
   "bell": "horn",
   "crowd": { "reactionGain": 1.2, "ambienceGain": 0.6 },
   "countsDowns": false,
+  // 試合の決まり（ユーザーの指定 2026-11-18）: 判定しない（5 ラウンドを終えて両者が生きていれば両者生還の引き分け）・休みでも体は治らない・レフェリーなし・六角形の金網の檻。
+  "match": { "judgesDecision": false, "regenerates": false, "referee": false, "arena": "hexCage" },
   "text": {
     "openingRule": "{seconds}秒 × {rounds}ラウンド　・　決着は死のみ　・　両者生還なら引き分け",
     "finishWord": "決着",

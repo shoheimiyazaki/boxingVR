@@ -1542,11 +1542,11 @@ static int TvScoutCommand(Options o)
     var redWeapon = o.Get("red-weapon") is { } rw ? Enum.Parse<MiniRing.Weapons.WeaponKind>(rw, ignoreCase: true) : redCharacter?.Weapon;
     var blueWeapon = o.Get("blue-weapon") is { } bw ? Enum.Parse<MiniRing.Weapons.WeaponKind>(bw, ignoreCase: true) : blueCharacter?.Weapon;
     Console.WriteLine($"{redCharacter?.Id ?? red.Name}({redWear}{(redWeapon is null ? "" : "+" + redWeapon)}) vs {blueCharacter?.Id ?? blue.Name}({blueWear}{(blueWeapon is null ? "" : "+" + blueWeapon)}), {rounds} R");
+    var org = OrgOption(o) ?? Organization.Default;
     var results = TvScout.Run(red, blue, redWear, blueWear, redWeapon, blueWeapon,
         rounds, o.List("seeds", ["1", "2", "3", "4", "5", "6", "7", "8"]).Select(s => int.Parse(s, CultureInfo.InvariantCulture)), speed, o.Int("fps", 30, min: 10),
-        redCharacter, blueCharacter, Referee(o), o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f));
+        redCharacter, blueCharacter, Referee(o), o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f), org);
     var roundSeconds = MiniRing.MatchRules.Tv.RoundSeconds;
-    var org = OrgOption(o) ?? Organization.Default;
     Console.WriteLine($"org {org.Id}");
     TvScout.Print(results, rounds, roundSeconds, Console.Out, org.Drama);
     // 最後の 2 行は機械が読む（tools/tvshow/tvshow.ps1 が種を選び、どの版の物理・ボットで選んだかを残す）。

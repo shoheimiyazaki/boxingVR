@@ -55,12 +55,19 @@ internal sealed record DramaWeights(float PerRound, float PerDown, int DownCap, 
 internal sealed record OrgCommentary(string Intro, string AnnouncerTone, string AnalystTone, string CallThing, string CallExamples);
 
 /// <summary>
+/// 団体の試合の決まり（ルールの値。体・物理は団体によらず同じ）: 最終ラウンドの終わりに判定するか（<see cref="MatchRules.JudgesDecision"/>）・
+/// 休みの間に削れた体が治るか（<see cref="MatchRules.RegenVoxelsPerSecond"/>）・レフェリーがいるか（<see cref="BoxingCorners.Referee"/>）・場の形（<see cref="ArenaShape"/>）。
+/// ダウンを数えるかは <see cref="Organization.CountsDowns"/>（下書き・画面と共有）。
+/// </summary>
+internal sealed record OrgMatch(bool JudgesDecision, bool Regenerates, bool Referee, ArenaShape Arena);
+
+/// <summary>
 /// 中継の主催団体（<c>games/MiniRing.Arena/Orgs/&lt;id&gt;.json</c>、2026-11-18）。画面の色と名前・紋章・ラウンドの合図の音・会場の雰囲気・
 /// 台本の資料と下書きの言い回し・下見の点数の重みを、コードの分岐ではなく値で切り替える（CLAUDE.md §1.3・§1.8 と同じ考え方）。
 /// 体・物理・材料は団体によらず同じで、違うのは中継の見せ方（と、試合の決まり・場の形は別の仕組み）。
 /// </summary>
 internal sealed record Organization(string Id, string Name, string LogoText, string Sport, string Emblem, OrgColors Colors, ArenaMood ArenaMood, string Bell, OrgCrowd Crowd, bool CountsDowns,
-    OrgText Text, IReadOnlyList<string> RulesSheet, OrgDraft Draft, IReadOnlyList<string> CallWords, DramaWeights Drama, OrgCommentary Commentary)
+    OrgText Text, IReadOnlyList<string> RulesSheet, OrgDraft Draft, IReadOnlyList<string> CallWords, DramaWeights Drama, OrgCommentary Commentary, OrgMatch Match)
 {
     /// <summary>既定の団体の id。</summary>
     public const string DefaultId = "wvc";
@@ -114,6 +121,7 @@ internal static class Organizations
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false) },
     };
 
     /// <summary>団体のファイル（ファイル名と JSON の組）から読んで検査する。足りない欄・型違い・範囲外・id とファイル名の食い違いは、どのファイルのどの欄かを書いた例外で止める。</summary>
@@ -174,6 +182,7 @@ internal static class Organizations
         public required LintDto Lint { get; init; }
         public required DramaDto Drama { get; init; }
         public required CommentaryDto Commentary { get; init; }
+        public required OrgMatch Match { get; init; }
 
         public Organization ToOrganization()
         {
@@ -208,7 +217,7 @@ internal static class Organizations
             }
 
             return new Organization(Id, Name, LogoText, Sport, Emblem, Colors.ToColors(), ArenaMood, Bell, Crowd.ToCrowd(), CountsDowns, Text.ToText(), RulesSheet, Draft.ToDraft(), Lint.CallWords,
-                Drama.ToWeights(), Commentary.ToCommentary());
+                Drama.ToWeights(), Commentary.ToCommentary(), Match);
         }
     }
 

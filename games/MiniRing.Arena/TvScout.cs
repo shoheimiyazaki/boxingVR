@@ -14,9 +14,10 @@ internal static class TvScout
     /// <summary>種ごとに試合を回した結果（種の順）。</summary>
     public static IReadOnlyList<TvScoutResult> Run(Contender red, Contender blue, HandWear redWear, HandWear blueWear, WeaponKind? redWeapon, WeaponKind? blueWeapon,
         int rounds, IEnumerable<int> seeds, float speed, int fps,
-        MiniRing.Characters.FighterCharacter? redCharacter = null, MiniRing.Characters.FighterCharacter? blueCharacter = null, bool referee = true, float breakSeconds = 10f)
+        MiniRing.Characters.FighterCharacter? redCharacter = null, MiniRing.Characters.FighterCharacter? blueCharacter = null, bool referee = true, float breakSeconds = 10f, Organization? org = null)
     {
-        var rules = TvShowRules.Rules(rounds, breakSeconds);
+        org ??= Organization.Default;
+        var rules = TvShowRules.Rules(rounds, breakSeconds, org);
         var frameDt = speed / fps;
         var stepsPerFrame = Math.Max(1, (int)MathF.Ceiling((frameDt / (1f / 60f)) - 1e-3f));
         var stepDt = frameDt / stepsPerFrame;
@@ -25,8 +26,8 @@ internal static class TvScout
         // 試合どうしがどこかで状態を共有している。別のプロセスなら一致する）。
         foreach (var seed in seeds.Distinct())
         {
-            var corners = VideoMaker.WithCharacters(
-                VideoMaker.Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter);
+            var corners = TvShowRules.Stage(VideoMaker.WithCharacters(
+                VideoMaker.Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter), org);
             using var game = new BoxingGame(seed: seed, corners: corners, rules: rules);
             var redDowns = 0;
             var blueDowns = 0;

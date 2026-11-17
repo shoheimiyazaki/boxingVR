@@ -571,6 +571,7 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
             "RING OUT" => "リングの外へ落ちて決着",
             _ when message.Contains("HEART", StringComparison.Ordinal) => "心臓が止まってノックアウト",
             _ when message.Contains("BRAIN", StringComparison.Ordinal) => "脳が壊れてノックアウト",
+            _ when message.Contains("NECK", StringComparison.Ordinal) => "首が断たれてノックアウト",
             _ => "ノックアウト",
         };
         return $"{how}。{winner}の勝ち";

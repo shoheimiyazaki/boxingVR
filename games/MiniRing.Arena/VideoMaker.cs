@@ -47,7 +47,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// <summary>
     /// テレビ中継の決まり。休みの長さを変えても、休みの間に治る量（速さ × 長さ）は標準（10 秒 × 150 個/秒）と同じにする（休みを長くした分だけ多く治らないように）。
     /// </summary>
-    private readonly MatchRules? _rules = tv ? TvShowRules.Rules(tvRounds, tvBreak) : null;
+    private readonly MatchRules? _rules = tv ? TvShowRules.Rules(tvRounds, tvBreak, org ?? Organization.Default) : null;
 
     /// <summary>テレビ中継の顔の窓の一辺（画面の高さに対する割合）。0.27 では大きすぎた（ユーザーの評価）ので 2/3 に。</summary>
     private const float TvFaceSize = 0.18f;
@@ -118,10 +118,10 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             s => Keep(blueBots, blue.Create(s)), intentScript is null ? s => Keep(redBots, red.Create(s)) : null, referee);
         // 画面と実況ではリングネームで呼ぶ（ドリルで生まれた個体にもそれぞれの名前がある）。
         // 名簿のキャラクター（--red-char / --blue-char）は、体格・顔・表示名をそのキャラクターの値にする（ボットの性格はスタイル）。
-        corners = WithCharacters(corners, redCharacter, blueCharacter);
+        corners = TvShowRules.Stage(WithCharacters(corners, redCharacter, blueCharacter), _org);
         var redRing = redCharacter?.HudName ?? BotNames.RingNameOf(red.Name);
         var blueRing = blueCharacter?.HudName ?? BotNames.RingNameOf(blue.Name);
-        using var game = new BoxingGame(seed: seed, corners: corners, rules: _rules);
+        using var game = new BoxingGame(seed: seed, corners: corners, rules: _rules, mood: _org.ArenaMood);
         setup?.Invoke(game);
         var intent = intentScript is null ? null : new IntentControl();
         var intentRound = game.Round;
@@ -330,8 +330,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     {
                         if (replayGame is null)
                         {
-                            var replayCorners = WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter);
-                            replayGame = new BoxingGame(seed: seed, corners: replayCorners, rules: _rules);
+                            var replayCorners = TvShowRules.Stage(WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter), _org);
+                            replayGame = new BoxingGame(seed: seed, corners: replayCorners, rules: _rules, mood: _org.ArenaMood);
                             setup?.Invoke(replayGame);
                         }
                     }

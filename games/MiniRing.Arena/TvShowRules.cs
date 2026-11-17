@@ -28,6 +28,36 @@ internal static class TvShowRules
         => MatchRules.Tv with { Rounds = rounds, BreakSeconds = breakSeconds, RegenVoxelsPerSecond = MatchRules.Tv.RegenVoxelsPerSecond * MatchRules.Tv.BreakSeconds / breakSeconds };
 
     /// <summary>
+    /// 団体の決まり（<see cref="Organization.CountsDowns"/>・<see cref="OrgMatch"/>）を重ねたテレビ中継の決まり。WVC は <see cref="Rules(int, float)"/> と同じ値、
+    /// VFC はダウンを数えず・判定せず・休みに治らない（<see cref="MatchRules.Vfc"/> と同じ決まり）。撮影と下見（tvscout）が同じものを使う。
+    /// </summary>
+    public static MatchRules Rules(int rounds, float breakSeconds, Organization org)
+    {
+        ArgumentNullException.ThrowIfNull(org);
+        var rules = Rules(rounds, breakSeconds);
+        return rules with
+        {
+            CountsDowns = org.CountsDowns,
+            JudgesDecision = org.Match.JudgesDecision,
+            RegenVoxelsPerSecond = org.Match.Regenerates ? rules.RegenVoxelsPerSecond : 0f,
+        };
+    }
+
+    /// <summary>
+    /// 団体の場（<see cref="OrgMatch"/>）を両コーナーに重ねる: レフェリーがいない団体ならいない（<paramref name="corners"/> がいないと言えばどちらでもいない）、
+    /// 檻の団体なら六角形の檻（両方が武器を握れば広い <see cref="RingLayout.WeaponsCage"/>、ほかは <see cref="RingLayout.Cage"/>。四角いリングの選び方と同じ）。
+    /// </summary>
+    public static BoxingCorners Stage(BoxingCorners corners, Organization org)
+    {
+        ArgumentNullException.ThrowIfNull(corners);
+        ArgumentNullException.ThrowIfNull(org);
+        var staged = corners with { Referee = corners.Referee && org.Match.Referee };
+        return org.Match.Arena == ArenaShape.HexCage && corners.Ring is null
+            ? staged with { Ring = corners.CpuWeapon is not null && corners.PlayerWeapon is not null ? RingLayout.WeaponsCage : RingLayout.Cage }
+            : staged;
+    }
+
+    /// <summary>
     /// 見ごたえの点（中継に向く試合ほど高い）。団体の重み（<see cref="DramaWeights"/>、団体のファイルの <c>drama</c>）の和。<paramref name="weights"/> が null なら WVC の重み。
     /// WVC の重み: 長く続く（最終ラウンドの終わりまでで最大 3 × ラウンド数）、ダウン（1 回 1.5、5 回まで）、両者がダウンを奪い合う（+3）、
     /// K.O. で決着（+2、最終ラウンドなら +1）、ダメージで負けていた側の逆転勝ち（+4）、第 1 ラウンド 15 秒より前に終わる（−6）、引き分け（−1）。

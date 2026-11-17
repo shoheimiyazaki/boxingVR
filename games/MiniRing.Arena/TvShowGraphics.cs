@@ -98,6 +98,7 @@ internal sealed record TvResult(int Winner, string? Finish, int Round, float Rou
         "LUNG" => "肺",
         "LIVER" => "肝臓",
         "GUT" => "内臓",
+        "NECK" => "首", // 首の骨折・切断で頭が離れた死（Fighter.Die("neck")）
         _ => cause,
     };
 }

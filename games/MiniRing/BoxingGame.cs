@@ -140,13 +140,15 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <param name="seed">試合の種。</param>
     /// <param name="corners">両コーナーの操作元。</param>
     /// <param name="rules">テレビ中継の試合の決まり（<see cref="MatchRules"/>）。null なら従来どおり。</param>
-    public BoxingGame(FighterTuning? tuning = null, int seed = 1, BoxingCorners? corners = null, MatchRules? rules = null)
+    /// <param name="mood">会場の雰囲気（照明と画面の仕上げ。描画だけで試合に響かない）。null なら今の明るい部屋。</param>
+    public BoxingGame(FighterTuning? tuning = null, int seed = 1, BoxingCorners? corners = null, MatchRules? rules = null, ArenaMood? mood = null)
     {
         Rules = rules;
         _tuning = tuning ?? FighterTuning.Default;
         _corners = corners ?? BoxingCorners.Default;
         Layout = _corners.Layout;
-        _lighting = ArenaLook.Lighting(Layout.Center, Layout.Size, RingSurfaceHeight);
+        _lighting = ArenaLook.Lighting(Layout.Center, Layout.Size, RingSurfaceHeight, mood);
+        _screenFinish = mood is null || mood == ArenaMood.Default ? ArenaLook.ScreenFinish : ArenaLook.ScreenFinishFor(mood);
         _fx = new Random(seed ^ 0x5eed);
         _model = Models.GetOrAdd((_tuning.HalfExtents, _tuning.ModelSubdivisions), key => BoxerModel.Build(key.Item1, key.Item2));
         _seed = seed;
@@ -238,6 +240,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public RingLayout Layout { get; }
 
     private readonly SceneLighting _lighting;
+    private readonly PostProcessSettings _screenFinish;
 
     public void Step(BoxingInput input, float dt)
     {
@@ -1401,7 +1404,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public ShadowMapConfig? BuildShadow() => ArenaLook.Shadow(Layout.Center, Layout.Size, RingSurfaceHeight);
 
     /// <summary>画面用の仕上げ（光のにじみ・陰り・コントラスト）。</summary>
-    public PostProcessSettings? BuildPostProcess() => ArenaLook.ScreenFinish;
+    public PostProcessSettings? BuildPostProcess() => _screenFinish;
 
     /// <summary>
     /// 両ボクサーの顔の窓（<see cref="MiniRing.FaceCam"/>）を出すか。描画だけの設定で、試合の計算・記録には響かない。
