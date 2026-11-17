@@ -12,6 +12,30 @@
 
 動画は作中のテレビ番組なので、「ボット」「物理」「ダメージの数値」のようなゲームの裏側の言葉も出さない。
 
+### 1.1 団体（WVC と VFC、2026-11-18）
+
+中継の道具（画面・紋章・音・照明の雰囲気・下見の点数・台本の資料と下書き・LLM のプロンプト・札）は、**団体のファイル**（`games/MiniRing.Arena/Orgs/<id>.json`）で作り分ける。コードに団体名の分岐は無く、値で切り替わる（CLAUDE.md §1.3 と同じ考え方）。体・物理・材料は団体によらず同じで、違うのは中継の見せ方（と、試合の決まり・場の形は別の仕組み: `MatchRules`・`RingLayout`、計画は `docs/plans/VFC_PLAN.md`）。`Organizations`（読み込みと検査）・`Organization`（値）。
+
+| | WVC（Wonderful Voxing Council） | VFC（Voxel Fighting Championship） |
+|---|---|---|
+| 競技 | Voxing | Voxel Fighting |
+| 紋章 | 金の王冠・赤い盾・月桂樹の「WVC」（`WvcEmblem`） | 赤いボクセルの六角形の枠・灰の金網・クリームの「VFC」・黒帯（`VfcEmblem`。手本 `docs/images/vfc_logo_reference.png`） |
+| 画面の色 | 金・白・濃紺 | クリーム `#F3E9D6` 前後・黒（赤 `#E8231F` は紋章と罫の飾り） |
+| 合図の音 | ゴング（`GongSound`） | 低く太いホーン（`HornSound`） |
+| 会場の雰囲気 | 明るい昼の部屋（今のまま） | 暗い会場、檻の真上に強いスポット（`ArenaMood`） |
+| 歓声 | 今の音 | 反応 1.2 倍・ざわめき 0.6 倍 |
+| 決着の言い方 | K.O.・判定・ダウンとカウント | 「決着」（死だけ）・両者生還の引き分け・ダウンは言わない・数えない |
+| 下見の点数 | ダウンの応酬・逆転・K.O. | 長く持つ・後半の死・逆転・両者が深く傷む。序盤の即死・両者生還は低い |
+| 語り | 品のある実況と、理由を言う解説 | 熱く荒い実況と、「どこが壊れたか・何が残っているか」の解説 |
+
+団体のファイルの欄: `id`・`name`・`logoText`・`sport`・`emblem`（紋章の id）・`colors`（`accent`・`accentLight`・`accentDeep`・`text`・`muted`・`ink`・`voxelTop/Bottom/Side`）・`arenaMood`（`ambient`・`key`・`lamp`・`window`・`cageSpotIntensity`・`cageSpotColor`・`vignette`・`exposure`）・`bell`（`gong`|`horn`）・`crowd`（`reactionGain`・`ambienceGain`）・`countsDowns`・`text`（冒頭の決まりの帯・決着の大きな文字・判定の行）・`rulesSheet`（台本の資料の「決まり」）・`draft`（下書きの言い回し）・`lint.callWords`（点検が決着・倒れのコールと見なす言葉）・`drama`（下見の点数の重み。式は `TvShowRules.Drama`）・`commentary`（プロンプトの団体の紹介・語り口・コールの言い方）。足りない欄・型違い・範囲外は、どのファイルのどの欄かを書いた例外で止まる。
+
+- `--org <id>`（既定 wvc）: `video`・`tvscout`・`tvdraft`・`tvdigest`・`tvlint` が受け取る。`video` は events.json に `org` を書き、`tvdraft`・`tvdigest`・`tvlint` は `--org` が無ければ events.json の `org`（無ければ wvc）を使う。
+- 札の `"org"`（既定 `"wvc"`）: `tvshow.ps1` がすべての arena の呼び出しに `--org` を渡し、`write-commentary.ps1` がプロンプトの `{{org}}`・`{{orgName}}`・`{{sport}}`・`{{orgIntro}}`・`{{announcerTone}}`・`{{analystTone}}`・`{{callThing}}`・`{{callExamples}}` を団体のファイルで埋める。`event` を省くと団体の略称（WVC・VFC）。例 `tools/tvshow/cards/vfc-test.json`。
+- 選手の所属: 名簿のキャラクターのファイルの `"org"`（既定 wvc）。武器・グローブ以外のはめる物の選手（daichi・edgar・gaston・jin・joao・konrad・sean・tsuyoshi・vikram）は vfc。
+- 近道（見せ方だけ。物理・材料には響かない）: 下見の点数の重み・歓声の倍率・照明の倍率とスポットの強さ・色は、見て決めた値で測った物ではない。VFC のホーンは合成で、実物の録音から測っていない（ゴングと違う）。VFC の紋章は手本の絵の描き写し（ボクセルの格子へ丸めた近似。字の斜めは 1 行 0.05 マスのずらし）。照明は `ArenaLook.Lighting(center, size, surface, mood)` と `ScreenFinishFor(mood)` を作ってあるが、`BoxingGame`（`_lighting`・`BuildPostProcess`）はまだ雰囲気を渡さない（`--org vfc` でも試合の画は WVC の明るい部屋）。
+- 試合の決まり（ダウンを数えない・死だけが決着・体は治らない）と六角形の檻、暗い会場の照明の呼び出し（`BoxingGame` が `ArenaLook.Lighting(..., mood)`・`ScreenFinishFor(mood)` を呼ぶ）は、この仕組みの外（別の作業）。`--org vfc` が変えるのは見せ方（画面・音・語り・点数）だけ。
+
 ## 2. 作り方
 
 ```powershell

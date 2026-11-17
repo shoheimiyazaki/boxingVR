@@ -46,8 +46,10 @@ internal static partial class TvLint
     private static partial Regex Forbidden();
 
     /// <summary>台本と出来事の記録から、決まりに合わない所を並べる。<paramref name="manifestJson"/>（声を入れた後の manifest.json）があれば、ずれも見る。</summary>
-    public static IReadOnlyList<TvLintIssue> Check(string scriptJson, string eventsJson, string? manifestJson = null)
+    public static IReadOnlyList<TvLintIssue> Check(string scriptJson, string eventsJson, string? manifestJson = null, Organization? org = null)
     {
+        // 決着・倒れのコールの言葉は団体ごと（団体のファイルの lint.callWords）。org が null なら記録の org（無ければ WVC）。
+        var callWords = (org ?? TvDraft.OrgOf(eventsJson)).CallWords;
         using var script = JsonDocument.Parse(scriptJson);
         using var events = JsonDocument.Parse(eventsJson);
         var red = events.RootElement.GetProperty("red").GetString() ?? "";
@@ -150,8 +152,7 @@ internal static partial class TvLint
         foreach (var e in happenings.Where(e => e.For == "実況" && e.Type is "knockdown" or "ko" or "decision"))
         {
             var called = lines.Any(l => l.Speaker == "announcer" && l.At >= e.T - 0.6f && l.At <= e.T + CallDelay
-                && (l.Text.Contains("ダウン", StringComparison.Ordinal) || l.Text.Contains("倒れ", StringComparison.Ordinal) || l.Text.Contains("止め", StringComparison.Ordinal)
-                    || l.Text.Contains("アウト", StringComparison.Ordinal) || l.Text.Contains("KO", StringComparison.Ordinal) || l.Text.Contains("テン", StringComparison.Ordinal) || l.Text.Contains("判定", StringComparison.Ordinal)));
+                && callWords.Any(w => l.Text.Contains(w, StringComparison.Ordinal)));
             if (!called)
             {
                 issues.Add(new TvLintIssue(e.T, "コール", $"{(e.Type == "knockdown" ? $"{e.Who} のダウン" : "決着")}を {CallDelay:0.#} 秒以内に実況が言っていない"));

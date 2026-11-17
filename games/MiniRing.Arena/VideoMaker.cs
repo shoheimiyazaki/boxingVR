@@ -30,13 +30,16 @@ namespace MiniRing.Arena;
 /// *.events.json だけを書く（コマは数えるだけ。物理の速さで終わる）。mp4・wav・タイムラインは書かない。
 /// </param>
 /// <param name="tvProgram">大会のプログラム。あればテレビ中継の冒頭のタイトルの前に「本日のプログラム」の表を出し、記録（*.events.json）にも書く。</param>
+/// <param name="org">主催団体（団体のファイル。null なら WVC＝今の中継）。紋章・画面の色と名前・ラウンドの合図の音・歓声の大きさ・台本の資料の決まりを選ぶ。試合の決まり・場の形・照明は選ばない（別の仕組み）。</param>
 /// <param name="live">
 /// 生配信（<see cref="LiveOutput"/>）: mp4 の代わりに実時間で描いて URL へ流す。音は置いたそばから書き出す。events.json は書く（下回しと比べるため）。
 /// <paramref name="render"/> が false とは一緒に使えない。
 /// </param>
 internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false,
-    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 10f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null)
+    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 10f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null)
 {
+    private readonly Organization _org = org ?? Organization.Default;
+
     private readonly bool _off = live is not null && !render
         ? throw new ArgumentException("--live と --render off は一緒に使えません（生配信は描かないと流せません）。")
         : !render;
@@ -44,7 +47,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// <summary>
     /// テレビ中継の決まり。休みの長さを変えても、休みの間に治る量（速さ × 長さ）は標準（10 秒 × 150 個/秒）と同じにする（休みを長くした分だけ多く治らないように）。
     /// </summary>
-    private readonly MatchRules? _rules = tv ? TvShowRules.Rules(tvRounds, tvBreak) : null;
+    private readonly MatchRules? _rules = tv ? TvShowRules.Rules(tvRounds, tvBreak, org ?? Organization.Default) : null;
 
     /// <summary>テレビ中継の顔の窓の一辺（画面の高さに対する割合）。0.27 では大きすぎた（ユーザーの評価）ので 2/3 に。</summary>
     private const float TvFaceSize = 0.18f;
@@ -115,10 +118,10 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             s => Keep(blueBots, blue.Create(s)), intentScript is null ? s => Keep(redBots, red.Create(s)) : null, referee);
         // 画面と実況ではリングネームで呼ぶ（ドリルで生まれた個体にもそれぞれの名前がある）。
         // 名簿のキャラクター（--red-char / --blue-char）は、体格・顔・表示名をそのキャラクターの値にする（ボットの性格はスタイル）。
-        corners = WithCharacters(corners, redCharacter, blueCharacter);
+        corners = TvShowRules.Stage(WithCharacters(corners, redCharacter, blueCharacter), _org);
         var redRing = redCharacter?.HudName ?? BotNames.RingNameOf(red.Name);
         var blueRing = blueCharacter?.HudName ?? BotNames.RingNameOf(blue.Name);
-        using var game = new BoxingGame(seed: seed, corners: corners, rules: _rules);
+        using var game = new BoxingGame(seed: seed, corners: corners, rules: _rules, mood: _org.ArenaMood);
         setup?.Invoke(game);
         var intent = intentScript is null ? null : new IntentControl();
         var intentRound = game.Round;
@@ -135,6 +138,10 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             blueCharacter is null ? TvCorner.Of(blueRing, blue.Name, blueWear, blueWeapon) : TvCorner.Of(blueCharacter), _rules);
         var broadcast = card is null ? null : new Broadcast(redRing, blueRing, red.Name, blue.Name)
         {
+            OrgId = _org.Id,
+            RulesSheet = _org.RulesSheet,
+            ReactionGain = _org.Crowd.ReactionGain,
+            AmbienceGain = _org.Crowd.AmbienceGain,
             RedGear = GearName(redWeapon),
             BlueGear = GearName(blueWeapon),
             RedDiscipline = card.Red.Discipline,
@@ -161,7 +168,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         {
             broadcast?.Note(ProgramSeconds + TvShowGraphics.OpeningSeconds, "tape", "", $"選手の比較の表（{_tapeSeconds:0} 秒）: 年齢・身長・体重・戦績・出身・拠点・構え。両者のプロフィールを紹介する時間");
         }
-        var show = new TvShowGraphics(width, height);
+        var show = new TvShowGraphics(width, height, _org);
         // 判定の得点（与えたダメージ = 相手の体の TotalDamage）の、各ラウンドの始まりの値。勝敗の画面の採点表に。
         var redRoundStart = new List<float>();
         var blueRoundStart = new List<float>();
@@ -182,7 +189,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         {
             if (broadcast is not null)
             {
-                Broadcast.MixAmbience(audio, HitSound.SampleRate, seed);
+                Broadcast.MixAmbience(audio, HitSound.SampleRate, seed, _org.Crowd.AmbienceGain);
             }
 
             liveMixer = new LiveAudioMixer(HitSound.SampleRate, audio.Length);
@@ -324,8 +331,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     {
                         if (replayGame is null)
                         {
-                            var replayCorners = WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter);
-                            replayGame = new BoxingGame(seed: seed, corners: replayCorners, rules: _rules);
+                            var replayCorners = TvShowRules.Stage(WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter), _org);
+                            replayGame = new BoxingGame(seed: seed, corners: replayCorners, rules: _rules, mood: _org.ArenaMood);
                             setup?.Invoke(replayGame);
                         }
                     }
@@ -419,7 +426,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             endAt = time + AftermathSeconds;
                         }
 
-                        if (audioOn && GongSound.Synthesize(game.RecentBell) is { } gong)
+                        if (audioOn && BellSound.Synthesize(_org.Bell, game.RecentBell) is { } gong)
                         {
                             Mix(audio, gong, at, 1f);
                         }

@@ -52,6 +52,18 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
     /// <summary>青コーナーの流派・武器の見出し。</summary>
     public string? BlueDiscipline { get; init; }
 
+    /// <summary>主催団体の id（<c>wvc</c>・<c>vfc</c>。記録 *.events.json に残し、台本の下書き・点検・要約が読む）。null なら書かない（WVC として扱う）。</summary>
+    public string? OrgId { get; init; }
+
+    /// <summary>台本の資料に書く試合の決まり（団体ごと）。既定は WVC の決まり。</summary>
+    public IReadOnlyList<string> RulesSheet { get; init; } = DefaultRulesSheet;
+
+    /// <summary>会場の反応（歓声・どよめき・悲鳴）にかける倍率（団体の違い）。1 が既定の音。</summary>
+    public float ReactionGain { get; init; } = 1f;
+
+    /// <summary>地のざわめきにかける倍率（団体の違い）。1 が既定の音。</summary>
+    public float AmbienceGain { get; init; } = 1f;
+
     /// <summary>大会名（台本の資料）。</summary>
     public string? Event { get; init; }
 
@@ -324,17 +336,17 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
     /// <summary>会場のざわめき（全体）と反応を、音の列 <paramref name="audio"/> に混ぜる。</summary>
     public void MixInto(float[] audio, int sampleRate, int seed)
     {
-        MixAmbience(audio, sampleRate, seed);
+        MixAmbience(audio, sampleRate, seed, AmbienceGain);
         MixCues(audio, sampleRate, 0);
     }
 
     /// <summary>会場のざわめき（地の歓声。長さは <paramref name="audio"/> 全体）だけを混ぜる。生配信は始めに 1 回混ぜる。</summary>
-    public static void MixAmbience(float[] audio, int sampleRate, int seed)
+    public static void MixAmbience(float[] audio, int sampleRate, int seed, float gain = 1f)
     {
         var ambience = CrowdSound.Ambience(audio.Length / (float)sampleRate, seed);
         for (var i = 0; i < audio.Length && i < ambience.Length; i++)
         {
-            audio[i] += ambience[i];
+            audio[i] += ambience[i] * gain;
         }
     }
 
@@ -358,7 +370,7 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
             {
                 if (start + i >= 0)
                 {
-                    audio[start + i] += samples[i];
+                    audio[start + i] += samples[i] * ReactionGain;
                 }
             }
         }
@@ -382,6 +394,7 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
             ["event"] = Event ?? "",
             ["bout"] = Bout ?? "",
             ["rules"] = RulesSheet,
+            ["org"] = OrgId ?? "wvc",
             ["events"] = _events.OrderBy(e => (float)e["t"]).ToList(), // 先の時刻で書いた注記（休みのカット割り）も時刻の順に
         };
         if (RedDossier is not null)
@@ -413,7 +426,7 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
     /// 解説（ゲームの仕組みに詳しい人）のための、この試合の決まりと仕組みの要点。台本を書く人が、画面で起きる「よく分からないこと」を
     /// 説明できるように（倒れている同士の動き・その場の K.O.・休みの間の再生など）。
     /// </summary>
-    private static readonly string[] RulesSheet =
+    private static readonly string[] DefaultRulesSheet =
     [
         "この記録は WVC（Wonderful Voxing Council）の大会のテレビ中継のためのもの。競技の名前は Voxing。",
         "\"for\" が 実況 の出来事は画面で見えること（誰が何でどこを打った・ダウン・カウント・ラウンド）。解説 の出来事は体の中で起きていること（どこが壊れた・何が効いている・疲れ）と選手の狙い。",
@@ -558,6 +571,7 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
             "RING OUT" => "リングの外へ落ちて決着",
             _ when message.Contains("HEART", StringComparison.Ordinal) => "心臓が止まってノックアウト",
             _ when message.Contains("BRAIN", StringComparison.Ordinal) => "脳が壊れてノックアウト",
+            _ when message.Contains("NECK", StringComparison.Ordinal) => "首が断たれてノックアウト",
             _ => "ノックアウト",
         };
         return $"{how}。{winner}の勝ち";

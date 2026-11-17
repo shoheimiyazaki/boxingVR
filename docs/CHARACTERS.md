@@ -116,6 +116,10 @@
 - **武器のボットの教科書と教育**（`education.weaponBot`、2026-11-16）: 刀・ロングソード・こんぼうのボットの判断の値は `WeaponStyle`（`Bots/WeaponStyle.cs`）に全部まとまっていて、JSON に読み書きできる（`Validated()` が範囲を検査し、知らない鍵・範囲外は止める）。武器ごとの教科書は組み込みの `Bots/weapons/katana.json`・`longsword.json`・`club.json`（`WeaponCatalog.Textbook`）。値: 剣士の守り `Defense`（`SwordDefense`）・間合いの取り合い `HitAndAway`（null = 遠間で構えて 1 つずつ詰める）・狙い `Aim`/`AutoAim`・自分の体を避ける通り道 `Clearance`・技の時計 `Pacing`・`Rest`・`MinReach`・折れた武器を捨てる長さ `KeepReach`、こんぼうの `ClubRange`・`ClubRest`・`ClubStandOff`・`ClubExact`。使わない側の値は無視される（剣士はこんぼうの値を読まない）。`education.weaponBot` は書いた鍵だけが教科書を上書きする（`WeaponEducation.Resolve`、重ね方は `style` と同じ。最上位の鍵が教科書に無い・`Name` を書いた・値が範囲外・武器を握らない（拳・鉄の剣）キャラが空でない値を書いた、は読み込みで止める）。解決した値は `FighterCharacter.WeaponStyle` → `BoxingCorners.PlayerWeaponStyle`/`CpuWeaponStyle` → 武器のボット（`FormSwordsman.Bot(.., style)`・`ClubBot.FromStyle`）と記録の見出しへ。教育が空なら教科書そのもの（今までの試合とビット単位で同じ: `CharacterSamenessTests` の `w-*` の組）。**相手ごとの層（`vs`）は無い**（武器の値は相手を読んで変えるものではなく、教育全体で 1 組）。
 - プレイヤーが作ったキャラ・新人: `CharacterRoster.LoadFile(path)` / `LoadDirectory(dir)`（アプリのデータの場所から読む入口。`vs` の相手は組み込みの id を認め、組み込みと同じ id は断る）。E5・E6 が使う。
 
+### 所属（`org`、2026-11-18）
+
+ファイルの `"org"` は所属する団体の id（`wvc` | `vfc`。中継の団体のファイル `games/MiniRing.Arena/Orgs/<id>.json`、`docs/TV_BROADCAST.md` §1.1）。無ければ `wvc`。小文字・数字・-・_ でなければ読み込みで止まる（団体のファイルにある id かどうかはテストが確かめる）。強さは体から物理で出る（§1.7）ので、所属は強さに響かない（中継の見せ方と対戦の組み合わせの印）。武器・グローブ以外のはめる物の選手（daichi・edgar・gaston・jin・joao・konrad・sean・tsuyoshi・vikram）は `vfc`、素手・グローブの拳（ボクシング・空手・テコンドー・ムエタイ）は `wvc`。VFC の選手の経歴は「VFC へ入団」「何でもありのルール」で書く（全員架空。名前・国・顔は変えない）。
+
 ### 方針
 - **実在の人物はモデルにしない**。顔・名前の権利の問題と、体が削れ・切断され・死ぬゲームで実在の人を描く問題のため。名簿は全員が架空で、実在の特定の人を連想させる名前・顔にしない（顔は肌・髪・瞳の色と、基準の顔の小さな個人差だけ）。
 - **国らしさは、その国の格闘の伝統（武器・戦い方）と、名前・装い・体格で出す**。人種の身体的な特徴を戯画化（誇張した顔の造作など）はしない。肌の色・髪・瞳は、その地域に普通にある色を選ぶ。顔の部位（`FaceParts`）は基準の ±15 % 以内の個人差だけ（あご・眉の太さ・頬骨・口の幅）。

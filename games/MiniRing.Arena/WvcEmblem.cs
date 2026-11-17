@@ -10,6 +10,12 @@ namespace MiniRing.Arena;
 /// </summary>
 internal static class WvcEmblem
 {
+    /// <summary>紋章の大きな文字（WVC の紋章の図柄。団体のファイルの logoText と同じ）。</summary>
+    private const string LogoText = "WVC";
+
+    /// <summary>札の文字（WVC の紋章の図柄。団体のファイルの sport の大文字）。</summary>
+    private const string SportWord = "VOXING";
+
     /// <summary>紋章の横幅（単位）。</summary>
     public const float Width = 44f;
 
@@ -17,7 +23,7 @@ internal static class WvcEmblem
     public const float Height = 19f;
 
     /// <summary>金・赤のボクセルの色（面の上・面の下・側面）。</summary>
-    private readonly record struct Palette(Vector3 Top, Vector3 Bottom, Vector3 Side);
+    internal readonly record struct Palette(Vector3 Top, Vector3 Bottom, Vector3 Side);
 
     private static readonly Palette Gold = new(new Vector3(1f, 0.9f, 0.45f), new Vector3(0.93f, 0.62f, 0.1f), new Vector3(0.45f, 0.26f, 0.04f));
     private static readonly Palette Red = new(new Vector3(0.9f, 0.12f, 0.08f), new Vector3(0.62f, 0.04f, 0.03f), new Vector3(0.3f, 0.01f, 0.01f));
@@ -138,7 +144,7 @@ internal static class WvcEmblem
         cells.Clear();
         var letterLeft = c.X - (11.5f * u);
         var column = 0;
-        foreach (var ch in TvShowGraphics.LogoText)
+        foreach (var ch in LogoText)
         {
             if (BoldGlyphs.TryGetValue(ch, out var glyph))
             {
@@ -162,7 +168,7 @@ internal static class WvcEmblem
         shapes.Add(new UiShapeDraw(plate + new Vector2(0.2f * u), plateSize, Vec(Gold.Side, alpha)));
         shapes.Add(new UiShapeDraw(plate, plateSize, Vec(Gold.Top, alpha), FillColorEnd: Vec(Gold.Bottom, alpha), GradientAxis: Vector2.UnitY));
         shapes.Add(new UiShapeDraw(plate, plateSize - new Vector2(0.6f * u), new Vector4(0.03f, 0.03f, 0.03f, alpha)));
-        var word = TvShowGraphics.SportName.ToUpperInvariant();
+        var word = SportWord;
         var glyphCell = 0.28f * u;
         if (glyphCell >= 1.4f)
         {
@@ -222,7 +228,7 @@ internal static class WvcEmblem
     }
 
     /// <summary>字形の '#' のマスの中心を足す。<paramref name="topLeft"/> は字形の左上の角、<paramref name="mirror"/> なら左右を裏返す。</summary>
-    private static void Mask(List<Vector2> cells, string[] glyph, Vector2 topLeft, float cell, bool mirror)
+    internal static void Mask(List<Vector2> cells, string[] glyph, Vector2 topLeft, float cell, bool mirror)
     {
         for (var row = 0; row < glyph.Length; row++)
         {
@@ -242,7 +248,7 @@ internal static class WvcEmblem
     /// ボクセルを並べる: マスごとに右下へずらした暗い側面（奥行き）、その上に上が明るく下が深い面と、上の縁の照り。
     /// 光の帯（<paramref name="shine"/> の X の前後 2.5 マス、下ほど右へずれる斜めの帯）にかかる面は白へ寄せる。
     /// </summary>
-    private static void Voxels(List<UiShapeDraw> shapes, List<Vector2> cells, float cell, Palette palette, float alpha, float shine)
+    internal static void Voxels(List<UiShapeDraw> shapes, List<Vector2> cells, float cell, Palette palette, float alpha, float shine)
     {
         if (cells.Count == 0)
         {
