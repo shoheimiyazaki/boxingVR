@@ -106,8 +106,12 @@ public readonly record struct FighterSense(
     BodySense OpponentBody = default, float SelfFaintness = 0f, BladeSense OpponentBlade = default, bool? SelfArmed = null,
     TargetMap? OpponentTargets = null, RingLayout? Ring = null, WeaponSense SelfWeapon = default, float SelfStamina = 1f,
     VisionState? SelfVision = null, VisionState? OpponentVision = null, float OpponentArmReach = 0f,
-    bool OpponentDowned = false, bool MayStrikeDowned = false, BodyBuild? SelfBuild = null, BodyBuild? OpponentBuild = null)
+    bool OpponentDowned = false, bool MayStrikeDowned = false, BodyBuild? SelfBuild = null, BodyBuild? OpponentBuild = null,
+    LegBody? SelfLegLeft = null, LegBody? SelfLegRight = null)
 {
+    /// <summary>自分の脚の寸法と立った形の膝（体フレーム）。分からなければ腕の長さからの見積もり。</summary>
+    public LegBody SelfLeg(Hand leg) => (leg == Hand.Left ? SelfLegLeft : SelfLegRight) ?? LegBody.FromReach(leg, ArmReach);
+
     public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
 
     /// <summary>この試合のリング（分からなければ拳の試合の標準）。</summary>

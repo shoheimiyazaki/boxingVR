@@ -161,7 +161,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 38; // 38: スタミナを臨界パワーと W′ のモデルに（RecoveryPower: 直近の仕事率が臨界パワー C = 最大の戻り × StaminaCriticalShare より下なら R − (R − C) P / C で戻り、上なら C だけ供給されて差で減る。前の exp(−(P/5W)²) は立ち回りの 5〜6 W で減った）・試合を通した持久力 Endurance = exp(−した仕事 / StaminaEndurance) が供給と臨界パワーに掛かる（後のラウンドほど疲れる）・StaminaCapacity 120→300 J・StaminaRecoveryPower 15→20 W・TiredKnee 0.6→0.45・打撲で失うスタミナを割合からエネルギー（WindPerBruise 12 J）へ。ユーザーの目標: 弱強の連打が 10 秒全力・さらに 10 秒落ちながら打てる、1 ラウンド目は全力で続けられる（StaminaFeelProbe・StaminaMatchProbe）。37: スタミナの容量 60→120 J（ユーザーの指定。尽きるのが早すぎた。回復の速さは同じなので満タンまでの時間も倍）。36: スタミナの蓄え・心肺の供給・回復を止める仕事率の尺度を筋肉の量（BodyBuild.MassRatio = H³M²）に比例させる（1 kg あたりで同じ。大きい体が質量に比例して増えた仕事で早く尽きていた。基準体格は不変）。35: 素手を指の関節で組む（掌 + 4 本 × 3 節の骨・肉・皮膚のセルを関節の曲げ角 HandSkeleton.PoseOf どおりに並べ、手形の変更は関節のバネ・ダンパ HandMotion で時間がかかる。折れた指は力が入らず力を抜いた形へ落ちる。素手の質量・形が変わる。docs/KARATE.md §指）。急所の狙いの点は実際のセルから（BodyLandmarks）。34: 首の骨折・首の切断・脊椎の損傷（頭を首の梁にして頸椎 4 セルが折れる・断たれると頭が離れて死ぬ・脊髄 Cord が削れた残りの断面で頸/胸/腰の筋の力と息を決める。docs/VOXEL_DAMAGE.md §首と脊椎）。無傷の体のセルの数・質量は同じ（中身の材質だけ置き換え）。33: 足の運びで、刻み（半歩に満たない 1 歩）の足を選び続けて、伸びきったもう一方の足が置き直されず体が止まる行き詰まりを直す（FootworkTuning.ShuffleShare。docs/arena/boot_snag.md）。32: スタミナの回復を止める仕事率 P を、出そうとした仕事ではなく実際にした仕事（SpendMuscleEnergy・サーボの精算）で数える。回復は exp(−(P / StaminaRestPower)²)、StaminaRestPower 0.7→5 W・StaminaCapacity 90→60 J・StaminaRecoveryWindow 2→1 s（動きながらも戻る。StaminaPowerWindow は廃止）。31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
+    public const int PhysicsVersion = 39; // 39: 蹴りの膝の制御（LegCommand.KneeLocal・KneeTwist・KneeBend。膝の点を PD 力で引き、股のサーボは腿の向き × ねじり、膝のサーボは曲げ。足首は引かない。KneeKp・KneeKd・KickKneeForceGain）。38:スタミナを臨界パワーと W′ のモデルに（RecoveryPower: 直近の仕事率が臨界パワー C = 最大の戻り × StaminaCriticalShare より下なら R − (R − C) P / C で戻り、上なら C だけ供給されて差で減る。前の exp(−(P/5W)²) は立ち回りの 5〜6 W で減った）・試合を通した持久力 Endurance = exp(−した仕事 / StaminaEndurance) が供給と臨界パワーに掛かる（後のラウンドほど疲れる）・StaminaCapacity 120→300 J・StaminaRecoveryPower 15→20 W・TiredKnee 0.6→0.45・打撲で失うスタミナを割合からエネルギー（WindPerBruise 12 J）へ。ユーザーの目標: 弱強の連打が 10 秒全力・さらに 10 秒落ちながら打てる、1 ラウンド目は全力で続けられる（StaminaFeelProbe・StaminaMatchProbe）。37: スタミナの容量 60→120 J（ユーザーの指定。尽きるのが早すぎた。回復の速さは同じなので満タンまでの時間も倍）。36: スタミナの蓄え・心肺の供給・回復を止める仕事率の尺度を筋肉の量（BodyBuild.MassRatio = H³M²）に比例させる（1 kg あたりで同じ。大きい体が質量に比例して増えた仕事で早く尽きていた。基準体格は不変）。35: 素手を指の関節で組む（掌 + 4 本 × 3 節の骨・肉・皮膚のセルを関節の曲げ角 HandSkeleton.PoseOf どおりに並べ、手形の変更は関節のバネ・ダンパ HandMotion で時間がかかる。折れた指は力が入らず力を抜いた形へ落ちる。素手の質量・形が変わる。docs/KARATE.md §指）。急所の狙いの点は実際のセルから（BodyLandmarks）。34: 首の骨折・首の切断・脊椎の損傷（頭を首の梁にして頸椎 4 セルが折れる・断たれると頭が離れて死ぬ・脊髄 Cord が削れた残りの断面で頸/胸/腰の筋の力と息を決める。docs/VOXEL_DAMAGE.md §首と脊椎）。無傷の体のセルの数・質量は同じ（中身の材質だけ置き換え）。33: 足の運びで、刻み（半歩に満たない 1 歩）の足を選び続けて、伸びきったもう一方の足が置き直されず体が止まる行き詰まりを直す（FootworkTuning.ShuffleShare。docs/arena/boot_snag.md）。32: スタミナの回復を止める仕事率 P を、出そうとした仕事ではなく実際にした仕事（SpendMuscleEnergy・サーボの精算）で数える。回復は exp(−(P / StaminaRestPower)²)、StaminaRestPower 0.7→5 W・StaminaCapacity 90→60 J・StaminaRecoveryWindow 2→1 s（動きながらも戻る。StaminaPowerWindow は廃止）。31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1384,7 +1384,8 @@ public sealed partial class Fighter
             var leg = _legParts[(int)side];
             var input = command.LegFor(side);
             leg.Command = State == FighterState.Standing && LegCondition(leg.AigisLeft) > 0f
-                && input is { } c && FiniteLegTarget(c.TargetLocal) && (c.KneeTargetLocal is not { } k || FiniteLegTarget(k)) ? input : null;
+                && input is { } c && FiniteLegTarget(c.TargetLocal) && (c.KneeTargetLocal is not { } k || FiniteLegTarget(k))
+                && (c.KneeLocal is not { } kl || FiniteLegTarget(kl)) && (c.KneeTwist is not { } tw || float.IsFinite(tw)) && (c.KneeBend is not { } kb || float.IsFinite(kb)) ? input : null;
         }
         ControlScale = Math.Clamp(scale, 0f, 1f);
         SetServoScale(scale);
@@ -1579,8 +1580,21 @@ public sealed partial class Fighter
             }
 
             var pose = _footwork.Pose(i);
+            if (leg.KneeDriven && leg.Command is not { IsKneeControl: true })
+            {
+                // 膝の制御が終わった: 前の目標（膝の点）から足首の目標の速さを出さない。
+                leg.KneeDriven = false;
+                leg.HasTarget = false;
+            }
+
             var (ankle, foot) = AnkleTarget(leg, pose, groundY);
             var kick = leg.Command;
+            if (kick is { IsKneeControl: true } kneeControl)
+            {
+                ApplyKneeControl(leg, kneeControl, pelvis, dt);
+                continue;
+            }
+
             if (kick is { } requested)
             {
                 ankle = Frame.LocalToWorld(requested.TargetLocal);
@@ -1598,6 +1612,121 @@ public sealed partial class Fighter
             SetTwistTarget(leg.ToeServo, kick is null ? -pose.HeelRaise : 0f);
             DriveFoot(leg, ankle, pose.Swinging || kick is not null, pelvisId: Parts.Pelvis, dt);
         }
+    }
+
+    /// <summary>
+    /// 膝の制御（蹴り）: 膝の点を目標へ PD 力で引き（反作用は骨盤）、股のサーボの目標を「立った形の腿の向き → 股から膝への向き」へ振る回転 ×
+    /// 腿の軸まわりのねじり、膝のサーボの目標を膝の曲げにする。ねじり・曲げがフリー（null）なら今の値を目標にして、バネが効かない（ダンパだけ）。
+    /// 足首は引かない（すねの先は膝の曲げと慣性で振られる）。足の曲げの目標だけは足の向きの指令に従う。
+    /// </summary>
+    private void ApplyKneeControl(Leg leg, LegCommand command, BodyState pelvis, float dt)
+    {
+        var t = _tuning.Footwork;
+        var pivot = pelvis.Position + Vector3.Transform(leg.PivotOnPelvis, pelvis.Orientation);
+        var inverse = Quaternion.Conjugate(pelvis.Orientation);
+        var thigh = _world.GetState(leg.Thigh);
+        var shin = _world.GetState(leg.Shin);
+        var kneeNow = thigh.Position + Vector3.Transform(leg.KneeOnThigh, thigh.Orientation);
+        var thighLength = leg.ThighToKnee.Length();
+
+        // 目標の膝は股から腿の長さの球面の上へ（腿は縮まないので、半径方向の目標は引っ張り合いになるだけ）。
+        var toGoal = Frame.LocalToWorld(command.KneeLocal!.Value) - pivot;
+        var restDirection = Vector3.Transform(Vector3.Normalize(leg.ThighToKnee), pelvis.Orientation);
+        var axis = toGoal.LengthSquared() > 1e-8f ? Vector3.Normalize(toGoal) : restDirection;
+        var goal = pivot + (axis * thighLength);
+        var forward = Vector3.Transform(Vector3.UnitZ, Quaternion.CreateFromAxisAngle(Vector3.UnitY, _facingYaw));
+        var reference = LegKnee.BendNormalRef(axis, forward);
+
+        // ねじり: 与えられた角、フリーなら今の腿の向きのねじり（その角を目標にするのでねじりのバネは効かない）。
+        var twist = command.KneeTwist ?? ThighTwistAbout(thigh.Orientation, axis, forward);
+        var normal = Vector3.Transform(reference, Quaternion.CreateFromAxisAngle(axis, twist));
+        var swing = Quaternion.Concatenate(Quaternion.Conjugate(LegIk.Basis(Vector3.Normalize(leg.ThighToKnee), Vector3.UnitZ)),
+            LegIk.Basis(Vector3.Transform(axis, inverse), Vector3.Transform(-normal, inverse)));
+        _world.SetAngularServoTarget(leg.HipServo, swing);
+
+        var bend = command.KneeBend ?? KneeAngle(thigh.Orientation, shin.Orientation);
+        bend = Math.Clamp(bend, 0f, LegIk.MaxKnee);
+        SetTwistTarget(leg.KneeServo, bend);
+        leg.ReachRatio = 0f;
+
+        // 足首の曲げはすねに対する角（Orientation の X 軸まわりの角。正でつま先が下がる）。蹴りのすねは水平に近くなるので、世界の向きでは決めない。
+        var orientation = command.Orientation ?? Quaternion.Identity;
+        leg.AnkleTarget = LegKnee.Wrap(2f * MathF.Atan2(orientation.X, orientation.W));
+        SetTwistTarget(leg.AnkleServo, leg.AnkleTarget);
+        SetTwistTarget(leg.ToeServo, 0f);
+
+        var velocity = thigh.LinearVelocity + Vector3.Cross(thigh.AngularVelocity, kneeNow - thigh.Position);
+        var targetVelocity = leg.HasTarget && dt > 0f ? ClampLength((goal - leg.LastTarget) / dt, _tuning.MaxTargetSpeed) : Vector3.Zero;
+        leg.LastTarget = goal;
+        leg.HasTarget = true;
+        leg.KneeDriven = true;
+        leg.LastError = goal - kneeNow;
+        var mass = _world.GetMass(leg.Thigh) + _world.GetMass(leg.Shin) + _world.GetMass(leg.Heel) + _world.GetMass(leg.Toe);
+        var scale = LegStrength(leg.AigisLeft) * Vigor * Tone;
+        var force = ClampLength(FighterMath.HandAccel(kneeNow, velocity, goal, targetVelocity, t.KneeKp, t.KneeKd) * mass,
+            t.MaxFootForce * _tuning.TorqueScale / _tuning.Scale * scale * t.KickKneeForceGain);
+        // 力は膝の点にかかる（腿の重心まわりのトルクにもなる）。反作用は骨盤へ（脚の筋肉が体と脚の間で出す力）。
+        _world.ApplyLinearImpulse(leg.Thigh, force * dt);
+        _world.ApplyAngularImpulse(leg.Thigh, Vector3.Cross(kneeNow - thigh.Position, force) * dt);
+        _world.ApplyLinearImpulse(Parts.Pelvis, -force * dt);
+    }
+
+    /// <summary>腿が軸 <paramref name="axis"/> のまわりにいまどれだけねじれているか（<see cref="LegKnee.TwistOf"/> の定義）。</summary>
+    private static float ThighTwistAbout(Quaternion thigh, Vector3 axis, Vector3 forward)
+    {
+        var thighForward = Vector3.Transform(Vector3.UnitZ, thigh);
+        var perpendicular = thighForward - (Vector3.Dot(thighForward, axis) * axis);
+        return perpendicular.LengthSquared() < 1e-8f ? 0f : LegKnee.TwistOf(axis, forward, -perpendicular);
+    }
+
+    /// <summary>膝の曲げ [rad]（腿に対するすねの X 軸まわりの角度）。</summary>
+    private static float KneeAngle(Quaternion thigh, Quaternion shin)
+    {
+        var relative = Quaternion.Concatenate(shin, Quaternion.Conjugate(thigh));
+        return LegKnee.Wrap(2f * MathF.Atan2(relative.X, relative.W));
+    }
+
+    /// <summary>蹴る脚の膝（腿の先）の位置。左右は本人の左右（Hand と同じ）。</summary>
+    public Vector3 KneePosition(Hand leg)
+    {
+        var p = _legParts[(int)leg];
+        var s = _world.GetState(p.Thigh);
+        return s.Position + Vector3.Transform(p.KneeOnThigh, s.Orientation);
+    }
+
+    /// <summary>腿の体の番号（調べもの・テスト用）。</summary>
+    internal int ThighBody(Hand leg) => _legParts[(int)leg].Thigh;
+
+    /// <summary>股の中心（腿が回る点）。</summary>
+    public Vector3 HipPosition(Hand leg)
+    {
+        var pelvis = _world.GetState(Parts.Pelvis);
+        return pelvis.Position + Vector3.Transform(_legParts[(int)leg].PivotOnPelvis, pelvis.Orientation);
+    }
+
+    /// <summary>膝の曲げ [rad]（0 = 伸びきり）。</summary>
+    public float KneeBend(Hand leg)
+    {
+        var p = _legParts[(int)leg];
+        return KneeAngle(_world.GetState(p.Thigh).Orientation, _world.GetState(p.Shin).Orientation);
+    }
+
+    /// <summary>腿の軸（股 → 膝）まわりのねじり [rad]（<see cref="LegCommand.KneeTwist"/> と同じ定義）。</summary>
+    public float ThighTwist(Hand leg)
+    {
+        var axis = KneePosition(leg) - HipPosition(leg);
+        var forward = Vector3.Transform(Vector3.UnitZ, Quaternion.CreateFromAxisAngle(Vector3.UnitY, _facingYaw));
+        return axis.LengthSquared() < 1e-8f ? 0f : ThighTwistAbout(_world.GetState(_legParts[(int)leg].Thigh).Orientation, Vector3.Normalize(axis), forward);
+    }
+
+    /// <summary>体フレームでの脚の寸法と立った形の膝（<see cref="FighterSense.SelfLeg"/>。蹴りの経路を体の寸法から出すため）。</summary>
+    public LegBody LegBodyOf(Hand leg)
+    {
+        var p = _legParts[(int)leg];
+        var pelvis = _world.GetState(Parts.Pelvis);
+        var hip = HipPosition(leg);
+        var rest = hip + Vector3.Transform(p.ThighToKnee, pelvis.Orientation);
+        return new LegBody(Frame.WorldToLocal(hip), Frame.WorldToLocal(rest), p.ThighToKnee.Length(), p.ShinLength);
     }
 
     /// <summary>
@@ -1939,25 +2068,44 @@ public sealed partial class Fighter
         return legs + (0.5f * _tuning.UprightKp * yawInertia * twist * twist);
     }
 
+    /// <summary>膝の制御で蹴っている脚の股・膝のサーボの強さの倍率（蹴らない脚は 1。<see cref="FootworkTuning.KickLegTorqueGain"/>）。</summary>
+    private float KneeKickTorque(bool aigisLeft)
+    {
+        foreach (var leg in _legParts)
+        {
+            if (leg.AigisLeft == aigisLeft && leg.Command is { IsKneeControl: true })
+            {
+                return _tuning.Footwork.KickLegTorqueGain;
+            }
+        }
+
+        return 1f;
+    }
+
+    /// <summary>脚のサーボの最大の速さ [rad/s]（歩く足は Aigis の既定 10。膝の制御で蹴っている脚は <see cref="FootworkTuning.KickLegServoSpeed"/>）。</summary>
+    private float KneeKickSpeed(bool aigisLeft) => KneeKickTorque(aigisLeft) > 1f ? _tuning.Footwork.KickLegServoSpeed : LegServoSpeed;
+
+    private const float LegServoSpeed = 10f;
+
     private void SetServoScale(float scale)
     {
         var s = Math.Clamp(scale, 0.01f, 1.5f);
         var t = _tuning.TorqueScale * s;
         // 値が変わったときだけ Bepu の拘束を書き換える（毎サブステップ 9 本の Get/ApplyDescription を避ける）。
         // 脚・腕のサーボの強さには、その脚・腕の肉の残り（力）を掛ける。
-        var left = t * MathF.Max(0.01f, LegStrength(true));
+        var left = t * MathF.Max(0.01f, LegStrength(true)) * KneeKickTorque(true);
         if (Changed(0, left))
         {
-            SetAngularStrength(_legs.LeftHip, _tuning.LegServoHz, _tuning.HipMaxTorque * left);
-            SetTwistStrength(_legs.LeftKnee, _tuning.LegServoHz, _tuning.KneeMaxTorque * left);
+            SetAngularStrength(_legs.LeftHip, _tuning.LegServoHz, _tuning.HipMaxTorque * left, KneeKickSpeed(true));
+            SetTwistStrength(_legs.LeftKnee, _tuning.LegServoHz, _tuning.KneeMaxTorque * left, KneeKickSpeed(true));
             SetTwistStrength(_legParts[Footwork.Rear].ToeServo, _tuning.LegServoHz, _tuning.ToeMaxTorque * left);
         }
 
-        var right = t * MathF.Max(0.01f, LegStrength(false));
+        var right = t * MathF.Max(0.01f, LegStrength(false)) * KneeKickTorque(false);
         if (Changed(4, right))
         {
-            SetAngularStrength(_legs.RightHip, _tuning.LegServoHz, _tuning.HipMaxTorque * right);
-            SetTwistStrength(_legs.RightKnee, _tuning.LegServoHz, _tuning.KneeMaxTorque * right);
+            SetAngularStrength(_legs.RightHip, _tuning.LegServoHz, _tuning.HipMaxTorque * right, KneeKickSpeed(false));
+            SetTwistStrength(_legs.RightKnee, _tuning.LegServoHz, _tuning.KneeMaxTorque * right, KneeKickSpeed(false));
             SetTwistStrength(_legParts[Footwork.Lead].ToeServo, _tuning.LegServoHz, _tuning.ToeMaxTorque * right);
         }
 
@@ -1988,19 +2136,19 @@ public sealed partial class Fighter
         }
     }
 
-    private void SetAngularStrength(int servo, float hz, float force)
+    private void SetAngularStrength(int servo, float hz, float force, float? maxSpeed = null)
     {
         if (_world.HasConstraint(servo))
         {
-            _world.SetAngularServoSettings(servo, hz, force);
+            _world.SetAngularServoSettings(servo, hz, force, maxSpeed: maxSpeed);
         }
     }
 
-    private void SetTwistStrength(int servo, float hz, float force)
+    private void SetTwistStrength(int servo, float hz, float force, float? maxSpeed = null)
     {
         if (_world.HasConstraint(servo))
         {
-            _world.SetTwistServoSettings(servo, hz, force);
+            _world.SetTwistServoSettings(servo, hz, force, maxSpeed: maxSpeed);
         }
     }
 
@@ -2667,7 +2815,15 @@ public sealed partial class Fighter
         public Vector3 LastError { get; set; }
         public bool HasTarget { get; set; }
 
+        /// <summary>直前の歩で膝の制御で動かした（<see cref="LastTarget"/> が膝の目標）。</summary>
+        public bool KneeDriven { get; set; }
+
         public int Shin { get; private init; }
+
+        /// <summary>腿（骨盤側の体）と、その上の膝の位置（腿のローカル）。膝の制御点（<see cref="LegCommand.KneeLocal"/>）が引く点。</summary>
+        public int Thigh { get; private init; }
+
+        public Vector3 KneeOnThigh { get; private init; }
 
         public static Leg Create(PhysicsWorld world, HumanoidRagdoll.Parts parts, IReadOnlyList<HumanoidRagdoll.JointGroup> joints, HumanoidRagdoll.HalfExtents half,
             bool aigisLeft, int toe, int toeServo, int hipServo, int kneeServo, int ankleServo)
@@ -2686,9 +2842,13 @@ public sealed partial class Fighter
             var inverse = Quaternion.Conjugate(pelvis.Orientation);
             var heelId = aigisLeft ? parts.LeftFoot : parts.RightFoot;
             var heel = world.GetState(heelId);
+            var thighId = aigisLeft ? parts.LeftThigh : parts.RightThigh;
+            var thighState = world.GetState(thighId);
             return new Leg
             {
                 AigisLeft = aigisLeft,
+                Thigh = thighId,
+                KneeOnThigh = Vector3.Transform(knee - thighState.Position, Quaternion.Conjugate(thighState.Orientation)),
                 Shin = aigisLeft ? parts.LeftShin : parts.RightShin,
                 Heel = heelId,
                 Toe = toe,

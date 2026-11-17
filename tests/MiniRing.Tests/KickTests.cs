@@ -18,7 +18,7 @@ public sealed class KickTests
             Assert.IsLessThan(1e-6f, Vector3.Distance(start.TargetLocal, end.TargetLocal));
             Assert.IsGreaterThan(0.05f, Vector3.Distance(start.TargetLocal, strike.TargetLocal));
             Assert.IsTrue(float.IsFinite(strike.TargetLocal.LengthSquared()));
-            Assert.IsNotNull(strike.KneeTargetLocal);
+            Assert.IsTrue(strike.KneeTargetLocal is not null || strike.IsKneeControl, "an ankle path points the knee; a knee-controlled kick commands the knee itself");
         }
     }
 }
