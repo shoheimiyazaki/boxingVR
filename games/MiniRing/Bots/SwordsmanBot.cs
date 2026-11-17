@@ -452,7 +452,7 @@ public sealed class SwordsmanBot : IFighterControl
     /// （<see cref="WeaponSense.Lost"/>）だけ近づく（短くなった武器のまま使う）。
     /// </summary>
     private float RangeOf(MotionTechnique technique) => technique.Motion.Kick is not null ? technique.Range
-        : technique.Range + _aimForward - (MotionAim.StrikingEndX(technique, _armReach) > MiniRing.Weapons.Weapon.GripOf(technique.Weapon).X ? _lost : 0f);
+        : technique.Range + _aimForward - (_armReach > 0f && MotionAim.StrikingEndX(technique, _armReach) > MiniRing.Weapons.Weapon.GripOf(technique.Weapon).X ? _lost : 0f); // 腕の長さを読む前（テストの PlanAt）は 0 で割らない（NaN を落ちる所の表に残さない）
 
     private float _armReach;
 
@@ -946,8 +946,7 @@ public sealed class SwordsmanBot : IFighterControl
             return ideal;
         }
 
-        var rest = _block ?? _guard;
-        var from = sense.SelfWeapon.Held && sense.SelfWeapon.Grip != default ? sense.Self.WorldToLocal(sense.SelfWeapon.Grip) / sense.ArmReach : rest.Right;
+        var from = sense.SelfWeapon.Held && sense.SelfWeapon.Grip != default ? sense.Self.WorldToLocal(sense.SelfWeapon.Grip) / sense.ArmReach : _guard.Right; // 握っていなければ構えの手から（前の受けの手ではない）
         return WeaponDefense.ReachableParry(sense, threat, _defense, ideal, from, currentBlade, _guard, blade, _spacing, RearLength ?? float.NaN, _time - _blowTime);
     }
 

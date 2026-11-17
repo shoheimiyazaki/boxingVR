@@ -191,7 +191,7 @@ public sealed partial class BoxingGame
         if (WeaponOf(opponent) is { } weapon && HolderOf(weapon) == opponent)
         {
             var s = _world.GetState(weapon.Body.BodyId);
-            // 打つ端が 2 つある武器（棒）は、いま速く動いている端を相手の「切っ先」と読む（相手の見える動きから。種類での分岐ではない）。
+            // 打つ端が 2 つある武器（棒の両端、刀・ロングソード・バットの切っ先と柄頭）は、いま速く動いている端を相手の「切っ先」と読む（相手の見える動きから。種類での分岐ではない）。
             var tip = Vector3.Zero;
             var tipVelocity = Vector3.Zero;
             var fastest = -1f;
