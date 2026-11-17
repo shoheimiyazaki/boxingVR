@@ -116,6 +116,6 @@ public static partial class SwordForms
         var kick = KickSpec.Of(KickTechnique.Front);
         // 蹴る間、剣は蹴り足の通り道（体の前）から外へ上げる（Tag: 右肩の上で立てる）。構えのままだと剣が蹴り足を斬る（自傷）。両手の目標の通り道だけで、足の動きは KickSpec のまま。
         var d = kick.Duration * SwordStance.Rate;
-        return FromKeys(name, [Hold(0f, guard), Hold(0.3f * d, Tag), Hold(0.75f * d, Tag), Hold(d, guard)], spacing) with { Kick = kick };
+        return FromKeys(name, [Hold(0f, guard), Hold(0.25f * d, Tag), Hold(0.6f * d, Tag), Hold(0.85f * d, guard), Hold(d, guard)], spacing) with { Kick = kick };
     }
 }
