@@ -153,7 +153,8 @@ public sealed partial class Fighter
         _legFull = _standHeight + _legParts[Footwork.Lead].PivotOnPelvis.Y; // 股の中心は骨盤の中心より下（Y < 0）
         _legSupport[0] = _legSupport[1] = _legFull;
         _footwork = new Footwork(tuning.Footwork) { MaxTwist = tuning.MaxTorsoTwistRadians };
-        _legMass = new[] { parts.LeftThigh, parts.RightThigh, parts.LeftShin, parts.RightShin, parts.LeftFoot, parts.RightFoot, toes.AigisLeft, toes.AigisRight }.Sum(world.GetMass);
+        _legBodies = [parts.LeftThigh, parts.RightThigh, parts.LeftShin, parts.RightShin, parts.LeftFoot, parts.RightFoot, toes.AigisLeft, toes.AigisRight];
+        _legMass = _legBodies.Sum(world.GetMass);
     }
 
     /// <summary>体の剛体すべて（Aigis の 13 部位 + つま先 2 つ）。</summary>
@@ -172,12 +173,41 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 39; // 39: 脚が折れた・切れても倒れたままにならない。脚ごとに体重を受けられる長さ（股から骨の切れ目まで）を持ち、腰は短い脚の端が床に着く高さ（StandTargetHeight − LegShortfall）で立ち、長い脚はその分曲げる（ApplyGait）。両脚とも付け根近くで無ければ骨盤で座り、その骨盤はダウンに数えない。歩く速さは残った脚の長さの平方根（上腕の長さを下限: 腕で這う）。切り株の筋肉の断面は切れ目の手前だけで測る（BoxerBody.Muscle）。足の無い脚では蹴らない。38: スタミナを臨界パワーと W′ のモデルに（RecoveryPower: 直近の仕事率が臨界パワー C = 最大の戻り × StaminaCriticalShare より下なら R − (R − C) P / C で戻り、上なら C だけ供給されて差で減る。前の exp(−(P/5W)²) は立ち回りの 5〜6 W で減った）・試合を通した持久力 Endurance = exp(−した仕事 / StaminaEndurance) が供給と臨界パワーに掛かる（後のラウンドほど疲れる）・StaminaCapacity 120→300 J・StaminaRecoveryPower 15→20 W・TiredKnee 0.6→0.45・打撲で失うスタミナを割合からエネルギー（WindPerBruise 12 J）へ。ユーザーの目標: 弱強の連打が 10 秒全力・さらに 10 秒落ちながら打てる、1 ラウンド目は全力で続けられる（StaminaFeelProbe・StaminaMatchProbe）。37: スタミナの容量 60→120 J（ユーザーの指定。尽きるのが早すぎた。回復の速さは同じなので満タンまでの時間も倍）。36: スタミナの蓄え・心肺の供給・回復を止める仕事率の尺度を筋肉の量（BodyBuild.MassRatio = H³M²）に比例させる（1 kg あたりで同じ。大きい体が質量に比例して増えた仕事で早く尽きていた。基準体格は不変）。35: 素手を指の関節で組む（掌 + 4 本 × 3 節の骨・肉・皮膚のセルを関節の曲げ角 HandSkeleton.PoseOf どおりに並べ、手形の変更は関節のバネ・ダンパ HandMotion で時間がかかる。折れた指は力が入らず力を抜いた形へ落ちる。素手の質量・形が変わる。docs/KARATE.md §指）。急所の狙いの点は実際のセルから（BodyLandmarks）。34: 首の骨折・首の切断・脊椎の損傷（頭を首の梁にして頸椎 4 セルが折れる・断たれると頭が離れて死ぬ・脊髄 Cord が削れた残りの断面で頸/胸/腰の筋の力と息を決める。docs/VOXEL_DAMAGE.md §首と脊椎）。無傷の体のセルの数・質量は同じ（中身の材質だけ置き換え）。33: 足の運びで、刻み（半歩に満たない 1 歩）の足を選び続けて、伸びきったもう一方の足が置き直されず体が止まる行き詰まりを直す（FootworkTuning.ShuffleShare。docs/arena/boot_snag.md）。32: スタミナの回復を止める仕事率 P を、出そうとした仕事ではなく実際にした仕事（SpendMuscleEnergy・サーボの精算）で数える。回復は exp(−(P / StaminaRestPower)²)、StaminaRestPower 0.7→5 W・StaminaCapacity 90→60 J・StaminaRecoveryWindow 2→1 s（動きながらも戻る。StaminaPowerWindow は廃止）。31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
+    public const int PhysicsVersion = 40; // 40: 脚の骨の端（膝・股の側）を骨の胴と同じ太さにする（BoxerAnatomy.WithJointEnds）。脚の外形が膝・股で絞れていて骨が端で 1〜2 セルまで細り、そこが軽い当たりで折れて脚が丸ごと落ちていた（脚の折れ 16 件のうち 12 件が端の段）。腿・すねのセルの数・質量が少し増える。体を支える力・歩く力・拳に借りる体の質量・体のバネ・歩く仕事を、外れた部位を除いた質量（SupportedMass）で計る（失った脚の分まで支えて、軽くなった体が起き上がる途中に跳ね上がった）。倒れている間に手を床に着くのは腰が立ち直った高さより低い間だけ（骨盤で座る体が手を床に着いたまま立ち直れなかった）。39: 脚が折れた・切れても倒れたままにならない。脚ごとに体重を受けられる長さ（股から骨の切れ目まで）を持ち、腰は短い脚の端が床に着く高さ（StandTargetHeight − LegShortfall）で立ち、長い脚はその分曲げる（ApplyGait）。両脚とも付け根近くで無ければ骨盤で座り、その骨盤はダウンに数えない。歩く速さは残った脚の長さの平方根（上腕の長さを下限: 腕で這う）。切り株の筋肉の断面は切れ目の手前だけで測る（BoxerBody.Muscle）。足の無い脚では蹴らない。38: スタミナを臨界パワーと W′ のモデルに（RecoveryPower: 直近の仕事率が臨界パワー C = 最大の戻り × StaminaCriticalShare より下なら R − (R − C) P / C で戻り、上なら C だけ供給されて差で減る。前の exp(−(P/5W)²) は立ち回りの 5〜6 W で減った）・試合を通した持久力 Endurance = exp(−した仕事 / StaminaEndurance) が供給と臨界パワーに掛かる（後のラウンドほど疲れる）・StaminaCapacity 120→300 J・StaminaRecoveryPower 15→20 W・TiredKnee 0.6→0.45・打撲で失うスタミナを割合からエネルギー（WindPerBruise 12 J）へ。ユーザーの目標: 弱強の連打が 10 秒全力・さらに 10 秒落ちながら打てる、1 ラウンド目は全力で続けられる（StaminaFeelProbe・StaminaMatchProbe）。37: スタミナの容量 60→120 J（ユーザーの指定。尽きるのが早すぎた。回復の速さは同じなので満タンまでの時間も倍）。36: スタミナの蓄え・心肺の供給・回復を止める仕事率の尺度を筋肉の量（BodyBuild.MassRatio = H³M²）に比例させる（1 kg あたりで同じ。大きい体が質量に比例して増えた仕事で早く尽きていた。基準体格は不変）。35: 素手を指の関節で組む（掌 + 4 本 × 3 節の骨・肉・皮膚のセルを関節の曲げ角 HandSkeleton.PoseOf どおりに並べ、手形の変更は関節のバネ・ダンパ HandMotion で時間がかかる。折れた指は力が入らず力を抜いた形へ落ちる。素手の質量・形が変わる。docs/KARATE.md §指）。急所の狙いの点は実際のセルから（BodyLandmarks）。34: 首の骨折・首の切断・脊椎の損傷（頭を首の梁にして頸椎 4 セルが折れる・断たれると頭が離れて死ぬ・脊髄 Cord が削れた残りの断面で頸/胸/腰の筋の力と息を決める。docs/VOXEL_DAMAGE.md §首と脊椎）。無傷の体のセルの数・質量は同じ（中身の材質だけ置き換え）。33: 足の運びで、刻み（半歩に満たない 1 歩）の足を選び続けて、伸びきったもう一方の足が置き直されず体が止まる行き詰まりを直す（FootworkTuning.ShuffleShare。docs/arena/boot_snag.md）。32: スタミナの回復を止める仕事率 P を、出そうとした仕事ではなく実際にした仕事（SpendMuscleEnergy・サーボの精算）で数える。回復は exp(−(P / StaminaRestPower)²)、StaminaRestPower 0.7→5 W・StaminaCapacity 90→60 J・StaminaRecoveryWindow 2→1 s（動きながらも戻る。StaminaPowerWindow は廃止）。31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
     public HumanoidRagdoll.HalfExtents HalfExtents { get; }
     public float TotalMass { get; private set; }
+
+    /// <summary>
+    /// 体がまだ支えている質量 [kg]: 切り落とされた・折れてぶら下がる先の部位（<see cref="_detached"/>）を除いた分。体を支える力（ホバー）・歩く力・
+    /// 拳に借りる体の質量・体のバネはこの質量で計る。失った脚の分まで支えると、軽くなった体が押し上げられて跳ね上がった（2026-11-17、
+    /// 両脚を腿の付け根で失った体が起き上がる途中に 55 cm 浮いて裏返った）。何も外れていなければ <see cref="TotalMass"/> そのもの。
+    /// 近道: 肉でぶら下がる先の重さも体から外す（本当は肉が体へ引っぱる）。
+    /// </summary>
+    public float SupportedMass => _detached.Count == 0 ? TotalMass : UnseveredMass(_all);
+
+    /// <summary>体がまだ支えている脚の質量 [kg]（<see cref="SupportedMass"/> と同じく、外れた部位を除く）。</summary>
+    private float SupportedLegMass => _detached.Count == 0 ? _legMass : UnseveredMass(_legBodies);
+
+    /// <summary>脚の剛体（腿・すね・かかと側の足・つま先。<see cref="_legMass"/> と同じ並び）。</summary>
+    private readonly int[] _legBodies;
+
+    /// <summary><paramref name="bodies"/> のうち体から外れていないものの質量の和（毎歩呼ぶので配列を作らない）。</summary>
+    private float UnseveredMass(int[] bodies)
+    {
+        var mass = 0f;
+        for (var i = 0; i < bodies.Length; i++)
+        {
+            if (!_detached.Contains(bodies[i]))
+            {
+                mass += _world.GetMass(bodies[i]);
+            }
+        }
+
+        return mass;
+    }
 
     internal void RefreshVoxelMass()
     {
@@ -1373,10 +1403,14 @@ public sealed partial class Fighter
         var effort = _stateTime < _tuning.CollapseDuration
             ? Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration)
             : Ramp(_tuning.DownDriveScale, 1f, _stateTime - _tuning.CollapseDuration, _tuning.RiseTime * 0.5f);
-        DriveBody(PostOnTheCanvas(command, grounded, height), effort * StirredTone, grounded, height, dt);
+        // 手を床に着くのは、腰がまだ立ち直った高さ（RecoverHeightRatio）より低い間だけ。腰が戻ったら手は入力元の構えへ戻す
+        // （脚を失って骨盤で座る体は腰の高さが変わらないので、手を床に着いたままだと立ち直った瞬間に手がマットに触れてダウンに戻り、
+        // 座ったまま起き上がれなかった。2026-11-17）。
+        var ratio = grounded ? height / StandTargetHeight : 0f;
+        var post = ratio < _tuning.RecoverHeightRatio;
+        DriveBody(post ? PostOnTheCanvas(command, grounded, height) : command, effort * StirredTone, grounded, height, dt);
 
         // 起き上がる途中（腰がダウンの高さを越えた）か、まだ床か。審判のカウントはどちらでも続く。
-        var ratio = grounded ? height / StandTargetHeight : 0f;
         State = ratio >= _tuning.DownHeightRatio ? FighterState.GettingUp : FighterState.Down;
         // 意識が KnockoutConsciousness を下回ったまま立ち上がっても立ち直りとは見ない（立ってはすぐ倒れ直して、数えを 0 からにするのを防ぐ）。
         var recovered = grounded && ratio >= _tuning.RecoverHeightRatio && Uprightness > _tuning.RecoverUprightness
@@ -1572,7 +1606,7 @@ public sealed partial class Fighter
         }
 
         var accel = FighterMath.MoveAccel(pelvis.LinearVelocity, desired, _tuning.MoveGain, _tuning.MaxMoveAccel);
-        ApplyLocomotion(accel * (TotalMass * scale), dt);
+        ApplyLocomotion(accel * (SupportedMass * scale), dt);
         TrackSpeed(pelvis.LinearVelocity, dt);
     }
 
@@ -1710,7 +1744,7 @@ public sealed partial class Fighter
             pelvis.LinearVelocity.Y, _tuning.HoverKp, _tuning.HoverKd, _tuning.MaxHoverAccel, hoverScale,
             release, _tuning.DropBrakeKeep, _tuning.DropPull);
         // 足の運びの間は脚が床に立っていて、脚の重さは床が支える。浮かせるのは上体（骨盤から上）だけ。
-        ApplySharedImpulse(new Vector3(0f, accel * (walking ? TotalMass : TotalMass - _legMass) * dt, 0f));
+        ApplySharedImpulse(new Vector3(0f, accel * (walking ? SupportedMass : SupportedMass - SupportedLegMass) * dt, 0f));
     }
 
     /// <summary>
@@ -1773,7 +1807,7 @@ public sealed partial class Fighter
     {
         var pelvis = _world.GetState(Parts.Pelvis);
         var accel = FighterMath.MoveAccel(pelvis.LinearVelocity, command.ClampedMove * (_tuning.WalkSpeed * Vigor * StrideSpeedRatio), _tuning.MoveGain, _tuning.MaxMoveAccel);
-        ApplyLocomotion(accel * (TotalMass * scale), dt);
+        ApplyLocomotion(accel * (SupportedMass * scale), dt);
         TrackSpeed(pelvis.LinearVelocity, dt);
     }
 
@@ -1887,7 +1921,7 @@ public sealed partial class Fighter
                 arm.BodyStore = null; // 次の拳の出し始めで蓄え直す
             }
 
-            var drive = arm.Drive(_world, _tuning, frame, target, scale * ArmStrength(arm.Hand), _inertia, com, torso, TotalMass, dt, Parts.Chest, spring, HandSlowness, hand.Tuck);
+            var drive = arm.Drive(_world, _tuning, frame, target, scale * ArmStrength(arm.Hand), _inertia, com, torso, SupportedMass, dt, Parts.Chest, spring, HandSlowness, hand.Tuck);
             ApplyArmDrive(arm, drive.Force, drive.ArmPart, weightShift, dt);
             arm.DriveWrist(_world, frame, arm.Support is { } held ? command.For(held.Main).Orientation : hand.Orientation);
         }
@@ -2008,7 +2042,7 @@ public sealed partial class Fighter
         if (TryFindGround(out var height))
         {
             var crouch = MathF.Max(0f, StandTargetHeight - height); // 脚を失って低く立つ分はバネに溜まっていない（立てる高さからの沈みだけ）
-            legs = 0.5f * (TotalMass - _legMass) * _tuning.HoverKp * crouch * crouch;
+            legs = 0.5f * (SupportedMass - SupportedLegMass) * _tuning.HoverKp * crouch * crouch;
         }
 
         var chest = _world.GetState(Parts.Chest);

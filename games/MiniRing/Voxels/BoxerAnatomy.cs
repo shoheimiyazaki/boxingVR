@@ -182,7 +182,7 @@ public static class BoxerAnatomy
         var dims = VoxelGrid.CellsFor(halfExtents, cellSize);
         if (overrides?.For(kind, dims) is { } edited)
         {
-            return FromEdited(halfExtents, dims, edited, outfit);
+            return WithJointEnds(kind, FromEdited(halfExtents, dims, edited, outfit));
         }
 
         var inside = shape is null ? null : InsideMask(shape, halfExtents, dims);
@@ -227,7 +227,124 @@ public static class BoxerAnatomy
             PlacePupils(grid, center, half);
         }
 
-        return grid;
+        return WithJointEnds(kind, grid);
+    }
+
+    /// <summary>
+    /// 脚の骨の端（膝・股の側の骨端）を、骨の胴の部分と同じ太さにする。人の骨は関節の所がいちばん太い。脚の外形（直した .vox も生成も）は
+    /// 膝・股で丸く絞れていて、骨の棒が端で 1〜2 セルまで細り、そこが曲げで折れて脚が丸ごと落ちていた（2026-11-17、ユーザーの指摘
+    /// 「脚がもげやすい」。脚の折れ 16 件のうち 12 件が端の段: <c>LegLossProbe.Probe_HowLegsBreak</c>）。
+    /// どれかの段に骨のある所の和（骨の軸に直角な断面の形。生成の骨の棒なら骨の胴の断面）を、骨のある段の全部へ置き、その外側の空いたセルを、その段の外側の皮膚
+    /// （トランクス・ブーツならそれ）と同じ材質の 1 層で包む。腿・すね以外はそのまま返す。何度かけても同じ（2 度目は何も変えない）。
+    /// </summary>
+    private static VoxelGrid WithJointEnds(BodyPartKind kind, VoxelGrid grid)
+    {
+        if (kind is not (BodyPartKind.Thigh or BodyPartKind.Shin))
+        {
+            return grid;
+        }
+
+        var (nx, ny, nz) = grid.Dimensions;
+        var materials = new byte[nx * ny * nz];
+        int Index(int x, int y, int z) => x + (nx * (y + (ny * z)));
+        // 脚の骨の軸は Y。骨の並び（断面の形）は、どれかの段に骨のある (x, z) の全部（生成の骨の棒なら骨の胴の断面そのもの。
+        // 直した .vox で段ごとに骨がずれていても、和なので 2 度かけても広がらない）。
+        var slices = Enumerable.Range(0, ny).Select(y => Footprint(grid, y)).ToArray();
+        var footprint = slices.SelectMany(s => s).Distinct().OrderBy(c => c.Z).ThenBy(c => c.X).ToList();
+        var boneSlices = Enumerable.Range(0, ny).Where(y => slices[y].Count > 0).ToArray();
+        if (footprint.Count == 0)
+        {
+            return grid;
+        }
+
+        for (var z = 0; z < nz; z++)
+        {
+            for (var y = 0; y < ny; y++)
+            {
+                for (var x = 0; x < nx; x++)
+                {
+                    materials[Index(x, y, z)] = grid.At(x, y, z);
+                }
+            }
+        }
+
+        // 段の外側の材質（皮膚・トランクス・ブーツ）: 骨・肉でない、いちばん多いもの。
+        byte CoverOf(int y) => Enumerable.Range(0, nz).SelectMany(z => Enumerable.Range(0, nx).Select(x => grid.At(x, y, z)))
+            .Where(m => m != 0 && m != Bone && m != Muscle).GroupBy(m => m).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).FirstOrDefault()?.Key ?? Skin;
+        var changed = false;
+        var (low, high) = (boneSlices.Min(), boneSlices.Max());
+        // 骨の端の外（骨の軸の向き）も 1 層で包む: 端の段の骨が、絞れた次の段から外に出ないように。材質は端の段の外側のもの。
+        foreach (var (y, from) in new[] { (low - 1, low), (high + 1, high) })
+        {
+            if (y < 0 || y >= ny)
+            {
+                continue;
+            }
+
+            var cap = CoverOf(from);
+            foreach (var (x, z) in footprint.Where(c => materials[Index(c.X, y, c.Z)] == 0))
+            {
+                materials[Index(x, y, z)] = cap;
+                changed = true;
+            }
+        }
+
+        for (var y = low; y <= high; y++)
+        {
+            var cover = CoverOf(y);
+            foreach (var (x, z) in footprint)
+            {
+                if (materials[Index(x, y, z)] != Bone)
+                {
+                    materials[Index(x, y, z)] = Bone;
+                    changed = true;
+                }
+
+                for (var dz = -1; dz <= 1; dz++)
+                {
+                    for (var dx = -1; dx <= 1; dx++)
+                    {
+                        var (sx, sz) = (x + dx, z + dz);
+                        if (sx >= 0 && sx < nx && sz >= 0 && sz < nz && materials[Index(sx, y, sz)] == 0)
+                        {
+                            materials[Index(sx, y, sz)] = cover;
+                            changed = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!changed)
+        {
+            return grid;
+        }
+
+        var cell = 2f * grid.HalfExtents / new Vector3(nx, ny, nz);
+        return new VoxelGrid(grid.Palette, grid.HalfExtents, grid.Dimensions, (p, _) =>
+        {
+            var c = (p + grid.HalfExtents) / cell;
+            return materials[Index((int)c.X, (int)c.Y, (int)c.Z)];
+        });
+    }
+
+    /// <summary>段 <paramref name="y"/>（Y の断面）の骨のセルの (x, z)。</summary>
+    private static List<(int X, int Z)> Footprint(VoxelGrid grid, int y)
+    {
+        var (nx, _, nz) = grid.Dimensions;
+        var cells = new List<(int X, int Z)>();
+        for (var z = 0; z < nz; z++)
+        {
+            for (var x = 0; x < nx; x++)
+            {
+                if (grid.At(x, y, z) == Bone)
+                {
+                    cells.Add((x, z));
+                }
+            }
+        }
+
+        return cells;
     }
 
     /// <summary>
