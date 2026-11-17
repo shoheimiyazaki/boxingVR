@@ -154,6 +154,11 @@ public static class BoxingRenderer
         {
             voxels.Add(weapon.Draw());
         }
+
+        foreach (var prop in game.BreakProps)
+        {
+            voxels.Add(prop.Draw()); // 休みの小物（ボトル・タオル・スマホ。持っている手の前腕に付いて描く）
+        }
     }
 
     /// <summary>
