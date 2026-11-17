@@ -62,7 +62,8 @@ try
         "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
-        "seoilab" => SeoiLabCommand(Options.Parse(argv[1..], "candidates", "bouts", "seconds", "seed", "validate", "log", "compare")),
+        "practicelab" => PracticeLabCommand(Options.Parse(argv[1..], "only", "candidates", "bouts", "seconds", "seed", "validate", "sigma", "log")),
+        "seoilab" => SeoiLabCommand(Options.Parse(argv[1..], "candidates", "bouts", "seconds", "seed", "validate", "log", "compare", "reference", "victims")),
         "rhythmlab" => RhythmLabCommand(Options.Parse(argv[1..], "hz", "ki", "cycles", "push", "bouts", "seconds", "seed", "log")),
         "balancelab" => BalanceLabCommand(Options.Parse(argv[1..], "only", "seed", "log")),
         "throwlab" => ThrowLabCommand(Options.Parse(argv[1..], "only", "victims", "bouts", "seconds", "seed", "log", "trace", "video", "speed", "width", "height")),
@@ -478,6 +479,28 @@ static int KarateLabCommand(Options o)
     return 0;
 }
 
+// 投げ技の練習（docs/GRAPPLING.md §15）: 教科書の技の経路を少しずつ変えて、良くなったら採る。
+static int PracticeLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + Environment.NewLine);
+        }
+    }
+
+    foreach (var name in o.List("only", ["seoi-nage"]))
+    {
+        new PracticeLab(o.Int("seed", 1), Log).Run(MiniRing.Bots.GrappleBook.Jujutsu.Technique(name), o.Int("candidates", 20, min: 1), o.Int("bouts", 2, min: 1),
+            o.Float("seconds", 10f, min: 1f), o.Int("validate", 301), o.Float("sigma", 0.06f, min: 0.001f));
+    }
+
+    return 0;
+}
+
 // 背負い投げを鍛える（docs/GRAPPLING.md §11）。
 static int SeoiLabCommand(Options o)
 {
@@ -489,6 +512,23 @@ static int SeoiLabCommand(Options o)
         {
             File.AppendAllText(logPath, line + Environment.NewLine);
         }
+    }
+
+    if (o.Get("reference") == "train")
+    {
+        new SeoiLab(o.Int("seed", 1), Log).TrainToReference(o.Int("candidates", 24, min: 1), o.Int("bouts", 2, min: 1), o.Float("seconds", 10f, min: 1f), o.Int("validate", 101));
+        return 0;
+    }
+
+    if (o.Get("reference") == "yes")
+    {
+        var technique = MiniRing.Bots.GrappleBook.Jujutsu.Technique("seoi-nage");
+        foreach (var victim in o.List("victims", ["stand", "champion"]))
+        {
+            SeoiReference.Run(technique, victim, o.Int("validate", 101), o.Int("bouts", 4, min: 1), o.Float("seconds", 12f, min: 1f), Log);
+        }
+
+        return 0;
     }
 
     if (o.Get("compare") == "yes")

@@ -57,6 +57,12 @@ public sealed record FighterTuning
     public float MaxHoverAccel { get; init; } = 2.2f * 9.81f;
 
     /// <summary>
+    /// 脚が床を押して体を持ち上げられる力の上限（自分の体重の倍、脚の力 1 のとき）。人はしゃがんだ姿勢から体重の 2〜3 倍を押し上げる
+    /// （人を背負って立ち上がれる）。腰を持ち上げる力の上限は、これと <see cref="MaxHoverAccel"/> の大きい方（docs/GRAPPLING.md §13）。
+    /// </summary>
+    public float LegLiftCapacity { get; init; } = 2.5f;
+
+    /// <summary>
     /// 脚の力を抜く（腰を重力で落とす）のに使う、目標が今の腰より低い量の幅 [m]。目標が <see cref="DropReleaseDeadband"/> より低くなってからこの幅で
     /// 0 → 1 に連続に効く（段階ではない）。60 cm の体で、ダッキングの腰の沈み（数 cm）が全部効く幅。
     /// </summary>

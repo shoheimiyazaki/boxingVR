@@ -40,6 +40,9 @@ public sealed class JujutsuBot : IFighterControl
     /// <summary>技をかけていない理由（観戦・調べもの用）。</summary>
     public string Waiting { get; private set; } = "";
 
+    /// <summary>今かけている技を始めてからの時間 [s]（かけていなければ最後の技の時間）。</summary>
+    public float Elapsed => _time;
+
     /// <summary>今かけている技（無ければ null）。</summary>
     public GrappleTechnique? Current => _technique;
 

@@ -31,6 +31,9 @@ public sealed partial class Fighter
     /// <summary>手首の点の、拳の中心から肘までの割合（前腕の長さに対する、拳の半分 ＋ 手首の幅のおよその比）。</summary>
     public const float WristShare = 0.3f;
 
+    /// <summary>脚（腿・すね・足・つま先）の質量の合計 [kg]。</summary>
+    public float LegMass => _legMass;
+
     /// <summary>切り離された（切り落とされた・折れて離れた）部位か。</summary>
     internal bool IsDetachedPart(int id) => _detached.Contains(id);
 

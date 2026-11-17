@@ -1711,11 +1711,17 @@ public sealed partial class Fighter
         var release = State == FighterState.Standing
             ? Math.Clamp((-error - _tuning.DropReleaseDeadband) / MathF.Max(1e-4f, _tuning.DropReleaseDepth), 0f, 1f)
             : 0f;
-        var accel = FighterMath.HoverAccel(support + (_hoverIntegral * MathF.Max(0f, hoverScale)), error,
-            pelvis.LinearVelocity.Y, _tuning.HoverKp, _tuning.HoverKd, _tuning.MaxHoverAccel, hoverScale,
-            release, _tuning.DropBrakeKeep, _tuning.DropPull);
         // 足の運びの間は脚が床に立っていて、脚の重さは床が支える。浮かせるのは上体（骨盤から上）だけ。
-        var lift = new Vector3(0f, accel * (walking ? TotalMass : TotalMass - _legMass) * dt, 0f);
+        var lifted = walking ? TotalMass : TotalMass - _legMass;
+        // 背負った相手の重さ（CarriedLoad、脚で感じる）も先に足して支える（重さを感じて脚に力を込める）。張りの分だけ。
+        var carried = CarriedLoad / MathF.Max(1e-3f, lifted) * Math.Clamp(Tone / MathF.Max(1e-3f, _tuning.FaintTone), 0f, 1f);
+        // 脚が押し上げられる上限: 体重の LegLiftCapacity 倍 × 脚の力（脚の重さは床が支えるので、上体へ出せる加速度に直す）。
+        var capacity = MathF.Max(_tuning.MaxHoverAccel,
+            ((_tuning.LegLiftCapacity * TotalMass) - (walking ? 0f : _legMass)) * -_world.Gravity.Y / MathF.Max(1e-3f, lifted) * MathF.Max(0f, scale));
+        var accel = FighterMath.HoverAccel(support + carried + (_hoverIntegral * MathF.Max(0f, hoverScale)), error,
+            pelvis.LinearVelocity.Y, _tuning.HoverKp, _tuning.HoverKd, MathF.Max(1e-3f, capacity), hoverScale,
+            release, _tuning.DropBrakeKeep, _tuning.DropPull);
+        var lift = new Vector3(0f, accel * lifted * dt, 0f);
         ApplySharedImpulse(lift);
         RecordSupportForce(lift);
     }

@@ -30,6 +30,16 @@ public sealed partial class Fighter
     /// <summary>今の支持多角形（床に着いている所の凸包、XZ）。</summary>
     public IReadOnlyList<Vector2> SupportHull => _support.Hull;
 
+    /// <summary>
+    /// 背負っている相手の重さ [N]（docs/GRAPPLING.md §13）: 相手を掴み、胴どうしが触れているとき、相手が自分の脚で支えきれていない分
+    /// （相手の縦の支えの抜け × 相手の上体の重さ）。脚で感じる重さで、腰を持ち上げる力に先に足す（重さを感じて脚に力を込める）。
+    /// BoxingGame が毎歩入れる。
+    /// </summary>
+    public float CarriedLoad { get; internal set; }
+
+    /// <summary>背負っている相手の重心（<see cref="CarriedLoad"/> が 0 より大きいとき。釣り合いを合成した重心で見る）。</summary>
+    internal Vector3 CarriedCenter { get; set; }
+
     /// <summary>この歩で、近似の立たせる力が体へ与えた上向きの力積 [N·s]（床の衝撃を測るとき、床が出した分と分けるため）。</summary>
     internal float SupportLift => MathF.Max(0f, _supportForce.Y);
 
@@ -153,6 +163,13 @@ public sealed partial class Fighter
     {
         GatherSupport(groundY, grounded);
         var c = CenterOfMass;
+        if (CarriedLoad > 0f)
+        {
+            // 背負った相手の重さを含めた重心で釣り合いを見る（相手の重さ m = 荷重 / g）。
+            var m = CarriedLoad / -_world.Gravity.Y;
+            c = ((c * TotalMass) + (CarriedCenter * m)) / (TotalMass + m);
+        }
+
         var c2 = new Vector2(c.X, c.Z);
         SupportMargin = _support.SignedDistance(c2);
         CopShortfall = 0f;

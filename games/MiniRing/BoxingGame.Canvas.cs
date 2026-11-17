@@ -23,6 +23,50 @@ public sealed partial class BoxingGame
     /// <summary>床に落ちた衝撃が起きた（ドリル・記録用）。</summary>
     public event Action<CanvasImpact>? Landed;
 
+    /// <summary>
+    /// 背負っている相手の重さを入れる（docs/GRAPPLING.md §13）: 相手を掴み、胴（胸・腰）どうしが <see cref="CarryContactGap"/> 以内に触れていれば、
+    /// 相手が自分の脚で支えきれていない分の重さを、掴んでいる側の脚が感じる重さにする。
+    /// </summary>
+    private void UpdateCarriedLoads()
+    {
+        foreach (var self in Fighters)
+        {
+            var other = self == Player ? Cpu : Player;
+            var holding = self.IsHolding(Hand.Left) || self.IsHolding(Hand.Right);
+            if (!holding || self.State != FighterState.Standing || !TorsosTouch(self, other))
+            {
+                self.CarriedLoad = 0f;
+                continue;
+            }
+
+            var upper = other.TotalMass - other.LegMass;
+            self.CarriedLoad = (1f - other.VerticalBalance) * upper * -_world.Gravity.Y;
+            self.CarriedCenter = other.CenterOfMass;
+        }
+    }
+
+    /// <summary>背負う接触とみなす、胴の箱どうしの水平のすき間 [m]。</summary>
+    private const float CarryContactGap = 0.01f;
+
+    private bool TorsosTouch(Fighter a, Fighter b)
+    {
+        foreach (var pa in (ReadOnlySpan<int>)[a.Parts.Chest, a.Parts.Pelvis])
+        {
+            foreach (var pb in (ReadOnlySpan<int>)[b.Parts.Chest, b.Parts.Pelvis])
+            {
+                var x = _world.GetState(pa).Position;
+                var y = _world.GetState(pb).Position;
+                var gap = new Vector2(x.X - y.X, x.Z - y.Z).Length() - a.HalfExtentsOf(pa).Z - b.HalfExtentsOf(pb).Z;
+                if (gap <= CarryContactGap && MathF.Abs(x.Y - y.Y) <= a.HalfExtentsOf(pa).Y + b.HalfExtentsOf(pb).Y)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private void RememberCanvasVelocities()
     {
         _canvasBefore.Clear();

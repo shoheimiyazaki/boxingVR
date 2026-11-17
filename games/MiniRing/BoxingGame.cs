@@ -425,6 +425,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         CoolWeapons(dt);
         var bepuStart = StepProfile.Begin();
         RememberCanvasVelocities();
+        UpdateCarriedLoads();
         _world.Step(dt);
         StepProfile.End(StepProfile.Slot.Bepu, bepuStart);
         DetectCanvasImpacts(dt);

@@ -87,42 +87,33 @@
       ]
     },
     {
-      // 首投げ（危険）: 右腕で相手の首を抱え（右手を頭の後ろへ回して握る）、左手で袖を持ち、腰を落として体を左へ回しながら、
-      // 抱えた頭を取りの左前の床へ引き落とす。相手は首から回って、肩・頭から落ちる。
+      // 首投げ（危険、2026-11-17 practicelab で練習した。docs/GRAPPLING.md §15）: 右腕で相手の首を抱え、左手で袖を持ち、腰を落として
+      // 体を左へ回しながら、抱えた頭を取りの左前の床へ引き落とす。値は練習の結果（docs/arena/practicelab_gen1.md）。
       "Name": "kubi-nage", "Weight": 0.6, "Kuzushi": [0.8, 0.3],
       "Keys": [
-        { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "Head", "Offset": [-0.1, 0, 0.12] } },
-        { "T": 0.3,  "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "Head", "Offset": [-0.1, 0, 0.12], "Grip": true },
-          "Move": [0, 0.6] },
-        { "T": 0.65, "Left": { "Anchor": "Self", "Offset": [0.5, -0.3, 0.1], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.3, -0.2, 0.35], "Grip": true },
-          "Head": [0, -0.25, 0], "Twist": 0.6, "Move": [-0.3, 0.3], "Spring": 0.5 },
-        { "T": 1.05, "Left": { "Anchor": "Self", "Offset": [0.55, -0.55, -0.1], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.6, -0.7, 0.25], "Grip": true },
-          "Head": [0, -0.4, 0.1], "Twist": 0.6, "Spring": 0.8 },
-        { "T": 1.3,  "Left": { "Anchor": "Self", "Offset": [0.5, -0.6, 0], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.6, -0.8, 0.2], "Grip": true },
-          "Head": [0, -0.4, 0.1] },
-        { "T": 1.45, "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+        {"T": 0, "Left": {"Anchor": "ElbowL", "Offset": [-0.0108, -0.063, -0.0165]}, "Right": {"Anchor": "Head", "Offset": [-0.19, 0.0475, 0.097]}, "Spring": 0.1185, "Twist": -0.0087},
+        {"T": 0.2562, "Left": {"Anchor": "ElbowL", "Offset": [0.0421, 0.0423, 0.0044], "Grip": true}, "Right": {"Anchor": "Head", "Offset": [-0.1623, -0.0506, 0.1068], "Grip": true}, "Move": [0.1234, 0.9895], "Spring": 0.1413, "Twist": -0.0433},
+        {"T": 0.5551, "Left": {"Anchor": "Self", "Offset": [0.4157, -0.3305, 0.145], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [0.0934, -0.139, 0.3152], "Grip": true}, "Move": [-0.2231, 0.1125], "Head": [0.035, -0.1908, 0.0744], "Spring": 0.4222, "Twist": 0.5127},
+        {"T": 0.8967, "Left": {"Anchor": "Self", "Offset": [0.5466, -0.5141, -0.0388], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [0.5854, -0.748, 0.2742], "Grip": true}, "Head": [0.008, -0.419, 0.0485], "Spring": 0.6421, "Twist": 0.4608},
+        {"T": 1.1102, "Left": {"Anchor": "Self", "Offset": [0.5456, -0.5818, -0.078], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [0.6354, -0.8781, 0.2966], "Grip": true}, "Head": [-0.0294, -0.5294, 0.1491], "Twist": 0.085},
+        {"T": 1.2383, "Left": {"Anchor": "Self", "Offset": [0.0148, -0.1894, 0.677]}, "Right": {"Anchor": "Self", "Offset": [-0.2026, -0.0308, 0.4504]}, "Twist": 0.0619}
       ]
     },
     {
-      // 背負い投げ（諸手、2026-11-17 seoilab。docs/GRAPPLING.md §11）: 袖（肘）と襟（肩の下）を取ったら、両手を取りの体に固定する
-      // （左手は胸の前で袖を釣り、右手は右肩の前で襟を持つ）。腕では引かない: 回って背を向けながら、立ち位置を相手の腰のすぐ前
-      // （背中が相手のお腹に付く所、Stand）へ運び、腰を落とす。受けは取りの体の回転と踏み込みで運ばれる。
-      // 背中を付けたまま止まり、膝を伸ばして腰で跳ね上げ、前へ体を折る。最後に両手を前下へ。
+      // 背負い投げ（2026-11-17、引き出してから回る形を practicelab で練習した。docs/GRAPPLING.md §15）: 袖と襟を取ったら手を体に固定し、
+      // まず取りが半歩下がって受けを前へ引き出し、出てきた受けの前で左へ回って背を向け、腰を落として背中を付ける。投げの始めに
+      // 腰をさらに素早く落とし、前へ出ながら膝を伸ばして跳ね上げ、前へ体を折る。値は練習の結果（docs/arena/practicelab_gen1.md）。
       "Name": "seoi-nage", "Weight": 0.8, "Kuzushi": [0, -1],
       "Keys": [
-        { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0] } },
-        { "T": 0.25, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
-        { "T": 0.45, "Left": { "Anchor": "Self", "Offset": [0.2, 0.05, 0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, 0.1, 0.2], "Grip": true },
-          "Head": [0, -0.225, 0], "Turn": 1.5, "Stand": { "Anchor": "Pelvis", "Offset": [0, 0, -0.05] } },
-        { "T": 0.65, "Left": { "Anchor": "Self", "Offset": [0.2, 0.05, 0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, 0.1, 0.2], "Grip": true },
-          "Head": [0, -0.45, 0.05], "Turn": 3.0, "Stand": { "Anchor": "Pelvis", "Offset": [0, 0, -0.05] } },
-        { "T": 0.8,  "Left": { "Anchor": "Self", "Offset": [0.2, 0.05, 0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, 0.1, 0.2], "Grip": true },
-          "Head": [0, -0.45, 0.1], "Turn": 3.0, "Stand": { "Anchor": "Pelvis", "Offset": [0, 0, -0.05] } },
-        { "T": 1.15, "Left": { "Anchor": "Self", "Offset": [0.2, 0.05, 0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, 0.1, 0.2], "Grip": true },
-          "Head": [0, 0, 0.75], "Turn": 3.0, "Spring": 0.6 },
-        { "T": 1.45, "Left": { "Anchor": "Self", "Offset": [0.1, -0.55, 0.4], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, -0.55, 0.45], "Grip": true },
-          "Head": [0, -0.1, 0.85], "Turn": 3.0, "Spring": 0.6 },
-        { "T": 1.65, "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] }, "Turn": 3.0 }
+        {"T": 0, "Left": {"Anchor": "ElbowL", "Offset": [0.0054, 0.038, -0.0367]}, "Right": {"Anchor": "ShoulderR", "Offset": [-0.075, -0.1859, 0.0638]}, "Spring": 0.2135, "Twist": 0.0582},
+        {"T": 0.2162, "Left": {"Anchor": "ElbowL", "Offset": [0.0326, 0.0672, 0.0705], "Grip": true}, "Right": {"Anchor": "ShoulderR", "Offset": [0.0375, -0.0269, -0.0106], "Grip": true}, "Twist": 0.0931},
+        {"T": 0.4324, "Left": {"Anchor": "Self", "Offset": [0.2675, 0.0412, 0.4416], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.0751, 0.1275, 0.3196], "Grip": true}, "Move": [0.0567, -1.0425], "Head": [-0.0118, -0.0009, -0.0541], "Twist": -0.0235},
+        {"T": 0.6054, "Left": {"Anchor": "Self", "Offset": [0.2528, 0.0769, 0.3769], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.0536, 0.0569, 0.2684], "Grip": true}, "Head": [-0.0166, -0.2872, 0.0178], "Twist": -0.031, "Turn": 1.5, "Stand": {"Anchor": "Pelvis", "Offset": [0.0939, -0.0405, -0.004]}},
+        {"T": 0.7783, "Left": {"Anchor": "Self", "Offset": [0.1935, -0.0771, 0.2851], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.173, 0.0806, 0.1182], "Grip": true}, "Head": [0.0998, -0.3947, 0.0842], "Spring": 0.1157, "Twist": 0.0329, "Turn": 3, "Stand": {"Anchor": "Pelvis", "Offset": [0.062, 0.0009, 0.0367]}},
+        {"T": 0.8648, "Left": {"Anchor": "Self", "Offset": [0.1635, -0.0377, 0.2816], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.0641, 0.0622, 0.1255], "Grip": true}, "Move": [0.1915, 0.5803], "Head": [-0.0178, -0.5719, 0.2302], "Twist": 0.0356, "Turn": 3},
+        {"T": 1.1243, "Left": {"Anchor": "Self", "Offset": [0.1132, 0.095, 0.4332], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.0859, 0.0753, 0.2175], "Grip": true}, "Move": [-0.0686, 0.7216], "Head": [0.0154, 0.0082, 0.8945], "Spring": 0.7228, "Twist": 0.0309, "Turn": 3},
+        {"T": 1.3837, "Left": {"Anchor": "Self", "Offset": [0.116, -0.5764, 0.4397], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.2191, -0.6109, 0.4841], "Grip": true}, "Head": [-0.1364, -0.1285, 0.9189], "Spring": 0.5511, "Twist": -0.0254, "Turn": 3},
+        {"T": 1.5567, "Left": {"Anchor": "Self", "Offset": [0.2265, -0.1151, 0.4838]}, "Right": {"Anchor": "Self", "Offset": [-0.1863, -0.1433, 0.5356]}, "Twist": -0.0845, "Turn": 3}
       ]
     },
     {
