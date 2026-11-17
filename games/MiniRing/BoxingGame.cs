@@ -1321,7 +1321,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             self.Faintness, OpponentTargets: opponent.AsTarget, SelfStamina: self.Stamina,
             SelfVision: self.Voxels?.Vision ?? VisionState.Healthy, OpponentVision: opponent.Voxels?.Vision ?? VisionState.Healthy,
             OpponentArmReach: opponent.ArmReach, OpponentDowned: opponent.State != FighterState.Standing,
-            SelfBuild: self.Build, OpponentBuild: opponent.Build);
+            SelfBuild: self.Build, OpponentBuild: opponent.Build,
+            SelfLegLeft: self.LegBodyOf(Hand.Left), SelfLegRight: self.LegBodyOf(Hand.Right));
     }
 
     public FighterSense PlayerSense => ArmedSense(Player, Cpu);

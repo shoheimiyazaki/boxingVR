@@ -47,6 +47,7 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 ///   0x02 Checksum: int32 step（そのステップを終えた直後）| uint64 BoxingGame.StateChecksum()
 /// </code>
 /// 版 11: Step の最後に左右の握りを滑らせる指令（bool Slide。<see cref="HandCommand.Slide"/>。版 10 までの記録は false）。
+/// 版 12: 脚指令の最後に膝の制御（膝の位置・ねじり・曲げ。それぞれ 有無 bool + 値。<see cref="LegCommand.KneeLocal"/>）。
 /// 版 10: Step の最後に左右の肘の締め（float Tuck、0..1。<see cref="HandCommand.Tuck"/>）。
 /// 版 9: 見出しの並びは版 8 と同じで、matchSettings の JSON に PlayerWeaponStyleJson・CpuWeaponStyleJson（武器のボットの判断の値。教科書に教育を重ねた解決済みの <see cref="Bots.WeaponStyle"/>）が入りうる（無ければ null = その武器の組み込みの教科書）。
 /// 版 8: 見出しの並びは版 7 と同じで、matchSettings の JSON に PlayerStyleJson（人が操る赤の意図の解釈に使う、教育を重ねた解決済みのスタイル）が入りうる（無ければ null = 今までの決め方）。
@@ -55,7 +56,7 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// </summary>
 public static class ReplayFile
 {
-    public const int Version = 11;
+    public const int Version = 12;
     public const string Extension = ".mrrep";
     /// <summary>1 ステップの時間刻みとして受け付ける上限 [s]（壊れたファイルの値を物理に渡さない）。</summary>
     public const float MaxDt = 0.25f;
@@ -257,8 +258,8 @@ public static class ReplayFile
             {
                 Left = command.Left with { Shape = ReadShape(reader) },
                 Right = command.Right with { Shape = ReadShape(reader) },
-                LeftLeg = ReadLeg(reader),
-                RightLeg = ReadLeg(reader),
+                LeftLeg = ReadLeg(reader, version),
+                RightLeg = ReadLeg(reader, version),
             };
         }
 
@@ -329,6 +330,24 @@ public static class ReplayFile
         }
 
         writer.Write(value.Spring);
+        // 版 12: 膝の制御（膝の位置・ねじり・曲げ。それぞれ null = なし / フリー）。
+        writer.Write(value.KneeLocal.HasValue);
+        if (value.KneeLocal is { } kneeLocal)
+        {
+            Write(writer, kneeLocal);
+        }
+
+        writer.Write(value.KneeTwist.HasValue);
+        if (value.KneeTwist is { } twist)
+        {
+            writer.Write(twist);
+        }
+
+        writer.Write(value.KneeBend.HasValue);
+        if (value.KneeBend is { } bend)
+        {
+            writer.Write(bend);
+        }
     }
 
     private static HandShape ReadShape(BinaryReader reader)
@@ -337,7 +356,7 @@ public static class ReplayFile
         return Enum.IsDefined(shape) ? shape : throw new InvalidDataException("記録の手の形が不正です。");
     }
 
-    private static LegCommand? ReadLeg(BinaryReader reader)
+    private static LegCommand? ReadLeg(BinaryReader reader, int version)
     {
         if (!reader.ReadBoolean())
         {
@@ -364,7 +383,17 @@ public static class ReplayFile
             throw new InvalidDataException("脚のバネ伝達は 0..1 で指定してください。");
         }
 
-        return new LegCommand(target, knee, orientation, spring);
+        Vector3? kneeLocal = null;
+        float? kneeTwist = null;
+        float? kneeBend = null;
+        if (version >= 12)
+        {
+            kneeLocal = reader.ReadBoolean() ? Read3(reader) : null;
+            kneeTwist = reader.ReadBoolean() ? ReadFinite(reader) : null;
+            kneeBend = reader.ReadBoolean() ? ReadFinite(reader) : null;
+        }
+
+        return new LegCommand(target, knee, orientation, spring, kneeLocal, kneeTwist, kneeBend);
     }
 
     private static float ReadTuck(BinaryReader reader)

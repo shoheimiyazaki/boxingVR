@@ -18,6 +18,8 @@ using MiniRing.Bots;
 //                                                                                   攻撃のドリル: 単発・連打 × 溜めの長さで、拳の速さ・体重の乗り・威力
 //   karatelab [--only shapes,parry,kicks,video] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md] [--video media_tmp/karate_vitals]
 //                                                                                   空手のドリル: 手の形 × 急所、パリー（拳の曲がり）、5 種の蹴り
+//   kicklab [--body diego] [--kick Roundhouse] [--distances 1.0,1.1,...] [--seeds 1,2,..] [--confirm-seeds 11,12,..] [--shin 0.75] [--overshoot -0.2] [--log f.md]
+//                                                                                   蹴りの間合いのドリル: 間合いを刻んで蹴り、当たり・すねの当たった点・渡したエネルギーの表（採る間合いは使っていない種で比べ直す）
 //   counterlab [--book f.json] [--defense a,b|evasions] [--bouts N] [--ranges 1.15,1.3] [--log f.md] [--out book.json]
 //                                                                                   回避からのカウンターの研究（型 × 打ち始めの総当たり）
 //   basics [--punch 2] [--slot Duck] [--style swarmer] [--guards 0.6,1.0,1.5] [--guard H] [--gens G] [--pop P] [--log f.md] [--out f.json]
@@ -62,6 +64,8 @@ try
         "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
+        "kicklab" => KickLabCommand(Options.Parse(argv[1..], "body", "kick", "distances", "seeds", "confirm-seeds", "shin", "overshoot", "side", "log")),
+        "kickvideo" => KickVideoCommand(Options.Parse(argv[1..], "body", "kick", "distances", "side", "slow", "width", "height", "fps", "out")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
         "formlab" => FormLabCommand(Options.Parse(argv[1..], "punch", "slot", "style", "move", "set", "cue", "bouts", "seconds", "seed", "log")),
@@ -472,6 +476,40 @@ static int KarateLabCommand(Options o)
     new KarateLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log,
         o.List("cues", ["0", "0.06"]).Select(c => float.Parse(c, CultureInfo.InvariantCulture)).ToList())
         .Run(only.Contains("shapes"), only.Contains("parry"), only.Contains("kicks"));
+    return 0;
+}
+
+// 蹴りの間合いのドリル: テコンドー家の体が、立つだけの相手へ間合いを刻んで回し蹴りを蹴り、当たり・すねの当たった点・渡したエネルギーを表にする（docs/TAEKWONDO.md）。
+static int KickLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    float[] Floats(string key, string[] fallback) => o.List(key, fallback).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToArray();
+    int[] Ints(string key, string[] fallback) => o.List(key, fallback).Select(t => int.Parse(t, CultureInfo.InvariantCulture)).ToArray();
+    KickLab.Report(o.Get("body") ?? "diego", Enum.Parse<MiniRing.Bots.KickTechnique>(o.Get("kick") ?? "Roundhouse", ignoreCase: true),
+        Floats("distances", ["1.0", "1.05", "1.1", "1.15", "1.2", "1.25", "1.3", "1.4"]), Ints("seeds", ["1", "2", "3", "4", "5", "6"]),
+        Ints("confirm-seeds", ["11", "12", "13", "14", "15", "16"]),
+        o.Get("shin") is { } shin ? float.Parse(shin, CultureInfo.InvariantCulture) : null,
+        o.Get("overshoot") is { } overshoot ? float.Parse(overshoot, CultureInfo.InvariantCulture) : null,
+        o.Get("side") is { } side ? Enum.Parse<MiniRing.Hand>(side, ignoreCase: true) : null, Log);
+    return 0;
+}
+
+// 膝の制御の回し蹴りの動画: 間合いを変えて 1 本ずつ、真横から撮る（金の線 = 膝の制御点、隅に曲げ・ねじり・当たった点とエネルギー）。
+static int KickVideoCommand(Options o)
+{
+    var distances = o.List("distances", ["1.05", "1.25", "1.5"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToArray();
+    KickVideo.Make(o.Get("body") ?? "diego", Enum.Parse<MiniRing.Bots.KickTechnique>(o.Get("kick") ?? "Roundhouse", ignoreCase: true), distances,
+        Enum.Parse<MiniRing.Hand>(o.Get("side") ?? "Left", ignoreCase: true), o.Float("slow", 0.25f, min: 0.05f), o.Int("width", 1280, min: 320), o.Int("height", 720, min: 240),
+        o.Int("fps", 30, min: 5), o.Get("out") ?? "kick.mp4", Console.Out);
     return 0;
 }
 
