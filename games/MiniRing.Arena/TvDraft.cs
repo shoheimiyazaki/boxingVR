@@ -467,24 +467,34 @@ internal static partial class TvDraft
             }
         }
 
-        payload["lines"] = placed.OrderBy(l => l.At).Select(l => new Dictionary<string, object>
+        payload["lines"] = placed.OrderBy(l => l.At).Select(l =>
         {
-            ["at"] = Math.Round(l.At, 1),
-            ["speaker"] = l.Speaker,
-            ["text"] = l.Text,
-            ["excited"] = l.Excited,
+            var line = new Dictionary<string, object>
+            {
+                ["at"] = Math.Round(l.At, 1),
+                ["speaker"] = l.Speaker,
+                ["text"] = l.Text,
+                ["excited"] = l.Excited,
+            };
+            if (l.Overlap)
+            {
+                line["overlap"] = true; // 興奮の感嘆: 声入れが順番の外で重ねて鳴らす
+            }
+
+            return line;
         }).ToList();
         return JsonSerializer.Serialize(payload, JsonOptions);
     }
 
     /// <summary>台本の 1 台詞。<see cref="Seconds"/> は話す長さの見積もり（話し手の速さ込み）。</summary>
-    private sealed record Spoken(float At, string Speaker, string Text, bool Excited, float Seconds = 0f);
+    private sealed record Spoken(float At, string Speaker, string Text, bool Excited, float Seconds = 0f, bool Overlap = false);
 
     private static Spoken Line(JsonElement l) => new(
         (float)l.GetProperty("at").GetDouble(),
         l.TryGetProperty("speaker", out var s) ? s.GetString() ?? "announcer" : "announcer",
         l.GetProperty("text").GetString() ?? "",
-        l.TryGetProperty("excited", out var e) && e.ValueKind == JsonValueKind.True);
+        l.TryGetProperty("excited", out var e) && e.ValueKind == JsonValueKind.True,
+        Overlap: l.TryGetProperty("overlap", out var o) && o.ValueKind == JsonValueKind.True);
 
     /// <summary>台詞の組を続けて置ける最初の時刻の並び（<paramref name="from"/>〜<paramref name="to"/> を 0.1 秒刻みで探す）。</summary>
     private static float[]? Slot(List<Spoken> placed, List<Spoken> group, float from, float to)
