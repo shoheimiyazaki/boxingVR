@@ -7,7 +7,7 @@
   "BlockWeight": 0.4, "SlipWeight": 0.8, "SwayWeight": 0.8, "StepBackWeight": 1, "ParryWeight": 0,
   "DefenseRate": 0.7, "CounterRate": 0.7, "ReactionTime": 0.17, "Anticipation": 0.7,
   "ThrowRate": 0, "ClinchRate": 0, "ReadGuard": 0.6,
-  "KickRate": 0.75, "KickDuration": 0.95, "KickRangeFit": 1.5,
+  "KickRate": 0.75, "KickDuration": 1.14, "KickRangeFit": 1.5,
   "GroundStomp": 0.4, "GroundCut": 0.4, "GroundLoad": 0.03,
   "KickWeights": { "Front": 1, "Low": 1, "Middle": 1, "High": 1, "Knee": 0.3, "Roundhouse": 3, "Side": 2, "Back": 1, "Axe": 1 }
 }

@@ -19,7 +19,7 @@ public enum KickTechnique { Front, Low, Middle, High, Knee, Roundhouse, Side, Ba
 /// </para>
 /// </summary>
 public readonly record struct KickSpec(KickTechnique Technique, float Duration, float Lateral, float ChamberHeight, float Overshoot,
-    float Twist = 0f, float Spin = 0f, float Standoff = 0.9f, float FootPitch = 0.25f, float ShinPoint = 0.75f)
+    float Twist = 0f, float Spin = 0f, float Standoff = 0.9f, float FootPitch = 0.25f, float ShinPoint = 0.75f, KneePath? Practiced = null)
 {
     public const float ChamberShare = 0.28f;
     public const float ContactShare = 0.53f;
@@ -32,7 +32,9 @@ public readonly record struct KickSpec(KickTechnique Technique, float Duration, 
         KickTechnique.High => new(technique, 1.12f, 0.78f, 0.82f, 0.12f, Standoff: 0.8f),
         KickTechnique.Knee => new(technique, 0.75f, 0f, 0.56f, 0.08f, Standoff: 0.8f, FootPitch: 0.9f),
         // 回し蹴り: 膝を横へ張り出してたたみ、腰を回しながら横から振り抜く（足の甲が先に当たる: つま先を伸ばす）。
-        KickTechnique.Roundhouse => new(technique, 0.90f, 0.85f, 0.60f, -0.20f, Twist: 0.6f, Spin: 1.0f, Standoff: 1.25f, FootPitch: -0.5f),
+        KickTechnique.Roundhouse => new(technique, 0.90f, 0.85f, 0.60f, -0.20f, Twist: 0.6f, Spin: 1.0f, Standoff: 1.25f, FootPitch: -0.5f,
+            // 練習で磨いた通り道（kneelab 段 2、docs/arena/kneelab_stage2_diego.md。蹴りの長さ 1.14 s で磨いた: taekwondo.json の KickDuration）。
+            Practiced: new KneePath(0.938f, 0.101f, 1.194f, -0.022f, 0f, 0f, 0f, 1.345f, 0.47f, 0.275f, 0.706f, 0.424f)),
         // 横蹴り: 膝を胸へたたみ、体を横へ向けて（足が相手へ向く）、足の外側・かかとで真っすぐ押し出す。
         KickTechnique.Side => new(technique, 0.95f, 0.30f, 0.55f, 0.16f, Twist: 0.5f, Spin: 1.45f, Standoff: 0.95f, FootPitch: 0f),
         // 後ろ蹴り: 背を向ける回転（体ごと 150°）の中で脚を畳み、後ろへ伸ばす。足裏・かかとが当たる。
@@ -79,7 +81,8 @@ public readonly record struct KickSpec(KickTechnique Technique, float Duration, 
         var t = Math.Clamp(time / duration, 0f, 1f);
         if (UsesKnee)
         {
-            return EvaluateKnee(leg, t, aim, reach, body ?? LegBody.FromReach(leg, reach));
+            var lb = body ?? LegBody.FromReach(leg, reach);
+            return Practiced is { } practiced ? practiced.Evaluate(leg, t, aim, lb, FootPitch) : EvaluateKnee(leg, t, aim, reach, lb);
         }
 
         if (Turns)
@@ -239,10 +242,10 @@ public readonly record struct KickSpec(KickTechnique Technique, float Duration, 
     }
 
     /// <summary>体の向きを相手へ向けた向きから回す角度 [rad]（ヨー、正で左回り。蹴る脚の側の腰が前へ出る向きに回る）。</summary>
-    public float FaceYaw(Hand leg, float time, float duration) => -leg.LocalSide() * Spin * TurnProfile(time, duration);
+    public float FaceYaw(Hand leg, float time, float duration) => -leg.LocalSide() * (Practiced?.Spin ?? Spin) * TurnProfile(time, duration);
 
     /// <summary>胴のひねりの上乗せ [rad]（正で右肩が前）。蹴る脚の側の肩・腰が前へ出る向き。</summary>
-    public float TorsoTwist(Hand leg, float time, float duration) => -leg.LocalSide() * Twist * TurnProfile(time, duration);
+    public float TorsoTwist(Hand leg, float time, float duration) => -leg.LocalSide() * (Practiced?.Torso ?? Twist) * TurnProfile(time, duration);
 
     private static float Smooth(float t) => t * t * (3f - (2f * t));
 }

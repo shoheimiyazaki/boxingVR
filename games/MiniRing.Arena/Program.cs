@@ -66,6 +66,7 @@ try
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
         "kicklab" => KickLabCommand(Options.Parse(argv[1..], "body", "kick", "distances", "seeds", "confirm-seeds", "shin", "overshoot", "side", "log")),
         "kickvideo" => KickVideoCommand(Options.Parse(argv[1..], "body", "kick", "distances", "side", "slow", "width", "height", "fps", "out")),
+        "kneelab" => KneeLabCommand(Options.Parse(argv[1..], "stage", "bodies", "body", "distances", "distance", "confirm", "azimuths", "elevations", "twists", "sides", "log", "impact-az", "impact-el", "impact-twist", "foot", "gens", "lambda", "video")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
         "formlab" => FormLabCommand(Options.Parse(argv[1..], "punch", "slot", "style", "move", "set", "cue", "bouts", "seconds", "seed", "log")),
@@ -500,6 +501,42 @@ static int KickLabCommand(Options o)
         o.Get("shin") is { } shin ? float.Parse(shin, CultureInfo.InvariantCulture) : null,
         o.Get("overshoot") is { } overshoot ? float.Parse(overshoot, CultureInfo.InvariantCulture) : null,
         o.Get("side") is { } side ? Enum.Parse<MiniRing.Hand>(side, ignoreCase: true) : null, Log);
+    return 0;
+}
+
+// 回し蹴りの段階練習: 段 1 = 膝を空中に止めて伸ばすだけで蹴り、当てる所（膝の位置・ねじり）を探す。
+static int KneeLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    float[] Floats(string key, string[] fallback) => o.List(key, fallback).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToArray();
+    float[] Radians(string key, string[] fallback) => Floats(key, fallback).Select(d => d * MathF.PI / 180f).ToArray();
+    var sides = o.List("sides", ["Left", "Right"]).Select(s => Enum.Parse<MiniRing.Hand>(s, ignoreCase: true)).ToArray();
+    if (o.Int("stage", 1) == 2)
+    {
+        var impact = new KneeLab.Spot(o.Float("impact-az", 20f) * MathF.PI / 180f, o.Float("impact-el", 10f) * MathF.PI / 180f, o.Float("impact-twist", 0f));
+        KneePractice.Stage2(o.Get("body") ?? "diego", impact, o.Float("foot", MiniRing.Bots.KickSpec.Of(MiniRing.Bots.KickTechnique.Roundhouse).FootPitch),
+            Floats("distances", ["1.2", "1.4"]), Floats("confirm", ["1.1", "1.3"]), o.Int("gens", 12, min: 1), o.Int("lambda", 8, min: 4), o.Get("video"), Log);
+        return 0;
+    }
+
+    if (o.Get("video") is { } video1)
+    {
+        var spot = new KneeLab.Spot(o.Float("impact-az", 20f) * MathF.PI / 180f, o.Float("impact-el", 10f) * MathF.PI / 180f, o.Float("impact-twist", 0f));
+        KneeLab.Stage1Video(o.Get("body") ?? "diego", spot, sides[0], o.Float("distance", 1.2f), video1, Log);
+        return 0;
+    }
+
+    KneeLab.Stage1(o.List("bodies", ["diego", "standard"]), Floats("distances", ["1.2"]), Radians("azimuths", ["20", "50", "80"]),
+        Radians("elevations", ["0", "25", "50"]), Floats("twists", ["-1.5", "0", "1.5", "3"]), sides, Log);
     return 0;
 }
 
