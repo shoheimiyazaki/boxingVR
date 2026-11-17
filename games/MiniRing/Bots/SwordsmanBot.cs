@@ -314,10 +314,10 @@ public sealed class SwordsmanBot : IFighterControl
 
     private IReadOnlyList<MotionTechnique>? _planPool;
 
-    /// <summary>計画の候補: <see cref="Pool"/> のうち間合いが <see cref="PlanMinReach"/> 以上の技（無ければ <see cref="Pool"/>）。</summary>
+    /// <summary>計画の候補: <see cref="Pool"/> のうち間合いが <see cref="PlanMinReach"/> 以上の技（内側の技が <see cref="Pool"/> に無ければ <see cref="Pool"/> そのもの）。</summary>
     private IReadOnlyList<MotionTechnique> PlanPool => _planPool ??= PlanMinReach <= 0f
         ? Pool
-        : Pool.Where(t => t.Range >= PlanMinReach).ToList() is { Count: > 0 } far ? far : Pool;
+        : Pool.Where(t => t.Range >= PlanMinReach).ToList() is { Count: > 0 } far && far.Count < Pool.Count ? far : Pool;
 
     /// <summary>テスト用: 相手が距離 <paramref name="distance"/> [m] にいるときに決める計画の技（<see cref="ChoosePlan"/> と同じ）。</summary>
     internal MotionTechnique PlanAt(float distance)

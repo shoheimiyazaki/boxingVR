@@ -5,7 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>
 /// 間合いの内側の技（柄頭打ち・前蹴り・押し斬り）: 歩いて詰める計画の候補は剣の間合い（MinReach）以上の技だけ。
-/// すでに近いときだけ、全部の技から今の距離に間合いが合う技を選ぶ（距離という連続の量だけで決まり、技の種類の分岐は無い）。
+/// すでに近いときだけ、全部の技から今の距離に間合いが合う技を選ぶ（距離という連続の量と教科書の重みだけで決まり、技の種類の分岐は無い）。
 /// </summary>
 [TestClass]
 public sealed class SwordInnerRangeTests
@@ -20,17 +20,15 @@ public sealed class SwordInnerRangeTests
     }
 
     [TestMethod]
-    [DataRow(WeaponKind.Katana)]
-    [DataRow(WeaponKind.Longsword)]
-    public void FarAway_PlansOnlyFromSwordReachForms_AndClose_PicksTheFormThatFitsTheDistance(WeaponKind weapon)
+    public void Katana_FarAway_PlansOnlyFromSwordReachForms_AndClose_PicksAFormThatFitsTheDistance()
     {
-        var style = WeaponCatalog.Textbook(weapon);
-        var all = FormSwordsman.Techniques(weapon, ArmReach, style.InnerMinReach!.Value);
+        var style = WeaponCatalog.Textbook(WeaponKind.Katana);
+        var all = FormSwordsman.Techniques(WeaponKind.Katana, ArmReach, style.InnerMinReach!.Value);
         Assert.IsTrue(all.Any(t => t.Range < style.MinReach), "内側の技が技の集まりに入っている");
 
         for (var seed = 1; seed <= 40; seed++)
         {
-            var far = Bot(weapon, seed).PlanAt(1.2f);
+            var far = Bot(WeaponKind.Katana, seed).PlanAt(1.2f);
             Assert.IsGreaterThanOrEqualTo(style.MinReach, far.Range, $"遠間では剣の間合いの技だけ（seed {seed}: {far.Name}）");
         }
 
@@ -47,7 +45,7 @@ public sealed class SwordInnerRangeTests
 
             for (var seed = 1; seed <= 40; seed++)
             {
-                var chosen = Bot(weapon, seed).PlanAt(distance);
+                var chosen = Bot(WeaponKind.Katana, seed).PlanAt(distance);
                 Assert.Contains(chosen.Name, fitting, $"距離 {distance} seed {seed}");
                 chosenNames.Add(chosen.Name);
             }
@@ -56,6 +54,17 @@ public sealed class SwordInnerRangeTests
         Assert.IsGreaterThan(1, chosenNames.Count, "重みの付いた技がばらけて選ばれる");
 
         // 同じ種・同じ距離なら同じ技（決定的）。
-        Assert.AreEqual(Bot(weapon, 5).PlanAt(0.15f).Name, Bot(weapon, 5).PlanAt(0.15f).Name);
+        Assert.AreEqual(Bot(WeaponKind.Katana, 5).PlanAt(0.15f).Name, Bot(WeaponKind.Katana, 5).PlanAt(0.15f).Name);
+    }
+
+    [TestMethod]
+    public void Longsword_InnerFormsAreWeightedOut_SoCloseOrFarItPlansTheSameForms()
+    {
+        // ロングソードの柄頭打ち・前蹴りは、自傷が大きく（柄頭）・当たらない（前蹴り）ので教科書で重み 0。内側の技が選べないときは、近くても計画の技のまま（今までと同じ）。
+        var style = WeaponCatalog.Textbook(WeaponKind.Longsword);
+        for (var seed = 1; seed <= 40; seed++)
+        {
+            Assert.IsGreaterThanOrEqualTo(style.MinReach, Bot(WeaponKind.Longsword, seed).PlanAt(0.15f).Range, $"seed {seed}");
+        }
     }
 }
