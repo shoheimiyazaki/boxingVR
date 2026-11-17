@@ -20,7 +20,7 @@ internal static class GuardLab
     internal sealed record Attack(string Name, bool Holdout, WeaponKind? Weapon, bool TwoHanded, Func<int, IFighterControl> Create, string Direction = "未分類", string? Technique = null);
 
     /// <summary>1 本の結果。</summary>
-    internal sealed record Trial(Attack Attack, int Seed, int Cells, int Severed, bool Killed, float Concussion, int ClashSteps, int Blocks, int Evasions, int SelfCells = 0, int BladeLost = 0, int TheirLost = 0, int BladeCarved = 0, int BladeSnaps = 0, int ShieldClashSteps = 0, int ShieldLost = 0, int Hits = 0, int HeadCells = 0, int TorsoCells = 0, int ArmCells = 0, int ClashEpisodes = 0, int CounterHits = 0, int TheirCarved = 0, int TheirSnaps = 0)
+    internal sealed record Trial(Attack Attack, int Seed, int Cells, int Severed, bool Killed, float Concussion, int ClashSteps, int Blocks, int Evasions, int SelfCells = 0, int BladeLost = 0, int TheirLost = 0, int BladeCarved = 0, int BladeSnaps = 0, int ShieldClashSteps = 0, int ShieldLost = 0, int Hits = 0, int HeadCells = 0, int TorsoCells = 0, int ArmCells = 0, int ClashEpisodes = 0, int CounterHits = 0, int TheirCarved = 0, int TheirSnaps = 0, int Attempted = 0, int Intercepted = 0)
     {
         /// <summary>失ったものの重さ: ボクセル / 60 + 切り落とし × 2 + 死 × 3 + 脳しんとう（<see cref="StrikeResult.Effect"/> と同じ物差し）。</summary>
         public float Harm => (Cells / 60f) + (2f * Severed) + (Killed ? 3f : 0f) + Concussion;
@@ -55,6 +55,23 @@ internal static class GuardLab
         new("現行 Step", SwordDefense.Adopted, CounterAttack: true),
         new("固定角 Parrying", SwordDefense.Parrying, CounterAttack: true),
         new("連続の守り", SwordDefense.Continuous, CounterAttack: true),
+    ];
+
+    /// <summary>
+    /// 2 周目（間に合う受け）の比べる守り（<c>--compare cycle2</c>。<c>--variants</c> はこの番号）。
+    /// 0 現行 Step、1 1 周目の連続、2〜4 手の速さの掃引（H1: 届く受けだけ）、5 H1 + 構えが線を覆う（H2）、6 H1 + H2 + 弧の読み（H3）、
+    /// 7 H4（1 周目の連続の傾き・流しを H1〜H3 の上に重ねる）。
+    /// </summary>
+    public static IReadOnlyList<Variant> Cycle2 { get; } =
+    [
+        new("現行 Step", SwordDefense.Adopted, CounterAttack: true),
+        new("連続（1 周目）", SwordDefense.Continuous, CounterAttack: true),
+        new("H1 届く受け（手 3 腕/s）", SwordDefense.Parrying with { Reach = true, HandSpeed = 3f }, CounterAttack: true),
+        new("H1 届く受け（手 6 腕/s）", SwordDefense.Parrying with { Reach = true, HandSpeed = 6f }, CounterAttack: true),
+        new("H1 届く受け（手 12 腕/s）", SwordDefense.Parrying with { Reach = true, HandSpeed = 12f }, CounterAttack: true),
+        new("H1 + H2 構えが線を覆う", SwordDefense.Parrying with { Reach = true, Economy = 0.5f }, CounterAttack: true),
+        new("H1 + H2 + H3 弧の読み", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Arc = true, Horizon = 0.35f }, CounterAttack: true),
+        new("H4 連続の傾き + H1〜H3", SwordDefense.Continuous with { Reach = true, Economy = 0.5f, Arc = true, Horizon = 0.35f }, CounterAttack: true),
     ];
 
     /// <summary>
@@ -189,6 +206,7 @@ internal static class GuardLab
         var bladeSnaps = 0;
         int hits = 0, episodes = 0, counterHits = 0, theirCarved = 0, theirSnaps = 0;
         var wasClashing = false;
+        int step = 0, firstClash = -1, firstHit = -1;
         var parts = victim.Parts.Select(p => p.Body).ToHashSet();
         for (var t = 0f; t < seconds; t += Dt)
         {
@@ -205,10 +223,14 @@ internal static class GuardLab
             }
             shieldClashes += shield is not null && game.RecentCuts.Any(c => (c.A == shield.Body && theirs.Contains(c.B)) || (c.B == shield.Body && theirs.Contains(c.A))) ? 1 : 0;
             var clashing = game.RecentCuts.Any(c => (c.A == katana.Body && theirs.Contains(c.B)) || (c.B == katana.Body && theirs.Contains(c.A)));
+            firstClash = clashing && firstClash < 0 ? step : firstClash;
             clashes += clashing ? 1 : 0;
             episodes += clashing && !wasClashing ? 1 : 0;
             wasClashing = clashing;
-            hits += game.WeaponHits.Count(h => h.Attacker == game.Player) + game.RecentHits.Count(h => h.Attacker == game.Player);
+            var stepHits = game.WeaponHits.Count(h => h.Attacker == game.Player) + game.RecentHits.Count(h => h.Attacker == game.Player);
+            firstHit = stepHits > 0 && firstHit < 0 ? step : firstHit;
+            hits += stepHits;
+            step++;
             counterHits += defender.Countering ? game.WeaponHits.Count(h => h.Attacker == game.Cpu) : 0;
             if (theirWeapon is not null)
             {
@@ -226,10 +248,13 @@ internal static class GuardLab
         }
 
         var lost = start - victim.Parts.Sum(p => p.Body.Grid.FilledCount);
+        // 受けを試みた本のうち、相手の武器との接触が体への当たりより先（同じ歩を含む）に起きた本 = 来る線を遮った。
+        var attempted = defender.Blocks > 0 ? 1 : 0;
+        var intercepted = attempted == 1 && firstClash >= 0 && (firstHit < 0 || firstClash <= firstHit) ? 1 : 0;
         int Lost(BodyPartKind kind) => partStart.GetValueOrDefault(kind) - victim.Parts.Where(p => p.Kind == kind).Sum(p => p.Body.Grid.FilledCount);
         return new Trial(attack, seed, lost, victim.Fragments.Count, game.Cpu.IsDead, game.Cpu.Concussion, clashes, defender.Blocks, defender.Evasions, selfCells, bladeStart - katana.Body.Grid.FilledCount, theirStart - (theirWeapon?.Body.Grid.FilledCount ?? 0), bladeCarved, bladeSnaps,
             shieldClashes, shield is null ? 0 : shieldStart - shield.Body.Grid.FilledCount, hits, Lost(BodyPartKind.Head),
-            Lost(BodyPartKind.Chest) + Lost(BodyPartKind.Pelvis), Lost(BodyPartKind.UpperArm) + Lost(BodyPartKind.Forearm), episodes, counterHits, theirCarved, theirSnaps);
+            Lost(BodyPartKind.Chest) + Lost(BodyPartKind.Pelvis), Lost(BodyPartKind.UpperArm) + Lost(BodyPartKind.Forearm), episodes, counterHits, theirCarved, theirSnaps, attempted, intercepted);
     }
 
     /// <summary>守り方ごとに全ての打ち手を回し、Markdown の表を返す。<paramref name="pick"/> は選んだ守り方の名前（練習の組で失ったものがいちばん少ない）。</summary>
@@ -288,14 +313,14 @@ internal static class GuardLab
         text.AppendLine();
         text.AppendLine("方向別（セル・接触・返しは全試行の合計。頭・胴（胸＋腰）・腕は失ったセル、自傷もその内数。受け/流しは武器同士の連続した接触を 1 回と数える。返し当たりは返しの技の最中の武器打撃の回数。相手武器は削れたセル/折れ回数）。");
         text.AppendLine();
-        text.AppendLine("| 方向 | 守り | 本 | 打たれた本 | 被打撃 | 失ったセル | 頭 | 胴 | 腕 | 自傷 | 受け/流し | 返し当たり | 相手武器: 削れ/折れ |");
-        text.AppendLine("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|");
+        text.AppendLine("| 方向 | 守り | 本 | 打たれた本 | 被打撃 | 失ったセル | 頭 | 胴 | 腕 | 自傷 | 受け/流し | 返し当たり | 受けを試みた本 | 遮った本（遮り率） | 相手武器: 削れ/折れ |");
+        text.AppendLine("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|");
         foreach (var (name, trials) in byVariant)
         {
             foreach (var group in trials.GroupBy(t => t.Attack.Direction).OrderBy(g => g.Key, StringComparer.Ordinal))
             {
                 text.AppendLine(CultureInfo.InvariantCulture,
-                    $"| {group.Key} | {name} | {group.Count()} | {group.Count(t => t.Struck)} | {group.Sum(t => t.Hits)} | {group.Sum(t => t.Cells)} | {group.Sum(t => t.HeadCells)} | {group.Sum(t => t.TorsoCells)} | {group.Sum(t => t.ArmCells)} | {group.Sum(t => t.SelfCells)} | {group.Sum(t => t.ClashEpisodes)} | {group.Sum(t => t.CounterHits)} | {group.Sum(t => t.TheirCarved)}/{group.Sum(t => t.TheirSnaps)} |");
+                    $"| {group.Key} | {name} | {group.Count()} | {group.Count(t => t.Struck)} | {group.Sum(t => t.Hits)} | {group.Sum(t => t.Cells)} | {group.Sum(t => t.HeadCells)} | {group.Sum(t => t.TorsoCells)} | {group.Sum(t => t.ArmCells)} | {group.Sum(t => t.SelfCells)} | {group.Sum(t => t.ClashEpisodes)} | {group.Sum(t => t.CounterHits)} | {group.Sum(t => t.Attempted)} | {group.Sum(t => t.Intercepted)}（{(group.Sum(t => t.Attempted) == 0 ? "-" : (100f * group.Sum(t => t.Intercepted) / group.Sum(t => t.Attempted)).ToString("0", CultureInfo.InvariantCulture) + "%")}） | {group.Sum(t => t.TheirCarved)}/{group.Sum(t => t.TheirSnaps)} |");
             }
         }
 

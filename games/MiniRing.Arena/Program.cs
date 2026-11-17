@@ -860,9 +860,11 @@ static int GuardLabCommand(Options o)
         attacks = [.. attacks.Where(a => only.Split(',').Any(x => a.Name.Contains(x, StringComparison.Ordinal)))];
     }
 
+    // --compare cycle2: 2 周目の比較表（GuardLab.Cycle2。--variants はその番号）。
+    var pool = o.Get("compare") == "cycle2" ? GuardLab.Cycle2 : GuardLab.Shielded ? GuardLab.ShieldVariants : GuardLab.Variants;
     var variants = o.Get("variants") is { } picked
-        ? [.. picked.Split(',').Select(s => (GuardLab.Shielded ? GuardLab.ShieldVariants : GuardLab.Variants)[int.Parse(s, System.Globalization.CultureInfo.InvariantCulture)])]
-        : o.Get("compare") == "yes" ? GuardLab.Comparison : GuardLab.Shielded ? GuardLab.ShieldVariants : GuardLab.Variants;
+        ? [.. picked.Split(',').Select(s => pool[int.Parse(s, System.Globalization.CultureInfo.InvariantCulture)])]
+        : o.Get("compare") == "yes" ? GuardLab.Comparison : pool;
     if (attacks.Count == 0 || variants.Count == 0)
     {
         throw new ArgumentException("打ち手と守り方を 1 つ以上選んでください。");

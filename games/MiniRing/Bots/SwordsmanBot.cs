@@ -31,11 +31,19 @@ namespace MiniRing.Bots;
 /// <param name="YieldDistance">負荷が十分大きいとき、来る向きへ手を逃がす長さ [腕の長さ]。</param>
 /// <param name="CounterClearance">返しに移るとき、相手の刃の線と体の線に必要な離れ [腕の長さ]。</param>
 /// <param name="CounterTime">返す前に、相手の刃の線が体へ戻らないか先を見る時間 [s]。</param>
+/// <param name="Reach">受けの目標を、残り時間のうちに手と刀の向きが動ける範囲へ置く（<see cref="WeaponDefense.ReachableParry"/>）。どこも遮れなければ受けず、足と頭だけで外す。</param>
+/// <param name="HandSpeed">手が動ける速さの見積もり [腕の長さ / s]（腕のサーボ・PD の追従から。guardlab の掃引で選ぶ）。</param>
+/// <param name="ReactDelay">受けを決めてから手が動き出すまでの遅れ [s]。</param>
+/// <param name="TurnSpeed">刀の向きを回せる速さの見積もり [rad/s]（手首のサーボは肩より弱い）。</param>
+/// <param name="InterceptGap">届く範囲で来る線と自分の刀の線がこれより近づけなければ受けない [腕の長さ]（刃の厚みと余裕）。</param>
+/// <param name="Economy">受けの評価に足す、構えからの動きの大きさの重み（構えのままで足りるなら動かさない。<see cref="WeaponDefense.ReachableParry"/>）。</param>
+/// <param name="Arc">相手の振りを肩まわりの弧として読むか（<see cref="WeaponLine.Predict"/>。false なら今の速度のまま直線）。</param>
 /// <param name="Cover">空いた手（左手）の物（盾・グローブ）を、来る線が体へ届く所へ差し入れて覆うか（<see cref="WeaponDefense.Cover"/>）。覆える広さは、その物の見える大きさ（<see cref="SwordsmanBot.OffhandRadius"/>）から。</param>
 public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, float Horizon = 0.25f, float Margin = 0.45f, float ThreatSpeed = 6f,
     float HoldTime = 0.3f, bool Counter = true, bool WatchFists = true, DefenseMode Mode = DefenseMode.Legacy, float Deflect = 0.5f, float Forte = 0.35f,
     float Lead = 0.1f, float StepDelay = 0.05f, float HeadTime = 0.15f, float Clearance = 0.6f, float Drive = 0f, float Bind = 1f, bool Flat = false, bool Cover = false,
-    bool Adaptive = false, float LoadSpeed = 12f, float YieldAngle = 1.1f, float YieldDistance = 0.08f, float CounterClearance = 0.6f, float CounterTime = 0.12f)
+    bool Adaptive = false, float LoadSpeed = 12f, float YieldAngle = 1.1f, float YieldDistance = 0.08f, float CounterClearance = 0.6f, float CounterTime = 0.12f,
+    bool Reach = false, float HandSpeed = 6f, float ReactDelay = 0.03f, float TurnSpeed = 10f, float InterceptGap = 0.15f, float Economy = 0f, bool Arc = false)
 {
     /// <summary>守らない。</summary>
     public static SwordDefense None { get; } = new(Enabled: false);
@@ -66,6 +74,11 @@ public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, 
         WeaponStyle.InRange(YieldDistance, 0f, 1f, "Defense.YieldDistance");
         WeaponStyle.InRange(CounterClearance, 0f, 2f, "Defense.CounterClearance");
         WeaponStyle.InRange(CounterTime, 0.01f, 0.5f, "Defense.CounterTime");
+        WeaponStyle.InRange(HandSpeed, 0.5f, 60f, "Defense.HandSpeed");
+        WeaponStyle.InRange(ReactDelay, 0f, 0.5f, "Defense.ReactDelay");
+        WeaponStyle.InRange(TurnSpeed, 0.5f, 100f, "Defense.TurnSpeed");
+        WeaponStyle.InRange(InterceptGap, 0f, 1f, "Defense.InterceptGap");
+        WeaponStyle.InRange(Economy, 0f, 5f, "Defense.Economy");
         return this;
     }
 
@@ -145,6 +158,9 @@ public sealed class SwordsmanBot : IFighterControl
     private Vector3 _threatHilt;
     private Vector3 _threatDirection;
     private WeaponThreat _parryThreat;
+
+    /// <summary>いまの打ちを読み始めた時 [s]（受けの残り時間を、読み直す間も減らして見るため）。</summary>
+    private float _blowTime;
     private bool _evadedThisBlow;
     private bool _counter;
     private bool _counterPlanned;
@@ -788,9 +804,10 @@ public sealed class SwordsmanBot : IFighterControl
             if (newBlow)
             {
                 _parryThreat = threat;
+                _blowTime = _time;
                 // 折れて短くなった刀は、残った長さで受ける。
                 var blade = MathF.Max(0.1f, _bladeLength - (_lost / MathF.Max(1e-3f, sense.ArmReach)));
-                _block = parry ? WeaponDefense.Parry(sense, threat, _defense, blade, _spacing, _guard.Blade, RearLength ?? float.NaN) : null;
+                _block = parry ? MakeParry(sense, threat, blade, _guard.Blade, null) : null;
                 if (_block is { } parried && _guard.LeftFacing != default)
                 {
                     _block = parried with { Left = _guard.Left, LeftFacing = _guard.LeftFacing }; // 左手は盾の位置（剣の握りの後ろではない）
@@ -804,18 +821,18 @@ public sealed class SwordsmanBot : IFighterControl
                     _block = basis with { Left = WeaponDefense.Cover(sense, threat, basis.Left, basis.LeftFacing, OffhandRadius) };
                 }
 
-                _counter = (parry || covering) && _defense.Counter && !Passive;
-                Blocks += parry || covering ? 1 : 0;
+                var attempted = _block is not null;
+                _counter = attempted && _defense.Counter && !Passive;
+                Blocks += attempted ? 1 : 0;
                 _threatDirection = direction;
                 _evadedThisBlow = false;
             }
 
-            if (_defense.Adaptive && parry)
+            if (_defense.Adaptive && parry && _block is not null)
             {
                 // 迎える線は打ち始めに固定し、負荷の連続量だけ追う。刀の向きの符号は前の受けを基準にして揺れ返しを避ける。
                 var blade = MathF.Max(0.1f, _bladeLength - (_lost / MathF.Max(1e-3f, sense.ArmReach)));
-                var adapted = WeaponDefense.Parry(sense, _parryThreat, _defense, blade, _spacing, _block?.Blade ?? _guard.Blade, RearLength ?? float.NaN,
-                    WeaponDefense.Response(sense, threat, _defense));
+                var adapted = MakeParry(sense, _parryThreat, blade, _block?.Blade ?? _guard.Blade, WeaponDefense.Response(sense, threat, _defense)) ?? _block!.Value;
                 if (_guard.LeftFacing != default)
                 {
                     adapted = adapted with { Left = _guard.Left, LeftFacing = _guard.LeftFacing };
@@ -863,6 +880,23 @@ public sealed class SwordsmanBot : IFighterControl
         return Defending
             ? MotionImitation.ToCommand((_block ?? _guard) with { Head = _guard.Head + _head }, sense, face, 0f, _walkSpeed, _maxTwist, _evade)
             : null;
+    }
+
+    /// <summary>
+    /// 受けの目標の構え。<see cref="SwordDefense.Reach"/> なら、理想の受けを残り時間のうちに手が届く範囲へ置き直し（<see cref="WeaponDefense.ReachableParry"/>）、
+    /// 遮れないなら null（受けずに、足と頭だけで外す）。今の手の位置は、握っている武器の実際の握り（<see cref="WeaponSense.Grip"/>）から。
+    /// </summary>
+    private MotionFrame? MakeParry(in FighterSense sense, in WeaponThreat threat, float blade, Vector3 currentBlade, WeaponDefense.ParryResponse? response)
+    {
+        var ideal = WeaponDefense.Parry(sense, threat, _defense, blade, _spacing, currentBlade, RearLength ?? float.NaN, response);
+        if (!_defense.Reach)
+        {
+            return ideal;
+        }
+
+        var rest = _block ?? _guard;
+        var from = sense.SelfWeapon.Held && sense.SelfWeapon.Grip != default ? sense.Self.WorldToLocal(sense.SelfWeapon.Grip) / sense.ArmReach : rest.Right;
+        return WeaponDefense.ReachableParry(sense, threat, _defense, ideal, from, currentBlade, _guard, blade, _spacing, RearLength ?? float.NaN, _time - _blowTime);
     }
 
     /// <summary>
