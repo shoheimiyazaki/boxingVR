@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Numerics;
+using Aigis.Physics.Voxels;
 using Aigis.Render;
 
 namespace MiniRing.Arena;
@@ -21,6 +22,9 @@ internal enum TvShot
 
     /// <summary>ハイライトのリプレイ（自由なカメラ・スロー）。</summary>
     Replay,
+
+    /// <summary>休みの間、リングの中のカメラマンが手持ちで選手の傷にズームで寄る（切り替えずに 1 カットで）。</summary>
+    Wound,
 }
 
 /// <summary>
@@ -29,7 +33,32 @@ internal enum TvShot
 internal sealed record TvHighlight(int Step, bool RedVictim, Vector3 Point, float Score, string Text, int Round);
 
 /// <summary>休みの間の 1 つのカット（休みの始まりからの映像の秒）。</summary>
-internal readonly record struct TvSegment(float Start, float End, TvShot Shot, bool Red, TvHighlight? Highlight);
+internal readonly record struct TvSegment(float Start, float End, TvShot Shot, bool Red, TvHighlight? Highlight, TvWound? Wound = null);
+
+/// <summary>
+/// 傷のアップの候補: どちらの選手の、どの部位（ボクセルの体 <paramref name="Body"/>）の、格子の中のどの点（<paramref name="Grid"/>、格子の中心からの座標）に、
+/// どれだけ重い傷か（打撃の重さ・削れたセル・骨折・切断の和）。部位に付いた点なので、倒れても腕が動いても今の位置を追える。
+/// </summary>
+internal sealed record TvWound(bool Red, VoxelBody Body, Vector3 Grid, string Name, float Score)
+{
+    /// <summary>
+    /// 傷のいまの位置（世界）。点は、部位のセルが今残っている範囲の中へ寄せる（部位が切れると先の側のセルが空になるので、
+    /// 切れた先を指したままだと何も無いマットを映した）。切れた腕なら切り口のあたりになる。
+    /// </summary>
+    public Vector3 Position
+    {
+        get
+        {
+            var grid = Grid;
+            if (Body.Grid.OccupiedBounds() is { } kept)
+            {
+                grid = Vector3.Clamp(grid, kept.Center - kept.HalfExtents, kept.Center + kept.HalfExtents);
+            }
+
+            return Vector3.Transform(grid, Body.GridToWorld());
+        }
+    }
+}
 
 /// <summary>
 /// テレビ中継の演出の頭（描画と音だけ。試合には触れない）: どのカメラで映すか、休みの間のカット割り、リプレイにする場面の選び方。
@@ -60,7 +89,16 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     /// <summary>ダウン中の 1 カットの長さ [映像の s]。</summary>
     private const float DownShotSeconds = 2.6f;
 
+    /// <summary>傷のアップにする最低の重み（打撃の重さ＋失ったセル。重い 1 発 3 つ分ほど。軽い傷には寄らない）。</summary>
+    private const float WoundMinScore = 30f;
+
+    /// <summary>傷のアップ 1 カットの長さ [映像の s]: 上半身から始めて傷へ振り、ズームで寄り切って少し止める。</summary>
+    public const float WoundSeconds = 4.2f;
+
     private readonly List<TvHighlight> _candidates = [];
+    private static readonly bool[] Corners = [true, false];
+    /// <summary>部位ごとの傷: 重さの和と、重さで重み付けした格子の中の点の和。</summary>
+    private readonly Dictionary<VoxelBody, (bool Red, string Name, float Score, Vector3 Sum)> _wounds = [];
     private readonly Dictionary<Fighter, bool> _wasDown = [];
     private float? _downSince;
     private bool _over;
@@ -72,6 +110,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         string Name(Fighter f) => f == game.Player ? redName : blueName;
         foreach (var hit in game.RecentHits)
         {
+            AddWound(hit.Victim == game.Player, hit.Victim, hit.Point, hit.Damage);
             if (hit.Damage >= 8f)
             {
                 _candidates.Add(new TvHighlight(step, hit.Victim == game.Player, hit.Point, hit.Damage,
@@ -82,6 +121,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         foreach (var hit in game.WeaponHits)
         {
             // 刃は数字のダメージが小さくても深く削る（削れたセルの数）ので、両方で重みを付ける。
+            AddWound(hit.Victim == game.Player, hit.Victim, hit.Point, hit.Damage + (0.25f * hit.Cells));
             if (hit.Damage >= 8f || hit.Cells >= 15)
             {
                 _candidates.Add(new TvHighlight(step, hit.Victim == game.Player, hit.Point, hit.Damage + (0.25f * hit.Cells),
@@ -126,6 +166,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         foreach (var broken in game.BrokenBones)
         {
             var part = broken.Body >= 0 ? MiniRing.Audio.Broadcast.PartName(broken.Victim, broken.Body) : "";
+            AddWound(broken.Victim == game.Player, broken.Victim, broken.Position, EventBonus);
             Boost(broken.Victim == game.Player, step, $"→ {part}骨折", broken.Position, game.MatchRound, name: Name(broken.Victim));
         }
 
@@ -133,8 +174,61 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         {
             var victim = sever.Victim ?? (Vector3.DistanceSquared(sever.Position, game.Player.PelvisPosition) < Vector3.DistanceSquared(sever.Position, game.Cpu.PelvisPosition) ? game.Player : game.Cpu);
             var part = sever.Body >= 0 ? MiniRing.Audio.Broadcast.PartName(victim, sever.Body) : "";
+            AddWound(victim == game.Player, victim, sever.Position, 2f * EventBonus);
             Boost(victim == game.Player, step, $"→ {part}切断", sever.Position, game.MatchRound, name: Name(victim));
         }
+    }
+
+    /// <summary>
+    /// 打たれた点に一番近い体の部位（体に付いたボクセルの部位）に、その重さと、その部位の格子の中での点を足す（傷のアップの候補）。
+    /// 点を部位の格子に付けておくので、休みに倒れていても腕が動いていても、カメラは今の傷の位置を狙える（体の中心から測った推定の点は、
+    /// 倒れた選手・切れて飛んだ足で外れた）。点は格子の箱の中へ寄せる（表面のすぐ外に当たった点を体の上に置く）。
+    /// </summary>
+    private void AddWound(bool red, Fighter victim, Vector3 point, float score)
+    {
+        if (victim.Voxels is not { } voxels || voxels.Parts.Count == 0)
+        {
+            return;
+        }
+
+        static float Outside(VoxelBody body, Vector3 world)
+        {
+            var local = Vector3.Abs(body.WorldToGrid(world)) - body.Grid.HalfExtents;
+            return Vector3.Max(local, Vector3.Zero).LengthSquared();
+        }
+
+        var part = voxels.Parts.MinBy(p => Outside(p.Body, point))!;
+        var half = part.Body.Grid.HalfExtents;
+        var grid = Vector3.Clamp(part.Body.WorldToGrid(point), -half, half) * 0.8f;
+        (bool Red, string Name, float Score, Vector3 Sum) old = _wounds.GetValueOrDefault(part.Body, (red, MiniRing.Audio.Broadcast.PartName(victim, part.Body.BodyId), 0f, Vector3.Zero));
+        _wounds[part.Body] = (old.Red, old.Name, old.Score + score, old.Sum + (grid * score));
+    }
+
+    /// <summary>ここまでの試合で、選手ごとの一番重い傷（重い順。軽い傷しか無い選手は入れない）。</summary>
+    /// <remarks>
+    /// 傷の重さ = その部位に当たった打撃の重さ（打撲は皮膚のあざの色で外から見える）＋ 部位が始めから失ったセルの数（削れた・切れて落ちた）。
+    /// 2026-11-17: いったん「内部の傷は見えないので外傷だけ」にしたが、内部の傷を皮膚の色（赤い腫れ・青紫・まだら）で見せるようにしたので、
+    /// 打撲も数える形へ戻した（ユーザーの指定）。寄る点は、その部位に当たった打撃の点を重さで重み付けした平均。
+    /// </remarks>
+    public IReadOnlyList<TvWound> Wounds() =>
+        [.. Corners
+            .Select(red => _wounds.Where(w => w.Value.Red == red)
+                .Select(w => new TvWound(red, w.Key, w.Value.Score > 0f ? w.Value.Sum / w.Value.Score : Vector3.Zero, w.Value.Name, w.Value.Score + LostCells(w.Key.Grid)))
+                .OrderByDescending(w => w.Score).FirstOrDefault())
+            .OfType<TvWound>()
+            .Where(w => w.Score >= WoundMinScore)
+            .OrderByDescending(w => w.Score)];
+
+    /// <summary>格子が始めから失ったセルの数（すべての材質の、始めの数 − 残りの数）。</summary>
+    private static int LostCells(Aigis.Foundation.Voxels.VoxelGrid grid)
+    {
+        var lost = 0;
+        for (var m = 1; m < grid.Palette.Count; m++)
+        {
+            lost += Math.Max(0, grid.Initial((byte)m) - grid.Remaining((byte)m));
+        }
+
+        return lost;
     }
 
     /// <summary>直前の 1.5 秒のうち同じ側が打たれた一番新しい場面に上乗せする（無ければその歩を場面にする）。</summary>
@@ -195,7 +289,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     /// → コーナー・リング脇（低い所から）・天井（真上から）を約 2.6 秒ずつ回す → 最後の 2.5 秒はいつものカメラ。
     /// リプレイの間に選手の顔（コーナー）を挟むと流れが切れて見えた（2026-11-17、ユーザーの指摘）ので続けて流し、休みの残りでカメラを多く切り替える。
     /// </summary>
-    public IReadOnlyList<TvSegment> PlanBreak(float breakVideoSeconds, IReadOnlyList<TvHighlight> highlights, bool redFirst)
+    public IReadOnlyList<TvSegment> PlanBreak(float breakVideoSeconds, IReadOnlyList<TvHighlight> highlights, bool redFirst, IReadOnlyList<TvWound>? wounds = null)
     {
         const float Lead = 2.5f;
         const float CornerShot = 3f;
@@ -214,6 +308,18 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
 
             plan.Add(new TvSegment(t, t + ReplaySeconds, TvShot.Replay, highlight.RedVictim, highlight));
             t += ReplaySeconds;
+        }
+
+        // リプレイの後に、傷のアップ（重い傷の選手から。手持ちで寄る 1 カット。2026-11-17、ユーザーの指定）。
+        foreach (var wound in wounds ?? [])
+        {
+            if (t + WoundSeconds > end)
+            {
+                break;
+            }
+
+            plan.Add(new TvSegment(t, t + WoundSeconds, TvShot.Wound, wound.Red, null, wound));
+            t += WoundSeconds;
         }
 
         // 休みの残り: 2 人を交互に、カメラの種類を回す（同じ絵を続けない）。
@@ -308,6 +414,38 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var eye = chest + (inward * distance) + (side * 0.08f) + new Vector3(0f, 0.04f, 0f) + sway;
         var target = Vector3.Lerp(chest, subject.HeadPosition, 0.6f);
         return (Camera.ViewProjection(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
+    }
+
+    /// <summary>
+    /// 傷のアップ（休み）: リングの中のカメラマンが選手の正面に立ち、手持ちで上半身を映してから傷へ振り、ズームで寄る（切り替えない 1 カット）。
+    /// 寄るほど手の揺れが大きく見えるよう、揺れは狙う点の方を動かす（見た目だけ、決まった正弦の和）。
+    /// </summary>
+    public (Matrix4x4 ViewProjection, Vector3 Eye) Wound(BoxingGame game, Fighter subject, TvWound wound, float shotTime, float videoTime)
+    {
+        static float Ease(float x) => x * x * (3f - (2f * x));
+        var center = game.Layout.Center;
+        var at = wound.Position;
+        var scale = BodyScale(subject);
+        // カメラは傷から測って置く（胸から測ると、倒れたままの選手ではマットの中に潜った）: 傷からリングの中央の方へ下がり、
+        // 傷より上・足首より十分上から見下ろす。ゆっくり半歩前へ出る。
+        var inward = new Vector3(center.X - at.X, 0f, center.Z - at.Z);
+        inward = inward.LengthSquared() > 1e-4f ? Vector3.Normalize(inward) : Vector3.UnitZ;
+        var side = Vector3.Cross(Vector3.UnitY, inward);
+        var floor = MathF.Min(subject.AnklePosition(Hand.Left).Y, subject.AnklePosition(Hand.Right).Y);
+        var back = scale * (4.4f - (0.5f * Ease(Math.Clamp(shotTime / WoundSeconds, 0f, 1f))));
+        var eye = at + (inward * back) + (side * scale * 0.6f);
+        eye.Y = MathF.Max(at.Y + (scale * 1.4f), floor + (scale * 1.6f));
+        eye += (side * (0.006f * MathF.Sin(1.3f * videoTime))) + new Vector3(0f, 0.005f * MathF.Sin((2.1f * videoTime) + 1f), 0f);
+        // 体全体（胸と腰の間）→ 傷へ振る（0.4〜1.3 秒）、ズームは 1.0〜3.0 秒で 46° → 12°（少し行き過ぎて戻る）。
+        var pan = Ease(Math.Clamp((shotTime - 0.4f) / 0.9f, 0f, 1f));
+        var zoom = Ease(Math.Clamp((shotTime - 1.0f) / 2.0f, 0f, 1f));
+        var settle = shotTime > 3.0f ? 0.06f * MathF.Exp(-3f * (shotTime - 3.0f)) * MathF.Sin(9f * (shotTime - 3.0f)) : 0f;
+        var fov = (46f + ((12f - 46f) * zoom)) * (1f + settle);
+        var distance = Vector3.Distance(eye, at);
+        var shake = ((side * MathF.Sin(3.1f * videoTime)) + (Vector3.UnitY * MathF.Sin((2.3f * videoTime) + 0.7f))) * (0.004f * distance);
+        var body = Vector3.Lerp(subject.ChestPosition, subject.PelvisPosition, 0.3f);
+        var target = Vector3.Lerp(body, at, pan) + shake;
+        return (Camera.ViewProjection(eye, target, Vector3.UnitY, fov * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
     }
 
     /// <summary>リプレイのカメラ: 当たった所を中心に、打った側と打たれた側を結ぶ線の横から回り込む（ダメージの所が見える近さ）。</summary>

@@ -1,0 +1,61 @@
+{
+  "event": "WVC 再戦スペシャル",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-rematch-open",
+  "scoutSeeds": [
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18
+  ],
+  "partLimitMiB": 29,
+  "commentary": {
+    "writer": "llm",
+    "model": "haiku",
+    "style": "open"
+  },
+  "bouts": [
+    {
+      "red": "diego",
+      "blue": "akira",
+      "seed": 17,
+      "bout": "第1試合"
+    },
+    {
+      "red": "dmitri",
+      "blue": "edgar",
+      "seed": 11,
+      "bout": "第2試合"
+    },
+    {
+      "red": "konrad",
+      "blue": "daichi",
+      "seed": 13,
+      "bout": "第3試合"
+    },
+    {
+      "red": "tsuyoshi",
+      "blue": "jin",
+      "seed": 12,
+      "bout": "第4試合"
+    },
+    {
+      "red": "vikram",
+      "blue": "yoandry",
+      "seed": 16,
+      "bout": "第5試合"
+    },
+    {
+      "red": "marcus",
+      "blue": "sean",
+      "seed": 15,
+      "bout": "第6試合"
+    }
+  ],
+  "_comment": "動画は docs/video/wvc-rematch の撮影（PhysicsVersion 38）を写したもの。種は再戦で選んだもの。"
+}

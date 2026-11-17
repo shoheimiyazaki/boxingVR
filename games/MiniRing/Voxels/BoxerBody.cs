@@ -44,6 +44,121 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
         public VoxelRecolor? Recolor { get; set; }
 
         public int Step { get; set; }
+
+        /// <summary>皮膚のあざの量（セルごと 0..1）。見た目だけ（試合の計算には使わない）。</summary>
+        public float[]? Bruise { get; set; }
+
+        /// <summary>そのセルのあざがいちばん新しく増えた時刻 [体の時計の s]（赤く腫れた色から、時間がたつと青紫へ）。</summary>
+        public float[]? BruiseSince { get; set; }
+
+        /// <summary>あざが増えるたびに上がる番号（テクスチャの書き直しの鍵）。</summary>
+        public int BruiseVersion { get; set; }
+
+        /// <summary>この部位の、いちばん新しくあざが増えた時刻。</summary>
+        public float LastBruise { get; set; }
+
+        /// <summary>体の時計 [s]（<see cref="BoxerBody.HealBruises"/> が進める）。</summary>
+        public float Clock { get; set; }
+    }
+
+    /// <summary>赤く腫れた皮膚の色（できたばかりのあざ）。ゲームとして読めるよう、現実よりはっきりさせた色。</summary>
+    private static readonly Vector4 SwollenSkin = new(0.88f, 0.28f, 0.24f, 1f);
+
+    /// <summary>時間がたった・深いあざの色（青紫）。</summary>
+    private static readonly Vector4 BlueBruise = new(0.30f, 0.22f, 0.58f, 1f);
+
+    /// <summary>とても強いあざの色（どす黒い紫）。</summary>
+    private static readonly Vector4 DeepBruise = new(0.24f, 0.10f, 0.28f, 1f);
+
+    /// <summary>赤から青紫へ変わる時間の目安 [s]（見た目の合図。生理の時間ではない: 試合の中で色の変化が見えるよう短くした）。</summary>
+    private const float BruiseAgeSeconds = 8f;
+
+    /// <summary>あざを描く最小の量（これより薄いと元の肌の色）。</summary>
+    private const float BruiseVisible = 0.04f;
+
+    /// <summary>体の時計を進める（あざの色が時間で変わる）。</summary>
+    internal void Tick(float clock) => _cache.Clock = clock;
+
+    /// <summary>
+    /// 打撲を皮膚の色として残す（見た目だけ）: 打たれた点の近くの皮膚のセルに、<paramref name="dose"/> を距離で減らしながら足す
+    /// （<paramref name="radius"/> の距離で 1/e）。中の傷（臓器の打撲・脳しんとう）は外から見えないので、皮膚の色で伝える
+    /// （2026-11-17、ユーザーの指定: 赤く腫れる・真っ青・まだら）。
+    /// </summary>
+    internal void AddSkinBruise(Vector3 point, float dose, float radius)
+    {
+        var grid = Body.Grid;
+        var local = Body.WorldToGrid(point);
+        var outside = Vector3.Max(Vector3.Abs(local) - grid.HalfExtents, Vector3.Zero).Length();
+        if (dose <= 0f || outside > 3f * radius)
+        {
+            return;
+        }
+
+        if (_cache.Bruise is null || _cache.Bruise.Length != grid.CellCount)
+        {
+            _cache.Bruise = new float[grid.CellCount];
+            _cache.BruiseSince = new float[grid.CellCount];
+        }
+
+        var (dx, dy, dz) = grid.Dimensions;
+        var changed = false;
+        for (var z = 0; z < dz; z++)
+        {
+            for (var y = 0; y < dy; y++)
+            {
+                for (var x = 0; x < dx; x++)
+                {
+                    var i = grid.Index(x, y, z);
+                    if (grid.AtIndex(i) != BoxerAnatomy.Skin)
+                    {
+                        continue;
+                    }
+
+                    var d = Vector3.Distance(grid.CellCenter(x, y, z), local);
+                    if (d > 3f * radius)
+                    {
+                        continue;
+                    }
+
+                    var add = dose * MathF.Exp(-d / radius);
+                    if (add < 0.01f)
+                    {
+                        continue;
+                    }
+
+                    _cache.Bruise[i] = MathF.Min(1f, _cache.Bruise[i] + add);
+                    _cache.BruiseSince![i] = _cache.Clock;
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+        {
+            _cache.BruiseVersion++;
+            _cache.LastBruise = _cache.Clock;
+        }
+    }
+
+    /// <summary>あざの色: 量が多いほど濃く、できてから時間がたつほど赤 → 青紫、とても強いとどす黒く。セルごとの決まった揺らぎでまだらにする。</summary>
+    private static Vector4 BruiseColor(Vector4 skin, float amount, float age, int x, int y, int z)
+    {
+        // セルごとの決まった揺らぎ（0..1。座標のハッシュ）。
+        var h = unchecked((uint)((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)));
+        h ^= h >> 13;
+        h *= 0x5bd1e995;
+        h ^= h >> 15;
+        var noise = (h & 0xffff) / 65535f;
+        var mottled = Math.Clamp(amount * (0.45f + (1.1f * noise)), 0f, 1f);
+        if (mottled < BruiseVisible)
+        {
+            return skin;
+        }
+
+        var fresh = MathF.Exp(-age / BruiseAgeSeconds);
+        var tint = Vector4.Lerp(BlueBruise, SwollenSkin, fresh);
+        tint = Vector4.Lerp(tint, DeepBruise, Math.Clamp((amount - 0.7f) / 0.3f, 0f, 1f));
+        return Vector4.Lerp(skin, tint, MathF.Min(0.9f, mottled)) with { W = skin.W };
     }
 
     /// <summary>この部位を描く指示: 格子の変化をテクスチャへ写し、セル座標をワールドへ置く行列を付ける。</summary>
@@ -56,15 +171,37 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
     /// </summary>
     public VoxelVolumeDraw Draw(float cyanosis)
     {
-        var step = Kind == BodyPartKind.Head ? (int)MathF.Round(Math.Clamp(cyanosis, 0f, 1f) * CyanosisSteps) : 0;
+        var cyan = Kind == BodyPartKind.Head ? (int)MathF.Round(Math.Clamp(cyanosis, 0f, 1f) * CyanosisSteps) : 0;
+        // あざの色は、増えたとき（版）と、いちばん新しいあざの古さの段（1 秒ごと、赤から青紫へ変わる間だけ）で書き直す。
+        var bruise = _cache.Bruise is { } b && b.Length == Body.Grid.CellCount ? b : null;
+        var ageStep = bruise is null ? 0 : (int)MathF.Min(3f * BruiseAgeSeconds, _cache.Clock - _cache.LastBruise);
+        var step = cyan + ((CyanosisSteps + 1) * ((bruise is null ? 0 : _cache.BruiseVersion * 64) + ageStep));
         if (step != _cache.Step)
         {
             // 塗り直しの関数は段が変わったときだけ作る（毎フレーム作ると描画の道でごみが出る。VR で効く）。
             var height = MathF.Max(1f, Body.Grid.Dimensions.Y - 1);
-            var amount = MaxCyanosis * step / CyanosisSteps;
-            _cache.Recolor = step == 0 ? null : (m, color, _, y, _) => m == BoxerAnatomy.Skin
-                ? Vector4.Lerp(color, CyanoticSkin, amount * MathF.Pow(y / height, CyanosisRise)) with { W = color.W }
-                : color;
+            var amount = MaxCyanosis * cyan / CyanosisSteps;
+            var since = _cache.BruiseSince;
+            var clock = _cache.Clock;
+            var grid = Body.Grid;
+            _cache.Recolor = cyan == 0 && bruise is null ? null : (m, color, x, y, z) =>
+            {
+                if (m != BoxerAnatomy.Skin)
+                {
+                    return color;
+                }
+
+                if (bruise is not null)
+                {
+                    var i = grid.Index(x, y, z);
+                    if (bruise[i] > 0f)
+                    {
+                        color = BruiseColor(color, bruise[i], clock - since![i], x, y, z);
+                    }
+                }
+
+                return cyan == 0 ? color : Vector4.Lerp(color, CyanoticSkin, amount * MathF.Pow(y / height, CyanosisRise)) with { W = color.W };
+            };
             _cache.Step = step;
         }
 
@@ -575,12 +712,43 @@ public sealed class BoxerBody
             }
         }
 
+        BruiseSkin(point, energy);
         return added;
     }
 
-    /// <summary>打撲が時間とともに引く（一定の速さ <paramref name="rate"/> [/s]）。</summary>
+    /// <summary>
+    /// 皮膚のあざ（見た目だけ。試合の計算には使わない）: 打たれた点の近くの皮膚に、エネルギー <paramref name="energy"/> [J] に比例した量を残す。
+    /// 拳・蹴りは臓器の打撲と同じ呼び出しから、武器は当たりの見積もりのエネルギーから呼ぶ（武器は臓器の打撲を起こさない作りのまま）。
+    /// </summary>
+    public void BruiseSkin(Vector3 point, float energy)
+    {
+        var skinDose = energy * SkinBruisePerJoule;
+        foreach (var part in _parts)
+        {
+            part.AddSkinBruise(point, skinDose, SkinBruiseRadiusCells * MathF.Max(1e-4f, part.Body.Grid.CellSize.X));
+        }
+    }
+
+    /// <summary>
+    /// 皮膚のあざの量 [/J]（見た目だけ。試合の計算には使わない）: 重い 1 発（3〜4 J）で打たれた点がはっきり色づき、
+    /// 同じ所へ 2〜3 発でどす黒くなる程度。臓器の打撲（<c>BruisePerJoule</c> 0.13）より濃く、外から読めるようにした。
+    /// </summary>
+    private const float SkinBruisePerJoule = 0.25f;
+
+    /// <summary>あざの広がり（1/e になる距離）[セル]。拳 1 つぶんより少し小さい斑点。</summary>
+    private const float SkinBruiseRadiusCells = 2.5f;
+
+    private float _clock;
+
+    /// <summary>打撲が時間とともに引く（一定の速さ <paramref name="rate"/> [/s]）。体の時計も進める（あざの色が時間で変わる）。</summary>
     public void HealBruises(float dt, float rate)
     {
+        _clock += dt;
+        foreach (var part in _parts)
+        {
+            part.Tick(_clock);
+        }
+
         foreach (var organ in TrunkOrgans)
         {
             if (_bruise.TryGetValue(organ, out var b) && b > 0f)
@@ -688,6 +856,11 @@ public sealed class BoxerBody
 
             var (x, y, z) = grid.Coordinates(i);
             var slice = axis == 0 ? x : axis == 1 ? y : z;
+            if (_cutAt.TryGetValue(bodyId, out var cut) && (part.DistalHigh ? slice > cut : slice < cut))
+            {
+                continue; // 切れ目より先（破片へ移った所）は、この切り株の断面ではない
+            }
+
             initial[slice]++;
             var now = grid.AtIndex(i);
             left[slice] += now != 0 && palette[now].Tissue == VoxelTissue.Flesh ? 1 : 0;
@@ -712,6 +885,9 @@ public sealed class BoxerBody
     }
 
     private readonly Dictionary<int, (int Version, float Value)> _sectionCache = [];
+
+    /// <summary>腕・脚の部位（剛体）ごとの、いちばん体に近い切れ目のスライス（分けたときの <c>SplitAt</c> の位置。その先は破片へ移った）。</summary>
+    private readonly Dictionary<int, int> _cutAt = [];
 
     /// <summary>
     /// 脳の働き（0..1）: 脳が削られた割合 <c>lost</c> について <c>0.5^(lost / halvingLoss)</c>。無傷で 1、
@@ -911,6 +1087,10 @@ public sealed class BoxerBody
         }
 
         var piece = body.SplitAt(axis, slice, part.DistalHigh);
+        // 切れ目より先のスライスは破片へ移った: 残った部位（切り株）の筋肉の断面は、切れ目より体に近い側だけで測る（Muscle）。
+        _cutAt[body.BodyId] = _cutAt.TryGetValue(body.BodyId, out var earlier)
+            ? (part.DistalHigh ? Math.Min(earlier, slice) : Math.Max(earlier, slice))
+            : slice;
         if (part.Kind == BodyPartKind.Head)
         {
             body.BeamAxis = null; // 首は 1 度だけ折れる: 折れたあとの頭は曲げを調べない

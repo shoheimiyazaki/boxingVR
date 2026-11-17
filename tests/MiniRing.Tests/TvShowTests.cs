@@ -228,6 +228,61 @@ public sealed class TvShowTests
     }
 
     [TestMethod]
+    public void Merge_PlacedLines_KeepTheirTimes_AndProspectiveLintIgnoresLength()
+    {
+        // 2 エージェントのプロスペクティブ制: マイク 1 本で順に話した記録なので、時刻を動かさない。1 台詞の長さにも決まりが無い。
+        var longLine = new string('あ', 80) + "。";
+        var extras = $$"""
+            {"style":"prospective","useDraft":false,"placed":true,
+             "lines":[{"at":20.1,"speaker":"announcer","text":"{{longLine}}","excited":false},
+                      {"at":20.4,"speaker":"commentator","text":"割り込みます。","excited":false}]}
+            """;
+        var merged = TvDraft.Merge(TvDraft.Build(KnockoutEvents), extras, []);
+        using var doc = System.Text.Json.JsonDocument.Parse(merged);
+        var ats = doc.RootElement.GetProperty("lines").EnumerateArray().Select(l => l.GetProperty("at").GetDouble()).ToList();
+
+        Assert.AreEqual("20.1,20.4", string.Join(",", ats.Select(a => a.ToString(System.Globalization.CultureInfo.InvariantCulture))), "重なって見えても動かさない（割り込みで前の台詞は切れている）");
+        Assert.AreEqual(0, TvLint.Check(merged, KnockoutEvents).Count);
+        Assert.IsTrue(TvLint.Check(merged.Replace("\"prospective\"", "\"free\"", StringComparison.Ordinal), KnockoutEvents).Any(i => i.Rule == "長さ"));
+    }
+
+    [TestMethod]
+    public void Merge_KeepsTheOverlapMarkOfExclamations()
+    {
+        // 興奮の感嘆はマイク 1 本の順番の外（声入れが重ねて鳴らす）: 台本に印が残る。ふつうの台詞には付かない。
+        const string extras = """
+            {"style":"prospective","useDraft":false,"placed":true,
+             "lines":[{"at":20.1,"speaker":"announcer","text":"右が入った、ダウン！","excited":true},
+                      {"at":20.3,"speaker":"commentator","text":"おお！","excited":true,"overlap":true}]}
+            """;
+        var merged = TvDraft.Merge(TvDraft.Build(KnockoutEvents), extras, []);
+        using var doc = System.Text.Json.JsonDocument.Parse(merged);
+        var lines = doc.RootElement.GetProperty("lines").EnumerateArray().ToList();
+
+        Assert.IsFalse(lines[0].TryGetProperty("overlap", out _));
+        Assert.IsTrue(lines[1].GetProperty("overlap").GetBoolean());
+    }
+
+    [TestMethod]
+    public void Lint_OpenStyle_KeepsTheCallsButNotTheQuestionRule_FreeStyleKeepsOnlyLengthAndWords()
+    {
+        // 2026-11-17、ユーザーの指摘（決まりで台詞を誘導して単調だった）: open は役だけ、free は役も無い。
+        const string extras = """
+            {"style":"open","useDraft":false,
+             "lines":[{"at":20.1,"speaker":"commentator","text":"いい形で入りましたね。","excited":false}]}
+            """;
+        var open = TvDraft.Merge(TvDraft.Build(KnockoutEvents), extras, []);
+        var openRules = TvLint.Check(open, KnockoutEvents).Select(i => i.Rule).ToHashSet();
+        Assert.IsTrue(openRules.Contains("コール"), "open でも実況の入りのコールは見る");
+        Assert.IsFalse(openRules.Contains("掛け合い"), "open は問いを振る決まりを見ない");
+
+        var free = open.Replace("\"open\"", "\"free\"", StringComparison.Ordinal);
+        Assert.AreEqual(0, TvLint.Check(free, KnockoutEvents).Count, "free はコールも求めない");
+        var banned = free.Replace("いい形で入りましたね。", "ボットの動きですね。", StringComparison.Ordinal);
+        Assert.IsTrue(TvLint.Check(banned, KnockoutEvents).Any(i => i.Rule == "言わない言葉"), "作中の世界の言葉は free でも見る");
+    }
+
+    [TestMethod]
     public void Duration_GrowsWithPausesAndSlowSpeech()
     {
         // 実測（2026-11-16）: 遅い心の声（rate −12%）の「相手はジン、居合か。間合いは俺が長い。」19 字が 4.8 秒。
@@ -388,5 +443,39 @@ public sealed class TvShowTests
 
         var issues = TvLint.Check(script, TwoRoundEvents);
         Assert.AreEqual(0, issues.Count, string.Join("\n", issues.Select(i => $"{i.At} {i.Rule} {i.Message}")));
+    }
+
+    [TestMethod]
+    public void BodyWords_NameTheFineRegionsOfTheHeadAndTrunk_WithTheFightersOwnLeftAndRight()
+    {
+        // 部位の箱の中の点（+X が本人の左・+Y が上・+Z が前）から、実況・解説に渡す細かい呼び名。
+        Assert.AreEqual("おでこ", TvBodyWords.Region(BodyPartKind.Head, new(0f, 0.6f, 0.8f), "頭"));
+        Assert.AreEqual("左の目", TvBodyWords.Region(BodyPartKind.Head, new(0.4f, 0.25f, 0.9f), "頭"));
+        Assert.AreEqual("右の頬", TvBodyWords.Region(BodyPartKind.Head, new(-0.5f, -0.1f, 0.8f), "頭"));
+        Assert.AreEqual("左のこめかみ", TvBodyWords.Region(BodyPartKind.Head, new(0.9f, 0.3f, 0.1f), "頭"));
+        Assert.AreEqual("あご", TvBodyWords.Region(BodyPartKind.Head, new(0f, -0.8f, 0.7f), "頭"));
+        Assert.AreEqual("後頭部", TvBodyWords.Region(BodyPartKind.Head, new(0f, 0.2f, -0.8f), "頭"));
+        Assert.AreEqual("みぞおち", TvBodyWords.Region(BodyPartKind.Chest, new(0f, -0.5f, 0.9f), "胸"));
+        Assert.AreEqual("右の脇腹", TvBodyWords.Region(BodyPartKind.Chest, new(-0.5f, -0.5f, 0.6f), "胸"));
+        Assert.AreEqual("右前腕", TvBodyWords.Region(BodyPartKind.Forearm, new(0.3f, 0.2f, 0.1f), "右前腕"), "手足は部位の名前");
+        Assert.AreEqual("皮膚", TvBodyWords.Material(MiniRing.Voxels.BoxerAnatomy.Skin));
+    }
+
+    [TestMethod]
+    public void PlanBreak_PutsTheWoundCloseUpAfterTheReplays_AndOnlyWhenThereIsAWound()
+    {
+        // 2026-11-17、ユーザーの指定: 休みに、傷へ手持ちで寄るカット（切り替えない 1 カット）を入れる。
+        var director = new TvDirector(1280, 720, 30, 1f / 240f, "赤", "青");
+        var wound = new TvWound(Red: false, Body: null!, Grid: default, Name: "右すね", Score: 60f);
+
+        var plan = director.PlanBreak(20f, [], redFirst: true, [wound]);
+        var close = plan.Where(s => s.Shot == TvShot.Wound).ToList();
+
+        Assert.AreEqual(1, close.Count);
+        Assert.AreEqual(TvDirector.WoundSeconds, close[0].End - close[0].Start, 1e-4f, "寄り切るまでの 1 カット");
+        Assert.IsFalse(close[0].Red);
+        Assert.AreSame(wound, close[0].Wound);
+        Assert.IsTrue(close[0].End <= 20f - 2.5f, "最後のいつものカメラの前に収まる");
+        Assert.IsFalse(director.PlanBreak(20f, [], redFirst: true).Any(s => s.Shot == TvShot.Wound), "傷が無ければ寄らない");
     }
 }

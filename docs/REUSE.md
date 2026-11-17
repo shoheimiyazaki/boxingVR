@@ -39,6 +39,7 @@ Aigis の CLAUDE.md の規約「別のゲームを作るならリポジトリを
 | `src/Aigis.Render/Camera.cs` | `OffCenterViewProjection(Matrix4x4 view, …)` オーバーロードを追加（トラッキング姿勢から投影を作る）。既存のオーバーロードはこれに委譲 |
 | 一部の doc コメント | オーバーロード追加で曖昧になった `cref` を明示 |
 
+- `PhysicsWorld.SetAngularServoSettings` / `SetTwistServoSettings` に任意の `maxSpeed`（サーボの最大の速さ）を足した（2026-11-17。MiniRing が膝の制御で蹴る脚のサーボの速さの上限だけを上げるため。渡さなければ今まで通り速さの上限は変えない）。
 既存の呼び出しの挙動は変わりません（既定の経路は従来どおり）。
 
 ## 前回の Unity 版について

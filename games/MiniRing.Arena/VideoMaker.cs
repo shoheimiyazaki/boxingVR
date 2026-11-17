@@ -147,6 +147,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             RedDossier = redCharacter?.Profile?.Briefing(redCharacter.Name, redCharacter.HudName, redCharacter.Tagline),
             BlueDossier = blueCharacter?.Profile?.Briefing(blueCharacter.Name, blueCharacter.HudName, blueCharacter.Tagline),
         };
+        // 実況・解説の LLM に渡す生の記録（姿勢・当たりの中身・削れた場所。*.telemetry.json）。読むだけで試合には触れない。
+        var telemetry = broadcast is null ? null : new TvTelemetry(redRing, blueRing, redCharacter?.Profile?.HeightCm ?? 0, blueCharacter?.Profile?.HeightCm ?? 0);
         // 台本の資料: 本日のプログラムの表と、冒頭のタイトルの間（試合の前）。
         if (tvProgram is not null)
         {
@@ -360,7 +362,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             var redTook = game.Player.Condition.TotalDamage - (blueRoundStart.Count > 0 ? blueRoundStart[^1] : 0f);
                             var blueTook = game.Cpu.Condition.TotalDamage - (redRoundStart.Count > 0 ? redRoundStart[^1] : 0f);
                             breakStartAt = at;
-                            breakPlan = director.PlanBreak(_rules!.BreakSeconds / speed, highlights, redTook >= blueTook);
+                            breakPlan = director.PlanBreak(_rules!.BreakSeconds / speed, highlights, redTook >= blueTook, director.Wounds());
                             foreach (var segment in breakPlan)
                             {
                                 var what = segment.Shot switch
@@ -369,9 +371,11 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                                     TvShot.Corner => $"リングの中のカメラ: {(segment.Red ? redRing : blueRing)} のコーナー",
                                     TvShot.Ringside => $"リング脇のカメラマン: {(segment.Red ? redRing : blueRing)} を低い所から",
                                     TvShot.Ceiling => $"天井のカメラ: {(segment.Red ? redRing : blueRing)} を真上から",
+                                    TvShot.Wound => $"手持ちカメラが {(segment.Red ? redRing : blueRing)} の{segment.Wound!.Name}の傷にズームで寄る（アップ）",
                                     _ => "中継カメラ",
                                 };
-                                broadcast?.Note(at + segment.Start, segment.Shot == TvShot.Replay ? "replay" : "cut", "", what);
+                                var type = segment.Shot switch { TvShot.Replay => "replay", TvShot.Wound => "wound_cam", _ => "cut" };
+                                broadcast?.Note(at + segment.Start, type, segment.Shot == TvShot.Wound ? (segment.Red ? redRing : blueRing) : "", what);
                             }
                         }
                         else if (!game.InBreak)
@@ -474,6 +478,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
                         UpdateCaption(redCaption, redBots, redCombos, time);
                         UpdateCaption(blueCaption, blueBots, blueCombos, time);
+                        static string? LastMove(string? combo) => combo?.Split("  ")[^1];
+                        telemetry?.Observe(game, time, at, (LastMove(redCaption.Combo), redCaption.Defense), (LastMove(blueCaption.Combo), blueCaption.Defense));
                         if (broadcast is not null)
                         {
                             // 技・守りの名前（ボットの頭の中から）を、実況の資料に足す。
@@ -589,6 +595,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             TvShot.Ceiling => director.Ceiling(game, subject!, shotTime),
                             TvShot.Ringside => director.Ringside(game, subject!, shotTime),
                             TvShot.Corner => director.Corner(game, subject!, shotTime, at),
+                            TvShot.Wound => director.Wound(game, subject!, cut!.Value.Wound!, shotTime, at),
                             _ => CameraAt(game, (TitleSeconds * 0.15f) + (time / speed * 0.15f)),
                         };
                         var overlay = MatchOverlay(redRing, blueRing, redCaption, blueCaption, flashes, redDamage, blueDamage, time, untilKo || tv ? null : seconds, game, vp);
@@ -732,6 +739,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             {
                 // 下回しと生配信は、ファイル（wav・mp4）を書かない。出来事の記録だけ書く（下回しと本番の events.json が同じことを比べられるように）。
                 broadcast?.WriteEvents(Path.ChangeExtension(outPath, ".events.json"));
+                telemetry?.Write(Path.ChangeExtension(outPath, ".telemetry.json"));
             }
             else
             {
@@ -744,6 +752,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                 {
                     broadcast.MixInto(audio, HitSound.SampleRate, seed);
                     broadcast.WriteEvents(Path.ChangeExtension(outPath, ".events.json"));
+                    telemetry?.Write(Path.ChangeExtension(outPath, ".telemetry.json"));
                 }
 
                 WriteWav(wavPath, audio, (float)frame / fps);
@@ -792,6 +801,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         MiniRing.Weapons.WeaponKind.Longsword => "ロングソード",
         MiniRing.Weapons.WeaponKind.WoodenClub => "こんぼう",
         MiniRing.Weapons.WeaponKind.Staff => "棒",
+        MiniRing.Weapons.WeaponKind.Jo => "杖",
         MiniRing.Weapons.WeaponKind.IronSword => "剣",
         _ => null,
     };

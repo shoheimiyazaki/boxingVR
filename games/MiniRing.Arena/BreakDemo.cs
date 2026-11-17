@@ -55,8 +55,50 @@ internal static class BreakDemo
         }
     }
 
+    /// <summary>脚の部位 <paramref name="part"/> を、体に近い端から長さの <paramref name="fromNear"/> の所で、骨の軸に沿った 1 枚のスライスごと断つ。</summary>
+    private static void CutLimb(BoxingGame game, Fighter fighter, int part, float fromNear)
+    {
+        var voxel = fighter.Voxels!.PartOf(part)!;
+        var grid = voxel.Body.Grid;
+        var axis = voxel.Body.BeamAxis ?? 1;
+        var n = axis == 0 ? grid.Dimensions.X : axis == 1 ? grid.Dimensions.Y : grid.Dimensions.Z;
+        var k = Math.Clamp((int)MathF.Round(fromNear * (n - 1)), 1, n - 2);
+        var slice = voxel.DistalHigh ? k : n - 1 - k;
+        var removed = new List<RemovedVoxel>();
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            var (x, y, z) = grid.Coordinates(i);
+            if ((axis == 0 ? x : axis == 1 ? y : z) == slice && grid.MaterialAt(i) != 0)
+            {
+                grid.Break(i, removed);
+            }
+        }
+
+        if (fighter.Voxels.BreakIfSevered(part) is { } broken)
+        {
+            game.BreakBone(fighter, broken, 1f);
+        }
+    }
+
+    /// <summary>ボット同士の打ち合い（脚を失った後も続くかを見る）。</summary>
+    private static BoxingGame Bout() =>
+        new(seed: 3, corners: new BoxingCorners("bout", s => BotCatalog.Create("champion", s), s => BotCatalog.Create("swarmer", s)));
+
+    private static string Stance(Fighter f) =>
+        $"{f.State}  腰 {f.HoverHeight * 100f:F0} cm  失った脚 {f.LegShortfall * 100f:F0} cm";
+
     public static IReadOnlyList<Scene> Scenes() =>
     [
+        new("右のすねを断つ: 残った膝で膝立ちになって打ち合う", Bout, 2f,
+            game => CutLimb(game, game.Cpu, game.Cpu.Parts.LeftShin, 0.4f),
+            (game, after) => !after ? "打ち合う" : $"すねの切り株で膝立ち（{Stance(game.Cpu)}）"),
+        new("両脚を腿の付け根近くで断つ: 腰で座って打ち合う", Bout, 2f,
+            game =>
+            {
+                CutLimb(game, game.Cpu, game.Cpu.Parts.LeftThigh, 0.25f);
+                CutLimb(game, game.Cpu, game.Cpu.Parts.RightThigh, 0.25f);
+            },
+            (game, after) => !after ? "打ち合う" : $"腰で座って打ち合う（{Stance(game.Cpu)}）"),
         new("両手の棍棒: 添えた左腕を切り落とす", TwoHandedBat, 1.5f,
             game =>
             {

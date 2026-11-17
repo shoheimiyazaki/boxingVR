@@ -545,19 +545,22 @@ public sealed class VoxelDamageTests
     }
 
     [TestMethod]
-    public void ALegCutOff_LeavesTheFighterDown_UnableToStand()
+    public void ALegCutOff_LeavesTheFighterUp_OnWhatIsLeft()
     {
+        // 2026-11-17（PhysicsVersion 39、ユーザーの指定）: 以前は「脚が切れたら立てずに倒れたまま」だった。今は残った脚の長さの高さで
+        // 立って（ここでは腿の付け根近くで切れたので骨盤で座って）戦い続ける。くわしくは LegLossTests。
         using var game = new BoxingGame(seed: 2);
         var cpu = game.Cpu;
         StrikeUntil(game, cpu, cpu.Parts.LeftThigh, () => cpu.LegSevered, damage: 25f);
 
-        Assert.IsFalse(cpu.CanStand);
-        for (var i = 0; i < 60 * 4; i++)
+        Assert.IsTrue(cpu.CanStand);
+        for (var i = 0; i < 60 * 8; i++)
         {
             game.Step(default, 1f / 60f);
         }
 
-        Assert.AreEqual(FighterState.Down, cpu.State, "down and not getting up");
+        Assert.AreEqual(FighterState.Standing, cpu.State, "up again on the stump, not counted out");
+        Assert.IsGreaterThan(0f, cpu.LegShortfall);
     }
 
     [TestMethod]

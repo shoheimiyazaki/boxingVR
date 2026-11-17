@@ -319,12 +319,51 @@ if ($Stage -in @('render', 'digest')) { return }
 #    札の commentary.writer が "llm" なら、足す台詞の無い試合は LLM が書く（tools\tvshow\write-commentary.ps1。-Stage write は全試合の新しいテイク）。
 #    足す台詞が無く、札の autoCommentary が true なら、下書きだけで台本にする（エージェントなしの実況）。
 $commentaryCard = Get-Field $cardData 'commentary' $null
-$llmWriter = [string](Get-Field $commentaryCard 'writer' '') -eq 'llm'
-if ($Stage -eq 'write' -or ($Stage -in @('all', 'dub') -and $llmWriter)) {
+#    "prospective" なら、2 エージェントのプロスペクティブ制（tools\tvshow\prospective\run.js、docs\commentary\styles\prospective.md）。
+$writerKind = [string](Get-Field $commentaryCard 'writer' '')
+$llmWriter = $writerKind -in @('llm', 'prospective')
+if ($writerKind -eq 'prospective' -and ($Stage -eq 'write' -or $Stage -in @('all', 'dub'))) {
+    # プロスペクティブ制（Haiku 2 体の生実況）: 台本の無い試合を commentary.parallel（既定 2）本ずつ並べて動かす。止まった試合は 1 回だけやり直す
+    # （同じ問いは記録 calls.jsonl の答えを使うので、やり直しは止まった所から先だけ LLM に聞く）。-Stage write は全試合を頭から。
+    $runJs = Join-Path $PSScriptRoot 'prospective\run.js'
+    $model = [string](Get-Field $commentaryCard 'model' 'haiku')
+    $parallel = [Math]::Max(1, [int](Get-Field $commentaryCard 'parallel' 2))
+    $todo = @(for ($i = 0; $i -lt $bouts.Count; $i++) { $k = "b$($i + 1)"; if ($Stage -eq 'write' -or -not (Test-Path (Join-Path $out "$k.extras.json"))) { $k } })
+    foreach ($attempt in 1, 2) {
+        $failed = @()
+        for ($s = 0; $s -lt $todo.Count; $s += $parallel) {
+            $batch = @($todo[$s..([Math]::Min($todo.Count, $s + $parallel) - 1)])
+            $procs = foreach ($key in $batch) {
+                $log = Join-Path $out "prospective-$key.log"
+                $arguments = @("`"$runJs`"", '--card', "`"$cardPath`"", '--bout', $key, '--model', $model)
+                if ($Stage -eq 'write' -and $attempt -eq 1) { $arguments += '--fresh' }
+                Write-Host "== prospective $key（$model）"
+                $proc = Start-Process node -ArgumentList $arguments -NoNewWindow -PassThru -RedirectStandardOutput $log -RedirectStandardError "$log.err"
+                $null = $proc.Handle # ハンドルを先に握る（握らないと終わった後の ExitCode が空になり、成功しても止まったと見なした）
+                @{ key = $key; proc = $proc }
+            }
+            foreach ($p in $procs) {
+                $p.proc.WaitForExit()
+                if ($p.proc.ExitCode -ne 0) { $failed += $p.key; Write-Warning "$($p.key) のプロスペクティブ制が止まりました（$out\prospective-$($p.key).log.err）" }
+                else { Get-Content -Encoding UTF8 (Join-Path $out "prospective-$($p.key).log") | Select-Object -Last 1 | ForEach-Object { Write-Host "   $_" } }
+            }
+        }
+        $todo = $failed
+        if ($todo.Count -eq 0) { break }
+    }
+    if ($todo.Count -gt 0) { throw "プロスペクティブ制の中継が止まった試合があります: $($todo -join ', ')" }
+    if ($Stage -eq 'write') { return }
+}
+elseif ($Stage -eq 'write' -or ($Stage -in @('all', 'dub') -and $llmWriter)) {
     $writer = Join-Path $PSScriptRoot 'write-commentary.ps1'
     for ($i = 0; $i -lt $bouts.Count; $i++) {
         $key = "b$($i + 1)"
         if ($Stage -ne 'write' -and (Test-Path (Join-Path $out "$key.extras.json"))) { continue }
+        if ($writerKind -eq 'prospective') {
+            & node (Join-Path $PSScriptRoot 'prospective\run.js') --card $cardPath --bout $key --model ([string](Get-Field $commentaryCard 'model' 'haiku'))
+            if ($LASTEXITCODE -ne 0) { throw "$key のプロスペクティブ制の中継が止まりました（$out\prospective\$key\calls.jsonl）" }
+            continue
+        }
         & powershell -NoProfile -ExecutionPolicy Bypass -File $writer -Card $cardPath -Bout $key
         if ($LASTEXITCODE -ne 0) { throw "$key の台本を LLM が書けませんでした（$out\takes\$key の claude.log）" }
     }
