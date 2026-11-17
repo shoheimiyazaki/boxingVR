@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 /// 構えて立つ相手に当たる・どちらの端が当たるか・自分の体を避ける、受け（<see cref="WeaponDefense"/>）、教科書・キャラクターの読み込み。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class BojutsuTests
 {
     private static readonly float ArmReach = 0.188f;

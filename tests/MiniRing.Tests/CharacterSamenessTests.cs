@@ -11,6 +11,7 @@ namespace MiniRing.Tests;
 /// 名簿・ボット・物理の版を意図して変えたら、Probe で取り直して値を差し替える（古い値のまま黙って合わせない）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class CharacterSamenessTests
 {
     private static readonly Dictionary<string, (ulong Half, ulong End)> Expected = new()

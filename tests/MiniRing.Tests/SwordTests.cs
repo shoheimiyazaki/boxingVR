@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>剣の技（<see cref="SwordTechnique"/>）・刃筋・ドリル（<see cref="SwordDrill"/>）・間合いで技を選ぶボット（<see cref="SwordBot"/>）。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class SwordTests
 {
     [TestMethod]

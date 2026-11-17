@@ -13,6 +13,7 @@ namespace MiniRing.Tests;
 /// 教育が空なら今と同じ試合になること自体は <see cref="CharacterSamenessTests"/>。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class CharacterFileTests
 {
     private static string Json(string id) => CharacterRosterTests.RosterFileJson(id);

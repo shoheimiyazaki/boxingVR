@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 出口の形式と引数、実時間の歩調、声の混ぜ（ゲームの音を声の間だけ下げる）、歓声を少しずつ混ぜても一括と同じになること。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class LiveStreamTests
 {
     private const int Rate = 44100;

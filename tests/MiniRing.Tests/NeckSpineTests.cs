@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 /// （<see cref="Fighter.Break"/> と同じ <c>Link</c>）で残り、肉まで断たれれば頭が離れて死ぬ。脊髄は削れた残りの断面の割合が、その下の筋の力を連続に決める。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class NeckSpineTests
 {
     private const float Dt = 1f / 60f;

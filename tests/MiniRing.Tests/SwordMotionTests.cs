@@ -11,6 +11,7 @@ namespace MiniRing.Tests;
 /// ラグドールがなぞる（<see cref="MotionImitation"/>）、動きの技で戦う（<see cref="SwordsmanBot"/>）。日本刀とロングソード。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class SwordMotionTests
 {
     private static byte Material(Aigis.Foundation.Voxels.VoxelGrid grid, Vector3 local) => grid.FilledCellAt(local) is var i and >= 0 ? grid.MaterialAt(i) : (byte)0;

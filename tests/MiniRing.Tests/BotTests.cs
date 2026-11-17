@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>ボクシングの技を使うボット（MiniRing.Bots）: 技の経路、人並みの制約、守りの反応、対戦の決定性。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class BotTests
 {
     private const float Reach = 0.19f;

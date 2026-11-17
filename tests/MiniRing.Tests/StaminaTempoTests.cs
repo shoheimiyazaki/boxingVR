@@ -10,6 +10,7 @@ namespace MiniRing.Tests;
 /// docs/plans/CLAUDE_BRIEF_STAMINA_TEMPO_2026-11-15.md の値。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class StaminaTempoTests
 {
     private const float Dt = 1f / 240f;

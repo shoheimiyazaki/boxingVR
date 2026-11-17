@@ -11,6 +11,7 @@ namespace MiniRing.Tests;
 /// どれも、触れた形と材質（<see cref="BoxerAnatomy"/> の力学の値）だけから出てくる。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class WeaponTests
 {
     private static WeaponOutcome Run(string name, int frames = 20)

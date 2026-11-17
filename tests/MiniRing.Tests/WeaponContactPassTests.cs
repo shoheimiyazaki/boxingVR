@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 /// すり抜けたように見える）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class WeaponContactPassTests
 {
     /// <summary>

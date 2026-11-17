@@ -11,6 +11,7 @@ namespace MiniRing.Tests;
 /// 記録に Slide が残って再現できる。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class SlideGripTests
 {
     private const float Dt = 1f / 60f;

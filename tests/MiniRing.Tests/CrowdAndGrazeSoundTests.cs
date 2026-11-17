@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>かすり・断裂・観客の合成音: 決定的であること、長さ、音量の並び（かすりは打撃より小さい・K.O. は「おぉ」より大きく長い）。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class CrowdAndGrazeSoundTests
 {
     private const int Rate = HitSound.SampleRate;

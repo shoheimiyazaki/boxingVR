@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 何も壊さない当たりの音（<see cref="BoxingGame.RecentContacts"/>）: ぶつかった面の材質の組から音の種類を選び、試合の中で鳴る。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class ContactEventTests
 {
     [TestMethod]

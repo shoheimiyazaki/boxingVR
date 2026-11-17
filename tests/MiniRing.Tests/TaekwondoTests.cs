@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>2026-11-16: テコンドーの教科書（Bots/taekwondo.json）とテコンドー家（roster/taeyun.json）。蹴りの経路・接触は KickContactTests。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class TaekwondoTests
 {
     private static readonly KickTechnique[] TurningKicks = [KickTechnique.Roundhouse, KickTechnique.Side, KickTechnique.Back, KickTechnique.Axe];

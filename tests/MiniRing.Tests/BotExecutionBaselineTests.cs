@@ -4,6 +4,7 @@ using MiniRing.Bots;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("slow")]
 public sealed class BotExecutionBaselineTests
 {
     [TestMethod]

@@ -14,6 +14,7 @@ namespace MiniRing.Tests;
 /// ゲーム（肉が削れると弱る・骨が断たれると落ちる・臓器が壊れると死ぬ）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class VoxelDamageTests
 {
     private const byte Flesh = 1;

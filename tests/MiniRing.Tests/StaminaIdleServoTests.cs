@@ -11,6 +11,7 @@ namespace MiniRing.Tests;
 /// （2026-11-15 に容量を 90 J→60 J にしたので、同じ仕事の落ちが % では 1.5 倍に見える: グローブ 87.8 %・剣 80.3 %・刀 78.3 %。下限はそのまま）
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class StaminaIdleServoTests
 {
     private const float Dt = 1f / 60f;

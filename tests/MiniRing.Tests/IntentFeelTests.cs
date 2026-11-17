@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>意図操作の「手触り」（回避の速さ・連打・打ち返し・横ステップ・カメラ基準の移動）を物理で測る。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class IntentFeelTests
 {
     private const float Dt = 1f / 60f;
