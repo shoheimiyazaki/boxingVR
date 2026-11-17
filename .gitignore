@@ -26,3 +26,4 @@ media_tmp/
 # Claude Code worktrees and locks (local only)
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+__pycache__/
