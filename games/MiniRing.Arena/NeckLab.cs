@@ -43,7 +43,42 @@ internal static class NeckLab
         var chest = Part(p.Chest).Body.Grid;
         text.AppendLine();
         text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"head grid {head.Dimensions} half {head.HalfExtents}, chest grid {chest.Dimensions} half {chest.HalfExtents}"));
+        var headBody = Part(p.Head).Body;
+        var chestBody = Part(p.Chest).Body;
+        text.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"head box world Y {headBody.GridToWorld().Translation.Y - head.HalfExtents.Y:0.0000} .. {headBody.GridToWorld().Translation.Y + head.HalfExtents.Y:0.0000}; chest box world Y {chestBody.GridToWorld().Translation.Y - chest.HalfExtents.Y:0.0000} .. {chestBody.GridToWorld().Translation.Y + chest.HalfExtents.Y:0.0000}"));
+        text.AppendLine();
+        text.AppendLine("head slices (y from the bottom), x across, z down; chars = material index (. empty)");
+        text.AppendLine("```");
+        for (var y = 0; y < 6; y++)
+        {
+            text.AppendLine($"head y={y}");
+            AppendSlice(text, head, y);
+        }
+
+        for (var y = chest.Dimensions.Y - 6; y < chest.Dimensions.Y; y++)
+        {
+            text.AppendLine($"chest y={y}");
+            AppendSlice(text, chest, y);
+        }
+
+        text.AppendLine("```");
         return text.ToString();
+    }
+
+    private static void AppendSlice(StringBuilder text, Aigis.Foundation.Voxels.VoxelGrid grid, int y)
+    {
+        for (var z = 0; z < grid.Dimensions.Z; z++)
+        {
+            var line = new StringBuilder();
+            for (var x = 0; x < grid.Dimensions.X; x++)
+            {
+                var m = grid.At(x, y, z);
+                line.Append(m == 0 ? '.' : (char)('0' + (m % 10)));
+            }
+
+            text.AppendLine(line.ToString());
+        }
     }
 
     private static (float Gap, int Near, float Cell) Gap(Aigis.Physics.Voxels.VoxelBody a, Aigis.Physics.Voxels.VoxelBody b)
