@@ -7,11 +7,14 @@ namespace MiniRing.Vr;
 /// VR の動きの記録を、ホストの操作（B/Y ボタン・<c>--record-motion</c>）で開始・停止してファイルへ書く。1 回の稽古 = 1 ファイル
 /// （<c>motions/&lt;日時&gt;_&lt;武器&gt;.vrmotion</c>）。記録は付加機能なので、書けなくても試合は止めない（理由を表示して続ける）。
 /// 試合の 1 ステップごとに <see cref="Step"/> を呼ぶ（試合のスレッドから）。終了時の <see cref="Dispose"/> は記録中なら保存する。
+/// <paramref name="label"/> はファイル名の武器の所（既定は武器の名前。稽古では「katana_shomen」のように型を足す）、<paramref name="note"/> は記録の注（既定 "vr session"）。
+/// どちらも記録を始めるときに読む。
 /// </summary>
-internal sealed class VrMotionSession(WeaponKind? weapon, string directory, bool startRecording) : IDisposable
+internal sealed class VrMotionSession(WeaponKind? weapon, string directory, bool startRecording, Func<string>? label = null, Func<string>? note = null) : IDisposable
 {
     private readonly object _lock = new();
-    private VrMotionRecorder? _recorder = startRecording ? new VrMotionRecorder(weapon?.ToString(), "vr session") : null;
+    private VrMotionRecorder? _recorder = startRecording ? new VrMotionRecorder(weapon?.ToString(), note?.Invoke() ?? "vr session") : null;
+    private string? _label = startRecording ? label?.Invoke() : null;
     private float _clock;
 
     public bool Recording
@@ -35,8 +38,9 @@ internal sealed class VrMotionSession(WeaponKind? weapon, string directory, bool
             {
                 if (_recorder is null)
                 {
-                    _recorder = new VrMotionRecorder(weapon?.ToString(), "vr session");
-                    Console.WriteLine("[vr] motion recording started (B/Y to stop)");
+                    _recorder = new VrMotionRecorder(weapon?.ToString(), note?.Invoke() ?? "vr session");
+                    _label = label?.Invoke();
+                    Console.WriteLine($"[vr] motion recording started{(_label is null ? "" : $" ({_label})")} (B/Y to stop)");
                 }
                 else
                 {
@@ -45,6 +49,18 @@ internal sealed class VrMotionSession(WeaponKind? weapon, string directory, bool
             }
 
             _recorder?.Add(_clock, frame.ToRaw(), command, mapper, puppetArmReach);
+        }
+    }
+
+    /// <summary>記録中なら保存して止める（稽古で型を変えるとき）。</summary>
+    public void Stop()
+    {
+        lock (_lock)
+        {
+            if (_recorder is not null)
+            {
+                SaveLocked();
+            }
         }
     }
 
@@ -72,7 +88,7 @@ internal sealed class VrMotionSession(WeaponKind? weapon, string directory, bool
 
         try
         {
-            var path = VrMotionClip.NewPath(directory, weapon?.ToString());
+            var path = VrMotionClip.NewPath(directory, _label ?? weapon?.ToString());
             clip.Save(path);
             Console.WriteLine($"[vr] motion saved: {path} ({clip.Frames.Count} frames, {clip.Duration:0.0} s)");
         }

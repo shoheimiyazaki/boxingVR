@@ -10,6 +10,9 @@ namespace MiniRing.Vr;
 /// </summary>
 internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuWeapon, string CpuStyle)
 {
+    /// <summary>お手本づくりの稽古（<c>--training katana</c>）の武器。null なら試合（<see cref="VrTrainingSession"/>）。</summary>
+    public WeaponKind? Training { get; init; }
+
     public static bool TryParse(IReadOnlyList<string> args, out VrMatchOptions options, out string error)
     {
         options = new VrMatchOptions(null, null, BotCatalog.DefaultCpu);
@@ -59,7 +62,19 @@ internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuW
             }
         }
 
-        options = new VrMatchOptions(player, cpuWeapon, cpu);
+        WeaponKind? training = null;
+        if (Value(args, "--training") is { } trainingText)
+        {
+            if (!Enum.TryParse<WeaponKind>(trainingText, ignoreCase: true, out var kind) || !Enum.IsDefined(kind) || !FormSwordsman.HasForms(kind))
+            {
+                error = $"Unknown --training '{trainingText}'. Weapons with forms: katana, longsword, staff, jo, ironsword, bat.";
+                return false;
+            }
+
+            training = kind;
+        }
+
+        options = new VrMatchOptions(training ?? player, training ?? cpuWeapon, cpu) { Training = training };
         return true;
     }
 
