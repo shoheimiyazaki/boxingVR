@@ -96,10 +96,10 @@ public sealed class SlideProbe
             var now = Flat(p.PelvisPosition);
             maxSpeed = MathF.Max(maxSpeed, (now - last).Length() / dt);
             last = now;
-            if (name.StartsWith("katana yaw40 全部", StringComparison.Ordinal) && i % 12 == 0 && i >= 3 * 240 && i <= 3 * 240 + 120)
+            if (name.StartsWith("katana yaw40 全部", StringComparison.Ordinal) && i % 6 == 0 && i >= 3 * 240 && i <= 3 * 240 + 90)
             {
                 var v = p.PelvisVelocity;
-                TestContext.WriteLine($"  [{name}] t={i * dt:0.00} pelvis=({(now.X - start.X) * 100f:0.0},{(now.Z - start.Z) * 100f:0.0}) v=({v.X:0.00},{v.Z:0.00}) steps={p.Footwork.Steps} swing={p.Footwork.Swinging} {p.Footwork.DebugStep} move={input.Player.MoveWorld.Length():0.00} head=({input.Player.HeadOffset.X * 100f:0.0},{input.Player.HeadOffset.Y * 100f:0.0},{input.Player.HeadOffset.Z * 100f:0.0})");
+                TestContext.WriteLine($"  [{name}] t={i * dt:0.00} pelvis=({(now.X - start.X) * 100f:0.0},{(now.Z - start.Z) * 100f:0.0}) v=({v.X:0.00},{v.Z:0.00}) steps={p.Footwork.Steps} swing={p.Footwork.Swinging} {p.Footwork.DebugLand} ball=({Local(p, Hand.Left)}) {Local(p, Hand.Right)} move={input.Player.MoveWorld.Length():0.00} head=({input.Player.HeadOffset.X * 100f:0.0},{input.Player.HeadOffset.Y * 100f:0.0},{input.Player.HeadOffset.Z * 100f:0.0})");
             }
 
             foreach (var (k, sec) in new[] { (0, 5), (1, 10), (2, 20), (3, 30) })
@@ -115,6 +115,12 @@ public sealed class SlideProbe
         var dr = (Flat(p.AnklePosition(Hand.Right)) - r0).Length() * 100f;
         var dyaw = (Yaw(p) - fwd0) * 180f / MathF.PI;
         TestContext.WriteLine($"| {name} | {cells[0]:0.0} | {cells[1]:0.0} | {cells[2]:0.0} | {cells[3]:0.0} | {dl:0.0} | {dr:0.0} | {maxSpeed:0.00} | {dyaw:0.0} |");
+    }
+
+    private static string Local(Fighter f, Hand h)
+    {
+        var a = Flat(f.AnklePosition(h)) - Flat(f.PelvisPosition);
+        return $"{a.X * 100f:0.0},{a.Z * 100f:0.0}";
     }
 
     private static Vector3 Flat(Vector3 v) => new(v.X, 0f, v.Z);

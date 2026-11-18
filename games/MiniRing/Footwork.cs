@@ -229,6 +229,7 @@ public sealed class Footwork
     /// <summary>踏んだ歩数（調べもの・テスト用）。</summary>
     public int Steps { get; private set; }
     public string DebugPlan { get; private set; } = "";
+    public string DebugLand { get; private set; } = "";
     public string DebugStep { get; private set; } = "";
 
     /// <summary>体（骨盤）を寄せる先: 両足の母指球の間で、体重のかけ方で前後に寄る点。</summary>
@@ -289,6 +290,7 @@ public sealed class Footwork
             _swingTime += dt;
             if (_swingTime >= _swingDuration)
             {
+                { var mid = Vector2.Lerp(_ball[Lead], _ball[Rear], 0.5f); var act = (_swinging == Lead ? input.LeadBall : input.RearBall) ?? _to; DebugLand = $"LAND foot={_swinging} planned=({Unrotate(_to - mid, input.FacingYaw).X / _legLength:0.00},{Unrotate(_to - mid, input.FacingYaw).Y / _legLength:0.00}) actualNow=({Unrotate(act - mid, input.FacingYaw).X / _legLength:0.00},{Unrotate(act - mid, input.FacingYaw).Y / _legLength:0.00}) dur={_swingDuration:0.00}"; }
                 _ball[_swinging] = _to;
                 _yaw[_swinging] = _toYaw;
                 _swinging = -1;
