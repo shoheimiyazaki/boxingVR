@@ -37,14 +37,19 @@ public sealed class SwordTrainingTests
         var between = Vector3.Distance(game.Player.Frame.Origin with { Y = 0f }, start with { Y = 0f });
         Assert.AreEqual(gap, between, 0.08f, "始めは型の間で向き合う");
 
+        // 始めの 1 秒は構えへ沈む（肩の中心が前へ数 cm 出る）。そこから 2 秒、歩かずにその場にいる。
+        var settled = Vector3.Zero;
         for (var t = 0f; t < 3f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
+            if (settled == Vector3.Zero && t >= 1f)
+            {
+                settled = game.Cpu.Frame.Origin;
+            }
         }
 
-        var moved = Vector3.Distance(game.Cpu.Frame.Origin with { Y = 0f }, start with { Y = 0f });
-        Console.WriteLine($"moved {moved * 100f:0.0} cm, player moved {Vector3.Distance(game.Player.Frame.Origin with { Y = 0f }, new Vector3(0f, 0f, 0f)):0.00}, gap now {Vector3.Distance(game.Player.Frame.Origin with { Y = 0f }, game.Cpu.Frame.Origin with { Y = 0f }):0.00}, start gap {between:0.00}");
-        Assert.IsTrue(moved < 0.05f, $"正眼の相手は歩かない（{moved * 100f:0.0} cm）");
+        var moved = Vector3.Distance(game.Cpu.Frame.Origin with { Y = 0f }, settled with { Y = 0f });
+        Assert.IsTrue(moved < 0.02f, $"正眼の相手は歩かない（構えに落ち着いてから {moved * 100f:0.0} cm）");
         var sword = game.WeaponOf(game.Cpu)!;
         var tip = game.World.GetState(sword.Body.BodyId);
         var forward = Vector3.Normalize((game.Player.Frame.Origin - game.Cpu.Frame.Origin) with { Y = 0f });
