@@ -11,13 +11,17 @@ namespace MiniRing.Vr;
 internal sealed class VrPlayerControl
 {
     /// <param name="weapon">自分の武器（null = 素手の試合: 今まで通りの写像）。武器の試合はグリップで持つ。</param>
-    public VrPlayerControl(WeaponKind? weapon = null, VrTwoHand twoHand = VrTwoHand.Right, bool firstPerson = false)
+    /// <param name="twoHand">① 両手持ちの左手の決め方。</param>
+    /// <param name="firstPerson">② 一人称。</param>
+    /// <param name="faceButtons">稽古の操作: A 単独 = 合わせ、4 つ同時 = 作り直し、X・Y = 蹴り。</param>
+    public VrPlayerControl(WeaponKind? weapon = null, VrTwoHand twoHand = VrTwoHand.Right, bool firstPerson = false, bool faceButtons = false)
     {
         Mapper = new VrPlayerMapper(weaponMode: weapon is not null)
         {
             GripHolds = weapon is not null,
             TwoHand = twoHand,
             FirstPerson = firstPerson,
+            FaceButtonControls = faceButtons,
             HeldWeapon = weapon,
             OnCalibrated = (eye, height) => Console.WriteLine($"[vr] calibrated: eye {eye:0.00} m -> height {height:0.00} m"),
         };

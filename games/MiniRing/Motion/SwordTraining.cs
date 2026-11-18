@@ -16,6 +16,15 @@ public sealed record TrainingForm(string Name, float Gap);
 /// </summary>
 public static class SwordTraining
 {
+    /// <summary>稽古ができる武器か（型で動かす武器と、型の無いこんぼう）。</summary>
+    public static bool Supports(WeaponKind? weapon) => FormSwordsman.HasForms(weapon) || weapon == WeaponKind.WoodenClub;
+
+    /// <summary>
+    /// 型の一覧・構えを取る武器。こんぼう（片手で振る木の棒）には専用の型が無いので、バットの型を借りる（近道: docs/DEBT.md「VR の稽古のこんぼう」。
+    /// 型の間合いはバットの寸法から出るので、こんぼうでは目安）。それ以外は武器そのもの。
+    /// </summary>
+    public static WeaponKind FormsWeapon(WeaponKind weapon) => weapon == WeaponKind.WoodenClub ? WeaponKind.Bat : weapon;
+
     /// <summary>稽古のリング（武器のドリルの広さ。間が長い型でも縁から離れる）。</summary>
     public static RingLayout Ring => RingLayout.DrillWeapons;
 
@@ -31,7 +40,7 @@ public static class SwordTraining
         var maxGap = Ring.Size - 0.4f; // リングの縁から 20 cm ずつ内（RingLayout の決まりより広め）
         return
         [
-            .. FormSwordsman.Techniques(weapon, armReach, float.NegativeInfinity)
+            .. FormSwordsman.Techniques(FormsWeapon(weapon), armReach, float.NegativeInfinity)
                 .Select(t => new TrainingForm(t.Name, Math.Clamp(t.Range, MinGap, maxGap))),
         ];
     }
@@ -40,9 +49,11 @@ public static class SwordTraining
     /// 稽古の試合の設定: 赤（プレイヤー = VR の人）も青（相手）も <paramref name="weapon"/> を握り、青は構えて動かない（<see cref="GuardHold"/>）。
     /// 2 人は中央で <paramref name="gap"/> だけ離れて向き合う。審判・休みの動作は無し。
     /// </summary>
-    public static BoxingCorners Corners(WeaponKind weapon, float gap) => new(
+    public static BoxingCorners Corners(WeaponKind weapon, float gap, HandWear wear = HandWear.Glove) => new(
         "seigan",
         _ => new GuardHold(weapon),
+        PlayerWear: wear,
+        CpuWear: wear,
         PlayerWeapon: weapon,
         CpuWeapon: weapon,
         PlayerTwoHanded: FormSwordsman.Handles(weapon),
@@ -65,7 +76,7 @@ public sealed class GuardHold(WeaponKind weapon, FighterTuning? tuning = null) :
         var face = sense.OpponentChest - sense.Self.Origin;
         face.Y = 0f;
         face = face.LengthSquared() > 1e-6f ? Vector3.Normalize(face) : Vector3.UnitZ;
-        return FormSwordsman.GuardCommand(weapon, sense, face, _tuning.WalkSpeed, _tuning.MaxTorsoTwistRadians);
+        return FormSwordsman.GuardCommand(SwordTraining.FormsWeapon(weapon), sense, face, _tuning.WalkSpeed, _tuning.MaxTorsoTwistRadians);
     }
 }
 

@@ -19,7 +19,7 @@ using MiniRing.Vr;
 //   --weapon <staff|katana|longsword|ironsword|woodenclub>  自分が武器を持つ（グリップボタンで持つ: 離すと放す。柄の近くでグリップを握ると拾う・もう一方の手を添える）
 //   --cpu-weapon <kind|none>  相手の武器（既定は自分と同じ。none で素手）  --cpu <style>  相手のスタイル（既定 champion）
 //   --record-motion      起動から終了まで VR の動きを motions/<日時>_<武器>.vrmotion に記録（B/Y ボタンでも開始・停止。docs/VR_MOTION.md）
-//   --training <katana|longsword|...>  お手本づくりの稽古: 正眼に構えて動かない相手へ切り込む動きを型ごとに記録（右スティック 左右 = 型、下 = 作り直す、B/Y = 記録。docs/VR_MOTION.md §5）
+//   --training <katana|longsword|jo|woodenclub|ironsword|...>  お手本づくりの稽古: 正眼に構えて動かない相手へ切り込む動きを型ごとに常に記録（右スティック 左右 = 型、A+B+X+Y 同時 = 作り直す、X・Y = 蹴り、A 単独 = 身長の合わせ。docs/VR_MOTION.md §5）  --shield  左手に盾（片手剣）
 
 if (args.Contains("--selftest"))
 {
@@ -111,7 +111,7 @@ catch (InvalidOperationException ex)
 var vrTuning = FighterTuning.Default with { PlayerFatigue = false }; // VR の手触りの調整が終わるまで、自分の腕は疲れない
 var recordingMessage = "training: replays are not recorded";
 using (xr)
-using (var training = match.Training is { } trainingWeapon ? new VrTrainingSession(trainingWeapon, vrTuning, Path.Combine(Environment.CurrentDirectory, "motions"), match.FirstPerson) : null)
+using (var training = match.Training is { } trainingWeapon ? new VrTrainingSession(trainingWeapon, vrTuning, Path.Combine(Environment.CurrentDirectory, "motions"), match.FirstPerson, match.Wear) : null)
 using (var matchGame = training is null ? new BoxingGame(vrTuning, corners: match.Corners.StartingAtCorners()) { HidePlayerHead = match.FirstPerson } : null)
 using (var recorder = matchGame is null ? null : ReplayRecorder.TryStartFile(Path.Combine(Environment.CurrentDirectory, "replays"), matchGame, "vr", out recordingMessage))
 using (var renderer = new HeadlessRenderer(xr.EyeWidth, xr.EyeHeight, xr.Vulkan.External))
@@ -120,7 +120,8 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
     Console.WriteLine($"[vr] eye {xr.EyeWidth}x{xr.EyeHeight}, sRGB={xr.IsSrgb}. Put the headset on.");
     Console.WriteLine($"[vr] {recordingMessage}");
     BoxingGame Game() => training?.Game ?? matchGame!;
-    var control = new VrPlayerControl(match.PlayerWeapon, match.TwoHand, match.FirstPerson);
+    xr.FaceButtonMode = training is not null; // 稽古: A 単独 = 合わせ（離したとき）、4 つ同時 = 作り直し、X・Y = 蹴り。B/Y の記録は使わない（常に記録）
+    var control = new VrPlayerControl(match.PlayerWeapon, match.TwoHand, match.FirstPerson, faceButtons: training is not null);
     using var motion = new VrMotionSession(match.PlayerWeapon, Path.Combine(Environment.CurrentDirectory, "motions"), training is null && args.Contains("--record-motion"));
     if (match.PlayerWeapon is { } held)
     {
@@ -133,7 +134,7 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
             Console.WriteLine("[vr] first person: the camera stays at your head in VR space; the body's head is driven to it. Press A/X once to align (scale + position + facing). Left stick moves the VR origin.");
         }
     }
-    Console.WriteLine("[vr] B/Y button: start/stop recording the motion (motions/*.vrmotion)");
+    if (training is null) { Console.WriteLine("[vr] B/Y button: start/stop recording the motion (motions/*.vrmotion)"); }
     var clear = ArenaLook.Background;
     // VR の仕上げ: 画面の隅の陰りは付けない（頭を動かしても付いてくる黒い縁は不自然）。
     var finish = ArenaLook.Finish(vignette: 0f);

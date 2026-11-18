@@ -262,6 +262,121 @@ public sealed class VrKatanaControlTests
         Assert.AreEqual(all, game.BuildVoxelVolumes().Count);
     }
 
+    private static VrRawFrame Buttons(bool x, bool y, bool a, bool b) => Raw(0f, 0f) with { Buttons = new VrFaceButtons(x, y, a, b) };
+
+    private static VrPlayerMapper TrainingMapper() => new(weaponMode: true)
+    {
+        GripHolds = true,
+        TwoHand = VrTwoHand.Right,
+        HeldWeapon = WeaponKind.Katana,
+        FaceButtonControls = true,
+    };
+
+    [TestMethod]
+    public void AloneAReleaseCalibratesButTheFourButtonChordResetsWithoutCalibrating()
+    {
+        var calibrations = 0;
+        var mapper = TrainingMapper();
+        mapper.OnCalibrated = (_, _) => calibrations++;
+        var sense = Sense();
+        mapper.Read(Buttons(false, false, false, false), sense, Dt); // 最初の 1 回は自動の合わせ
+        Assert.AreEqual(1, calibrations);
+        mapper.Read(Buttons(false, false, true, false), sense, Dt);
+        Assert.AreEqual(1, calibrations, "A は離したときに働く（押しただけでは合わせない）");
+        mapper.Read(Buttons(false, false, false, false), sense, Dt);
+        Assert.AreEqual(2, calibrations, "A 単独を離したら合わせる");
+
+        var resets = 0;
+        foreach (var frame in new[] { Buttons(false, false, true, false), Buttons(false, false, true, true), Buttons(true, false, true, true), Buttons(true, true, true, true),
+                     Buttons(true, true, true, true), Buttons(true, true, false, true), Buttons(false, false, false, false) })
+        {
+            mapper.Read(frame, sense, Dt);
+            resets += mapper.ResetRequested ? 1 : 0;
+        }
+
+        Assert.AreEqual(1, resets, "4 つが揃った瞬間に 1 回だけ作り直す");
+        Assert.AreEqual(2, calibrations, "4 つ同時のあとで A を離しても合わせ直さない");
+    }
+
+    [TestMethod]
+    public void KickButtonsKickWithTheirLegWhileTheHandsKeepFollowingTheControllers()
+    {
+        var mapper = TrainingMapper();
+        var sense = Sense();
+        var before = mapper.Read(Buttons(false, false, false, false), sense, Dt).Player;
+        Assert.IsNull(before.LeftLeg);
+        var kicking = mapper.Read(Buttons(true, false, false, false), sense, Dt).Player;
+        Assert.IsNotNull(kicking.LeftLeg, "X = 左脚");
+        Assert.IsNull(kicking.RightLeg);
+        Assert.AreEqual(before.Right.TargetLocal, kicking.Right.TargetLocal, "蹴りの間も手はコントローラを追う");
+        // 蹴りの途中は次の蹴りを始めない（Y を押しても右脚は動かない）。
+        var during = mapper.Read(Buttons(true, true, false, false), sense, Dt).Player;
+        Assert.IsNull(during.RightLeg);
+        for (var i = 0; i < 480; i++)
+        {
+            mapper.Read(Buttons(false, false, false, false), sense, Dt);
+        }
+
+        var right = mapper.Read(Buttons(false, true, false, false), sense, Dt).Player;
+        Assert.IsNotNull(right.RightLeg, "Y = 右脚（前の蹴りが終わったあと）");
+        Assert.IsNull(right.LeftLeg);
+    }
+
+    [TestMethod]
+    public void KickTypeFollowsTheDistanceBetweenTheKicksReaches()
+    {
+        var front = KickSpec.Of(KickTechnique.Front).StandoffFor(Hand.Left, Hand.Right);
+        var knee = KickSpec.Of(KickTechnique.Knee).StandoffFor(Hand.Left, Hand.Right);
+        Assert.IsTrue(front > knee, $"前蹴りの届く間合い {front} は膝蹴り {knee} より遠い");
+        FighterSense At(float reaches) => Sense() with { OpponentChest = new Vector3(0f, 0f, reaches * Reach) };
+        Assert.AreEqual(KickTechnique.Front, KickRunner.Choose(Hand.Left, At(front)), "遠ければ前蹴り");
+        Assert.AreEqual(KickTechnique.Knee, KickRunner.Choose(Hand.Left, At(knee)), "近ければ膝蹴り");
+        Assert.AreEqual(KickTechnique.Front, KickRunner.Choose(Hand.Left, At(front + 3f)));
+        Assert.AreEqual(KickTechnique.Knee, KickRunner.Choose(Hand.Left, At(0.2f)));
+        var middle = (front + knee) / 2f;
+        Assert.AreEqual(KickTechnique.Front, KickRunner.Choose(Hand.Left, At(middle + 0.01f)), "中間は近い方");
+        Assert.AreEqual(KickTechnique.Knee, KickRunner.Choose(Hand.Left, At(middle - 0.01f)));
+    }
+
+    [TestMethod]
+    public void EveryTrainingWeaponHasAMenuWithGapsInsideTheRingAndABuildableWorld()
+    {
+        var weapons = new[] { WeaponKind.Katana, WeaponKind.Longsword, WeaponKind.Jo, WeaponKind.Staff, WeaponKind.WoodenClub, WeaponKind.IronSword, WeaponKind.Bat };
+        foreach (var weapon in weapons)
+        {
+            Assert.IsTrue(SwordTraining.Supports(weapon), $"{weapon}");
+            var wear = weapon == WeaponKind.IronSword ? HandWear.Shield : HandWear.Glove;
+            using var probe = new BoxingGame(corners: SwordTraining.Corners(weapon, 1f, wear));
+            var forms = SwordTraining.Forms(weapon, probe.PlayerSense.ArmReach);
+            Assert.IsTrue(forms.Count > 0, $"{weapon}: 型の一覧が空");
+            foreach (var form in forms)
+            {
+                Assert.IsTrue(form.Gap >= SwordTraining.MinGap && form.Gap <= SwordTraining.Ring.Size - 0.4f, $"{weapon} {form.Name}: 間 {form.Gap} がリングの外");
+            }
+
+            using var game = new BoxingGame(corners: SwordTraining.Corners(weapon, forms[0].Gap, wear));
+            for (var i = 0; i < 120; i++)
+            {
+                game.Step(default, Dt);
+            }
+
+            Assert.IsTrue(game.Player.Wields(Hand.Right) && game.Cpu.Wields(Hand.Right), $"{weapon}: 両者が武器を握って始まる");
+        }
+    }
+
+    [TestMethod]
+    public void OptionsParseShieldAndEveryTrainingWeapon()
+    {
+        foreach (var name in new[] { "katana", "longsword", "jo", "woodenclub", "ironsword" })
+        {
+            Assert.IsTrue(VrMatchOptions.TryParse(["--training", name], out var options, out var error), error);
+            Assert.AreEqual(HandWear.Glove, options.Wear);
+        }
+
+        Assert.IsTrue(VrMatchOptions.TryParse(["--training", "ironsword", "--shield"], out var shield, out _));
+        Assert.AreEqual(HandWear.Shield, shield.Wear);
+    }
+
     [TestMethod]
     public void OptionsParseTwoHandAndFirstPerson()
     {

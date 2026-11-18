@@ -64,6 +64,25 @@ internal sealed class VrMotionSession(WeaponKind? weapon, string directory, bool
         }
     }
 
+    /// <summary>
+    /// 記録中なら保存し、新しい記録を始める（稽古: 型を変える・作り直すたびに 1 ファイル。ファイル名と注はこのとき読み直す）。
+    /// 記録していなければ始めるだけ。
+    /// </summary>
+    public void Restart()
+    {
+        lock (_lock)
+        {
+            if (_recorder is not null)
+            {
+                SaveLocked();
+            }
+
+            _recorder = new VrMotionRecorder(weapon?.ToString(), note?.Invoke() ?? "vr session");
+            _label = label?.Invoke();
+            _clock = 0f;
+        }
+    }
+
     public void Dispose()
     {
         lock (_lock)

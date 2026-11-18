@@ -122,7 +122,23 @@ public sealed class VrPlayerMapper(bool weaponMode = false)
     /// <summary>
     /// ② 次のフレームで変換を合わせ直す（ワールドを作り直して人形が別の所に立ったとき。身長の合わせはそのまま）。
     /// </summary>
-    public void ResetPlacement() => _placeAgain = true;
+    public void ResetPlacement()
+    {
+        _placeAgain = true;
+        _kick.Cancel();
+    }
+
+    /// <summary>
+    /// フェイスボタンの操作（稽古）: A 単独（離したとき）= 身長の合わせ、4 つ同時 = 作り直しの要求（<see cref="ResetRequested"/>）、X = 左脚・Y = 右脚の蹴り
+    /// （<see cref="KickRunner"/>）。true のとき、ホストは A/X の押した瞬間の合わせ・B/Y の記録を使わない。
+    /// </summary>
+    public bool FaceButtonControls { get; init; }
+
+    /// <summary>直近の <see cref="Read"/> の歩で、4 つのフェイスボタンが同時に押された（ホストが稽古の世界を作り直す）。</summary>
+    public bool ResetRequested { get; private set; }
+
+    private readonly FaceButtonTracker _faceButtons = new();
+    private readonly KickRunner _kick = new();
 
     public BoxingInput Read(in VrRawFrame frame, in FighterSense sense, float dt)
     {
@@ -130,7 +146,9 @@ public sealed class VrPlayerMapper(bool weaponMode = false)
         var headYaw = BodyFrame.YawOf(Vector3.Transform(-Vector3.UnitZ, frame.HeadRotation), _bodyYaw);
         HeadYaw = headYaw;
         var calibratedNow = false;
-        if ((!_calibrated && frame.HeadPosition.Y > 0.8f) || frame.CalibratePressed)
+        var events = FaceButtonControls ? _faceButtons.Step(frame.Buttons) : default;
+        ResetRequested = events.Reset;
+        if ((!_calibrated && frame.HeadPosition.Y > 0.8f) || frame.CalibratePressed || events.Calibrate)
         {
             PlayerHeight = PuppetMapping.PlayerHeightFromEye(frame.HeadPosition.Y);
             _bodyYaw = headYaw;
@@ -183,6 +201,21 @@ public sealed class VrPlayerMapper(bool weaponMode = false)
             HandOf(MiniRing.Hand.Left, left, leftOrientation, grabLeft, letGo && releasedLeft, frame),
             HandOf(MiniRing.Hand.Right, _lastHandLocal[1], _lastOrientation[1], grabRight, letGo && releasedRight, frame),
             headOffset);
+        if (FaceButtonControls)
+        {
+            // X = 左脚・Y = 右脚の蹴り（間合いで前蹴り・膝蹴り）。脚は追跡しないので、蹴りの経路を体が追う。手はコントローラを追ったまま。
+            if (events.KickLeft)
+            {
+                _kick.Start(MiniRing.Hand.Left, sense);
+            }
+            else if (events.KickRight)
+            {
+                _kick.Start(MiniRing.Hand.Right, sense);
+            }
+
+            command = _kick.Apply(command, sense, dt);
+        }
+
         return new BoxingInput(command);
     }
 
