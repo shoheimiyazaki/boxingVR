@@ -184,9 +184,11 @@ public readonly record struct FootPose(Vector3 Ball, float Yaw, float HeelRaise,
 /// <param name="LeadBall">前足の母指球の実際の位置（体を寄せる支えの点に使う。null なら計画の位置）。</param>
 /// <param name="RearBall">後ろ足の母指球の実際の位置。</param>
 /// <param name="Reach">脚が水平に届く距離 [m]（股の高さから。腰を落とすほど遠くへ届く）。0 なら脚の長さ。</param>
+/// <param name="LeadFree">前足は床に留めている足ではない（蹴っている）。置いた所の記憶は実際の足へすぐ合わせる（<see cref="FootworkTuning.HoldRelax"/> を待たない）。</param>
+/// <param name="RearFree">後ろ足が同じく蹴っている。</param>
 /// <param name="HipOffset">股（脚の付け根）の体の中心からの横のずれ [m]。届く範囲の中心は左右の脚でこれだけずれる。</param>
 public readonly record struct FootworkInput(float FacingYaw, Vector2 Body, Vector2 BodyVelocity, float Omega, Vector2 Intent, float Twist, float Weight, float LegLength,
-    bool LeadOverreach = false, bool RearOverreach = false, Vector2? LeadBall = null, Vector2? RearBall = null, float Reach = 0f, float HipOffset = 0f);
+    bool LeadOverreach = false, bool RearOverreach = false, Vector2? LeadBall = null, Vector2? RearBall = null, float Reach = 0f, float HipOffset = 0f, bool LeadFree = false, bool RearFree = false);
 
 /// <summary>
 /// 足の置き場所を決めるモデル（倒立振子 + 構え）。ボクサーは左足が常に前（オーソドックス）。
@@ -308,8 +310,8 @@ public sealed class Footwork
             // 毎歩すぐに実際の位置へ合わせると、足首を引く力の目標が足そのものになって留める力が 0 になり、もう一方の足を踏み出す反作用で
             // 着いた足が 1 cm ずつ滑り、その滑りが構えの直しの閾値（StepThreshold）に近いので踏み直しが止まらず、体が少しずつ流れていった。
             var relax = _tuning.HoldRelax <= 0f ? 1f : 1f - MathF.Exp(-dt / _tuning.HoldRelax);
-            _ball[Lead] = input.LeadBall is { } leadActual ? Vector2.Lerp(_ball[Lead], leadActual, relax) : _ball[Lead];
-            _ball[Rear] = input.RearBall is { } rearActual ? Vector2.Lerp(_ball[Rear], rearActual, relax) : _ball[Rear];
+            _ball[Lead] = input.LeadBall is { } leadActual ? Vector2.Lerp(_ball[Lead], leadActual, input.LeadFree ? 1f : relax) : _ball[Lead];
+            _ball[Rear] = input.RearBall is { } rearActual ? Vector2.Lerp(_ball[Rear], rearActual, input.RearFree ? 1f : relax) : _ball[Rear];
             PlanStep(input);
         }
 

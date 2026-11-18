@@ -1648,7 +1648,8 @@ public sealed partial class Fighter
         var reach = MathF.Sqrt(MathF.Max(0f, (legLength * legLength) - (drop * drop)));
         var input = new FootworkInput(_facingYaw, new Vector2(pelvis.Position.X, pelvis.Position.Z), new Vector2(pelvis.LinearVelocity.X, pelvis.LinearVelocity.Z),
             omega, new Vector2(intent.X, intent.Z), twist, weight, legLength,
-            lead.ReachRatio > 0.995f, _legParts[Footwork.Rear].ReachRatio > 0.995f, BallOnGround(lead), BallOnGround(_legParts[Footwork.Rear]), MathF.Max(0.3f * legLength, reach));
+            lead.ReachRatio > 0.995f, _legParts[Footwork.Rear].ReachRatio > 0.995f, BallOnGround(lead), BallOnGround(_legParts[Footwork.Rear]), MathF.Max(0.3f * legLength, reach),
+            LeadFree: lead.Command is not null, RearFree: _legParts[Footwork.Rear].Command is not null);
         _footwork.Update(input, dt);
     }
 
