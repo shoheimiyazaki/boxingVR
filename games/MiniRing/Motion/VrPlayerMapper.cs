@@ -54,7 +54,7 @@ public sealed class VrPlayerMapper(bool weaponMode = false)
     public const float GripOff = 0.35f;
 
     /// <summary>② 頭のずれ（人形の腕の長さ = 1）がこれより小さい間は歩かない（傾けるだけ）。頭の傾き（<see cref="FighterCommand.HeadOffset"/>）で追える範囲。</summary>
-    public const float WalkDeadZone = 0.3f;
+    public const float WalkDeadZone = 0.15f;
 
     /// <summary>② 歩く指令が 1（歩く速さの最大）になるまでの、デッドゾーンの外側の幅（腕の長さ = 1）。</summary>
     public const float WalkFullRange = 0.7f;

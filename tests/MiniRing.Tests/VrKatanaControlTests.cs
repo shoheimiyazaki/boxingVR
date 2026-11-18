@@ -355,12 +355,12 @@ public sealed class VrKatanaControlTests
             }
 
             using var game = new BoxingGame(corners: SwordTraining.Corners(weapon, forms[0].Gap, wear));
+            Assert.IsTrue((game.Player.Wields(Hand.Right) || game.Player.Wields(Hand.Left)) && (game.Cpu.Wields(Hand.Right) || game.Cpu.Wields(Hand.Left)),
+                $"{weapon}: both fighters start holding the weapon");
             for (var i = 0; i < 120; i++)
             {
-                game.Step(default, Dt);
+                game.Step(default, Dt); // 両者が動く世界を作れる（例外なく進む）
             }
-
-            Assert.IsTrue((game.Player.Wields(Hand.Right) || game.Player.Wields(Hand.Left)) && (game.Cpu.Wields(Hand.Right) || game.Cpu.Wields(Hand.Left)), $"{weapon}: 両者が武器を握って始まる");
         }
     }
 
