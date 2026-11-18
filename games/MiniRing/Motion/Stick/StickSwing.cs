@@ -605,7 +605,7 @@ public static class SwingInterpolation
     }
 
     /// <summary>多項式の値。</summary>
-    public static double Evaluate(double[] c, double t) => c[0] + (t * (c[1] + (t * (c[2] + (t * (c[3] + (t * (c[4] + (t * c[5]))))))))));
+    public static double Evaluate(double[] c, double t) => c[0] + (t * (c[1] + (t * (c[2] + (t * (c[3] + (t * (c[4] + (t * c[5])))))))));
 
     /// <summary>微分: 1 = 速さ、2 = 加速度、3 = 躍度。</summary>
     public static double Derivative(double[] c, double t, int order) => order switch
