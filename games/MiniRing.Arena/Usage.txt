@@ -1,5 +1,5 @@
 ボット同士の対戦場。
-  rosterleague [--wear id=glove,...] [--chars a,b,...] [--bouts N] [--seconds S] [--seed X] [--referee on|off] [--parallel N] [--set A=v,B=v [--ab on [--layered id]]] [--gameplan on|off|ab] [--matrix file.csv] [--out file.md]   名簿のキャラの総当たり（体格・距離の帯・打撃の表）
+  rosterleague [--wear id=glove,...] [--chars a,b,...] [--bouts N] [--seconds S] [--seed X] [--referee on|off] [--parallel N] [--set A=v,B=v [--ab on [--layered id]]] [--gameplan on|off|ab] [--layer gameplan|rhythm] [--matrix file.csv] [--out file.md]   名簿のキャラの総当たり（体格・距離の帯・打撃の表）
   league [--bots a,b,...] [--bouts N] [--seconds S] [--seed X] [--out file.md]   総当たりの順位表と技の内訳
   tune --base NAME [--gens G] [--pop P] [--bouts N] [--seconds S] [--gauntlet a,b] [--seed X] [--log file.md] [--out style.json]
                                                                                   スタイルの自動調整（PDCA を世代ごとに記録）
@@ -44,6 +44,7 @@
   handlelab [--pairs] [--fist] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--style-katana] [--style-longsword] [--style-club] [--style-staff] [--style-swordshield] [--style-bat] [--title]
   handlespar [--trainee] [--opponents] [--held-out] [--gens] [--lambda] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--start] [--best] [--out]
   maailab [--chars] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--json] [--csv] [--ranges]
+  rhythmlab [--chars] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--csv]   攻めの間の測り（打った後の隙・相手の拳の後に打つ機。docs/BOTS.md「間の層」）
   staminalab [--variants] [--bots] [--bouts] [--seconds] [--seed] [--tv] [--out]
   learnlab [--first] [--second] [--seeds] [--seconds] [--seed] [--prior] [--scale] [--combos] [--defender] [--out]
   rangelab [--variants] [--bots] [--bouts] [--seconds] [--seed] [--weapons] [--out]

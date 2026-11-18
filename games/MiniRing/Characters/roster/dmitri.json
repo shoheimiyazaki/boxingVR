@@ -84,7 +84,7 @@
   "textbook": "slugger",
   "education": {
     "style": {
-      "Rhythm": {"Weight":1,"Seize":1,"Quiet":2.982,"Bins":[{"From":0,"None":-4.879,"Guard":-2.929,"Clean":-1.965},{"From":0.1,"None":-1.481,"Guard":-2.197,"Clean":-1.3},{"From":0.2,"None":1.646,"Guard":-0.338,"Clean":0.077},{"From":0.3,"None":0.83,"Guard":2.446,"Clean":-0.176},{"From":0.4,"None":1.876,"Guard":1.862,"Clean":0.988},{"From":0.5,"None":1.376,"Guard":2.017,"Clean":0.53},{"From":0.6,"None":2.673,"Guard":1.582,"Clean":-0.24},{"From":0.8,"None":4.093,"Guard":2.129,"Clean":-0.174},{"From":1,"None":3.664,"Guard":2.287,"Clean":3.261}]},
+      "Rhythm": {"Weight":0,"Seize":1,"Quiet":2.982,"Bins":[{"From":0,"None":-4.879,"Guard":-2.929,"Clean":-1.965},{"From":0.1,"None":-1.481,"Guard":-2.197,"Clean":-1.3},{"From":0.2,"None":1.646,"Guard":-0.338,"Clean":0.077},{"From":0.3,"None":0.83,"Guard":2.446,"Clean":-0.176},{"From":0.4,"None":1.876,"Guard":1.862,"Clean":0.988},{"From":0.5,"None":1.376,"Guard":2.017,"Clean":0.53},{"From":0.6,"None":2.673,"Guard":1.582,"Clean":-0.24},{"From":0.8,"None":4.093,"Guard":2.129,"Clean":-0.174},{"From":1,"None":3.664,"Guard":2.287,"Clean":3.261}]},
       "BreakLikes": { "bow": 3.5, "earbud": 2.5, "headphones": 2, "towelhead": 3, "deepbreath": 2.5, "handshake": 2, "sandwich": 1.5, "applause": 1.5, "dance": 0.3, "blowkiss": 0.2, "wavetwo": 0.4 },
       "GamePlan": {
         "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,

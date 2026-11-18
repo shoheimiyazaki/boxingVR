@@ -127,11 +127,13 @@ public sealed class CharacterSamenessTests
     /// 名簿の教育に戦略の層（<c>education.style.GamePlan</c>、LogicVersion 50、2026-11-18）を入れた試合のチェックサム（<see cref="CharacterSamenessProbe"/> の SAME の行）。
     /// 層を使う（<c>Weight</c> 1）拳のボットが戦う組だけが変わる。両方とも剣・こんぼうのボット、人が操る側と武器のボットの組、
     /// 層を外した（<c>Weight</c> 0: albert・joao など、docs/BOT_PDCA.md「戦略の層（GamePlan）をキャラごとに採る」）拳のボットの組は、教育に GamePlan があっても同じ。
+    /// 間の層（<c>education.style.Rhythm</c>、LogicVersion 52）を採ったのは marcus だけ（docs/BOT_PDCA.md「間の層を採るか」）なので、取り直したのは marcus の組（glove-glove の 2 つ）だけ。
+    /// ほかの組は間の層があっても（<c>Weight</c> 0）値が同じことを確かめた（2026-11-18）。
     /// </summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedGamePlan = new()
     {
-        ["glove-glove-referee"] = (0x4114AE0F7C37A535, 0x416750534C01B63B),
-        ["glove-glove-noref"] = (0x7141E66805B8B387, 0x08C4EDEA8413A4C8),
+        ["glove-glove-referee"] = (0xBEC697F96061F885, 0x8E63AB1B95BBA995),
+        ["glove-glove-noref"] = (0xFC2530582C0B2B1D, 0x9594D997B0DDB2BB),
         ["karate-swarmer-noref"] = (0xD884F1E16461148A, 0x6BE0E46B4A6885CA),
         ["katar-gauntlet-referee"] = (0x298E6364ADDE88C1, 0x53E90F2318344475),
     };

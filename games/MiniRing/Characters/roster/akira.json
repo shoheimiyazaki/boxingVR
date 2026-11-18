@@ -83,7 +83,7 @@
   "textbook": "karate",
   "education": {
     "style": {
-      "Rhythm": {"Weight":1,"Seize":1,"Quiet":4.34,"Bins":[{"From":0,"None":-1.222,"Guard":-1.433,"Clean":-1.684},{"From":0.1,"None":1.303,"Guard":-2.139,"Clean":-0.112},{"From":0.2,"None":2.363,"Guard":1.029,"Clean":0.803},{"From":0.3,"None":1.293,"Guard":2.064,"Clean":-0.528},{"From":0.4,"None":1.24,"Guard":1.779,"Clean":1.039},{"From":0.5,"None":1.117,"Guard":0.987,"Clean":-0.001},{"From":0.6,"None":1.512,"Guard":0.779,"Clean":0.826},{"From":0.8,"None":4.706,"Guard":2.041,"Clean":2.828},{"From":1,"None":3.646,"Guard":2.797,"Clean":3.478}]},
+      "Rhythm": {"Weight":0,"Seize":1,"Quiet":4.34,"Bins":[{"From":0,"None":-1.222,"Guard":-1.433,"Clean":-1.684},{"From":0.1,"None":1.303,"Guard":-2.139,"Clean":-0.112},{"From":0.2,"None":2.363,"Guard":1.029,"Clean":0.803},{"From":0.3,"None":1.293,"Guard":2.064,"Clean":-0.528},{"From":0.4,"None":1.24,"Guard":1.779,"Clean":1.039},{"From":0.5,"None":1.117,"Guard":0.987,"Clean":-0.001},{"From":0.6,"None":1.512,"Guard":0.779,"Clean":0.826},{"From":0.8,"None":4.706,"Guard":2.041,"Clean":2.828},{"From":1,"None":3.646,"Guard":2.797,"Clean":3.478}]},
       "BreakLikes": { "bow": 3, "salute": 2, "applause": 2, "handshake": 2.5, "hum": 2.5, "onigiri": 2, "deepbreath": 1.5, "raisearms": 0.3, "roar": 0.2, "fistpump": 0.4, "blowkiss": 0, "dance": 0.3 },
       "GamePlan": {
         "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,

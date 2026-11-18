@@ -39,14 +39,16 @@ public sealed class CharacterRosterTests
     }
 
     /// <summary>
-    /// 名簿の教育は戦略の層（<c>education.style.GamePlan</c>、2026-11-18）だけ: 解決したスタイルは、GamePlan を除けば教科書と同じ値。
+    /// 名簿の教育は戦略の層（<c>education.style.GamePlan</c>）・休みの好み・間の層（<c>Rhythm</c>、拳の選手だけ。2026-11-18）だけ:
+    /// 解決したスタイルは、それらを除けば教科書と同じ値。
     /// </summary>
     internal static void AssertTextbookPlusGamePlan(BotStyle textbook, BotStyle resolved, string message)
     {
         Assert.IsNotNull(resolved.GamePlan, "the roster education carries the game plan: " + message);
         Assert.IsNull(textbook.GamePlan, "textbooks carry no game plan: " + message);
+        Assert.IsNull(textbook.Rhythm, "textbooks carry no rhythm table: " + message);
         Assert.IsNotEmpty(resolved.BreakLikes, "the roster education carries the break-time likes: " + message);
-        Assert.AreEqual((textbook with { BreakLikes = resolved.BreakLikes }).ToJson(), (resolved with { GamePlan = null }).ToJson(), "apart from the game plan and the break likes, the textbook itself: " + message);
+        Assert.AreEqual((textbook with { BreakLikes = resolved.BreakLikes }).ToJson(), (resolved with { GamePlan = null, Rhythm = null }).ToJson(), "apart from the game plan, the rhythm table and the break likes, the textbook itself: " + message);
     }
 
     /// <summary>決めた名簿（CLAUDE_BRIEF_ROSTER_MENU の表）: id・武器・はめる物・スタイル・身長/腕/脚/筋肉。</summary>

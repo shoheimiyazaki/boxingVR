@@ -44,13 +44,14 @@ internal static class CharacterSamenessCases
         MiniRing.Bots.WeaponCatalog.HasBot(weapon) ? MiniRing.Bots.WeaponCatalog.Textbook(weapon!.Value) with { Pacing = null } : null;
 
     /// <summary>
-    /// 教育から戦略の層（<c>education.style.GamePlan</c>、LogicVersion 50）を外したキャラ。名簿の教育は GamePlan だけなので、外せば教科書そのもので戦う
+    /// 教育から戦略の層（<c>education.style.GamePlan</c>、LogicVersion 50）と間の層（<c>Rhythm</c>、LogicVersion 52）を外したキャラ。外せば教科書そのもので戦う
     /// （GamePlan が無ければボットの判断はビット単位で今までと同じことを、今までのチェックサムで確かめるため）。
     /// </summary>
     internal static FighterCharacter WithoutGamePlan(FighterCharacter c)
     {
         var style = (System.Text.Json.Nodes.JsonObject)c.Education.Style.DeepClone();
         style.Remove("GamePlan");
+        style.Remove("Rhythm"); // 間の層（LogicVersion 52）も同じく外す: 層が無ければ判断は今までと同じ。
         return c with { Education = c.Education with { Style = style } };
     }
 
