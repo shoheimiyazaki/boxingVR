@@ -21,7 +21,7 @@ Codex は報告・文書を書く前に止まった。作ったもの（コミ�
 3. **見た目**: raytrek の `docs/video/sword_forms_katana_*.mp4` から各型 4〜6 コマを PNG に抜き（ffmpeg）、ローカルに持ってきて Read で見る。斬る向きが名前どおりか（右薙ぎは右から、逆風は真下から、柄頭打ちは柄頭が前へ）を報告に書く。ロングソードの型の動画が無ければ撮る（`imitate --weapon longsword --only <名前> --out ...`）。
 4. **文書**: `docs/SWORD_MOTION.md` に技の表（名前・向き・狙い・間合い・aimlab の値）、`docs/BOT_PDCA.md` に仮説 → 結果 → 採否、`CLAUDE.md` §8 に近道（手で作ったキー・柄頭を打つ端の一覧・前蹴りの扱い）、`docs/GUIDE.html` の該当節、README のテスト件数。
 5. **全テスト**（Probe を除く）が通ること。LiveStreamTests の 2 件は raytrek の ffmpeg が古く SRT/NVENC p4 が無いので Inconclusive になる（Codex が足した確かめ）— それは既知でよい。
-6. 報告 `docs/plans/SONNET_REPORT_SWORD_FORMS_2026-11-18.md`（作った技の表・前後の数字・採否・コマの所見・残り）。
+6. 報告 `docs/plans/done/SONNET_REPORT_SWORD_FORMS_2026-11-18.md`（作った技の表・前後の数字・採否・コマの所見・残り）。
 
 ## 実行の場所（大事）
 この PC は空きメモリが 1 GB も無い。**ビルド・テスト・Arena の測定はこの PC で走らせない**。raytrek で走らせる:

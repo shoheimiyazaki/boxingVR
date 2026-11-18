@@ -113,8 +113,16 @@ public static class VoxelContact
     /// <summary>Bounce of a stopped blow (0 = dead stop).</summary>
     public const float Restitution = 0.1f;
 
-    /// <summary>The sweep's sample spacing as a fraction of the smaller cell (default 0.5: half a cell). A coarser value (1.0) halves the samples but lets a thin blade step over more of a cell; it also scales the push-out distance. For measuring only: set before bodies are stepped.</summary>
-    public static float SampleSpacingScale { get; set; } = 0.5f;
+    /// <summary>The sweep's sample spacing as a fraction of the smaller cell (default 0.5: half a cell). A coarser value (1.0) halves the samples but lets a thin blade step over more of a cell; it also scales the push-out distance. For measuring only: set before bodies are stepped.
+    /// Held per async flow (<see cref="AsyncLocal{T}"/>): a change is seen by the code that made it and by the threads and tasks it starts afterwards, never by matches or tests already running elsewhere.</summary>
+    public static float SampleSpacingScale
+    {
+        get => _sampleSpacingScale.Value ?? DefaultSampleSpacingScale;
+        set => _sampleSpacingScale.Value = value;
+    }
+
+    private const float DefaultSampleSpacingScale = 0.5f;
+    private static readonly AsyncLocal<float?> _sampleSpacingScale = new();
 
     /// <summary>Most samples of the sweep in one step.</summary>
     private const int MaxSamples = 400;
