@@ -48,14 +48,27 @@ def main():
     grip = next((b.name for b in arm.data.bones if b.name.startswith("grip.")), None)
     hand = None
     if grip is not None:
-        hand = "forearm" + grip[len("grip"):]
+        side = grip[len("grip"):]
+        hand = "forearm" + side
+        # IK は目標のボーンの頭を追うので、握りのボーンの先（もう一方の手が柄を握る点）に頭を置いた小さなボーンを足す（握りのボーンの子 = 剣と一緒に動く）。
+        target = "grip_target" + side
+        bpy.context.view_layer.objects.active = arm
+        bpy.ops.object.mode_set(mode='EDIT')
+        parent = arm.data.edit_bones[grip]
+        bone = arm.data.edit_bones.new(target)
+        bone.head = parent.tail
+        bone.tail = parent.tail + (parent.tail - parent.head).normalized() * 0.05
+        bone.roll = parent.roll
+        bone.parent = parent
+        bone.use_connect = False
+        bpy.ops.object.mode_set(mode='OBJECT')
         ik = arm.pose.bones[hand].constraints.new('IK')
         ik.name = "Grip IK"
         ik.target = arm
-        ik.subtarget = grip
-        ik.head_tail = 1.0  # 握りのボーンの先 = もう一方の手が柄を握る点
-        ik.use_tail = True
-        ik.chain_count = 2
+        ik.subtarget = target
+        ik.use_tail = True  # 前腕の先（手首）を目標へ
+        ik.chain_count = 2  # 前腕と上腕
+        grip = target
 
     scene = bpy.context.scene
     for action in actions:
@@ -86,7 +99,7 @@ def use(arm, action):
 
 def gap(arm, hand, grip):
     wrist = arm.matrix_world @ arm.pose.bones[hand].tail
-    target = arm.matrix_world @ arm.pose.bones[grip].tail
+    target = arm.matrix_world @ arm.pose.bones[grip].head
     return (wrist - target).length
 
 
