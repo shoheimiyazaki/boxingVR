@@ -401,7 +401,7 @@ public sealed class Footwork
 
         var distance = Vector2.Distance(target, _ball[foot0]);
         _swinging = foot0;
-        { var mid = Vector2.Lerp(_ball[Lead], _ball[Rear], 0.5f); var h = home[foot0]; var lf = Unrotate(_ball[foot0] - mid, input.FacingYaw) / leg; var lt = Unrotate(target - mid, input.FacingYaw) / leg; var lh = Unrotate(h - mid, input.FacingYaw) / leg; var lo = Unrotate(_ball[1 - foot0] - mid, input.FacingYaw) / leg; DebugStep = $"STEP foot={foot0} from=({lf.X:0.00},{lf.Y:0.00}) home=({lh.X:0.00},{lh.Y:0.00}) target=({lt.X:0.00},{lt.Y:0.00}) other=({lo.X:0.00},{lo.Y:0.00}) reach={_reach / leg:0.00} yawFace={input.FacingYaw * 57.3f:0}"; }
+        { DebugStep = $"STEP foot={foot0} Lball=({_ball[Lead].X * 100:0.0},{_ball[Lead].Y * 100:0.0}) Rball=({_ball[Rear].X * 100:0.0},{_ball[Rear].Y * 100:0.0}) target=({target.X * 100:0.0},{target.Y * 100:0.0}) center=({center.X * 100:0.0},{center.Y * 100:0.0}) middle=({middle.X * 100:0.0},{middle.Y * 100:0.0}) body=({input.Body.X * 100:0.0},{input.Body.Y * 100:0.0}) face={input.FacingYaw * 57.3f:0} leg={leg * 100:0.0}"; }
         _lastFoot = foot0;
         _sinceStep = 0f;
         _from = _ball[foot0];

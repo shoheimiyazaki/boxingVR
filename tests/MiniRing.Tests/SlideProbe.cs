@@ -73,6 +73,7 @@ public sealed class SlideProbe
         var cells = new float[4];
         FighterCommand firstCommand = default;
         var maxSpeed = 0f;
+        var lastSteps = -1;
         var last = start;
         for (var i = 1; i <= 30 * 240; i++)
         {
@@ -96,15 +97,14 @@ public sealed class SlideProbe
             var now = Flat(p.PelvisPosition);
             maxSpeed = MathF.Max(maxSpeed, (now - last).Length() / dt);
             last = now;
-            if (name.StartsWith("katana yaw40 全部", StringComparison.Ordinal) && i % 12 == 0 && i >= 3 * 240 && i <= 3 * 240 + 120)
+            if (name.StartsWith("katana yaw40 全部", StringComparison.Ordinal) && i >= 3 * 240 && i <= 3 * 240 + 240)
             {
                 var v = p.PelvisVelocity;
                 {
                     var sep = Flat(p.AnklePosition(Hand.Right)) - Flat(p.AnklePosition(Hand.Left));
                     var yaw = Yaw(p);
                     var (sn, cs) = MathF.SinCos(yaw);
-                    TestContext.WriteLine($"  [{name}] t={i * dt:0.000} sep(lat,fwd)cm=({((sep.X * cs) - (sep.Z * sn)) * 100f:0.0},{((sep.X * sn) + (sep.Z * cs)) * 100f:0.0}) swing={p.Footwork.Swinging} steps={p.Footwork.Steps} L={Local(p, Hand.Left)} R={Local(p, Hand.Right)} ballErr(act-plan cm) L={p.DebugBallErr[0]} R={p.DebugBallErr[1]}");
-                }
+                    if (p.Footwork.Steps != lastSteps) { lastSteps = p.Footwork.Steps; TestContext.WriteLine($"  [{name}] t={i * dt:0.000} {p.Footwork.DebugStep}"); }
             }
 
             foreach (var (k, sec) in new[] { (0, 5), (1, 10), (2, 20), (3, 30) })
