@@ -11,6 +11,7 @@ namespace MiniRing.Tests;
 /// 体がそれを追った結果（当たる・自傷）は handlelab・selfpath・aimlab の測定（docs/arena/bat_forms_*.md）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class BatFormsTests
 {
     private static SwordMotion Form(string name) => BatForms.Forms().Single(f => f.Name == name);

@@ -8,6 +8,25 @@ namespace MiniRing.Tests;
 public sealed class ConfirmLogTests
 {
     [TestMethod]
+    public void IdenticalDifferences_GiveAnInfiniteTValue_AndStillOneLine()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"confirm-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            int[] seeds = [1, 2, 3];
+            var result = PairedEvaluation.Confirm(s => s.Select(_ => 1.5d).ToArray(), s => s.Select(_ => 1d).ToArray(), seeds);
+            Assert.IsTrue(double.IsPositiveInfinity(result.TValue), "every seed gives the same difference, so the standard error is 0");
+            ConfirmLog.Append("test", "constant difference", "A", "B", seeds, result, path: path);
+            using var doc = JsonDocument.Parse(File.ReadAllLines(path).Single());
+            Assert.AreEqual("Infinity", doc.RootElement.GetProperty("result").GetProperty("TValue").GetString());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [TestMethod]
     public void OneConfirmation_IsOneJsonLine_WithTheVerdictAndTheInterval()
     {
         var path = Path.Combine(Path.GetTempPath(), $"confirm-{Guid.NewGuid():N}.jsonl");

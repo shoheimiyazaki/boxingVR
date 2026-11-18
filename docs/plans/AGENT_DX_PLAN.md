@@ -13,15 +13,15 @@
 |---|---|---|
 | 1 | 常に読む文書を軽くする（CLAUDE.md・版の履歴） | 済（b33afd8） |
 | 2 | テストを段に分ける（速い段と slow の印）、raytrek で全部を回す道具 | ほぼ済（5054896）。raytrek での全部の 1 回と並列の測定が残り |
-| 3 | 試合の設定の可変 static を、試合を作るときの引数にする | 未着手（Program.cs 待ち） |
-| 4 | 見た目を 1 枚で確かめる `--sheet`（コマの格子 PNG ＋ 値） | 未着手（Program.cs 待ち） |
-| 5 | 文書を「今の仕組み」と「記録」に分ける・終わった plans を片付ける | 未着手 |
-| 6 | 繰り返す作業を skill・スクリプト・hook にする | 未着手 |
-| 7 | 軸を機械で守る（禁止 API の解析器・依存の向きのテスト） | 未着手 |
-| 8 | Arena のコマンドをレジストリにして `help <cmd>` | 未着手（Program.cs 待ち） |
-| 9 | 測定の出力を共通の JSON にする（採否の比べ方を 1 つに） | 未着手 |
-| 10 | Bots を別アセンブリへ・`Fighter` を部分クラスに分ける | 未着手（並行作業が落ち着いてから。時期はユーザーと決める） |
-| 11 | ワークツリー・ブランチの掃除 | 未着手（消すものはユーザーの承認を得てから） |
+| 3 | 試合の設定の可変 static を流れごとに持つ（AsyncLocal） | 済（4413ec8）。並列のテストの測定は未確定 |
+| 4 | 見た目を 1 枚で確かめる `tools/sheet.py`（コマの格子 PNG） | 済（4413ec8） |
+| 5 | 終わった plans を `plans/done/` へ・文書の表に「記録」の読み方 | 済（4413ec8）。大きい文書の分割は見送り |
+| 6 | skill 3 つ・hook のスクリプト | 済（1b3aabb）。`.claude/settings.json` はユーザーが置く |
+| 7 | 軸を機械で守る（ソースの検査のテスト） | 済（1b3aabb） |
+| 8 | Arena の `help <cmd>`（組み込みの Usage.txt と switch の一致のテスト） | 済（2d0b600） |
+| 9 | 採否の比べ直しを `docs/arena/confirm.jsonl` に 1 行ずつ | 済（43e265b） |
+| 10 | Bots を別アセンブリへ・`Fighter` を部分クラスに分ける | 地図だけ作った。実行は grappling・spacing のマージの後（ユーザーと決める） |
+| 11 | ワークツリー・ブランチの掃除 | 一覧を作った。消すのはユーザーの承認の後 |
 
 ---
 
@@ -76,6 +76,8 @@
 - 2026-11-18: raytrek で `remote-test.sh fast` を 3 回: 初回（全部の履歴の bundle）・同じコミット（bundle なし）・1 コミット先（差分の bundle）の 3 つの経路がどれも通り、**403 件全部合格、送ってから要約まで約 2 分**。
 - 2026-11-18: raytrek で `all` を回しかけて止めた。raytrek では別の作業（`rosterleague --parallel 14`・`maailab --parallel 12`・`handlelab`）が CPU を使っていて、1 時間のテストはそれを遅らせ、時間も比べられないため。そのとき分かったこと: こちらの ssh を止めても向こうの `dotnet test` は残る（自分の実行の PID だけを `taskkill /T` で止めた）。スクリプトに「raytrek で他の dotnet が動いている」警告と、止め方の案内を足した。
 - 全部の段の件数: `all` のフィルタは `slow` の印を見ないので、印を付けても件数は変わらない（作りで保証される）。速い段 403 件 ＋ slow の 59 クラス。
+- 2026-11-18（master の取り込み後）: 速い段が **552 件・10 分**に戻っていた。master で増えたテストのクラスに印が無かった（`KickShinTests` 435 秒・`BatFormsTests` 45 秒・`VfcCoreTests` 36 秒・`BreakRoutineTests` 31 秒・`ElbowContactTests` 8 秒・`ContinuousDefenseTests` 5 秒）。6 クラスに印を足した。**同じことが起きる**: 印は人（エージェント）が付けるので、付け忘れが速い段を遅くする。対策を 2 つ入れた: `tools/trx-summary.py` が「印が無いのに 3 秒以上かかったクラス」を名前で出す、`run.cmd test` が trx を `TestResults\local\` に書いてこの要約を出す（hook のスクリプトもテストを触ったときに思い出させる）。
+- 2026-11-18: 付け直した後に `run.cmd test` で回した: **502 件・全部合格・テストの実行 36 秒**、要約が出る。3 秒の境目の近くで揺れるクラス（`FaceCamTests`・`BodyToFistTests` 3 秒前後）が毎回警告に出て雑音になるので、警告は 5 秒以上にした（印の目安は 3 秒のまま）。6 秒の `BreakCameraTests` には印を付けた。
 - 残したこと: (1) raytrek が空いているときに `remote-test.sh all` を 1 回通し、全部の件数と時間をここに書く。(2) 並列（`--parallel N`、MSTest のクラス単位）は試していない。可変の static を書き換えるテスト（段 3）を直してから測る。1 時間の全テストが数分の 1 になる見込みで、段 3 の後の最初の仕事にする。
 
 ## 段 3 — 試合の設定の可変 static を引数に
@@ -85,7 +87,9 @@
 **完了の条件**: 上の 3 つが static でなくなる。全テストのチェックサムが変わらない（物理は同じ）。
 
 **記録**
-- （未着手。`Program.cs` の `ApplySimplify` を触るので master の作業が入ってから）
+- 2026-11-18: **計画の変更**: 「試合を作るときの引数にする」をやめ、3 つの static の中身を `AsyncLocal` にした（`BoxingGame.DefaultSubstepRate`・`DefaultMaxContactPasses`・`VoxelContact.SampleSpacingScale`）。引数にするには Arena の約 20 の lab が試合を作る全経路へ設定を通す必要があり、大きく・ほかの枝と衝突する。`AsyncLocal` なら、書き換えは「書き換えた流れと、その後に始めたスレッド・タスク」にだけ効く: Arena（最初に 1 回設定 → 並列の試合へ流れる）はそのまま動き、Probe の書き換えは並列に走る別のテストに漏れない。既定値・物理は同じ（版は上げない）。読むたびに `AsyncLocal` を引く費用は接触の組 1 つに数十 ns。
+- 2026-11-18: `SimulationDefaultsIsolationTests`（並行する 2 つの流れで、書き換えた側とその子だけが新しい値を見る）を足した。`WeaponContactPassTests` と合わせて合格。
+- 2026-11-18: 並列（MSTest のクラス単位・4 並び）で速い段を回したが、直列で 1 分のものが十数分たっても終わらず止めた。この PC では同時に別のセッションのテスト（別ワークツリーの testhost）も走っていてメモリが足りなかった可能性が高く、詰まり（デッドロック）かは**未確定**。raytrek が空いたときに `bash tools/remote-test.sh fast --parallel 4` で測り直す。
 
 ## 段 4 — 見た目を 1 枚で確かめる `--sheet`
 
@@ -94,7 +98,8 @@
 **完了の条件**: `video --seconds 10 --sheet x.png` で 1 枚が出て、自分で読んで中身が分かる。visual テスト 1 本。
 
 **記録**
-- （未着手）
+- 2026-11-18: **計画の変更**: `video` と各 lab に `--sheet` を足す代わりに、どの mp4 にも使える `tools/sheet.py` にした（動画を作る経路が `video`・`kickvideo`・`imitate`・`guardlab --video`・`intentvideo`・`kickmocap` など 15 ほどあり、全部に足すより 1 本の道具の方が漏れない）。値（意識・スタミナ）は動画の HUD・中継の画面に出ているので、それを読む。visual テストは足していない（GPU を使わない道具なので、動画から 1 枚を作れたことを手で確かめた）。
+- 2026-11-18: `media/gen02_1110_bots/video/miniring_champion_vs_jabber.mp4`（50 秒）を 8 コマの 1 枚（1920 × 540）にして読んだ: 時刻・コーナーの名前・ダメージ・技の名前（「1-2 ジャブ → ストレート」）・勝敗まで読める。ffprobe はこの PC に無いので、長さは ffmpeg の出力から読む。CLAUDE.md §4.7・§5 と skill `verify-visual` に使い方を書いた。
 
 ## 段 5 — 文書を「今の仕組み」と「記録」に分ける
 
@@ -103,7 +108,10 @@
 **やること**: 大きい文書ごとに「今の仕組み（短い）」を先頭か別ファイルにし、記録は `docs/log/` へ。終わった plans は `docs/plans/done/` へ（git に履歴は残る）。`GUIDE.html` の更新義務を見直す（ユーザーと相談）。
 
 **記録**
-- （未着手）
+- 2026-11-18: 報告（`*_REPORT_*`）が出た指示書と報告の 77 件を `docs/plans/done/` へ `git mv` した（102 → 25 件。残したのは計画・引き継ぎ・報告の無い指示書。報告の無い指示書の中にもマージ済みの物はあるが、終わったと言い切れないので残した）。参照を 40 ファイルで直した（`docs/plans/<名前>` → `docs/plans/done/<名前>`、移したファイルの相対リンクを 1 段上へ）。移したファイルに残るリンク切れ 21 件は、移す前から切れていた物（git の外の動画・根からの相対の道）。
+- 2026-11-18: CLAUDE.md §3 の文書の表の下に「読み方」を足した: 表は今の仕組み、記録（`BOT_PDCA`・`arena/*`・`LEARNING_PLAN` の記録・`plans/done/`・`VERSIONS`）は要るときだけ見出しで探す、20KB を超える文書は `Grep` で節を探して読む。
+- **見送ったこと**: 大きい文書（`BOT_PDCA` 149KB・`VOXEL_DAMAGE` 54KB…）を「今の仕組み」と「記録」へ分けること。分けるには各文書を全部読んで書き直す必要があり（数十万字）、その費用に対して、上の「Grep で節だけ読む」の決まりで読む量はほぼ同じだけ減らせるため。`BOT_PDCA` はもともと記録だけの文書で、今の仕組みは `BOTS.md` にある。`GUIDE.html` の更新の義務はユーザーの判断が要るので変えていない（提案: 世代を区切るマージのときだけ直す）。
+- 指示書の運用: 報告が出たら指示書と報告を `plans/done/` へ移す（skill `delegate` の 5）。
 
 ## 段 6 — 繰り返す作業を道具にする
 
@@ -132,32 +140,57 @@
 `Microsoft.CodeAnalysis.BannedApiAnalyzers` で試合のコード（`games/MiniRing`・`src/Aigis.Physics`）から `DateTime.Now`・種なしの `Random`・`Parallel` を禁止（§1.6）。依存の向きのテスト（Bepu の型が `Aigis.Physics` の外に出ない、Bots が `Fighter` の書き込みに触らない）。
 
 **記録**
-- （未着手）
+- 2026-11-18: **計画の変更**: NuGet の解析器ではなく、ソースを検査する速いテスト `ArchitectureRulesTests` にした（新しいパッケージが要らず、違反の一覧と直し方を日本語で出せる）。禁じたのは `games/MiniRing`・`src/Aigis.Physics`・`src/Aigis.Foundation` の種なしの `Random`・`Random.Shared`・`DateTime.Now/UtcNow/Today`・`Environment.TickCount`・`Guid.NewGuid`。試合の外の用途は `// determinism-ok: 理由` を書けば通る。`Parallel` と `Stopwatch` は禁じなかった（今の使い方は独立した試合の並列と計測だけで、試合の中の計算に入っていない）。もう 1 本は、BepuPhysics・BepuUtilities を参照するのが `src/Aigis.Physics` だけであること。
+- 2026-11-18: 最初の実行で違反 3 件（記録のファイル名 2・記録の見出しの日時 1。どれも試合の外）が出たので印を付け、2 本とも合格。今のコードに本当の違反は無かった。
+- 「Bots が Fighter の書き込みに触らない」は段 10（Bots を別アセンブリにする）で型で守る方がよいので、テストにはしていない。
 
 ## 段 8 — Arena のコマンドのレジストリ
 
 `Program.cs`（1,783 行・55 コマンドの switch、使い方は先頭のコメントだけ）を、コマンドごとの名前・引数・説明を持つ表にし、`help` と `help <cmd>` を出す。知らない引数はエラーにする（今もしているかを確かめる）。
 
 **記録**
-- （未着手）
+- 2026-11-18: 知らない引数は `Options.Parse` がすでに誤字として拒んでいた。
+- 2026-11-18: **計画の変更**: switch をコマンドのクラスの表に作り直すのはやめた（58 のコマンドを全部動かす大きな変更で、コマンドを足すほかの枝と毎回衝突する）。代わりに、先頭のコメントの使い方（41 行・23 コマンド分）を組み込みの `games/MiniRing.Arena/Usage.txt` へ移し、`help`・`help <cmd>`・知らないコマンドのときのコマンドの一覧を出すようにした。説明の無かった 35 のコマンドは、switch から引数の名前を書き出した行を「その他のコマンド」の節に足した（説明は後で足す）。`ArenaUsageTests` が switch と Usage.txt のコマンドが一致することを確かめるので、コマンドを足して使い方を書き忘れると速い段で落ちる。
+- 2026-11-18: `help tune` が使い方と説明の 2 行を出し、`nosuch` がコマンドの一覧を出すことを確かめた。
 
 ## 段 9 — 測定の出力を共通にする
 
 lab ごとに違う md の表を出している。`PairedEvaluation` を出口にして「始めの値と候補・使った種と使っていない種・差と揺らぎ」を同じ JSON（＋ md）で出し、採否を 1 つの道具で判定する。全 lab 共通の `--telemetry out.json`。
 
 **記録**
-- （未着手）
+- 2026-11-18: 統計の芯（`PairedEvaluation.Confirm`: 対にした差・t の区間・符号検定・判定）はすでにあり、採否の比べ直しは `cmatune`（2 か所）・`defconfirm`・`noiselab`（動作例）から呼ばれていた。
+- 2026-11-18: **計画の変更**: 19 の lab の md を作り直すのでなく、採否を決める比べ直しの結果だけを同じ形で残す台帳 `docs/arena/confirm.jsonl` にした（`ConfirmLog.Append`。1 行 = 日時・道具・問い・A・B・版・種・`PairedResult` の全部と判定・t 値）。`cmatune` の 2 か所と `defconfirm` から呼ぶ。リポジトリの根の外（テストの出力の場所）では書かない。`ConfirmLogTests` を足した。CLAUDE.md §4.8 に「新しい比べ直しの道具は `ConfirmLog.Append` を呼ぶ」と書いた。
+- 2026-11-18: 別のエージェント（Sonnet）のレビューで 1 件の本物の不具合: 差が全部の種で同じだと t 値が ±∞ になり、標準の JSON が書けずに例外 → `cmatune`・`defconfirm` の長い実行の最後で報告が出ないまま落ちる。±∞ を文字列で書く設定にし、捕まえる例外を広げ、そのテスト（`IdenticalDifferences_GiveAnInfiniteTValue_AndStillOneLine`）を足した。ほかの指摘: `AsyncLocal` で試合の結果が変わる経路は無い（全部の書き換えが同期で、`Parallel.For`・`Task.Run` は値を引き継ぐ）、Usage の読み取りと hook は問題なし、`sheet.py` で範囲外の時刻のコマが黙って落ちて番号がずれる → 警告を出し・時刻を切り詰め・頼んだ番号のまま描くよう直した。`ArchitectureRulesTests` の見逃し（文字列の中の `//` の後ろ・`/* */` の中のコード）は、誤って通す方向だけで、今の使い方では問題にならないので直していない。
+- 見送ったこと: 全 lab 共通の `--telemetry`。中継（`--tv on`）の `*.events.json` が打撃・ダウンの時刻をすでに出しているので、要る lab が出てきたらそれを広げる。
 
 ## 段 10 — 構造の分割（Bots の別アセンブリ・Fighter の部分クラス）
 
 `Fighter.cs`（3,669 行）は並行作業がいちばん衝突する所。部分クラス（意識・ダウン／握り・武器／体のバネ／脚／腕のサーボ）に分ける。Bots・IntentControl を別アセンブリにして、観測は読み取りのインターフェースだけ見せる。大きな移動なので、並行のブランチが master に入った後に一度にやる。
 
 **記録**
-- （未着手）
+- 2026-11-18: 実行していない。まだマージされていない枝が `Fighter.cs` を変えている: `claude/merge-grappling`・`claude/throwing-grappling-mechanics-de662d`（＋119 −45 行。マージ保留中）、`claude/spacing-control-features-a34e7d`（＋38 −4 行）。今メソッドを別のファイルへ移すと、git は移った塊を追えず、その枝のマージが手作業の解き直しになる。
+- 分割の地図（`Fighter.cs` 3,719 行、2026-11-18 の master。メソッドだけを移し、フィールドは移さない（部分クラスのフィールドの初期化の順はファイルの順に依存するため））:
+
+| 新しいファイル | 中身（今の行） |
+|---|---|
+| `Fighter.cs` | フィールド・生成（`Spawn`・`AddToes`）・`ApplyControl`・部位の問い合わせ（1〜870 の大半）・小さな計算の道具（3039〜） |
+| `Fighter.Wield.cs` | `Wield`・`Support`・`Unwield`・`ReleaseSupport`・`LetGoSupport`・`HoldsOneHanded`・`BareFist`（697〜800） |
+| `Fighter.Consciousness.cs` | `MeasureHeadJolt`・`TwistHead`・`RefreshOrgans`・`BruiseOrgans`・`Smooth`（934〜1110） |
+| `Fighter.Grapple.cs` | `Push`・`Knockdown`・`SetGrabbed`・`UpdateGrab`・`ReleaseAll`・`TryGrab`・`Release`・`ClosestPointOnBox`・`HalfExtentsOf`（1110〜1280） |
+| `Fighter.Down.cs` | `TickStanding`・`TouchesCanvas`・`UpdateRise`・`UpdateStir`・`Hash01`・`MaxPartSpeed`・`TickDown`・`PostOnTheCanvas`・`Enter`（1280〜1522） |
+| `Fighter.Legs.cs` | `DriveBody`〜`ApplyGait`（足の運び・脚・膝の制御・ホバー・直立・歩き、1522〜2060） |
+| `Fighter.Arms.cs` | `DriveArms`〜`SetTwistStrength`（腕・握りの滑り・体から拳へ・サーボの強さ、2060〜2449） |
+| `Fighter.Injury.cs` | `Die`・`Break`・`BreakNeck`・肉のつなぎ・力の抜ける手（2449〜3003） |
+
+- 実行の手順（そのとき）: (1) 上の 2 つの枝を master に入れる。(2) 行の範囲でなくメソッドの名前で塊を切り出すスクリプトで移す（各塊が 1 回だけ見つかることを確かめる、CLAUDE.md §6）。(3) ビルド → 速い段 → `ReplayTests`・`BotExecutionBaselineTests` のチェックサムが変わらないこと（純粋な移動なので 1 ビットも変わらない）。(4) その直後に Bots を別アセンブリにするかを、Bots から `Fighter` の `internal` への参照の数を数えてから決める。
+- 時期はユーザーと決める。
 
 ## 段 11 — ワークツリー・ブランチの掃除
 
 ワークツリー 34・ブランチ 35（`agent-*` の残り 10）。master へマージ済みかを一覧にして、ユーザーの承認を得てから消す。
 
 **記録**
-- （未着手）
+- 2026-11-18: 一覧を作った（`git worktree list` と `git branch --merged master`）。ワークツリーは 55（`.claude/worktrees` の外に 2: `E:/repos/ClaudeProjects/myvrgame1_nodelay`・一時の `mchk`）。
+  - **master へマージ済み 32**（消す候補）: `boxer-lowpoly-impact-deform-4b1273`・`outfit`・`a-3d0203`・`voxel-damage`・`evo-p1a`・`evo-p0b`・`rush-physics`・`sword-combat-techniques-51f876`・`tvprogram`・`staff-vr-motion-kick-d8bd9a`・`integrate` と `agent-*` 21 個。
+  - **マージされていない 21**: 残す（`roster`・`boots`・`referee`・`tvcard2`・`build-tactics`・`charfiles`・`tonfa`・`swordshield`・`bojutsu`・`fingers`・`neck`・`taekwondo`・`weapons`・`throwing-grappling-mechanics-de662d`・`vfc`・`spacing-control-features-a34e7d`・`wound-cam`・`agent-dx` と動いている `agent-*` 3 つ）。このうち 11/16 の作業の枝（`roster`〜`weapons`）は内容が別の道で master に入っているものが多いが、枝としては未マージなので、消すかは中身を比べてから。
+- 消し方（承認の後）: `git worktree remove <道>`（`--force` は使わない: 未コミットの変更があるワークツリーは git が拒むので、作業の残りを消すことは無い）→ `git branch -d <枝>`（マージ済みでなければ git が拒む）。raytrek の `C:\Users\smiya\repos` の散らかり（bundle・patch・古いワークツリー 100 ほど）も同じく承認の後。

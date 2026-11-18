@@ -35,6 +35,8 @@ def main(argv):
     root = ET.parse(path).getroot()
     class_of = {d.get('id'): d.find('t:TestMethod', NS).get('className').split('.')[-1]
                 for d in root.iterfind('.//t:UnitTest', NS)}
+    slow_classes = {class_of[d.get('id')] for d in root.iterfind('.//t:UnitTest', NS)
+                    if any(c.get('TestCategory') == 'slow' for c in d.iterfind('.//t:TestCategoryItem', NS))}
     counters = root.find('.//t:Counters', NS)
     times = root.find('t:Times', NS)
     start = stamp(times.get('start')) if times is not None else None
@@ -59,6 +61,10 @@ def main(argv):
           f'sum of test times {sum(total.values()) / 60:.1f} min')
     for f in failed:
         print('FAILED', f)
+    untagged = sorted((n for n in total if total[n] >= 5.0 and n not in slow_classes and not n.endswith('Probe')), key=lambda n: -total[n])
+    if untagged:
+        print('classes over 5 s without [TestCategory("slow")] (they slow the fast tier; tag them): '
+              + ', '.join(f'{n} {total[n]:.0f}s' for n in untagged))
     print(f'slowest classes (of {len(total)}):')
     for name in sorted(total, key=lambda n: -total[n])[:limit]:
         print(f'  {total[name]:7.1f}s {count[name]:4d} tests  {name}')

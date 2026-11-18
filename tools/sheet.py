@@ -21,7 +21,12 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 def arg(argv, name, default):
-    return argv[argv.index(name) + 1] if name in argv else default
+    if name not in argv:
+        return default
+    at = argv.index(name) + 1
+    if at >= len(argv) or argv[at].startswith('--'):
+        raise SystemExit(f'{name} needs a value')
+    return argv[at]
 
 
 def duration(path):
@@ -58,8 +63,14 @@ def main(argv):
     length = duration(video)
     start = float(arg(argv, '--from', '0'))
     end = min(float(arg(argv, '--to', str(length))), length - 0.05)
+    if end <= start:
+        raise SystemExit(f'empty range: --from {start} --to {end:.2f} (the clip is {length:.2f} s)')
     if '--times' in argv:
-        times = [float(x) for x in arg(argv, '--times', '').split(',') if x]
+        asked = [float(x) for x in arg(argv, '--times', '').split(',') if x]
+        times = [min(max(t, 0.0), length - 0.05) for t in asked]
+        for a, t in zip(asked, times):
+            if a != t:
+                print(f'warning: {a} s is outside the clip (0..{length:.2f} s); using {t:.2f} s', file=sys.stderr)
     else:
         count = int(arg(argv, '--count', '12'))
         step = (end - start) / count
@@ -68,12 +79,15 @@ def main(argv):
         print('no frames asked for', file=sys.stderr)
         return 2
     with tempfile.TemporaryDirectory() as folder:
-        frames = [(t, frame(video, t, width, folder, i)) for i, t in enumerate(times)]
-    frames = [(t, f) for t, f in frames if f is not None]
+        frames = [(i + 1, t, frame(video, t, width, folder, i)) for i, t in enumerate(times)]
+    for n, t, f in frames:
+        if f is None:
+            print(f'warning: no frame at {t:.2f} s (frame {n} left out)', file=sys.stderr)
+    frames = [(n, t, f) for n, t, f in frames if f is not None]
     if not frames:
         print('ffmpeg returned no frames', file=sys.stderr)
         return 1
-    cell_w, cell_h = frames[0][1].size
+    cell_w, cell_h = frames[0][2].size
     rows = (len(frames) + cols - 1) // cols
     sheet = Image.new('RGB', (cell_w * min(cols, len(frames)), cell_h * rows), 'black')
     draw = ImageDraw.Draw(sheet)
@@ -81,10 +95,10 @@ def main(argv):
         font = ImageFont.truetype('arial.ttf', max(14, cell_h // 14))
     except OSError:
         font = ImageFont.load_default()
-    for i, (t, f) in enumerate(frames):
+    for i, (n, t, f) in enumerate(frames):
         x, y = (i % cols) * cell_w, (i // cols) * cell_h
         sheet.paste(f, (x, y))
-        text = f'{i + 1}  {label(t)}'
+        text = f'{n}  {label(t)}'
         box = draw.textbbox((x + 6, y + 4), text, font=font)
         draw.rectangle((box[0] - 4, box[1] - 2, box[2] + 4, box[3] + 2), fill='black')
         draw.text((x + 6, y + 4), text, fill='yellow', font=font)

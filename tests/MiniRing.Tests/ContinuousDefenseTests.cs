@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 
 /// <summary>受け・そらし・流しが同じ幾何のまま連続に変わることと、返しの安全を数値で確かめる。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class ContinuousDefenseTests
 {
     private const float Reach = 0.17f;

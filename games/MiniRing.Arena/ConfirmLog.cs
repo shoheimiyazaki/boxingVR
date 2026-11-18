@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MiniRing.Arena;
 
@@ -13,7 +14,8 @@ internal static class ConfirmLog
     /// <summary>台帳の場所（リポジトリの根から。Arena はリポジトリの根で動かす決まり: CLAUDE.md §5）。</summary>
     public const string DefaultPath = "docs/arena/confirm.jsonl";
 
-    private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
+    // 差が全部の種で同じだと t 値は ±∞（PairedResult.TValue）。標準の JSON は ±∞・NaN を書けないので文字列で書く。
+    private static readonly JsonSerializerOptions Json = new() { WriteIndented = false, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals };
     private static readonly Lock Gate = new();
 
     /// <summary>1 件を足す。書けなくても測定そのものは止めない（理由を標準エラーに出す）。</summary>
@@ -24,7 +26,9 @@ internal static class ConfirmLog
         ArgumentNullException.ThrowIfNull(result);
         if (path == DefaultPath && !File.Exists("CLAUDE.md"))
         {
-            return; // リポジトリの根の外（テストの出力の場所など）では台帳を作らない
+            // リポジトリの根の外（テストの出力の場所など）では台帳を作らない
+            Console.Error.WriteLine($"confirm.jsonl には書かない（リポジトリの根で動かしていない: {Environment.CurrentDirectory}）。");
+            return;
         }
 
         var entry = new Dictionary<string, object?>
@@ -53,7 +57,7 @@ internal static class ConfirmLog
                 File.AppendAllText(path, line + "\n");
             }
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException or JsonException)
         {
             Console.Error.WriteLine($"confirm.jsonl に書けなかった（{path}）: {e.Message}");
         }

@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 
 /// <summary>休み（ラウンドの間）の過ごし方（<see cref="BreakRoutine"/>）: 目標の経路へ手が近づく・小物・元のボットへ戻る・決定的（記録 → 再生で同じ）。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class BreakRoutineTests
 {
     private const float Dt = 1f / 60f;

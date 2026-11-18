@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 前の足・後ろの足で当たる深さが違うこと（左右の差の原因）、3 つの高さが狙った所へすねで当たること、前蹴りの人の手本。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class KickShinTests
 {
     private static CapturedKick Synthetic(float azimuthA, float azimuthB, float elevation = 0f)
