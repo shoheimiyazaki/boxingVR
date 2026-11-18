@@ -155,7 +155,7 @@ public sealed record FootworkTuning
     public float StepSink { get; init; } = 0.04f;
 
     /// <summary>TEMP</summary>
-    public float HoldRelax { get; init; } = 0f;
+    public float HoldRelax { get; init; }
 }
 
 /// <summary>1 本の足の置き方（ワールド）: 母指球の位置（地面の上、持ち上げを含む）、つま先の向き、かかとの浮き。</summary>
