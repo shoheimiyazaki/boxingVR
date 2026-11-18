@@ -47,9 +47,9 @@ public static class DownCountHud
     /// </summary>
     private static IEnumerable<(Fighter Fighter, Vector2 Bottom)> Counted(BoxingGame game, Matrix4x4 viewProjection, Vector2 screen)
     {
-        if (game.RoundOver)
+        if (game.RoundOver || !game.CountsDowns)
         {
-            yield break;
+            yield break; // ダウンを数えない団体は 10 カウントを出さない
         }
 
         var down = new[] { game.Player, game.Cpu }.Where(f => f.DownTime > ShowAfter).ToArray();

@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 
 /// <summary>ボクセルのグローブ: 拳に付けたボクセルの体（革・詰め物・拳）で、拳の打撃は武器と同じ圧力のモデルの接触で起きる。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class VoxelGloveTests
 {
     [TestMethod]

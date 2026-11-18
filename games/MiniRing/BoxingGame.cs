@@ -37,6 +37,8 @@ public delegate IFighterControl ControlFactory(int roundSeed);
 /// <para><paramref name="PlayerStyle"/> は赤（プレイヤー側）のスタイル（名簿のキャラクターなら教育を重ねた解決済みの全体。<see cref="Characters.FighterCharacter.Resolve"/>）。
 /// 人が操る赤の意図の解釈（技の選び方・倒れた相手への攻めの好み）に渡す。赤がボットなら <paramref name="RedBotStyle"/> が同じ物を持つ。null ならスタイルを持たない赤（既定の拳か空手）。
 /// 名前（<paramref name="PlayerName"/> / <paramref name="CpuName"/>）で <see cref="Bots.BotCatalog"/> を引き直さない: 解決したスタイルをこの値・<paramref name="CpuStyleJson"/> で通す。</para>
+/// <para><paramref name="BreakActions"/>（既定 true）は、ラウンドの間の休みに選手が動作（水を飲む・汗を拭く・電話・深呼吸…、<see cref="Break.BreakRoutine"/>）をするか。false なら休みはコーナーで構えを下げて立つだけ。
+/// <paramref name="BreakSource"/> は休みの入力元の差し替え（種と選手から作る。null なら <see cref="Break.BreakRoutine"/>。null を返すとその選手は動作をしない）。</para>
 /// <para><paramref name="Referee"/> はレフェリーがいるか（既定はいる）。いないときもダウンは数える（10 カウントで K.O.）が、数えている間の攻撃も打撃に数え、立ち直った後の一呼吸も無い（ゲームの決まり。2026-11-16、ユーザーの指定）。</para>
 public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFactory? Player = null, string? CpuStyleJson = null,
     Weapons.WeaponKind? CpuWeapon = null, Weapons.WeaponKind? PlayerWeapon = null, bool CpuTwoHanded = false, bool PlayerTwoHanded = false, bool VoxelGloves = true,
@@ -44,7 +46,8 @@ public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFa
     string? PlayerName = null, RingLayout? Ring = null, BodyBuild? PlayerBody = null, BodyBuild? CpuBody = null,
     FaceParts? PlayerFace = null, FaceParts? CpuFace = null, bool ExternalBlue = false, Bots.BotStyle? RedBotStyle = null, bool UseWeaponBots = false,
     bool Referee = true, Voxels.FaceLook? PlayerLook = null, Voxels.FaceLook? CpuLook = null, string? PlayerLabel = null, string? CpuLabel = null,
-    Bots.BotStyle? PlayerStyle = null, Bots.WeaponStyle? PlayerWeaponStyle = null, Bots.WeaponStyle? CpuWeaponStyle = null)
+    Bots.BotStyle? PlayerStyle = null, Bots.WeaponStyle? PlayerWeaponStyle = null, Bots.WeaponStyle? CpuWeaponStyle = null,
+    bool BreakActions = true, Func<int, Fighter, Break.IBreakSource?>? BreakSource = null)
 {
     /// <summary>CPU 側のスタイル（<see cref="CpuStyleJson"/> を読んだもの。解決済みの全体）。スタイルを持たない CPU（legacy・外の入力）は null。</summary>
     public Bots.BotStyle? CpuStyle => CpuStyleJson is { } json ? Bots.BotStyle.FromJson(json) : null;
@@ -148,13 +151,15 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <param name="seed">試合の種。</param>
     /// <param name="corners">両コーナーの操作元。</param>
     /// <param name="rules">テレビ中継の試合の決まり（<see cref="MatchRules"/>）。null なら従来どおり。</param>
-    public BoxingGame(FighterTuning? tuning = null, int seed = 1, BoxingCorners? corners = null, MatchRules? rules = null)
+    /// <param name="mood">会場の雰囲気（照明と画面の仕上げ。描画だけで試合に響かない）。null なら今の明るい部屋。</param>
+    public BoxingGame(FighterTuning? tuning = null, int seed = 1, BoxingCorners? corners = null, MatchRules? rules = null, ArenaMood? mood = null)
     {
         Rules = rules;
         _tuning = tuning ?? FighterTuning.Default;
         _corners = corners ?? BoxingCorners.Default;
         Layout = _corners.Layout;
-        _lighting = ArenaLook.Lighting(Layout.Center, Layout.Size, RingSurfaceHeight);
+        _lighting = ArenaLook.Lighting(Layout.Center, Layout.Size, RingSurfaceHeight, mood);
+        _screenFinish = mood is null || mood == ArenaMood.Default ? ArenaLook.ScreenFinish : ArenaLook.ScreenFinishFor(mood);
         _fx = new Random(seed ^ 0x5eed);
         _model = Models.GetOrAdd((_tuning.HalfExtents, _tuning.ModelSubdivisions), key => BoxerModel.Build(key.Item1, key.Item2));
         _seed = seed;
@@ -246,6 +251,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public RingLayout Layout { get; }
 
     private readonly SceneLighting _lighting;
+    private readonly PostProcessSettings _screenFinish;
 
     public void Step(BoxingInput input, float dt)
     {
@@ -380,8 +386,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         if (Resting)
         {
             // ラウンドの間（と試合の後）: 自分のコーナーへ歩いて戻り、ガードを下げて休む。入力元（ボット・プレイヤー）は読まない。
-            Drive(Player, Cpu, RestCommand(Player, Cpu), dt);
-            Drive(Cpu, Player, RestCommand(Cpu, Player), dt);
+            // 休みの間（試合の後は除く）は、休みの入力元（水を飲む・汗を拭く…の目標の経路）が休みの構えへ重ねる。
+            Drive(Player, Cpu, BreakCommand(Player, Cpu, dt), dt);
+            Drive(Cpu, Player, BreakCommand(Cpu, Player, dt), dt);
             _resumeHold = 0f; // 休みに入ったら一呼吸は持ち越さない（次のラウンドはゴングで始まる）
         }
         else if (Counting)
@@ -403,6 +410,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
         else
         {
+            EndBreakActions();
             var readStart = StepProfile.Begin();
             var cpuCommand = _corners.ExternalBlue ? blue.GetValueOrDefault() : _cpuControl.Read(ArmedSense(Cpu, Player), dt);
             var playerRead = _playerControl?.Read(ArmedSense(Player, Cpu), dt) ?? playerCommand;
@@ -436,6 +444,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         DetectHits();
         StepProfile.End(StepProfile.Slot.FistHits, hitsStart);
         ResolveWeapons();
+        SplitDisconnectedWeapons();
         ResolveKicks();
         ResolveElbows();
         var afterStart = StepProfile.Begin();
@@ -462,6 +471,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// </summary>
     private bool MayStrike(Fighter victim) => victim.State == FighterState.Standing || !_corners.Referee;
 
+    /// <summary>ダウンを数えるか（<see cref="MatchRules.CountsDowns"/>。<see cref="Rules"/> が無ければ数える）。数えないなら 10 カウント・動かないままの K.O. で決着せず、一呼吸も無い。</summary>
+    public bool CountsDowns => Rules?.CountsDowns ?? true;
+
     /// <summary>レフェリーがいるか（いなければ数えている間も攻撃でき、立ち直った後の一呼吸も無い）。</summary>
     public bool Referee => _corners.Referee;
 
@@ -479,7 +491,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     {
         foreach (var fighter in Fighters)
         {
-            if (_corners.Referee && _wasCounted.Contains(fighter) && fighter.State == FighterState.Standing && !Resting)
+            if (_corners.Referee && CountsDowns && _wasCounted.Contains(fighter) && fighter.State == FighterState.Standing && !Resting)
             {
                 _resumeHold = ResumePause;
             }
@@ -1001,7 +1013,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             var dead = Player.IsDead ? Player : Cpu;
             EndRound(cpuWon: dead == Player, $"K.O. — {dead.DeathCause!.ToUpperInvariant()} DESTROYED");
         }
-        else if (Fighters.FirstOrDefault(f => f.StillTime > StillKoSeconds) is { } still)
+        else if (CountsDowns && Fighters.FirstOrDefault(f => f.StillTime > StillKoSeconds) is { } still)
         {
             EndRound(cpuWon: still == Player, "K.O. — OUT COLD");
         }
@@ -1013,11 +1025,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         {
             EndRound(cpuWon: false, "RING OUT");
         }
-        else if (Player.DownTime > CountSeconds)
+        else if (CountsDowns && Player.DownTime > CountSeconds)
         {
             EndRound(cpuWon: true, "10 COUNT K.O.");
         }
-        else if (Cpu.DownTime > CountSeconds)
+        else if (CountsDowns && Cpu.DownTime > CountSeconds)
         {
             EndRound(cpuWon: false, "10 COUNT K.O.");
         }
@@ -1065,6 +1077,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             foreach (var fighter in Fighters)
             {
                 // 削れた体は一定の速さで治る（RegenVoxelsPerSecond 個/秒）。打撲・スタミナ・脳しんとうはそれぞれの速さで戻る。
+                if (rules.RegenVoxelsPerSecond <= 0f)
+                {
+                    continue; // 治らない団体
+                }
+
                 var budget = _regenBudget.GetValueOrDefault(fighter) + (rules.RegenVoxelsPerSecond * dt);
                 var whole = (int)budget;
                 if (whole > 0)
@@ -1073,6 +1090,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
                 }
 
                 _regenBudget[fighter] = budget - whole;
+                // 皮膚のあざも休みの間だけ少しずつ引く（見た目だけ。ラウンド中は引かない）。
+                fighter.Voxels?.FadeSkinBruises(dt, rules.BruiseHalfLifeSeconds);
             }
 
             if (BreakLeft <= 0f)
@@ -1111,6 +1130,15 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
         RoundLeft = 0f;
         RecentBell = RoundBell.End;
+        if (MatchRound >= rules.Rounds && !rules.JudgesDecision)
+        {
+            // 判定しない団体: 5 ラウンドを終えて両者が生きていれば引き分け（勝ち数は増やさない）。
+            Decision = "DRAW — BOTH SURVIVE";
+            MatchOver = true;
+            ShowMessage(Decision, 1e6f);
+            return;
+        }
+
         if (MatchRound >= rules.Rounds)
         {
             // 判定: 与えたダメージ（得点）の多い方。差がわずかなら引き分け。
@@ -1144,7 +1172,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private FighterCommand RestCommand(Fighter self, Fighter opponent)
     {
         var rules = Rules ?? MatchRules.Tv;
-        return WalkTo(self, opponent, Layout.Corner(red: self == Player, rules.CornerInset), rules.RestGuardDrop, rules.RestWalk);
+        return WalkTo(self, opponent, Layout.RestCorner(self == Player, rules.CornerInset), rules.RestGuardDrop, rules.RestWalk);
     }
 
     /// <summary>
@@ -1239,6 +1267,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _perceived.Clear();
         _world?.Dispose();
         _weapons.Clear(); // 武器は世界ごと消える
+        _connectedAt.Clear();
+        EndBreakActions(); // 休みの小物・入力元も世界と一緒に捨てる
         _recentCuts.Clear();
         _beforeStep.Clear();
         _resumeHold = 0f;
@@ -1247,12 +1277,14 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _round++;
         _world = new PhysicsWorld();
         LivingRoom.AddColliders(_world, Layout);
-        _ring = new Ring(_world, Layout.Center, Layout.Size, RingSurfaceHeight, LivingRoom.StageBase);
+        _ring = new Ring(_world, Layout, RingSurfaceHeight, LivingRoom.StageBase);
         var surface = _ring.SurfaceCenter;
-        // コーナーから始める試合は、赤は手前左・青は奥右のコーナーに立ち、対角線の上で向き合う（生成の向きは +Z が 0、Y 軸まわり）。
+        // コーナーから始める試合は、赤・青の休むコーナー（四角は手前左・奥右、檻は 240°・60° の頂点）に立ち、互いに向き合う（生成の向きは +Z が 0、Y 軸まわり）。
         // コーナーから始めない形（ドリル）は、中央で StartGap だけ離れて Z 軸の上で向き合う。
         var (redFeet, blueFeet, redYaw) = Layout.FromCorners
-            ? (Layout.Corner(red: true) with { Y = surface.Y }, Layout.Corner(red: false) with { Y = surface.Y }, MathF.PI * 0.25f)
+            ? (Layout.RestCorner(true, RingLayout.CornerInset) with { Y = surface.Y }, Layout.RestCorner(false, RingLayout.CornerInset) with { Y = surface.Y },
+                MathF.Atan2(Layout.RestCorner(false, RingLayout.CornerInset).X - Layout.RestCorner(true, RingLayout.CornerInset).X,
+                    Layout.RestCorner(false, RingLayout.CornerInset).Z - Layout.RestCorner(true, RingLayout.CornerInset).Z))
             : (surface - new Vector3(0f, 0f, Layout.StartGap * 0.5f), surface + new Vector3(0f, 0f, Layout.StartGap * 0.5f), 0f);
         // VR のプレイヤーには、手触りの調整が終わるまでスタミナの疲れを効かせない（FighterTuning.PlayerFatigue）。
         var playerTuning = (_tuning.PlayerFatigue ? _tuning : _tuning with { StaminaFatigue = false })
@@ -1387,7 +1419,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             var length = MiniRing.Weapons.Weapon.TipOf(kind).X - MiniRing.Weapons.Weapon.GripOf(kind).X;
             var spacing = !twoHanded ? 0f : Bots.FormSwordsman.Handles(kind) ? Bots.FormSwordsman.Spacing(kind) : MiniRing.Weapons.Weapon.HandSpacing / self.ArmReach;
             tool = new Bots.GroundTool(length / self.ArmReach, twoHanded, spacing);
-            club = kind == MiniRing.Weapons.WeaponKind.WoodenClub;
+            club = kind is MiniRing.Weapons.WeaponKind.WoodenClub or MiniRing.Weapons.WeaponKind.Bat;
         }
 
         return new Bots.GroundStriker(bot, bot is Bots.BoxerBot boxer ? boxer.Style : style, tool, seed ^ 0x2a2a, club);
@@ -1419,7 +1451,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private IFighterControl? WeaponBot(Weapons.WeaponKind? weapon, Bots.WeaponStyle? style, Fighter self, int seed, MiniRing.Weapons.HandWear wear = MiniRing.Weapons.HandWear.Glove) => !_corners.UseWeaponBots ? null : weapon switch
     {
         // 値は武器の教科書（style が null ならその武器の組み込みの教科書。キャラなら教育を重ねた物が corners に入っている）。
-        MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword or MiniRing.Weapons.WeaponKind.Staff or MiniRing.Weapons.WeaponKind.Jo => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning, style ?? Bots.WeaponCatalog.Textbook(weapon.Value)), // 刀・ロングソード・棒は、その武器の型で
+        MiniRing.Weapons.WeaponKind.Katana or MiniRing.Weapons.WeaponKind.Longsword or MiniRing.Weapons.WeaponKind.Staff or MiniRing.Weapons.WeaponKind.Jo or MiniRing.Weapons.WeaponKind.Bat => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning, style ?? Bots.WeaponCatalog.Textbook(weapon.Value)), // 刀・ロングソード・棒・バットは、その武器の型で
         // 片手剣も型で動かす（右手の剣の経路 + 左手の物の経路）。左手の物（盾・グローブ）の見える大きさを、守りの覆う広さとして渡す。
         MiniRing.Weapons.WeaponKind.IronSword => Bots.FormSwordsman.Bot(weapon.Value, seed, self.ArmReach, _tuning, style ?? Bots.WeaponCatalog.Textbook(weapon.Value), MiniRing.Weapons.Weapon.CoverRadiusOf(MiniRing.Weapons.HandWears.Kind(wear)) / self.ArmReach),
         MiniRing.Weapons.WeaponKind.WoodenClub => Bots.ClubBot.FromStyle(style ?? Bots.WeaponCatalog.Textbook(weapon.Value), seed),
@@ -1467,7 +1499,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public ShadowMapConfig? BuildShadow() => ArenaLook.Shadow(Layout.Center, Layout.Size, RingSurfaceHeight);
 
     /// <summary>画面用の仕上げ（光のにじみ・陰り・コントラスト）。</summary>
-    public PostProcessSettings? BuildPostProcess() => ArenaLook.ScreenFinish;
+    public PostProcessSettings? BuildPostProcess() => _screenFinish;
 
     /// <summary>
     /// 両ボクサーの顔の窓（<see cref="MiniRing.FaceCam"/>）を出すか。描画だけの設定で、試合の計算・記録には響かない。
@@ -1641,7 +1673,8 @@ public readonly record struct ContactSoundEvent(Vector3 Position, Audio.ContactP
 /// <summary>
 /// テレビ中継の試合の決まり（2026-11-12）: 1 ラウンド <paramref name="RoundSeconds"/> 秒 × <paramref name="Rounds"/> ラウンド、ラウンドの間
 /// <paramref name="BreakSeconds"/> 秒。休みの間、削れた体は一定の速さ（<paramref name="RegenVoxelsPerSecond"/> 個/秒）で内側から治る。
-/// K.O. で試合が終わり、最終ラウンドの終わりは判定（与えたダメージ）。
+/// K.O. で試合が終わり、最終ラウンドの終わりは判定（与えたダメージ）。団体によってダウンを数えない（<see cref="CountsDowns"/>）・判定しない（<see cref="JudgesDecision"/>）・
+/// 体を治さない（<paramref name="RegenVoxelsPerSecond"/> = 0）決まりもある（<see cref="Vfc"/>）。
 /// </summary>
 /// <param name="RoundSeconds">1 ラウンドの長さ [s]。</param>
 /// <param name="Rounds">ラウンドの数。</param>
@@ -1673,6 +1706,30 @@ public sealed record MatchRules(float RoundSeconds = 30f, int Rounds = 5, float 
     /// <summary>休むときに拳を構えから下げる量（腕の長さ単位: 下へ・前へ）。</summary>
     public Vector3 RestGuardDrop { get; init; } = new(0f, -0.12f, 0.15f);
 
+    /// <summary>
+    /// 休みの間に皮膚のあざが半分に引く時間 [s]（見た目だけのルール。生理ではない）: 休み 20 秒で中くらいのあざが半分ほどに見える。
+    /// 0 以下ならあざは引かない。ラウンド中は引かない。臓器の打撲（別の物）には触れない。
+    /// </summary>
+    public float BruiseHalfLifeSeconds { get; init; } = 20f;
+
+    /// <summary>
+    /// ダウンを数えるか。false なら動かないままの K.O.（<see cref="BoxingGame.StillKoSeconds"/>）も 10 カウント K.O. も無い（死とリングアウトは今のまま決着する）。
+    /// 倒れた体の状態（<c>DownTime</c> など）そのものは体の状態として残る（数えないだけ）。既定は数える（WVC）。
+    /// </summary>
+    public bool CountsDowns { get; init; } = true;
+
+    /// <summary>
+    /// 最終ラウンドの終わりに判定するか。false なら判定せず、両者生還の引き分け（<c>"DRAW — BOTH SURVIVE"</c>、勝ち数は増やさない）。既定は判定する（WVC）。
+    /// </summary>
+    public bool JudgesDecision { get; init; } = true;
+
     /// <summary>テレビ中継の標準: 30 秒 × 5 ラウンド、休み 10 秒。</summary>
     public static MatchRules Tv { get; } = new();
+
+    /// <summary>
+    /// VFC（何でもありの団体、ユーザーの指定 2026-11-18）: 30 秒 × 5 ラウンド、休み 25 秒。休みで体は治らない（<c>RegenVoxelsPerSecond</c> 0。皮膚のあざも引かない（<c>BruiseHalfLifeSeconds</c> 0）。
+    /// スタミナ・意識・打撲は今の生理の速さで戻る）。ダウンは数えず（<see cref="CountsDowns"/> false）、判定もしない（<see cref="JudgesDecision"/> false）。
+    /// 決着は死だけで、5 ラウンドを終えて両者が生きていれば両者生還の引き分け。
+    /// </summary>
+    public static MatchRules Vfc { get; } = new(30f, 5, 25f, 0f) { CountsDowns = false, JudgesDecision = false, BruiseHalfLifeSeconds = 0f };
 }

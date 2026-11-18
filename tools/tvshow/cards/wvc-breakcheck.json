@@ -1,0 +1,35 @@
+{
+  "_comment": "休みの動作が実況・解説に届くかを確かめる 2 試合。プロスペクティブ制の中継。",
+  "event": "WVC ミッドナイトセッション",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-breakcheck",
+  "scoutSeeds": [
+    31,
+    32,
+    33,
+    34,
+    35,
+    36
+  ],
+  "partLimitMiB": 29,
+  "commentary": {
+    "writer": "prospective",
+    "model": "haiku",
+    "parallel": 2
+  },
+  "bouts": [
+    {
+      "red": "narong",
+      "blue": "ramon",
+      "seed": "auto",
+      "bout": "第1試合"
+    },
+    {
+      "red": "albert",
+      "blue": "gaston",
+      "seed": "auto",
+      "bout": "第2試合"
+    }
+  ]
+}

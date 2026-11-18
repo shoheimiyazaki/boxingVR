@@ -47,6 +47,12 @@ public sealed record FighterCharacter(string Id, string Name, string Reading, st
     /// <summary>プロフィール（経歴・人柄。実況・解説の資料。<see cref="CharacterProfile"/>）。ファイルに無ければ null。</summary>
     public CharacterProfile? Profile { get; init; }
 
+    /// <summary>所属の団体の id（<c>wvc</c>・<c>vfc</c>。ファイルの <c>org</c>、無ければ <see cref="DefaultOrg"/>）。中継の団体のファイル（Arena の <c>Orgs/&lt;id&gt;.json</c>）の id。強さは体から物理で出るので、所属は強さに響かない（中継の見せ方と対戦の組み合わせの印）。</summary>
+    public string Org { get; init; } = DefaultOrg;
+
+    /// <summary>所属が書かれていないときの団体の id。</summary>
+    public const string DefaultOrg = "wvc";
+
     public BotStyle Style => Resolve(null);
 
     /// <summary>
@@ -75,6 +81,7 @@ public sealed record FighterCharacter(string Id, string Name, string Reading, st
         WeaponKind.WoodenClub => "こんぼう",
         WeaponKind.Staff => "六尺棒",
         WeaponKind.Jo => "杖",
+        WeaponKind.Bat => "バット",
         _ => weapon.ToString(),
     };
 

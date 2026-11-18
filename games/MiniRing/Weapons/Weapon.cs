@@ -80,6 +80,12 @@ public enum WeaponKind
     /// 両端が打つ所。握りを手の中で滑らせて持ち替える（<see cref="HandCommand.Slide"/>）。
     /// </summary>
     Jo,
+
+    /// <summary>
+    /// バット（両手）: 木の棍棒（<see cref="WoodenClub"/>）と同じ形・材質の物を、両手で握って型（<see cref="MiniRing.Motion.BatForms"/>）で振る種類。
+    /// 握りの端（柄頭の側）も打つ所（グリップエンド）。片手で振る棍棒（こんぼう）とは別の種類にして、こんぼうの試合・記録を変えない。
+    /// </summary>
+    Bat,
 }
 
 /// <summary>
@@ -301,7 +307,7 @@ public sealed class Weapon
     {
         WeaponKind.IronSword => new Vector3((GuardFrom + PommelAt) * 0.5f, 0f, 0f),
         WeaponKind.WoodenClub => new Vector3(-ClubHalfLength + 0.015f, 0f, 0f),
-        WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo => TwoHandGripsOf(kind).Top,
+        WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.Bat => TwoHandGripsOf(kind).Top,
         WeaponKind.Glove => Vector3.Zero, // 拳はグローブの真ん中
         WeaponKind.Fist => HandSkeleton.Wrist, // 腕の先が手を握る所（手首）
         WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield => -WornBoundsOf(kind, mirrored).Center, // 拳の中心
@@ -309,7 +315,7 @@ public sealed class Weapon
     };
 
     /// <summary>両手で握れる武器か（棍棒・日本刀・ロングソード・棒。片手剣の握りは片手ぶんの長さ）。</summary>
-    public static bool CanTwoHand(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo;
+    public static bool CanTwoHand(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Bat or WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo;
 
     /// <summary>
     /// 丸棒（六尺棒・杖）か: 太さが一定の木の丸い軸で、両端が打つ所・握りを軸に沿って滑らせられる。形の種類（長さ・太さ）だけが違い、
@@ -337,7 +343,7 @@ public sealed class Weapon
     };
 
     /// <summary>刃の無い（打って潰す）武器か。刃のある武器は、刃の形と材質だけで斬る（<see cref="VoxelContact"/>）。</summary>
-    public static bool IsBlunt(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield;
+    public static bool IsBlunt(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Bat or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield;
 
     private static readonly Lazy<bool>[] RigidFaces =
         Enum.GetValues<WeaponKind>().Select(k => new Lazy<bool>(() => StrikesWithRigidFace(k))).ToArray();
@@ -384,8 +390,8 @@ public sealed class Weapon
                 return (new Vector3(KatanaGuardAt - 0.012f, 0f, 0f), new Vector3(-KatanaHalfLength + 0.011f, 0f, 0f));
             case WeaponKind.Longsword:
                 return (new Vector3(LongGuardAt - 0.011f, 0f, 0f), new Vector3(LongPommelAt + LongPommelRadius + 0.008f, 0f, 0f));
-            case WeaponKind.WoodenClub:
-                var bottom = GripOf(kind);
+            case WeaponKind.WoodenClub or WeaponKind.Bat:
+                var bottom = new Vector3(-ClubHalfLength + 0.015f, 0f, 0f); // 片手で握る所（棍棒の握りの端から 1.5cm）
                 return (bottom + new Vector3(HandSpacing, 0f, 0f), bottom);
             case WeaponKind.Staff or WeaponKind.Jo:
                 // 棒の真ん中をはさんで、両手を肩幅ほど離す（右手が +X 側、左手が −X 側。棒は対称で、どちらの端も打つ）。
@@ -399,7 +405,7 @@ public sealed class Weapon
     public static Vector3 TipOf(WeaponKind kind) => kind switch
     {
         WeaponKind.IronSword => new Vector3(SwordHalfLength, 0f, 0f),
-        WeaponKind.WoodenClub => new Vector3(ClubHalfLength - 0.01f, 0f, 0f),
+        WeaponKind.WoodenClub or WeaponKind.Bat => new Vector3(ClubHalfLength - 0.01f, 0f, 0f),
         WeaponKind.Katana => new Vector3(KatanaHalfLength, KatanaSori, 0f),
         WeaponKind.Longsword => new Vector3(LongHalfLength, 0f, 0f),
         WeaponKind.Staff or WeaponKind.Jo => new Vector3(RodOf(kind).HalfLength - StaffTipInset, 0f, 0f),
@@ -414,11 +420,16 @@ public sealed class Weapon
     };
 
     /// <summary>
-    /// 打つ端（武器のローカルの X。<see cref="TipOf"/> と同じ測り方）。棒だけ、+X と −X の両端が打つ（対称なので同じ形）。
-    /// 他の武器は先の 1 つだけ。
+    /// 打つ端（武器のローカルの X。<see cref="TipOf"/> と同じ測り方）。棒は両端、刀・ロングソードは切っ先と柄頭。
+    /// 接触の形と材質は変えず、入力元の間合いと見える速さを測る点だけを列挙する。
     /// </summary>
-    public static IReadOnlyList<float> StrikeEndsX(WeaponKind kind) =>
-        IsRod(kind) ? [TipOf(kind).X, -TipOf(kind).X] : [TipOf(kind).X];
+    public static IReadOnlyList<float> StrikeEndsX(WeaponKind kind) => kind switch
+    {
+        WeaponKind.Katana => [TipOf(kind).X, -KatanaHalfLength],
+        WeaponKind.Longsword => [TipOf(kind).X, LongPommelAt - LongPommelRadius],
+        WeaponKind.Bat => [TipOf(kind).X, -ClubHalfLength + 0.01f], // 頭の端と、握りの端（グリップエンド。先と同じ 1cm 手前）
+        _ => IsRod(kind) ? [TipOf(kind).X, -TipOf(kind).X] : [TipOf(kind).X],
+    };
 
     /// <summary>武器の格子（材質は <see cref="BoxerAnatomy.Palette"/> の鉄と木。手にはめる物の革は赤コーナーの色）。</summary>
     public static VoxelGrid Build(WeaponKind kind) => Build(kind, BoxerAnatomy.RedGlove);
@@ -440,7 +451,8 @@ public sealed class Weapon
     public static VoxelGrid Build(WeaponKind kind, byte leather, WeaponVoxelOverrides? overrides, bool mirrored)
     {
         var generated = Generate(kind, leather, mirrored);
-        if (overrides?.For(kind, generated.Dimensions) is not { } edited)
+        // バットは棍棒と同じ形（.vox で直した中身も同じ物を使う）。
+        if (overrides?.For(kind == WeaponKind.Bat ? WeaponKind.WoodenClub : kind, generated.Dimensions) is not { } edited)
         {
             return generated;
         }
@@ -460,7 +472,7 @@ public sealed class Weapon
     private static VoxelGrid Generate(WeaponKind kind, byte leather, bool mirrored = false) => kind switch
     {
         WeaponKind.IronSword => Sword(),
-        WeaponKind.WoodenClub => Club(),
+        WeaponKind.WoodenClub or WeaponKind.Bat => Club(),
         WeaponKind.Katana => Katana(),
         WeaponKind.Longsword => Longsword(),
         WeaponKind.Staff or WeaponKind.Jo => Rod(kind),
@@ -523,8 +535,22 @@ public sealed class Weapon
                 return BoxerAnatomy.Iron;
             }
 
-            return (p.Y * p.Y) + (p.Z * p.Z) <= GripRadius * GripRadius ? BoxerAnatomy.Wood : (byte)0;
+            return RoundTang(p, GripRadius) ? BoxerAnatomy.Iron : (p.Y * p.Y) + (p.Z * p.Z) <= GripRadius * GripRadius ? BoxerAnatomy.Wood : (byte)0;
         });
+    }
+
+    /// <summary>
+    /// 柄の中を通る鉄の芯（茎・タング）の断面の割合: 握りの半径に対する芯の半径。実物の片手剣・長剣のタングは握りの木の中を柄頭まで通り、
+    /// 柄頭で留める（芯の太さは握りの太さの 4〜5 割）。握りの曲げの強さは断面二次モーメント（半径の 4 乗）で効くので、
+    /// 木だけの断面より鉄の芯（木よりずっと引張が強い）が曲げを受け持つ。指示書 docs/plans/CODEX_BRIEF_WEAPON_TANG_AND_SPLIT.md、docs/VOXEL_WEAPONS.md「柄の芯」。
+    /// </summary>
+    private const float TangRadiusShare = 0.45f;
+
+    /// <summary>握りの丸い芯: 軸（X）から半径 <paramref name="gripRadius"/> × <see cref="TangRadiusShare"/> 以内の点か。</summary>
+    private static bool RoundTang(Vector3 p, float gripRadius)
+    {
+        var r = gripRadius * TangRadiusShare;
+        return (p.Y * p.Y) + (p.Z * p.Z) <= r * r;
     }
 
     // ── 棍棒（人形の縮尺: 長さ 21cm、握りの太さ 1.4cm から頭の太さ 2.4cm）。刃がないので 2.5mm のセル。
@@ -604,6 +630,12 @@ public sealed class Weapon
     private const float KatanaGripHalfWidth = 0.0045f;
     private const float KatanaGripHalfThick = 0.0035f;
 
+    // 茎の寸法の根拠（人形の縮尺 0.32 倍、柄の幅 9 mm・厚さ 7 mm に対して）: 実物の刀の茎は刀身の幅を保って柄頭の近くまで通り、
+    // 柄木・柄巻きがまわりを覆う。根元は柄の幅の 5〜6 割（0.55）、端は少し細る（0.4）。厚さは柄の厚さ 7 mm の半分ほどの 3.7 mm（セル 3 個。刀身の峰 2.5 mm より少し厚い）。
+    private const float KatanaTangRootShare = 0.55f;
+    private const float KatanaTangEndShare = 0.4f;
+    private const float KatanaTangHalfThick = 0.0014f;
+
     /// <summary>
     /// 刀身（鍔から先）: 中心線は鍔から切っ先へ放物線で +Y（峰の側）へ反る。幅（Y）は刃（−Y の縁）から峰まで、厚さ（Z）は峰で
     /// <see cref="KatanaBack"/>、刃先へ向かって 1 セルまで薄くなる楔。切っ先の手前 <see cref="KatanaPoint"/> から刃の側が峰へ向かって
@@ -641,6 +673,15 @@ public sealed class Weapon
             if (p.X >= KatanaGuardAt - KatanaTsubaHalf)
             {
                 return (p.Y * p.Y) + (p.Z * p.Z) <= KatanaTsubaRadius * KatanaTsubaRadius ? BoxerAnatomy.Iron : (byte)0;
+            }
+
+            // 茎（なかご）: 鍔から柄頭の端まで通る鉄の平たい板。根元（鍔側）は柄の幅の KatanaTangRootShare、柄頭の端へ向かって
+            // KatanaTangEndShare まで細る。厚さは 2 セル以上（KatanaTangHalfThick）。
+            var along = (p.X - (-KatanaHalfLength)) / (KatanaGuardAt - KatanaTsubaHalf + KatanaHalfLength);
+            var tangHalfWidth = KatanaGripHalfWidth * (KatanaTangEndShare + ((KatanaTangRootShare - KatanaTangEndShare) * MathF.Min(1f, along)));
+            if (MathF.Abs(p.Y) <= tangHalfWidth && MathF.Abs(p.Z) <= KatanaTangHalfThick)
+            {
+                return BoxerAnatomy.Iron;
             }
 
             var ey = p.Y / KatanaGripHalfWidth;
@@ -697,7 +738,7 @@ public sealed class Weapon
                 return BoxerAnatomy.Iron;
             }
 
-            return (p.Y * p.Y) + (p.Z * p.Z) <= LongGripRadius * LongGripRadius ? BoxerAnatomy.Wood : (byte)0;
+            return RoundTang(p, LongGripRadius) ? BoxerAnatomy.Iron : (p.Y * p.Y) + (p.Z * p.Z) <= LongGripRadius * LongGripRadius ? BoxerAnatomy.Wood : (byte)0;
         });
     }
 

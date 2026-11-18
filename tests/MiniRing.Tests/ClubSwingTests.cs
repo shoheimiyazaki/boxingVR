@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>棍棒の振り（<see cref="WeaponSwing"/>）と、それで戦うボット（<see cref="ClubBot"/>）。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class ClubSwingTests
 {
     [TestMethod]

@@ -61,16 +61,22 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
         public float Clock { get; set; }
     }
 
-    /// <summary>赤く腫れた皮膚の色（できたばかりのあざ）。ゲームとして読めるよう、現実よりはっきりさせた色。</summary>
-    private static readonly Vector4 SwollenSkin = new(0.88f, 0.28f, 0.24f, 1f);
+    // あざの色は赤・橙・桃色の暖色だけにする（2026-11-18、ユーザーの指定: 青紫のあざは息切れの青い顔 CyanoticSkin と見分けにくかった）。
+    // ゲームとして読めるよう、現実よりはっきりさせた色。
 
-    /// <summary>時間がたった・深いあざの色（青紫）。</summary>
-    private static readonly Vector4 BlueBruise = new(0.30f, 0.22f, 0.58f, 1f);
+    /// <summary>できたばかりの腫れの色（橙。セルごとに <see cref="SwollenPink"/> と混ぜてまだらにする）。</summary>
+    private static readonly Vector4 SwollenOrange = new(0.98f, 0.46f, 0.16f, 1f);
 
-    /// <summary>とても強いあざの色（どす黒い紫）。</summary>
-    private static readonly Vector4 DeepBruise = new(0.24f, 0.10f, 0.28f, 1f);
+    /// <summary>できたばかりの腫れの色（濃い桃色）。</summary>
+    private static readonly Vector4 SwollenPink = new(0.96f, 0.30f, 0.52f, 1f);
 
-    /// <summary>赤から青紫へ変わる時間の目安 [s]（見た目の合図。生理の時間ではない: 試合の中で色の変化が見えるよう短くした）。</summary>
+    /// <summary>時間がたったあざの色（深い赤: 中で血がたまった）。</summary>
+    private static readonly Vector4 BloodBruise = new(0.66f, 0.06f, 0.10f, 1f);
+
+    /// <summary>とても強いあざの色（黒ずんだ血の色: 中で骨が折れたような）。</summary>
+    private static readonly Vector4 DeepBruise = new(0.28f, 0.02f, 0.05f, 1f);
+
+    /// <summary>腫れの色から深い赤へ変わる時間の目安 [s]（見た目の合図。生理の時間ではない: 試合の中で色の変化が見えるよう短くした）。</summary>
     private const float BruiseAgeSeconds = 8f;
 
     /// <summary>あざを描く最小の量（これより薄いと元の肌の色）。</summary>
@@ -78,6 +84,34 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
 
     /// <summary>体の時計を進める（あざの色が時間で変わる）。</summary>
     internal void Tick(float clock) => _cache.Clock = clock;
+
+    /// <summary>皮膚のあざの量に <paramref name="factor"/>（0..1）を掛ける。変わったら塗り直しの鍵を上げる。見た目だけ。</summary>
+    internal void FadeBruise(float factor)
+    {
+        if (_cache.Bruise is not { } bruise)
+        {
+            return;
+        }
+
+        var changed = false;
+        for (var i = 0; i < bruise.Length; i++)
+        {
+            if (bruise[i] > 0f)
+            {
+                var faded = bruise[i] * factor;
+                bruise[i] = faded < 0.01f ? 0f : faded;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            _cache.BruiseVersion++;
+        }
+    }
+
+    /// <summary>皮膚のあざの量の合計（見た目だけ。テスト・調べ用）。</summary>
+    internal float BruiseTotal() => _cache.Bruise?.Sum() ?? 0f;
 
     /// <summary>
     /// 打撲を皮膚の色として残す（見た目だけ）: 打たれた点の近くの皮膚のセルに、<paramref name="dose"/> を距離で減らしながら足す
@@ -140,7 +174,7 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
         }
     }
 
-    /// <summary>あざの色: 量が多いほど濃く、できてから時間がたつほど赤 → 青紫、とても強いとどす黒く。セルごとの決まった揺らぎでまだらにする。</summary>
+    /// <summary>あざの色: 量が多いほど濃く、できてすぐは橙と桃色のまだらの腫れ、時間がたつほど深い赤、とても強いと黒ずんだ血の色。セルごとの決まった揺らぎでまだらにする。</summary>
     private static Vector4 BruiseColor(Vector4 skin, float amount, float age, int x, int y, int z)
     {
         // セルごとの決まった揺らぎ（0..1。座標のハッシュ）。
@@ -149,6 +183,7 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
         h *= 0x5bd1e995;
         h ^= h >> 15;
         var noise = (h & 0xffff) / 65535f;
+        var hue = (h >> 16) / 65535f; // 腫れの色合い（橙 ↔ 桃色）の揺らぎ
         var mottled = Math.Clamp(amount * (0.45f + (1.1f * noise)), 0f, 1f);
         if (mottled < BruiseVisible)
         {
@@ -156,7 +191,8 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
         }
 
         var fresh = MathF.Exp(-age / BruiseAgeSeconds);
-        var tint = Vector4.Lerp(BlueBruise, SwollenSkin, fresh);
+        var swollen = Vector4.Lerp(SwollenOrange, SwollenPink, hue);
+        var tint = Vector4.Lerp(BloodBruise, swollen, fresh);
         tint = Vector4.Lerp(tint, DeepBruise, Math.Clamp((amount - 0.7f) / 0.3f, 0f, 1f));
         return Vector4.Lerp(skin, tint, MathF.Min(0.9f, mottled)) with { W = skin.W };
     }
@@ -739,6 +775,38 @@ public sealed class BoxerBody
     private const float SkinBruiseRadiusCells = 2.5f;
 
     private float _clock;
+    private float _fadeAccum;
+
+    /// <summary>
+    /// 皮膚のあざを休みの間に引かせる（指数: <paramref name="halfLifeSeconds"/> で半分。見た目だけのルール）。
+    /// テクスチャの書き直しは重いので、0.5 秒ぶんためてからまとめて掛ける。
+    /// </summary>
+    public void FadeSkinBruises(float dt, float halfLifeSeconds)
+    {
+        if (halfLifeSeconds <= 0f)
+        {
+            return;
+        }
+
+        _fadeAccum += dt;
+        if (_fadeAccum < SkinBruiseFadeInterval)
+        {
+            return;
+        }
+
+        var factor = MathF.Pow(0.5f, _fadeAccum / halfLifeSeconds);
+        _fadeAccum = 0f;
+        foreach (var part in _parts)
+        {
+            part.FadeBruise(factor);
+        }
+    }
+
+    /// <summary>あざを引かせる間隔 [s]（塗り直しをまとめる。見た目だけ）。</summary>
+    private const float SkinBruiseFadeInterval = 0.5f;
+
+    /// <summary>皮膚のあざの量の合計（全部位。見た目だけ。テスト・調べ用）。</summary>
+    public float SkinBruiseTotal() => _parts.Sum(p => p.BruiseTotal());
 
     /// <summary>打撲が時間とともに引く（一定の速さ <paramref name="rate"/> [/s]）。体の時計も進める（あざの色が時間で変わる）。</summary>
     public void HealBruises(float dt, float rate)

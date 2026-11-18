@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>守りの効き目の記憶（docs/LEARNING_PLAN.md の B1）。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class DefenseMemoryTests
 {
     private static BotStyle Style(float prior = 4f) => BotCatalog.Style("counter") with { LearnDefense = true, LearnPrior = prior };

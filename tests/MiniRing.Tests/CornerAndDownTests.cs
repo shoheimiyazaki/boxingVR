@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 立っている側はニュートラルコーナーへ下がって待ち、倒れた側はその場で立つ（起き上がりながら相手へ詰めない）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class CornerAndDownTests
 {
     private const float Dt = 1f / 240f;
@@ -26,8 +27,8 @@ public sealed class CornerAndDownTests
     {
         using var game = StillGame();
         var layout = game.Layout;
-        Assert.IsLessThan(0.05f, Flat(game.Player.PelvisPosition, layout.Corner(red: true)), "red in the near-left corner");
-        Assert.IsLessThan(0.05f, Flat(game.Cpu.PelvisPosition, layout.Corner(red: false)), "blue in the far-right corner");
+        Assert.IsLessThan(0.05f, Flat(game.Player.PelvisPosition, layout.RestCorner(true, RingLayout.CornerInset)), "red in the near-left corner");
+        Assert.IsLessThan(0.05f, Flat(game.Cpu.PelvisPosition, layout.RestCorner(false, RingLayout.CornerInset)), "blue in the far-right corner");
         var across = Vector3.Normalize((game.Cpu.PelvisPosition - game.Player.PelvisPosition) with { Y = 0f });
         Assert.IsGreaterThan(0.95f, Vector3.Dot(game.Player.Frame.Forward, across));
         Assert.IsGreaterThan(0.95f, Vector3.Dot(game.Cpu.Frame.Forward, -across));

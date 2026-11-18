@@ -474,27 +474,80 @@ public sealed class VoxelBody
     public VoxelBody? SplitAt(int axis, int slice, bool takeHigh)
     {
         var split = Grid.Split(axis, slice, takeHigh: takeHigh);
-        if (split is not { } piece)
+        return split is { } piece ? Detach(piece.Piece, piece.CenterOffset) : null;
+    }
+
+    /// <summary>
+    /// Breaks off every part of the body that the cells no longer connect to the rest (a weapon carved through in the middle: the far end
+    /// is no longer part of it). The cells are grouped into 6-neighbour components; the one nearest <paramref name="keepNear"/> (grid-local;
+    /// null: the largest) stays in this body, and each other becomes its own new dynamic body, as <see cref="SplitAt"/> makes one.
+    /// Empty if the body is still one piece.
+    /// </summary>
+    public IReadOnlyList<VoxelBody> SeverDisconnected(Vector3? keepNear = null)
+    {
+        if (Grid.IsConnected())
+        {
+            return [];
+        }
+
+        var components = Grid.ConnectedComponents();
+        if (components.Count < 2)
+        {
+            return [];
+        }
+
+        var keep = 0;
+        var best = keepNear is null ? -1f : float.MaxValue;
+        for (var c = 0; c < components.Count; c++)
+        {
+            if (keepNear is { } point)
+            {
+                foreach (var i in components[c])
+                {
+                    var (x, y, z) = Grid.Coordinates(i);
+                    var d = Vector3.DistanceSquared(Grid.CellCenter(x, y, z), point);
+                    if (d < best)
+                    {
+                        (best, keep) = (d, c);
+                    }
+                }
+            }
+            else if (components[c].Length > best)
+            {
+                (best, keep) = (components[c].Length, c);
+            }
+        }
+
+        var pieces = new List<VoxelBody>(components.Count - 1);
+        for (var c = 0; c < components.Count; c++)
+        {
+            if (c != keep && Grid.Extract(components[c]) is { } piece && Detach(piece.Piece, piece.CenterOffset) is { } body)
+            {
+                pieces.Add(body);
+            }
+        }
+
+        return pieces;
+    }
+
+    /// <summary>The cells already moved out of this grid into <paramref name="grid"/> (centre <paramref name="centerOffset"/> from the grid's centre) become a new dynamic body that keeps flying as this one was.</summary>
+    private VoxelBody? Detach(VoxelGrid grid, Vector3 centerOffset)
+    {
+        if (grid.OccupiedBounds() is null)
         {
             return null;
         }
 
         var s = _world.GetState(BodyId);
-        var pieceBounds = piece.Piece.OccupiedBounds();
-        if (pieceBounds is null)
-        {
-            return null;
-        }
-
         // The new body is built around the piece's own grid (origin = grid centre).
-        var pieceCenterLocal = GridCenterLocal + piece.CenterOffset;
+        var pieceCenterLocal = GridCenterLocal + centerOffset;
         var pieceWorld = s.Position + Vector3.Transform(pieceCenterLocal, s.Orientation);
-        var pieceMass = MassOf(piece.Piece);
-        var id = _world.AddDynamicBox(pieceWorld, s.Orientation, piece.Piece.HalfExtents, pieceMass);
+        var pieceMass = MassOf(grid);
+        var id = _world.AddDynamicBox(pieceWorld, s.Orientation, grid.HalfExtents, pieceMass);
         _world.CopyCollisionFilter(BodyId, id);
         _world.SetLinearVelocity(id, s.LinearVelocity + Vector3.Cross(s.AngularVelocity, pieceWorld - s.Position));
         _world.SetAngularVelocity(id, s.AngularVelocity);
-        var fragment = new VoxelBody(_world, id, piece.Piece, _massPerCell, _materialMass);
+        var fragment = new VoxelBody(_world, id, grid, _massPerCell, _materialMass);
         fragment.UpdateMass();
         UpdateMass();
         return fragment;

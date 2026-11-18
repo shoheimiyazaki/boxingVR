@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 体格が同じなら効かない（従来と同じ試合になる）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class BuildReadTests
 {
     private const float Reach = 0.188f;

@@ -10,6 +10,7 @@ namespace MiniRing.Tests;
 /// 人／レビュー役が中身を見て判断する。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 [TestCategory("visual")]
 public sealed class SnapshotTests
 {

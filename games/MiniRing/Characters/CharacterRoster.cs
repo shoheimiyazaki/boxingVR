@@ -250,11 +250,18 @@ public static class CharacterRoster
 
         var look = new FaceLook(Color(face.Skin, "look.skin"), Color(face.Hair, "look.hair"), Color(face.Eyes, "look.eyes"),
             face.Hairstyle, face.Brows, face.Beard) { Parts = ValidParts(face.Parts) };
+        var org = c.Org ?? FighterCharacter.DefaultOrg;
+        if (org.Length == 0 || !org.All(ch => ch is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-' or '_'))
+        {
+            throw new InvalidDataException($"org '{org}' は小文字・数字・-・_ の団体の id にしてください（wvc・vfc）。");
+        }
+
         return new FighterCharacter(c.Id!, name, Need(c.Reading, "reading"), Need(c.HudName, "hudName"),
             Need(c.Origin, "origin"), country, wear, weapon, textbook, build, look, Need(c.Tagline, "tagline"),
             ToEducation(c.Education), ToRecord(c.Record))
         {
             Profile = c.Profile?.Validate(build),
+            Org = org,
         };
     }
 
@@ -297,7 +304,8 @@ public static class CharacterRoster
         "club" or "woodenclub" => WeaponKind.WoodenClub,
         "staff" or "bo" => WeaponKind.Staff,
         "jo" => WeaponKind.Jo,
-        _ => throw new InvalidDataException($"武器 '{name}' は知りません（katana|longsword|ironSword|club|staff|jo）。"),
+        "bat" => WeaponKind.Bat,
+        _ => throw new InvalidDataException($"武器 '{name}' は知りません（katana|longsword|ironSword|club|staff|jo|bat）。"),
     };
 
     private static Vector3 Color(float[]? rgb, string field)
@@ -424,6 +432,7 @@ public static class CharacterRoster
         public string? Origin { get; init; }
         public string? Country { get; init; }
         public string? Tagline { get; init; }
+        public string? Org { get; init; }
         public FaceDto? Look { get; init; }
         public BodyDto? Body { get; init; }
         public string? Textbook { get; init; }

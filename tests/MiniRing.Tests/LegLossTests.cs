@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 腰の高さは短い脚の端が床に着く高さまで下がり、長い脚はその分曲げる。倒れたままの 10 カウントにはならない。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class LegLossTests
 {
     private const float Dt = 1f / 60f;

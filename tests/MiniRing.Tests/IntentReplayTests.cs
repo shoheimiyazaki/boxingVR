@@ -5,6 +5,7 @@ using MiniRing.Replay;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("slow")]
 public sealed class IntentReplayTests
 {
     [TestMethod]

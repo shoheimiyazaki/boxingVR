@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- ゲーム本体（ホスト非依存）。デスクトップ（GameHost）と VR（OpenXR）の両ホストから使う。 -->
   <ItemGroup>
+    <EmbeddedResource Include="Motion/SwordFormSkills.json" LogicalName="MiniRing.Motion.SwordFormSkills.json" />
     <ProjectReference Include="..\..\src\Aigis.Foundation\Aigis.Foundation.csproj" />
     <ProjectReference Include="..\..\src\Aigis.Physics\Aigis.Physics.csproj" />
     <ProjectReference Include="..\..\src\Aigis.Render\Aigis.Render.csproj" />

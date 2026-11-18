@@ -16,7 +16,7 @@ rem                              options: --runtime auto^|meta^|vd^|steamvr^|sys
 rem   run.cmd replay [file]      watch a recording in real time (default: the newest file in replays\)
 rem   run.cmd verify [file]      re-simulate a recording and check it reproduces exactly (default: newest)
 rem   run.cmd selftest           check the VR render path without a headset
-rem   run.cmd test               run the automated tests (excluding GPU snapshots)
+rem   run.cmd test [fast|all]    run the automated tests: fast (default, a few minutes) or all (excluding GPU snapshots and probes)
 rem   run.cmd arena [args]       bot-vs-bot arena: league [--bouts N --seconds S] / tune --base NAME (see docs\BOTS.md)
 rem                              video [--red A --blue B --seconds S --out f.mp4] renders a match (needs ffmpeg)
 rem
@@ -84,7 +84,12 @@ dotnet run --project %VR% -c Release --no-build -- --selftest
 goto :end
 
 :test
-dotnet test tests\MiniRing.Tests -c Release --filter "TestCategory!=visual"
+rem "test" or "test fast": quick tier (no slow/visual/probe). "test all": everything but visual and probes (about an hour serially).
+if /i "%~2"=="all" (
+  dotnet test tests\MiniRing.Tests -c Release --filter "TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"
+) else (
+  dotnet test tests\MiniRing.Tests -c Release --filter "TestCategory!=slow&TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"
+)
 goto :end
 
 rem Builds the project; on failure restarts the build servers and retries once.

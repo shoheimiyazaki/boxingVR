@@ -17,10 +17,10 @@ internal static class GuardLab
     private const float Dt = 1f / 240f;
 
     /// <summary>打ち手 1 つ: 名前・組（練習 / 確かめ）・武器・作り方。</summary>
-    internal sealed record Attack(string Name, bool Holdout, WeaponKind? Weapon, bool TwoHanded, Func<int, IFighterControl> Create);
+    internal sealed record Attack(string Name, bool Holdout, WeaponKind? Weapon, bool TwoHanded, Func<int, IFighterControl> Create, string Direction = "未分類", string? Technique = null);
 
     /// <summary>1 本の結果。</summary>
-    internal sealed record Trial(Attack Attack, int Seed, int Cells, int Severed, bool Killed, float Concussion, int ClashSteps, int Blocks, int Evasions, int SelfCells = 0, int BladeLost = 0, int TheirLost = 0, int BladeCarved = 0, int BladeSnaps = 0, int ShieldClashSteps = 0, int ShieldLost = 0)
+    internal sealed record Trial(Attack Attack, int Seed, int Cells, int Severed, bool Killed, float Concussion, int ClashSteps, int Blocks, int Evasions, int SelfCells = 0, int BladeLost = 0, int TheirLost = 0, int BladeCarved = 0, int BladeSnaps = 0, int ShieldClashSteps = 0, int ShieldLost = 0, int Hits = 0, int HeadCells = 0, int TorsoCells = 0, int ArmCells = 0, int ClashEpisodes = 0, int CounterHits = 0, int TheirCarved = 0, int TheirSnaps = 0, int Attempted = 0, int Intercepted = 0)
     {
         /// <summary>失ったものの重さ: ボクセル / 60 + 切り落とし × 2 + 死 × 3 + 脳しんとう（<see cref="StrikeResult.Effect"/> と同じ物差し）。</summary>
         public float Harm => (Cells / 60f) + (2f * Severed) + (Killed ? 3f : 0f) + Concussion;
@@ -30,7 +30,7 @@ internal static class GuardLab
     }
 
     /// <summary>守り方 1 つ: 名前・守り・間合いの取り合い（null ならその場で構えて動かない。あれば遠間を保って回る。打ちには出ない）。</summary>
-    internal sealed record Variant(string Name, SwordDefense Defense, HitAndAway? Away = null);
+    internal sealed record Variant(string Name, SwordDefense Defense, HitAndAway? Away = null, bool CounterAttack = false);
 
     /// <summary>比べる守り方。</summary>
     public static IReadOnlyList<Variant> Variants { get; } =
@@ -48,6 +48,77 @@ internal static class GuardLab
         new("間合いを保つ（遠間で回る）", new SwordDefense(Counter: false, Mode: DefenseMode.Step), new HitAndAway()),
         new("間合いを保つ ＋ 受け流し（握りの側）＋ 足と頭", SwordDefense.Parrying with { Counter = false }, new HitAndAway()),
     ];
+
+    /// <summary>方向別の比較: 現行の Step、固定角の Parrying、連続の守り（返しも含む）。従来の番号は変えない。</summary>
+    public static IReadOnlyList<Variant> Comparison { get; } =
+    [
+        new("現行 Step", SwordDefense.Adopted, CounterAttack: true),
+        new("固定角 Parrying", SwordDefense.Parrying, CounterAttack: true),
+        new("連続の守り", SwordDefense.Continuous, CounterAttack: true),
+    ];
+
+    /// <summary>
+    /// 2 周目（間に合う受け）の比べる守り（<c>--compare cycle2</c>。<c>--variants</c> はこの番号）。
+    /// 0 現行 Step、1 1 周目の連続、2〜4 手の速さの掃引（H1: 届く受けだけ）、5 H1 + 構えが線を覆う（H2）、6 H1 + H2 + 弧の読み（H3）、
+    /// 7 H4（1 周目の連続の傾き・流しを H1〜H3 の上に重ねる）。
+    /// </summary>
+    public static IReadOnlyList<Variant> Cycle2 { get; } =
+    [
+        new("現行 Step", SwordDefense.Adopted, CounterAttack: true),
+        new("連続（1 周目）", SwordDefense.Continuous, CounterAttack: true),
+        new("H1 届く受け（手 3 腕/s）", SwordDefense.Parrying with { Reach = true, HandSpeed = 3f }, CounterAttack: true),
+        new("H1 届く受け（手 6 腕/s）", SwordDefense.Parrying with { Reach = true, HandSpeed = 6f }, CounterAttack: true),
+        new("H1 届く受け（手 12 腕/s）", SwordDefense.Parrying with { Reach = true, HandSpeed = 12f }, CounterAttack: true),
+        new("H1 + H2 構えが線を覆う", SwordDefense.Parrying with { Reach = true, Economy = 0.5f }, CounterAttack: true),
+        new("H1 + H2 + H3 弧の読み", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Arc = true, Horizon = 0.35f }, CounterAttack: true),
+        new("H4 連続の傾き + H1〜H3", SwordDefense.Continuous with { Reach = true, Economy = 0.5f, Arc = true, Horizon = 0.35f }, CounterAttack: true),
+        new("H1 + H2 動きの重み 1.5", SwordDefense.Parrying with { Reach = true, Economy = 1.5f }, CounterAttack: true),
+        new("H1 + H2 手 3 腕/s", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, HandSpeed = 3f }, CounterAttack: true),
+        new("H1 + H2 手 12 腕/s", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, HandSpeed = 12f }, CounterAttack: true),
+        new("H1 + H2 + 弧のみ（Horizon 0.25）", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Arc = true }, CounterAttack: true),
+        new("H1 + H2 + Horizon 0.35（弧なし）", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Horizon = 0.35f }, CounterAttack: true),
+        new("H4' 連続の傾き + H1 + H2（弧なし）", SwordDefense.Continuous with { Reach = true, Economy = 0.5f }, CounterAttack: true),
+    ];
+
+    /// <summary>
+    /// 型の技を名前で選べる打ち手。方向の分類は報告の見出しだけに使い、守りの判断には渡さない。
+    /// 型に技が増えたら、この列挙へ自動的に入り、--techniques でその名前を指定できる。
+    /// </summary>
+    public static IReadOnlyList<Attack> DirectionalAttacks(IReadOnlyList<(WeaponSwing Swing, float Range)> club)
+    {
+        var list = new List<Attack>();
+        foreach (var weapon in new[] { WeaponKind.Katana, WeaponKind.Longsword })
+        {
+            var forms = weapon == WeaponKind.Katana ? SwordForms.Katana() : SwordForms.Longsword().Skip(1);
+            foreach (var motion in forms)
+            {
+                var technique = new MotionTechnique(motion.Name, weapon, motion, 0f);
+                technique = technique with { Range = StrikeDrill.ReachOf(technique, SwordLibraryLab.ArmReachValue) };
+                var direction = motion.Name switch
+                {
+                    "kesa" or "gyaku-kesa" or "oberhau" or "zornhau" or "harai-men" or "hiki-men" => "上",
+                    "nuki-do" or "zwerchhau" => "横",
+                    "kiriage" or "unterhau" => "下",
+                    "tsuki" or "stich" => "突き",
+                    _ => "追加",
+                };
+                foreach (var target in new[] { BodyPartKind.Head, BodyPartKind.Chest })
+                {
+                    list.Add(new Attack($"{weapon} {motion.Name} → {(target == BodyPartKind.Head ? "頭" : "胸")}", weapon != WeaponKind.Katana, weapon, true,
+                        seed => new SwordsmanBot([technique], motion.Frames[0], seed, SwordStance.Rate, rest: 1000f, exact: true,
+                            tuning: SwordStance.Tuning, aim: AimDefaults.Tuning) { Aim = target }, direction, motion.Name));
+                }
+            }
+        }
+
+        foreach (var (swing, range) in club)
+        {
+            list.Add(new Attack($"棍棒 {swing.Family}", false, WeaponKind.WoodenClub, false,
+                seed => new ClubBot([swing], seed, range, rest: 1000f, exact: true), "棍棒", swing.Family.ToString()));
+        }
+
+        return list.OrderBy(a => a.Direction, StringComparer.Ordinal).ThenBy(a => a.Name, StringComparer.Ordinal).ToList();
+    }
 
     /// <summary>打ち手の一覧。</summary>
     public static IReadOnlyList<Attack> Attacks(SwordLibraryLab.Library library, IReadOnlyList<(WeaponSwing Swing, float Range)> club, IReadOnlyList<(WeaponSwing Swing, float Range)> bat)
@@ -100,14 +171,16 @@ internal static class GuardLab
             tuning: SwordStance.Tuning, defense: variant.Defense, bladeLength: SwordLibraryLab.BladeLength(WeaponKind.IronSword), spacing: 0f, opponentReach: 3f,
             hitAndAway: variant.Away)
         {
-            Passive = true,
+            Passive = !variant.CounterAttack,
+            CounterOnly = variant.CounterAttack,
             OffhandRadius = Weapon.CoverRadiusOf(WeaponKind.Shield) / SwordLibraryLab.ArmReachValue,
         }
         : new([.. library.Techniques.Where(t => t.Weapon == WeaponKind.Katana)], library.Guards[WeaponKind.Katana], seed, SwordStance.Rate,
             tuning: SwordStance.Tuning, defense: variant.Defense, bladeLength: SwordLibraryLab.BladeLength(WeaponKind.Katana), spacing: SwordForms.KatanaSpacing, opponentReach: 3f,
             hitAndAway: variant.Away)
         {
-            Passive = true,
+            Passive = !variant.CounterAttack,
+            CounterOnly = variant.CounterAttack,
         };
 
     /// <summary>1 本: 打ち手が受け手へ打ち込み、<paramref name="seconds"/> 秒のうちに受け手が失ったものを数える。</summary>
@@ -117,9 +190,12 @@ internal static class GuardLab
         var defender = Defender(library, variant, seed);
         using var game = new BoxingGame(VersusLab.Tuning, seed, new BoxingCorners("受け手", _ => defender, _ => attack.Create(seed),
             CpuWeapon: Shielded ? WeaponKind.IronSword : WeaponKind.Katana, PlayerWeapon: attack.Weapon, CpuTwoHanded: !Shielded, PlayerTwoHanded: attack.TwoHanded,
-            CpuWear: Shielded ? HandWear.Shield : HandWear.Glove));
+            CpuWear: Shielded ? HandWear.Shield : HandWear.Glove,
+            // 比較では種が入力条件を変えるよう、開始間隔を技の間合いの許容幅（±3 cm）だけ揺らす。全ての守りに同じ間隔を使う。
+            Ring: variant.CounterAttack ? RingLayout.Weapons with { StartGap = RingLayout.Weapons.StartGap + (((2f * new Random(seed).NextSingle()) - 1f) * MotionTechnique.Window) } : null));
         var victim = game.Cpu.Voxels!;
         var start = victim.Parts.Sum(p => p.Body.Grid.FilledCount);
+        var partStart = victim.Parts.GroupBy(p => p.Kind).ToDictionary(g => g.Key, g => g.Sum(p => p.Body.Grid.FilledCount));
         var katana = game.WeaponOf(game.Cpu)!;
         var shield = Shielded ? game.GloveOf(game.Cpu, Hand.Left) : null;
         var shieldStart = shield?.Body.Grid.FilledCount ?? 0;
@@ -127,17 +203,46 @@ internal static class GuardLab
         var bladeStart = katana.Body.Grid.FilledCount;
         var theirWeapon = game.WeaponOf(game.Player);
         var theirStart = theirWeapon?.Body.Grid.FilledCount ?? 0;
+        // 相手の持ち物と、その破片だけ。自分のグローブとの接触を受けと数えない。
+        var theirs = new[] { theirWeapon, game.GloveOf(game.Player, Hand.Left), game.GloveOf(game.Player, Hand.Right) }
+            .Where(w => w is not null).Select(w => w!.Body).ToHashSet();
         var clashes = 0;
         var selfCells = 0;
         var bladeCarved = 0;
         var bladeSnaps = 0;
+        int hits = 0, episodes = 0, counterHits = 0, theirCarved = 0, theirSnaps = 0;
+        var wasClashing = false;
+        int step = 0, firstClash = -1, firstHit = -1;
         var parts = victim.Parts.Select(p => p.Body).ToHashSet();
         for (var t = 0f; t < seconds; t += Dt)
         {
             game.Step(default, Dt);
-            var theirs = game.Weapons.Where(w => w != katana && w != shield).Select(w => w.Body).ToHashSet();
+            foreach (var body in theirs.ToArray())
+            {
+                foreach (var cut in game.RecentCuts)
+                {
+                    if (cut.SnappedFor(body) is { } fragment)
+                    {
+                        theirs.Add(fragment);
+                    }
+                }
+            }
             shieldClashes += shield is not null && game.RecentCuts.Any(c => (c.A == shield.Body && theirs.Contains(c.B)) || (c.B == shield.Body && theirs.Contains(c.A))) ? 1 : 0;
-            clashes += game.RecentCuts.Any(c => (c.A == katana.Body && theirs.Contains(c.B)) || (c.B == katana.Body && theirs.Contains(c.A))) ? 1 : 0;
+            var clashing = game.RecentCuts.Any(c => (c.A == katana.Body && theirs.Contains(c.B)) || (c.B == katana.Body && theirs.Contains(c.A)));
+            firstClash = clashing && firstClash < 0 ? step : firstClash;
+            clashes += clashing ? 1 : 0;
+            episodes += clashing && !wasClashing ? 1 : 0;
+            wasClashing = clashing;
+            var stepHits = game.WeaponHits.Count(h => h.Attacker == game.Player) + game.RecentHits.Count(h => h.Attacker == game.Player);
+            firstHit = stepHits > 0 && firstHit < 0 ? step : firstHit;
+            hits += stepHits;
+            step++;
+            counterHits += defender.Countering ? game.WeaponHits.Count(h => h.Attacker == game.Cpu) : 0;
+            if (theirWeapon is not null)
+            {
+                theirCarved += game.RecentCuts.Sum(c => c.RemovedFor(theirWeapon.Body).Count);
+                theirSnaps += game.RecentCuts.Count(c => c.SnappedFor(theirWeapon.Body) is not null);
+            }
             selfCells += game.RecentCuts.Where(c => c.A == katana.Body && parts.Contains(c.B)).Sum(c => c.RemovedB.Count);
             bladeCarved += game.RecentCuts.Sum(c => c.RemovedFor(katana.Body).Count);
             bladeSnaps += game.RecentCuts.Count(c => c.SnappedFor(katana.Body) is not null);
@@ -149,19 +254,24 @@ internal static class GuardLab
         }
 
         var lost = start - victim.Parts.Sum(p => p.Body.Grid.FilledCount);
+        // 受けを試みた本のうち、相手の武器との接触が体への当たりより先（同じ歩を含む）に起きた本 = 来る線を遮った。
+        var attempted = defender.Blocks > 0 ? 1 : 0;
+        var intercepted = attempted == 1 && firstClash >= 0 && (firstHit < 0 || firstClash <= firstHit) ? 1 : 0;
+        int Lost(BodyPartKind kind) => partStart.GetValueOrDefault(kind) - victim.Parts.Where(p => p.Kind == kind).Sum(p => p.Body.Grid.FilledCount);
         return new Trial(attack, seed, lost, victim.Fragments.Count, game.Cpu.IsDead, game.Cpu.Concussion, clashes, defender.Blocks, defender.Evasions, selfCells, bladeStart - katana.Body.Grid.FilledCount, theirStart - (theirWeapon?.Body.Grid.FilledCount ?? 0), bladeCarved, bladeSnaps,
-            shieldClashes, shield is null ? 0 : shieldStart - shield.Body.Grid.FilledCount);
+            shieldClashes, shield is null ? 0 : shieldStart - shield.Body.Grid.FilledCount, hits, Lost(BodyPartKind.Head),
+            Lost(BodyPartKind.Chest) + Lost(BodyPartKind.Pelvis), Lost(BodyPartKind.UpperArm) + Lost(BodyPartKind.Forearm), episodes, counterHits, theirCarved, theirSnaps, attempted, intercepted);
     }
 
     /// <summary>守り方ごとに全ての打ち手を回し、Markdown の表を返す。<paramref name="pick"/> は選んだ守り方の名前（練習の組で失ったものがいちばん少ない）。</summary>
     public static string Run(SwordLibraryLab.Library library, IReadOnlyList<Attack> attacks, IReadOnlyList<Variant> variants, int seeds, float seconds,
-        TextWriter log, out string pick)
+        TextWriter log, out string pick, int firstSeed = 1, int parallel = 2)
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        var jobs = (from v in variants from a in attacks from s in Enumerable.Range(1, seeds) select (v, a, s)).ToList();
+        var jobs = (from v in variants from a in attacks from s in Enumerable.Range(firstSeed, seeds) select (v, a, s)).ToList();
         var results = new Trial[jobs.Count];
         var done = 0;
-        Parallel.For(0, jobs.Count, i =>
+        Parallel.For(0, jobs.Count, new ParallelOptions { MaxDegreeOfParallelism = parallel }, i =>
         {
             var (v, a, s) = jobs[i];
             results[i] = Run(a, library, v, s, seconds);
@@ -178,7 +288,8 @@ internal static class GuardLab
         var byVariant = variants.Select((v, i) => (v.Name, Trials: results.Where((_, k) => jobs[k].v.Name == v.Name).ToList())).ToList();
         var text = new StringBuilder();
         text.AppendLine(string.Create(CultureInfo.InvariantCulture,
-            $"打ち手 {attacks.Count}（練習の組 {attacks.Count(a => !a.Holdout)}・確かめの組 {attacks.Count(a => a.Holdout)}）× 種 {seeds} × {seconds:0.#} 秒。受け手は{(Shielded ? "片手剣と盾（右手に剣・左手に盾。その場で構えて守るだけ）" : "日本刀（その場で構えて守るだけ）")}。"));
+            $"打ち手 {attacks.Count}（練習の組 {attacks.Count(a => !a.Holdout)}・確かめの組 {attacks.Count(a => a.Holdout)}）× 種 {firstSeed}..{firstSeed + seeds - 1}（{seeds} 種）× {seconds:0.#} 秒。受け手は{(Shielded ? "片手剣と盾（右手に剣・左手に盾。その場で構えて守るだけ）" : "日本刀（自分から打たず、比較では返しだけを許す）")}。"));
+        text.AppendLine(CultureInfo.InvariantCulture, $"LogicVersion {BoxerBot.LogicVersion}。比較の受け手は返しだけを許し、開始間隔を種付きで ±{MotionTechnique.Window * 100f:0} cm 変える（守りごとに同じ条件）。");
         text.AppendLine("失ったもの = ボクセル / 60 + 切り落とし × 2 + 死 × 3 + 脳しんとう。打たれた = ボクセル 6 以上・脳しんとう 0.05 以上・切り落とし・死のどれか。受けた = 刀と相手の武器が触れた本数。");
         text.AppendLine();
         text.AppendLine("| 守り方 | 練習: 失ったもの（1 本あたり） | 練習: 打たれた | 確かめ: 失ったもの | 確かめ: 打たれた | 刀で受けた本数 | 自分の刀で斬った（1 本あたり） | 刀が欠けた（1 本あたり） | 相手の武器が欠けた | 刀: 削れた・折れた | 死 |");
@@ -191,7 +302,7 @@ internal static class GuardLab
                 $"| {name} | {Mean(train):0.00} | {train.Count(t => t.Struck)}/{train.Count} | {Mean(hold):0.00} | {hold.Count(t => t.Struck)}/{hold.Count} | {trials.Count(t => t.ClashSteps > 0)}/{trials.Count} | {trials.Average(t => t.SelfCells):0} | {trials.Average(t => t.BladeLost):0} | {trials.Average(t => t.TheirLost):0} | {trials.Average(t => t.BladeCarved):0}・{trials.Sum(t => t.BladeSnaps)} | {trials.Count(t => t.Killed)} |"));
         }
 
-        pick = byVariant.Skip(1).MinBy(x => Mean([.. x.Trials.Where(t => !t.Attack.Holdout)])).Name;
+        pick = byVariant.MinBy(x => Mean([.. x.Trials.Where(t => !t.Attack.Holdout)])).Name;
         if (Shielded)
         {
             text.AppendLine();
@@ -202,6 +313,20 @@ internal static class GuardLab
             foreach (var (name, trials) in byVariant)
             {
                 text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"| {name} | {trials.Count(t => t.ShieldClashSteps > 0)}/{trials.Count} | {trials.Average(t => t.ShieldLost):0} | {trials.Count(t => t.ClashSteps > 0)}/{trials.Count} |"));
+            }
+        }
+
+        text.AppendLine();
+        text.AppendLine("方向別（セル・接触・返しは全試行の合計。頭・胴（胸＋腰）・腕は失ったセル、自傷もその内数。受け/流しは武器同士の連続した接触を 1 回と数える。返し当たりは返しの技の最中の武器打撃の回数。相手武器は削れたセル/折れ回数）。");
+        text.AppendLine();
+        text.AppendLine("| 方向 | 守り | 本 | 打たれた本 | 被打撃 | 失ったセル | 頭 | 胴 | 腕 | 自傷 | 受け/流し | 返し当たり | 受けを試みた本 | 遮った本（遮り率） | 相手武器: 削れ/折れ |");
+        text.AppendLine("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|");
+        foreach (var (name, trials) in byVariant)
+        {
+            foreach (var group in trials.GroupBy(t => t.Attack.Direction).OrderBy(g => g.Key, StringComparer.Ordinal))
+            {
+                text.AppendLine(CultureInfo.InvariantCulture,
+                    $"| {group.Key} | {name} | {group.Count()} | {group.Count(t => t.Struck)} | {group.Sum(t => t.Hits)} | {group.Sum(t => t.Cells)} | {group.Sum(t => t.HeadCells)} | {group.Sum(t => t.TorsoCells)} | {group.Sum(t => t.ArmCells)} | {group.Sum(t => t.SelfCells)} | {group.Sum(t => t.ClashEpisodes)} | {group.Sum(t => t.CounterHits)} | {group.Sum(t => t.Attempted)} | {group.Sum(t => t.Intercepted)}（{(group.Sum(t => t.Attempted) == 0 ? "-" : (100f * group.Sum(t => t.Intercepted) / group.Sum(t => t.Attempted)).ToString("0", CultureInfo.InvariantCulture) + "%")}） | {group.Sum(t => t.TheirCarved)}/{group.Sum(t => t.TheirSnaps)} |");
             }
         }
 

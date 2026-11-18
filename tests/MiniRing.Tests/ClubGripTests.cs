@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 慣性モーメントは、その拳の力と手首のトルクで動かす。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class ClubGripTests
 {
     /// <summary>毎サブステップ、渡した関数で指令を作る操作元。</summary>

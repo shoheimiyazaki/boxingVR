@@ -1,6 +1,7 @@
 {
   "id": "albert",
   "order": 9,
+  "org": "wvc",
   "name": "アルバート・クロムウェル",
   "reading": "アルバート クロムウェル",
   "hudName": "アルバート",
