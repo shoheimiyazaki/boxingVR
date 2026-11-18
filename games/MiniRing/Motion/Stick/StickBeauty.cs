@@ -244,7 +244,7 @@ public static class StickBeauty
 
             var span = cumulative[at + 1] - cumulative[at];
             var u = span > 1e-12 ? (float)Math.Clamp((target - cumulative[at]) / span, 0.0, 1.0) : 0f;
-            resampled[k] = Vector3.Lerp(path[at], path[at + 1], u);
+            resampled[k] = CatmullRom(path[Math.Max(0, at - 1)], path[at], path[at + 1], path[Math.Min(path.Count - 1, at + 2)], u);
         }
 
         var ds = (float)(length / (samples - 1));
@@ -425,6 +425,10 @@ public static class StickBeauty
 
         return weight > 0 ? (float)(sum / weight) : 0f;
     }
+
+    /// <summary>Catmull-Rom 補間（p1 → p2 の間、u = 0〜1）。折れ線よりも円弧の曲率を正しく保つ。</summary>
+    private static Vector3 CatmullRom(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float u)
+        => 0.5f * ((2f * p1) + ((p2 - p0) * u) + (((2f * p0) - (5f * p1) + (4f * p2) - p3) * u * u) + (((3f * p1) - p0 - (3f * p2) + p3) * u * u * u));
 
     private static void Fft(double[] re, double[] im)
     {
