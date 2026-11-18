@@ -18,6 +18,7 @@ const { spawnSync, spawn } = require('child_process');
 
 const repo = path.resolve(__dirname, '..', '..', '..');
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
+const pacing = require('./pacing');
 
 function parseArgs(argv) {
   const args = { driver: 'cli', model: 'haiku', fresh: false };
@@ -361,7 +362,10 @@ async function main() {
       `- 「生の情報」も届きます: 前に聞いてから今までの当たり（誰が何の技で、どの手足で、相手の体のどこ（おでこ・目・頬・こめかみ・みぞおち…）に、どれだけの速さ・重さで当てたか、そこが何セル削れたか）と、直近 1 秒の 2 人の動き（頭と両拳の位置と動き、腰の高さ、体の傾き、相手との距離）。長さは選手の身長に合わせた人の大きさの cm。${seat === 'commentator' ? 'あなたには体の中（意識・スタミナ・臓器の打撲・これまでに失った場所）も届きます。' : '体の外から見える損傷（これまでに削れた場所）と、疲れの見え方も届きます。'}数字はそのまま言わなくてよい。情景を思い描くのに使ってください。`,
       `- 話している途中で出来事が起きると、その瞬間にマイクがあなたに戻ってきます。どこまで言えたか、何が起きたか、今の言葉を終えられる所（いま止める・次の区切り・文の終わり・最後まで。それぞれあと何秒か）が届きます。終える所（stop）と、そこへ足す短い締めの言葉（close、無くてもよい）、その後に新しく言うことがあるかを決めます。今話していることの大事さ、新しく伝えることの大事さと急ぎ具合、言葉の途中で切れる聞き苦しさを比べて、あなたが決めてください。`,
       '- 相方が話し始めると、その言葉と、言葉の中の区切りが何秒目にあるかがあなたに届きます。途中で割り込む（何秒後か）、話し終わってから返す、何もしない、から選べます。割り込まれた相方の言葉は、その瞬間で切れます。あなたが話しているときも、相方は同じように割り込めます。返すと決めてから声に出すまでに試合が進んでいたら、言う前にもう一度聞きます（そのまま言う・言い直す・やめる）。',
-      `- 誰も話さないまま ${config.silenceSeconds} 秒たつと、マイクは${config.seats.announcer.label}に渡ります。`,
+      `- 誰も話さないまま ${config.silenceSeconds} 秒たつと、マイクが渡ります。${config.maxSilenceSeconds} 秒を超える無音は作りません（パスしても、無音が続けば「ここで N 秒の無音があります」と警告が来ます。そのときは必ず話してください）。`,
+      '',
+      '## 何を言うか',
+      '- 中継の時間は限られています。何が大事か、何が面白いか、何を言って何を言わないかは、あなたが判断してください。',
       `- 声の速さの目安: あなたは 1 秒に約 ${Math.round(1 / speechSeconds('あ', seat, false))} 字。`,
       '',
       '## 守ること',
@@ -541,7 +545,15 @@ async function main() {
   // ---- 状態 ----
   let cur = null; // 話している最中の台詞
   let pending = null; // 相方の割り込み・返事の予定
-  let silenceAt = config.silenceSeconds; // 無言でマイクが実況へ渡る時刻（Infinity なら渡らない）
+  let silenceAt = config.silenceSeconds; // 無言でマイクが渡る時刻（Infinity なら渡らない）
+  let silenceSeat = 'announcer'; // 無音の警告を次に渡す席（交互）
+  const silenceWarnings = []; // 出した無音の警告（transcript に残す）
+  const warnedFor = new Map(); // 無音の始まりの時刻 → 警告した回数（同じ無音に聞き続けない）
+  // 最後に声が止んだ時刻（誰も話していないとき）。
+  const quietSince = () => lines.reduce((m, l) => Math.max(m, l.end), 0);
+  // パスのあと、次にマイクが渡る時刻: 待つ秒数（無ければ silenceSeconds）か、無音が maxSilenceSeconds に達する時刻の早い方。
+  // 前は実況のパスで「次の出来事まで」待ち、入場や休みの間に 5〜10 秒の無音ができた（2026-11-18）。
+  const nextSilence = (wait) => Math.max(T + 0.3, Math.min(T + (wait ?? config.silenceSeconds), quietSince() + config.maxSilenceSeconds));
   const groups = [];
   for (const e of all.filter(isTrigger)) {
     const g = groups[groups.length - 1];
@@ -643,7 +655,7 @@ async function main() {
     else if (r.action === 'speak') { await start(seat, r); return true; }
     // パスのあとの無言: 待つ秒数を言えばその後に、言わなければ、実況のパスは次の出来事まで・解説のパスは決まりどおり 1 秒で実況へ。
     const wait = typeof r.wait === 'number' && r.wait > 0 ? Math.max(config.silenceSeconds, r.wait) : null;
-    if (!cur) silenceAt = wait !== null ? T + wait : seat === 'announcer' ? Infinity : T + config.silenceSeconds;
+    if (!cur) silenceAt = nextSilence(wait);
     return false;
   }
 
@@ -652,8 +664,8 @@ async function main() {
     // 言い切れない文が並んだ（第1試合の最初の試し）。
     const text = r.text.trim();
     const excited = !!r.excited;
+    if (!text) { silenceAt = nextSilence(null); return; }
     const full = measure(text, seat, excited);
-    if (!text) return;
     const line = { seat, start: T, full, end: T + full, text, said: text, excited, handTo: r.handTo === 'partner', cutBy: '' };
     lines.push(line);
     cur = line;
@@ -741,7 +753,7 @@ async function main() {
         addExclaim(p.seat, r);
         if (r.action === 'continue') await start(p.seat, p.reply);
         else if (r.action === 'speak') await start(p.seat, r);
-        else silenceAt = T + config.silenceSeconds;
+        else silenceAt = nextSilence(null);
         continue;
       }
       await start(p.seat, p.reply);
@@ -749,7 +761,22 @@ async function main() {
     }
     T = Math.max(T, ts); // 無言
     silenceAt = Infinity;
-    await mic('announcer', `${config.silenceSeconds} 秒、誰も話していません。`);
+    const since = quietSince();
+    const quiet = T - since;
+    const warned = warnedFor.get(since) || 0;
+    if (quiet >= config.maxSilenceSeconds - 1e-3 && warned >= 2) {
+      log.push(`${fmt(T)}s 無音の警告に 2 席ともパス（台本の後に埋める）`);
+    }
+    else if (quiet >= config.maxSilenceSeconds - 1e-3) {
+      warnedFor.set(since, warned + 1);
+      // 無音が長い: 台本を組む側から警告して、埋める台詞を書かせる（席は交互。パスされたら、もう片方へ）。
+      const seat = silenceSeat;
+      silenceSeat = other(seat);
+      silenceWarnings.push({ from: since, to: T, seconds: quiet, seat, when: '進行中' });
+      log.push(`${fmt(T)}s 無音の警告（${fmt(quiet)} 秒）→ ${seat}`);
+      await mic(seat, pacing.silenceWarning({ from: since, to: T, seconds: quiet }));
+    }
+    else await mic('announcer', `${fmt(quiet)} 秒、誰も話していません。`);
   }
   if (guard >= 2000) console.warn('ループの上限に達しました（中継が途中で止まった）');
   if (cur) finish(cur, length, '番組の終わり');
@@ -765,6 +792,31 @@ async function main() {
     while (text.length >= config.minSaid && measure(text, l.seat, l.excited) > slot) text = text.slice(0, Math.floor(text.length * 0.8));
     return text;
   }
+  // ---- 残った無音を埋める（2026-11-18、ユーザーの指定: 2 秒以上の無音を作らない） ----
+  // 進行中に警告しても、切れた台詞を枠に縮めた・短すぎて捨てた台詞のぶん、声に出る台本には無音が残ることがある。
+  // 声に出る長さで無音を探し（pacing.findSilences）、maxSilenceSeconds 以上なら、その頭の時刻で「ここで N 秒の無音があります」と
+  // 警告して埋める台詞を書かせる（席は交互。埋まらなかった無音は transcript と標準エラーに残す）。
+  const voiced = () => lines.map((l) => ({ l, text: fitted(l) })).filter((x) => x.text.trim().length >= config.minSaid)
+    .map(({ l, text }) => ({ start: l.start, end: l.start + (text === l.text ? l.full : measure(text, l.seat, l.excited)) }));
+  for (const gap of pacing.findSilences(voiced(), length, config.maxSilenceSeconds)) {
+    if (gap.to - gap.from - (2 * config.gap) < 0.6) continue; // 台詞を置く隙間が無い
+    const seat = silenceSeat;
+    silenceSeat = other(seat);
+    T = gap.from + config.gap;
+    const warning = pacing.silenceWarning(gap);
+    silenceWarnings.push({ ...gap, seat, when: '台本の後' });
+    const r = await drivers.ask(seat, 'mic', prompt(seat, warning, MIC_FORMAT), () => mockMic(seat, warning));
+    log.push(`${fmt(T)}s 台本に残った無音の警告（${fmt(gap.seconds)} 秒）→ ${seat}: ${r.action}${r.text ? ' 「' + r.text + '」' : ''}`);
+    if (r.action !== 'speak' || !r.text || !r.text.trim()) continue;
+    const text = r.text.trim();
+    const excited = !!r.excited;
+    const full = measure(text, seat, excited);
+    const slotEnd = gap.to - config.gap;
+    lines.push({ seat, start: T, full, end: Math.min(T + full, slotEnd), text, said: text, excited, handTo: false, cutBy: T + full > slotEnd ? '次の台詞' : '', ended: true });
+  }
+  const leftover = pacing.findSilences(voiced(), length, 2.0);
+  for (const g of leftover) console.warn(`${key}: ${fmt(g.from)}〜${fmt(g.to)} 秒に ${fmt(g.seconds)} 秒の無音が残りました`);
+
   const out_lines = lines.map((l) => ({ l, text: fitted(l) })).filter((x) => x.text.trim().length >= config.minSaid)
     .map(({ l, text }) => ({ at: round1(l.start), speaker: l.seat, text, excited: l.excited }))
     .concat(overlaps.map((o) => ({ at: round1(o.start), speaker: o.seat, text: o.text, excited: true, overlap: true })))
@@ -777,6 +829,8 @@ async function main() {
     '## 台詞', '', ...lines.map((l) => ({ t: l.start, s: `- ${fmt(l.start)}–${fmt(l.end)}s ${config.seats[l.seat].label}: 「${l.said}」${l.cutBy ? `（${l.cutBy}で切れた）` : ''}` }))
       .concat(overlaps.map((o) => ({ t: o.start, s: `- ${fmt(o.start)}s ${config.seats[o.seat].label}（重ねて）: 「${o.text}」` })))
       .sort((a, b) => a.t - b.t).map((x) => x.s), '',
+    '## 無音の警告', '', ...(silenceWarnings.length ? silenceWarnings.map((w) => `- ${fmt(w.from)}〜${fmt(w.to)}s（${fmt(w.seconds)} 秒、${w.when}）→ ${config.seats[w.seat].label}`) : ['- なし']),
+    ...(leftover.length ? ['', '残った 2 秒以上の無音:', ...leftover.map((g) => `- ${fmt(g.from)}〜${fmt(g.to)}s（${fmt(g.seconds)} 秒）`)] : []), '',
     '## マイクの動き', '', ...log.map((x) => `- ${x}`), '',
   ].join('\n');
   fs.writeFileSync(path.join(work, 'transcript.md'), transcript);
@@ -785,7 +839,9 @@ async function main() {
 }
 
 // ---- 決まった答え（仕組みの確かめ用） ----
-function mockMic(seat, situation) {
+function mockMic(seat, raw) {
+  const situation = raw;
+  if (situation.includes('秒の無音があります')) return { action: 'speak', text: seat === 'announcer' ? 'ここで両選手の経歴を振り返っておきましょう。' : 'この間に、作戦を整理しておきたいですね。' };
   if (seat === 'announcer' && situation.startsWith('出来事')) {
     const what = situation.split(': ').slice(1).join(': ').split(' / ')[0];
     return { action: 'speak', seconds: 3, text: what.slice(0, 30) + '。', excited: /ダウン|ノックアウト/.test(what), handTo: /ラウンド終了/.test(what) ? 'partner' : null };
