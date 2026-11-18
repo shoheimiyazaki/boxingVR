@@ -95,6 +95,6 @@ internal sealed class LocalVersusControl(BoxingCorners corners)
         var world = CameraFollow.ToWorld(movement, yaw) + stick.World.GetValueOrDefault();
         return new FighterIntent(Vector2.Zero, input.IsKeyDown(light) || stick.Light,
             input.IsKeyDown(heavy) || stick.Heavy, input.IsKeyDown(guard) || stick.Evade,
-            world.LengthSquared() > 1f ? Vector2.Normalize(world) : world);
+            world.LengthSquared() > 1f ? Vector2.Normalize(world) : world, Step: input.IsGamepadButtonDown(pad, GamepadButton.East));
     }
 }

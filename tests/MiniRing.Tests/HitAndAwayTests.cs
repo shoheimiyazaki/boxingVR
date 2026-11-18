@@ -36,33 +36,38 @@ public sealed class HitAndAwayTests
     {
         using var swords = new BoxingGame(seed: 1, corners: new BoxingCorners("x", s => new ExternalControl(), s => new ExternalControl(),
             CpuWeapon: WeaponKind.Katana, PlayerWeapon: WeaponKind.Katana, CpuTwoHanded: true, PlayerTwoHanded: true));
-        Assert.AreEqual(RingLayout.Weapons, swords.Layout);
+        Assert.AreEqual(RingLayout.DrillWeapons, swords.Layout, "without a ring given, the drill ground (the weapon ring before 2026-11-18)");
         Assert.AreEqual(2.4f, swords.Ring.Size, 1e-5f);
         var gap = swords.Cpu.PelvisPosition - swords.Player.PelvisPosition;
         Assert.AreEqual(1.0f, new Vector2(gap.X, gap.Z).Length(), 0.03f, "the two start 1 m apart (beyond every technique's range)");
 
         using var boxing = new BoxingGame(seed: 1);
-        Assert.AreEqual(RingLayout.Boxing, boxing.Layout);
+        Assert.AreEqual(RingLayout.DrillBoxing, boxing.Layout);
         Assert.AreEqual(1.2f, boxing.Ring.Size, 1e-5f);
         gap = boxing.Cpu.PelvisPosition - boxing.Player.PelvisPosition;
         Assert.AreEqual(0.44f, new Vector2(gap.X, gap.Z).Length(), 0.03f);
 
         // 拳と武器の試合は拳のリング（言われたのは武器同士）。
         using var mixed = new BoxingGame(seed: 1, corners: new BoxingCorners("x", s => new ExternalControl(), s => new ExternalControl(), CpuWeapon: WeaponKind.Katana, CpuTwoHanded: true));
-        Assert.AreEqual(RingLayout.Boxing, mixed.Layout);
+        Assert.AreEqual(RingLayout.DrillBoxing, mixed.Layout);
+
+        // 試合のホストはコーナーから、標準のリング（人の大きさで 5.3 m）で。
+        var match = new BoxingCorners("x", s => new ExternalControl(), s => new ExternalControl()).StartingAtCorners();
+        Assert.AreEqual(RingLayout.Boxing.AtCorners(), match.Layout);
+        Assert.AreEqual(RingLayout.StandardSize, match.Layout.Size, 1e-5f);
     }
 
     [TestMethod]
     public void TheTable_GrowsWithTheRing_AndItsNearEdgeStaysInFrontOfThePlayer()
     {
-        foreach (var layout in new[] { RingLayout.Boxing, RingLayout.Weapons })
+        foreach (var layout in new[] { RingLayout.Boxing, RingLayout.Weapons, RingLayout.DrillBoxing, RingLayout.DrillWeapons })
         {
             Assert.AreEqual(0.2f, layout.Center.Z - layout.TableHalf, 1e-5f);
             Assert.IsGreaterThan(layout.Half, layout.PlinthHalf);
             Assert.IsGreaterThan(layout.PlinthHalf, layout.TableHalf);
         }
 
-        Assert.AreEqual(0.95f, RingLayout.Boxing.Center.Z, 1e-5f, "the boxing ring stays where it was");
+        Assert.AreEqual(0.95f, RingLayout.DrillBoxing.Center.Z, 1e-5f, "the drill ring stays where the boxing ring was");
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new RingLayout(1.2f, 1.1f).Validated());
     }
 

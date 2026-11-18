@@ -776,13 +776,13 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// </summary>
     internal static BoxingCorners Corners(Contender red, Contender blue, int seed, MiniRing.Weapons.HandWear redWear, MiniRing.Weapons.HandWear blueWear,
         MiniRing.Weapons.WeaponKind? redWeapon, MiniRing.Weapons.WeaponKind? blueWeapon, ControlFactory blueControl, ControlFactory? redControl, bool referee = true)
-        => new(blue.Name, blueControl, redControl,
+        => new BoxingCorners(blue.Name, blueControl, redControl,
             CpuStyleJson: redControl is not null ? null : (blue.Create(seed) as BoxerBot)?.Style.ToJson(),
             PlayerWear: redWear, CpuWear: blueWear, PlayerName: red.Name,
             PlayerBody: red.Build, CpuBody: blue.Build, PlayerFace: red.Face, CpuFace: blue.Face,
             CpuWeapon: blueWeapon, PlayerWeapon: redWeapon, CpuTwoHanded: FormSwordsman.Handles(blueWeapon), PlayerTwoHanded: FormSwordsman.Handles(redWeapon),
             RedBotStyle: redWeapon is null && blueWeapon is null ? null : (red.Create(seed) as BoxerBot)?.Style ?? BotCatalog.Style("champion"),
-            UseWeaponBots: redWeapon is not null || blueWeapon is not null, Referee: referee);
+            UseWeaponBots: redWeapon is not null || blueWeapon is not null, Referee: referee).StartingAtCorners(); // 試合はコーナーから（動画・テレビ中継・名簿のリーグ）
 
     /// <summary>名簿のキャラクターは、体格・顔・表示名をそのキャラクターの値にする（ボットの性格はスタイル）。</summary>
     internal static BoxingCorners WithCharacters(BoxingCorners corners, MiniRing.Characters.FighterCharacter? red, MiniRing.Characters.FighterCharacter? blue)
@@ -834,9 +834,12 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         axis.Y = 0f;
         // 赤（プレイヤー側）が画面の左、青が右に映る側から見る（字幕の左右と合わせる）。
         var side = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(Vector3.Cross(axis, Vector3.UnitY)) : -Vector3.UnitX;
-        var angle = 0.6f * MathF.Sin(orbit);
+        // 2 人が離れているほど引く（コーナーから始まる試合で、両方のコーナーが画面に入る。45° の画角の横幅は距離の 1.47 倍）。打ち合う間合いでは今までの 0.9 m。
+        // 離れている間は回り込みを小さくする（斜めから見ると手前の 1 人が画面の外へ出る）。
+        var reach = MathF.Max(0.9f, (axis.Length() + 0.5f) / 1.4f);
+        var angle = 0.6f * MathF.Sin(orbit) * (0.9f / reach);
         var direction = Vector3.Transform(side, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
-        var eye = mid + (direction * 0.9f) + new Vector3(0f, 0.38f, 0f); // 手前のロープ越しに見下ろす高さ
+        var eye = mid + (direction * reach) + new Vector3(0f, 0.38f * reach / 0.9f, 0f); // 手前のロープ越しに見下ろす高さ
         var target = mid - new Vector3(0f, 0.06f, 0f);
         return (Camera.ViewProjection(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f), eye);
     }

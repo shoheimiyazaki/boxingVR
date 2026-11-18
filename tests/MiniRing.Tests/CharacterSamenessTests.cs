@@ -13,9 +13,10 @@ namespace MiniRing.Tests;
 [TestClass]
 public sealed class CharacterSamenessTests
 {
+    // 2026-11-18（PhysicsVersion 44: ダウンの間の審判の指示）: レフェリーのいる試合でダウンが入る組だけ取り直した（CharacterSamenessProbe。ほかの組は変わらない）。
     private static readonly Dictionary<string, (ulong Half, ulong End)> Expected = new()
     {
-        ["glove-glove-referee"] = (0x4A464CA23C7F33BC, 0xE07D0FC9984DCAC8),
+        ["glove-glove-referee"] = (0x09BE29F26CC00B4D, 0xC903C95FF761BC59),
         ["glove-glove-noref"] = (0xE02C484AF63AADF2, 0x9D085D00376429CE),
         ["karate-swarmer-noref"] = (0xCDF6A76BFD09BEB8, 0x96694C0BA4D7A389),
         ["katana-longsword-noref"] = (0xFE19B6EB1CC7A579, 0xA07A564EDFBCDFC0),
@@ -28,11 +29,11 @@ public sealed class CharacterSamenessTests
     /// <summary>武器の教科書を JSON へ移す前（`weapon handling` 段 1 の最初）に <see cref="CharacterSamenessProbe"/> で取った値（master へ入れるとき、首・脊椎と指の手（PhysicsVersion 35）の上で LEGACY の行から取り直した。拳の組の LEGACY が既存の値と全部一致することを確かめてから。2026-11-16）。</summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedWeapons = new()
     {
-        ["w-katana-katana-referee"] = (0xB6B839A289987AD1, 0x0F1FFBB32A252656),
+        ["w-katana-katana-referee"] = (0x8ABA9747BFC4F6CB, 0x0F1FFBB32A252656),
         ["w-longsword-longsword-noref"] = (0x24EFD3040133326D, 0x92FAB3FD49623B6B),
-        ["w-katana-longsword-referee"] = (0x42078D844E0B900F, 0x46E52752A9CC6A22),
+        ["w-katana-longsword-referee"] = (0x564D24F8E613A82B, 0x5533133E32914F1C),
         ["w-club-katana-noref"] = (0x1D2D8B6A7B5AF334, 0x84164D2D4EBB2FF1),
-        ["w-longsword-club-referee"] = (0x3411DCB15479DDEC, 0x26CD20897BAEDA2C),
+        ["w-longsword-club-referee"] = (0xEC641CDE31D957A7, 0x7D32670F9415B0F1),
         ["w-club-club-noref"] = (0x7C19AB725FA1FF8B, 0x28F64F242E6370EC),
     };
 
@@ -67,11 +68,11 @@ public sealed class CharacterSamenessTests
     {
         ["katana-longsword-noref"] = (0x8840E6C94CD46A51, 0xF2AA513706223292),
         ["single-karate-vs-katana"] = (0xEEA9CDB8DCC1D24A, 0x18221ACB29A4379B),
-        ["w-katana-katana-referee"] = (0x5BE985A461672609, 0xFC24C5B8D2691B12),
+        ["w-katana-katana-referee"] = (0x058D5DE64A627625, 0x895D6177249E15B9),
         ["w-longsword-longsword-noref"] = (0x148E3D016DA3E787, 0x949BEFB15369705B),
         ["w-katana-longsword-referee"] = (0x2CD8F409304ACDE6, 0xC455797CD6E2372A),
         ["w-club-katana-noref"] = (0x6439802F18181BDC, 0x1D6C61B5F8E34FA3),
-        ["w-longsword-club-referee"] = (0x6996F2F4570121E8, 0x5C0B62FD0F22D3A1),
+        ["w-longsword-club-referee"] = (0x6996F2F4570121E8, 0x3F5FDF7F96457F9A),
     };
 
     /// <summary>

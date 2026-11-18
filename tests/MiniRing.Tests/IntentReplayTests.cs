@@ -82,7 +82,7 @@ public sealed class IntentReplayTests
             writer.Write(header.CpuLogic);
             writer.Write(header.Physics);
             const int v3StepBytes = 4 + 1 + (15 * 4) + 3;
-            const int extraBytes = 26 + 8 + 2 + 1; // v4/v5 の指令 + v10 の肘の締め（左右 float）+ v11 の握りを滑らせる指令（左右 bool）+ v7 の青入力なしフラグ
+            const int extraBytes = 26 + 8 + 2 + 12 + 1; // v4/v5 の指令 + v10 の肘の締め（左右 float）+ v11 の握りを滑らせる指令（左右 bool）+ v13 のステップ（float × 3）+ v7 の青入力なしフラグ
             writer.Write(bytes.AsSpan(bytes.Length - v3StepBytes - extraBytes, v3StepBytes));
         }
 

@@ -43,9 +43,24 @@ public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float 
 /// <para><paramref name="HeadOffset"/> は頭の構えからのずれ（体フレームのローカル [m]）: 前へ出せば前傾、横へずらせば
 /// スリップ（横傾き）、下げればダッキング（沈み込み）。体の軸の向きは両手の位置とこの頭の位置から決まる。</para>
 /// <para><paramref name="TwistBias"/> は胴のひねりの上乗せ [rad]（正で右肩が前）。拳より先に腰と肩を回す（打つ前の溜め: 打つ手の肩を後ろへ引いて胴のバネを縮め、打ち出すと前へ回す）のに使う。</para>
+/// <para><paramref name="Step"/>（2026-11-18、ステップ）は、脚のバネ（構えで縮めてある脚: <see cref="Fighter.StepSpring"/>）を体の移動へ放つ向き（ワールドの水平）と割合（長さ 0..1）。
+/// 拳の <see cref="HandCommand.Spring"/> と同じく「体のバネをどこへ移すか」の目標で、位置や速さは書かない。前へ放てば後ろ足が床を蹴って一気に詰め、
+/// 後ろへ放てば前足が蹴って下がる（どちらの足が蹴るかは、向きに対して腰より後ろにある足: 脚が押せる向きの幾何から）。放った後は足が体を受け止めて構えを整え直し、
+/// 両足が床に着いてから脚の筋肉がバネを縮め直すまでは次のステップは弱い（クールダウンは時計ではなく、足の運びと筋肉の仕事から出る）。</para>
 /// </summary>
-public readonly record struct FighterCommand(Vector3 MoveWorld, Vector3 FaceDirection, HandCommand Left, HandCommand Right, Vector3 HeadOffset = default, float TwistBias = 0f, LegCommand? LeftLeg = null, LegCommand? RightLeg = null)
+public readonly record struct FighterCommand(Vector3 MoveWorld, Vector3 FaceDirection, HandCommand Left, HandCommand Right, Vector3 HeadOffset = default, float TwistBias = 0f, LegCommand? LeftLeg = null, LegCommand? RightLeg = null, Vector3 Step = default)
 {
+    /// <summary>水平・長さ 1 以下に正規化したステップの指令（有限でなければ 0）。</summary>
+    public Vector3 ClampedStep
+    {
+        get
+        {
+            var flat = new Vector3(Step.X, 0f, Step.Z);
+            var length = flat.Length();
+            return !float.IsFinite(length) ? Vector3.Zero : length > 1f ? flat / length : flat;
+        }
+    }
+
     public HandCommand For(Hand hand) => hand == Hand.Left ? Left : Right;
 
     public LegCommand? LegFor(Hand leg) => leg == Hand.Left ? LeftLeg : RightLeg;
@@ -101,7 +116,7 @@ public readonly record struct BodySense(Vector3 LeftShoulder, Vector3 RightShoul
 /// 武器を扱わない入力元のため）。武器を落とした剣士は拳で戦う（<see cref="Bots.DisarmedFallback"/>）。</para>
 /// <para><paramref name="OpponentDowned"/> は相手の体が倒れている（ダウン・起き上がり中）、<paramref name="MayStrikeDowned"/> はその相手を攻めてよい（レフェリーがいない試合。
 /// <see cref="BoxingCorners.Referee"/>）。<paramref name="OpponentAlive"/>（立っていて打ってよい）の意味は変わらない。レフェリーがいる試合では <paramref name="MayStrikeDowned"/> は常に false で、入力元は今までどおり倒れた相手へ手を出さない。</para>
-/// <para><paramref name="Ring"/> はこの試合のリング（null は拳の試合の標準 <see cref="RingLayout.Boxing"/>）。ロープ際を知り、下がる余地を測るため。</para>
+/// <para><paramref name="Ring"/> はこの試合のリング（null はリングを指定しない試合の場 <see cref="RingLayout.DrillBoxing"/>）。ロープ際を知り、下がる余地を測るため。</para>
 /// <para><paramref name="SelfWeapon"/> は自分の握っている武器の長さ（折れて短くなったか。<see cref="WeaponSense"/>）。</para>
 /// </summary>
 public readonly record struct FighterSense(
@@ -119,7 +134,7 @@ public readonly record struct FighterSense(
     public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
 
     /// <summary>この試合のリング（分からなければ拳の試合の標準）。</summary>
-    public RingLayout Arena => Ring ?? RingLayout.Boxing;
+    public RingLayout Arena => Ring ?? RingLayout.DrillBoxing;
 }
 
 /// <summary>ファイターの操作元。VR・キーボード・AI がこれを実装する。</summary>

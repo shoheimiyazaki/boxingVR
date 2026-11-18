@@ -221,6 +221,13 @@ public sealed record BotStyle
     /// <summary>相手の周りを回る強さ（0..1）。</summary>
     public float Circling { get; init; } = 0.4f;
 
+    /// <summary>
+    /// ステップ（脚のバネで一気に詰める・下がる。<see cref="FighterCommand.Step"/>）を使う好み（0..1、2026-11-18）。行きたい間合いとのずれが大きく、足運びの前後の指令が
+    /// 振り切れている（<see cref="BoxerBot.StepFrom"/> を超える）ほど、その割合で脚のバネを放つ。どれだけ進むか・いつ次を蹴れるかは体（バネの貯まり具合）が決める。
+    /// 既定は 0（使わない）: 判断の既定はリーグで比べてから変える（docs/BOT_PDCA.md）。スタイル JSON・教育で入れる。
+    /// </summary>
+    public float StepUse { get; init; }
+
     /// <summary>何もしていないときの頭の振り（ボブ・ウィーブ）の大きさ（0..1）。</summary>
     public float HeadMovement { get; init; } = 0.4f;
 
@@ -443,6 +450,7 @@ public sealed record BotStyle
             StopJab = Unit(StopJab),
             ThrowRate = Unit(ThrowRate),
             Circling = Unit(Circling),
+            StepUse = Unit(StepUse),
             RopeEscape = Unit(RopeEscape),
             HeadMovement = Unit(HeadMovement),
             GuardHeight = Range(GuardHeight, 0f, MaxGuardHeight, 0.5f),

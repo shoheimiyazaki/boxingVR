@@ -29,8 +29,8 @@ public delegate IFighterControl ControlFactory(int roundSeed);
 /// <para><paramref name="PlayerWear"/>（赤コーナー）/ <paramref name="CpuWear"/>（青コーナー）は、武器を握っていない手にはめる物
 /// （<see cref="Weapons.HandWear"/>: グローブ・素手・メリケンサック・カタール・籠手。既定はグローブ）。<paramref name="VoxelGloves"/> が false なら
 /// どちらの手にも何もはめず、これまでの拳（前腕の箱の当たりと、運動エネルギーで掘る近道。§8）で打つ（比べもの用）。</para>
-/// <para><paramref name="Ring"/> はリングの大きさと始めの間。null なら、両方が武器を握る試合は <see cref="RingLayout.Weapons"/>（広いリングで遠間から）、
-/// それ以外は <see cref="RingLayout.Boxing"/>。</para>
+/// <para><paramref name="Ring"/> はリングの大きさと始めの立ち位置。null なら、ドリル・調べものの場（両方が武器を握る試合は <see cref="RingLayout.DrillWeapons"/>、
+/// それ以外は <see cref="RingLayout.DrillBoxing"/>。中央から）。試合のホストは <see cref="StartingAtCorners"/> で標準のリング（人の大きさで 7.3 m）・コーナーからにする。</para>
 /// <para><paramref name="PlayerLook"/> / <paramref name="CpuLook"/> は名簿のキャラクター（<see cref="Characters.FighterCharacter"/>）の顔そのもの（肌・髪・瞳・髪型・眉・ひげ・顔の部位）。
 /// null なら従来どおり名前（<see cref="PlayerName"/> / <see cref="CpuName"/>）から決めた顔。<paramref name="PlayerLabel"/> / <paramref name="CpuLabel"/> は
 /// 画面（得点・状態・実況）に出す名前（null なら YOU / CPU や RED / BLUE）。</para>
@@ -52,8 +52,16 @@ public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFa
     /// <summary>ゲームの既定の CPU。</summary>
     public static BoxingCorners Default => Bots.BotCatalog.Corners(Bots.BotCatalog.DefaultCpu);
 
+    /// <summary>
+    /// 同じ試合を、両者のコーナーから始める形（2026-11-18、ユーザーの指定「試合の開始はコーナーから」）。試合のホスト（デスクトップ・VR・動画・テレビ中継）が使う。
+    /// リングを <see cref="Ring"/> に書くので、記録（<see cref="Replay.ReplayMatchSettings"/>）にも残り、再生は同じ所から始まる。
+    /// </summary>
+    public BoxingCorners StartingAtCorners() => this with { Ring = (Ring ?? (BothArmed ? RingLayout.Weapons : RingLayout.Boxing)).AtCorners() };
+
+    private bool BothArmed => CpuWeapon is not null && PlayerWeapon is not null;
+
     /// <summary>この試合のリング。</summary>
-    public RingLayout Layout => (Ring ?? (CpuWeapon is not null && PlayerWeapon is not null ? RingLayout.Weapons : RingLayout.Boxing)).Validated();
+    public RingLayout Layout => (Ring ?? (BothArmed ? RingLayout.DrillWeapons : RingLayout.DrillBoxing)).Validated();
 }
 
 /// <summary>
@@ -226,11 +234,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     public bool IsOver => false;
 
-    /// <summary>拳の試合のリングの中心（<see cref="RingLayout.Boxing"/>。この試合のリングは <see cref="Layout"/>）。</summary>
-    public static Vector3 RingCenter => RingLayout.Boxing.Center;
+    /// <summary>リングを指定しない拳の試合（ドリルの場 <see cref="RingLayout.DrillBoxing"/>）のリングの中心。この試合のリングは <see cref="Layout"/>。</summary>
+    public static Vector3 RingCenter => RingLayout.DrillBoxing.Center;
 
-    /// <summary>拳の試合のリングの 1 辺 [m]（<see cref="RingLayout.Boxing"/>。この試合のリングは <see cref="Layout"/>）。</summary>
-    public static float RingSize => RingLayout.Boxing.Size;
+    /// <summary>リングを指定しない拳の試合（ドリルの場 <see cref="RingLayout.DrillBoxing"/>）のリングの 1 辺 [m]。この試合のリングは <see cref="Layout"/>。</summary>
+    public static float RingSize => RingLayout.DrillBoxing.Size;
 
     public const float RingSurfaceHeight = 0.75f;
 
@@ -364,12 +372,23 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var perceptionStart = StepProfile.Begin();
         UpdatePerception(dt);
         StepProfile.End(StepProfile.Slot.Perception, perceptionStart);
+        if (!Counting)
+        {
+            _neutralCorners.Clear();
+        }
+
         if (Resting)
         {
             // ラウンドの間（と試合の後）: 自分のコーナーへ歩いて戻り、ガードを下げて休む。入力元（ボット・プレイヤー）は読まない。
             Drive(Player, Cpu, RestCommand(Player, Cpu), dt);
             Drive(Cpu, Player, RestCommand(Cpu, Player), dt);
             _resumeHold = 0f; // 休みに入ったら一呼吸は持ち越さない（次のラウンドはゴングで始まる）
+        }
+        else if (Counting)
+        {
+            // ダウンを数えている間（レフェリーのいる試合）: 倒れた側はその場で立ち、立っている側はニュートラルコーナーで待つ。入力元は読まない。
+            Drive(Player, Cpu, DownCommand(Player, Cpu), dt);
+            Drive(Cpu, Player, DownCommand(Cpu, Player), dt);
         }
         else if (Holding)
         {
@@ -448,6 +467,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     /// <summary>試合を一呼吸止めているか（ダウンから立ち直った直後）。打撃は数えず、両者その場で構える。</summary>
     public bool Holding => _resumeHold > 0f && !Resting && !RoundOver;
+
+    /// <summary>
+    /// レフェリーがダウンを数えているか（どちらかが <see cref="Fighter.IsKnockedDown"/>）。数えている間は審判の指示で動く（<see cref="DownCommand"/>）。
+    /// レフェリーのいない試合では数えていても入力元のまま（倒れた相手を攻めてよい）。
+    /// </summary>
+    public bool Counting => _corners.Referee && !Resting && !RoundOver && (Player.IsKnockedDown || Cpu.IsKnockedDown);
 
     /// <summary>ダウンの数えから立ち直った（立って構えた）ファイターがいたら、試合を <see cref="ResumePause"/> だけ止める。</summary>
     private void WatchRecoveries()
@@ -1119,13 +1144,65 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private FighterCommand RestCommand(Fighter self, Fighter opponent)
     {
         var rules = Rules ?? MatchRules.Tv;
-        var inset = (Layout.Size * 0.5f) - rules.CornerInset;
-        var corner = Layout.Center + (self == Player ? new Vector3(-inset, 0f, -inset) : new Vector3(inset, 0f, inset));
-        var toCorner = corner - self.PelvisPosition;
+        return WalkTo(self, opponent, Layout.Corner(red: self == Player, rules.CornerInset), rules.RestGuardDrop, rules.RestWalk);
+    }
+
+    /// <summary>
+    /// ダウンの間の、審判の指示（ゲームの決まり。2026-11-18、ユーザーの指定）: 倒れた側はその場で立つ（入力元の移動を使わない: 起き上がりながら
+    /// よろよろと相手へ詰めていた）、立っている側は倒れた相手からいちばん遠いニュートラルコーナーへ下がって待つ。体は同じ物理で目標を追う。
+    /// </summary>
+    private FighterCommand DownCommand(Fighter self, Fighter opponent)
+    {
+        var rules = Rules ?? MatchRules.Tv;
+        if (self.IsKnockedDown)
+        {
+            return HoldCommand(self, opponent);
+        }
+
+        // 行き先のコーナーは数え始めに 1 度だけ決める（倒れた体が対角線の上で動くたびに選び直すと、行き先が入れ替わって揺れる）。
+        if (!_neutralCorners.TryGetValue(self, out var corner))
+        {
+            corner = Layout.NeutralCorner(opponent.PelvisPosition, rules.CornerInset);
+            _neutralCorners[self] = corner;
+        }
+
+        var walk = WalkTo(self, opponent, corner, Vector3.Zero, walk: 1f); // 数えている間に着くよう、普段の足で
+        // 倒れた相手の体をまたがない: 近いほど相手から離れる向きを足し、体の脇を回ってコーナーへ行く（まっすぐ向かうと足が体に絡んで止まった）。
+        var away = self.PelvisPosition - opponent.PelvisPosition;
+        away.Y = 0f;
+        var gap = away.Length();
+        if (gap > 1e-4f && gap < DownClearance)
+        {
+            // 離れる向きと、コーナーへ向かう向きのうち相手の体の脇を回る成分（体の向こうにコーナーがあるときは決まった側へ回る）。
+            var outward = away / gap;
+            var around = walk.MoveWorld - (Vector3.Dot(walk.MoveWorld, outward) * outward);
+            around = around.LengthSquared() > 1e-4f ? Vector3.Normalize(around) : Vector3.Cross(Vector3.UnitY, outward);
+            var near = 1f - (gap / DownClearance);
+            var move = walk.MoveWorld + (outward * (2f * near)) + (around * near);
+            walk = walk with { MoveWorld = move.LengthSquared() > 1f ? Vector3.Normalize(move) : move };
+        }
+
+        return walk;
+    }
+
+    /// <summary>ダウンを数えている間に立っている側が向かうニュートラルコーナー（数え始めに決め、数え終わったら捨てる）。</summary>
+    private readonly Dictionary<Fighter, Vector3> _neutralCorners = [];
+
+    /// <summary>ダウンを数えている間、立っている側が倒れた相手の体から取る距離 [m]（人形の身長 60 cm の 2/3: 倒れた体の長さの半分と足の幅）。</summary>
+    private const float DownClearance = 0.4f;
+
+    /// <summary>
+    /// <paramref name="spot"/>（床の上）へ歩き、相手の方を向いて、拳を構えから <paramref name="guardDrop"/>（腕の長さ単位）だけ下げる指令
+    /// （休むコーナーへ戻る・ダウンの間にニュートラルコーナーで待つ）。
+    /// </summary>
+    private FighterCommand WalkTo(Fighter self, Fighter opponent, Vector3 spot, Vector3 guardDrop, float walk)
+    {
+        var rules = Rules ?? MatchRules.Tv;
+        var toCorner = spot - self.PelvisPosition;
         toCorner.Y = 0f;
         var distance = toCorner.Length();
-        var move = distance > rules.CornerArrive ? Vector3.Normalize(toCorner) * MathF.Min(1f, distance / rules.CornerSlowDown) * rules.RestWalk : Vector3.Zero;
-        var low = rules.RestGuardDrop * self.ArmReach;
+        var move = distance > rules.CornerArrive ? Vector3.Normalize(toCorner) * MathF.Min(1f, distance / rules.CornerSlowDown) * walk : Vector3.Zero;
+        var low = guardDrop * self.ArmReach;
         return new FighterCommand(move, opponent.ChestPosition - self.ChestPosition,
             new HandCommand(AiControl.Guard(Hand.Left, self.ArmReach) + low, false),
             new HandCommand(AiControl.Guard(Hand.Right, self.ArmReach) + low, false));
@@ -1166,12 +1243,17 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _beforeStep.Clear();
         _resumeHold = 0f;
         _wasCounted.Clear();
+        _neutralCorners.Clear();
         _round++;
         _world = new PhysicsWorld();
         LivingRoom.AddColliders(_world, Layout);
         _ring = new Ring(_world, Layout.Center, Layout.Size, RingSurfaceHeight, LivingRoom.StageBase);
         var surface = _ring.SurfaceCenter;
-        var apart = new Vector3(0f, 0f, Layout.StartGap * 0.5f);
+        // コーナーから始める試合は、赤は手前左・青は奥右のコーナーに立ち、対角線の上で向き合う（生成の向きは +Z が 0、Y 軸まわり）。
+        // コーナーから始めない形（ドリル）は、中央で StartGap だけ離れて Z 軸の上で向き合う。
+        var (redFeet, blueFeet, redYaw) = Layout.FromCorners
+            ? (Layout.Corner(red: true) with { Y = surface.Y }, Layout.Corner(red: false) with { Y = surface.Y }, MathF.PI * 0.25f)
+            : (surface - new Vector3(0f, 0f, Layout.StartGap * 0.5f), surface + new Vector3(0f, 0f, Layout.StartGap * 0.5f), 0f);
         // VR のプレイヤーには、手触りの調整が終わるまでスタミナの疲れを効かせない（FighterTuning.PlayerFatigue）。
         var playerTuning = (_tuning.PlayerFatigue ? _tuning : _tuning with { StaminaFatigue = false })
             with { Build = _corners.PlayerBody ?? _tuning.Build };
@@ -1183,8 +1265,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             cpuTuning = cpuTuning with { MaxCrouch = cpuTuning.GroundCrouch };
         }
 
-        Player = Fighter.Spawn(_world, playerTuning, "player", surface - apart, 0f);
-        Cpu = Fighter.Spawn(_world, cpuTuning, "cpu", surface + apart, MathF.PI);
+        Player = Fighter.Spawn(_world, playerTuning, "player", redFeet, redYaw);
+        Cpu = Fighter.Spawn(_world, cpuTuning, "cpu", blueFeet, redYaw + MathF.PI);
         var playerModel = Models.GetOrAdd((playerTuning.HalfExtents, _tuning.ModelSubdivisions), key => BoxerModel.Build(key.Item1, key.Item2));
         var cpuModel = Models.GetOrAdd((cpuTuning.HalfExtents, _tuning.ModelSubdivisions), key => BoxerModel.Build(key.Item1, key.Item2));
         PlayerSkin = new BoxerSkin(playerModel, Player, playerTuning);
