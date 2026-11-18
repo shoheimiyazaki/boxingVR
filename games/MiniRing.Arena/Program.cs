@@ -18,7 +18,7 @@ try
         "handlespar" => HandleSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "held-out", "gens", "lambda", "bouts", "seconds", "seed", "referee", "parallel", "start", "best", "out")),
         "rhythmlab" => RhythmLabCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "parallel", "out", "csv")),
         "maailab" => MaaiLabCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "parallel", "out", "json", "csv", "ranges")),
-        "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain", "wear", "matrix", "gameplan")),
+        "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain", "wear", "matrix", "gameplan", "layer")),
         "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
         "learnlab" => LearnLabCommand(Options.Parse(argv[1..], "first", "second", "seeds", "seconds", "seed", "prior", "scale", "combos", "defender", "out")),
         "rangelab" => RangeLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "weapons", "out")),
@@ -239,7 +239,14 @@ static int RosterLeagueCommand(Options o)
         "ab" => RosterLeague.GamePlanUse.Layered,
         var other => throw new ArgumentException($"--gameplan は on・off・ab のどれかです（{other}）。"),
     };
-    var text = RosterLeague.Run(roster, o.Int("bouts", 2, min: 1), o.Float("seconds", 40f, min: 1f), o.Int("seed", 1), Referee(o), o.Int("parallel", 2, min: 1), Console.Error, SetOf(o), o.Get("ab") == "on" || gamePlan == RosterLeague.GamePlanUse.Layered, o.Get("layered"), o.Get("plain"), o.Get("matrix"), gamePlan);
+    // --layer gameplan|rhythm: --gameplan で入れ外しする教育の層（既定は戦略の層。rhythm は間の層）。
+    var layer = (o.Get("layer") ?? "gameplan") switch
+    {
+        "gameplan" => RosterLeague.EducationLayer.GamePlan,
+        "rhythm" => RosterLeague.EducationLayer.Rhythm,
+        var other => throw new ArgumentException($"--layer は gameplan・rhythm のどちらかです（{other}）。"),
+    };
+    var text = RosterLeague.Run(roster, o.Int("bouts", 2, min: 1), o.Float("seconds", 40f, min: 1f), o.Int("seed", 1), Referee(o), o.Int("parallel", 2, min: 1), Console.Error, SetOf(o), o.Get("ab") == "on" || gamePlan == RosterLeague.GamePlanUse.Layered, o.Get("layered"), o.Get("plain"), o.Get("matrix"), gamePlan, layer);
     Console.WriteLine(text);
     Console.Error.WriteLine($"rosterleague done in {watch.Elapsed.TotalSeconds:0.0}s");
     if (o.Get("out") is { } path)

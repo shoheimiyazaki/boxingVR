@@ -85,6 +85,7 @@
   "textbook": "champion",
   "education": {
     "style": {
+      "Rhythm": {"Weight":1,"Seize":1,"Quiet":3.498,"Bins":[{"From":0,"None":-0.248,"Guard":-1.912,"Clean":-1.455},{"From":0.1,"None":2.206,"Guard":-1.264,"Clean":-1.019},{"From":0.2,"None":2.495,"Guard":1.746,"Clean":0.895},{"From":0.3,"None":3.053,"Guard":4.222,"Clean":1.787},{"From":0.4,"None":3.907,"Guard":2.507,"Clean":1.906},{"From":0.5,"None":3.487,"Guard":3.427,"Clean":2.8},{"From":0.6,"None":4.645,"Guard":3.2,"Clean":4.91},{"From":0.8,"None":4.631,"Guard":4.203,"Clean":4.051},{"From":1,"None":3.969,"Guard":4.081,"Clean":4.816}]},
       "BreakLikes": { "applause": 3, "handshake": 3, "sandwich": 2.5, "headphones": 2.5, "glare": 2, "bow": 1.5, "pointup": 2, "raisearms": 1.5, "sportsdrink": 2, "hypecrowd": 1.5, "blowkiss": 0.3 },
       "GamePlan": {
         "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,

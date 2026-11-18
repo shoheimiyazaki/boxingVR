@@ -83,6 +83,7 @@
   "textbook": "counter",
   "education": {
     "style": {
+      "Rhythm": {"Weight":1,"Seize":1,"Quiet":2.812,"Bins":[{"From":0,"None":-0.085,"Guard":-1.541,"Clean":-2.175},{"From":0.1,"None":1.195,"Guard":0.754,"Clean":-0.107},{"From":0.2,"None":2.247,"Guard":0.841,"Clean":-0.264},{"From":0.3,"None":1.804,"Guard":2.183,"Clean":-0.969},{"From":0.4,"None":2.258,"Guard":1.596,"Clean":1.523},{"From":0.5,"None":3.473,"Guard":2.224,"Clean":1.801},{"From":0.6,"None":4.876,"Guard":2.757,"Clean":4.376},{"From":0.8,"None":5.174,"Guard":4.185,"Clean":4.12},{"From":1,"None":3.471,"Guard":3.68,"Clean":3.13}]},
       "BreakLikes": { "handshake": 4, "cigarette": 4, "dance": 3, "headphones": 3, "hum": 2.5, "blowkiss": 2, "wavetwo": 2, "wave": 2, "applause": 2, "hypecrowd": 2, "roar": 0.5 },
       "GamePlan": {
         "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
