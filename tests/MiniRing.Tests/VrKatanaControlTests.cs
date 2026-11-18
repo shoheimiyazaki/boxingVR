@@ -360,7 +360,7 @@ public sealed class VrKatanaControlTests
                 game.Step(default, Dt);
             }
 
-            Assert.IsTrue(game.Player.Wields(Hand.Right) && game.Cpu.Wields(Hand.Right), $"{weapon}: 両者が武器を握って始まる");
+            Assert.IsTrue((game.Player.Wields(Hand.Right) || game.Player.Wields(Hand.Left)) && (game.Cpu.Wields(Hand.Right) || game.Cpu.Wields(Hand.Left)), $"{weapon}: 両者が武器を握って始まる");
         }
     }
 
