@@ -44,8 +44,12 @@ public static class GongSound
     /// <summary>鳴り終わりを 0 へ落とす長さ [s]（途中で切れてプツッと鳴らない）。</summary>
     private const float FadeOut = 0.08f;
 
-    /// <summary>音量（砕ける音は 1 前後）。</summary>
-    public const float Loudness = 0.7f;
+    /// <summary>
+    /// 音量（砕ける音は 1 前後）。0.7 → 0.45（2026-11-18、ユーザー: 試合が終わるときの音が大きくて驚く）。試合の終わりは 3 連打のゴングと
+    /// 観客の歓声（<see cref="CrowdReaction.Eruption"/>）が重なり、中継の音の中央値より 20 dB 前後大きい音が 4 秒続いていた（wvc-crossover b1 の測定）。
+    /// ゴングは会場の合図で、中継では打撃の音より前に出ない大きさにする。
+    /// </summary>
+    public const float Loudness = 0.45f;
 
     /// <summary>ゴングの音（16-bit モノラル）。<see cref="RoundBell.None"/> なら null。</summary>
     public static byte[]? Synthesize(RoundBell bell)

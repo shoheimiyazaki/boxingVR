@@ -56,8 +56,8 @@ public static class HornSound
     /// <summary>鳴り終わりの響き [s]（部屋の残響が尾を引く分）。</summary>
     private const float Tail = 0.4f;
 
-    /// <summary>音量（ゴングと同じ 0.7。砕ける音は 1 前後）。</summary>
-    public const float Loudness = 0.7f;
+    /// <summary>音量（ゴングと同じ <see cref="GongSound.Loudness"/>。砕ける音は 1 前後）。</summary>
+    public const float Loudness = GongSound.Loudness;
 
     /// <summary>ホーンの音（16-bit モノラル）。<see cref="RoundBell.None"/> なら null。</summary>
     public static byte[]? Synthesize(RoundBell bell)
