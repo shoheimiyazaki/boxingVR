@@ -409,8 +409,21 @@ public sealed record FighterTuning
     /// <summary>打撃で当たった部位に残す運動量が、その部位に与える速さの上限 [m/s]（拳の速さの測り違いで部位を飛ばさない）。</summary>
     public float MaxStrikeSpeed { get; init; } = 6f;
 
-    /// <summary>脳しんとうの効き: 打撃で頭がねじられた速さ（頭の慣性で割った回転 [rad/s]）の 2 乗あたりに意識から引く量。</summary>
-    public float ConcussionGain { get; init; } = 0.000035f;
+    /// <summary>
+    /// 脳しんとうの効き: 打撃で頭がねじられた速さ（頭の慣性で割った回転 [rad/s]）の 2 乗あたりに意識から引く量（意識の量のモデルの係数。CLAUDE.md §8「意識」）。
+    /// PhysicsVersion 45 で 0.000035 → 0.0035（100 倍）: 体の質量が運ぶ運動量を体自身の動きの分だけにした（<see cref="PunchMechanics.BodyCarry"/>）ので、
+    /// 頭をねじる運動量が溜めた拳で約 1/7・手打ちで約 1/25 になった。拳だけのボット同士 4 組 × 種 2 × 60 秒で、意識の最小の平均が直す前（0.20）に近くなる倍率
+    /// （×30: 0.37・×100: 0.25、ダウン 4.1 → 3.1 回/試合。ConcussionCalibrationProbe・docs/arena/rush_physics.md）。手打ちの頭への効きは前の約 1/6 に留まる。
+    /// </summary>
+    public float ConcussionGain { get; init; } = 0.0035f;
+
+    /// <summary>
+    /// 床に頭を打った衝撃のねじれ（<c>BoxingGame.Land</c>: 頭そのものを止めた力積から出る実際の回転）に使う脳しんとうの係数。
+    /// <see cref="ConcussionGain"/> の 100 倍は、拳が運ぶ運動量が体自身の動きの分だけになって約 1/7〜1/25 に減ったのを埋める、拳の側だけの校正なので、
+    /// 運動量を減らしていない床の衝撃には掛けない（掛けると、倒れて頭を打つだけで脳しんとうが +0.35〜0.4 増え、倒された体が 16 秒たっても立てない）。
+    /// 値は校正前の係数のまま（床の衝撃を入れたブランチ grappling で測った値）。拳と床で係数が別なのは近道（docs/DEBT.md）で、本当は 1 つの頭のモデル。
+    /// </summary>
+    public float CanvasConcussionGain { get; init; } = 0.000035f;
 
     /// <summary>
     /// 脳しんとうから意識が戻る速さ [意識/秒]（一定）。意識を 0.95 飛ばされると、膝立ちまで戻るのに約 3 秒、立ち上がれるまで約 6 秒、
@@ -657,6 +670,7 @@ public sealed record FighterTuning
             };
         }
     }
+
 
     public static FighterTuning Default { get; } = new();
 

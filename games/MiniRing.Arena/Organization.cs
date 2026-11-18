@@ -27,7 +27,8 @@ internal sealed record OrgCrowd(float ReactionGain, float AmbienceGain);
 /// <param name="DecisionLine">判定・引き分けで終わったときの下の行。<c>{rounds}</c> を差し込む。</param>
 /// <param name="LiveTag">試合中の画面の隅の札の言葉（地上波は LIVE、深夜の有料配信は PPV）。番組の型が使う。</param>
 /// <param name="Strapline">札の下の小さな 1 行（番組の性格。無ければ空）。</param>
-internal sealed record OrgText(string OpeningRule, string FinishWord, string DecisionLine, string LiveTag = "LIVE", string Strapline = "");
+/// <param name="IntervalSign">休みの看板の言葉（VFC「傷は少しずつ戻る」。使わない番組の型は空）。</param>
+internal sealed record OrgText(string OpeningRule, string FinishWord, string DecisionLine, string LiveTag = "LIVE", string Strapline = "", string IntervalSign = "");
 
 /// <summary>台本の下書き（<see cref="TvDraft"/>）の団体ごとの言い回し。<c>{round}</c>・<c>{victim}</c>・<c>{winner}</c> を差し込む。</summary>
 /// <param name="BellWord">ラウンドの合図の呼び方（「ゴング」「ホーン」）。</param>
@@ -79,10 +80,17 @@ internal sealed record OrgCast(OrgSeat Announcer, OrgSeat Commentator);
 
 /// <summary>
 /// 団体の試合の決まり（ルールの値。体・物理は団体によらず同じ）: 最終ラウンドの終わりに判定するか（<see cref="MatchRules.JudgesDecision"/>）・
-/// 休みの間に削れた体が治るか（<see cref="MatchRules.RegenVoxelsPerSecond"/>）・レフェリーがいるか（<see cref="BoxingCorners.Referee"/>）・場の形（<see cref="ArenaShape"/>）。
+/// 休みの間に削れた体が予算で治るか（<see cref="MatchRules.RegenVoxelsPerSecond"/>、WVC）・レフェリーがいるか（<see cref="BoxingCorners.Referee"/>）・場の形（<see cref="ArenaShape"/>）・
+/// 傷の前線の再生（<see cref="Regrowth"/>、VFC。書かなければしない）・休みに失った武器を支給するか（<see cref="ResupplyWeapons"/>）。
 /// ダウンを数えるかは <see cref="Organization.CountsDowns"/>（下書き・画面と共有）。
 /// </summary>
-internal sealed record OrgMatch(bool JudgesDecision, bool Regenerates, bool Referee, ArenaShape Arena);
+internal sealed record OrgMatch(bool JudgesDecision, bool Regenerates, bool Referee, ArenaShape Arena, OrgRegrowth? Regrowth = null, bool ResupplyWeapons = false);
+
+/// <summary>
+/// 傷の前線の再生の値（団体のファイルの <c>match.regrowth</c>）: 前線の速さ [m/s]（<see cref="MatchRules.RegrowthSpeed"/>）・抽選の間隔 [s]
+/// （<see cref="MatchRules.RegrowthTickSeconds"/>）・両者ダウンで立てない間に倍になる時間 [s]（<see cref="MatchRules.StuckDoublingSeconds"/>）。
+/// </summary>
+internal sealed record OrgRegrowth(float Speed, float TickSeconds, float StuckDoublingSeconds);
 
 /// <summary>
 /// 中継の主催団体（<c>games/MiniRing.Arena/Orgs/&lt;id&gt;.json</c>、2026-11-18）。画面の色と名前・紋章・ラウンドの合図の音・会場の雰囲気・
@@ -220,6 +228,11 @@ internal static class Organizations
                 throw new InvalidDataException($"id '{Id}' は小文字・数字・-・_ だけにしてください。");
             }
 
+            if (Match.Regrowth is { } regrowth && !(regrowth.Speed >= 0f && regrowth.TickSeconds > 0f && regrowth.StuckDoublingSeconds >= 0f))
+            {
+                throw new InvalidDataException("match.regrowth は speed ≥ 0・tickSeconds > 0・stuckDoublingSeconds ≥ 0 にしてください。");
+            }
+
             Need(Name, "name");
             Need(LogoText, "logoText");
             Need(Sport, "sport");
@@ -290,9 +303,10 @@ internal static class Organizations
         public required string DecisionLine { get; init; }
         public string? LiveTag { get; init; }
         public string? Strapline { get; init; }
+        public string? IntervalSign { get; init; }
 
         public OrgText ToText() => new(Need(OpeningRule, "text.openingRule"), Need(FinishWord, "text.finishWord"), Need(DecisionLine, "text.decisionLine"),
-            string.IsNullOrWhiteSpace(LiveTag) ? "LIVE" : LiveTag, Strapline ?? "");
+            string.IsNullOrWhiteSpace(LiveTag) ? "LIVE" : LiveTag, Strapline ?? "", IntervalSign ?? "");
     }
 
     private sealed class DraftDto

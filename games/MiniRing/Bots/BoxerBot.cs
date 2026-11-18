@@ -123,6 +123,29 @@ public sealed class BoxerBot : IFighterControl
     /// <summary>調べもの・テスト用: 戦略の層のこの歩の答え。</summary>
     internal PlanChoice? Plan => _plan;
 
+    /// <summary>間の層の、次の拳までの間の縮む速さの倍率（<see cref="Bots.Rhythm.Tempo"/>。層が無ければ 1）。</summary>
+    private float _rhythmTempo = 1f;
+
+    /// <summary>相手の最後の拳の出始めから、守りの外に受けたダメージと守りの上に当たった数（間の層が感じる触れ方）。</summary>
+    private float _contactClean;
+
+    private float _contactGuard;
+
+    /// <summary>間の層が見た相手の拳の出始めの数（変わったら触れ方を数え直す）。</summary>
+    private int _rhythmOnsets;
+
+    /// <summary>間の層が打つのを待たせるとき、次の拳までの間をここまでしか伸ばさない [s]（相手の連打の間ずっと待ち続けない）。</summary>
+    private const float RhythmHoldCap = 0.5f;
+
+    internal float RhythmTempo => _rhythmTempo;
+
+    /// <summary>
+    /// 次の拳までの間を 1 歩進める。<paramref name="advance"/> が正なら縮め（今まで通り）、負（間の層が待たせる）なら 0 から伸ばして
+    /// <see cref="RhythmHoldCap"/> までで止める（間が負へ貯まっていても、入れられた直後は打たない。レビュー指摘）。
+    /// </summary>
+    internal static float NextCooldown(float cooldown, float advance) =>
+        advance >= 0f ? cooldown - advance : MathF.Min(MathF.Max(cooldown, 0f) - advance, MathF.Max(cooldown, RhythmHoldCap));
+
     /// <summary>戦略の層の手数の倍率を、重みの割合で 1 から寄せたもの（層が無ければちょうど 1: 掛けてもビット単位で変わらない）。</summary>
     private float PlanTempo => _plan is { } plan ? 1f + ((plan.Tempo - 1f) * Style.GamePlan!.Weight) : 1f;
 
@@ -209,7 +232,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 53; // 53: 蹴りの差分を体重を軸足へ移す蹴り方で練習し直した（Bots/kicks/*.tune.json）・手作りの回し蹴りの膝の通り道。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 54; // 54: master の 53（間の層・武器を失ったボット・剣の技）と、ブランチ claude/grappling-fix の 53（蹴りの差分を体重を軸足へ移して練習し直した）を合わせた（2026-11-19 のマージ）。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;
@@ -307,6 +330,19 @@ public sealed class BoxerBot : IFighterControl
         _plan = Style.GamePlan is { Weight: > 0f } gamePlan
             ? GamePlan.Decide(gamePlan, new PlanInputs(_hurt.Opening, sense.OpponentWinded, sense.OpponentInjury, _stamina, _faintness, sense.SelfInjury, sense.Match))
             : null;
+        if (Style.Rhythm is { Weight: > 0f } rhythm)
+        {
+            // 間の層: 相手の拳の出始めからの時間と、その拳が自分に触れたか（守りの上か外か）から、次の拳までの間の縮む速さを決める。
+            if (_read.Onsets != _rhythmOnsets)
+            {
+                _rhythmOnsets = _read.Onsets;
+                _contactClean = 0f;
+                _contactGuard = 0f;
+            }
+
+            _rhythmTempo = Rhythm.Tempo(rhythm, _read.SinceOnset, _contactClean, _contactGuard);
+        }
+
         Stats.InRange(_range.Danger, attacking: _combo is not null || _wantAttack || AnyPunchActive, dt);
         UpdatePrediction(sense, dt);
         UpdateGuess(sense, dt);
@@ -444,6 +480,15 @@ public sealed class BoxerBot : IFighterControl
     public void OnPunchTaken(in HitEvent hit)
     {
         _recentDamage += hit.Damage;
+        if (hit.Zone == HitZone.Guard)
+        {
+            _contactGuard += 1f;
+        }
+        else
+        {
+            _contactClean += hit.Damage;
+        }
+
         if (_defense != Defense.None)
         {
             _defenseHit = true;
@@ -1063,7 +1108,10 @@ public sealed class BoxerBot : IFighterControl
         // 危険度 × (1 + さらされ) に比例して、次の拳までの間を早く縮める（RangePress）。
         // 弱った相手を詰める層: 相手が開いているほど次の拳までの間を早く縮める（FinishTempo）。
         // 戦略の層: 得と脅威の釣り合い・急ぐ度合いで次の拳までの間を縮める・空ける（PlanTempo。層が無ければ 1 を掛けるだけ）。
-        _cooldown -= dt * (1f - ((1f - Style.RestTempo) * RestNeed)) * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure))) * _build.Tempo(Style) * (1f + (Style.FinishTempo * _hurt.Opening)) * PlanTempo;
+        // 間の層: 相手の拳の後の損得の表で縮める（攻めの番）・止めて伸ばす（守りの番。伸ばすのは RhythmHoldCap まで）。層が無ければ 1 を掛けるだけ。
+        var advance = dt * (1f - ((1f - Style.RestTempo) * RestNeed)) * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure))) * _build.Tempo(Style) * (1f + (Style.FinishTempo * _hurt.Opening)) * PlanTempo * _rhythmTempo;
+        // 待たせるときは 0 から伸ばす（間合いの外にいた間などに間が負へ貯まっていても、入れられた直後は打たない。レビュー指摘）。
+        _cooldown = NextCooldown(_cooldown, advance);
         _exitTimer = MathF.Max(0f, _exitTimer - dt);
         if (_kick is not null || _elbow is not null || _defense != Defense.None || _clinchTime >= 0f || _throwTime >= 0f || _combo is not null)
         {

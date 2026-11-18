@@ -83,6 +83,7 @@
   "textbook": "taekwondo",
   "education": {
     "style": {
+      "Rhythm": {"Weight":1,"Seize":1,"Quiet":1.965,"Bins":[{"From":0,"None":-4.807,"Guard":-1.471,"Clean":-3.206},{"From":0.1,"None":-1.221,"Guard":-2.216,"Clean":-2.015},{"From":0.2,"None":2.244,"Guard":0.582,"Clean":-0.894},{"From":0.3,"None":0.307,"Guard":2.697,"Clean":-0.918},{"From":0.4,"None":-0.39,"Guard":1.278,"Clean":-1.066},{"From":0.5,"None":0.098,"Guard":0.913,"Clean":-0.949},{"From":0.6,"None":2.076,"Guard":1.285,"Clean":-0.467},{"From":0.8,"None":3.075,"Guard":1.91,"Clean":0.316},{"From":1,"None":2.784,"Guard":2.266,"Clean":1.753}]},
       "BreakLikes": { "bow": 3, "handshake": 2.5, "dance": 3, "hum": 2, "bounce": 3, "onigiri": 2.5, "selfie": 2, "headphones": 2, "stretcharms": 2, "wave": 1.5 },
       "GamePlan": {
         "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,

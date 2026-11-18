@@ -173,13 +173,34 @@ public static partial class HumanoidRagdoll
         float jointMotorScale = 1f)
     {
         ArgumentNullException.ThrowIfNull(world);
+        var (parentLocal, childLocal) = JointAnchors(joint, parentHalfExtents, childHalfExtents);
+        return AttachJointAt(world, joint, treeParentBody, treeChildBody, parentLocal, childLocal, jointMotorScale);
+    }
+
+    /// <summary>
+    /// <see cref="AttachJoint"/> with the two anchors given directly, in each body's own local frame
+    /// (2026-11-18, Mini Ring's limb regrowth). A ragdoll built with a scaled
+    /// <c>overlap</c>/<c>footForwardOffset</c> (<see cref="BuildDetachable"/>'s parameters) does not have
+    /// its anchors where <see cref="JointAnchors"/> (the default <see cref="Overlap"/>) puts them; the
+    /// caller reads them off the joint it built (<see cref="PhysicsWorld.GetJointAnchors"/>) instead and
+    /// passes them here. Same constraints, limits and motor as <see cref="AttachJoint"/>.
+    /// </summary>
+    public static JointGroup AttachJointAt(
+        PhysicsWorld world,
+        RagdollJoint joint,
+        int treeParentBody,
+        int treeChildBody,
+        Vector3 parentLocal,
+        Vector3 childLocal,
+        float jointMotorScale = 1f)
+    {
+        ArgumentNullException.ThrowIfNull(world);
         if (!(jointMotorScale > 0f) || !float.IsFinite(jointMotorScale))
         {
             throw new ArgumentOutOfRangeException(nameof(jointMotorScale), jointMotorScale,
                 "Joint motor scale must be positive and finite.");
         }
 
-        var (parentLocal, childLocal) = JointAnchors(joint, parentHalfExtents, childHalfExtents);
         var childIsBodyA = ChildIsConstraintBodyA(joint);
         var bodyA = childIsBodyA ? treeChildBody : treeParentBody;
         var bodyB = childIsBodyA ? treeParentBody : treeChildBody;

@@ -29,7 +29,7 @@ public sealed partial class Fighter
 {
     private readonly PhysicsWorld _world;
     private readonly FighterTuning _tuning;
-    private readonly HumanoidRagdoll.LegServos _legs;
+    private HumanoidRagdoll.LegServos _legs; // 生え直した脚の膝・足首のサーボは作り直す（Rebud）
 
     /// <summary>脚（[<see cref="Footwork.Lead"/>] = 本人の左 = 前足、[<see cref="Footwork.Rear"/>] = 本人の右 = 後ろ足）。</summary>
     private readonly Leg[] _legParts = new Leg[2];
@@ -100,6 +100,15 @@ public sealed partial class Fighter
     private float _noGroundTime;
     private int _grabbedByCount;
     private bool _stayDown;
+
+    /// <summary>
+    /// 脚が体を支えられなくなって倒れた（<see cref="TickStanding"/>）。<see cref="_stayDown"/> と同じく起き上がらないが、体が再生して脚が戻れば
+    /// （<see cref="Regrow"/> で <see cref="CanStand"/> が真に戻れば）外れる。死・投げ倒しの「起き上がらない」は外れない。
+    /// </summary>
+    private bool _legsGaveOut;
+
+    /// <summary>起き上がらない（死んだ・投げで起き上がれない・脚が支えられなくなった）。</summary>
+    private bool StaysDown => _stayDown || _legsGaveOut;
     private readonly List<HumanoidRagdoll.JointGroup> _joints;
 
     /// <summary>
@@ -160,6 +169,24 @@ public sealed partial class Fighter
         _legSupport[0] = _legSupport[1] = _legFull;
         _footwork = new Footwork(tuning.Footwork) { MaxTwist = tuning.MaxTorsoTwistRadians };
         _legBodies = [parts.LeftThigh, parts.RightThigh, parts.LeftShin, parts.RightShin, parts.LeftFoot, parts.RightFoot, toes.AigisLeft, toes.AigisRight];
+        // 生え直す部位（肘から先・膝から先・足首から先・つま先）の、作ったときの関節の所（両方の剛体のローカル）と向きの差。生え直すときは、
+        // 親の今の姿勢からこの休みの形へ置き直して、同じ関節を作り直す（Rebud）。生成の直後に読むだけ（試合の計算は変えない）。
+        foreach (var joint in joints)
+        {
+            if (joint.Joint is HumanoidRagdoll.RagdollJoint.LeftElbow or HumanoidRagdoll.RagdollJoint.RightElbow or HumanoidRagdoll.RagdollJoint.LeftKnee
+                    or HumanoidRagdoll.RagdollJoint.RightKnee or HumanoidRagdoll.RagdollJoint.LeftAnkle or HumanoidRagdoll.RagdollJoint.RightAnkle
+                && world.GetJointAnchors(joint.PrimaryConstraintId) is { } anchors)
+            {
+                _rest[joint.ChildPart] = RestJoint.Of(world, joint.Joint, joint.ParentPart, joint.ChildPart, anchors.AnchorA, anchors.AnchorB);
+            }
+        }
+
+        foreach (var (foot, toe) in new[] { (parts.LeftFoot, toes.AigisLeft), (parts.RightFoot, toes.AigisRight) })
+        {
+            var heel = world.GetState(foot);
+            var ball = heel.Position + Vector3.Transform(FootGeometry.BallOnHeel(halfExtents.Foot), heel.Orientation);
+            _rest[toe] = RestJoint.Of(world, null, foot, toe, ball, ball);
+        }
         _legMass = _legBodies.Sum(world.GetMass);
     }
 
@@ -179,7 +206,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 48; // 48: マージ後の直し（体重を受ける足は裏全体を支えに・縦軸のねじりは減らさない・脚を指令で動かす間は軸足を振り出さない・床の衝撃は触れた面の中心で頭は頭の運動量だけ回す）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 50; // 50: master の 49（突進の物理・間の層・VFC・剣の技）と、ブランチ claude/grappling-fix の 48（マージ後の直し: 支えの足の裏・縦軸のねじり・膝の制御の蹴りの間の軸足・床の衝撃）を合わせた（2026-11-19 のマージ）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -224,6 +251,582 @@ public sealed partial class Fighter
         var height = _world.GetState(Parts.Head).Position.Y + HalfExtents.Head.Y - footBottom;
         _inertia = BodyInertia.Cylinder(TotalMass, height, HalfExtents.Chest.X);
     }
+    /// <summary>
+    /// 傷の前線の再生を 1 回の抽選ぶん進める（<see cref="BoxerBody.Regrow"/>。VFC の休み・両者ダウン: <see cref="BoxingGame"/>）。
+    /// 死んだ体は再生しない。骨が元の遠い端までつながり直した切り株は、その先の部位を芽から生え直させる（<see cref="Reconnect"/>）。
+    /// 脚が戻って体を支えられるようになれば、脚が支えられずに倒れた「起き上がらない」を外す。戻したセルの数を返す。
+    /// </summary>
+    /// <param name="random">再生の抽選の乱数（試合の種から作った専用の流れ）。</param>
+    /// <param name="advance">前線を進める距離 [m]（速さ × 間隔 × 倍率）。</param>
+    internal RegrowReport Regrow(Random random, float advance)
+    {
+        if (IsDead || Voxels is not { } body)
+        {
+            return new RegrowReport(0, [], []);
+        }
+
+        _rebudded.Clear();
+        _newPieces.Clear();
+        // 肉でぶら下がる破片・骨がつながった破片は生きている体の一部（再生する）。その切り株は切れ目の先へ伸ばさない。
+        var result = body.Regrow(random, advance, id => Owns(id) || HangsByFlesh(id) || _welds.Exists(w => w.Fragment == id),
+            id => _fleshLinks.Exists(l => l.Stub == id) || _welds.Exists(w => w.Stub == id));
+        foreach (var part in result.Reconnected)
+        {
+            Reconnect(part);
+        }
+
+        if (result.Restored > 0)
+        {
+            for (var i = 0; i < _fleshLinks.Count; i++)
+            {
+                if (_fleshLinks[i].Bridge is { Grown: false } bridge)
+                {
+                    _fleshLinks[i] = _fleshLinks[i] with { Bridge = bridge with { Grown = true } }; // 戻った肉も橋として数える（WatchFleshLinks がバネを固くする）
+                }
+            }
+        }
+
+        KnitBones(random, advance);
+
+        if (_legsGaveOut && CanStand)
+        {
+            _legsGaveOut = false;
+        }
+
+        return new RegrowReport(result.Restored, [.. _rebudded], [.. _newPieces]);
+    }
+
+    /// <summary>折れた骨が曲がったままつながった所: 切り株、破片、両者をつなぐ玉継手と、その時の向きに固定する向きのサーボ。</summary>
+    private readonly record struct BoneWeld(int Stub, int Fragment, int Socket, int Servo);
+
+    private readonly List<BoneWeld> _welds = [];
+
+    /// <summary>折れた骨が曲がったままつながった所の数（調べもの・表示用）。</summary>
+    public int KnitBonesCount => _welds.Count;
+
+    /// <summary>
+    /// 肉でつながった骨折の、肉の橋の今の断面の割合（0..1、<see cref="FleshBridge.Measure"/>）・向きのバネの固有振動数 [Hz]（調べもの・診断の映像用）。
+    /// 破片 <paramref name="fragment"/> がぶら下がっていなければ null。
+    /// </summary>
+    public (float Fraction, float SpringHz)? FractureState(int fragment)
+    {
+        var link = _fleshLinks.FirstOrDefault(l => l.Fragment == fragment);
+        if (!HangsByFlesh(fragment))
+        {
+            return null;
+        }
+
+        var fraction = link.Bridge?.Measure().Fraction ?? 1f;
+        return (fraction, link.FullHz * MathF.Sqrt(fraction));
+    }
+
+    /// <summary>剛体 <paramref name="fragment"/> が、骨がつながって体の一部に戻った破片か。</summary>
+    public bool IsKnit(int fragment) => _welds.Exists(w => w.Fragment == fragment);
+
+    /// <summary>
+    /// 骨の癒合（VFC の再生、2026-11-18 ユーザーの指定「先に肉を直して、バネが硬くなってやや真っすぐなってから最後に骨がなおって骨折による関節は固定」）:
+    /// 肉でつながった骨折のうち、肉の橋が元の断面まで戻り（<see cref="FleshBridge.Measure"/> の割合 1）、切れ目の両側の面に骨のセルがあるものは、抽選ごとに
+    /// セルの再生と同じ確率（進める距離 / セルの大きさ を k 回の pass に分けたもの）で骨がつながる。つながったら肉のつなぎを外し、その時の向きのまま固定する
+    /// （<see cref="WeldBone"/>）。曲がったままつながる（目標の向きを折れる前へ戻さない）。
+    /// </summary>
+    private void KnitBones(Random random, float advance)
+    {
+        if (Voxels is not { } body || _fleshLinks.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var link in _fleshLinks.ToList())
+        {
+            if (link.Bridge is not { } bridge || link.Fragment == Parts.Head || bridge.Measure().Fraction < 1f
+                || body.BoneFaces(link.Stub, link.Fragment) is not { StubBone: > 0, FragmentBone: > 0 } faces)
+            {
+                continue;
+            }
+
+            var layers = advance / MathF.Max(1e-6f, faces.CellSize);
+            var passes = Math.Max(1, (int)MathF.Ceiling(layers));
+            var knit = false;
+            for (var pass = 0; pass < passes && !knit; pass++)
+            {
+                knit = random.NextSingle() < layers / passes;
+            }
+
+            if (knit)
+            {
+                WeldBone(link, faces.BendStrength);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 折れた骨がつながった: 肉のつなぎ（玉継手・向きのバネ）を外し、切り株と破片をその時の相対の向きのまま固定する（首の溶接 <c>BreakNeck</c> と同じ作り:
+    /// 玉継手 + 向きのサーボ、固さ <see cref="FighterTuning.FractureLinkHz"/>）。向きのサーボが出せるトルクは、折れ目の骨の断面が曲げに持ちこたえる強さ
+    /// <paramref name="boneBend"/>（骨のセルの強さ × 断面積 × 軸からの距離の和。肉の橋の曲げの強さと同じ式で、骨のセルで数える: つながった骨は折れる前の骨と
+    /// 同じ強さで曲げを受ける）。破片は体の一部に戻る（自分の体とはぶつけない）。その先の関節（肘・膝・足首）が破片に付け替わっていれば、作ったときと同じ関節と
+    /// 筋肉を破片との間に作り直し、腕・脚を駆動する体に戻す（<see cref="RestoreLimbs"/>）。
+    /// </summary>
+    private void WeldBone(FleshLink link, float boneBend)
+    {
+        var anchor = _world.GetJointAnchors(link.Socket)?.AnchorA ?? _world.GetState(link.Fragment).Position;
+        foreach (var constraint in new[] { link.Socket, link.Spring })
+        {
+            if (_world.HasConstraint(constraint))
+            {
+                _world.RemoveConstraint(constraint, forget: true);
+            }
+        }
+
+        _fleshLinks.Remove(link);
+        var a = _world.GetState(link.Stub);
+        var b = _world.GetState(link.Fragment);
+        var socket = AddSocketAt(link.Stub, link.Fragment, anchor);
+        var servo = _world.AddAngularServo(link.Stub, link.Fragment, Quaternion.Concatenate(b.Orientation, Quaternion.Conjugate(a.Orientation)),
+            _tuning.FractureLinkHz, 1f, _tuning.ArmServoMaxSpeed, 0f, boneBend);
+        _welds.Add(new BoneWeld(link.Stub, link.Fragment, socket, servo));
+        Voxels?.HealBone(link.Stub);
+        ReleaseDeadGrips(link.Fragment); // 力の抜けた手が持っていた物は放す（つながった腕は、また自分で握る）
+        foreach (var arm in _arms)
+        {
+            if (arm.GloveBody == link.Fragment)
+            {
+                arm.WornLoose = false;
+            }
+        }
+
+        foreach (var other in _all.Where(id => !_detached.Contains(id)))
+        {
+            _world.SetPairCollisionEnabled(link.Fragment, other, false); // 体の一部に戻った（自分の体とはぶつけない）
+        }
+
+        // 破片にぶら下がっていた先の部位（上腕の骨折の前腕・腿の骨折のすね・すねの骨折の足）: 作ったときと同じ関節と筋肉を、破片との間に作り直す。
+        for (var i = 0; i < _joints.Count; i++)
+        {
+            var joint = _joints[i];
+            if (joint.ParentPart != link.Fragment || !_rest.TryGetValue(joint.ChildPart, out var rest) || rest.Kind is not { } kind)
+            {
+                continue;
+            }
+
+            var hold = _world.GetJointAnchors(joint.PrimaryConstraintId)?.AnchorA ?? anchor;
+            RemoveConstraints(joint.AllConstraintIds);
+            var f = _world.GetState(link.Fragment);
+            var parentLocal = Vector3.Transform(hold - f.Position, Quaternion.Conjugate(f.Orientation));
+            _joints[i] = HumanoidRagdoll.AttachJointAt(_world, kind, link.Fragment, joint.ChildPart, parentLocal, rest.ChildLocal, _tuning.TorqueScale);
+            AddLimbServo(kind, link.Fragment, joint.ChildPart);
+            var chain = new List<int> { joint.ChildPart };
+            if (KindOf(joint.ChildPart) == BodyPartKind.Shin)
+            {
+                chain.Add(_legParts.First(l => l.Shin == joint.ChildPart).Heel);
+            }
+
+            if (chain.Exists(id => KindOf(id) == BodyPartKind.Foot))
+            {
+                chain.Add(_legParts.First(l => chain.Contains(l.Heel)).Toe);
+            }
+
+            foreach (var part in chain)
+            {
+                _detached.Remove(part);
+            }
+
+            foreach (var part in chain)
+            {
+                foreach (var other in _all.Where(id => id != part && !_detached.Contains(id)))
+                {
+                    _world.SetPairCollisionEnabled(part, other, false);
+                }
+
+                _world.SetPairCollisionEnabled(part, link.Fragment, false);
+            }
+        }
+
+        RestoreLimbs();
+        // 脚: 体重を受けられる長さは、今の曲がった形で（折れ目をはさむ 2 つの関節の、今の距離と作ったときの距離の差だけ短い）。
+        foreach (var leg in _legParts)
+        {
+            var side = leg.AigisLeft ? 0 : 1;
+            var thigh = leg.AigisLeft ? Parts.LeftThigh : Parts.RightThigh;
+            if (link.Stub != thigh && link.Stub != leg.Shin || _legSevered[side])
+            {
+                continue;
+            }
+
+            var pelvis = _world.GetState(Parts.Pelvis);
+            var hip = pelvis.Position + Vector3.Transform(leg.PivotOnPelvis, pelvis.Orientation);
+            var knee = _joints.FirstOrDefault(j => j.ChildPart == leg.Shin);
+            var ankle = _joints.FirstOrDefault(j => j.ChildPart == leg.Heel);
+            var kneeAt = _world.GetJointAnchors(knee.PrimaryConstraintId)?.AnchorA;
+            var ankleAt = _world.GetJointAnchors(ankle.PrimaryConstraintId)?.AnchorA;
+            var shortfall = link.Stub == thigh && kneeAt is { } k
+                ? leg.ThighToKnee.Length() - Vector3.Distance(hip, k)
+                : kneeAt is { } k2 && ankleAt is { } a2 ? leg.ShinLength - Vector3.Distance(k2, a2) : 0f;
+            _legSupport[side] = _legFull - MathF.Max(0f, shortfall);
+        }
+    }
+
+    /// <summary>
+    /// 作ったときの関節（生え直す部位の側）: 関節の種類（つま先の蝶番は null）、親の剛体、関節の所（親・子のローカル）、親に対する子の向き。
+    /// </summary>
+    private readonly record struct RestJoint(HumanoidRagdoll.RagdollJoint? Kind, int Parent, Vector3 ParentLocal, Vector3 ChildLocal, Quaternion Relative)
+    {
+        public static RestJoint Of(PhysicsWorld world, HumanoidRagdoll.RagdollJoint? kind, int parent, int child, Vector3 anchorOnParent, Vector3 anchorOnChild)
+        {
+            var p = world.GetState(parent);
+            var c = world.GetState(child);
+            return new RestJoint(kind, parent,
+                Vector3.Transform(anchorOnParent - p.Position, Quaternion.Conjugate(p.Orientation)),
+                Vector3.Transform(anchorOnChild - c.Position, Quaternion.Conjugate(c.Orientation)),
+                Quaternion.Concatenate(c.Orientation, Quaternion.Conjugate(p.Orientation)));
+        }
+    }
+
+    /// <summary>生え直せる部位（子の剛体）ごとの、作ったときの関節。</summary>
+    private readonly Dictionary<int, RestJoint> _rest = [];
+
+    /// <summary>直近の <see cref="Regrow"/> で芽から生え直し始めた部位と、古い中身を写して床に残した破片の剛体（呼び出し側の後始末・中継の記録）。</summary>
+    private readonly List<int> _rebudded = [];
+    private readonly List<int> _newPieces = [];
+
+    /// <summary>
+    /// 骨が元の遠い端までつながり直した部位 <paramref name="part"/>（<see cref="BoxerBody.Regrow"/>）: 切れ目をまたいでぶら下がっていた肉のつなぎを外し
+    /// （ぶら下がっていた先は床の破片として残る）、その先の部位（肘から先・膝から先・足首から先）が体から外れていれば、芽から生え直させる
+    /// （<see cref="Rebud"/>）。腕・脚がそろったら、また駆動する体に戻す（<see cref="RestoreLimbs"/>）。
+    /// </summary>
+    private void Reconnect(VoxelPart part)
+    {
+        var id = part.Body.BodyId;
+        ReleaseFleshLinks(id);
+        foreach (var (child, rest) in _rest)
+        {
+            if (rest.Parent == id && rest.Kind is not null && _detached.Contains(child))
+            {
+                Rebud(child);
+                break;
+            }
+        }
+
+        RestoreLimbs();
+    }
+
+    /// <summary>剛体 <paramref name="body"/> を切り株か破片に持つ、肉のつなぎ（折れた骨をまたいだ肉）を外す。</summary>
+    private void ReleaseFleshLinks(int body)
+    {
+        for (var i = _fleshLinks.Count - 1; i >= 0; i--)
+        {
+            var link = _fleshLinks[i];
+            if (link.Stub != body && link.Fragment != body)
+            {
+                continue;
+            }
+
+            foreach (var constraint in new[] { link.Socket, link.Spring })
+            {
+                if (_world.HasConstraint(constraint))
+                {
+                    _world.RemoveConstraint(constraint, forget: true);
+                }
+            }
+
+            _fleshLinks.RemoveAt(i);
+        }
+    }
+
+    /// <summary>
+    /// 体から外れていた部位 <paramref name="child"/>（足ならつま先も一緒に）を、芽から生え直させる（VFC の再生、指示書 F の 2）:
+    /// <list type="number">
+    /// <item>古い中身は、関節の側の 1 層（芽）を残して、同じ位置・向き・中身の破片として床に残す（<see cref="BoxerBody.Rebud"/>）。古い部位にぶら下がって
+    /// いた先（すねの先の足）・握っていた物は、その破片へ付け替える。</item>
+    /// <item>部位の剛体（同じ id）は、親（つながり直した切り株）の関節の所へ、作ったときの関節の向き（休みの形）で置き直し、生成時と同じ関節の拘束・
+    /// 角度の制限・筋肉（サーボ）を作り直す。体から外れた印を外し、自分の体とはまたぶつけない。</item>
+    /// </list>
+    /// 剛体の位置を書き換えるのは軸（§1.1: 位置を書くのは生成の直後だけ）の例外で、中身がほぼ空の部位を新しく作るのと同じ扱い（docs/DEBT.md）。
+    /// </summary>
+    private void Rebud(int child)
+    {
+        if (Voxels is not { } body || !_rest.TryGetValue(child, out var rest) || rest.Kind is not { } kind)
+        {
+            return;
+        }
+
+        int[] chain = KindOf(child) == BodyPartKind.Foot ? [child, _legParts[Footwork.Lead].Heel == child ? _legParts[Footwork.Lead].Toe : _legParts[Footwork.Rear].Toe] : [child];
+        foreach (var part in chain)
+        {
+            ReleaseFleshLinks(part);
+        }
+
+        // その先にぶら下がっていて、まだ体から外れたままの部位（膝から先を生え直すときの足）: 関節の所を覚えて外す（下で床の破片へ付け替える）。
+        var hanging = new List<(int Index, Vector3 Anchor)>();
+        for (var i = 0; i < _joints.Count; i++)
+        {
+            var joint = _joints[i];
+            if (!chain.Contains(joint.ParentPart) || chain.Contains(joint.ChildPart))
+            {
+                continue;
+            }
+
+            var anchor = _world.GetJointAnchors(joint.PrimaryConstraintId)?.AnchorA ?? _world.GetState(joint.ChildPart).Position;
+            RemoveConstraints(joint.AllConstraintIds);
+            RemoveServosBetween(joint.ParentPart, joint.ChildPart);
+            hanging.Add((i, anchor));
+        }
+
+        // 部位そのものの関節（今は床の破片にぶら下がる玉継手か、何もつながっていない）。
+        var index = _joints.FindIndex(j => j.ChildPart == child);
+        (int Parent, Vector3 Anchor)? oldHold = null; // 古い中身がぶら下がっていた床の破片と、その玉継手の所（写した破片へ付け替える）
+        if (index >= 0)
+        {
+            if (_joints[index].ParentPart >= 0 && _world.GetJointAnchors(_joints[index].PrimaryConstraintId)?.AnchorA is { } held)
+            {
+                oldHold = (_joints[index].ParentPart, held);
+            }
+
+            RemoveConstraints(_joints[index].AllConstraintIds);
+            if (_joints[index].ParentPart >= 0)
+            {
+                RemoveServosBetween(_joints[index].ParentPart, child);
+            }
+        }
+
+        // 足の古い中身と古いつま先の中身は、母指球の所でつながったまま床に残す。
+        var heelState = _world.GetState(child);
+        Vector3? ball = chain.Length > 1 ? heelState.Position + Vector3.Transform(_rest[chain[1]].ParentLocal, heelState.Orientation) : null;
+        var pieces = new Dictionary<int, int>();
+        foreach (var part in chain)
+        {
+            var local = part == child ? rest.ChildLocal : _rest[part].ChildLocal;
+            if (body.Rebud(part, local) is { } piece)
+            {
+                pieces[part] = piece.Body.BodyId;
+                _newPieces.Add(piece.Body.BodyId);
+                MoveDeadGripsOff(part, piece.Body.BodyId);
+            }
+            else
+            {
+                ReleaseDeadGrips(part); // 古い中身が芽の 1 層しか無い: 握っていた物は放す（芽と一緒に体へ引き戻さない）
+            }
+        }
+
+        if (oldHold is { } hold && pieces.TryGetValue(child, out var childPiece))
+        {
+            AddSocketAt(hold.Parent, childPiece, hold.Anchor); // 床の古い上腕の破片と古い前腕の中身は、つながったまま
+        }
+
+        foreach (var arm in _arms)
+        {
+            if (chain.Contains(arm.GloveBody))
+            {
+                // 古い手は床の破片の側（拳の所はそのまま）。生え直した腕に拳を付け直すのは、腕がそろったとき（RestoreLimbs）。
+                var glove = arm.GlovePosition(_world);
+                if (pieces.TryGetValue(arm.GloveBody, out var to))
+                {
+                    var t = _world.GetState(to);
+                    arm.AttachGlove(to, Vector3.Transform(glove - t.Position, Quaternion.Conjugate(t.Orientation)));
+                }
+            }
+        }
+
+        foreach (var (i, anchor) in hanging)
+        {
+            var joint = _joints[i];
+            if (pieces.TryGetValue(joint.ParentPart, out var piece))
+            {
+                var socket = AddSocketAt(piece, joint.ChildPart, anchor);
+                _joints[i] = joint with { ParentPart = piece, PrimaryConstraintId = socket, TorqueConstraintId = socket, AllConstraintIds = [socket] };
+            }
+            else
+            {
+                _joints[i] = joint with { ParentPart = -1, PrimaryConstraintId = -1, TorqueConstraintId = -1, AllConstraintIds = [] };
+            }
+        }
+
+        if (ball is { } at && pieces.TryGetValue(chain[0], out var heelPiece) && pieces.TryGetValue(chain[1], out var toePiece))
+        {
+            AddSocketAt(heelPiece, toePiece, at);
+        }
+
+        // 休みの形へ置き直す（親から子へ）。つま先は足の蝶番を付けたまま、足と一緒に置き直す。
+        foreach (var part in chain)
+        {
+            var joint = part == child ? rest : _rest[part];
+            var parent = _world.GetState(joint.Parent);
+            var orientation = Quaternion.Concatenate(joint.Relative, parent.Orientation);
+            var position = parent.Position + Vector3.Transform(joint.ParentLocal, parent.Orientation) - Vector3.Transform(joint.ChildLocal, orientation);
+            _world.SetDynamicPose(part, position, orientation);
+            _world.SetLinearVelocity(part, parent.LinearVelocity + Vector3.Cross(parent.AngularVelocity, position - parent.Position));
+            _world.SetAngularVelocity(part, parent.AngularVelocity);
+        }
+
+        var group = HumanoidRagdoll.AttachJointAt(_world, kind, rest.Parent, child, rest.ParentLocal, rest.ChildLocal, _tuning.TorqueScale);
+        if (index >= 0)
+        {
+            _joints[index] = group;
+        }
+        else
+        {
+            _joints.Add(group);
+        }
+
+        AddLimbServo(kind, rest.Parent, child);
+        foreach (var part in chain)
+        {
+            _detached.Remove(part);
+        }
+
+        _rebudded.Add(child);
+
+        foreach (var part in chain)
+        {
+            foreach (var other in _all)
+            {
+                if (other != part && !_detached.Contains(other))
+                {
+                    _world.SetPairCollisionEnabled(part, other, false); // 自分の体とはぶつけない（作ったときと同じ）
+                }
+            }
+        }
+    }
+
+    /// <summary>力の抜けた手（剛体 <paramref name="hand"/>）がまだ握っている・はめている物を放す。</summary>
+    private void ReleaseDeadGrips(int hand)
+    {
+        for (var i = _deadGrips.Count - 1; i >= 0; i--)
+        {
+            if (_deadGrips[i].Hand != hand)
+            {
+                continue;
+            }
+
+            if (_world.HasConstraint(_deadGrips[i].Socket))
+            {
+                _world.RemoveConstraint(_deadGrips[i].Socket, forget: true);
+            }
+
+            _deadGrips.RemoveAt(i);
+        }
+    }
+
+    /// <summary>剛体 <paramref name="a"/> と <paramref name="b"/> を、ワールドの点 <paramref name="anchor"/> で玉継手につなぐ。</summary>
+    private int AddSocketAt(int a, int b, Vector3 anchor)
+    {
+        var sa = _world.GetState(a);
+        var sb = _world.GetState(b);
+        return _world.AddBallSocket(a, b, Vector3.Transform(anchor - sa.Position, Quaternion.Conjugate(sa.Orientation)),
+            Vector3.Transform(anchor - sb.Position, Quaternion.Conjugate(sb.Orientation)));
+    }
+
+    private void RemoveConstraints(IEnumerable<int> constraints)
+    {
+        foreach (var id in constraints)
+        {
+            if (_world.HasConstraint(id))
+            {
+                _world.RemoveConstraint(id);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 力の抜けた手（剛体 <paramref name="hand"/>）がまだ握っている・はめている物を、<paramref name="piece"/>（古い中身を写した床の破片）へ付け替える
+    /// （同じ所で: 玉継手のワールドの所を写す）。
+    /// </summary>
+    private void MoveDeadGripsOff(int hand, int piece)
+    {
+        for (var i = 0; i < _deadGrips.Count; i++)
+        {
+            var grip = _deadGrips[i];
+            if (grip.Hand != hand)
+            {
+                continue;
+            }
+
+            var anchor = _world.GetJointAnchors(grip.Socket)?.AnchorA;
+            if (_world.HasConstraint(grip.Socket))
+            {
+                _world.RemoveConstraint(grip.Socket, forget: true);
+            }
+
+            if (anchor is not { } at)
+            {
+                _deadGrips.RemoveAt(i--);
+                continue;
+            }
+
+            var p = _world.GetState(piece);
+            var link = _world.AddBallSocket(piece, grip.Held, Vector3.Transform(at - p.Position, Quaternion.Conjugate(p.Orientation)), grip.HeldLocal, frequency: 30f, dampingRatio: 1f);
+            _deadGrips[i] = grip with { Socket = link, Hand = piece };
+        }
+    }
+
+    /// <summary>生え直した関節の筋肉（肘・膝・足首のサーボ）を、作ったときと同じに付ける（腕は <see cref="Arm.AddElbowServo"/>、脚は <see cref="HumanoidRagdoll.AddLegServos"/> と同じ値）。</summary>
+    private void AddLimbServo(HumanoidRagdoll.RagdollJoint kind, int parent, int child)
+    {
+        var p = Parts;
+        switch (kind)
+        {
+            case HumanoidRagdoll.RagdollJoint.LeftElbow or HumanoidRagdoll.RagdollJoint.RightElbow:
+                _arms.First(a => a.Forearm == child).AddElbowServo(_world, _tuning, parent);
+                break;
+            case HumanoidRagdoll.RagdollJoint.LeftKnee or HumanoidRagdoll.RagdollJoint.RightKnee:
+            {
+                var knee = _world.AddTwistServo(parent, child, HumanoidRagdoll.XAxisTwistBasis, HumanoidRagdoll.XAxisTwistBasis, 0f,
+                    frequency: _tuning.LegServoHz, maxForce: _tuning.KneeMaxTorque * _tuning.TorqueScale);
+                _legs = child == p.LeftShin ? _legs with { LeftKnee = knee } : _legs with { RightKnee = knee };
+                _legParts.First(l => l.Shin == child).KneeServo = knee;
+                break;
+            }
+            case HumanoidRagdoll.RagdollJoint.LeftAnkle or HumanoidRagdoll.RagdollJoint.RightAnkle:
+            {
+                var ankle = _world.AddTwistServo(parent, child, HumanoidRagdoll.XAxisTwistBasis, HumanoidRagdoll.XAxisTwistBasis, 0f,
+                    frequency: _tuning.LegServoHz, maxForce: _tuning.AnkleMaxTorque * _tuning.TorqueScale);
+                _legs = child == p.LeftFoot ? _legs with { LeftAnkle = ankle } : _legs with { RightAnkle = ankle };
+                _legParts.First(l => l.Heel == child).AnkleServo = ankle;
+                break;
+            }
+        }
+
+        Array.Fill(_servoSettings, -1f); // 作り直したサーボに、次の歩で今の強さを掛け直す
+    }
+
+    /// <summary>
+    /// 腕・脚がそろったら、また駆動する体に戻す: 上腕と前腕の骨が元の両端までつながり（<see cref="BoxerBody.BoneWhole"/>）、前腕が体に付いた腕は、
+    /// 切り落とされた印を外して拳を付け直す（<see cref="Arm.Restore"/>）。腿・すねの骨がつながり、足・つま先まで体に付いた脚は、切れた印を外し、
+    /// 体重を受けられる長さを無傷の長さに戻す。
+    /// </summary>
+    private void RestoreLimbs()
+    {
+        if (Voxels is not { } body)
+        {
+            return;
+        }
+
+        foreach (var arm in _arms)
+        {
+            if (!arm.Severed || _detached.Contains(arm.Forearm) || !body.BoneWhole(arm.UpperArm) || !body.BoneWhole(arm.Forearm))
+            {
+                continue;
+            }
+
+            arm.Restore(_world, _tuning, keepHand: IsKnit(arm.GloveBody));
+            Array.Fill(_servoSettings, -1f);
+        }
+
+        var p = Parts;
+        foreach (var leg in _legParts)
+        {
+            var side = leg.AigisLeft ? 0 : 1;
+            var thigh = leg.AigisLeft ? p.LeftThigh : p.RightThigh;
+            if (!_legSevered[side] || _detached.Contains(leg.Shin) || _detached.Contains(leg.Heel) || _detached.Contains(leg.Toe)
+                || !body.BoneWhole(thigh) || !body.BoneWhole(leg.Shin))
+            {
+                continue;
+            }
+
+            _legSevered[side] = false;
+            _legSupport[side] = _legFull;
+        }
+    }
+
     public FighterState State { get; private set; }
     public BodyCondition Condition { get; } = new();
 
@@ -518,6 +1121,8 @@ public sealed partial class Fighter
 
     /// <summary>胸の速度（体全体の動きの目安。拳の動きから歩く動きを差し引くのに使う）。</summary>
     public Vector3 ChestVelocity => _world.GetState(Parts.Chest).LinearVelocity;
+    /// <summary>胸の角速度（ワールド、rad/s。調べもの用）。</summary>
+    public Vector3 ChestAngularVelocity => _world.GetState(Parts.Chest).AngularVelocity;
     public Vector3 PelvisPosition => _world.GetState(Parts.Pelvis).Position;
     public Quaternion TorsoOrientation => _world.GetState(Parts.Chest).Orientation;
 
@@ -595,13 +1200,13 @@ public sealed partial class Fighter
             + _world.GetMass(side == Hand.Left ? Parts.RightThigh : Parts.LeftThigh);
     }
 
-    public float KickImpactMass(Hand side, Vector3 point, Vector3 direction, out float bodyShare)
+    /// <remarks>bodyFactor: 体の質量のうち当たりへ運べる割合（押し出し <see cref="PunchMechanics.LimbDrive"/> × 体自身の動き <see cref="PunchMechanics.BodyCarry"/>）。</remarks>
+    public float KickImpactMass(Hand side, Vector3 point, Vector3 direction, out float bodyShare, float bodyFactor = 1f)
     {
         var leg = _legParts[(int)side];
-        var pelvis = _world.GetState(Parts.Pelvis);
-        var hip = pelvis.Position + Vector3.Transform(leg.PivotOnPelvis, pelvis.Orientation);
+        var hip = HipPosition(side);
         var effective = PunchMechanics.BodyEffectiveMass(_inertia, TorsoOrientation, point - CenterOfMass, direction);
-        var coupling = PunchMechanics.Coupling(point - hip, direction, LegCondition(leg.AigisLeft));
+        var coupling = PunchMechanics.Coupling(point - hip, direction, LegCondition(leg.AigisLeft)) * Math.Clamp(bodyFactor, 0f, 1f);
         var mass = KickingMass(side);
         var total = PunchMechanics.ImpactMass(mass, effective, coupling);
         bodyShare = (total - mass) / total;
@@ -632,11 +1237,12 @@ public sealed partial class Fighter
     /// 肘の先 <paramref name="point"/> が方向 <paramref name="direction"/> に当たったときに乗る質量 [kg]。拳と同じ式（<see cref="PunchMechanics"/>）:
     /// 腕の質量 + 連結度（肩→当たる点の線と向きの揃い具合）× 体の有効質量。肘は肩に近いので、拳より体の質量が乗りやすい（見えている寸法から出る）。
     /// </summary>
-    public float ElbowImpactMass(Hand side, Vector3 point, Vector3 direction, out float bodyShare)
+    /// <remarks>bodyFactor: 体の質量のうち当たりへ運べる割合（押し出し <see cref="PunchMechanics.LimbDrive"/> × 体自身の動き <see cref="PunchMechanics.BodyCarry"/>）。</remarks>
+    public float ElbowImpactMass(Hand side, Vector3 point, Vector3 direction, out float bodyShare, float bodyFactor = 1f)
     {
         var arm = _arms[(int)side];
         var effective = PunchMechanics.BodyEffectiveMass(_inertia, TorsoOrientation, point - CenterOfMass, direction);
-        var coupling = PunchMechanics.Coupling(point - arm.ShoulderPosition(_world, Parts.Chest), direction, jointIntegrity: 1f);
+        var coupling = PunchMechanics.Coupling(point - arm.ShoulderPosition(_world, Parts.Chest), direction, jointIntegrity: 1f) * Math.Clamp(bodyFactor, 0f, 1f);
         var mass = ArmMass(side);
         var total = PunchMechanics.ImpactMass(mass, effective, coupling);
         bodyShare = (total - mass) / total;
@@ -661,12 +1267,13 @@ public sealed partial class Fighter
             : body == (side == Hand.Left ? Parts.RightThigh : Parts.LeftThigh) ? KickPart.Thigh : KickPart.None;
     }
 
-    public float ImpactMass(Hand hand, Vector3 direction, out float bodyShare)
+    /// <remarks>bodyFactor: 体の質量のうち当たりへ運べる割合（押し出し <see cref="PunchMechanics.LimbDrive"/> × 体自身の動き <see cref="PunchMechanics.BodyCarry"/>。1 なら姿勢と向きだけで決まる）。</remarks>
+    public float ImpactMass(Hand hand, Vector3 direction, out float bodyShare, float bodyFactor = 1f)
     {
         var arm = _arms[(int)hand];
         var glove = arm.GlovePosition(_world);
         var bodyEffective = PunchMechanics.BodyEffectiveMass(_inertia, TorsoOrientation, glove - CenterOfMass, direction);
-        var coupling = PunchMechanics.Coupling(glove - arm.ShoulderPosition(_world, Parts.Chest), direction, jointIntegrity: 1f);
+        var coupling = PunchMechanics.Coupling(glove - arm.ShoulderPosition(_world, Parts.Chest), direction, jointIntegrity: 1f) * Math.Clamp(bodyFactor, 0f, 1f);
         var total = PunchMechanics.ImpactMass(ArmMass(hand), bodyEffective, coupling);
         bodyShare = (total - ArmMass(hand)) / total;
         return total;
@@ -1021,12 +1628,12 @@ public sealed partial class Fighter
     /// 頭が打撃で <paramref name="angularImpulse"/>（ワールド [N·m·s]）だけねじられた: 頭の慣性で割った回転の速さの 2 乗に比例して意識が飛ぶ。
     /// 回転の中心を通る打撃（額の正面）は回さず、外れた所（あご・こめかみ）を体重を乗せて振り抜くほど強く回る。
     /// </summary>
-    internal void TwistHead(Vector3 angularImpulse)
+    internal void TwistHead(Vector3 angularImpulse, float? gain = null)
     {
         var head = _world.GetState(Parts.Head);
         var local = Vector3.Transform(angularImpulse, Quaternion.Conjugate(head.Orientation)) / _world.GetLocalInertiaDiagonal(Parts.Head);
         LastHeadTwist = local.Length();
-        Concussion += _tuning.ConcussionGain * LastHeadTwist * LastHeadTwist;
+        Concussion += (gain ?? _tuning.ConcussionGain) * LastHeadTwist * LastHeadTwist;
     }
 
     /// <summary>
@@ -1127,20 +1734,19 @@ public sealed partial class Fighter
     }
 
     /// <summary>意識で決まる体の張り（下の説明）。</summary>
-    private float ConsciousTone
-    {
-        get
-        {
-            var c = Consciousness;
-            if (c < _tuning.KnockoutConsciousness)
-            {
-                var low = Math.Clamp((c - _tuning.LimpConsciousness) / MathF.Max(1e-3f, _tuning.KnockoutConsciousness - _tuning.LimpConsciousness), 0f, 1f);
-                return _tuning.FaintTone * Smooth(low);
-            }
+    private float ConsciousTone => ToneAt(Consciousness);
 
-            var t = Math.Clamp((c - _tuning.KnockoutConsciousness) / MathF.Max(1e-3f, _tuning.FullToneConsciousness - _tuning.KnockoutConsciousness), 0f, 1f);
-            return _tuning.FaintTone + ((1f - _tuning.FaintTone) * Smooth(t));
+    /// <summary>意識 <paramref name="c"/> で決まる体の張り（<see cref="ConsciousTone"/> の式。<see cref="BodyLetsStand"/> が脳しんとう 0 の意識で同じ式を使う）。</summary>
+    private float ToneAt(float c)
+    {
+        if (c < _tuning.KnockoutConsciousness)
+        {
+            var low = Math.Clamp((c - _tuning.LimpConsciousness) / MathF.Max(1e-3f, _tuning.KnockoutConsciousness - _tuning.LimpConsciousness), 0f, 1f);
+            return _tuning.FaintTone * Smooth(low);
         }
+
+        var t = Math.Clamp((c - _tuning.KnockoutConsciousness) / MathF.Max(1e-3f, _tuning.FullToneConsciousness - _tuning.KnockoutConsciousness), 0f, 1f);
+        return _tuning.FaintTone + ((1f - _tuning.FaintTone) * Smooth(t));
     }
 
     private static float Smooth(float t) => t * t * (3f - (2f * t));
@@ -1150,14 +1756,36 @@ public sealed partial class Fighter
     /// まで抜けると <see cref="FighterTuning.FaintSag"/> だけ腰が落ち、それより抜けると膝立ち・座り込み・床へと連続に下がる。
     /// 倒れている間も、立っている間も、体はいつもこの高さまで立とうとする。
     /// </summary>
-    public float StandReach
+    public float StandReach => StandReachAt(Tone);
+
+    /// <summary>体の張り <paramref name="tone"/> で腰を上げられる高さ（<see cref="StandReach"/> の式）。</summary>
+    private float StandReachAt(float tone)
+    {
+        var faint = Math.Clamp((1f - tone) / MathF.Max(1e-3f, 1f - _tuning.FaintTone), 0f, 1f);
+        return tone >= _tuning.FaintTone
+            ? 1f - (_tuning.FaintSag * faint)
+            : (1f - _tuning.FaintSag) * (tone / MathF.Max(1e-3f, _tuning.FaintTone));
+    }
+
+    /// <summary>
+    /// 体が立つことを許すか: 脳しんとう（<see cref="Concussion"/>）が全部引いたとしても立てるか。死んでいない・立てない体と決まっていない・脚が体を支えられ
+    /// （<see cref="CanStand"/>）、脳の残りで決まる意識（脳しんとう 0）が立ち直りの意識（<see cref="FighterTuning.KnockoutConsciousness"/>）に届き、
+    /// その意識の張りで、起き上がろうとするいちばん強い試み（<see cref="Stir"/> = 1、<see cref="FighterTuning.StirReach"/>）を足せば腰を立ち直りの高さ
+    /// （<see cref="FighterTuning.RecoverHeightRatio"/>）まで上げられる。倒れたまま起き上がる式（<see cref="UpdateRise"/>・<see cref="TickDown"/> の立ち直り）に、
+    /// 脳しんとう 0 を入れて評価しただけ（分岐を足していない）。
+    /// false なら、待っても意識だけでは立てない（VFC の両者ダウンで体を再生させる: <see cref="BoxingGame"/>）。
+    /// </summary>
+    public bool BodyLetsStand
     {
         get
         {
-            var tone = Tone;
-            return tone >= _tuning.FaintTone
-                ? 1f - (_tuning.FaintSag * Faintness)
-                : (1f - _tuning.FaintSag) * (tone / MathF.Max(1e-3f, _tuning.FaintTone));
+            if (IsDead || StaysDown || !CanStand)
+            {
+                return false;
+            }
+
+            var clear = Math.Clamp(Voxels?.BrainFunction(_tuning.BrainHalvingLoss) ?? 1f, 0f, 1f);
+            return clear >= _tuning.KnockoutConsciousness && StandReachAt(ToneAt(clear) * CoreTone) + _tuning.StirReach >= _tuning.RecoverHeightRatio;
         }
     }
 
@@ -1343,7 +1971,7 @@ public sealed partial class Fighter
         // （肉を削られた・切り落とされた）。支えられない脚では起き上がれない。
         if (!CanStand)
         {
-            _stayDown = true; // 立てない体は 10 カウントで負け
+            _legsGaveOut = true; // 立てない体は 10 カウントで負け（体が再生して脚が戻れば外れる: Regrow）
             Enter(FighterState.Down);
             return;
         }
@@ -1417,7 +2045,7 @@ public sealed partial class Fighter
     /// </summary>
     private void UpdateRise(bool grounded, float height, float dt)
     {
-        var reach = _stayDown || !CanStand ? 0f : MathF.Min(1f, StandReach + (_tuning.StirReach * Stir));
+        var reach = StaysDown || !CanStand ? 0f : MathF.Min(1f, StandReach + (_tuning.StirReach * Stir));
         var up = _rise + (dt / MathF.Max(1e-3f, _tuning.RiseTime));
         if (State != FighterState.Standing)
         {
@@ -1509,7 +2137,7 @@ public sealed partial class Fighter
 
     private void TickDown(in FighterCommand command, bool grounded, float height, float dt)
     {
-        if (_stayDown || !CanStand)
+        if (StaysDown || !CanStand)
         {
             // 起き上がれない（死んだ・脚を失った）: こらえて崩れ（Triage ADR-102④: 駆動を一気に抜かず CollapseDuration かけて落とす）、そのまま伸びる。
             // 脚を失っても意識があれば、腕と体はもがく（死んでいれば Stir は 0）。
@@ -3082,7 +3710,6 @@ public sealed partial class Fighter
     /// </summary>
     private void RelaxDeadGrips(float dt)
     {
-        const float Gravity = 9.81f;
         for (var i = _deadGrips.Count - 1; i >= 0; i--)
         {
             if (_deadGrips[i].Worn)
@@ -3092,8 +3719,7 @@ public sealed partial class Fighter
 
             var grip = _deadGrips[i] with { Since = _deadGrips[i].Since + dt };
             var hold = _tuning.GrabBreakForce * MathF.Exp(-grip.Since / MathF.Max(1e-3f, _tuning.DeadGripRelaxSeconds));
-            var weight = MathF.Min(_world.GetMass(grip.Held), _world.GetMass(grip.Hand)) * Gravity;
-            if (!_world.HasConstraint(grip.Socket) || hold < weight)
+            if (!_world.HasConstraint(grip.Socket) || !GripHolds(hold, _world.GetMass(grip.Held), _world.GetMass(grip.Hand)))
             {
                 if (_world.HasConstraint(grip.Socket))
                 {
@@ -3107,6 +3733,33 @@ public sealed partial class Fighter
             _world.MakeBreakable(grip.Socket, hold);
             _deadGrips[i] = grip;
         }
+    }
+
+    /// <summary>
+    /// 握りが物を保持できるか: 握りが持ちこたえる力 <paramref name="hold"/> [N] が、手と物の軽い方の重さ以上（力の抜けていく手が武器を落とす式。
+    /// <see cref="RelaxDeadGrips"/> と、休みに武器を支給するかの判断 <see cref="CanHoldWeapon"/> が同じ式を通る: CLAUDE.md §1.5）。
+    /// </summary>
+    private static bool GripHolds(float hold, float heldMass, float handMass)
+    {
+        const float Gravity = 9.81f;
+        return hold >= MathF.Min(heldMass, handMass) * Gravity;
+    }
+
+    /// <summary>
+    /// 手 <paramref name="hand"/> が、質量 <paramref name="mass"/> [kg] の武器を保持できるか（休みの武器の支給: <see cref="BoxingGame"/>）。
+    /// 腕が駆動していて（切り落とされていない・手がある・前腕が体に付いている）、握りが持ちこたえる力（掴みの強さ
+    /// <see cref="FighterTuning.GrabBreakForce"/> × 前腕の筋肉の残り。神経の働きも掛ける）が、手と武器の軽い方の重さを支えられる
+    /// （力の抜けていく手が武器を落とすのと同じ式 <see cref="GripHolds"/>）。
+    /// </summary>
+    public bool CanHoldWeapon(Hand hand, float mass)
+    {
+        var arm = _arms[(int)hand];
+        if (IsDead || arm.Severed || arm.HandGone || _detached.Contains(arm.Forearm))
+        {
+            return false;
+        }
+
+        return GripHolds(_tuning.GrabBreakForce * Remaining(arm.Forearm, felt: true), mass, _world.GetMass(arm.GloveBody));
     }
 
     /// <summary>
@@ -3207,8 +3860,8 @@ public sealed partial class Fighter
         public int Heel { get; private init; }
         public int Toe { get; private init; }
         public int HipServo { get; private init; }
-        public int KneeServo { get; private init; }
-        public int AnkleServo { get; private init; }
+        public int KneeServo { get; set; }
+        public int AnkleServo { get; set; }
         public int ToeServo { get; private init; }
 
         /// <summary>腿が回る中心（骨盤のローカル）。</summary>
@@ -3290,6 +3943,11 @@ public sealed partial class Fighter
 
     /// <summary>投げの成立（投げた手・投げられた相手）。</summary>
 
+    /// <summary>
+    /// 1 回の再生の抽選（<see cref="Regrow"/>）の結果: 戻したセルの数、芽から生え直し始めた部位（剛体）、古い中身を写して床に残した破片（剛体）。
+    /// </summary>
+    internal readonly record struct RegrowReport(int Restored, IReadOnlyList<int> Rebudded, IReadOnlyList<int> NewPieces);
+
     /// <summary>片腕ぶんのサーボ・IK・拳 PD の状態。</summary>
     private sealed class Arm
     {
@@ -3337,7 +3995,11 @@ public sealed partial class Fighter
         public int UpperArm { get; private init; }
         public int Forearm { get; private init; }
         public int ShoulderServo { get; private init; }
-        public int ElbowServo { get; private init; }
+        public int ElbowServo { get; private set; }
+
+        /// <summary>作ったときの拳の所（前腕のローカル）。生え直した腕は、ここに拳を付け直す。</summary>
+        public Vector3 HomeGloveLocal { get; private init; }
+
         public Vector3 ShoulderOnChest { get; private init; }
         public Vector3 ShoulderCenterOnChest { get; private init; }
         public Vector3 GloveLocal { get; private set; }
@@ -3347,6 +4009,39 @@ public sealed partial class Fighter
 
         /// <summary>切り落とされた（もう駆動しない）。</summary>
         public bool Severed { get; set; }
+
+        /// <summary>
+        /// 腕が生え直した（上腕・前腕の骨が元の両端までつながり、前腕が体に付いている: <see cref="Fighter.RestoreLimbs"/>）: また駆動する腕に戻す。
+        /// 拳は作ったときの所（前腕）に付け直す。はめていた物・握っていた物は古い手と一緒に床に残っている（戻さない）。肘の筋肉（サーボ）が
+        /// 外れていれば、作ったときと同じに付け直す。
+        /// </summary>
+        public void Restore(PhysicsWorld world, FighterTuning tuning, bool keepHand = false)
+        {
+            Severed = false;
+            HandGone = false;
+            WornLoose = false;
+            Glove = false;
+            Bare = false;
+            SlideSpan = null;
+            WristShare = 1f;
+            if (!keepHand)
+            {
+                AttachGlove(Forearm, HomeGloveLocal); // 骨がつながった前腕は、手は破片の先に付いたまま（今の手の所）
+            }
+
+            if (!world.HasConstraint(ElbowServo))
+            {
+                AddElbowServo(world, tuning);
+            }
+        }
+
+        /// <summary>肘の筋肉（上腕と前腕の間のひねりのサーボ）を、作ったとき（<see cref="Create"/>）と同じに付ける。</summary>
+        public void AddElbowServo(PhysicsWorld world, FighterTuning tuning, int? upper = null)
+        {
+            // 肘の基底は物理的な側で決まる（+X 側の腕が Mirrored / HumanoidRagdoll.BuildCore と同じ）。上腕が折れてつながった腕は、肘を受ける破片との間に付ける。
+            var basis = Side > 0f ? HumanoidRagdoll.YAxisTwistBasisMirrored : HumanoidRagdoll.YAxisTwistBasis;
+            ElbowServo = world.AddTwistServo(upper ?? UpperArm, Forearm, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, 30f * tuning.TorqueScale);
+        }
 
         public void AttachGlove(int body, Vector3 local)
         {
@@ -3687,6 +4382,7 @@ public sealed partial class Fighter
                 ShoulderCenterOnChest = center,
                 GloveBody = fore,
                 GloveLocal = Vector3.Transform(glove - f.Position, Quaternion.Conjugate(f.Orientation)),
+                HomeGloveLocal = Vector3.Transform(glove - f.Position, Quaternion.Conjugate(f.Orientation)),
                 UpperLength = Vector3.Distance(shoulder, elbow),
                 LowerLength = Vector3.Distance(elbow, glove),
             };
