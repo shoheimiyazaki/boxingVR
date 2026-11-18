@@ -161,6 +161,13 @@ public sealed record FighterTuning
     public float SupportGripReach { get; init; } = 0.02f;
 
     /// <summary>
+    /// 空いた手が <see cref="HandCommand.Grip"/> で武器を拾う・もう一方の手として添える、拳と柄の距離の上限 [m]。素手の拳の幅（2.8 cm =
+    /// <c>Weapon.HandSpacing</c>）のおよそ 1.8 倍: 手の幅ほど（人形の縮尺 0.32 倍の手）の所へ手を持っていけば握れる。これより遠いと握れない
+    /// （握った後は <see cref="SupportGripReach"/> まで拳を握りへ寄せてつなぐ）。VR の手は縮尺（約 3 倍）で人形へ写るので、実際の手では 15 cm ほどの許し。
+    /// </summary>
+    public float WeaponGraspReach { get; init; } = 0.05f;
+
+    /// <summary>
     /// 腕が使えなくなった（切り落とされた・骨が折れた）手の握りが抜けていく時定数 [s]。握りが持ちこたえる力は掴みの強さ
     /// （<see cref="GrabBreakForce"/>）から exp(−t / これ) で落ちていき、武器の重さ・振られる力を支えられなくなった所で武器が抜ける
     /// （止まっていれば、手と武器の軽い方の重さを支えられなくなる約 3 秒後）。筋肉に力を送る神経・血が絶たれた手の指がほどける速さの近似。
