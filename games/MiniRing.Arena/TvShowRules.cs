@@ -16,6 +16,12 @@ internal sealed record TvScoutResult(int Seed, string Finish, bool Ko, int Round
 {
     /// <summary>ゲームの決着の文（"K.O. — BRAIN DESTROYED"）が死（臓器・首の破壊）か。</summary>
     public static bool IsDeath(string finish) => finish.StartsWith("K.O. — ", StringComparison.Ordinal) && finish.Contains("DESTROYED", StringComparison.Ordinal);
+
+    /// <summary>ラウンド中に両者が同時に倒れていた（立っていない）時間の合計 [s]。</summary>
+    public float BothDownSeconds { get; init; }
+
+    /// <summary>両者が同時に倒れていた時間の、いちばん長く続いた 1 回 [s]。</summary>
+    public float LongestBothDown { get; init; }
 }
 
 /// <summary>
