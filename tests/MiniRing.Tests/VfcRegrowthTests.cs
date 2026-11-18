@@ -1,5 +1,6 @@
 using System.Numerics;
 using Aigis.Foundation.Voxels;
+using Aigis.Physics.Voxels;
 using MiniRing.Voxels;
 using MiniRing.Weapons;
 
@@ -336,6 +337,95 @@ public sealed class VfcRegrowthTests
         var rest = f.HalfExtents.UpperArm.X + f.HalfExtents.Forearm.X;
         Console.WriteLine($"upper arm to forearm centre {elbow * 100f:0.0} cm (rest {rest * 100f:0.0} cm)");
         Assert.IsLessThan(rest * 1.15f, elbow, "held at the elbow by the rebuilt joint");
+    }
+
+    /// <summary>前腕の骨を曲げで真ん中で折り、肉の橋を 1/8 だけ残して削る（ぶら下がる）。破片の剛体を返す。</summary>
+    private static int BendBreakForearm(BoxingGame game, Fighter f)
+    {
+        var forearm = f.ForearmId(Hand.Right);
+        var grid = f.Voxels!.PartOf(forearm)!.Body.Grid;
+        var broken = f.Voxels.BreakBent(forearm, new VoxelBreak(0, grid.Dimensions.X / 2, f.Voxels.PartOf(forearm)!.DistalHigh, 2f))!;
+        game.BreakBone(f, broken, 1f);
+        var bridge = broken.Bridge!;
+        var removed = new List<RemovedVoxel>();
+        foreach (var cell in bridge.Cells.Skip(Math.Max(1, bridge.Cells.Count / 8)))
+        {
+            bridge.Stub.Grid.Break(cell.StubIndex, removed);
+        }
+
+        bridge.Stub.UpdateMass();
+        return broken.Fragment!.Body.BodyId;
+    }
+
+    /// <summary>剛体 <paramref name="a"/> と <paramref name="b"/> の、骨の軸（ローカル X）のなす角 [度]。</summary>
+    private static float AxisAngle(BoxingGame game, int a, int b)
+    {
+        var x = Vector3.Transform(Vector3.UnitX, game.World.GetState(a).Orientation);
+        var y = Vector3.Transform(Vector3.UnitX, game.World.GetState(b).Orientation);
+        return MathF.Acos(Math.Clamp(Vector3.Dot(x, y), -1f, 1f)) * 180f / MathF.PI;
+    }
+
+    [TestMethod]
+    public void ABentForearm_HealsBentButJoined_FleshFirstThenTheSpringStiffensThenTheBoneKnitsAndHolds()
+    {
+        using var game = StillGame();
+        Play(game, 1f);
+        var f = game.Cpu;
+        var forearm = f.ForearmId(Hand.Right);
+        var fragment = BendBreakForearm(game, f);
+        Assert.IsTrue(f.HangsByFlesh(fragment));
+        Assert.IsTrue(f.ArmSevered(Hand.Right));
+        Play(game, 2f);
+        var hanging = f.FractureState(fragment)!.Value;
+        var sag = AxisAngle(game, forearm, fragment);
+        var random = new Random(4);
+        var log = new List<string>();
+        (float Fraction, float SpringHz)? stiff = null;
+        var stiffAngle = float.NaN;
+        var knitAt = -1;
+        for (var tick = 0; tick < 2000 && knitAt < 0; tick++)
+        {
+            var report = f.Regrow(random, TickAdvance);
+            Assert.IsFalse(report.Rebudded.Contains(forearm), "a bone hanging by its flesh is not replaced by a new bud");
+            for (var i = 0; i < 60; i++)
+            {
+                game.Step(default, Dt);
+            }
+
+            if (f.IsKnit(fragment))
+            {
+                knitAt = tick;
+            }
+            else if (f.FractureState(fragment) is { } state)
+            {
+                if (tick % 20 == 0)
+                {
+                    log.Add($"{tick * 0.25f:0}s flesh {state.Fraction:P0} {state.SpringHz:0.0} Hz angle {AxisAngle(game, forearm, fragment):0}°");
+                }
+
+                if (state.Fraction >= 1f && stiff is null)
+                {
+                    stiff = state;
+                    stiffAngle = AxisAngle(game, forearm, fragment);
+                }
+            }
+        }
+
+        Console.WriteLine($"hanging: flesh {hanging.Fraction:P0} {hanging.SpringHz:0.0} Hz, angle {sag:0}°; {string.Join("; ", log)}; knit at {knitAt * 0.25f:0} s");
+        Assert.IsGreaterThan(hanging.SpringHz * 2f, stiff!.Value.SpringHz, "the flesh grew back and the spring is stiffer");
+        Assert.IsLessThan(sag, stiffAngle, "the stiffer flesh lifts the piece a little straighter");
+        Assert.IsGreaterThanOrEqualTo(0, knitAt, "at last the bone knits");
+        Assert.IsFalse(f.HangsByFlesh(fragment), "no longer hanging by the flesh");
+        Assert.IsFalse(f.ArmSevered(Hand.Right), "the arm is driven again");
+        Assert.IsTrue(f.Voxels!.Fragments.Any(p => p.Body.BodyId == fragment), "the same piece, not a new bud");
+        Play(game, 0.5f);
+        var knitAngle = AxisAngle(game, forearm, fragment);
+        Play(game, 2f);
+        var later = AxisAngle(game, forearm, fragment);
+        Console.WriteLine($"knit angle {knitAngle:0.0}°, 2 s later {later:0.0}°");
+        Assert.IsGreaterThan(1f, knitAngle, "it healed bent, not straight");
+        Assert.IsLessThan(3f, MathF.Abs(later - knitAngle), "the bend is fixed once the bone has knit");
+        Assert.IsGreaterThan(-1f, game.World.GetState(fragment).Position.Y - game.World.GetState(forearm).Position.Y + 0.2f, "the piece did not fall to the floor");
     }
 
     private static BoxingGame ClubMatch(Func<bool> drop, float breakSeconds = 2f) =>

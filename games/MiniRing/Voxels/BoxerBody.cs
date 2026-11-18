@@ -320,11 +320,20 @@ public sealed record FleshBridge(VoxelBody Stub, VoxelBody Fragment, IReadOnlyLi
 {
     public readonly record struct Cell(int StubIndex, int FragmentIndex, float Tear, float Bend);
 
+    /// <summary>
+    /// 作ったときに切れ目をまたいで肉と肉が向き合っていた組のすべて（<see cref="FullCells"/> 個。強さは元の材質から）。肉が再生して橋が太く戻る
+    /// （<see cref="Grown"/>）と、折れた瞬間に残っていた組（<see cref="Cells"/>）ではなく、こちらで数える（2026-11-18、VFC の骨折の治り方）。
+    /// </summary>
+    public IReadOnlyList<Cell> Pairs { get; init; } = [];
+
+    /// <summary>肉が再生を始めた（<see cref="Pairs"/> で数える）。再生の無い試合（WVC）では偽のまま、今までと同じに数える。</summary>
+    public bool Grown { get; init; }
+
     public (int Count, float Fraction, float Tear, float Bend) Measure()
     {
         var count = 0;
         float tear = 0f, bend = 0f;
-        foreach (var cell in Cells)
+        foreach (var cell in Grown && Pairs.Count > 0 ? Pairs : Cells)
         {
             if (Flesh(Stub.Grid, cell.StubIndex) && Flesh(Fragment.Grid, cell.FragmentIndex))
             {
@@ -342,7 +351,7 @@ public sealed record FleshBridge(VoxelBody Stub, VoxelBody Fragment, IReadOnlyLi
     {
         Matrix4x4.Invert(next.GridToWorld(), out var inverse);
         var transform = Stub.GridToWorld() * inverse;
-        return this with { Stub = next, Cells = Cells.Select(c =>
+        Cell Move(Cell c)
         {
             if (c.StubIndex < 0)
             {
@@ -350,7 +359,9 @@ public sealed record FleshBridge(VoxelBody Stub, VoxelBody Fragment, IReadOnlyLi
             }
             var (x, y, z) = Stub.Grid.Coordinates(c.StubIndex);
             return c with { StubIndex = next.Grid.CellAt(Vector3.Transform(Stub.Grid.CellCenter(x, y, z), transform)) };
-        }).ToArray() };
+        }
+
+        return this with { Stub = next, Cells = Cells.Select(Move).ToArray(), Pairs = Pairs.Select(Move).ToArray() };
     }
 }
 
@@ -536,6 +547,32 @@ public sealed class BoxerBody
     /// </summary>
     private sealed record Original(byte[] Materials, bool[] Surface, int[] HealOrder)
     {
+        /// <summary>
+        /// 部位の格子 <paramref name="parent"/> を軸 <paramref name="axis"/> のスライス <paramref name="from"/> から切り出した破片の格子 <paramref name="piece"/> の、
+        /// 作ったときの中身（親の作ったときの中身の同じ所）。前の切れ目 <paramref name="earlierCut"/>（親の座標。これより先は前の破片の側）より先は空とする
+        /// （その先へ生えると、前に落ちた・ぶら下がる破片と重なる）。
+        /// </summary>
+        public static Original Slice(Original source, VoxelGrid parent, VoxelGrid piece, int axis, int from, int? earlierCut, bool distalHigh)
+        {
+            var materials = new byte[piece.CellCount];
+            var surface = new bool[piece.CellCount];
+            for (var j = 0; j < piece.CellCount; j++)
+            {
+                var (x, y, z) = piece.Coordinates(j);
+                var s = (axis == 0 ? x : axis == 1 ? y : z) + from;
+                if (earlierCut is { } cut && (distalHigh ? s > cut : s < cut))
+                {
+                    continue;
+                }
+
+                var i = parent.Index(axis == 0 ? s : x, axis == 1 ? s : y, axis == 2 ? s : z);
+                materials[j] = source.Materials[i];
+                surface[j] = source.Surface[i];
+            }
+
+            return new Original(materials, surface, []);
+        }
+
         public static Original Of(VoxelGrid grid)
         {
             var (nx, ny, nz) = grid.Dimensions;
@@ -643,8 +680,13 @@ public sealed class BoxerBody
     /// （その先の部位を生え直させるのは呼び出し側: <see cref="Fighter.Regrow"/>）。
     /// </summary>
     /// <returns>戻したセルの数と、骨が遠い端までつながり直した部位。</returns>
-    public RegrowResult Regrow(Random random, float advance, Func<int, bool> attached)
+    /// <param name="random">再生の抽選の乱数。</param>
+    /// <param name="advance">前線を進める距離 [m]。</param>
+    /// <param name="attached">生きている体の一部の剛体か（体に付いた部位・肉でぶら下がる / 骨でつながった破片）。</param>
+    /// <param name="holdsPiece">切り株がまだ先の破片を持っている（肉でぶら下がる・骨がつながった）か。持っている切り株は切れ目の先へ伸ばさない（そこには破片がある）。null なら持っていない。</param>
+    public RegrowResult Regrow(Random random, float advance, Func<int, bool> attached, Func<int, bool>? holdsPiece = null)
     {
+        holdsPiece ??= _ => false;
         ArgumentNullException.ThrowIfNull(random);
         ArgumentNullException.ThrowIfNull(attached);
         if (!(advance > 0f))
@@ -654,13 +696,17 @@ public sealed class BoxerBody
 
         var restored = 0;
         List<VoxelPart>? reconnected = null;
-        foreach (var part in _parts)
+        // 体に付いている部位と、肉でぶら下がる・骨でつながった破片（生きている体の一部。落ちた破片・床の破片は対象外）。
+        foreach (var part in _parts.Concat(_fragments))
         {
             if (!attached(part.Body.BodyId) || !_originals.TryGetValue(part, out var original)
                 || (_grownAt.TryGetValue(part, out var grown) && grown == part.Body.Grid.Version))
             {
                 continue;
             }
+
+            var id = part.Body.BodyId;
+            var limit = holdsPiece(id) && part.SeverAxis is { } cutAxis && _cutAt.TryGetValue(id, out var cutSlice) ? (cutAxis, cutSlice, part.DistalHigh) : ((int, int, bool)?)null;
 
             var grid = part.Body.Grid;
             var cell = (grid.CellSize.X + grid.CellSize.Y + grid.CellSize.Z) / 3f;
@@ -670,7 +716,7 @@ public sealed class BoxerBody
             var before = restored;
             for (var pass = 0; pass < passes; pass++)
             {
-                CollectRegrowth(grid, original.Materials, _regrowCandidates);
+                CollectRegrowth(grid, original.Materials, _regrowCandidates, limit);
                 if (_regrowCandidates.Count == 0)
                 {
                     break;
@@ -688,13 +734,13 @@ public sealed class BoxerBody
             if (restored > before)
             {
                 part.Body.UpdateMass();
-                if (AdvanceCut(part))
+                if (limit is null && part.FragmentOf is null && AdvanceCut(part))
                 {
                     (reconnected ??= []).Add(part);
                 }
             }
 
-            CollectRegrowth(grid, original.Materials, _regrowCandidates);
+            CollectRegrowth(grid, original.Materials, _regrowCandidates, limit);
             if (_regrowCandidates.Count == 0)
             {
                 _grownAt[part] = grid.Version; // 戻す所が無い（新しく傷つくまで飛ばす）
@@ -707,7 +753,7 @@ public sealed class BoxerBody
     /// <summary>
     /// 前線の再生の候補（<see cref="Regrow"/>）: 作ったときに材質があり、今の材質が違って 6 近傍に生きているセルがあるか、材質は同じで HP が減ったセル。
     /// </summary>
-    private static void CollectRegrowth(VoxelGrid grid, byte[] original, List<int> candidates)
+    private static void CollectRegrowth(VoxelGrid grid, byte[] original, List<int> candidates, (int Axis, int Cut, bool DistalHigh)? limit = null)
     {
         candidates.Clear();
         var (nx, ny, nz) = grid.Dimensions;
@@ -718,6 +764,16 @@ public sealed class BoxerBody
             if (was == 0)
             {
                 continue;
+            }
+
+            if (limit is { } l)
+            {
+                var c = grid.Coordinates(i);
+                var s = l.Axis == 0 ? c.X : l.Axis == 1 ? c.Y : c.Z;
+                if (l.DistalHigh ? s > l.Cut : s < l.Cut)
+                {
+                    continue; // 切れ目の先は破片の側
+                }
             }
 
             var now = grid.AtIndex(i);
@@ -803,8 +859,61 @@ public sealed class BoxerBody
     /// </summary>
     private readonly HashSet<int> _regrowing = [];
 
+    /// <summary>
+    /// 折れた骨の切れ目（切り株 <paramref name="stub"/> の切れ目のスライスと、破片 <paramref name="fragment"/> の切れ目に向いた面のスライス）の、骨のセルの数と、
+    /// 切り株の側の骨の断面が曲げに持ちこたえるトルク [N·m]（骨のセルの強さ × 断面積 × 軸からの距離の和: 肉の橋の <see cref="FleshBridge.Cell.Bend"/> と同じ式）。
+    /// 骨がつながる（<see cref="Fighter"/> の骨の癒合）かを見るのと、つながった骨を固定する強さに使う。分からなければ null。
+    /// </summary>
+    public (int StubBone, int FragmentBone, float BendStrength, float CellSize)? BoneFaces(int stub, int fragment)
+    {
+        if (!_byBody.TryGetValue(stub, out var part) || part.SeverAxis is not { } axis || !_cutAt.TryGetValue(stub, out var cut)
+            || _fragments.FirstOrDefault(f => f.Body.BodyId == fragment) is not { } piece)
+        {
+            return null;
+        }
+
+        var grid = part.Body.Grid;
+        var cell = grid.CellSize;
+        var along = axis == 0 ? cell.X : axis == 1 ? cell.Y : cell.Z;
+        var area = grid.CellVolume / along;
+        int stubBone = 0, fragmentBone = 0;
+        var bend = 0f;
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            var c = grid.Coordinates(i);
+            var m = grid.MaterialAt(i);
+            if ((axis == 0 ? c.X : axis == 1 ? c.Y : c.Z) == cut && m != 0 && grid.Palette[m].Tissue == VoxelTissue.Bone)
+            {
+                stubBone++;
+                var at = grid.CellCenter(c.X, c.Y, c.Z);
+                var across = axis == 0 ? new Vector2(at.Y, at.Z) : axis == 1 ? new Vector2(at.X, at.Z) : new Vector2(at.X, at.Y);
+                bend += grid.Palette[m].MechanicsOrDefault.Strength * area * across.Length();
+            }
+        }
+
+        var fg = piece.Body.Grid;
+        var faceSlice = part.DistalHigh ? 0 : (axis == 0 ? fg.Dimensions.X : axis == 1 ? fg.Dimensions.Y : fg.Dimensions.Z) - 1;
+        for (var i = 0; i < fg.CellCount; i++)
+        {
+            var c = fg.Coordinates(i);
+            var m = fg.MaterialAt(i);
+            fragmentBone += (axis == 0 ? c.X : axis == 1 ? c.Y : c.Z) == faceSlice && m != 0 && fg.Palette[m].Tissue == VoxelTissue.Bone ? 1 : 0;
+        }
+
+        return (stubBone, fragmentBone, bend, (cell.X + cell.Y + cell.Z) / 3f);
+    }
+
     /// <summary>部位の骨が、作ったときの両端までつながっているか（切れ目も、芽からの生え直しの途中でもない）。知らない剛体なら true。</summary>
-    public bool BoneWhole(int bodyId) => !_cutAt.ContainsKey(bodyId) && !_regrowing.Contains(bodyId);
+    public bool BoneWhole(int bodyId) => (!_cutAt.ContainsKey(bodyId) || _healed.Contains(bodyId)) && !_regrowing.Contains(bodyId);
+
+    /// <summary>
+    /// 折れた骨が曲がったままつながった切り株（<see cref="HealBone"/>）。切り株と破片は 1 本の骨として働く（<see cref="BoneWhole"/> が真）。筋肉の断面は
+    /// 今までどおり切り株の側で測る（破片の肉は数えない: docs/DEBT.md）。
+    /// </summary>
+    private readonly HashSet<int> _healed = [];
+
+    /// <summary>切り株 <paramref name="stub"/> の折れた骨が、ぶら下がっていた破片と曲がったままつながった（Fighter が固定した）。</summary>
+    public void HealBone(int stub) => _healed.Add(stub);
 
     /// <summary>
     /// 体から外れていた部位 <paramref name="bodyId"/>（肘から先・膝から先・足首から先: <see cref="Fighter.Reconnect"/>）を、芽から生え直させる:
@@ -1452,6 +1561,30 @@ public sealed class BoxerBody
             }
         }
 
+        // 肉の橋の全部の組（作ったときに切れ目をまたいで肉と肉が向き合っていたセル）: 再生で太く戻る橋を数えるため（FleshBridge.Pairs）。
+        var pairs = new List<(int Stub, int Far, float Tear, float Bend)>();
+        var parentOriginal = _originals[part];
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            var c = grid.Coordinates(i);
+            if ((axis == 0 ? c.X : axis == 1 ? c.Y : c.Z) != slice)
+            {
+                continue;
+            }
+
+            var farIndex = grid.CellAt(grid.CellCenter(c.X, c.Y, c.Z) + step);
+            if (farIndex < 0 || grid.Palette[parentOriginal.Materials[i]].Tissue != VoxelTissue.Flesh || grid.Palette[parentOriginal.Materials[farIndex]].Tissue != VoxelTissue.Flesh)
+            {
+                continue;
+            }
+
+            var strength = grid.Palette[parentOriginal.Materials[i]].MechanicsOrDefault.Strength;
+            var at = grid.CellCenter(c.X, c.Y, c.Z);
+            var across = axis == 0 ? new Vector2(at.Y, at.Z) : axis == 1 ? new Vector2(at.X, at.Z) : new Vector2(at.X, at.Y);
+            pairs.Add((i, farIndex, strength * area, strength * area * across.Length()));
+        }
+
+        var earlierCut = _cutAt.TryGetValue(body.BodyId, out var previousCut) ? previousCut : (int?)null;
         var piece = body.SplitAt(axis, slice, part.DistalHigh);
         // 切れ目より先のスライスは破片へ移った: 残った部位（切り株）の筋肉の断面は、切れ目より体に近い側だけで測る（Muscle）。
         _cutAt[body.BodyId] = _cutAt.TryGetValue(body.BodyId, out var earlier)
@@ -1469,6 +1602,7 @@ public sealed class BoxerBody
             piece.BeamAxis = axis; // 破片も骨で曲げを受ける梁（武器のように Snap で飛ばない。破片はそれ以上は分けない）
             fragment = new VoxelPart(part.Kind, piece, VoxelVolume.For(piece.Grid), axis, part.DistalHigh, body.BodyId);
             _fragments.Add(fragment);
+            _originals[fragment] = Original.Slice(parentOriginal, grid, piece.Grid, axis, part.DistalHigh ? slice + 1 : 0, earlierCut, part.DistalHigh);
             Matrix4x4.Invert(piece.GridToWorld(), out var toPiece);
             foreach (var (moved, world) in cordMoves)
             {
@@ -1483,8 +1617,18 @@ public sealed class BoxerBody
         if (piece is not null)
         {
             Matrix4x4.Invert(piece.GridToWorld(), out var inverse);
+            var from = part.DistalHigh ? slice + 1 : 0;
+            int PieceIndex(int far)
+            {
+                var (x, y, z) = grid.Coordinates(far);
+                return piece.Grid.Index(axis == 0 ? x - from : x, axis == 1 ? y - from : y, axis == 2 ? z - from : z);
+            }
+
             tracked = new FleshBridge(body, piece, samples.Select(c => new FleshBridge.Cell(c.Index,
-                piece.Grid.CellAt(Vector3.Transform(c.Far, inverse)), c.Tear, c.Bend)).ToArray(), full);
+                piece.Grid.CellAt(Vector3.Transform(c.Far, inverse)), c.Tear, c.Bend)).ToArray(), full)
+            {
+                Pairs = [.. pairs.Select(p => new FleshBridge.Cell(p.Stub, PieceIndex(p.Far), p.Tear, p.Bend))],
+            };
         }
         return new BoneBreak(part, fragment, point, hangs ? samples.Count : 0, hangs ? tear : 0f, hangs ? bend : 0f, bent) { Bridge = tracked };
     }

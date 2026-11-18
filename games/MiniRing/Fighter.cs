@@ -200,7 +200,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 47; // 47: VFC の再生（傷の前線の再生・欠損した先の部位の生え直し・両者ダウンでの再生）と休みの武器の支給（2026-11-18、指示書 F）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 48; // 48: VFC の骨折は曲がったままつながる（肉 → バネが固くなる → 骨がつながって固定）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -261,11 +261,26 @@ public sealed partial class Fighter
 
         _rebudded.Clear();
         _newPieces.Clear();
-        var result = body.Regrow(random, advance, Owns);
+        // 肉でぶら下がる破片・骨がつながった破片は生きている体の一部（再生する）。その切り株は切れ目の先へ伸ばさない。
+        var result = body.Regrow(random, advance, id => Owns(id) || HangsByFlesh(id) || _welds.Exists(w => w.Fragment == id),
+            id => _fleshLinks.Exists(l => l.Stub == id) || _welds.Exists(w => w.Stub == id));
         foreach (var part in result.Reconnected)
         {
             Reconnect(part);
         }
+
+        if (result.Restored > 0)
+        {
+            for (var i = 0; i < _fleshLinks.Count; i++)
+            {
+                if (_fleshLinks[i].Bridge is { Grown: false } bridge)
+                {
+                    _fleshLinks[i] = _fleshLinks[i] with { Bridge = bridge with { Grown = true } }; // 戻った肉も橋として数える（WatchFleshLinks がバネを固くする）
+                }
+            }
+        }
+
+        KnitBones(random, advance);
 
         if (_legsGaveOut && CanStand)
         {
@@ -273,6 +288,175 @@ public sealed partial class Fighter
         }
 
         return new RegrowReport(result.Restored, [.. _rebudded], [.. _newPieces]);
+    }
+
+    /// <summary>折れた骨が曲がったままつながった所: 切り株、破片、両者をつなぐ玉継手と、その時の向きに固定する向きのサーボ。</summary>
+    private readonly record struct BoneWeld(int Stub, int Fragment, int Socket, int Servo);
+
+    private readonly List<BoneWeld> _welds = [];
+
+    /// <summary>折れた骨が曲がったままつながった所の数（調べもの・表示用）。</summary>
+    public int KnitBonesCount => _welds.Count;
+
+    /// <summary>
+    /// 肉でつながった骨折の、肉の橋の今の断面の割合（0..1、<see cref="FleshBridge.Measure"/>）・向きのバネの固有振動数 [Hz]（調べもの・診断の映像用）。
+    /// 破片 <paramref name="fragment"/> がぶら下がっていなければ null。
+    /// </summary>
+    public (float Fraction, float SpringHz)? FractureState(int fragment)
+    {
+        var link = _fleshLinks.FirstOrDefault(l => l.Fragment == fragment);
+        if (!HangsByFlesh(fragment))
+        {
+            return null;
+        }
+
+        var fraction = link.Bridge?.Measure().Fraction ?? 1f;
+        return (fraction, link.FullHz * MathF.Sqrt(fraction));
+    }
+
+    /// <summary>剛体 <paramref name="fragment"/> が、骨がつながって体の一部に戻った破片か。</summary>
+    public bool IsKnit(int fragment) => _welds.Exists(w => w.Fragment == fragment);
+
+    /// <summary>
+    /// 骨の癒合（VFC の再生、2026-11-18 ユーザーの指定「先に肉を直して、バネが硬くなってやや真っすぐなってから最後に骨がなおって骨折による関節は固定」）:
+    /// 肉でつながった骨折のうち、肉の橋が元の断面まで戻り（<see cref="FleshBridge.Measure"/> の割合 1）、切れ目の両側の面に骨のセルがあるものは、抽選ごとに
+    /// セルの再生と同じ確率（進める距離 / セルの大きさ を k 回の pass に分けたもの）で骨がつながる。つながったら肉のつなぎを外し、その時の向きのまま固定する
+    /// （<see cref="WeldBone"/>）。曲がったままつながる（目標の向きを折れる前へ戻さない）。
+    /// </summary>
+    private void KnitBones(Random random, float advance)
+    {
+        if (Voxels is not { } body || _fleshLinks.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var link in _fleshLinks.ToList())
+        {
+            if (link.Bridge is not { } bridge || link.Fragment == Parts.Head || bridge.Measure().Fraction < 1f
+                || body.BoneFaces(link.Stub, link.Fragment) is not { StubBone: > 0, FragmentBone: > 0 } faces)
+            {
+                continue;
+            }
+
+            var layers = advance / MathF.Max(1e-6f, faces.CellSize);
+            var passes = Math.Max(1, (int)MathF.Ceiling(layers));
+            var knit = false;
+            for (var pass = 0; pass < passes && !knit; pass++)
+            {
+                knit = random.NextSingle() < layers / passes;
+            }
+
+            if (knit)
+            {
+                WeldBone(link, faces.BendStrength);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 折れた骨がつながった: 肉のつなぎ（玉継手・向きのバネ）を外し、切り株と破片をその時の相対の向きのまま固定する（首の溶接 <c>BreakNeck</c> と同じ作り:
+    /// 玉継手 + 向きのサーボ、固さ <see cref="FighterTuning.FractureLinkHz"/>）。向きのサーボが出せるトルクは、折れ目の骨の断面が曲げに持ちこたえる強さ
+    /// <paramref name="boneBend"/>（骨のセルの強さ × 断面積 × 軸からの距離の和。肉の橋の曲げの強さと同じ式で、骨のセルで数える: つながった骨は折れる前の骨と
+    /// 同じ強さで曲げを受ける）。破片は体の一部に戻る（自分の体とはぶつけない）。その先の関節（肘・膝・足首）が破片に付け替わっていれば、作ったときと同じ関節と
+    /// 筋肉を破片との間に作り直し、腕・脚を駆動する体に戻す（<see cref="RestoreLimbs"/>）。
+    /// </summary>
+    private void WeldBone(FleshLink link, float boneBend)
+    {
+        var anchor = _world.GetJointAnchors(link.Socket)?.AnchorA ?? _world.GetState(link.Fragment).Position;
+        foreach (var constraint in new[] { link.Socket, link.Spring })
+        {
+            if (_world.HasConstraint(constraint))
+            {
+                _world.RemoveConstraint(constraint, forget: true);
+            }
+        }
+
+        _fleshLinks.Remove(link);
+        var a = _world.GetState(link.Stub);
+        var b = _world.GetState(link.Fragment);
+        var socket = AddSocketAt(link.Stub, link.Fragment, anchor);
+        var servo = _world.AddAngularServo(link.Stub, link.Fragment, Quaternion.Concatenate(b.Orientation, Quaternion.Conjugate(a.Orientation)),
+            _tuning.FractureLinkHz, 1f, _tuning.ArmServoMaxSpeed, 0f, boneBend);
+        _welds.Add(new BoneWeld(link.Stub, link.Fragment, socket, servo));
+        Voxels?.HealBone(link.Stub);
+        ReleaseDeadGrips(link.Fragment); // 力の抜けた手が持っていた物は放す（つながった腕は、また自分で握る）
+        foreach (var arm in _arms)
+        {
+            if (arm.GloveBody == link.Fragment)
+            {
+                arm.WornLoose = false;
+            }
+        }
+
+        foreach (var other in _all.Where(id => !_detached.Contains(id)))
+        {
+            _world.SetPairCollisionEnabled(link.Fragment, other, false); // 体の一部に戻った（自分の体とはぶつけない）
+        }
+
+        // 破片にぶら下がっていた先の部位（上腕の骨折の前腕・腿の骨折のすね・すねの骨折の足）: 作ったときと同じ関節と筋肉を、破片との間に作り直す。
+        for (var i = 0; i < _joints.Count; i++)
+        {
+            var joint = _joints[i];
+            if (joint.ParentPart != link.Fragment || !_rest.TryGetValue(joint.ChildPart, out var rest) || rest.Kind is not { } kind)
+            {
+                continue;
+            }
+
+            var hold = _world.GetJointAnchors(joint.PrimaryConstraintId)?.AnchorA ?? anchor;
+            RemoveConstraints(joint.AllConstraintIds);
+            var f = _world.GetState(link.Fragment);
+            var parentLocal = Vector3.Transform(hold - f.Position, Quaternion.Conjugate(f.Orientation));
+            _joints[i] = HumanoidRagdoll.AttachJointAt(_world, kind, link.Fragment, joint.ChildPart, parentLocal, rest.ChildLocal, _tuning.TorqueScale);
+            AddLimbServo(kind, link.Fragment, joint.ChildPart);
+            var chain = new List<int> { joint.ChildPart };
+            if (KindOf(joint.ChildPart) == BodyPartKind.Shin)
+            {
+                chain.Add(_legParts.First(l => l.Shin == joint.ChildPart).Heel);
+            }
+
+            if (chain.Exists(id => KindOf(id) == BodyPartKind.Foot))
+            {
+                chain.Add(_legParts.First(l => chain.Contains(l.Heel)).Toe);
+            }
+
+            foreach (var part in chain)
+            {
+                _detached.Remove(part);
+            }
+
+            foreach (var part in chain)
+            {
+                foreach (var other in _all.Where(id => id != part && !_detached.Contains(id)))
+                {
+                    _world.SetPairCollisionEnabled(part, other, false);
+                }
+
+                _world.SetPairCollisionEnabled(part, link.Fragment, false);
+            }
+        }
+
+        RestoreLimbs();
+        // 脚: 体重を受けられる長さは、今の曲がった形で（折れ目をはさむ 2 つの関節の、今の距離と作ったときの距離の差だけ短い）。
+        foreach (var leg in _legParts)
+        {
+            var side = leg.AigisLeft ? 0 : 1;
+            var thigh = leg.AigisLeft ? Parts.LeftThigh : Parts.RightThigh;
+            if (link.Stub != thigh && link.Stub != leg.Shin || _legSevered[side])
+            {
+                continue;
+            }
+
+            var pelvis = _world.GetState(Parts.Pelvis);
+            var hip = pelvis.Position + Vector3.Transform(leg.PivotOnPelvis, pelvis.Orientation);
+            var knee = _joints.FirstOrDefault(j => j.ChildPart == leg.Shin);
+            var ankle = _joints.FirstOrDefault(j => j.ChildPart == leg.Heel);
+            var kneeAt = _world.GetJointAnchors(knee.PrimaryConstraintId)?.AnchorA;
+            var ankleAt = _world.GetJointAnchors(ankle.PrimaryConstraintId)?.AnchorA;
+            var shortfall = link.Stub == thigh && kneeAt is { } k
+                ? leg.ThighToKnee.Length() - Vector3.Distance(hip, k)
+                : kneeAt is { } k2 && ankleAt is { } a2 ? leg.ShinLength - Vector3.Distance(k2, a2) : 0f;
+            _legSupport[side] = _legFull - MathF.Max(0f, shortfall);
+        }
     }
 
     /// <summary>
@@ -575,7 +759,7 @@ public sealed partial class Fighter
         switch (kind)
         {
             case HumanoidRagdoll.RagdollJoint.LeftElbow or HumanoidRagdoll.RagdollJoint.RightElbow:
-                _arms.First(a => a.Forearm == child).AddElbowServo(_world, _tuning);
+                _arms.First(a => a.Forearm == child).AddElbowServo(_world, _tuning, parent);
                 break;
             case HumanoidRagdoll.RagdollJoint.LeftKnee or HumanoidRagdoll.RagdollJoint.RightKnee:
             {
@@ -617,7 +801,7 @@ public sealed partial class Fighter
                 continue;
             }
 
-            arm.Restore(_world, _tuning);
+            arm.Restore(_world, _tuning, keepHand: IsKnit(arm.GloveBody));
             Array.Fill(_servoSettings, -1f);
         }
 
@@ -3752,7 +3936,7 @@ public sealed partial class Fighter
         /// 拳は作ったときの所（前腕）に付け直す。はめていた物・握っていた物は古い手と一緒に床に残っている（戻さない）。肘の筋肉（サーボ）が
         /// 外れていれば、作ったときと同じに付け直す。
         /// </summary>
-        public void Restore(PhysicsWorld world, FighterTuning tuning)
+        public void Restore(PhysicsWorld world, FighterTuning tuning, bool keepHand = false)
         {
             Severed = false;
             HandGone = false;
@@ -3761,7 +3945,11 @@ public sealed partial class Fighter
             Bare = false;
             SlideSpan = null;
             WristShare = 1f;
-            AttachGlove(Forearm, HomeGloveLocal);
+            if (!keepHand)
+            {
+                AttachGlove(Forearm, HomeGloveLocal); // 骨がつながった前腕は、手は破片の先に付いたまま（今の手の所）
+            }
+
             if (!world.HasConstraint(ElbowServo))
             {
                 AddElbowServo(world, tuning);
@@ -3769,11 +3957,11 @@ public sealed partial class Fighter
         }
 
         /// <summary>肘の筋肉（上腕と前腕の間のひねりのサーボ）を、作ったとき（<see cref="Create"/>）と同じに付ける。</summary>
-        public void AddElbowServo(PhysicsWorld world, FighterTuning tuning)
+        public void AddElbowServo(PhysicsWorld world, FighterTuning tuning, int? upper = null)
         {
-            // 肘の基底は物理的な側で決まる（+X 側の腕が Mirrored / HumanoidRagdoll.BuildCore と同じ）。
+            // 肘の基底は物理的な側で決まる（+X 側の腕が Mirrored / HumanoidRagdoll.BuildCore と同じ）。上腕が折れてつながった腕は、肘を受ける破片との間に付ける。
             var basis = Side > 0f ? HumanoidRagdoll.YAxisTwistBasisMirrored : HumanoidRagdoll.YAxisTwistBasis;
-            ElbowServo = world.AddTwistServo(UpperArm, Forearm, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, 30f * tuning.TorqueScale);
+            ElbowServo = world.AddTwistServo(upper ?? UpperArm, Forearm, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, 30f * tuning.TorqueScale);
         }
 
         public void AttachGlove(int body, Vector3 local)
