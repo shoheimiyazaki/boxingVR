@@ -99,12 +99,7 @@ public sealed class SlideProbe
             last = now;
             if (name.StartsWith("katana yaw40 全部", StringComparison.Ordinal) && i >= 3 * 240 && i <= 3 * 240 + 240)
             {
-                var v = p.PelvisVelocity;
-                {
-                    var sep = Flat(p.AnklePosition(Hand.Right)) - Flat(p.AnklePosition(Hand.Left));
-                    var yaw = Yaw(p);
-                    var (sn, cs) = MathF.SinCos(yaw);
-                    if (p.Footwork.Steps != lastSteps) { lastSteps = p.Footwork.Steps; TestContext.WriteLine($"  [{name}] t={i * dt:0.000} {p.Footwork.DebugStep}"); }
+                if (p.Footwork.Steps != lastSteps) { lastSteps = p.Footwork.Steps; TestContext.WriteLine($"  [{name}] t={i * dt:0.000} {p.Footwork.DebugStep}"); }
             }
 
             foreach (var (k, sec) in new[] { (0, 5), (1, 10), (2, 20), (3, 30) })
