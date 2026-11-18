@@ -107,7 +107,14 @@ public sealed class EvasionBasicsTests
         Assert.IsGreaterThan(5, open.Punches);
         // 頭を人の比率（HeadScale 0.8）に小さくしてから、打たれてのけぞった頭は溜めの始めに決めた狙いから外れやすくなった（82 % → 71 %。ダメージ編 D2）。
         // 2026-11-17: 狙いを体（胴）の速さで延ばすようにしてから 57 %（打たれて下がった体の速さの分だけ奥を狙い、戻った頭の手前を通る拳が出る。詰めのドリルでは顔に当たる割合が上がった）。
-        Assert.IsGreaterThan(0.5f, open.HeadRate, "standing still, the right straight mostly lands");
+        // 2026-11-18（PhysicsVersion 45、体の運び）: 構えて止まった攻め手の拳は、体が前へ動かないので腕だけの質量（0.33 kg）で当たる。
+        // 前は連結度 × 体の有効質量 × 拳の速さで体の質量（3〜5 kg、体の割合 9 割）が湧いていた。ダメージは (√運動量 − 0.5) × 11 で 1 点に満たない当たりは
+        // 「触れただけ」なので、腕だけの拳は当たる速さがおよそ 1 m/s を割ると数えない（種 5: 速さ 0.6 m/s で頭に止まった拳が数えられない）。
+        // 種 5 の 7 発のうち頭に数えられたのは 版 43 で 5 発（71 %）、いまは 3 発（43 %。ほかの 4 発は頭の手前で止まる・触れるだけ）。
+        // 種 1〜8 の 8 秒では 版 43 が 37/56（66 %）、いまは 25/53（47 %）。受け手が動かず守らないなら、腕だけの拳でも頭に数えられる割合が多く（4 割以上）、
+        // 守って外せば 0 近くになる、という比べが主張なので、下限を 0.5 → 0.4 にし、「守った側は止まった側の半分以下」を足した。
+        Assert.IsGreaterThan(0.4f, open.HeadRate, "standing still, the right straight lands on a large share (arm-only punches that arrive slower than about 1 m/s count as a touch)");
+        Assert.IsLessThanOrEqualTo(0.5f * open.HeadRate, slipped.HeadRate, "and slipping as it is thrown makes it far less likely");
         Assert.IsLessThan(0.6f, slipped.HeadRate, "slipping as it is thrown, the head is often missed");
         Assert.IsGreaterThan(0.3f, slipped.EvadeRate, "and the punch passes without touching anything");
     }

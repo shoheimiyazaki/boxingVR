@@ -81,10 +81,15 @@ public sealed class PredictionTests
     {
         // 反応だけ（予測なし）では、溜めがあっても右ストレートはほぼ全部頭に当たる（拳は 0.15 秒足らずで届く）。
         // 予測の差を測る。疲労による攻撃停止・速度低下を混ぜない。
+        // 2026-11-18（PhysicsVersion 45）: 脳しんとうの係数を 100 倍にしたので、側頭への 1 発（12〜16 点）で受け手が倒れ、起き上がるまでの 9 秒ほど
+        // 攻め手の拳が出ず、読み（OpponentRead）は倒れたときに覚えた拳を捨てて 30 秒の間に学び直せなかった（種 2・3 は予測の有無で結果が同じ、
+        // 守りを出した割合 predicting 0.83 → 0.38。reacting は 0.21 → 0.19）。予測の差を測るテストなので、疲労と同じく脳しんとうも毎歩除く
+        // （除いた後: reacting 頭 0.53・守り 0.04、predicting 頭 0.34・守り 1.05。版 43 は reacting 0.52・0.21、predicting 0.32・0.83）。
         static void KeepFresh(BoxingGame game, BoxerBot _)
         {
             game.Player.Stamina = 1f;
             game.Cpu.Stamina = 1f;
+            game.Player.Concussion = 0f;
         }
 
         // 1 つの種では頭に当たる割合が 0.4〜0.7 の間で揺れる（PhysicsVersion 29 の後、種 1 は 0.53、種 2〜5 は 0.41・0.63・0.64・0.69）ので、

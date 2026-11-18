@@ -116,6 +116,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private readonly Dictionary<(Fighter, Hand), (Vector3 Velocity, bool Armed)> _swing = [];
     private readonly Random _fx;
     private readonly Dictionary<(Fighter, Hand), Vector3> _preStepGloveVelocity = [];
+    /// <summary>両者の体の部位の、この物理の歩の前の状態（打たれた点の速度から当たる速さを相対速度で出す: <see cref="PunchMechanics.ClosingSpeed"/>）。</summary>
+    private readonly Dictionary<int, BodyState> _preStepBodies = [];
     private readonly Dictionary<(Fighter, Hand), float> _hitCooldown = [];
     /// <summary>蹴りの打ち直しまでの間（脚ごと。拳の <see cref="_hitCooldown"/> と同じ長さ）。</summary>
     private readonly Dictionary<(Fighter, Hand), float> _kickCooldown = [];
@@ -395,6 +397,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var tailStart = StepProfile.Begin();
         foreach (var fighter in Fighters)
         {
+            foreach (var part in fighter.AllParts)
+            {
+                _preStepBodies[part] = _world.GetState(part);
+            }
+
             foreach (var hand in Hands)
             {
                 _preStepGloveVelocity[(fighter, hand)] = fighter.GloveVelocity(hand);
@@ -606,15 +613,19 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
                 continue;
             }
 
+            // 当たる速さは拳と打たれた点の相対速度（歩の前）: 下がる相手に付いたまま押す拳は打撃にならず、出てくる相手へ合わせた拳は速く当たる。
+            // 向き（velocity: へこみ・押し込み・体の有効質量の向き）は拳の速度のまま。
             var velocity = _preStepGloveVelocity[(attacker, hand)];
             var into = _world.GetState(victimBody).Position - glove;
-            var speed = into.LengthSquared() > 1e-8f ? MathF.Max(0f, Vector3.Dot(velocity, Vector3.Normalize(into))) : 0f;
+            var struck = PreStepVelocityAt(victimBody, glove);
+            var speed = into.LengthSquared() > 1e-8f ? PunchMechanics.ClosingSpeed(velocity, struck, into) : 0f;
             if (speed <= 0f)
             {
                 continue;
             }
 
-            var impactMass = attacker.ImpactMass(hand, velocity, out var bodyShare);
+            var drive = BodyFactor(attacker, velocity, glove, attacker.ShoulderPosition(hand), attacker.Parts.Chest, struck, into);
+            var impactMass = attacker.ImpactMass(hand, velocity, out var bodyShare, drive);
             var (kind, normalized, armHand) = victim.Locate(victimBody, glove);
             var zone = HitZones.Classify(kind, normalized, armHand.LocalSide());
             var damage = PunchMechanics.Damage(impactMass * speed) * PunchMechanics.Sharpness(speed) * ZoneDamage.Multiplier(zone);
@@ -626,6 +637,51 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             _hitCooldown[(attacker, hand)] = RehitCooldown;
             ApplyHit(new HitEvent(attacker, hand, victim, zone, glove, speed, impactMass, bodyShare, damage), victimBody, velocity);
         }
+    }
+
+    /// <summary>
+    /// 部位 <paramref name="body"/> の点 <paramref name="point"/> の、この物理の歩の前の速度（並進 ＋ 回転 × 腕の長さ）。
+    /// 体の部位は歩の前に覚えた状態、それ以外（切り落とされた破片など）は武器の接触のために覚えた状態、どちらも無ければ今の状態。
+    /// </summary>
+    private Vector3 PreStepVelocityAt(int body, Vector3 point)
+    {
+        var s = _preStepBodies.TryGetValue(body, out var before) ? before
+            : _beforeStep.TryGetValue(body, out var remembered) ? remembered : _world.GetState(body);
+        return s.LinearVelocity + Vector3.Cross(s.AngularVelocity, point - s.Position);
+    }
+
+    /// <summary>
+    /// 打った側の体の質量のうち、当たりへ運べる割合 = 押し出し（<see cref="PunchMechanics.LimbDrive"/>）× 体自身の動き（<see cref="PunchMechanics.BodyCarry"/>）。
+    /// 打つ点の速度 <paramref name="strikeVelocity"/>、当たる点 <paramref name="contact"/>、手足の付け根 <paramref name="root"/>（腕・肘は肩、脚は股）とそれが乗る胴の部位
+    /// <paramref name="torsoBody"/>（胸・骨盤）、打たれた点の速度 <paramref name="struckVelocity"/>（どれも歩の前）。押し出しの根元を肩・股でなく重心にするのは、胴の回転が運ぶ
+    /// フック・肘打ちでは肩も一緒に回り、肩に対する伸びが小さいため。体自身の動きは、突っ張り（付け根の速度: クロスで後ろの肩が前へ出る・踏み込み）と、
+    /// 梃子（手足と握った武器を胴に固めたとして当たる点が胴と一緒に動く速度: フック・武器の振り）を、連結度と同じ重みで混ぜる（<see cref="PunchMechanics.BodyClosingSpeed"/>）。
+    /// 混ぜる重みの手足の線は、連結度と同じ線（付け根から <paramref name="limbEnd"/>: 拳・はめた物・握った武器は拳、肘・蹴りは当たる点。null なら当たる点）。
+    /// </summary>
+    private float BodyFactor(Fighter striker, Vector3 strikeVelocity, Vector3 contact, Vector3 root, int torsoBody, Vector3 struckVelocity, Vector3 direction, Vector3? limbEnd = null)
+    {
+        var center = PreStepBodyVelocity(striker);
+        var closing = PunchMechanics.ClosingSpeed(strikeVelocity, struckVelocity, direction);
+        var body = PunchMechanics.BodyClosingSpeed(PreStepVelocityAt(torsoBody, root), PreStepVelocityAt(torsoBody, contact), struckVelocity, (limbEnd ?? contact) - root, direction);
+        return PunchMechanics.LimbDrive(strikeVelocity, center, struckVelocity, direction) * PunchMechanics.BodyCarry(body, closing);
+    }
+
+    /// <summary>ファイターの付いている部位の重心の、この物理の歩の前の速度（運動量 ÷ 質量）。</summary>
+    private Vector3 PreStepBodyVelocity(Fighter fighter)
+    {
+        var momentum = Vector3.Zero;
+        var mass = 0f;
+        foreach (var part in fighter.AllParts)
+        {
+            if (fighter.Owns(part) && _preStepBodies.TryGetValue(part, out var s))
+            {
+                var m = _world.GetMass(part);
+                momentum += s.LinearVelocity * m;
+                mass += m;
+            }
+        }
+
+        return mass > 0f ? momentum / mass : Vector3.Zero;
     }
 
     /// <summary>
@@ -1259,6 +1315,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _roundOverTimer = 0f;
         LastHit = null;
         _preStepGloveVelocity.Clear();
+        _preStepBodies.Clear();
         _hitCooldown.Clear();
         _kickCooldown.Clear();
         _elbowCooldown.Clear();

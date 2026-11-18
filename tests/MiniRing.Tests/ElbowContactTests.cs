@@ -13,6 +13,14 @@ public sealed class ElbowContactTests
 {
     private const float Dt = 1f / 240f;
 
+    /// <summary>
+    /// 肘の間合い（Standoff）に対する、寄る距離の倍率。2026-11-18（PhysicsVersion 45）: 肘は腕だけの質量（0.3〜0.5 kg）で当たるようになり、
+    /// 上向きの肘（0.8 m/s 前後で届いていた）は 1 倍・0.95 倍の間合い（寄り終わった距離 1.13 腕）では当たりに数えない（ダメージ 1 点未満の「触れただけ」。
+    /// 版 43 は同じ間合い 1.10 腕で体の質量 2.4 kg が乗って数えた）。0.9 倍（寄り終わりの距離 1.02 腕）なら 3 つの肘とも当たる
+    /// （横 1.95 m/s・上 1.74 m/s・下 1.86 m/s）。
+    /// </summary>
+    private const float CloseIn = 0.9f;
+
     private sealed record ElbowResult(string Zones, float StartDistance, int Hits, int VictimCellsLost, float MaxSpeed, float MaxMass, float MaxEnergy, float TotalEnergy, float MaxElbowSpeed, float MinElbowToAim);
 
     private static int Cells(Fighter f) => f.Voxels!.Parts.Concat(f.Voxels.Fragments).Sum(p => p.Body.Grid.FilledCount);
@@ -164,7 +172,7 @@ public sealed class ElbowContactTests
         Console.WriteLine(Describe("Jab x0.9", RunPunch(Technique.Jab, 0.9f, 0.35f)));
         foreach (var kind in Enum.GetValues<ElbowTechnique>())
         {
-            foreach (var scale in new[] { 1.0f })
+            foreach (var scale in new[] { CloseIn, 1.0f })
             {
                 Console.WriteLine(Describe(kind + " x" + scale.ToString(CultureInfo.InvariantCulture), Run(kind, distanceScale: scale)));
             }
@@ -176,7 +184,7 @@ public sealed class ElbowContactTests
     {
         foreach (var kind in Enum.GetValues<ElbowTechnique>())
         {
-            var r = Run(kind);
+            var r = Run(kind, distanceScale: CloseIn);
             Console.WriteLine(Describe(kind.ToString(), r));
             Assert.IsGreaterThan(0, r.Hits, $"{kind} lands as a counted hit (ApplyHit)");
             Assert.IsGreaterThan(0f, r.MaxSpeed, $"{kind} moves into the victim");
@@ -188,8 +196,11 @@ public sealed class ElbowContactTests
     public void AFasterElbow_CarriesMoreEnergy()
     {
         // 同じ経路を時間だけ変える。速く出した肘ほど速さが大きく、エネルギー（½ m v²）が大きい（倍率ではなく物理）。
-        var slow = Run(ElbowTechnique.Horizontal, durationScale: 1.8f);
-        var fast = Run(ElbowTechnique.Horizontal, durationScale: 0.8f);
+        // 2026-11-18（PhysicsVersion 45）: 腕だけの質量（0.3〜0.5 kg）で当たるので、遅い肘（durationScale 1.8）は 1 点未満の「触れただけ」で
+        // 当たりに数えない（版 43 は体の質量 1.9 kg が乗って 0.77 m/s でも数えた）。遅い方を、まだ当たりに数える 1.4 倍にした
+        // （間合い 0.9 倍: 速さ 1.72 m/s・エネルギー 0.751 J。速い方 0.8 倍は 2.31 m/s・1.278 J。1.6 倍は当たらない）。
+        var slow = Run(ElbowTechnique.Horizontal, durationScale: 1.4f, distanceScale: CloseIn);
+        var fast = Run(ElbowTechnique.Horizontal, durationScale: 0.8f, distanceScale: CloseIn);
         Console.WriteLine(Describe("slow", slow));
         Console.WriteLine(Describe("fast", fast));
         Assert.IsGreaterThan(0, fast.Hits, "the fast elbow lands");
