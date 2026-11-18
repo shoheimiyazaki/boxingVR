@@ -27,7 +27,8 @@ public sealed class OrganizationMatchTests
         Assert.AreEqual(5, rules.Rounds);
         Assert.AreEqual(25f, rules.BreakSeconds);
         // MatchRules.Vfc（試合の芯の決まり）と同じ決まりになる。
-        Assert.AreEqual(MatchRules.Vfc, rules);
+        // 始め・終わりの待ち時間（エモート）は TV の撮影だけが足すので、それを除けば同じ。
+        Assert.AreEqual(MatchRules.Vfc, rules with { IntroSeconds = 0f, EndSeconds = 0f });
     }
 
     [TestMethod]
@@ -35,7 +36,7 @@ public sealed class OrganizationMatchTests
     {
         var corners = BotCatalog.Corners("boxer");
         var staged = TvShowRules.Stage(corners, Organizations.Get("wvc"));
-        Assert.AreEqual(corners, staged);
+        Assert.AreEqual(corners with { SettleSeconds = TvShowRules.SettleSeconds }, staged); // 助走だけが足される
         Assert.AreEqual(ArenaShape.RopedSquare, staged.Layout.Shape);
     }
 
