@@ -32,8 +32,10 @@ public sealed class CharacterFileTests
         Assert.HasCount(13, CharacterRoster.Countries.Keys.Where(k => all.Any(c => c.Country.Id == k)).ToList());
         foreach (var c in all)
         {
-            // 2026-11-18: 教育は休みの動作の好み（BreakLikes）と戦略の層（GamePlan: 得意な間合いの表）だけ。ほかの値は教科書そのもの。
-            Assert.AreEqual("BreakLikes,GamePlan", string.Join(",", c.Education.Style.Select(p => p.Key).Order()), c.Id);
+            // 2026-11-18: 教育は休みの動作の好み（BreakLikes）と戦略の層（GamePlan: 得意な間合いの表）、拳のキャラは間の層（Rhythm: rhythmlab の表、
+            // 4a61e47・fe650cd で名簿に入った）だけ。ほかの値は教科書そのもの。
+            var keys = string.Join(",", c.Education.Style.Select(p => p.Key).Order());
+            Assert.IsTrue(keys is "BreakLikes,GamePlan" or "BreakLikes,GamePlan,Rhythm", c.Id + ": " + keys);
             Assert.AreEqual(0, c.Education.Vs.Count, c.Id);
             Assert.IsNull(c.Education.WeaponBot, c.Id);
             Assert.IsEmpty(c.Record, c.Id);
