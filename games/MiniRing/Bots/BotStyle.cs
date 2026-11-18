@@ -384,6 +384,12 @@ public sealed record BotStyle
     /// </summary>
     public GamePlanStyle? GamePlan { get; init; }
 
+    /// <summary>
+    /// 間の層（<see cref="Bots.Rhythm"/>、2026-11-18）: 相手の拳の後のどの時に打てば得をするかの表（攻めの番・守りの番）。null（教科書の既定）なら層なしで、
+    /// 判断はビット単位で今までと同じ。キャラの教育（<c>education.style.Rhythm</c>）で入れる。
+    /// </summary>
+    public RhythmStyle? Rhythm { get; init; }
+
     [System.Text.Json.Serialization.JsonIgnore]
     public Hand Lead => Southpaw ? Hand.Right : Hand.Left;
 
@@ -507,6 +513,7 @@ public sealed record BotStyle
             EvadeReach = float.IsFinite(EvadeReach) && EvadeReach > 0f ? Math.Clamp(EvadeReach, 0.8f, 2f) : 0f,
             ClinchRate = Unit(ClinchRate),
             GamePlan = GamePlan?.Validated(),
+            Rhythm = Rhythm?.Validated(),
         };
     }
 
