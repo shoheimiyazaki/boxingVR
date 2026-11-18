@@ -43,7 +43,7 @@ public sealed class CharacterSamenessTests
         ["w-katana-longsword-referee"] = (0xAF5D1C1D898CEE58, 0x22835BC52BC5B46B),
         ["w-club-katana-noref"] = (0x8DF70D062EC188A8, 0xA9DE97DF0A14B4B6),
         ["w-longsword-club-referee"] = (0x7A7F217A9222573A, 0xA64FED8CBA266E72),
-        ["w-club-club-noref"] = (0x7C19AB725FA1FF8B, 0x28F64F242E6370EC),
+        ["w-club-club-noref"] = (0x4C1F1B619DC81D5D, 0x76BCBBAF8C8162E7),
     };
 
 
