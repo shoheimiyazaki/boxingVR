@@ -52,13 +52,13 @@ internal static class NeckLab
         text.AppendLine("```");
         for (var y = 0; y < 6; y++)
         {
-            text.AppendLine($"head y={y}");
+            text.AppendLine("head y=" + y);
             AppendSlice(text, head, y);
         }
 
         for (var y = chest.Dimensions.Y - 6; y < chest.Dimensions.Y; y++)
         {
-            text.AppendLine($"chest y={y}");
+            text.AppendLine("chest y=" + y);
             AppendSlice(text, chest, y);
         }
 
