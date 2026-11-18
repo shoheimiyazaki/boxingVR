@@ -12,20 +12,26 @@ internal static class KickMocap
 
     private static float Deg(float rad) => rad * 180f / MathF.PI;
 
-    /// <summary>人形の 1 本の蹴り（技の値 <paramref name="spec"/> を試合と同じ道で。間合い <paramref name="standoff"/> の目標まで歩いて止まってから）。</summary>
-    internal static KneePractice.Outcome Doll(BodyBuild body, KickSpec spec, Hand side, float standoff, float duration, int seed, Action<BoxingGame, Vector3?, float>? onStep = null, Action<BoxingGame, LegCommand?, float>? onCommand = null, BodyBuild? victimBody = null)
+    /// <summary>人形の 1 本の蹴り（技の値 <paramref name="spec"/> を試合と同じ道で。間合い <paramref name="standoff"/> の目標まで歩いて止まり、体重を軸足へ移してから。体重の移し方 weight は教科書の値で、null ならテコンドーの教科書）。</summary>
+        internal static KneePractice.Outcome Doll(BodyBuild body, KickSpec spec, Hand side, float standoff, float duration, int seed, Action<BoxingGame, Vector3?, float>? onStep = null, Action<BoxingGame, LegCommand?, float>? onCommand = null, BodyBuild? victimBody = null, Bots.BotStyle? weight = null)
     {
         using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("still", _ => new StandGuard(), PlayerBody: body, CpuBody: victimBody));
         var attacker = game.Player;
         var victim = game.Cpu;
         var reach = attacker.ArmReach;
         const float dt = 1f / 240f;
-        FighterCommand Command(Vector3 move, LegCommand? leg, float yaw, float twist)
+        FighterCommand Command(Vector3 move, LegCommand? leg, float yaw, float twist, Vector3 head = default)
         {
             var face = Vector3.Transform(victim.ChestPosition - attacker.ChestPosition, Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw));
             return new FighterCommand(move, face, new HandCommand(AiControl.Guard(Hand.Left, reach), false), new HandCommand(AiControl.Guard(Hand.Right, reach), false),
-                TwistBias: twist, LeftLeg: side == Hand.Left ? leg : null, RightLeg: side == Hand.Right ? leg : null);
+                HeadOffset: head, TwistBias: twist, LeftLeg: side == Hand.Left ? leg : null, RightLeg: side == Hand.Right ? leg : null);
         }
+
+        // 蹴る前に体重を軸足へ移す（教科書の KickShift・KickLeanForward、試合のボットと同じ: BoxerBot.KickLean）。頭を軸足の側へ寄せる指令だけで、
+        // 体がそれを追って重心が軸足に乗ってから脚を上げる。軸足は蹴らない側の足: 後ろ（右）で蹴れば前足（前へ寄せる）、前（左）で蹴れば後ろ足（後ろへ）。
+        var teach = weight ?? Bots.BotCatalog.Style("taekwondo");
+        var toStance = side == Hand.Right ? 1f : -1f;
+        var lean = new Vector3(0f, 0f, toStance * teach.KickLeanForward * reach);
 
         float Distance() => Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f }) / reach;
 
@@ -50,6 +56,12 @@ internal static class KickMocap
             game.Step(new BoxingInput(Command(Vector3.Zero, null, 0f, 0f)), dt);
         }
 
+        var shiftSteps = (int)(teach.KickShift / dt);
+        for (var i = 0; i < shiftSteps; i++)
+        {
+            game.Step(new BoxingInput(Command(Vector3.Zero, null, 0f, 0f, lean * ((i + 1f) / shiftSteps))), dt);
+        }
+
         var aimWorld = spec.AimWorld(game.PlayerSense);
         var rest = new Vector3(side.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
         HitEvent? first = null;
@@ -61,7 +73,7 @@ internal static class KickMocap
             var t = i * dt;
             var sense = game.PlayerSense;
             LegCommand? leg = t <= duration ? spec.Evaluate(side, t, duration, rest, sense.Self.WorldToLocal(aimWorld), reach, sense.SelfLeg(side), Hand.Left) : null;
-            game.Step(new BoxingInput(Command(Vector3.Zero, leg, t <= duration ? spec.FaceYaw(side, t, duration) : 0f, t <= duration ? spec.TorsoTwist(side, t, duration) : 0f)), dt);
+            game.Step(new BoxingInput(Command(Vector3.Zero, leg, t <= duration ? spec.FaceYaw(side, t, duration) : 0f, t <= duration ? spec.TorsoTwist(side, t, duration) : 0f, t <= duration ? lean : Vector3.Zero)), dt);
             onCommand?.Invoke(game, leg, t);
             onStep?.Invoke(game, leg?.KneeLocal is { } k ? attacker.Frame.LocalToWorld(k) : null, t);
             if (first is null)

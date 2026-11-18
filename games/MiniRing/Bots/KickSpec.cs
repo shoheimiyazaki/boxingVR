@@ -50,7 +50,7 @@ public readonly record struct KickSpec(KickTechnique Technique, float Duration, 
             Seconds: tunes.Rear.Seconds, Captured: capture, Tunes: tunes);
 
     /// <summary>手作りの回し蹴り（kneelab 段 2 の通り道）。人の動きから作った既定との比べもの用。</summary>
-    public static KickSpec HandmadeRoundhouse => Of(KickTechnique.Roundhouse) with { Captured = null, Tunes = null, Seconds = 1.14f, Standoff = 1.0f, FootPitch = -0.5f };
+    public static KickSpec HandmadeRoundhouse => Of(KickTechnique.Roundhouse) with { Captured = null, Tunes = null, Seconds = 0.793f, Standoff = 1.0f, FootPitch = -0.41f };
 
     /// <summary>手作りの前蹴り（足首の目標の経路）。人の動きから作った既定との比べもの用。</summary>
     public static KickSpec HandmadeFront => Of(KickTechnique.Front) with { Captured = null, Tunes = null, Seconds = null, Duration = 0.80f, Lateral = 0f, ChamberHeight = 0.52f, Overshoot = 0.14f, Twist = 0f, Spin = 0f, Standoff = 0.95f, FootPitch = -0.45f };
@@ -74,8 +74,9 @@ public readonly record struct KickSpec(KickTechnique Technique, float Duration, 
         KickTechnique.Knee => new(technique, 0.75f, 0f, 0.56f, 0.08f, Standoff: 0.8f, FootPitch: 0.9f),
         // 回し蹴り（中段）: 胴（脇腹・肝臓）への蹴り。手本は人の下段と上段を狙いの高さで混ぜた物（roundhouse_mid.json。人のデータに中段の廻し蹴りが無い）。
         // 練習の差分（間合い・長さ・足首の曲げ・当たる瞬間の腿の向き・膝を開く拍子）は roundhouse_mid.tune.json。docs/arena/kick_shin_lmh_*.md。
-        // Practiced は手作り（kneelab 段 2、docs/arena/kneelab_stage2_diego.md。長さ 1.14 s）で、HandmadeRoundhouse（比べもの用）だけが使う。
-        KickTechnique.Roundhouse => FromCapture(technique, MidCapture.Value, MidTunes.Value) with { Practiced = new KneePath(0.938f, 0.101f, 1.194f, -0.022f, 0f, 0f, 0f, 1.345f, 0.47f, 0.275f, 0.706f, 0.424f) },
+        // Practiced は手作り（kneelab 段 2）で、HandmadeRoundhouse（比べもの用）だけが使う。2026-11-18 に床から支える体（PhysicsVersion 48）で練習し直した
+        // （taeyun・当たる所は正面・間合い 1.2 / 0.9、λ=8・12 世代、足の曲げ −0.41、長さ 0.793 s。比べ直しの運動量の合計 15.4 → 40.5: docs/arena/kneelab_stage2_gen48.md）。
+        KickTechnique.Roundhouse => FromCapture(technique, MidCapture.Value, MidTunes.Value) with { Practiced = new KneePath(1.413f, 0.172f, 1.324f, 0.023f, 0f, 0f, 0f, 0.818f, 0.542f, 0.247f, 0.187f, 0.507f) },
         // 回し蹴り（上段）: 人の廻し蹴り上段（肩〜頭）の手本。狙いは頭。
         KickTechnique.RoundhouseHigh => FromCapture(technique, HighCapture.Value, HighTunes.Value),
         // 回し蹴り（下段）: 人の廻し蹴り下段（膝〜腰のミット）の手本。狙いは相手の腿。

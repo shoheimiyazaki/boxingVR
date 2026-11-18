@@ -215,10 +215,10 @@ public sealed class Weapon
     }
 
     /// <summary>
-    /// 親セルを置き直す関節角のずれ [rad]: 指先がセル 1 つぶん（2 mm）動く角度（指の長さ 16 mm に対して 2 / 16）。これより細かいずれは、
+    /// 親セルを置き直す関節角のずれ [rad]: 指先がセル 1 つぶん動く角度（セル ÷ 中指の長さ）。これより細かいずれは、
     /// セルの置き場が変わらない。
     /// </summary>
-    private const float ReplaceAngle = HandSkeleton.Cell / 0.016f;
+    private static readonly float ReplaceAngle = HandSkeleton.Cell / HandSkeleton.MiddleFingerLength;
 
     /// <summary>関節ごとの骨の強さ（<see cref="BareHandState.Part"/> の最も傷んだ骨のセルの残り。格子が変わったときだけ数え直す）。</summary>
     private float[] BoneStrength()

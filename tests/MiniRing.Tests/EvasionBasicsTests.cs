@@ -103,9 +103,11 @@ public sealed class EvasionBasicsTests
 
         var open = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: 5, seconds: 8f, telegraph: 0.08f, observe: KeepFresh);
         var slipped = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: true, counters: false), seed: 5, seconds: 8f, cue: 0f, telegraph: 0.08f, observe: KeepFresh);
-        Console.WriteLine($"open head {open.HeadRate:P0}, slipped head {slipped.HeadRate:P0} evade {slipped.EvadeRate:P0}");
+        Console.WriteLine($"open {open.Punches} head {open.HeadRate:P0}, slipped head {slipped.HeadRate:P0} evade {slipped.EvadeRate:P0}");
 
-        Assert.IsGreaterThan(5, open.Punches);
+        // 構えたまま動かない受け手は、頭に 4 発当たると意識が 1.0 → 0.70 → 0.55 → 0 と落ちて倒れ、ラウンドが終わる（2026-11-18、床から支える体で測り直し: 1.5 秒で
+        // 4 発・全部頭）。ここの打数は標本の大きさでなく「倒れるまでに打たれた数」なので、倒れるまでの 4 発以上で、頭に当たる割合は下で見る。
+        Assert.IsGreaterThanOrEqualTo(4, open.Punches);
         // 頭を人の比率（HeadScale 0.8）に小さくしてから、打たれてのけぞった頭は溜めの始めに決めた狙いから外れやすくなった（82 % → 71 %。ダメージ編 D2）。
         // 2026-11-17: 狙いを体（胴）の速さで延ばすようにしてから 57 %（打たれて下がった体の速さの分だけ奥を狙い、戻った頭の手前を通る拳が出る。詰めのドリルでは顔に当たる割合が上がった）。
         // 2026-11-18（PhysicsVersion 45、体の運び）: 構えて止まった攻め手の拳は、体が前へ動かないので腕だけの質量（0.33 kg）で当たる。

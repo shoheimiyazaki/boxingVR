@@ -28,7 +28,9 @@ public sealed class FighterPhysicsTests
         // 足の運びの構え（足を前後に開き、膝を曲げる）で骨盤は生成時（脚がまっすぐ）より下がる。下がり過ぎない（2 割以内）。
         Assert.IsLessThan(startPelvis.Y, fighter.PelvisPosition.Y, $"pelvis {fighter.PelvisPosition}");
         Assert.IsGreaterThan(0.8f * startPelvis.Y, fighter.PelvisPosition.Y, $"pelvis {fighter.PelvisPosition}");
-        Assert.IsLessThan(0.05f, Horizontal(fighter.PelvisPosition - startPelvis));
+        // 支えを床から出す体（PhysicsVersion 39）は、生成直後に脚を伸ばした T ポーズから構えへ沈む揺れを、
+        // 起こすねじりでなく足の踏み直しで受け止めるので、前の体より少し（5.1 cm）動く。立っているだけで歩き出さない（6 cm 以内）。
+        Assert.IsLessThan(0.06f, Horizontal(fighter.PelvisPosition - startPelvis));
     }
 
     [TestMethod]
@@ -149,10 +151,18 @@ public sealed class FighterPhysicsTests
         var standing = fighter.PelvisPosition.Y;
 
         fighter.Knockdown(Vector3.UnitZ, permanent: false);
-        Run(world, fighter, Idle(fighter), seconds: 1f);
-        Assert.AreEqual(FighterState.Down, fighter.State);
-        // 倒れ方（仰向け・尻もち）は物理しだい。床に落ちた＝腰が立つ高さの 6 割より下。
-        Assert.IsLessThan(0.6f * standing, fighter.PelvisPosition.Y, "should actually be on the floor");
+        // 倒れ方（仰向け・尻もち）は物理しだい。床に落ちた＝腰が立つ高さの 6 割より下へ一度は落ちる。起き上がりは手足で床を押して
+        // 始まる（docs/GRAPPLING.md §8）ので、1 秒の時点ではもう起き上がる途中のこともある（倒れたまま＝ Down か GettingUp）。
+        var lowest = float.PositiveInfinity;
+        for (var i = 0; i < (int)(1f / Dt); i++)
+        {
+            fighter.ApplyControl(Idle(fighter), Dt);
+            world.Step(Dt);
+            lowest = MathF.Min(lowest, fighter.PelvisPosition.Y);
+        }
+
+        Assert.AreNotEqual(FighterState.Standing, fighter.State);
+        Assert.IsLessThan(0.6f * standing, lowest, "should actually be on the floor");
 
         Run(world, fighter, Idle(fighter), seconds: 5f);
         Assert.AreEqual(FighterState.Standing, fighter.State, $"upright {fighter.Uprightness}");

@@ -457,6 +457,7 @@ public sealed partial class Fighter
         {
             // 支持点へ戻す姿勢反射は既存の立位モデル。移動指令による仕事と区別する。
             ApplySharedImpulse(force * dt);
+            RecordSupportForce(force * dt);
             return;
         }
 
@@ -472,6 +473,7 @@ public sealed partial class Fighter
         var scale = MuscleWork.ForceScale(linear, quadratic, walking, budget);
         SpendMuscleEnergy(MuscleRegion.Legs, (linear * scale) + (quadratic * scale * scale) + (walking * scale));
         ApplySharedImpulse(force * (scale * dt));
+        RecordSupportForce(force * (scale * dt));
     }
 
     /// <summary>

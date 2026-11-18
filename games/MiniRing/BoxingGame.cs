@@ -139,6 +139,21 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <summary>両者の体の部位の、この物理の歩の前の状態（打たれた点の速度から当たる速さを相対速度で出す: <see cref="PunchMechanics.ClosingSpeed"/>）。</summary>
     private readonly Dictionary<int, BodyState> _preStepBodies = [];
     private readonly Dictionary<(Fighter, Hand), float> _hitCooldown = [];
+
+    /// <summary>試合の物理の時計 [s]（サブステップの和。決定的）。</summary>
+    private float _time;
+
+    /// <summary>相手に掴まれていた最後の時刻（投げの見出し用）。</summary>
+    private readonly Dictionary<Fighter, float> _heldAt = [];
+
+    /// <summary>前の歩で立っていたか（投げの見出し用）。</summary>
+    private readonly Dictionary<Fighter, bool> _wasStanding = [];
+
+    /// <summary>離された後、この時間 [s] 以内に倒れたら投げとみなす（見出しと記録だけ。物理は分けない）。</summary>
+    public const float ThrowWindow = 0.8f;
+
+    /// <summary>投げが決まった（掴んでいた側, 倒れた側）。見出し・ドリルの記録用。</summary>
+    public event Action<Fighter, Fighter>? Thrown;
     /// <summary>蹴りの打ち直しまでの間（脚ごと。拳の <see cref="_hitCooldown"/> と同じ長さ）。</summary>
     private readonly Dictionary<(Fighter, Hand), float> _kickCooldown = [];
     private readonly Dictionary<(Fighter, Hand), float> _elbowCooldown = [];
@@ -401,6 +416,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     private void Substep(in FighterCommand playerCommand, FighterCommand? blue, float dt)
     {
+        _time += dt;
         var controlStart = StepProfile.Begin();
         var perceptionStart = StepProfile.Begin();
         UpdatePerception(dt);
@@ -485,6 +501,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         RememberBeforeStep();
         CoolWeapons(dt);
         var bepuStart = StepProfile.Begin();
+        RememberCanvasVelocities();
+        UpdateCarriedLoads();
         _world.Step(dt);
         StepProfile.End(StepProfile.Slot.Bepu, bepuStart);
         if (_stagePose is not null)
@@ -492,6 +510,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             return; // 影の試合（StepStage）は打撃を数えない（映像のための立ち姿だけ）
         }
 
+        DetectCanvasImpacts(dt);
         var hitsStart = StepProfile.Begin();
         DetectHits();
         StepProfile.End(StepProfile.Slot.FistHits, hitsStart);
@@ -587,10 +606,20 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
                 LetGo(self, hand);
             }
 
-            if (self.UpdateGrab(hand, command.For(hand).Grip, opponent) is not null)
+            self.UpdateGrab(hand, command.For(hand).Grip, opponent);
+            if (self.IsHolding(hand))
             {
-                ShowMessage(self == Player ? "THROW!" : "THROWN!", 1f);
+                _heldAt[opponent] = _time;
             }
+        }
+
+        // 掴まれている間か離された直後に倒れた: 投げ（見出しだけ。倒れたかどうかは物理と審判の読みで決まる）。
+        var wasUp = _wasStanding.GetValueOrDefault(opponent, true);
+        _wasStanding[opponent] = opponent.State == FighterState.Standing;
+        if (wasUp && opponent.State != FighterState.Standing && _heldAt.TryGetValue(opponent, out var held) && _time - held <= ThrowWindow)
+        {
+            ShowMessage(self == Player ? "THROW!" : "THROWN!", 1f);
+            Thrown?.Invoke(self, opponent);
         }
 
         BareFreeHands(self);
@@ -1715,7 +1744,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             OpponentArmReach: opponent.ArmReach, OpponentDowned: opponent.State != FighterState.Standing,
             SelfBuild: self.Build, OpponentBuild: opponent.Build,
             SelfLegLeft: self.LegBodyOf(Hand.Left), SelfLegRight: self.LegBodyOf(Hand.Right),
-            SelfInjury: self.Injury(felt: true), OpponentInjury: opponent.Injury(felt: false), OpponentWinded: opponent.Winded);
+            SelfInjury: self.Injury(felt: true), OpponentInjury: opponent.Injury(felt: false), OpponentWinded: opponent.Winded, Grapple: GrappleSenseOf(self, opponent));
     }
 
     // ── 試合の時刻と点（戦略の層の入力 MatchSense。読むだけで、試合の物理には響かない）──
@@ -1773,6 +1802,19 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _roundElapsed = 0f;
         _quiet = 0f;
         _scoredBefore = Player is null || Cpu is null ? 0f : Player.Condition.TotalDamage + Cpu.Condition.TotalDamage;
+    }
+
+    /// <summary>組み技のための見え方（<see cref="GrappleSense"/>）。</summary>
+    public static GrappleSense GrappleSenseOf(Fighter self, Fighter opponent)
+    {
+        ArgumentNullException.ThrowIfNull(self);
+        ArgumentNullException.ThrowIfNull(opponent);
+        float Load(Fighter f, Hand h) => f.ElbowLockTorque(h) / MathF.Max(1e-6f, f.ElbowLigamentYield);
+        return new GrappleSense(opponent.CenterOfMass, opponent.CenterOfMassVelocity, opponent.SupportMargin,
+            opponent.ElbowPosition(Hand.Left), opponent.ElbowPosition(Hand.Right), opponent.WristPosition(Hand.Left), opponent.WristPosition(Hand.Right),
+            opponent.AnklePosition(Hand.Left), opponent.AnklePosition(Hand.Right),
+            self.IsHolding(Hand.Left), self.IsHolding(Hand.Right), self.IsGrabbed, Load(self, Hand.Left), Load(self, Hand.Right),
+            Load(opponent, Hand.Left), Load(opponent, Hand.Right), self.SupportMargin);
     }
 
     public FighterSense PlayerSense => ArmedSense(Player, Cpu);

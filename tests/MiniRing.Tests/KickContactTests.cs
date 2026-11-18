@@ -27,7 +27,7 @@ public sealed class KickContactTests
     /// <summary>足は腕より短い（高い所ほど近づかないと届かない）: 蹴りごとの、胸と胸の距離（腕の長さ倍）。</summary>
     private static float ApproachOf(KickTechnique kind) => KickSpec.Of(kind).Standoff;
 
-    private static KickResult Run(KickTechnique kind, Hand side = Hand.Right, float durationScale = 1f)
+    private static KickResult Run(KickTechnique kind, Hand side = Hand.Right, float durationScale = 1f, float closeIn = 0f)
     {
         // 蹴られる側は立って構えるだけ。蹴る側（赤）は台本の指令で歩いて詰め、止まって蹴る。
         using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("still", _ => new StandGuard()));
@@ -36,7 +36,7 @@ public sealed class KickContactTests
         for (var i = 0; i < 240 * 6; i++)
         {
             var d = Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f });
-            if (d < ApproachOf(kind) * attacker.ArmReach)
+            if (d < (ApproachOf(kind) * attacker.ArmReach) - closeIn)
             {
                 break;
             }
@@ -99,7 +99,13 @@ public sealed class KickContactTests
     {
         foreach (var kind in Enum.GetValues<KickTechnique>())
         {
-            var r = Run(kind);
+            // 後ろ蹴りは足がぎりぎり届く間合いで当たる蹴り（踵を回して振り出す。足首が狙いに寄る近さは 3.8〜7 cm で、触れるかどうかがその間にある:
+            // 版 48 は 3.8 cm で触れ（つま先 1 回）、master は 5.4 cm で触れ、マージ後は止まる位置の 1 歩のずれで 7.0 cm になって外した）。
+            // 蹴る側が歩いて止まる位置のわずかなずれで当たる・外れるが入れ替わるので、後ろ蹴りだけ標準の間合いより 3 cm 詰めて止まる
+            // （1〜8 cm 詰めるとどれも当たる: 1 cm で 1 回・3 cm で 2 回・8 cm で 1 回）。
+            // かかと落としも同じ縁にいる: 標準の間合いでは 2 回目の当たりの後に重心が支えの外へ 10 cm 出て（捕捉点の余白 +0.1 m）蹴った側が倒れたが、
+            // −4・−2・+1・+2・+4 cm のどこでも立ったまま 3〜4 回当たる（標準の間合いだけが外れる 1 点）ので、2 cm 詰めて止まる。
+            var r = Run(kind, closeIn: kind switch { KickTechnique.Back => 0.03f, KickTechnique.Axe => 0.02f, _ => 0f });
             Console.WriteLine($"{kind}: parts [{string.Join(',', r.Parts)}], hits {r.Hits}, victim cells lost {r.VictimCellsLost}, speed {r.MaxSpeed:F2} m/s, mass {r.Mass:F2} kg, closest ankle to aim {r.MinAnkleToTarget:F3} m, pelvis {r.StartPelvis:F3} -> min {r.MinPelvis:F3}, {r.AttackerState}");
             Assert.IsGreaterThan(0, r.Hits, $"{kind} lands as a counted hit");
             Assert.IsGreaterThan(0f, r.MaxSpeed, $"{kind} moves into the victim");

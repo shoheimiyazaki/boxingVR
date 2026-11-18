@@ -41,7 +41,7 @@ public sealed class BareHandState
     internal IReadOnlyList<int> Placement => _placement ?? [];
 
     private static (byte Material, float Health, bool Surface, float Stain)[] Fresh()
-        => [.. HandSkeleton.Parents.Select(p => (p.Material, BoxerAnatomy.Palette[p.Material].Toughness, p.Material == BoxerAnatomy.Skin, 0f))];
+        => [.. HandSkeleton.Parents.Select(p => (p.Material, BoxerAnatomy.Palette[p.Material].Toughness, p.Material == BoxerAnatomy.HandSkin, 0f))];
 
     /// <summary>無傷の素手を正拳に握った格子（武器の剛体を作るときの初期の形）。</summary>
     internal static VoxelGrid InitialGrid()
@@ -73,13 +73,13 @@ public sealed class BareHandState
 
             var full = BoxerAnatomy.Palette[parent.Material].Toughness;
             var left = _cells[i].Material == 0 ? 0f : Math.Clamp(_cells[i].Health, 0f, full);
-            if (parent.Material == BoxerAnatomy.Bone)
+            if (parent.Material == BoxerAnatomy.HandBone)
             {
                 bone += left;
                 boneFull += full;
                 weakest = full > 0f ? MathF.Min(weakest, left / full) : weakest;
             }
-            else if (parent.Material == BoxerAnatomy.Skin)
+            else if (parent.Material == BoxerAnatomy.HandSkin)
             {
                 skin += left;
                 skinFull += full;
@@ -123,8 +123,12 @@ public sealed class BareHandState
     /// セルへ置き、先に置いたセル（骨 → 肉 → 皮膚）が場所を取る。重なったセルは、いちばん近い空きセルへ押しのけられる（組織は減らない）。
     /// 削れて無くなった親セルの場所も取ったままにするので、置き場は傷に依らず姿勢だけで決まる。
     /// </summary>
+    /// <param name="pose">置く関節の姿勢。</param>
+    /// <param name="grid">置いた格子。</param>
+    /// <param name="held">握っている物が占める所（格子のローカルの点 → 中か）。null なら何も握っていない（素手の拳）。その所のセルは先に取ってあり、
+    /// 手の組織は置かれない（指は柄の外を巻き、押しのけられた組織も柄の中へは入らない）。格子には書かない（柄は武器の側の格子）。</param>
     /// <returns>台帳を新しい置き場に付け替えたもの（<see cref="Pose"/> = <paramref name="pose"/>）。</returns>
-    public BareHandState Placed(HandPose pose, out VoxelGrid grid)
+    public BareHandState Placed(HandPose pose, out VoxelGrid grid, Func<Vector3, bool>? held = null)
     {
         ArgumentNullException.ThrowIfNull(pose);
         var positions = HandSkeleton.Positions(pose);
@@ -134,6 +138,15 @@ public sealed class BareHandState
         var half = new Vector3(nx, ny, nz) * (0.5f * HandSkeleton.Cell);
         var result = new VoxelGrid(BoxerAnatomy.Palette, half, (nx, ny, nz), (_, _) => 0);
         var taken = new bool[nx * ny * nz];
+        if (held is not null)
+        {
+            for (var i = 0; i < taken.Length; i++)
+            {
+                var (x, y, z) = result.Coordinates(i);
+                taken[i] = held(result.CellCenter(x, y, z));
+            }
+        }
+
         var placement = new int[positions.Length];
         for (var i = 0; i < positions.Length; i++)
         {
@@ -189,18 +202,18 @@ public sealed class BareHandState
         for (var pass = 0; pass < 3; pass++)
         {
             var buried = Enumerable.Range(0, placement.Length)
-                .Where(i => HandSkeleton.Parents[i].Material == BoxerAnatomy.Skin && !Exposed(placement[i])).ToList();
+                .Where(i => HandSkeleton.Parents[i].Material == BoxerAnatomy.HandSkin && !Exposed(placement[i])).ToList();
             var changed = false;
             for (var i = 0; i < placement.Length && buried.Count > 0; i++)
             {
-                if (HandSkeleton.Parents[i].Material == BoxerAnatomy.Skin || !Exposed(placement[i]))
+                if (HandSkeleton.Parents[i].Material == BoxerAnatomy.HandSkin || !Exposed(placement[i]))
                 {
                     continue;
                 }
 
                 var j = buried.MinBy(k => Distance(placement[k], placement[i]));
                 // 骨の置き場は関節の角度が決めるので、骨は隣のセル（1 セル + 斜め）までしか動かさない。筋肉は 3 セルまで。
-                if (Distance(placement[j], placement[i]) > (HandSkeleton.Parents[i].Material == BoxerAnatomy.Bone ? MaxBoneSwapCells2 : MaxSwapCells2))
+                if (Distance(placement[j], placement[i]) > (HandSkeleton.Parents[i].Material == BoxerAnatomy.HandBone ? MaxBoneSwapCells2 : MaxSwapCells2))
                 {
                     continue; // 遠すぎる入れ替えは形を崩す（骨が本来の場所から離れる）ので、その外に出た組織はそのまま
                 }
@@ -217,7 +230,7 @@ public sealed class BareHandState
         }
     }
 
-    /// <summary>入れ替えてよい距離の上限（セルの数の 2 乗）: 筋肉は 3 セル = 6 mm、骨は 1 セル + 斜めまで。</summary>
+    /// <summary>入れ替えてよい距離の上限（セルの数の 2 乗）: 筋肉は 3 セル（5 mm のセルで 15 mm）、骨は 1 セル + 斜めまで。</summary>
     private const float MaxSwapCells2 = 9f;
 
     private const float MaxBoneSwapCells2 = 3f;

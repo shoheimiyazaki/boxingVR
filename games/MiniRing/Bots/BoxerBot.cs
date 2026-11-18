@@ -232,7 +232,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 53; // 53: ブランチ claude/spacing-control-features-a34e7d の 52（間の層 Rhythm）と、ブランチ claude/vfc の 52（武器を失ったボットが支給された武器をまた握る）を合わせた（2026-11-18 のマージ）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 54; // 54: master の 53（間の層・武器を失ったボット・剣の技）と、ブランチ claude/grappling-fix の 53（蹴りの差分を体重を軸足へ移して練習し直した）を合わせた（2026-11-19 のマージ）。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;
@@ -242,6 +242,9 @@ public sealed class BoxerBot : IFighterControl
     private Vector3 _elbowAimWorld;
     public ElbowTechnique? CurrentElbow => _elbow;
     private float _kickTime;
+
+    /// <summary>今の蹴りの向き・狙いを決めたか（蹴りを選んでから最初の歩で決める）。</summary>
+    private bool _kickSet;
 
     /// <summary>今の蹴りの長さ [s]。技が自分の長さを持つなら（人の動きから作った手本、<see cref="KickSpec.Seconds"/>）それ、なければスタイルの値。</summary>
     private float KickLength => (_kick is { } kind ? KickSpec.Of(kind).SecondsFor(_kickSide, Style.Lead) : null) ?? Style.KickDuration;
@@ -361,6 +364,11 @@ public sealed class BoxerBot : IFighterControl
             UpdateElbow(seen, dt);
             UpdatePunches(observed, sense.SelfHead, dt);
         }
+        else if (_kick is not null && _kickTime < 0f)
+        {
+            // 体重を軸足へ移す間（KickShift）は相手が見えなくても進める（見えない間に寄せたまま固まらない）。
+            _kickTime = MathF.Min(0f, _kickTime + dt);
+        }
 
         StepProfile.End(StepProfile.Slot.BotChoose, chooseStart);
         var executeStart = StepProfile.Begin();
@@ -401,6 +409,11 @@ public sealed class BoxerBot : IFighterControl
         // 体の向きを回す蹴り: 向きは相手へ向けた向きから回す（FaceDirection の目標）。狙い（体フレーム）は体が回るにつれて動くので毎歩求め直す。
         var kickTwist = 0f;
         var kickFace = dir;
+        if (_kickTime < 0f)
+        {
+            kickSpec = null; // 体重を軸足へ移している間（KickShift）は脚を上げない
+        }
+
         if (kickSpec is { Turns: true } turning)
         {
             kickTwist = turning.TorsoTwist(_kickSide, _kickTime, KickLength);
@@ -973,17 +986,21 @@ public sealed class BoxerBot : IFighterControl
             return;
         }
 
-        if (_kickTime == 0f)
+        var before = _kickTime;
+        if (!_kickSet || (before < 0f && before + dt >= 0f))
         {
+            // 蹴りを選んだ歩と、体重を移し終えて脚を上げる歩で、狙いを決める（移している間に相手が動く）。
             _kickSide = Style.Lead == Hand.Left ? Hand.Right : Hand.Left;
             _kickAimWorld = KickSpec.Of(kind).AimWorld(sense);
             _kickAim = sense.Self.WorldToLocal(_kickAimWorld);
+            _kickSet = true;
         }
         _kickTime += dt;
         if (_kickTime >= KickLength)
         {
             _kick = null;
             _kickTime = 0f;
+            _kickSet = false;
             _cooldown = KickLength;
         }
     }
@@ -1124,6 +1141,7 @@ public sealed class BoxerBot : IFighterControl
                     else
                     {
                         _kick = PickKick(distance, reach);
+                        _kickTime = -Style.KickShift;
                     }
                 }
             }
@@ -1588,7 +1606,23 @@ public sealed class BoxerBot : IFighterControl
                 : new Vector3(Range(-0.32f, 0.32f), Range(-0.15f, 0.02f), Range(-0.08f, 0.2f)) * (reach * a); // 上下は浅く（構えたまま沈み込まない）
         }
 
-        return _headIdle + shift;
+        return _headIdle + shift + KickLean(lead, reach);
+    }
+
+    /// <summary>
+    /// 蹴りの間の頭の寄せ（体重を軸足 = 前足へ乗せる指令、<see cref="BotStyle.KickLeanForward"/>・<see cref="BotStyle.KickLeanSide"/>）。
+    /// 体重を移す間（<see cref="BotStyle.KickShift"/>）に 0 から満ちて、蹴り終わるまで保つ。
+    /// </summary>
+    private Vector3 KickLean(float lead, float reach)
+    {
+        if (_kick is null)
+        {
+            return Vector3.Zero;
+        }
+
+        var shift = Style.KickShift;
+        var share = shift > 0f ? Math.Clamp((_kickTime + shift) / shift, 0f, 1f) : 1f;
+        return new Vector3(lead * Style.KickLeanSide, 0f, Style.KickLeanForward) * (reach * share);
     }
 
     /// <summary>

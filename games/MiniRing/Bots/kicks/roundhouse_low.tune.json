@@ -1,11 +1,11 @@
 {
   "Rear": {
-    "Standoff": 1.1119866,
-    "Seconds": 0.5831514,
-    "AzimuthShift": -0.39450374,
-    "ElevationShift": -0.11111915,
-    "BendShift": -0.07653736,
-    "FootPitch": -0.19143468
+    "Standoff": 1.1985806,
+    "Seconds": 0.86674285,
+    "AzimuthShift": -0.43673185,
+    "ElevationShift": 0.048047185,
+    "BendShift": -0.054097027,
+    "FootPitch": -0.82105577
   },
   "Front": {
     "Standoff": 0.8880072,

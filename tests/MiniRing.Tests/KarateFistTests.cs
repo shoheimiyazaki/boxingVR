@@ -60,9 +60,9 @@ public sealed class KarateFistTests
         foreach (var p in tips)
         {
             var skin = grid.FilledCellAt(p);
-            Assert.AreEqual(BoxerAnatomy.Skin, grid.MaterialAt(skin));
+            Assert.AreEqual(BoxerAnatomy.HandSkin, grid.MaterialAt(skin));
             var bone = grid.FilledCellAt(p - new Vector3(grid.CellSize.X, 0f, 0f));
-            boneBehind += bone >= 0 && grid.MaterialAt(bone) == BoxerAnatomy.Bone ? 1 : 0;
+            boneBehind += bone >= 0 && grid.MaterialAt(bone) == BoxerAnatomy.HandBone ? 1 : 0;
         }
 
         // 指の関節で組んだ拳頭は、骨 1 セルの前に皮膚 1 セル（指の十字の断面: 骨の左右の皮膚は骨の前に無い）。先頭の面の 3 分の 1 以上は骨が後ろにある（掌のほうへ曲がる指の先は皮膚だけで骨が奥にずれる所もある）。
@@ -110,7 +110,8 @@ public sealed class KarateFistTests
         Assert.IsLessThan(old.TargetLost, knuckle.TargetLost,
             "a higher peak pressure must not be mistaken for a guaranteed larger damaged volume");
         Assert.IsGreaterThanOrEqualTo(palm.Depth, knuckle.Depth);
-        Assert.IsTrue(knuckle.SkinLost > 0, "the striking hand also loses skin");
+        // 手の組織は木の物性（2026-11-18、docs/DEBT.md「手の物性を木の値で代用」）: 肉と皮膚の的を打っても、拳の皮膚は削れない。
+        Assert.AreEqual(0, knuckle.SkinLost, "the wood-valued hand skin is not worn by a flesh target");
     }
 
     private static VoxelGrid LegacyFist() => new(BoxerAnatomy.Palette, new Vector3(0.014f), 0.002f,
@@ -129,7 +130,7 @@ public sealed class KarateFistTests
         world.SetPairCollisionEnabled(fistId, targetId, false);
         world.SetLinearVelocity(fistId, new Vector3(speed, 0f, 0f));
         var before = targetGrid.FilledCount;
-        var skin = grid.Remaining(BoxerAnatomy.Skin);
+        var skin = grid.Remaining(BoxerAnatomy.Skin) + grid.Remaining(BoxerAnatomy.HandSkin);
         var depth = 0f;
         var pressure = 0f;
         for (var step = 0; step < 30; step++)
@@ -145,7 +146,7 @@ public sealed class KarateFistTests
             }
         }
 
-        return (before - targetGrid.FilledCount, skin - grid.Remaining(BoxerAnatomy.Skin), depth, pressure);
+        return (before - targetGrid.FilledCount, skin - grid.Remaining(BoxerAnatomy.Skin) - grid.Remaining(BoxerAnatomy.HandSkin), depth, pressure);
     }
 
     private static Vector3 Center(VoxelGrid grid, int i)
