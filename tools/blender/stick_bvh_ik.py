@@ -10,6 +10,7 @@
 - --bake: IK の結果を回転へ焼き込む（制約を外しても同じ姿勢になる。ゲームや別の道具へ渡すとき）。
 - 終わりに、動きごとの「手首と握りの点の離れ」を IK なし・ありで出す（確かめ）。
 """
+import glob
 import os
 import sys
 
@@ -22,7 +23,8 @@ def main():
     args = [a for a in args if a != "--bake"]
     if len(args) < 2:
         raise SystemExit("usage: -- <out.blend> <a.bvh> [b.bvh ...] [--bake]")
-    out, paths = args[0], args[1:]
+    out = args[0]
+    paths = sorted(p for pattern in args[1:] for p in (glob.glob(pattern) or [pattern]))  # Windows の cmd は * を広げない
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     arm = None
