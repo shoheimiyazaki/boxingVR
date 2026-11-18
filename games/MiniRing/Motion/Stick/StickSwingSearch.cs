@@ -7,7 +7,7 @@ namespace MiniRing.Motion.Stick;
 /// <param name="Iterations">1 本あたりの (1+1) 進化戦略の繰り返し。</param>
 /// <param name="Seed">乱数の種（同じ種で同じ結果）。</param>
 /// <param name="Weights">点の重み。</param>
-public sealed record SwingSearchOptions(int Samples = 2000, int Polish = 6, int Iterations = 1500, int Seed = 1, SwingWeights? Weights = null)
+public sealed record SwingSearchOptions(int Samples = 2000, int Polish = 8, int Iterations = 3000, int Seed = 1, SwingWeights? Weights = null)
 {
     public SwingWeights EffectiveWeights => Weights ?? new SwingWeights();
 }

@@ -36,7 +36,7 @@ public sealed record SwingPlane(string Name, string Label, Vector3 Normal, Vecto
 }
 
 /// <summary>点の重み（探索の点 = 速さ × w − 滑らかさ × w − 断面 × w − 刃筋 × w − 向き × w）。各項は「悪い」で 1 になるよう割ってある。</summary>
-public sealed record SwingWeights(float Speed = 1f, float Smooth = 1f, float Plane = 1f, float Edge = 1f, float Direction = 1f)
+public sealed record SwingWeights(float Speed = 3f, float Smooth = 1f, float Plane = 1f, float Edge = 1f, float Direction = 1f)
 {
     /// <summary>"speed:1,smooth:2,..." を読む（書かなかった項は既定）。</summary>
     public static SwingWeights Parse(IEnumerable<string> items)
@@ -516,10 +516,10 @@ public sealed class SwingRig
             }
         }
 
-        // 点の項。それぞれ「悪い」で 1 になる割り算（LDLJ −8・SPARC −2.6・曲率の変化 e²−1・断面の外れ 0.1・30°・30°・伸び 0.8）。
+        // 点の項。それぞれ「悪い」で 1 になる割り算（LDLJ −8・SPARC −2.6・曲率の変化 e⁴−1・断面の外れ 0.1・30°・30°・伸び 0.8）。
         var ldljValue = ldlj ?? -12f;
         var sparcValue = sparc ?? -5f;
-        var smooth = (MathF.Max(0f, -ldljValue - 5f) / 3f / 3f) + (MathF.Max(0f, -sparcValue - 1.6f) / 1f / 3f) + (MathF.Log(1f + curvature) / 2f / 3f) + extraPeaks;
+        var smooth = (MathF.Max(0f, -ldljValue - 5f) / 3f / 3f) + (MathF.Max(0f, -sparcValue - 1.6f) / 1f / 3f) + (MathF.Log(1f + curvature) / 4f / 3f) + extraPeaks;
         var planeTerm = misfit / 0.1f;
         var edgeTerm = edge / (30f * Deg);
         var directionTerm = (direction / (30f * Deg)) + (MathF.Max(0f, 0.8f - reach) / 0.2f) + (MathF.Max(0f, 0.3f - forward) / 0.3f);

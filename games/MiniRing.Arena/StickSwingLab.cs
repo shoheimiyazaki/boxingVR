@@ -36,7 +36,7 @@ internal static class StickSwingLab
     {
         var planes = o.List("planes", DefaultPlanes.Split(',')).Select(SwingPlane.Get).ToList();
         var weights = SwingWeights.Parse(o.List("weights", []));
-        var options = new SwingSearchOptions(o.Int("samples", 2000, min: 1), o.Int("polish", 6, min: 1), o.Int("iterations", 1500, min: 0), o.Int("seed", 1), weights);
+        var options = new SwingSearchOptions(o.Int("samples", 2000, min: 1), o.Int("polish", 8, min: 1), o.Int("iterations", 3000, min: 0), o.Int("seed", 1), weights);
         var character = o.Get("character") ?? "jin";
         var videoDir = o.Get("video");
         var watch = Stopwatch.StartNew();
