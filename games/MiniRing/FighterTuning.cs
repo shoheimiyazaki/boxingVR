@@ -548,6 +548,9 @@ public sealed record FighterTuning
         }
     }
 
+    /// <summary>足の裏とマットの摩擦係数（ゴム底とキャンバスで 0.8〜1）。床が体を水平に押せる力の上限 = これ × 垂直抗力。今は棒人形の見立て（Motion/Stick）だけが使う（試合の物理には響かない）。投げの枝の床からの支えのモデルと同じ値。</summary>
+    public float SoleFriction { get; init; } = 0.9f;
+
     public static FighterTuning Default { get; } = new();
 
     internal static Vector3 Up => Vector3.UnitY;
