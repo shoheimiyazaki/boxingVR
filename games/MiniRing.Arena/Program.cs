@@ -46,7 +46,7 @@ try
         "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seed", "parallel", "seconds", "out", "only", "variants", "video", "try", "defender", "forms", "techniques", "compare")),
         "selfcuts" => SelfCutCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "out", "hitaway", "passes", "clearance", "margin", "tilt", "pacing", "slack", "angle")),
         "selfpath" => SelfPathCommand(Options.Parse(argv[1..], "margin", "from", "tilt", "out", "forms")),
-        "necklab" => NeckLabCommand(Options.Parse(argv[1..], "mode", "heights", "offsets", "arms", "speeds", "bridges", "tilt", "out", "video", "height", "side", "offset", "slow")),
+        "necklab" => NeckLabCommand(Options.Parse(argv[1..], "mode", "heights", "offsets", "arms", "speeds", "speed", "dir", "bridges", "tilt", "out", "video", "height", "side", "offset", "slow")),
         "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes", "hz", "sample")),
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
         "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway", "clearance", "passes", "hz", "sample", "margin", "tilt", "pacing", "slack", "angle")),
@@ -1115,6 +1115,12 @@ static int NeckLabCommand(Options o)
 {
     // 関節の隙間の調査（geom）と、首・肩の高さの薙ぎ（cut。既定）。
     NeckLab.ArmsDown = o.Get("arms") == "down";
+    if (o.Get("video") is { } slashVideo && o.Get("mode") == "slash")
+    {
+        NeckLab.SlashVideo(o.Get("dir") ?? "back", o.Float("offset", -0.003f), o.Float("speed", 3.4f, min: 0.1f), o.Get("bridges") != "off", o.Get("arms") == "down", o.Float("slow", 8f, min: 0.25f), slashVideo);
+        return 0;
+    }
+
     if (o.Get("video") is { } videoPath)
     {
         NeckLab.Video(o.Float("height", 0.3f), o.Float("side", 1f), o.Float("offset", 0f), o.Float("slow", 4f, min: 0.25f), videoPath);

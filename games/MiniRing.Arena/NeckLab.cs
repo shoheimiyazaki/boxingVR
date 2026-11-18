@@ -264,6 +264,80 @@ internal static class NeckLab
         return new SlashResult(neckStart - NeckCells(victim.Voxels), headStart - head.FilledCount, chestStart - chestGrid.FilledCount, neckBroken, neckBroken && victim.IsDead && victim.DeathCause == "neck", touched);
     }
 
+    /// <summary>
+    /// <see cref="SlashOnce"/> と同じ 1 振りを動画にする（体の横から首へ寄る。<paramref name="slow"/> 倍のスロー、振り終わって 1.2 秒まで）。音なし。
+    /// </summary>
+    public static void SlashVideo(string dir, float offset, float speed, bool bridges, bool armsDown, float slow, string outPath)
+    {
+        const int Width = 960, Height = 540, Fps = 30;
+        using var game = new BoxingGame(SwordStance.Tuning, 1, new BoxingCorners("stand", _ => new StandGuard(armsDown ? DownPosture : null), _ => new StandGuard(armsDown ? DownPosture : null)));
+        for (var i = 0; i < 90; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        game.JointBridges = bridges;
+        var victim = game.Cpu;
+        var p = victim.Parts;
+        var chest = game.World.GetState(p.Chest);
+        var joint = chest.Position + (Vector3.Transform(Vector3.UnitY, chest.Orientation) * victim.HalfExtentsOf(p.Chest).Y);
+        var frame = victim.Frame;
+        var (heading, across) = dir switch
+        {
+            "side" => (frame.Right, frame.Forward),
+            "front" => (-frame.Forward, frame.Right),
+            _ => (frame.Forward, frame.Right),
+        };
+        var orientation = WeaponDrills.Edge(heading, across);
+        var kind = WeaponKind.Katana;
+        var middle = (Weapon.TipOf(kind).X + Weapon.TwoHandGripsOf(kind).Bottom.X) * 0.5f;
+        var start = joint + new Vector3(0f, offset, 0f) - (heading * 0.15f) - Vector3.Transform(new Vector3(middle, 0f, 0f), orientation);
+        var weapon = game.AddWeapon(kind, start, orientation);
+        // 刃が来る向きに対して横（刃の長さの向きの反対側）から、斜め上気味に首を見る。
+        var view = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, heading)) * 0.34f;
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
+        using var renderer = new Aigis.Render.HeadlessRenderer(Width, Height);
+        using var ffmpeg = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ffmpeg",
+            $"-y -loglevel error -f rawvideo -pix_fmt rgba -s {Width}x{Height} -r {Fps} -i - -c:v libx264 -pix_fmt yuv420p -crf 23 -preset fast \"{outPath}\"")
+        {
+            RedirectStandardInput = true,
+            UseShellExecute = false,
+        }) ?? throw new IOException("ffmpeg を起動できません（PATH にありますか）。");
+        var steps = (int)MathF.Ceiling(0.30f / speed * 240f) + 2;
+        var total = steps + (int)(1.2f * 240f);
+        var next = 0f;
+        var perFrame = 1f / (Fps * slow);
+        for (var i = 0; i < total; i++)
+        {
+            if (i < steps)
+            {
+                game.World.SetLinearVelocity(weapon.Body.BodyId, heading * speed);
+                game.World.SetAngularVelocity(weapon.Body.BodyId, Vector3.Zero);
+            }
+
+            game.Step(default, 1f / 240f);
+            var t = i / 240f;
+            if (t < next)
+            {
+                continue;
+            }
+
+            next = t + perFrame;
+            var instances = new List<Aigis.Render.PrimitiveInstance>();
+            var lines = new List<Aigis.Render.DebugLine>();
+            BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
+            var center = victim.HeadPosition + new Vector3(0f, -0.025f, 0f);
+            var eye = center + view + new Vector3(0f, 0.05f, 0f);
+            var vp = Aigis.Render.Camera.ViewProjection(eye, center, Vector3.UnitY, 38f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
+            var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, [], particles: game.BuildParticles(), lighting: game.BuildLighting(),
+                shadow: game.BuildShadow(), cameraPosition: eye, shapes: [], postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+            ffmpeg.StandardInput.BaseStream.Write(rgba);
+        }
+
+        ffmpeg.StandardInput.Close();
+        ffmpeg.WaitForExit();
+    }
+
     private static readonly GuardPosture DownPosture = new("down", Vector3.Zero, new Vector3(0.45f, -0.75f, 0.05f));
 
     /// <summary>

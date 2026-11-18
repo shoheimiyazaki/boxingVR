@@ -63,7 +63,7 @@
   guardlab [--seeds] [--seed] [--parallel] [--seconds] [--out] [--only] [--variants] [--video] [--try] [--defender] [--forms] [--techniques] [--compare]
   selfcuts [--pairs] [--seeds] [--seconds] [--out] [--hitaway] [--passes] [--clearance] [--margin] [--tilt] [--pacing] [--slack] [--angle]
   selfpath [--margin] [--from] [--tilt] [--out] [--forms]
-  necklab [--mode geom|slash] [--heights] [--offsets] [--speeds] [--bridges off] [--tilt] [--arms] [--video] [--height] [--side] [--offset] [--slow] [--out]
+  necklab [--mode geom|slash] [--heights] [--offsets] [--speeds] [--speed] [--dir] [--bridges off] [--tilt] [--arms] [--video] [--height] [--side] [--offset] [--slow] [--out]
   tunnel [--pairs] [--bouts] [--seconds] [--out] [--passes] [--hz] [--sample]
   bladeprobe [--pairs] [--bouts] [--seconds] [--out]
   versus [--bouts] [--seconds] [--seed] [--out] [--defense] [--video] [--red] [--blue] [--hitaway] [--clearance] [--passes] [--hz] [--sample] [--margin] [--tilt] [--pacing] [--slack] [--angle]

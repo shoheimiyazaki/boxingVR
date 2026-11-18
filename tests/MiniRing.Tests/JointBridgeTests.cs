@@ -48,7 +48,7 @@ public sealed class JointBridgeTests
     }
 
     [TestMethod]
-    public void ARotatedNeck_OpensAGap_AndTheBridgeFillsIt()
+    public void TheNeckBridge_FillsTheGapBetweenHeadAndChest_StandingAndTipped()
     {
         int Count(float tiltDegrees)
         {
@@ -67,8 +67,9 @@ public sealed class JointBridgeTests
         var upright = Count(0f);
         var tilted = Count(40f);
         TestContext.WriteLine($"neck bridge cells: upright {upright}, head tilted 40 degrees {tilted}");
-        Assert.IsGreaterThan(upright, tilted, "turning the head about the joint opens a gap that the bridge fills");
-        Assert.IsGreaterThan(0, tilted);
+        // 首の隙間（あごと肩の間の切れ込みなど）は立っていても開いていて、つなぎが埋める。頭を倒してもつなぎは残る（姿勢ごとに、いまの 2 つの格子から作り直す）。
+        Assert.IsGreaterThan(40, upright, "the notch between head and chest is bridged while standing");
+        Assert.IsGreaterThan(40, tilted, "and still bridged with the head tipped about the joint");
     }
 
     /// <summary>
