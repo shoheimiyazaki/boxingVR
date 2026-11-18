@@ -13,6 +13,8 @@
 
 ワークツリー `.claude/worktrees/*` と本体の `docs/video/`・`videos/`・`replays/`・`media_tmp/` から、2026-11-17 22:24 に gen11〜gen15 を回収した（撮った時刻の次の節目へ。テレビ中継などのフォルダは丸ごと同じ世代）。ワークツリーの `.visualcheck/`（テストのたびに作り直す静止画）と `media_tmp/binrun/`（ビルドの写し）は移していない。まだ master に入っていない作業の分（ムエタイの肘 `agent-a9d77545…`・蹴りの練習 `agent-a9402fb…`・投げと関節技 `throwing-grappling-mechanics-de662d`）と、回収の直前 30 分に書かれたファイルは元の場所に残した。マージしたときに次の世代へ移す。
 
+2026-11-18 09:00 に gen16・gen17 を回収した（剣の技・VFC・投げと関節技・agent-dx を master へマージした節目。gen16 は 04:51 のマージ（蹴り・休み・柄の芯）までに撮った物と、そのマージで入った枝のワークツリーの物）。回収の直前 30 分に書かれたファイル（wound-cam の `wvc-breakcheck` など）は元の場所に残した。
+
 | 世代 | master に入った節目（〜） | 中身 | ファイル | 大きさ |
 |---|---|---|---:|---:|
 | `gen01_1107_vr-poc` | 2026-11-07 23:59 | VR の試作（Aigis・OpenXR）・部位ダメージ・ラグドールの手触り・記録と再生 | 4 | 2 MiB |
@@ -30,6 +32,8 @@
 | `gen13_1116_characters` | 2026-11-16 17:09 | キャラクターファイル・首と脊椎・指の手・武器の教科書・レフェリーなし / 実況の PDCA・テレビ中継の札（tvcard 1–4） | 3074 | 11,774 MiB |
 | `gen14_1117_tvprogram-cmaes` | 2026-11-17 10:52 | 大会の番組・弱った相手の詰め・解説・CMA-ES（cmatune）・臨界パワーのスタミナ（PhysicsVersion 38）/ 棒術・トンファー・テコンドー・片手剣と盾・生配信の試し | 446 | 2,915 MiB |
 | `gen15_1117_legs-woundcam` | 2026-11-17 22:09 | 脚を失っても戦う（PhysicsVersion 39）・棒の滑る握り・VR の武器と動きの記録・回し蹴り・傷のカメラ（wound-cam）・WVC 再戦の中継 | 4111 | 17,392 MiB |
+| `gen16_1118_kicks-break-tang` | 2026-11-18 04:51 | ムエタイの肘打ち（PhysicsVersion 43）・剣の柄の鉄の芯（44）・休みの動作と小物・回し蹴りを高さで 3 つに・前蹴りの手本・平たい靴の足（45）・傷のカメラの中継（wvc-*_v1） | 1538 | 4,138 MiB |
+| `gen17_1118_swords-vfc-grapple` | 2026-11-18 09:00 | 剣の型・連続の守り・内側の技・バット（LogicVersion 43〜48）・VFC（檻・団体の中継）・投げと関節技・床からの支え・軸足に乗る蹴り・倒れた相手を立って打つ（PhysicsVersion 46・LogicVersion 50）・CLAUDE.md の整理・名簿の総当たりのレポート | 1713 | 4,983 MiB |
 
 ## gen01_1107_vr-poc
 
@@ -589,3 +593,163 @@ claude/a-3d0203 のマージ（疲れが拳の速さに出る・間合いの層�
 | `video/wvc-rematch-prospective2/`（478 ファイル） | docs/video | 11-17 14:33〜16:07 |
 | `video/wvc-rematch-wound/`（899 ファイル） | ワークツリー wound-cam の docs/video | 11-17 15:19〜18:55 |
 | `video/wvc-rematch/`（386 ファイル） | docs/video | 11-17 10:53〜11:22 |
+
+## gen16_1118_kicks-break-tang
+
+ムエタイの肘打ち（PhysicsVersion 43）・剣の柄の鉄の芯（44）・休みの動作と小物・回し蹴りを高さで 3 つに・前蹴りの手本・平たい靴の足（45）・傷のカメラの中継（wvc-*_v1）
+
+| ファイル | 元の場所 | 撮った時刻 |
+|---|---|---|
+| `replays/miniring_desktop_20261117_231004.mrrep` | replays | 11-17 23:11 |
+| `replays/miniring_desktop_20261117_231144.mrrep` | replays | 11-17 23:13 |
+| `replays/miniring_desktop_20261117_231337.mrrep` | replays | 11-17 23:15 |
+| `replays/miniring_desktop_20261117_231604.mrrep` | replays | 11-17 23:17 |
+| `replays/miniring_desktop_20261117_231749.mrrep` | replays | 11-17 23:19 |
+| `replays/miniring_desktop_20261117_231916.mrrep` | replays | 11-17 23:20 |
+| `replays/miniring_desktop_20261117_232024.mrrep` | replays | 11-17 23:21 |
+| `replays/miniring_desktop_20261117_232114.mrrep` | replays | 11-17 23:26 |
+| `video/media_tmp_agent-a9402fb23d09e8027/a.txt` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:44 |
+| `video/media_tmp_agent-a9402fb23d09e8027/b.txt` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:44 |
+| `video/media_tmp_agent-a9402fb23d09e8027/diag_standard.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 22:15 |
+| `video/media_tmp_agent-a9402fb23d09e8027/diag_taeyun.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 22:15 |
+| `video/media_tmp_agent-a9402fb23d09e8027/extract/`（21 ファイル） | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 21:41 |
+| `video/media_tmp_agent-a9402fb23d09e8027/fr1/`（10 ファイル） | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:13 |
+| `video/media_tmp_agent-a9402fb23d09e8027/fulltest.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:58 |
+| `video/media_tmp_agent-a9402fb23d09e8027/fulltest2.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:56 |
+| `video/media_tmp_agent-a9402fb23d09e8027/kick_shin_lmh_p43_small.mp4` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:45 |
+| `video/media_tmp_agent-a9402fb23d09e8027/kick_shin_lmh_p43.mp4` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:44 |
+| `video/media_tmp_agent-a9402fb23d09e8027/kick_shin_lmh_small.mp4` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:43 |
+| `video/media_tmp_agent-a9402fb23d09e8027/kick_shin_lmh_v4_small.mp4` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:26 |
+| `video/media_tmp_agent-a9402fb23d09e8027/kick_shin_lmh_v4.mp4` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:15 |
+| `video/media_tmp_agent-a9402fb23d09e8027/kick_shin_lmh_yoandry_small.mp4` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:02 |
+| `video/media_tmp_agent-a9402fb23d09e8027/kick_shin_lmh_yoandry.mp4` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:47 |
+| `video/media_tmp_agent-a9402fb23d09e8027/kick_shin_lmh.mp4` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:37 |
+| `video/media_tmp_agent-a9402fb23d09e8027/league_new.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:27 |
+| `video/media_tmp_agent-a9402fb23d09e8027/league_new.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:27 |
+| `video/media_tmp_agent-a9402fb23d09e8027/league_old.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:27 |
+| `video/media_tmp_agent-a9402fb23d09e8027/league_old.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:27 |
+| `video/media_tmp_agent-a9402fb23d09e8027/p43_h0.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:45 |
+| `video/media_tmp_agent-a9402fb23d09e8027/p43_h1.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:45 |
+| `video/media_tmp_agent-a9402fb23d09e8027/p43_h2.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:45 |
+| `video/media_tmp_agent-a9402fb23d09e8027/p43_h3.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:45 |
+| `video/media_tmp_agent-a9402fb23d09e8027/practice_log.txt` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:50 |
+| `video/media_tmp_agent-a9402fb23d09e8027/practice_v1_damage_first.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 22:12 |
+| `video/media_tmp_agent-a9402fb23d09e8027/practice1.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 22:08 |
+| `video/media_tmp_agent-a9402fb23d09e8027/practice1.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 22:08 |
+| `video/media_tmp_agent-a9402fb23d09e8027/practice2.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:10 |
+| `video/media_tmp_agent-a9402fb23d09e8027/practice2.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:10 |
+| `video/media_tmp_agent-a9402fb23d09e8027/preface_table.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:42 |
+| `video/media_tmp_agent-a9402fb23d09e8027/probe.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:47 |
+| `video/media_tmp_agent-a9402fb23d09e8027/probe2.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:03 |
+| `video/media_tmp_agent-a9402fb23d09e8027/report.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 22:12 |
+| `video/media_tmp_agent-a9402fb23d09e8027/sheet_h0.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:43 |
+| `video/media_tmp_agent-a9402fb23d09e8027/sheet_h1.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:43 |
+| `video/media_tmp_agent-a9402fb23d09e8027/sheet_h2.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:43 |
+| `video/media_tmp_agent-a9402fb23d09e8027/sheet_h3.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:43 |
+| `video/media_tmp_agent-a9402fb23d09e8027/sheet_low.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:13 |
+| `video/media_tmp_agent-a9402fb23d09e8027/t1.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 21:40 |
+| `video/media_tmp_agent-a9402fb23d09e8027/table_final.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:43 |
+| `video/media_tmp_agent-a9402fb23d09e8027/table_final.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:43 |
+| `video/media_tmp_agent-a9402fb23d09e8027/table_final2.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:50 |
+| `video/media_tmp_agent-a9402fb23d09e8027/table_p43.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:42 |
+| `video/media_tmp_agent-a9402fb23d09e8027/taekwondo_section.md` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:51 |
+| `video/media_tmp_agent-a9402fb23d09e8027/test_low.mp4` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:13 |
+| `video/media_tmp_agent-a9402fb23d09e8027/v4_h0.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:25 |
+| `video/media_tmp_agent-a9402fb23d09e8027/v4_h1.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:26 |
+| `video/media_tmp_agent-a9402fb23d09e8027/v4_h2.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:26 |
+| `video/media_tmp_agent-a9402fb23d09e8027/v4_h3.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:26 |
+| `video/media_tmp_agent-a9402fb23d09e8027/video_bullet.txt` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:27 |
+| `video/media_tmp_agent-a9402fb23d09e8027/video.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-17 23:37 |
+| `video/media_tmp_agent-a9402fb23d09e8027/video2.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:44 |
+| `video/media_tmp_agent-a9402fb23d09e8027/video3.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 00:47 |
+| `video/media_tmp_agent-a9402fb23d09e8027/video4.out` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:15 |
+| `video/media_tmp_agent-a9402fb23d09e8027/y_h0.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:02 |
+| `video/media_tmp_agent-a9402fb23d09e8027/y_h1.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:02 |
+| `video/media_tmp_agent-a9402fb23d09e8027/y_h2.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:02 |
+| `video/media_tmp_agent-a9402fb23d09e8027/y_h3.png` | ワークツリー agent-a9402fb23d09e8027 の media_tmp | 11-18 01:02 |
+| `video/media_tmp_staff-vr-motion-kick-d8bd9a/kick_shin_lmh_small.mp4` | ワークツリー staff-vr-motion-kick-d8bd9a の media_tmp | 11-18 02:09 |
+| `video/media_tmp/report_harness_full.html` | media_tmp | 11-18 01:57 |
+| `video/media_tmp/report_harness.html` | media_tmp | 11-18 01:58 |
+| `video/muaythai_check.audio.csv` | ワークツリー agent-a9d77545f01698db2 の docs/video | 11-17 21:23 |
+| `video/muaythai_check.events.json` | ワークツリー agent-a9d77545f01698db2 の docs/video | 11-17 21:23 |
+| `video/muaythai_check.mp4` | ワークツリー agent-a9d77545f01698db2 の docs/video | 11-17 21:23 |
+| `video/muaythai_check.telemetry.json` | ワークツリー agent-a9d77545f01698db2 の docs/video | 11-17 21:23 |
+| `video/wvc-barehand_v1/`（439 ファイル） | ワークツリー wound-cam の docs/video | 11-18 00:11〜00:50 |
+| `video/wvc-blades_v1/`（425 ファイル） | ワークツリー wound-cam の docs/video | 11-18 00:51〜01:54 |
+| `video/wvc-crossover_v1/`（571 ファイル） | ワークツリー wound-cam の docs/video | 11-18 01:56〜02:46 |
+
+## gen17_1118_swords-vfc-grapple
+
+剣の型・連続の守り・内側の技・バット（LogicVersion 43〜48）・VFC（檻・団体の中継）・投げと関節技・床からの支え・軸足に乗る蹴り・倒れた相手を立って打つ（PhysicsVersion 46・LogicVersion 50）・CLAUDE.md の整理・名簿の総当たりのレポート
+
+| ファイル | 元の場所 | 撮った時刻 |
+|---|---|---|
+| `video/balance_sasae_champion.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 15:58 |
+| `video/balance_sasae_champion.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 15:58 |
+| `video/bat_forms_all.mp4` | ワークツリー agent-aec43b3024234a226 の docs/video | 11-18 03:09 |
+| `video/bat_forms_butt_frames.jpg` | ワークツリー agent-aec43b3024234a226 の docs/video | 11-18 03:09 |
+| `video/bat_forms_chop-right_frames.jpg` | ワークツリー agent-aec43b3024234a226 の docs/video | 11-18 03:09 |
+| `video/bat_forms_swing-right_frames.jpg` | ワークツリー agent-aec43b3024234a226 の docs/video | 11-18 03:09 |
+| `video/corner_match_small.mp4` | ワークツリー spacing-control-features-a34e7d の docs/video | 11-18 08:14 |
+| `video/corner_match.audio.csv` | ワークツリー spacing-control-features-a34e7d の docs/video | 11-18 08:13 |
+| `video/corner_match.mp4` | ワークツリー spacing-control-features-a34e7d の docs/video | 11-18 08:13 |
+| `video/karate_soft.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 15:37 |
+| `video/karate_soft.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 15:37 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/finish_daichi.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 01:40 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/finish_daichi.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 01:40 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/finish_jin.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 01:38 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/finish_jin.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 01:39 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/finish_konrad.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 01:41 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/finish_konrad.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 01:41 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/finish_weapons.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 01:42 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/ground_stomp.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-17 23:52 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/ground_stomp.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-17 23:52 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/ground_stomp2.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 00:02 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/ground_stomp2.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 00:02 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/ground_strikes.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 00:12 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/ground_thrust.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-17 23:51 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/ground_thrust.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-17 23:51 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/ground2_stomp.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 00:12 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/ground2_stomp.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 00:12 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/ground2_thrust.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 00:11 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/ground2_thrust.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 00:11 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/kick_front_0_0_0.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 00:06 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/kick_front_0_0_0.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 00:06 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/kick_front_0_35_0_3_0.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 00:06 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/kick_front_0_35_0_3_0.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 00:06 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/kick_front_compare.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-18 00:06 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/leg_shortcut_small.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-17 23:35 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/leg_shortcut.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-17 23:34 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/leg_shortcut.mp4` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-17 23:34 |
+| `video/media_tmp_throwing-grappling-mechanics-de662d/leg_shortcut.wav` | ワークツリー throwing-grappling-mechanics-de662d の media_tmp | 11-17 23:34 |
+| `video/media_tmp/roster-2026-11-18/`（154 ファイル） | media_tmp | 11-18 07:53〜07:57 |
+| `video/media_tmp/roster-setup-test/`（18 ファイル） | media_tmp | 11-18 07:59〜08:00 |
+| `video/practiced_kubi-nage.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 21:39 |
+| `video/practiced_kubi-nage.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 21:39 |
+| `video/practiced_seoi-nage.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 21:39 |
+| `video/practiced_seoi-nage.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 21:39 |
+| `video/rise_sasae.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 16:26 |
+| `video/rise_sasae.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 16:26 |
+| `video/seoi_back.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 18:54 |
+| `video/seoi_back.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 18:54 |
+| `video/seoi_load.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 20:06 |
+| `video/seoi_load.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 20:06 |
+| `video/seoi_trained.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 18:22 |
+| `video/seoi_trained.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 18:22 |
+| `video/seoi.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 17:59 |
+| `video/seoi.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 17:59 |
+| `video/step_demo.audio.csv` | ワークツリー spacing-control-features-a34e7d の docs/video | 11-18 08:14 |
+| `video/step_demo.mp4` | ワークツリー spacing-control-features-a34e7d の docs/video | 11-18 08:14 |
+| `video/step_demo.mrrep` | ワークツリー spacing-control-features-a34e7d の docs/video | 11-18 08:14 |
+| `video/throw_sasae_soft.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 15:36 |
+| `video/throw_sasae_soft.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 15:36 |
+| `video/throw_sasae.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 14:32 |
+| `video/throw_sasae.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 14:32 |
+| `video/throw_sumi_vs_champion.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 14:45 |
+| `video/throw_sumi_vs_champion.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 14:45 |
+| `video/tomoe.audio.csv` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 18:01 |
+| `video/tomoe.mp4` | ワークツリー throwing-grappling-mechanics-de662d の docs/video | 11-17 18:02 |
+| `video/vfc-test/`（14 ファイル） | ワークツリー vfc の docs/video | 11-18 03:17〜04:07 |
+| `video/wvc-barehand/`（514 ファイル） | ワークツリー wound-cam の docs/video | 11-18 05:42〜06:12 |
+| `video/wvc-blades/`（343 ファイル） | ワークツリー wound-cam の docs/video | 11-18 06:12〜06:38 |
+| `video/wvc-crossover/`（607 ファイル） | ワークツリー wound-cam の docs/video | 11-18 06:38〜07:09 |
