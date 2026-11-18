@@ -349,7 +349,7 @@ public sealed class Footwork
         // 捕捉点が両足を結ぶ線（支え）から外れたら、倒れる向きの足から踏み出して受け止める。
         var off = DistanceToSegment(capture, _ball[Lead], _ball[Rear]);
         var falling = off > t.CaptureMargin * leg;
-        if (need[Lead] || need[Rear] || falling) { DebugPlan = $"need L={need[Lead]}(err {error[Lead] / leg:0.00}, yaw {BodyFrame.DeltaAngle(_yaw[Lead], input.FacingYaw + StanceYaw(Lead)) * 57.3f:0}, over {input.LeadOverreach}) R={need[Rear]}(err {error[Rear] / leg:0.00}, yaw {BodyFrame.DeltaAngle(_yaw[Rear], input.FacingYaw + StanceYaw(Rear)) * 57.3f:0}, over {input.RearOverreach}) falling={falling} off={off / leg:0.00}"; }
+        if (need[Lead] || need[Rear] || falling) { DebugPlan = $"need L={need[Lead]}(err {error[Lead] / leg:0.00}, yaw {BodyFrame.DeltaAngle(_yaw[Lead], input.FacingYaw + StanceYaw(Lead)) * 57.3f:0}, over {input.LeadOverreach}) R={need[Rear]}(err {error[Rear] / leg:0.00}, yaw {BodyFrame.DeltaAngle(_yaw[Rear], input.FacingYaw + StanceYaw(Rear)) * 57.3f:0}, over {input.RearOverreach}) falling={falling} off={off / leg:0.00} w={_weight:0.00} tw={_twist:0.00} drift={drift.Length() / leg:0.00} (db {t.CaptureDeadband}) sup-mid={(SupportCenter - middle).Length() / leg:0.00} body-mid={(input.Body - middle).Length() / leg:0.00} vel={input.BodyVelocity.Length():0.00}"; }
         if (!need[Lead] && !need[Rear] && !falling)
         {
             return;
