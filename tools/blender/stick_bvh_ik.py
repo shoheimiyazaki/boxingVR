@@ -107,17 +107,22 @@ def report(arm, hand, grip, name, start, end):
     scene = bpy.context.scene
     ik = arm.pose.bones[hand].constraints["Grip IK"]
     frames = range(start, end + 1, max(1, (end - start) // 20))
+    upper = arm.pose.bones[hand].parent.name
     worst = {}
+    elbows = {}
     for on in (False, True):
         ik.mute = not on
         values = []
+        elbows[on] = []
         for f in frames:
             scene.frame_set(f)
             values.append(gap(arm, hand, grip))
+            elbows[on].append(arm.matrix_world @ arm.pose.bones[upper].tail)
         worst[on] = (sum(values) / len(values), max(values))
     ik.mute = False
-    print("check %-16s frames %d-%d  wrist-to-grip without IK: mean %.3f max %.3f m  with IK: mean %.4f max %.4f m"
-          % (name, start, end, worst[False][0], worst[False][1], worst[True][0], worst[True][1]))
+    moved = max((a - b).length for a, b in zip(elbows[False], elbows[True]))
+    print("check %-16s frames %d-%d  wrist-to-grip without IK: mean %.3f max %.3f m  with IK: mean %.4f max %.4f m  elbow moved by IK: max %.3f m"
+          % (name, start, end, worst[False][0], worst[False][1], worst[True][0], worst[True][1], moved))
 
 
 def bake_action(arm, action, start, end):
