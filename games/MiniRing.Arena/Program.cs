@@ -16,6 +16,7 @@ try
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out", "hz", "passes", "sample", "referee")),
         "handlelab" => HandleLabCommand(Options.Parse(argv[1..], "pairs", "fist", "bouts", "seconds", "seed", "referee", "parallel", "out", "style-katana", "style-longsword", "style-club", "style-staff", "style-swordshield", "style-bat", "title")),
         "handlespar" => HandleSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "held-out", "gens", "lambda", "bouts", "seconds", "seed", "referee", "parallel", "start", "best", "out")),
+        "rhythmlab" => RhythmLabCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "parallel", "out", "csv")),
         "maailab" => MaaiLabCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "parallel", "out", "json", "csv", "ranges")),
         "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain", "wear", "matrix", "gameplan")),
         "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
@@ -173,6 +174,44 @@ static int MaaiLabCommand(Options o)
     if (o.Get("csv") is { } csv)
     {
         File.WriteAllText(csv, MaaiLab.Csv(throws));
+    }
+
+    return 0;
+}
+
+// 攻めのリズムと隙（RhythmLab）: 名簿の総当たりで、打った後の被ダメ率・相手が打った後に打つ機・空振りの後の損得。
+static int RhythmLabCommand(Options o)
+{
+    var all = MiniRing.Characters.CharacterRoster.All;
+    var roster = o.Get("chars") is null ? all : [.. o.List("chars", []).Select(MiniRing.Characters.CharacterRoster.Get)];
+    if (roster.Count < 2)
+    {
+        throw new ArgumentException("--chars には 2 人以上が必要です。");
+    }
+
+    var bouts = o.Int("bouts", 2, min: 1);
+    var seconds = o.Float("seconds", 60f, min: 1f);
+    var seed = o.Int("seed", 1);
+    var referee = Referee(o);
+    var watch = Stopwatch.StartNew();
+    var logs = RhythmLab.Collect(roster, bouts, seconds, seed, referee, o.Int("parallel", 2, min: 1), Console.Error);
+    var rhythms = RhythmLab.Analyze(logs).Values.ToList();
+    var header = string.Create(CultureInfo.InvariantCulture,
+        $"PhysicsVersion {MiniRing.Fighter.PhysicsVersion}・LogicVersion {MiniRing.Bots.BoxerBot.LogicVersion}・{roster.Count} 人の総当たり・各組 {bouts} 試合 × {seconds:0} 秒・種 {seed}・審判 {(referee ? "あり" : "なし")}・試合の場（コーナーから）");
+    var text = RhythmLab.Report(rhythms, header);
+    Console.Error.WriteLine($"rhythmlab done in {watch.Elapsed.TotalSeconds:0.0}s, {logs.Count} bouts");
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, text);
+    }
+    else
+    {
+        Console.WriteLine(text);
+    }
+
+    if (o.Get("csv") is { } csv)
+    {
+        File.WriteAllText(csv, RhythmLab.Csv(rhythms));
     }
 
     return 0;

@@ -19,7 +19,7 @@ namespace MiniRing.Arena;
 /// </summary>
 internal static class MaaiLab
 {
-    private const float StepDt = 1f / 60f;
+    internal const float StepDt = 1f / 60f;
 
     /// <summary>技の時計が終わってから、当たりをその打ちに数える長さ [s]（BoxerBot.LandWindow と同じ）。</summary>
     private const float Grace = 0.15f;
@@ -41,8 +41,10 @@ internal static class MaaiLab
 
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-    /// <summary>1 打の記録。</summary>
-    internal sealed record Throw(string Attacker, string Opponent, string Technique, string Kind, float Reach, float LaunchD, float ImpactD, int Hits, int Clean, float Damage, float MaxHit);
+    /// <summary>1 打の記録。<paramref name="LaunchTime"/> は打ち出した時刻（拳は溜めを終えた歩、蹴り・武器は技を始めた歩）、
+    /// <paramref name="EndTime"/> は技の時計が終わった時刻 [s]（試合の始めから）。</summary>
+    internal sealed record Throw(string Attacker, string Opponent, string Technique, string Kind, float Reach, float LaunchD, float ImpactD, int Hits, int Clean, float Damage, float MaxHit,
+        float LaunchTime = float.NaN, float EndTime = float.NaN);
 
     private sealed class Open(string label, string kind, float now)
     {
@@ -50,6 +52,8 @@ internal static class MaaiLab
         public string Kind { get; } = kind;
         public float Started { get; } = now;
         public float? LaunchD;
+        public float? LaunchAt;
+        public float LastSeen = now;
         public float LastTime = float.NegativeInfinity;
         public float? EndedAt;
         public int Hits;
@@ -70,6 +74,11 @@ internal static class MaaiLab
 
         public void Observe(IFighterControl? control, float d, float now)
         {
+            foreach (var o in _open.Values)
+            {
+                o.LastSeen = now;
+            }
+
             var seen = new HashSet<string>();
             var inner = control;
             if (inner is GroundStriker g)
@@ -141,6 +150,7 @@ internal static class MaaiLab
                 o.LastTime = a.Time;
                 o.EndedAt = null;
                 o.LaunchD ??= a.Time >= 0f ? d : null;
+                o.LaunchAt ??= a.Time >= 0f ? now : null;
                 seen.Add(slot);
             }
             else if (o is not null && a.Technique is null && a.Duration > 0f && a.Time >= o.LastTime && a.Time < a.Duration)
@@ -149,6 +159,7 @@ internal static class MaaiLab
                 o.LastTime = a.Time;
                 o.EndedAt = null;
                 o.LaunchD ??= a.Time >= 0f ? d : null;
+                o.LaunchAt ??= a.Time >= 0f ? now : null;
                 seen.Add(slot);
             }
         }
@@ -220,7 +231,7 @@ internal static class MaaiLab
 
         private Open Start(string slot, string label, string kind, float now, float? d)
         {
-            var o = new Open(label, kind, now) { LaunchD = d };
+            var o = new Open(label, kind, now) { LaunchD = d, LaunchAt = d is null ? null : now };
             _open[slot] = o;
             return o;
         }
@@ -272,7 +283,8 @@ internal static class MaaiLab
             }
 
             var launch = o.LaunchD ?? o.ImpactD ?? 0f;
-            sink.Add(new Throw(id, opponent, o.Label, o.Kind, reach, launch, o.ImpactD ?? float.NaN, o.Hits, o.Clean, o.Damage, o.MaxHit));
+            sink.Add(new Throw(id, opponent, o.Label, o.Kind, reach, launch, o.ImpactD ?? float.NaN, o.Hits, o.Clean, o.Damage, o.MaxHit,
+                o.LaunchAt ?? o.Started, o.EndedAt ?? o.LastSeen));
         }
     }
 
@@ -325,7 +337,15 @@ internal static class MaaiLab
     };
 
     /// <summary>1 試合を回し、両者の打ちを返す。</summary>
-    public static List<Throw> RunBout(FighterCharacter red, FighterCharacter blue, int seed, float seconds, bool referee, List<RangeCell>? cells = null)
+    /// <param name="red">赤（プレイヤー側）。</param>
+    /// <param name="blue">青（CPU 側）。</param>
+    /// <param name="seed">試合の種。</param>
+    /// <param name="seconds">試合の長さ [s]。</param>
+    /// <param name="referee">審判あり。</param>
+    /// <param name="cells">距離の帯ごとの記録の入れ先（null なら取らない）。</param>
+    /// <param name="onStep">毎歩、歩を進めた後に呼ぶ（試合の時刻・その歩の始めの距離。読むだけで試合に触れないこと）。</param>
+    public static List<Throw> RunBout(FighterCharacter red, FighterCharacter blue, int seed, float seconds, bool referee, List<RangeCell>? cells = null,
+        Action<BoxingGame, float>? onStep = null)
     {
         var range = new Dictionary<(string Fighter, string Opponent, int Bin), RangeCell>();
         void AddRange(string me, string opp, int bin, float dt, float dealt, float taken)
@@ -352,6 +372,7 @@ internal static class MaaiLab
             redT.Observe(game.PlayerControl, d, now);
             blueT.Observe(game.CpuControl, d, now);
             game.Step(default, StepDt);
+            onStep?.Invoke(game, now);
             var after = Flat(game.Player.ChestPosition - game.Cpu.ChestPosition);
             // 距離ごとの時間・与えた・受けた（両方が立っている歩だけ。帯は歩の始めの距離）。
             if (cells is not null && game.Player.State == FighterState.Standing && game.Cpu.State == FighterState.Standing)
