@@ -134,7 +134,7 @@ internal static class StickSwingLab
 }
 
 /// <summary>
-/// 振りの動画: 1 歩を 1 コマ（歩 1/120 秒 → 30 fps で 0.25 倍のスロー）。左に断面を正面から見る視点、右に体の正面の視点。
+/// 振りの動画: 1 歩を 1 コマ（歩 1/120 秒 → 30 fps で 0.25 倍のスロー）。左に断面を少し斜めから見る視点、右に体の右前の視点。棒は陰影つき・透視投影の円柱（<see cref="StickSolidRenderer"/>）、断面は半透明の円盤。
 /// 肩（黒い点）・肘（緑）・手（青）・剣先（赤）の軌跡を残し（薄い線 = 振り全体、濃い線 = ここまで）、断面の軸と斬る向きの矢印を描く。
 /// 下の帯は剣先の速さ。GPU は使わず、ffmpeg へ生のコマを渡す。
 /// </summary>
@@ -156,8 +156,9 @@ internal static class StickSwingVideo
         var hand = frames.Select(f => f.Joints[StickBody.Ids.Weapon]).ToArray();
         var speeds = StickBeauty.Speeds(tip, trace.Dt);
         var vmax = Math.Max(1e-3f, speeds.Max());
-        var views = new[] { SideView(plane), new View(Vector3.UnitX, Vector3.UnitY) };
-        var scale = Panel * 0.5f / (rig.Reach * 1.45f);
+        var views = new[] { SideView(plane), FrontView() };
+        var renderer = new StickSolidRenderer(Panel, Panel);
+        var floor = rig.GuardFrame.Joints.Concat(Enumerable.Range(1, rig.Body.Segments.Count - 1).Select(rig.GuardFrame.Tip)).Min(p => p.Y) - 0.03f;
         var arguments = $"-y -loglevel error -f rawvideo -pix_fmt rgb24 -s {Width}x{Height} -r {Fps} -i - -c:v libx264 -pix_fmt yuv420p -crf 18 \"{mp4}\"";
         using var ffmpeg = Process.Start(new ProcessStartInfo("ffmpeg", arguments) { RedirectStandardInput = true, UseShellExecute = false })
             ?? throw new IOException("ffmpeg を起動できません（PATH にありますか）。");
@@ -171,7 +172,9 @@ internal static class StickSwingVideo
             for (var v = 0; v < 2; v++)
             {
                 canvas.Clip = (v * Panel, (v + 1) * Panel, Panel);
-                DrawPanel(canvas, views[v], v * Panel, rig, plane, frames[i], i, tip, elbow, hand, scale);
+                DrawPanel(renderer, views[v], rig, plane, frames[i], i, tip, elbow, hand, floor);
+                renderer.CopyTo(image, Width, v * Panel, 0);
+                Marker(canvas, v);
             }
 
             canvas.Clip = (0, Width, Height);
@@ -194,10 +197,12 @@ internal static class StickSwingVideo
         sheeter.WaitForExit();
     }
 
-    /// <summary>視点: 画面の右・上の向き（見る向き = 右 × 上の逆）。</summary>
-    private readonly record struct View(Vector3 Right, Vector3 Up);
+    /// <summary>視点: カメラから見る向き（単位）。</summary>
+    private readonly record struct View(Vector3 Look);
 
-    /// <summary>断面を正面から見る視点: 見る向きは法線。ファイターの右側（−X）か上から見る（法線の X が正の向き、X が小さければ下向き）。</summary>
+    /// <summary>
+    /// 断面を正面から見る視点を、少し斜め上から: 見る向きは法線（ファイターの右側（−X）か上から）に、画面の右へ 0.3・下へ 0.25 を足す（奥行きが分かるように）。
+    /// </summary>
     private static View SideView(SwingPlane plane)
     {
         var look = plane.Normal;
@@ -208,61 +213,97 @@ internal static class StickSwingVideo
 
         var hint = MathF.Abs(look.Y) > 0.9f ? Vector3.UnitZ : Vector3.UnitY;
         var right = Vector3.Normalize(Vector3.Cross(look, hint));
-        return new View(right, Vector3.Cross(right, look));
+        var up = Vector3.Cross(right, look);
+        return new View(Vector3.Normalize(look + (right * 0.3f) - (up * 0.25f)));
     }
 
-    private static void DrawPanel(Canvas c, View view, int left, SwingRig rig, SwingPlane plane, StickFrame frame, int now, Vector3[] tip, Vector3[] elbow, Vector3[] hand, float scale)
+    /// <summary>体の正面の、右前の少し上から（ファイターは +Z を向き、右腕は −X の側）。</summary>
+    private static View FrontView() => new(-Vector3.Normalize(new Vector3(-0.45f, 0.35f, 1f)));
+
+    /// <summary>画角 [度]（縦）。肩から剣先までの 1.5 倍が画面の半分に入る距離に置く。</summary>
+    private const float Fov = 50f;
+
+    private static readonly Vector3 BodyColor = new(0.62f, 0.62f, 0.66f);
+    private static readonly Vector3 ArmColor = new(0.25f, 0.42f, 0.88f);
+    private static readonly Vector3 SwordColor = new(0.92f, 0.45f, 0.12f);
+    private static readonly Vector3 ElbowColor = new(0.15f, 0.62f, 0.25f);
+    private static readonly Vector3 HandColor = new(0.18f, 0.35f, 0.92f);
+    private static readonly Vector3 TipColor = new(0.88f, 0.15f, 0.15f);
+
+    /// <summary>
+    /// 1 つの視点のコマ: 床と影 → 体（節は円柱、太さは部位の箱の細い 2 辺の平均）・右腕（青）・剣（橙）・関節の球 → 軌跡の管（濃い = ここまで、薄い = 全体）
+    /// → 斬る向きの矢印 → 断面の半透明の円盤（肩が中心）。
+    /// </summary>
+    private static void DrawPanel(StickSolidRenderer r, View view, SwingRig rig, SwingPlane plane, StickFrame frame, int now, Vector3[] tip, Vector3[] elbow, Vector3[] hand, float floor)
     {
         var body = rig.Body;
-        var centre = rig.Shoulder;
-        Vector2 P(Vector3 w)
-        {
-            var d = w - centre;
-            return new Vector2(left + (Panel / 2) + (Vector3.Dot(d, view.Right) * scale), (Panel / 2) - (Vector3.Dot(d, view.Up) * scale));
-        }
+        var target = rig.Shoulder - new Vector3(0f, 0.3f, 0f);
+        var distance = rig.Reach * 1.5f / MathF.Tan(Fov * MathF.PI / 360f);
+        r.Begin(target - (view.Look * distance), target, Fov);
 
-        // 面の中の 2 本の軸と、斬る向きの矢印。
-        var inPlaneA = plane.Direction;
-        var inPlaneB = Vector3.Cross(plane.Normal, plane.Direction);
-        var half = rig.Reach * 1.3f;
-        c.Line(P(centre - (inPlaneA * half)), P(centre + (inPlaneA * half)), (215, 215, 215), 1);
-        c.Line(P(centre - (inPlaneB * half)), P(centre + (inPlaneB * half)), (215, 215, 215), 1);
-        var arrowTip = P(centre + (inPlaneA * half));
-        var arrowBack = P(centre + (inPlaneA * half * 0.85f));
-        var arrowSide = new Vector2(-(arrowTip.Y - arrowBack.Y), arrowTip.X - arrowBack.X) * 0.5f;
-        c.Line(arrowTip, arrowBack + arrowSide, (150, 150, 150), 2);
-        c.Line(arrowTip, arrowBack - arrowSide, (150, 150, 150), 2);
-
-        // 軌跡（薄い = 全体、濃い = ここまで）。
-        void Trail(Vector3[] path, (int, int, int) pale, (int, int, int) strong)
-        {
-            for (var i = 1; i < path.Length; i++)
-            {
-                c.Line(P(path[i - 1]), P(path[i]), i <= now ? strong : pale, i <= now ? 2 : 1);
-            }
-        }
-
-        Trail(elbow, (200, 235, 200), (30, 150, 50));
-        Trail(hand, (200, 210, 245), (40, 80, 230));
-        Trail(tip, (250, 205, 205), (220, 40, 40));
-
-        // 体（左腕・脚・胴は構えのまま）。右腕は青、剣は太い橙。
+        var casters = new List<(Vector3 A, Vector3 B, float Radius)>();
         for (var i = 1; i < body.Segments.Count; i++)
         {
             var isArm = i is StickBody.Ids.UpperArmR or StickBody.Ids.ForearmR;
-            var color = i == StickBody.Ids.Weapon ? (230, 80, 20) : isArm ? (30, 60, 200) : (90, 90, 90);
-            c.Line(P(frame.Joints[i]), P(frame.Tip(i)), color, i == StickBody.Ids.Weapon ? 4 : isArm ? 3 : 2);
+            var isSword = i == StickBody.Ids.Weapon;
+            var radius = isSword ? 0.014f : Thickness(body.Segments[i]);
+            var color = isSword ? SwordColor : isArm ? ArmColor : BodyColor;
+            r.Capsule(frame.Joints[i], frame.Tip(i), radius, color, isSword ? 0.6f : 0.2f);
+            casters.Add((frame.Joints[i], frame.Tip(i), radius));
         }
 
-        c.Line(P(frame.Joints[StickBody.Ids.Pelvis]), P(frame.Joints[StickBody.Ids.Chest]), (90, 90, 90), 3);
-        c.Dot(P(centre), (0, 0, 0), 5);
-        c.Dot(P(frame.Joints[StickBody.Ids.ForearmR]), (30, 150, 50), 4);
-        c.Dot(P(frame.Joints[StickBody.Ids.Weapon]), (40, 80, 230), 4);
-        c.Dot(P(tip[now]), (220, 40, 40), 5);
+        r.Sphere(rig.Shoulder, 0.04f, new Vector3(0.12f, 0.12f, 0.12f));
+        r.Sphere(frame.Joints[StickBody.Ids.ForearmR], 0.035f, ElbowColor);
+        r.Sphere(frame.Joints[StickBody.Ids.Weapon], 0.035f, HandColor);
+        r.Sphere(tip[now], 0.03f, TipColor);
 
-        // 左上の印: 1 本 = 断面を正面から見る視点、2 本 = 体の正面から見る視点。
+        void Trail(Vector3[] path, Vector3 color)
+        {
+            var pale = Vector3.Lerp(color, Vector3.One, 0.6f);
+            for (var i = 1; i < path.Length; i++)
+            {
+                if (i <= now)
+                {
+                    r.Capsule(path[i - 1], path[i], 0.008f, color, 0.1f);
+                }
+                else
+                {
+                    r.Capsule(path[i - 1], path[i], 0.004f, pale, 0f);
+                }
+            }
+        }
+
+        Trail(elbow, ElbowColor);
+        Trail(hand, HandColor);
+        Trail(tip, TipColor);
+
+        // 斬る向きの矢印（断面の中、肩を通る）。
+        var half = rig.Reach * 1.1f;
+        var arrowColor = new Vector3(0.45f, 0.45f, 0.48f);
+        var side = Vector3.Cross(plane.Normal, plane.Direction);
+        var head = rig.Shoulder + (plane.Direction * half);
+        r.Capsule(rig.Shoulder - (plane.Direction * half), head, 0.007f, arrowColor, 0f);
+        r.Capsule(head, head - (plane.Direction * 0.15f) + (side * 0.08f), 0.007f, arrowColor, 0f);
+        r.Capsule(head, head - (plane.Direction * 0.15f) - (side * 0.08f), 0.007f, arrowColor, 0f);
+
+        r.Floor(floor, casters);
+        r.Disc(rig.Shoulder, plane.Normal, rig.Reach * 1.15f, new Vector3(0.35f, 0.55f, 0.95f), 0.12f);
+    }
+
+    /// <summary>節の太さ: 部位の箱の、長い辺を除く 2 辺の半分の平均（腕・脚の太さ）。</summary>
+    private static float Thickness(StickSegment s)
+    {
+        var e = new[] { s.HalfExtents.X, s.HalfExtents.Y, s.HalfExtents.Z };
+        Array.Sort(e);
+        return Math.Clamp((e[0] + e[1]) * 0.5f, 0.02f, 0.14f);
+    }
+
+    /// <summary>左上の印: 1 本 = 断面を正面から見る視点、2 本 = 体の正面から見る視点。</summary>
+    private static void Marker(Canvas c, int view)
+    {
+        var left = view * Panel;
         c.Line(new Vector2(left + 6, 6), new Vector2(left + 36, 6), (0, 0, 0), 3);
-        if (left > 0)
+        if (view > 0)
         {
             c.Line(new Vector2(left + 6, 14), new Vector2(left + 36, 14), (0, 0, 0), 3);
         }
