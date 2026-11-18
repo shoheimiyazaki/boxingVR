@@ -110,7 +110,22 @@
 候補: `bump-version`（版を上げて VERSIONS.md に 1 行）・`verify-visual`（段 4 の 1 枚を撮って読む）・`codex-run`（指示書から起動・ログの進みの確認・止め方）・`remote-test`（段 2）・`pdca-entry`。hook: `ShaderSource.cs` を変えたら SPIR-V の作り直しを促す、物理のファイルを変えたら版の確認を促す。`.claude/settings.json` に dotnet・arena・ffmpeg の許可。
 
 **記録**
-- （未着手）
+- 2026-11-18: master（fdd6c08、agent-dx の段 1・2 はユーザーがマージ済み）へ早送りしてから続けた。
+- 2026-11-18: skill を 3 つ足した: `verify-visual`（撮る → `tools/sheet.py` で 1 枚 → 読む → 伝える）・`bump-version`（どちらの版か・番号の衝突・VERSIONS.md・チェックサムの取り直し）・`delegate`（指示書の項目・起動・確かめ方・終わったら `plans/done/` へ）。`remote-test` と `pdca-entry` は skill にしなかった（前者は 1 行のコマンドで CLAUDE.md §5 にある。後者は BOT_PDCA.md の書式を見れば足りる）。
+- 2026-11-18: hook のスクリプト `tools/hooks/post-edit.sh` を作った（編集したファイルの道で、シェーダーの SPIR-V・PhysicsVersion・LogicVersion・slow の印を、セッションに 1 回ずつ思い出させる。試した: 1 回目は出て exit 2、2 回目は黙る、関係ないファイルは黙る）。
+- 2026-11-18: **プロジェクトの `.claude/settings.json`（許可と hook の登録）は書けなかった**（自動の権限判定で拒否。権限・hook はユーザーが決めること）。入れるなら次の内容（ユーザーが置く）:
+
+```json
+{
+  "permissions": { "allow": [
+    "Bash(dotnet build:*)", "Bash(dotnet test:*)", "Bash(dotnet run --project games/MiniRing.Arena:*)",
+    "Bash(py -3 tools/sheet.py:*)", "Bash(py -3 tools/trx-summary.py:*)",
+    "Bash(bash tools/remote-test.sh:*)", "Bash(bash tools/codex-usage.sh:*)", "Bash(ffmpeg:*)",
+    "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)" ] },
+  "hooks": { "PostToolUse": [ { "matcher": "Edit|Write|MultiEdit",
+    "hooks": [ { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/tools/hooks/post-edit.sh\"" } ] } ] }
+}
+```
 
 ## 段 7 — 軸を機械で守る
 
