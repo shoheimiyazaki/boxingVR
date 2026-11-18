@@ -215,7 +215,6 @@ public sealed class Footwork
 
     private readonly FootworkTuning _tuning;
     private readonly Vector2[] _ball = new Vector2[2];
-    private readonly Vector2[] _plan = new Vector2[2]; // 置いた所の記憶（構えを直すかどうかの判断だけに使う）
     private readonly float[] _yaw = new float[2];
     private int _swinging = -1;
     private int _lastFoot = -1;
@@ -255,8 +254,6 @@ public sealed class Footwork
     {
         _ball[Lead] = leadBall;
         _ball[Rear] = rearBall;
-        _plan[Lead] = leadBall;
-        _plan[Rear] = rearBall;
         _yaw[Lead] = leadYaw;
         _yaw[Rear] = rearYaw;
         _swinging = -1;
@@ -307,7 +304,6 @@ public sealed class Footwork
             if (_swingTime >= _swingDuration)
             {
                 _ball[_swinging] = _to;
-                _plan[_swinging] = _to;
                 _yaw[_swinging] = _toYaw;
                 _swinging = -1;
             }
@@ -315,20 +311,14 @@ public sealed class Footwork
 
         if (_swinging < 0)
         {
-            // 足の位置は 2 つ持つ: 実際の位置（_ball。足首を引く力の目標。毎歩実際の足に合わせる）と、構えを直すかどうかを決める「置いた所の記憶」（_plan）。
-            // 記憶は実際の位置へ HoldRelax の時定数で寄せる。構えの直しを実際の位置だけで決めると、もう一方の足を踏み出す反作用で着いた足が 1 cm ずつ滑り、
-            // その滑りが直しの閾値（StepThreshold）に近いので踏み直しが止まらず、何も入力しなくても体が流れていった。
-            // 蹴り・歩き・ステップの指令が出ている間（とその後 HoldSettleSeconds）は、記憶を実際の位置へすぐ合わせる（以前と同じ）。
+            // 着いている足は、置いた所を足の位置として覚えている（足首を引く力がそこへ留める）。押されて実際の足がずれたら、覚えている位置を
+            // HoldRelax の時定数で実際の位置へ寄せていく（踏み出した足が届かなかった・押され続けて動いたら、そこから計画し直す）。
+            // 毎歩すぐに実際の位置へ合わせると、足首を引く力の目標が足そのものになって留める力が 0 になり、もう一方の足を踏み出す反作用で
+            // 着いた足が 1 cm ずつ滑り、その滑りが構えの直しの閾値（StepThreshold）に近いので踏み直しが止まらず、体が少しずつ流れていった。
             var relax = _tuning.HoldRelax <= 0f ? 1f : 1f - MathF.Exp(-dt / _tuning.HoldRelax);
-            _ball[Lead] = input.LeadBall ?? _ball[Lead];
-            _ball[Rear] = input.RearBall ?? _ball[Rear];
-            _plan[Lead] = Vector2.Lerp(_plan[Lead], _ball[Lead], input.LeadFree ? 1f : relax);
-            _plan[Rear] = Vector2.Lerp(_plan[Rear], _ball[Rear], input.RearFree ? 1f : relax);
-            var actualLead = _ball[Lead];
-            var actualRear = _ball[Rear];
-            (_ball[Lead], _ball[Rear]) = (_plan[Lead], _plan[Rear]);
+            _ball[Lead] = input.LeadBall is { } leadActual ? Vector2.Lerp(_ball[Lead], leadActual, input.LeadFree ? 1f : relax) : _ball[Lead];
+            _ball[Rear] = input.RearBall is { } rearActual ? Vector2.Lerp(_ball[Rear], rearActual, input.RearFree ? 1f : relax) : _ball[Rear];
             PlanStep(input);
-            (_ball[Lead], _ball[Rear]) = (actualLead, actualRear);
         }
 
         UpdateSupport(input);
