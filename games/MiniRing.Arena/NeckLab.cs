@@ -267,7 +267,7 @@ internal static class NeckLab
     /// <summary>
     /// <see cref="SlashOnce"/> と同じ 1 振りを動画にする（体の横から首へ寄る。<paramref name="slow"/> 倍のスロー、振り終わって 1.2 秒まで）。音なし。
     /// </summary>
-    public static void SlashVideo(string dir, float offset, float speed, bool bridges, bool armsDown, float slow, string outPath)
+    public static void SlashVideo(string dir, float offset, float speed, bool bridges, bool armsDown, float slow, string outPath, float tiltDegrees = 0f)
     {
         const int Width = 960, Height = 540, Fps = 30;
         using var game = new BoxingGame(SwordStance.Tuning, 1, new BoxingCorners("stand", _ => new StandGuard(armsDown ? DownPosture : null), _ => new StandGuard(armsDown ? DownPosture : null)));
@@ -282,6 +282,15 @@ internal static class NeckLab
         var chest = game.World.GetState(p.Chest);
         var joint = chest.Position + (Vector3.Transform(Vector3.UnitY, chest.Orientation) * victim.HalfExtentsOf(p.Chest).Y);
         var frame = victim.Frame;
+        if (tiltDegrees != 0f)
+        {
+            var q = Quaternion.CreateFromAxisAngle(frame.Right, tiltDegrees * MathF.PI / 180f);
+            var headState = game.World.GetState(p.Head);
+            game.World.SetDynamicPose(p.Head, joint + Vector3.Transform(headState.Position - joint, q), Quaternion.Concatenate(headState.Orientation, q));
+            game.World.SetLinearVelocity(p.Head, Vector3.Zero);
+            game.World.SetAngularVelocity(p.Head, Vector3.Zero);
+        }
+
         var (heading, across) = dir switch
         {
             "side" => (frame.Right, frame.Forward),

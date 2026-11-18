@@ -1117,7 +1117,7 @@ static int NeckLabCommand(Options o)
     NeckLab.ArmsDown = o.Get("arms") == "down";
     if (o.Get("video") is { } slashVideo && o.Get("mode") == "slash")
     {
-        NeckLab.SlashVideo(o.Get("dir") ?? "back", o.Float("offset", -0.003f), o.Float("speed", 3.4f, min: 0.1f), o.Get("bridges") != "off", o.Get("arms") == "down", o.Float("slow", 8f, min: 0.25f), slashVideo);
+        NeckLab.SlashVideo(o.Get("dir") ?? "back", o.Float("offset", -0.003f), o.Float("speed", 3.4f, min: 0.1f), o.Get("bridges") != "off", o.Get("arms") == "down", o.Float("slow", 8f, min: 0.25f), slashVideo, o.Float("tilt", 0f));
         return 0;
     }
 
