@@ -13,7 +13,7 @@ public sealed class StaminaRuleTests
     [TestMethod]
     public void PlayerFatigueOff_KeepsPlayerArmsFresh_WhileCpuTires()
     {
-        var tuning = FighterTuning.Default with { PlayerFatigue = false, StaminaCapacity = 2f, StaminaRecoveryPower = 0f };
+        var tuning = FighterTuning.Default with { PlayerFatigue = false, OxygenStorePerKg = 2.4f, VesselPowerPerKg = 0f };
         using var game = new BoxingGame(tuning, seed: 2, new BoxingCorners("swarmer", s => BotCatalog.Create("swarmer", s), s => BotCatalog.Create("swarmer", s)));
         for (var t = 0f; t < 6f; t += 1f / 60f)
         {
@@ -35,7 +35,7 @@ public sealed class StaminaRuleTests
     [TestMethod]
     public void PlayerFatigueOn_ByDefault()
     {
-        var tuning = FighterTuning.Default with { StaminaCapacity = 2f, StaminaRecoveryPower = 0f };
+        var tuning = FighterTuning.Default with { OxygenStorePerKg = 2.4f, VesselPowerPerKg = 0f };
         Assert.IsTrue(FighterTuning.Default.PlayerFatigue);
         using var game = new BoxingGame(tuning, seed: 2, new BoxingCorners("swarmer", s => BotCatalog.Create("swarmer", s), s => BotCatalog.Create("swarmer", s)));
         for (var t = 0f; t < 6f; t += 1f / 60f)

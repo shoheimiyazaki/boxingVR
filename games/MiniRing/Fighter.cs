@@ -200,7 +200,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 49; // 49: ブランチ claude/rush-physics の 47（打撃の当たる速さを相対速度に・体の質量は体自身の動きの分だけ）と、ブランチ claude/vfc の 47・48（VFC の再生・骨折が曲がったままつながる）を合わせた（2026-11-18 のマージ）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 50; // 50: スタミナを呼吸と循環のモデルに（部位ごとの酸素の蓄え・血管・心臓・肺）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1622,8 +1622,14 @@ public sealed partial class Fighter
     /// <summary>腹の働き（0..1）: 肝臓と腸の働きの小さい方（物理の歩ごとに数え直す。打たれた直後は打撲の分をすぐ足す）。</summary>
     public float Core { get; private set; } = 1f;
 
-    /// <summary>息の働き（0..1）: 心臓と肺の働きの小さい方。スタミナを戻す速さに掛かる（物理の歩ごとに数え直す）。</summary>
+    /// <summary>息の働き（0..1）: 心臓と肺（× 頸の脊髄）の働きの小さい方（中継の言葉・調べもの用。体の計算は心臓と肺を別々に使う）。</summary>
     public float Breath { get; private set; } = 1f;
+
+    /// <summary>心臓の働き（0..1）: 心臓のボクセルの残りと打撲から（<see cref="HeartCapacity"/> に掛かる）。</summary>
+    public float HeartFunction { get; private set; } = 1f;
+
+    /// <summary>肺の働き（0..1）: 肺のボクセルの残りと打撲から（<see cref="LungCapacity"/> に掛かる）。</summary>
+    public float LungFunction { get; private set; } = 1f;
 
     /// <summary>臓器の働き（腹・息）を数え直す（全部位の臓器のボクセルの残りを数えるので、歩に 1 回だけ）。</summary>
     private void RefreshOrgans()
@@ -1636,30 +1642,34 @@ public sealed partial class Fighter
         var h = _tuning.OrganHalvingLoss;
         Core = MathF.Min(v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Liver, h), v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Gut, h));
         // 息は心臓と肺、そして横隔膜を動かす頸の脊髄（近道: 本当は頸の上の方の神経だけ。頸の脊髄全体で数える）。
-        Breath = MathF.Min(v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Heart, h), v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Lung, h)) * _cord[0];
+        HeartFunction = v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Heart, h);
+        LungFunction = v.OrganFunction(MiniRing.Voxels.BoxerAnatomy.Lung, h);
+        Breath = MathF.Min(HeartFunction, LungFunction) * _cord[0];
     }
 
-    /// <summary>スタミナ（0..1）: 筋肉がすぐ使えるエネルギーの蓄えの残り（<see cref="FighterTuning.StaminaCapacity"/> × 筋肉の量の比 <see cref="BodyBuild.MassRatio"/> に対する割合）。</summary>
-    public float Stamina { get; internal set; } = 1f; // internal: テストが疲れた体を作る
-
     /// <summary>
-    /// チアノーゼの度合い（0..1、見た目だけ）: 酸素が足りないほど皮膚が青紫になる。スタミナが <see cref="FighterTuning.TiredKnee"/> を下回るほど、
-    /// また息（心臓・肺）の働きが落ちるほど強い（大きい方）。死んでいれば 1。試合の計算には使わない。
+    /// チアノーゼの度合い（0..1、見た目だけ）: 血の酸素（<see cref="BloodOxygen"/>）が減るほど唇・顔が青紫になる。肺が取り込みきれない
+    /// （肺が傷んだ・打たれて息が詰まった・全身で使いすぎた）ときに出る。死んでいれば 1。試合の計算には使わない。
     /// </summary>
-    public float Cyanosis => IsDead ? 1f : Smooth(Winded);
+    public float Cyanosis => IsDead ? 1f : Smooth(Math.Clamp((1f - BloodOxygen) / CyanosisFullDrop, 0f, 1f));
+
+    /// <summary>血の酸素がこの割合だけ減ると、チアノーゼがいちばん強い。</summary>
+    private const float CyanosisFullDrop = 0.7f;
 
     /// <summary>
-    /// 息の上がり方（0..1、見た目だけ）: スタミナが <see cref="FighterTuning.TiredKnee"/> を下回るほど、また息（心臓・肺）の働きが
-    /// 落ちるほど大きい（大きい方）。死んでいれば 0（息をしない）。チアノーゼ・吐く息・メーターの点滅はここから出る。体の物理の計算には使わない
+    /// 息の上がり方（0..1、見た目だけ）: 肺の仕事の大きさ。肺が取り込んでいる速さの、今の肺の上限 <see cref="LungCapacity"/> に対する割合（楽な分を引く）と、
+    /// 血の酸素の減り（肺が追いつかない）の大きい方。死んでいれば 0（息をしない）。吐く息の速さ・濃さはここから出る。部位の筋肉だけの疲れ（腕の蓄えが
+    /// 尽きても全身では酸素が足りている）では上がらない: それは腕の遅れに出る。体の物理の計算には使わない
     /// （ボットの戦略の層は、相手の見える手がかりとしてこの量を読む: <see cref="FighterSense.OpponentWinded"/>）。
     /// </summary>
-    public float Winded => IsDead ? 0f : Math.Clamp(MathF.Max(1f - (Stamina / MathF.Max(1e-3f, _tuning.TiredKnee)), BreathWindedShare * (1f - Breath)), 0f, 1f);
+    public float Winded => IsDead ? 0f : Math.Clamp(MathF.Max(
+        ((_uptake / MathF.Max(1e-3f, LungCapacity)) - EasyBreathingShare) / (1f - EasyBreathingShare), (1f - BloodOxygen) / CyanosisFullDrop), 0f, 1f);
 
     /// <summary>
-    /// 息（心臓・肺）の働きが 0 のときの <see cref="Winded"/>（見た目だけ）。スタミナが尽きたとき（1）より少し弱い: 胸を打たれた直後は
-    /// まだ蓄えがあるので、あえぎきるのはスタミナも尽きてから。
+    /// 肺の上限に対してこの割合までの取り込みは、息が上がって見えない（ふつうの攻防の 4〜7 W は無傷の肺 32 W の 1〜2 割、全力の連打の 15〜20 W で 5〜6 割。試合の始めから息を見せると
+    /// 合図にならない）。肺が傷むと上限が下がるので、同じ動きでも息が上がる。
     /// </summary>
-    private const float BreathWindedShare = 0.8f;
+    private const float EasyBreathingShare = 0.3f;
 
     /// <summary>
     /// 呼吸の位相（息の数、見た目だけ）: 1 息ごとに 1 増える（小数部が 1 息の中の位置。死ねば止まる）。速さは <see cref="Winded"/> で決まる（<see cref="TiredLook.BreathsPerSecond"/>）。
@@ -1691,9 +1701,11 @@ public sealed partial class Fighter
             total += amount;
         }
 
-        var winded = MathF.Min(Stamina, _tuning.WindPerBruise * MuscleMassRatio * total / StaminaCapacityJoules);
-        Stamina -= winded;
-        WindLost += winded * StaminaCapacityJoules;
+        // 息が詰まる（横隔膜が止まる）: 血の酸素を失う。肺が取り込み直すまで、どの部位へも届く酸素が減る。
+        var blood = _blood * BloodCapacity;
+        var winded = MathF.Min(blood, _tuning.WindPerBruise * MuscleMassRatio * total);
+        _blood = (blood - winded) / BloodCapacity;
+        WindLost += winded;
         RefreshOrgans(); // 打たれた直後から効く（腹の張り・息）
     }
 
@@ -2234,7 +2246,7 @@ public sealed partial class Fighter
 
         // 意識が薄れると腕を上げていられない（ガードが重さで下がる）。
         // 疲れると拳を運ぶ力が落ちる（パンチが遅く軽くなり、ガードが下がる）。体を支える脚は意識（張り）で決まり、疲れでは崩れない。
-        DriveArms(command, ControlScale * FaintArm * Vigor, weightShift: grounded && State == FighterState.Standing, dt);
+        DriveArms(command, ControlScale * FaintArm, weightShift: grounded && State == FighterState.Standing, dt);
     }
 
     /// <summary>今の両足の位置で、足の運びを置き直す（立ち直ったとき・生成直後）。</summary>
@@ -2264,7 +2276,7 @@ public sealed partial class Fighter
     {
         var pelvis = _world.GetState(Parts.Pelvis);
         var omega = MathF.Sqrt(-_world.Gravity.Y / MathF.Max(0.05f, height));
-        var intent = command.ClampedMove * (_tuning.WalkSpeed * Vigor);
+        var intent = command.ClampedMove * (_tuning.WalkSpeed * VigorOf(MuscleRegion.Legs));
         var twist = _twist / MathF.Max(1e-3f, _tuning.MaxTorsoTwistRadians);
         // 体重: 頭を前へ出せば前足、反らせば後ろ足へ。右の拳（後ろの手）を打つときは前足へ乗せる。
         var weight = Math.Clamp((command.HeadOffset.Z / (0.4f * ArmReach)) + (0.6f * MathF.Max(0f, twist)), -1f, 1f);
@@ -2310,7 +2322,7 @@ public sealed partial class Fighter
             centering *= t.MaxCentering / centering.Length();
         }
 
-        var desired = (_laggedMove * (_tuning.WalkSpeed * Vigor)) + new Vector3(centering.X, 0f, centering.Y);
+        var desired = (_laggedMove * (_tuning.WalkSpeed * VigorOf(MuscleRegion.Legs))) + new Vector3(centering.X, 0f, centering.Y);
         // 体は足より先へは行けない: 支えの点から離れるほど、離れる向きの速さを抑える（足が追いつくのを待つ）。
         var away = -toSupport;
         var distance = away.Length();
@@ -2470,7 +2482,7 @@ public sealed partial class Fighter
         leg.KneeDriven = true;
         leg.LastError = goal - kneeNow;
         var mass = _world.GetMass(leg.Thigh) + _world.GetMass(leg.Shin) + _world.GetMass(leg.Heel) + _world.GetMass(leg.Toe);
-        var scale = LegStrength(leg.AigisLeft) * Vigor * Tone;
+        var scale = LegStrength(leg.AigisLeft) * VigorOf(MuscleRegion.Legs) * Tone;
         var force = ClampLength(FighterMath.HandAccel(kneeNow, velocity, goal, targetVelocity, t.KneeKp, t.KneeKd) * mass,
             t.MaxFootForce * _tuning.TorqueScale / _tuning.Scale * scale * t.KickKneeForceGain);
         // 力は膝の点にかかる（腿の重心まわりのトルクにもなる）。反作用は骨盤へ（脚の筋肉が体と脚の間で出す力）。
@@ -2552,7 +2564,7 @@ public sealed partial class Fighter
         leg.HasTarget = true;
         leg.LastError = ankleTarget - ankle;
         var mass = _world.GetMass(leg.Heel) + _world.GetMass(leg.Toe) + _world.GetMass(leg.Shin);
-        var kickScale = leg.Command is null ? 1f : LegStrength(leg.AigisLeft) * Vigor * Tone;
+        var kickScale = leg.Command is null ? 1f : LegStrength(leg.AigisLeft) * VigorOf(MuscleRegion.Legs) * Tone;
         var force = ClampLength(FighterMath.HandAccel(ankle, velocity, ankleTarget, targetVelocity, t.FootKp, t.FootKd) * mass,
             t.MaxFootForce * _tuning.TorqueScale / _tuning.Scale * kickScale * (leg.Command is null ? 1f : t.KickFootForceGain));
         if (!swinging)
@@ -2656,7 +2668,7 @@ public sealed partial class Fighter
     private void ApplyMovement(in FighterCommand command, float scale, float dt)
     {
         var pelvis = _world.GetState(Parts.Pelvis);
-        var accel = FighterMath.MoveAccel(pelvis.LinearVelocity, command.ClampedMove * (_tuning.WalkSpeed * Vigor * StrideSpeedRatio), _tuning.MoveGain, _tuning.MaxMoveAccel);
+        var accel = FighterMath.MoveAccel(pelvis.LinearVelocity, command.ClampedMove * (_tuning.WalkSpeed * VigorOf(MuscleRegion.Legs) * StrideSpeedRatio), _tuning.MoveGain, _tuning.MaxMoveAccel);
         ApplyLocomotion(accel * (SupportedMass * scale), dt);
         TrackSpeed(pelvis.LinearVelocity, dt);
     }
@@ -2724,8 +2736,11 @@ public sealed partial class Fighter
 
     private void DriveArms(in FighterCommand command, float scale, bool weightShift, float dt)
     {
-        var servoAllowance = _muscleBudget * _tuning.StaminaServoShare;
-        _muscleBudget -= servoAllowance;
+        // 腕ごとの蓄えから、肩・肘・手首のサーボの分を先に取り置く（拳を引く PD・体からの移送が残りを使い、最後に戻してサーボへ渡す）。
+        var leftAllowance = _budget[(int)MuscleRegion.LeftArm] * _tuning.StaminaServoShare;
+        var rightAllowance = _budget[(int)MuscleRegion.RightArm] * _tuning.StaminaServoShare;
+        _budget[(int)MuscleRegion.LeftArm] -= leftAllowance;
+        _budget[(int)MuscleRegion.RightArm] -= rightAllowance;
         var frame = Frame;
         var com = CenterOfMass;
         var torso = TorsoOrientation;
@@ -2765,24 +2780,26 @@ public sealed partial class Fighter
             arm.CarriedMass = CarriedMass(arm);
             arm.UpdateLead(_tuning.LeadSpringHz, _tuning.LeadSpringDamping, dt);
             var spring = State == FighterState.Standing && float.IsFinite(hand.Spring) ? Math.Clamp(hand.Spring, 0f, 1f) : 0f; // 倒れている間は移さない
+            var armScale = scale * VigorOf(arm.Region); // 疲れはその腕の酸素から（呼吸・循環のモデル）
             if (spring > 0f)
             {
-                TransferBodyMotion(arm, frame.LocalToWorld(target), spring * scale, dt);
+                TransferBodyMotion(arm, frame.LocalToWorld(target), spring * armScale, dt);
             }
             else
             {
                 arm.BodyStore = null; // 次の拳の出し始めで蓄え直す
             }
 
-            var drive = arm.Drive(_world, _tuning, frame, target, scale * ArmStrength(arm.Hand), _inertia, com, torso, SupportedMass, dt, Parts.Chest, spring, HandSlowness, hand.Tuck);
+            var drive = arm.Drive(_world, _tuning, frame, target, armScale * ArmStrength(arm.Hand), _inertia, com, torso, SupportedMass, dt, Parts.Chest, spring, HandSlownessOf(arm.Hand), hand.Tuck);
             ApplyArmDrive(arm, drive.Force, drive.ArmPart, weightShift, dt);
             arm.DriveWrist(_world, frame, arm.Support is { } held && arm.SlideSpan is null ? command.For(held.Main).Orientation : hand.Orientation);
         }
 
         EnsureSlideWrists();
         // 添え手の握りが成立して新しい手首が生まれた歩も含め、すべての目標・直接力積を与えた後に関節を制約する。
-        _muscleBudget += servoAllowance;
-        BudgetArmServos(servoAllowance, dt);
+        _budget[(int)MuscleRegion.LeftArm] += leftAllowance;
+        _budget[(int)MuscleRegion.RightArm] += rightAllowance;
+        BudgetArmServos(leftAllowance, rightAllowance, dt);
     }
 
     /// <summary>
@@ -2993,7 +3010,7 @@ public sealed partial class Fighter
 
         // その時々の体の動きのうち時定数で抜ける分（体はゆっくりになっても動き続ける）。出し始めの蓄えより多くは渡さない。
         var requested = MathF.Min(arm.BodyStore.Value, motionEnergy * Math.Clamp(share, 0f, 1f) * (1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.BodyToFistTime))));
-        var released = SpendMuscleEnergy(requested);
+        var released = SpendMuscleEnergy(MuscleRegion.Trunk, requested);
         arm.BodyStore -= released;
         // 体幹: 拳に乗せた動き（並進のうち乗せられる成分と、胸の回転）の運動エネルギーが released だけ減るよう、同じ割合で縮める。
         var keep = MathF.Sqrt(MathF.Max(0f, 1f - (released / motionEnergy)));
@@ -3075,9 +3092,9 @@ public sealed partial class Fighter
 
         foreach (var arm in _arms)
         {
-            // 意識が薄れると腕を上げていられない。疲れ（スタミナ、Vigor）も肩・肘の筋肉（関節のサーボ）に出す: 拳を引く力だけを弱めても、
+            // 意識が薄れると腕を上げていられない。疲れ（その腕の酸素、VigorOf）も肩・肘の筋肉（関節のサーボ）に出す: 拳を引く力だけを弱めても、
             // 腕の形を作るサーボが全力のままだと拳は同じ速さで出ていた（疲れきっても拳の速さ 1.90 m/s のまま。A3、2026-11-12）。
-            var a = s * FaintArm * Vigor;
+            var a = s * FaintArm * VigorOf(arm.Region);
             if (!arm.Severed && Changed(2 + (int)arm.Hand, a * ArmStrength(arm.Hand)))
             {
                 arm.SetStrength(_world, _tuning, a * Strength(arm.UpperArm), a * Strength(arm.Forearm));
@@ -3889,6 +3906,9 @@ public sealed partial class Fighter
         }
 
         public Hand Hand { get; }
+
+        /// <summary>この腕の筋肉の酸素のまとまり（<see cref="MuscleRegion"/>。番号は <see cref="Hand"/> と同じ）。</summary>
+        public MuscleRegion Region => (MuscleRegion)(int)Hand;
 
         /// <summary>
         /// 拳の目標が予定の軌道より先へ走っている量 [m]。体の動きから移った運動量で走り出し、体へつなぐバネで戻る

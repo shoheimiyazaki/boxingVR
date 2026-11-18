@@ -36,7 +36,7 @@ public sealed class StaminaProbe
     public void StaminaOverABoutAndARest_Probe()
     {
         var t0 = FighterTuning.Default;
-        foreach (var (name, tuning) in new[] { ("A cap60 w.15", t0 with { StaminaCapacity = 60f, StaminaRecoveryPower = 1.8f, WindPerBruise = 18f }), ("B cap40 w.1", t0 with { StaminaCapacity = 40f, StaminaRecoveryPower = 1.2f, WindPerBruise = 12f }), ("C cap60 w.25", t0 with { StaminaCapacity = 60f, StaminaRecoveryPower = 1.8f, WindPerBruise = 30f }), ("D cap30 w.15", t0 with { StaminaCapacity = 30f, StaminaRecoveryPower = 0.9f, WindPerBruise = 0.15f }) })
+        foreach (var (name, tuning) in new[] { ("A cap60 w.15", t0 with { OxygenStorePerKg = 72f, VesselPowerPerKg = 1.9f, WindPerBruise = 18f }), ("B cap40 w.1", t0 with { OxygenStorePerKg = 48f, VesselPowerPerKg = 1.26f, WindPerBruise = 12f }), ("C cap60 w.25", t0 with { OxygenStorePerKg = 60f * 1.2f, VesselPowerPerKg = 1.8f * 1.05f, WindPerBruise = 30f }), ("D cap30 w.15", t0 with { OxygenStorePerKg = 30f * 1.2f, VesselPowerPerKg = 0.9f * 1.05f, WindPerBruise = 0.15f }) })
         {
             var line = $"{name}:";
             foreach (var (red, blue) in new[] { ("champion", "swarmer"), ("slugger", "jabber") })

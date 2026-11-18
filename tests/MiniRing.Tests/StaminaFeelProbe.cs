@@ -17,7 +17,7 @@ public sealed class StaminaFeelProbe
     /// <summary>連打の前に前へ詰める秒数（0 なら離れたまま空を打つ）。</summary>
     private static float Approach { get; set; }
 
-    /// <summary>環境変数 STAMINA_TUNE="StaminaCapacity=270,StaminaCriticalShare=0.4" で調整値を上書きする。</summary>
+    /// <summary>環境変数 STAMINA_TUNE="OxygenStorePerKg=320,VesselWorkingShare=0.4" で調整値を上書きする。</summary>
     internal static FighterTuning Tuning()
     {
         var tuning = FighterTuning.Default with { };
@@ -79,7 +79,7 @@ public sealed class StaminaFeelProbe
         ((IntentControl)game.CpuControl!).Input = new FighterIntent(Vector2.Zero, Evade: true);
         var peak = 0f;
         var started = 0;
-        Console.WriteLine($"== {name} ({red ?? "base"}) 容量 {game.Player.Build.MassRatio * Tuning().StaminaCapacity:0} J");
+        Console.WriteLine($"== {name} ({red ?? "base"}) 容量 {game.Player.Build.MassRatio * Tuning().OxygenStorePerKg * game.Player.ArmMass(Hand.Right) / game.Player.Build.MassRatio:0} J (腕 1 本)");
         Console.WriteLine("  t   stamina  P[W]  supply[W]  拳の最大[m/s]  打った数");
         for (var step = 1; step <= (int)(seconds / Dt); step++)
         {

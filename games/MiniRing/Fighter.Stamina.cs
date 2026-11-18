@@ -2,54 +2,192 @@ using System.Numerics;
 
 namespace MiniRing;
 
+/// <summary>
+/// 呼吸と循環（2026-11-18、ユーザーの設計）: 筋肉の短い疲れを、部位ごとの酸素の出入りで書く。
+/// <list type="bullet">
+/// <item>部位（<see cref="MuscleRegion"/>: 左腕・右腕・脚・胴）の筋肉は、それぞれ酸素の蓄え（筋肉の中の酸素と、それで作り直せるエネルギー）を持つ。
+/// 大きさは部位の質量 × 残った筋肉 × <see cref="FighterTuning.OxygenStorePerKg"/>。筋肉の仕事はここから出ていく。</item>
+/// <item>中枢（心臓）から部位へ送れる速さの上限は血管の太さで、部位の質量 × 残った筋肉 × <see cref="FighterTuning.VesselPowerPerKg"/>。
+/// 縮んでいる筋肉は自分の血管を押しつぶすので、働いている部位へ流れ込む速さは休んでいるときより下がる（<see cref="FighterTuning.VesselWorkingShare"/>）。</item>
+/// <item>心臓は全部位へ送る速さの合計の上限（<see cref="FighterTuning.HeartPower"/> × 心臓の働き）。足りなければ、欲しい速さの比で分ける。</item>
+/// <item>肺は血の酸素（<see cref="FighterTuning.BloodOxygenStore"/>）へ取り込む速さの上限（<see cref="FighterTuning.LungPower"/> × 肺の働き × 頸の脊髄）。
+/// 心臓が送るのは血の酸素からで、血が空なら肺が取り込んだ分しか送れない。</item>
+/// </list>
+/// 蓄えが尽きた部位は、そこへ届く速さしか仕事ができない（腕の追従が落ちる）。届く速さを決めた所がボトルネック（<see cref="OxygenLimit"/>）で、
+/// 血管なら腕の遅れ、心臓なら顔の青白さ（<see cref="Pallor"/>）、肺なら息のあえぎと唇の青さ（<see cref="Winded"/>・<see cref="Cyanosis"/>）に出る。
+/// </summary>
 public sealed partial class Fighter
 {
     private float _recentMusclePower;
     private float _workDone;
-    private float _stepWork;
-    private float _muscleBudget;
     internal float StepMuscleBudget { get; private set; }
     internal float StepMuscleAuthorized { get; private set; }
     private readonly List<ServoWork> _servoWork = [];
 
-    private readonly record struct ServoWork(int Joint, int BodyA, int BodyB, float Speed, float Reserved);
+    private readonly record struct ServoWork(int Joint, int BodyA, int BodyB, float Speed, float Reserved, MuscleRegion Region);
+
+    /// <summary>部位ごとの酸素の蓄えの残り（0..1、容量に対する割合。容量は肉の残りで変わるので割合で持つ）。</summary>
+    private readonly float[] _oxygen = [1f, 1f, 1f, 1f];
+
+    /// <summary>部位ごとに、この物理の歩で使ってよい仕事 [J]（蓄えと届いた酸素から。<see cref="UpdateStamina"/> が決める）。</summary>
+    private readonly float[] _budget = new float[MuscleRegions.Count];
+
+    /// <summary>部位ごとに、この歩で実際にした仕事 [J]（サーボは次の歩で精算する分を含む）。</summary>
+    private readonly float[] _stepRegionWork = new float[MuscleRegions.Count];
+
+    /// <summary>部位ごとに、酸素を流す前の蓄え [J]（この歩の放出の上限の元）。</summary>
+    private readonly float[] _reserve = new float[MuscleRegions.Count];
+
+    /// <summary>部位ごとの直近の仕事率 [W]（<see cref="FighterTuning.StaminaRecoveryWindow"/> でならす）。血管の押しつぶしと駆動の割合を決める。</summary>
+    private readonly float[] _regionPower = new float[MuscleRegions.Count];
+
+    /// <summary>部位ごとに、いま届けられる最大の速さ [W]（血管・心臓・肺の鎖を通った値。<see cref="VigorOf"/> の供給）。</summary>
+    private readonly float[] _regionSupply = new float[MuscleRegions.Count];
+
+    /// <summary>部位ごとに、前の歩で実際に届いた速さ [W]。</summary>
+    private readonly float[] _regionDelivery = new float[MuscleRegions.Count];
+
+    /// <summary>部位ごとに、届く速さを決めた所（前の歩）。</summary>
+    private readonly OxygenLimit[] _regionLimit = new OxygenLimit[MuscleRegions.Count];
+
+    /// <summary>調べもの用: この試合で部位ごとに筋肉がした仕事 [J]（<see cref="MuscleRegion"/> の順）。</summary>
+    private readonly float[] _regionWork = new float[MuscleRegions.Count];
+
+    /// <summary>血の酸素の残り（0..1、<see cref="FighterTuning.BloodOxygenStore"/> に対する割合）。</summary>
+    private float _blood = 1f;
+
+    /// <summary>肺が直近に取り込んだ速さ [W]（ならした値。息の速さの元）。</summary>
+    private float _uptake;
+
+    /// <summary>心臓が送りきれなかった割合（ならした値、0..1。顔の青白さの元）。</summary>
+    private float _heartShortfall;
+
+    /// <summary>調べもの用: 部位 <paramref name="region"/> の筋肉がこの試合でした仕事 [J]。</summary>
+    internal float RegionWork(MuscleRegion region) => _regionWork[(int)region];
+
+    /// <summary>部位 <paramref name="region"/> の酸素の蓄えの残り（0..1）。</summary>
+    public float OxygenOf(MuscleRegion region) => _oxygen[(int)region];
+
+    /// <summary>部位 <paramref name="region"/> へ前の歩で届いた酸素の速さ [W]。</summary>
+    public float DeliveryOf(MuscleRegion region) => _regionDelivery[(int)region];
+
+    /// <summary>部位 <paramref name="region"/> へ届く速さを前の歩で決めた所（蓄えが満ちていて欲しがっていなければ <see cref="OxygenLimit.None"/>）。</summary>
+    public OxygenLimit LimitOf(MuscleRegion region) => _regionLimit[(int)region];
+
+    /// <summary>血の酸素の残り（0..1）。肺が追いつかないと減る。</summary>
+    public float BloodOxygen => _blood;
+
+    /// <summary>テストが部位ごとに疲れた体を作る（蓄えの残りを直に置く）。</summary>
+    internal void SetOxygen(MuscleRegion region, float fill) => _oxygen[(int)region] = Math.Clamp(fill, 0f, 1f);
 
     /// <summary>
-    /// 筋肉の量の基準体格に対する比（<see cref="BodyBuild.MassRatio"/>: 体積に比例する質量と同じ H³ × M²）。スタミナの蓄え・心肺の供給・
-    /// 回復を止める仕事率の尺度に掛ける。歩く・腕を振る・体を支える仕事は質量に比例して増えるので、蓄えと供給も筋肉の量に比例させないと、
-    /// 大きい体ほど同じ動きで早く尽きる（2026-11-16 の中継で、質量 1.9・2.2 倍の 2 人が試合のほとんどを空のまま動けなかった）。
-    /// 1 kg あたりの蓄え・供給は体格によらず同じ（§1.7: 強さは見える体から。基準体格では今までと同じ）。
+    /// スタミナ（0..1）: いちばん減っている部位の酸素の蓄えの残り（腕を切られた部位は数えない）。メーター・ボットの判断・見た目の合図はこれを読む。
+    /// 置くと（テストが疲れた体を作る）、すべての部位と血の酸素を同じ割合にする。
+    /// </summary>
+    public float Stamina
+    {
+        get
+        {
+            var least = 1f;
+            for (var i = 0; i < MuscleRegions.Count; i++)
+            {
+                if (i < 2 && _arms[i].Severed)
+                {
+                    continue;
+                }
+
+                least = MathF.Min(least, _oxygen[i]);
+            }
+
+            return least;
+        }
+
+        internal set
+        {
+            var fill = Math.Clamp(value, 0f, 1f);
+            Array.Fill(_oxygen, fill);
+            _blood = fill;
+        }
+    }
+
+    /// <summary>
+    /// 筋肉の量の基準体格に対する比（<see cref="BodyBuild.MassRatio"/>: 体積に比例する質量と同じ H³ × M²）。心臓・肺・血の酸素の尺度に掛ける
+    /// （部位の蓄えと血管は部位の質量そのものから出るので、体格の比はもう入っている）。1 kg あたりは体格によらず同じ（§1.7）。
     /// </summary>
     private float MuscleMassRatio => _tuning.Build.MassRatio;
 
-    /// <summary>スタミナの容量 [J] = <see cref="FighterTuning.StaminaCapacity"/> × 筋肉の量の比。</summary>
-    private float StaminaCapacityJoules => MathF.Max(1e-3f, _tuning.StaminaCapacity * MuscleMassRatio);
+    /// <summary>部位の質量 [kg]（体に付いている物理の体の質量）。</summary>
+    private float RegionMass(int region) => region switch
+    {
+        0 or 1 => ArmMass((Hand)region),
+        2 => _legMass,
+        _ => _world.GetMass(Parts.Chest) + _world.GetMass(Parts.Pelvis),
+    };
 
     /// <summary>
-    /// 心肺が現在供給する仕事率 [W]（有酸素の供給。運動生理の臨界パワー CP と W′ のモデル、2026-11-17）。直近に実際にした仕事の仕事率 P
-    /// （<see cref="_recentMusclePower"/>）に対して、P が臨界パワー C 以上なら供給は C（蓄えは P − C の速さで減る）、C より下なら
-    /// R − (R − C) × P / C（休むほど速く戻り、C で戻りが 0 になる。P = 0 で最大 R）。R = 最大 × 筋肉の量の比 × Breath × <see cref="Endurance"/>、
-    /// C = R × <see cref="FighterTuning.StaminaCriticalShare"/>。足を使う・軽く打ち合う（C より下）では必ず戻り、全力の連打（C の数倍）でだけ減る。
-    /// 前の式（R × exp(−(P / 5 W)²)）は立ち回りの仕事率 5〜6 W で戻りが仕事を下回り、打ち合っていないのに減った。
+    /// 部位の残った筋肉（0..1）。蓄えも血管も残った肉の分だけ。折れた・切れた腕も、体に近い側の肩・肘の筋肉は残った形へ動く（<c>DriveStump</c>）ので
+    /// 数え続ける（<see cref="Strength"/> には下限があるので容量は 0 にならない）。
+    /// </summary>
+    private float RegionMuscle(int region) => region switch
+    {
+        0 or 1 => 0.5f * (Strength(_arms[region].UpperArm) + Strength(_arms[region].Forearm)),
+        2 => 0.5f * (LegCondition(true) + LegCondition(false)),
+        _ => CoreStrength,
+    };
+
+    /// <summary>部位の酸素の蓄えの容量 [J]（今の肉の残りから数え直す）。</summary>
+    private float MeasureOxygenCapacity(int region) => _tuning.OxygenStorePerKg * RegionMass(region) * RegionMuscle(region);
+
+    /// <summary>部位の酸素の蓄えの容量 [J]（歩の始めに <see cref="UpdateStamina"/> が数え直した値。歩の途中の削れは次の歩から効く）。</summary>
+    private readonly float[] _capacity = new float[MuscleRegions.Count];
+
+    private float OxygenCapacity(int region) => _capacity[region];
+
+    /// <summary>調べもの用: 部位の酸素の蓄えの容量 [J]（この歩の値）と、この歩で使ってよい仕事 [J] の残り。</summary>
+    internal (float Capacity, float Budget) OxygenBudgetOf(MuscleRegion region) => (_capacity[(int)region], _budget[(int)region]);
+
+    /// <summary>心臓が全部位へ送れる速さ [W]（死ねば 0）。</summary>
+    public float HeartCapacity => IsDead ? 0f : _tuning.HeartPower * MuscleMassRatio * HeartFunction;
+
+    /// <summary>肺が血へ取り込める速さ [W]（横隔膜を動かす頸の脊髄を含む。死ねば 0）。</summary>
+    public float LungCapacity => IsDead ? 0f : _tuning.LungPower * MuscleMassRatio * LungFunction * _cord[0];
+
+    /// <summary>血の酸素の容量 [J]。</summary>
+    private float BloodCapacity => MathF.Max(1e-3f, _tuning.BloodOxygenStore * MuscleMassRatio);
+
+    /// <summary>
+    /// 血管が部位へ流せる速さ [W]: 部位の質量 × 残った筋肉 × 1 kg あたり × 持久力。働いている筋肉は自分の血管を押しつぶすので、直近の仕事率 P が
+    /// 休んだときの流れ V の <see cref="FighterTuning.VesselWorkingShare"/>（k）倍に届くまで、流れは V から kV へ直線に下がる（P ≥ kV では kV）。
+    /// 休むほど速く戻り、kV より軽い仕事では蓄えが減らない（運動生理の臨界パワーにあたる値を、部位ごとに血管の太さから出す）。
+    /// </summary>
+    private float VesselFlow(int region)
+    {
+        var most = _tuning.VesselPowerPerKg * RegionMass(region) * RegionMuscle(region) * Endurance;
+        var working = most * Math.Clamp(_tuning.VesselWorkingShare, 1e-3f, 1f);
+        var power = _regionPower[region];
+        return power >= working ? working : most - ((most - working) * power / working);
+    }
+
+    /// <summary>
+    /// 心臓と肺が今送っている酸素の合計 [W]（前の歩で全部位へ届いた速さの合計）。
     /// </summary>
     internal float RecoveryPower
     {
         get
         {
-            if (IsDead)
+            var sum = 0f;
+            foreach (var delivered in _regionDelivery)
             {
-                return 0f;
+                sum += delivered;
             }
 
-            var most = _tuning.StaminaRecoveryPower * MuscleMassRatio * Breath * Endurance;
-            var critical = most * Math.Clamp(_tuning.StaminaCriticalShare, 1e-3f, 1f);
-            return _recentMusclePower >= critical ? critical : most - ((most - critical) * _recentMusclePower / critical);
+            return sum;
         }
     }
 
     /// <summary>
-    /// 試合を通した持久力（0..1]: exp(−試合でした筋肉の仕事の合計 / 持久の蓄え）。筋肉の糖（グリコーゲン）が減るほど心肺の供給と臨界パワーが
-    /// 落ちる近似。ラウンドの間の休みでは戻らないので、後のラウンドほど疲れやすい。持久の蓄え = <see cref="FighterTuning.StaminaEndurance"/>
+    /// 試合を通した持久力（0..1]: exp(−試合でした筋肉の仕事の合計 / 持久の蓄え）。筋肉の糖（グリコーゲン）が減るほど血管から届いた酸素で
+    /// 作り直せるエネルギーが落ちる近似。ラウンドの間の休みでは戻らないので、後のラウンドほど疲れやすい。持久の蓄え = <see cref="FighterTuning.StaminaEndurance"/>
     /// × 筋肉の量の比（1 kg あたりで同じ）。
     /// </summary>
     public float Endurance => MathF.Exp(-_workDone / MathF.Max(1e-3f, _tuning.StaminaEndurance * MuscleMassRatio));
@@ -57,25 +195,76 @@ public sealed partial class Fighter
     /// <summary>この試合で筋肉がした仕事の合計 [J]（<see cref="Endurance"/> の元）。</summary>
     internal float WorkDone => _workDone;
 
-    /// <summary>直近に実際にした仕事の仕事率 [W]（なめらかにしたもの。回復を決める P）。</summary>
+    /// <summary>直近に実際にした仕事の仕事率 [W]（全部位の合計。なめらかにしたもの）。</summary>
     internal float RecentMusclePower => _recentMusclePower;
+
+    /// <summary>部位 <paramref name="region"/> の直近の仕事率 [W]。</summary>
+    internal float RegionPower(MuscleRegion region) => _regionPower[(int)region];
 
     private bool FatigueEnabled => _tuning.StaminaFatigue;
 
-    /// <summary>蓄えから出せる仕事率と心肺の供給で決まる駆動の割合。固定の最低筋力は設けない。</summary>
-    public float Vigor => !FatigueEnabled ? 1f : Freshness + ((1f - Freshness) *
-        RecoveryPower / MathF.Max(1e-6f, RecoveryPower + _recentMusclePower));
+    /// <summary>
+    /// 部位 <paramref name="region"/> の駆動の割合: 蓄えに余裕があれば 1、尽きるほど「届く速さ /（届く速さ + 直近の仕事率）」へ近づく。
+    /// 固定の最低筋力は設けない。
+    /// </summary>
+    public float VigorOf(MuscleRegion region)
+    {
+        if (!FatigueEnabled)
+        {
+            return 1f;
+        }
 
-    /// <summary>仕事率が下がると筋肉の短縮速度も落ちる（Hill の力・速度関係の近似）。</summary>
-    public float HandSlowness => !FatigueEnabled ? 0f : (1f - Vigor) * _tuning.TiredHandSlowness /
-        MathF.Max(1e-3f, Vigor);
+        var i = (int)region;
+        var fresh = Freshness(i);
+        var supply = _regionSupply[i];
+        return fresh + ((1f - fresh) * supply / MathF.Max(1e-6f, supply + _regionPower[i]));
+    }
 
-    private float Freshness => Smooth(Math.Clamp(Stamina / MathF.Max(1e-3f, _tuning.TiredKnee), 0f, 1f));
+    /// <summary>いちばん疲れた部位の駆動の割合（切られた腕は数えない）。調べもの・ボットの読み用。</summary>
+    public float Vigor
+    {
+        get
+        {
+            var least = 1f;
+            for (var i = 0; i < MuscleRegions.Count; i++)
+            {
+                if (i < 2 && _arms[i].Severed)
+                {
+                    continue;
+                }
+
+                least = MathF.Min(least, VigorOf((MuscleRegion)i));
+            }
+
+            return least;
+        }
+    }
+
+    /// <summary>仕事率が下がると筋肉の短縮速度も落ちる（Hill の力・速度関係の近似）。腕ごと。</summary>
+    public float HandSlownessOf(Hand hand)
+    {
+        if (!FatigueEnabled)
+        {
+            return 0f;
+        }
+
+        var vigor = VigorOf((MuscleRegion)(int)hand);
+        return (1f - vigor) * _tuning.TiredHandSlowness / MathF.Max(1e-3f, vigor);
+    }
+
+    /// <summary>遅い方の腕の <see cref="HandSlownessOf"/>（切られた腕は数えない）。</summary>
+    public float HandSlowness => MathF.Max(_arms[0].Severed ? 0f : HandSlownessOf(Hand.Left), _arms[1].Severed ? 0f : HandSlownessOf(Hand.Right));
+
+    private float Freshness(int region) => Smooth(Math.Clamp(_oxygen[region] / MathF.Max(1e-3f, _tuning.TiredKnee), 0f, 1f));
 
     private void UpdateStamina(float dt)
     {
         RefreshOrgans();
-        var servoEnergy = 0f;
+        for (var i = 0; i < MuscleRegions.Count; i++)
+        {
+            _capacity[i] = MeasureOxygenCapacity(i);
+        }
+
         foreach (var servo in _servoWork)
         {
             if (!_world.HasConstraint(servo.Joint))
@@ -88,62 +277,151 @@ public sealed partial class Fighter
             // 力積²の項は取り置き（ReserveServo）だけの上限で、静止して重さを支えるだけの力積を仕事として数えない。
             var impulse = _world.GetConstraintImpulseMagnitude(servo.Joint);
             var after = (_world.GetState(servo.BodyA).AngularVelocity - _world.GetState(servo.BodyB).AngularVelocity).Length();
-            servoEnergy += MathF.Min(servo.Reserved, impulse * MathF.Max(servo.Speed, after));
+            var spent = MathF.Min(servo.Reserved, impulse * MathF.Max(servo.Speed, after));
+            Draw((int)servo.Region, spent);
         }
 
         _servoWork.Clear();
-        Stamina = MathF.Max(0f, Stamina - servoEnergy / StaminaCapacityJoules);
-        // 回復を止める仕事率は、この歩で実際に出た仕事（腕の PD・保持・歩行・体から拳への移送は SpendMuscleEnergy が数えた分、
-        // サーボは精算した分）。押しても出せなかった分は数えない（空で押すだけでは回復は止まらない）。
-        var demand = (_stepWork + servoEnergy) / dt;
-        _workDone += _stepWork + servoEnergy;
-        _stepWork = 0f;
-        _recentMusclePower += (demand - _recentMusclePower) *
-            (1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.StaminaRecoveryWindow)));
-        var capacity = StaminaCapacityJoules;
-        var reserve = Stamina * capacity;
-        var recovery = RecoveryPower * dt;
-        Stamina = Math.Clamp(Stamina + (recovery / capacity), 0f, 1f);
-        // 余裕があるうちは瞬発力として蓄えを使え、減るほど放出時定数による供給へ移る。
-        // サーボの最大トルクからの安全側見積もりが、満タンの通常動作まで制限することを避ける。
-        var release = Freshness + ((1f - Freshness) * (1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.StaminaReleaseWindow))));
-        _muscleBudget = MathF.Min(Stamina * capacity, recovery + (reserve * release));
-        StepMuscleBudget = _muscleBudget;
+        var follow = 1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.StaminaRecoveryWindow));
+        var stepWork = 0f;
+        for (var i = 0; i < MuscleRegions.Count; i++)
+        {
+            // 届く速さを止める仕事率は、この歩で実際に出た仕事（押しても出せなかった分は数えない: 空で押すだけでは流れは止まらない）。
+            stepWork += _stepRegionWork[i];
+            _regionPower[i] += ((_stepRegionWork[i] / dt) - _regionPower[i]) * follow;
+            _stepRegionWork[i] = 0f;
+        }
+
+        _workDone += stepWork;
+        _recentMusclePower += ((stepWork / dt) - _recentMusclePower) * follow;
+        Circulate(dt);
+        StepMuscleBudget = 0f;
         StepMuscleAuthorized = 0f;
+        for (var i = 0; i < MuscleRegions.Count; i++)
+        {
+            // 余裕があるうちは瞬発力として蓄えを使え、減るほど放出時定数による供給へ移る。
+            // サーボの最大トルクからの安全側見積もりが、満タンの通常動作まで制限することを避ける。
+            var fresh = Freshness(i);
+            var release = fresh + ((1f - fresh) * (1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.StaminaReleaseWindow))));
+            var capacity = OxygenCapacity(i);
+            _budget[i] = MathF.Min(_oxygen[i] * capacity, (_regionDelivery[i] * dt) + (_reserve[i] * release));
+            StepMuscleBudget += _budget[i];
+        }
+
         Voxels?.HealBruises(dt, _tuning.BruiseRecoveryRate);
     }
+
+    /// <summary>
+    /// 酸素を流す（1 歩）: 部位が欲しい速さ（蓄えの不足を埋める速さ、血管の流れまで）→ 心臓の上限で比を揃えて縮める → 血の酸素で足りる分だけ送る →
+    /// 肺が血へ取り込む。流す前の部位の蓄え [J] を <see cref="_reserve"/> に残す（放出の上限の元）。
+    /// </summary>
+    private void Circulate(float dt)
+    {
+        Span<float> want = stackalloc float[MuscleRegions.Count];
+        Span<float> vessel = stackalloc float[MuscleRegions.Count];
+        Span<float> capacity = stackalloc float[MuscleRegions.Count];
+        var wanted = 0f;
+        for (var i = 0; i < MuscleRegions.Count; i++)
+        {
+            capacity[i] = OxygenCapacity(i);
+            _reserve[i] = _oxygen[i] * capacity[i];
+            vessel[i] = VesselFlow(i);
+            want[i] = MathF.Min(vessel[i], (1f - _oxygen[i]) * capacity[i] / dt);
+            wanted += want[i];
+        }
+
+        var heart = HeartCapacity;
+        var heartScale = wanted > heart ? heart / wanted : 1f;
+        var blood = _blood * BloodCapacity;
+        var sent = wanted * heartScale * dt;
+        var bloodScale = sent > blood ? blood / sent : 1f;
+        var scale = heartScale * bloodScale;
+        var delivered = 0f;
+        for (var i = 0; i < MuscleRegions.Count; i++)
+        {
+            var flow = want[i] * scale;
+            _regionDelivery[i] = flow;
+            // 届けられる最大の速さ: 血管の流れを、心臓と血の比で縮めたもの（駆動の割合 VigorOf の供給）。
+            _regionSupply[i] = vessel[i] * scale;
+            _regionLimit[i] = want[i] <= 1e-6f ? OxygenLimit.None
+                : bloodScale < 1f ? OxygenLimit.Lungs
+                : heartScale < 1f ? OxygenLimit.Heart
+                : want[i] >= vessel[i] ? OxygenLimit.Vessels
+                : OxygenLimit.None;
+            if (capacity[i] > 1e-6f)
+            {
+                _oxygen[i] = Math.Clamp(_oxygen[i] + (flow * dt / capacity[i]), 0f, 1f);
+            }
+
+            delivered += flow * dt;
+        }
+
+        var lungs = LungCapacity;
+        var room = BloodCapacity - MathF.Max(0f, blood - delivered);
+        var uptake = MathF.Min(lungs * dt, room);
+        _blood = Math.Clamp((MathF.Max(0f, blood - delivered) + uptake) / BloodCapacity, 0f, 1f);
+        var cue = 1f - MathF.Exp(-dt / CueWindow);
+        _uptake += ((uptake / dt) - _uptake) * cue;
+        _heartShortfall += ((1f - heartScale) - _heartShortfall) * cue;
+    }
+
+    /// <summary>見た目の合図（息の速さ・顔色）をならす時間 [s]。息や顔色は一瞬では変わらない。</summary>
+    private const float CueWindow = 1.5f;
+
+    /// <summary>部位 <paramref name="region"/> の蓄えから <paramref name="joules"/> を使う（仕事の記録も足す）。</summary>
+    private void Draw(int region, float joules)
+    {
+        var capacity = OxygenCapacity(region);
+        if (capacity > 1e-6f)
+        {
+            _oxygen[region] = MathF.Max(0f, _oxygen[region] - (joules / capacity));
+        }
+
+        _stepRegionWork[region] += joules;
+        _regionWork[region] += joules;
+    }
+
+    /// <summary>
+    /// 顔の青白さ（0..1、見た目だけ）: 心臓が部位の欲しがる酸素を送りきれない割合（ならした値）。心臓の働きが落ちる・全身で酸素を欲しがるほど強い。
+    /// 試合の計算には使わない。
+    /// </summary>
+    public float Pallor => IsDead ? 1f : Smooth(Math.Clamp(_heartShortfall / PallorFull, 0f, 1f));
+
+    /// <summary>心臓がこの割合だけ送りきれないとき、顔の青白さがいちばん強い。</summary>
+    private const float PallorFull = 0.5f;
 
     // サーボは次のソルバー歩で力を出す。予算を先に取り置き、解いた実際の力積で次の歩に精算する。
     // 取り置きは解く前で後の速さが分からないので、相対角速度の絶対値・最大逆慣性の力積²の上限で安全側へ見積もる。
     // 肩と肘が上腕を共有する交差項は二次項を 2 倍して含める。精算（UpdateStamina）は力積 × 前後の相対角速度の大きい方。
     // 接触や脚の受動拘束との連立までは解かないため、全身の厳密なエネルギー保存ではなく駆動予算の近似。
-    private void BudgetArmServos(float budget, float dt)
+    private void BudgetArmServos(float leftAllowance, float rightAllowance, float dt)
     {
-        var allowance = budget / 6f;
         foreach (var arm in _arms)
         {
+            var allowance = (arm.Hand == Hand.Left ? leftAllowance : rightAllowance) / 3f;
+            var vigor = VigorOf(arm.Region);
             if (_world.HasConstraint(arm.ShoulderServo))
             {
-                var shoulder = ReserveServo(arm.ShoulderServo, Parts.Chest, arm.UpperArm, 40f * _tuning.TorqueScale * ControlScale * FaintArm * Vigor * Strength(arm.UpperArm), allowance, dt);
+                var shoulder = ReserveServo(arm.Region, arm.ShoulderServo, Parts.Chest, arm.UpperArm, 40f * _tuning.TorqueScale * ControlScale * FaintArm * vigor * Strength(arm.UpperArm), allowance, dt);
                 _world.SetAngularServoSettings(arm.ShoulderServo, _tuning.ArmServoHz, shoulder);
             }
 
             if (_world.HasConstraint(arm.ElbowServo))
             {
-                var elbow = ReserveServo(arm.ElbowServo, arm.UpperArm, arm.Forearm, 30f * _tuning.TorqueScale * ControlScale * FaintArm * Vigor * Strength(arm.Forearm), allowance, dt);
+                var elbow = ReserveServo(arm.Region, arm.ElbowServo, arm.UpperArm, arm.Forearm, 30f * _tuning.TorqueScale * ControlScale * FaintArm * vigor * Strength(arm.Forearm), allowance, dt);
                 _world.SetTwistServoSettings(arm.ElbowServo, _tuning.ArmServoHz, elbow);
             }
             var wrist = arm.Held?.Wrist ?? arm.Support?.Wrist;
             var heldBody = arm.Held?.Body ?? arm.Support?.Body;
             if (wrist is { } joint && heldBody is { } body && _world.HasConstraint(joint))
             {
-                var torque = ReserveServo(joint, arm.Forearm, body, _tuning.WristMaxTorque * _tuning.TorqueScale * arm.WristShare * ControlScale * FaintArm * Vigor * Strength(arm.Forearm), allowance, dt);
+                var torque = ReserveServo(arm.Region, joint, arm.Forearm, body, _tuning.WristMaxTorque * _tuning.TorqueScale * arm.WristShare * ControlScale * FaintArm * vigor * Strength(arm.Forearm), allowance, dt);
                 _world.SetAngularServoSettings(joint, _tuning.WristServoHz * MathF.Sqrt(arm.WristShare), torque);
             }
         }
     }
 
-    private float ReserveServo(int joint, int a, int b, float torque, float allowance, float dt)
+    private float ReserveServo(MuscleRegion region, int joint, int a, int b, float torque, float allowance, float dt)
     {
         var speed = (_world.GetState(a).AngularVelocity - _world.GetState(b).AngularVelocity).Length();
         float MaxInverse(int id)
@@ -157,19 +435,19 @@ public sealed partial class Fighter
         var scale = FatigueEnabled ? MuscleWork.ForceScale(impulse * speed, 0.5f * impulse * impulse * inverse, 0f, allowance) : 1f;
         impulse *= scale;
         var reserved = (impulse * speed) + (0.5f * impulse * impulse * inverse);
-        _muscleBudget = MathF.Max(0f, _muscleBudget - reserved);
+        _budget[(int)region] = MathF.Max(0f, _budget[(int)region] - reserved);
         StepMuscleAuthorized += reserved;
-        _servoWork.Add(new ServoWork(joint, a, b, speed, reserved));
+        _servoWork.Add(new ServoWork(joint, a, b, speed, reserved, region));
         return torque * scale;
     }
 
-    private float SpendMuscleEnergy(float requested)
+    private float SpendMuscleEnergy(MuscleRegion region, float requested)
     {
-        var supplied = FatigueEnabled ? MathF.Min(requested, _muscleBudget) : requested;
-        _muscleBudget = MathF.Max(0f, _muscleBudget - supplied);
+        var r = (int)region;
+        var supplied = FatigueEnabled ? MathF.Min(requested, _budget[r]) : requested;
+        _budget[r] = MathF.Max(0f, _budget[r] - supplied);
         StepMuscleAuthorized += supplied;
-        Stamina = MathF.Max(0f, Stamina - supplied / StaminaCapacityJoules);
-        _stepWork += supplied;
+        Draw(r, supplied);
         return supplied;
     }
 
@@ -190,9 +468,9 @@ public sealed partial class Fighter
         var linear = MathF.Max(0f, Vector3.Dot(force, velocity)) * dt;
         var quadratic = force.LengthSquared() * dt * dt / (2f * mass);
         var walking = _tuning.WalkCost * SupportedMass * new Vector2(velocity.X, velocity.Z).Length() * LastCommand.ClampedMove.Length() * dt;
-        var budget = FatigueEnabled ? _muscleBudget : linear + quadratic + walking;
+        var budget = FatigueEnabled ? _budget[(int)MuscleRegion.Legs] : linear + quadratic + walking;
         var scale = MuscleWork.ForceScale(linear, quadratic, walking, budget);
-        SpendMuscleEnergy((linear * scale) + (quadratic * scale * scale) + (walking * scale));
+        SpendMuscleEnergy(MuscleRegion.Legs, (linear * scale) + (quadratic * scale * scale) + (walking * scale));
         ApplySharedImpulse(force * (scale * dt));
     }
 
@@ -220,9 +498,9 @@ public sealed partial class Fighter
         Include(Parts.Pelvis, pelvisForce);
         var holding = _tuning.IsometricCost * force.Length() * dt;
         var requested = linear + quadratic + holding;
-        var budget = FatigueEnabled ? _muscleBudget : requested;
+        var budget = FatigueEnabled ? _budget[(int)arm.Region] : requested;
         var scale = MuscleWork.ForceScale(linear, quadratic, holding, budget);
-        SpendMuscleEnergy((linear * scale) + (quadratic * scale * scale) + (holding * scale));
+        SpendMuscleEnergy(arm.Region, (linear * scale) + (quadratic * scale * scale) + (holding * scale));
         arm.LastForce = force * scale;
         _world.ApplyLinearImpulse(arm.Forearm, force * (scale * dt));
         _world.ApplyLinearImpulse(Parts.Chest, -armPart * (_tuning.HandReactionShare * scale * dt));
@@ -231,6 +509,39 @@ public sealed partial class Fighter
             ApplySharedImpulse(bodyForce * (scale * dt));
         }
     }
+}
+
+/// <summary>
+/// 酸素の蓄えと供給を分けて数える筋肉のまとまり（<see cref="Fighter"/> の呼吸・循環のモデル）。左右の腕は <see cref="Hand"/> と同じ番号。
+/// </summary>
+public enum MuscleRegion
+{
+    LeftArm = 0,
+    RightArm = 1,
+    Legs = 2,
+    Trunk = 3,
+}
+
+/// <summary>部位へ届く酸素の速さを決めた所（呼吸・循環のボトルネック）。</summary>
+public enum OxygenLimit
+{
+    /// <summary>蓄えが満ちていて欲しがっていない、または鎖のどこにも当たっていない。</summary>
+    None = 0,
+
+    /// <summary>部位の血管の太さ（働いて押しつぶされた流れ）。腕の追従の遅れに出る。</summary>
+    Vessels = 1,
+
+    /// <summary>心臓が送れる速さの合計。顔の青白さに出る。</summary>
+    Heart = 2,
+
+    /// <summary>肺が血へ取り込む速さ（血の酸素が尽きた）。息のあえぎと唇の青さに出る。</summary>
+    Lungs = 3,
+}
+
+/// <summary><see cref="MuscleRegion"/> の数。</summary>
+internal static class MuscleRegions
+{
+    internal const int Count = 4;
 }
 
 /// <summary>同じ向きの力を縮めて仕事予算に合わせる。二次式の単調区間を二分する純関数。</summary>

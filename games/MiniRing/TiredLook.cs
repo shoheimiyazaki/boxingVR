@@ -5,11 +5,13 @@ namespace MiniRing;
 
 /// <summary>
 /// 息が上がった見た目（描画だけ。試合には響かない）。チアノーゼの肌の色だけでは遠目に分かりにくかった（ユーザーの指摘）ので、
-/// ゲームとしてひと目で読める合図を 3 つ重ねる。どれも <see cref="Fighter.Winded"/>（スタミナと息の働き）から連続に決まる。
+/// ゲームとしてひと目で読める合図を重ねる。呼吸・循環のどこが詰まっているかで出る所が違う（<see cref="OxygenLimit"/>）。
 /// <list type="bullet">
-/// <item>吐く息: 口から白い息がふっと出て、前へ流れながら広がって消える。疲れるほど速く（肩で息をする拍子）、大きく濃い。</item>
-/// <item>肌: 青紫へ寄せる（<see cref="Voxels.VoxelPart.Draw(float)"/>）。</item>
-/// <item>スタミナのメーター: 残りが少ないと、息の拍子で白く点滅する（<see cref="MeterFlash"/>）。</item>
+/// <item>吐く息（肺）: 口から白い息がふっと出て、前へ流れながら広がって消える。肺の仕事が大きいほど（<see cref="Fighter.Winded"/>）速く（肩で息をする拍子）、大きく濃い。</item>
+/// <item>顔の青紫（肺）: 血の酸素が減るほど（<see cref="Fighter.Cyanosis"/>）。顔の青白さ（心臓）: 心臓が送りきれないほど（<see cref="Fighter.Pallor"/>）。
+/// どちらも <see cref="Voxels.VoxelPart.Draw(float, Voxels.EyePose?, float)"/>。</item>
+/// <item>腕の遅れ（血管）: 描き足さない。蓄えの尽きた腕は届く酸素の分しか力が出ず、物理で遅れる。</item>
+/// <item>スタミナのメーター: いちばん減った部位の残りが少ないと、息の拍子で白く点滅する（<see cref="MeterFlash"/>）。</item>
 /// </list>
 /// </summary>
 public static class TiredLook

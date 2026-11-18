@@ -121,7 +121,7 @@ public sealed class DefenseMemoryTests
         var learner = Style() with { Attacks = false, ClinchRate = 0f, ThrowRate = 0f };
         var bots = new List<BoxerBot>();
         // 学習と記憶の引き継ぎを検証する対照条件。疲労で攻め手が休み続け、守る機会が消える条件とは分ける。
-        var fresh = FighterTuning.Default with { StaminaCapacity = 90_000f };
+        var fresh = FighterTuning.Default with { OxygenStorePerKg = 108_000f };
         using var game = new BoxingGame(fresh, seed: 3, corners: new BoxingCorners("swarmer", s => BotCatalog.Create("swarmer", s), s =>
         {
             var bot = new BoxerBot(learner, s);

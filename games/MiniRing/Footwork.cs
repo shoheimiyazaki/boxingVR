@@ -130,7 +130,7 @@ public sealed record FootworkTuning
     public float StepSpringPerKg { get; init; } = 3f;
 
     /// <summary>
-    /// 脚のバネを縮め直す筋肉の仕事率 [W/kg]（体が支える質量 1 kg あたり、無傷の脚。疲れ（<see cref="Fighter.Vigor"/>）と脚の力で下がる）。
+    /// 脚のバネを縮め直す筋肉の仕事率 [W/kg]（体が支える質量 1 kg あたり、無傷の脚。脚の疲れ（<see cref="Fighter.VigorOf"/> の脚）と脚の力で下がる）。
     /// 両足が着いていれば貯めきるまで 3 / 8 ≈ 0.4 秒（片足が宙にある間は半分の速さ）。蹴り出しから 95 % まで貯め直すのは測って 0.62 秒（StepTests。
     /// 足を整え直しながら貯める）、人の踏み込みの間隔 1 秒前後を人形の時間（√0.355 倍）に直した 0.6 秒に合わせた。仕事はスタミナから払う（疲れると 0.97 秒）。
     /// </summary>

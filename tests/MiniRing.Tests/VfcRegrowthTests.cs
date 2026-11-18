@@ -132,6 +132,29 @@ public sealed class VfcRegrowthTests
         Assert.IsGreaterThanOrEqualTo(0.8f, back, "a fist's crater is mostly back after one break");
     }
 
+    /// <summary>
+    /// 呼吸と循環のモデル（2026-11-18）の回帰: 切られた腕も、体に近い側の肩・肘の筋肉は酸素の蓄えを持ち続け、切り株のサーボが動く予算がある
+    /// （残った筋肉を 0 と数えると蓄えも予算も 0 になり、切り株がぶら下がるだけになった。レビューの指摘）。
+    /// </summary>
+    [TestMethod]
+    public void ACutArm_KeepsOxygenForTheStump()
+    {
+        using var game = StillGame();
+        Play(game, 1f);
+        var f = game.Cpu;
+        var forearm = f.ForearmId(Hand.Right);
+        var part = f.Voxels!.PartOf(forearm)!;
+        var n = part.Body.Grid.Dimensions.X;
+        var cutAt = part.DistalHigh ? (int)(n * 0.3f) : n - 1 - (int)(n * 0.3f);
+        Assert.IsNotNull(Cut(game, f, forearm, [cutAt]));
+        Assert.IsTrue(f.ArmSevered(Hand.Right));
+        Play(game, 0.5f);
+        var (capacity, _) = f.OxygenBudgetOf(MuscleRegion.RightArm);
+        Assert.IsGreaterThan(1f, capacity, "切り株の筋肉にも酸素の蓄えがある");
+        Assert.IsGreaterThan(0.5f, f.OxygenOf(MuscleRegion.RightArm), "構えているだけの切り株は尽きない");
+        Assert.IsTrue(float.IsFinite(f.HandSlowness) && f.HandSlowness < 1f, "切られた腕は拳の遅さに数えない");
+    }
+
     [TestMethod]
     public void ACutForearm_GrowsOnPastTheCut_ButIsNotWholeAfterOneBreak()
     {

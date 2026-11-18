@@ -53,11 +53,12 @@ public sealed class BodyAndMatchTests
         using var game = StillGame();
         Settle(game);
         var f = game.Cpu;
-        var near = Blow(game, f, height: 0.3f);   // 胸の前: 肺・心臓に近い
+        _ = Blow(game, f, height: 0.3f);   // 胸の前: 肺・心臓に近い
         var lungAfterChest = f.Voxels!.BruiseOf(BoxerAnatomy.Lung);
         Assert.IsGreaterThan(0.2f, lungAfterChest, "a heavy blow to the chest bruises the lungs through the skin");
         Assert.IsLessThan(1f - 0.2f, f.Breath, "bruised lungs: short of breath");
-        Assert.IsLessThan(0.99f, near, "the blow knocked the wind out (stamina dropped at once)");
+        // 呼吸と循環のモデル（2026-11-18）: 息が詰まると血の酸素を失う（部位の筋肉の蓄えはそのまま）。
+        Assert.IsLessThan(0.99f, f.BloodOxygen, "the blow knocked the wind out (blood oxygen dropped at once)");
         for (var t = 0f; t < 6f; t += Dt)
         {
             game.Step(default, Dt);

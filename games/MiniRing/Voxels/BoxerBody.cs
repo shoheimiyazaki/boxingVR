@@ -30,6 +30,12 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
     /// </summary>
     private const float CyanosisRise = 0.6f;
 
+    /// <summary>いちばん強い青白さで、顔の皮膚の色を寄せる割合（顔全体に一様。チアノーゼのような下から上へのグラデーションは付けない）。</summary>
+    private const float MaxPallor = 0.75f;
+
+    /// <summary>血の気の引いた顔の色（灰色がかった白。チアノーゼの青紫と見分けられるよう、青みを入れない）。</summary>
+    private static readonly Vector4 PaleSkin = new(0.86f, 0.86f, 0.80f, 1f);
+
     /// <summary>チアノーゼの皮膚の色（青紫。現実よりはっきりさせた、ゲームの合図の色）。</summary>
     private static readonly Vector4 CyanoticSkin = new(0.36f, 0.34f, 0.86f, 1f);
 
@@ -210,9 +216,10 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
     /// <summary>
     /// 頭なら <paramref name="eyes"/> で目も動かして描く（見た目だけ。<see cref="EyeGaze"/>）: 黒目は見ている点にいちばん近い白目のセルを塗り、
     /// まばたき・まぶたの落ちは目のセルを上の段から顔の皮膚の色（あざ・チアノーゼの色を含む）へ塗り替える。
-    /// 材質のセルは変えない（打撃・視覚・チェックサムに響かない）。
+    /// 材質のセルは変えない（打撃・視覚・チェックサムに響かない）。<paramref name="pallor"/>（0..1）は顔全体を灰色がかった白へ寄せる
+    /// （心臓が送りきれず顔から血の気が引く。チアノーゼの青はその上に重なる）。
     /// </summary>
-    public VoxelVolumeDraw Draw(float cyanosis, EyePose? eyes)
+    public VoxelVolumeDraw Draw(float cyanosis, EyePose? eyes, float pallor = 0f)
     {
         var eyeScan = EyeScan.None;
         var eyeOn = Kind == BodyPartKind.Head && eyes is not null;
@@ -226,10 +233,11 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
         }
 
         var cyan = Kind == BodyPartKind.Head ? (int)MathF.Round(Math.Clamp(cyanosis, 0f, 1f) * CyanosisSteps) : 0;
+        var pale = Kind == BodyPartKind.Head ? (int)MathF.Round(Math.Clamp(pallor, 0f, 1f) * CyanosisSteps) : 0;
         // あざの色は、増えたとき（版）と、いちばん新しいあざの古さの段（1 秒ごと、赤から青紫へ変わる間だけ）で書き直す。
         var bruise = _cache.Bruise is { } b && b.Length == Body.Grid.CellCount ? b : null;
         var ageStep = bruise is null ? 0 : (int)MathF.Min(3f * BruiseAgeSeconds, _cache.Clock - _cache.LastBruise);
-        var step = cyan + ((CyanosisSteps + 1) * ((bruise is null ? 0 : _cache.BruiseVersion * 64) + ageStep));
+        var step = cyan + ((CyanosisSteps + 1) * (pale + ((CyanosisSteps + 1) * ((bruise is null ? 0 : _cache.BruiseVersion * 64) + ageStep))));
         if (eyeOn)
         {
             step = HashCode.Combine(step, eyeScan.Pupil0, eyeScan.Pupil1, eyeScan.ClosedAbove0, eyeScan.ClosedAbove1);
@@ -240,6 +248,7 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
             // 塗り直しの関数は段が変わったときだけ作る（毎フレーム作ると描画の道でごみが出る。VR で効く）。
             var height = MathF.Max(1f, Body.Grid.Dimensions.Y - 1);
             var amount = MaxCyanosis * cyan / CyanosisSteps;
+            var paleAmount = MaxPallor * pale / CyanosisSteps;
             var since = _cache.BruiseSince;
             var clock = _cache.Clock;
             var grid = Body.Grid;
@@ -247,7 +256,7 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
             var scan = eyeScan;
             var half = grid.Dimensions.X / 2;
             VoxelRecolor? recolor = null;
-            recolor = cyan == 0 && bruise is null && !eyeOn ? null : (m, color, x, y, z) =>
+            recolor = cyan == 0 && pale == 0 && bruise is null && !eyeOn ? null : (m, color, x, y, z) =>
             {
                 if (eyeOn && m is BoxerAnatomy.Eye or BoxerAnatomy.Pupil)
                 {
@@ -277,6 +286,11 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
                     {
                         color = BruiseColor(color, bruise[i], clock - since![i], x, y, z);
                     }
+                }
+
+                if (pale != 0)
+                {
+                    color = Vector4.Lerp(color, PaleSkin, paleAmount) with { W = color.W };
                 }
 
                 return cyan == 0 ? color : Vector4.Lerp(color, CyanoticSkin, amount * MathF.Pow(y / height, CyanosisRise)) with { W = color.W };
