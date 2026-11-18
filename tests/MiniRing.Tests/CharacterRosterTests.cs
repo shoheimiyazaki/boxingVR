@@ -15,11 +15,38 @@ public sealed class CharacterRosterTests
     private static readonly string[] WeaponUsers = ["jin", "konrad", "sean", "daichi", "edgar"];
     private static readonly string[] KarateUsers = ["akira"];
 
-    /// <summary>組み込みの 1 人ぶんのファイル（roster/&lt;id&gt;.json）の中身。</summary>
+    /// <summary>
+    /// 組み込みの 1 人ぶんのファイル（roster/&lt;id&gt;.json）の中身。名簿のファイルの教育には休みの動作の好み（<c>BreakLikes</c>）だけが入っているが、
+    /// 教育の差し替えを試すテストは「教育が空の人」から始めたいので、好みを外した形（<c>"style": {}</c>）で返す。
+    /// </summary>
     internal static string RosterFileJson(string id)
+        => System.Text.RegularExpressions.Regex.Replace(RawRosterFileJson(id), "\"style\": \\{ \"BreakLikes\": \\{[^}]*\\} \\}", "\"style\": {}");
+
+    /// <summary>組み込みの 1 人ぶんのファイルの生の中身（教育の好みを含む）。</summary>
+    internal static string RawRosterFileJson(string id)
     {
         using var stream = typeof(CharacterRoster).Assembly.GetManifestResourceStream($"MiniRing.Characters.roster.{id}.json")!;
         return new StreamReader(stream).ReadToEnd();
+    }
+
+    /// <summary>キャラのファイルの <c>education</c> を丸ごと <paramref name="education"/>（JSON）に差し替えた中身（ほかの鍵はそのまま）。</summary>
+    internal static string WithEducation(string fileJson, string education)
+    {
+        var node = System.Text.Json.Nodes.JsonNode.Parse(fileJson)!.AsObject();
+        Assert.IsTrue(node.ContainsKey("education"), "the character file has an education");
+        node["education"] = System.Text.Json.Nodes.JsonNode.Parse(education);
+        return node.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+    }
+
+    /// <summary>
+    /// 名簿の教育は戦略の層（<c>education.style.GamePlan</c>、2026-11-18）だけ: 解決したスタイルは、GamePlan を除けば教科書と同じ値。
+    /// </summary>
+    internal static void AssertTextbookPlusGamePlan(BotStyle textbook, BotStyle resolved, string message)
+    {
+        Assert.IsNotNull(resolved.GamePlan, "the roster education carries the game plan: " + message);
+        Assert.IsNull(textbook.GamePlan, "textbooks carry no game plan: " + message);
+        Assert.IsNotEmpty(resolved.BreakLikes, "the roster education carries the break-time likes: " + message);
+        Assert.AreEqual((textbook with { BreakLikes = resolved.BreakLikes }).ToJson(), (resolved with { GamePlan = null }).ToJson(), "apart from the game plan and the break likes, the textbook itself: " + message);
     }
 
     /// <summary>決めた名簿（CLAUDE_BRIEF_ROSTER_MENU の表）: id・武器・はめる物・スタイル・身長/腕/脚/筋肉。</summary>

@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>かすり・断裂・観客の合成音: 決定的であること、長さ、音量の並び（かすりは打撃より小さい・K.O. は「おぉ」より大きく長い）。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class CrowdAndGrazeSoundTests
 {
     private const int Rate = HitSound.SampleRate;
@@ -69,6 +70,11 @@ public sealed class CrowdAndGrazeSoundTests
         Assert.IsGreaterThan(PeakOf(ooh), PeakOf(eruption), "the KO roar is louder than an ooh");
         Assert.IsGreaterThan(ooh.Length, eruption.Length, "and lasts longer");
 
+        // 決着の歓声は一打のどよめきより大きく鳴らさず（驚くほど大きかった。2026-11-18）、膨らんでいく（最初の 0.3 秒の平均の大きさは、1〜2 秒の半分より小さい）。
+        var roar = CrowdSound.React(CrowdReaction.Roar, 1f, 1);
+        Assert.IsLessThanOrEqualTo(PeakOf(roar), PeakOf(eruption), "the KO eruption is not louder than one big roar");
+        Assert.IsLessThan(0.5f * RmsOf(eruption, 1f, 2f), RmsOf(eruption, 0f, 0.3f), "the KO eruption swells instead of blasting");
+
         var count = CrowdSound.React(CrowdReaction.Count, 1f, 1);
         Assert.IsLessThan(0.5f * Rate, count.Length, "one count shout fits inside the 1-second beat");
     }
@@ -80,6 +86,19 @@ public sealed class CrowdAndGrazeSoundTests
         Assert.AreEqual((short)MathF.Round(0.5f * short.MaxValue), BitConverter.ToInt16(pcm, 0));
         Assert.AreEqual((short)-short.MaxValue, BitConverter.ToInt16(pcm, 2));
         Assert.AreEqual(short.MaxValue, BitConverter.ToInt16(pcm, 4));
+    }
+
+    private static float RmsOf(float[] samples, float from, float to)
+    {
+        var sum = 0.0;
+        var start = (int)(from * Rate);
+        var end = Math.Min(samples.Length, (int)(to * Rate));
+        for (var i = start; i < end; i++)
+        {
+            sum += (double)samples[i] * samples[i];
+        }
+
+        return (float)Math.Sqrt(sum / Math.Max(1, end - start));
     }
 
     private static float PeakOf(byte[] pcm)

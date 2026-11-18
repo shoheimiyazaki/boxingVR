@@ -25,6 +25,12 @@ internal enum TvShot
 
     /// <summary>休みの間、リングの中のカメラマンが手持ちで選手の傷にズームで寄る（切り替えずに 1 カットで）。</summary>
     Wound,
+
+    /// <summary>休みの間、リング全体（高い所から、リングとコーナーの 2 人が入る引きの絵をゆっくり横へ流す）。</summary>
+    Wide,
+
+    /// <summary>休みの間、リングの中のカメラマンの手持ち（選手の斜め前から胸から上。揺れ・寄り引き・選手の動きに少し遅れて追う）。</summary>
+    Handheld,
 }
 
 /// <summary>
@@ -41,6 +47,12 @@ internal readonly record struct TvSegment(float Start, float End, TvShot Shot, b
 /// </summary>
 internal sealed record TvWound(bool Red, VoxelBody Body, Vector3 Grid, string Name, float Score)
 {
+    /// <summary>
+    /// 前の休みに映した傷で、まだ削れたセルが残り、いま治っていく途中。休みの後ろの方で映し、再生で戻るセルを見せる
+    /// （実況へは「治りかけ」と伝える）。
+    /// </summary>
+    public bool Healing { get; init; }
+
     /// <summary>
     /// 傷のいまの位置（世界）。点は、部位のセルが今残っている範囲の中へ寄せる（部位が切れると先の側のセルが空になるので、
     /// 切れた先を指したままだと何も無いマットを映した）。切れた腕なら切り口のあたりになる。
@@ -64,7 +76,7 @@ internal sealed record TvWound(bool Red, VoxelBody Body, Vector3 Grid, string Na
 /// テレビ中継の演出の頭（描画と音だけ。試合には触れない）: どのカメラで映すか、休みの間のカット割り、リプレイにする場面の選び方。
 /// <list type="bullet">
 /// <item>ラウンド中はいつもの中継カメラ。ダウンを取られたら一呼吸おいて、天井のカメラとリング脇のカメラマンを交互に。</item>
-/// <item>休みの間は、いつものカメラ → リングの中のカメラマン（コーナーの選手）→ リプレイ → もう一方のコーナー → リプレイ → コーナー → いつものカメラ。</item>
+/// <item>休みの間は、選手を映すカット（手持ち・コーナー・リング脇）を優先し、リング全体・天井を差し込み、リプレイは 1〜2 本、傷のアップは多くて 1 カット（<see cref="PlanBreak"/>）。</item>
 /// <item>リプレイは、そのラウンドで重かった場面（ダメージ・ダウン・骨折・切断）を 2 つまで、時刻の順に。同じ試合をもう一度回した影の試合（決定的なので同じに進む）を
 /// 1 歩ごとに 1 コマで描く（30 fps・1 歩 1/80 s なら実時間の 0.375 倍のスロー）。</item>
 /// </list>
@@ -86,8 +98,25 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     /// <summary>ダウンからカメラを切り替えるまでの間 [映像の s]（倒れる瞬間はいつものカメラで見せる）。</summary>
     private const float DownCutDelay = 0.8f;
 
-    /// <summary>ダウン中の 1 カットの長さ [映像の s]。</summary>
-    private const float DownShotSeconds = 2.6f;
+    /// <summary>
+    /// ダウン中の 1 カットの長さ [映像の s]。2.6 → 5.0（2026-11-18、ユーザー: 短い周期でパカパカ入れ替わる。ダウンを数えない VFC では倒れている時間が長く、
+    /// 天井とリング脇が 2.6 秒ごとに 1 分近く入れ替わり続けた）。
+    /// </summary>
+    private const float DownShotSeconds = 5.0f;
+
+    /// <summary>
+    /// 休みの選手を映す 1 カットの長さ [映像の s]: <see cref="FighterShotSeconds"/> 〜 + <see cref="FighterShotSpread"/>。2.0〜4.0 → 4.5〜7.0
+    /// （2026-11-18、ユーザー: インターバル中に選手を正面から映すカメラが短い周期でパカパカ入れ替わる。中継のコーナーの絵は 1 カット 5〜8 秒ほど続く）。
+    /// </summary>
+    private const float FighterShotSeconds = 4.5f;
+
+    private const float FighterShotSpread = 2.5f;
+
+    /// <summary>休みのリング全体・天井の差し込みの 1 カットの長さ [映像の s]: 〜 + 0.5。2.0〜2.4 → 3.0〜3.5（同じ理由）。</summary>
+    private const float InsertShotSeconds = 3f;
+
+    /// <summary>休みの最後の 1 カットがこれより短く残るなら、ひとつ前のカットに足して 1 本にする [映像の s]（短い端のカットを作らない）。</summary>
+    private const float ShortestTail = 4f;
 
     /// <summary>傷のアップにする最低の重み（打撃の重さ＋失ったセル。重い 1 発 3 つ分ほど。軽い傷には寄らない）。</summary>
     private const float WoundMinScore = 30f;
@@ -100,6 +129,23 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     /// <summary>部位ごとの傷: 重さの和と、重さで重み付けした格子の中の点の和。</summary>
     private readonly Dictionary<VoxelBody, (bool Red, string Name, float Score, Vector3 Sum)> _wounds = [];
     private readonly Dictionary<Fighter, bool> _wasDown = [];
+
+    /// <summary>前の休みに傷のアップで映した部位（次の休みで、まだ傷が残っていれば治りかけとして映す候補）。</summary>
+    private readonly HashSet<VoxelBody> _shown = [];
+
+    /// <summary>休みの数（カット割りの揺らぎの種。決まった順に数えるので、同じ試合なら同じカット割り）。</summary>
+    private int _breaks;
+
+    /// <summary>リングの中の手持ちカメラが追っている選手と、遅れて追う狙いの点。</summary>
+    private Fighter? _handSubject;
+
+    private Vector3 _handFocus;
+
+    /// <summary>リング脇のカメラがいま撮っている選手・カットの経過時間・回り込む側（+1 / −1）。1 カットの間は側を変えない。</summary>
+    private Fighter? _ringsideSubject;
+
+    private float _ringsideShotTime = float.MaxValue;
+    private float _ringsideSide;
     private float? _downSince;
     private bool _over;
 
@@ -213,7 +259,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     public IReadOnlyList<TvWound> Wounds() =>
         [.. Corners
             .Select(red => _wounds.Where(w => w.Value.Red == red)
-                .Select(w => new TvWound(red, w.Key, w.Value.Score > 0f ? w.Value.Sum / w.Value.Score : Vector3.Zero, w.Value.Name, w.Value.Score + LostCells(w.Key.Grid)))
+                .Select(w => new TvWound(red, w.Key, w.Value.Score > 0f ? w.Value.Sum / w.Value.Score : Vector3.Zero, w.Value.Name, w.Value.Score + LostCells(w.Key.Grid)) { Healing = _shown.Contains(w.Key) && LostCells(w.Key.Grid) > 0 })
                 .OrderByDescending(w => w.Score).FirstOrDefault())
             .OfType<TvWound>()
             .Where(w => w.Score >= WoundMinScore)
@@ -284,61 +330,212 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     /// <summary>リプレイ 1 本の映像の長さ [s]（1 歩 1 コマ）。</summary>
     public float ReplaySeconds => ((ReplayBefore + ReplayAfter) / stepDt) / fps;
 
+    /// <summary>休みのカット割りで、選手の体が大きく映るカット（映像の 6 割以上をこれにする）。</summary>
+    public static bool ShowsFighter(TvShot shot) => shot is TvShot.Handheld or TvShot.Corner or TvShot.Ringside or TvShot.Wound or TvShot.Replay;
+
+    /// <summary>決まった揺らぎ（0..1）。休みの数と番号から決まるので、同じ試合なら同じカット割りになる（時計・種なしの乱数は使わない）。</summary>
+    private static float Roll(int k)
+    {
+        var h = unchecked((uint)k * 2654435761u);
+        h ^= h >> 15;
+        h *= 2246822519u;
+        h ^= h >> 13;
+        return (h & 0xffff) / 65535f;
+    }
+
     /// <summary>
-    /// 休みのカット割り（休みの始まりからの映像の秒）: いつものカメラ 2.5 秒 → 多く打たれた側のコーナー → リプレイを続けて（2〜3 本。間は金の帯のワイプ）
-    /// → コーナー・リング脇（低い所から）・天井（真上から）を約 2.6 秒ずつ回す → 最後の 2.5 秒はいつものカメラ。
-    /// リプレイの間に選手の顔（コーナー）を挟むと流れが切れて見えた（2026-11-17、ユーザーの指摘）ので続けて流し、休みの残りでカメラを多く切り替える。
+    /// 休みのカット割り（休みの始まりからの映像の秒。2026-11-18、ユーザーの指定で組み直し）:
+    /// <list type="bullet">
+    /// <item>いつものカメラ（始めと終わり。休みの 12 %、最大 2.5 秒）で挟む。差し込み（リング全体・天井）は 3.0〜3.5 秒、休みの 15 % まで。</item>
+    /// <item>始めのすぐ後に、傷のアップ（重い傷があるときだけ、重さで入れるかを決め、休み 1 回に多くて 1 カット。まだ映していない傷）。</item>
+    /// <item>リングの中の手持ちで選手（多く打たれた側）→ リプレイを続けて 1〜2 本（重い順。休みが 18 秒未満なら 1 本。間は金の帯のワイプ）。</item>
+    /// <item>残りは、選手を映すカット（手持ち・コーナー・リング脇。4.5〜7.0 秒で揺らし、短い端のカットは作らない）を 2 人交互に回し、3 つに 1 つ（2 つ目から）、リング全体か天井を差し込む
+    /// （差し込みは休みの 12 % まで。同じ種類を続けない）。休みの後ろの半分で、前の休みに映した傷がまだ治りきっていなければ、治りかけを映す。</item>
+    /// </list>
+    /// 傷のアップとリプレイは、休みが短くて入らなければ入れない。
     /// </summary>
     public IReadOnlyList<TvSegment> PlanBreak(float breakVideoSeconds, IReadOnlyList<TvHighlight> highlights, bool redFirst, IReadOnlyList<TvWound>? wounds = null)
     {
-        const float Lead = 2.5f;
-        const float CornerShot = 3f;
-        const float Cut = 2.6f;
-        var plan = new List<TvSegment> { new(0f, Lead, TvShot.Main, redFirst, null) };
-        var t = Lead;
-        var end = breakVideoSeconds - Lead;
-        plan.Add(new TvSegment(t, MathF.Min(end, t + CornerShot), TvShot.Corner, redFirst, null));
-        t = MathF.Min(end, t + CornerShot);
-        foreach (var highlight in highlights)
-        {
-            if (t + ReplaySeconds > end)
-            {
-                break;
-            }
+        var breakIndex = _breaks++;
+        float R(int k) => Roll((breakIndex * 7919) + k);
+        var margin = MathF.Min(2.5f, breakVideoSeconds * 0.12f);
+        var plan = new List<TvSegment> { new(0f, margin, TvShot.Main, redFirst, null) };
+        var t = margin;
+        var end = breakVideoSeconds - margin;
 
+        // 傷のアップ: 休み 1 回に多くて 1 カット。まだ映していない傷は始めのすぐ後（削れたセルがまだ残っているうちに）、
+        // 映した後でまだ残る傷は休みの後ろの方（再生で戻っていくセルを見せる）。軽い傷ほど入れない。
+        TvWound? early = null;
+        TvWound? late = null;
+        var candidate = 0;
+        foreach (var wound in (wounds ?? []).OrderByDescending(w => w.Score))
+        {
+            var chance = wound.Healing ? 0.5f : Math.Clamp((wound.Score - 30f) / 100f, 0.2f, 0.85f);
+            if (R(100 + candidate++) < chance && (wound.Healing ? late is null && early is null : early is null && late is null))
+            {
+                if (wound.Healing)
+                {
+                    late = wound;
+                }
+                else
+                {
+                    early = wound;
+                }
+            }
+        }
+
+        // リプレイ 1〜2 本（重い順に選び、時刻の順に流す。入る長さだけ。傷のアップより優先して場所をとる）。
+        var replays = new List<TvHighlight>();
+        var replayLimit = breakVideoSeconds >= 18f ? 2 : 1;
+        foreach (var h in highlights.OrderByDescending(h => h.Score).Take(replayLimit).OrderBy(h => h.Step))
+        {
+            replays.Add(h);
+        }
+
+        while (replays.Count > 0 && t + (ReplaySeconds * replays.Count) > end - 0.5f)
+        {
+            replays.RemoveAt(replays.Count - 1);
+        }
+
+        if (early is not null && t + WoundSeconds + (ReplaySeconds * replays.Count) <= end - 2f)
+        {
+            plan.Add(new TvSegment(t, t + WoundSeconds, TvShot.Wound, early.Red, null, early));
+            t += WoundSeconds;
+            Remember(early);
+        }
+
+        // 選手の手持ち 1 カットの後ろに、リプレイを続けて流す。
+        var first = FighterShotSeconds + R(1);
+        if (end - t - (ReplaySeconds * replays.Count) >= first + 1.5f)
+        {
+            plan.Add(new TvSegment(t, t + first, TvShot.Handheld, redFirst, null));
+            t += first;
+        }
+
+        foreach (var highlight in replays)
+        {
             plan.Add(new TvSegment(t, t + ReplaySeconds, TvShot.Replay, highlight.RedVictim, highlight));
             t += ReplaySeconds;
         }
 
-        // リプレイの後に、傷のアップ（重い傷の選手から。手持ちで寄る 1 カット。2026-11-17、ユーザーの指定）。
-        foreach (var wound in wounds ?? [])
+        // 休みの残り: 選手を映すカットを 2 人交互に回し、3 つに 1 つだけリング全体・天井を差し込む。
+        var fighterShots = new[] { TvShot.Corner, TvShot.Handheld, TvShot.Ringside, TvShot.Handheld };
+        var fighterSlot = breakIndex; // 休みごとに回す順の始まりをずらす（1 回の休みに入るカットは 3〜4 本なので、毎回同じ種類から始めると後ろの種類が出ない）
+        var inserts = new[] { TvShot.Wide, TvShot.Ceiling };
+        var insertBudget = breakVideoSeconds * 0.15f;
+        var insertUsed = 0f;
+        var red = !redFirst;
+        var slot = 0;
+        var lastWasInsert = false;
+        var lastShot = plan[^1].Shot;
+        while (end - t >= InsertShotSeconds) // これより短い余りは、休みの終わりのいつものカメラが早めに引き取る（短いカットを作らない）
         {
-            if (t + WoundSeconds > end)
+            if (late is not null && t >= breakVideoSeconds * 0.5f && t + WoundSeconds <= end)
             {
-                break;
+                plan.Add(new TvSegment(t, t + WoundSeconds, TvShot.Wound, late.Red, null, late));
+                t += WoundSeconds;
+                Remember(late);
+                late = null;
+                lastWasInsert = false;
+                lastShot = TvShot.Wound;
+                continue;
             }
 
-            plan.Add(new TvSegment(t, t + WoundSeconds, TvShot.Wound, wound.Red, null, wound));
-            t += WoundSeconds;
+            var insert = slot % 3 == 1 && !lastWasInsert && insertUsed + InsertShotSeconds + 0.5f <= insertBudget
+                && end - t - (InsertShotSeconds + 0.5f) >= ShortestTail;
+            var duration = insert ? InsertShotSeconds + (0.5f * R(10 + slot)) : FighterShotSeconds + (FighterShotSpread * R(10 + slot));
+            // 残りが短い端のカットになるなら、このカットで休みの最後まで撮る（傷のアップが後ろに入る休みは、その前で区切る）。
+            // 傷のアップがこの後に入る（休みの後ろの半分で、入る長さが残る）なら、ここでは区切る。
+            var woundLater = late is not null && end - MathF.Max(t + duration, breakVideoSeconds * 0.5f) >= WoundSeconds;
+            duration = end - t - duration < ShortestTail && !woundLater ? end - t : MathF.Min(duration, end - t);
+            TvShot shot;
+            if (insert)
+            {
+                shot = inserts[(slot / 3) % inserts.Length];
+                insertUsed += duration;
+            }
+            else
+            {
+                shot = fighterShots[fighterSlot++ % fighterShots.Length];
+                if (shot == lastShot)
+                {
+                    shot = fighterShots[fighterSlot++ % fighterShots.Length];
+                }
+            }
+
+            plan.Add(new TvSegment(t, t + duration, shot, red, null));
+            t += duration;
+            red = !red;
+            lastWasInsert = insert;
+            lastShot = shot;
+            slot++;
         }
 
-        // 休みの残り: 2 人を交互に、カメラの種類を回す（同じ絵を続けない）。
-        var rotation = new (TvShot Shot, bool Red)[]
+        // 端数は、ひとつ前のカットを延ばして埋める（リプレイ・傷のアップは決まった長さなので延ばさない）。
+        if (t < end - 1e-3f && plan[^1] is { Shot: not (TvShot.Replay or TvShot.Wound or TvShot.Main) } tail)
         {
-            (TvShot.Corner, !redFirst), (TvShot.Ringside, redFirst), (TvShot.Ceiling, !redFirst),
-            (TvShot.Corner, redFirst), (TvShot.Ringside, !redFirst), (TvShot.Ceiling, redFirst),
-        };
-        var k = 0;
-        while (t < end - 0.5f)
-        {
-            var next = MathF.Min(end, t + Cut);
-            var (shot, red) = rotation[k++ % rotation.Length];
-            plan.Add(new TvSegment(t, next, shot, red, null));
-            t = next;
+            plan[^1] = tail with { End = end };
+            t = end;
         }
 
         plan.Add(new TvSegment(t, breakVideoSeconds + 5f, TvShot.Main, redFirst, null));
         return plan;
+
+        void Remember(TvWound wound)
+        {
+            if (wound.Body is not null)
+            {
+                _shown.Add(wound.Body);
+            }
+        }
+    }
+
+    /// <summary>決着の後、勝者・敗者を映す配分（映像の長さに対する割合）。勝者を一番長く（アップ 3〜4 秒）、敗者はやや短く、最後に引き。</summary>
+    private const float EndWinnerShare = 0.40f;
+
+    private const float EndLoserShare = 0.30f;
+
+    /// <summary>
+    /// 決着の後（勝敗の画面の前）のカット割り（決着の歩からの映像の秒。<paramref name="endVideoSeconds"/> は 8〜10 秒の想定）:
+    /// 勝者の手持ちのアップ（約 4 割、3〜4 秒）→ 敗者（約 3 割、2〜3 秒。倒れていればリング脇の低い所から、立っていれば手持ち）→ リング全体の引き（残り、2 秒前後）。
+    /// 引き分けは両者を同じ長さで映してから引き。決まった割合なので同じ試合なら同じカット割り（乱数なし）。
+    /// </summary>
+    /// <param name="endVideoSeconds">決着の後の映像の長さ [s]。</param>
+    /// <param name="winnerRed">勝者が赤か（引き分けは null）。</param>
+    /// <param name="loserDown">敗者（引き分けなら青）が倒れているか。</param>
+    public static IReadOnlyList<TvSegment> PlanEnd(float endVideoSeconds, bool? winnerRed, bool loserDown)
+    {
+        var plan = new List<TvSegment>();
+        if (winnerRed is null)
+        {
+            var half = endVideoSeconds * 0.3f;
+            plan.Add(new TvSegment(0f, half, TvShot.Handheld, true, null));
+            plan.Add(new TvSegment(half, half * 2f, TvShot.Handheld, false, null));
+            plan.Add(new TvSegment(half * 2f, endVideoSeconds + 5f, TvShot.Wide, true, null));
+            return plan;
+        }
+
+        var winner = endVideoSeconds * EndWinnerShare;
+        var loser = winner + (endVideoSeconds * EndLoserShare);
+        plan.Add(new TvSegment(0f, winner, TvShot.Handheld, winnerRed.Value, null));
+        plan.Add(new TvSegment(winner, loser, loserDown ? TvShot.Ringside : TvShot.Handheld, !winnerRed.Value, null));
+        plan.Add(new TvSegment(loser, endVideoSeconds + 5f, TvShot.Wide, winnerRed.Value, null));
+        return plan;
+    }
+
+    /// <summary>
+    /// 試合の始め（入場からゴングまで）のカット割り: リング全体の引き → 赤の手持ち → 青の手持ち → 引き（それぞれ約 1/4）。選手が始めのエモートをする間、2 人を順に映す。
+    /// </summary>
+    public static IReadOnlyList<TvSegment> PlanIntro(float introVideoSeconds)
+    {
+        var quarter = introVideoSeconds * 0.25f;
+        return
+        [
+            new TvSegment(0f, quarter, TvShot.Wide, true, null),
+            new TvSegment(quarter, quarter * 2f, TvShot.Handheld, true, null),
+            new TvSegment(quarter * 2f, quarter * 3f, TvShot.Handheld, false, null),
+            new TvSegment(quarter * 3f, introVideoSeconds + 5f, TvShot.Wide, false, null),
+        ];
     }
 
     /// <summary>ラウンド中・決着の後のカメラ: ダウンを取られた選手がいれば、一呼吸おいて天井とリング脇を交互に。</summary>
@@ -392,7 +589,16 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var swing = 0.6f - (0.1f * shotTime);
         var left = target + (Vector3.Transform(inward, Quaternion.CreateFromAxisAngle(Vector3.UnitY, swing)) * BodyScale(subject) * 6f);
         var right = target + (Vector3.Transform(inward, Quaternion.CreateFromAxisAngle(Vector3.UnitY, -swing)) * BodyScale(subject) * 6f);
-        var eye = Vector3.DistanceSquared(left, opponent.ChestPosition) >= Vector3.DistanceSquared(right, opponent.ChestPosition) ? left : right;
+        // 回り込む側は、カットの始め（別の選手・経過時間が戻った）にだけ選び、そのカットの間は変えない。
+        // 毎コマ選び直すと、相手が動くたびに左右が入れ替わり、視点が 0.2〜0.6 秒ごとに飛んだ（2026-11-18、ユーザー: 正面のカメラがパカパカ入れ替わる）。
+        if (subject != _ringsideSubject || shotTime < _ringsideShotTime)
+        {
+            _ringsideSubject = subject;
+            _ringsideSide = Vector3.DistanceSquared(left, opponent.ChestPosition) >= Vector3.DistanceSquared(right, opponent.ChestPosition) ? 1f : -1f;
+        }
+
+        _ringsideShotTime = shotTime;
+        var eye = _ringsideSide > 0f ? left : right;
         eye.Y = subject.PelvisPosition.Y + (BodyScale(subject) * 0.9f);
         return (Camera.ViewProjection(eye, target, Vector3.UnitY, 38f * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
     }
@@ -414,6 +620,60 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var eye = chest + (inward * distance) + (side * 0.08f) + new Vector3(0f, 0.04f, 0f) + sway;
         var target = Vector3.Lerp(chest, subject.HeadPosition, 0.6f);
         return (Camera.ViewProjection(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
+    }
+
+    /// <summary>
+    /// リング全体のカメラ（休み）: 手前の角の上から、リングとコーナーの 2 人が入る引きの絵を、ゆっくり横へ流す。
+    /// リングの大きさに比例した距離・高さ（武器の広いリングでも入る）。見た目だけ。
+    /// </summary>
+    public (Matrix4x4 ViewProjection, Vector3 Eye) Wide(BoxingGame game, float shotTime)
+    {
+        var center = game.Layout.Center;
+        var size = game.Layout.Size;
+        // 手前（プレイヤー側）から、角度をゆっくり振る（-0.35 → +0.1 rad ほど）。
+        var azimuth = -0.35f + (0.045f * shotTime);
+        // 高さは 2 人の胸から測る（リングはテーブルの上にあるので、床から測るとテーブルの縁が手前をふさぐ）。
+        var level = (game.Player.ChestPosition.Y + game.Cpu.ChestPosition.Y) * 0.5f;
+        var eye = new Vector3(center.X, level + (size * 0.95f), center.Z) + new Vector3(MathF.Sin(azimuth), 0f, -MathF.Cos(azimuth)) * (size * 1.1f);
+        var target = new Vector3(center.X, level - (size * 0.12f), center.Z);
+        return (Camera.ViewProjection(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, Aspect, 0.02f, 30f), eye);
+    }
+
+    /// <summary>
+    /// リングの中の手持ちカメラ（休み）: カメラマンが選手の斜め前（2 人で反対側）に立ち、胸から上を撮る。
+    /// 狙いの点は選手の動きに少し遅れて追い（時定数 0.35 秒）、手の揺れ（周期の違う正弦の和）・ゆっくりした寄り引きとズームの呼吸が付く。
+    /// コーナー（<see cref="Corner"/>）より近く、顔と肩が大きく入る。見た目だけ。呼ぶたびに 1 コマぶん遅れて追う状態を進める（1 コマに 1 回呼ぶ）。
+    /// </summary>
+    public (Matrix4x4 ViewProjection, Vector3 Eye) Handheld(BoxingGame game, Fighter subject, float shotTime, float videoTime)
+    {
+        var center = game.Layout.Center;
+        var chest = subject.ChestPosition;
+        var aim = Vector3.Lerp(chest, subject.HeadPosition, 0.6f);
+        if (_handSubject != subject || shotTime < 1.5f / fps)
+        {
+            _handSubject = subject;
+            _handFocus = aim;
+        }
+        else
+        {
+            _handFocus += (aim - _handFocus) * (1f - MathF.Exp(-1f / (fps * 0.35f)));
+        }
+
+        var scale = BodyScale(subject);
+        var inward = new Vector3(center.X - _handFocus.X, 0f, center.Z - _handFocus.Z);
+        inward = inward.LengthSquared() > 1e-4f ? Vector3.Normalize(inward) : Vector3.UnitZ;
+        // 斜め前（2 人で反対側へ振る）。
+        var angle = (subject == game.Player ? 0.5f : -0.5f) + (0.08f * MathF.Sin(0.5f * videoTime));
+        var direction = Vector3.Transform(inward, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
+        // ゆっくりした寄り引き（歩みながら近づく）。
+        var distance = scale * (3.3f - (0.12f * shotTime) + (0.25f * MathF.Sin((0.7f * videoTime) + 0.5f)));
+        var shake = (Vector3.Cross(Vector3.UnitY, direction) * (0.004f * MathF.Sin(2.3f * videoTime) + (0.002f * MathF.Sin(5.1f * videoTime))))
+            + new Vector3(0f, (0.004f * MathF.Sin((1.7f * videoTime) + 1f)) + (0.002f * MathF.Sin((4.3f * videoTime) + 2f)), 0f);
+        var eye = _handFocus + (direction * distance) + new Vector3(0f, scale * 0.12f, 0f) + shake;
+        // 狙いの揺れは距離に比例（角度のぶれ）。
+        var jitter = (Vector3.Cross(Vector3.UnitY, direction) * MathF.Sin((3.1f * videoTime) + 0.4f) + (Vector3.UnitY * MathF.Sin((2.7f * videoTime) + 1.3f))) * (0.006f * distance);
+        var fov = 40f + (1.5f * MathF.Sin((0.6f * videoTime) + 2f));
+        return (Camera.ViewProjection(eye, _handFocus + jitter, Vector3.UnitY, fov * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
     }
 
     /// <summary>

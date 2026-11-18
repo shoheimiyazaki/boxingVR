@@ -1,6 +1,7 @@
 {
   "id": "taeyun",
   "order": 13,
+  "org": "wvc",
   "name": "カン・テユン",
   "reading": "カン テユン",
   "hudName": "テユン",
@@ -80,6 +81,30 @@
     "weapon": null
   },
   "textbook": "taekwondo",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "BreakLikes": { "bow": 3, "handshake": 2.5, "dance": 3, "hum": 2, "bounce": 3, "onigiri": 2.5, "selfie": 2, "headphones": 2, "stretcharms": 2, "wave": 1.5 },
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 6.569, "Taken": 19.501 },
+          { "Cm": 17, "Dealt": 7.986, "Taken": 16.869 },
+          { "Cm": 19, "Dealt": 8.009, "Taken": 16.784 },
+          { "Cm": 21, "Dealt": 8.389, "Taken": 14.631 },
+          { "Cm": 23, "Dealt": 6.774, "Taken": 14.556 },
+          { "Cm": 25, "Dealt": 5.495, "Taken": 11.268 },
+          { "Cm": 27, "Dealt": 4.031, "Taken": 5.974 },
+          { "Cm": 29, "Dealt": 4.695, "Taken": 5.749 },
+          { "Cm": 31, "Dealt": 4.328, "Taken": 3.971 },
+          { "Cm": 33, "Dealt": 2.679, "Taken": 3.574 },
+          { "Cm": 35, "Dealt": 3.112, "Taken": 2.102 },
+          { "Cm": 37, "Dealt": 1.235, "Taken": 2.113 },
+          { "Cm": 39, "Dealt": 1.531, "Taken": 1.427 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

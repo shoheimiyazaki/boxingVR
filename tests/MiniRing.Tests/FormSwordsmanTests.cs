@@ -9,12 +9,13 @@ namespace MiniRing.Tests;
 /// 以前は刀もロングソードも片手剣の汎用の振り（<see cref="SwordTechnique.Basics"/>）だった。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class FormSwordsmanTests
 {
     private const float Dt = 1f / 60f;
 
-    private static readonly string[] KatanaNames = ["tsuki", "kesa", "gyaku-kesa", "nuki-do", "kiriage", "harai-men", "hiki-men"];
-    private static readonly string[] LongswordNames = ["oberhau", "zornhau", "zwerchhau", "unterhau", "stich"];
+    private static readonly string[] KatanaNames = ["tsuki", "kesa", "gyaku-kesa", "nuki-do", "kiriage", "harai-men", "hiki-men", "shomen", "migi-nagi", "hidari-nagi", "gyaku-kiriage", "gyakufu", "kote", "kote-men", "do-tsuki", "katate-tsuki", "tsuka-ate", "oshi-giri", "hiki-do", "mae-geri"];
+    private static readonly string[] LongswordNames = ["oberhau", "zornhau", "zwerchhau", "unterhau", "stich", "scheitelhau", "schielhau", "krumphau", "zwerchhau-left", "unterhau-left", "stich-low", "knaufschlag", "schnitt", "tritt"];
 
     private static (string[] Own, string[] Other) Names(WeaponKind kind) => kind == WeaponKind.Katana ? (KatanaNames, LongswordNames) : (LongswordNames, KatanaNames);
 

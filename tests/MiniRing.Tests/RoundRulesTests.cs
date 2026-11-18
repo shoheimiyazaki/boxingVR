@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>2026-11-11 の追加: 脳の働きの非線形・試合の速さ・ゴング・10 カウントの表示。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class RoundRulesTests
 {
     [TestMethod]
@@ -120,7 +121,10 @@ public sealed class RoundRulesTests
         Assert.IsTrue(Aigis.Render.Camera.TryWorldToScreen(vp, (game.Cpu.ChestPosition + game.Cpu.PelvisPosition) * 0.5f, screen, out var body));
         var number = draws.Last(d => d.Text == count.ToString(System.Globalization.CultureInfo.InvariantCulture)); // 影の後に描く本体
         Console.WriteLine($"body at {body}, number at {number.ScreenPosPixels}, pips at y {pips[0].CenterPixels.Y}");
-        Assert.AreEqual(body.X, number.ScreenPosPixels.X, 1f, "right over the fighter");
+        // 真上の点を画面へ写した所（透視なので、体の点と横の位置は少しずれうる）。
+        Assert.IsTrue(Aigis.Render.Camera.TryWorldToScreen(vp, ((game.Cpu.ChestPosition + game.Cpu.PelvisPosition) * 0.5f) + (Vector3.UnitY * DownCountHud.AboveBody), screen, out var over));
+        Assert.AreEqual(over.X, number.ScreenPosPixels.X, 1f, "right over the fighter");
+        Assert.AreEqual(body.X, number.ScreenPosPixels.X, 10f, "nearly the same column on the screen");
         Assert.IsLessThan(body.Y, pips[0].CenterPixels.Y, "above the body");
         Assert.IsGreaterThan(body.Y - 250f, number.ScreenPosPixels.Y, "and close to it");
         Assert.IsTrue(draws.All(t => t.ScreenPosPixels.Y >= 0f), "all of it on the screen, even with the fighter near the top");

@@ -7,9 +7,10 @@ namespace MiniRing.Tests;
 /// <summary>
 /// スタミナのテンポ（2026-11-15、docs/arena/gen13_stamina_tempo.md）: 空になっても回復がすぐ始まり、全力の攻めは続けるうちに空になる。
 /// 回復を止める仕事率 P は「実際にした仕事」で数える（出せなかった分は数えない）。目標は指示書
-/// docs/plans/CLAUDE_BRIEF_STAMINA_TEMPO_2026-11-15.md の値。
+/// docs/plans/done/CLAUDE_BRIEF_STAMINA_TEMPO_2026-11-15.md の値。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class StaminaTempoTests
 {
     private const float Dt = 1f / 240f;

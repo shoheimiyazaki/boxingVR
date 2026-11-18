@@ -7,6 +7,7 @@ using MiniRing.Weapons;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("slow")]
 public sealed class KarateVitalsTests
 {
     private static readonly int[] OnePerOrgan = [1, 1, 1, 1];

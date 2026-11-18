@@ -40,8 +40,15 @@ public sealed partial class BoxingGame
     /// </summary>
     public int MaxContactPasses { get; set; } = DefaultMaxContactPasses;
 
-    /// <summary><see cref="MaxContactPasses"/> の既定（3。比べものの調べ（掃き直し 1 回 = 以前）のために変えられる）。</summary>
-    public static int DefaultMaxContactPasses { get; set; } = 3;
+    /// <summary><see cref="MaxContactPasses"/> の既定（3。比べものの調べ（掃き直し 1 回 = 以前）のために変えられる）。
+    /// 非同期の流れごとに持つ（<see cref="DefaultSubstepRate"/> と同じ）。</summary>
+    public static int DefaultMaxContactPasses
+    {
+        get => _defaultMaxContactPasses.Value ?? 3;
+        set => _defaultMaxContactPasses.Value = value;
+    }
+
+    private static readonly System.Threading.AsyncLocal<int?> _defaultMaxContactPasses = new();
 
     /// <summary>武器の打撃の、次の打撃までの間を数える（物理の 1 歩ごと）。</summary>
     private void CoolWeapons(float dt)
@@ -181,7 +188,7 @@ public sealed partial class BoxingGame
 
     private FighterSense RawArmedSense(Fighter self, Fighter opponent)
     {
-        var sense = Sense(self, opponent) with { Ring = Layout, MayStrikeDowned = !_corners.Referee };
+        var sense = Sense(self, opponent) with { Ring = Layout, MayStrikeDowned = !_corners.Referee, Match = MatchSenseOf(self, opponent) };
         if (_wielders.Count == 0)
         {
             return sense;
@@ -191,7 +198,7 @@ public sealed partial class BoxingGame
         if (WeaponOf(opponent) is { } weapon && HolderOf(weapon) == opponent)
         {
             var s = _world.GetState(weapon.Body.BodyId);
-            // 打つ端が 2 つある武器（棒）は、いま速く動いている端を相手の「切っ先」と読む（相手の見える動きから。種類での分岐ではない）。
+            // 打つ端が 2 つある武器（棒の両端、刀・ロングソード・バットの切っ先と柄頭）は、いま速く動いている端を相手の「切っ先」と読む（相手の見える動きから。種類での分岐ではない）。
             var tip = Vector3.Zero;
             var tipVelocity = Vector3.Zero;
             var fastest = -1f;
@@ -1402,6 +1409,50 @@ public sealed partial class BoxingGame
     {
         var energy = 0.5f * momentum * contactSpeed * PunchMechanics.Sharpness(contactSpeed);
         return MathF.Min(_tuning.MaxCarve, energy * _tuning.CarvePerJoule) * _tuning.WeaponCarveScale;
+    }
+
+    /// <summary>武器ごとの、つながりを最後に調べたときの格子の形の版（削れていなければ調べ直さない）。</summary>
+    private readonly Dictionary<Weapon, int> _connectedAt = [];
+    private readonly List<Weapon> _disconnectScratch = [];
+
+    /// <summary>
+    /// 削れて途中のセルが無くなり、つながっていない部分が出た武器を分ける（物理: つながっていない物は別の物）。握っている手に近い部分
+    /// （握られていなければ最も大きい部分）が元の剛体に残り、ほかの部分は折れて分かれたとき（<see cref="Snapped"/>）と同じ道で、元と同じ材料の
+    /// 別の剛体として落ちる。格子が削れた歩（形の版が変わった武器）だけ調べる。手にはめる物は握り方が別（手に付く）なので対象外（CLAUDE.md §8）。
+    /// </summary>
+    private void SplitDisconnectedWeapons()
+    {
+        if (_weapons.Count == 0)
+        {
+            return;
+        }
+
+        var profileStart = StepProfile.Begin();
+        _disconnectScratch.Clear();
+        foreach (var weapon in _weapons)
+        {
+            if (!Weapon.IsWorn(weapon.Kind)
+                && (!_connectedAt.TryGetValue(weapon, out var version) || version != weapon.Body.Grid.GeometryVersion))
+            {
+                _disconnectScratch.Add(weapon);
+            }
+        }
+
+        foreach (var weapon in _disconnectScratch)
+        {
+            var body = weapon.Body;
+            Vector3? keepNear = HolderOf(weapon) is { } holder
+                ? (holder.WieldedGrip(HandOf(weapon)) ?? Weapon.GripOf(weapon.Kind)) - body.GridCenterLocal
+                : null;
+            foreach (var piece in body.SeverDisconnected(keepNear))
+            {
+                Snapped(weapon, piece);
+            }
+
+            _connectedAt[weapon] = body.Grid.GeometryVersion;
+        }
+
+        StepProfile.End(StepProfile.Slot.Disconnect, profileStart);
     }
 
     private void Snapped(Weapon from, VoxelBody? piece)

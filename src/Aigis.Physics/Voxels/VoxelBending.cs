@@ -62,7 +62,7 @@ public static class VoxelBending
         }
 
         var (cells, total, com, inverseInertia, bySlice) = geometry;
-        var (cellSlice, cellAt, cellMass, cellTensile) = (geometry.CellSlice, geometry.CellAt, geometry.CellMass, geometry.CellTensile);
+        var (cellSlice, cellAt, cellMass, cellTensile, cellStiffness) = (geometry.CellSlice, geometry.CellAt, geometry.CellMass, geometry.CellTensile, geometry.CellStiffness);
         // The blow's push and turn on the free body.
         var accel = force / total;
         var spin = Vector3.Transform(Vector3.Cross(point - com, force), inverseInertia);
@@ -72,14 +72,14 @@ public static class VoxelBending
         var sectionCellArea = grid.CellVolume / cellAlong;
         var pointSlice = (int)MathF.Floor((Vector3.Dot(point, lengthAxis) + Vector3.Dot(grid.HalfExtents, lengthAxis)) / cellAlong);
 
-        var sliceLoads = new SectionLoad[slices];
+        var sliceLoads = Scratch(ref _sliceLoadsScratch, slices);
         for (var c = 0; c < cellAt.Length; c++)
         {
             var inertial = (accel + Vector3.Cross(spin, cellAt[c] - com)) * cellMass[c];
             sliceLoads[cellSlice[c]] += new SectionLoad(inertial, Vector3.Cross(cellAt[c] - com, inertial));
         }
 
-        var above = new SectionLoad[slices];
+        var above = Scratch(ref _aboveScratch, slices);
         for (var s = slices - 2; s >= 0; s--)
         {
             above[s] = above[s + 1] + sliceLoads[s + 1];
@@ -121,16 +121,23 @@ public static class VoxelBending
             // Stress varies across the section along e (square to the length and to the bending axis).
             var e = Vector3.Normalize(Vector3.Cross(lengthAxis, bending / magnitude));
             var depth = MathF.Sqrt(Square(e.X * cell.X) + Square(e.Y * cell.Y) + Square(e.Z * cell.Z));
-            float secondMoment = 0f, reach = 0f, tensileMin = float.MaxValue;
+            // 合成断面（換算断面法）: 曲げの剛性は各セルのヤング率 E × 断面二次モーメントの和 ΣEI。曲げ応力は面からの距離 y に比例し、
+            // セルごとに σ = M·y·E / ΣEI（ヤング率の高い鉄の芯ほど大きく受け持つ）。どのセルも自分の引張強さ（木 60 MPa、鉄 1.5 GPa）を
+            // 超えたら折れる: 比 = 最大の σ / 引張。1 種類の材料の断面（骨・木だけ）では E が約分されて従来の M·y/I/引張と同じ。
+            float flexural = 0f;
             foreach (var c in section)
             {
                 var y = Vector3.Dot(cellAt[c] - origin, e);
-                secondMoment += sectionCellArea * ((y * y) + (depth * depth / 12f));
-                reach = MathF.Max(reach, MathF.Abs(y) + (0.5f * depth));
-                tensileMin = MathF.Min(tensileMin, cellTensile[c]);
+                flexural += cellStiffness[c] * sectionCellArea * ((y * y) + (depth * depth / 12f));
             }
 
-            var ratio = magnitude * reach / secondMoment / tensileMin;
+            var ratio = 0f;
+            foreach (var c in section)
+            {
+                var y = MathF.Abs(Vector3.Dot(cellAt[c] - origin, e)) + (0.5f * depth);
+                ratio = MathF.Max(ratio, magnitude * y * cellStiffness[c] / flexural / cellTensile[c]);
+            }
+
             if (ratio > 1f && (worst is null || ratio > worst.Value.Ratio))
             {
                 // The smaller piece breaks off.
@@ -202,8 +209,8 @@ public static class VoxelBending
             return null;
         }
 
-        var sumY = new float[slices];
-        var sumYY = new float[slices];
+        var sumY = ScratchFloats(ref _sumYScratch, slices);
+        var sumYY = ScratchFloats(ref _sumYYScratch, slices);
         var (at, sliceOf) = (bearing.At, bearing.Slice);
         for (var i = 0; i < at.Length; i++)
         {
@@ -230,6 +237,47 @@ public static class VoxelBending
     }
 
     private static float Square(float v) => v * v;
+
+    // 梁の断面ごとの荷重の作業用の配列（毎回の割り当てを避ける。1 回の FindBreak の中だけで使い、毎回ゼロから積み直す）。
+    [ThreadStatic]
+    private static SectionLoad[]? _sliceLoadsScratch;
+
+    [ThreadStatic]
+    private static SectionLoad[]? _aboveScratch;
+
+    [ThreadStatic]
+    private static float[]? _sumYScratch;
+
+    [ThreadStatic]
+    private static float[]? _sumYYScratch;
+
+    private static float[] ScratchFloats(ref float[]? buffer, int length)
+    {
+        if (buffer is null || buffer.Length < length)
+        {
+            buffer = new float[length];
+        }
+        else
+        {
+            Array.Clear(buffer, 0, length);
+        }
+
+        return buffer;
+    }
+
+    private static SectionLoad[] Scratch(ref SectionLoad[]? buffer, int length)
+    {
+        if (buffer is null || buffer.Length < length)
+        {
+            buffer = new SectionLoad[length];
+        }
+        else
+        {
+            Array.Clear(buffer, 0, length);
+        }
+
+        return buffer;
+    }
 
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<VoxelGrid, GeometryCache> Geometries = new();
 
@@ -301,6 +349,9 @@ public static class VoxelBending
         public float[] CellMass { get; init; } = [];
         public float[] CellTensile { get; init; } = [];
 
+        /// <summary>Each cell's Young's modulus [Pa] (the one that has none counts as <see cref="DefaultStiffness"/>: only the ratio between materials matters).</summary>
+        public float[] CellStiffness { get; init; } = [];
+
         /// <summary>The cells that carry each slice (the ones with a tensile strength when only the load-bearing cells count).</summary>
         public int[][] Sections { get; init; } = [];
 
@@ -308,11 +359,14 @@ public static class VoxelBending
         public Vector3[] Origins { get; init; } = [];
     }
 
+    private const float DefaultStiffness = 10e9f;
+
     private static BeamGeometry? BuildGeometry(VoxelGrid grid, int axis, int slices, bool loadBearingOnly)
     {
         // The body's mass, centre and inertia from its cells.
         var volume = grid.CellVolume;
         var cells = new List<(int Slice, Vector3 At, float Mass, float Tensile)>(grid.FilledCount);
+        var stiffnesses = new List<float>(grid.FilledCount);
         float total = 0f;
         var moment = Vector3.Zero;
         for (var i = 0; i < grid.CellCount; i++)
@@ -338,6 +392,7 @@ public static class VoxelBending
             var at = grid.CellCenter(x, y, z);
             var mass = k.Density * volume;
             cells.Add((axis == 0 ? x : axis == 1 ? y : z, at, mass, tensile));
+            stiffnesses.Add(k.Stiffness ?? DefaultStiffness);
             total += mass;
             moment += at * mass;
         }
@@ -370,7 +425,16 @@ public static class VoxelBending
         for (var s = 0; s < slices; s++)
         {
             sections[s] = loadBearingOnly ? bySlice[s].FindAll(c => !float.IsNaN(cells[c].Tensile)).ToArray() : bySlice[s].ToArray();
-            origins[s] = sections[s].Length == 0 ? Vector3.Zero : sections[s].Aggregate(Vector3.Zero, (sum, c) => sum + cells[c].At) / sections[s].Length;
+            // 断面の中心 = 曲げの剛性（E）で重みを付けた重心（合成断面の中立軸の通る所。1 種類の材料ならセルの重心）。
+            var weighted = Vector3.Zero;
+            var weight = 0f;
+            foreach (var c in sections[s])
+            {
+                weighted += cells[c].At * stiffnesses[c];
+                weight += stiffnesses[c];
+            }
+
+            origins[s] = weight > 0f ? weighted / weight : Vector3.Zero;
         }
 
         return new BeamGeometry(cells, total, com, inverseInertia, bySlice)
@@ -379,6 +443,7 @@ public static class VoxelBending
             CellAt = cells.Select(c => c.At).ToArray(),
             CellMass = cells.Select(c => c.Mass).ToArray(),
             CellTensile = cells.Select(c => c.Tensile).ToArray(),
+            CellStiffness = stiffnesses.ToArray(),
             Sections = sections,
             Origins = origins,
         };

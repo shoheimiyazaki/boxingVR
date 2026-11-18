@@ -1,6 +1,7 @@
 {
   "id": "dmitri",
   "order": 10,
+  "org": "wvc",
   "name": "ドミトリー・ヴォルコフ",
   "reading": "ドミトリー ヴォルコフ",
   "hudName": "ドミトリー",
@@ -81,6 +82,28 @@
     "weapon": null
   },
   "textbook": "slugger",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "BreakLikes": { "bow": 3.5, "earbud": 2.5, "headphones": 2, "towelhead": 3, "deepbreath": 2.5, "handshake": 2, "sandwich": 1.5, "applause": 1.5, "dance": 0.3, "blowkiss": 0.2, "wavetwo": 0.4 },
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 17, "Dealt": 20.72, "Taken": 16.341 },
+          { "Cm": 19, "Dealt": 21.533, "Taken": 16.102 },
+          { "Cm": 21, "Dealt": 21.461, "Taken": 14.099 },
+          { "Cm": 23, "Dealt": 15.243, "Taken": 10.705 },
+          { "Cm": 25, "Dealt": 12.322, "Taken": 7.935 },
+          { "Cm": 27, "Dealt": 5.536, "Taken": 5.868 },
+          { "Cm": 29, "Dealt": 3.6, "Taken": 7.137 },
+          { "Cm": 31, "Dealt": 1.145, "Taken": 3.639 },
+          { "Cm": 33, "Dealt": 0.105, "Taken": 1.837 },
+          { "Cm": 35, "Dealt": 0.23, "Taken": 1.593 },
+          { "Cm": 37, "Dealt": 0.09, "Taken": 1.821 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

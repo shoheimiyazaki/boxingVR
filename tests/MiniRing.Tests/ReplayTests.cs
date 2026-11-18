@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 /// 自動記録 → 再生で、試合が最初から完全に（ビット単位で）再現されることを確かめる。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class ReplayTests
 {
     [TestMethod]

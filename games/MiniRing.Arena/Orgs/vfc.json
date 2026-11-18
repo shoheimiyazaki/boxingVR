@@ -1,0 +1,102 @@
+{
+  // VFC（Voxel Fighting Championship）: 何でもありの団体の中継。赤・黒・クリーム、暗い会場に檻だけのスポット、低いホーン。
+  // 試合の決まり（ダウンを取らない・死だけが決着・体は治らない）と六角形の檻は MatchRules・RingLayout の側。ここは見せ方だけ。
+  "id": "vfc",
+  "name": "Voxel Fighting Championship",
+  "logoText": "VFC",
+  "sport": "Voxel Fighting",
+  "emblem": "vfc",
+  "colors": {
+    // accent = クリーム #F3E9D6、ink = 黒。赤 #E8231F は紋章と罫の飾り（voxel*）に使う。
+    "accent": [0.9529, 0.9137, 0.8392],
+    "accentLight": [1, 0.97, 0.9],
+    "accentDeep": [0.45, 0.06, 0.05, 0.9],
+    "text": [0.98, 0.96, 0.92],
+    "muted": [0.72, 0.68, 0.62],
+    "ink": [0.02, 0.015, 0.015, 0.92],
+    "voxelTop": [0.93, 0.14, 0.11],
+    "voxelBottom": [0.78, 0.08, 0.06],
+    "voxelSide": [0.4, 0.03, 0.03]
+  },
+  // 暗い会場で檻だけを照らす: 環境光・主光・天井・窓を絞り、檻の真上に強いスポットを足す。
+  "arenaMood": {
+    "ambient": 0.22,
+    "key": 0.25,
+    "lamp": 0.3,
+    "window": 0.1,
+    "cageSpotIntensity": 1.3,
+    "cageSpotColor": [1, 0.95, 0.88],
+    "vignette": 0.7,
+    "exposure": 0.95
+  },
+  "bell": "horn",
+  // 番組の型: 深夜の有料配信のケージファイト（黒・クリーム・赤、角張った字、斜めの帯。WVC の地上波の中継とは別の作り）。
+  "show": "vfc",
+  // 放送席: 深夜の格闘配信の実況と、VFC のケージドクターだった元救命救急医の解説。声は WVC の 2 人と聞き分けられるよう、実況は低く、解説は別の声（Haruka）。
+  "cast": {
+    "announcer": {
+      "name": "久世",
+      "persona": "docs/commentary/personas/kuze.md",
+      "role": "あなたは深夜の格闘配信の実況です。見えたことを伝える人です。",
+      "voice": { "voice": ["IchiroM", "Ichiro"], "rate": "+22%", "pitch": "-12%", "volume": "+5%", "excited": { "rate": "+40%", "pitch": "-2%", "volume": "+20%" } }
+    },
+    "commentator": {
+      "name": "鷹宮",
+      "persona": "docs/commentary/personas/takamiya.md",
+      "role": "あなたは VFC のケージドクターだった元救命救急医の解説です。体の壊れ方と、残っている体を読む人です。",
+      "voice": { "voice": ["HarukaM", "Haruka"], "rate": "+8%", "pitch": "-8%", "volume": "+0%", "excited": { "rate": "+20%", "pitch": "-2%", "volume": "+8%" } }
+    }
+  },
+  "crowd": { "reactionGain": 1.2, "ambienceGain": 0.6 },
+  "countsDowns": false,
+  // 試合の決まり（ユーザーの指定 2026-11-18）: 判定しない（5 ラウンドを終えて両者が生きていれば両者生還の引き分け）・休みでも体は治らない・レフェリーなし・六角形の金網の檻。
+  "match": { "judgesDecision": false, "regenerates": false, "referee": false, "arena": "hexCage" },
+  "text": {
+    "openingRule": "{seconds}秒 × {rounds}ラウンド　・　決着は死のみ　・　両者生還なら引き分け",
+    "finishWord": "決着",
+    "decisionLine": "{rounds}ラウンドを終えて　・　両者生還の引き分け",
+    "liveTag": "PPV",
+    "strapline": "深夜のケージファイト配信"
+  },
+  "rulesSheet": [
+    "この記録は VFC（Voxel Fighting Championship）の大会のテレビ中継のためのもの。競技の名前は Voxel Fighting。武器・はめる物・素手のどれでもよい、何でもありの大会。",
+    "\"for\" が 実況 の出来事は画面で見えること（誰が何でどこを打った・倒れた・ラウンド）。解説 の出来事は体の中で起きていること（どこが壊れた・何が残っている・疲れ）と選手の狙い。",
+    "実況は見えたことを伝えて解説に問いを振り、解説は「どこが壊れたか・あと何が残っているか」で答える。数字はラウンドと時間と、体の何割が失われたかだけ言う。",
+    "レフェリーはいない。ダウンは取らず、10 カウントも、動かないままの K.O. も無い。倒れた相手も打てる。決着は相手が死ぬことだけ（脳・心臓などの臓器が壊れる、首が折れる・切れる）。",
+    "最大 5 ラウンド。5 ラウンドを終えて両者が生きていれば、判定はせず、両者生還の引き分け。",
+    "ラウンドの間の休みでも、削れた体は治らない。折れた骨・失った手足・削れた肉はそのまま。戻るのはスタミナと意識だけ。",
+    "場は六角形の金網の檻。リングアウトは無く、金網に押し付けられて動けなくなる。"
+  ],
+  "draft": {
+    "bellWord": "ホーン",
+    "finishCall": "決着！",
+    "winLine": "{winner}の勝ち！",
+    "drawLine": "試合終了のホーン。全ラウンドを終えて両者生還、引き分け。",
+    "fallenCall": "{victim}、倒れた！それでも試合は止まらない！"
+  },
+  "lint": { "callWords": ["決着", "倒れ", "止め", "引き分け", "生還", "死", "動かない"] },
+  // 見ごたえの点: 長く持つ・死で決着（後半ほど高い）・削られていた側の逆転・両者が深く傷むで上がり、序盤の即決着と両者生還（引き分け）で下がる。ダウンは数えない。
+  "drama": {
+    "perRound": 3,
+    "perDown": 0,
+    "downCap": 0,
+    "bothDowns": 0,
+    "ko": 0,
+    "koLastRound": 0,
+    "death": 3,
+    "deathPerRound": 1.5,
+    "comeback": 4,
+    "bothHurt": 4,
+    "bothHurtDamage": 200,
+    "quickSeconds": 15,
+    "quickPenalty": 8,
+    "drawPenalty": 2
+  },
+  "commentary": {
+    "intro": "VFC（Voxel Fighting Championship）は何でもありの団体。競技の名前は Voxel Fighting。武器・はめる物・素手のどれでも戦え、決着は死だけ。",
+    "announcerTone": "熱く荒い実況。見えたことを短く叩きつけるように伝え、倒れても止まらない攻防と、決着の瞬間は声を張り上げる。",
+    "analystTone": "解説は「どこが壊れたか・あと何が残っているか」を伝える。折れた骨・削れた肉・失った手足と、残った体で次に何ができるか。",
+    "callThing": "倒れたこと・決着",
+    "callExamples": "「倒れた」「決着」「引き分け」など"
+  }
+}

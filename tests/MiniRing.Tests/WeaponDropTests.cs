@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// （<see cref="DisarmedFallback"/>）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class WeaponDropTests
 {
     private sealed class Scripted(Func<FighterSense, FighterCommand> read) : IFighterControl

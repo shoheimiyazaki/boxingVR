@@ -190,7 +190,7 @@ MatchSession OpenReplay(ReplayData data)
 
 MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
 {
-    var game = new BoxingGame(corners: corners, rules: tv ? MatchRules.Tv : null) { FaceCam = faceCam, Speed = speed };
+    var game = new BoxingGame(corners: corners.StartingAtCorners(), rules: tv ? MatchRules.Tv : null) { FaceCam = faceCam, Speed = speed }; // 試合はコーナーから
     ReplayRecorder? recorder = null;
     try
     {

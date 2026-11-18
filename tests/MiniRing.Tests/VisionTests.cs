@@ -5,6 +5,7 @@ using MiniRing.Voxels;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("slow")]
 public sealed class VisionTests
 {
     [TestMethod]

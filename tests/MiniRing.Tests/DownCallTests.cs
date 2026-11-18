@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// （その間は相手が攻め続けてよい）。立ち直って構えたら、一呼吸（<see cref="BoxingGame.ResumePause"/>）置いてから試合を戻す。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class DownCallTests
 {
     private const float Dt = 1f / 240f;

@@ -11,7 +11,7 @@ namespace MiniRing.Characters;
 /// <summary>
 /// キャラクターの名簿。1 人 1 ファイル（組み込みは <c>Characters/roster/&lt;id&gt;.json</c>、国の旗の表は <c>countries.json</c>）。
 /// ファイルは体（<c>look</c>・<c>body</c>）＋ 教科書（<c>textbook</c>、スタイルの名前）＋ 教育（<c>education</c>、教科書からの差分）＋ 育ちの記録（<c>record</c>）。
-/// ここは読み込みと検証だけ（解決は <see cref="FighterCharacter.Resolve"/>）。
+/// ここは読み込みと検証だけ（解決は <see cref="FighterCharacter.Resolve(string)"/>）。
 /// 値の範囲（体格・色・顔の部位）・教科書の名前・国・武器の名前・教育の鍵・<c>vs</c> の相手が壊れていれば、どの人のどの欄かを書いた例外で止める
 /// （黙って既定に直さない: 見た目と強さが食い違う）。ファイルのパスから読む入口（<see cref="LoadFile"/>・<see cref="LoadDirectory"/>）は、
 /// プレイヤーが作ったキャラ・新人（アプリのデータの場所）を読むためのもの。
@@ -62,6 +62,9 @@ public static class CharacterRoster
     /// <summary>id から探す。</summary>
     public static FighterCharacter Get(string id) => All.FirstOrDefault(c => c.Id == id)
         ?? throw new ArgumentException($"キャラクター '{id}' はいません（{string.Join(", ", All.Select(c => c.Id))}）。", nameof(id));
+
+    /// <summary>id から探す（いなければ null）。</summary>
+    public static FighterCharacter? Find(string id) => All.FirstOrDefault(c => c.Id == id);
 
     /// <summary>id の名簿の中の位置。</summary>
     public static int IndexOf(string id)
@@ -250,11 +253,18 @@ public static class CharacterRoster
 
         var look = new FaceLook(Color(face.Skin, "look.skin"), Color(face.Hair, "look.hair"), Color(face.Eyes, "look.eyes"),
             face.Hairstyle, face.Brows, face.Beard) { Parts = ValidParts(face.Parts) };
+        var org = c.Org ?? FighterCharacter.DefaultOrg;
+        if (org.Length == 0 || !org.All(ch => ch is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-' or '_'))
+        {
+            throw new InvalidDataException($"org '{org}' は小文字・数字・-・_ の団体の id にしてください（wvc・vfc）。");
+        }
+
         return new FighterCharacter(c.Id!, name, Need(c.Reading, "reading"), Need(c.HudName, "hudName"),
             Need(c.Origin, "origin"), country, wear, weapon, textbook, build, look, Need(c.Tagline, "tagline"),
             ToEducation(c.Education), ToRecord(c.Record))
         {
             Profile = c.Profile?.Validate(build),
+            Org = org,
         };
     }
 
@@ -297,7 +307,8 @@ public static class CharacterRoster
         "club" or "woodenclub" => WeaponKind.WoodenClub,
         "staff" or "bo" => WeaponKind.Staff,
         "jo" => WeaponKind.Jo,
-        _ => throw new InvalidDataException($"武器 '{name}' は知りません（katana|longsword|ironSword|club|staff|jo）。"),
+        "bat" => WeaponKind.Bat,
+        _ => throw new InvalidDataException($"武器 '{name}' は知りません（katana|longsword|ironSword|club|staff|jo|bat）。"),
     };
 
     private static Vector3 Color(float[]? rgb, string field)
@@ -424,6 +435,7 @@ public static class CharacterRoster
         public string? Origin { get; init; }
         public string? Country { get; init; }
         public string? Tagline { get; init; }
+        public string? Org { get; init; }
         public FaceDto? Look { get; init; }
         public BodyDto? Body { get; init; }
         public string? Textbook { get; init; }

@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 点の式の共通化（<see cref="MatchScore"/>、<see cref="DefenseTuner.EvaluateBySeed"/>）の確かめ。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class PairedEvaluationTests
 {
     [TestMethod]

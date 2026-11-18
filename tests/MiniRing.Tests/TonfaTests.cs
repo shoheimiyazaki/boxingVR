@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 
 /// <summary>2026-11-16: トンファー（<see cref="HandWear.Tonfa"/>）。形・質量・両手・当たり・受け・教科書・キャラ。docs/TONFA.md。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class TonfaTests
 {
     public TestContext TestContext { get; set; } = null!;
@@ -370,7 +371,7 @@ public sealed class TonfaTests
         Assert.IsNull(c.Weapon);
         Assert.AreEqual("tonfa", c.StyleName);
         Assert.AreEqual("トンファー", c.EquipmentName);
-        Assert.AreSame(BotCatalog.Tonfa, c.Resolve(), "an empty education plays the textbook itself");
+        CharacterRosterTests.AssertTextbookPlusGamePlan(BotCatalog.Tonfa, c.Resolve(), c.Id);
         Assert.IsTrue(CharacterRoster.Countries.ContainsKey(c.Country.Id));
         Assert.Contains(c, CharacterRoster.All);
         _ = c.Look.Validate();

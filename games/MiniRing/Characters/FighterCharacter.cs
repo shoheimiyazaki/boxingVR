@@ -23,7 +23,7 @@ public sealed record CountryInfo(string Id, string Name, FlagSpec Flag);
 /// <summary>
 /// 名簿の 1 人（キャラクター）。国籍・武器・肌の色・身長と体格・名前を 1 か所にまとめる。全員が架空の人物で、
 /// 実在の人はモデルにしない（docs/CHARACTERS.md）。強さは見えている体（<see cref="Build"/>）から物理で出る（CLAUDE.md §1.7）ので、
-/// ここに能力値は持たない。ボットの性格は教科書（<see cref="StyleName"/>、<see cref="BotCatalog"/> のスタイル）に教育（<see cref="Education"/>、差分だけ）を重ねた<see cref="Resolve"/>で、入力元の違いにすぎない。
+/// ここに能力値は持たない。ボットの性格は教科書（<see cref="StyleName"/>、<see cref="BotCatalog"/> のスタイル）に教育（<see cref="Education"/>、差分だけ）を重ねた<see cref="Resolve(string)"/>で、入力元の違いにすぎない。
 /// </summary>
 /// <param name="Id">短い識別子（小文字・数字・-・_）。</param>
 /// <param name="Name">表示名（フルネーム）。</param>
@@ -43,17 +43,39 @@ public sealed record FighterCharacter(string Id, string Name, string Reading, st
     HandWear Wear, WeaponKind? Weapon, string StyleName, BodyBuild Build, FaceLook Look, string Tagline,
     CharacterEducation Education, IReadOnlyList<System.Text.Json.Nodes.JsonObject> Record)
 {
-    /// <summary>この人のボットのスタイル（相手を決めない教育まで。<see cref="Resolve"/> の <c>null</c>）。</summary>
+    /// <summary>この人のボットのスタイル（相手を決めない教育まで。<see cref="Resolve(string)"/> の <c>null</c>）。</summary>
     /// <summary>プロフィール（経歴・人柄。実況・解説の資料。<see cref="CharacterProfile"/>）。ファイルに無ければ null。</summary>
     public CharacterProfile? Profile { get; init; }
 
-    public BotStyle Style => Resolve(null);
+    /// <summary>所属の団体の id（<c>wvc</c>・<c>vfc</c>。ファイルの <c>org</c>、無ければ <see cref="DefaultOrg"/>）。中継の団体のファイル（Arena の <c>Orgs/&lt;id&gt;.json</c>）の id。強さは体から物理で出るので、所属は強さに響かない（中継の見せ方と対戦の組み合わせの印）。</summary>
+    public string Org { get; init; } = DefaultOrg;
+
+    /// <summary>所属が書かれていないときの団体の id。</summary>
+    public const string DefaultOrg = "wvc";
+
+    public BotStyle Style => Resolve((string?)null);
 
     /// <summary>
     /// この相手（<paramref name="opponentId"/>。試合の相手が決まっていなければ null）と戦うときのスタイル: 教科書 → 教育の <c>style</c> → <c>vs[相手]</c> の順に重ねた結果。
     /// 教育が空なら教科書そのもの。名前は教科書の名前のまま（<see cref="EducationResolver"/>）。
+    /// <para>戦略の層（<see cref="BotStyle.GamePlan"/>）があり、相手の表（<see cref="GamePlanStyle.Foe"/>）が教育に書かれていなければ、相手のキャラ（名簿の
+    /// <paramref name="opponentId"/>）の自分の表（<see cref="GamePlanStyle.Own"/>）を入れる（相手の得意な間合いを情報として持つ。CLAUDE.md §1.8 の「相手のキャラの id で引く値」）。
+    /// 名簿にいない相手・表の無い相手なら空のまま。</para>
     /// </summary>
-    public BotStyle Resolve(string? opponentId = null) => EducationResolver.Resolve(BotCatalog.Style(StyleName), Education, opponentId);
+    public BotStyle Resolve(string? opponentId = null)
+        => WithFoe(EducationResolver.Resolve(BotCatalog.Style(StyleName), Education, opponentId), opponentId is null ? null : CharacterRoster.Find(opponentId));
+
+    /// <summary>この相手（名簿にいない、プレイヤーが作ったキャラでもよい）と戦うときのスタイル（<see cref="Resolve(string)"/> と同じ重ね方。相手の表はこのキャラから）。</summary>
+    public BotStyle Resolve(FighterCharacter opponent)
+    {
+        ArgumentNullException.ThrowIfNull(opponent);
+        return WithFoe(EducationResolver.Resolve(BotCatalog.Style(StyleName), Education, opponent.Id), opponent);
+    }
+
+    private static BotStyle WithFoe(BotStyle style, FighterCharacter? opponent)
+        => style.GamePlan is { Foe.Count: 0 } plan && opponent?.Style.GamePlan is { Own.Count: > 0 } theirs
+            ? style with { GamePlan = plan with { Foe = theirs.Own } }
+            : style;
 
     /// <summary>
     /// 握る武器のボットの判断の値: 武器の教科書（<see cref="WeaponCatalog"/>）に教育の <c>weaponBot</c> を重ねた結果（<see cref="WeaponEducation"/>）。
@@ -75,6 +97,7 @@ public sealed record FighterCharacter(string Id, string Name, string Reading, st
         WeaponKind.WoodenClub => "こんぼう",
         WeaponKind.Staff => "六尺棒",
         WeaponKind.Jo => "杖",
+        WeaponKind.Bat => "バット",
         _ => weapon.ToString(),
     };
 

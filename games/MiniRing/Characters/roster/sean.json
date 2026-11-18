@@ -1,6 +1,7 @@
 {
   "id": "sean",
   "order": 4,
+  "org": "vfc",
   "name": "ショーン・オマリー",
   "reading": "ショーン オマリー",
   "hudName": "ショーン",
@@ -25,7 +26,7 @@
       "2003年: 10歳で地元の少年ハーリングチームに入団。棒を振る感覚を身につける",
       "2011年: 18歳で地元のパブの喧嘩を仲裁し、その腕力でボクシングジムに勧誘される",
       "2014年: アマチュアのボクシング大会で2連勝するも、ルールの窮屈さを嫌って離れる",
-      "2016年: Voxingの武器ありルールを知り、棍棒で戦う選手としてWVC入団",
+      "2016年: VFCの何でもありのルールを知り、棍棒で戦う選手として入団",
       "2018年: 豪快な戦い方で人気を集める。ランキング入り",
       "2021年: 古武道の棒術家と初対戦。技で圧倒されたが、力で振り切って勝つ",
       "2024年: ダイチの六尺棒に勝利。荒々しい接近戦を仕掛けて制した",
@@ -81,6 +82,36 @@
     "weapon": "club"
   },
   "textbook": "slugger",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "BreakLikes": { "hum": 4, "dance": 2.5, "chestbeat": 2.5, "roar": 2.5, "energydrink": 2, "wavetwo": 2, "shadowbox": 2, "pointcrowd": 2, "handshake": 1.5, "gum": 1.5 },
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 2.778, "Taken": 18.937 },
+          { "Cm": 17, "Dealt": 4.046, "Taken": 21.258 },
+          { "Cm": 19, "Dealt": 3.56, "Taken": 20.683 },
+          { "Cm": 21, "Dealt": 4.295, "Taken": 19.241 },
+          { "Cm": 23, "Dealt": 5.313, "Taken": 13.766 },
+          { "Cm": 25, "Dealt": 4.358, "Taken": 10.543 },
+          { "Cm": 27, "Dealt": 3.078, "Taken": 5.897 },
+          { "Cm": 29, "Dealt": 3.208, "Taken": 5.21 },
+          { "Cm": 31, "Dealt": 2.813, "Taken": 4.384 },
+          { "Cm": 33, "Dealt": 2.194, "Taken": 2.686 },
+          { "Cm": 35, "Dealt": 1.585, "Taken": 1.395 },
+          { "Cm": 37, "Dealt": 0.542, "Taken": 0.706 },
+          { "Cm": 39, "Dealt": 0.29, "Taken": 0.428 },
+          { "Cm": 41, "Dealt": 0.354, "Taken": 0.213 },
+          { "Cm": 43, "Dealt": 0.102, "Taken": 0.137 },
+          { "Cm": 45, "Dealt": 0, "Taken": 0.399 },
+          { "Cm": 47, "Dealt": 0, "Taken": 0.553 },
+          { "Cm": 49, "Dealt": 0, "Taken": 0.246 },
+          { "Cm": 51, "Dealt": 0, "Taken": 0.343 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

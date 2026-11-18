@@ -66,6 +66,17 @@
 
 `docs/images/gen13_faces.png`: 全キャラの顔（左 = 正面、右 = 斜め 40 度）。`miniring-arena faces [--names a,b,f.json] [--columns N]` で作る。
 
+## 2.5 黒目が見ている方へ動く・まぶた・まばたき（2026-11-18、見た目だけ）
+
+頭の目は 2 × 2 セルの白目の面（`EyeScan` の通り、表に出ている白目だけが見える）。**材質のセルは動かさず、描く色だけ**を動かす（打撃・視覚・チェックサムに響かない。`PhysicsVersion`・`LogicVersion` は上げない）。実装は `Voxels/EyeLook.cs`（`EyeGaze`・`EyeBlink`・`EyePose`）と `VoxelPart.Draw(cyanosis, eyes)`（あざ・チアノーゼと同じ塗り直しの道）。
+
+- **黒目**: 眼球を、目の表のセルの重心から奥へ `BallRadiusCells`（2.5 セル）の所を中心とする球と見なし、見ている向きにいちばん近い向きにある、表の白目のセル 1 つを黒目の色で塗る（左右の目それぞれ）。削れた白目は塗らない（残った白目の中で動く。無くなれば塗らない）。向きの後ろ向きは `MinForward` で正面寄りに丸める。2 × 2 セルの目なので、黒目は向いた側の列・段へ 1 セル動く。
+- **注目している点**（`EyeGaze.TargetOf`）: 相手の頭。相手の拳がこちらへ速く近づいているとき（近づく速さ 5 m/s で 0.8）は、その拳の方へ視線が連続に寄る。意識（`Fighter.Awareness`）が `FocusAwareness`（0.35）未満か死んでいれば、焦点が合わず正面を向く。見た目の値で、ボットの読み・狙い（`OpponentRead`・`AimWeights`）は使わない（描画が判断の側へ逆流しないように）。
+- **まぶた**: 目のセル（白目・黒目）を、上の段から順に、顔の皮膚の色（あざ・チアノーゼの色を含む）へ塗り替える。段数は閉じ具合 × 目の高さを丸めたもの。
+- **まばたき**（`EyeBlink`、試合の歩の中で `Fighter.Eyes` が進む）: 間隔は落ち着いて 4.2 秒、息の上がり・痛みの記憶が増えるほど 1.4 秒まで連続に詰まる（×0.55〜1.45 の揺らぎはファイターごとの決まった数列: 頭の初期位置から作る種）。1 回 0.16 秒（疲れるほど 0.22 秒）、閉じる側 35 %・開く側 65 %。意識が薄れるほどまぶたが落ち（`(1 − 意識)^1.5 × 0.95`）、意識が無ければほぼ閉じ、死ねば閉じる。痛みは目を細める（最大 0.3）。
+- **打たれたときの反射**（`EyeBlink.Flinch`、`BoxingGame.ApplyHit`）: 強さ = (1 − exp(−E / 15 J)) × exp(−目までの距離 / 0.4 m)。すぐ閉じ、強さに応じて 0.12〜0.67 秒閉じたままで、痛みの記憶（0.5 × 強さ、毎秒 0.12 ずつ抜ける）が残ってまばたきが増える。近道: 秒数・距離・エネルギーは見た目の値で、生理の測定ではない。
+- 確かめ: `EyeLookTests`（黒目の動き・削れた目・まぶたが上から下へ・材質と格子の版が変わらない・まばたきの回数と状態・反射）と、`EyeLookVisualTests`（`.visualcheck/eyes_gaze_blink.png`）。
+
 ## 3. 目が潰れる（`VisionState`・`VisionPerception`）
 
 目の白目・黒目のセル（材質 `eye`・`pupil`）の残り HP の割合が、左右の目それぞれの「見える度合い」（`BoxerBody.Vision`）。連続で、場合分けはない。
@@ -100,7 +111,7 @@
             "parts": { "jaw": 1.12, "jawWidth": 1.1, "cheekbones": 1.1 } },
   "body": { "build": { "height": 1.12, "arms": 1.1, "legs": 1.0, "muscle": 1.15 }, "wear": "glove", "weapon": null },
   "textbook": "champion",                 // BotCatalog のスタイルの名前（全キャラ共通の基本）
-  "education": {                          // 教科書からの差分だけ。ここでは全員空
+  "education": {                          // 教科書からの差分だけ（名簿の 17 人は今 style.GamePlan だけ: 下の「戦略の層」）
     "style": { "Aggression": 0.8, "Aim": { "Chin": 2 } },   // 書いた鍵だけ教科書を上書き（BotStyle.ToJson と同じ書き方。列挙体は数）
     "vs": { "akira": { "RangePress": 3 } },                 // その相手 id との試合だけ（style の上にさらに重ねる）
     "weaponBot": { "Rest": 0.4, "Defense": { "BlockShare": 0.5 } }   // 握る武器（刀・ロングソード・こんぼう）のボットの値。書いた鍵だけ武器の教科書を上書き（下）。武器が無いキャラは null か {}
@@ -111,10 +122,15 @@
 
 - **解決**（`FighterCharacter.Resolve(相手の id)` / `EducationResolver`）: 教科書の JSON（`BotStyle.ToJson`）→ `education.style` → `education.vs[相手]` の順に JSON の段で重ね（オブジェクトは鍵ごとに再帰で重ね、配列・値は置き換え）、`BotStyle` に読み直して `Validated()`。**教育が空（重なる層が無い）なら教科書そのもの**（同じ物を返す。今と同じ試合）。結果の `Name` は教科書の名前のまま（空手の判定 `IsKarate` など、名前で見ている所が壊れないように）。
 - 教育で変えられないもの: `Name`・`RingName`・`Build`・`Face`（体と名前。強さは見えている体から出す、§1.7）。
+- **戦略の層**（`education.style.GamePlan`、2026-11-18、LogicVersion 50）: 名簿の 17 人の教育は今これだけ。自分の得意な間合いの表（`Own`。`docs/arena/maai_roster_ranges_bins.csv` から `node tools/roster-report/fill-gameplan.mjs` で書き込む）と性格（全員既定）。相手の表（`Foe`）は書かず、解決のとき（`FighterCharacter.Resolve(相手)`）に相手のキャラの `Own` が入る（名簿にいない相手なら空）。解決済みのスタイルに入るので記録の見出しにも入り、再生は同じになる。式と入力は `docs/BOTS.md`「戦略の層」。剣・棒・棍棒の選手の表は相手として使うだけ（そのボットは読まない）。
 - **解決したスタイルを全部に通す**（名前で `BotCatalog` を引き直さない）: 青の CPU（`BotCatalog.Corners(解決済み)` → `CpuStyleJson`）、観戦の赤（`RedBotStyle`）、人が操る赤・2P の青の意図の解釈（`BoxingCorners.PlayerStyle`・`CpuStyle` → `DesktopFighterControl`）、レフェリーなしの倒れた相手への攻め（`GroundStyle`）、Arena の `--red-char` / `rosterleague`（`--set` はその上にさらに重ねる）。
 - **記録**: 見出しに解決済みのスタイルの全体が入る（青 = `CpuStyleJson`、ボットの赤 = `RedBotStyleJson`、人が操る赤 = `PlayerStyleJson`）。再生は名簿のファイルを引かないので、後でファイルの教育が変わっても同じ試合。リプレイ形式は版 9（バイナリの並びは版 7 と同じ。古い記録は `PlayerStyleJson` が無く、今までの決め方）。握る武器のボットの値（解決済みの `WeaponStyle` の JSON）は見出しの `PlayerWeaponStyleJson`・`CpuWeaponStyleJson`（版 9。無い記録は null = その武器の組み込みの教科書）。
 - **武器のボットの教科書と教育**（`education.weaponBot`、2026-11-16）: 刀・ロングソード・こんぼうのボットの判断の値は `WeaponStyle`（`Bots/WeaponStyle.cs`）に全部まとまっていて、JSON に読み書きできる（`Validated()` が範囲を検査し、知らない鍵・範囲外は止める）。武器ごとの教科書は組み込みの `Bots/weapons/katana.json`・`longsword.json`・`club.json`（`WeaponCatalog.Textbook`）。値: 剣士の守り `Defense`（`SwordDefense`）・間合いの取り合い `HitAndAway`（null = 遠間で構えて 1 つずつ詰める）・狙い `Aim`/`AutoAim`・自分の体を避ける通り道 `Clearance`・技の時計 `Pacing`・`Rest`・`MinReach`・折れた武器を捨てる長さ `KeepReach`、こんぼうの `ClubRange`・`ClubRest`・`ClubStandOff`・`ClubExact`。使わない側の値は無視される（剣士はこんぼうの値を読まない）。`education.weaponBot` は書いた鍵だけが教科書を上書きする（`WeaponEducation.Resolve`、重ね方は `style` と同じ。最上位の鍵が教科書に無い・`Name` を書いた・値が範囲外・武器を握らない（拳・鉄の剣）キャラが空でない値を書いた、は読み込みで止める）。解決した値は `FighterCharacter.WeaponStyle` → `BoxingCorners.PlayerWeaponStyle`/`CpuWeaponStyle` → 武器のボット（`FormSwordsman.Bot(.., style)`・`ClubBot.FromStyle`）と記録の見出しへ。教育が空なら教科書そのもの（今までの試合とビット単位で同じ: `CharacterSamenessTests` の `w-*` の組）。**相手ごとの層（`vs`）は無い**（武器の値は相手を読んで変えるものではなく、教育全体で 1 組）。
 - プレイヤーが作ったキャラ・新人: `CharacterRoster.LoadFile(path)` / `LoadDirectory(dir)`（アプリのデータの場所から読む入口。`vs` の相手は組み込みの id を認め、組み込みと同じ id は断る）。E5・E6 が使う。
+
+### 所属（`org`、2026-11-18）
+
+ファイルの `"org"` は所属する団体の id（`wvc` | `vfc`。中継の団体のファイル `games/MiniRing.Arena/Orgs/<id>.json`、`docs/TV_BROADCAST.md` §1.1）。無ければ `wvc`。小文字・数字・-・_ でなければ読み込みで止まる（団体のファイルにある id かどうかはテストが確かめる）。強さは体から物理で出る（§1.7）ので、所属は強さに響かない（中継の見せ方と対戦の組み合わせの印）。武器・グローブ以外のはめる物の選手（daichi・edgar・gaston・jin・joao・konrad・sean・tsuyoshi・vikram）は `vfc`、素手・グローブの拳（ボクシング・空手・テコンドー・ムエタイ）は `wvc`。VFC の選手の経歴は「VFC へ入団」「何でもありのルール」で書く（全員架空。名前・国・顔は変えない）。
 
 ### 方針
 - **実在の人物はモデルにしない**。顔・名前の権利の問題と、体が削れ・切断され・死ぬゲームで実在の人を描く問題のため。名簿は全員が架空で、実在の特定の人を連想させる名前・顔にしない（顔は肌・髪・瞳の色と、基準の顔の小さな個人差だけ）。

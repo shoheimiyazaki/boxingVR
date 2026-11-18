@@ -54,6 +54,13 @@ public sealed record WeaponStyle
     /// <summary>これより間合いが短い型は技に入れない [m]（打ち込まずその場で振る型は、剣士同士の間合いの技ではない）。</summary>
     public float MinReach { get; init; } = FormSwordsman.MinReach;
 
+    /// <summary>
+    /// 間合いの内側の技（柄頭打ち・前蹴り・押し斬りなど）の間合いの下限 [m]。null なら内側の技は技の集まりに入れない（<see cref="MinReach"/> より短い型を除く、今までの形）。
+    /// 値があれば、これ以上の間合いの型を技の集まりに入れ、<see cref="MinReach"/> 未満の技は歩いて詰める計画の候補にはせず、
+    /// 相手がすでに近いとき・相手が詰めてきて迎え撃つときだけ、今の距離に間合いが合う技として選ぶ（<see cref="SwordsmanBot.PlanMinReach"/>）。
+    /// </summary>
+    public float? InnerMinReach { get; init; }
+
     /// <summary>折れた武器を使い続ける、残った長さの下限 [腕の長さ]（<see cref="DisarmedFallback"/>）。</summary>
     public float KeepReach { get; init; } = DisarmedFallback.DefaultKeepReach;
 
@@ -105,6 +112,11 @@ public sealed record WeaponStyle
 
         InRange(Rest, 0f, 5f, nameof(Rest));
         InRange(MinReach, 0f, 1.5f, nameof(MinReach));
+        if (InnerMinReach is { } inner)
+        {
+            InRange(inner, 0f, MinReach, nameof(InnerMinReach));
+        }
+
         InRange(KeepReach, 0f, 3f, nameof(KeepReach));
         InRange(ClubRange, 0.1f, 1.2f, nameof(ClubRange));
         InRange(ClubRest, 0f, 5f, nameof(ClubRest));
@@ -182,9 +194,10 @@ public static class WeaponCatalog
     private static readonly Lazy<WeaponStyle> Staff = new(() => Load("staff"));
     private static readonly Lazy<WeaponStyle> Jo = new(() => Load("jo"));
     private static readonly Lazy<WeaponStyle> SwordShield = new(() => Load("swordshield"));
+    private static readonly Lazy<WeaponStyle> Bat = new(() => Load("bat"));
 
     /// <summary>この武器のボットを教科書の値で動かすか（<see cref="Textbook"/> がある武器）。</summary>
-    public static bool HasBot(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.IronSword;
+    public static bool HasBot(WeaponKind? weapon) => weapon is WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.WoodenClub or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.IronSword or WeaponKind.Bat;
 
     /// <summary>この武器の教科書。ボットの無い武器は <see cref="ArgumentOutOfRangeException"/>。</summary>
     public static WeaponStyle Textbook(WeaponKind weapon) => weapon switch
@@ -195,6 +208,7 @@ public static class WeaponCatalog
         WeaponKind.Staff => Staff.Value,
         WeaponKind.Jo => Jo.Value,
         WeaponKind.IronSword => SwordShield.Value,
+        WeaponKind.Bat => Bat.Value,
         _ => throw new ArgumentOutOfRangeException(nameof(weapon), weapon, "刀・ロングソード・こんぼう・棒・片手剣（剣盾）だけに教科書があります。"),
     };
 

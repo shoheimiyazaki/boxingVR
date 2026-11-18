@@ -1,0 +1,94 @@
+{
+  // WVC（Wonderful Voxing Council）: 格式の高いボクシング団体の中継。今のテレビ中継の見た目・音・点数そのまま（値は元のコードの定数から写した）。
+  "id": "wvc",
+  "name": "Wonderful Voxing Council",
+  "logoText": "WVC",
+  "sport": "Voxing",
+  "emblem": "wvc",
+  "colors": {
+    "accent": [1, 0.82, 0.28],
+    "accentLight": [1, 0.95, 0.7],
+    "accentDeep": [0.45, 0.33, 0.05, 0.9],
+    "text": [1, 1, 1],
+    "muted": [0.78, 0.8, 0.86],
+    "ink": [0.04, 0.05, 0.08, 0.9],
+    "voxelTop": [1, 0.93, 0.62],
+    "voxelBottom": [0.8, 0.55, 0.16],
+    "voxelSide": [0.36, 0.22, 0.07]
+  },
+  "arenaMood": {
+    "ambient": 1,
+    "key": 1,
+    "lamp": 1,
+    "window": 1,
+    "cageSpotIntensity": 0,
+    "vignette": 0.5,
+    "exposure": 0.97
+  },
+  "bell": "gong",
+  // 番組の型（games/MiniRing.Arena/Shows）: 格式のある地上波の中継（今の番組そのまま）。
+  "show": "wvc",
+  // 放送席（実況・解説）。人物の説明のファイル（経歴・役割・場だけ）と声。声の値は tools/commentary/Synthesize.ps1 の既定（今までの立花・佐伯の声）と同じ。
+  "cast": {
+    "announcer": {
+      "name": "立花",
+      "persona": "docs/commentary/personas/tachibana.md",
+      "role": "あなたは試合の熱をそのまま声に乗せる人です。",
+      "voice": { "voice": ["IchiroM", "Ichiro"], "rate": "+30%", "pitch": "+5%", "volume": "+0%", "excited": { "rate": "+50%", "pitch": "+12%", "volume": "+20%" } }
+    },
+    "commentator": {
+      "name": "佐伯",
+      "persona": "docs/commentary/personas/saeki.md",
+      "role": "あなたは見えたものの理由を語る人です。",
+      "voice": { "voice": ["AyumiM", "Ayumi", "HarukaM", "Haruka"], "rate": "+15%", "pitch": "-2%", "volume": "+0%", "excited": { "rate": "+28%", "pitch": "+4%", "volume": "+10%" } }
+    }
+  },
+  "crowd": { "reactionGain": 1, "ambienceGain": 1 },
+  "countsDowns": true,
+  // 試合の決まり: 最終ラウンドの終わりは判定・休みに浅い傷が治る・レフェリーがいる・四角いリング（今までの中継のまま）。
+  "match": { "judgesDecision": true, "regenerates": true, "referee": true, "arena": "ropedSquare" },
+  "text": {
+    "openingRule": "{seconds}秒 × {rounds}ラウンド　・　K.O. か判定で決着",
+    "finishWord": "K.O.",
+    "decisionLine": "{rounds}ラウンド終了　・　与えたダメージの判定"
+  },
+  "rulesSheet": [
+    "この記録は WVC（Wonderful Voxing Council）の大会のテレビ中継のためのもの。競技の名前は Voxing。",
+    "\"for\" が 実況 の出来事は画面で見えること（誰が何でどこを打った・ダウン・カウント・ラウンド）。解説 の出来事は体の中で起きていること（どこが壊れた・何が効いている・疲れ）と選手の狙い。",
+    "実況は見えたことを伝えて解説に問いを振り、解説は体の中と作戦の言葉で答える。数字はラウンドと時間と、体の何割が失われたかだけ言う。",
+    "倒れて 10 カウントで立てない、または倒れたまま動かなければ K.O.。最終ラウンドが終われば、与えたダメージの多い方の判定勝ち。",
+    "ラウンドの間の休みで、浅い傷は少し治る（大会の決まり）。折れた骨・失った手足は戻らない。"
+  ],
+  "draft": {
+    "bellWord": "ゴング",
+    "finishCall": "ノックアウト！",
+    "winLine": "{winner}のKO勝ち！",
+    "drawLine": "",
+    "fallenCall": "{victim}、倒れた！"
+  },
+  "lint": { "callWords": ["ダウン", "倒れ", "止め", "アウト", "KO", "テン", "判定"] },
+  // 見ごたえの点: 長く続く・ダウン・両者のダウン・K.O.・逆転が上がり、序盤の即決着・引き分けが下がる（TvShowRules.Drama）。
+  "drama": {
+    "perRound": 3,
+    "perDown": 1.5,
+    "downCap": 5,
+    "bothDowns": 3,
+    "ko": 2,
+    "koLastRound": 1,
+    "death": 0,
+    "deathPerRound": 0,
+    "comeback": 4,
+    "bothHurt": 0,
+    "bothHurtDamage": 200,
+    "quickSeconds": 15,
+    "quickPenalty": 6,
+    "drawPenalty": 1
+  },
+  "commentary": {
+    "intro": "WVC（Wonderful Voxing Council）は格式の高いボクシング団体。競技の名前は Voxing。ボクサー同士の試合がメインで、まれに素手の異種格闘技戦（空手・テコンドー・ムエタイ）が組まれる。",
+    "announcerTone": "品のある実況。見えたことを落ち着いて伝え、要所（ダウン・決着）で声を張る。",
+    "analystTone": "理由を言う解説。なぜ効いたか・なぜ倒れたかを、体の中と作戦の言葉で一言にまとめる。",
+    "callThing": "ダウン・決着",
+    "callExamples": "「ダウン」「ノックアウト」「KO」など"
+  }
+}

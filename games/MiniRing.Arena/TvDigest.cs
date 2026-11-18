@@ -22,10 +22,11 @@ internal static class TvDigest
     };
 
     /// <summary>events.json の中身から要約の Markdown を作る。</summary>
-    public static string Build(string eventsJson)
+    public static string Build(string eventsJson, Organization? org = null)
     {
         using var doc = JsonDocument.Parse(eventsJson);
         var root = doc.RootElement;
+        org ??= TvDraft.OrgOf(eventsJson);
         string Text(string name) => root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
         var events = root.GetProperty("events").EnumerateArray()
             .Select(e => new Event(
@@ -33,7 +34,8 @@ internal static class TvDigest
                 e.TryGetProperty("for", out var f) ? f.GetString() ?? "" : "",
                 e.GetProperty("type").GetString() ?? "",
                 e.TryGetProperty("who", out var w) ? w.GetString() ?? "" : "",
-                e.GetProperty("text").GetString() ?? ""))
+                e.GetProperty("text").GetString() ?? "",
+                e.TryGetProperty("prefight", out var pre) && pre.ValueKind == JsonValueKind.True))
             .OrderBy(e => e.T)
             .ToList();
 
@@ -42,6 +44,7 @@ internal static class TvDigest
         var result = events.FirstOrDefault(e => e.Type == "result")?.T;
         sb.AppendLine(CultureInfo.InvariantCulture, $"# 台本の資料: {Text("event")} {Text("bout")}");
         sb.AppendLine();
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- 主催: {org.Name}（競技は {org.Sport}）。{org.Commentary.Intro}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- 赤コーナー: {Fallback(Text("redProfile"), Text("red"))}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- 青コーナー: {Fallback(Text("blueProfile"), Text("blue"))}");
         if (end is { } e0)
@@ -64,10 +67,20 @@ internal static class TvDigest
         sb.AppendLine();
         sb.AppendLine("## 台本の決まり（docs/TV_BROADCAST.md の要約）");
         sb.AppendLine();
-        sb.AppendLine("- 実況（announcer）は「実況」の出来事（画面で見えること）を短く伝え、要所（ダウン・骨折・切断・リプレイ・休み）で解説に問いを振る。");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- 実況（announcer）は「実況」の出来事（画面で見えること）を短く伝え、要所（{(org.CountsDowns ? "ダウン" : "倒れたこと")}・骨折・切断・リプレイ・休み）で解説に問いを振る。");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- 実況の語り口: {org.Commentary.AnnouncerTone}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- 解説の語り口: {org.Commentary.AnalystTone}");
         sb.AppendLine("- 解説（commentator、元王者のサエキさん）は「解説」の出来事（体の中・狙い）を、ゲームを知らない人に一言で分かる言葉で答える。");
         sb.AppendLine("- 数字はラウンド・時間・「心臓の3割が失われた」のような体の割合だけ。ダメージの数値や「打撲が8割」は言わない。ゲームの名前（VGV）やボット・物理の話はしない（作中のテレビ中継）。");
-        sb.AppendLine("- 長さの目安: 実況 1 字 0.15〜0.19 秒、解説 0.18〜0.24 秒、台詞の間 0.15 秒。前の台詞が長いと次は後ろへずれる。ダウン・決着のコールは出来事の 0.5 秒以内に。");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- 長さの目安: 実況 1 字 0.15〜0.19 秒、解説 0.18〜0.24 秒、台詞の間 0.15 秒。前の台詞が長いと次は後ろへずれる。{(org.CountsDowns ? "ダウン・" : "倒れた・")}決着のコールは出来事の 0.5 秒以内に。");
+        sb.AppendLine();
+        sb.AppendLine("## この試合の決まり");
+        sb.AppendLine();
+        foreach (var rule in org.RulesSheet)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"- {rule}");
+        }
+
         sb.AppendLine();
 
         var sections = Sections(events, end);
@@ -122,6 +135,13 @@ internal static class TvDigest
         var marks = new List<(float T, string Title)>();
         foreach (var e in events)
         {
+            // 試合の前の番組の場面（団体の番組の型が決める名前。WVC の program・opening・tape 以外）は、場面の名前（「: 」の前）を区切りの名前にする。
+            if (e.Prefight && e.Type is not ("program" or "opening" or "tape"))
+            {
+                marks.Add((e.T, e.Text.Split(": ")[0]));
+                continue;
+            }
+
             switch (e.Type)
             {
                 case "tape":
@@ -169,5 +189,5 @@ internal static class TvDigest
 
     private static string Fallback(string value, string fallback) => value.Length > 0 ? value : fallback;
 
-    private sealed record Event(float T, string For, string Type, string Who, string Text);
+    private sealed record Event(float T, string For, string Type, string Who, string Text, bool Prefight = false);
 }

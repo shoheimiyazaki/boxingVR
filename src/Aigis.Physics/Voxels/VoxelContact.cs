@@ -113,8 +113,16 @@ public static class VoxelContact
     /// <summary>Bounce of a stopped blow (0 = dead stop).</summary>
     public const float Restitution = 0.1f;
 
-    /// <summary>The sweep's sample spacing as a fraction of the smaller cell (default 0.5: half a cell). A coarser value (1.0) halves the samples but lets a thin blade step over more of a cell; it also scales the push-out distance. For measuring only: set before bodies are stepped.</summary>
-    public static float SampleSpacingScale { get; set; } = 0.5f;
+    /// <summary>The sweep's sample spacing as a fraction of the smaller cell (default 0.5: half a cell). A coarser value (1.0) halves the samples but lets a thin blade step over more of a cell; it also scales the push-out distance. For measuring only: set before bodies are stepped.
+    /// Held per async flow (<see cref="AsyncLocal{T}"/>): a change is seen by the code that made it and by the threads and tasks it starts afterwards, never by matches or tests already running elsewhere.</summary>
+    public static float SampleSpacingScale
+    {
+        get => _sampleSpacingScale.Value ?? DefaultSampleSpacingScale;
+        set => _sampleSpacingScale.Value = value;
+    }
+
+    private const float DefaultSampleSpacingScale = 0.5f;
+    private static readonly AsyncLocal<float?> _sampleSpacingScale = new();
 
     /// <summary>Most samples of the sweep in one step.</summary>
     private const int MaxSamples = 400;
@@ -289,64 +297,86 @@ public static class VoxelContact
         var box = Filled.GetValue(grid, static _ => new StrongBox<FilledSet>(new FilledSet(-1, [], [], [], [], [], [])));
         if (box.Value!.Version != grid.GeometryVersion)
         {
-            var groups = new Dictionary<(int, int, int), List<int>>();
+            // 2 回の走査（割り当てを少なく: 毎歩削れる武器では、この組み立てが歩ごとに走る）。セルを番号の昇順に歩き、箱（BrickSize 角）は
+            // 最初に現れた順、箱の中のセルは番号の昇順に並べる（結果は、箱ごとの一覧を作ってから並べ直す前の組み立てと同じ並び）。
+            var count = 0;
             for (var i = 0; i < grid.CellCount; i++)
             {
                 if (grid.MaterialAt(i) != 0)
                 {
-                    var (x, y, z) = grid.Coordinates(i);
-                    var key = (x / BrickSize, y / BrickSize, z / BrickSize);
-                    if (!groups.TryGetValue(key, out var cells))
-                    {
-                        groups[key] = cells = [];
-                    }
-
-                    cells.Add(i);
+                    count++;
                 }
             }
 
-            var index = new List<int>(grid.FilledCount);
-            var center = new List<Vector3>(grid.FilledCount);
-            var bricks = new List<Brick>(groups.Count);
-            foreach (var cells in groups.Values)
+            var brickOfCell = new int[count];
+            var brickIds = new Dictionary<(int, int, int), int>();
+            var brickCounts = new List<int>();
+            var n = 0;
+            for (var i = 0; i < grid.CellCount; i++)
             {
-                var start = index.Count;
-                var lo = new Vector3(float.MaxValue);
-                var hi = new Vector3(float.MinValue);
-                foreach (var i in cells)
+                if (grid.MaterialAt(i) == 0)
                 {
-                    var (x, y, z) = grid.Coordinates(i);
-                    var c = grid.CellCenter(x, y, z);
-                    index.Add(i);
-                    center.Add(c);
-                    lo = Vector3.Min(lo, c);
-                    hi = Vector3.Max(hi, c);
+                    continue;
                 }
 
-                bricks.Add(new Brick((lo + hi) * 0.5f, 0.5f * Vector3.Distance(lo, hi), start, cells.Count));
+                var (x, y, z) = grid.Coordinates(i);
+                var key = (x / BrickSize, y / BrickSize, z / BrickSize);
+                if (!brickIds.TryGetValue(key, out var id))
+                {
+                    brickIds[key] = id = brickCounts.Count;
+                    brickCounts.Add(0);
+                }
+
+                brickCounts[id]++;
+                brickOfCell[n++] = id;
             }
 
-            var indexArray = index.ToArray();
-            var centerArray = center.ToArray();
+            var starts = new int[brickCounts.Count];
+            for (var k = 1; k < starts.Length; k++)
+            {
+                starts[k] = starts[k - 1] + brickCounts[k - 1];
+            }
+
+            var fill = new int[brickCounts.Count];
+            var lows = new Vector3[brickCounts.Count];
+            var highs = new Vector3[brickCounts.Count];
+            Array.Fill(lows, new Vector3(float.MaxValue));
+            Array.Fill(highs, new Vector3(float.MinValue));
+            var indexArray = new int[count];
+            var centerArray = new Vector3[count];
             // Where each cell sits in cell order: the candidates are handed on in that order (which cells are tried first decides what breaks first).
-            var order = new int[indexArray.Length];
-            for (var i = 0; i < order.Length; i++)
+            var rank = new int[count];
+            var rankIndex = new int[count];
+            var rankCenter = new Vector3[count];
+            n = 0;
+            for (var i = 0; i < grid.CellCount; i++)
             {
-                order[i] = i;
+                if (grid.MaterialAt(i) == 0)
+                {
+                    continue;
+                }
+
+                var (x, y, z) = grid.Coordinates(i);
+                var c = grid.CellCenter(x, y, z);
+                var id = brickOfCell[n];
+                var at = starts[id] + fill[id]++;
+                indexArray[at] = i;
+                centerArray[at] = c;
+                rank[at] = n;
+                rankIndex[n] = i;
+                rankCenter[n] = c;
+                lows[id] = Vector3.Min(lows[id], c);
+                highs[id] = Vector3.Max(highs[id], c);
+                n++;
             }
 
-            Array.Sort((int[])indexArray.Clone(), order);
-            var rank = new int[indexArray.Length];
-            var rankIndex = new int[indexArray.Length];
-            var rankCenter = new Vector3[indexArray.Length];
-            for (var r = 0; r < order.Length; r++)
+            var bricks = new Brick[brickCounts.Count];
+            for (var k = 0; k < bricks.Length; k++)
             {
-                rank[order[r]] = r;
-                rankIndex[r] = indexArray[order[r]];
-                rankCenter[r] = centerArray[order[r]];
+                bricks[k] = new Brick((lows[k] + highs[k]) * 0.5f, 0.5f * Vector3.Distance(lows[k], highs[k]), starts[k], brickCounts[k]);
             }
 
-            box.Value = new FilledSet(grid.GeometryVersion, indexArray, centerArray, [.. bricks], rank, rankIndex, rankCenter);
+            box.Value = new FilledSet(grid.GeometryVersion, indexArray, centerArray, bricks, rank, rankIndex, rankCenter);
         }
 
         return box.Value!;
@@ -845,7 +875,7 @@ public static class VoxelContact
                         // What the face passes on: the blow (with the mass behind) over the give, but no more than the face carries. A steady
                         // drive (a hand pressing a held blade) is left out: a press is not a blow, and counting it would wear and crush on
                         // every step it is held there (the review measured a pressed flat tearing skin in ~8 steps).
-                        (heldPatch, heldGive, heldForce) = (bins, give, MathF.Min(blowEnergy / give, MathF.Min(probeHold, fieldHold) * FlowMargin));
+                        (heldPatch, heldGive, heldForce) = ([.. bins], give, MathF.Min(blowEnergy / give, MathF.Min(probeHold, fieldHold) * FlowMargin));
                     }
 
                     break;
@@ -1261,6 +1291,14 @@ public static class VoxelContact
             return (u, Vector3.Cross(along, u));
         }
 
+        /// <summary>Scratch for <see cref="PatchBins"/>, reused from sample to sample and sweep to sweep on a thread (a sweep is over before the next one begins).</summary>
+        [ThreadStatic]
+        private static Dictionary<(int, int), (float Front, byte Material)>? _probeFrontScratch;
+
+        /// <summary>The patch <see cref="PatchBins"/> returns: the same list every sample (a caller that keeps it past the next sample copies it).</summary>
+        [ThreadStatic]
+        private static List<PatchBin>? _patchScratch;
+
         /// <summary>
         /// The contact patch at sample <paramref name="k"/>: the probe's face toward the blow as a heightfield on the same bins,
         /// and the bins where the two faces come within <paramref name="give"/> of the place they meet deepest — the patch
@@ -1271,7 +1309,9 @@ public static class VoxelContact
         {
             var (q, t) = Pose(k);
             var reach = 0.5f * MaxCell(_probe.Grid);
-            var probeFront = new Dictionary<(int, int), (float Front, byte Material)>();
+            // 掃きの間は使い回す（標本ごとに作ると割り当てが多い。挿入の順に歩くので、毎回作り直したときと同じ並び）。
+            var probeFront = _probeFrontScratch ??= [];
+            probeFront.Clear();
             for (var i = 0; i < _cellCount; i++)
             {
                 var material = _probe.Grid.MaterialAt(_cellIndex[i]);
@@ -1303,7 +1343,8 @@ public static class VoxelContact
                 }
             }
 
-            var patch = new List<PatchBin>();
+            var patch = _patchScratch ??= [];
+            patch.Clear();
             foreach (var (key, pf) in probeFront)
             {
                 if (fieldFront.TryGet(key.Item1, key.Item2, out var ff) && ff.Front - pf.Front <= deepest + give)

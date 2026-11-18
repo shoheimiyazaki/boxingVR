@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 /// 予測で避ける: 打つ前の溜め（体が拳より先に動く）、相手の読み（<see cref="OpponentRead"/>）、予測の回避、間合いの端。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class PredictionTests
 {
     private const float Reach = 0.19f;

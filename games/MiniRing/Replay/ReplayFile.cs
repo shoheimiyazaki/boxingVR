@@ -46,6 +46,7 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 ///                | v5: 左右の手形 int32 | 左右の脚指令（有無、目標、膝目標・向きの有無と値、Spring）
 ///   0x02 Checksum: int32 step（そのステップを終えた直後）| uint64 BoxingGame.StateChecksum()
 /// </code>
+/// 版 13: Step の最後にステップの指令（float × 3。<see cref="FighterCommand.Step"/>。版 12 までの記録は 0）。
 /// 版 11: Step の最後に左右の握りを滑らせる指令（bool Slide。<see cref="HandCommand.Slide"/>。版 10 までの記録は false）。
 /// 版 12: 脚指令の最後に膝の制御（膝の位置・ねじり・曲げ。それぞれ 有無 bool + 値。<see cref="LegCommand.KneeLocal"/>）。
 /// 版 10: Step の最後に左右の肘の締め（float Tuck、0..1。<see cref="HandCommand.Tuck"/>）。
@@ -56,7 +57,7 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// </summary>
 public static class ReplayFile
 {
-    public const int Version = 12;
+    public const int Version = 13;
     public const string Extension = ".mrrep";
     /// <summary>1 ステップの時間刻みとして受け付ける上限 [s]（壊れたファイルの値を物理に渡さない）。</summary>
     public const float MaxDt = 0.25f;
@@ -118,6 +119,7 @@ public static class ReplayFile
         writer.Write(float.IsFinite(c.Right.Tuck) ? Math.Clamp(c.Right.Tuck, 0f, 1f) : 0f);
         writer.Write(c.Left.Slide);
         writer.Write(c.Right.Slide);
+        Write(writer, c.ClampedStep); // 読む側は有限値だけ受け付けるので、体が使うのと同じ丸めた値を書く
     }
 
     public static void WriteChecksum(BinaryWriter writer, int stepIndex, ulong checksum)
@@ -279,6 +281,11 @@ public static class ReplayFile
                 Left = command.Left with { Slide = reader.ReadBoolean() },
                 Right = command.Right with { Slide = reader.ReadBoolean() },
             };
+        }
+
+        if (version >= 13)
+        {
+            command = command with { Step = Read3(reader) };
         }
 
         return command;

@@ -89,7 +89,9 @@ public static class CrowdSound
         CrowdReaction.Ooh => new(1.2f, 0.25f, 56, (330f, 760f), (520f, 880f), 1.15f, 0.12f, 0.3f, 0.15f, 0.22f, -0.05f, 0f, 0.25f, 0f, 0, 4),
         CrowdReaction.Cheer => new(1.6f, 0.35f, 60, (700f, 1500f), (640f, 1300f), 1.35f, 0.15f, 0.18f, 0.5f, 0.08f, 0f, 0.45f, 0.3f, 220f, 0, 6),
         CrowdReaction.Roar => new(2.6f, 0.55f, 72, (740f, 1150f), (680f, 1200f), 1.45f, 0.12f, 0.15f, 1.0f, 0.1f, -0.05f, 0.3f, 0.35f, 160f, 1, 10),
-        CrowdReaction.Eruption => new(5.2f, 0.75f, 80, (760f, 1200f), (650f, 1250f), 1.55f, 0.2f, 0.25f, 2.8f, 0.06f, -0.04f, 0.35f, 0.35f, 420f, 8, 14),
+        // 試合の決着の歓声: ピーク 0.75 → 0.4、立ち上がり 0.25 → 0.7 s（2026-11-18、ユーザー: 試合が終わるときの音が大きくて驚く）。
+        // 一打の大きなどよめき（Roar 0.55）より上へ出さず、長く続くことと膨らんでいくことで大きな瞬間を伝える。
+        CrowdReaction.Eruption => new(5.2f, 0.4f, 80, (760f, 1200f), (650f, 1250f), 1.55f, 0.2f, 0.7f, 2.8f, 0.06f, -0.04f, 0.35f, 0.35f, 420f, 8, 14),
         CrowdReaction.Groan => new(1.3f, 0.25f, 56, (620f, 1000f), (560f, 1150f), 1.05f, 0.12f, 0.15f, 0.2f, 0.04f, -0.4f, 0f, 0.3f, 0f, 0, 4),
         CrowdReaction.Count => new(0.42f, 0.3f, 56, (720f, 1180f), (560f, 900f), 1.4f, 0.03f, 0.04f, 0.1f, 0.05f, -0.1f, 0f, 0.25f, 0f, 0, 4),
         _ => throw new ArgumentOutOfRangeException(nameof(reaction), reaction, "未知の観客の反応"),

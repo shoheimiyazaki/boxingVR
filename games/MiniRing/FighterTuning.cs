@@ -97,6 +97,14 @@ public sealed record FighterTuning
     /// <summary>つま先の蝶番のサーボの強さ（TorqueScale 倍する前）。</summary>
     public float ToeMaxTorque { get; init; } = 20f;
 
+    /// <summary>
+    /// つま先の蝶番の可動域の止め（上 25°・下 −60°）のバネの固さ [Hz]。つま先は軽い（足の 4 割）ので、止めが既定の 15 Hz では、
+    /// 蹴りで足が振られる遠心の力に負けて止めを越えて 62° まで振れ、跳ね返って揺れた（ToeBounceProbe）。止めは足の指の骨と腱が伸びきる所なので固い。
+    /// 60 Hz は 240 Hz の歩みで安定に解ける上限の側（歩みの 1/4）。可動域の中でつま先を戻すサーボは脚と同じ LegServoHz のまま
+    /// （サーボまで 60 Hz にすると、足が 1 枚の固い板のようになって立ち方・倒れ方が変わった: 立つ・起き上がる・リングの縁から落ちるテストが外れた）。
+    /// </summary>
+    public float ToeStopHz { get; init; } = 60f;
+
     /// <summary>首のバネの減衰比。殴られて持っていかれた頭が、揺れ返さずに戻る（打たれていないときもぐらつかない）。</summary>
     public float NeckDampingRatio { get; init; } = 0.7f;
 

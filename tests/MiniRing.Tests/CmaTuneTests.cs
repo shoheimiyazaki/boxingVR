@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 点の良し悪しは見ない（長い測定は別）。決定的であること（並列の数・再開）と、引数の検査を確かめる。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class CmaTuneTests
 {
     private static BotStyle Defender(bool counters) => DefenseDrill.Defender(BotCatalog.Champion.Defenses, defend: true, DefenseDrill.DefaultRange, counters);

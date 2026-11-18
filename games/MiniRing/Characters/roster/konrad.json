@@ -1,6 +1,7 @@
 {
   "id": "konrad",
   "order": 3,
+  "org": "vfc",
   "name": "コンラート・アイゼンハルト",
   "reading": "コンラート アイゼンハルト",
   "hudName": "コンラート",
@@ -25,7 +26,7 @@
       "2002年: 12歳で地元の歴史剣術クラブに入会。木製の長剣で基本を学ぶ",
       "2009年: 19歳で中世剣術の国際大会に出場し、団体戦で優勝",
       "2012年: 大学卒業後、ボクシングも習い始め、拳と剣の距離感を結びつける",
-      "2016年: WVCへ入団。長剣を持つ選手として、剣先を使った間合い管理を披露",
+      "2016年: VFCへ入団。長剣を持つ選手として、剣先を使った間合い管理を披露",
       "2018年: 初のランキング入り。長身を活かした突きで連勝を続ける",
       "2021年: ガストンと欧州の剣対決。判定勝ち",
       "2023年: 日本刀のジンと東西の剣対決で判定勝ち。抜き打ちを何度か受けて冷や汗をかく",
@@ -81,6 +82,32 @@
     "weapon": "longsword"
   },
   "textbook": "boxer",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "BreakLikes": { "fixgloves": 3.5, "mouthguard": 3, "stretcharms": 2, "forwardbend": 2, "neckcrack": 1.5, "hum": 2, "bow": 2, "handshake": 2, "coffee": 1.5, "roar": 0.3, "blowkiss": 0.2 },
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 3.466, "Taken": 19.707 },
+          { "Cm": 17, "Dealt": 3.197, "Taken": 17.277 },
+          { "Cm": 19, "Dealt": 2.509, "Taken": 13.378 },
+          { "Cm": 21, "Dealt": 3.483, "Taken": 10.668 },
+          { "Cm": 23, "Dealt": 5.775, "Taken": 9.231 },
+          { "Cm": 25, "Dealt": 5.421, "Taken": 8.079 },
+          { "Cm": 27, "Dealt": 7.303, "Taken": 6.923 },
+          { "Cm": 29, "Dealt": 6.872, "Taken": 5.094 },
+          { "Cm": 31, "Dealt": 3.909, "Taken": 4.536 },
+          { "Cm": 33, "Dealt": 3.517, "Taken": 2.764 },
+          { "Cm": 35, "Dealt": 3.434, "Taken": 1.63 },
+          { "Cm": 37, "Dealt": 5.901, "Taken": 1.007 },
+          { "Cm": 39, "Dealt": 5.912, "Taken": 1.009 },
+          { "Cm": 41, "Dealt": 4.741, "Taken": 1.35 },
+          { "Cm": 43, "Dealt": 1.864, "Taken": 0.539 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

@@ -120,6 +120,39 @@ public sealed record FootworkTuning
 
     /// <summary>前後の体重のかけ方の幅（0.5 ± これ）。前へ出した頭・打つ拳で前足へ、反らした頭で後ろ足へ。</summary>
     public float WeightShift { get; init; } = 0.25f;
+
+    /// <summary>
+    /// ステップの脚のバネに貯められるエネルギー [J/kg]（体が支える質量 1 kg あたり、無傷・基準体格の脚。脚の力 <see cref="Fighter.LegStrength"/> に比例）。
+    /// 人のボクシングの踏み込み（0.5〜0.8 m）を人形の縮尺 0.355 に直した 18〜28 cm を、1 回のステップで進むように合わせた値（StepTests: 3 J/kg で
+    /// 前へ 18 cm・後ろへ 24 cm、骨盤の速さの山 0.87・1.01 m/s。歩く指令を同じ時間出すと 5 cm）。蹴る脚の傾きの効率・腕や脚が引きずられる分・着地の減速で、
+    /// 貯めた分の一部だけが進む距離になる。
+    /// </summary>
+    public float StepSpringPerKg { get; init; } = 3f;
+
+    /// <summary>
+    /// 脚のバネを縮め直す筋肉の仕事率 [W/kg]（体が支える質量 1 kg あたり、無傷の脚。疲れ（<see cref="Fighter.Vigor"/>）と脚の力で下がる）。
+    /// 両足が着いていれば貯めきるまで 3 / 8 ≈ 0.4 秒（片足が宙にある間は半分の速さ）。蹴り出しから 95 % まで貯め直すのは測って 0.62 秒（StepTests。
+    /// 足を整え直しながら貯める）、人の踏み込みの間隔 1 秒前後を人形の時間（√0.355 倍）に直した 0.6 秒に合わせた。仕事はスタミナから払う（疲れると 0.97 秒）。
+    /// </summary>
+    public float StepLoadPowerPerKg { get; init; } = 8f;
+
+    /// <summary>脚のバネを放つ時定数 [s]（床を蹴っている長さ。人の蹴り出し 0.1〜0.15 秒を人形の時間 √0.355 倍に直した 0.06〜0.09 秒の、残り 1/e までの時間）。</summary>
+    public float StepPushTime { get; init; } = 0.035f;
+
+    /// <summary>靴底とキャンバスの摩擦係数（ゴムと帆布）。蹴る脚が寝ているほど、水平に押せる力は床を押し付ける力 × これまで。</summary>
+    public float StepFriction { get; init; } = 0.8f;
+
+    /// <summary>
+    /// 蹴り出した後、体の勢いを足が受け止めて止める減速の上限 [m/s²]（普段の移動の上限 <see cref="FighterTuning.MaxMoveAccel"/> 6 の代わり）。
+    /// 着いた足の膝を柔らかく曲げて勢いを殺す近道（足で床を押して止める力の大きさを、着地の衝撃の上限として置いた値）。
+    /// </summary>
+    public float StepBrakeAccel { get; init; } = 3f;
+
+    /// <summary>
+    /// 脚のバネが空のとき、構え（貯めきった脚）より腰が伸び上がる高さ（立つ高さの割合）。縮めた脚・伸びた脚が見える（§1.7）: 蹴り出した直後は伸び上がり、
+    /// 貯め直すにつれて構えの高さへ沈む。貯めきった構えの高さは今までと同じ（他の技の手触りを変えない）。
+    /// </summary>
+    public float StepSink { get; init; } = 0.04f;
 }
 
 /// <summary>1 本の足の置き方（ワールド）: 母指球の位置（地面の上、持ち上げを含む）、つま先の向き、かかとの浮き。</summary>

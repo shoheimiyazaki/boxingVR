@@ -33,7 +33,7 @@ CLAUDE.md §1.8 の実装計画。タスクと記録を兼ねる（段ごとに�
 ## 段
 | 段 | 中身 | 前提 | 状態 |
 |---|---|---|---|
-| E0 | `characters.json` を 1 人 1 ファイルへ分け、教育（空）・育ちの記録の欄を持つ形にする。解決したスタイルを両コーナー・プレイヤーの意図操作へ渡し、記録の見出しに入れる。教育が空なら今とビット単位で同じ（チェックサムのテスト） | build-tactics の取り込み | 済（2026-11-16、`Characters/roster/<id>.json`・`EducationResolver`・`BoxingCorners.PlayerStyle`・リプレイ版 8。`weaponBot` は欄だけ予約。仕様は `docs/CHARACTERS.md` §5、報告は `docs/plans/SONNET_REPORT_CHARACTER_FILES_E0_2026-11-16.md`） |
+| E0 | `characters.json` を 1 人 1 ファイルへ分け、教育（空）・育ちの記録の欄を持つ形にする。解決したスタイルを両コーナー・プレイヤーの意図操作へ渡し、記録の見出しに入れる。教育が空なら今とビット単位で同じ（チェックサムのテスト） | build-tactics の取り込み | 済（2026-11-16、`Characters/roster/<id>.json`・`EducationResolver`・`BoxingCorners.PlayerStyle`・リプレイ版 8。`weaponBot` は欄だけ予約。仕様は `docs/CHARACTERS.md` §5、報告は `docs/plans/done/SONNET_REPORT_CHARACTER_FILES_E0_2026-11-16.md`） |
 | E1 | 体格を読む層を教科書の一部に（係数は教科書の値、教育で上書き可） | `claude/build-tactics` | 済（2026-11-16、`BuildRead`・LogicVersion 30。アキラは全員が層を使うと下がる → E3 の教育で） |
 | E2 | 教育の道具: Arena `educate --char <id> --gens N [--vs roster]`。CMA-ES（技の進化の作業のもの）で教育の値を探す。鍛える相手・種と、使わない相手・種に分け、使わない方で良いときだけ採る。最初は判断の係数と選ぶ重み（小さいゲノム）、次に技の経路 | 技の進化（`claude/evo-*`）の取り込み | 未 |
 | E3 | 全キャラの教育を回す（1 人ずつ、体と武器に合わせて）。前後の総当たりの表を `docs/arena/education_*.md` に | E2 | 未 |

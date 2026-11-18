@@ -1,0 +1,13 @@
+{
+  "_comment": "WVC の王座決定戦の試し撮り札（1 試合）。belt が true の試合は、勝敗の画面で勝者の名前の上に王座のベルトが出る（引き分けでは出ない）。next は勝者が得るもの（プログラムの表と実況の台本の資料）。動かし方: powershell -ExecutionPolicy Bypass -File tools/tvshow/tvshow.ps1 -Card tools/tvshow/cards/wvc-title.json",
+  "event": "WVC 王座決定戦",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-title",
+  "scoutSeeds": [1, 2, 3, 4],
+  "partLimitMiB": 29,
+  "commentary": { "writer": "prospective", "model": "haiku" },
+  "bouts": [
+    { "red": "marcus", "blue": "ramon", "seed": "auto", "bout": "第1試合", "stake": "WVC 王座決定戦", "next": "王座獲得", "belt": true }
+  ]
+}

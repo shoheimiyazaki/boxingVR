@@ -56,6 +56,14 @@ function Get-Field($object, [string]$name, $default) {
 
 function Get-Relative([string]$path) { return $path.Substring($repo.Length + 1).Replace('\', '/') }
 
+# 主催団体（札の org、既定 wvc）。団体のファイル（games\MiniRing.Arena\Orgs\<id>.json）の名前・競技・語り口をプロンプトへ差し込む。
+# ファイルには // の行コメントがあるので、行ごと外してから読む。
+$orgId = ([string](Get-Field $cardData 'org' 'wvc')).ToLowerInvariant()
+$orgFileRel = "games/MiniRing.Arena/Orgs/$orgId.json"
+$orgPath = Join-Path $repo $orgFileRel.Replace('/', '\')
+if (-not (Test-Path $orgPath)) { throw "団体のファイルがありません: $orgFileRel（札の org: $orgId）" }
+$orgData = (Get-Content -Raw -Encoding UTF8 $orgPath) -replace '(?m)^\s*//.*$', '' | ConvertFrom-Json
+
 $outRel = ([string](Get-Field $cardData 'out' 'docs\video\tvshow')).Replace('\', '/')
 $out = Join-Path $repo $outRel
 $commentary = Get-Field $cardData 'commentary' $null
@@ -92,9 +100,19 @@ function Select-Angles([int]$seed) {
 
 # 書き手が付け忘れても、台本の型（点検が見る決まり）と、フリートークの 2 人の声をそろえる。
 function Set-ScriptStyle([string]$key) {
-    if ($Style -eq 'duo') { return }
     $path = Join-Path $out "$key.extras.json"
     $extras = Get-Content -Raw -Encoding UTF8 $path | ConvertFrom-Json
+    # 放送席の声は団体のファイルの cast から（実況・解説の 2 席の型）。書き手が speakers を書いていればそのまま。
+    if ($Style -ne 'free' -and -not ($extras.PSObject.Properties.Name -contains 'speakers')) {
+        $seats = [ordered]@{}
+        foreach ($seat in 'announcer', 'commentator') {
+            $v = $orgData.cast.$seat.voice
+            $seats[$seat] = [ordered]@{ voice = @($v.voice); rate = [string]$v.rate; pitch = [string]$v.pitch; volume = [string]$v.volume
+                excited = [ordered]@{ rate = [string]$v.excited.rate; pitch = [string]$v.excited.pitch; volume = [string]$v.excited.volume } }
+        }
+        $extras | Add-Member -Force -NotePropertyName speakers -NotePropertyValue $seats
+    }
+    if ($Style -eq 'duo') { [IO.File]::WriteAllText($path, ($extras | ConvertTo-Json -Depth 6), $utf8); return }
     $extras | Add-Member -Force -NotePropertyName style -NotePropertyValue $Style
     $extras | Add-Member -Force -NotePropertyName useDraft -NotePropertyValue $false
     if ($Style -eq 'free') {
@@ -158,7 +176,12 @@ function New-Take([string]$key) {
     $length = '?'
     if ((Get-Content -Raw -Encoding UTF8 (Join-Path $out "$key.digest.md")) -match '動画の長さ: ([0-9.]+) 秒') { $length = $Matches[1] }
     $fill = [ordered]@{
-        '{{length}}' = $length; '{{event}}' = [string](Get-Field $cardData 'event' 'WVC'); '{{key}}' = $key
+        '{{length}}' = $length; '{{event}}' = [string](Get-Field $cardData 'event' ([string]$orgData.logoText)); '{{key}}' = $key
+        '{{org}}' = [string]$orgData.logoText; '{{orgName}}' = [string]$orgData.name; '{{sport}}' = [string]$orgData.sport; '{{orgFile}}' = "``$orgFileRel``"
+        '{{orgIntro}}' = [string]$orgData.commentary.intro; '{{announcerTone}}' = [string]$orgData.commentary.announcerTone; '{{analystTone}}' = [string]$orgData.commentary.analystTone
+        '{{callThing}}' = [string]$orgData.commentary.callThing; '{{callExamples}}' = [string]$orgData.commentary.callExamples
+        '{{announcerName}}' = [string]$orgData.cast.announcer.name; '{{analystName}}' = [string]$orgData.cast.commentator.name
+        '{{announcerPersona}}' = [string]$orgData.cast.announcer.persona; '{{analystPersona}}' = [string]$orgData.cast.commentator.persona
         '{{bout}}' = [string](Get-Field $boutData 'bout' $key); '{{out}}' = $outRel; 'OUT/' = "$outRel/"
         '{{exe}}' = "./$exeRel"; '{{previous}}' = $previous; '{{seed}}' = [string]$takeSeed
         '{{mood}}' = $pick.mood; '{{topics}}' = ($pick.topics -join '、'); '{{cardNotes}}' = $cardNotes

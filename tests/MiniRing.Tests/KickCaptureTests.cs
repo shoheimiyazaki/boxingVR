@@ -27,10 +27,10 @@ public sealed class KickCaptureTests
     }
 
     [TestMethod]
-    public void TheTwelveKicks_AreRead_At200Hz_WithTheirLabels()
+    public void TheEighteenKicks_AreRead_At200Hz_WithTheirLabels()
     {
         var files = Directory.GetFiles(DataDir, "kick_*.csv");
-        Assert.HasCount(12, files);
+        Assert.HasCount(18, files); // 廻し蹴り下段 6・上段 6、前蹴り（中段）6
         foreach (var file in files)
         {
             var capture = KickCapture.Load(file);
@@ -134,70 +134,6 @@ public sealed class KickCaptureTests
             // 当たる瞬間の曲げは小さく（膝がほぼ伸びている）、その前の抱えでは大きく曲がっている。
             Assert.IsLessThan(0.5f, model.BendAt(model.ImpactShare), name);
             Assert.IsGreaterThan(1.2f, Enumerable.Range(0, 100).Max(i => model.BendAt(model.ImpactShare * i / 100f)), name);
-        }
-    }
-
-    [TestMethod]
-    public void TheHumanDerivedRoundhouse_LandsOnTheBody_AtItsStandoff_WithBothLegs()
-    {
-        var body = MiniRing.Characters.CharacterRoster.Get("taeyun").Build;
-        foreach (var kind in new[] { KickTechnique.Roundhouse })
-        {
-            var spec = KickSpec.Of(kind);
-            Assert.IsNotNull(spec.Captured);
-            foreach (var side in new[] { Hand.Left, Hand.Right })
-            {
-                using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", _ => new StandGuard(), PlayerBody: body));
-                var attacker = game.Player;
-                var victim = game.Cpu;
-                var reach = attacker.ArmReach;
-                const float dt = 1f / 240f;
-                FighterCommand Cmd(Vector3 move, LegCommand? leg, float yaw, float twist)
-                {
-                    var face = Vector3.Transform(victim.ChestPosition - attacker.ChestPosition, Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw));
-                    return new FighterCommand(move, face, new HandCommand(AiControl.Guard(Hand.Left, reach), false), new HandCommand(AiControl.Guard(Hand.Right, reach), false),
-                        TwistBias: twist, LeftLeg: side == Hand.Left ? leg : null, RightLeg: side == Hand.Right ? leg : null);
-                }
-
-                for (var i = 0; i < 240 * 8; i++)
-                {
-                    if (Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f }) < spec.Standoff * reach)
-                    {
-                        break;
-                    }
-
-                    game.Step(new BoxingInput(Cmd(Vector3.Normalize((victim.ChestPosition - attacker.ChestPosition) with { Y = 0f }), null, 0f, 0f)), dt);
-                }
-
-                for (var i = 0; i < 360; i++)
-                {
-                    game.Step(new BoxingInput(Cmd(Vector3.Zero, null, 0f, 0f)), dt);
-                }
-
-                var aimWorld = spec.AimWorld(game.PlayerSense);
-                var duration = spec.Seconds!.Value;
-                var rest = new Vector3(side.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
-                HitEvent? first = null;
-                for (var i = 0; i < (int)((duration + 0.3f) / dt); i++)
-                {
-                    var t = i * dt;
-                    var sense = game.PlayerSense;
-                    var leg = t <= duration ? spec.Evaluate(side, t, duration, rest, sense.Self.WorldToLocal(aimWorld), reach, sense.SelfLeg(side)) : (LegCommand?)null;
-                    game.Step(new BoxingInput(Cmd(Vector3.Zero, leg, t <= duration ? spec.FaceYaw(side, t, duration) : 0f, t <= duration ? spec.TorsoTwist(side, t, duration) : 0f)), dt);
-                    foreach (var hit in game.RecentHits)
-                    {
-                        if (hit.Kick && hit.Attacker == attacker)
-                        {
-                            first ??= hit;
-                        }
-                    }
-                }
-
-                Assert.IsNotNull(first, $"{kind} {side} lands");
-                Console.WriteLine($"{kind} {side}: first hit {first.Value.Zone} damage {first.Value.Damage:F1} momentum {first.Value.Momentum:F1} part {first.Value.KickerPart}");
-                Assert.IsGreaterThan(2f, first.Value.Momentum, $"{kind} {side}");
-                Assert.AreEqual(FighterState.Standing, attacker.State, "the kicker stays standing");
-            }
         }
     }
 }

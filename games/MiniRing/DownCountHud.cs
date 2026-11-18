@@ -22,7 +22,7 @@ public static class DownCountHud
     private const float PipGap = 5f;
 
     /// <summary>表示を浮かべる高さ [m]: 倒れた体（胸と腰の間）の真上、これだけ上（人形の縮尺で、寝た体の厚みの 2 倍ほど）。</summary>
-    private const float AboveBody = 0.16f;
+    internal const float AboveBody = 0.16f;
 
     /// <summary>体の上の点と表示の下端の間 [px]（目盛りが体に重ならない）。</summary>
     private const float Gap = 6f;
@@ -47,9 +47,9 @@ public static class DownCountHud
     /// </summary>
     private static IEnumerable<(Fighter Fighter, Vector2 Bottom)> Counted(BoxingGame game, Matrix4x4 viewProjection, Vector2 screen)
     {
-        if (game.RoundOver)
+        if (game.RoundOver || !game.CountsDowns)
         {
-            yield break;
+            yield break; // ダウンを数えない団体は 10 カウントを出さない
         }
 
         var down = new[] { game.Player, game.Cpu }.Where(f => f.DownTime > ShowAfter).ToArray();

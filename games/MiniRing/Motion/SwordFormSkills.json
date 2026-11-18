@@ -1,0 +1,322 @@
+{
+    "Katana/tsuki":  {
+                         "Head":  0.4,
+                         "Chest":  1,
+                         "Pelvis":  0,
+                         "UpperArm":  0,
+                         "Forearm":  0.2,
+                         "Thigh":  0,
+                         "Shin":  0
+                     },
+    "Katana/kesa":  {
+                        "Head":  0.2,
+                        "Chest":  0.4,
+                        "Pelvis":  0.2,
+                        "UpperArm":  0.2,
+                        "Forearm":  0,
+                        "Thigh":  0,
+                        "Shin":  0
+                    },
+    "Katana/gyaku-kesa":  {
+                              "Head":  0,
+                              "Chest":  0.6,
+                              "Pelvis":  0,
+                              "UpperArm":  0.4,
+                              "Forearm":  0.6,
+                              "Thigh":  0,
+                              "Shin":  0
+                          },
+    "Katana/nuki-do":  {
+                           "Head":  0,
+                           "Chest":  0.6,
+                           "Pelvis":  0,
+                           "UpperArm":  0,
+                           "Forearm":  0.2,
+                           "Thigh":  0,
+                           "Shin":  0
+                       },
+    "Katana/kiriage":  {
+                           "Head":  0.2,
+                           "Chest":  0.6,
+                           "Pelvis":  0,
+                           "UpperArm":  0.2,
+                           "Forearm":  0.2,
+                           "Thigh":  0,
+                           "Shin":  0
+                       },
+    "Katana/harai-men":  {
+                             "Head":  0.8,
+                             "Chest":  1,
+                             "Pelvis":  0,
+                             "UpperArm":  0.8,
+                             "Forearm":  0.2,
+                             "Thigh":  0,
+                             "Shin":  0
+                         },
+    "Katana/hiki-men":  {
+                            "Head":  1,
+                            "Chest":  0.4,
+                            "Pelvis":  0,
+                            "UpperArm":  0.6,
+                            "Forearm":  0.2,
+                            "Thigh":  0,
+                            "Shin":  0
+                        },
+    "Katana/shomen":  {
+                          "Head":  0,
+                          "Chest":  1,
+                          "Pelvis":  0,
+                          "UpperArm":  0.4,
+                          "Forearm":  0,
+                          "Thigh":  0,
+                          "Shin":  0
+                      },
+    "Katana/migi-nagi":  {
+                             "Head":  0,
+                             "Chest":  0.2,
+                             "Pelvis":  0,
+                             "UpperArm":  0,
+                             "Forearm":  0,
+                             "Thigh":  0.4,
+                             "Shin":  0
+                         },
+    "Katana/hidari-nagi":  {
+                               "Head":  0.2,
+                               "Chest":  0.6,
+                               "Pelvis":  0.2,
+                               "UpperArm":  0,
+                               "Forearm":  0,
+                               "Thigh":  0,
+                               "Shin":  0
+                           },
+    "Katana/gyaku-kiriage":  {
+                                 "Head":  0,
+                                 "Chest":  0.6,
+                                 "Pelvis":  0,
+                                 "UpperArm":  0.2,
+                                 "Forearm":  0,
+                                 "Thigh":  0,
+                                 "Shin":  0
+                             },
+    "Katana/gyakufu":  {
+                           "Head":  0,
+                           "Chest":  0.6,
+                           "Pelvis":  0,
+                           "UpperArm":  0,
+                           "Forearm":  0,
+                           "Thigh":  0.2,
+                           "Shin":  0
+                       },
+    "Katana/kote":  {
+                        "Head":  0.4,
+                        "Chest":  1,
+                        "Pelvis":  0,
+                        "UpperArm":  0.8,
+                        "Forearm":  0.4,
+                        "Thigh":  0,
+                        "Shin":  0
+                    },
+    "Katana/kote-men":  {
+                            "Head":  0,
+                            "Chest":  0.8,
+                            "Pelvis":  0,
+                            "UpperArm":  0.2,
+                            "Forearm":  0.4,
+                            "Thigh":  0,
+                            "Shin":  0
+                        },
+    "Katana/do-tsuki":  {
+                            "Head":  0.2,
+                            "Chest":  0.8,
+                            "Pelvis":  0,
+                            "UpperArm":  0.4,
+                            "Forearm":  0.2,
+                            "Thigh":  0.2,
+                            "Shin":  0
+                        },
+    "Katana/katate-tsuki":  {
+                                "Head":  0,
+                                "Chest":  0.4,
+                                "Pelvis":  0,
+                                "UpperArm":  0.4,
+                                "Forearm":  0,
+                                "Thigh":  0,
+                                "Shin":  0
+                            },
+    "Katana/mae-geri":  {
+                            "Head":  0.2,
+                            "Chest":  0.8,
+                            "Pelvis":  0,
+                            "UpperArm":  0,
+                            "Forearm":  0,
+                            "Thigh":  0,
+                            "Shin":  0
+                        },
+    "Longsword/oberhau":  {
+                              "Head":  0.8,
+                              "Chest":  0.6,
+                              "Pelvis":  0,
+                              "UpperArm":  0,
+                              "Forearm":  0,
+                              "Thigh":  0,
+                              "Shin":  0.2
+                          },
+    "Longsword/zornhau":  {
+                              "Head":  0,
+                              "Chest":  0,
+                              "Pelvis":  0,
+                              "UpperArm":  0.8,
+                              "Forearm":  0.2,
+                              "Thigh":  0,
+                              "Shin":  0
+                          },
+    "Longsword/zwerchhau":  {
+                                "Head":  0.6,
+                                "Chest":  0.4,
+                                "Pelvis":  0,
+                                "UpperArm":  0.4,
+                                "Forearm":  0.6,
+                                "Thigh":  0.2,
+                                "Shin":  0
+                            },
+    "Longsword/unterhau":  {
+                               "Head":  0.6,
+                               "Chest":  0.6,
+                               "Pelvis":  0,
+                               "UpperArm":  0.6,
+                               "Forearm":  0.2,
+                               "Thigh":  0,
+                               "Shin":  0
+                           },
+    "Longsword/stich":  {
+                            "Head":  0.4,
+                            "Chest":  0.8,
+                            "Pelvis":  0.4,
+                            "UpperArm":  0.2,
+                            "Forearm":  0.2,
+                            "Thigh":  0,
+                            "Shin":  0
+                        },
+    "Longsword/scheitelhau":  {
+                                  "Head":  0.8,
+                                  "Chest":  0.4,
+                                  "Pelvis":  0,
+                                  "UpperArm":  0.4,
+                                  "Forearm":  0.2,
+                                  "Thigh":  0,
+                                  "Shin":  0
+                              },
+    "Longsword/schielhau":  {
+                                "Head":  0.8,
+                                "Chest":  0.6,
+                                "Pelvis":  0,
+                                "UpperArm":  0.2,
+                                "Forearm":  0.2,
+                                "Thigh":  0,
+                                "Shin":  0
+                            },
+    "Longsword/krumphau":  {
+                               "Head":  0.4,
+                               "Chest":  0.8,
+                               "Pelvis":  0.6,
+                               "UpperArm":  0.4,
+                               "Forearm":  0,
+                               "Thigh":  0.4,
+                               "Shin":  0
+                           },
+    "Longsword/zwerchhau-left":  {
+                                     "Head":  0.2,
+                                     "Chest":  0.8,
+                                     "Pelvis":  0.6,
+                                     "UpperArm":  0,
+                                     "Forearm":  0.2,
+                                     "Thigh":  0,
+                                     "Shin":  0
+                                 },
+    "Longsword/unterhau-left":  {
+                                    "Head":  0,
+                                    "Chest":  0.2,
+                                    "Pelvis":  0,
+                                    "UpperArm":  0.4,
+                                    "Forearm":  0.2,
+                                    "Thigh":  0,
+                                    "Shin":  0
+                                },
+    "Longsword/stich-low":  {
+                                "Head":  0.4,
+                                "Chest":  1,
+                                "Pelvis":  0,
+                                "UpperArm":  0.2,
+                                "Forearm":  0.2,
+                                "Thigh":  0,
+                                "Shin":  0
+                            },
+    "Longsword/tritt":  {
+                            "Head":  0,
+                            "Chest":  0,
+                            "Pelvis":  0.8,
+                            "UpperArm":  0,
+                            "Forearm":  0,
+                            "Thigh":  0.2,
+                            "Shin":  0
+                        },
+    "Katana/tsuka-ate":  {
+                             "Head":  0,
+                             "Chest":  1,
+                             "Pelvis":  0,
+                             "UpperArm":  0,
+                             "Forearm":  0.4,
+                             "Thigh":  0,
+                             "Shin":  0
+                         },
+    "Katana/oshi-giri":  {
+                             "Head":  0,
+                             "Chest":  0.8,
+                             "Pelvis":  0,
+                             "UpperArm":  0,
+                             "Forearm":  0.4,
+                             "Thigh":  0,
+                             "Shin":  0
+                         },
+    "Katana/hiki-do":  {
+                           "Head":  0,
+                           "Chest":  0.6,
+                           "Pelvis":  0,
+                           "UpperArm":  0,
+                           "Forearm":  0.4,
+                           "Thigh":  0,
+                           "Shin":  0
+                       },
+    "Longsword/knaufschlag":  {
+                                  "Head":  0,
+                                  "Chest":  0,
+                                  "Pelvis":  0,
+                                  "UpperArm":  0,
+                                  "Forearm":  0.2,
+                                  "Thigh":  0,
+                                  "Shin":  0
+                              },
+    "Longsword/schnitt":  {
+                              "Head":  0.2,
+                              "Chest":  0,
+                              "Pelvis":  0.2,
+                              "UpperArm":  0,
+                              "Forearm":  0.2,
+                              "Thigh":  0.2,
+                              "Shin":  0
+                          },
+    "Bat/swing-right":  {"Head":0,"Chest":0.6,"Pelvis":0,"UpperArm":0.6,"Forearm":0.4,"Thigh":0,"Shin":0},
+    "Bat/swing-left":  {"Head":0.4,"Chest":0.8,"Pelvis":0.6,"UpperArm":0,"Forearm":0.4,"Thigh":0,"Shin":0},
+    "Bat/swing-mid":  {"Head":0,"Chest":0,"Pelvis":0,"UpperArm":0.4,"Forearm":0,"Thigh":0.4,"Shin":0},
+    "Bat/swing-low":  {"Head":0,"Chest":0.6,"Pelvis":0,"UpperArm":0.2,"Forearm":0,"Thigh":0,"Shin":0},
+    "Bat/chop":  {"Head":1,"Chest":0,"Pelvis":0,"UpperArm":0,"Forearm":0,"Thigh":0,"Shin":0},
+    "Bat/chop-right":  {"Head":0.8,"Chest":0,"Pelvis":0,"UpperArm":0,"Forearm":0.4,"Thigh":0,"Shin":0},
+    "Bat/chop-left":  {"Head":0.8,"Chest":0.2,"Pelvis":0,"UpperArm":0,"Forearm":0.2,"Thigh":0,"Shin":0},
+    "Bat/scoop-right":  {"Head":0,"Chest":0.4,"Pelvis":0,"UpperArm":0.8,"Forearm":0.2,"Thigh":0.2,"Shin":0},
+    "Bat/scoop-left":  {"Head":0,"Chest":0.2,"Pelvis":0.4,"UpperArm":0,"Forearm":0,"Thigh":0,"Shin":0},
+    "Bat/poke-body":  {"Head":0.6,"Chest":0.4,"Pelvis":0.2,"UpperArm":0,"Forearm":0,"Thigh":0,"Shin":0},
+    "Bat/poke-face":  {"Head":0.8,"Chest":0.8,"Pelvis":0.2,"UpperArm":0.2,"Forearm":0.2,"Thigh":0,"Shin":0},
+    "Bat/snap":  {"Head":0.8,"Chest":0,"Pelvis":0,"UpperArm":0,"Forearm":0.2,"Thigh":0,"Shin":0},
+    "Bat/butt":  {"Head":0.4,"Chest":0.4,"Pelvis":0.2,"UpperArm":0.6,"Forearm":0.2,"Thigh":0,"Shin":0},
+    "Bat/front-kick":  {"Head":0,"Chest":0,"Pelvis":0.4,"UpperArm":0,"Forearm":0.6,"Thigh":0,"Shin":0}
+}

@@ -26,10 +26,10 @@ public static class BoxingRenderer
     private const float BareFistScale = 0.55f;
 
     /// <summary>部屋（ローテーブルに載った箱庭のリングの周り）と会場の飾り。リングも部屋も動かないので、リングの大きさごとに 1 度だけ作る。</summary>
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<RingLayout, PrimitiveInstance[]> Dressings = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(RingLayout, float), PrimitiveInstance[]> Dressings = new();
 
-    private static PrimitiveInstance[] Dressing(RingLayout layout) => Dressings.GetOrAdd(layout, l =>
-        [.. LivingRoom.Visuals(l, RoomAssets.Instance), .. ArenaLook.Dressing(l.Center, l.Size, BoxingGame.RingSurfaceHeight)]);
+    private static PrimitiveInstance[] Dressing(RingLayout layout, float windowLight) => Dressings.GetOrAdd((layout, windowLight), key =>
+        [.. LivingRoom.Visuals(key.Item1, RoomAssets.Instance, key.Item2), .. ArenaLook.Dressing(key.Item1.Center, key.Item1.Size, BoxingGame.RingSurfaceHeight)]);
 
     /// <summary>
     /// 呼び出し側のリストを空にして詰め直す。へこんだ体は 1 万インスタンス近くになるので、毎フレーム新しいリストを
@@ -43,7 +43,7 @@ public static class BoxingRenderer
         instances.Clear();
         lines.Clear();
         instances.AddRange(game.Ring.Visuals);
-        instances.AddRange(Dressing(game.Layout));
+        instances.AddRange(Dressing(game.Layout, game.Mood.Window));
         AddFighter(instances, game.World, game.Player, game.Model, game.PlayerSkin, PlayerGlove);
         AddFighter(instances, game.World, game.Cpu, game.Model, game.CpuSkin, CpuGlove);
         foreach (var weapon in game.Weapons)
@@ -58,6 +58,7 @@ public static class BoxingRenderer
         game.Debris.WriteInstances(instances);
         game.Wounds.WriteInstances(instances);
         TiredLook.WriteInstances(game, instances); // 息が上がった側の口から白い息（見た目だけ）
+        Break.BreakVaporLook.WriteInstances(game, instances); // たばこの煙・口に含んで吐いた水の飛沫（見た目だけ）
 
         if (showTargetGhosts)
         {
@@ -139,9 +140,12 @@ public static class BoxingRenderer
                 continue;
             }
 
+            // 目: 相手を見る黒目とまばたき（見た目だけ）。
+            var other = ReferenceEquals(fighter, game.Player) ? game.Cpu : game.Player;
+            var eyes = new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
             foreach (var part in body.Parts)
             {
-                voxels.Add(part.Draw(fighter.Cyanosis)); // 息が上がるほど皮膚が青紫に（見た目だけ）
+                voxels.Add(part.Draw(fighter.Cyanosis, eyes)); // 息が上がるほど皮膚が青紫に（見た目だけ）
             }
 
             foreach (var fragment in body.Fragments)
@@ -153,6 +157,11 @@ public static class BoxingRenderer
         foreach (var weapon in game.Weapons)
         {
             voxels.Add(weapon.Draw());
+        }
+
+        foreach (var prop in game.BreakProps)
+        {
+            voxels.Add(prop.Draw()); // 休みの小物（ボトル・タオル・スマホ。持っている手の前腕に付いて描く）
         }
     }
 

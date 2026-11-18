@@ -47,7 +47,9 @@ $out = Join-Path $repo (Get-Field $cardData 'out' 'docs\video\tvshow')
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 $rounds = [int](Get-Field $cardData 'rounds' 3)
 $breakSeconds = [double](Get-Field $cardData 'break' 25) # 25 秒: 2 本目のリプレイの後に、解説のなぜ効くかと問いと答えが入る長さ
-$eventTitle = [string](Get-Field $cardData 'event' 'WVC')
+# 主催団体（games/MiniRing.Arena/Orgs/<id>.json）。画面の色と名前・紋章・合図の音・下見の点数・台本の資料と言い回しが団体のファイルで変わる。既定は wvc。
+$orgId = ([string](Get-Field $cardData 'org' 'wvc')).ToLowerInvariant()
+$eventTitle = [string](Get-Field $cardData 'event' $orgId.ToUpperInvariant())
 $scoutSeeds = @(Get-Field $cardData 'scoutSeeds' @(1, 2, 3, 4, 5, 6, 7, 8)) -join ','
 $PartLimitMiB = [double](Get-Field $cardData 'partLimitMiB' $PartLimitMiB)
 $bouts = @($cardData.bouts)
@@ -132,7 +134,7 @@ function Get-Outcome([int]$index) {
     if ($null -eq $outcome) { throw "b$($index + 1).events.json に結果（outcome）がありません。-Force で撮り直してください。" }
     $winner = [string]$outcome.winner
     if ($winner -eq 'draw') { return @{ winner = [string]$outcome.lead; method = '優勢' } } # 引き分けは与えたダメージの多い側が勝ち上がる
-    return @{ winner = $winner; method = [string]$outcome.method }
+    return @{ winner = $winner; method = [string]$outcome.method; cause = [string](Get-Field $outcome 'deathPhrase' '') }
 }
 
 # 試合の 1 つのコーナーの名簿の id。"winner:N" で N 試合目がまだなら $null。
@@ -163,6 +165,7 @@ function Get-ProgramJson([int]$current) {
             if ($null -eq $outcome) { throw "b$($j + 1).events.json がありません（$(Get-BoutLabel $j) の結果が読めない）。-Force で撮り直してください。" }
             $row.winner = $outcome.winner
             $row.method = $outcome.method
+            if ($outcome.ContainsKey('cause') -and $outcome.cause) { $row.cause = $outcome.cause }
         }
         $row.current = ($j -eq $current)
         $row.stake = [string](Get-Field $bouts[$j] 'stake' '')
@@ -195,7 +198,7 @@ for ($i = 0; $i -lt $bouts.Count; $i++) {
     elseif (-not $resolved.ContainsKey($key)) {
         if ($Stage -notin @('all', 'scout', 'render', 'liveprep', 'live')) { throw "$key の種が決まっていません（-Stage scout を先に）" }
         Write-Host "== scout $key ($red vs $blue)"
-        $lines = Invoke-Arena @('tvscout', '--red-char', $red, '--blue-char', $blue, '--rounds', "$rounds", '--break', "$breakSeconds", '--seeds', $scoutSeeds)
+        $lines = Invoke-Arena @('tvscout', '--red-char', $red, '--blue-char', $blue, '--rounds', "$rounds", '--break', "$breakSeconds", '--org', $orgId, '--seeds', $scoutSeeds)
         $lines | ForEach-Object { Write-Host $_ }
         $best = $lines | Where-Object { $_ -match '^best seed (\d+)$' } | Select-Object -Last 1
         if (-not $best) { throw "$key の種を選べませんでした" }
@@ -214,9 +217,9 @@ for ($i = 0; $i -lt $bouts.Count; $i++) {
     Remove-Item -ErrorAction SilentlyContinue $video, (Join-Path $out "$key.events.json")
     $program | Set-Content -Encoding UTF8 $programPath
     Write-Host "== render $key ($red vs $blue, seed $($resolved[$key]))"
-    $lines = Invoke-Arena @('video', '--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
-        '--event', $eventTitle, '--bout', (Get-BoutLabel $i), '--red-char', $red, '--blue-char', $blue, '--seed', "$($resolved[$key])",
-        '--program', $programPath, '--out', $video)
+    $lines = Invoke-Arena (@('video', '--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
+        '--org', $orgId, '--event', $eventTitle, '--bout', (Get-BoutLabel $i), '--red-char', $red, '--blue-char', $blue, '--seed', "$($resolved[$key])",
+        '--program', $programPath) + @(if (Get-Field $bout 'belt' $false) { '--belt'; 'on' }) + @('--out', $video))
     $lines | Where-Object { $_ -notmatch 'elapsed' } | Select-Object -Last 2 | ForEach-Object { Write-Host $_ }
     $outcome = Get-Outcome $i
     Write-Host "   ${key}: $(if ($outcome.winner -eq 'red') { $red } else { $blue }) の勝ち（$($outcome.method)）"
@@ -241,7 +244,8 @@ if ($Stage -in @('liveprep', 'live')) {
         $key = "b$($i + 1)"
         $label = [string](Get-Field $bout 'bout' "第$($i + 1)試合")
         return @('--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
-            '--event', $eventTitle, '--bout', $label, '--red-char', (Resolve-Fighter $i 'red'), '--blue-char', (Resolve-Fighter $i 'blue'), '--seed', "$($resolved[$key])")
+            '--org', $orgId, '--event', $eventTitle, '--bout', $label, '--red-char', (Resolve-Fighter $i 'red'), '--blue-char', (Resolve-Fighter $i 'blue'), '--seed', "$($resolved[$key])") +
+            @(if (Get-Field $bout 'belt' $false) { '--belt'; 'on' })
     }
 
     for ($i = 0; $i -lt $bouts.Count; $i++) {

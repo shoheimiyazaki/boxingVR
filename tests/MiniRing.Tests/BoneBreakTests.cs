@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 /// グローブの強い 1 発は骨を曲げで折る、使えなくなった腕の手は握っていた武器をしばらくして放す。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class BoneBreakTests
 {
     private const byte Flesh = 1;

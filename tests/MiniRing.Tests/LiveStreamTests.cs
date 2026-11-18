@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 出口の形式と引数、実時間の歩調、声の混ぜ（ゲームの音を声の間だけ下げる）、歓声を少しずつ混ぜても一括と同じになること。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class LiveStreamTests
 {
     private const int Rate = 44100;
@@ -157,6 +158,18 @@ public sealed class LiveStreamTests
         Assert.AreEqual("plain line", LiveOutput.Redact("plain line", url));
     }
 
+    // 存在だけでなく、試す機能が組み込まれたビルドかを確認する。機能がある環境の検証は省かない。
+    private static bool FfmpegSupports(string arguments, string feature)
+    {
+        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ffmpeg", "-hide_banner " + arguments)
+        { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false })!;
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        process.WaitForExit();
+        var text = stdout.GetAwaiter().GetResult() + stderr.GetAwaiter().GetResult();
+        return process.ExitCode == 0 && text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Contains(feature, StringComparer.Ordinal);
+    }
+
     private static bool HasFfmpeg()
     {
         try
@@ -264,6 +277,10 @@ public sealed class LiveStreamTests
         if (!HasFfmpeg())
         {
             Assert.Inconclusive("ffmpeg が PATH にありません。");
+        }
+        if (!FfmpegSupports("-protocols", "srt"))
+        {
+            Assert.Inconclusive("この ffmpeg は SRT を組み込んでいません（待機の検証には SRT が必要）。");
         }
 
         var probe = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));
@@ -523,6 +540,10 @@ public sealed class LiveStreamTests
         if (!HasFfmpeg())
         {
             Assert.Inconclusive("ffmpeg が PATH にありません。");
+        }
+        if (!FfmpegSupports("-h encoder=h264_nvenc", "p4"))
+        {
+            Assert.Inconclusive("この ffmpeg の NVENC は p4 プリセットに対応していません。");
         }
 
         LiveOutput? live = null;

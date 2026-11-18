@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// テレビ中継の試合（決まった長さのラウンド・休み・体の再生・判定）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class BodyAndMatchTests
 {
     private const float Dt = 1f / 240f;

@@ -1,6 +1,7 @@
 {
   "id": "jin",
   "order": 1,
+  "org": "vfc",
   "name": "鬼塚 迅",
   "reading": "オニヅカ ジン",
   "hudName": "ジン",
@@ -25,8 +26,8 @@
       "2005年: 8歳で叔父の居合道場に入門。最初の1年は鞘の持ち方だけだった",
       "2012年: 県の居合道大会で少年の部優勝",
       "2015年: 高校で剣道部と居合を掛け持ち。素手の相手との距離の感覚を学ぶ",
-      "2018年: 初めてVoxingの武器ありルールの試合を見て、日本刀が通用するか確かめたくなる",
-      "2019年: WVCへ入団し、刀を使う選手として出場。グローブも付けて相手の拳に対応",
+      "2018年: 初めてVFC（Voxel Fighting）の試合を見て、日本刀が通用するか確かめたくなる",
+      "2019年: VFCへ入団し、刀を使う選手として出場。グローブも付けて相手の拳に対応",
       "2021年: 無敗のままランキング入り。抜き打ちで一瞬の勝負をつける",
       "2023年: 長剣のコンラートと東西の剣対決。判定で敗れる",
       "2025年: コンラートと再戦。引き分けに持ち込み、二人の戦いが注目される"
@@ -80,6 +81,33 @@
     "weapon": "katana"
   },
   "textbook": "champion",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "BreakLikes": { "bow": 3, "coffee": 2, "onigiri": 1.5, "deepbreath": 2, "fixgloves": 1.5, "shakehead": 2, "slamfist": 2, "handshake": 1.5, "roar": 0.3, "blowkiss": 0, "wavetwo": 0.4 },
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 0.596, "Taken": 13.27 },
+          { "Cm": 17, "Dealt": 1.932, "Taken": 14.63 },
+          { "Cm": 19, "Dealt": 2.649, "Taken": 13.419 },
+          { "Cm": 21, "Dealt": 2.626, "Taken": 12.557 },
+          { "Cm": 23, "Dealt": 2.748, "Taken": 9.612 },
+          { "Cm": 25, "Dealt": 4.062, "Taken": 6.94 },
+          { "Cm": 27, "Dealt": 4.098, "Taken": 6.27 },
+          { "Cm": 29, "Dealt": 2.925, "Taken": 6.286 },
+          { "Cm": 31, "Dealt": 1.692, "Taken": 1.843 },
+          { "Cm": 33, "Dealt": 2.383, "Taken": 0.566 },
+          { "Cm": 35, "Dealt": 1.692, "Taken": 0.593 },
+          { "Cm": 37, "Dealt": 1.562, "Taken": 1.054 },
+          { "Cm": 39, "Dealt": 1.063, "Taken": 0.516 },
+          { "Cm": 41, "Dealt": 0.492, "Taken": 0.475 },
+          { "Cm": 43, "Dealt": 0.111, "Taken": 0.262 },
+          { "Cm": 45, "Dealt": 0.05, "Taken": 0.512 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

@@ -739,6 +739,160 @@ public sealed class VoxelGrid
         return (piece, offset);
     }
 
+    [ThreadStatic]
+    private static bool[]? _seenScratch;
+
+    [ThreadStatic]
+    private static int[]? _stackScratch;
+
+    /// <summary>
+    /// Whether the filled cells are one connected piece (6-neighbour). Allocation-free (thread-local scratch buffers): the cheap
+    /// question to ask every step a body was carved, before <see cref="ConnectedComponents"/> splits it up. An empty grid is connected.
+    /// </summary>
+    public bool IsConnected()
+    {
+        var (nx, ny, nz) = Dimensions;
+        var total = FilledCount;
+        if (total <= 1)
+        {
+            return true;
+        }
+
+        var start = Array.FindIndex(_cells, c => c != 0);
+        var seen = _seenScratch is { } s && s.Length >= _cells.Length ? s : (_seenScratch = new bool[_cells.Length]);
+        var stack = _stackScratch is { } t && t.Length >= _cells.Length ? t : (_stackScratch = new int[_cells.Length]);
+        Array.Clear(seen, 0, _cells.Length);
+        var top = 0;
+        var reached = 1;
+        seen[start] = true;
+        stack[top++] = start;
+        var layer = nx * ny;
+        while (top > 0)
+        {
+            var i = stack[--top];
+            var x = i % nx;
+            var y = i / nx % ny;
+            var z = i / layer;
+            // Neighbours in the same order as ConnectedComponents (the order does not change the result, only how it is walked).
+            for (var d = 0; d < 6; d++)
+            {
+                var j = d switch
+                {
+                    0 => x > 0 ? i - 1 : -1,
+                    1 => x < nx - 1 ? i + 1 : -1,
+                    2 => y > 0 ? i - nx : -1,
+                    3 => y < ny - 1 ? i + nx : -1,
+                    4 => z > 0 ? i - layer : -1,
+                    _ => z < nz - 1 ? i + layer : -1,
+                };
+                if (j >= 0 && !seen[j] && _cells[j] != 0)
+                {
+                    seen[j] = true;
+                    reached++;
+                    stack[top++] = j;
+                }
+            }
+        }
+
+        return reached == total;
+    }
+
+    /// <summary>
+    /// The filled cells grouped into connected components (6-neighbour: cells that share a face). Each component is its cells'
+    /// indices; components come in the order of their lowest cell index, and the cells of one in the order they were reached
+    /// (deterministic). <paramref name="include"/> limits it to the cells whose material it accepts (null: every filled cell).
+    /// </summary>
+    public IReadOnlyList<int[]> ConnectedComponents(Func<byte, bool>? include = null)
+    {
+        var (nx, ny, nz) = Dimensions;
+        var seen = new bool[_cells.Length];
+        var result = new List<int[]>();
+        var stack = new Stack<int>();
+        var members = new List<int>();
+        for (var start = 0; start < _cells.Length; start++)
+        {
+            if (seen[start] || _cells[start] == 0 || (include is not null && !include(_cells[start])))
+            {
+                continue;
+            }
+
+            members.Clear();
+            seen[start] = true;
+            stack.Push(start);
+            while (stack.Count > 0)
+            {
+                var i = stack.Pop();
+                members.Add(i);
+                var x = i % nx;
+                var y = i / nx % ny;
+                var z = i / (nx * ny);
+                void Visit(int j)
+                {
+                    if (!seen[j] && _cells[j] != 0 && (include is null || include(_cells[j])))
+                    {
+                        seen[j] = true;
+                        stack.Push(j);
+                    }
+                }
+
+                if (x > 0) { Visit(i - 1); }
+                if (x < nx - 1) { Visit(i + 1); }
+                if (y > 0) { Visit(i - nx); }
+                if (y < ny - 1) { Visit(i + nx); }
+                if (z > 0) { Visit(i - (nx * ny)); }
+                if (z < nz - 1) { Visit(i + (nx * ny)); }
+            }
+
+            result.Add([.. members]);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Moves the cells <paramref name="cells"/> (indices of filled cells of this grid) into a new grid that is just their bounding
+    /// box, returned with the offset of its centre from this grid's centre. The cells left behind are unchanged; this grid keeps its
+    /// size. Null if there are none. The cells keep their health, surface flag and stain (as <see cref="Split"/>).
+    /// </summary>
+    public (VoxelGrid Piece, Vector3 CenterOffset)? Extract(IReadOnlyList<int> cells)
+    {
+        if (cells.Count == 0)
+        {
+            return null;
+        }
+
+        var (lx, ly, lz) = (int.MaxValue, int.MaxValue, int.MaxValue);
+        var (hx, hy, hz) = (-1, -1, -1);
+        foreach (var i in cells)
+        {
+            var (x, y, z) = Coordinates(i);
+            (lx, ly, lz) = (Math.Min(lx, x), Math.Min(ly, y), Math.Min(lz, z));
+            (hx, hy, hz) = (Math.Max(hx, x), Math.Max(hy, y), Math.Max(hz, z));
+        }
+
+        var dims = (hx - lx + 1, hy - ly + 1, hz - lz + 1);
+        var half = 0.5f * new Vector3(dims.Item1, dims.Item2, dims.Item3) * CellSize;
+        var piece = new VoxelGrid(Palette, half, dims);
+        foreach (var i in cells)
+        {
+            var (x, y, z) = Coordinates(i);
+            var j = piece.Index(x - lx, y - ly, z - lz);
+            var m = _cells[i];
+            piece._cells[j] = m;
+            piece._health[j] = _health[i];
+            piece._surface[j] = _surface[i];
+            piece._stain[j] = _stain[i];
+            piece._remaining[m]++;
+            piece._initial[m]++;
+            Clear(i);
+        }
+
+        Version++;
+        GeometryVersion++;
+        var center = (-HalfExtents) + ((new Vector3(lx + hx + 1, ly + hy + 1, lz + hz + 1)) * 0.5f * CellSize);
+        return (piece, center);
+    }
+
     /// <summary>The box (grid-local) around every filled cell, or null if the grid is empty.</summary>
     public (Vector3 Center, Vector3 HalfExtents)? OccupiedBounds()
     {

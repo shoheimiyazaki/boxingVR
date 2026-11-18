@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 倒した相手は意識を落として（<see cref="Fighter.Concussion"/>）倒れたままにし、攻め手のボットが何秒で何発当てるかを測る。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class GroundStrikeTests
 {
     private const float Dt = 1f / 240f;
@@ -48,7 +49,13 @@ public sealed class GroundStrikeTests
         {
             victim.Concussion = 0.97f; // 気を失って倒れたまま
             game.Step(default, Dt);
-            downed |= victim.State != FighterState.Standing;
+            if (!downed && victim.State != FighterState.Standing)
+            {
+                // 傷は倒れた時点から数える（倒れる途中、まだ立っている相手に当たった分は倒れた相手への攻めではない）。
+                downed = true;
+                woundedBefore = victim.Condition.TotalDamage;
+            }
+
             if (!downed)
             {
                 continue;

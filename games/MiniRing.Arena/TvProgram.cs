@@ -60,7 +60,7 @@ internal sealed record TvProgram(string Title, IReadOnlyList<TvProgramBout> Bout
                 "red" or "blue" => b.Winner,
                 _ => throw new InvalidDataException($"{label} の winner は red か blue です（{b.Winner}）。"),
             };
-            return new TvProgramBout(label, nameOf(red) ?? red, nameOf(blue) ?? blue, winner, b.Method ?? "", b.Current, b.Stake ?? "", b.Next ?? "");
+            return new TvProgramBout(label, nameOf(red) ?? red, nameOf(blue) ?? blue, winner, b.Method ?? "", b.Current, b.Stake ?? "", b.Next ?? "", string.IsNullOrEmpty(b.Cause) ? null : b.Cause);
         }).ToList();
         if (bouts.Count(b => b.Current) > 1)
         {
@@ -101,6 +101,8 @@ internal sealed record TvProgram(string Title, IReadOnlyList<TvProgramBout> Bout
         public string? Stake { get; init; }
 
         public string? Next { get; init; }
+
+        public string? Cause { get; init; }
     }
 }
 
@@ -113,7 +115,8 @@ internal sealed record TvProgram(string Title, IReadOnlyList<TvProgramBout> Bout
 /// <param name="Current">これから撮る試合。</param>
 /// <param name="Stake">この試合に懸かるもの（「勝者は決勝へ」「優勝決定戦」）。</param>
 /// <param name="Next">勝った人が得るもの（「決勝進出」「優勝」）。決着の後に実況が「〇〇、決勝進出！」と言う。</param>
-internal sealed record TvProgramBout(string Bout, string Red, string Blue, string? Winner, string Method, bool Current, string Stake, string Next = "")
+/// <param name="Cause">決着の言葉（「脳を壊されて」。死で決着する団体の番組が済んだ試合の行に出す）。無ければ空。</param>
+internal sealed record TvProgramBout(string Bout, string Red, string Blue, string? Winner, string Method, bool Current, string Stake, string Next = "", [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Cause = null)
 {
     /// <summary>勝者の名前（まだなら null）。</summary>
     [JsonIgnore]

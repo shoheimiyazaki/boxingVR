@@ -173,7 +173,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-public const int PhysicsVersion = 45; // 45: 体の質量が当たりへ運ぶのは、体自身が打つ点で当たりへ動く分だけ（PunchMechanics.BodyCarry: 重心の速度 ＋ 胴の角速度 × 重心から打つ点の、打たれた点へ近づく速さ ÷ 打つ点の当たる速さ。前は連結度 × 体の有効質量 × 拳の速さで運動量が湧き、体を止めて腕だけ伸ばす連打にも体重の 6〜8 割が乗った。手にはめた物・蹴り・肘の面の下の圧力も同じ割合。BodyCarryTests・docs/arena/rush_physics.md）。44: 打撃（拳・グローブ・蹴り・肘・握った武器が運ぶ体の運動量）の当たる速さを、打つ点と打たれた点の歩の前の相対速度の当たる向きの成分にする（PunchMechanics.ClosingSpeed。前は打った側の速さそのもので、下がる相手に付いたまま押す拳が 0.18 秒ごとに打撃に数えられ、前へ出てくる相手へのカウンターに近づく速さが足されなかった。RushPhysicsProbe・ClosingSpeedTests）。体の質量が乗るのは、当たる速さのうち打つ点が体の重心に対して当たる向きへ動く分の割合だけ（PunchMechanics.LimbDrive。置いた拳に相手が突っ込む・前へ出ながら戻す・体ごと押し付けるときは腕・脚の質量だけ。相対速度だけでは、打ち返さない受け手の構えた拳が突っ込んだ相手に 22〜70 点を与えた。LimbDriveTests）。43: 肘打ち（HandCommand.ElbowTarget: 肘の点の目標を IK の極にし、肘を出している間は上腕・前腕の骨のセルが拳・蹴りと同じ接触（VoxelContact → ApplyHit）で相手に当たる。腕の骨と相手の部位の箱の衝突は切る。肘の有効質量は腕の質量 + 連結度 × 体の有効質量で拳と同じ式。肘を出さない試合の物理は不変。docs/MUAYTHAI.md）。42: 41（棒術・キックの膝の制御を含む）と master の 40（脚の骨の端）を合わせた（2026-11-17 のマージ）。40: 脚の骨の端（膝・股の側）を骨の胴と同じ太さにする（BoxerAnatomy.WithJointEnds）。脚の外形が膝・股で絞れていて骨が端で 1〜2 セルまで細り、そこが軽い当たりで折れて脚が丸ごと落ちていた（脚の折れ 16 件のうち 12 件が端の段）。腿・すねのセルの数・質量が少し増える。体を支える力・歩く力・拳に借りる体の質量・体のバネ・歩く仕事を、外れた部位を除いた質量（SupportedMass）で計る（失った脚の分まで支えて、軽くなった体が起き上がる途中に跳ね上がった）。倒れている間に手を床に着くのは腰が立ち直った高さより低い間だけ（骨盤で座る体が手を床に着いたまま立ち直れなかった）。39: 脚が折れた・切れても倒れたままにならない。脚ごとに体重を受けられる長さ（股から骨の切れ目まで）を持ち、腰は短い脚の端が床に着く高さ（StandTargetHeight − LegShortfall）で立ち、長い脚はその分曲げる（ApplyGait）。両脚とも付け根近くで無ければ骨盤で座り、その骨盤はダウンに数えない。歩く速さは残った脚の長さの平方根（上腕の長さを下限: 腕で這う）。切り株の筋肉の断面は切れ目の手前だけで測る（BoxerBody.Muscle）。足の無い脚では蹴らない。38: スタミナを臨界パワーと W′ のモデルに（RecoveryPower: 直近の仕事率が臨界パワー C = 最大の戻り × StaminaCriticalShare より下なら R − (R − C) P / C で戻り、上なら C だけ供給されて差で減る。前の exp(−(P/5W)²) は立ち回りの 5〜6 W で減った）・試合を通した持久力 Endurance = exp(−した仕事 / StaminaEndurance) が供給と臨界パワーに掛かる（後のラウンドほど疲れる）・StaminaCapacity 120→300 J・StaminaRecoveryPower 15→20 W・TiredKnee 0.6→0.45・打撲で失うスタミナを割合からエネルギー（WindPerBruise 12 J）へ。ユーザーの目標: 弱強の連打が 10 秒全力・さらに 10 秒落ちながら打てる、1 ラウンド目は全力で続けられる（StaminaFeelProbe・StaminaMatchProbe）。37: スタミナの容量 60→120 J（ユーザーの指定。尽きるのが早すぎた。回復の速さは同じなので満タンまでの時間も倍）。36: スタミナの蓄え・心肺の供給・回復を止める仕事率の尺度を筋肉の量（BodyBuild.MassRatio = H³M²）に比例させる（1 kg あたりで同じ。大きい体が質量に比例して増えた仕事で早く尽きていた。基準体格は不変）。35: 素手を指の関節で組む（掌 + 4 本 × 3 節の骨・肉・皮膚のセルを関節の曲げ角 HandSkeleton.PoseOf どおりに並べ、手形の変更は関節のバネ・ダンパ HandMotion で時間がかかる。折れた指は力が入らず力を抜いた形へ落ちる。素手の質量・形が変わる。docs/KARATE.md §指）。急所の狙いの点は実際のセルから（BodyLandmarks）。34: 首の骨折・首の切断・脊椎の損傷（頭を首の梁にして頸椎 4 セルが折れる・断たれると頭が離れて死ぬ・脊髄 Cord が削れた残りの断面で頸/胸/腰の筋の力と息を決める。docs/VOXEL_DAMAGE.md §首と脊椎）。無傷の体のセルの数・質量は同じ（中身の材質だけ置き換え）。33: 足の運びで、刻み（半歩に満たない 1 歩）の足を選び続けて、伸びきったもう一方の足が置き直されず体が止まる行き詰まりを直す（FootworkTuning.ShuffleShare。docs/arena/boot_snag.md）。32: スタミナの回復を止める仕事率 P を、出そうとした仕事ではなく実際にした仕事（SpendMuscleEnergy・サーボの精算）で数える。回復は exp(−(P / StaminaRestPower)²)、StaminaRestPower 0.7→5 W・StaminaCapacity 90→60 J・StaminaRecoveryWindow 2→1 s（動きながらも戻る。StaminaPowerWindow は廃止）。31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。 41: 39（脚を失っても戦い続ける）と 40（蹴りの膝の制御）を合わせた（2026-11-17 のマージ）。40: 蹴りの膝の制御（LegCommand.KneeLocal・KneeTwist・KneeBend。膝の点を PD 力で引き、股のサーボは腿の向き × ねじり、膝のサーボは曲げ。足首は引かない。KneeKp・KneeKd・KickKneeForceGain）。 39: 棒（滑らせられる武器 Weapon.SlideSpanOf）の握りを滑る握りにする（両手で握ると手首のサーボを外し 2 つの拳の位置のバネの偶力だけで回す・片手だけ握ると手首のバネ・滑る手は棒に力を伝えない・手の目標の距離と握りの間隔の矛盾は中心に近い手が棒に沿って滑って詰める。docs/BOJUTSU.md「滑る握り」）。他の武器は不変。38: スタミナを臨界パワーと W′ のモデルに（RecoveryPower: 直近の仕事率が臨界パワー C = 最大の戻り × StaminaCriticalShare より下なら R − (R − C) P / C で戻り、上なら C だけ供給されて差で減る。前の exp(−(P/5W)²) は立ち回りの 5〜6 W で減った）・試合を通した持久力 Endurance = exp(−した仕事 / StaminaEndurance) が供給と臨界パワーに掛かる（後のラウンドほど疲れる）・StaminaCapacity 120→300 J・StaminaRecoveryPower 15→20 W・TiredKnee 0.6→0.45・打撲で失うスタミナを割合からエネルギー（WindPerBruise 12 J）へ。ユーザーの目標: 弱強の連打が 10 秒全力・さらに 10 秒落ちながら打てる、1 ラウンド目は全力で続けられる（StaminaFeelProbe・StaminaMatchProbe）。37: スタミナの容量 60→120 J（ユーザーの指定。尽きるのが早すぎた。回復の速さは同じなので満タンまでの時間も倍）。36: スタミナの蓄え・心肺の供給・回復を止める仕事率の尺度を筋肉の量（BodyBuild.MassRatio = H³M²）に比例させる（1 kg あたりで同じ。大きい体が質量に比例して増えた仕事で早く尽きていた。基準体格は不変）。35: 素手を指の関節で組む（掌 + 4 本 × 3 節の骨・肉・皮膚のセルを関節の曲げ角 HandSkeleton.PoseOf どおりに並べ、手形の変更は関節のバネ・ダンパ HandMotion で時間がかかる。折れた指は力が入らず力を抜いた形へ落ちる。素手の質量・形が変わる。docs/KARATE.md §指）。急所の狙いの点は実際のセルから（BodyLandmarks）。34: 首の骨折・首の切断・脊椎の損傷（頭を首の梁にして頸椎 4 セルが折れる・断たれると頭が離れて死ぬ・脊髄 Cord が削れた残りの断面で頸/胸/腰の筋の力と息を決める。docs/VOXEL_DAMAGE.md §首と脊椎）。無傷の体のセルの数・質量は同じ（中身の材質だけ置き換え）。33: 足の運びで、刻み（半歩に満たない 1 歩）の足を選び続けて、伸びきったもう一方の足が置き直されず体が止まる行き詰まりを直す（FootworkTuning.ShuffleShare。docs/arena/boot_snag.md）。32: スタミナの回復を止める仕事率 P を、出そうとした仕事ではなく実際にした仕事（SpendMuscleEnergy・サーボの精算）で数える。回復は exp(−(P / StaminaRestPower)²)、StaminaRestPower 0.7→5 W・StaminaCapacity 90→60 J・StaminaRecoveryWindow 2→1 s（動きながらも戻る。StaminaPowerWindow は廃止）。31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。 39: 脚が折れた・切れても倒れたままにならない。脚ごとに体重を受けられる長さ（股から骨の切れ目まで）を持ち、腰は短い脚の端が床に着く高さ（StandTargetHeight − LegShortfall）で立ち、長い脚はその分曲げる（ApplyGait）。両脚とも付け根近くで無ければ骨盤で座り、その骨盤はダウンに数えない。歩く速さは残った脚の長さの平方根（上腕の長さを下限: 腕で這う）。切り株の筋肉の断面は切れ目の手前だけで測る（BoxerBody.Muscle）。足の無い脚では蹴らない。38: スタミナを臨界パワーと W′ のモデルに（RecoveryPower: 直近の仕事率が臨界パワー C = 最大の戻り × StaminaCriticalShare より下なら R − (R − C) P / C で戻り、上なら C だけ供給されて差で減る。前の exp(−(P/5W)²) は立ち回りの 5〜6 W で減った）・試合を通した持久力 Endurance = exp(−した仕事 / StaminaEndurance) が供給と臨界パワーに掛かる（後のラウンドほど疲れる）・StaminaCapacity 120→300 J・StaminaRecoveryPower 15→20 W・TiredKnee 0.6→0.45・打撲で失うスタミナを割合からエネルギー（WindPerBruise 12 J）へ。ユーザーの目標: 弱強の連打が 10 秒全力・さらに 10 秒落ちながら打てる、1 ラウンド目は全力で続けられる（StaminaFeelProbe・StaminaMatchProbe）。37: スタミナの容量 60→120 J（ユーザーの指定。尽きるのが早すぎた。回復の速さは同じなので満タンまでの時間も倍）。36: スタミナの蓄え・心肺の供給・回復を止める仕事率の尺度を筋肉の量（BodyBuild.MassRatio = H³M²）に比例させる（1 kg あたりで同じ。大きい体が質量に比例して増えた仕事で早く尽きていた。基準体格は不変）。35: 素手を指の関節で組む（掌 + 4 本 × 3 節の骨・肉・皮膚のセルを関節の曲げ角 HandSkeleton.PoseOf どおりに並べ、手形の変更は関節のバネ・ダンパ HandMotion で時間がかかる。折れた指は力が入らず力を抜いた形へ落ちる。素手の質量・形が変わる。docs/KARATE.md §指）。急所の狙いの点は実際のセルから（BodyLandmarks）。34: 首の骨折・首の切断・脊椎の損傷（頭を首の梁にして頸椎 4 セルが折れる・断たれると頭が離れて死ぬ・脊髄 Cord が削れた残りの断面で頸/胸/腰の筋の力と息を決める。docs/VOXEL_DAMAGE.md §首と脊椎）。無傷の体のセルの数・質量は同じ（中身の材質だけ置き換え）。33: 足の運びで、刻み（半歩に満たない 1 歩）の足を選び続けて、伸びきったもう一方の足が置き直されず体が止まる行き詰まりを直す（FootworkTuning.ShuffleShare。docs/arena/boot_snag.md）。32: スタミナの回復を止める仕事率 P を、出そうとした仕事ではなく実際にした仕事（SpendMuscleEnergy・サーボの精算）で数える。回復は exp(−(P / StaminaRestPower)²)、StaminaRestPower 0.7→5 W・StaminaCapacity 90→60 J・StaminaRecoveryWindow 2→1 s（動きながらも戻る。StaminaPowerWindow は廃止）。31: 頭を MagicaVoxel で直した中身（games/MiniRing/Voxels/boxer.vox: 鼻・眉・唇・髪の外観、皮膚 1 セルの下を骨に整えた）を組み込む。30: サーボの仕事の精算を力積 × 前後の相対角速度の大きい方にし、2 乗の上限は取り置きだけに使う。29: スタミナの共通仕事予算・仕事率に応じた回復・歩行と体から拳への移送を制限。28: 曲げ判定の断面荷重を累積和に変更（加算順が変わる）。27: 3 つの流れ（空手・目・顔・体格 / キーボード操作の手触り / 剣の接触の再スイープ）をマージ。キーボード側: 目標が今の腰よりずっと低いとき脚が力を抜いて腰を重力で落とす（DropReleaseDepth・DropBrakeKeep・DropPull）と HipHingeShare 0.6→0.4・MaxCrouch 0.28→0.3（ブランチ内の 20）。剣側: 武器の接触を、刃が押し戻されたら全部位で掃き直す（MaxContactPasses。ブランチ内の 20）。26: 腕・脚の力が残った筋肉の最も細い断面で決まる（BoxerBody.Muscle）・脚の力が断面積 × 脚の長さの基準体格比（LegStrength。立てるかは状態 LegCondition で決める）・顔のテンプレートが頭の形（鼻・耳・あごの起伏と目の寸法）を変える・唇の材質（皮膚と同じ強さ）。25: 蹴りが拳と同じ接触（VoxelContact → ApplyHit。蹴る脚の骨と相手の部位の箱の衝突は切る）で当たる・蹴る足首を引く力の上限が歩く足の 4 倍（KickFootForceGain）・体格で質量が体積に比例し腕の力が断面積に比例（基準体格は不変）。24: 手形入力を素手の接触形に反映。23: 素手の破片の格子を保持。
+    public const int PhysicsVersion = 47; // 47: ブランチ claude/rush-physics の 44・45（打撃の当たる速さを相対速度に・体の質量は手足の押し出しと体自身の動きの分だけ・脳しんとうの係数 100 倍）を master の 46 と合わせた。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -343,6 +343,36 @@ public const int PhysicsVersion = 45; // 45: 体の質量が当たりへ運ぶ�
     public float CoreStrength => 0.5f * (Strength(Parts.Chest) + Strength(Parts.Pelvis));
 
     /// <summary>
+    /// 体の傷み（0..1、戦略の層の入力 <see cref="FighterSense.SelfInjury"/> / <see cref="FighterSense.OpponentInjury"/>）: 両腕・両脚の「失った力」の平均。
+    /// 1 本の手足の残りは、体に近い側と遠い側の部位（上腕と前腕・腿とすね）の、残った筋の断面の割合（<see cref="Voxels.BoxerBody.Muscle"/>）の平均で、
+    /// 折れて肉で垂れた先・切り落とされた先（体が支えない部位）と切り落とされた腕は 0。<paramref name="felt"/> なら神経の働き（脊髄、<see cref="Innervation"/>）も掛ける
+    /// （自分が感じる力の抜け）。相手から見るとき（false）は見えている量だけ: 削れた肉・垂れた腕・落ちた部位。意識・臓器は入れない（CLAUDE.md §1.7）。
+    /// ボクセルの無い体は 0。読むだけで、体の物理には響かない。
+    /// </summary>
+    public float Injury(bool felt)
+    {
+        if (Voxels is null)
+        {
+            return 0f;
+        }
+
+        var p = Parts;
+        var kept = 0f;
+        foreach (var arm in _arms)
+        {
+            kept += arm.Severed ? 0f : 0.5f * (Remaining(arm.UpperArm, felt) + Remaining(arm.Forearm, felt));
+        }
+
+        kept += 0.5f * (Remaining(p.LeftThigh, felt) + Remaining(p.LeftShin, felt));
+        kept += 0.5f * (Remaining(p.RightThigh, felt) + Remaining(p.RightShin, felt));
+        return Math.Clamp(1f - (0.25f * kept), 0f, 1f);
+    }
+
+    /// <summary>部位の残った力（0..1）: 体が支えていない部位は 0、ほかは残った筋の断面（感じる量なら神経の働きも掛ける）。</summary>
+    private float Remaining(int part, bool felt)
+        => _detached.Contains(part) || Voxels is not { } v ? 0f : v.Muscle(part) * (felt ? Innervation(part) : 1f);
+
+    /// <summary>
     /// 体を起こしていられるか: 生きていて、弱い方の脚（切り株なら残った肉）の力が、<see cref="FighterTuning.StandStrength"/> × 脚が受け持つ高さの割合
     /// （<see cref="LegBearing"/>）以上。脚が折れた・切れただけでは倒れたままにならない: 残った脚の長さの高さ（<see cref="StandTargetHeight"/>。
     /// 膝立ち・座り）で戦い続ける。骨盤で座る体は脚で持ち上げる高さが無いので、脚の力は要らない。
@@ -446,6 +476,9 @@ public const int PhysicsVersion = 45; // 45: 体の質量が当たりへ運ぶ�
     }
 
     public Vector3 HeadPosition => _world.GetState(Parts.Head).Position;
+
+    /// <summary>頭の向き（頭のローカル +Z が顔の向き）。頭に付けて描く小物（ヘッドホン）と、口の位置（煙・飛沫）を決めるため。</summary>
+    public Quaternion HeadOrientation => _world.GetState(Parts.Head).Orientation;
     public Vector3 ChestPosition => _world.GetState(Parts.Chest).Position;
 
     /// <summary>胸の速度（体全体の動きの目安。拳の動きから歩く動きを差し引くのに使う）。</summary>
@@ -852,7 +885,7 @@ public const int PhysicsVersion = 45; // 45: 体の質量が当たりへ運ぶ�
             world.SetName(toe, name + "_" + side + "_toe");
             world.AddHinge(foot, toe, FootGeometry.BallOnHeel(heel), FootGeometry.BallOnToe(heel), Vector3.UnitX, Vector3.UnitX, frequency: 18f);
             var deg = MathF.PI / 180f;
-            world.AddTwistLimit(foot, toe, HumanoidRagdoll.XAxisTwistBasis, HumanoidRagdoll.XAxisTwistBasis, -60f * deg, 25f * deg);
+            world.AddTwistLimit(foot, toe, HumanoidRagdoll.XAxisTwistBasis, HumanoidRagdoll.XAxisTwistBasis, -60f * deg, 25f * deg, frequency: tuning.ToeStopHz);
             var servo = world.AddTwistServo(foot, toe, HumanoidRagdoll.XAxisTwistBasis, HumanoidRagdoll.XAxisTwistBasis, 0f,
                 tuning.LegServoHz, 1f, 20f, 0f, tuning.ToeMaxTorque * tuning.TorqueScale);
             // 自分の体とはぶつけない（ラグドールの部位どうしと同じ。かかと側とは蝶番で接している）。
@@ -897,6 +930,9 @@ public const int PhysicsVersion = 45; // 45: 体の質量が当たりへ運ぶ�
             BreathPhase += dt * TiredLook.BreathsPerSecond(Winded);
             BreathPhase -= BreathPhase >= 1024f ? 1024f : 0f;
         }
+
+        // まばたき・まぶた（見た目だけ。種は頭の初期位置から: ファイターごとに決まった数列）。
+        Eyes.Advance(dt, BitConverter.SingleToInt32Bits(HeadPosition.X) ^ (BitConverter.SingleToInt32Bits(HeadPosition.Z) * 31), Winded, Awareness, IsDead);
         var grounded = TryFindGround(out var height);
         foreach (var arm in _arms)
         {
@@ -942,6 +978,9 @@ public const int PhysicsVersion = 45; // 45: 体の質量が当たりへ運ぶ�
 
     /// <summary>脳しんとう（意識から引く量。打撃で頭が急にねじられると溜まり、時間とともに抜ける）。</summary>
     public float Concussion { get; internal set; }
+
+    /// <summary>まばたき・まぶたの状態（見た目だけ。描くときに <see cref="MiniRing.Voxels.EyePose"/> として使う）。</summary>
+    public MiniRing.Voxels.EyeBlink Eyes { get; } = new();
 
     /// <summary>最後に頭が打撃でねじられた速さ [rad/s]（調べもの用）。</summary>
     public float LastHeadTwist { get; private set; }
@@ -1008,7 +1047,8 @@ public const int PhysicsVersion = 45; // 45: 体の質量が当たりへ運ぶ�
 
     /// <summary>
     /// 息の上がり方（0..1、見た目だけ）: スタミナが <see cref="FighterTuning.TiredKnee"/> を下回るほど、また息（心臓・肺）の働きが
-    /// 落ちるほど大きい（大きい方）。死んでいれば 0（息をしない）。チアノーゼ・吐く息・メーターの点滅はここから出る。試合の計算には使わない。
+    /// 落ちるほど大きい（大きい方）。死んでいれば 0（息をしない）。チアノーゼ・吐く息・メーターの点滅はここから出る。体の物理の計算には使わない
+    /// （ボットの戦略の層は、相手の見える手がかりとしてこの量を読む: <see cref="FighterSense.OpponentWinded"/>）。
     /// </summary>
     public float Winded => IsDead ? 0f : Math.Clamp(MathF.Max(1f - (Stamina / MathF.Max(1e-3f, _tuning.TiredKnee)), BreathWindedShare * (1f - Breath)), 0f, 1f);
 
@@ -1534,9 +1574,10 @@ public const int PhysicsVersion = 45; // 45: 体の質量が当たりへ運ぶ�
         var legs = MathF.Min(LegStrength(true), LegStrength(false));
         // 頭を下げる量のうち、腰から前へ折る分（HipHingeShare）を除いた残りを膝と股を曲げて腰を落とす。
         var drop = MathF.Min(0f, command.HeadOffset.Y);
-        _crouch = Math.Clamp(((command.HeadOffset.Y - drop) + (drop * (1f - _tuning.HipHingeShare))) / _standHeight, -_tuning.MaxCrouch, 0.05f);
         // 立っている間は足の運び（足を置いてから体が付いていく）。倒れて起き上がる間は以前の歩行の形のまま。
         var footwork = _tuning.Footwork.Enabled && State == FighterState.Standing && grounded && !LegSevered;
+        // 脚のバネ（ステップ）が空いている分だけ腰が伸び上がる（足の運びの間だけ。貯めきった構えでは 0）。
+        _crouch = Math.Clamp(((command.HeadOffset.Y - drop) + (drop * (1f - _tuning.HipHingeShare))) / _standHeight + (footwork ? StepSinkShare : 0f), -_tuning.MaxCrouch, 0.05f);
         if (footwork && !_footworkActive)
         {
             ResetFootwork();
@@ -1553,6 +1594,7 @@ public const int PhysicsVersion = 45; // 45: 体の質量が当たりへ運ぶ�
         if (footwork)
         {
             StepFeet(command, height, dt);
+            StepWithLegSpring(command, groundY, scale * legs, dt);
             ApplyBodyOverFeet(command, scale * legs, dt);
             ApplyLegs(groundY, dt);
         }
@@ -1588,6 +1630,7 @@ public const int PhysicsVersion = 45; // 45: 体の質量が当たりへ運ぶ�
 
         _laggedMove = Vector3.Zero;
         _hoverIntegral = 0f;
+        _glide = null;
     }
 
     /// <summary>
@@ -1660,7 +1703,7 @@ public const int PhysicsVersion = 45; // 45: 体の質量が当たりへ運ぶ�
             }
         }
 
-        var accel = FighterMath.MoveAccel(pelvis.LinearVelocity, desired, _tuning.MoveGain, _tuning.MaxMoveAccel);
+        var accel = GlideBrake(FighterMath.MoveAccel(pelvis.LinearVelocity, desired, _tuning.MoveGain, _tuning.MaxMoveAccel), pelvis.LinearVelocity, desired);
         ApplyLocomotion(accel * (SupportedMass * scale), dt);
         TrackSpeed(pelvis.LinearVelocity, dt);
     }

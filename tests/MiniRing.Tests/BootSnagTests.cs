@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>ブーツの引っかかり: 何もないキャンバスの上で足が運べること、縁の外へ出た足は落ちること（仕様）。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class BootSnagTests
 {
     /// <summary>

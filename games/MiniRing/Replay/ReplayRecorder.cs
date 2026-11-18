@@ -39,6 +39,7 @@ public sealed class ReplayRecorder : IDisposable
         }
 
         _writer = new BinaryWriter(output);
+        // determinism-ok: the recording date is header metadata only; replay never reads it into the match.
         ReplayFile.WriteHeader(_writer, new ReplayHeader(game.Seed, JsonSerializer.Serialize(game.Tuning), host, AppVersion, DateTime.UtcNow,
             game.CpuName, game.CpuStyleJson ?? "", game.CpuStyleJson is null && game.InitialCorners.RedBotStyle is null ? 0 : Bots.BoxerBot.LogicVersion,
             MatchSettings: ReplayMatchSettings.From(game.InitialCorners, game.Rules)));
@@ -62,6 +63,7 @@ public sealed class ReplayRecorder : IDisposable
     public static ReplayRecorder StartFile(string directory, BoxingGame game, string host, out string path)
     {
         Directory.CreateDirectory(directory);
+        // determinism-ok: the file name only.
         var stem = string.Create(CultureInfo.InvariantCulture, $"miniring_{host}_{DateTime.Now:yyyyMMdd_HHmmss}");
         for (var n = 1; ; n++)
         {

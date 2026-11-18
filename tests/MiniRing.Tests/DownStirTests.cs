@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 /// まったく無ければ体は止まり、止まったまま <see cref="BoxingGame.StillKoSeconds"/> 続くとその場で K.O.。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class DownStirTests
 {
     private const float Dt = 1f / 240f;

@@ -1,0 +1,47 @@
+{
+  "_comment": "Claude が企画した大会: 前座から本戦へ、拳の装備・刃と受け・立ち技の東西・刀と盾で格を上げていく 4 試合。プロスペクティブ制の中継。",
+  "event": "WVC クロスオーバー頂上決戦",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-crossover",
+  "scoutSeeds": [
+    31,
+    32,
+    33,
+    34,
+    35,
+    36
+  ],
+  "partLimitMiB": 29,
+  "commentary": {
+    "writer": "prospective",
+    "model": "haiku",
+    "parallel": 2
+  },
+  "bouts": [
+    {
+      "red": "joao",
+      "blue": "gaston",
+      "seed": "auto",
+      "bout": "第1試合 鉄拳対決"
+    },
+    {
+      "red": "vikram",
+      "blue": "tsuyoshi",
+      "seed": "auto",
+      "bout": "第2試合 刃と受け"
+    },
+    {
+      "red": "narong",
+      "blue": "akira",
+      "seed": "auto",
+      "bout": "セミファイナル 立ち技の東西"
+    },
+    {
+      "red": "jin",
+      "blue": "edgar",
+      "seed": "auto",
+      "bout": "メインイベント 刀と盾"
+    }
+  ]
+}

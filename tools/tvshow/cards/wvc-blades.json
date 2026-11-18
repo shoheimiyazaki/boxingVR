@@ -1,0 +1,41 @@
+{
+  "_comment": "武器同士の 3 試合。プロスペクティブ制の中継。",
+  "event": "WVC ウェポンズナイト",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-blades",
+  "scoutSeeds": [
+    31,
+    32,
+    33,
+    34,
+    35,
+    36
+  ],
+  "partLimitMiB": 29,
+  "commentary": {
+    "writer": "prospective",
+    "model": "haiku",
+    "parallel": 2
+  },
+  "bouts": [
+    {
+      "red": "jin",
+      "blue": "konrad",
+      "seed": "auto",
+      "bout": "第1試合"
+    },
+    {
+      "red": "daichi",
+      "blue": "sean",
+      "seed": "auto",
+      "bout": "第2試合"
+    },
+    {
+      "red": "edgar",
+      "blue": "tsuyoshi",
+      "seed": "auto",
+      "bout": "第3試合"
+    }
+  ]
+}

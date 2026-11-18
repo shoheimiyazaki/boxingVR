@@ -1,6 +1,7 @@
 {
   "id": "gaston",
   "order": 12,
+  "org": "vfc",
   "name": "ガストン・ド・ヴァロワ",
   "reading": "ガストン ド・ヴァロワ",
   "hudName": "ガストン",
@@ -26,7 +27,7 @@
       "2008年: 国内の大会でエペの部に出場し入賞。突きの間合いの感覚を身につける",
       "2012年: 大学で歴史を学ぶ傍ら、中世の武術の研究会で籠手を使った組み打ちを学ぶ",
       "2015年: ボクシングの基本も加え、籠手をはめた拳で戦う独自の型を作る",
-      "2017年: WVCへ入団。鉄の籠手が認められ、武器ありのルールで出場",
+      "2017年: VFCへ入団。鉄の籠手が認められ、何でもありのルールで出場",
       "2020年: 国際大会で連勝し、アウトボクサーとして評価が上がる",
       "2021年: アルバートに英仏対決で判定負け。以後、接近戦の対処を改める",
       "2024年: 棍棒のショーンに押し負けて敗戦。籠手の重さを活かす距離の見直しを進める"
@@ -81,6 +82,31 @@
     "weapon": null
   },
   "textbook": "outboxer",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "BreakLikes": { "bow": 3, "blowkiss": 3, "mirror": 3, "salute": 2, "selfie": 2, "hum": 2, "wave": 2, "pointcrowd": 1.5, "applause": 1.5, "energydrink": 0.3, "jelly": 0.4 },
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 17, "Dealt": 15.125, "Taken": 12.666 },
+          { "Cm": 19, "Dealt": 19.744, "Taken": 13.062 },
+          { "Cm": 21, "Dealt": 21.031, "Taken": 12.193 },
+          { "Cm": 23, "Dealt": 16.542, "Taken": 10.319 },
+          { "Cm": 25, "Dealt": 11.347, "Taken": 8.108 },
+          { "Cm": 27, "Dealt": 5.462, "Taken": 8.06 },
+          { "Cm": 29, "Dealt": 2.902, "Taken": 6.322 },
+          { "Cm": 31, "Dealt": 1.518, "Taken": 4.476 },
+          { "Cm": 33, "Dealt": 0.575, "Taken": 2.201 },
+          { "Cm": 35, "Dealt": 0.335, "Taken": 1.38 },
+          { "Cm": 37, "Dealt": 0.052, "Taken": 1.331 },
+          { "Cm": 39, "Dealt": 0, "Taken": 0.574 },
+          { "Cm": 41, "Dealt": 0, "Taken": 0.64 },
+          { "Cm": 43, "Dealt": 0, "Taken": 0.312 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

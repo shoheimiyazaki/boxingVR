@@ -142,7 +142,7 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
         {
             return command;
         }
-        if (_kick is { } previousKick && _time >= previousKick.Duration)
+        if (_kick is { } previousKick && _time >= (previousKick.Seconds ?? previousKick.Duration))
         {
             _kick = null;
         }
@@ -158,7 +158,7 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
         }
 
         var rest = new Vector3(0.2f, -1.4f, 0f) * sense.ArmReach;
-        var leg = kick.Evaluate(Hand.Right, _time, kick.Duration, rest, _kickAim, sense.ArmReach);
+        var leg = kick.Evaluate(Hand.Right, _time, kick.Seconds ?? kick.Duration, rest, _kickAim, sense.ArmReach);
         _time += dt;
         return command with { RightLeg = leg };
     }

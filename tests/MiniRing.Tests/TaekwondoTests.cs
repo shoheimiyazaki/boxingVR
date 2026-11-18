@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>2026-11-16: テコンドーの教科書（Bots/taekwondo.json）とテコンドー家（roster/taeyun.json）。蹴りの経路・接触は KickContactTests。</summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class TaekwondoTests
 {
     private static readonly KickTechnique[] TurningKicks = [KickTechnique.Roundhouse, KickTechnique.Side, KickTechnique.Back, KickTechnique.Axe];
@@ -46,7 +47,7 @@ public sealed class TaekwondoTests
         Assert.IsGreaterThan(1.05f, c.Build.Height);
         Assert.IsGreaterThan(1.0f, c.Build.Legs);
         Assert.IsLessThan(1.0f, c.Build.Muscle, "slim");
-        Assert.AreSame(BotCatalog.Taekwondo, c.Resolve(), "an empty education plays the textbook itself");
+        CharacterRosterTests.AssertTextbookPlusGamePlan(BotCatalog.Taekwondo, c.Resolve(), c.Id);
         Assert.IsTrue(CharacterRoster.Countries.ContainsKey(c.Country.Id));
     }
 
