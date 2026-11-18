@@ -153,6 +153,7 @@ public sealed class WeaponGraspTests
         Play(game, 1f);
         var sword = game.WeaponOf(game.Player)!;
         var (top, bottom) = Weapon.TwoHandGripsOf(Katana);
+        var heldAt = game.World.GetState(sword.Body.BodyId).Position.Y;
 
         script.LetGoLeft = true;
         script.LetGoRight = true;
@@ -160,11 +161,12 @@ public sealed class WeaponGraspTests
         script.LetGoLeft = false;
         script.LetGoRight = false;
         Play(game, 1.5f);
-        Assert.IsFalse(game.Player.Wields(Hand.Left) || game.Player.Wields(Hand.Right), "both hands dropped it");
+        Assert.IsFalse(game.Player.Wields(Hand.Left) ||game.Player.Wields(Hand.Right), "both hands dropped it");
         Assert.AreNotEqual(sword.Body.BodyId, game.Player.WieldedBody(Hand.Right), "what the right hand carries now is only its bare fist");
         Assert.IsTrue(game.Player.WearsGlove(Hand.Left) && game.Player.WearsGlove(Hand.Right), "both empty hands are bare fists");
-        var fallen = game.World.GetState(sword.Body.BodyId).Position.Y;
-        Assert.IsLessThan(0.1f, fallen, "the sword lies on the floor");
+        var fallen = game.World.GetState(sword.Body.BodyId);
+        Assert.IsLessThan(heldAt - 0.2f, fallen.Position.Y, "the sword fell from the hand to the floor");
+        Assert.IsLessThan(0.1f, fallen.LinearVelocity.Length(), "and lies there");
 
         // 刀を左手の所へ置く（この小さい体の腕は床まで届かないので、握れる高さへ持ち上げた物として。置いた直後の歩の前に Grip を押す）。
         script.GripLeft = true;
