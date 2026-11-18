@@ -28,6 +28,7 @@ try
         "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
+        "stick" => StickCommand(Options.Parse(StickSwingLab.WithYes(argv[1..]), "style", "kicks", "teachings", "png", "design", "candidates", "seed", "log", "approach", "ground", "moves", "path", "out", "forms", "detail", "swing", "planes", "samples", "weights", "video", "polish", "iterations", "character", "limits")),
         "kicklab" => KickLabCommand(Options.Parse(argv[1..], "body", "kick", "distances", "seeds", "confirm-seeds", "shin", "overshoot", "side", "log")),
         "kickvideo" => KickVideoCommand(Options.Parse(argv[1..], "body", "kick", "distances", "side", "slow", "width", "height", "fps", "out")),
         "kickmocap" => KickMocapCommand(Options.Parse(argv[1..], "dir", "export", "log", "video", "doll", "durations", "distances", "export-mid", "body")),
@@ -548,6 +549,62 @@ static int KarateLabCommand(Options o)
     new KarateLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log,
         o.List("cues", ["0", "0.06"]).Select(c => float.Parse(c, CultureInfo.InvariantCulture)).ToList())
         .Run(only.Contains("shapes"), only.Contains("parry"), only.Contains("kicks"));
+    return 0;
+}
+
+// 棒人形でモーションを考える（docs/STICK_MOTION.md）: 蹴りの経路を評価する（--kicks）・体重移しの値を探す（--design）。
+static int StickCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    if (o.Get("swing") is not null)
+    {
+        StickSwingLab.Run(o, Log);
+        return 0;
+    }
+
+    var lab = new StickLab(Log);
+    var style = o.Get("style") ?? "karate";
+    if (o.Get("forms") is { } formChar)
+    {
+        lab.Forms(formChar, o.Get("png"), o.Get("detail") == "yes");
+        return 0;
+    }
+
+#if STICK_GROUND // 倒れた相手への攻め（GroundLab・BotStyle.Ground）は投げの枝 claude/throwing-grappling-mechanics-de662d にだけある。その枝を master へ入れたらこの #if を外す。
+    if (o.Get("ground") is { } who)
+    {
+        if (o.Get("design") is { } designMove)
+        {
+            lab.DesignGround(who, designMove, o.Int("candidates", 40, min: 1), o.Int("seed", 1), o.Get("out"));
+            return 0;
+        }
+
+        lab.Ground(who, o.List("moves", ["cut", "thrust-down"]), o.Get("png"), o.Get("path"));
+        return 0;
+    }
+#endif
+    if (o.Get("design") is { } design)
+    {
+        lab.Design(style, Enum.Parse<MiniRing.Bots.KickTechnique>(design, ignoreCase: true), o.Int("candidates", 40, min: 1), o.Int("seed", 1), o.Float("approach", 0f, min: 0f));
+        return 0;
+    }
+
+    var kinds = o.List("kicks", ["Front", "Low", "Middle", "High", "Knee", "Side", "Back", "Axe"]).Select(k => Enum.Parse<MiniRing.Bots.KickTechnique>(k, ignoreCase: true)).ToList();
+    var teachings = o.List("teachings", ["0:0:0"]).Select(t =>
+    {
+        var v = t.Split(':').Select(x => float.Parse(x, CultureInfo.InvariantCulture)).ToArray();
+        return new StickKick.Teaching(v[0], v.Length > 1 ? v[1] : 0f, v.Length > 2 ? v[2] : 0f);
+    }).ToList();
+    lab.Kicks(style, kinds, teachings, o.Get("png"), o.Float("approach", 0f, min: 0f));
     return 0;
 }
 
@@ -1910,4 +1967,3 @@ internal static class DefenseDefaults
 
     public static MiniRing.Bots.SwordDefense Value => Loaded.Value;
 }
-
