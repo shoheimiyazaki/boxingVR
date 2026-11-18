@@ -36,33 +36,37 @@ public sealed class SlideProbe
     [TestMethod]
     public void Table()
     {
-        TestContext.WriteLine("| 条件 | 骨盤 5s [cm] | 10s | 20s | 30s | 左足 30s | 右足 30s | 骨盤の最大の速さ [m/s] | 向きの変化 [deg] |");
-        TestContext.WriteLine("|---|---|---|---|---|---|---|---|---|");
-        foreach (var (name, weapon, mode, handZ, headYaw, sway, vr, cut) in new (string, WeaponKind?, int, float, float, float, bool, int)[]
+        TestContext.WriteLine("| 条件 | 骨盤 5s [cm] | 10s | 20s | 30s | 左足 30s | 右足 30s | 骨盤の最大の速さ [m/s] | 向きの変化 [deg] | 歩数 |");
+        TestContext.WriteLine("|---|---|---|---|---|---|---|---|---|---|");
+        var variants = new (string, Func<FighterTuning, FighterTuning>)[]
         {
-            ("katana sway2 全部", WeaponKind.Katana, 1, 0.3f, 0f, 0.02f, true, 0),
-            ("katana sway2 頭のずれ無し", WeaponKind.Katana, 1, 0.3f, 0f, 0.02f, true, 1),
-            ("katana sway2 手を固定", WeaponKind.Katana, 1, 0.3f, 0f, 0.02f, true, 2),
-            ("katana sway2 向き固定", WeaponKind.Katana, 1, 0.3f, 0f, 0.02f, true, 3),
-            ("katana sway2 手と頭のずれ無し", WeaponKind.Katana, 1, 0.3f, 0f, 0.02f, true, 4),
-            ("katana yaw40 全部", WeaponKind.Katana, 1, 0.3f, 0.7f, 0f, true, 0),
-            ("katana yaw40 向き固定", WeaponKind.Katana, 1, 0.3f, 0.7f, 0f, true, 3),
-            ("katana yaw40 手を固定", WeaponKind.Katana, 1, 0.3f, 0.7f, 0f, true, 2),
-            ("素手 sway2 全部", null, 2, 0.3f, 0f, 0.02f, true, 0),
-            ("素手 sway2 頭のずれ無し", null, 2, 0.3f, 0f, 0.02f, true, 1),
-            ("素手 sway2 手を固定", null, 2, 0.3f, 0f, 0.02f, true, 2),
-        })
+            ("default", t => t),
+            ("StepThreshold 0.14", t => t with { Footwork = t.Footwork with { StepThreshold = 0.14f } }),
+            ("FootKp x3", t => t with { Footwork = t.Footwork with { FootKp = 2700f, FootKd = 87f } }),
+            ("MaxFootForce x3", t => t with { Footwork = t.Footwork with { MaxFootForce = 450f } }),
+            ("Kp x3 + Force x3", t => t with { Footwork = t.Footwork with { FootKp = 2700f, FootKd = 87f, MaxFootForce = 450f } }),
+        };
+        foreach (var (vname, tune) in variants)
         {
-            Run(name, weapon, mode, handZ, headYaw, sway, vr, cut);
+            foreach (var (name, weapon, mode, handZ, headYaw, sway) in new (string, WeaponKind?, int, float, float, float)[]
+            {
+                ("katana sway2", WeaponKind.Katana, 1, 0.3f, 0f, 0.02f),
+                ("katana yaw40", WeaponKind.Katana, 1, 0.3f, 0.7f, 0f),
+                ("素手 sway2", null, 2, 0.3f, 0f, 0.02f),
+                ("katana 構え", WeaponKind.Katana, 1, 0.3f, 0f, 0f),
+            })
+            {
+                Run($"{vname} / {name}", weapon, mode, handZ, headYaw, sway, tune(FighterTuning.Default with { PlayerFatigue = false }), 0);
+            }
         }
     }
 
-    private void Run(string name, WeaponKind? weapon, int mode, float handZ, float headYaw, float sway, bool vr, int cut)
+    private void Run(string name, WeaponKind? weapon, int mode, float handZ, float headYaw, float sway, FighterTuning tuning, int cut)
     {
         var corners = weapon is { } w
             ? SwordTraining.Corners(w, 0.9f)
             : new BoxingCorners("idle", _ => new IdleFoe(), Referee: false, BreakActions: false, Ring: RingLayout.DrillBoxing);
-        using var game = new BoxingGame(vr ? FighterTuning.Default with { PlayerFatigue = false } : null, corners: corners);
+        using var game = new BoxingGame(tuning, corners: corners);
         var mapper = new VrPlayerMapper(weaponMode: mode == 1);
         const float dt = 1f / 240f;
         var p = game.Player;
@@ -73,7 +77,6 @@ public sealed class SlideProbe
         var cells = new float[4];
         FighterCommand firstCommand = default;
         var maxSpeed = 0f;
-        var lastSteps = -1;
         var last = start;
         for (var i = 1; i <= 30 * 240; i++)
         {
@@ -97,11 +100,6 @@ public sealed class SlideProbe
             var now = Flat(p.PelvisPosition);
             maxSpeed = MathF.Max(maxSpeed, (now - last).Length() / dt);
             last = now;
-            if (name.StartsWith("katana yaw40 全部", StringComparison.Ordinal) && i >= 3 * 240 && i <= 3 * 240 + 240)
-            {
-                if (p.Footwork.Steps != lastSteps) { lastSteps = p.Footwork.Steps; TestContext.WriteLine($"  [{name}] t={i * dt:0.000} {p.Footwork.DebugStep}"); }
-            }
-
             foreach (var (k, sec) in new[] { (0, 5), (1, 10), (2, 20), (3, 30) })
             {
                 if (i == sec * 240)
@@ -114,7 +112,7 @@ public sealed class SlideProbe
         var dl = (Flat(p.AnklePosition(Hand.Left)) - l0).Length() * 100f;
         var dr = (Flat(p.AnklePosition(Hand.Right)) - r0).Length() * 100f;
         var dyaw = (Yaw(p) - fwd0) * 180f / MathF.PI;
-        TestContext.WriteLine($"| {name} | {cells[0]:0.0} | {cells[1]:0.0} | {cells[2]:0.0} | {cells[3]:0.0} | {dl:0.0} | {dr:0.0} | {maxSpeed:0.00} | {dyaw:0.0} |");
+        TestContext.WriteLine($"| {name} | {cells[0]:0.0} | {cells[1]:0.0} | {cells[2]:0.0} | {cells[3]:0.0} | {dl:0.0} | {dr:0.0} | {maxSpeed:0.00} | {dyaw:0.0} | {p.Footwork.Steps} |");
     }
 
     private static string Local(Fighter f, Hand h)
