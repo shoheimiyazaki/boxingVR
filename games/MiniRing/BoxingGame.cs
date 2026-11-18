@@ -713,6 +713,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var energy = hit.Energy;
         // 皮膚の上からでも、衝撃は組織を伝わって臓器を打つ（一時的な打撲。削れれば別に恒久的に効く）。
         victim.BruiseOrgans(hit.Point, energy);
+        victim.Eyes.Flinch(energy, Vector3.Distance(hit.Point, victim.HeadPosition)); // 打たれた瞬間の反射（見た目だけ）
         if (carve)
         {
             Strike(victim, victimBody, hit.Point, gloveVelocity, hit.Damage / ZoneDamage.Multiplier(hit.Zone), hit.Attacker, push, MathF.Min(_tuning.MaxCarve, energy * _tuning.CarvePerJoule));

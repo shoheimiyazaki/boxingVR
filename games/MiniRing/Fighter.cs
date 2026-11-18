@@ -893,6 +893,9 @@ public sealed partial class Fighter
             BreathPhase += dt * TiredLook.BreathsPerSecond(Winded);
             BreathPhase -= BreathPhase >= 1024f ? 1024f : 0f;
         }
+
+        // まばたき・まぶた（見た目だけ。種は頭の初期位置から: ファイターごとに決まった数列）。
+        Eyes.Advance(dt, BitConverter.SingleToInt32Bits(HeadPosition.X) ^ (BitConverter.SingleToInt32Bits(HeadPosition.Z) * 31), Winded, Awareness, IsDead);
         var grounded = TryFindGround(out var height);
         foreach (var arm in _arms)
         {
@@ -938,6 +941,9 @@ public sealed partial class Fighter
 
     /// <summary>脳しんとう（意識から引く量。打撃で頭が急にねじられると溜まり、時間とともに抜ける）。</summary>
     public float Concussion { get; internal set; }
+
+    /// <summary>まばたき・まぶたの状態（見た目だけ。描くときに <see cref="MiniRing.Voxels.EyePose"/> として使う）。</summary>
+    public MiniRing.Voxels.EyeBlink Eyes { get; } = new();
 
     /// <summary>最後に頭が打撃でねじられた速さ [rad/s]（調べもの用）。</summary>
     public float LastHeadTwist { get; private set; }
