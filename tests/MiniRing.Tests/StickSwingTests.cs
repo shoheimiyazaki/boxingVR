@@ -109,6 +109,22 @@ public sealed class StickSwingTests
         Assert.IsTrue(Vector3.Distance(first, guardTip) < 0.1f * rig.Reach, "始まりは構えの近く");
         var eval = rig.Evaluate(trace, SwingPlane.Get("vertical"), new SwingWeights());
         Assert.IsTrue(eval.MaxLoad < 1f, $"負担 {eval.MaxLoad:0.00}");
+        Assert.AreEqual(0f, eval.RangeExcess, "構えのままの振りは関節の範囲をはみ出さない");
+    }
+
+    [TestMethod]
+    public void TheGripLimits_AreInsideTheLooseLimits()
+    {
+        var grip = Rig.Value;
+        var loose = SwingRig.Create("jin", SwingLimits.Loose);
+        for (var w = 0; w < 3; w++)
+        {
+            Assert.IsTrue(grip.WristRange(w).Low >= loose.WristRange(w).Low && grip.WristRange(w).High <= loose.WristRange(w).High, $"手首 {w}");
+            Assert.IsTrue(grip.WristRange(w).High - grip.WristRange(w).Low < loose.WristRange(w).High - loose.WristRange(w).Low, $"握ると手首 {w} は狭まる");
+        }
+
+        Assert.IsTrue(grip.ElbowLow >= loose.ElbowLow && grip.ElbowHigh <= loose.ElbowHigh, "肘");
+        Assert.IsTrue(grip.ShoulderTwistHigh - grip.ShoulderTwistLow < loose.ShoulderTwistHigh - loose.ShoulderTwistLow, "肩のねじれは狭まる");
     }
 
     [TestMethod]
@@ -125,7 +141,8 @@ public sealed class StickSwingTests
         Assert.AreEqual(a.Best.Score, b.Best.Score);
         Assert.IsTrue(a.Best.Score >= a.BestRandom.Score, $"磨いて点が下がらない（{a.BestRandom.Score:0.00} → {a.Best.Score:0.00}）");
         CollectionAssert.AreEqual(a.BestGenes, rig.Clamp(a.BestGenes), "最良は関節の範囲の中");
-        Assert.IsTrue(a.Best.Valid, $"最良は失格でない（負担 {a.Best.MaxLoad:0.00}・{a.Best.MaxLoadJoint}・自傷 {a.Best.SelfCut:0.000}・腕の入り込み {a.Best.ArmOverlap:0.000}）");
+        Assert.IsTrue(a.Best.Valid, $"最良は失格でない（負担 {a.Best.MaxLoad:0.00}・{a.Best.MaxLoadJoint}・自傷 {a.Best.SelfCut:0.000}・腕の入り込み {a.Best.ArmOverlap:0.000}・範囲のはみ出し {a.Best.RangeExcess:0.000}）");
         Assert.IsTrue(a.Best.MaxLoad <= 1f);
+        Assert.IsTrue(a.Best.RangeExcess <= MathF.PI / 180f, "補間も関節の範囲の中（1° まで）");
     }
 }

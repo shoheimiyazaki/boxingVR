@@ -66,6 +66,32 @@ public sealed record SwingWeights(float Speed = 3f, float Smooth = 1f, float Pla
     }
 }
 
+/// <summary>
+/// 剣をがっちり握った腕の関節の範囲 [rad]（2026-11-18、ユーザーの指定: 手首・肘のねじれ・肩を狭める）。キーはこの中へ収め、キーの間の補間がはみ出した分は失格の罰（<see cref="SwingEval.RangeExcess"/>）。
+/// 構えそのものがはみ出している量までは許す（構えは振りの始まりなので）。値は人の可動域の文献値（AAOS の平均）を、握りで狭まる分だけ縮めた目安。
+/// </summary>
+/// <param name="WristFlex">手首の屈曲（正 = 掌屈）。素手は掌屈 80°・背屈 70°。柄を強く握ると、握力が保てるのは中間 ±30° ほど（握力は背屈 30° 付近で最大、掌屈で急に落ちる）。</param>
+/// <param name="WristDeviation">手首の橈尺屈（正 = 橈屈）。素手は橈屈 20°・尺屈 30°。握ると尺屈 25°・橈屈 10° ほど（剣先を前へ倒すのは尺屈の側）。</param>
+/// <param name="ForearmRoll">前腕の回内・回外（肘より先のねじれ。剣の軸まわり）。素手は各 80°。握った剣の刃の向きを保つので ±45°。</param>
+/// <param name="Elbow">肘の曲げ（0 = 伸ばし切り。過伸展なし）。素手は 0〜145°。</param>
+/// <param name="ShoulderTwist">肩のねじれ（上腕の内旋・外旋。T ポーズの腕の軸まわり）。素手は内旋 70°・外旋 90° ほど。±75°。</param>
+/// <param name="ShoulderBack">上腕の向きの、後ろ向きの成分の上限（sin）。伸展・水平外転は後ろへ 45° まで（sin 45° ≈ 0.7）。</param>
+/// <param name="ShoulderAcross">上腕の向きの、反対の脇への成分の上限（sin）。水平内転は正面から 40° 先まで（sin 40° ≈ 0.64）。</param>
+public sealed record SwingLimits(
+    float WristFlexLow = -30f * SwingLimits.Deg, float WristFlexHigh = 30f * SwingLimits.Deg,
+    float WristDeviationLow = -25f * SwingLimits.Deg, float WristDeviationHigh = 10f * SwingLimits.Deg,
+    float ForearmRollLow = -45f * SwingLimits.Deg, float ForearmRollHigh = 45f * SwingLimits.Deg,
+    float ElbowLow = 0f, float ElbowHigh = 140f * SwingLimits.Deg,
+    float ShoulderTwistLow = -75f * SwingLimits.Deg, float ShoulderTwistHigh = 75f * SwingLimits.Deg,
+    float ShoulderBack = 0.7f, float ShoulderAcross = 0.64f)
+{
+    internal const float Deg = MathF.PI / 180f;
+
+    /// <summary>今までの広い範囲（手首は <c>HandSkeleton.Range</c>・ねじり ±80°、肘・肩はラグドールの範囲）。比べるため。</summary>
+    public static SwingLimits Loose { get; } = new(-70f * Deg, 80f * Deg, -30f * Deg, 20f * Deg, -80f * Deg, 80f * Deg, -10f * Deg, 145f * Deg,
+        -HumanoidRagdollLimits.ShoulderTwist, HumanoidRagdollLimits.ShoulderTwist, 1f, 1f);
+}
+
 /// <summary>1 本の振りの評価（物差しと点の内訳）。</summary>
 public sealed record SwingEval
 {
@@ -114,6 +140,9 @@ public sealed record SwingEval
     /// <summary>腕が胴・頭へ入り込んだ深さの最大 [m]。</summary>
     public float ArmOverlap { get; init; }
 
+    /// <summary>キーの間の補間が関節の範囲（<see cref="SwingLimits"/>）をはみ出した最大の量（角 [rad]・肩の向きは sin の差）。0 なら範囲の中。</summary>
+    public float RangeExcess { get; init; }
+
     /// <summary>構えから振り抜くまでの時間 [s]。</summary>
     public float Duration { get; init; }
 
@@ -145,7 +174,11 @@ public sealed record SwingEval
 }
 
 /// <summary>1 本の振りを走らせた結果（姿勢の列と力学）。</summary>
-public sealed record SwingTrace(IReadOnlyList<StickFrame> Frames, IReadOnlyList<StickLoad> Loads, float Dt);
+public sealed record SwingTrace(IReadOnlyList<StickFrame> Frames, IReadOnlyList<StickLoad> Loads, float Dt)
+{
+    /// <summary>補間が関節の範囲をはみ出した最大の量（<see cref="SwingEval.RangeExcess"/>）。</summary>
+    public float RangeExcess { get; init; }
+}
 
 /// <summary>
 /// 片手剣を握った棒人形で、肩から先（肩・肘・手首）だけを動かす振り（docs/STICK_MOTION.md §11）。骨盤・胸・頭・脚・左腕は構えのまま。
@@ -184,21 +217,24 @@ public sealed class SwingRig
     private readonly float[] _wristHigh = new float[3];
     private readonly float[] _guardKey;
 
-    private SwingRig(StickBody body)
+    private SwingRig(StickBody body, SwingLimits limits)
     {
         Body = body;
+        Limits = limits;
         GuardFrame = new StickFrame(body, body.Guard);
         Shoulder = GuardFrame.Joints[_shoulder];
         ArmLength = Vector3.Distance(GuardFrame.Joints[_shoulder], GuardFrame.Joints[_elbow]) + Vector3.Distance(GuardFrame.Joints[_elbow], GuardFrame.Joints[_weapon]);
         BladeLength = Vector3.Distance(body.Segments[_weapon].Joint, body.Segments[_weapon].Tip);
-        var flex = HandSkeleton.Range(0);
-        var deviation = HandSkeleton.Range(1);
-        (_wristLow[0], _wristHigh[0]) = flex;
-        (_wristLow[1], _wristHigh[1]) = deviation;
-        (_wristLow[2], _wristHigh[2]) = (-80f * Deg, 80f * Deg); // 前腕の回内・回外（肘より先のねじれ）の可動域の目安。
+        (_wristLow[0], _wristHigh[0]) = (limits.WristFlexLow, limits.WristFlexHigh);
+        (_wristLow[1], _wristHigh[1]) = (limits.WristDeviationLow, limits.WristDeviationHigh);
+        (_wristLow[2], _wristHigh[2]) = (limits.ForearmRollLow, limits.ForearmRollHigh);
+        // 体の関節の範囲（ラグドール）より狭い側を採る。
         var elbow = body.Segments[_elbow];
-        ElbowLow = elbow.TwistMin;
-        ElbowHigh = elbow.TwistMax;
+        ElbowLow = MathF.Max(elbow.TwistMin, limits.ElbowLow);
+        ElbowHigh = MathF.Min(elbow.TwistMax, limits.ElbowHigh);
+        var shoulder = body.Segments[_shoulder];
+        ShoulderTwistLow = MathF.Max(shoulder.TwistMin, limits.ShoulderTwistLow);
+        ShoulderTwistHigh = MathF.Min(shoulder.TwistMax, limits.ShoulderTwistHigh);
         _guardKey = new float[PerKey];
         var at = body.Offsets[_shoulder];
         for (var i = 0; i < 3; i++)
@@ -207,6 +243,56 @@ public sealed class SwingRig
         }
 
         _guardKey[3] = body.Guard.Values[body.Offsets[_elbow]];
+        _guardExcess = Excesses(_guardKey);
+    }
+
+    /// <summary>関節の範囲（剣を握った腕）。</summary>
+    public SwingLimits Limits { get; }
+
+    /// <summary>肩のねじれの範囲 [rad]（体の範囲と <see cref="SwingLimits"/> の狭い方）。</summary>
+    public float ShoulderTwistLow { get; }
+
+    public float ShoulderTwistHigh { get; }
+
+    private readonly float[] _guardExcess;
+
+    /// <summary>
+    /// 関節の値（肩の回転ベクトル 3・肘・手首 3）が範囲をはみ出した量: [0] 肩のねじれ、[1] 上腕が後ろへ、[2] 上腕が反対の脇へ、[3] 肘、[4..6] 手首。
+    /// 上腕の向きは胸の休みの座標（前 = +Z、上 = +Y、外 = 腕の軸）で測る（胸は構えのまま動かない）。
+    /// </summary>
+    private float[] Excesses(IReadOnlyList<float> v)
+    {
+        var s = Body.Segments[_shoulder];
+        var q = StickMath.Exp(new Vector3(v[0], v[1], v[2]));
+        var (_, twist) = StickMath.SwingTwist(q, s.Axis);
+        var twistAngle = StickMath.SignedAngle(twist, s.Axis);
+        var direction = Vector3.Transform(s.Axis, q);
+        var e = new float[PerKey];
+        e[0] = Outside(twistAngle, ShoulderTwistLow, ShoulderTwistHigh);
+        e[1] = MathF.Max(0f, -direction.Z - Limits.ShoulderBack);
+        e[2] = MathF.Max(0f, -Vector3.Dot(direction, s.Axis) - Limits.ShoulderAcross);
+        e[3] = Outside(v[3], ElbowLow, ElbowHigh);
+        for (var w = 0; w < 3; w++)
+        {
+            e[4 + w] = Outside(v[4 + w], _wristLow[w], _wristHigh[w]);
+        }
+
+        return e;
+    }
+
+    private static float Outside(float value, float low, float high) => MathF.Max(0f, MathF.Max(low - value, value - high));
+
+    /// <summary>構えがはみ出している分を差し引いた、はみ出しの最大。</summary>
+    private float ExcessBeyondGuard(IReadOnlyList<float> v)
+    {
+        var e = Excesses(v);
+        var worst = 0f;
+        for (var i = 0; i < e.Length; i++)
+        {
+            worst = MathF.Max(worst, e[i] - _guardExcess[i]);
+        }
+
+        return worst;
     }
 
     public StickBody Body { get; }
@@ -234,7 +320,7 @@ public sealed class SwingRig
     public (float Low, float High) WristRange(int index) => (_wristLow[index], _wristHigh[index]);
 
     /// <summary>名簿のキャラの体に鉄の剣（片手）を右手で握らせた棒人形。</summary>
-    public static SwingRig Create(string characterId = "jin")
+    public static SwingRig Create(string characterId = "jin", SwingLimits? limits = null)
     {
         var c = CharacterRoster.Get(characterId);
         var tuning = FighterTuning.Default with { Build = c.Build ?? BodyBuild.Standard };
@@ -248,7 +334,7 @@ public sealed class SwingRig
         var mass = game.World.GetMass(weapon.Body.BodyId);
         // 片手: 手首のサーボの上限。手首の振れの上限は、掌屈 80°・橈屈 20° を合わせた範囲より少し広い 95°（異方的な範囲は、振りの側で人の可動域に収める）。
         var armed = body.WithWeapon(BoxingGame.WeaponHand, length, mass, -Weapon.GripOf(kind).X, tuning.WristMaxTorque * tuning.TorqueScale, swingLimit: 95f * Deg);
-        return new SwingRig(armed);
+        return new SwingRig(armed, limits ?? new SwingLimits());
     }
 
     // ---- 遺伝子 ----
@@ -287,7 +373,16 @@ public sealed class SwingRig
         var at = Body.Offsets[_shoulder];
         (scratch.Values[at], scratch.Values[at + 1], scratch.Values[at + 2]) = (rotation.X, rotation.Y, rotation.Z);
         scratch.Project(Body);
-        return new Vector3(scratch.Values[at], scratch.Values[at + 1], scratch.Values[at + 2]);
+        var projected = StickMath.Exp(new Vector3(scratch.Values[at], scratch.Values[at + 1], scratch.Values[at + 2]));
+        var axis = Body.Segments[_shoulder].Axis;
+        var (swing, twist) = StickMath.SwingTwist(projected, axis);
+        var twistAngle = StickMath.SignedAngle(twist, axis);
+        if (twistAngle >= ShoulderTwistLow && twistAngle <= ShoulderTwistHigh)
+        {
+            return new Vector3(scratch.Values[at], scratch.Values[at + 1], scratch.Values[at + 2]); // 範囲の中は触らない（収め直しても値が変わらないように）
+        }
+
+        return StickMath.Log(swing * Quaternion.CreateFromAxisAngle(axis, Math.Clamp(twistAngle, ShoulderTwistLow, ShoulderTwistHigh)));
     }
 
     /// <summary>範囲の中から一様に引いた遺伝子（肩は振れの面積が一様になるよう、振れの方向・角・ねじれを引く）。</summary>
@@ -303,7 +398,7 @@ public sealed class SwingRig
             var at = KeyAt(k);
             var azimuth = random.NextSingle() * MathF.Tau;
             var swing = s.SwingLimit * MathF.Sqrt(random.NextSingle());
-            var twist = s.TwistMin + (random.NextSingle() * (s.TwistMax - s.TwistMin));
+            var twist = ShoulderTwistLow + (random.NextSingle() * (ShoulderTwistHigh - ShoulderTwistLow));
             var axis = (MathF.Cos(azimuth) * perpendicular) + (MathF.Sin(azimuth) * other);
             var q = Quaternion.CreateFromAxisAngle(axis, swing) * Quaternion.CreateFromAxisAngle(s.Axis, twist);
             var rotation = StickMath.Log(q);
@@ -369,6 +464,8 @@ public sealed class SwingRig
         var elbowAt = Body.Offsets[_elbow];
         var weaponAt = Body.Offsets[_weapon];
         var values = new double[PerKey];
+        var raw = new float[PerKey];
+        var excess = 0f;
         for (var i = 0; i < n; i++)
         {
             var t = Math.Min(i * (double)Dt, total);
@@ -383,7 +480,10 @@ public sealed class SwingRig
             for (var d = 0; d < PerKey; d++)
             {
                 values[d] = SwingInterpolation.Evaluate(segments[d][segment], t - start);
+                raw[d] = (float)values[d];
             }
+
+            excess = MathF.Max(excess, ExcessBeyondGuard(raw));
 
             var pose = Body.Guard.Copy();
             (pose.Values[shoulderAt], pose.Values[shoulderAt + 1], pose.Values[shoulderAt + 2]) = ((float)values[0], (float)values[1], (float)values[2]);
@@ -403,7 +503,7 @@ public sealed class SwingRig
             loads[i] = StickDynamics.Solve(frames[Math.Max(0, i - 1)], frames[i], frames[Math.Min(n - 1, i + 1)], Dt, (true, true));
         }
 
-        return new SwingTrace(frames, loads, Dt);
+        return new SwingTrace(frames, loads, Dt) { RangeExcess = excess };
     }
 
     /// <summary>
@@ -552,6 +652,12 @@ public sealed class SwingRig
             disqualification += 5f + (1000f * overlap);
         }
 
+        // 関節の範囲: 1° ほどの補間のはみ出しは許し、それを超えたら失格（はみ出し 0.1 rad ≈ 6° で罰 +2）。
+        if (trace.RangeExcess > RangeTolerance)
+        {
+            disqualification += 5f + (20f * trace.RangeExcess);
+        }
+
         var peakSpeed = speeds[peak];
         var score = (weights.Speed * (peakSpeed / SpeedReference)) - (weights.Smooth * smooth) - (weights.Plane * planeTerm) - (weights.Edge * edgeTerm)
             - (weights.Direction * directionTerm) - disqualification;
@@ -572,6 +678,7 @@ public sealed class SwingRig
             MaxLoadJoint = maxLoadJoint,
             SelfCut = selfCut,
             ArmOverlap = overlap,
+            RangeExcess = trace.RangeExcess,
             Duration = (n - 1) * dt,
             StrokeFrom = from,
             StrokeTo = to,
@@ -586,6 +693,9 @@ public sealed class SwingRig
 
     /// <summary>体の通り抜けの閾値 [m]（<see cref="StickReviewSettings.Penetration"/> と同じ 5 mm）。</summary>
     private const float PenetrationLimit = 0.005f;
+
+    /// <summary>補間が関節の範囲をはみ出してよい量 [rad]（1°。キーの角が範囲の端にあると、躍度最小の補間はわずかに行き過ぎる）。</summary>
+    private const float RangeTolerance = 1f * Deg;
 
     /// <summary>この振りを、棒人形の標準の見立て（<see cref="StickReview"/>）へ通す。バランス（捕捉点・床）は体を構えのまま固定しているので数えない。</summary>
     public StickReview Review(SwingTrace trace, FighterTuning? tuning = null)

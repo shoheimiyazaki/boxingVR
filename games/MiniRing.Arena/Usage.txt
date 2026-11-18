@@ -15,7 +15,7 @@
                                                                                   空手のドリル: 手の形 × 急所、パリー（拳の曲がり）、5 種の蹴り
   kicklab [--body taeyun] [--kick Roundhouse] [--distances 1.0,1.1,...] [--seeds 1,2,..] [--confirm-seeds 11,12,..] [--shin 0.75] [--overshoot -0.2] [--log f.md]
                                                                                   蹴りの間合いのドリル: 間合いを刻んで蹴り、当たり・すねの当たった点・渡したエネルギーの表（採る間合いは使っていない種で比べ直す）
-  stick [--swing] [--planes vertical,kesa,...] [--samples 2000] [--polish 8] [--iterations 3000] [--seed 1] [--weights speed:3,smooth:1,plane:1,edge:1,dir:1,whole:0.5] [--character jin] [--video docs/video] [--log f.md]
+  stick [--swing] [--planes vertical,kesa,...] [--samples 2000] [--polish 8] [--iterations 3000] [--seed 1] [--weights speed:3,smooth:1,plane:1,edge:1,dir:1,whole:0.5] [--character jin] [--limits grip|loose] [--video docs/video] [--log f.md]
                                                                                   棒人形の道具（docs/STICK_MOTION.md）: --swing は片手剣の振りを断面ごとにモンテカルロで探して動画にする（§11）。--forms ID・--kicks・--design は型・蹴りの見立て
   counterlab [--book f.json] [--defense a,b|evasions] [--bouts N] [--ranges 1.15,1.3] [--log f.md] [--out book.json]
                                                                                   回避からのカウンターの研究（型 × 打ち始めの総当たり）

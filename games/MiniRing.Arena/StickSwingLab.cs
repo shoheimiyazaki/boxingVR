@@ -40,12 +40,20 @@ internal static class StickSwingLab
         var character = o.Get("character") ?? "jin";
         var videoDir = o.Get("video");
         var watch = Stopwatch.StartNew();
-        var rig = SwingRig.Create(character);
+        var limitsName = o.Get("limits") ?? "grip";
+        var limits = limitsName switch
+        {
+            "grip" => new SwingLimits(),
+            "loose" => SwingLimits.Loose,
+            _ => throw new ArgumentException($"--limits は grip（剣をがっちり握った腕。既定）か loose（今までの広い範囲）: {limitsName}"),
+        };
+        var rig = SwingRig.Create(character, limits);
         log($"## 棒人形で片手剣の振りを探す（{character}、鉄の剣、右手）");
         log("");
         log($"- 体: 腕の長さ {rig.ArmLength * 100f:0.0} cm・剣の長さ {rig.BladeLength * 100f:0.0} cm。動かすのは右肩（玉）・右肘・右手首だけで、ほかは構えのまま。");
         log($"- 探索: 一様に {options.Samples} 本 → 上位 {options.Polish} 本を (1+1) 進化戦略で {options.Iterations} 回ずつ磨く（種 {options.Seed}）。点の重み: 速さ {weights.Speed}・滑らか {weights.Smooth}・断面 {weights.Plane}・刃筋 {weights.Edge}・向き {weights.Direction}・断面に数える全体の割合 {weights.Whole}。");
         log("- `速さ` = 剣先の最大の速さ。`LDLJ`・`SPARC` = 主な 1 本の動き（最大の速さの山、谷から谷）の滑らかさ（大きい=0 に近いほど滑らか。躍度最小の 1 本で LDLJ −4.9・SPARC 約 −1.4）。`余山` = 主な山以外の速さの山。`断面外れ` = 肘・手首・剣先の軌跡の断面からの外れ（距離の RMS ÷ 広がり。左 = 主な 1 本の動きの始めから振り抜きまで、右 = 構えから振り抜きまで全体）。`刃筋` = 剣先の進む向きが刃の面から外れた角。`向き` = 最大の速さのときの進む向きと断面の斬る向きとの角。`負担` = 肩・肘・手首のトルク ÷ 上限の最大（1 超えは失格）。");
+        log(string.Create(CultureInfo.InvariantCulture, $"- 関節の範囲（{limitsName}）: 手首の屈曲 {Degrees(limits.WristFlexLow):0}〜{Degrees(limits.WristFlexHigh):0}°・橈尺屈 {Degrees(limits.WristDeviationLow):0}〜{Degrees(limits.WristDeviationHigh):0}°・前腕のねじれ {Degrees(limits.ForearmRollLow):0}〜{Degrees(limits.ForearmRollHigh):0}°・肘 {Degrees(rig.ElbowLow):0}〜{Degrees(rig.ElbowHigh):0}°・肩のねじれ {Degrees(rig.ShoulderTwistLow):0}〜{Degrees(rig.ShoulderTwistHigh):0}°・上腕の後ろ向き sin ≤ {limits.ShoulderBack:0.00}・反対の脇へ sin ≤ {limits.ShoulderAcross:0.00}。補間のはみ出しが 1° を超えたら失格。"));
         log("");
         var results = new List<SwingSearchResult>();
         foreach (var plane in planes)
