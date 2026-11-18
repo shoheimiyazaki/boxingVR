@@ -1745,6 +1745,7 @@ public sealed partial class Fighter
     /// 脚の IK: 足の置き方から股・膝・足首・つま先のサーボの目標を決める。骨盤は今の位置と、目標の姿勢にあるとして解く
     /// （今の姿勢から解くと、傾いた骨盤を脚が支え直さず、骨盤が 45° 傾いた）。高さのずれは骨盤の高さの制御が積分で打ち消す。
     /// </summary>
+    public string[] DebugBallErr { get; } = new string[2];
     private void ApplyLegs(float groundY, float dt)
     {
         var pelvis = _world.GetState(Parts.Pelvis);
@@ -1760,6 +1761,7 @@ public sealed partial class Fighter
             }
 
             var pose = _footwork.Pose(i);
+            { var act = BallOnGround(leg); var e = new Vector2(act.X - pose.Ball.X, act.Y - pose.Ball.Z); DebugBallErr[i] = $"{e.X * 100f:0.0},{e.Y * 100f:0.0}{(pose.Swinging ? "S" : "")} yawpose={pose.Yaw * 57.3f:0} heel={pose.HeelRaise * 57.3f:0}"; }
             if (leg.KneeDriven && leg.Command is not { IsKneeControl: true })
             {
                 // 膝の制御が終わった: 前の目標（膝の点）から足首の目標の速さを出さない。
