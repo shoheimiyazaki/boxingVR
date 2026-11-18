@@ -145,6 +145,11 @@ public static class BoxingRenderer
             var eyes = new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
             foreach (var part in body.Parts)
             {
+                if (game.HidePlayerHead && ReferenceEquals(fighter, game.Player) && part.Kind == BodyPartKind.Head)
+                {
+                    continue; // 一人称: 自分の頭は目の描画に入れない（カメラが頭の中にある）
+                }
+
                 voxels.Add(part.Draw(fighter.Cyanosis, eyes)); // 息が上がるほど皮膚が青紫に（見た目だけ）
             }
 

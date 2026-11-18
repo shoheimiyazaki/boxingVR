@@ -17,16 +17,18 @@ internal sealed class VrTrainingSession : IDisposable
 {
     private readonly WeaponKind _weapon;
     private readonly FighterTuning _tuning;
+    private readonly bool _firstPerson;
     private readonly StickFlick _choose = new();
     private readonly StickFlick _reset = new();
     private readonly VrMotionSession _motion;
     private readonly List<VrHaptic> _haptics = [];
     private int _index;
 
-    public VrTrainingSession(WeaponKind weapon, FighterTuning tuning, string motionsDirectory)
+    public VrTrainingSession(WeaponKind weapon, FighterTuning tuning, string motionsDirectory, bool firstPerson = false)
     {
         _weapon = weapon;
         _tuning = tuning;
+        _firstPerson = firstPerson;
         // 型の間は体の腕の長さで決まるので、一度作った試合の体から腕の長さを読む。
         using (var probe = new BoxingGame(tuning, corners: SwordTraining.Corners(weapon, 1f)))
         {
@@ -67,6 +69,7 @@ internal sealed class VrTrainingSession : IDisposable
             _motion.Stop();
             _index = (_index + choose + Forms.Count) % Forms.Count;
             Rebuild();
+            mapper.ResetPlacement(); // first person: re-align the transform to the rebuilt puppet
             Announce();
             _haptics.Add(new VrHaptic(Hand.Right, 0.4f, 0.05f));
         }
@@ -74,6 +77,7 @@ internal sealed class VrTrainingSession : IDisposable
         {
             _motion.Stop();
             Rebuild();
+            mapper.ResetPlacement(); // first person: re-align the transform to the rebuilt puppet
             Console.WriteLine($"[vr] reset: {Current.Name}");
             _haptics.Add(new VrHaptic(Hand.Left, 0.4f, 0.05f));
             _haptics.Add(new VrHaptic(Hand.Right, 0.4f, 0.05f));
@@ -111,7 +115,7 @@ internal sealed class VrTrainingSession : IDisposable
         Game.Dispose();
     }
 
-    private BoxingGame Create() => new(_tuning, corners: SwordTraining.Corners(_weapon, Current.Gap));
+    private BoxingGame Create() => new(_tuning, corners: SwordTraining.Corners(_weapon, Current.Gap)) { HidePlayerHead = _firstPerson };
 
     private void Rebuild()
     {

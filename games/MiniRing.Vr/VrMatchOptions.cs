@@ -1,4 +1,5 @@
 using MiniRing.Bots;
+using MiniRing.Motion;
 using MiniRing.Weapons;
 
 namespace MiniRing.Vr;
@@ -12,6 +13,12 @@ internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuW
 {
     /// <summary>お手本づくりの稽古（<c>--training katana</c>）の武器。null なら試合（<see cref="VrTrainingSession"/>）。</summary>
     public WeaponKind? Training { get; init; }
+
+    /// <summary>① <c>--two-hand right</c>（既定）: 両手持ちの武器は右のコントローラが両手を動かす（左はグリップを押しているだけ）。<c>both</c>: 左右のコントローラがそれぞれの手を動かす。</summary>
+    public VrTwoHand TwoHand { get; init; } = VrTwoHand.Right;
+
+    /// <summary>② <c>--first-person</c>: カメラは HMD の姿勢のまま。体の頭を HMD の位置へ持っていく。自分の頭は目の描画に入れない。</summary>
+    public bool FirstPerson { get; init; }
 
     public static bool TryParse(IReadOnlyList<string> args, out VrMatchOptions options, out string error)
     {
@@ -74,7 +81,22 @@ internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuW
             training = kind;
         }
 
-        options = new VrMatchOptions(training ?? player, training ?? cpuWeapon, cpu) { Training = training };
+        var twoHand = VrTwoHand.Right;
+        if (Value(args, "--two-hand") is { } twoHandText)
+        {
+            if (!Enum.TryParse(twoHandText, ignoreCase: true, out twoHand) || !Enum.IsDefined(twoHand))
+            {
+                error = $"Unknown --two-hand '{twoHandText}'. Known: right, both.";
+                return false;
+            }
+        }
+
+        options = new VrMatchOptions(training ?? player, training ?? cpuWeapon, cpu)
+        {
+            Training = training,
+            TwoHand = twoHand,
+            FirstPerson = args.Contains("--first-person"),
+        };
         return true;
     }
 

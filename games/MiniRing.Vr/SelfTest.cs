@@ -96,6 +96,56 @@ internal static unsafe class SelfTest
         if (result != Result.Success) { throw new InvalidOperationException($"Vulkan profiling call failed: {result}"); }
     }
 
+    /// <summary>
+    /// HMD なしで一人称（<c>--first-person</c>）の目の描画を確かめる（<c>--first-person-selftest</c>）: 稽古の世界（katana、正眼の相手）で、
+    /// 止まった HMD と両手（グリップを押して構える）を写像（①: 右のコントローラが両手）へ数秒流し、身長の合わせで決めた変換を掛けた目の視点から 2 枚描く
+    /// （自分の頭を描かない = 実際の描画 / 描く = 比較用）。<c>.visualcheck/vr_first_person.png</c>・<c>vr_first_person_headvisible.png</c>。
+    /// </summary>
+    public static int FirstPerson(string outputDirectory)
+    {
+        var tuning = FighterTuning.Default with { PlayerFatigue = false };
+        using var game = new BoxingGame(tuning, corners: MiniRing.Motion.SwordTraining.Corners(Weapons.WeaponKind.Katana, 0.9f)) { HidePlayerHead = true };
+        var mapper = new MiniRing.Motion.VrPlayerMapper(weaponMode: true)
+        {
+            GripHolds = true,
+            TwoHand = MiniRing.Motion.VrTwoHand.Right,
+            FirstPerson = true,
+            HeldWeapon = Weapons.WeaponKind.Katana,
+        };
+        // 人の寸法（VR の空間: 頭は −Z を向く）。右手は胸の前、刀は前を向く（コントローラの前 = −Z）。左手は体の横（右の手が決めるので位置は使われない）。
+        var head = new Vector3(0f, 1.62f, 0f);
+        var raw = new MiniRing.Motion.VrRawFrame(head, Quaternion.Identity,
+            new Vector3(-0.15f, 1.1f, -0.2f), new Vector3(0.15f, 1.25f, -0.4f), true, true,
+            Vector2.Zero, Vector2.Zero, 1f, 1f, false, true, Quaternion.Identity, Quaternion.Identity);
+        const float dt = 1f / 240f;
+        for (var i = 0; i < 480; i++)
+        {
+            game.Step(mapper.Read(raw, game.PlayerSense, dt), dt);
+        }
+
+        var placement = mapper.Placement ?? throw new InvalidOperationException("The first-person placement was not set by the calibration frame.");
+        var eyePosition = head;
+        Matrix4x4.Invert(Matrix4x4.CreateFromQuaternion(Quaternion.Identity) * Matrix4x4.CreateTranslation(eyePosition), out var vrView);
+        var view = placement.View(vrView);
+        var worldEye = placement.Point(eyePosition);
+        var window = new FrustumWindow(-1.0f, 1.0f, -0.563f, 0.563f);
+        var viewProjection = Camera.OffCenterViewProjection(view, window, 0.02f * placement.Scale, 50f);
+        Directory.CreateDirectory(outputDirectory);
+        Console.WriteLine($"[first-person selftest] scale {placement.Scale:0.000}, puppet head {game.PlayerSense.SelfHead}, camera {worldEye}, hmd target offset {(worldEye - game.PlayerSense.SelfHead).Length() / game.PlayerSense.ArmReach:0.00} arm reaches");
+        foreach (var (hide, name) in new[] { (true, "vr_first_person.png"), (false, "vr_first_person_headvisible.png") })
+        {
+            game.HidePlayerHead = hide;
+            var (instances, lines) = game.BuildRenderables();
+            var voxels = game.BuildVoxelVolumes();
+            using var reference = new HeadlessRenderer(960, 540);
+            var pixels = reference.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, particles: game.BuildParticles(),
+                lighting: game.BuildLighting(), shadow: game.BuildShadow(), cameraPosition: worldEye, voxels: voxels);
+            PngWriter.WriteRgba(Path.Combine(outputDirectory, name), 960, 540, pixels);
+        }
+
+        return 0;
+    }
+
     public static int Run(string outputDirectory)
     {
         using var game = new BoxingGame(seed: 3);
