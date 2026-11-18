@@ -140,9 +140,12 @@ public static class BoxingRenderer
                 continue;
             }
 
+            // 目: 相手を見る黒目とまばたき（見た目だけ）。
+            var other = ReferenceEquals(fighter, game.Player) ? game.Cpu : game.Player;
+            var eyes = new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
             foreach (var part in body.Parts)
             {
-                voxels.Add(part.Draw(fighter.Cyanosis)); // 息が上がるほど皮膚が青紫に（見た目だけ）
+                voxels.Add(part.Draw(fighter.Cyanosis, eyes)); // 息が上がるほど皮膚が青紫に（見た目だけ）
             }
 
             foreach (var fragment in body.Fragments)

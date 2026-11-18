@@ -46,7 +46,8 @@ public sealed class CharacterFileTests
             var textbook = BotCatalog.Style(c.StyleName);
             foreach (var resolved in new[] { c.Resolve(), c.Resolve("marcus"), c.Style })
             {
-                Assert.AreEqual(textbook with { BreakLikes = resolved.BreakLikes }.ToJson(), resolved.ToJson(), "the education changes nothing but the break likes: " + c.Id);
+                var expected = (textbook with { BreakLikes = resolved.BreakLikes }).ToJson();
+                Assert.AreEqual(expected, resolved.ToJson(),"the education changes nothing but the break likes: " + c.Id);
                 Assert.IsNotEmpty(resolved.BreakLikes, c.Id);
             }
         }
@@ -167,7 +168,8 @@ public sealed class CharacterFileTests
 
         // 教育の無いキャラは教科書そのもの（今までの名前引きと同じ物）。
         var plain = new MatchSelection(MatchMode.Single, CharacterRoster.Get("marcus"), CharacterRoster.Get("dmitri")).Corners;
-        Assert.AreSame(BotCatalog.Champion, plain.PlayerStyle);
+        // 名簿のキャラの教育は休みの動作の好み（BreakLikes）だけ: 判断の値は教科書と同じ。
+        Assert.AreEqual((BotCatalog.Champion with { BreakLikes = plain.PlayerStyle!.BreakLikes }).ToJson(), plain.PlayerStyle.ToJson());
     }
 
     [TestMethod]

@@ -205,13 +205,36 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
     /// 顔だけ、下から上へのグラデーション: 頭の箱の下の端（首とのつなぎ目）は元の肌の色のまま、上へ行くほど青い（ユーザーの指定。
     /// 全身を青くすると照明の陰と混ざって分かりにくかった）。16 段に丸めて、段が変わったときだけテクスチャを書き直す。見た目だけ。
     /// </summary>
-    public VoxelVolumeDraw Draw(float cyanosis)
+    public VoxelVolumeDraw Draw(float cyanosis) => Draw(cyanosis, null);
+
+    /// <summary>
+    /// 頭なら <paramref name="eyes"/> で目も動かして描く（見た目だけ。<see cref="EyeGaze"/>）: 黒目は見ている点にいちばん近い白目のセルを塗り、
+    /// まばたき・まぶたの落ちは目のセルを上の段から顔の皮膚の色（あざ・チアノーゼの色を含む）へ塗り替える。
+    /// 材質のセルは変えない（打撃・視覚・チェックサムに響かない）。
+    /// </summary>
+    public VoxelVolumeDraw Draw(float cyanosis, EyePose? eyes)
     {
+        var eyeScan = EyeScan.None;
+        var eyeOn = Kind == BodyPartKind.Head && eyes is not null;
+        if (eyeOn && Matrix4x4.Invert(Body.GridToWorld(), out var worldToGrid))
+        {
+            eyeScan = EyeGaze.Scan(Body.Grid, worldToGrid, eyes!.Value.Target, eyes.Value.Closure);
+        }
+        else
+        {
+            eyeOn = false;
+        }
+
         var cyan = Kind == BodyPartKind.Head ? (int)MathF.Round(Math.Clamp(cyanosis, 0f, 1f) * CyanosisSteps) : 0;
         // あざの色は、増えたとき（版）と、いちばん新しいあざの古さの段（1 秒ごと、赤から青紫へ変わる間だけ）で書き直す。
         var bruise = _cache.Bruise is { } b && b.Length == Body.Grid.CellCount ? b : null;
         var ageStep = bruise is null ? 0 : (int)MathF.Min(3f * BruiseAgeSeconds, _cache.Clock - _cache.LastBruise);
         var step = cyan + ((CyanosisSteps + 1) * ((bruise is null ? 0 : _cache.BruiseVersion * 64) + ageStep));
+        if (eyeOn)
+        {
+            step = HashCode.Combine(step, eyeScan.Pupil0, eyeScan.Pupil1, eyeScan.ClosedAbove0, eyeScan.ClosedAbove1);
+        }
+
         if (step != _cache.Step)
         {
             // 塗り直しの関数は段が変わったときだけ作る（毎フレーム作ると描画の道でごみが出る。VR で効く）。
@@ -220,8 +243,28 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
             var since = _cache.BruiseSince;
             var clock = _cache.Clock;
             var grid = Body.Grid;
-            _cache.Recolor = cyan == 0 && bruise is null ? null : (m, color, x, y, z) =>
+            var palette = grid.Palette;
+            var scan = eyeScan;
+            var half = grid.Dimensions.X / 2;
+            VoxelRecolor? recolor = null;
+            recolor = cyan == 0 && bruise is null && !eyeOn ? null : (m, color, x, y, z) =>
             {
+                if (eyeOn && m is BoxerAnatomy.Eye or BoxerAnatomy.Pupil)
+                {
+                    var first = x >= half;
+                    var surface = grid.IsOriginalSurface(x, y, z);
+                    if (y > (first ? scan.ClosedAbove0 : scan.ClosedAbove1))
+                    {
+                        // まぶた: 目のセルを顔の皮膚の色にする（あざ・チアノーゼはその上に重なる）。
+                        var lid = palette[BoxerAnatomy.Skin];
+                        return recolor!(BoxerAnatomy.Skin, surface ? lid.SurfaceColor : lid.Color, x, y, z);
+                    }
+
+                    var isPupil = grid.Index(x, y, z) == (first ? scan.Pupil0 : scan.Pupil1);
+                    var material = palette[isPupil ? BoxerAnatomy.Pupil : BoxerAnatomy.Eye];
+                    return surface ? material.SurfaceColor : material.Color;
+                }
+
                 if (m != BoxerAnatomy.Skin)
                 {
                     return color;
@@ -238,6 +281,7 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
 
                 return cyan == 0 ? color : Vector4.Lerp(color, CyanoticSkin, amount * MathF.Pow(y / height, CyanosisRise)) with { W = color.W };
             };
+            _cache.Recolor = recolor;
             _cache.Step = step;
         }
 
