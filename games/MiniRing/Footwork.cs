@@ -154,8 +154,13 @@ public sealed record FootworkTuning
     /// </summary>
     public float StepSink { get; init; } = 0.04f;
 
-    /// <summary>TEMP</summary>
-    public float HoldRelax { get; init; }
+    /// <summary>
+    /// 着いている足の「置いた所」の記憶が、実際の足の位置へ寄る時定数 [s]（0 以下で毎歩すぐ合わせる＝以前の動き）。足首を引く力（FootKp・MaxFootForce）は
+    /// 記憶の位置へ足を留めるので、これが短いと留める力が働かず、もう一方の足を踏み出す反作用で着いた足が滑り、構えの直しの踏み出しが止まらなくなる
+    /// （何も入力しなくても 30 秒で 40〜80 cm 流れた。tests SlideTests の表）。踏み直しの 1 周期（0.2 秒）より十分長く、押され続けて足が動いたときに
+    /// 計画し直せる長さ。測った値: 0.5 秒で 3 歩・4 cm 以内（頭を斜めに向けた姿勢で 11 歩・4.7 cm）、2 秒で全部 3 歩・4 cm 以内。
+    /// </summary>
+    public float HoldRelax { get; init; } = 1f;
 }
 
 /// <summary>1 本の足の置き方（ワールド）: 母指球の位置（地面の上、持ち上げを含む）、つま先の向き、かかとの浮き。</summary>
@@ -231,9 +236,6 @@ public sealed class Footwork
 
     /// <summary>踏んだ歩数（調べもの・テスト用）。</summary>
     public int Steps { get; private set; }
-    public string DebugPlan { get; private set; } = "";
-    public string DebugLand { get; private set; } = "";
-    public string DebugStep { get; private set; } = "";
 
     /// <summary>体（骨盤）を寄せる先: 両足の母指球の間で、体重のかけ方で前後に寄る点。</summary>
     public Vector2 SupportCenter { get; private set; }
@@ -293,7 +295,6 @@ public sealed class Footwork
             _swingTime += dt;
             if (_swingTime >= _swingDuration)
             {
-                { var mid = Vector2.Lerp(_ball[Lead], _ball[Rear], 0.5f); var act = (_swinging == Lead ? input.LeadBall : input.RearBall) ?? _to; DebugLand = $"LAND foot={_swinging} planned=({Unrotate(_to - mid, input.FacingYaw).X / _legLength:0.00},{Unrotate(_to - mid, input.FacingYaw).Y / _legLength:0.00}) actualNow=({Unrotate(act - mid, input.FacingYaw).X / _legLength:0.00},{Unrotate(act - mid, input.FacingYaw).Y / _legLength:0.00}) dur={_swingDuration:0.00}"; }
                 _ball[_swinging] = _to;
                 _yaw[_swinging] = _toYaw;
                 _swinging = -1;
@@ -302,10 +303,13 @@ public sealed class Footwork
 
         if (_swinging < 0)
         {
-            // 着いている足は、実際に置かれた所を足の位置とする（踏み出した足が届かなかった・押されてずれたら、そこから計画し直す）。
-            var k = _tuning.HoldRelax <= 0f ? 1f : 1f - MathF.Exp(-dt / _tuning.HoldRelax);
-            _ball[Lead] = input.LeadBall is { } lb ? Vector2.Lerp(_ball[Lead], lb, k) : _ball[Lead];
-            _ball[Rear] = input.RearBall is { } rb ? Vector2.Lerp(_ball[Rear], rb, k) : _ball[Rear];
+            // 着いている足は、置いた所を足の位置として覚えている（足首を引く力がそこへ留める）。押されて実際の足がずれたら、覚えている位置を
+            // HoldRelax の時定数で実際の位置へ寄せていく（踏み出した足が届かなかった・押され続けて動いたら、そこから計画し直す）。
+            // 毎歩すぐに実際の位置へ合わせると、足首を引く力の目標が足そのものになって留める力が 0 になり、もう一方の足を踏み出す反作用で
+            // 着いた足が 1 cm ずつ滑り、その滑りが構えの直しの閾値（StepThreshold）に近いので踏み直しが止まらず、体が少しずつ流れていった。
+            var relax = _tuning.HoldRelax <= 0f ? 1f : 1f - MathF.Exp(-dt / _tuning.HoldRelax);
+            _ball[Lead] = input.LeadBall is { } leadActual ? Vector2.Lerp(_ball[Lead], leadActual, relax) : _ball[Lead];
+            _ball[Rear] = input.RearBall is { } rearActual ? Vector2.Lerp(_ball[Rear], rearActual, relax) : _ball[Rear];
             PlanStep(input);
         }
 
@@ -356,7 +360,6 @@ public sealed class Footwork
         // 捕捉点が両足を結ぶ線（支え）から外れたら、倒れる向きの足から踏み出して受け止める。
         var off = DistanceToSegment(capture, _ball[Lead], _ball[Rear]);
         var falling = off > t.CaptureMargin * leg;
-        if (need[Lead] || need[Rear] || falling) { DebugPlan = $"need L={need[Lead]}(err {error[Lead] / leg:0.00}, yaw {BodyFrame.DeltaAngle(_yaw[Lead], input.FacingYaw + StanceYaw(Lead)) * 57.3f:0}, over {input.LeadOverreach}) R={need[Rear]}(err {error[Rear] / leg:0.00}, yaw {BodyFrame.DeltaAngle(_yaw[Rear], input.FacingYaw + StanceYaw(Rear)) * 57.3f:0}, over {input.RearOverreach}) falling={falling} off={off / leg:0.00} w={_weight:0.00} tw={_twist:0.00} drift={drift.Length() / leg:0.00} (db {t.CaptureDeadband}) sup-mid={(SupportCenter - middle).Length() / leg:0.00} body-mid={(input.Body - middle).Length() / leg:0.00} vel={input.BodyVelocity.Length():0.00}"; }
         if (!need[Lead] && !need[Rear] && !falling)
         {
             return;
@@ -405,7 +408,6 @@ public sealed class Footwork
 
         var distance = Vector2.Distance(target, _ball[foot0]);
         _swinging = foot0;
-        { DebugStep = $"STEP foot={foot0} Lball=({_ball[Lead].X * 100:0.0},{_ball[Lead].Y * 100:0.0}) Rball=({_ball[Rear].X * 100:0.0},{_ball[Rear].Y * 100:0.0}) target=({target.X * 100:0.0},{target.Y * 100:0.0}) center=({center.X * 100:0.0},{center.Y * 100:0.0}) middle=({middle.X * 100:0.0},{middle.Y * 100:0.0}) body=({input.Body.X * 100:0.0},{input.Body.Y * 100:0.0}) face={input.FacingYaw * 57.3f:0} leg={leg * 100:0.0}"; }
         _lastFoot = foot0;
         _sinceStep = 0f;
         _from = _ball[foot0];

@@ -41,10 +41,8 @@ public sealed class SlideProbe
         var variants = new (string, Func<FighterTuning, FighterTuning>)[]
         {
             ("default", t => t),
-            ("Relax 0.15", t => t with { Footwork = t.Footwork with { HoldRelax = 0.15f } }),
-            ("Relax 0.5", t => t with { Footwork = t.Footwork with { HoldRelax = 0.5f } }),
-            ("Relax 2", t => t with { Footwork = t.Footwork with { HoldRelax = 2f } }),
-            ("Relax 1e6", t => t with { Footwork = t.Footwork with { HoldRelax = 1e6f } }),
+            ("Relax 0", t => t with { Footwork = t.Footwork with { HoldRelax = 0f } }),
+            ("Relax 1", t => t with { Footwork = t.Footwork with { HoldRelax = 1f } }),
         };
         foreach (var (vname, tune) in variants)
         {
