@@ -411,7 +411,7 @@ public sealed class StickReview
     }
 
     /// <summary>部位 a と b（太さのある棒）の入り込む深さ [m]（負なら隙間）。</summary>
-    private static float Overlap(StickBody body, StickFrame frame, int a, int b)
+    internal static float Overlap(StickBody body, StickFrame frame, int a, int b)
     {
         var (pa, qa, ra) = Capsule(body, frame, a);
         var (pb, qb, rb) = Capsule(body, frame, b);
