@@ -315,6 +315,7 @@ public sealed class VrMotionClip
     /// <summary>保存先（<paramref name="directory"/>/&lt;日時&gt;_&lt;武器&gt;.vrmotion）。同じ秒なら _2, _3 … を付ける。</summary>
     public static string NewPath(string directory, string? weapon)
     {
+        // determinism-ok: the file name only.
         var stem = string.Create(CultureInfo.InvariantCulture, $"{DateTime.Now:yyyyMMdd_HHmmss}_{(string.IsNullOrEmpty(weapon) ? "fists" : weapon.ToLowerInvariant())}");
         var path = Path.Combine(directory, stem + Extension);
         for (var n = 2; File.Exists(path); n++)

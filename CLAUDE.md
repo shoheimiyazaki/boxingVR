@@ -128,6 +128,8 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | `docs/MEDIA.md` | 動画・リプレイの保管（`media/<世代>/`、git の外）の索引と、世代の区切り方 |
 | `docs/ROSTER_REPORT.md` | 名簿の総当たり（組ごとの勝率と区間）・技ごとの間合いとダメージ・得意 / 不得意の距離を測り、ゲームの画像入りのレポート（Data 型の Artifact）にする手順・定義・考察の書き方（道具は `tools/roster-report/`） |
 
+**読み方（トークンの節約）**: 上の表は「今の仕組み」。**記録**（経緯・測定の生の値）は、その経緯が要るときだけ見出しで探して読む: `docs/BOT_PDCA.md`・`docs/arena/*`・`docs/LEARNING_PLAN.md` の記録の節・`docs/plans/done/`（終わった指示書と報告。報告が出た指示書はここへ移す）・`docs/VERSIONS.md`。大きい文書（`VOXEL_DAMAGE`・`BOTS`・`KARATE` など 20KB 超）は全部を読まず、`Grep` で節を探してその節だけ読む。
+
 ---
 
 ## 4. 変更するときの決まり（チェックリスト）
@@ -142,8 +144,8 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 4. **シェーダー（`ShaderSource` の GLSL）を変えたら `PrecompiledShaders` の SPIR-V を作り直す**（shaderc で再コンパイルし、配列を置き換える。変更前に「今のソースを再コンパイルすると今の配列と一致する」ことを確かめてから）。
 5. **テスト**: 新しい振る舞いには、それが物理として起きていることを数値で確かめるテストを書く（例: 「踏み込みながら打つと拳が速く、体はそのぶん遅くなる」）。バグ修正には再発防止のテストを 1 つ。期待値が物理として間違っていたらテストを直す（説明を添える）。
 6. **テストは 2 段**: 変更中は速い段（`run.cmd test`、数分）、完了の前に全部（`run.cmd test all`、直列で約 1 時間。この PC は RAM が少ないので raytrek で回す: `bash tools/remote-test.sh`）。試合・長い物理を回すテストのクラスには `[TestCategory("slow")]` を付ける（目安: クラスで 3 秒以上）。README のテスト件数を合わせる。
-7. **目で見る**: 見た目・動きに関わる変更は、visual テスト（`.visualcheck/*.png`）か動画を作って**自分で中身を見てから**完了と言う。PNG があること・動画ができたことは正しさの証明ではない。
-8. **文書**: 仕組みを変えたら該当の `docs/*.md`（と `docs/GUIDE.html` の該当節）を直す。ボットや技を磨いたら `docs/BOT_PDCA.md` に、仮説 → 測った結果 → 採否を書き、生の記録を `docs/arena/` に残す。
+7. **目で見る**: 見た目・動きに関わる変更は、visual テスト（`.visualcheck/*.png`）か動画を作って**自分で中身を見てから**完了と言う。PNG があること・動画ができたことは正しさの証明ではない。動画は `py -3 tools/sheet.py <動画.mp4> [out.png] [--count 12] [--times 3.2,4.0]` で時刻入りのコマを格子に並べた 1 枚にして読む。
+8. **文書**: 仕組みを変えたら該当の `docs/*.md`（と `docs/GUIDE.html` の該当節）を直す。ボットや技を磨いたら `docs/BOT_PDCA.md` に、仮説 → 測った結果 → 採否を書き、生の記録を `docs/arena/` に残す。採否の比べ直し（使わなかった種・`PairedEvaluation.Confirm`）の結果は `docs/arena/confirm.jsonl` に 1 行の JSON で残る（新しい比べ直しの道具は `ConfirmLog.Append` を呼ぶ）。
 9. **コードレビュー**: 書いたら別の目（レビュー用のエージェント）で見る。指摘は直すか、直さない理由を言う。
 
 ## 5. 確かめ方（道具）
@@ -159,6 +161,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | 総当たり | `... league --bouts 4 --seconds 60 --out docs/arena/<名前>.md`（名簿のキャラどうしは `rosterleague`） |
 | ドリル | `attacklab`・`finishlab`・`karatelab`・`drill`・`basics`・`formlab`・`guardlab`（引数は docs/TOOLS.md） |
 | 試合の動画 | `... video --red champion --blue swarmer --seconds 40 --out docs/video/<名前>.mp4`（ffmpeg が要る） |
+| 動画を 1 枚で見る | `py -3 tools/sheet.py docs/video/<名前>.mp4 --count 12`（`<名前>.sheet.png`。区間は `--from/--to`、決まった時刻は `--times`） |
 
 撮った動画・記録は、世代を区切るときに `media/<世代>/` へ移し、`docs/MEDIA.md` に足す。動画を縮めるときは**音を残す**: `ffmpeg -i in.mp4 -vcodec libx264 -crf 30 -preset slow -vf scale=960:-2 -c:a aac -b:a 96k out_small.mp4`（`-an` は音を消す）。
 

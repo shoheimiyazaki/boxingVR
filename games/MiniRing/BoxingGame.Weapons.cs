@@ -40,8 +40,15 @@ public sealed partial class BoxingGame
     /// </summary>
     public int MaxContactPasses { get; set; } = DefaultMaxContactPasses;
 
-    /// <summary><see cref="MaxContactPasses"/> の既定（3。比べものの調べ（掃き直し 1 回 = 以前）のために変えられる）。</summary>
-    public static int DefaultMaxContactPasses { get; set; } = 3;
+    /// <summary><see cref="MaxContactPasses"/> の既定（3。比べものの調べ（掃き直し 1 回 = 以前）のために変えられる）。
+    /// 非同期の流れごとに持つ（<see cref="DefaultSubstepRate"/> と同じ）。</summary>
+    public static int DefaultMaxContactPasses
+    {
+        get => _defaultMaxContactPasses.Value ?? 3;
+        set => _defaultMaxContactPasses.Value = value;
+    }
+
+    private static readonly System.Threading.AsyncLocal<int?> _defaultMaxContactPasses = new();
 
     /// <summary>武器の打撃の、次の打撃までの間を数える（物理の 1 歩ごと）。</summary>
     private void CoolWeapons(float dt)

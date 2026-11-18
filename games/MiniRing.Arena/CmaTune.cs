@@ -433,6 +433,7 @@ internal sealed class CmaTune(CmaTuneConfig config, Action<string> log)
         {
             var seeds = Enumerable.Range(0, config.ConfirmN).Select(k => config.Seed + (1000 * (ConfirmBlock + k))).ToArray();
             var result = PairedEvaluation.Confirm(s => Points(target, m, s), s => Points(target, start, s), seeds, alpha);
+            ConfirmLog.Append("cmatune", $"drill points of {target}", "m: " + target.Values(m), "start: " + target.Values(start), seeds, result);
             var improved = result.CiLow > 0d;
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                 $"始めの値（champion）と、分布の平均 m（最良の個体ではない）を同じ種で対にした差の点: {result}（A = m、B = 始めの値、{(1d - alpha) * 100d:0.#}% 区間）。"));
@@ -462,6 +463,8 @@ internal sealed class CmaTune(CmaTuneConfig config, Action<string> log)
             var changed = Contender.Of(target.Overlay(m));
             var original = Contender.Of(champion);
             var result = PairedEvaluation.Confirm(s => sampler.Score(changed, s), s => sampler.Score(original, s), seeds, alpha);
+            ConfirmLog.Append("cmatune", $"match score with {target} replaced (vs {string.Join(",", NoiseLab.Opponents)}, {config.MatchSeconds:0} s)",
+                "champion with m: " + target.Values(m), "champion", seeds, result);
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                 $"相手 {string.Join("・", NoiseLab.Opponents)} × 両コーナー、{config.MatchSeconds:0} 秒、n = {config.MatchN}（点は `MatchScore.Of` の 1 標本ぶん。A = 替えたスタイル、B = champion）: {result}"));
             sb.AppendLine();

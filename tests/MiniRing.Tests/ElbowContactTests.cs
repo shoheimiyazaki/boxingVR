@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 肘用の式・倍率は無い（肘の速さ・腕と体の質量・当たる骨と皮膚だけが結果を決める）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class ElbowContactTests
 {
     private const float Dt = 1f / 240f;

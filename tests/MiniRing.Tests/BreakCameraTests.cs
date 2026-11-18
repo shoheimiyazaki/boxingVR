@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// どちらも見た目だけで、試合の計算には響かない。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class BreakCameraTests
 {
     private static TvDirector Director() => new(1280, 720, 30, 1f / 80f, "赤", "青");

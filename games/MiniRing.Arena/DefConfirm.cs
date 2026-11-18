@@ -40,6 +40,8 @@ internal static class DefConfirm
         // cmatune と同じ種の置き場（ConfirmBlock = 500000）。
         var seeds = Enumerable.Range(0, n).Select(k => seed + (1000 * (500_000 + k))).ToArray();
         var result = PairedEvaluation.Confirm(s => Points(tuned, s), s => Points(start, s), seeds);
+        ConfirmLog.Append("defconfirm", $"defense drill points of {defense} ({seconds:0} s)", $"tuned ({bookPath}): {DefenseTuner.Describe(tuned.Of(defense))}",
+            "start: " + DefenseTuner.Describe(start.Of(defense)), seeds, result);
         var verdict = result.CiLow > 0d ? "改善" : result.CiHigh < 0d ? "悪化" : "改善とは言えない";
         var sb = new StringBuilder();
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,

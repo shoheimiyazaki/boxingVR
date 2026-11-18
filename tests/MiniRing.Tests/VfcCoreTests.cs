@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 /// 既定の道（四角いリング・今のルール）は別のテスト（ReplayTests ほか）が変わらないことを守る。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class VfcCoreTests
 {
     private const float Dt = 1f / 240f;

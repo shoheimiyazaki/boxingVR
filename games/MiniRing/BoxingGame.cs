@@ -81,8 +81,15 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <summary>物理のサブステップの速さ [Hz]。ホストの dt をこの速さの刻みに割る（既定は <see cref="DefaultSubstepRate"/> = 240）。試合ごとに変えられる（簡素化の測定用: 120・180）。ホストの dt がこの刻みの整数倍のときだけ割り切れる。記録の見出しには入らないので、既定以外で撮った記録は既定では再現しない。</summary>
     public float SubstepRate { get; set; } = DefaultSubstepRate;
 
-    /// <summary><see cref="SubstepRate"/> の既定（240 Hz）。簡素化の測定が試合を作る前に変える。</summary>
-    public static float DefaultSubstepRate { get; set; } = 240f;
+    /// <summary><see cref="SubstepRate"/> の既定（240 Hz）。簡素化の測定が試合を作る前に変える。
+    /// 非同期の流れごとに持つ（<see cref="System.Threading.AsyncLocal{T}"/>）: 変えたコードと、その後に始めたスレッド・タスクだけに効き、並行して走っている別の試合・テストには漏れない。</summary>
+    public static float DefaultSubstepRate
+    {
+        get => _defaultSubstepRate.Value ?? 240f;
+        set => _defaultSubstepRate.Value = value;
+    }
+
+    private static readonly System.Threading.AsyncLocal<float?> _defaultSubstepRate = new();
 
     private const float RoundResetDelay = 3.5f;
     private const float RehitCooldown = 0.18f;

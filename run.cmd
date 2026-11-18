@@ -85,11 +85,16 @@ goto :end
 
 :test
 rem "test" or "test fast": quick tier (no slow/visual/probe). "test all": everything but visual and probes (about an hour serially).
+rem Both write TestResults\local\<tier>.trx and print a short summary (failures, slow classes missing the "slow" tag).
+set "TIER=fast"
+set "FILTER=TestCategory!=slow&TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"
 if /i "%~2"=="all" (
-  dotnet test tests\MiniRing.Tests -c Release --filter "TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"
-) else (
-  dotnet test tests\MiniRing.Tests -c Release --filter "TestCategory!=slow&TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"
+  set "TIER=all"
+  set "FILTER=TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"
 )
+dotnet test tests\MiniRing.Tests -c Release --filter "%FILTER%" --logger "trx;LogFileName=%TIER%.trx" --results-directory TestResults\local
+set "EXITCODE=%errorlevel%"
+py -3 -I tools\trx-summary.py TestResults\local\%TIER%.trx --classes 5
 goto :end
 
 rem Builds the project; on failure restarts the build servers and retries once.
