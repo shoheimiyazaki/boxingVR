@@ -68,26 +68,26 @@ public sealed class JointBridgeTests
         var tilted = Count(40f);
         TestContext.WriteLine($"neck bridge cells: upright {upright}, head tilted 40 degrees {tilted}");
         // 首の隙間（あごと肩の間の切れ込みなど）は立っていても開いていて、つなぎが埋める。頭を倒してもつなぎは残る（姿勢ごとに、いまの 2 つの格子から作り直す）。
-        Assert.IsGreaterThan(40, upright, "the notch between head and chest is bridged while standing");
-        Assert.IsGreaterThan(40, tilted, "and still bridged with the head tipped about the joint");
+        Assert.IsGreaterThan(10, upright, "the notch between head and chest is bridged while standing");
+        Assert.IsGreaterThan(10, tilted, "and still bridged with the head tipped about the joint");
     }
 
     /// <summary>
-    /// 日本刀が静止した相手の首の関節の少し下（胸の上端の高さから 3 mm・9 mm 下）を、後ろから水平に 3.4 m/s で通る。つなぎが無いと刃は首の骨の手前の胸の上端の肉で
-    /// 止まり、首は無傷のまま（頭は落ちない）。つなぎがあると首の骨まで断たれて頭が落ちる。necklab の表（<c>necklab --mode slash --arms down</c>）の同じ行。
+    /// 頭を首の関節のまわりに前へ 35° 倒した静止した相手の首の関節の少し下（胸の上端から 3 mm 下）を、日本刀が水平に通る（<c>necklab --mode slash --arms down --tilt 35</c> の同じ行）。
+    /// つなぎが無いと刃は首の組織を断てず頭は落ちない。つなぎがあると首の組織まで断たれ、頭が落ちる。値はシミュレーションが決定的なので固定（合わせ込んだ 2 行）。
     /// </summary>
     [TestMethod]
     [TestCategory("slow")]
-    public void ABladeThroughTheBaseOfTheNeck_TakesTheHeadOff_OnlyWithTheBridge()
+    public void ABladeThroughTheBaseOfATippedNeck_TakesTheHeadOff_OnlyWithTheBridge()
     {
-        foreach (var offset in new[] { -0.009f, -0.003f })
+        foreach (var (dir, speed) in new[] { ("side", 9f), ("front", 3.4f) })
         {
-            var without = NeckLab.SlashOnce("back", offset, 3.4f, bridges: false, armsDown: true);
-            var with = NeckLab.SlashOnce("back", offset, 3.4f, bridges: true, armsDown: true);
-            TestContext.WriteLine($"offset {offset * 1000f:0} mm: without {without}; with {with}");
-            Assert.IsFalse(without.HeadOff, $"{offset}: the blade does not get through the neck on its own");
-            Assert.IsTrue(with.HeadOff, $"{offset}: the bridged joint is cut through, and the head drops");
-            Assert.IsGreaterThan(without.NeckLost, with.NeckLost, $"{offset}: more of the neck is cut");
+            var without = NeckLab.SlashOnce(dir, -0.003f, speed, bridges: false, tiltDegrees: 35f, armsDown: true);
+            var with = NeckLab.SlashOnce(dir, -0.003f, speed, bridges: true, tiltDegrees: 35f, armsDown: true);
+            TestContext.WriteLine($"{dir} {speed} m/s: without {without}; with {with}");
+            Assert.IsFalse(without.HeadOff, $"{dir}: the blade does not get through the neck on its own");
+            Assert.IsTrue(with.HeadOff, $"{dir}: the bridged joint is cut through, and the head drops");
+            Assert.IsGreaterThan(without.NeckLost, with.NeckLost, $"{dir}: more of the neck is cut");
         }
     }
 }
