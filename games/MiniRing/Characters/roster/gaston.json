@@ -84,7 +84,7 @@
   "textbook": "outboxer",
   "education": {
     "style": {
-      "Rhythm": {"Weight":1,"Seize":1,"Quiet":3.022,"Bins":[{"From":0,"None":-3.609,"Guard":-0.921,"Clean":-0.984},{"From":0.1,"None":0.086,"Guard":0.259,"Clean":-1.823},{"From":0.2,"None":1.111,"Guard":0.867,"Clean":-1.145},{"From":0.3,"None":1.656,"Guard":2.778,"Clean":-1.244},{"From":0.4,"None":1.578,"Guard":1.575,"Clean":0.139},{"From":0.5,"None":3.776,"Guard":2.332,"Clean":0.377},{"From":0.6,"None":3.807,"Guard":1.243,"Clean":3.955},{"From":0.8,"None":5.456,"Guard":3.657,"Clean":4.221},{"From":1,"None":5.327,"Guard":2.825,"Clean":4.134}]},
+      "Rhythm": {"Weight":1,"Seize":1,"Quiet":3.446,"Bins":[{"From":0,"None":-4.59,"Guard":-0.312,"Clean":-1.519},{"From":0.1,"None":-0.759,"Guard":-0.471,"Clean":-0.985},{"From":0.2,"None":1.3,"Guard":1.241,"Clean":0.19},{"From":0.3,"None":-0.78,"Guard":2.341,"Clean":-1.718},{"From":0.4,"None":-0.26,"Guard":1.693,"Clean":-1.093},{"From":0.5,"None":1.404,"Guard":1.219,"Clean":-1.302},{"From":0.6,"None":1.387,"Guard":-0.004,"Clean":0.652},{"From":0.8,"None":4.543,"Guard":2.207,"Clean":2.076},{"From":1,"None":4.449,"Guard":1.866,"Clean":1.947}]},
       "BreakLikes": { "bow": 3, "blowkiss": 3, "mirror": 3, "salute": 2, "selfie": 2, "hum": 2, "wave": 2, "pointcrowd": 1.5, "applause": 1.5, "energydrink": 0.3, "jelly": 0.4 },
       "GamePlan": {
         "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,

@@ -84,7 +84,7 @@
   "textbook": "jabber",
   "education": {
     "style": {
-      "Rhythm": {"Weight":1,"Seize":1,"Quiet":0.691,"Bins":[{"From":0,"None":-4.615,"Guard":-4.431,"Clean":-2.525},{"From":0.1,"None":-1.593,"Guard":-2.763,"Clean":-3.6},{"From":0.2,"None":-0.064,"Guard":-0.452,"Clean":-3.228},{"From":0.3,"None":-1.274,"Guard":1.209,"Clean":-3.036},{"From":0.4,"None":-0.456,"Guard":-0.243,"Clean":-0.888},{"From":0.5,"None":0.113,"Guard":0.487,"Clean":-1.666},{"From":0.6,"None":1.322,"Guard":0.297,"Clean":0.778},{"From":0.8,"None":1.604,"Guard":1.974,"Clean":1.02},{"From":1,"None":1.191,"Guard":2.056,"Clean":1.998}]},
+      "Rhythm": {"Weight":1,"Seize":1,"Quiet":0.347,"Bins":[{"From":0,"None":-5.429,"Guard":-3.206,"Clean":-2.883},{"From":0.1,"None":-2.057,"Guard":-3.674,"Clean":-3.256},{"From":0.2,"None":-0.115,"Guard":-0.337,"Clean":-2.089},{"From":0.3,"None":-1.835,"Guard":0.919,"Clean":-1.941},{"From":0.4,"None":-1.288,"Guard":-0.238,"Clean":-1.625},{"From":0.5,"None":-1.435,"Guard":0.246,"Clean":-2.798},{"From":0.6,"None":-0.27,"Guard":-1.098,"Clean":-0.865},{"From":0.8,"None":1.134,"Guard":0.872,"Clean":-0.637},{"From":1,"None":2.628,"Guard":1.335,"Clean":1.123}]},
       "BreakLikes": { "coffee": 3, "handshake": 3, "applause": 2.5, "bow": 2, "salute": 1.5, "mirror": 1.5, "shadowbox": 1.2, "roar": 0.3, "blowkiss": 0.2, "dance": 0.4 },
       "GamePlan": {
         "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
