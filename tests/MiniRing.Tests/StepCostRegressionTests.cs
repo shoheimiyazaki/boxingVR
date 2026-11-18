@@ -12,7 +12,7 @@ namespace MiniRing.Tests;
 public sealed class StepCostRegressionTests
 {
     /// <summary>刀の試合（日本刀・両手持ち・<see cref="SwordBot.Basic"/> 同士）、シード 0 を 10 秒（240 Hz の 2400 歩）進めた最終チェックサム。作業 11・13 の前後で変わらない値。</summary>
-    private const ulong KatanaSeed0Checksum = 0x4f44863caa6d2efdUL; // PhysicsVersion 44（剣の柄に鉄の芯を通した: 刀の質量・柄の材質が変わる）で更新。40 は 0x089d46963c40be9c: PhysicsVersion 40（脚の骨の端を骨の胴と同じ太さにした: 腿・すねのセルの数・質量が変わる）で更新。39 は 0x06a0ecc721ed5573（PhysicsVersion 34 と同じ。脚を失わない試合）。34（首の骨・脊髄のセルを足した: 無傷のセルの数・質量は同じだが、背骨の柱の真ん中の骨が脊髄（弱い・肉の組織）になったので、胴を斬る刃の接触と胸・腰の肉の残りの数え方が変わる）で更新。33 は 0xf410d6eee99181a0（PhysicsVersion 32 と同じ）。32（スタミナの回復を実際にした仕事で数える・容量 60 J）で更新。31 は 0x09959a17dbf47803、30 は 0xaaf619b2fb414c4f、それより前は 0xbf23ffc3e767a185。
+    private const ulong KatanaSeed0Checksum = 0xbeb0264f4d9f72a3UL; // PhysicsVersion 47（関節のつなぎ。刀が体に触れる試合が変わる）で更新。前の値 0x4f44863caa6d2efd: PhysicsVersion 44（剣の柄に鉄の芯を通した: 刀の質量・柄の材質が変わる）で更新。40 は 0x089d46963c40be9c: PhysicsVersion 40（脚の骨の端を骨の胴と同じ太さにした: 腿・すねのセルの数・質量が変わる）で更新。39 は 0x06a0ecc721ed5573（PhysicsVersion 34 と同じ。脚を失わない試合）。34（首の骨・脊髄のセルを足した: 無傷のセルの数・質量は同じだが、背骨の柱の真ん中の骨が脊髄（弱い・肉の組織）になったので、胴を斬る刃の接触と胸・腰の肉の残りの数え方が変わる）で更新。33 は 0xf410d6eee99181a0（PhysicsVersion 32 と同じ）。32（スタミナの回復を実際にした仕事で数える・容量 60 J）で更新。31 は 0x09959a17dbf47803、30 は 0xaaf619b2fb414c4f、それより前は 0xbf23ffc3e767a185。
 
     /// <summary>1 歩の割り当ての中央値の上限 [byte]。最適化前は 125 KB、後は 23 KB（刀の試合・Release）。戻ったら気づくための余裕付きの上限。</summary>
     private const long MedianAllocationLimit = 70_000;

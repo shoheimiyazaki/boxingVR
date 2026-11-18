@@ -99,6 +99,12 @@ public sealed class VoxelBody
     public int? BeamAxis { get; set; }
 
     /// <summary>
+    /// True for a contact shape that only borrows another body's rigid body (a bridge between two limb parts: it rides the parent's pose and
+    /// takes the contact's impulse on it) and owns none of its mass or collider: <see cref="UpdateMass"/> then changes nothing.
+    /// </summary>
+    public bool Massless { get; init; }
+
+    /// <summary>
     /// The slices (inclusive) along <see cref="BeamAxis"/> where this beam may break (null: anywhere along it). A head sits on a thin
     /// neck: the whole head is a beam that carries the blow (the skull's inertia and bone), but it can only snap in the neck.
     /// </summary>
@@ -559,6 +565,11 @@ public sealed class VoxelBody
     /// </summary>
     public void UpdateMass()
     {
+        if (Massless)
+        {
+            return; // 剛体を借りているだけの接触の形（関節のつなぎ）: 剛体の形も質量も変えない
+        }
+
         var bounds = Grid.OccupiedBounds();
         var cells = Grid.FilledCount;
         var mass = MassOf(Grid);

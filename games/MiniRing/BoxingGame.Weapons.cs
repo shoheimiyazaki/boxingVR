@@ -40,6 +40,11 @@ public sealed partial class BoxingGame
     /// </summary>
     public int MaxContactPasses { get; set; } = DefaultMaxContactPasses;
 
+    /// <summary>
+    /// 関節のつなぎ（<see cref="JointBridge"/>）を刃の接触に使うか。既定は使う。比べものの調べ（necklab・テスト）のために切れる（切っても体の運動は変わらない）。
+    /// </summary>
+    public bool JointBridges { get; set; } = true;
+
     /// <summary><see cref="MaxContactPasses"/> の既定（3。比べものの調べ（掃き直し 1 回 = 以前）のために変えられる）。
     /// 非同期の流れごとに持つ（<see cref="DefaultSubstepRate"/> と同じ）。</summary>
     public static int DefaultMaxContactPasses
@@ -762,6 +767,7 @@ public sealed partial class BoxingGame
             var passes = Weapon.IsWorn(weapon.Kind) ? 1 : MaxContactPasses;
             var touched = _touchedScratch;
             touched.Clear();
+            _touchedBridgeScratch.Clear();
             for (var pass = 0; pass < passes; pass++)
             {
                 var poseBefore = _world.GetState(weapon.Body.BodyId);
@@ -823,6 +829,92 @@ public sealed partial class BoxingGame
                     Cut(weapon, fighter, part, hit);
                 }
             }
+
+            // 関節のつなぎ: 部位の間の隙間を通る刃も、関節の肉・骨に当たる。握った本人の体のつなぎは数えない（自分の体の中で押し合うだけ）。
+            if (JointBridges && !holds && deadHand is null && !Weapon.IsWorn(weapon.Kind))
+            {
+                ResolveBridges(weapon, before, drive, behind, fighter, includeHolder);
+            }
+        }
+    }
+
+    private readonly HashSet<JointBridge> _touchedBridgeScratch = [];
+
+    /// <summary>
+    /// 武器 <paramref name="weapon"/> × 相手の関節のつなぎ（<see cref="JointBridge"/>）。つながった 2 つの部位の隙間にある組織を、部位と同じ接触（圧力と材質）で
+    /// 解き、断たれたら、そのつなぎがつないでいた両側の部位のセルを壊す（骨が断たれたら落ちる、は部位の接触と同じ後始末）。
+    /// 掃き直し（<paramref name="firstPass"/> でない）では、まだ触れていないつなぎだけ。
+    /// </summary>
+    private void ResolveBridges(Weapon weapon, BodyState before, Vector3 drive, float behind, Fighter victim, bool firstPass)
+    {
+        if (victim.Voxels is not { } body)
+        {
+            return;
+        }
+
+        foreach (var bridge in body.Bridges)
+        {
+            if (!firstPass && _touchedBridgeScratch.Contains(bridge))
+            {
+                continue;
+            }
+
+            var (parent, child) = (bridge.Parent.Body.BodyId, bridge.Child.Body.BodyId);
+            if (!victim.JointIntact(parent, child) || !_beforeStep.TryGetValue(parent, out var parentBefore) || !MayTouch(weapon.Body, before, bridge.Body, parentBefore))
+            {
+                continue;
+            }
+
+            if (!bridge.RefreshNear(weapon.Body, before))
+            {
+                continue;
+            }
+
+            var hit = VoxelContact.Resolve(weapon.Body, before, bridge.Body, parentBefore, drive, massBehindA: behind, pressBeneath: false);
+            if (hit.Touched)
+            {
+                _touchedBridgeScratch.Add(bridge);
+            }
+
+            CutBridge(weapon, victim, bridge, hit);
+        }
+    }
+
+    /// <summary>
+    /// 武器 × 関節のつなぎの接触の後始末: つなぎのセルが断たれたら、その両側の部位のセルを壊し（<see cref="JointBridge.Sever"/>）、部位ごとに
+    /// 普通の接触と同じ後始末（<see cref="Wound(Weapon, Fighter, VoxelPart, VoxelContactResult)"/>: 骨が断たれたら落とし、臓器が壊れたら死なせ、散らす）をする。
+    /// 何も断たなかった接触は、親の部位への当たりとして残す（刃を止めた・かすめた）。
+    /// </summary>
+    private void CutBridge(Weapon weapon, Fighter victim, JointBridge bridge, VoxelContactResult hit)
+    {
+        if (!hit.Touched)
+        {
+            return;
+        }
+
+        Snapped(weapon, hit.SnappedA);
+        var (parentCells, childCells) = hit.RemovedB.Count > 0 ? bridge.Sever(hit) : ([], []);
+        if (parentCells.Count == 0 && childCells.Count == 0)
+        {
+            var bump = hit with { B = bridge.Parent.Body };
+            _recentCuts.Add(bump);
+            NoteContact(bump);
+            return;
+        }
+
+        var first = true;
+        foreach (var (part, cells) in new[] { (bridge.Parent, parentCells), (bridge.Child, childCells) })
+        {
+            if (cells.Count == 0)
+            {
+                continue;
+            }
+
+            var partHit = hit with { B = part.Body, RemovedA = first ? hit.RemovedA : [], RemovedB = cells, CrushedA = null, CrushedB = null, BentA = null, BentB = null };
+            first = false;
+            part.Body.UpdateMass(); // 部位のセルが減ったぶん、質量と剛体の形を合わせる（普通の接触は VoxelContact が呼ぶ）
+            _recentCuts.Add(partHit);
+            Wound(weapon, victim, part, partHit);
         }
     }
 

@@ -46,6 +46,7 @@ try
         "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seed", "parallel", "seconds", "out", "only", "variants", "video", "try", "defender", "forms", "techniques", "compare")),
         "selfcuts" => SelfCutCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "out", "hitaway", "passes", "clearance", "margin", "tilt", "pacing", "slack", "angle")),
         "selfpath" => SelfPathCommand(Options.Parse(argv[1..], "margin", "from", "tilt", "out", "forms")),
+        "necklab" => NeckLabCommand(Options.Parse(argv[1..], "mode", "heights", "offsets", "arms", "speeds", "speed", "dir", "bridges", "tilt", "out", "video", "height", "side", "offset", "slow")),
         "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes", "hz", "sample")),
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
         "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway", "clearance", "passes", "hz", "sample", "margin", "tilt", "pacing", "slack", "angle")),
@@ -1101,6 +1102,38 @@ static int TunnelCommand(Options o)
     TunnelProbe.Hz = o.Float("hz", 240f, min: 30f);
     Aigis.Physics.Voxels.VoxelContact.SampleSpacingScale = o.Float("sample", 0.5f, min: 0.1f);
     var report = TunnelProbe.Run(contenders, [.. o.List("pairs", ["日本刀-日本刀", "ロングソード-日本刀", "日本刀-拳"])], o.Int("bouts", 4, min: 1), o.Float("seconds", 20f, min: 1f), Console.Out);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int NeckLabCommand(Options o)
+{
+    // 関節の隙間の調査（geom）と、首・肩の高さの薙ぎ（cut。既定）。
+    NeckLab.ArmsDown = o.Get("arms") == "down";
+    if (o.Get("video") is { } slashVideo && o.Get("mode") == "slash")
+    {
+        NeckLab.SlashVideo(o.Get("dir") ?? "back", o.Float("offset", -0.003f), o.Float("speed", 3.4f, min: 0.1f), o.Get("bridges") != "off", o.Get("arms") == "down", o.Float("slow", 8f, min: 0.25f), slashVideo, o.Float("tilt", 0f));
+        return 0;
+    }
+
+    if (o.Get("video") is { } videoPath)
+    {
+        NeckLab.Video(o.Float("height", 0.3f), o.Float("side", 1f), o.Float("offset", 0f), o.Float("slow", 4f, min: 0.25f), videoPath);
+        return 0;
+    }
+
+    var report = o.Get("mode") == "geom"
+        ? NeckLab.Geometry()
+        : o.Get("mode") == "slash"
+        ? NeckLab.Slash([.. o.List("offsets", ["-0.012", "-0.009", "-0.006", "-0.003", "0", "0.003", "0.006", "0.009", "0.012", "0.016", "0.02", "0.025"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
+            [.. o.List("speeds", ["3.4", "9"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))], o.Get("bridges") != "off", o.Float("tilt", 0f))
+        : NeckLab.Cut([.. o.List("heights", ["0.2", "0.3", "0.4", "0.5", "0.6", "0.7"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
+            [.. o.List("offsets", ["-0.04", "0", "0.04"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))]);
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {
