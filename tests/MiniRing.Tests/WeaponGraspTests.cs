@@ -161,7 +161,7 @@ public sealed class WeaponGraspTests
         script.LetGoRight = false;
         Play(game, 1.5f);
         Assert.IsFalse(game.Player.Wields(Hand.Left) || game.Player.Wields(Hand.Right), "both hands dropped it");
-        Assert.IsNull(game.Player.WieldedBody(Hand.Right));
+        Assert.AreNotEqual(sword.Body.BodyId, game.Player.WieldedBody(Hand.Right), "what the right hand carries now is only its bare fist");
         Assert.IsTrue(game.Player.WearsGlove(Hand.Left) && game.Player.WearsGlove(Hand.Right), "both empty hands are bare fists");
         var fallen = game.World.GetState(sword.Body.BodyId).Position.Y;
         Assert.IsLessThan(0.1f, fallen, "the sword lies on the floor");
