@@ -185,7 +185,7 @@ internal static class NeckLab
         }
 
         var results = new SlashResult[jobs.Count];
-        Parallel.For(0, jobs.Count, i => results[i] = SlashOnce(jobs[i].Dir, jobs[i].Offset, jobs[i].Speed, bridges, tiltDegrees));
+        Parallel.For(0, jobs.Count, i => results[i] = SlashOnce(jobs[i].Dir, jobs[i].Offset, jobs[i].Speed, bridges, tiltDegrees, ArmsDown));
         var text = new StringBuilder();
         text.AppendLine("direction / speed: per height offset from the neck joint (mm): neck-slice cells lost, [N] = neck broken, [H] = head off");
         foreach (var g in jobs.Select((j, i) => (j, r: results[i])).GroupBy(x => (x.j.Dir, x.j.Speed)))
@@ -205,9 +205,9 @@ internal static class NeckLab
 
     internal sealed record SlashResult(int NeckLost, int HeadLost, int ChestLost, bool NeckBroken, bool HeadOff, bool Touched);
 
-    internal static SlashResult SlashOnce(string dir, float offset, float speed, bool bridges = true, float tiltDegrees = 0f)
+    internal static SlashResult SlashOnce(string dir, float offset, float speed, bool bridges = true, float tiltDegrees = 0f, bool armsDown = false)
     {
-        using var game = new BoxingGame(SwordStance.Tuning, 1, new BoxingCorners("stand", _ => new StandGuard(ArmsDown ? DownPosture : null), _ => new StandGuard(ArmsDown ? DownPosture : null)));
+        using var game = new BoxingGame(SwordStance.Tuning, 1, new BoxingCorners("stand", _ => new StandGuard(armsDown ? DownPosture : null), _ => new StandGuard(armsDown ? DownPosture : null)));
         for (var i = 0; i < 90; i++)
         {
             game.Step(default, 1f / 60f);

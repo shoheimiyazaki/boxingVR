@@ -23,10 +23,10 @@ namespace MiniRing.Voxels;
 internal sealed class JointBridge
 {
     /// <summary>つなぎの一辺のセル数。</summary>
-    private const int Cells = 12;
+    private const int Cells = 10;
 
     /// <summary>隙間をつなぐ、親・子のセルまでの距離 [セル]。</summary>
-    private const int Reach = 3;
+    private const int Reach = 2;
 
     private readonly bool[] _cut;
     private readonly int[] _sourceParent;
