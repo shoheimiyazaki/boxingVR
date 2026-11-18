@@ -69,6 +69,7 @@ public sealed class CharacterRosterTests
         ("tsuyoshi", null, HandWear.Tonfa, "tonfa", 1.0f, 1.03f, 1.0f, 1.0f),
         ("edgar", WeaponKind.IronSword, HandWear.Shield, "boxer", 1.05f, 1.0f, 1.0f, 1.15f),
         ("narong", null, HandWear.Glove, "muaythai", 1.02f, 1.02f, 1.05f, 0.96f),
+        ("ren", null, HandWear.None, "jujutsu", 1.0f, 1.02f, 1.0f, 1.05f), // 2026-11-17: 柔術家（組み技の教科書、docs/GRAPPLING.md）
     ];
 
     [TestMethod]

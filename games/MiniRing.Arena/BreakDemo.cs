@@ -80,25 +80,48 @@ internal static class BreakDemo
         }
     }
 
-    /// <summary>ボット同士の打ち合い（脚を失った後も続くかを見る）。</summary>
-    private static BoxingGame Bout() =>
-        new(seed: 3, corners: new BoxingCorners("bout", s => BotCatalog.Create("champion", s), s => BotCatalog.Create("swarmer", s)));
+    /// <summary>ボット同士の打ち合い。<paramref name="shortcut"/> が false なら、脚を失った体も支えのモデルを通る（<see cref="FighterTuning.LegLossSupportShortcut"/>）。</summary>
+    private static BoxingGame Bout(bool shortcut) =>
+        new(tuning: FighterTuning.Default with { LegLossSupportShortcut = shortcut }, seed: 3,
+            corners: new BoxingCorners("bout", s => BotCatalog.Create("champion", s), s => BotCatalog.Create("swarmer", s)));
+
+    /// <summary>脚の部位 <paramref name="part"/> の骨を真ん中で折る（肉でつながったまま）。</summary>
+    private static void BreakLimb(BoxingGame game, Fighter fighter, int part)
+    {
+        var voxel = fighter.Voxels!.PartOf(part)!;
+        var axis = voxel.Body.BeamAxis ?? 1;
+        var dims = voxel.Body.Grid.Dimensions;
+        var n = axis == 0 ? dims.X : axis == 1 ? dims.Y : dims.Z;
+        if (fighter.Voxels.BreakBent(part, new Aigis.Physics.Voxels.VoxelBreak(axis, n / 2, true, 2f)) is { } broken)
+        {
+            game.BreakBone(fighter, broken, 1f);
+        }
+    }
+
+    /// <summary>脚を失う場面を、近道あり（今の既定）と近道なし（支えのモデルをそのまま通す）の 2 本にする。</summary>
+    private static IEnumerable<Scene> LegScenes(string title, Action<BoxingGame> act, string after)
+    {
+        foreach (var shortcut in new[] { true, false })
+        {
+            var label = shortcut ? "近道あり" : "近道なし";
+            yield return new Scene($"{title}（{label}）", () => Bout(shortcut), 2f, act,
+                (game, done) => !done ? $"打ち合う（{label}）" : $"{after}（{label}: {Stance(game.Cpu)}）");
+        }
+    }
 
     private static string Stance(Fighter f) =>
         $"{f.State}  腰 {f.HoverHeight * 100f:F0} cm  失った脚 {f.LegShortfall * 100f:F0} cm";
 
     public static IReadOnlyList<Scene> Scenes() =>
     [
-        new("右のすねを断つ: 残った膝で膝立ちになって打ち合う", Bout, 2f,
-            game => CutLimb(game, game.Cpu, game.Cpu.Parts.LeftShin, 0.4f),
-            (game, after) => !after ? "打ち合う" : $"すねの切り株で膝立ち（{Stance(game.Cpu)}）"),
-        new("両脚を腿の付け根近くで断つ: 腰で座って打ち合う", Bout, 2f,
-            game =>
+        .. LegScenes("すねを断つ", game => CutLimb(game, game.Cpu, game.Cpu.Parts.LeftShin, 0.4f), "すねの切り株"),
+        .. LegScenes("片方の腿を断つ", game => CutLimb(game, game.Cpu, game.Cpu.Parts.LeftThigh, 0.5f), "腿の切り株"),
+        .. LegScenes("両脚を腿の付け根近くで断つ", game =>
             {
                 CutLimb(game, game.Cpu, game.Cpu.Parts.LeftThigh, 0.25f);
                 CutLimb(game, game.Cpu, game.Cpu.Parts.RightThigh, 0.25f);
-            },
-            (game, after) => !after ? "打ち合う" : $"腰で座って打ち合う（{Stance(game.Cpu)}）"),
+            }, "腰で座る"),
+        .. LegScenes("すねの骨が折れる", game => BreakLimb(game, game.Cpu, game.Cpu.Parts.LeftShin), "折れたすねが肉でぶら下がる"),
         new("両手の棍棒: 添えた左腕を切り落とす", TwoHandedBat, 1.5f,
             game =>
             {

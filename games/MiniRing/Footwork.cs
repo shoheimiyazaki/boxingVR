@@ -177,8 +177,11 @@ public readonly record struct FootPose(Vector3 Ball, float Yaw, float HeelRaise,
 /// <param name="RearBall">後ろ足の母指球の実際の位置。</param>
 /// <param name="Reach">脚が水平に届く距離 [m]（股の高さから。腰を落とすほど遠くへ届く）。0 なら脚の長さ。</param>
 /// <param name="HipOffset">股（脚の付け根）の体の中心からの横のずれ [m]。届く範囲の中心は左右の脚でこれだけずれる。</param>
+/// <param name="Com">全身の重心の水平位置（捕捉点はこれから出す。null なら骨盤 <paramref name="Body"/>）。上体が傾いて倒れていくのは、骨盤より重心に出る。</param>
+/// <param name="ComVelocity">全身の重心の水平速度（null なら骨盤の速度）。</param>
 public readonly record struct FootworkInput(float FacingYaw, Vector2 Body, Vector2 BodyVelocity, float Omega, Vector2 Intent, float Twist, float Weight, float LegLength,
-    bool LeadOverreach = false, bool RearOverreach = false, Vector2? LeadBall = null, Vector2? RearBall = null, float Reach = 0f, float HipOffset = 0f);
+    bool LeadOverreach = false, bool RearOverreach = false, Vector2? LeadBall = null, Vector2? RearBall = null, float Reach = 0f, float HipOffset = 0f,
+    Vector2? Com = null, Vector2? ComVelocity = null);
 
 /// <summary>
 /// 足の置き場所を決めるモデル（倒立振子 + 構え）。ボクサーは左足が常に前（オーソドックス）。
@@ -225,6 +228,9 @@ public sealed class Footwork
 
     /// <summary>踏み出している足（<see cref="Lead"/> / <see cref="Rear"/>）。両足が着いていれば −1。</summary>
     public int Swinging => _swinging;
+
+    /// <summary>踏み出している足の着地する所（母指球、水平面）と向き。踏み出していなければ null。</summary>
+    public (Vector2 Ball, float Yaw)? Landing => _swinging < 0 ? null : (_to, _toYaw);
 
     /// <summary>踏んだ歩数（調べもの・テスト用）。</summary>
     public int Steps { get; private set; }
@@ -320,7 +326,7 @@ public sealed class Footwork
         var leg = _legLength;
         var omega = MathF.Max(1f, input.Omega);
         // 捕捉点: いまの速度のまま倒れていく体を、ここに足を置けば止められる点。行きたい向きへは見越して置く。
-        var capture = input.Body + (input.BodyVelocity / omega);
+        var capture = (input.Com ?? input.Body) + ((input.ComVelocity ?? input.BodyVelocity) / omega);
         // 構えの中心: 止まっていれば今の両足の真ん中（足を置き直すのは構えの形を直すときだけ。体を追って足を置くと、
         // 足 → 支え → 体 → 足 と回って、立っているだけで少しずつ歩いてしまう）。捕捉点が真ん中から離れたら（押された・動いている）その分だけ寄せる。
         var middle = Vector2.Lerp(_ball[Lead], _ball[Rear], 0.5f);

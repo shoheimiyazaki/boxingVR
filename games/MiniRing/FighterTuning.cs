@@ -57,6 +57,12 @@ public sealed record FighterTuning
     public float MaxHoverAccel { get; init; } = 2.2f * 9.81f;
 
     /// <summary>
+    /// 脚が床を押して体を持ち上げられる力の上限（自分の体重の倍、脚の力 1 のとき）。人はしゃがんだ姿勢から体重の 2〜3 倍を押し上げる
+    /// （人を背負って立ち上がれる）。腰を持ち上げる力の上限は、これと <see cref="MaxHoverAccel"/> の大きい方（docs/GRAPPLING.md §13）。
+    /// </summary>
+    public float LegLiftCapacity { get; init; } = 2.5f;
+
+    /// <summary>
     /// 脚の力を抜く（腰を重力で落とす）のに使う、目標が今の腰より低い量の幅 [m]。目標が <see cref="DropReleaseDeadband"/> より低くなってからこの幅で
     /// 0 → 1 に連続に効く（段階ではない）。60 cm の体で、ダッキングの腰の沈み（数 cm）が全部効く幅。
     /// </summary>
@@ -225,11 +231,106 @@ public sealed record FighterTuning
     /// <summary>股から上体を前へ折る（ヒップヒンジ）最大角。</summary>
     public float MaxHingeRadians { get; init; } = 40f * MathF.PI / 180f;
 
+    // ── 床からの支え（Fighter.Support.cs、docs/GRAPPLING.md 段 1）
+    /// <summary>
+    /// 体を立たせる力（ホバー・起こすねじり・移動）を、床に着いている所の凸包（支持多角形）の中の圧力中心で出せる分に限る。
+    /// false は支えの制限だけを外す（支えがどこからともなく出る。比べもの用。靭帯・肘の止まり・投げの場合分けの削除は戻らない）。
+    /// </summary>
+    public bool SupportFromGround { get; init; } = true;
+
+    /// <summary>
+    /// 脚を失った体（<see cref="Fighter.LegShortfall"/> &gt; 0）には、釣り合い・起き上がりの手足の制限を掛けない近道（比べもの用。2026-11-17 にユーザーの指定で既定は false = 近道なし: 片脚を失った体は踏み直せずに倒れ、這う）。
+    /// false（既定）は脚を失った体も無傷の体と同じ支えのモデルを通る。true は前の近道（breakdemo の比べもの用）。
+    /// </summary>
+    public bool LegLossSupportShortcut { get; init; }
+
+    /// <summary>立たせる力の制限のしかた（<see cref="MiniRing.SupportModel"/>）。比べるための切り替え。</summary>
+    public SupportModel SupportModel { get; init; } = SupportModel.Soft;
+
+    /// <summary>連続の釣り合い（<see cref="Fighter.Balance"/>）の支えの領域（凸包か、両足を直径とする円か）。</summary>
+    public SupportRegion SupportRegion { get; init; } = SupportRegion.Polygon;
+
+    /// <summary>
+    /// 捕捉点が支えの領域の外へこれ × 脚の長さだけ出たら、立たせる力は 0（取り戻せない: 一歩の大きさ。足の運びの 1 歩の上限 MaxStride と同じ程度）。
+    /// </summary>
+    public float SupportRecovery { get; init; } = 0.5f;
+
+    /// <summary>縦の支え（腰を持ち上げる力）が 0 になる捕捉点の外れの、<see cref="SupportRecovery"/> に対する倍率（起こすねじりより遅く抜ける）。</summary>
+    public float SupportVerticalRecovery { get; init; } = 1.5f;
+
+    /// <summary>
+    /// 釣り合いの PID の積分の強さ [1/s]（docs/GRAPPLING.md §9）: 上体を起こすねじり・重心を足の上へ寄せる力に、ずれの漏れのある積分 × これ × 比例の固さ を足す。
+    /// 0 で前の PD（バネ・ダンパ）。大きいほど、ずれたままの姿勢を遅れて強く押し戻し、戻りすぎて揺れ返す（共振の山が鋭くなる）。
+    /// </summary>
+    public float BalanceKi { get; init; }
+
+    /// <summary>釣り合いの積分の漏れの時定数 [s]（古いずれを忘れる速さ）。</summary>
+    public float BalanceIntegralSeconds { get; init; } = 1f;
+
+    /// <summary>起き上がる間、重心が床に着いた手足の凸包の外へこれ × 脚の長さ出たら、手足は体を押し上げられない（docs/GRAPPLING.md §8）。</summary>
+    public float RiseRecovery { get; init; } = 0.25f;
+
+    /// <summary>起き上がる間、床に着いた手で押して重心を足の上へ移す、ばねの固さ [1/s²]（臨界減衰。手足の支えと、重心が足の上に無い分だけ効く）。</summary>
+    public float RiseShift { get; init; } = 40f;
+
+    /// <summary>起き上がる間、重心がまだ足に乗っていなくても上体を起こすねじりを残す割合（手で床を押して上体を支える分）。</summary>
+    public float RiseTorsoFloor { get; init; } = 0.05f;
+
+    /// <summary>起き上がる間、膝を浮かせて手と足で体を支える姿勢で腰を上げられる高さ（立つ高さに対する割合。腕の長さで床に手が届く腰の高さのおよそ）。</summary>
+    public float RiseBearHeight { get; init; } = 0.7f;
+
+    /// <summary>起き上がる間に腰を上げられる高さの上限（Fighter.RiseCap）をならす時定数 [s]（手足が着く・離れるのちらつきで腰が落ちない）。</summary>
+    public float RiseCapSeconds { get; init; } = 0.3f;
+
+    /// <summary>
+    /// 倒れてからこの時間 [s] のうちに立ち直れば、審判はダウンを取らない（スリップ・投げられてすぐ立つ。2026-11-17、ユーザーの指定）。
+    /// 意識が飛んでいる・立てない体はすぐ取る。ルールの値（起き上がりは床から 2.5〜3 秒かかるので、手をついてすぐ立ち直る程度）。
+    /// </summary>
+    public float DownGrace { get; init; } = 2f;
+
+    /// <summary>倒れている体が、握った手を離さず・入力元の足の目標を受け付ける意識の下限（捨て身技。これより薄ければ倒れた体の反射だけ）。</summary>
+    public float GroundGripAwareness { get; init; } = 0.6f;
+
+    /// <summary>起き上がる間、手で押して重心を足の上へ移す加速度の上限 [m/s²]（膝・手の摩擦に勝って腰を足の上へ引ける大きさ）。</summary>
+    public float RiseShiftMaxAccel { get; init; } = 15f;
+
+    /// <summary>起き上がる間、足を重心の真下からつま先の向きへずらす量（足のかかと側の箱の半分の長さに対する倍。かかとが重心の下に来る）。</summary>
+    public float RiseFootLead { get; init; } = 1f;
+
+    /// <summary>部位の箱の角がこの高さ [m] より床に近ければ、床に着いている（支えに数える）。マットに着いた判定（CanvasTouch 1.2 cm）と同じ大きさ。</summary>
+    public float SupportContactGap { get; init; } = 0.01f;
+
+    /// <summary>足の裏とマットの摩擦係数（ゴム底とキャンバスで 0.8〜1）。床が体を水平に押せる力の上限 = これ × 垂直抗力。</summary>
+    public float SoleFriction { get; init; } = 0.9f;
+
+    // ── 関節の靭帯（Fighter.Ligaments.cs、docs/GRAPPLING.md 段 6）
+    /// <summary>
+    /// 肘の靭帯（前の関節包・内側側副靭帯）が伸び始める過伸展のねじりの力 [N·m]（人の大きさの値。体には TorqueScale × 身長比³ を掛ける）。
+    /// 屍体の肘の過伸展の試験で、損傷が出始める力は数十 N·m（35 を採る）。
+    /// </summary>
+    public float ElbowLigamentYield { get; init; } = 35f;
+
+    /// <summary>
+    /// 靭帯の伸びにくさ η [N·m·s/rad]（人の大きさの値）: 降伏を超えた分 (τ − τy) で、伸びの速さ (τ − τy) / η。
+    /// 降伏の 2 倍の力をかけ続けると約 0.5 秒で切れる大きさ（関節技が極まってから「折れる」までの時間）。
+    /// </summary>
+    public float LigamentViscosity { get; init; } = 50f;
+
+    /// <summary>
+    /// 肘の止まり（関節の制限）のばねの固有振動数 [Hz]。Aigis の既定 15 Hz では、軽い前腕は肘を反らせるねじり 1〜2 N·m で 40° 以上めり込み、
+    /// 前腕が回りきってしまった（GrapplingTests）。60 Hz で同じねじりのめり込みは数度（固さ ∝ 振動数²）。240 Hz の歩で解ける上限の内。
+    /// </summary>
+    public float ElbowStopHz { get; init; } = 60f;
+
+    /// <summary>靭帯が切れるまでの伸び [rad]（過伸展がこれだけ増えたら切れる。約 20°。靭帯の破断のひずみは降伏のおよそ 2 倍）。</summary>
+    public float LigamentRuptureStretch { get; init; } = 0.35f;
+
+    /// <summary>靭帯が切れた肘が、元の下限からさらに反れる角度 [rad]（骨と残りの組織が止める所。約 50°）。</summary>
+    public float LigamentTornTravel { get; init; } = 0.87f;
+
     // ── 掴み・投げ
     public float GrabRadius { get; init; } = 0.04f;
     public float GrabBreakForce { get; init; } = 260f;
-    public float ThrowSpeed { get; init; } = 1.1f;
-    public float ThrowAssist { get; init; } = 0.35f;
     public float GrabbedDriveScale { get; init; } = 0.55f;
 
     // ── 状態
@@ -277,6 +378,15 @@ public sealed record FighterTuning
 
     /// <summary>1 発で削る量の上限（約 10 J ぶん。速さの測り違いのような外れの 1 発が、腕を丸ごと削らないように）。</summary>
     public float MaxCarve { get; init; } = 120f;
+
+    /// <summary>
+    /// 床に落ちた衝撃で潰す量の、拳の打撃（<see cref="CarvePerJoule"/>）に対する割合。床は平らで広い（拳より圧力が小さい）ので、
+    /// 同じエネルギーでも潰れは浅い（キャンバスと詰め物の分も）。手で決めた値（docs/GRAPPLING.md §9）。
+    /// </summary>
+    public float CanvasCarveShare { get; init; } = 0.3f;
+
+    /// <summary>床に落ちた衝撃で潰す量がこれ（ボクセル）より小さければ何もしない（座り込む・手を着く程度の当たり）。</summary>
+    public float CanvasMinCarve { get; init; } = 0.5f;
 
     /// <summary>
     /// 素の武器（木・鉄）の打撃が、同じ運動エネルギーの拳（グローブ）の何倍深く潰して掘るか（上限 <see cref="MaxCarve"/> にも掛ける）。
