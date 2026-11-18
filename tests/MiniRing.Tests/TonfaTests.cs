@@ -348,7 +348,7 @@ public sealed class TonfaTests
         Assert.IsNull(c.Weapon);
         Assert.AreEqual("tonfa", c.StyleName);
         Assert.AreEqual("トンファー", c.EquipmentName);
-        Assert.AreSame(BotCatalog.Tonfa, c.Resolve(), "an empty education plays the textbook itself");
+        CharacterRosterTests.AssertTextbookPlusGamePlan(BotCatalog.Tonfa, c.Resolve(), c.Id);
         Assert.IsTrue(CharacterRoster.Countries.ContainsKey(c.Country.Id));
         Assert.Contains(c, CharacterRoster.All);
         _ = c.Look.Validate();

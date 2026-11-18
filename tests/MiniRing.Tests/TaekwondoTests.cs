@@ -47,7 +47,7 @@ public sealed class TaekwondoTests
         Assert.IsGreaterThan(1.05f, c.Build.Height);
         Assert.IsGreaterThan(1.0f, c.Build.Legs);
         Assert.IsLessThan(1.0f, c.Build.Muscle, "slim");
-        Assert.AreSame(BotCatalog.Taekwondo, c.Resolve(), "an empty education plays the textbook itself");
+        CharacterRosterTests.AssertTextbookPlusGamePlan(BotCatalog.Taekwondo, c.Resolve(), c.Id);
         Assert.IsTrue(CharacterRoster.Countries.ContainsKey(c.Country.Id));
     }
 

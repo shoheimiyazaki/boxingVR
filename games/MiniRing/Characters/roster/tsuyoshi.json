@@ -81,6 +81,30 @@
     "weapon": null
   },
   "textbook": "tonfa",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 18.524, "Taken": 12.883 },
+          { "Cm": 17, "Dealt": 24.462, "Taken": 14.807 },
+          { "Cm": 19, "Dealt": 21.203, "Taken": 12.361 },
+          { "Cm": 21, "Dealt": 20.861, "Taken": 11.644 },
+          { "Cm": 23, "Dealt": 12.334, "Taken": 9.59 },
+          { "Cm": 25, "Dealt": 9.57, "Taken": 8.291 },
+          { "Cm": 27, "Dealt": 4.602, "Taken": 5.519 },
+          { "Cm": 29, "Dealt": 2.277, "Taken": 2.995 },
+          { "Cm": 31, "Dealt": 1.283, "Taken": 3.782 },
+          { "Cm": 33, "Dealt": 0.544, "Taken": 1.157 },
+          { "Cm": 35, "Dealt": 0.587, "Taken": 1.367 },
+          { "Cm": 37, "Dealt": 0.164, "Taken": 0.896 },
+          { "Cm": 39, "Dealt": 0, "Taken": 0.633 },
+          { "Cm": 43, "Dealt": 0, "Taken": 0.206 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

@@ -22,6 +22,25 @@ public sealed class CharacterRosterTests
         return new StreamReader(stream).ReadToEnd();
     }
 
+    /// <summary>キャラのファイルの <c>education</c> を丸ごと <paramref name="education"/>（JSON）に差し替えた中身（ほかの鍵はそのまま）。</summary>
+    internal static string WithEducation(string fileJson, string education)
+    {
+        var node = System.Text.Json.Nodes.JsonNode.Parse(fileJson)!.AsObject();
+        Assert.IsTrue(node.ContainsKey("education"), "the character file has an education");
+        node["education"] = System.Text.Json.Nodes.JsonNode.Parse(education);
+        return node.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+    }
+
+    /// <summary>
+    /// 名簿の教育は戦略の層（<c>education.style.GamePlan</c>、2026-11-18）だけ: 解決したスタイルは、GamePlan を除けば教科書と同じ値。
+    /// </summary>
+    internal static void AssertTextbookPlusGamePlan(BotStyle textbook, BotStyle resolved, string message)
+    {
+        Assert.IsNotNull(resolved.GamePlan, "the roster education carries the game plan: " + message);
+        Assert.IsNull(textbook.GamePlan, "textbooks carry no game plan: " + message);
+        Assert.AreEqual(textbook.ToJson(), (resolved with { GamePlan = null }).ToJson(), "apart from the game plan, the textbook itself: " + message);
+    }
+
     /// <summary>決めた名簿（CLAUDE_BRIEF_ROSTER_MENU の表）: id・武器・はめる物・スタイル・身長/腕/脚/筋肉。</summary>
     private static readonly (string Id, WeaponKind? Weapon, HandWear Wear, string Style, float H, float A, float L, float M)[] Decided =
     [

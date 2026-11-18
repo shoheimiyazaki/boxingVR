@@ -41,6 +41,7 @@
 ボットの判断の仕組みを変えたら上げる。
 
 - **1〜11**（最初の注釈のまとめ）: ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、リプレイの見出しに残して照らし合わせる。 変えたら 1 増やす（1: 最初のボット、2: 防御技の表・動き出しの読み・ストップジャブ・ピボット、
+- **50**: 戦略の層（`Bots/GamePlan.cs`、`BotStyle.GamePlan`。docs/BOTS.md「戦略の層」）: 自分と相手の得意な間合いの表（`docs/arena/maai_roster_ranges_bins.csv` から）・自分と相手の傷み・疲れ・意識・試合の時刻と点から、普段に立つ距離（d*）と手数の倍率を連続に決め、足運びの普段の目標と拳の間の縮み方に重みの割合で重ねる。`FighterSense` に `SelfInjury`・`OpponentInjury`・`OpponentWinded`・`Match` を足した（読むだけで物理は不変、PhysicsVersion はそのまま）。教科書（既定のスタイル）は `GamePlan` が null なので判断はビット単位で同じ。名簿の 17 人の教育（`education.style.GamePlan`）に入れたので、拳のボットを使うキャラの試合は変わる（剣・棒・棍棒のボットは今回は使わない）。
 - **49**: master の 43（休みの過ごし方）・44（回し蹴りを高さで 3 つに）と、ブランチ claude/sword-combat-techniques の 43〜48 を合わせた（2026-11-18 のマージ）。
 - **48** ⚠ 同じ番号が別の枝で別の意味（claude/sword-combat-techniques）: バット（WeaponKind.Bat。木の棍棒を両手で握る）を剣と同じ型の組み方（FormSwordsman・SwordsmanBot）で動かす: BatForms の型（右・左・胴・脚の水平、真上・右上・左上の振り下ろし、右下・左下のすくい上げ、胴・顔の突き、手打ち、グリップエンド、前蹴り）と教科書 Bots/weapons/bat.json。新しい武器の種類なので既存の試合（こんぼう・刀・ロングソード・拳）の判断は変えない。47 は剣の間合いの内側の技の作業用。
 - **47** ⚠ 同じ番号が別の枝で別の意味（claude/sword-combat-techniques）: 間合いの内側の技（柄頭打ち・前蹴り・押し斬り）を、計画（歩いて詰める）の候補とは分けて技の集まりに入れた（SwordsmanBot.PlanMinReach・WeaponStyle.InnerMinReach）。すでに近いとき・迎え撃つときだけ、全部の技から今の距離に間合いが合う技を選ぶ。

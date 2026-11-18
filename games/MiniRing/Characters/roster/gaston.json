@@ -82,6 +82,30 @@
     "weapon": null
   },
   "textbook": "outboxer",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 17, "Dealt": 15.125, "Taken": 12.666 },
+          { "Cm": 19, "Dealt": 19.744, "Taken": 13.062 },
+          { "Cm": 21, "Dealt": 21.031, "Taken": 12.193 },
+          { "Cm": 23, "Dealt": 16.542, "Taken": 10.319 },
+          { "Cm": 25, "Dealt": 11.347, "Taken": 8.108 },
+          { "Cm": 27, "Dealt": 5.462, "Taken": 8.06 },
+          { "Cm": 29, "Dealt": 2.902, "Taken": 6.322 },
+          { "Cm": 31, "Dealt": 1.518, "Taken": 4.476 },
+          { "Cm": 33, "Dealt": 0.575, "Taken": 2.201 },
+          { "Cm": 35, "Dealt": 0.335, "Taken": 1.38 },
+          { "Cm": 37, "Dealt": 0.052, "Taken": 1.331 },
+          { "Cm": 39, "Dealt": 0, "Taken": 0.574 },
+          { "Cm": 41, "Dealt": 0, "Taken": 0.64 },
+          { "Cm": 43, "Dealt": 0, "Taken": 0.312 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

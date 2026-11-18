@@ -34,7 +34,7 @@ public delegate IFighterControl ControlFactory(int roundSeed);
 /// <para><paramref name="PlayerLook"/> / <paramref name="CpuLook"/> は名簿のキャラクター（<see cref="Characters.FighterCharacter"/>）の顔そのもの（肌・髪・瞳・髪型・眉・ひげ・顔の部位）。
 /// null なら従来どおり名前（<see cref="PlayerName"/> / <see cref="CpuName"/>）から決めた顔。<paramref name="PlayerLabel"/> / <paramref name="CpuLabel"/> は
 /// 画面（得点・状態・実況）に出す名前（null なら YOU / CPU や RED / BLUE）。</para>
-/// <para><paramref name="PlayerStyle"/> は赤（プレイヤー側）のスタイル（名簿のキャラクターなら教育を重ねた解決済みの全体。<see cref="Characters.FighterCharacter.Resolve"/>）。
+/// <para><paramref name="PlayerStyle"/> は赤（プレイヤー側）のスタイル（名簿のキャラクターなら教育を重ねた解決済みの全体。<see cref="Characters.FighterCharacter.Resolve(string)"/>）。
 /// 人が操る赤の意図の解釈（技の選び方・倒れた相手への攻めの好み）に渡す。赤がボットなら <paramref name="RedBotStyle"/> が同じ物を持つ。null ならスタイルを持たない赤（既定の拳か空手）。
 /// 名前（<paramref name="PlayerName"/> / <paramref name="CpuName"/>）で <see cref="Bots.BotCatalog"/> を引き直さない: 解決したスタイルをこの値・<paramref name="CpuStyleJson"/> で通す。</para>
 /// <para><paramref name="BreakActions"/>（既定 true）は、ラウンドの間の休みに選手が動作（水を飲む・汗を拭く・電話・深呼吸…、<see cref="Break.BreakRoutine"/>）をするか。false なら休みはコーナーで構えを下げて立つだけ。
@@ -383,6 +383,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             _neutralCorners.Clear();
         }
 
+        var live = false; // 入力元が試合を動かしている歩（休み・ダウンの数え・一呼吸の間ではない）
+
         if (Resting)
         {
             // ラウンドの間（と試合の後）: 自分のコーナーへ歩いて戻り、ガードを下げて休む。入力元（ボット・プレイヤー）は読まない。
@@ -410,6 +412,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
         else
         {
+            live = true;
             EndBreakActions();
             var readStart = StepProfile.Begin();
             var cpuCommand = _corners.ExternalBlue ? blue.GetValueOrDefault() : _cpuControl.Read(ArmedSense(Cpu, Player), dt);
@@ -450,6 +453,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var afterStart = StepProfile.Begin();
         DetectGrazes();
         WatchRecoveries();
+        CountMatchClock(live && !RoundOver, dt);
         StepProfile.End(StepProfile.Slot.After, afterStart);
     }
 
@@ -498,7 +502,18 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
             if (fighter.IsKnockedDown)
             {
-                _wasCounted.Add(fighter);
+                if (_wasCounted.Add(fighter))
+                {
+                    // 取られたダウンを試合を通して数える（戦略の層の点の差 MatchSense.DownLead。読むだけ）。
+                    if (fighter == Player)
+                    {
+                        _playerDowns++;
+                    }
+                    else
+                    {
+                        _cpuDowns++;
+                    }
+                }
             }
             else
             {
@@ -1099,6 +1114,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
                 InBreak = false;
                 MatchRound++;
                 RoundLeft = rules.RoundSeconds;
+                RestartMatchClock();
                 foreach (var fighter in Fighters)
                 {
                     fighter.ResetCount(); // 倒れたまま休みに入っても、次のラウンドで数え直す
@@ -1384,6 +1400,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _grazeArmed.Clear();
         MatchRound = 1;
         RoundLeft = Rules?.RoundSeconds ?? 0f;
+        RestartMatchClock();
         InBreak = false;
         MatchOver = false;
         Decision = null;
@@ -1442,7 +1459,65 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             SelfVision: self.Voxels?.Vision ?? VisionState.Healthy, OpponentVision: opponent.Voxels?.Vision ?? VisionState.Healthy,
             OpponentArmReach: opponent.ArmReach, OpponentDowned: opponent.State != FighterState.Standing,
             SelfBuild: self.Build, OpponentBuild: opponent.Build,
-            SelfLegLeft: self.LegBodyOf(Hand.Left), SelfLegRight: self.LegBodyOf(Hand.Right));
+            SelfLegLeft: self.LegBodyOf(Hand.Left), SelfLegRight: self.LegBodyOf(Hand.Right),
+            SelfInjury: self.Injury(felt: true), OpponentInjury: opponent.Injury(felt: false), OpponentWinded: opponent.Winded);
+    }
+
+    // ── 試合の時刻と点（戦略の層の入力 MatchSense。読むだけで、試合の物理には響かない）──
+
+    /// <summary>このラウンドの、試合が動いていた時間 [s]（休み・ダウンの数え・一呼吸の間は進めない）。</summary>
+    private float _roundElapsed;
+
+    /// <summary>打ち合いの無い時間 [s]: どちらかの得点（受けたダメージの合計）が最後に動いてから。</summary>
+    private float _quiet;
+
+    /// <summary>前の歩の両者の受けたダメージの合計（得点が動いたかを見る）。</summary>
+    private float _scoredBefore;
+
+    /// <summary>試合を通して取られたダウンの数（赤 = Player、青 = Cpu）。ラウンドで体が作り直されても残す。</summary>
+    private int _playerDowns;
+    private int _cpuDowns;
+
+    /// <summary><paramref name="self"/> から見た試合の時刻と点（<see cref="MatchSense"/>）。</summary>
+    private MatchSense MatchSenseOf(Fighter self, Fighter opponent)
+    {
+        var mine = self == Player ? _playerDowns : _cpuDowns;
+        var theirs = self == Player ? _cpuDowns : _playerDowns;
+        return new MatchSense(
+            RoundElapsed: _roundElapsed,
+            RoundLength: Rules?.RoundSeconds ?? 0f,
+            RoundsLeft: Rules is { } rules ? Math.Max(0, rules.Rounds - MatchRound) : 0,
+            DamageLead: opponent.Condition.TotalDamage - self.Condition.TotalDamage,
+            DownLead: theirs - mine,
+            Quiet: _quiet);
+    }
+
+    /// <summary>試合の時計と点の動きを 1 歩ぶん数える（物理の歩の後。試合が動いている歩だけ時計を進める）。</summary>
+    private void CountMatchClock(bool live, float dt)
+    {
+        var scored = Player.Condition.TotalDamage + Cpu.Condition.TotalDamage;
+        if (scored != _scoredBefore)
+        {
+            _quiet = 0f;
+            _scoredBefore = scored;
+        }
+        else if (live)
+        {
+            _quiet += dt;
+        }
+
+        if (live)
+        {
+            _roundElapsed += dt;
+        }
+    }
+
+    /// <summary>新しいラウンドの始まり: ラウンドの時計と打ち合いの無い時間を 0 から数え直す（ダウンの数は試合を通して残す）。</summary>
+    private void RestartMatchClock()
+    {
+        _roundElapsed = 0f;
+        _quiet = 0f;
+        _scoredBefore = Player is null || Cpu is null ? 0f : Player.Condition.TotalDamage + Cpu.Condition.TotalDamage;
     }
 
     public FighterSense PlayerSense => ArmedSense(Player, Cpu);

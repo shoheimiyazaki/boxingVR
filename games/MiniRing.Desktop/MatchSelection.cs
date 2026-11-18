@@ -12,13 +12,13 @@ internal enum MatchMode { Single, Versus, Spectate }
 /// <summary>
 /// メニューで決めた試合の中身: 赤（1P）と青（2P・CPU）のキャラクターと、レフェリーの有無（設定）。
 /// 武器・はめる物・体格・顔・名前はキャラクターの値で固定（選ぶ行は無い）。ボットの性格はキャラクターのスタイル
-/// （教科書に教育を重ねた解決済みのもの。相手ごとの備え <c>vs</c> はこの試合の相手で引く。<see cref="FighterCharacter.Resolve"/>）。
+/// （教科書に教育を重ねた解決済みのもの。相手ごとの備え <c>vs</c> はこの試合の相手で引く。<see cref="FighterCharacter.Resolve(string)"/>）。
 /// 解決したスタイルは、青のボット（<see cref="BoxingCorners.CpuStyleJson"/>）・赤のボット（<see cref="BoxingCorners.RedBotStyle"/>）・
 /// 人が操る側の意図の解釈（<see cref="BoxingCorners.PlayerStyle"/>・<see cref="BoxingCorners.CpuStyle"/>）・記録の見出しの全部に同じ物が通る。
 /// </summary>
 internal sealed record MatchSelection(MatchMode Mode, FighterCharacter Red, FighterCharacter Blue, bool Referee = true)
 {
-    public BoxingCorners Corners => Build(Red.Resolve(Blue.Id), Blue.Resolve(Red.Id));
+    public BoxingCorners Corners => Build(Red.Resolve(Blue), Blue.Resolve(Red));
 
     private BoxingCorners Build(BotStyle redStyle, BotStyle blueStyle) => BotCatalog.Corners(blueStyle) with
     {

@@ -82,6 +82,31 @@
     "weapon": "longsword"
   },
   "textbook": "boxer",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 3.466, "Taken": 19.707 },
+          { "Cm": 17, "Dealt": 3.197, "Taken": 17.277 },
+          { "Cm": 19, "Dealt": 2.509, "Taken": 13.378 },
+          { "Cm": 21, "Dealt": 3.483, "Taken": 10.668 },
+          { "Cm": 23, "Dealt": 5.775, "Taken": 9.231 },
+          { "Cm": 25, "Dealt": 5.421, "Taken": 8.079 },
+          { "Cm": 27, "Dealt": 7.303, "Taken": 6.923 },
+          { "Cm": 29, "Dealt": 6.872, "Taken": 5.094 },
+          { "Cm": 31, "Dealt": 3.909, "Taken": 4.536 },
+          { "Cm": 33, "Dealt": 3.517, "Taken": 2.764 },
+          { "Cm": 35, "Dealt": 3.434, "Taken": 1.63 },
+          { "Cm": 37, "Dealt": 5.901, "Taken": 1.007 },
+          { "Cm": 39, "Dealt": 5.912, "Taken": 1.009 },
+          { "Cm": 41, "Dealt": 4.741, "Taken": 1.35 },
+          { "Cm": 43, "Dealt": 1.864, "Taken": 0.539 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

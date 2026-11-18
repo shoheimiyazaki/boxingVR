@@ -82,6 +82,35 @@
     "weapon": "club"
   },
   "textbook": "slugger",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 2.778, "Taken": 18.937 },
+          { "Cm": 17, "Dealt": 4.046, "Taken": 21.258 },
+          { "Cm": 19, "Dealt": 3.56, "Taken": 20.683 },
+          { "Cm": 21, "Dealt": 4.295, "Taken": 19.241 },
+          { "Cm": 23, "Dealt": 5.313, "Taken": 13.766 },
+          { "Cm": 25, "Dealt": 4.358, "Taken": 10.543 },
+          { "Cm": 27, "Dealt": 3.078, "Taken": 5.897 },
+          { "Cm": 29, "Dealt": 3.208, "Taken": 5.21 },
+          { "Cm": 31, "Dealt": 2.813, "Taken": 4.384 },
+          { "Cm": 33, "Dealt": 2.194, "Taken": 2.686 },
+          { "Cm": 35, "Dealt": 1.585, "Taken": 1.395 },
+          { "Cm": 37, "Dealt": 0.542, "Taken": 0.706 },
+          { "Cm": 39, "Dealt": 0.29, "Taken": 0.428 },
+          { "Cm": 41, "Dealt": 0.354, "Taken": 0.213 },
+          { "Cm": 43, "Dealt": 0.102, "Taken": 0.137 },
+          { "Cm": 45, "Dealt": 0, "Taken": 0.399 },
+          { "Cm": 47, "Dealt": 0, "Taken": 0.553 },
+          { "Cm": 49, "Dealt": 0, "Taken": 0.246 },
+          { "Cm": 51, "Dealt": 0, "Taken": 0.343 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

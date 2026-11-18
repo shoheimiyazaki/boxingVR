@@ -13,6 +13,8 @@ public sealed class CharacterSamenessProbe
             Console.WriteLine($"SAME {c.Name} half=0x{half:X16} end=0x{end:X16}");
             var (lHalf, lEnd) = CharacterSamenessCases.Run(c, legacyWeapons: true);
             Console.WriteLine($"LEGACY {c.Name} half=0x{lHalf:X16} end=0x{lEnd:X16}");
+            var (nHalf, nEnd) = CharacterSamenessCases.Run(c, legacyWeapons: true, gamePlan: false);
+            Console.WriteLine($"NOPLAN-LEGACY {c.Name} half=0x{nHalf:X16} end=0x{nEnd:X16}");
         }
     }
 }

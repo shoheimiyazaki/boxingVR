@@ -11,7 +11,7 @@ namespace MiniRing.Characters;
 /// <summary>
 /// キャラクターの名簿。1 人 1 ファイル（組み込みは <c>Characters/roster/&lt;id&gt;.json</c>、国の旗の表は <c>countries.json</c>）。
 /// ファイルは体（<c>look</c>・<c>body</c>）＋ 教科書（<c>textbook</c>、スタイルの名前）＋ 教育（<c>education</c>、教科書からの差分）＋ 育ちの記録（<c>record</c>）。
-/// ここは読み込みと検証だけ（解決は <see cref="FighterCharacter.Resolve"/>）。
+/// ここは読み込みと検証だけ（解決は <see cref="FighterCharacter.Resolve(string)"/>）。
 /// 値の範囲（体格・色・顔の部位）・教科書の名前・国・武器の名前・教育の鍵・<c>vs</c> の相手が壊れていれば、どの人のどの欄かを書いた例外で止める
 /// （黙って既定に直さない: 見た目と強さが食い違う）。ファイルのパスから読む入口（<see cref="LoadFile"/>・<see cref="LoadDirectory"/>）は、
 /// プレイヤーが作ったキャラ・新人（アプリのデータの場所）を読むためのもの。
@@ -62,6 +62,9 @@ public static class CharacterRoster
     /// <summary>id から探す。</summary>
     public static FighterCharacter Get(string id) => All.FirstOrDefault(c => c.Id == id)
         ?? throw new ArgumentException($"キャラクター '{id}' はいません（{string.Join(", ", All.Select(c => c.Id))}）。", nameof(id));
+
+    /// <summary>id から探す（いなければ null）。</summary>
+    public static FighterCharacter? Find(string id) => All.FirstOrDefault(c => c.Id == id);
 
     /// <summary>id の名簿の中の位置。</summary>
     public static int IndexOf(string id)

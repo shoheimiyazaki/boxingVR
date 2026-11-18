@@ -343,6 +343,36 @@ public sealed partial class Fighter
     public float CoreStrength => 0.5f * (Strength(Parts.Chest) + Strength(Parts.Pelvis));
 
     /// <summary>
+    /// 体の傷み（0..1、戦略の層の入力 <see cref="FighterSense.SelfInjury"/> / <see cref="FighterSense.OpponentInjury"/>）: 両腕・両脚の「失った力」の平均。
+    /// 1 本の手足の残りは、体に近い側と遠い側の部位（上腕と前腕・腿とすね）の、残った筋の断面の割合（<see cref="Voxels.BoxerBody.Muscle"/>）の平均で、
+    /// 折れて肉で垂れた先・切り落とされた先（体が支えない部位）と切り落とされた腕は 0。<paramref name="felt"/> なら神経の働き（脊髄、<see cref="Innervation"/>）も掛ける
+    /// （自分が感じる力の抜け）。相手から見るとき（false）は見えている量だけ: 削れた肉・垂れた腕・落ちた部位。意識・臓器は入れない（CLAUDE.md §1.7）。
+    /// ボクセルの無い体は 0。読むだけで、体の物理には響かない。
+    /// </summary>
+    public float Injury(bool felt)
+    {
+        if (Voxels is null)
+        {
+            return 0f;
+        }
+
+        var p = Parts;
+        var kept = 0f;
+        foreach (var arm in _arms)
+        {
+            kept += arm.Severed ? 0f : 0.5f * (Remaining(arm.UpperArm, felt) + Remaining(arm.Forearm, felt));
+        }
+
+        kept += 0.5f * (Remaining(p.LeftThigh, felt) + Remaining(p.LeftShin, felt));
+        kept += 0.5f * (Remaining(p.RightThigh, felt) + Remaining(p.RightShin, felt));
+        return Math.Clamp(1f - (0.25f * kept), 0f, 1f);
+    }
+
+    /// <summary>部位の残った力（0..1）: 体が支えていない部位は 0、ほかは残った筋の断面（感じる量なら神経の働きも掛ける）。</summary>
+    private float Remaining(int part, bool felt)
+        => _detached.Contains(part) || Voxels is not { } v ? 0f : v.Muscle(part) * (felt ? Innervation(part) : 1f);
+
+    /// <summary>
     /// 体を起こしていられるか: 生きていて、弱い方の脚（切り株なら残った肉）の力が、<see cref="FighterTuning.StandStrength"/> × 脚が受け持つ高さの割合
     /// （<see cref="LegBearing"/>）以上。脚が折れた・切れただけでは倒れたままにならない: 残った脚の長さの高さ（<see cref="StandTargetHeight"/>。
     /// 膝立ち・座り）で戦い続ける。骨盤で座る体は脚で持ち上げる高さが無いので、脚の力は要らない。
@@ -1004,7 +1034,8 @@ public sealed partial class Fighter
 
     /// <summary>
     /// 息の上がり方（0..1、見た目だけ）: スタミナが <see cref="FighterTuning.TiredKnee"/> を下回るほど、また息（心臓・肺）の働きが
-    /// 落ちるほど大きい（大きい方）。死んでいれば 0（息をしない）。チアノーゼ・吐く息・メーターの点滅はここから出る。試合の計算には使わない。
+    /// 落ちるほど大きい（大きい方）。死んでいれば 0（息をしない）。チアノーゼ・吐く息・メーターの点滅はここから出る。体の物理の計算には使わない
+    /// （ボットの戦略の層は、相手の見える手がかりとしてこの量を読む: <see cref="FighterSense.OpponentWinded"/>）。
     /// </summary>
     public float Winded => IsDead ? 0f : Math.Clamp(MathF.Max(1f - (Stamina / MathF.Max(1e-3f, _tuning.TiredKnee)), BreathWindedShare * (1f - Breath)), 0f, 1f);
 

@@ -100,7 +100,7 @@
             "parts": { "jaw": 1.12, "jawWidth": 1.1, "cheekbones": 1.1 } },
   "body": { "build": { "height": 1.12, "arms": 1.1, "legs": 1.0, "muscle": 1.15 }, "wear": "glove", "weapon": null },
   "textbook": "champion",                 // BotCatalog のスタイルの名前（全キャラ共通の基本）
-  "education": {                          // 教科書からの差分だけ。ここでは全員空
+  "education": {                          // 教科書からの差分だけ（名簿の 17 人は今 style.GamePlan だけ: 下の「戦略の層」）
     "style": { "Aggression": 0.8, "Aim": { "Chin": 2 } },   // 書いた鍵だけ教科書を上書き（BotStyle.ToJson と同じ書き方。列挙体は数）
     "vs": { "akira": { "RangePress": 3 } },                 // その相手 id との試合だけ（style の上にさらに重ねる）
     "weaponBot": { "Rest": 0.4, "Defense": { "BlockShare": 0.5 } }   // 握る武器（刀・ロングソード・こんぼう）のボットの値。書いた鍵だけ武器の教科書を上書き（下）。武器が無いキャラは null か {}
@@ -111,6 +111,7 @@
 
 - **解決**（`FighterCharacter.Resolve(相手の id)` / `EducationResolver`）: 教科書の JSON（`BotStyle.ToJson`）→ `education.style` → `education.vs[相手]` の順に JSON の段で重ね（オブジェクトは鍵ごとに再帰で重ね、配列・値は置き換え）、`BotStyle` に読み直して `Validated()`。**教育が空（重なる層が無い）なら教科書そのもの**（同じ物を返す。今と同じ試合）。結果の `Name` は教科書の名前のまま（空手の判定 `IsKarate` など、名前で見ている所が壊れないように）。
 - 教育で変えられないもの: `Name`・`RingName`・`Build`・`Face`（体と名前。強さは見えている体から出す、§1.7）。
+- **戦略の層**（`education.style.GamePlan`、2026-11-18、LogicVersion 50）: 名簿の 17 人の教育は今これだけ。自分の得意な間合いの表（`Own`。`docs/arena/maai_roster_ranges_bins.csv` から `node tools/roster-report/fill-gameplan.mjs` で書き込む）と性格（全員既定）。相手の表（`Foe`）は書かず、解決のとき（`FighterCharacter.Resolve(相手)`）に相手のキャラの `Own` が入る（名簿にいない相手なら空）。解決済みのスタイルに入るので記録の見出しにも入り、再生は同じになる。式と入力は `docs/BOTS.md`「戦略の層」。剣・棒・棍棒の選手の表は相手として使うだけ（そのボットは読まない）。
 - **解決したスタイルを全部に通す**（名前で `BotCatalog` を引き直さない）: 青の CPU（`BotCatalog.Corners(解決済み)` → `CpuStyleJson`）、観戦の赤（`RedBotStyle`）、人が操る赤・2P の青の意図の解釈（`BoxingCorners.PlayerStyle`・`CpuStyle` → `DesktopFighterControl`）、レフェリーなしの倒れた相手への攻め（`GroundStyle`）、Arena の `--red-char` / `rosterleague`（`--set` はその上にさらに重ねる）。
 - **記録**: 見出しに解決済みのスタイルの全体が入る（青 = `CpuStyleJson`、ボットの赤 = `RedBotStyleJson`、人が操る赤 = `PlayerStyleJson`）。再生は名簿のファイルを引かないので、後でファイルの教育が変わっても同じ試合。リプレイ形式は版 9（バイナリの並びは版 7 と同じ。古い記録は `PlayerStyleJson` が無く、今までの決め方）。握る武器のボットの値（解決済みの `WeaponStyle` の JSON）は見出しの `PlayerWeaponStyleJson`・`CpuWeaponStyleJson`（版 9。無い記録は null = その武器の組み込みの教科書）。
 - **武器のボットの教科書と教育**（`education.weaponBot`、2026-11-16）: 刀・ロングソード・こんぼうのボットの判断の値は `WeaponStyle`（`Bots/WeaponStyle.cs`）に全部まとまっていて、JSON に読み書きできる（`Validated()` が範囲を検査し、知らない鍵・範囲外は止める）。武器ごとの教科書は組み込みの `Bots/weapons/katana.json`・`longsword.json`・`club.json`（`WeaponCatalog.Textbook`）。値: 剣士の守り `Defense`（`SwordDefense`）・間合いの取り合い `HitAndAway`（null = 遠間で構えて 1 つずつ詰める）・狙い `Aim`/`AutoAim`・自分の体を避ける通り道 `Clearance`・技の時計 `Pacing`・`Rest`・`MinReach`・折れた武器を捨てる長さ `KeepReach`、こんぼうの `ClubRange`・`ClubRest`・`ClubStandOff`・`ClubExact`。使わない側の値は無視される（剣士はこんぼうの値を読まない）。`education.weaponBot` は書いた鍵だけが教科書を上書きする（`WeaponEducation.Resolve`、重ね方は `style` と同じ。最上位の鍵が教科書に無い・`Name` を書いた・値が範囲外・武器を握らない（拳・鉄の剣）キャラが空でない値を書いた、は読み込みで止める）。解決した値は `FighterCharacter.WeaponStyle` → `BoxingCorners.PlayerWeaponStyle`/`CpuWeaponStyle` → 武器のボット（`FormSwordsman.Bot(.., style)`・`ClubBot.FromStyle`）と記録の見出しへ。教育が空なら教科書そのもの（今までの試合とビット単位で同じ: `CharacterSamenessTests` の `w-*` の組）。**相手ごとの層（`vs`）は無い**（武器の値は相手を読んで変えるものではなく、教育全体で 1 組）。

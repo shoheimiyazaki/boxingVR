@@ -81,6 +81,28 @@
     "weapon": null
   },
   "textbook": "swarmer",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 16.879, "Taken": 11.872 },
+          { "Cm": 17, "Dealt": 17.502, "Taken": 12.387 },
+          { "Cm": 19, "Dealt": 13.442, "Taken": 12.546 },
+          { "Cm": 21, "Dealt": 9.74, "Taken": 11.505 },
+          { "Cm": 23, "Dealt": 7.221, "Taken": 8.342 },
+          { "Cm": 25, "Dealt": 4.147, "Taken": 9.764 },
+          { "Cm": 27, "Dealt": 2.612, "Taken": 5.14 },
+          { "Cm": 29, "Dealt": 1.57, "Taken": 2.618 },
+          { "Cm": 31, "Dealt": 0.328, "Taken": 2.249 },
+          { "Cm": 33, "Dealt": 0.327, "Taken": 1.205 },
+          { "Cm": 35, "Dealt": 0.441, "Taken": 0.728 },
+          { "Cm": 37, "Dealt": 0, "Taken": 2.27 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

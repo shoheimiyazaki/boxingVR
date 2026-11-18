@@ -118,6 +118,11 @@ public readonly record struct BodySense(Vector3 LeftShoulder, Vector3 RightShoul
 /// <see cref="BoxingCorners.Referee"/>）。<paramref name="OpponentAlive"/>（立っていて打ってよい）の意味は変わらない。レフェリーがいる試合では <paramref name="MayStrikeDowned"/> は常に false で、入力元は今までどおり倒れた相手へ手を出さない。</para>
 /// <para><paramref name="Ring"/> はこの試合のリング（null はリングを指定しない試合の場 <see cref="RingLayout.DrillBoxing"/>）。ロープ際を知り、下がる余地を測るため。</para>
 /// <para><paramref name="SelfWeapon"/> は自分の握っている武器の長さ（折れて短くなったか。<see cref="WeaponSense"/>）。</para>
+/// <para>戦略の層（<see cref="Bots.GamePlan"/>、2026-11-18）の入力: <paramref name="SelfInjury"/> は自分の体の傷み（0..1、腕・脚の残った筋の断面・神経の働き・
+/// 折れて垂れた先・落ちた部位から出す「失った力」。自分が感じる量。<see cref="Fighter.Injury"/>）、<paramref name="OpponentInjury"/> は相手の<b>見えている</b>傷み
+/// （残った筋の断面・折れて垂れた先・落ちた部位だけ。意識・臓器・神経は入れない）、<paramref name="OpponentWinded"/> は相手の息の上がり（<see cref="TiredLook"/> が描くのと同じ
+/// <see cref="Fighter.Winded"/>。見た目の手がかり）、<paramref name="Match"/> は試合の時刻・点の差・打ち合いの無い時間（<see cref="MatchSense"/>）。既定値は「傷み無し・
+/// 息は普通・時刻を知らない」で、読まない入力元は今までと同じに動く。どれも読むだけで、体の物理には響かない。</para>
 /// </summary>
 public readonly record struct FighterSense(
     BodyFrame Self, float ArmReach, Vector3 OpponentHead, Vector3 OpponentChest, bool OpponentAlive,
@@ -126,7 +131,8 @@ public readonly record struct FighterSense(
     TargetMap? OpponentTargets = null, RingLayout? Ring = null, WeaponSense SelfWeapon = default, float SelfStamina = 1f,
     VisionState? SelfVision = null, VisionState? OpponentVision = null, float OpponentArmReach = 0f,
     bool OpponentDowned = false, bool MayStrikeDowned = false, BodyBuild? SelfBuild = null, BodyBuild? OpponentBuild = null,
-    LegBody? SelfLegLeft = null, LegBody? SelfLegRight = null)
+    LegBody? SelfLegLeft = null, LegBody? SelfLegRight = null,
+    float SelfInjury = 0f, float OpponentInjury = 0f, float OpponentWinded = 0f, MatchSense Match = default)
 {
     /// <summary>自分の脚の寸法と立った形の膝（体フレーム）。分からなければ腕の長さからの見積もり。</summary>
     public LegBody SelfLeg(Hand leg) => (leg == Hand.Left ? SelfLegLeft : SelfLegRight) ?? LegBody.FromReach(leg, ArmReach);
@@ -135,6 +141,22 @@ public readonly record struct FighterSense(
 
     /// <summary>この試合のリング（分からなければ拳の試合の標準）。</summary>
     public RingLayout Arena => Ring ?? RingLayout.DrillBoxing;
+}
+
+/// <summary>
+/// 試合の時刻と点（<see cref="FighterSense.Match"/>、2026-11-18）: 自分から見た値。リングの上の誰でも分かる量（時計・ダウンの数・打ち合いの有無）と、
+/// 自分が与えた・受けたダメージ（試合の得点の物差し。判定の点と同じ量）だけで、相手の体の中の値は持たない。
+/// </summary>
+/// <param name="RoundElapsed">このラウンドの経過 [s]（試合が動いていた時間）。</param>
+/// <param name="RoundLength">ラウンドの長さ [s]。0 は決まっていない（時間の無いラウンド: K.O. のたびに作り直す試合）。</param>
+/// <param name="RoundsLeft">このラウンドの後に残るラウンドの数（決まっていなければ 0）。</param>
+/// <param name="DamageLead">点の差: 自分が与えたダメージ − 受けたダメージ（今の体が受けたダメージの合計の差。テレビ中継の試合では体がラウンドをまたぐので試合を通した差、時間の無いラウンドでは K.O. で体が作り直されると 0 に戻る）。</param>
+/// <param name="DownLead">取ったダウン − 取られたダウン（試合を通して）。</param>
+/// <param name="Quiet">打ち合いの無い時間 [s]: どちらかの打撃が最後に入って（得点が動いて）からの時間。ラウンドの始まりから数える。</param>
+public readonly record struct MatchSense(float RoundElapsed = 0f, float RoundLength = 0f, int RoundsLeft = 0, float DamageLead = 0f, int DownLead = 0, float Quiet = 0f)
+{
+    /// <summary>ラウンドの進み（0..1）。長さが決まっていなければ 0。</summary>
+    public float RoundProgress => RoundLength > 0f && float.IsFinite(RoundElapsed) ? Math.Clamp(RoundElapsed / RoundLength, 0f, 1f) : 0f;
 }
 
 /// <summary>ファイターの操作元。VR・キーボード・AI がこれを実装する。</summary>

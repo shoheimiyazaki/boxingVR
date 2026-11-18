@@ -61,6 +61,34 @@
     "weapon": "ironSword"
   },
   "textbook": "boxer",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 2.32, "Taken": 9.77 },
+          { "Cm": 17, "Dealt": 3.246, "Taken": 11.57 },
+          { "Cm": 19, "Dealt": 3.55, "Taken": 7.643 },
+          { "Cm": 21, "Dealt": 4.684, "Taken": 10.289 },
+          { "Cm": 23, "Dealt": 3.315, "Taken": 5.519 },
+          { "Cm": 25, "Dealt": 2.656, "Taken": 4.221 },
+          { "Cm": 27, "Dealt": 2.881, "Taken": 4.226 },
+          { "Cm": 29, "Dealt": 1.212, "Taken": 2.922 },
+          { "Cm": 31, "Dealt": 1.328, "Taken": 1.279 },
+          { "Cm": 33, "Dealt": 0.969, "Taken": 0.676 },
+          { "Cm": 35, "Dealt": 0.838, "Taken": 0.599 },
+          { "Cm": 37, "Dealt": 0.82, "Taken": 0.495 },
+          { "Cm": 39, "Dealt": 0.479, "Taken": 0.305 },
+          { "Cm": 41, "Dealt": 0.439, "Taken": 0.091 },
+          { "Cm": 43, "Dealt": 0.685, "Taken": 0.064 },
+          { "Cm": 45, "Dealt": 0.906, "Taken": 0 },
+          { "Cm": 47, "Dealt": 0.495, "Taken": 0 },
+          { "Cm": 49, "Dealt": 0.387, "Taken": 0 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

@@ -83,6 +83,30 @@
     "weapon": null
   },
   "textbook": "champion",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 17, "Dealt": 24.744, "Taken": 16.391 },
+          { "Cm": 19, "Dealt": 22.723, "Taken": 12.615 },
+          { "Cm": 21, "Dealt": 26.432, "Taken": 18.118 },
+          { "Cm": 23, "Dealt": 27.013, "Taken": 11.074 },
+          { "Cm": 25, "Dealt": 30.721, "Taken": 9.577 },
+          { "Cm": 27, "Dealt": 25.324, "Taken": 5.776 },
+          { "Cm": 29, "Dealt": 19.351, "Taken": 3.959 },
+          { "Cm": 31, "Dealt": 11.687, "Taken": 2.836 },
+          { "Cm": 33, "Dealt": 5.445, "Taken": 2.301 },
+          { "Cm": 35, "Dealt": 2.038, "Taken": 1.489 },
+          { "Cm": 37, "Dealt": 1.212, "Taken": 1.97 },
+          { "Cm": 39, "Dealt": 0.247, "Taken": 2.245 },
+          { "Cm": 41, "Dealt": 0.118, "Taken": 1.782 },
+          { "Cm": 43, "Dealt": 0.191, "Taken": 0.86 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

@@ -82,6 +82,30 @@
     "weapon": null
   },
   "textbook": "jabber",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 17, "Dealt": 12.709, "Taken": 17.385 },
+          { "Cm": 19, "Dealt": 15.531, "Taken": 17.435 },
+          { "Cm": 21, "Dealt": 13.661, "Taken": 14.416 },
+          { "Cm": 23, "Dealt": 13.731, "Taken": 10.514 },
+          { "Cm": 25, "Dealt": 9.514, "Taken": 9.305 },
+          { "Cm": 27, "Dealt": 4.963, "Taken": 6.957 },
+          { "Cm": 29, "Dealt": 2.236, "Taken": 4.454 },
+          { "Cm": 31, "Dealt": 0.613, "Taken": 2.79 },
+          { "Cm": 33, "Dealt": 0.196, "Taken": 1.621 },
+          { "Cm": 35, "Dealt": 0.203, "Taken": 1.219 },
+          { "Cm": 37, "Dealt": 0.136, "Taken": 2.26 },
+          { "Cm": 39, "Dealt": 0, "Taken": 0.978 },
+          { "Cm": 41, "Dealt": 0, "Taken": 2.17 },
+          { "Cm": 43, "Dealt": 0.338, "Taken": 0.699 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

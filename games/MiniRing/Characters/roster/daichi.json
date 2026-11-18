@@ -80,6 +80,34 @@
     "weapon": "staff"
   },
   "textbook": "champion",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 0.945, "Taken": 23.361 },
+          { "Cm": 17, "Dealt": 2.24, "Taken": 21.799 },
+          { "Cm": 19, "Dealt": 2.834, "Taken": 20.29 },
+          { "Cm": 21, "Dealt": 4.461, "Taken": 16.407 },
+          { "Cm": 23, "Dealt": 3.975, "Taken": 13.298 },
+          { "Cm": 25, "Dealt": 3.9, "Taken": 8.481 },
+          { "Cm": 27, "Dealt": 3.514, "Taken": 7.158 },
+          { "Cm": 29, "Dealt": 2.837, "Taken": 6.701 },
+          { "Cm": 31, "Dealt": 1.864, "Taken": 3.034 },
+          { "Cm": 33, "Dealt": 1.917, "Taken": 1.758 },
+          { "Cm": 35, "Dealt": 1.513, "Taken": 1.479 },
+          { "Cm": 37, "Dealt": 1.357, "Taken": 0.788 },
+          { "Cm": 39, "Dealt": 0.796, "Taken": 0.754 },
+          { "Cm": 41, "Dealt": 1.696, "Taken": 0.369 },
+          { "Cm": 43, "Dealt": 0.475, "Taken": 0.292 },
+          { "Cm": 45, "Dealt": 0.529, "Taken": 0 },
+          { "Cm": 47, "Dealt": 0.314, "Taken": 0 },
+          { "Cm": 49, "Dealt": 0.376, "Taken": 0 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }
