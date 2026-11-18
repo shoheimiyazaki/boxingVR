@@ -164,6 +164,134 @@ public sealed partial class BoxingGame
     }
 
     /// <summary>
+    /// 握っていない手 <paramref name="hand"/> が <see cref="HandCommand.Grip"/> を押しているとき、手が柄の近く（<see cref="FighterTuning.WeaponGraspReach"/>）に
+    /// あれば握る（グリップで持つ。VR の手。ボットと従来の操作は Grip を出さないので、ここへ来ない）:
+    /// <list type="bullet">
+    /// <item>自分がもう一方の手で握っている武器があれば、その武器に添える（両手持ち）。握る所は、先に握っている手から柄頭の側へ
+    /// 両手の通常の間隔（<see cref="Bots.FormSwordsman.Spacing"/> × 腕の長さ。柄の端まで）。</item>
+    /// <item>なければ、床に落ちている（誰も握っていない）武器を、鍔に近い握り（<see cref="Weapon.GripOf"/>）で拾う。左手だけでも持てる。</item>
+    /// </list>
+    /// 握る前に手にはめていた素手の拳は外す（<see cref="RetireWorn"/>）。
+    /// </summary>
+    private void TryGraspWeapon(Fighter self, Hand hand)
+    {
+        // 素手の拳（放した後の空いた手）は外して握れる。グローブ・はめ物（拳の試合）をはめた手は握れない。
+        if (_weapons.Count == 0 || self.Wields(hand) || self.ArmSevered(hand) || self.IsHolding(hand)
+            || (GloveOf(self, hand) is { } worn && worn.Kind != WeaponKind.Fist))
+        {
+            return;
+        }
+
+        var fist = self.GloveCenter(hand);
+        var reach = _tuning.WeaponGraspReach;
+        Weapon? own = null;
+        foreach (var (weapon, holder) in _wielders)
+        {
+            if (holder == self && !Weapon.IsWorn(weapon.Kind) && HolderOf(weapon) == self)
+            {
+                own = weapon;
+                break;
+            }
+        }
+
+        if (own is not null)
+        {
+            TryAddSupport(self, hand, own, fist, reach);
+            return;
+        }
+
+        Weapon? best = null;
+        var bestDistance = reach;
+        foreach (var weapon in _weapons)
+        {
+            if (Weapon.IsWorn(weapon.Kind) || OwnerOf(weapon) is not null)
+            {
+                continue; // はめ物・誰かが（切れた手でも）握っている物は拾えない
+            }
+
+            var s = _world.GetState(weapon.Body.BodyId);
+            var distance = Vector3.Distance(fist, s.Position + Vector3.Transform(Weapon.GripOf(weapon.Kind), s.Orientation));
+            if (distance <= bestDistance)
+            {
+                best = weapon;
+                bestDistance = distance;
+            }
+        }
+
+        if (best is null)
+        {
+            return;
+        }
+
+        RetireWorn(self, hand);
+        var kind = best.Kind;
+        self.Grasp(hand, best.Body.BodyId, Weapon.GripOf(kind), Weapon.CanTwoHand(kind), Weapon.SlideSpanOf(kind));
+        _wielders[best] = self;
+        _wieldHand[best] = hand;
+    }
+
+    /// <summary>自分が握っている武器 <paramref name="weapon"/> に、空いた手 <paramref name="hand"/> を添える（<see cref="TryGraspWeapon"/>）。</summary>
+    private void TryAddSupport(Fighter self, Hand hand, Weapon weapon, Vector3 fist, float reach)
+    {
+        var kind = weapon.Kind;
+        var main = HandOf(weapon);
+        if (hand == main || !Weapon.CanTwoHand(kind) || self.WieldedGrip(main) is not { } mainGrip)
+        {
+            return;
+        }
+
+        var (top, bottom) = Weapon.TwoHandGripsOf(kind);
+        var low = MathF.Min(top.X, bottom.X);
+        var high = MathF.Max(top.X, bottom.X);
+        var spacing = Bots.FormSwordsman.Handles(kind) ? Bots.FormSwordsman.Spacing(kind) * self.ArmReach : Weapon.HandSpacing;
+        var toPommel = MathF.Sign(bottom.X - top.X);
+        var x = Math.Clamp(mainGrip.X + (toPommel * spacing), low, high);
+        if (MathF.Abs(x - mainGrip.X) < 1e-3f)
+        {
+            x = Math.Clamp(mainGrip.X - (toPommel * spacing), low, high); // 先に握った手が柄頭の端にある（棍棒の片手の握り）: 反対の側へ添える
+        }
+
+        // 手が柄（握れる区間）のどこかの近くにあるか。
+        var s = _world.GetState(weapon.Body.BodyId);
+        var axis = Vector3.Transform(Vector3.UnitX, s.Orientation);
+        var along = Math.Clamp(Vector3.Dot(fist - s.Position, axis), low, high);
+        if (Vector3.Distance(fist, s.Position + (axis * along)) > reach)
+        {
+            return;
+        }
+
+        RetireWorn(self, hand);
+        self.Support(hand, main, new Vector3(x, 0f, 0f));
+    }
+
+    /// <summary>
+    /// 手 <paramref name="hand"/> にはめている素手の拳（<see cref="BareFreeHands"/> がはめた物）を外す。物理の世界から剛体は消せないので、
+    /// 関節を外し、手の管理（武器の一覧・握っている手の表）から外して、遠く（床の下）に動かない物として置く。
+    /// </summary>
+    private void RetireWorn(Fighter self, Hand hand)
+    {
+        if (GloveOf(self, hand) is not { } worn)
+        {
+            return;
+        }
+
+        self.Unwield(hand);
+        self.SetStrikeReach(hand, null);
+        var id = worn.Body.BodyId;
+        _world.MakeKinematic(id);
+        _world.SetKinematicPose(id, new Vector3(0f, -RetiredWornDepth, 0f), Quaternion.Identity);
+        _wielders.Remove(worn);
+        _wieldHand.Remove(worn);
+        _weapons.Remove(worn);
+        _fullReach.Remove(worn);
+        _weaponCooldown.Remove(worn);
+        _selfCooldown.Remove(worn);
+    }
+
+    /// <summary>武器を握る手から外した素手の拳を置く深さ [m]（床の下。物理の世界から剛体を消せないので、遠くへ動かない物として置く）。</summary>
+    private const float RetiredWornDepth = 1000f;
+
+    /// <summary>
     /// <see cref="Sense"/> に、握った武器の見え方を足したもの: 自分が武器を握っているか、相手の武器の握り・先・先の速度。
     /// </summary>
     private FighterSense ArmedSense(Fighter self, Fighter opponent)

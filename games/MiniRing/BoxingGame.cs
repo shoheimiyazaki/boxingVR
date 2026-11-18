@@ -575,7 +575,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         {
             if (command.For(hand).LetGo)
             {
-                LetGo(self, hand);
+                // もう一方の手も同じ歩に放すなら、2 本とも放す（従来どおり）。そうでなければ、残った手が片手で持つ。
+                LetGo(self, hand, command.For(hand == Hand.Left ? Hand.Right : Hand.Left).LetGo);
+            }
+            else if (command.For(hand).Grip)
+            {
+                TryGraspWeapon(self, hand);
             }
 
             if (self.UpdateGrab(hand, command.For(hand).Grip, opponent) is not null)
@@ -595,10 +600,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     }
 
     /// <summary>
-    /// 手 <paramref name="hand"/> が握っている武器を放す（<see cref="HandCommand.LetGo"/>）。利き手なら、添えていた手も放す。添えていた手なら、
-    /// 利き手は片手で持つ。はめた物（グローブ）は外さない。
+    /// 手 <paramref name="hand"/> が握っている武器を放す（<see cref="HandCommand.LetGo"/>）。利き手なら、添えていた手も放す（その手も同じ歩に
+    /// 放すとき。そうでなければ添えていた手がそのまま片手で持つ）。添えていた手なら、利き手は片手で持つ。はめた物（グローブ）は外さない。
     /// </summary>
-    private static void LetGo(Fighter self, Hand hand)
+    private static void LetGo(Fighter self, Hand hand, bool otherLetsGoToo)
     {
         if (self.WearsGlove(hand) || !self.Wields(hand))
         {
@@ -607,7 +612,14 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
         if (self.WieldedBody(hand) is not null)
         {
-            self.Unwield(hand);
+            if (otherLetsGoToo)
+            {
+                self.Unwield(hand);
+            }
+            else
+            {
+                self.UnwieldKeepingSupport(hand);
+            }
         }
         else
         {
