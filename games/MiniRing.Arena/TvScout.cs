@@ -33,10 +33,16 @@ internal static class TvScout
             var blueDowns = 0;
             bool redWasDown = false, blueWasDown = false;
             var time = 0f;
+            float bothDown = 0f, bothDownRun = 0f, longestBothDown = 0f;
             while (!game.MatchOver && time < rules.TotalSeconds + 5f)
             {
                 game.Step(default, stepDt);
                 time += stepDt;
+                // 両者が同時に倒れている時間（ラウンド中だけ。休み・試合の始めは数えない）: 番組として止まって見える時間の物差し。
+                var both = !game.Resting && game.Player.State != FighterState.Standing && game.Cpu.State != FighterState.Standing;
+                bothDownRun = both ? bothDownRun + stepDt : 0f;
+                bothDown += both ? stepDt : 0f;
+                longestBothDown = MathF.Max(longestBothDown, bothDownRun);
                 redDowns += !redWasDown && game.Player.IsKnockedDown ? 1 : 0;
                 blueDowns += !blueWasDown && game.Cpu.IsKnockedDown ? 1 : 0;
                 (redWasDown, blueWasDown) = (game.Player.IsKnockedDown, game.Cpu.IsKnockedDown);
@@ -45,7 +51,7 @@ internal static class TvScout
             var winner = game.PlayerWins > game.CpuWins ? 1 : game.CpuWins > game.PlayerWins ? -1 : 0;
             results.Add(new TvScoutResult(seed, game.Decision ?? game.Message, game.Decision is null, game.MatchRound, rules.RoundSeconds - game.RoundLeft,
                 game.Cpu.Condition.TotalDamage, game.Player.Condition.TotalDamage, redDowns, blueDowns, winner,
-                Death: game.Decision is null && TvScoutResult.IsDeath(game.Message)));
+                Death: game.Decision is null && TvScoutResult.IsDeath(game.Message)) { BothDownSeconds = bothDown, LongestBothDown = longestBothDown });
         }
         return [.. results.OrderBy(r => r.Seed)];
     }
@@ -58,7 +64,7 @@ internal static class TvScout
         foreach (var r in results)
         {
             log.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                $"  seed {r.Seed,3}: {r.Finish,-40} R{r.Round} {r.RoundTime,4:0.0}s  dmg red {r.RedDealt,5:0} / blue {r.BlueDealt,5:0}  downs red {r.RedDowns} / blue {r.BlueDowns}  drama {TvShowRules.Drama(r, rounds, roundSeconds, weights),5:0.0}"));
+                $"  seed {r.Seed,3}: {r.Finish,-40} R{r.Round} {r.RoundTime,4:0.0}s  dmg red {r.RedDealt,5:0} / blue {r.BlueDealt,5:0}  downs red {r.RedDowns} / blue {r.BlueDowns}  both-down {r.BothDownSeconds,5:0.0}s (longest {r.LongestBothDown,4:0.0}s)  drama {TvShowRules.Drama(r, rounds, roundSeconds, weights),5:0.0}"));
         }
     }
 

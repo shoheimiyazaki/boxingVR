@@ -292,6 +292,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _recentSwings.Clear();
         _recentGrazes.Clear();
         _recentSevers.Clear();
+        RecentSupplies.Clear();
+        RecentRegrowths.Clear();
         BrokenBones.Clear();
         _recentContacts.Clear();
         _recentContactBodies.Clear();
@@ -1181,6 +1183,87 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     private readonly Dictionary<Fighter, float> _regenBudget = [];
 
+    /// <summary>傷の前線の再生の抽選の乱数（試合の種から作った専用の流れ。ほかの乱数の流れを動かさない: CLAUDE.md §1.6）。</summary>
+    private Random? _regrowRandom;
+
+    /// <summary>次の再生の抽選までにたまった時間 [s]。</summary>
+    private float _regrowClock;
+
+    /// <summary>ラウンド中に、両者が倒れたまま意識だけでは立てない状態が続いている時間 [s]（<see cref="MatchRules.StuckDoublingSeconds"/>）。</summary>
+    private float _stuckTime;
+
+    /// <summary>今、両者が倒れたまま意識だけでは立てないので体を再生させているか（中継・調べもの用）。</summary>
+    public bool RegrowingWhileStuck { get; private set; }
+
+    /// <summary>直近の <see cref="Step"/> で、芽から生え直し始めた部位（中継の記録 <c>regrown</c>）。</summary>
+    public List<RegrowthEvent> RecentRegrowths { get; } = [];
+
+    /// <summary>今の再生の倍率（休みは 1、両者ダウンで立てない間は 2^(t / T)。再生していなければ 0）。</summary>
+    public float RegrowthRate { get; private set; }
+
+    /// <summary>
+    /// 傷の前線の再生（<see cref="Fighter.Regrow"/>）を <paramref name="dt"/> ぶん進める: <see cref="MatchRules.RegrowthTickSeconds"/> ごとに 1 回の抽選で、
+    /// 前線を 速さ × 間隔 × <paramref name="rate"/> だけ進める（両者とも）。
+    /// </summary>
+    private void RegrowBodies(MatchRules rules, float dt, float rate)
+    {
+        if (rules.RegrowthSpeed <= 0f || rules.RegrowthTickSeconds <= 0f)
+        {
+            RegrowthRate = 0f;
+            return;
+        }
+
+        RegrowthRate = rate;
+        _regrowRandom ??= new Random(_seed ^ 0x2e9e0);
+        _regrowClock += dt;
+        while (_regrowClock >= rules.RegrowthTickSeconds)
+        {
+            _regrowClock -= rules.RegrowthTickSeconds;
+            foreach (var fighter in Fighters)
+            {
+                var report = fighter.Regrow(_regrowRandom, rules.RegrowthSpeed * rules.RegrowthTickSeconds * rate);
+                foreach (var piece in report.NewPieces)
+                {
+                    UntouchedByWeaponBoxes(piece); // 古い中身を写した床の破片も、ほかの破片と同じに武器とは箱で当たらない
+                }
+
+                foreach (var part in report.Rebudded)
+                {
+                    RecentRegrowths.Add(new RegrowthEvent(fighter, part));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// ラウンド中の再生: 両者とも倒れていて（立っていない）、どちらも意識だけでは立てない（<see cref="Fighter.BodyLetsStand"/> が偽）間だけ、
+    /// 両者の体を再生させる。倍率はその状態が続いた時間 t から 2^(t / <see cref="MatchRules.StuckDoublingSeconds"/>)。
+    /// 片方だけ倒れているなら再生しない（相手が攻める場面を消さない）。死んだ体は再生しない（<see cref="Fighter.Regrow"/>）。
+    /// </summary>
+    private void RegrowWhileStuck(MatchRules rules, float dt)
+    {
+        var stuck = rules.StuckDoublingSeconds > 0f && rules.RegrowthSpeed > 0f
+            && Player.State != FighterState.Standing && Cpu.State != FighterState.Standing
+            && !Player.BodyLetsStand && !Cpu.BodyLetsStand;
+        if (!stuck)
+        {
+            if (RegrowingWhileStuck)
+            {
+                _regrowClock = 0f; // 次に止まったときは、抽選の間隔を 0 から数える
+            }
+
+            RegrowingWhileStuck = false;
+            RegrowthRate = 0f;
+            _stuckTime = 0f;
+            return;
+        }
+
+        RegrowingWhileStuck = true;
+        _stuckTime += dt;
+        RegrowBodies(rules, dt, MathF.Pow(2f, _stuckTime / rules.StuckDoublingSeconds));
+    }
+
+
     /// <summary>テレビ中継の試合を 1 歩進める: 決着（K.O. は時計より先に調べる）・時計・ラウンドの終わり・休み・判定。</summary>
     private void UpdateMatch(MatchRules rules, float dt)
     {
@@ -1210,21 +1293,27 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             foreach (var fighter in Fighters)
             {
                 // 削れた体は一定の速さで治る（RegenVoxelsPerSecond 個/秒）。打撲・スタミナ・脳しんとうはそれぞれの速さで戻る。
-                if (rules.RegenVoxelsPerSecond <= 0f)
+                if (rules.RegenVoxelsPerSecond > 0f)
                 {
-                    continue; // 治らない団体
+                    var budget = _regenBudget.GetValueOrDefault(fighter) + (rules.RegenVoxelsPerSecond * dt);
+                    var whole = (int)budget;
+                    if (whole > 0)
+                    {
+                        fighter.Voxels?.Regenerate(whole);
+                    }
+
+                    _regenBudget[fighter] = budget - whole;
                 }
 
-                var budget = _regenBudget.GetValueOrDefault(fighter) + (rules.RegenVoxelsPerSecond * dt);
-                var whole = (int)budget;
-                if (whole > 0)
-                {
-                    fighter.Voxels?.Regenerate(whole);
-                }
-
-                _regenBudget[fighter] = budget - whole;
                 // 皮膚のあざも休みの間だけ少しずつ引く（見た目だけ。ラウンド中は引かない）。
                 fighter.Voxels?.FadeSkinBruises(dt, rules.BruiseHalfLifeSeconds);
+            }
+
+            // 傷の前線の再生（休みの間は倍率 1）と、失った武器の支給。
+            RegrowBodies(rules, dt, 1f);
+            if (rules.ResupplyWeapons)
+            {
+                ResupplyWeapons();
             }
 
             if (BreakLeft <= 0f)
@@ -1256,6 +1345,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             return;
         }
 
+        RegrowWhileStuck(rules, dt);
         RoundLeft -= dt;
         if (RoundLeft > 0f)
         {
@@ -1299,6 +1389,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
         InBreak = true;
         BreakLeft = rules.BreakSeconds;
+        _stuckTime = 0f; // 両者ダウンの倍率はラウンドごとに 1 から
+        RegrowingWhileStuck = false;
+        _regrowClock = 0f;
         ShowMessage($"END OF ROUND {MatchRound}", 2f);
     }
 
@@ -1554,6 +1647,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         ShowMessage(InIntro ? string.Empty : Rules is null ? "FIGHT!" : "ROUND 1", InIntro ? 0f : 1.5f);
         _startBellPending = !InIntro;
         _regenBudget.Clear();
+        _suppliedAfterRound.Clear();
+        _supplies.Clear();
+        _regrowClock = 0f;
+        _stuckTime = 0f;
+        RegrowingWhileStuck = false;
         _grazeArmed.Clear();
         MatchRound = 1;
         RoundLeft = Rules?.RoundSeconds ?? 0f;
@@ -1893,6 +1991,12 @@ public readonly record struct GrazeEvent(Vector3 Position, float Speed);
 /// </summary>
 public readonly record struct SeverEvent(Vector3 Position, float Strength, Fighter? Victim = null, int Body = -1);
 
+/// <summary>体から外れていた部位（剛体 <paramref name="Body"/>）が、芽から生え直し始めた（VFC の再生: <see cref="Fighter.Regrow"/>）。</summary>
+public readonly record struct RegrowthEvent(Fighter Fighter, int Body);
+
+/// <summary>休みに武器を支給された（<see cref="MatchRules.ResupplyWeapons"/>）: 誰に、どの種類の武器を。</summary>
+public readonly record struct WeaponSupplyEvent(Fighter Fighter, Weapons.WeaponKind Kind);
+
 /// <summary>骨が折れて、肉だけでつながった（<paramref name="Bent"/> なら打撃の曲げで、でなければ削られて断たれた）。</summary>
 public readonly record struct BoneBreakEvent(Fighter Victim, BodyPartKind Part, Vector3 Position, bool Bent, int Body = -1);
 
@@ -1967,13 +2071,50 @@ public sealed record MatchRules(float RoundSeconds = 30f, int Rounds = 5, float 
     /// </summary>
     public float EndSeconds { get; init; }
 
+    /// <summary>
+    /// 傷の前線の再生の速さ [m/s]（<see cref="Voxels.BoxerBody.Regrow"/>: 生きているセルに接する壊れたセルが、確率で元に戻る。1 回の抽選の確率は
+    /// 速さ × 間隔 / セルの大きさ = 1 列の前線が進む速さ。実際の前線は横からも届くので、測るとこの約 2.2 倍で進む: <see cref="Vfc"/>）。
+    /// 0 なら前線の再生をしない（WVC は <c>RegenVoxelsPerSecond</c> の予算で内側から治す、別のモデル: docs/DEBT.md）。
+    /// 値と根拠は <see cref="Vfc"/>。
+    /// </summary>
+    public float RegrowthSpeed { get; init; }
+
+    /// <summary>前線の再生の抽選の間隔 [s]（1 回の抽選で前線は 速さ × 間隔 だけ進む。間隔が短いほど滑らかに見え、計算は増える）。</summary>
+    public float RegrowthTickSeconds { get; init; } = 0.25f;
+
+    /// <summary>
+    /// ラウンド中に両者が倒れたまま、どちらも意識だけでは立てない（<see cref="Fighter.BodyLetsStand"/> が偽）とき、前線の再生が倍の速さになる時間 [s]
+    /// （倍率 2^(続いた時間 / これ)。どちらかが立てる体に戻れば 0 から）。0 ならラウンド中は再生しない。番組として止まった場面を短くする、ゲームの決まり。
+    /// </summary>
+    public float StuckDoublingSeconds { get; init; }
+
+    /// <summary>
+    /// 休みの間に、試合の始めに持っていた武器を失った選手へ、同じ種類の新しい武器を手に支給するか（手が武器を保持できるときだけ。1 回の休みに 1 本まで）。
+    /// </summary>
+    public bool ResupplyWeapons { get; init; }
+
     /// <summary>テレビ中継の標準: 30 秒 × 5 ラウンド、休み 10 秒。</summary>
     public static MatchRules Tv { get; } = new();
 
     /// <summary>
-    /// VFC（何でもありの団体、ユーザーの指定 2026-11-18）: 30 秒 × 5 ラウンド、休み 25 秒。休みで体は治らない（<c>RegenVoxelsPerSecond</c> 0。皮膚のあざも引かない（<c>BruiseHalfLifeSeconds</c> 0）。
-    /// スタミナ・意識・打撲は今の生理の速さで戻る）。ダウンは数えず（<see cref="CountsDowns"/> false）、判定もしない（<see cref="JudgesDecision"/> false）。
-    /// 決着は死だけで、5 ラウンドを終えて両者が生きていれば両者生還の引き分け。
+    /// VFC（何でもありの団体、ユーザーの指定 2026-11-18）: 30 秒 × 5 ラウンド、休み 25 秒。ダウンは数えず（<see cref="CountsDowns"/> false）、
+    /// 判定もしない（<see cref="JudgesDecision"/> false）。決着は死だけで、5 ラウンドを終えて両者が生きていれば両者生還の引き分け。
+    /// 傷は休みの間に前線の再生で少しずつ戻る（予算で治す <c>RegenVoxelsPerSecond</c> は 0）。皮膚のあざも休みに引く（20 s、WVC と同じ）。
+    /// ラウンド中に両者が倒れて意識だけでは立てないときも再生し、続くほど速くなる。休みの間に、失った武器を同じ種類で支給する。
+    /// スタミナ・意識・打撲は今の生理の速さで戻る。
+    /// <para>再生の値（ユーザーの指定「軽い傷は休み中におおよそ再生、大きな欠損は回復しきらない程度」から決めた。測った値は docs/VFC.md「再生」）:
+    /// 速さ 0.5 mm/s・抽選 0.25 s ごと（ボクセル 5 mm で 1 回の抽選の確率 0.025）。指示書の初めの値 1.2 mm/s では、前腕（人形で 9 cm）を
+    /// 肘から 3 割で切った切り株が休み 1 回で元の長さまで戻った（+6.5 cm）: 候補のセルは横のどの生きたセルからでも届くので、実際の前線は 1 列ぶんの
+    /// 確率から見積もった速さの約 2.2 倍で進む。0.5 mm/s で測り直すと、拳の削れ（4 発・208 セル）は休み 1 回で 88% 戻り、前腕の切り株は休み 1 回で
+    /// +3.0 cm（失った 6.5 cm の半分ほど）伸びる（<c>VfcRegrowthTests</c>）。両者ダウンの倍率は 3 s で倍。</para>
     /// </summary>
-    public static MatchRules Vfc { get; } = new(30f, 5, 25f, 0f) { CountsDowns = false, JudgesDecision = false, BruiseHalfLifeSeconds = 0f };
+    public static MatchRules Vfc { get; } = new(30f, 5, 25f, 0f)
+    {
+        CountsDowns = false,
+        JudgesDecision = false,
+        RegrowthSpeed = 0.0005f,
+        RegrowthTickSeconds = 0.25f,
+        StuckDoublingSeconds = 3f,
+        ResupplyWeapons = true,
+    };
 }

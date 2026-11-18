@@ -232,7 +232,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 52; // 52: 間の層（Rhythm: 相手の拳の出始めからの時間と、その拳が自分に触れたか（守りの上か外か）から、測った 1 打の損得の表で次の拳までの間を縮める・止める。既定のスタイルは不変、名簿の教育で入る）（2026-11-18）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 53; // 53: ブランチ claude/spacing-control-features-a34e7d の 52（間の層 Rhythm）と、ブランチ claude/vfc の 52（武器を失ったボットが支給された武器をまた握る）を合わせた（2026-11-18 のマージ）。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;

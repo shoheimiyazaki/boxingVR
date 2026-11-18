@@ -246,6 +246,23 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
             React(CrowdReaction.Groan, 0.8f, at, step, force: true);
         }
 
+        foreach (var supply in game.RecentSupplies)
+        {
+            // 休みに、失った武器と同じ種類の新しい武器を手にした（VFC の決まり）。
+            var name = NameOf(game, supply.Fighter);
+            var gear = MiniRing.Characters.FighterCharacter.WeaponLabel(supply.Kind);
+            Log(at, "weapon_supplied", name, $"{name}に新しい{gear}が渡された", Announcer);
+        }
+
+        foreach (var regrowth in game.RecentRegrowths)
+        {
+            // 体から外れていた部位が、つながり直した切り株の先から芽を出して生え直し始めた（VFC の再生）。
+            var name = NameOf(game, regrowth.Fighter);
+            var part = PartName(regrowth.Fighter, regrowth.Body);
+            _limbs.Remove((regrowth.Fighter, regrowth.Body));
+            Log(at, "regrown", name, $"{name}の失った{part}が、切り口から生え直し始めた", Analyst);
+        }
+
         foreach (var fighter in new[] { game.Player, game.Cpu })
         {
             if (fighter.Voxels is not { } voxels)
