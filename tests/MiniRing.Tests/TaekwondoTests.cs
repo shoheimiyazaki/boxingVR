@@ -47,7 +47,8 @@ public sealed class TaekwondoTests
         Assert.IsGreaterThan(1.05f, c.Build.Height);
         Assert.IsGreaterThan(1.0f, c.Build.Legs);
         Assert.IsLessThan(1.0f, c.Build.Muscle, "slim");
-        Assert.AreSame(BotCatalog.Taekwondo, c.Resolve(), "an empty education plays the textbook itself");
+        // 教育は休みの動作の好み（BreakLikes）だけ（2026-11-18）: 判断の値は教科書そのまま。
+        Assert.AreEqual((BotCatalog.Taekwondo with { BreakLikes = c.Resolve().BreakLikes }).ToJson(), c.Resolve().ToJson(), "the education only adds break-time likes to the textbook");
         Assert.IsTrue(CharacterRoster.Countries.ContainsKey(c.Country.Id));
     }
 
