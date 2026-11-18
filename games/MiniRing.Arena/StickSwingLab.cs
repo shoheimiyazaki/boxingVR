@@ -112,7 +112,7 @@ internal static class StickSwingLab
             {
                 var trace = rig.Simulate(r.BestGenes);
                 var path = Path.Combine(bvhDir, $"stick_swing_{r.Plane.Name}.bvh");
-                File.WriteAllText(path, StickBvh.Write(rig.Body, trace.Frames, trace.Dt));
+                File.WriteAllText(path, StickBvh.Write(rig.Body, trace.Frames, trace.Dt, BvhScale(o)));
                 log($"BVH: {path}");
             }
         }
@@ -124,6 +124,9 @@ internal static class StickSwingLab
             File.WriteAllText(json, JsonSerializer.Serialize(payload, JsonOptions));
         }
     }
+
+    /// <summary>BVH の長さの倍率: <c>--bvh-scale</c>、無ければ人の大きさ（1 ÷ 人形の縮尺 <see cref="FighterTuning.Scale"/>）。</summary>
+    public static float BvhScale(Options o) => o.Float("bvh-scale", 1f / FighterTuning.Default.Scale, min: 0.001f);
 
     private static float Degrees(float radians) => radians * 180f / MathF.PI;
 

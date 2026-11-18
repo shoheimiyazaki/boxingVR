@@ -49,6 +49,23 @@ public sealed class StickBvhTests
     }
 
     [TestMethod]
+    public void TheScale_MultipliesTheLengths_AndKeepsTheAngles()
+    {
+        var rig = Rig.Value;
+        var trace = rig.Simulate(rig.RandomGenes(new Random(9)));
+        var one = Parse(StickBvh.Write(rig.Body, trace.Frames, trace.Dt));
+        var three = Parse(StickBvh.Write(rig.Body, trace.Frames, trace.Dt, 3f));
+        for (var j = 0; j < one.Joints.Count; j++)
+        {
+            Assert.IsTrue(Vector3.Distance(one.Joints[j].Offset * 3f, three.Joints[j].Offset) < 1e-4f, one.Joints[j].Name);
+        }
+
+        var last = trace.Frames.Count - 1;
+        Assert.AreEqual(one.Frames[last][1] * 3f, three.Frames[last][1], 1e-4f, "根の高さ");
+        Assert.AreEqual(one.Frames[last][^1], three.Frames[last][^1], 1e-4f, "角は変わらない");
+    }
+
+    [TestMethod]
     public void TheEulerAngles_RebuildTheRotation_InTheZxyOrder()
     {
         var random = new Random(11);

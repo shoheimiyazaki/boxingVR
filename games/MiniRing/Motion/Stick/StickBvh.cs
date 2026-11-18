@@ -10,17 +10,18 @@ namespace MiniRing.Motion.Stick;
 /// <list type="bullet">
 /// <item>階層 = 棒人形の部位の親子（根は骨盤）。ボーンの頭 = 部位の関節の点。<c>OFFSET</c> = 親の関節から自分の関節まで（休みの姿勢 = T ポーズ、メートル）。子の無い部位は <c>End Site</c> に部位の先（足先・頭の上・剣先）を置く。</item>
 /// <item>動き = 根の位置（世界）と、部位ごとの親から見た回転（休みからの回転。<see cref="StickFrame.Rotations"/> の親に対する差）を、Z・X・Y の順のオイラー角（度）で。BVH の決まりどおり、回転は <c>Rz·Rx·Ry</c> を列ベクトルに掛ける。</item>
-/// <item>座標は棒人形の世界のまま（+Y 上・+Z 前・床 y = 0、メートル）。Blender の読み込みの既定（前 −Z・上 Y）で Z が上になる。</item>
+/// <item>座標は棒人形の世界の向き（+Y 上・+Z 前・床 y = 0）。Blender の読み込みの既定（前 −Z・上 Y）で Z が上になる。長さは <c>scale</c> 倍（ゲームの人形は人の 0.355 倍の縮尺なので、Arena は既定で 1 ÷ <see cref="FighterTuning.Scale"/> を掛けて人の大きさ [m] にする）。</item>
 /// <item>角は前のコマとの差が 180° を超えないよう 360° を足し引きする（Blender がコマの間を補間しても回り込まない）。</item>
 /// </list>
 /// </summary>
 public static class StickBvh
 {
     /// <summary>
-    /// 姿勢の列 <paramref name="frames"/>（同じ体、コマの間隔 <paramref name="frameTime"/> 秒）を BVH の文字列にする。
+    /// 姿勢の列 <paramref name="frames"/>（同じ体、コマの間隔 <paramref name="frameTime"/> 秒）を BVH の文字列にする。長さ（位置・OFFSET）は <paramref name="scale"/> 倍。
     /// </summary>
-    public static string Write(StickBody body, IReadOnlyList<StickFrame> frames, float frameTime)
+    public static string Write(StickBody body, IReadOnlyList<StickFrame> frames, float frameTime, float scale = 1f)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(scale);
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(frames);
         if (frames.Count == 0)
@@ -32,7 +33,7 @@ public static class StickBvh
         var order = Order(body);
         var text = new StringBuilder();
         text.Append("HIERARCHY\n");
-        WriteJoint(text, body, order[0], 0);
+        WriteJoint(text, body, order[0], 0, scale);
         text.Append("MOTION\n");
         text.Append(CultureInfo.InvariantCulture, $"Frames: {frames.Count}\n");
         text.Append(CultureInfo.InvariantCulture, $"Frame Time: {frameTime:0.########}\n");
@@ -52,7 +53,7 @@ public static class StickBvh
                 var s = body.Segments[i];
                 if (s.Parent < 0)
                 {
-                    var p = frame.Joints[i];
+                    var p = frame.Joints[i] * scale;
                     values.Add(p.X);
                     values.Add(p.Y);
                     values.Add(p.Z);
@@ -130,24 +131,24 @@ public static class StickBvh
     private static IEnumerable<int> Children(StickBody body, int parent)
         => Enumerable.Range(0, body.Segments.Count).Where(i => body.Segments[i].Parent == parent);
 
-    private static void WriteJoint(StringBuilder text, StickBody body, int i, int depth)
+    private static void WriteJoint(StringBuilder text, StickBody body, int i, int depth, float scale)
     {
         var s = body.Segments[i];
         var pad = new string('\t', depth);
         var isRoot = s.Parent < 0;
-        var offset = isRoot ? Vector3.Zero : s.Joint - body.Segments[s.Parent].Joint; // 根の位置は動きの数で持つ
+        var offset = isRoot ? Vector3.Zero : (s.Joint - body.Segments[s.Parent].Joint) * scale; // 根の位置は動きの数で持つ
         text.Append(CultureInfo.InvariantCulture, $"{pad}{(isRoot ? "ROOT" : "JOINT")} {BoneName(s)}\n{pad}{{\n");
         text.Append(CultureInfo.InvariantCulture, $"{pad}\tOFFSET {Format(offset)}\n");
         text.Append(pad).Append(isRoot ? "\tCHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation\n" : "\tCHANNELS 3 Zrotation Xrotation Yrotation\n");
         var children = Children(body, i).ToList();
         foreach (var child in children)
         {
-            WriteJoint(text, body, child, depth + 1);
+            WriteJoint(text, body, child, depth + 1, scale);
         }
 
         if (children.Count == 0)
         {
-            text.Append(CultureInfo.InvariantCulture, $"{pad}\tEnd Site\n{pad}\t{{\n{pad}\t\tOFFSET {Format(s.Tip - s.Joint)}\n{pad}\t}}\n");
+            text.Append(CultureInfo.InvariantCulture, $"{pad}\tEnd Site\n{pad}\t{{\n{pad}\t\tOFFSET {Format((s.Tip - s.Joint) * scale)}\n{pad}\t}}\n");
         }
 
         text.Append(CultureInfo.InvariantCulture, $"{pad}}}\n");
