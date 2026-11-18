@@ -14,7 +14,7 @@ public sealed class FingerStateTests
 
     private static int BoneCell(Weapon hand, int finger, FingerSegment segment, int nth = 0)
         => Enumerable.Range(0, HandSkeleton.Parents.Count)
-            .Where(i => HandSkeleton.Parents[i] is { } p && p.Finger == finger && p.Segment == segment && p.Material == BoxerAnatomy.Bone)
+            .Where(i => HandSkeleton.Parents[i] is { } p && p.Finger == finger && p.Segment == segment && p.Material == BoxerAnatomy.HandBone)
             .Select(i => hand.HandState!.Placement[i]).ElementAt(nth);
 
     [TestMethod]

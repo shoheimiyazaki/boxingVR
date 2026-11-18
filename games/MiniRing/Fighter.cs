@@ -173,7 +173,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 46; // 46: ステップ（Fighter.Step.cs）・試合の標準のリング 5.3 m 換算・コーナーから（claude/spacing-control-features の 44）を master の 45 と合わせた。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 51; // 51: 素手の拳を体と同じ 5 mm のセル・幅 40 mm（前腕の 1.25 倍）で作り直し、手の組織の物性を木の値に（claude/hand-voxels。master の 46、並行の 49・50 の後の番号）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }

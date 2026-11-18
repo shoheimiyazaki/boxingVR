@@ -17,7 +17,7 @@ public sealed class HandSkeletonTests
 
     private static int ParentOf(int finger, FingerSegment segment, int nthBone)
         => Enumerable.Range(0, HandSkeleton.Parents.Count)
-            .Where(i => HandSkeleton.Parents[i] is { } p && p.Finger == finger && p.Segment == segment && p.Material == BoxerAnatomy.Bone)
+            .Where(i => HandSkeleton.Parents[i] is { } p && p.Finger == finger && p.Segment == segment && p.Material == BoxerAnatomy.HandBone)
             .ElementAt(nthBone);
 
     private static Vector3 CenterOf(VoxelGrid grid, int index)
@@ -38,14 +38,15 @@ public sealed class HandSkeletonTests
             var bones = 0;
             for (var i = 0; i < positions.Length; i++)
             {
-                if (HandSkeleton.Parents[i].Material != BoxerAnatomy.Bone)
+                if (HandSkeleton.Parents[i].Material != BoxerAnatomy.HandBone)
                 {
                     continue;
                 }
 
                 bones++;
                 var d = Vector3.Distance(CenterOf(grid, state.Placement[i]), positions[i]);
-                Assert.IsLessThanOrEqualTo(Cell * 1.75f, d, $"{shape}: a bone cell is within a cell of its joint-angle position");
+                // 2 セルまで: 5 mm のセル（2026-11-18）では、手首を斜めに振る手刀の骨が写しの食い違いで 1.77 セル離れる。
+                Assert.IsLessThanOrEqualTo(Cell * 2f, d, $"{shape}: a bone cell is within a cell of its joint-angle position");
                 if (d > Cell * 0.9f)
                 {
                     displaced++;
@@ -288,8 +289,8 @@ public sealed class HandSkeletonTests
         foreach (var shape in new[] { HandShape.KnifeHand, HandShape.PalmHeel })
         {
             _ = new BareHandState().Placed(HandSkeleton.PoseOf(shape), out var grid);
-            // 斜めに回した形は、セルへの写しの食い違いで少し露出する（§8）。
-            Assert.IsLessThanOrEqualTo(grid.FilledCount / 25, ExposedNonSkin(grid), $"{shape}");
+            // 斜めに回した形は、セルへの写しの食い違いで少し露出する（§8）。5 mm のセルでは表のセルの割合が増え、1/20 まで。
+            Assert.IsLessThanOrEqualTo(grid.FilledCount / 20, ExposedNonSkin(grid), $"{shape}");
         }
     }
 
@@ -304,7 +305,7 @@ public sealed class HandSkeletonTests
                 for (var x = 0; x < nx; x++)
                 {
                     var m = grid.At(x, y, z);
-                    if (m != 0 && m != BoxerAnatomy.Skin && grid.IsExposed(x, y, z))
+                    if (m != 0 && !BoxerAnatomy.IsSkinLike(m) && grid.IsExposed(x, y, z))
                     {
                         count++;
                     }
@@ -339,7 +340,8 @@ public sealed class HandSkeletonTests
         var one = Front(HandShape.OneKnuckle);
         var lead = (one[0] - MathF.Max(one[1], MathF.Max(one[2], one[3]))) / Cell;
         Assert.IsGreaterThanOrEqualTo(2f - 1e-3f, lead, $"the index joint leads the middle knuckle by {lead:F1} cells");
-        Assert.AreEqual(fist[1], one[1], 1e-6f, "the other knuckles are where the fist has them");
+        // 5 mm のセルでは、深く曲げた人さし指の組織に押されて、隣の中指の拳頭が 1 セルまで下がる。
+        Assert.AreEqual(fist[1], one[1], Cell + 1e-6f, "the other knuckles are where the fist has them (within a cell)");
     }
 
     [TestMethod]

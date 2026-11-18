@@ -36,8 +36,8 @@ public sealed class HandShapeTests
         using var world = new PhysicsWorld();
         var hand = Weapon.CreateWorn(world, WeaponKind.Fist, Voxels.BoxerAnatomy.RedGlove, Vector3.Zero, Quaternion.Identity);
         var original = hand.Body.Grid;
-        var skin = Enumerable.Range(0, original.CellCount).First(i => original.MaterialAt(i) == Voxels.BoxerAnatomy.Skin);
-        var bone = Enumerable.Range(0, original.CellCount).First(i => original.MaterialAt(i) == Voxels.BoxerAnatomy.Bone);
+        var skin = Enumerable.Range(0, original.CellCount).First(i => original.MaterialAt(i) == Voxels.BoxerAnatomy.HandSkin);
+        var bone = Enumerable.Range(0, original.CellCount).First(i => original.MaterialAt(i) == Voxels.BoxerAnatomy.HandBone);
         var tissue = Enumerable.Range(0, original.CellCount).Where(i => original.MaterialAt(i) != 0).ToArray();
         var removed = new List<RemovedVoxel>();
         original.Break(skin, removed);
