@@ -11,7 +11,8 @@ namespace MiniRing.Arena;
 /// <param name="Detail">見出しの下の説明（スタイル・手にはめる物）。</param>
 /// <param name="FullName">紹介の板の上の行に出す本名（名簿のキャラクター）。空なら出さない。</param>
 /// <param name="Profile">プロフィール（名簿のキャラクター。比べる表に年齢・身長・体重・戦績を出す）。無ければ null。</param>
-internal sealed record TvCorner(string Name, string Discipline, string Detail, string FullName = "", MiniRing.Characters.CharacterProfile? Profile = null)
+/// <param name="Character">名簿のキャラクター（全身の絵を試合の体のボクセルから写す番組の型が読む）。名簿に無い選手は null。</param>
+internal sealed record TvCorner(string Name, string Discipline, string Detail, string FullName = "", MiniRing.Characters.CharacterProfile? Profile = null, MiniRing.Characters.FighterCharacter? Character = null)
 {
     /// <summary>名簿のキャラクターの紹介: 試合の名前・武器（はめる物）・肩書きと出身・本名。</summary>
     public static TvCorner Of(MiniRing.Characters.FighterCharacter character)
@@ -19,7 +20,7 @@ internal sealed record TvCorner(string Name, string Discipline, string Detail, s
         ArgumentNullException.ThrowIfNull(character);
         // 流派の見出しはスタイル・はめる物・武器から（「グローブ」でなく「ボクシング」）。下の行は肩書きと出身。
         var discipline = Of(character.HudName, character.StyleName, character.Wear, character.Weapon).Discipline;
-        return new TvCorner(character.HudName, discipline, $"{character.Tagline}・{character.Origin}", character.Name, character.Profile);
+        return new TvCorner(character.HudName, discipline, $"{character.Tagline}・{character.Origin}", character.Name, character.Profile, character);
     }
 
     /// <summary>手にはめる物・握る武器・スタイルから、紹介の見出しを作る。</summary>
@@ -90,6 +91,19 @@ internal sealed record TvResult(int Winner, string? Finish, int Round, float Rou
         "K.O. — OUT COLD" => "失神",
         { } ko when ko.StartsWith("K.O. — ", StringComparison.Ordinal) => Organ(ko["K.O. — ".Length..].Replace(" DESTROYED", "", StringComparison.Ordinal)) + "の破壊",
         _ => "",
+    };
+
+    /// <summary>死んだ臓器・部位の名前（「脳」「心臓」「首」。K.O. の死でなければ空）。</summary>
+    public string DeathOrgan => Finish?.Split("  ")[0] is { } ko && ko.StartsWith("K.O. — ", StringComparison.Ordinal) && !ko.Contains("OUT COLD", StringComparison.Ordinal)
+        ? Organ(ko["K.O. — ".Length..].Replace(" DESTROYED", "", StringComparison.Ordinal))
+        : "";
+
+    /// <summary>死因を言葉に（「首を断たれて」「脳を壊されて」）。死でなければ空。</summary>
+    public string DeathPhrase => DeathOrgan switch
+    {
+        "" => "",
+        "首" => "首を断たれて",
+        var organ => $"{organ}を壊されて",
     };
 
     private static string Organ(string cause) => cause switch

@@ -341,7 +341,7 @@ public sealed class OrganizationTests
         StringAssert.Contains(ex.Message, "org");
     }
 
-    private static string OrgsDirectory() => Path.Combine(RepoRoot(), "games", "MiniRing.Arena", "Orgs");
+    internal static string OrgsDirectory() => Path.Combine(RepoRoot(), "games", "MiniRing.Arena", "Orgs");
 
     private static string RosterDirectory() => Path.Combine(RepoRoot(), "games", "MiniRing", "Characters", "roster");
 

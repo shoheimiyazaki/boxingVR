@@ -28,13 +28,41 @@
 | 下見の点数 | ダウンの応酬・逆転・K.O. | 長く持つ・後半の死・逆転・両者が深く傷む。序盤の即死・両者生還は低い |
 | 語り | 品のある実況と、理由を言う解説 | 熱く荒い実況と、「どこが壊れたか・何が残っているか」の解説 |
 
-団体のファイルの欄: `id`・`name`・`logoText`・`sport`・`emblem`（紋章の id）・`colors`（`accent`・`accentLight`・`accentDeep`・`text`・`muted`・`ink`・`voxelTop/Bottom/Side`）・`arenaMood`（`ambient`・`key`・`lamp`・`window`・`cageSpotIntensity`・`cageSpotColor`・`vignette`・`exposure`）・`bell`（`gong`|`horn`）・`crowd`（`reactionGain`・`ambienceGain`）・`countsDowns`・`text`（冒頭の決まりの帯・決着の大きな文字・判定の行）・`rulesSheet`（台本の資料の「決まり」）・`draft`（下書きの言い回し）・`lint.callWords`（点検が決着・倒れのコールと見なす言葉）・`drama`（下見の点数の重み。式は `TvShowRules.Drama`）・`commentary`（プロンプトの団体の紹介・語り口・コールの言い方）。足りない欄・型違い・範囲外は、どのファイルのどの欄かを書いた例外で止まる。
+団体のファイルの欄: `id`・`name`・`logoText`・`sport`・`emblem`（紋章の id）・`colors`（`accent`・`accentLight`・`accentDeep`・`text`・`muted`・`ink`・`voxelTop/Bottom/Side`）・`arenaMood`（`ambient`・`key`・`lamp`・`window`・`cageSpotIntensity`・`cageSpotColor`・`vignette`・`exposure`）・`bell`（`gong`|`horn`）・`crowd`（`reactionGain`・`ambienceGain`）・`countsDowns`・`text`（冒頭の決まりの帯・決着の大きな文字・判定の行）・`rulesSheet`（台本の資料の「決まり」）・`draft`（下書きの言い回し）・`lint.callWords`（点検が決着・倒れのコールと見なす言葉）・`drama`（下見の点数の重み。式は `TvShowRules.Drama`）・`commentary`（プロンプトの団体の紹介・語り口・コールの言い方）・`show`（番組の型の id。§1.2）・`cast`（放送席。§1.2）・`text.liveTag`・`text.strapline`（試合中の札の言葉。省略可）。足りない欄・型違い・範囲外は、どのファイルのどの欄かを書いた例外で止まる。
 
 - `--org <id>`（既定 wvc）: `video`・`tvscout`・`tvdraft`・`tvdigest`・`tvlint` が受け取る。`video` は events.json に `org` を書き、`tvdraft`・`tvdigest`・`tvlint` は `--org` が無ければ events.json の `org`（無ければ wvc）を使う。
 - 札の `"org"`（既定 `"wvc"`）: `tvshow.ps1` がすべての arena の呼び出しに `--org` を渡し、`write-commentary.ps1` がプロンプトの `{{org}}`・`{{orgName}}`・`{{sport}}`・`{{orgIntro}}`・`{{announcerTone}}`・`{{analystTone}}`・`{{callThing}}`・`{{callExamples}}` を団体のファイルで埋める。`event` を省くと団体の略称（WVC・VFC）。例 `tools/tvshow/cards/vfc-test.json`。
 - 選手の所属: 名簿のキャラクターのファイルの `"org"`（既定 wvc）。武器・グローブ以外のはめる物の選手（daichi・edgar・gaston・jin・joao・konrad・sean・tsuyoshi・vikram）は vfc。
 - 近道（見せ方だけ。物理・材料には響かない）: 下見の点数の重み・歓声の倍率・照明の倍率とスポットの強さ・色は、見て決めた値で測った物ではない。VFC のホーンは合成で、実物の録音から測っていない（ゴングと違う）。VFC の紋章は手本の絵の描き写し（ボクセルの格子へ丸めた近似。字の斜めは 1 行 0.05 マスのずらし）。照明は `ArenaLook.Lighting(center, size, surface, mood)` と `ScreenFinishFor(mood)` を作ってあるが、`BoxingGame`（`_lighting`・`BuildPostProcess`）はまだ雰囲気を渡さない（`--org vfc` でも試合の画は WVC の明るい部屋）。
 - 試合の決まり（ダウンを数えない・死だけが決着・体は治らない）と六角形の檻、暗い会場の照明の呼び出し（`BoxingGame` が `ArenaLook.Lighting(..., mood)`・`ScreenFinishFor(mood)` を呼ぶ）は、この仕組みの外（別の作業）。`--org vfc` が変えるのは見せ方（画面・音・語り・点数）だけ。
+
+### 1.2 番組の型（団体ごとに別の番組、2026-11-18）
+
+> 「中継中の UI や選手紹介や対戦カード表示、その他の構成自体を各団体で全く違うものにして、完全に別系統の大会・テレビ番組であることを強調してください。」（ユーザー）
+
+番組の構成（試合の前の場面の並び・試合中の画面・休み・リプレイの出入り・決着の画面・放送席）は、団体のファイルの `"show"`（番組の型の id）で差し替える。型は `ITvShow`（`games/MiniRing.Arena/Shows/TvShow.cs`）で、`ShowFormats` が id から作る。`VideoMaker` は型が返す**場面の並び**（`ShowScene`: id・記録の出来事の種類・秒数・説明・背景のカメラ・ホーンの時刻）を順に流し、各場面の絵は型が描く。コードに団体名の分岐は無い。描画と音の合図だけで、試合には響かない。
+
+| | WVC（`WvcShow`。描画は `TvShowGraphics`、今までの中継そのまま） | VFC（`VfcShow`） |
+|---|---|---|
+| 位置づけ | 格式のある地上波のボクシング中継 | 深夜の有料配信（PPV）のケージファイト |
+| 作り | 金の細い罫・菱形の飾り・中央揃え・角丸の板・表 | 黒・クリーム・赤、角張ったボクセルの字（`BlockFont`）、斜めの切り口（平行四辺形）、赤い斜線 |
+| 試合の前 | 本日のプログラムの表 → 冒頭のタイトル（7 秒）→ 選手の比較の表（14 秒） | （プログラムがあれば ファイトカード →）コールドオープン 5 秒 → ファイトポスター 6 秒 → 入場（赤・青 各 5 秒）→ フェイスオフ 4 秒（計 25 秒） |
+| 試合中 | 上の真ん中に時計、窓の下に名札とスタミナ、右上に LIVE | 左上に「R1/5 と残り時間」、右上に紋章と PPV、下の黒い帯に両者の名前と体の図 |
+| 休み | カメラの切り替えだけ | 画面の左に「INTERVAL」「傷は治らない」と、両者の体の図・見えている傷（最初の 8 秒） |
+| リプレイ | 金の帯のワイプ・REPLAY の札・黒い帯 | 赤い斜線のワイプ・REWIND と巻き戻しの記号・上下の細い赤い帯 |
+| 決着 | 「試合終了」→ K.O./判定 → 勝者の帯 → ラウンドごとの採点表 | 「決着」→ 勝者の名前 → 死因の言葉（「首を断たれて」）→ 時刻 → 両者の最後の体の図。両者生還は「両者生還」。採点表は出さない |
+| 放送席 | 実況 立花・解説 佐伯 | 実況 久世（深夜の格闘配信を 15 年）・解説 鷹宮（元救命救急医のケージドクター） |
+
+- **VFC の試合の前**（`VfcShow`）:
+  - コールドオープン: 暗い檻を外から回って映し（`ShowBackdrop.CageOrbit`）、字幕「レフェリーなし」「ダウンなし」「どちらかが死ぬまで」が 1 行ずつ。3.4 秒に紋章が揺れながら大きく入り、ホーン（`HornSound`、大きさは試合の始まりと同じ）が同時に鳴る。
+  - ファイトポスター: 全身の絵（`CharacterPortraits.Build`。試合の体のボクセルから写す）を左右に大きく、間を赤い斜めの切り口で割る。名前・武器・大会名・何試合目・「今夜のメインイベント」。WVC の比較の表は使わない。
+  - 入場: 低いカメラ（`TvDirector.Ringside`）で選手を映し、左下の斜めの帯に名前・本名と国・武器・身長・体重・戦績・口癖（名簿の資料の `quote`）。リーチは名簿に無いので出さない。
+  - フェイスオフ: 2 人の顔の窓（`FaceCam` の別の置き場。`ArrangeFaceOff`）を画面いっぱいに左右へ、中央に FACE OFF。終わりのホーンは、そのまま始まる第 1 ラウンドの合図（試合のホーン）が担う。
+- **体の図**（`ShowBodies`・`BodyFigure`）は見えている欠損だけ（CLAUDE.md §1.7）: 削れた肉の割合（`BoxerBody.Muscle`）で赤み、骨折はひびの入った暗い赤、切断は輪郭だけ（先も無い）、潰れた目は赤い点、死んだ敗者は灰に沈める。折れた・切れた部位は `Broadcast` が出来事から覚えている物を読む（`LimbOf`）。意識・臓器・スタミナは出さない。休みの看板の傷の言葉と、記録の `board` の出来事は同じ物から作る（実況が見えている物と矛盾しない）。
+- **記録（events.json）**: 試合の前の場面の出来事には `"prefight": true` が付く（`Broadcast.NoteScene`）。WVC の `program`・`opening`・`tape` も同じ。台本を作る道具は場面の名前を知らなくても「試合の前の場面」と分かる（`run.js` の画面の予定・マイクを渡す出来事・切り出す画像・「最初から決まっている場面」、`TvDigest` の区間、`TvDraft` の選手紹介の時刻（入場があれば入場の頭））。休みの看板が出る型は、休みの頭に `board` の出来事（看板の中身）を書く。`outcome.deathPhrase` は死で決着した試合の言葉で、プログラムの済んだ試合の行（`cause`）に使われる。
+- **放送席**（団体のファイルの `cast`）: 席（`announcer`・`commentator`）ごとに名前・席の役の 1 文（`role`）・人物の説明のファイル（`persona`。経歴と役割と場だけ: `docs/LLM_CONTENT.md` §1）・声（`Synthesize.ps1` の `speakers` と同じ形）。`run.js` は席の名前・役・人物（「人物」「場」の節だけ）・声を団体のファイルから読み、読み上げの長さも団体の声で測り、台本の `speakers` に書く。`write-commentary.ps1` は `{{announcerName}}`・`{{analystName}}`・`{{announcerPersona}}`・`{{analystPersona}}` を埋め、台本に `speakers` を足す。WVC の声は今までの既定（立花 Ichiro +30% +5%、佐伯 Ayumi +15% -2%）と同じ値。VFC は実況が Ichiro の低い声（+22% -12%）、解説は Haruka（+8% -8%）で、WVC の 2 人と聞き分けられる（この PC に入っている声は Ayumi・Haruka・Ichiro だけ）。
+- **WVC が変わっていないことの確かめ方**: 変更の前と後で、`video --tv on --facecam on --render off` の全コマ（冒頭・表・試合中・休み・リプレイ・決着）の「カメラ行列＋文字＋図形」のハッシュを並べて比べた（プログラムあり・なしの 2 試合、3328 コマ全部一致）。events.json は `prefight` の印を除いて同じ。音は WVC の場面にホーンを足さないので同じ。`ShowFormatTests.Wvc_PreFight_IsTheLegacyOpening` は WVC の型が `TvShowGraphics` と同じ図形を返すことを確かめる。
+- 近道: 体の図は 11 の四角（頭・胸・腰・腕 2×2・脚 2×2）で、手足の太さ・長さは体格を写していない。入場の帯の行の位置・場面の秒数・ポスターの斜線の傾きは見て決めた値。VFC のフェイスオフの窓は正方形のまま（台形ではない）で、窓の上下の黒い帯の間に置く。字幕（コンビネーション・守りの名前）の高さは型が決める（`CaptionY`）。VFC の休みの看板は休みの頭から 8 秒の間だけで、リプレイの最中は出ない（リプレイは別の画面。看板を出す間のカメラの切り替えは `TvDirector` のまま）。
 
 ## 2. 作り方
 
