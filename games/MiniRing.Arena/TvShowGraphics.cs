@@ -65,7 +65,13 @@ internal sealed record TvCorner(string Name, string Discipline, string Detail, s
 }
 
 /// <summary>テレビ中継の試合の札（大会名・何試合目か・決まり）。</summary>
-internal sealed record TvCard(string EventTitle, string Bout, TvCorner Red, TvCorner Blue, MatchRules Rules);
+/// <param name="EventTitle">大会名。</param>
+/// <param name="Bout">何試合目か。</param>
+/// <param name="Red">赤コーナーの紹介。</param>
+/// <param name="Blue">青コーナーの紹介。</param>
+/// <param name="Rules">試合の決まり。</param>
+/// <param name="Belt">王座のベルトが懸かった試合か（札の <c>belt</c>）。勝者が出たとき WVC の勝敗の画面が勝者の名前の上にベルトを出す。引き分けでは出さない。</param>
+internal sealed record TvCard(string EventTitle, string Bout, TvCorner Red, TvCorner Blue, MatchRules Rules, bool Belt = false);
 
 /// <summary>試合の結果（勝敗画面に出すもの）。</summary>
 /// <param name="Winner">1 = 赤、−1 = 青、0 = 引き分け。</param>
@@ -384,11 +390,13 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         // 決まり手（K.O. にあたる決着の言い方は団体ごと）。
         var methodText = result.Method == "K.O." ? _org.Text.FinishWord : result.Method;
         var method = Clamp01((t - 0.4f) / 0.5f);
+        // 王座のベルトを出すときは、決まり手の字を小さく上げて、勝者の帯の上にベルトの場所をあける（字と重ならないように）。
+        var showBelt = card.Belt && result.Winner != 0;
         if (method > 0f)
         {
             var pop = BackOut(method);
-            var size = (methodText.Length > 3 ? 84f : 120f) * pop;
-            Shadowed(text, methodText, new Vector2(w * 0.5f, h * 0.17f + ((1f - pop) * 20f)), size, Gold with { W = method }, TextAnchor.Center, 4f);
+            var size = (methodText.Length > 3 ? 84f : 120f) * pop * (showBelt ? 0.7f : 1f);
+            Shadowed(text, methodText, new Vector2(w * 0.5f, (showBelt ? h * 0.145f : h * 0.17f) + ((1f - pop) * 20f)), size, Gold with { W = method }, TextAnchor.Center, 4f);
         }
 
         // 勝者の帯: 勝った側から全幅へ伸びる。
@@ -401,6 +409,16 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         shapes.Add(new UiShapeDraw(new Vector2(bandX, bandY - 64f), new Vector2(bandWidth, 3f), Gold));
         shapes.Add(new UiShapeDraw(new Vector2(bandX, bandY + 64f), new Vector2(bandWidth, 3f), Gold));
         var nameIn = Clamp01((t - 1.6f) / 0.4f);
+        if (showBelt)
+        {
+            // ベルトは帯の上、勝者の名前の真上（帯の上の縁から 10 px 空ける）。帯が伸びきるころに降りてくる。
+            var k = h / 720f;
+            var cell = 4f * k;
+            var (beltText, beltShapes) = Shows.Wvc.WvcShowParts.ChampionBelt(true, t - 1.7f, new Vector2(w * 0.5f, bandY - (64f * k) - (10f * k) - (Shows.Wvc.WvcShowParts.BeltRows * cell * 0.5f)), cell);
+            text.AddRange(beltText);
+            shapes.AddRange(beltShapes);
+        }
+
         if (result.Winner == 0)
         {
             Shadowed(text, $"{card.Red.Name}  ×  {card.Blue.Name}", new Vector2(w * 0.5f, bandY - 34f), 58f, White with { W = nameIn }, TextAnchor.Center);

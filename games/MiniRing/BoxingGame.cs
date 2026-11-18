@@ -147,6 +147,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public BoxingGame(FighterTuning? tuning = null, int seed = 1, BoxingCorners? corners = null, MatchRules? rules = null, ArenaMood? mood = null)
     {
         Rules = rules;
+        Mood = mood ?? ArenaMood.Default;
         _tuning = tuning ?? FighterTuning.Default;
         _corners = corners ?? BoxingCorners.Default;
         Layout = _corners.Layout;
@@ -157,6 +158,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _seed = seed;
         StartRound();
     }
+
+    /// <summary>会場の雰囲気（描画だけ。窓の外の空の明るさにも使う）。</summary>
+    public ArenaMood Mood { get; }
 
     public PhysicsWorld World => _world;
 
@@ -370,7 +374,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var perceptionStart = StepProfile.Begin();
         UpdatePerception(dt);
         StepProfile.End(StepProfile.Slot.Perception, perceptionStart);
-        if (Resting)
+        if (_stagePose is { } stage)
+        {
+            // 試合の前の場面のための影の試合（StepStage）: ボットも入力も読まず、構えて立つ指令だけ。
+            Drive(Player, Cpu, StageCommand(Player, Cpu, stage), dt);
+            Drive(Cpu, Player, StageCommand(Cpu, Player, stage), dt);
+        }
+        else if (Resting)
         {
             // ラウンドの間（と試合の後）: 自分のコーナーへ歩いて戻り、ガードを下げて休む。入力元（ボット・プレイヤー）は読まない。
             // 休みの間（試合の後は除く）は、休みの入力元（水を飲む・汗を拭く…の目標の経路）が休みの構えへ重ねる。
@@ -421,6 +431,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var bepuStart = StepProfile.Begin();
         _world.Step(dt);
         StepProfile.End(StepProfile.Slot.Bepu, bepuStart);
+        if (_stagePose is not null)
+        {
+            return; // 影の試合（StepStage）は打撃を数えない（映像のための立ち姿だけ）
+        }
+
         var hitsStart = StepProfile.Begin();
         DetectHits();
         StepProfile.End(StepProfile.Slot.FistHits, hitsStart);

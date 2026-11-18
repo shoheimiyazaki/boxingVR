@@ -47,6 +47,14 @@ public static class LivingRoom
     private static readonly Vector4 Curtain = new(0.82f, 0.76f, 0.64f, 1f);
     private static readonly Vector4 Door = new(0.6f, 0.45f, 0.32f, 1f);
 
+    private static readonly Vector4 NightSky = new(0.015f, 0.022f, 0.05f, 1f);
+
+    /// <summary>
+    /// 窓の外の空の色（光る面の色。描画だけ）。<paramref name="windowLight"/> は会場の雰囲気の窓の明るさ（<see cref="ArenaMood.Window"/>）:
+    /// 1 以上は昼の空のまま（今の部屋）、0 に近いほど夜の空へ寄る。窓から差す光を絞った会場で、窓だけが昼のように白く光らないように。
+    /// </summary>
+    public static Vector4 SkyColor(float windowLight) => windowLight >= 1f ? Sky : Vector4.Lerp(NightSky, Sky, Math.Clamp(windowLight, 0f, 1f));
+
     /// <summary>窓（奥の壁）の中心と半分の大きさ。昼の光がここから入る。</summary>
     public static Vector3 WindowCenter { get; } = new(0f, 1.45f, MaxZ);
 
@@ -73,7 +81,7 @@ public static class LivingRoom
     /// 部屋の見た目（床・壁・天井・巾木・窓・カーテン・ドア・ラグ・ローテーブル・台座・天井の照明・家具）。
     /// 床・壁・布・木には <paramref name="assets"/> の色のテクスチャを貼る（床の板は写真の色、ほかは塗った色に写真の木目・織り目を乗せる）。
     /// </summary>
-    public static IEnumerable<PrimitiveInstance> Visuals(RingLayout layout, RoomAssets assets)
+    public static IEnumerable<PrimitiveInstance> Visuals(RingLayout layout, RoomAssets assets, float windowLight = 1f)
     {
         ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(assets);
@@ -109,7 +117,7 @@ public static class LivingRoom
         // 窓: 光る空、白い枠と桟、両脇のカーテン。
         var w = WindowCenter;
         var wh = WindowHalf;
-        yield return Box(w with { Z = MaxZ + 0.02f }, new Vector3(wh.X, wh.Y, 0.005f), Sky, material: MaterialKind.Emissive);
+        yield return Box(w with { Z = MaxZ + 0.02f }, new Vector3(wh.X, wh.Y, 0.005f), SkyColor(windowLight), material: MaterialKind.Emissive);
         foreach (var (center, half) in new (Vector3, Vector3)[]
                  {
                      (w with { Y = w.Y + wh.Y }, new Vector3(wh.X + 0.03f, 0.03f, 0.04f)),

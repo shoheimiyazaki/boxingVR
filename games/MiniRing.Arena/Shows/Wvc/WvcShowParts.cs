@@ -208,9 +208,11 @@ internal static class WvcShowParts
     /// ラウンドの採点の札（休みの最初の 6〜8 秒。画面の右下。<see cref="RoundCardSeconds"/> 秒）。ラウンドごとに「与えたダメージ」（判定と同じ量）と、当てた打撃の数を、
     /// 採点表に似せた罫の表で出す（量は 1 つ。ジャッジごとの違う点は作らない）。最新のラウンドの行は金で強める。行は 0.25 秒ずつ順に出る。
     /// <paramref name="rounds"/> が空なら何も出さない。表は新しい方から最大 <see cref="MaxRows"/> 行（それより多いラウンドは古い方を省く。合計は全ラウンド）。
+    /// <paramref name="right"/>・<paramref name="bottom"/> は札の右の縁・下の縁の位置 [px]（省略すると画面の右下の隅。顔の窓などを避けて置くとき）。
     /// </summary>
     public static (IReadOnlyList<ScreenTextDraw> Text, IReadOnlyList<UiShapeDraw> Shapes) RoundScoreCard(
-        IReadOnlyList<WvcRoundTally> rounds, string redName, string blueName, float t, int width, int height, Organization? org = null)
+        IReadOnlyList<WvcRoundTally> rounds, string redName, string blueName, float t, int width, int height, Organization? org = null,
+        float? right = null, float? bottom = null)
     {
         ArgumentNullException.ThrowIfNull(rounds);
         var o = org ?? Organization.Default;
@@ -236,10 +238,9 @@ internal static class WvcShowParts
         var panelW = 420f * k;
         var panelH = headH + (rowH * shown) + footH;
         var slide = EaseOut(Clamp01(t / 0.5f));
-        var right = width - (28f * k) + ((1f - slide) * 80f * k);
-        var left = right - panelW;
-        var bottom = height - (34f * k);
-        var top = bottom - panelH;
+        var rightEdge = (right ?? (width - (28f * k))) + ((1f - slide) * 80f * k);
+        var left = rightEdge - panelW;
+        var top = (bottom ?? (height - (34f * k))) - panelH;
         var cx = left + (panelW * 0.5f);
         var cy = top + (panelH * 0.5f);
         shapes.Add(UiShapeDraw.Shadow(new Vector2(cx, cy), new Vector2(panelW, panelH), 8f * k, new Vector4(0f, 0f, 0f, 0.5f * fade), 16f * k, 5f * k));

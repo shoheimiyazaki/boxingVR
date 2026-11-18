@@ -1,4 +1,5 @@
 using Aigis.Render;
+using MiniRing.Arena.Shows.Wvc;
 
 namespace MiniRing.Arena;
 
@@ -32,7 +33,8 @@ internal enum ShowBackdrop
 /// <param name="Backdrop">背景の絵。</param>
 /// <param name="StingAt">場面の中でホーンを鳴らす時刻 [s]（鳴らさないなら null）。</param>
 /// <param name="Who">場面の主役の呼び名（入場の選手。記録の <c>who</c>）。無ければ空。</param>
-internal sealed record ShowScene(string Id, string EventType, float Seconds, string Description, ShowBackdrop Backdrop = ShowBackdrop.Wide, float? StingAt = null, string Who = "");
+/// <param name="Stage">場面の間、影の試合（<see cref="BoxingGame.StepStage"/>）で両者が取る立ち方。生の絵（<see cref="Backdrop"/> が <see cref="ShowBackdrop.Flat"/> 以外）の場面だけが使う。</param>
+internal sealed record ShowScene(string Id, string EventType, float Seconds, string Description, ShowBackdrop Backdrop = ShowBackdrop.Wide, float? StingAt = null, string Who = "", StagePose Stage = StagePose.Center);
 
 /// <summary>画面に出す文字と図形。</summary>
 internal readonly record struct ShowDraw(IReadOnlyList<ScreenTextDraw> Text, IReadOnlyList<UiShapeDraw> Shapes)
@@ -76,11 +78,17 @@ internal interface ITvShow
     /// <summary>試合中の画面（時計・ラウンド・名札・スタミナ・体の図など）。顔の窓の位置は <see cref="Arrange"/> が決める。</summary>
     public ShowDraw MatchHud(BoxingGame game, RenderViewport redPanel, RenderViewport bluePanel, string red, string blue, ShowBodies bodies);
 
-    /// <summary>休みの看板を出す長さ [s]（休みの頭から。看板の無い型は 0）。</summary>
+    /// <summary>休みの看板（札）を出す長さ [s]（休みの頭から。看板の無い型は 0）。</summary>
     public float IntervalBoardSeconds { get; }
 
-    /// <summary>休み（ラウンドの間）の画面。<paramref name="breakTime"/> は休みの頭からの秒数。何も足さない型は空。</summary>
-    public ShowDraw Interval(BoxingGame game, string red, string blue, ShowBodies bodies, float breakTime);
+    /// <summary>
+    /// 休み（ラウンドの間）の画面。<paramref name="breakTime"/> は休みの頭からの秒数、<paramref name="rounds"/> は終わったラウンドごとの集計
+    /// （与えたダメージ・当てた数。採点の札が使う）。何も足さない型は空。
+    /// </summary>
+    public ShowDraw Interval(BoxingGame game, string red, string blue, ShowBodies bodies, float breakTime, IReadOnlyList<WvcRoundTally> rounds);
+
+    /// <summary>休みの看板（札）の、中継の記録に書く画面の説明（台本を書く側が「いまの画面」を知る材料）。看板の無い型は空。</summary>
+    public string IntervalNote(BoxingGame game, string red, string blue, ShowBodies bodies, IReadOnlyList<WvcRoundTally> rounds);
 
     /// <summary>リプレイ中の画面。</summary>
     public ShowDraw ReplayOverlay(int round, string description, float videoTime);

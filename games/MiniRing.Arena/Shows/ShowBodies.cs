@@ -49,6 +49,16 @@ internal sealed class BodyFigure
 
     public FigurePartState this[FigurePart part] => _parts.GetValueOrDefault(part);
 
+    /// <summary>ある部位の状態だけ替えた新しい図（元の図は変えない）。</summary>
+    public BodyFigure With(FigurePart part, FigurePartState state)
+    {
+        var parts = new Dictionary<FigurePart, FigurePartState>(_parts) { [part] = state };
+        return new BodyFigure(parts, LeftSight, RightSight, Dead);
+    }
+
+    /// <summary>死んでいる（<see cref="Dead"/>）ことだけ替えた新しい図。</summary>
+    public BodyFigure WithDead(bool dead) => new(_parts, LeftSight, RightSight, dead);
+
     /// <summary>傷がまったく見えない（全部位が無傷・両目が見える）。</summary>
     public bool Unharmed => _parts.Values.All(p => p is { Gone: false, Broken: false, Lost: < 0.05f }) && LeftSight >= 0.9f && RightSight >= 0.9f;
 

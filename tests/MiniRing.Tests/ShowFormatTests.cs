@@ -53,13 +53,17 @@ public sealed class ShowFormatTests
         var show = ShowFormats.Create(Width, Height, Organization.Of("wvc"));
         var card = new TvCard("ファイトナイト", "第1試合", TvCorner.Of(CharacterRoster.Get("marcus")), TvCorner.Of(CharacterRoster.Get("yoandry")), TvShowRules.Rules(5, 25f));
         var plain = show.PreFight(card, null, hasProfiles: false);
-        Assert.AreEqual("opening", string.Join(",", plain.Select(s => s.EventType)));
-        Assert.AreEqual(TvShowGraphics.OpeningSeconds, plain.Sum(s => s.Seconds));
+        const float Calls = 2 * MiniRing.Arena.Shows.Wvc.WvcShowParts.CallSeconds;
+        Assert.AreEqual("opening,call,call", string.Join(",", plain.Select(s => s.EventType)));
+        Assert.AreEqual(TvShowGraphics.OpeningSeconds + Calls, plain.Sum(s => s.Seconds), 1e-4f);
 
         var full = show.PreFight(card, Program(), hasProfiles: true);
-        Assert.AreEqual("program,opening,tape", string.Join(",", full.Select(s => s.EventType)));
-        Assert.AreEqual(Program().Seconds + TvShowGraphics.OpeningSeconds + TvShowGraphics.TapeSeconds, full.Sum(s => s.Seconds), 1e-4f);
-        Assert.IsTrue(full.All(s => s.Backdrop == ShowBackdrop.Wide && s.StingAt is null), "WVC の冒頭は引きの絵のまま・音は足さない");
+        Assert.AreEqual("program,opening,tape,call,call", string.Join(",", full.Select(s => s.EventType)));
+        Assert.AreEqual(Program().Seconds + TvShowGraphics.OpeningSeconds + TvShowGraphics.TapeSeconds + Calls, full.Sum(s => s.Seconds), 1e-4f);
+        Assert.IsTrue(full.Take(3).All(s => s.Backdrop == ShowBackdrop.Wide && s.StingAt is null), "WVC の冒頭は引きの絵のまま・音は足さない");
+        Assert.AreEqual(ShowBackdrop.RedLow, full[3].Backdrop, "赤のコールは赤コーナーの選手を映す");
+        Assert.AreEqual(ShowBackdrop.BlueLow, full[4].Backdrop);
+        Assert.IsTrue(full.Skip(3).All(s => s.Stage == StagePose.Corners && s.Description.Contains("リングアナウンサー", StringComparison.Ordinal)), "コールの間、選手は自分のコーナーで構える。記録の画面の説明");
 
         // 描画は今までの TvShowGraphics そのまま。
         var graphics = new TvShowGraphics(Width, Height, Organization.Of("wvc"));
@@ -73,8 +77,8 @@ public sealed class ShowFormatTests
         var (legacyResultText, legacyResultShapes) = graphics.Result(card, result, 3.5f);
         CollectionAssert.AreEqual(legacyResultText.ToList(), wvcResult.Text.ToList());
         CollectionAssert.AreEqual(legacyResultShapes.ToList(), wvcResult.Shapes.ToList());
-        Assert.AreEqual(0f, show.IntervalBoardSeconds, "WVC に休みの看板は無い");
-        Assert.AreEqual(0, show.Interval(game, "A", "B", ShowBodies.None, 2f).Shapes.Count);
+        Assert.AreEqual(MiniRing.Arena.Shows.Wvc.WvcShowParts.RoundCardSeconds, show.IntervalBoardSeconds, "WVC の休みの最初に採点の札");
+        Assert.AreEqual(0, show.Interval(game, "A", "B", ShowBodies.None, 2f, []).Shapes.Count, "終わったラウンドが無ければ札は出ない");
     }
 
     [TestMethod]
@@ -125,7 +129,7 @@ public sealed class ShowFormatTests
         var panel = ShowFormats.Create(Width, Height, Organization.Of("vfc")).Arrange(FaceCam.Default, Width, Height).Panel(new Vector2(Width, Height), FaceSide.Left);
         draws.Add(show.MatchHud(game, panel, panel, "ジン", "コンラート", ShowBodies.None));
         draws.Add(show.ReplayOverlay(2, "ジンの刀がコンラートの右腕へ", 1f));
-        draws.Add(show.Interval(game, "ジン", "コンラート", ShowBodies.None, 2f));
+        draws.Add(show.Interval(game, "ジン", "コンラート", ShowBodies.None, 2f, []));
         var death = new TvResult(1, "K.O. — NECK DESTROYED  RED WINS", 2, 16f, [], []);
         draws.Add(show.Result(card, death, 4f, game, ShowBodies.None));
         foreach (var text in draws.SelectMany(d => d.Text.Select(t => t.Text)))
@@ -295,7 +299,7 @@ public sealed class ShowFormatTests
         var left = cam.Panel(new Vector2(Width, Height), FaceSide.Left);
         var right = cam.Panel(new Vector2(Width, Height), FaceSide.Right);
         Save("vfc_match", show.MatchHud(game, left, right, "ジン", "コンラート", bodies));
-        Save("vfc_interval", show.Interval(game, "ジン", "コンラート", bodies, 3f));
+        Save("vfc_interval", show.Interval(game, "ジン", "コンラート", bodies, 3f, []));
         var replay = show.ReplayOverlay(2, "ジンの刀がコンラートの右腕へ → 骨が折れた", 0.4f);
         Save("vfc_replay", new ShowDraw(replay.Text, [.. replay.Shapes, .. show.Wipe(0.5f)]));
         var death = new TvResult(1, "K.O. — NECK DESTROYED  RED WINS", 2, 16f, [], []);
@@ -308,11 +312,16 @@ public sealed class ShowFormatTests
         Save("wvc_program", wvc.Scene(wvcScenes[0], wvcCard, program, 4f));
         Save("wvc_opening", wvc.Scene(wvcScenes[1], wvcCard, program, 4f));
         Save("wvc_tape", wvc.Scene(wvcScenes[2], wvcCard, program, 6f));
+        Save("wvc_call_red", wvc.Scene(wvcScenes[3], wvcCard, program, 4f));
+        Save("wvc_call_blue", wvc.Scene(wvcScenes[4], wvcCard, program, 4f));
         using var wvcGame = new BoxingGame(seed: 3, rules: TvShowRules.Rules(5, 25f));
         var wvcCam = wvc.Arrange(FaceCam.Default, Width, Height);
         Save("wvc_match", wvc.MatchHud(wvcGame, wvcCam.Panel(new Vector2(Width, Height), FaceSide.Left), wvcCam.Panel(new Vector2(Width, Height), FaceSide.Right), "マーカス", "ヨアンドリー", ShowBodies.None));
         var wvcReplay = wvc.ReplayOverlay(2, "マーカスの右がヨアンドリーのこめかみに", 0.4f);
         Save("wvc_replay", new ShowDraw(wvcReplay.Text, [.. wvcReplay.Shapes, .. wvc.Wipe(0.5f)]));
         Save("wvc_result", wvc.Result(wvcCard, new TvResult(1, "K.O. — BRAIN DESTROYED  RED WINS", 2, 16f, [100f, 120f], [90f, 100f]), 4f, wvcGame, ShowBodies.None));
+        Save("wvc_result_belt", wvc.Result(wvcCard with { Belt = true }, new TvResult(1, "K.O. — BRAIN DESTROYED  RED WINS", 2, 16f, [100f, 120f], [90f, 100f]), 4f, wvcGame, ShowBodies.None));
+        Save("wvc_round_card", wvc.Interval(wvcGame, "マーカス", "ヨアンドリー", ShowBodies.None, 4f,
+            [new MiniRing.Arena.Shows.Wvc.WvcRoundTally(112f, 80f, 14, 9), new MiniRing.Arena.Shows.Wvc.WvcRoundTally(60f, 131f, 7, 16)]));
     }
 }

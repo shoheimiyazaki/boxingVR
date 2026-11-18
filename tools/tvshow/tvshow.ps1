@@ -217,9 +217,9 @@ for ($i = 0; $i -lt $bouts.Count; $i++) {
     Remove-Item -ErrorAction SilentlyContinue $video, (Join-Path $out "$key.events.json")
     $program | Set-Content -Encoding UTF8 $programPath
     Write-Host "== render $key ($red vs $blue, seed $($resolved[$key]))"
-    $lines = Invoke-Arena @('video', '--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
+    $lines = Invoke-Arena (@('video', '--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
         '--org', $orgId, '--event', $eventTitle, '--bout', (Get-BoutLabel $i), '--red-char', $red, '--blue-char', $blue, '--seed', "$($resolved[$key])",
-        '--program', $programPath, '--out', $video)
+        '--program', $programPath) + @(if (Get-Field $bout 'belt' $false) { '--belt'; 'on' }) + @('--out', $video))
     $lines | Where-Object { $_ -notmatch 'elapsed' } | Select-Object -Last 2 | ForEach-Object { Write-Host $_ }
     $outcome = Get-Outcome $i
     Write-Host "   ${key}: $(if ($outcome.winner -eq 'red') { $red } else { $blue }) の勝ち（$($outcome.method)）"
@@ -244,7 +244,8 @@ if ($Stage -in @('liveprep', 'live')) {
         $key = "b$($i + 1)"
         $label = [string](Get-Field $bout 'bout' "第$($i + 1)試合")
         return @('--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
-            '--org', $orgId, '--event', $eventTitle, '--bout', $label, '--red-char', (Resolve-Fighter $i 'red'), '--blue-char', (Resolve-Fighter $i 'blue'), '--seed', "$($resolved[$key])")
+            '--org', $orgId, '--event', $eventTitle, '--bout', $label, '--red-char', (Resolve-Fighter $i 'red'), '--blue-char', (Resolve-Fighter $i 'blue'), '--seed', "$($resolved[$key])") +
+            @(if (Get-Field $bout 'belt' $false) { '--belt'; 'on' })
     }
 
     for ($i = 0; $i -lt $bouts.Count; $i++) {

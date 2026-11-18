@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Numerics;
 using Aigis.Render;
+using MiniRing.Arena.Shows.Wvc;
 using MiniRing.Characters;
 
 namespace MiniRing.Arena;
@@ -86,7 +87,7 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
     }
 
     private static ShowScene Walkout(TvCorner corner, string id, ShowBackdrop backdrop, string side)
-        => new(id, "walkout", WalkoutSeconds, $"入場（{side}コーナー、{WalkoutSeconds:0} 秒）: {corner.Name}が低いカメラで映り、左下の帯に{WalkoutFacts(corner)}", backdrop, null, corner.Name);
+        => new(id, "walkout", WalkoutSeconds, $"入場（{side}コーナー、{WalkoutSeconds:0} 秒）: {corner.Name}が低いカメラで映り、左下の帯に{WalkoutFacts(corner)}", backdrop, null, corner.Name, StagePose.Corners);
 
     /// <summary>入場の帯に出す事実（記録にも同じ言葉で書く）。</summary>
     private static string WalkoutFacts(TvCorner corner)
@@ -214,8 +215,9 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
 
         // 肖像（左は赤・右は青。全身の絵を試合の体のボクセルから写したもの）。
         var enter = EaseOut(Clamp01((t - 0.15f) / 0.7f));
-        var portraitHeight = h * 0.78f;
+        // 頭が左上の看板（MAIN EVENT。下端は h * 0.04 + 114 px）の下に収まる高さまでにする（背が高い選手の頭が看板に隠れていた）。
         var feet = h * 0.9f;
+        var portraitHeight = MathF.Min(h * 0.78f, feet - ((h * 0.04f) + 114f + 22f));
         DrawPortrait(shapes, card.Red, new Vector2(Lerp(-0.3f * w, w * 0.25f, enter), feet), portraitHeight, blue: false);
         DrawPortrait(shapes, card.Blue, new Vector2(Lerp(1.3f * w, w * 0.75f, enter), feet), portraitHeight, blue: true);
 
@@ -636,7 +638,15 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
 
     // ---- 休み ----
 
-    public ShowDraw Interval(BoxingGame game, string red, string blue, ShowBodies bodies, float breakTime)
+    public string IntervalNote(BoxingGame game, string red, string blue, ShowBodies bodies, IReadOnlyList<WvcRoundTally> rounds)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+        ArgumentNullException.ThrowIfNull(bodies);
+        string Wounds(Fighter f) => bodies.Of(f).Wounds() is { Count: > 0 } w ? string.Join("・", w) : "目立つ傷なし";
+        return $"休みの看板（{IntervalShowSeconds:0} 秒、画面の左）: 「傷は治らない」。両者の体の図と見えている傷。{red}: {Wounds(game.Player)}。{blue}: {Wounds(game.Cpu)}";
+    }
+
+    public ShowDraw Interval(BoxingGame game, string red, string blue, ShowBodies bodies, float breakTime, IReadOnlyList<WvcRoundTally> rounds)
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(bodies);
@@ -746,8 +756,8 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
             Shadowed(text, org.Text.FinishWord, new Vector2((w * 0.04f) + 330f, (h * 0.06f) + 6f), 54f, Cream with { W = head });
         }
 
-        var redFigure = bodies.Of(game.Player);
-        var blueFigure = bodies.Of(game.Cpu);
+        var (redFigure, redSunk) = ResultFigure(bodies.Of(game.Player), result.Winner < 0, result);
+        var (blueFigure, blueSunk) = ResultFigure(bodies.Of(game.Cpu), result.Winner > 0, result);
         var name = Clamp01((t - 0.7f) / 0.3f);
         if (result.Winner == 0)
         {
@@ -784,11 +794,10 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
 
         // 両者の最後の体（敗者は灰色に沈める）。
         var unit = h * 0.5f / FigureHeightUnits;
-        var figures = new[] { (card.Red.Name, redFigure, w * 0.585f, RedTop), (card.Blue.Name, blueFigure, w * 0.79f, BlueCorner) };
+        var figures = new[] { (card.Red.Name, redFigure, w * 0.585f, RedTop, redSunk), (card.Blue.Name, blueFigure, w * 0.79f, BlueCorner, blueSunk) };
         var figureIn = EaseOut(Clamp01((t - 1f) / 0.5f));
-        foreach (var (who, figure, left, color) in figures)
+        foreach (var (who, figure, left, color, sunk) in figures)
         {
-            var sunk = result.Winner != 0 && figure.Dead;
             var top = (h * 0.2f) + ((1f - figureIn) * 60f) + (sunk ? unit * 1.2f : 0f);
             DrawFigure(shapes, figure, new Vector2(left, top), unit, figureIn, sunk);
             Shadowed(text, who, new Vector2(left, (h * 0.2f) + (FigureHeightUnits * unit) + 22f), 28f, (sunk ? Muted : color) with { W = figureIn });
@@ -800,6 +809,24 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         }
 
         return new ShowDraw(text, shapes);
+    }
+
+    /// <summary>
+    /// 決着の画面の体の図。死で決まった試合（<see cref="TvResult.DeathPhrase"/>）の負けた側は、体の状態（試合の体が覚えている欠損）に
+    /// 加えて決着の結果からも「死んだ側」と分かるので、全体を灰色に沈める。死因が首（頭が離れた）なら頭は輪郭だけ。
+    /// 体の図の読み手が頭の離断を知らなくても（記録に無くても）、決着の文が言う死因と図がずれない。
+    /// </summary>
+    internal static (BodyFigure Figure, bool Sunk) ResultFigure(BodyFigure figure, bool loser, TvResult result)
+    {
+        ArgumentNullException.ThrowIfNull(figure);
+        ArgumentNullException.ThrowIfNull(result);
+        var diedHere = loser && result.Winner != 0 && result.DeathPhrase.Length > 0;
+        if (diedHere && result.DeathOrgan == "首")
+        {
+            figure = figure.With(FigurePart.Head, figure[FigurePart.Head] with { Gone = true });
+        }
+
+        return (diedHere ? figure.WithDead(true) : figure, result.Winner != 0 && (diedHere || figure.Dead));
     }
 
     // ---- 小さな道具 ----
