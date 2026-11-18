@@ -43,6 +43,7 @@ public sealed class SwordTrainingTests
         }
 
         var moved = Vector3.Distance(game.Cpu.Frame.Origin with { Y = 0f }, start with { Y = 0f });
+        Console.WriteLine($"moved {moved * 100f:0.0} cm, player moved {Vector3.Distance(game.Player.Frame.Origin with { Y = 0f }, new Vector3(0f, 0f, 0f)):0.00}, gap now {Vector3.Distance(game.Player.Frame.Origin with { Y = 0f }, game.Cpu.Frame.Origin with { Y = 0f }):0.00}, start gap {between:0.00}");
         Assert.IsTrue(moved < 0.05f, $"正眼の相手は歩かない（{moved * 100f:0.0} cm）");
         var sword = game.WeaponOf(game.Cpu)!;
         var tip = game.World.GetState(sword.Body.BodyId);
