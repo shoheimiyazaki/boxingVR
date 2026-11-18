@@ -46,7 +46,7 @@ try
         "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seed", "parallel", "seconds", "out", "only", "variants", "video", "try", "defender", "forms", "techniques", "compare")),
         "selfcuts" => SelfCutCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "out", "hitaway", "passes", "clearance", "margin", "tilt", "pacing", "slack", "angle")),
         "selfpath" => SelfPathCommand(Options.Parse(argv[1..], "margin", "from", "tilt", "out", "forms")),
-        "necklab" => NeckLabCommand(Options.Parse(argv[1..], "mode", "heights", "offsets", "arms", "speeds", "out", "video", "height", "side", "offset", "slow")),
+        "necklab" => NeckLabCommand(Options.Parse(argv[1..], "mode", "heights", "offsets", "arms", "speeds", "bridges", "tilt", "out", "video", "height", "side", "offset", "slow")),
         "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes", "hz", "sample")),
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
         "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway", "clearance", "passes", "hz", "sample", "margin", "tilt", "pacing", "slack", "angle")),
@@ -1125,7 +1125,7 @@ static int NeckLabCommand(Options o)
         ? NeckLab.Geometry()
         : o.Get("mode") == "slash"
         ? NeckLab.Slash([.. o.List("offsets", ["-0.012", "-0.009", "-0.006", "-0.003", "0", "0.003", "0.006", "0.009", "0.012", "0.016", "0.02", "0.025"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
-            [.. o.List("speeds", ["3.4", "9"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))])
+            [.. o.List("speeds", ["3.4", "9"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))], o.Get("bridges") != "off", o.Float("tilt", 0f))
         : NeckLab.Cut([.. o.List("heights", ["0.2", "0.3", "0.4", "0.5", "0.6", "0.7"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
             [.. o.List("offsets", ["-0.04", "0", "0.04"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))]);
     Console.WriteLine(report);

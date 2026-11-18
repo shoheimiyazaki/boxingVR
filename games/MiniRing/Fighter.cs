@@ -173,7 +173,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 46; // 46: ステップ（Fighter.Step.cs）・試合の標準のリング 5.3 m 換算・コーナーから（claude/spacing-control-features の 44）を master の 45 と合わせた。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 47; // 47: 関節のつなぎ（JointBridge: 部位の間の隙間の組織を、刃の当たりとダメージだけのために。ブランチ worktree-agent-ada741c5b9ccc657e / neck-joint）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }

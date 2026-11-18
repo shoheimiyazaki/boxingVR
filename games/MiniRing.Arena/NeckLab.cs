@@ -170,7 +170,7 @@ internal static class NeckLab
     /// 静止した的の首を、自由な日本刀が決まった速さ・向きで通る（毎歩、速さを与え直す。腕が押し込む刃と同じ）。首の関節（胸の上端）からの高さのずれを
     /// 振り、何セル削れたか・首が断たれたか・頭が落ちたかを表にする。
     /// </summary>
-    public static string Slash(IReadOnlyList<float> offsets, IReadOnlyList<float> speeds)
+    public static string Slash(IReadOnlyList<float> offsets, IReadOnlyList<float> speeds, bool bridges = true, float tiltDegrees = 0f)
     {
         var jobs = new List<(string Dir, float Offset, float Speed)>();
         foreach (var dir in new[] { "side", "front", "back" })
@@ -185,7 +185,7 @@ internal static class NeckLab
         }
 
         var results = new SlashResult[jobs.Count];
-        Parallel.For(0, jobs.Count, i => results[i] = SlashOnce(jobs[i].Dir, jobs[i].Offset, jobs[i].Speed));
+        Parallel.For(0, jobs.Count, i => results[i] = SlashOnce(jobs[i].Dir, jobs[i].Offset, jobs[i].Speed, bridges, tiltDegrees));
         var text = new StringBuilder();
         text.AppendLine("direction / speed: per height offset from the neck joint (mm): neck-slice cells lost, [N] = neck broken, [H] = head off");
         foreach (var g in jobs.Select((j, i) => (j, r: results[i])).GroupBy(x => (x.j.Dir, x.j.Speed)))
@@ -203,9 +203,9 @@ internal static class NeckLab
         return text.ToString();
     }
 
-    private sealed record SlashResult(int NeckLost, int HeadLost, int ChestLost, bool NeckBroken, bool HeadOff, bool Touched);
+    internal sealed record SlashResult(int NeckLost, int HeadLost, int ChestLost, bool NeckBroken, bool HeadOff, bool Touched);
 
-    private static SlashResult SlashOnce(string dir, float offset, float speed)
+    internal static SlashResult SlashOnce(string dir, float offset, float speed, bool bridges = true, float tiltDegrees = 0f)
     {
         using var game = new BoxingGame(SwordStance.Tuning, 1, new BoxingCorners("stand", _ => new StandGuard(ArmsDown ? DownPosture : null), _ => new StandGuard(ArmsDown ? DownPosture : null)));
         for (var i = 0; i < 90; i++)
@@ -213,11 +213,22 @@ internal static class NeckLab
             game.Step(default, 1f / 60f);
         }
 
+        game.JointBridges = bridges;
         var victim = game.Cpu;
         var p = victim.Parts;
         var chest = game.World.GetState(p.Chest);
         var joint = chest.Position + (Vector3.Transform(Vector3.UnitY, chest.Orientation) * victim.HalfExtentsOf(p.Chest).Y);
         var frame = victim.Frame;
+        if (tiltDegrees != 0f)
+        {
+            // 頭を首の関節のまわりに前へ倒す（関節が回って、頭と胸のセルの間に隙間が開いた姿勢）。
+            var q = Quaternion.CreateFromAxisAngle(frame.Right, tiltDegrees * MathF.PI / 180f);
+            var headState = game.World.GetState(p.Head);
+            game.World.SetDynamicPose(p.Head, joint + Vector3.Transform(headState.Position - joint, q), Quaternion.Concatenate(headState.Orientation, q));
+            game.World.SetLinearVelocity(p.Head, Vector3.Zero);
+            game.World.SetAngularVelocity(p.Head, Vector3.Zero);
+        }
+
         // 向き: 刃は水平。side = 体の横から（刃は前後）、front = 前から（刃は左右）、back = 後ろから。
         var (heading, across) = dir switch
         {

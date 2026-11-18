@@ -40,6 +40,11 @@ public sealed partial class BoxingGame
     /// </summary>
     public int MaxContactPasses { get; set; } = DefaultMaxContactPasses;
 
+    /// <summary>
+    /// 関節のつなぎ（<see cref="JointBridge"/>）を刃の接触に使うか。既定は使う。比べものの調べ（necklab・テスト）のために切れる（切っても体の運動は変わらない）。
+    /// </summary>
+    public bool JointBridges { get; set; } = true;
+
     /// <summary><see cref="MaxContactPasses"/> の既定（3。比べものの調べ（掃き直し 1 回 = 以前）のために変えられる）。
     /// 非同期の流れごとに持つ（<see cref="DefaultSubstepRate"/> と同じ）。</summary>
     public static int DefaultMaxContactPasses
@@ -698,7 +703,7 @@ public sealed partial class BoxingGame
             }
 
             // 関節のつなぎ: 部位の間の隙間を通る刃も、関節の肉・骨に当たる。握った本人の体のつなぎは数えない（自分の体の中で押し合うだけ）。
-            if (!holds && deadHand is null && !Weapon.IsWorn(weapon.Kind))
+            if (JointBridges && !holds && deadHand is null && !Weapon.IsWorn(weapon.Kind))
             {
                 ResolveBridges(weapon, before, drive, behind, fighter, includeHolder);
             }
