@@ -365,13 +365,13 @@ internal static class RosterLeague
     /// <summary>1 試合ずつの結果（組ごとの勝率を出すため）。winner は +1 = 赤、−1 = 青、0 = 引き分け。</summary>
     internal static string OutcomeCsv(IReadOnlyList<int> seeds, IReadOnlyList<BoutOutcome> outcomes)
     {
-        var sb = new StringBuilder("red,blue,seed,winner,red_rounds,blue_rounds,red_damage,blue_damage,red_knockdowns,blue_knockdowns,red_hits,blue_hits,red_breaks,blue_breaks,red_severs,blue_severs,red_score,blue_score\n");
+        var sb = new StringBuilder("red,blue,seed,winner,red_rounds,blue_rounds,red_damage,blue_damage,red_knockdowns,blue_knockdowns,red_hits,blue_hits,red_breaks,blue_breaks,red_severs,blue_severs,red_score,blue_score,layered\n"); // layered: A/B の組み方で層を入れた側（a）の id（同じ条件どうしなら空）
         for (var i = 0; i < outcomes.Count; i++)
         {
             var o = outcomes[i];
             sb.AppendLine(string.Create(Inv,
                 $"{o.Red},{o.Blue},{seeds[i]},{o.Winner},{o.RedTally.RoundsWon},{o.BlueTally.RoundsWon},{o.RedTally.DamageDealt:0.0},{o.BlueTally.DamageDealt:0.0},{o.RedTally.Knockdowns},{o.BlueTally.Knockdowns},{o.RedTally.HitsDealt},{o.BlueTally.HitsDealt}," +
-                $"{o.RedTally.BonesBroken},{o.BlueTally.BonesBroken},{o.RedTally.Severs},{o.BlueTally.Severs},{o.RedTally.WeightedScore:0.0},{o.BlueTally.WeightedScore:0.0}"));
+                $"{o.RedTally.BonesBroken},{o.BlueTally.BonesBroken},{o.RedTally.Severs},{o.BlueTally.Severs},{o.RedTally.WeightedScore:0.0},{o.BlueTally.WeightedScore:0.0},{o.Layered}"));
         }
 
         return sb.ToString();
