@@ -105,6 +105,18 @@ internal static class StickSwingLab
             }
         }
 
+        if (o.Get("bvh") is { } bvhDir)
+        {
+            Directory.CreateDirectory(bvhDir);
+            foreach (var r in results)
+            {
+                var trace = rig.Simulate(r.BestGenes);
+                var path = Path.Combine(bvhDir, $"stick_swing_{r.Plane.Name}.bvh");
+                File.WriteAllText(path, StickBvh.Write(rig.Body, trace.Frames, trace.Dt));
+                log($"BVH: {path}");
+            }
+        }
+
         if (o.Get("log") is { } md)
         {
             var json = Path.ChangeExtension(md, ".json");
