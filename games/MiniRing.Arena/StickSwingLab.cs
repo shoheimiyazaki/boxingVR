@@ -220,7 +220,7 @@ internal static class StickSwingVideo
     /// <summary>体の正面の、右前の少し上から（ファイターは +Z を向き、右腕は −X の側）。</summary>
     private static View FrontView() => new(-Vector3.Normalize(new Vector3(-0.45f, 0.35f, 1f)));
 
-    /// <summary>画角 [度]（縦）。肩から剣先までの 1.5 倍が画面の半分に入る距離に置く。</summary>
+    /// <summary>画角 [度]（縦）。肩から剣先までの 1.75 倍が画面の半分に入る距離に置く（頭の上へ振りかぶった剣先も入るように）。</summary>
     private const float Fov = 50f;
 
     private static readonly Vector3 BodyColor = new(0.62f, 0.62f, 0.66f);
@@ -237,8 +237,8 @@ internal static class StickSwingVideo
     private static void DrawPanel(StickSolidRenderer r, View view, SwingRig rig, SwingPlane plane, StickFrame frame, int now, Vector3[] tip, Vector3[] elbow, Vector3[] hand, float floor)
     {
         var body = rig.Body;
-        var target = rig.Shoulder - new Vector3(0f, 0.3f, 0f);
-        var distance = rig.Reach * 1.5f / MathF.Tan(Fov * MathF.PI / 360f);
+        var target = rig.Shoulder - new Vector3(0f, 0.1f, 0f);
+        var distance = rig.Reach * 1.75f / MathF.Tan(Fov * MathF.PI / 360f);
         r.Begin(target - (view.Look * distance), target, Fov);
 
         var casters = new List<(Vector3 A, Vector3 B, float Radius)>();
