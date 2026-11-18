@@ -55,6 +55,10 @@ public sealed class OrganizationMatchTests
 
         var armed = TvShowRules.Stage(BotCatalog.Corners("boxer") with { CpuWeapon = Weapons.WeaponKind.Katana, PlayerWeapon = Weapons.WeaponKind.Longsword }, vfc);
         Assert.AreEqual(RingLayout.WeaponsCage, armed.Layout);
+
+        // 動画・中継の両コーナーは、コーナーから始める四角いリングを持って来る: それでも檻になり、コーナーから始める。
+        var fromCorners = TvShowRules.Stage(BotCatalog.Corners("boxer").StartingAtCorners(), vfc);
+        Assert.AreEqual(RingLayout.Cage.AtCorners(), fromCorners.Layout);
     }
 
     [TestMethod]

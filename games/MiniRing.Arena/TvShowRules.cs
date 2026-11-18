@@ -80,8 +80,13 @@ internal static class TvShowRules
         ArgumentNullException.ThrowIfNull(corners);
         ArgumentNullException.ThrowIfNull(org);
         var staged = corners with { Referee = corners.Referee && org.Match.Referee, SettleSeconds = SettleSeconds };
-        return org.Match.Arena == ArenaShape.HexCage && corners.Ring is null
-            ? staged with { Ring = corners.CpuWeapon is not null && corners.PlayerWeapon is not null ? RingLayout.WeaponsCage : RingLayout.Cage }
+        // 檻の団体: リングが無いか、四角いリング（動画・中継の両コーナーはコーナーから始める四角いリングを持って来る: StartingAtCorners）なら檻にする。
+        // コーナーから始めるかは渡されたリングのまま（以前は「リングが無いとき」だけ檻にしていたので、コーナーから始める動画・下見は四角いリングだった）。
+        return org.Match.Arena == ArenaShape.HexCage && corners.Ring is not { Shape: ArenaShape.HexCage }
+            ? staged with
+            {
+                Ring = (corners.CpuWeapon is not null && corners.PlayerWeapon is not null ? RingLayout.WeaponsCage : RingLayout.Cage) with { FromCorners = corners.Ring?.FromCorners ?? false },
+            }
             : staged;
     }
 
