@@ -49,6 +49,50 @@ public sealed class StickBvhTests
     }
 
     [TestMethod]
+    public void ATwoHandedForm_GetsAGripBoneThatMovesWithTheSword_AtTheOtherHandsGrip()
+    {
+        var ground = MiniRing.Arena.StickGround.For("jin"); // 刀（両手）
+        var form = MiniRing.Bots.FormSwordsman.Forms(MiniRing.Characters.CharacterRoster.Get("jin").Weapon!.Value)[0];
+        var result = MiniRing.Arena.StickForm.Run(ground, form);
+        var body = result.Body;
+        Assert.AreEqual(2, body.GripHands.Count, "刀は両手で握る");
+        var bvh = Parse(StickBvh.Write(body, result.Frames, result.Dt));
+        var name = StickBvh.OffHandBoneName(body);
+        Assert.AreEqual("grip.L", name.Replace(".R", ".L", StringComparison.Ordinal), "名前は grip.L か grip.R");
+        var d = StickBvh.OffHandGrip(body, result.Frames);
+        Assert.IsTrue(MathF.Abs(d) > 0.01f, $"両手の間隔 {d:0.000} m");
+
+        var segments = Enumerable.Range(0, body.Segments.Count).ToDictionary(i => StickBvh.BoneName(body.Segments[i]));
+        var gripEnd = bvh.Joints.FindIndex(j => j.EndSite && j.Name == name);
+        Assert.IsTrue(gripEnd > 0, "握りのボーンに先がある");
+        var other = body.GripHands.Select(StickBody.Ids.Forearm).Single(f => f != body.Segments[StickBody.Ids.Weapon].Parent);
+        var slip = 0f;
+        for (var f = 0; f < result.Frames.Count; f++)
+        {
+            var frame = result.Frames[f];
+            var (positions, _) = Forward(bvh, bvh.Frames[f]);
+            for (var j = 0; j < bvh.Joints.Count; j++)
+            {
+                var joint = bvh.Joints[j];
+                if (joint.Name == name)
+                {
+                    continue;
+                }
+
+                var s = segments[joint.Name];
+                var expected = joint.EndSite ? frame.Tip(s) : frame.Joints[s];
+                Assert.IsTrue(Vector3.Distance(expected, positions[j]) < 1e-3f, $"コマ {f} の {joint.Name}: 握りのボーンを足しても、ほかのボーンの点は変わらない");
+            }
+
+            var grip = frame.Joints[StickBody.Ids.Weapon] + (Vector3.Normalize(frame.Tip(StickBody.Ids.Weapon) - frame.Joints[StickBody.Ids.Weapon]) * d);
+            Assert.IsTrue(Vector3.Distance(grip, positions[gripEnd]) < 1e-3f, $"コマ {f}: 握りのボーンの先は剣の軸の上で、剣と一緒に動く");
+            slip += Vector3.Distance(frame.Tip(other), positions[gripEnd]);
+        }
+
+        Assert.IsTrue(slip / result.Frames.Count < 0.03f, $"もう一方の手首は握りの点の近く（平均 {slip / result.Frames.Count * 100f:0.0} cm）");
+    }
+
+    [TestMethod]
     public void TheScale_MultipliesTheLengths_AndKeepsTheAngles()
     {
         var rig = Rig.Value;
