@@ -118,20 +118,42 @@ internal static class NeckLab
             results[i] = One(h, side, o, tuning, guard, armReach);
         });
         var text = new StringBuilder();
-        text.AppendLine("| hand height | side | range offset | head cells | chest cells | neck broken | head off | dead (cause) | first part | other parts (cells) |");
-        text.AppendLine("|---:|---:|---:|---:|---:|---|---|---|---|---|");
+        text.AppendLine("| hand height | side | range offset | head cells | chest cells | neck broken | head off | dead (cause) | first part | other parts (cells) | neck-slice cells (start/end) |");
+        text.AppendLine("|---:|---:|---:|---:|---:|---|---|---|---|---|---|");
         for (var i = 0; i < jobs.Count; i++)
         {
             var (h, side, o) = jobs[i];
             var r = results[i];
             text.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                $"| {h:0.00} | {side:+0;-0} | {o * 100f:+0;-0;0} cm | {r.Head} | {r.Chest} | {(r.NeckBroken ? "yes" : "")} | {(r.HeadOff ? "yes" : "")} | {r.Cause ?? ""} | {r.First?.ToString() ?? "-"} | {r.Others} |"));
+                $"| {h:0.00} | {side:+0;-0} | {o * 100f:+0;-0;0} cm | {r.Head} | {r.Chest} | {(r.NeckBroken ? "yes" : "")} | {(r.HeadOff ? "yes" : "")} | {r.Cause ?? ""} | {r.First?.ToString() ?? "-"} | {r.Others} | {r.NeckStart}/{r.NeckEnd} |"));
         }
 
         return text.ToString();
     }
 
-    private sealed record Row(int Head, int Chest, bool NeckBroken, bool HeadOff, string? Cause, BodyPartKind? First, string Others);
+    private sealed record Row(int Head, int Chest, bool NeckBroken, bool HeadOff, string? Cause, BodyPartKind? First, string Others, int NeckStart, int NeckEnd);
+
+    /// <summary>的の両腕を体の脇へ下ろすか（<c>--arms down</c>。既定は顔の前に上げた構え）。</summary>
+    public static bool ArmsDown { get; set; }
+
+    /// <summary>頭の格子の下の 5 段（首の段。<see cref="BoxerSpine.NeckSlices"/> を含む）に残っているセルの数。</summary>
+    private static int NeckCells(BoxerBody body)
+    {
+        var grid = body.Parts.Single(p => p.Kind == BodyPartKind.Head).Body.Grid;
+        var n = 0;
+        for (var y = 0; y < 5; y++)
+        {
+            for (var x = 0; x < grid.Dimensions.X; x++)
+            {
+                for (var z = 0; z < grid.Dimensions.Z; z++)
+                {
+                    n += grid.At(x, y, z) != 0 ? 1 : 0;
+                }
+            }
+        }
+
+        return n;
+    }
 
     private static Row One(float height, float side, float offset, FighterTuning tuning, MotionFrame guard, float armReach)
     {
@@ -142,14 +164,21 @@ internal static class NeckLab
         var neckBroken = false;
         var headOff = false;
         string? cause = null;
+        int neckStart = -1, neckNow = 0;
+        // 的は両腕を体の脇に下ろして立つ（腕が首の前を覆わない）。
         var result = StrikeDrill.Run(technique, guard, SwordStance.Rate, tuning, (game, _, _) =>
         {
             neckBroken |= game.Cpu.Voxels!.NeckBroken;
             cause = game.Cpu.DeathCause;
             headOff |= game.Cpu.Voxels!.NeckBroken && game.Cpu.IsDead && game.Cpu.DeathCause == "neck";
-        });
+            neckNow = NeckCells(game.Cpu.Voxels!);
+            if (neckStart < 0)
+            {
+                neckStart = neckNow;
+            }
+        }, target: ArmsDown ? () => new StandGuard(new GuardPosture("down", Vector3.Zero, new Vector3(0.45f, -0.75f, 0.05f))) : null);
         var by = result.CellsByPart;
         var others = string.Join(" ", by.Where(kv => kv.Key is not (BodyPartKind.Head or BodyPartKind.Chest)).Select(kv => $"{kv.Key}:{kv.Value}"));
-        return new Row(by.GetValueOrDefault(BodyPartKind.Head), by.GetValueOrDefault(BodyPartKind.Chest), neckBroken, headOff, cause, result.FirstPart, others);
+        return new Row(by.GetValueOrDefault(BodyPartKind.Head), by.GetValueOrDefault(BodyPartKind.Chest), neckBroken, headOff, cause, result.FirstPart, others, neckStart, neckNow);
     }
 }
