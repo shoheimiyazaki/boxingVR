@@ -153,6 +153,9 @@ public sealed record FootworkTuning
     /// 貯め直すにつれて構えの高さへ沈む。貯めきった構えの高さは今までと同じ（他の技の手触りを変えない）。
     /// </summary>
     public float StepSink { get; init; } = 0.04f;
+
+    /// <summary>TEMP</summary>
+    public float HoldRelax { get; init; } = 0f;
 }
 
 /// <summary>1 本の足の置き方（ワールド）: 母指球の位置（地面の上、持ち上げを含む）、つま先の向き、かかとの浮き。</summary>
@@ -300,8 +303,9 @@ public sealed class Footwork
         if (_swinging < 0)
         {
             // 着いている足は、実際に置かれた所を足の位置とする（踏み出した足が届かなかった・押されてずれたら、そこから計画し直す）。
-            _ball[Lead] = input.LeadBall ?? _ball[Lead];
-            _ball[Rear] = input.RearBall ?? _ball[Rear];
+            var k = _tuning.HoldRelax <= 0f ? 1f : 1f - MathF.Exp(-dt / _tuning.HoldRelax);
+            _ball[Lead] = input.LeadBall is { } lb ? Vector2.Lerp(_ball[Lead], lb, k) : _ball[Lead];
+            _ball[Rear] = input.RearBall is { } rb ? Vector2.Lerp(_ball[Rear], rb, k) : _ball[Rear];
             PlanStep(input);
         }
 
