@@ -1646,7 +1646,8 @@ public sealed partial class Fighter
         var hip = pelvis.Position + Vector3.Transform(lead.PivotOnPelvis, pelvis.Orientation);
         var drop = hip.Y - (pelvis.Position.Y - height) - lead.AnkleOnHeel.Y - _tuning.HalfExtents.Foot.Y;
         var reach = MathF.Sqrt(MathF.Max(0f, (legLength * legLength) - (drop * drop)));
-        var kicking = lead.Command is not null || _legParts[Footwork.Rear].Command is not null; // 蹴っている間は、軸足も含めて足の置き方を実際に合わせる（足の運びの構えの直しは蹴りの前と同じ）
+        // 蹴っている間（軸足も）と、歩く・ステップの指令が出ている間は、足の置き方を実際の足へすぐ合わせる（足を運んで体が動く間は、置いた所を覚えて留める場面ではない）。
+        var kicking = lead.Command is not null || _legParts[Footwork.Rear].Command is not null || command.ClampedMove.LengthSquared() > 0f || command.ClampedStep.LengthSquared() > 0f;
         var input = new FootworkInput(_facingYaw, new Vector2(pelvis.Position.X, pelvis.Position.Z), new Vector2(pelvis.LinearVelocity.X, pelvis.LinearVelocity.Z),
             omega, new Vector2(intent.X, intent.Z), twist, weight, legLength,
             lead.ReachRatio > 0.995f, _legParts[Footwork.Rear].ReachRatio > 0.995f, BallOnGround(lead), BallOnGround(_legParts[Footwork.Rear]), MathF.Max(0.3f * legLength, reach),
