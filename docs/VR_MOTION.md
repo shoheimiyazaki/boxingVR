@@ -60,6 +60,23 @@ miniring-arena imitate --vrmotion x.vrmotion --measure yes                      
 - 体の側の滑る握り（`Slide` を実際に棒の上の握りの移動にする）が入ったら、記録の `Slide` と両手の間隔を持ち替えの手本にする。
 - 向き（`Orientation`）の roll の流儀（刃筋）は、棒には効かないが刀・剣には効く。実機で振って確かめる。
 
+## 5. お手本づくりの稽古（`run_vr_training_katana.cmd` = `run.cmd vr --training katana`、2026-11-19）
+
+正眼（中段）に構えて動かない相手へ切り込む動きを、型ごとに記録する。記録はそのまま §3 の「なぞる」や、型のキーを取り出す材料になる。
+
+| 操作 | 何が起きるか |
+|---|---|
+| 右スティック 左・右 | 前・次の型（刀は `FormSwordsman.Forms(Katana)` の 20 型の順: shomen・kesa・…）。変えるたびにワールドを作り直し、その型の間で向き合う。記録中なら保存して止める。右手に短い振動 |
+| 右スティック 下 | 同じ型のまま作り直す（相手を斬り崩したあと・立ち位置がずれたとき）。両手に短い振動 |
+| B / Y | 記録の開始（右手に強め）・停止（両手に長め）。1 回 = 1 ファイル `motions/<日時>_katana_<型>.vrmotion`、注に `training <型> gap <間> m (seigan target)` |
+| A / X・トリガー・左スティック | 今まで通り（身長・握る・歩く） |
+
+- **始めの間**（`SwordTraining.Forms`）: その型の動き（踏み込みを含む）で物打ちが相手の体の面にちょうど届く距離（`StrikeDrill.ReachOf`）。試合の技の下限（0.33 m）では外さず、全部の型を並べる（柄頭打ち・押し斬りも）。下限 0.2 m・上限はリングの縁から 20 cm 内。コンソールに型の名前と間（ゲームの寸法と人の大きさ）を出す。
+- **相手**（`GuardHold`）: 武器の型の構え（刀は中段 = `FormSwordsman.Guard`）を相手へ向いてとり続ける。歩かない・打たない・受けない。体はバネで構えを追うので、打たれれば持っていかれ、構えへ戻る。
+- **ワールド**: 武器のドリルのリング（`RingLayout.DrillWeapons`、2.4 m）の中央で向き合う。審判・休みの動作・ラウンドは無し。試合の記録（replays）は取らない。型を変える・作り直すと `BoxingGame` を作り直す（§1.1: 位置は書き込まない）。身長の合わせ（写像）は作り直しても残る。
+- コード: `games/MiniRing/Motion/SwordTraining.cs`（型の並びと間・試合の設定・`GuardHold`・`StickFlick`）、`games/MiniRing.Vr/VrTrainingSession.cs`（スティック・記録・振動）、`VrMotionSession` に記録の名前と注・`Stop`。テスト `SwordTrainingTests`。
+- **確かめていないこと（実機が無い）**: ヘッドセットで、型を変えたときに立ち位置が正しく変わるか・振動が届くか・相手が正眼に見えるか。ヘッドセットの中では型の名前が見えない（コンソールだけ）ので、型の順と振動で数える。見える札（ワールドの中の文字）は未実装。
+
 ## 実機で試してほしいこと（確かめていない）
 
 1. `miniring-vr --weapon staff --record-motion` で起動し、A/X で身長を合わせてから、棒を両手で持つつもりでトリガーを引き、突く・払う。終了（Ctrl+C）後、`motions/*_staff.vrmotion` ができているか。`[vr] motion saved: ...` がコンソールに出る。
