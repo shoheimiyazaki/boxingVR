@@ -228,6 +228,7 @@ public sealed class Footwork
 
     /// <summary>踏んだ歩数（調べもの・テスト用）。</summary>
     public int Steps { get; private set; }
+    public string DebugPlan { get; private set; } = "";
 
     /// <summary>体（骨盤）を寄せる先: 両足の母指球の間で、体重のかけ方で前後に寄る点。</summary>
     public Vector2 SupportCenter { get; private set; }
@@ -348,6 +349,7 @@ public sealed class Footwork
         // 捕捉点が両足を結ぶ線（支え）から外れたら、倒れる向きの足から踏み出して受け止める。
         var off = DistanceToSegment(capture, _ball[Lead], _ball[Rear]);
         var falling = off > t.CaptureMargin * leg;
+        if (need[Lead] || need[Rear] || falling) { DebugPlan = $"need L={need[Lead]}(err {error[Lead] / leg:0.00}, yaw {BodyFrame.DeltaAngle(_yaw[Lead], input.FacingYaw + StanceYaw(Lead)) * 57.3f:0}, over {input.LeadOverreach}) R={need[Rear]}(err {error[Rear] / leg:0.00}, yaw {BodyFrame.DeltaAngle(_yaw[Rear], input.FacingYaw + StanceYaw(Rear)) * 57.3f:0}, over {input.RearOverreach}) falling={falling} off={off / leg:0.00}"; }
         if (!need[Lead] && !need[Rear] && !falling)
         {
             return;
