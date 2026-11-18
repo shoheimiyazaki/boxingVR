@@ -58,6 +58,7 @@ public static class BoxingRenderer
         game.Debris.WriteInstances(instances);
         game.Wounds.WriteInstances(instances);
         TiredLook.WriteInstances(game, instances); // 息が上がった側の口から白い息（見た目だけ）
+        Break.BreakVaporLook.WriteInstances(game, instances); // たばこの煙・口に含んで吐いた水の飛沫（見た目だけ）
 
         if (showTargetGhosts)
         {

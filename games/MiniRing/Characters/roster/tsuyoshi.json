@@ -81,6 +81,6 @@
     "weapon": null
   },
   "textbook": "tonfa",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "hum": 3, "onigiri": 2.5, "wave": 2.5, "handshake": 2.5, "applause": 2, "bow": 2, "selfie": 1.5, "stretcharms": 1.5, "roar": 0.3 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

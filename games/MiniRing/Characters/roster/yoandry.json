@@ -81,6 +81,6 @@
     "weapon": null
   },
   "textbook": "counter",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "handshake": 4, "cigarette": 4, "dance": 3, "headphones": 3, "hum": 2.5, "blowkiss": 2, "wavetwo": 2, "wave": 2, "applause": 2, "hypecrowd": 2, "roar": 0.5 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

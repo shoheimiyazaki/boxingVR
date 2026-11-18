@@ -38,13 +38,17 @@ public sealed class CharacterFileTests
         Assert.HasCount(13, CharacterRoster.Countries.Keys.Where(k => all.Any(c => c.Country.Id == k)).ToList());
         foreach (var c in all)
         {
-            Assert.AreEqual(0, c.Education.Style.Count, c.Id);
+            // 教育は休みの動作の好み（BreakLikes）だけ（2026-11-18）。判断の値は教科書そのまま。
+            Assert.IsTrue(c.Education.Style.Count == 1 && c.Education.Style.ContainsKey("BreakLikes"), c.Id);
             Assert.AreEqual(0, c.Education.Vs.Count, c.Id);
             Assert.IsNull(c.Education.WeaponBot, c.Id);
             Assert.IsEmpty(c.Record, c.Id);
-            Assert.AreSame(BotCatalog.Style(c.StyleName), c.Resolve(), "an empty education plays the textbook itself: " + c.Id);
-            Assert.AreSame(BotCatalog.Style(c.StyleName), c.Resolve("marcus"), c.Id);
-            Assert.AreSame(BotCatalog.Style(c.StyleName), c.Style, c.Id);
+            var textbook = BotCatalog.Style(c.StyleName);
+            foreach (var resolved in new[] { c.Resolve(), c.Resolve("marcus"), c.Style })
+            {
+                Assert.AreEqual(textbook with { BreakLikes = resolved.BreakLikes }.ToJson(), resolved.ToJson(), "the education changes nothing but the break likes: " + c.Id);
+                Assert.IsNotEmpty(resolved.BreakLikes, c.Id);
+            }
         }
     }
 

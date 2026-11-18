@@ -61,6 +61,6 @@
     "weapon": "ironSword"
   },
   "textbook": "boxer",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "coffee": 3.5, "handshake": 3, "bow": 3, "salute": 2.5, "applause": 2, "fixgloves": 2, "headinhands": 1.5, "roar": 0.2, "blowkiss": 0.2 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

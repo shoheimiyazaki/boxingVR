@@ -446,6 +446,9 @@ public sealed partial class Fighter
     }
 
     public Vector3 HeadPosition => _world.GetState(Parts.Head).Position;
+
+    /// <summary>頭の向き（頭のローカル +Z が顔の向き）。頭に付けて描く小物（ヘッドホン）と、口の位置（煙・飛沫）を決めるため。</summary>
+    public Quaternion HeadOrientation => _world.GetState(Parts.Head).Orientation;
     public Vector3 ChestPosition => _world.GetState(Parts.Chest).Position;
 
     /// <summary>胸の速度（体全体の動きの目安。拳の動きから歩く動きを差し引くのに使う）。</summary>

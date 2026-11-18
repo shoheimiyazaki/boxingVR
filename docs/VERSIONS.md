@@ -40,6 +40,7 @@
 ボットの判断の仕組みを変えたら上げる。
 
 - **1〜11**（最初の注釈のまとめ）: ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、リプレイの見出しに残して照らし合わせる。 変えたら 1 増やす（1: 最初のボット、2: 防御技の表・動き出しの読み・ストップジャブ・ピボット、
+- **50**（2026-11-18、指示書 C）: 試合の始め・休み・試合の終わりのエモート（`BreakEmotes` 新規 49 種 + 休みの動作 11 種 = 60 種。場面の表 `BreakScene`、勝ち負けの量 `BreakWeights.Joy`、名簿 17 人の `education.style.BreakLikes`）と、試合の始めの待ち時間（`MatchRules.IntroSeconds`）・決着の後の動作（`MatchRules.EndSeconds`）・世界を作った直後の助走（`BoxingCorners.SettleSeconds`。T 字の姿勢を映さない）。物理は変えていない（PhysicsVersion は 45 のまま）。TV の撮影・下見（`TvShowRules.Rules`/`Stage`）だけが始め・終わり・助走を使うので、ゲーム・リーグ・既存のテストの試合は変わらない。TV の試合は始めが 7 秒・決着の後が 7 秒（0.75 倍速で約 9 秒）長くなり、助走で始めの体の状態が変わる（同じ種でも試合の展開が変わる）。
 - **49**: master の 43（休みの過ごし方）・44（回し蹴りを高さで 3 つに）と、ブランチ claude/sword-combat-techniques の 43〜48 を合わせた（2026-11-18 のマージ）。
 - **48** ⚠ 同じ番号が別の枝で別の意味（claude/sword-combat-techniques）: バット（WeaponKind.Bat。木の棍棒を両手で握る）を剣と同じ型の組み方（FormSwordsman・SwordsmanBot）で動かす: BatForms の型（右・左・胴・脚の水平、真上・右上・左上の振り下ろし、右下・左下のすくい上げ、胴・顔の突き、手打ち、グリップエンド、前蹴り）と教科書 Bots/weapons/bat.json。新しい武器の種類なので既存の試合（こんぼう・刀・ロングソード・拳）の判断は変えない。47 は剣の間合いの内側の技の作業用。
 - **47** ⚠ 同じ番号が別の枝で別の意味（claude/sword-combat-techniques）: 間合いの内側の技（柄頭打ち・前蹴り・押し斬り）を、計画（歩いて詰める）の候補とは分けて技の集まりに入れた（SwordsmanBot.PlanMinReach・WeaponStyle.InnerMinReach）。すでに近いとき・迎え撃つときだけ、全部の技から今の距離に間合いが合う技を選ぶ。

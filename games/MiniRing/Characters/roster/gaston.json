@@ -82,6 +82,6 @@
     "weapon": null
   },
   "textbook": "outboxer",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "bow": 3, "blowkiss": 3, "mirror": 3, "salute": 2, "selfie": 2, "hum": 2, "wave": 2, "pointcrowd": 1.5, "applause": 1.5, "energydrink": 0.3, "jelly": 0.4 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

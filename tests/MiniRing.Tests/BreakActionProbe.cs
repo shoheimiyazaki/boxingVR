@@ -33,9 +33,10 @@ public sealed class BreakActionProbe
         Directory.CreateDirectory(dir);
         var blue = Environment.GetEnvironmentVariable("BREAK_PROBE_BLUE") == "1";
         var only = (Environment.GetEnvironmentVariable("BREAK_PROBE_ONLY") ?? string.Join(",", BreakBook.All(0.5f).Select(a => a.Name))).Split(',');
-        using var renderer = new HeadlessRenderer(Width, Height);
+
         foreach (var name in only)
         {
+            using var renderer = new HeadlessRenderer(Width, Height);
             var rules = MatchRules.Tv with { Rounds = 2, RoundSeconds = 1f, BreakSeconds = 14f };
             var corners = new BoxingCorners("cpu", s => BotCatalog.Create("champion", s), s => BotCatalog.Create("swarmer", s),
                 BreakSource: (seed, _) => new BreakRoutine(seed, null, [name]));
@@ -45,6 +46,7 @@ public sealed class BreakActionProbe
             var planFrame = -1;
             var shots = new List<int>();
             var taken = 0;
+            var sheet = new List<byte[]>();
             while (frame < 60 * 40)
             {
                 game.Step(default, Dt);
@@ -79,7 +81,7 @@ public sealed class BreakActionProbe
                     if (shots.Contains(frame))
                     {
                         taken++;
-                        Shoot(game, subject, renderer, Path.Combine(dir, $"{name.Replace(':', '_')}_{taken}"));
+                        sheet.Add(Shoot(game, subject, renderer, Path.Combine(dir, $"{name.Replace(':', '_')}_{taken}"), Environment.GetEnvironmentVariable("BREAK_PROBE_VIEW") ?? "body"));
                         var hand = plan[0].Hand;
                         var q = game.World.GetState(subject.ForearmId(hand)).Orientation;
                         var fr = subject.Frame;
@@ -89,12 +91,39 @@ public sealed class BreakActionProbe
                 }
             }
 
+            WriteSheet(Path.Combine(dir, $"{name.Replace(':', '_')}_sheet.png"), sheet);
             TestContext.WriteLine($"{name}: plan frame {planFrame}, shots {taken}");
         }
     }
 
-    private static void Shoot(BoxingGame game, Fighter subject, HeadlessRenderer renderer, string path)
+    /// <summary>6 コマを 3 列に並べた 1 枚の絵（動作の流れを一目で見るため）。</summary>
+    private static void WriteSheet(string path, List<byte[]> frames)
     {
+        if (frames.Count == 0)
+        {
+            return;
+        }
+
+        const int columns = 3;
+        var rows = (frames.Count + columns - 1) / columns;
+        var sheetWidth = columns * Width;
+        var rgba = new byte[sheetWidth * rows * Height * 4];
+        for (var i = 0; i < frames.Count; i++)
+        {
+            var x0 = (i % columns) * Width;
+            var y0 = (i / columns) * Height;
+            for (var row = 0; row < Height; row++)
+            {
+                Array.Copy(frames[i], row * Width * 4, rgba, (((y0 + row) * sheetWidth) + x0) * 4, Width * 4);
+            }
+        }
+
+        PngWriter.WriteRgba(path, sheetWidth, rows * Height, rgba);
+    }
+
+    private static byte[] Shoot(BoxingGame game, Fighter subject, HeadlessRenderer renderer, string path, string sheetView)
+    {
+        byte[]? picked = null;
         var frame = subject.Frame;
         var head = subject.HeadPosition;
         var forward = frame.Forward;
@@ -103,6 +132,8 @@ public sealed class BreakActionProbe
         {
             (head + (forward * 0.34f) + (right * 0.16f) + new Vector3(0f, 0.02f, 0f), head + (forward * 0.02f) - new Vector3(0f, 0.035f, 0f), "front"),
             (head - (right * 0.38f) + (forward * 0.06f) + new Vector3(0f, 0.02f, 0f), head + (forward * 0.04f) - new Vector3(0f, 0.035f, 0f), "side"),
+            // 体ぜんたい（腕を挙げる・体を折る動作が見える距離）: 正面やや斜めから、頭の高さの 0.75 m 前。
+            (head + (forward * 0.75f) + (right * 0.12f) + new Vector3(0f, 0.04f, 0f), head - new Vector3(0f, 0.12f, 0f), "body"),
         };
         foreach (var (eye, target, label) in views)
         {
@@ -113,6 +144,12 @@ public sealed class BreakActionProbe
             var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, [], particles: game.BuildParticles(), lighting: game.BuildLighting(),
                 shadow: game.BuildShadow(), cameraPosition: eye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
             PngWriter.WriteRgba($"{path}_{label}.png", Width, Height, rgba);
+            if (label == sheetView)
+            {
+                picked = rgba;
+            }
         }
+
+        return picked ?? [];
     }
 }

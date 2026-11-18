@@ -81,6 +81,6 @@
     "weapon": "katana"
   },
   "textbook": "champion",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "bow": 3, "coffee": 2, "onigiri": 1.5, "deepbreath": 2, "fixgloves": 1.5, "shakehead": 2, "slamfist": 2, "handshake": 1.5, "roar": 0.3, "blowkiss": 0, "wavetwo": 0.4 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

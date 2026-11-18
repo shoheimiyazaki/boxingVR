@@ -21,6 +21,9 @@ public interface IBreakSource
 
     /// <summary>いま行っている動作の名前（<see cref="BreakBook"/> の定数）。動作の間・休みの構えなら null。中継の出来事に使う。</summary>
     public string? CurrentName { get; }
+
+    /// <summary>いま口から出ている煙・飛沫（見た目だけ）。無ければ null。</summary>
+    public VaporState? Vapor => null;
 }
 
 /// <summary>
@@ -47,10 +50,29 @@ public sealed class BreakRoutine : IBreakSource
     /// <summary>休みの終わりに残す余白 [s]（最後の動作を終えて構えへ戻る）。</summary>
     public const float EndMargin = 0.6f;
 
+    /// <summary>試合の始め・終わりの動作（エモート）の数。動作が短い（2〜3 秒）ので、休みより多く並べる。</summary>
+    public const int MinEmotes = 2;
+
+    public const int MaxEmotes = 3;
+
+    /// <summary>試合の始め・終わりの動作の間の最短 [s]（休みより詰める: 始め・終わりは 6〜7 秒に収める）。</summary>
+    public const float EmoteGap = 0.15f;
+
+    /// <summary>始め・終わりの動作の終わりに残す余白 [s]（休みの 0.6 より短く: 動作の長さを少しでも多く使う）。</summary>
+    public const float EmoteEndMargin = 0.3f;
+
+    /// <summary>煙・飛沫を出し終えてから、漂って消えるまで描き続ける時間 [s]（見た目だけ）。</summary>
+    public const float VaporLinger = 1.6f;
+
+    /// <summary>歩み寄りで、止まる距離の手前この距離 [m] から歩みを緩める。</summary>
+    public const float StandoffEase = 0.4f;
+
     private readonly Random _random;
     private readonly BotStyle? _style;
     private readonly bool _rightHanded;
     private readonly IReadOnlyList<string>? _only;
+    private readonly BreakScene _scene;
+    private readonly float _mood;
     private List<Scheduled>? _plan;
     private float _clock;
     private float _walked;
@@ -58,13 +80,22 @@ public sealed class BreakRoutine : IBreakSource
     /// <param name="seed">試合の種から決めた種。</param>
     /// <param name="only">指定すると、くじ引きをせずこの名前の動作をこの順に行う（調べもの・テスト用。"drink:L" のように手を指定できる）。</param>
     /// <param name="style">ボットのスタイル（<see cref="BotStyle.BreakLikes"/> と利き手）。無ければ好みは全部 1。</param>
-    public BreakRoutine(int seed, BotStyle? style = null, IReadOnlyList<string>? only = null)
+    /// <param name="scene">場面（始め・休み・終わり）。その場面で選べる動作の表からくじ引きする。</param>
+    /// <param name="mood">気分（試合の終わりの勝ち負け: 勝者 +1・敗者 −1・それ以外 0）。重みの <see cref="BreakWeights.Joy"/> に掛かる。</param>
+    public BreakRoutine(int seed, BotStyle? style = null, IReadOnlyList<string>? only = null, BreakScene scene = BreakScene.Break, float mood = 0f)
     {
         _random = new Random(seed);
         _style = style;
         _rightHanded = style is null || !style.Southpaw;
         _only = only;
+        _scene = scene;
+        _mood = Math.Clamp(mood, -1f, 1f);
     }
+
+    /// <summary>いま口から出ている煙・飛沫。</summary>
+    public VaporState? Vapor { get; private set; }
+
+    private bool IsEmoteScene => _scene != BreakScene.Break;
 
     /// <summary>決めた並び（コーナーへ着いて計画を立てるまでは null）。</summary>
     public IReadOnlyList<(float Start, BreakAction Action, Hand Hand)>? Plan => _plan?.Select(s => (s.Start, s.Action, s.Hand)).ToList();
@@ -91,6 +122,7 @@ public sealed class BreakRoutine : IBreakSource
         _clock += dt;
         CurrentName = null;
         Holding = null;
+        Vapor = null;
         foreach (var scheduled in _plan)
         {
             var action = scheduled.Action;
@@ -102,6 +134,17 @@ public sealed class BreakRoutine : IBreakSource
 
             CurrentName = action.Name;
             Holding = action.Prop is { } kind ? new BreakHold(kind, scheduled.Hand, action.Hold) : null;
+            if (action.Vapor is { } vapor)
+            {
+                var inner = MathF.Max(1e-3f, action.Seconds - action.Lead - action.Release);
+                var t01 = (s - action.Lead) / inner;
+                var age = (t01 - vapor.From) * inner;
+                if (age >= 0f && age <= ((vapor.To - vapor.From) * inner) + VaporLinger)
+                {
+                    Vapor = new VaporState(vapor.Kind, age);
+                }
+            }
+
             return Overlay(sense, rest, action, scheduled.Hand, s);
         }
 
@@ -113,9 +156,16 @@ public sealed class BreakRoutine : IBreakSource
     {
         var stamina = sense.SelfStamina;
         var faintness = sense.SelfFaintness;
-        var available = MathF.Max(0f, breakLeft - EndMargin);
-        var actions = BreakBook.All(1f - Math.Clamp(stamina, 0f, 1f)).ToList();
-        var count = MinActions + _random.Next(MaxActions - MinActions + 1);
+        var available = MathF.Max(0f, breakLeft - (IsEmoteScene ? EmoteEndMargin : EndMargin));
+        // 場面の表（動作が持つ「選べる場面」で引く）。相手が立っていなければ、相手がいて成り立つ動作（握手・拍手）は選べない。
+        // 調べもの・テスト（only）は場面の表に依らず全動作から引く。
+        var partnerPresent = sense.OpponentAlive;
+        var actions = BreakBook.All(1f - Math.Clamp(stamina, 0f, 1f))
+            .Where(a => _only is not null || ((a.Scenes & _scene) != 0 && (!a.NeedsPartner || partnerPresent))).ToList();
+        var minCount = IsEmoteScene ? MinEmotes : MinActions;
+        var maxCount = IsEmoteScene ? MaxEmotes : MaxActions;
+        var gapMin = IsEmoteScene ? EmoteGap : MinGap;
+        var count = minCount + _random.Next(maxCount - minCount + 1);
         var chosen = new List<BreakAction>();
         var forced = new Dictionary<int, Hand>();
         if (_only is not null)
@@ -136,7 +186,7 @@ public sealed class BreakRoutine : IBreakSource
 
         while (chosen.Count < count && actions.Count > 0)
         {
-            var weights = actions.Select(a => a.Weights.Of(stamina, faintness) * Like(a.Name)).ToList();
+            var weights = actions.Select(a => a.Weights.Of(stamina, faintness, _mood) * Like(a.Name)).ToList();
             var total = weights.Sum();
             if (total <= 0f)
             {
@@ -157,7 +207,7 @@ public sealed class BreakRoutine : IBreakSource
 
             var action = actions[pick];
             actions.RemoveAt(pick);
-            if (chosen.Sum(a => a.Seconds) + action.Seconds + ((chosen.Count + 2) * MinGap) > available)
+            if (chosen.Sum(a => a.Seconds) + action.Seconds + ((chosen.Count + 2) * gapMin) > available)
             {
                 continue; // 入らない動作は飛ばして、短い動作を探す
             }
@@ -223,10 +273,24 @@ public sealed class BreakRoutine : IBreakSource
             face = new Vector3((face.X * cos) + (face.Z * sin), face.Y, (-face.X * sin) + (face.Z * cos));
         }
 
+        // 歩み寄り（握手）: 相手の胸の方へ歩く指令。止まる距離（Standoff）に近づくほど小さく、動作の行き帰りの混ぜ合わせ（weight）に従う。
+        var move = rest.MoveWorld;
+        if (action.Stride > 0f)
+        {
+            var toward = new Vector3(rest.FaceDirection.X, 0f, rest.FaceDirection.Z);
+            var distance = toward.Length();
+            if (distance > 1e-4f)
+            {
+                var closing = Smooth((distance - action.Standoff) / StandoffEase);
+                move += toward / distance * (action.Stride * closing * weight);
+            }
+        }
+
         var left = Aim(Hand.Left, main == Hand.Left ? action.Main : action.Other);
         var right = Aim(Hand.Right, main == Hand.Right ? action.Main : action.Other);
         return rest with
         {
+            MoveWorld = move,
             FaceDirection = face,
             Left = left,
             Right = right,

@@ -26,10 +26,30 @@ public static class BreakBook
     public const string Glare = "glare";
     public const string ShakeArms = "shakearms";
 
+    /// <summary>休みの動作のうち、始め・終わりでも選べる動作の場面（無い名前は休みだけ）。</summary>
+    private static readonly Dictionary<string, BreakScene> OriginalScenes = new()
+    {
+        [DeepBreath] = BreakScene.Break | BreakScene.End,
+        [Drink] = BreakScene.Break | BreakScene.Start,
+        [Wipe] = BreakScene.Break | BreakScene.End,
+        [Phone] = BreakScene.Break | BreakScene.Start,
+        [ShoulderRoll] = BreakScene.Break | BreakScene.Start,
+        [NeckRoll] = BreakScene.Break | BreakScene.Start,
+        [SlapFace] = BreakScene.Break | BreakScene.Start,
+        [Glare] = BreakScene.Break | BreakScene.Start,
+        [ShakeArms] = BreakScene.Break | BreakScene.Start,
+    };
+
     /// <summary>
-    /// 全動作。<paramref name="tired"/>（0 = 元気 … 1 = 息が上がっている）は深呼吸の深さ・速さ（息が上がるほど深く・速く）だけに効く。
+    /// 全動作（すべての場面）。<paramref name="tired"/>（0 = 元気 … 1 = 息が上がっている）は深呼吸の深さ・速さ（息が上がるほど深く・速く）だけに効く。
     /// </summary>
     public static IReadOnlyList<BreakAction> All(float tired)
+        => [.. Rests(tired).Select(a => a with { Scenes = OriginalScenes.GetValueOrDefault(a.Name, BreakScene.Break) }), .. BreakEmotes.All()];
+
+    /// <summary>その場面で選べる動作（場面ごとの動作の表）。</summary>
+    public static IReadOnlyList<BreakAction> For(BreakScene scene, float tired) => [.. All(tired).Where(a => (a.Scenes & scene) != 0)];
+
+    private static IReadOnlyList<BreakAction> Rests(float tired)
     {
         var rest = Path3.Still;
         var breath = Math.Clamp(tired, 0f, 1f);

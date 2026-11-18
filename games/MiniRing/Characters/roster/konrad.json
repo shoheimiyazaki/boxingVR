@@ -82,6 +82,6 @@
     "weapon": "longsword"
   },
   "textbook": "boxer",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "fixgloves": 3.5, "mouthguard": 3, "stretcharms": 2, "forwardbend": 2, "neckcrack": 1.5, "hum": 2, "bow": 2, "handshake": 2, "coffee": 1.5, "roar": 0.3, "blowkiss": 0.2 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

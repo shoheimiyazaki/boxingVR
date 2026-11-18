@@ -38,7 +38,9 @@ public delegate IFighterControl ControlFactory(int roundSeed);
 /// 人が操る赤の意図の解釈（技の選び方・倒れた相手への攻めの好み）に渡す。赤がボットなら <paramref name="RedBotStyle"/> が同じ物を持つ。null ならスタイルを持たない赤（既定の拳か空手）。
 /// 名前（<paramref name="PlayerName"/> / <paramref name="CpuName"/>）で <see cref="Bots.BotCatalog"/> を引き直さない: 解決したスタイルをこの値・<paramref name="CpuStyleJson"/> で通す。</para>
 /// <para><paramref name="BreakActions"/>（既定 true）は、ラウンドの間の休みに選手が動作（水を飲む・汗を拭く・電話・深呼吸…、<see cref="Break.BreakRoutine"/>）をするか。false なら休みはコーナーで構えを下げて立つだけ。
-/// <paramref name="BreakSource"/> は休みの入力元の差し替え（種と選手から作る。null なら <see cref="Break.BreakRoutine"/>。null を返すとその選手は動作をしない）。</para>
+/// <paramref name="BreakSource"/> は休みの入力元の差し替え（種と選手から作る。null なら <see cref="Break.BreakRoutine"/>。null を返すとその選手は動作をしない）。
+/// 試合の始め・終わりの動作（<see cref="MatchRules.IntroSeconds"/>・<see cref="MatchRules.EndSeconds"/>）も同じ <see cref="BreakActions"/> で切り替わるが、差し替え口は休みの間だけに使う。
+/// <paramref name="SettleSeconds"/>（既定 0）は、世界を作った直後に両者を構えさせて回す助走の長さ [s]（映像の始めで T 字の姿勢を映さないため。試合の時計は進めない）。</para>
 /// <para><paramref name="Referee"/> はレフェリーがいるか（既定はいる）。いないときもダウンは数える（10 カウントで K.O.）が、数えている間の攻撃も打撃に数え、立ち直った後の一呼吸も無い（ゲームの決まり。2026-11-16、ユーザーの指定）。</para>
 public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFactory? Player = null, string? CpuStyleJson = null,
     Weapons.WeaponKind? CpuWeapon = null, Weapons.WeaponKind? PlayerWeapon = null, bool CpuTwoHanded = false, bool PlayerTwoHanded = false, bool VoxelGloves = true,
@@ -47,7 +49,7 @@ public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFa
     FaceParts? PlayerFace = null, FaceParts? CpuFace = null, bool ExternalBlue = false, Bots.BotStyle? RedBotStyle = null, bool UseWeaponBots = false,
     bool Referee = true, Voxels.FaceLook? PlayerLook = null, Voxels.FaceLook? CpuLook = null, string? PlayerLabel = null, string? CpuLabel = null,
     Bots.BotStyle? PlayerStyle = null, Bots.WeaponStyle? PlayerWeaponStyle = null, Bots.WeaponStyle? CpuWeaponStyle = null,
-    bool BreakActions = true, Func<int, Fighter, Break.IBreakSource?>? BreakSource = null)
+    bool BreakActions = true, Func<int, Fighter, Break.IBreakSource?>? BreakSource = null, float SettleSeconds = 0f)
 {
     /// <summary>CPU 側のスタイル（<see cref="CpuStyleJson"/> を読んだもの。解決済みの全体）。スタイルを持たない CPU（legacy・外の入力）は null。</summary>
     public Bots.BotStyle? CpuStyle => CpuStyleJson is { } json ? Bots.BotStyle.FromJson(json) : null;
@@ -156,6 +158,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _model = Models.GetOrAdd((_tuning.HalfExtents, _tuning.ModelSubdivisions), key => BoxerModel.Build(key.Item1, key.Item2));
         _seed = seed;
         StartRound();
+        if (_corners.SettleSeconds > 0f)
+        {
+            Settle(_corners.SettleSeconds);
+        }
     }
 
     public PhysicsWorld World => _world;
@@ -247,6 +253,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     public void Step(BoxingInput input, float dt)
     {
+        if (_settling)
+        {
+            SettleStep(dt);
+            return;
+        }
+
         RecentBell = _startBellPending ? RoundBell.Start : RoundBell.None;
         _startBellPending = false;
         _recentHits.Clear();
@@ -370,7 +382,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var perceptionStart = StepProfile.Begin();
         UpdatePerception(dt);
         StepProfile.End(StepProfile.Slot.Perception, perceptionStart);
-        if (Resting)
+        if (_settling)
+        {
+            // 生成直後の姿勢（腕を真横に広げた形）を映さないための助走: 両者その場で構えるだけ。試合の時計・打撃・入力元の読みは進めない。
+            Drive(Player, Cpu, HoldCommand(Player, Cpu), dt);
+            Drive(Cpu, Player, HoldCommand(Cpu, Player), dt);
+        }
+        else if (Resting)
         {
             // ラウンドの間（と試合の後）: 自分のコーナーへ歩いて戻り、ガードを下げて休む。入力元（ボット・プレイヤー）は読まない。
             // 休みの間（試合の後は除く）は、休みの入力元（水を飲む・汗を拭く…の目標の経路）が休みの構えへ重ねる。
@@ -459,7 +477,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public bool Referee => _corners.Referee;
 
     /// <summary>試合を一呼吸止めているか（ダウンから立ち直った直後）。打撃は数えず、両者その場で構える。</summary>
-    public bool Holding => _resumeHold > 0f && !Resting && !RoundOver;
+    public bool Holding => _settling || (_resumeHold > 0f && !Resting && !RoundOver);
 
     /// <summary>ダウンの数えから立ち直った（立って構えた）ファイターがいたら、試合を <see cref="ResumePause"/> だけ止める。</summary>
     private void WatchRecoveries()
@@ -1027,6 +1045,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <summary>ラウンドの間の休みか。</summary>
     public bool InBreak { get; private set; }
 
+    /// <summary>試合の始め（入場してから最初のゴングまで。<see cref="MatchRules.IntroSeconds"/>）か。選手は始めのエモートをし、打撃も時計も動かない。</summary>
+    public bool InIntro { get; private set; }
+
+    /// <summary>試合の始めの待ち時間の残り [s]。</summary>
+    public float IntroLeft { get; private set; }
+
     /// <summary>試合が終わった（K.O. か、最終ラウンドの終わりの判定）。</summary>
     public bool MatchOver { get; private set; }
 
@@ -1034,7 +1058,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public string? Decision { get; private set; }
 
     /// <summary>休んでいる（ラウンドの間・試合の後）: 入力元を読まず、コーナーへ戻って休む（K.O. の後も打ち続けない）。</summary>
-    public bool Resting => InBreak || MatchOver;
+    public bool Resting => InBreak || MatchOver || InIntro;
 
     private readonly Dictionary<Fighter, float> _regenBudget = [];
 
@@ -1043,6 +1067,21 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     {
         if (MatchOver)
         {
+            return;
+        }
+
+        if (InIntro)
+        {
+            // 試合の始め: 入場の待ち時間（選手は始めのエモートをする）。ラウンドの時計は動かさず、終わったらゴング。
+            IntroLeft -= dt;
+            if (IntroLeft <= 0f)
+            {
+                InIntro = false;
+                IntroLeft = 0f;
+                RecentBell = RoundBell.Start;
+                ShowMessage("ROUND 1", 1.5f);
+            }
+
             return;
         }
 
@@ -1179,6 +1218,41 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         ShowMessage($"{reason}  {(cpuWon ? $"{BlueLabel} WINS" : $"{RedLabel} WIN")}", RoundResetDelay);
     }
 
+    private bool _settling;
+
+    /// <summary>
+    /// 世界を作った直後の助走（映像の始めで、生成直後の T 字の姿勢を映さないため）: <paramref name="seconds"/> だけ、両者をその場で構えさせて世界を回す。
+    /// 姿勢は書かない（構えの目標を最初の歩から出し、体がバネでそこへ追いつくまで待つだけ）。試合の時計・打撃・ボットの乱数は進めない。
+    /// コンストラクタから呼ぶ（<see cref="BoxingCorners.SettleSeconds"/>）ので、同じ種・同じ角から作り直した試合（リプレイ・影の試合）も同じ助走をして一致する。
+    /// </summary>
+    private void Settle(float seconds)
+    {
+        _settling = true;
+        try
+        {
+            var steps = (int)MathF.Ceiling(seconds * 60f);
+            for (var i = 0; i < steps; i++)
+            {
+                Step(default, 1f / 60f);
+            }
+        }
+        finally
+        {
+            _settling = false;
+        }
+    }
+
+    private void SettleStep(float dt)
+    {
+        RecentBell = RoundBell.None;
+        var substeps = Math.Max(1, (int)MathF.Ceiling((dt * SubstepRate) - 1e-3f));
+        var sub = dt / substeps;
+        for (var i = 0; i < substeps; i++)
+        {
+            Substep(default, null, sub);
+        }
+    }
+
     /// <summary>
     /// ラウンドを作り直す。Aigis では剛体の削除がハンドル再利用で危険（architecture.md risk 4）なので、
     /// ワールドごと作り直す（体の状態もラウンドごとに新品）。
@@ -1293,8 +1367,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _elbowCooldown.Clear();
         _elbowFiltered.Clear();
         _kickFiltered.Clear(); // 世界ごと作り直すので、切った組も消える
-        ShowMessage(Rules is null ? "FIGHT!" : "ROUND 1", 1.5f);
-        _startBellPending = true;
+        // 試合の始め（入場してから最初のゴングまで）の間 IntroSeconds があれば、ゴングはその後（UpdateMatch）。
+        InIntro = Rules is { IntroSeconds: > 0f };
+        IntroLeft = InIntro ? Rules!.IntroSeconds : 0f;
+        ShowMessage(InIntro ? string.Empty : Rules is null ? "FIGHT!" : "ROUND 1", InIntro ? 0f : 1.5f);
+        _startBellPending = !InIntro;
         _regenBudget.Clear();
         _grazeArmed.Clear();
         MatchRound = 1;
@@ -1597,8 +1674,8 @@ public readonly record struct ContactSoundEvent(Vector3 Position, Audio.ContactP
 /// <param name="RegenVoxelsPerSecond">休みの間に体が治る速さ [ボクセル/s]（1 人あたり。重い 1 発で削れる数十〜百個を 1 秒ほどで）。</param>
 public sealed record MatchRules(float RoundSeconds = 30f, int Rounds = 5, float BreakSeconds = 10f, float RegenVoxelsPerSecond = 150f)
 {
-    /// <summary>試合の長さの合計 [s]（全ラウンドと休み）。</summary>
-    public float TotalSeconds => (RoundSeconds * Rounds) + (BreakSeconds * Math.Max(0, Rounds - 1));
+    /// <summary>試合の長さの合計 [s]（始めの待ち時間・全ラウンドと休み。決着の後の <see cref="EndSeconds"/> は含まない）。</summary>
+    public float TotalSeconds => IntroSeconds + (RoundSeconds * Rounds) + (BreakSeconds * Math.Max(0, Rounds - 1));
 
     /// <summary>判定で引き分けとする、与えたダメージの差の割合（両者の平均に対して）。</summary>
     public float DrawShare { get; init; } = 0.05f;
@@ -1637,6 +1714,18 @@ public sealed record MatchRules(float RoundSeconds = 30f, int Rounds = 5, float 
     /// 最終ラウンドの終わりに判定するか。false なら判定せず、両者生還の引き分け（<c>"DRAW — BOTH SURVIVE"</c>、勝ち数は増やさない）。既定は判定する（WVC）。
     /// </summary>
     public bool JudgesDecision { get; init; } = true;
+
+    /// <summary>
+    /// 試合の始め（入場してから最初のゴングまで）の長さ [s]。この間、選手はその場で始めのエモート（観客に手を振る・準備運動…）をし、ラウンドの時計・打撃は動かない。
+    /// 0 なら試合は最初の歩からゴング（従来）。ゲームの決まりの値で、物理ではない。
+    /// </summary>
+    public float IntroSeconds { get; init; }
+
+    /// <summary>
+    /// 試合の終わり（決着の後）に、立っている選手が終わりのエモート（勝者は喜ぶ・敗者は悔しがる・相手を称える）をする長さ [s]（計画を立てる長さ。決着の後の撮影の長さと合わせる）。
+    /// 0 なら決着の後は今までどおりコーナーへ歩くだけ。倒れている選手は倒れたまま。
+    /// </summary>
+    public float EndSeconds { get; init; }
 
     /// <summary>テレビ中継の標準: 30 秒 × 5 ラウンド、休み 10 秒。</summary>
     public static MatchRules Tv { get; } = new();

@@ -15,8 +15,15 @@ public sealed class CharacterRosterTests
     private static readonly string[] WeaponUsers = ["jin", "konrad", "sean", "daichi", "edgar"];
     private static readonly string[] KarateUsers = ["akira"];
 
-    /// <summary>組み込みの 1 人ぶんのファイル（roster/&lt;id&gt;.json）の中身。</summary>
+    /// <summary>
+    /// 組み込みの 1 人ぶんのファイル（roster/&lt;id&gt;.json）の中身。名簿のファイルの教育には休みの動作の好み（<c>BreakLikes</c>）だけが入っているが、
+    /// 教育の差し替えを試すテストは「教育が空の人」から始めたいので、好みを外した形（<c>"style": {}</c>）で返す。
+    /// </summary>
     internal static string RosterFileJson(string id)
+        => System.Text.RegularExpressions.Regex.Replace(RawRosterFileJson(id), "\"style\": \\{ \"BreakLikes\": \\{[^}]*\\} \\}", "\"style\": {}");
+
+    /// <summary>組み込みの 1 人ぶんのファイルの生の中身（教育の好みを含む）。</summary>
+    internal static string RawRosterFileJson(string id)
     {
         using var stream = typeof(CharacterRoster).Assembly.GetManifestResourceStream($"MiniRing.Characters.roster.{id}.json")!;
         return new StreamReader(stream).ReadToEnd();

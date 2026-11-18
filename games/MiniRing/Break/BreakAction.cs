@@ -90,15 +90,48 @@ public sealed record HandPath(HandAnchor Anchor, Path3 Path);
 /// <param name="Lead">目標へ移るまでの時間 [s]。</param>
 /// <param name="Release">構えへ戻るまでの時間 [s]。</param>
 /// <param name="Hold">小物の持ち方（<paramref name="Prop"/> があるとき）。</param>
+/// <param name="Scenes">この動作を選べる場面（試合の始め・休み・試合の終わり。複数可）。場面ごとの動作の表は、この値で引く。選び方の式は場面に依らず同じ。</param>
+/// <param name="Vapor">口から出る煙・飛沫（見た目だけ）。経路の時刻（0..1）の窓。null は出さない。</param>
+/// <param name="Stride">相手の方へ歩く指令の大きさ（0..1。握手・歩み寄り）。0 は歩かない。歩く向きは相手の胸の方、<paramref name="Standoff"/> の手前で止まる。</param>
+/// <param name="Standoff">相手へ歩み寄るとき、止まる距離 [m]（胸と胸）。</param>
+/// <param name="NeedsPartner">相手が立っているときだけ選べる動作（握手・拍手など、相手がいて成り立つ動作）。</param>
 public sealed record BreakAction(
     string Name, float Seconds, PropKind? Prop, HandPath Main, HandPath? Other, Path3 Head, Path3 Twist, Path3 FaceYaw, BreakWeights Weights,
-    float Lead = 0.9f, float Release = 0.8f, PropHold Hold = default);
+    float Lead = 0.9f, float Release = 0.8f, PropHold Hold = default,
+    BreakScene Scenes = BreakScene.Break, BreakVapor? Vapor = null, float Stride = 0f, float Standoff = 0.9f, bool NeedsPartner = false);
+
+/// <summary>動作を行う場面: 試合の始め（入場してから最初のゴングまで）・ラウンドの間の休み・試合の終わり（決着の後）。複数の場面で選べる動作は和で持つ。</summary>
+[Flags]
+public enum BreakScene
+{
+    Start = 1,
+    Break = 2,
+    End = 4,
+}
+
+/// <summary>口から出る物の種類（見た目だけ）。</summary>
+public enum VaporKind
+{
+    /// <summary>たばこの煙（灰色で漂って上がる）。</summary>
+    Smoke,
+
+    /// <summary>口に含んだ水を吐く飛沫（前・斜め下へ飛ぶ水色の玉）。</summary>
+    Spit,
+}
+
+/// <summary>動作の中で口から物を出す窓（経路の時刻 0..1 の <paramref name="From"/> から <paramref name="To"/>）。</summary>
+public readonly record struct BreakVapor(VaporKind Kind, float From, float To);
+
+/// <summary>いま出ている煙・飛沫: 種類と、出始めてからの経過 [s]。</summary>
+public readonly record struct VaporState(VaporKind Kind, float Age);
 
 /// <summary>
-/// 動作の選ばれやすさ: <c>Base + Tired × (1 − スタミナ) + Hurt × (意識の薄れ)</c>（連続の重み。種類での分岐ではない）。キャラの好み（<c>BreakRoutine</c> の
-/// 個性）は、動作の名前で引く倍率として別に掛ける。
+/// 動作の選ばれやすさ: <c>Base + Tired × (1 − スタミナ) + Hurt × (意識の薄れ) + Joy × 気分</c>（連続の重み。種類での分岐ではない）。
+/// 気分は試合の終わりの勝ち負けの量（勝者 +1・敗者 −1・引き分けと始め・休みは 0）で、Joy が正なら勝った側が、負なら負けた側が選びやすい。
+/// キャラの好み（<c>BreakRoutine</c> の個性）は、動作の名前で引く倍率として別に掛ける。
 /// </summary>
-public readonly record struct BreakWeights(float Base, float Tired = 0f, float Hurt = 0f)
+public readonly record struct BreakWeights(float Base, float Tired = 0f, float Hurt = 0f, float Joy = 0f)
 {
-    public float Of(float stamina, float faintness) => MathF.Max(0f, Base + (Tired * (1f - Math.Clamp(stamina, 0f, 1f))) + (Hurt * Math.Clamp(faintness, 0f, 1f)));
+    public float Of(float stamina, float faintness, float mood = 0f)
+        => MathF.Max(0f, Base + (Tired * (1f - Math.Clamp(stamina, 0f, 1f))) + (Hurt * Math.Clamp(faintness, 0f, 1f)) + (Joy * Math.Clamp(mood, -1f, 1f)));
 }

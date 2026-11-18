@@ -4,7 +4,7 @@ using Aigis.Render.Voxels;
 
 namespace MiniRing.Break;
 
-/// <summary>休みの間に手へ持つ小物の種類（セコンドが渡す物）。</summary>
+/// <summary>動作（エモート）の間に持つ・付ける小物の種類（セコンドが渡す物）。口へ運ぶ物は、口の側の端が局所 +X。</summary>
 public enum PropKind
 {
     /// <summary>水のボトル（プラスチック）。</summary>
@@ -15,6 +15,61 @@ public enum PropKind
 
     /// <summary>スマホ（画面が光る板）。</summary>
     Phone,
+
+    /// <summary>スポーツドリンクのボトル（橙の液体）。</summary>
+    SportsBottle,
+
+    /// <summary>コーヒー・紅茶の紙コップ（蓋と袖付き）。</summary>
+    Cup,
+
+    /// <summary>エナジードリンクの缶。</summary>
+    Can,
+
+    /// <summary>牛乳パック。</summary>
+    Carton,
+
+    /// <summary>ストロー付きの紙パックのジュース。</summary>
+    JuiceBox,
+
+    /// <summary>ゼリー飲料のパウチ。</summary>
+    JellyPouch,
+
+    /// <summary>バナナ。</summary>
+    Banana,
+
+    /// <summary>おにぎり。</summary>
+    Onigiri,
+
+    /// <summary>サンドイッチ（三角に切った半分）。</summary>
+    Sandwich,
+
+    /// <summary>チョコバー（包み紙を半分むいた物）。</summary>
+    Chocolate,
+
+    /// <summary>りんご（かじった跡）。</summary>
+    Apple,
+
+    /// <summary>ドーナツ（グレーズと飾り）。</summary>
+    Donut,
+
+    /// <summary>たばこ（火のついた先と、フィルター）。</summary>
+    Cigarette,
+
+    /// <summary>マウスピース。</summary>
+    MouthGuard,
+
+    /// <summary>イヤホン（片耳）。</summary>
+    Earbud,
+
+    /// <summary>ヘッドホン（頭に付けて描く。手には持たない）。</summary>
+    Headphones,
+}
+
+/// <summary>小物が付く所: 持っている手のグローブの中心か、頭。</summary>
+public enum PropAttach
+{
+    Hand,
+    Head,
 }
 
 /// <summary>
@@ -30,19 +85,89 @@ public static class BreakPalette
     public const byte Stripe = 5;
     public const byte PhoneBody = 6;
     public const byte Screen = 7;
+    public const byte Orange = 8;
+    public const byte CapOrange = 9;
+    public const byte PaperCup = 10;
+    public const byte CupLid = 11;
+    public const byte CupSleeve = 12;
+    public const byte CanSilver = 13;
+    public const byte CanGreen = 14;
+    public const byte CanBand = 15;
+    public const byte Carton = 16;
+    public const byte CartonBlue = 17;
+    public const byte Straw = 18;
+    public const byte Pouch = 19;
+    public const byte Banana = 20;
+    public const byte BananaTip = 21;
+    public const byte Rice = 22;
+    public const byte Nori = 23;
+    public const byte Bread = 24;
+    public const byte Lettuce = 25;
+    public const byte Ham = 26;
+    public const byte Cheese = 27;
+    public const byte Chocolate = 28;
+    public const byte Wrapper = 29;
+    public const byte Foil = 30;
+    public const byte AppleRed = 31;
+    public const byte AppleFlesh = 32;
+    public const byte Stem = 33;
+    public const byte Dough = 34;
+    public const byte Glaze = 35;
+    public const byte Sprinkle = 36;
+    public const byte CigarettePaper = 37;
+    public const byte Filter = 38;
+    public const byte Ember = 39;
+    public const byte MouthGuard = 40;
+    public const byte Cushion = 41;
 
     private static Vector4 Rgb(float r, float g, float b) => new(r, g, b, 1f);
+
+    private static VoxelMaterial Paint(string name, Vector4 color) => new(name, VoxelTissue.Solid, 1f, false, color, color, Stainable: 0f);
 
     public static VoxelPalette Palette { get; } = new(
     [
         new VoxelMaterial("empty", VoxelTissue.Empty, 1f, false, Vector4.Zero, Vector4.Zero),
-        new VoxelMaterial("plastic", VoxelTissue.Solid, 1f, false, Rgb(0.72f, 0.9f, 1f), Rgb(0.72f, 0.9f, 1f), Stainable: 0f),
-        new VoxelMaterial("cap", VoxelTissue.Solid, 1f, false, Rgb(0.1f, 0.4f, 0.9f), Rgb(0.1f, 0.4f, 0.9f), Stainable: 0f),
-        new VoxelMaterial("water", VoxelTissue.Solid, 1f, false, Rgb(0.35f, 0.65f, 1f), Rgb(0.35f, 0.65f, 1f), Stainable: 0f),
-        new VoxelMaterial("cloth", VoxelTissue.Solid, 1f, false, Rgb(0.97f, 0.97f, 0.93f), Rgb(0.97f, 0.97f, 0.93f), Stainable: 0f),
-        new VoxelMaterial("stripe", VoxelTissue.Solid, 1f, false, Rgb(0.85f, 0.12f, 0.12f), Rgb(0.85f, 0.12f, 0.12f), Stainable: 0f),
-        new VoxelMaterial("phone body", VoxelTissue.Solid, 1f, false, Rgb(0.08f, 0.08f, 0.1f), Rgb(0.08f, 0.08f, 0.1f), Stainable: 0f),
-        new VoxelMaterial("screen", VoxelTissue.Solid, 1f, false, Rgb(0.55f, 0.95f, 1f), Rgb(0.55f, 0.95f, 1f), Stainable: 0f),
+        Paint("plastic", Rgb(0.72f, 0.9f, 1f)),
+        Paint("cap", Rgb(0.1f, 0.4f, 0.9f)),
+        Paint("water", Rgb(0.35f, 0.65f, 1f)),
+        Paint("cloth", Rgb(0.97f, 0.97f, 0.93f)),
+        Paint("stripe", Rgb(0.85f, 0.12f, 0.12f)),
+        Paint("phone body", Rgb(0.08f, 0.08f, 0.1f)),
+        Paint("screen", Rgb(0.55f, 0.95f, 1f)),
+        Paint("orange drink", Rgb(1f, 0.55f, 0.1f)),
+        Paint("orange cap", Rgb(0.95f, 0.35f, 0.05f)),
+        Paint("paper cup", Rgb(0.95f, 0.92f, 0.85f)),
+        Paint("cup lid", Rgb(0.18f, 0.12f, 0.09f)),
+        Paint("cup sleeve", Rgb(0.62f, 0.4f, 0.22f)),
+        Paint("can silver", Rgb(0.82f, 0.84f, 0.88f)),
+        Paint("can green", Rgb(0.2f, 0.85f, 0.25f)),
+        Paint("can band", Rgb(0.07f, 0.08f, 0.08f)),
+        Paint("carton", Rgb(0.96f, 0.96f, 0.98f)),
+        Paint("carton blue", Rgb(0.2f, 0.45f, 0.9f)),
+        Paint("straw", Rgb(0.92f, 0.2f, 0.25f)),
+        Paint("pouch", Rgb(0.75f, 0.78f, 0.82f)),
+        Paint("banana", Rgb(1f, 0.85f, 0.15f)),
+        Paint("banana tip", Rgb(0.35f, 0.22f, 0.08f)),
+        Paint("rice", Rgb(1f, 1f, 0.97f)),
+        Paint("nori", Rgb(0.05f, 0.1f, 0.07f)),
+        Paint("bread", Rgb(0.86f, 0.68f, 0.38f)),
+        Paint("lettuce", Rgb(0.45f, 0.8f, 0.25f)),
+        Paint("ham", Rgb(0.95f, 0.55f, 0.55f)),
+        Paint("cheese", Rgb(1f, 0.8f, 0.2f)),
+        Paint("chocolate", Rgb(0.32f, 0.17f, 0.08f)),
+        Paint("wrapper", Rgb(0.8f, 0.1f, 0.12f)),
+        Paint("foil", Rgb(0.95f, 0.8f, 0.35f)),
+        Paint("apple red", Rgb(0.82f, 0.1f, 0.12f)),
+        Paint("apple flesh", Rgb(0.98f, 0.95f, 0.75f)),
+        Paint("stem", Rgb(0.3f, 0.2f, 0.1f)),
+        Paint("dough", Rgb(0.85f, 0.6f, 0.32f)),
+        Paint("glaze", Rgb(1f, 0.55f, 0.75f)),
+        Paint("sprinkle", Rgb(1f, 1f, 1f)),
+        Paint("cigarette paper", Rgb(0.98f, 0.98f, 0.95f)),
+        Paint("filter", Rgb(0.95f, 0.6f, 0.2f)),
+        Paint("ember", Rgb(1f, 0.35f, 0.05f)),
+        Paint("mouth guard", Rgb(0.45f, 0.8f, 1f)),
+        Paint("cushion", Rgb(0.25f, 0.25f, 0.28f)),
     ]);
 }
 
@@ -53,9 +178,10 @@ public static class BreakPalette
 public readonly record struct PropHold(Vector3 Axis, Vector3 Normal, Vector3 Grip = default);
 
 /// <summary>
-/// 手に持つ小物（ボトル・タオル・スマホ）。ボクセルの物で、剛体ではない（グローブの中心に付いて描かれるだけ。体と打ち合わず、体を削らない）。
-/// 形は小物の局所座標で +X が長い軸で、握る所（<see cref="PropHold.Grip"/>）がグローブの中心に来る。向きは動作ごとの持ち方（<see cref="PropHold"/>）で
+/// 手に持つ・頭に付ける小物（ボトル・缶・食べ物・たばこ・スマホ・ヘッドホン…）。ボクセルの物で、剛体ではない（グローブの中心か頭に付いて描かれるだけ。体と打ち合わず、体を削らない）。
+/// 形は小物の局所座標で +X が長い軸（口へ運ぶ物は口の側の端）で、握る所（<see cref="PropHold.Grip"/>）がグローブの中心に来る。向きは動作ごとの持ち方（<see cref="PropHold"/>）で
 /// 体フレームから決める近道（前腕のひねりは入力から制御できないので、手の形で持ち方が変わるのを書いている。CLAUDE.md §8「休みの動作」）。
+/// ヘッドホンは頭に付く（頭の向きに従う）。
 /// </summary>
 public sealed class BreakProp
 {
@@ -85,22 +211,50 @@ public sealed class BreakProp
     /// <summary>持ち方。</summary>
     public PropHold Hold { get; }
 
-    /// <summary>小物を作って <paramref name="owner"/> の <paramref name="hand"/> に持たせる。</summary>
+    /// <summary>この小物が付く所（手か頭）。</summary>
+    public PropAttach Attach => AttachOf(Kind);
+
+    /// <summary>小物の種類ごとの付く所。</summary>
+    public static PropAttach AttachOf(PropKind kind) => kind == PropKind.Headphones ? PropAttach.Head : PropAttach.Hand;
+
+    /// <summary>小物を作って <paramref name="owner"/> の <paramref name="hand"/> に持たせる（ヘッドホンは頭に付ける）。</summary>
     public static BreakProp Create(PropKind kind, Fighter owner, Hand hand, PropHold hold)
     {
         ArgumentNullException.ThrowIfNull(owner);
-        return kind switch
-        {
-            PropKind.Bottle => new BreakProp(kind, owner, hand, Bottle(), hold),
-            PropKind.Towel => new BreakProp(kind, owner, hand, Towel(), hold),
-            PropKind.Phone => new BreakProp(kind, owner, hand, Phone(), hold),
-            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない小物です。"),
-        };
+        return new BreakProp(kind, owner, hand, kind == PropKind.Headphones ? Headphones(owner) : Build(kind), hold);
     }
 
-    /// <summary>小物の向き（局所 → ワールド）: 体フレームの軸 2 本（長い軸・面の向き）から正規直交の枠を作り、体の向き（ヨー）で回す。</summary>
+    private static VoxelGrid Build(PropKind kind) => kind switch
+    {
+        PropKind.Bottle => Bottle(BreakPalette.Water, BreakPalette.Cap),
+        PropKind.SportsBottle => Bottle(BreakPalette.Orange, BreakPalette.CapOrange),
+        PropKind.Towel => Towel(),
+        PropKind.Phone => Phone(),
+        PropKind.Cup => Cup(),
+        PropKind.Can => Can(),
+        PropKind.Carton => Carton(straw: false),
+        PropKind.JuiceBox => Carton(straw: true),
+        PropKind.JellyPouch => JellyPouch(),
+        PropKind.Banana => Banana(),
+        PropKind.Onigiri => Onigiri(),
+        PropKind.Sandwich => Sandwich(),
+        PropKind.Chocolate => Chocolate(),
+        PropKind.Apple => Apple(),
+        PropKind.Donut => Donut(),
+        PropKind.Cigarette => Cigarette(),
+        PropKind.MouthGuard => MouthGuard(),
+        PropKind.Earbud => Earbud(),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない小物です。"),
+    };
+
+    /// <summary>小物の向き（局所 → ワールド）: 体フレームの軸 2 本（長い軸・面の向き）から正規直交の枠を作り、体の向き（ヨー）で回す。ヘッドホンは頭の向き。</summary>
     public Matrix4x4 Orientation()
     {
+        if (Attach == PropAttach.Head)
+        {
+            return Matrix4x4.CreateFromQuaternion(Owner.HeadOrientation);
+        }
+
         var side = Hand.LocalSide();
         var frame = Owner.Frame;
         var x = Vector3.Normalize(frame.Rotate(new Vector3(Hold.Axis.X * side, Hold.Axis.Y, Hold.Axis.Z)));
@@ -110,9 +264,10 @@ public sealed class BreakProp
         return new Matrix4x4(x.X, x.Y, x.Z, 0f, y.X, y.Y, y.Z, 0f, z.X, z.Y, z.Z, 0f, 0f, 0f, 0f, 1f);
     }
 
-    /// <summary>小物の格子（真ん中が原点、メートル）→ ワールドの変換: 握る所をグローブの中心へ。</summary>
-    public Matrix4x4 GridToWorld() =>
-        Matrix4x4.CreateTranslation(-Hold.Grip) * Orientation() * Matrix4x4.CreateTranslation(Owner.GloveCenter(Hand));
+    /// <summary>小物の格子（真ん中が原点、メートル）→ ワールドの変換: 握る所をグローブの中心へ（ヘッドホンは頭の中心へ）。</summary>
+    public Matrix4x4 GridToWorld() => Attach == PropAttach.Head
+        ? Orientation() * Matrix4x4.CreateTranslation(Owner.HeadPosition)
+        : Matrix4x4.CreateTranslation(-Hold.Grip) * Orientation() * Matrix4x4.CreateTranslation(Owner.GloveCenter(Hand));
 
     /// <summary>この小物を描く指示。</summary>
     public VoxelVolumeDraw Draw()
@@ -121,17 +276,20 @@ public sealed class BreakProp
         return new VoxelVolumeDraw(_volume, VoxelVolume.CellToWorld(Grid, GridToWorld()));
     }
 
-    /// <summary>ボトル: 本体（丸い筒）・肩・首・キャップ。+X が口の側。水が下の 2/3。寸法はグローブ（半径 2.4cm）から両端がはみ出して見えるよう大きめ（見た目の値）。</summary>
-    private static VoxelGrid Bottle()
+    private static VoxelGrid Make(Vector3 half, Func<Vector3, byte> fill) => new(BreakPalette.Palette, half, VoxelGrid.CellsFor(half, Cell), (p, _) => fill(p));
+
+    private static float Radial(Vector3 p) => MathF.Sqrt((p.Y * p.Y) + (p.Z * p.Z));
+
+    /// <summary>ボトル: 本体（丸い筒）・肩・首・キャップ。+X が口の側。液体が下の 2/3。寸法はグローブ（半径 2.4cm）から両端がはみ出して見えるよう大きめ（見た目の値）。</summary>
+    private static VoxelGrid Bottle(byte liquid, byte cap)
     {
-        var half = new Vector3(0.055f, 0.018f, 0.018f);
-        return new VoxelGrid(BreakPalette.Palette, half, VoxelGrid.CellsFor(half, Cell), (p, _) =>
+        return Make(new Vector3(0.055f, 0.018f, 0.018f), p =>
         {
-            var radial = MathF.Sqrt((p.Y * p.Y) + (p.Z * p.Z));
+            var radial = Radial(p);
             var x = p.X;
             if (x > 0.044f)
             {
-                return radial <= 0.0098f ? BreakPalette.Cap : (byte)0;
+                return radial <= 0.0098f ? cap : (byte)0;
             }
 
             if (x > 0.034f)
@@ -150,23 +308,317 @@ public sealed class BreakProp
                 return 0;
             }
 
-            return x < 0.016f && radial < 0.0137f ? BreakPalette.Water : BreakPalette.Plastic;
+            return x < 0.016f && radial < 0.0137f ? liquid : BreakPalette.Plastic;
         });
     }
 
     /// <summary>タオル: 握った手からはみ出す布の板（両端に赤い縞）。面の向きが +Z。</summary>
-    private static VoxelGrid Towel()
-    {
-        var half = new Vector3(0.045f, 0.035f, 0.005f);
-        return new VoxelGrid(BreakPalette.Palette, half, VoxelGrid.CellsFor(half, Cell), (p, _) =>
-            MathF.Abs(p.X) is > 0.037f and < 0.043f ? BreakPalette.Stripe : BreakPalette.Cloth);
-    }
+    private static VoxelGrid Towel() => Make(new Vector3(0.045f, 0.035f, 0.005f), p =>
+        MathF.Abs(p.X) is > 0.037f and < 0.043f ? BreakPalette.Stripe : BreakPalette.Cloth);
 
     /// <summary>スマホ: 黒い板。+Z の面に光る画面。長い方が +X。</summary>
-    private static VoxelGrid Phone()
+    private static VoxelGrid Phone() => Make(new Vector3(0.036f, 0.02f, 0.004f), p =>
+        p.Z > 0.0005f && MathF.Abs(p.X) < 0.032f && MathF.Abs(p.Y) < 0.016f ? BreakPalette.Screen : BreakPalette.PhoneBody);
+
+    /// <summary>紙コップ: 底（−X）から口（+X）へ少し広がる筒、茶の袖、黒い蓋（+X）。</summary>
+    private static VoxelGrid Cup() => Make(new Vector3(0.044f, 0.02f, 0.02f), p =>
     {
-        var half = new Vector3(0.036f, 0.02f, 0.004f);
-        return new VoxelGrid(BreakPalette.Palette, half, VoxelGrid.CellsFor(half, Cell), (p, _) =>
-            p.Z > 0.0005f && MathF.Abs(p.X) < 0.032f && MathF.Abs(p.Y) < 0.016f ? BreakPalette.Screen : BreakPalette.PhoneBody);
+        var radial = Radial(p);
+        var x = p.X;
+        if (x > 0.026f)
+        {
+            // 蓋: 縁が張り出し、真ん中の飲み口が少し盛り上がる。
+            var top = x < 0.034f ? 0.0175f : x < 0.04f ? 0.0075f : 0f;
+            return radial <= top ? BreakPalette.CupLid : (byte)0;
+        }
+
+        if (x < -0.036f)
+        {
+            return 0;
+        }
+
+        var body = 0.0105f + ((x + 0.036f) / 0.062f * 0.0065f);
+        if (radial > body)
+        {
+            return 0;
+        }
+
+        return x is > -0.014f and < 0.012f ? BreakPalette.CupSleeve : BreakPalette.PaperCup;
+    });
+
+    /// <summary>缶: 緑の筒に黒い帯、上下に銀の縁。+X が飲み口。</summary>
+    private static VoxelGrid Can() => Make(new Vector3(0.036f, 0.015f, 0.015f), p =>
+    {
+        var radial = Radial(p);
+        var x = p.X;
+        if (MathF.Abs(x) > 0.034f)
+        {
+            return 0;
+        }
+
+        if (x > 0.029f)
+        {
+            return radial <= 0.0095f ? BreakPalette.CanSilver : (byte)0;
+        }
+
+        if (x < -0.029f)
+        {
+            return radial <= 0.0095f ? BreakPalette.CanSilver : (byte)0;
+        }
+
+        if (radial > 0.0115f)
+        {
+            return 0;
+        }
+
+        return x is > -0.012f and < 0.004f ? BreakPalette.CanBand : BreakPalette.CanGreen;
+    });
+
+    /// <summary>紙パック: 四角い胴（青い帯）と、+X の屋根（切妻）。ストロー付きなら +X から上へ赤いストローが出る。</summary>
+    private static VoxelGrid Carton(bool straw) => Make(new Vector3(0.036f, 0.016f, 0.014f), p =>
+    {
+        var x = p.X;
+        if (straw && x is > 0.006f and < 0.036f && MathF.Abs(p.Z) < 0.002f && MathF.Abs(p.Y - 0.002f) < 0.002f)
+        {
+            return BreakPalette.Straw;
+        }
+
+        if (x is < -0.024f or > 0.03f)
+        {
+            return 0;
+        }
+
+        if (x > 0.022f)
+        {
+            // 屋根: 先へ行くほど幅（Z）が細くなる。
+            var width = 0.0095f * (1f - ((x - 0.022f) / 0.008f));
+            return MathF.Abs(p.Z) <= width && MathF.Abs(p.Y) <= 0.0125f ? BreakPalette.Carton : (byte)0;
+        }
+
+        if (MathF.Abs(p.Y) > 0.0125f || MathF.Abs(p.Z) > 0.0095f)
+        {
+            return 0;
+        }
+
+        return x is > -0.014f and < 0.008f ? BreakPalette.CartonBlue : BreakPalette.Carton;
+    });
+
+    /// <summary>ゼリー飲料のパウチ: 銀の平らな袋に赤い帯、+X の細い飲み口（橙のキャップ）。</summary>
+    private static VoxelGrid JellyPouch() => Make(new Vector3(0.038f, 0.016f, 0.006f), p =>
+    {
+        var x = p.X;
+        if (x > 0.036f || x < -0.03f)
+        {
+            return 0;
+        }
+
+        if (x > 0.026f)
+        {
+            return Radial(p) <= 0.0045f ? BreakPalette.CapOrange : (byte)0;
+        }
+
+        var half = 0.0145f * (1f - (0.25f * MathF.Max(0f, x / 0.026f)));
+        if (MathF.Abs(p.Y) > half || MathF.Abs(p.Z) > 0.0045f)
+        {
+            return 0;
+        }
+
+        return x is > -0.014f and < 0.004f ? BreakPalette.Stripe : BreakPalette.Pouch;
+    });
+
+    /// <summary>バナナ: 弓なりの黄色い棒、両端が茶色。+X が口へ向ける端。</summary>
+    private static VoxelGrid Banana() => Make(new Vector3(0.05f, 0.022f, 0.012f), p =>
+    {
+        var u = p.X / 0.044f;
+        if (MathF.Abs(u) > 1f)
+        {
+            return 0;
+        }
+
+        var center = (0.012f * u * u) - 0.004f;
+        var radius = 0.0075f * (1f - (0.35f * u * u));
+        var dy = p.Y - center;
+        if (MathF.Sqrt((dy * dy) + (p.Z * p.Z)) > radius)
+        {
+            return 0;
+        }
+
+        return MathF.Abs(p.X) > 0.037f ? BreakPalette.BananaTip : BreakPalette.Banana;
+    });
+
+    /// <summary>おにぎり: 三角形（頂点が +X）、下の部分に海苔。</summary>
+    private static VoxelGrid Onigiri() => Make(new Vector3(0.028f, 0.024f, 0.014f), p =>
+    {
+        if (p.X > 0.024f || p.X < -0.022f)
+        {
+            return 0;
+        }
+
+        var spread = 0.022f * (0.024f - p.X) / 0.046f;
+        if (MathF.Abs(p.Y) > spread)
+        {
+            return 0;
+        }
+
+        var thick = 0.0115f * (1f - (0.4f * (MathF.Abs(p.Y) / 0.022f)));
+        if (MathF.Abs(p.Z) > thick)
+        {
+            return 0;
+        }
+
+        return p.X < -0.006f && p.Z > 0.002f ? BreakPalette.Nori : BreakPalette.Rice;
+    });
+
+    /// <summary>サンドイッチ（三角に切った半分）: 頂点が +X、パン・レタス・ハム・チーズの層（Y の方向に重なる）。</summary>
+    private static VoxelGrid Sandwich() => Make(new Vector3(0.032f, 0.016f, 0.026f), p =>
+    {
+        if (p.X > 0.03f || p.X < -0.03f)
+        {
+            return 0;
+        }
+
+        var spread = 0.024f * (0.03f - p.X) / 0.06f;
+        if (MathF.Abs(p.Z) > spread)
+        {
+            return 0;
+        }
+
+        var y = p.Y;
+        if (y is < -0.014f or > 0.012f)
+        {
+            return 0;
+        }
+
+        return y < -0.008f ? BreakPalette.Bread
+            : y < -0.004f ? BreakPalette.Lettuce
+            : y < 0.002f ? BreakPalette.Ham
+            : y < 0.006f ? BreakPalette.Cheese
+            : BreakPalette.Bread;
+    });
+
+    /// <summary>チョコバー: 手前（−X）は赤い包み紙と金の銀紙、先（+X）はむいたチョコ。</summary>
+    private static VoxelGrid Chocolate() => Make(new Vector3(0.042f, 0.009f, 0.014f), p =>
+    {
+        if (MathF.Abs(p.X) > 0.04f || MathF.Abs(p.Y) > 0.0065f || MathF.Abs(p.Z) > 0.011f)
+        {
+            return 0;
+        }
+
+        return p.X < 0.004f ? BreakPalette.Wrapper : p.X < 0.014f ? BreakPalette.Foil : BreakPalette.Chocolate;
+    });
+
+    /// <summary>りんご: 赤い玉に茎、+X 側にかじった跡（果肉の色）。</summary>
+    private static VoxelGrid Apple() => Make(new Vector3(0.02f, 0.024f, 0.02f), p =>
+    {
+        var bite = new Vector3(0.0145f, 0.003f, 0f);
+        var fromBite = Vector3.Distance(p, bite);
+        if (fromBite < 0.0075f)
+        {
+            return 0;
+        }
+
+        var apple = (p.X * p.X) + ((p.Y - 0.0f) * (p.Y - 0.0f) * 1.1f) + (p.Z * p.Z) <= 0.0155f * 0.0155f;
+        if (apple)
+        {
+            return fromBite < 0.0105f ? BreakPalette.AppleFlesh : BreakPalette.AppleRed;
+        }
+
+        return MathF.Abs(p.X) < 0.0015f && MathF.Abs(p.Z) < 0.0015f && p.Y is > 0.012f and < 0.021f ? BreakPalette.Stem : (byte)0;
+    });
+
+    /// <summary>ドーナツ: 輪（軸は Z）。+Z 側にピンクのグレーズと白い飾り、+X 側にかじった跡。</summary>
+    private static VoxelGrid Donut() => Make(new Vector3(0.022f, 0.022f, 0.012f), p =>
+    {
+        if (Vector3.Distance(p, new Vector3(0.0195f, 0f, 0f)) < 0.006f)
+        {
+            return 0;
+        }
+
+        var ring = MathF.Sqrt((p.X * p.X) + (p.Y * p.Y));
+        var minor = MathF.Sqrt(((ring - 0.0125f) * (ring - 0.0125f)) + (p.Z * p.Z));
+        if (minor > 0.0068f)
+        {
+            return 0;
+        }
+
+        if (p.Z > 0.0015f)
+        {
+            // 飾り: セルの位置で決まる白い点（乱数は使わない）。
+            var cell = (int)MathF.Floor(p.X / Cell) + (7 * (int)MathF.Floor(p.Y / Cell));
+            return cell % 5 == 0 && p.Z > 0.004f ? BreakPalette.Sprinkle : BreakPalette.Glaze;
+        }
+
+        return BreakPalette.Dough;
+    });
+
+    /// <summary>たばこ: 白い紙巻き、+X がオレンジのフィルター（口へ）、−X が火のついた先。</summary>
+    private static VoxelGrid Cigarette() => Make(new Vector3(0.045f, 0.005f, 0.005f), p =>
+    {
+        if (MathF.Abs(p.X) > 0.042f || Radial(p) > 0.0032f)
+        {
+            return 0;
+        }
+
+        return p.X > 0.022f ? BreakPalette.Filter : p.X < -0.037f ? BreakPalette.Ember : BreakPalette.CigarettePaper;
+    });
+
+    /// <summary>マウスピース: U の字に曲がった薄い板（水色）。U の丸い側が +X（口の前）。</summary>
+    private static VoxelGrid MouthGuard() => Make(new Vector3(0.022f, 0.007f, 0.018f), p =>
+    {
+        if (p.X < -0.003f || MathF.Abs(p.Y) > 0.0042f)
+        {
+            return 0;
+        }
+
+        var u = p.X / 0.016f;
+        var w = p.Z / 0.014f;
+        var ring = (u * u) + (w * w);
+        return ring is <= 1f and >= 0.4f ? BreakPalette.MouthGuard : (byte)0;
+    });
+
+    /// <summary>イヤホン: 白い小さな本体（+X が耳へ入る側）と、−X へ伸びる細いコード。</summary>
+    private static VoxelGrid Earbud() => Make(new Vector3(0.016f, 0.007f, 0.007f), p =>
+    {
+        var bud = Vector3.Distance(p, new Vector3(0.008f, 0f, 0f)) <= 0.0055f;
+        if (bud)
+        {
+            return BreakPalette.Cloth;
+        }
+
+        return p.X < 0.004f && Radial(p) <= 0.0016f ? BreakPalette.PhoneBody : (byte)0;
+    });
+
+    /// <summary>
+    /// ヘッドホン: 頭の箱（<c>HalfExtentsOf(頭)</c>）に合わせた寸法。頭の上を回る黒いバンドと、両耳の当て（クッション）・ハウジング。
+    /// 頭の向きに付く（局所 +Z が顔、+Y が上、±X が耳）。
+    /// </summary>
+    private static VoxelGrid Headphones(Fighter owner)
+    {
+        var head = owner.HalfExtentsOf(owner.Parts.Head);
+        var rx = head.X + 0.006f;
+        var ry = head.Y + 0.004f;
+        var half = new Vector3(head.X + 0.016f, head.Y + 0.01f, head.Z + 0.01f);
+        return Make(half, p =>
+        {
+            // 耳の当て: 耳の外側に円盤（ハウジング）、内側にクッション。
+            var earRadius = MathF.Sqrt(((p.Y + 0.004f) * (p.Y + 0.004f)) + (p.Z * p.Z));
+            var side = MathF.Abs(p.X);
+            if (earRadius <= 0.0165f)
+            {
+                if (side >= head.X - 0.001f && side < head.X + 0.003f)
+                {
+                    return BreakPalette.Cushion;
+                }
+
+                if (side >= head.X + 0.003f && side <= head.X + 0.0125f)
+                {
+                    return BreakPalette.PhoneBody;
+                }
+            }
+
+            // バンド: 頭の上を通る半楕円の薄い帯（耳の上から頭頂を回る）。
+            var e = ((p.X * p.X) / (rx * rx)) + ((p.Y * p.Y) / (ry * ry));
+            return p.Y > -0.004f && e is >= 0.86f and <= 1.1f && MathF.Abs(p.Z) <= 0.0055f ? BreakPalette.PhoneBody : (byte)0;
+        });
     }
 }

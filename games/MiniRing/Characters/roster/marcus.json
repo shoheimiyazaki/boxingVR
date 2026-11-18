@@ -83,6 +83,6 @@
     "weapon": null
   },
   "textbook": "champion",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "applause": 3, "handshake": 3, "sandwich": 2.5, "headphones": 2.5, "glare": 2, "bow": 1.5, "pointup": 2, "raisearms": 1.5, "sportsdrink": 2, "hypecrowd": 1.5, "blowkiss": 0.3 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

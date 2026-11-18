@@ -82,6 +82,6 @@
     "weapon": null
   },
   "textbook": "slugger",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "bow": 3.5, "earbud": 2.5, "headphones": 2, "towelhead": 3, "deepbreath": 2.5, "handshake": 2, "sandwich": 1.5, "applause": 1.5, "dance": 0.3, "blowkiss": 0.2, "wavetwo": 0.4 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

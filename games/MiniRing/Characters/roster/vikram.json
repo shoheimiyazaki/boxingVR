@@ -82,6 +82,6 @@
     "weapon": null
   },
   "textbook": "boxer",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "salute": 3, "bow": 2.5, "handshake": 2, "prayer": 2, "pointup": 2, "raisearms": 1.5, "hum": 2, "glare": 2, "chestbeat": 1.5, "blowkiss": 0.2, "selfie": 0.3 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

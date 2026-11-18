@@ -77,6 +77,6 @@
     "weapon": null
   },
   "textbook": "muaythai",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "prayer": 4, "bow": 3, "applause": 3, "handshake": 3, "banana": 2.5, "sandwich": 1.5, "stretcharms": 1.5, "roar": 0.3, "blowkiss": 0.2 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

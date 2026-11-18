@@ -82,6 +82,6 @@
     "weapon": null
   },
   "textbook": "swarmer",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "wipetears": 3.5, "crossself": 3, "hum": 2.5, "chestbeat": 2.5, "dance": 2, "roar": 2, "blowkiss": 2.5, "sandwich": 1.5, "bounce": 2, "headinhands": 2 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

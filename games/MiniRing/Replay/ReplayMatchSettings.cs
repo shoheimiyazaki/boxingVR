@@ -15,14 +15,14 @@ public sealed record ReplayMatchSettings(
     RingLayout? Ring, BodyBuild? PlayerBody, BodyBuild? CpuBody, FaceParts? PlayerFace, FaceParts? CpuFace,
     MatchRules? Rules, bool ExternalBlue = false, string? RedBotStyleJson = null, bool UseWeaponBots = false,
     FaceLook? PlayerLook = null, FaceLook? CpuLook = null, string? PlayerLabel = null, string? CpuLabel = null, bool Referee = true,
-    string? PlayerStyleJson = null, string? PlayerWeaponStyleJson = null, string? CpuWeaponStyleJson = null)
+    string? PlayerStyleJson = null, string? PlayerWeaponStyleJson = null, string? CpuWeaponStyleJson = null, float SettleSeconds = 0f)
 {
     public static ReplayMatchSettings From(BoxingCorners corners, MatchRules? rules) => new(
         corners.CpuWeapon, corners.PlayerWeapon, corners.CpuTwoHanded, corners.PlayerTwoHanded,
         corners.VoxelGloves, corners.PlayerWear, corners.CpuWear, corners.PlayerName, corners.Ring,
         corners.PlayerBody, corners.CpuBody, corners.PlayerFace, corners.CpuFace, rules, corners.ExternalBlue, corners.RedBotStyle?.ToJson(), corners.UseWeaponBots,
         corners.PlayerLook, corners.CpuLook, corners.PlayerLabel, corners.CpuLabel, corners.Referee, corners.PlayerStyle?.ToJson(),
-        corners.PlayerWeaponStyle?.ToJson(), corners.CpuWeaponStyle?.ToJson());
+        corners.PlayerWeaponStyle?.ToJson(), corners.CpuWeaponStyle?.ToJson(), corners.SettleSeconds);
 
     /// <summary>画面の名前の検証: あるなら空でなく、32 文字まで、制御文字なし（壊れた記録を画面に出さない）。</summary>
     private static void ValidateLabel(string? label, string field)
@@ -41,6 +41,11 @@ public sealed record ReplayMatchSettings(
         {
             throw new ArgumentException("Invalid equipment in replay settings.");
         }
+        if (!(SettleSeconds >= 0f && SettleSeconds <= 10f))
+        {
+            throw new ArgumentException("SettleSeconds は 0〜10 秒で指定してください。");
+        }
+
         _ = Ring?.Validated();
         _ = PlayerBody?.Validate();
         _ = CpuBody?.Validate();
@@ -58,6 +63,7 @@ public sealed record ReplayMatchSettings(
             UseWeaponBots = UseWeaponBots, RedBotStyle = RedBotStyleJson is { } json ? Bots.BotStyle.FromJson(json) : null,
             PlayerStyle = PlayerStyleJson is { } playerJson ? Bots.BotStyle.FromJson(playerJson) : null,
             PlayerWeaponStyle = PlayerWeaponStyleJson is { } playerWeapon ? Bots.WeaponStyle.FromJson(playerWeapon) : null,
-            CpuWeaponStyle = CpuWeaponStyleJson is { } cpuWeapon ? Bots.WeaponStyle.FromJson(cpuWeapon) : null };
+            CpuWeaponStyle = CpuWeaponStyleJson is { } cpuWeapon ? Bots.WeaponStyle.FromJson(cpuWeapon) : null,
+            SettleSeconds = SettleSeconds };
     }
 }

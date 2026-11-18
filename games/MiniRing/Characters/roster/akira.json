@@ -81,6 +81,6 @@
     "weapon": null
   },
   "textbook": "karate",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "bow": 3, "salute": 2, "applause": 2, "handshake": 2.5, "hum": 2.5, "onigiri": 2, "deepbreath": 1.5, "raisearms": 0.3, "roar": 0.2, "fistpump": 0.4, "blowkiss": 0, "dance": 0.3 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

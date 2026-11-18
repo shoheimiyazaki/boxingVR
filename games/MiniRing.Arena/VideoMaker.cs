@@ -129,7 +129,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         using var recording = recordingFile is null ? null : new MiniRing.Replay.ReplayRecorder(recordingFile, game, "intentvideo");
         if (tv)
         {
-            seconds = MathF.Max(seconds, _rules!.TotalSeconds + AftermathSeconds + 1f); // テレビ中継は試合の終わりまで撮る（--seconds が短くても）
+            seconds = MathF.Max(seconds, _rules!.TotalSeconds + MathF.Max(AftermathSeconds, _rules.EndSeconds) + 1f); // テレビ中継は試合の終わりまで撮る（--seconds が短くても）
         }
 
         _tapeSeconds = tv && redCharacter?.Profile is not null && blueCharacter?.Profile is not null ? TvShowGraphics.TapeSeconds : 0f;
@@ -337,6 +337,29 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         }
                     }
 
+                    // カット割り（休み・試合の始め・終わり）を、中継の出来事（台本の資料）にする。始まりの映像の時刻 from からの秒。
+                    void NoteCuts(IReadOnlyList<TvSegment> plan, float from)
+                    {
+                        foreach (var segment in plan)
+                        {
+                            var who = segment.Red ? redRing : blueRing;
+                            var what = segment.Shot switch
+                            {
+                                TvShot.Replay => $"リプレイ（第{segment.Highlight!.Round}ラウンド、スロー）: {segment.Highlight.Text}",
+                                TvShot.Corner => $"リングの中のカメラ: {who} のコーナー",
+                                TvShot.Ringside => $"リング脇のカメラマン: {who} を低い所から",
+                                TvShot.Ceiling => $"天井のカメラ: {who} を真上から",
+                                TvShot.Wound when segment.Wound!.Healing => $"手持ちカメラが {who} の{segment.Wound.Name}の傷にズームで寄る（アップ。治りかけ: 休みの間に削れた所が戻っていく）",
+                                TvShot.Wound => $"手持ちカメラが {who} の{segment.Wound!.Name}の傷にズームで寄る（アップ）",
+                                TvShot.Handheld => $"リングの中のカメラマンの手持ち: {who} を斜め前から（胸から上）",
+                                TvShot.Wide => "リング全体のカメラ（高い所から、リングの 2 人を引きで）",
+                                _ => "中継カメラ",
+                            };
+                            var type = segment.Shot switch { TvShot.Replay => "replay", TvShot.Wound => "wound_cam", _ => "cut" };
+                            broadcast?.Note(from + segment.Start, type, segment.Shot == TvShot.Wound ? who : "", what);
+                        }
+                    }
+
                     var time = 0f;
                     float? endAt = null;
                     for (var step = 0; time < seconds && (endAt is null || time < endAt); step++)
@@ -361,9 +384,10 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         var at = TitleSeconds + (time / speed); // 映像の時刻（音を置く所）
                         broadcast?.Observe(game, at, step);
                         director.Observe(game, step);
-                        if (tv && game.InBreak)
+                        if (tv && game.EmoteScene is { } emoteScene)
                         {
-                            // 休みの動作が始まったら、中継の出来事にする（実況・解説が、選手が休みに何をしているかを知る）。
+                            // 動作（休み・試合の始め・終わりのエモート）が始まったら、中継の出来事にする（実況・解説が、選手がいま何をしているかを知る）。
+                            // 型は場面が分かる名前: break_action（休み）・start_action（試合の始め）・end_action（試合の終わり）。
                             foreach (var (fighter, name) in new[] { (game.Player, redRing), (game.Cpu, blueRing) })
                             {
                                 var doing = game.BreakSourceOf(fighter)?.CurrentName;
@@ -372,14 +396,20 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                                     breakDoing[fighter] = doing;
                                     if (doing is not null)
                                     {
-                                        broadcast?.Note(at, "break_action", name, $"{name}が休みの間に{BreakActionWords(doing)}");
+                                        var (type, when) = emoteScene switch
+                                        {
+                                            MiniRing.Break.BreakScene.Start => ("start_action", "入場してゴングを待つ間に"),
+                                            MiniRing.Break.BreakScene.End => ("end_action", game.EndMood(fighter) > 0f ? "勝利の後に" : game.EndMood(fighter) < 0f ? "敗れた後に" : "試合の後に"),
+                                            _ => ("break_action", "休みの間に"),
+                                        };
+                                        broadcast?.Note(at, type, name, $"{name}が{when}{BreakActionWords(doing)}");
                                     }
                                 }
                             }
                         }
                         mainTrack.Add((game.Player.ChestPosition, game.Cpu.ChestPosition));
                         // リプレイは同じ試合を回し直すので、ボット同士の試合だけ（操作の台本で動かす赤は回し直せない）。
-                        if (tv && intentScript is null && game.InBreak && breakPlan is null)
+                        if (tv && intentScript is null && game.EmoteScene == MiniRing.Break.BreakScene.Break && breakPlan is null)
                         {
                             // 休みに入った: そのラウンドの見どころを選び、カット割りを決める（先に映すのは多く打たれた側のコーナー）。
                             var highlights = director.Highlights(game.MatchRound, 2, replayDone); // 休みのリプレイは 1〜2 本（重い順。PlanBreak が休みの長さで絞る）
@@ -387,25 +417,17 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             var blueTook = game.Cpu.Condition.TotalDamage - (redRoundStart.Count > 0 ? redRoundStart[^1] : 0f);
                             breakStartAt = at;
                             breakPlan = director.PlanBreak(_rules!.BreakSeconds / speed, highlights, redTook >= blueTook, director.Wounds());
-                            foreach (var segment in breakPlan)
-                            {
-                                var what = segment.Shot switch
-                                {
-                                    TvShot.Replay => $"リプレイ（第{segment.Highlight!.Round}ラウンド、スロー）: {segment.Highlight.Text}",
-                                    TvShot.Corner => $"リングの中のカメラ: {(segment.Red ? redRing : blueRing)} のコーナー",
-                                    TvShot.Ringside => $"リング脇のカメラマン: {(segment.Red ? redRing : blueRing)} を低い所から",
-                                    TvShot.Ceiling => $"天井のカメラ: {(segment.Red ? redRing : blueRing)} を真上から",
-                                    TvShot.Wound when segment.Wound!.Healing => $"手持ちカメラが {(segment.Red ? redRing : blueRing)} の{segment.Wound.Name}の傷にズームで寄る（アップ。治りかけ: 休みの間に削れた所が戻っていく）",
-                                    TvShot.Wound => $"手持ちカメラが {(segment.Red ? redRing : blueRing)} の{segment.Wound!.Name}の傷にズームで寄る（アップ）",
-                                    TvShot.Handheld => $"リングの中のカメラマンの手持ち: {(segment.Red ? redRing : blueRing)} を斜め前から（胸から上）",
-                                    TvShot.Wide => "リング全体のカメラ（高い所から、リングの 2 人を引きで）",
-                                    _ => "中継カメラ",
-                                };
-                                var type = segment.Shot switch { TvShot.Replay => "replay", TvShot.Wound => "wound_cam", _ => "cut" };
-                                broadcast?.Note(at + segment.Start, type, segment.Shot == TvShot.Wound ? (segment.Red ? redRing : blueRing) : "", what);
-                            }
+                            NoteCuts(breakPlan, at);
                         }
-                        else if (!game.InBreak)
+                        else if (tv && game.EmoteScene == MiniRing.Break.BreakScene.Start && breakPlan is null)
+                        {
+                            // 試合の始め（入場からゴングまで）: 引き → 赤 → 青 → 引き。決まった秒数の場面なので番組の予定に載せる。
+                            breakStartAt = at;
+                            breakPlan = TvDirector.PlanIntro(_rules!.IntroSeconds / speed);
+                            broadcast?.Note(at, "intro_scene", "", $"試合の始め（約 {_rules.IntroSeconds / speed:0} 秒）: 両選手が入場して最初のゴングを待つ間にエモートをする。カットは引き → {redRing} → {blueRing} → 引き");
+                            NoteCuts(breakPlan, at);
+                        }
+                        else if (game.EmoteScene is null)
                         {
                             breakPlan = null;
                         }
@@ -423,7 +445,21 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             // テレビ中継: K.O. か最終ラウンドの判定で試合が終わる。少し余韻を撮って結果へ。
                             finish = game.Decision ?? game.Message;
                             koWinner = game.PlayerWins > game.CpuWins ? 1 : game.CpuWins > game.PlayerWins ? -1 : 0;
-                            endAt = time + AftermathSeconds;
+                            endAt = time + (game.EmoteScene == MiniRing.Break.BreakScene.End ? _rules.EndSeconds : AftermathSeconds);
+                            if (game.EmoteScene == MiniRing.Break.BreakScene.End)
+                            {
+                                // 決着の後（勝敗の画面の前）: 勝者のアップ → 敗者 → 引き。この間、立っている選手は終わりのエモートをする（倒れている敗者は倒れたまま）。
+                                var winnerRed = koWinner > 0 ? true : koWinner < 0 ? false : (bool?)null;
+                                var loser = koWinner > 0 ? game.Cpu : game.Player;
+                                breakStartAt = at;
+                                breakPlan = TvDirector.PlanEnd(_rules.EndSeconds / speed, winnerRed, loser.State != FighterState.Standing);
+                                var winnerName = winnerRed is null ? null : winnerRed.Value ? redRing : blueRing;
+                                var loserName = winnerRed is null ? null : winnerRed.Value ? blueRing : redRing;
+                                broadcast?.Note(at, "end_scene", "", winnerName is null
+                                    ? $"決着の後（約 {_rules.EndSeconds / speed:0} 秒）: 引き分け。{redRing}と{blueRing}がそれぞれエモートをする。カットは {redRing} → {blueRing} → 引き"
+                                    : $"決着の後（約 {_rules.EndSeconds / speed:0} 秒）: 勝者 {winnerName} のアップ → 敗者 {loserName}{(loser.State != FighterState.Standing ? "（倒れたまま）" : "")} → 引き。選手は終わりのエモートをする");
+                                NoteCuts(breakPlan, at);
+                            }
                         }
 
                         if (audioOn && BellSound.Synthesize(_org.Bell, game.RecentBell) is { } gong)
@@ -837,6 +873,66 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         MiniRing.Break.BreakBook.Ropes => "コーナーのロープに腕を掛けてもたれている",
         MiniRing.Break.BreakBook.Glare => "相手のコーナーをにらんでいる",
         MiniRing.Break.BreakBook.ShakeArms => "腕をぶらぶらと振ってほぐしている",
+        MiniRing.Break.BreakEmotes.Wave => "観客に手を振っている",
+        MiniRing.Break.BreakEmotes.WaveTwo => "両手を大きく振って観客に応えている",
+        MiniRing.Break.BreakEmotes.RaiseArms => "両手を高く挙げて観客に応えている",
+        MiniRing.Break.BreakEmotes.FistPump => "拳を高く突き上げている",
+        MiniRing.Break.BreakEmotes.BlowKiss => "観客席へ投げキスをしている",
+        MiniRing.Break.BreakEmotes.PointCrowd => "観客席を順に指さしている",
+        MiniRing.Break.BreakEmotes.Bow => "観客と相手に向かって深くお辞儀をしている",
+        MiniRing.Break.BreakEmotes.ChestBeat => "拳で自分の胸を叩いている",
+        MiniRing.Break.BreakEmotes.HypeCrowd => "耳に手を当てて歓声をあおっている",
+        MiniRing.Break.BreakEmotes.GutsPose => "拳を引きつけてガッツポーズをしている",
+        MiniRing.Break.BreakEmotes.RopePerch => "ロープに腕を掛けて体を預けている",
+        MiniRing.Break.BreakEmotes.Roar => "両腕を広げて雄叫びをあげている",
+        MiniRing.Break.BreakEmotes.Flex => "腕を曲げて力こぶを見せている",
+        MiniRing.Break.BreakEmotes.PointUp => "片腕を天へ突き上げて指さしている",
+        MiniRing.Break.BreakEmotes.LookCrowd => "客席をゆっくり見渡している",
+        MiniRing.Break.BreakEmotes.ShadowBox => "シャドーボクシングをしている",
+        MiniRing.Break.BreakEmotes.Bounce => "膝を使って軽く弾んでいる",
+        MiniRing.Break.BreakEmotes.NeckCrack => "首を左右に倒してほぐしている",
+        MiniRing.Break.BreakEmotes.GloveClap => "グローブを打ち合わせている",
+        MiniRing.Break.BreakEmotes.MouthGuard => "マウスピースを口に入れている",
+        MiniRing.Break.BreakEmotes.StretchArms => "両腕を頭の上へ伸ばして背伸びをしている",
+        MiniRing.Break.BreakEmotes.SideStretch => "片腕を頭の上へ伸ばして体の側面を伸ばしている",
+        MiniRing.Break.BreakEmotes.ForwardBend => "腰から体を折って前屈をしている",
+        MiniRing.Break.BreakEmotes.FixGloves => "グローブを締め直している",
+        MiniRing.Break.BreakEmotes.WipeNose => "グローブの甲で鼻をこすっている",
+        MiniRing.Break.BreakEmotes.Yawn => "大きなあくびをしている",
+        MiniRing.Break.BreakEmotes.Dance => "体を揺らして踊っている",
+        MiniRing.Break.BreakEmotes.Selfie => "スマホで自撮りをしている",
+        MiniRing.Break.BreakEmotes.Mirror => "スマホのカメラで自分の顔を確かめている",
+        MiniRing.Break.BreakEmotes.Prayer => "両手を合わせて祈っている",
+        MiniRing.Break.BreakEmotes.CrossSelf => "胸の前で十字を切っている",
+        MiniRing.Break.BreakEmotes.Salute => "額の横に手を当てて敬礼をしている",
+        MiniRing.Break.BreakEmotes.Applause => "拍手をしている",
+        MiniRing.Break.BreakEmotes.Handshake => "相手の方へ歩いて手を差し出している",
+        MiniRing.Break.BreakEmotes.LookSky => "天を仰いでいる",
+        MiniRing.Break.BreakEmotes.HeadInHands => "頭を抱えてうなだれている",
+        MiniRing.Break.BreakEmotes.HandsOnKnees => "膝に手をついて息をついている",
+        MiniRing.Break.BreakEmotes.SitDown => "腰を落として座り込もうとしている",
+        MiniRing.Break.BreakEmotes.WipeTears => "グローブで目元をぬぐっている",
+        MiniRing.Break.BreakEmotes.ShakeHead => "腰に手を当てて首を振っている",
+        MiniRing.Break.BreakEmotes.SlamFist => "悔しさに拳を何度も振り下ろしている",
+        MiniRing.Break.BreakEmotes.TowelHead => "タオルを頭からかぶってうつむいている",
+        MiniRing.Break.BreakEmotes.SportsDrink => "スポーツドリンクを飲んでいる",
+        MiniRing.Break.BreakEmotes.Coffee => "紙コップのコーヒーをすすっている",
+        MiniRing.Break.BreakEmotes.EnergyDrink => "エナジードリンクの缶をあおっている",
+        MiniRing.Break.BreakEmotes.Milk => "牛乳パックから牛乳を飲んでいる",
+        MiniRing.Break.BreakEmotes.StrawDrink => "ストローで紙パックのジュースを飲んでいる",
+        MiniRing.Break.BreakEmotes.Jelly => "ゼリー飲料を吸っている",
+        MiniRing.Break.BreakEmotes.SpitWater => "口に含んだ水を吐き出している",
+        MiniRing.Break.BreakEmotes.Banana => "バナナを食べている",
+        MiniRing.Break.BreakEmotes.Onigiri => "おにぎりを頬張っている",
+        MiniRing.Break.BreakEmotes.Sandwich => "サンドイッチをかじっている",
+        MiniRing.Break.BreakEmotes.Chocolate => "チョコバーをかじっている",
+        MiniRing.Break.BreakEmotes.Apple => "りんごをかじっている",
+        MiniRing.Break.BreakEmotes.Donut => "ドーナツを食べている",
+        MiniRing.Break.BreakEmotes.Cigarette => "たばこを吸って煙を吐いている",
+        MiniRing.Break.BreakEmotes.Gum => "ガムを噛んでいる",
+        MiniRing.Break.BreakEmotes.Headphones => "ヘッドホンで音楽を聴いて首でリズムを取っている",
+        MiniRing.Break.BreakEmotes.Earbud => "イヤホンを耳に入れて聴き入っている",
+        MiniRing.Break.BreakEmotes.Hum => "口ずさみながら体を揺らしている",
         _ => name,
     };
 

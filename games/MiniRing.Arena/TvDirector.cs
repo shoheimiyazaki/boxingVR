@@ -463,6 +463,54 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         }
     }
 
+    /// <summary>決着の後、勝者・敗者を映す配分（映像の長さに対する割合）。勝者を一番長く（アップ 3〜4 秒）、敗者はやや短く、最後に引き。</summary>
+    private const float EndWinnerShare = 0.40f;
+
+    private const float EndLoserShare = 0.30f;
+
+    /// <summary>
+    /// 決着の後（勝敗の画面の前）のカット割り（決着の歩からの映像の秒。<paramref name="endVideoSeconds"/> は 8〜10 秒の想定）:
+    /// 勝者の手持ちのアップ（約 4 割、3〜4 秒）→ 敗者（約 3 割、2〜3 秒。倒れていればリング脇の低い所から、立っていれば手持ち）→ リング全体の引き（残り、2 秒前後）。
+    /// 引き分けは両者を同じ長さで映してから引き。決まった割合なので同じ試合なら同じカット割り（乱数なし）。
+    /// </summary>
+    /// <param name="endVideoSeconds">決着の後の映像の長さ [s]。</param>
+    /// <param name="winnerRed">勝者が赤か（引き分けは null）。</param>
+    /// <param name="loserDown">敗者（引き分けなら青）が倒れているか。</param>
+    public static IReadOnlyList<TvSegment> PlanEnd(float endVideoSeconds, bool? winnerRed, bool loserDown)
+    {
+        var plan = new List<TvSegment>();
+        if (winnerRed is null)
+        {
+            var half = endVideoSeconds * 0.3f;
+            plan.Add(new TvSegment(0f, half, TvShot.Handheld, true, null));
+            plan.Add(new TvSegment(half, half * 2f, TvShot.Handheld, false, null));
+            plan.Add(new TvSegment(half * 2f, endVideoSeconds + 5f, TvShot.Wide, true, null));
+            return plan;
+        }
+
+        var winner = endVideoSeconds * EndWinnerShare;
+        var loser = winner + (endVideoSeconds * EndLoserShare);
+        plan.Add(new TvSegment(0f, winner, TvShot.Handheld, winnerRed.Value, null));
+        plan.Add(new TvSegment(winner, loser, loserDown ? TvShot.Ringside : TvShot.Handheld, !winnerRed.Value, null));
+        plan.Add(new TvSegment(loser, endVideoSeconds + 5f, TvShot.Wide, winnerRed.Value, null));
+        return plan;
+    }
+
+    /// <summary>
+    /// 試合の始め（入場からゴングまで）のカット割り: リング全体の引き → 赤の手持ち → 青の手持ち → 引き（それぞれ約 1/4）。選手が始めのエモートをする間、2 人を順に映す。
+    /// </summary>
+    public static IReadOnlyList<TvSegment> PlanIntro(float introVideoSeconds)
+    {
+        var quarter = introVideoSeconds * 0.25f;
+        return
+        [
+            new TvSegment(0f, quarter, TvShot.Wide, true, null),
+            new TvSegment(quarter, quarter * 2f, TvShot.Handheld, true, null),
+            new TvSegment(quarter * 2f, quarter * 3f, TvShot.Handheld, false, null),
+            new TvSegment(quarter * 3f, introVideoSeconds + 5f, TvShot.Wide, false, null),
+        ];
+    }
+
     /// <summary>ラウンド中・決着の後のカメラ: ダウンを取られた選手がいれば、一呼吸おいて天井とリング脇を交互に。</summary>
     public (TvShot Shot, Fighter? Subject) Live(BoxingGame game, float videoTime)
     {

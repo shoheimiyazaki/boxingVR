@@ -23,9 +23,24 @@ internal sealed record TvScoutResult(int Seed, string Finish, bool Ko, int Round
 /// </summary>
 internal static class TvShowRules
 {
+    /// <summary>
+    /// 試合の始め（入場から最初のゴングまで）の長さ [s]（ゲームの時間）。選手が始めのエモート（観客へ手を振る・準備運動…）をする。人形の 0.75 倍速の動画で 9 秒ほど。
+    /// ゲームの決まりの値（<see cref="MatchRules.IntroSeconds"/>）。撮影と下見（tvscout）が同じ値を使うので、同じ種なら下見と撮影の試合は一致する。
+    /// </summary>
+    public const float IntroSeconds = 7f;
+
+    /// <summary>
+    /// 試合の終わり（決着の後）に、立っている選手が終わりのエモートをする長さ [s]（ゲームの時間。<see cref="MatchRules.EndSeconds"/>）。
+    /// 人形の 0.75 倍速の動画で 9.3 秒: 勝者・敗者のカット（<see cref="TvDirector.PlanEnd"/>）を 8〜10 秒に収める。
+    /// </summary>
+    public const float EndSeconds = 7f;
+
+    /// <summary>世界を作った直後の助走 [s]（映像の始めに、生成直後の T 字の姿勢が映らないよう構えへ追いつかせる）。<see cref="BoxingCorners.SettleSeconds"/>。</summary>
+    public const float SettleSeconds = 1f;
+
     /// <summary>テレビ中継の決まり（ラウンドの数・休みの長さ。休みの間に治る量は標準と同じ）。撮影と下見（tvscout）が同じものを使う。</summary>
     public static MatchRules Rules(int rounds, float breakSeconds)
-        => MatchRules.Tv with { Rounds = rounds, BreakSeconds = breakSeconds, RegenVoxelsPerSecond = MatchRules.Tv.RegenVoxelsPerSecond * MatchRules.Tv.BreakSeconds / breakSeconds };
+        => MatchRules.Tv with { Rounds = rounds, BreakSeconds = breakSeconds, RegenVoxelsPerSecond = MatchRules.Tv.RegenVoxelsPerSecond * MatchRules.Tv.BreakSeconds / breakSeconds, IntroSeconds = IntroSeconds, EndSeconds = EndSeconds };
 
     /// <summary>
     /// 団体の決まり（<see cref="Organization.CountsDowns"/>・<see cref="OrgMatch"/>）を重ねたテレビ中継の決まり。WVC は <see cref="Rules(int, float)"/> と同じ値、
@@ -52,7 +67,7 @@ internal static class TvShowRules
     {
         ArgumentNullException.ThrowIfNull(corners);
         ArgumentNullException.ThrowIfNull(org);
-        var staged = corners with { Referee = corners.Referee && org.Match.Referee };
+        var staged = corners with { Referee = corners.Referee && org.Match.Referee, SettleSeconds = SettleSeconds };
         return org.Match.Arena == ArenaShape.HexCage && corners.Ring is null
             ? staged with { Ring = corners.CpuWeapon is not null && corners.PlayerWeapon is not null ? RingLayout.WeaponsCage : RingLayout.Cage }
             : staged;

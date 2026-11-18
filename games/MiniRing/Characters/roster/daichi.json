@@ -80,6 +80,6 @@
     "weapon": "staff"
   },
   "textbook": "champion",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "hum": 3, "bow": 2.5, "stretcharms": 2, "onigiri": 2, "banana": 1.5, "prayer": 1.5, "neckroll": 1.5, "handshake": 1.5, "roar": 0.3, "selfie": 0.3 } }, "vs": {}, "weaponBot": null },
   "record": []
 }

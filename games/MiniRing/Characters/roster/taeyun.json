@@ -81,6 +81,6 @@
     "weapon": null
   },
   "textbook": "taekwondo",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": { "style": { "BreakLikes": { "bow": 3, "handshake": 2.5, "dance": 3, "hum": 2, "bounce": 3, "onigiri": 2.5, "selfie": 2, "headphones": 2, "stretcharms": 2, "wave": 1.5 } }, "vs": {}, "weaponBot": null },
   "record": []
 }
