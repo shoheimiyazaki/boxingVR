@@ -1,7 +1,7 @@
 {{org}}（{{orgName}}）の「{{event}}」の試合動画に、テレビ中継の 2 人の声を付けます。日本語で。
 
-- 実況（`announcer`）: 立花。試合を伝える役。
-- 解説（`commentator`）: 佐伯。試合を見て話す役。
+- 実況（`announcer`）: {{announcerName}}。試合を伝える役。人物の説明: `{{announcerPersona}}`
+- 解説（`commentator`）: {{analystName}}。試合を見て話す役。人物の説明: `{{analystPersona}}`
 
 何を、どの順で、どれだけ話すかは、2 人に任せます。
 

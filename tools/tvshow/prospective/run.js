@@ -32,24 +32,35 @@ function parseArgs(argv) {
   return args;
 }
 
+// 試合の前以外の画面の出来事の種類（試合の前の場面は prefight の印で見分ける）。
+const SCREEN = ['round_start', 'replay', 'cut', 'wound_cam', 'result', 'end'];
+
 const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8').replace(/^﻿/, ''));
+// 団体のファイル（games/MiniRing.Arena/Orgs/<id>.json）。// の行コメントがあるので、行ごと外してから読む。
+const readOrg = (id) => JSON.parse(fs.readFileSync(path.join(repo, 'games', 'MiniRing.Arena', 'Orgs', `${id}.json`), 'utf8').replace(/^﻿/, '').replace(/^\s*\/\/.*$/gm, ''));
+// 人物の説明のファイルから、人物と場の節だけ（経歴・役割・場。docs/LLM_CONTENT.md §1: 口ぐせ・言い回しの例の節は渡さない）。
+function personaText(file) {
+  const text = fs.readFileSync(path.join(repo, file), 'utf8').replace(/\r/g, '');
+  const sections = text.split(/^## /m).slice(1).map((s) => ({ title: s.split('\n')[0].trim(), body: s.split('\n').slice(1).join('\n').trim() }));
+  return sections.filter((s) => ['人物', '場'].includes(s.title)).map((s) => s.body).filter(Boolean).join('\n\n');
+}
 const round1 = (x) => Math.round(x * 10) / 10;
 const fmt = (t) => t.toFixed(1);
 
 // ---- 話す長さ ----
 // 実際に読み上げて測る（声入れと同じ Synthesize.ps1・同じ声と速さ）。字数の見積もりは実際より中央値で 1.1〜1.2 倍、長い台詞で
 // 1.4 倍短く、声入れで台詞が 1〜3 秒ずつ遅れた（v1）。同じ台詞は <work>/tts.json の記録を使う。mock は見積もり × speech.margin。
-function makeMeasure(work, driver) {
+function makeMeasure(work, driver, speakers) {
   const cachePath = path.join(work, 'tts.json');
   const cache = fs.existsSync(cachePath) ? readJson(cachePath) : {};
   const tmp = path.join(work, 'tts');
   return (text, seat, excited) => {
     if (driver === 'mock') return speechSeconds(text, seat, excited) * config.speech.margin;
-    const key = `${seat}|${excited ? 1 : 0}|${text}`;
+    const key = `${JSON.stringify(speakers[seat])}|${seat}|${excited ? 1 : 0}|${text}`;
     if (cache[key] === undefined) {
       fs.mkdirSync(tmp, { recursive: true });
       const script = path.join(tmp, 'line.json');
-      fs.writeFileSync(script, JSON.stringify({ lines: [{ at: 0, speaker: seat, text, excited }] }));
+      fs.writeFileSync(script, JSON.stringify({ speakers, lines: [{ at: 0, speaker: seat, text, excited }] }));
       const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(repo, 'tools', 'commentary', 'Synthesize.ps1'), '-Script', script, '-OutDir', tmp], { encoding: 'utf8', timeout: 120000 });
       const manifest = path.join(tmp, 'manifest.json');
       if (r.status !== 0 || !fs.existsSync(manifest)) throw new Error(`読み上げで長さを測れません: ${(r.stderr || r.stdout || '').slice(0, 300)}`);
@@ -250,14 +261,21 @@ async function main() {
     .map(factual).sort((a, b) => a.t - b.t);
   const endEvent = all.find((e) => e.type === 'end');
   const length = endEvent ? endEvent.t : all[all.length - 1].t;
+  // 放送席（実況・解説）は団体のファイルの cast から。団体名の決め打ちを置かない。
+  const org = readOrg(events.org || card.org || 'wvc');
+  for (const s of Object.keys(config.seats)) Object.assign(config.seats[s], org.cast[s]);
+  const speakers = Object.fromEntries(Object.keys(config.seats).map((s) => [s, org.cast[s].voice]));
   const seats = Object.keys(config.seats);
   const other = (s) => seats.find((x) => x !== s);
+  // 試合の前の場面（団体の番組の型が決める名前。記録に prefight の印が付く）は、種類の名前で決め打たずに印で見分ける。
+  const isScreen = (e) => e.for === '実況' && (e.prefight || SCREEN.includes(e.type));
+  const isTrigger = (e) => e.prefight || config.triggers.includes(e.type);
   const sees = (s, e) => config.seats[s].sees.includes(e.for);
 
   // 選手の資料（未来の出来事を含む digest は渡さない）。
   const dossier = path.join(work, 'fighters.md');
   fs.writeFileSync(dossier, [
-    `# ${events.event || 'WVC'} ${events.bout || key}`, '',
+    `# ${events.event || org.logoText} ${events.bout || key}`, '',
     `## 赤コーナー: ${events.red}`, '', String(events.redDossier || events.redProfile || '').replace(/\r/g, ''), '',
     `## 青コーナー: ${events.blue}`, '', String(events.blueDossier || events.blueProfile || '').replace(/\r/g, ''), '',
   ].join('\n'));
@@ -267,7 +285,7 @@ async function main() {
   fs.mkdirSync(frameDir, { recursive: true });
   const video = path.join(out, `${key}.mp4`);
   const frames = [];
-  for (const e of all.filter((x) => config.frames.includes(x.type) && x.for === '実況')) {
+  for (const e of all.filter((x) => (x.prefight || config.frames.includes(x.type)) && x.for === '実況')) {
     const t = Math.min(length - 0.1, e.t + ((config.frameOffsets || {})[e.type] ?? config.frameOffset));
     const file = path.join(frameDir, `t${t.toFixed(1).padStart(6, '0')}.jpg`);
     if (frames.some((f) => f.file === file)) continue;
@@ -281,7 +299,7 @@ async function main() {
   const drivers = new Drivers(args, work);
   for (const s of seats) drivers.system[s] = intro(s);
   drivers.recapFor = (s) => recap(s);
-  const measure = makeMeasure(work, args.driver);
+  const measure = makeMeasure(work, args.driver, speakers);
   const lines = []; // { seat, start, end, text, said, cutBy }
   const log = [];
   // 席ごとに、何をもう伝えたか。heard: 台詞ごとに、伝えた時点の「言った所」（あとで切れたら、切れたことを伝え直す）。
@@ -322,11 +340,17 @@ async function main() {
   function intro(seat) {
     const me = config.seats[seat];
     const you = config.seats[other(seat)];
-    const character = seat === 'announcer'
-      ? 'あなたは試合の熱をそのまま声に乗せる人です。'
-      : 'あなたは見えたものの理由を語る人です。';
+    const persona = personaText(me.persona);
+    const rules = (events.rules || []).filter((l) => !/^この記録は|"for"|^実況は|^解説は/.test(l));
     return [
-      `あなたは WVC（Wonderful Voxing Council）のテレビ中継の${me.label}、${me.name}です。相方は${you.label}の${you.name}。競技は Voxing。日本語の話し言葉で話します。${character}`,
+      `あなたは ${org.logoText}（${org.name}）のテレビ中継の${me.label}、${me.name}です。相方は${you.label}の${you.name}。競技は ${org.sport}。日本語の話し言葉で話します。${me.role}`,
+      '',
+      '## あなたの人物と場',
+      persona,
+      '',
+      '## 大会',
+      org.commentary.intro,
+      ...rules.map((l) => `- ${l}`),
       '',
       '## 中継のしくみ',
       `- 試合の進行に合わせて、その場で話します。中継の時間は動画の ${fmt(length)} 秒で決まっていて、それが 2 人で使える時間のすべてです。`,
@@ -448,11 +472,10 @@ async function main() {
   // 番組の予定（2026-11-17、ユーザーの指定: 秒数の決まった場面は前もって知らせ、どのくらい話すかを決められるように）。
   // その時点で決まっている場面だけ: 試合の前の場面（プログラム・タイトル・選手の比較・第1ラウンド）は始めから、休みの場面
   // （リプレイ・中継の切り替え・傷のアップ・次のラウンド）はラウンドの終わりから、勝敗の画面は決着から決まっている。
-  const SCREEN = ['program', 'opening', 'tape', 'round_start', 'replay', 'cut', 'wound_cam', 'result', 'end'];
-  const screens = all.filter((e) => e.for === '実況' && SCREEN.includes(e.type));
+  const screens = all.filter(isScreen);
   const breakers = all.filter((e) => ['round_end', 'ko', 'decision'].includes(e.type) && e.for === '実況');
   function knownFrom(e) {
-    if (['program', 'opening', 'tape'].includes(e.type)) return 0;
+    if (e.prefight) return 0;
     if (e.type === 'round_start' && !all.some((x) => x.type === 'round_end' && x.t < e.t)) return 0;
     const before = breakers.filter((b) => b.t <= e.t + 1e-6);
     return before.length ? before[before.length - 1].t : 0;
@@ -520,7 +543,7 @@ async function main() {
   let pending = null; // 相方の割り込み・返事の予定
   let silenceAt = config.silenceSeconds; // 無言でマイクが実況へ渡る時刻（Infinity なら渡らない）
   const groups = [];
-  for (const e of all.filter((x) => config.triggers.includes(x.type))) {
+  for (const e of all.filter(isTrigger)) {
     const g = groups[groups.length - 1];
     if (g && e.t - g.t <= config.together) g.events.push(e); else groups.push({ t: e.t, events: [e] });
   }
@@ -710,7 +733,7 @@ async function main() {
       if (cur) { finish(cur, T, `${config.seats[p.seat].label}の割り込み`); cur = null; }
       // 話し終わってから返す返事は、決めてから声に出すまでに試合が進んでいたら（その席に見える出来事があった・
       // replyFreshSeconds より古い）、言う前にもう一度聞く。古い返事が数秒遅れて流れ、映像とずれた（2026-11-17、ユーザーの指摘）。
-      const since = all.filter((e) => e.t > p.decidedAt && e.t <= T + 1e-6 && sees(p.seat, e) && config.triggers.includes(e.type));
+      const since = all.filter((e) => e.t > p.decidedAt && e.t <= T + 1e-6 && sees(p.seat, e) && isTrigger(e));
       if (p.kind === 'reply' && (since.length > 0 || T - p.decidedAt > config.replyFreshSeconds)) {
         const situation = `${fmt(p.decidedAt)} 秒に、あなたは相方が話し終わったら「${p.reply.text}」と返すと決めました。いま声に出せます（決めてから ${fmt(T - p.decidedAt)} 秒たちました）。`;
         const r = await drivers.ask(p.seat, 'mic-planned', prompt(p.seat, situation, MIC_PLANNED_FORMAT), () => ({ action: 'continue' }));
@@ -746,7 +769,7 @@ async function main() {
     .map(({ l, text }) => ({ at: round1(l.start), speaker: l.seat, text, excited: l.excited }))
     .concat(overlaps.map((o) => ({ at: round1(o.start), speaker: o.seat, text: o.text, excited: true, overlap: true })))
     .sort((a, b) => a.at - b.at);
-  const extras = { style: 'prospective', useDraft: false, placed: true, lines: out_lines };
+  const extras = { style: 'prospective', useDraft: false, placed: true, speakers, lines: out_lines };
   fs.writeFileSync(path.join(out, `${key}.extras.json`), JSON.stringify(extras, null, 2) + '\n');
   const transcript = [
     `# ${events.bout || key} 2 エージェントのプロスペクティブ制（${args.driver}・${args.model}）`, '',

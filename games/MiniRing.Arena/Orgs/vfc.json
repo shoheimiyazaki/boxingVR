@@ -30,6 +30,23 @@
     "exposure": 0.95
   },
   "bell": "horn",
+  // 番組の型: 深夜の有料配信のケージファイト（黒・クリーム・赤、角張った字、斜めの帯。WVC の地上波の中継とは別の作り）。
+  "show": "vfc",
+  // 放送席: 深夜の格闘配信の実況と、VFC のケージドクターだった元救命救急医の解説。声は WVC の 2 人と聞き分けられるよう、実況は低く、解説は別の声（Haruka）。
+  "cast": {
+    "announcer": {
+      "name": "久世",
+      "persona": "docs/commentary/personas/kuze.md",
+      "role": "あなたは深夜の格闘配信の実況です。見えたことを伝える人です。",
+      "voice": { "voice": ["IchiroM", "Ichiro"], "rate": "+22%", "pitch": "-12%", "volume": "+5%", "excited": { "rate": "+40%", "pitch": "-2%", "volume": "+20%" } }
+    },
+    "commentator": {
+      "name": "鷹宮",
+      "persona": "docs/commentary/personas/takamiya.md",
+      "role": "あなたは VFC のケージドクターだった元救命救急医の解説です。体の壊れ方と、残っている体を読む人です。",
+      "voice": { "voice": ["HarukaM", "Haruka"], "rate": "+8%", "pitch": "-8%", "volume": "+0%", "excited": { "rate": "+20%", "pitch": "-2%", "volume": "+8%" } }
+    }
+  },
   "crowd": { "reactionGain": 1.2, "ambienceGain": 0.6 },
   "countsDowns": false,
   // 試合の決まり（ユーザーの指定 2026-11-18）: 判定しない（5 ラウンドを終えて両者が生きていれば両者生還の引き分け）・休みでも体は治らない・レフェリーなし・六角形の金網の檻。
@@ -37,7 +54,9 @@
   "text": {
     "openingRule": "{seconds}秒 × {rounds}ラウンド　・　決着は死のみ　・　両者生還なら引き分け",
     "finishWord": "決着",
-    "decisionLine": "{rounds}ラウンドを終えて　・　両者生還の引き分け"
+    "decisionLine": "{rounds}ラウンドを終えて　・　両者生還の引き分け",
+    "liveTag": "PPV",
+    "strapline": "深夜のケージファイト配信"
   },
   "rulesSheet": [
     "この記録は VFC（Voxel Fighting Championship）の大会のテレビ中継のためのもの。競技の名前は Voxel Fighting。武器・はめる物・素手のどれでもよい、何でもありの大会。",

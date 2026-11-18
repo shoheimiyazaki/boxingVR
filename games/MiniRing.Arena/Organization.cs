@@ -25,7 +25,9 @@ internal sealed record OrgCrowd(float ReactionGain, float AmbienceGain);
 /// <param name="OpeningRule">冒頭の決まりの帯。<c>{seconds}</c>・<c>{rounds}</c> を差し込む。</param>
 /// <param name="FinishWord">K.O. にあたる決着の大きな文字（WVC「K.O.」、VFC「決着」）。</param>
 /// <param name="DecisionLine">判定・引き分けで終わったときの下の行。<c>{rounds}</c> を差し込む。</param>
-internal sealed record OrgText(string OpeningRule, string FinishWord, string DecisionLine);
+/// <param name="LiveTag">試合中の画面の隅の札の言葉（地上波は LIVE、深夜の有料配信は PPV）。番組の型が使う。</param>
+/// <param name="Strapline">札の下の小さな 1 行（番組の性格。無ければ空）。</param>
+internal sealed record OrgText(string OpeningRule, string FinishWord, string DecisionLine, string LiveTag = "LIVE", string Strapline = "");
 
 /// <summary>台本の下書き（<see cref="TvDraft"/>）の団体ごとの言い回し。<c>{round}</c>・<c>{victim}</c>・<c>{winner}</c> を差し込む。</summary>
 /// <param name="BellWord">ラウンドの合図の呼び方（「ゴング」「ホーン」）。</param>
@@ -54,6 +56,27 @@ internal sealed record DramaWeights(float PerRound, float PerDown, int DownCap, 
 /// <param name="CallExamples">コールの言葉の例（プロンプトの <c>{{callExamples}}</c>）。</param>
 internal sealed record OrgCommentary(string Intro, string AnnouncerTone, string AnalystTone, string CallThing, string CallExamples);
 
+/// <summary>放送席の声（<c>tools/commentary/Synthesize.ps1</c> の <c>speakers</c> の 1 話し手と同じ形）。</summary>
+/// <param name="Voice">声の名前の断片（Windows の声の Id・表示名に含まれる文字。先に合った物を使う）。</param>
+/// <param name="Rate">読む速さ（SSML の prosody。「+30%」）。</param>
+/// <param name="Pitch">声の高さ（「+5%」）。</param>
+/// <param name="Volume">音量（「+0%」）。</param>
+/// <param name="Excited">声が高ぶったとき（台詞の <c>excited</c>）の速さ・高さ・音量。</param>
+internal sealed record OrgVoice(IReadOnlyList<string> Voice, string Rate, string Pitch, string Volume, OrgVoiceProsody Excited);
+
+/// <summary>声の速さ・高さ・音量（高ぶったとき）。</summary>
+internal sealed record OrgVoiceProsody(string Rate, string Pitch, string Volume);
+
+/// <summary>放送席の 1 席（実況・解説）: 名前・人物の説明のファイル・席の役・声。</summary>
+/// <param name="Name">呼び名（相方が呼ぶ名前。中継の字幕・声の名簿）。</param>
+/// <param name="Persona">人物の説明のファイル（リポジトリの根から。経歴・役割・場だけを書く: <c>docs/LLM_CONTENT.md</c> §1）。</param>
+/// <param name="Role">席の役を 1 文で（LLM への指示の頭に置く。口ぐせ・言い回しは書かない）。</param>
+/// <param name="Voice">声。</param>
+internal sealed record OrgSeat(string Name, string Persona, string Role, OrgVoice Voice);
+
+/// <summary>団体の放送席（実況と解説）。台本を作る道具（<c>tools/tvshow</c>）が団体のファイルからこれを読む。</summary>
+internal sealed record OrgCast(OrgSeat Announcer, OrgSeat Commentator);
+
 /// <summary>
 /// 団体の試合の決まり（ルールの値。体・物理は団体によらず同じ）: 最終ラウンドの終わりに判定するか（<see cref="MatchRules.JudgesDecision"/>）・
 /// 休みの間に削れた体が治るか（<see cref="MatchRules.RegenVoxelsPerSecond"/>）・レフェリーがいるか（<see cref="BoxingCorners.Referee"/>）・場の形（<see cref="ArenaShape"/>）。
@@ -67,7 +90,7 @@ internal sealed record OrgMatch(bool JudgesDecision, bool Regenerates, bool Refe
 /// 体・物理・材料は団体によらず同じで、違うのは中継の見せ方（と、試合の決まり・場の形は別の仕組み）。
 /// </summary>
 internal sealed record Organization(string Id, string Name, string LogoText, string Sport, string Emblem, OrgColors Colors, ArenaMood ArenaMood, string Bell, OrgCrowd Crowd, bool CountsDowns,
-    OrgText Text, IReadOnlyList<string> RulesSheet, OrgDraft Draft, IReadOnlyList<string> CallWords, DramaWeights Drama, OrgCommentary Commentary, OrgMatch Match)
+    OrgText Text, IReadOnlyList<string> RulesSheet, OrgDraft Draft, IReadOnlyList<string> CallWords, DramaWeights Drama, OrgCommentary Commentary, OrgMatch Match, string Show, OrgCast Cast)
 {
     /// <summary>既定の団体の id。</summary>
     public const string DefaultId = "wvc";
@@ -111,6 +134,9 @@ internal static class Organizations
 
     /// <summary>紋章の id（<c>emblem</c>）の一覧。ファイルの検査に使う。</summary>
     public static IReadOnlyList<string> EmblemIds => Emblems.Ids;
+
+    /// <summary>番組の型の id（<c>show</c>）の一覧。ファイルの検査に使う。</summary>
+    public static IReadOnlyList<string> ShowIds => ShowFormats.Ids;
 
     /// <summary>ラウンドの合図の音の id（<c>bell</c>）の一覧。ファイルの検査に使う。</summary>
     public static readonly IReadOnlyList<string> BellIds = MiniRing.Audio.BellSound.Ids;
@@ -183,6 +209,8 @@ internal static class Organizations
         public required DramaDto Drama { get; init; }
         public required CommentaryDto Commentary { get; init; }
         public required OrgMatch Match { get; init; }
+        public required string Show { get; init; }
+        public required CastDto Cast { get; init; }
 
         public Organization ToOrganization()
         {
@@ -198,6 +226,11 @@ internal static class Organizations
             if (!EmblemIds.Contains(Emblem))
             {
                 throw new InvalidDataException($"emblem '{Emblem}' は知りません（{string.Join(", ", EmblemIds)}）。");
+            }
+
+            if (!ShowIds.Contains(Show))
+            {
+                throw new InvalidDataException($"show '{Show}' は知りません（{string.Join(", ", ShowIds)}）。");
             }
 
             if (!BellIds.Contains(Bell))
@@ -217,7 +250,7 @@ internal static class Organizations
             }
 
             return new Organization(Id, Name, LogoText, Sport, Emblem, Colors.ToColors(), ArenaMood, Bell, Crowd.ToCrowd(), CountsDowns, Text.ToText(), RulesSheet, Draft.ToDraft(), Lint.CallWords,
-                Drama.ToWeights(), Commentary.ToCommentary(), Match);
+                Drama.ToWeights(), Commentary.ToCommentary(), Match, Show, Cast.ToCast());
         }
     }
 
@@ -255,8 +288,11 @@ internal static class Organizations
         public required string OpeningRule { get; init; }
         public required string FinishWord { get; init; }
         public required string DecisionLine { get; init; }
+        public string? LiveTag { get; init; }
+        public string? Strapline { get; init; }
 
-        public OrgText ToText() => new(Need(OpeningRule, "text.openingRule"), Need(FinishWord, "text.finishWord"), Need(DecisionLine, "text.decisionLine"));
+        public OrgText ToText() => new(Need(OpeningRule, "text.openingRule"), Need(FinishWord, "text.finishWord"), Need(DecisionLine, "text.decisionLine"),
+            string.IsNullOrWhiteSpace(LiveTag) ? "LIVE" : LiveTag, Strapline ?? "");
     }
 
     private sealed class DraftDto
@@ -327,6 +363,58 @@ internal static class Organizations
         public OrgCommentary ToCommentary() => new(Need(Intro, "commentary.intro"), Need(AnnouncerTone, "commentary.announcerTone"), Need(AnalystTone, "commentary.analystTone"),
             Need(CallThing, "commentary.callThing"), Need(CallExamples, "commentary.callExamples"));
     }
+
+    private sealed class CastDto
+    {
+        public required SeatDto Announcer { get; init; }
+        public required SeatDto Commentator { get; init; }
+
+        public OrgCast ToCast() => new(Announcer.ToSeat("cast.announcer"), Commentator.ToSeat("cast.commentator"));
+    }
+
+    private sealed class SeatDto
+    {
+        public required string Name { get; init; }
+        public required string Persona { get; init; }
+        public required string Role { get; init; }
+        public required VoiceDto Voice { get; init; }
+
+        public OrgSeat ToSeat(string field) => new(Need(Name, $"{field}.name"), Need(Persona, $"{field}.persona"), Need(Role, $"{field}.role"), Voice.ToVoice($"{field}.voice"));
+    }
+
+    private sealed class VoiceDto
+    {
+        public required string[] Voice { get; init; }
+        public required string Rate { get; init; }
+        public required string Pitch { get; init; }
+        public required string Volume { get; init; }
+        public required ProsodyDto Excited { get; init; }
+
+        public OrgVoice ToVoice(string field)
+        {
+            if (Voice is not { Length: > 0 } || Voice.Any(string.IsNullOrWhiteSpace))
+            {
+                throw new InvalidDataException($"{field}.voice は空でない声の名前の断片の並びにしてください。");
+            }
+
+            return new OrgVoice(Voice, Percent(Rate, $"{field}.rate"), Percent(Pitch, $"{field}.pitch"), Percent(Volume, $"{field}.volume"), Excited.ToProsody($"{field}.excited"));
+        }
+    }
+
+    private sealed class ProsodyDto
+    {
+        public required string Rate { get; init; }
+        public required string Pitch { get; init; }
+        public required string Volume { get; init; }
+
+        public OrgVoiceProsody ToProsody(string field) => new(Percent(Rate, $"{field}.rate"), Percent(Pitch, $"{field}.pitch"), Percent(Volume, $"{field}.volume"));
+    }
+
+    /// <summary>SSML の prosody の割合（「+30%」「-2%」）。</summary>
+    private static string Percent(string? value, string field)
+        => value is not null && System.Text.RegularExpressions.Regex.IsMatch(value, @"^[+-]\d{1,3}%$")
+            ? value
+            : throw new InvalidDataException($"{field} は「+30%」「-2%」の形で書いてください（{value}）。");
 
     private static string Need(string? value, string field)
         => string.IsNullOrWhiteSpace(value) ? throw new InvalidDataException($"{field} がありません（空です）。") : value;

@@ -134,7 +134,7 @@ function Get-Outcome([int]$index) {
     if ($null -eq $outcome) { throw "b$($index + 1).events.json に結果（outcome）がありません。-Force で撮り直してください。" }
     $winner = [string]$outcome.winner
     if ($winner -eq 'draw') { return @{ winner = [string]$outcome.lead; method = '優勢' } } # 引き分けは与えたダメージの多い側が勝ち上がる
-    return @{ winner = $winner; method = [string]$outcome.method }
+    return @{ winner = $winner; method = [string]$outcome.method; cause = [string](Get-Field $outcome 'deathPhrase' '') }
 }
 
 # 試合の 1 つのコーナーの名簿の id。"winner:N" で N 試合目がまだなら $null。
@@ -165,6 +165,7 @@ function Get-ProgramJson([int]$current) {
             if ($null -eq $outcome) { throw "b$($j + 1).events.json がありません（$(Get-BoutLabel $j) の結果が読めない）。-Force で撮り直してください。" }
             $row.winner = $outcome.winner
             $row.method = $outcome.method
+            if ($outcome.ContainsKey('cause') -and $outcome.cause) { $row.cause = $outcome.cause }
         }
         $row.current = ($j -eq $current)
         $row.stake = [string](Get-Field $bouts[$j] 'stake' '')
