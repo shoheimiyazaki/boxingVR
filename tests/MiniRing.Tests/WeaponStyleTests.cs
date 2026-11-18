@@ -238,11 +238,15 @@ public sealed class WeaponStyleTests
     {
         var only = WeaponCatalog.Textbook(WeaponKind.Katana) with
         {
-            TechniqueWeights = FormSwordsman.Forms(WeaponKind.Katana).ToDictionary(f => f.Name, f => f.Name == "tsuki" ? 1f : 0f),
+            TechniqueWeights = FormSwordsman.Forms(WeaponKind.Katana).ToDictionary(f => f.Name, f => f.Name == "kesa" ? 1f : 0f),
         };
         var corners = BoxingCorners.Default with
         {
-            RedBotStyle = BotCatalog.Style("champion"),
+            // 攻めてこない受け手（2026-11-18 のマージで替えた）: チャンピオンは構えた刀の内側（胸と胸 0.25〜0.3 m）まで詰め、
+            // 刀を振る前に構えた刃で首を断たれて 6 秒で死んだ（種 3）。このテストは重みで出す技が決まるかを見るので、試合の流れに頼らない。
+            // 1 つだけ重みを付ける技は袈裟（kesa）。突き（tsuki）だけにすると、打って離れる歩きが突きの間合いに合わず一度も突かない
+            // （剣のブランチ単体でも同じ。前はチャンピオンが間合いへ入ってきたので突けていた。docs/DEBT.md「剣士のボットの蹴りと内側の技の近道」）。
+            RedBotStyle = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f },
             PlayerWeapon = WeaponKind.Katana,
             PlayerTwoHanded = true,
             UseWeaponBots = true,
@@ -261,7 +265,7 @@ public sealed class WeaponStyleTests
 
         Assert.IsNotEmpty(used, "it swings");
         Assert.HasCount(1, used, "only the form with weight is thrown");
-        Assert.Contains("tsuki", used);
+        Assert.Contains("kesa", used);
     }
 
     [TestMethod]

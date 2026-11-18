@@ -49,7 +49,13 @@ public sealed class GroundStrikeTests
         {
             victim.Concussion = 0.97f; // 気を失って倒れたまま
             game.Step(default, Dt);
-            downed |= victim.State != FighterState.Standing;
+            if (!downed && victim.State != FighterState.Standing)
+            {
+                // 傷は倒れた時点から数える（倒れる途中、まだ立っている相手に当たった分は倒れた相手への攻めではない）。
+                downed = true;
+                woundedBefore = victim.Condition.TotalDamage;
+            }
+
             if (!downed)
             {
                 continue;
