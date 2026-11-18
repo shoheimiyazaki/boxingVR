@@ -163,7 +163,7 @@ public sealed class EmoteTests
     {
         var endNames = BreakBook.For(BreakScene.End, 0.5f).Select(a => a.Name).ToHashSet();
         BoxingGame? found = null;
-        for (var seed = 1; seed <= 6 && found is null; seed++)
+        for (var seed = 1; seed <= 20 && found is null; seed++) // 決着する種は物理の版ごとに変わる（足の運びを変えた版で 1〜6 には無かった）
         {
             var game = NewGame(seed, red: "champion", blue: "swarmer");
             for (var i = 0; i < 60 * 14 && !game.MatchOver; i++)

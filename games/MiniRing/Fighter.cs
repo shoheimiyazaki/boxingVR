@@ -53,6 +53,8 @@ public sealed partial class Fighter
     private Quaternion _pelvisTarget = Quaternion.Identity;
 
     /// <summary>体が付いていく移動の指令（指令から <see cref="FootworkTuning.BodyLag"/> だけ遅れる）。</summary>
+    /// <summary>歩く・ステップ・蹴りの指令が出ていない時間 [s]（足の置いた所を留める条件。<see cref="FootworkTuning.HoldSettleSeconds"/>）。</summary>
+    private float _restSeconds;
     private Vector3 _laggedMove;
 
     internal float HoverHeight => _hoverHeight;
@@ -173,7 +175,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 48; // 48: 関節のつなぎ（JointBridge: 部位の間の隙間の組織を、刃の当たりとダメージだけのために）と、47: 握っていない手が Grip で武器を拾う・添える を合わせた。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 49; // 49: 着いている足の置いた所を覚えて足首の力で留める（何も入力しなくても体が流れる不具合）を 48（関節のつなぎ・握る・拾う）に合わせた。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1658,6 +1660,7 @@ public sealed partial class Fighter
     /// <summary>今の両足の位置で、足の運びを置き直す（立ち直ったとき・生成直後）。</summary>
     private void ResetFootwork()
     {
+        _restSeconds = 0f;
         (Vector2 Ball, float Yaw) OnGround(Leg leg)
             => (BallOnGround(leg), BodyFrame.YawOf(Vector3.Transform(Vector3.UnitZ, _world.GetState(leg.Heel).Orientation), _facingYaw));
 
@@ -1692,9 +1695,15 @@ public sealed partial class Fighter
         var hip = pelvis.Position + Vector3.Transform(lead.PivotOnPelvis, pelvis.Orientation);
         var drop = hip.Y - (pelvis.Position.Y - height) - lead.AnkleOnHeel.Y - _tuning.HalfExtents.Foot.Y;
         var reach = MathF.Sqrt(MathF.Max(0f, (legLength * legLength) - (drop * drop)));
+        // 蹴っている間（軸足も）と、歩く・ステップの指令が出ている間と、その後 HoldSettleSeconds の間は、足の置き方を実際の足へすぐ合わせる
+        // （足を運んで体が動く間は、置いた所を覚えて留める場面ではない）。動きが止まって落ち着いた立ち姿だけ、置いた所を足首の力で留める。
+        var active = lead.Command is not null || _legParts[Footwork.Rear].Command is not null || command.ClampedMove.LengthSquared() > 0f || command.ClampedStep.LengthSquared() > 0f;
+        _restSeconds = active ? 0f : _restSeconds + dt;
+        var kicking = _restSeconds < _tuning.Footwork.HoldSettleSeconds;
         var input = new FootworkInput(_facingYaw, new Vector2(pelvis.Position.X, pelvis.Position.Z), new Vector2(pelvis.LinearVelocity.X, pelvis.LinearVelocity.Z),
             omega, new Vector2(intent.X, intent.Z), twist, weight, legLength,
-            lead.ReachRatio > 0.995f, _legParts[Footwork.Rear].ReachRatio > 0.995f, BallOnGround(lead), BallOnGround(_legParts[Footwork.Rear]), MathF.Max(0.3f * legLength, reach));
+            lead.ReachRatio > 0.995f, _legParts[Footwork.Rear].ReachRatio > 0.995f, BallOnGround(lead), BallOnGround(_legParts[Footwork.Rear]), MathF.Max(0.3f * legLength, reach),
+            LeadFree: kicking, RearFree: kicking);
         _footwork.Update(input, dt);
     }
 
