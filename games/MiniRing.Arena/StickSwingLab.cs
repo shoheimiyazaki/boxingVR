@@ -44,8 +44,8 @@ internal static class StickSwingLab
         log($"## 棒人形で片手剣の振りを探す（{character}、鉄の剣、右手）");
         log("");
         log($"- 体: 腕の長さ {rig.ArmLength * 100f:0.0} cm・剣の長さ {rig.BladeLength * 100f:0.0} cm。動かすのは右肩（玉）・右肘・右手首だけで、ほかは構えのまま。");
-        log($"- 探索: 一様に {options.Samples} 本 → 上位 {options.Polish} 本を (1+1) 進化戦略で {options.Iterations} 回ずつ磨く（種 {options.Seed}）。点の重み: 速さ {weights.Speed}・滑らか {weights.Smooth}・断面 {weights.Plane}・刃筋 {weights.Edge}・向き {weights.Direction}。");
-        log("- `速さ` = 剣先の最大の速さ。`LDLJ`・`SPARC` = 主な 1 本の動き（最大の速さの山、谷から谷）の滑らかさ（大きい=0 に近いほど滑らか。躍度最小の 1 本で LDLJ −4.9・SPARC 約 −1.4）。`余山` = 主な山以外の速さの山。`断面外れ` = 肘・手首・剣先の軌跡の断面からの外れ（距離の RMS ÷ 広がり）。`刃筋` = 剣先の進む向きが刃の面から外れた角。`向き` = 最大の速さのときの進む向きと断面の斬る向きとの角。`負担` = 肩・肘・手首のトルク ÷ 上限の最大（1 超えは失格）。");
+        log($"- 探索: 一様に {options.Samples} 本 → 上位 {options.Polish} 本を (1+1) 進化戦略で {options.Iterations} 回ずつ磨く（種 {options.Seed}）。点の重み: 速さ {weights.Speed}・滑らか {weights.Smooth}・断面 {weights.Plane}・刃筋 {weights.Edge}・向き {weights.Direction}・断面に数える全体の割合 {weights.Whole}。");
+        log("- `速さ` = 剣先の最大の速さ。`LDLJ`・`SPARC` = 主な 1 本の動き（最大の速さの山、谷から谷）の滑らかさ（大きい=0 に近いほど滑らか。躍度最小の 1 本で LDLJ −4.9・SPARC 約 −1.4）。`余山` = 主な山以外の速さの山。`断面外れ` = 肘・手首・剣先の軌跡の断面からの外れ（距離の RMS ÷ 広がり。左 = 主な 1 本の動きの始めから振り抜きまで、右 = 構えから振り抜きまで全体）。`刃筋` = 剣先の進む向きが刃の面から外れた角。`向き` = 最大の速さのときの進む向きと断面の斬る向きとの角。`負担` = 肩・肘・手首のトルク ÷ 上限の最大（1 超えは失格）。");
         log("");
         var results = new List<SwingSearchResult>();
         foreach (var plane in planes)
@@ -57,11 +57,11 @@ internal static class StickSwingLab
         }
 
         log("");
-        log("| 断面 | 行 | 速さ [m/s] | LDLJ | SPARC | 余山 | 断面外れ | 刃筋 [°] | 向き [°] | 負担（関節） | 時間 [s] | 点 | 有効 |");
+        log("| 断面 | 行 | 速さ [m/s] | LDLJ | SPARC | 余山 | 断面外れ（動き/全体） | 刃筋 [°] | 向き [°] | 負担（関節） | 時間 [s] | 点 | 有効 |");
         log("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         foreach (var r in results)
         {
-            log($"| {r.Plane.Name}（{r.Plane.Label}） | ランダム {r.Random.Count} 本の中央値 | {r.Median(e => e.PeakSpeed):0.00} | {r.Median(e => e.Ldlj):0.0} | {r.Median(e => e.Sparc):0.00} | {r.Median(e => e.ExtraPeaks):0} | {r.Median(e => e.PlaneMisfit):0.000} | {Degrees(r.Median(e => e.EdgeAngle)):0} | {Degrees(r.Median(e => e.DirectionAngle)):0} | {r.Median(e => e.MaxLoad):0.00} | {r.Median(e => e.Duration):0.00} | {r.Median(e => e.Score):0.0} | {r.ValidFraction * 100f:0} % |");
+            log($"| {r.Plane.Name}（{r.Plane.Label}） | ランダム {r.Random.Count} 本の中央値 | {r.Median(e => e.PeakSpeed):0.00} | {r.Median(e => e.Ldlj):0.0} | {r.Median(e => e.Sparc):0.00} | {r.Median(e => e.ExtraPeaks):0} | {r.Median(e => e.PlaneMisfit):0.000} / {r.Median(e => e.PlaneMisfitAll):0.000} | {Degrees(r.Median(e => e.EdgeAngle)):0} | {Degrees(r.Median(e => e.DirectionAngle)):0} | {r.Median(e => e.MaxLoad):0.00} | {r.Median(e => e.Duration):0.00} | {r.Median(e => e.Score):0.0} | {r.ValidFraction * 100f:0} % |");
             log(Row(string.Empty, "ランダムの最良", r.BestRandom));
             log(Row(string.Empty, "磨いた最良", r.Best));
         }
@@ -108,7 +108,7 @@ internal static class StickSwingLab
     private static float Degrees(float radians) => radians * 180f / MathF.PI;
 
     private static string Row(string plane, string label, SwingEval e)
-        => string.Create(CultureInfo.InvariantCulture, $"| {plane} | {label} | {e.PeakSpeed:0.00} | {e.Ldlj:0.0} | {e.Sparc:0.00} | {e.ExtraPeaks} | {e.PlaneMisfit:0.000} | {Degrees(e.EdgeAngle):0} | {Degrees(e.DirectionAngle):0} | {e.MaxLoad:0.00}（{e.MaxLoadJoint}） | {e.Duration:0.00} | {e.Score:0.0} | {(e.Valid ? "○" : "×")} |");
+        => string.Create(CultureInfo.InvariantCulture, $"| {plane} | {label} | {e.PeakSpeed:0.00} | {e.Ldlj:0.0} | {e.Sparc:0.00} | {e.ExtraPeaks} | {e.PlaneMisfit:0.000} / {e.PlaneMisfitAll:0.000} | {Degrees(e.EdgeAngle):0} | {Degrees(e.DirectionAngle):0} | {e.MaxLoad:0.00}（{e.MaxLoadJoint}） | {e.Duration:0.00} | {e.Score:0.0} | {(e.Valid ? "○" : "×")} |");
 
     private static string Describe(SwingRig rig, float[] genes)
     {

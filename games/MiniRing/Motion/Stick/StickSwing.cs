@@ -35,8 +35,8 @@ public sealed record SwingPlane(string Name, string Label, Vector3 Normal, Vecto
         => All.FirstOrDefault(p => p.Name == name) ?? throw new ArgumentException($"知らない断面 {name}（{string.Join(", ", All.Select(p => p.Name))}）。", nameof(name));
 }
 
-/// <summary>点の重み（探索の点 = 速さ × w − 滑らかさ × w − 断面 × w − 刃筋 × w − 向き × w）。各項は「悪い」で 1 になるよう割ってある。</summary>
-public sealed record SwingWeights(float Speed = 3f, float Smooth = 1f, float Plane = 1f, float Edge = 1f, float Direction = 1f)
+/// <summary>点の重み（探索の点 = 速さ × w − 滑らかさ × w − 断面 × w − 刃筋 × w − 向き × w）。各項は「悪い」で 1 になるよう割ってある。<c>Whole</c> = 断面の外れに数える、構えから振り抜くまで全体（振りかぶりを含む）の割合（0 = 主な 1 本の動きだけ。0.5 = 両者の平均。振りかぶりが断面から大きく外れた振りを選ばないため、2026-11-18 の 1 回目の結果を見て足した）。</summary>
+public sealed record SwingWeights(float Speed = 3f, float Smooth = 1f, float Plane = 1f, float Edge = 1f, float Direction = 1f, float Whole = 0.5f)
 {
     /// <summary>"speed:1,smooth:2,..." を読む（書かなかった項は既定）。</summary>
     public static SwingWeights Parse(IEnumerable<string> items)
@@ -57,7 +57,8 @@ public sealed record SwingWeights(float Speed = 3f, float Smooth = 1f, float Pla
                 "plane" => w with { Plane = value },
                 "edge" => w with { Edge = value },
                 "dir" or "direction" => w with { Direction = value },
-                _ => throw new ArgumentException($"知らない重み {parts[0]}（speed, smooth, plane, edge, dir）。", nameof(items)),
+                "whole" => w with { Whole = value },
+                _ => throw new ArgumentException($"知らない重み {parts[0]}（speed, smooth, plane, edge, dir, whole）。", nameof(items)),
             };
         }
 
@@ -85,6 +86,9 @@ public sealed record SwingEval
 
     /// <summary>肘・手首・剣先の軌跡（主な 1 本の動きの始めから終わりまで）の、断面からの外れ（距離の RMS ÷ 広がり）。</summary>
     public float PlaneMisfit { get; init; }
+
+    /// <summary>構えから振り抜くまで全体（振りかぶりを含む）の、同じ外れ。</summary>
+    public float PlaneMisfitAll { get; init; }
 
     /// <summary>刃筋の角 [rad]（速さで重みを付けた平均）。</summary>
     public float EdgeAngle { get; init; }
@@ -464,6 +468,15 @@ public sealed class SwingRig
         }
 
         var misfit = StickBeauty.PlaneMisfit(points, Shoulder, plane.Normal);
+        var whole = new List<Vector3>(3 * n);
+        for (var i = 0; i < n; i++)
+        {
+            whole.Add(elbow[i]);
+            whole.Add(wrist[i]);
+            whole.Add(tip[i]);
+        }
+
+        var misfitAll = StickBeauty.PlaneMisfit(whole, Shoulder, plane.Normal);
 
         var axes = new Vector3[n];
         var edges = new Vector3[n];
@@ -520,7 +533,7 @@ public sealed class SwingRig
         var ldljValue = ldlj ?? -12f;
         var sparcValue = sparc ?? -5f;
         var smooth = (MathF.Max(0f, -ldljValue - 5f) / 3f / 3f) + (MathF.Max(0f, -sparcValue - 1.6f) / 1f / 3f) + (MathF.Log(1f + curvature) / 4f / 3f) + extraPeaks;
-        var planeTerm = misfit / 0.1f;
+        var planeTerm = (((1f - weights.Whole) * misfit) + (weights.Whole * misfitAll)) / 0.1f;
         var edgeTerm = edge / (30f * Deg);
         var directionTerm = (direction / (30f * Deg)) + (MathF.Max(0f, 0.8f - reach) / 0.2f) + (MathF.Max(0f, 0.3f - forward) / 0.3f);
         var disqualification = 0f;
@@ -550,6 +563,7 @@ public sealed class SwingRig
             ExtraPeaks = extraPeaks,
             CurvatureVariation = curvature,
             PlaneMisfit = misfit,
+            PlaneMisfitAll = misfitAll,
             EdgeAngle = edge,
             DirectionAngle = direction,
             ReachFraction = reach,
