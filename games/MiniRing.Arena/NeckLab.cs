@@ -167,6 +167,95 @@ internal static class NeckLab
     }
 
     /// <summary>
+    /// 静止した的の首を、自由な日本刀が決まった速さ・向きで通る（毎歩、速さを与え直す。腕が押し込む刃と同じ）。首の関節（胸の上端）からの高さのずれを
+    /// 振り、何セル削れたか・首が断たれたか・頭が落ちたかを表にする。
+    /// </summary>
+    public static string Slash(IReadOnlyList<float> offsets, IReadOnlyList<float> speeds)
+    {
+        var jobs = new List<(string Dir, float Offset, float Speed)>();
+        foreach (var dir in new[] { "side", "front", "back" })
+        {
+            foreach (var speed in speeds)
+            {
+                foreach (var o in offsets)
+                {
+                    jobs.Add((dir, o, speed));
+                }
+            }
+        }
+
+        var results = new SlashResult[jobs.Count];
+        Parallel.For(0, jobs.Count, i => results[i] = SlashOnce(jobs[i].Dir, jobs[i].Offset, jobs[i].Speed));
+        var text = new StringBuilder();
+        text.AppendLine("direction / speed: per height offset from the neck joint (mm): neck-slice cells lost, [N] = neck broken, [H] = head off");
+        foreach (var g in jobs.Select((j, i) => (j, r: results[i])).GroupBy(x => (x.j.Dir, x.j.Speed)))
+        {
+            text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"\n{g.Key.Dir} @ {g.Key.Speed:0.0} m/s"));
+            text.AppendLine("| offset mm | neck cells lost | head cells lost | chest cells lost | N | H | touched |");
+            text.AppendLine("|---:|---:|---:|---:|---|---|---|");
+            foreach (var (j, r) in g)
+            {
+                text.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                    $"| {j.Offset * 1000f:0.0} | {r.NeckLost} | {r.HeadLost} | {r.ChestLost} | {(r.NeckBroken ? "N" : "")} | {(r.HeadOff ? "H" : "")} | {(r.Touched ? "y" : "")} |"));
+            }
+        }
+
+        return text.ToString();
+    }
+
+    private sealed record SlashResult(int NeckLost, int HeadLost, int ChestLost, bool NeckBroken, bool HeadOff, bool Touched);
+
+    private static SlashResult SlashOnce(string dir, float offset, float speed)
+    {
+        using var game = new BoxingGame(SwordStance.Tuning, 1, new BoxingCorners("stand", _ => new StandGuard(ArmsDown ? DownPosture : null), _ => new StandGuard(ArmsDown ? DownPosture : null)));
+        for (var i = 0; i < 90; i++)
+        {
+            game.Step(default, 1f / 60f);
+        }
+
+        var victim = game.Cpu;
+        var p = victim.Parts;
+        var chest = game.World.GetState(p.Chest);
+        var joint = chest.Position + (Vector3.Transform(Vector3.UnitY, chest.Orientation) * victim.HalfExtentsOf(p.Chest).Y);
+        var frame = victim.Frame;
+        // 向き: 刃は水平。side = 体の横から（刃は前後）、front = 前から（刃は左右）、back = 後ろから。
+        var (heading, across) = dir switch
+        {
+            "side" => (frame.Right, frame.Forward),
+            "front" => (-frame.Forward, frame.Right),
+            _ => (frame.Forward, frame.Right),
+        };
+        var orientation = WeaponDrills.Edge(heading, across);
+        var kind = WeaponKind.Katana;
+        var middle = (Weapon.TipOf(kind).X + Weapon.TwoHandGripsOf(kind).Bottom.X) * 0.5f;
+        var target = joint + new Vector3(0f, offset, 0f);
+        var start = target - (heading * 0.15f) - Vector3.Transform(new Vector3(middle, 0f, 0f), orientation);
+        var weapon = game.AddWeapon(kind, start, orientation);
+        var head = victim.Voxels!.Parts.Single(x => x.Kind == BodyPartKind.Head).Body.Grid;
+        var chestGrid = victim.Voxels.Parts.Single(x => x.Kind == BodyPartKind.Chest).Body.Grid;
+        int headStart = head.FilledCount, chestStart = chestGrid.FilledCount, neckStart = NeckCells(victim.Voxels);
+        var touched = false;
+        var steps = (int)MathF.Ceiling(0.30f / speed * 240f) + 2;
+        for (var i = 0; i < steps; i++)
+        {
+            game.World.SetLinearVelocity(weapon.Body.BodyId, heading * speed);
+            game.World.SetAngularVelocity(weapon.Body.BodyId, Vector3.Zero);
+            game.Step(default, 1f / 240f);
+            touched |= game.RecentCuts.Any(c => c.Touched);
+        }
+
+        for (var i = 0; i < 120; i++)
+        {
+            game.Step(default, 1f / 240f); // 落ち着く
+        }
+
+        var neckBroken = victim.Voxels.NeckBroken;
+        return new SlashResult(neckStart - NeckCells(victim.Voxels), headStart - head.FilledCount, chestStart - chestGrid.FilledCount, neckBroken, neckBroken && victim.IsDead && victim.DeathCause == "neck", touched);
+    }
+
+    private static readonly GuardPosture DownPosture = new("down", Vector3.Zero, new Vector3(0.45f, -0.75f, 0.05f));
+
+    /// <summary>
     /// 首を薙ぐ 1 振りの動画（斜め前から首へ寄る。<paramref name="slow"/> 倍のスロー）。音なし。
     /// </summary>
     public static void Video(float height, float side, float offset, float slow, string outPath)
