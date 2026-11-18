@@ -40,6 +40,9 @@ internal static class RhythmLab
 
     internal static readonly string[] Outcomes = ["miss", "blocked", "landed"];
 
+    /// <summary>自分が打ち出した時までに、相手の最後の打ちが自分に触れていたか（ボットが打ち出す時に分かること）: 触れていない・守りの上だけ・守りの外に入った。</summary>
+    internal static readonly string[] Contacts = ["none", "guard", "clean"];
+
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     internal readonly record struct HitLog(int Attacker, int Step, float Damage, bool Clean);
@@ -172,8 +175,11 @@ internal static class RhythmLab
         /// <summary>自分の腕の伸びの帯ごと（今の歩）。</summary>
         public Curve ByOwnExtension { get; } = new(ExtBins);
 
-        /// <summary>相手の最後の打ち出しからの時間（Bins 番目の帯 = 1.2 秒以内に相手の打ちが無い）× 相手のその打ちの結果。</summary>
+        /// <summary>相手の最後の打ち出しからの時間（Bins 番目の帯 = 1.2 秒以内に相手の打ちが無い）× 相手のその打ちの結果（後で分かった結果）。</summary>
         public Chance[] AfterOpponentLaunch { get; } = [.. Outcomes.Select(_ => new Chance(Bins + 1))];
+
+        /// <summary>相手の最後の打ち出しからの時間 × 自分が打ち出した時までにその打ちが自分に触れていたか（<see cref="Contacts"/>。ボットに分かること）。</summary>
+        public Chance[] AfterOpponentContact { get; } = [.. Contacts.Select(_ => new Chance(Bins + 1))];
 
         /// <summary>打ち出した歩の相手の腕の伸びの帯ごと。</summary>
         public Chance ByOpponentExtension { get; } = new(ExtBins);
@@ -230,6 +236,7 @@ internal static class RhythmLab
         var op = 1 - me;
         var taken = new double[log.Steps];
         var takenHits = new double[log.Steps];
+        var takenGuard = new double[log.Steps];
         var dealt = new double[log.Steps];
         foreach (var h in log.Hits)
         {
@@ -242,6 +249,7 @@ internal static class RhythmLab
             {
                 taken[h.Step] += h.Damage;
                 takenHits[h.Step] += h.Clean ? 1 : 0;
+                takenGuard[h.Step] += h.Clean ? 0 : 1;
             }
             else
             {
@@ -362,6 +370,16 @@ internal static class RhythmLab
             }
 
             AddChance(r.AfterOpponentLaunch[cat], bin, landed, t.Damage, countered);
+            var contact = 0;
+            if (prev is not null && bin < Bins)
+            {
+                for (var i = StepOf(prev.LaunchTime); i < s0; i++)
+                {
+                    contact = Math.Max(contact, takenHits[i] > 0 ? 2 : takenGuard[i] > 0 ? 1 : 0);
+                }
+            }
+
+            AddChance(r.AfterOpponentContact[contact], bin, landed, t.Damage, countered);
             var eb = Math.Min(ExtBins - 1, (int)(log.Extension[op][s0] / ExtBin));
             AddChance(r.ByOpponentExtension, eb, landed, t.Damage, countered);
         }
@@ -445,6 +463,7 @@ internal static class RhythmLab
             {
                 CurveRows(sb, r.Id, "after_launch", Outcomes[o], r.AfterLaunch[o], Bin);
                 ChanceRows(sb, r.Id, "after_opponent_launch", Outcomes[o], r.AfterOpponentLaunch[o], Bin);
+                ChanceRows(sb, r.Id, "after_opponent_contact", Contacts[o], r.AfterOpponentContact[o], Bin);
             }
 
             CurveRows(sb, r.Id, "after_burst", "none_landed", r.AfterBurst[0], Bin);
@@ -468,7 +487,7 @@ internal static class RhythmLab
     {
         for (var b = 0; b < c.Throws.Length; b++)
         {
-            var to = b == Bins && curve == "after_opponent_launch" ? "inf" : ((b + 1) * width).ToString("0.00", Inv);
+            var to = b == Bins && curve.StartsWith("after_opponent", StringComparison.Ordinal) ? "inf" : ((b + 1) * width).ToString("0.00", Inv);
             sb.Append(string.Create(Inv, $"{id},{curve},{cat},{b},{b * width:0.00},{to},,,,{c.Dealt[b]:0.###},{c.Throws[b]:0},{c.Landed[b]:0},{c.Countered[b]:0.###}\n"));
         }
     }
