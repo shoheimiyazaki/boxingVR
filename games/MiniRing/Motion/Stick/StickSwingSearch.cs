@@ -94,7 +94,7 @@ public static class SwingSearch
             polished[k] = Polish(rig, plane, weights, genes[starts[k]], evals[starts[k]], new Random(Mix(options.Seed, planeIndex, 1_000_000 + k)), options.Iterations);
         });
         var winner = polished.Select((p, k) => (p, k)).OrderByDescending(x => x.p.Eval.Score).ThenBy(x => x.k).First().p;
-        log?.Invoke($"  {plane.Name}: 磨いた最良 {winner.Eval.Score:0.00}（{string.Join("・", polished.Select(p => p.Eval.Score.ToString("0.00")))}）");
+        log?.Invoke($"  {plane.Name}: 磨いた最良 {winner.Eval.Score:0.00}（{string.Join("・", polished.Select(p => $"{p.Eval.Score:0.00}"))}）");
         return new SwingSearchResult(plane, evals, genes[bestRandomIndex], evals[bestRandomIndex], winner.Genes, winner.Eval);
     }
 
