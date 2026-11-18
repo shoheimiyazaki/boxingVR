@@ -69,14 +69,16 @@ public sealed record SwingWeights(float Speed = 3f, float Smooth = 1f, float Pla
 /// <summary>
 /// 剣をがっちり握った腕の関節の範囲 [rad]（2026-11-18、ユーザーの指定: 手首・肘のねじれ・肩を狭める）。キーはこの中へ収め、キーの間の補間がはみ出した分は失格の罰（<see cref="SwingEval.RangeExcess"/>）。
 /// 構えそのものがはみ出している量までは許す（構えは振りの始まりなので）。値は人の可動域の文献値（AAOS の平均）を、握りで狭まる分だけ縮めた目安。
+/// <list type="bullet">
+/// <item>WristFlex: 手首の屈曲（正 = 掌屈）。素手は掌屈 80°・背屈 70°。柄を強く握ると、握力が保てるのは中間 ±30° ほど（握力は背屈 30° 付近で最大、掌屈で急に落ちる）。</item>
+/// <item>WristDeviation: 手首の橈尺屈（正 = 橈屈）。素手は橈屈 20°・尺屈 30°。握ると尺屈 25°・橈屈 10° ほど（剣先を前へ倒すのは尺屈の側）。</item>
+/// <item>ForearmRoll: 前腕の回内・回外（肘より先のねじれ。剣の軸まわり）。素手は各 80°。握った剣の刃の向きを保つので ±45°。</item>
+/// <item>Elbow: 肘の曲げ（0 = 伸ばし切り。過伸展なし）。素手は 0〜145°。</item>
+/// <item>ShoulderTwist: 肩のねじれ（上腕の内旋・外旋。T ポーズの腕の軸まわり）。素手は内旋 70°・外旋 90° ほど。±75°。</item>
+/// <item>ShoulderBack: 上腕の向きの、後ろ向きの成分の上限（sin）。伸展・水平外転は後ろへ 45° まで（sin 45° ≈ 0.7）。</item>
+/// <item>ShoulderAcross: 上腕の向きの、反対の脇への成分の上限（sin）。水平内転は正面から 40° 先まで（sin 40° ≈ 0.64）。</item>
+/// </list>
 /// </summary>
-/// <param name="WristFlex">手首の屈曲（正 = 掌屈）。素手は掌屈 80°・背屈 70°。柄を強く握ると、握力が保てるのは中間 ±30° ほど（握力は背屈 30° 付近で最大、掌屈で急に落ちる）。</param>
-/// <param name="WristDeviation">手首の橈尺屈（正 = 橈屈）。素手は橈屈 20°・尺屈 30°。握ると尺屈 25°・橈屈 10° ほど（剣先を前へ倒すのは尺屈の側）。</param>
-/// <param name="ForearmRoll">前腕の回内・回外（肘より先のねじれ。剣の軸まわり）。素手は各 80°。握った剣の刃の向きを保つので ±45°。</param>
-/// <param name="Elbow">肘の曲げ（0 = 伸ばし切り。過伸展なし）。素手は 0〜145°。</param>
-/// <param name="ShoulderTwist">肩のねじれ（上腕の内旋・外旋。T ポーズの腕の軸まわり）。素手は内旋 70°・外旋 90° ほど。±75°。</param>
-/// <param name="ShoulderBack">上腕の向きの、後ろ向きの成分の上限（sin）。伸展・水平外転は後ろへ 45° まで（sin 45° ≈ 0.7）。</param>
-/// <param name="ShoulderAcross">上腕の向きの、反対の脇への成分の上限（sin）。水平内転は正面から 40° 先まで（sin 40° ≈ 0.64）。</param>
 public sealed record SwingLimits(
     float WristFlexLow = -30f * SwingLimits.Deg, float WristFlexHigh = 30f * SwingLimits.Deg,
     float WristDeviationLow = -25f * SwingLimits.Deg, float WristDeviationHigh = 10f * SwingLimits.Deg,
