@@ -293,6 +293,9 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
 /// <summary>1 発の結果: 削れたボクセルの数と、骨が断たれた所（無ければ null）。</summary>
 public readonly record struct ImpactResult(int Carved, VoxelPart Part, BoneBreak? Break);
 
+/// <summary>前線の再生（<see cref="BoxerBody.Regrow"/>）の結果: 戻したセルの数と、骨が元の遠い端までつながり直した切り株。</summary>
+public readonly record struct RegrowResult(int Restored, IReadOnlyList<VoxelPart> Reconnected);
+
 /// <summary>
 /// 腕・脚の骨が断たれた・折れた所。部位はそこで 2 つの剛体に分かれる（体に近い側が元の部位、遠い側が <paramref name="Fragment"/>）。
 /// 骨の切れ目をまたいで、まだ肉（皮膚・筋肉）がつないでいれば、その肉の橋が 2 つをつなぐ（<see cref="Fighter.Break"/>: 駆動の無い弱いバネ）。
@@ -619,6 +622,257 @@ public sealed class BoxerBody
         }
 
         return restored;
+    }
+
+    /// <summary>部位ごとの、前線の再生で候補が無くなった時の格子の版（<see cref="Regrow"/> が飛ばす目印）。</summary>
+    private readonly Dictionary<VoxelPart, int> _grownAt = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary><see cref="Regrow"/> の候補の置き場（毎回の割り当てを避ける）。</summary>
+    private readonly List<int> _regrowCandidates = [];
+
+    /// <summary>
+    /// 傷の前線の再生（VFC、2026-11-18 ユーザーの指定）: 体に付いている部位（<paramref name="attached"/> が真の剛体。破片は対象外）の格子で、
+    /// 作ったときに材質があったのに今は違う（空・押し込まれた別の材質）セルのうち 6 近傍に今生きている（材質のある）セルがあるもの、と、
+    /// 材質は元のままで HP が減ったセル（目など）を候補に集め、それぞれ確率で元の材質・表面・満タンの HP に戻す。
+    /// 前線は 1 回の pass で平均 p 層進む（平らな前線）。進める距離 <paramref name="advance"/> [m] を部位のセルの大きさで層に直し、
+    /// k = ceil(層) 回の pass に分けて、各 pass の確率を 層 / k にする（1 回で 1 層を超えて進めるときも、前線を飛ばさない）。
+    /// 候補は pass ごとに全部集めてから抽選する（同じ pass の中で連鎖させない = 順序に依らない）。部位の順・セルの番号の順に
+    /// <paramref name="random"/> を引くので、同じ種なら同じ結果（CLAUDE.md §1.6）。
+    /// 切り株も対象: 切れ目の先（破片へ移って空になった所）も元の形まで伸びる。骨が近い側から続いて埋まり直した所まで、筋肉の断面を測る
+    /// 範囲（<see cref="_cutAt"/>）を伸ばし、骨が元の遠い端まで戻ったら切れ目を消して <see cref="RegrowResult.Reconnected"/> に返す
+    /// （その先の部位を生え直させるのは呼び出し側: <see cref="Fighter.Regrow"/>）。
+    /// </summary>
+    /// <returns>戻したセルの数と、骨が遠い端までつながり直した部位。</returns>
+    public RegrowResult Regrow(Random random, float advance, Func<int, bool> attached)
+    {
+        ArgumentNullException.ThrowIfNull(random);
+        ArgumentNullException.ThrowIfNull(attached);
+        if (!(advance > 0f))
+        {
+            return new RegrowResult(0, []);
+        }
+
+        var restored = 0;
+        List<VoxelPart>? reconnected = null;
+        foreach (var part in _parts)
+        {
+            if (!attached(part.Body.BodyId) || !_originals.TryGetValue(part, out var original)
+                || (_grownAt.TryGetValue(part, out var grown) && grown == part.Body.Grid.Version))
+            {
+                continue;
+            }
+
+            var grid = part.Body.Grid;
+            var cell = (grid.CellSize.X + grid.CellSize.Y + grid.CellSize.Z) / 3f;
+            var layers = advance / cell;
+            var passes = Math.Max(1, (int)MathF.Ceiling(layers));
+            var chance = layers / passes;
+            var before = restored;
+            for (var pass = 0; pass < passes; pass++)
+            {
+                CollectRegrowth(grid, original.Materials, _regrowCandidates);
+                if (_regrowCandidates.Count == 0)
+                {
+                    break;
+                }
+
+                foreach (var i in _regrowCandidates)
+                {
+                    if (random.NextSingle() < chance && grid.Reset(i, original.Materials[i], original.Surface[i]))
+                    {
+                        restored++;
+                    }
+                }
+            }
+
+            if (restored > before)
+            {
+                part.Body.UpdateMass();
+                if (AdvanceCut(part))
+                {
+                    (reconnected ??= []).Add(part);
+                }
+            }
+
+            CollectRegrowth(grid, original.Materials, _regrowCandidates);
+            if (_regrowCandidates.Count == 0)
+            {
+                _grownAt[part] = grid.Version; // 戻す所が無い（新しく傷つくまで飛ばす）
+            }
+        }
+
+        return new RegrowResult(restored, reconnected ?? []);
+    }
+
+    /// <summary>
+    /// 前線の再生の候補（<see cref="Regrow"/>）: 作ったときに材質があり、今の材質が違って 6 近傍に生きているセルがあるか、材質は同じで HP が減ったセル。
+    /// </summary>
+    private static void CollectRegrowth(VoxelGrid grid, byte[] original, List<int> candidates)
+    {
+        candidates.Clear();
+        var (nx, ny, nz) = grid.Dimensions;
+        var palette = grid.Palette;
+        for (var i = 0; i < original.Length; i++)
+        {
+            var was = original[i];
+            if (was == 0)
+            {
+                continue;
+            }
+
+            var now = grid.AtIndex(i);
+            if (now == was)
+            {
+                if (grid.HealthAt(i) < palette[was].Toughness)
+                {
+                    candidates.Add(i);
+                }
+
+                continue;
+            }
+
+            var (x, y, z) = grid.Coordinates(i);
+            if ((x > 0 && grid.AtIndex(i - 1) != 0) || (x < nx - 1 && grid.AtIndex(i + 1) != 0)
+                || (y > 0 && grid.AtIndex(i - nx) != 0) || (y < ny - 1 && grid.AtIndex(i + nx) != 0)
+                || (z > 0 && grid.AtIndex(i - (nx * ny)) != 0) || (z < nz - 1 && grid.AtIndex(i + (nx * ny)) != 0))
+            {
+                candidates.Add(i);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 切り株 <paramref name="part"/> の骨が、体に近い端から続いて埋まり直した所まで、筋肉の断面を測る範囲（<see cref="_cutAt"/>）を伸ばす。
+    /// 骨が作ったときの遠い端まで戻ったら切れ目を消し、遠い側の関節を受け直す（<see cref="_holdsFarEnd"/>。上腕・腿・すね）。つながり直したら true。
+    /// </summary>
+    private bool AdvanceCut(VoxelPart part)
+    {
+        var id = part.Body.BodyId;
+        var budding = _regrowing.Contains(id);
+        if (part.Kind == BodyPartKind.Head || part.SeverAxis is not { } axis || !_boneSpan.TryGetValue(id, out var span)
+            || (!_cutAt.TryGetValue(id, out var cut) && !budding))
+        {
+            return false; // 首は対象外（頭が離れたら死: 死んだ体は再生しない）
+        }
+
+        var grid = part.Body.Grid;
+        var slices = axis == 0 ? grid.Dimensions.X : axis == 1 ? grid.Dimensions.Y : grid.Dimensions.Z;
+        var bone = new bool[slices];
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            var m = grid.AtIndex(i);
+            if (m != 0 && grid.Palette[m].Tissue == VoxelTissue.Bone)
+            {
+                var (x, y, z) = grid.Coordinates(i);
+                bone[axis == 0 ? x : axis == 1 ? y : z] = true;
+            }
+        }
+
+        var step = part.DistalHigh ? 1 : -1;
+        var near = part.DistalHigh ? span.Low : span.High;
+        var far = part.DistalHigh ? span.High : span.Low;
+        var reach = near - step;
+        while (reach != far && bone[reach + step])
+        {
+            reach += step;
+        }
+
+        if (reach == far)
+        {
+            _cutAt.Remove(id);
+            _regrowing.Remove(id);
+            if (part.Kind is BodyPartKind.UpperArm or BodyPartKind.Thigh or BodyPartKind.Shin)
+            {
+                _holdsFarEnd.Add(id);
+            }
+
+            return true;
+        }
+
+        if (!budding)
+        {
+            _cutAt[id] = part.DistalHigh ? Math.Max(cut, reach) : Math.Min(cut, reach);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 芽から生え直している部位（<see cref="Rebud"/>）: 骨が元の遠い端まで戻るまで、その部位は「つながり直していない」（腕・脚は駆動しない）。
+    /// 筋肉の断面（<see cref="Muscle"/>）は切れ目で区切らず全長で測る（芽はまだ肉が無いので力も無い）。
+    /// </summary>
+    private readonly HashSet<int> _regrowing = [];
+
+    /// <summary>部位の骨が、作ったときの両端までつながっているか（切れ目も、芽からの生え直しの途中でもない）。知らない剛体なら true。</summary>
+    public bool BoneWhole(int bodyId) => !_cutAt.ContainsKey(bodyId) && !_regrowing.Contains(bodyId);
+
+    /// <summary>
+    /// 体から外れていた部位 <paramref name="bodyId"/>（肘から先・膝から先・足首から先: <see cref="Fighter.Reconnect"/>）を、芽から生え直させる:
+    /// 関節の側（部位のローカルの <paramref name="jointLocal"/> の向き。いちばん大きい成分の軸）の、作ったときにセルがあった端の 1 層だけを残し、
+    /// それより先の中身は同じ位置・向きのまま新しい剛体（破片）へ移して床に残す（<see cref="VoxelBody.SplitAt"/>: 質量・速度・当たりの組を写す）。
+    /// 残した 1 層は元の材質・満タンの HP に戻す（芽）。その後は前線の再生（<see cref="Regrow"/>）で芽から先へ伸びる。
+    /// 骨のある部位は、骨が元の遠い端まで戻るまで「生え直しの途中」（<see cref="BoneWhole"/> が false）。床に残した破片を返す（何も無ければ null）。
+    /// </summary>
+    public VoxelPart? Rebud(int bodyId, Vector3 jointLocal)
+    {
+        if (!_byBody.TryGetValue(bodyId, out var part) || !_originals.TryGetValue(part, out var original))
+        {
+            return null;
+        }
+
+        var local = jointLocal - part.Body.GridCenterLocal;
+        var abs = Vector3.Abs(local);
+        var axis = abs.X >= abs.Y && abs.X >= abs.Z ? 0 : abs.Y >= abs.Z ? 1 : 2;
+        var high = (axis == 0 ? local.X : axis == 1 ? local.Y : local.Z) > 0f;
+        var grid = part.Body.Grid;
+        int low = int.MaxValue, top = -1;
+        for (var i = 0; i < original.Materials.Length; i++)
+        {
+            if (original.Materials[i] != 0)
+            {
+                var (x, y, z) = grid.Coordinates(i);
+                var slice = axis == 0 ? x : axis == 1 ? y : z;
+                low = Math.Min(low, slice);
+                top = Math.Max(top, slice);
+            }
+        }
+
+        if (top < 0)
+        {
+            return null;
+        }
+
+        var bud = high ? top : low;
+        var piece = part.Body.SplitAt(axis, bud, takeHigh: !high);
+        VoxelPart? fragment = null;
+        if (piece is not null)
+        {
+            piece.BeamAxis = part.SeverAxis;
+            fragment = new VoxelPart(part.Kind, piece, VoxelVolume.For(piece.Grid), part.SeverAxis, part.DistalHigh, bodyId);
+            _fragments.Add(fragment);
+        }
+
+        grid = part.Body.Grid;
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            var (x, y, z) = grid.Coordinates(i);
+            if ((axis == 0 ? x : axis == 1 ? y : z) == bud)
+            {
+                grid.Reset(i, original.Materials[i], original.Surface[i]);
+            }
+        }
+
+        part.Body.UpdateMass();
+        _cutAt.Remove(bodyId);
+        _holdsFarEnd.Remove(bodyId);
+        _grownAt.Remove(part);
+        _healedAt.Remove(part);
+        if (part.SeverAxis is not null && _boneSpan.ContainsKey(bodyId))
+        {
+            _regrowing.Add(bodyId);
+        }
+
+        return fragment;
     }
 
     /// <summary>脊髄の 1 セル: どの部位の格子の、どのセルか（首が折れて部位が分かれたら、新しい格子のセルへ付け替える）。</summary>

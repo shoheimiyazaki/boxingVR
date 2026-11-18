@@ -209,7 +209,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 51; // 51: ブランチ claude/spacing-control-features の 50（戦略の層（GamePlan: 得意な間合いの表・傷み・疲れ・試合の時刻から立つ距離と手数。既定のスタイルは不変、名簿の教育で入る）。）と、master の 50（エモート）を合わせた（2026-11-18 のマージ）。 50: 試合の始め・休み・終わりのエモート（動作 60 種・場面の表・勝ち負けの重み・キャラの好み）と、始めの助走・試合の始めの待ち時間・終わりの動作（2026-11-18、docs/BREAK_ROUTINE.md）。名簿の教育に BreakLikes を書いた。TV の試合の始めと決着の後が変わる。 49: master の 43（休み）・44（回し蹴りの高さ）と claude/sword-combat-techniques の 43〜48（剣の型・連続の守り・内側の技・バット）を合わせた（2026-11-18 のマージ）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 52; // 52: 武器を失って拳で戦うボット（DisarmedFallback）が、休みに支給された武器をまた握れば武器の側へ戻る（2026-11-18、指示書 F）。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;

@@ -18,12 +18,17 @@ public sealed class OrganizationMatchTests
     }
 
     [TestMethod]
-    public void VfcRulesCountNoDownsJudgeNothingAndDoNotHeal()
+    public void VfcRulesCountNoDownsJudgeNothingRegrowAndResupply()
     {
         var rules = TvShowRules.Rules(5, 25f, Organizations.Get("vfc"));
         Assert.IsFalse(rules.CountsDowns);
         Assert.IsFalse(rules.JudgesDecision);
-        Assert.AreEqual(0f, rules.RegenVoxelsPerSecond);
+        Assert.AreEqual(0f, rules.RegenVoxelsPerSecond, "no budgeted healing (the WVC model)");
+        Assert.AreEqual(0.0005f, rules.RegrowthSpeed, "wounds grow back from the living edge in the breaks");
+        Assert.AreEqual(0.25f, rules.RegrowthTickSeconds);
+        Assert.AreEqual(3f, rules.StuckDoublingSeconds);
+        Assert.IsTrue(rules.ResupplyWeapons);
+        Assert.AreEqual(20f, rules.BruiseHalfLifeSeconds, "skin bruises fade in the breaks, as in the WVC");
         Assert.AreEqual(5, rules.Rounds);
         Assert.AreEqual(25f, rules.BreakSeconds);
         // MatchRules.Vfc（試合の芯の決まり）と同じ決まりになる。

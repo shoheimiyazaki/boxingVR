@@ -290,14 +290,23 @@ public sealed class Weapon
     private static Weapon Create(PhysicsWorld world, WeaponKind kind, VoxelGrid grid, Vector3 position, Quaternion orientation)
     {
         ArgumentNullException.ThrowIfNull(world);
+        var id = world.AddDynamicBox(position, orientation, grid.HalfExtents, MassOf(grid));
+        return new Weapon(kind, new VoxelBody(world, id, grid));
+    }
+
+    /// <summary>武器 <paramref name="kind"/> を作ったときの質量 [kg]（<see cref="Create(PhysicsWorld, WeaponKind, Vector3, Quaternion)"/> と同じ格子・同じ式）。</summary>
+    public static float MassOf(WeaponKind kind) => MassOf(Build(kind));
+
+    /// <summary>格子の質量 [kg]: ボクセルの材質の密度 × 体積の合計。</summary>
+    private static float MassOf(VoxelGrid grid)
+    {
         var mass = 0f;
         for (var m = 1; m < grid.Palette.Count; m++)
         {
             mass += grid.Remaining((byte)m) * grid.CellVolume * grid.Palette[(byte)m].MechanicsOrDefault.Density;
         }
 
-        var id = world.AddDynamicBox(position, orientation, grid.HalfExtents, mass);
-        return new Weapon(kind, new VoxelBody(world, id, grid));
+        return mass;
     }
 
     /// <summary>

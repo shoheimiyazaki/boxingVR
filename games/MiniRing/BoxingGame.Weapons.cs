@@ -128,6 +128,116 @@ public sealed partial class BoxingGame
     /// <summary>両手持ちで、利き手に添えて下を握る手。</summary>
     public const Hand SupportHand = Hand.Left;
 
+    /// <summary>直近の <see cref="Step"/> で、休みに武器を支給された選手と武器の種類（中継の記録 <c>weapon_supplied</c>）。</summary>
+    public List<WeaponSupplyEvent> RecentSupplies { get; } = [];
+
+    /// <summary>選手ごとの、最後に武器を支給した休み（その休みの前のラウンドの番号）。1 回の休みに 1 本まで。</summary>
+    private readonly Dictionary<Fighter, int> _suppliedAfterRound = [];
+
+    /// <summary>選手ごとの、この試合で武器を支給した回数（<see cref="FighterSense.SelfSupplies"/>）。</summary>
+    private readonly Dictionary<Fighter, int> _supplies = [];
+
+    /// <summary>武器の種類ごとの質量 [kg]（支給する前に、手が保持できるかを見るため。作る物と同じ格子・同じ式）。</summary>
+    private readonly Dictionary<WeaponKind, float> _weaponMass = [];
+
+    /// <summary>手から外した素手の拳を置いておく所（リング・部屋から遠い下。動かない物にして、何にも触れない）。</summary>
+    private static readonly Vector3 RetiredAt = new(0f, -100f, 0f);
+
+    /// <summary>
+    /// 休みの間の武器の支給（<see cref="MatchRules.ResupplyWeapons"/>）: 試合の始めに武器を持っていた選手が、今その武器を握っていない（落とした・
+    /// 折れて捨てた・手を失った）とき、その手が武器を保持できれば（<see cref="Fighter.CanHoldWeapon"/>: 力の抜けていく手が武器を落とすのと同じ式）、
+    /// 同じ種類の新しい武器を、試合の始めと同じ手順（<see cref="Arm"/>）で手に持たせる。休みの間は何度でも調べ、1 回の休みに 1 本まで。
+    /// 床の古い武器・折れた武器はそのまま残す（握っていた人の物ではなくなる）。
+    /// </summary>
+    private void ResupplyWeapons()
+    {
+        Resupply(Player, _corners.PlayerWeapon, _corners.PlayerTwoHanded);
+        Resupply(Cpu, _corners.CpuWeapon, _corners.CpuTwoHanded);
+    }
+
+    private void Resupply(Fighter fighter, WeaponKind? kind, bool twoHanded)
+    {
+        if (kind is not { } weaponKind || fighter.IsDead || fighter.Wields(WeaponHand)
+            || (_suppliedAfterRound.TryGetValue(fighter, out var round) && round == MatchRound))
+        {
+            return;
+        }
+
+        if (!_weaponMass.TryGetValue(weaponKind, out var mass))
+        {
+            mass = Weapon.MassOf(weaponKind);
+            _weaponMass[weaponKind] = mass;
+        }
+
+        if (!fighter.CanHoldWeapon(WeaponHand, mass) || !BareHandFree(fighter, WeaponHand))
+        {
+            return;
+        }
+
+        // 両手持ちの武器は、主の手が保持できれば支給する。添える手は、使えて空いていれば今までどおり添えに行く。
+        var both = twoHanded && !fighter.ArmSevered(SupportHand) && !fighter.Wields(SupportHand) && BareHandFree(fighter, SupportHand);
+        TakeOffBareFist(fighter, WeaponHand);
+        if (both)
+        {
+            TakeOffBareFist(fighter, SupportHand);
+        }
+
+        // 床に落ちた古い武器は、もうこの選手の物ではない（WeaponOf が古い武器を返さない）。
+        foreach (var old in _wielders.Where(w => w.Value == fighter && !Weapon.IsWorn(w.Key.Kind)).Select(w => w.Key).ToList())
+        {
+            _wielders.Remove(old);
+            _wieldHand.Remove(old);
+        }
+
+        Arm(fighter, weaponKind, both);
+        _suppliedAfterRound[fighter] = MatchRound;
+        _supplies[fighter] = _supplies.GetValueOrDefault(fighter) + 1;
+        RecentSupplies.Add(new WeaponSupplyEvent(fighter, weaponKind));
+    }
+
+    /// <summary>手 <paramref name="hand"/> が、何もはめていないか、素手の拳（<see cref="WeaponKind.Fist"/>）だけをはめている（外して武器を握れる）。</summary>
+    private bool BareHandFree(Fighter fighter, Hand hand) => !fighter.WearsGlove(hand) || WornNow(fighter, hand)?.Kind == WeaponKind.Fist;
+
+    /// <summary>
+    /// 手 <paramref name="hand"/> が今はめている物（手の剛体が握っている物）。腕が切れる前にはめていた物は、力の抜けた古い手に付いたまま
+    /// 同じ手の名前で残っているので、<see cref="GloveOf"/> の最初の 1 つではなく、今握っている剛体で選ぶ。
+    /// </summary>
+    private Weapon? WornNow(Fighter fighter, Hand hand)
+    {
+        var held = fighter.WieldedBody(hand);
+        foreach (var (weapon, holder) in _wielders)
+        {
+            if (holder == fighter && Weapon.IsWorn(weapon.Kind) && weapon.Body.BodyId == held)
+            {
+                return weapon;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 手にはめた素手の拳を外す（武器を握る前）。素手の拳はボクセルの手の形で、手から外れたら体の一部ではないので、世界から片付ける:
+    /// 剛体を消す口が無いので、動かない物にして遠い下へ置き、武器の一覧から外す（近道: docs/DEBT.md「VFC の再生と武器の支給」）。
+    /// </summary>
+    private void TakeOffBareFist(Fighter fighter, Hand hand)
+    {
+        if (!fighter.WearsGlove(hand) || WornNow(fighter, hand) is not { } worn || fighter.DeadHandOn(worn.Body.BodyId) is not null)
+        {
+            return;
+        }
+
+        fighter.Unwield(hand);
+        _weapons.Remove(worn);
+        _wielders.Remove(worn);
+        _wieldHand.Remove(worn);
+        _reach.Remove(worn);
+        _weaponCooldown.Remove(worn);
+        _selfCooldown.Remove(worn);
+        _world.MakeKinematic(worn.Body.BodyId);
+        _world.SetKinematicPose(worn.Body.BodyId, RetiredAt);
+    }
+
     /// <summary>
     /// <paramref name="fighter"/> の右手のグローブを外し、<paramref name="kind"/> の武器を握らせる（<see cref="Fighter.Wield"/>）。
     /// <paramref name="twoHanded"/> なら左手のグローブも外し、右手の下（握りの端の側）に添えさせる（<see cref="Fighter.Support"/>。
@@ -217,7 +327,7 @@ public sealed partial class BoxingGame
 
         var held = WeaponOf(self) is { } mine && HolderOf(mine) == self ? mine : null;
         var own = held is null ? default : OwnWeaponSense(held, self);
-        return sense with { OpponentBlade = blade, SelfArmed = held is not null, SelfWeapon = own };
+        return sense with { OpponentBlade = blade, SelfArmed = held is not null, SelfWeapon = own, SelfSupplies = _supplies.GetValueOrDefault(self) };
     }
 
     /// <summary>握っている武器の見え方: 長さと、今実際にある握りの位置・向き（手に感じる剣）。</summary>

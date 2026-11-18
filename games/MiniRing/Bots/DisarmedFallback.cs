@@ -1,8 +1,9 @@
 namespace MiniRing.Bots;
 
 /// <summary>
-/// 武器で戦う操作元に、武器を失ったら拳で戦う操作元をつなぐ。<see cref="FighterSense.SelfArmed"/> が false になったら（握っていた腕が
-/// 落ちた・武器を放した）、それからは拳のボット（<see cref="Fists"/>）に代わる（落とした武器は拾わない）。
+/// 武器で戦う操作元に、武器を失ったら拳で戦う操作元をつなぐ。<see cref="FighterSense.SelfArmed"/> が false の間（握っていた腕が
+/// 落ちた・武器を放した）、それからは拳のボット（<see cref="Fists"/>）に代わる（落とした武器は拾わない）。休みに新しい武器を支給されて
+/// （<see cref="FighterSense.SelfSupplies"/> が増えた）それを握れば、武器の側へ戻る。
 /// <para>
 /// 折れた武器の判断（2026-11-13）: 武器が折れて短くなったら（<see cref="WeaponSense.Lost"/>）、残った長さ（握る所から先の端まで）を見る。
 /// <see cref="KeepReach"/>（腕の長さの割合）以上残っていれば、短いまま使う（武器のボットは失った長さだけ間合いを詰める）。それより短ければ
@@ -29,6 +30,9 @@ public sealed class DisarmedFallback(IFighterControl armed, IFighterControl fist
     /// <summary>折れた武器を使い続ける、残った長さの下限 [腕の長さ]。</summary>
     public float KeepReach { get; } = keepReach is >= 0f and <= 3f ? keepReach : throw new ArgumentOutOfRangeException(nameof(keepReach));
 
+    /// <summary>最後に見た、武器を支給された回数（<see cref="FighterSense.SelfSupplies"/>）。</summary>
+    private int _supplies;
+
     /// <summary>武器を失って（または捨てて）、拳で戦っている。</summary>
     public bool Disarmed { get; private set; }
 
@@ -46,6 +50,16 @@ public sealed class DisarmedFallback(IFighterControl armed, IFighterControl fist
 
     public FighterCommand Read(in FighterSense sense, float dt)
     {
+        // 一度失えば拳で戦う（落とした武器は拾わない）。休みに新しい武器を支給されて（MatchRules.ResupplyWeapons。SelfSupplies が増えた）
+        // それを握っていれば、武器で戦う側へ戻る。支給の無い試合では今までと同じ。
+        if (Disarmed && sense.SelfArmed == true && sense.SelfSupplies > _supplies)
+        {
+            Disarmed = false;
+            Discarded = false;
+            FightsWithBrokenWeapon = false;
+        }
+
+        _supplies = sense.SelfSupplies;
         Disarmed |= sense.SelfArmed == false;
         if (Disarmed)
         {

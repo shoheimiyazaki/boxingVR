@@ -50,18 +50,24 @@ internal static class TvShowRules
 
     /// <summary>
     /// 団体の決まり（<see cref="Organization.CountsDowns"/>・<see cref="OrgMatch"/>）を重ねたテレビ中継の決まり。WVC は <see cref="Rules(int, float)"/> と同じ値、
-    /// VFC はダウンを数えず・判定せず・休みに治らない（<see cref="MatchRules.Vfc"/> と同じ決まり）。撮影と下見（tvscout）が同じものを使う。
+    /// VFC はダウンを数えず・判定せず・休みに傷が前線の再生で少しずつ戻り、失った武器を支給する（<see cref="MatchRules.Vfc"/> と同じ決まり）。撮影と下見（tvscout）が同じものを使う。
     /// </summary>
     public static MatchRules Rules(int rounds, float breakSeconds, Organization org)
     {
         ArgumentNullException.ThrowIfNull(org);
         var rules = Rules(rounds, breakSeconds);
+        var regrowth = org.Match.Regrowth;
         return rules with
         {
             CountsDowns = org.CountsDowns,
             JudgesDecision = org.Match.JudgesDecision,
             RegenVoxelsPerSecond = org.Match.Regenerates ? rules.RegenVoxelsPerSecond : 0f,
-            BruiseHalfLifeSeconds = org.Match.Regenerates ? rules.BruiseHalfLifeSeconds : 0f,
+            // 皮膚のあざは、体が休みに治る団体（予算でも前線でも）では休みに引く。
+            BruiseHalfLifeSeconds = org.Match.Regenerates || regrowth is { Speed: > 0f } ? rules.BruiseHalfLifeSeconds : 0f,
+            RegrowthSpeed = regrowth?.Speed ?? 0f,
+            RegrowthTickSeconds = regrowth?.TickSeconds ?? rules.RegrowthTickSeconds,
+            StuckDoublingSeconds = regrowth?.StuckDoublingSeconds ?? 0f,
+            ResupplyWeapons = org.Match.ResupplyWeapons,
         };
     }
 
