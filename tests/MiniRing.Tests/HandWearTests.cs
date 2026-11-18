@@ -193,7 +193,10 @@ public sealed class HandWearTests
         Assert.IsLessThan(0.6f, glove, "a padded glove barely breaks the skin");
         // 2026-11-18（PhysicsVersion 51）: 素手の拳を木の物性にしたので、腕の押す力が拳から伝わり（硬い面）、1 発の削れが 0.71 セル/発に増えた。
         // 鉄の面（グローブ + 1.5 以上）よりはずっと少ない。上限を 1 にした。
-        Assert.IsLessThan(1f, bare, "a wood-hard bare fist breaks a little more than skin, far less than iron");
+        // 2026-11-19（PhysicsVersion 51、master の体の運び・床からの支えと合わせた）: 素手 1.64・グローブ 0.34・鉄の拳 13.0・籠手 11.7 セル/発。
+        // 素手の絶対値は体の物理が変わるたびに動くので、主張（皮膚より硬く、鉄よりずっと柔らかい）をはめる物どうしの比で書く: グローブより多く、鉄の面の 1/4 未満。
+        Assert.IsGreaterThan(glove, bare, "a wood-hard bare fist breaks more than a padded glove");
+        Assert.IsLessThan(0.25f * Math.Min(PerHit(HandWear.KnuckleDuster), PerHit(HandWear.Gauntlet)), bare, "a wood-hard bare fist breaks far less than iron");
         Assert.IsGreaterThan(glove + 1.5f, PerHit(HandWear.KnuckleDuster), "iron knuckles crush more than a padded glove");
         Assert.IsGreaterThan(glove + 1.5f, PerHit(HandWear.Gauntlet), "iron plates crush more than a padded glove");
         Assert.IsGreaterThan(2f * Math.Max(PerHit(HandWear.KnuckleDuster), PerHit(HandWear.Gauntlet)), PerHit(HandWear.Katar),

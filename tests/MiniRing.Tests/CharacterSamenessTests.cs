@@ -28,12 +28,12 @@ public sealed class CharacterSamenessTests
     // 消えていたので戻した（glove-glove-referee は d6b1257 で取り直した値と同じ。katar-gauntlet-referee の終わりも同じ理由。レフェリーなしの組は変わらない）。
     private static readonly Dictionary<string, (ulong Half, ulong End)> Expected = new()
     {
-        ["glove-glove-referee"] = (0x8E8A6398B40811D1, 0xE1F153E03490E042),
-        ["glove-glove-noref"] = (0x710FC46D93ED6EBB, 0x15DB19A131B65663),
-        ["karate-swarmer-noref"] = (0x9378C81D09D2BC18, 0x876C9340F066A874),
+        ["glove-glove-referee"] = (0x8E86AF3E1726587C, 0x7150FEA7F1EFBC19),
+        ["glove-glove-noref"] = (0x339FC49AEAC581A2, 0x2C396EB848BC732E),
+        ["karate-swarmer-noref"] = (0x7C5ED8FE17023E1B, 0x9E0358A74FBE5099),
         ["katana-longsword-noref"] = (0x6BED8BFEDFAD8145, 0xEB29218E49C9976A),
         ["club-bare-noref"] = (0xE95C812870158AA2, 0x98E62EE9733D55F5),
-        ["katar-gauntlet-referee"] = (0xC165E06C397E6CD8, 0x73298ECC81939BA1),
+        ["katar-gauntlet-referee"] = (0x3E15B38E541FC82C, 0x5F4DB2ED884D99FF),
         ["single-counter-vs-knuckles-noref"] = (0xFA7A4F938691A3B7, 0x88378B0560BB2021),
         ["single-karate-vs-katana"] = (0xE5219015452B4908, 0xAF7721020535A2AE),
     };
@@ -139,7 +139,7 @@ public sealed class CharacterSamenessTests
     {
         ["glove-glove-referee"] = (0x8E8A6398B40811D1, 0xE1F153E03490E042),
         ["glove-glove-noref"] = (0x710FC46D93ED6EBB, 0x15DB19A131B65663),
-        ["karate-swarmer-noref"] = (0xDD2C95E787C8CC38, 0x4A0E70403D9595A4),
+        ["karate-swarmer-noref"] = (0x9378C81D09D2BC18, 0x876C9340F066A874),
         ["katar-gauntlet-referee"] = (0xC165E06C397E6CD8, 0x73298ECC81939BA1),
     };
 
