@@ -179,7 +179,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 47; // 47: master の 46（ステップ・5.3 m のリング）と、ブランチ claude/throwing-grappling-mechanics の 43・44（床からの支え・釣り合い・起き上がり・床の衝撃・投げ。claude/merge-grappling では 46）を合わせた（2026-11-18 のマージ）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 48; // 48: マージ後の直し（体重を受ける足は裏全体を支えに・縦軸のねじりは減らさない・脚を指令で動かす間は軸足を振り出さない・床の衝撃は触れた面の中心で頭は頭の運動量だけ回す）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1692,7 +1692,8 @@ public sealed partial class Fighter
         var reach = MathF.Sqrt(MathF.Max(0f, (legLength * legLength) - (drop * drop)));
         var input = new FootworkInput(_facingYaw, new Vector2(pelvis.Position.X, pelvis.Position.Z), new Vector2(pelvis.LinearVelocity.X, pelvis.LinearVelocity.Z),
             omega, new Vector2(intent.X, intent.Z), twist, weight, legLength,
-            lead.ReachRatio > 0.995f, _legParts[Footwork.Rear].ReachRatio > 0.995f, BallOnGround(lead), BallOnGround(_legParts[Footwork.Rear]), MathF.Max(0.3f * legLength, reach));
+            lead.ReachRatio > 0.995f, _legParts[Footwork.Rear].ReachRatio > 0.995f, BallOnGround(lead), BallOnGround(_legParts[Footwork.Rear]), MathF.Max(0.3f * legLength, reach),
+            LegHeld: _legParts[0].Command is { IsKneeControl: true } || _legParts[1].Command is { IsKneeControl: true });
         if (_tuning.SupportFromGround)
         {
             // 支えが床から出る体では、倒れていくのは上体の傾きを含む全身の重心: 捕捉点を重心から出す（Fighter.Support.cs）。

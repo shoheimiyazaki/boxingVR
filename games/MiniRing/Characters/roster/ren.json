@@ -1,6 +1,7 @@
 {
   "id": "ren",
   "order": 17,
+  "org": "wvc",
   "name": "白石 蓮",
   "reading": "シライシ レン",
   "hudName": "レン",
@@ -71,6 +72,30 @@
     "weapon": null
   },
   "textbook": "jujutsu",
-  "education": { "style": {}, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "BreakLikes": { "bow": 3.5, "deepbreath": 2.5, "stretcharms": 2, "forwardbend": 2, "handshake": 2, "neckroll": 1.5, "onigiri": 1.5, "roar": 0.2, "blowkiss": 0, "selfie": 0.3, "dance": 0.3 },
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 16.744, "Taken": 10.04 },
+          { "Cm": 17, "Dealt": 13.616, "Taken": 13.777 },
+          { "Cm": 19, "Dealt": 11.8, "Taken": 14.889 },
+          { "Cm": 21, "Dealt": 12.167, "Taken": 14.666 },
+          { "Cm": 23, "Dealt": 9.053, "Taken": 12.231 },
+          { "Cm": 25, "Dealt": 8.551, "Taken": 8.467 },
+          { "Cm": 27, "Dealt": 3.545, "Taken": 5.684 },
+          { "Cm": 29, "Dealt": 2.645, "Taken": 5.478 },
+          { "Cm": 31, "Dealt": 0.791, "Taken": 2.411 },
+          { "Cm": 33, "Dealt": 0.496, "Taken": 1.155 },
+          { "Cm": 35, "Dealt": 0.714, "Taken": 1.544 },
+          { "Cm": 37, "Dealt": 0.089, "Taken": 1.359 },
+          { "Cm": 39, "Dealt": 0.234, "Taken": 0.088 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

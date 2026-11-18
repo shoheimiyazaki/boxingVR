@@ -19,8 +19,16 @@ public sealed class DownRecoveryTests
         var heights = levels.Select(SettledPelvis).ToArray();
         Console.WriteLine(string.Join(", ", levels.Zip(heights, (c, h) => $"consciousness {c:0.00} → pelvis {h:P0}")));
 
+        // 意識が KO の線（0.3）を下回った体は倒れて起き上がろうとし、試みの分（StirReach × Stir、最大 0.3）だけ腰を上げる（意志のモデル、CLAUDE.md §8）。
+        // 立ったまま張りが抜けて沈む体（0.6 → 0.4）と、倒れて試みる体（0.25 → 0.1）は別の働きなので、それぞれの中で「意識が低いほど腰が低い」を見る
+        // （2026-11-18、床から支える体: 0.4 は 67 %・0.25 は 73 %。腰を上げられる高さ StandReach は 0.78 → 0.61 と単調に下がっている）。
         for (var i = 1; i < heights.Length; i++)
         {
+            if (levels[i - 1] >= 0.3f && levels[i] < 0.3f)
+            {
+                continue;
+            }
+
             Assert.IsLessThan(heights[i - 1] + 0.03f, heights[i], $"lower consciousness, lower hips ({levels[i]})");
         }
 
@@ -65,7 +73,8 @@ public sealed class DownRecoveryTests
         Assert.IsNotNull(kneelAt);
         Assert.IsNotNull(uprightAt);
         Assert.IsGreaterThan(0.6f, uprightAt.Value - kneelAt.Value, "rises gradually, not in one pop");
-        Assert.IsGreaterThan(0.35f, consciousnessWhenStanding, "stands only once consciousness has come back");
+        // 立ち直りの条件は意識が KnockoutConsciousness 以上（Fighter.TickDown）。起き上がろうとする試み（Stir）が腰を上げる分、線のすぐ上（0.33）で立つ。
+        Assert.IsGreaterThanOrEqualTo(FighterTuning.Default.KnockoutConsciousness, consciousnessWhenStanding, "stands only once consciousness has come back above the knockout line");
     }
 
     private static float SettledPelvis(float consciousness)

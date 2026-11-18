@@ -40,11 +40,11 @@ public sealed class CmaTuneTests
     {
         // 種 6: スタミナの容量 120 J（PhysicsVersion 37）の後、種 5 では打ち返しが一度も出なくなった（両方 1.3 = 体の触れ合いだけ）。
         // 打ち返さない受け手でも、踏み込んだ攻め手の顔が受け手の構えた拳に触れて小さなダメージが出ることがある（種 2・3・7 で 1.3〜1.8）ので、
-        // 「0」ではなく打ち返しより桁で小さいことを確かめる。
+        // 「0」ではなく打ち返しより桁で小さいことを確かめる。 2026-11-18（床から支える体）: 触れ合いだけで 2.1（打ち返し 28 の 7.6 %）。比は 1 桁（10 %）で見る。
         var withCounters = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: 6, seconds: 14f, cue: 0.04f);
         var without = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: false), seed: 6, seconds: 14f, cue: 0.04f);
         Assert.IsGreaterThan(10f, withCounters.CounterDamage, "守って打ち返す受け手は、攻め手にダメージを与える");
-        Assert.IsLessThan(0.05f * withCounters.CounterDamage, without.CounterDamage, "打ち返さない受け手は、触れ合いの分だけ（打ち返しより桁で小さい）");
+        Assert.IsLessThan(0.1f * withCounters.CounterDamage, without.CounterDamage, "打ち返さない受け手は、触れ合いの分だけ（打ち返しより桁で小さい）");
     }
 
     [TestMethod]

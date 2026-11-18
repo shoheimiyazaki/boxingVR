@@ -16,7 +16,7 @@ try
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out", "hz", "passes", "sample", "referee")),
         "handlelab" => HandleLabCommand(Options.Parse(argv[1..], "pairs", "fist", "bouts", "seconds", "seed", "referee", "parallel", "out", "style-katana", "style-longsword", "style-club", "style-staff", "style-swordshield", "style-bat", "title")),
         "handlespar" => HandleSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "held-out", "gens", "lambda", "bouts", "seconds", "seed", "referee", "parallel", "start", "best", "out")),
-        "maailab" => MaaiLabCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "parallel", "out", "json", "csv", "ranges")),
+        "maailab" => MaaiLabCommand(Options.Parse(argv[1..], "chars", "focus", "bouts", "seconds", "seed", "referee", "parallel", "out", "json", "csv", "ranges")),
         "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain", "wear", "matrix", "gameplan")),
         "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
         "learnlab" => LearnLabCommand(Options.Parse(argv[1..], "first", "second", "seeds", "seconds", "seed", "prior", "scale", "combos", "defender", "out")),
@@ -150,8 +150,12 @@ static int MaaiLabCommand(Options o)
     var referee = Referee(o);
     var watch = Stopwatch.StartNew();
     var cells = new List<MaaiLab.RangeCell>();
-    var throws = MaaiLab.Collect(roster, bouts, seconds, seed, referee, o.Int("parallel", 2, min: 1), Console.Error, cells);
-    var boutCount = roster.Count * (roster.Count - 1) / 2 * bouts;
+    // --focus a,b: その選手が入る組だけ（名簿に足した選手の表を、ほかの選手の組を打ち直さずに測る）。
+    var focus = o.Get("focus") is null ? null : o.List("focus", []).ToHashSet(StringComparer.Ordinal);
+    var throws = MaaiLab.Collect(roster, bouts, seconds, seed, referee, o.Int("parallel", 2, min: 1), Console.Error, cells, focus);
+    var others = focus is null ? 0 : roster.Count(c => !focus.Contains(c.Id));
+    var pairs = (roster.Count * (roster.Count - 1) / 2) - (others * (others - 1) / 2);
+    var boutCount = pairs * bouts;
     var summary = MaaiLab.Summarize(roster, throws);
     var (rangeBins, rangeSummary) = MaaiLab.Ranges(roster, cells, throws);
     var text = MaaiLab.Markdown(summary, bouts, seconds, seed, referee, boutCount, throws.Count) + MaaiLab.RangesMarkdown(rangeSummary);

@@ -209,7 +209,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 52; // 52: master の 51（エモート・GamePlan）と、ブランチ claude/throwing-grappling-mechanics の 42（蹴る前に軸足へ乗る・立ったまま倒れた相手を突く/踏む・柔術家。claude/merge-grappling では 50）を合わせた（2026-11-18 のマージ）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 53; // 53: 蹴りの差分を体重を軸足へ移す蹴り方で練習し直した（Bots/kicks/*.tune.json）・手作りの回し蹴りの膝の通り道。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;

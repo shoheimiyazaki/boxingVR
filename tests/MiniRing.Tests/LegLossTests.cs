@@ -27,9 +27,15 @@ public sealed class LegLossTests
         Assert.AreEqual(full, cpu.LegSupportLength(false), "the other leg is whole");
         Assert.IsTrue(cpu.CanStand, "a stump still holds the body up");
 
-        Play(game, 8f);
+        // 切った直後は、残った脚と切り株で立って戦い続ける。
+        // 8 秒後に立っているかは見ない: 切り株の体は足の運びで踏み直せず（脚を失った体も釣り合いのモデルを通る、CLAUDE.md §8「脚を失った体」(8)）、
+        // 支えは短い切り株と片足の小さな多角形だけで、相手へ歩み寄る体は 2〜7 秒のうちに支えの外へ出て倒れる（種 1〜8 のどれも。
+        // 足の運び・支えの変更の前の物理でも同じ）。この試験が前に通っていたのは、1 歩ずれると変わる偶然（種 2・60 歩の待ちで 1 歩ずらすと落ちる）。
+        // 倒れた後に起き上がれないのは別の課題。この試験が確かめるのは切り株の高さ（腰が下りる量）と、切った直後に立てること。
+        Play(game, 1f);
+        Assert.AreEqual(FighterState.Standing, cpu.State, "back on the stump and fighting right after the cut");
+        Play(game, 7f);
         TestContext.WriteLine($"standing {standing:F3}  now {cpu.PelvisPosition.Y:F3}  shortfall {cpu.LegShortfall:F3}  state {cpu.State}  hover {cpu.HoverHeight:F3}");
-        Assert.AreEqual(FighterState.Standing, cpu.State, "back on the stump and fighting, not counted out");
         Assert.IsFalse(game.RoundOver && game.PlayerWins > 0, "the round does not end on the lost leg");
         var drop = standing - cpu.PelvisPosition.Y;
         Assert.IsGreaterThan(0.5f * cpu.LegShortfall, drop, "the hips come down to where the stump meets the floor");

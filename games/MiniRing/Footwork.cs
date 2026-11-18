@@ -179,9 +179,10 @@ public readonly record struct FootPose(Vector3 Ball, float Yaw, float HeelRaise,
 /// <param name="HipOffset">股（脚の付け根）の体の中心からの横のずれ [m]。届く範囲の中心は左右の脚でこれだけずれる。</param>
 /// <param name="Com">全身の重心の水平位置（捕捉点はこれから出す。null なら骨盤 <paramref name="Body"/>）。上体が傾いて倒れていくのは、骨盤より重心に出る。</param>
 /// <param name="ComVelocity">全身の重心の水平速度（null なら骨盤の速度）。</param>
+/// <param name="LegHeld">どちらかの脚を膝の制御の指令（<see cref="LegCommand.IsKneeControl"/>）が動かしている。その間は新しい 1 歩を踏み出さない（残る足が軸足）。</param>
 public readonly record struct FootworkInput(float FacingYaw, Vector2 Body, Vector2 BodyVelocity, float Omega, Vector2 Intent, float Twist, float Weight, float LegLength,
     bool LeadOverreach = false, bool RearOverreach = false, Vector2? LeadBall = null, Vector2? RearBall = null, float Reach = 0f, float HipOffset = 0f,
-    Vector2? Com = null, Vector2? ComVelocity = null);
+    Vector2? Com = null, Vector2? ComVelocity = null, bool LegHeld = false);
 
 /// <summary>
 /// 足の置き場所を決めるモデル（倒立振子 + 構え）。ボクサーは左足が常に前（オーソドックス）。
@@ -351,9 +352,18 @@ public sealed class Footwork
 
         need[Lead] |= input.LeadOverreach;
         need[Rear] |= input.RearOverreach;
+
         // 捕捉点が両足を結ぶ線（支え）から外れたら、倒れる向きの足から踏み出して受け止める。
         var off = DistanceToSegment(capture, _ball[Lead], _ball[Rear]);
         var falling = off > t.CaptureMargin * leg;
+        // 片方の脚を膝の制御で動かしている間（回し蹴り・前蹴りの膝の経路）は、構えを直す 1 歩は踏まない: 残る足は体重を受ける唯一の軸足で、
+        // それを振り出せば体を支える足が無くなる（床からの支えの体では、その間に崩れた）。倒れていく（捕捉点が支えの外）ときだけ、
+        // 軸足で跳んで受け止める。蹴る脚は指令が動かす。足首の目標で蹴る蹴り（後ろ蹴り・かかと落とし・横蹴り）は対象外: 体が大きく回る間、
+        // 軸足は向きを追って踏み直す（向きの誤差の歩）。止めると、体は踏み替えない足の上でねじれ、後ろ蹴りが当たらず（0 回）、かかと落としで体が 0.75 rad 回った。
+        if (input.LegHeld && !falling)
+        {
+            return;
+        }
         if (!need[Lead] && !need[Rear] && !falling)
         {
             return;

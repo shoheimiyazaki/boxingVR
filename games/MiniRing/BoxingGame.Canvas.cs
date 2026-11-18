@@ -111,7 +111,7 @@ public sealed partial class BoxingGame
                     continue;
                 }
 
-                var (lowest, lowY) = LowestCorner(fighter, id, s);
+                var (lowest, lowY) = LowestCorner(fighter, id, s, _tuning.SupportContactGap);
                 if (lowY > touch)
                 {
                     continue;
@@ -185,8 +185,12 @@ public sealed partial class BoxingGame
         var twist = 0f;
         if (episode.Id == fighter.Parts.Head)
         {
+            // 頭を回すのは頭そのものを止めた力積（頭の質量 × 止まった速さ）まで。部位へ分けた力積には首を通って乗ってくる体の重さも入るが、
+            // その分は首から体へ伝わって体を止める力で、頭の重心まわりには回さない（全部を頭の角に掛けると、倒れただけで 280 rad/s 回り、
+            // 脳しんとうが 1.2 → 3.9 に跳ねて 16 秒たっても意識が戻らなかった）。
             var head = _world.GetState(episode.Id);
-            fighter.TwistHead(Vector3.Cross(episode.Point - head.Position, new Vector3(0f, episode.Impulse, 0f)));
+            var own = MathF.Min(episode.Impulse, _world.GetMass(episode.Id) * episode.Stop);
+            fighter.TwistHead(Vector3.Cross(episode.Point - head.Position, new Vector3(0f, own, 0f)));
             twist = fighter.LastHeadTwist;
         }
 
@@ -197,23 +201,34 @@ public sealed partial class BoxingGame
         Landed?.Invoke(impact);
     }
 
-    private static (Vector3 Point, float Y) LowestCorner(Fighter fighter, int id, Aigis.Physics.BodyState s)
+    /// <summary>
+    /// 部位が床に触れている所: 一番低い角の高さと、床から <paramref name="gap"/> 以内にある角の真ん中（床が押す力の合力の点）。
+    /// 平らに落ちた面は面の真ん中を押される（一番低い角 1 点を押されるとすると、後頭部から平らに落ちただけで頭が角を軸に強く回った）。
+    /// </summary>
+    private static (Vector3 Point, float Y) LowestCorner(Fighter fighter, int id, Aigis.Physics.BodyState s, float gap)
     {
         var half = fighter.HalfExtentsOf(id);
-        var best = s.Position;
-        var bestY = float.PositiveInfinity;
+        Span<Vector3> corners = stackalloc Vector3[8];
+        var lowY = float.PositiveInfinity;
         for (var i = 0; i < 8; i++)
         {
             var corner = new Vector3((i & 1) == 0 ? -half.X : half.X, (i & 2) == 0 ? -half.Y : half.Y, (i & 4) == 0 ? -half.Z : half.Z);
-            var p = s.Position + Vector3.Transform(corner, s.Orientation);
-            if (p.Y < bestY)
+            corners[i] = s.Position + Vector3.Transform(corner, s.Orientation);
+            lowY = MathF.Min(lowY, corners[i].Y);
+        }
+
+        var sum = Vector3.Zero;
+        var count = 0;
+        foreach (var p in corners)
+        {
+            if (p.Y <= lowY + gap)
             {
-                bestY = p.Y;
-                best = p;
+                sum += p;
+                count++;
             }
         }
 
-        return (best, bestY);
+        return (sum / count, lowY);
     }
 }
 

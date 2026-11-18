@@ -76,7 +76,7 @@ public sealed class CharacterRosterTests
     public void Roster_HoldsTheDecidedTwelve_WithTheirEquipmentStyleAndBody()
     {
         var all = CharacterRoster.All;
-        Assert.HasCount(17, all);
+        Assert.HasCount(18, all); // 2026-11-18: 柔術家 ren を足して 18 人
         CollectionAssert.AreEqual(Decided.Select(d => d.Id).ToArray(), all.Select(c => c.Id).ToArray(), "the decided order");
         foreach (var d in Decided)
         {

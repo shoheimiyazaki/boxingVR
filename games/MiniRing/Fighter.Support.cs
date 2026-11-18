@@ -84,10 +84,28 @@ public sealed partial class Fighter
                 continue;
             }
 
+            // 足の裏は、どこか 1 か所でも床に着いていれば裏全体を支えに数える: 体重を受けているのはホバー（脚が床を押す力の近似）なので、
+            // 足の箱は床に押し付けられずに傾き・浮きがちだが、本当は体重が足の裏を床に押し付けて平らに着く（CLAUDE.md §8「体を支える力」）。
+            // 体重を受ける足だけ: 足の運びで振り出している足は、床をかすめても体重を受けていない（裏全体を数えると、
+            // 円を歩く途中で振り出した足の裏まで支えに入り、2 秒止まった）。
+            var isFoot = KindOf(id) is BodyPartKind.Foot or BodyPartKind.Toe && BearsWeight(id);
+            var footDown = false;
+            if (isFoot)
+            {
+                foreach (var corner in BoxCorners)
+                {
+                    if ((s.Position + Vector3.Transform(corner * half, s.Orientation)).Y <= touch)
+                    {
+                        footDown = true;
+                        break;
+                    }
+                }
+            }
+
             foreach (var corner in BoxCorners)
             {
                 var p = s.Position + Vector3.Transform(corner * half, s.Orientation);
-                if (p.Y <= touch)
+                if (p.Y <= touch || footDown)
                 {
                     var flat = new Vector2(p.X, p.Z);
                     _support.Add(flat);
@@ -117,6 +135,20 @@ public sealed partial class Fighter
         _limbs.Build();
         _feet.Build();
         _handsFeet.Build();
+    }
+
+    /// <summary>この足（足・つま先の部位）を足の運びが振り出していない（床に着けば体重を受ける。蹴る脚の足でも、床に着いていれば踏んでいる）。</summary>
+    private bool BearsWeight(int footPart)
+    {
+        for (var leg = 0; leg < 2; leg++)
+        {
+            if (footPart == _legParts[leg].Heel || footPart == _legParts[leg].Toe)
+            {
+                return !(_footworkActive && _footwork.Swinging == leg);
+            }
+        }
+
+        return false;
     }
 
     /// <summary>床に着いている手足（前腕・上腕・すね・腿・足）の凸包: 体を床から押し上げられるのは手足だけ（胴・頭は乗っているだけ）。</summary>
@@ -221,9 +253,13 @@ public sealed partial class Fighter
             var horizontalForce = new Vector3(_supportForce.X, 0f, _supportForce.Z);
             var lift = new Vector3(0f, _supportForce.Y, 0f);
             ApplySharedImpulse(-(horizontalForce * lost) - (lift * lostLift));
-            SplitTorque(-_supportTorque * lost);
+            // 減らすのは体を傾ける水平軸まわりのねじりだけ。縦軸まわり（体の向きを回す）のねじりは足の裏と床の摩擦で出るので、
+            // CoP の位置には縛られない（下の CoP の制限も縦軸の分は残す）。縦軸まで減らすと、片脚で立つ間に骨盤の向きが保てず、
+            // 腿のねじりの目標（股の関節の角）が骨盤ごと流れた。
+            var tilt = new Vector3(_supportTorque.X, 0f, _supportTorque.Z);
+            SplitTorque(-tilt * lost);
             _supportForce -= (horizontalForce * lost) + (lift * lostLift);
-            _supportTorque *= Balance;
+            _supportTorque -= tilt * lost;
         }
 
         // CoP の制限（起こすねじりは CoP が凸包の中で出せる分だけ）は、足で立っている間だけ。

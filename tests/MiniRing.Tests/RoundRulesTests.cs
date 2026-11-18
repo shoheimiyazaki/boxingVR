@@ -124,7 +124,8 @@ public sealed class RoundRulesTests
         // 真上の点を画面へ写した所（透視なので、体の点と横の位置は少しずれうる）。
         Assert.IsTrue(Aigis.Render.Camera.TryWorldToScreen(vp, ((game.Cpu.ChestPosition + game.Cpu.PelvisPosition) * 0.5f) + (Vector3.UnitY * DownCountHud.AboveBody), screen, out var over));
         Assert.AreEqual(over.X, number.ScreenPosPixels.X, 1f, "right over the fighter");
-        Assert.AreEqual(body.X, number.ScreenPosPixels.X, 10f, "nearly the same column on the screen");
+        // 透視で、真上の点は体の点から画面の縦の距離に比例して横へずれる（倒れた所が画面の端へ寄るほど大きい）。縦の距離の 1 割まで。
+        Assert.AreEqual(body.X, number.ScreenPosPixels.X, 0.1f * MathF.Abs(body.Y - number.ScreenPosPixels.Y), "nearly the same column on the screen");
         Assert.IsLessThan(body.Y, pips[0].CenterPixels.Y, "above the body");
         Assert.IsGreaterThan(body.Y - 250f, number.ScreenPosPixels.Y, "and close to it");
         Assert.IsTrue(draws.All(t => t.ScreenPosPixels.Y >= 0f), "all of it on the screen, even with the fighter near the top");

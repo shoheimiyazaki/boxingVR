@@ -384,13 +384,19 @@ internal static class MaaiLab
 
     private static float Flat(System.Numerics.Vector3 v) => MathF.Sqrt((v.X * v.X) + (v.Z * v.Z));
 
-    public static List<Throw> Collect(IReadOnlyList<FighterCharacter> roster, int bouts, float seconds, int seed, bool referee, int parallel, TextWriter progress, List<RangeCell>? cells = null)
+    // focus: 与えたら、このキャラが入る組だけを打つ（名簿に足した 1 人の表だけを測るとき。種は総当たりのときと同じ）。
+    public static List<Throw> Collect(IReadOnlyList<FighterCharacter> roster, int bouts, float seconds, int seed, bool referee, int parallel, TextWriter progress, List<RangeCell>? cells = null, IReadOnlySet<string>? focus = null)
     {
         var jobs = new List<(FighterCharacter Red, FighterCharacter Blue, int Seed)>();
         for (var a = 0; a < roster.Count; a++)
         {
             for (var b = a + 1; b < roster.Count; b++)
             {
+                if (focus is not null && !focus.Contains(roster[a].Id) && !focus.Contains(roster[b].Id))
+                {
+                    continue;
+                }
+
                 for (var i = 0; i < bouts; i++)
                 {
                     var s = seed + (1000 * a) + (37 * b) + (i / 2);

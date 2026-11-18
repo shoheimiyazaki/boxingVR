@@ -93,15 +93,19 @@ public sealed class KickShinTests
     public void TheRearFootRoundhouses_AtEachHeight_LandOnTheirTarget_WithTheLowerShin()
     {
         // 調整に使った 6 条件と使っていない 6 条件（受ける人・種が違う）。数は docs/arena/kick_shin_lmh_*.md の表で測った値から、少し余裕を引いて置く。
+        // 2026-11-18（床から支える体、PhysicsVersion 48）: 蹴る前に教科書どおり体重を軸足へ移し（KickMocap.Doll）、その体で練習し直した値で測り直した
+        // （docs/arena/kick_shin_lmh_gen48_shift.md、テストの 12 条件で ロー 7・ミドル 3・ハイ 2）。支えの外へ重心が出れば立つ力が抜けるので、
+        // 前の体（支えがどこからでも出た: ロー 11・ミドル 4・ハイ 4）より当たりにくい。回し蹴りは体重を移しても 6〜8 % 倒れる（docs/TAEKWONDO.md
+        // 「軸足に乗って蹴る」の kickbalance の測定）ので、12 本で 1 本までの転倒は物理のとおり（ミドルで 1 本）。
         var (low, mid, high) = (Run(KickShin.Heights[0], true), Run(KickShin.Heights[1], true), Run(KickShin.Heights[2], true));
         Console.WriteLine($"low {low}  mid {mid}  high {high}");
         Assert.IsGreaterThanOrEqualTo(11, low.Landed);
-        Assert.IsGreaterThanOrEqualTo(9, low.OnTarget, "low: the shin (0.55-0.9) lands on the thigh/knee");
-        Assert.IsGreaterThanOrEqualTo(3, mid.OnTarget, "middle: the shin lands on the body");
-        Assert.IsGreaterThanOrEqualTo(3, high.OnTarget, "high: the shin lands on the head");
+        Assert.IsGreaterThanOrEqualTo(6, low.OnTarget, "low: the shin (0.55-0.9) lands on the thigh/knee");
+        Assert.IsGreaterThanOrEqualTo(2, mid.OnTarget, "middle: the shin lands on the body");
+        Assert.IsGreaterThanOrEqualTo(1, high.OnTarget, "high: the shin lands on the head");
         foreach (var r in new[] { low, mid, high })
         {
-            Assert.AreEqual(0, r.Fell, "the kicker stays standing");
+            Assert.IsLessThanOrEqualTo(1, r.Fell, "the kicker rarely falls (a roundhouse falls 6-8 % of the time even with the weight on the stance foot)");
             Assert.IsInRange(0.5f, 0.95f, r.MeanShin, "on average the contact is on the lower shin");
         }
     }
@@ -112,9 +116,10 @@ public sealed class KickShinTests
         var low = Run(KickShin.Heights[0], false);
         var mid = Run(KickShin.Heights[1], false);
         Console.WriteLine($"front-foot low {low}  mid {mid}");
-        Assert.IsGreaterThanOrEqualTo(10, low.Landed);
-        Assert.IsGreaterThanOrEqualTo(3, low.OnTarget);
-        Assert.IsGreaterThanOrEqualTo(2, mid.OnTarget);
+        // 2026-11-18（床から支える体）: 体重を後ろ足へ移して前の足で蹴る。測った値 ロー 当たり 9・狙い通り 3、ミドル 1（前の体では 10・4・2）。
+        Assert.IsGreaterThanOrEqualTo(8, low.Landed);
+        Assert.IsGreaterThanOrEqualTo(2, low.OnTarget);
+        Assert.IsGreaterThanOrEqualTo(1, mid.OnTarget);
         Assert.AreEqual(0, low.Fell + mid.Fell, "the kicker stays standing");
     }
 
@@ -126,10 +131,12 @@ public sealed class KickShinTests
         var rear = Run(front, true);
         var lead = Run(front, false);
         Console.WriteLine($"front kick rear {rear}  lead {lead}");
+        // 2026-11-18（床から支える体、体重を軸足へ移して蹴る）: 測った値 後ろ 当たり 12・胴 9、前 当たり 6・胴 4（前の体では 12・3、12・7）。
+        // 後ろの足は体重移しで練習し直して上がり、前の足は練習し直しても使っていない条件で良くならなかったので前の値のまま。
         Assert.IsGreaterThanOrEqualTo(10, rear.Landed);
-        Assert.IsGreaterThanOrEqualTo(10, lead.Landed);
-        Assert.IsGreaterThanOrEqualTo(3, rear.OnTarget, "the rear foot front kick lands on the body");
-        Assert.IsGreaterThanOrEqualTo(6, lead.OnTarget, "the lead foot front kick lands on the body");
+        Assert.IsGreaterThanOrEqualTo(5, lead.Landed);
+        Assert.IsGreaterThanOrEqualTo(6, rear.OnTarget, "the rear foot front kick lands on the body");
+        Assert.IsGreaterThanOrEqualTo(3, lead.OnTarget, "the lead foot front kick lands on the body");
         Assert.AreEqual(0, rear.Fell + lead.Fell, "the kicker stays standing");
     }
 

@@ -166,7 +166,8 @@ public sealed class EmoteTests
         for (var seed = 1; seed <= 6 && found is null; seed++)
         {
             var game = NewGame(seed, red: "champion", blue: "swarmer");
-            for (var i = 0; i < 60 * 14 && !game.MatchOver; i++)
+            // 始めの待ち 7 秒 + 1 ラウンド 8 秒 = 15 秒で時間切れの判定になる（KO なら早く終わる）。14 秒では判定の前に切れていた。
+            for (var i = 0; i < 60 * 16 && !game.MatchOver; i++)
             {
                 game.Step(default, Dt);
             }

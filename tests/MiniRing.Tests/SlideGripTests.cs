@@ -63,6 +63,16 @@ public sealed class SlideGripTests
             return Cpu.Frame.WorldToLocal(center + (axis * x));
         }
 
+        /// <summary>握っていない手を棒の上へ持っていく目標: 見えている棒の今の姿（片手で支えた棒は垂れて揺れる）のローカル X の点。握り直した手は、握った時点の棒の上に置いたままにする（今の姿に付け続けると、握り直した手が棒を引くのに目標も動いて暴走する）。</summary>
+        public Vector3 OnNow(float x)
+        {
+            _pinNow ??= Step >= 400 && Cpu.GripX(Hand.Right) is not null ? (Center(), Axis()) : null;
+            var (center, axis) = _pinNow ?? (Center(), Axis());
+            return Cpu.Frame.WorldToLocal(center + (axis * x));
+        }
+
+        private (Vector3 Center, Vector3 Axis)? _pinNow;
+
         public void Dispose() => Game.Dispose();
     }
 
@@ -106,8 +116,10 @@ public sealed class SlideGripTests
         Assert.AreEqual(Vector3.Zero, swung.Cpu.HandPush(Hand.Left), "a sliding hand's push is not counted into the staff's strike");
         Assert.IsFalse(swung.Cpu.HasWristServo(Hand.Left), "no wrist on a sliding hand");
 
-        var free = Vector3.Distance(still.Center(), swung.Center());
-        var pulled = Vector3.Distance(still.Center(), dragged.Center());
+        // 棒の位置は体（骨盤）に対して測る: 左腕を振る反作用で体全体が揺れる分は、握っていても滑らせていても同じで、棒への力の違いではない。
+        Vector3 InBody(Rig r) => r.Center() - r.Cpu.PelvisPosition;
+        var free = Vector3.Distance(InBody(still), InBody(swung));
+        var pulled = Vector3.Distance(InBody(still), InBody(dragged));
         var freeAngle = MathF.Acos(Math.Clamp(Vector3.Dot(still.Axis(), swung.Axis()), -1f, 1f));
         var pulledAngle = MathF.Acos(Math.Clamp(Vector3.Dot(still.Axis(), dragged.Axis()), -1f, 1f));
         Console.WriteLine($"staff moved by a free swinging hand {free * 100:0.0} cm / {freeAngle:0.00} rad; by a gripping swinging hand {pulled * 100:0.0} cm / {pulledAngle:0.00} rad");
@@ -228,7 +240,7 @@ public sealed class SlideGripTests
                 return g;
             }
 
-            var right = g.Right with { Orientation = null, TargetLocal = r.On(step >= 300 ? Forward : RightX), Slide = step is >= 300 and < 400 };
+            var right = g.Right with { Orientation = null, TargetLocal = step >= 300 ? r.OnNow(Forward) : r.On(RightX), Slide = step is >= 300 and < 400 };
             return g with { Left = g.Left with { Orientation = null, TargetLocal = r.On(-RightX) }, Right = right };
         });
         rig.Run(150);

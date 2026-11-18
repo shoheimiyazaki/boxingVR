@@ -107,11 +107,15 @@ public sealed class BuildReadTests
     }
 
     /// <summary>平均の胸と胸の距離 / 自分の腕の長さ（両方が立っている間）。</summary>
+    /// <summary>居る距離の平均は 1 試合（12 秒）では足の運びの揺れで 0.1 ほど動くので、種を 3 つ回して平均する（1 つの種の差は揺れに埋もれる）。</summary>
     private static float MeanDistanceInOwnReach(BotStyle style, BodyBuild build, float seconds)
+        => (MeanDistanceInOwnReach(style, build, seconds, 3) + MeanDistanceInOwnReach(style, build, seconds, 4) + MeanDistanceInOwnReach(style, build, seconds, 5)) / 3f;
+
+    private static float MeanDistanceInOwnReach(BotStyle style, BodyBuild build, float seconds, int seed)
     {
         var opponent = BotCatalog.Style("boxer");
         var corners = new BoxingCorners("opp", s => new BoxerBot(opponent.Validated(), s), s => new BoxerBot(style.Validated(), s), PlayerBody: build);
-        using var game = new BoxingGame(null, 3, corners);
+        using var game = new BoxingGame(null, seed, corners);
         var sum = 0.0;
         var n = 0;
         for (var i = 0; i < (int)(seconds * 60f); i++)

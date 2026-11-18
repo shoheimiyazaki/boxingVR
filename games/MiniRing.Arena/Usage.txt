@@ -43,11 +43,25 @@
 その他のコマンド（引数の名前だけ。意味は各 Lab のクラスの冒頭の注釈と docs/TOOLS.md。説明を書いたら上へ移す）:
   handlelab [--pairs] [--fist] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--style-katana] [--style-longsword] [--style-club] [--style-staff] [--style-swordshield] [--style-bat] [--title]
   handlespar [--trainee] [--opponents] [--held-out] [--gens] [--lambda] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--start] [--best] [--out]
-  maailab [--chars] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--json] [--csv] [--ranges]
+  maailab [--chars] [--focus id,..] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--json] [--csv] [--ranges]
   staminalab [--variants] [--bots] [--bouts] [--seconds] [--seed] [--tv] [--out]
   learnlab [--first] [--second] [--seeds] [--seconds] [--seed] [--prior] [--scale] [--combos] [--defender] [--out]
   rangelab [--variants] [--bots] [--bouts] [--seconds] [--seed] [--weapons] [--out]
   finishlab [--attackers] [--victims] [--levels] [--bouts] [--seconds] [--set] [--log] [--aim] [--victim-set]
+  groundlab [--style] [--moves hammer,thrust,stomp,punch-down] [--bouts] [--seconds] [--seed] [--log] [--video] [--practice yes] [--candidates] [--sigma] [--validate]
+                                                                                  倒れた相手への攻め（立ったまま真下へ突く・踏みつけ）: 技ごとの打ち始め・当たり・J・攻め手の転倒
+  kickbalance [--style karate] [--kicks Front,Side] [--teachings 0:0:0,0.35:0.3:0] [--bouts] [--seconds] [--seed] [--confirm] [--log] [--video]
+                                                                                  軸足に乗って蹴る: 体重を移す間・頭の寄せ方ごとの、倒れた・当たり・J
+  practicelab [--only] [--candidates] [--bouts] [--seconds] [--seed] [--validate] [--sigma] [--log]
+                                                                                  組み技の経路を練習で探す（使わなかった種で比べ直す）
+  seoilab [--candidates] [--bouts] [--seconds] [--seed] [--validate] [--log] [--compare] [--reference] [--victims]
+                                                                                  背負い投げの経路の探索と比べもの
+  rhythmlab [--hz 0,1,2] [--ki 0,3] [--cycles 3] [--push 0.25] [--bouts] [--seconds] [--seed] [--log]
+                                                                                  周波数ごとに揺さぶってから支え釣り込み足（docs/GRAPPLING.md §9）
+  balancelab [--only old,cop,soft-poly,soft-disk,softcop] [--seed] [--log]
+                                                                                  姿勢のモデルを比べる: 立つ・引く・歩く・蹴る・投げ・試合で倒れた回数・浮いた時間
+  throwlab [--only sasae-tsurikomi-ashi] [--victims stand,champion] [--bouts] [--seconds] [--seed] [--log] [--trace yes] [--video] [--speed] [--width] [--height]
+                                                                                  組み技のドリル: 1 技をかけ続け、投げ・掴めず・取りの転倒・肘の荷重と靭帯（docs/GRAPPLING.md §6）
   kickvideo [--body] [--kick] [--distances] [--side] [--slow] [--width] [--height] [--fps] [--out]
   kickmocap [--dir] [--export] [--log] [--video] [--doll] [--durations] [--distances] [--export-mid] [--body]
   kickshin [--body] [--kick] [--standoff] [--seconds] [--diag] [--log] [--heights] [--practice] [--gens] [--lambda] [--parallel] [--json] [--video] [--victim] [--dir]

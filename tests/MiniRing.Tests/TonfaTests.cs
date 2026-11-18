@@ -271,7 +271,9 @@ public sealed class TonfaTests
 
         Assert.IsGreaterThan(8, all.Count, "the straight punches land");
         Assert.IsTrue(all.All(h => h.Hit.Face == BoxerAnatomy.Wood), "what touches the opponent is wood, never the knuckles");
-        Assert.IsTrue(all.All(h => h.Local.X > 0.013f), "and it is the wood in front of the fist (past its 1.3 cm radius): the short end of the stick");
+        // 拳の座標で、拳の半径（1.3 cm）の外の木で、拳より後ろ（X < 0）ではない。棒は拳の前と外側（Z）にあるので、棒の外側の面が相手の守りに
+        // 擦れる当たり（X が拳の半径より小さくても Z が 5 cm 離れている）も「棒の木で当たった」であって、拳の裏で当たったのではない。
+        Assert.IsTrue(all.All(h => h.Local.X > 0f && h.Local.Length() > 0.013f), "and it is the wood of the stick beside and in front of the fist (outside its 1.3 cm radius, never behind it)");
         Assert.IsTrue(all.Any(h => h.Hit.Zone is not HitZone.Guard), "some reach the opponent's body, not only the guard");
     }
 
@@ -281,9 +283,9 @@ public sealed class TonfaTests
     /// 赤が刀の払い面を繰り返し、青（<paramref name="wear"/> をはめて構えて立つだけ）の頭へ斬りかかる。青の前腕・上腕が失ったセル、
     /// はめた物が失った木（トンファーの棒）のセル、刀の打撃が体を削ったセルを返す。
     /// </summary>
-    private static (int Arms, int Wood, int Cut, int Forearm, int Head) SwordAtTheGuard(HandWear wear, int seed)
+    private static (int Arms, int Wood, int Cut, int Forearm, int Head) SwordAtTheGuard(HandWear wear, int seed, string form = "harai-men")
     {
-        var tech = FormSwordsman.Techniques(WeaponKind.Katana, ArmReach).First(t => t.Name == "harai-men");
+        var tech = FormSwordsman.Techniques(WeaponKind.Katana, ArmReach).First(t => t.Name == form);
         var red = new SwordsmanBot([tech], FormSwordsman.Guard(WeaponKind.Katana), seed, SwordStance.Rate, rest: 1000f, exact: true, tuning: SwordStance.Tuning,
             bladeLength: FormSwordsman.BladeLength(WeaponKind.Katana, ArmReach), spacing: FormSwordsman.Spacing(WeaponKind.Katana));
         using var game = new BoxingGame(SwordStance.Tuning, seed: seed, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => red,
@@ -315,7 +317,10 @@ public sealed class TonfaTests
         Assert.IsGreaterThan(0, tonfa.Wood, "the blade bites the stick (wood is carved)");
         Assert.AreEqual(0, glove.Wood);
         Assert.IsLessThanOrEqualTo(glove.Forearm, tonfa.Forearm, "the wood in front of the forearm takes the blow the flesh would have");
-        Assert.IsLessThan(glove.Cut, tonfa.Cut, "and less of the body is cut in all");
+        // 「体全体で削れた量が少ない」とは言わない（2026-11-18、床から支える体へ変えて測り直した）: 木は前腕の骨・筋肉より弱い材質なので、棒を断った刃は
+        // 速さを残して胸へ届く（払い面の 1 振りで棒の木 54 セルを失い、胸 5 セル・刃 6.7 m/s）。グローブ＋前腕で止まった刃は 3.5 m/s で前腕 2 セルだけ。
+        // 袈裟・逆袈裟では木の棒の側が多く削れる（袈裟: 前腕 9 対 5・合計 30 対 12）。木が肉より守るのは、刃が棒の面で受けられた振りだけで、
+        // 守りの姿勢しだい（旧い体では 5 対 15 だった）。この 1 振りで言えるのは「刃が先に当たるのは棒の木で、前腕の肉ではない」まで。
     }
 
     // ── 教科書・キャラクター ──
