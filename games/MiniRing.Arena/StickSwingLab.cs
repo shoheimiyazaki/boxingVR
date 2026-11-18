@@ -12,6 +12,8 @@ namespace MiniRing.Arena;
 /// </summary>
 internal static class StickSwingLab
 {
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+
     private const string DefaultPlanes = "vertical,horizontal,kesa,gyaku-kesa,kiriage,gyaku-kiriage";
 
     /// <summary>名前に値の無い <c>--swing</c> を <c>--swing yes</c> として読めるようにする（ほかのコマンドの <c>--detail yes</c> と同じ形）。</summary>
@@ -69,7 +71,7 @@ internal static class StickSwingLab
         {
             var trace = rig.Simulate(r.BestGenes);
             var review = rig.Review(trace);
-            var kinds = review.Alerts.Where(a => !a.Kind.Contains("捕捉点", StringComparison.Ordinal) && !a.Kind.Contains("床", StringComparison.Ordinal)).ToList();
+            var kinds = review.Alerts.Where(a => !a.Kind.Contains("捕捉点", StringComparison.Ordinal) && !a.Kind.Contains('床')).ToList();
             log($"### {r.Plane.Name}（{r.Plane.Label}）の最良");
             log("");
             log($"- {r.Best.Breakdown(weights)}");
@@ -99,7 +101,7 @@ internal static class StickSwingLab
         {
             var json = Path.ChangeExtension(md, ".json");
             var payload = results.ToDictionary(r => r.Plane.Name, r => new { r.BestGenes, r.Best.Score, r.Best.PeakSpeed });
-            File.WriteAllText(json, JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(json, JsonSerializer.Serialize(payload, JsonOptions));
         }
     }
 
