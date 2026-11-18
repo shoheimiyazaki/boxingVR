@@ -63,6 +63,27 @@ public static class BoxerAnatomy
     /// <summary>脊髄（背骨の中を通る神経の束。柔らかく弱い組織）。削れた残りの断面が、その下の筋の力を決める（<see cref="BoxerBody.CordFunction"/>）。</summary>
     public const byte Cord = 22;
 
+    // ── 手（素手の拳・はめる物の中の拳）の組織: 見た目と組織の種類は皮膚・肉・骨のまま、押されたときのふるまい（固さ・強さ・密度）と
+    // 削れにくさは木（WoodMechanics）の値（2026-11-18、ユーザーの指定。近道: docs/DEBT.md「手の物性を木の値で代用」）。
+    // 5 mm のセルでは手の細かい骨の集まりを表せない（指は 1 セルの骨）。木の値で、拳の当たりの硬さを手の形を保ったまま近似する。
+
+    // 色は皮膚・肉・骨とほとんど同じ（赤か緑を 0.01 ずらす）: 目では同じに見え、.vox の読み戻し（色 → 材質）では区別できる。
+
+    /// <summary>手の皮膚（見た目は皮膚、物性は木）。</summary>
+    public const byte HandSkin = 23;
+
+    /// <summary>手の肉（掌の厚み。見た目は肉、物性は木）。</summary>
+    public const byte HandMuscle = 24;
+
+    /// <summary>手の骨（中手骨・手根骨・指の骨。見た目は骨、物性は木）。</summary>
+    public const byte HandBone = 25;
+
+    /// <summary>皮膚か手の皮膚か（表の層: 擦り減り・染み・音の扱い）。</summary>
+    public static bool IsSkinLike(byte material) => material is Skin or HandSkin;
+
+    /// <summary>骨か手の骨か。</summary>
+    public static bool IsBoneLike(byte material) => material is Bone or HandBone;
+
     // ── 押されたときのふるまい（VoxelContact）: 密度 [kg/m³]・降伏する圧力 [Pa]・たわむ距離 [m]・（武器だけ）折れる曲げ応力とヤング率 [Pa]。
     // 体の値は、人形の縮尺の剣（約 0.085kg）の刃が、ふつうの振り（6m/s）では皮膚と肉を切って骨で止まり、強い振り（16m/s）では
     // 骨まで断つように合わせている（docs/VOXEL_WEAPONS.md）。ボクセルの刃先は本物よりずっと鈍い（1.25mm）ので、肉の値は本物の切れにくさより低い。
@@ -128,6 +149,9 @@ public static class BoxerAnatomy
     /// <summary>布と革は皮膚と同じ削れにくさ・同じ組織（肉）にする: 着ても打たれ強さと部位の力は裸のときと変わらない。</summary>
     private const float SkinToughness = 0.7f;
 
+    /// <summary>木の削れにくさ（木の武器と手の組織が同じ値を使う）。</summary>
+    private const float WoodToughness = 5f;
+
     private static Vector4 Rgb(float r, float g, float b) => new(r, g, b, 1f);
 
     /// <summary>
@@ -154,12 +178,15 @@ public static class BoxerAnatomy
         new VoxelMaterial("hair", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.13f, 0.08f, 0.05f), Rgb(0.13f, 0.08f, 0.05f), Stainable: 0.2f, Mechanics: SkinMechanics),
         new VoxelMaterial("pupil", VoxelTissue.Organ, 0.8f, false, Rgb(0.02f, 0.02f, 0.03f), Rgb(0.02f, 0.02f, 0.03f), Stainable: 0f, Mechanics: BrainMechanics),
         new VoxelMaterial("iron", VoxelTissue.Solid, 50f, false, Rgb(0.72f, 0.74f, 0.78f), Rgb(0.82f, 0.84f, 0.88f), Stainable: 0.6f, Mechanics: IronMechanics),
-        new VoxelMaterial("wood", VoxelTissue.Solid, 5f, false, Rgb(0.78f, 0.6f, 0.38f), Rgb(0.5f, 0.32f, 0.16f), Stainable: 0.7f, Mechanics: WoodMechanics),
+        new VoxelMaterial("wood", VoxelTissue.Solid, WoodToughness, false, Rgb(0.78f, 0.6f, 0.38f), Rgb(0.5f, 0.32f, 0.16f), Stainable: 0.7f, Mechanics: WoodMechanics),
         new VoxelMaterial("red glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.85f, 0.1f, 0.1f), Rgb(0.85f, 0.1f, 0.1f), Stainable: 0.6f, Mechanics: LeatherMechanics),
         new VoxelMaterial("blue glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.1f, 0.25f, 0.85f), Rgb(0.1f, 0.25f, 0.85f), Stainable: 0.6f, Mechanics: LeatherMechanics),
         new VoxelMaterial("padding", VoxelTissue.Solid, 1f, false, Rgb(0.92f, 0.9f, 0.82f), Rgb(0.92f, 0.9f, 0.82f), Stainable: 0.4f, Mechanics: PaddingMechanics),
         new VoxelMaterial("lip", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.8f, 0.4f, 0.38f), Rgb(0.8f, 0.4f, 0.38f), Stainable: 1f, Mechanics: SkinMechanics),
         new VoxelMaterial("cord", VoxelTissue.Flesh, 0.5f, false, Rgb(0.5f, 1f, 0.15f), Rgb(0.5f, 1f, 0.15f), Stainable: 0f, Mechanics: CordMechanics),
+        new VoxelMaterial("hand skin", VoxelTissue.Flesh, WoodToughness, false, Rgb(0.87f, 0.6f, 0.42f), Rgb(0.87f, 0.6f, 0.42f), Stainable: 1f, Mechanics: WoodMechanics),
+        new VoxelMaterial("hand muscle", VoxelTissue.Flesh, WoodToughness, false, Rgb(0.81f, 0.05f, 0.07f), Rgb(0.81f, 0.05f, 0.07f), Stainable: 0.3f, Mechanics: WoodMechanics),
+        new VoxelMaterial("hand bone", VoxelTissue.Bone, WoodToughness, false, Rgb(1f, 0.97f, 0.88f), Rgb(1f, 0.97f, 0.88f), Stainable: 0f, Mechanics: WoodMechanics),
     ]);
 
     /// <summary>腰のゴム: 骨盤の外形の上からこの高さ（正規化 Y）より上。</summary>

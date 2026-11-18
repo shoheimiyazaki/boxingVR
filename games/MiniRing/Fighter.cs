@@ -206,7 +206,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 50; // 50: master の 49（突進の物理・間の層・VFC・剣の技）と、ブランチ claude/grappling-fix の 48（マージ後の直し: 支えの足の裏・縦軸のねじり・膝の制御の蹴りの間の軸足・床の衝撃）を合わせた（2026-11-19 のマージ）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 51; // 51: 素手の拳を体と同じ 5 mm のセル・幅 40 mm（前腕の 1.25 倍）で作り直し、手の組織の物性を木の値に（ブランチ claude/hand-voxels を master の 50 と合わせた、2026-11-19）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }

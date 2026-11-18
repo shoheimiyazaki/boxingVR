@@ -32,7 +32,7 @@ public sealed class HandWearTests
                     Assert.IsNotNull(worn);
                     Assert.AreEqual(wear.Kind(), worn.Kind);
                     Assert.IsNull(game.WeaponOf(fighter), "a worn thing is not a held weapon");
-                    Assert.IsGreaterThan(0, worn.Body.Grid.Remaining(BoxerAnatomy.Bone), $"{wear}: the fist (bone) is inside");
+                    Assert.IsGreaterThan(0, worn.Body.Grid.Remaining(BoxerAnatomy.Bone) + worn.Body.Grid.Remaining(BoxerAnatomy.HandBone), $"{wear}: the fist (bone) is inside");
                 }
             }
 
@@ -41,7 +41,7 @@ public sealed class HandWearTests
             switch (wear)
             {
                 case HandWear.None:
-                    Assert.IsGreaterThan(0, red.Remaining(BoxerAnatomy.Skin));
+                    Assert.IsGreaterThan(0, red.Remaining(BoxerAnatomy.HandSkin), "the bare fist is hand skin");
                     Assert.AreEqual(0, red.Remaining(BoxerAnatomy.Iron));
                     break;
                 case HandWear.KnuckleDuster:
@@ -89,7 +89,8 @@ public sealed class HandWearTests
         }
 
         Assert.IsFalse(Weapon.HasRigidFace(WeaponKind.Glove));
-        Assert.IsFalse(Weapon.HasRigidFace(WeaponKind.Fist));
+        // 素手の拳の組織は木の物性（ヤング率を持つ。PhysicsVersion 51、docs/DEBT.md「手の物性を木の値で代用」）なので、材質から決まる硬い面になる。
+        Assert.IsTrue(Weapon.HasRigidFace(WeaponKind.Fist), "the bare fist has wood-valued tissue");
     }
 
     [TestMethod]
@@ -190,7 +191,9 @@ public sealed class HandWearTests
         // 柔らかく広い面（詰め物・皮膚）はほとんど壊さない（2 発で 1 セル未満）。硬い鉄の面は同じ拳で肌と肉を潰し、刃先は深く刺さる。
         // 2026-11-15: 回避の形を直したら（LogicVersion 25）試合の流れが変わり、グローブは 0.48 → 0.54 セル/発（72 発で 39 セル）。物理は同じなので上限を 0.6 にした。
         Assert.IsLessThan(0.6f, glove, "a padded glove barely breaks the skin");
-        Assert.IsLessThan(0.5f, bare, "skin on skin barely breaks either");
+        // 2026-11-18（PhysicsVersion 51）: 素手の拳を木の物性にしたので、腕の押す力が拳から伝わり（硬い面）、1 発の削れが 0.71 セル/発に増えた。
+        // 鉄の面（グローブ + 1.5 以上）よりはずっと少ない。上限を 1 にした。
+        Assert.IsLessThan(1f, bare, "a wood-hard bare fist breaks a little more than skin, far less than iron");
         Assert.IsGreaterThan(glove + 1.5f, PerHit(HandWear.KnuckleDuster), "iron knuckles crush more than a padded glove");
         Assert.IsGreaterThan(glove + 1.5f, PerHit(HandWear.Gauntlet), "iron plates crush more than a padded glove");
         Assert.IsGreaterThan(2f * Math.Max(PerHit(HandWear.KnuckleDuster), PerHit(HandWear.Gauntlet)), PerHit(HandWear.Katar),
