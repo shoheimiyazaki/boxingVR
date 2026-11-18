@@ -70,6 +70,25 @@ public sealed class BreakCameraTests
     }
 
     [TestMethod]
+    [DataRow(20f)]
+    [DataRow(26.7f)]
+    [DataRow(33.3f)]
+    public void PlanBreak_HoldsEachShotLongEnough_NoRapidSwitching(float length)
+    {
+        // 2026-11-18、ユーザー: インターバル中に選手を正面から映すカメラが短い周期でパカパカ入れ替わる（2.0〜4.0 秒のカットだった）。
+        // 選手を映すカット・差し込みは 3 秒以上（端も前のカットに足す）。
+        var director = Director();
+        for (var repeat = 0; repeat < 12; repeat++)
+        {
+            var plan = director.PlanBreak(length, [Highlight(1000, 30f), Highlight(3000, 40f)], redFirst: repeat % 2 == 0, [Wound(true, 80f, healing: repeat % 3 == 2)]);
+            foreach (var s in plan.Where(s => s.Shot is not (TvShot.Main or TvShot.Replay or TvShot.Wound)))
+            {
+                Assert.IsGreaterThanOrEqualTo(3f, s.End - s.Start, $"休み {length}s 回 {repeat}: {s.Shot} が {s.End - s.Start:0.00}s");
+            }
+        }
+    }
+
+    [TestMethod]
     public void PlanBreak_UsesTheWideAndHandheldCameras_AndMixesWhichBoxerIsShown()
     {
         var director = Director();

@@ -98,8 +98,25 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     /// <summary>ダウンからカメラを切り替えるまでの間 [映像の s]（倒れる瞬間はいつものカメラで見せる）。</summary>
     private const float DownCutDelay = 0.8f;
 
-    /// <summary>ダウン中の 1 カットの長さ [映像の s]。</summary>
-    private const float DownShotSeconds = 2.6f;
+    /// <summary>
+    /// ダウン中の 1 カットの長さ [映像の s]。2.6 → 5.0（2026-11-18、ユーザー: 短い周期でパカパカ入れ替わる。ダウンを数えない VFC では倒れている時間が長く、
+    /// 天井とリング脇が 2.6 秒ごとに 1 分近く入れ替わり続けた）。
+    /// </summary>
+    private const float DownShotSeconds = 5.0f;
+
+    /// <summary>
+    /// 休みの選手を映す 1 カットの長さ [映像の s]: <see cref="FighterShotSeconds"/> 〜 + <see cref="FighterShotSpread"/>。2.0〜4.0 → 4.5〜7.0
+    /// （2026-11-18、ユーザー: インターバル中に選手を正面から映すカメラが短い周期でパカパカ入れ替わる。中継のコーナーの絵は 1 カット 5〜8 秒ほど続く）。
+    /// </summary>
+    private const float FighterShotSeconds = 4.5f;
+
+    private const float FighterShotSpread = 2.5f;
+
+    /// <summary>休みのリング全体・天井の差し込みの 1 カットの長さ [映像の s]: 〜 + 0.5。2.0〜2.4 → 3.0〜3.5（同じ理由）。</summary>
+    private const float InsertShotSeconds = 3f;
+
+    /// <summary>休みの最後の 1 カットがこれより短く残るなら、ひとつ前のカットに足して 1 本にする [映像の s]（短い端のカットを作らない）。</summary>
+    private const float ShortestTail = 4f;
 
     /// <summary>傷のアップにする最低の重み（打撃の重さ＋失ったセル。重い 1 発 3 つ分ほど。軽い傷には寄らない）。</summary>
     private const float WoundMinScore = 30f;
@@ -329,10 +346,10 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     /// <summary>
     /// 休みのカット割り（休みの始まりからの映像の秒。2026-11-18、ユーザーの指定で組み直し）:
     /// <list type="bullet">
-    /// <item>いつものカメラ（始めと終わり。休みの 12 %、最大 2.5 秒）で挟む。</item>
+    /// <item>いつものカメラ（始めと終わり。休みの 12 %、最大 2.5 秒）で挟む。差し込み（リング全体・天井）は 3.0〜3.5 秒、休みの 15 % まで。</item>
     /// <item>始めのすぐ後に、傷のアップ（重い傷があるときだけ、重さで入れるかを決め、休み 1 回に多くて 1 カット。まだ映していない傷）。</item>
     /// <item>リングの中の手持ちで選手（多く打たれた側）→ リプレイを続けて 1〜2 本（重い順。休みが 18 秒未満なら 1 本。間は金の帯のワイプ）。</item>
-    /// <item>残りは、選手を映すカット（手持ち・コーナー・リング脇。2.0〜4.0 秒で揺らす）を 2 人交互に回し、3 つに 1 つ（2 つ目から）、リング全体か天井を差し込む
+    /// <item>残りは、選手を映すカット（手持ち・コーナー・リング脇。4.5〜7.0 秒で揺らし、短い端のカットは作らない）を 2 人交互に回し、3 つに 1 つ（2 つ目から）、リング全体か天井を差し込む
     /// （差し込みは休みの 12 % まで。同じ種類を続けない）。休みの後ろの半分で、前の休みに映した傷がまだ治りきっていなければ、治りかけを映す。</item>
     /// </list>
     /// 傷のアップとリプレイは、休みが短くて入らなければ入れない。
@@ -388,7 +405,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         }
 
         // 選手の手持ち 1 カットの後ろに、リプレイを続けて流す。
-        var first = 2.4f + R(1);
+        var first = FighterShotSeconds + R(1);
         if (end - t - (ReplaySeconds * replays.Count) >= first + 1.5f)
         {
             plan.Add(new TvSegment(t, t + first, TvShot.Handheld, redFirst, null));
@@ -403,15 +420,15 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
 
         // 休みの残り: 選手を映すカットを 2 人交互に回し、3 つに 1 つだけリング全体・天井を差し込む。
         var fighterShots = new[] { TvShot.Corner, TvShot.Handheld, TvShot.Ringside, TvShot.Handheld };
-        var fighterSlot = 0;
+        var fighterSlot = breakIndex; // 休みごとに回す順の始まりをずらす（1 回の休みに入るカットは 3〜4 本なので、毎回同じ種類から始めると後ろの種類が出ない）
         var inserts = new[] { TvShot.Wide, TvShot.Ceiling };
-        var insertBudget = breakVideoSeconds * 0.12f;
+        var insertBudget = breakVideoSeconds * 0.15f;
         var insertUsed = 0f;
         var red = !redFirst;
         var slot = 0;
         var lastWasInsert = false;
         var lastShot = plan[^1].Shot;
-        while (end - t >= 1.5f)
+        while (end - t >= InsertShotSeconds) // これより短い余りは、休みの終わりのいつものカメラが早めに引き取る（短いカットを作らない）
         {
             if (late is not null && t >= breakVideoSeconds * 0.5f && t + WoundSeconds <= end)
             {
@@ -424,9 +441,13 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
                 continue;
             }
 
-            var insert = slot % 3 == 1 && !lastWasInsert && insertUsed + 2.4f <= insertBudget;
-            var duration = insert ? 2f + (0.4f * R(10 + slot)) : 2f + (2f * R(10 + slot));
-            duration = MathF.Min(duration, end - t);
+            var insert = slot % 3 == 1 && !lastWasInsert && insertUsed + InsertShotSeconds + 0.5f <= insertBudget
+                && end - t - (InsertShotSeconds + 0.5f) >= ShortestTail;
+            var duration = insert ? InsertShotSeconds + (0.5f * R(10 + slot)) : FighterShotSeconds + (FighterShotSpread * R(10 + slot));
+            // 残りが短い端のカットになるなら、このカットで休みの最後まで撮る（傷のアップが後ろに入る休みは、その前で区切る）。
+            // 傷のアップがこの後に入る（休みの後ろの半分で、入る長さが残る）なら、ここでは区切る。
+            var woundLater = late is not null && end - MathF.Max(t + duration, breakVideoSeconds * 0.5f) >= WoundSeconds;
+            duration = end - t - duration < ShortestTail && !woundLater ? end - t : MathF.Min(duration, end - t);
             TvShot shot;
             if (insert)
             {
