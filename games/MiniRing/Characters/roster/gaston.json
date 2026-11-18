@@ -86,7 +86,7 @@
     "style": {
       "BreakLikes": { "bow": 3, "blowkiss": 3, "mirror": 3, "salute": 2, "selfie": 2, "hum": 2, "wave": 2, "pointcrowd": 1.5, "applause": 1.5, "energydrink": 0.3, "jelly": 0.4 },
       "GamePlan": {
-        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
         "Own": [
           { "Cm": 17, "Dealt": 15.125, "Taken": 12.666 },
           { "Cm": 19, "Dealt": 19.744, "Taken": 13.062 },

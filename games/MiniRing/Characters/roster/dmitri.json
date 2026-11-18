@@ -86,7 +86,7 @@
     "style": {
       "BreakLikes": { "bow": 3.5, "earbud": 2.5, "headphones": 2, "towelhead": 3, "deepbreath": 2.5, "handshake": 2, "sandwich": 1.5, "applause": 1.5, "dance": 0.3, "blowkiss": 0.2, "wavetwo": 0.4 },
       "GamePlan": {
-        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
         "Own": [
           { "Cm": 17, "Dealt": 20.72, "Taken": 16.341 },
           { "Cm": 19, "Dealt": 21.533, "Taken": 16.102 },

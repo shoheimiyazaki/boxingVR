@@ -298,6 +298,7 @@ run.cmd arena cmatune --target defense:Slip,defense:Duck   # 対象が複数な�
 - **表の出どころ**: `docs/arena/maai_roster_ranges_bins.csv`（`miniring-arena maailab --ranges`、2026-11-18、PhysicsVersion 43・LogicVersion 42、ドリルの 1.2 m のリング・中央から始める試合、各組 4 試合 × 60 秒の総当たり。`docs/ROSTER_REPORT.md` §1.3）。全試合でその帯に **30 秒以上いた帯だけ**（短い帯は雑音）。
 - **書き込みの道具**: `node tools/roster-report/fill-gameplan.mjs [csv] [--min-seconds 30]`（名簿の 17 人の `roster/<id>.json` の `education` だけを書き換える。値は小数 3 桁。性格の値と `Foe` は残す。何度回しても同じ）。測り直したら回し直す。
 - 性格は 17 人とも既定（1・1・8 秒・1）。キャラごとの値は総当たりで比べてから入れる。
+- **層を使う選手**（`Weight` 1）: tsuyoshi・vikram・taeyun・akira・yoandry・marcus。2 つの種の A/B の両方で重みつきの点が上がった 6 人（`docs/BOT_PDCA.md`「戦略の層（GamePlan）をキャラごとに採る」）。gaston・narong・joao・ramon・dmitri・albert は `Weight` 0（表は相手の `Foe` として残す）。
 - 剣・棒・棍棒の選手（daichi・edgar・jin・konrad・sean）は剣士・こんぼうのボットで戦うので、この層は効かない。表は相手（拳の選手の `Foe`）として使う。
 
 ### 入力（`FighterSense` に足した物。読むだけで物理は不変）
