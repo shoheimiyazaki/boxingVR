@@ -34,7 +34,8 @@ internal static class TvDigest
                 e.TryGetProperty("for", out var f) ? f.GetString() ?? "" : "",
                 e.GetProperty("type").GetString() ?? "",
                 e.TryGetProperty("who", out var w) ? w.GetString() ?? "" : "",
-                e.GetProperty("text").GetString() ?? ""))
+                e.GetProperty("text").GetString() ?? "",
+                e.TryGetProperty("prefight", out var pre) && pre.ValueKind == JsonValueKind.True))
             .OrderBy(e => e.T)
             .ToList();
 
@@ -134,6 +135,13 @@ internal static class TvDigest
         var marks = new List<(float T, string Title)>();
         foreach (var e in events)
         {
+            // 試合の前の番組の場面（団体の番組の型が決める名前。WVC の program・opening・tape 以外）は、場面の名前（「: 」の前）を区切りの名前にする。
+            if (e.Prefight && e.Type is not ("program" or "opening" or "tape"))
+            {
+                marks.Add((e.T, e.Text.Split(": ")[0]));
+                continue;
+            }
+
             switch (e.Type)
             {
                 case "tape":
@@ -181,5 +189,5 @@ internal static class TvDigest
 
     private static string Fallback(string value, string fallback) => value.Length > 0 ? value : fallback;
 
-    private sealed record Event(float T, string For, string Type, string Who, string Text);
+    private sealed record Event(float T, string For, string Type, string Who, string Text, bool Prefight = false);
 }

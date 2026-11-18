@@ -123,6 +123,12 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     private Fighter? _handSubject;
 
     private Vector3 _handFocus;
+
+    /// <summary>リング脇のカメラがいま撮っている選手・カットの経過時間・回り込む側（+1 / −1）。1 カットの間は側を変えない。</summary>
+    private Fighter? _ringsideSubject;
+
+    private float _ringsideShotTime = float.MaxValue;
+    private float _ringsideSide;
     private float? _downSince;
     private bool _over;
 
@@ -562,7 +568,16 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var swing = 0.6f - (0.1f * shotTime);
         var left = target + (Vector3.Transform(inward, Quaternion.CreateFromAxisAngle(Vector3.UnitY, swing)) * BodyScale(subject) * 6f);
         var right = target + (Vector3.Transform(inward, Quaternion.CreateFromAxisAngle(Vector3.UnitY, -swing)) * BodyScale(subject) * 6f);
-        var eye = Vector3.DistanceSquared(left, opponent.ChestPosition) >= Vector3.DistanceSquared(right, opponent.ChestPosition) ? left : right;
+        // 回り込む側は、カットの始め（別の選手・経過時間が戻った）にだけ選び、そのカットの間は変えない。
+        // 毎コマ選び直すと、相手が動くたびに左右が入れ替わり、視点が 0.2〜0.6 秒ごとに飛んだ（2026-11-18、ユーザー: 正面のカメラがパカパカ入れ替わる）。
+        if (subject != _ringsideSubject || shotTime < _ringsideShotTime)
+        {
+            _ringsideSubject = subject;
+            _ringsideSide = Vector3.DistanceSquared(left, opponent.ChestPosition) >= Vector3.DistanceSquared(right, opponent.ChestPosition) ? 1f : -1f;
+        }
+
+        _ringsideShotTime = shotTime;
+        var eye = _ringsideSide > 0f ? left : right;
         eye.Y = subject.PelvisPosition.Y + (BodyScale(subject) * 0.9f);
         return (Camera.ViewProjection(eye, target, Vector3.UnitY, 38f * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
     }

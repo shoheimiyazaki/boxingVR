@@ -7,7 +7,7 @@
   "out": "docs/video/vfc-test",
   "scoutSeeds": [1, 2, 3, 4, 5, 6, 7, 8],
   "partLimitMiB": 29,
-  "commentary": { "writer": "llm", "model": "haiku" },
+  "commentary": { "writer": "prospective", "model": "haiku" },
   "bouts": [
     { "red": "jin", "blue": "konrad", "seed": "auto", "bout": "第1試合" }
   ]

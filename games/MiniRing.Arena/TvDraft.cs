@@ -94,9 +94,13 @@ internal static partial class TvDraft
             : null;
         drafts.AddRange(ProgramLines(program));
         // 選手紹介は冒頭のタイトル（両コーナーの板）が出てから。プログラムの表があればその後ろ。
+        // 入場の場面（walkout。番組の型が試合の前に選手ごとの入場を持つ団体）があれば、それぞれの入場の頭で。無ければ冒頭のタイトルの両コーナーの紹介に合わせる。
+        var redWalk = events.FirstOrDefault(e => e.Type == "walkout" && e.Who == red);
+        var blueWalk = events.FirstOrDefault(e => e.Type == "walkout" && e.Who == blue);
         var opening = events.FirstOrDefault(e => e.Type == "opening").T;
-        drafts.Add(new Draft(opening + 0.3f, $"{bout}{(bout.Length > 0 ? "。" : "")}赤、{Discipline(Text("redDiscipline"))}{red}。", false, true));
-        drafts.Add(new Draft(opening + 3.6f, $"青、{Discipline(Text("blueDiscipline"))}{blue}。", false, true));
+        var (redAt, blueAt) = redWalk.Type is not null && blueWalk.Type is not null ? (redWalk.T + 0.3f, blueWalk.T + 0.3f) : (opening + 0.3f, opening + 3.6f);
+        drafts.Add(new Draft(redAt, $"{bout}{(bout.Length > 0 ? "。" : "")}赤、{Discipline(Text("redDiscipline"))}{red}。", false, true));
+        drafts.Add(new Draft(blueAt, $"青、{Discipline(Text("blueDiscipline"))}{blue}。", false, true));
 
         var roundStarts = events.Where(e => e.Type == "round_start").Select(e => e.T).ToList();
         var roundEnds = events.Where(e => e.Type is "round_end" or "ko" or "decision").Select(e => e.T).ToList();

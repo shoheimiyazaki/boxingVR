@@ -34,6 +34,19 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
     /// </summary>
     public void Note(float at, string type, string who, string text) => Log(at, type, who, text, type == "technique" ? Analyst : Announcer);
 
+    /// <summary>
+    /// 試合の前の番組の場面（コールドオープン・ポスター・入場・冒頭のタイトル・選手の比較の表など）を記録に足す。出来事に <c>prefight: true</c> を付け、
+    /// 台本を作る道具が場面の名前（団体ごとに違う）を知らなくても「試合の前の場面」と分かるようにする。実況へ伝える。
+    /// </summary>
+    public void NoteScene(float at, string type, string who, string text)
+    {
+        Log(at, type, who, text, Announcer);
+        _events[^1]["prefight"] = true;
+    }
+
+    /// <summary>その選手のその部位（剛体 id）の、これまでに起きた骨折（"骨折"）・切断（"切断"）。無ければ null。番組の体の図が読む。</summary>
+    public string? LimbOf(Fighter fighter, int body) => _limbs.GetValueOrDefault((fighter, body));
+
     /// <summary>赤コーナーの使う物の呼び名（「日本刀」「こんぼう」。拳なら null）。武器の当たりを実況するときに使う。</summary>
     public string? RedGear { get; init; }
 

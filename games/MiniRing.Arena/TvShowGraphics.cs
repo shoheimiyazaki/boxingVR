@@ -11,7 +11,8 @@ namespace MiniRing.Arena;
 /// <param name="Detail">見出しの下の説明（スタイル・手にはめる物）。</param>
 /// <param name="FullName">紹介の板の上の行に出す本名（名簿のキャラクター）。空なら出さない。</param>
 /// <param name="Profile">プロフィール（名簿のキャラクター。比べる表に年齢・身長・体重・戦績を出す）。無ければ null。</param>
-internal sealed record TvCorner(string Name, string Discipline, string Detail, string FullName = "", MiniRing.Characters.CharacterProfile? Profile = null)
+/// <param name="Character">名簿のキャラクター（全身の絵を試合の体のボクセルから写す番組の型が読む）。名簿に無い選手は null。</param>
+internal sealed record TvCorner(string Name, string Discipline, string Detail, string FullName = "", MiniRing.Characters.CharacterProfile? Profile = null, MiniRing.Characters.FighterCharacter? Character = null)
 {
     /// <summary>名簿のキャラクターの紹介: 試合の名前・武器（はめる物）・肩書きと出身・本名。</summary>
     public static TvCorner Of(MiniRing.Characters.FighterCharacter character)
@@ -19,7 +20,7 @@ internal sealed record TvCorner(string Name, string Discipline, string Detail, s
         ArgumentNullException.ThrowIfNull(character);
         // 流派の見出しはスタイル・はめる物・武器から（「グローブ」でなく「ボクシング」）。下の行は肩書きと出身。
         var discipline = Of(character.HudName, character.StyleName, character.Wear, character.Weapon).Discipline;
-        return new TvCorner(character.HudName, discipline, $"{character.Tagline}・{character.Origin}", character.Name, character.Profile);
+        return new TvCorner(character.HudName, discipline, $"{character.Tagline}・{character.Origin}", character.Name, character.Profile, character);
     }
 
     /// <summary>手にはめる物・握る武器・スタイルから、紹介の見出しを作る。</summary>
@@ -64,7 +65,13 @@ internal sealed record TvCorner(string Name, string Discipline, string Detail, s
 }
 
 /// <summary>テレビ中継の試合の札（大会名・何試合目か・決まり）。</summary>
-internal sealed record TvCard(string EventTitle, string Bout, TvCorner Red, TvCorner Blue, MatchRules Rules);
+/// <param name="EventTitle">大会名。</param>
+/// <param name="Bout">何試合目か。</param>
+/// <param name="Red">赤コーナーの紹介。</param>
+/// <param name="Blue">青コーナーの紹介。</param>
+/// <param name="Rules">試合の決まり。</param>
+/// <param name="Belt">王座のベルトが懸かった試合か（札の <c>belt</c>）。勝者が出たとき WVC の勝敗の画面が勝者の名前の上にベルトを出す。引き分けでは出さない。</param>
+internal sealed record TvCard(string EventTitle, string Bout, TvCorner Red, TvCorner Blue, MatchRules Rules, bool Belt = false);
 
 /// <summary>試合の結果（勝敗画面に出すもの）。</summary>
 /// <param name="Winner">1 = 赤、−1 = 青、0 = 引き分け。</param>
@@ -90,6 +97,19 @@ internal sealed record TvResult(int Winner, string? Finish, int Round, float Rou
         "K.O. — OUT COLD" => "失神",
         { } ko when ko.StartsWith("K.O. — ", StringComparison.Ordinal) => Organ(ko["K.O. — ".Length..].Replace(" DESTROYED", "", StringComparison.Ordinal)) + "の破壊",
         _ => "",
+    };
+
+    /// <summary>死んだ臓器・部位の名前（「脳」「心臓」「首」。K.O. の死でなければ空）。</summary>
+    public string DeathOrgan => Finish?.Split("  ")[0] is { } ko && ko.StartsWith("K.O. — ", StringComparison.Ordinal) && !ko.Contains("OUT COLD", StringComparison.Ordinal)
+        ? Organ(ko["K.O. — ".Length..].Replace(" DESTROYED", "", StringComparison.Ordinal))
+        : "";
+
+    /// <summary>死因を言葉に（「首を断たれて」「脳を壊されて」）。死でなければ空。</summary>
+    public string DeathPhrase => DeathOrgan switch
+    {
+        "" => "",
+        "首" => "首を断たれて",
+        var organ => $"{organ}を壊されて",
     };
 
     private static string Organ(string cause) => cause switch
@@ -370,11 +390,13 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         // 決まり手（K.O. にあたる決着の言い方は団体ごと）。
         var methodText = result.Method == "K.O." ? _org.Text.FinishWord : result.Method;
         var method = Clamp01((t - 0.4f) / 0.5f);
+        // 王座のベルトを出すときは、決まり手の字を小さく上げて、勝者の帯の上にベルトの場所をあける（字と重ならないように）。
+        var showBelt = card.Belt && result.Winner != 0;
         if (method > 0f)
         {
             var pop = BackOut(method);
-            var size = (methodText.Length > 3 ? 84f : 120f) * pop;
-            Shadowed(text, methodText, new Vector2(w * 0.5f, h * 0.17f + ((1f - pop) * 20f)), size, Gold with { W = method }, TextAnchor.Center, 4f);
+            var size = (methodText.Length > 3 ? 84f : 120f) * pop * (showBelt ? 0.7f : 1f);
+            Shadowed(text, methodText, new Vector2(w * 0.5f, (showBelt ? h * 0.145f : h * 0.17f) + ((1f - pop) * 20f)), size, Gold with { W = method }, TextAnchor.Center, 4f);
         }
 
         // 勝者の帯: 勝った側から全幅へ伸びる。
@@ -387,6 +409,16 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         shapes.Add(new UiShapeDraw(new Vector2(bandX, bandY - 64f), new Vector2(bandWidth, 3f), Gold));
         shapes.Add(new UiShapeDraw(new Vector2(bandX, bandY + 64f), new Vector2(bandWidth, 3f), Gold));
         var nameIn = Clamp01((t - 1.6f) / 0.4f);
+        if (showBelt)
+        {
+            // ベルトは帯の上、勝者の名前の真上（帯の上の縁から 10 px 空ける）。帯が伸びきるころに降りてくる。
+            var k = h / 720f;
+            var cell = 4f * k;
+            var (beltText, beltShapes) = Shows.Wvc.WvcShowParts.ChampionBelt(true, t - 1.7f, new Vector2(w * 0.5f, bandY - (64f * k) - (10f * k) - (Shows.Wvc.WvcShowParts.BeltRows * cell * 0.5f)), cell);
+            text.AddRange(beltText);
+            shapes.AddRange(beltShapes);
+        }
+
         if (result.Winner == 0)
         {
             Shadowed(text, $"{card.Red.Name}  ×  {card.Blue.Name}", new Vector2(w * 0.5f, bandY - 34f), 58f, White with { W = nameIn }, TextAnchor.Center);

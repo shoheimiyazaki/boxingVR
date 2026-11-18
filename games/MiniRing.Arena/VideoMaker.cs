@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using Aigis.Render;
+using MiniRing.Arena.Shows.Wvc;
 using MiniRing.Audio;
 using MiniRing.Bots;
 
@@ -31,12 +32,13 @@ namespace MiniRing.Arena;
 /// </param>
 /// <param name="tvProgram">大会のプログラム。あればテレビ中継の冒頭のタイトルの前に「本日のプログラム」の表を出し、記録（*.events.json）にも書く。</param>
 /// <param name="org">主催団体（団体のファイル。null なら WVC＝今の中継）。紋章・画面の色と名前・ラウンドの合図の音・歓声の大きさ・台本の資料の決まりを選ぶ。試合の決まり・場の形・照明は選ばない（別の仕組み）。</param>
+/// <param name="belt">王座のベルトが懸かった試合か（勝敗の画面が勝者の名前の上にベルトを出す番組の型だけが使う。引き分けでは出さない）。</param>
 /// <param name="live">
 /// 生配信（<see cref="LiveOutput"/>）: mp4 の代わりに実時間で描いて URL へ流す。音は置いたそばから書き出す。events.json は書く（下回しと比べるため）。
 /// <paramref name="render"/> が false とは一緒に使えない。
 /// </param>
 internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false,
-    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 10f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null)
+    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 10f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null, bool belt = false)
 {
     private readonly Organization _org = org ?? Organization.Default;
 
@@ -49,31 +51,26 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// </summary>
     private readonly MatchRules? _rules = tv ? TvShowRules.Rules(tvRounds, tvBreak, org ?? Organization.Default) : null;
 
-    /// <summary>テレビ中継の顔の窓の一辺（画面の高さに対する割合）。0.27 では大きすぎた（ユーザーの評価）ので 2/3 に。</summary>
-    private const float TvFaceSize = 0.18f;
-
     /// <summary>
-    /// 顔の窓。テレビ中継では左下・右下に置き、窓の下に名札とスタミナのメーター（<see cref="TvShowGraphics.MatchHud"/>）を出す。
+    /// 顔の窓。テレビ中継では番組の型（<see cref="ITvShow.Arrange"/>）が置き場を決める（WVC は左下・右下で、窓の下に名札とスタミナのメーター）。
     /// それ以外は渡されたまま（両脇の中ほど）。
     /// </summary>
-    private readonly FaceCam? _faceCam = tv && faceCam is not null
-        ? faceCam with
-        {
-            SizeOfScreenHeight = TvFaceSize,
-            CenterOfScreenHeight = (height - TvShowGraphics.CornerHudBelowPanel - 12f - (TvFaceSize * height * 0.5f)) / height,
-        }
-        : faceCam;
+    private readonly FaceCam? _faceCam = tv && faceCam is not null ? ShowFormats.Create(width, height, org ?? Organization.Default).Arrange(faceCam, width, height) : faceCam;
 
     /// <summary>試合を 1 歩進める時間の上限 [s]（ホストの 1 歩と同じ）。速さを落とすと 1 歩はこれより短くなる。</summary>
     private const float MaxStepDt = 1f / 60f;
-    private float TitleSeconds => tv ? ProgramSeconds + TvShowGraphics.OpeningSeconds + _tapeSeconds : 3.5f;
+    private float TitleSeconds => tv ? _scenes.Sum(s => s.Seconds) : 3.5f;
 
-    /// <summary>選手の比較の表の長さ [s]（両者が名簿のキャラクターでプロフィールを持つテレビ中継だけ。Make の始めに決める）。</summary>
-    private float _tapeSeconds;
+    /// <summary>試合の前の番組の場面の並び（団体の番組の型が決める。テレビ中継だけ。Make の始めに決める）。</summary>
+    private IReadOnlyList<ShowScene> _scenes = [];
 
-    /// <summary>冒頭の「本日のプログラム」の表の長さ [s]（プログラムが無ければ 0）。</summary>
-    private float ProgramSeconds => tv && tvProgram is not null ? tvProgram.Seconds : 0f;
-    private float ResultSeconds => tv ? TvShowGraphics.ResultSeconds : 5f;
+    /// <summary>決着の画面の長さ [s]（番組の型が決める。Make の始めに決める）。</summary>
+    private float _resultSeconds = 9f;
+
+    /// <summary>字幕（コンビネーション・守り）を置く高さ [px]（番組の型が決める。Make の始めに決める）。</summary>
+    private float _captionY;
+
+    private float ResultSeconds => tv ? _resultSeconds : 5f;
 
     /// <summary>K.O. の後、結果へ進むまでに撮る長さ [s]。ゲームが次のラウンドを始める（3.5 s）より短く。</summary>
     private const float AftermathSeconds = 3f;
@@ -132,10 +129,22 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             seconds = MathF.Max(seconds, _rules!.TotalSeconds + MathF.Max(AftermathSeconds, _rules.EndSeconds) + 1f); // テレビ中継は試合の終わりまで撮る（--seconds が短くても）
         }
 
-        _tapeSeconds = tv && redCharacter?.Profile is not null && blueCharacter?.Profile is not null ? TvShowGraphics.TapeSeconds : 0f;
         var card = _rules is null ? null : new TvCard(tvEvent, tvBout,
             redCharacter is null ? TvCorner.Of(redRing, red.Name, redWear, redWeapon) : TvCorner.Of(redCharacter),
-            blueCharacter is null ? TvCorner.Of(blueRing, blue.Name, blueWear, blueWeapon) : TvCorner.Of(blueCharacter), _rules);
+            blueCharacter is null ? TvCorner.Of(blueRing, blue.Name, blueWear, blueWeapon) : TvCorner.Of(blueCharacter), _rules, belt);
+        // 試合の前の場面の生の絵のための影の試合（生成直後の T ポーズを映さない。本番の試合は進めない）。同じ種・両コーナー・決まり・雰囲気。
+        var stage = card is null ? null : new BoxingGame(seed: seed,
+            corners: TvShowRules.Stage(WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter), _org),
+            rules: _rules, mood: _org.ArenaMood);
+        if (stage is not null)
+        {
+            setup?.Invoke(stage);
+        }
+
+        var show = ShowFormats.Create(width, height, _org);
+        _scenes = card is null ? [] : show.PreFight(card, tvProgram, redCharacter?.Profile is not null && blueCharacter?.Profile is not null);
+        _resultSeconds = show.ResultSeconds;
+        _captionY = show.CaptionY(height);
         var broadcast = card is null ? null : new Broadcast(redRing, blueRing, red.Name, blue.Name)
         {
             OrgId = _org.Id,
@@ -156,27 +165,32 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         };
         // 実況・解説の LLM に渡す生の記録（姿勢・当たりの中身・削れた場所。*.telemetry.json）。読むだけで試合には触れない。
         var telemetry = broadcast is null ? null : new TvTelemetry(redRing, blueRing, redCharacter?.Profile?.HeightCm ?? 0, blueCharacter?.Profile?.HeightCm ?? 0);
-        // 台本の資料: 本日のプログラムの表と、冒頭のタイトルの間（試合の前）。
-        if (tvProgram is not null)
+        // 台本の資料: 試合の前の場面（番組の型が決める並び。記録には prefight の印を付けて残す）。
+        var sceneStart = 0f;
+        foreach (var scene in _scenes)
         {
-            broadcast?.Note(0f, "program", "", $"本日のプログラムの表（{ProgramSeconds:0} 秒）: {tvProgram.Title}。"
-                + string.Join("。", tvProgram.Bouts.Select(b => $"{b.Bout} {b.Red} 対 {b.Blue}{(b.WinnerName is { } wn ? $"（{wn}の勝ち {b.Method}）" : b.Current ? "（この試合）" : "")}")));
+            broadcast?.NoteScene(sceneStart, scene.EventType, scene.Who, scene.Description);
+            sceneStart += scene.Seconds;
         }
 
-        broadcast?.Note(ProgramSeconds, "opening", "", $"冒頭のタイトル（{TvShowGraphics.OpeningSeconds:0} 秒）: {tvEvent} {tvBout}。赤 {redRing}、青 {blueRing} の紹介");
-        if (_tapeSeconds > 0f)
-        {
-            broadcast?.Note(ProgramSeconds + TvShowGraphics.OpeningSeconds, "tape", "", $"選手の比較の表（{_tapeSeconds:0} 秒）: 年齢・身長・体重・戦績・出身・拠点・構え。両者のプロフィールを紹介する時間");
-        }
-        var show = new TvShowGraphics(width, height, _org);
+        // 体の図の読み手（折れた・切れた部位は中継の記録が覚えている）。
+        var bodies = broadcast is null ? ShowBodies.None : new ShowBodies(broadcast.LimbOf);
         // 判定の得点（与えたダメージ = 相手の体の TotalDamage）の、各ラウンドの始まりの値。勝敗の画面の採点表に。
         var redRoundStart = new List<float>();
         var blueRoundStart = new List<float>();
+        // ラウンドごとに当てた打撃の数（拳・蹴り・肘・握った武器。採点の札へ）と、休みの頭に締めた集計。
+        var redHitsByRound = new List<int>();
+        var blueHitsByRound = new List<int>();
+        IReadOnlyList<WvcRoundTally> breakTallies = [];
         var finishRound = 1;
         var finishRoundTime = 0f;
         using var renderer = _off ? null : new HeadlessRenderer((uint)width, (uint)height);
         var screen = new Vector2(width, height);
         var panel = _faceCam?.Panel(screen, FaceSide.Left) ?? default; // 左右の窓は同じ大きさ
+        // フェイスオフの場面（番組の型にあれば）は、窓が画面いっぱいなので別の置き場・別の大きさで描く。
+        var faceOffCam = tv && faceCam is not null && _scenes.Any(s => s.Backdrop == ShowBackdrop.FaceOff) ? show.ArrangeFaceOff(faceCam, width, height) : null;
+        var faceOffPanel = faceOffCam?.Panel(screen, FaceSide.Left) ?? default;
+        using var faceOffRenderer = _off || faceOffCam is null ? null : new HeadlessRenderer((uint)faceOffPanel.WidthPx, (uint)faceOffPanel.HeightPx);
         // 顔の窓は窓の大きさで別に描いて書き写す（ヘッドレスの描画は 1 つのカメラで 1 枚。ホストでは重ねる窓として描く）。
         using var paneRenderer = _off || _faceCam is null ? null : new HeadlessRenderer((uint)panel.WidthPx, (uint)panel.HeightPx);
         // 下回し（描かない）は音も作らない（events.json に音は要らない）。
@@ -228,7 +242,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                 try
                 {
                     var stdin = ffmpeg?.StandardInput.BaseStream;
-                    void Emit(Matrix4x4 viewProjection, Vector3 eye, IReadOnlyList<ScreenTextDraw> text, IReadOnlyList<UiShapeDraw> shapes, bool withFace = false, BoxingGame? scene = null)
+                    void Emit(Matrix4x4 viewProjection, Vector3 eye, IReadOnlyList<ScreenTextDraw> text, IReadOnlyList<UiShapeDraw> shapes, bool withFace = false, BoxingGame? scene = null, FaceCam? faceOverride = null)
                     {
                         if (_off)
                         {
@@ -238,18 +252,19 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
                         // scene: 描く試合（リプレイは影の試合）。顔の窓は本番の試合だけ。
                         var g = scene ?? game;
-                        var face = withFace && scene is null ? _faceCam : null;
+                        var face = withFace && (scene is null || ReferenceEquals(scene, stage)) ? faceOverride ?? _faceCam : null;
+                        var facePaneRenderer = faceOverride is not null && ReferenceEquals(faceOverride, faceOffCam) ? faceOffRenderer : paneRenderer;
                         var renderStart = Stopwatch.GetTimestamp();
                         var rgba = renderer!.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, text, particles: g.BuildParticles(), lighting: g.BuildLighting(),
-                            shadow: g.BuildShadow(), cameraPosition: eye, shapes: face is null ? shapes : [.. shapes, .. face.Frames(game, screen)], postProcess: g.BuildPostProcess(), voxels: g.BuildVoxelVolumes());
-                        if (face is not null && paneRenderer is not null)
+                            shadow: g.BuildShadow(), cameraPosition: eye, shapes: face is null ? shapes : [.. shapes, .. face.Frames(g, screen)], postProcess: g.BuildPostProcess(), voxels: g.BuildVoxelVolumes());
+                        if (face is not null && facePaneRenderer is not null)
                         {
-                            foreach (var facePane in face.Panes(game, screen))
+                            foreach (var facePane in face.Panes(g, screen))
                             {
                                 var at = facePane.Panel;
-                                var (faceViewProjection, faceEye) = face.Camera(game, facePane.Fighter, at.AspectRatio);
-                                var pane = paneRenderer.RenderPrimitiveScene(ArenaLook.Background, faceViewProjection, instances, lines, [], particles: game.BuildParticles(), lighting: game.BuildLighting(),
-                                    shadow: game.BuildShadow(), cameraPosition: faceEye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                                var (faceViewProjection, faceEye) = face.Camera(g, facePane.Fighter, at.AspectRatio);
+                                var pane = facePaneRenderer.RenderPrimitiveScene(ArenaLook.Background, faceViewProjection, instances, lines, [], particles: g.BuildParticles(), lighting: g.BuildLighting(),
+                                    shadow: g.BuildShadow(), cameraPosition: faceEye, postProcess: g.BuildPostProcess(), voxels: g.BuildVoxelVolumes());
                                 for (var row = 0; row < at.HeightPx; row++)
                                 {
                                     Array.Copy(pane, row * at.WidthPx * 4, rgba, (((at.YPx + row) * width) + at.XPx) * 4, at.WidthPx * 4);
@@ -274,31 +289,67 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         frame++;
                     }
 
-                    // タイトル: 試合前の構えを背景に。
-                    BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
-                    for (var t = 0f; t < TitleSeconds; t += 1f / fps)
+                    // タイトル: 試合前の構えを背景に。テレビ中継は番組の型の場面の並び（団体ごとに別の番組）。
+                    if (stage is not null)
                     {
-                        var (vp, eye) = card is null ? CameraAt(game, t * 0.15f) : WideCameraAt(game, t);
-                        if (card is not null && tvProgram is not null && t < ProgramSeconds)
+                        // 影の試合を構えて立つ指令で 1.5 秒進めてから映し始める（腕を真横に広げた生成直後の姿勢を映さない）。
+                        for (var warm = 0; warm < (int)MathF.Ceiling(1.5f * fps); warm++)
                         {
-                            var (programText, programShapes) = show.Program(tvProgram, t);
-                            Emit(vp, eye, programText, programShapes);
-                        }
-                        else if (card is not null && t >= ProgramSeconds + TvShowGraphics.OpeningSeconds)
-                        {
-                            var (tapeText, tapeShapes) = show.Tape(card, t - ProgramSeconds - TvShowGraphics.OpeningSeconds);
-                            Emit(vp, eye, tapeText, tapeShapes);
-                        }
-                        else if (card is not null)
-                        {
-                            var (openingText, openingShapes) = show.Opening(card, t - ProgramSeconds);
-                            Emit(vp, eye, openingText, openingShapes);
-                        }
-                        else
-                        {
-                            Emit(vp, eye, Title(redRing, blueRing, MathF.Min(1f, t / 0.6f)), Dim(0.6f));
+                            stage.StepStage(1f / fps, StagePose.Center);
                         }
                     }
+
+                    BoxingRenderer.Fill(stage ?? game, showTargetGhosts: false, instances, lines);
+                    var titleDirector = card is null ? null : new TvDirector(width, height, fps, MaxStepDt, redRing, blueRing, GearName(redWeapon), GearName(blueWeapon));
+                    var stung = new HashSet<string>();
+                    for (var t = 0f; t < TitleSeconds; t += 1f / fps)
+                    {
+                        if (card is null)
+                        {
+                            var (plainView, plainEye) = CameraAt(game, t * 0.15f);
+                            Emit(plainView, plainEye, Title(redRing, blueRing, MathF.Min(1f, t / 0.6f)), Dim(0.6f));
+                            continue;
+                        }
+
+                        var sceneIndex = 0;
+                        var sceneFrom = 0f;
+                        var cursor = 0f;
+                        for (var k = 0; k < _scenes.Count; k++)
+                        {
+                            if (t >= cursor)
+                            {
+                                sceneIndex = k;
+                                sceneFrom = cursor;
+                            }
+
+                            cursor += _scenes[k].Seconds;
+                        }
+
+                        var current = _scenes[sceneIndex];
+                        var local = t - sceneFrom;
+                        var (sceneText, sceneShapes) = show.Scene(current, card, tvProgram, local);
+                        var set = stage!; // 試合の前の場面は影の試合を映す（card が無ければここへ来ない）
+                        set.StepStage(1f / fps, current.Stage);
+                        BoxingRenderer.Fill(set, showTargetGhosts: false, instances, lines);
+                        var (vp, eye) = current.Backdrop switch
+                        {
+                            ShowBackdrop.CageOrbit => CageOrbitCamera(set, local),
+                            ShowBackdrop.RedLow => titleDirector!.Ringside(set, set.Player, local),
+                            ShowBackdrop.BlueLow => titleDirector!.Ringside(set, set.Cpu, local),
+                            _ => WideCameraAt(set, t),
+                        };
+                        if (audioOn && current.StingAt is { } sting && local >= sting && stung.Add(current.Id) && BellSound.Synthesize(_org.Bell, RoundBell.Start) is { } horn)
+                        {
+                            Mix(audio, horn, t, 1f);
+                        }
+
+                        var faceOff = current.Backdrop == ShowBackdrop.FaceOff;
+                        Emit(vp, eye, sceneText, sceneShapes, withFace: faceOff, faceOverride: faceOff ? faceOffCam : null, scene: set);
+                    }
+
+                    // 試合の前の場面は終わり。影の試合は捨てる（メモリを返す）。
+                    stage?.Dispose();
+                    stage = null;
 
                     // 試合。
                     // 1 コマで進める試合の時間（速さ / fps）を、MaxStepDt 以下の等しい歩に分ける（30 fps なら 0.75 倍で 1/80 s × 2 歩）。
@@ -384,6 +435,14 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         var at = TitleSeconds + (time / speed); // 映像の時刻（音を置く所）
                         broadcast?.Observe(game, at, step);
                         director.Observe(game, step);
+                        if (redHitsByRound.Count > 0)
+                        {
+                            // 当てた打撃の数（採点の札）。数えるのは今のラウンド（記録の hit・weapon_hit と同じ打撃: 閾値を設けず全部）。
+                            foreach (var attacker in game.RecentHits.Select(h => h.Attacker).Concat(game.WeaponHits.Select(h => h.Attacker)))
+                            {
+                                (attacker == game.Player ? redHitsByRound : blueHitsByRound)[^1]++;
+                            }
+                        }
                         if (tv && game.EmoteScene is { } emoteScene)
                         {
                             // 動作（休み・試合の始め・終わりのエモート）が始まったら、中継の出来事にする（実況・解説が、選手がいま何をしているかを知る）。
@@ -418,6 +477,12 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             breakStartAt = at;
                             breakPlan = director.PlanBreak(_rules!.BreakSeconds / speed, highlights, redTook >= blueTook, director.Wounds());
                             NoteCuts(breakPlan, at);
+
+                            breakTallies = Tallies(redRoundStart, blueRoundStart, redHitsByRound, blueHitsByRound, game.Cpu.Condition.TotalDamage, game.Player.Condition.TotalDamage);
+                            if (show.IntervalBoardSeconds > 0f)
+                            {
+                                broadcast?.Note(at, "board", "", show.IntervalNote(game, redRing, blueRing, bodies, breakTallies));
+                            }
                         }
                         else if (tv && game.EmoteScene == MiniRing.Break.BreakScene.Start && breakPlan is null)
                         {
@@ -436,6 +501,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         {
                             redRoundStart.Add(game.Cpu.Condition.TotalDamage);
                             blueRoundStart.Add(game.Player.Condition.TotalDamage);
+                            redHitsByRound.Add(0);
+                            blueHitsByRound.Add(0);
                         }
 
                         if (tv && endAt is null && game.MatchOver)
@@ -668,9 +735,17 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         if (tv && _faceCam is not null)
                         {
                             // 顔の窓を左下・右下に: 上の得点表の代わりに、時計と、窓の下の名札・スタミナ。
-                            var (cornerText, cornerShapes) = show.MatchHud(game, _faceCam.Panel(screen, FaceSide.Left), _faceCam.Panel(screen, FaceSide.Right), redRing, blueRing);
+                            var (cornerText, cornerShapes) = show.MatchHud(game, _faceCam.Panel(screen, FaceSide.Left), _faceCam.Panel(screen, FaceSide.Right), redRing, blueRing, bodies);
                             overlay.InsertRange(0, cornerText);
                             hudShapes = cornerShapes;
+                        }
+
+                        if (tv && show.IntervalBoardSeconds > 0f && game.InBreak && breakPlan is not null)
+                        {
+                            // 休みの看板（番組の型にあれば。休みの最初だけ出る）。
+                            var board = show.Interval(game, redRing, blueRing, bodies, breakAt, breakTallies);
+                            overlay.AddRange(board.Text);
+                            hudShapes = [.. hudShapes, .. board.Shapes];
                         }
 
                         Emit(vp, eye, overlay, [.. Bars(), .. hudShapes, .. DownCountHud.Shapes(game, vp, screen), .. wipe], withFace: true);
@@ -733,7 +808,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     {
                         var outcome = new TvResult(winner, finish, finishRound, finishRoundTime, [], []);
                         // 勝ち上がりを決める道具が読む。lead は引き分けのときに勝ち上がる側（与えたダメージの多い側）。
-                        broadcast.Outcome = new Dictionary<string, object>
+                        var outcomeFields = new Dictionary<string, object>
                         {
                             ["winner"] = winner > 0 ? "red" : winner < 0 ? "blue" : "draw",
                             ["lead"] = redDamage >= blueDamage ? "red" : "blue",
@@ -742,6 +817,12 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             ["round"] = finishRound,
                             ["roundTime"] = MathF.Round(finishRoundTime, 1),
                         };
+                        if (outcome.DeathPhrase.Length > 0)
+                        {
+                            outcomeFields["deathPhrase"] = outcome.DeathPhrase; // 死で決着した試合の言葉（プログラムの表の済んだ試合の行が使う）
+                        }
+
+                        broadcast.Outcome = outcomeFields;
                     }
                     BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
                     for (var t = 0f; t < ResultSeconds; t += 1f / fps)
@@ -751,7 +832,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         {
                             var result = new TvResult(winner, finish, finishRound, finishRoundTime,
                                 RoundScores(redRoundStart, game.Cpu.Condition.TotalDamage), RoundScores(blueRoundStart, game.Player.Condition.TotalDamage));
-                            var (resultText, resultShapes) = show.Result(card, result, t);
+                            var (resultText, resultShapes) = show.Result(card, result, t, game, bodies);
                             Emit(vp, eye, resultText, resultShapes);
                         }
                         else
@@ -827,6 +908,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         }
         finally
         {
+            stage?.Dispose(); // 試合の前の場面の途中で例外になっても、影の試合の物理のワールドを返す
             File.Delete(videoPath);
             File.Delete(wavPath);
         }
@@ -950,6 +1032,14 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     };
 
     /// <summary>各ラウンドの始まりの累計と今の累計から、ラウンドごとの得点。</summary>
+    /// <summary>終わったラウンドごとの集計（与えたダメージ = 判定と同じ量の差分と、当てた打撃の数）。<paramref name="redNow"/> は赤が与えた総ダメージ（青の体の TotalDamage）。</summary>
+    private static List<WvcRoundTally> Tallies(List<float> redStart, List<float> blueStart, List<int> redHits, List<int> blueHits, float redNow, float blueNow)
+    {
+        var red = RoundScores(redStart, redNow);
+        var blue = RoundScores(blueStart, blueNow);
+        return [.. red.Select((damage, i) => new WvcRoundTally(damage, blue[i], redHits[i], blueHits[i]))];
+    }
+
     private static float[] RoundScores(List<float> roundStart, float now)
         => [.. roundStart.Select((start, i) => (i + 1 < roundStart.Count ? roundStart[i + 1] : now) - start)];
 
@@ -1001,6 +1091,20 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         return (Camera.ViewProjection(eye, mid - new Vector3(0f, 0.1f, 0f), Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f), eye);
     }
 
+    /// <summary>
+    /// 檻（リング）の外をゆっくり回るカメラ（番組の型の冒頭の場面）: 檻の中心を、少し高い所から、リングの大きさに比例した距離で見る。見た目だけ。
+    /// </summary>
+    private (Matrix4x4 ViewProjection, Vector3 Eye) CageOrbitCamera(BoxingGame game, float seconds)
+    {
+        var center = game.Layout.Center;
+        var size = game.Layout.Size;
+        var level = (game.Player.ChestPosition.Y + game.Cpu.ChestPosition.Y) * 0.5f;
+        var azimuth = 0.4f + (0.32f * seconds);
+        var eye = new Vector3(center.X + (MathF.Sin(azimuth) * size * 1.05f), level + (size * 0.4f), center.Z - (MathF.Cos(azimuth) * size * 1.05f));
+        var target = new Vector3(center.X, level - (size * 0.04f), center.Z);
+        return (Camera.ViewProjection(eye, target, Vector3.UnitY, 48f * MathF.PI / 180f, (float)width / height, 0.02f, 30f), eye);
+    }
+
     private IReadOnlyList<ScreenTextDraw> Title(string red, string blue, float fade)
     {
         var w = width;
@@ -1042,8 +1146,9 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
         // 顔の窓を左下・右下に置くときは、字幕を窓の内側へずらす。
         var captionInset = tv && _faceCam is not null ? _faceCam.Panel(new Vector2(w, h), FaceSide.Left).WidthPx + 48f : 28f;
-        AddCaption(list, redCaption, new Vector2(captionInset, h - 96f), TextAnchor.Left, Red, time);
-        AddCaption(list, blueCaption, new Vector2(w - captionInset, h - 96f), TextAnchor.Right, Blue, time);
+        var captionY = tv ? _captionY : h - 96f;
+        AddCaption(list, redCaption, new Vector2(captionInset, captionY), TextAnchor.Left, Red, time);
+        AddCaption(list, blueCaption, new Vector2(w - captionInset, captionY), TextAnchor.Right, Blue, time);
         for (var i = 0; i < flashes.Count; i++)
         {
             var (text, color, until) = flashes[i];

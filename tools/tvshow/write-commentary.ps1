@@ -100,9 +100,19 @@ function Select-Angles([int]$seed) {
 
 # 書き手が付け忘れても、台本の型（点検が見る決まり）と、フリートークの 2 人の声をそろえる。
 function Set-ScriptStyle([string]$key) {
-    if ($Style -eq 'duo') { return }
     $path = Join-Path $out "$key.extras.json"
     $extras = Get-Content -Raw -Encoding UTF8 $path | ConvertFrom-Json
+    # 放送席の声は団体のファイルの cast から（実況・解説の 2 席の型）。書き手が speakers を書いていればそのまま。
+    if ($Style -ne 'free' -and -not ($extras.PSObject.Properties.Name -contains 'speakers')) {
+        $seats = [ordered]@{}
+        foreach ($seat in 'announcer', 'commentator') {
+            $v = $orgData.cast.$seat.voice
+            $seats[$seat] = [ordered]@{ voice = @($v.voice); rate = [string]$v.rate; pitch = [string]$v.pitch; volume = [string]$v.volume
+                excited = [ordered]@{ rate = [string]$v.excited.rate; pitch = [string]$v.excited.pitch; volume = [string]$v.excited.volume } }
+        }
+        $extras | Add-Member -Force -NotePropertyName speakers -NotePropertyValue $seats
+    }
+    if ($Style -eq 'duo') { [IO.File]::WriteAllText($path, ($extras | ConvertTo-Json -Depth 6), $utf8); return }
     $extras | Add-Member -Force -NotePropertyName style -NotePropertyValue $Style
     $extras | Add-Member -Force -NotePropertyName useDraft -NotePropertyValue $false
     if ($Style -eq 'free') {
@@ -170,6 +180,8 @@ function New-Take([string]$key) {
         '{{org}}' = [string]$orgData.logoText; '{{orgName}}' = [string]$orgData.name; '{{sport}}' = [string]$orgData.sport; '{{orgFile}}' = "``$orgFileRel``"
         '{{orgIntro}}' = [string]$orgData.commentary.intro; '{{announcerTone}}' = [string]$orgData.commentary.announcerTone; '{{analystTone}}' = [string]$orgData.commentary.analystTone
         '{{callThing}}' = [string]$orgData.commentary.callThing; '{{callExamples}}' = [string]$orgData.commentary.callExamples
+        '{{announcerName}}' = [string]$orgData.cast.announcer.name; '{{analystName}}' = [string]$orgData.cast.commentator.name
+        '{{announcerPersona}}' = [string]$orgData.cast.announcer.persona; '{{analystPersona}}' = [string]$orgData.cast.commentator.persona
         '{{bout}}' = [string](Get-Field $boutData 'bout' $key); '{{out}}' = $outRel; 'OUT/' = "$outRel/"
         '{{exe}}' = "./$exeRel"; '{{previous}}' = $previous; '{{seed}}' = [string]$takeSeed
         '{{mood}}' = $pick.mood; '{{topics}}' = ($pick.topics -join '、'); '{{cardNotes}}' = $cardNotes

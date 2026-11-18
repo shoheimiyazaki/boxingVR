@@ -134,7 +134,7 @@ function Get-Outcome([int]$index) {
     if ($null -eq $outcome) { throw "b$($index + 1).events.json に結果（outcome）がありません。-Force で撮り直してください。" }
     $winner = [string]$outcome.winner
     if ($winner -eq 'draw') { return @{ winner = [string]$outcome.lead; method = '優勢' } } # 引き分けは与えたダメージの多い側が勝ち上がる
-    return @{ winner = $winner; method = [string]$outcome.method }
+    return @{ winner = $winner; method = [string]$outcome.method; cause = [string](Get-Field $outcome 'deathPhrase' '') }
 }
 
 # 試合の 1 つのコーナーの名簿の id。"winner:N" で N 試合目がまだなら $null。
@@ -165,6 +165,7 @@ function Get-ProgramJson([int]$current) {
             if ($null -eq $outcome) { throw "b$($j + 1).events.json がありません（$(Get-BoutLabel $j) の結果が読めない）。-Force で撮り直してください。" }
             $row.winner = $outcome.winner
             $row.method = $outcome.method
+            if ($outcome.ContainsKey('cause') -and $outcome.cause) { $row.cause = $outcome.cause }
         }
         $row.current = ($j -eq $current)
         $row.stake = [string](Get-Field $bouts[$j] 'stake' '')
@@ -216,9 +217,9 @@ for ($i = 0; $i -lt $bouts.Count; $i++) {
     Remove-Item -ErrorAction SilentlyContinue $video, (Join-Path $out "$key.events.json")
     $program | Set-Content -Encoding UTF8 $programPath
     Write-Host "== render $key ($red vs $blue, seed $($resolved[$key]))"
-    $lines = Invoke-Arena @('video', '--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
+    $lines = Invoke-Arena (@('video', '--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
         '--org', $orgId, '--event', $eventTitle, '--bout', (Get-BoutLabel $i), '--red-char', $red, '--blue-char', $blue, '--seed', "$($resolved[$key])",
-        '--program', $programPath, '--out', $video)
+        '--program', $programPath) + @(if (Get-Field $bout 'belt' $false) { '--belt'; 'on' }) + @('--out', $video))
     $lines | Where-Object { $_ -notmatch 'elapsed' } | Select-Object -Last 2 | ForEach-Object { Write-Host $_ }
     $outcome = Get-Outcome $i
     Write-Host "   ${key}: $(if ($outcome.winner -eq 'red') { $red } else { $blue }) の勝ち（$($outcome.method)）"
@@ -243,7 +244,8 @@ if ($Stage -in @('liveprep', 'live')) {
         $key = "b$($i + 1)"
         $label = [string](Get-Field $bout 'bout' "第$($i + 1)試合")
         return @('--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
-            '--org', $orgId, '--event', $eventTitle, '--bout', $label, '--red-char', (Resolve-Fighter $i 'red'), '--blue-char', (Resolve-Fighter $i 'blue'), '--seed', "$($resolved[$key])")
+            '--org', $orgId, '--event', $eventTitle, '--bout', $label, '--red-char', (Resolve-Fighter $i 'red'), '--blue-char', (Resolve-Fighter $i 'blue'), '--seed', "$($resolved[$key])") +
+            @(if (Get-Field $bout 'belt' $false) { '--belt'; 'on' })
     }
 
     for ($i = 0; $i -lt $bouts.Count; $i++) {
