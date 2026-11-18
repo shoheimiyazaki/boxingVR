@@ -133,7 +133,7 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
             _limbs.Clear();
         }
 
-        if (game.MatchRound != _round && !game.InBreak && !game.MatchOver)
+        if (game.MatchRound != _round && !game.InBreak && !game.MatchOver && !game.InIntro) // 入場からゴングまで（始めのエモート）はまだ始まっていない
         {
             _round = game.MatchRound;
             Log(at, "round_start", null, $"第{_round}ラウンド開始", Announcer);
