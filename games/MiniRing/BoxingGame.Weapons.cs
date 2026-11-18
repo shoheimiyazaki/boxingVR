@@ -524,7 +524,7 @@ public sealed partial class BoxingGame
         {
             var half = body.Grid.OccupiedBounds()?.HalfExtents ?? body.Grid.HalfExtents;
             var dimensions = new[] { half.X * 2, half.Y * 2, half.Z * 2 }.OrderDescending().ToArray();
-            var supported = _wielders.Keys.Any(w => w.Grids.Contains(body) && OwnerOf(w) is not null);
+            var supported = _wielders.Keys.Any(w => w.Carries(body) && OwnerOf(w) is not null);
             return ContactResonance.Of(dimensions[0], dimensions[1], dimensions[2], MathF.Max(1e-6f, _world.GetMass(body.BodyId)), supported);
         }
         return new ContactResonance(MathF.Max(Shape(hit.A).DecayScale, Shape(hit.B).DecayScale));
@@ -748,10 +748,13 @@ public sealed partial class BoxingGame
                 {
                     // 剛体に乗った全ての格子（物 → 手の固定の順）の組を調べる。腕の押す力は、最初に触れた組だけが受ける（格子の数だけ払わない）。
                     var pushed = false;
-                    foreach (var gridA in weapon.Grids)
+                    // （IReadOnlyList を foreach すると毎歩、列挙子が箱に入って割り当てが出るので、添字で回す。）
+                    for (var ia = 0; ia < weapon.Grids.Count; ia++)
                     {
-                        foreach (var gridB in other.Grids)
+                        var gridA = weapon.Grids[ia];
+                        for (var ib = 0; ib < other.Grids.Count; ib++)
                         {
+                            var gridB = other.Grids[ib];
                             if (!MayTouch(gridA, before, gridB, otherBefore))
                             {
                                 continue;
@@ -829,8 +832,9 @@ public sealed partial class BoxingGame
                 {
                     // 剛体に乗った全ての格子（物 → 手の固定の順）で、同じ部位を調べる。腕の押す力は、最初に触れた格子だけが受ける。
                     var pushed = false;
-                    foreach (var grid in weapon.Grids)
+                    for (var gi = 0; gi < weapon.Grids.Count; gi++)
                     {
+                        var grid = weapon.Grids[gi];
                         if (!MayTouch(grid, before, part.Body, partBefore))
                         {
                             continue;

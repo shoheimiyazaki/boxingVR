@@ -688,8 +688,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 全ての格子（物と重ねた手）を囲む球の外か。
         var s = _world.GetState(weapon.Body.BodyId);
         var glove = self.GloveCenter(hand);
-        foreach (var grid in weapon.Grids)
+        for (var i = 0; i < weapon.Grids.Count; i++)
         {
+            var grid = weapon.Grids[i];
             var center = s.Position + Vector3.Transform(grid.GridCenterLocal, s.Orientation);
             if (Vector3.Distance(center, glove) <= grid.Grid.HalfExtents.Length() + 0.01f)
             {
@@ -2006,10 +2007,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 武器に重ねた手の格子（物 → 手の固定の順）。手が無ければ何も足さない（手の無い試合のチェックサムは変わらない）。
         foreach (var weapon in _weapons)
         {
-            foreach (var hand in weapon.Hands)
+            for (var i = 0; i < weapon.Hands.Count; i++)
             {
-                Add(hand.Body.Grid.FilledCount);
-                Add(hand.Body.Grid.Version);
+                Add(weapon.Hands[i].Body.Grid.FilledCount);
+                Add(weapon.Hands[i].Body.Grid.Version);
             }
         }
 

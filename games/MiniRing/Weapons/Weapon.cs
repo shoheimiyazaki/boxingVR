@@ -282,14 +282,28 @@ public sealed class Weapon
         return new VoxelVolumeDraw(Volume, VoxelVolume.CellToWorld(Body.Grid, Body.GridToWorld()));
     }
 
+    /// <summary><paramref name="grid"/> がこの武器の剛体に乗った格子（物か手）か。割り当てなし。</summary>
+    public bool Carries(VoxelBody grid)
+    {
+        for (var i = 0; i < _grids.Length; i++)
+        {
+            if (_grids[i] == grid)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>この武器の全ての格子（物 → 手の順）を描く指示を <paramref name="draws"/> へ足す。</summary>
     public void AddDraws(List<VoxelVolumeDraw> draws)
     {
         ArgumentNullException.ThrowIfNull(draws);
         draws.Add(Draw());
-        foreach (var hand in _hands)
+        for (var i = 0; i < _hands.Count; i++)
         {
-            draws.Add(hand.Draw());
+            draws.Add(_hands[i].Draw());
         }
     }
 
