@@ -77,6 +77,29 @@
     "weapon": null
   },
   "textbook": "muaythai",
-  "education": { "style": { "BreakLikes": { "prayer": 4, "bow": 3, "applause": 3, "handshake": 3, "banana": 2.5, "sandwich": 1.5, "stretcharms": 1.5, "roar": 0.3, "blowkiss": 0.2 } }, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "BreakLikes": { "prayer": 4, "bow": 3, "applause": 3, "handshake": 3, "banana": 2.5, "sandwich": 1.5, "stretcharms": 1.5, "roar": 0.3, "blowkiss": 0.2 },
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 15.365, "Taken": 11.403 },
+          { "Cm": 17, "Dealt": 12.855, "Taken": 12.695 },
+          { "Cm": 19, "Dealt": 12.431, "Taken": 11.284 },
+          { "Cm": 21, "Dealt": 10.275, "Taken": 11.945 },
+          { "Cm": 23, "Dealt": 8.354, "Taken": 8.099 },
+          { "Cm": 25, "Dealt": 5.997, "Taken": 6.367 },
+          { "Cm": 27, "Dealt": 2.946, "Taken": 5.517 },
+          { "Cm": 29, "Dealt": 2.6, "Taken": 1.962 },
+          { "Cm": 31, "Dealt": 1.144, "Taken": 1.389 },
+          { "Cm": 33, "Dealt": 0.34, "Taken": 0.545 },
+          { "Cm": 35, "Dealt": 0.673, "Taken": 0.829 },
+          { "Cm": 37, "Dealt": 0.04, "Taken": 1.222 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

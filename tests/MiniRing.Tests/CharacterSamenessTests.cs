@@ -16,14 +16,17 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class CharacterSamenessTests
 {
+    // 2026-11-18（PhysicsVersion 44: ダウンの間の審判の指示）: レフェリーのいる試合でダウンが入る組だけ取り直した（CharacterSamenessProbe。ほかの組は変わらない）。
+    // 2026-11-18（LogicVersion 50 の作業中）: マージ 000bd92（PhysicsVersion 46）で master 側の値が入り、ブランチの審判の指示で取り直したレフェリーありの組の値が
+    // 消えていたので戻した（glove-glove-referee は d6b1257 で取り直した値と同じ。katar-gauntlet-referee の終わりも同じ理由。レフェリーなしの組は変わらない）。
     private static readonly Dictionary<string, (ulong Half, ulong End)> Expected = new()
     {
-        ["glove-glove-referee"] = (0x4A464CA23C7F33BC, 0x7A38B24A0DB05432),
+        ["glove-glove-referee"] = (0x09BE29F26CC00B4D, 0xC903C95FF761BC59),
         ["glove-glove-noref"] = (0xE02C484AF63AADF2, 0x9D085D00376429CE),
         ["karate-swarmer-noref"] = (0x3B993A8648DD8E1B, 0x38DA4C062C7009A6),
         ["katana-longsword-noref"] = (0x363F9D7BAEB962A3, 0x3AA31DFC05168E41),
         ["club-bare-noref"] = (0x78C6B2D00870ACA4, 0xB71E174DFC86324C),
-        ["katar-gauntlet-referee"] = (0x3D8210C8EC6BDC1A, 0xDA776E483A0CEDF2),
+        ["katar-gauntlet-referee"] = (0x3D8210C8EC6BDC1A, 0x74EAC6FEE01D2417),
         ["single-counter-vs-knuckles-noref"] = (0x2F19854A18424F35, 0x5B3631FCF00E8970),
         ["single-karate-vs-katana"] = (0xB87C4B9B5F9626CE, 0x481F18738BC94A6E),
     };
@@ -34,11 +37,11 @@ public sealed class CharacterSamenessTests
     /// <summary>武器の教科書を JSON へ移す前（`weapon handling` 段 1 の最初）に <see cref="CharacterSamenessProbe"/> で取った値（master へ入れるとき、首・脊椎と指の手（PhysicsVersion 35）の上で LEGACY の行から取り直した。拳の組の LEGACY が既存の値と全部一致することを確かめてから。2026-11-16）。</summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedWeapons = new()
     {
-        ["w-katana-katana-referee"] = (0x8EA62F58855D720C, 0xC7714404E152A7A9),
+        ["w-katana-katana-referee"] = (0x8EA62F58855D720C, 0x8703B0E936631106), // レフェリーありの組はマージ 000bd92 の後に取り直した（上の注）
         ["w-longsword-longsword-noref"] = (0x77B7E1E691CA2EE4, 0x6AADC6A3D539B77C),
         ["w-katana-longsword-referee"] = (0xF9F97BB2713E5855, 0x4EDFBA951C98A66B),
         ["w-club-katana-noref"] = (0x7490F1AA4107ED5F, 0x79B15ED462415C9A),
-        ["w-longsword-club-referee"] = (0x597249D4EB572BC4, 0x494C6DF419934C49),
+        ["w-longsword-club-referee"] = (0x40A359F99E6E645C, 0xFC6BA1C96CF2819F),
         ["w-club-club-noref"] = (0x7C19AB725FA1FF8B, 0x28F64F242E6370EC),
     };
 
@@ -73,11 +76,11 @@ public sealed class CharacterSamenessTests
     {
         ["katana-longsword-noref"] = (0xC5AF1E273F05215C, 0x704209B6B5D6146E),
         ["single-karate-vs-katana"] = (0x8A7BC74C32AAF66A, 0xD7C00229D5B25FD8),
-        ["w-katana-katana-referee"] = (0x48BF98D9D14FA9BC, 0x0471B6157CF7BA6C),
+        ["w-katana-katana-referee"] = (0x564491E1B4D2E5B0, 0xF7D4BA330D38DA40), // レフェリーありの組はマージ 000bd92 の後に取り直した（上の注）
         ["w-longsword-longsword-noref"] = (0xAE8CBFEB94D1AB7B, 0x03790E8E1B0B6E73),
-        ["w-katana-longsword-referee"] = (0x85A0250D0FE6E164, 0xBF73B0F85818CF8D),
+        ["w-katana-longsword-referee"] = (0x6CBBBC95304BE26C, 0xBF73B0F85818CF8D),
         ["w-club-katana-noref"] = (0x6DDB176CB8E57EA9, 0xC8631CBFFF6827F6),
-        ["w-longsword-club-referee"] = (0x725C650F1148F978, 0xD437710BBDB3D857),
+        ["w-longsword-club-referee"] = (0xA00845999BF3225D, 0xCAA953A92E2A4A66),
     };
 
     /// <summary>
@@ -114,8 +117,41 @@ public sealed class CharacterSamenessTests
         foreach (var c in CharacterSamenessCases.All)
         {
             // 武器の組は、教科書を鍛える前の値（LegacyWeaponStyle）で。拳同士の組は今のまま。
-            var (half, end) = CharacterSamenessCases.Run(c, legacyWeapons: true);
+            // 名簿の教育は戦略の層（GamePlan、LogicVersion 50）だけなので、それを外せば教育は空: 層が無ければボットの判断はビット単位で今まで通り。
+            var (half, end) = CharacterSamenessCases.Run(c, legacyWeapons: true, gamePlan: false);
             Assert.AreEqual(Expected[c.Name], (half, end), c.Name);
+        }
+    }
+
+    /// <summary>
+    /// 名簿の教育に戦略の層（<c>education.style.GamePlan</c>、LogicVersion 50、2026-11-18）を入れた試合のチェックサム（<see cref="CharacterSamenessProbe"/> の SAME の行）。
+    /// 拳のボットが戦う組だけが変わる（両方とも剣・こんぼうのボット、または人が操る側と武器のボットの組は、教育に GamePlan があっても同じ）。
+    /// </summary>
+    private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedGamePlan = new()
+    {
+        ["glove-glove-referee"] = (0x2A9F2EB62B980A7F, 0xD433BE4E493CF7B1),
+        ["glove-glove-noref"] = (0x8165C107AEC9E60A, 0x9AE9CF4121EF4CD9),
+        ["karate-swarmer-noref"] = (0xEEF84CE2A3ABF6D2, 0xB637541F21BACCAE),
+        ["club-bare-noref"] = (0x967AF59CF435A40C, 0x43C83414D8FAD345),
+        ["katar-gauntlet-referee"] = (0xACB926FA7EE1D8D5, 0x7F28F965F702C080),
+        ["single-counter-vs-knuckles-noref"] = (0xF67FAB34F2884A42, 0x24A1F80818515FB0),
+    };
+
+    [TestMethod]
+    public void GamePlanEducation_ChangesOnlyTheMatchesWithFistBots()
+    {
+        foreach (var c in CharacterSamenessCases.All)
+        {
+            var (half, end) = CharacterSamenessCases.Run(c, legacyWeapons: true);
+            if (ExpectedGamePlan.TryGetValue(c.Name, out var educated))
+            {
+                Assert.AreEqual(educated, (half, end), c.Name);
+                Assert.AreNotEqual(Expected[c.Name], (half, end), "the game plan reaches the fist bots: " + c.Name);
+            }
+            else
+            {
+                Assert.AreEqual(Expected[c.Name], (half, end), "no fist bot, no change: " + c.Name);
+            }
         }
     }
 }

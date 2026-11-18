@@ -81,6 +81,30 @@
     "weapon": null
   },
   "textbook": "karate",
-  "education": { "style": { "BreakLikes": { "bow": 3, "salute": 2, "applause": 2, "handshake": 2.5, "hum": 2.5, "onigiri": 2, "deepbreath": 1.5, "raisearms": 0.3, "roar": 0.2, "fistpump": 0.4, "blowkiss": 0, "dance": 0.3 } }, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "BreakLikes": { "bow": 3, "salute": 2, "applause": 2, "handshake": 2.5, "hum": 2.5, "onigiri": 2, "deepbreath": 1.5, "raisearms": 0.3, "roar": 0.2, "fistpump": 0.4, "blowkiss": 0, "dance": 0.3 },
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 15, "Dealt": 13.558, "Taken": 10.133 },
+          { "Cm": 17, "Dealt": 14.864, "Taken": 10.909 },
+          { "Cm": 19, "Dealt": 11.466, "Taken": 10.277 },
+          { "Cm": 21, "Dealt": 9.679, "Taken": 10.023 },
+          { "Cm": 23, "Dealt": 7.355, "Taken": 8.56 },
+          { "Cm": 25, "Dealt": 4.088, "Taken": 5.907 },
+          { "Cm": 27, "Dealt": 3.022, "Taken": 3.61 },
+          { "Cm": 29, "Dealt": 1.565, "Taken": 3.506 },
+          { "Cm": 31, "Dealt": 0.534, "Taken": 1.836 },
+          { "Cm": 33, "Dealt": 0.385, "Taken": 1.023 },
+          { "Cm": 35, "Dealt": 0.061, "Taken": 1.141 },
+          { "Cm": 37, "Dealt": 0, "Taken": 1.682 },
+          { "Cm": 39, "Dealt": 0, "Taken": 0.891 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

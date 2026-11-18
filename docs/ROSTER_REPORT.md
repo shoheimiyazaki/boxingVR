@@ -99,4 +99,5 @@
 | `tools/roster-report/build-page.mjs` | ページ（`page/index.html`・`page/report.js` の型）を RUN の数字と考察で組む |
 | `tools/roster-report/preview.mjs` | 手元の確認（`preview/mock.js` がダッシュボードの代わり） |
 | `tools/roster-report/make-writes.mjs` | ダッシュボードの store へ書く文書の一覧 |
+| `tools/roster-report/fill-gameplan.mjs` | 間合いの表（`ranges_bins.csv`）を名簿の教育の戦略の層（`education.style.GamePlan.Own`）へ書き込む（docs/BOTS.md「戦略の層」）。測り直したら回し直す |
 | `tools/roster-report/examples/<日付>/` | その回の考察（`findings.html`）とコマの選び（`choices.json`） |

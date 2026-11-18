@@ -22,17 +22,18 @@ public sealed class VfcCoreTests
     [TestMethod]
     public void CageGeometry_MatchesTheSquareRingsArea_AndKeepsTheSquaresValuesUnchanged()
     {
-        // 正六角形の面積 = (√3 / 2) · Size²。四角いリングと同程度の広さにしてある。
+        // 正六角形の面積 = (√3 / 2) · Size²。檻を作った時の四角いリング（1.2 m・2.4 m。2026-11-18 からはドリルの場 DrillBoxing・DrillWeapons）と同程度の広さにしてある。
+        // WVC の試合のリングは 2026-11-18 に 5.3 m 換算（RingLayout.Boxing）へ広げたが、檻（VFC）の大きさは変えていない。
         static float Area(RingLayout l) => l.IsCage ? MathF.Sqrt(3f) / 2f * l.Size * l.Size : l.Size * l.Size;
-        Assert.AreEqual(Area(RingLayout.Boxing), Area(RingLayout.Cage), 0.05f);
-        Assert.AreEqual(Area(RingLayout.Weapons), Area(RingLayout.WeaponsCage), 0.15f);
+        Assert.AreEqual(Area(RingLayout.DrillBoxing), Area(RingLayout.Cage), 0.05f);
+        Assert.AreEqual(Area(RingLayout.DrillWeapons), Area(RingLayout.WeaponsCage), 0.15f);
         // 外接円の半径 R = Size / √3 は頂点までの距離（X 軸上）、台座と天板はその外へ出る。
         Assert.AreEqual(RingLayout.Cage.Size / MathF.Sqrt(3f), RingLayout.Cage.Circumradius, 1e-6f);
         Assert.IsGreaterThan(RingLayout.Cage.Circumradius, RingLayout.Cage.PlinthHalf);
         Assert.IsGreaterThan(RingLayout.Cage.PlinthHalf, RingLayout.Cage.TableHalf);
         // 四角の値は今のまま。
-        Assert.AreEqual(0.6f + 0.15f, RingLayout.Boxing.TableHalf);
-        Assert.AreEqual(0.6f + 0.08f, RingLayout.Boxing.PlinthHalf);
+        Assert.AreEqual(0.6f + 0.15f, RingLayout.DrillBoxing.TableHalf);
+        Assert.AreEqual(0.6f + 0.08f, RingLayout.DrillBoxing.PlinthHalf);
         Assert.AreEqual(ArenaShape.RopedSquare, RingLayout.Boxing.Shape);
     }
 

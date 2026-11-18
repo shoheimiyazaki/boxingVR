@@ -82,6 +82,30 @@
     "weapon": null
   },
   "textbook": "swarmer",
-  "education": { "style": { "BreakLikes": { "wipetears": 3.5, "crossself": 3, "hum": 2.5, "chestbeat": 2.5, "dance": 2, "roar": 2, "blowkiss": 2.5, "sandwich": 1.5, "bounce": 2, "headinhands": 2 } }, "vs": {}, "weaponBot": null },
+  "education": {
+    "style": {
+      "BreakLikes": { "wipetears": 3.5, "crossself": 3, "hum": 2.5, "chestbeat": 2.5, "dance": 2, "roar": 2, "blowkiss": 2.5, "sandwich": 1.5, "bounce": 2, "headinhands": 2 },
+      "GamePlan": {
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Own": [
+          { "Cm": 13, "Dealt": 23.023, "Taken": 4.006 },
+          { "Cm": 15, "Dealt": 18.275, "Taken": 7.12 },
+          { "Cm": 17, "Dealt": 15.867, "Taken": 9.428 },
+          { "Cm": 19, "Dealt": 10.332, "Taken": 6.568 },
+          { "Cm": 21, "Dealt": 8.012, "Taken": 7.84 },
+          { "Cm": 23, "Dealt": 5.637, "Taken": 6.314 },
+          { "Cm": 25, "Dealt": 2.746, "Taken": 5.694 },
+          { "Cm": 27, "Dealt": 1.588, "Taken": 3.732 },
+          { "Cm": 29, "Dealt": 0.401, "Taken": 3.551 },
+          { "Cm": 31, "Dealt": 0.177, "Taken": 0.918 },
+          { "Cm": 33, "Dealt": 0.182, "Taken": 0.948 },
+          { "Cm": 35, "Dealt": 0, "Taken": 0.538 },
+          { "Cm": 37, "Dealt": 0.313, "Taken": 0.535 }
+        ]
+      }
+    },
+    "vs": {},
+    "weaponBot": null
+  },
   "record": []
 }

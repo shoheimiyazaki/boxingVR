@@ -117,6 +117,15 @@ public sealed class BoxerBot : IFighterControl
     /// <summary>弱った相手を詰める強さ（0..1）: 開き × <see cref="BotStyle.FinishPress"/>。</summary>
     private float Press => MathF.Min(1f, Style.FinishPress * _hurt.Opening);
 
+    /// <summary>戦略の層のこの歩の答え（<see cref="BotStyle.GamePlan"/> が無い・重み 0・表が無ければ null）。</summary>
+    private PlanChoice? _plan;
+
+    /// <summary>調べもの・テスト用: 戦略の層のこの歩の答え。</summary>
+    internal PlanChoice? Plan => _plan;
+
+    /// <summary>戦略の層の手数の倍率を、重みの割合で 1 から寄せたもの（層が無ければちょうど 1: 掛けてもビット単位で変わらない）。</summary>
+    private float PlanTempo => _plan is { } plan ? 1f + ((plan.Tempo - 1f) * Style.GamePlan!.Weight) : 1f;
+
     private float _lastDesired;
 
     /// <summary>調べもの用: 打ちに行って、打つ間合いに入れないまま諦めた回数。</summary>
@@ -200,7 +209,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 50; // 50: 試合の始め・休み・終わりのエモート（動作 60 種・場面の表・勝ち負けの重み・キャラの好み）と、始めの助走・試合の始めの待ち時間・終わりの動作（2026-11-18、docs/BREAK_ROUTINE.md）。名簿の教育に BreakLikes を書いた。TV の試合の始めと決着の後が変わる。 49: master の 43（休み）・44（回し蹴りの高さ）と claude/sword-combat-techniques の 43〜48（剣の型・連続の守り・内側の技・バット）を合わせた（2026-11-18 のマージ）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 51; // 51: ブランチ claude/spacing-control-features の 50（戦略の層（GamePlan: 得意な間合いの表・傷み・疲れ・試合の時刻から立つ距離と手数。既定のスタイルは不変、名簿の教育で入る）。）と、master の 50（エモート）を合わせた（2026-11-18 のマージ）。 50: 試合の始め・休み・終わりのエモート（動作 60 種・場面の表・勝ち負けの重み・キャラの好み）と、始めの助走・試合の始めの待ち時間・終わりの動作（2026-11-18、docs/BREAK_ROUTINE.md）。名簿の教育に BreakLikes を書いた。TV の試合の始めと決着の後が変わる。 49: master の 43（休み）・44（回し蹴りの高さ）と claude/sword-combat-techniques の 43〜48（剣の型・連続の守り・内側の技・バット）を合わせた（2026-11-18 のマージ）。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;
@@ -291,6 +300,10 @@ public sealed class BoxerBot : IFighterControl
         // 間合いの層: 危ない所にいるか（危険度）と、そこに居続けた時間を、ほかの判断より先に見る。
         _range.Update(sense, _seenHead, attacking: _combo is not null || _wantAttack || AnyPunchActive, Style, dt);
         _hurt.Observe(sense, Style, dt);
+        // 戦略の層: 得意な間合いの表・傷み・疲れ・意識・試合の時刻から、普段に立つ距離と手数を決める（層が無ければ何もしない）。
+        _plan = Style.GamePlan is { Weight: > 0f } gamePlan
+            ? GamePlan.Decide(gamePlan, new PlanInputs(_hurt.Opening, sense.OpponentWinded, sense.OpponentInjury, _stamina, _faintness, sense.SelfInjury, sense.Match))
+            : null;
         Stats.InRange(_range.Danger, attacking: _combo is not null || _wantAttack || AnyPunchActive, dt);
         UpdatePrediction(sense, dt);
         UpdateGuess(sense, dt);
@@ -388,7 +401,8 @@ public sealed class BoxerBot : IFighterControl
         }
 
         StepProfile.End(StepProfile.Slot.BotExecute, executeStart);
-        return new FighterCommand(move, kickFace, leftHand, rightHand, head, LoadTwist() + kickTwist + elbowTwist, LeftLeg: _kickSide == Hand.Left ? leg : null, RightLeg: _kickSide == Hand.Right ? leg : null);
+        return new FighterCommand(move, kickFace, leftHand, rightHand, head, LoadTwist() + kickTwist + elbowTwist, LeftLeg: _kickSide == Hand.Left ? leg : null, RightLeg: _kickSide == Hand.Right ? leg : null,
+            Step: _kick is null && _clinchTime < 0f && _throwTime < 0f ? _step : Vector3.Zero);
     }
 
     /// <summary>
@@ -1031,7 +1045,8 @@ public sealed class BoxerBot : IFighterControl
         // 間合いの層: 危ない所に何もせず居続けるのが一番危ない。下がるのでなく打って解消する（消極的にならない）:
         // 危険度 × (1 + さらされ) に比例して、次の拳までの間を早く縮める（RangePress）。
         // 弱った相手を詰める層: 相手が開いているほど次の拳までの間を早く縮める（FinishTempo）。
-        _cooldown -= dt * (1f - ((1f - Style.RestTempo) * RestNeed)) * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure))) * _build.Tempo(Style) * (1f + (Style.FinishTempo * _hurt.Opening));
+        // 戦略の層: 得と脅威の釣り合い・急ぐ度合いで次の拳までの間を縮める・空ける（PlanTempo。層が無ければ 1 を掛けるだけ）。
+        _cooldown -= dt * (1f - ((1f - Style.RestTempo) * RestNeed)) * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure))) * _build.Tempo(Style) * (1f + (Style.FinishTempo * _hurt.Opening)) * PlanTempo;
         _exitTimer = MathF.Max(0f, _exitTimer - dt);
         if (_kick is not null || _elbow is not null || _defense != Defense.None || _clinchTime >= 0f || _throwTime >= 0f || _combo is not null)
         {
@@ -1362,6 +1377,13 @@ public sealed class BoxerBot : IFighterControl
         var keepOut = (Style.RangeThreat + RangeSense.Width + RangeHeadLead) * standOff;
         _keepOutShift = MathF.Max(0f, keepOut - neutral) * Style.RangeKeepOut;
         neutral += _keepOutShift;
+        // 戦略の層: 普段の立ち位置を、得と脅威の見込みで決めた距離（d* / 腕の長さ）へ重みの割合で寄せる（打ちに入る間合い AttackRangeNow は変えない）。
+        // ほかの層（詰める・休む・危ない所から出る）はこの上に重なる。
+        if (_plan is { } plan)
+        {
+            neutral += ((plan.Distance / reach) - neutral) * Style.GamePlan!.Weight;
+        }
+
         // 弱った相手を詰める層: 相手が開いているほど、普段の立ち位置を打つ間合いへ寄せる（離れて待たず、詰めて打ち続ける。FinishPress）。
         var press = Press;
         neutral += (AttackRangeNow - neutral) * press;
@@ -1431,8 +1453,17 @@ public sealed class BoxerBot : IFighterControl
         // 弱った相手を詰める間は、回り込む足を詰める足に替える（横へ流れる分だけ前へ出る力が薄まった: 調べもの FinishProbe で、詰めたい間の 4〜5 割が横・弱い足）。
         var circling = _combo is null && !_wantAttack && _pivotTimer <= 0f ? Style.Circling * _circleDirection * (1f - press) : 0f;
         var move = (dir * Math.Clamp(approach, -1f, 1f)) + (lateral * Math.Clamp(circling + side, -1f, 1f));
+        // ステップ: 詰めたい・離れたい量が足運びの指令を振り切っているほど、その向きへ脚のバネを放つ（どれだけ進むかは体が決める）。
+        var push = Math.Clamp((MathF.Abs(approach) - StepFrom) / (1f - StepFrom), 0f, 1f) * Style.StepUse;
+        _step = dir * (MathF.Sign(approach) * push);
         return move + StayInside(self.Origin, reach, ring);
     }
+
+    /// <summary>ステップを使い始める、足運びの前後の指令の大きさ（行きたい間合いから腕の長さの 1/3 × これ以上ずれている）。</summary>
+    internal const float StepFrom = 0.8f;
+
+    /// <summary>この歩のステップの指令（<see cref="FighterCommand.Step"/>）。</summary>
+    private Vector3 _step;
 
     /// <summary>
     /// 背中側のロープの近さ（0 = 遠い … 1 = すぐ後ろ。腕の長さの 2 倍より近づくと効き始める）と、横のどちらが空いているか
@@ -1440,7 +1471,7 @@ public sealed class BoxerBot : IFighterControl
     /// </summary>
     internal static (float Behind, float EscapeSide) RopeBehind(Vector3 position, Vector3 dir, Vector3 lateral, float reach, RingLayout? ring = null)
     {
-        ring ??= RingLayout.Boxing;
+        ring ??= RingLayout.DrillBoxing;
         var half = ring.Half;
         var p = position - ring.Center;
         static float Room(Vector3 p, Vector3 toward, float half)

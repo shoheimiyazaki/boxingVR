@@ -72,7 +72,7 @@
   - 前 ＋ 回避 → スリップ・ダッキング・ウィービングのうち、来る拳に最も効くもの（右ストレートならスリップ、フックならウィービング／ダッキング）。選び方はボットの読み（`OpponentRead`）と回避の表（`DefenseBook`）を使う
   - 弱攻撃 → ジャブ系、強攻撃 → ストレート系。方向・間合い・回避の直後かで、フック・アッパー・ボディ・回避からの返し（体のバネの反発を使う）に変わる
 - 「強い」は溜め（予備動作）の大きさで表す。威力は物理（体のバネ）で出る。ボタンで威力の倍率を掛けない。
-- 現状: デスクトップは意図操作が既定。矢印/WASD で相手基準に移動、J/右クリックが弱、K/左クリックが強、保持で溜めて離して打つ。Space＋方向で回避、Space 単独でガード。`--control classic` で従来の操作を残す。技の経路は `TechniqueExecution` をボットと共有する（[docs/INTENT_CONTROL.md](docs/INTENT_CONTROL.md)）。
+- 現状: デスクトップは意図操作が既定。矢印/WASD で相手基準に移動、J/右クリックが弱、K/左クリックが強、保持で溜めて離して打つ。Space＋方向で回避、Space 単独でガード。L / 左 Shift / パッドの B＋方向でステップ（脚のバネで一気に詰める・下がる）。`--control classic` で従来の操作を残す。技の経路は `TechniqueExecution` をボットと共有する（[docs/INTENT_CONTROL.md](docs/INTENT_CONTROL.md)）。
 
 ---
 
@@ -89,6 +89,7 @@ games/MiniRing/        ゲーム本体（ホスト非依存）
   Voxels/                体の中身（BoxerAnatomy）、削れ・断裂・死（BoxerBody）、.vox の行き来
   Bots/                  技（Technique/PunchSpec/Defense/Combo）、BoxerBot、読み（OpponentRead）、スタイル JSON、倒れた相手への攻め（GroundStrike）
   Characters/            キャラクターの名簿（roster/<id>.json: 1 人 1 ファイル = 体 ＋ 教科書 ＋ 教育 ＋ 育ちの記録、countries.json: 国旗の表。全員架空）と、教育の解決（EducationResolver）、ボクセルから写す肖像（docs/CHARACTERS.md §5）
+  RingLayout.cs          リングの大きさ（試合の標準は拳も武器も人の大きさで 5.3 m = 1.88 m）と始めの立ち位置（両者のコーナーから。ドリルは Centered で中央から）・ニュートラルコーナー
   LivingRoom.cs          部屋（実物大）。床・ローテーブル・台座は当たり判定を持つ（破片が転がる。PhysicsVersion に響く）
   RoomAssets.cs / ArenaLook.cs   素材（CC0）・照明（描画だけ。試合に響かない）
 games/MiniRing.Arena/  ボット同士の対戦場・ドリル・動画（miniring-arena）

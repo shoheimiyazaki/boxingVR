@@ -348,8 +348,7 @@ public sealed class TonfaTests
         Assert.IsNull(c.Weapon);
         Assert.AreEqual("tonfa", c.StyleName);
         Assert.AreEqual("トンファー", c.EquipmentName);
-        // 教育は休みの動作の好み（BreakLikes）だけ（2026-11-18）: 判断の値は教科書そのまま。
-        Assert.AreEqual((BotCatalog.Tonfa with { BreakLikes = c.Resolve().BreakLikes }).ToJson(), c.Resolve().ToJson(), "the education only adds break-time likes to the textbook");
+        CharacterRosterTests.AssertTextbookPlusGamePlan(BotCatalog.Tonfa, c.Resolve(), c.Id);
         Assert.IsTrue(CharacterRoster.Countries.ContainsKey(c.Country.Id));
         Assert.Contains(c, CharacterRoster.All);
         _ = c.Look.Validate();

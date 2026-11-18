@@ -145,10 +145,7 @@ public sealed class WeaponStyleTests
 
     private static FighterCharacter WithWeaponBot(string id, string weaponBot)
     {
-        const string empty = "\"education\": { \"style\": {}, \"vs\": {}, \"weaponBot\": null }";
-        var json = CharacterRosterTests.RosterFileJson(id);
-        Assert.Contains(empty, json);
-        var replaced = json.Replace(empty, "\"education\": { \"style\": {}, \"vs\": {}, \"weaponBot\": " + weaponBot + " }", StringComparison.Ordinal);
+        var replaced = CharacterRosterTests.WithEducation(CharacterRosterTests.RosterFileJson(id), "{ \"style\": {}, \"vs\": {}, \"weaponBot\": " + weaponBot + " }");
         return CharacterRoster.FromFiles([(id + ".json", replaced)], CharacterRoster.All.Select(c => c.Id).ToList()).Single();
     }
 

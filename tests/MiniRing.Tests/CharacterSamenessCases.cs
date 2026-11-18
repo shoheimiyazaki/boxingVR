@@ -43,9 +43,24 @@ internal static class CharacterSamenessCases
     internal static MiniRing.Bots.WeaponStyle? LegacyWeaponStyle(MiniRing.Weapons.WeaponKind? weapon) =>
         MiniRing.Bots.WeaponCatalog.HasBot(weapon) ? MiniRing.Bots.WeaponCatalog.Textbook(weapon!.Value) with { Pacing = null } : null;
 
-    internal static (ulong Half, ulong End) Run(Case c, bool legacyWeapons = false)
+    /// <summary>
+    /// 教育から戦略の層（<c>education.style.GamePlan</c>、LogicVersion 50）を外したキャラ。名簿の教育は GamePlan だけなので、外せば教科書そのもので戦う
+    /// （GamePlan が無ければボットの判断はビット単位で今までと同じことを、今までのチェックサムで確かめるため）。
+    /// </summary>
+    internal static FighterCharacter WithoutGamePlan(FighterCharacter c)
     {
-        var selection = new MatchSelection(c.Mode, CharacterRoster.Get(c.Red), CharacterRoster.Get(c.Blue), c.Referee);
+        var style = (System.Text.Json.Nodes.JsonObject)c.Education.Style.DeepClone();
+        style.Remove("GamePlan");
+        return c with { Education = c.Education with { Style = style } };
+    }
+
+    /// <param name="c">組。</param>
+    /// <param name="legacyWeapons">武器の教科書を鍛える前の値で戦わせる。</param>
+    /// <param name="gamePlan">名簿の教育の戦略の層を使う（false なら外す: <see cref="WithoutGamePlan"/>）。</param>
+    internal static (ulong Half, ulong End) Run(Case c, bool legacyWeapons = false, bool gamePlan = true)
+    {
+        FighterCharacter Pick(string id) => gamePlan ? CharacterRoster.Get(id) : WithoutGamePlan(CharacterRoster.Get(id));
+        var selection = new MatchSelection(c.Mode, Pick(c.Red), Pick(c.Blue), c.Referee);
         var corners = selection.Corners;
         if (legacyWeapons)
         {

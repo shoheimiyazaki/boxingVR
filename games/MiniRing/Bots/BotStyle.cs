@@ -221,6 +221,13 @@ public sealed record BotStyle
     /// <summary>相手の周りを回る強さ（0..1）。</summary>
     public float Circling { get; init; } = 0.4f;
 
+    /// <summary>
+    /// ステップ（脚のバネで一気に詰める・下がる。<see cref="FighterCommand.Step"/>）を使う好み（0..1、2026-11-18）。行きたい間合いとのずれが大きく、足運びの前後の指令が
+    /// 振り切れている（<see cref="BoxerBot.StepFrom"/> を超える）ほど、その割合で脚のバネを放つ。どれだけ進むか・いつ次を蹴れるかは体（バネの貯まり具合）が決める。
+    /// 既定は 0（使わない）: 判断の既定はリーグで比べてから変える（docs/BOT_PDCA.md）。スタイル JSON・教育で入れる。
+    /// </summary>
+    public float StepUse { get; init; }
+
     /// <summary>何もしていないときの頭の振り（ボブ・ウィーブ）の大きさ（0..1）。</summary>
     public float HeadMovement { get; init; } = 0.4f;
 
@@ -370,6 +377,13 @@ public sealed record BotStyle
     /// <summary>続けて打たれたときに組み付いて（クリンチ）止める確率。</summary>
     public float ClinchRate { get; init; } = 0.2f;
 
+    /// <summary>
+    /// 戦略の層（<see cref="Bots.GamePlan"/>、2026-11-18）: 自分と相手の得意な間合いの表・性格・急ぐ度合い。null（教科書の既定）なら層なしで、
+    /// 判断はビット単位で今までと同じ。キャラの教育（<c>education.style.GamePlan</c>）で入れ、相手の表（<see cref="GamePlanStyle.Foe"/>）は試合の相手のキャラから入る
+    /// （<see cref="Characters.FighterCharacter.Resolve(string)"/>）。
+    /// </summary>
+    public GamePlanStyle? GamePlan { get; init; }
+
     [System.Text.Json.Serialization.JsonIgnore]
     public Hand Lead => Southpaw ? Hand.Right : Hand.Left;
 
@@ -446,6 +460,7 @@ public sealed record BotStyle
             StopJab = Unit(StopJab),
             ThrowRate = Unit(ThrowRate),
             Circling = Unit(Circling),
+            StepUse = Unit(StepUse),
             RopeEscape = Unit(RopeEscape),
             HeadMovement = Unit(HeadMovement),
             GuardHeight = Range(GuardHeight, 0f, MaxGuardHeight, 0.5f),
@@ -491,6 +506,7 @@ public sealed record BotStyle
             EdgeRange = Unit(EdgeRange),
             EvadeReach = float.IsFinite(EvadeReach) && EvadeReach > 0f ? Math.Clamp(EvadeReach, 0.8f, 2f) : 0f,
             ClinchRate = Unit(ClinchRate),
+            GamePlan = GamePlan?.Validated(),
         };
     }
 

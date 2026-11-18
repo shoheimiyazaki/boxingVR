@@ -188,7 +188,7 @@ public sealed partial class BoxingGame
 
     private FighterSense RawArmedSense(Fighter self, Fighter opponent)
     {
-        var sense = Sense(self, opponent) with { Ring = Layout, MayStrikeDowned = !_corners.Referee };
+        var sense = Sense(self, opponent) with { Ring = Layout, MayStrikeDowned = !_corners.Referee, Match = MatchSenseOf(self, opponent) };
         if (_wielders.Count == 0)
         {
             return sense;

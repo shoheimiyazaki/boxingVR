@@ -4,9 +4,9 @@ using System.Text.Json;
 namespace MiniRing;
 
 /// <summary>その時刻からの押下状態。省略した行動は離す。方向は相手基準。</summary>
-public sealed record IntentCue(float At, float X = 0f, float Y = 0f, bool Light = false, bool Heavy = false, bool Evade = false)
+public sealed record IntentCue(float At, float X = 0f, float Y = 0f, bool Light = false, bool Heavy = false, bool Evade = false, bool Step = false)
 {
-    public FighterIntent Intent => new(new Vector2(X, Y), Light, Heavy, Evade);
+    public FighterIntent Intent => new(new Vector2(X, Y), Light, Heavy, Evade, Step: Step);
 }
 
 /// <summary>壁時計を使わず試合の時刻で標本化するキーの台本。</summary>

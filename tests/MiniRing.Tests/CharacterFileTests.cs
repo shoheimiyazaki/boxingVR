@@ -19,37 +19,30 @@ public sealed class CharacterFileTests
     private static string Json(string id) => CharacterRosterTests.RosterFileJson(id);
 
     /// <summary>組み込みの 1 人ぶんのファイルの education を差し替えた JSON。</summary>
-    private static string WithEducation(string id, string education)
-    {
-        var json = Json(id);
-        const string empty = "\"education\": { \"style\": {}, \"vs\": {}, \"weaponBot\": null }";
-        Assert.Contains(empty, json);
-        return json.Replace(empty, $"\"education\": {education}", StringComparison.Ordinal);
-    }
+    private static string WithEducation(string id, string education) => CharacterRosterTests.WithEducation(Json(id), education);
 
     private static FighterCharacter Load(string id, string education)
         => CharacterRoster.FromFiles([(id + ".json", WithEducation(id, education))], CharacterRoster.All.Select(c => c.Id).ToList()).Single();
 
     [TestMethod]
-    public void BuiltInRoster_IsOneFilePerCharacter_InTheDecidedOrder_WithEmptyEducation()
+    public void BuiltInRoster_IsOneFilePerCharacter_InTheDecidedOrder_WithOnlyTheGamePlanEducated()
     {
         var all = CharacterRoster.All;
         Assert.HasCount(17, all);
         Assert.HasCount(13, CharacterRoster.Countries.Keys.Where(k => all.Any(c => c.Country.Id == k)).ToList());
         foreach (var c in all)
         {
-            // 教育は休みの動作の好み（BreakLikes）だけ（2026-11-18）。判断の値は教科書そのまま。
-            Assert.IsTrue(c.Education.Style.Count == 1 && c.Education.Style.ContainsKey("BreakLikes"), c.Id);
+            // 2026-11-18: 教育は休みの動作の好み（BreakLikes）と戦略の層（GamePlan: 得意な間合いの表）だけ。ほかの値は教科書そのもの。
+            Assert.AreEqual("BreakLikes,GamePlan", string.Join(",", c.Education.Style.Select(p => p.Key).Order()), c.Id);
             Assert.AreEqual(0, c.Education.Vs.Count, c.Id);
             Assert.IsNull(c.Education.WeaponBot, c.Id);
             Assert.IsEmpty(c.Record, c.Id);
             var textbook = BotCatalog.Style(c.StyleName);
-            foreach (var resolved in new[] { c.Resolve(), c.Resolve("marcus"), c.Style })
-            {
-                var expected = (textbook with { BreakLikes = resolved.BreakLikes }).ToJson();
-                Assert.AreEqual(expected, resolved.ToJson(),"the education changes nothing but the break likes: " + c.Id);
-                Assert.IsNotEmpty(resolved.BreakLikes, c.Id);
-            }
+            CharacterRosterTests.AssertTextbookPlusGamePlan(textbook, c.Resolve(), c.Id);
+            CharacterRosterTests.AssertTextbookPlusGamePlan(textbook, c.Resolve("marcus"), c.Id);
+            CharacterRosterTests.AssertTextbookPlusGamePlan(textbook, c.Style, c.Id);
+            Assert.IsNotEmpty(c.Style.GamePlan!.Own, c.Id);
+            Assert.IsEmpty(c.Style.GamePlan.Foe, "no opponent, no foe table: " + c.Id);
         }
     }
 
@@ -168,8 +161,7 @@ public sealed class CharacterFileTests
 
         // 教育の無いキャラは教科書そのもの（今までの名前引きと同じ物）。
         var plain = new MatchSelection(MatchMode.Single, CharacterRoster.Get("marcus"), CharacterRoster.Get("dmitri")).Corners;
-        // 名簿のキャラの教育は休みの動作の好み（BreakLikes）だけ: 判断の値は教科書と同じ。
-        Assert.AreEqual((BotCatalog.Champion with { BreakLikes = plain.PlayerStyle!.BreakLikes }).ToJson(), plain.PlayerStyle.ToJson());
+        CharacterRosterTests.AssertTextbookPlusGamePlan(BotCatalog.Champion, plain.PlayerStyle!, "marcus");
     }
 
     [TestMethod]
@@ -210,7 +202,7 @@ public sealed class CharacterFileTests
     public void OldRecordings_WithoutAPlayerStyle_StillRead_AndTheVersionWasRaised()
     {
         var version = ReplayFile.Version;
-        Assert.AreEqual(12, version, "v12: leg commands carry the knee control; v11: steps carry the hand Slide flags; v10: steps carry the elbow tuck; v9: matchSettings may carry PlayerStyleJson (v8) and the weapon-bot style JSONs (v9)");
+        Assert.AreEqual(13, version, "v13: steps carry the step command; v12: leg commands carry the knee control; v11: steps carry the hand Slide flags; v10: steps carry the elbow tuck; v9: matchSettings may carry PlayerStyleJson (v8) and the weapon-bot style JSONs (v9)");
         var corners = new MatchSelection(MatchMode.Single, CharacterRoster.Get("marcus"), CharacterRoster.Get("dmitri")).Corners;
         var options = new JsonSerializerOptions { IncludeFields = true };
         var node = JsonNode.Parse(JsonSerializer.Serialize(ReplayMatchSettings.From(corners, null), options))!.AsObject();
@@ -257,10 +249,9 @@ public sealed class CharacterFileTests
         Directory.CreateDirectory(dir);
         try
         {
-            var mine = Json("jin").Replace("\"id\": \"jin\"", "\"id\": \"newbie\"", StringComparison.Ordinal)
-                .Replace("\"order\": 1", "\"order\": 100", StringComparison.Ordinal)
-                .Replace("\"education\": { \"style\": {}, \"vs\": {}, \"weaponBot\": null }",
-                    "\"education\": { \"style\": { \"Aggression\": 0.5 }, \"vs\": { \"marcus\": { \"Aggression\": 0.8 } }, \"weaponBot\": null }", StringComparison.Ordinal);
+            var mine = CharacterRosterTests.WithEducation(Json("jin").Replace("\"id\": \"jin\"", "\"id\": \"newbie\"", StringComparison.Ordinal)
+                .Replace("\"order\": 1", "\"order\": 100", StringComparison.Ordinal),
+                "{ \"style\": { \"Aggression\": 0.5 }, \"vs\": { \"marcus\": { \"Aggression\": 0.8 } }, \"weaponBot\": null }");
             File.WriteAllText(Path.Combine(dir, "newbie.json"), mine);
             var one = CharacterRoster.LoadFile(Path.Combine(dir, "newbie.json"));
             Assert.AreEqual("newbie", one.Id);

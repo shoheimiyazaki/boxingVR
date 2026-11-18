@@ -8,7 +8,9 @@ namespace MiniRing;
 /// 方向はワールドの水平面（X = ワールド X、Y = ワールド Z）で与えたものとして扱い、移動はそのまま、技の選択（前後・横）は
 /// 体が相手へ向いた座標に直して読む。カメラ基準のキー入力はホストが入力の段階でワールドへ直して渡す（記録は指令に残るので、再生はカメラに依らず同じ）。
 /// </summary>
-public readonly record struct FighterIntent(Vector2 Direction, bool Light = false, bool Heavy = false, bool Evade = false, Vector2? World = null);
+/// <para><paramref name="Step"/>（2026-11-18）はステップ: 押した瞬間の方向へ、構えで縮めた脚のバネを放つ（前なら後ろ足で蹴って一気に詰め、後ろなら前足で蹴って下がる。
+/// <see cref="FighterCommand.Step"/>）。方向を入れていなければ何もしない。続けて押しても、脚がバネを縮め直すまでは弱い（クールダウンは体から出る）。</para>
+public readonly record struct FighterIntent(Vector2 Direction, bool Light = false, bool Heavy = false, bool Evade = false, Vector2? World = null, bool Step = false);
 
 /// <summary>操作の時間・間合いの設定。威力の倍率は持たない。</summary>
 public sealed record IntentTuning
@@ -48,6 +50,11 @@ public sealed record IntentTuning
     public float CoilSeconds { get; init; } = 0.12f;
     /// <summary>回避を押し続けたとき、守りの時間（守りの表の Duration）を過ぎてから頭と胴の目標を元の構えへ戻しきる時間 [s]。深く沈んだ姿勢は体が保てない（上体が前へ倒れてダウンになる）ので、押し続けても構えへ戻る。</summary>
     public float RecoverSeconds { get; init; } = 0.3f;
+    /// <summary>
+    /// ステップを押した瞬間から、脚のバネを放つ指令を出し続ける長さ [s]。体はバネを時定数 <see cref="FootworkTuning.StepPushTime"/> で放つので、
+    /// その 2 倍ほどあれば貯めた分はほぼ出きる。長く押しても 1 回のステップ（押し直せば次）。
+    /// </summary>
+    public float StepPulseSeconds { get; init; } = 0.08f;
 
     internal IntentTuning Validated()
     {
@@ -65,7 +72,8 @@ public sealed record IntentTuning
             || !float.IsFinite(SlipReach) || SlipReach < 0.5f || SlipReach > 3f
             || !float.IsFinite(CoilRadians) || CoilRadians < 0f || CoilRadians > 1f
             || !float.IsFinite(CoilSeconds) || CoilSeconds <= 0f
-            || !float.IsFinite(RecoverSeconds) || RecoverSeconds <= 0f)
+            || !float.IsFinite(RecoverSeconds) || RecoverSeconds <= 0f
+            || !float.IsFinite(StepPulseSeconds) || StepPulseSeconds <= 0f || StepPulseSeconds > 0.5f)
         {
             throw new ArgumentOutOfRangeException(nameof(IntentTuning), "操作設定の時間・距離・速さが範囲外です。");
         }
@@ -101,6 +109,8 @@ public sealed class IntentControl : IFighterControl
     private float _lastStartClock = float.NegativeInfinity;
     private float _lastStartDuration;
     private readonly List<Technique> _chain = [];
+    private Vector3 _stepDirection;
+    private float _stepUntil = float.NegativeInfinity;
 
     public IntentControl(IntentTuning? tuning = null, BotStyle? style = null)
     {
@@ -170,12 +180,21 @@ public sealed class IntentControl : IFighterControl
             move = (facing.Right * Input.Direction.X) + (facing.Forward * Input.Direction.Y);
         }
 
+        // ステップ: 押した瞬間の方向へ、短い間だけ脚のバネを放つ指令を出す（方向を入れていなければ何もしない）。
+        if (Input.Step && !_previous.Step && move.LengthSquared() > 1e-4f)
+        {
+            _stepDirection = Vector3.Normalize(move with { Y = 0f });
+            _stepUntil = _clock + _tuning.StepPulseSeconds;
+        }
+
+        var step = _clock <= _stepUntil ? _stepDirection : Vector3.Zero;
+
         if (!sense.OpponentAlive)
         {
             CancelAttack();
             CurrentDefense = Defense.None;
             _previous = Input;
-            return new FighterCommand(move, face, new(Guard(Hand.Left, reach, headLocal, sense.SelfFaintness), false), new(Guard(Hand.Right, reach, headLocal, sense.SelfFaintness), false));
+            return new FighterCommand(move, face, new(Guard(Hand.Left, reach, headLocal, sense.SelfFaintness), false), new(Guard(Hand.Right, reach, headLocal, sense.SelfFaintness), false), Step: step);
         }
 
         _left = Advance(_left, dt);
@@ -271,7 +290,8 @@ public sealed class IntentControl : IFighterControl
         return new FighterCommand(move, face,
             new(left, false, TechniqueExecution.Spring(_left), Tuck: TechniqueExecution.Tuck(_left, _style.ElbowTuck, guardingBody)),
             new(right, false, TechniqueExecution.Spring(_right), Tuck: TechniqueExecution.Tuck(_right, _style.ElbowTuck, guardingBody)), head,
-            TechniqueExecution.Twist(_left, Hand.Left, _style.Lead) + TechniqueExecution.Twist(_right, Hand.Right, _style.Lead) + (CoilHand() is { } hand0 ? CoilTwist(hand0) * coil : 0f));
+            TechniqueExecution.Twist(_left, Hand.Left, _style.Lead) + TechniqueExecution.Twist(_right, Hand.Right, _style.Lead) + (CoilHand() is { } hand0 ? CoilTwist(hand0) * coil : 0f),
+            Step: step);
     }
 
     private Vector3 Guard(Hand hand, float reach, Vector3 head, float faintness)

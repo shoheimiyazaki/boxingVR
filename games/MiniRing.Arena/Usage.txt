@@ -1,5 +1,5 @@
 ボット同士の対戦場。
-  rosterleague [--wear id=glove,...] [--chars a,b,...] [--bouts N] [--seconds S] [--seed X] [--referee on|off] [--parallel N] [--set A=v,B=v [--ab on [--layered id]]] [--out file.md]   名簿のキャラの総当たり（体格・距離の帯・打撃の表）
+  rosterleague [--wear id=glove,...] [--chars a,b,...] [--bouts N] [--seconds S] [--seed X] [--referee on|off] [--parallel N] [--set A=v,B=v [--ab on [--layered id]]] [--gameplan on|off|ab] [--matrix file.csv] [--out file.md]   名簿のキャラの総当たり（体格・距離の帯・打撃の表）
   league [--bots a,b,...] [--bouts N] [--seconds S] [--seed X] [--out file.md]   総当たりの順位表と技の内訳
   tune --base NAME [--gens G] [--pop P] [--bouts N] [--seconds S] [--gauntlet a,b] [--seed X] [--log file.md] [--out style.json]
                                                                                   スタイルの自動調整（PDCA を世代ごとに記録）

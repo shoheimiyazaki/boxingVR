@@ -36,7 +36,8 @@ internal sealed class IntentKeyboardControl(WeaponKind? weapon = null, bool kara
         var intent = new FighterIntent(Vector2.Zero,
             input.IsKeyDown(Key.J) || input.IsMouseButtonDown(MouseButton.Right) || pad.Light,
             input.IsKeyDown(Key.K) || input.IsMouseButtonDown(MouseButton.Left) || pad.Heavy,
-            input.IsKeyDown(Key.Space) || pad.Evade, movement);
+            input.IsKeyDown(Key.Space) || pad.Evade, movement,
+            Step: input.IsKeyDown(Key.L) || input.IsKeyDown(Key.ShiftLeft) || input.IsGamepadButtonDown(GamepadButton.East));
         return new BoxingInput(_control.Read(intent, sense, dt), reset);
     }
 }
