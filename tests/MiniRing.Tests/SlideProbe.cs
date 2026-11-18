@@ -38,26 +38,26 @@ public sealed class SlideProbe
     {
         TestContext.WriteLine("| 条件 | 骨盤 5s [cm] | 10s | 20s | 30s | 左足 30s | 右足 30s | 骨盤の最大の速さ [m/s] | 向きの変化 [deg] |");
         TestContext.WriteLine("|---|---|---|---|---|---|---|---|---|");
-        foreach (var (name, weapon, mode, handZ, headYaw, sway, vr) in new (string, WeaponKind?, int, float, float, float, bool)[]
+        foreach (var (name, weapon, mode, handZ, headYaw, sway, vr, cut) in new (string, WeaponKind?, int, float, float, float, bool, int)[]
         {
-            ("katana 空の入力", WeaponKind.Katana, 0, 0.3f, 0f, 0f, false),
-            ("katana VR 構え", WeaponKind.Katana, 1, 0.3f, 0f, 0f, false),
-            ("katana VR 構え vrTuning", WeaponKind.Katana, 1, 0.3f, 0f, 0f, true),
-            ("katana VR 腕を前へ 0.5", WeaponKind.Katana, 1, 0.5f, 0f, 0f, true),
-            ("katana VR 頭 40 度横", WeaponKind.Katana, 1, 0.3f, 0.7f, 0f, true),
-            ("katana VR 頭のゆれ 2 cm", WeaponKind.Katana, 1, 0.3f, 0f, 0.02f, true),
-            ("katana VR 頭のゆれ 5 cm", WeaponKind.Katana, 1, 0.3f, 0f, 0.05f, true),
-            ("素手 空の入力", null, 0, 0.3f, 0f, 0f, false),
-            ("素手 VR 構え", null, 2, 0.3f, 0f, 0f, true),
-            ("素手 VR 頭のゆれ 2 cm", null, 2, 0.3f, 0f, 0.02f, true),
-            ("素手 VR 頭 40 度横", null, 2, 0.3f, 0.7f, 0f, true),
+            ("katana sway2 全部", WeaponKind.Katana, 1, 0.3f, 0f, 0.02f, true, 0),
+            ("katana sway2 頭のずれ無し", WeaponKind.Katana, 1, 0.3f, 0f, 0.02f, true, 1),
+            ("katana sway2 手を固定", WeaponKind.Katana, 1, 0.3f, 0f, 0.02f, true, 2),
+            ("katana sway2 向き固定", WeaponKind.Katana, 1, 0.3f, 0f, 0.02f, true, 3),
+            ("katana sway2 手と頭のずれ無し", WeaponKind.Katana, 1, 0.3f, 0f, 0.02f, true, 4),
+            ("katana yaw40 全部", WeaponKind.Katana, 1, 0.3f, 0.7f, 0f, true, 0),
+            ("katana yaw40 向き固定", WeaponKind.Katana, 1, 0.3f, 0.7f, 0f, true, 3),
+            ("katana yaw40 手を固定", WeaponKind.Katana, 1, 0.3f, 0.7f, 0f, true, 2),
+            ("素手 sway2 全部", null, 2, 0.3f, 0f, 0.02f, true, 0),
+            ("素手 sway2 頭のずれ無し", null, 2, 0.3f, 0f, 0.02f, true, 1),
+            ("素手 sway2 手を固定", null, 2, 0.3f, 0f, 0.02f, true, 2),
         })
         {
-            Run(name, weapon, mode, handZ, headYaw, sway, vr);
+            Run(name, weapon, mode, handZ, headYaw, sway, vr, cut);
         }
     }
 
-    private void Run(string name, WeaponKind? weapon, int mode, float handZ, float headYaw, float sway, bool vr)
+    private void Run(string name, WeaponKind? weapon, int mode, float handZ, float headYaw, float sway, bool vr, int cut)
     {
         var corners = weapon is { } w
             ? SwordTraining.Corners(w, 0.9f)
@@ -71,11 +71,27 @@ public sealed class SlideProbe
         var r0 = Flat(p.AnklePosition(Hand.Right));
         var fwd0 = Yaw(p);
         var cells = new float[4];
+        FighterCommand firstCommand = default;
         var maxSpeed = 0f;
         var last = start;
         for (var i = 1; i <= 30 * 240; i++)
         {
             var input = mode == 0 ? default : mapper.Read(Raw(i * dt, headYaw, handZ, sway), game.PlayerSense, dt);
+            if (i == 1)
+            {
+                firstCommand = input.Player;
+            }
+
+            var c = input.Player;
+            c = cut switch
+            {
+                1 => c with { HeadOffset = default },
+                2 => c with { Left = firstCommand.Left, Right = firstCommand.Right },
+                3 => c with { Left = c.Left with { Orientation = firstCommand.Left.Orientation }, Right = c.Right with { Orientation = firstCommand.Right.Orientation } },
+                4 => c with { HeadOffset = default, Left = firstCommand.Left, Right = firstCommand.Right },
+                _ => c,
+            };
+            input = input with { Player = c };
             game.Step(input, dt);
             var now = Flat(p.PelvisPosition);
             maxSpeed = MathF.Max(maxSpeed, (now - last).Length() / dt);
