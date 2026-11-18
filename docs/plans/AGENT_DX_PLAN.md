@@ -194,3 +194,11 @@ lab ごとに違う md の表を出している。`PairedEvaluation` を出口�
   - **master へマージ済み 32**（消す候補）: `boxer-lowpoly-impact-deform-4b1273`・`outfit`・`a-3d0203`・`voxel-damage`・`evo-p1a`・`evo-p0b`・`rush-physics`・`sword-combat-techniques-51f876`・`tvprogram`・`staff-vr-motion-kick-d8bd9a`・`integrate` と `agent-*` 21 個。
   - **マージされていない 21**: 残す（`roster`・`boots`・`referee`・`tvcard2`・`build-tactics`・`charfiles`・`tonfa`・`swordshield`・`bojutsu`・`fingers`・`neck`・`taekwondo`・`weapons`・`throwing-grappling-mechanics-de662d`・`vfc`・`spacing-control-features-a34e7d`・`wound-cam`・`agent-dx` と動いている `agent-*` 3 つ）。このうち 11/16 の作業の枝（`roster`〜`weapons`）は内容が別の道で master に入っているものが多いが、枝としては未マージなので、消すかは中身を比べてから。
 - 消し方（承認の後）: `git worktree remove <道>`（`--force` は使わない: 未コミットの変更があるワークツリーは git が拒むので、作業の残りを消すことは無い）→ `git branch -d <枝>`（マージ済みでなければ git が拒む）。raytrek の `C:\Users\smiya\repos` の散らかり（bundle・patch・古いワークツリー 100 ほど）も同じく承認の後。
+- 2026-11-18: ユーザーの指示「他のセッションに消していいか聞いてから消して」で、このリポジトリで動いている 9 セッションに候補の一覧を送って尋ねた。**分かったこと（尋ねてよかった）**:
+  - `rush-physics` は「VGV連打問題」の作業中のワークツリー（未コミットの変更がある）。枝にまだコミットが無いので master と同じ所を指し、**マージ済みに見えていただけ**。消さない・枝も消さない。→ 「マージ済み」の判定だけでは消す候補を決められない。
+  - `evo-p0b` は「PPOと進化アルゴリズムの検討」の作業場所。git が無視するコマの PNG（約 17 MB）と動画 4 本がある。**`git worktree remove` は無視されたファイルがあっても止まらずに消す**（上の「作業の残りを消すことは無い」は、無視されたファイルについては誤りだった）。消さない。
+  - 「VGV WVC/VFCの差別化案」は、候補の外の `vfc`・`agent-a790ca3a…`・`agent-ab0e31be…`・`agent-a5eba920…` を作業中なので消さないでと。
+  - 消してよいと返事: 「VGV VR動き・キック改善」（`staff-vr-motion-kick-d8bd9a`・`agent-a9402fb2…`）・「VGV WVC/VFCの差別化案」（`agent-acf3ee68…`・`agent-a8b403f6…`）・「PPOと進化アルゴリズムの検討」（`evo-p1a`・`agent-a1959952…`）。「VGV 距離コントロール機能」「VRボクシングゲーム POC (fork)」「VGV 物理簡易モデルの研究」は 32 個のどれも使っていない。
+  - 返事待ち: 「剣術の技と防御システム」（`sword-combat-techniques-51f876` の持ち主。中に `media/` へ移していない動画 6 本・約 200 MB）・「VGB POC」。届かない: `a-3d0203`・`boxer-lowpoly-impact-deform-4b1273` の持ち主のセッション（動いていない）→ 返事が無いので消さない。
+  - 消す前に、候補ごとに git が守らないファイル（無視・未追跡）を調べた（スクリプト）。ほとんどは作り直せる `.visualcheck` の確認画像。`media/` に無い動画: `sword-combat-techniques` の 6 本、`agent-a1f9ebe8…/.visualcheck/eyes_facecam.mp4`、`agent-a8e00fc3…/.visualcheck/emote_tv.mp4`。
+- 2026-11-18: 消した: `staff-vr-motion-kick-d8bd9a`（持ち主のセッションがそこを作業ディレクトリにしているため空のフォルダだけ残った。持ち主に伝えた）・`agent-a8b403f6045b4eaa0`・`evo-p1a`。消せなかった: `agent-a9402fb2…`・`agent-acf3ee68…`・`agent-a1959952…` は持ち主のセッションのプロセス（生きている）が「使用中」のロックを掛けていて git が拒んだ。強制（`-f -f`）はしない。持ち主が片付けるまで残る。
