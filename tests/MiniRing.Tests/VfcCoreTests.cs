@@ -8,7 +8,7 @@ using MiniRing.Replay;
 namespace MiniRing.Tests;
 
 /// <summary>
-/// VFC の試合の芯（2026-11-18）: 六角形の金網の檻（<see cref="ArenaShape.HexCage"/>）と、ルールの値（ダウンを数えない・判定しない・体が治らない）。
+/// VFC の試合の芯（2026-11-18）: 六角形の金網の檻（<see cref="ArenaShape.HexCage"/>）と、ルールの値（ダウンを数えない・判定しない・休みに傷が前線の再生で少しずつ戻る）。
 /// 既定の道（四角いリング・今のルール）は別のテスト（ReplayTests ほか）が変わらないことを守る。
 /// </summary>
 [TestClass]
@@ -187,12 +187,15 @@ public sealed class VfcCoreTests
     }
 
     [TestMethod]
-    public void Vfc_BreakDoesNotRegrowVoxels_WhereTheTvRulesDo()
+    public void Vfc_BreakRegrowsVoxelsFromTheLivingEdge_AndWithoutRegrowthNothingComesBack()
     {
+        // 2026-11-18（指示書 F）: VFC の休みは前線の再生で傷が少しずつ戻る（以前の「VFC の休みは治らない」は決まりが変わった）。
         var vfc = FilledAcrossABreak(MatchRules.Vfc with { RoundSeconds = 1f, Rounds = 2, BreakSeconds = 1f });
+        var none = FilledAcrossABreak(MatchRules.Vfc with { RoundSeconds = 1f, Rounds = 2, BreakSeconds = 1f, RegrowthSpeed = 0f });
         var tv = FilledAcrossABreak(MatchRules.Tv with { RoundSeconds = 1f, Rounds = 2, BreakSeconds = 1f });
-        Console.WriteLine($"VFC {vfc.Start} -> {vfc.End}; TV {tv.Start} -> {tv.End}");
-        Assert.AreEqual(vfc.Start, vfc.End, "carved voxels stay carved in VFC");
+        Console.WriteLine($"VFC {vfc.Start} -> {vfc.End}; no regrowth {none.Start} -> {none.End}; TV {tv.Start} -> {tv.End}");
+        Assert.IsGreaterThan(vfc.Start, vfc.End, "the VFC break grows carved voxels back from the edge");
+        Assert.AreEqual(none.Start, none.End, "with no regrowth, carved voxels stay carved");
         Assert.IsGreaterThan(tv.Start, tv.End, "the WVC break grows them back");
     }
 
