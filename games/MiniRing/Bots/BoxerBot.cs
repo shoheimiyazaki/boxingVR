@@ -123,7 +123,6 @@ public sealed class BoxerBot : IFighterControl
     /// <summary>調べもの・テスト用: 戦略の層のこの歩の答え。</summary>
     internal PlanChoice? Plan => _plan;
 
-    /// <summary>戦略の層の手数の倍率を、重みの割合で 1 から寄せたもの（層が無ければちょうど 1: 掛けてもビット単位で変わらない）。</summary>
     /// <summary>間の層の、次の拳までの間の縮む速さの倍率（<see cref="Bots.Rhythm.Tempo"/>。層が無ければ 1）。</summary>
     private float _rhythmTempo = 1f;
 
@@ -140,6 +139,14 @@ public sealed class BoxerBot : IFighterControl
 
     internal float RhythmTempo => _rhythmTempo;
 
+    /// <summary>
+    /// 次の拳までの間を 1 歩進める。<paramref name="advance"/> が正なら縮め（今まで通り）、負（間の層が待たせる）なら 0 から伸ばして
+    /// <see cref="RhythmHoldCap"/> までで止める（間が負へ貯まっていても、入れられた直後は打たない。レビュー指摘）。
+    /// </summary>
+    internal static float NextCooldown(float cooldown, float advance) =>
+        advance >= 0f ? cooldown - advance : MathF.Min(MathF.Max(cooldown, 0f) - advance, MathF.Max(cooldown, RhythmHoldCap));
+
+    /// <summary>戦略の層の手数の倍率を、重みの割合で 1 から寄せたもの（層が無ければちょうど 1: 掛けてもビット単位で変わらない）。</summary>
     private float PlanTempo => _plan is { } plan ? 1f + ((plan.Tempo - 1f) * Style.GamePlan!.Weight) : 1f;
 
     private float _lastDesired;
@@ -225,7 +232,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 51; // 51: ブランチ claude/spacing-control-features の 50（戦略の層（GamePlan: 得意な間合いの表・傷み・疲れ・試合の時刻から立つ距離と手数。既定のスタイルは不変、名簿の教育で入る）。）と、master の 50（エモート）を合わせた（2026-11-18 のマージ）。 50: 試合の始め・休み・終わりのエモート（動作 60 種・場面の表・勝ち負けの重み・キャラの好み）と、始めの助走・試合の始めの待ち時間・終わりの動作（2026-11-18、docs/BREAK_ROUTINE.md）。名簿の教育に BreakLikes を書いた。TV の試合の始めと決着の後が変わる。 49: master の 43（休み）・44（回し蹴りの高さ）と claude/sword-combat-techniques の 43〜48（剣の型・連続の守り・内側の技・バット）を合わせた（2026-11-18 のマージ）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 52; // 52: 間の層（Rhythm: 相手の拳の出始めからの時間と、その拳が自分に触れたか（守りの上か外か）から、測った 1 打の損得の表で次の拳までの間を縮める・止める。既定のスタイルは不変、名簿の教育で入る）（2026-11-18）。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;
@@ -1086,7 +1093,8 @@ public sealed class BoxerBot : IFighterControl
         // 戦略の層: 得と脅威の釣り合い・急ぐ度合いで次の拳までの間を縮める・空ける（PlanTempo。層が無ければ 1 を掛けるだけ）。
         // 間の層: 相手の拳の後の損得の表で縮める（攻めの番）・止めて伸ばす（守りの番。伸ばすのは RhythmHoldCap まで）。層が無ければ 1 を掛けるだけ。
         var advance = dt * (1f - ((1f - Style.RestTempo) * RestNeed)) * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure))) * _build.Tempo(Style) * (1f + (Style.FinishTempo * _hurt.Opening)) * PlanTempo * _rhythmTempo;
-        _cooldown = advance >= 0f ? _cooldown - advance : MathF.Min(_cooldown - advance, MathF.Max(_cooldown, RhythmHoldCap));
+        // 待たせるときは 0 から伸ばす（間合いの外にいた間などに間が負へ貯まっていても、入れられた直後は打たない。レビュー指摘）。
+        _cooldown = NextCooldown(_cooldown, advance);
         _exitTimer = MathF.Max(0f, _exitTimer - dt);
         if (_kick is not null || _elbow is not null || _defense != Defense.None || _clinchTime >= 0f || _throwTime >= 0f || _combo is not null)
         {

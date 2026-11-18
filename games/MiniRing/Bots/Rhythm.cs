@@ -78,8 +78,11 @@ public static class Rhythm
     /// <summary>守りの外に入った打撃のダメージがこれだけあると、入った重みが 1 − 1/e（測定の 1 打の平均は 6 前後）。</summary>
     public const float CleanFeel = 3f;
 
-    /// <summary>表の終わりの帯の後（静かな時へ移る）[s]。rhythmlab の窓（1.2 秒）と同じ。</summary>
+    /// <summary>表の終わりの帯の終わり [s]。rhythmlab の窓（1.2 秒）と同じ。この先は静かな時。</summary>
     public const float Horizon = 1.2f;
+
+    /// <summary>最後の帯の真ん中からここまでで、静かな時の値へ寄せ終える [s]（静かな時の帯は 1.2 秒から先の平均なので、その始めの少し先）。</summary>
+    public const float QuietAt = 1.3f;
 
     /// <summary>
     /// 相手の拳の後に感じたことからの、表の 3 つの列の重み（足して 1）。
@@ -94,8 +97,9 @@ public static class Rhythm
     }
 
     /// <summary>
-    /// 今打ち出したときの 1 打の損得の見込み。表の帯の間は線形に補い（帯の始めを点とみなす）、<see cref="Horizon"/> から先は
-    /// 静かな時の値へなめらかに寄せる。
+    /// 今打ち出したときの 1 打の損得の見込み。帯の値はその帯（始めから次の帯の始め、最後は <see cref="Horizon"/> まで）の平均なので、
+    /// 帯の真ん中の点とみなして間を線形に補う（始めの点とみなすと、半帯ぶん早く動いた。レビュー指摘）。最初の帯の真ん中より前はその値、
+    /// 最後の帯の真ん中から <see cref="QuietAt"/> までで静かな時の値へ寄せる。
     /// </summary>
     public static float Expected(RhythmStyle style, float sinceOnset, float cleanDamage, float guardContacts)
     {
@@ -107,24 +111,26 @@ public static class Rhythm
 
         var (wNone, wGuard, wClean) = ContactWeights(cleanDamage, guardContacts);
         float Value(RhythmBin b) => (wNone * b.None) + (wGuard * b.Guard) + (wClean * b.Clean);
-        if (sinceOnset <= bins[0].From)
+        float Middle(int i) => 0.5f * (bins[i].From + (i + 1 < bins.Count ? bins[i + 1].From : MathF.Max(bins[i].From, Horizon)));
+        if (sinceOnset <= Middle(0))
         {
             return Value(bins[0]);
         }
 
         for (var i = 1; i < bins.Count; i++)
         {
-            if (sinceOnset < bins[i].From)
+            var to = Middle(i);
+            if (sinceOnset < to)
             {
-                var a = bins[i - 1];
-                var b = bins[i];
-                var t = (sinceOnset - a.From) / MathF.Max(1e-4f, b.From - a.From);
-                return Value(a) + ((Value(b) - Value(a)) * t);
+                var from = Middle(i - 1);
+                var t = (sinceOnset - from) / MathF.Max(1e-4f, to - from);
+                return Value(bins[i - 1]) + ((Value(bins[i]) - Value(bins[i - 1])) * t);
             }
         }
 
+        var lastMiddle = Middle(bins.Count - 1);
         var last = Value(bins[^1]);
-        var fade = Math.Clamp((sinceOnset - bins[^1].From) / MathF.Max(1e-4f, Horizon - bins[^1].From), 0f, 1f);
+        var fade = Math.Clamp((sinceOnset - lastMiddle) / MathF.Max(1e-4f, QuietAt - lastMiddle), 0f, 1f);
         return last + ((style.Quiet - last) * fade);
     }
 

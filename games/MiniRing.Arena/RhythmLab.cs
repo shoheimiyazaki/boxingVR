@@ -45,7 +45,8 @@ internal static class RhythmLab
 
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-    internal readonly record struct HitLog(int Attacker, int Step, float Damage, bool Clean);
+    /// <summary>1 つの当たり（Weapon: 武器の当たり。ボットは OnPunchTaken で感じないので触れ方には数えない、ダメージには数える）。</summary>
+    internal readonly record struct HitLog(int Attacker, int Step, float Damage, bool Clean, bool Weapon = false);
 
     /// <summary>1 試合の記録（red = 0、blue = 1）。</summary>
     internal sealed class BoutLog(string red, string blue, int steps)
@@ -83,11 +84,11 @@ internal static class RhythmLab
 
             foreach (var hit in game.WeaponHits)
             {
-                log.Hits.Add(new HitLog(hit.Attacker == game.Player ? 0 : 1, i, hit.Damage, hit.Zone != HitZone.Guard));
+                log.Hits.Add(new HitLog(hit.Attacker == game.Player ? 0 : 1, i, hit.Damage, hit.Zone != HitZone.Guard, Weapon: true));
             }
         }
 
-        log.Throws = MaaiLab.RunBout(red, blue, seed, seconds, referee, onStep: OnStep);
+        log.Throws = MaaiLab.RunBout(red, blue, seed, seconds, referee, onStep: OnStep, keepRhythm: false);
         return log;
     }
 
@@ -237,6 +238,7 @@ internal static class RhythmLab
         var taken = new double[log.Steps];
         var takenHits = new double[log.Steps];
         var takenGuard = new double[log.Steps];
+        var contactClean = new double[log.Steps];
         var dealt = new double[log.Steps];
         foreach (var h in log.Hits)
         {
@@ -249,7 +251,9 @@ internal static class RhythmLab
             {
                 taken[h.Step] += h.Damage;
                 takenHits[h.Step] += h.Clean ? 1 : 0;
-                takenGuard[h.Step] += h.Clean ? 0 : 1;
+                // 触れ方（ボットが感じる物）: 拳・蹴りの当たりだけ（武器の当たりは OnPunchTaken に来ない）。
+                takenGuard[h.Step] += h.Clean || h.Weapon ? 0 : 1;
+                contactClean[h.Step] += h.Clean && !h.Weapon ? 1 : 0;
             }
             else
             {
@@ -259,6 +263,8 @@ internal static class RhythmLab
 
         var mine = log.Throws.Where(t => t.Attacker == log.Ids[me] && Counts(t)).OrderBy(t => t.LaunchTime).ToList();
         var theirs = log.Throws.Where(t => t.Attacker == log.Ids[op] && Counts(t)).OrderBy(t => t.LaunchTime).ToList();
+        var theirPunches = theirs.Where(t => t.Kind == "punch").ToList();
+        var stepsPerBin = (int)MathF.Round(Bin / dt);
         int StepOf(float time) => Math.Clamp((int)MathF.Round(time / dt), 0, log.Steps - 1);
 
         // 全体と、静かな時（どちらも 1.2 秒以内に打っていない）。
@@ -353,8 +359,9 @@ internal static class RhythmLab
             }
 
             var prev = theirs.LastOrDefault(x => x.LaunchTime <= t.LaunchTime);
-            var since = prev is null ? float.PositiveInfinity : t.LaunchTime - prev.LaunchTime;
-            var bin = since < Bins * Bin ? (int)(since / Bin) : Bins;
+            // 帯は歩の数で決める（float の割り算で帯の境の手前へ落ちた。レビュー指摘）。
+            var sinceSteps = prev is null ? int.MaxValue : s0 - StepOf(prev.LaunchTime);
+            var bin = sinceSteps < Bins * stepsPerBin ? sinceSteps / stepsPerBin : Bins;
             var cat = prev is null ? 0 : OutcomeOf(prev);
             var countered = 0.0;
             for (var i = s0; i < log.Steps && (i - s0) * dt < CounterWindow; i++)
@@ -370,16 +377,20 @@ internal static class RhythmLab
             }
 
             AddChance(r.AfterOpponentLaunch[cat], bin, landed, t.Damage, countered);
+            // ボットが分かること: 相手の最後の拳（ボットの出始めの読みは拳だけを見る）からの時間と、自分が打ち出すまでにそれが触れたか。
+            var fist = theirPunches.LastOrDefault(x => x.LaunchTime <= t.LaunchTime);
+            var fistSteps = fist is null ? int.MaxValue : s0 - StepOf(fist.LaunchTime);
+            var fistBin = fistSteps < Bins * stepsPerBin ? fistSteps / stepsPerBin : Bins;
             var contact = 0;
-            if (prev is not null && bin < Bins)
+            if (fist is not null && fistBin < Bins)
             {
-                for (var i = StepOf(prev.LaunchTime); i < s0; i++)
+                for (var i = StepOf(fist.LaunchTime); i < s0; i++)
                 {
-                    contact = Math.Max(contact, takenHits[i] > 0 ? 2 : takenGuard[i] > 0 ? 1 : 0);
+                    contact = Math.Max(contact, contactClean[i] > 0 ? 2 : takenGuard[i] > 0 ? 1 : 0);
                 }
             }
 
-            AddChance(r.AfterOpponentContact[contact], bin, landed, t.Damage, countered);
+            AddChance(r.AfterOpponentContact[contact], fistBin, landed, t.Damage, countered);
             var eb = Math.Min(ExtBins - 1, (int)(log.Extension[op][s0] / ExtBin));
             AddChance(r.ByOpponentExtension, eb, landed, t.Damage, countered);
         }

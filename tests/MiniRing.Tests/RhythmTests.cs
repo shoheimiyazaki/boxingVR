@@ -48,7 +48,7 @@ public sealed class RhythmTests
     {
         var style = Style();
         var atOnce = Rhythm.Tempo(style, 0.02f, cleanDamage: 0f, guardContacts: 1f);
-        var window = Rhythm.Tempo(style, 0.3f, cleanDamage: 0f, guardContacts: 1f);
+        var window = Rhythm.Tempo(style, 0.45f, cleanDamage: 0f, guardContacts: 1f); // 0.3〜0.6 秒の帯の真ん中
         Assert.IsLessThan(window, atOnce, "blocked: wait a moment, then return");
         Assert.IsGreaterThan(1f, window);
     }
@@ -82,7 +82,7 @@ public sealed class RhythmTests
             previous = v;
         }
 
-        Assert.AreEqual(style.Quiet, Rhythm.Expected(style, Rhythm.Horizon + 0.1f, 0f, 1f), 1e-5f);
+        Assert.AreEqual(style.Quiet, Rhythm.Expected(style, Rhythm.QuietAt, 0f, 1f), 1e-5f);
         Assert.AreEqual(style.Quiet, Rhythm.Expected(style, float.PositiveInfinity, 0f, 0f), 1e-5f, "never seen a punch: quiet");
     }
 
@@ -97,6 +97,16 @@ public sealed class RhythmTests
             var v = Rhythm.Tempo(Style(seize: 3f), t, 20f, 0f);
             Assert.IsTrue(v is >= Rhythm.MinTempo and <= Rhythm.MaxTempo, $"{v} at {t}");
         }
+    }
+
+    [TestMethod]
+    public void Hold_StartsFromZero_EvenWhenTheCooldownWentFarNegative_AndStopsAtTheCap()
+    {
+        // 間合いの外にいた間に間が −3 秒まで貯まっていても、入れられた直後（倍率が負）は 0 から伸ばす（すぐ打たない）。
+        Assert.AreEqual(0.01f, BoxerBot.NextCooldown(-3f, -0.01f), 1e-6f);
+        Assert.AreEqual(0.5f, BoxerBot.NextCooldown(0.49f, -0.05f), 1e-6f, "held at the cap");
+        Assert.AreEqual(0.8f, BoxerBot.NextCooldown(0.8f, -0.05f), 1e-6f, "a longer cooldown is not stretched further");
+        Assert.AreEqual(-3.01f, BoxerBot.NextCooldown(-3f, 0.01f), 1e-6f, "a positive advance is the old subtraction");
     }
 
     [TestMethod]
