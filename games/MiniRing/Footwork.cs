@@ -166,7 +166,7 @@ public sealed record FootworkTuning
     /// 歩く・ステップ・蹴りの指令が止まってから、着いた足の置いた所を留め始めるまでの時間 [s]。止まって構えを整える間（体が止まり、足が構えへ寄る）は
     /// 足の置き方を実際の足へ合わせ、落ち着いた立ち姿になってから留める。蹴りの手本（KickShin・KneePractice）は止まって 0.4〜0.9 秒で蹴るので、それより長く置いた。
     /// </summary>
-    public float HoldSettleSeconds { get; init; } = 1e6f;
+    public float HoldSettleSeconds { get; init; } = 1f;
 }
 
 /// <summary>1 本の足の置き方（ワールド）: 母指球の位置（地面の上、持ち上げを含む）、つま先の向き、かかとの浮き。</summary>
