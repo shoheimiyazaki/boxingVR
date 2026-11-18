@@ -96,10 +96,15 @@ public sealed class SlideProbe
             var now = Flat(p.PelvisPosition);
             maxSpeed = MathF.Max(maxSpeed, (now - last).Length() / dt);
             last = now;
-            if (name.StartsWith("katana yaw40 全部", StringComparison.Ordinal) && i % 6 == 0 && i >= 3 * 240 && i <= 3 * 240 + 90)
+            if (name.StartsWith("katana yaw40 全部", StringComparison.Ordinal) && i % 3 == 0 && i >= 3 * 240 && i <= 3 * 240 + 120)
             {
                 var v = p.PelvisVelocity;
-                TestContext.WriteLine($"  [{name}] t={i * dt:0.00} pelvis=({(now.X - start.X) * 100f:0.0},{(now.Z - start.Z) * 100f:0.0}) v=({v.X:0.00},{v.Z:0.00}) steps={p.Footwork.Steps} swing={p.Footwork.Swinging} {p.Footwork.DebugLand} ball=({Local(p, Hand.Left)}) {Local(p, Hand.Right)} move={input.Player.MoveWorld.Length():0.00} head=({input.Player.HeadOffset.X * 100f:0.0},{input.Player.HeadOffset.Y * 100f:0.0},{input.Player.HeadOffset.Z * 100f:0.0})");
+                {
+                    var sep = Flat(p.AnklePosition(Hand.Right)) - Flat(p.AnklePosition(Hand.Left));
+                    var yaw = Yaw(p);
+                    var (sn, cs) = MathF.SinCos(yaw);
+                    TestContext.WriteLine($"  [{name}] t={i * dt:0.000} sep(lat,fwd)cm=({((sep.X * cs) - (sep.Z * sn)) * 100f:0.0},{((sep.X * sn) + (sep.Z * cs)) * 100f:0.0}) swing={p.Footwork.Swinging} steps={p.Footwork.Steps} L={Local(p, Hand.Left)} R={Local(p, Hand.Right)} legL={p.LegLength:0.000}");
+                }
             }
 
             foreach (var (k, sec) in new[] { (0, 5), (1, 10), (2, 20), (3, 30) })
