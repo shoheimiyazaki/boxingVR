@@ -143,6 +143,21 @@ internal static unsafe class SelfTest
             PngWriter.WriteRgba(Path.Combine(outputDirectory, name), 960, 540, pixels);
         }
 
+        // 比較用: 目の描画では頭の中にカメラがあって頭が見えないのは当たり前なので、後ろ斜め上から自分の頭を見て、隠す設定が効くことを確かめる。
+        var puppetHead = game.PlayerSense.SelfHead;
+        var behind = puppetHead + new Vector3(0.12f, 0.10f, -0.30f);
+        var outside = Camera.OffCenterViewProjection(Matrix4x4.CreateLookAt(behind, puppetHead, Vector3.UnitY), new FrustumWindow(-0.5f, 0.5f, -0.28f, 0.28f), 0.02f, 50f);
+        foreach (var (hide, name) in new[] { (true, "vr_first_person_behind_hidden.png"), (false, "vr_first_person_behind_visible.png") })
+        {
+            game.HidePlayerHead = hide;
+            var (instances, lines) = game.BuildRenderables();
+            var voxels = game.BuildVoxelVolumes();
+            using var reference = new HeadlessRenderer(960, 540);
+            var pixels = reference.RenderPrimitiveScene(ArenaLook.Background, outside, instances, lines, particles: game.BuildParticles(),
+                lighting: game.BuildLighting(), shadow: game.BuildShadow(), cameraPosition: behind, voxels: voxels);
+            PngWriter.WriteRgba(Path.Combine(outputDirectory, name), 960, 540, pixels);
+        }
+
         return 0;
     }
 
