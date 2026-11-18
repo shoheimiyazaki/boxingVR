@@ -3,47 +3,8 @@ using System.Globalization;
 using MiniRing.Arena;
 using MiniRing.Bots;
 
-// ボット同士の対戦場。
-//   rosterleague [--wear id=glove,...] [--chars a,b,...] [--bouts N] [--seconds S] [--seed X] [--referee on|off] [--parallel N] [--set A=v,B=v [--ab on [--layered id]]] [--out file.md]   名簿のキャラの総当たり（体格・距離の帯・打撃の表）
-//   league [--bots a,b,...] [--bouts N] [--seconds S] [--seed X] [--out file.md]   総当たりの順位表と技の内訳
-//   tune --base NAME [--gens G] [--pop P] [--bouts N] [--seconds S] [--gauntlet a,b] [--seed X] [--log file.md] [--out style.json]
-//                                                                                   スタイルの自動調整（PDCA を世代ごとに記録）
-//   drill [--book f.json] [--bouts N] [--seconds S]                                防御ドリル: 防御技 × 拳の種類の効き目の表
-//   drilltune [--defense a,b|all] [--book f.json] [--gens G] [--pop P] [--log f.md] [--out book.json]
-//                                                                                   防御技ごとの最適化（ドリルで PDCA）
-//   cmatune --target punch:2|defense:Slip[,..] [--defenses Block,Slip] [--gens 40] [--lambda 0] [--sigma 0.15] [--samples N] [--seconds S] [--seed X]
-//           [--resume state.json] [--out docs/arena/cma_<名前>.md] [--json docs/arena/cma/<名前>.json] [--confirm-n N] [--match-n N] [--match-seconds S] [--parallel P]
-//                                                                                   CMA-ES でドリルの点を上げる（拳 1 技・守り 1 技。最後に使わなかった種で比べ直し、試合でも確かめる）
-//   attacklab [--combos 1,2,1-2] [--telegraphs 0,0.1,0.2] [--ranges 0.9,1.05,1.2] [--bouts N] [--seconds S] [--log f.md]
-//                                                                                   攻撃のドリル: 単発・連打 × 溜めの長さで、拳の速さ・体重の乗り・威力
-//   karatelab [--only shapes,parry,kicks,video] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md] [--video media_tmp/karate_vitals]
-//                                                                                   空手のドリル: 手の形 × 急所、パリー（拳の曲がり）、5 種の蹴り
-//   kicklab [--body taeyun] [--kick Roundhouse] [--distances 1.0,1.1,...] [--seeds 1,2,..] [--confirm-seeds 11,12,..] [--shin 0.75] [--overshoot -0.2] [--log f.md]
-//                                                                                   蹴りの間合いのドリル: 間合いを刻んで蹴り、当たり・すねの当たった点・渡したエネルギーの表（採る間合いは使っていない種で比べ直す）
-//   counterlab [--book f.json] [--defense a,b|evasions] [--bouts N] [--ranges 1.15,1.3] [--log f.md] [--out book.json]
-//                                                                                   回避からのカウンターの研究（型 × 打ち始めの総当たり）
-//   basics [--punch 2] [--slot Duck] [--style swarmer] [--guards 0.6,1.0,1.5] [--guard H] [--gens G] [--pop P] [--log f.md] [--out f.json]
-//                                                                                   回避の基本動作の最適化（1 つの型だけを打たせて、外す形を磨く）
-//   video [--red A] [--blue B] [--seed X] [--seconds S] [--width W --height H --fps F] [--out file.mp4] [--red-weapon W --blue-weapon W]  [--red-char ID --blue-char ID]（名簿のキャラクター。武器・体格・顔・名前がそのキャラクターの値）
-//                                                                                   ボット同士の試合を字幕・打撃音つきの mp4 に（ffmpeg が必要）
-//                                                                                   [--program p.json]（--tv on のとき、冒頭に大会の「本日のプログラム」の表。tvshow.ps1 が書く）
-//   weaponlab [--out file.mp4] [--table file.md] [--width W --height H --fps F] [--slow X] [--video on|off]
-//                                                                                   武器の実験場: 鉄の剣と木の棍棒で斬る・打つ・突く・打ち合う（スロー動画と結果の表）
-//   sparlab [--gens G] [--lambda L] [--bouts N] [--seconds S] [--seed X] [--start techniques.json] [--best style.json] [--out report.md]
-//           [--final-bouts N] [--final-seconds S] [--video f.mp4]
-//   swordlab [--gens G] [--lambda L] [--seed X] [--bouts N] [--seconds S] [--out report.md] [--best techniques.json] [--techniques kote,men]
-//            [--fight only] [--video f.mp4]
-//   swinglab [--gens G] [--lambda L] [--seed X] [--bouts N] [--seconds S] [--out report.md] [--best swings.json] [--video f.mp4]
-//                                                                                   棍棒の振りの研究（型ごとに威力を進化戦略で上げ、要素を外して比べ、拳のボットと戦わせる）
-//   noiselab [--only drill,match] [--match-n N] [--drill-n N] [--match-seconds a,b] [--drill-seconds a,b] [--seed X] [--parallel P] [--out f.md]
-//                                                                                   評価の雑音を測る（種による揺れ・小さな変更での揺れ・差を言うのに要る標本の数・1 標本の長さ）
-//   visionlab [--only start,aim] [--bouts N] [--seconds S] [--seed X] [--log f.md]  目を潰されて始める・目を狙うスタイルの測定
-//   faces [--out f.png] [--names a,b|f.json] [--columns N]                                全キャラの顔（正面と斜め）を並べた画像
-//   voxexport [--out boxer.vox] [--from current|generated]                         ボクサーの中身を .vox へ（Vengi・MagicaVoxel で直す）
-//   voxcheck --in boxer.vox [--install yes]                                        直した .vox を確かめ、生成との差を出す（yes でゲームに組み込む）
-//   weaponexport [--out weapons.vox] [--from current|generated]                    武器・はめる物の中身を .vox へ（256 を超える軸は塊に分ける）
-//   weaponcheck --in weapons.vox [--install yes]                                   直した武器の .vox を確かめ、生成との差を出す（yes でゲームに組み込む）
-// ボットは名前（legacy, boxer, outboxer, swarmer, counter, slugger, champion）か、スタイルの JSON ファイルのパス。
+// ボット同士の対戦場。使い方（コマンドと引数）は Usage.txt にある: `miniring-arena help [コマンド]`。
+// コマンドを足したら、下の switch と Usage.txt の両方に足す（ArenaUsageTests が確かめる）。
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 var argv = args.Length == 0 ? ["league"] : args;
 var command = argv[0];
@@ -51,6 +12,7 @@ try
 {
     return command switch
     {
+        "help" or "--help" or "-h" => Help(argv.Length > 1 ? argv[1] : null),
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out", "hz", "passes", "sample", "referee")),
         "handlelab" => HandleLabCommand(Options.Parse(argv[1..], "pairs", "fist", "bouts", "seconds", "seed", "referee", "parallel", "out", "style-katana", "style-longsword", "style-club", "style-staff", "style-swordshield", "style-bat", "title")),
         "handlespar" => HandleSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "held-out", "gens", "lambda", "bouts", "seconds", "seed", "referee", "parallel", "start", "best", "out")),
@@ -1781,9 +1743,27 @@ static int KickShinCommand(Options o)
 static int Usage(string message)
 {
     Console.Error.WriteLine(message);
-    Console.Error.WriteLine("usage: miniring-arena league [--bots a,b] [--bouts N] [--seconds S] [--seed X] [--out f.md]");
-    Console.Error.WriteLine("       miniring-arena tune --base NAME [--gens G] [--pop P] [--bouts N] [--seconds S] [--gauntlet a,b] [--log f.md] [--out f.json]");
+    Console.Error.WriteLine("commands: " + string.Join(' ', UsageText.Commands()));
+    Console.Error.WriteLine("usage of one command: miniring-arena help <command>");
     return 2;
+}
+
+static int Help(string? command)
+{
+    if (command is null)
+    {
+        Console.WriteLine(UsageText.All);
+        return 0;
+    }
+
+    var entry = UsageText.Of(command);
+    if (entry is null)
+    {
+        return Usage($"知らないコマンド: {command}");
+    }
+
+    Console.WriteLine(entry);
+    return 0;
 }
 
 /// <summary>
