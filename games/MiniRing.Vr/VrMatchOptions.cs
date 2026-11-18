@@ -1,4 +1,5 @@
 using MiniRing.Bots;
+using MiniRing.Motion;
 using MiniRing.Weapons;
 
 namespace MiniRing.Vr;
@@ -12,6 +13,15 @@ internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuW
 {
     /// <summary>お手本づくりの稽古（<c>--training katana</c>）の武器。null なら試合（<see cref="VrTrainingSession"/>）。</summary>
     public WeaponKind? Training { get; init; }
+
+    /// <summary>① <c>--two-hand right</c>（既定）: 両手持ちの武器は右のコントローラが両手を動かす（左はグリップを押しているだけ）。<c>both</c>: 左右のコントローラがそれぞれの手を動かす。</summary>
+    public VrTwoHand TwoHand { get; init; } = VrTwoHand.Right;
+
+    /// <summary>② <c>--first-person</c>: カメラは HMD の姿勢のまま。体の頭を HMD の位置へ持っていく。自分の頭は目の描画に入れない。</summary>
+    public bool FirstPerson { get; init; }
+
+    /// <summary><c>--shield</c>: 左手に盾（片手剣の稽古。両者とも）。</summary>
+    public HandWear Wear { get; init; } = HandWear.Glove;
 
     public static bool TryParse(IReadOnlyList<string> args, out VrMatchOptions options, out string error)
     {
@@ -65,16 +75,32 @@ internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuW
         WeaponKind? training = null;
         if (Value(args, "--training") is { } trainingText)
         {
-            if (!Enum.TryParse<WeaponKind>(trainingText, ignoreCase: true, out var kind) || !Enum.IsDefined(kind) || !FormSwordsman.HasForms(kind))
+            if (!Enum.TryParse<WeaponKind>(trainingText, ignoreCase: true, out var kind) || !Enum.IsDefined(kind) || !SwordTraining.Supports(kind))
             {
-                error = $"Unknown --training '{trainingText}'. Weapons with forms: katana, longsword, staff, jo, ironsword, bat.";
+                error = $"Unknown --training '{trainingText}'. Weapons with forms: katana, longsword, staff, jo, ironsword, bat, woodenclub (borrows the bat forms).";
                 return false;
             }
 
             training = kind;
         }
 
-        options = new VrMatchOptions(training ?? player, training ?? cpuWeapon, cpu) { Training = training };
+        var twoHand = VrTwoHand.Right;
+        if (Value(args, "--two-hand") is { } twoHandText)
+        {
+            if (!Enum.TryParse(twoHandText, ignoreCase: true, out twoHand) || !Enum.IsDefined(twoHand))
+            {
+                error = $"Unknown --two-hand '{twoHandText}'. Known: right, both.";
+                return false;
+            }
+        }
+
+        options = new VrMatchOptions(training ?? player, training ?? cpuWeapon, cpu)
+        {
+            Training = training,
+            TwoHand = twoHand,
+            FirstPerson = args.Contains("--first-person"),
+            Wear = args.Contains("--shield") ? HandWear.Shield : HandWear.Glove,
+        };
         return true;
     }
 
@@ -88,6 +114,8 @@ internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuW
             PlayerTwoHanded = FormSwordsman.Handles(PlayerWeapon),
             CpuTwoHanded = FormSwordsman.Handles(CpuWeapon),
             UseWeaponBots = true,
+            PlayerWear = Wear,
+            CpuWear = Wear,
         };
 
     private static string? Value(IReadOnlyList<string> args, string name)

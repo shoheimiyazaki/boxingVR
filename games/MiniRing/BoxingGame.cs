@@ -1694,6 +1694,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// </summary>
     public FaceCam? FaceCam { get; set; }
 
+    /// <summary>
+    /// 一人称（VR の <c>--first-person</c>）の目の描画で、自分の頭（付いている頭の部位のボクセル。髪・顔・目はその格子の中）を描かない。カメラが頭の中に入り、
+    /// 目の前に自分の頭が来て邪魔になるのを避ける描画だけの設定: 物理・当たり・相手から見た姿・試合の計算・記録には響かない。切り落とされた頭（破片）は描く。
+    /// </summary>
+    public bool HidePlayerHead { get; set; }
+
     /// <summary>ホストが試合を進めている速さ（<see cref="GameSpeed"/>）。HUD に出すだけで、試合の計算には響かない（速さはホストが 1 歩の時間で決める）。</summary>
     public GameSpeed? Speed { get; set; }
 
