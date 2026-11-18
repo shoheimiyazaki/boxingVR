@@ -872,6 +872,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         }
         finally
         {
+            stage?.Dispose(); // 試合の前の場面の途中で例外になっても、影の試合の物理のワールドを返す
             File.Delete(videoPath);
             File.Delete(wavPath);
         }
