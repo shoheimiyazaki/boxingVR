@@ -784,6 +784,7 @@ public sealed partial class BoxingGame
 
             var partHit = hit with { B = part.Body, RemovedA = first ? hit.RemovedA : [], RemovedB = cells, CrushedA = null, CrushedB = null, BentA = null, BentB = null };
             first = false;
+            part.Body.UpdateMass(); // 部位のセルが減ったぶん、質量と剛体の形を合わせる（普通の接触は VoxelContact が呼ぶ）
             _recentCuts.Add(partHit);
             Wound(weapon, victim, part, partHit);
         }
