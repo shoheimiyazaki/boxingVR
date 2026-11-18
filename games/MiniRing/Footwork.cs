@@ -229,6 +229,7 @@ public sealed class Footwork
     /// <summary>踏んだ歩数（調べもの・テスト用）。</summary>
     public int Steps { get; private set; }
     public string DebugPlan { get; private set; } = "";
+    public string DebugStep { get; private set; } = "";
 
     /// <summary>体（骨盤）を寄せる先: 両足の母指球の間で、体重のかけ方で前後に寄る点。</summary>
     public Vector2 SupportCenter { get; private set; }
@@ -398,6 +399,7 @@ public sealed class Footwork
 
         var distance = Vector2.Distance(target, _ball[foot0]);
         _swinging = foot0;
+        { var mid = Vector2.Lerp(_ball[Lead], _ball[Rear], 0.5f); var h = home[foot0]; var lf = Unrotate(_ball[foot0] - mid, input.FacingYaw) / leg; var lt = Unrotate(target - mid, input.FacingYaw) / leg; var lh = Unrotate(h - mid, input.FacingYaw) / leg; var lo = Unrotate(_ball[1 - foot0] - mid, input.FacingYaw) / leg; DebugStep = $"STEP foot={foot0} from=({lf.X:0.00},{lf.Y:0.00}) home=({lh.X:0.00},{lh.Y:0.00}) target=({lt.X:0.00},{lt.Y:0.00}) other=({lo.X:0.00},{lo.Y:0.00}) reach={_reach / leg:0.00} yawFace={input.FacingYaw * 57.3f:0}"; }
         _lastFoot = foot0;
         _sinceStep = 0f;
         _from = _ball[foot0];
