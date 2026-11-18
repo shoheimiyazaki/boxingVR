@@ -1,0 +1,41 @@
+{
+  "_comment": "エモート（始め・休み・終わり）・目・始めと終わりのカットを確かめる 3 試合。プロスペクティブ制の中継。",
+  "event": "WVC サタデーナイト",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-emotecheck",
+  "scoutSeeds": [
+    31,
+    32,
+    33,
+    34,
+    35,
+    36
+  ],
+  "partLimitMiB": 29,
+  "commentary": {
+    "writer": "prospective",
+    "model": "haiku",
+    "parallel": 2
+  },
+  "bouts": [
+    {
+      "red": "yoandry",
+      "blue": "akira",
+      "seed": "auto",
+      "bout": "第1試合"
+    },
+    {
+      "red": "taeyun",
+      "blue": "narong",
+      "seed": "auto",
+      "bout": "第2試合"
+    },
+    {
+      "red": "sean",
+      "blue": "dmitri",
+      "seed": "auto",
+      "bout": "第3試合"
+    }
+  ]
+}
