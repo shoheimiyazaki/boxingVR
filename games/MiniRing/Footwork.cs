@@ -160,7 +160,7 @@ public sealed record FootworkTuning
     /// （何も入力しなくても 30 秒で 40〜80 cm 流れた。tests SlideTests の表）。踏み直しの 1 周期（0.2 秒）より十分長く、押され続けて足が動いたときに
     /// 計画し直せる長さ。測った値: 0.5 秒で 3 歩・4 cm 以内（頭を斜めに向けた姿勢で 11 歩・4.7 cm）、2 秒で全部 3 歩・4 cm 以内。
     /// </summary>
-    public float HoldRelax { get; init; } = 0f;
+    public float HoldRelax { get; init; }
 }
 
 /// <summary>1 本の足の置き方（ワールド）: 母指球の位置（地面の上、持ち上げを含む）、つま先の向き、かかとの浮き。</summary>
