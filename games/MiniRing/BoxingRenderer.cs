@@ -49,9 +49,12 @@ public static class BoxingRenderer
         foreach (var weapon in game.Weapons)
         {
             // 武器もボクセルなので影の計算に入らない: 残っているボクセルを囲む見えない箱で影だけ落とす。
-            if (ShadowBox(weapon.Body) is { } shadow)
+            foreach (var grid in weapon.Grids)
             {
-                instances.Add(new PrimitiveInstance(PrimitiveKind.Cube, shadow, Vector3.Zero, Vector4.One, MaterialKind.ShadowCastOnly));
+                if (ShadowBox(grid) is { } shadow)
+                {
+                    instances.Add(new PrimitiveInstance(PrimitiveKind.Cube, shadow, Vector3.Zero, Vector4.One, MaterialKind.ShadowCastOnly));
+                }
             }
         }
 
@@ -156,7 +159,7 @@ public static class BoxingRenderer
 
         foreach (var weapon in game.Weapons)
         {
-            voxels.Add(weapon.Draw());
+            weapon.AddDraws(voxels);
         }
 
         foreach (var prop in game.BreakProps)

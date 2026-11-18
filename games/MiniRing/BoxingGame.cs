@@ -685,10 +685,19 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             return true;
         }
 
+        // 全ての格子（物と重ねた手）を囲む球の外か。
         var s = _world.GetState(weapon.Body.BodyId);
-        var center = s.Position + Vector3.Transform(weapon.Body.GridCenterLocal, s.Orientation);
-        var radius = weapon.Body.Grid.HalfExtents.Length();
-        return Vector3.Distance(center, self.GloveCenter(hand)) > radius + 0.01f;
+        var glove = self.GloveCenter(hand);
+        foreach (var grid in weapon.Grids)
+        {
+            var center = s.Position + Vector3.Transform(grid.GridCenterLocal, s.Orientation);
+            if (Vector3.Distance(center, glove) <= grid.Grid.HalfExtents.Length() + 0.01f)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>物理の接触一覧から「拳（前腕の先）× 相手の部位」を拾う。</summary>
@@ -1992,6 +2001,16 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             Add(fighter.Condition.CleanHitsTaken);
             Add(fighter.IsDead ? 1f : 0f);
             Add((float)fighter.State);
+        }
+
+        // 武器に重ねた手の格子（物 → 手の固定の順）。手が無ければ何も足さない（手の無い試合のチェックサムは変わらない）。
+        foreach (var weapon in _weapons)
+        {
+            foreach (var hand in weapon.Hands)
+            {
+                Add(hand.Body.Grid.FilledCount);
+                Add(hand.Body.Grid.Version);
+            }
         }
 
         Add(PlayerWins);

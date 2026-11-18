@@ -98,6 +98,7 @@ public sealed class Weapon
     {
         Kind = kind;
         Body = body;
+        _grids = [body];
         Volume = VoxelVolume.For(body.Grid);
         if (kind == WeaponKind.Fist && initializeHand)
         {
@@ -110,7 +111,36 @@ public sealed class Weapon
 
     public WeaponKind Kind { get; }
 
+    /// <summary>
+    /// 物の格子（握りの位置などの武器のローカル座標はこの格子の中心からの値）。素手（<see cref="WeaponKind.Fist"/>）では、Body が手の格子そのもの
+    /// （<see cref="HandState"/>）で、<see cref="Hands"/> は空: 手だけで物が無いので、手を別の格子に分けず、今の形のまま 1 つのモデルにまとめる。
+    /// </summary>
     public VoxelBody Body { get; }
+
+    private readonly List<WeaponHand> _hands = [];
+    private VoxelBody[] _grids;
+
+    /// <summary>物の格子に重ねた手の格子（はめる物・握る物の中の手。追加した順で固定）。素手は空（<see cref="Body"/> を参照）。</summary>
+    public IReadOnlyList<WeaponHand> Hands => _hands;
+
+    /// <summary>
+    /// 同じ剛体に乗った全ての格子: 物の格子（<see cref="Body"/>）が先頭、続いて <see cref="Hands"/> の順。当たり・削れ・描画・チェックサムは
+    /// この順（固定）で全ての格子について行う。手が無ければ <see cref="Body"/> 1 つ。
+    /// </summary>
+    public IReadOnlyList<VoxelBody> Grids => _grids;
+
+    /// <summary>
+    /// 手の格子 <paramref name="grid"/>（中心が武器のローカルの <paramref name="gridCenterLocal"/>）を、この武器の剛体に重ねる。
+    /// 剛体の質量と当たりの箱は物と手の和になる（<see cref="VoxelBody.AddCompanion"/>）。<paramref name="massPerCell"/> は手の 1 セルの質量 [kg]
+    /// （null なら物の格子と同じ）。
+    /// </summary>
+    internal WeaponHand AddHand(VoxelGrid grid, BareHandState state, Vector3 gridCenterLocal, float? massPerCell = null)
+    {
+        var hand = new WeaponHand(Body.AddCompanion(grid, gridCenterLocal, massPerCell), state);
+        _hands.Add(hand);
+        _grids = [Body, .. _hands.Select(h => h.Body)];
+        return hand;
+    }
 
     /// <summary>描画用の 3D テクスチャ。</summary>
     public VoxelVolume Volume { get; private set; }
@@ -250,6 +280,17 @@ public sealed class Weapon
     {
         Volume.Sync(Body.Grid);
         return new VoxelVolumeDraw(Volume, VoxelVolume.CellToWorld(Body.Grid, Body.GridToWorld()));
+    }
+
+    /// <summary>この武器の全ての格子（物 → 手の順）を描く指示を <paramref name="draws"/> へ足す。</summary>
+    public void AddDraws(List<VoxelVolumeDraw> draws)
+    {
+        ArgumentNullException.ThrowIfNull(draws);
+        draws.Add(Draw());
+        foreach (var hand in _hands)
+        {
+            draws.Add(hand.Draw());
+        }
     }
 
     /// <summary>折れて飛んだ破片を、同じ種類の武器として包む。</summary>
