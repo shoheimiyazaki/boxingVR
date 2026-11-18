@@ -166,6 +166,67 @@ internal static class NeckLab
         return text.ToString();
     }
 
+    /// <summary>
+    /// 首を薙ぐ 1 振りの動画（斜め前から首へ寄る。<paramref name="slow"/> 倍のスロー）。音なし。
+    /// </summary>
+    public static void Video(float height, float side, float offset, float slow, string outPath)
+    {
+        const int Width = 960, Height = 540, Fps = 30;
+        var tuning = SwordStance.Tuning;
+        var guard = FormSwordsman.Guard(WeaponKind.Katana);
+        float armReach;
+        using (var probe = new BoxingGame(tuning))
+        {
+            armReach = probe.Player.ArmReach;
+        }
+
+        var motion = SwordForms.KatanaHorizontalAt($"nagi-h{height:0.00}", side, height);
+        var technique = new MotionTechnique(motion.Name, WeaponKind.Katana, motion, 0.5f);
+        technique = technique with { Range = StrikeDrill.ReachOf(technique, armReach) + offset };
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
+        using var renderer = new Aigis.Render.HeadlessRenderer(Width, Height);
+        using var ffmpeg = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ffmpeg",
+            $"-y -loglevel error -f rawvideo -pix_fmt rgba -s {Width}x{Height} -r {Fps} -i - -c:v libx264 -pix_fmt yuv420p -crf 23 -preset fast \"{outPath}\"")
+        {
+            RedirectStandardInput = true,
+            UseShellExecute = false,
+        }) ?? throw new IOException("ffmpeg を起動できません（PATH にありますか）。");
+        var next = 0f;
+        var perFrame = 1f / (Fps * slow);
+        var started = float.MaxValue;
+        StrikeDrill.Run(technique, guard, SwordStance.Rate, tuning, (game, t, striking) =>
+        {
+            if (striking && started == float.MaxValue)
+            {
+                started = t;
+            }
+
+            if (t < started - 0.1f || t < next)
+            {
+                return;
+            }
+
+            next = t + perFrame;
+            var instances = new List<Aigis.Render.PrimitiveInstance>();
+            var lines = new List<Aigis.Render.DebugLine>();
+            BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
+            // 的（青）の首へ寄る。攻める赤の右（赤から見て左前）の斜め前から。
+            var victim = game.Cpu;
+            var center = victim.HeadPosition + new Vector3(0f, -0.03f, 0f);
+            var toward = game.Player.ChestPosition - victim.ChestPosition;
+            toward.Y = 0f;
+            toward = toward.LengthSquared() > 1e-6f ? Vector3.Normalize(toward) : Vector3.UnitZ;
+            var across = Vector3.Cross(Vector3.UnitY, toward);
+            var eye = center + (toward * 0.12f) + (across * 0.38f * -side) + new Vector3(0f, 0.04f, 0f);
+            var vp = Aigis.Render.Camera.ViewProjection(eye, center, Vector3.UnitY, 40f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
+            var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, [], particles: game.BuildParticles(), lighting: game.BuildLighting(),
+                shadow: game.BuildShadow(), cameraPosition: eye, shapes: [], postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+            ffmpeg.StandardInput.BaseStream.Write(rgba);
+        }, target: ArmsDown ? () => new StandGuard(new GuardPosture("down", Vector3.Zero, new Vector3(0.45f, -0.75f, 0.05f))) : null);
+        ffmpeg.StandardInput.Close();
+        ffmpeg.WaitForExit();
+    }
+
     private sealed record Row(int Head, int Chest, bool NeckBroken, bool HeadOff, string? Cause, BodyPartKind? First, string Others, int NeckStart, int NeckEnd);
 
     /// <summary>的の両腕を体の脇へ下ろすか（<c>--arms down</c>。既定は顔の前に上げた構え）。</summary>
