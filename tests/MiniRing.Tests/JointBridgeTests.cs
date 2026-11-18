@@ -39,7 +39,7 @@ public sealed class JointBridgeTests
                 Assert.IsTrue(bridge.Body.Massless, $"{bridge.Joint}: massless");
                 var mass = game.World.GetMass(bridge.Parent.Body.BodyId);
                 var box = game.World.GetState(bridge.Parent.Body.BodyId);
-                bridge.Refresh(new Vector3(-100f), new Vector3(100f));
+                bridge.Refresh(_ => true);
                 bridge.Body.UpdateMass(); // 何もしない（親の剛体の質量・形を変えない）
                 Assert.AreEqual(mass, game.World.GetMass(bridge.Parent.Body.BodyId), 0f, $"{bridge.Joint}: the parent's mass is untouched");
                 Assert.AreEqual(box, game.World.GetState(bridge.Parent.Body.BodyId));
@@ -60,7 +60,7 @@ public sealed class JointBridgeTests
             var head = game.World.GetState(p.Head);
             game.World.SetDynamicPose(p.Head, joint + Vector3.Transform(head.Position - joint, q), Quaternion.Concatenate(head.Orientation, q));
             var neck = game.Cpu.Voxels!.Bridges.Single(b => b.Joint == Aigis.Physics.HumanoidRagdoll.RagdollJoint.Neck);
-            neck.Refresh(new Vector3(-100f), new Vector3(100f));
+            neck.Refresh(_ => true);
             return neck.ActiveCells;
         }
 

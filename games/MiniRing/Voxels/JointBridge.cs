@@ -71,11 +71,41 @@ internal sealed class JointBridge
     public int ActiveCells => _activeCells;
 
     /// <summary>
-    /// 世界の箱 [<paramref name="min"/>, <paramref name="max"/>] の中のセルだけを、いまの姿勢の 2 つの部位の格子から作り直す。
-    /// 箱の外のセルは今の歩の刃が届かないので触らない。つなぎにできるセルがあれば true。
+    /// 武器 <paramref name="weapon"/>（歩の前の姿勢 <paramref name="before"/> から今の姿勢まで動く）の格子の箱が掃く所のセルだけを、<see cref="Refresh(Func{Vector3, bool})"/> で作り直す。
+    /// 掃く所 = 歩の前と今の箱を、箱の角が動いた距離（と 1.2 cm）だけ広げた 2 つの箱。刃は細長いので、世界の軸に沿った箱より、触れうるセルがずっと少ない。
     /// </summary>
-    public bool Refresh(Vector3 min, Vector3 max)
+    public bool RefreshNear(VoxelBody weapon, BodyState before)
     {
+        ArgumentNullException.ThrowIfNull(weapon);
+        var now = weapon.GridToWorld();
+        var then = weapon.GridToWorld(before);
+        Matrix4x4.Invert(now, out var nowInverse);
+        Matrix4x4.Invert(then, out var thenInverse);
+        var half = weapon.Grid.HalfExtents;
+        var moved = 0f;
+        for (var corner = 0; corner < 8; corner++)
+        {
+            var local = new Vector3((corner & 1) == 0 ? -half.X : half.X, (corner & 2) == 0 ? -half.Y : half.Y, (corner & 4) == 0 ? -half.Z : half.Z);
+            moved = MathF.Max(moved, Vector3.Distance(Vector3.Transform(local, now), Vector3.Transform(local, then)));
+        }
+
+        var reach = half + new Vector3(moved + 0.012f);
+        bool Inside(Vector3 world, Matrix4x4 inverse)
+        {
+            var p = Vector3.Transform(world, inverse);
+            return MathF.Abs(p.X) <= reach.X && MathF.Abs(p.Y) <= reach.Y && MathF.Abs(p.Z) <= reach.Z;
+        }
+
+        return Refresh(world => Inside(world, nowInverse) || Inside(world, thenInverse));
+    }
+
+    /// <summary>
+    /// 世界の点 <paramref name="include"/> が真のセルだけを、いまの姿勢の 2 つの部位の格子から作り直す。
+    /// 外のセルは今の歩の刃が届かないので触らない。つなぎにできるセルがあれば true。
+    /// </summary>
+    public bool Refresh(Func<Vector3, bool> include)
+    {
+        ArgumentNullException.ThrowIfNull(include);
         var parentGrid = Parent.Body.Grid;
         var childGrid = Child.Body.Grid;
         var grid = Body.Grid;
@@ -99,7 +129,7 @@ internal sealed class JointBridge
 
                     var center = grid.CellCenter(x, y, z);
                     var world = Vector3.Transform(center, toWorld);
-                    if (!(world.X >= min.X && world.X <= max.X && world.Y >= min.Y && world.Y <= max.Y && world.Z >= min.Z && world.Z <= max.Z))
+                    if (!include(world))
                     {
                         active += grid.MaterialAt(i) != 0 ? 1 : 0;
                         continue;

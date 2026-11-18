@@ -737,8 +737,7 @@ public sealed partial class BoxingGame
                 continue;
             }
 
-            var (low, high) = SweptBounds(weapon.Body, before);
-            if (!bridge.Refresh(low, high))
+            if (!bridge.RefreshNear(weapon.Body, before))
             {
                 continue;
             }
@@ -751,29 +750,6 @@ public sealed partial class BoxingGame
 
             CutBridge(weapon, victim, bridge, hit);
         }
-    }
-
-    /// <summary>剛体 <paramref name="body"/> の格子の箱が、歩の前の姿勢から今の姿勢まで動いて掃く、世界の軸に沿った箱（少し広げて）。</summary>
-    private static (Vector3 Min, Vector3 Max) SweptBounds(VoxelBody body, BodyState before)
-    {
-        var half = body.Grid.HalfExtents;
-        var low = new Vector3(float.MaxValue);
-        var high = new Vector3(float.MinValue);
-        var nowMatrix = body.GridToWorld();
-        var beforeMatrix = body.GridToWorld(before);
-        for (var corner = 0; corner < 8; corner++)
-        {
-            var local = new Vector3((corner & 1) == 0 ? -half.X : half.X, (corner & 2) == 0 ? -half.Y : half.Y, (corner & 4) == 0 ? -half.Z : half.Z);
-            foreach (var matrix in (ReadOnlySpan<Matrix4x4>)[beforeMatrix, nowMatrix])
-            {
-                var p = Vector3.Transform(local, matrix);
-                low = Vector3.Min(low, p);
-                high = Vector3.Max(high, p);
-            }
-        }
-
-        var margin = new Vector3(0.012f);
-        return (low - margin, high + margin);
     }
 
     /// <summary>
