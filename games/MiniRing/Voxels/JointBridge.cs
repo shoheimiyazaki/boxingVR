@@ -26,7 +26,7 @@ internal sealed class JointBridge
     private const int Cells = 10;
 
     /// <summary>隙間をつなぐ、親・子のセルまでの距離 [セル]。</summary>
-    private const int Reach = 2;
+    private const int Reach = 1;
 
     private readonly bool[] _cut;
     private readonly int[] _sourceParent;
