@@ -63,7 +63,6 @@ public sealed class WeaponGraspVideoProbe
         var nextFrame = 0f;
         var simPerFrame = 1f / (fps * 0.5f); // 半分の速さ
         var log = new List<string>();
-        var phase = 0;
 
         void Frame(float t)
         {
