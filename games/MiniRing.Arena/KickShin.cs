@@ -28,7 +28,7 @@ internal static class KickShin
     /// <summary>練習の差分の探索の範囲（正規化 [0, 1] ↔ 実際の値）。</summary>
     internal static readonly (string Name, float Low, float High)[] Ranges =
     [
-        ("間合い", 0.75f, 1.9f), ("長さ[s]", 0.4f, 0.95f), ("方位のずれ", -0.5f, 0.5f), ("仰角のずれ", -0.5f, 0.5f), ("膝を開く拍子", -0.15f, 0.15f), ("足首の曲げ", -1.0f, 0.4f),
+        ("間合い", 0.75f, 1.9f), ("長さ[s]", 0.4f, 0.95f), ("方位のずれ", -0.8f, 0.8f), ("仰角のずれ", -0.9f, 0.9f), ("膝を開く拍子", -0.15f, 0.15f), ("足首の曲げ", -1.0f, 0.4f),
     ];
 
     internal static KickTune Decode(IReadOnlyList<double> x)
