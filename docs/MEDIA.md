@@ -34,7 +34,7 @@
 | `gen15_1117_legs-woundcam` | 2026-11-17 22:09 | 脚を失っても戦う（PhysicsVersion 39）・棒の滑る握り・VR の武器と動きの記録・回し蹴り・傷のカメラ（wound-cam）・WVC 再戦の中継 | 4111 | 17,392 MiB |
 | `gen16_1118_kicks-break-tang` | 2026-11-18 04:51 | ムエタイの肘打ち（PhysicsVersion 43）・剣の柄の鉄の芯（44）・休みの動作と小物・回し蹴りを高さで 3 つに・前蹴りの手本・平たい靴の足（45）・傷のカメラの中継（wvc-*_v1） | 1538 | 4,138 MiB |
 | `gen17_1118_swords-vfc-grapple` | 2026-11-18 09:00 | 剣の型・連続の守り・内側の技・バット（LogicVersion 43〜48）・VFC（檻・団体の中継）・投げと関節技・床からの支え・軸足に乗る蹴り・倒れた相手を立って打つ（PhysicsVersion 46・LogicVersion 50）・CLAUDE.md の整理・名簿の総当たりのレポート | 1713 | 4,983 MiB |
-| `worktrees_1119` | 2026-11-19 19:00 | 片付けたワークツリー 9 個（wound-cam・vfc・rush-physics・grappling-fix と兄弟のディレクトリ vitals・face-f2・tvfix・tvfix2・video）に残っていた git の外の動画・声・events/extras。中は `<ワークツリーの名前>/<元の相対の道>`。世代へ振り分けていない（docs/WORKFLOW.md §5） | 719 | 5.6 GiB |
+| `worktrees_1119` | 2026-11-19 19:00 | 片付けたワークツリー 11 個（wound-cam・vfc・rush-physics・grappling-fix・evo-p0b（CMA-ES のコマ）・throwing-grappling-mechanics（とどめと棒人形の media_tmp）と兄弟のディレクトリ vitals・face-f2・tvfix・tvfix2・video）に残っていた git の外の動画・声・events/extras。中は `<ワークツリーの名前>/<元の相対の道>`。世代へ振り分けていない（docs/WORKFLOW.md §5） | 807 | 5.6 GiB |
 
 ## gen01_1107_vr-poc
 

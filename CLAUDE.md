@@ -181,7 +181,8 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 
 - **技の進化と強化学習**（`claude/evo-p0b`、master に入った）: 次は P1d → PPO の P2。`docs/plans/EVO_HANDOFF_2026-11-17.md`。
 - **テレビ中継の生配信**（master に入った）: OBS 実機・実送信・1080p は未確認。`docs/plans/LIVE_STREAM_HANDOFF_2026-11-17.md`。
-- **エージェントの開発しやすさ**（`claude/agent-dx`）: `docs/plans/AGENT_DX_PLAN.md`（計画と記録）。
+- **エージェントの開発しやすさ**（`claude/agent-dx`、master に入った。枝は 2026-11-19 に片付けた）: `docs/plans/AGENT_DX_PLAN.md`（計画と記録）。進め方は `docs/WORKFLOW.md`。
+- **武器で倒れた相手へのとどめ**（退避中、枝 `shelf/ground-weapon-finish`。本体には無い）: 再開は枝の中の `docs/plans/GROUND_WEAPON_FINISH_SHELVED.md` から。
 - **間の層（攻めの番・守りの番）**（退避中、枝 `shelf/rhythm-layer`。本体には無い）: 再開は `docs/plans/RHYTHM_LAYER_SHELVED.md` から。
 - **CT から体のボクセルを作る**（`claude/ct-body`）: 段 1（道具と 1 体・動脈）まで。次は段 2（左右の鏡・ゲームへ入れる）。`docs/plans/CT_BODY_PLAN.md`。
 
