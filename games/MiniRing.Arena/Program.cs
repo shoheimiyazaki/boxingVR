@@ -54,6 +54,7 @@ try
         "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seed", "parallel", "seconds", "out", "only", "variants", "video", "try", "defender", "forms", "techniques", "compare")),
         "selfcuts" => SelfCutCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "out", "hitaway", "passes", "clearance", "margin", "tilt", "pacing", "slack", "angle")),
         "selfpath" => SelfPathCommand(Options.Parse(argv[1..], "margin", "from", "tilt", "out", "forms")),
+        "jointlab" => JointLabCommand(Options.Parse(argv[1..], "joints", "offsets", "speeds", "bend", "parallel", "out", "video", "joint", "dir", "offset", "speed", "axis", "bridges", "slow", "dims")),
         "necklab" => NeckLabCommand(Options.Parse(argv[1..], "mode", "heights", "offsets", "arms", "speeds", "speed", "dir", "bridges", "tilt", "out", "video", "height", "side", "offset", "slow")),
         "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes", "hz", "sample")),
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
@@ -1364,6 +1365,38 @@ static int TunnelCommand(Options o)
     TunnelProbe.Hz = o.Float("hz", 240f, min: 30f);
     Aigis.Physics.Voxels.VoxelContact.SampleSpacingScale = o.Float("sample", 0.5f, min: 0.1f);
     var report = TunnelProbe.Run(contenders, [.. o.List("pairs", ["日本刀-日本刀", "ロングソード-日本刀", "日本刀-拳"])], o.Int("bouts", 4, min: 1), o.Float("seconds", 20f, min: 1f), Console.Out);
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report);
+    }
+
+    return 0;
+}
+
+static int JointLabCommand(Options o)
+{
+    // どの関節でも、刃が隙間を通り抜けるか（docs/VOXEL_DAMAGE.md「関節のつなぎ」）。
+    if (o.Get("dims") is not null)
+    {
+        Console.WriteLine(JointLab.Dimensions());
+        return 0;
+    }
+
+    if (o.Get("video") is { } video)
+    {
+        JointLab.Video(JointLab.Parse(o.Get("joint") ?? "LeftElbow"), o.Get("dir") ?? "side", o.Float("offset", 0f), o.Float("speed", 3.4f, min: 0.1f), o.Get("bridges") != "off",
+            o.Float("bend", 0f), o.Get("axis") ?? "right", o.Float("slow", 8f, min: 0.25f), video);
+        return 0;
+    }
+
+    var joints = o.Get("joints") is { } named
+        ? [.. named.Split(',').Select(JointLab.Parse)]
+        : Enum.GetValues<Aigis.Physics.HumanoidRagdoll.RagdollJoint>().ToArray();
+    var report = JointLab.Table(joints,
+        [.. o.List("offsets", ["-0.01", "-0.005", "0", "0.005", "0.01"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
+        [.. o.List("speeds", ["9"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
+        o.Float("bend", 40f), (int)o.Float("parallel", 3f, min: 1f));
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {

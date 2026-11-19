@@ -7,15 +7,14 @@ public sealed partial class Fighter
 {
     /// <summary>
     /// 関節のつなぎ（<see cref="Voxels.JointBridge"/>）を作る材料: いまの関節の種類・親の部位・子の部位と、関節の中心（親の剛体の座標）。
-    /// 体を作った直後（まだ何も切れていない）に呼ぶ。足首は靴の中でつなぎ目が見えないので含めない。
+    /// 体を作った直後（まだ何も切れていない）に呼ぶ。関節の種類で選ばない（足首も同じ）。
     /// </summary>
     internal IReadOnlyList<(HumanoidRagdoll.RagdollJoint Joint, int Parent, int Child, Vector3 AnchorOnParent)> BridgeJoints()
     {
         var result = new List<(HumanoidRagdoll.RagdollJoint, int, int, Vector3)>();
         foreach (var joint in _joints)
         {
-            if (joint.Joint is HumanoidRagdoll.RagdollJoint.LeftAnkle or HumanoidRagdoll.RagdollJoint.RightAnkle
-                || _world.GetJointAnchors(joint.PrimaryConstraintId)?.AnchorA is not { } anchor)
+            if (_world.GetJointAnchors(joint.PrimaryConstraintId)?.AnchorA is not { } anchor)
             {
                 continue;
             }

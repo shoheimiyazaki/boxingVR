@@ -1,4 +1,5 @@
 using System.Numerics;
+using Aigis.Physics;
 using MiniRing.Arena;
 using MiniRing.Voxels;
 
@@ -31,8 +32,8 @@ public sealed class JointBridgeTests
         foreach (var fighter in new[] { game.Player, game.Cpu })
         {
             var bridges = fighter.Voxels!.Bridges;
-            // 首・脊椎・肩 2・肘 2・腰 2・膝 2（足首は靴の中）。
-            Assert.HasCount(10, bridges);
+            // 首・脊椎・肩 2・肘 2・腰 2・膝 2・足首 2（関節の種類で選ばない。手首は別の関節ではない）。
+            Assert.HasCount(12, bridges);
             foreach (var bridge in bridges)
             {
                 Assert.AreEqual(bridge.Parent.Body.BodyId, bridge.Body.BodyId, $"{bridge.Joint}: rides the parent's rigid body (no body of its own)");
@@ -70,6 +71,67 @@ public sealed class JointBridgeTests
         // 首の隙間（あごと肩の間の切れ込みなど）は立っていても開いていて、つなぎが埋める。頭を倒してもつなぎは残る（姿勢ごとに、いまの 2 つの格子から作り直す）。
         Assert.IsGreaterThan(10, upright, "the notch between head and chest is bridged while standing");
         Assert.IsGreaterThan(10, tilted, "and still bridged with the head tipped about the joint");
+    }
+
+    /// <summary>
+    /// 膝: 太ももを固定したまま、すねを膝のまわりに回して隙間を開け（<c>jointlab</c> の姿勢）、日本刀が膝の高さを水平に通る。つなぎが無いと刃は膝の組織を
+    /// あまり削れず、すねは落ちない。つなぎがあると膝のそばの組織が削れ、すねが落ちる（<c>docs/arena/jointlab_bend40.md</c> の「つなぎが断ちを変えた振り」から、
+    /// つなぎが有って断たれた振りの 3 行。膝の断ちは、刃が止まるか通り抜けるかの連鎖で、逆につなぎが有って断たれなくなる振りも同じ表にある — 数は表のとおり。
+    /// 値はシミュレーションが決定的なので固定）。
+    /// </summary>
+    [TestMethod]
+    [TestCategory("slow")]
+    public void ABladeThroughTheOpenedKneeGap_CutsTheKnee_OnlyWithTheBridge()
+    {
+        var rows = new[]
+        {
+            (HumanoidRagdoll.RagdollJoint.LeftKnee, "front", -0.005f, 3.4f, 40f),
+            (HumanoidRagdoll.RagdollJoint.LeftKnee, "back", 0.005f, 9f, 40f),
+            (HumanoidRagdoll.RagdollJoint.RightKnee, "front", -0.005f, 3.4f, -40f),
+        };
+        foreach (var (joint, dir, offset, speed, bend) in rows)
+        {
+            var without = JointLab.SlashOnce(joint, dir, offset, speed, bridges: false, bend);
+            var with = JointLab.SlashOnce(joint, dir, offset, speed, bridges: true, bend);
+            TestContext.WriteLine($"{joint} {dir} {offset * 1000f:0} mm {speed} m/s bend {bend}: without {without}; with {with}");
+            Assert.IsFalse(without.Severed, $"{joint} {dir}: the blade does not cut the knee through the gap on its own");
+            Assert.IsTrue(with.Severed, $"{joint} {dir}: the bridged knee is cut through and the shin falls");
+            Assert.IsGreaterThan(without.NearLost, with.NearLost, $"{joint} {dir}: more of the knee is cut");
+        }
+    }
+
+    /// <summary>
+    /// 肘: 腕の 2 つの部位の格子は肘で重なっていて、曲げても隙間が開かない（つなぎのセルが 0 個）。だからつなぎは何も足さず、有っても無くても結果は同じ
+    /// （<c>jointlab</c> の表: 肘は 150 振り × つなぎの有無で、つなぎのセルは 0 個）。隙間を通り抜ける問題が肘には無い、という測定。
+    /// </summary>
+    [TestMethod]
+    [TestCategory("slow")]
+    public void TheElbow_HasNoGapToSlipThrough_SoTheBridgeAddsNothing()
+    {
+        foreach (var bend in new[] { 0f, 40f, -80f })
+        {
+            var without = JointLab.SlashOnce(HumanoidRagdoll.RagdollJoint.RightElbow, "front", 0f, 9f, bridges: false, bend);
+            var with = JointLab.SlashOnce(HumanoidRagdoll.RagdollJoint.RightElbow, "front", 0f, 9f, bridges: true, bend);
+            TestContext.WriteLine($"elbow bend {bend}: without {without}; with {with}");
+            Assert.AreEqual(0, with.BridgeCells, $"bend {bend}: the elbow parts overlap, nothing to bridge");
+            Assert.AreEqual(without, with, $"bend {bend}: no bridge cells, so the same cut");
+        }
+    }
+
+    /// <summary>
+    /// 足首（靴の中のつなぎ目）にも、ほかの関節と同じつなぎがある。足首は曲げても隙間が数セルしか開かず（<c>jointlab</c> の表: 1〜9 セル）、
+    /// 刃が通り抜ける隙間は小さいので、つなぎで断ちが増えるとは言えない（表では増える振りも減る振りもある）。ここでは、つなぎが有ることと、
+    /// 隙間を通った刃がつなぎに触れて何かを削ることだけを確かめる。
+    /// </summary>
+    [TestMethod]
+    [TestCategory("slow")]
+    public void TheAnkle_HasABridge_ThatABladeThroughTheGapTouches()
+    {
+        var with = JointLab.SlashOnce(HumanoidRagdoll.RagdollJoint.LeftAnkle, "front", 0f, 9f, bridges: true, 40f, "forward");
+        TestContext.WriteLine($"ankle: {with}");
+        Assert.IsGreaterThan(0, with.BridgeCells, "the bent ankle has a gap that the bridge fills");
+        Assert.IsTrue(with.Touched, "the blade touches the ankle");
+        Assert.IsGreaterThan(0, with.NearLost, "and cuts some of the ankle");
     }
 
     /// <summary>
