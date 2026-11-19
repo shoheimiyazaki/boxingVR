@@ -206,7 +206,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 52; // 52: スタミナを呼吸と循環のモデルに（部位ごとの酸素の蓄え・血管・心臓・肺。master の 51 と合わせた）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 54; // 54: 素手に親指を足した（claude/fist-thumb。並行の claude/hand-layers の 53 の次の番号）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }

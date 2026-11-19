@@ -9,6 +9,7 @@
 
 体の物理・当たり・静的な形（リング・部屋の当たり判定を含む）を変えたら上げる。22 以前は git の履歴を見る。
 
+- **54**: 素手に親指を足した（ブランチ claude/fist-thumb。claude/hand-layers の 53 とぶつからない番号）。HandSkeleton の 5 本目の指（BareHandState.FingerCount 4 → 5、掌の番号は 5）: 付け根は掌の人さし指の側の下（母指球）、中手骨 15・基節 10・末節 10 mm、曲げは Y 軸まわり、断面は骨を皮膚が包む十字。拳では 15°・80°・30°（拳頭より前に出ない組のうち押し出されるセルが少ない組、ThumbFitProbe）。形は Codex の画像生成のピクセル画（3 方向、1 マス 5 mm）を目標にした。docs/KARATE.md。
 - **52**: スタミナを呼吸と循環のモデルにした（2026-11-18、ユーザーの設計。ブランチ claude/rush-physics では 50、master の 51 と合わせて 52、2026-11-19）: 全身で 1 つだった蓄えを、部位（左腕・右腕・脚・胴）ごとの酸素の蓄え（質量 × 残った筋肉 × 750 J/kg）と、中枢から届く速さ（血管 45 W/kg、働いている筋肉では 0.45 倍・心臓 30 W・肺 32 W・血の酸素 30 J）に分けた。筋肉の仕事はその部位の蓄えから出て、疲れ（駆動の割合・拳の遅さ）も部位ごと。打撲で息が詰まると血の酸素を失う。見た目: 肺 → 吐く息とチアノーゼ、心臓 → 顔の青白さ（新）。`Fighter.Stamina.cs`・`docs/BOXING.md` §2。
 - **51**: 素手の拳を作り直した（ブランチ claude/hand-voxels を master の 50 と合わせた、2026-11-19 のマージ）。手のセルを体と同じ 5 mm（前は 2 mm）にし、拳の幅を 8 セル 40 mm（前腕の箱の太さ 32 mm の 1.25 倍。人の拳の幅は前腕の 1.1〜1.3 倍）・掌 30 × 15 mm・指 2 × 3 セルで人の指の骨の比の長さにした。手の組織は新しい材質 hand skin / hand muscle / hand bone（見た目は皮膚・肉・骨、物性と削れにくさは木）。握る手は同じ骨格を関節角 90°・90°・90° にし、柄の所を先に取って指を巻く（HandSkeleton.GripPose・HeldBar。武器にはまだ付けていない）。docs/BOXING.md・docs/DEBT.md。
 - **50**: master の 49（ブランチ claude/rush-physics・claude/spacing-control-features・claude/vfc・claude/sword-combat-techniques を取り込んだ）と、ブランチ claude/grappling-fix の 48（投げ技の枝 claude/throwing-grappling-mechanics を合わせた 47 と、マージ後の直し）を合わせた（2026-11-19 のマージ）。

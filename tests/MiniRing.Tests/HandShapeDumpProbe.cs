@@ -23,10 +23,11 @@ public sealed class HandShapeDumpProbe
     {
         var dir = Environment.GetEnvironmentVariable("HAND_DUMP_DIR") ?? Path.GetTempPath();
         Directory.CreateDirectory(dir);
-        Dump(Path.Combine(dir, "fist.csv"), BareHandState.InitialGrid());
+        var fist = new BareHandState().Placed(HandSkeleton.PoseOf(HandShape.Seiken), out var fistGrid);
+        Dump(Path.Combine(dir, "fist.csv"), fistGrid, thumb: fist);
         var bar = HandSkeleton.HeldBar(GripRadius);
-        _ = new BareHandState().Placed(HandSkeleton.GripPose, out var grip, bar);
-        Dump(Path.Combine(dir, "grip.csv"), grip, bar);
+        var gripState = new BareHandState().Placed(HandSkeleton.GripPose, out var grip, bar);
+        Dump(Path.Combine(dir, "grip.csv"), grip, bar, gripState);
 
         var tuning = new FighterTuning();
         var forearm = Aigis.Physics.HumanoidRagdoll.HalfExtents.Default.Forearm * tuning.Scale;
@@ -35,15 +36,31 @@ public sealed class HandShapeDumpProbe
         Console.WriteLine($"dumped to {dir}");
     }
 
-    private static void Dump(string path, VoxelGrid grid, Func<Vector3, bool>? held = null)
+    /// <param name="path">書き出す CSV。</param>
+    /// <param name="grid">手の格子。</param>
+    /// <param name="held">握っている柄の所（あれば handle として書く）。</param>
+    /// <param name="thumb">渡すと、親指（<see cref="HandSkeleton.Thumb"/>）のセルの材質の名前に " thumb" を付ける（絵で色を変える）。</param>
+    private static void Dump(string path, VoxelGrid grid, Func<Vector3, bool>? held = null, BareHandState? thumb = null)
     {
+        var thumbCells = new HashSet<int>();
+        if (thumb is not null)
+        {
+            for (var i = 0; i < HandSkeleton.Parents.Count; i++)
+            {
+                if (HandSkeleton.Parents[i].Finger == HandSkeleton.Thumb)
+                {
+                    thumbCells.Add(thumb.Placement[i]);
+                }
+            }
+        }
+
         var text = new StringBuilder("x,y,z,material,cell\n");
         for (var i = 0; i < grid.CellCount; i++)
         {
             var (x, y, z) = grid.Coordinates(i);
             var c = grid.CellCenter(x, y, z);
             var material = grid.MaterialAt(i);
-            var name = material != 0 ? BoxerAnatomy.Palette[material].Name : held?.Invoke(c) == true ? "handle" : null;
+            var name = material != 0 ? BoxerAnatomy.Palette[material].Name + (thumbCells.Contains(i) ? " thumb" : "") : held?.Invoke(c) == true ? "handle" : null;
             if (name is null)
             {
                 continue;

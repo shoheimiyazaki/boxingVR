@@ -11,8 +11,8 @@ namespace MiniRing.Weapons;
 /// </summary>
 public sealed class BareHandState
 {
-    /// <summary>指の本数（人さし指・中指・薬指・小指。掌は別の部品）。</summary>
-    public const int FingerCount = 4;
+    /// <summary>指の本数（人さし指・中指・薬指・小指・親指 = <see cref="HandSkeleton.Thumb"/>。掌は別の部品で、番号はこの数）。</summary>
+    public const int FingerCount = 5;
 
     private readonly (byte Material, float Health, bool Surface, float Stain)[] _cells;
     private readonly int[]? _placement;
