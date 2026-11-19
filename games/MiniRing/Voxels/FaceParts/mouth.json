@@ -1,0 +1,137 @@
+{
+ "category": "mouth",
+ "legend": {
+  "s": "skin",
+  "h": "hair",
+  "b": "brow",
+  "w": "white",
+  "i": "iris",
+  "l": "lip",
+  "e": "shadow",
+  "d": "shadow",
+  "n": "nostril",
+  ".": "empty"
+ },
+ "parts": [
+  {
+   "id": "mouth.1",
+   "name": "thin",
+   "anchor": [
+    5.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "ssssssssss",
+      "ssllllllss",
+      "ssssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.2",
+   "name": "full",
+   "anchor": [
+    5.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "sssllllsss",
+      "ssllllllss",
+      "sssllllsss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.3",
+   "name": "wide",
+   "anchor": [
+    5.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "ssssssssss",
+      "slllllllls",
+      "ssssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.4",
+   "name": "small",
+   "anchor": [
+    5.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "ssssssssss",
+      "ssssllssss",
+      "ssssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.5",
+   "name": "downturned",
+   "anchor": [
+    5.0,
+    2.3
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "sssllllsss",
+      "ssllssllss",
+      "slssssssls"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.6",
+   "name": "slight smile",
+   "anchor": [
+    5.0,
+    2.25
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "slssssssls",
+      "ssllllllss",
+      "ssssssssss"
+     ]
+    }
+   }
+  }
+ ]
+}

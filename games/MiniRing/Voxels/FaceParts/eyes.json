@@ -1,0 +1,143 @@
+{
+ "category": "eyes",
+ "legend": {
+  "s": "skin",
+  "h": "hair",
+  "b": "brow",
+  "w": "white",
+  "i": "iris",
+  "l": "lip",
+  "e": "shadow",
+  "d": "shadow",
+  "n": "nostril",
+  ".": "empty"
+ },
+ "parts": [
+  {
+   "id": "eyes.1",
+   "name": "round",
+   "anchor": [
+    3.5,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "sswwwsss",
+      "swwiwwss",
+      "sswwwsss",
+      "ssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.2",
+   "name": "narrow/hooded",
+   "anchor": [
+    4.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "seeeeess",
+      "sswwiwss",
+      "ssssssss",
+      "ssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.3",
+   "name": "almond",
+   "anchor": [
+    3.8333,
+    2.8333
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "ssssssss",
+      "swwwiwws",
+      "sswwwsss",
+      "ssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.4",
+   "name": "upturned",
+   "anchor": [
+    3.0,
+    2.25
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "sswwwsss",
+      "swiwwsss",
+      "swssssss",
+      "ssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.5",
+   "name": "downturned",
+   "anchor": [
+    4.625,
+    2.25
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "sswwwsss",
+      "ssswwiws",
+      "ssssssws",
+      "ssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.6",
+   "name": "deep-set",
+   "anchor": [
+    4.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "sdddddds",
+      "ddeeeedd",
+      "ddwwiwdd",
+      "ddeeeedd",
+      "sdddddds"
+     ]
+    }
+   }
+  }
+ ]
+}

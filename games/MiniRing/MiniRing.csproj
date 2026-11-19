@@ -30,6 +30,8 @@
     <!-- キャラクターの名簿（国籍・武器・肌の色・体格・名前。docs/CHARACTERS.md）。 -->
     <EmbeddedResource Include="Characters\countries.json" LogicalName="MiniRing.Characters.countries.json" />
     <EmbeddedResource Include="Characters\roster\*.json" LogicalName="MiniRing.Characters.roster.%(Filename)%(Extension)" />
+    <!-- 顔の部品の表（Codex の参考図から tools/face-parts/build_face_parts.py で作る。docs/CHARACTERS.md §2）。 -->
+    <EmbeddedResource Include="Voxels\FaceParts\*.json" LogicalName="MiniRing.Voxels.FaceParts.%(Filename)%(Extension)" />
     <!-- 部屋の素材（CC0。Assets/CREDITS.md）: 家具の OBJ/MTL（Kenney）と色のテクスチャ（ambientCG）。 -->
     <EmbeddedResource Include="Assets\Furniture\*.obj;Assets\Furniture\*.mtl" LogicalName="MiniRing.Assets.Furniture.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Assets\Textures\*.png" LogicalName="MiniRing.Assets.Textures.%(Filename)%(Extension)" />

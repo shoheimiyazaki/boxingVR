@@ -1,0 +1,245 @@
+{
+ "category": "nose",
+ "legend": {
+  "s": "skin",
+  "h": "hair",
+  "b": "brow",
+  "w": "white",
+  "i": "iris",
+  "l": "lip",
+  "e": "shadow",
+  "d": "shadow",
+  "n": "nostril",
+  ".": "empty"
+ },
+ "parts": [
+  {
+   "id": "nose.1",
+   "name": "straight",
+   "anchor": [
+    3.0,
+    0.5
+   ],
+   "views": {
+    "front": {
+     "width": 6,
+     "height": 8,
+     "rows": [
+      "..ss..",
+      "..ss..",
+      "..ss..",
+      "..ss..",
+      ".ssss.",
+      ".snns.",
+      "..ss..",
+      "......"
+     ]
+    },
+    "side": {
+     "width": 5,
+     "height": 8,
+     "rows": [
+      "s....",
+      "ss...",
+      "sss..",
+      "ssss.",
+      "sssss",
+      "ssnss",
+      "sss..",
+      "....."
+     ]
+    }
+   }
+  },
+  {
+   "id": "nose.2",
+   "name": "broad flat (boxer)",
+   "anchor": [
+    3.0,
+    0.5
+   ],
+   "views": {
+    "front": {
+     "width": 6,
+     "height": 8,
+     "rows": [
+      "..ss..",
+      ".ssss.",
+      ".ssss.",
+      ".ssss.",
+      "ssssss",
+      "snnnns",
+      ".ssss.",
+      "......"
+     ]
+    },
+    "side": {
+     "width": 5,
+     "height": 8,
+     "rows": [
+      "s....",
+      "ss...",
+      "ss...",
+      "sss..",
+      "ssss.",
+      "snss.",
+      "sss..",
+      "....."
+     ]
+    }
+   }
+  },
+  {
+   "id": "nose.3",
+   "name": "hooked/aquiline",
+   "anchor": [
+    3.0,
+    0.5
+   ],
+   "views": {
+    "front": {
+     "width": 6,
+     "height": 8,
+     "rows": [
+      "..ss..",
+      "..ss..",
+      "..ss..",
+      "..ss..",
+      "..sss.",
+      ".ssss.",
+      ".snns.",
+      "...s.."
+     ]
+    },
+    "side": {
+     "width": 5,
+     "height": 8,
+     "rows": [
+      "s....",
+      "ss...",
+      "sss..",
+      "ssss.",
+      "sssss",
+      "sssss",
+      "ss.ns",
+      "...s."
+     ]
+    }
+   }
+  },
+  {
+   "id": "nose.4",
+   "name": "small button",
+   "anchor": [
+    3.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 6,
+     "height": 8,
+     "rows": [
+      "......",
+      "......",
+      "..ss..",
+      "..ss..",
+      ".ssss.",
+      ".snns.",
+      "..ss..",
+      "......"
+     ]
+    },
+    "side": {
+     "width": 5,
+     "height": 8,
+     "rows": [
+      ".....",
+      ".....",
+      "s....",
+      "ss...",
+      "sss..",
+      "ssns.",
+      "ss...",
+      "....."
+     ]
+    }
+   }
+  },
+  {
+   "id": "nose.5",
+   "name": "long narrow",
+   "anchor": [
+    3.0,
+    0.5
+   ],
+   "views": {
+    "front": {
+     "width": 6,
+     "height": 8,
+     "rows": [
+      "..ss..",
+      "..ss..",
+      "..ss..",
+      "..ss..",
+      "..ss..",
+      "..ss..",
+      ".snns.",
+      "..ss.."
+     ]
+    },
+    "side": {
+     "width": 5,
+     "height": 8,
+     "rows": [
+      "s....",
+      "ss...",
+      "sss..",
+      "ssss.",
+      "sssss",
+      "sssss",
+      "ssnss",
+      "sss.."
+     ]
+    }
+   }
+  },
+  {
+   "id": "nose.6",
+   "name": "broken/crooked",
+   "anchor": [
+    3.0,
+    0.5
+   ],
+   "views": {
+    "front": {
+     "width": 6,
+     "height": 8,
+     "rows": [
+      "..ss..",
+      "..ss..",
+      "...ss.",
+      "...ss.",
+      "..sss.",
+      ".ssss.",
+      ".snns.",
+      "..ss.."
+     ]
+    },
+    "side": {
+     "width": 5,
+     "height": 8,
+     "rows": [
+      "s....",
+      "ss...",
+      "sss..",
+      "ss...",
+      "sss..",
+      "sssss",
+      "ssns.",
+      "sss.."
+     ]
+    }
+   }
+  }
+ ]
+}
