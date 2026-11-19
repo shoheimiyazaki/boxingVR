@@ -19,6 +19,7 @@ const { spawnSync, spawn } = require('child_process');
 const repo = path.resolve(__dirname, '..', '..', '..');
 const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
 const pacing = require('./pacing');
+const { stakesOf } = require('./stakes');
 
 function parseArgs(argv) {
   const args = { driver: 'cli', model: 'haiku', fresh: false };
@@ -277,6 +278,7 @@ async function main() {
   const dossier = path.join(work, 'fighters.md');
   fs.writeFileSync(dossier, [
     `# ${events.event || org.logoText} ${events.bout || key}`, '',
+    ...stakesOf(events, card, key),
     `## 赤コーナー: ${events.red}`, '', String(events.redDossier || events.redProfile || '').replace(/\r/g, ''), '',
     `## 青コーナー: ${events.blue}`, '', String(events.blueDossier || events.blueProfile || '').replace(/\r/g, ''), '',
   ].join('\n'));

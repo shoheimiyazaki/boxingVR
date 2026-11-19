@@ -174,6 +174,20 @@ public sealed record FighterTuning
     public float WeaponGraspReach { get; init; } = 0.05f;
 
     /// <summary>
+    /// 生成で握らせた武器と握った本人の部位を「重ねて置いた」と見なす、格子を囲む箱どうしの隙間 [m]（これより近い組は、一度この隙間より離れるまで当たらない。
+    /// <c>BoxingGame.MarkSpawnOverlaps</c>）。両手で握る六尺棒は、T 字の腕の肩の高さに両手の握りの間を横切って置かれ、胸・上腕とは重なり、
+    /// 首の下とは箱が触れない程度の隙間で並ぶ。最初の歩で手が棒を引くとその隙間を詰めて首の下を 50〜80 セル削った（重なりだけを除いたとき、2026-11-20）。
+    /// </summary>
+    public float SpawnWeaponClearance { get; init; } = 0.02f;
+
+    /// <summary>
+    /// 生成で握った本人の体に重ねて置いた（<see cref="SpawnWeaponClearance"/> より近い）武器が、握った本人の体に当たらない時間 [s]（生成の T 字の腕が構えへ追いつくまで。テレビ中継の助走 <c>TvShowRules.SettleSeconds</c> と同じ 1 秒）。
+    /// 重なりだけを除くと、刀の組は 0.1 秒で一度離れ、腕が構えへ下りる 0.11〜0.27 秒に刀が自分の胸を約 100 セル削って、2 秒で倒れた（刀の訓練の世界、2026-11-20）。
+    /// この後もまだ重なっている組は、<see cref="SpawnWeaponClearance"/> より離れるまで当たらない。
+    /// </summary>
+    public float SpawnWeaponSettleSeconds { get; init; } = 1f;
+
+    /// <summary>
     /// 腕が使えなくなった（切り落とされた・骨が折れた）手の握りが抜けていく時定数 [s]。握りが持ちこたえる力は掴みの強さ
     /// （<see cref="GrabBreakForce"/>）から exp(−t / これ) で落ちていき、武器の重さ・振られる力を支えられなくなった所で武器が抜ける
     /// （止まっていれば、手と武器の軽い方の重さを支えられなくなる約 3 秒後）。筋肉に力を送る神経・血が絶たれた手の指がほどける速さの近似。
