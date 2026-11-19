@@ -31,7 +31,7 @@ try
         "kicklab" => KickLabCommand(Options.Parse(argv[1..], "body", "kick", "distances", "seeds", "confirm-seeds", "shin", "overshoot", "side", "log")),
         "kickvideo" => KickVideoCommand(Options.Parse(argv[1..], "body", "kick", "distances", "side", "slow", "width", "height", "fps", "out")),
         "kickmocap" => KickMocapCommand(Options.Parse(argv[1..], "dir", "export", "log", "video", "doll", "durations", "distances", "export-mid", "body")),
-        "kickshin" => KickShinCommand(Options.Parse(argv[1..], "body", "kick", "standoff", "seconds", "diag", "log", "heights", "practice", "gens", "lambda", "parallel", "json", "video", "victim", "dir")),
+        "kickshin" => KickShinCommand(Options.Parse(argv[1..], "body", "kick", "standoff", "seconds", "diag", "log", "heights", "practice", "gens", "lambda", "parallel", "json", "seed", "video", "victim", "dir")),
         "kneelab" => KneeLabCommand(Options.Parse(argv[1..], "stage", "bodies", "body", "distances", "distance", "confirm", "azimuths", "elevations", "twists", "sides", "log", "impact-az", "impact-el", "impact-twist", "foot", "gens", "lambda", "video")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
@@ -1834,7 +1834,7 @@ static int KickShinCommand(Options o)
         return 0;
     }
 
-    KickShin.Run(heights,o.Get("practice") is "yes", o.Int("gens", 8, min: 1), o.Int("lambda", 12, min: 4), o.Int("parallel", 6, min: 1), o.Get("json"), Log);
+    KickShin.Run(heights,o.Get("practice") is "yes", o.Int("gens", 8, min: 1), o.Int("lambda", 12, min: 4), o.Int("parallel", 6, min: 1), o.Get("json"), Log, o.Int("seed", 7, min: 1));
     return 0;
 }
 

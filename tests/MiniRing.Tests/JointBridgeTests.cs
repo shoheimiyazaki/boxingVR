@@ -73,17 +73,19 @@ public sealed class JointBridgeTests
     }
 
     /// <summary>
-    /// 頭を首の関節のまわりに前へ 35° 倒した静止した相手の首の関節の少し下（胸の上端から 3 mm 下）を、日本刀が水平に通る（<c>necklab --mode slash --arms down --tilt 35</c> の同じ行）。
+    /// 頭を首の関節のまわりに前へ 35° 倒した静止した相手の首の関節の少し下（胸の上端から 2〜3 mm 下）を、日本刀が水平に通る（<c>necklab --mode slash --arms down --tilt 35</c> の同じ行）。
     /// つなぎが無いと刃は首の組織を断てず頭は落ちない。つなぎがあると首の組織まで断たれ、頭が落ちる。値はシミュレーションが決定的なので固定（合わせ込んだ 2 行）。
     /// </summary>
     [TestMethod]
     [TestCategory("slow")]
     public void ABladeThroughTheBaseOfATippedNeck_TakesTheHeadOff_OnlyWithTheBridge()
     {
-        foreach (var (dir, speed) in new[] { ("side", 9f), ("front", 3.4f) })
+        // 49（足の滑りの直し）: 静止した的の立ち方が数 mm 変わったので、side の行の高さを -3 mm から -2 mm へ取り直した（-3 mm は首が断たれたが頭は落ちず、
+        // 1 mm ずつ振ると side は -2・+4 mm、front は -3・-1〜+3 mm で頭が落ちる。落ちる高さは 1 mm 刻みで入れ替わる鋭い値で、物理の量ではなく固定した 2 行）。
+        foreach (var (dir, offset, speed) in new[] { ("side", -0.002f, 9f), ("front", -0.003f, 3.4f) })
         {
-            var without = NeckLab.SlashOnce(dir, -0.003f, speed, bridges: false, tiltDegrees: 35f, armsDown: true);
-            var with = NeckLab.SlashOnce(dir, -0.003f, speed, bridges: true, tiltDegrees: 35f, armsDown: true);
+            var without = NeckLab.SlashOnce(dir, offset, speed, bridges: false, tiltDegrees: 35f, armsDown: true);
+            var with = NeckLab.SlashOnce(dir, offset, speed, bridges: true, tiltDegrees: 35f, armsDown: true);
             TestContext.WriteLine($"{dir} {speed} m/s: without {without}; with {with}");
             Assert.IsFalse(without.HeadOff, $"{dir}: the blade does not get through the neck on its own");
             Assert.IsTrue(with.HeadOff, $"{dir}: the bridged joint is cut through, and the head drops");

@@ -250,7 +250,9 @@ public sealed class ShieldTests
 
         TestContext.WriteLine(string.Join("; ", total.Select(kv => $"{kv.Key}: body {kv.Value.Body}, shield {kv.Value.Shield}, hits {kv.Value.Hits}")));
         Assert.IsGreaterThan(0, total["cover"].Shield, "the blade meets the shield (it loses cells)");
-        Assert.AreEqual(0, total["down"].Shield, "a lowered shield is never touched");
+        // 49（足の滑りの直し）: 下ろした盾（腰の横）は 0 ではなく 10 セル（harai-men 3・kesa 7）削れた。直す前は止まっている間に体が流れて刃が盾まで届かなかったが、
+        // 今は動かない体を袈裟が胴ごと通り抜け、腰の横の盾にも触れる（kesa は体を 377 セル削る斬り）。構えた盾が受けて失う量（step 55・cover 90）の 4 分の 1 より少ない、で確かめる。
+        Assert.IsLessThan(total["cover"].Shield / 4, total["down"].Shield, "a lowered shield is hardly touched (only by a cut that goes right through the body)");
         Assert.IsLessThan(total["down"].Body, total["cover"].Body, "the covering shield keeps the swings off the body");
         // 2026-11-17（PhysicsVersion 44、剣の柄に鉄の芯を通した）: down 351・step 16・cover 116 セル。LogicVersion 43（剣の枝）: 柄頭も速い端として読むため step 82・cover 119。
         // step と cover の 1 試合ずつの差は揺らぎで、足と盾の読みが変わると両者の優劣は固定でない。盾が身体を守るという本筋は、下ろした盾の損失の半分以下で確かめる。
