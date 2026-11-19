@@ -26,7 +26,7 @@ public sealed class OxygenSplitProbe
     public void Rush()
     {
         var corners = BoxingCorners.Default with { Player = _ => new IntentControl(), Cpu = _ => new IntentControl() };
-        using var game = new BoxingGame(FighterTuning.Default with { ConcussionGain = 0f }, seed: 3, corners: corners);
+        using var game = new BoxingGame(FighterTuning.Default with { ConcussionSpin = float.PositiveInfinity }, seed: 3, corners: corners);
         var control = (IntentControl)game.PlayerControl!;
         ((IntentControl)game.CpuControl).Input = new FighterIntent(Vector2.Zero, Evade: true);
         var tap = 0f;

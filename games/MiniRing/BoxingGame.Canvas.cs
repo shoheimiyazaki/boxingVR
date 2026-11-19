@@ -190,7 +190,7 @@ public sealed partial class BoxingGame
             // 脳しんとうが 1.2 → 3.9 に跳ねて 16 秒たっても意識が戻らなかった）。
             var head = _world.GetState(episode.Id);
             var own = MathF.Min(episode.Impulse, _world.GetMass(episode.Id) * episode.Stop);
-            fighter.TwistHead(Vector3.Cross(episode.Point - head.Position, new Vector3(0f, own, 0f)), _tuning.CanvasConcussionGain);
+            fighter.TwistHead(Vector3.Cross(episode.Point - head.Position, new Vector3(0f, own, 0f)));
             twist = fighter.LastHeadTwist;
         }
 

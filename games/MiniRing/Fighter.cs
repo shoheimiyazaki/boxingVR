@@ -208,7 +208,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 59; // 59: master の 57（顔の層・手の層）と、この枝の 53（滑りの直し・足の運びの構えを骨盤で寄せる・すべての関節のつなぎ）を合わせた。58 は claude/glove-v2 が使う。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 60; // 60: 脳しんとうを 1 つの頭のモデルに（拳も床も (頭の回転の速さ ÷ ConcussionSpin)²）。グローブの枝も 60 を使う（マージで付け直す）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1675,16 +1675,20 @@ public sealed partial class Fighter
     public float LastHeadTwist { get; private set; }
 
     /// <summary>
-    /// 頭が打撃で <paramref name="angularImpulse"/>（ワールド [N·m·s]）だけねじられた: 頭の慣性で割った回転の速さの 2 乗に比例して意識が飛ぶ。
+    /// 頭が <paramref name="angularImpulse"/>（ワールド [N·m·s]）だけねじられた: 頭が得た回転の速さ ω（角運動量 ÷ 頭の慣性、頭のローカル軸）の、
+    /// 意識を全部飛ばす回転の速さ <see cref="FighterTuning.ConcussionSpin"/> に対する比の 2 乗だけ意識が飛ぶ。拳・蹴り・肘・武器・床に頭を打った衝撃で同じ式・同じ値（1 つの頭のモデル）。
     /// 回転の中心を通る打撃（額の正面）は回さず、外れた所（あご・こめかみ）を体重を乗せて振り抜くほど強く回る。
     /// </summary>
-    internal void TwistHead(Vector3 angularImpulse, float? gain = null)
+    internal void TwistHead(Vector3 angularImpulse)
     {
         var head = _world.GetState(Parts.Head);
-        var local = Vector3.Transform(angularImpulse, Quaternion.Conjugate(head.Orientation)) / _world.GetLocalInertiaDiagonal(Parts.Head);
-        LastHeadTwist = local.Length();
-        Concussion += (gain ?? _tuning.ConcussionGain) * LastHeadTwist * LastHeadTwist;
+        var spin = Vector3.Transform(angularImpulse, Quaternion.Conjugate(head.Orientation)) / _world.GetLocalInertiaDiagonal(Parts.Head);
+        LastHeadTwist = spin.Length();
+        Concussion += ConcussionOf(LastHeadTwist, _tuning.ConcussionSpin);
     }
+
+    /// <summary>頭が回転の速さ <paramref name="spin"/> [rad/s] でねじられたときの脳しんとう: (ω ÷ <paramref name="knockout"/>)²（1 で意識が全部飛ぶ）。</summary>
+    internal static float ConcussionOf(float spin, float knockout) => spin * spin / (knockout * knockout);
 
     /// <summary>
     /// 意識（0..1）= 脳の働き（脳のボクセルの残り）− 脳しんとう。打撃の部位で場合分けせず、脳を削られたか・頭がどれだけねじられたかだけで決まる。
