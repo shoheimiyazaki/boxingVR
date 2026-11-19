@@ -201,8 +201,11 @@ public static class VoxelContact
         // up to what the face could pass on (the same force that presses beneath a face that held).
         var (blowForce, blowEnergy) = (MathF.Max(h.Force, h.BlowForce), MathF.Max(h.Energy, h.BlowEnergy));
         // A layer laid over a beam (a face over the skull and neck: a companion grid) passes the blow on to the beam it rides on.
-        var bentProbe = blowForce > 0f && BeamOf(probe) is { } probeBeam ? Bend(probeBeam, probe, probeBeam.BeamAxis!.Value, h.Point, -h.Direction, blowForce, blowEnergy) : null;
-        var bentField = blowForce > 0f && BeamOf(field) is { } fieldBeam ? Bend(fieldBeam, field, fieldBeam.BeamAxis!.Value, h.Point, h.Direction, blowForce, blowEnergy) : null;
+        // The share of the blow's energy spent breaking cells: how much of the push along the motion was a cut (the cells ahead of a
+        // narrow edge yielding) rather than a face pressing (see PressedForce).
+        var cutShare = h.Energy > 0f ? Math.Clamp(h.EnergySpent / h.Energy, 0f, 1f) : 0f;
+        var bentProbe = blowForce > 0f && BeamOf(probe) is { } probeBeam ? Bend(probeBeam, probe, probeBeam.BeamAxis!.Value, h.Point, PressedForce(-h.Direction, h.Normal, cutShare), blowForce, blowEnergy) : null;
+        var bentField = blowForce > 0f && BeamOf(field) is { } fieldBeam ? Bend(fieldBeam, field, fieldBeam.BeamAxis!.Value, h.Point, PressedForce(h.Direction, -h.Normal, cutShare), blowForce, blowEnergy) : null;
         StepProfile.End(StepProfile.Slot.Bend, bendStart);
         // The sweep's normal points out of the field toward the probe; the result's normal points out of B toward A.
         var normal = aFiner ? h.Normal : -h.Normal;
@@ -222,12 +225,45 @@ public static class VoxelContact
     /// <see cref="Snap"/> does for a weapon: the force is capped by what the springy beam takes from the blow's energy
     /// before it has flexed (<c>sqrt(2 E k)</c>). The body is not split (the caller breaks it, and the flesh holds the pieces).
     /// </summary>
-    private static VoxelBreak? Bend(VoxelBody body, VoxelBody struck, int axis, Vector3 worldPoint, Vector3 worldDirection, float contactForce, float energy)
+    /// <summary>
+    /// The force a contact puts on a body per unit of the blow's force (magnitude 1 at most): what a face can pass on is its press
+    /// along the face's normal and, across the face, friction up to <see cref="BluntFriction"/> × that press, plus the share of the push
+    /// along the motion that went into cutting cells (<paramref name="cutShare"/>: the energy spent breaking cells over the blow's energy;
+    /// an edge that cuts through pushes along its cut, a blunt face that holds only presses). A glove sliding up the side of a neck
+    /// presses it inward and drags it up only as far as friction holds, not along the whole slide.
+    /// </summary>
+    /// <param name="motion">The way the blow pushes the body (the other body's motion relative to it, unit).</param>
+    /// <param name="inward">The face's normal pointing into the body (unit).</param>
+    /// <param name="cutShare">0..1.</param>
+    public static Vector3 PressedForce(Vector3 motion, Vector3 inward, float cutShare)
+    {
+        var along = Vector3.Dot(motion, inward);
+        var press = MathF.Max(0f, along);
+        var across = motion - (along * inward);
+        var acrossLength = across.Length();
+        var held = (BluntFriction * press) + (Math.Clamp(cutShare, 0f, 1f) * acrossLength);
+        var acrossScale = acrossLength > 1e-6f ? MathF.Min(1f, held / acrossLength) : 0f;
+        return (inward * press) + (across * acrossScale); // a face cannot pull: nothing along the normal when the motion leaves it
+    }
+
+    /// <summary>
+    /// Friction across a face between a blunt object and skin (leather or wood on skin, skin on skin: about 0.4–0.6; the middle).
+    /// Caps the drag a sliding face passes on (see <see cref="PressedForce"/>).
+    /// </summary>
+    public const float BluntFriction = 0.5f;
+
+    private static VoxelBreak? Bend(VoxelBody body, VoxelBody struck, int axis, Vector3 worldPoint, Vector3 worldPush, float contactForce, float energy)
     {
         var grid = body.Grid;
+        if (!(worldPush.LengthSquared() > 1e-12f))
+        {
+            return null;
+        }
+
         var s = body.World.GetState(body.BodyId);
         var localPoint = body.WorldToGrid(worldPoint);
-        var localDirection = Vector3.Transform(worldDirection, Quaternion.Conjugate(s.Orientation));
+        // The push per unit of the blow's force (PressedForce: at most 1): the force is scaled by it, and the beam's give by its direction.
+        var localDirection = Vector3.Transform(worldPush, Quaternion.Conjugate(s.Orientation));
         var stiffness = VoxelBending.BeamStiffness(grid, localDirection, axis, loadBearingOnly: true);
         var force = stiffness is { } k ? MathF.Min(contactForce, MathF.Sqrt(2f * energy * k)) : contactForce;
         if (BendObserved is { } observe)

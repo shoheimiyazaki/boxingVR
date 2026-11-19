@@ -56,6 +56,10 @@ public sealed class NeckBreakProbe
             ("neck(high) oblique", new Vector3(0.02f, SliceY(high), 0f), oblique),
             ("skull base oblique", new Vector3(0.02f, SliceY(high + 1), 0f), oblique),
             ("seed15 neck skin", seed15At, seed15),
+            // 同じ接触を、面が押す力（法線）と摩擦の範囲の引きずり（VoxelContact.PressedForce、μ 0.5・切っていない）で。力は打撃の力の大きさ。
+            ("neck(low) obl. pressed", new Vector3(0.02f, SliceY(low), 0f), VoxelContact.PressedForce(oblique, -Vector3.UnitX, 0f)),
+            ("neck(high) obl. pressed", new Vector3(0.02f, SliceY(high), 0f), VoxelContact.PressedForce(oblique, -Vector3.UnitX, 0f)),
+            ("seed15 pressed", seed15At, VoxelContact.PressedForce(seed15, Vector3.UnitX, 0f)),
         ];
     }
 
