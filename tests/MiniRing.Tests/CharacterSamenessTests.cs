@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 /// <summary>
 /// E0: 教育が空なら、名簿を 1 人 1 ファイルにしても試合はビット単位で同じ（CLAUDE.md §1.8・§1.6）。
 /// 期待値は characters.json の時代に <see cref="CharacterSamenessProbe"/> で取ったチェックサム（途中と最後）。
+/// PhysicsVersion 53 で、はめる物（メリケンサック・カタール・籠手）を使う 2 組（katar-gauntlet-referee・single-counter-vs-knuckles-noref。教育なしの値と、戦略の層ありの katar-gauntlet-referee）だけ取り直した（2026-11-19: はめる物の中の拳が 13 mm の球から手の格子へ。物の形・質量・当たりが変わる。ほかの組はビット単位で同じ。raytrek の CharacterSamenessProbe）。
 /// PhysicsVersion 51 で全部を取り直した（2026-11-19: ブランチ claude/hand-voxels の素手の拳（5 mm のセル・幅 40 mm・木の物性）を master の 50 と合わせた。tower32 の CharacterSamenessProbe）。
 /// PhysicsVersion 40 で取り直した（2026-11-17: 脚の骨の端を骨の胴と同じ太さにした・体が支える質量から外れた部位を除く・倒れている間の手を腰が戻ったら床から離す。グローブ同士のレフェリーなし・こんぼう同士は同じ。LegLossProbe.Probe_WhichRecordedMatchesLoseALimb）。その前は PhysicsVersion 39 で、腕・脚を失う試合だけ取り直した（2026-11-17: 脚を失っても残った脚の長さで立って戦い続ける・切り株の筋肉の断面を切れ目の手前だけで測る。腕も脚も失わない試合（グローブ同士・ロングソード同士など）はビット単位で同じことを確かめた: LegLossProbe.Probe_WhichRecordedMatchesLoseALimb）。その前は PhysicsVersion 38・LogicVersion 38 で取り直した（2026-11-17: スタミナを臨界パワーのモデルに・休む間の足と手数・拳の狙い・肘の締め）。その前は PhysicsVersion 37・LogicVersion 36（2026-11-16。37 はスタミナの容量を倍。36 の理由: スタミナの蓄え・供給を筋肉の量に比例させた（体格のあるキャラの試合が変わる）のと、弱った相手を詰める層を既定にした（ボットの立ち回りが変わる）。その前は PhysicsVersion 35・LogicVersion 32 で取り直した（前は PhysicsVersion 34）。理由: 素手を指の関節で組み直した（素手の質量・形が変わる）のと、急所の狙いの点を実際のセルから求めるようにした（ボットの狙いが変わる）。katana-longsword の途中（half）だけは手も急所も関わらず値が同じ。
 /// PhysicsVersion 51 で取り直した（2026-11-18: 素手の拳を 5 mm のセル・幅 40 mm にし、手の組織の物性を木に。素手・空手・剣の組（剣士の空いた手・握り替えの間の素手）が変わる。グローブ同士・カタールと籠手・メリケンサック・こんぼう同士の組（はめる物の拳は前のまま）は同じ。CharacterSamenessProbe）。
@@ -34,8 +35,8 @@ public sealed class CharacterSamenessTests
         ["karate-swarmer-noref"] = (0x7C5ED8FE17023E1B, 0x9E0358A74FBE5099),
         ["katana-longsword-noref"] = (0x6BED8BFEDFAD8145, 0xEB29218E49C9976A),
         ["club-bare-noref"] = (0xE95C812870158AA2, 0x98E62EE9733D55F5),
-        ["katar-gauntlet-referee"] = (0x3E15B38E541FC82C, 0x5F4DB2ED884D99FF),
-        ["single-counter-vs-knuckles-noref"] = (0xFA7A4F938691A3B7, 0x88378B0560BB2021),
+        ["katar-gauntlet-referee"] = (0x9C9B8E0E018806EB, 0xE2CA50A96B2451D1),
+        ["single-counter-vs-knuckles-noref"] = (0xF398BCCCA25ADEC5, 0xC442703EFD2B5B82),
         ["single-karate-vs-katana"] = (0xE5219015452B4908, 0xAF7721020535A2AE),
     };
 
@@ -141,7 +142,7 @@ public sealed class CharacterSamenessTests
         ["glove-glove-referee"] = (0x0E72EBC48FE4239E, 0xC4BDA14039B4195D),
         ["glove-glove-noref"] = (0x8DC53C6EDE1F9825, 0xBBD7BDB248EF9D55),
         ["karate-swarmer-noref"] = (0x6A6EE35651F03E06, 0x244C256DDBD937E2),
-        ["katar-gauntlet-referee"] = (0x1B2704E47EE0D401, 0x9F191D523BB00C0C),
+        ["katar-gauntlet-referee"] = (0x7905B0AFCCEEE88B, 0x2AEB41651938D01C),
     };
 
     [TestMethod]

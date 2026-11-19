@@ -28,11 +28,46 @@ public sealed class HandShapeDumpProbe
         _ = new BareHandState().Placed(HandSkeleton.GripPose, out var grip, bar);
         Dump(Path.Combine(dir, "grip.csv"), grip, bar);
 
+        DumpWorn(dir);
         var tuning = new FighterTuning();
         var forearm = Aigis.Physics.HumanoidRagdoll.HalfExtents.Default.Forearm * tuning.Scale;
         File.WriteAllText(Path.Combine(dir, "forearm.txt"), string.Create(CultureInfo.InvariantCulture,
             $"{forearm.X * 2f * tuning.ArmLengthScale},{forearm.Y * 2f},{forearm.Z * 2f},{HandSkeleton.Wrist.X},{HandSkeleton.Wrist.Y}"));
         Console.WriteLine($"dumped to {dir}");
+    }
+
+    /// <summary>
+    /// はめる物 5 種（メリケンサック・カタール・籠手・トンファー・盾）の、物の格子と中の手の格子を、手の座標（原点は手の格子の中心）で
+    /// <c>worn_&lt;種類&gt;.csv</c> に書く（<c>py -3 tools/hand_views.py &lt;dir&gt; --worn</c> で絵にする）。
+    /// </summary>
+    private static void DumpWorn(string dir)
+    {
+        foreach (var kind in new[] { WeaponKind.KnuckleDuster, WeaponKind.Katar, WeaponKind.Gauntlet, WeaponKind.Tonfa, WeaponKind.Shield })
+        {
+            using var world = new Aigis.Physics.PhysicsWorld(gravity: Vector3.Zero);
+            var weapon = Weapon.CreateWorn(world, kind, BoxerAnatomy.RedGlove, Vector3.Zero, Quaternion.Identity);
+            var hand = weapon.Hands[0];
+            var text = new StringBuilder("x,y,z,material,cell\n");
+            void Add(VoxelGrid grid, Vector3 shift)
+            {
+                for (var i = 0; i < grid.CellCount; i++)
+                {
+                    if (grid.MaterialAt(i) == 0)
+                    {
+                        continue;
+                    }
+
+                    var (x, y, z) = grid.Coordinates(i);
+                    var c = grid.CellCenter(x, y, z) + shift;
+                    text.Append(CultureInfo.InvariantCulture, $"{c.X},{c.Y},{c.Z},{BoxerAnatomy.Palette[grid.MaterialAt(i)].Name},{grid.CellSize.X}\n");
+                }
+            }
+
+            Add(hand.Body.Grid, Vector3.Zero);
+            Add(weapon.Body.Grid, -hand.GridCenterLocal);
+            File.WriteAllText(Path.Combine(dir, $"worn_{kind}.csv"), text.ToString());
+            Console.WriteLine($"{kind}: grip {Weapon.GripOf(kind)}, tip {Weapon.TipOf(kind)}, mass {world.GetMass(weapon.Body.BodyId):F4} kg, object cells {weapon.Body.Grid.FilledCount}, hand cells {hand.Body.Grid.FilledCount}, cover {Weapon.CoverRadiusOf(kind):F4}");
+        }
     }
 
     private static void Dump(string path, VoxelGrid grid, Func<Vector3, bool>? held = null)

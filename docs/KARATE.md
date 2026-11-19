@@ -27,7 +27,8 @@
 - **関節の軸は半セルずらす**: 指の付け根・手首の関節の軸をセルの境に置く。軸がセルの中心だと、90° 曲げた指のセルがみなセルの境に乗って隣と取り合い、横へ押し出されて拳の幅が 50 mm になった。
 - **材料**: 手の組織は新しい材質 `HandSkin`・`HandMuscle`・`HandBone`（見た目・組織の種類は皮膚・肉・骨、物性と削れにくさは木）。近道として docs/DEBT.md「手の物性を木の値で代用」。
 - **握る手**: 同じ骨格・同じ材質を、指の 3 関節とも 90° に曲げ、柄の所（`HandSkeleton.HeldBar`、軸は人さし指の付け根の真下の第 2 関節の高さ）を先に取って置く（`BareHandState.Placed(pose, out grid, held)`）。曲げで押しのけられた組織は柄の外を回り、指と掌が柄を巻く。武器への取り付け（剣・棒の握り・はめる物の中の拳）はまだ（docs/DEBT.md の同じ項目）。
-- **確かめ方**: `HAND_DUMP_DIR=<dir> dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~HandShapeDumpProbe"` → `py -3 tools/hand_views.py <dir>` で、拳と握る手を正面・横・上から写した 1 枚（前腕の箱と 1 cm の目盛り入り）。
+- **確かめ方**: `HAND_DUMP_DIR=<dir> dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~HandShapeDumpProbe"` → `py -3 tools/hand_views.py <dir>` で、拳と握る手を正面・横・上から写した 1 枚（前腕の箱と 1 cm の目盛り入り）。`py -3 tools/hand_views.py <dir> --worn` は、はめる物 5 種の手の格子と物の格子を材質の色で、全体（左 3 枚）と断面（右 3 枚: 拳頭の列・手の高さの真ん中・手の幅の真ん中）で写す。
+- **はめる物の中の手（PhysicsVersion 53、`claude/hand-layers` 段 2）**: メリケンサック・カタール・籠手・トンファー・盾の物の格子（2 mm）から半径 13 mm の球（`FistAt`）を消し、素手と同じ手の格子（5 mm、`BareHandState.Placed`）を同じ剛体に重ねた（`VoxelBody.AddCompanion`、`Weapon.Hands`）。手は正拳（メリケンサック・籠手）か、棒を握る `GripPose`（カタールの横木・トンファーの柄・盾の握り棒）。物の形は「手の座標」（原点は手の格子の中心）で、手の寸法（手の格子の箱・拳頭の前の層）から書き、物のセルは手のセルの所に置かない。籠手の詰め物と殻・盾の椀は、手のセルからの距離で手の形に沿う。腕の先の握る所（`Weapon.GripOf`）は手首（`HandSkeleton.Wrist`）。質量は 2 つの格子の材質の密度 × 体積の和（`materialMass`）。
 - 下の「同じ打撃の比較」の表は前の 2 mm の手の測定（記録として残す）。
 
 ## 同じ打撃の比較
