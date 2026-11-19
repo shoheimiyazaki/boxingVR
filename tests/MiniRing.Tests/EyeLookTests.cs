@@ -11,13 +11,13 @@ namespace MiniRing.Tests;
 public sealed class EyeLookTests
 {
     /// <summary>
-    /// 丸い目（部品 eyes.1: 白目が 3 段）の顔。細い目の部品（eyes.2・eyes.6）は顔の層で 1 段しかなく、黒目の上下・まばたきの途中が見分けられない。
+    /// 白目が 2 段ある目（部品 eyes.5）の顔。F3 の目の部品はほかは白目が 1 段で、黒目の上下・まばたきの途中が見分けられない。
     /// </summary>
     internal static FaceSpec RoundEyes(string name)
     {
         var spec = FaceSpec.For(name);
         var parts = spec.Parts.ToDictionary(p => p.Key, p => p.Value);
-        parts["eyes"] = new Dictionary<string, float> { ["eyes.1"] = 1f };
+        parts["eyes"] = new Dictionary<string, float> { ["eyes.5"] = 1f };
         return spec with { Parts = parts };
     }
 

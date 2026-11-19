@@ -15,7 +15,7 @@ namespace MiniRing.Tests;
 [TestClass]
 public sealed class FaceLayerTests
 {
-    private static readonly string[] Ids = ["gaston", "narong", "yoandry", "marcus", "ramon"];
+    private static readonly string[] Ids = ["akira", "albert", "daichi", "dmitri", "edgar", "gaston", "jin", "joao", "konrad", "marcus", "narong", "ramon", "ren", "sean", "taeyun", "tsuyoshi", "vikram", "yoandry"];
 
     /// <summary>名簿のキャラの、試合と同じ手順で作った頭の格子（顔の層へ分ける前の 5 mm）。</summary>
     private static VoxelGrid FullHead(FighterCharacter c)
@@ -68,10 +68,12 @@ public sealed class FaceLayerTests
                 Assert.AreEqual(0, inner.MaterialAt(inner.CellAt(face.CellCenter(x, y, z))), $"{id}: face cell {x},{y},{z} overlaps the skull grid");
             }
 
-            // 体積（質量）は、5 mm の頭から抜いた外側の体積と近い（顔の層のセルは 1/8 の体積）。
+            // 体積は、5 mm の頭から抜いた外側の体積と同じ程度（顔の層のセルは 1/8 の体積）。F3 の組み立て（髪が頭の輪郭の外へ出る Reach・広いあご）では
+            // 名簿の 18 人で 1.0〜1.6 倍（2026-11-19 の測定）。頭の質量は体格から決まり、2 つの格子の体積で分けるので、体積が増えても頭は重くならない（docs/DEBT.md「顔の層」）。
             var removed = full.FilledCount - inner.FilledCount;
             var faceVolume = face.FilledCount * FaceLayer.CellVolumeRatio;
-            Assert.AreEqual(1f, faceVolume / removed, 0.2f, $"{id}: face layer {faceVolume:F1} vs removed outer head {removed} (5 mm cells)");
+            Console.WriteLine($"{id}: face layer {faceVolume:F1} vs removed outer head {removed} (5 mm cells), ratio {faceVolume / removed:F2}");
+            Assert.IsInRange(0.8f, 1.7f, faceVolume / removed, $"{id}: face layer {faceVolume:F1} vs removed outer head {removed} (5 mm cells)");
             Assert.IsGreaterThan(0, face.Remaining(BoxerAnatomy.Eye) + face.Remaining(BoxerAnatomy.Pupil), $"{id}: the eyes are in the face layer");
         }
     }

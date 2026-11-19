@@ -15,6 +15,12 @@ namespace MiniRing.Voxels;
 /// <param name="FragmentOf">破片なら、元の部位の剛体 id。</param>
 public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Volume, int? SeverAxis, bool DistalHigh, int? FragmentOf = null)
 {
+    /// <summary>セルごとの見た目の色（顔の層: <see cref="FaceLayer"/>。影・眉・唇・白目・無精ひげの色）。null なら材質の色だけ。見た目だけ。</summary>
+    public FaceCellColors? CellColors { get; init; }
+
+    /// <summary>白目を明るい面として描く印（<see cref="VoxelVolume"/> の alpha 0.5: 照明の陰でも白目が灰色に沈まない。見た目だけ）。</summary>
+    private const float BrightWhite = 0.5f;
+
     /// <summary>チアノーゼを丸める段の数（テクスチャの書き直しはこの段が変わったときだけ）。</summary>
     private const int CyanosisSteps = 16;
 
@@ -255,9 +261,15 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
             var palette = grid.Palette;
             var scan = eyeScan;
             var half = grid.Dimensions.X / 2;
+            var cellColors = CellColors;
             VoxelRecolor? recolor = null;
-            recolor = cyan == 0 && pale == 0 && bruise is null && !eyeOn ? null : (m, color, x, y, z) =>
+            recolor = cyan == 0 && pale == 0 && bruise is null && !eyeOn && cellColors is null ? null : (m, color, x, y, z) =>
             {
+                if (cellColors?.At(grid.Index(x, y, z), m) is { } own)
+                {
+                    color = own with { W = color.W };
+                }
+
                 if (eyeOn && m is BoxerAnatomy.Eye or BoxerAnatomy.Pupil)
                 {
                     var first = x >= half;
@@ -271,7 +283,12 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
 
                     var isPupil = grid.Index(x, y, z) == (first ? scan.Pupil0 : scan.Pupil1);
                     var material = palette[isPupil ? BoxerAnatomy.Pupil : BoxerAnatomy.Eye];
-                    return surface ? material.SurfaceColor : material.Color;
+                    if (!isPupil && cellColors is not null)
+                    {
+                        return color with { W = m == BoxerAnatomy.Eye ? BrightWhite : 1f }; // 白目・瞳の色（顔の色の表）。白目は明るい面として描く
+                    }
+
+                    return (surface ? material.SurfaceColor : material.Color) with { W = isPupil ? 1f : BrightWhite };
                 }
 
                 if (m != BoxerAnatomy.Skin)
@@ -539,6 +556,11 @@ public sealed class BoxerBody
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(tuning);
         _deathFraction = tuning.OrganDeathFraction;
+        if (look is not null && face is not null)
+        {
+            look = FaceLayer.LookWith(look, face); // 顔の肌・髪・瞳の色を体にも（顔と首の肌がそろう。見た目だけ）
+        }
+
         var p = fighter.Parts;
         VoxelPalette? lookPalette = null;
         LowPoly.BoxerModel? standardShapes = null;
@@ -560,13 +582,14 @@ public sealed class BoxerBody
             };
             // 腕・脚は骨で曲げを受ける梁（肉は質量だけ）: 打撃の曲げが骨の強さを超えた所で折れる（VoxelContact が場所を返す）。頭は首の段だけで折れる。
             VoxelGrid? faceGrid = null;
+            FaceCellColors? faceColors = null;
             float? massPerCell = null;
             if (kind == BodyPartKind.Head)
             {
                 // 頭: 5 mm の格子は頭蓋骨・脳・首の中だけ。その外は顔の層（2.5 mm）が持つ（FaceLayer）。頭の質量（体格の寸法から）を 2 つの格子の体積で分ける
                 // （ほかの部位と同じく、質量は体積に比例: 顔の層の 1 セルは 5 mm のセルの 1/8）。剛体の質量と当たりの箱は 2 つの格子の和になる（AddCompanion）。
                 var spec = face ?? (look is not null ? FaceSpec.FromLook(look, "face") : FaceSpec.For("standard"));
-                (grid, faceGrid) = FaceLayer.Split(grid, spec);
+                (grid, faceGrid, faceColors) = FaceLayer.Build(grid, spec);
                 massPerCell = world.GetMass(id) / MathF.Max(1f, grid.FilledCount + (faceGrid.FilledCount * FaceLayer.CellVolumeRatio));
             }
 
@@ -575,7 +598,7 @@ public sealed class BoxerBody
             {
                 var faceBody = body.AddCompanion(faceGrid, body.GridCenterLocal, massPerCell!.Value * FaceLayer.CellVolumeRatio);
                 faceBody.PreferField = true; // 顔はいつも打たれる側（粗いグローブ・すね・棍棒に対しても、面の下が潰れるのは顔）
-                _face = new VoxelPart(kind, faceBody, VoxelVolume.For(faceGrid), null, false);
+                _face = new VoxelPart(kind, faceBody, VoxelVolume.For(faceGrid), null, false) { CellColors = faceColors };
                 _originals[_face] = Original.Of(faceGrid);
                 _layers.Add(_face);
             }

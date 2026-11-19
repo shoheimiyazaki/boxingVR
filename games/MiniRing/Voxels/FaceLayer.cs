@@ -12,7 +12,7 @@ namespace MiniRing.Voxels;
 /// 組み立てた顔の目（白目・瞳）と重なる所（眼窩）と、脳に面していない（脳を包む殻ではない）もので組み立てた顔の外に出る所は抜く（顔の形に合わせる）。
 /// 脳は 1 セルも動かさない（意識のモデルの量が変わらない）。</item>
 /// <item>顔の層 = 組み立てた顔 ∪ 残したセルを 1 セル（約 2.5 mm）包む皮膚 − 残したセルと重なる所。組み立てた顔が頭蓋骨より狭い所でも、骨はいつも皮膚の下にある。</item>
-/// <item>材質: 髪・眉 → 髪、白目 → 目、瞳 → 黒目、唇 → 唇、鼻の穴 → 空（空気）、それ以外（皮膚・影・そばかす・無精ひげ…）→ 皮膚。強さ・密度は 5 mm の同じ材質と同じ。</item>
+/// <item>材質: 髪・眉 → 髪、白目 → 目、瞳 → 黒目、唇 → 唇、それ以外（皮膚・影・鼻の穴・そばかす・無精ひげ…）→ 皮膚。強さ・密度は 5 mm の同じ材質と同じ。色の違いは <see cref="FaceCellColors"/>（見た目だけ）。</item>
 /// </list>
 /// </summary>
 public static class FaceLayer
@@ -28,6 +28,16 @@ public static class FaceLayer
     /// <see cref="Subdivision"/> 倍の細かさで、<paramref name="spec"/> の顔を組み立てて頭蓋骨の外だけを置いたもの）に分ける。色の表は <paramref name="head"/> のもの。
     /// </summary>
     public static (VoxelGrid Inner, VoxelGrid Face) Split(VoxelGrid head, FaceSpec spec, FacePartLibrary? library = null)
+    {
+        var built = Build(head, spec, library);
+        return (built.Inner, built.Face);
+    }
+
+    /// <summary>
+    /// <see cref="Split"/> と、顔の層の見た目の色（<see cref="FaceCellColors"/>: 組み立てた顔の材質ごとの色 <see cref="FacePalette"/>。影・眉・唇・鼻の穴の縁・
+    /// そばかす・無精ひげ・白目の色の違いは、体の材質（皮膚・髪・目…）を変えずに色だけで描く）。
+    /// </summary>
+    public static (VoxelGrid Inner, VoxelGrid Face, FaceCellColors Colors) Build(VoxelGrid head, FaceSpec spec, FacePartLibrary? library = null)
     {
         ArgumentNullException.ThrowIfNull(head);
         ArgumentNullException.ThrowIfNull(spec);
@@ -92,7 +102,7 @@ public static class FaceLayer
 
                     var shaped = composed.At(x, y, z);
                     var material = MaterialOf(shaped);
-                    if (material == 0 && shaped != FaceMaterial.Nostril && TouchesKept(x, y, z))
+                    if (material == 0 && TouchesKept(x, y, z))
                     {
                         material = BoxerAnatomy.Skin; // 組み立てた顔の外に出た骨・首を包む 1 層の皮膚
                     }
@@ -130,7 +140,32 @@ public static class FaceLayer
             var (x, y, z) = CellOf(p, head.HalfExtents, faceCell, nx, ny, nz);
             return cells[Index(x, y, z)];
         });
-        return (inner, face);
+
+        // 4. 見た目の色: 表に見えるセル（筋肉でない）の色を、組み立てた顔の材質の色（FacePalette）にする。包む皮膚（組み立てた顔の外）は肌の色。
+        var colorsOf = FacePalette.Resolve(spec);
+        var colors = new Vector4[cells.Length];
+        for (var i = 0; i < cells.Length; i++)
+        {
+            if (cells[i] is 0 or BoxerAnatomy.Muscle)
+            {
+                continue;
+            }
+
+            var shaped = composed.Cells[i];
+            colors[i] = new Vector4(colorsOf.TryGetValue(shaped, out var c) ? c : colorsOf[FaceMaterial.Skin], 1f);
+        }
+
+        return (inner, face, new FaceCellColors(colors, (byte[])cells.Clone()));
+    }
+
+    /// <summary>
+    /// 顔 <paramref name="spec"/> の肌・髪・瞳の色（あれば）で、体の見た目 <paramref name="look"/> の色を置き換える（顔と首・体の肌の色をそろえる。見た目だけ）。
+    /// </summary>
+    public static FaceLook LookWith(FaceLook look, FaceSpec spec)
+    {
+        ArgumentNullException.ThrowIfNull(look);
+        ArgumentNullException.ThrowIfNull(spec);
+        return look with { Skin = spec.Skin ?? look.Skin, Hair = spec.Hair ?? look.Hair, Pupil = spec.Iris ?? look.Pupil };
     }
 
     /// <summary>
@@ -215,12 +250,12 @@ public static class FaceLayer
     private static readonly (int X, int Y, int Z)[] Neighbours = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)];
 
     /// <summary>
-    /// 組み立てた顔の材質 → 体の材質（<see cref="BoxerAnatomy"/>）。空・鼻の穴は空気（空）。ここに無い材質（影・そばかす・無精ひげなど、皮膚の上の
+    /// 組み立てた顔の材質 → 体の材質（<see cref="BoxerAnatomy"/>）。空は空気。鼻の穴は皮膚（暗い色だけ: 2.5 mm の穴にすると奥の鼻の骨が見えた）。ここに無い材質（影・そばかす・無精ひげなど、皮膚の上の
     /// 色の違いだけの物。部品の表に後から足した物を含む）は皮膚（強さ・密度は皮膚、色の違いは今は描かない: docs/DEBT.md「顔の層」）。
     /// </summary>
     public static byte MaterialOf(FaceMaterial material) => material switch
     {
-        FaceMaterial.Empty or FaceMaterial.Nostril => 0,
+        FaceMaterial.Empty => 0,
         FaceMaterial.Hair or FaceMaterial.Brow => BoxerAnatomy.Hair,
         FaceMaterial.White => BoxerAnatomy.Eye,
         FaceMaterial.Iris => BoxerAnatomy.Pupil,
@@ -233,4 +268,14 @@ public static class FaceLayer
         var c = (p + half) / cell;
         return (Math.Clamp((int)c.X, 0, nx - 1), Math.Clamp((int)c.Y, 0, ny - 1), Math.Clamp((int)c.Z, 0, nz - 1));
     }
+}
+
+/// <summary>
+/// 顔の層のセルごとの見た目の色（見た目だけ。試合の計算・チェックサムには使わない）。<see cref="Color"/> の W が 0 のセルは材質の色のまま。
+/// 作ったときの材質（<see cref="Material"/>）と今の材質が違うセル（削れて押し込まれた所）も材質の色。
+/// </summary>
+public sealed record FaceCellColors(Vector4[] Color, byte[] Material)
+{
+    /// <summary>セル <paramref name="index"/>（材質 <paramref name="material"/>）の色。決まった色が無ければ null。</summary>
+    public Vector4? At(int index, byte material) => index >= 0 && index < Color.Length && Color[index].W > 0f && Material[index] == material ? Color[index] : null;
 }
