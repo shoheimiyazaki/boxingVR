@@ -166,9 +166,9 @@ public sealed class CharacterRosterTests
         var marcus = CharacterRoster.Get("marcus");
         var corners = new MatchSelection(MatchMode.Spectate, ramon, marcus).Corners;
         using var game = new BoxingGame(seed: 1, corners: corners);
-        // 肌の色は名簿の値そのもの（リングネームから決めた顔ではない）。
-        Assert.AreEqual(new Vector4(ramon.Look.Skin, 1f), game.Player.Voxels!.PartOf(game.Player.Parts.Head)!.Body.Grid.Palette[BoxerAnatomy.Skin].Color);
-        Assert.AreEqual(new Vector4(marcus.Look.Skin, 1f), game.Cpu.Voxels!.PartOf(game.Cpu.Parts.Head)!.Body.Grid.Palette[BoxerAnatomy.Skin].Color);
+        // 肌の色は名簿の値そのもの（リングネームから決めた顔ではない）。名簿の顔（"face" の skin）があればその色（顔と首・体の肌をそろえる: FaceLayer.LookWith）。
+        Assert.AreEqual(new Vector4(ramon.Face.Skin ?? ramon.Look.Skin, 1f), game.Player.Voxels!.PartOf(game.Player.Parts.Head)!.Body.Grid.Palette[BoxerAnatomy.Skin].Color);
+        Assert.AreEqual(new Vector4(marcus.Face.Skin ?? marcus.Look.Skin, 1f), game.Cpu.Voxels!.PartOf(game.Cpu.Parts.Head)!.Body.Grid.Palette[BoxerAnatomy.Skin].Color);
         // 背の高い人は体の箱が大きい（見えている体 = 強さの元、§1.7）。
         Assert.IsGreaterThan(game.Player.HalfExtents.Chest.Y, game.Cpu.HalfExtents.Chest.Y);
         Assert.AreEqual(ramon.HudName, game.RedLabel);
@@ -221,10 +221,10 @@ public sealed class CharacterRosterTests
         Assert.IsGreaterThan(standard.Body.Height, marcus.Body.Height);
         Assert.IsLessThan(standard.Body.Height, ramon.Body.Height);
         Assert.IsGreaterThan(standard.Body.Width, marcus.Body.Width, "a thicker (muscle 1.15, arms 1.1) body is wider");
-        // 顔: 頭のセルの格子（10 × 14 セルほど）の正面。肌の色のセルが顔の大半。
-        Assert.IsInRange(8, 14, marcus.Face.Width);
-        Assert.IsInRange(12, 18, marcus.Face.Height);
-        var skin = CharacterRoster.Get("marcus").Look.Skin;
+        // 顔: 頭の顔の層（FaceLayer: 20 × 28 セル、約 2.5 mm）の正面。肌の色のセルが顔の大半。
+        Assert.IsInRange(16, 28, marcus.Face.Width);
+        Assert.IsInRange(24, 36, marcus.Face.Height);
+        var skin = CharacterRoster.Get("marcus").Face.Skin ?? CharacterRoster.Get("marcus").Look.Skin; // 名簿の顔の肌の色（FaceLayer.LookWith）
         var skinCells = 0;
         for (var y = 0; y < marcus.Face.Height; y++)
         {
@@ -240,8 +240,13 @@ public sealed class CharacterRosterTests
         // 白目・黒目がある（目が写っている）。
         var materials = new HashSet<byte>(marcus.Face.Materials);
         Assert.IsTrue(materials.Contains(BoxerAnatomy.Eye) || materials.Contains(BoxerAnatomy.Pupil), "eyes are visible from the front");
-        // 髪の無い人（マーカス。眉は髪の色の材質なので顔の中にはある）の頭のてっぺんは皮膚、髪のあるキャラ（コンラート）は髪。
-        Assert.IsFalse(Enumerable.Range(0, marcus.Face.Width).Any(x => marcus.Face.MaterialAt(x, 0) == BoxerAnatomy.Hair), "bald: no hair on top");
+        // 頭のてっぺんは顔の形（名簿の "face"）の髪: F3 で名簿の全員に髪の部品が付いた（マーカスも hair.10。docs/plans/face_refs/compare/roster_composed.png）。
+        // 髪の無い顔（部品 hair.3 = 坊主）なら、てっぺんは皮膚。
+        var bald = CharacterRoster.Get("marcus");
+        var baldParts = bald.Face.Parts.ToDictionary(p => p.Key, p => p.Value);
+        baldParts["hair"] = new Dictionary<string, float> { ["hair.3"] = 1f };
+        var baldFace = CharacterPortraits.Build(bald with { Face = bald.Face with { Parts = baldParts } }).Face;
+        Assert.IsFalse(Enumerable.Range(0, baldFace.Width).Any(x => baldFace.MaterialAt(x, 0) == BoxerAnatomy.Hair), "bald: no hair on top");
         var konrad = CharacterPortraits.Build(CharacterRoster.Get("konrad")).Face;
         Assert.IsTrue(Enumerable.Range(0, konrad.Width).Any(x => konrad.MaterialAt(x, 0) == BoxerAnatomy.Hair), "full hair on top");
     }

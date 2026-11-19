@@ -32,7 +32,9 @@ public sealed class HandWearTests
                     Assert.IsNotNull(worn);
                     Assert.AreEqual(wear.Kind(), worn.Kind);
                     Assert.IsNull(game.WeaponOf(fighter), "a worn thing is not a held weapon");
-                    Assert.IsGreaterThan(0, worn.Body.Grid.Remaining(BoxerAnatomy.Bone) + worn.Body.Grid.Remaining(BoxerAnatomy.HandBone), $"{wear}: the fist (bone) is inside");
+                    // 中の拳: 手にはめる物は物の格子に重ねた手の格子（PhysicsVersion 53。素手の手のモデル）、素手・グローブは自分の格子の中。
+                    var inside = worn.Hands.Count > 0 ? worn.Hands[0].Body.Grid : worn.Body.Grid;
+                    Assert.IsGreaterThan(0, inside.Remaining(BoxerAnatomy.Bone) + inside.Remaining(BoxerAnatomy.HandBone), $"{wear}: the fist (bone) is inside");
                 }
             }
 
@@ -47,7 +49,7 @@ public sealed class HandWearTests
                 case HandWear.KnuckleDuster:
                 case HandWear.Katar:
                     Assert.IsGreaterThan(0, red.Remaining(BoxerAnatomy.Iron));
-                    Assert.IsGreaterThan(0, red.Remaining(BoxerAnatomy.Skin), "the bare fist holds it");
+                    Assert.IsGreaterThan(0, game.GloveOf(game.Player, Hand.Right)!.Hands[0].Body.Grid.Remaining(BoxerAnatomy.HandSkin), "the bare fist (its own grid) holds it");
                     break;
                 case HandWear.Gauntlet:
                     Assert.IsGreaterThan(0, red.Remaining(BoxerAnatomy.Iron));
@@ -199,7 +201,11 @@ public sealed class HandWearTests
         Assert.IsLessThan(0.25f * Math.Min(PerHit(HandWear.KnuckleDuster), PerHit(HandWear.Gauntlet)), bare, "a wood-hard bare fist breaks far less than iron");
         Assert.IsGreaterThan(glove + 1.5f, PerHit(HandWear.KnuckleDuster), "iron knuckles crush more than a padded glove");
         Assert.IsGreaterThan(glove + 1.5f, PerHit(HandWear.Gauntlet), "iron plates crush more than a padded glove");
-        Assert.IsGreaterThan(2f * Math.Max(PerHit(HandWear.KnuckleDuster), PerHit(HandWear.Gauntlet)), PerHit(HandWear.Katar),
-            "a blade's edge and point concentrate the same punch far more than any blunt face");
+        // 2026-11-19（PhysicsVersion 53）: はめる物の中の拳が手の格子（幅 4〜5 cm）になり、物は手の寸法に合わせて作り直した。鈍い鉄（メリケンサックの棒・籠手の板）の
+        // 面は拳の幅（29 mm → 71 / 67 mm）と高さ（8 mm → 19 mm）まで広がり、鉄の量が 3〜4 倍になったので 1 発の削れが 13.0 / 11.7 → 約 32 / 34 セル/発に増えた
+        // （物理: 同じ速さで、広くて重い鉄ほど運ぶ運動量が大きい）。刃は長さ 7 cm・鎬 3 mm のまま（刃の幅だけ手に合わせて 2 倍）なので、刃の優位は 1.8 倍 → 約 1.4 倍に
+        // 下がった（22.9 → 約 48 セル/発）。刃の枠が握り棒の高さ（手の下寄り）にあり、狙いの高さからずれることも効いている。主張を「鈍い鉄の面より多く削る」にした。
+        Assert.IsGreaterThan(Math.Max(PerHit(HandWear.KnuckleDuster), PerHit(HandWear.Gauntlet)), PerHit(HandWear.Katar),
+            "a blade's edge and point still carve more than any blunt face");
     }
 }

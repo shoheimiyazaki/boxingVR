@@ -1,0 +1,237 @@
+Colour hex values are approximate unlit base colours for part-library use.
+Scar sides refer to the fighter's own left/right.
+
+id: akira
+skin: Warm medium tan, #C49370
+hair: Short thick tousled black hair, loosely swept to the side, #191A19
+brows: Thick dark brows with slight angular peaks
+eyes: Dark brown almond eyes, slight upper-lid hood
+nose: Medium straight bridge, rounded broad tip
+ears: Medium close-set ears, rounded lobes
+mouth: Medium full lips, distinct cupid's bow
+jaw/chin: Compact square jaw, broad rounded chin
+cheekbones: High and clearly defined
+beard: None; clean-shaven
+extra: None
+
+id: albert
+skin: Fair warm rosy beige, #D9AD94
+hair: Neat slick side part with broad waves, dark chestnut #493025
+brows: Thick gently arched chestnut brows
+eyes: Deep-set hazel eyes
+nose: Long prominent straight bridge, rounded projecting tip
+ears: Medium-large outward ears, rounded lobes
+mouth: Thin upper lip hidden by moustache; medium lower lip
+jaw/chin: Long square jaw, broad cleft chin
+cheekbones: High angular cheekbones with hollow lower cheeks
+beard: Large curled handlebar moustache; cheeks and chin shaved
+extra: Central chin cleft
+
+id: daichi
+skin: Warm golden tan, #BD906B
+hair: Black hair swept back into small low knot, #20201D
+brows: Long straight dark brows, slightly lifted outer ends
+eyes: Narrow dark brown almond eyes
+nose: Long straight bridge, rounded projecting tip
+ears: Large close-set ears, rounded lobes
+mouth: Medium narrow lips, clear cupid's bow
+jaw/chin: Long tapered angular jaw, projecting rounded chin
+cheekbones: High prominent cheekbones, lean cheeks
+beard: None; clean-shaven
+extra: None
+
+id: dmitri
+skin: Pale cool beige with pink cheeks, #D3B3A4
+hair: Very short light brown buzz cut, #79614A
+brows: Heavy straight brows, scar gap in left brow
+eyes: Small deep-set grey eyes
+nose: Broad battered boxer nose, crooked bridge, large rounded tip
+ears: Large thick cauliflower ears, irregular folded rims
+mouth: Medium thin lips, broad closed mouth
+jaw/chin: Massive square jaw, broad projecting chin
+cheekbones: Broad high cheekbones
+beard: Sparse short sandy-brown stubble
+extra: Healed diagonal split through left eyebrow; cauliflower ears; crooked nose
+
+id: edgar
+skin: Light weathered warm beige, #C69F85
+hair: Medium chestnut waves swept back, #51382A
+brows: Bushy slightly angled brows
+eyes: Grey-green hooded eyes
+nose: Strong long nose, slightly convex bridge
+ears: Medium ears, attached lobes
+mouth: Medium lips, fuller lower lip
+jaw/chin: Broad angular jaw, squared chin
+cheekbones: Pronounced angular cheekbones
+beard: Close-cropped full chestnut beard and moustache
+extra: None
+
+id: gaston
+skin: Light olive beige, #C59F81
+hair: Short swept-back dark brown hair with receding temples, #342821
+brows: Dark angled brows
+eyes: Hooded brown eyes
+nose: Long aquiline nose with curved bridge
+ears: Narrow elongated ears
+mouth: Thin upper lip, fuller lower lip
+jaw/chin: Narrow rectangular jaw, rounded chin
+cheekbones: High pronounced cheekbones
+beard: Pointed moustache and short pointed goatee
+extra: Fine healed scar on right cheek
+
+id: jin
+skin: Light warm beige, #D5B69A
+hair: Straight blue-black center-parted hair tied low, #171C22
+brows: Medium straight dark brows, tapered outer ends
+eyes: Narrow dark brown almond eyes
+nose: Slender straight nose, small rounded tip
+ears: Small close-set ears
+mouth: Thin defined lips, small cupid's bow
+jaw/chin: Tapered angular jaw, small chin
+cheekbones: High subtle cheekbones
+beard: None; clean-shaven
+extra: None
+
+id: joao
+skin: Warm medium brown, #AD7953
+hair: Short curly crest fauxhawk with faded sides, black #201B17
+brows: Slanted expressive brows
+eyes: Amber-brown almond eyes
+nose: Medium broad nose, slightly upturned rounded tip
+ears: Small ears, rounded lobes
+mouth: Full defined lips
+jaw/chin: Narrow angular jaw, pointed chin
+cheekbones: Sharp high cheekbones
+beard: Small chin tuft and faint moustache
+extra: None
+
+id: konrad
+skin: Fair warm beige, #D2AD92
+hair: Shoulder-length dark blond hair tucked behind ears, #887044
+brows: Heavy angular brows
+eyes: Deep-set blue-grey eyes
+nose: Long prominent straight nose
+ears: Long ears, close to head
+mouth: Thin firm lips
+jaw/chin: Long square jaw, broad chin
+cheekbones: High angular cheekbones
+beard: Short full dark blond beard and moustache
+extra: None
+
+id: marcus
+skin: Deep warm brown, #704A35
+hair: Close-cropped black textured hair, #171514
+brows: Thick low-set brows
+eyes: Deep-set dark brown eyes
+nose: Broad flat boxer nose, slightly crooked bridge
+ears: Medium thick-rimmed ears
+mouth: Full lips, broad mouth
+jaw/chin: Massive square jaw, broad chin
+cheekbones: Broad strong cheekbones
+beard: Close-trimmed boxed black beard and moustache
+extra: Small healed scar through right eyebrow; crooked boxer nose
+
+id: narong
+skin: Warm bronze tan, #B78053
+hair: Short black textured crew cut, #191917
+brows: Fine straight dark brows
+eyes: Narrow dark brown almond eyes
+nose: Low bridge, broad rounded nose tip
+ears: Small thick-rimmed ears
+mouth: Medium full lips
+jaw/chin: Compact angular jaw, rounded chin
+cheekbones: High wide cheekbones
+beard: None; clean-shaven
+extra: Small healed scar above left cheekbone
+
+id: ramon
+skin: Warm copper tan, #AE7854
+hair: Short dense black flat crop, #211B17
+brows: Heavy straight dark brows
+eyes: Small deep-set brown eyes
+nose: Short broad flattened boxer nose, crooked bridge
+ears: Round mildly cauliflower ears
+mouth: Broad mouth, medium lips
+jaw/chin: Short massive square jaw, broad rounded chin
+cheekbones: Wide prominent cheekbones
+beard: Thick short black moustache; shaved chin
+extra: Cauliflower ears; broken crooked nose
+
+id: ren
+skin: Warm medium beige, #C7A282
+hair: Short messy black crop, #1E1B19
+brows: Thick gently angled brows
+eyes: Roundish hooded dark brown eyes
+nose: Medium straight nose, rounded tip
+ears: Pronounced cauliflower ears with thick folded rims
+mouth: Medium lips
+jaw/chin: Broad rounded square jaw, blunt chin
+cheekbones: Full broad cheekbones
+beard: Light dark stubble
+extra: Cauliflower ears
+
+id: sean
+skin: Fair rosy beige with freckles, #D6AC94
+hair: Tousled short wavy copper-red hair, #914928
+brows: Thick copper-red brows
+eyes: Deep-set green eyes
+nose: Long crooked nose, bumped bridge
+ears: Large outward ears
+mouth: Thin lips
+jaw/chin: Rugged square jaw, broad chin
+cheekbones: Angular pronounced cheekbones
+beard: Rough short red full beard and moustache
+extra: Freckles; small healed diagonal scar on left cheek; crooked nose
+
+id: taeyun
+skin: Light golden beige, #D7B698
+hair: Neat black textured two-block cut with side-swept fringe, #1B1B1D
+brows: Straight dark brows
+eyes: Slender dark brown almond eyes
+nose: Slender straight nose, small rounded tip
+ears: Small close-set ears
+mouth: Medium softly defined lips
+jaw/chin: Long tapered jaw, narrow rounded chin
+cheekbones: High subtle cheekbones
+beard: None; clean-shaven
+extra: None
+
+id: tsuyoshi
+skin: Warm sun tan, #BD8B62
+hair: Coarse short spiky black hair, #20201B
+brows: Thick low-set dark brows
+eyes: Wide-set dark brown almond eyes
+nose: Short wide nose, broad rounded tip
+ears: Medium outward ears
+mouth: Broad mouth, medium thin lips
+jaw/chin: Broad square jaw, blunt chin
+cheekbones: Wide pronounced cheekbones
+beard: None; clean-shaven
+extra: None
+
+id: vikram
+skin: Warm medium brown, #A36E48
+hair: Thick wavy black hair swept back to nape, #1C1714
+brows: Thick arched brows
+eyes: Deep-set dark brown eyes
+nose: Long aquiline nose, curved bridge
+ears: Medium elongated ears
+mouth: Medium full lips
+jaw/chin: Angular rectangular jaw, strong chin
+cheekbones: High sharp cheekbones
+beard: Thick upward-curved moustache and neat short black beard
+extra: None
+
+id: yoandry
+skin: Rich warm brown, #8B5C3F
+hair: Short tight black curls with low fade, #181512
+brows: Defined softly arched brows
+eyes: Warm brown hooded almond eyes
+nose: Medium broad nose, rounded tip
+ears: Close-set medium ears
+mouth: Full lips
+jaw/chin: Tapered square jaw, rounded chin
+cheekbones: High prominent cheekbones
+beard: None; clean-shaven
+extra: Small healed scar near left eyebrow
+

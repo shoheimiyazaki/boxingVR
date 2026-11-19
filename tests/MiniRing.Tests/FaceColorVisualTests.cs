@@ -37,7 +37,7 @@ public sealed class FaceColorVisualTests
         byte[] Shot(float cyanosis, float pallor)
         {
             var pose = new EyePose(0f, World(new Vector3(0f, 0f, 2f)));
-            var voxels = cpu.Voxels!.Parts.Select(p => p.Kind == BodyPartKind.Head ? p.Draw(cyanosis, pose, pallor) : p.Draw(0f)).ToList();
+            var voxels = cpu.Voxels!.Layers.Select(p => p.Kind == BodyPartKind.Head ? p.Draw(cyanosis, pose, pallor) : p.Draw(0f)).ToList();
             return renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [], lighting: lighting, cameraPosition: eye, voxels: voxels);
         }
 

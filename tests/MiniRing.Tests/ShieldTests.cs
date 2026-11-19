@@ -33,7 +33,8 @@ public sealed class ShieldTests
         return mass;
     }
 
-    private static IEnumerable<Vector3> InFistFrame(WeaponKind kind, byte material)
+    /// <summary>物の格子のセルの中心を、手の座標（原点 = 中の手の格子の中心）で。</summary>
+    private static IEnumerable<Vector3> InHandFrame(WeaponKind kind, byte material)
     {
         var grid = Weapon.Build(kind);
         for (var i = 0; i < grid.CellCount; i++)
@@ -41,7 +42,7 @@ public sealed class ShieldTests
             if (grid.MaterialAt(i) == material)
             {
                 var (x, y, z) = grid.Coordinates(i);
-                yield return (new Vector3(x + 0.5f, y + 0.5f, z + 0.5f) * grid.CellSize) - grid.HalfExtents - Weapon.GripOf(kind);
+                yield return (new Vector3(x + 0.5f, y + 0.5f, z + 0.5f) * grid.CellSize) - grid.HalfExtents - Weapon.HandOriginOf(kind);
             }
         }
     }
@@ -52,27 +53,35 @@ public sealed class ShieldTests
     public void TheShield_IsARoundWoodPlateWithAnIronRimAndABossOverTheFist()
     {
         var grid = Weapon.Build(WeaponKind.Shield);
-        var wood = InFistFrame(WeaponKind.Shield, BoxerAnatomy.Wood).ToList();
-        var iron = InFistFrame(WeaponKind.Shield, BoxerAnatomy.Iron).ToList();
-        Assert.IsGreaterThan(0, grid.Remaining(BoxerAnatomy.Bone), "the fist grips the handle");
-        Assert.AreEqual(grid.FilledCount, grid.Remaining(BoxerAnatomy.Wood) + grid.Remaining(BoxerAnatomy.Iron) + grid.Remaining(BoxerAnatomy.Bone) + grid.Remaining(BoxerAnatomy.Skin));
+        var wood = InHandFrame(WeaponKind.Shield, BoxerAnatomy.Wood).ToList();
+        var iron = InHandFrame(WeaponKind.Shield, BoxerAnatomy.Iron).ToList();
+        // 2026-11-19（PhysicsVersion 53）: 中の拳は物の格子の球ではなく、同じ剛体に重ねた手の格子（5 mm）。物の格子は木と鉄だけ。
+        using var world = new Aigis.Physics.PhysicsWorld(gravity: Vector3.Zero);
+        var hand = Weapon.CreateWorn(world, WeaponKind.Shield, BoxerAnatomy.RedGlove, Vector3.Zero, Quaternion.Identity).Hands[0].Body.Grid;
+        Assert.IsGreaterThan(0, hand.Remaining(BoxerAnatomy.HandBone), "the fist (its own grid) grips the handle");
+        Assert.AreEqual(grid.FilledCount, grid.Remaining(BoxerAnatomy.Wood) + grid.Remaining(BoxerAnatomy.Iron), "the shield's own grid is wood and iron only");
 
-        // 板: 直径 16 cm（人の 60 cm の 0.27 倍）、厚さ 4 mm、木。拳の中心の面（X ≈ 0）にある。
-        var plateRadius = wood.Max(p => MathF.Sqrt((p.Y * p.Y) + (p.Z * p.Z)));
+        // 板: 直径 16 cm（人の 60 cm の 0.27 倍）、厚さ 4 mm、木。手の中心の面（X ≈ 0）にある。板の中心は手の高さの真ん中（手の座標の Y ≠ 0）。
+        var plateY = 0.5f * (wood.Max(p => p.Y) + wood.Min(p => p.Y));
+        float Radial(Vector3 p) => MathF.Sqrt(((p.Y - plateY) * (p.Y - plateY)) + (p.Z * p.Z));
+        var plateRadius = wood.Max(Radial);
         Assert.AreEqual(0.08f, plateRadius, 0.004f, "diameter 16 cm");
         Assert.IsTrue(wood.All(p => MathF.Abs(p.X) <= 0.0031f), "the plate is a thin layer in the fist's centre plane");
         Assert.AreEqual(0.004f, wood.Max(p => p.X) - wood.Min(p => p.X) + 0.002f, 0.0021f, "4 mm thick");
-        Assert.IsTrue(wood.All(p => MathF.Sqrt((p.Y * p.Y) + (p.Z * p.Z)) > 0.02f), "the plate is open at the middle: the arm and the boss's hollow");
+        Assert.IsTrue(wood.All(p => Radial(p) > 0.02f), "the plate is open at the middle: the arm and the boss's hollow");
 
         // 縁の鉄の輪: 板の外の縁（半径 7.8〜8 cm）に鉄がある。
-        Assert.IsTrue(iron.Any(p => MathF.Sqrt((p.Y * p.Y) + (p.Z * p.Z)) > 0.077f && MathF.Abs(p.X) < 0.003f), "an iron rim around the edge");
-        // 椀（ボス）: 拳の前に半球の殻。頂きは拳の中心から前へ約 2.4 cm。
+        Assert.IsTrue(iron.Any(p => Radial(p) > 0.077f && MathF.Abs(p.X) < 0.003f), "an iron rim around the edge");
+        // 椀（ボス）: 手の前を覆う、手の形に沿った殻。頂きは手の前の面（手の格子の最前面）から、隙間 4 mm + 殻 3 mm 前。
+        var handBounds = hand.OccupiedBounds()!.Value;
+        var handFront = handBounds.Center.X + handBounds.HalfExtents.X;
         var boss = iron.Where(p => p.X > 0.004f).ToList();
         Assert.IsNotEmpty(boss);
-        Assert.AreEqual(0.024f, boss.Max(p => p.X), 0.003f, "the boss bulges about 2.4 cm in front of the fist centre");
-        Assert.IsTrue(boss.All(p => MathF.Sqrt((p.Y * p.Y) + (p.Z * p.Z)) < 0.026f), "and covers only the middle");
-        // 握り棒: 拳の中心を通って Z に沿う鉄。
-        Assert.AreEqual(BoxerAnatomy.Iron, grid.MaterialAt(grid.FilledCellAt(Weapon.GripOf(WeaponKind.Shield))), "the grip bar passes through the fist centre");
+        Assert.AreEqual(handFront + 0.007f, boss.Max(p => p.X), 0.003f, "the boss bulges 4 mm clear + 3 mm shell in front of the hand's front face");
+        Assert.IsTrue(boss.All(p => Radial(p) < 0.05f), "and covers only the middle (the hand's own width)");
+        // 握り棒: 手が握る（GripPose の指の輪の中心を通って Z に沿う）鉄。
+        var barAt = HandSkeleton.GripCenter + Weapon.HandOriginOf(WeaponKind.Shield);
+        Assert.AreEqual(BoxerAnatomy.Iron, grid.MaterialAt(grid.FilledCellAt(barAt)), "the grip bar passes through the loop of the fingers");
     }
 
     [TestMethod]
@@ -90,7 +99,9 @@ public sealed class ShieldTests
         using var game = new BoxingGame(seed: 1, corners: BoxingCorners.Default with { PlayerWear = HandWear.Shield });
         var worn = game.GloveOf(game.Player, Hand.Left)!;
         var grid = worn.Body.Grid;
-        Assert.AreEqual(MassOf(grid), game.World.GetMass(worn.Body.BodyId), MassOf(grid) * 0.01f, "mass comes from the voxels");
+        // 質量は、物の格子と中の手の格子の、材質の密度 × 体積の和（PhysicsVersion 53）。
+        var total = MassOf(grid) + MassOf(worn.Hands[0].Body.Grid);
+        Assert.AreEqual(total, game.World.GetMass(worn.Body.BodyId), total * 0.01f, "mass comes from the voxels: the shield and the hand inside");
         var sword = MassOf(Weapon.Build(WeaponKind.IronSword));
         var glove = MassOf(Weapon.Build(WeaponKind.Glove));
         Assert.IsGreaterThan(sword, MassOf(grid), "a shield is heavier than the sword");

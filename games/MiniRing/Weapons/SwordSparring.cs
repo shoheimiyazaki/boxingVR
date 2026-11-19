@@ -83,7 +83,7 @@ public static class SwordSparring
     /// <summary>技を出していない間に斬れた分の名前。</summary>
     public const string Guard = "guard";
 
-    private static int Attached(BoxerBody body) => body.Parts.Sum(p => p.Body.Grid.FilledCount);
+    private static int Attached(BoxerBody body) => body.Layers.Sum(p => p.Body.Grid.FilledCount);
 
     private static void Add(Dictionary<string, float> to, string key, float value) => to[key] = to.GetValueOrDefault(key) + value;
 }

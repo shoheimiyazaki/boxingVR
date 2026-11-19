@@ -536,7 +536,8 @@ public sealed class VoxelDamageTests
     {
         using var game = new BoxingGame(seed: 2);
         var cpu = game.Cpu;
-        StrikeUntil(game, cpu, cpu.Parts.Head, () => cpu.IsDead, damage: 30f);
+        // 前・後ろ・上から（下からの打撃は首を通る: 顔の層（F2）のあごは首の上に重なり、首の脊髄が先に断たれる）。
+        StrikeUntil(game, cpu, cpu.Parts.Head, () => cpu.IsDead, damage: 30f, [Vector3.UnitZ, -Vector3.UnitZ, Vector3.UnitY]);
 
         Assert.AreEqual("brain", cpu.DeathCause);
         game.Step(default, 1f / 60f);
@@ -814,9 +815,9 @@ public sealed class VoxelDamageTests
         }
     }
 
-    private static void StrikeUntil(BoxingGame game, Fighter victim, int part, Func<bool> done, float damage)
+    private static void StrikeUntil(BoxingGame game, Fighter victim, int part, Func<bool> done, float damage, Vector3[]? from = null)
     {
-        var directions = new[] { Vector3.UnitZ, -Vector3.UnitZ, Vector3.UnitY, -Vector3.UnitY };
+        var directions = from ?? [Vector3.UnitZ, -Vector3.UnitZ, Vector3.UnitY, -Vector3.UnitY];
         for (var i = 0; i < 200 && !done(); i++)
         {
             Strike(game, victim, part, damage, directions[i % directions.Length]);

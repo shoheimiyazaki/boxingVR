@@ -942,8 +942,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// <summary>名簿のキャラクターは、体格・顔・表示名をそのキャラクターの値にする（ボットの性格はスタイル）。</summary>
     internal static BoxingCorners WithCharacters(BoxingCorners corners, MiniRing.Characters.FighterCharacter? red, MiniRing.Characters.FighterCharacter? blue)
     {
-        corners = red is null ? corners : corners with { PlayerBody = red.Build, PlayerFace = red.Look.Parts, PlayerLook = red.Look, PlayerLabel = red.HudName, PlayerStyle = red.Resolve(blue?.Id), PlayerWeaponStyle = red.WeaponStyle };
-        return blue is null ? corners : corners with { CpuBody = blue.Build, CpuFace = blue.Look.Parts, CpuLook = blue.Look, CpuLabel = blue.HudName, CpuWeaponStyle = blue.WeaponStyle };
+        corners = red is null ? corners : corners with { PlayerBody = red.Build, PlayerFace = red.Look.Parts, PlayerLook = red.Look, PlayerFaceSpec = red.Face, PlayerLabel = red.HudName, PlayerStyle = red.Resolve(blue?.Id), PlayerWeaponStyle = red.WeaponStyle };
+        return blue is null ? corners : corners with { CpuBody = blue.Build, CpuFace = blue.Look.Parts, CpuLook = blue.Look, CpuFaceSpec = blue.Face, CpuLabel = blue.HudName, CpuWeaponStyle = blue.WeaponStyle };
     }
 
     /// <summary>紹介の板の中身を 1 行に（台本の資料）。</summary>

@@ -22,19 +22,28 @@ public sealed class BodyLandmarks
     private readonly Site? _chin;
     private readonly Site? _plexus;
     private readonly VoxelPart? _head;
+
+    /// <summary>頭の剛体に重ねた顔の層（目・頭皮・顔の皮膚はこの格子。無い体なら null で、頭の格子だけを見る）。</summary>
+    private readonly VoxelPart? _face;
+
+    /// <summary>目を持つ格子（顔の層、無ければ頭）。</summary>
+    private VoxelPart? EyePart => _face ?? _head;
     private readonly Dictionary<(int Version, int Side), Vector3?> _eyeLive = [];
 
     internal readonly record struct Site(VoxelPart Part, Vector3 Local);
 
-    internal BodyLandmarks(IReadOnlyList<VoxelPart> parts)
+    /// <param name="parts">体の部位。</param>
+    /// <param name="face">頭の剛体に重ねた顔の層（<see cref="BoxerBody.Face"/>。頭の格子と同じ箱）。目はここから、皮膚の上の点はここまで辿る。</param>
+    internal BodyLandmarks(IReadOnlyList<VoxelPart> parts, VoxelPart? face = null)
     {
         _head = parts.FirstOrDefault(p => p.Kind == BodyPartKind.Head);
+        _face = _head is not null && face is not null && face.Body.BodyId == _head.Body.BodyId ? face : null;
         var chest = parts.FirstOrDefault(p => p.Kind == BodyPartKind.Chest);
         if (_head is not null)
         {
             for (var side = 0; side < 2; side++)
             {
-                _temple[side] = TempleSiteOf(_head, side);
+                _temple[side] = TempleSiteOf(_head, EyePart!, side);
             }
 
             _chin = ChinSiteOf(_head);
@@ -55,9 +64,10 @@ public sealed class BodyLandmarks
 
     private static int SideOf(Vector3 center) => center.X > 0f ? 0 : 1;
 
-    private static Site? TempleSiteOf(VoxelPart head, int side)
+    /// <remarks>目は <paramref name="eyes"/>（顔の層）の格子で探す。顔の層は頭の格子と同じ箱（中心・大きさ）なので、局所の座標はそのまま頭の格子の座標。</remarks>
+    private static Site? TempleSiteOf(VoxelPart head, VoxelPart eyes, int side)
     {
-        if (EyeSiteOf(head, side) is not { } eye)
+        if (EyeSiteOf(eyes, side) is not { } eye)
         {
             return null;
         }
@@ -152,7 +162,8 @@ public sealed class BodyLandmarks
         }
 
         var side = left ? 0 : 1;
-        var grid = _head.Body.Grid;
+        var eyes = EyePart!;
+        var grid = eyes.Body.Grid;
         if (!_eyeLive.TryGetValue((grid.Version, side), out var local))
         {
             if (_eyeLive.Keys.Any(k => k.Version != grid.Version))
@@ -165,15 +176,15 @@ public sealed class BodyLandmarks
             _eyeLive[(grid.Version, side)] = local;
         }
 
-        return local is { } p ? Vector3.Transform(p, _head.Body.GridToWorld()) : null;
+        return local is { } p ? Vector3.Transform(p, eyes.Body.GridToWorld()) : null;
     }
 
     /// <summary>こめかみ（<paramref name="left"/> = +X 側）の、皮膚の上の点（ワールド）。</summary>
     public Vector3? Temple(bool left)
-        => _temple[left ? 0 : 1] is { } site ? Surface(site, new Vector3(left ? 1f : -1f, 0f, 0f)) : null;
+        => _temple[left ? 0 : 1] is { } site ? Surface(site, new Vector3(left ? 1f : -1f, 0f, 0f), _face) : null;
 
     /// <summary>あごの先の、皮膚の上の点（ワールド）。</summary>
-    public Vector3? Chin() => _chin is { } site ? Surface(site, Vector3.UnitZ) : null;
+    public Vector3? Chin() => _chin is { } site ? Surface(site, Vector3.UnitZ, _face) : null;
 
     /// <summary>みぞおち（胸骨の下の端のすぐ下）の、皮膚の上の点（ワールド）。</summary>
     public Vector3? SolarPlexus() => _plexus is { } site ? Surface(site, Vector3.UnitZ) : null;
@@ -194,17 +205,39 @@ public sealed class BodyLandmarks
         return direction.LengthSquared() < 1e-10f ? null : Surface(site, Vector3.Normalize(direction));
     }
 
-    /// <summary>格子のローカルの点から <paramref name="direction"/>（格子のローカル）へ辿って、体を出る直前の（いちばん外の）セルの中心をワールドで返す。</summary>
-    private static Vector3 Surface(Site site, Vector3 direction)
+    /// <summary>
+    /// 格子のローカルの点から <paramref name="direction"/>（格子のローカル）へ辿って、体を出る直前の（いちばん外の）セルの中心をワールドで返す。
+    /// <paramref name="outer"/>（同じ剛体・同じ箱に重ねた層: 顔の層）があれば、その層の上も辿り、外の方の点を返す（頭蓋骨の外の皮膚は顔の層にある）。
+    /// </summary>
+    private static Vector3 Surface(Site site, Vector3 direction, VoxelPart? outer = null)
     {
-        var grid = site.Part.Body.Grid;
+        var (last, reach) = Walk(site.Part.Body.Grid, site.Local, direction);
+        if (outer is not null && outer.Body.BodyId == site.Part.Body.BodyId && outer.Body.GridCenterLocal == site.Part.Body.GridCenterLocal)
+        {
+            var (outerLast, outerReach) = Walk(outer.Body.Grid, site.Local, direction);
+            if (outerReach > reach)
+            {
+                last = outerLast;
+            }
+        }
+
+        return Vector3.Transform(last, site.Part.Body.GridToWorld());
+    }
+
+    /// <summary>
+    /// <see cref="Surface"/> の 1 つの格子の分: 辿った最も外のセルの中心と、そこまでの距離（向きに沿って）。始めの点の周りが空でも
+    /// （頭蓋骨の中の点から顔の層を辿るとき）、最初の詰まったセルまで進み、そこから体を出る直前で止まる。
+    /// </summary>
+    private static (Vector3 Last, float Reach) Walk(VoxelGrid grid, Vector3 start, Vector3 direction)
+    {
         var step = 0.5f * MathF.Min(grid.CellSize.X, MathF.Min(grid.CellSize.Y, grid.CellSize.Z));
         var count = (int)MathF.Ceiling(2f * grid.HalfExtents.Length() / step);
-        var last = site.Local;
-        var inside = false;
+        var last = start;
+        var reach = float.NegativeInfinity;
+        var entered = false;
         for (var i = 0; i <= count; i++)
         {
-            var cell = grid.CellAt(site.Local + (direction * (step * i)));
+            var cell = grid.CellAt(start + (direction * (step * i)));
             if (cell < 0)
             {
                 break;
@@ -214,14 +247,15 @@ public sealed class BodyLandmarks
             {
                 var (x, y, z) = grid.Coordinates(cell);
                 last = grid.CellCenter(x, y, z);
-                inside = true;
+                reach = Vector3.Dot(last - start, direction);
+                entered = true;
             }
-            else if (inside)
+            else if (entered)
             {
                 break;
             }
         }
 
-        return Vector3.Transform(last, site.Part.Body.GridToWorld());
+        return (last, reach);
     }
 }

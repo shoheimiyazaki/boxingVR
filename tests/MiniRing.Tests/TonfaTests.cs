@@ -83,35 +83,42 @@ public sealed class TonfaTests
         }
     }
 
-    /// <summary>格子のセルの中心を、拳の座標（原点 = 拳の中心）で。</summary>
+    /// <summary>物の格子のセルの中心を、手の座標（原点 = 中の手の格子の中心。PhysicsVersion 53 で拳は手の格子になった）で。</summary>
     private static List<Vector3> InFistFrame(WeaponKind kind, byte material) =>
-        [.. Cells(Weapon.Build(kind), material).Select(p => p - Weapon.GripOf(kind))];
+        [.. Cells(Weapon.Build(kind), material).Select(p => p - Weapon.HandOriginOf(kind))];
 
     [TestMethod]
     public void TheTonfa_IsAWoodenStickAlongTheForearm_AndAHandleThroughTheFist()
     {
         var wood = InFistFrame(WeaponKind.Tonfa, BoxerAnatomy.Wood);
         var grid = Weapon.Build(WeaponKind.Tonfa);
-        // 全体は木と、握る拳（素手の骨・皮膚）だけ。鉄は無い。
+        // 物の格子は木だけ（鉄も、握る拳も入っていない）。拳は同じ剛体に重ねた手の格子（素手と同じ 5 mm の手の組織）。
+        using var world = new Aigis.Physics.PhysicsWorld(gravity: Vector3.Zero);
+        var hand = Weapon.CreateWorn(world, WeaponKind.Tonfa, BoxerAnatomy.RedGlove, Vector3.Zero, Quaternion.Identity).Hands[0].Body.Grid;
+        var handBounds = hand.OccupiedBounds()!.Value;
+        var handFront = handBounds.Center.X + handBounds.HalfExtents.X;
+        var handHalfZ = handBounds.HalfExtents.Z + MathF.Abs(handBounds.Center.Z);
         Assert.AreEqual(0, grid.Remaining(BoxerAnatomy.Iron));
-        Assert.IsGreaterThan(0, grid.Remaining(BoxerAnatomy.Bone), "the fist holds the handle");
-        Assert.IsGreaterThan(0, grid.Remaining(BoxerAnatomy.Skin));
-        Assert.AreEqual(grid.FilledCount, grid.Remaining(BoxerAnatomy.Wood) + grid.Remaining(BoxerAnatomy.Bone) + grid.Remaining(BoxerAnatomy.Skin));
+        Assert.AreEqual(grid.FilledCount, grid.Remaining(BoxerAnatomy.Wood), "the tonfa's own grid is wood only");
+        Assert.IsGreaterThan(0, hand.Remaining(BoxerAnatomy.HandBone), "the fist (its own grid) holds the handle");
+        Assert.IsGreaterThan(0, hand.Remaining(BoxerAnatomy.HandSkin));
 
-        // 棒: 全長 14 cm 前後（人の 47 cm の 0.3 倍）、後ろは拳から 10 cm 以上（肘を少し越える）、前は拳の前へ少し出る。
+        // 棒: 全長 17 cm 前後（手首から後ろへ 11 cm、前は手の前の面より 1.7 cm 前）、後ろは手首から 10 cm 以上（肘を少し越える）、前は手の前へ少し出る。
         var back = wood.Min(p => p.X);
         var front = wood.Max(p => p.X);
-        Assert.AreEqual(0.14f, front - back, 0.01f, "stick length: about 47 cm at 0.3 scale");
-        Assert.IsLessThan(-0.10f, back, "the long end passes the wrist toward the elbow");
-        Assert.IsInRange(0.015f, 0.035f, front, "the short end sticks out a little in front of the fist centre");
-        // 棒は前腕に平行（X に沿う）で、拳の外側にある: 後ろの半分のセルは拳の幅（半径 1.3 cm）の外。
+        Assert.AreEqual(0.167f, front - back, 0.01f, "stick length: from past the elbow to just ahead of the fist");
+        Assert.IsLessThan(HandSkeleton.Wrist.X - 0.10f, back, "the long end passes the wrist toward the elbow");
+        Assert.AreEqual(handFront + 0.017f, front, 0.003f, "the short end sticks out 1.7 cm in front of the hand's front face");
+        // 棒は前腕に平行（X に沿う）で、手の外側にある: 後ろの半分のセルは手の幅の外。
         var rear = wood.Where(p => p.X < -0.04f).ToList();
-        Assert.IsTrue(rear.All(p => p.Z > 0.013f), "the rear of the stick lies beside the arm, outside the fist's width");
-        Assert.AreEqual(0.0185f, rear.Average(p => p.Z), 0.001f, "and parallel to the forearm");
-        Assert.IsLessThan(0.0045f, rear.Max(p => MathF.Abs(p.Y)) - 0.0004f, "a round 9 mm rod (3 cm at 0.3 scale)");
-        // 握りの柄: 拳の中心（原点）を通って Z に沿い、棒へつながる。
-        Assert.AreEqual(BoxerAnatomy.Wood, grid.MaterialAt(grid.FilledCellAt(Weapon.GripOf(WeaponKind.Tonfa))), "the handle passes through the fist centre");
-        Assert.IsTrue(wood.Any(p => MathF.Abs(p.X) < 0.002f && p.Z is > 0.003f and < 0.012f), "the handle runs across the fist toward the stick");
+        Assert.IsTrue(rear.All(p => p.Z > handHalfZ - 0.001f), "the rear of the stick lies beside the arm, outside the hand's width");
+        Assert.AreEqual(handHalfZ + 0.001f + 0.008f, rear.Average(p => p.Z), 0.002f, "and parallel to the forearm");
+        var rodY = rear.Average(q => q.Y);
+        Assert.IsLessThan(0.008f, rear.Max(p => MathF.Abs(p.Y - rodY)) - 0.0004f, "a round 16 mm rod");
+        // 握りの柄: 手が握る（GripPose の指の輪の中心を通って Z に沿う）木で、棒へつながる。
+        var handleAt = HandSkeleton.GripCenter + Weapon.HandOriginOf(WeaponKind.Tonfa);
+        Assert.AreEqual(BoxerAnatomy.Wood, grid.MaterialAt(grid.FilledCellAt(handleAt)), "the handle passes through the loop of the fingers");
+        Assert.IsTrue(wood.Any(p => MathF.Abs(p.X - HandSkeleton.GripCenter.X) < 0.002f && p.Z > handHalfZ - 0.001f && p.Z < handHalfZ + 0.004f), "the handle runs across to the stick");
     }
 
     [TestMethod]
@@ -130,15 +137,18 @@ public sealed class TonfaTests
         var worn = game.GloveOf(game.Player, Hand.Right)!;
         var grid = worn.Body.Grid;
         var expected = 0f;
-        for (var m = 1; m < grid.Palette.Count; m++)
+        foreach (var g in new[] { grid, worn.Hands[0].Body.Grid }) // 物の格子 + 中の手の格子（PhysicsVersion 53）
         {
-            expected += grid.Remaining((byte)m) * grid.CellVolume * grid.Palette[(byte)m].MechanicsOrDefault.Density;
+            for (var m = 1; m < g.Palette.Count; m++)
+            {
+                expected += g.Remaining((byte)m) * g.CellVolume * g.Palette[(byte)m].MechanicsOrDefault.Density;
+            }
         }
 
         var mass = game.World.GetMass(worn.Body.BodyId);
         Assert.AreEqual(expected, mass, expected * 0.01f);
         var bare = Weapon.Build(WeaponKind.Fist);
-        Assert.IsGreaterThan(grid.Remaining(BoxerAnatomy.Wood) * grid.CellVolume * 100f, mass, "heavier than the wood alone: the fist is inside too");
+        Assert.IsGreaterThan(grid.Remaining(BoxerAnatomy.Wood) * grid.CellVolume * 100f, mass, "heavier than the wood alone: the hand inside weighs too");
         TestContext.WriteLine($"tonfa {mass * 1000f:F1} g, wood cells {grid.Remaining(BoxerAnatomy.Wood)}, grid {grid.Dimensions}; bare-fist cells {bare.FilledCount}");
     }
 
@@ -167,7 +177,7 @@ public sealed class TonfaTests
         {
             var worn = game.GloveOf(game.Player, hand)!;
             var s = game.World.GetState(worn.Body.BodyId);
-            var stick = s.Position + Vector3.Transform(new Vector3(-0.06f, 0f, Weapon.MirroredOn(WeaponKind.Tonfa, hand) ? -0.0185f : 0.0185f) + Weapon.GripOf(WeaponKind.Tonfa, Weapon.MirroredOn(WeaponKind.Tonfa, hand)), s.Orientation);
+            var stick = s.Position + Vector3.Transform(new Vector3(-0.06f, 0f, Weapon.MirroredOn(WeaponKind.Tonfa, hand) ? -0.036f : 0.036f) + Weapon.HandOriginOf(WeaponKind.Tonfa, Weapon.MirroredOn(WeaponKind.Tonfa, hand)), s.Orientation);
             var fist = game.Player.GloveCenter(hand);
             var other = game.Player.GloveCenter(hand == Hand.Left ? Hand.Right : Hand.Left);
             return Vector3.Dot(stick - fist, Vector3.Normalize(other - fist));
@@ -192,7 +202,7 @@ public sealed class TonfaTests
         var worn = game.GloveOf(fighter, hit.Hand)!;
         var s = game.World.GetState(worn.Body.BodyId);
         var mirrored = Weapon.MirroredOn(WeaponKind.Tonfa, hit.Hand);
-        return Vector3.Transform(hit.Point - s.Position, Quaternion.Conjugate(s.Orientation)) - Weapon.GripOf(WeaponKind.Tonfa, mirrored);
+        return Vector3.Transform(hit.Point - s.Position, Quaternion.Conjugate(s.Orientation)) - Weapon.HandOriginOf(WeaponKind.Tonfa, mirrored);
     }
 
     [TestMethod]
@@ -275,7 +285,7 @@ public sealed class TonfaTests
         // （PhysicsVersion 44）、相手の肘が自分から前腕に沿った長い端へぶつかってきた当たりも数えられる（腕は押し出していないので体の割合はほぼ 0）。
         var driven = all.Where(h => h.Hit.BodyShare > 0.1f).ToList();
         Assert.IsGreaterThan(8, driven.Count, "the straight punches are driven by the arm");
-        Assert.IsTrue(driven.All(h => h.Local.X > 0.013f), "and they land with the wood in front of the fist (past its 1.3 cm radius): the short end of the stick");
+        Assert.IsTrue(driven.All(h => h.Local.X > 0.025f), "and they land with the wood in front of the fist (past the hand's front face at 2.5 cm): the short end of the stick");
         Assert.IsTrue(all.Any(h => h.Hit.Zone is not HitZone.Guard), "some reach the opponent's body, not only the guard");
     }
 

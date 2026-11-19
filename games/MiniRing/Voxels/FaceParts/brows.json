@@ -1,0 +1,133 @@
+{
+ "category": "brows",
+ "legend": {
+  "s": "skin",
+  "h": "hair",
+  "b": "brow",
+  "w": "white",
+  "i": "iris",
+  "l": "lip",
+  "e": "shadow",
+  "d": "shadow",
+  "k": "shadow",
+  "f": "freckle",
+  "n": "nostril",
+  ".": "empty"
+ },
+ "parts": [
+  {
+   "id": "brows.1",
+   "name": "thin straight",
+   "anchor": [
+    4.0,
+    1.5
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 3,
+     "rows": [
+      "ssssssss",
+      "sbbbbbbs",
+      "ssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "brows.2",
+   "name": "thick straight",
+   "anchor": [
+    4.0,
+    1.0
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 3,
+     "rows": [
+      "sbbbbbbs",
+      "sbbbbbbs",
+      "ssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "brows.3",
+   "name": "arched",
+   "anchor": [
+    4.0,
+    1.0
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 3,
+     "rows": [
+      "ssbbbsss",
+      "sbsssbbs",
+      "ssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "brows.4",
+   "name": "angled-up (fierce)",
+   "anchor": [
+    4.0,
+    1.5
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 3,
+     "rows": [
+      "sbbsssss",
+      "sssbbsss",
+      "sssssbbs"
+     ]
+    }
+   }
+  },
+  {
+   "id": "brows.5",
+   "name": "soft downturned",
+   "anchor": [
+    4.5,
+    1.3571
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 3,
+     "rows": [
+      "sssssbbb",
+      "sssbbsss",
+      "sbbsssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "brows.6",
+   "name": "bushy",
+   "anchor": [
+    3.5667,
+    1.3667
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 3,
+     "rows": [
+      "sbbbsbbs",
+      "bbbbbbbs",
+      "sbsbbsss"
+     ]
+    }
+   }
+  }
+ ]
+}

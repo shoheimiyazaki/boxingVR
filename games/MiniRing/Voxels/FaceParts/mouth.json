@@ -1,0 +1,325 @@
+{
+ "category": "mouth",
+ "legend": {
+  "s": "skin",
+  "h": "hair",
+  "b": "brow",
+  "w": "white",
+  "i": "iris",
+  "l": "lip",
+  "e": "shadow",
+  "d": "shadow",
+  "k": "shadow",
+  "f": "freckle",
+  "n": "nostril",
+  ".": "empty"
+ },
+ "parts": [
+  {
+   "id": "mouth.1",
+   "name": "thin",
+   "anchor": [
+    5.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "ssssssssss",
+      "ssllllllss",
+      "ssssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.2",
+   "name": "full",
+   "anchor": [
+    5.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "sssllllsss",
+      "ssllllllss",
+      "sssllllsss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.3",
+   "name": "wide",
+   "anchor": [
+    5.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "ssssssssss",
+      "slllllllls",
+      "ssssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.4",
+   "name": "small",
+   "anchor": [
+    5.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "ssssssssss",
+      "ssssllssss",
+      "ssssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.5",
+   "name": "downturned",
+   "anchor": [
+    5.0,
+    2.3
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "sssllllsss",
+      "ssllssllss",
+      "slssssssls"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.6",
+   "name": "slight smile",
+   "anchor": [
+    5.0,
+    2.25
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "slssssssls",
+      "ssllllllss",
+      "ssssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.7",
+   "name": "thin lips",
+   "anchor": [
+    5.0,
+    1.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "ssllllllss",
+      "ssssssssss",
+      "ssssssssss"
+     ]
+    },
+    "side": {
+     "width": 3,
+     "height": 5,
+     "rows": [
+      "ss.",
+      "ssl",
+      "ss.",
+      "ss.",
+      "ss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.8",
+   "name": "medium lips",
+   "anchor": [
+    5.0,
+    1.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "ssllllllss",
+      "sssllllsss",
+      "ssssssssss"
+     ]
+    },
+    "side": {
+     "width": 3,
+     "height": 5,
+     "rows": [
+      "ss.",
+      "ssl",
+      "ssl",
+      "ss.",
+      "ss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.9",
+   "name": "full lips",
+   "anchor": [
+    5.0,
+    1.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "sssllllsss",
+      "ssllllllss",
+      "ssllllllss",
+      "ssssssssss"
+     ]
+    },
+    "side": {
+     "width": 3,
+     "height": 5,
+     "rows": [
+      "ssl",
+      "sll",
+      "sll",
+      "ss.",
+      "ss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.10",
+   "name": "very full lips",
+   "anchor": [
+    5.0,
+    1.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "sssllllsss",
+      "ssllllllss",
+      "slllllllls",
+      "sssllllsss"
+     ]
+    },
+    "side": {
+     "width": 3,
+     "height": 5,
+     "rows": [
+      "ssl",
+      "sll",
+      "sll",
+      "sll",
+      "ss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.11",
+   "name": "short philtrum",
+   "anchor": [
+    5.0,
+    1.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "sssllllsss",
+      "ssllllllss",
+      "ssssssssss"
+     ]
+    },
+    "side": {
+     "width": 3,
+     "height": 5,
+     "rows": [
+      "sss",
+      "ssl",
+      "ssl",
+      "ss.",
+      "ss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "mouth.12",
+   "name": "long philtrum",
+   "anchor": [
+    5.0,
+    1.5
+   ],
+   "views": {
+    "front": {
+     "width": 10,
+     "height": 4,
+     "rows": [
+      "ssssssssss",
+      "ssssssssss",
+      "ssssssssss",
+      "ssllllllss"
+     ]
+    },
+    "side": {
+     "width": 3,
+     "height": 5,
+     "rows": [
+      "sss",
+      "ss.",
+      "ss.",
+      "ssl",
+      "ssl"
+     ]
+    }
+   }
+  }
+ ]
+}

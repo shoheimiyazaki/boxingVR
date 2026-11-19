@@ -14,7 +14,7 @@ public sealed class VisionTests
         using var game = new BoxingGame(seed: 13);
         var body = game.Player.Voxels!;
         Assert.AreEqual(1f, body.Vision.Left, 0.0001f);
-        var grid = body.PartOf(game.Player.Parts.Head)!.Body.Grid;
+        var grid = body.Face!.Body.Grid; // 目は顔の層（FaceLayer）
         var cells = Enumerable.Range(0, grid.CellCount).Where(i =>
             grid.MaterialAt(i) is BoxerAnatomy.Eye or BoxerAnatomy.Pupil &&
             grid.CellCenter(grid.Coordinates(i).X, grid.Coordinates(i).Y, grid.Coordinates(i).Z).X > 0f).ToArray();
