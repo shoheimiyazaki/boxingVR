@@ -209,7 +209,7 @@ public sealed class ClubGripTests
         }
 
         Assert.AreEqual(0, selfHits, "holding the club in guard does not strike yourself");
-        Assert.AreEqual(own, game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), "the grip does not crush the hand that holds it");
-        Assert.AreEqual(batOwn, bat.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), "nor the two hands on a bat");
+        Assert.AreEqual(own, game.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount), "the grip does not crush the hand that holds it");
+        Assert.AreEqual(batOwn, bat.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount), "nor the two hands on a bat");
     }
 }

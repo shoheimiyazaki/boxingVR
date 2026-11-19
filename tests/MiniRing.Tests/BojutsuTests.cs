@@ -279,7 +279,7 @@ public sealed class BojutsuTests
         Assert.IsGreaterThanOrEqualTo(defense.Clearance - 0.03f, Closest(whole, rear), "the whole staff, rear end included, stays clear of the head-to-waist line");
     }
 
-    private static int Cells(Voxels.BoxerBody body) => body.Parts.Sum(p => p.Body.Grid.FilledCount);
+    private static int Cells(Voxels.BoxerBody body) => body.Layers.Sum(p => p.Body.Grid.FilledCount);
 
     /// <summary>赤が刀で斬りかかる（型どおり）、青が棒を構えて受ける試合で、青が失ったセルと、受けた・外した回数。</summary>
     private static (int Lost, int Blocks, int Evasions) Meet(SwordDefense defense, int seed)
