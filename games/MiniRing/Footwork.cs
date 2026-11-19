@@ -351,7 +351,11 @@ public sealed class Footwork
         // 構えの中心: 止まっていれば今の両足の真ん中（足を置き直すのは構えの形を直すときだけ。体を追って足を置くと、
         // 足 → 支え → 体 → 足 と回って、立っているだけで少しずつ歩いてしまう）。捕捉点が真ん中から離れたら（押された・動いている）その分だけ寄せる。
         var middle = Vector2.Lerp(_ball[Lead], _ball[Rear], 0.5f);
-        var drift = capture - middle;
+        // 構えを寄せる量（drift）は、骨盤の位置 + 骨盤の速度で出す。重心（capture）でなく: 床から支える体は、胴をひねった構え・重い武器・体重の移しで
+        // 重心が両足の真ん中から静止のまま十数 cm ずれて釣り合う。それを「押された」と読んで足を重心の側へ 2 cm ずつ踏み直すと、
+        // 体がそれを追って流れ続けた（構えを直す歩が止まらず、20 秒で 10 cm・15 歩）。倒れていく判定（falling）は重心の捕捉点のまま
+        // （上体の傾きで支えの外へ出れば踏み出す）。
+        var drift = (input.Body + (input.BodyVelocity / omega)) - middle;
         var deadband = t.CaptureDeadband * leg;
         var center = middle + (drift.Length() > deadband ? drift * (1f - (deadband / drift.Length())) : Vector2.Zero)
             + ClampLength(input.Intent * t.Lookahead, t.MaxLookahead * leg);
