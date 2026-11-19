@@ -1,0 +1,45 @@
+using System.Globalization;
+using MiniRing;
+using MiniRing.Bots;
+var pairs = args[0].Split(',').Select(p => p.Split(':')).ToList();
+var seeds = args[1].Split(',').Select(int.Parse).ToList();
+var seconds = float.Parse(args[2], CultureInfo.InvariantCulture);
+var tuning = new FighterTuning();
+foreach (var kv in (args.Length > 3 ? args[3] : "").Split(',', StringSplitOptions.RemoveEmptyEntries)) { var q = kv.Split('='); var prop = typeof(FighterTuning).GetProperty(q[0]) ?? throw new Exception("no " + q[0]); prop.SetValue(tuning, Convert.ChangeType(q[1], prop.PropertyType, CultureInfo.InvariantCulture)); }
+int bouts = 0, hits = 0, headHits = 0, bigConc = 0, ko = 0; double conc = 0; double dmg = 0;
+var koSpeeds = new List<float>(); var koDmg = new List<float>(); var koMass = new List<float>(); var kdTotal = 0; int unhit = 0;
+var allHeadConc = new List<float>();
+foreach (var p in pairs) foreach (var seed in seeds)
+{
+    var red = Contender.Named(p[0]); var blue = Contender.Named(p[1]);
+    var corners = new BoxingCorners(blue.Name, s => blue.Create(s), s => red.Create(s), PlayerName: red.Name, Referee: true);
+    using var game = new BoxingGame(tuning, seed, corners);
+    bouts++;
+    float prevP = 0, prevC = 0; bool rd = false, bd = false; float lastDownConcHitP = -9, lastDownConcHitC = -9;
+    (float t, float v, float dmg, float m, float dc) bigP = default, bigC = default;
+    float lastHitP = -9, lastHitC = -9;
+    var steps = (int)(seconds * 60);
+    for (var i = 0; i < steps; i++)
+    {
+        var t = i / 60f;
+        game.Step(default, 1f / 60f);
+        float dP = MathF.Max(0, game.Player.Concussion - prevP), dC = MathF.Max(0, game.Cpu.Concussion - prevC);
+        prevP = game.Player.Concussion; prevC = game.Cpu.Concussion;
+        conc += dP + dC;
+        foreach (var h in game.RecentHits)
+        {
+            hits++; dmg += h.Damage;
+            var dc = h.Victim == game.Player ? dP : dC;
+            if (h.Victim == game.Player) lastHitP = t; else lastHitC = t;
+            if (dc > 0.01f) { headHits++; allHeadConc.Add(dc); }
+            if (dc > 0.3f) { bigConc++; if (h.Victim == game.Player) bigP = (t, h.Speed, h.Damage, h.ImpactMass, dc); else bigC = (t, h.Speed, h.Damage, h.ImpactMass, dc); }
+        }
+        var pd = game.Player.IsKnockedDown; var cd = game.Cpu.IsKnockedDown;
+        if (pd && !rd) { kdTotal++; if (t - bigP.t < 2f && bigP.t > 0) { ko++; koSpeeds.Add(bigP.v); koDmg.Add(bigP.dmg); koMass.Add(bigP.m); } else if (t - lastHitP > 0.7f) unhit++; }
+        if (cd && !bd) { kdTotal++; if (t - bigC.t < 2f && bigC.t > 0) { ko++; koSpeeds.Add(bigC.v); koDmg.Add(bigC.dmg); koMass.Add(bigC.m); } else if (t - lastHitC > 0.7f) unhit++; }
+        rd = pd; bd = cd;
+    }
+}
+allHeadConc.Sort();
+float Pct(float q) => allHeadConc.Count == 0 ? 0 : allHeadConc[(int)(q * (allHeadConc.Count - 1))];
+Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"bouts={bouts} hits/bout={hits / (float)bouts:0.0} dmg/hit={dmg / Math.Max(1, hits):0.00} dmg/bout={dmg / bouts:0} knockdowns/bout={kdTotal / (float)bouts:0.00} headConcHits/bout={headHits / (float)bouts:0.0} conc>0.3 hits/bout={bigConc / (float)bouts:0.00} totalConc/bout={conc / bouts:0.0} dConc p50={Pct(.5f):0.000} p90={Pct(.9f):0.00} max={Pct(1f):0.00} | KOfromHit={ko} koHitSpeed avg={(koSpeeds.Count > 0 ? koSpeeds.Average() : 0):0.00} min={(koSpeeds.Count > 0 ? koSpeeds.Min() : 0):0.00} koHitDmg avg={(koDmg.Count > 0 ? koDmg.Average() : 0):0.0} mass={(koMass.Count > 0 ? koMass.Average() : 0):0.00} | fallsNoHit/bout={unhit / (float)bouts:0.00}"));

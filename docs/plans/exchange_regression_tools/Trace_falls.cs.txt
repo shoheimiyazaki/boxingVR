@@ -1,0 +1,31 @@
+using System.Globalization;
+using System.Numerics;
+using MiniRing;
+using MiniRing.Bots;
+var a = args[0]; var b = args[1]; var seed = int.Parse(args[2]); var seconds = float.Parse(args[3], CultureInfo.InvariantCulture);
+var red = Contender.Named(a); var blue = Contender.Named(b);
+var corners = new BoxingCorners(blue.Name, s => blue.Create(s), s => red.Create(s), PlayerName: red.Name, Referee: true);
+using var game = new BoxingGame(null, seed, corners);
+var steps = (int)(seconds * 60);
+var lastHit = new Dictionary<string, float> { ["RED"] = -9, ["BLUE"] = -9 };
+var hist = new Dictionary<string, List<string>> { ["RED"] = new(), ["BLUE"] = new() };
+var prevState = new Dictionary<string, FighterState> { ["RED"] = FighterState.Standing, ["BLUE"] = FighterState.Standing };
+var prevPos = new Dictionary<string, Vector3>();
+for (var i = 0; i < steps; i++)
+{
+    var t = i / 60f;
+    game.Step(default, 1f / 60f);
+    foreach (var h in game.RecentHits) lastHit[h.Victim == game.Player ? "RED" : "BLUE"] = t;
+    foreach (var (who, f, o) in new[] { ("RED", game.Player, game.Cpu), ("BLUE", game.Cpu, game.Player) })
+    {
+        var com = f.CenterOfMass; var vel = prevPos.TryGetValue(who, out var p) ? (com - p) * 60f : Vector3.Zero; prevPos[who] = com;
+        var line = $"t={t:0.00} bal={f.Balance:0.00} vbal={f.VerticalBalance:0.00} marg={f.SupportMargin:0.000} upr={f.Uprightness:0.00} comV={new Vector2(vel.X, vel.Z).Length():0.00} comY={com.Y:0.00} tone={f.Tone:0.00} stam={f.Stamina:0.00} vig={f.Vigor:0.00} dist={Vector3.Distance(com, o.CenterOfMass):0.00} sinceHit={t - lastHit[who]:0.0}";
+        var l = hist[who]; l.Add(line); if (l.Count > 90) l.RemoveAt(0);
+        if (prevState[who] == FighterState.Standing && f.State != FighterState.Standing)
+        {
+            Console.WriteLine($"=== {who} left Standing at t={t:0.00} ({f.State}) sinceHit={t - lastHit[who]:0.0}s conc={f.Concussion:0.00}");
+            for (var k = Math.Max(0, l.Count - 60); k < l.Count; k += 6) Console.WriteLine("   " + l[k]);
+        }
+        prevState[who] = f.State;
+    }
+}

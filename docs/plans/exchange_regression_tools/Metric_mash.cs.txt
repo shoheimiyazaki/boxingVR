@@ -1,0 +1,59 @@
+using System.Globalization;
+using System.Numerics;
+using MiniRing;
+// Masher vs deliberate. args: seeds seconds [tuning overrides]
+var seeds = args[0].Split(',').Select(int.Parse).ToList();
+var seconds = float.Parse(args[1], CultureInfo.InvariantCulture);
+var tuning = new FighterTuning();
+foreach (var kv in (args.Length > 2 ? args[2] : "").Split(',', StringSplitOptions.RemoveEmptyEntries)) { var q = kv.Split('='); var prop = typeof(FighterTuning).GetProperty(q[0]) ?? throw new Exception("no " + q[0]); prop.SetValue(tuning, Convert.ChangeType(q[1], prop.PropertyType, CultureInfo.InvariantCulture)); }
+const float Dt = 1f / 60f;
+var ci = CultureInfo.InvariantCulture;
+foreach (var card in new[] { "mash-vs-deliberate", "mash-vs-cpu", "deliberate-vs-cpu" })
+{
+    double dR = 0, dB = 0; int kR = 0, kB = 0, winR = 0, winB = 0, nR = 0, nB = 0; double mR = 0;
+    var stamCurve = new double[(int)(seconds / 5) + 1]; var armCurve = new double[stamCurve.Length];
+    foreach (var seed in seeds)
+    {
+        var redMode = card.StartsWith("mash") ? "mash" : "deliberate";
+        var blueMode = card.EndsWith("cpu") ? "cpu" : "deliberate";
+        var corners = BoxingCorners.Default with { Player = _ => new IntentControl() };
+        if (blueMode != "cpu") corners = corners with { Cpu = _ => new IntentControl() };
+        using var game = new BoxingGame(tuning, seed: seed, corners: corners);
+        var red = (IntentControl)game.PlayerControl!;
+        var blue = blueMode == "cpu" ? null : (IntentControl)game.CpuControl;
+        float clock = 0; bool rdn = false, bdn = false; double sdR = 0, sdB = 0; int skR = 0, skB = 0; int k5 = 0;
+        while (clock < seconds)
+        {
+            red.Input = Policy(redMode, game.Player, game.Cpu, clock + (seed * 0.023f));
+            if (blue != null) blue.Input = Policy(blueMode, game.Cpu, game.Player, clock + (seed * 0.17f));
+            game.Step(new BoxingInput(default), Dt);
+            clock += Dt;
+            foreach (var h in game.RecentHits) { if (h.Attacker == game.Player) { sdR += h.Damage; nR++; mR += h.ImpactMass; } else { sdB += h.Damage; nB++; } }
+            if (game.Cpu.IsKnockedDown && !bdn) skR++; if (game.Player.IsKnockedDown && !rdn) skB++;
+            bdn = game.Cpu.IsKnockedDown; rdn = game.Player.IsKnockedDown;
+            if (clock >= k5 * 5f && k5 < stamCurve.Length) { stamCurve[k5] += game.Player.Stamina; armCurve[k5] += MathF.Min(game.Player.OxygenOf(MuscleRegion.LeftArm), game.Player.OxygenOf(MuscleRegion.RightArm)); k5++; }
+        }
+        dR += sdR; dB += sdB; kR += skR; kB += skB;
+        var scoreR = sdR + 40 * skR; var scoreB = sdB + 40 * skB; if (scoreR > scoreB) winR++; else winB++;
+        Console.WriteLine(string.Create(ci, $"  {card} seed {seed}: red dealt {sdR:F0} (kd {skR}) blue dealt {sdB:F0} (kd {skB}) red started {red.AttacksStarted} stamina {game.Player.Stamina:F2}"));
+    }
+    var n = seeds.Count;
+    Console.WriteLine(string.Create(ci, $"{card}: red/bout {dR / n:F0} blue/bout {dB / n:F0} kd {kR}-{kB} wins {winR}-{winB} redHits/bout {nR / (float)n:F1} red dmg/hit {dR / Math.Max(1, nR):F2} red mass {mR / Math.Max(1, nR):F2}"));
+    Console.WriteLine("   red stamina every 5s: " + string.Join(" ", stamCurve.Select(x => (x / n).ToString("F2", ci))));
+    Console.WriteLine("   red min arm O2 every 5s: " + string.Join(" ", armCurve.Select(x => (x / n).ToString("F2", ci))));
+}
+
+static FighterIntent Policy(string mode, Fighter me, Fighter foe, float clock)
+{
+    var close = Vector3.Distance(me.ChestPosition with { Y = 0f }, foe.ChestPosition with { Y = 0f }) < 1.15f * me.ArmReach;
+    if (mode == "mash")
+    {
+        var phase = clock / 0.08f;
+        return new FighterIntent(new Vector2(0f, 1f), Light: phase - MathF.Floor(phase) < 0.5f);
+    }
+    // deliberate: approach, charge heavy 0.25 s, release with a step-in, recover to 1.0 s
+    var p = clock % 1.0f;
+    var press = close && p < 0.25f;
+    var step = close && p >= 0.25f && p < 0.45f;
+    return new FighterIntent(new Vector2(0f, close && !step ? 0f : 1f), Heavy: press);
+}

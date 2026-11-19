@@ -1,0 +1,33 @@
+using System.Globalization;
+using MiniRing;
+using MiniRing.Bots;
+// Per-hit decomposition of the body share (temp probe BoxingGame.PunchProbe). args: pairs seeds seconds
+var pairs = args[0].Split(',').Select(p => p.Split(':')).ToList();
+var seeds = args[1].Split(',').Select(int.Parse).ToList();
+var seconds = float.Parse(args[2], CultureInfo.InvariantCulture);
+var tuning = new FighterTuning();
+foreach (var kv in (args.Length > 3 ? args[3] : "").Split(',', StringSplitOptions.RemoveEmptyEntries)) { var q = kv.Split('='); var prop = typeof(FighterTuning).GetProperty(q[0]) ?? throw new Exception("no " + q[0]); prop.SetValue(tuning, Convert.ChangeType(q[1], prop.PropertyType, CultureInfo.InvariantCulture)); }
+int probes = 0, hits = 0;
+foreach (var p in pairs) foreach (var seed in seeds)
+{
+    var red = Contender.Named(p[0]); var blue = Contender.Named(p[1]);
+    var corners = new BoxingCorners(blue.Name, s => blue.Create(s), s => red.Create(s), PlayerName: red.Name, Referee: true);
+    using var game = new BoxingGame(tuning, seed, corners);
+    var probeList = new List<string>();
+    BoxingGame.PunchProbe = s => probeList.Add(s);
+    for (var i = 0; i < (int)(seconds * 60); i++)
+    {
+        probeList.Clear();
+        game.Step(default, 1f / 60f);
+        probes += probeList.Count;
+        foreach (var h in game.RecentHits) { hits++; }
+        // probes include sub-threshold contacts; mark those that became hits by matching mass
+        foreach (var s in probeList)
+        {
+            var m = float.Parse(s.Split(" m=")[1].Split(' ')[0], CultureInfo.InvariantCulture);
+            var hit = game.RecentHits.Any(h => MathF.Abs(h.ImpactMass - m) < 0.0006f);
+            Console.WriteLine($"{p[0]}:{p[1]} {seed} t={i / 60f:0.00} hit={(hit ? 1 : 0)} {s}");
+        }
+    }
+}
+Console.Error.WriteLine($"probes={probes} hits={hits}");
