@@ -1,31 +1,35 @@
 #!/usr/bin/env bash
-# Run the test suite on raytrek (the faster PC, `ssh raytrek`) against this working tree, and print a summary.
+# Run the test suite on a remote PC (default tower32, `ssh tower32`) against this working tree, and print a summary.
 #
-#   bash tools/remote-test.sh [all|fast|probe:<Name>|filter:<expr>] [--parallel N]
+#   bash tools/remote-test.sh [all|fast|probe:<Name>|filter:<expr>] [--parallel N] [--host tower32|raytrek]
 #
-#   all (default)   everything except visual and probes (about an hour serially)
-#   fast            the quick tier (no slow/visual/probe)
+#   --host H        the ssh alias to run on. Default tower32 (2 x Xeon, 32 logical CPUs, 64 GB; kept free for tests
+#                   so raytrek can run other jobs). raytrek (i7-11700K) is faster per core but often busy.
+#   all (default)   everything except visual and probes (about an hour serially; under 5 min with 12 workers on tower32)
+#   fast            the quick tier (no slow/visual/probe; about 1.5 min, mostly the build)
 #   probe:<Name>    one probe class, e.g. probe:StaminaFeelProbe
 #   filter:<expr>   any dotnet test filter
-#   --parallel N    run test classes in parallel with N workers (MSTest ClassLevel). Experimental:
-#                   tests that change static settings can disturb each other (docs/plans/AGENT_DX_PLAN.md 段 3).
+#   --parallel N    run test classes in parallel with N workers (MSTest ClassLevel). Default 12 for `all`, 0 (serial)
+#                   otherwise. 2026-11-19: `all` with 12 workers gave the same results as serial (AGENT_DX_PLAN 段 2);
+#                   the wall time is bounded by the slowest class (CharacterSamenessTests, about 4.5 min), so more
+#                   workers do not help. Pass --parallel 0 to run serially.
 #
-# What it sends: the commits of HEAD (as a git bundle; only the part raytrek does not have yet), the uncommitted
-# diff (tracked files) and the untracked, non-ignored files. Remote layout (C:\Users\smiya\repos):
+# What it sends: the commits of HEAD (as a git bundle; only the part the remote does not have yet), the uncommitted
+# diff (tracked files) and the untracked, non-ignored files. Remote layout (%USERPROFILE%\repos\rt-<local tree folder name>-<slot>;
+# see the slot lock below):
 #   remote-test\        a dedicated clone used only by this script (detached at the sent commit, then patched)
 #   remote-test-in\     what was sent;   remote-test-out\  trx and the log of the last run
 # Writes the trx to TestResults/remote/<time>.trx here and prints counts, failures and the slowest classes.
 # Runs in the foreground for the whole test run; start it in the background from an agent.
 set -euo pipefail
 
-HOST=raytrek
-REMOTE='C:\Users\smiya\repos'
-REMOTE_FWD='C:/Users/smiya/repos'
+HOST=tower32
 MODE=all
-PARALLEL=0
+PARALLEL=
 while [ $# -gt 0 ]; do
   case "$1" in
     --parallel) PARALLEL="$2"; shift 2 ;;
+    --host) HOST="$2"; shift 2 ;;
     all|fast|probe:*|filter:*) MODE="$1"; shift ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -38,14 +42,32 @@ case "$MODE" in
   filter:*) FILTER="${MODE#filter:}" ;;
 esac
 case "$FILTER" in *'"'*|*'%'*|*'^'*) echo "the filter must not contain \" % ^ (cmd.exe quoting)" >&2; exit 2 ;; esac
+if [ -z "$PARALLEL" ]; then
+  if [ "$MODE" = all ]; then PARALLEL=12; else PARALLEL=0; fi
+fi
+case "$PARALLEL" in *[!0-9]*) echo "--parallel takes a number" >&2; exit 2 ;; esac
 
+# The remote user differs per machine (smiya on raytrek, Miyazaki on tower32): ask for the profile folder.
+REMOTE_HOME=$(ssh "$HOST" "echo %USERPROFILE%" | tr -d '\r')
+case "$REMOTE_HOME" in [A-Za-z]:\\*) ;; *) echo "could not read the remote profile folder on $HOST: '$REMOTE_HOME'" >&2; exit 2 ;; esac
+# Remote folders are per local working tree and slot: rt-<tree>-<1..4>. A run takes the first slot whose lock
+# folder it can create (mkdir is atomic), so several sessions, even in one tree, can test at the same time.
+# A run killed hard leaves its lock behind: remove %USERPROFILE%\repos\rt-<tree>-<n>\.lock when nothing runs there.
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
+TREE=$(basename "$ROOT" | tr -c 'A-Za-z0-9_.\n-' '_')
+REMOTE=
+for SLOT in 1 2 3 4; do
+  CANDIDATE="$REMOTE_HOME\\repos\\rt-$TREE-$SLOT"
+  if ssh "$HOST" "mkdir $CANDIDATE\\.lock" >/dev/null 2>&1; then REMOTE="$CANDIDATE"; break; fi
+done
+[ -n "$REMOTE" ] || { echo "all 4 slots of rt-$TREE on $HOST are locked (runs going on, or stale .lock folders)" >&2; exit 2; }
+REMOTE_FWD=$(printf '%s' "$REMOTE" | tr '\\' '/')
 WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+trap 'rm -rf "$WORK"; ssh "$HOST" "rmdir $REMOTE\\.lock" >/dev/null 2>&1 || true' EXIT
 HEAD_SHA=$(git rev-parse HEAD)
 
-# 1. Bundle only what raytrek lacks. The remote remembers the last sent commit in refs/rt/last.
+# 1. Bundle only what the remote lacks. The remote remembers the last sent commit in refs/rt/last.
 ssh "$HOST" "if not exist $REMOTE\\remote-test\\.git git init -q $REMOTE\\remote-test" >/dev/null
 LAST=$(ssh "$HOST" "git -C $REMOTE\\remote-test rev-parse -q --verify refs/rt/last" 2>/dev/null | tr -d '\r' || true)
 if [ -n "$LAST" ] && git cat-file -e "$LAST^{commit}" 2>/dev/null && git merge-base --is-ancestor "$LAST" HEAD 2>/dev/null; then
@@ -61,6 +83,7 @@ if [ -s "$WORK/untracked.lst" ]; then tar --null -T "$WORK/untracked.lst" -cf "$
 {
   echo '@echo off'
   echo "set R=$REMOTE"
+  echo 'set DOTNET_CLI_UI_LANGUAGE=en'
   echo 'if not exist %R%\remote-test-out mkdir %R%\remote-test-out'
   echo 'del /q %R%\remote-test-out\* 2>nul'
   echo 'cd /d %R%\remote-test || exit /b 3'

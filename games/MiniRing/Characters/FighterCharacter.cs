@@ -47,6 +47,11 @@ public sealed record FighterCharacter(string Id, string Name, string Reading, st
     /// <summary>プロフィール（経歴・人柄。実況・解説の資料。<see cref="CharacterProfile"/>）。ファイルに無ければ null。</summary>
     public CharacterProfile? Profile { get; init; }
 
+    /// <summary>顔の定義（部位ごとの部品の重みと値。ファイルの <c>face</c>。無ければ名前と <see cref="Look"/> の髪型・眉・ひげから決める: <see cref="FaceSpec.FromLook"/>）。見た目と当たりの形だけ（強さは変えない）。</summary>
+    public FaceSpec Face { get => _face ??= FaceSpec.FromLook(Look, Id); init => _face = value; }
+
+    private FaceSpec? _face;
+
     /// <summary>所属の団体の id（<c>wvc</c>・<c>vfc</c>。ファイルの <c>org</c>、無ければ <see cref="DefaultOrg"/>）。中継の団体のファイル（Arena の <c>Orgs/&lt;id&gt;.json</c>）の id。強さは体から物理で出るので、所属は強さに響かない（中継の見せ方と対戦の組み合わせの印）。</summary>
     public string Org { get; init; } = DefaultOrg;
 

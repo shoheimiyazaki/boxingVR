@@ -33,15 +33,20 @@ internal sealed class JointBridge
     private const int Reach = 1;
 
     private readonly bool[] _cut;
-    private readonly int[] _sourceParent;
-    private readonly int[] _sourceChild;
+
+    /// <summary>親の側・子の側の、そのつなぎのセルをつないでいる部位の層（<see cref="ParentLayers"/>・<see cref="ChildLayers"/> の番号）とセル（-1: 無い）。</summary>
+    private readonly (int Layer, int Cell)[] _sourceParent;
+    private readonly (int Layer, int Cell)[] _sourceChild;
     private readonly Vector3 _centerOnParent;
     private int _activeCells;
 
     /// <summary>親の部位のまわり（無ければ null）。</summary>
     private readonly BoxerVoxelOverrides.PartCells? _halo;
 
-    public JointBridge(HumanoidRagdoll.RagdollJoint joint, VoxelPart parent, VoxelPart child, Vector3 anchorOnParent, BoxerVoxelOverrides.PartCells? parentHalo = null)
+    // parentLayers: 親の部位の組織を持つ格子（部位そのものが先頭。頭なら、その外を持つ顔の層が続く。同じ剛体に乗っている）。省略は部位だけ。
+    // childLayers: 子の側の同じもの。
+    // parentHalo: 親の部位のまわり（CT の体だけが持つ。<see cref="BoxerVoxelOverrides.HaloFor"/>）。隙間の材質をそこから取る。
+    public JointBridge(HumanoidRagdoll.RagdollJoint joint, VoxelPart parent, VoxelPart child, Vector3 anchorOnParent, IReadOnlyList<VoxelPart>? parentLayers = null, IReadOnlyList<VoxelPart>? childLayers = null, BoxerVoxelOverrides.PartCells? parentHalo = null)
     {
         ArgumentNullException.ThrowIfNull(parent);
         ArgumentNullException.ThrowIfNull(child);
@@ -49,6 +54,8 @@ internal sealed class JointBridge
         Joint = joint;
         Parent = parent;
         Child = child;
+        ParentLayers = parentLayers ?? [parent];
+        ChildLayers = childLayers ?? [child];
         var grid = parent.Body.Grid;
         _cells = SizeFor(grid, child.Body.Grid);
         var cell = grid.CellSize;
@@ -63,8 +70,8 @@ internal sealed class JointBridge
         var bridgeGrid = new VoxelGrid(grid.Palette, cell * (_cells * 0.5f), (_cells, _cells, _cells), static (_, _) => 0);
         Body = new VoxelBody(parent.Body.World, parent.Body.BodyId, bridgeGrid, _centerOnParent) { Massless = true };
         _cut = new bool[bridgeGrid.CellCount];
-        _sourceParent = new int[bridgeGrid.CellCount];
-        _sourceChild = new int[bridgeGrid.CellCount];
+        _sourceParent = new (int, int)[bridgeGrid.CellCount];
+        _sourceChild = new (int, int)[bridgeGrid.CellCount];
     }
 
     /// <summary>
@@ -91,6 +98,15 @@ internal sealed class JointBridge
     public VoxelPart Parent { get; }
 
     public VoxelPart Child { get; }
+
+    /// <summary>
+    /// 親の部位の組織を持つ格子（部位そのものが先頭）。頭は 5 mm の格子（頭蓋骨・脳・首）の外を顔の層（2.5 mm）が持つので、あごや首の付け根の組織は
+    /// 顔の層にある（PhysicsVersion 59: 顔の層を入れたとき、つなぎが 5 mm の格子だけを見ていて、外の組織が見えなかった）。
+    /// </summary>
+    public IReadOnlyList<VoxelPart> ParentLayers { get; }
+
+    /// <summary>子の部位の組織を持つ格子（<see cref="ParentLayers"/> と同じ）。</summary>
+    public IReadOnlyList<VoxelPart> ChildLayers { get; }
 
     /// <summary>接触の形。親の剛体を借りている（<see cref="VoxelBody.Massless"/>）。</summary>
     public VoxelBody Body { get; }
@@ -153,13 +169,22 @@ internal sealed class JointBridge
     {
         ArgumentNullException.ThrowIfNull(include);
         var parentGrid = Parent.Body.Grid;
-        var childGrid = Child.Body.Grid;
         var grid = Body.Grid;
         var reach = Reach * MathF.Max(parentGrid.CellSize.X, MathF.Max(parentGrid.CellSize.Y, parentGrid.CellSize.Z));
         var toWorld = Body.GridToWorld();
-        Matrix4x4.Invert(Child.Body.GridToWorld(), out var worldToChild);
-        var toChild = toWorld * worldToChild;
-        var offset = Body.GridCenterLocal - Parent.Body.GridCenterLocal; // 同じ剛体なので、つなぎの座標 → 親の格子の座標は平行移動だけ
+        var toChildLayers = new Matrix4x4[ChildLayers.Count];
+        for (var l = 0; l < toChildLayers.Length; l++)
+        {
+            Matrix4x4.Invert(ChildLayers[l].Body.GridToWorld(), out var worldToChild);
+            toChildLayers[l] = toWorld * worldToChild;
+        }
+
+        var parentOffsets = new Vector3[ParentLayers.Count];
+        for (var l = 0; l < parentOffsets.Length; l++)
+        {
+            parentOffsets[l] = Body.GridCenterLocal - ParentLayers[l].Body.GridCenterLocal; // 同じ剛体なので、つなぎの座標 → 親の格子の座標は平行移動だけ
+        }
+
         var active = 0;
         for (var z = 0; z < _cells; z++)
         {
@@ -182,19 +207,20 @@ internal sealed class JointBridge
                     }
 
                     byte material = 0;
-                    var (sp, sc) = (-1, -1);
-                    var inParent = center + offset;
-                    var inChild = Vector3.Transform(center, toChild);
-                    if (parentGrid.FilledCellAt(inParent) < 0 && childGrid.FilledCellAt(inChild) < 0)
+                    var sp = (Layer: -1, Cell: -1);
+                    var sc = (Layer: -1, Cell: -1);
+                    if (!FilledIn(ParentLayers, l => center + parentOffsets[l]) && !FilledIn(ChildLayers, l => Vector3.Transform(center, toChildLayers[l])))
                     {
-                        sp = Nearest(parentGrid, inParent, reach);
-                        sc = Nearest(childGrid, inChild, reach);
-                        if (sp >= 0 && sc >= 0)
+                        sp = Nearest(ParentLayers, l => center + parentOffsets[l], reach);
+                        sc = Nearest(ChildLayers, l => Vector3.Transform(center, toChildLayers[l]), reach);
+                        if (sp.Cell >= 0 && sc.Cell >= 0)
                         {
-                            var a = parentGrid.MaterialAt(sp);
-                            var b = childGrid.MaterialAt(sc);
-                            material = HaloMaterial(parentGrid, inParent) is var halo and not 0 ? halo
-                                : StrengthOf(parentGrid, a) >= StrengthOf(parentGrid, b) ? a : b;
+                            var gridA = ParentLayers[sp.Layer].Body.Grid;
+                            var gridB = ChildLayers[sc.Layer].Body.Grid;
+                            var a = gridA.MaterialAt(sp.Cell);
+                            var b = gridB.MaterialAt(sc.Cell);
+                            material = HaloMaterial(ParentLayers[0].Body.Grid, center + parentOffsets[0]) is var halo and not 0 ? halo
+                                : StrengthOf(gridA, a) >= StrengthOf(gridB, b) ? a : b;
                         }
                     }
 
@@ -215,14 +241,14 @@ internal sealed class JointBridge
     }
 
     /// <summary>
-    /// 刃の接触 <paramref name="hit"/> がつなぎのセルを壊したら、そのセルをつないでいた親・子のセルを壊す。壊した親の側・子の側のセルを返す
-    /// （それぞれの部位の格子の座標）。
+    /// 刃の接触 <paramref name="hit"/> がつなぎのセルを壊したら、そのセルをつないでいた親・子のセルを壊す。壊したセルを、部位（部位の層ごと）の格子の座標で返す
+    /// （壊れたセルのある部位だけ。親の側 → 子の側の順）。
     /// </summary>
-    public (List<RemovedVoxel> Parent, List<RemovedVoxel> Child) Sever(VoxelContactResult hit)
+    public List<(VoxelPart Part, List<RemovedVoxel> Cells)> Sever(VoxelContactResult hit)
     {
         ArgumentNullException.ThrowIfNull(hit);
-        var parent = new List<RemovedVoxel>();
-        var child = new List<RemovedVoxel>();
+        var parent = ParentLayers.Select(_ => new List<RemovedVoxel>()).ToArray();
+        var child = ChildLayers.Select(_ => new List<RemovedVoxel>()).ToArray();
         var grid = Body.Grid;
         foreach (var gone in hit.RemovedB)
         {
@@ -233,18 +259,35 @@ internal sealed class JointBridge
             }
 
             _cut[i] = true;
-            if (_sourceParent[i] >= 0)
+            if (_sourceParent[i].Cell >= 0)
             {
-                Parent.Body.Grid.Break(_sourceParent[i], parent);
+                ParentLayers[_sourceParent[i].Layer].Body.Grid.Break(_sourceParent[i].Cell, parent[_sourceParent[i].Layer]);
             }
 
-            if (_sourceChild[i] >= 0)
+            if (_sourceChild[i].Cell >= 0)
             {
-                Child.Body.Grid.Break(_sourceChild[i], child);
+                ChildLayers[_sourceChild[i].Layer].Body.Grid.Break(_sourceChild[i].Cell, child[_sourceChild[i].Layer]);
             }
         }
 
-        return (parent, child);
+        var result = new List<(VoxelPart, List<RemovedVoxel>)>();
+        for (var l = 0; l < parent.Length; l++)
+        {
+            if (parent[l].Count > 0)
+            {
+                result.Add((ParentLayers[l], parent[l]));
+            }
+        }
+
+        for (var l = 0; l < child.Length; l++)
+        {
+            if (child[l].Count > 0)
+            {
+                result.Add((ChildLayers[l], child[l]));
+            }
+        }
+
+        return result;
     }
 
     private static float StrengthOf(VoxelGrid grid, byte material) => grid.Palette[material].MechanicsOrDefault.Strength;
@@ -263,8 +306,42 @@ internal sealed class JointBridge
         return x < 0 || y < 0 || z < 0 || x >= nx || y >= ny || z >= nz ? (byte)0 : halo.Materials[x + (nx * (y + (ny * z)))];
     }
 
-    /// <summary>格子 <paramref name="grid"/> の点 <paramref name="local"/> から <paramref name="reach"/> 以内にある、いちばん近い埋まったセル（無ければ −1）。</summary>
-    private static int Nearest(VoxelGrid grid, Vector3 local, float reach)
+    /// <summary>層のどれかの格子で、点（層の番号 → その格子の座標 <paramref name="localIn"/>）が埋まったセルの中か。</summary>
+    private static bool FilledIn(IReadOnlyList<VoxelPart> layers, Func<int, Vector3> localIn)
+    {
+        for (var l = 0; l < layers.Count; l++)
+        {
+            if (layers[l].Body.Grid.FilledCellAt(localIn(l)) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 層のどれかの格子で、点から <paramref name="reach"/> 以内にあるいちばん近い埋まったセルの（層の番号, セル）（無ければ (-1, -1)）。同じ近さなら先の層（部位そのもの）。
+    /// </summary>
+    private static (int Layer, int Cell) Nearest(IReadOnlyList<VoxelPart> layers, Func<int, Vector3> localIn, float reach)
+    {
+        var best = (Layer: -1, Cell: -1);
+        var bestDistance = float.MaxValue;
+        for (var l = 0; l < layers.Count; l++)
+        {
+            var (cell, distance) = NearestIn(layers[l].Body.Grid, localIn(l), reach);
+            if (cell >= 0 && distance < bestDistance)
+            {
+                best = (l, cell);
+                bestDistance = distance;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>格子 <paramref name="grid"/> の点 <paramref name="local"/> から <paramref name="reach"/> 以内にある、いちばん近い埋まったセルと距離の 2 乗（無ければ −1）。</summary>
+    private static (int Cell, float Distance) NearestIn(VoxelGrid grid, Vector3 local, float reach)
     {
         var best = -1;
         var bestDistance = float.MaxValue;
@@ -294,6 +371,6 @@ internal sealed class JointBridge
             }
         }
 
-        return best;
+        return (best, bestDistance);
     }
 }

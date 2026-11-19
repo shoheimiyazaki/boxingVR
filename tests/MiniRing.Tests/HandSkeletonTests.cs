@@ -53,7 +53,9 @@ public sealed class HandSkeletonTests
                 }
             }
 
-            Assert.IsLessThan(bones / 4, displaced, $"{shape}: most bone cells are exactly where the angles put them");
+            // 親指（2026-11-19）が拳の下に入り、曲げた指の組織の置き場が詰まって、正拳では 4 本の指の骨が 5 個ずつ 1〜2 セル押される（52 個中 20 個。
+            // ThumbFitProbe）。「多く」は過半数: 半分より少なければよい（ずれの大きさは上の 2 セルの上限が見ている）。
+            Assert.IsLessThan(bones / 2, displaced, $"{shape}: most bone cells are exactly where the angles put them");
         }
     }
 

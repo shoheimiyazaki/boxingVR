@@ -1,0 +1,12 @@
+Use your image generation tool. Reference art for an original voxel fighting game with fictional fighters from many countries. The goal is respectful, recognisable variation between human populations (real anatomical and grooming variation), never caricature or mockery.
+
+GRID: head voxel grid of 2.5 mm cells: FRONT 20 wide x 28 tall, SIDE 20 deep x 28 tall. Flat colours, no anti-aliasing; pixel art upscaled nearest-neighbour x20 with thin grid lines. Same legend as before: . empty, s skin, h hair, b brow, w eye white, i iris, l lip, e ear shadow, n nostril, k eyelid crease/shadow, f freckle.
+
+Make these additional PART LIBRARY sheets, each variant = small realistic concept sketch + pixel art at grid scale, and write parts_d.txt with all rows (top row first), a one-line name and anchor for each:
+1. parts_eyes2.png - one eye in 8 x 5: monolid (no visible crease, East Asian), epicanthic fold with low crease, double eyelid with high crease, deep-set under a heavy brow ridge, large wide-open, heavy-lidded. Also a SIDE 4 x 5 showing how deep the eye sits below the brow.
+2. parts_brow_ridge.png - SIDE profile of forehead+brow ridge+nose bridge (8 x 12): flat low bridge, medium, high narrow bridge, prominent brow ridge. These set nose bridge height relative to the eyes.
+3. parts_lips.png - mouth 10 x 4 FRONT and SIDE 3 x 5: thin, medium, full, very full; also philtrum length short/long.
+4. parts_hair_texture.png - full head FRONT 20 x 28 and SIDE: straight black (thick, falls flat), wavy, loose curls, tight coils / kinky short, coily high top fade, swept-back straight long. Use colour h; texture shown as the silhouette volume and edge shape.
+5. parts_face_shape.png - full head FRONT outline 20 x 28 and TOP 20 x 20: wide flat face with broad cheekbones, long narrow face, square heavy face, oval, prognathic (forward lower face) SIDE.
+Also write palette.txt: a table of skin tones (10, from very fair to very dark, hex), hair colours (black, dark brown, brown, light brown, dark blond, blond, red/ginger, grey; hex), iris colours (dark brown, brown, hazel, green, grey, blue; hex).
+Report the files.

@@ -45,6 +45,7 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
 
     private readonly OrgColors _colors = org.Colors;
     private readonly Dictionary<string, CharacterPortrait> _portraits = [];
+    private readonly VitalsMonitor _vitals = new();
 
     private Vector4 Cream => _colors.Accent;
     private Vector4 Muted => _colors.Muted;
@@ -74,7 +75,7 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         }
 
         scenes.Add(new ShowScene("cold_open", "cold_open", ColdOpenSeconds,
-            $"コールドオープン（{ColdOpenSeconds:0} 秒）: 暗い檻を外からゆっくり回って映し、字幕「レフェリーなし」「ダウンなし」「どちらかが死ぬまで」が 1 行ずつ。最後に VFC の紋章がホーンと一緒に打ち込まれる",
+            $"コールドオープン（{ColdOpenSeconds:0} 秒）: 暗い檻を外からゆっくり回って映し、字幕「{string.Join("」「", org.Text.ColdOpenLines)}」が 1 行ずつ。最後に VFC の紋章がホーンと一緒に打ち込まれる",
             ShowBackdrop.CageOrbit, EmblemStrikeAt));
         scenes.Add(new ShowScene("poster", "poster", PosterSeconds,
             $"ファイトポスター（{PosterSeconds:0} 秒）: 左に赤コーナーの{card.Red.Name}、右に青コーナーの{card.Blue.Name}の全身の絵が向き合い、間を赤い斜線が割る。{card.EventTitle} {card.Bout}、今夜のメインイベント。"
@@ -157,25 +158,25 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         shapes.Add(Rect(0f, h - bar - 3f, w, h - bar, RedTop));
 
         // 字幕: 1 行ずつ叩きつけるように出て、紋章の前に一斉に消える。
-        string[] lines = ["レフェリーなし", "ダウンなし", "どちらかが死ぬまで"];
-        float[] at = [0.4f, 1.3f, 2.2f];
+        // 字幕は団体の言葉（text.coldOpen）。檻の絵を隠さないよう小さく（58 → 34 px。2026-11-19、ユーザー: 説明の UI が大きすぎて邪魔）。
+        var lines = org.Text.ColdOpenLines;
         var vanish = 1f - Clamp01((t - 3.3f) / 0.12f);
-        const float Size = 58f;
-        for (var i = 0; i < lines.Length; i++)
+        const float Size = 34f;
+        for (var i = 0; i < lines.Count; i++)
         {
-            var appear = EaseOut(Clamp01((t - at[i]) / 0.22f));
+            var appear = EaseOut(Clamp01((t - (0.4f + (0.9f * i))) / 0.22f));
             var alpha = appear * vanish;
             if (alpha <= 0f)
             {
                 continue;
             }
 
-            var y = (h * 0.3f) + (i * h * 0.14f);
-            var x0 = (w * 0.05f) - ((1f - appear) * 120f);
-            var length = (lines[i].Length * Size) + 80f;
-            BlockFont.Slab(shapes, x0, x0 + length, y - 10f, y + Size + 10f, 34f, Black with { W = 0.85f * alpha });
-            BlockFont.Slab(shapes, x0 - 16f, x0, y - 10f, y + Size + 10f, 34f, RedTop with { W = alpha });
-            Shadowed(text, lines[i], new Vector2(x0 + 34f, y), Size, Cream with { W = alpha });
+            var y = (h * 0.16f) + (i * (Size + 26f));
+            var x0 = (w * 0.04f) - ((1f - appear) * 80f);
+            var length = (lines[i].Length * Size) + 56f;
+            BlockFont.Slab(shapes, x0, x0 + length, y - 7f, y + Size + 7f, 20f, Black with { W = 0.85f * alpha });
+            BlockFont.Slab(shapes, x0 - 10f, x0, y - 7f, y + Size + 7f, 20f, RedTop with { W = alpha });
+            Shadowed(text, lines[i], new Vector2(x0 + 24f, y), Size, Cream with { W = alpha });
         }
 
         // 紋章: ホーンと同時に大きく入って縮み、止まる（少し揺れる）。
@@ -207,11 +208,13 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         var skew = Lean * w;
         var cut = Clamp01(t / 0.4f);
 
-        // 左は黒、右はごく暗い赤。間を赤い斜めの切り口が割る。
+        // 左は黒、右はごく暗い赤。間を赤い斜めの切り口が割る。切り口は上の端で skew/2 だけ右、下の端で skew/2 だけ左にあり、
+        // 画面の高さの真ん中で横の真ん中を通る（以前は上の端が真ん中で、線全体が左へ寄っていた。2026-11-19 ユーザーの指摘）。
+        var top = (w * 0.5f) + (skew * 0.5f);
         shapes.Add(Rect(0f, 0f, w, h, new Vector4(0.075f, 0.07f, 0.07f, 1f)));
-        BlockFont.Slab(shapes, w * 0.5f, w + skew, 0f, h, skew, new Vector4(0.12f, 0.022f, 0.02f, 1f));
-        BlockFont.Slab(shapes, (w * 0.5f) - 26f, (w * 0.5f) + 26f, 0f, h * EaseOut(cut), skew * EaseOut(cut), RedTop);
-        BlockFont.Slab(shapes, (w * 0.5f) - 36f, (w * 0.5f) - 30f, 0f, h * EaseOut(cut), skew * EaseOut(cut), Cream);
+        BlockFont.Slab(shapes, top, w + skew, 0f, h, skew, new Vector4(0.12f, 0.022f, 0.02f, 1f));
+        BlockFont.Slab(shapes, top - 26f, top + 26f, 0f, h * EaseOut(cut), skew * EaseOut(cut), RedTop);
+        BlockFont.Slab(shapes, top - 36f, top - 30f, 0f, h * EaseOut(cut), skew * EaseOut(cut), Cream);
 
         // 肖像（左は赤・右は青。全身の絵を試合の体のボクセルから写したもの）。
         var enter = EaseOut(Clamp01((t - 0.15f) / 0.7f));
@@ -555,6 +558,17 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         Shadowed(text, blue, new Vector2(w - 24f, bandTop + (bandHeight * 0.16f)), 38f, Cream, TextAnchor.Right);
         DrawFigure(shapes, bodies.Of(game.Player), new Vector2(w * 0.5f - 90f - figureWidth, figureTop), unit, 1f, sunk: false);
         DrawFigure(shapes, bodies.Of(game.Cpu), new Vector2(w * 0.5f + 90f, figureTop), unit, 1f, sunk: false);
+
+        // 顔の窓の下の帯、名前の横に小さなバイタルモニター: 波形と数字だけ（説明の文字は出さない。2026-11-19、ユーザーの指定）。
+        // 帯の高さいっぱいを使う（名前の下に置くと 1 本の波が 20 px ほどになり、拍が見えなかった）。
+        _vitals.Sample(game.Player);
+        _vitals.Sample(game.Cpu);
+        var monitorTop = bandTop + 14f;
+        var monitorHeight = h - 10f - monitorTop;
+        var monitorLeft = w * 0.15f;
+        var monitorWidth = (w * 0.5f) - 90f - figureWidth - 24f - monitorLeft;
+        _vitals.Draw(game.Player, new Vector2(monitorLeft, monitorTop), monitorWidth, monitorHeight, text, shapes);
+        _vitals.Draw(game.Cpu, new Vector2(w - monitorLeft - monitorWidth, monitorTop), monitorWidth, monitorHeight, text, shapes);
         return new ShowDraw(text, shapes);
     }
 
@@ -643,7 +657,7 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(bodies);
         string Wounds(Fighter f) => bodies.Of(f).Wounds() is { Count: > 0 } w ? string.Join("・", w) : "目立つ傷なし";
-        return $"休みの看板（{IntervalShowSeconds:0} 秒、画面の左）: 「{org.Text.IntervalSign}」。両者の体の図と見えている傷。{red}: {Wounds(game.Player)}。{blue}: {Wounds(game.Cpu)}";
+        return $"休みの看板（{IntervalShowSeconds:0} 秒、画面の上の真ん中。体の図は赤が左の端・青が右の端）: 「{org.Text.IntervalSign}」。両者の体の図と見えている傷。{red}: {Wounds(game.Player)}。{blue}: {Wounds(game.Cpu)}";
     }
 
     public ShowDraw Interval(BoxingGame game, string red, string blue, ShowBodies bodies, float breakTime, IReadOnlyList<WvcRoundTally> rounds)
@@ -660,32 +674,43 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
 
         var w = (float)width;
         var h = (float)height;
-        var slide = (1f - EaseOut(Clamp01(breakTime / 0.4f))) * w * 0.4f;
-        var panelRight = (w * 0.46f) - slide;
+        var slide = 1f - EaseOut(Clamp01(breakTime / 0.4f));
 
-        // 左 1/3 ほどの斜めの黒い板と、赤い縁。
-        BlockFont.Slab(shapes, -w * 0.2f - slide, panelRight, 0f, h, 0.08f * w, Black with { W = 0.84f * a });
-        BlockFont.Slab(shapes, panelRight, panelRight + 12f, 0f, h, 0.08f * w, RedTop with { W = a });
-        var x = w * 0.035f - slide;
-        BlockFont.Draw(shapes, "INTERVAL", new Vector2(x, h * 0.07f), 7f, Cream with { W = a }, 0.15f);
-        BlockFont.Slab(shapes, x - 10f, x + 360f, (h * 0.07f) + 70f, (h * 0.07f) + 126f, 20f, RedDeep with { W = a });
-        Shadowed(text, org.Text.IntervalSign, new Vector2(x + 18f, (h * 0.07f) + 78f), 40f, Cream with { W = a });
+        // 上の真ん中に小さな看板（INTERVAL と団体の言葉）。画面の大半は休む選手の絵に残す（2026-11-19、ユーザー: 説明の UI が大きすぎて邪魔）。
+        var signY = (h * 0.035f) - (slide * 80f);
+        var signCell = 3.2f;
+        var signWidth = MathF.Max(BlockFont.Width("INTERVAL", signCell), org.Text.IntervalSign.Length * 22f) + 48f;
+        BlockFont.Slab(shapes, (w - signWidth) * 0.5f, (w + signWidth) * 0.5f, signY, signY + 66f, 14f, Black with { W = 0.8f * a });
+        BlockFont.Slab(shapes, (w - signWidth) * 0.5f, (w + signWidth) * 0.5f, signY + 66f, signY + 70f, 14f, RedTop with { W = a });
+        BlockFont.Draw(shapes, "INTERVAL", new Vector2((w - BlockFont.Width("INTERVAL", signCell)) * 0.5f, signY + 8f), signCell, Cream with { W = a }, 0.15f);
+        Shadowed(text, org.Text.IntervalSign, new Vector2(w * 0.5f, signY + 36f), 22f, Cream with { W = a }, TextAnchor.Center);
 
-        // 両者の体の図と、見えている傷。
-        // 左下の顔の窓（帯の上）に傷の言葉が掛からないよう、図は小さめ・傷の言葉は 2 行まで。
-        var unit = h * 0.27f / FigureHeightUnits;
+        // 両者の体の図と、見えている傷: 赤は左の端、青は右の端（下の左右の顔の窓の真上。顔と図の側をそろえる。2026-11-19、ユーザーの指定）。
+        var unit = h * 0.22f / FigureHeightUnits;
+        var figureWidth = FigureWidthUnits * unit;
         var figureTop = h * 0.3f;
-        var columns = new[] { (red, game.Player, x, RedTop), (blue, game.Cpu, x + (w * 0.185f), BlueCorner) };
-        foreach (var (name, fighter, left, color) in columns)
+        var margin = w * 0.025f;
+        var columnWidth = w * 0.24f; // 傷の言葉 2 行（17 px）が収まる幅
+        var columns = new[]
+        {
+            (red, game.Player, margin - (slide * columnWidth), RedTop, TextAnchor.Left),
+            (blue, game.Cpu, w - margin + (slide * columnWidth), BlueCorner, TextAnchor.Right),
+        };
+        foreach (var (name, fighter, edge, color, anchor) in columns)
         {
             var figure = bodies.Of(fighter);
-            Shadowed(text, name, new Vector2(left, figureTop - 40f), 30f, color with { W = a });
-            DrawFigure(shapes, figure, new Vector2(left, figureTop), unit, a, sunk: false);
             var wounds = figure.Wounds();
             var lines = wounds.Count == 0 ? ["目立つ傷はない"] : wounds.Take(2).ToList();
+            var left = anchor == TextAnchor.Left ? edge : edge - columnWidth;
+            var bottom = figureTop + (FigureHeightUnits * unit) + 14f + (lines.Count * 22f);
+            shapes.Add(Rect(left - 10f, figureTop - 48f, left + columnWidth + 10f, bottom, Black with { W = 0.55f * a }));
+            shapes.Add(Rect(left - 10f, figureTop - 48f, left + columnWidth + 10f, figureTop - 44f, color with { W = a }));
+            Shadowed(text, name, new Vector2(edge, figureTop - 40f), 24f, color with { W = a }, anchor);
+            var figureLeft = anchor == TextAnchor.Left ? edge : edge - figureWidth;
+            DrawFigure(shapes, figure, new Vector2(figureLeft, figureTop), unit, a, sunk: false);
             for (var i = 0; i < lines.Count; i++)
             {
-                text.Add(new ScreenTextDraw(lines[i], new Vector2(left, figureTop + (FigureHeightUnits * unit) + 10f + (i * 24f)), 19f, (wounds.Count == 0 ? Muted : Cream) with { W = a }));
+                text.Add(new ScreenTextDraw(lines[i], new Vector2(edge, figureTop + (FigureHeightUnits * unit) + 10f + (i * 22f)), 17f, (wounds.Count == 0 ? Muted : Cream) with { W = a }, anchor));
             }
         }
 

@@ -105,6 +105,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | `docs/VERSIONS.md` | `PhysicsVersion`・`LogicVersion` の履歴 |
 | `docs/TOOLS.md` | 確かめ方の道具の全部（§5） |
 | `docs/DELEGATION.md` | Codex・Sonnet・raytrek への渡し方（§10） |
+| `docs/WORKFLOW.md` | セッションとワークツリーの進め方: 統合役・1 作業 1 ワークツリー・統合の手順と止める決まり・片付け（`tools/wt-status.sh`）・並列の数（§10） |
 | `docs/BOXING.md` | パンチの力学・足の運び・部位ダメージ・打撃音・調整表 |
 | `docs/VOXEL_DAMAGE.md` | ボクセルの体（削れ・弱り・断裂・死・意識）、砕け散る見た目と音 |
 | `docs/BOTS.md` / `docs/BOT_PDCA.md` | ボットの技と、改善の記録（サイクルごとの仮説・結果・採否） |
@@ -144,7 +145,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
    - 古い記録が再生できなくなるのは正しい（黙ってずれるより良い）。
 4. **シェーダー（`ShaderSource` の GLSL）を変えたら `PrecompiledShaders` の SPIR-V を作り直す**（shaderc で再コンパイルし、配列を置き換える。変更前に「今のソースを再コンパイルすると今の配列と一致する」ことを確かめてから）。
 5. **テスト**: 新しい振る舞いには、それが物理として起きていることを数値で確かめるテストを書く（例: 「踏み込みながら打つと拳が速く、体はそのぶん遅くなる」）。バグ修正には再発防止のテストを 1 つ。期待値が物理として間違っていたらテストを直す（説明を添える）。
-6. **テストは 2 段**: 変更中は速い段（`run.cmd test`、数分）、完了の前に全部（`run.cmd test all`、直列で約 1 時間。この PC は RAM が少ないので raytrek で回す: `bash tools/remote-test.sh`）。試合・長い物理を回すテストのクラスには `[TestCategory("slow")]` を付ける（目安: クラスで 3 秒以上）。README のテスト件数を合わせる。
+6. **テストは 2 段**: 変更中は速い段（`run.cmd test`、数分）、完了の前に全部（`run.cmd test all`、直列で約 1 時間。この PC は RAM が少ないので tower32 で 12 並びに回す: `bash tools/remote-test.sh`、約 5 分。raytrek は別の作業に使うので `--host raytrek` は頼まれたときだけ）。試合・長い物理を回すテストのクラスには `[TestCategory("slow")]` を付ける（目安: クラスで 3 秒以上）。README のテスト件数を合わせる。
 7. **目で見る**: 見た目・動きに関わる変更は、visual テスト（`.visualcheck/*.png`）か動画を作って**自分で中身を見てから**完了と言う。PNG があること・動画ができたことは正しさの証明ではない。動画は `py -3 tools/sheet.py <動画.mp4> [out.png] [--count 12] [--times 3.2,4.0]` で時刻入りのコマを格子に並べた 1 枚にして読む。
 8. **文書**: 仕組みを変えたら該当の `docs/*.md`（と `docs/GUIDE.html` の該当節）を直す。ボットや技を磨いたら `docs/BOT_PDCA.md` に、仮説 → 測った結果 → 採否を書き、生の記録を `docs/arena/` に残す。採否の比べ直し（使わなかった種・`PairedEvaluation.Confirm`）の結果は `docs/arena/confirm.jsonl` に 1 行の JSON で残る（新しい比べ直しの道具は `ConfirmLog.Append` を呼ぶ）。
 9. **コードレビュー**: 書いたら別の目（レビュー用のエージェント）で見る。指摘は直すか、直さない理由を言う。
@@ -156,7 +157,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | 目的 | コマンド（リポジトリの根で） |
 |---|---|
 | 速いテスト | `dotnet test tests/MiniRing.Tests --filter "TestCategory!=slow&TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"`（= `run.cmd test`） |
-| 全テスト | `dotnet test tests/MiniRing.Tests --filter "TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"`（= `run.cmd test all`。raytrek で: `bash tools/remote-test.sh`） |
+| 全テスト | `dotnet test tests/MiniRing.Tests --filter "TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"`（= `run.cmd test all`。tower32 で 12 並び・約 5 分: `bash tools/remote-test.sh`） |
 | 調査用の Probe | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~<名前>" --logger "console;verbosity=detailed"` |
 | 版 | `... version` |
 | 総当たり | `... league --bouts 4 --seconds 60 --out docs/arena/<名前>.md`（名簿のキャラどうしは `rosterleague`） |
@@ -182,18 +183,22 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 - **テレビ中継の生配信**（master に入った）: OBS 実機・実送信・1080p は未確認。`docs/plans/LIVE_STREAM_HANDOFF_2026-11-17.md`。
 - **エージェントの開発しやすさ**（`claude/agent-dx`）: `docs/plans/AGENT_DX_PLAN.md`（計画と記録）。
 - **間の層（攻めの番・守りの番）**（退避中、枝 `shelf/rhythm-layer`。本体には無い）: 再開は `docs/plans/RHYTHM_LAYER_SHELVED.md` から。
-- **CT から体のボクセルを作る**（`claude/ct-body`。関節のつなぎの枝 worktree-agent-a1d3b799d8ec924e6 を合わせてある、LogicVersion 56）: 段 1（道具と 1 体・全身の動脈・気管・ボクサーの外形・関節のつなぎのまわり）まで。次は段 2（左右の鏡・ゲームへ入れる）。`docs/plans/CT_BODY_PLAN.md`。
+- **CT から体のボクセルを作る**（`claude/ct-body`）: 段 1（道具と 1 体・動脈）まで。次は段 2（左右の鏡・ゲームへ入れる）。`docs/plans/CT_BODY_PLAN.md`。
 
 ## 8. 軸から外れている所（技術的な負債。直す方向は軸へ寄せること）
 
 中身は [docs/DEBT.md](docs/DEBT.md)。ゲーム的な近道を入れたら DEBT.md に足し（§1.5）、関わる部分を触る前にその項目を読む。直したら項目を消す。
-項目: 棒術・空手・トンファー・片手剣と盾・ムエタイの肘打ち・剣の連続の守り・剣の間に合う受け・バットの型・刀・ロングソードの増やした型・剣士のボットの蹴りと内側の技の近道・テコンドーの蹴り・キャラクター・休みの動作と小物・始め・休み・終わりのエモート・見えにくい身体状態・拳に乗る体の質量・台本の技のぎりぎりの値・拳の打撃の削れ方・体を支える力・脚を失った体・投げ・剣の柄の芯と削り切れた武器の分離・意識・首と脊椎・ダウンの判定・スタミナと臓器の効き方・VR のプレイヤーにはスタミナの疲れが効かない・ラウンドの間の再生・はめる物の近道・骨の曲げの実効値・折れた骨をつなぐ肉の固さ・力の抜けていく手・折れた武器の判断・倒れている間の手・起き上がろうとする試みの拍子・武器の接触の掃き直し・剣士の自分の体を避ける通り道・技の時計・肘の締めと拳の狙い・VFC の檻と団体のファイル・ボットの読み・戦略の層・VFC の再生と武器の支給・起き上がり・床に落ちた衝撃・倒れた体の掴みと足・釣り合いの PID・関節の靭帯・柔術の技・手の物性を木の値で代用・左右の部位の格子と CT の体・関節のつなぎ
+項目: 棒術・空手・トンファー・片手剣と盾・ムエタイの肘打ち・剣の連続の守り・剣の間に合う受け・バットの型・刀・ロングソードの増やした型・剣士のボットの蹴りと内側の技の近道・テコンドーの蹴り・キャラクター・休みの動作と小物・始め・休み・終わりのエモート・見えにくい身体状態・拳に乗る体の質量・台本の技のぎりぎりの値・拳の打撃の削れ方・体を支える力・脚を失った体・投げ・剣の柄の芯と削り切れた武器の分離・意識・首と脊椎・ダウンの判定・スタミナと臓器の効き方・VR のプレイヤーにはスタミナの疲れが効かない・ラウンドの間の再生・はめる物の近道・骨の曲げの実効値・折れた骨をつなぐ肉の固さ・力の抜けていく手・折れた武器の判断・倒れている間の手・起き上がろうとする試みの拍子・武器の接触の掃き直し・剣士の自分の体を避ける通り道・技の時計・肘の締めと拳の狙い・VFC の檻と団体のファイル・ボットの読み・戦略の層・VFC の再生と武器の支給・起き上がり・床に落ちた衝撃・倒れた体の掴みと足・釣り合いの PID・関節の靭帯・柔術の技・手の物性を木の値で代用・左右の部位の格子と CT の体・間の層・顔の層・中継のバイタルモニター・関節のつなぎ
 
 ---
 
 ## 9. ユーザーとのやり取り
 
-- 日本語で答える。コミットは頼まれたときだけ（Co-Authored-By 等の付記はしない）。プッシュも頼まれたときだけ。
+- 日本語で答える。プッシュは頼まれたときだけ。コミットに Co-Authored-By 等の付記はしない。
+- **既定の進め方（2026-11-19、ユーザーの指定）**: ユーザーが例外を言わない限り、書く作業の依頼はすべて [docs/WORKFLOW.md](docs/WORKFLOW.md) の作業セッションとして進める。ユーザーは決まった書式で頼まない。
+  1. 最初の返事で、**完了の条件**（見た目・数字・動画）と**触る範囲**を自分で決めて 1〜2 行で言う（分からなければ先に調べてから言う）。そのまま進める（返事を待たない。決められない判断だけ聞く）。
+  2. master の根にいて、統合役（ユーザーがそう決めたセッション。今は「VGB POC」）でなければ、**書く前にワークツリーへ移る**（`EnterWorktree`、`.claude/worktrees/<題>`・枝 `claude/<題>`）。読むだけの依頼は移らない。
+  3. 終わったら**枝にコミットして**、「出せる」と、やったこと・確かめたこと・残したことを報告する。master へのコミット・マージ・プッシュは、統合役か、ユーザーが頼んだときだけ。
 - ユーザーは Remote Control（スマホ）で見ていることが多い。動画・画像は SendUserFile で送り、30 MiB を超えるものは縮めて（音を残して）送る。
 - 見た目の評価はユーザーの言葉が正（「スウェーに見える」「ワンツーが無い」）。数字が良くても見た目が違えば直す。
 
@@ -201,5 +206,6 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 
 - 重い判断（設計・軸との整合・採否・結果の検証）は Claude が行い、指示書 `docs/plans/CODEX_BRIEF_*.md` に書く。実装・測定・動画は Codex（無ければ Sonnet）に渡す。
 - 1 回の実行で終わる大きさに分け、優先順・完了の条件・確かめ方を書く。並列は触るファイルが重ならない作業だけ、別のワークツリーで。
+- セッションとワークツリーの進め方は [docs/WORKFLOW.md](docs/WORKFLOW.md): master の根に書くのは統合役だけ・1 作業 = 1 セッション = 1 ワークツリー（`.claude/worktrees/<題>`）・README の件数・§7・版の番号の確定は統合役が書く・全テストが通るまで次の枝を入れない。
 - 報告はうのみにしない: テストを緩めた所・数字・動画は Claude が確かめてから伝える。
 - Codex の起動・止め方・残量、raytrek での実行の手順は [docs/DELEGATION.md](docs/DELEGATION.md)。

@@ -46,10 +46,13 @@ public sealed class VoxelBody
     private readonly float _massPerCell;
     private readonly bool _materialMass;
     private (Vector3 Center, Vector3 Half, float Mass) _applied;
+    private readonly List<VoxelBody> _companions = [];
+    private VoxelBody? _owner;
 
     /// <summary>The body must have been built as a box that matches the grid: <paramref name="grid"/>'s half extents,
-    /// centred at <paramref name="gridCenterLocal"/>.</summary>
-    public VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, Vector3 gridCenterLocal = default, bool materialMass = false)
+    /// centred at <paramref name="gridCenterLocal"/>. <paramref name="massPerCell"/> (null: the body's mass shared by the grid's cells)
+    /// is the mass of one cell, for a body whose mass is shared with grids laid over it later (<see cref="AddCompanion"/>).</summary>
+    public VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, Vector3 gridCenterLocal = default, bool materialMass = false, float? massPerCell = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(grid);
@@ -59,13 +62,19 @@ public sealed class VoxelBody
         GridCenterLocal = gridCenterLocal;
         var cells = Math.Max(1, grid.FilledCount);
         var mass = world.GetMass(bodyId);
-        _massPerCell = mass / cells;
+        _massPerCell = massPerCell ?? (mass / cells);
         _applied = (gridCenterLocal, grid.HalfExtents, mass);
         _materialMass = materialMass;
         if (materialMass)
         {
             UpdateMass();
         }
+    }
+
+    private VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, Vector3 gridCenterLocal, float massPerCell, bool materialMass)
+        : this(world, bodyId, grid, massPerCell, materialMass)
+    {
+        GridCenterLocal = gridCenterLocal;
     }
 
     private VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, float massPerCell, bool materialMass)
@@ -81,6 +90,43 @@ public sealed class VoxelBody
     public int BodyId { get; }
 
     public VoxelGrid Grid { get; private set; }
+
+    /// <summary>
+    /// Other grids carried by the same rigid body (<see cref="AddCompanion"/>), in the order they were added (fixed, so a loop over
+    /// them is deterministic). Empty for an ordinary body and for a companion itself.
+    /// </summary>
+    public IReadOnlyList<VoxelBody> Companions => _companions;
+
+    /// <summary>The grid that owns the rigid body when this is a companion (null for the owner and for an ordinary body).</summary>
+    public VoxelBody? Owner => _owner;
+
+    /// <summary>
+    /// Lays another grid (finer cells, say: a hand inside a glove) over this body's rigid body, centred at <paramref name="gridCenterLocal"/>
+    /// in the body's frame. Returns its <see cref="VoxelBody"/>, which shares <see cref="BodyId"/>; the collider box and the mass
+    /// now cover every grid (<see cref="UpdateMass"/>: the sum of the masses, the union of the bounds), so a blow on one grid
+    /// never resets what the other contributes. Only this (owner) grid is ever severed or split: a companion's
+    /// <see cref="Sever"/>, <see cref="SplitAt"/> and <see cref="SeverDisconnected"/> do nothing, and a piece cut off the owner takes no companion with it.
+    /// <paramref name="massPerCell"/> (null: this body's) is the mass of one cell unless the body derives mass from materials.
+    /// </summary>
+    /// <remarks><paramref name="refit"/> false leaves the collider and mass as they are until the grids next change (a body whose mass was
+    /// already shared out to cover the companion, and whose box was built to hold both grids).</remarks>
+    public VoxelBody AddCompanion(VoxelGrid grid, Vector3 gridCenterLocal, float? massPerCell = null, bool refit = true)
+    {
+        ArgumentNullException.ThrowIfNull(grid);
+        if (_owner is not null)
+        {
+            throw new InvalidOperationException("A companion grid cannot carry companions of its own.");
+        }
+
+        var companion = new VoxelBody(_world, BodyId, grid, gridCenterLocal, massPerCell ?? _massPerCell, _materialMass) { _owner = this };
+        _companions.Add(companion);
+        if (refit)
+        {
+            UpdateMass();
+        }
+
+        return companion;
+    }
 
     /// <summary>Changes the contact shape without moving the rigid body or its joints.</summary>
     public void ReplaceGrid(VoxelGrid grid)
@@ -103,6 +149,14 @@ public sealed class VoxelBody
     /// takes the contact's impulse on it) and owns none of its mass or collider: <see cref="UpdateMass"/> then changes nothing.
     /// </summary>
     public bool Massless { get; init; }
+
+    /// <summary>
+    /// Whether this body is the struck side of a contact whatever the grids' fineness (<see cref="VoxelContact.Resolve"/> sweeps the finer
+    /// grid through the coarser one, and only the coarser one, the field, is crushed beneath a face that held). A layer of fine soft tissue
+    /// over a coarser body (a face over the skull) stays the field against a coarser glove, club or shin: it is what the blow presses into.
+    /// When both or neither prefer it, the finer grid is the probe as before.
+    /// </summary>
+    public bool PreferField { get; set; }
 
     /// <summary>
     /// The slices (inclusive) along <see cref="BeamAxis"/> where this beam may break (null: anywhere along it). A head sits on a thin
@@ -145,6 +199,15 @@ public sealed class VoxelBody
     /// </summary>
     public int Impact(Vector3 worldPoint, Vector3 worldDirection, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f,
         ICollection<VoxelChunk>? chunks = null, float chunkShare = 0.6f, int maxChunks = 3, ICollection<VoxelCutFace>? cutFaces = null)
+        => ImpactSpending(worldPoint, worldDirection, energy, chipSpeed, jitter, chips, spread, chunks, chunkShare, maxChunks, cutFaces).Carved;
+
+    /// <summary>
+    /// <see cref="Impact"/>, also returning the damage the carve actually spent (<see cref="VoxelGrid.Carve"/>: less than
+    /// <paramref name="energy"/> only when the reachable cells ran out). A body of several layers (a face over a skull) passes the rest on
+    /// to the layer beneath.
+    /// </summary>
+    public (int Carved, float Spent) ImpactSpending(Vector3 worldPoint, Vector3 worldDirection, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f,
+        ICollection<VoxelChunk>? chunks = null, float chunkShare = 0.6f, int maxChunks = 3, ICollection<VoxelCutFace>? cutFaces = null)
     {
         ArgumentNullException.ThrowIfNull(jitter);
         ArgumentNullException.ThrowIfNull(chips);
@@ -155,10 +218,10 @@ public sealed class VoxelBody
         // The face that was struck, read before the crater changes it.
         var localNormal = SurfaceNormal(Grid, localPoint, localDirection);
         var removed = new List<RemovedVoxel>();
-        Grid.Carve(localPoint, localDirection, energy, removed);
+        var spent = Grid.Carve(localPoint, localDirection, energy, removed);
         if (removed.Count == 0)
         {
-            return 0;
+            return (0, spent);
         }
 
         var dir = worldDirection.LengthSquared() > 1e-12f ? Vector3.Normalize(worldDirection) : Vector3.UnitY;
@@ -207,7 +270,7 @@ public sealed class VoxelBody
         }
 
         UpdateMass();
-        return removed.Count;
+        return (removed.Count, spent);
     }
 
     /// <summary>Fewest carved cells before any of them leave as a chunk (a light blow only crumbles).</summary>
@@ -468,6 +531,11 @@ public sealed class VoxelBody
     /// </summary>
     public VoxelBody? Sever(int axis, bool distalHigh)
     {
+        if (_owner is not null)
+        {
+            return null;
+        }
+
         var slice = Grid.FindBoneBreak(axis, fromHigh: !distalHigh);
         return slice is { } cut ? SplitAt(axis, cut, distalHigh) : null;
     }
@@ -479,6 +547,11 @@ public sealed class VoxelBody
     /// </summary>
     public VoxelBody? SplitAt(int axis, int slice, bool takeHigh)
     {
+        if (_owner is not null)
+        {
+            return null;
+        }
+
         var split = Grid.Split(axis, slice, takeHigh: takeHigh);
         return split is { } piece ? Detach(piece.Piece, piece.CenterOffset) : null;
     }
@@ -491,6 +564,11 @@ public sealed class VoxelBody
     /// </summary>
     public IReadOnlyList<VoxelBody> SeverDisconnected(Vector3? keepNear = null)
     {
+        if (_owner is not null)
+        {
+            return [];
+        }
+
         if (Grid.IsConnected())
         {
             return [];
@@ -570,11 +648,13 @@ public sealed class VoxelBody
             return; // 剛体を借りているだけの接触の形（関節のつなぎ）: 剛体の形も質量も変えない
         }
 
-        var bounds = Grid.OccupiedBounds();
-        var cells = Grid.FilledCount;
-        var mass = MassOf(Grid);
-        var (center, half) = bounds ?? (Vector3.Zero, Grid.CellSize * 0.5f);
-        var wantCenter = GridCenterLocal + center;
+        if (_owner is not null)
+        {
+            _owner.UpdateMass(); // one rigid body, one collider and one mass: the owner fits them to every grid it carries
+            return;
+        }
+
+        var (wantCenter, half, mass) = _companions.Count == 0 ? Fit(this) : FitAll();
         // Only rebuild the collider when it actually changes (the rebuild is not free): a crater that does not move the
         // bounding box changes only the mass, and a small change in mass is not worth a rebuild either.
         var sameShape = Vector3.DistanceSquared(_applied.Center, wantCenter) < 1e-10f && Vector3.DistanceSquared(_applied.Half, half) < 1e-10f;
@@ -585,6 +665,42 @@ public sealed class VoxelBody
 
         _world.ReshapeDynamicBox(BodyId, wantCenter, half, mass);
         _applied = (wantCenter, half, mass);
+    }
+
+    /// <summary>The collider box (body-frame centre and half extents) and mass that fit one grid's body alone.</summary>
+    private static (Vector3 Center, Vector3 Half, float Mass) Fit(VoxelBody body)
+    {
+        var (center, half) = body.Grid.OccupiedBounds() ?? (Vector3.Zero, body.Grid.CellSize * 0.5f);
+        return (body.GridCenterLocal + center, half, body.MassOf(body.Grid));
+    }
+
+    /// <summary>The box that covers the cells of this grid and every companion (empty grids add nothing), and the sum of their masses.</summary>
+    private (Vector3 Center, Vector3 Half, float Mass) FitAll()
+    {
+        var min = new Vector3(float.PositiveInfinity);
+        var max = new Vector3(float.NegativeInfinity);
+        var mass = 0f;
+        var any = false;
+        for (var i = -1; i < _companions.Count; i++)
+        {
+            var body = i < 0 ? this : _companions[i];
+            mass += body.MassOf(body.Grid);
+            if (body.Grid.OccupiedBounds() is { } bounds)
+            {
+                any = true;
+                var center = body.GridCenterLocal + bounds.Center;
+                min = Vector3.Min(min, center - bounds.HalfExtents);
+                max = Vector3.Max(max, center + bounds.HalfExtents);
+            }
+        }
+
+        if (!any)
+        {
+            var empty = Fit(this);
+            return (empty.Center, empty.Half, mass);
+        }
+
+        return ((min + max) * 0.5f, (max - min) * 0.5f, mass);
     }
 
     private float MassOf(VoxelGrid grid)

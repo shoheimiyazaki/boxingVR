@@ -15,7 +15,8 @@ public sealed record FaceParts(
     float NoseWidth = 1f, float NoseLength = 1f,
     float MouthWidth = 1f, float MouthHeight = 0f, float Lips = 1f,
     float EarSize = 1f, float EarHeight = 0f,
-    float JawWidth = 1f, float Cheekbones = 1f, float Hairline = 0f)
+    float JawWidth = 1f, float Cheekbones = 1f, float Hairline = 0f,
+    float FaceWidth = 1f, float BrowRidge = 0f, float Freckles = 0f)
 {
     public static FaceParts Default => new();
 
@@ -40,6 +41,9 @@ public sealed record FaceParts(
         Check(JawWidth, 0.8f, 1.25f);
         Check(Cheekbones, 0.5f, 1.8f);
         Check(Hairline, -0.12f, 0.12f);
+        Check(FaceWidth, 0.85f, 1.2f);
+        Check(BrowRidge, 0f, 2f);
+        Check(Freckles, 0f, 1f);
         return this;
     }
 

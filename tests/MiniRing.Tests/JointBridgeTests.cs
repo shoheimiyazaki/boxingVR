@@ -68,7 +68,7 @@ public sealed class JointBridgeTests
         var m = BoxerVoxelOverrides.HaloMargin;
         var dims = (x + (2 * m), y + (2 * m), z + (2 * m));
         var halo = new BoxerVoxelOverrides.PartCells(dims, Enumerable.Repeat(BoxerAnatomy.Artery, dims.Item1 * dims.Item2 * dims.Item3).ToArray());
-        var withHalo = new JointBridge(neck.Joint, neck.Parent, neck.Child, anchor, halo);
+        var withHalo = new JointBridge(neck.Joint, neck.Parent, neck.Child, anchor, parentHalo: halo);
 
         neck.Refresh(_ => true);
         withHalo.Refresh(_ => true);
@@ -90,7 +90,7 @@ public sealed class JointBridgeTests
         var (px, py, pz) = ((int)MathF.Floor(c.X) + m, (int)MathF.Floor(c.Y) + m, (int)MathF.Floor(c.Z) + m);
         var one = new byte[dims.Item1 * dims.Item2 * dims.Item3];
         one[px + (dims.Item1 * (py + (dims.Item2 * pz)))] = BoxerAnatomy.Artery;
-        var single = new JointBridge(neck.Joint, neck.Parent, neck.Child, anchor, new BoxerVoxelOverrides.PartCells(dims, one));
+        var single = new JointBridge(neck.Joint, neck.Parent, neck.Child, anchor, parentHalo: new BoxerVoxelOverrides.PartCells(dims, one));
         single.Refresh(_ => true);
         Assert.AreEqual(1, Count(single, b => b == BoxerAnatomy.Artery), "one halo cell gives one gap cell");
         Assert.AreEqual(BoxerAnatomy.Artery, single.Body.Grid.MaterialAt(gap), "and it is the gap cell over that parent cell");
@@ -131,11 +131,14 @@ public sealed class JointBridgeTests
     [TestCategory("slow")]
     public void ABladeThroughTheOpenedKneeGap_CutsTheKnee_OnlyWithTheBridge()
     {
+        // 59（顔・手の層と、この枝の滑りの直しのマージ）: 静止した的の立ち方が数 mm 変わり、膝の断ちは刃が止まるか通り抜けるかの鋭い連鎖なので、3 行を
+        // 取り直した（`jointlab --joints LeftKnee,RightKnee --bend 40 --speeds 3.4,9`、表は docs/arena/jointlab_bend40_v59.md の「つなぎが断ちを変えた振り」。
+        // つなぎ無し → 有りで 断たれない → 断たれる、近くの削れたセル 22 → 87 / 94 → 102 / 73 → 95）。
         var rows = new[]
         {
-            (HumanoidRagdoll.RagdollJoint.LeftKnee, "front", -0.005f, 3.4f, 40f),
-            (HumanoidRagdoll.RagdollJoint.LeftKnee, "back", 0.005f, 9f, 40f),
-            (HumanoidRagdoll.RagdollJoint.RightKnee, "front", -0.005f, 3.4f, -40f),
+            (HumanoidRagdoll.RagdollJoint.LeftKnee, "front", -0.010f, 3.4f, 40f),
+            (HumanoidRagdoll.RagdollJoint.LeftKnee, "front", 0.005f, 9f, 40f),
+            (HumanoidRagdoll.RagdollJoint.RightKnee, "front", 0.005f, 9f, -40f),
         };
         foreach (var (joint, dir, offset, speed, bend) in rows)
         {
@@ -192,7 +195,11 @@ public sealed class JointBridgeTests
     {
         // 49（足の滑りの直し）: 静止した的の立ち方が数 mm 変わったので、side の行の高さを -3 mm から -2 mm へ取り直した（-3 mm は首が断たれたが頭は落ちず、
         // 1 mm ずつ振ると side は -2・+4 mm、front は -3・-1〜+3 mm で頭が落ちる。落ちる高さは 1 mm 刻みで入れ替わる鋭い値で、物理の量ではなく固定した 2 行）。
-        foreach (var (dir, offset, speed) in new[] { ("side", -0.002f, 9f), ("front", -0.003f, 3.4f) })
+        // 59（顔・手の層とのマージ）: 頭の外のあご・首の付け根を顔の層が持ち、つなぎは両方の格子を見る（JointBridge.ParentLayers / ChildLayers）。立ち方がまた数 mm
+        // 変わったので 2 行を取り直した（`necklab --mode slash --tilt 35 --arms down --offsets -0.005..0.005 --speeds 3.4,9` をつなぎ有り・無しで。
+        // 表は docs/arena/necklab_slash_tilt35_v59_on.md・_off.md。つなぎ無しは断たれず頭が残り、有りは頭が落ちる振り: side 3.4 m/s +3 mm（首の削れ 21 → 36）・
+        // front 3.4 m/s -5 mm（4 → 12）。ほかに side 3.4 +5・front 9 -2・back 3.4 -2/+2/+4 も同じ。落ちる高さは 1 mm 刻みで入れ替わる鋭い値で、固定した 2 行）。
+        foreach (var (dir, offset, speed) in new[] { ("side", 0.003f, 3.4f), ("front", -0.005f, 3.4f) })
         {
             var without = NeckLab.SlashOnce(dir, offset, speed, bridges: false, tiltDegrees: 35f, armsDown: true);
             var with = NeckLab.SlashOnce(dir, offset, speed, bridges: true, tiltDegrees: 35f, armsDown: true);

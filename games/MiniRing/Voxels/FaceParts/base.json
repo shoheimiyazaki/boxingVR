@@ -1,0 +1,149 @@
+{
+ "layout": {
+  "eyeLeftImage": [
+   5.5,
+   13.5
+  ],
+  "eyeRightImage": [
+   14.5,
+   13.5
+  ],
+  "browLeftImage": [
+   6.0,
+   11.5
+  ],
+  "browRightImage": [
+   14.0,
+   11.5
+  ],
+  "mouth": [
+   10.0,
+   21.5
+  ],
+  "earSide": [
+   7.125,
+   14.5
+  ],
+  "noseTopRow": 13.5,
+  "noseRows": [
+   13,
+   17
+  ],
+  "profileCap": 16,
+  "noseSurface": 15,
+  "bridgeAnchor": [
+   15,
+   13
+  ]
+ },
+ "legend": {
+  "s": "skin",
+  "h": "hair",
+  "b": "brow",
+  "w": "white",
+  "i": "iris",
+  "l": "lip",
+  "e": "shadow",
+  "d": "shadow",
+  "k": "shadow",
+  "f": "freckle",
+  "n": "nostril",
+  ".": "empty"
+ },
+ "views": {
+  "front": {
+   "width": 20,
+   "height": 28,
+   "rows": [
+    "......hhhhhhhh......",
+    "....hhhhhhhhhhhh....",
+    "...hhhhhhhhhhhhhh...",
+    "..hhhhhhhhhhhhhhhh..",
+    "..hhhhhhhhhhhhhhhh..",
+    "..hhhsssssssssshhh..",
+    "..hhsssssssssssshh..",
+    "..hssssssssssssssh..",
+    "..ssssssssssssssss..",
+    "..ssssssssssssssss..",
+    "..ssssssssssssssss..",
+    "..ssbbbbssssbbbbss..",
+    "eessssssssssssssssee",
+    "eesswwissssssiwwssee",
+    "eessssssssssssssssee",
+    "eessssssssssssssssee",
+    "eessssssssssssssssee",
+    "..ssssssssssssssss..",
+    "..ssssssseesssssss..",
+    "..ssssssssssssssss..",
+    "..ssssssssssssssss..",
+    "...ssssllllllssss...",
+    "...ssssssssssssss...",
+    "...ssssssssssssss...",
+    "....ssssssssssss....",
+    ".....ssssssssss.....",
+    "......ssssssss......",
+    ".......ssssss......."
+   ]
+  },
+  "side": {
+   "width": 20,
+   "height": 28,
+   "rows": [
+    ".....hhhhhhhh.......",
+    "...hhhhhhhhhhhh.....",
+    "..hhhhhhhhhhhhhh....",
+    ".hhhhhhhhhhhhhhhh...",
+    ".hhhhhhhhhhhhhhhh...",
+    ".hhhhhhhhhhhhsssh...",
+    ".hhhhhhhhhhssssss...",
+    ".hhhhhhhhhsssssss...",
+    ".hhhhhhhhssssssss...",
+    ".hhhhhhhsssssssss...",
+    ".hhhhhhssssssssss...",
+    ".hhhhhssssssssbbs...",
+    ".hhhhssesssssssss...",
+    ".hhhhseesssssswis...",
+    ".hhhhseesssssssss...",
+    ".hhhhseessssssssss..",
+    ".hhhhssesssssssssss.",
+    ".hhhhsssssssssssssss",
+    "..hhhssssssssssssss.",
+    "..hhsssssssssssss...",
+    "..ssssssssssssssss..",
+    "...ssssssssssssslss.",
+    "...sssssssssssssss..",
+    "....sssssssssssss...",
+    ".....ssssssssssss...",
+    "......ssssssssss....",
+    ".......ssssssss.....",
+    "........ssssss......"
+   ]
+  },
+  "top": {
+   "width": 20,
+   "height": 20,
+   "rows": [
+    ".........ss.........",
+    "........ssss........",
+    "......ssssssss......",
+    "....ssssssssssss....",
+    "...ssssssssssssss...",
+    "..ssssssssssssssss..",
+    "..hhhsssssssssshhh..",
+    ".hhhhhhhhhhhhhhhhhh.",
+    "ehhhhhhhhhhhhhhhhhhe",
+    "ehhhhhhhhhhhhhhhhhhe",
+    "ehhhhhhhhhhhhhhhhhhe",
+    "ehhhhhhhhhhhhhhhhhhe",
+    ".hhhhhhhhhhhhhhhhhh.",
+    ".hhhhhhhhhhhhhhhhhh.",
+    "..hhhhhhhhhhhhhhhh..",
+    "..hhhhhhhhhhhhhhhh..",
+    "...hhhhhhhhhhhhhh...",
+    "....hhhhhhhhhhhh....",
+    ".....hhhhhhhhhh.....",
+    ".......hhhhhh......."
+   ]
+  }
+ }
+}

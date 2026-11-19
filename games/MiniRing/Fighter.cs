@@ -208,7 +208,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 53; // 53: master の 52（呼吸と循環のスタミナ）と、この枝の 49（着いている足を留める滑りの直し・関節のつなぎ・握る・拾う）を合わせた。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 59; // 59: master の 57（顔の層・手の層）と、この枝の 53（滑りの直し・足の運びの構えを骨盤で寄せる・すべての関節のつなぎ）を合わせた。58 は claude/glove-v2 が使う。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1616,6 +1616,8 @@ public sealed partial class Fighter
             // 見た目だけ（吐く息・メーターの点滅の拍子）。小数部だけが意味を持つので、float の精度が落ちる前に整数ぶん戻す。
             BreathPhase += dt * TiredLook.BreathsPerSecond(Winded);
             BreathPhase -= BreathPhase >= 1024f ? 1024f : 0f;
+            HeartPhase += dt * HeartRate / 60f;
+            HeartPhase -= HeartPhase >= 1024f ? 1024f : 0f;
         }
 
         // まばたき・まぶた（見た目だけ。種は頭の初期位置から: ファイターごとに決まった数列）。
@@ -1760,6 +1762,9 @@ public sealed partial class Fighter
     /// 物理の歩で進むので、同じ試合なら同じ所で息を吐く。試合の計算には使わない。
     /// </summary>
     public float BreathPhase { get; private set; }
+
+    /// <summary>心拍の位相（拍の数、見た目だけ）: 1 拍ごとに 1 増える。速さは <see cref="HeartRate"/>。死ねば止まる。中継の動脈圧の波形の拍子。試合の計算には使わない。</summary>
+    public float HeartPhase { get; private set; }
 
     /// <summary>スタミナがこれを下回ると拳を運ぶ力が落ち始める（<see cref="FighterTuning.TiredKnee"/>。メーターの「動きが鈍る」区域の上端）。</summary>
     public float SluggishBelow => _tuning.TiredKnee;

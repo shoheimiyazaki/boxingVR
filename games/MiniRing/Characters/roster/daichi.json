@@ -74,6 +74,21 @@
     "skin": [0.8, 0.6, 0.45], "hair": [0.04, 0.04, 0.04], "hairstyle": "Crop", "eyes": [0.1, 0.06, 0.03],
     "brows": true, "beard": false
   },
+  "face": {
+    "parts": {
+      "hair": { "hair.7": 0.5, "hair.5": 0.5 },
+      "brows": { "brows.1": 0.6, "brows.4": 0.4 },
+      "eyes": { "eyes.3": 0.5, "eyes.2": 0.5 },
+      "nose": { "nose.1": 0.5, "nose.5": 0.5 },
+      "mouth": { "mouth.8": 0.6, "mouth.7": 0.4 },
+      "jaw": { "jaw.8": 0.5, "jaw.6": 0.5 },
+      "ears": { "ears.2": 1.0 },
+      "beard": {  },
+      "browridge": { "browridge.2": 0.6, "browridge.4": 0.4 }
+    },
+    "values": { "cheekbones": 1.5, "noseLength": 1.15, "jaw": 1.1, "browTilt": 0.15, "eyeSize": 0.95, "faceWidth": 0.97 },
+    "skin": [0.741, 0.565, 0.42], "hair": [0.125, 0.125, 0.114], "iris": [0.188, 0.125, 0.09]
+  },
   "body": {
     "build": { "height": 1.05, "arms": 1.05, "legs": 1.0, "muscle": 0.95 },
     "wear": "glove",

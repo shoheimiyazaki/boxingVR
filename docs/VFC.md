@@ -20,7 +20,7 @@
 ## 六角形の檻（`RingLayout.Shape = ArenaShape.HexCage`）
 
 - `Size` は向かい合う辺と辺の距離（内接円の直径）。外接円の半径 R = Size / √3。辺（平らな面）が ±Z（2 人が向き合う方向）を向き、頂点は ±X 軸上。角は X 軸から Z 軸の向きへ測る（頂点 0°・60°…、面の法線 90°・150°…）。
-- `RingLayout.Cage` = 1.3 m（面積 ≈ 1.46 m²、四角 1.2 m の 1.44 m² と同程度）・始めの間 0.44 m。`RingLayout.WeaponsCage` = 2.6 m（≈ 5.85 m²、四角 2.4 m の 5.76 m²）・1.0 m。
+- `RingLayout.Cage` = 1.3 m（面積 ≈ 1.46 m²、四角 1.2 m の 1.44 m² と同程度）・始めの間 0.44 m。`RingLayout.WeaponsCage` = 2.6 m（≈ 5.85 m²、四角 2.4 m の 5.76 m²）・1.0 m。中継（`TvShowRules.Stage`）は、どちらかが武器を握れば広い檻、両者が素手なら狭い檻（2026-11-19: 剣と素手の組が狭い檻に入り、小さすぎた）。檻の形・大きさは変えていないので `PhysicsVersion` は上げない。
 - `OuterHalf`（四角 = Half、檻 = R）に余白を足して `TableHalf`（+15 cm）・`PlinthHalf`（+8 cm）を出す（頂点が台座・天板からはみ出さない）。`LivingRoom.GroundAt` は檻のキャンバスを六角形で判定する。
 - 当たり判定・見た目は `HexCage`（`Ring` が形で作り分ける 1 か所）。台・エプロン・キャンバスは長さ R・幅 2·(Size/2) の箱を 0°・60°・120° に回して 3 枚重ねる。壁は 6 辺に静的な箱 1 枚ずつ。
   - 高さ 0.5 m（`HexCage.WallHeight`）: UFC の金網は人 1.8 m に対し約 1.75 m だが、身長 60 cm の人形では拳・武器を隠しすぎないよう縮めた近道。

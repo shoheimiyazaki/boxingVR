@@ -45,8 +45,11 @@ public sealed class ClubSwingTests
         // ボクセルのグローブの詰め物は、棍棒を受け止めて和らげる）。
         // 材料による潰れ方は十分に休んだ 1 振りで比較する。スタミナ制約の検証とは分け、
         // 構えて間合いへ入る間の疲労で、打ち出す前から弱っている条件を混ぜない。
+        // 2026-11-19（PhysicsVersion 53）: 間合い 0.38 は潰れたセル 41（下限 42）に落ちた。間合いを 0.02 ずつ掃くと（RangeSweep_Probe）
+        // 0.30: 49・0.32: 54・0.34: 51・0.36: 53・0.38: 41・0.40: 83・0.42: 27・0.44: 27 と、当たる前の踏み込みの 1 歩のずれで大きく動く。
+        // 動かない帯（0.30〜0.36 はどれも 49〜54）の真ん中の 0.34 にした。下限（MaxCarve × 0.35）は変えていない。
         var lowest = 1f;
-        var r = SwingTest.Run(WeaponSwing.Default(SwingFamily.Chop), 0.38f, (game, _, _) =>
+        var r = SwingTest.Run(WeaponSwing.Default(SwingFamily.Chop), 0.34f, (game, _, _) =>
         {
             lowest = MathF.Min(lowest, game.Player.Stamina);
             game.Player.Stamina = 1f;
@@ -55,6 +58,21 @@ public sealed class ClubSwingTests
         Console.WriteLine($"rested club: {r.Cells} cells, lowest reserve before refill {lowest:P2}");
         Assert.IsTrue(r.Landed);
         Assert.IsGreaterThan(FighterTuning.Default.MaxCarve * 0.35f, r.Cells, "a hard club crushes the flesh it strikes");
+    }
+
+    [TestMethod]
+    [TestCategory("Probe")]
+    public void RangeSweep_Probe()
+    {
+        foreach (var range in new[] { 0.30f, 0.32f, 0.34f, 0.36f, 0.38f, 0.40f, 0.42f, 0.44f })
+        {
+            var r = SwingTest.Run(WeaponSwing.Default(SwingFamily.Chop), range, (game, _, _) =>
+            {
+                game.Player.Stamina = 1f;
+                game.Cpu.Stamina = 1f;
+            }, gloves: false);
+            Console.WriteLine($"RSWEEP range {range:F2}: landed {r.Landed} cells {r.Cells}");
+        }
     }
 
     [TestMethod]

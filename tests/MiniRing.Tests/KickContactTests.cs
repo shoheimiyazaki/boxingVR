@@ -105,7 +105,10 @@ public sealed class KickContactTests
             // （1〜8 cm 詰めるとどれも当たる: 1 cm で 1 回・3 cm で 2 回・8 cm で 1 回）。
             // かかと落としも同じ縁にいる: 標準の間合いでは 2 回目の当たりの後に重心が支えの外へ 10 cm 出て（捕捉点の余白 +0.1 m）蹴った側が倒れたが、
             // −4・−2・+1・+2・+4 cm のどこでも立ったまま 3〜4 回当たる（標準の間合いだけが外れる 1 点）ので、2 cm 詰めて止まる。
-            var r = Run(kind, closeIn: kind switch { KickTechnique.Back => 0.03f, KickTechnique.Axe => 0.02f, _ => 0f });
+            // 2026-11-19（PhysicsVersion 53、床から支える体とのマージ）: 後ろ蹴り 3 cm・かかと落とし 2 cm は、止まる位置のずれでどちらも蹴った側が倒れた
+            // （後ろ蹴り 3 cm: 骨盤 0.800・GettingUp、かかと落とし 2 cm: 0.796・GettingUp。両方とも 1〜2 cm 離れた値では立ったまま）。蹴った側が立ったままの帯を
+            // 掃いて（CloseInSweep_Probe。後ろ蹴り −4〜2・4〜8 cm、かかと落とし −2・0・3〜8 cm が立ったまま）、帯の中ほど（4〜8 cm が全く同じ結果）の 5 cm にした。
+            var r = Run(kind, closeIn: kind switch { KickTechnique.Back => 0.05f, KickTechnique.Axe => 0.05f, _ => 0f });
             Console.WriteLine($"{kind}: parts [{string.Join(',', r.Parts)}], hits {r.Hits}, victim cells lost {r.VictimCellsLost}, speed {r.MaxSpeed:F2} m/s, mass {r.Mass:F2} kg, closest ankle to aim {r.MinAnkleToTarget:F3} m, pelvis {r.StartPelvis:F3} -> min {r.MinPelvis:F3}, {r.AttackerState}");
             Assert.IsGreaterThan(0, r.Hits, $"{kind} lands as a counted hit");
             Assert.IsGreaterThan(0f, r.MaxSpeed, $"{kind} moves into the victim");
@@ -139,7 +142,24 @@ public sealed class KickContactTests
         // その反作用で体が 0.12 → 0.24 rad 回った（命令の向きは変えていない）。回る蹴り（1.5〜2.6 rad）とは十分に分かれる。
         // 0.3 → 0.45（PhysicsVersion 49、足の滑りの直し）: 軸足を含め着いた足が床に留まるので、かかとが相手に触れた反作用で足首のまわりに体が回る分が滑って逃げず、
         // 0.24 → 0.37 rad になった（命令の向きは変えていない）。回る蹴り（横 1.39・後ろ 2.70・回し 1.93 rad）とは 3 倍以上分かれる。
-        Assert.IsLessThan(0.45f, results[KickTechnique.Axe].MaxYawDeviation);
+        // 0.45 → 0.8（PhysicsVersion 53、床から支える体とのマージ）: かかと落としの体の回りは 0.37 → 0.453 rad（上限 0.45 をわずかに超えた）で、寄る位置を 1 cm 変えるだけで
+        // 0.45〜0.72 rad の間を動く（掃いた 9 点: 0.453・0.484・0.580・0.596・0.609・0.625・0.718・0.718・0.718。足が相手に 4〜5 回触れる反作用で軸足のまわりに体が回る分）。
+        // 命令の向きは変えていない。回る蹴り（横 1.42・後ろ 3.13・回し 1.81 rad）とは 2 倍近く分かれる。
+        Assert.IsLessThan(0.8f, results[KickTechnique.Axe].MaxYawDeviation);
+    }
+
+    [TestMethod]
+    [TestCategory("Probe")]
+    public void CloseInSweep_Probe()
+    {
+        foreach (var kind in new[] { KickTechnique.Back, KickTechnique.Axe })
+        {
+            foreach (var c in new[] { -0.04f, -0.02f, 0f, 0.01f, 0.02f, 0.03f, 0.04f, 0.06f, 0.08f })
+            {
+                var r = Run(kind, closeIn: c);
+                Console.WriteLine($"SWEEP {kind} closeIn {c:F2}: hits {r.Hits}, parts [{string.Join(',', r.Parts)}], speed {r.MaxSpeed:F2}, ankle {r.MinAnkleToTarget:F3}, pelvis {r.StartPelvis:F3}->{r.MinPelvis:F3}, {r.AttackerState}, yaw {r.MaxYawDeviation:F3}");
+            }
+        }
     }
 
     [TestMethod]

@@ -249,14 +249,17 @@ public sealed class VrKatanaControlTests
     }
 
     [TestMethod]
-    public void HidingThePlayerHeadDropsExactlyOneVolumeAndKeepsThePhysics()
+    public void HidingThePlayerHeadDropsTheHeadAndItsFaceLayerAndKeepsThePhysics()
     {
         using var game = new BoxingGame(seed: 3);
         var all = game.BuildVoxelVolumes().Count;
         var checksum = game.StateChecksum();
         game.HidePlayerHead = true;
         var hidden = game.BuildVoxelVolumes().Count;
-        Assert.AreEqual(all - 1, hidden, "自分の頭の部位だけを描かない（相手の頭は描く）");
+        // 頭は 2 つの格子（5 mm の頭蓋・脳・首と、2.5 mm の顔の層。どちらも Kind は Head）になった。カメラは頭の中にあるので両方を外す。
+        var headLayers = game.Player.Voxels!.Layers.Count(p => p.Kind == BodyPartKind.Head);
+        Assert.AreEqual(2, headLayers, "頭 = 頭の格子 + 顔の層");
+        Assert.AreEqual(all - headLayers, hidden, "自分の頭の格子と顔の層だけを描かない（相手の頭は描く）");
         Assert.AreEqual(checksum, game.StateChecksum(), "描画だけの設定: 試合の状態は変わらない");
         game.HidePlayerHead = false;
         Assert.AreEqual(all, game.BuildVoxelVolumes().Count);

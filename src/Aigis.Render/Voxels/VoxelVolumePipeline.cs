@@ -35,6 +35,8 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
         layout(location = 2) out vec3 vWorld;
         layout(location = 3) out vec2 vFace;
         layout(location = 4) flat out vec3 vEye;
+        layout(location = 5) out float vBright;
+        layout(location = 6) out float vOpen;
 
         const ivec3 DIRS[6] = ivec3[](ivec3(1,0,0), ivec3(-1,0,0), ivec3(0,1,0), ivec3(0,-1,0), ivec3(0,0,1), ivec3(0,0,-1));
         // Four corners of each face, in the cell's own unit cube.
@@ -62,6 +64,8 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
             vWorld = vec3(0.0);
             vFace = vec2(0.5);
             vEye = vec3(0.0);
+            vBright = 0.0;
+            vOpen = 1.0;
             if (texel.a < 0.5 || neighbour >= 0.5) {
                 gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // hidden face: one point outside the clip volume
                 return;
@@ -77,9 +81,32 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
             // The eye: the one point a perspective projection sends to w = 0 (x = y = 0).
             vec4 eye = inverse(pc.viewProjection) * vec4(0.0, 0.0, 1.0, 0.0);
             vEye = abs(eye.w) > 1e-8 ? eye.xyz / eye.w : world.xyz + vec3(0.0, 0.0, 1.0);
-            // An axis-aligned normal through rotation and per-axis scale stays on that rotated axis.
-            vNormal = normalize(mat3(pc.cellToWorld) * vec3(DIRS[face]));
+            // The shading normal: the face's own axis, bent toward the surface the cells around it make (the occupancy gradient over
+            // the 3x3x3 neighbourhood). A staircase of one-cell steps (a fine grid's curved face) then shades as the slope it
+            // stands for, instead of every step's top catching the key light and the rim as a bright line.
+            vec3 gradient = vec3(0.0);
+            for (int dz = -1; dz <= 1; dz++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        ivec3 q = c + ivec3(dx, dy, dz);
+                        bool within = all(greaterThanEqual(q, ivec3(0))) && all(lessThan(q, size));
+                        float filled = within && texelFetch(volume, q, 0).a >= 0.5 ? 1.0 : 0.0;
+                        gradient -= filled * vec3(dx, dy, dz);
+                    }
+                }
+            }
+
+            vec3 faceAxis = vec3(DIRS[face]);
+            vec3 bent = dot(gradient, gradient) > 1e-6 ? (0.3 * faceAxis) + (0.7 * normalize(gradient)) : faceAxis;
+            vec3 shading = dot(bent, bent) > 0.04 ? normalize(bent) : faceAxis;
+            // How open the face is to the outside (1 on a smooth outer surface, 0 in a pocket or on the riser of a step): the rim light
+            // is for the silhouette, not for the small faces a staircase shows edge-on.
+            vOpen = clamp(dot(shading, faceAxis), 0.0, 1.0);
+            // An axis-aligned normal through rotation and per-axis scale stays on that rotated axis (the bent one nearly so).
+            vNormal = normalize(mat3(pc.cellToWorld) * shading);
             vColor = texel.rgb;
+            // Alpha below 1 (but at least 0.5: still filled) marks a bright surface (the white of an eye): 1 gives 0, 0.5 gives 1.
+            vBright = clamp((1.0 - texel.a) * 2.0, 0.0, 1.0);
         }
         """;
 
@@ -90,6 +117,8 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
         layout(location = 2) in vec3 vWorld;
         layout(location = 3) in vec2 vFace;
         layout(location = 4) flat in vec3 vEye;
+        layout(location = 5) in float vBright;
+        layout(location = 6) in float vOpen;
         layout(location = 0) out vec4 outColor;
 
         void main() {
@@ -102,6 +131,7 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
             float ndl = max(dot(n, key), 0.0);
             float hemi = mix(0.42, 0.66, n.y * 0.5 + 0.5); // tissues must stay told apart by colour
             vec3 lit = vColor * (hemi + 0.5 * ndl);
+            lit = mix(lit, max(lit, vColor * 0.95), vBright); // bright surfaces (eye whites) read near their own colour in any light
 
             // Each cube's edges are slightly darker, so a carved surface reads as stacked blocks.
             vec2 e = min(vFace, 1.0 - vFace);
@@ -110,7 +140,7 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
 
             vec3 h = normalize(key + v);
             float sheen = pow(max(dot(n, h), 0.0), 28.0) * 0.16;
-            float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.28;
+            float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.28 * smoothstep(0.6, 0.95, vOpen);
             outColor = vec4(lit + vec3(sheen) + rim * vec3(0.72, 0.82, 1.0), 1.0);
         }
         """;

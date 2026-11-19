@@ -209,7 +209,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 56; // 56: claude/ct-body 側（master・spacing の枝）の 55（間の層を外した・拳と肘の狙いを胸の前に寄せた）と、claude/sword-combat-techniques-51f876 の 55（蹴りの差分を滑りの直しの後に練習し直した）を合わせた（2026-11-19）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 57; // 57: master の 55（間の層を外した・拳と肘の狙いの寄せ）と、この枝の 55（53 の物理で練習し直した蹴りの差分）を合わせた。56 は claude/ct-body が使う。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;

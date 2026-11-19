@@ -1,0 +1,13 @@
+{
+  "_comment": "2026-11-19: 中継の修正（入場カメラの白飛び・実況の選び方・無音の警告）の後の、プロスペクティブ制の実況解説の WVC 版。",
+  "event": "WVC ファイトナイト",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-prospective-1119",
+  "scoutSeeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "partLimitMiB": 29,
+  "commentary": { "writer": "prospective", "model": "haiku" },
+  "bouts": [
+    { "red": "marcus", "blue": "yoandry", "seed": "auto", "bout": "メインイベント" }
+  ]
+}

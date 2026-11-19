@@ -1,0 +1,26 @@
+Use your image generation tool. These are FICTIONAL fighters for an original voxel fighting game; do not resemble any real person.
+
+For each fighter below, generate one reference sheet <id>.png: the head and neck only, FRONT view and SIDE view (facing right) side by side, plain light background, neutral lighting, relaxed expression, consistent semi-realistic style across all fighters, same head size and framing in every sheet so they can be compared. Show clearly: skin tone, hair style and colour, eyebrows, eye shape, nose shape, ears, mouth/lips, jaw and chin, cheekbones, any beard or scar. Text on the image: only the id.
+Then write faces.txt: for each fighter one block with the id and short English descriptions of each of these parts as you drew them: skin (also a hex colour), hair (style + hex colour), brows, eyes, nose, ears, mouth, jaw/chin, cheekbones, beard, extra (scars, cauliflower ears, broken nose...). Keep descriptions concrete enough to pick from a part library (e.g. nose: broad flat boxer nose, slightly crooked).
+
+Fighters (id | role | origin | age | height/weight):
+akira | Shuri-te karate master | Okinawa, Japan | 28 | 166 cm 68 kg
+albert | Victorian-style bare-knuckle pugilist | England | 34 | 175 cm 72 kg
+daichi | six-foot staff (bo) fighter | Okinawa, Japan | 31 | 184 cm 75 kg
+dmitri | heavyweight brawler, "the northern tank" | Russia | 31 | 201 cm 114 kg
+edgar | sword and round shield warrior | England | 33 | 184 cm 91 kg
+gaston | knight with iron gauntlets | France | 38 | 184 cm 79 kg
+jin | iaido swordsman | Japan | 29 | 175 cm 68 kg
+joao | street fighter "Galo" (rooster), wiry and cocky | Brazil | 25 | 172 cm 73 kg
+konrad | Liechtenauer longsword fencer | Germany | 36 | 201 cm 105 kg
+marcus | heavyweight boxing champion "The Hammer" | USA (Detroit) | 32 | 196 cm 104 kg
+narong | Muay Thai fighter | Thailand | 27 | 179 cm 72 kg
+ramon | short pressure brawler "El Toro" | Mexico | 29 | 161 cm 67 kg
+ren | jujutsu grappler | Kumamoto, Japan | 30 | 175 cm 76 kg
+sean | rough stick fighter | Ireland | 33 | 184 cm 91 kg
+taeyun | tall jumping taekwondo kicker | South Korea | 23 | 193 cm 80 kg
+tsuyoshi | tonfa fighter | Okinawa, Japan | 27 | 175 cm 72 kg
+vikram | Rajput warrior | India | 30 | 175 cm 72 kg
+yoandry | slick counter-puncher boxer | Cuba | 27 | 179 cm 75 kg
+
+Also make roster_faces.png: all 18 FRONT views in a 6 x 3 grid with ids under each. Report the files.
