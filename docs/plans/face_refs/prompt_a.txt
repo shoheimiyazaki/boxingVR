@@ -1,0 +1,14 @@
+Use your image generation tool. This is reference art for a voxel boxing game; all people are fictional.
+
+GRID: the game head is a voxel grid of 2.5 mm cells: 20 cells wide (X), 28 cells tall (Y, chin bottom to crown top), 20 cells deep (Z, back of skull to tip of nose). Every pixel-art view below uses that exact grid: FRONT = 20 x 28, SIDE (facing right, nose to the right) = 20 x 28, TOP = 20 x 20 (nose up).
+
+Step 1 - BASE HEAD. Generate face_concept.png: a clean reference sheet of one neutral, average fictional adult male boxer head (short cropped dark hair, no beard, relaxed expression), three orthographic views side by side (FRONT, SIDE, TOP) plus one 3/4 view, plain light background, only those labels as text. Proportions must match the grid above (eyes at about half height, ears between eye line and nose bottom).
+Then draw the SAME head as flat pixel art on the grid: base_front.png, base_side.png, base_top.png (no anti-aliasing, upscale nearest-neighbour x20 with thin grid lines). Colours: empty #202020, skin #C89878, hair #2A2018, brow #3A2A1C, eye white #F0F0F0, iris #3A2A20, lip #A85A50, ear inner/shadow #A87858.
+Write base.txt with, for each view, the rows as characters top row first: . empty, s skin, h hair, b brow, w eye white, i iris, l lip, e ear shadow. ALSO, for FRONT only, a DEPTH grid of the same 20 x 28 where each char is a digit 0-9 or letter A-J meaning how many cells forward of the face plane the visible surface sits (0 = deepest visible, larger = closer to viewer; e.g. nose tip highest, eye sockets lower than cheeks). And for SIDE only, nothing extra.
+
+Step 2 - PART LIBRARY (eyes, brows, mouths). For each part make a sheet showing 6 clearly different variants, each as a small realistic concept sketch above its pixel-art version at the SAME grid scale (2.5 mm per pixel). Files: parts_eyes.png, parts_brows.png, parts_mouth.png.
+ - eyes: one eye (the subject's right eye) in an 8 x 5 pixel box: round, narrow/hooded, almond, upturned, downturned, deep-set (deep-set shown with darker socket skin #A07858).
+ - brows: one brow in an 8 x 3 box: thin straight, thick straight, arched, angled-up (fierce), soft downturned, bushy.
+ - mouth: in a 10 x 4 box: thin, full, wide, small, downturned, slight smile.
+Write parts_a.txt with every variant's rows as characters (same legend; s skin for surround) and a one-line name, plus for each a note of which pixel is the box anchor (eye: centre of the eye white; brow: inner end; mouth: centre).
+Report the files.
