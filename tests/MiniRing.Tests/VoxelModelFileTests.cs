@@ -37,6 +37,20 @@ public sealed class VoxelModelFileTests
     }
 
     [TestMethod]
+    public void Artery_IsSoftNonVitalTissue_AndReadsBackByItsColour()
+    {
+        // 動脈（CT から作る体が置く、tools/ct-body）: 壁は肉と同じ強さ・密度で、出血のモデルが無いので致命的ではない。
+        // .vox は色で材質に戻すので、道具が書く色（255, 0, 64）がこの材質に戻ること。
+        var artery = BoxerAnatomy.Palette[BoxerAnatomy.Artery];
+        var muscle = BoxerAnatomy.Palette[BoxerAnatomy.Muscle];
+        Assert.AreEqual("artery", artery.Name);
+        Assert.IsFalse(artery.Vital);
+        Assert.AreEqual(muscle.Mechanics, artery.Mechanics);
+        Assert.AreEqual(MagicaVox.Rgba(255, 0, 64), BoxerVoxelModel.ColorOf(BoxerAnatomy.Artery));
+        Assert.AreEqual(BoxerAnatomy.Artery, BoxerVoxelModel.MaterialByColor()[MagicaVox.Rgba(255, 0, 64) | 0xFF000000u]);
+    }
+
+    [TestMethod]
     public void BoxerModel_ExportedAndReadBack_BuildsTheSameBody()
     {
         var overrides = BoxerVoxelModel.FromVox(RoundTrip(BoxerVoxelModel.ToVox(Generated.Value)));
