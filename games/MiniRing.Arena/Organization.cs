@@ -27,8 +27,13 @@ internal sealed record OrgCrowd(float ReactionGain, float AmbienceGain);
 /// <param name="DecisionLine">判定・引き分けで終わったときの下の行。<c>{rounds}</c> を差し込む。</param>
 /// <param name="LiveTag">試合中の画面の隅の札の言葉（地上波は LIVE、深夜の有料配信は PPV）。番組の型が使う。</param>
 /// <param name="Strapline">札の下の小さな 1 行（番組の性格。無ければ空）。</param>
-/// <param name="IntervalSign">休みの看板の言葉（VFC「傷は少しずつ戻る」。使わない番組の型は空）。</param>
-internal sealed record OrgText(string OpeningRule, string FinishWord, string DecisionLine, string LiveTag = "LIVE", string Strapline = "", string IntervalSign = "");
+/// <param name="IntervalSign">休みの看板の言葉（VFC「再生インターバル」。使わない番組の型は空）。</param>
+/// <param name="ColdOpen">番組の冒頭に 1 行ずつ出す字幕（VFC「ノーレフェリー」…。使わない番組の型は空）。</param>
+internal sealed record OrgText(string OpeningRule, string FinishWord, string DecisionLine, string LiveTag = "LIVE", string Strapline = "", string IntervalSign = "", IReadOnlyList<string>? ColdOpen = null)
+{
+    /// <summary>冒頭の字幕（無ければ空）。</summary>
+    public IReadOnlyList<string> ColdOpenLines => ColdOpen ?? [];
+}
 
 /// <summary>台本の下書き（<see cref="TvDraft"/>）の団体ごとの言い回し。<c>{round}</c>・<c>{victim}</c>・<c>{winner}</c> を差し込む。</summary>
 /// <param name="BellWord">ラウンドの合図の呼び方（「ゴング」「ホーン」）。</param>
@@ -304,9 +309,10 @@ internal static class Organizations
         public string? LiveTag { get; init; }
         public string? Strapline { get; init; }
         public string? IntervalSign { get; init; }
+        public List<string>? ColdOpen { get; init; }
 
         public OrgText ToText() => new(Need(OpeningRule, "text.openingRule"), Need(FinishWord, "text.finishWord"), Need(DecisionLine, "text.decisionLine"),
-            string.IsNullOrWhiteSpace(LiveTag) ? "LIVE" : LiveTag, Strapline ?? "", IntervalSign ?? "");
+            string.IsNullOrWhiteSpace(LiveTag) ? "LIVE" : LiveTag, Strapline ?? "", IntervalSign ?? "", ColdOpen?.Where(l => !string.IsNullOrWhiteSpace(l)).ToList() ?? []);
     }
 
     private sealed class DraftDto

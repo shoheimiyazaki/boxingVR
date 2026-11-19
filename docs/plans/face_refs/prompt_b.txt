@@ -1,0 +1,12 @@
+Use your image generation tool. This is reference art for a voxel boxing game; all people are fictional.
+
+GRID: the game head is a voxel grid of 2.5 mm cells: 20 cells wide (X), 28 cells tall (Y, chin bottom to crown top), 20 cells deep (Z, back of skull to nose tip). Pixel art uses that exact cell size. Colours: empty #202020, skin #C89878, hair #2A2018, beard #2A2018, lip #A85A50, ear shadow #A87858, nostril #6A4838. Flat colours, no anti-aliasing, upscale nearest-neighbour x20 with thin grid lines.
+
+Make a PART LIBRARY. For each part, one sheet with 6 clearly different variants; each variant shows a small realistic concept sketch and, under it, its pixel art at the grid scale. Files: parts_nose.png, parts_ears.png, parts_jaw.png, parts_hair.png, parts_beard.png.
+ - nose: FRONT 6 x 8 box and SIDE PROFILE 5 x 8 box (how far it sticks out, in cells): straight, broad flat (boxer), hooked/aquiline, small button, long narrow, broken/crooked.
+ - ears: SIDE view 5 x 8 box: small flat, large, protruding (also show FRONT 2 x 8 how far it sticks out), cauliflower (swollen, wrestler), long lobe, pointed top.
+ - jaw: full-head FRONT outline 20 x 28 (only the lower half from the eyes down matters) and SIDE outline 20 x 28: narrow pointed chin, square wide jaw, round soft jaw, long jaw, strong protruding chin, high cheekbones with hollow cheeks.
+ - hair: full head FRONT 20 x 28, SIDE 20 x 28 and TOP 20 x 20: buzz cut, short crop, bald, mohawk/high top, long tied back ponytail, curly afro (adds up to 2 cells of volume above/around the skull).
+ - beard: FRONT 20 x 28 and SIDE 20 x 28 (lower face only): stubble, moustache, goatee, full short beard, long beard, sideburns+chin strap.
+Write parts_b.txt with every variant's rows as characters, top row first (. empty, s skin, h hair/beard, l lip, e ear shadow, n nostril), a one-line name, and the anchor (nose: tip of the nose bridge top; ear: top of ear attachment; jaw/hair/beard: full-head grid, no anchor).
+Report the files.

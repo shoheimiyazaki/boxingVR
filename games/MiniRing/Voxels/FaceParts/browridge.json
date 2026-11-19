@@ -1,0 +1,131 @@
+{
+ "category": "browridge",
+ "legend": {
+  "s": "skin",
+  "h": "hair",
+  "b": "brow",
+  "w": "white",
+  "i": "iris",
+  "l": "lip",
+  "e": "shadow",
+  "d": "shadow",
+  "k": "shadow",
+  "f": "freckle",
+  "n": "nostril",
+  ".": "empty"
+ },
+ "parts": [
+  {
+   "id": "browridge.1",
+   "name": "flat low bridge",
+   "anchor": [
+    4.0,
+    6.0
+   ],
+   "views": {
+    "side": {
+     "width": 8,
+     "height": 12,
+     "rows": [
+      "sssss...",
+      "sssss...",
+      "sssss...",
+      "sssss...",
+      "sssbb...",
+      "sssss...",
+      "sssss...",
+      "ssssss..",
+      "ssssss..",
+      "ssssss..",
+      "sssssss.",
+      "sssssss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "browridge.2",
+   "name": "medium bridge",
+   "anchor": [
+    4.0,
+    6.0
+   ],
+   "views": {
+    "side": {
+     "width": 8,
+     "height": 12,
+     "rows": [
+      "sssss...",
+      "sssss...",
+      "sssss...",
+      "sssss...",
+      "ssssbb..",
+      "sssss...",
+      "ssssss..",
+      "ssssss..",
+      "sssssss.",
+      "sssssss.",
+      "ssssssss",
+      "ssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "browridge.3",
+   "name": "high narrow bridge",
+   "anchor": [
+    4.0,
+    6.0
+   ],
+   "views": {
+    "side": {
+     "width": 8,
+     "height": 12,
+     "rows": [
+      "sssss...",
+      "sssss...",
+      "sssss...",
+      "sssss...",
+      "ssssbb..",
+      "ssssss..",
+      "sssssss.",
+      "sssssss.",
+      "sssssss.",
+      "ssssssss",
+      "ssssssss",
+      "ssssssss"
+     ]
+    }
+   }
+  },
+  {
+   "id": "browridge.4",
+   "name": "prominent brow ridge",
+   "anchor": [
+    4.0,
+    6.0
+   ],
+   "views": {
+    "side": {
+     "width": 8,
+     "height": 12,
+     "rows": [
+      "sssss...",
+      "sssss...",
+      "ssssss..",
+      "sssssss.",
+      "ssssssbb",
+      "ssssss..",
+      "sssss...",
+      "ssssss..",
+      "ssssss..",
+      "sssssss.",
+      "ssssssss",
+      "ssssssss"
+     ]
+    }
+   }
+  }
+ ]
+}

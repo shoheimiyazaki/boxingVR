@@ -264,6 +264,7 @@ public static class CharacterRoster
             ToEducation(c.Education), ToRecord(c.Record))
         {
             Profile = c.Profile?.Validate(build),
+            Face = ReadFace(c.Face, c.Id!, look),
             Org = org,
         };
     }
@@ -286,6 +287,24 @@ public static class CharacterRoster
 
     private static IReadOnlyList<JsonObject> ToRecord(List<JsonObject?>? record)
         => [.. (record ?? []).Select((r, i) => r ?? throw new InvalidDataException($"record[{i}] が null です。"))];
+
+    private static FaceSpec ReadFace(JsonElement? face, string id, FaceLook look)
+    {
+        // "face" が無いキャラは、名前と look の髪型・眉・ひげから決める（新人・ボットと同じ決め方）。
+        if (face is not { } element)
+        {
+            return FaceSpec.FromLook(look, id).Validate();
+        }
+
+        try
+        {
+            return FaceSpec.FromJson(element, id);
+        }
+        catch (InvalidDataException ex)
+        {
+            throw new InvalidDataException($"face: {ex.Message}", ex);
+        }
+    }
 
     private static FaceParts ValidParts(FaceParts? parts)
     {
@@ -437,6 +456,7 @@ public static class CharacterRoster
         public string? Tagline { get; init; }
         public string? Org { get; init; }
         public FaceDto? Look { get; init; }
+        public JsonElement? Face { get; init; }
         public BodyDto? Body { get; init; }
         public string? Textbook { get; init; }
         public EducationDto? Education { get; init; }

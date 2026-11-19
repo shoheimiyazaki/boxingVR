@@ -49,7 +49,8 @@ public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFa
     FaceParts? PlayerFace = null, FaceParts? CpuFace = null, bool ExternalBlue = false, Bots.BotStyle? RedBotStyle = null, bool UseWeaponBots = false,
     bool Referee = true, Voxels.FaceLook? PlayerLook = null, Voxels.FaceLook? CpuLook = null, string? PlayerLabel = null, string? CpuLabel = null,
     Bots.BotStyle? PlayerStyle = null, Bots.WeaponStyle? PlayerWeaponStyle = null, Bots.WeaponStyle? CpuWeaponStyle = null,
-    bool BreakActions = true, Func<int, Fighter, Break.IBreakSource?>? BreakSource = null, float SettleSeconds = 0f)
+    bool BreakActions = true, Func<int, Fighter, Break.IBreakSource?>? BreakSource = null, float SettleSeconds = 0f,
+    Voxels.FaceSpec? PlayerFaceSpec = null, Voxels.FaceSpec? CpuFaceSpec = null)
 {
     /// <summary>CPU 側のスタイル（<see cref="CpuStyleJson"/> を読んだもの。解決済みの全体）。スタイルを持たない CPU（legacy・外の入力）は null。</summary>
     public Bots.BotStyle? CpuStyle => CpuStyleJson is { } json ? Bots.BotStyle.FromJson(json) : null;
@@ -697,10 +698,20 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             return true;
         }
 
+        // 全ての格子（物と重ねた手）を囲む球の外か。
         var s = _world.GetState(weapon.Body.BodyId);
-        var center = s.Position + Vector3.Transform(weapon.Body.GridCenterLocal, s.Orientation);
-        var radius = weapon.Body.Grid.HalfExtents.Length();
-        return Vector3.Distance(center, self.GloveCenter(hand)) > radius + 0.01f;
+        var glove = self.GloveCenter(hand);
+        for (var i = 0; i < weapon.Grids.Count; i++)
+        {
+            var grid = weapon.Grids[i];
+            var center = s.Position + Vector3.Transform(grid.GridCenterLocal, s.Orientation);
+            if (Vector3.Distance(center, glove) <= grid.Grid.HalfExtents.Length() + 0.01f)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>物理の接触一覧から「拳（前腕の先）× 相手の部位」を拾う。</summary>
@@ -1607,10 +1618,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         PlayerSkin = new BoxerSkin(playerModel, Player, playerTuning);
         // 体の形はローポリのモデル（頭・胸・腕の形）。その内側をボクセルで埋める。トランクスはグローブと同じコーナーの色。
         // 顔はボットのリングネームから（同じボットはいつも同じ顔）。人が操る赤コーナーは名前が無ければ既定の顔。
-        Player.Voxels = new BoxerBody(Player, _world, playerTuning, playerModel, Outfit.RedCorner, BoxerVoxelOverrides.Shipped,
-            _corners.PlayerLook ?? (_corners.PlayerName is { } redName ? FaceLook.For(Bots.BotNames.RingNameOf(redName)) with { Parts = _corners.PlayerFace ?? FaceParts.For(redName) } : null));
-        Cpu.Voxels = new BoxerBody(Cpu, _world, cpuTuning, cpuModel, Outfit.BlueCorner, BoxerVoxelOverrides.Shipped,
-            _corners.CpuLook ?? (FaceLook.For(Bots.BotNames.RingNameOf(_corners.CpuName)) with { Parts = _corners.CpuFace ?? FaceParts.For(_corners.CpuName) }));
+        var playerLook = _corners.PlayerLook ?? (_corners.PlayerName is { } redName ? FaceLook.For(Bots.BotNames.RingNameOf(redName)) with { Parts = _corners.PlayerFace ?? FaceParts.For(redName) } : null);
+        var cpuLook = _corners.CpuLook ?? (FaceLook.For(Bots.BotNames.RingNameOf(_corners.CpuName)) with { Parts = _corners.CpuFace ?? FaceParts.For(_corners.CpuName) });
+        // 顔の層の形（部品）: 名簿のキャラは自分の顔（PlayerFaceSpec / CpuFaceSpec）、無ければ見た目の髪型・眉・ひげと名前から（FaceSpec.FromLook）。
+        Player.Voxels = new BoxerBody(Player, _world, playerTuning, playerModel, Outfit.RedCorner, BoxerVoxelOverrides.Shipped, playerLook,
+            _corners.PlayerFaceSpec ?? (playerLook is null ? null : FaceSpec.FromLook(playerLook, _corners.PlayerLabel ?? _corners.PlayerName ?? "player")));
+        Cpu.Voxels = new BoxerBody(Cpu, _world, cpuTuning, cpuModel, Outfit.BlueCorner, BoxerVoxelOverrides.Shipped, cpuLook,
+            _corners.CpuFaceSpec ?? FaceSpec.FromLook(cpuLook, _corners.CpuLabel ?? _corners.CpuName));
         Player.RefreshVoxelMass();
         Cpu.RefreshVoxelMass();
         // 破片はリングの上ならリングの面、その外は箱庭の台座・ローテーブルの天板、さらに外は床で止まる。
@@ -2010,6 +2024,26 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             Add(fighter.Condition.CleanHitsTaken);
             Add(fighter.IsDead ? 1f : 0f);
             Add((float)fighter.State);
+        }
+
+        // 頭に重ねた顔の層（削れ・へこみ）。
+        foreach (var fighter in _fighters)
+        {
+            if (fighter.Voxels?.Face is { } face)
+            {
+                Add(face.Body.Grid.FilledCount);
+                Add(face.Body.Grid.Version);
+            }
+        }
+
+        // 武器に重ねた手の格子（物 → 手の固定の順）。手が無ければ何も足さない（手の無い試合のチェックサムは変わらない）。
+        foreach (var weapon in _weapons)
+        {
+            for (var i = 0; i < weapon.Hands.Count; i++)
+            {
+                Add(weapon.Hands[i].Body.Grid.FilledCount);
+                Add(weapon.Hands[i].Body.Grid.Version);
+            }
         }
 
         Add(PlayerWins);

@@ -1,0 +1,112 @@
+CELL_MM 2.5
+Rows top first. Coordinates zero-based (x,y), top-left origin. All parts unmirrored for subject right on front view. Eye anchor is nearest centre white pixel; iris can occupy geometric centre. Brow inner end at image right. Mouth anchor is left of the two central columns, lower of central rows.
+LEGEND . empty; s skin; h hair; b brow; w eye white; i iris; l lip; e ear shadow; d deep socket skin #A07858 (extra symbol required for requested extra colour).
+
+eyes 1: round 8x5; anchor (4,2)
+ssssssss
+sswwwsss
+swwiwwss
+sswwwsss
+ssssssss
+
+eyes 2: narrow/hooded 8x5; anchor (3,2)
+ssssssss
+seeeeess
+sswwiwss
+ssssssss
+ssssssss
+
+eyes 3: almond 8x5; anchor (3,2)
+ssssssss
+ssssssss
+swwwiwws
+sswwwsss
+ssssssss
+
+eyes 4: upturned 8x5; anchor (3,2)
+ssssssss
+sswwwsss
+swiwwsss
+swssssss
+ssssssss
+
+eyes 5: downturned 8x5; anchor (4,2)
+ssssssss
+sswwwsss
+ssswwiws
+ssssssws
+ssssssss
+
+eyes 6: deep-set 8x5; anchor (3,2)
+sdddddds
+ddeeeedd
+ddwwiwdd
+ddeeeedd
+sdddddds
+
+brows 1: thin straight 8x3; anchor (6,1)
+ssssssss
+sbbbbbbs
+ssssssss
+
+brows 2: thick straight 8x3; anchor (6,1)
+sbbbbbbs
+sbbbbbbs
+ssssssss
+
+brows 3: arched 8x3; anchor (6,1)
+ssbbbsss
+sbsssbbs
+ssssssss
+
+brows 4: angled-up (fierce) 8x3; anchor (6,2)
+sbbsssss
+sssbbsss
+sssssbbs
+
+brows 5: soft downturned 8x3; anchor (6,0)
+sssssbbb
+sssbbsss
+sbbsssss
+
+brows 6: bushy 8x3; anchor (6,1)
+sbbbsbbs
+bbbbbbbs
+sbsbbsss
+
+mouth 1: thin 10x4; anchor (4,2)
+ssssssssss
+ssssssssss
+ssllllllss
+ssssssssss
+
+mouth 2: full 10x4; anchor (4,2)
+ssssssssss
+sssllllsss
+ssllllllss
+sssllllsss
+
+mouth 3: wide 10x4; anchor (4,2)
+ssssssssss
+ssssssssss
+slllllllls
+ssssssssss
+
+mouth 4: small 10x4; anchor (4,2)
+ssssssssss
+ssssssssss
+ssssllssss
+ssssssssss
+
+mouth 5: downturned 10x4; anchor (4,2)
+ssssssssss
+sssllllsss
+ssllssllss
+slssssssls
+
+mouth 6: slight smile 10x4; anchor (4,2)
+ssssssssss
+slssssssls
+ssllllllss
+ssssssssss
+

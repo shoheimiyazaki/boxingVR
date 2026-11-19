@@ -34,7 +34,7 @@ internal sealed class MenuView(MenuState state, PortraitSet portraits, Func<IRea
     internal const float BodyPixel = 1.5f;
 
     /// <summary>顔の 1 ピクセル（ボクセル 1 つ）の設計の画面での大きさ。</summary>
-    internal const float FacePixel = 3.7f;
+    internal const float FacePixel = 1.85f; // 顔の肖像は顔の層の細かさ（1 ピクセル = 約 2.5 mm）。5 mm のとき 3.7 だったので、同じ大きさに見えるよう半分
 
     /// <summary>画面の下に出す、エラー・知らせ。</summary>
     public string? Notice { get; set; }

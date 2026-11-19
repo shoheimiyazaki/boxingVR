@@ -1,0 +1,46 @@
+PALETTE D | sRGB hex
+Code colors used in grid:
+. empty/background #F4F1E9
+s skin #B98260 (replace with chosen skin tone)
+h hair #191716 (replace with chosen hair color)
+b brow #30251F
+w eye white #F3EDE4
+i iris #3B281D (replace with chosen iris color)
+l lip #995C5B
+e ear shadow #8E5B45
+n nostril #593A30
+k eyelid crease/shadow #80543F
+f freckle #875132
+
+SKIN | 10 tones, very fair to very dark
+01 Very fair #F6DDCC
+02 Fair #EEC9B2
+03 Light #DDB292
+04 Light medium #CFA07A
+05 Medium #B98260
+06 Medium deep #A66C49
+07 Deep #8C5436
+08 Dark #70402B
+09 Very dark #542F23
+10 Deepest #382219
+
+HAIR
+Black #191716
+Dark brown #302119
+Brown #513829
+Light brown #78553A
+Dark blond #9A7C4C
+Blond #D6B773
+Red/ginger #AB512D
+Grey #9B9996
+
+IRIS
+Dark brown #302017
+Brown #654127
+Hazel #88733E
+Green #60734E
+Grey #7B8588
+Blue #597D9B
+
+Skin, hair and iris choices are independent; do not infer nationality from them.
+

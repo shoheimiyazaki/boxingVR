@@ -344,9 +344,8 @@ internal static class MaaiLab
     /// <param name="referee">審判あり。</param>
     /// <param name="cells">距離の帯ごとの記録の入れ先（null なら取らない）。</param>
     /// <param name="onStep">毎歩、歩を進めた後に呼ぶ（試合の時刻・その歩の始めの距離。読むだけで試合に触れないこと）。</param>
-    /// <param name="keepRhythm">false なら教育の間の層（<c>Rhythm</c>）を外して測る（rhythmlab: 表を作った層が次の測りに混ざらないように）。</param>
     public static List<Throw> RunBout(FighterCharacter red, FighterCharacter blue, int seed, float seconds, bool referee, List<RangeCell>? cells = null,
-        Action<BoxingGame, float>? onStep = null, bool keepRhythm = true)
+        Action<BoxingGame, float>? onStep = null)
     {
         var range = new Dictionary<(string Fighter, string Opponent, int Bin), RangeCell>();
         void AddRange(string me, string opp, int bin, float dt, float dealt, float taken)
@@ -356,8 +355,8 @@ internal static class MaaiLab
             range[key] = c with { Seconds = c.Seconds + dt, Dealt = c.Dealt + dealt, Taken = c.Taken + taken };
         }
 
-        var redContender = RosterLeague.ContenderOf(red, blue.Id, null, keepRhythm, RosterLeague.EducationLayer.Rhythm);
-        var blueContender = RosterLeague.ContenderOf(blue, red.Id, null, keepRhythm, RosterLeague.EducationLayer.Rhythm);
+        var redContender = RosterLeague.ContenderOf(red, blue.Id, null);
+        var blueContender = RosterLeague.ContenderOf(blue, red.Id, null);
         var corners = VideoMaker.Corners(redContender, blueContender, seed, red.Wear, blue.Wear, red.Weapon, blue.Weapon,
             s => blueContender.Create(s), s => redContender.Create(s), referee);
         corners = VideoMaker.WithCharacters(corners, red, blue);

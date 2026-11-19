@@ -108,8 +108,13 @@ public sealed class BuildReadTests
 
     /// <summary>平均の胸と胸の距離 / 自分の腕の長さ（両方が立っている間）。</summary>
     /// <summary>居る距離の平均は 1 試合（12 秒）では足の運びの揺れで 0.1 ほど動くので、種を 3 つ回して平均する（1 つの種の差は揺れに埋もれる）。</summary>
-    private static float MeanDistanceInOwnReach(BotStyle style, BodyBuild build, float seconds)
-        => (MeanDistanceInOwnReach(style, build, seconds, 3) + MeanDistanceInOwnReach(style, build, seconds, 4) + MeanDistanceInOwnReach(style, build, seconds, 5)) / 3f;
+    /// <summary>種 3 から <paramref name="seeds"/> 本の平均（試合は種ごとに独立なので並べて回し、足す順は種の順で決まる）。</summary>
+    private static float MeanOverSeeds(BotStyle style, BodyBuild build, float seconds, int seeds)
+    {
+        var each = new float[seeds];
+        Parallel.For(0, seeds, i => each[i] = MeanDistanceInOwnReach(style, build, seconds, 3 + i));
+        return each.Sum() / seeds;
+    }
 
     private static float MeanDistanceInOwnReach(BotStyle style, BodyBuild build, float seconds, int seed)
     {
@@ -145,11 +150,15 @@ public sealed class BuildReadTests
         var longBuild = new BodyBuild(1f, 1.3f, 1f, 1f);
         var shortBuild = new BodyBuild(1f, 0.8f, 1f, 1f);
 
-        var withLayerLong = MeanDistanceInOwnReach(style, longBuild, 12f);
-        var withLayerShort = MeanDistanceInOwnReach(style, shortBuild, 12f);
+        // 2026-11-19（LogicVersion 55: 拳の狙いを胸の前へ寄せた）: 詰まった間の打ち合いが変わり、3 本 × 12 秒では層の差が揺らぎに埋もれた
+        // （層なし 0.52・層あり 0.46）。16 本 × 20 秒で測る: 層なし 0.50・層あり 0.61（直す前の master は 8 本 × 12 秒で 0.40・0.75）。
+        const int Seeds = 16;
+        const float Seconds = 20f;
+        var withLayerLong = MeanOverSeeds(style, longBuild, Seconds, Seeds);
+        var withLayerShort = MeanOverSeeds(style, shortBuild, Seconds, Seeds);
         var plain = BotCatalog.Style("boxer") with { BuildStandOff = 0f, BuildInside = 0f, BuildPush = 0f, BuildDuck = 0f, BuildAimBody = 0f }; // 層なし（従来）
-        var plainLong = MeanDistanceInOwnReach(plain, longBuild, 12f);
-        var plainShort = MeanDistanceInOwnReach(plain, shortBuild, 12f);
+        var plainLong = MeanOverSeeds(plain, longBuild, Seconds, Seeds);
+        var plainShort = MeanOverSeeds(plain, shortBuild, Seconds, Seeds);
 
         Assert.IsLessThan(withLayerShort, withLayerLong, $"層あり: 長い腕 {withLayerLong:0.00} < 短い腕 {withLayerShort:0.00}");
         // 2026-11-17（休む間も回り込む）: 層なし 0.51・層あり 0.54。差は広がるが前の余裕 0.05 には届かない。

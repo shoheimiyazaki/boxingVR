@@ -75,9 +75,6 @@ internal sealed class OpponentRead
     /// <summary>覚えた相手の拳の数。</summary>
     public int Onsets { get; private set; }
 
-    /// <summary>相手の拳の最後の出始めからの時間 [s]（まだ見ていなければ無限大）。</summary>
-    public float SinceOnset => _time - _lastOnset;
-
     /// <summary>相手が打ち始める間合いの平均（胸と胸、腕の長さ倍）。少なくとも数発見るまでは null。</summary>
     public float? AttackDistance => _openings >= MinOnsets ? _distanceSum / _openings : null;
 

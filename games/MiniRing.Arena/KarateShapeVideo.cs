@@ -78,7 +78,7 @@ internal static class KarateShapeVideo
                     if (d < distance)
                     {
                         (time, distance, chosen) = (t, d, hit);
-                        var head = game.Player.Voxels!.PartOf(game.Player.Parts.Head)!.Body;
+                        var head = (game.Player.Voxels!.Face ?? game.Player.Voxels.PartOf(game.Player.Parts.Head))!.Body; // 目は顔の層
                         var grid = head.Grid;
                         eyeDistance = Enumerable.Range(0, grid.CellCount)
                             .Where(i => grid.MaterialAt(i) is BoxerAnatomy.Eye or BoxerAnatomy.Pupil)

@@ -1,0 +1,211 @@
+{
+ "category": "eyes",
+ "legend": {
+  "s": "skin",
+  "h": "hair",
+  "b": "brow",
+  "w": "white",
+  "i": "iris",
+  "l": "lip",
+  "e": "shadow",
+  "d": "shadow",
+  "k": "shadow",
+  "f": "freckle",
+  "n": "nostril",
+  ".": "empty"
+ },
+ "parts": [
+  {
+   "id": "eyes.1",
+   "name": "monolid",
+   "anchor": [
+    4.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "ssssssss",
+      "sswwiiss",
+      "ssssssss",
+      "ssssssss"
+     ]
+    },
+    "side": {
+     "width": 4,
+     "height": 5,
+     "rows": [
+      "sss.",
+      "sss.",
+      "sski",
+      "sssi",
+      "sss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.2",
+   "name": "epicanthic fold",
+   "anchor": [
+    4.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "sskkkkss",
+      "sswwiiss",
+      "ssssssss",
+      "ssssssss"
+     ]
+    },
+    "side": {
+     "width": 4,
+     "height": 5,
+     "rows": [
+      "sss.",
+      "sss.",
+      "sski",
+      "sssi",
+      "sss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.3",
+   "name": "double eyelid",
+   "anchor": [
+    4.0,
+    3.5
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "sskkkkss",
+      "ssssssss",
+      "sswwiiss",
+      "ssssssss"
+     ]
+    },
+    "side": {
+     "width": 4,
+     "height": 5,
+     "rows": [
+      "sss.",
+      "sss.",
+      "sski",
+      "sssi",
+      "sss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.4",
+   "name": "deep-set",
+   "anchor": [
+    4.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "sskkkkss",
+      "sswwiiss",
+      "ssssssss",
+      "ssssssss"
+     ]
+    },
+    "side": {
+     "width": 4,
+     "height": 5,
+     "rows": [
+      "sss.",
+      "sss.",
+      "sski",
+      "ssi.",
+      "sss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.5",
+   "name": "wide open",
+   "anchor": [
+    3.8333,
+    2.8333
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "sskkkkss",
+      "swwiiwws",
+      "sswiisss",
+      "ssssssss"
+     ]
+    },
+    "side": {
+     "width": 4,
+     "height": 5,
+     "rows": [
+      "sss.",
+      "sss.",
+      "sski",
+      "sssi",
+      "sss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.6",
+   "name": "heavy-lidded",
+   "anchor": [
+    4.0,
+    3.5
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "ssssssss",
+      "sskkkkss",
+      "sswwiiss",
+      "ssssssss"
+     ]
+    },
+    "side": {
+     "width": 4,
+     "height": 5,
+     "rows": [
+      "sss.",
+      "sss.",
+      "sski",
+      "sssi",
+      "sss."
+     ]
+    }
+   }
+  }
+ ]
+}

@@ -447,8 +447,16 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         {
                             // 動作（休み・試合の始め・終わりのエモート）が始まったら、中継の出来事にする（実況・解説が、選手がいま何をしているかを知る）。
                             // 型は場面が分かる名前: break_action（休み）・start_action（試合の始め）・end_action（試合の終わり）。
+                            // リプレイを流している間は、選手の今の動作は画面に映らない: 知らせず、リプレイが明けてもまだ続いていればその時に知らせる
+                            // （休みのリプレイの最中に「深呼吸をしている」と実況していた。2026-11-19、ユーザー: 実況が見ているものと視聴者の見ているものが違う）。
+                            var replayOnScreen = breakPlan?.Any(s => s.Shot == TvShot.Replay && at - breakStartAt >= s.Start && at - breakStartAt < s.End) ?? false;
                             foreach (var (fighter, name) in new[] { (game.Player, redRing), (game.Cpu, blueRing) })
                             {
+                                if (replayOnScreen)
+                                {
+                                    continue;
+                                }
+
                                 var doing = game.BreakSourceOf(fighter)?.CurrentName;
                                 if (doing != breakDoing.GetValueOrDefault(fighter))
                                 {
@@ -934,8 +942,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// <summary>名簿のキャラクターは、体格・顔・表示名をそのキャラクターの値にする（ボットの性格はスタイル）。</summary>
     internal static BoxingCorners WithCharacters(BoxingCorners corners, MiniRing.Characters.FighterCharacter? red, MiniRing.Characters.FighterCharacter? blue)
     {
-        corners = red is null ? corners : corners with { PlayerBody = red.Build, PlayerFace = red.Look.Parts, PlayerLook = red.Look, PlayerLabel = red.HudName, PlayerStyle = red.Resolve(blue?.Id), PlayerWeaponStyle = red.WeaponStyle };
-        return blue is null ? corners : corners with { CpuBody = blue.Build, CpuFace = blue.Look.Parts, CpuLook = blue.Look, CpuLabel = blue.HudName, CpuWeaponStyle = blue.WeaponStyle };
+        corners = red is null ? corners : corners with { PlayerBody = red.Build, PlayerFace = red.Look.Parts, PlayerLook = red.Look, PlayerFaceSpec = red.Face, PlayerLabel = red.HudName, PlayerStyle = red.Resolve(blue?.Id), PlayerWeaponStyle = red.WeaponStyle };
+        return blue is null ? corners : corners with { CpuBody = blue.Build, CpuFace = blue.Look.Parts, CpuLook = blue.Look, CpuFaceSpec = blue.Face, CpuLabel = blue.HudName, CpuWeaponStyle = blue.WeaponStyle };
     }
 
     /// <summary>紹介の板の中身を 1 行に（台本の資料）。</summary>
@@ -1062,17 +1070,25 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// </summary>
     private (Matrix4x4 ViewProjection, Vector3 Eye) CameraAt(BoxingGame game, float orbit)
     {
-        var mid = (game.Player.ChestPosition + game.Cpu.ChestPosition) * 0.5f;
         var axis = game.Cpu.ChestPosition - game.Player.ChestPosition;
         axis.Y = 0f;
         // 赤（プレイヤー側）が画面の左、青が右に映る側から見る（字幕の左右と合わせる）。
         var side = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(Vector3.Cross(axis, Vector3.UnitY)) : -Vector3.UnitX;
-        // 2 人が離れているほど引く（コーナーから始まる試合で、両方のコーナーが画面に入る。45° の画角の横幅は距離の 1.47 倍）。打ち合う間合いでは今までの 0.9 m。
+        // 両者の全身（頭と腰）が入るよう、4 点の真ん中を見て、4 点の水平の広がりに比例して引く（45° の画角の横幅は距離の 1.47 倍）。
+        // 以前は胸と胸の間だけで決めていたので、倒れた相手に覆いかぶさると 0.9 m まで寄り、体の一部しか映らなかった（2026-11-19、ユーザー）。打ち合う間合いでは今までの 0.9 m。
+        Vector3[] points = [game.Player.HeadPosition, game.Player.PelvisPosition, game.Cpu.HeadPosition, game.Cpu.PelvisPosition];
+        var min = points.Aggregate(Vector3.Min);
+        var max = points.Aggregate(Vector3.Max);
+        var mid = (min + max) * 0.5f;
+        var spread = MathF.Max(axis.Length(), MathF.Max(max.X - min.X, max.Z - min.Z));
+        var reach = MathF.Max(0.9f, (spread + 0.5f) / 1.4f);
         // 離れている間は回り込みを小さくする（斜めから見ると手前の 1 人が画面の外へ出る）。
-        var reach = MathF.Max(0.9f, (axis.Length() + 0.5f) / 1.4f);
         var angle = 0.6f * MathF.Sin(orbit) * (0.9f / reach);
         var direction = Vector3.Transform(side, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
-        var eye = mid + (direction * reach) + new Vector3(0f, 0.38f * reach / 0.9f, 0f); // 手前のロープ越しに見下ろす高さ
+        // 見下ろす高さ: 立ち合いは手前のロープ越し（0.38 / 0.9 ≈ 23°）、倒れた選手がいるほど高く俯瞰する（最大で約 48°）。横たわった体は低い角度では重なって見えない。
+        var lying = MathF.Max(TvDirector.Lying(game.Player), TvDirector.Lying(game.Cpu));
+        var horizontal = reach * (1f - (0.3f * lying));
+        var eye = mid + (direction * horizontal) + new Vector3(0f, (0.38f / 0.9f + (0.7f * lying)) * reach, 0f);
         var target = mid - new Vector3(0f, 0.06f, 0f);
         eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
         return (Camera.ViewProjection(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f), eye);

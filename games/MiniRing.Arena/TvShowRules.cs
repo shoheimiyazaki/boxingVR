@@ -73,7 +73,8 @@ internal static class TvShowRules
 
     /// <summary>
     /// 団体の場（<see cref="OrgMatch"/>）を両コーナーに重ねる: レフェリーがいない団体ならいない（<paramref name="corners"/> がいないと言えばどちらでもいない）、
-    /// 檻の団体なら六角形の檻（両方が武器を握れば広い <see cref="RingLayout.WeaponsCage"/>、ほかは <see cref="RingLayout.Cage"/>。四角いリングの選び方と同じ）。
+    /// 檻の団体なら六角形の檻（どちらかが武器を握れば広い <see cref="RingLayout.WeaponsCage"/>、両者が素手なら <see cref="RingLayout.Cage"/>）。
+    /// 剣と素手の組を素手の狭い檻（1.3 m）に入れると、剣の間合いが檻の半分を占めて狭すぎた（2026-11-19、ユーザー: リングが小さすぎる。最初の VFC の剣どうしの 2.6 m に）。
     /// </summary>
     public static BoxingCorners Stage(BoxingCorners corners, Organization org)
     {
@@ -85,7 +86,7 @@ internal static class TvShowRules
         return org.Match.Arena == ArenaShape.HexCage && corners.Ring is not { Shape: ArenaShape.HexCage }
             ? staged with
             {
-                Ring = (corners.CpuWeapon is not null && corners.PlayerWeapon is not null ? RingLayout.WeaponsCage : RingLayout.Cage) with { FromCorners = corners.Ring?.FromCorners ?? false },
+                Ring = (corners.CpuWeapon is not null || corners.PlayerWeapon is not null ? RingLayout.WeaponsCage : RingLayout.Cage) with { FromCorners = corners.Ring?.FromCorners ?? false },
             }
             : staged;
     }

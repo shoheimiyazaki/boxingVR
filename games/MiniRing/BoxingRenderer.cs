@@ -49,9 +49,12 @@ public static class BoxingRenderer
         foreach (var weapon in game.Weapons)
         {
             // 武器もボクセルなので影の計算に入らない: 残っているボクセルを囲む見えない箱で影だけ落とす。
-            if (ShadowBox(weapon.Body) is { } shadow)
+            for (var i = 0; i < weapon.Grids.Count; i++)
             {
-                instances.Add(new PrimitiveInstance(PrimitiveKind.Cube, shadow, Vector3.Zero, Vector4.One, MaterialKind.ShadowCastOnly));
+                if (ShadowBox(weapon.Grids[i]) is { } shadow)
+                {
+                    instances.Add(new PrimitiveInstance(PrimitiveKind.Cube, shadow, Vector3.Zero, Vector4.One, MaterialKind.ShadowCastOnly));
+                }
             }
         }
 
@@ -84,7 +87,7 @@ public static class BoxingRenderer
     {
         // ボクセルの体は影の計算に入らないので、部位と切り落とされた破片ごとに、残っているボクセルを囲む見えない箱で影だけ落とす
         // （キャンバスに立つ人の影。切れた腕の付け根は短い影、床に落ちた腕にも影）。
-        foreach (var part in voxels.Parts.Concat(voxels.Fragments))
+        foreach (var part in voxels.Layers.Concat(voxels.Fragments))
         {
             if (ShadowBox(part.Body) is { } model)
             {
@@ -143,14 +146,14 @@ public static class BoxingRenderer
             // 目: 相手を見る黒目とまばたき（見た目だけ）。
             var other = ReferenceEquals(fighter, game.Player) ? game.Cpu : game.Player;
             var eyes = new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
-            foreach (var part in body.Parts)
+            foreach (var part in body.Layers)
             {
                 if (game.HidePlayerHead && ReferenceEquals(fighter, game.Player) && part.Kind == BodyPartKind.Head)
                 {
                     continue; // 一人称: 自分の頭は目の描画に入れない（カメラが頭の中にある）
                 }
 
-                voxels.Add(part.Draw(fighter.Cyanosis, eyes, fighter.Pallor)); // 血の酸素が減ると青紫に、心臓が送りきれないと青白く（見た目だけ）
+                voxels.Add(part.Draw(fighter.Cyanosis, eyes, fighter.Pallor)); // 血の酸素が減ると青紫に、心臓が送りきれないと青白く（見た目だけ）。顔の層も同じ
             }
 
             foreach (var fragment in body.Fragments)
@@ -161,7 +164,7 @@ public static class BoxingRenderer
 
         foreach (var weapon in game.Weapons)
         {
-            voxels.Add(weapon.Draw());
+            weapon.AddDraws(voxels);
         }
 
         foreach (var prop in game.BreakProps)

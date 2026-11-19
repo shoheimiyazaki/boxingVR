@@ -1,25 +1,35 @@
 using System.Numerics;
 using Aigis.Foundation;
+using Aigis.Foundation.Voxels;
 using MiniRing.Bots;
 
 namespace MiniRing.Arena;
 
 /// <summary>
-/// 全キャラの顔を並べた画像（正面と斜め 40 度）。頭のボクセルを正射影で描く（描画エンジンは使わない: どの機械でも同じ絵になり、
-/// 顔のテンプレートが作ったボクセルそのものを見られる）。キャラの並びは標準出力に出す（左上から右へ、上から下へ）。
+/// 全キャラの顔を並べた画像（1 人 1 行: 正面・横・上・斜め 40 度）。試合の体の頭（頭蓋骨の中の 5 mm の格子と、その上に重ねた顔の層の 2.5 mm の格子:
+/// <see cref="MiniRing.Voxels.FaceLayer"/>）を正射影で描く（描画エンジンは使わない: どの機械でも同じ絵になり、試合の体のボクセルそのものを見られる）。
+/// キャラの並びは標準出力に出す（上から下へ）。
 /// </summary>
 internal static class FaceSheet
 {
-    private const int Scale = 20;      // 1 セルを何 px で描くか（頭は約 12 セル）
-    private const int Tile = 18 * Scale; // 1 枚の大きさ
+    private const float PixelsPerMeter = 4000f; // 5 mm のセルが 20 px
+    private const int Tile = 360;               // 1 枚の大きさ（90 mm 四方）
     private const int Background = 0x2b2f38;
+
+    /// <summary>描く向き: 正面・横（本人の左から）・上（顔の前が下）・斜め 40 度。</summary>
+    private static readonly Matrix4x4[] Views =
+    [
+        Matrix4x4.Identity,
+        Matrix4x4.CreateRotationY(-MathF.PI / 2f),
+        Matrix4x4.CreateRotationX(MathF.PI / 2f),
+        Matrix4x4.CreateRotationY(40f * MathF.PI / 180f),
+    ];
 
     public static int Run(string path, IReadOnlyList<Contender> contenders, int columns)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(columns, 1);
-        var rows = (contenders.Count + columns - 1) / columns;
-        var width = columns * Tile * 2;
-        var height = rows * Tile;
+        var width = Views.Length * Tile;
+        var height = contenders.Count * Tile;
         var rgba = new byte[width * height * 4];
         for (var o = 0; o < rgba.Length; o += 4)
         {
@@ -30,74 +40,79 @@ internal static class FaceSheet
         {
             var c = contenders[i];
             using var game = new BoxingGame(seed: 1, corners: new BoxingCorners(c.Name, s => c.Create(s), CpuBody: c.Build, CpuFace: c.Face));
-            var grid = game.Cpu.Voxels!.PartOf(game.Cpu.Parts.Head)!.Body.Grid;
-            var (cx, cy) = (i % columns * Tile * 2, i / columns * Tile);
-            Render(rgba, width, cx, cy, grid, 0f);
-            Render(rgba, width, cx + Tile, cy, grid, 40f * MathF.PI / 180f);
-            Console.WriteLine($"{i + 1}: {c.Name} (head cells {grid.Dimensions})");
+            var head = game.Cpu.Voxels!.PartOf(game.Cpu.Parts.Head)!.Body.Grid;
+            var face = game.Cpu.Voxels!.Face?.Body.Grid;
+            VoxelGrid[] grids = face is null ? [head] : [head, face];
+            for (var v = 0; v < Views.Length; v++)
+            {
+                Render(rgba, width, v * Tile, i * Tile, grids, Views[v]);
+            }
+
+            Console.WriteLine($"{i + 1}: {c.Name} (head cells {head.Dimensions}, face layer {face?.Dimensions.ToString() ?? "none"})");
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         PngWriter.WriteRgba(path, width, height, rgba);
-        Console.WriteLine($"wrote {path} ({width}x{height})");
+        Console.WriteLine($"wrote {path} ({width}x{height}; columns: front, side, top, 3/4)");
         return 0;
     }
 
-    private static void Render(byte[] rgba, int imageWidth, int originX, int originY, Aigis.Foundation.Voxels.VoxelGrid grid, float yaw)
+    /// <summary>格子（同じ箱の中心に置いた、細かさの違う格子）を、向き <paramref name="view"/> で正射影に描く（奥行きの近い方が勝つ）。</summary>
+    private static void Render(byte[] rgba, int imageWidth, int originX, int originY, IReadOnlyList<VoxelGrid> grids, Matrix4x4 view)
     {
-        var (nx, ny, nz) = grid.Dimensions;
-        var center = new Vector3(nx, ny, nz) * 0.5f;
-        var rotation = Matrix4x4.CreateRotationY(yaw);
         var depth = new float[Tile * Tile];
         Array.Fill(depth, float.NegativeInfinity);
         var light = Vector3.Normalize(new Vector3(-0.4f, 0.7f, 0.9f));
-        for (var z = 0; z < nz; z++)
+        foreach (var grid in grids)
         {
-            for (var y = 0; y < ny; y++)
+            var (nx, ny, nz) = grid.Dimensions;
+            var size = (int)MathF.Ceiling(grid.CellSize.X * PixelsPerMeter * 1.45f);
+            for (var z = 0; z < nz; z++)
             {
-                for (var x = 0; x < nx; x++)
+                for (var y = 0; y < ny; y++)
                 {
-                    var material = grid.At(x, y, z);
-                    if (material == 0 || !grid.IsExposed(x, y, z))
+                    for (var x = 0; x < nx; x++)
                     {
-                        continue;
-                    }
-
-                    // 表面の向き: 空の隣の向きの和（正規化した値の向き）。
-                    var normal = Vector3.Zero;
-                    foreach (var (dx, dy, dz) in new[] { (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1) })
-                    {
-                        var (ax, ay, az) = (x + dx, y + dy, z + dz);
-                        if (ax < 0 || ay < 0 || az < 0 || ax >= nx || ay >= ny || az >= nz || grid.At(ax, ay, az) == 0)
+                        var material = grid.At(x, y, z);
+                        if (material == 0 || !grid.IsExposed(x, y, z))
                         {
-                            normal += new Vector3(dx, dy, dz);
+                            continue;
                         }
-                    }
 
-                    normal = normal == Vector3.Zero ? Vector3.UnitZ : Vector3.Normalize(Vector3.TransformNormal(normal, rotation));
-                    var p = Vector3.Transform(new Vector3(x + 0.5f, y + 0.5f, z + 0.5f) - center, rotation);
-                    var color = grid.Palette[material].SurfaceColor;
-                    var shade = 0.45f + (0.6f * MathF.Max(0f, Vector3.Dot(normal, light)));
-                    var rgb = new Vector3(color.X, color.Y, color.Z) * shade;
-                    var (px, py) = ((int)((Tile / 2f) + (p.X * Scale)) - (Scale / 2), (int)((Tile * 0.5f) - (p.Y * Scale)) - (Scale / 2));
-                    var quad = (int)MathF.Ceiling(Scale * (MathF.Abs(MathF.Cos(yaw)) + MathF.Abs(MathF.Sin(yaw))));
-                    px -= (quad - Scale) / 2;
-                    for (var oy = 0; oy < quad; oy++)
-                    {
-                        for (var ox = 0; ox < quad; ox++)
+                        // 表面の向き: 空の隣の向きの和。
+                        var normal = Vector3.Zero;
+                        foreach (var (dx, dy, dz) in new[] { (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1) })
                         {
-                            var (sx, sy) = (px + ox, py + oy);
-                            if (sx < 0 || sy < 0 || sx >= Tile || sy >= Tile || depth[sx + (Tile * sy)] >= p.Z)
+                            var (ax, ay, az) = (x + dx, y + dy, z + dz);
+                            if (ax < 0 || ay < 0 || az < 0 || ax >= nx || ay >= ny || az >= nz || grid.At(ax, ay, az) == 0)
                             {
-                                continue;
+                                normal += new Vector3(dx, dy, dz);
                             }
+                        }
 
-                            depth[sx + (Tile * sy)] = p.Z;
-                            var o = (((originY + sy) * imageWidth) + originX + sx) * 4;
-                            rgba[o] = (byte)Math.Clamp(rgb.X * 255f, 0f, 255f);
-                            rgba[o + 1] = (byte)Math.Clamp(rgb.Y * 255f, 0f, 255f);
-                            rgba[o + 2] = (byte)Math.Clamp(rgb.Z * 255f, 0f, 255f);
-                            rgba[o + 3] = 255;
+                        normal = normal == Vector3.Zero ? Vector3.UnitZ : Vector3.Normalize(Vector3.TransformNormal(normal, view));
+                        var p = Vector3.Transform(grid.CellCenter(x, y, z), view) * PixelsPerMeter;
+                        var color = grid.IsOriginalSurface(x, y, z) ? grid.Palette[material].SurfaceColor : grid.Palette[material].Color;
+                        var shade = 0.45f + (0.6f * MathF.Max(0f, Vector3.Dot(normal, light)));
+                        var rgb = new Vector3(color.X, color.Y, color.Z) * shade;
+                        var (px, py) = ((int)((Tile / 2f) + p.X) - (size / 2), (int)((Tile / 2f) - p.Y) - (size / 2));
+                        for (var oy = 0; oy < size; oy++)
+                        {
+                            for (var ox = 0; ox < size; ox++)
+                            {
+                                var (sx, sy) = (px + ox, py + oy);
+                                if (sx < 0 || sy < 0 || sx >= Tile || sy >= Tile || depth[sx + (Tile * sy)] >= p.Z)
+                                {
+                                    continue;
+                                }
+
+                                depth[sx + (Tile * sy)] = p.Z;
+                                var o = (((originY + sy) * imageWidth) + originX + sx) * 4;
+                                rgba[o] = (byte)Math.Clamp(rgb.X * 255f, 0f, 255f);
+                                rgba[o + 1] = (byte)Math.Clamp(rgb.Y * 255f, 0f, 255f);
+                                rgba[o + 2] = (byte)Math.Clamp(rgb.Z * 255f, 0f, 255f);
+                                rgba[o + 3] = 255;
+                            }
                         }
                     }
                 }

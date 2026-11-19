@@ -23,7 +23,7 @@ internal sealed class KarateVitals
         var body = victim.Voxels!;
         _initialTotal = Total(body);
         _initialMaterials = Enumerable.Range(0, BoxerAnatomy.Pupil + 1).Select(i => Remaining(body, (byte)i)).ToArray();
-        foreach (var part in body.Parts.Where(p => p.Kind is BodyPartKind.Head or BodyPartKind.Chest or BodyPartKind.Pelvis))
+        foreach (var part in body.Layers.Where(p => p.Kind is BodyPartKind.Head or BodyPartKind.Chest or BodyPartKind.Pelvis))
         {
             Matrix4x4.Invert(part.Body.GridToWorld(), out var inverse);
             _centers.Add(part.Body, Vector3.Transform(point, inverse));
@@ -32,9 +32,9 @@ internal sealed class KarateVitals
 
     internal float Radius { get; }
 
-    internal static int Total(BoxerBody body) => body.Parts.Concat(body.Fragments).Sum(p => p.Body.Grid.FilledCount);
+    internal static int Total(BoxerBody body) => body.Layers.Concat(body.Fragments).Sum(p => p.Body.Grid.FilledCount);
 
-    private static int Remaining(BoxerBody body, byte material) => body.Parts.Concat(body.Fragments).Sum(p => p.Body.Grid.Remaining(material));
+    private static int Remaining(BoxerBody body, byte material) => body.Layers.Concat(body.Fragments).Sum(p => p.Body.Grid.Remaining(material));
 
     /// <summary>Step の直後に一度だけ呼ぶ。記録内の座標は移動・へこみ前の格子ローカル。</summary>
     internal void Observe(IEnumerable<VoxelContactResult> contacts)

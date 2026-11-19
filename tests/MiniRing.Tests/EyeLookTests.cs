@@ -10,15 +10,27 @@ namespace MiniRing.Tests;
 [TestClass]
 public sealed class EyeLookTests
 {
+    /// <summary>
+    /// 白目が 2 段ある目（部品 eyes.5）の顔。F3 の目の部品はほかは白目が 1 段で、黒目の上下・まばたきの途中が見分けられない。
+    /// </summary>
+    internal static FaceSpec RoundEyes(string name)
+    {
+        var spec = FaceSpec.For(name);
+        var parts = spec.Parts.ToDictionary(p => p.Key, p => p.Value);
+        parts["eyes"] = new Dictionary<string, float> { ["eyes.5"] = 1f };
+        return spec with { Parts = parts };
+    }
+
     private static (BoxingGame Game, VoxelPart Head) Make()
     {
-        var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
+        var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()) with { CpuFaceSpec = RoundEyes("guard") });
         for (var i = 0; i < 30; i++)
         {
             game.Step(default, 1f / 60f);
         }
 
-        return (game, game.Cpu.Voxels!.Parts.Single(p => p.Kind == BodyPartKind.Head));
+        // 目は顔の層（頭の剛体に重ねた 2.5 mm の格子: FaceLayer）にある。
+        return (game, game.Cpu.Voxels!.Face!);
     }
 
     private static EyeScan ScanAt(VoxelPart head, Vector3 localTarget, float closure = 0f)
@@ -43,7 +55,7 @@ public sealed class EyeLookTests
         (int X, int Y, int Z) Cell(int index) => grid.Coordinates(index);
 
         // 左右の目それぞれで、向いた方向へ黒目のセルが動く。
-        // 目は 2 × 2 セルの面（白目 4 つ）なので、黒目は向いた方の列・段へ 1 セル動く（正面は両目が寄り目: 内側の列）。
+        // 目は横に長い面（顔の層で 4 × 2 セルほど）なので、黒目は向いた方の列・段へ動く（正面は両目が寄り目: 内側の列）。
         Assert.IsTrue(Cell(right.Pupil0).X > Cell(left.Pupil0).X, "+X eye: looking right puts the pupil on a higher column");
         Assert.IsTrue(Cell(right.Pupil1).X > Cell(left.Pupil1).X, "-X eye: same");
         Assert.IsTrue(Cell(forward.Pupil0).X >= Cell(left.Pupil0).X && Cell(forward.Pupil0).X <= Cell(right.Pupil0).X);

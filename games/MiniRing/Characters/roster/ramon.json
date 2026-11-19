@@ -76,6 +76,21 @@
     "brows": true, "beard": true,
     "parts": { "jaw": 1.05 }
   },
+  "face": {
+    "parts": {
+      "hair": { "hair.2": 1.0 },
+      "brows": { "brows.2": 1.0 },
+      "eyes": { "eyes.4": 1.0 },
+      "nose": { "nose.2": 0.5, "nose.6": 0.5 },
+      "mouth": { "mouth.3": 0.5, "mouth.8": 0.5 },
+      "jaw": { "jaw.2": 0.6, "jaw.9": 0.4 },
+      "ears": { "ears.4": 0.5, "ears.2": 0.5 },
+      "beard": { "beard.2": 1.0 },
+      "browridge": { "browridge.2": 0.5, "browridge.3": 0.5 }
+    },
+    "values": { "cheekbones": 1.4, "eyeSize": 0.88, "noseWidth": 1.25, "jawWidth": 1.2, "faceWidth": 1.12, "browThickness": 1.4, "nose": 0.95 },
+    "skin": [0.682, 0.471, 0.329], "hair": [0.129, 0.106, 0.09], "iris": [0.396, 0.255, 0.153]
+  },
   "body": {
     "build": { "height": 0.92, "arms": 0.95, "legs": 1, "muscle": 1.1 },
     "wear": "glove",
@@ -84,7 +99,6 @@
   "textbook": "swarmer",
   "education": {
     "style": {
-      "Rhythm": {"Weight":1,"Seize":1,"Quiet":4.336,"Bins":[{"From":0,"None":-2.247,"Guard":-1.034,"Clean":-1.404},{"From":0.1,"None":-0.03,"Guard":-0.614,"Clean":-0.488},{"From":0.2,"None":2.46,"Guard":1.784,"Clean":0.97},{"From":0.3,"None":2.399,"Guard":2.822,"Clean":0.161},{"From":0.4,"None":2.206,"Guard":1.68,"Clean":0.44},{"From":0.5,"None":1.185,"Guard":1.657,"Clean":0.179},{"From":0.6,"None":1.961,"Guard":1.531,"Clean":1.716},{"From":0.8,"None":4.003,"Guard":2.887,"Clean":2.481},{"From":1,"None":3.84,"Guard":2.82,"Clean":2.846}]},
       "BreakLikes": { "wipetears": 3.5, "crossself": 3, "hum": 2.5, "chestbeat": 2.5, "dance": 2, "roar": 2, "blowkiss": 2.5, "sandwich": 1.5, "bounce": 2, "headinhands": 2 },
       "GamePlan": {
         "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,

@@ -46,7 +46,6 @@
   handlelab [--pairs] [--fist] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--style-katana] [--style-longsword] [--style-club] [--style-staff] [--style-swordshield] [--style-bat] [--title]
   handlespar [--trainee] [--opponents] [--held-out] [--gens] [--lambda] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--start] [--best] [--out]
   maailab [--chars] [--focus id,..] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--json] [--csv] [--ranges]
-  rhythmlab [--chars] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--csv]
   staminalab [--variants] [--bots] [--bouts] [--seconds] [--seed] [--tv] [--out]
   learnlab [--first] [--second] [--seeds] [--seconds] [--seed] [--prior] [--scale] [--combos] [--defender] [--out]
   rangelab [--variants] [--bots] [--bouts] [--seconds] [--seed] [--weapons] [--out]

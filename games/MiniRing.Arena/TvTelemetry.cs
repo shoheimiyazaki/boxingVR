@@ -221,7 +221,7 @@ internal sealed class TvTelemetry
                 continue;
             }
 
-            foreach (var part in voxels.Parts)
+            foreach (var part in voxels.Layers) // 顔の層（頭皮・目・髪）も
             {
                 var grid = part.Body.Grid;
                 if (_snapshots.TryGetValue(part.Body, out var snap) && snap.Version == grid.Version && snap.Cells.Length == grid.CellCount)

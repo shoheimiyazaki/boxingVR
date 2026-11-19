@@ -10,7 +10,6 @@ CLAUDE.md §5 にはよく使う物だけを置き、ここに全部を書く。
 | 調査用の Probe | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~<名前>" --logger "console;verbosity=detailed"` |
 | 総当たり | `dotnet run --project games/MiniRing.Arena -c Release -- league --bouts 4 --seconds 60 --out docs/arena/<名前>.md` |
 | 名簿の総当たりと間合いのレポート（勝率・技ごとの間合い・得意 / 不得意の距離・画像入り） | `bash tools/roster-report/run-raytrek.sh media_tmp/roster-<日付>`（raytrek で約 2 時間）→ `shots.sh` → `build-data.mjs` → `analyze.mjs` → `build-images.mjs` → `build-page.mjs` → `preview.mjs` → 公開。手順は `docs/ROSTER_REPORT.md`。部品は `rosterleague --matrix <csv>`（1 試合 1 行）・`maailab [--ranges <接頭辞>]`（1 打ずつの間合いとダメージ、距離の帯ごとの与えた / 受けた）・`portraits --out <dir>`（肖像の PNG） |
-| 攻めのリズムと隙（打った後の被ダメ率・相手の拳の後に打つ機・空振りの後の損得） | `... -- rhythmlab [--chars a,b,...] [--bouts 6] [--seconds 60] [--seed 1] [--parallel 14] --out <md> --csv <csv>`（名簿の総当たり。raytrek で 17 人・6 試合 × 60 秒が約 20 分）→ `node tools/roster-report/fill-rhythm.mjs <csv>` で名簿の拳の選手の教育（`Rhythm`）へ。A/B は `rosterleague --layer rhythm --gameplan ab` と `--layer rhythm --gameplan off --ab on` を同じ種で回し、`py tools/roster-report/gameplan-ab-pair.py <dir> <種>`。`docs/BOTS.md`「間の層」 |
 | 攻撃のドリル | `... -- attacklab --combos 1,2,1-2 --telegraphs 0,0.1,0.2` |
 | 詰めのドリル（弱った相手の顔に当たるか） | `... -- finishlab [--attackers ramon,yoandry,marcus] [--victims dmitri,joao,ramon] [--levels 0.45,0.6] [--bouts 2] [--seconds 20] [--set AimLead=0] [--log docs/arena/<名前>.md]`（相手の意識を決まった深さで止め、拳ごとに顔・胴・ガード・空振りと外れた向き、技ごとの当たり・狙いのずれ。`docs/BOT_PDCA.md`「詰めのドリル」） |
 | 空手のドリル | `... -- karatelab [--only shapes,parry,kicks] [--cues 0,0.06] [--bouts N] [--seconds S] [--log docs/arena/<名前>.md]`（手形 × 急所・パリー・5 種の蹴り。`docs/KARATE.md`） |
@@ -31,6 +30,7 @@ CLAUDE.md §5 にはよく使う物だけを置き、ここに全部を書く。
 | 姿勢のモデルを比べる・揺さぶりで崩す | `... -- balancelab [--only old,cop,soft-poly,soft-disk,softcop]`（立つ・引く・歩く・蹴る・投げ・試合で、倒れた回数・浮いた時間）/ `... -- swaylab [--hz 0,1,2] [--ki 0,3] [--cycles 3] [--push 0.25]`（周波数ごとに揺さぶってから支え釣り込み足。`docs/GRAPPLING.md` §7・§9） |
 | 回避の形を体の動きで測る | `... -- formlab --punch 3 --slot Weave --style swarmer [--set "HeadY=-0.8,Step=0.8"] [--cue 0] [--bouts 3]`（頭の横・上下・前の軌跡、腰の沈み、拳と頭の距離。`docs/BOT_PDCA.md`） |
 | ボクセルの書き出し・確かめ | `... -- voxexport --out boxer.vox` / `voxcheck --in boxer.vox [--install yes]`（武器・はめる物は `weaponexport --out weapons.vox` / `weaponcheck --in weapons.vox [--install yes]`） |
+| CT から体のボクセルを作る | `py -3 -I tools/ct-body/fetch.py survey`・`fetch.py subject s1029`（TotalSegmentator を範囲指定で 1 人ぶん、リポジトリの外 `../ct-data/` へ）→ `build.py s1029 --out ../ct-data/out`（部位の .vox）→ `render.py <今.vox> <CT.vox> --out compare.png`（正面・横・上・断面）。計画は `docs/plans/CT_BODY_PLAN.md` |
 
 撮った動画・記録は、世代を区切るとき（`PhysicsVersion` を上げたマージ・大きな機能が master に入った）にワークツリーの分も含めて `media/<世代>/` へ移し、`docs/MEDIA.md` に足す。
 

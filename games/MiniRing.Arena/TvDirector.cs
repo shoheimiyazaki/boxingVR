@@ -560,7 +560,29 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
             return (TvShot.Main, null);
         }
 
+        if (!game.CountsDowns)
+        {
+            // ダウンを数えない団体（VFC）: 倒れた相手への追撃が長く続くので、両者の全身が入る俯瞰（いつものカメラ。倒れた選手がいると高く引く）を主にし、
+            // 真上と倒れた選手の寄りは間に短く挟む（2026-11-19、ユーザー: 追撃のカメラワークが見にくい。俯瞰を主に、上からとアップは補助）。
+            var cycle = since % ((DownOverviewSeconds + InsertShotSeconds) * 2f);
+            var half = DownOverviewSeconds + InsertShotSeconds;
+            return (cycle % half) < DownOverviewSeconds ? (TvShot.Main, null) : (cycle < half ? TvShot.Ceiling : TvShot.Ringside, downed);
+        }
+
         return (((int)(since / DownShotSeconds)) % 2 == 0 ? TvShot.Ceiling : TvShot.Ringside, downed);
+    }
+
+    /// <summary>ダウンを数えない団体で、倒れた選手がいる間の俯瞰の 1 カットの長さ [映像の s]（間に真上か寄りを <see cref="InsertShotSeconds"/> 秒挟む）。見て決めた値。</summary>
+    private const float DownOverviewSeconds = 7f;
+
+    /// <summary>
+    /// 選手がどれだけ横たわっているか（0 = 腰から頭が真上、1 = 腰と頭が同じ高さ）。腰から頭への線の傾き（高さの差 ÷ 長さ）から。体格によらない。カメラの高さを決める（見た目だけ）。
+    /// </summary>
+    public static float Lying(Fighter f)
+    {
+        var spine = f.HeadPosition - f.PelvisPosition;
+        var length = spine.Length();
+        return length < 1e-4f ? 0f : Math.Clamp(1f - (spine.Y / length), 0f, 1f);
     }
 
     /// <summary>天井のカメラ: 倒れた選手の腰の真上から見下ろし、ゆっくり寄る。</summary>
