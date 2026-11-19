@@ -64,6 +64,17 @@ internal static class TvDigest
             }
         }
 
+        // 本日のプログラムとこの試合に懸かるもの（王座・勝者が得るもの・済んだ試合）。撮影のときに書いた節があればそれを、無ければ表から作る。
+        var briefing = Text("programBriefing") is { Length: > 0 } written ? written
+            : root.TryGetProperty("program", out var programJson) && programJson.ValueKind == JsonValueKind.Object
+                ? TvProgram.FromJson(programJson.GetRawText(), _ => null).Briefing()
+                : "";
+        if (briefing.Length > 0)
+        {
+            sb.AppendLine();
+            sb.Append(briefing);
+        }
+
         sb.AppendLine();
         sb.AppendLine("## 台本の決まり（docs/TV_BROADCAST.md の要約）");
         sb.AppendLine();

@@ -170,6 +170,8 @@ function Get-ProgramJson([int]$current) {
         $row.current = ($j -eq $current)
         $row.stake = [string](Get-Field $bouts[$j] 'stake' '')
         $row.next = [string](Get-Field $bouts[$j] 'next' '')
+        # 王座が懸かった試合だけ書く（懸からない試合の表は前と同じ中身のまま: 表が変わると撮り直しになる）。実況・解説の資料が読む。
+        if (Get-Field $bouts[$j] 'belt' $false) { $row.belt = $true }
         $row
     }
     return ([ordered]@{ title = $programTitle; bouts = @($rows) } | ConvertTo-Json -Depth 4)
