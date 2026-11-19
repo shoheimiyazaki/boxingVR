@@ -80,6 +80,9 @@ public static partial class SwordForms
         FrontKick("tritt", Tag, LongswordSpacing),
     ];
 
+    /// <summary>ドリル用: 日本刀の水平の薙ぎを、手の高さ <paramref name="height"/>（腕の長さ = 1、胸の中心から）で。首・肩の高さを狙って測る（necklab）。</summary>
+    public static SwordMotion KatanaHorizontalAt(string name, float side, float height) => Horizontal(name, Chudan, KatanaSpacing, side, height);
+
     private static SwordMotion Horizontal(string name, (Vector3 R, float Az, float El) guard, float spacing, float side, float height) =>
         FromKeys(name, [Hold(0f, guard), Hold(0.2f, guard),
             new(0.6f, new(side * 0.45f, height, 0.8f), side * 1.25f, 0f, Twist: side * 0.25f),

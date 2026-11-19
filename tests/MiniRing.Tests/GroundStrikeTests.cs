@@ -201,9 +201,13 @@ public sealed class GroundStrikeTests
         // 的（Still）の詰める層を切った後（マージ 2026-11-17、LogicVersion 38）は、ロングソードが 0・2.5・3.9・0・0・0 で 2 つ（刀は 6 つ、こんぼうは 5 つ）。
         // ロングソードの打ち下ろしが倒れた相手に届きにくいのは既知の弱み（打ち下ろしを始める回数も 1〜6 回と少ない。docs/BOT_PDCA.md「倒れた相手への攻め」の残り）。
         // 6 つの種のうち 2 つ以上で見る（「振り下ろしが倒れた相手に届くことがある」まで。どの種でも届くことは確かめていない）。
-        var armed = Enumerable.Range(1, 6).Select(seed => Drill(BotCatalog.Champion, referee: false, weapon, useWeaponBots: true, seed: seed)).ToList();
+        // 2026-11-19（PhysicsVersion 59、顔・手の層と関節のつなぎ・滑りの直しのマージ）: こんぼうは種 1〜6 の傷が 0.9・0.9・0・0・2.9・0.2 で 1 つだけになった
+        // （直前の枝では 0・1.7・0・0.4・0.7・1.3 で 1 つ + 境の 1.3、master では 0.1・0・13・0.3 …）。倒れた相手の上の刃が届くかは種で大きく揺れる。
+        // 主張は「届くことがある」までなので、種を 12 に増やして（6 つの種が 2 つ以上、を 12 の種で 2 つ以上、に）見る。下限の 2 は変えない。
+        var armed = new DrillResult[12];
+        Parallel.For(0, armed.Length, i => armed[i] = Drill(BotCatalog.Champion, referee: false, weapon, useWeaponBots: true, seed: i + 1));
         var refereed = Drill(BotCatalog.Champion, referee: true, weapon, useWeaponBots: true);
-        for (var i = 0; i < armed.Count; i++)
+        for (var i = 0; i < armed.Length; i++)
         {
             Console.WriteLine(Line($"{weapon} off seed {i + 1}", armed[i]));
         }

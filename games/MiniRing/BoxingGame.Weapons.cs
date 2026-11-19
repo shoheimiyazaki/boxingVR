@@ -40,6 +40,11 @@ public sealed partial class BoxingGame
     /// </summary>
     public int MaxContactPasses { get; set; } = DefaultMaxContactPasses;
 
+    /// <summary>
+    /// 関節のつなぎ（<see cref="JointBridge"/>）を刃の接触に使うか。既定は使う。比べものの調べ（necklab・テスト）のために切れる（切っても体の運動は変わらない）。
+    /// </summary>
+    public bool JointBridges { get; set; } = true;
+
     /// <summary><see cref="MaxContactPasses"/> の既定（3。比べものの調べ（掃き直し 1 回 = 以前）のために変えられる）。
     /// 非同期の流れごとに持つ（<see cref="DefaultSubstepRate"/> と同じ）。</summary>
     public static int DefaultMaxContactPasses
@@ -272,6 +277,134 @@ public sealed partial class BoxingGame
         _wieldHand[weapon] = WeaponHand;
         return weapon;
     }
+
+    /// <summary>
+    /// 握っていない手 <paramref name="hand"/> が <see cref="HandCommand.Grip"/> を押しているとき、手が柄の近く（<see cref="FighterTuning.WeaponGraspReach"/>）に
+    /// あれば握る（グリップで持つ。VR の手。ボットと従来の操作は Grip を出さないので、ここへ来ない）:
+    /// <list type="bullet">
+    /// <item>自分がもう一方の手で握っている武器があれば、その武器に添える（両手持ち）。握る所は、先に握っている手から柄頭の側へ
+    /// 両手の通常の間隔（<see cref="Bots.FormSwordsman.Spacing"/> × 腕の長さ。柄の端まで）。</item>
+    /// <item>なければ、床に落ちている（誰も握っていない）武器を、鍔に近い握り（<see cref="Weapon.GripOf"/>）で拾う。左手だけでも持てる。</item>
+    /// </list>
+    /// 握る前に手にはめていた素手の拳は外す（<see cref="RetireWorn"/>）。
+    /// </summary>
+    private void TryGraspWeapon(Fighter self, Hand hand)
+    {
+        // 素手の拳（放した後の空いた手）は外して握れる。グローブ・はめ物（拳の試合）をはめた手は握れない。
+        if (_weapons.Count == 0 || self.Wields(hand) || self.ArmSevered(hand) || self.IsHolding(hand)
+            || (GloveOf(self, hand) is { } worn && worn.Kind != WeaponKind.Fist))
+        {
+            return;
+        }
+
+        var fist = self.GloveCenter(hand);
+        var reach = _tuning.WeaponGraspReach;
+        Weapon? own = null;
+        foreach (var (weapon, holder) in _wielders)
+        {
+            if (holder == self && !Weapon.IsWorn(weapon.Kind) && HolderOf(weapon) == self)
+            {
+                own = weapon;
+                break;
+            }
+        }
+
+        if (own is not null)
+        {
+            TryAddSupport(self, hand, own, fist, reach);
+            return;
+        }
+
+        Weapon? best = null;
+        var bestDistance = reach;
+        foreach (var weapon in _weapons)
+        {
+            if (Weapon.IsWorn(weapon.Kind) || OwnerOf(weapon) is not null)
+            {
+                continue; // はめ物・誰かが（切れた手でも）握っている物は拾えない
+            }
+
+            var s = _world.GetState(weapon.Body.BodyId);
+            var distance = Vector3.Distance(fist, s.Position + Vector3.Transform(Weapon.GripOf(weapon.Kind), s.Orientation));
+            if (distance <= bestDistance)
+            {
+                best = weapon;
+                bestDistance = distance;
+            }
+        }
+
+        if (best is null)
+        {
+            return;
+        }
+
+        RetireWorn(self, hand);
+        var kind = best.Kind;
+        self.Grasp(hand, best.Body.BodyId, Weapon.GripOf(kind), Weapon.CanTwoHand(kind), Weapon.SlideSpanOf(kind));
+        _wielders[best] = self;
+        _wieldHand[best] = hand;
+    }
+
+    /// <summary>自分が握っている武器 <paramref name="weapon"/> に、空いた手 <paramref name="hand"/> を添える（<see cref="TryGraspWeapon"/>）。</summary>
+    private void TryAddSupport(Fighter self, Hand hand, Weapon weapon, Vector3 fist, float reach)
+    {
+        var kind = weapon.Kind;
+        var main = HandOf(weapon);
+        if (hand == main || !Weapon.CanTwoHand(kind) || self.WieldedGrip(main) is not { } mainGrip)
+        {
+            return;
+        }
+
+        var (top, bottom) = Weapon.TwoHandGripsOf(kind);
+        var low = MathF.Min(top.X, bottom.X);
+        var high = MathF.Max(top.X, bottom.X);
+        var spacing = Bots.FormSwordsman.Handles(kind) ? Bots.FormSwordsman.Spacing(kind) * self.ArmReach : Weapon.HandSpacing;
+        var toPommel = MathF.Sign(bottom.X - top.X);
+        var x = Math.Clamp(mainGrip.X + (toPommel * spacing), low, high);
+        if (MathF.Abs(x - mainGrip.X) < 1e-3f)
+        {
+            x = Math.Clamp(mainGrip.X - (toPommel * spacing), low, high); // 先に握った手が柄頭の端にある（棍棒の片手の握り）: 反対の側へ添える
+        }
+
+        // 手が柄（握れる区間）のどこかの近くにあるか。
+        var s = _world.GetState(weapon.Body.BodyId);
+        var axis = Vector3.Transform(Vector3.UnitX, s.Orientation);
+        var along = Math.Clamp(Vector3.Dot(fist - s.Position, axis), low, high);
+        if (Vector3.Distance(fist, s.Position + (axis * along)) > reach)
+        {
+            return;
+        }
+
+        RetireWorn(self, hand);
+        self.Support(hand, main, new Vector3(x, 0f, 0f));
+    }
+
+    /// <summary>
+    /// 手 <paramref name="hand"/> にはめている素手の拳（<see cref="BareFreeHands"/> がはめた物）を外す。物理の世界から剛体は消せないので、
+    /// 関節を外し、手の管理（武器の一覧・握っている手の表）から外して、遠く（床の下）に動かない物として置く。
+    /// </summary>
+    private void RetireWorn(Fighter self, Hand hand)
+    {
+        if (GloveOf(self, hand) is not { } worn)
+        {
+            return;
+        }
+
+        self.Unwield(hand);
+        self.SetStrikeReach(hand, null);
+        var id = worn.Body.BodyId;
+        _world.MakeKinematic(id);
+        _world.SetKinematicPose(id, new Vector3(0f, -RetiredWornDepth, 0f), Quaternion.Identity);
+        _wielders.Remove(worn);
+        _wieldHand.Remove(worn);
+        _weapons.Remove(worn);
+        _fullReach.Remove(worn);
+        _weaponCooldown.Remove(worn);
+        _selfCooldown.Remove(worn);
+    }
+
+    /// <summary>武器を握る手から外した素手の拳を置く深さ [m]（床の下。物理の世界から剛体を消せないので、遠くへ動かない物として置く）。</summary>
+    private const float RetiredWornDepth = 1000f;
 
     /// <summary>
     /// <see cref="Sense"/> に、握った武器の見え方を足したもの: 自分が武器を握っているか、相手の武器の握り・先・先の速度。
@@ -779,6 +912,7 @@ public sealed partial class BoxingGame
             var passes = Weapon.IsWorn(weapon.Kind) ? 1 : MaxContactPasses;
             var touched = _touchedScratch;
             touched.Clear();
+            _touchedBridgeScratch.Clear();
             for (var pass = 0; pass < passes; pass++)
             {
                 var poseBefore = _world.GetState(weapon.Body.BodyId);
@@ -851,6 +985,87 @@ public sealed partial class BoxingGame
                     }
                 }
             }
+
+            // 関節のつなぎ: 部位の間の隙間を通る刃も、関節の肉・骨に当たる。握った本人の体のつなぎは数えない（自分の体の中で押し合うだけ）。
+            if (JointBridges && !holds && deadHand is null && !Weapon.IsWorn(weapon.Kind))
+            {
+                ResolveBridges(weapon, before, drive, behind, fighter, includeHolder);
+            }
+        }
+    }
+
+    private readonly HashSet<JointBridge> _touchedBridgeScratch = [];
+
+    /// <summary>
+    /// 武器 <paramref name="weapon"/> × 相手の関節のつなぎ（<see cref="JointBridge"/>）。つながった 2 つの部位の隙間にある組織を、部位と同じ接触（圧力と材質）で
+    /// 解き、断たれたら、そのつなぎがつないでいた両側の部位のセルを壊す（骨が断たれたら落ちる、は部位の接触と同じ後始末）。
+    /// 掃き直し（<paramref name="firstPass"/> でない）では、まだ触れていないつなぎだけ。
+    /// </summary>
+    private void ResolveBridges(Weapon weapon, BodyState before, Vector3 drive, float behind, Fighter victim, bool firstPass)
+    {
+        if (victim.Voxels is not { } body)
+        {
+            return;
+        }
+
+        foreach (var bridge in body.Bridges)
+        {
+            if (!firstPass && _touchedBridgeScratch.Contains(bridge))
+            {
+                continue;
+            }
+
+            var (parent, child) = (bridge.Parent.Body.BodyId, bridge.Child.Body.BodyId);
+            if (!victim.JointIntact(parent, child) || !_beforeStep.TryGetValue(parent, out var parentBefore) || !MayTouch(weapon.Body, before, bridge.Body, parentBefore))
+            {
+                continue;
+            }
+
+            if (!bridge.RefreshNear(weapon.Body, before))
+            {
+                continue;
+            }
+
+            var hit = VoxelContact.Resolve(weapon.Body, before, bridge.Body, parentBefore, drive, massBehindA: behind, pressBeneath: false);
+            if (hit.Touched)
+            {
+                _touchedBridgeScratch.Add(bridge);
+            }
+
+            CutBridge(weapon, victim, bridge, hit);
+        }
+    }
+
+    /// <summary>
+    /// 武器 × 関節のつなぎの接触の後始末: つなぎのセルが断たれたら、その両側の部位のセルを壊し（<see cref="JointBridge.Sever"/>）、部位ごとに
+    /// 普通の接触と同じ後始末（<see cref="Wound(Weapon, VoxelBody, Fighter, VoxelPart, VoxelContactResult)"/>: 骨が断たれたら落とし、臓器が壊れたら死なせ、散らす）をする。
+    /// 何も断たなかった接触は、親の部位への当たりとして残す（刃を止めた・かすめた）。
+    /// </summary>
+    private void CutBridge(Weapon weapon, Fighter victim, JointBridge bridge, VoxelContactResult hit)
+    {
+        if (!hit.Touched)
+        {
+            return;
+        }
+
+        Snapped(weapon, hit.SnappedA);
+        var severed = hit.RemovedB.Count > 0 ? bridge.Sever(hit) : [];
+        if (severed.Count == 0)
+        {
+            var bump = hit with { B = bridge.Parent.Body };
+            _recentCuts.Add(bump);
+            NoteContact(bump);
+            return;
+        }
+
+        var first = true;
+        foreach (var (part, cells) in severed)
+        {
+            var partHit = hit with { B = part.Body, RemovedA = first ? hit.RemovedA : [], RemovedB = cells, CrushedA = null, CrushedB = null, BentA = null, BentB = null };
+            first = false;
+            part.Body.UpdateMass(); // 部位のセルが減ったぶん、質量と剛体の形を合わせる（普通の接触は VoxelContact が呼ぶ）
+            _recentCuts.Add(partHit);
+            Wound(weapon, weapon.Body, victim, part, partHit);
         }
     }
 

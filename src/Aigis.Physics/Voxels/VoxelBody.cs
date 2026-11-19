@@ -145,6 +145,12 @@ public sealed class VoxelBody
     public int? BeamAxis { get; set; }
 
     /// <summary>
+    /// True for a contact shape that only borrows another body's rigid body (a bridge between two limb parts: it rides the parent's pose and
+    /// takes the contact's impulse on it) and owns none of its mass or collider: <see cref="UpdateMass"/> then changes nothing.
+    /// </summary>
+    public bool Massless { get; init; }
+
+    /// <summary>
     /// Whether this body is the struck side of a contact whatever the grids' fineness (<see cref="VoxelContact.Resolve"/> sweeps the finer
     /// grid through the coarser one, and only the coarser one, the field, is crushed beneath a face that held). A layer of fine soft tissue
     /// over a coarser body (a face over the skull) stays the field against a coarser glove, club or shin: it is what the blow presses into.
@@ -637,6 +643,11 @@ public sealed class VoxelBody
     /// </summary>
     public void UpdateMass()
     {
+        if (Massless)
+        {
+            return; // 剛体を借りているだけの接触の形（関節のつなぎ）: 剛体の形も質量も変えない
+        }
+
         if (_owner is not null)
         {
             _owner.UpdateMass(); // one rigid body, one collider and one mass: the owner fits them to every grid it carries

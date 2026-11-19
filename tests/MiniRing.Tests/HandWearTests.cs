@@ -118,7 +118,11 @@ public sealed class HandWearTests
             game.GloveOf(game.Player, h)!.Body.Grid is var g && material is { } m ? g.Remaining(m) : g.FilledCount);
         var before = Filled();
         var wornBefore = Worn();
-        var ironBefore = Worn(BoxerAnatomy.Iron);
+        // 鉄の「壊れた」数: 折れて分かれた先（細い刃先が曲げで折れた: VoxelContact.Snap）は鉄のまま別の物として残る（game.Weapons の破片）ので失っていない。
+        // 数えるのは、潰れた・削られて無くなった鉄だけ（2026-11-19、PhysicsVersion 59: champion 種 3 の 2.2 秒に、カタールの先の鉄 2 セルが折れて分かれた。
+        // 胸の皮膚に当たった曲げで、打撃の記録は無い。削れて消えた鉄は 0）。
+        int Iron() => game.Weapons.Sum(w => w.Body.Grid.Remaining(BoxerAnatomy.Iron));
+        var ironBefore = Iron();
         var hits = 0;
         var speed = 0f;
         for (var t = 0f; t < seconds; t += 1f / 60f)
@@ -131,7 +135,7 @@ public sealed class HandWearTests
             }
         }
 
-        return new BoutResult(before - Filled(), hits, hits > 0 ? speed / hits : 0f, wornBefore - Worn(), ironBefore - Worn(BoxerAnatomy.Iron));
+        return new BoutResult(before - Filled(), hits, hits > 0 ? speed / hits : 0f, wornBefore - Worn(), ironBefore - Iron());
     }
 
     private static BoutResult Sum(BoutResult a, BoutResult b) => new(a.Carved + b.Carved, a.Hits + b.Hits,

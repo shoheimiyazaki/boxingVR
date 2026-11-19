@@ -148,6 +148,11 @@ public static class BoxingRenderer
             var eyes = new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
             foreach (var part in body.Layers)
             {
+                if (game.HidePlayerHead && ReferenceEquals(fighter, game.Player) && part.Kind == BodyPartKind.Head)
+                {
+                    continue; // 一人称: 自分の頭は目の描画に入れない（カメラが頭の中にある）
+                }
+
                 voxels.Add(part.Draw(fighter.Cyanosis, eyes, fighter.Pallor)); // 血の酸素が減ると青紫に、心臓が送りきれないと青白く（見た目だけ）。顔の層も同じ
             }
 
