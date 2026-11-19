@@ -63,6 +63,7 @@
 ボットの判断の仕組みを変えたら上げる。
 
 - **57**: master の 55（間の層を外した・拳と肘の狙いを自分の胸の前より手前に来ないように寄せた）と、ブランチ claude/sword-combat-techniques-51f876 の 55（下の行）を合わせた（2026-11-19 のマージ、PhysicsVersion 59）。56 はブランチ claude/ct-body が使う（この枝の関節のつなぎを取り込んだ番号）ので飛ばした。
+- **56**: ⚠ 55 が 2 つあったのを合わせた（2026-11-19、枝 claude/ct-body でのマージ）: ブランチ claude/spacing-control-features-a34e7d の 55（間の層を外した・拳と肘の狙いを自分の胸の前に寄せた）と、ブランチ claude/sword-combat-techniques-51f876（worktree-agent-a1d3b799d8ec924e6、関節のつなぎ）の 55（下の行: master の 54 と滑りの直しの後の蹴りの差分）。判断の中身はそれぞれの 55 のまま。
 - **55**: master の 54 と、ブランチ claude/sword-combat-techniques-51f876 の 52（滑りの直しの後の蹴りの差分）を合わせた（2026-11-19 のマージ）。蹴りの差分は 53 の物理で練習し直す。 練習し直した（2026-11-19）: `kickshin --practice yes`（方位 ±0.8・仰角 ±0.9 に広げ、前蹴りの間合いは 1.7 まで: BatFormsTests）で 4 ファイルを取り直した（docs/arena/kick_shin_lmh_v53_*.md、docs/TAEKWONDO.md）。
 - **52**（ブランチ claude/sword-combat-techniques-51f876、2026-11-19）: 足の滑りの直し（PhysicsVersion 49）の後に、蹴りの練習（`kickshin --practice yes`、間合いの上限を 1.6 から 1.9 に広げ、`--seed` を足した）をやり直して `Bots/kicks/*.tune.json` 4 つを取り直した。前の差分は流れる立ち方（胸と胸 1.70）で合わせた値で、直した後は 0 / 6 前後。使っていない条件で比べて採った（docs/arena/kick_shin_lmh_v49_*.md、docs/TAEKWONDO.md、docs/BOT_PDCA.md）。
 - **53**: ブランチ claude/spacing-control-features-a34e7d の 52（間の層）と、ブランチ claude/vfc の 52（武器を失ったボットが支給された武器をまた握る）を合わせた（2026-11-18 のマージ）。

@@ -48,6 +48,54 @@ public sealed class JointBridgeTests
         }
     }
 
+    /// <summary>
+    /// CT から作った体は、部位のまわり（<see cref="BoxerVoxelOverrides.HaloFor"/>: 切れ目の向こうにつながる組織）を持つ。首のつなぎの隙間のセルは、
+    /// 親（胸）のまわりのその所の組織になる（ここでは全部を動脈にしたまわり）。まわりが無ければ今までどおり、近い 2 つのセルの強い方（動脈は出てこない）。
+    /// </summary>
+    [TestMethod]
+    public void TheNeckGap_TakesItsTissueFromTheParentsHalo_WhenThereIsOne()
+    {
+        using var game = StandingGame();
+        var p = game.Cpu.Parts;
+        var chest = game.World.GetState(p.Chest);
+        var joint = chest.Position + (Vector3.Transform(Vector3.UnitY, chest.Orientation) * game.Cpu.HalfExtentsOf(p.Chest).Y);
+        var q = Quaternion.CreateFromAxisAngle(game.Cpu.Frame.Right, 40f * MathF.PI / 180f);
+        var head = game.World.GetState(p.Head);
+        game.World.SetDynamicPose(p.Head, joint + Vector3.Transform(head.Position - joint, q), Quaternion.Concatenate(head.Orientation, q));
+        var neck = game.Cpu.Voxels!.Bridges.Single(b => b.Joint == HumanoidRagdoll.RagdollJoint.Neck);
+        var anchor = game.Cpu.BridgeJoints().Single(j => j.Joint == HumanoidRagdoll.RagdollJoint.Neck).AnchorOnParent;
+        var (x, y, z) = neck.Parent.Body.Grid.Dimensions;
+        var m = BoxerVoxelOverrides.HaloMargin;
+        var dims = (x + (2 * m), y + (2 * m), z + (2 * m));
+        var halo = new BoxerVoxelOverrides.PartCells(dims, Enumerable.Repeat(BoxerAnatomy.Artery, dims.Item1 * dims.Item2 * dims.Item3).ToArray());
+        var withHalo = new JointBridge(neck.Joint, neck.Parent, neck.Child, anchor, neck.ParentLayers, neck.ChildLayers, parentHalo: halo);
+
+        neck.Refresh(_ => true);
+        withHalo.Refresh(_ => true);
+        int Count(JointBridge b, Func<byte, bool> which) =>
+            Enumerable.Range(0, b.Body.Grid.CellCount).Count(i => b.Body.Grid.MaterialAt(i) is var c && c != 0 && which(c));
+        TestContext.WriteLine($"neck gap cells: without a halo {neck.ActiveCells}, with {withHalo.ActiveCells}");
+        Assert.AreEqual(neck.ActiveCells, withHalo.ActiveCells, "the halo changes what fills the gap, not where the gap is");
+        Assert.IsGreaterThan(10, withHalo.ActiveCells);
+        Assert.AreEqual(withHalo.ActiveCells, Count(withHalo, c => c == BoxerAnatomy.Artery), "every gap cell is the halo's tissue there");
+        Assert.AreEqual(0, Count(neck, c => c == BoxerAnatomy.Artery), "without a halo the gap takes the nearer parts' cells");
+
+        // 並びの確かめ: まわりの 1 セルだけを動脈にすると、隙間のうち、親の格子でそのセルに当たる 1 セルだけが動脈になる（1 セルずれ・軸の取り違えがあれば外れる）。
+        var grid = withHalo.Body.Grid;
+        var gap = Enumerable.Range(0, grid.CellCount).First(i => grid.MaterialAt(i) != 0);
+        var (gx, gy, gz) = grid.Coordinates(gap);
+        var parentGrid = neck.Parent.Body.Grid;
+        var inParent = grid.CellCenter(gx, gy, gz) + withHalo.Body.GridCenterLocal - neck.Parent.Body.GridCenterLocal;
+        var c = (inParent + parentGrid.HalfExtents) / parentGrid.CellSize;
+        var (px, py, pz) = ((int)MathF.Floor(c.X) + m, (int)MathF.Floor(c.Y) + m, (int)MathF.Floor(c.Z) + m);
+        var one = new byte[dims.Item1 * dims.Item2 * dims.Item3];
+        one[px + (dims.Item1 * (py + (dims.Item2 * pz)))] = BoxerAnatomy.Artery;
+        var single = new JointBridge(neck.Joint, neck.Parent, neck.Child, anchor, neck.ParentLayers, neck.ChildLayers, parentHalo: new BoxerVoxelOverrides.PartCells(dims, one));
+        single.Refresh(_ => true);
+        Assert.AreEqual(1, Count(single, b => b == BoxerAnatomy.Artery), "one halo cell gives one gap cell");
+        Assert.AreEqual(BoxerAnatomy.Artery, single.Body.Grid.MaterialAt(gap), "and it is the gap cell over that parent cell");
+    }
+
     [TestMethod]
     public void TheNeckBridge_FillsTheGapBetweenHeadAndChest_StandingAndTipped()
     {

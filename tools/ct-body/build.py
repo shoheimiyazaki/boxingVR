@@ -40,6 +40,8 @@ PART_ORDER = ["Head", "Chest", "Pelvis", "UpperArm", "Forearm", "Thigh", "Shin",
 
 # Outfit (BoxerAnatomy.Dress): pelvis surface is trunks, its top band the waistband.
 RED_TRUNKS, WAISTBAND, HAIR, LIP, PUPIL = 10, 12, 14, 21, 15
+BOOT = 13
+COVERINGS = [1, RED_TRUNKS, 11, WAISTBAND, BOOT]  # skin and clothes: what an outer cell may be
 WAISTBAND_FROM = 0.55  # normalised Y, BoxerAnatomy.WaistbandFrom
 
 # Arteries: the narrowest vessel kept [mm, human]. The user asked for the arteries a 5 mm voxel can pick up; this is
@@ -52,14 +54,33 @@ ARTERY_MIN_HU = 150.0
 # Colour of BoxerAnatomy.Artery (1, 0, 0.25) as .vox RGBA; voxcheck reads materials back by colour, so it must match.
 ARTERY_RGBA = 255 | (0 << 8) | (64 << 16) | (255 << 24)
 
+# Airway (trachea and main bronchi): air below this [HU] (air -1000, lung tissue around -850 is labeled and excluded).
+AIR_HU = -500.0
+MIN_AIRWAY_MM = 5.0
+# Arteries in the arms and legs are followed further, down to this diameter [mm] (the CT shows a 3 mm lumen as 2 voxels):
+# the trunk keeps MIN_ARTERY_MM so its many small branches do not crowd the cells, the limbs keep their one main artery.
+MIN_LIMB_ARTERY_MM = 3.0
+# How far beyond a limb part (3 mm voxels) its artery may start from the trunk's arteries (the subclavian and the iliac
+# end a few centimetres before the shoulder and hip cuts).
+LIMB_SEED_REACH = 10
+
+# Shin length relative to the femur when the ankle cannot be found (adult tibia ~0.8 of the femur).
+SHIN_TO_FEMUR = 0.8
+# Fitting the CT into the boxer outline: classes that must not be cut off by it, the share of them that may be lost, and
+# how far the CT may be drawn in across a part to fit (1 = not at all).
+CORE_CLASSES = [L.CLS_BONE, L.CLS_BRAIN, L.CLS_CORD, L.CLS_HEART, L.CLS_LUNG, L.CLS_LIVER, L.CLS_GUT, L.CLS_ARTERY, L.CLS_AIRWAY]
+OUTLINE_CORE_LOSS = 0.02
+OUTLINE_MIN_SCALE = 0.9  # drawing in further shrank the ribs and pelvis visibly (0.72 lost a third of the chest's bone)
+
 # Forearm length relative to the humerus when the scan does not show the wrist (adult radius ~0.80 of humerus length).
 FOREARM_TO_HUMERUS = 0.8
 
 
 # ---------------------------------------------------------------- 1-2: class volume
 
-def load_subject(subject_dir: Path):
-    """Class volume (uint8, 3 mm), body-frame coordinates of each index, and named masks needed for landmarks."""
+def load_subject(subject_dir: Path, scratch: Path):
+    """Class volume (uint8, 3 mm), body-frame coordinates of each index, and named masks needed for landmarks.
+    The full-resolution CT and the union of all masks are left in `scratch` (memory-mapped .npy) for the limb pass."""
     ct, header = nifti.load(subject_dir / "ct.nii.gz")
     affine = header.affine.copy()
     # Every later step assumes index order = increasing x, y, z (k up). A scan stored head-to-foot (or right-to-left) is
@@ -74,6 +95,7 @@ def load_subject(subject_dir: Path):
     affine[:3, :3] *= STEP
     labeled_full = np.zeros(ct_full.shape, bool)
     artery_full = np.zeros(ct_full.shape, bool)
+    airway_full = np.zeros(ct_full.shape, bool)
     keep = {"humerus_left", "humerus_right", "skull", "hip_left", "hip_right", "vertebrae_L3", "femur_left", "femur_right",
             "clavicula_left", "clavicula_right", "scapula_left", "scapula_right"}
     cls = np.zeros(ct.shape, np.uint8)
@@ -92,6 +114,8 @@ def load_subject(subject_dir: Path):
         labeled_full |= full
         if L.tool_class(label) == L.CLS_ARTERY:
             artery_full |= full
+        if L.tool_class(label) == L.CLS_AIRWAY:
+            airway_full |= full
         m = np.ascontiguousarray(full[::STEP, ::STEP, ::STEP])
         del full
         masks_by_class.setdefault(L.tool_class(label), []).append(m)
@@ -100,10 +124,19 @@ def load_subject(subject_dir: Path):
             parts, count = ndimage.label(m)
             named[label] = parts == (1 + int(np.argmax(ndimage.sum_labels(m, parts, np.arange(1, count + 1))))) if count > 1 else m
     traced_full, artery_report = trace_arteries(ct_full, labeled_full, artery_full, header.zooms)
-    del ct_full, labeled_full, artery_full
+    del artery_full
+    airway_traced, airway_report = trace_airway(ct_full, labeled_full, airway_full, header.zooms)
+    del airway_full
+    np.save(scratch / "ct_full.npy", ct_full)
+    np.save(scratch / "labeled_full.npy", labeled_full | traced_full | airway_traced)
+    np.save(scratch / "artery_full.npy", traced_full)
+    del ct_full, labeled_full
     traced = np.ascontiguousarray(traced_full[::STEP, ::STEP, ::STEP])
     artery_any = block_any(traced_full, ct.shape)  # for keeping the arteries connected (vote): any traced voxel in the 3 mm block
     del traced_full
+    airway = np.ascontiguousarray(airway_traced[::STEP, ::STEP, ::STEP])
+    airway_any = block_any(airway_traced, ct.shape)
+    del airway_traced
     labeled = np.zeros(ct.shape, bool)
     for c in L.PAINT_ORDER:
         for m in masks_by_class.get(c, []):
@@ -134,15 +167,19 @@ def load_subject(subject_dir: Path):
         unlabeled_bone = big[lab]
     cls[unlabeled_bone] = L.CLS_BONE
     cls[body & traced] = L.CLS_ARTERY
+    cls[body & airway] = L.CLS_AIRWAY
     for c in L.PAINT_ORDER:
         for m in masks_by_class.get(c, []):
             cls[m] = c
     artery_any &= body
+    airway_any &= body
     for side in ("left", "right"):
         hum, cla = named.get(f"humerus_{side}"), named.get(f"clavicula_{side}")
         if hum is not None and cla is not None and centroid(hum)[2] > centroid(cla)[2]:
             raise SystemExit(f"the {side} arm is raised above the shoulder; pick a scan with the arms down")
-    return cls, affine, named, unlabeled_bone, artery_any, artery_report
+    return {"cls": cls, "affine": affine, "named": named, "unlabeled_bone": unlabeled_bone, "body": body,
+            "tubes": {L.CLS_ARTERY: artery_any, L.CLS_AIRWAY: airway_any},
+            "report": {"arteries": artery_report, "airway": airway_report}, "zooms": header.zooms, "flips": flips}
 
 
 def trace_arteries(ct, labeled, arteries, zooms):
@@ -164,17 +201,40 @@ def trace_arteries(ct, labeled, arteries, zooms):
     report |= {"hu_window": [round(lo), round(hi)], "median_hu": round(float(np.median(values))), "min_diameter_mm": MIN_ARTERY_MM}
     if np.median(values) < ARTERY_MIN_HU:
         return arteries, report | {"traced_voxels": 0, "reason": "no arterial contrast"}
-    lumen = (ct >= lo) & (ct <= hi) & ~labeled
-    radius = max(int(round((MIN_ARTERY_MM / 2) / min(zooms) - 0.5)), 1)  # voxels: a 5 mm tube at 1.5 mm keeps a 1-voxel core
-    # 18-connected element: a 3 mm tube centred on a voxel has a "plus" cross-section that a 6-connected erosion would keep.
-    ball = ndimage.generate_binary_structure(3, 2)
+    grown = trace_tube((ct >= lo) & (ct <= hi) & ~labeled, arteries, MIN_ARTERY_MM, zooms)
+    report["traced_voxels"] = int(grown.sum())
+    report["window"] = [round(lo), round(hi)]
+    return arteries | grown, report
+
+
+def trace_tube(lumen: np.ndarray, seeds: np.ndarray, min_mm: float, zooms) -> np.ndarray:
+    """Lumen voxels at least `min_mm` across that connect to `seeds` (an opening by a ball of that diameter, then a
+    geodesic reconstruction from the seeds). 5 mm: an 18-connected erosion of 1 voxel at 1.5 mm (a 3 mm tube dies even
+    when its centre sits on a voxel). Below 4 mm: a 6-connected erosion of 1 voxel (keeps tubes about 3 mm across)."""
+    if min_mm >= 4.0:
+        ball, radius = ndimage.generate_binary_structure(3, 2), max(int(round((min_mm / 2) / min(zooms) - 0.5)), 1)
+    else:
+        ball, radius = ndimage.generate_binary_structure(3, 1), 1
     core = ndimage.binary_erosion(lumen, structure=ball, iterations=radius)
     opened = ndimage.binary_dilation(core, structure=ball, iterations=radius) & lumen
-    del core, lumen
-    seeds = opened & ndimage.binary_dilation(arteries, structure=ball, iterations=2)
-    grown = ndimage.binary_propagation(seeds, mask=opened, structure=ndimage.generate_binary_structure(3, 3))
+    del core
+    start = opened & ndimage.binary_dilation(seeds, structure=ball, iterations=2)
+    return ndimage.binary_propagation(start, mask=opened, structure=ndimage.generate_binary_structure(3, 3))
+
+
+def trace_airway(ct, labeled, trachea, zooms):
+    """The airway as one tube: the trachea mask plus the air below it that continues as the main bronchi into the lungs
+    (air in the CT, outside every mask, at least MIN_AIRWAY_MM across, connected to the trachea and not above its top:
+    the throat above leads to the mouth and the gullet)."""
+    report = {"labeled_voxels": int(trachea.sum())}
+    if not trachea.any():
+        return trachea, report | {"traced_voxels": 0, "reason": "no trachea label"}
+    top = np.nonzero(trachea.any(axis=(0, 1)))[0].max()
+    air = (ct <= AIR_HU) & ~labeled
+    air[:, :, top + 1:] = False
+    grown = trace_tube(air, trachea, MIN_AIRWAY_MM, zooms)
     report["traced_voxels"] = int(grown.sum())
-    return arteries | grown, report
+    return trachea | grown, report
 
 
 def block_any(full: np.ndarray, shape) -> np.ndarray:
@@ -190,14 +250,21 @@ def block_any(full: np.ndarray, shape) -> np.ndarray:
 
 def body_frame(affine: np.ndarray, shape) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Per-axis coordinate vectors in the body frame (mm): X = person's left, Y = up, Z = front (game part axes).
-    NIfTI world is RAS+ (x = right, y = anterior, z = superior), so X = -x, Y = z, Z = y. Requires an axis-aligned affine."""
+    NIfTI world is RAS+ (x = right, y = anterior, z = superior), so X = -x, Y = z, Z = y. The grid axes must be the
+    world axes to within MAX_OBLIQUE_DEG (s0774 is turned 2.2 degrees about the body's long axis: the patient lay a little
+    turned); a small turn is ignored, which turns the body frame by the same angle (the limbs' own axes come from their bones)."""
     rot = affine[:3, :3]
-    if np.count_nonzero(np.abs(rot) > 1e-6) != 3:
-        raise SystemExit("oblique CT affines are not supported (resample to an axis-aligned grid first)")
-    world = [affine[a, a] * np.arange(shape[a]) + affine[a, 3] for a in range(3)]
-    if not all(np.abs(rot[a, a]) > 0 for a in range(3)):
+    spacing = np.linalg.norm(rot, axis=0)
+    diagonal = np.abs(np.diag(rot)) / spacing
+    if not np.all(diagonal > 0):
         raise SystemExit("CT axes are permuted; only i=x, j=y, k=z grids are supported")
+    if np.degrees(np.arccos(np.clip(diagonal.min(), -1.0, 1.0))) > MAX_OBLIQUE_DEG:
+        raise SystemExit(f"the CT grid is turned more than {MAX_OBLIQUE_DEG} degrees from the body axes (resample it first)")
+    world = [np.sign(rot[a, a]) * spacing[a] * np.arange(shape[a]) + affine[a, 3] for a in range(3)]
     return -world[0], world[2], world[1]
+
+
+MAX_OBLIQUE_DEG = 5.0
 
 
 # ---------------------------------------------------------------- 3: parts
@@ -359,7 +426,8 @@ def vote(local: np.ndarray, classes: np.ndarray, dims) -> tuple[np.ndarray, dict
     return result.reshape(dims, order="F"), stats
 
 
-def part_samples(part_ids, part_value, cls, bx, by, bz, frame, dims, flag, pad_cells=0.0, straighten=False):
+def part_samples(part_ids, part_value, cls, bx, by, bz, frame, game_dims, tubes: dict, pad_cells=0.0, straighten=False, order=(0, 1, 2),
+                 margin=0, everything=False):
     """Samples of one part's box: coordinates normalised to 0..1 in the part's local frame, and classes. The box is the
     extent of the part's tissue (optionally padded by `pad_cells`); the outline's corners stay empty by the vote.
     Every CT voxel inside the box is a sample: the part's own voxels with their class, everything else (air, the table,
@@ -369,6 +437,8 @@ def part_samples(part_ids, part_value, cls, bx, by, bz, frame, dims, flag, pad_c
     and leans, so its bounding box is much wider than any cross-section and the limb came out half as thick. Each point
     is shifted across the axis by the tissue centre of its cross-section (a smooth curve along X), which lays the limb
     straight before the box is taken. The box then spans the 0.5..99.5 percentiles (drops stray fringe voxels)."""
+    # The frame gives local axes with the limb's length first; `order[g]` is the local axis that becomes game axis g.
+    dims = tuple(game_dims[order.index(a)] for a in range(3))
     sel = np.nonzero(part_ids == part_value)
     if len(sel[0]) == 0:
         raise SystemExit(f"part {part_value} has no voxels in this scan")
@@ -401,6 +471,7 @@ def part_samples(part_ids, part_value, cls, bx, by, bz, frame, dims, flag, pad_c
     # longest padding), then kept if their local coordinates fall in the box.
     # Rotated (arm) boxes reach past the part's index box at their corners: grow by the cross-section's diagonal.
     reach = np.linalg.norm(hi[1:] - lo[1:]) / 2 if straighten else pad.max()
+    reach += margin * float(np.max((hi - lo) / np.array(dims)))  # the halo's band around the box
     grow = int(np.ceil(reach / abs(bx[1] - bx[0]))) + 1
     i0, i1 = max(sel[0].min() - grow, 0), min(sel[0].max() + grow + 1, len(bx))
     j0, j1 = max(sel[1].min() - grow, 0), min(sel[1].max() + grow + 1, len(bz))
@@ -411,11 +482,16 @@ def part_samples(part_ids, part_value, cls, bx, by, bz, frame, dims, flag, pad_c
     if shift is not None:
         pts = shift(pts)
     norm = (pts - lo) / (hi - lo)
-    inside = np.all((norm >= 0) & (norm <= 1), axis=1)  # vote() clamps 1.0 into the last cell
+    band = margin / np.array(dims)  # margin: also the samples this many cells around the box (normalised beyond 0..1)
+    inside = np.all((norm >= -band) & (norm <= 1 + band), axis=1)  # vote() clamps 1.0 into the last cell
     ii, jj, kk, norm = ii[inside], jj[inside], kk[inside], norm[inside]
     own = part_ids[ii, jj, kk] == part_value
+    # everything (a list of part ids): body voxels of these parts count too (the halo shows what lies beyond the cut).
+    if everything:
+        own = np.isin(part_ids[ii, jj, kk], list(everything))
     classes = np.where(own, cls[ii, jj, kk], L.CLS_EMPTY).astype(np.int64)
-    return norm, classes, own & flag[ii, jj, kk], (lo, hi)
+    norm = norm[:, list(order)]
+    return norm, classes, {c: own & volume[ii, jj, kk] for c, volume in tubes.items()}, (lo, hi)
 
 
 def trunk_frame(pts):
@@ -438,8 +514,56 @@ def arm_frame(proximal_direction):
     return apply
 
 
-def connect_arteries(grid_cls: np.ndarray, norm: np.ndarray, flags: np.ndarray, dims, kind: str) -> tuple[np.ndarray, dict]:
-    """Make the arteries of one part a connected tree of face-connected cells reaching every traced branch.
+def leg_frame(proximal_direction):
+    """Leg segment frame with the length first: axis 0 along the segment towards the hip, axis 2 the body's front made
+    orthogonal to it, axis 1 = axis 0 x axis 2 (so game (X, Y, Z) = (axis 1, axis 0, axis 2) is right-handed)."""
+    up = np.asarray(proximal_direction, float)
+    up = up / np.linalg.norm(up)
+    front = np.array([0.0, 0.0, 1.0])
+    front = front - front.dot(up) * up
+    front /= np.linalg.norm(front)
+    side = np.cross(up, front)
+    m = np.stack([up, side, front])
+    return lambda pts: pts @ m.T
+
+
+def course_corridor(dims, kind: str, grid_cls: np.ndarray) -> np.ndarray | None:
+    """The main arteries' anatomical course in a limb part, for where the CT has no contrast in them (the arms of a scan
+    timed for the trunk) or does not reach (the feet): lines between waypoints in the part's normalised box (-1..1),
+    as cells. A shortcut (docs/DEBT.md): a drawn course, not a traced one."""
+    lines = COURSES.get(kind)
+    if not lines:
+        return None
+    out = np.zeros(dims, bool)
+    for a, b in lines:
+        for t in np.linspace(0.0, 1.0, 4 * max(dims)):
+            n = np.asarray(a) + t * (np.asarray(b) - np.asarray(a))
+            c = np.clip(((n + 1.0) / 2.0 * np.array(dims)).astype(int), 0, np.array(dims) - 1)
+            out[tuple(c)] = True
+    return out & (grid_cls != L.CLS_EMPTY)
+
+
+# Waypoints (normalised box coordinates, game axes) of the main arteries per limb part. Arm: X along the arm (hand at -X),
+# Y the outer side, Z the front. Foot and toe: Z forward, Y up.
+COURSES = {
+    # brachial artery: inner-front of the upper arm, from the armpit to the front of the elbow
+    "UpperArm": [((0.95, -0.45, 0.25), (-0.95, -0.05, 0.5))],
+    # radial (thumb side) and ulnar (little-finger side) arteries: from the front of the elbow to the wrist
+    "Forearm": [((0.95, -0.05, 0.5), (-0.95, 0.45, 0.45)), ((0.95, -0.05, 0.5), (-0.95, -0.45, 0.45))],
+    # Legs (game X is the inner side of the right leg, Z the front, Y up). Femoral artery: front-inner thigh, turning to
+    # the back of the knee (adductor canal); popliteal behind the knee, then the posterior tibial down the inner back of
+    # the shin and the anterior tibial through to the front of the shin.
+    "Thigh": [((0.3, 0.95, 0.4), (0.35, 0.0, 0.1)), ((0.35, 0.0, 0.1), (0.0, -0.95, -0.5))],
+    "Shin": [((0.0, 0.95, -0.5), (0.4, -0.95, -0.3)), ((0.0, 0.95, -0.5), (0.0, 0.55, 0.45)), ((0.0, 0.55, 0.45), (0.0, -0.95, 0.5))],
+    # dorsalis pedis: over the top of the foot from the front of the ankle to the toes
+    "Foot": [((0.0, 0.55, -0.7), (0.0, 0.45, 0.95))],
+    "Toe": [((0.0, 0.35, -0.95), (0.0, 0.25, 0.8))],
+}
+
+
+def connect_tube(grid_cls: np.ndarray, tube: int, norm, flags, dims, kind: str, course=None) -> tuple[np.ndarray, dict]:
+    """Make one tube class (the arteries, the airway) of one part a connected tree of face-connected cells reaching every
+    traced branch. Written for the arteries; the airway (trachea and main bronchi) goes through the same steps.
 
     The volume-preserving vote gives an artery only as many cells as its volume: the aorta keeps its cells, but a branch
     thinner than a cell (carotid, subclavian, the gut's arteries: 5-10 mm of a 14-23 mm cell) gets none. The cells the
@@ -451,28 +575,54 @@ def connect_arteries(grid_cls: np.ndarray, norm: np.ndarray, flags: np.ndarray, 
     import heapq
 
     nx, ny, nz = dims
-    cell = np.minimum((norm * np.array(dims)).astype(int), np.array(dims) - 1)
-    flat = cell[:, 0] + nx * (cell[:, 1] + ny * cell[:, 2])
     ncell = nx * ny * nz
-    hits = np.bincount(flat[flags], minlength=ncell).astype(float)
-    total = np.bincount(flat, minlength=ncell).astype(float)
-    share = np.divide(hits, total, out=np.zeros(ncell), where=total > 0).reshape(dims, order="F")
+    if norm is None:  # a part with no CT samples (the shipped foot): the drawn course alone
+        share = np.zeros(dims)
+    else:
+        cell = np.minimum((norm * np.array(dims)).astype(int), np.array(dims) - 1)
+        flat = cell[:, 0] + nx * (cell[:, 1] + ny * cell[:, 2])
+        hits = np.bincount(flat[flags], minlength=ncell).astype(float)
+        total = np.bincount(flat, minlength=ncell).astype(float)
+        share = np.divide(hits, total, out=np.zeros(ncell), where=total > 0).reshape(dims, order="F")
+    if course is not None:
+        # A drawn point on the outer layer or in bone moves to the nearest flesh cell inside (thin limbs: the line runs
+        # just under the skin).
+        flesh = filled_inner(grid_cls, dims, kind) & ~np.isin(grid_cls, [L.CLS_BONE, L.CLS_CORD, L.CLS_BRAIN])
+        if flesh.any():
+            _, near = ndimage.distance_transform_edt(~flesh, return_indices=True)
+            snapped = np.zeros(dims, bool)
+            for c in zip(*np.nonzero(course)):
+                snapped[near[0][c], near[1][c], near[2][c]] = True
+            course = snapped
+        share = np.maximum(share, np.where(course, COURSE_SHARE, 0.0))
     grid = grid_cls.copy()
     # The skin layer (add_skin) will cover every outer cell except an artery on a joint face: arteries keep out of it.
     filled = grid != L.CLS_EMPTY
     inside = filled & ~(outer_layer(filled) & ~joint_faces(dims, kind))
+    inside &= ~np.isin(grid, [t for t in TUBES if t != tube])  # one tube never cuts through another
+    # Only the main face-connected interior: a thin end (the forearm's wrist slice has no cell under the skin) would
+    # leave the end face as an island a tube cannot reach.
+    pieces, count = ndimage.label(inside, structure=ndimage.generate_binary_structure(3, 1))
+    if count > 1:
+        inside = pieces == 1 + int(np.argmax(ndimage.sum_labels(inside, pieces, np.arange(1, count + 1))))
     corridor = (share > 0) & inside
-    grid[(grid == L.CLS_ARTERY) & ~inside] = L.CLS_SOFT
-    artery = (grid == L.CLS_ARTERY) & inside
+    grid[(grid == tube) & ~inside] = L.CLS_SOFT
+    artery = (grid == tube) & inside
     report = {"vote_cells": int(artery.sum()), "corridor_cells": int(corridor.sum())}
     if not (artery | corridor).any():
         return grid, report | {"pieces": 0, "added_cells": 0}
     # A corridor piece with no voted artery cell starts from its cell with the most artery.
     regions, count = ndimage.label(corridor | artery, structure=ndimage.generate_binary_structure(3, 3))
+    if course is not None and count > 1:  # a limb with a drawn course is one artery system: join every piece
+        regions, count = (regions > 0).astype(int), 1
+    # Ties (a drawn course has one share everywhere) go to the cell deepest inside, which has the most ways onward. The
+    # depth term stays below any real difference of share (at most 0.001).
+    depth = ndimage.distance_transform_edt(inside)
+    depth = depth / max(float(depth.max()), 1.0)
     for r in range(1, count + 1):
         member = regions == r
         if not (artery & member).any():
-            artery[np.unravel_index(np.argmax(np.where(member, share, -1.0)), dims)] = True
+            artery[np.unravel_index(np.argmax(np.where(member, share + 1e-3 * depth, -1.0)), dims)] = True
     # Bone and organs cost more to cross; the spinal cord and the brain are never crossed (a run there would cut them).
     cost = np.where(corridor, 1.0 + (1.0 - share), 6.0) + np.where(np.isin(grid, ORGAN_CLASSES), 4.0, 0.0)
     inside &= ~np.isin(grid, [L.CLS_CORD, L.CLS_BRAIN])
@@ -542,18 +692,28 @@ def connect_arteries(grid_cls: np.ndarray, norm: np.ndarray, flags: np.ndarray, 
         if far[target] <= 1:
             break
         added += add_path(target, prev, artery.copy())
-    grid[artery] = L.CLS_ARTERY
+    grid[artery] = tube
     _, pieces = ndimage.label(artery, structure=face)
     return grid, report | {"pieces": int(pieces), "added_cells": added, "cells": int(artery.sum())}
 
 
 # Box faces through which a part meets its neighbours (axis of the faces): the head's neck end, the trunk's top and
 # bottom (and the chest's shoulder sides), the arm's two ends.
-JOINT_AXES = {"Head": (1,), "Chest": (0, 1), "Pelvis": (1,), "UpperArm": (0,), "Forearm": (0,)}
+JOINT_AXES = {"Head": (1,), "Chest": (0, 1), "Pelvis": (1,), "UpperArm": (0,), "Forearm": (0,), "Thigh": (1,), "Shin": (1,),
+              "Foot": (1, 2), "Toe": (2,)}
+TUBES = (L.CLS_ARTERY, L.CLS_AIRWAY)
+# Share of artery a drawn-course cell counts as (below a well-traced CT cell, so the CT's own path wins where it exists).
+COURSE_SHARE = 0.4
 # Only the head's lower end meets the neck; the chest's sides meet the arms only in their upper part (the shoulders,
 # HumanoidRagdoll puts the shoulder at three quarters of the chest's height).
 SHOULDER_FROM = 0.6
-ORGAN_CLASSES = [L.CLS_BONE, L.CLS_HEART, L.CLS_LUNG, L.CLS_LIVER, L.CLS_GUT]
+ORGAN_CLASSES = [L.CLS_BONE, L.CLS_HEART, L.CLS_LUNG, L.CLS_LIVER, L.CLS_GUT, L.CLS_ARTERY, L.CLS_AIRWAY]
+
+
+def filled_inner(grid_cls: np.ndarray, dims, kind: str) -> np.ndarray:
+    """Filled cells that the skin layer will not cover (as connect_tube's `inside`)."""
+    filled = grid_cls != L.CLS_EMPTY
+    return filled & ~(outer_layer(filled) & ~joint_faces(dims, kind))
 
 
 def joint_faces(shape, kind: str) -> np.ndarray:
@@ -574,7 +734,7 @@ def outer_layer(filled: np.ndarray) -> np.ndarray:
     return filled & ~ndimage.binary_erosion(padded, structure=ndimage.generate_binary_structure(3, 1))[1:-1, 1:-1, 1:-1]
 
 
-def add_skin(grid: np.ndarray, kind: str) -> np.ndarray:
+def add_skin(grid: np.ndarray, kind: str, shipped: np.ndarray | None = None) -> np.ndarray:
     """Outer layer -> skin; pelvis -> trunks/waistband (BoxerAnatomy.Dress). Surface = a filled cell touching empty or the box edge."""
     out = grid.copy()
     filled = grid != 0
@@ -583,7 +743,16 @@ def add_skin(grid: np.ndarray, kind: str) -> np.ndarray:
     # An artery may stay bare only where it leaves the part through a face that joins another part (it goes on there);
     # anywhere else the outer layer is skin over it.
     surface = filled & ~interior & ~((grid == L.ARTERY) & joint_faces(grid.shape, kind))
-    if kind == "Pelvis":
+    if shipped is not None:  # the shipped body's own covering (skin, trunks, waistband, boots) on the same outline
+        # Where the outline bulges past the shipped one (a CT bone poking out), the nearest shipped covering (trunks
+        # over the hip, not a patch of skin).
+        covering = np.isin(shipped, COVERINGS) & outer_layer(shipped != 0)
+        if covering.any():
+            _, near = ndimage.distance_transform_edt(~covering, return_indices=True)
+            out[surface] = shipped[near[0], near[1], near[2]][surface]
+        else:
+            out[surface] = L.SKIN
+    elif kind == "Pelvis":
         ys = np.nonzero(filled.any(axis=(0, 2)))[0]
         lo, hi = ys.min(), ys.max()
         n_y = (np.arange(grid.shape[1]) - (lo + hi) / 2) / max((hi - lo) / 2, 1)
@@ -615,15 +784,214 @@ def merge_head(shipped: np.ndarray, ct_head: np.ndarray) -> np.ndarray:
 
 # ---------------------------------------------------------------- main
 
+def trace_limb_arteries(scratch: Path, part_ids: np.ndarray, limbs: list[list[int]], window, zooms) -> np.ndarray:
+    """Arteries of the arms (or legs), followed down to MIN_LIMB_ARTERY_MM from the trunk's arteries, inside each limb's
+    own voxels (grown by 2 voxels at 3 mm to reach the trunk's arteries at the shoulder or groin). Returns the full-
+    resolution mask of the newly traced arteries (empty where nothing was found)."""
+    ct = np.load(scratch / "ct_full.npy", mmap_mode="r")
+    labeled = np.load(scratch / "labeled_full.npy", mmap_mode="r")
+    seeds_all = np.load(scratch / "artery_full.npy", mmap_mode="r")
+    found = np.zeros(ct.shape, bool)
+    lo, hi = window
+    for ids in limbs:
+        zone = ndimage.binary_dilation(np.isin(part_ids, ids), iterations=LIMB_SEED_REACH)
+        if not zone.any():
+            continue
+        idx = np.nonzero(zone)
+        coarse = tuple(slice(a.min(), a.max() + 1) for a in idx)
+        box = tuple(slice(c.start * STEP, min(c.stop * STEP, n)) for c, n in zip(coarse, ct.shape))
+        # Crop the 3 mm zone first, then blow it up to the CT's resolution (the whole volume would not fit this PC's memory).
+        zone_full = np.repeat(np.repeat(np.repeat(zone[coarse], STEP, 0), STEP, 1), STEP, 2)
+        zone_full = zone_full[: box[0].stop - box[0].start, : box[1].stop - box[1].start, : box[2].stop - box[2].start]
+        c = np.asarray(ct[box])
+        lumen = (c >= lo) & (c <= hi) & ~np.asarray(labeled[box]) & zone_full
+        seeds = np.asarray(seeds_all[box]) & zone_full
+        if not seeds.any():
+            continue
+        found[box] |= trace_tube(lumen, seeds, MIN_LIMB_ARTERY_MM, zooms)
+    return found
+
+
+def fit_outline(grid_cls: np.ndarray, outline: np.ndarray, keep_core: bool = False) -> tuple[np.ndarray, dict]:
+    """An athletic body (the user's request 2026-11-19: a boxer's build, more muscle on the chest): the outline is the
+    game's boxer body (the shipped grid's filled cells), the inside is the CT. Cells inside the outline that the CT leaves
+    empty become muscle (the chest, shoulders and back fill out to the boxer's shape over the CT's ribs); CT cells outside
+    the outline are dropped (the CT man's belly). The CT's fat is already muscle in the game (labels.GAME_MATERIAL)."""
+    grid = grid_cls.copy()
+    if keep_core:  # the outline bulges where a bone, organ or tube of the CT pokes out (wrapped in one cell of flesh)
+        core = np.isin(grid, CORE_CLASSES)
+        outline = outline | ndimage.binary_dilation(core, structure=ndimage.generate_binary_structure(3, 1))
+    outside = (grid != L.CLS_EMPTY) & ~outline
+    dropped = {L.NAMES[c]: int(n) for c, n in zip(*np.unique(grid[outside], return_counts=True))}
+    grid[outside] = L.CLS_EMPTY
+    added = outline & (grid == L.CLS_EMPTY)
+    grid[added] = L.CLS_MUSCLE
+    return grid, {"added_muscle": int(added.sum()), "dropped": dropped}
+
+
+def split_legs(cls: np.ndarray, named: dict, unlabeled_bone: np.ndarray, bx, by, bz):
+    """Part id per voxel for a scan of the legs: 9 thigh, 10 shin, 13 below the ankle (person's right leg), 11/12/14 the left leg, 0 the rest.
+    Seeds: each leg's femur and the unlabeled bone below its knee (tibia, fibula), against every other labeled structure
+    (the pelvis); each body voxel goes to the nearest seed. Knee = the femur's lowest point; ankle = the knee minus the
+    shin length, taken as SHIN_TO_FEMUR of the femur's length (or the scan's end)."""
+    body = cls != L.CLS_EMPTY
+    lab, n = ndimage.label(unlabeled_bone)
+    centres = np.array(ndimage.center_of_mass(unlabeled_bone, lab, np.arange(1, n + 1))) if n else np.zeros((0, 3))
+    seeds = np.zeros(cls.shape, np.uint8)
+    seeds[body & ~np.isin(cls, [L.CLS_SOFT, L.CLS_FAT, L.CLS_EMPTY])] = 1
+    landmarks, axes = {}, {}
+    femur_k = {}
+    for side, value in (("right", 2), ("left", 3)):
+        femur = named.get(f"femur_{side}")
+        if femur is None:
+            raise SystemExit(f"femur_{side} is missing: the scan does not show the {side} thigh")
+        ks = np.nonzero(femur.any(axis=(0, 1)))[0]
+        femur_k[side] = (ks.min(), ks.max())
+        knee_x = centroid(femur[:, :, ks.min():ks.min() + 6])[0]
+        other = named[f"femur_{'left' if side == 'right' else 'right'}"]
+        other_x = centroid(other)[0]
+        picked = [i + 1 for i, c in enumerate(centres) if c[2] < ks.min() + 5 and abs(c[0] - knee_x) < abs(c[0] - other_x)]
+        shin_bone = np.isin(lab, picked) if picked else np.zeros(cls.shape, bool)
+        seeds[femur | shin_bone] = value
+        axes[f"{side}_thigh_axis"] = principal_axis(femur & (np.arange(cls.shape[2]) < ks.min() + 0.85 * (ks.max() - ks.min()))[None, None, :], bx, by, bz)
+        if shin_bone.sum() < 50:
+            raise SystemExit(f"no shin bone found below the {side} knee")
+        axes[f"{side}_shin_axis"] = principal_axis(shin_bone, bx, by, bz)
+        knee, top = by[ks.min()], by[ks.max()]
+        ankle = max(knee - SHIN_TO_FEMUR * (top - knee), by.min())
+        landmarks |= {f"{side}_hip": float(top), f"{side}_knee": float(knee), f"{side}_ankle": float(ankle)}
+    del lab
+    spacing = (abs(bx[1] - bx[0]), abs(bz[1] - bz[0]), abs(by[1] - by[0]))
+    idx = ndimage.distance_transform_edt(seeds == 0, sampling=spacing, return_distances=False, return_indices=True).astype(np.int16)
+    owner = seeds[idx[0], idx[1], idx[2]]
+    del idx
+    owner[~body] = 0
+    y = by[None, None, :]
+    part = np.zeros(cls.shape, np.uint8)
+    for side, value, (thigh_id, shin_id, foot_id) in (("right", 2, (9, 10, 13)), ("left", 3, (11, 12, 14))):
+        leg = owner == value
+        part[leg & (y >= landmarks[f"{side}_knee"]) & (y <= landmarks[f"{side}_hip"])] = thigh_id
+        part[leg & (y < landmarks[f"{side}_knee"]) & (y >= landmarks[f"{side}_ankle"])] = shin_id
+        part[leg & (y < landmarks[f"{side}_ankle"])] = foot_id
+    for value in (9, 10, 11, 12):
+        mask = part == value
+        pieces, count = ndimage.label(mask)
+        if count > 1:
+            sizes = ndimage.sum_labels(mask, pieces, np.arange(1, count + 1))
+            part[mask & (pieces != 1 + int(np.argmax(sizes)))] = 0
+    return part, landmarks, axes
+
+
+def fit_part(norm, classes, dims, outline, cross_axes):
+    """Vote, then fit the CT inside the boxer outline (fit_outline). If the outline would cut off bone, organs or tubes
+    (the CT is wider than the boxer there), the CT is drawn in a little across the part (never along it, so joints and
+    cut heights stay), at most to OUTLINE_MIN_SCALE; what still pokes out keeps its place and the outline bulges around
+    it (bones and organs keep their CT size). Returns the class grid, the scaled samples and the statistics."""
+    core = lambda g: np.isin(g, CORE_CLASSES)  # noqa: E731
+    best = None
+    for scale in np.arange(1.0, OUTLINE_MIN_SCALE - 1e-6, -0.04):
+        scaled = norm.copy()
+        for a in cross_axes:
+            scaled[:, a] = 0.5 + (norm[:, a] - 0.5) * scale
+        voted, stats = vote(scaled, classes, dims)
+        lost = int((core(voted) & ~outline).sum())
+        best = (scaled, voted, stats, {"scale": round(float(scale), 2), "core_outside": lost, "core": int(core(voted).sum())})
+        if lost <= OUTLINE_CORE_LOSS * max(core(voted).sum(), 1):
+            break
+    scaled, voted, stats, info = best
+    fitted, outline_stats = fit_outline(voted, outline, keep_core=True)
+    return fitted, scaled, stats, outline_stats | info
+
+
+def build_part(name, value, frame, part_ids, cls, bx, by, bz, sub, shipped, straighten=False, order=(0, 1, 2), cross_axes=(0, 2)):
+    dims = shipped[name].shape
+    norm, classes, flags, (lo, hi) = part_samples(part_ids, value, cls, bx, by, bz, frame, dims, sub["tubes"],
+                                                  straighten=straighten, order=order)
+    if name == "Head":
+        grid_cls, stats = vote(norm, classes, dims)
+        outline_stats = None
+    else:
+        grid_cls, norm, stats, outline_stats = fit_part(norm, classes, dims, shipped[name] != 0, cross_axes)
+    tube_stats = {}
+    for tube in TUBES:
+        course = course_corridor(dims, name, grid_cls) if tube == L.CLS_ARTERY else None
+        grid_cls, tube_stats[L.NAMES[tube]] = connect_tube(grid_cls, tube, norm, flags[tube], dims, name, course)
+    # The head keeps the hand-edited face shell, so its CT cells go in without their own skin layer (the skull lies right
+    # under the skin, in the CT's outermost cells). The other parts take the shipped covering on the shipped outline.
+    game = merge_head(shipped["Head"], to_game(grid_cls)) if name == "Head" else add_skin(to_game(grid_cls), name, shipped[name])
+    halo = None
+    if name != "Head":
+        halo = part_halo(part_ids, value, cls, bx, by, bz, frame, dims, sub, straighten, order, cross_axes,
+                         outline_stats["scale"] if outline_stats else 1.0)
+    human_size = [float(h - l) for h, l in zip(hi[list(order)], lo[list(order)])]
+    return game, halo, {"dims": list(dims), "human_box_mm": [round(v, 1) for v in human_size],
+                  "human_cell_mm": [round(v / d, 1) for v, d in zip(human_size, dims)],
+                  "samples": int(len(norm)), "classes": stats, "tubes": tube_stats, "outline": outline_stats,
+                  "materials": {int(k): int(v) for k, v in zip(*np.unique(game, return_counts=True))}}
+
+
+def part_halo(part_ids, value, cls, bx, by, bz, frame, dims, sub, straighten, order, cross_axes, scale):
+    """The part's halo (the game's BoxerVoxelOverrides.HaloFor): the CT tissue in a band of HALO_MARGIN cells around the
+    part's box, every body voxel whichever part it went to, in the part's own cells and drawn in across the part by the
+    same scale as the part. A joint bridge fills the gap between two parts with the parent's halo there: the neck's
+    vertebrae and arteries between the chest and the head, the hip joint between the pelvis and the thigh."""
+    norm, classes, _, _ = part_samples(part_ids, value, cls, bx, by, bz, frame, dims, sub["tubes"], straighten=straighten,
+                                       order=order, margin=HALO_MARGIN, everything=HALO_PARTS[value])
+    for a in cross_axes:
+        norm[:, a] = 0.5 + (norm[:, a] - 0.5) * scale
+    # With scale < 1 the outermost ~(1 - scale)(d/2 + margin) cells across get no sample; vote() fills them from the
+    # nearest sampled cell (on the chest's sides that is next to the shoulder gaps; fine at the 0.9 floor).
+    ext = tuple(d + 2 * HALO_MARGIN for d in dims)
+    norm = (norm * np.array(dims) + HALO_MARGIN) / np.array(ext)
+    keep = np.all((norm >= 0) & (norm <= 1), axis=1)
+    halo, _ = vote(norm[keep], classes[keep], ext)
+    return to_game(halo)
+
+
+# Must equal BoxerVoxelOverrides.HaloMargin (games/MiniRing/Voxels/BoxerVoxelModel.cs).
+HALO_MARGIN = 6
+# The parts whose tissue a part's halo holds: itself and its children (a joint bridge reads its parent's halo: the chest is the neck's
+# and the shoulders' parent, the pelvis the spine's and the hips'). The arm hung beside the
+# belly in the CT, so a halo of every body voxel put liver at the elbow. Part ids: split_parts (1 head, 2 chest,
+# 3 pelvis, 4/5 right upper arm/forearm, 6/7 left, 8 below the pelvis) and split_legs (9/10 right thigh/shin,
+# 13 the right foot below the ankle).
+HALO_PARTS = {1: (1,), 2: (2, 1, 4, 6), 3: (3, 2, 8), 4: (4, 5), 5: (5,), 9: (9, 10), 10: (10, 13)}
+
+
+def prepare(subject_dir: Path, out_dir: Path, tag: str, limb_ids, splitter):
+    """Load one CT, split it into parts, and follow the limb arteries further (MIN_LIMB_ARTERY_MM)."""
+    scratch = out_dir / f"_scratch_{tag}"
+    scratch.mkdir(exist_ok=True)
+    try:
+        sub = load_subject(subject_dir, scratch)
+        cls = sub["cls"]
+        bx, by, bz = body_frame(sub["affine"], cls.shape)
+        part_ids, landmarks, axes = splitter(cls, sub["named"], sub["unlabeled_bone"], bx, by, bz)
+        window = sub["report"]["arteries"].get("window")
+        if window:
+            limb = trace_limb_arteries(scratch, part_ids, limb_ids, window, sub["zooms"])
+            limb3 = np.ascontiguousarray(limb[::STEP, ::STEP, ::STEP]) & sub["body"]
+            cls[(limb3 & (cls != L.CLS_BONE)) | (limb3 & sub["unlabeled_bone"])] = L.CLS_ARTERY
+            sub["tubes"][L.CLS_ARTERY] |= block_any(limb, cls.shape) & sub["body"]
+            sub["report"]["arteries"]["limb_traced_voxels"] = int(limb.sum())
+            del limb
+    finally:
+        for f in scratch.glob("*.npy"):
+            f.unlink()
+        scratch.rmdir()
+    return sub, (bx, by, bz), part_ids, landmarks, axes
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("subject")
     parser.add_argument("--cache", default=os.environ.get("CTBODY_CACHE") or str(REPO.parent / "ct-data"))
     parser.add_argument("--set", default="small")
+    parser.add_argument("--legs", help="a second subject whose legs make the thighs and shins (a leg angiography, e.g. s0774)")
+    parser.add_argument("--legs-set", default="full")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
 
-    subject_dir = Path(args.cache) / f"totalseg-{args.set}" / args.subject
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     shipped_models, palette = vox.read(SHIPPED)
@@ -634,42 +1002,51 @@ def main() -> None:
     if missing:
         raise SystemExit(f"shipped boxer.vox lacks parts {missing}")
 
-    cls, affine, named, unlabeled_bone, artery_any, artery_report = load_subject(subject_dir)
-    bx, by, bz = body_frame(affine, cls.shape)
-    part_ids, landmarks, arm_axes = split_parts(cls, named, unlabeled_bone, bx, by, bz)
-
-    report = {"subject": args.subject, "source": "TotalSegmentator v2.0.1 (Zenodo 10047263), CC BY 4.0", "landmarks_mm": landmarks,
-              "arm_axes": arm_axes, "arteries": artery_report, "parts": {}}
+    sub, (bx, by, bz), part_ids, landmarks, arm_axes = prepare(
+        Path(args.cache) / f"totalseg-{args.set}" / args.subject, out_dir, args.subject, [[4, 5], [6, 7]], split_parts)
+    report = {"subject": args.subject, "source": "TotalSegmentator v2.0.1 (Zenodo 10047263 / 10047292), CC BY 4.0",
+              "landmarks_mm": landmarks, "arm_axes": arm_axes, **sub["report"], "parts": {}}
     grids = {}
     side = "right"  # the game's arm grid has the hand at -X, matching the person's right arm in this frame
-    plan = {
-        "Head": (1, trunk_frame), "Chest": (2, trunk_frame), "Pelvis": (3, trunk_frame),
-        "UpperArm": (4, arm_frame(np.array(arm_axes[side]["head_xyz"]) - np.array(arm_axes[side]["elbow_xyz"]))),
-        "Forearm": (5, arm_frame(arm_axes[f"{side}_forearm_axis"])),
-    }
-    for name, (value, frame) in plan.items():
-        dims = shipped[name].shape
-        norm, classes, flags, (lo, hi) = part_samples(part_ids, value, cls, bx, by, bz, frame, dims, artery_any,
-                                                      straighten=name in ("UpperArm", "Forearm"))
-        grid_cls, stats = vote(norm, classes, dims)
-        grid_cls, artery_stats = connect_arteries(grid_cls, norm, flags, dims, name)
-        # The head keeps the hand-edited face shell, so its CT cells go in without their own skin layer (the skull lies right
-        # under the skin, in the CT's outermost cells).
-        game = merge_head(shipped["Head"], to_game(grid_cls)) if name == "Head" else add_skin(to_game(grid_cls), name)
-        grids[name] = game
-        human_size = (hi - lo)
-        report["parts"][name] = {"dims": list(dims), "human_box_mm": [round(float(v), 1) for v in human_size],
-                                 "human_cell_mm": [round(float(s / d), 1) for s, d in zip(human_size, dims)],
-                                 "samples": int(len(norm)), "classes": stats, "arteries": artery_stats,
-                                 "materials": {int(k): int(v) for k, v in zip(*np.unique(game, return_counts=True))}}
+    cls = sub["cls"]
+    jobs = [("Head", 1, trunk_frame, {}), ("Chest", 2, trunk_frame, {}), ("Pelvis", 3, trunk_frame, {}),
+            ("UpperArm", 4, arm_frame(np.array(arm_axes[side]["head_xyz"]) - np.array(arm_axes[side]["elbow_xyz"])),
+             {"straighten": True, "cross_axes": (1, 2)}),
+            ("Forearm", 5, arm_frame(arm_axes[f"{side}_forearm_axis"]), {"straighten": True, "cross_axes": (1, 2)})]
+    halos = {}
+    for name, value, frame, options in jobs:
+        grids[name], halos[name], report["parts"][name] = build_part(name, value, frame, part_ids, cls, bx, by, bz, sub, shipped, **options)
+    del sub, part_ids, cls
+
+    if args.legs:
+        legs, (lx, ly, lz), leg_ids, leg_marks, leg_axes = prepare(
+            Path(args.cache) / f"totalseg-{args.legs_set}" / args.legs, out_dir, args.legs, [[9, 10], [11, 12]], split_legs)
+        report["legs"] = {"subject": args.legs, "landmarks_mm": leg_marks, "axes": leg_axes, **legs["report"]}
+        # Legs: length along game Y. The right leg, like the arm (one grid serves both sides in the game).
+        for name, value, axis in (("Thigh", 9, "right_thigh_axis"), ("Shin", 10, "right_shin_axis")):
+            grids[name], halos[name], report["parts"][name] = build_part(
+                name, value, leg_frame(leg_axes[axis]), leg_ids, legs["cls"], lx, ly, lz, legs, shipped,
+                straighten=True, order=(1, 0, 2), cross_axes=(0, 2))
+            report["parts"][name]["from"] = args.legs
+        del legs, leg_ids
     for name in PART_ORDER:
-        if name not in grids:
-            grids[name] = shipped[name]
+        if name in grids:
+            continue
+        grid = shipped[name]
+        course = course_corridor(grid.shape, name, grid)
+        if course is not None:  # the shipped foot and toe get the drawn arteries
+            grid_cls = np.where(grid != 0, L.CLS_SOFT, L.CLS_EMPTY)
+            grid_cls, stats = connect_tube(grid_cls, L.CLS_ARTERY, None, None, grid.shape, name, course)
+            grid = np.where(grid_cls == L.CLS_ARTERY, L.ARTERY, grid)
+            report["parts"][name] = {"from": "shipped boxer.vox with a drawn artery", "tubes": {"artery": stats}}
+        else:
             report["parts"][name] = {"from": "shipped boxer.vox (not covered by the scan)"}
+        grids[name] = grid
 
     models = [vox.VoxModel(name, vox.to_vox_axes(grids[name])) for name in PART_ORDER]
+    models += [vox.VoxModel(f"{name}Halo", vox.to_vox_axes(halos[name])) for name in PART_ORDER if halos.get(name) is not None]
     vox.write(out_dir / f"ct_{args.subject}.vox", models, palette)
-    np.savez_compressed(out_dir / f"ct_{args.subject}_parts.npz", **grids)
+    np.savez_compressed(out_dir / f"ct_{args.subject}_parts.npz", **grids, **{f"{k}Halo": v for k, v in halos.items() if v is not None})
     (out_dir / f"ct_{args.subject}_report.json").write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8")
     print(json.dumps({k: v.get("human_box_mm", v.get("from")) for k, v in report["parts"].items()}, ensure_ascii=False, indent=0))
 
