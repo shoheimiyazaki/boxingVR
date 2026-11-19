@@ -208,7 +208,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 59; // 59: master の 57（顔の層・手の層）と、この枝の 53（滑りの直し・足の運びの構えを骨盤で寄せる・すべての関節のつなぎ）を合わせた。58 は claude/glove-v2 が使う。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 61; // 61: 腕・脚・首の梁の曲げを、伸ばされる側の筋肉（張り Tone × 神経に比例）・皮膚が紐として先に受ける。60 は claude/exchange-fix と claude/glove-v2 が使う。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -865,13 +865,42 @@ public sealed partial class Fighter
     /// 腕は頸、胸（胴）は頸と胸、腰・脚は頸・胸・腰のすべて。頭（首の筋は別扱い）は 1。腕の力・脚の支え・胴の軸を保つ力は <see cref="Strength"/> を通ってこれに比例する。
     /// 段階の状態（麻痺）は無く、残った脊髄の断面の割合から連続に出る。
     /// </summary>
-    private float Innervation(int part) => KindOf(part) switch
+    private float Innervation(int part) => InnervationOf(KindOf(part));
+
+    /// <summary>部位の種類 <paramref name="kind"/> の筋を動かす神経の働き（<see cref="Innervation"/> の式。頭は首の筋とは別扱いで 1）。</summary>
+    private float InnervationOf(BodyPartKind kind) => kind switch
     {
         BodyPartKind.UpperArm or BodyPartKind.Forearm => _cord[0],
         BodyPartKind.Chest => _cord[0] * _cord[1],
         BodyPartKind.Head => 1f,
         _ => _cord[0] * _cord[1] * _cord[2],
     };
+
+    /// <summary>
+    /// 腕・脚・首の梁（<see cref="Aigis.Physics.Voxels.VoxelBody.BeamAxis"/>）の筋肉が曲げを支える張り（<see cref="Aigis.Physics.Voxels.VoxelBody.TieActivation"/>）を、
+    /// 体の張り（<see cref="Tone"/>、意識から連続に出る）× その部位の筋を動かす神経の働きにする（首の筋は頸の脊髄: 首のサーボと同じ）。
+    /// 力の入った首・腕は打撃の曲げを肉でも受け、気を失った・死んだ体（張り 0）・体から外れた部位は受動の分（筋膜・靭帯・皮膚）だけになる。
+    /// </summary>
+    private void UpdateBeamTone()
+    {
+        if (Voxels is not { } v)
+        {
+            return;
+        }
+
+        var tone = IsDead ? 0f : Tone;
+        foreach (var part in v.Parts)
+        {
+            var body = part.Body;
+            if (body.BeamAxis is null)
+            {
+                continue;
+            }
+
+            var nerve = part.Kind == BodyPartKind.Head ? _cord[0] : InnervationOf(part.Kind);
+            body.TieActivation = _detached.Contains(body.BodyId) ? 0f : tone * nerve;
+        }
+    }
 
     /// <summary>脊髄の働き（頸・胸・腰）の今の値へ、<paramref name="dt"/> だけ近づける（神経が絶たれた筋がほどける速さで）。</summary>
     private void UpdateCord(float dt)
@@ -1610,6 +1639,7 @@ public sealed partial class Fighter
         RelaxDeadGrips(dt);
         StrainLigaments(dt); // 前の物理の歩で関節の制限が受けた荷重で靭帯を伸ばす
         UpdateCord(dt);
+        UpdateBeamTone();
         WatchFleshLinks();
         if (!IsDead)
         {

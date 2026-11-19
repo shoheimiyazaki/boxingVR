@@ -23,6 +23,7 @@ namespace MiniRing.Tests;
 /// PhysicsVersion 49・LogicVersion 53 で全部を取り直した（2026-11-18: ブランチ claude/rush-physics の体の運び（47）・claude/spacing-control-features の間の層（52）・claude/vfc の再生と骨折の治り方（47・48）を合わせた。raytrek の CharacterSamenessProbe）。
 /// PhysicsVersion 47 で全部を取り直した（2026-11-18: ブランチ claude/rush-physics の体の運び（打撃の当たる速さを相対速度に・体の質量は手足の押し出しと体自身の動きの分だけ・脳しんとうの係数 100 倍）を master と合わせた。docs/arena/rush_physics.md）。
 /// PhysicsVersion 57 で全部を取り直した（2026-11-19、claude/face-f2: 頭の剛体に 2.5 mm の顔の層を重ね、5 mm の頭は頭蓋骨・脳・首の中だけに。頭の当たりの形・質量・削れ方が変わるので全ての組が変わる。Expected ← NOPLAN-LEGACY、ExpectedWeapons ← LEGACY、ExpectedAdopted ← SAME、ExpectedGamePlan ← LEGACY。手元の CharacterSamenessProbe（Release。claude/face-f3 の名簿の顔を合わせ、頭の箱を作ったままにした後）。
+/// PhysicsVersion 61 で取り直した（2026-11-20、claude/neck-muscle: 腕・脚・首の梁の曲げを筋肉・皮膚が紐として先に受ける）。変わったのは w-katana-katana-referee（刀で腕・首の骨が折れる所が変わる）の LEGACY・SAME だけで、ほかの組はビット単位で同じ（その試合では梁が骨折の手前まで曲がらない）。tower32 の CharacterSamenessProbe。
 /// 名簿・ボット・物理の版を意図して変えたら、Probe で取り直して値を差し替える（古い値のまま黙って合わせない）。
 /// </summary>
 [TestClass]
@@ -54,7 +55,7 @@ public sealed class CharacterSamenessTests
     /// <summary>武器の教科書を JSON へ移す前（`weapon handling` 段 1 の最初）に <see cref="CharacterSamenessProbe"/> で取った値（master へ入れるとき、首・脊椎と指の手（PhysicsVersion 35）の上で LEGACY の行から取り直した。拳の組の LEGACY が既存の値と全部一致することを確かめてから。2026-11-16）。</summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedWeapons = new()
     {
-        ["w-katana-katana-referee"] = (0x84F0066C4B45B05B, 0x2B2A680F859D43C7),
+        ["w-katana-katana-referee"] = (0x8C04840474F92ADA, 0x2D71150056A422DB),
         ["w-longsword-longsword-noref"] = (0x7E2F6896A2FB961A, 0x91814460B0BB3082),
         ["w-katana-longsword-referee"] = (0x1380E13D18CA2449, 0x9574EF61D2A45636),
         ["w-club-katana-noref"] = (0x31B370C785F0108F, 0x8871BCD72FE2430B),
@@ -93,7 +94,7 @@ public sealed class CharacterSamenessTests
     {
         ["katana-longsword-noref"] = (0x4FD45B9170AAB0F9, 0x601DB74BC7E017B0),
         ["single-karate-vs-katana"] = (0xB35E67692CC2E4A2, 0x919DA71D73DB1931),
-        ["w-katana-katana-referee"] = (0x799C577DC81F9FB9, 0x910F57000CA137DB),
+        ["w-katana-katana-referee"] = (0x6C32ADC6143D2CC5, 0x63B8604F11746084),
         ["w-longsword-longsword-noref"] = (0xC652B7FCF953C43D, 0xBEC2F47D2136A239),
         ["w-katana-longsword-referee"] = (0xCF068BEE2B9B1B45, 0xD50FC457A12AE7C6),
         ["w-club-katana-noref"] = (0x4301BF5B492B1B88, 0x9957B6F56B5090DA),

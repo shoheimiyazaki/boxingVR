@@ -39,7 +39,14 @@ public enum VoxelTissue : byte
 /// full <paramref name="Strength"/> without breaking it wears away (a blow at a fraction r of it wears r² of that). Repeated
 /// blows that each hold still tear it in the end, and the wear shows as a stain on the way (<see cref="VoxelGrid.Wear"/>).
 /// Null = never worn (only a blow past its strength breaks it).</param>
-public sealed record VoxelMechanics(float Density, float Strength, float Give, float? Tensile = null, float? Stiffness = null, float? Wear = null)
+/// <param name="PassiveTie">2026-11-20: the tensile stress [Pa] a soft cell that bears no bending of its own (the sheaths and
+/// ligaments in flesh, the skin) takes as a tie across a bent beam's section, whatever the body does. The stretched side's ties
+/// take the bending up to what they can hold before the load-bearing cells do (see <c>VoxelBending.FindBreak</c>); a tie yields,
+/// it never snaps the beam. Null = none.</param>
+/// <param name="ActiveTie">2026-11-20: the further tensile stress [Pa] a contractile cell (a muscle) takes as a tie at full
+/// activation; it scales with the beam's activation (0 = slack: a fainted or dead body). Null = none.</param>
+public sealed record VoxelMechanics(float Density, float Strength, float Give, float? Tensile = null, float? Stiffness = null, float? Wear = null,
+    float? PassiveTie = null, float? ActiveTie = null)
 {
     /// <summary>Soft default for a material that states none (yields easily, never snaps).</summary>
     public static VoxelMechanics Default { get; } = new(1000f, 0.5e6f, 0.004f);

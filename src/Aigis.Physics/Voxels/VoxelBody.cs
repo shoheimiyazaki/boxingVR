@@ -164,6 +164,13 @@ public sealed class VoxelBody
     /// </summary>
     public (int Low, int High)? BeamSlices { get; set; }
 
+    /// <summary>
+    /// How hard the beam's contractile cells pull (0..1): their <see cref="VoxelMechanics.ActiveTie"/> is scaled by it when a blow bends
+    /// the beam (a braced neck holds more than a slack one). The owner sets it every step (a body's muscle tone); 0 by default (only the
+    /// passive ties).
+    /// </summary>
+    public float TieActivation { get; set; }
+
     /// <summary>Where the grid's centre sits in the body's frame.</summary>
     public Vector3 GridCenterLocal { get; }
 

@@ -201,8 +201,8 @@ public static class VoxelContact
         // up to what the face could pass on (the same force that presses beneath a face that held).
         var (blowForce, blowEnergy) = (MathF.Max(h.Force, h.BlowForce), MathF.Max(h.Energy, h.BlowEnergy));
         // A layer laid over a beam (a face over the skull and neck: a companion grid) passes the blow on to the beam it rides on.
-        var bentProbe = blowForce > 0f && BeamOf(probe) is { } probeBeam ? Bend(probeBeam, probeBeam.BeamAxis!.Value, h.Point, -h.Direction, blowForce, blowEnergy) : null;
-        var bentField = blowForce > 0f && BeamOf(field) is { } fieldBeam ? Bend(fieldBeam, fieldBeam.BeamAxis!.Value, h.Point, h.Direction, blowForce, blowEnergy) : null;
+        var bentProbe = blowForce > 0f && BeamOf(probe) is { } probeBeam ? Bend(probeBeam, probe, probeBeam.BeamAxis!.Value, h.Point, -h.Direction, blowForce, blowEnergy) : null;
+        var bentField = blowForce > 0f && BeamOf(field) is { } fieldBeam ? Bend(fieldBeam, field, fieldBeam.BeamAxis!.Value, h.Point, h.Direction, blowForce, blowEnergy) : null;
         StepProfile.End(StepProfile.Slot.Bend, bendStart);
         // The sweep's normal points out of the field toward the probe; the result's normal points out of B toward A.
         var normal = aFiner ? h.Normal : -h.Normal;
@@ -222,7 +222,7 @@ public static class VoxelContact
     /// <see cref="Snap"/> does for a weapon: the force is capped by what the springy beam takes from the blow's energy
     /// before it has flexed (<c>sqrt(2 E k)</c>). The body is not split (the caller breaks it, and the flesh holds the pieces).
     /// </summary>
-    private static VoxelBreak? Bend(VoxelBody body, int axis, Vector3 worldPoint, Vector3 worldDirection, float contactForce, float energy)
+    private static VoxelBreak? Bend(VoxelBody body, VoxelBody struck, int axis, Vector3 worldPoint, Vector3 worldDirection, float contactForce, float energy)
     {
         var grid = body.Grid;
         var s = body.World.GetState(body.BodyId);
@@ -230,8 +230,25 @@ public static class VoxelContact
         var localDirection = Vector3.Transform(worldDirection, Quaternion.Conjugate(s.Orientation));
         var stiffness = VoxelBending.BeamStiffness(grid, localDirection, axis, loadBearingOnly: true);
         var force = stiffness is { } k ? MathF.Min(contactForce, MathF.Sqrt(2f * energy * k)) : contactForce;
-        return VoxelBending.FindBreak(grid, localPoint, localDirection * force, axis, loadBearingOnly: true, body.BeamSlices);
+        if (BendObserved is { } observe)
+        {
+            // 調べもの: 折れなかった打撃も、折れるまでの近さ（比）を渡す。FindBreak と同じ和で、比が 1 を超えたときだけ同じ結果を返す。
+            var worst = VoxelBending.WorstBend(grid, localPoint, localDirection * force, axis, loadBearingOnly: true, body.BeamSlices, body.TieActivation);
+            observe(new BendSample(body, struck, localPoint, localDirection * force, worst));
+            return worst is { Ratio: > 1f } ? worst : null;
+        }
+
+        return VoxelBending.FindBreak(grid, localPoint, localDirection * force, axis, loadBearingOnly: true, body.BeamSlices, body.TieActivation);
     }
+
+    /// <summary>
+    /// 調べもの用（試合の計算には使わない）: 梁を曲げた打撃のたびに呼ぶ。null なら呼ばない（ふだんの経路は <see cref="VoxelBending.FindBreak"/> だけ）。
+    /// どのスレッドの接触からも呼ぶ（受け手が並びを守る）。
+    /// </summary>
+    public static Action<BendSample>? BendObserved { get; set; }
+
+    /// <summary>梁を曲げた 1 回の打撃（<see cref="BendObserved"/>）: 梁・打たれた格子（梁そのものか、梁に重ねた層）・格子の座標の点と力 [N]・いちばん応力の高い断面（比が 1 未満でも）。</summary>
+    public readonly record struct BendSample(VoxelBody Beam, VoxelBody Struck, Vector3 LocalPoint, Vector3 LocalForce, VoxelBreak? Worst);
 
     /// <summary>The beam a blow on <paramref name="body"/> bends: the body itself if it is one, else the grid that owns its rigid body (a companion layer's owner), if that is one.</summary>
     private static VoxelBody? BeamOf(VoxelBody body) => body.BeamAxis is not null ? body : body.Owner is { BeamAxis: not null } owner ? owner : null;
