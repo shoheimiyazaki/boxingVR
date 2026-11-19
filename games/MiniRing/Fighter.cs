@@ -206,7 +206,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 52; // 52: スタミナを呼吸と循環のモデルに（部位ごとの酸素の蓄え・血管・心臓・肺。master の 51 と合わせた）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 57; // 57: 頭の剛体に顔の層（2.5 mm の格子、FaceLayer）を重ね、5 mm の頭は頭蓋骨・脳・首の中だけに（claude/face-f2。56 は手の層の段 3 が使う）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }

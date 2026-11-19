@@ -175,7 +175,7 @@ public sealed class ClubGripTests
         game = Armed(s => new HandCommand(new Vector3(0f, 0.3f, 0.6f) * s.ArmReach, false, Orientation: turn ? AtOwnHead(s) : up));
         using var owner = game;
         Play(game, 1f);
-        var before = game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
+        var before = game.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount);
         var twist = 0f;
         turn = true;
         var own = new List<BodyPartKind>();
@@ -189,7 +189,7 @@ public sealed class ClubGripTests
 
         CollectionAssert.Contains(own, BodyPartKind.Head, $"the club strikes its owner's head (hit: {string.Join(",", own)})");
         Assert.IsGreaterThan(0f, twist, "and twists it (concussion; it fades again within the second)");
-        Assert.IsLessThan(before, game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), "and crushes some of it");
+        Assert.IsLessThan(before, game.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount), "and crushes some of it");
     }
 
     [TestMethod]
@@ -198,8 +198,8 @@ public sealed class ClubGripTests
         // 構えている間、握りは握った手の前腕に触れ続けるが、自分を打ったことにはならない（両手でも）。
         using var game = Armed(s => Guard(Hand.Right, s.ArmReach));
         using var bat = TwoHands(s => WeaponSwing.GuardCommand(s.ArmReach, SwingFamily.Bat));
-        var own = game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
-        var batOwn = bat.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
+        var own = game.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount);
+        var batOwn = bat.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount);
         var selfHits = 0;
         for (var t = 0f; t < 2f; t += 1f / 60f)
         {
@@ -209,7 +209,7 @@ public sealed class ClubGripTests
         }
 
         Assert.AreEqual(0, selfHits, "holding the club in guard does not strike yourself");
-        Assert.AreEqual(own, game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), "the grip does not crush the hand that holds it");
-        Assert.AreEqual(batOwn, bat.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), "nor the two hands on a bat");
+        Assert.AreEqual(own, game.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount), "the grip does not crush the hand that holds it");
+        Assert.AreEqual(batOwn, bat.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount), "nor the two hands on a bat");
     }
 }

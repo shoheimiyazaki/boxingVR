@@ -155,7 +155,8 @@ public sealed class VoxelVolume
                     Rgba[t] = ToByte(color.X);
                     Rgba[t + 1] = ToByte(color.Y);
                     Rgba[t + 2] = ToByte(color.Z);
-                    Rgba[t + 3] = 255;
+                    // Alpha: 255 for an ordinary filled cell; a recolour may ask for a bright surface (an eye white) with W in [0.5, 1).
+                    Rgba[t + 3] = color.W is >= 0.5f and < 0.999f ? ToByte(color.W) : (byte)255;
                 }
             }
         }

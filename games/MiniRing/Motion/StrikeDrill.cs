@@ -128,7 +128,7 @@ public static class StrikeDrill
 
     /// <summary>体の部位（胴につながっている所）ごとに残っているボクセル。</summary>
     private static Dictionary<BodyPartKind, int> Count(BoxerBody body) =>
-        body.Parts.GroupBy(p => p.Kind).ToDictionary(g => g.Key, g => g.Sum(p => p.Body.Grid.FilledCount));
+        body.Layers.GroupBy(p => p.Kind).ToDictionary(g => g.Key, g => g.Sum(p => p.Body.Grid.FilledCount));
 
-    private static int Attached(BoxerBody body) => body.Parts.Sum(p => p.Body.Grid.FilledCount);
+    private static int Attached(BoxerBody body) => body.Layers.Sum(p => p.Body.Grid.FilledCount);
 }

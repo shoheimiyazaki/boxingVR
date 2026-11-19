@@ -17,7 +17,7 @@ public sealed class KarateVitalsTests
         using var game = new BoxingGame(seed: 1);
         var victim = game.Player;
         var meter = new KarateVitals(victim, AimGoal.Eye, game.Cpu.ShoulderCenter);
-        var head = victim.Voxels!.PartOf(victim.Parts.Head)!;
+        var head = victim.Voxels!.Face!; // 目は顔の層（FaceLayer）
         var grid = head.Body.Grid;
         var aim = victim.AsTarget.Point(AimGoal.Eye, game.Cpu.ShoulderCenter)!.Value;
         var eye = Enumerable.Range(0, grid.CellCount)
@@ -58,7 +58,7 @@ public sealed class KarateVitalsTests
         var meter = new KarateVitals(victim, AimGoal.Liver, game.Cpu.ShoulderCenter);
         foreach (var material in BoxerBody.TrunkOrgans.Append(BoxerAnatomy.Brain))
         {
-            var part = victim.Voxels!.Parts.First(p => p.Body.Grid.Remaining(material) > 0);
+            var part = victim.Voxels!.Layers.First(p => p.Body.Grid.Remaining(material) > 0);
             var grid = part.Body.Grid;
             var cell = Enumerable.Range(0, grid.CellCount).First(i => grid.MaterialAt(i) == material);
             grid.SetCellState(cell, (0, 0f, false, 0f));
@@ -78,7 +78,7 @@ public sealed class KarateVitalsTests
         var meter = new KarateVitals(game.Player, AimGoal.Eye, game.Cpu.ShoulderCenter);
         foreach (var material in BoxerBody.TrunkOrgans.Append(BoxerAnatomy.Brain).Append(BoxerAnatomy.Eye))
         {
-            var grid = game.Player.Voxels!.Parts.First(p => p.Body.Grid.Remaining(material) > 0).Body.Grid;
+            var grid = game.Player.Voxels!.Layers.First(p => p.Body.Grid.Remaining(material) > 0).Body.Grid;
             var source = Enumerable.Range(0, grid.CellCount).First(i => grid.MaterialAt(i) == material);
             var empty = Enumerable.Range(0, grid.CellCount).First(i => grid.MaterialAt(i) == 0);
             Assert.IsTrue(grid.Shift(source, empty));

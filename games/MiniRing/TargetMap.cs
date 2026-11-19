@@ -56,7 +56,7 @@ public sealed class TargetMap(Fighter target)
         => new(Enum.GetValues<AimGoal>().ToDictionary(g => g, g => Point(g, from) is { } p
             ? (Vector3?)(seenHead + (p - actualHead) * clarity) : null),
             new VisionState(1f - (1f - Vision.Left) * clarity, 1f - (1f - Vision.Right) * clarity));
-    private int _brainVersion = -1;
+    private (int Head, int Face) _brainVersion = (-1, -1);
     private Vector3? _brainLocal;
 
     /// <summary>この狙いが今使えるか（露出した脳は露出しているときだけ、腕は付いているときだけ）。</summary>
@@ -151,7 +151,10 @@ public sealed class TargetMap(Fighter target)
         return Vector3.DistanceSquared(l, from) <= Vector3.DistanceSquared(r, from) ? l : r;
     }
 
-    /// <summary>頭の格子の、外に出ている（空のセルと接する）脳のセルの重心（格子のローカル）。無ければ null。</summary>
+    /// <summary>
+    /// 頭の格子の、外に出ている脳のセルの重心（格子のローカル）。無ければ null。外に出ている = 隣の 5 mm のセルが頭の格子で空で、
+    /// その上に重ねた顔の層（<see cref="BoxerBody.Face"/>）でもそこが全部空（頭皮・顔が削れて穴が開いた）。
+    /// </summary>
     private Vector3? ExposedBrainLocal()
     {
         if (target.Voxels?.PartOf(target.Parts.Head) is not { } part)
@@ -160,12 +163,14 @@ public sealed class TargetMap(Fighter target)
         }
 
         var grid = part.Body.Grid;
-        if (grid.Version == _brainVersion)
+        var face = target.Voxels.Face?.Body.Grid;
+        var version = (grid.Version, face?.Version ?? 0);
+        if (version == _brainVersion)
         {
             return _brainLocal;
         }
 
-        _brainVersion = grid.Version;
+        _brainVersion = version;
         var (nx, ny, nz) = grid.Dimensions;
         var sum = Vector3.Zero;
         var count = 0;
@@ -175,7 +180,7 @@ public sealed class TargetMap(Fighter target)
             {
                 for (var x = 0; x < nx; x++)
                 {
-                    if (grid.At(x, y, z) == BoxerAnatomy.Brain && grid.IsExposed(x, y, z))
+                    if (grid.At(x, y, z) == BoxerAnatomy.Brain && Open(grid, face, x, y, z))
                     {
                         sum += new Vector3(x + 0.5f, y + 0.5f, z + 0.5f);
                         count++;
@@ -186,5 +191,51 @@ public sealed class TargetMap(Fighter target)
 
         _brainLocal = count > 0 ? (sum / count * grid.CellSize) - grid.HalfExtents : null;
         return _brainLocal;
+    }
+
+    /// <summary>頭の格子のセルが外気に面しているか: 6 方向のどれかが、頭の格子でも、重ねた顔の層（同じ箱、各軸 <see cref="FaceLayer.Subdivision"/> 倍）でも空。</summary>
+    private static bool Open(Aigis.Foundation.Voxels.VoxelGrid grid, Aigis.Foundation.Voxels.VoxelGrid? face, int x, int y, int z)
+    {
+        var (nx, ny, nz) = grid.Dimensions;
+        foreach (var (dx, dy, dz) in new[] { (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1) })
+        {
+            var (ax, ay, az) = (x + dx, y + dy, z + dz);
+            if (ax < 0 || ay < 0 || az < 0 || ax >= nx || ay >= ny || az >= nz)
+            {
+                return true;
+            }
+
+            if (grid.At(ax, ay, az) != 0)
+            {
+                continue;
+            }
+
+            if (face is null || FaceEmpty(face, ax, ay, az))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool FaceEmpty(Aigis.Foundation.Voxels.VoxelGrid face, int x, int y, int z)
+    {
+        const int n = FaceLayer.Subdivision;
+        for (var dz = 0; dz < n; dz++)
+        {
+            for (var dy = 0; dy < n; dy++)
+            {
+                for (var dx = 0; dx < n; dx++)
+                {
+                    if (face.At((x * n) + dx, (y * n) + dy, (z * n) + dz) != 0)
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
     }
 }

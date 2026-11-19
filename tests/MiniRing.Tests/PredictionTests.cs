@@ -114,7 +114,9 @@ public sealed class PredictionTests
         // 相手は溜めの始めに狙いを決めるので、溜めより前に動くと動いた先を狙われる。外せるのは溜めの始め近くに動き出したときだけ（足運び編 F6）。
         // PhysicsVersion 31: 直した頭（boxer.vox）は顔の面が 1 セル（5 mm）後ろへ下がり、鼻だけが前に出るので、反応だけの頭の割合は 0.57 → 0.48、
         // 予測は 0.40 → 0.19。差（予測の効き）はむしろ大きい。下限は「半分近くが頭に当たる」に合わせる。
-        Assert.IsGreaterThan(0.4f, reactingHead, "reacting: about half the punches reach the head");
+        // PhysicsVersion 57（顔の層、2026-11-19）: 顔は組み立てた顔（FaceComposer）になり、目の高さの顔の面は前の頭（5 mm の皮膚の前の面 45〜50 mm）より
+        // 5 mm ほど後ろ（約 41 mm）。PhysicsVersion 31 と同じく、届きの際の拳が顔に届く割合が下がる（5 つの種で 0.38、予測 0.26: 差は保たれている）。
+        Assert.IsGreaterThan(0.35f, reactingHead, "reacting: about half the punches reach the head");
         Assert.IsGreaterThan(reactingCover + 0.2f, predictingCover, $"predicting cover {predictingCover} vs reacting {reactingCover}");
         Assert.IsLessThan(reactingHead - 0.1f, predictingHead, $"predicting head {predictingHead} vs reacting {reactingHead}");
     }

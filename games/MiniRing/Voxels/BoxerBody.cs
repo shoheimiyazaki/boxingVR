@@ -15,6 +15,12 @@ namespace MiniRing.Voxels;
 /// <param name="FragmentOf">破片なら、元の部位の剛体 id。</param>
 public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Volume, int? SeverAxis, bool DistalHigh, int? FragmentOf = null)
 {
+    /// <summary>セルごとの見た目の色（顔の層: <see cref="FaceLayer"/>。影・眉・唇・白目・無精ひげの色）。null なら材質の色だけ。見た目だけ。</summary>
+    public FaceCellColors? CellColors { get; init; }
+
+    /// <summary>白目を明るい面として描く印（<see cref="VoxelVolume"/> の alpha 0.5: 照明の陰でも白目が灰色に沈まない。見た目だけ）。</summary>
+    private const float BrightWhite = 0.5f;
+
     /// <summary>チアノーゼを丸める段の数（テクスチャの書き直しはこの段が変わったときだけ）。</summary>
     private const int CyanosisSteps = 16;
 
@@ -255,9 +261,15 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
             var palette = grid.Palette;
             var scan = eyeScan;
             var half = grid.Dimensions.X / 2;
+            var cellColors = CellColors;
             VoxelRecolor? recolor = null;
-            recolor = cyan == 0 && pale == 0 && bruise is null && !eyeOn ? null : (m, color, x, y, z) =>
+            recolor = cyan == 0 && pale == 0 && bruise is null && !eyeOn && cellColors is null ? null : (m, color, x, y, z) =>
             {
+                if (cellColors?.At(grid.Index(x, y, z), m) is { } own)
+                {
+                    color = own with { W = color.W };
+                }
+
                 if (eyeOn && m is BoxerAnatomy.Eye or BoxerAnatomy.Pupil)
                 {
                     var first = x >= half;
@@ -271,7 +283,12 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
 
                     var isPupil = grid.Index(x, y, z) == (first ? scan.Pupil0 : scan.Pupil1);
                     var material = palette[isPupil ? BoxerAnatomy.Pupil : BoxerAnatomy.Eye];
-                    return surface ? material.SurfaceColor : material.Color;
+                    if (!isPupil && cellColors is not null)
+                    {
+                        return color with { W = m == BoxerAnatomy.Eye ? BrightWhite : 1f }; // 白目・瞳の色（顔の色の表）。白目は明るい面として描く
+                    }
+
+                    return (surface ? material.SurfaceColor : material.Color) with { W = isPupil ? 1f : BrightWhite };
                 }
 
                 if (m != BoxerAnatomy.Skin)
@@ -396,7 +413,7 @@ public sealed class BoxerBody
     {
         get
         {
-            var head = _parts.Single(p => p.Kind == BodyPartKind.Head);
+            var head = EyeLayer;
             var grid = head.Body.Grid;
             if (_vision is { } cached && cached.Version == grid.Version)
             {
@@ -433,7 +450,7 @@ public sealed class BoxerBody
     /// <summary>ドリル・テスト用: その側（+X が左）の目の白目・黒目を全部潰す（打撃で潰れたのと同じ、セルを空にする）。</summary>
     public void DestroyEye(bool left)
     {
-        var grid = _parts.Single(p => p.Kind == BodyPartKind.Head).Body.Grid;
+        var grid = EyeLayer.Body.Grid;
         for (var i = 0; i < grid.CellCount; i++)
         {
             if (grid.MaterialAt(i) is not (BoxerAnatomy.Eye or BoxerAnatomy.Pupil))
@@ -451,6 +468,34 @@ public sealed class BoxerBody
 
     private readonly Dictionary<int, VoxelPart> _byBody = [];
     private readonly List<VoxelPart> _parts = [];
+
+    /// <summary>全ての部位の格子: 各部位の前に、その部位に重ねた層（頭なら顔の層）。描画・あざ・再生・接触はこの順（固定）で回す。</summary>
+    private readonly List<VoxelPart> _layers = [];
+
+    /// <summary>頭の剛体に重ねた顔の層（<see cref="FaceLayer"/>: 頭蓋骨の外の頭皮・顔・目・髪。2.5 mm の格子）。</summary>
+    private readonly VoxelPart? _face;
+
+    /// <summary>頭の剛体に重ねた顔の層（<see cref="FaceLayer"/>）。頭蓋骨の外（頭皮・顔の肉・目・鼻・唇・耳・髪・ひげ）はこの格子だけにある。</summary>
+    public VoxelPart? Face => _face;
+
+    /// <summary>
+    /// 体に付いた全ての格子（部位と、その上に重ねた層）: 各部位の前に、その剛体に重ねた層（頭なら顔の層 → 頭の 5 mm の格子）。
+    /// 層は部位と同じ剛体（<see cref="VoxelBody.BodyId"/> が同じ）で、種類（<see cref="VoxelPart.Kind"/>）も同じ。
+    /// </summary>
+    public IReadOnlyList<VoxelPart> Layers => _layers;
+
+    /// <summary>目（白目・黒目）を持つ格子: 顔の層（無い体なら頭の格子）。</summary>
+    private VoxelPart EyeLayer => _face ?? _parts.Single(p => p.Kind == BodyPartKind.Head);
+
+    /// <summary>
+    /// 接触を調べる全ての格子を <paramref name="into"/> へ足す（体に付いた格子 <see cref="Layers"/> → 切り離された破片 <see cref="Fragments"/> の順）。
+    /// </summary>
+    public void AddContactParts(List<VoxelPart> into)
+    {
+        ArgumentNullException.ThrowIfNull(into);
+        into.AddRange(_layers);
+        into.AddRange(_fragments);
+    }
     private readonly List<VoxelPart> _fragments = [];
     private readonly float _deathFraction;
 
@@ -503,12 +548,19 @@ public sealed class BoxerBody
     /// <param name="outfit">身なり（トランクスとブーツ）。null なら裸。</param>
     /// <param name="overrides">ボクセル編集ソフトで直した中身（<see cref="BoxerVoxelOverrides.Shipped"/> など）。null なら生成のまま。</param>
     /// <param name="look">顔（肌・髪の色と髪型・眉・ひげ。<see cref="FaceLook"/>）。null なら作ったまま。見た目だけ。</param>
-    public BoxerBody(Fighter fighter, PhysicsWorld world, FighterTuning tuning, LowPoly.BoxerModel? shapes = null, Outfit? outfit = null, BoxerVoxelOverrides? overrides = null, FaceLook? look = null)
+    /// <param name="face">顔の層の形（<see cref="FaceSpec"/>: 部位ごとの部品と値）。null なら <paramref name="look"/> から（<see cref="FaceSpec.FromLook"/>）、それも無ければ既定の顔。</param>
+    public BoxerBody(Fighter fighter, PhysicsWorld world, FighterTuning tuning, LowPoly.BoxerModel? shapes = null, Outfit? outfit = null, BoxerVoxelOverrides? overrides = null, FaceLook? look = null,
+        FaceSpec? face = null)
     {
         ArgumentNullException.ThrowIfNull(fighter);
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(tuning);
         _deathFraction = tuning.OrganDeathFraction;
+        if (look is not null && face is not null)
+        {
+            look = FaceLayer.LookWith(look, face); // 顔の肌・髪・瞳の色を体にも（顔と首の肌がそろう。見た目だけ）
+        }
+
         var p = fighter.Parts;
         VoxelPalette? lookPalette = null;
         LowPoly.BoxerModel? standardShapes = null;
@@ -529,9 +581,33 @@ public sealed class BoxerBody
                 _ => ((int?)null, false),
             };
             // 腕・脚は骨で曲げを受ける梁（肉は質量だけ）: 打撃の曲げが骨の強さを超えた所で折れる（VoxelContact が場所を返す）。頭は首の段だけで折れる。
-            var body = new VoxelBody(world, id, grid, materialMass: false) { BeamAxis = axis, BeamSlices = kind == BodyPartKind.Head ? NeckBoneSlices(grid) : null };
+            VoxelGrid? faceGrid = null;
+            FaceCellColors? faceColors = null;
+            float? massPerCell = null;
+            if (kind == BodyPartKind.Head)
+            {
+                // 頭: 5 mm の格子は頭蓋骨・脳・首の中だけ。その外は顔の層（2.5 mm）が持つ（FaceLayer）。頭の質量（体格の寸法から）を 2 つの格子の体積で分ける
+                // （ほかの部位と同じく、質量は体積に比例: 顔の層の 1 セルは 5 mm のセルの 1/8）。剛体の質量と当たりの箱は 2 つの格子の和になる（AddCompanion）。
+                var spec = face ?? (look is not null ? FaceSpec.FromLook(look, "face") : FaceSpec.For("standard"));
+                (grid, faceGrid, faceColors) = FaceLayer.Build(grid, spec);
+                massPerCell = world.GetMass(id) / MathF.Max(1f, grid.FilledCount + (faceGrid.FilledCount * FaceLayer.CellVolumeRatio));
+            }
+
+            var body = new VoxelBody(world, id, grid, materialMass: false, massPerCell: massPerCell) { BeamAxis = axis, BeamSlices = kind == BodyPartKind.Head ? NeckBoneSlices(grid) : null };
+            if (faceGrid is not null)
+            {
+                // 剛体の箱と質量は作ったまま（頭の箱 = 2 つの格子を入れる箱、質量はもう 2 つの格子で分けてある）。ほかの部位と同じく、格子が削れて
+                // 変わったときに残ったセルへ合わせ直す（UpdateMass）。
+                var faceBody = body.AddCompanion(faceGrid, body.GridCenterLocal, massPerCell!.Value * FaceLayer.CellVolumeRatio, refit: false);
+                faceBody.PreferField = true; // 顔はいつも打たれる側（粗いグローブ・すね・棍棒に対しても、面の下が潰れるのは顔）
+                _face = new VoxelPart(kind, faceBody, VoxelVolume.For(faceGrid), null, false) { CellColors = faceColors };
+                _originals[_face] = Original.Of(faceGrid);
+                _layers.Add(_face);
+            }
+
             var part = new VoxelPart(kind, body, VoxelVolume.For(grid), axis, distalHigh);
             _parts.Add(part);
+            _layers.Add(part);
             _byBody[id] = part;
             AddOrganSites(part);
             AddCord(part);
@@ -550,7 +626,7 @@ public sealed class BoxerBody
             }
         }
 
-        Landmarks = new BodyLandmarks(_parts);
+        Landmarks = new BodyLandmarks(_parts, _face);
     }
 
     /// <summary>急所の位置（作ったセルから求めた目・こめかみ・あご・みぞおち。<see cref="BodyLandmarks"/>）。</summary>
@@ -635,7 +711,8 @@ public sealed class BoxerBody
             }
         }
 
-        foreach (var part in _parts)
+        // 部位（頭なら頭蓋骨・脳）を先に、重ねた層（顔の層）をその後に治す: 脳・臓器の働きが先に戻る（作った頭が中心から外へ治したのと同じ順）。
+        foreach (var part in _face is null ? _parts : _parts.Append(_face))
         {
             if (restored >= budget || severed.Contains(part.Body.BodyId) || !_originals.TryGetValue(part, out var original)
                 || _healedAt.TryGetValue(part, out var healed) && healed == part.Body.Grid.Version)
@@ -711,7 +788,7 @@ public sealed class BoxerBody
         var restored = 0;
         List<VoxelPart>? reconnected = null;
         // 体に付いている部位と、肉でぶら下がる・骨でつながった破片（生きている体の一部。落ちた破片・床の破片は対象外）。
-        foreach (var part in _parts.Concat(_fragments))
+        foreach (var part in _layers.Concat(_fragments))
         {
             if (!attached(part.Body.BodyId) || !_originals.TryGetValue(part, out var original)
                 || (_grownAt.TryGetValue(part, out var grown) && grown == part.Body.Grid.Version))
@@ -1180,9 +1257,11 @@ public sealed class BoxerBody
     public void BruiseSkin(Vector3 point, float energy)
     {
         var skinDose = energy * SkinBruisePerJoule;
-        foreach (var part in _parts)
+        foreach (var part in _layers)
         {
-            part.AddSkinBruise(point, skinDose, SkinBruiseRadiusCells * MathF.Max(1e-4f, part.Body.Grid.CellSize.X));
+            // あざの広がりは 5 mm のセルで決めた長さ（顔の層の細かいセルでも同じ広さ）。
+            var cell = part == _face ? FaceLayer.Subdivision * part.Body.Grid.CellSize.X : part.Body.Grid.CellSize.X;
+            part.AddSkinBruise(point, skinDose, SkinBruiseRadiusCells * MathF.Max(1e-4f, cell));
         }
     }
 
@@ -1217,7 +1296,7 @@ public sealed class BoxerBody
 
         var factor = MathF.Pow(0.5f, _fadeAccum / halfLifeSeconds);
         _fadeAccum = 0f;
-        foreach (var part in _parts)
+        foreach (var part in _layers)
         {
             part.FadeBruise(factor);
         }
@@ -1227,13 +1306,13 @@ public sealed class BoxerBody
     private const float SkinBruiseFadeInterval = 0.5f;
 
     /// <summary>皮膚のあざの量の合計（全部位。見た目だけ。テスト・調べ用）。</summary>
-    public float SkinBruiseTotal() => _parts.Sum(p => p.BruiseTotal());
+    public float SkinBruiseTotal() => _layers.Sum(p => p.BruiseTotal());
 
     /// <summary>打撲が時間とともに引く（一定の速さ <paramref name="rate"/> [/s]）。体の時計も進める（あざの色が時間で変わる）。</summary>
     public void HealBruises(float dt, float rate)
     {
         _clock += dt;
-        foreach (var part in _parts)
+        foreach (var part in _layers)
         {
             part.Tick(_clock);
         }
@@ -1443,8 +1522,27 @@ public sealed class BoxerBody
             return null;
         }
 
-        var carved = part.Body.Impact(point, direction, energy, chipSpeed, jitter, chips, spread, chunks, cutFaces: cutFaces);
-        return new ImpactResult(carved, part, carved > 0 ? BreakIfSevered(bodyId) : null);
+        var struck = part;
+        var carved = 0;
+        if (part.Kind == BodyPartKind.Head && part.FragmentOf is null && _face is { } faceLayer)
+        {
+            // 顔の層を先に削り、使い切らなかった分で頭蓋骨を削る。削る量は 5 mm のセル 1 個 = 1 の物差しなので、体積が 1/8 の顔のセルには 8 倍で渡す。
+            var (faceCarved, faceSpent) = faceLayer.Body.ImpactSpending(point, direction, energy / FaceLayer.CellVolumeRatio, chipSpeed, jitter, chips, spread, chunks, cutFaces: cutFaces);
+            carved += faceCarved;
+            energy -= faceSpent * FaceLayer.CellVolumeRatio;
+            if (faceCarved > 0)
+            {
+                struck = faceLayer;
+                cutFaces = null; // 見た目の断面の光は、先に削れた層（顔）の分だけ
+            }
+        }
+
+        if (energy > 1e-4f)
+        {
+            carved += part.Body.Impact(point, direction, energy, chipSpeed, jitter, chips, spread, chunks, cutFaces: cutFaces);
+        }
+
+        return new ImpactResult(carved, struck, carved > 0 ? BreakIfSevered(bodyId) : null);
     }
 
     /// <summary>

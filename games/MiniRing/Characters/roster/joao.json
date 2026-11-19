@@ -75,6 +75,21 @@
     "skin": [0.58, 0.38, 0.24], "hair": [0.05, 0.05, 0.05], "hairstyle": "Mohawk", "eyes": [0.12, 0.07, 0.03],
     "brows": true, "beard": false
   },
+  "face": {
+    "parts": {
+      "hair": { "hair.4": 0.5, "hair.9": 0.5 },
+      "brows": { "brows.4": 1.0 },
+      "eyes": { "eyes.3": 0.6, "eyes.5": 0.4 },
+      "nose": { "nose.2": 0.5, "nose.4": 0.5 },
+      "mouth": { "mouth.9": 1.0 },
+      "jaw": { "jaw.1": 0.5, "jaw.6": 0.5 },
+      "ears": { "ears.1": 1.0 },
+      "beard": { "beard.3": 1.0 },
+      "browridge": { "browridge.2": 1.0 }
+    },
+    "values": { "cheekbones": 1.55, "noseWidth": 1.15, "faceWidth": 0.98, "browTilt": 0.2, "mouthWidth": 1.05 },
+    "skin": [0.678, 0.475, 0.325], "hair": [0.125, 0.106, 0.09], "iris": [0.478, 0.322, 0.188]
+  },
   "body": {
     "build": { "height": 0.98, "arms": 1, "legs": 1, "muscle": 1.05 },
     "wear": "knuckles",
