@@ -68,7 +68,7 @@ public sealed class JointBridgeTests
         var m = BoxerVoxelOverrides.HaloMargin;
         var dims = (x + (2 * m), y + (2 * m), z + (2 * m));
         var halo = new BoxerVoxelOverrides.PartCells(dims, Enumerable.Repeat(BoxerAnatomy.Artery, dims.Item1 * dims.Item2 * dims.Item3).ToArray());
-        var withHalo = new JointBridge(neck.Joint, neck.Parent, neck.Child, anchor, parentHalo: halo);
+        var withHalo = new JointBridge(neck.Joint, neck.Parent, neck.Child, anchor, neck.ParentLayers, neck.ChildLayers, parentHalo: halo);
 
         neck.Refresh(_ => true);
         withHalo.Refresh(_ => true);
@@ -90,7 +90,7 @@ public sealed class JointBridgeTests
         var (px, py, pz) = ((int)MathF.Floor(c.X) + m, (int)MathF.Floor(c.Y) + m, (int)MathF.Floor(c.Z) + m);
         var one = new byte[dims.Item1 * dims.Item2 * dims.Item3];
         one[px + (dims.Item1 * (py + (dims.Item2 * pz)))] = BoxerAnatomy.Artery;
-        var single = new JointBridge(neck.Joint, neck.Parent, neck.Child, anchor, parentHalo: new BoxerVoxelOverrides.PartCells(dims, one));
+        var single = new JointBridge(neck.Joint, neck.Parent, neck.Child, anchor, neck.ParentLayers, neck.ChildLayers, parentHalo: new BoxerVoxelOverrides.PartCells(dims, one));
         single.Refresh(_ => true);
         Assert.AreEqual(1, Count(single, b => b == BoxerAnatomy.Artery), "one halo cell gives one gap cell");
         Assert.AreEqual(BoxerAnatomy.Artery, single.Body.Grid.MaterialAt(gap), "and it is the gap cell over that parent cell");
