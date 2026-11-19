@@ -45,6 +45,7 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
 
     private readonly OrgColors _colors = org.Colors;
     private readonly Dictionary<string, CharacterPortrait> _portraits = [];
+    private readonly VitalsMonitor _vitals = new();
 
     private Vector4 Cream => _colors.Accent;
     private Vector4 Muted => _colors.Muted;
@@ -557,6 +558,17 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         Shadowed(text, blue, new Vector2(w - 24f, bandTop + (bandHeight * 0.16f)), 38f, Cream, TextAnchor.Right);
         DrawFigure(shapes, bodies.Of(game.Player), new Vector2(w * 0.5f - 90f - figureWidth, figureTop), unit, 1f, sunk: false);
         DrawFigure(shapes, bodies.Of(game.Cpu), new Vector2(w * 0.5f + 90f, figureTop), unit, 1f, sunk: false);
+
+        // 顔の窓の下の帯、名前の横に小さなバイタルモニター: 波形と数字だけ（説明の文字は出さない。2026-11-19、ユーザーの指定）。
+        // 帯の高さいっぱいを使う（名前の下に置くと 1 本の波が 20 px ほどになり、拍が見えなかった）。
+        _vitals.Sample(game.Player);
+        _vitals.Sample(game.Cpu);
+        var monitorTop = bandTop + 14f;
+        var monitorHeight = h - 10f - monitorTop;
+        var monitorLeft = w * 0.15f;
+        var monitorWidth = (w * 0.5f) - 90f - figureWidth - 24f - monitorLeft;
+        _vitals.Draw(game.Player, new Vector2(monitorLeft, monitorTop), monitorWidth, monitorHeight, text, shapes);
+        _vitals.Draw(game.Cpu, new Vector2(w - monitorLeft - monitorWidth, monitorTop), monitorWidth, monitorHeight, text, shapes);
         return new ShowDraw(text, shapes);
     }
 

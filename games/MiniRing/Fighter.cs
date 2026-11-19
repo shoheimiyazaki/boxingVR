@@ -1616,6 +1616,8 @@ public sealed partial class Fighter
             // 見た目だけ（吐く息・メーターの点滅の拍子）。小数部だけが意味を持つので、float の精度が落ちる前に整数ぶん戻す。
             BreathPhase += dt * TiredLook.BreathsPerSecond(Winded);
             BreathPhase -= BreathPhase >= 1024f ? 1024f : 0f;
+            HeartPhase += dt * HeartRate / 60f;
+            HeartPhase -= HeartPhase >= 1024f ? 1024f : 0f;
         }
 
         // まばたき・まぶた（見た目だけ。種は頭の初期位置から: ファイターごとに決まった数列）。
@@ -1760,6 +1762,9 @@ public sealed partial class Fighter
     /// 物理の歩で進むので、同じ試合なら同じ所で息を吐く。試合の計算には使わない。
     /// </summary>
     public float BreathPhase { get; private set; }
+
+    /// <summary>心拍の位相（拍の数、見た目だけ）: 1 拍ごとに 1 増える。速さは <see cref="HeartRate"/>。死ねば止まる。中継の動脈圧の波形の拍子。試合の計算には使わない。</summary>
+    public float HeartPhase { get; private set; }
 
     /// <summary>スタミナがこれを下回ると拳を運ぶ力が落ち始める（<see cref="FighterTuning.TiredKnee"/>。メーターの「動きが鈍る」区域の上端）。</summary>
     public float SluggishBelow => _tuning.TiredKnee;

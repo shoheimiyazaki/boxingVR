@@ -62,6 +62,27 @@ public sealed partial class Fighter
     /// <summary>心臓が送りきれなかった割合（ならした値、0..1。顔の青白さの元）。</summary>
     private float _heartShortfall;
 
+    /// <summary>心臓が送っている速さの、今の心臓の上限に対する割合（ならした値、0..1。中継のバイタルの心拍の元。見た目だけ）。</summary>
+    private float _heartLoad;
+
+    /// <summary>
+    /// 心臓の仕事の割合（0..1、見た目だけ）: 部位へ送っている酸素の速さ ÷ 今の心臓の上限 <see cref="HeartCapacity"/>（ならした値）。
+    /// 全身で酸素を欲しがるほど、心臓が傷んで上限が下がるほど 1 に近づく。死んでいれば 0。試合の計算には使わない（中継の心拍数の元: <see cref="HeartRate"/>）。
+    /// </summary>
+    public float HeartLoad => IsDead ? 0f : _heartLoad;
+
+    /// <summary>
+    /// 心拍数 [拍/分]（見た目だけ）: 安静の <see cref="RestPulse"/> から、心臓の仕事の割合 <see cref="HeartLoad"/> に比例して <see cref="MaxPulse"/> まで（近道: 1 回の拍出量を一定と見る）。
+    /// 死んでいれば 0。試合の計算には使わない。
+    /// </summary>
+    public float HeartRate => IsDead ? 0f : RestPulse + ((MaxPulse - RestPulse) * Math.Clamp(_heartLoad, 0f, 1f));
+
+    /// <summary>安静の心拍数 [拍/分]（鍛えた選手のふつうの値）。</summary>
+    public const float RestPulse = 60f;
+
+    /// <summary>心臓がいっぱいに働いているときの心拍数 [拍/分]（成人の最大心拍のおおよそ）。</summary>
+    public const float MaxPulse = 190f;
+
     /// <summary>調べもの用: 部位 <paramref name="region"/> の筋肉がこの試合でした仕事 [J]。</summary>
     internal float RegionWork(MuscleRegion region) => _regionWork[(int)region];
 
@@ -363,6 +384,8 @@ public sealed partial class Fighter
         var cue = 1f - MathF.Exp(-dt / CueWindow);
         _uptake += ((uptake / dt) - _uptake) * cue;
         _heartShortfall += ((1f - heartScale) - _heartShortfall) * cue;
+        var load = heart > 1e-6f ? wanted * heartScale / heart : 1f;
+        _heartLoad += ((float.IsFinite(load) ? Math.Clamp(load, 0f, 1f) : _heartLoad) - _heartLoad) * cue;
     }
 
     /// <summary>見た目の合図（息の速さ・顔色）をならす時間 [s]。息や顔色は一瞬では変わらない。</summary>
