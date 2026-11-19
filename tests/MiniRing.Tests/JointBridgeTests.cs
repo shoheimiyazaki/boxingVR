@@ -134,9 +134,14 @@ public sealed class JointBridgeTests
         // 59（顔・手の層と、この枝の滑りの直しのマージ）: 静止した的の立ち方が数 mm 変わり、膝の断ちは刃が止まるか通り抜けるかの鋭い連鎖なので、3 行を
         // 取り直した（`jointlab --joints LeftKnee,RightKnee --bend 40 --speeds 3.4,9`、表は docs/arena/jointlab_bend40_v59.md の「つなぎが断ちを変えた振り」。
         // つなぎ無し → 有りで 断たれない → 断たれる、近くの削れたセル 22 → 87 / 94 → 102 / 73 → 95）。
+        // 60（グローブの作り直し 58 とのマージ）: 的の立ち方はグローブの有無で 0.1 mm も動かない（膝の中心 861.1 → 861.0 mm、骨盤 1029.1 → 1029.0 mm、
+        // 拳 0.1 mm 以内。2026-11-19 の測定）のに、3.4 m/s の振りは刃が止まるか通り抜けるかの鋭い連鎖で、LeftKnee の窓が -10 mm（つなぎ有りだけ断つ）から
+        // -5 mm（つなぎ無しだけ断つ）へ入れ替わった。9 m/s の振りは窓がほぼ同じ（LeftKnee +5 mm・RightKnee +5 mm は同じ行で、近くの削れが 94 → 102・73 → 95 から
+        // 66 → 106・73 → 95）。そこで、3.4 m/s の行を 1 mm 刻みで探し直し（`GlovePoseProbe` の掃引: 膝の高さ -10〜+10 mm × 2 速さ × 左右）、
+        // つなぎ無し → 有りで 断たれない → 断たれる行に置き換えた（RightKnee front +3 mm 3.4 m/s bend -40: 近くの削れ 58 → 77）。
         var rows = new[]
         {
-            (HumanoidRagdoll.RagdollJoint.LeftKnee, "front", -0.010f, 3.4f, 40f),
+            (HumanoidRagdoll.RagdollJoint.RightKnee, "front", 0.003f, 3.4f, -40f),
             (HumanoidRagdoll.RagdollJoint.LeftKnee, "front", 0.005f, 9f, 40f),
             (HumanoidRagdoll.RagdollJoint.RightKnee, "front", 0.005f, 9f, -40f),
         };
@@ -199,7 +204,9 @@ public sealed class JointBridgeTests
         // 変わったので 2 行を取り直した（`necklab --mode slash --tilt 35 --arms down --offsets -0.005..0.005 --speeds 3.4,9` をつなぎ有り・無しで。
         // 表は docs/arena/necklab_slash_tilt35_v59_on.md・_off.md。つなぎ無しは断たれず頭が残り、有りは頭が落ちる振り: side 3.4 m/s +3 mm（首の削れ 21 → 36）・
         // front 3.4 m/s -5 mm（4 → 12）。ほかに side 3.4 +5・front 9 -2・back 3.4 -2/+2/+4 も同じ。落ちる高さは 1 mm 刻みで入れ替わる鋭い値で、固定した 2 行）。
-        foreach (var (dir, offset, speed) in new[] { ("side", 0.003f, 3.4f), ("front", -0.005f, 3.4f) })
+        // 60（グローブの作り直しとのマージ）: 的の立ち方は 0.1 mm も動かないのに、1 mm 刻みの鋭い窓が動いた（side 3.4 m/s は +3 mm → +5 mm。首の削れ 22 → 30。
+        // front 3.4 m/s -5 mm は同じ行: 4 → 12）。`necklab` 相当の掃引（-5〜+5 mm × side・front・back × 3.4・9 m/s）で、つなぎ無しは頭が残り有りは頭が落ちる行から取り直した。
+        foreach (var (dir, offset, speed) in new[] { ("side", 0.005f, 3.4f), ("front", -0.005f, 3.4f) })
         {
             var without = NeckLab.SlashOnce(dir, offset, speed, bridges: false, tiltDegrees: 35f, armsDown: true);
             var with = NeckLab.SlashOnce(dir, offset, speed, bridges: true, tiltDegrees: 35f, armsDown: true);
