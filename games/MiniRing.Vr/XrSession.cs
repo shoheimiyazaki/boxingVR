@@ -14,11 +14,11 @@ internal readonly record struct XrInputFrame(
     Vector2 LeftStick, Vector2 RightStick, float LeftGrip, float RightGrip,
     bool CalibratePressed, bool Focused,
     Quaternion LeftHandOrientation = default, Quaternion RightHandOrientation = default,
-    float LeftTrigger = 0f, float RightTrigger = 0f, bool RecordTogglePressed = false)
+    float LeftTrigger = 0f, float RightTrigger = 0f, bool RecordTogglePressed = false, MiniRing.Motion.VrFaceButtons Buttons = default)
 {
     /// <summary>OpenXR に依らない生の入力（写像・記録が使う形）。</summary>
     public MiniRing.Motion.VrRawFrame ToRaw() => new(HeadPosition, HeadOrientation, LeftHand, RightHand, LeftTracked, RightTracked,
-        LeftStick, RightStick, LeftGrip, RightGrip, CalibratePressed, Focused, LeftHandOrientation, RightHandOrientation, LeftTrigger, RightTrigger);
+        LeftStick, RightStick, LeftGrip, RightGrip, CalibratePressed, Focused, LeftHandOrientation, RightHandOrientation, LeftTrigger, RightTrigger, Buttons);
 }
 
 /// <summary>1 つの目の描画指示。</summary>
@@ -289,6 +289,12 @@ internal sealed unsafe class XrSession : IDisposable
         _ = _xr.ApplyHapticFeedback(_session, &info, (HapticBaseHeader*)&vibration);
     }
 
+    /// <summary>
+    /// 稽古の操作（A 単独 = 合わせ、4 つ同時 = 作り直し、X・Y = 蹴り）。true なら、A/X の押した瞬間の合わせと B/Y の記録の合図は出さず、
+    /// 4 つのフェイスボタンの押している状態（<see cref="XrInputFrame.Buttons"/>）だけを渡す。
+    /// </summary>
+    public bool FaceButtonMode { get; set; }
+
     private XrInputFrame ReadInput(long displayTime, Vector3 headXr, Quaternion headRotXr)
     {
         var active = new ActiveActionSet { ActionSet = _actionSet, SubactionPath = 0 };
@@ -301,6 +307,8 @@ internal sealed unsafe class XrSession : IDisposable
         var sticks = new Vector2[2];
         var grips = new float[2];
         var triggers = new float[2];
+        var primaryDown = new bool[2];
+        var secondaryDown = new bool[2];
         var handRotations = new Quaternion[2];
         var calibrate = false;
         var record = false;
@@ -333,15 +341,27 @@ internal sealed unsafe class XrSession : IDisposable
             calibrate |= focused && _xr.GetActionStateBoolean(_session, &get, &button) == Result.Success
                 && button.IsActive != 0 && button.ChangedSinceLastSync != 0 && button.CurrentState != 0;
 
+            primaryDown[h] = focused && button.IsActive != 0 && button.CurrentState != 0;
+
             get.Action = _recordAction;
             var recordButton = new ActionStateBoolean { Type = StructureType.ActionStateBoolean };
             record |= focused && _xr.GetActionStateBoolean(_session, &get, &recordButton) == Result.Success
                 && recordButton.IsActive != 0 && recordButton.ChangedSinceLastSync != 0 && recordButton.CurrentState != 0;
+            secondaryDown[h] = focused && recordButton.IsActive != 0 && recordButton.CurrentState != 0;
+        }
+
+        // 左の primary = X・secondary = Y、右の primary = A・secondary = B（Index は左右とも A・B）。
+        var faceButtons = new MiniRing.Motion.VrFaceButtons(primaryDown[0], secondaryDown[0], primaryDown[1], secondaryDown[1]);
+        if (FaceButtonMode)
+        {
+            // 稽古: 押した瞬間の合わせ・B/Y の記録は使わない（写像が押している状態から作る）。
+            calibrate = false;
+            record = false;
         }
 
         return new XrInputFrame(ToWorld(headXr), Quaternion.Concatenate(headRotXr, WorldFromXr),
             hands[0], hands[1], tracked[0], tracked[1], sticks[0], sticks[1], grips[0], grips[1], calibrate, focused,
-            handRotations[0], handRotations[1], triggers[0], triggers[1], record);
+            handRotations[0], handRotations[1], triggers[0], triggers[1], record, faceButtons);
     }
 
     private static Vector3 ToWorld(Vector3 xr) => Vector3.Transform(xr, WorldFromXr);

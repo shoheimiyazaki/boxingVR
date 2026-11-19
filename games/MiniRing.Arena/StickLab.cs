@@ -49,7 +49,7 @@ internal sealed class StickLab(Action<string> log)
     /// 名簿のキャラ <paramref name="id"/> の武器の型（<see cref="FormSwordsman.Forms"/>）を棒人形で走らせ、人間らしさの点と不自然さの警報を出す
     /// （docs/STICK_MOTION.md §10）。<paramref name="detail"/> なら型ごとの警報を全部書く。
     /// </summary>
-    public void Forms(string id, string? pngDir, bool detail)
+    public void Forms(string id, string? pngDir, bool detail, string? bvhDir = null, float bvhScale = 1f)
     {
         var ground = StickGround.For(id);
         var weapon = MiniRing.Characters.CharacterRoster.Get(id).Weapon ?? throw new ArgumentException($"{id} は武器を握りません。", nameof(id));
@@ -73,6 +73,12 @@ internal sealed class StickLab(Action<string> log)
             {
                 Directory.CreateDirectory(pngDir);
                 StickPicture.Save(result, Path.Combine(pngDir, $"{id}_{form.Name}.png"));
+            }
+
+            if (bvhDir is not null)
+            {
+                Directory.CreateDirectory(bvhDir);
+                File.WriteAllText(Path.Combine(bvhDir, $"{id}_{form.Name}.bvh"), StickBvh.Write(result.Body, result.Frames, result.Dt, bvhScale));
             }
         }
 

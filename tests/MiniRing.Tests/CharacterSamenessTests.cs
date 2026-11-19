@@ -24,6 +24,8 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class CharacterSamenessTests
 {
+    // 2026-11-19（PhysicsVersion 49: 滑りの直し、LogicVersion 52: 蹴りの練習のやり直し）: 全部の組を取り直した（CharacterSamenessProbe。値の変わった組だけ書き換わる）。止まっている間に足が流れなくなったので、
+    // 値が変わったのはレフェリーのある組・single-* の組・一部の武器の組の終わり（足の置き方の直しと蹴りの差分のため。ほかは前と同じ）。
     // 2026-11-18（PhysicsVersion 44: ダウンの間の審判の指示）: レフェリーのいる試合でダウンが入る組だけ取り直した（CharacterSamenessProbe。ほかの組は変わらない）。
     // 2026-11-18（LogicVersion 50 の作業中）: マージ 000bd92（PhysicsVersion 46）で master 側の値が入り、ブランチの審判の指示で取り直したレフェリーありの組の値が
     // 消えていたので戻した（glove-glove-referee は d6b1257 で取り直した値と同じ。katar-gauntlet-referee の終わりも同じ理由。レフェリーなしの組は変わらない）。

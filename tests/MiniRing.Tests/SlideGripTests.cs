@@ -16,6 +16,13 @@ public sealed class SlideGripTests
 {
     private const float Dt = 1f / 60f;
 
+    /// <summary>
+    /// 握り直しの許し（<see cref="FighterTuning.SupportGripReach"/>）は 2 cm から 3 cm にする。49（足の滑りの直し）の前は、止まっている間に体が 7 cm ほど流れて
+    /// 拳を握る点の 2 cm 内へ運んでいたが、直した後の体は動かず、腕の届く限りの所に置いた拳は目標から 1.7 cm 手前（腕の力と重さのつり合い）で止まる
+    /// （棒の軸からの距離 2.2〜2.9 cm を測った。probe）。VR の手の許し（実際の手で 15 cm ほど）よりずっと小さい 3 cm のまま。
+    /// </summary>
+    private static readonly FighterTuning RigTuning = FighterTuning.Default with { SupportGripReach = 0.03f };
+
     private sealed class Scripted(Func<FighterSense, FighterCommand> read) : IFighterControl
     {
         public FighterCommand Read(in FighterSense sense, float dt) => read(sense);
@@ -29,7 +36,7 @@ public sealed class SlideGripTests
 
         public Rig(Func<int, FighterCommand, Rig, FighterCommand> edit)
         {
-            Game = new BoxingGame(seed: 1, corners: new BoxingCorners("slide",
+            Game = new BoxingGame(RigTuning, seed: 1, corners: new BoxingCorners("slide",
                 _ => new Scripted(s => edit(Step, FormSwordsman.GuardCommand(WeaponKind.Staff, s, Vector3.UnitZ, 0.6f, 0.5f), this)),
                 _ => new StandGuard(), CpuWeapon: WeaponKind.Staff, CpuTwoHanded: true));
         }
@@ -231,6 +238,7 @@ public sealed class SlideGripTests
     [TestMethod]
     public void SwappingHands_TheStaffIsNotDropped_AndTheReleasedHandCanTakeHoldAgain()
     {
+        // 49: 右手の握り直す点は、棒の垂れが落ち着いた 390 歩目の棒の上に取る（左手 1 本で持つ間、棒は左手首を軸に垂れ続ける）。
         // 右手を離して前へ滑らせる間、左手が 1 本で持つ。右手は前の別の所で握り直す。向きの指令は無し（1 本で握った手は握った瞬間の向きを保つ）。
         const float Forward = 0.15f;
         using var rig = new Rig((step, g, r) =>

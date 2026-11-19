@@ -603,7 +603,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         {
             if (command.For(hand).LetGo)
             {
-                LetGo(self, hand);
+                // もう一方の手も同じ歩に放すなら、2 本とも放す（従来どおり）。そうでなければ、残った手が片手で持つ。
+                LetGo(self, hand, command.For(hand == Hand.Left ? Hand.Right : Hand.Left).LetGo);
+            }
+            else if (command.For(hand).Grip)
+            {
+                TryGraspWeapon(self, hand);
             }
 
             self.UpdateGrab(hand, command.For(hand).Grip, opponent);
@@ -633,10 +638,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     }
 
     /// <summary>
-    /// 手 <paramref name="hand"/> が握っている武器を放す（<see cref="HandCommand.LetGo"/>）。利き手なら、添えていた手も放す。添えていた手なら、
-    /// 利き手は片手で持つ。はめた物（グローブ）は外さない。
+    /// 手 <paramref name="hand"/> が握っている武器を放す（<see cref="HandCommand.LetGo"/>）。利き手なら、添えていた手も放す（その手も同じ歩に
+    /// 放すとき。そうでなければ添えていた手がそのまま片手で持つ）。添えていた手なら、利き手は片手で持つ。はめた物（グローブ）は外さない。
     /// </summary>
-    private static void LetGo(Fighter self, Hand hand)
+    private static void LetGo(Fighter self, Hand hand, bool otherLetsGoToo)
     {
         if (self.WearsGlove(hand) || !self.Wields(hand))
         {
@@ -645,7 +650,14 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
         if (self.WieldedBody(hand) is not null)
         {
-            self.Unwield(hand);
+            if (otherLetsGoToo)
+            {
+                self.Unwield(hand);
+            }
+            else
+            {
+                self.UnwieldKeepingSupport(hand);
+            }
         }
         else
         {
@@ -1878,6 +1890,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// ここでは窓の縁（HUD の図形）だけを描く。窓の中身はホストが <see cref="FaceCam.Views"/> で重ねる。
     /// </summary>
     public FaceCam? FaceCam { get; set; }
+
+    /// <summary>
+    /// 一人称（VR の <c>--first-person</c>）の目の描画で、自分の頭（付いている頭の部位のボクセル。髪・顔・目はその格子の中）を描かない。カメラが頭の中に入り、
+    /// 目の前に自分の頭が来て邪魔になるのを避ける描画だけの設定: 物理・当たり・相手から見た姿・試合の計算・記録には響かない。切り落とされた頭（破片）は描く。
+    /// </summary>
+    public bool HidePlayerHead { get; set; }
 
     /// <summary>ホストが試合を進めている速さ（<see cref="GameSpeed"/>）。HUD に出すだけで、試合の計算には響かない（速さはホストが 1 歩の時間で決める）。</summary>
     public GameSpeed? Speed { get; set; }

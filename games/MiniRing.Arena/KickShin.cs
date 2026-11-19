@@ -28,7 +28,7 @@ internal static class KickShin
     /// <summary>練習の差分の探索の範囲（正規化 [0, 1] ↔ 実際の値）。</summary>
     internal static readonly (string Name, float Low, float High)[] Ranges =
     [
-        ("間合い", 0.75f, 1.6f), ("長さ[s]", 0.4f, 0.95f), ("方位のずれ", -0.5f, 0.5f), ("仰角のずれ", -0.5f, 0.5f), ("膝を開く拍子", -0.15f, 0.15f), ("足首の曲げ", -1.0f, 0.4f),
+        ("間合い", 0.75f, 1.9f), ("長さ[s]", 0.4f, 0.95f), ("方位のずれ", -0.5f, 0.5f), ("仰角のずれ", -0.5f, 0.5f), ("膝を開く拍子", -0.15f, 0.15f), ("足首の曲げ", -1.0f, 0.4f),
     ];
 
     internal static KickTune Decode(IReadOnlyList<double> x)
@@ -74,7 +74,7 @@ internal static class KickShin
     internal static bool InBand(Height h, KneePractice.Outcome o) => o.Landed && (!h.ShinBand || o.Fraction is >= ShinLow and <= ShinHigh) && h.Zones.Contains(o.Zone) && !o.Fell;
 
     /// <summary>高さ × 脚ごとの練習: CMA-ES で調整の条件の平均点を最大にする。</summary>
-    internal static (KickTune Tune, double Start, double Best) Practice(Height h, bool rear, KickTune start, IReadOnlyList<Condition> conditions, int gens, int lambda, int parallel, Action<string> log)
+    internal static (KickTune Tune, double Start, double Best) Practice(Height h, bool rear, KickTune start, IReadOnlyList<Condition> conditions, int gens, int lambda, int parallel, Action<string> log, int seed = 7)
     {
         double ScoreOf(KickTune t)
         {
@@ -82,7 +82,7 @@ internal static class KickShin
         }
 
         var x0 = Encode(start);
-        var cma = new Evolution.CmaEs(x0, seed: 7, initialSigma: 0.15, maximize: true, lambda: lambda, maxGenerations: gens);
+        var cma = new Evolution.CmaEs(x0, seed: seed, initialSigma: 0.15, maximize: true, lambda: lambda, maxGenerations: gens);
         var startScore = ScoreOf(start);
         var best = (Score: startScore, X: x0);
         log($"始め: {F((float)startScore)}");
@@ -118,7 +118,7 @@ internal static class KickShin
     };
 
     /// <summary>練習して表を作る。<paramref name="practice"/> が false なら練習せず、組み込みの差分（練習の結果）と練習の前を比べる。</summary>
-    public static void Run(IReadOnlyList<Height> heights, bool practice, int gens, int lambda, int parallel, string? jsonDir, Action<string> log)
+    public static void Run(IReadOnlyList<Height> heights, bool practice, int gens, int lambda, int parallel, string? jsonDir, Action<string> log, int seed = 7)
     {
         log($"# kick_shin_lmh: 回し蹴りをロー・ミドル・ハイに分けて、すねの下の方（{F(ShinLow)}〜{F(ShinHigh)}）で当てる練習（PhysicsVersion {Fighter.PhysicsVersion}）");
         log("");
@@ -140,7 +140,7 @@ internal static class KickShin
                 if (practice)
                 {
                     log($"## 練習: {h.Name} {(rear ? "後ろ" : "前")}");
-                    var (tuned, _, _) = Practice(h, rear, start, TuneConditions, gens, lambda, parallel, log);
+                    var (tuned, _, _) = Practice(h, rear, start, TuneConditions, gens, lambda, parallel, log, seed);
                     results[rear] = tuned;
                 }
                 else

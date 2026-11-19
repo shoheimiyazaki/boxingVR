@@ -163,7 +163,7 @@ public sealed class EmoteTests
     {
         var endNames = BreakBook.For(BreakScene.End, 0.5f).Select(a => a.Name).ToHashSet();
         BoxingGame? found = null;
-        for (var seed = 1; seed <= 6 && found is null; seed++)
+        for (var seed = 1; seed <= 20 && found is null; seed++) // 決着する種は物理の版ごとに変わる（足の運びを変えた版で 1〜6 には無かった）
         {
             var game = NewGame(seed, red: "champion", blue: "swarmer");
             // 始めの待ち 7 秒 + 1 ラウンド 8 秒 = 15 秒で時間切れの判定になる（KO なら早く終わる）。14 秒では判定の前に切れていた。
