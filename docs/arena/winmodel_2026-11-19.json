@@ -1,0 +1,56 @@
+{
+  "date": "2026-11-19",
+  "physicsVersion": 59,
+  "logicVersion": 57,
+  "pairs": [
+    "champion:swarmer",
+    "slugger:outboxer",
+    "counter:jabber",
+    "boxer:slugger",
+    "swarmer:counter",
+    "jabber:champion"
+  ],
+  "seeds": 8,
+  "seconds": 40,
+  "bouts": 48,
+  "draws": 1,
+  "samples": 3760,
+  "heldOut": {
+    "logLoss": 0.3811649,
+    "brier": 0.12681413,
+    "accuracy": 0.80260414,
+    "brierOfBaseRate": 0.25,
+    "lastQuarterBrier": 0.060504198,
+    "lastQuarterAccuracy": 0.92083335
+  },
+  "features": [
+    "rounds",
+    "consciousness",
+    "down",
+    "voxelLoss",
+    "stamina",
+    "damageShare",
+    "rounds×進み",
+    "consciousness×進み",
+    "down×進み",
+    "voxelLoss×進み",
+    "stamina×進み",
+    "damageShare×進み",
+    "切片"
+  ],
+  "weights": [
+    2.836031,
+    0.6709687,
+    0.48470095,
+    0.042239036,
+    -0.96536565,
+    3.4701977,
+    2.046023,
+    -0.2584867,
+    0.3768827,
+    0.021035694,
+    -0.05076442,
+    3.2228885,
+    -1.2779745E-18
+  ]
+}

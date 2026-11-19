@@ -1,6 +1,9 @@
 ボット同士の対戦場。
   rosterleague [--wear id=glove,...] [--chars a,b,...] [--bouts N] [--seconds S] [--seed X] [--referee on|off] [--parallel N] [--set A=v,B=v [--ab on [--layered id]]] [--gameplan on|off|ab] [--matrix file.csv] [--out file.md]   名簿のキャラの総当たり（体格・距離の帯・打撃の表）
   league [--bots a,b,...] [--bouts N] [--seconds S] [--seed X] [--out file.md]   総当たりの順位表と技の内訳
+  excitement [--red a] [--blue b] [--seconds S] [--seeds N] [--seed X] [--out file.md] [--curve 接頭辞]   試合の面白さ（見どころ・ドラマ・緩急）の一覧とまとめ（docs/EXCITEMENT.md）
+  excitementleague [--pairs a:b,c:d] [--seconds S] [--seeds N] [--seed X] [--out file.md] [--label 名前]   何組かの面白さの表
+  excitementfit [--pairs a:b,...] [--seconds S] [--seeds N] [--seed X] [--out file.json]   観客の見込みのモデル（WinModel）を当てはめる
   tune --base NAME [--gens G] [--pop P] [--bouts N] [--seconds S] [--gauntlet a,b] [--seed X] [--log file.md] [--out style.json]
                                                                                   スタイルの自動調整（PDCA を世代ごとに記録）
   drill [--book f.json] [--bouts N] [--seconds S]                                防御ドリル: 防御技 × 拳の種類の効き目の表

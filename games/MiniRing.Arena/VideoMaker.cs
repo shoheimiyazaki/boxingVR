@@ -81,6 +81,19 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     private static readonly Vector4 White = new(1f, 1f, 1f, 1f);
     private static readonly Vector4 Red = new(1f, 0.45f, 0.4f, 1f);
     private static readonly Vector4 Blue = new(0.5f, 0.68f, 1f, 1f);
+
+    /// <summary>見どころの一覧（映像の秒・試合の秒・種類・主役・強さ・中身）とまとめ。</summary>
+    private static string HighlightsText(MiniRing.Highlights.MatchHighlights highlights, float titleSeconds, float speed)
+    {
+        var sb = new System.Text.StringBuilder("# 映像の秒  試合の秒  種類  主役（赤/青）  強さ  中身\n");
+        foreach (var e in highlights.Events.OrderBy(e => e.Time))
+        {
+            sb.Append(System.Globalization.CultureInfo.InvariantCulture, $"{titleSeconds + (e.Time / speed),7:0.00}  {e.Time,6:0.00}  {e.Kind,-10} {(e.Red ? "赤" : "青")}  {e.Intensity:0.00}  {e.Note}\n");
+        }
+
+        return sb.Append(highlights.Summarize().Line()).Append('\n').ToString();
+    }
+
     private static readonly Vector4 Gold = new(1f, 0.85f, 0.3f, 1f);
     private static readonly Vector4 Grey = new(0.75f, 0.78f, 0.85f, 1f);
 
@@ -165,6 +178,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         };
         // 実況・解説の LLM に渡す生の記録（姿勢・当たりの中身・削れた場所。*.telemetry.json）。読むだけで試合には触れない。
         var telemetry = broadcast is null ? null : new TvTelemetry(redRing, blueRing, redCharacter?.Profile?.HeightCm ?? 0, blueCharacter?.Profile?.HeightCm ?? 0);
+        // 見どころ（MiniRing.Highlights。読むだけ）: 映像の秒で <out>.highlights.txt に書く。目で確かめる時刻の表（docs/EXCITEMENT.md）。
+        var excitement = new MiniRing.Highlights.MatchHighlights(matchSeconds: seconds);
         // 台本の資料: 試合の前の場面（番組の型が決める並び。記録には prefight の印を付けて残す）。
         var sceneStart = 0f;
         foreach (var scene in _scenes)
@@ -434,6 +449,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         time += stepDt;
                         var at = TitleSeconds + (time / speed); // 映像の時刻（音を置く所）
                         broadcast?.Observe(game, at, step);
+                        excitement.Observe(game, time, stepDt);
                         director.Observe(game, step);
                         if (redHitsByRound.Count > 0)
                         {
@@ -888,6 +904,9 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     throw;
                 }
             }
+
+            excitement.Finish();
+            File.WriteAllText(Path.ChangeExtension(outPath, ".highlights.txt"), HighlightsText(excitement, TitleSeconds, speed));
 
             if (_off || live is not null)
             {
