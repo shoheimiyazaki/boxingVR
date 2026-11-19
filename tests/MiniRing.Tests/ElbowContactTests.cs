@@ -19,8 +19,12 @@ public sealed class ElbowContactTests
     /// 上向きの肘（0.8 m/s 前後で届いていた）は 1 倍・0.95 倍の間合い（寄り終わった距離 1.13 腕）では当たりに数えない（ダメージ 1 点未満の「触れただけ」。
     /// 版 43 は同じ間合い 1.10 腕で体の質量 2.4 kg が乗って数えた）。0.9 倍（寄り終わりの距離 1.02 腕）なら 3 つの肘とも当たる
     /// （横 1.95 m/s・上 1.74 m/s・下 1.86 m/s）。
+    /// 2026-11-19（PhysicsVersion 53、床から支える体とのマージ）: 寄り終わってから止まるまでの滑り（120 歩の待ち）が体の支え方で変わり、
+    /// 0.9 倍では上向きの肘だけ当たらなくなった（寄り終わりの距離 1.11 腕・肘の先は狙いから 0.141 m 止まり。肘の速さは 3.15 m/s で同じ）。
+    /// 止まる距離は倍率に単調でなく（上向き: 0.9 倍で 1.11 腕・1.0 倍で 1.02 腕）、1.0 倍なら 3 つとも当たる（横 0.84 m/s・上 1.70 m/s・下 1.57 m/s）ので 1.0 に直した。
+    /// 肘の速さ・当たりの数え方は変えていない（期待値は緩めていない）。
     /// </summary>
-    private const float CloseIn = 0.9f;
+    private const float CloseIn = 1.0f;
 
     private sealed record ElbowResult(string Zones, float StartDistance, int Hits, int VictimCellsLost, float MaxSpeed, float MaxMass, float MaxEnergy, float TotalEnergy, float MaxElbowSpeed, float MinElbowToAim);
 
@@ -200,6 +204,8 @@ public sealed class ElbowContactTests
         // 2026-11-18（PhysicsVersion 45）: 腕だけの質量（0.3〜0.5 kg）で当たるので、遅い肘（durationScale 1.8）は 1 点未満の「触れただけ」で
         // 当たりに数えない（版 43 は体の質量 1.9 kg が乗って 0.77 m/s でも数えた）。遅い方を、まだ当たりに数える 1.4 倍にした
         // （間合い 0.9 倍: 速さ 1.72 m/s・エネルギー 0.751 J。速い方 0.8 倍は 2.31 m/s・1.278 J。1.6 倍は当たらない）。
+        // 2026-11-19（PhysicsVersion 53）: 間合い 1.0 倍では遅い肘（1.4 倍も 1.2 倍も）は当たらない（肘の先は 3.05〜3.10 m/s・狙いから 0.1 m 手前で、速い肘の 3.24 m/s・0.112 m と
+        // 差が小さいのに、当たるかどうかは分かれる: 触れるだけの肘はダメージ 1 点未満で数えない）。当たらなければエネルギー 0 なので、速い方が大きい、は 0 との比べになる。
         var slow = Run(ElbowTechnique.Horizontal, durationScale: 1.4f, distanceScale: CloseIn);
         var fast = Run(ElbowTechnique.Horizontal, durationScale: 0.8f, distanceScale: CloseIn);
         Console.WriteLine(Describe("slow", slow));

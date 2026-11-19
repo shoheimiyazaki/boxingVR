@@ -15,7 +15,8 @@
 #                   workers do not help. Pass --parallel 0 to run serially.
 #
 # What it sends: the commits of HEAD (as a git bundle; only the part the remote does not have yet), the uncommitted
-# diff (tracked files) and the untracked, non-ignored files. Remote layout (%USERPROFILE%\repos on the remote):
+# diff (tracked files) and the untracked, non-ignored files. Remote layout (%USERPROFILE%\repos\rt-<local tree folder name>-<slot>;
+# see the slot lock below):
 #   remote-test\        a dedicated clone used only by this script (detached at the sent commit, then patched)
 #   remote-test-in\     what was sent;   remote-test-out\  trx and the log of the last run
 # Writes the trx to TestResults/remote/<time>.trx here and prints counts, failures and the slowest classes.
@@ -49,13 +50,21 @@ case "$PARALLEL" in *[!0-9]*) echo "--parallel takes a number" >&2; exit 2 ;; es
 # The remote user differs per machine (smiya on raytrek, Miyazaki on tower32): ask for the profile folder.
 REMOTE_HOME=$(ssh "$HOST" "echo %USERPROFILE%" | tr -d '\r')
 case "$REMOTE_HOME" in [A-Za-z]:\\*) ;; *) echo "could not read the remote profile folder on $HOST: '$REMOTE_HOME'" >&2; exit 2 ;; esac
-REMOTE="$REMOTE_HOME\\repos"
-REMOTE_FWD=$(printf '%s' "$REMOTE" | tr '\\' '/')
-
+# Remote folders are per local working tree and slot: rt-<tree>-<1..4>. A run takes the first slot whose lock
+# folder it can create (mkdir is atomic), so several sessions, even in one tree, can test at the same time.
+# A run killed hard leaves its lock behind: remove %USERPROFILE%\repos\rt-<tree>-<n>\.lock when nothing runs there.
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
+TREE=$(basename "$ROOT" | tr -c 'A-Za-z0-9_.\n-' '_')
+REMOTE=
+for SLOT in 1 2 3 4; do
+  CANDIDATE="$REMOTE_HOME\\repos\\rt-$TREE-$SLOT"
+  if ssh "$HOST" "mkdir $CANDIDATE\\.lock" >/dev/null 2>&1; then REMOTE="$CANDIDATE"; break; fi
+done
+[ -n "$REMOTE" ] || { echo "all 4 slots of rt-$TREE on $HOST are locked (runs going on, or stale .lock folders)" >&2; exit 2; }
+REMOTE_FWD=$(printf '%s' "$REMOTE" | tr '\\' '/')
 WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+trap 'rm -rf "$WORK"; ssh "$HOST" "rmdir $REMOTE\\.lock" >/dev/null 2>&1 || true' EXIT
 HEAD_SHA=$(git rev-parse HEAD)
 
 # 1. Bundle only what the remote lacks. The remote remembers the last sent commit in refs/rt/last.

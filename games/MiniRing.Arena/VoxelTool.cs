@@ -99,6 +99,22 @@ internal static class VoxelTool
             Console.WriteLine($"{kind,-8} {summary}");
         }
 
+        // まわり（<部位>Halo、CT の体が書く）: 大きさが部位 + 各面 HaloMargin でなければ使われない。
+        foreach (var kind in edited.HaloKinds)
+        {
+            var dims = generated[kind].Dimensions;
+            var halo = edited.HaloFor(kind, dims);
+            if (halo is null)
+            {
+                fits = false;
+                Console.WriteLine($"{kind}Halo does not match {kind} plus {BoxerVoxelOverrides.HaloMargin} cells on each side; the joint bridges would not use it");
+                continue;
+            }
+
+            var tissue = halo.Materials.Where(m => m != 0).GroupBy(m => m).OrderByDescending(g => g.Count()).Take(6).Select(g => $"{Name(g.Key)} × {g.Count()}");
+            Console.WriteLine($"{kind}Halo {halo.Dimensions}: {string.Join(", ", tissue)} (joint bridges take the gap's tissue from it)");
+        }
+
         if (!fits)
         {
             Console.Error.WriteLine("Some parts do not fit the current settings; the game would use the generated body for them.");

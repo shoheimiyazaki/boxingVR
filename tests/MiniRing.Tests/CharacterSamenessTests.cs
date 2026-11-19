@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 /// PhysicsVersion 51 で全部を取り直した（2026-11-19: ブランチ claude/hand-voxels の素手の拳（5 mm のセル・幅 40 mm・木の物性）を master の 50 と合わせた。tower32 の CharacterSamenessProbe）。
 /// PhysicsVersion 40 で取り直した（2026-11-17: 脚の骨の端を骨の胴と同じ太さにした・体が支える質量から外れた部位を除く・倒れている間の手を腰が戻ったら床から離す。グローブ同士のレフェリーなし・こんぼう同士は同じ。LegLossProbe.Probe_WhichRecordedMatchesLoseALimb）。その前は PhysicsVersion 39 で、腕・脚を失う試合だけ取り直した（2026-11-17: 脚を失っても残った脚の長さで立って戦い続ける・切り株の筋肉の断面を切れ目の手前だけで測る。腕も脚も失わない試合（グローブ同士・ロングソード同士など）はビット単位で同じことを確かめた: LegLossProbe.Probe_WhichRecordedMatchesLoseALimb）。その前は PhysicsVersion 38・LogicVersion 38 で取り直した（2026-11-17: スタミナを臨界パワーのモデルに・休む間の足と手数・拳の狙い・肘の締め）。その前は PhysicsVersion 37・LogicVersion 36（2026-11-16。37 はスタミナの容量を倍。36 の理由: スタミナの蓄え・供給を筋肉の量に比例させた（体格のあるキャラの試合が変わる）のと、弱った相手を詰める層を既定にした（ボットの立ち回りが変わる）。その前は PhysicsVersion 35・LogicVersion 32 で取り直した（前は PhysicsVersion 34）。理由: 素手を指の関節で組み直した（素手の質量・形が変わる）のと、急所の狙いの点を実際のセルから求めるようにした（ボットの狙いが変わる）。katana-longsword の途中（half）だけは手も急所も関わらず値が同じ。
 /// PhysicsVersion 54 で取り直した（2026-11-19: 素手に親指を足した。素手の手を持つ組が変わる。はめる物・グローブ・こんぼう同士の組は同じ。CharacterSamenessProbe）。
+/// 59/57: master の顔・手の層とこの枝のつなぎ・滑りの直しのマージで全部を取り直した（2026-11-19。Expected ← NOPLAN-LEGACY、ExpectedWeapons ← LEGACY、ExpectedAdopted ← SAME、ExpectedGamePlan ← LEGACY。CharacterSamenessProbe を tower32 で）。
 /// PhysicsVersion 55 で取り直した（2026-11-19: claude/hand-layers の 53（はめる物の拳を手の格子に）と claude/fist-thumb の 54（素手の親指）のマージ。グローブ同士・こんぼう同士は同じ。CharacterSamenessProbe）。
 /// PhysicsVersion 51 で取り直した（2026-11-18: 素手の拳を 5 mm のセル・幅 40 mm にし、手の組織の物性を木に。素手・空手・剣の組（剣士の空いた手・握り替えの間の素手）が変わる。グローブ同士・カタールと籠手・メリケンサック・こんぼう同士の組（はめる物の拳は前のまま）は同じ。CharacterSamenessProbe）。
 /// PhysicsVersion 44（2026-11-17: 剣・刀・ロングソードの柄に鉄の芯を通した・削り切れた武器を分ける）で、剣を握る組（katana-longsword・single-karate-vs-katana・w-katana*・w-longsword*・w-club-katana）だけ取り直した。拳同士・こんぼう同士・空手・カタール・ガントレットの試合はビット単位で同じ。
@@ -29,22 +30,24 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class CharacterSamenessTests
 {
+    // 2026-11-19（PhysicsVersion 49: 滑りの直し、LogicVersion 52: 蹴りの練習のやり直し）: 全部の組を取り直した（CharacterSamenessProbe。値の変わった組だけ書き換わる）。止まっている間に足が流れなくなったので、
+    // 値が変わったのはレフェリーのある組・single-* の組・一部の武器の組の終わり（足の置き方の直しと蹴りの差分のため。ほかは前と同じ）。
     // 2026-11-18（PhysicsVersion 44: ダウンの間の審判の指示）: レフェリーのいる試合でダウンが入る組だけ取り直した（CharacterSamenessProbe。ほかの組は変わらない）。
     // 2026-11-18（LogicVersion 50 の作業中）: マージ 000bd92（PhysicsVersion 46）で master 側の値が入り、ブランチの審判の指示で取り直したレフェリーありの組の値が
     // 消えていたので戻した（glove-glove-referee は d6b1257 で取り直した値と同じ。katar-gauntlet-referee の終わりも同じ理由。レフェリーなしの組は変わらない）。
     private static readonly Dictionary<string, (ulong Half, ulong End)> Expected = new()
     {
-        ["glove-glove-referee"] = (0xFD29FD62CD48613B, 0xA5932B59DCD32106),
-        ["glove-glove-noref"] = (0x3F58E3A55539D9A6, 0x3044F9EEA2093383),
-        ["karate-swarmer-noref"] = (0xE53D044F27B1F840, 0x38C0C7FB15C1BF61),
-        ["katana-longsword-noref"] = (0x4E109D0F1EE724FD, 0x68D32B965FBA8492),
-        ["club-bare-noref"] = (0x271DA723F4B38EDA, 0x0D6B469142E14A36),
-        ["katar-gauntlet-referee"] = (0x640271075A233929, 0xCD5817FB7FE655A4),
-        ["single-counter-vs-knuckles-noref"] = (0x757800DFC46D184F, 0x1C0B6C030B3B751F),
-        ["single-karate-vs-katana"] = (0xE272DB572D0B6C45, 0x7C5E627546DE888E),
+        ["glove-glove-referee"] = (0x963E2BE2A5914322, 0x24AE921463578509),
+        ["glove-glove-noref"] = (0x259F5B25CD551BC4, 0x5AA4E4DFF5247EA1),
+        ["karate-swarmer-noref"] = (0xD640430ECCE921A1, 0x8F91C8D5E8BA2586),
+        ["katana-longsword-noref"] = (0x5FDAAC9CB2C487FD, 0x199817C04D9B672D),
+        ["club-bare-noref"] = (0x4C398BC4F08CDC00, 0x0541E8AD10560822),
+        ["katar-gauntlet-referee"] = (0xDDB325A35CA2A7CB, 0x6FF34F960D6A58D1),
+        ["single-counter-vs-knuckles-noref"] = (0xBF528CBC10946BEA, 0x6B147C88D4D5D23A),
+        ["single-karate-vs-katana"] = (0x0B401D55F37C5E6D, 0x57FEB6ABE5184F75),
     };
 
-    // 注（2026-11-19、PhysicsVersion 58: ボクシンググローブを前の球と同じ大きさの本物の形に作り直した。手の格子は入れない）: グローブをはめる組（拳の組・こんぼうの組・剣の組の拳の側）の表を、
+    // 注（2026-11-19、PhysicsVersion 60: master の 59（剣の枝・CT の体）と glove-v2 の 58 のマージ。58 はグローブを前の球と同じ大きさの本物の形に作り直した。手の格子は入れない）。全部の表を CharacterSamenessProbe で取り直した: グローブをはめる組（拳の組・こんぼうの組・剣の組の拳の側）の表を、
     // CharacterSamenessProbe で取り直した（Expected = NOPLAN-LEGACY、ExpectedWeapons = LEGACY、ExpectedAdopted・ExpectedGamePlan = SAME）。
     // グローブの形・質量・大きさが変わるので、グローブが当たる試合はどれも変わる（剣・刀の組のうち拳が絡まない記録の一部は同じ値のまま）。
     // 注（2026-11-19、master に claude/face-f2 を入れた所: PhysicsVersion 57・LogicVersion 55）: 顔の層・手の層（ff63a89）と、master の spacing（拳・肘の狙い）・
@@ -55,12 +58,12 @@ public sealed class CharacterSamenessTests
     /// <summary>武器の教科書を JSON へ移す前（`weapon handling` 段 1 の最初）に <see cref="CharacterSamenessProbe"/> で取った値（master へ入れるとき、首・脊椎と指の手（PhysicsVersion 35）の上で LEGACY の行から取り直した。拳の組の LEGACY が既存の値と全部一致することを確かめてから。2026-11-16）。</summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedWeapons = new()
     {
-        ["w-katana-katana-referee"] = (0xCC70551FB04A7585, 0x392DA0D6D5882315),
-        ["w-longsword-longsword-noref"] = (0xEB3898D3CD7AED46, 0x7044B62CC62CEF54),
-        ["w-katana-longsword-referee"] = (0xABE9B633397D7DA6, 0xC88B3F9ACDC4313A),
-        ["w-club-katana-noref"] = (0x12BA9F20FD07BF3A, 0x7746940315C0ED06),
-        ["w-longsword-club-referee"] = (0xB71FACDAF63D2B95, 0xCF72C6A5B1971B84),
-        ["w-club-club-noref"] = (0x1F7BA1F68DD883CB, 0x26849C13059604C6),
+        ["w-katana-katana-referee"] = (0x84F0066C4B45B05B, 0x2B2A680F859D43C7),
+        ["w-longsword-longsword-noref"] = (0x7E2F6896A2FB961A, 0x91814460B0BB3082),
+        ["w-katana-longsword-referee"] = (0x1380E13D18CA2449, 0x9574EF61D2A45636),
+        ["w-club-katana-noref"] = (0x928725F7F5680BFF, 0x6508926DBD9F43E6),
+        ["w-longsword-club-referee"] = (0xA4BC1A0A9311AC99, 0x9A97C02D7C86C408),
+        ["w-club-club-noref"] = (0x9074D9DF54D95F38, 0xF6B5C0227761A69E),
     };
 
 
@@ -92,13 +95,13 @@ public sealed class CharacterSamenessTests
     /// </summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedAdopted = new()
     {
-        ["katana-longsword-noref"] = (0x4A8EC12216923E2C, 0x69730126C2F02EAB),
-        ["single-karate-vs-katana"] = (0xEC564D53E06F18D3, 0xB8BC799B7109996D),
-        ["w-katana-katana-referee"] = (0xDBC8492BE4FEC358, 0xD30E874EB4DDEECF),
-        ["w-longsword-longsword-noref"] = (0x6B4CD60BC6346239, 0x4985B64030B57C58),
-        ["w-katana-longsword-referee"] = (0xB5B8B0AAF1E041E1, 0x3CE9E7837D94C388),
-        ["w-club-katana-noref"] = (0xB899925EAA359B3A, 0xDCF0744EC5828603),
-        ["w-longsword-club-referee"] = (0x1E8FC4522AADE08F, 0x4A07E192C7CF7EB5),
+        ["katana-longsword-noref"] = (0x4FD45B9170AAB0F9, 0x601DB74BC7E017B0),
+        ["single-karate-vs-katana"] = (0xB35E67692CC2E4A2, 0x919DA71D73DB1931),
+        ["w-katana-katana-referee"] = (0x799C577DC81F9FB9, 0x910F57000CA137DB),
+        ["w-longsword-longsword-noref"] = (0xC652B7FCF953C43D, 0xBEC2F47D2136A239),
+        ["w-katana-longsword-referee"] = (0xCF068BEE2B9B1B45, 0xD50FC457A12AE7C6),
+        ["w-club-katana-noref"] = (0xFE2FFB4D77A2605F, 0xADD2F2224D5466F1),
+        ["w-longsword-club-referee"] = (0x33E7298E8A63F3FE, 0x2071FE1AB2ED6CE0),
     };
 
     /// <summary>
@@ -148,10 +151,10 @@ public sealed class CharacterSamenessTests
     /// </summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedGamePlan = new()
     {
-        ["glove-glove-referee"] = (0x46BE7E1C56FC3218, 0x1EBF0CABD57548E3),
-        ["glove-glove-noref"] = (0xEC730F4243449307, 0x48696D0AA5FCE5E7),
-        ["karate-swarmer-noref"] = (0x64BD577B9F7DB1C3, 0x10E0EE68F3E606CE),
-        ["katar-gauntlet-referee"] = (0x7F852AFF4C6423D9, 0x083DC9C002D92546),
+        ["glove-glove-referee"] = (0xBE055581D373F055, 0xC5E2D332C33E015F),
+        ["glove-glove-noref"] = (0x10651CB9ED274260, 0x261614E1AD96A4BC),
+        ["karate-swarmer-noref"] = (0xE99A79E466862DBB, 0xE41F5D20A148B6DF),
+        ["katar-gauntlet-referee"] = (0xD3EE11C26989D2A9, 0x210D60EC8E4A5B93),
     };
 
     [TestMethod]

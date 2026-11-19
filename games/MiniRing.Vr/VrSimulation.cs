@@ -10,6 +10,9 @@ internal sealed record VrScene(PrimitiveInstance[] Instances, DebugLine[] Lines,
     ParticleInstance[] Particles, SceneLighting Lighting, ShadowMapConfig? Shadow, string Status, VrHaptic[] Haptics)
 {
     public VoxelSnapshot? VoxelSnapshot { get; init; }
+
+    /// <summary>② 一人称: VR の空間 → ワールドの変換（目の描画に掛ける）。null なら VR の空間がそのままワールド（今まで通り）。</summary>
+    public MiniRing.Motion.VrWorldPlacement? Placement { get; init; }
 }
 
 internal readonly record struct VrHaptic(Hand Hand, float Amplitude, float Duration);

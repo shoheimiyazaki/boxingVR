@@ -12,14 +12,23 @@ using MiniRing.Vr;
 //   --break-sound <glass|crumble|crunch|circuit|metal>  ボクセルが砕ける音の方式（既定 glass）
 //   --hit-sound <on|off>  パンチが当たる音（既定 on。ダメージを知らせる音）
 //   --selftest          HMD なしで VR 描画経路（外部デバイス・GPU コピー）を検証して終了
+//   --two-hand <right|both>  両手持ちの武器の左手（既定 right = ① 右のコントローラが両手を動かす。左はグリップを押しているだけ）
+//   --first-person      ② 一人称: カメラは HMD の姿勢のまま（VR の空間 → ワールドの変換を身長の合わせで固定）、体の頭を HMD の位置へ。自分の頭は描かない
+//   --first-person-selftest  HMD なしで一人称の目の描画を 1 枚の PNG にして終了（.visualcheck/vr_first_person.png）
 //   --profile-headless [--profile-katana]  HMD なしで両目を12秒計測（各640x360・VSyncなし）
-//   --weapon <staff|katana|longsword|ironsword|woodenclub>  自分が武器を持つ（トリガーを引いている手は握り、離すと棒の上を滑る）
+//   --weapon <staff|katana|longsword|ironsword|woodenclub>  自分が武器を持つ（グリップボタンで持つ: 離すと放す。柄の近くでグリップを握ると拾う・もう一方の手を添える）
 //   --cpu-weapon <kind|none>  相手の武器（既定は自分と同じ。none で素手）  --cpu <style>  相手のスタイル（既定 champion）
 //   --record-motion      起動から終了まで VR の動きを motions/<日時>_<武器>.vrmotion に記録（B/Y ボタンでも開始・停止。docs/VR_MOTION.md）
+//   --training <katana|longsword|jo|woodenclub|ironsword|...>  お手本づくりの稽古: 正眼に構えて動かない相手へ切り込む動きを型ごとに常に記録（右スティック 左右 = 型、A+B+X+Y 同時 = 作り直す、X・Y = 蹴り、A 単独 = 身長の合わせ。docs/VR_MOTION.md §5）  --shield  左手に盾（片手剣）
 
 if (args.Contains("--selftest"))
 {
     return SelfTest.Run(Path.Combine(Environment.CurrentDirectory, ".visualcheck"));
+}
+
+if (args.Contains("--first-person-selftest"))
+{
+    return SelfTest.FirstPerson(Path.Combine(Environment.CurrentDirectory, ".visualcheck"));
 }
 
 if (args.Contains("--profile-headless"))
@@ -99,32 +108,55 @@ catch (InvalidOperationException ex)
 }
 
 // 試合は replays/ に自動で記録する（デスクトップ版の --replay で再生、--verify で照合できる）。
+var vrTuning = FighterTuning.Default with { PlayerFatigue = false }; // VR の手触りの調整が終わるまで、自分の腕は疲れない
+var recordingMessage = "training: replays are not recorded";
 using (xr)
-using (var game = new BoxingGame(FighterTuning.Default with { PlayerFatigue = false }, corners: match.Corners.StartingAtCorners())) // VR の手触りの調整が終わるまで、自分の腕は疲れない
-using (var recorder = ReplayRecorder.TryStartFile(Path.Combine(Environment.CurrentDirectory, "replays"), game, "vr", out var recordingMessage))
+using (var training = match.Training is { } trainingWeapon ? new VrTrainingSession(trainingWeapon, vrTuning, Path.Combine(Environment.CurrentDirectory, "motions"), match.FirstPerson, match.Wear) : null)
+using (var matchGame = training is null ? new BoxingGame(vrTuning, corners: match.Corners.StartingAtCorners()) { HidePlayerHead = match.FirstPerson } : null)
+using (var recorder = matchGame is null ? null : ReplayRecorder.TryStartFile(Path.Combine(Environment.CurrentDirectory, "replays"), matchGame, "vr", out recordingMessage))
 using (var renderer = new HeadlessRenderer(xr.EyeWidth, xr.EyeHeight, xr.Vulkan.External))
 using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
 {
     Console.WriteLine($"[vr] eye {xr.EyeWidth}x{xr.EyeHeight}, sRGB={xr.IsSrgb}. Put the headset on.");
     Console.WriteLine($"[vr] {recordingMessage}");
-    var control = new VrPlayerControl(weaponMode: match.PlayerWeapon is not null);
-    using var motion = new VrMotionSession(match.PlayerWeapon, Path.Combine(Environment.CurrentDirectory, "motions"), args.Contains("--record-motion"));
+    BoxingGame Game() => training?.Game ?? matchGame!;
+    xr.FaceButtonMode = training is not null; // 稽古: A 単独 = 合わせ（離したとき）、4 つ同時 = 作り直し、X・Y = 蹴り。B/Y の記録は使わない（常に記録）
+    var control = new VrPlayerControl(match.PlayerWeapon, match.TwoHand, match.FirstPerson, faceButtons: training is not null);
+    using var motion = new VrMotionSession(match.PlayerWeapon, Path.Combine(Environment.CurrentDirectory, "motions"), training is null && args.Contains("--record-motion"));
     if (match.PlayerWeapon is { } held)
     {
-        Console.WriteLine($"[vr] weapon: {held} (trigger = hold, release = slide the grip)");
+        Console.WriteLine($"[vr] weapon: {held} (grip button = hold: letting go drops it; a free hand with the grip held near the hilt picks it up or adds the second hand)");
+        Console.WriteLine(match.TwoHand == MiniRing.Motion.VrTwoHand.Right
+            ? "[vr] two-hand right: with both grips held the right controller moves both hands (left hand = the hilt point behind the right hand); release the left grip to use the left controller"
+            : "[vr] two-hand both: each controller moves its own hand");
+        if (match.FirstPerson)
+        {
+            Console.WriteLine("[vr] first person: the camera stays at your head in VR space; the body's head is driven to it. Press A/X once to align (scale + position + facing). Left stick moves the VR origin.");
+        }
     }
-    Console.WriteLine("[vr] B/Y button: start/stop recording the motion (motions/*.vrmotion)");
+    if (training is null) { Console.WriteLine("[vr] B/Y button: start/stop recording the motion (motions/*.vrmotion)"); }
     var clear = ArenaLook.Background;
     // VR の仕上げ: 画面の隅の陰りは付けない（頭を動かしても付いてくる黒い縁は不自然）。
     var finish = ArenaLook.Finish(vignette: 0f);
     var capture = new VrSceneCapture();
     var voxelConsumer = new Aigis.Render.Voxels.VoxelSnapshotConsumer();
-    var scene = capture.Capture(game);
+    var scene = capture.Capture(Game());
     var renderVoxels = voxelConsumer.Resolve(scene.VoxelSnapshot!);
     using var audio = new VrAudioPlayback(sounds);
     using var simulation = new VrSimulation(scene, (frame, dt) =>
     {
+        var game = Game();
         var input = control.Read(frame, game.PlayerSense, dt);
+        if (training is not null)
+        {
+            training.Step(frame, input, control.Mapper, dt);
+            game = training.Game;
+            audio.Submit(VrAudioFrame.Capture(game, dt, hitSounds));
+            var trained = capture.Capture(game) with { Placement = control.Mapper.Placement };
+            var signals = training.DrainHaptics();
+            return signals.Length == 0 ? trained : trained with { Haptics = [.. trained.Haptics, .. signals] };
+        }
+
         motion.Step(frame, input.Player, control.Mapper, game.PlayerSense.ArmReach, dt);
         if (recorder is null)
         {
@@ -135,7 +167,7 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
             recorder.Step(game, input, dt);
         }
         audio.Submit(VrAudioFrame.Capture(game, dt, hitSounds));
-        return capture.Capture(game);
+        return capture.Capture(game) with { Placement = control.Mapper.Placement };
     });
     var frameTiming = args.Contains("--profile-frames") ? new VrFrameTiming() : null;
     var lastStatus = "";
@@ -163,8 +195,13 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
                 var latest = simulation.Latest;
                 if (!ReferenceEquals(scene, latest))
                 {
+                    // 一人称では歩ごとに変換だけが変わった別の VrScene になる。ボクセルの解決は元の写しが変わったときだけ。
+                    var newVoxels = !ReferenceEquals(scene.VoxelSnapshot, latest.VoxelSnapshot);
                     scene = latest;
-                    renderVoxels = voxelConsumer.Resolve(scene.VoxelSnapshot!);
+                    if (newVoxels)
+                    {
+                        renderVoxels = voxelConsumer.Resolve(scene.VoxelSnapshot!);
+                    }
                 }
                 foreach (var haptic in simulation.DrainHaptics())
                 {
@@ -174,9 +211,14 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
             renderEye: eye =>
             {
                 rendered = true;
-                var viewProjection = Camera.OffCenterViewProjection(eye.View, eye.Fov, 0.02f, 50f);
+                // 一人称: 目の位置・間隔・向きに「VR の空間 → ワールド」の変換（縮尺つき）を掛ける。近い面も縮尺どおりに縮める。
+                var placement = scene.Placement;
+                var view = placement?.View(eye.View) ?? eye.View;
+                var position = placement?.Point(eye.Position) ?? eye.Position;
+                var near = 0.02f * MathF.Min(1f, placement?.Scale ?? 1f);
+                var viewProjection = Camera.OffCenterViewProjection(view, eye.Fov, near, 50f);
                 renderer.RenderPrimitiveSceneToImage(eye.TargetImage, clear, viewProjection, scene.Instances, scene.Lines, scene.Lighting, scene.Shadow,
-                    eye.Position, renderVoxels, scene.Particles, finish);
+                    position, renderVoxels, scene.Particles, finish);
             });
 
         if (rendered)

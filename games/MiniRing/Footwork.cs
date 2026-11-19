@@ -153,6 +153,20 @@ public sealed record FootworkTuning
     /// 貯め直すにつれて構えの高さへ沈む。貯めきった構えの高さは今までと同じ（他の技の手触りを変えない）。
     /// </summary>
     public float StepSink { get; init; } = 0.04f;
+
+    /// <summary>
+    /// 着いている足の「置いた所」の記憶が、実際の足の位置へ寄る時定数 [s]（0 以下で毎歩すぐ合わせる＝以前の動き）。足首を引く力（FootKp・MaxFootForce）は
+    /// 記憶の位置へ足を留めるので、これが短いと留める力が働かず、もう一方の足を踏み出す反作用で着いた足が滑り、構えの直しの踏み出しが止まらなくなる
+    /// （何も入力しなくても 30 秒で 40〜80 cm 流れた。tests SlideTests の表）。踏み直しの 1 周期（0.2 秒）より十分長く、押され続けて足が動いたときに
+    /// 計画し直せる長さ。測った値: 0.5 秒で 3 歩・4 cm 以内（頭を斜めに向けた姿勢で 11 歩・4.7 cm）、2 秒で全部 3 歩・4 cm 以内。
+    /// </summary>
+    public float HoldRelax { get; init; } = 1f;
+
+    /// <summary>
+    /// 歩く・ステップ・蹴りの指令が止まってから、着いた足の置いた所を留め始めるまでの時間 [s]。止まって構えを整える間（体が止まり、足が構えへ寄る）は
+    /// 足の置き方を実際の足へ合わせ、落ち着いた立ち姿になってから留める。蹴りの手本（KickShin・KneePractice）は止まって 0.4〜0.9 秒で蹴るので、それより長く置いた。
+    /// </summary>
+    public float HoldSettleSeconds { get; init; } = 1f;
 }
 
 /// <summary>1 本の足の置き方（ワールド）: 母指球の位置（地面の上、持ち上げを含む）、つま先の向き、かかとの浮き。</summary>
@@ -176,12 +190,14 @@ public readonly record struct FootPose(Vector3 Ball, float Yaw, float HeelRaise,
 /// <param name="LeadBall">前足の母指球の実際の位置（体を寄せる支えの点に使う。null なら計画の位置）。</param>
 /// <param name="RearBall">後ろ足の母指球の実際の位置。</param>
 /// <param name="Reach">脚が水平に届く距離 [m]（股の高さから。腰を落とすほど遠くへ届く）。0 なら脚の長さ。</param>
+/// <param name="LeadFree">前足は床に留めている足ではない（蹴っている）。置いた所の記憶は実際の足へすぐ合わせる（<see cref="FootworkTuning.HoldRelax"/> を待たない）。</param>
+/// <param name="RearFree">後ろ足が同じく蹴っている。</param>
 /// <param name="HipOffset">股（脚の付け根）の体の中心からの横のずれ [m]。届く範囲の中心は左右の脚でこれだけずれる。</param>
 /// <param name="Com">全身の重心の水平位置（捕捉点はこれから出す。null なら骨盤 <paramref name="Body"/>）。上体が傾いて倒れていくのは、骨盤より重心に出る。</param>
 /// <param name="ComVelocity">全身の重心の水平速度（null なら骨盤の速度）。</param>
 /// <param name="LegHeld">どちらかの脚を膝の制御の指令（<see cref="LegCommand.IsKneeControl"/>）が動かしている。その間は新しい 1 歩を踏み出さない（残る足が軸足）。</param>
 public readonly record struct FootworkInput(float FacingYaw, Vector2 Body, Vector2 BodyVelocity, float Omega, Vector2 Intent, float Twist, float Weight, float LegLength,
-    bool LeadOverreach = false, bool RearOverreach = false, Vector2? LeadBall = null, Vector2? RearBall = null, float Reach = 0f, float HipOffset = 0f,
+    bool LeadOverreach = false, bool RearOverreach = false, Vector2? LeadBall = null, Vector2? RearBall = null, float Reach = 0f, float HipOffset = 0f, bool LeadFree = false, bool RearFree = false,
     Vector2? Com = null, Vector2? ComVelocity = null, bool LegHeld = false);
 
 /// <summary>
@@ -302,9 +318,13 @@ public sealed class Footwork
 
         if (_swinging < 0)
         {
-            // 着いている足は、実際に置かれた所を足の位置とする（踏み出した足が届かなかった・押されてずれたら、そこから計画し直す）。
-            _ball[Lead] = input.LeadBall ?? _ball[Lead];
-            _ball[Rear] = input.RearBall ?? _ball[Rear];
+            // 着いている足は、置いた所を足の位置として覚えている（足首を引く力がそこへ留める）。押されて実際の足がずれたら、覚えている位置を
+            // HoldRelax の時定数で実際の位置へ寄せていく（踏み出した足が届かなかった・押され続けて動いたら、そこから計画し直す）。
+            // 毎歩すぐに実際の位置へ合わせると、足首を引く力の目標が足そのものになって留める力が 0 になり、もう一方の足を踏み出す反作用で
+            // 着いた足が 1 cm ずつ滑り、その滑りが構えの直しの閾値（StepThreshold）に近いので踏み直しが止まらず、体が少しずつ流れていった。
+            var relax = _tuning.HoldRelax <= 0f ? 1f : 1f - MathF.Exp(-dt / _tuning.HoldRelax);
+            _ball[Lead] = input.LeadBall is { } leadActual ? Vector2.Lerp(_ball[Lead], leadActual, input.LeadFree ? 1f : relax) : _ball[Lead];
+            _ball[Rear] = input.RearBall is { } rearActual ? Vector2.Lerp(_ball[Rear], rearActual, input.RearFree ? 1f : relax) : _ball[Rear];
             PlanStep(input);
         }
 
@@ -331,7 +351,11 @@ public sealed class Footwork
         // 構えの中心: 止まっていれば今の両足の真ん中（足を置き直すのは構えの形を直すときだけ。体を追って足を置くと、
         // 足 → 支え → 体 → 足 と回って、立っているだけで少しずつ歩いてしまう）。捕捉点が真ん中から離れたら（押された・動いている）その分だけ寄せる。
         var middle = Vector2.Lerp(_ball[Lead], _ball[Rear], 0.5f);
-        var drift = capture - middle;
+        // 構えを寄せる量（drift）は、骨盤の位置 + 骨盤の速度で出す。重心（capture）でなく: 床から支える体は、胴をひねった構え・重い武器・体重の移しで
+        // 重心が両足の真ん中から静止のまま十数 cm ずれて釣り合う。それを「押された」と読んで足を重心の側へ 2 cm ずつ踏み直すと、
+        // 体がそれを追って流れ続けた（構えを直す歩が止まらず、20 秒で 10 cm・15 歩）。倒れていく判定（falling）は重心の捕捉点のまま
+        // （上体の傾きで支えの外へ出れば踏み出す）。
+        var drift = (input.Body + (input.BodyVelocity / omega)) - middle;
         var deadband = t.CaptureDeadband * leg;
         var center = middle + (drift.Length() > deadband ? drift * (1f - (deadband / drift.Length())) : Vector2.Zero)
             + ClampLength(input.Intent * t.Lookahead, t.MaxLookahead * leg);

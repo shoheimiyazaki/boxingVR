@@ -626,8 +626,25 @@ public sealed class BoxerBody
             }
         }
 
+        // 関節のつなぎ: つながった部位の間の隙間を、刃が通り抜けないように（当たりとダメージだけ。質量も力も持たない）。
+        foreach (var (joint, parentId, childId, anchor) in fighter.BridgeJoints())
+        {
+            if (_byBody.TryGetValue(parentId, out var parentPart) && _byBody.TryGetValue(childId, out var childPart))
+            {
+                _bridges.Add(new JointBridge(joint, parentPart, childPart, anchor, LayersOf(parentPart), LayersOf(childPart), overrides?.HaloFor(parentPart.Kind, parentPart.Body.Grid.Dimensions)));
+            }
+        }
+
         Landmarks = new BodyLandmarks(_parts, _face);
     }
+
+    private readonly List<JointBridge> _bridges = [];
+
+    /// <summary>部位の組織を持つ格子: 部位そのもの、頭なら外を持つ顔の層も（同じ剛体に乗る）。</summary>
+    private IReadOnlyList<VoxelPart> LayersOf(VoxelPart part) => part.Kind == BodyPartKind.Head && _face is { } face ? [part, face] : [part];
+
+    /// <summary>関節のつなぎ（<see cref="JointBridge"/>）。</summary>
+    internal IReadOnlyList<JointBridge> Bridges => _bridges;
 
     /// <summary>急所の位置（作ったセルから求めた目・こめかみ・あご・みぞおち。<see cref="BodyLandmarks"/>）。</summary>
     public BodyLandmarks Landmarks { get; }
