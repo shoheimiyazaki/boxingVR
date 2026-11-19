@@ -21,6 +21,7 @@ namespace MiniRing.Tests;
 /// PhysicsVersion 52（2026-11-18: スタミナを呼吸と循環のモデルに。枝では 50、master の 51 と合わせて 52）で、拳のボットが疲れる組だけ取り直した（教育なしは glove-glove の 2 組、戦略の層ありは 4 組。剣・こんぼう・空手・カタールの教育なしの組はビット単位で同じ: その長さの試合では疲れが効いていない）。
 /// PhysicsVersion 49・LogicVersion 53 で全部を取り直した（2026-11-18: ブランチ claude/rush-physics の体の運び（47）・claude/spacing-control-features の間の層（52）・claude/vfc の再生と骨折の治り方（47・48）を合わせた。raytrek の CharacterSamenessProbe）。
 /// PhysicsVersion 47 で全部を取り直した（2026-11-18: ブランチ claude/rush-physics の体の運び（打撃の当たる速さを相対速度に・体の質量は手足の押し出しと体自身の動きの分だけ・脳しんとうの係数 100 倍）を master と合わせた。docs/arena/rush_physics.md）。
+/// PhysicsVersion 57 で全部を取り直した（2026-11-19、claude/face-f2: 頭の剛体に 2.5 mm の顔の層を重ね、5 mm の頭は頭蓋骨・脳・首の中だけに。頭の当たりの形・質量・削れ方が変わるので全ての組が変わる。Expected ← NOPLAN-LEGACY、ExpectedWeapons ← LEGACY、ExpectedAdopted ← SAME、ExpectedGamePlan ← LEGACY。手元の CharacterSamenessProbe（Release））。
 /// 名簿・ボット・物理の版を意図して変えたら、Probe で取り直して値を差し替える（古い値のまま黙って合わせない）。
 /// </summary>
 [TestClass]
@@ -32,14 +33,14 @@ public sealed class CharacterSamenessTests
     // 消えていたので戻した（glove-glove-referee は d6b1257 で取り直した値と同じ。katar-gauntlet-referee の終わりも同じ理由。レフェリーなしの組は変わらない）。
     private static readonly Dictionary<string, (ulong Half, ulong End)> Expected = new()
     {
-        ["glove-glove-referee"] = (0x8E86AF3E1726587C, 0x985A0E78FEC07275),
-        ["glove-glove-noref"] = (0x5BE8156591377F48, 0x118D8B56646EE06D),
-        ["karate-swarmer-noref"] = (0x83AE1BF0344E892D, 0xA2B438238C9977F6),
-        ["katana-longsword-noref"] = (0x2F55903640A8207B, 0x8AA1611C56419B4A),
-        ["club-bare-noref"] = (0x7FAD7BA90A4C919B, 0x11F1CA8E7047C0BB),
-        ["katar-gauntlet-referee"] = (0x4BAF008A74577E73, 0x85ACB8C04D1A9AB4),
-        ["single-counter-vs-knuckles-noref"] = (0x3684C9D3DDF5FA30, 0x285611DF3F05280E),
-        ["single-karate-vs-katana"] = (0x7E487685EDAB577C, 0x0DCF432750189AFF),
+        ["glove-glove-referee"] = (0xA13CBD726BFEF363, 0xE62072FF9CFF48E8),
+        ["glove-glove-noref"] = (0x3B5CCDB767E1735D, 0x3D2FCF72C3C25410),
+        ["karate-swarmer-noref"] = (0x856C1A267BF6CC3E, 0x2A7985F41C703938),
+        ["katana-longsword-noref"] = (0x320386D92FFFE4EF, 0xB767CA237FD50E3C),
+        ["club-bare-noref"] = (0x7FF2DF04868A1525, 0x840A3ECB005D3C3B),
+        ["katar-gauntlet-referee"] = (0xC37CB04F6AC2F9A9, 0x07BDA5A18EFB09FF),
+        ["single-counter-vs-knuckles-noref"] = (0x08C899DEA8E28B10, 0x479CFF82291A9EA3),
+        ["single-karate-vs-katana"] = (0x2E61CB3F370AB16E, 0xE790B57BD3E5B0D6),
     };
 
     // 注（LogicVersion 47: 間合いの内側の技を試合で使い、同じ間合いの技の選びを重みで引くようにしたので、剣を握る組の LEGACY・SAME を取り直した。拳・こんぼう同士の組は元のまま一致）。
@@ -48,12 +49,12 @@ public sealed class CharacterSamenessTests
     /// <summary>武器の教科書を JSON へ移す前（`weapon handling` 段 1 の最初）に <see cref="CharacterSamenessProbe"/> で取った値（master へ入れるとき、首・脊椎と指の手（PhysicsVersion 35）の上で LEGACY の行から取り直した。拳の組の LEGACY が既存の値と全部一致することを確かめてから。2026-11-16）。</summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedWeapons = new()
     {
-        ["w-katana-katana-referee"] = (0x20413DE39535183E, 0x784AD1E0AF9FF8B9),
-        ["w-longsword-longsword-noref"] = (0xDA43DE9CD081A3D9, 0xD2C90B42849A1FC0),
-        ["w-katana-longsword-referee"] = (0x6110A3ED491A6BF8, 0x6413BF4E58FF9B3F),
-        ["w-club-katana-noref"] = (0x69EBB0E516C2B183, 0xAE76CB6CEE141878),
-        ["w-longsword-club-referee"] = (0xCE3E0F9DC5D75559, 0xD53FCF49377F73F9),
-        ["w-club-club-noref"] = (0x0B3C26DF0935E9E3, 0x8CE61F65E607AA67),
+        ["w-katana-katana-referee"] = (0x00673DCAE4D3C58D, 0x445CE607EC6286E4),
+        ["w-longsword-longsword-noref"] = (0xC698D21001223211, 0x7EE315E5524A7280),
+        ["w-katana-longsword-referee"] = (0xA2A244AEB92E737B, 0x27FC6175DD31335E),
+        ["w-club-katana-noref"] = (0xDD455AD710DB347A, 0xE59EF4E0D5D880DC),
+        ["w-longsword-club-referee"] = (0x66D235D6F59AD068, 0xF05FD61A216348BD),
+        ["w-club-club-noref"] = (0x94A8E48E525F7BA0, 0x363E593C490C7FE9),
     };
 
 
@@ -85,13 +86,13 @@ public sealed class CharacterSamenessTests
     /// </summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedAdopted = new()
     {
-        ["katana-longsword-noref"] = (0x27A34958749803EB, 0x5C4224623FB774FE),
-        ["single-karate-vs-katana"] = (0xB7BA97FA5AC91ABF, 0x5AA3E95BE965E6B8),
-        ["w-katana-katana-referee"] = (0x2B8B7D029229EEAB, 0x721943CB4B9002A1),
-        ["w-longsword-longsword-noref"] = (0x1206B114BA2A3EF3, 0xF88653523843460F),
-        ["w-katana-longsword-referee"] = (0x42006C4E107136C3, 0x9225F95EB9497194),
-        ["w-club-katana-noref"] = (0xDF987B99E884D35B, 0xE9EE0C513827DBA5),
-        ["w-longsword-club-referee"] = (0x6814D5C34E6B4356, 0x66905AFBE4147EA8),
+        ["katana-longsword-noref"] = (0xEE3C91E95CE9D7A9, 0xE44BAE175BE2F029),
+        ["single-karate-vs-katana"] = (0x36207F9D01F64858, 0x108F564D70A787B5),
+        ["w-katana-katana-referee"] = (0x03324CA42F82FE1C, 0xE5878A104B18EC23),
+        ["w-longsword-longsword-noref"] = (0x8FD5BDFE6CE4E9E0, 0x614E845DD26D65FA),
+        ["w-katana-longsword-referee"] = (0x367410F4227FA7A1, 0xD18400C4B53A8A86),
+        ["w-club-katana-noref"] = (0x49AF55ABE7A936C7, 0xF4D36E7729D683C6),
+        ["w-longsword-club-referee"] = (0xD4AE7A8C3EB1F163, 0xA78F4606F171A059),
     };
 
     /// <summary>
@@ -141,10 +142,10 @@ public sealed class CharacterSamenessTests
     /// </summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedGamePlan = new()
     {
-        ["glove-glove-referee"] = (0x0E72EBC48FE4239E, 0xC4BDA14039B4195D),
-        ["glove-glove-noref"] = (0x8DC53C6EDE1F9825, 0xBBD7BDB248EF9D55),
-        ["karate-swarmer-noref"] = (0x0AC485409F074233, 0xD2F36D972820328A),
-        ["katar-gauntlet-referee"] = (0xF56DF70C8D685B77, 0x2240E53F6B7776AE),
+        ["glove-glove-referee"] = (0x8237D1AD14EEBC08, 0xF4B0EF01346A598F),
+        ["glove-glove-noref"] = (0xA5F30047B387BA8E, 0x4B9F9D972459913D),
+        ["karate-swarmer-noref"] = (0x11FD789F64258BFC, 0x167FA58F23B55D24),
+        ["katar-gauntlet-referee"] = (0x677E3951CB801380, 0x6EDCD12FF5408B09),
     };
 
     [TestMethod]
