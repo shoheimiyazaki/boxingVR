@@ -64,6 +64,31 @@ public sealed class VoxelModelFileTests
     }
 
     [TestMethod]
+    public void HaloModel_IsReadAsTheCellsAroundItsPart_AndAWrongSizeOrNameIsNotUsed()
+    {
+        // <部位>Halo: 部位の格子を各面 HaloMargin セル広げた所の組織（CT の体が書く。関節のつなぎが隙間の材質に使う）。
+        var scene = BoxerVoxelModel.ToVox(Generated.Value);
+        var chest = Generated.Value[BodyPartKind.Chest].Dimensions;
+        var m = BoxerVoxelOverrides.HaloMargin;
+        var size = (chest.X + (2 * m), chest.Z + (2 * m), chest.Y + (2 * m)); // .vox の軸（x, z, y）
+        var cells = new byte[size.Item1 * size.Item2 * size.Item3];
+        // 色番号 = 材質番号（BoxerVoxelModel.MaterialPalette）。.vox の (1, 2, 3) は、ゲームの (x, y, z) = (1, 3, Dz − 1 − 2) に当たる（BoxerVoxelModel.ToVoxAxes）。
+        cells[1 + (size.Item1 * (2 + (size.Item2 * 3)))] = BoxerAnatomy.Artery;
+        var overrides = BoxerVoxelModel.FromVox(scene with { Models = [.. scene.Models, new VoxModel("ChestHalo", size, cells)] });
+
+        var halo = overrides.HaloFor(BodyPartKind.Chest, chest);
+        Assert.IsNotNull(halo);
+        Assert.AreEqual((chest.X + (2 * m), chest.Y + (2 * m), chest.Z + (2 * m)), halo.Dimensions);
+        Assert.AreEqual(1, halo.Materials.Count(c => c == BoxerAnatomy.Artery));
+        var (hx, hy, hz) = halo.Dimensions;
+        Assert.AreEqual(BoxerAnatomy.Artery, halo.Materials[1 + (hx * (3 + (hy * (hz - 1 - 2))))], "the same axis swap as the parts");
+        Assert.HasCount(Generated.Value.Count, overrides.Kinds, "the halo is not a part of its own");
+        Assert.IsNull(overrides.HaloFor(BodyPartKind.Chest, (chest.X + 1, chest.Y, chest.Z)), "a halo for another grid size is not used");
+        Assert.IsNull(overrides.HaloFor(BodyPartKind.Head, Generated.Value[BodyPartKind.Head].Dimensions), "no halo, none returned");
+        Assert.ThrowsExactly<InvalidDataException>(() => BoxerVoxelModel.FromVox(scene with { Models = [.. scene.Models, new VoxModel("NeckHalo", size, cells)] }));
+    }
+
+    [TestMethod]
     public void BoxerModel_ReadsByColour_EvenIfTheEditorReordersThePalette()
     {
         // 編集ソフトがパレットの並びを変えても（色番号 m → 256 − m）、色が同じなら同じ材質に戻る。

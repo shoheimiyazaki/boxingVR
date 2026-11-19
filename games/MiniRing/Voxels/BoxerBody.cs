@@ -555,7 +555,7 @@ public sealed class BoxerBody
         {
             if (_byBody.TryGetValue(parentId, out var parentPart) && _byBody.TryGetValue(childId, out var childPart))
             {
-                _bridges.Add(new JointBridge(joint, parentPart, childPart, anchor));
+                _bridges.Add(new JointBridge(joint, parentPart, childPart, anchor, overrides?.HaloFor(parentPart.Kind, parentPart.Body.Grid.Dimensions)));
             }
         }
 

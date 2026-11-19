@@ -426,7 +426,8 @@ def vote(local: np.ndarray, classes: np.ndarray, dims) -> tuple[np.ndarray, dict
     return result.reshape(dims, order="F"), stats
 
 
-def part_samples(part_ids, part_value, cls, bx, by, bz, frame, game_dims, tubes: dict, pad_cells=0.0, straighten=False, order=(0, 1, 2)):
+def part_samples(part_ids, part_value, cls, bx, by, bz, frame, game_dims, tubes: dict, pad_cells=0.0, straighten=False, order=(0, 1, 2),
+                 margin=0, everything=False):
     """Samples of one part's box: coordinates normalised to 0..1 in the part's local frame, and classes. The box is the
     extent of the part's tissue (optionally padded by `pad_cells`); the outline's corners stay empty by the vote.
     Every CT voxel inside the box is a sample: the part's own voxels with their class, everything else (air, the table,
@@ -470,6 +471,7 @@ def part_samples(part_ids, part_value, cls, bx, by, bz, frame, game_dims, tubes:
     # longest padding), then kept if their local coordinates fall in the box.
     # Rotated (arm) boxes reach past the part's index box at their corners: grow by the cross-section's diagonal.
     reach = np.linalg.norm(hi[1:] - lo[1:]) / 2 if straighten else pad.max()
+    reach += margin * float(np.max((hi - lo) / np.array(dims)))  # the halo's band around the box
     grow = int(np.ceil(reach / abs(bx[1] - bx[0]))) + 1
     i0, i1 = max(sel[0].min() - grow, 0), min(sel[0].max() + grow + 1, len(bx))
     j0, j1 = max(sel[1].min() - grow, 0), min(sel[1].max() + grow + 1, len(bz))
@@ -480,9 +482,13 @@ def part_samples(part_ids, part_value, cls, bx, by, bz, frame, game_dims, tubes:
     if shift is not None:
         pts = shift(pts)
     norm = (pts - lo) / (hi - lo)
-    inside = np.all((norm >= 0) & (norm <= 1), axis=1)  # vote() clamps 1.0 into the last cell
+    band = margin / np.array(dims)  # margin: also the samples this many cells around the box (normalised beyond 0..1)
+    inside = np.all((norm >= -band) & (norm <= 1 + band), axis=1)  # vote() clamps 1.0 into the last cell
     ii, jj, kk, norm = ii[inside], jj[inside], kk[inside], norm[inside]
     own = part_ids[ii, jj, kk] == part_value
+    # everything (a list of part ids): body voxels of these parts count too (the halo shows what lies beyond the cut).
+    if everything:
+        own = np.isin(part_ids[ii, jj, kk], list(everything))
     classes = np.where(own, cls[ii, jj, kk], L.CLS_EMPTY).astype(np.int64)
     norm = norm[:, list(order)]
     return norm, classes, {c: own & volume[ii, jj, kk] for c, volume in tubes.items()}, (lo, hi)
@@ -609,12 +615,14 @@ def connect_tube(grid_cls: np.ndarray, tube: int, norm, flags, dims, kind: str, 
     regions, count = ndimage.label(corridor | artery, structure=ndimage.generate_binary_structure(3, 3))
     if course is not None and count > 1:  # a limb with a drawn course is one artery system: join every piece
         regions, count = (regions > 0).astype(int), 1
-    # Ties (a drawn course has one share everywhere) go to the cell deepest inside, which has the most ways onward.
+    # Ties (a drawn course has one share everywhere) go to the cell deepest inside, which has the most ways onward. The
+    # depth term stays below any real difference of share (at most 0.001).
     depth = ndimage.distance_transform_edt(inside)
+    depth = depth / max(float(depth.max()), 1.0)
     for r in range(1, count + 1):
         member = regions == r
         if not (artery & member).any():
-            artery[np.unravel_index(np.argmax(np.where(member, share + 0.01 * depth, -1.0)), dims)] = True
+            artery[np.unravel_index(np.argmax(np.where(member, share + 1e-3 * depth, -1.0)), dims)] = True
     # Bone and organs cost more to cross; the spinal cord and the brain are never crossed (a run there would cut them).
     cost = np.where(corridor, 1.0 + (1.0 - share), 6.0) + np.where(np.isin(grid, ORGAN_CLASSES), 4.0, 0.0)
     inside &= ~np.isin(grid, [L.CLS_CORD, L.CLS_BRAIN])
@@ -790,8 +798,11 @@ def trace_limb_arteries(scratch: Path, part_ids: np.ndarray, limbs: list[list[in
         if not zone.any():
             continue
         idx = np.nonzero(zone)
-        box = tuple(slice(max(a.min() * STEP, 0), min((a.max() + 1) * STEP, n)) for a, n in zip(idx, ct.shape))
-        zone_full = np.repeat(np.repeat(np.repeat(zone, STEP, 0), STEP, 1), STEP, 2)[: ct.shape[0], : ct.shape[1], : ct.shape[2]][box]
+        coarse = tuple(slice(a.min(), a.max() + 1) for a in idx)
+        box = tuple(slice(c.start * STEP, min(c.stop * STEP, n)) for c, n in zip(coarse, ct.shape))
+        # Crop the 3 mm zone first, then blow it up to the CT's resolution (the whole volume would not fit this PC's memory).
+        zone_full = np.repeat(np.repeat(np.repeat(zone[coarse], STEP, 0), STEP, 1), STEP, 2)
+        zone_full = zone_full[: box[0].stop - box[0].start, : box[1].stop - box[1].start, : box[2].stop - box[2].start]
         c = np.asarray(ct[box])
         lumen = (c >= lo) & (c <= hi) & ~np.asarray(labeled[box]) & zone_full
         seeds = np.asarray(seeds_all[box]) & zone_full
@@ -819,7 +830,7 @@ def fit_outline(grid_cls: np.ndarray, outline: np.ndarray, keep_core: bool = Fal
 
 
 def split_legs(cls: np.ndarray, named: dict, unlabeled_bone: np.ndarray, bx, by, bz):
-    """Part id per voxel for a scan of the legs: 9 thigh, 10 shin (person's right leg), 11/12 the left leg, 0 the rest.
+    """Part id per voxel for a scan of the legs: 9 thigh, 10 shin, 13 below the ankle (person's right leg), 11/12/14 the left leg, 0 the rest.
     Seeds: each leg's femur and the unlabeled bone below its knee (tibia, fibula), against every other labeled structure
     (the pelvis); each body voxel goes to the nearest seed. Knee = the femur's lowest point; ankle = the knee minus the
     shin length, taken as SHIN_TO_FEMUR of the femur's length (or the scan's end)."""
@@ -857,10 +868,11 @@ def split_legs(cls: np.ndarray, named: dict, unlabeled_bone: np.ndarray, bx, by,
     owner[~body] = 0
     y = by[None, None, :]
     part = np.zeros(cls.shape, np.uint8)
-    for side, value, (thigh_id, shin_id) in (("right", 2, (9, 10)), ("left", 3, (11, 12))):
+    for side, value, (thigh_id, shin_id, foot_id) in (("right", 2, (9, 10, 13)), ("left", 3, (11, 12, 14))):
         leg = owner == value
         part[leg & (y >= landmarks[f"{side}_knee"]) & (y <= landmarks[f"{side}_hip"])] = thigh_id
         part[leg & (y < landmarks[f"{side}_knee"]) & (y >= landmarks[f"{side}_ankle"])] = shin_id
+        part[leg & (y < landmarks[f"{side}_ankle"])] = foot_id
     for value in (9, 10, 11, 12):
         mask = part == value
         pieces, count = ndimage.label(mask)
@@ -907,11 +919,43 @@ def build_part(name, value, frame, part_ids, cls, bx, by, bz, sub, shipped, stra
     # The head keeps the hand-edited face shell, so its CT cells go in without their own skin layer (the skull lies right
     # under the skin, in the CT's outermost cells). The other parts take the shipped covering on the shipped outline.
     game = merge_head(shipped["Head"], to_game(grid_cls)) if name == "Head" else add_skin(to_game(grid_cls), name, shipped[name])
+    halo = None
+    if name != "Head":
+        halo = part_halo(part_ids, value, cls, bx, by, bz, frame, dims, sub, straighten, order, cross_axes,
+                         outline_stats["scale"] if outline_stats else 1.0)
     human_size = [float(h - l) for h, l in zip(hi[list(order)], lo[list(order)])]
-    return game, {"dims": list(dims), "human_box_mm": [round(v, 1) for v in human_size],
+    return game, halo, {"dims": list(dims), "human_box_mm": [round(v, 1) for v in human_size],
                   "human_cell_mm": [round(v / d, 1) for v, d in zip(human_size, dims)],
                   "samples": int(len(norm)), "classes": stats, "tubes": tube_stats, "outline": outline_stats,
                   "materials": {int(k): int(v) for k, v in zip(*np.unique(game, return_counts=True))}}
+
+
+def part_halo(part_ids, value, cls, bx, by, bz, frame, dims, sub, straighten, order, cross_axes, scale):
+    """The part's halo (the game's BoxerVoxelOverrides.HaloFor): the CT tissue in a band of HALO_MARGIN cells around the
+    part's box, every body voxel whichever part it went to, in the part's own cells and drawn in across the part by the
+    same scale as the part. A joint bridge fills the gap between two parts with the parent's halo there: the neck's
+    vertebrae and arteries between the chest and the head, the hip joint between the pelvis and the thigh."""
+    norm, classes, _, _ = part_samples(part_ids, value, cls, bx, by, bz, frame, dims, sub["tubes"], straighten=straighten,
+                                       order=order, margin=HALO_MARGIN, everything=HALO_PARTS[value])
+    for a in cross_axes:
+        norm[:, a] = 0.5 + (norm[:, a] - 0.5) * scale
+    # With scale < 1 the outermost ~(1 - scale)(d/2 + margin) cells across get no sample; vote() fills them from the
+    # nearest sampled cell (on the chest's sides that is next to the shoulder gaps; fine at the 0.9 floor).
+    ext = tuple(d + 2 * HALO_MARGIN for d in dims)
+    norm = (norm * np.array(dims) + HALO_MARGIN) / np.array(ext)
+    keep = np.all((norm >= 0) & (norm <= 1), axis=1)
+    halo, _ = vote(norm[keep], classes[keep], ext)
+    return to_game(halo)
+
+
+# Must equal BoxerVoxelOverrides.HaloMargin (games/MiniRing/Voxels/BoxerVoxelModel.cs).
+HALO_MARGIN = 6
+# The parts whose tissue a part's halo holds: itself and its children (a joint bridge reads its parent's halo: the chest is the neck's
+# and the shoulders' parent, the pelvis the spine's and the hips'). The arm hung beside the
+# belly in the CT, so a halo of every body voxel put liver at the elbow. Part ids: split_parts (1 head, 2 chest,
+# 3 pelvis, 4/5 right upper arm/forearm, 6/7 left, 8 below the pelvis) and split_legs (9/10 right thigh/shin,
+# 13 the right foot below the ankle).
+HALO_PARTS = {1: (1,), 2: (2, 1, 4, 6), 3: (3, 2, 8), 4: (4, 5), 5: (5,), 9: (9, 10), 10: (10, 13)}
 
 
 def prepare(subject_dir: Path, out_dir: Path, tag: str, limb_ids, splitter):
@@ -969,8 +1013,9 @@ def main() -> None:
             ("UpperArm", 4, arm_frame(np.array(arm_axes[side]["head_xyz"]) - np.array(arm_axes[side]["elbow_xyz"])),
              {"straighten": True, "cross_axes": (1, 2)}),
             ("Forearm", 5, arm_frame(arm_axes[f"{side}_forearm_axis"]), {"straighten": True, "cross_axes": (1, 2)})]
+    halos = {}
     for name, value, frame, options in jobs:
-        grids[name], report["parts"][name] = build_part(name, value, frame, part_ids, cls, bx, by, bz, sub, shipped, **options)
+        grids[name], halos[name], report["parts"][name] = build_part(name, value, frame, part_ids, cls, bx, by, bz, sub, shipped, **options)
     del sub, part_ids, cls
 
     if args.legs:
@@ -979,8 +1024,9 @@ def main() -> None:
         report["legs"] = {"subject": args.legs, "landmarks_mm": leg_marks, "axes": leg_axes, **legs["report"]}
         # Legs: length along game Y. The right leg, like the arm (one grid serves both sides in the game).
         for name, value, axis in (("Thigh", 9, "right_thigh_axis"), ("Shin", 10, "right_shin_axis")):
-            grids[name], report["parts"][name] = build_part(name, value, leg_frame(leg_axes[axis]), leg_ids, legs["cls"], lx, ly, lz,
-                                                            legs, shipped, straighten=True, order=(1, 0, 2), cross_axes=(0, 2))
+            grids[name], halos[name], report["parts"][name] = build_part(
+                name, value, leg_frame(leg_axes[axis]), leg_ids, legs["cls"], lx, ly, lz, legs, shipped,
+                straighten=True, order=(1, 0, 2), cross_axes=(0, 2))
             report["parts"][name]["from"] = args.legs
         del legs, leg_ids
     for name in PART_ORDER:
@@ -998,8 +1044,9 @@ def main() -> None:
         grids[name] = grid
 
     models = [vox.VoxModel(name, vox.to_vox_axes(grids[name])) for name in PART_ORDER]
+    models += [vox.VoxModel(f"{name}Halo", vox.to_vox_axes(halos[name])) for name in PART_ORDER if halos.get(name) is not None]
     vox.write(out_dir / f"ct_{args.subject}.vox", models, palette)
-    np.savez_compressed(out_dir / f"ct_{args.subject}_parts.npz", **grids)
+    np.savez_compressed(out_dir / f"ct_{args.subject}_parts.npz", **grids, **{f"{k}Halo": v for k, v in halos.items() if v is not None})
     (out_dir / f"ct_{args.subject}_report.json").write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8")
     print(json.dumps({k: v.get("human_box_mm", v.get("from")) for k, v in report["parts"].items()}, ensure_ascii=False, indent=0))
 

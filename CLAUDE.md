@@ -182,7 +182,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 - **テレビ中継の生配信**（master に入った）: OBS 実機・実送信・1080p は未確認。`docs/plans/LIVE_STREAM_HANDOFF_2026-11-17.md`。
 - **エージェントの開発しやすさ**（`claude/agent-dx`）: `docs/plans/AGENT_DX_PLAN.md`（計画と記録）。
 - **間の層（攻めの番・守りの番）**（退避中、枝 `shelf/rhythm-layer`。本体には無い）: 再開は `docs/plans/RHYTHM_LAYER_SHELVED.md` から。
-- **CT から体のボクセルを作る**（`claude/ct-body`）: 段 1（道具と 1 体・動脈）まで。次は段 2（左右の鏡・ゲームへ入れる）。`docs/plans/CT_BODY_PLAN.md`。
+- **CT から体のボクセルを作る**（`claude/ct-body`。関節のつなぎの枝 worktree-agent-a1d3b799d8ec924e6 を合わせてある、LogicVersion 56）: 段 1（道具と 1 体・全身の動脈・気管・ボクサーの外形・関節のつなぎのまわり）まで。次は段 2（左右の鏡・ゲームへ入れる）。`docs/plans/CT_BODY_PLAN.md`。
 
 ## 8. 軸から外れている所（技術的な負債。直す方向は軸へ寄せること）
 

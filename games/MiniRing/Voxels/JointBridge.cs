@@ -13,7 +13,8 @@ namespace MiniRing.Voxels;
 /// <item><b>体の動きは変えない</b>: 親の部位の剛体を借りるだけ（<see cref="VoxelBody.Massless"/>: 質量も剛体の形も持たない。関節の力も無い）。
 /// 刃が触れたときの運動量の受け渡しは、普通の部位との接触と同じく親の剛体へ掛かる。</item>
 /// <item><b>どのセルがつなぎか</b>（<see cref="Refresh"/>）: 関節のまわり 5 セル以内で、いまの姿勢で親にも子にも埋まったセルが無く（そこは部位が当たる）、
-/// 親のセルも子のセルも 1 セル（約 5 mm）以内にある所。材質は、その 2 つの近いセルのうち強い方（骨が近ければ骨）。つなぎは毎歩、
+/// 親のセルも子のセルも 1 セル（約 5 mm）以内にある所。材質は、親の部位の「まわり」（<see cref="BoxerVoxelOverrides.HaloFor"/>: CT から作った体の、
+/// 切れ目の向こうにつながる組織）があればその所の組織、無ければ（またはそこが空なら）その 2 つの近いセルのうち強い方（骨が近ければ骨）。つなぎは毎歩、
 /// いまの 2 つの部位の格子から作り直す（姿勢の記憶は持たない。部位のセルが削れれば、つなぎもそのぶん細る）。</item>
 /// <item><b>断たれたら</b>（<see cref="Sever"/>）: つなぎのセルを刃の接触（<see cref="VoxelContact"/>。圧力と材質）が壊したら、そのセルがつないでいた
 /// 親・子の側の近いセルを壊す。そのあとは普通の部位の接触の後始末（骨が断たれたら落ちる・臓器が壊れたら死ぬ）。</item>
@@ -37,10 +38,14 @@ internal sealed class JointBridge
     private readonly Vector3 _centerOnParent;
     private int _activeCells;
 
-    public JointBridge(HumanoidRagdoll.RagdollJoint joint, VoxelPart parent, VoxelPart child, Vector3 anchorOnParent)
+    /// <summary>親の部位のまわり（無ければ null）。</summary>
+    private readonly BoxerVoxelOverrides.PartCells? _halo;
+
+    public JointBridge(HumanoidRagdoll.RagdollJoint joint, VoxelPart parent, VoxelPart child, Vector3 anchorOnParent, BoxerVoxelOverrides.PartCells? parentHalo = null)
     {
         ArgumentNullException.ThrowIfNull(parent);
         ArgumentNullException.ThrowIfNull(child);
+        _halo = parentHalo;
         Joint = joint;
         Parent = parent;
         Child = child;
@@ -188,7 +193,8 @@ internal sealed class JointBridge
                         {
                             var a = parentGrid.MaterialAt(sp);
                             var b = childGrid.MaterialAt(sc);
-                            material = StrengthOf(parentGrid, a) >= StrengthOf(parentGrid, b) ? a : b;
+                            material = HaloMaterial(parentGrid, inParent) is var halo and not 0 ? halo
+                                : StrengthOf(parentGrid, a) >= StrengthOf(parentGrid, b) ? a : b;
                         }
                     }
 
@@ -242,6 +248,20 @@ internal sealed class JointBridge
     }
 
     private static float StrengthOf(VoxelGrid grid, byte material) => grid.Palette[material].MechanicsOrDefault.Strength;
+
+    /// <summary>親の格子の点 <paramref name="local"/> の、親のまわりの材質（まわりが無い・外なら 0）。セルの数で引くので、体格で箱の寸法が変わっても同じ所を指す。</summary>
+    private byte HaloMaterial(VoxelGrid parentGrid, Vector3 local)
+    {
+        if (_halo is not { } halo)
+        {
+            return 0;
+        }
+
+        var c = (local + parentGrid.HalfExtents) / parentGrid.CellSize;
+        var (x, y, z) = ((int)MathF.Floor(c.X) + BoxerVoxelOverrides.HaloMargin, (int)MathF.Floor(c.Y) + BoxerVoxelOverrides.HaloMargin, (int)MathF.Floor(c.Z) + BoxerVoxelOverrides.HaloMargin);
+        var (nx, ny, nz) = halo.Dimensions;
+        return x < 0 || y < 0 || z < 0 || x >= nx || y >= ny || z >= nz ? (byte)0 : halo.Materials[x + (nx * (y + (ny * z)))];
+    }
 
     /// <summary>格子 <paramref name="grid"/> の点 <paramref name="local"/> から <paramref name="reach"/> 以内にある、いちばん近い埋まったセル（無ければ −1）。</summary>
     private static int Nearest(VoxelGrid grid, Vector3 local, float reach)

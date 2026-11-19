@@ -152,6 +152,17 @@ s1029 の写り方: 腕は体の横に下ろし、前腕は手首の手前で切
   主気管支として追い（`trace_airway`）、材質は**肺**（6）。肺の「半分壊れると死ぬ」の数に気管も入る。
 - セルでは動脈と同じつなぎ方で 1 本の管にする（`connect_tube`。動脈と気管は互いを通らない）。結果: 胸の肺 629 セルが気管と両肺で 1 つにつながる。
 
+## 6.8 関節のつなぎも CT から（2026-11-19、ユーザーの指定）
+
+- 刃が部位の間の隙間をすり抜けないように、関節の隙間を埋める「つなぎ」（`JointBridge`、枝 claude/sword-combat-techniques-51f876 の
+  worktree-agent-a1d3b799d8ec924e6）を claude/ct-body へマージした（LogicVersion は両方の 55 を合わせて 56）。
+- つなぎの隙間のセルの材質は、今は近い 2 つのセルの強い方。CT の体では、**親の部位の「まわり」**（`<部位>Halo`）を .vox に書き、隙間はその所の CT の組織になる
+  （ゲーム: `BoxerVoxelOverrides.HaloFor`・`JointBridge.HaloMaterial`。まわりの無い今の体は変わらない）。
+- まわり = 部位の箱を各面 6 セル広げた所の CT（部位と同じセル・同じ横の縮め）。入れる組織は**その部位と、その部位を親とする部位だけ**（`HALO_PARTS`: 胸なら胸・頭・両上腕、上腕なら上腕・前腕。
+  CT では腕が腹の横に下ろしてあり、全部の組織を入れると肘の隙間が肝臓になった）。脚の CT は足首より下も「足」として分け、すねのまわりに入れる。
+- 確かめ: `JointBridgeTests.TheNeckGap_TakesItsTissueFromTheParentsHalo_WhenThereIsOne`（まわりがあれば隙間は全部まわりの組織、無ければ今までどおり）、
+  `VoxelModelFileTests.HaloModel_…`（読み込み・大きさ違いは使わない・名前違いはエラー）、`voxcheck` がまわりの組織を数える。
+
 ## 7. 段の分け方と完了の条件
 
 | 段 | 中身 | 完了の条件 |
