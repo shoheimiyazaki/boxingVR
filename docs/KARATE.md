@@ -29,6 +29,8 @@
 - **握る手**: 同じ骨格・同じ材質を、指の 3 関節とも 90° に曲げ、柄の所（`HandSkeleton.HeldBar`、軸は人さし指の付け根の真下の第 2 関節の高さ）を先に取って置く（`BareHandState.Placed(pose, out grid, held)`）。曲げで押しのけられた組織は柄の外を回り、指と掌が柄を巻く。武器への取り付け（剣・棒の握り・はめる物の中の拳）はまだ（docs/DEBT.md の同じ項目）。
 - **確かめ方**: `HAND_DUMP_DIR=<dir> dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~HandShapeDumpProbe"` → `py -3 tools/hand_views.py <dir>` で、拳と握る手を正面・横・上から写した 1 枚（前腕の箱と 1 cm の目盛り入り）。`py -3 tools/hand_views.py <dir> --worn` は、はめる物 5 種の手の格子と物の格子を材質の色で、全体（左 3 枚）と断面（右 3 枚: 拳頭の列・手の高さの真ん中・手の幅の真ん中）で写す。
 - **はめる物の中の手（PhysicsVersion 53、`claude/hand-layers` 段 2）**: メリケンサック・カタール・籠手・トンファー・盾の物の格子（2 mm）から半径 13 mm の球（`FistAt`）を消し、素手と同じ手の格子（5 mm、`BareHandState.Placed`）を同じ剛体に重ねた（`VoxelBody.AddCompanion`、`Weapon.Hands`）。手は正拳（メリケンサック・籠手）か、棒を握る `GripPose`（カタールの横木・トンファーの柄・盾の握り棒）。物の形は「手の座標」（原点は手の格子の中心）で、手の寸法（手の格子の箱・拳頭の前の層）から書き、物のセルは手のセルの所に置かない。籠手の詰め物と殻・盾の椀は、手のセルからの距離で手の形に沿う。腕の先の握る所（`Weapon.GripOf`）は手首（`HandSkeleton.Wrist`）。質量は 2 つの格子の材質の密度 × 体積の和（`materialMass`）。
+- **確かめ方**: `HAND_DUMP_DIR=<dir> dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~HandShapeDumpProbe"` → `py -3 tools/hand_views.py <dir>` で、拳と握る手を正面・横・上から写した 1 枚（前腕の箱と 1 cm の目盛り入り）。
+- **親指（2026-11-19、PhysicsVersion 54）**: ユーザーの「拳の形の品質を上げたい」で、Codex の画像生成を使って設計した（別プロジェクトの宇宙船マップと同じ手順）。(1) Codex に本物の拳の参考絵（正面・横・上）を描かせ、(2) 同じ拳を 3 方向の荒いピクセル画（12 × 12、1 マス 5 mm、拳の幅 8 マス）とその文字の表で描かせ、(3) それを目標に骨格へ親指を足した（格子をそのまま写さず、関節で曲がる骨格の寸法と角度で合わせる）。「格子の設計図」の絵は 3 方向が食い違って使えず、最初からピクセル画で描かせたものは 3 方向がそろった。ピクセル画は親指を拳の前の面（中節の上）に描くが、5 mm のセルではそこに置くと親指が拳頭より 1〜2 セル前に出て親指で打つことになるので、拳頭が先頭であることを優先し（ユーザーの判断）、親指は拳の下の人さし指の側に置いた（`ThumbFitProbe` が候補ごとに親指の前端・拳頭の前端・押し出されるセルを出す）。画像: `docs/hand_views_thumb_2026-11-19.png`（青が親指）。
 - 下の「同じ打撃の比較」の表は前の 2 mm の手の測定（記録として残す）。
 
 ## 同じ打撃の比較

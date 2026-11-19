@@ -80,7 +80,9 @@ def panel(cells, forearm, view, scale=SCALE, section=False):
         size = c[4] * scale
         px, py = to_px(c[h], c[v])
         t = 1.0 if near == far else 0.55 + 0.45 * (c[d] * sign - far) / (near - far)
-        r, g, b = COLORS.get(c[3], (255, 0, 255))
+        r, g, b = COLORS.get(c[3].replace(" thumb", ""), (255, 0, 255))
+        if c[3].endswith(" thumb"):
+            r, g, b = int(r * 0.55), int(g * 0.75), min(255, int(b * 1.6) + 40)  # 親指は青みに（設計の目印）
         draw.rectangle([px - size / 2, py - size / 2, px + size / 2 - 1, py + size / 2 - 1],
                        fill=(int(r * t), int(g * t), int(b * t)), outline=(0, 0, 0) if size >= 8 else None)
 

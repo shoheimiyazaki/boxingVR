@@ -43,7 +43,7 @@ public sealed class WornHandTests
             Assert.HasCount(1, weapon.Hands, $"{kind}");
             var hand = weapon.Hands[0];
             Assert.AreEqual(weapon.Body.BodyId, hand.Body.BodyId, $"{kind}: one rigid body");
-            Assert.AreEqual(324, hand.Body.Grid.FilledCount, $"{kind}: the bare hand's cells (5 mm)");
+            Assert.AreEqual(HandSkeleton.Parents.Count, hand.Body.Grid.FilledCount, $"{kind}: the bare hand's cells (5 mm)");
             Assert.AreEqual(5f, hand.Body.Grid.CellSize.X * 1000f, 1e-3f, $"{kind}: the hand keeps its 5 mm cells");
             var expected = MassOf(weapon.Body.Grid) + MassOf(hand.Body.Grid);
             Assert.AreEqual(expected, world.GetMass(weapon.Body.BodyId), expected * 1e-4f, $"{kind}: mass = object + hand, from the materials");
