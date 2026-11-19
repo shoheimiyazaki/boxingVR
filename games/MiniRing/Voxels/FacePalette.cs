@@ -35,7 +35,8 @@ public static class FacePalette
             [FaceMaterial.Lip] = Vector3.Lerp(skin, new Vector3(0.52f, 0.24f, 0.24f), 0.55f),
             [FaceMaterial.Shadow] = skin * 0.86f,
             [FaceMaterial.Nostril] = skin * 0.48f,
-            [FaceMaterial.Freckle] = Vector3.Lerp(skin, new Vector3(0.53f, 0.32f, 0.2f), 0.6f),
+            [FaceMaterial.Freckle] = Vector3.Lerp(skin, new Vector3(0.53f, 0.32f, 0.2f), 0.3f),
+            [FaceMaterial.Stubble] = Vector3.Lerp(skin, hair, 0.28f),
         };
     }
 }

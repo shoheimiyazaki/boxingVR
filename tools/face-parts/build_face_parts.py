@@ -61,12 +61,12 @@ def swap(rows, table):
 
 # 髪が頭の輪郭の外へ足してよいセル数（参考図のセル。組み立ての髪の「届く範囲」）。普通の髪は 1〜2 セル、量のある髪（アフロ・ポニーテール・長髪）だけ大きい。
 HAIR_REACH = {"hair.1": 1.5, "hair.2": 1.5, "hair.3": 0.0, "hair.4": 2.0, "hair.5": 4.0, "hair.6": 4.5,
-              "hair.7": 1.5, "hair.8": 2.0, "hair.9": 2.5, "hair.10": 2.0, "hair.11": 2.0, "hair.12": 4.0}
+              "hair.7": 1.5, "hair.8": 2.0, "hair.9": 2.5, "hair.10": 2.0, "hair.11": 2.0, "hair.12": 6.0, "hair.13": 6.0}
 
 
 # 髪質のばらつき（0 = まっすぐ、1 = 縮れ）。頭の輪郭の外に足す毛先の割合（FaceComposer）。
 HAIR_FRIZZ = {"hair.1": 0.0, "hair.2": 0.0, "hair.3": 0.0, "hair.4": 0.2, "hair.5": 0.0, "hair.6": 0.7,
-              "hair.7": 0.0, "hair.8": 0.3, "hair.9": 0.6, "hair.10": 0.85, "hair.11": 0.8, "hair.12": 0.0}
+              "hair.7": 0.0, "hair.8": 0.3, "hair.9": 0.6, "hair.10": 0.85, "hair.11": 0.8, "hair.12": 0.0, "hair.13": 0.0}
 
 
 def eye_part(index, name, key, d):
@@ -149,6 +149,86 @@ def build_extra(cats):
     cats["browridge"] = [{"id": f"browridge.{i + 1}", "name": name, "anchor": [4.0, 6.0], "views": {"side": view_json(d[key]["rows"])}} for i, (name, key) in enumerate(bridges)]
 
 
+def blank(w=20, h=28):
+    return [["."] * w for _ in range(h)]
+
+
+def rows_of(grid):
+    return ["".join(r) for r in grid]
+
+
+def build_beards(cats):
+    """ひげ。組み立ては正面の図だけを使い、顔の表面から 3 セルの殻に置く（横の図は検証のために残す）。
+    beard.7 = 全体のひげ: もみあげ（行 12〜16 の頭の縁）・頬の下（行 17）・口ひげから下（行 18 以降は頭の幅いっぱい）が 1 つにつながる。唇の所だけはコンポーザが空ける。
+    beard.2 = 口ひげ（ハンドルバー、行 19・20 と下がった端）、beard.8 = 細くとがった口ひげ。beard.1 = beard.7 と同じ形の無精ひげ（density < 0.5 = 髪ではなく肌の色を寄せる）。"""
+    by_id = {p["id"]: p for p in cats["beard"]}
+    base_front = by_id["beard.4"]["views"]["front"]["rows"]
+
+    def head_mask():
+        return [[c != "." for c in r] for r in base_front]
+
+    mask = head_mask()
+
+    def paint(cells):
+        g = [["s" if mask[y][x] else "." for x in range(20)] for y in range(28)]
+        for y, x in cells:
+            if mask[y][x]:
+                g[y][x] = "h"
+        return g
+
+    full = []
+    for y in range(12, 17):
+        full += [(y, x) for x in (2, 3, 16, 17)]
+    full += [(17, x) for x in (2, 3, 4, 5, 14, 15, 16, 17)]
+    for y in range(18, 28):
+        full += [(y, x) for x in range(2, 18)]
+    side = by_id["beard.4"]["views"]["side"]
+    cats["beard"] = [p for p in cats["beard"] if p["id"] not in ("beard.2", "beard.7", "beard.8")]
+    handlebar = [(19, x) for x in range(5, 15)] + [(20, x) for x in range(5, 15)] + [(21, 4), (21, 15), (22, 4), (22, 15)]
+    thin = [(20, x) for x in range(4, 16)] + [(21, 5), (21, 14), (22, 4), (22, 15)]
+    cats["beard"].append({"id": "beard.2", "name": "moustache (handlebar)", "anchor": [0.0, 0.0], "views": {"front": view_json(rows_of(paint(handlebar))), "side": side}})
+    cats["beard"].append({"id": "beard.7", "name": "full beard with cheeks", "anchor": [0.0, 0.0], "views": {"front": view_json(rows_of(paint(full))), "side": side}})
+    cats["beard"].append({"id": "beard.8", "name": "thin pointed moustache", "anchor": [0.0, 0.0], "views": {"front": view_json(rows_of(paint(thin))), "side": side}})
+    stubble = next(p for p in cats["beard"] if p["id"] == "beard.1")
+    stubble["views"] = {"front": view_json(rows_of(paint([(y, x) for y in range(16, 28) for x in range(2, 18)]))), "side": side}
+    stubble["density"] = 0.45
+    cats["beard"].sort(key=lambda p: int(p["id"].split(".")[1]))
+
+
+def build_long_hair(cats):
+    """長い髪（髪質の参考図 D の長髪を置き換える）。頭の外（顔の横）へ垂れる髪を、前の図（頭の縁の外の列）と横の図（耳の後ろ・首）で書く。
+    hair.12 = 肩までの髪（耳の後ろへ流す）、hair.13 = 後ろで結んだ長髪（顎まで垂れる横髪と、後ろへ下がる尾）。頭の外へ出る量は reach（6）。"""
+    d = parse_d(REFS / "parts2/parts_d.txt")
+    cap_front = solidify(d["hair_swept_long_front"]["rows"])[:9]
+    cap_side = solidify(d["hair_swept_long_side"]["rows"], pad=(2, 1))[:9]
+
+    def make(curtain_x, curtain_to, side_rows, behind=()):
+        front = blank()
+        side = blank()
+        for y in range(9):
+            for x, c in enumerate(cap_front[y]):
+                front[y][x] = c
+            for z, c in enumerate(cap_side[y]):
+                side[y][z] = c
+        for y in range(9, curtain_to):
+            for x in curtain_x:
+                front[y][x] = "h"
+        for y, zs in side_rows.items():
+            for z in zs:
+                side[y][z] = "h"
+        for y in behind:
+            for x in range(6, 14):
+                front[y][x] = "h"  # 顔の真後ろ（前から見ると頭に隠れる。尾の幅）
+        return {"front": view_json(rows_of(front)), "side": view_json(rows_of(side))}
+
+    shoulder = make((0, 1, 2, 17, 18, 19), 27, {**{y: range(1, 13) for y in range(9, 12)}, **{y: range(1, 6) for y in range(12, 17)}, **{y: range(1, 10) for y in range(17, 28)}})
+    tied = make((0, 1, 18, 19), 20, {**{y: range(1, 13) for y in range(9, 13)}, **{y: range(0, 4) for y in range(13, 27)}}, behind=range(13, 27))
+    parts = [p for p in cats["hair"] if p["id"] not in ("hair.12", "hair.13")]
+    parts.append({"id": "hair.12", "name": "shoulder-length, behind the ears", "anchor": [0.0, 0.0], "views": shoulder})
+    parts.append({"id": "hair.13", "name": "long, tied back", "anchor": [0.0, 0.0], "views": tied})
+    cats["hair"] = parts
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     parts = {**parse_parts(REFS / "parts/parts_a.txt"), **parse_parts(REFS / "parts/parts_b.txt")}
@@ -156,37 +236,8 @@ def main():
     for key, part in sorted(parts.items(), key=lambda kv: (kv[1]["category"], kv[1]["index"])):
         cats.setdefault(part["category"], []).append(part_json(key, part))
     build_extra(cats)
-    # 頬まで覆う全体のひげ（beard.7）: 「全体の短いひげ（beard.4）」はあごの下と口のまわりだけなので、もみあげと頬の下にもひげを足す（目の下の頬骨は空ける）。
-    # 唇の隙間はコンポーザが空ける（唇の左右にひげがあるとき）。
-    full = next(p for p in cats["beard"] if p["id"] == "beard.4")
-    front = [list(r) for r in full["views"]["front"]["rows"]]
-    side = [list(r) for r in full["views"]["side"]["rows"]]
-    # もみあげ（行 12〜16 の頭の縁の 2 列）と、頬の下（行 17・18 の外側の列。あごの線へつながる）。
-    cheek_cols = {12: (2, 3), 13: (2, 3), 14: (2, 3), 15: (2, 3), 16: (2, 3), 17: (3, 4), 18: (3, 4, 5)}
-    for y, cols in cheek_cols.items():
-        for x in cols + tuple(19 - c for c in cols):
-            if front[y][x] == "s":
-                front[y][x] = "h"
-        # 横の輪郭: もみあげは耳の前（z 5〜13）、頬の下は口の横まで（z 8〜16）。目の高さの顔の前の面には付けない。
-        for z in (range(5, 14) if y <= 16 else range(8, 17)):
-            if side[y][z] == "s":
-                side[y][z] = "h"
-    # 口ひげ（beard.2 の行 18・19）も足す（全体のひげには口ひげが付く）。
-    mous = next(p for p in cats["beard"] if p["id"] == "beard.2")
-    for y in (18, 19):
-        for x, c in enumerate(mous["views"]["front"]["rows"][y]):
-            if c == "h" and front[y][x] == "s":
-                front[y][x] = "h"
-        for z, c in enumerate(mous["views"]["side"]["rows"][y]):
-            if c == "h" and side[y][z] == "s":
-                side[y][z] = "h"
-    cheeks = {"id": "beard.7", "name": "full beard with cheeks", "anchor": [0.0, 0.0],
-              "views": {"front": view_json(["".join(r) for r in front]), "side": view_json(["".join(r) for r in side])}}
-    cats["beard"].append(cheeks)
-    # 無精ひげ（beard.1）: 参考図は市松のドットで、格子を細かくすると網目になる。頬まで覆うひげの形を、座標のハッシュで間引いた密度（density）で表す。
-    stubble = next(p for p in cats["beard"] if p["id"] == "beard.1")
-    stubble["views"] = cheeks["views"]
-    stubble["density"] = 0.45
+    build_beards(cats)
+    build_long_hair(cats)
     for part in cats["hair"]:
         part["reach"] = HAIR_REACH[part["id"]]
         part["frizz"] = HAIR_FRIZZ[part["id"]]

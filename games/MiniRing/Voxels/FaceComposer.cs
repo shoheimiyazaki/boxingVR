@@ -35,6 +35,9 @@ public static class FaceComposer
         return t * t * (3f - (2f * t));
     }
 
+    /// <summary>ひげの厚み（顔の表面から何セル（参考図）の深さまで）。</summary>
+    private const float BeardDepth = 3f;
+
     /// <summary>座標だけから決まる 0..1 の値（乱数を使わない: 同じ入力は同じ顔）。</summary>
     private static float CellNoise(int x, int y, int z)
     {
@@ -146,7 +149,7 @@ public static class FaceComposer
             onHead[i] = head[i] && hairCand[i];
         }
 
-        var halo = frizz <= 0f ? onHead : Dilate(onHead, nx, ny, nz, (int)MathF.Ceiling((1f + frizz) / sx), (int)MathF.Ceiling((1f + frizz) / sy), (int)MathF.Ceiling((1f + frizz) / sz));
+        var halo = frizz <= 0f ? onHead : Dilate(onHead, nx, ny, nz, (int)MathF.Ceiling(1f / sx), (int)MathF.Ceiling(1f / sy), (int)MathF.Ceiling(1f / sz));
         for (var y = 0; y < ny; y++)
         {
             for (var x = 0; x < nx; x++)
@@ -165,7 +168,7 @@ public static class FaceComposer
                     {
                         cells[i] = hairCand[i] ? FaceMaterial.Hair : FaceMaterial.Skin;
                     }
-                    else if (near[i] && (hairCand[i] || (halo[i] && (headFront < 0 || z <= headFront) && CellNoise(x, y, z) < frizz)))
+                    else if (near[i] && (hairCand[i] || (halo[i] && (headFront < 0 || z <= headFront) && CellNoise(x, y, z) < frizz * 0.7f)))
                     {
                         cells[i] = FaceMaterial.Hair;
                     }
@@ -173,9 +176,28 @@ public static class FaceComposer
             }
         }
 
-        // ひげ（頭の内側の、正面と横の両方でひげの所）。
+        // ひげ（頭の内側で、正面の図がひげの所の、顔の表面から 3 セル以内の殻。あごの形（横の輪郭）が変わっても顎・頬に沿う）。
+        // 密度（Density）が 0.5 未満の部品は無精ひげ: 散らばった髪のセルではなく、ひげの範囲の皮膚の色を髪へ寄せる材質（Stubble）にする。
         if (beards.Count > 0)
         {
+            var headTop = new int[nx * ny];
+            for (var y = 0; y < ny; y++)
+            {
+                for (var x = 0; x < nx; x++)
+                {
+                    headTop[x + (nx * y)] = -1;
+                    for (var z = nz - 1; z >= 0; z--)
+                    {
+                        if (head[Index(x, y, z)])
+                        {
+                            headTop[x + (nx * y)] = z;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            var beardMaterial = Blend(beards, b => b.Density) >= 0.5f ? FaceMaterial.Hair : FaceMaterial.Stubble;
             for (var z = 0; z < nz; z++)
             {
                 for (var y = 0; y < ny; y++)
@@ -185,11 +207,10 @@ public static class FaceComposer
                         var i = Index(x, y, z);
                         if (head[i] && cells[i] == FaceMaterial.Skin
                             && Blend(beards, b => b.Front.Coverage(WidthX(RefX(x), RefY(y)), RefY(y), FaceMaterial.Hair)) >= 0.5f
-                            && Blend(beards, b => b.Density) > CellNoise(x, y, z)
-                            && Blend(beards, b => b.Side!.Coverage(RefZ(z), RefY(y), FaceMaterial.Hair)) >= 0.5f
+                            && (headTop[x + (nx * y)] - z) * sz < BeardDepth
                             && !BetweenLips(mouths, p, RefX(x), RefY(y), layout))
                         {
-                            cells[i] = FaceMaterial.Hair;
+                            cells[i] = beardMaterial;
                         }
                     }
                 }
@@ -403,7 +424,7 @@ public static class FaceComposer
         for (var y = 0; y < ny; y++)
         {
             var ry = (ny - 1 - y + 0.5f) * sy;
-            if (ry < layout.NoseRowFrom || ry > layout.NoseRowTo + 4f)
+            if (ry < layout.NoseTopRow || ry > layout.NoseTopRow + 5f)
             {
                 continue;
             }
@@ -574,6 +595,11 @@ public static class FaceComposer
         if (brows.Count == 0)
         {
             return null;
+        }
+
+        if (MathF.Abs(rx - Mid) < 1f)
+        {
+            return null; // 眉と眉の間（眉間）は空ける
         }
 
         var side = rx >= Mid ? 1f : -1f;

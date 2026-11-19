@@ -85,7 +85,7 @@
       "mouth": { "mouth.8": 0.6, "mouth.7": 0.4 },
       "jaw": { "jaw.8": 0.5, "jaw.6": 0.5 },
       "ears": { "ears.5": 1.0 },
-      "beard": { "beard.2": 0.5, "beard.3": 0.5 },
+      "beard": { "beard.8": 0.5, "beard.3": 0.5 },
       "browridge": { "browridge.3": 1.0 }
     },
     "values": { "cheekbones": 1.5, "noseLength": 1.2, "nose": 1.15, "hairline": 0.07, "faceWidth": 0.95, "browTilt": 0.2, "mouthWidth": 0.9 },

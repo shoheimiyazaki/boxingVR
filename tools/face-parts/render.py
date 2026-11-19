@@ -16,10 +16,10 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 REFS = Path(__file__).resolve().parents[2] / "docs/plans/face_refs"
-SYMBOLS = ".shbwilenf"
+SYMBOLS = ".shbwilenft"
 # 材質 -> 色（参考図の凡例に合わせる）。b 眉・h 髪・w 白目・i 黒目・l 唇・e 影・n 鼻の穴・f そばかす。
 COLORS = {".": (92, 98, 108), "s": (200, 152, 120), "h": (42, 32, 24), "b": (60, 40, 30), "w": (240, 240, 235), "i": (30, 60, 110),
-          "l": (168, 90, 80), "e": (160, 120, 88), "n": (106, 72, 56), "f": (150, 100, 70)}
+          "l": (168, 90, 80), "e": (160, 120, 88), "n": (106, 72, 56), "f": (150, 100, 70), "t": (120, 90, 70)}
 CELL = 16
 
 

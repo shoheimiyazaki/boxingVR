@@ -58,11 +58,11 @@ FIGHTERS = {
     "gaston": ("#C59F81", "#342821", "brown",
                {"hair": {"hair.7": 0.6, "hair.2": 0.4}, "brows": {"brows.4": 1.0}, "eyes": {"eyes.6": 0.6, "eyes.3": 0.4},
                 "nose": {"nose.3": 1.0}, "mouth": {"mouth.8": 0.6, "mouth.7": 0.4}, "jaw": {"jaw.8": 0.5, "jaw.6": 0.5},
-                "ears": {"ears.5": 1.0}, "beard": {"beard.2": 0.5, "beard.3": 0.5}, "browridge": {"browridge.3": 1.0}},
+                "ears": {"ears.5": 1.0}, "beard": {"beard.8": 0.5, "beard.3": 0.5}, "browridge": {"browridge.3": 1.0}},
                {"cheekbones": 1.5, "noseLength": 1.2, "nose": 1.15, "hairline": 0.07, "faceWidth": 0.95, "browTilt": 0.2, "mouthWidth": 0.9}),
     # 日本（高知）の剣士: 細い一重の目・細い鼻・卵形の細面・髪を後ろで結ぶ。
     "jin": ("#D5B69A", "#171C22", "dark",
-            {"hair": {"hair.12": 0.6, "hair.7": 0.4}, "brows": {"brows.1": 0.5, "brows.2": 0.5}, "eyes": {"eyes.1": 0.7, "eyes.6": 0.3},
+            {"hair": {"hair.13": 1.0}, "brows": {"brows.1": 0.5, "brows.2": 0.5}, "eyes": {"eyes.1": 0.7, "eyes.6": 0.3},
              "nose": {"nose.1": 0.5, "nose.4": 0.5}, "mouth": {"mouth.7": 0.6, "mouth.8": 0.4}, "jaw": {"jaw.10": 0.5, "jaw.1": 0.5},
              "ears": {"ears.1": 1.0}, "beard": {}, "browridge": {"browridge.1": 1.0}},
             {"cheekbones": 1.2, "noseWidth": 0.85, "faceWidth": 0.95, "browTilt": 0.08, "eyeSize": 0.95}),
@@ -122,7 +122,7 @@ FIGHTERS = {
                  {"cheekbones": 1.5, "eyeSpacing": 1.15, "noseWidth": 1.3, "noseLength": 0.9, "faceWidth": 1.14, "browHeight": -0.03, "browThickness": 1.4}),
     # インド（ジョードプル）: 暖かい褐色の肌・波打つ黒髪・深い目と太いアーチ形の眉・鷲鼻・上へ巻いた口ひげと短いひげ。
     "vikram": ("#A36E48", "#1C1714", "dark",
-               {"hair": {"hair.8": 0.5, "hair.12": 0.5}, "brows": {"brows.3": 0.5, "brows.6": 0.5}, "eyes": {"eyes.4": 1.0},
+               {"hair": {"hair.8": 0.7, "hair.7": 0.3}, "brows": {"brows.3": 0.5, "brows.6": 0.5}, "eyes": {"eyes.4": 1.0},
                 "nose": {"nose.3": 0.8, "nose.5": 0.2}, "mouth": {"mouth.9": 1.0}, "jaw": {"jaw.9": 0.5, "jaw.4": 0.5},
                 "ears": {"ears.5": 1.0}, "beard": {"beard.2": 0.5, "beard.7": 0.5}, "browridge": {"browridge.3": 1.0}},
                {"cheekbones": 1.55, "noseLength": 1.2, "nose": 1.1, "browThickness": 1.4, "faceWidth": 1.0}),

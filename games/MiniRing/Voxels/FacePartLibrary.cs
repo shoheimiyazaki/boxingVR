@@ -20,6 +20,9 @@ public enum FaceMaterial : byte
 
     /// <summary>そばかす（皮膚の上の小さな点）。</summary>
     Freckle,
+
+    /// <summary>無精ひげ（ひげの範囲の皮膚が、髪の色へ少し寄った色。散らばった髪のセルではなく、一様な色）。</summary>
+    Stubble,
 }
 
 /// <summary>

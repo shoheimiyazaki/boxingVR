@@ -189,7 +189,7 @@ public sealed class FacePartLibraryTests
         }
 
         Directory.CreateDirectory(dir);
-        const string symbols = ".shbwilenf";
+        const string symbols = ".shbwilenft";
         void Dump(string name, FaceSpec spec)
         {
             var v = FaceComposer.Compose(spec, 20, 28, 20);

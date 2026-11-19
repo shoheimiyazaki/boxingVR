@@ -43,7 +43,7 @@ public sealed class FaceComposerLookTests
     {
         var library = FacePartLibrary.Default;
         // 目 = まぶたの違い 6、口 = 形 6 + 唇の厚み・人中 6、あご = 形 6 + 顔の形 5、髪 = 型 6 + 髪質 6、ひげ = 6 + 頬まで覆う全体のひげ 1、眉の張り出し・鼻筋 4。
-        var expected = new Dictionary<string, int> { ["eyes"] = 6, ["brows"] = 6, ["mouth"] = 12, ["nose"] = 6, ["ears"] = 6, ["jaw"] = 11, ["hair"] = 12, ["beard"] = 7, ["browridge"] = 4 };
+        var expected = new Dictionary<string, int> { ["eyes"] = 6, ["brows"] = 6, ["mouth"] = 12, ["nose"] = 6, ["ears"] = 6, ["jaw"] = 11, ["hair"] = 13, ["beard"] = 8, ["browridge"] = 4 };
         foreach (var (category, count) in expected)
         {
             Assert.HasCount(count, library.Parts(category), category);
@@ -115,7 +115,7 @@ public sealed class FaceComposerLookTests
     {
         // 髪質（frizz）: 縮れた髪は頭の外に毛先が出る（まっすぐな髪より髪のセルが多い）。
         int HairCells(string id) => Compose(("hair", id, 1f)).Count(FaceMaterial.Hair);
-        Assert.IsGreaterThan(HairCells("hair.7"), HairCells("hair.10"), "tight coils have more hair cells than straight hair");
+        Assert.IsGreaterThan(HairCells("hair.7"), HairCells("hair.9"), "loose curls (same silhouette, frizz 0.6) have more hair cells than straight hair");
         Assert.AreEqual(HairCells("hair.9"), HairCells("hair.9"), "deterministic");
     }
 
@@ -183,11 +183,87 @@ public sealed class FaceComposerLookTests
     }
 
     [TestMethod]
-    public void Stubble_IsSparserThanTheFullBeardOfTheSameShape()
+    public void Stubble_IsAUniformSkinTone_NotScatteredHairCells()
     {
-        int Hair(string id) => Compose(("beard", id, 1f)).Count(FaceMaterial.Hair);
-        Assert.IsGreaterThan(Hair("beard.1"), Hair("beard.7"));
-        Assert.IsGreaterThan(0, Hair("beard.1"));
+        var stubble = Compose(("beard", "beard.1", 1f));
+        Assert.AreEqual(Compose().Count(FaceMaterial.Hair), stubble.Count(FaceMaterial.Hair), "stubble adds no hair cells (only the scalp hair of the default spec)");
+        Assert.IsGreaterThan(20, stubble.Count(FaceMaterial.Stubble));
+        // 無精ひげの色は肌と髪の間（一様）。
+        var c = FacePalette.Resolve(Spec());
+        Assert.IsLessThan(c[FaceMaterial.Skin].X, c[FaceMaterial.Stubble].X);
+        Assert.IsGreaterThan(c[FaceMaterial.Hair].X, c[FaceMaterial.Stubble].X);
+        Assert.IsGreaterThan(30, Compose(("beard", "beard.7", 1f)).Count(FaceMaterial.Hair));
+    }
+
+    [TestMethod]
+    public void FullBeard_IsOneConnectedRegion_FromSideburnsToChin()
+    {
+        var front = Front(Compose(("mouth", "mouth.8", 1f), ("beard", "beard.7", 1f)));
+        bool IsBeard(int y, int x) => y >= 11 && front[y][x] == FaceMaterial.Hair;
+        var seen = new HashSet<(int, int)>();
+        var stack = new Stack<(int, int)>();
+        var start = Enumerable.Range(0, 28).SelectMany(y => Enumerable.Range(0, 20).Select(x => (y, x))).First(t => t.y >= 23 && IsBeard(t.y, t.x));
+        stack.Push(start);
+        while (stack.Count > 0)
+        {
+            var (y, x) = stack.Pop();
+            if (y < 0 || y >= 28 || x < 0 || x >= 20 || !IsBeard(y, x) || !seen.Add((y, x)))
+            {
+                continue;
+            }
+
+            foreach (var (dy, dx) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+            {
+                stack.Push((y + dy, x + dx));
+            }
+        }
+
+        var all = Enumerable.Range(0, 28).Sum(y => Enumerable.Range(0, 20).Count(x => IsBeard(y, x)));
+        Assert.AreEqual(all, seen.Count, "the beard is one region (jaw, chin, cheeks, moustache, sideburns)");
+    }
+
+    [TestMethod]
+    public void Brows_AreTwo_WithAGapBetween()
+    {
+        var front = Front(Compose(("brows", "brows.6", 1f)));
+        for (var y = 0; y < front.Length; y++)
+        {
+            Assert.IsFalse(front[y][9] == FaceMaterial.Brow && front[y][10] == FaceMaterial.Brow, $"unibrow at row {y}");
+            Assert.AreNotEqual(FaceMaterial.Brow, front[y][9]);
+            Assert.AreNotEqual(FaceMaterial.Brow, front[y][10]);
+        }
+    }
+
+    [TestMethod]
+    public void LongHair_HangsBesideTheFace_AndBehindTheEar()
+    {
+        var front = Front(Compose(("hair", "hair.12", 1f)));
+        // 目の高さから下の顔の横（頭の縁の外の列）に髪が垂れる。
+        Assert.IsGreaterThan(8, Enumerable.Range(13, 12).Count(y => front[y][0] == FaceMaterial.Hair || front[y][1] == FaceMaterial.Hair));
+        var cropFront = Front(Compose(("hair", "hair.2", 1f)));
+        Assert.AreEqual(0, Enumerable.Range(13, 12).Count(y => cropFront[y][0] == FaceMaterial.Hair || cropFront[y][1] == FaceMaterial.Hair));
+        var v = Compose(("hair", "hair.13", 1f));
+        // 横から見て、後ろ（z 小さい側）の低い所（首の高さ）にも髪が下がる（結んだ尾）。
+        Assert.IsGreaterThan(5, Enumerable.Range(0, 8).Count(y => Enumerable.Range(0, 4).Any(z => Enumerable.Range(0, 20).Any(x => v.At(x, y, z) == FaceMaterial.Hair))));
+    }
+
+    [TestMethod]
+    public void NoseShading_StaysOnTheNose_NotDownTheWholeFace()
+    {
+        var front = Front(Compose(("browridge", "browridge.3", 1f), ("nose", "nose.5", 1f)));
+        // 目の高さ（行 13）より上と、口の高さ（行 20）より下には、鼻の脇の影を作らない。
+        for (var y = 0; y < 28; y++)
+        {
+            if (y is >= 13 and <= 19)
+            {
+                continue;
+            }
+
+            for (var x = 6; x < 14; x++)
+            {
+                Assert.AreNotEqual(FaceMaterial.Shadow, front[y][x], $"nose shading outside the nose rows: row {y}, x={x}");
+            }
+        }
     }
 
     [TestMethod]
