@@ -319,15 +319,18 @@ public sealed class TonfaTests
         {
             var g = SwordAtTheGuard(HandWear.Glove, 1, name);
             var t = SwordAtTheGuard(HandWear.Tonfa, 1, name);
-            Console.WriteLine($"SCAN {name}: glove arms {g.Arms} forearm {g.Forearm} cut {g.Cut} wood {g.Wood}; tonfa arms {t.Arms} forearm {t.Forearm} cut {t.Cut} wood {t.Wood}");
+            Console.WriteLine($"SCAN {name}: glove arms {g.Arms} forearm {g.Forearm} armcut {g.ArmCut} cut {g.Cut} wood {g.Wood}; tonfa arms {t.Arms} forearm {t.Forearm} armcut {t.ArmCut} cut {t.Cut} wood {t.Wood}");
         }
     }
 
     [TestMethod]
     public void ASwordSweepingAtTheGuard_MeetsTheWoodOfTheStick_BeforeTheFleshOfTheForearm()
     {
-        var glove = SwordAtTheGuard(HandWear.Glove, 1);
-        var tonfa = SwordAtTheGuard(HandWear.Tonfa, 1);
+        // 2026-11-19（PhysicsVersion 53）: 払い面（harai-men）はどちらの手にもはめても腕を切らなくなった（手袋の腕の切れ 0・トンファー 0 で、「少ない」が比べられない）。
+        // 腕を切る技を測り直し（SwordAtTheGuard_TechniqueScan_Probe）、手袋が前腕を切られ・トンファーの木が削れ・棒の後ろの腕は切られない切り上げ（kiriage:
+        // 手袋の前腕 3・腕 3、トンファーの前腕 0・腕 0・木 90）に変えた。期待値は変えていない（棒の後ろの腕の切れは、手袋より少ない）。
+        var glove = SwordAtTheGuard(HandWear.Glove, 1, "kiriage");
+        var tonfa = SwordAtTheGuard(HandWear.Tonfa, 1, "kiriage");
         TestContext.WriteLine($"glove: forearm cut {glove.Forearm}, total cut {glove.Cut}; tonfa: wood lost {tonfa.Wood}, forearm cut {tonfa.Forearm}, total cut {tonfa.Cut}");
         TestContext.WriteLine($"glove: arm (forearm + upper arm) cut {glove.ArmCut}; tonfa: arm cut {tonfa.ArmCut}");
         Assert.IsGreaterThan(0, tonfa.Wood, "the blade bites the stick (wood is carved)");
