@@ -263,9 +263,11 @@ public static class VoxelContact
         var s = body.World.GetState(body.BodyId);
         var localPoint = body.WorldToGrid(worldPoint);
         // The push per unit of the blow's force (PressedForce: at most 1): the force is scaled by it, and the beam's give by its direction.
-        var localDirection = Vector3.Transform(worldPush, Quaternion.Conjugate(s.Orientation));
+        // The force on the beam is the blow's force times that share, but no more than the springy beam takes from the blow's energy.
+        var share = worldPush.Length();
+        var localDirection = Vector3.Transform(worldPush / share, Quaternion.Conjugate(s.Orientation));
         var stiffness = VoxelBending.BeamStiffness(grid, localDirection, axis, loadBearingOnly: true);
-        var force = stiffness is { } k ? MathF.Min(contactForce, MathF.Sqrt(2f * energy * k)) : contactForce;
+        var force = stiffness is { } k ? MathF.Min(contactForce * share, MathF.Sqrt(2f * energy * k)) : contactForce * share;
         if (BendObserved is { } observe)
         {
             // 調べもの: 折れなかった打撃も、折れるまでの近さ（比）を渡す。FindBreak と同じ和で、比が 1 を超えたときだけ同じ結果を返す。
