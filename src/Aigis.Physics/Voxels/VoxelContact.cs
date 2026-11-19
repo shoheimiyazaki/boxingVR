@@ -269,12 +269,12 @@ public static class VoxelContact
         if (BendObserved is { } observe)
         {
             // 調べもの: 折れなかった打撃も、折れるまでの近さ（比）を渡す。FindBreak と同じ和で、比が 1 を超えたときだけ同じ結果を返す。
-            var worst = VoxelBending.WorstBend(grid, localPoint, localDirection * force, axis, loadBearingOnly: true, body.BeamSlices, body.TieActivation, body.BeamRoot);
+            var worst = VoxelBending.WorstBend(grid, localPoint, localDirection * force, axis, loadBearingOnly: true, body.BeamSlices, body.TieActivation);
             observe(new BendSample(body, struck, localPoint, localDirection * force, worst));
             return worst is { Ratio: > 1f } ? worst : null;
         }
 
-        return VoxelBending.FindBreak(grid, localPoint, localDirection * force, axis, loadBearingOnly: true, body.BeamSlices, body.TieActivation, body.BeamRoot);
+        return VoxelBending.FindBreak(grid, localPoint, localDirection * force, axis, loadBearingOnly: true, body.BeamSlices, body.TieActivation);
     }
 
     /// <summary>

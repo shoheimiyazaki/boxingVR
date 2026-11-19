@@ -15,13 +15,13 @@ public sealed class NeckBreakProbe
 {
     public TestContext TestContext { get; set; } = null!;
 
-    internal static float Threshold(VoxelGrid grid, Vector3 point, Vector3 dir, float tone, (Vector3 Point, float Mass)? root = null)
+    internal static float Threshold(VoxelGrid grid, Vector3 point, Vector3 dir, float tone)
     {
         float lo = 0f, hi = 20000f;
         for (var i = 0; i < 40; i++)
         {
             var mid = 0.5f * (lo + hi);
-            var broke = VoxelBending.FindBreak(grid, point, dir * mid, 1, loadBearingOnly: true, BoxerSpine.NeckSlices, tone, root) is not null;
+            var broke = VoxelBending.FindBreak(grid, point, dir * mid, 1, loadBearingOnly: true, BoxerSpine.NeckSlices, tone) is not null;
             if (broke)
             {
                 hi = mid;
@@ -67,11 +67,7 @@ public sealed class NeckBreakProbe
     public void NeckBreakingForce()
     {
         using var game = new BoxingGame(seed: 1);
-        game.Step(default, 1f / 60f); // 関節の先の質量（BeamRoot）を入れる
-        var head = game.Cpu.Voxels!.PartOf(game.Cpu.Parts.Head)!.Body;
-        var grid = head.Grid;
-        var root = head.BeamRoot;
-        TestContext.WriteLine($"neck root (grid) {root}");
+        var grid = game.Cpu.Voxels!.PartOf(game.Cpu.Parts.Head)!.Body.Grid;
         var (nx, _, nz) = grid.Dimensions;
         TestContext.WriteLine($"head half {grid.HalfExtents}, cell {grid.CellSize}, dims {grid.Dimensions}, mass {game.World.GetMass(game.Cpu.Parts.Head):0.000} kg");
         for (var y = 0; y <= BoxerSpine.NeckSlices.High + 1; y++)
@@ -92,10 +88,10 @@ public sealed class NeckBreakProbe
             TestContext.WriteLine($"  slice {y}: {string.Join(", ", counts.Select(kv => $"{kv.Key} {kv.Value}"))}");
         }
 
-        TestContext.WriteLine("  point                 free:tone 1  tone 0 | rooted:tone 1  tone 0  [N]");
+        TestContext.WriteLine("  point                 tone 1     tone 0   [N]");
         foreach (var (name, at, dir) in Points(grid))
         {
-            TestContext.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {name,-20} {Threshold(grid, at, dir, 1f),8:0.0} {Threshold(grid, at, dir, 0f),8:0.0} | {Threshold(grid, at, dir, 1f, root),8:0.0} {Threshold(grid, at, dir, 0f, root),8:0.0}"));
+            TestContext.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  {name,-20} {Threshold(grid, at, dir, 1f),8:0.0} {Threshold(grid, at, dir, 0f),10:0.0}"));
         }
     }
 }

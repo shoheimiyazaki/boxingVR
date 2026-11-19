@@ -899,33 +899,7 @@ public sealed partial class Fighter
 
             var nerve = part.Kind == BodyPartKind.Head ? _cord[0] : InnervationOf(part.Kind);
             body.TieActivation = _detached.Contains(body.BodyId) ? 0f : tone * nerve;
-            body.BeamRoot = BeamRootOf(body);
         }
-    }
-
-    /// <summary>
-    /// 梁 <paramref name="body"/> がつながっている関節（その梁が子の関節）の位置（格子の座標）と、関節の向こうの部位（親）の質量。関節は位置を
-    /// 留める玉継手なので、親は関節の所に固定された質量として梁の曲げに効く（首なら胴、前腕なら上腕）。関節が無い・外れた梁は null（自由な梁）。
-    /// </summary>
-    private (Vector3 Point, float Mass)? BeamRootOf(Aigis.Physics.Voxels.VoxelBody body)
-    {
-        var id = body.BodyId;
-        if (_detached.Contains(id))
-        {
-            return null;
-        }
-
-        foreach (var joint in _joints)
-        {
-            if (joint.ChildPart != id || _detached.Contains(joint.ParentPart) || _world.GetJointAnchors(joint.PrimaryConstraintId)?.AnchorA is not { } anchor)
-            {
-                continue;
-            }
-
-            return (body.WorldToGrid(anchor), _world.GetMass(joint.ParentPart));
-        }
-
-        return null;
     }
 
     /// <summary>脊髄の働き（頸・胸・腰）の今の値へ、<paramref name="dt"/> だけ近づける（神経が絶たれた筋がほどける速さで）。</summary>
