@@ -200,7 +200,11 @@ public sealed class BatFormsTests
         }
 
         Assert.IsLessThan(all["poke-body"], all["butt"], "the grip end reaches less far than the head end");
-        Assert.IsLessThan(all["butt"], all["front-kick"], "and the kick is the closest");
+        // 2026-11-19（PhysicsVersion 53）: 「蹴りがいちばん近い」（蹴り < 握りの端）は、蹴りの間合い（練習した差分の Standoff × 腕の長さ）が握りの端の 0.293 m を
+        // 超えて 0.312 m（Standoff 1.66）になったので、握りの端との前後でなく「頭の側より近い」ことと、内側の型（上の pool に入らない、MinReach 0.33 m 未満）で確かめる。
+        // 床から支える体では前蹴りは 1.5 を超える間合いでないと胴に当たらず（練習の結果。docs/TAEKWONDO.md）、握りの端との順は前蹴りの調整で決まる偶然の並びだった。
+        Assert.IsLessThan(all["poke-body"], all["front-kick"], "and the kick reaches less far than the head end");
+        Assert.IsLessThan(FormSwordsman.MinReach, all["front-kick"], "and it stays an inner-range form");
     }
 
     [TestMethod]

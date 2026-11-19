@@ -8,11 +8,11 @@
     "FootPitch": -0.28237545
   },
   "Front": {
-    "Standoff": 0.94079417,
-    "Seconds": 0.42442444,
-    "AzimuthShift": -0.19816425,
-    "ElevationShift": 0.02088511,
-    "BendShift": -0.013901696,
-    "FootPitch": -0.35273105
+    "Standoff": 0.80815154,
+    "Seconds": 0.46267986,
+    "AzimuthShift": -0.21817172,
+    "ElevationShift": 0.35081482,
+    "BendShift": -0.0571319,
+    "FootPitch": -0.25864094
   }
 }
