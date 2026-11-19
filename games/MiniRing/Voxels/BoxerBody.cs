@@ -596,7 +596,9 @@ public sealed class BoxerBody
             var body = new VoxelBody(world, id, grid, materialMass: false, massPerCell: massPerCell) { BeamAxis = axis, BeamSlices = kind == BodyPartKind.Head ? NeckBoneSlices(grid) : null };
             if (faceGrid is not null)
             {
-                var faceBody = body.AddCompanion(faceGrid, body.GridCenterLocal, massPerCell!.Value * FaceLayer.CellVolumeRatio);
+                // 剛体の箱と質量は作ったまま（頭の箱 = 2 つの格子を入れる箱、質量はもう 2 つの格子で分けてある）。ほかの部位と同じく、格子が削れて
+                // 変わったときに残ったセルへ合わせ直す（UpdateMass）。
+                var faceBody = body.AddCompanion(faceGrid, body.GridCenterLocal, massPerCell!.Value * FaceLayer.CellVolumeRatio, refit: false);
                 faceBody.PreferField = true; // 顔はいつも打たれる側（粗いグローブ・すね・棍棒に対しても、面の下が潰れるのは顔）
                 _face = new VoxelPart(kind, faceBody, VoxelVolume.For(faceGrid), null, false) { CellColors = faceColors };
                 _originals[_face] = Original.Of(faceGrid);

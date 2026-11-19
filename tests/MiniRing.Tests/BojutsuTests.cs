@@ -203,7 +203,11 @@ public sealed class BojutsuTests
         // 手首が向きを支えていたときは返しの後ろの端が当たった（ドリルで 2 / 4 打）が、偶力だけでは棒の向きの追従が遅れて当たらない
         // （手の間隔を 11 → 15 cm にすると戻るが、型の「両手が肩から届く」「棒が体を通らない」設計の寸法を外れる）。型を広い握りで設計し直すまで
         // 後ろの端は要求しない（docs/BOJUTSU.md「滑る握り」の残り）。
-        Assert.IsTrue(gaeshi.Count(x => x > 0f) >= gaeshi.Count(x => x < 0f), "the front end hits at least as often as the rear");
+        // 端の打撃だけを数える（棒の半分の長さの外側の半分: |x| > 0.155 m）。2026-11-19（PhysicsVersion 57、顔の層）: 返しの途中で棒の真ん中（両手の間の
+        // すぐ外、x = −0.07〜−0.11 m）が相手の頭の顔の層に触れるようになり、符号だけで数えると「後ろの端」に入っていた（端の打撃は前の端 0.30 の 1 打）。
+        // 確かめたいのは「どちらの端で打ったか」なので、真ん中の接触は数えない。
+        var endReach = 0.5f * Weapon.StrikeEndsX(WeaponKind.Staff)[0];
+        Assert.IsTrue(gaeshi.Count(x => x > endReach) >= gaeshi.Count(x => x < -endReach), "the front end hits at least as often as the rear");
     }
 
     [TestMethod]

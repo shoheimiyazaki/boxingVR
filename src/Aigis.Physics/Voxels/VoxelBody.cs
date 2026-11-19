@@ -108,7 +108,9 @@ public sealed class VoxelBody
     /// <see cref="Sever"/>, <see cref="SplitAt"/> and <see cref="SeverDisconnected"/> do nothing, and a piece cut off the owner takes no companion with it.
     /// <paramref name="massPerCell"/> (null: this body's) is the mass of one cell unless the body derives mass from materials.
     /// </summary>
-    public VoxelBody AddCompanion(VoxelGrid grid, Vector3 gridCenterLocal, float? massPerCell = null)
+    /// <remarks><paramref name="refit"/> false leaves the collider and mass as they are until the grids next change (a body whose mass was
+    /// already shared out to cover the companion, and whose box was built to hold both grids).</remarks>
+    public VoxelBody AddCompanion(VoxelGrid grid, Vector3 gridCenterLocal, float? massPerCell = null, bool refit = true)
     {
         ArgumentNullException.ThrowIfNull(grid);
         if (_owner is not null)
@@ -118,7 +120,11 @@ public sealed class VoxelBody
 
         var companion = new VoxelBody(_world, BodyId, grid, gridCenterLocal, massPerCell ?? _massPerCell, _materialMass) { _owner = this };
         _companions.Add(companion);
-        UpdateMass();
+        if (refit)
+        {
+            UpdateMass();
+        }
+
         return companion;
     }
 
