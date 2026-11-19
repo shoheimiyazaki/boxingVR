@@ -92,6 +92,9 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
     /// <summary>青コーナーのプロフィール。</summary>
     public string? BlueDossier { get; init; }
 
+    /// <summary>本日のプログラムとこの試合に懸かるもの（実況・解説の資料の Markdown の節。TvProgram.Briefing）。無ければ書かない。</summary>
+    public string? ProgramBriefing { get; init; }
+
     /// <summary>試合の結果（勝者 red / blue / draw・決まり手・ラウンド。トーナメントの勝ち上がりを決める道具が読む）。決着の後に入れる。</summary>
     public object? Outcome { get; set; }
 
@@ -316,12 +319,13 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
             var name = NameOf(game, fighter);
             var before = _seen.GetValueOrDefault(fighter);
             var down = fighter.IsKnockedDown; // 審判がダウンを取ったときだけ（一瞬意識が飛んだ中腰・待っている間の中腰は言わない）
-            var count = down ? DownCountHud.Count(fighter) : 0;
+            // ダウンを取らない団体（VFC）は数えない: 倒れた・立ったとだけ書き、カウントの出来事も声援も出さない（記録を読む書き手が数えてしまう）。
+            var count = down && game.CountsDowns ? DownCountHud.Count(fighter) : 0;
             var tired = fighter.Stamina < 0.2f;
             var gut = fighter.Core < 0.6f;
             if (down && !before.Down && !game.Resting)
             {
-                Log(at, "knockdown", name, $"{name}、ダウン", Announcer);
+                Log(at, "knockdown", name, game.CountsDowns ? $"{name}、ダウン" : $"{name}が倒れた", Announcer);
                 Log(at, "knockdown", name, DownCause(name, fighter), Analyst);
                 Log(at, "body", name, BodyReport(game, fighter), Analyst);
                 React(CrowdReaction.Roar, 0.8f, at, step, force: true);
@@ -330,7 +334,7 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
             if (!down && before.Down && !game.MatchOver)
             {
                 // 休みの間に立った場合も書く（書かないと、台本の下書きが次のラウンドを「倒れたまま」で始めてしまう）。
-                Log(at, "get_up", name, game.Resting ? $"{name}が休みの間に立ち上がった" : $"{name}が立ち上がった（カウント {before.Count}）", Announcer);
+                Log(at, "get_up", name, game.Resting ? $"{name}が休みの間に立ち上がった" : game.CountsDowns ? $"{name}が立ち上がった（カウント {before.Count}）" : $"{name}が立ち上がった", Announcer);
                 React(CrowdReaction.Cheer, 0.6f, at, step, force: true);
             }
 
@@ -357,7 +361,7 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
         var bothDown = game.Player.IsKnockedDown && game.Cpu.IsKnockedDown && !game.Resting;
         if (bothDown && !_bothDown)
         {
-            Log(at, "both_down", null, "両者が同時に倒れている。カウントは両者に入り、先に立った方が続ける", Announcer);
+            Log(at, "both_down", null, game.CountsDowns ? "両者が同時に倒れている。カウントは両者に入り、先に立った方が続ける" : "両者が同時に倒れている", Announcer);
         }
 
         _bothDown = bothDown;
@@ -440,6 +444,11 @@ public sealed class Broadcast(string redName, string blueName, string? redStyle 
         if (Program is not null)
         {
             doc["program"] = Program;
+        }
+
+        if (ProgramBriefing is not null)
+        {
+            doc["programBriefing"] = ProgramBriefing;
         }
 
         if (Outcome is not null)

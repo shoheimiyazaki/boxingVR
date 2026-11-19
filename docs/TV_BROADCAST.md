@@ -118,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvs
 ```
 
 - `red` / `blue` に `"winner:N"` と書くと、N 試合目の勝者（`bN.events.json` の `outcome`）がそのコーナーに立つ。N 試合目を撮るまで決まらない。引き分けは与えたダメージの多い側（`outcome.lead`）が勝ち上がる（大会の決まり）。
-- `program`: 「本日のプログラム」の表の見出し（無ければ `event`）。`stake`: この試合に懸かるもの（表の下の帯と実況）。`next`: 勝った人が得るもの（勝者のコールの後に「〇〇、決勝進出！」）。
+- `program`: 「本日のプログラム」の表の見出し（無ければ `event`）。`stake`: この試合に懸かるもの（表の下の帯と実況）。`next`: 勝った人が得るもの（勝者のコールの後に「〇〇、決勝進出！」）。`belt`: 王座の懸かった試合（勝敗の画面のベルトと、表の行の `belt`。実況・解説の資料に「王座が懸かった試合」と書く）。
 - 道具は試合ごとに `bN.program.json`（その試合の時点の表: 済んだ試合の勝者と決まり手・この試合・まだの試合）を書き、`video --program` に渡す。前の試合を撮り直して表が変わったら、その試合も撮り直す。顔ぶれが変わった試合は種を選び直す（`card.resolved.json` に種と顔ぶれを残す）。
 - 冒頭: 表（`TvProgram.Seconds`。見出しの台詞 約 2.6 秒＋済んだ試合ごと・懸かるもので 1 行 4 秒（声の実測）、最短 6 秒）→ いつものタイトル（7 秒）。実況の下書きが表の間に「本日のプログラムです」・済んだ試合の結果・懸かるものを言い（大会名は見出しに出ているので言わない）、選手紹介は両コーナーの板が出てから。
 
@@ -216,7 +216,7 @@ powershell -ExecutionPolicy Bypass -File tools\tvshow\write-commentary.ps1 -Card
 
 生の記録 bN.telemetry.json（2026-11-17）: 実況・解説の LLM に渡す細かい記録（姿勢・当たりの中身・削れた場所の細かい呼び名）。書き方と中身は docs/commentary/styles/prospective.md「生の情報」。
 
-`MiniRing.Audio.Broadcast` が書く。出来事ごとに `for` が **実況**（画面で見えること: 誰が何でどこを打った・ダウン・カウント・ラウンド・カメラ・リプレイ）か **解説**（体の中で起きていること・狙い: どこが壊れた・何割失われた・何が効いている・疲れ・狙っている技）。言葉はゲームを知らない人が一言で分かるもの（内部の数値は書かない）。ほかに `opening`（冒頭）・`result`（勝敗の画面の始まり）・`end`（動画の終わり）の印と、両者の紹介（`redProfile`・`blueProfile`）・大会名（`event`）・何試合目（`bout`）。プログラムを渡した試合は `program`（その時点の表）と冒頭の `program` の印。決着の後に `outcome`（`winner`: red / blue / draw・`lead`: 与えたダメージの多い側・`method`・`cause`・`round`・`roundTime`）。トーナメントの勝ち上がりはこれを読む。名簿のキャラクターは `redDossier`・`blueDossier`（プロフィール: 年齢・身長・体重・戦績・出身・経歴・人柄・趣味・家族・エピソード・口癖・中継の小ネタ。`CharacterProfile.Briefing`）を持ち、`tvdigest` が台本の資料（bN.digest.md）に「赤コーナーのプロフィール」として載せる。比較の表の始まりは `tape` の印。
+`MiniRing.Audio.Broadcast` が書く。出来事ごとに `for` が **実況**（画面で見えること: 誰が何でどこを打った・ダウン・カウント・ラウンド・カメラ・リプレイ）か **解説**（体の中で起きていること・狙い: どこが壊れた・何割失われた・何が効いている・疲れ・狙っている技）。言葉はゲームを知らない人が一言で分かるもの（内部の数値は書かない）。ほかに `opening`（冒頭）・`result`（勝敗の画面の始まり）・`end`（動画の終わり）の印と、両者の紹介（`redProfile`・`blueProfile`）・大会名（`event`）・何試合目（`bout`）。プログラムを渡した試合は `program`（その時点の表。王座の懸かった試合は `belt`）と冒頭の `program` の印、`programBriefing`（「本日のプログラムとこの試合に懸かるもの」の節: 懸かるもの・王座・勝者が得るもの・済んだ試合・この後の試合。`TvProgram.Briefing`。`tvdigest` の資料とプロスペクティブ制の `fighters.md` に入る）。ダウンを数えない団体（VFC）は `count` の出来事を書かず、倒れたのは「〇〇が倒れた」、立ったのはカウント無しの「〇〇が立ち上がった」、両者ダウンは「両者が同時に倒れている」とだけ書く（記録を読む書き手が数えてしまった、2026-11-19）。決着の後に `outcome`（`winner`: red / blue / draw・`lead`: 与えたダメージの多い側・`method`・`cause`・`round`・`roundTime`）。トーナメントの勝ち上がりはこれを読む。名簿のキャラクターは `redDossier`・`blueDossier`（プロフィール: 年齢・身長・体重・戦績・出身・経歴・人柄・趣味・家族・エピソード・口癖・中継の小ネタ。`CharacterProfile.Briefing`）を持ち、`tvdigest` が台本の資料（bN.digest.md）に「赤コーナーのプロフィール」として載せる。比較の表の始まりは `tape` の印。
 
 ## 6. 限界
 

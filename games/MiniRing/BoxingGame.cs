@@ -1641,6 +1641,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _wieldHand.Clear();
         _weaponCooldown.Clear();
         _selfCooldown.Clear();
+        _spawnGrace.Clear();
+        _spawnOverlaps.Clear();
         if (_corners.PlayerWeapon is { } playerWeapon)
         {
             Arm(Player, playerWeapon, _corners.PlayerTwoHanded);

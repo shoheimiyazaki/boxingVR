@@ -319,6 +319,36 @@ public sealed class TvShowTests
         """;
 
     [TestMethod]
+    public void ProgramBriefing_TellsTheCommentatorsWhatIsAtStake_AndReachesTheDigest()
+    {
+        // 2026-11-19 の WVC の番組: 王座決定戦のメインで、実況が一度も王座に触れなかった（懸かるもの・王座が実況の資料に無かった）。
+        const string Json = """
+            {"title":"WVC ファイトナイト","bouts":[
+              {"bout":"セミファイナル","red":"albert","blue":"ramon","winner":"red","method":"K.O.","stake":"勝者は王座挑戦者の候補へ","next":"挑戦者の候補"},
+              {"bout":"メインイベント","red":"marcus","blue":"dmitri","current":true,"stake":"WVC 世界王座決定戦","next":"WVC 世界王座獲得","belt":true},
+              {"bout":"エキシビション","red":"akira","blue":"ren","stake":"顔見せ"}
+            ]}
+            """;
+        var program = TvProgram.FromJson(Json, TvProgram.RosterName);
+        Assert.IsTrue(program.Current!.Belt);
+        Assert.IsFalse(program.Bouts[0].Belt);
+
+        var briefing = program.Briefing();
+        StringAssert.Contains(briefing, "この試合に懸かるもの: WVC 世界王座決定戦");
+        StringAssert.Contains(briefing, "チャンピオンベルト");
+        StringAssert.Contains(briefing, "勝った方が得るもの: WVC 世界王座獲得");
+        StringAssert.Contains(briefing, "済んだ試合: セミファイナル（アルバート 対 エル・トロ）はアルバートの勝ち（K.O.）。アルバートは挑戦者の候補");
+        StringAssert.Contains(briefing, "この後の試合: エキシビション");
+
+        // 王座の懸からない試合の表は、前と同じ JSON のまま（belt を書かない: 表が変わると撮り直しになる）。
+        StringAssert.DoesNotMatch(System.Text.Json.JsonSerializer.Serialize(program.Bouts[0]), new System.Text.RegularExpressions.Regex("Belt"));
+
+        // 台本の資料（TvDigest）に、中継の記録の表から同じ節が入る。
+        var events = $$"""{"red":"ザ・ハンマー","blue":"ドミトリー","event":"WVC ファイトナイト","bout":"メインイベント","org":"wvc","program":{{System.Text.Json.JsonSerializer.Serialize(program)}},"events":[{"t":0,"for":"実況","type":"round_start","who":"","text":"第1ラウンド開始"},{"t":10,"for":"実況","type":"end","who":"","text":"動画の終わり"}]}""";
+        StringAssert.Contains(TvDigest.Build(events), "この試合に懸かるもの: WVC 世界王座決定戦");
+    }
+
+    [TestMethod]
     public void Program_ResolvesRosterIds_KeepsPlaceholders_AndRoundTripsThroughTheEventsRecord()
     {
         var program = TvProgram.FromJson(TournamentProgram, TvProgram.RosterName);

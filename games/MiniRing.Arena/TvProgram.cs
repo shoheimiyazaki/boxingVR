@@ -29,6 +29,52 @@ internal sealed record TvProgram(string Title, IReadOnlyList<TvProgramBout> Bout
     [JsonIgnore]
     public float Seconds => MathF.Max(6f, 2.6f + (4f * (Finished.Count() + (Current is { Stake.Length: > 0 } ? 1 : 0))));
 
+    /// <summary>
+    /// 実況・解説の資料（<see cref="TvDigest"/> と、プロスペクティブ制の選手の資料 fighters.md）に書く「本日のプログラムとこの試合に懸かるもの」（Markdown の節）。
+    /// この試合に懸かるもの・王座・勝者が得るもの、済んだ試合の結果、この後の試合の顔ぶれ。この後の試合の結果は表にまだ無いので書かない。
+    /// 懸かるものを渡さないと、王座決定戦のメインで実況が一度も王座に触れなかった（2026-11-19 の WVC の番組）。
+    /// </summary>
+    public string Briefing()
+    {
+        var lines = new List<string> { "## 本日のプログラムとこの試合に懸かるもの", "" };
+        if (Title.Length > 0)
+        {
+            lines.Add($"- 大会: {Title}");
+        }
+
+        if (Current is { } current)
+        {
+            lines.Add($"- この試合: {current.Bout}（赤 {current.Red} 対 青 {current.Blue}）");
+            if (current.Stake.Length > 0)
+            {
+                lines.Add($"- この試合に懸かるもの: {current.Stake}");
+            }
+
+            if (current.Belt)
+            {
+                lines.Add("- 王座（チャンピオンベルト）が懸かった試合。勝った方がベルトを巻く");
+            }
+
+            if (current.Next.Length > 0)
+            {
+                lines.Add($"- 勝った方が得るもの: {current.Next}");
+            }
+        }
+
+        var index = Current is { } now ? Bouts.ToList().IndexOf(now) : Bouts.Count;
+        foreach (var done in Finished)
+        {
+            lines.Add($"- 済んだ試合: {done.Bout}（{done.Red} 対 {done.Blue}）は{done.WinnerName}の勝ち（{(done.Cause is { Length: > 0 } cause ? $"{cause}、" : "")}{done.Method}）{(done.Next.Length > 0 ? $"。{done.WinnerName}は{done.Next}" : "")}");
+        }
+
+        foreach (var later in Bouts.Skip(index + 1).Where(b => b.Winner is null))
+        {
+            lines.Add($"- この後の試合: {later.Bout}（{later.Red} 対 {later.Blue}）{(later.Stake.Length > 0 ? $"。懸かるもの: {later.Stake}" : "")}");
+        }
+
+        return string.Join('\n', lines) + '\n';
+    }
+
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -60,7 +106,7 @@ internal sealed record TvProgram(string Title, IReadOnlyList<TvProgramBout> Bout
                 "red" or "blue" => b.Winner,
                 _ => throw new InvalidDataException($"{label} の winner は red か blue です（{b.Winner}）。"),
             };
-            return new TvProgramBout(label, nameOf(red) ?? red, nameOf(blue) ?? blue, winner, b.Method ?? "", b.Current, b.Stake ?? "", b.Next ?? "", string.IsNullOrEmpty(b.Cause) ? null : b.Cause);
+            return new TvProgramBout(label, nameOf(red) ?? red, nameOf(blue) ?? blue, winner, b.Method ?? "", b.Current, b.Stake ?? "", b.Next ?? "", string.IsNullOrEmpty(b.Cause) ? null : b.Cause, b.Belt);
         }).ToList();
         if (bouts.Count(b => b.Current) > 1)
         {
@@ -103,6 +149,8 @@ internal sealed record TvProgram(string Title, IReadOnlyList<TvProgramBout> Bout
         public string? Next { get; init; }
 
         public string? Cause { get; init; }
+
+        public bool Belt { get; init; }
     }
 }
 
@@ -116,7 +164,10 @@ internal sealed record TvProgram(string Title, IReadOnlyList<TvProgramBout> Bout
 /// <param name="Stake">この試合に懸かるもの（「勝者は決勝へ」「優勝決定戦」）。</param>
 /// <param name="Next">勝った人が得るもの（「決勝進出」「優勝」）。決着の後に実況が「〇〇、決勝進出！」と言う。</param>
 /// <param name="Cause">決着の言葉（「脳を壊されて」。死で決着する団体の番組が済んだ試合の行に出す）。無ければ空。</param>
-internal sealed record TvProgramBout(string Bout, string Red, string Blue, string? Winner, string Method, bool Current, string Stake, string Next = "", [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Cause = null)
+/// <param name="Belt">王座（チャンピオンベルト）が懸かった試合か（札の <c>belt</c>）。実況・解説の資料（<see cref="TvDigest"/>・プロスペクティブ制の選手の資料）に書く。</param>
+internal sealed record TvProgramBout(string Bout, string Red, string Blue, string? Winner, string Method, bool Current, string Stake, string Next = "",
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Cause = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Belt = false)
 {
     /// <summary>勝者の名前（まだなら null）。</summary>
     [JsonIgnore]

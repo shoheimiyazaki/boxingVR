@@ -160,6 +160,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             Event = tvEvent,
             Bout = tvBout,
             Program = tvProgram,
+            ProgramBriefing = tvProgram?.Briefing(),
             RedDossier = redCharacter?.Profile?.Briefing(redCharacter.Name, redCharacter.HudName, redCharacter.Tagline),
             BlueDossier = blueCharacter?.Profile?.Briefing(blueCharacter.Name, blueCharacter.HudName, blueCharacter.Tagline),
         };

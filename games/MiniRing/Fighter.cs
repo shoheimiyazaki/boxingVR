@@ -208,7 +208,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 61; // 61: 腕・脚・首の梁の曲げを、伸ばされる側の筋肉（張り Tone × 神経に比例）・皮膚が紐として先に受ける。60 は claude/exchange-fix と claude/glove-v2 が使う。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 62; // 62: 梁の曲げを伸ばされる側の筋肉（張りに比例）・皮膚が紐として先に受け、鈍い面は押しと摩擦の範囲で曲げる（claude/neck-muscle の 61 と master の 60 を合わせた）。61 は claude/glove-v2 が使う。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
