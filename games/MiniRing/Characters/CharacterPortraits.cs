@@ -83,7 +83,7 @@ public static class CharacterPortraits
         var fighter = Fighter.Spawn(world, tuning, "portrait", Vector3.Zero, 0f);
         var parts = new List<Placed>();
         VoxelPalette? palette = null;
-        Placed head = default;
+        var head = new List<Placed>();
 
         foreach (var id in fighter.AllParts)
         {
@@ -107,17 +107,22 @@ public static class CharacterPortraits
                 orientation = Quaternion.Concatenate(orientation, turn);
             }
 
-            var placed = new Placed(grid, position, orientation, half);
-            parts.Add(placed);
             if (id == fighter.Parts.Head)
             {
-                head = placed;
+                // 頭は試合の体と同じく、頭蓋骨の中（5 mm）と顔の層（2.5 mm、キャラの顔: FaceLayer）の 2 つの格子。
+                var (inner, faceLayer) = FaceLayer.Split(grid, character.Face);
+                head.Add(new Placed(inner, position, orientation, half));
+                head.Add(new Placed(faceLayer, position, orientation, half));
+                parts.AddRange(head);
+                continue;
             }
+
+            parts.Add(new Placed(grid, position, orientation, half));
         }
 
         if (palette is null) { throw new InvalidOperationException("体の部位が 1 つも作られませんでした。"); }
         var body = Render(parts, palette, BodyPixelMeters, out var height, out var width);
-        var face = Render([head], palette, tuning.VoxelSize, out _, out _);
+        var face = Render(head, palette, tuning.VoxelSize / FaceLayer.Subdivision, out _, out _); // 顔は顔の層の細かさ（1 ピクセル = 約 2.5 mm）
         return new CharacterPortrait(face, body, height, width);
     }
 
@@ -140,13 +145,13 @@ public static class CharacterPortraits
             max = Vector3.Max(max, p.Position + new Vector3(p.Radius));
         }
 
-        var axisX = parts.Count == 1 ? parts[0].Position.X : 0f;
+        var axisX = parts.All(p => p.Position == parts[0].Position) ? parts[0].Position.X : 0f; // 頭だけ（重ねた格子）なら頭の中心
         var halfWidth = MathF.Max(MathF.Abs(max.X - axisX), MathF.Abs(min.X - axisX));
         var columns = (int)MathF.Ceiling(halfWidth / pixel) * 2;
         var rows = (int)MathF.Ceiling((max.Y - min.Y) / pixel);
         var materials = new byte[columns * rows];
         var depth = new float[columns * rows];
-        var cell = 0.0025f;
+        var cell = 0.00125f; // 奥行きの刻み: 顔の層のセル（約 2.5 mm）の半分
         for (var row = 0; row < rows; row++)
         {
             var y = max.Y - ((row + 0.5f) * pixel);

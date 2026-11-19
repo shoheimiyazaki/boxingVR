@@ -221,9 +221,9 @@ public sealed class CharacterRosterTests
         Assert.IsGreaterThan(standard.Body.Height, marcus.Body.Height);
         Assert.IsLessThan(standard.Body.Height, ramon.Body.Height);
         Assert.IsGreaterThan(standard.Body.Width, marcus.Body.Width, "a thicker (muscle 1.15, arms 1.1) body is wider");
-        // 顔: 頭のセルの格子（10 × 14 セルほど）の正面。肌の色のセルが顔の大半。
-        Assert.IsInRange(8, 14, marcus.Face.Width);
-        Assert.IsInRange(12, 18, marcus.Face.Height);
+        // 顔: 頭の顔の層（FaceLayer: 20 × 28 セル、約 2.5 mm）の正面。肌の色のセルが顔の大半。
+        Assert.IsInRange(16, 28, marcus.Face.Width);
+        Assert.IsInRange(24, 36, marcus.Face.Height);
         var skin = CharacterRoster.Get("marcus").Look.Skin;
         var skinCells = 0;
         for (var y = 0; y < marcus.Face.Height; y++)

@@ -627,8 +627,9 @@ public sealed partial class BoxingGame
         return gap - moved <= reach;
     }
 
+    /// <summary>接触を調べる全ての格子（部位と、その剛体に重ねた層 = 顔の層、と破片）。</summary>
     private static IEnumerable<VoxelPart> VoxelPartsOf(IEnumerable<Fighter> fighters) =>
-        fighters.SelectMany(f => f.Voxels is { } body ? body.Parts.Concat(body.Fragments) : []);
+        fighters.SelectMany(f => f.Voxels is { } body ? body.Layers.Concat(body.Fragments) : []);
 
     /// <summary>物理の 1 歩の前: 武器と体の部位の姿勢を覚える（接触は歩の前後の動きを掃いて調べる）。</summary>
     private void RememberBeforeStep()
@@ -815,12 +816,9 @@ public sealed partial class BoxingGame
             // 部位の一覧の写し（接触で破片が増えても、この歩の分だけを回す）。
             var parts = _partScratch;
             parts.Clear();
-            if (fighter.Voxels is { } body)
-            {
-                parts.AddRange(body.Parts);
-                parts.AddRange(body.Fragments);
-            }
+            fighter.Voxels?.AddContactParts(parts); // 顔の層は頭の格子の直前（同じ剛体: 外の層から先に当たる）
 
+            var pushedBody = -1;
             foreach (var part in parts)
             {
                 if ((holds && IsGripping(fighter, part.Body.BodyId)) || deadHand?.Hand == part.Body.BodyId || (!includeHolder && touched.Contains(part)))
@@ -830,8 +828,9 @@ public sealed partial class BoxingGame
 
                 if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore))
                 {
-                    // 剛体に乗った全ての格子（物 → 手の固定の順）で、同じ部位を調べる。腕の押す力は、最初に触れた格子だけが受ける。
-                    var pushed = false;
+                    // 剛体に乗った全ての格子（物 → 手の固定の順）で、同じ部位を調べる。腕の押す力は、最初に触れた格子だけが受ける
+                    // （部位の側も同じ: 同じ剛体の顔の層に触れたら、その下の頭蓋骨には払わない）。
+                    var pushed = part.Body.BodyId == pushedBody;
                     for (var gi = 0; gi < weapon.Grids.Count; gi++)
                     {
                         var grid = weapon.Grids[gi];
@@ -845,6 +844,7 @@ public sealed partial class BoxingGame
                         {
                             touched.Add(part);
                             pushed = true;
+                            pushedBody = part.Body.BodyId;
                         }
 
                         Cut(weapon, grid, fighter, part, hit);
@@ -1159,11 +1159,15 @@ public sealed partial class BoxingGame
                     }
 
                     var behind = KickMassBehind(attacker, side, kicker, kickerBefore);
+                    var pushedBody = -1;
                     foreach (var part in VoxelPartsOf([victim]).ToList())
                     {
                         if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore) && MayTouch(kicker.Body, kickerBefore, part.Body, partBefore))
                         {
-                            Kick(attacker, side, victim, kicker, part, VoxelContact.Resolve(kicker.Body, kickerBefore, part.Body, partBefore, massBehindA: behind));
+                            // 脚の後ろの体の質量は、同じ剛体の格子のうち最初に触れた層（顔の層 → 頭蓋骨）だけが受ける。
+                            var hit = VoxelContact.Resolve(kicker.Body, kickerBefore, part.Body, partBefore, massBehindA: part.Body.BodyId == pushedBody ? 0f : behind);
+                            pushedBody = hit.Touched ? part.Body.BodyId : pushedBody;
+                            Kick(attacker, side, victim, kicker, part, hit);
                         }
                     }
                 }
@@ -1341,11 +1345,15 @@ public sealed partial class BoxingGame
                     }
 
                     var behind = ElbowMassBehind(attacker, side, striker, strikerBefore);
+                    var pushedBody = -1;
                     foreach (var part in VoxelPartsOf([victim]).ToList())
                     {
                         if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore) && MayTouch(striker.Body, strikerBefore, part.Body, partBefore))
                         {
-                            Elbow(attacker, side, victim, striker, part, VoxelContact.Resolve(striker.Body, strikerBefore, part.Body, partBefore, massBehindA: behind));
+                            // 腕の後ろの体の質量は、同じ剛体の格子のうち最初に触れた層（顔の層 → 頭蓋骨）だけが受ける。
+                            var hit = VoxelContact.Resolve(striker.Body, strikerBefore, part.Body, partBefore, massBehindA: part.Body.BodyId == pushedBody ? 0f : behind);
+                            pushedBody = hit.Touched ? part.Body.BodyId : pushedBody;
+                            Elbow(attacker, side, victim, striker, part, hit);
                         }
                     }
                 }

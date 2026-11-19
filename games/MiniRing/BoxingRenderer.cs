@@ -146,9 +146,9 @@ public static class BoxingRenderer
             // 目: 相手を見る黒目とまばたき（見た目だけ）。
             var other = ReferenceEquals(fighter, game.Player) ? game.Cpu : game.Player;
             var eyes = new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
-            foreach (var part in body.Parts)
+            foreach (var part in body.Layers)
             {
-                voxels.Add(part.Draw(fighter.Cyanosis, eyes, fighter.Pallor)); // 血の酸素が減ると青紫に、心臓が送りきれないと青白く（見た目だけ）
+                voxels.Add(part.Draw(fighter.Cyanosis, eyes, fighter.Pallor)); // 血の酸素が減ると青紫に、心臓が送りきれないと青白く（見た目だけ）。顔の層も同じ
             }
 
             foreach (var fragment in body.Fragments)

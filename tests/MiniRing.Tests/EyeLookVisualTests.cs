@@ -17,14 +17,14 @@ public sealed class EyeLookVisualTests
     public void FaceCloseUps_GazeAndBlink()
     {
         const int Size = 420;
-        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()) with { CpuFaceSpec = EyeLookTests.RoundEyes("guard") });
         for (var i = 0; i < 30; i++)
         {
             game.Step(default, 1f / 60f);
         }
 
         var cpu = game.Cpu;
-        var head = cpu.Voxels!.Parts.Single(p => p.Kind == BodyPartKind.Head);
+        var head = cpu.Voxels!.Face!;
         var toWorld = head.Body.GridToWorld();
         Vector3 World(Vector3 local) => Vector3.Transform(local, toWorld);
         using var renderer = new HeadlessRenderer(Size, Size);
@@ -38,7 +38,7 @@ public sealed class EyeLookVisualTests
         byte[] Shot(Vector3 localGaze, float closure)
         {
             var pose = new EyePose(closure, World(localGaze));
-            var voxels = cpu.Voxels!.Parts.Select(p => p.Kind == BodyPartKind.Head ? p.Draw(0f, pose) : p.Draw(0f)).ToList();
+            var voxels = cpu.Voxels!.Layers.Select(p => p.Kind == BodyPartKind.Head ? p.Draw(0f, pose) : p.Draw(0f)).ToList();
             return renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [], lighting: lighting, cameraPosition: eye, voxels: voxels);
         }
 

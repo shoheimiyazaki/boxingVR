@@ -138,6 +138,14 @@ public sealed class VoxelBody
     public int? BeamAxis { get; set; }
 
     /// <summary>
+    /// Whether this body is the struck side of a contact whatever the grids' fineness (<see cref="VoxelContact.Resolve"/> sweeps the finer
+    /// grid through the coarser one, and only the coarser one, the field, is crushed beneath a face that held). A layer of fine soft tissue
+    /// over a coarser body (a face over the skull) stays the field against a coarser glove, club or shin: it is what the blow presses into.
+    /// When both or neither prefer it, the finer grid is the probe as before.
+    /// </summary>
+    public bool PreferField { get; set; }
+
+    /// <summary>
     /// The slices (inclusive) along <see cref="BeamAxis"/> where this beam may break (null: anywhere along it). A head sits on a thin
     /// neck: the whole head is a beam that carries the blow (the skull's inertia and bone), but it can only snap in the neck.
     /// </summary>
@@ -178,6 +186,15 @@ public sealed class VoxelBody
     /// </summary>
     public int Impact(Vector3 worldPoint, Vector3 worldDirection, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f,
         ICollection<VoxelChunk>? chunks = null, float chunkShare = 0.6f, int maxChunks = 3, ICollection<VoxelCutFace>? cutFaces = null)
+        => ImpactSpending(worldPoint, worldDirection, energy, chipSpeed, jitter, chips, spread, chunks, chunkShare, maxChunks, cutFaces).Carved;
+
+    /// <summary>
+    /// <see cref="Impact"/>, also returning the damage the carve actually spent (<see cref="VoxelGrid.Carve"/>: less than
+    /// <paramref name="energy"/> only when the reachable cells ran out). A body of several layers (a face over a skull) passes the rest on
+    /// to the layer beneath.
+    /// </summary>
+    public (int Carved, float Spent) ImpactSpending(Vector3 worldPoint, Vector3 worldDirection, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f,
+        ICollection<VoxelChunk>? chunks = null, float chunkShare = 0.6f, int maxChunks = 3, ICollection<VoxelCutFace>? cutFaces = null)
     {
         ArgumentNullException.ThrowIfNull(jitter);
         ArgumentNullException.ThrowIfNull(chips);
@@ -188,10 +205,10 @@ public sealed class VoxelBody
         // The face that was struck, read before the crater changes it.
         var localNormal = SurfaceNormal(Grid, localPoint, localDirection);
         var removed = new List<RemovedVoxel>();
-        Grid.Carve(localPoint, localDirection, energy, removed);
+        var spent = Grid.Carve(localPoint, localDirection, energy, removed);
         if (removed.Count == 0)
         {
-            return 0;
+            return (0, spent);
         }
 
         var dir = worldDirection.LengthSquared() > 1e-12f ? Vector3.Normalize(worldDirection) : Vector3.UnitY;
@@ -240,7 +257,7 @@ public sealed class VoxelBody
         }
 
         UpdateMass();
-        return removed.Count;
+        return (removed.Count, spent);
     }
 
     /// <summary>Fewest carved cells before any of them leave as a chunk (a light blow only crumbles).</summary>

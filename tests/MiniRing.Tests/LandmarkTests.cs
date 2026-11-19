@@ -49,7 +49,7 @@ public sealed class LandmarkTests
         {
             using var game = new BoxingGame(seed: 1, corners: corners);
             var cpu = game.Cpu;
-            var head = cpu.Voxels!.PartOf(cpu.Parts.Head)!;
+            var head = cpu.Voxels!.Face!; // 目は顔の層（FaceLayer）にある
             var cell = head.Body.Grid.CellSize.X;
             foreach (var left in new[] { true, false })
             {
@@ -69,7 +69,7 @@ public sealed class LandmarkTests
     {
         using var game = new BoxingGame(seed: 1);
         var cpu = game.Cpu;
-        var head = cpu.Voxels!.PartOf(cpu.Parts.Head)!;
+        var head = cpu.Voxels!.Face!; // 目は顔の層（FaceLayer）にある
         var grid = head.Body.Grid;
         var before = cpu.Voxels.Landmarks.EyeCenter(left: true)!.Value;
         // 左（+X）の目のセルを前の半分だけ潰すと、重心は後ろ（目の奥）へ寄る。
@@ -116,13 +116,14 @@ public sealed class LandmarkTests
             var cpu = game.Cpu;
             var from = game.Player.ShoulderCenter;
             var head = cpu.Voxels!.PartOf(cpu.Parts.Head)!;
+            var face = cpu.Voxels.Face!; // 頭蓋骨の外の皮膚は顔の層（FaceLayer）にある
             var chest = cpu.Voxels.PartOf(cpu.Parts.Chest)!;
             var cell = head.Body.Grid.CellSize.X;
             foreach (var goal in new[] { AimGoal.Chin, AimGoal.Temple, AimGoal.SolarPlexus, AimGoal.Liver, AimGoal.Heart })
             {
                 var point = cpu.AsTarget.Point(goal, from);
                 Assert.IsNotNull(point, $"{name}: {goal}");
-                var part = goal is AimGoal.Chin or AimGoal.Temple ? head : chest;
+                var part = goal is AimGoal.Chin or AimGoal.Temple ? face : chest;
                 var grid = part.Body.Grid;
                 Matrix4x4.Invert(part.Body.GridToWorld(), out var inverse);
                 var local = Vector3.Transform(point!.Value, inverse);

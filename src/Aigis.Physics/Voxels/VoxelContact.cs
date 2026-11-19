@@ -171,7 +171,9 @@ public static class VoxelContact
         }
 
         // Sweep the finer grid's cells through the coarser grid (a fine edge sampled into coarse flesh, never the reverse).
-        var aFiner = MinCell(a.Grid) < MinCell(b.Grid) - 1e-7f || (MathF.Abs(MinCell(a.Grid) - MinCell(b.Grid)) <= 1e-7f && a.Grid.FilledCount <= b.Grid.FilledCount);
+        // A body that prefers to be the field (a face layer: VoxelBody.PreferField) is the field against one that does not, whatever the cells.
+        var aFiner = a.PreferField != b.PreferField ? b.PreferField
+            : MinCell(a.Grid) < MinCell(b.Grid) - 1e-7f || (MathF.Abs(MinCell(a.Grid) - MinCell(b.Grid)) <= 1e-7f && a.Grid.FilledCount <= b.Grid.FilledCount);
         var (probe, probeBefore, field, fieldBefore) = aFiner ? (a, aBefore, b, bBefore) : (b, bBefore, a, aBefore);
         // The sweep moves the probe into the field: what pushes it on is the probe's drive less the field's.
         var setupStart = StepProfile.Begin();
