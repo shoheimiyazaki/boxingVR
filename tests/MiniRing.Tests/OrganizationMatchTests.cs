@@ -56,6 +56,10 @@ public sealed class OrganizationMatchTests
         var armed = TvShowRules.Stage(BotCatalog.Corners("boxer") with { CpuWeapon = Weapons.WeaponKind.Katana, PlayerWeapon = Weapons.WeaponKind.Longsword }, vfc);
         Assert.AreEqual(RingLayout.WeaponsCage, armed.Layout);
 
+        // 剣と素手の組も広い檻（素手の 1.3 m の檻では剣の間合いが檻の半分を占めた。2026-11-19、ユーザー: 小さすぎる）。
+        var mixed = TvShowRules.Stage(BotCatalog.Corners("boxer") with { PlayerWeapon = Weapons.WeaponKind.Longsword }, vfc);
+        Assert.AreEqual(RingLayout.WeaponsCage, mixed.Layout);
+
         // 動画・中継の両コーナーは、コーナーから始める四角いリングを持って来る: それでも檻になり、コーナーから始める。
         var fromCorners = TvShowRules.Stage(BotCatalog.Corners("boxer").StartingAtCorners(), vfc);
         Assert.AreEqual(RingLayout.Cage.AtCorners(), fromCorners.Layout);
