@@ -169,7 +169,21 @@ public static class BotCatalog
     /// <summary>トンファー。両手の木の棒で突き、前腕に沿う棒で受ける。違いは JSON の値だけ（Bots/tonfa.json、docs/TONFA.md）。</summary>
     public static BotStyle Tonfa { get; } = LoadEmbedded("MiniRing.Bots.tonfa.json");
 
-    public static IReadOnlyList<BotStyle> Styles { get; } = [Boxer, OutBoxer, Swarmer, Counter, Slugger, Jabber, ChampionV1, Champion, Karate, Taekwondo, MuayThai, Tonfa];
+    /// <summary>柔術。打撃は控えめで組める間合いに居て、袖と襟を取って投げ・肘の関節技をかける（Bots/jujutsu.json と組み技の教科書 Bots/grapple/jujutsu.json、docs/GRAPPLING.md）。</summary>
+    public static BotStyle Jujutsu { get; } = LoadEmbedded("MiniRing.Bots.jujutsu.json");
+
+    public static IReadOnlyList<BotStyle> Styles { get; } = [Boxer, OutBoxer, Swarmer, Counter, Slugger, Jabber, ChampionV1, Champion, Karate, Taekwondo, MuayThai, Tonfa, Jujutsu];
+
+    /// <summary>
+    /// スタイルのボット: 打撃の教科書のボット（<see cref="BoxerBot"/>）。スタイルに組み技の教科書（<see cref="BotStyle.Grapple"/>）があれば、
+    /// それを <see cref="JujutsuBot"/> で包む（入力元の違い。体の強さは変えない）。
+    /// </summary>
+    public static IFighterControl Bot(BotStyle style, int seed)
+    {
+        ArgumentNullException.ThrowIfNull(style);
+        var boxer = new BoxerBot(style, seed);
+        return GrappleBook.Named(style.Grapple) is { } book ? new JujutsuBot(boxer, book, seed) : boxer;
+    }
 
     private static BotStyle LoadEmbedded(string resource)
     {
@@ -186,7 +200,7 @@ public static class BotCatalog
 
     /// <summary>名前のボットを作る（<c>legacy</c> は <see cref="AiControl"/>）。</summary>
     public static IFighterControl Create(string name, int seed)
-        => name == Legacy ? new AiControl(seed, 0.5f) : new BoxerBot(Style(name), seed);
+        => name == Legacy ? new AiControl(seed, 0.5f) : Bot(Style(name), seed);
 
     /// <summary>CPU 側を名前のボットにした両コーナー（プレイヤー側は人）。</summary>
     public static BoxingCorners Corners(string cpuName)
@@ -200,6 +214,6 @@ public static class BotCatalog
     {
         ArgumentNullException.ThrowIfNull(style);
         var validated = style.Validated();
-        return new BoxingCorners(validated.Name, seed => new BoxerBot(validated, seed), CpuStyleJson: validated.ToJson(), CpuBody: validated.Build, CpuFace: validated.Face);
+        return new BoxingCorners(validated.Name, seed => Bot(validated, seed), CpuStyleJson: validated.ToJson(), CpuBody: validated.Build, CpuFace: validated.Face);
     }
 }

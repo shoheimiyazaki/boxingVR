@@ -571,6 +571,8 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         axis.Y = 0f;
         var up = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(axis) : Vector3.UnitZ;
         var eye = target + new Vector3(0f, 0.9f - (0.06f * shotTime), 0f);
+        eye = OutsideBody(eye, subject == game.Player ? game.Cpu : game.Player);
+        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
         return (Camera.ViewProjection(eye, target, up, 40f * MathF.PI / 180f, Aspect, 0.02f, 30f), eye);
     }
 
@@ -600,11 +602,39 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         _ringsideShotTime = shotTime;
         var eye = _ringsideSide > 0f ? left : right;
         eye.Y = subject.PelvisPosition.Y + (BodyScale(subject) * 0.9f);
+        eye = OutsideBody(eye, subject == game.Player ? game.Cpu : game.Player);
+        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
         return (Camera.ViewProjection(eye, target, Vector3.UnitY, 38f * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
     }
 
-    /// <summary>選手の大きさの目安 [m]: 頭と胸の中心の間（体格が大きいほど長い）。カメラの距離をこれに比例させる。</summary>
-    private static float BodyScale(Fighter f) => MathF.Max(0.03f, Vector3.Distance(f.HeadPosition, f.ChestPosition));
+    /// <summary>
+    /// カメラの目を、映していない方の選手の体の外へ押し出す（体の軸 = 腰から頭の線分から、体の大きさ × <see cref="BodyClearance"/> の外）。
+    /// 倒れた選手を斜め前・低い所から撮るカメラの目が、そばに立つ相手の体の中に入り、画面全体が肌の色で埋まった（2026-11-18、VFC の決着の後）。見た目だけ。
+    /// </summary>
+    private static Vector3 OutsideBody(Vector3 eye, Fighter other)
+    {
+        var a = other.PelvisPosition;
+        var ab = other.HeadPosition - a;
+        var along = Math.Clamp(Vector3.Dot(eye - a, ab) / MathF.Max(ab.LengthSquared(), 1e-6f), 0f, 1f);
+        var nearest = a + (ab * along);
+        var away = eye - nearest;
+        var clearance = BodyScale(other) * BodyClearance;
+        var distance = away.Length();
+        if (distance >= clearance)
+        {
+            return eye;
+        }
+
+        // 軸の上にいれば、水平に相手の正面の外へ（向きが決まらないときは上へ）。
+        away = distance > 1e-4f ? away / distance : Vector3.UnitY;
+        return nearest + (away * clearance);
+    }
+
+    /// <summary>体の軸からカメラの目を離す距離（体の大きさ = 頭と胸の間 の倍数）。腕を広げた胴の半分の幅より少し外（見て決めた値）。</summary>
+    private const float BodyClearance = 2.5f;
+
+    /// <summary>選手の大きさの目安 [m]: 頭と胸の中心の間（体格が大きいほど長い）。カメラの距離をこれに比例させる。上限は、頭が断たれて飛んだときにカメラが部屋の端まで引かないように（体格の大きい選手でも 0.13 m ほど）。</summary>
+    private static float BodyScale(Fighter f) => Math.Clamp(Vector3.Distance(f.HeadPosition, f.ChestPosition), 0.03f, 0.2f);
 
     /// <summary>リングの中のカメラマン（休み）: コーナーで休む選手の正面、胸の高さから手持ちで上半身を撮り、少しずつ寄る。</summary>
     public (Matrix4x4 ViewProjection, Vector3 Eye) Corner(BoxingGame game, Fighter subject, float shotTime, float videoTime)
@@ -619,6 +649,8 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var sway = (side * (0.008f * MathF.Sin(1.3f * videoTime))) + new Vector3(0f, 0.006f * MathF.Sin((2.1f * videoTime) + 1f), 0f);
         var eye = chest + (inward * distance) + (side * 0.08f) + new Vector3(0f, 0.04f, 0f) + sway;
         var target = Vector3.Lerp(chest, subject.HeadPosition, 0.6f);
+        eye = OutsideBody(eye, subject == game.Player ? game.Cpu : game.Player);
+        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
         return (Camera.ViewProjection(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
     }
 
@@ -636,6 +668,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var level = (game.Player.ChestPosition.Y + game.Cpu.ChestPosition.Y) * 0.5f;
         var eye = new Vector3(center.X, level + (size * 0.95f), center.Z) + new Vector3(MathF.Sin(azimuth), 0f, -MathF.Cos(azimuth)) * (size * 1.1f);
         var target = new Vector3(center.X, level - (size * 0.12f), center.Z);
+        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
         return (Camera.ViewProjection(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, Aspect, 0.02f, 30f), eye);
     }
 
@@ -669,10 +702,15 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var distance = scale * (3.3f - (0.12f * shotTime) + (0.25f * MathF.Sin((0.7f * videoTime) + 0.5f)));
         var shake = (Vector3.Cross(Vector3.UnitY, direction) * (0.004f * MathF.Sin(2.3f * videoTime) + (0.002f * MathF.Sin(5.1f * videoTime))))
             + new Vector3(0f, (0.004f * MathF.Sin((1.7f * videoTime) + 1f)) + (0.002f * MathF.Sin((4.3f * videoTime) + 2f)), 0f);
-        var eye = _handFocus + (direction * distance) + new Vector3(0f, scale * 0.12f, 0f) + shake;
+        // 横たわった選手（頭が腰の高さ近くまで下がった）は、胸の高さから撮ると重なった体で画面が埋まった（2026-11-18、VFC の決着の後）。
+        // 頭が下がった分だけ、カメラマンは立ち上がって見下ろす（立っていれば 0、横たわれば距離の 1.2 倍の高さ）。
+        var lying = Math.Clamp(1f - ((subject.HeadPosition.Y - subject.PelvisPosition.Y) / (scale * 3f)), 0f, 1f);
+        var eye = _handFocus + (direction * distance) + new Vector3(0f, (scale * 0.12f) + (lying * distance * 1.2f), 0f) + shake;
         // 狙いの揺れは距離に比例（角度のぶれ）。
         var jitter = (Vector3.Cross(Vector3.UnitY, direction) * MathF.Sin((3.1f * videoTime) + 0.4f) + (Vector3.UnitY * MathF.Sin((2.7f * videoTime) + 1.3f))) * (0.006f * distance);
         var fov = 40f + (1.5f * MathF.Sin((0.6f * videoTime) + 2f));
+        eye = OutsideBody(eye, subject == game.Player ? game.Cpu : game.Player);
+        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
         return (Camera.ViewProjection(eye, _handFocus + jitter, Vector3.UnitY, fov * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
     }
 
@@ -705,6 +743,8 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var shake = ((side * MathF.Sin(3.1f * videoTime)) + (Vector3.UnitY * MathF.Sin((2.3f * videoTime) + 0.7f))) * (0.004f * distance);
         var body = Vector3.Lerp(subject.ChestPosition, subject.PelvisPosition, 0.3f);
         var target = Vector3.Lerp(body, at, pan) + shake;
+        eye = OutsideBody(eye, subject == game.Player ? game.Cpu : game.Player);
+        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
         return (Camera.ViewProjection(eye, target, Vector3.UnitY, fov * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
     }
 
@@ -721,8 +761,12 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var angle = -0.9f + (1.4f * progress);
         var direction = Vector3.Transform(side, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
         var eye = focus + (direction * 0.5f) + new Vector3(0f, 0.1f, 0f);
+        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
         return (Camera.ViewProjection(eye, focus, Vector3.UnitY, 40f * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
     }
 
     private float Aspect => (float)width / height;
+
+    /// <summary>中継のカメラの目を、部屋の壁・床・天井の照明からこれだけ内側に保つ [m]（<see cref="LivingRoom.KeepInside"/>。見た目だけ）。</summary>
+    public const float CameraMargin = 0.25f;
 }

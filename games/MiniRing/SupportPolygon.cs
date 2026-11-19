@@ -164,7 +164,7 @@ public enum SupportModel
     /// <summary>立っている間、起こすねじりを CoP が支持多角形の中で出せる分に限る（硬い制限）。</summary>
     Cop,
 
-    /// <summary>立たせる力すべてに、捕捉点の外れから出す支えの残り（<c>Fighter.Balance</c>（投げの枝））を掛ける（連続、どの状態でも）。</summary>
+    /// <summary>立たせる力すべてに、捕捉点の外れから出す支えの残り（<see cref="Fighter.Balance"/>）を掛ける（連続、どの状態でも）。</summary>
     Soft,
 
     /// <summary>Soft の後に、立っている間だけ Cop の制限もかける。</summary>

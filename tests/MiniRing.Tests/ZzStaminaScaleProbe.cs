@@ -16,7 +16,7 @@ public sealed class ZzStaminaScaleProbe
             {
                 using var world = new PhysicsWorld();
                 world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
-                var tuning = FighterTuning.Default with { Build = build, StaminaRecoveryPower = 0f };
+                var tuning = FighterTuning.Default with { Build = build, VesselPowerPerKg = 0f };
                 var f = Fighter.Spawn(world, tuning, "p", Vector3.Zero, 0f);
                 var left = AiControl.Guard(Hand.Left, f.ArmReach);
                 var guard = AiControl.Guard(Hand.Right, f.ArmReach);

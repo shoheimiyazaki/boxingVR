@@ -56,38 +56,59 @@ public sealed class HandPose
 /// 素手の骨格: 手を「掌と、4 本 × 3 節の指」の骨と、その周りの肉・皮膚のセルの並びとして持つ（親セルの表）。手形は各関節の曲げ角で決まり
 /// （<see cref="PoseOf"/>）、親セルは節の向きに沿って並べ直される（<see cref="Positions"/>）。剛体は増やさない（手は 1 つの剛体の中の格子）。
 /// <list type="bullet">
-/// <item>寸法（人形の縮尺。2 mm のセル）: 掌は 16 × 10 × 24 mm。指の太さは 6 mm（骨 1 セルを皮膚が十字に包む）で、基節 4〜6 mm・中節 4 mm・末節 2〜4 mm（中指 6・4・4）
-/// （人の指の骨の長さの比 3 : 2 : 2 ほど。人の手の 1/3.5 ほどの縮尺）。指の付け根は 6 mm おき。</item>
-/// <item>手首の関節（<see cref="WristJoint"/>、手根骨の真ん中）が回転の中心。腕の先が手を握る点（<see cref="Wrist"/>）はその 4 mm 後ろ。手首の動く範囲は人の可動域（<see cref="Range"/>: 掌屈 80°・背屈 70°・橈屈 20°・尺屈 30°）で、手形はその範囲の関節角で作る。</item>
+/// <item>密度: セルは体と同じ 5 mm（<see cref="FighterTuning.VoxelSize"/>。手のセル 1 つの体積は前腕のセルと同じ）。</item>
+/// <item>大きさ（2026-11-18、ユーザーの指摘「拳が小さく見える」）: 人の握った拳の幅（拳頭の並び）は前腕の太さの 1.1〜1.3 倍
+/// （拳の幅 8.5〜9 cm、前腕の中ほどの太さ 7〜8 cm）。人形の前腕の箱は太さ 32 mm（<see cref="FighterTuning.Scale"/> 0.355 × 0.09 m）なので、
+/// 拳の幅は 8 セル = 40 mm（1.25 倍）。掌は長さ 6 セル（30 mm）・厚さ 3 セル（15 mm）。指は幅 2 セル（10 mm）× 高さ 3 セル（骨 1 セルの上下を皮膚が包み、
+/// 横は隣の指と接する。骨は手の中心の側のセル、外の側は皮膚）で、4 本並べると掌の幅と同じ 40 mm。握った拳の高さは掌と曲げた指で約 30 mm。</item>
+/// <item>指の節の長さ（セル）: 人さし指・薬指 4・2・1、中指 4・2・2、小指 3・2・1（<see cref="LengthsHalf"/>）。</item>
+/// <item>手首の関節（<see cref="WristJoint"/>、手根骨の真ん中）が回転の中心。腕の先が手を握る点（<see cref="Wrist"/>）はその半セル後ろ（掌の後ろの面）。手首の動く範囲は人の可動域（<see cref="Range"/>: 掌屈 80°・背屈 70°・橈屈 20°・尺屈 30°）で、手形はその範囲の関節角で作る。</item>
+/// <item>材質は手の組織（<see cref="BoxerAnatomy.HandSkin"/>・<see cref="BoxerAnatomy.HandMuscle"/>・<see cref="BoxerAnatomy.HandBone"/>: 見た目は皮膚・肉・骨、物性は木）。</item>
 /// </list>
+/// 座標は半セル（<see cref="H"/> = 2.5 mm）の整数で書く。格子は原点を挟んで偶数個のセルなので、奇数がセルの中心、偶数がセルの境。
 /// </summary>
 internal static class HandSkeleton
 {
-    /// <summary>セルの一辺 [m]。</summary>
-    public const float Cell = 0.002f;
+    /// <summary>セルの一辺 [m]（体のボクセルと同じ。<see cref="FighterTuning.VoxelSize"/>）。</summary>
+    public const float Cell = 0.005f;
 
-    private const float Mm = 0.001f;
+    /// <summary>半セル [m]。寸法はこの整数倍で書く。</summary>
+    private const float H = 0.5f * Cell;
 
-    /// <summary>格子の中心（掌の真ん中）から見た、腕の先が手を握る点（前腕の端。<see cref="Weapon.GripOf"/>）。</summary>
-    public static readonly Vector3 Wrist = new(-8f * Mm, 2f * Mm, 0f);
+    /// <summary>格子の中心（掌の真ん中）から見た、腕の先が手を握る点（前腕の端、掌の後ろの面。<see cref="Weapon.GripOf"/>）。</summary>
+    public static readonly Vector3 Wrist = new(-6f * H, (BoneRow + 1) * H, 0f);
 
     /// <summary>手首の関節（手根骨の真ん中。曲げ・偏りの回転の中心）。</summary>
-    public static readonly Vector3 WristJoint = new(-4f * Mm, 2f * Mm, 0f);
+    public static readonly Vector3 WristJoint = new(-4f * H, (BoneRow + 1) * H, 0f); // 指の付け根と同じく、セルの境（90° 曲げてもセルが中心に乗る）
 
     /// <summary>
-    /// 指の付け根（MCP 関節）の位置: 掌の先の面、骨の高さ（y = 3 mm）、指ごとの横（6 mm おき）。人さし指・中指の中手骨は薬指・小指より 2 mm 長く、
+    /// 指の付け根（MCP 関節）の位置: 掌の先の面、骨の列（<see cref="BoneRow"/>）と手の甲の側の皮膚の列の境、指ごとの横（2 セルおき）。人さし指・中指の中手骨は薬指・小指より 1 セル長く、
     /// 握ると人さし指・中指の拳頭が先行する。
     /// </summary>
-    private static Vector3 Mcp(int finger) => new((finger < 2 ? 8f : 6f) * Mm, 3f * Mm, ((finger - 1.5f) * 6f) * Mm);
+    private static Vector3 Mcp(int finger) => new((finger < 2 ? 6f : 4f) * H, (BoneRow + 1) * H, (finger - 1.5f) * 4f * H);
 
     /// <summary>
-    /// 指ごとの節の長さ [mm]（基節・中節・末節）。中指がいちばん長く（14）、人さし指・薬指は 12、小指は 10（人の指の長さの比 1 : 0.9 : 0.93 : 0.7 ほどを 2 mm のセルに丸めた）。
-    /// 貫手では中指の先が前に出て、先端が細くなる。指の断面は十字（骨 + 上下左右の皮膚の 5 セル。四隅は丸めて空ける）。
+    /// 骨の列の高さ（半セル、掌の厚みの真ん中のセル）。指の付け根の関節の軸はその半セル甲の側（セルの境）に置く: 指のセルの付け根からのずれが
+    /// 長さの向きも厚みの向きも奇数（半セル）になり、指を 0° でも 90° でも曲げたとき、セルが格子のセルの中心に乗る（軸がセルの中心だと、
+    /// 90° 曲げた指のセルがみなセルの境に乗り、隣のセルを取り合って横へ押し出される: 拳の幅が 40 mm でなく 50 mm になっていた）。
     /// </summary>
-    private static readonly float[][] LengthsMm = [[6f, 4f, 2f], [6f, 4f, 4f], [6f, 4f, 2f], [4f, 4f, 2f]];
+    private const int BoneRow = 1;
+
+    /// <summary>指の骨の列の横のずれ（半セル）: 2 セル幅の指のうち、手の中心の側のセル（外の側は皮膚で、拳の横の面に骨が出ない）。</summary>
+    private static float BoneSide(int finger) => finger < 2 ? 1f : -1f;
+
+    /// <summary>
+    /// 指ごとの節の長さ [半セル]（基節・中節・末節）。人の指の骨（中指で 45・26・18 mm、拳の幅 85 mm）を拳の幅の比 40 / 85 で縮め、セルに丸めた:
+    /// 中指 20・10・10 mm（40 mm）、人さし指・薬指 20・10・5 mm、小指 15・10・5 mm。指の長さは掌（30 mm）より少し長い（人と同じ）。
+    /// 貫手では中指の先が前に出る。
+    /// </summary>
+    private static readonly float[][] LengthsHalf = [[8f, 4f, 2f], [8f, 4f, 4f], [8f, 4f, 2f], [6f, 4f, 2f]];
 
     /// <summary>指 <paramref name="finger"/> の節 <paramref name="segment"/> の長さ [m]。</summary>
-    public static float SegmentLength(int finger, int segment) => LengthsMm[finger][segment] * Mm;
+    public static float SegmentLength(int finger, int segment) => LengthsHalf[finger][segment] * H;
+
+    /// <summary>中指の長さ [m]（付け根から先まで。関節角のずれを、指先の動いた距離へ直す目安）。</summary>
+    public static float MiddleFingerLength { get; } = SegmentLength(1, 0) + SegmentLength(1, 1) + SegmentLength(1, 2);
 
     /// <summary>親セル 1 つ: 材質、どの指のどの節か、その節の座標系（掌は手首が原点、指の節は節の根元の関節が原点で +X が指の向き）での位置。</summary>
     internal sealed record Parent(byte Material, int Finger, FingerSegment Segment, Vector3 Local);
@@ -98,18 +119,18 @@ internal static class HandSkeleton
     private static List<Parent> BuildParents()
     {
         var palm = new List<Parent>();
-        for (var xi = -7; xi <= 7; xi += 2)
+        for (var xi = PalmBack; xi <= PalmFront; xi += 2)
         {
-            for (var yi = -1; yi <= 5; yi += 2)
+            for (var yi = PalmLow; yi <= PalmHigh; yi += 2)
             {
-                for (var zi = -11; zi <= 11; zi += 2)
+                for (var zi = -PalmSide; zi <= PalmSide; zi += 2)
                 {
                     if (!InPalm(xi, yi, zi))
                     {
                         continue;
                     }
 
-                    var position = new Vector3(xi, yi, zi) * Mm;
+                    var position = new Vector3(xi, yi, zi) * H;
                     palm.Add(new Parent(PalmMaterial(xi, yi, zi), BareHandState.FingerCount, FingerSegment.Palm, position - Wrist));
                 }
             }
@@ -123,20 +144,15 @@ internal static class HandSkeleton
                 var length = (int)MathF.Round(SegmentLength(finger, segment) / Cell);
                 for (var k = 0; k < length + (segment == 2 ? 1 : 0); k++)
                 {
-                    for (var dy = -2; dy <= 2; dy += 2)
+                    for (var dy = -3; dy <= 1; dy += 2)
                     {
-                        for (var dz = -2; dz <= 2; dz += 2)
+                        for (var dz = -1; dz <= 1; dz += 2)
                         {
-                            // 断面は十字（骨 1 セルの上下左右を皮膚が包む。四隅は空く: 指は丸く、隣の指との間に溝ができ、拳頭・指先は小さな面になる）。
-                            if (dy != 0 && dz != 0)
-                            {
-                                continue;
-                            }
-
-                            // 骨は節の真ん中の 1 セル。節の先の端（末節の先）は指先の皮膚の 1 層。
-                            var bone = dy == 0 && dz == 0 && k < length;
-                            fingers.Add(new Parent(bone ? BoxerAnatomy.Bone : BoxerAnatomy.Skin, finger, (FingerSegment)segment,
-                                new Vector3(((2 * k) + 1) * Mm, dy * Mm, dz * Mm)));
+                            // 断面は幅 2 × 高さ 3 セル。骨は真ん中の高さの、手の中心の側の 1 セル（<see cref="BoneSide"/>）。上下と外の側は皮膚。
+                            // 節の先の端（末節の先）は指先の皮膚の 1 層。
+                            var bone = dy == -1 && dz == BoneSide(finger) && k < length;
+                            fingers.Add(new Parent(bone ? BoxerAnatomy.HandBone : BoxerAnatomy.HandSkin, finger, (FingerSegment)segment,
+                                new Vector3(((2 * k) + 1) * H, dy * H, dz * H)));
                         }
                     }
                 }
@@ -147,27 +163,39 @@ internal static class HandSkeleton
         return [.. palm.Concat(fingers).Select((p, i) => (p, i)).OrderBy(t => Rank(t.p.Material)).ThenBy(t => t.i).Select(t => t.p)];
     }
 
-    private static int Rank(byte material) => material == BoxerAnatomy.Bone ? 0 : material == BoxerAnatomy.Muscle ? 1 : 2;
+    private static int Rank(byte material) => material == BoxerAnatomy.HandBone ? 0 : material == BoxerAnatomy.HandMuscle ? 1 : 2;
+
+    // 掌のブロックの範囲（半セル、セルの中心の奇数）: 後ろの面 −5 から、前は指の付け根まで（<see cref="InPalm"/>）。厚さ 3 セル、幅 8 セル。
+    private const int PalmBack = -5;
+    private const int PalmFront = 5;
+    private const int PalmLow = -1;
+    private const int PalmHigh = 3;
+    private const int PalmSide = 7;
+
+    /// <summary>指 <paramref name="finger"/> の骨の列の横の位置（半セル）。</summary>
+    private static int BoneZ(int finger) => (int)(Mcp(finger).Z / H) + (int)BoneSide(finger);
 
     /// <summary>
-    /// 掌のセル（座標は mm、中心が奇数）の材質: 中手骨（指の延長の線上、骨の高さ）と手根骨の塊は骨、ブロックの外側の 1 層は皮膚、残りは筋肉（掌の厚み）。
+    /// 掌のセル（座標は半セル、中心が奇数）の材質: 中手骨（指の骨の列の延長、骨の高さ）と手根骨の列は骨、ブロックの外側の 1 層は皮膚、残りは肉。
     /// </summary>
     private static byte PalmMaterial(int x, int y, int z)
     {
-        var metacarpal = y == 3 && x >= -1 && z is -9 or -3 or 3 or 9;
-        var carpal = x is -5 or -3 && y is 1 or 3 && Math.Abs(z) <= 7;
+        var boneHeight = y == BoneRow;
+        var metacarpal = boneHeight && x >= -1 && Enumerable.Range(0, BareHandState.FingerCount).Any(f => BoneZ(f) == z);
+        var carpal = boneHeight && x == -3 && Math.Abs(z) < PalmSide;
         if (metacarpal || carpal)
         {
-            return BoxerAnatomy.Bone;
+            return BoxerAnatomy.HandBone;
         }
 
         var outside = !InPalm(x - 2, y, z) || !InPalm(x + 2, y, z) || !InPalm(x, y - 2, z) || !InPalm(x, y + 2, z) || !InPalm(x, y, z - 2) || !InPalm(x, y, z + 2);
-        return outside ? BoxerAnatomy.Skin : BoxerAnatomy.Muscle;
+        return outside ? BoxerAnatomy.HandSkin : BoxerAnatomy.HandMuscle;
     }
 
-    /// <summary>掌のブロック（x = −7 … 、y = −1 … 5、z = −11 … 11 mm）の中か。先の面は指ごとの付け根の位置まで（人さし指・中指の列が 2 mm 長い）。</summary>
+    /// <summary>掌のブロックの中か。先の面は指ごとの付け根の位置まで（人さし指・中指の列が 1 セル長い）。</summary>
     private static bool InPalm(int x, int y, int z)
-        => x >= -7 && y is >= -1 and <= 5 && Math.Abs(z) <= 11 && x <= (Mcp(Math.Clamp((z + 12) / 6, 0, 3)).X / Mm) - 1f;
+        => x >= PalmBack && y is >= PalmLow and <= PalmHigh && Math.Abs(z) <= PalmSide
+            && x <= (Mcp(Math.Clamp((z + PalmSide + 1) / 4, 0, 3)).X / H) - 1f;
 
     /// <summary>屈曲 <paramref name="angle"/>（掌のほうへ = −Y へ曲げる）の回転。</summary>
     private static Vector3 Flex(Vector3 v, float angle)
@@ -272,6 +300,23 @@ internal static class HandSkeleton
         return new HandPose([wristFlex, wristDeviation, .. fingers.SelectMany(f => f)]);
     }
 
+    /// <summary>
+    /// 握る手（剣・棒・バットの柄を握る形）の関節角: 指の 3 関節とも 90°（基節が下へ、中節が後ろへ、末節が上へ回って柄を巻く）。
+    /// 素手の拳と同じ骨格・同じ材質から、関節角と握る物（<see cref="BareHandState.Placed"/> の held、<see cref="HeldBar"/>）だけを変えて作る。
+    /// 柄の入る所は先に取ってあるので、曲げで押しのけられた組織は柄の外へ回る（柄の中を埋めない）。
+    /// </summary>
+    public static HandPose GripPose { get; } = new([0f, 0f, .. Enumerable.Repeat<float[]>([90f * Deg, 90f * Deg, 90f * Deg], BareHandState.FingerCount).SelectMany(f => f)]);
+
+    /// <summary>
+    /// 握る手の、柄の軸の通る点（格子のローカル。軸は Z、拳頭の並ぶ向き）: X は人さし指の付け根、Y はそこから基節の長さだけ掌の側
+    /// （90° に曲げた基節の先、第 2 関節の高さ）。曲げた指と掌に囲まれる輪の真ん中。
+    /// </summary>
+    public static Vector3 GripCenter { get; } = new(Mcp(0).X, Mcp(0).Y - SegmentLength(0, 0), 0f);
+
+    /// <summary>半径 <paramref name="radius"/> [m] の丸い柄（<see cref="GripCenter"/> を通って Z に沿い、Z の長さは限らない: 手の格子を貫く）の占める所。</summary>
+    public static Func<Vector3, bool> HeldBar(float radius)
+        => p => ((p.X - GripCenter.X) * (p.X - GripCenter.X)) + ((p.Y - GripCenter.Y) * (p.Y - GripCenter.Y)) <= radius * radius;
+
     /// <summary>力を抜いた手の指（自然に少し曲がる。付け根 20°・第 2 関節 29°・先 14°）。折れた指・使えない指はこの角度へ力なく落ちる。</summary>
     public static readonly float[] RestFlexion = [20f * Deg, 29f * Deg, 14f * Deg];
 
@@ -347,7 +392,7 @@ internal static class HandSkeleton
             var front = positions.Max(p => p.X);
             var index = Enumerable.Range(0, positions.Length)
                 .Where(i => positions[i].X >= front - (0.5f * Cell))
-                .MinBy(i => Vector3.DistanceSquared(positions[i], new Vector3(front, 0f, -3f * Mm)));
+                .MinBy(i => Vector3.DistanceSquared(positions[i], new Vector3(front, 0f, Mcp(1).Z)));
             return positions[index];
         }
     }

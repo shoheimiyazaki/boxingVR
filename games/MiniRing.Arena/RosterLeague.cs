@@ -22,6 +22,9 @@ internal static class RosterLeague
     /// </summary>
     internal enum GamePlanUse { On, Off, Layered }
 
+    /// <summary><see cref="GamePlanUse"/> で入れ外しする教育の層（<c>--layer</c>）: 戦略の層（<c>GamePlan</c>）か間の層（<c>Rhythm</c>）。</summary>
+    internal enum EducationLayer { GamePlan, Rhythm }
+
     /// <summary>
     /// 重みつきの点（docs/BOTS.md「戦略の層」の物差し）: 1 試合の点 = 与えた側の点 − <see cref="TakenShare"/> × 受けた側の点。
     /// 側の点 = ダメージ + <see cref="KoPoints"/> × K.O.（取ったラウンド）+ <see cref="BreakPoints"/> × 骨折 + <see cref="SeverPoints"/> × 切断。
@@ -78,11 +81,11 @@ internal static class RosterLeague
 
     internal sealed record BoutOutcome(string Red, string Blue, int Winner, Tally RedTally, Tally BlueTally, double Seconds, string? Layered = null);
 
-    public static BoutOutcome RunBout(FighterCharacter red, FighterCharacter blue, int seed, float seconds, bool referee, IReadOnlyDictionary<string, float>? set = null, bool redLayered = true, bool blueLayered = true, GamePlanUse gamePlan = GamePlanUse.On)
+    public static BoutOutcome RunBout(FighterCharacter red, FighterCharacter blue, int seed, float seconds, bool referee, IReadOnlyDictionary<string, float>? set = null, bool redLayered = true, bool blueLayered = true, GamePlanUse gamePlan = GamePlanUse.On, EducationLayer layer = EducationLayer.GamePlan)
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        var redContender = ContenderOf(red, blue.Id, redLayered ? set : null, KeepsGamePlan(gamePlan, redLayered));
-        var blueContender = ContenderOf(blue, red.Id, blueLayered ? set : null, KeepsGamePlan(gamePlan, blueLayered));
+        var redContender = ContenderOf(red, blue.Id, redLayered ? set : null, KeepsGamePlan(gamePlan, redLayered), layer);
+        var blueContender = ContenderOf(blue, red.Id, blueLayered ? set : null, KeepsGamePlan(gamePlan, blueLayered), layer);
         var redBots = new List<IFighterControl>();
         var blueBots = new List<IFighterControl>();
         var corners = VideoMaker.Corners(redContender, blueContender, seed, red.Wear, blue.Wear, red.Weapon, blue.Weapon,
@@ -194,15 +197,16 @@ internal static class RosterLeague
     /// キャラのボット: 教科書に教育を重ねた解決済みのスタイル（<see cref="FighterCharacter.Resolve(string)"/>。<paramref name="opponentId"/> はこの試合の相手のキャラ id、無ければ null）。
     /// <paramref name="set"/>（スタイルの値の上書き。BotStyle の名前 = 数値）があればその上にさらに重ねる（係数を探すとき）。
     /// 教育が空で <paramref name="set"/> も無ければ教科書そのもの（名前で引いたボットと同じ物）。
-    /// <paramref name="keepGamePlan"/> が false なら、戦略の層（教育の <c>GamePlan</c>）を外す（層なしの比べもの: <c>--gameplan off|ab</c>）。
+    /// <paramref name="keepGamePlan"/> が false なら、<paramref name="layer"/> の層（教育の <c>GamePlan</c> か <c>Rhythm</c>）を外す（層なしの比べもの: <c>--gameplan off|ab</c>）。
     /// </summary>
-    internal static Contender ContenderOf(FighterCharacter character, string? opponentId, IReadOnlyDictionary<string, float>? set, bool keepGamePlan = true)
+    internal static Contender ContenderOf(FighterCharacter character, string? opponentId, IReadOnlyDictionary<string, float>? set, bool keepGamePlan = true,
+        EducationLayer layer = EducationLayer.GamePlan)
     {
         var resolved = character.Resolve(opponentId);
-        var style = keepGamePlan || resolved.GamePlan is null ? resolved : resolved with { GamePlan = null };
+        var style = keepGamePlan ? resolved : layer == EducationLayer.Rhythm ? resolved with { Rhythm = null } : resolved with { GamePlan = null };
         if (set is null || set.Count == 0)
         {
-            return new Contender(style.Name, seed => new BoxerBot(style, seed));
+            return new Contender(style.Name, seed => BotCatalog.Bot(style, seed));
         }
 
         return Contender.Of(StyleSet.Apply(style, set));
@@ -320,7 +324,7 @@ internal static class RosterLeague
         into.ArmRatioSum += from.ArmRatioSum;
     }
 
-    public static string Run(IReadOnlyList<FighterCharacter> roster, int bouts, float seconds, int seed, bool referee, int parallel, TextWriter progress, IReadOnlyDictionary<string, float>? set = null, bool ab = false, string? onlyLayered = null, string? onlyPlain = null, string? matrixPath = null, GamePlanUse gamePlan = GamePlanUse.On)
+    public static string Run(IReadOnlyList<FighterCharacter> roster, int bouts, float seconds, int seed, bool referee, int parallel, TextWriter progress, IReadOnlyDictionary<string, float>? set = null, bool ab = false, string? onlyLayered = null, string? onlyPlain = null, string? matrixPath = null, GamePlanUse gamePlan = GamePlanUse.On, EducationLayer layer = EducationLayer.GamePlan)
     {
         var jobs = new List<(FighterCharacter Red, FighterCharacter Blue, int Seed, bool RedLayered, bool BlueLayered)>();
         for (var a = 0; a < roster.Count; a++)
@@ -347,7 +351,7 @@ internal static class RosterLeague
         var watch = System.Diagnostics.Stopwatch.StartNew();
         Parallel.For(0, jobs.Count, new ParallelOptions { MaxDegreeOfParallelism = parallel }, i =>
         {
-            outcomes[i] = RunBout(jobs[i].Red, jobs[i].Blue, jobs[i].Seed, seconds, referee, set, jobs[i].RedLayered, jobs[i].BlueLayered, gamePlan);
+            outcomes[i] = RunBout(jobs[i].Red, jobs[i].Blue, jobs[i].Seed, seconds, referee, set, jobs[i].RedLayered, jobs[i].BlueLayered, gamePlan, layer);
             var n = Interlocked.Increment(ref done);
             lock (progress)
             {

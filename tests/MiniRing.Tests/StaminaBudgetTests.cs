@@ -40,7 +40,7 @@ public sealed class StaminaBudgetTests
     {
         using var world = new PhysicsWorld();
         world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
-        var tuning = FighterTuning.Default with { StaminaCapacity = 2f, StaminaRecoveryPower = 0f };
+        var tuning = FighterTuning.Default with { OxygenStorePerKg = 2.4f, VesselPowerPerKg = 0f };
         var fighter = Fighter.Spawn(world, tuning, "budget", Vector3.Zero, 0f);
         for (var step = 0; step < 1200; step++)
         {
@@ -110,7 +110,14 @@ public sealed class StaminaBudgetTests
             world.Step(Dt);
         }
 
-        fighter.Stamina = full ? 1f : 0f;
+        if (full)
+        {
+            fighter.Stamina = 1f;
+        }
+        else
+        {
+            fighter.EmptyArms();
+        }
         var peaks = new float[PunchesPerRun];
         var hits = new HitEvent[PunchesPerRun];
         for (var step = 0; step < PunchesPerRun * CycleSteps; step++)
@@ -157,7 +164,7 @@ public sealed class StaminaBudgetTests
         var standard = 1f - WalkWithoutRecovery(BodyBuild.Standard);
         var big = 1f - WalkWithoutRecovery(new BodyBuild(Height: 1.15f, Muscle: 1.2f));
         Console.WriteLine($"6 s walk, no recovery: standard used {standard:P1}, big used {big:P1}, ratio {big / standard:0.00}");
-        Assert.IsGreaterThan(0.05f, standard, "歩いて蓄えを使っている（比べる意味がある）");
+        Assert.IsGreaterThan(0.003f, standard, "歩いて脚の蓄えを使っている（比べる意味がある。脚の蓄えは質量に比例して大きいので割合は小さい）");
         Assert.IsTrue(big / standard is > 0.9f and < 1.6f, $"大きい体も蓄えの同じくらいの割合しか使わない（比 {big / standard:0.00}）");
     }
 
@@ -165,7 +172,7 @@ public sealed class StaminaBudgetTests
     {
         using var world = new PhysicsWorld();
         world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
-        var fighter = Fighter.Spawn(world, FighterTuning.Default with { Build = build, StaminaRecoveryPower = 0f }, "walk", Vector3.Zero, 0f);
+        var fighter = Fighter.Spawn(world, FighterTuning.Default with { Build = build, VesselPowerPerKg = 0f }, "walk", Vector3.Zero, 0f);
         var left = new HandCommand(AiControl.Guard(Hand.Left, fighter.ArmReach), false);
         var right = new HandCommand(AiControl.Guard(Hand.Right, fighter.ArmReach), false);
         for (var step = 0; step < 6 * 240; step++)
@@ -175,6 +182,6 @@ public sealed class StaminaBudgetTests
             world.Step(Dt);
         }
 
-        return fighter.Stamina;
+        return fighter.OxygenOf(MuscleRegion.Legs); // 歩く仕事は脚の蓄えから（呼吸・循環のモデル、2026-11-18）
     }
 }

@@ -9,7 +9,7 @@ namespace MiniRing.Tests;
 
 /// <summary>
 /// 調査用（名前に Probe）: スタミナのテンポの測定（docs/arena/gen13_stamina_tempo.md）。
-/// 環境変数 STAMINA_TUNE="StaminaRestPower=10,StaminaRecoveryPower=15" で調整値を上書きして試せる。
+/// 環境変数 STAMINA_TUNE="VesselPowerPerKg=15,HeartPower=12" で調整値を上書きして試せる。
 /// </summary>
 [TestClass]
 public sealed class StaminaTempoProbe
@@ -91,13 +91,13 @@ public sealed class StaminaTempoProbe
     [TestMethod]
     public void PunchCost_Probe()
     {
-        var tuning = Tuning() with { StaminaRecoveryPower = 0f };
+        var tuning = Tuning() with { VesselPowerPerKg = 0f };
         foreach (var (reach, ramp) in new[] { (0.75f, 0.12f), (1.2f, 0.08f), (1.6f, 0.06f), (2.2f, 0.05f), (3f, 0.04f) })
         {
             using var rig = new Rig(tuning);
             var before = rig.Fighter.Stamina;
             var peak = rig.Punch(0.5f, Vector3.Zero, reach, ramp);
-            Console.WriteLine($"PC reach {reach} ramp {ramp}: peak {F(peak)} m/s, cost {F((before - rig.Fighter.Stamina) * tuning.StaminaCapacity)} J");
+            Console.WriteLine($"PC reach {reach} ramp {ramp}: peak {F(peak)} m/s, cost {F((before - rig.Fighter.Stamina) * tuning.OxygenStorePerKg * rig.Fighter.ArmMass(Hand.Right))} J");
         }
     }
 

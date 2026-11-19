@@ -133,6 +133,116 @@ public sealed partial class BoxingGame
     /// <summary>両手持ちで、利き手に添えて下を握る手。</summary>
     public const Hand SupportHand = Hand.Left;
 
+    /// <summary>直近の <see cref="Step"/> で、休みに武器を支給された選手と武器の種類（中継の記録 <c>weapon_supplied</c>）。</summary>
+    public List<WeaponSupplyEvent> RecentSupplies { get; } = [];
+
+    /// <summary>選手ごとの、最後に武器を支給した休み（その休みの前のラウンドの番号）。1 回の休みに 1 本まで。</summary>
+    private readonly Dictionary<Fighter, int> _suppliedAfterRound = [];
+
+    /// <summary>選手ごとの、この試合で武器を支給した回数（<see cref="FighterSense.SelfSupplies"/>）。</summary>
+    private readonly Dictionary<Fighter, int> _supplies = [];
+
+    /// <summary>武器の種類ごとの質量 [kg]（支給する前に、手が保持できるかを見るため。作る物と同じ格子・同じ式）。</summary>
+    private readonly Dictionary<WeaponKind, float> _weaponMass = [];
+
+    /// <summary>手から外した素手の拳を置いておく所（リング・部屋から遠い下。動かない物にして、何にも触れない）。</summary>
+    private static readonly Vector3 RetiredAt = new(0f, -100f, 0f);
+
+    /// <summary>
+    /// 休みの間の武器の支給（<see cref="MatchRules.ResupplyWeapons"/>）: 試合の始めに武器を持っていた選手が、今その武器を握っていない（落とした・
+    /// 折れて捨てた・手を失った）とき、その手が武器を保持できれば（<see cref="Fighter.CanHoldWeapon"/>: 力の抜けていく手が武器を落とすのと同じ式）、
+    /// 同じ種類の新しい武器を、試合の始めと同じ手順（<see cref="Arm"/>）で手に持たせる。休みの間は何度でも調べ、1 回の休みに 1 本まで。
+    /// 床の古い武器・折れた武器はそのまま残す（握っていた人の物ではなくなる）。
+    /// </summary>
+    private void ResupplyWeapons()
+    {
+        Resupply(Player, _corners.PlayerWeapon, _corners.PlayerTwoHanded);
+        Resupply(Cpu, _corners.CpuWeapon, _corners.CpuTwoHanded);
+    }
+
+    private void Resupply(Fighter fighter, WeaponKind? kind, bool twoHanded)
+    {
+        if (kind is not { } weaponKind || fighter.IsDead || fighter.Wields(WeaponHand)
+            || (_suppliedAfterRound.TryGetValue(fighter, out var round) && round == MatchRound))
+        {
+            return;
+        }
+
+        if (!_weaponMass.TryGetValue(weaponKind, out var mass))
+        {
+            mass = Weapon.MassOf(weaponKind);
+            _weaponMass[weaponKind] = mass;
+        }
+
+        if (!fighter.CanHoldWeapon(WeaponHand, mass) || !BareHandFree(fighter, WeaponHand))
+        {
+            return;
+        }
+
+        // 両手持ちの武器は、主の手が保持できれば支給する。添える手は、使えて空いていれば今までどおり添えに行く。
+        var both = twoHanded && !fighter.ArmSevered(SupportHand) && !fighter.Wields(SupportHand) && BareHandFree(fighter, SupportHand);
+        TakeOffBareFist(fighter, WeaponHand);
+        if (both)
+        {
+            TakeOffBareFist(fighter, SupportHand);
+        }
+
+        // 床に落ちた古い武器は、もうこの選手の物ではない（WeaponOf が古い武器を返さない）。
+        foreach (var old in _wielders.Where(w => w.Value == fighter && !Weapon.IsWorn(w.Key.Kind)).Select(w => w.Key).ToList())
+        {
+            _wielders.Remove(old);
+            _wieldHand.Remove(old);
+        }
+
+        Arm(fighter, weaponKind, both);
+        _suppliedAfterRound[fighter] = MatchRound;
+        _supplies[fighter] = _supplies.GetValueOrDefault(fighter) + 1;
+        RecentSupplies.Add(new WeaponSupplyEvent(fighter, weaponKind));
+    }
+
+    /// <summary>手 <paramref name="hand"/> が、何もはめていないか、素手の拳（<see cref="WeaponKind.Fist"/>）だけをはめている（外して武器を握れる）。</summary>
+    private bool BareHandFree(Fighter fighter, Hand hand) => !fighter.WearsGlove(hand) || WornNow(fighter, hand)?.Kind == WeaponKind.Fist;
+
+    /// <summary>
+    /// 手 <paramref name="hand"/> が今はめている物（手の剛体が握っている物）。腕が切れる前にはめていた物は、力の抜けた古い手に付いたまま
+    /// 同じ手の名前で残っているので、<see cref="GloveOf"/> の最初の 1 つではなく、今握っている剛体で選ぶ。
+    /// </summary>
+    private Weapon? WornNow(Fighter fighter, Hand hand)
+    {
+        var held = fighter.WieldedBody(hand);
+        foreach (var (weapon, holder) in _wielders)
+        {
+            if (holder == fighter && Weapon.IsWorn(weapon.Kind) && weapon.Body.BodyId == held)
+            {
+                return weapon;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 手にはめた素手の拳を外す（武器を握る前）。素手の拳はボクセルの手の形で、手から外れたら体の一部ではないので、世界から片付ける:
+    /// 剛体を消す口が無いので、動かない物にして遠い下へ置き、武器の一覧から外す（近道: docs/DEBT.md「VFC の再生と武器の支給」）。
+    /// </summary>
+    private void TakeOffBareFist(Fighter fighter, Hand hand)
+    {
+        if (!fighter.WearsGlove(hand) || WornNow(fighter, hand) is not { } worn || fighter.DeadHandOn(worn.Body.BodyId) is not null)
+        {
+            return;
+        }
+
+        fighter.Unwield(hand);
+        _weapons.Remove(worn);
+        _wielders.Remove(worn);
+        _wieldHand.Remove(worn);
+        _reach.Remove(worn);
+        _weaponCooldown.Remove(worn);
+        _selfCooldown.Remove(worn);
+        _world.MakeKinematic(worn.Body.BodyId);
+        _world.SetKinematicPose(worn.Body.BodyId, RetiredAt);
+    }
+
     /// <summary>
     /// <paramref name="fighter"/> の右手のグローブを外し、<paramref name="kind"/> の武器を握らせる（<see cref="Fighter.Wield"/>）。
     /// <paramref name="twoHanded"/> なら左手のグローブも外し、右手の下（握りの端の側）に添えさせる（<see cref="Fighter.Support"/>。
@@ -350,7 +460,7 @@ public sealed partial class BoxingGame
 
         var held = WeaponOf(self) is { } mine && HolderOf(mine) == self ? mine : null;
         var own = held is null ? default : OwnWeaponSense(held, self);
-        return sense with { OpponentBlade = blade, SelfArmed = held is not null, SelfWeapon = own };
+        return sense with { OpponentBlade = blade, SelfArmed = held is not null, SelfWeapon = own, SelfSupplies = _supplies.GetValueOrDefault(self) };
     }
 
     /// <summary>握っている武器の見え方: 長さと、今実際にある握りの位置・向き（手に感じる剣）。</summary>
@@ -457,7 +567,23 @@ public sealed partial class BoxingGame
         }
 
         var hand = HandOf(weapon);
-        return _preStepGloveVelocity.TryGetValue((holder, hand), out var velocity) ? holder.ImpactMass(hand, velocity) : 0f;
+        if (!_preStepGloveVelocity.TryGetValue((holder, hand), out var velocity))
+        {
+            return 0f;
+        }
+
+        // 体の質量は、拳の打撃と同じく当たりへ運べる分だけ（BodyFactor）。打たれる部位はまだ決まっていないので、相手の体の重心の速度で見る。
+        var factor = BodyFactor(holder, velocity, holder.GloveCenter(hand), holder.ShoulderPosition(hand), holder.Parts.Chest, PreStepBodyVelocity(OpponentOf(holder)), velocity);
+        return holder.ImpactMass(hand, velocity, out _, factor);
+    }
+
+    private Fighter OpponentOf(Fighter fighter) => fighter == Player ? Cpu : Player;
+
+    /// <summary>握った腕が武器の後ろで運ぶ運動量 [kg·m/s]: 腕の質量 × 握った拳が打たれた点へ近づく速さ（歩の前）。</summary>
+    private float ArmBehind(Fighter holder, Hand hand, Vector3 struckVelocity, Vector3 direction)
+    {
+        var fist = _preStepGloveVelocity.TryGetValue((holder, hand), out var before) ? before : holder.GloveVelocity(hand);
+        return holder.ArmMass(hand) * PunchMechanics.ClosingSpeed(fist, struckVelocity, direction);
     }
 
     /// <summary>部位 <paramref name="bodyId"/> が、<paramref name="fighter"/> の武器を握っている（添えに行っている）手の前腕か。</summary>
@@ -1025,17 +1151,24 @@ public sealed partial class BoxingGame
         if (!RoundOver && !Holding && part.FragmentOf is null && HolderOf(weapon) is { } swinger && swinger != victim && MayStrike(victim)
             && _weaponCooldown.GetValueOrDefault(weapon) <= 0f && _beforeStep.TryGetValue(weapon.Body.BodyId, out var weaponBefore))
         {
+            // 当たる速さは、打たれた点に対する相対速度（拳・蹴り・肘と同じ。PunchMechanics.ClosingSpeed）。
+            var struckVelocity = PreStepVelocityAt(part.Body.BodyId, hit.Point);
             var contactVelocity = weaponBefore.LinearVelocity + Vector3.Cross(weaponBefore.AngularVelocity, hit.Point - weaponBefore.Position);
-            var contactSpeed = MathF.Max(0f, Vector3.Dot(contactVelocity, hit.Direction));
+            var contactSpeed = PunchMechanics.ClosingSpeed(contactVelocity, struckVelocity, hit.Direction);
             var swingHand = HandOf(weapon);
-            var fistVelocity = swinger.GloveVelocity(swingHand);
-            var fistSpeed = MathF.Max(0f, Vector3.Dot(fistVelocity, hit.Direction));
-            // 両手で握っていれば、添えた腕の重さも武器の後ろに乗る。
-            var extraMass = swinger.ImpactMass(swingHand, hit.Direction * fistSpeed, out _) - swinger.ArmMass(swingHand)
-                + (swinger.SupportOf(swingHand) is { } support ? swinger.ArmMass(support) : 0f);
-            if (contactSpeed >= MinimumBlowSpeed && extraMass > 0f)
+            // 武器の後ろの運動量（物理の接触が運ぶのは武器そのものだけ）: 握った腕（両手なら添えた腕も）は自分の質量 × 握った拳が近づく速さ（拳の打撃で物理の接触が運ぶ分と同じ）、
+            // 体の分は拳の打撃と同じ式（BodyFactor）を武器の当たる点で見る: 押し出し = 当たる点が体に対して当たりへ動く割合、体の運び = 体自身（肩の突っ張りと、
+            // 腕と武器を胴に固めて当たる点が胴と一緒に動く梃子）の近づく速さ ÷ 当たる点の速さ。体の分の運動量 = 連結度 × 体の有効質量 × 体自身の速さ。
+            // 腕の運動量は物理の接触（VoxelContact は歩の後にこの式で解くので、握りの関節の力は入らない）にも、腕の押す力 Drive（1 歩の力 × 時間で、
+            // 腕の運動量の 1 割ほど）にも含まれていない（こんぼうが 8 m/s で当たっても接触の力積は 0.25 kg·m/s 未満だった。docs/arena/rush_physics.md §5-2）。
+            var bodyFactor = BodyFactor(swinger, contactVelocity, hit.Point, swinger.ShoulderPosition(swingHand), swinger.Parts.Chest, struckVelocity, hit.Direction,
+                limbEnd: swinger.GloveCenter(swingHand));
+            var bodyMomentum = (swinger.ImpactMass(swingHand, hit.Direction, out _, bodyFactor) - swinger.ArmMass(swingHand)) * contactSpeed;
+            var armMomentum = ArmBehind(swinger, swingHand, struckVelocity, hit.Direction)
+                + (swinger.SupportOf(swingHand) is { } support ? ArmBehind(swinger, support, struckVelocity, hit.Direction) : 0f);
+            if (contactSpeed >= MinimumBlowSpeed)
             {
-                var momentum = hit.Direction * (extraMass * fistSpeed * KnockbackTransfer);
+                var momentum = hit.Direction * ((bodyMomentum + armMomentum) * KnockbackTransfer);
                 var push = CarryBody(swinger, victim, part.Body.BodyId, hit.Point, momentum, contactSpeed, contactTwist);
                 _weaponCooldown[weapon] = RehitCooldown;
                 carried = true;
@@ -1288,7 +1421,8 @@ public sealed partial class BoxingGame
             return 0f;
         }
 
-        var total = attacker.KickImpactMass(side, before.Position, before.LinearVelocity / speed, out _);
+        var factor = BodyFactor(attacker, before.LinearVelocity, before.Position, attacker.HipPosition(side), attacker.Parts.Pelvis, PreStepBodyVelocity(OpponentOf(attacker)), before.LinearVelocity);
+        var total = attacker.KickImpactMass(side, before.Position, before.LinearVelocity / speed, out _, factor);
         return MathF.Max(0f, total - _world.GetMass(kicker.Body.BodyId));
     }
 
@@ -1342,14 +1476,17 @@ public sealed partial class BoxingGame
             return false;
         }
 
+        // 当たる速さは打つ点と打たれた点の相対速度（歩の前。PunchMechanics.ClosingSpeed）。向き（velocity）は打つ側の速度のまま。
         var velocity = before.LinearVelocity + Vector3.Cross(before.AngularVelocity, hit.Point - before.Position);
-        var speed = MathF.Max(0f, Vector3.Dot(velocity, hit.Direction));
+        var struck = PreStepVelocityAt(part.Body.BodyId, hit.Point);
+        var speed = PunchMechanics.ClosingSpeed(velocity, struck, hit.Direction);
         if (speed <= 0f)
         {
             return false;
         }
 
-        var impactMass = attacker.KickImpactMass(side, hit.Point, hit.Direction, out var bodyShare);
+        var drive = BodyFactor(attacker, velocity, hit.Point, attacker.HipPosition(side), attacker.Parts.Pelvis, struck, hit.Direction);
+        var impactMass = attacker.KickImpactMass(side, hit.Point, hit.Direction, out var bodyShare, drive);
         var (kind, normalized, armHand) = victim.Locate(part.Body.BodyId, hit.Point);
         var zone = HitZones.Classify(kind, normalized, armHand.LocalSide());
         var damage = PunchMechanics.Damage(impactMass * speed) * PunchMechanics.Sharpness(speed) * ZoneDamage.Multiplier(zone);
@@ -1462,7 +1599,8 @@ public sealed partial class BoxingGame
             return 0f;
         }
 
-        var total = attacker.ElbowImpactMass(side, before.Position, before.LinearVelocity / speed, out _);
+        var factor = BodyFactor(attacker, before.LinearVelocity, before.Position, attacker.ShoulderPosition(side), attacker.Parts.Chest, PreStepBodyVelocity(OpponentOf(attacker)), before.LinearVelocity);
+        var total = attacker.ElbowImpactMass(side, before.Position, before.LinearVelocity / speed, out _, factor);
         return MathF.Max(0f, total - _world.GetMass(striker.Body.BodyId));
     }
 
@@ -1516,14 +1654,17 @@ public sealed partial class BoxingGame
             return false;
         }
 
+        // 当たる速さは打つ点と打たれた点の相対速度（歩の前。PunchMechanics.ClosingSpeed）。向き（velocity）は打つ側の速度のまま。
         var velocity = before.LinearVelocity + Vector3.Cross(before.AngularVelocity, hit.Point - before.Position);
-        var speed = MathF.Max(0f, Vector3.Dot(velocity, hit.Direction));
+        var struck = PreStepVelocityAt(part.Body.BodyId, hit.Point);
+        var speed = PunchMechanics.ClosingSpeed(velocity, struck, hit.Direction);
         if (speed <= 0f)
         {
             return false;
         }
 
-        var impactMass = attacker.ElbowImpactMass(side, hit.Point, hit.Direction, out var bodyShare);
+        var drive = BodyFactor(attacker, velocity, hit.Point, attacker.ShoulderPosition(side), attacker.Parts.Chest, struck, hit.Direction);
+        var impactMass = attacker.ElbowImpactMass(side, hit.Point, hit.Direction, out var bodyShare, drive);
         var (kind, normalized, armHand) = victim.Locate(part.Body.BodyId, hit.Point);
         var zone = HitZones.Classify(kind, normalized, armHand.LocalSide());
         var damage = PunchMechanics.Damage(impactMass * speed) * PunchMechanics.Sharpness(speed) * ZoneDamage.Multiplier(zone);
@@ -1550,14 +1691,19 @@ public sealed partial class BoxingGame
             return false; // ダウンから立ち直った直後の一呼吸も、拳の打撃は数えない
         }
 
+        // 当たる速さは拳と打たれた点の相対速度（歩の前。PunchMechanics.ClosingSpeed）: 下がる相手に付いたまま押す拳は打撃にならない。
+        // 向き（velocity: へこみ・押し込み・体の有効質量の向き）は拳の速度のまま。
         var velocity = _preStepGloveVelocity[(attacker, hand)];
-        var speed = MathF.Max(0f, Vector3.Dot(velocity, hit.Direction));
+        var struck = PreStepVelocityAt(part.Body.BodyId, hit.Point);
+        var speed = PunchMechanics.ClosingSpeed(velocity, struck, hit.Direction);
         if (speed <= 0f)
         {
             return false;
         }
 
-        var impactMass = attacker.ImpactMass(hand, velocity, out var bodyShare);
+        // 体の質量が乗るのは、腕が拳を当たりへ押し出している分だけ（置いた拳に相手が突っ込んだ・戻る途中・押し付けただけなら腕の質量だけ）。
+        var drive = BodyFactor(attacker, velocity, hit.Point, attacker.ShoulderPosition(hand), attacker.Parts.Chest, struck, hit.Direction);
+        var impactMass = attacker.ImpactMass(hand, velocity, out var bodyShare, drive);
         var (kind, normalized, armHand) = victim.Locate(part.Body.BodyId, hit.Point);
         var zone = HitZones.Classify(kind, normalized, armHand.LocalSide());
         var damage = PunchMechanics.Damage(impactMass * speed) * PunchMechanics.Sharpness(speed) * ZoneDamage.Multiplier(zone);

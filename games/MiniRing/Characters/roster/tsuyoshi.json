@@ -83,6 +83,7 @@
   "textbook": "tonfa",
   "education": {
     "style": {
+      "Rhythm": {"Weight":1,"Seize":1,"Quiet":4.045,"Bins":[{"From":0,"None":-1.543,"Guard":-1.922,"Clean":-2.584},{"From":0.1,"None":-0.632,"Guard":-1.882,"Clean":-1.58},{"From":0.2,"None":2.002,"Guard":0.207,"Clean":1.152},{"From":0.3,"None":1.661,"Guard":2.251,"Clean":-0.435},{"From":0.4,"None":1.333,"Guard":1.217,"Clean":0.287},{"From":0.5,"None":0.156,"Guard":0.781,"Clean":-0.619},{"From":0.6,"None":2.994,"Guard":1.097,"Clean":1.038},{"From":0.8,"None":4.018,"Guard":2.248,"Clean":2.023},{"From":1,"None":3.025,"Guard":2.966,"Clean":2.443}]},
       "BreakLikes": { "hum": 3, "onigiri": 2.5, "wave": 2.5, "handshake": 2.5, "applause": 2, "bow": 2, "selfie": 1.5, "stretcharms": 1.5, "roar": 0.3 },
       "GamePlan": {
         "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,

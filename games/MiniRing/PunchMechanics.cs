@@ -35,7 +35,11 @@ public static class PunchMechanics
     /// <summary>腕の線に直交する力を、肩・肘を固めて体へ伝えられる割合（健康な関節で）。</summary>
     public const float LeverTransfer = 0.55f;
 
-    /// <summary>この運動量 [kg·m/s] 未満は「触れただけ」。</summary>
+    /// <summary>
+    /// この運動量 [kg·m/s] 未満は「触れただけ」（得点のルールの値）。PhysicsVersion 45 で 1 発の運動量が全体に約 1/5 になったが、境目は変えない:
+    /// 0.05 にして尺度を √5 倍にすると、腕だけの 0.7 m/s ほどの触れ合いまで打撃に数えられ、短押しの当たりが 108 → 204 回に増えて、押し付ける連打が点でまた勝った
+    /// （docs/arena/rush_physics.md）。前の境目でそれらが打撃になっていたのは、水増しした体の質量のため。
+    /// </summary>
     public const float MomentumThreshold = 0.25f;
     public const float DamageScale = 11f;
     public const float MaxDamage = 40f;
@@ -64,6 +68,59 @@ public static class PunchMechanics
         var aligned = a * a;
         return (aligned + (LeverTransfer * (1f - aligned))) * Math.Clamp(jointIntegrity, 0f, 1f);
     }
+
+    /// <summary>
+    /// 当たる速さ [m/s]: 打つ点の速度 <paramref name="strikerVelocity"/> と、打たれる点の速度 <paramref name="targetVelocity"/> の差の、
+    /// 当たる向き <paramref name="direction"/> の成分（離れていくなら 0）。拳・蹴り・肘で同じ。下がる相手に付いたまま押す拳は 0 に近く、
+    /// 前へ出てくる相手へ合わせた拳には、相手が近づく速さが足される。
+    /// </summary>
+    public static float ClosingSpeed(Vector3 strikerVelocity, Vector3 targetVelocity, Vector3 direction)
+        => MathF.Max(0f, Vector3.Dot(strikerVelocity - targetVelocity, SafeNormalize(direction)));
+
+    /// <summary>
+    /// 手足が体の質量を当たりへ運べる割合（0..1）: 当たる速さ（<see cref="ClosingSpeed"/>）のうち、打つ点が体の重心（<paramref name="rootVelocity"/>）に対して
+    /// 当たる向きへ動いていく速さ（腕・脚を伸ばす・胴の回転で振る）が占める割合。体の質量は、手足が打つ点を当たりへ押し出しているときだけ骨と筋で当たりへ伝わる。
+    /// 置いて構えただけの拳に相手が突っ込んできた・前へ出ながら戻す途中で触れた・前へ歩いて押し付けた（打つ点が体と一緒に動く）ときは 0 で、
+    /// 腕・脚そのものの質量だけが当たる。伸ばす・振るで当てた拳は 1 に近い（体の質量の乗り方は今までどおり）。関節の固さ・筋の働きそのものではなく、
+    /// それを動きから読む近道（CLAUDE.md §8「拳に乗る体の質量」）。
+    /// </summary>
+    public static float LimbDrive(Vector3 strikerVelocity, Vector3 rootVelocity, Vector3 targetVelocity, Vector3 direction)
+    {
+        var closing = ClosingSpeed(strikerVelocity, targetVelocity, direction);
+        if (closing <= 1e-4f)
+        {
+            return 0f;
+        }
+
+        var extension = Vector3.Dot(strikerVelocity - rootVelocity, SafeNormalize(direction));
+        return Math.Clamp(extension / closing, 0f, 1f);
+    }
+
+    /// <summary>
+    /// 体自身が当たりへ近づく速さ [m/s]: 体の運動量が手足を通って当たりへ届く 2 つの通り道を、連結度（<see cref="Coupling"/>）と同じ重みで混ぜる。
+    /// <list type="bullet">
+    /// <item>突っ張り（重み a²、a = 手足の線 <paramref name="limbLine"/> と当たる向きの揃い）: 手足を骨の棒として、付け根（肩・股）の速度 <paramref name="rootVelocity"/>
+    /// が打たれた点へ近づく分。胴の回転で後ろの肩が前へ出るクロス・踏み込み。</item>
+    /// <item>梃子（重み <see cref="LeverTransfer"/>·(1 − a²)）: 肩・肘を固めて手足（と握った武器）ごと胴に付けたとき、胴の回転と並進が当たる点そのものを動かす速度
+    /// <paramref name="lockedVelocity"/> が近づく分。胴の回転で振るフック・武器の振り。</item>
+    /// </list>
+    /// 混ぜた重みの和は連結度そのもの（関節の健全度を除く）なので、体の分の運動量 = 連結度 × 体の有効質量 × この速さ ÷ 連結度 … のうち、各通り道の速さの重み平均になる。
+    /// </summary>
+    public static float BodyClosingSpeed(Vector3 rootVelocity, Vector3 lockedVelocity, Vector3 targetVelocity, Vector3 limbLine, Vector3 direction)
+    {
+        var a = Vector3.Dot(SafeNormalize(limbLine), SafeNormalize(direction));
+        var strut = a * a;
+        var lever = LeverTransfer * (1f - strut);
+        return ((strut * ClosingSpeed(rootVelocity, targetVelocity, direction)) + (lever * ClosingSpeed(lockedVelocity, targetVelocity, direction))) / (strut + lever);
+    }
+
+    /// <summary>
+    /// 体が自分の動きで当たりへ運べる割合（0..1）: 体自身が近づく速さ <paramref name="bodyClosing"/>（<see cref="BodyClosingSpeed"/>）÷ 打つ点そのものの当たる速さ
+    /// <paramref name="closing"/>。運動量は湧かないので、体の質量が運べるのは体自身の速さの分だけ（体の質量 × 拳の速さにはならない）。
+    /// 体を止めて腕だけ伸ばす拳では 0 に近い。体の勢いのうち拳の速さに変わった分は <c>Fighter.TransferBodyMotion</c> がすでに拳の速さとして渡している（二重に数えない）。
+    /// </summary>
+    public static float BodyCarry(float bodyClosing, float closing)
+        => closing <= 1e-4f ? 0f : Math.Clamp(bodyClosing / closing, 0f, 1f);
 
     /// <summary>拳に効く質量 = 腕そのもの + 連結度 × 体の有効質量。</summary>
     public static float ImpactMass(float armMass, float bodyEffectiveMass, float coupling)

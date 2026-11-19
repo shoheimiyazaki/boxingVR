@@ -198,7 +198,7 @@ public sealed class BotTests
         // PhysicsVersion 29: このテストは十分な蓄えでの技選択の基準。20 秒で疲労・休息判断が
         // 非活性になる測定用容量にし、既存の全 seed の勝利・複数技・命中の期待を保つ。
         // 既定容量の枯渇による勝敗は StaminaBudgetTests と StaminaLeagueProbe で別に測る。
-        var fresh = FighterTuning.Default with { StaminaCapacity = 90_000f };
+        var fresh = FighterTuning.Default with { OxygenStorePerKg = 108_000f };
         foreach (var seed in new[] { 1, 2, 3, 4, 5 }) // 2026-11-12: K.O. で早く終わる試合が増えたので、種を足して 60 秒以上を見る
         {
             var result = BotArena.Run(new BoutSpec(Contender.Named(BotCatalog.DefaultCpu), Contender.Named(BotCatalog.Legacy), Seed: seed, Seconds: 20f), fresh);

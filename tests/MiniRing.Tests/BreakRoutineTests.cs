@@ -41,7 +41,9 @@ public sealed class BreakRoutineTests
         {
             game.Step(default, Dt);
             var glove = Vector3.Distance(self.GloveCenter(Hand.Right), self.HeadPosition);
-            if (game.BreakSourceOf(self)?.Holding is null)
+            // 休みに入った直後の 0.5 秒は、拳がまだ試合のガード（顔の前）から休みの構えへ下りていく途中なので数えない
+            // （鐘の瞬間のガードは試合の流れで顔に近いことがあり、頭から 9 cm だった: 2026-11-18、支えのモデルの後）。
+            if (game.BreakSourceOf(self)?.Holding is null && i >= 30)
             {
                 restGlove = MathF.Min(restGlove, glove);
             }

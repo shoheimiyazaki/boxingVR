@@ -1,5 +1,5 @@
 {
-  "_comment": "VFC（Voxel Fighting Championship）の中継の試し撮り札（1 試合）。org が団体のファイル（games/MiniRing.Arena/Orgs/vfc.json）を選ぶ: 画面の色と名前・紋章・ホーン・下見の点数・台本の資料と言い回し。試合の決まり（ダウンを取らない・死だけが決着・体は治らない）と六角形の檻は MatchRules.Vfc・RingLayout の側で、撮るのは試合の決まりを通した後。動かし方: powershell -ExecutionPolicy Bypass -File tools/tvshow/tvshow.ps1 -Card tools/tvshow/cards/vfc-test.json",
+  "_comment": "VFC（Voxel Fighting Championship）の中継の試し撮り札（1 試合）。org が団体のファイル（games/MiniRing.Arena/Orgs/vfc.json）を選ぶ: 画面の色と名前・紋章・ホーン・下見の点数・台本の資料と言い回し。試合の決まり（ダウンを取らない・死だけが決着・傷は休みに少しずつ戻る・失った武器の支給）は団体のファイルの match（MatchRules.Vfc と同じ）、六角形の檻は RingLayout の側で、撮るのは試合の決まりを通した後。動かし方: powershell -ExecutionPolicy Bypass -File tools/tvshow/tvshow.ps1 -Card tools/tvshow/cards/vfc-test.json",
   "org": "vfc",
   "event": "VFC ファイトナイト",
   "rounds": 5,

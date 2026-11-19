@@ -60,8 +60,25 @@ public static class LivingRoom
 
     public static Vector2 WindowHalf { get; } = new(1.1f, 0.65f);
 
+    /// <summary>
+    /// 点を部屋の中へ寄せる（壁・床・天井から <paramref name="margin"/> 内側、天井は照明の下）。中継のカメラの目に使う（描画だけ）:
+    /// リングの大きさに比例して引く・上がるカメラが、天井（2.4 m）の上や壁の外へ出て、画面全体が天井の裏の白・灰で埋まった
+    /// （2026-11-18、試合の始めの引き: 胸の高さ ＋ リングの 1 辺 × 0.95 ≈ 2.7 m）。
+    /// </summary>
+    public static Vector3 KeepInside(Vector3 point, float margin)
+    {
+        var top = CeilingHeight - LampDrop - margin;
+        return new Vector3(
+            Math.Clamp(point.X, MinX + margin, MaxX - margin),
+            Math.Clamp(point.Y, margin, top),
+            Math.Clamp(point.Z, MinZ + margin, MaxZ - margin));
+    }
+
+    /// <summary>天井の照明が天井から下がっている長さ [m]（<see cref="CeilingLamp"/>）。</summary>
+    public const float LampDrop = 0.08f;
+
     /// <summary>天井の照明の位置（テーブルの真上）。</summary>
-    public static Vector3 CeilingLamp(Vector3 tableCenter) => new(tableCenter.X, CeilingHeight - 0.08f, tableCenter.Z);
+    public static Vector3 CeilingLamp(Vector3 tableCenter) => new(tableCenter.X, CeilingHeight - LampDrop, tableCenter.Z);
 
     /// <summary>床とテーブルの天板の当たり判定を置く（破片が転がる）。</summary>
     public static void AddColliders(PhysicsWorld world, RingLayout layout)

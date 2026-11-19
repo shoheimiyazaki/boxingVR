@@ -16,8 +16,9 @@ try
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out", "hz", "passes", "sample", "referee")),
         "handlelab" => HandleLabCommand(Options.Parse(argv[1..], "pairs", "fist", "bouts", "seconds", "seed", "referee", "parallel", "out", "style-katana", "style-longsword", "style-club", "style-staff", "style-swordshield", "style-bat", "title")),
         "handlespar" => HandleSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "held-out", "gens", "lambda", "bouts", "seconds", "seed", "referee", "parallel", "start", "best", "out")),
-        "maailab" => MaaiLabCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "parallel", "out", "json", "csv", "ranges")),
-        "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain", "wear", "matrix", "gameplan")),
+        "rhythmlab" => RhythmLabCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "parallel", "out", "csv")),
+        "maailab" => MaaiLabCommand(Options.Parse(argv[1..], "chars", "focus", "bouts", "seconds", "seed", "referee", "parallel", "out", "json", "csv", "ranges")),
+        "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain", "wear", "matrix", "gameplan", "layer")),
         "staminalab" => StaminaLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "tv", "out")),
         "learnlab" => LearnLabCommand(Options.Parse(argv[1..], "first", "second", "seeds", "seconds", "seed", "prior", "scale", "combos", "defender", "out")),
         "rangelab" => RangeLabCommand(Options.Parse(argv[1..], "variants", "bots", "bouts", "seconds", "seed", "weapons", "out")),
@@ -27,12 +28,19 @@ try
         "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
+        "groundlab" => GroundLabCommand(Options.Parse(argv[1..], "style", "moves", "bouts", "seconds", "seed", "log", "video", "practice", "candidates", "sigma", "validate")),
+        "kickbalance" => KickBalanceCommand(Options.Parse(argv[1..], "style", "kicks", "teachings", "bouts", "seconds", "seed", "confirm", "log", "video")),
         "stick" => StickCommand(Options.Parse(StickSwingLab.WithYes(argv[1..]), "style", "kicks", "teachings", "png", "design", "candidates", "seed", "log", "approach", "ground", "moves", "path", "out", "forms", "detail", "swing", "planes", "samples", "weights", "video", "polish", "iterations", "character", "limits", "bvh", "bvh-scale")),
         "kicklab" => KickLabCommand(Options.Parse(argv[1..], "body", "kick", "distances", "seeds", "confirm-seeds", "shin", "overshoot", "side", "log")),
         "kickvideo" => KickVideoCommand(Options.Parse(argv[1..], "body", "kick", "distances", "side", "slow", "width", "height", "fps", "out")),
         "kickmocap" => KickMocapCommand(Options.Parse(argv[1..], "dir", "export", "log", "video", "doll", "durations", "distances", "export-mid", "body")),
         "kickshin" => KickShinCommand(Options.Parse(argv[1..], "body", "kick", "standoff", "seconds", "diag", "log", "heights", "practice", "gens", "lambda", "parallel", "json", "seed", "video", "victim", "dir")),
         "kneelab" => KneeLabCommand(Options.Parse(argv[1..], "stage", "bodies", "body", "distances", "distance", "confirm", "azimuths", "elevations", "twists", "sides", "log", "impact-az", "impact-el", "impact-twist", "foot", "gens", "lambda", "video")),
+        "practicelab" => PracticeLabCommand(Options.Parse(argv[1..], "only", "candidates", "bouts", "seconds", "seed", "validate", "sigma", "log")),
+        "seoilab" => SeoiLabCommand(Options.Parse(argv[1..], "candidates", "bouts", "seconds", "seed", "validate", "log", "compare", "reference", "victims")),
+        "swaylab" => SwayLabCommand(Options.Parse(argv[1..], "hz", "ki", "cycles", "push", "bouts", "seconds", "seed", "log")),
+        "balancelab" => BalanceLabCommand(Options.Parse(argv[1..], "only", "seed", "log")),
+        "throwlab" => ThrowLabCommand(Options.Parse(argv[1..], "only", "victims", "bouts", "seconds", "seed", "log", "trace", "video", "speed", "width", "height")),
         "counterlab" => CounterLabCommand(Options.Parse(argv[1..], "book", "defense", "bouts", "seconds", "seed", "ranges", "log", "out", "combos")),
         "basics" => Basics(Options.Parse(argv[1..], "punch", "slot", "style", "guards", "widths", "reaches", "guard", "cue", "cues", "move", "telegraph", "predict", "gens", "pop", "bouts", "seconds", "seed", "ranges", "log", "out")),
         "formlab" => FormLabCommand(Options.Parse(argv[1..], "punch", "slot", "style", "move", "set", "cue", "bouts", "seconds", "seed", "log")),
@@ -145,8 +153,12 @@ static int MaaiLabCommand(Options o)
     var referee = Referee(o);
     var watch = Stopwatch.StartNew();
     var cells = new List<MaaiLab.RangeCell>();
-    var throws = MaaiLab.Collect(roster, bouts, seconds, seed, referee, o.Int("parallel", 2, min: 1), Console.Error, cells);
-    var boutCount = roster.Count * (roster.Count - 1) / 2 * bouts;
+    // --focus a,b: その選手が入る組だけ（名簿に足した選手の表を、ほかの選手の組を打ち直さずに測る）。
+    var focus = o.Get("focus") is null ? null : o.List("focus", []).ToHashSet(StringComparer.Ordinal);
+    var throws = MaaiLab.Collect(roster, bouts, seconds, seed, referee, o.Int("parallel", 2, min: 1), Console.Error, cells, focus);
+    var others = focus is null ? 0 : roster.Count(c => !focus.Contains(c.Id));
+    var pairs = (roster.Count * (roster.Count - 1) / 2) - (others * (others - 1) / 2);
+    var boutCount = pairs * bouts;
     var summary = MaaiLab.Summarize(roster, throws);
     var (rangeBins, rangeSummary) = MaaiLab.Ranges(roster, cells, throws);
     var text = MaaiLab.Markdown(summary, bouts, seconds, seed, referee, boutCount, throws.Count) + MaaiLab.RangesMarkdown(rangeSummary);
@@ -180,6 +192,44 @@ static int MaaiLabCommand(Options o)
     return 0;
 }
 
+// 攻めのリズムと隙（RhythmLab）: 名簿の総当たりで、打った後の被ダメ率・相手が打った後に打つ機・空振りの後の損得。
+static int RhythmLabCommand(Options o)
+{
+    var all = MiniRing.Characters.CharacterRoster.All;
+    var roster = o.Get("chars") is null ? all : [.. o.List("chars", []).Select(MiniRing.Characters.CharacterRoster.Get)];
+    if (roster.Count < 2)
+    {
+        throw new ArgumentException("--chars には 2 人以上が必要です。");
+    }
+
+    var bouts = o.Int("bouts", 2, min: 1);
+    var seconds = o.Float("seconds", 60f, min: 1f);
+    var seed = o.Int("seed", 1);
+    var referee = Referee(o);
+    var watch = Stopwatch.StartNew();
+    var logs = RhythmLab.Collect(roster, bouts, seconds, seed, referee, o.Int("parallel", 2, min: 1), Console.Error);
+    var rhythms = RhythmLab.Analyze(logs).Values.ToList();
+    var header = string.Create(CultureInfo.InvariantCulture,
+        $"PhysicsVersion {MiniRing.Fighter.PhysicsVersion}・LogicVersion {MiniRing.Bots.BoxerBot.LogicVersion}・{roster.Count} 人の総当たり・各組 {bouts} 試合 × {seconds:0} 秒・種 {seed}・審判 {(referee ? "あり" : "なし")}・試合の場（コーナーから）");
+    var text = RhythmLab.Report(rhythms, header);
+    Console.Error.WriteLine($"rhythmlab done in {watch.Elapsed.TotalSeconds:0.0}s, {logs.Count} bouts");
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, text);
+    }
+    else
+    {
+        Console.WriteLine(text);
+    }
+
+    if (o.Get("csv") is { } csv)
+    {
+        File.WriteAllText(csv, RhythmLab.Csv(rhythms));
+    }
+
+    return 0;
+}
+
 static int RosterLeagueCommand(Options o)
 {
     ApplySimplify(o);
@@ -202,7 +252,14 @@ static int RosterLeagueCommand(Options o)
         "ab" => RosterLeague.GamePlanUse.Layered,
         var other => throw new ArgumentException($"--gameplan は on・off・ab のどれかです（{other}）。"),
     };
-    var text = RosterLeague.Run(roster, o.Int("bouts", 2, min: 1), o.Float("seconds", 40f, min: 1f), o.Int("seed", 1), Referee(o), o.Int("parallel", 2, min: 1), Console.Error, SetOf(o), o.Get("ab") == "on" || gamePlan == RosterLeague.GamePlanUse.Layered, o.Get("layered"), o.Get("plain"), o.Get("matrix"), gamePlan);
+    // --layer gameplan|rhythm: --gameplan で入れ外しする教育の層（既定は戦略の層。rhythm は間の層）。
+    var layer = (o.Get("layer") ?? "gameplan") switch
+    {
+        "gameplan" => RosterLeague.EducationLayer.GamePlan,
+        "rhythm" => RosterLeague.EducationLayer.Rhythm,
+        var other => throw new ArgumentException($"--layer は gameplan・rhythm のどちらかです（{other}）。"),
+    };
+    var text = RosterLeague.Run(roster, o.Int("bouts", 2, min: 1), o.Float("seconds", 40f, min: 1f), o.Int("seed", 1), Referee(o), o.Int("parallel", 2, min: 1), Console.Error, SetOf(o), o.Get("ab") == "on" || gamePlan == RosterLeague.GamePlanUse.Layered, o.Get("layered"), o.Get("plain"), o.Get("matrix"), gamePlan, layer);
     Console.WriteLine(text);
     Console.Error.WriteLine($"rosterleague done in {watch.Elapsed.TotalSeconds:0.0}s");
     if (o.Get("out") is { } path)
@@ -504,6 +561,211 @@ static int KarateLabCommand(Options o)
     new KarateLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log,
         o.List("cues", ["0", "0.06"]).Select(c => float.Parse(c, CultureInfo.InvariantCulture)).ToList())
         .Run(only.Contains("shapes"), only.Contains("parry"), only.Contains("kicks"));
+    return 0;
+}
+
+// 投げ技の練習（docs/GRAPPLING.md §15）: 教科書の技の経路を少しずつ変えて、良くなったら採る。
+static int PracticeLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + Environment.NewLine);
+        }
+    }
+
+    foreach (var name in o.List("only", ["seoi-nage"]))
+    {
+        new PracticeLab(o.Int("seed", 1), Log).Run(MiniRing.Bots.GrappleBook.Jujutsu.Technique(name), o.Int("candidates", 20, min: 1), o.Int("bouts", 2, min: 1),
+            o.Float("seconds", 10f, min: 1f), o.Int("validate", 301), o.Float("sigma", 0.06f, min: 0.001f));
+    }
+
+    return 0;
+}
+
+// 背負い投げを鍛える（docs/GRAPPLING.md §11）。
+static int SeoiLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + Environment.NewLine);
+        }
+    }
+
+    if (o.Get("reference") == "train")
+    {
+        new SeoiLab(o.Int("seed", 1), Log).TrainToReference(o.Int("candidates", 24, min: 1), o.Int("bouts", 2, min: 1), o.Float("seconds", 10f, min: 1f), o.Int("validate", 101));
+        return 0;
+    }
+
+    if (o.Get("reference") == "yes")
+    {
+        var technique = MiniRing.Bots.GrappleBook.Jujutsu.Technique("seoi-nage");
+        foreach (var victim in o.List("victims", ["stand", "champion"]))
+        {
+            SeoiReference.Run(technique, victim, o.Int("validate", 101), o.Int("bouts", 4, min: 1), o.Float("seconds", 12f, min: 1f), Log);
+        }
+
+        return 0;
+    }
+
+    if (o.Get("compare") == "yes")
+    {
+        var p0 = SeoiLab.Params.Initial;
+        new SeoiLab(o.Int("seed", 1), Log).Compare([
+            ("深さ 0.30", p0 with { Depth = 0.3f }), ("深さ 0.15", p0), ("深さ 0.05", p0 with { Depth = 0.05f }), ("深さ -0.05", p0 with { Depth = -0.05f })],
+            o.Int("validate", 101), o.Int("bouts", 2, min: 1), o.Float("seconds", 10f, min: 1f));
+        return 0;
+    }
+
+    new SeoiLab(o.Int("seed", 1), Log).Train(o.Int("candidates", 24, min: 1), o.Int("bouts", 2, min: 1), o.Float("seconds", 10f, min: 1f), o.Int("validate", 101));
+    return 0;
+}
+
+// 揺さぶりのドリル（docs/GRAPPLING.md §9。2026-11-19 に rhythmlab から改名: master の rhythmlab は間の層の測り）。
+static int SwayLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + Environment.NewLine);
+        }
+    }
+
+    static float F(string v) => float.Parse(v, CultureInfo.InvariantCulture);
+    new SwayLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 15f, min: 1f), o.Int("seed", 1), Log)
+        .Run([.. o.List("hz", ["0", "0.75", "1", "1.5", "2", "2.5", "3"]).Select(F)], [.. o.List("ki", ["0", "3"]).Select(F)], o.Int("cycles", 3, min: 1), o.Float("push", 0.25f, min: 0f));
+    return 0;
+}
+
+// 姿勢のモデルの比べもの（docs/GRAPPLING.md §7）。
+static int BalanceLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    new BalanceLab(o.Int("seed", 1), Log).Run(o.List("only", []));
+    return 0;
+}
+
+// 組み技のドリル: 柔術家が 1 つの技だけを受けにかけ続け、投げ・掴めず・取りの転倒・受けの肘の荷重と靭帯を数える（docs/GRAPPLING.md）。
+static int ThrowLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    var techniques = o.List("only", [.. MiniRing.Bots.GrappleBook.Jujutsu.Techniques.Select(t => t.Name)]);
+    if (o.Get("video") is { } video)
+    {
+        // 1 つの技だけをかけ続ける柔術家（青、素手）と、構えて立つ受け（赤）を撮る。
+        var only = techniques[0];
+        var book = MiniRing.Bots.GrappleBook.Jujutsu with { Rate = 50f };
+        var victim = o.List("victims", ["stand"])[0];
+        var red = new Contender(victim, s => ThrowLab.Victim(victim, s));
+        var blue = new Contender("jujutsu", s => new MiniRing.Bots.JujutsuBot(new MiniRing.Bots.Closer(), book, s, only: only));
+        var output = Path.GetFullPath(video);
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), 30, speed: o.Float("speed", MiniRing.GameSpeed.Standard, min: 0.1f))
+            .Make(red, blue, o.Int("seed", 1), o.Float("seconds", 12f, min: 1f), output, Console.Out, blueWear: MiniRing.Weapons.HandWear.None);
+        return 0;
+    }
+
+    new ThrowLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log, o.Get("trace") == "yes")
+        .Run(techniques, o.List("victims", ["stand", "champion"]));
+    return 0;
+}
+
+// 倒れた相手への攻めのドリル: 受け手を気絶させて倒したまま、攻め手が 1 つの技を選んで打ち下ろす（鉄槌 hammer・突き下ろし thrust・踏みつけ stomp）。
+static int GroundLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    var style = o.Get("style") ?? "karate";
+    var moves = o.List("moves", ["hammer", "thrust", "stomp"]);
+    if (o.Get("video") is { } video)
+    {
+        var output = Path.GetFullPath(video);
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        GroundLab.Video(style, moves[0], o.Int("seed", 1), o.Float("seconds", 12f, min: 2f), output, Console.Out);
+        return 0;
+    }
+
+    var lab = new GroundLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 12f, min: 2f), o.Int("seed", 1), Log);
+    if (o.Get("practice") == "yes")
+    {
+        foreach (var move in moves)
+        {
+            lab.Practice(style, move, o.Int("candidates", 20, min: 1), o.Float("sigma", 0.08f, min: 0.001f), o.Int("validate", 301));
+        }
+
+        return 0;
+    }
+
+    lab.Run(style, moves);
+    return 0;
+}
+
+// 軸足に乗って蹴る練習: 1 種の蹴りだけを出し続け、蹴り 1 本ごとに倒れた・当たった・渡したエネルギーを、教育の値の組（体重を移す間・頭の寄せ）ごとに数える。
+static int KickBalanceCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    var kinds = o.List("kicks", ["Front", "Side"]).Select(k => Enum.Parse<MiniRing.Bots.KickTechnique>(k, ignoreCase: true)).ToList();
+    var teachings = o.List("teachings", ["0:0:0"]).Select(t =>
+    {
+        var v = t.Split(':').Select(x => float.Parse(x, CultureInfo.InvariantCulture)).ToArray();
+        return new KickBalanceLab.Teaching(v[0], v.Length > 1 ? v[1] : 0f, v.Length > 2 ? v[2] : 0f);
+    }).ToList();
+    if (o.Get("video") is { } video)
+    {
+        var output = Path.GetFullPath(video);
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        KickBalanceLab.Video(o.Get("style") ?? "karate", kinds[0], teachings[0], o.Int("seed", 1), o.Float("seconds", 12f, min: 2f), output, Console.Out);
+        return 0;
+    }
+
+    new KickBalanceLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log)
+        .Run(o.Get("style") ?? "karate", kinds, teachings, o.Int("confirm", 0));
     return 0;
 }
 

@@ -89,7 +89,7 @@ public sealed class StaminaTempoTests
     public void EmptyReserve_Standing_RoundBreakRecoversMoreThanHalf_FullAfterSixteen()
     {
         using var rig = new Rig();
-        rig.Fighter.Stamina = 0f;
+        rig.Fighter.EmptyArms();
         rig.Hold(10f, Vector3.Zero);
         var at10 = rig.Fighter.Stamina;
         rig.Hold(6f, Vector3.Zero);
@@ -107,10 +107,10 @@ public sealed class StaminaTempoTests
     public void EmptyReserve_RetreatingOnFoot_RecoversNearlyAsFastAsStanding()
     {
         using var standing = new Rig();
-        standing.Fighter.Stamina = 0f;
+        standing.Fighter.EmptyArms();
         standing.Hold(8f, Vector3.Zero);
         using var rig = new Rig();
-        rig.Fighter.Stamina = 0f;
+        rig.Fighter.EmptyArms();
         rig.Hold(8f, new Vector3(0f, 0f, -1f));
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"from empty for 8 s: retreating {rig.Fighter.Stamina:P1} (P {rig.Fighter.RecentMusclePower:F2} W), standing {standing.Fighter.Stamina:P1}"));
@@ -122,7 +122,7 @@ public sealed class StaminaTempoTests
     {
         var reference = FullFirstPeak();
         using var rig = new Rig();
-        rig.Fighter.Stamina = 0f;
+        rig.Fighter.EmptyArms();
         var first = -1f;
         for (var attempt = 0; attempt < 8 && first < 0f; attempt++)
         {
@@ -163,15 +163,18 @@ public sealed class StaminaTempoTests
     public void EmptyReserve_KeepsPunching_WorkStaysWithinSupply_AndRecoveryContinues()
     {
         using var rig = new Rig();
-        rig.Fighter.Stamina = 0f;
+        rig.Fighter.EmptyArms();
         for (var punch = 0; punch < 20; punch++)
         {
             rig.StrongPunch(0.3f);
         }
 
-        var tuning = FighterTuning.Default;
-        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"punching from empty for 6 s: P {rig.Fighter.RecentMusclePower:F2} W, recovery {rig.Fighter.RecoveryPower:F2} W"));
-        Assert.IsLessThan(tuning.StaminaRecoveryPower, rig.Fighter.RecentMusclePower, "した仕事は最大の供給より小さい");
-        Assert.IsGreaterThan(0.2f * tuning.StaminaRecoveryPower, rig.Fighter.RecoveryPower, "押し続けても回復は残る");
+        // 打っている右腕の血管が休んでいるときに流せる速さ（呼吸・循環のモデル、2026-11-18）。
+        var vessel = FighterTuning.Default.VesselPowerPerKg * rig.Fighter.ArmMass(Hand.Right);
+        var power = rig.Fighter.RegionPower(MuscleRegion.RightArm);
+        var delivery = rig.Fighter.DeliveryOf(MuscleRegion.RightArm);
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"punching from empty for 6 s: right arm P {power:F2} W, delivery {delivery:F2} W (vessel at rest {vessel:F2} W)"));
+        Assert.IsLessThan(vessel, power, "した仕事は腕の血管の流れより小さい");
+        Assert.IsGreaterThan(0.2f * vessel, delivery, "押し続けても酸素は届き続ける");
     }
 }

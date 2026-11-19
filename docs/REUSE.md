@@ -38,6 +38,7 @@ Aigis の CLAUDE.md の規約「別のゲームを作るならリポジトリを
 | `src/Aigis.Render/HeadlessRenderer.Primitives.cs` | 出力先が外部画像なら、読み戻さずにコピーして終える |
 | `src/Aigis.Render/Camera.cs` | `OffCenterViewProjection(Matrix4x4 view, …)` オーバーロードを追加（トラッキング姿勢から投影を作る）。既存のオーバーロードはこれに委譲 |
 | 一部の doc コメント | オーバーロード追加で曖昧になった `cref` を明示 |
+| `src/Aigis.Physics/PhysicsWorld.Joints.cs`（2026-11-17） | `SetTwistLimitRange`（動いている TwistLimit の角度の範囲を変える: 靭帯が伸び・切れた肘）、`SetTwistLimitSpring`（TwistLimit のばねの固さ: 肘の止まり）、`GetTwistAngle`（関節が測るのと同じねじれ角）。`docs/GRAPPLING.md` §6 |
 
 - `PhysicsWorld.SetAngularServoSettings` / `SetTwistServoSettings` に任意の `maxSpeed`（サーボの最大の速さ）を足した（2026-11-17。MiniRing が膝の制御で蹴る脚のサーボの速さの上限だけを上げるため。渡さなければ今まで通り速さの上限は変えない）。
 既存の呼び出しの挙動は変わりません（既定の経路は従来どおり）。

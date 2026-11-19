@@ -57,6 +57,12 @@ public sealed record FighterTuning
     public float MaxHoverAccel { get; init; } = 2.2f * 9.81f;
 
     /// <summary>
+    /// 脚が床を押して体を持ち上げられる力の上限（自分の体重の倍、脚の力 1 のとき）。人はしゃがんだ姿勢から体重の 2〜3 倍を押し上げる
+    /// （人を背負って立ち上がれる）。腰を持ち上げる力の上限は、これと <see cref="MaxHoverAccel"/> の大きい方（docs/GRAPPLING.md §13）。
+    /// </summary>
+    public float LegLiftCapacity { get; init; } = 2.5f;
+
+    /// <summary>
     /// 脚の力を抜く（腰を重力で落とす）のに使う、目標が今の腰より低い量の幅 [m]。目標が <see cref="DropReleaseDeadband"/> より低くなってからこの幅で
     /// 0 → 1 に連続に効く（段階ではない）。60 cm の体で、ダッキングの腰の沈み（数 cm）が全部効く幅。
     /// </summary>
@@ -232,11 +238,106 @@ public sealed record FighterTuning
     /// <summary>股から上体を前へ折る（ヒップヒンジ）最大角。</summary>
     public float MaxHingeRadians { get; init; } = 40f * MathF.PI / 180f;
 
+    // ── 床からの支え（Fighter.Support.cs、docs/GRAPPLING.md 段 1）
+    /// <summary>
+    /// 体を立たせる力（ホバー・起こすねじり・移動）を、床に着いている所の凸包（支持多角形）の中の圧力中心で出せる分に限る。
+    /// false は支えの制限だけを外す（支えがどこからともなく出る。比べもの用。靭帯・肘の止まり・投げの場合分けの削除は戻らない）。
+    /// </summary>
+    public bool SupportFromGround { get; init; } = true;
+
+    /// <summary>
+    /// 脚を失った体（<see cref="Fighter.LegShortfall"/> &gt; 0）には、釣り合い・起き上がりの手足の制限を掛けない近道（比べもの用。2026-11-17 にユーザーの指定で既定は false = 近道なし: 片脚を失った体は踏み直せずに倒れ、這う）。
+    /// false（既定）は脚を失った体も無傷の体と同じ支えのモデルを通る。true は前の近道（breakdemo の比べもの用）。
+    /// </summary>
+    public bool LegLossSupportShortcut { get; init; }
+
+    /// <summary>立たせる力の制限のしかた（<see cref="MiniRing.SupportModel"/>）。比べるための切り替え。</summary>
+    public SupportModel SupportModel { get; init; } = SupportModel.Soft;
+
+    /// <summary>連続の釣り合い（<see cref="Fighter.Balance"/>）の支えの領域（凸包か、両足を直径とする円か）。</summary>
+    public SupportRegion SupportRegion { get; init; } = SupportRegion.Polygon;
+
+    /// <summary>
+    /// 捕捉点が支えの領域の外へこれ × 脚の長さだけ出たら、立たせる力は 0（取り戻せない: 一歩の大きさ。足の運びの 1 歩の上限 MaxStride と同じ程度）。
+    /// </summary>
+    public float SupportRecovery { get; init; } = 0.5f;
+
+    /// <summary>縦の支え（腰を持ち上げる力）が 0 になる捕捉点の外れの、<see cref="SupportRecovery"/> に対する倍率（起こすねじりより遅く抜ける）。</summary>
+    public float SupportVerticalRecovery { get; init; } = 1.5f;
+
+    /// <summary>
+    /// 釣り合いの PID の積分の強さ [1/s]（docs/GRAPPLING.md §9）: 上体を起こすねじり・重心を足の上へ寄せる力に、ずれの漏れのある積分 × これ × 比例の固さ を足す。
+    /// 0 で前の PD（バネ・ダンパ）。大きいほど、ずれたままの姿勢を遅れて強く押し戻し、戻りすぎて揺れ返す（共振の山が鋭くなる）。
+    /// </summary>
+    public float BalanceKi { get; init; }
+
+    /// <summary>釣り合いの積分の漏れの時定数 [s]（古いずれを忘れる速さ）。</summary>
+    public float BalanceIntegralSeconds { get; init; } = 1f;
+
+    /// <summary>起き上がる間、重心が床に着いた手足の凸包の外へこれ × 脚の長さ出たら、手足は体を押し上げられない（docs/GRAPPLING.md §8）。</summary>
+    public float RiseRecovery { get; init; } = 0.25f;
+
+    /// <summary>起き上がる間、床に着いた手で押して重心を足の上へ移す、ばねの固さ [1/s²]（臨界減衰。手足の支えと、重心が足の上に無い分だけ効く）。</summary>
+    public float RiseShift { get; init; } = 40f;
+
+    /// <summary>起き上がる間、重心がまだ足に乗っていなくても上体を起こすねじりを残す割合（手で床を押して上体を支える分）。</summary>
+    public float RiseTorsoFloor { get; init; } = 0.05f;
+
+    /// <summary>起き上がる間、膝を浮かせて手と足で体を支える姿勢で腰を上げられる高さ（立つ高さに対する割合。腕の長さで床に手が届く腰の高さのおよそ）。</summary>
+    public float RiseBearHeight { get; init; } = 0.7f;
+
+    /// <summary>起き上がる間に腰を上げられる高さの上限（Fighter.RiseCap）をならす時定数 [s]（手足が着く・離れるのちらつきで腰が落ちない）。</summary>
+    public float RiseCapSeconds { get; init; } = 0.3f;
+
+    /// <summary>
+    /// 倒れてからこの時間 [s] のうちに立ち直れば、審判はダウンを取らない（スリップ・投げられてすぐ立つ。2026-11-17、ユーザーの指定）。
+    /// 意識が飛んでいる・立てない体はすぐ取る。ルールの値（起き上がりは床から 2.5〜3 秒かかるので、手をついてすぐ立ち直る程度）。
+    /// </summary>
+    public float DownGrace { get; init; } = 2f;
+
+    /// <summary>倒れている体が、握った手を離さず・入力元の足の目標を受け付ける意識の下限（捨て身技。これより薄ければ倒れた体の反射だけ）。</summary>
+    public float GroundGripAwareness { get; init; } = 0.6f;
+
+    /// <summary>起き上がる間、手で押して重心を足の上へ移す加速度の上限 [m/s²]（膝・手の摩擦に勝って腰を足の上へ引ける大きさ）。</summary>
+    public float RiseShiftMaxAccel { get; init; } = 15f;
+
+    /// <summary>起き上がる間、足を重心の真下からつま先の向きへずらす量（足のかかと側の箱の半分の長さに対する倍。かかとが重心の下に来る）。</summary>
+    public float RiseFootLead { get; init; } = 1f;
+
+    /// <summary>部位の箱の角がこの高さ [m] より床に近ければ、床に着いている（支えに数える）。マットに着いた判定（CanvasTouch 1.2 cm）と同じ大きさ。</summary>
+    public float SupportContactGap { get; init; } = 0.01f;
+
+    /// <summary>足の裏とマットの摩擦係数（ゴム底とキャンバスで 0.8〜1）。床が体を水平に押せる力の上限 = これ × 垂直抗力。</summary>
+    public float SoleFriction { get; init; } = 0.9f;
+
+    // ── 関節の靭帯（Fighter.Ligaments.cs、docs/GRAPPLING.md 段 6）
+    /// <summary>
+    /// 肘の靭帯（前の関節包・内側側副靭帯）が伸び始める過伸展のねじりの力 [N·m]（人の大きさの値。体には TorqueScale × 身長比³ を掛ける）。
+    /// 屍体の肘の過伸展の試験で、損傷が出始める力は数十 N·m（35 を採る）。
+    /// </summary>
+    public float ElbowLigamentYield { get; init; } = 35f;
+
+    /// <summary>
+    /// 靭帯の伸びにくさ η [N·m·s/rad]（人の大きさの値）: 降伏を超えた分 (τ − τy) で、伸びの速さ (τ − τy) / η。
+    /// 降伏の 2 倍の力をかけ続けると約 0.5 秒で切れる大きさ（関節技が極まってから「折れる」までの時間）。
+    /// </summary>
+    public float LigamentViscosity { get; init; } = 50f;
+
+    /// <summary>
+    /// 肘の止まり（関節の制限）のばねの固有振動数 [Hz]。Aigis の既定 15 Hz では、軽い前腕は肘を反らせるねじり 1〜2 N·m で 40° 以上めり込み、
+    /// 前腕が回りきってしまった（GrapplingTests）。60 Hz で同じねじりのめり込みは数度（固さ ∝ 振動数²）。240 Hz の歩で解ける上限の内。
+    /// </summary>
+    public float ElbowStopHz { get; init; } = 60f;
+
+    /// <summary>靭帯が切れるまでの伸び [rad]（過伸展がこれだけ増えたら切れる。約 20°。靭帯の破断のひずみは降伏のおよそ 2 倍）。</summary>
+    public float LigamentRuptureStretch { get; init; } = 0.35f;
+
+    /// <summary>靭帯が切れた肘が、元の下限からさらに反れる角度 [rad]（骨と残りの組織が止める所。約 50°）。</summary>
+    public float LigamentTornTravel { get; init; } = 0.87f;
+
     // ── 掴み・投げ
     public float GrabRadius { get; init; } = 0.04f;
     public float GrabBreakForce { get; init; } = 260f;
-    public float ThrowSpeed { get; init; } = 1.1f;
-    public float ThrowAssist { get; init; } = 0.35f;
     public float GrabbedDriveScale { get; init; } = 0.55f;
 
     // ── 状態
@@ -286,6 +387,15 @@ public sealed record FighterTuning
     public float MaxCarve { get; init; } = 120f;
 
     /// <summary>
+    /// 床に落ちた衝撃で潰す量の、拳の打撃（<see cref="CarvePerJoule"/>）に対する割合。床は平らで広い（拳より圧力が小さい）ので、
+    /// 同じエネルギーでも潰れは浅い（キャンバスと詰め物の分も）。手で決めた値（docs/GRAPPLING.md §9）。
+    /// </summary>
+    public float CanvasCarveShare { get; init; } = 0.3f;
+
+    /// <summary>床に落ちた衝撃で潰す量がこれ（ボクセル）より小さければ何もしない（座り込む・手を着く程度の当たり）。</summary>
+    public float CanvasMinCarve { get; init; } = 0.5f;
+
+    /// <summary>
     /// 素の武器（木・鉄）の打撃が、同じ運動エネルギーの拳（グローブ）の何倍深く潰して掘るか（上限 <see cref="MaxCarve"/> にも掛ける）。
     /// グローブの詰め物は当たる面を広げて衝撃を和らげるが、硬い武器は狭い面へ一気に掛ける。
     /// </summary>
@@ -306,8 +416,21 @@ public sealed record FighterTuning
     /// <summary>打撃で当たった部位に残す運動量が、その部位に与える速さの上限 [m/s]（拳の速さの測り違いで部位を飛ばさない）。</summary>
     public float MaxStrikeSpeed { get; init; } = 6f;
 
-    /// <summary>脳しんとうの効き: 打撃で頭がねじられた速さ（頭の慣性で割った回転 [rad/s]）の 2 乗あたりに意識から引く量。</summary>
-    public float ConcussionGain { get; init; } = 0.000035f;
+    /// <summary>
+    /// 脳しんとうの効き: 打撃で頭がねじられた速さ（頭の慣性で割った回転 [rad/s]）の 2 乗あたりに意識から引く量（意識の量のモデルの係数。CLAUDE.md §8「意識」）。
+    /// PhysicsVersion 45 で 0.000035 → 0.0035（100 倍）: 体の質量が運ぶ運動量を体自身の動きの分だけにした（<see cref="PunchMechanics.BodyCarry"/>）ので、
+    /// 頭をねじる運動量が溜めた拳で約 1/7・手打ちで約 1/25 になった。拳だけのボット同士 4 組 × 種 2 × 60 秒で、意識の最小の平均が直す前（0.20）に近くなる倍率
+    /// （×30: 0.37・×100: 0.25、ダウン 4.1 → 3.1 回/試合。ConcussionCalibrationProbe・docs/arena/rush_physics.md）。手打ちの頭への効きは前の約 1/6 に留まる。
+    /// </summary>
+    public float ConcussionGain { get; init; } = 0.0035f;
+
+    /// <summary>
+    /// 床に頭を打った衝撃のねじれ（<c>BoxingGame.Land</c>: 頭そのものを止めた力積から出る実際の回転）に使う脳しんとうの係数。
+    /// <see cref="ConcussionGain"/> の 100 倍は、拳が運ぶ運動量が体自身の動きの分だけになって約 1/7〜1/25 に減ったのを埋める、拳の側だけの校正なので、
+    /// 運動量を減らしていない床の衝撃には掛けない（掛けると、倒れて頭を打つだけで脳しんとうが +0.35〜0.4 増え、倒された体が 16 秒たっても立てない）。
+    /// 値は校正前の係数のまま（床の衝撃を入れたブランチ grappling で測った値）。拳と床で係数が別なのは近道（docs/DEBT.md）で、本当は 1 つの頭のモデル。
+    /// </summary>
+    public float CanvasConcussionGain { get; init; } = 0.000035f;
 
     /// <summary>
     /// 脳しんとうから意識が戻る速さ [意識/秒]（一定）。意識を 0.95 飛ばされると、膝立ちまで戻るのに約 3 秒、立ち上がれるまで約 6 秒、
@@ -373,23 +496,43 @@ public sealed record FighterTuning
     /// <summary>起き上がろうとする試みの山で、手を床より下へ押し込む量（腕の長さに対する割合 × 試みの強さ）。床を押して体を持ち上げる。</summary>
     public float PostPress { get; init; } = 0.15f;
 
-    // ── スタミナ（2026-11-12 に復活。以前の「部位で減らす」形ではなく、筋肉がした仕事のエネルギーの出入りで書く）──
+    // ── 呼吸と循環（2026-11-18。全身で 1 つの蓄えから、部位ごとの酸素の蓄え・血管・心臓・肺へ。Fighter.Stamina.cs の先頭に全体の説明）──
 
     /// <summary>
-    /// スタミナの容量 [J]: 筋肉がすぐ使えるエネルギーの蓄え。拳を目標へ押す力がした仕事（力 × 拳の速さの正の分）・力を出し続ける
-    /// 保持の分（<see cref="IsometricCost"/>）・歩いて体を運ぶ分（<see cref="WalkCost"/>）がここから出ていき、心肺が戻す
-    /// （<see cref="StaminaRecoveryPower"/>）。運動生理の W′（臨界パワーを超えた分だけ使う蓄え）にあたる。300 J（2026-11-17、ユーザーの目標:
-    /// 弱強を交互に連打する全力のラッシュが 10 秒、力が落ちながらさらに 10 秒まともに打てる）。StaminaFeelProbe（基準体格、ガードした相手へ連打、
-    /// 仕事率 20〜40 W）: 10 秒は拳の最大 3.0〜4.4 m/s のまま、次の 10 秒で 3.0 → 1.3 m/s、その後は臨界パワーで打てる 1.0〜1.5 m/s。
-    /// 経緯: 90 J → 60 J（2026-11-15）→ 120 J（2026-11-16、中継で尽きるのが早すぎた）→ 300 J（回復の式を臨界パワーのモデルにしたのと同時）。
+    /// 筋肉 1 kg あたりの酸素の蓄え [J/kg]（筋肉の中の酸素と、それで作り直せるエネルギーを仕事に直した量。部位の蓄え = これ × 部位の質量 × 残った筋肉）。
+    /// 拳を目標へ押す力がした仕事・保持の分（<see cref="IsometricCost"/>）・歩いて体を運ぶ分（<see cref="WalkCost"/>）が、その仕事をした部位の蓄えから出ていく。
+    /// 750 J/kg（基準体格の腕 0.33 kg で 248 J）: 測った仕事の分け方（OxygenSplitProbe: 弱強の全力の連打で腕 1 本 14〜22 W、脚 2 W・胴 1.5 W、
+    /// ボット同士の 1 分で腕 1 本 1〜3 W）と、ユーザーの目標（全力の連打が 10 秒、力が落ちながらさらに 10 秒）から。StaminaRushTests（種 3）で
+    /// 拳の速さ 0〜10 秒 2.81・10〜20 秒 2.18・20〜30 秒 1.70 m/s。360 J/kg（119 J）・600 J/kg では始めの 10 秒の中で腕が尽きた（2.18・2.69 m/s）。
+    /// 脚と胴は同じ 1 kg あたりで大きい蓄えになるが、脚の関節のサーボの仕事をまだ数えていない（docs/DEBT.md）ので、ほとんど減らない。
     /// </summary>
-    public float StaminaCapacity { get; init; } = 300f;
+    public float OxygenStorePerKg { get; init; } = 750f;
 
     /// <summary>
-    /// 休んでいるときに心肺がスタミナを戻す最大の速さ [W]（基準体格、心臓と肺の働きが満ちていて持久力が 1 のとき。働きと持久力に比例して落ちる）。
-    /// 20 W: 10 秒の休み（ラウンドの間）で空から 6 割ほど戻る（2026-11-17。前は 15 W）。
+    /// 筋肉 1 kg あたりの血管の太さ [W/kg]: 休んでいる部位へ中枢から届けられる酸素の速さの上限（部位の血管の流れ = これ × 部位の質量 × 残った筋肉 × 持久力）。
+    /// 45 W/kg（基準体格の腕で 14.9 W、働いている腕へは <see cref="VesselWorkingShare"/> 倍の 6.7 W）: ラウンドの間の 10 秒で空の両腕が 6 割ほど戻る
+    /// （StaminaTempoTests: 10 秒 59 %・16 秒 95 %）。片手の強い 1 発を 0.3 秒ごと（腕 1 本 8.7 W）なら 30 秒で 7 割残る。
     /// </summary>
-    public float StaminaRecoveryPower { get; init; } = 20f;
+    public float VesselPowerPerKg { get; init; } = 45f;
+
+    /// <summary>
+    /// 心臓が全部位へ送れる酸素の速さの合計 [W]（基準体格、心臓が無傷のとき。筋肉の量の比と心臓の働きに比例）。30 W: 空の両腕が休んで戻る速さ
+    /// （14.9 W × 2）とちょうど同じ。全力の連打（両腕 6.7 W × 2 + 脚・胴 4 W）より上なので、無傷の心臓は戦っている間はボトルネックにならず、
+    /// 心臓が傷むと腕の戻りがすぐ心臓で止まる。
+    /// </summary>
+    public float HeartPower { get; init; } = 30f;
+
+    /// <summary>
+    /// 肺が血へ酸素を取り込める速さ [W]（基準体格、肺が無傷のとき。筋肉の量の比・肺の働き・頸の脊髄に比例）。32 W: 無傷なら心臓より少し上
+    /// （ふつうは肺がボトルネックにならない）。肺が傷む・息が詰まると血の酸素が減り、心臓が送れる分が肺の速さまで落ちる。
+    /// </summary>
+    public float LungPower { get; init; } = 32f;
+
+    /// <summary>
+    /// 血の酸素の蓄え [J]（基準体格）: 肺と部位のあいだのため。30 J: 心臓が全力で送って 1 秒ほど。小さいので、肺が追いつかなければすぐ空になり、
+    /// 打たれて息が詰まる（<see cref="WindPerBruise"/>）と、ここが減る。
+    /// </summary>
+    public float BloodOxygenStore { get; init; } = 30f;
 
     /// <summary>
     /// 実際にした仕事の仕事率 P をならす時間 [s]（回復を決める P の指数平均）。1 秒: 数発の連打の分が残り、手を止めると 1〜2 秒で抜ける。
@@ -398,13 +541,11 @@ public sealed record FighterTuning
     public float StaminaRecoveryWindow { get; init; } = 1f;
 
     /// <summary>
-    /// 臨界パワーの割合: 心肺が休まず出し続けられる仕事率（臨界パワー C）の、休んだときの最大の戻り <see cref="StaminaRecoveryPower"/> に対する割合
-    /// （2026-11-17）。直近の仕事率がこれより下なら蓄えは戻り、上ならその差で減る（<see cref="Fighter.RecoveryPower"/>）。
-    /// 0.45（基準体格で 9 W）: 測った仕事率は、構えて立つ 0.1 W・足だけで回る 2〜5 W・ボット同士の 1 ラウンド目の平均 8〜10 W・弱強の全力の連打 20〜40 W
-    /// （StaminaFeelProbe・StaminaMatchProbe）。0.4（6 W）では 1 ラウンド目の普通の攻めで蓄えが減り続けた。
-    /// 足と普通の攻めは C の近くで減らず、全力の連打だけが蓄えを使う。
+    /// 働いている筋肉へ流れる割合: 縮んだ筋肉は自分の血管を押しつぶすので、部位の直近の仕事率が kV（V は休んだときの流れ）に届くと、流れは kV まで下がる
+    /// （その間は V から直線に下がる）。kV より軽い仕事では蓄えが減らず、重い仕事ではその差で減る（運動生理の臨界パワーを部位ごとにしたもの）。
+    /// 0.45（前の全身のモデルの臨界パワーの割合と同じ。基準体格の腕で 6.7 W）。
     /// </summary>
-    public float StaminaCriticalShare { get; init; } = 0.45f;
+    public float VesselWorkingShare { get; init; } = 0.45f;
 
     /// <summary>
     /// 持久の蓄え [J]（基準体格）: 試合でした筋肉の仕事の合計がこれだけになると、心肺の供給と臨界パワーが 1/e に落ちる（<see cref="Fighter.Endurance"/>。
@@ -555,8 +696,6 @@ public sealed record FighterTuning
         }
     }
 
-    /// <summary>足の裏とマットの摩擦係数（ゴム底とキャンバスで 0.8〜1）。床が体を水平に押せる力の上限 = これ × 垂直抗力。今は棒人形の見立て（Motion/Stick）だけが使う（試合の物理には響かない）。投げの枝の床からの支えのモデルと同じ値。</summary>
-    public float SoleFriction { get; init; } = 0.9f;
 
     public static FighterTuning Default { get; } = new();
 

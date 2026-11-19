@@ -41,10 +41,16 @@ public sealed class CmaTuneTests
         // 種 6: スタミナの容量 120 J（PhysicsVersion 37）の後、種 5 では打ち返しが一度も出なくなった（両方 1.3 = 体の触れ合いだけ）。
         // 打ち返さない受け手でも、踏み込んだ攻め手の顔が受け手の構えた拳に触れて小さなダメージが出ることがある（種 2・3・7 で 1.3〜1.8）ので、
         // 「0」ではなく打ち返しより桁で小さいことを確かめる。
+        // 体の運び（PhysicsVersion 45、2026-11-18）: 当たる速さが相対速度になったので、構えた受け手の拳へ攻め手が踏み込む接触
+        // （攻め手のガード・肘に 1 回 1.0〜1.4 点、押し出し 0 で腕だけの質量 0.33 kg）がきちんと数えられる。種 6 の 14 秒で
+        // 版 43 は 打ち返す受け手 120.4 点・打ち返さない受け手 0.0 点（歩の後の拳の速さで数えていたので動かない拳は 0）、
+        // いまは 打ち返す 68.9 点・打ち返さない 9.3 点（9 回）。比は 0.135（7.4 倍）なので、
+        // 「桁で小さい」の 0.05 を「打ち返さない受け手は打ち返す受け手の 5 分の 1 未満」（0.2）にした。受け手が拳を打たなければ、
+        // 点は攻め手が自分から踏み込んだ接触の分だけで、打ち返しの分は増えない。
         var withCounters = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: 6, seconds: 14f, cue: 0.04f);
         var without = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: false), seed: 6, seconds: 14f, cue: 0.04f);
         Assert.IsGreaterThan(10f, withCounters.CounterDamage, "守って打ち返す受け手は、攻め手にダメージを与える");
-        Assert.IsLessThan(0.05f * withCounters.CounterDamage, without.CounterDamage, "打ち返さない受け手は、触れ合いの分だけ（打ち返しより桁で小さい）");
+        Assert.IsLessThan(0.2f * withCounters.CounterDamage, without.CounterDamage, "打ち返さない受け手は、踏み込まれた触れ合いの分だけ（打ち返しの 5 分の 1 未満）");
     }
 
     [TestMethod]

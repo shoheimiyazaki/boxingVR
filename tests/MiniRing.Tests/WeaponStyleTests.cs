@@ -251,12 +251,26 @@ public sealed class WeaponStyleTests
         };
         using var game = new BoxingGame(seed: 3, corners: corners);
         var used = new HashSet<string>();
-        for (var i = 0; i < 40 * 60 && !game.Player.IsDead && !game.Cpu.IsDead; i++)
+        // 2026-11-18（PhysicsVersion 45）: 刀の最初の 1 振りまでの待ち（ボクサーの攻めを避けて間合いに入る立ち回り）が、版 43 の約 15 秒から約 50 秒に延びた
+        // （測った: 40 秒の間、両者とも立ったまま・間合い 0.2〜0.4 m を保ち、振り手の意識も 0.78 以上。倒れて振れなかったのではなく、振り始める時機が遅れただけ。
+        // 立ち回りの軌道が体の運びの変更（相手や自分に渡る運動量）で変わった揺らぎで、判断の部分は変えていない）。
+        // 「どの型を投げるか」を見るテストなので、最初の 1 振りを待ち（最大 100 秒）、その後 20 秒の間に出た型を数える。
+        int? firstUsed = null;
+        for (var i = 0; i < 120 * 60 && !game.Player.IsDead && !game.Cpu.IsDead; i++)
         {
             game.Step(default, 1f / 60f);
             if (((DisarmedFallback)game.PlayerControl!).Armed is SwordsmanBot bot)
             {
                 used.UnionWith(bot.Used);
+            }
+
+            if (used.Count > 0)
+            {
+                firstUsed ??= i;
+                if (i - firstUsed > 20 * 60)
+                {
+                    break;
+                }
             }
         }
 
