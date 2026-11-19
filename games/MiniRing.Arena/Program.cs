@@ -26,6 +26,7 @@ try
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
         "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
+        "punchlab" => PunchLabCommand(Options.Parse(argv[1..], "aim", "paths", "defenders", "ranges", "reach", "far", "seeds", "telegraph", "nocap", "log", "video", "slow", "width", "height", "fps")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
         "groundlab" => GroundLabCommand(Options.Parse(argv[1..], "style", "moves", "bouts", "seconds", "seed", "log", "video", "practice", "candidates", "sigma", "validate")),
         "kickbalance" => KickBalanceCommand(Options.Parse(argv[1..], "style", "kicks", "teachings", "bouts", "seconds", "seed", "confirm", "log", "video")),
@@ -904,6 +905,82 @@ static int FinishLabCommand(Options o)
         o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), SetOf(o), Log,
         o.Get("aim") is { } aim ? Enum.Parse<MiniRing.AimGoal>(aim, ignoreCase: true) : (MiniRing.AimGoal?)null,
         o.List("victim-set", []).Select(p => p.Split('=')).ToDictionary(p => p[0], p => float.Parse(p[1], CultureInfo.InvariantCulture)));
+    return 0;
+}
+
+// 拳の経路の実験: 右ストレートの拳の目標を、今の経路・打ち出しの瞬間にあごへ一度に置く・打ち抜く点へ一度に置く、で比べる（docs/BOXING.md「拳の経路」）。
+static int PunchLabCommand(Options o)
+{
+    var logPath = o.Get("log");
+    void Log(string line)
+    {
+        Console.WriteLine(line);
+        if (logPath is not null)
+        {
+            File.AppendAllText(logPath, line + "\n");
+        }
+    }
+
+    var paths = o.List("paths", ["standard", "instant", "instantthrough"]).Select(p => Enum.Parse<PunchLabPath>(p, ignoreCase: true)).ToList();
+    var defenders = o.List("defenders", ["still", "guard"]);
+    if (defenders.FirstOrDefault(d => d is not ("still" or "guard")) is { } unknown)
+    {
+        throw new ArgumentException($"--defenders は still（守らない・動かない）か guard（構えてガードする）です（{unknown}）。");
+    }
+
+    var reach = o.Float("reach", 1.05f, min: 0.3f); // 胸と胸の水平の間 [腕の長さ]。1.05 は今の右ストレートが相手（手を下げて立つ）の体に届く間合い（1.55 では届かなかった）
+    var far = o.Float("far", reach + 0.25f, min: 0.3f);
+    var ranges = o.List("ranges", ["reach", "far"]).Select(r => r switch
+    {
+        "reach" => (Name: r, Value: reach),
+        "far" => (Name: r, Value: far),
+        _ => throw new ArgumentException($"--ranges は reach か far です（{r}）。"),
+    }).ToList();
+    var nocap = o.Get("nocap") is { } n && bool.Parse(n);
+    var seeds = o.List("seeds", ["1", "2", "3", "4", "5", "6"]).Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToList();
+    var telegraph = o.Float("telegraph", MiniRing.Bots.BotCatalog.Boxer.Telegraph, min: 0f);
+    var aim = Enum.Parse<MiniRing.AimGoal>(o.Get("aim") ?? "chin", ignoreCase: true);
+    if (aim is not (MiniRing.AimGoal.Chin or MiniRing.AimGoal.Center))
+    {
+        throw new ArgumentException($"--aim は chin（あご）か center（頭の真ん中）です（{aim}）。");
+    }
+
+    var setups = new List<PunchLab.Setup>();
+    foreach (var d in defenders)
+    {
+        foreach (var r in ranges)
+        {
+            foreach (var p in paths)
+            {
+                setups.Add(new PunchLab.Setup(p, d, r.Name, r.Value, false, aim));
+            }
+
+            if (nocap)
+            {
+                setups.AddRange(paths.Where(p => p != PunchLabPath.Standard).Select(p => new PunchLab.Setup(p, d, r.Name, r.Value, true, aim)));
+            }
+        }
+    }
+
+    if (o.Get("video") is { } video)
+    {
+        // 左に標準、右に比べる経路を並べる場面: 守らない・届く（狙いへ、打ち抜く点、上限なし）、ガード・届く、守らない・半歩遠い（狙い、頭の真ん中）。
+        PunchLab.Setup S(PunchLabPath p, string d, string r, bool cap = false, MiniRing.AimGoal? at = null) => new(p, d, r, r == "reach" ? reach : far, cap, at ?? aim);
+        var scenes = new List<(PunchLab.Setup, PunchLab.Setup)>
+        {
+            (S(PunchLabPath.Standard, "still", "reach"), S(PunchLabPath.Instant, "still", "reach")),
+            (S(PunchLabPath.Standard, "still", "reach"), S(PunchLabPath.InstantThrough, "still", "reach")),
+            (S(PunchLabPath.Standard, "still", "reach"), S(PunchLabPath.Instant, "still", "reach", true)),
+            (S(PunchLabPath.Standard, "guard", "reach"), S(PunchLabPath.Instant, "guard", "reach")),
+            (S(PunchLabPath.Standard, "still", "far"), S(PunchLabPath.Instant, "still", "far")),
+            (S(PunchLabPath.Standard, "still", "reach", at: MiniRing.AimGoal.Center), S(PunchLabPath.Instant, "still", "reach", at: MiniRing.AimGoal.Center)),
+            (S(PunchLabPath.Standard, "still", "far", at: MiniRing.AimGoal.Center), S(PunchLabPath.Instant, "still", "far", at: MiniRing.AimGoal.Center)),
+        };
+        PunchLab.Video(scenes, seeds[0], telegraph, o.Float("slow", 8f, min: 1f), o.Int("width", 1280, min: 320), o.Int("height", 720, min: 240), o.Int("fps", 30, min: 5), video, Log);
+        return 0;
+    }
+
+    new PunchLab(telegraph, Log, aim).Run(setups, seeds);
     return 0;
 }
 
