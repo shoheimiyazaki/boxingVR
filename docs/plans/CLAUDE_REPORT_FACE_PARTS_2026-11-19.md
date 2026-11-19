@@ -165,8 +165,56 @@
 - 首が折れると、首の段のうち顔の層が持つ皮膚（あごに重なる所）は頭の側に残る。
 - 削れたセルを数える道具のうち、`HandleLab`・`SelfCutLab`・`SwordLibraryLab`・`SparVideo`・`SwingVideo`・`KneeLab`・`KarateLab`・`TvDirector` は 5 mm の格子だけを数える。`StrikeDrill`・`SwordSparring` は顔の層も数える（細かいセルも 1 個と数える）。
 
+## F2 追補（F3 のマージ・見た目・12 件の原因）
+
+### F3 のマージ（dc3df12）
+- `claude/face-f3`（f075dec）を合わせた。ぶつかったのは報告の文書だけで、F3 と F2 の両方の節を残した。
+
+### 顔の色
+- 顔の層のセルは `FacePalette` の色で描く（`FaceCellColors`: 組み立てた顔の材質ごとの色）。体の材質（皮膚・髪・目…）は変えない、見た目だけの近道。
+- 無精ひげ・影・そばかすは皮膚の材質で、色だけ `FacePalette` の色。鼻の穴は暗い色の皮膚にした（穴のままだと奥の鼻の骨が白く見えた）。
+- 名簿の `"face"` の肌・髪・瞳の色は、体の色にも使う（`FaceLayer.LookWith`: 顔と首の肌がそろう）。
+
+### 見た目の直し（`VoxelVolumePipeline`。描画だけで、全部のボクセルに効く）
+- **段の細い明るい線**
+  - 原因: 2.5 mm の段の上の面と、真横から見える面が、上からの光と縁の光（リム）を受けていた。
+  - 直し: 面の明るさを、周りのセル（3 × 3 × 3）が作る面の向きへ寄せた。縁の光は外に開いた面だけにした。
+- **白目が灰色**
+  - 原因: 正面の面は上からの光で 0.68 倍に暗くなる。
+  - 直し: 白目を明るい面（テクスチャの alpha 0.5）として描き、陰でも自分の色の 0.95 倍より暗くしない。
+- **確かめ**
+  - `docs/plans/face_refs/compare/f2_face_layer_views.png`: 3 人の正面・横・上・斜め。
+  - `docs/plans/face_refs/compare/f2_face_layer_roster.png`: 名簿の 18 人の正面（`FaceLayerVisualTests.Roster_Fronts`）。
+  - 自分の目で見た。線は消え、白目は白く、肌・髪・瞳・ひげの色は `roster_composed.png` と同じ色合い。
+  - 舞台の照明（上から）のため、顔の正面は `roster_composed.png` より暗く見える。
+
+### 12 件の原因と直し
+- **大元の原因: 頭の剛体の箱と慣性**
+  - 前の頭の箱は、作った箱（頭の格子の箱）のまま、削れるまで合わせ直していなかった。
+  - F2 の `AddCompanion` は、作った直後に箱を 2 つの格子の埋まった範囲の和へ合わせ直していた。これで頭の箱の中心・大きさ・慣性が変わり、立った姿勢と動きが少し変わった。
+  - 直し: `AddCompanion(refit: false)`。頭の箱と質量は作ったまま、削れたときに合わせ直す（ほかの部位と同じ）。質量は 2 つの格子の体積で分けてあるので、剛体の質量は前と同じ。
+- **これで直った 10 件**: `KickShinTests` 3 件・`KickContactTests.EveryKick`・`ElbowContactTests.EveryElbow`・`BojutsuTests.EveryForm`・`DownCallTests.AMomentaryBlackout`・`DownRecoveryTests.PelvisHeight`・`ShieldTests.TheShield`・`FootShapeTests.AKickingToe`。
+  - 期待値は変えていない。
+  - 肘の狙いの点（こめかみ）が動いたせいに見えていたが、狙いの点は前と同じく「骨の上の皮膚の点」のまま。違っていたのは頭の箱だった。
+- **`PredictionTests.PredictedInsideSlip`**: 下限を 0.4 → 0.35 にした。
+  - 原因: 組み立てた顔の、目の高さの顔の面が、前の頭より 5 mm ほど後ろにある（約 41 mm と 45〜50 mm）。届きの際の拳が顔に届く割合が、物理として下がる。
+  - 値: 5 つの種で 0.38。予測ありは 0.26 で、予測の効き（差 0.1 以上）は保たれている。
+  - PhysicsVersion 31（顔の面が 5 mm 下がった）と同じ理由。テストの注釈に書いた。
+- **`BojutsuTests.TheForwardForms`（返しの後ろの端）**: 数え方を直した。
+  - 原因: 返しの途中で、棒の真ん中（両手のすぐ外、x = −0.07〜−0.11 m）が相手の顔の層に触れるようになった。符号だけで数えていたため、これが「後ろの端の打撃」に入っていた。端の打撃は前の端の 1 打だけ。
+  - 直し: 端の打撃だけ（棒の半分の長さの外側の半分）を数える。テストの注釈に書いた。
+- **ほかに直したテスト**
+  - `FaceLayerTests` の体積の幅を 0.8〜1.7 にした。F3 の名簿の 18 人で 1.0〜1.6 倍（髪が輪郭の外へ出る Reach・広いあご）で、頭の質量は体格から決まるので変わらない。
+  - `EyeLookTests` は白目が 2 段の eyes.5 の顔で確かめる（F3 の目はほかは 1 段）。
+  - `CharacterRosterTests`: 肌の色は名簿の顔の色。坊主（hair.3）の顔で「てっぺんに髪が無い」を確かめる（F3 で、マーカスにも髪 hair.10 が付いた）。
+
+### チェックサムとテストの数（6ac3faf）
+- `CharacterSamenessTests`・`StepCostRegressionTests`（0xb18db50e86bba51c）を取り直した（手元の Release の `CharacterSamenessProbe`）。
+- **速い段**（手元）: 659 件すべて合格。
+- **全テスト**（raytrek、別の複製 `rt-face-f2`）: 1221 件のうち実行 1216、**合格 1212・失敗 4**（実行しないもの 5）。失敗は master でも落ちる 4 件だけ（`Punches_AreAimedWhenThrown`・`ABatBot_Swings…`・`Punch_CounterDamage…`・`Tonfa ScriptedStraightPunch…`）。
+
 ## 残り
 
-1. **F2 で落ちるようになった 12 件**: 頭の形が変わったあとの技の練習し直し（蹴り・肘・棒の横打ちの経路と狙い）か、許す幅の見直しが要る。土台との違いは「狙いの点が顔の層の表面へ動いた」「頭の当たりの箱が 2 つの格子の和になった」の 2 つ。どちらが効いているかは、まだ切り分けていない。
-2. **頭蓋骨の作り直し**: 5 mm の頭蓋骨を、組み立てた顔の形から作り直す（脳のセル数は保つ）。
-3. **F3 とのマージ**: `FaceMaterial.Stubble` は皮膚へ写る（`FaceLayer.MaterialOf` の既定）。`FacePalette` の色を顔の層へ写す。部品が増えても `FaceComposer` の API は同じなので、そのまま組み立つ。
+1. **頭蓋骨の作り直し**: 5 mm の頭蓋骨を、組み立てた顔の形から作り直す（脳のセル数は保つ）。
+2. **顔の層の体積**: 抜いた外側の 1.0〜1.6 倍になる。頭の質量は体格のままなので、見えている頭が大きくても重くならない（`docs/DEBT.md`「顔の層」）。
+3. **描画の近道**: 面の向きを周りへ寄せる・白目を明るく描くのは、光の当たり方の物理ではない。
