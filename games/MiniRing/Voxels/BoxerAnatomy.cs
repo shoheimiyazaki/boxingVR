@@ -78,6 +78,13 @@ public static class BoxerAnatomy
     /// <summary>手の骨（中手骨・手根骨・指の骨。見た目は骨、物性は木）。</summary>
     public const byte HandBone = 25;
 
+    /// <summary>
+    /// 動脈（大動脈と、その枝のうち CT で管として追える太さのもの。<c>tools/ct-body</c> が CT から置く。生成の体には無い）。
+    /// 壁は肉と同じ強さ・密度の柔らかい組織で、致命的ではない（出血のモデルが無いので、切れても死なない。近道: docs/DEBT.md「左右の部位の格子と CT の体」）。
+    /// 血の染みは乗せない（削れて出てきた管が赤い線のまま見えるように）。
+    /// </summary>
+    public const byte Artery = 26;
+
     /// <summary>皮膚か手の皮膚か（表の層: 擦り減り・染み・音の扱い）。</summary>
     public static bool IsSkinLike(byte material) => material is Skin or HandSkin;
 
@@ -187,6 +194,7 @@ public static class BoxerAnatomy
         new VoxelMaterial("hand skin", VoxelTissue.Flesh, WoodToughness, false, Rgb(0.87f, 0.6f, 0.42f), Rgb(0.87f, 0.6f, 0.42f), Stainable: 1f, Mechanics: WoodMechanics),
         new VoxelMaterial("hand muscle", VoxelTissue.Flesh, WoodToughness, false, Rgb(0.81f, 0.05f, 0.07f), Rgb(0.81f, 0.05f, 0.07f), Stainable: 0.3f, Mechanics: WoodMechanics),
         new VoxelMaterial("hand bone", VoxelTissue.Bone, WoodToughness, false, Rgb(1f, 0.97f, 0.88f), Rgb(1f, 0.97f, 0.88f), Stainable: 0f, Mechanics: WoodMechanics),
+        new VoxelMaterial("artery", VoxelTissue.Flesh, 1f, false, Rgb(1f, 0f, 0.25f), Rgb(1f, 0f, 0.25f), Stainable: 0f, Mechanics: MuscleMechanics),
     ]);
 
     /// <summary>腰のゴム: 骨盤の外形の上からこの高さ（正規化 Y）より上。</summary>
