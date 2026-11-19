@@ -67,6 +67,26 @@ public sealed partial class BoxingGame
         {
             _selfCooldown[weapon] = MathF.Max(0f, _selfCooldown[weapon] - dt);
         }
+
+        if (_spawnGrace.Count > 0)
+        {
+            foreach (var weapon in _spawnGrace.Keys.ToList())
+            {
+                var left = _spawnGrace[weapon] - dt;
+                if (left > 0f)
+                {
+                    _spawnGrace[weapon] = left;
+                    continue;
+                }
+
+                // 構えに追いついた: まだ体に重なっている（近い）組だけを、一度離れるまで当てない。
+                _spawnGrace.Remove(weapon);
+                if (HolderOf(weapon) is { } holder)
+                {
+                    _ = MarkSpawnOverlaps(weapon, holder);
+                }
+            }
+        }
     }
 
     /// <summary>武器を握る手（利き手）。</summary>
@@ -275,7 +295,89 @@ public sealed partial class BoxingGame
 
         _wielders[weapon] = fighter;
         _wieldHand[weapon] = WeaponHand;
+        if (MarkSpawnOverlaps(weapon, fighter) > 0)
+        {
+            // 体に重ねて置いた武器だけ: 構えへ追いつくまで本人に当てない（重ならずに置いた片手の棍棒・剣は今まで通り）。組は時間が来たら数え直す。
+            _spawnOverlaps.RemoveWhere(pair => pair.Weapon == weapon);
+            _spawnGrace[weapon] = _tuning.SpawnWeaponSettleSeconds;
+        }
+
         return weapon;
+    }
+
+    /// <summary>
+    /// 生成した武器の、握った本人の体に当たらない残りの時間 [s]（<see cref="FighterTuning.SpawnWeaponSettleSeconds"/> から数える）。
+    /// 武器は生成で T 字の腕の先に前腕の向きで置かれ（両手で握る六尺棒は両手の握りの間が胸・首・上腕を横切る）、腕が構えへ下りる間に
+    /// 刃・棒が自分の胸を掃く。この重なりと掃きは生成の書き込みが作ったもので、近づいて打った打撃ではない。最初の歩で自分の胸と頭を削り、
+    /// 首を折って開始 0 秒で死ぬことがあった（2026-11-20）。時間が来たら、まだ重なっている組だけを <see cref="_spawnOverlaps"/> へ移す。
+    /// </summary>
+    private readonly Dictionary<Weapon, float> _spawnGrace = [];
+
+    /// <summary>
+    /// 構えに追いついた時点で、まだ握った本人の部位に重なっている（近い）（武器 × 部位の格子）の組。一度離れるまで当たらない（<see cref="SpawnOverlapping"/>）。
+    /// 離れた後は今まで通り自分の体にも当たる。
+    /// </summary>
+    private readonly HashSet<(Weapon Weapon, VoxelBody Part)> _spawnOverlaps = [];
+
+    /// <summary>生成の免除がまだ残っている数（構えへ移る途中の武器 ＋ まだ離れていない組。テスト用: 構えに入って離れれば 0 になり、自分の体にも当たるようになる）。</summary>
+    internal int SpawnOverlapCount => _spawnGrace.Count + _spawnOverlaps.Count;
+
+    /// <summary>生成した武器 <paramref name="weapon"/> と、握った本人 <paramref name="holder"/> の部位のうち、格子を囲む箱が重なっている組を覚える。覚えた組の数を返す。</summary>
+    private int MarkSpawnOverlaps(Weapon weapon, Fighter holder)
+    {
+        var marked = 0;
+        var parts = new List<VoxelPart>();
+        holder.Voxels?.AddContactParts(parts);
+        foreach (var part in parts)
+        {
+            if (!IsGripping(holder, part.Body.BodyId) && GridBoxesOverlap(weapon, part.Body) && _spawnOverlaps.Add((weapon, part.Body)))
+            {
+                marked++;
+            }
+        }
+
+        return marked;
+    }
+
+    /// <summary>
+    /// 武器 <paramref name="weapon"/> が、生成で重ねて置かれた部位 <paramref name="part"/> にまだ重なっているか。離れたら組を忘れる
+    /// （離れた歩も当てない: 接触は歩の前から後へ掃くので、歩の前の重なった姿勢から掃くと重なりを打撃に数える。次の歩から当たる）。
+    /// </summary>
+    private bool SpawnOverlapping(Weapon weapon, VoxelBody part)
+    {
+        if (!_spawnOverlaps.Contains((weapon, part)))
+        {
+            return false;
+        }
+
+        if (!GridBoxesOverlap(weapon, part))
+        {
+            _spawnOverlaps.Remove((weapon, part));
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 武器のどれかの格子を囲む箱と、部位の格子を囲む箱が、今の姿勢で重なっているか、<see cref="FighterTuning.SpawnWeaponClearance"/> より近いか
+    /// （部位の箱をその分だけ広げて <see cref="OrientedBox"/> で調べる）。
+    /// </summary>
+    private bool GridBoxesOverlap(Weapon weapon, VoxelBody part)
+    {
+        var p = _world.GetState(part.BodyId);
+        var partCenter = p.Position + Vector3.Transform(part.GridCenterLocal, p.Orientation);
+        var partHalf = part.Grid.HalfExtents + new Vector3(_tuning.SpawnWeaponClearance);
+        foreach (var grid in weapon.Grids)
+        {
+            var w = _world.GetState(grid.BodyId);
+            var gridCenter = w.Position + Vector3.Transform(grid.GridCenterLocal, w.Orientation);
+            if (OrientedBox.Overlaps(gridCenter, w.Orientation, grid.Grid.HalfExtents, partCenter, p.Orientation, partHalf))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -958,6 +1060,11 @@ public sealed partial class BoxingGame
                 if ((holds && IsGripping(fighter, part.Body.BodyId)) || deadHand?.Hand == part.Body.BodyId || (!includeHolder && touched.Contains(part)))
                 {
                     continue; // 握りはいつも手の剛体に触れている
+                }
+
+                if (holds && (_spawnGrace.ContainsKey(weapon) || SpawnOverlapping(weapon, part.Body)))
+                {
+                    continue; // 生成から構えへ移る間と、そのとき重なっていた所は、一度離れるまで当たらない
                 }
 
                 if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore))
