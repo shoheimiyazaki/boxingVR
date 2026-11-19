@@ -23,7 +23,7 @@ namespace MiniRing.Tests;
 /// PhysicsVersion 49・LogicVersion 53 で全部を取り直した（2026-11-18: ブランチ claude/rush-physics の体の運び（47）・claude/spacing-control-features の間の層（52）・claude/vfc の再生と骨折の治り方（47・48）を合わせた。raytrek の CharacterSamenessProbe）。
 /// PhysicsVersion 47 で全部を取り直した（2026-11-18: ブランチ claude/rush-physics の体の運び（打撃の当たる速さを相対速度に・体の質量は手足の押し出しと体自身の動きの分だけ・脳しんとうの係数 100 倍）を master と合わせた。docs/arena/rush_physics.md）。
 /// PhysicsVersion 57 で全部を取り直した（2026-11-19、claude/face-f2: 頭の剛体に 2.5 mm の顔の層を重ね、5 mm の頭は頭蓋骨・脳・首の中だけに。頭の当たりの形・質量・削れ方が変わるので全ての組が変わる。Expected ← NOPLAN-LEGACY、ExpectedWeapons ← LEGACY、ExpectedAdopted ← SAME、ExpectedGamePlan ← LEGACY。手元の CharacterSamenessProbe（Release。claude/face-f3 の名簿の顔を合わせ、頭の箱を作ったままにした後）。
-/// PhysicsVersion 61 で取り直した（2026-11-20、claude/neck-muscle: 腕・脚・首の梁の曲げを筋肉・皮膚が紐として先に受ける）。変わったのは w-katana-katana-referee（刀で腕・首の骨が折れる所が変わる）の LEGACY・SAME だけで、ほかの組はビット単位で同じ（その試合では梁が骨折の手前まで曲がらない）。tower32 の CharacterSamenessProbe。
+/// PhysicsVersion 62 で取り直した（2026-11-20、claude/neck-muscle の 61（梁の曲げを筋肉・皮膚が紐として先に受ける）・鈍い面の押しと摩擦（PressedForce）を、master の 60 と合わせた）。値の変わった組だけ書き換えた（katar-gauntlet-referee・single-karate-vs-katana・w-longsword-club-referee・w-longsword-longsword-noref）。ほかはビット単位で同じ。tower32 の CharacterSamenessProbe。
 /// 名簿・ボット・物理の版を意図して変えたら、Probe で取り直して値を差し替える（古い値のまま黙って合わせない）。
 /// </summary>
 [TestClass]
@@ -58,7 +58,7 @@ public sealed class CharacterSamenessTests
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedWeapons = new()
     {
         ["w-katana-katana-referee"] = (0x06C73C8B44455BBC, 0xBC77817B56947419),
-        ["w-longsword-longsword-noref"] = (0x7E2F6896A2FB961A, 0x91814460B0BB3082),
+        ["w-longsword-longsword-noref"] = (0x57AD00DE9837C935, 0xD66FC6B1D97AE31C),
         ["w-katana-longsword-referee"] = (0x7B5538A5179F7C6C, 0x8B00475519EE49E5),
         ["w-club-katana-noref"] = (0x31B370C785F0108F, 0x6B19A6DB20BCE087),
         ["w-longsword-club-referee"] = (0xC8A28C6E025A4DC6, 0x96B6B6A8E78549C3),
@@ -95,12 +95,12 @@ public sealed class CharacterSamenessTests
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedAdopted = new()
     {
         ["katana-longsword-noref"] = (0x16B10431CB04CDE2, 0xFEBF7EE4FB92C7B4),
-        ["single-karate-vs-katana"] = (0xB35E67692CC2E4A2, 0x919DA71D73DB1931),
+        ["single-karate-vs-katana"] = (0xB35E67692CC2E4A2, 0x119E2F38BA2DB41B),
         ["w-katana-katana-referee"] = (0x5B4D12B4FC468EE1, 0x809EE75AAFD1F0A1),
-        ["w-longsword-longsword-noref"] = (0xC652B7FCF953C43D, 0xBEC2F47D2136A239),
+        ["w-longsword-longsword-noref"] = (0x70067605EECBD85F, 0xD8248DF550B4827A),
         ["w-katana-longsword-referee"] = (0xDE4128A4E700B6A1, 0xC155C46D3257E7D7),
         ["w-club-katana-noref"] = (0x8877D417B1BA288B, 0xB5124E30DD304DE0),
-        ["w-longsword-club-referee"] = (0x11BF2B260D3E91DC, 0x5CC9E77EA61B73A6),
+        ["w-longsword-club-referee"] = (0xB952EB856C756C99, 0x49A983A3B15A83F2),
     };
 
     /// <summary>
@@ -153,7 +153,7 @@ public sealed class CharacterSamenessTests
         ["glove-glove-referee"] = (0x42DBA7AE700066FF, 0x7A41039EAA4F380F),
         ["glove-glove-noref"] = (0x17A6F5F7C08A15AF, 0x0728999543C153A5),
         ["karate-swarmer-noref"] = (0xCFE09AFFC5E3DC73, 0x77DC59A90D008C25),
-        ["katar-gauntlet-referee"] = (0xD3EE11C26989D2A9, 0x210D60EC8E4A5B93),
+        ["katar-gauntlet-referee"] = (0xD3EE11C26989D2A9, 0x774422C8FDF0F797),
     };
 
     [TestMethod]
