@@ -78,7 +78,12 @@
 - 全部の段の件数: `all` のフィルタは `slow` の印を見ないので、印を付けても件数は変わらない（作りで保証される）。速い段 403 件 ＋ slow の 59 クラス。
 - 2026-11-18（master の取り込み後）: 速い段が **552 件・10 分**に戻っていた。master で増えたテストのクラスに印が無かった（`KickShinTests` 435 秒・`BatFormsTests` 45 秒・`VfcCoreTests` 36 秒・`BreakRoutineTests` 31 秒・`ElbowContactTests` 8 秒・`ContinuousDefenseTests` 5 秒）。6 クラスに印を足した。**同じことが起きる**: 印は人（エージェント）が付けるので、付け忘れが速い段を遅くする。対策を 2 つ入れた: `tools/trx-summary.py` が「印が無いのに 3 秒以上かかったクラス」を名前で出す、`run.cmd test` が trx を `TestResults\local\` に書いてこの要約を出す（hook のスクリプトもテストを触ったときに思い出させる）。
 - 2026-11-18: 付け直した後に `run.cmd test` で回した: **502 件・全部合格・テストの実行 36 秒**、要約が出る。3 秒の境目の近くで揺れるクラス（`FaceCamTests`・`BodyToFistTests` 3 秒前後）が毎回警告に出て雑音になるので、警告は 5 秒以上にした（印の目安は 3 秒のまま）。6 秒の `BreakCameraTests` には印を付けた。
-- 残したこと: (1) raytrek が空いているときに `remote-test.sh all` を 1 回通し、全部の件数と時間をここに書く。(2) 並列（`--parallel N`、MSTest のクラス単位）は試していない。可変の static を書き換えるテスト（段 3）を直してから測る。1 時間の全テストが数分の 1 になる見込みで、段 3 の後の最初の仕事にする。
+- 残したこと（下の 2026-11-19 で済んだ）: (1) raytrek が空いているときに `remote-test.sh all` を 1 回通し、全部の件数と時間をここに書く。(2) 並列（`--parallel N`、MSTest のクラス単位）は試していない。可変の static を書き換えるテスト（段 3）を直してから測る。1 時間の全テストが数分の 1 になる見込みで、段 3 の後の最初の仕事にする。
+- 2026-11-19: raytrek は別の作業で使うので、テストは **tower32**（2 × Xeon E5-2697A v4・論理 32・64 GB）へ移した。`remote-test.sh` に `--host` を足し（既定 tower32）、相手の `%USERPROFILE%` から置き場所を引く（raytrek は smiya・tower32 は Miyazaki）。tower32 では同時に別の作業（蹴りの CMA-ES 2 本・別セッションの全テスト 1 本、約 8 コア）が動いていた。
+  - 速い段・直列: **656 件・全部合格・1.5 分**（テストの合計 1.2 分。残りはビルド）。速い段は並列にしても縮む所がほとんど無い。
+  - 全部・**12 並び**（`d4ed4c1` ＋未コミットの差分）: **1,219 件（実行 1,209・合格 1,205・失敗 4・実行せず 10）・4.6 分**、テストの合計 29.1 分。直列の 63 分（raytrek、11-17、906 件）から 1/13。終わりの時間はいちばん遅いクラス `CharacterSamenessTests`（270 秒）で決まるので、並びを増やしても縮まない（縮めるにはこのクラスを分ける）。
+  - 失敗した 4 件（`BatFormsTests.ABatBot_SwingsAtAStandingOpponent_AndHitsWithTheWood`・`EvasionBasicsTests.Punches_AreAimedWhenThrown_SoAnEarlySlipBeatsThem`・`CmaTuneTests.Punch_CounterDamage_IsPositiveWithCountersAndZeroWithout`・`TonfaTests.ScriptedStraightPunch_LandsWithTheFrontOfTheStick_NotTheBackOfTheFist`）は、4 クラスを**直列**で回しても同じに落ちた。並列のせいではなく、`d4ed4c1`（`claude/face-f2` のマージ: 手の層・顔の層）の時点で落ちている（未コミットの差分にコードは無い）。
+  - **採った**: `all` の既定を「tower32・12 並び」にした（`--parallel 0` で直列）。11-18 の「この PC で 4 並びが終わらない」は、メモリ不足だったと見てよい（64 GB の tower32 では詰まらなかった）。
 
 ## 段 3 — 試合の設定の可変 static を引数に
 
