@@ -40,9 +40,18 @@ public sealed class FaceLayerTests
             var (inner, face) = FaceLayer.Split(full, c.Face);
             Assert.AreEqual(full.Remaining(BoxerAnatomy.Brain), inner.Remaining(BoxerAnatomy.Brain), $"{id}: the brain is not moved");
             Assert.AreEqual(full.Remaining(BoxerAnatomy.Cord), inner.Remaining(BoxerAnatomy.Cord), $"{id}: nor the cord");
-            foreach (var outer in new[] { BoxerAnatomy.Skin, BoxerAnatomy.Hair, BoxerAnatomy.Eye, BoxerAnatomy.Pupil, BoxerAnatomy.Lip })
+            foreach (var outer in new[] { BoxerAnatomy.Hair, BoxerAnatomy.Eye, BoxerAnatomy.Pupil, BoxerAnatomy.Lip })
             {
                 Assert.AreEqual(0, inner.Remaining(outer), $"{id}: material {outer} lies outside the skull, only in the face layer");
+            }
+
+            // 5 mm の格子の皮膚は首の段（顔の外の首の皮膚）だけ。
+            for (var i = 0; i < inner.CellCount; i++)
+            {
+                if (inner.AtIndex(i) == BoxerAnatomy.Skin)
+                {
+                    Assert.IsLessThanOrEqualTo(BoxerSpine.NeckSlices.High, inner.Coordinates(i).Y, $"{id}: skin above the neck is in the face layer");
+                }
             }
 
             Assert.AreEqual(FaceLayer.Subdivision * inner.Dimensions.X, face.Dimensions.X);

@@ -50,8 +50,9 @@ public sealed class VoxelBody
     private VoxelBody? _owner;
 
     /// <summary>The body must have been built as a box that matches the grid: <paramref name="grid"/>'s half extents,
-    /// centred at <paramref name="gridCenterLocal"/>.</summary>
-    public VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, Vector3 gridCenterLocal = default, bool materialMass = false)
+    /// centred at <paramref name="gridCenterLocal"/>. <paramref name="massPerCell"/> (null: the body's mass shared by the grid's cells)
+    /// is the mass of one cell, for a body whose mass is shared with grids laid over it later (<see cref="AddCompanion"/>).</summary>
+    public VoxelBody(PhysicsWorld world, int bodyId, VoxelGrid grid, Vector3 gridCenterLocal = default, bool materialMass = false, float? massPerCell = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(grid);
@@ -61,7 +62,7 @@ public sealed class VoxelBody
         GridCenterLocal = gridCenterLocal;
         var cells = Math.Max(1, grid.FilledCount);
         var mass = world.GetMass(bodyId);
-        _massPerCell = mass / cells;
+        _massPerCell = massPerCell ?? (mass / cells);
         _applied = (gridCenterLocal, grid.HalfExtents, mass);
         _materialMass = materialMass;
         if (materialMass)

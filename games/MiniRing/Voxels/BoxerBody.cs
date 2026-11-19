@@ -559,16 +559,21 @@ public sealed class BoxerBody
                 _ => ((int?)null, false),
             };
             // 腕・脚は骨で曲げを受ける梁（肉は質量だけ）: 打撃の曲げが骨の強さを超えた所で折れる（VoxelContact が場所を返す）。頭は首の段だけで折れる。
-            var body = new VoxelBody(world, id, grid, materialMass: false) { BeamAxis = axis, BeamSlices = kind == BodyPartKind.Head ? NeckBoneSlices(grid) : null };
+            VoxelGrid? faceGrid = null;
+            float? massPerCell = null;
             if (kind == BodyPartKind.Head)
             {
-                // 頭: 5 mm の格子は頭蓋骨・脳・首の中だけ。その外は顔の層（2.5 mm）が持つ（FaceLayer）。1 セルの質量は作った格子のまま
-                // （体積に比例: 剛体の質量 ÷ 作ったセルの数）で、顔の層の 1 セルはその 1/8。剛体の質量と当たりの箱は 2 つの格子の和になる（AddCompanion）。
-                var massPerCell = world.GetMass(id) / Math.Max(1, grid.FilledCount);
+                // 頭: 5 mm の格子は頭蓋骨・脳・首の中だけ。その外は顔の層（2.5 mm）が持つ（FaceLayer）。頭の質量（体格の寸法から）を 2 つの格子の体積で分ける
+                // （ほかの部位と同じく、質量は体積に比例: 顔の層の 1 セルは 5 mm のセルの 1/8）。剛体の質量と当たりの箱は 2 つの格子の和になる（AddCompanion）。
                 var spec = face ?? (look is not null ? FaceSpec.FromLook(look, "face") : FaceSpec.For("standard"));
-                (grid, var faceGrid) = FaceLayer.Split(grid, spec);
-                body.ReplaceGrid(grid);
-                var faceBody = body.AddCompanion(faceGrid, body.GridCenterLocal, massPerCell * FaceLayer.CellVolumeRatio);
+                (grid, faceGrid) = FaceLayer.Split(grid, spec);
+                massPerCell = world.GetMass(id) / MathF.Max(1f, grid.FilledCount + (faceGrid.FilledCount * FaceLayer.CellVolumeRatio));
+            }
+
+            var body = new VoxelBody(world, id, grid, materialMass: false, massPerCell: massPerCell) { BeamAxis = axis, BeamSlices = kind == BodyPartKind.Head ? NeckBoneSlices(grid) : null };
+            if (faceGrid is not null)
+            {
+                var faceBody = body.AddCompanion(faceGrid, body.GridCenterLocal, massPerCell!.Value * FaceLayer.CellVolumeRatio);
                 faceBody.PreferField = true; // 顔はいつも打たれる側（粗いグローブ・すね・棍棒に対しても、面の下が潰れるのは顔）
                 _face = new VoxelPart(kind, faceBody, VoxelVolume.For(faceGrid), null, false);
                 _originals[_face] = Original.Of(faceGrid);

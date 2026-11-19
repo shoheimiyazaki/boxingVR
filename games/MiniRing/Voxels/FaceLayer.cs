@@ -146,19 +146,16 @@ public static class FaceLayer
             return true;
         }
 
-        if (material == BoxerAnatomy.Muscle)
+        // 首の段: 首は顔ではない。組み立てた顔（あご・ひげ・唇）と重ならない所は、皮膚・筋肉・頸椎とも 5 mm の格子に残す
+        // （首が折れたとき、頭をつなぐ肉の橋は 5 mm の格子の肉で数える: BoxerBody.BreakAt）。
+        if (y <= BoxerSpine.NeckSlices.High)
         {
-            return y <= BoxerSpine.NeckSlices.High; // 首の中の筋肉（頸椎を包む）。顔の筋肉は顔の層の肉になる
+            return material is BoxerAnatomy.Bone or BoxerAnatomy.Muscle || (material == BoxerAnatomy.Skin && Covered(composed, x, y, z) * 2 <= Subdivision * Subdivision * Subdivision);
         }
 
         if (material != BoxerAnatomy.Bone)
         {
-            return false;
-        }
-
-        if (y <= BoxerSpine.NeckSlices.High)
-        {
-            return true; // 頸椎
+            return false; // 頭の皮膚・顔の筋肉・目・髪・唇は顔の層へ
         }
 
         var outside = 0;
@@ -180,6 +177,24 @@ public static class FaceLayer
         }
 
         return FacesBrain(head, x, y, z) || outside * 2 <= Subdivision * Subdivision * Subdivision; // 脳を包む殻は顔の外へ出ても残す（皮膚が包む）
+    }
+
+    /// <summary>5 mm のセルの中の、組み立てた顔の埋まった細かいセルの数（0..8）。</summary>
+    private static int Covered(FaceVolume composed, int x, int y, int z)
+    {
+        var count = 0;
+        for (var dz = 0; dz < Subdivision; dz++)
+        {
+            for (var dy = 0; dy < Subdivision; dy++)
+            {
+                for (var dx = 0; dx < Subdivision; dx++)
+                {
+                    count += composed.At((x * Subdivision) + dx, (y * Subdivision) + dy, (z * Subdivision) + dz) is FaceMaterial.Empty or FaceMaterial.Nostril ? 0 : 1;
+                }
+            }
+        }
+
+        return count;
     }
 
     private static bool FacesBrain(VoxelGrid head, int x, int y, int z)

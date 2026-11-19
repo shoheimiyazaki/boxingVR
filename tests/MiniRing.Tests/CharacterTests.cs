@@ -163,7 +163,7 @@ public sealed class CharacterTests
     private static Aigis.Foundation.Voxels.VoxelGrid BoxingGameHead(string name)
     {
         using var game = new BoxingGame(seed: 1, corners: BotCatalog.Corners(name));
-        return game.Cpu.Voxels!.PartOf(game.Cpu.Parts.Head)!.Body.Grid;
+        return game.Cpu.Voxels!.Face!.Body.Grid; // 顔は顔の層（FaceLayer）。5 mm の頭は頭蓋骨・脳だけで、誰でも同じ
     }
 
     [TestMethod]
