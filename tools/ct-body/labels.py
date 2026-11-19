@@ -22,7 +22,7 @@ CLS_LUNG = 8
 CLS_LIVER = 9
 CLS_GUT = 10      # digestive tract + other abdominal/pelvic organs (no own game material yet)
 CLS_VESSEL = 11   # great veins: no game material yet, treated as soft tissue
-CLS_AIRWAY = 12   # trachea: no game material, soft tissue
+CLS_AIRWAY = 12   # trachea and main bronchi: part of the lung (game material lung, user's request 2026-11-19)
 CLS_ARTERY = 13   # aorta and its branches (labeled, plus contrast-filled continuations traced in build.py)
 COUNT = 14
 
@@ -35,7 +35,7 @@ ARTERY = 26
 
 GAME_MATERIAL = {
     CLS_EMPTY: 0, CLS_SOFT: MUSCLE, CLS_FAT: MUSCLE, CLS_MUSCLE: MUSCLE, CLS_BONE: BONE, CLS_BRAIN: BRAIN, CLS_CORD: CORD,
-    CLS_HEART: HEART, CLS_LUNG: LUNG, CLS_LIVER: LIVER, CLS_GUT: GUT, CLS_VESSEL: MUSCLE, CLS_AIRWAY: MUSCLE, CLS_ARTERY: ARTERY,
+    CLS_HEART: HEART, CLS_LUNG: LUNG, CLS_LIVER: LIVER, CLS_GUT: GUT, CLS_VESSEL: MUSCLE, CLS_AIRWAY: LUNG, CLS_ARTERY: ARTERY,
 }
 
 # HU windows for voxels no mask covers (inside the body outline only).
