@@ -49,7 +49,9 @@ case "$PARALLEL" in *[!0-9]*) echo "--parallel takes a number" >&2; exit 2 ;; es
 # The remote user differs per machine (smiya on raytrek, Miyazaki on tower32): ask for the profile folder.
 REMOTE_HOME=$(ssh "$HOST" "echo %USERPROFILE%" | tr -d '\r')
 case "$REMOTE_HOME" in [A-Za-z]:\\*) ;; *) echo "could not read the remote profile folder on $HOST: '$REMOTE_HOME'" >&2; exit 2 ;; esac
-REMOTE="$REMOTE_HOME\\repos"
+# One remote folder per local working tree, so sessions in different worktrees can test at the same time.
+TREE=$(basename "$(git rev-parse --show-toplevel)" | tr -c 'A-Za-z0-9_.\n-' '_')
+REMOTE="$REMOTE_HOME\\repos\\rt-$TREE"
 REMOTE_FWD=$(printf '%s' "$REMOTE" | tr '\\' '/')
 
 ROOT=$(git rev-parse --show-toplevel)
