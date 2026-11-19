@@ -681,7 +681,8 @@ public sealed class BoxerBody
             }
         }
 
-        foreach (var part in _layers)
+        // 部位（頭なら頭蓋骨・脳）を先に、重ねた層（顔の層）をその後に治す: 脳・臓器の働きが先に戻る（作った頭が中心から外へ治したのと同じ順）。
+        foreach (var part in _face is null ? _parts : _parts.Append(_face))
         {
             if (restored >= budget || severed.Contains(part.Body.BodyId) || !_originals.TryGetValue(part, out var original)
                 || _healedAt.TryGetValue(part, out var healed) && healed == part.Body.Grid.Version)

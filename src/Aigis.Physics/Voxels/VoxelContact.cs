@@ -200,8 +200,9 @@ public static class VoxelContact
         // A limb is bent by the whole blow, the mass behind it included (the arm behind a glove bends the forearm it lands on),
         // up to what the face could pass on (the same force that presses beneath a face that held).
         var (blowForce, blowEnergy) = (MathF.Max(h.Force, h.BlowForce), MathF.Max(h.Energy, h.BlowEnergy));
-        var bentProbe = blowForce > 0f && probe.BeamAxis is { } probeAxis ? Bend(probe, probeAxis, h.Point, -h.Direction, blowForce, blowEnergy) : null;
-        var bentField = blowForce > 0f && field.BeamAxis is { } fieldAxis ? Bend(field, fieldAxis, h.Point, h.Direction, blowForce, blowEnergy) : null;
+        // A layer laid over a beam (a face over the skull and neck: a companion grid) passes the blow on to the beam it rides on.
+        var bentProbe = blowForce > 0f && BeamOf(probe) is { } probeBeam ? Bend(probeBeam, probeBeam.BeamAxis!.Value, h.Point, -h.Direction, blowForce, blowEnergy) : null;
+        var bentField = blowForce > 0f && BeamOf(field) is { } fieldBeam ? Bend(fieldBeam, fieldBeam.BeamAxis!.Value, h.Point, h.Direction, blowForce, blowEnergy) : null;
         StepProfile.End(StepProfile.Slot.Bend, bendStart);
         // The sweep's normal points out of the field toward the probe; the result's normal points out of B toward A.
         var normal = aFiner ? h.Normal : -h.Normal;
@@ -231,6 +232,9 @@ public static class VoxelContact
         var force = stiffness is { } k ? MathF.Min(contactForce, MathF.Sqrt(2f * energy * k)) : contactForce;
         return VoxelBending.FindBreak(grid, localPoint, localDirection * force, axis, loadBearingOnly: true, body.BeamSlices);
     }
+
+    /// <summary>The beam a blow on <paramref name="body"/> bends: the body itself if it is one, else the grid that owns its rigid body (a companion layer's owner), if that is one.</summary>
+    private static VoxelBody? BeamOf(VoxelBody body) => body.BeamAxis is not null ? body : body.Owner is { BeamAxis: not null } owner ? owner : null;
 
     private static float MinCell(VoxelGrid grid) => MathF.Min(grid.CellSize.X, MathF.Min(grid.CellSize.Y, grid.CellSize.Z));
 

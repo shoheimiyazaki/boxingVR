@@ -56,7 +56,7 @@ public sealed class TargetMap(Fighter target)
         => new(Enum.GetValues<AimGoal>().ToDictionary(g => g, g => Point(g, from) is { } p
             ? (Vector3?)(seenHead + (p - actualHead) * clarity) : null),
             new VisionState(1f - (1f - Vision.Left) * clarity, 1f - (1f - Vision.Right) * clarity));
-    private int _brainVersion = -1;
+    private (int Head, int Face) _brainVersion = (-1, -1);
     private Vector3? _brainLocal;
 
     /// <summary>この狙いが今使えるか（露出した脳は露出しているときだけ、腕は付いているときだけ）。</summary>
@@ -164,7 +164,7 @@ public sealed class TargetMap(Fighter target)
 
         var grid = part.Body.Grid;
         var face = target.Voxels.Face?.Body.Grid;
-        var version = HashCode.Combine(grid.Version, face?.Version ?? 0);
+        var version = (grid.Version, face?.Version ?? 0);
         if (version == _brainVersion)
         {
             return _brainLocal;

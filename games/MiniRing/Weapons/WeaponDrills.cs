@@ -193,7 +193,7 @@ public static class WeaponDrills
         var weaponsBefore = game.Weapons.Count;
         var victim = game.Cpu;
         bool OnVictim(Aigis.Physics.Voxels.VoxelBody body) =>
-            victim.Voxels is { } v && (v.Parts.Any(p => p.Body == body) || v.Fragments.Any(p => p.Body == body));
+            victim.Voxels is { } v && (v.Layers.Any(p => p.Body == body) || v.Fragments.Any(p => p.Body == body));
         for (var f = 0; f < frames; f++)
         {
             game.Step(default, dt);

@@ -87,7 +87,7 @@ public static class BoxingRenderer
     {
         // ボクセルの体は影の計算に入らないので、部位と切り落とされた破片ごとに、残っているボクセルを囲む見えない箱で影だけ落とす
         // （キャンバスに立つ人の影。切れた腕の付け根は短い影、床に落ちた腕にも影）。
-        foreach (var part in voxels.Parts.Concat(voxels.Fragments))
+        foreach (var part in voxels.Layers.Concat(voxels.Fragments))
         {
             if (ShadowBox(part.Body) is { } model)
             {
