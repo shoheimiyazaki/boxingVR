@@ -57,3 +57,21 @@ def parse_base(path):
             continue
         i += 1
     return views
+
+
+def parse_d(path):
+    """parts2/parts_d.txt -> {name: {view: 'FRONT'|'SIDE'|'TOP', w, h, rows}}。形式: `[name] 説明 | FRONT 8x5 | anchor ...` の次の行から空行まで。"""
+    result = {}
+    cur = None
+    for ln in open(path, encoding="utf-8").read().split("\n"):
+        m = re.match(r"^\[(\w+)\]\s*(.*?)\s*\|\s*(FRONT|SIDE|TOP) (\d+)x(\d+)", ln)
+        if m:
+            cur = {"desc": m.group(2), "view": m.group(3), "w": int(m.group(4)), "h": int(m.group(5)), "rows": []}
+            result[m.group(1)] = cur
+        elif cur is not None and ln.strip():
+            cur["rows"].append(ln.strip())
+        elif cur is not None and cur["rows"]:
+            if len(cur["rows"]) != cur["h"] or any(len(r) != cur["w"] for r in cur["rows"]):
+                raise ValueError(f"grid size mismatch in {path}: {cur}")
+            cur = None
+    return result

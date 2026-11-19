@@ -20,6 +20,9 @@ public enum FaceMaterial : byte
 
     /// <summary>そばかす（皮膚の上の小さな点）。</summary>
     Freckle,
+
+    /// <summary>無精ひげ（ひげの範囲の皮膚が、髪の色へ少し寄った色。散らばった髪のセルではなく、一様な色）。</summary>
+    Stubble,
 }
 
 /// <summary>
@@ -71,8 +74,11 @@ public sealed class FaceRaster
 /// <summary>部品 1 つ: 正面・横・上の格子と、留める点（正面の格子の座標。耳だけ横の格子の座標。目・眉・口は材質の重心、鼻は鼻筋の上の端、耳は横の格子の重心）。</summary>
 public sealed class FacePart
 {
-    public FacePart(string id, string name, (float X, float Y) anchor, FaceRaster front, FaceRaster? side, FaceRaster? top)
+    public FacePart(string id, string name, (float X, float Y) anchor, FaceRaster front, FaceRaster? side, FaceRaster? top, float reach = 0f, float frizz = 0f, float density = 1f)
     {
+        Density = density;
+        Reach = reach;
+        Frizz = frizz;
         Id = id;
         Name = name;
         Anchor = anchor;
@@ -84,6 +90,15 @@ public sealed class FacePart
     public string Id { get; }
 
     public string Name { get; }
+
+    /// <summary>髪だけ: 頭の輪郭の外へ髪を足してよいセル数（参考図のセル。普通の髪は 1〜2、アフロ・ポニーテール・長髪のように量のある髪だけ大きい）。</summary>
+    public float Reach { get; }
+
+    /// <summary>ひげだけ: 生えている密度 0..1（1 = 詰まったひげ、小さいほど無精ひげのようにまばら。座標のハッシュで間引く）。</summary>
+    public float Density { get; }
+
+    /// <summary>髪だけ: 髪質のばらつき 0..1（0 = まっすぐな髪、1 = 縮れた髪）。頭の輪郭の外へ、座標のハッシュでこの割合の毛先を足す（髪質の違いが輪郭のざらつきになる）。</summary>
+    public float Frizz { get; }
 
     public (float X, float Y) Anchor { get; }
 
@@ -97,7 +112,8 @@ public sealed class FacePart
 /// <summary>基準の顔の目印（参考図の格子の座標。右・下がプラス）。</summary>
 public sealed record FaceLayout(
     (float X, float Y) EyeLeftImage, (float X, float Y) EyeRightImage, (float X, float Y) BrowLeftImage, (float X, float Y) BrowRightImage,
-    (float X, float Y) Mouth, (float X, float Y) EarSide, float NoseTopRow, int NoseRowFrom, int NoseRowTo, int ProfileCap, int NoseSurface);
+    (float X, float Y) Mouth, (float X, float Y) EarSide, float NoseTopRow, int NoseRowFrom, int NoseRowTo, int ProfileCap, int NoseSurface,
+    (float X, float Y) BridgeAnchor);
 
 /// <summary>
 /// 顔の部品の表（<c>games/MiniRing/Voxels/FaceParts/*.json</c>、組み込み資源）。部位ごとに部品の一覧を持つ。ファイルは Codex の参考図から
@@ -109,10 +125,10 @@ public sealed class FacePartLibrary
     public static readonly IReadOnlyList<string> Categories = ["jaw", "hair", "beard", "eyes", "brows", "mouth", "nose", "ears"];
 
     /// <summary>
-    /// 後から足せる部位（データだけで足す: <c>FaceParts/&lt;名前&gt;.json</c> を置くと読み込まれる。まぶた・髪質・眉の張り出し・唇・顔の形）。
-    /// 組み立ての対応は <see cref="FaceComposer"/> に書いた物だけ（その他は読み込んで検証するだけ）。
+    /// 後から足せる部位（データだけで足す: <c>FaceParts/&lt;名前&gt;.json</c> を置くと読み込まれる）。眉の張り出しと鼻筋の高さ（横の輪郭だけの部品）。
+    /// まぶた（目）・髪質（髪）・唇の厚み（口）・顔の形（あご）は、それぞれの部位の部品として足してある（重み付きの和で混ぜる）。
     /// </summary>
-    public static readonly IReadOnlyList<string> Extra = ["eyelids", "hairtexture", "browridge", "lips", "faceshape"];
+    public static readonly IReadOnlyList<string> Extra = ["browridge"];
 
     /// <summary>顔の格子の大きさ（参考図、セル）。</summary>
     public const int RefWidth = 20;
@@ -221,7 +237,7 @@ public sealed class FacePartLibrary
                     }
 
                     FaceRaster? Find(string view) => p.Views is { } v && v.TryGetValue(view, out var d) ? Raster(d, cats, $"{id}.{view}") : null;
-                    var front = Find("front") ?? throw new InvalidDataException($"{id} に front がありません。");
+                    var front = Find("front") ?? (category == "browridge" ? Find("side") : null) ?? throw new InvalidDataException($"{id} に front がありません。");
                     var anchor = Pair(p.Anchor, $"{id}.anchor");
                     var anchored = category == "ears" ? Find("side") ?? front : front; // 耳の留める点は横の格子の座標
                     if (anchor.X < 0 || anchor.Y < 0 || anchor.X > anchored.Width || anchor.Y > anchored.Height)
@@ -229,7 +245,22 @@ public sealed class FacePartLibrary
                         throw new InvalidDataException($"{id} の留める点 ({anchor.X}, {anchor.Y}) が格子の外です。");
                     }
 
-                    parts.Add(new FacePart(id, p.Name ?? id, anchor, front, Find("side"), Find("top")));
+                    if (p.Density is { } density && (!float.IsFinite(density) || density is <= 0f or > 1f))
+                    {
+                        throw new InvalidDataException($"{id}.density {density} は 0 より大きく 1 以下にしてください。");
+                    }
+
+                    if (!float.IsFinite(p.Frizz) || p.Frizz is < 0f or > 1f)
+                    {
+                        throw new InvalidDataException($"{id}.frizz {p.Frizz} は 0〜1 にしてください。");
+                    }
+
+                    if (!float.IsFinite(p.Reach) || p.Reach < 0f || p.Reach > 8f)
+                    {
+                        throw new InvalidDataException($"{id}.reach {p.Reach} は 0〜8 のセル数にしてください。");
+                    }
+
+                    parts.Add(new FacePart(id, p.Name ?? id, anchor, front, Find("side"), Find("top"), p.Reach, p.Frizz, p.Density ?? 1f));
                 }
 
                 if (parts.Count == 0)
@@ -243,7 +274,7 @@ public sealed class FacePartLibrary
             // 部位ごとに要る見え方: 輪郭・髪・ひげ・鼻・耳は横も要る。髪は上も使う。輪郭・髪・ひげは頭全体の格子。
             foreach (var (category, parts) in byCategory)
             {
-                var needsSide = category is "jaw" or "hair" or "beard" or "nose" or "ears";
+                var needsSide = category is "jaw" or "hair" or "beard" or "nose" or "ears" or "browridge";
                 foreach (var part in parts)
                 {
                     if (needsSide && part.Side is null)
@@ -251,9 +282,9 @@ public sealed class FacePartLibrary
                         throw new InvalidDataException($"{part.Id} に side がありません。");
                     }
 
-                    if (category == "hair" && part.Top is null)
+                    if (part.Top is { } top && (top.Width != RefWidth || top.Height != RefDepth))
                     {
-                        throw new InvalidDataException($"{part.Id} に top がありません。");
+                        throw new InvalidDataException($"{part.Id} の top は {RefWidth}x{RefDepth} にしてください。");
                     }
 
                     if (category is "jaw" or "hair" or "beard" && (part.Front.Width != RefWidth || part.Front.Height != RefHeight || part.Side!.Width != RefDepth || part.Side.Height != RefHeight))
@@ -266,7 +297,8 @@ public sealed class FacePartLibrary
             var result = new FaceLayout(
                 Pair(layout.EyeLeftImage, "eyeLeftImage"), Pair(layout.EyeRightImage, "eyeRightImage"),
                 Pair(layout.BrowLeftImage, "browLeftImage"), Pair(layout.BrowRightImage, "browRightImage"),
-                Pair(layout.Mouth, "mouth"), Pair(layout.EarSide, "earSide"), layout.NoseTopRow, layout.NoseRows[0], layout.NoseRows[1], layout.ProfileCap, layout.NoseSurface);
+                Pair(layout.Mouth, "mouth"), Pair(layout.EarSide, "earSide"), layout.NoseTopRow, layout.NoseRows[0], layout.NoseRows[1], layout.ProfileCap, layout.NoseSurface,
+                layout.BridgeAnchor is null ? (15f, 13f) : Pair(layout.BridgeAnchor, "bridgeAnchor"));
             return new FacePartLibrary(byCategory, View("front", RefWidth, RefHeight), View("side", RefDepth, RefHeight), View("top", RefWidth, RefDepth), result);
         }
         catch (JsonException ex)
@@ -326,6 +358,9 @@ public sealed class FacePartLibrary
         public string? Id { get; init; }
         public string? Name { get; init; }
         public float[]? Anchor { get; init; }
+        public float Reach { get; init; }
+        public float Frizz { get; init; }
+        public float? Density { get; init; }
         public Dictionary<string, ViewDto>? Views { get; init; }
     }
 
@@ -348,6 +383,7 @@ public sealed class FacePartLibrary
         public int[]? NoseRows { get; init; }
         public int ProfileCap { get; init; }
         public int NoseSurface { get; init; }
+        public float[]? BridgeAnchor { get; init; }
     }
 
     private sealed class BaseDto

@@ -18,7 +18,7 @@ public sealed record FaceSpec(IReadOnlyDictionary<string, IReadOnlyDictionary<st
     public System.Numerics.Vector3? Iris { get; init; }
 
     /// <summary>空にできる部位（眉・ひげ・髪）。</summary>
-    public static readonly IReadOnlySet<string> Optional = new HashSet<string> { "hair", "beard", "brows", "eyelids", "hairtexture", "browridge", "lips", "faceshape" };
+    public static readonly IReadOnlySet<string> Optional = new HashSet<string> { "hair", "beard", "brows", "browridge" };
 
     /// <summary>部位 <paramref name="category"/> の (部品, 重み) の一覧（重みは合計 1 に直す。空なら空）。</summary>
     public IReadOnlyList<(FacePart Part, float Weight)> Weighted(string category, FacePartLibrary library)
