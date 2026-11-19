@@ -9,6 +9,8 @@
   "l": "lip",
   "e": "shadow",
   "d": "shadow",
+  "k": "shadow",
+  "f": "freckle",
   "n": "nostril",
   ".": "empty"
  },
@@ -115,7 +117,9 @@
       "...................."
      ]
     }
-   }
+   },
+   "reach": 1.5,
+   "frizz": 0.0
   },
   {
    "id": "hair.2",
@@ -219,7 +223,9 @@
       "...................."
      ]
     }
-   }
+   },
+   "reach": 1.5,
+   "frizz": 0.0
   },
   {
    "id": "hair.3",
@@ -323,7 +329,9 @@
       "...................."
      ]
     }
-   }
+   },
+   "reach": 0.0,
+   "frizz": 0.0
   },
   {
    "id": "hair.4",
@@ -427,7 +435,9 @@
       "...................."
      ]
     }
-   }
+   },
+   "reach": 2.0,
+   "frizz": 0.2
   },
   {
    "id": "hair.5",
@@ -531,7 +541,9 @@
       "........hhhh........"
      ]
     }
-   }
+   },
+   "reach": 4.0,
+   "frizz": 0.0
   },
   {
    "id": "hair.6",
@@ -635,7 +647,489 @@
       ".......hhhhhh......."
      ]
     }
-   }
+   },
+   "reach": 4.5,
+   "frizz": 0.7
+  },
+  {
+   "id": "hair.7",
+   "name": "straight",
+   "anchor": [
+    0.0,
+    0.0
+   ],
+   "views": {
+    "front": {
+     "width": 20,
+     "height": 28,
+     "rows": [
+      "....................",
+      ".....hhhhhhhhhh.....",
+      "....hhhhhhhhhhhh....",
+      "...hhhhhhhhhhhhhh...",
+      "...hhhhhhhhhhhhhh...",
+      "..hhhhhhhhhhhhhhhh..",
+      "..hhhhhhhhhhhhhhhh..",
+      "..hhhhhhhhhhhhhhhh..",
+      "..hhhhhhhhhhhhhhhh..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "....ssssssssssss....",
+      "....ssssssssssss....",
+      ".....ssssssssss.....",
+      "......ssssssss......",
+      ".......ssssss.......",
+      "....................",
+      "....................",
+      "...................."
+     ]
+    },
+    "side": {
+     "width": 20,
+     "height": 28,
+     "rows": [
+      ".....hhhhhhhhh......",
+      "..hhhhhhhhhhhh......",
+      "..hhhhhhhhhhhhhhh...",
+      "..hhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      "...sssssssssssss....",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...ssssssssssssssss.",
+      "...ssssssssssssssss.",
+      "...ssssssssssssssss.",
+      "......sssssssssssss.",
+      "......sssssssssss...",
+      "......sssssssssss...",
+      ".........ssss.......",
+      ".........ssss.......",
+      ".........ssss......."
+     ]
+    }
+   },
+   "reach": 1.5,
+   "frizz": 0.0
+  },
+  {
+   "id": "hair.8",
+   "name": "wavy",
+   "anchor": [
+    0.0,
+    0.0
+   ],
+   "views": {
+    "front": {
+     "width": 20,
+     "height": 28,
+     "rows": [
+      "....................",
+      ".....hhhhhhhhhh.....",
+      "....hhhhhhhhhhhh....",
+      "...hhhhhhhhhhhhhh...",
+      "...hhhhhhhhhhhhhh...",
+      "..hhhhhhhhhhhhhhhh..",
+      "..hhhhhhhhhhhhhhhh..",
+      "..hhhhhhhhhhhhhhhh..",
+      "..hhhhhhhhhhhhhhhh..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "....ssssssssssss....",
+      "....ssssssssssss....",
+      ".....ssssssssss.....",
+      "......ssssssss......",
+      ".......ssssss.......",
+      "....................",
+      "....................",
+      "...................."
+     ]
+    },
+    "side": {
+     "width": 20,
+     "height": 28,
+     "rows": [
+      ".....hhhhhhhhh......",
+      "..hhhhhhhhhhhh......",
+      "..hhhhhhhhhhhhhhh...",
+      "..hhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      "...sssssssssssss....",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...ssssssssssssssss.",
+      "...ssssssssssssssss.",
+      "...ssssssssssssssss.",
+      "......sssssssssssss.",
+      "......sssssssssss...",
+      "......sssssssssss...",
+      ".........ssss.......",
+      ".........ssss.......",
+      ".........ssss......."
+     ]
+    }
+   },
+   "reach": 2.0,
+   "frizz": 0.3
+  },
+  {
+   "id": "hair.9",
+   "name": "loose curls",
+   "anchor": [
+    0.0,
+    0.0
+   ],
+   "views": {
+    "front": {
+     "width": 20,
+     "height": 28,
+     "rows": [
+      "....................",
+      ".....hhhhhhhhhh.....",
+      "....hhhhhhhhhhhh....",
+      "...hhhhhhhhhhhhhh...",
+      "...hhhhhhhhhhhhhh...",
+      "..hhhhhhhhhhhhhhhh..",
+      "..hhhhhhhhhhhhhhhh..",
+      "..hhhhhhhhhhhhhhhh..",
+      "..hhhhhhhhhhhhhhhh..",
+      "..sssssssssssssssh..",
+      ".hsssssssssssssssh..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "....ssssssssssss....",
+      "....ssssssssssss....",
+      ".....ssssssssss.....",
+      "......ssssssss......",
+      ".......ssssss.......",
+      "....................",
+      "....................",
+      "...................."
+     ]
+    },
+    "side": {
+     "width": 20,
+     "height": 28,
+     "rows": [
+      ".....hhhhhhhhh......",
+      "..hhhhhhhhhhhh......",
+      "..hhhhhhhhhhhhhhh...",
+      "..hhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      "...sssssssssssss....",
+      ".h.ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...ssssssssssssssss.",
+      "...ssssssssssssssss.",
+      "...ssssssssssssssss.",
+      "......sssssssssssss.",
+      "......sssssssssss...",
+      "......sssssssssss...",
+      ".........ssss.......",
+      ".........ssss.......",
+      ".........ssss......."
+     ]
+    }
+   },
+   "reach": 2.5,
+   "frizz": 0.6
+  },
+  {
+   "id": "hair.10",
+   "name": "tight coils",
+   "anchor": [
+    0.0,
+    0.0
+   ],
+   "views": {
+    "front": {
+     "width": 20,
+     "height": 28,
+     "rows": [
+      "....................",
+      ".....hhhhhhhhhh.....",
+      "....hhhhhhhhhhhh....",
+      "...hhhhhhhhhhhhhh...",
+      "...hhhhhhhhhhhhhh...",
+      "...hhhhhhhhhhhhhh...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "....ssssssssssss....",
+      "....ssssssssssss....",
+      ".....ssssssssss.....",
+      "......ssssssss......",
+      ".......ssssss.......",
+      "....................",
+      "....................",
+      "...................."
+     ]
+    },
+    "side": {
+     "width": 20,
+     "height": 28,
+     "rows": [
+      ".....hhhhhhhhh......",
+      "..hhhhhhhhhhhh......",
+      "..hhhhhhhhhhhhhhh...",
+      "..hhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      "...sssssssssssss....",
+      "...sssssssssssss....",
+      "...sssssssssssss....",
+      "...sssssssssssss....",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...ssssssssssssssss.",
+      "...ssssssssssssssss.",
+      "...ssssssssssssssss.",
+      "......sssssssssssss.",
+      "......sssssssssss...",
+      "......sssssssssss...",
+      ".........ssss.......",
+      ".........ssss.......",
+      ".........ssss......."
+     ]
+    }
+   },
+   "reach": 2.0,
+   "frizz": 0.85
+  },
+  {
+   "id": "hair.11",
+   "name": "coily high top",
+   "anchor": [
+    0.0,
+    0.0
+   ],
+   "views": {
+    "front": {
+     "width": 20,
+     "height": 28,
+     "rows": [
+      "...hhhhhhhhhhhhhh...",
+      "...hhhhhhhhhhhhhh...",
+      "...hhhhhhhhhhhhhh...",
+      "...hhhhhhhhhhhhhh...",
+      "...hhhhhhhhhhhhhh...",
+      "..hhhhhhhhhhhhhhhh..",
+      "..hhhhhhhhhhhhhhhh..",
+      "..hhhhhhhhhhhhhhhh..",
+      "...ssssssssssssss...",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "..ssssssssssssssss..",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "....ssssssssssss....",
+      "....ssssssssssss....",
+      ".....ssssssssss.....",
+      "......ssssssss......",
+      ".......ssssss.......",
+      "....................",
+      "....................",
+      "...................."
+     ]
+    },
+    "side": {
+     "width": 20,
+     "height": 28,
+     "rows": [
+      "..hhhhhhhhhhhhhhh...",
+      "..hhhhhhhhhhhhhhh...",
+      "..hhhhhhhhhhhhhhh...",
+      "..hhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      "...sssssssssssss....",
+      "...sssssssssssss....",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...ssssssssssssss...",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...sssssssssssssss..",
+      "...ssssssssssssssss.",
+      "...ssssssssssssssss.",
+      "...ssssssssssssssss.",
+      "......sssssssssssss.",
+      "......sssssssssss...",
+      "......sssssssssss...",
+      ".........ssss.......",
+      ".........ssss.......",
+      ".........ssss......."
+     ]
+    }
+   },
+   "reach": 2.0,
+   "frizz": 0.8
+  },
+  {
+   "id": "hair.12",
+   "name": "swept-back long",
+   "anchor": [
+    0.0,
+    0.0
+   ],
+   "views": {
+    "front": {
+     "width": 20,
+     "height": 28,
+     "rows": [
+      "....................",
+      ".....hhhhhhhhhh.....",
+      "....hhhhhhhhhhhh....",
+      "...hhhhhhhhhhhhhh...",
+      "...hhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhhhh.",
+      ".hhhhhhhhhhhhhhhhhh.",
+      "..hssssssssssssssh..",
+      "..hssssssssssssssh..",
+      "..hssssssssssssssh..",
+      "..hssssssssssssssh..",
+      "..hssssssssssssssh..",
+      "..hssssssssssssssh..",
+      "..hssssssssssssssh..",
+      "..hssssssssssssssh..",
+      "..hssssssssssssssh..",
+      "..hssssssssssssssh..",
+      "..hssssssssssssssh..",
+      "..hssssssssssssssh..",
+      "..hssssssssssssssh..",
+      "..h.ssssssssssss.h..",
+      "..h.ssssssssssss.h..",
+      "..h..ssssssssss..h..",
+      "..h...ssssssss...h..",
+      ".......ssssss.......",
+      "....................",
+      "....................",
+      "...................."
+     ]
+    },
+    "side": {
+     "width": 20,
+     "height": 28,
+     "rows": [
+      ".....hhhhhhhhh......",
+      "..hhhhhhhhhhhh......",
+      "..hhhhhhhhhhhhhhh...",
+      "..hhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhhhhhhhhhhhh...",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".hhhhhh.............",
+      ".........ssss.......",
+      ".........ssss......."
+     ]
+    }
+   },
+   "reach": 4.0,
+   "frizz": 0.0
   }
  ]
 }

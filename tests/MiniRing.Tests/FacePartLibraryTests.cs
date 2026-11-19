@@ -28,17 +28,16 @@ public sealed class FacePartLibraryTests
     }
 
     [TestMethod]
-    public void Library_HasSixPartsPerCategory_AndTheBaseHead()
+    public void Library_HasAtLeastSixPartsPerCategory_AndTheBaseHead()
     {
         var library = FacePartLibrary.Default;
         foreach (var category in FacePartLibrary.Categories)
         {
-            Assert.HasCount(6, library.Parts(category), category);
+            Assert.IsGreaterThanOrEqualTo(6, library.Parts(category).Count, category);
         }
 
         Assert.AreEqual(20, library.BaseFront.Width);
         Assert.AreEqual(28, library.BaseFront.Height);
-        Assert.AreEqual("round", library.Get("eyes.1").Name);
     }
 
     [TestMethod]
@@ -129,11 +128,11 @@ public sealed class FacePartLibraryTests
         }
 
         // 目の混ぜ: 白目の体積が両端の間にある。
-        var round = Of(("eyes", "eyes.1", 1f)).Count(FaceMaterial.White);
-        var narrow = Of(("eyes", "eyes.2", 1f)).Count(FaceMaterial.White);
-        var halfway = Of(("eyes", "eyes.1", 0.5f), ("eyes", "eyes.2", 0.5f)).Count(FaceMaterial.White);
-        Assert.IsGreaterThan(narrow, round);
-        Assert.IsTrue(halfway >= Math.Min(round, narrow) - 2 && halfway <= Math.Max(round, narrow) + 12, $"mid {halfway} between {narrow} and {round}");
+        var monolid = Of(("eyes", "eyes.1", 1f)).Count(FaceMaterial.White);
+        var wide = Of(("eyes", "eyes.5", 1f)).Count(FaceMaterial.White);
+        var halfway = Of(("eyes", "eyes.1", 0.5f), ("eyes", "eyes.5", 0.5f)).Count(FaceMaterial.White);
+        Assert.IsGreaterThan(monolid, wide, "a wide-open eye shows more white than a monolid");
+        Assert.IsTrue(halfway >= Math.Min(monolid, wide) - 2 && halfway <= Math.Max(monolid, wide) + 12, $"mid {halfway} between {monolid} and {wide}");
     }
 
     [TestMethod]
@@ -194,7 +193,13 @@ public sealed class FacePartLibraryTests
         void Dump(string name, FaceSpec spec)
         {
             var v = FaceComposer.Compose(spec, 20, 28, 20);
-            File.WriteAllText(Path.Combine(dir, name + ".txt"), $"{v.Nx} {v.Ny} {v.Nz}\n" + new string([.. v.Cells.Select(c => symbols[(int)c])]));
+            var colors = FacePalette.Resolve(spec).ToDictionary(c => symbols[(int)c.Key].ToString(), c => $"#{(int)((c.Value.X * 255f) + 0.5f):X2}{(int)((c.Value.Y * 255f) + 0.5f):X2}{(int)((c.Value.Z * 255f) + 0.5f):X2}");
+            File.WriteAllText(Path.Combine(dir, name + ".txt"), $"{v.Nx} {v.Ny} {v.Nz}\n{JsonSerializer.Serialize(colors)}\n" + new string([.. v.Cells.Select(c => symbols[(int)c])]));
+        }
+
+        foreach (var character in MiniRing.Characters.CharacterRoster.All)
+        {
+            Dump("roster_" + character.Id, character.Face);
         }
 
         foreach (var name in Names)
@@ -202,9 +207,9 @@ public sealed class FacePartLibraryTests
             Dump(name, FaceSpec.For(name));
         }
 
-        foreach (var category in new[] { "eyes", "brows", "mouth", "nose", "ears", "jaw", "hair", "beard" })
+        foreach (var category in new[] { "eyes", "brows", "mouth", "nose", "ears", "jaw", "hair", "beard", "browridge" })
         {
-            for (var i = 1; i <= 6; i++)
+            for (var i = 1; i <= FacePartLibrary.Default.Parts(category).Count; i++)
             {
                 Dump($"part_{category}_{i}", Spec((category, $"{category}.{i}", 1f)));
             }

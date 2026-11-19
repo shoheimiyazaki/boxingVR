@@ -76,6 +76,21 @@
     "brows": true, "beard": true,
     "parts": { "mouthWidth": 0.95 }
   },
+  "face": {
+    "parts": {
+      "hair": { "hair.7": 0.6, "hair.2": 0.4 },
+      "brows": { "brows.4": 1.0 },
+      "eyes": { "eyes.6": 0.6, "eyes.3": 0.4 },
+      "nose": { "nose.3": 1.0 },
+      "mouth": { "mouth.8": 0.6, "mouth.7": 0.4 },
+      "jaw": { "jaw.8": 0.5, "jaw.6": 0.5 },
+      "ears": { "ears.5": 1.0 },
+      "beard": { "beard.2": 0.5, "beard.3": 0.5 },
+      "browridge": { "browridge.3": 1.0 }
+    },
+    "values": { "cheekbones": 1.5, "noseLength": 1.2, "nose": 1.15, "hairline": 0.07, "faceWidth": 0.95, "browTilt": 0.2, "mouthWidth": 0.9 },
+    "skin": [0.773, 0.624, 0.506], "hair": [0.204, 0.157, 0.129], "iris": [0.396, 0.255, 0.153]
+  },
   "body": {
     "build": { "height": 1.05, "arms": 1.05, "legs": 1, "muscle": 1 },
     "wear": "gauntlet",

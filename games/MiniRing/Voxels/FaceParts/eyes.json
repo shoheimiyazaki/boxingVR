@@ -9,34 +9,15 @@
   "l": "lip",
   "e": "shadow",
   "d": "shadow",
+  "k": "shadow",
+  "f": "freckle",
   "n": "nostril",
   ".": "empty"
  },
  "parts": [
   {
    "id": "eyes.1",
-   "name": "round",
-   "anchor": [
-    3.5,
-    2.5
-   ],
-   "views": {
-    "front": {
-     "width": 8,
-     "height": 5,
-     "rows": [
-      "ssssssss",
-      "sswwwsss",
-      "swwiwwss",
-      "sswwwsss",
-      "ssssssss"
-     ]
-    }
-   }
-  },
-  {
-   "id": "eyes.2",
-   "name": "narrow/hooded",
+   "name": "monolid",
    "anchor": [
     4.0,
     2.5
@@ -47,20 +28,63 @@
      "height": 5,
      "rows": [
       "ssssssss",
-      "seeeeess",
-      "sswwiwss",
+      "ssssssss",
+      "sswwiiss",
       "ssssssss",
       "ssssssss"
+     ]
+    },
+    "side": {
+     "width": 4,
+     "height": 5,
+     "rows": [
+      "sss.",
+      "sss.",
+      "sski",
+      "sssi",
+      "sss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.2",
+   "name": "epicanthic fold",
+   "anchor": [
+    4.0,
+    2.5
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "sskkkkss",
+      "sswwiiss",
+      "ssssssss",
+      "ssssssss"
+     ]
+    },
+    "side": {
+     "width": 4,
+     "height": 5,
+     "rows": [
+      "sss.",
+      "sss.",
+      "sski",
+      "sssi",
+      "sss."
      ]
     }
    }
   },
   {
    "id": "eyes.3",
-   "name": "almond",
+   "name": "double eyelid",
    "anchor": [
-    3.8333,
-    2.8333
+    4.0,
+    3.5
    ],
    "views": {
     "front": {
@@ -68,58 +92,27 @@
      "height": 5,
      "rows": [
       "ssssssss",
+      "sskkkkss",
       "ssssssss",
-      "swwwiwws",
-      "sswwwsss",
+      "sswwiiss",
       "ssssssss"
+     ]
+    },
+    "side": {
+     "width": 4,
+     "height": 5,
+     "rows": [
+      "sss.",
+      "sss.",
+      "sski",
+      "sssi",
+      "sss."
      ]
     }
    }
   },
   {
    "id": "eyes.4",
-   "name": "upturned",
-   "anchor": [
-    3.0,
-    2.25
-   ],
-   "views": {
-    "front": {
-     "width": 8,
-     "height": 5,
-     "rows": [
-      "ssssssss",
-      "sswwwsss",
-      "swiwwsss",
-      "swssssss",
-      "ssssssss"
-     ]
-    }
-   }
-  },
-  {
-   "id": "eyes.5",
-   "name": "downturned",
-   "anchor": [
-    4.625,
-    2.25
-   ],
-   "views": {
-    "front": {
-     "width": 8,
-     "height": 5,
-     "rows": [
-      "ssssssss",
-      "sswwwsss",
-      "ssswwiws",
-      "ssssssws",
-      "ssssssss"
-     ]
-    }
-   }
-  },
-  {
-   "id": "eyes.6",
    "name": "deep-set",
    "anchor": [
     4.0,
@@ -130,11 +123,86 @@
      "width": 8,
      "height": 5,
      "rows": [
-      "sdddddds",
-      "ddeeeedd",
-      "ddwwiwdd",
-      "ddeeeedd",
-      "sdddddds"
+      "ssssssss",
+      "sskkkkss",
+      "sswwiiss",
+      "ssssssss",
+      "ssssssss"
+     ]
+    },
+    "side": {
+     "width": 4,
+     "height": 5,
+     "rows": [
+      "sss.",
+      "sss.",
+      "sski",
+      "ssi.",
+      "sss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.5",
+   "name": "wide open",
+   "anchor": [
+    3.8333,
+    2.8333
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "sskkkkss",
+      "swwiiwws",
+      "sswiisss",
+      "ssssssss"
+     ]
+    },
+    "side": {
+     "width": 4,
+     "height": 5,
+     "rows": [
+      "sss.",
+      "sss.",
+      "sski",
+      "sssi",
+      "sss."
+     ]
+    }
+   }
+  },
+  {
+   "id": "eyes.6",
+   "name": "heavy-lidded",
+   "anchor": [
+    4.0,
+    3.5
+   ],
+   "views": {
+    "front": {
+     "width": 8,
+     "height": 5,
+     "rows": [
+      "ssssssss",
+      "ssssssss",
+      "sskkkkss",
+      "sswwiiss",
+      "ssssssss"
+     ]
+    },
+    "side": {
+     "width": 4,
+     "height": 5,
+     "rows": [
+      "sss.",
+      "sss.",
+      "sski",
+      "sssi",
+      "sss."
      ]
     }
    }

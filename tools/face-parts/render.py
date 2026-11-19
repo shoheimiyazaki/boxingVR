@@ -5,8 +5,11 @@
     dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~Probe_DumpFaces"
     py -3 tools/face-parts/render.py <dir> <out_dir>
 
-出力: compare_<名前>.png（参考図の土台の 3 方向 | 組み立てた顔の 3 方向）、parts_<部位>.png（同じ土台に部品だけ替えた 6 種）。
+出力: compare_<名前>.png（参考図の土台の 3 方向 | 組み立てた顔の 3 方向）、parts_<部位>.png（同じ土台に部品だけ替えた種類）、
+roster_<id>.txt があれば fighter_<id>.png（肖像 | 正面 | 横）と roster_composed.png（全員の正面の格子）。
+色は txt の 2 行目（材質の記号 → #RRGGBB。FacePalette の値）。
 """
+import json
 import sys
 from pathlib import Path
 
@@ -15,36 +18,38 @@ from PIL import Image, ImageDraw
 REFS = Path(__file__).resolve().parents[2] / "docs/plans/face_refs"
 SYMBOLS = ".shbwilenf"
 # 材質 -> 色（参考図の凡例に合わせる）。b 眉・h 髪・w 白目・i 黒目・l 唇・e 影・n 鼻の穴・f そばかす。
-COLORS = {".": (32, 32, 32), "s": (200, 152, 120), "h": (42, 32, 24), "b": (60, 40, 30), "w": (240, 240, 235), "i": (30, 60, 110),
+COLORS = {".": (92, 98, 108), "s": (200, 152, 120), "h": (42, 32, 24), "b": (60, 40, 30), "w": (240, 240, 235), "i": (30, 60, 110),
           "l": (168, 90, 80), "e": (160, 120, 88), "n": (106, 72, 56), "f": (150, 100, 70)}
 CELL = 16
 
 
 def load(path):
-    head, body = path.read_text(encoding="utf-8").split("\n", 1)
+    head, colors, body = path.read_text(encoding="utf-8").split(chr(10), 2)
     nx, ny, nz = map(int, head.split())
-    return nx, ny, nz, body
+    palette = dict(COLORS)
+    for k, v in json.loads(colors).items():
+        palette[k] = tuple(int(v[i:i + 2], 16) for i in (1, 3, 5))
+    return nx, ny, nz, body, palette
 
 
 def views(path):
-    nx, ny, nz, body = load(path)
-    at = lambda x, y, z: SYMBOLS[ord(body[x + nx * (y + ny * z)]) and SYMBOLS.index(body[x + nx * (y + ny * z)])]
+    nx, ny, nz, body, palette = load(path)
     cell = lambda x, y, z: body[x + nx * (y + ny * z)]
     front = [[next((cell(x, y, z) for z in range(nz - 1, -1, -1) if cell(x, y, z) != "."), ".") for x in range(nx)] for y in range(ny - 1, -1, -1)]
     # 横: 本人の右（-X）から見る。左が後ろ、右が鼻。
     side = [[next((cell(x, y, z) for x in range(nx) if cell(x, y, z) != "."), ".") for z in range(nz)] for y in range(ny - 1, -1, -1)]
     # 上: 鼻が上。
     top = [[next((cell(x, y, z) for y in range(ny - 1, -1, -1) if cell(x, y, z) != "."), ".") for x in range(nx)] for z in range(nz - 1, -1, -1)]
-    return front, side, top
+    return front, side, top, palette
 
 
-def draw(grid):
+def draw(grid, palette):
     h, w = len(grid), len(grid[0])
     img = Image.new("RGB", (w * CELL, h * CELL))
     d = ImageDraw.Draw(img)
     for y, row in enumerate(grid):
         for x, c in enumerate(row):
-            d.rectangle([x * CELL, y * CELL, (x + 1) * CELL - 1, (y + 1) * CELL - 1], fill=COLORS[c])
+            d.rectangle([x * CELL, y * CELL, (x + 1) * CELL - 1, (y + 1) * CELL - 1], fill=palette[c])
     return img
 
 
@@ -72,22 +77,49 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     ref_imgs = [ref("front", (20, 28)), ref("side", (20, 28)), ref("top", (20, 20))]
     for f in sorted(src.glob("*.txt")):
-        if f.stem.startswith("part_"):
+        if f.stem.startswith("part_") or f.stem.startswith("roster_"):
             continue
-        fr, sd, tp = views(f)
-        strip(ref_imgs + [draw(fr), draw(sd), draw(tp)], ["ref front", "ref side", "ref top", f"{f.stem} front", "side", "top"]).save(out / f"compare_{f.stem}.png")
-    for cat in ["eyes", "brows", "mouth", "nose", "ears", "jaw", "hair", "beard"]:
+        fr, sd, tp, pal = views(f)
+        strip(ref_imgs + [draw(fr, pal), draw(sd, pal), draw(tp, pal)], ["ref front", "ref side", "ref top", f"{f.stem} front", "side", "top"]).save(out / f"compare_{f.stem}.png")
+    for cat in ["eyes", "brows", "mouth", "nose", "ears", "jaw", "hair", "beard", "browridge"]:
         panels, labels = [], []
-        for i in range(1, 7):
+        for i in range(1, 13):
             f = src / f"part_{cat}_{i}.txt"
             if not f.exists():
                 continue
-            fr, sd, tp = views(f)
-            panels += [draw(fr), draw(sd)]
+            fr, sd, tp, pal = views(f)
+            panels += [draw(fr, pal), draw(sd, pal)]
             labels += [f"{cat}.{i} front", "side"]
         if panels:
             small = [p.resize((p.width // 2, p.height // 2), Image.NEAREST) for p in panels]
-            strip(small, labels).save(out / f"parts_{cat}.png")
+            rows = [small[k:k + 12] for k in range(0, len(small), 12)]
+            strips = [strip(r, labels[k * 12:(k + 1) * 12]) for k, r in enumerate(rows)]
+            sheet = Image.new("RGB", (max(s.width for s in strips), sum(s.height for s in strips)), (20, 20, 24))
+            y = 0
+            for st in strips:
+                sheet.paste(st, (0, y))
+                y += st.height
+            sheet.save(out / f"parts_{cat}.png")
+    fronts = []
+    for f in sorted(src.glob("roster_*.txt")):
+        fid = f.stem[len("roster_"):]
+        fr, sd, tp, pal = views(f)
+        portrait = Image.open(REFS / "fighters" / f"{fid}.png").convert("RGB")
+        scale = 28 * CELL / portrait.height
+        portrait = portrait.resize((int(portrait.width * scale), 28 * CELL), Image.LANCZOS)
+        strip([portrait, draw(fr, pal), draw(sd, pal)], [fid + " portrait", "front", "side"]).save(out / f"fighter_{fid}.png")
+        fronts.append((fid, draw(fr, pal), portrait))
+    if fronts:
+        cols = 6
+        cell_w, cell_h = 20 * CELL + 8, 28 * CELL + 24
+        rows_n = (len(fronts) + cols - 1) // cols
+        grid = Image.new("RGB", (cols * cell_w, rows_n * cell_h), (20, 20, 24))
+        d = ImageDraw.Draw(grid)
+        for k, (fid, img, _) in enumerate(fronts):
+            x, y = (k % cols) * cell_w, (k // cols) * cell_h
+            d.text((x + 4, y + 4), fid, fill=(230, 230, 230))
+            grid.paste(img, (x + 4, y + 20))
+        grid.save(out / "roster_composed.png")
 
 
 if __name__ == "__main__":
