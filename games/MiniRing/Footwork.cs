@@ -167,6 +167,14 @@ public sealed record FootworkTuning
     /// 足の置き方を実際の足へ合わせ、落ち着いた立ち姿になってから留める。蹴りの手本（KickShin・KneePractice）は止まって 0.4〜0.9 秒で蹴るので、それより長く置いた。
     /// </summary>
     public float HoldSettleSeconds { get; init; } = 1f;
+
+    /// <summary>
+    /// 全身の重心の水平の速さがこれ [m/s] を超えている間は、構えを寄せる量を重心の位置で出す（<see cref="FootworkInput.CenterOnCom"/>）。
+    /// これ以下の静かな立ち姿では、重心が骨盤・両足の真ん中からずれていても姿勢（胴のひねり・重い武器・体重の移し）であって、足で追う対象ではない。
+    /// 0.25 は人形の歩く速さ（WalkSpeed）より遅く、傾いて崩れていく・起き上がる動きより遅い。測った値: 0.1 で胴をひねった構えが 20 秒で 10 cm 流れ（SlideTests）、
+    /// 0.25 で 5 cm 以内。数えが始まった倒れる相手が起き上がるまでの腰のずれ（CornerAndDownTests）は、骨盤で出すと 0.23 m、0.1 で 0.12 m、0.25 で 0.08 m（上限 0.15）。
+    /// </summary>
+    public float CenterOnComSpeed { get; init; } = 0.25f;
 }
 
 /// <summary>1 本の足の置き方（ワールド）: 母指球の位置（地面の上、持ち上げを含む）、つま先の向き、かかとの浮き。</summary>
@@ -196,9 +204,10 @@ public readonly record struct FootPose(Vector3 Ball, float Yaw, float HeelRaise,
 /// <param name="Com">全身の重心の水平位置（捕捉点はこれから出す。null なら骨盤 <paramref name="Body"/>）。上体が傾いて倒れていくのは、骨盤より重心に出る。</param>
 /// <param name="ComVelocity">全身の重心の水平速度（null なら骨盤の速度）。</param>
 /// <param name="LegHeld">どちらかの脚を膝の制御の指令（<see cref="LegCommand.IsKneeControl"/>）が動かしている。その間は新しい 1 歩を踏み出さない（残る足が軸足）。</param>
+/// <param name="CenterOnCom">構えの中心を寄せる量を重心の位置で出す（立っていない: 倒れている・起き上がる間、または重心が <see cref="FootworkTuning.CenterOnComSpeed"/> を超えて動いている間）。false（静かに立っている）なら骨盤の位置 + 速度で出す。</param>
 public readonly record struct FootworkInput(float FacingYaw, Vector2 Body, Vector2 BodyVelocity, float Omega, Vector2 Intent, float Twist, float Weight, float LegLength,
     bool LeadOverreach = false, bool RearOverreach = false, Vector2? LeadBall = null, Vector2? RearBall = null, float Reach = 0f, float HipOffset = 0f, bool LeadFree = false, bool RearFree = false,
-    Vector2? Com = null, Vector2? ComVelocity = null, bool LegHeld = false);
+    Vector2? Com = null, Vector2? ComVelocity = null, bool LegHeld = false, bool CenterOnCom = false);
 
 /// <summary>
 /// 足の置き場所を決めるモデル（倒立振子 + 構え）。ボクサーは左足が常に前（オーソドックス）。
@@ -351,11 +360,12 @@ public sealed class Footwork
         // 構えの中心: 止まっていれば今の両足の真ん中（足を置き直すのは構えの形を直すときだけ。体を追って足を置くと、
         // 足 → 支え → 体 → 足 と回って、立っているだけで少しずつ歩いてしまう）。捕捉点が真ん中から離れたら（押された・動いている）その分だけ寄せる。
         var middle = Vector2.Lerp(_ball[Lead], _ball[Rear], 0.5f);
-        // 構えを寄せる量（drift）は、骨盤の位置 + 骨盤の速度で出す。重心（capture）でなく: 床から支える体は、胴をひねった構え・重い武器・体重の移しで
-        // 重心が両足の真ん中から静止のまま十数 cm ずれて釣り合う。それを「押された」と読んで足を重心の側へ 2 cm ずつ踏み直すと、
-        // 体がそれを追って流れ続けた（構えを直す歩が止まらず、20 秒で 10 cm・15 歩）。倒れていく判定（falling）は重心の捕捉点のまま
-        // （上体の傾きで支えの外へ出れば踏み出す）。
-        var drift = (input.Body + (input.BodyVelocity / omega)) - middle;
+        // 構えを寄せる量（drift）は、静かに立っているときは骨盤の位置 + 骨盤の速度で出す。重心（capture）でなく: 床から支える体は、胴をひねった構え・重い武器・
+        // 体重の移しで重心が両足の真ん中から静止のまま十数 cm ずれて釣り合う。それを「押された」と読んで足を重心の側へ 2 cm ずつ踏み直すと、
+        // 体がそれを追って流れ続けた（構えを直す歩が止まらず、20 秒で 10 cm・15 歩）。倒れている・起き上がる間と、重心が動いている間
+        // （CenterOnCom: FootworkTuning.CenterOnComSpeed を超える速さ）は、重心が骨盤から大きくずれて動くので重心の捕捉点で出す
+        // （起き上がる足が骨盤を追うと、倒れた所から 0.23 m 流れた）。倒れていく判定（falling）はいつも重心の捕捉点（上体の傾きで支えの外へ出れば踏み出す）。
+        var drift = (input.CenterOnCom ? capture : input.Body + (input.BodyVelocity / omega)) - middle;
         var deadband = t.CaptureDeadband * leg;
         var center = middle + (drift.Length() > deadband ? drift * (1f - (deadband / drift.Length())) : Vector2.Zero)
             + ClampLength(input.Intent * t.Lookahead, t.MaxLookahead * leg);

@@ -2394,7 +2394,7 @@ public sealed partial class Fighter
             // 支えが床から出る体では、倒れていくのは上体の傾きを含む全身の重心: 捕捉点を重心から出す（Fighter.Support.cs）。
             var com = CenterOfMass;
             var comVelocity = CenterOfMassVelocity;
-            input = input with { Com = new Vector2(com.X, com.Z), ComVelocity = new Vector2(comVelocity.X, comVelocity.Z) };
+            input = input with { Com = new Vector2(com.X, com.Z), ComVelocity = new Vector2(comVelocity.X, comVelocity.Z), CenterOnCom = State != FighterState.Standing || new Vector2(comVelocity.X, comVelocity.Z).Length() > _tuning.Footwork.CenterOnComSpeed };
         }
 
         _footwork.Update(input, dt);

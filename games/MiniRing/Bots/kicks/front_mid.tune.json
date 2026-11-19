@@ -1,18 +1,18 @@
 {
   "Rear": {
-    "Standoff": 1.4810236,
-    "Seconds": 0.44133726,
-    "AzimuthShift": -0.24984175,
-    "ElevationShift": 0.43978918,
-    "BendShift": -0.043160774,
-    "FootPitch": 0.13162172
+    "Standoff": 1.8893496,
+    "Seconds": 0.42257565,
+    "AzimuthShift": -0.12975985,
+    "ElevationShift": 0.5029435,
+    "BendShift": 0.016143858,
+    "FootPitch": -0.24287963
   },
   "Front": {
-    "Standoff": 1.3997579,
-    "Seconds": 0.40406373,
-    "AzimuthShift": -0.32032722,
-    "ElevationShift": 0.42062557,
-    "BendShift": -0.006549895,
-    "FootPitch": 0.19468987
+    "Standoff": 1.4799997,
+    "Seconds": 0.4802351,
+    "AzimuthShift": 0.21822172,
+    "ElevationShift": 0.8930943,
+    "BendShift": -0.033357814,
+    "FootPitch": -0.6318226
   }
 }

@@ -31,9 +31,18 @@ internal static class KickShin
         ("間合い", 0.75f, 1.9f), ("長さ[s]", 0.4f, 0.95f), ("方位のずれ", -0.8f, 0.8f), ("仰角のずれ", -0.9f, 0.9f), ("膝を開く拍子", -0.15f, 0.15f), ("足首の曲げ", -1.0f, 0.4f),
     ];
 
-    internal static KickTune Decode(IReadOnlyList<double> x)
+    /// <summary>
+    /// 前蹴りの間合いの上限（腕の長さ倍）。剣士・バットの型の間合い（<c>StrikeDrill.ReachOf</c>）は蹴りの Standoff × 腕の長さで、
+    /// 前蹴りは「間合いの内側の型」として <c>FormSwordsman.MinReach</c>（0.33 m、腕 0.188 m で 1.755 倍）より短くなければならない（BatFormsTests）。
+    /// 上限 1.9 で練習した前蹴りは 1.89 に張り付き、0.355 m で内側の型でなくなった。
+    /// </summary>
+    internal const float FrontKickStandoffMax = 1.7f;
+
+    private static float StandoffMax(Height h) => h.Technique == KickTechnique.Front ? FrontKickStandoffMax : float.MaxValue;
+
+    internal static KickTune Decode(IReadOnlyList<double> x, float standoffMax = float.MaxValue)
     {
-        float V(int i) => Ranges[i].Low + ((Ranges[i].High - Ranges[i].Low) * (float)Math.Clamp(x[i], 0.0, 1.0));
+        float V(int i) => Ranges[i].Low + (((i == 0 ? MathF.Min(Ranges[i].High, standoffMax) : Ranges[i].High) - Ranges[i].Low) * (float)Math.Clamp(x[i], 0.0, 1.0));
         return new KickTune(V(0), V(1), V(2), V(3), V(4), V(5));
     }
 
@@ -90,7 +99,7 @@ internal static class KickShin
         {
             var points = cma.Ask();
             var scores = new double[points.Length];
-            Parallel.For(0, points.Length, new ParallelOptions { MaxDegreeOfParallelism = parallel }, i => scores[i] = ScoreOf(Decode(points[i])));
+            Parallel.For(0, points.Length, new ParallelOptions { MaxDegreeOfParallelism = parallel }, i => scores[i] = ScoreOf(Decode(points[i], StandoffMax(h))));
             cma.Tell(scores);
             var k = Array.IndexOf(scores, scores.Max());
             if (scores[k] > best.Score)
@@ -101,7 +110,7 @@ internal static class KickShin
             log($"世代 {cma.Generation}: 最良 {F((float)scores.Max())} 全体の最良 {F((float)best.Score)} σ {F((float)cma.Sigma, "0.000")}");
         }
 
-        return (Decode(best.X), startScore, best.Score);
+        return (Decode(best.X, StandoffMax(h)), startScore, best.Score);
     }
 
     internal static readonly Condition[] TuneConditions = [new("taeyun", "standard", 1), new("standard", "standard", 1), new("taeyun", "joao", 2), new("standard", "joao", 2), new("taeyun", "yoandry", 3), new("standard", "yoandry", 3)];
