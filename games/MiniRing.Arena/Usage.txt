@@ -1,5 +1,5 @@
 ボット同士の対戦場。
-  rosterleague [--wear id=glove,...] [--chars a,b,...] [--bouts N] [--seconds S] [--seed X] [--referee on|off] [--parallel N] [--set A=v,B=v [--ab on [--layered id]]] [--gameplan on|off|ab] [--layer gameplan|rhythm] [--matrix file.csv] [--out file.md]   名簿のキャラの総当たり（体格・距離の帯・打撃の表）
+  rosterleague [--wear id=glove,...] [--chars a,b,...] [--bouts N] [--seconds S] [--seed X] [--referee on|off] [--parallel N] [--set A=v,B=v [--ab on [--layered id]]] [--gameplan on|off|ab] [--matrix file.csv] [--out file.md]   名簿のキャラの総当たり（体格・距離の帯・打撃の表）
   league [--bots a,b,...] [--bouts N] [--seconds S] [--seed X] [--out file.md]   総当たりの順位表と技の内訳
   tune --base NAME [--gens G] [--pop P] [--bouts N] [--seconds S] [--gauntlet a,b] [--seed X] [--log file.md] [--out style.json]
                                                                                   スタイルの自動調整（PDCA を世代ごとに記録）
@@ -15,6 +15,8 @@
                                                                                   空手のドリル: 手の形 × 急所、パリー（拳の曲がり）、5 種の蹴り
   kicklab [--body taeyun] [--kick Roundhouse] [--distances 1.0,1.1,...] [--seeds 1,2,..] [--confirm-seeds 11,12,..] [--shin 0.75] [--overshoot -0.2] [--log f.md]
                                                                                   蹴りの間合いのドリル: 間合いを刻んで蹴り、当たり・すねの当たった点・渡したエネルギーの表（採る間合いは使っていない種で比べ直す）
+  stick [--swing] [--planes vertical,kesa,...] [--samples 2000] [--polish 8] [--iterations 3000] [--seed 1] [--weights speed:3,smooth:1,plane:1,edge:1,dir:1,whole:0.5] [--character jin] [--limits grip|loose] [--video docs/video] [--log f.md]
+                                                                                  棒人形の道具（docs/STICK_MOTION.md）: --swing は片手剣の振りを断面ごとにモンテカルロで探して動画にする（§11）。--forms ID・--kicks・--design は型・蹴りの見立て
   counterlab [--book f.json] [--defense a,b|evasions] [--bouts N] [--ranges 1.15,1.3] [--log f.md] [--out book.json]
                                                                                   回避からのカウンターの研究（型 × 打ち始めの総当たり）
   basics [--punch 2] [--slot Duck] [--style swarmer] [--guards 0.6,1.0,1.5] [--guard H] [--gens G] [--pop P] [--log f.md] [--out f.json]
@@ -43,12 +45,25 @@
 その他のコマンド（引数の名前だけ。意味は各 Lab のクラスの冒頭の注釈と docs/TOOLS.md。説明を書いたら上へ移す）:
   handlelab [--pairs] [--fist] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--style-katana] [--style-longsword] [--style-club] [--style-staff] [--style-swordshield] [--style-bat] [--title]
   handlespar [--trainee] [--opponents] [--held-out] [--gens] [--lambda] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--start] [--best] [--out]
-  maailab [--chars] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--json] [--csv] [--ranges]
-  rhythmlab [--chars] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--csv]   攻めの間の測り（打った後の隙・相手の拳の後に打つ機。docs/BOTS.md「間の層」）
+  maailab [--chars] [--focus id,..] [--bouts] [--seconds] [--seed] [--referee] [--parallel] [--out] [--json] [--csv] [--ranges]
   staminalab [--variants] [--bots] [--bouts] [--seconds] [--seed] [--tv] [--out]
   learnlab [--first] [--second] [--seeds] [--seconds] [--seed] [--prior] [--scale] [--combos] [--defender] [--out]
   rangelab [--variants] [--bots] [--bouts] [--seconds] [--seed] [--weapons] [--out]
   finishlab [--attackers] [--victims] [--levels] [--bouts] [--seconds] [--set] [--log] [--aim] [--victim-set]
+  groundlab [--style] [--moves hammer,thrust,stomp,punch-down] [--bouts] [--seconds] [--seed] [--log] [--video] [--practice yes] [--candidates] [--sigma] [--validate]
+                                                                                  倒れた相手への攻め（立ったまま真下へ突く・踏みつけ）: 技ごとの打ち始め・当たり・J・攻め手の転倒
+  kickbalance [--style karate] [--kicks Front,Side] [--teachings 0:0:0,0.35:0.3:0] [--bouts] [--seconds] [--seed] [--confirm] [--log] [--video]
+                                                                                  軸足に乗って蹴る: 体重を移す間・頭の寄せ方ごとの、倒れた・当たり・J
+  practicelab [--only] [--candidates] [--bouts] [--seconds] [--seed] [--validate] [--sigma] [--log]
+                                                                                  組み技の経路を練習で探す（使わなかった種で比べ直す）
+  seoilab [--candidates] [--bouts] [--seconds] [--seed] [--validate] [--log] [--compare] [--reference] [--victims]
+                                                                                  背負い投げの経路の探索と比べもの
+  swaylab [--hz 0,1,2] [--ki 0,3] [--cycles 3] [--push 0.25] [--bouts] [--seconds] [--seed] [--log]
+                                                                                  周波数ごとに揺さぶってから支え釣り込み足（docs/GRAPPLING.md §9）
+  balancelab [--only old,cop,soft-poly,soft-disk,softcop] [--seed] [--log]
+                                                                                  姿勢のモデルを比べる: 立つ・引く・歩く・蹴る・投げ・試合で倒れた回数・浮いた時間
+  throwlab [--only sasae-tsurikomi-ashi] [--victims stand,champion] [--bouts] [--seconds] [--seed] [--log] [--trace yes] [--video] [--speed] [--width] [--height]
+                                                                                  組み技のドリル: 1 技をかけ続け、投げ・掴めず・取りの転倒・肘の荷重と靭帯（docs/GRAPPLING.md §6）
   kickvideo [--body] [--kick] [--distances] [--side] [--slow] [--width] [--height] [--fps] [--out]
   kickmocap [--dir] [--export] [--log] [--video] [--doll] [--durations] [--distances] [--export-mid] [--body]
   kickshin [--body] [--kick] [--standoff] [--seconds] [--diag] [--log] [--heights] [--practice] [--gens] [--lambda] [--parallel] [--json] [--video] [--victim] [--dir]

@@ -145,7 +145,7 @@ public static class BoxingRenderer
             var eyes = new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
             foreach (var part in body.Parts)
             {
-                voxels.Add(part.Draw(fighter.Cyanosis, eyes)); // 息が上がるほど皮膚が青紫に（見た目だけ）
+                voxels.Add(part.Draw(fighter.Cyanosis, eyes, fighter.Pallor)); // 血の酸素が減ると青紫に、心臓が送りきれないと青白く（見た目だけ）
             }
 
             foreach (var fragment in body.Fragments)

@@ -123,29 +123,6 @@ public sealed class BoxerBot : IFighterControl
     /// <summary>調べもの・テスト用: 戦略の層のこの歩の答え。</summary>
     internal PlanChoice? Plan => _plan;
 
-    /// <summary>間の層の、次の拳までの間の縮む速さの倍率（<see cref="Bots.Rhythm.Tempo"/>。層が無ければ 1）。</summary>
-    private float _rhythmTempo = 1f;
-
-    /// <summary>相手の最後の拳の出始めから、守りの外に受けたダメージと守りの上に当たった数（間の層が感じる触れ方）。</summary>
-    private float _contactClean;
-
-    private float _contactGuard;
-
-    /// <summary>間の層が見た相手の拳の出始めの数（変わったら触れ方を数え直す）。</summary>
-    private int _rhythmOnsets;
-
-    /// <summary>間の層が打つのを待たせるとき、次の拳までの間をここまでしか伸ばさない [s]（相手の連打の間ずっと待ち続けない）。</summary>
-    private const float RhythmHoldCap = 0.5f;
-
-    internal float RhythmTempo => _rhythmTempo;
-
-    /// <summary>
-    /// 次の拳までの間を 1 歩進める。<paramref name="advance"/> が正なら縮め（今まで通り）、負（間の層が待たせる）なら 0 から伸ばして
-    /// <see cref="RhythmHoldCap"/> までで止める（間が負へ貯まっていても、入れられた直後は打たない。レビュー指摘）。
-    /// </summary>
-    internal static float NextCooldown(float cooldown, float advance) =>
-        advance >= 0f ? cooldown - advance : MathF.Min(MathF.Max(cooldown, 0f) - advance, MathF.Max(cooldown, RhythmHoldCap));
-
     /// <summary>戦略の層の手数の倍率を、重みの割合で 1 から寄せたもの（層が無ければちょうど 1: 掛けてもビット単位で変わらない）。</summary>
     private float PlanTempo => _plan is { } plan ? 1f + ((plan.Tempo - 1f) * Style.GamePlan!.Weight) : 1f;
 
@@ -232,7 +209,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 55; // 55: 拳の狙いを自分の胸の前（肩の中心から 0.25 腕）より手前に来ないように寄せた（詰まった間で腕が背中側へ回っていた）（2026-11-19）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 55; // 55: 間の層を外した（採らない、docs/plans/RHYTHM_LAYER_SHELVED.md）のと、拳・肘の狙いを自分の胸の前（肩の中心から 0.25 腕）より手前に来ないように寄せた（詰まった間で腕が背中側へ回っていた）（2026-11-19）。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;
@@ -242,6 +219,9 @@ public sealed class BoxerBot : IFighterControl
     private Vector3 _elbowAimWorld;
     public ElbowTechnique? CurrentElbow => _elbow;
     private float _kickTime;
+
+    /// <summary>今の蹴りの向き・狙いを決めたか（蹴りを選んでから最初の歩で決める）。</summary>
+    private bool _kickSet;
 
     /// <summary>今の蹴りの長さ [s]。技が自分の長さを持つなら（人の動きから作った手本、<see cref="KickSpec.Seconds"/>）それ、なければスタイルの値。</summary>
     private float KickLength => (_kick is { } kind ? KickSpec.Of(kind).SecondsFor(_kickSide, Style.Lead) : null) ?? Style.KickDuration;
@@ -327,19 +307,6 @@ public sealed class BoxerBot : IFighterControl
         _plan = Style.GamePlan is { Weight: > 0f } gamePlan
             ? GamePlan.Decide(gamePlan, new PlanInputs(_hurt.Opening, sense.OpponentWinded, sense.OpponentInjury, _stamina, _faintness, sense.SelfInjury, sense.Match))
             : null;
-        if (Style.Rhythm is { Weight: > 0f } rhythm)
-        {
-            // 間の層: 相手の拳の出始めからの時間と、その拳が自分に触れたか（守りの上か外か）から、次の拳までの間の縮む速さを決める。
-            if (_read.Onsets != _rhythmOnsets)
-            {
-                _rhythmOnsets = _read.Onsets;
-                _contactClean = 0f;
-                _contactGuard = 0f;
-            }
-
-            _rhythmTempo = Rhythm.Tempo(rhythm, _read.SinceOnset, _contactClean, _contactGuard);
-        }
-
         Stats.InRange(_range.Danger, attacking: _combo is not null || _wantAttack || AnyPunchActive, dt);
         UpdatePrediction(sense, dt);
         UpdateGuess(sense, dt);
@@ -360,6 +327,11 @@ public sealed class BoxerBot : IFighterControl
             UpdateKick(seen, attackDistance, dt);
             UpdateElbow(seen, dt);
             UpdatePunches(observed, sense.SelfHead, dt);
+        }
+        else if (_kick is not null && _kickTime < 0f)
+        {
+            // 体重を軸足へ移す間（KickShift）は相手が見えなくても進める（見えない間に寄せたまま固まらない）。
+            _kickTime = MathF.Min(0f, _kickTime + dt);
         }
 
         StepProfile.End(StepProfile.Slot.BotChoose, chooseStart);
@@ -401,6 +373,11 @@ public sealed class BoxerBot : IFighterControl
         // 体の向きを回す蹴り: 向きは相手へ向けた向きから回す（FaceDirection の目標）。狙い（体フレーム）は体が回るにつれて動くので毎歩求め直す。
         var kickTwist = 0f;
         var kickFace = dir;
+        if (_kickTime < 0f)
+        {
+            kickSpec = null; // 体重を軸足へ移している間（KickShift）は脚を上げない
+        }
+
         if (kickSpec is { Turns: true } turning)
         {
             kickTwist = turning.TorsoTwist(_kickSide, _kickTime, KickLength);
@@ -467,15 +444,6 @@ public sealed class BoxerBot : IFighterControl
     public void OnPunchTaken(in HitEvent hit)
     {
         _recentDamage += hit.Damage;
-        if (hit.Zone == HitZone.Guard)
-        {
-            _contactGuard += 1f;
-        }
-        else
-        {
-            _contactClean += hit.Damage;
-        }
-
         if (_defense != Defense.None)
         {
             _defenseHit = true;
@@ -973,17 +941,21 @@ public sealed class BoxerBot : IFighterControl
             return;
         }
 
-        if (_kickTime == 0f)
+        var before = _kickTime;
+        if (!_kickSet || (before < 0f && before + dt >= 0f))
         {
+            // 蹴りを選んだ歩と、体重を移し終えて脚を上げる歩で、狙いを決める（移している間に相手が動く）。
             _kickSide = Style.Lead == Hand.Left ? Hand.Right : Hand.Left;
             _kickAimWorld = KickSpec.Of(kind).AimWorld(sense);
             _kickAim = sense.Self.WorldToLocal(_kickAimWorld);
+            _kickSet = true;
         }
         _kickTime += dt;
         if (_kickTime >= KickLength)
         {
             _kick = null;
             _kickTime = 0f;
+            _kickSet = false;
             _cooldown = KickLength;
         }
     }
@@ -1091,10 +1063,7 @@ public sealed class BoxerBot : IFighterControl
         // 危険度 × (1 + さらされ) に比例して、次の拳までの間を早く縮める（RangePress）。
         // 弱った相手を詰める層: 相手が開いているほど次の拳までの間を早く縮める（FinishTempo）。
         // 戦略の層: 得と脅威の釣り合い・急ぐ度合いで次の拳までの間を縮める・空ける（PlanTempo。層が無ければ 1 を掛けるだけ）。
-        // 間の層: 相手の拳の後の損得の表で縮める（攻めの番）・止めて伸ばす（守りの番。伸ばすのは RhythmHoldCap まで）。層が無ければ 1 を掛けるだけ。
-        var advance = dt * (1f - ((1f - Style.RestTempo) * RestNeed)) * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure))) * _build.Tempo(Style) * (1f + (Style.FinishTempo * _hurt.Opening)) * PlanTempo * _rhythmTempo;
-        // 待たせるときは 0 から伸ばす（間合いの外にいた間などに間が負へ貯まっていても、入れられた直後は打たない。レビュー指摘）。
-        _cooldown = NextCooldown(_cooldown, advance);
+        _cooldown -= dt * (1f - ((1f - Style.RestTempo) * RestNeed)) * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure))) * _build.Tempo(Style) * (1f + (Style.FinishTempo * _hurt.Opening)) * PlanTempo;
         _exitTimer = MathF.Max(0f, _exitTimer - dt);
         if (_kick is not null || _elbow is not null || _defense != Defense.None || _clinchTime >= 0f || _throwTime >= 0f || _combo is not null)
         {
@@ -1124,6 +1093,7 @@ public sealed class BoxerBot : IFighterControl
                     else
                     {
                         _kick = PickKick(distance, reach);
+                        _kickTime = -Style.KickShift;
                     }
                 }
             }
@@ -1588,7 +1558,23 @@ public sealed class BoxerBot : IFighterControl
                 : new Vector3(Range(-0.32f, 0.32f), Range(-0.15f, 0.02f), Range(-0.08f, 0.2f)) * (reach * a); // 上下は浅く（構えたまま沈み込まない）
         }
 
-        return _headIdle + shift;
+        return _headIdle + shift + KickLean(lead, reach);
+    }
+
+    /// <summary>
+    /// 蹴りの間の頭の寄せ（体重を軸足 = 前足へ乗せる指令、<see cref="BotStyle.KickLeanForward"/>・<see cref="BotStyle.KickLeanSide"/>）。
+    /// 体重を移す間（<see cref="BotStyle.KickShift"/>）に 0 から満ちて、蹴り終わるまで保つ。
+    /// </summary>
+    private Vector3 KickLean(float lead, float reach)
+    {
+        if (_kick is null)
+        {
+            return Vector3.Zero;
+        }
+
+        var shift = Style.KickShift;
+        var share = shift > 0f ? Math.Clamp((_kickTime + shift) / shift, 0f, 1f) : 1f;
+        return new Vector3(lead * Style.KickLeanSide, 0f, Style.KickLeanForward) * (reach * share);
     }
 
     /// <summary>

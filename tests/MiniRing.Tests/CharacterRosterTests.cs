@@ -39,16 +39,14 @@ public sealed class CharacterRosterTests
     }
 
     /// <summary>
-    /// 名簿の教育は戦略の層（<c>education.style.GamePlan</c>）・休みの好み・間の層（<c>Rhythm</c>、拳の選手だけ。2026-11-18）だけ:
-    /// 解決したスタイルは、それらを除けば教科書と同じ値。
+    /// 名簿の教育は戦略の層（<c>education.style.GamePlan</c>、2026-11-18）と休みの好みだけ: 解決したスタイルは、それらを除けば教科書と同じ値。
     /// </summary>
     internal static void AssertTextbookPlusGamePlan(BotStyle textbook, BotStyle resolved, string message)
     {
         Assert.IsNotNull(resolved.GamePlan, "the roster education carries the game plan: " + message);
         Assert.IsNull(textbook.GamePlan, "textbooks carry no game plan: " + message);
-        Assert.IsNull(textbook.Rhythm, "textbooks carry no rhythm table: " + message);
         Assert.IsNotEmpty(resolved.BreakLikes, "the roster education carries the break-time likes: " + message);
-        Assert.AreEqual((textbook with { BreakLikes = resolved.BreakLikes }).ToJson(), (resolved with { GamePlan = null, Rhythm = null }).ToJson(), "apart from the game plan, the rhythm table and the break likes, the textbook itself: " + message);
+        Assert.AreEqual((textbook with { BreakLikes = resolved.BreakLikes }).ToJson(), (resolved with { GamePlan = null }).ToJson(), "apart from the game plan and the break likes, the textbook itself: " + message);
     }
 
     /// <summary>決めた名簿（CLAUDE_BRIEF_ROSTER_MENU の表）: id・武器・はめる物・スタイル・身長/腕/脚/筋肉。</summary>
@@ -71,13 +69,14 @@ public sealed class CharacterRosterTests
         ("tsuyoshi", null, HandWear.Tonfa, "tonfa", 1.0f, 1.03f, 1.0f, 1.0f),
         ("edgar", WeaponKind.IronSword, HandWear.Shield, "boxer", 1.05f, 1.0f, 1.0f, 1.15f),
         ("narong", null, HandWear.Glove, "muaythai", 1.02f, 1.02f, 1.05f, 0.96f),
+        ("ren", null, HandWear.None, "jujutsu", 1.0f, 1.02f, 1.0f, 1.05f), // 2026-11-17: 柔術家（組み技の教科書、docs/GRAPPLING.md）
     ];
 
     [TestMethod]
     public void Roster_HoldsTheDecidedTwelve_WithTheirEquipmentStyleAndBody()
     {
         var all = CharacterRoster.All;
-        Assert.HasCount(17, all);
+        Assert.HasCount(18, all); // 2026-11-18: 柔術家 ren を足して 18 人
         CollectionAssert.AreEqual(Decided.Select(d => d.Id).ToArray(), all.Select(c => c.Id).ToArray(), "the decided order");
         foreach (var d in Decided)
         {

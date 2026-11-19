@@ -55,7 +55,7 @@ public readonly record struct HitTone(float Intensity, float Clean, HitTarget Ta
     /// <summary>打った面の材質の番号（<see cref="BoxerAnatomy"/>）から音の作り方を選ぶ。分からない（0）・その他はグローブ。</summary>
     public static HitSurface SurfaceOf(byte face) => face switch
     {
-        BoxerAnatomy.Skin => HitSurface.Bare,
+        BoxerAnatomy.Skin or BoxerAnatomy.HandSkin => HitSurface.Bare,
         BoxerAnatomy.Iron => HitSurface.Metal,
         BoxerAnatomy.Wood => HitSurface.Wood,
         _ => HitSurface.Glove,

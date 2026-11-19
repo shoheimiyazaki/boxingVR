@@ -20,17 +20,22 @@ public sealed class BodyAndMatchTests
         // 打ち合うボットは、立っているだけのボットよりスタミナを使う。休めば戻る（心肺の速さで）。
         // 1 試合では、片方がほとんど打たない流れ（種 5 で 0.96/1.00）がときどきある。種 1〜8 で測ると、最も疲れた側の消耗は
         // 平均 0.43（統合前の master で 0.42）で、8 本とも一方は 0.28〜0.96。1 本の試合の流れでなく、平均の消耗で「打ち合うと使う」を見る。
+        // 2026-11-19: 呼吸と循環のモデル（PhysicsVersion 52）では休めばすぐ戻るので、12 秒の終わりの値は休んでいる最中かどうかで揺れ、
+        // 平均 0.10 前後（master 0.103・LogicVersion 55 0.098）で境目に乗っていた。終わりの値でなく、試合の間のいちばん低い所で見る
+        // （master 0.156・LogicVersion 55 0.142）。
         var seeds = new[] { 1, 2, 3, 4, 5, 6, 7, 8 };
         var spentSum = 0f;
         foreach (var seed in seeds)
         {
             using var fight = new BoxingGame(seed: seed, corners: new BoxingCorners("slugger", s => BotCatalog.Create("slugger", s), s => BotCatalog.Create("jabber", s)));
+            var lowest = 1f;
             for (var t = 0f; t < 12f; t += 1f / 60f)
             {
                 fight.Step(default, 1f / 60f);
+                lowest = MathF.Min(lowest, MathF.Min(fight.Player.Stamina, fight.Cpu.Stamina));
             }
 
-            spentSum += 1f - MathF.Min(fight.Player.Stamina, fight.Cpu.Stamina);
+            spentSum += 1f - lowest;
         }
 
         // Attacks=false の BoxerBot も回り込み・間合い調整・頭の動きを出すため、休息の対照にはならない。
@@ -42,7 +47,7 @@ public sealed class BodyAndMatchTests
         }
 
         var spent = spentSum / seeds.Length;
-        Console.WriteLine($"after 12 s: fighting spent {spent:0.00} on average (min of the two), standing {idle.Cpu.Stamina:0.00}");
+        Console.WriteLine($"in 12 s: fighting spent {spent:0.0000} at its lowest on average (min of the two), standing {idle.Cpu.Stamina:0.0000}");
         Assert.IsGreaterThan(0.1f + (1f - idle.Cpu.Stamina), spent, "fighting costs energy");
         Assert.IsGreaterThan(0.95f, idle.Cpu.Stamina, "standing in guard costs less than the heart and lungs give back");
     }
@@ -53,11 +58,12 @@ public sealed class BodyAndMatchTests
         using var game = StillGame();
         Settle(game);
         var f = game.Cpu;
-        var near = Blow(game, f, height: 0.3f);   // 胸の前: 肺・心臓に近い
+        _ = Blow(game, f, height: 0.3f);   // 胸の前: 肺・心臓に近い
         var lungAfterChest = f.Voxels!.BruiseOf(BoxerAnatomy.Lung);
         Assert.IsGreaterThan(0.2f, lungAfterChest, "a heavy blow to the chest bruises the lungs through the skin");
         Assert.IsLessThan(1f - 0.2f, f.Breath, "bruised lungs: short of breath");
-        Assert.IsLessThan(0.99f, near, "the blow knocked the wind out (stamina dropped at once)");
+        // 呼吸と循環のモデル（2026-11-18）: 息が詰まると血の酸素を失う（部位の筋肉の蓄えはそのまま）。
+        Assert.IsLessThan(0.99f, f.BloodOxygen, "the blow knocked the wind out (blood oxygen dropped at once)");
         for (var t = 0f; t < 6f; t += Dt)
         {
             game.Step(default, Dt);

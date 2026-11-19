@@ -18,12 +18,17 @@ public sealed class OrganizationMatchTests
     }
 
     [TestMethod]
-    public void VfcRulesCountNoDownsJudgeNothingAndDoNotHeal()
+    public void VfcRulesCountNoDownsJudgeNothingRegrowAndResupply()
     {
         var rules = TvShowRules.Rules(5, 25f, Organizations.Get("vfc"));
         Assert.IsFalse(rules.CountsDowns);
         Assert.IsFalse(rules.JudgesDecision);
-        Assert.AreEqual(0f, rules.RegenVoxelsPerSecond);
+        Assert.AreEqual(0f, rules.RegenVoxelsPerSecond, "no budgeted healing (the WVC model)");
+        Assert.AreEqual(0.0005f, rules.RegrowthSpeed, "wounds grow back from the living edge in the breaks");
+        Assert.AreEqual(0.25f, rules.RegrowthTickSeconds);
+        Assert.AreEqual(3f, rules.StuckDoublingSeconds);
+        Assert.IsTrue(rules.ResupplyWeapons);
+        Assert.AreEqual(20f, rules.BruiseHalfLifeSeconds, "skin bruises fade in the breaks, as in the WVC");
         Assert.AreEqual(5, rules.Rounds);
         Assert.AreEqual(25f, rules.BreakSeconds);
         // MatchRules.Vfc（試合の芯の決まり）と同じ決まりになる。
@@ -50,6 +55,10 @@ public sealed class OrganizationMatchTests
 
         var armed = TvShowRules.Stage(BotCatalog.Corners("boxer") with { CpuWeapon = Weapons.WeaponKind.Katana, PlayerWeapon = Weapons.WeaponKind.Longsword }, vfc);
         Assert.AreEqual(RingLayout.WeaponsCage, armed.Layout);
+
+        // 動画・中継の両コーナーは、コーナーから始める四角いリングを持って来る: それでも檻になり、コーナーから始める。
+        var fromCorners = TvShowRules.Stage(BotCatalog.Corners("boxer").StartingAtCorners(), vfc);
+        Assert.AreEqual(RingLayout.Cage.AtCorners(), fromCorners.Layout);
     }
 
     [TestMethod]

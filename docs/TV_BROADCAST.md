@@ -34,7 +34,7 @@
 - 札の `"org"`（既定 `"wvc"`）: `tvshow.ps1` がすべての arena の呼び出しに `--org` を渡し、`write-commentary.ps1` がプロンプトの `{{org}}`・`{{orgName}}`・`{{sport}}`・`{{orgIntro}}`・`{{announcerTone}}`・`{{analystTone}}`・`{{callThing}}`・`{{callExamples}}` を団体のファイルで埋める。`event` を省くと団体の略称（WVC・VFC）。例 `tools/tvshow/cards/vfc-test.json`。
 - 選手の所属: 名簿のキャラクターのファイルの `"org"`（既定 wvc）。武器・グローブ以外のはめる物の選手（daichi・edgar・gaston・jin・joao・konrad・sean・tsuyoshi・vikram）は vfc。
 - 近道（見せ方だけ。物理・材料には響かない）: 下見の点数の重み・歓声の倍率・照明の倍率とスポットの強さ・色は、見て決めた値で測った物ではない。VFC のホーンは合成で、実物の録音から測っていない（ゴングと違う）。VFC の紋章は手本の絵の描き写し（ボクセルの格子へ丸めた近似。字の斜めは 1 行 0.05 マスのずらし）。照明は `ArenaLook.Lighting(center, size, surface, mood)` と `ScreenFinishFor(mood)` を作ってあるが、`BoxingGame`（`_lighting`・`BuildPostProcess`）はまだ雰囲気を渡さない（`--org vfc` でも試合の画は WVC の明るい部屋）。
-- 試合の決まり（ダウンを数えない・死だけが決着・体は治らない）と六角形の檻、暗い会場の照明の呼び出し（`BoxingGame` が `ArenaLook.Lighting(..., mood)`・`ScreenFinishFor(mood)` を呼ぶ）は、この仕組みの外（別の作業）。`--org vfc` が変えるのは見せ方（画面・音・語り・点数）だけ。
+- 試合の決まり（ダウンを数えない・死だけが決着・傷は休みに少しずつ戻る・失った武器の支給）と六角形の檻、暗い会場の照明の呼び出し（`BoxingGame` が `ArenaLook.Lighting(..., mood)`・`ScreenFinishFor(mood)` を呼ぶ）は、この仕組みの外（別の作業）。`--org vfc` が変えるのは見せ方（画面・音・語り・点数）だけ。
 
 ### 1.2 番組の型（団体ごとに別の番組、2026-11-18）
 

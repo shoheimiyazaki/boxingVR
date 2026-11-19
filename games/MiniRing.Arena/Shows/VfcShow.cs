@@ -10,7 +10,7 @@ namespace MiniRing.Arena;
 /// VFC の番組の型: 何でもありの金網の団体の、深夜の有料配信のケージファイト。WVC の地上波の中継（金の細い罫・菱形の飾り・中央揃えの板・
 /// 角丸・表）とは別の作りにする: 黒・クリーム・赤、角張ったボクセルの文字、斜めの切り口（平行四辺形の帯）、赤い斜線。
 /// 試合の前は コールドオープン → ファイトポスター → 入場（赤・青）→ フェイスオフ、試合中は下の黒い帯に両者の体の図（見えている傷だけ）、
-/// 休みは「傷は治らない」の看板と傷の言葉、リプレイは赤い斜線のワイプと REWIND、決着は勝者の名前と死因の言葉と最後の体の図。
+/// 休みは団体の言葉の看板（<c>text.intervalSign</c>）と傷の言葉、リプレイは赤い斜線のワイプと REWIND、決着は勝者の名前と死因の言葉と最後の体の図。
 /// 色は団体のファイル（<see cref="OrgColors"/>）の値。描画と音の合図だけで、試合には響かない。
 /// </summary>
 internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
@@ -643,7 +643,7 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(bodies);
         string Wounds(Fighter f) => bodies.Of(f).Wounds() is { Count: > 0 } w ? string.Join("・", w) : "目立つ傷なし";
-        return $"休みの看板（{IntervalShowSeconds:0} 秒、画面の左）: 「傷は治らない」。両者の体の図と見えている傷。{red}: {Wounds(game.Player)}。{blue}: {Wounds(game.Cpu)}";
+        return $"休みの看板（{IntervalShowSeconds:0} 秒、画面の左）: 「{org.Text.IntervalSign}」。両者の体の図と見えている傷。{red}: {Wounds(game.Player)}。{blue}: {Wounds(game.Cpu)}";
     }
 
     public ShowDraw Interval(BoxingGame game, string red, string blue, ShowBodies bodies, float breakTime, IReadOnlyList<WvcRoundTally> rounds)
@@ -669,7 +669,7 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         var x = w * 0.035f - slide;
         BlockFont.Draw(shapes, "INTERVAL", new Vector2(x, h * 0.07f), 7f, Cream with { W = a }, 0.15f);
         BlockFont.Slab(shapes, x - 10f, x + 360f, (h * 0.07f) + 70f, (h * 0.07f) + 126f, 20f, RedDeep with { W = a });
-        Shadowed(text, "傷は治らない", new Vector2(x + 18f, (h * 0.07f) + 78f), 40f, Cream with { W = a });
+        Shadowed(text, org.Text.IntervalSign, new Vector2(x + 18f, (h * 0.07f) + 78f), 40f, Cream with { W = a });
 
         // 両者の体の図と、見えている傷。
         // 左下の顔の窓（帯の上）に傷の言葉が掛からないよう、図は小さめ・傷の言葉は 2 行まで。

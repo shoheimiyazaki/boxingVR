@@ -94,7 +94,7 @@ public sealed class SwordTests
     public void TheSwordBot_PicksTechniquesByRange_AndCutsTheOpponent()
     {
         SwordBot? bot = null;
-        var fresh = FighterTuning.Default with { StaminaCapacity = 90_000f };
+        var fresh = FighterTuning.Default with { OxygenStorePerKg = 108_000f };
         using var game = new BoxingGame(fresh, seed: 2, corners: new BoxingCorners("stand", _ => new StandGuard(), s => bot = SwordBot.Basic(s), PlayerWeapon: WeaponKind.IronSword));
         var start = game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
         for (var f = 0; f < 60 * 8 && !game.Cpu.IsDead; f++)

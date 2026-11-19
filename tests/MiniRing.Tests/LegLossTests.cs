@@ -27,9 +27,15 @@ public sealed class LegLossTests
         Assert.AreEqual(full, cpu.LegSupportLength(false), "the other leg is whole");
         Assert.IsTrue(cpu.CanStand, "a stump still holds the body up");
 
-        Play(game, 8f);
+        // 切った直後は、残った脚と切り株で立って戦い続ける。
+        // 8 秒後に立っているかは見ない: 切り株の体は足の運びで踏み直せず（脚を失った体も釣り合いのモデルを通る、CLAUDE.md §8「脚を失った体」(8)）、
+        // 支えは短い切り株と片足の小さな多角形だけで、相手へ歩み寄る体は 2〜7 秒のうちに支えの外へ出て倒れる（種 1〜8 のどれも。
+        // 足の運び・支えの変更の前の物理でも同じ）。この試験が前に通っていたのは、1 歩ずれると変わる偶然（種 2・60 歩の待ちで 1 歩ずらすと落ちる）。
+        // 倒れた後に起き上がれないのは別の課題。この試験が確かめるのは切り株の高さ（腰が下りる量）と、切った直後に立てること。
+        Play(game, 1f);
+        Assert.AreEqual(FighterState.Standing, cpu.State, "back on the stump and fighting right after the cut");
+        Play(game, 7f);
         TestContext.WriteLine($"standing {standing:F3}  now {cpu.PelvisPosition.Y:F3}  shortfall {cpu.LegShortfall:F3}  state {cpu.State}  hover {cpu.HoverHeight:F3}");
-        Assert.AreEqual(FighterState.Standing, cpu.State, "back on the stump and fighting, not counted out");
         Assert.IsFalse(game.RoundOver && game.PlayerWins > 0, "the round does not end on the lost leg");
         var drop = standing - cpu.PelvisPosition.Y;
         Assert.IsGreaterThan(0.5f * cpu.LegShortfall, drop, "the hips come down to where the stump meets the floor");
@@ -70,7 +76,8 @@ public sealed class LegLossTests
     [TestMethod]
     public void BothLegsGone_SitsOnThePelvis_AndIsNotCountedDown()
     {
-        using var game = new BoxingGame(seed: 2);
+        // 近道あり（FighterTuning.LegLossSupportShortcut）の比べもの。既定（近道なし）は下の WithoutTheShortcut_BothLegsGone_*。
+        using var game = new BoxingGame(Shortcut, seed: 2);
         var cpu = game.Cpu;
         Play(game, 0.5f);
         var full = cpu.LegSupportLength(true);
@@ -98,9 +105,93 @@ public sealed class LegLossTests
 
         var share = standing / (float)Steps;
         TestContext.WriteLine($"standing {share:P0}  longest down {longestDown:F1}s  support {cpu.LegSupportLength(true):F3}/{cpu.LegSupportLength(false):F3}  state {cpu.State}");
-        Assert.IsGreaterThan(0.5f, share, "sitting up on the pelvis and fighting more than half the time (measured 58 %)");
+        // 2026-11-19: 「半分より長く」は 1 つの種の偶然の値だった（種 1〜6 の座っている割合は、マージ前の版 48 で 24〜73 %（平均 45 %）、
+        // マージ後は 48〜57 %（平均 50 %）で、種 2 の 58 % はその散らばりの中の 1 点）。座って打つ体は動くたびに倒れて座り直すので、確かめるのは
+        // 「立ち直って戦う時間がかなりある」（4 分の 1 より長い）こと。10 カウントにならないことは下の最長のダウンで見る。
+        Assert.IsGreaterThan(0.25f, share, "sitting up on the pelvis and fighting a large part of the time (a quarter at least; 35-58 % measured)");
         Assert.IsLessThan(5f, longestDown, "never down long enough to be counted out");
         Assert.IsLessThan(standingHips, highest, "the hips never go above where they stood on whole legs (no launch)");
+    }
+
+    private static readonly FighterTuning Shortcut = FighterTuning.Default with { LegLossSupportShortcut = true };
+
+    [TestMethod]
+    public void WithoutTheShortcut_BothLegsGone_CannotSitBackUp_AndIsCountedOut()
+    {
+        // 2026-11-17（ユーザーの指定: 近道なしを採る）: 両脚を付け根近くで失った体は、支えのモデルの中では骨盤の上へ上体を起こせず
+        // （腹筋で起き上がる仕組みが無い）、床でもがいたまま 10 カウントになる。体は浮き上がらない。
+        using var game = new BoxingGame(seed: 2);
+        var cpu = game.Cpu;
+        Play(game, 0.5f);
+        var standingHips = cpu.PelvisPosition.Y;
+        Cut(game, cpu, cpu.Parts.LeftThigh, 0.2f);
+        Cut(game, cpu, cpu.Parts.RightThigh, 0.2f);
+        var highest = 0f;
+        var standing = 0;
+        var steps = 0;
+        for (; steps < 16 * 60 && !game.RoundOver; steps++)
+        {
+            game.Step(default, Dt);
+            highest = MathF.Max(highest, cpu.PelvisPosition.Y);
+            standing += cpu.State == FighterState.Standing ? 1 : 0;
+        }
+
+        TestContext.WriteLine($"round over {game.RoundOver} after {steps * Dt:F1}s  standing {standing * Dt:F1}s  {game.Message}");
+        Assert.IsTrue(game.RoundOver && game.PlayerWins > 0, "counted out on the canvas");
+        Assert.IsLessThan(2f, standing * Dt, "never back up for long");
+        Assert.IsLessThan(standingHips, highest, "the hips never go above where they stood on whole legs (no launch)");
+    }
+
+    [TestMethod]
+    public void WithoutTheShortcut_ACutThigh_CannotStepToKeepItsBalance_AndGoesDown()
+    {
+        // 片方の腿を失った体は足の運びで踏み直せないので、短い脚と長い脚の支えの外へ重心が出ると倒れる（近道ありなら立ち続けた）。
+        // 2026-11-19（rush-physics・間合いの層とのマージ後）: 前は「切った後 8 秒待てば、相手へ寄る歩みで支えの外へ出て倒れる」を見ていたが、
+        // それは待つ間のボットの動き（体の揺れ・当たり）しだいの偶然だった（切った体は 2 つの版とも支えの余白 −0.03 m の所で立ち続け、版 48 では 5 秒目に
+        // 重心が支えの外 8 cm へ流れて倒れ、マージ後は同じ 8 秒で流れずに立ち続けた。重心の動きは同じ物理で、ボットの揺れだけが違う）。
+        // 支えの外へ出す力を決めて与える: 全身を 2.5 m/s（重い 1 発の押し込みを超える速さ）で押し、前後左右の 4 方向の合計で見る
+        // （1 方向だけだと、押す前に 1 歩ずれただけで倒れる・倒れないが入れ替わる。測った 4 方向の合計: 立っていない時間は 4 方向 × 4 秒のうち、
+        // 切った体が 15.4 秒、脚が無傷の体は起き上がりが早く 8.2 秒）。脚が無傷の体も押しには倒れる（足の運びで踏み直せないほどの押し）が、すぐ立ち直る。
+        var intact = ShoveAndWatch(cut: false);
+        var stump = ShoveAndWatch(cut: true);
+        TestContext.WriteLine($"not standing, summed over 4 shoves: intact {intact.Down:F1}s  cut {stump.Down:F1}s  shortfall {stump.Shortfall:F3}");
+        Assert.IsTrue(stump.CanStand, "the stump still has the strength to bear weight");
+        Assert.IsGreaterThan(intact.Down + 1f, stump.Down, "without stepping, the body falls off its stump and takes longer to get back up than a whole body");
+        Assert.IsLessThan(stump.StandingHips, stump.Highest, "and is never lifted from nowhere");
+    }
+
+    private static (float Down, float Shortfall, bool CanStand, float StandingHips, float Highest) ShoveAndWatch(bool cut)
+    {
+        var down = 0f;
+        var shortfall = 0f;
+        var canStand = true;
+        var standingHips = 0f;
+        var highest = 0f;
+        foreach (var direction in new[] { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitZ, -Vector3.UnitZ })
+        {
+            using var game = new BoxingGame(seed: 2);
+            var cpu = game.Cpu;
+            Play(game, 1f);
+            standingHips = cpu.PelvisPosition.Y;
+            if (cut)
+            {
+                Cut(game, cpu, cpu.Parts.LeftThigh, 0.5f);
+            }
+
+            Play(game, 1f);
+            cpu.Push(direction * 2.5f);
+            for (var t = 0; t < 4 * 60 && !game.RoundOver; t++)
+            {
+                game.Step(default, Dt);
+                down += cpu.State != FighterState.Standing ? Dt : 0f;
+                highest = MathF.Max(highest, cpu.PelvisPosition.Y);
+            }
+
+            shortfall = cpu.LegShortfall;
+            canStand &= cpu.CanStand;
+        }
+
+        return (down, shortfall, canStand, standingHips, highest);
     }
 
     [TestMethod]

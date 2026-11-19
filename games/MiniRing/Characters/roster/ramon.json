@@ -84,7 +84,6 @@
   "textbook": "swarmer",
   "education": {
     "style": {
-      "Rhythm": {"Weight":0,"Seize":1,"Quiet":4.336,"Bins":[{"From":0,"None":-2.247,"Guard":-1.034,"Clean":-1.404},{"From":0.1,"None":-0.03,"Guard":-0.614,"Clean":-0.488},{"From":0.2,"None":2.46,"Guard":1.784,"Clean":0.97},{"From":0.3,"None":2.399,"Guard":2.822,"Clean":0.161},{"From":0.4,"None":2.206,"Guard":1.68,"Clean":0.44},{"From":0.5,"None":1.185,"Guard":1.657,"Clean":0.179},{"From":0.6,"None":1.961,"Guard":1.531,"Clean":1.716},{"From":0.8,"None":4.003,"Guard":2.887,"Clean":2.481},{"From":1,"None":3.84,"Guard":2.82,"Clean":2.846}]},
       "BreakLikes": { "wipetears": 3.5, "crossself": 3, "hum": 2.5, "chestbeat": 2.5, "dance": 2, "roar": 2, "blowkiss": 2.5, "sandwich": 1.5, "bounce": 2, "headinhands": 2 },
       "GamePlan": {
         "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,

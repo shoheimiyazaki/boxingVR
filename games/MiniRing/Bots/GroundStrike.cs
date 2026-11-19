@@ -36,12 +36,36 @@ public readonly record struct GroundTool(float Length, bool TwoHanded = false, f
 /// <param name="Dip">振りかぶる間に体を持ち上げる量（沈みに対する割合。打つ間にそこから落とす: 体重を落として乗せる）。</param>
 /// <param name="Lean">打つ間、頭を前（相手の側）へ出す量。</param>
 /// <param name="Spring">打ち下ろす間に体の動き・バネを手へ移す割合（<see cref="HandCommand.Spring"/>）。</param>
+/// <param name="MaxSink">この技で体を沈める上限 [腕の長さ]（null なら <see cref="GroundTuning.MaxSink"/>）。立ったまま打つ技は浅く: 倒れた相手の上へ崩れ落ちない。</param>
+/// <param name="StanceLean">足の技で、頭を軸足（打たない側の足）の上へ寄せる量 [腕の長さ]。片脚を上げる前に体重を軸足へ移す（蹴りの <see cref="BotStyle.KickLeanSide"/> と同じ考え）。</param>
 public sealed record GroundMove(string Name, GroundLimb Limb, float Duration, float Stand, float Reach, float Rise, float Pull,
-    float WindElevation, float StrikeElevation, float Overshoot, float Dip, float Lean, float Spring)
+    float WindElevation, float StrikeElevation, float Overshoot, float Dip, float Lean, float Spring, float? MaxSink = null, float StanceLean = 0f)
 {
-    /// <summary>この道具で出せる攻めの 2 系統: 振り下ろす系（<see cref="GroundTuning.Hammer"/> / <see cref="GroundTuning.Cut"/>）と突き下ろす系（<see cref="GroundTuning.DropThrust"/> / <see cref="GroundTuning.Thrust"/>）。棍棒は振り下ろす系だけ。</summary>
+    /// <summary>この道具で出せる攻めの 2 系統: 振り下ろす系（<see cref="GroundTuning.Hammer"/> / <see cref="GroundTuning.Cut"/>）と突き下ろす系（<see cref="GroundTuning.PunchDown"/> / <see cref="GroundTuning.Thrust"/>）。棍棒は振り下ろす系だけ。</summary>
     public static (GroundMove Swing, GroundMove? Thrust) For(GroundTool tool, GroundTuning tuning, bool club = false)
-        => !tool.Armed ? (tuning.Hammer, tuning.DropThrust) : club ? (tuning.Cut, null) : (tuning.Cut, tuning.Thrust);
+        => !tool.Armed ? (tuning.Hammer, tuning.PunchDown) : club ? (tuning.Cut, null) : (tuning.Cut, tuning.Thrust);
+
+    /// <summary>教科書（JSON）から来た経路を、動かせる範囲へ丸める（数でない値は既定へ。長さ 0 の技・負の沈みの上限で止まらない）。</summary>
+    public GroundMove Validated(GroundMove fallback)
+    {
+        static float R(float v, float min, float max, float f) => Math.Clamp(float.IsFinite(v) ? v : f, min, max);
+        return this with
+        {
+            Duration = R(Duration, 0.1f, 3f, fallback.Duration),
+            Stand = R(Stand, 0f, 2f, fallback.Stand),
+            Reach = R(Reach, 0.3f, 2f, fallback.Reach),
+            Rise = R(Rise, -1f, 2f, fallback.Rise),
+            Pull = R(Pull, -1f, 1f, fallback.Pull),
+            WindElevation = R(WindElevation, -MathF.PI, MathF.PI, fallback.WindElevation),
+            StrikeElevation = R(StrikeElevation, -MathF.PI, MathF.PI, fallback.StrikeElevation),
+            Overshoot = R(Overshoot, 0f, 1f, fallback.Overshoot),
+            Dip = R(Dip, 0f, 1f, fallback.Dip),
+            Lean = R(Lean, -1f, 1f, fallback.Lean),
+            Spring = R(Spring, 0f, 1f, fallback.Spring),
+            MaxSink = MaxSink is { } sink ? R(sink, 0f, 3f, fallback.MaxSink ?? 0f) : null,
+            StanceLean = R(StanceLean, 0f, 1f, fallback.StanceLean),
+        };
+    }
 }
 
 /// <summary>
@@ -51,6 +75,20 @@ public sealed record GroundMove(string Name, GroundLimb Limb, float Duration, fl
 public sealed record GroundTuning
 {
     public static GroundTuning Default { get; } = new();
+
+    /// <summary>教科書（<see cref="BotStyle.Ground"/>）から来た値を丸める（技の経路は <see cref="GroundMove.Validated"/>、無い技は既定）。</summary>
+    public GroundTuning Validated()
+    {
+        var d = Default;
+        return this with
+        {
+            Hammer = (Hammer ?? d.Hammer).Validated(d.Hammer),
+            PunchDown = (PunchDown ?? d.PunchDown).Validated(d.PunchDown),
+            Stomp = (Stomp ?? d.Stomp).Validated(d.Stomp),
+            Cut = (Cut ?? d.Cut).Validated(d.Cut),
+            Thrust = (Thrust ?? d.Thrust).Validated(d.Thrust),
+        };
+    }
 
     /// <summary>1 回の攻めの時間のうち、振りかぶりが占める割合（0..この値で構えから振りかぶりへ）。</summary>
     public float WindShare { get; init; } = 0.40f;
@@ -120,11 +158,17 @@ public sealed record GroundTuning
     /// <summary>素手・グローブ・手にはめた物: 鉄槌（拳を高く上げて縦に打ち下ろす）。</summary>
     public GroundMove Hammer { get; init; } = new("hammer", GroundLimb.Hand, 0.50f, 0.30f, 1.00f, 0.65f, 0.15f, 0f, 0f, 0.15f, 0.30f, 0.10f, 1f);
 
-    /// <summary>素手・グローブ・手にはめた物: 腰を落として体ごと突き下ろす（沈みで体のバネを縮め、落ちる重さを乗せる）。</summary>
-    public GroundMove DropThrust { get; init; } = new("drop-thrust", GroundLimb.Hand, 0.55f, 0.30f, 1.00f, 0.35f, 0.40f, 0f, 0f, 0.15f, 0.50f, 0.25f, 1f);
+    /// <summary>
+    /// 素手・グローブ・手にはめた物: 真下へ撃ち抜く突き（2026-11-17、ユーザーの指定）。立ったまま倒れた相手の脇に寄り、拳を狙いの真上へ上げ（引かない）、
+    /// 体を持ち上げてから落としながら、狙いの奥まで真っすぐ突き抜ける。沈みは腕の 0.79 倍まで（倒れた相手の上へ崩れない）。値は groundlab の練習（40 候補、使わなかった種で 4 本の当たり 1→20・渡したエネルギー 2→67 J・攻め手の転倒 0。docs/arena/groundlab_practice.md）。
+    /// </summary>
+    public GroundMove PunchDown { get; init; } = new("punch-down", GroundLimb.Hand, 0.39f, 0.07f, 0.88f, 0.52f, 0.21f, 0f, 0f, 0.60f, 0.27f, 0.41f, 1f, MaxSink: 0.79f);
 
-    /// <summary>踏み下ろし（踏みつけ）: 足を相手の上へ上げ、真下へ踏み下ろす。</summary>
-    public GroundMove Stomp { get; init; } = new("stomp", GroundLimb.Foot, 0.70f, 0.45f, 1.45f, 0.55f, 0.10f, 0f, 0f, 0.20f, 0f, 0.05f, 1f);
+    /// <summary>
+    /// 踏みつけ（足裏で踏み下ろす、2026-11-17 に立ったまま踏む形へ）: 体重を軸足へ寄せながら膝を高く上げ、足裏を下へ向けたまま（足首の向きは立つときと同じ）
+    /// 狙いの真上から真下へ踏み抜く。沈みはほとんど無し（立ったまま）。値は groundlab の練習（40 候補、使わなかった種で 4 本の渡したエネルギー 56→192 J・攻め手の転倒 0。docs/arena/groundlab_practice.md）。
+    /// </summary>
+    public GroundMove Stomp { get; init; } = new("stomp", GroundLimb.Foot, 0.72f, 0.23f, 1.70f, 1.15f, 0f, 0f, 0f, 0.06f, 0.09f, 0.43f, 1f, MaxSink: 0.03f, StanceLean: 0.17f);
 
     /// <summary>片手・両手で握った武器: 上段から振りかぶって斬り下ろす（刀・ロングソード・棍棒。握りの先が頭の後ろへ寝るまで振りかぶる）。</summary>
     public GroundMove Cut { get; init; } = new("cut", GroundLimb.Hand, 0.65f, 0.80f, 0.95f, 0.70f, 0.20f, 2.3f, -0.75f, 0.10f, 0.30f, 0.10f, 1f);
@@ -174,6 +218,9 @@ public sealed class GroundStrike
     private float _time;
     private Hand _hand;
     private Hand _nextHand;
+
+    /// <summary>踏みつけの足（打ち始めた歩で決め、踏み終えるまで変えない。毎歩選び直すと左右がちらついて両足が床から離れた）。</summary>
+    private Hand _foot;
     private bool _stomped;
 
     public GroundStrike(BotStyle style, GroundTool tool, int seed, bool club = false, GroundTuning? tuning = null)
@@ -279,7 +326,7 @@ public sealed class GroundStrike
             var sinkGap = (-handStrike.Y - vertical) / reach;
             // 立つ所へ近づくほど沈む（遠い間は立ったまま歩く。深くしゃがんだままでは歩けない）。戻すときはすぐ。
             var near = Math.Clamp(1f - (((distance / reach) - _t.ReadyDistance) / _t.CrouchSpan), 0f, 1f);
-            _sink = Math.Clamp(_sink + (Math.Clamp(sinkGap, -_t.SinkStepDown, _t.SinkStepUp) * _t.SinkRate * dt * (sinkGap < 0f ? 1f : near)), 0f, _t.MaxSink);
+            _sink = Math.Clamp(_sink + (Math.Clamp(sinkGap, -_t.SinkStepDown, _t.SinkStepUp) * _t.SinkRate * dt * (sinkGap < 0f ? 1f : near)), 0f, MathF.Min(_t.MaxSink, plan.MaxSink ?? _t.MaxSink));
         }
         else
         {
@@ -304,6 +351,7 @@ public sealed class GroundStrike
                 _time = -(called ? load : _style.GroundLoad);
                 _hand = _nextHand;
                 _nextHand = _hand == Hand.Left ? Hand.Right : Hand.Left;
+                _foot = aimLocal.X >= 0f ? Hand.Left : Hand.Right; // 狙いに近い側の足で踏む
                 Started++;
             }
             else if (call == GroundCall.Auto && ready && _clock >= _nextAt)
@@ -355,8 +403,10 @@ public sealed class GroundStrike
 
         if (m.Limb == GroundLimb.Foot)
         {
-            var side = aimLocal.X >= 0f ? Hand.Left : Hand.Right;
+            var side = _foot;
             var leg = Foot(m, side, t, aimLocal, reach);
+            // 体重を軸足（踏まない側）の上へ寄せる: 振りかぶる間に満ち、踏み終えて戻すときに抜ける。
+            result = result with { HeadOffset = result.HeadOffset + new Vector3(-side.LocalSide() * m.StanceLean * envelope * reach, 0f, 0f) };
             return side == Hand.Left ? result with { LeftLeg = leg } : result with { RightLeg = leg };
         }
 
@@ -583,7 +633,7 @@ public sealed class GroundStriker : IFighterControl
     public GroundStriker(IFighterControl inner, BotStyle style, GroundTool tool, int seed, bool club = false)
     {
         Inner = inner ?? throw new ArgumentNullException(nameof(inner));
-        _ground = new GroundStrike(style, tool, seed, club);
+        _ground = new GroundStrike(style, tool, seed, club, style.Ground);
     }
 
     public IFighterControl Inner { get; }

@@ -11,7 +11,7 @@ public sealed record Contender(string Name, Func<int, IFighterControl> Create, W
     {
         ArgumentNullException.ThrowIfNull(style);
         var validated = style.Validated();
-        return new Contender(validated.Name, seed => new BoxerBot(validated, seed), Build: validated.Build, Face: validated.Face);
+        return new Contender(validated.Name, seed => BotCatalog.Bot(validated, seed), Build: validated.Build, Face: validated.Face);
     }
 
     public static Contender Named(string name) => new(name, seed => BotCatalog.Create(name, seed));

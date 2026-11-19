@@ -16,6 +16,12 @@ internal sealed record TvScoutResult(int Seed, string Finish, bool Ko, int Round
 {
     /// <summary>ゲームの決着の文（"K.O. — BRAIN DESTROYED"）が死（臓器・首の破壊）か。</summary>
     public static bool IsDeath(string finish) => finish.StartsWith("K.O. — ", StringComparison.Ordinal) && finish.Contains("DESTROYED", StringComparison.Ordinal);
+
+    /// <summary>ラウンド中に両者が同時に倒れていた（立っていない）時間の合計 [s]。</summary>
+    public float BothDownSeconds { get; init; }
+
+    /// <summary>両者が同時に倒れていた時間の、いちばん長く続いた 1 回 [s]。</summary>
+    public float LongestBothDown { get; init; }
 }
 
 /// <summary>
@@ -44,18 +50,24 @@ internal static class TvShowRules
 
     /// <summary>
     /// 団体の決まり（<see cref="Organization.CountsDowns"/>・<see cref="OrgMatch"/>）を重ねたテレビ中継の決まり。WVC は <see cref="Rules(int, float)"/> と同じ値、
-    /// VFC はダウンを数えず・判定せず・休みに治らない（<see cref="MatchRules.Vfc"/> と同じ決まり）。撮影と下見（tvscout）が同じものを使う。
+    /// VFC はダウンを数えず・判定せず・休みに傷が前線の再生で少しずつ戻り、失った武器を支給する（<see cref="MatchRules.Vfc"/> と同じ決まり）。撮影と下見（tvscout）が同じものを使う。
     /// </summary>
     public static MatchRules Rules(int rounds, float breakSeconds, Organization org)
     {
         ArgumentNullException.ThrowIfNull(org);
         var rules = Rules(rounds, breakSeconds);
+        var regrowth = org.Match.Regrowth;
         return rules with
         {
             CountsDowns = org.CountsDowns,
             JudgesDecision = org.Match.JudgesDecision,
             RegenVoxelsPerSecond = org.Match.Regenerates ? rules.RegenVoxelsPerSecond : 0f,
-            BruiseHalfLifeSeconds = org.Match.Regenerates ? rules.BruiseHalfLifeSeconds : 0f,
+            // 皮膚のあざは、体が休みに治る団体（予算でも前線でも）では休みに引く。
+            BruiseHalfLifeSeconds = org.Match.Regenerates || regrowth is { Speed: > 0f } ? rules.BruiseHalfLifeSeconds : 0f,
+            RegrowthSpeed = regrowth?.Speed ?? 0f,
+            RegrowthTickSeconds = regrowth?.TickSeconds ?? rules.RegrowthTickSeconds,
+            StuckDoublingSeconds = regrowth?.StuckDoublingSeconds ?? 0f,
+            ResupplyWeapons = org.Match.ResupplyWeapons,
         };
     }
 
@@ -68,8 +80,13 @@ internal static class TvShowRules
         ArgumentNullException.ThrowIfNull(corners);
         ArgumentNullException.ThrowIfNull(org);
         var staged = corners with { Referee = corners.Referee && org.Match.Referee, SettleSeconds = SettleSeconds };
-        return org.Match.Arena == ArenaShape.HexCage && corners.Ring is null
-            ? staged with { Ring = corners.CpuWeapon is not null && corners.PlayerWeapon is not null ? RingLayout.WeaponsCage : RingLayout.Cage }
+        // 檻の団体: リングが無いか、四角いリング（動画・中継の両コーナーはコーナーから始める四角いリングを持って来る: StartingAtCorners）なら檻にする。
+        // コーナーから始めるかは渡されたリングのまま（以前は「リングが無いとき」だけ檻にしていたので、コーナーから始める動画・下見は四角いリングだった）。
+        return org.Match.Arena == ArenaShape.HexCage && corners.Ring is not { Shape: ArenaShape.HexCage }
+            ? staged with
+            {
+                Ring = (corners.CpuWeapon is not null && corners.PlayerWeapon is not null ? RingLayout.WeaponsCage : RingLayout.Cage) with { FromCorners = corners.Ring?.FromCorners ?? false },
+            }
             : staged;
     }
 

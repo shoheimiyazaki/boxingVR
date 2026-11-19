@@ -120,3 +120,61 @@ public sealed class DownCallTests
         }
     }
 }
+
+[TestClass]
+public sealed class DownGraceTests
+{
+    private const float Dt = 1f / 60f;
+
+    [TestMethod]
+    public void AConsciousFighterOnTheFloor_IsNotCountedDuringTheGrace_ThenCountedFromTheFall()
+    {
+        // 2026-11-17、ユーザーの指定: 倒れてすぐに起き上がれない時だけダウン。スリップ・投げられてすぐ立ったのは取らない。
+        var corners = new BoxingCorners("still", _ => new StandGuard(), _ => new StandGuard());
+        using var game = new BoxingGame(seed: 1, corners: corners);
+        for (var t = 0f; t < 1.5f; t += Dt)
+        {
+            game.Step(default, Dt);
+        }
+
+        var f = game.Cpu;
+        f.Knockdown(System.Numerics.Vector3.UnitZ, permanent: false); // 意識ははっきりしている。床から立つには 2.5 秒ほどかかる
+        var countedAt = -1f;
+        var downTimeThen = 0f;
+        for (var t = 0f; t < 4f && countedAt < 0f; t += Dt)
+        {
+            game.Step(default, Dt);
+            if (f.IsKnockedDown)
+            {
+                countedAt = t;
+                downTimeThen = f.DownTime;
+            }
+        }
+
+        Assert.IsGreaterThanOrEqualTo(FighterTuning.Default.DownGrace - 0.05f, countedAt, $"no down within the grace (counted at {countedAt:0.00})");
+        Assert.IsGreaterThan(FighterTuning.Default.DownGrace - 0.1f, downTimeThen, "the count runs from the fall");
+    }
+
+    [TestMethod]
+    public void AnOutColdFighter_IsCountedAtOnce()
+    {
+        var corners = new BoxingCorners("still", _ => new StandGuard(), _ => new StandGuard());
+        using var game = new BoxingGame(seed: 1, corners: corners);
+        for (var t = 0f; t < 1.5f; t += Dt)
+        {
+            game.Step(default, Dt);
+        }
+
+        var f = game.Cpu;
+        f.Concussion = 0.95f;
+        var countedAt = -1f;
+        for (var t = 0f; t < 3f && countedAt < 0f; t += Dt)
+        {
+            game.Step(default, Dt);
+            countedAt = f.IsKnockedDown ? t : countedAt;
+        }
+
+        Assert.IsGreaterThan(0f, countedAt, "counted");
+        Assert.IsLessThan(FighterTuning.Default.DownGrace, countedAt, "a fighter who cannot get up is counted without the grace");
+    }
+}
