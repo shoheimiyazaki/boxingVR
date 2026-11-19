@@ -46,6 +46,17 @@
 
 力 = `MinMuscleStrength + (1 - MinMuscleStrength) × 残った断面`（肉が無くなっても腱・骨で動かせる分が残る）。
 
+## 2.0 顔の部品の表と組み立て（F1、2026-11-19。まだゲームの頭には描いていない）
+
+- **部品の表**: `games/MiniRing/Voxels/FaceParts/*.json`（部位ごと: `jaw`・`hair`・`beard`・`eyes`・`brows`・`mouth`・`nose`・`ears`、各 6 種と土台 `base.json`）。出どころは Codex の参考図（`docs/plans/face_refs/`）で、`py -3 tools/face-parts/build_face_parts.py` が txt から作り直す。
+  部品は参考図の格子（1 セル = 2.5 mm、頭の箱 20 x 28 x 20）の文字の格子（正面・横・上）と留める点と材質。読み込みは検証し、壊れていれば止まる（`FacePartLibrary`）。
+  `parts2/` の追加（まぶた・髪質・眉の張り出し・唇・顔の形）は、`FaceParts/<eyelids|hairtexture|browridge|lips|faceshape>.json` を置けば読み込まれる（形式は同じ）。組み立ての対応を足すまでは読み込んで検証するだけ。
+- **組み立て**（`FaceComposer.Compose(spec, nx, ny, nz)`）: あごの型 × 基準の上からの輪郭の 3 方向の視体積 → 髪・ひげ（正面 × 横の積）→ 眉・唇・目を表面から塗る → 鼻（正面 × 横の積）・耳を足す。
+  部品は重み付きの和を閾値で切って混ぜる（輪郭 0.5、細い線 0.4）。位置・寸法・傾きは `FaceParts`（基準の顔に対する相対値）。出力は任意の解像度の材質の格子（`FaceMaterial`）で、同じ入力から同じ出力。
+- **キャラの顔**: 名簿の `"face"`（任意）: `{ "parts": { "nose": { "nose.2": 0.6, "nose.3": 0.4 }, "beard": {} }, "values": { "NoseWidth": 1.2 }, "skin": [r,g,b], "hair": [..], "iris": [..] }`。
+  書かれていない部位は名前から決める（`FaceSpec.For`）。`"face"` が無いキャラは `look` の髪型・眉・ひげを部品に当てる（`FaceSpec.FromLook`）。人種・国の見た目の違いは、色・`FaceParts` の値（`FaceWidth`・`Cheekbones`・`Jaw`・`NoseWidth`・`Lips`・`BrowRidge`・`Freckles` ほか）・部品の重みという連続の値でファイルに書く（種類の分岐をコードに書かない）。
+- 近道: 影の皮膚（耳の内側・まぶたの影・深い窪み）は 1 つの材質（`Shadow`）にまとめている。鼻の横の輪郭は、基準の横の輪郭に焼き込まれた鼻を均して（`profileCap`）部品の鼻を足している。
+
 ## 2. 顔（`FaceParts`・`FaceSculptor`）
 
 頭のボクセル（約 10 × 14 × 10 セル。1 セル 5 mm）に、部位ごとのテンプレートを巻き付ける（`Voxels/FaceTemplates.cs`）。すべて基準の顔に対する相対値で、`FaceParts.Default` が基準:
