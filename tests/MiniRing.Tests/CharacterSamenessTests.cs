@@ -19,14 +19,16 @@ public sealed class CharacterSamenessTests
     // 2026-11-18（PhysicsVersion 44: ダウンの間の審判の指示）: レフェリーのいる試合でダウンが入る組だけ取り直した（CharacterSamenessProbe。ほかの組は変わらない）。
     // 2026-11-18（LogicVersion 50 の作業中）: マージ 000bd92（PhysicsVersion 46）で master 側の値が入り、ブランチの審判の指示で取り直したレフェリーありの組の値が
     // 消えていたので戻した（glove-glove-referee は d6b1257 で取り直した値と同じ。katar-gauntlet-referee の終わりも同じ理由。レフェリーなしの組は変わらない）。
+    // 2026-11-19（LogicVersion 55: 拳の狙いを自分の胸の前へ寄せた。PunchPath.Strikable）: 拳のボット同士の組（詰まった間がある）だけ取り直した。
+    // 剣・こんぼう・1P の組はビット単位で同じ（詰まった間で背中側を狙う拳が無い）。karate-swarmer-noref は途中だけ変わり、終わりは同じ。
     private static readonly Dictionary<string, (ulong Half, ulong End)> Expected = new()
     {
-        ["glove-glove-referee"] = (0x09BE29F26CC00B4D, 0xC903C95FF761BC59),
-        ["glove-glove-noref"] = (0xE02C484AF63AADF2, 0x9D085D00376429CE),
-        ["karate-swarmer-noref"] = (0x3B993A8648DD8E1B, 0x38DA4C062C7009A6),
+        ["glove-glove-referee"] = (0x09BE29F26CC00B4D, 0x5719FD59B30AA5C6),
+        ["glove-glove-noref"] = (0xE02C484AF63AADF2, 0xC1604FACA57DF5FB),
+        ["karate-swarmer-noref"] = (0xD92714F0D6071947, 0x38DA4C062C7009A6),
         ["katana-longsword-noref"] = (0x363F9D7BAEB962A3, 0x3AA31DFC05168E41),
         ["club-bare-noref"] = (0x78C6B2D00870ACA4, 0xB71E174DFC86324C),
-        ["katar-gauntlet-referee"] = (0x3D8210C8EC6BDC1A, 0x74EAC6FEE01D2417),
+        ["katar-gauntlet-referee"] = (0x911D5744602EB842, 0x823EB265304707CA),
         ["single-counter-vs-knuckles-noref"] = (0x2F19854A18424F35, 0x5B3631FCF00E8970),
         ["single-karate-vs-katana"] = (0xB87C4B9B5F9626CE, 0x481F18738BC94A6E),
     };
@@ -132,10 +134,10 @@ public sealed class CharacterSamenessTests
     /// </summary>
     private static readonly Dictionary<string, (ulong Half, ulong End)> ExpectedGamePlan = new()
     {
-        ["glove-glove-referee"] = (0xBEC697F96061F885, 0x8E63AB1B95BBA995),
-        ["glove-glove-noref"] = (0xFC2530582C0B2B1D, 0x9594D997B0DDB2BB),
-        ["karate-swarmer-noref"] = (0xD884F1E16461148A, 0x6BE0E46B4A6885CA),
-        ["katar-gauntlet-referee"] = (0x298E6364ADDE88C1, 0x53E90F2318344475),
+        ["glove-glove-referee"] = (0xBB46819A59EAE590, 0x82BB0BF2D0F3F930),
+        ["glove-glove-noref"] = (0x204810B7080BF146, 0x68926DAF5CE0A91C),
+        ["karate-swarmer-noref"] = (0x99EDA52F32FC765E, 0x802C89B78C53B881),
+        ["katar-gauntlet-referee"] = (0x232B3028FA4AF4C6, 0x57F7437926EE490A),
     };
 
     [TestMethod]

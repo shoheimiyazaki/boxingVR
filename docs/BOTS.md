@@ -33,6 +33,7 @@ CPU とボット同士の対戦に使う、ボクシングの技を持つボッ�
 
 - 既定の値の出どころは `PunchBook.Default` の 1 か所（以前は `PunchSpec.Of` に直書き）。`PunchSpec.Of(t)` は既定の値を返すだけです。ボットの実行（`BoxerBot`）・意図操作（`IntentControl`）・守りのドリル（`DrillCue`）は `Style.Punches`（`_style.Punches`・`attacker.Punches`）を使います。
 - JSON 用の値は `PunchMove`（`HeadShiftX/Y/Z` は float。`Vector3` は JSON に出ないため）。書いていない技・値は既定になる（`PunchBook` の `JsonObjectCreationHandling.Populate`）ので、技 1 つ・値 1 つだけの JSON でよく、既存のスタイルの JSON は書き換えていない。
+- 狙いの点は、経路を作る前に自分の胸の前（肩の中心から前へ 0.25 腕: `PunchPath.NearestStrike`）より手前に来ないように寄せる（`PunchPath.Strikable`、`Through` が必ず通す。古い CPU・従来のキーボード操作・肘打ちの狙いも同じ。横・高さはそのまま、LogicVersion 55）。胸が付くほど詰まると相手の頭が自分の肩の横・後ろへ回り、その点を打ち抜く経路が背中側へ伸びて腕が後ろへ回っていた（2026-11-19、`ArmBehindProbe`・`PunchAimTests`）。ボットと意図操作が共有する。
 - `Validated()` は技の正体（`Lead`・`ToBody`）を既定へ戻し、`Extend` を `Feint` 以外 1 に固定する（`TechniqueExecution.Spring` は `Extend >= 1` のときだけ体のバネを拳へ移すので、1 未満は「フェイント化」と「移送の切れ目」を混ぜてしまう）。ほかの値は `PunchRanges`（名前・最小・最大の表。根拠は値の横）へ収める。守りも同じ形で `DefenseRanges` を `DefenseMove.Validated()` と `Mutation.Move` が共有する。
 - `BoxerBot.KindOf`（技 → 拳の種類）だけは `PunchBook.Default` で決める。技の種類は技の番号で決まり、磨いた値で変わってはいけない（守りの選び方・合図・ドリルが使う）。
 - 既定の値では試合は 1 ビットも変わらない（`LogicVersion` は据え置き）。進化（CMA-ES）で磨く計画の最初の段（`docs/LEARNING_PLAN.md` §9 の P0a）。

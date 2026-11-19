@@ -43,7 +43,7 @@ internal static class TechniqueExecution
 
     /// <summary>肘打ちの片手の指令（経路は <see cref="ElbowSpec"/>。拳の技とは別の手の使い方で、ボットと意図操作が共有する）。</summary>
     internal static HandCommand Elbow(in ElbowSpec spec, Hand hand, float time, float duration, Vector3 guardHand, Vector3 aim, float reach)
-        => spec.Command(hand, time, duration, guardHand, aim, reach);
+        => spec.Command(hand, time, duration, guardHand, PunchPath.Strikable(aim, reach), reach); // 肘も背中側の点は打てない（拳と同じ寄せ方）
 
     internal static float Spring(in PunchAction action)
         => action.Active && action.Spec.Extend >= 1f && action.Time >= 0f && action.Time < action.Duration * PunchSpec.OutboundShare ? 1f : 0f;
