@@ -57,7 +57,7 @@
 
 ボットの判断の仕組みを変えたら上げる。
 
-- **55**: master の 54 と、ブランチ claude/sword-combat-techniques-51f876 の 52（滑りの直しの後の蹴りの差分）を合わせた（2026-11-19 のマージ）。蹴りの差分は 53 の物理で練習し直す。
+- **55**: master の 54 と、ブランチ claude/sword-combat-techniques-51f876 の 52（滑りの直しの後の蹴りの差分）を合わせた（2026-11-19 のマージ）。蹴りの差分は 53 の物理で練習し直す。 練習し直した（2026-11-19）: `kickshin --practice yes`（方位 ±0.8・仰角 ±0.9 に広げ、前蹴りの間合いは 1.7 まで: BatFormsTests）で 4 ファイルを取り直した（docs/arena/kick_shin_lmh_v53_*.md、docs/TAEKWONDO.md）。
 - **52**（ブランチ claude/sword-combat-techniques-51f876、2026-11-19）: 足の滑りの直し（PhysicsVersion 49）の後に、蹴りの練習（`kickshin --practice yes`、間合いの上限を 1.6 から 1.9 に広げ、`--seed` を足した）をやり直して `Bots/kicks/*.tune.json` 4 つを取り直した。前の差分は流れる立ち方（胸と胸 1.70）で合わせた値で、直した後は 0 / 6 前後。使っていない条件で比べて採った（docs/arena/kick_shin_lmh_v49_*.md、docs/TAEKWONDO.md、docs/BOT_PDCA.md）。
 - **53**: ブランチ claude/spacing-control-features-a34e7d の 52（間の層）と、ブランチ claude/vfc の 52（武器を失ったボットが支給された武器をまた握る）を合わせた（2026-11-18 のマージ）。
 - **52**: 間の層（`Bots/Rhythm.cs`、`docs/BOTS.md`「間の層」）: 相手の拳の出始め（`OpponentRead` の onset）からの時間と、その拳が自分に触れたか（守りの上・外）から、`rhythmlab` で測った 1 打の損得の表を引き、次の拳までの間（`_cooldown`）の縮む速さを変える（相手の拳が入った直後は止めて伸ばす、0.5 秒まで）。`RhythmStyle` が null・重み 0 なら判断はビット単位で同じ。名簿の拳の選手の教育（`education.style.Rhythm`）に表を入れたので、拳のボットの試合が変わる（2026-11-18）。
