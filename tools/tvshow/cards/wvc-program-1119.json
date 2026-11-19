@@ -1,7 +1,7 @@
 {
   "_comment": "2026-11-19: 団体ごとの番組（docs/plans/TV_PROGRAMS_2026-11-19.md）の WVC 版。格式の地上波の「世界王座戦の夜」: セミは距離の取り合い（ジャブの英国人 対 前へ出るメキシカン）、メインは王座決定戦（完成形のヘビー級 対 一番大きな体の強打者）。プロスペクティブ制の実況解説。",
-  "event": "WVC 世界王座戦",
-  "program": "WVC 世界王座戦",
+  "event": "WVC ファイトナイト",
+  "program": "WVC ファイトナイト",
   "rounds": 3,
   "break": 20,
   "out": "docs/video/wvc-program-1119",
@@ -9,7 +9,7 @@
   "partLimitMiB": 29,
   "commentary": { "writer": "prospective", "model": "haiku" },
   "bouts": [
-    { "red": "albert", "blue": "ramon", "seed": "auto", "bout": "セミファイナル", "stake": "勝者は王座挑戦者の候補へ", "next": "挑戦者の候補" },
-    { "red": "marcus", "blue": "dmitri", "seed": "auto", "bout": "メインイベント", "stake": "WVC 世界王座決定戦", "next": "WVC 世界王座獲得", "belt": true }
+    { "red": "albert", "blue": "ramon", "seed": 3, "bout": "セミファイナル", "stake": "勝者は王座挑戦者の候補へ", "next": "挑戦者の候補" },
+    { "red": "marcus", "blue": "dmitri", "seed": 1, "bout": "メインイベント", "stake": "WVC 世界王座決定戦", "next": "WVC 世界王座獲得", "belt": true }
   ]
 }

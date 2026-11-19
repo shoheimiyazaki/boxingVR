@@ -11,6 +11,6 @@
   "commentary": { "writer": "prospective", "model": "haiku" },
   "bouts": [
     { "red": "tsuyoshi", "blue": "joao", "seed": "auto", "bout": "セミファイナル", "stake": "近間の殴り合い" },
-    { "red": "daichi", "blue": "sean", "seed": "auto", "bout": "メインイベント", "stake": "長さか、重さか" }
+    { "red": "sean", "blue": "daichi", "seed": "auto", "bout": "メインイベント", "stake": "長さか、重さか" }
   ]
 }
