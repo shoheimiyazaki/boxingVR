@@ -12,7 +12,7 @@ namespace MiniRing.Voxels;
 /// 組み立てた顔の目（白目・瞳）と重なる所（眼窩）と、脳に面していない（脳を包む殻ではない）もので組み立てた顔の外に出る所は抜く（顔の形に合わせる）。
 /// 脳は 1 セルも動かさない（意識のモデルの量が変わらない）。</item>
 /// <item>顔の層 = 組み立てた顔 ∪ 残したセルを 1 セル（約 2.5 mm）包む皮膚 − 残したセルと重なる所。組み立てた顔が頭蓋骨より狭い所でも、骨はいつも皮膚の下にある。</item>
-/// <item>材質: 皮膚・影・そばかす → 皮膚、髪・眉 → 髪、白目 → 目、瞳 → 黒目、唇 → 唇、鼻の穴 → 空（空気）。強さ・密度は 5 mm の同じ材質と同じ。</item>
+/// <item>材質: 髪・眉 → 髪、白目 → 目、瞳 → 黒目、唇 → 唇、鼻の穴 → 空（空気）、それ以外（皮膚・影・そばかす・無精ひげ…）→ 皮膚。強さ・密度は 5 mm の同じ材質と同じ。</item>
 /// </list>
 /// </summary>
 public static class FaceLayer
@@ -199,15 +199,18 @@ public static class FaceLayer
 
     private static readonly (int X, int Y, int Z)[] Neighbours = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)];
 
-    /// <summary>組み立てた顔の材質 → 体の材質（<see cref="BoxerAnatomy"/>）。鼻の穴は空気（空）。</summary>
+    /// <summary>
+    /// 組み立てた顔の材質 → 体の材質（<see cref="BoxerAnatomy"/>）。空・鼻の穴は空気（空）。ここに無い材質（影・そばかす・無精ひげなど、皮膚の上の
+    /// 色の違いだけの物。部品の表に後から足した物を含む）は皮膚（強さ・密度は皮膚、色の違いは今は描かない: docs/DEBT.md「顔の層」）。
+    /// </summary>
     public static byte MaterialOf(FaceMaterial material) => material switch
     {
-        FaceMaterial.Skin or FaceMaterial.Shadow or FaceMaterial.Freckle => BoxerAnatomy.Skin,
+        FaceMaterial.Empty or FaceMaterial.Nostril => 0,
         FaceMaterial.Hair or FaceMaterial.Brow => BoxerAnatomy.Hair,
         FaceMaterial.White => BoxerAnatomy.Eye,
         FaceMaterial.Iris => BoxerAnatomy.Pupil,
         FaceMaterial.Lip => BoxerAnatomy.Lip,
-        _ => 0,
+        _ => BoxerAnatomy.Skin,
     };
 
     private static (int X, int Y, int Z) CellOf(Vector3 p, Vector3 half, Vector3 cell, int nx, int ny, int nz)
