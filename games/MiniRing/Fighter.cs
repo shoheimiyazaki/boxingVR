@@ -206,7 +206,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 57; // 57: 頭の剛体に顔の層（2.5 mm の格子、FaceLayer）を重ね、5 mm の頭は頭蓋骨・脳・首の中だけに（claude/face-f2。56 は手の層の段 3 が使う）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 58; // 58: ボクシンググローブを球から本物の形（本体・親指の袋・カフ。中に手の格子を重ねる）へ（claude/glove-v2。手の層の 56 を作り直した）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }

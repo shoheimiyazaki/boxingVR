@@ -57,6 +57,11 @@ public static class BoxerAnatomy
     public const byte BlueGlove = 19;
     public const byte Padding = 20;
 
+    // グローブの色違い（物性は革のまま。見た目だけ）: 親指の袋の濃い革（コーナーの色ごと）と、帯・紐・縫い目の白。
+    public const byte RedGloveThumb = 27;
+    public const byte BlueGloveThumb = 28;
+    public const byte GloveTrim = 29;
+
     /// <summary>唇（顔の口の色の部位。皮膚と同じ強さ・密度・組織なので、試合の物理は変わらない。色だけ肌の色から赤みへ寄せる）。</summary>
     public const byte Lip = 21;
 
@@ -133,6 +138,7 @@ public static class BoxerAnatomy
     private static readonly VoxelMechanics ClothMechanics = Doll(new(1100f, 1.2e6f, 0.005f));
     private static readonly VoxelMechanics LeatherMechanics = Doll(new(1100f, 2.0e6f, 0.004f));
 
+
     /// <summary>人形の体の大きさの、人に対する比（腕の長さの比 0.17 m / 0.53 m）。材質の強さの相似則に使う。</summary>
     public const float Similitude = 0.32f;
 
@@ -195,6 +201,9 @@ public static class BoxerAnatomy
         new VoxelMaterial("hand muscle", VoxelTissue.Flesh, WoodToughness, false, Rgb(0.81f, 0.05f, 0.07f), Rgb(0.81f, 0.05f, 0.07f), Stainable: 0.3f, Mechanics: WoodMechanics),
         new VoxelMaterial("hand bone", VoxelTissue.Bone, WoodToughness, false, Rgb(1f, 0.97f, 0.88f), Rgb(1f, 0.97f, 0.88f), Stainable: 0f, Mechanics: WoodMechanics),
         new VoxelMaterial("artery", VoxelTissue.Flesh, 1f, false, Rgb(1f, 0f, 0.25f), Rgb(1f, 0f, 0.25f), Stainable: 0f, Mechanics: MuscleMechanics),
+        new VoxelMaterial("red glove thumb", VoxelTissue.Solid, SkinToughness, false, Rgb(0.58f, 0.06f, 0.07f), Rgb(0.58f, 0.06f, 0.07f), Stainable: 0.6f, Mechanics: LeatherMechanics),
+        new VoxelMaterial("blue glove thumb", VoxelTissue.Solid, SkinToughness, false, Rgb(0.06f, 0.16f, 0.58f), Rgb(0.06f, 0.16f, 0.58f), Stainable: 0.6f, Mechanics: LeatherMechanics),
+        new VoxelMaterial("glove trim", VoxelTissue.Solid, SkinToughness, false, Rgb(0.97f, 0.97f, 0.94f), Rgb(0.97f, 0.97f, 0.94f), Stainable: 0.8f, Mechanics: LeatherMechanics),
     ]);
 
     /// <summary>腰のゴム: 骨盤の外形の上からこの高さ（正規化 Y）より上。</summary>

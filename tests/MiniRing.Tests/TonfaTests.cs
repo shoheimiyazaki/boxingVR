@@ -348,7 +348,9 @@ public sealed class TonfaTests
         // 速さ 1.39 m/s で 17 セル、手袋の方は 1.00 m/s で 6 セル）。前は 1 発目に体の質量の運動量（2.2〜2.5 N·s）が乗って相手の腕ごと押し流し、
         // 以降の当たりの様子が変わったが、いまは 0.4〜0.5 N·s で構えが残るので、後の当たりは別の軌道になる。守る木が受け止める量（木の削れ 15 → 74）は
         // 増え、棒の後ろの腕（前腕・上腕）の切れは手袋 3 に対しトンファー 2 のまま（腕を切られた数を比べる）。
-        Assert.IsLessThan(glove.ArmCut, tonfa.ArmCut, "and less of the arm behind the stick is cut");
+        // 2026-11-19（PhysicsVersion 58）: グローブが本物の形になり、手首を包む革のカフ（外半径 20.5 mm・壁 4 mm）が前腕の先を覆うので、剣の払いがグローブに当たっても前腕は切れない（glove: forearm cut 0、total cut 27 は革・詰め物）。
+        // トンファーの側も 0 なので「少ない」でなく「多くない」にした（棒が腕の盾になること自体は、上の木の削れ・総量で見ている）。
+        Assert.IsLessThanOrEqualTo(glove.ArmCut, tonfa.ArmCut, "and not more of the arm behind the stick is cut");
     }
 
     // ── 教科書・キャラクター ──

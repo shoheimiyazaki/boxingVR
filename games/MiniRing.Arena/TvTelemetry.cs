@@ -73,7 +73,7 @@ internal static class TvBodyWords
         BoxerAnatomy.Hair => "髪",
         BoxerAnatomy.RedTrunks or BoxerAnatomy.BlueTrunks or BoxerAnatomy.Waistband => "トランクス",
         BoxerAnatomy.Boot => "シューズ",
-        BoxerAnatomy.RedGlove or BoxerAnatomy.BlueGlove or BoxerAnatomy.Padding => "グローブ",
+        BoxerAnatomy.RedGlove or BoxerAnatomy.BlueGlove or BoxerAnatomy.RedGloveThumb or BoxerAnatomy.BlueGloveThumb or BoxerAnatomy.GloveTrim or BoxerAnatomy.Padding => "グローブ",
         BoxerAnatomy.Iron => "鉄",
         BoxerAnatomy.Wood => "木",
         _ => "装備",

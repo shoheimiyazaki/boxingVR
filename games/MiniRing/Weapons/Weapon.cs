@@ -382,7 +382,7 @@ public sealed class Weapon
         WeaponKind.IronSword => new Vector3((GuardFrom + PommelAt) * 0.5f, 0f, 0f),
         WeaponKind.WoodenClub => new Vector3(-ClubHalfLength + 0.015f, 0f, 0f),
         WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.Bat => TwoHandGripsOf(kind).Top,
-        WeaponKind.Glove => Vector3.Zero, // 拳はグローブの真ん中
+        WeaponKind.Glove => -GloveBounds.Center, // 手首（腕の先）= グローブの座標の原点
         WeaponKind.Fist => HandSkeleton.Wrist, // 腕の先が手を握る所（手首）
         WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield => HandSkeleton.Wrist - WornBoundsOf(kind, mirrored).Center, // 中の手の手首（腕の先が手を握る点）
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
@@ -483,7 +483,7 @@ public sealed class Weapon
         WeaponKind.Katana => new Vector3(KatanaHalfLength, KatanaSori, 0f),
         WeaponKind.Longsword => new Vector3(LongHalfLength, 0f, 0f),
         WeaponKind.Staff or WeaponKind.Jo => new Vector3(RodOf(kind).HalfLength - StaffTipInset, 0f, 0f),
-        WeaponKind.Glove => new Vector3(GloveRadius, 0f, 0f),
+        WeaponKind.Glove => new Vector3(GloveFront, 0f, 0f) - GloveBounds.Center, // 拳頭の前の詰め物の外の面（前の球と同じく、握りの 24 mm 前）
         WeaponKind.Fist => HandSkeleton.SeikenTip,
         WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield => WornTipInHand(kind) - WornBoundsOf(kind).Center, // 手の座標の打つ所を、物の格子の座標へ
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
@@ -535,7 +535,7 @@ public sealed class Weapon
             var c = (p + half) / cell;
             var z = mirrored ? dims.Z - 1 - (int)c.Z : (int)c.Z;
             var m = edited[(int)c.X + (dims.X * ((int)c.Y + (dims.Y * z)))];
-            return m == BoxerAnatomy.RedGlove ? leather : m;
+            return m == BoxerAnatomy.RedGlove ? leather : m == BoxerAnatomy.RedGloveThumb ? GloveThumbOf(leather) : m;
         });
     }
 
@@ -812,22 +812,122 @@ public sealed class Weapon
         });
     }
 
-    // ── ボクシンググローブ（人形の縮尺: 半径 2.4 cm = 試合のグローブの球の大きさ）。4 mm のセル（刃の無い広い面なので粗くてよい。
-    // 2 mm では、構えて触れ合っている間の接触の計算が重すぎた）。
-    private const float GloveRadius = 0.024f;
-    private const float GloveCell = 0.004f;
-    private const float GloveLeather = 0.004f;
-    private const float GloveFist = 0.012f;
+    // ── ボクシンググローブ（本物の形を人形の縮尺で。形の目標は docs/plans/glove_refs/ のピクセル画: 正面・横・上）。
+    // 大きさは前の球（半径 24 mm = 幅 48 mm）に合わせる: 大きいと構えが互いに触れて、すぐ組み合って崩れる（2026-11-19 の動画）。
+    // 中に手の格子は持たない（近道: docs/DEBT.md「手の物性を木の値で代用」の「グローブは手のモデルを持たない」）。拳の代わりに、前の球と同じ
+    // 骨の芯（密な材質。質量と、詰め物の奥の硬い面）を本体の中に置く。手の格子を入れると、手（約 60 mm）が入る大きさにするしかなく、
+    // 前の球の約 2 倍の大きさ・質量になって、体の物理が広く変わった（前の版 56〜58 の作り直しの記録）。
+    // 座標は「グローブの座標」: 原点が手首（腕の先 = 握る点）、+X が拳を突き出す向き、+Y が手の甲、Z が幅。
+    private const float GloveCell = 0.004f;          // 4 mm のセル（前の球と同じ。2 mm は接触が重すぎた）
+    private const float GloveFront = 0.024f;         // 打つ面: 手首の 24 mm 前（前の球の中心から前の面までと同じ）
+    private const float GloveBodyBack = -0.014f;     // 本体の後ろの端（ここから後ろはカフ）。本体の長さ 38 mm
+    private const float GloveBodyHalfY = 0.022f;     // 本体の高さの半分（ピクセル画の高さ 13 マス : 幅 14 マス ≒ 0.93）
+    private const float GloveBodyHalfZ = 0.022f;     // 本体の幅の半分（親指の袋まで入れて幅 46〜48 mm = 前の球の直径 48 mm）
+    private const float GloveHalfZ = 0.0245f;        // 親指の袋まで入れた幅の半分
+    private const float GloveLeather = 0.0045f;      // 革の厚さ（セル 1.1 個ぶん: セルちょうどだと、セルの中心が境に乗って詰め物が表に出る）
+    private const float GloveRoundness = 2.6f;       // 超楕円体の指数（2 = 楕円体、大きいほど角ばった箱）。拳の正面・上の輪郭がほぼ丸い角の四角
+    private const float GloveCuffInner = 0.0165f;    // カフの内半径（前腕の箱の太さの半分 16 mm のすぐ外）
+    private const float GloveCuffOuter = 0.0205f;    // カフの外半径（壁 4 mm = セル 1 個）
+    private const float GloveCuffLength = 0.02f;     // カフの長さ（本体の後ろの端から後ろへ。ピクセル画のカフ 7 マスを縮めた）
+    private const float GloveBandWidth = 0.004f;     // カフの後ろの縁の白い帯
+    private const float GloveBlend = 0.005f;         // 本体とカフ・親指の袋のつなぎ目をなめらかにする幅
+    private static readonly Vector3 GloveThumbCenter = new(0.003f, -0.0135f, -0.0165f); // 親指の袋（拳の下・横、人さし指の側。先は拳頭の横へ付く）
+    private static readonly Vector3 GloveThumbHalf = new(0.0135f, 0.0075f, 0.008f);
+    private static readonly Vector3 GloveCoreCenter = new(-0.002f, 0f, 0f);             // 骨の芯（拳の代わり）。前の球の芯は半径 12 mm
+    private static readonly Vector3 GloveCoreHalf = new(0.010f, 0.010f, 0.012f);
 
-    /// <summary>グローブ: 半径 <see cref="GloveRadius"/> の球。外側 <see cref="GloveLeather"/> は革、その内は詰め物、芯（半径 <see cref="GloveFist"/>）は拳（骨）。</summary>
+    /// <summary>グローブの形（グローブの座標）を囲む箱の、中心と半分の大きさ（セルの端が形の端に乗るよう半セル足す）。</summary>
+    private static (Vector3 Center, Vector3 Half) GloveBounds { get; } = BoundsOfGlove();
+
+    private static (Vector3 Center, Vector3 Half) BoundsOfGlove()
+    {
+        var from = new Vector3(GloveBodyBack - GloveCuffLength, -GloveBodyHalfY, -GloveHalfZ);
+        var to = new Vector3(GloveFront, GloveBodyHalfY, GloveHalfZ);
+        return ((from + to) * 0.5f, ((to - from) * 0.5f) + new Vector3(0.5f * GloveCell));
+    }
+
+    /// <summary>グローブの親指の袋の革の材質（本体の革より濃い色）。</summary>
+    private static byte GloveThumbOf(byte leather) => leather == BoxerAnatomy.BlueGlove ? BoxerAnatomy.BlueGloveThumb : BoxerAnatomy.RedGloveThumb;
+
+    private static float GloveSmoothMin(float a, float b, float k)
+    {
+        var h = MathF.Max(k - MathF.Abs(a - b), 0f) / k;
+        return MathF.Min(a, b) - (h * h * k * 0.25f);
+    }
+
+    private static float GloveBody(Vector3 p)
+    {
+        var center = new Vector3(0.5f * (GloveFront + GloveBodyBack), 0f, 0f);
+        var half = new Vector3(0.5f * (GloveFront - GloveBodyBack), GloveBodyHalfY, GloveBodyHalfZ);
+        var u = Vector3.Abs((p - center) / half);
+        var f = MathF.Pow(MathF.Pow(u.X, GloveRoundness) + MathF.Pow(u.Y, GloveRoundness) + MathF.Pow(u.Z, GloveRoundness), 1f / GloveRoundness);
+        return (f - 1f) * MathF.Min(half.X, MathF.Min(half.Y, half.Z));
+    }
+
+    private static float GloveThumb(Vector3 p)
+    {
+        var u = (p - GloveThumbCenter) / GloveThumbHalf;
+        return (u.Length() - 1f) * MathF.Min(GloveThumbHalf.X, MathF.Min(GloveThumbHalf.Y, GloveThumbHalf.Z));
+    }
+
+    private static float GloveRadial(Vector3 p) => MathF.Sqrt((p.Y * p.Y) + (p.Z * p.Z));
+
+    /// <summary>カフの筒（外半径。後ろの端と、本体へ入る前の端で切る）。</summary>
+    private static float GloveCuff(Vector3 p)
+        => MathF.Max(GloveRadial(p) - GloveCuffOuter, MathF.Max(GloveBodyBack - GloveCuffLength - p.X, p.X - (GloveBodyBack + GloveCuffLength)));
+
+    /// <summary>
+    /// グローブ（グローブの座標）。外形（本体・カフ・親指の袋の滑らかな最小値）の内側を満たす: 外側 <see cref="GloveLeather"/> は革
+    /// （親指の袋の出っ張りは濃い色）、その内は詰め物、芯は骨（拳の代わり）。カフは壁全体が革で、前腕が通る空洞を残す。
+    /// 後ろの縁に白い帯、上に白い紐の目、親指の袋のまわりに白い縫い目。詰め物は前の面でいちばん厚い（前から芯まで 16 mm、甲・掌は 12 mm）。
+    /// </summary>
+    private static byte GloveAt(Vector3 p, byte leather)
+    {
+        var body = GloveBody(p);
+        var s = GloveSmoothMin(GloveSmoothMin(body, GloveCuff(p), GloveBlend), GloveThumb(p), GloveBlend);
+        if (s > 0f || (GloveRadial(p) < GloveCuffInner && p.X < GloveBodyBack))
+        {
+            return 0; // 外、または前腕が通る空洞
+        }
+
+        if (p.X < GloveBodyBack - GloveCuffLength + GloveBandWidth)
+        {
+            return BoxerAnatomy.GloveTrim; // カフの後ろの縁の帯
+        }
+
+        var inCuff = p.X < GloveBodyBack;
+        if (inCuff && p.Y > GloveCuffOuter - 0.006f && MathF.Abs(p.Z) < 0.004f
+            && (int)MathF.Floor((p.X - (GloveBodyBack - GloveCuffLength)) / 0.008f) % 2 == 0 && p.X < GloveBodyBack - 0.003f)
+        {
+            return BoxerAnatomy.GloveTrim; // 紐の目（カフの上、4 mm おき）
+        }
+
+        var thumb = GloveThumb(p);
+        if (s > -GloveLeather)
+        {
+            // 親指の袋のまわりの縫い目（袋の面が本体の面と交わる線）と、袋の外側の濃い革。
+            if (!inCuff && MathF.Abs(thumb) < 0.002f && body < 0.001f && body > -0.003f)
+            {
+                return BoxerAnatomy.GloveTrim;
+            }
+
+            return !inCuff && thumb <= 0f ? GloveThumbOf(leather) : leather;
+        }
+
+        if (inCuff)
+        {
+            return leather;
+        }
+
+        var c = (p - GloveCoreCenter) / GloveCoreHalf;
+        return c.LengthSquared() <= 1f ? BoxerAnatomy.Bone : BoxerAnatomy.Padding;
+    }
+
+    /// <summary>ボクシンググローブ（<see cref="GloveAt"/>。手の格子は持たない）。</summary>
     public static VoxelGrid Glove(byte leather)
     {
-        var half = new Vector3(GloveRadius);
-        return new VoxelGrid(BoxerAnatomy.Palette, half, GloveCell, (p, _) =>
-        {
-            var r = p.Length();
-            return r > GloveRadius ? (byte)0 : r > GloveRadius - GloveLeather ? leather : r > GloveFist ? BoxerAnatomy.Padding : BoxerAnatomy.Bone;
-        });
+        var (center, half) = GloveBounds;
+        return new VoxelGrid(BoxerAnatomy.Palette, half, GloveCell, (p, _) => GloveAt(p + center, leather));
     }
 
     // ── 手にはめる物（グローブ以外）。形は「手の座標」で書く: 原点は手の格子の中心（掌の真ん中。HandSkeleton と同じ座標）、+X は拳を突き出す向き、
@@ -1019,7 +1119,7 @@ public sealed class Weapon
     /// </summary>
     public static float CoverRadiusOf(WeaponKind kind) => kind switch
     {
-        WeaponKind.Glove => GloveRadius,
+        WeaponKind.Glove => MathF.Max(GloveBodyHalfY, GloveHalfZ),
         WeaponKind.Fist => FistRadius,
         WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield
             => MathF.Max(WornBoundsOf(kind).Half.Y, WornBoundsOf(kind).Half.Z),

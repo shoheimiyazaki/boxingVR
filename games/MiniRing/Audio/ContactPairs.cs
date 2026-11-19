@@ -45,7 +45,7 @@ public static class ContactPairs
         0 => null,
         BoxerAnatomy.Iron => Stuff.Metal,
         BoxerAnatomy.Wood => Stuff.Wood,
-        BoxerAnatomy.RedGlove or BoxerAnatomy.BlueGlove or BoxerAnatomy.Padding or BoxerAnatomy.Boot => Stuff.Leather,
+        BoxerAnatomy.RedGlove or BoxerAnatomy.BlueGlove or BoxerAnatomy.RedGloveThumb or BoxerAnatomy.BlueGloveThumb or BoxerAnatomy.GloveTrim or BoxerAnatomy.Padding or BoxerAnatomy.Boot => Stuff.Leather,
         _ => Stuff.Flesh,
     };
 }

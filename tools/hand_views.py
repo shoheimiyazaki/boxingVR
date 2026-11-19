@@ -25,6 +25,10 @@ COLORS = {
     "wood": (199, 153, 97),
     "padding": (235, 230, 209),
     "red glove": (217, 26, 26),
+    "red glove thumb": (148, 15, 18),
+    "glove trim": (247, 247, 240),
+    "blue glove": (26, 64, 217),
+    "blue glove thumb": (15, 41, 148),
 }
 SCALE = 4000  # px / m（5 mm のセル = 20 px。はめる物は大きいので絵ごとに縮める）
 PANEL = 420

@@ -216,7 +216,7 @@ public static class WeaponVoxelModel
                         var color = scene.Palette[colorIndex] | 0xFF000000u; // 透明度は見ない
                         if (byColor.TryGetValue(color, out var material))
                         {
-                            materials[x + (dims.X * (y + (dims.Y * z)))] = material == BoxerAnatomy.BlueGlove ? BoxerAnatomy.RedGlove : material;
+                            materials[x + (dims.X * (y + (dims.Y * z)))] = material == BoxerAnatomy.BlueGlove ? BoxerAnatomy.RedGlove : material == BoxerAnatomy.BlueGloveThumb ? BoxerAnatomy.RedGloveThumb : material;
                         }
                         else
                         {

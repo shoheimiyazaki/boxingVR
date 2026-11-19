@@ -38,16 +38,16 @@ public sealed class HandShapeDumpProbe
     }
 
     /// <summary>
-    /// はめる物 5 種（メリケンサック・カタール・籠手・トンファー・盾）の、物の格子と中の手の格子を、手の座標（原点は手の格子の中心）で
+    /// はめる物 6 種（グローブ・メリケンサック・カタール・籠手・トンファー・盾）の、物の格子と中の手の格子を、手の座標（原点は手の格子の中心）で
     /// <c>worn_&lt;種類&gt;.csv</c> に書く（<c>py -3 tools/hand_views.py &lt;dir&gt; --worn</c> で絵にする）。
     /// </summary>
     private static void DumpWorn(string dir)
     {
-        foreach (var kind in new[] { WeaponKind.KnuckleDuster, WeaponKind.Katar, WeaponKind.Gauntlet, WeaponKind.Tonfa, WeaponKind.Shield })
+        foreach (var kind in new[] { WeaponKind.Glove, WeaponKind.KnuckleDuster, WeaponKind.Katar, WeaponKind.Gauntlet, WeaponKind.Tonfa, WeaponKind.Shield })
         {
             using var world = new Aigis.Physics.PhysicsWorld(gravity: Vector3.Zero);
             var weapon = Weapon.CreateWorn(world, kind, BoxerAnatomy.RedGlove, Vector3.Zero, Quaternion.Identity);
-            var hand = weapon.Hands[0];
+            var hand = weapon.Hands.Count > 0 ? weapon.Hands[0] : null;
             var text = new StringBuilder("x,y,z,material,cell\n");
             void Add(VoxelGrid grid, Vector3 shift)
             {
@@ -64,10 +64,14 @@ public sealed class HandShapeDumpProbe
                 }
             }
 
-            Add(hand.Body.Grid, Vector3.Zero);
-            Add(weapon.Body.Grid, -hand.GridCenterLocal);
+            if (hand is not null)
+            {
+                Add(hand.Body.Grid, Vector3.Zero);
+            }
+
+            Add(weapon.Body.Grid, hand is null ? HandSkeleton.Wrist - Weapon.GripOf(kind) : -hand.GridCenterLocal); // 手の無いグローブは、握りの点を手首に合わせて描く
             File.WriteAllText(Path.Combine(dir, $"worn_{kind}.csv"), text.ToString());
-            Console.WriteLine($"{kind}: grip {Weapon.GripOf(kind)}, tip {Weapon.TipOf(kind)}, mass {world.GetMass(weapon.Body.BodyId):F4} kg, object cells {weapon.Body.Grid.FilledCount}, hand cells {hand.Body.Grid.FilledCount}, cover {Weapon.CoverRadiusOf(kind):F4}");
+            Console.WriteLine($"{kind}: grip {Weapon.GripOf(kind)}, tip {Weapon.TipOf(kind)}, mass {world.GetMass(weapon.Body.BodyId):F4} kg, object cells {weapon.Body.Grid.FilledCount}, hand cells {hand?.Body.Grid.FilledCount ?? 0}, cover {Weapon.CoverRadiusOf(kind):F4}");
         }
     }
 

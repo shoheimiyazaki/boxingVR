@@ -105,7 +105,7 @@ public static class VoxelBreakSound
     {
         BoxerAnatomy.Skin or BoxerAnatomy.HandSkin => GrainKind.Skin,
         _ when BoxerAnatomy.IsClothing(material) || material is BoxerAnatomy.Hair or BoxerAnatomy.Lip => GrainKind.Skin, // 布と革・髪は皮膚の代わりの層
-        BoxerAnatomy.RedGlove or BoxerAnatomy.BlueGlove or BoxerAnatomy.Padding => GrainKind.Skin, // グローブの革と詰め物
+        BoxerAnatomy.RedGlove or BoxerAnatomy.BlueGlove or BoxerAnatomy.RedGloveThumb or BoxerAnatomy.BlueGloveThumb or BoxerAnatomy.GloveTrim or BoxerAnatomy.Padding => GrainKind.Skin, // グローブの革と詰め物
         BoxerAnatomy.Bone or BoxerAnatomy.HandBone or BoxerAnatomy.Iron or BoxerAnatomy.Wood => GrainKind.Bone,
         BoxerAnatomy.Brain => GrainKind.Brain,
         BoxerAnatomy.Heart or BoxerAnatomy.Lung or BoxerAnatomy.Liver or BoxerAnatomy.Gut => GrainKind.Organ,
