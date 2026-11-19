@@ -7,6 +7,7 @@ CLAUDE.md §5 にはよく使う物だけを置き、ここに全部を書く。
 | 目的 | コマンド（リポジトリの根で） |
 |---|---|
 | 全テスト | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName!~Probe"` |
+| ワークツリーと枝の状態（片付けの前） | `bash tools/wt-status.sh [--dirty] [--ignored]`（状態・master との先 / 後・最後のコミット・未コミット・無視されたファイル・ロック。読むだけ。`docs/WORKFLOW.md` §5） |
 | 調査用の Probe | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~<名前>" --logger "console;verbosity=detailed"` |
 | 総当たり | `dotnet run --project games/MiniRing.Arena -c Release -- league --bouts 4 --seconds 60 --out docs/arena/<名前>.md` |
 | 名簿の総当たりと間合いのレポート（勝率・技ごとの間合い・得意 / 不得意の距離・画像入り） | `bash tools/roster-report/run-raytrek.sh media_tmp/roster-<日付>`（raytrek で約 2 時間）→ `shots.sh` → `build-data.mjs` → `analyze.mjs` → `build-images.mjs` → `build-page.mjs` → `preview.mjs` → 公開。手順は `docs/ROSTER_REPORT.md`。部品は `rosterleague --matrix <csv>`（1 試合 1 行）・`maailab [--ranges <接頭辞>]`（1 打ずつの間合いとダメージ、距離の帯ごとの与えた / 受けた）・`portraits --out <dir>`（肖像の PNG） |
