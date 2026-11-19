@@ -8,7 +8,7 @@ namespace MiniRing.Voxels;
 /// <summary>
 /// 関節のつなぎ（2026-11-19、PhysicsVersion 47）: つながった 2 つの部位（首なら胸と頭）のボクセルの格子は、関節が回ると間が開く（頭を打たれて傾く・
 /// 肩が回る）。その隙間を刃が通っても何にも当たらず、関節の肉・骨を断てない。隙間に、2 つの部位の組織がつないでいる所を、当たりとダメージのためだけの
-/// 小さな直方体（ボクセル 10 × 10 × 10）として置く。
+/// 小さな直方体（ボクセル 10 × 10 × 10 以上。大きさは <see cref="SizeFor"/>）として置く。足首も含め、すべての関節に同じに置く（関節の種類で選ばない）。
 /// <list type="bullet">
 /// <item><b>体の動きは変えない</b>: 親の部位の剛体を借りるだけ（<see cref="VoxelBody.Massless"/>: 質量も剛体の形も持たない。関節の力も無い）。
 /// 刃が触れたときの運動量の受け渡しは、普通の部位との接触と同じく親の剛体へ掛かる。</item>
@@ -22,8 +22,11 @@ namespace MiniRing.Voxels;
 /// </summary>
 internal sealed class JointBridge
 {
-    /// <summary>つなぎの一辺のセル数。</summary>
-    private const int Cells = 10;
+    /// <summary>つなぎの一辺のセル数の下限（首を薙ぐ測定で選んだ値。これより細い関節も、この大きさの隙間は埋める）。</summary>
+    private const int MinCells = 10;
+
+    /// <summary>つなぎの一辺のセル数（<see cref="SizeFor"/>）。</summary>
+    private readonly int _cells;
 
     /// <summary>隙間をつなぐ、親・子のセルまでの距離 [セル]。</summary>
     private const int Reach = 1;
@@ -42,6 +45,7 @@ internal sealed class JointBridge
         Parent = parent;
         Child = child;
         var grid = parent.Body.Grid;
+        _cells = SizeFor(grid, child.Body.Grid);
         var cell = grid.CellSize;
         var half = grid.HalfExtents;
         // 中心は親の格子の線（セルの角）に合わせる: つなぎのセルの中心が、親のセルの中心と重なる。
@@ -51,11 +55,30 @@ internal sealed class JointBridge
             (MathF.Round((local.Y + half.Y) / cell.Y) * cell.Y) - half.Y,
             (MathF.Round((local.Z + half.Z) / cell.Z) * cell.Z) - half.Z);
         _centerOnParent = snapped + parent.Body.GridCenterLocal;
-        var bridgeGrid = new VoxelGrid(grid.Palette, cell * (Cells * 0.5f), (Cells, Cells, Cells), static (_, _) => 0);
+        var bridgeGrid = new VoxelGrid(grid.Palette, cell * (_cells * 0.5f), (_cells, _cells, _cells), static (_, _) => 0);
         Body = new VoxelBody(parent.Body.World, parent.Body.BodyId, bridgeGrid, _centerOnParent) { Massless = true };
         _cut = new bool[bridgeGrid.CellCount];
         _sourceParent = new int[bridgeGrid.CellCount];
         _sourceChild = new int[bridgeGrid.CellCount];
+    }
+
+    /// <summary>
+    /// つなぎの一辺のセル数: 2 つの部位のうち細い方の平均の断面の幅（箱の体積 ÷ 一番長い辺 の平方根。関節でつながる断面の大きさ）を、セルの数にして
+    /// 偶数へ切り上げる（箱の中心を格子の線に置くため）。<see cref="MinCells"/> より小さければ下限。関節ごとの表は持たない。
+    /// </summary>
+    internal static int SizeFor(VoxelGrid parent, VoxelGrid child)
+    {
+        ArgumentNullException.ThrowIfNull(parent);
+        ArgumentNullException.ThrowIfNull(child);
+        static float Width(VoxelGrid g)
+        {
+            var h = g.HalfExtents;
+            return 2f * MathF.Sqrt(h.X * h.Y * h.Z / MathF.Max(h.X, MathF.Max(h.Y, h.Z)));
+        }
+
+        var cell = MathF.Max(parent.CellSize.X, MathF.Max(parent.CellSize.Y, parent.CellSize.Z));
+        var cells = (int)MathF.Round(MathF.Min(Width(parent), Width(child)) / cell);
+        return Math.Max(MinCells, (cells + 1) & ~1);
     }
 
     public HumanoidRagdoll.RagdollJoint Joint { get; }
@@ -69,6 +92,24 @@ internal sealed class JointBridge
 
     /// <summary>いま刃が触れうるセルの数（<see cref="Refresh"/> の後）。</summary>
     public int ActiveCells => _activeCells;
+
+    /// <summary>つなぎの箱の面（外側の 1 段）にあるセルの数。0 でなければ、隙間が箱より広いかもしれない（箱の大きさの確かめ。<see cref="Refresh(Func{Vector3, bool})"/> の後）。</summary>
+    public int EdgeCells
+    {
+        get
+        {
+            var grid = Body.Grid;
+            var n = 0;
+            for (var i = 0; i < grid.CellCount; i++)
+            {
+                var (x, y, z) = grid.Coordinates(i);
+                var edge = x is 0 || y is 0 || z is 0 || x == _cells - 1 || y == _cells - 1 || z == _cells - 1;
+                n += edge && !_cut[i] && grid.MaterialAt(i) != 0 ? 1 : 0;
+            }
+
+            return n;
+        }
+    }
 
     /// <summary>
     /// 武器 <paramref name="weapon"/>（歩の前の姿勢 <paramref name="before"/> から今の姿勢まで動く）の格子の箱が掃く所のセルだけを、<see cref="Refresh(Func{Vector3, bool})"/> で作り直す。
@@ -115,11 +156,11 @@ internal sealed class JointBridge
         var toChild = toWorld * worldToChild;
         var offset = Body.GridCenterLocal - Parent.Body.GridCenterLocal; // 同じ剛体なので、つなぎの座標 → 親の格子の座標は平行移動だけ
         var active = 0;
-        for (var z = 0; z < Cells; z++)
+        for (var z = 0; z < _cells; z++)
         {
-            for (var y = 0; y < Cells; y++)
+            for (var y = 0; y < _cells; y++)
             {
-                for (var x = 0; x < Cells; x++)
+                for (var x = 0; x < _cells; x++)
                 {
                     var i = grid.Index(x, y, z);
                     if (_cut[i])
