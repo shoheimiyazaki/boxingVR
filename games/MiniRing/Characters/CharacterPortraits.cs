@@ -89,7 +89,8 @@ public static class CharacterPortraits
         {
             var kind = fighter.KindOf(id);
             var half = fighter.HalfExtentsOf(id);
-            var grid = BoxerBody.BuildPartGrid(kind, half, tuning, model, model, Outfit.RedCorner, BoxerVoxelOverrides.Shipped, FaceLayer.LookWith(character.Look, character.Face), ref palette);
+            var grid = BoxerBody.BuildPartGrid(kind, half, tuning, model, model, Outfit.RedCorner, BoxerVoxelOverrides.Shipped, FaceLayer.LookWith(character.Look, character.Face), ref palette,
+                mirrorX: fighter.OnPlusXSide(id)); // 試合の体と同じく、+X 側の腕・脚は鏡に写す
             var state = world.GetState(id);
             var (position, orientation) = (state.Position, state.Orientation);
             if (kind is BodyPartKind.UpperArm or BodyPartKind.Forearm)

@@ -72,6 +72,7 @@ public sealed partial class Fighter
     internal float StandHeight => _standHeight;
     private readonly Arm[] _arms = new Arm[2];
     private readonly int[] _all;
+    private readonly int[] _plusXSide;
     private readonly int _neck;
 
     /// <summary>
@@ -139,6 +140,7 @@ public sealed partial class Fighter
         Parts = parts;
         HalfExtents = halfExtents;
         _all = [.. parts.All, toes.AigisLeft, toes.AigisRight];
+        _plusXSide = [parts.RightUpperArm, parts.RightForearm, parts.RightThigh, parts.RightShin, parts.RightFoot, toes.AigisRight];
         _facingYaw = yaw;
         TotalMass = _all.Sum(world.GetMass);
 
@@ -195,6 +197,12 @@ public sealed partial class Fighter
     /// <summary>体の剛体すべて（Aigis の 13 部位 + つま先 2 つ）。</summary>
     public IReadOnlyList<int> AllParts => _all;
 
+    /// <summary>
+    /// 体の +X 側（人の左。Aigis の Right）の腕・脚・足・つま先か。左右の腕・脚は 1 つの格子（−X 側の向き）を共有し、この側は X で鏡に写して使う
+    /// （<see cref="Voxels.BoxerBody"/>）。
+    /// </summary>
+    public bool OnPlusXSide(int part) => Array.IndexOf(_plusXSide, part) >= 0;
+
     /// <summary>足の運び（足の置き場所の計画）。</summary>
     public Footwork Footwork => _footwork;
 
@@ -208,7 +216,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 59; // 59: master の 57（顔の層・手の層）と、この枝の 53（滑りの直し・足の運びの構えを骨盤で寄せる・すべての関節のつなぎ）を合わせた。58 は claude/glove-v2 が使う。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 63; // 63: 体の中身を CT から（boxer.vox: 骨・臓器・筋肉・動脈・気管、腕・脚を左右で鏡に写す、関節のつなぎは CT のまわりから）。60〜62 は ほかの枝が使う。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }

@@ -108,23 +108,11 @@ public static class BoxerAnatomy
     private const float SkinWear = 0.12f;
     private static readonly VoxelMechanics MuscleMechanics = Doll(new(1060f, 0.3e6f, 0.005f));
     // 骨は腕・脚の梁として曲げを受ける（肉は質量だけ。VoxelBody.BeamAxis）: 打撃の曲げが骨の強さを超えた所で折れる（VoxelBending。武器が折れる
-    // のと同じモデル）。値は皮質骨（曲げて折れる強さ 150 MPa・ヤング率 17 GPa）を、ボクセルの骨の太さに合わせた実効値にする（BoneSectionShare）。
-    private static readonly VoxelMechanics BoneMechanics = Doll(new(1900f, 25e6f, 0.0005f,
-        Tensile: 150e6f * BoneSectionModulusShare, Stiffness: 17e9f * BoneSectionInertiaShare));
-
-    /// <summary>
-    /// ボクセルの骨の、曲げの実効値の割合（複合材のセルの値を中身の割合から決めるのと同じ）。5 mm のセルでは前腕の骨は 2 × 2 セル（1 cm 角）より
-    /// 細くできないが、人形の縮尺の本物の前腕の骨は橈骨・尺骨とも直径 4 mm ほど（人で 1.3 cm・1.2 cm × 相似則 0.32）。曲げで折れる力は断面係数
-    /// Z に、たわみは断面二次モーメント I に比例するので、セルの骨の Z・I に対する本物の 2 本の骨の比を掛ける:
-    /// Z = π(d₁³ + d₂³)/32 = 1.27e-8 m³ に対して 1 cm 角は 1.67e-7 m³（0.076）、I = π(d₁⁴ + d₂⁴)/64 = 2.55e-11 m⁴ に対して 8.33e-10 m⁴（0.031）。
-    /// 潰れる強さ（Strength: 剣が骨で止まるか）は変えない。上腕・脚の骨は前腕よりさらに太めに作ってあるので、この割合では本物より少し折れにくい。
-    /// 測った（BoneBreakProbe）: 前腕の真ん中を折る力は 869 N → 66 N。グローブが 2 m/s では 27 N しか渡さず折れず、腕と体の乗った 4 m/s の 1 発（110 N）で折れる。
-    /// （static の初期化はこの宣言より前の BoneMechanics で使うので、const にしてある。）
-    /// </summary>
-    private const float BoneSectionModulusShare = 0.076f;
-
-    /// <summary>ボクセルの骨の、曲げのたわみ（断面二次モーメント）の実効値の割合（<see cref="BoneSectionModulusShare"/> を見よ）。</summary>
-    private const float BoneSectionInertiaShare = 0.031f;
+    // のと同じモデル）。値は皮質骨（曲げて折れる強さ 150 MPa・ヤング率 17 GPa）そのもの（相似則だけ掛ける）。骨の形は人の CT から作った本物の太さ
+    // （PhysicsVersion 63、docs/plans/CT_BODY_PLAN.md）。それより前の骨は本物より太い棒（前腕で 1 cm 角対 4 mm 2 本）で、断面係数・断面二次モーメントの
+    // 比（0.076・0.031）を掛けた実効値にしていた。測った（CtBoneProbe.BreakingForce_OldAndCt）真ん中を折る力: 前腕 89 → 145 N・上腕 138 → 349 N・
+    // すね 248 → 248 N・腿 424 → 138 N（腿は CT の大腿骨の真ん中の断面が 2〜3 セルしかなく、本物より弱め: docs/DEBT.md「左右の部位の格子と CT の体」）。
+    private static readonly VoxelMechanics BoneMechanics = Doll(new(1900f, 25e6f, 0.0005f, Tensile: 150e6f, Stiffness: 17e9f));
 
     /// <summary>脊髄: 柔らかく弱い神経組織（脳より少し弱い）。</summary>
     private static readonly VoxelMechanics CordMechanics = Doll(new(1040f, 0.05e6f, 0.005f));
@@ -282,14 +270,25 @@ public static class BoxerAnatomy
         var (nx, ny, nz) = grid.Dimensions;
         var materials = new byte[nx * ny * nz];
         int Index(int x, int y, int z) => x + (nx * (y + (ny * z)));
-        // 脚の骨の軸は Y。骨の並び（断面の形）は、どれかの段に骨のある (x, z) の全部（生成の骨の棒なら骨の胴の断面そのもの。
-        // 直した .vox で段ごとに骨がずれていても、和なので 2 度かけても広がらない）。
+        // 脚の骨の軸は Y。骨の胴の断面は、骨のある段のうち骨のセルの数が真ん中（中央値）の段の並び（生成の骨の棒・CT を入れる前の .vox なら棒の断面そのもの）。
+        // それを、両端から続いて胴より細い段（外形が絞れて骨が痩せた端）だけに置く。CT の骨（曲がった大腿骨・太い骨端）は端が胴より太いので何も変わらない
+        // （以前は全部の段の骨の和を全部の段に置いていて、段ごとに位置のずれる CT の大腿骨が太い柱になった: 122 → 702 セル）。2 度かけても同じ。
         var slices = Enumerable.Range(0, ny).Select(y => Footprint(grid, y)).ToArray();
-        var footprint = slices.SelectMany(s => s).Distinct().OrderBy(c => c.Z).ThenBy(c => c.X).ToList();
         var boneSlices = Enumerable.Range(0, ny).Where(y => slices[y].Count > 0).ToArray();
-        if (footprint.Count == 0)
+        if (boneSlices.Length == 0)
         {
             return grid;
+        }
+
+        var shaft = boneSlices.OrderBy(y => slices[y].Count).ThenBy(y => y).ElementAt(boneSlices.Length / 2);
+        var footprint = slices[shaft].OrderBy(c => c.Z).ThenBy(c => c.X).ToList();
+        var thin = new List<int>();
+        foreach (var run in new[] { boneSlices, boneSlices.Reverse().ToArray() })
+        {
+            foreach (var y in run.TakeWhile(y => slices[y].Count < footprint.Count))
+            {
+                thin.Add(y);
+            }
         }
 
         for (var z = 0; z < nz; z++)
@@ -308,10 +307,10 @@ public static class BoxerAnatomy
             .Where(m => m != 0 && m != Bone && m != Muscle).GroupBy(m => m).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).FirstOrDefault()?.Key ?? Skin;
         var changed = false;
         var (low, high) = (boneSlices.Min(), boneSlices.Max());
-        // 骨の端の外（骨の軸の向き）も 1 層で包む: 端の段の骨が、絞れた次の段から外に出ないように。材質は端の段の外側のもの。
+        // 骨の端の外（骨の軸の向き）も 1 層で包む: 端の段の骨が、絞れた次の段から外に出ないように。材質は端の段の外側のもの。太らせた端だけ。
         foreach (var (y, from) in new[] { (low - 1, low), (high + 1, high) })
         {
-            if (y < 0 || y >= ny)
+            if (y < 0 || y >= ny || !thin.Contains(from))
             {
                 continue;
             }
@@ -324,7 +323,7 @@ public static class BoxerAnatomy
             }
         }
 
-        for (var y = low; y <= high; y++)
+        foreach (var y in thin)
         {
             var cover = CoverOf(y);
             foreach (var (x, z) in footprint)

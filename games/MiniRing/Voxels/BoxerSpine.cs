@@ -44,7 +44,11 @@ public static class BoxerSpine
         _ => null,
     };
 
-    /// <summary>部位 <paramref name="kind"/> の格子に、頸椎・脊髄を置く（作った直後、削れる前に 1 度だけ）。</summary>
+    /// <summary>
+    /// 部位 <paramref name="kind"/> の格子に、頸椎・脊髄を置く（作った直後、削れる前に 1 度だけ）。胸・腰は、中身にもう脊髄がある格子（CT から作った体:
+    /// 脊髄は CT の位置にある）には置かない（2 本目の脊髄を重ねて塗らない）。頭の首の段は頭の箱の下の端に置くゲームの作りで（CT の頭の部位は頭蓋の底より上
+    /// なので、本物の頸椎はそこに写っていない）、いつも置く。
+    /// </summary>
     public static void Place(BodyPartKind kind, VoxelGrid grid)
     {
         ArgumentNullException.ThrowIfNull(grid);
@@ -53,10 +57,23 @@ public static class BoxerSpine
             case BodyPartKind.Head:
                 PlaceNeck(grid);
                 break;
-            case BodyPartKind.Chest or BodyPartKind.Pelvis:
+            case BodyPartKind.Chest or BodyPartKind.Pelvis when !HasCord(grid):
                 PlaceCord(grid);
                 break;
         }
+    }
+
+    private static bool HasCord(VoxelGrid grid)
+    {
+        for (var i = 0; i < grid.CellCount; i++)
+        {
+            if (grid.AtIndex(i) == BoxerAnatomy.Cord)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void PlaceNeck(VoxelGrid grid)
