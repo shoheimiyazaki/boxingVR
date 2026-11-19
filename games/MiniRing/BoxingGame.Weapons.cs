@@ -1049,8 +1049,8 @@ public sealed partial class BoxingGame
         }
 
         Snapped(weapon, hit.SnappedA);
-        var (parentCells, childCells) = hit.RemovedB.Count > 0 ? bridge.Sever(hit) : ([], []);
-        if (parentCells.Count == 0 && childCells.Count == 0)
+        var severed = hit.RemovedB.Count > 0 ? bridge.Sever(hit) : [];
+        if (severed.Count == 0)
         {
             var bump = hit with { B = bridge.Parent.Body };
             _recentCuts.Add(bump);
@@ -1059,13 +1059,8 @@ public sealed partial class BoxingGame
         }
 
         var first = true;
-        foreach (var (part, cells) in new[] { (bridge.Parent, parentCells), (bridge.Child, childCells) })
+        foreach (var (part, cells) in severed)
         {
-            if (cells.Count == 0)
-            {
-                continue;
-            }
-
             var partHit = hit with { B = part.Body, RemovedA = first ? hit.RemovedA : [], RemovedB = cells, CrushedA = null, CrushedB = null, BentA = null, BentB = null };
             first = false;
             part.Body.UpdateMass(); // 部位のセルが減ったぶん、質量と剛体の形を合わせる（普通の接触は VoxelContact が呼ぶ）

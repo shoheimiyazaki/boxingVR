@@ -631,7 +631,7 @@ public sealed class BoxerBody
         {
             if (_byBody.TryGetValue(parentId, out var parentPart) && _byBody.TryGetValue(childId, out var childPart))
             {
-                _bridges.Add(new JointBridge(joint, parentPart, childPart, anchor));
+                _bridges.Add(new JointBridge(joint, parentPart, childPart, anchor, LayersOf(parentPart), LayersOf(childPart)));
             }
         }
 
@@ -639,6 +639,9 @@ public sealed class BoxerBody
     }
 
     private readonly List<JointBridge> _bridges = [];
+
+    /// <summary>部位の組織を持つ格子: 部位そのもの、頭なら外を持つ顔の層も（同じ剛体に乗る）。</summary>
+    private IReadOnlyList<VoxelPart> LayersOf(VoxelPart part) => part.Kind == BodyPartKind.Head && _face is { } face ? [part, face] : [part];
 
     /// <summary>関節のつなぎ（<see cref="JointBridge"/>）。</summary>
     internal IReadOnlyList<JointBridge> Bridges => _bridges;
