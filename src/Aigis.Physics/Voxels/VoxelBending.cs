@@ -41,18 +41,24 @@ public static class VoxelBending
     /// (a jointed column such as a spine gives before its bone is strained, so the flesh around it is what holds it first). A tie
     /// yields, it never snaps the beam.
     /// </param>
-    public static VoxelBreak? FindBreak(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f)
-        => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, minRatio: 1f);
+    /// <param name="root">
+    /// What the beam hangs from at its joint (grid-local point, mass [kg]), or null for a free beam. A limb or a head is joined to the
+    /// body at one end: the joint holds that end in place (a ball joint: it passes force, not turning), so the body beyond it is a mass
+    /// fixed to the beam there. A blow near the joint then goes mostly into that mass instead of having to swing the whole beam, and a
+    /// blow far from it bends the beam against it.
+    /// </param>
+    public static VoxelBreak? FindBreak(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f, (Vector3 Point, float Mass)? root = null)
+        => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, root, minRatio: 1f);
 
     /// <summary>
     /// The most strained cross-section, as <see cref="FindBreak"/> finds it but whether or not it snaps (<see cref="VoxelBreak.Ratio"/> may be
     /// below 1: how close the blow came to breaking it). Null when nothing carries a section. For diagnostics: the same sums as <see cref="FindBreak"/>,
     /// which returns this result exactly when its ratio is above 1.
     /// </summary>
-    public static VoxelBreak? WorstBend(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f)
-        => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, minRatio: 0f);
+    public static VoxelBreak? WorstBend(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f, (Vector3 Point, float Mass)? root = null)
+        => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, root, minRatio: 0f);
 
-    private static VoxelBreak? Worst(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis, bool loadBearingOnly, (int Low, int High)? candidates, float tieActivation, float minRatio)
+    private static VoxelBreak? Worst(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis, bool loadBearingOnly, (int Low, int High)? candidates, float tieActivation, (Vector3 Point, float Mass)? root, float minRatio)
     {
         ArgumentNullException.ThrowIfNull(grid);
         var (nx, ny, nz) = grid.Dimensions;
@@ -81,6 +87,21 @@ public static class VoxelBending
 
         var (cells, total, com, inverseInertia, bySlice) = geometry;
         var (cellSlice, cellAt, cellMass, cellTensile, cellStiffness) = (geometry.CellSlice, geometry.CellAt, geometry.CellMass, geometry.CellTensile, geometry.CellStiffness);
+        // The body the beam hangs from, as a mass fixed at the joint: it joins the free body's mass, centre and inertia.
+        var rooted = root is { Mass: > 0f } r && float.IsFinite(r.Mass) && float.IsFinite(r.Point.X + r.Point.Y + r.Point.Z) ? r : ((Vector3 Point, float Mass)?)null;
+        if (rooted is { } hung)
+        {
+            var joined = total + hung.Mass;
+            var joinedCom = ((com * total) + (hung.Point * hung.Mass)) / joined;
+            var inertia = geometry.Inertia + PointInertia(total, com - joinedCom) + PointInertia(hung.Mass, hung.Point - joinedCom);
+            if (!Matrix4x4.Invert(inertia, out inverseInertia))
+            {
+                return null;
+            }
+
+            (total, com) = (joined, joinedCom);
+        }
+
         // The blow's push and turn on the free body.
         var accel = force / total;
         var spin = Vector3.Transform(Vector3.Cross(point - com, force), inverseInertia);
@@ -96,6 +117,13 @@ public static class VoxelBending
         {
             var inertial = (accel + Vector3.Cross(spin, cellAt[c] - com)) * cellMass[c];
             sliceLoads[cellSlice[c]] += new SectionLoad(inertial, Vector3.Cross(cellAt[c] - com, inertial));
+        }
+
+        if (rooted is { } joint)
+        {
+            var rootSlice = Math.Clamp((int)MathF.Floor((Vector3.Dot(joint.Point, lengthAxis) + Vector3.Dot(grid.HalfExtents, lengthAxis)) / cellAlong), 0, slices - 1);
+            var inertial = (accel + Vector3.Cross(spin, joint.Point - com)) * joint.Mass;
+            sliceLoads[rootSlice] += new SectionLoad(inertial, Vector3.Cross(joint.Point - com, inertial));
         }
 
         var above = Scratch(ref _aboveScratch, slices);
@@ -279,6 +307,17 @@ public static class VoxelBending
 
     private static float Square(float v) => v * v;
 
+    /// <summary>The inertia tensor of a point mass <paramref name="mass"/> at <paramref name="r"/> from the axis point (parallel axes).</summary>
+    private static Matrix4x4 PointInertia(float mass, Vector3 r)
+    {
+        var rr = r.LengthSquared();
+        return new Matrix4x4(
+            mass * (rr - (r.X * r.X)), -mass * r.X * r.Y, -mass * r.X * r.Z, 0f,
+            -mass * r.X * r.Y, mass * (rr - (r.Y * r.Y)), -mass * r.Y * r.Z, 0f,
+            -mass * r.X * r.Z, -mass * r.Y * r.Z, mass * (rr - (r.Z * r.Z)), 0f,
+            0f, 0f, 0f, 0f);
+    }
+
     // 梁の断面ごとの荷重の作業用の配列（毎回の割り当てを避ける。1 回の FindBreak の中だけで使い、毎回ゼロから積み直す）。
     [ThreadStatic]
     private static SectionLoad[]? _sliceLoadsScratch;
@@ -407,6 +446,9 @@ public static class VoxelBending
 
         /// <summary>Each cell's tie stress at full activation, on top of the passive one [Pa] (0 for none).</summary>
         public float[] CellActiveTie { get; init; } = [];
+
+        /// <summary>The cells' inertia tensor about <see cref="Com"/> (for joining the mass a beam hangs from).</summary>
+        public Matrix4x4 Inertia { get; init; }
     }
 
     private const float DefaultStiffness = 10e9f;
@@ -496,6 +538,7 @@ public static class VoxelBending
 
         return new BeamGeometry(cells, total, com, inverseInertia, bySlice)
         {
+            Inertia = inertia,
             CellSlice = cells.Select(c => c.Slice).ToArray(),
             CellAt = cells.Select(c => c.At).ToArray(),
             CellMass = cells.Select(c => c.Mass).ToArray(),

@@ -171,6 +171,12 @@ public sealed class VoxelBody
     /// </summary>
     public float TieActivation { get; set; }
 
+    /// <summary>
+    /// What the beam hangs from at its joint, as a mass fixed there (grid-local point, mass [kg]; see <c>VoxelBending.FindBreak</c>'s root),
+    /// or null for a free beam. The owner sets it every step (the joint's place and the mass of the body part on its other side).
+    /// </summary>
+    public (Vector3 Point, float Mass)? BeamRoot { get; set; }
+
     /// <summary>Where the grid's centre sits in the body's frame.</summary>
     public Vector3 GridCenterLocal { get; }
 
