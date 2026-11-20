@@ -218,7 +218,7 @@ public static class FaceLayer
     }
 
     /// <summary>
-    /// 5 mm のセルが、同じ高さ・左右の位置で組み立てた顔の前の面より前にあるか（首の段の皮膚があご先の前へ出て、包む皮膚があごの下の出っ張りになった）。
+    /// 5 mm のセルが、同じ高さ・左右の位置で組み立てた顔の前の面より前にあるか（首の段の皮膚があご先の前へ出て、包む皮膚があごの下の出っ張りになった。2026-11-20）。
     /// その列に組み立てた顔が無い（あごより下の首）なら前ではない。
     /// </summary>
     private static bool InFrontOfFace(FaceVolume composed, int x, int y, int z)
