@@ -128,6 +128,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | `docs/BREAK_ROUTINE.md` | ラウンドの間の休みの選手の動作（水を飲む・汗を拭く・スマホ・電話・深呼吸…）: 目標の経路・選び方・小物（ボクセルの物）・近道 |
 | `docs/VFC.md` / `docs/plans/VFC_PLAN.md` | VFC（Voxel Fighting Championship、何でもありの団体）: ダウンを取らない・死だけが決着・5R で両者生還なら引き分け・休みに治らない・六角形の金網の檻。団体の違いは `games/MiniRing.Arena/Orgs/<id>.json`（見せ方と試合の決まり）、撮影は `--org vfc`・札の `"org"` |
 | `docs/MEDIA.md` | 動画・リプレイの保管（`media/<世代>/`、git の外）の索引と、世代の区切り方 |
+| `docs/EXCITEMENT.md` | 試合の面白さの測り方: 見どころ（打ち合い・紙一重・カウンター・ダウン・骨折…の物理の定義）・観客の見込みの驚きとはらはら（ドラマ）・慣れのある興奮の曲線（緩急）・テストの床 |
 | `docs/ROSTER_REPORT.md` | 名簿の総当たり（組ごとの勝率と区間）・技ごとの間合いとダメージ・得意 / 不得意の距離を測り、ゲームの画像入りのレポート（Data 型の Artifact）にする手順・定義・考察の書き方（道具は `tools/roster-report/`） |
 
 **読み方（トークンの節約）**: 上の表は「今の仕組み」。**記録**（経緯・測定の生の値）は、その経緯が要るときだけ見出しで探して読む: `docs/BOT_PDCA.md`・`docs/arena/*`・`docs/LEARNING_PLAN.md` の記録の節・`docs/plans/done/`（終わった指示書と報告。報告が出た指示書はここへ移す）・`docs/VERSIONS.md`。大きい文書（`VOXEL_DAMAGE`・`BOTS`・`KARATE` など 20KB 超）は全部を読まず、`Grep` で節を探してその節だけ読む。
