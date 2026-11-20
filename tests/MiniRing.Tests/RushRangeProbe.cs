@@ -27,7 +27,7 @@ public sealed class RushRangeProbe
     private static void Run(float awayY, bool passThrough = false)
     {
         var corners = BoxingCorners.Default with { Player = _ => new IntentControl(), Cpu = _ => new IntentControl() };
-        using var game = new BoxingGame(FighterTuning.Default with { ConcussionGain = 0f }, seed: 3, corners: corners);
+        using var game = new BoxingGame(FighterTuning.Default with { ConcussionSpin = float.PositiveInfinity }, seed: 3, corners: corners);
         if (passThrough)
         {
             foreach (var p in game.Player.AllParts)

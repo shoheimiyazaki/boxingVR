@@ -1,0 +1,56 @@
+using System.Globalization;
+using MiniRing;
+using MiniRing.Bots;
+
+var pairs = (args.Length > 0 ? args[0] : "champion:swarmer").Split(',').Select(p => p.Split(':')).ToList();
+var seeds = (args.Length > 1 ? args[1] : "1,2,3,4").Split(',').Select(int.Parse).ToList();
+var seconds = args.Length > 2 ? float.Parse(args[2], CultureInfo.InvariantCulture) : 40f;
+var tag = args.Length > 3 ? args[3] : "x";
+var ci = CultureInfo.InvariantCulture;
+var specs = new List<(string a, string b, int seed)>();
+foreach (var p in pairs) foreach (var s in seeds) specs.Add((p[0], p[1], s));
+var lines = new string[specs.Count];
+Parallel.For(0, specs.Count, new ParallelOptions { MaxDegreeOfParallelism = 2 }, i => lines[i] = Run(specs[i].a, specs[i].b, specs[i].seed));
+foreach (var l in lines) Console.WriteLine(tag + "\t" + l);
+// totals per pair
+return 0;
+
+string Run(string a, string b, int seed)
+{
+    var red = Contender.Named(a); var blue = Contender.Named(b);
+    var rb = new List<IFighterControl>(); var bb = new List<IFighterControl>();
+    var corners = new BoxingCorners(blue.Name, s => { var c = blue.Create(s); bb.Add(c); return c; }, s => { var c = red.Create(s); rb.Add(c); return c; }, PlayerName: red.Name, Referee: true);
+    using var game = new BoxingGame(null, seed, corners);
+    float dmgR = 0, dmgB = 0; int landR = 0, landB = 0, kdR = 0, kdB = 0; // R = red dealt
+    int unhitFallsR = 0, unhitFallsB = 0; // falls of red / blue without hit/concussion
+    int concFallsR = 0, concFallsB = 0;
+    var steps = (int)MathF.Ceiling(seconds * 60f);
+    var round = game.Round; bool rd = false, bd = false;
+    var lastHitP = -9f; var lastHitC = -9f; var lastConcP = -9f; var lastConcC = -9f;
+    float prevCP = game.Player.Concussion, prevCC = game.Cpu.Concussion;
+    float maxConcHit = 0; string maxInfo = "";
+    float sumSpeedHead = 0; int nHead = 0; float sumMass = 0, sumShare = 0;
+    for (var i = 0; i < steps; i++)
+    {
+        var t = i / 60f;
+        game.Step(default, 1f / 60f);
+        float dP = game.Player.Concussion - prevCP, dC = game.Cpu.Concussion - prevCC;
+        prevCP = game.Player.Concussion; prevCC = game.Cpu.Concussion;
+        if (dP > 0.02f) lastConcP = t; if (dC > 0.02f) lastConcC = t;
+        foreach (var h in game.RecentHits)
+        {
+            if (h.Attacker == game.Player) { dmgR += h.Damage; landR++; lastHitC = t; } else { dmgB += h.Damage; landB++; lastHitP = t; }
+            sumMass += h.ImpactMass; sumShare += h.BodyShare; nHead++; sumSpeedHead += h.Speed;
+            var dc = h.Victim == game.Player ? dP : dC;
+            if (dc > maxConcHit) { maxConcHit = dc; maxInfo = $"t={t:0.00} v={h.Speed:0.00} m={h.ImpactMass:0.00} sh={h.BodyShare:0.00} dmg={h.Damage:0.0} dConc={dc:0.00} zone={h.Zone}"; }
+        }
+        foreach (var h in game.WeaponHits) { if (h.Attacker == game.Player) { dmgR += h.Damage; landR++; lastHitC = t; } else { dmgB += h.Damage; landB++; lastHitP = t; } }
+        if (game.Round != round) { round = game.Round; rd = bd = false; }
+        var pd = game.Player.IsKnockedDown; var cd = game.Cpu.IsKnockedDown;
+        if (pd && !rd) { kdB++; if (t - lastHitP > 0.5f && t - lastConcP > 0.5f) unhitFallsR++; else if (t - lastHitP > 0.5f) concFallsR++; }
+        if (cd && !bd) { kdR++; if (t - lastHitC > 0.5f && t - lastConcC > 0.5f) unhitFallsB++; else if (t - lastHitC > 0.5f) concFallsB++; }
+        rd = pd; bd = cd;
+    }
+    float ms = nHead > 0 ? sumMass / nHead : 0, sh = nHead > 0 ? sumShare / nHead : 0, sv = nHead > 0 ? sumSpeedHead / nHead : 0;
+    return string.Create(ci, $"{a}:{b}\tseed={seed}\tdmg={dmgR:0}-{dmgB:0}\tlanded={landR}-{landB}\tkd={kdR}-{kdB}\tunhitFall(red,blue)={unhitFallsR},{unhitFallsB}\tconcNoHit={concFallsR},{concFallsB}\tavg v={sv:0.00} m={ms:0.00} sh={sh:0.00}\tmaxConcHit: {maxInfo}");
+}

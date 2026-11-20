@@ -47,7 +47,7 @@ public sealed class StaminaFeelProbe
         }
 
         // 脳しんとうを切る: 連打の途中で相手が倒れて止まらないように（調べたいのは打つ側のスタミナ）。
-        return new BoxingGame(Tuning() with { ConcussionGain = 0f }, seed: 3, corners: corners);
+        return new BoxingGame(Tuning() with { ConcussionSpin = float.PositiveInfinity }, seed: 3, corners: corners);
     }
 
     /// <summary>弱・強を交互に連打（押す 0.08 秒・離す 0.04 秒）。始めの 1.5 秒で前へ詰める。</summary>

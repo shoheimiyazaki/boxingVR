@@ -89,7 +89,7 @@ internal static class FinishLab
             },
             PlayerWear: attacker.Wear, CpuWear: victim.Wear, PlayerBody: attacker.Build, CpuBody: victim.Build);
         // 脳しんとうの深さを止める（打たれて深まらず、時間で戻らない）。同じ弱り方の相手へ繰り返し打つため。
-        var tuning = FighterTuning.Default with { ConcussionGain = 0f, ConcussionRecoveryRate = 0f };
+        var tuning = FighterTuning.Default with { ConcussionSpin = float.PositiveInfinity, ConcussionRecoveryRate = 0f };
         using var game = new BoxingGame(tuning, seed: seed, corners: corners);
         var tally = new Tally();
         var punches = new Punch?[2];

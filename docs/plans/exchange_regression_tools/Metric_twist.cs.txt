@@ -1,0 +1,27 @@
+using System.Globalization;
+using System.Numerics;
+using MiniRing;
+using MiniRing.Bots;
+// Head twist distributions from punches and floor impacts (temp probe Fighter.TwistProbe). args: pairs seeds seconds [overrides]
+var pairs = args[0].Split(',').Select(p => p.Split(':')).ToList();
+var seeds = args[1].Split(',').Select(int.Parse).ToList();
+var seconds = float.Parse(args[2], CultureInfo.InvariantCulture);
+var tuning = new FighterTuning();
+foreach (var kv in (args.Length > 3 ? args[3] : "").Split(',', StringSplitOptions.RemoveEmptyEntries)) { var q = kv.Split('='); var prop = typeof(FighterTuning).GetProperty(q[0]) ?? throw new Exception("no " + q[0]); prop.SetValue(tuning, Convert.ChangeType(q[1], prop.PropertyType, CultureInfo.InvariantCulture)); }
+var data = new Dictionary<string, List<(float w, float e)>> { ["punch"] = new(), ["floor"] = new() };
+Vector3 inertia = default;
+Fighter.TwistProbe = (floor, L, I, q) => { inertia = I; var w = Vector3.Transform(L, Quaternion.Conjugate(q)) / I; data[floor ? "floor" : "punch"].Add((w.Length(), 0.5f * Vector3.Dot(I * w, w))); };
+foreach (var p in pairs) foreach (var seed in seeds)
+{
+    var red = Contender.Named(p[0]); var blue = Contender.Named(p[1]);
+    var corners = new BoxingCorners(blue.Name, s => blue.Create(s), s => red.Create(s), PlayerName: red.Name, Referee: true);
+    using var game = new BoxingGame(tuning, seed, corners);
+    for (var i = 0; i < (int)(seconds * 60); i++) game.Step(default, 1f / 60f);
+}
+Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"head inertia {inertia.X:E3} {inertia.Y:E3} {inertia.Z:E3}"));
+foreach (var (k, l) in data)
+{
+    var w = l.Select(x => x.w).Where(x => x > 0.5f).OrderBy(x => x).ToList(); var e = l.Select(x => x.e).Where(x => x > 1e-7f).OrderBy(x => x).ToList();
+    float P(List<float> xs, float q) => xs.Count == 0 ? 0 : xs[(int)(q * (xs.Count - 1))];
+    Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{k}: n={w.Count} w p50={P(w, .5f):0.0} p90={P(w, .9f):0.0} p99={P(w, .99f):0.0} max={P(w, 1f):0.0} rad/s | E p50={P(e, .5f):E2} p90={P(e, .9f):E2} p99={P(e, .99f):E2} max={P(e, 1f):E2} J"));
+}

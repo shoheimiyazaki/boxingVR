@@ -21,9 +21,9 @@ public sealed class StaminaRushTests
     public void AlternatingRush_FullForTenSeconds_ThenFadesOverTheNextTen()
     {
         var corners = BoxingCorners.Default with { Player = _ => new IntentControl(), Cpu = _ => new IntentControl() };
-        // 意識（ConcussionGain）に加え、腹の打撲による体の張りの低下（CoreToneFloor）も切る: 的の相手は胴を打たれ続け、7 秒ほどで膝から力が抜けて倒れる
+        // 意識（ConcussionSpin を無限大に）に加え、腹の打撲による体の張りの低下（CoreToneFloor）も切る: 的の相手は胴を打たれ続け、7 秒ほどで膝から力が抜けて倒れる
         // （2026-11-18、床から支える体で測り直し）。倒れて待つ間に打つ側のスタミナが戻ると 10 秒の全力が延びてしまう。測るのは打つ側の拳とスタミナ。
-        using var game = new BoxingGame(FighterTuning.Default with { ConcussionGain = 0f, CoreToneFloor = 1f }, seed: 3, corners: corners);
+        using var game = new BoxingGame(FighterTuning.Default with { ConcussionSpin = float.PositiveInfinity, CoreToneFloor = 1f }, seed: 3, corners: corners);
         var control = (IntentControl)game.PlayerControl!;
         ((IntentControl)game.CpuControl).Input = new FighterIntent(Vector2.Zero, Evade: true);
         var rushing = 0f;

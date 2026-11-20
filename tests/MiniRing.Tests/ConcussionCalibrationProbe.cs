@@ -4,8 +4,8 @@ using MiniRing.Bots;
 namespace MiniRing.Tests;
 
 /// <summary>
-/// 脳しんとうの係数の合わせ直し（2026-11-18、PhysicsVersion 45）: 拳だけのボット同士で、<see cref="FighterTuning.ConcussionGain"/> を何倍かにして、
-/// 1 試合あたりのダウン・意識の最小・ダメージを数える。倍率は環境変数 CONCUSSION_SCALES（例 "1,10,30"）。直す前の版と比べるのに使う。
+/// 脳しんとうの値の合わせ直し（2026-11-18、PhysicsVersion 45。2026-11-19 から 1 つの値 <see cref="FighterTuning.ConcussionSpin"/>）: 拳だけのボット同士で、
+/// 意識を全部飛ばす頭の回転の速さを変えて、1 試合あたりのダウン・意識の最小・ダメージを数える。値は環境変数 CONCUSSION_SPINS [rad/s]（例 "20,30,40"）。
 /// </summary>
 [TestClass]
 public sealed class ConcussionCalibrationProbe
@@ -16,13 +16,13 @@ public sealed class ConcussionCalibrationProbe
         [("champion", "swarmer"), ("slugger", "counter"), ("jabber", "boxer"), ("outboxer", "champion-v1")];
 
     [TestMethod]
-    public void DownsPerBoutByConcussionGain()
+    public void DownsPerBoutByConcussionSpin()
     {
-        var scales = (Environment.GetEnvironmentVariable("CONCUSSION_SCALES") ?? "1,10,30,100")
+        var spins = (Environment.GetEnvironmentVariable("CONCUSSION_SPINS") ?? "20,30,40")
             .Split(',').Select(s => float.Parse(s, CultureInfo.InvariantCulture)).ToArray();
-        foreach (var scale in scales)
+        foreach (var spin in spins)
         {
-            var tuning = FighterTuning.Default with { ConcussionGain = FighterTuning.Default.ConcussionGain * scale };
+            var tuning = FighterTuning.Default with { ConcussionSpin = spin };
             int bouts = 0, downs = 0, kos = 0;
             double awake = 0, damage = 0;
             foreach (var (red, blue) in Pairs)
@@ -56,7 +56,7 @@ public sealed class ConcussionCalibrationProbe
             }
 
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                $"gain x{scale}: downs/bout {(double)downs / bouts:F2}, match over {kos}/{bouts}, min awake (mean) {awake / bouts:F2}, damage/bout {damage / bouts:F0}"));
+                $"spin {spin} rad/s: downs/bout {(double)downs / bouts:F2}, match over {kos}/{bouts}, min awake (mean) {awake / bouts:F2}, damage/bout {damage / bouts:F0}"));
         }
     }
 }

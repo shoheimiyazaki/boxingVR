@@ -78,7 +78,10 @@ public sealed class DamageModelTests
             // 版 43: 4.5 kg × 2.1 m/s で脳しんとう 1.15・0.20 秒でダウン・6.75 秒で起き上がり・意識 0.97。
             // いま: 4.5 kg × 2.1 では脳しんとう 114.7 で意識 0 のまま（起き上がらない）。0.7 kg × 2.2 m/s で脳しんとう 1.09・0.23 秒でダウン・5.94 秒で起き上がり。
             // （いまの試合の拳に乗る質量は腕 0.3〜0.4 kg ＋ 体の分でせいぜい 1 kg なので、0.7 kg は強い 1 発の質量）。
-            Hit(game, cpu, Chin(cpu), mass: 0.7f, speed: 2.2f);
+            // 2026-11-19（PhysicsVersion 60）: 脳しんとうを 1 つの値（頭の回転の速さ ÷ ConcussionSpin 40 rad/s の 2 乗）にした。前の拳の係数 0.0035 の約 1/5.6 なので、
+            // 同じ深さの脳しんとうに合わせて体の分の質量（0.7 − 腕 0.33 kg）を √5.6 倍にし、1.2 kg にした（脳しんとうは体の分の運動量の 2 乗に比例）。
+            Hit(game, cpu, Chin(cpu), mass: 1.2f, speed: 2.2f);
+            Console.WriteLine($"concussion {cpu.Concussion:0.00}");
             var downAt = -1f;
             var upAt = -1f;
             for (var t = 0f; t < 16f; t += Dt)

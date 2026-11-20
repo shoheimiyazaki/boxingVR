@@ -1,0 +1,41 @@
+using System.Globalization;
+using System.Numerics;
+using MiniRing;
+using MiniRing.Bots;
+// Falls without hits: trace capture point vs feet and footwork steps before each fall. args: a b seed seconds [overrides]
+var a = args[0]; var b = args[1]; var seed = int.Parse(args[2]); var seconds = float.Parse(args[3], CultureInfo.InvariantCulture);
+var tuning = new FighterTuning();
+foreach (var kv in (args.Length > 4 ? args[4] : "").Split(',', StringSplitOptions.RemoveEmptyEntries)) { var q = kv.Split('='); var prop = typeof(FighterTuning).GetProperty(q[0]) ?? throw new Exception("no " + q[0]); prop.SetValue(tuning, Convert.ChangeType(q[1], prop.PropertyType, CultureInfo.InvariantCulture)); }
+var red = Contender.Named(a); var blue = Contender.Named(b);
+var corners = new BoxingCorners(blue.Name, s => blue.Create(s), s => red.Create(s), PlayerName: red.Name, Referee: true);
+using var game = new BoxingGame(tuning, seed, corners);
+var ci = CultureInfo.InvariantCulture;
+var lastHit = new Dictionary<string, float> { ["RED"] = -9, ["BLUE"] = -9 };
+var hist = new Dictionary<string, List<string>> { ["RED"] = new(), ["BLUE"] = new() };
+var prevState = new Dictionary<string, FighterState> { ["RED"] = FighterState.Standing, ["BLUE"] = FighterState.Standing };
+var steps = new Dictionary<string, int> { ["RED"] = 0, ["BLUE"] = 0 };
+for (var i = 0; i < (int)(seconds * 60); i++)
+{
+    var t = i / 60f;
+    game.Step(default, 1f / 60f);
+    foreach (var h in game.RecentHits) lastHit[h.Victim == game.Player ? "RED" : "BLUE"] = t;
+    foreach (var (who, f, o) in new[] { ("RED", game.Player, game.Cpu), ("BLUE", game.Cpu, game.Player) })
+    {
+        var fw = f.FootworkState;
+        var com = f.CenterOfMass; var v = f.CenterOfMassVelocity;
+        var h = MathF.Max(0.05f, com.Y - 0f);
+        var omega = MathF.Sqrt(9.81f / h);
+        var cap = new Vector2(com.X + v.X / omega, com.Z + v.Z / omega);
+        var lb = fw.Pose(0).Ball; var rb = fw.Pose(1).Ball;
+        var land = fw.Landing is { } L ? string.Create(ci, $"land=({L.Ball.X:0.00},{L.Ball.Y:0.00})") : "land=-";
+        var stepEvt = fw.Steps != steps[who] ? "STEP" : ""; steps[who] = fw.Steps;
+        var line = string.Create(ci, $"t={t:0.000} bal={f.Balance:0.00} marg={f.SupportMargin:0.000} comV=({v.X:0.00},{v.Z:0.00}) cap=({cap.X:0.00},{cap.Y:0.00}) lead=({lb.X:0.00},{lb.Z:0.00}) rear=({rb.X:0.00},{rb.Z:0.00}) swing={fw.Swinging} {land} {stepEvt} dist={Vector3.Distance(com, o.CenterOfMass):0.00} tone={f.Tone:0.00}");
+        var l = hist[who]; l.Add(line); if (l.Count > 60) l.RemoveAt(0);
+        if (prevState[who] == FighterState.Standing && f.State != FighterState.Standing)
+        {
+            Console.WriteLine($"=== {who} left Standing at t={t:0.00} ({f.State}) sinceHit={t - lastHit[who]:0.0}s conc={f.Concussion:0.00}");
+            for (var k = 0; k < l.Count; k++) if (k % 3 == 0 || l[k].Contains("STEP")) Console.WriteLine("   " + l[k]);
+        }
+        prevState[who] = f.State;
+    }
+}
