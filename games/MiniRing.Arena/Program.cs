@@ -26,6 +26,7 @@ try
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
         "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
+        "fistmatch" => FistMatchCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "referee", "parallel", "out", "compare", "labels", "log", "confirm")),
         "punchlab" => PunchLabCommand(Options.Parse(argv[1..], "study", "depths", "aim", "paths", "defenders", "ranges", "reach", "far", "seeds", "telegraph", "nocap", "log", "video", "slow", "width", "height", "fps")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
         "groundlab" => GroundLabCommand(Options.Parse(argv[1..], "style", "moves", "bouts", "seconds", "seed", "log", "video", "practice", "candidates", "sigma", "validate")),
@@ -106,6 +107,75 @@ static bool Referee(Options o) => (o.Get("referee") ?? "on") switch
     "off" => false,
     _ => throw new ArgumentException("--referee は on か off にしてください。"),
 };
+
+// 拳の打ち合いの物差し（docs/BOXING.md「拳を引く筋肉」）: --out に 1 試合 1 行の JSON。--compare 前.jsonl,後.jsonl で表と比べ直し。
+static int FistMatchCommand(Options o)
+{
+    if (o.Get("compare") is { } compare)
+    {
+        var files = compare.Split(',');
+        var labels = o.List("labels", [.. files.Select(f => Path.GetFileNameWithoutExtension(f) ?? "?")]);
+        var sets = files.Select(FistMatch.Load).ToList();
+        var pairNames = sets[0].Select(b => b.Pair).Distinct().ToList();
+        var text = new System.Text.StringBuilder();
+        text.AppendLine(FistMatch.Header(pairNames));
+        foreach (var group in o.List("seeds", ["4-7", "8-15"]))
+        {
+            var range = group.Split('-').Select(v => int.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            for (var k = 0; k < sets.Count; k++)
+            {
+                var chosen = sets[k].Where(b => b.Seed >= range[0] && b.Seed <= range[^1]).ToList();
+                text.AppendLine(FistMatch.Row(labels[k], group.Replace("-", "〜", StringComparison.Ordinal), chosen));
+            }
+        }
+
+        text.AppendLine();
+        text.AppendLine("```");
+        for (var k = 0; k < sets.Count; k++)
+        {
+            text.Append(FistMatch.ByTechnique(labels[k], sets[k]));
+        }
+
+        text.AppendLine("```");
+        if (sets.Count == 2 && o.Get("confirm") is { } confirmRange)
+        {
+            var range = confirmRange.Split('-').Select(v => int.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            bool In(FistMatch.Bout b) => b.Seed >= range[0] && b.Seed <= range[^1];
+            var before = sets[0].Where(In).ToList();
+            var after = sets[1].Where(In).ToList();
+            var seeds = after.Select(b => b.Seed).Distinct().Order().ToList();
+            text.AppendLine();
+            foreach (var (metric, result) in FistMatch.Confirm(before, after))
+            {
+                text.AppendLine(CultureInfo.InvariantCulture, $"- 比べ直し（{labels[1]} − {labels[0]}、種 {confirmRange} × 組、試合ごとの対）{metric}: {result}");
+                ConfirmLog.Append("fistmatch", metric, labels[1], labels[0], seeds, result);
+            }
+        }
+
+        Console.WriteLine(text);
+        if (o.Get("log") is { } log)
+        {
+            File.WriteAllText(log, text.ToString());
+        }
+
+        return 0;
+    }
+
+    var pairs = o.List("pairs", ["champion:swarmer", "counter:slugger"]).Select(p => p.Split(':')).Select(p => (Load(p[0]), Load(p[1]))).ToList();
+    var seedList = o.List("seeds", ["4", "5", "6", "7"]).SelectMany(SeedRange).ToList();
+    var watch = Stopwatch.StartNew();
+    var bouts = FistMatch.Collect(pairs, seedList, o.Float("seconds", 60f, min: 1f), Referee(o), o.Int("parallel", 2, min: 1), o.Get("out"));
+    Console.WriteLine(FistMatch.Header([.. bouts.Select(b => b.Pair).Distinct()]));
+    Console.WriteLine(FistMatch.Row($"physics {MiniRing.Fighter.PhysicsVersion}", string.Join(',', seedList), bouts));
+    Console.Error.WriteLine($"{bouts.Count} bouts in {watch.Elapsed.TotalSeconds:0.0}s");
+    return 0;
+}
+
+static IEnumerable<int> SeedRange(string s)
+{
+    var parts = s.Split('-').Select(v => int.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+    return Enumerable.Range(parts[0], parts[^1] - parts[0] + 1);
+}
 
 static int League(Options o)
 {
