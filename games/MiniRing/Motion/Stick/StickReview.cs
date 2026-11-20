@@ -23,8 +23,8 @@ public sealed record StickReviewSettings
     /// <summary>脚の関節（股・膝・足首）のサーボの最大の速さ [rad/s]（Fighter の LegServoSpeed）。</summary>
     public float LegSpeed { get; init; } = 5.958f;
 
-    /// <summary>腕の関節の速さの警報尺度 [rad/s]。肩・肘の筋の最大角速度の大きい方（単一の尺度なので遅い方には保守的）。</summary>
-    public float ArmSpeed { get; init; } = MathF.Max(FighterTuning.Default.ShoulderMuscleMaxSpeed, FighterTuning.Default.ElbowMuscleMaxSpeed);
+    /// <summary>腕の関節（肩・肘）のサーボの最大の速さ [rad/s]（<see cref="FighterTuning.ArmServoMaxSpeed"/>）。</summary>
+    public float ArmSpeed { get; init; } = 23.83f;
 
     /// <summary>胴・首・手首（武器）の関節の速さの目安 [rad/s]（サーボの値が無いので、脚の 2 倍）。</summary>
     public float TrunkSpeed { get; init; } = 11.92f;
@@ -53,7 +53,7 @@ public sealed record StickReviewSettings
 
     public float JerkWarning { get; init; } = -9f;
 
-    public static StickReviewSettings From(FighterTuning tuning) => new() { ArmSpeed = MathF.Max(tuning.ShoulderMuscleMaxSpeed, tuning.ElbowMuscleMaxSpeed) };
+    public static StickReviewSettings From(FighterTuning tuning) => new() { ArmSpeed = tuning.ArmServoMaxSpeed };
 }
 
 /// <summary>

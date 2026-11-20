@@ -216,7 +216,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 68; // 68: 肩・肘の追従の速度上限を各関節の筋の最大角速度へ統一。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 67; // 67: 物理を実物大の人の単位へ（相似の換算。表示は DisplaySpace で人形の大きさ）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -4181,7 +4181,7 @@ public sealed partial class Fighter
         {
             // 肘の基底は物理的な側で決まる（+X 側の腕が Mirrored / HumanoidRagdoll.BuildCore と同じ）。上腕が折れてつながった腕は、肘を受ける破片との間に付ける。
             var basis = Side > 0f ? HumanoidRagdoll.YAxisTwistBasisMirrored : HumanoidRagdoll.YAxisTwistBasis;
-            ElbowServo = world.AddTwistServo(upper ?? UpperArm, Forearm, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ElbowMuscleMaxSpeed, 0f, 30f * tuning.TorqueScale);
+            ElbowServo = world.AddTwistServo(upper ?? UpperArm, Forearm, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, 30f * tuning.TorqueScale);
         }
 
         public void AttachGlove(int body, Vector3 local)
@@ -4544,8 +4544,8 @@ public sealed partial class Fighter
 
             // 肘の基底は物理的な側で決まる（+X 側の腕が Mirrored / HumanoidRagdoll.BuildCore と同じ）。
             var basis = side > 0f ? HumanoidRagdoll.YAxisTwistBasisMirrored : HumanoidRagdoll.YAxisTwistBasis;
-            var shoulderServo = world.AddAngularServo(parts.Chest, upper, Quaternion.Identity, tuning.ArmServoHz, 1f, tuning.ShoulderMuscleMaxSpeed, 0f, 40f * tuning.TorqueScale);
-            var elbowServo = world.AddTwistServo(upper, fore, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ElbowMuscleMaxSpeed, 0f, 30f * tuning.TorqueScale);
+            var shoulderServo = world.AddAngularServo(parts.Chest, upper, Quaternion.Identity, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, 40f * tuning.TorqueScale);
+            var elbowServo = world.AddTwistServo(upper, fore, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, 30f * tuning.TorqueScale);
 
             return new Arm(hand)
             {

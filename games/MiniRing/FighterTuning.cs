@@ -122,11 +122,6 @@ public sealed record FighterTuning
 
     // ── 腕（サーボ + 拳への PD 力）
     public float ArmServoHz { get; init; } = 8.94f;
-    /// <summary>
-    /// 手首と骨片の固定に使うサーボの速度上限 [rad/s]（人形の 40 rad/s を相似で換算した既存値）。
-    /// 肩・肘の運動は各筋の最大角速度（ShoulderMuscleMaxSpeed / ElbowMuscleMaxSpeed、線維長 × 最大収縮速度 / 筋のてこ）を使う。
-    /// そこに別の相似の上限を重ねない（PhysicsVersion 68）。固定と手首の生理的な値は未校正。
-    /// </summary>
     public float ArmServoMaxSpeed { get; init; } = 23.83f;
     public float HandKp { get; init; } = 390.5f; // 目標 → 拳のバネ [1/s²]（約 3.1Hz）。固いほどきびきび追う
     public float HandKd { get; init; } = 31.6f; // 減衰比 ≒ 0.8（行き過ぎずに止まる）
