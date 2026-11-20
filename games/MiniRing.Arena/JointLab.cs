@@ -148,9 +148,9 @@ internal static class JointLab
             var lines = new List<Aigis.Render.DebugLine>();
             BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
             var eye = center + view + new Vector3(0f, 0.08f, 0f);
-            var vp = Aigis.Render.Camera.ViewProjection(eye, center, Vector3.UnitY, 38f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
+            var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, center, Vector3.UnitY, 38f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
             var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, [], particles: game.BuildParticles(), lighting: game.BuildLighting(),
-                shadow: game.BuildShadow(), cameraPosition: eye, shapes: [], postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                shadow: game.BuildShadow(), cameraPosition: displayEye, shapes: [], postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
             ffmpeg.StandardInput.BaseStream.Write(rgba);
         }
 

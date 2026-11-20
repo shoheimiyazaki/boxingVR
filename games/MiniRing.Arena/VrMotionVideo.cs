@@ -128,10 +128,10 @@ internal sealed class VrMotionVideo(int width, int height, int fps, float slow)
         var center = game.Player.ChestPosition + (frame.Right * 0.15f) + new Vector3(0f, -0.05f, 0f);
         // 横から: 体の右（−X）から、少し前寄り。
         var eye = center + (frame.Right * 0.95f) + (frame.Forward * 0.25f) + new Vector3(0f, 0.12f, 0f);
-        var vp = Camera.ViewProjection(eye, center, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
+        var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, center, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
         UiShapeDraw[] shapes = dim > 0f ? [new UiShapeDraw(new Vector2(width * 0.5f, height * 0.5f), new Vector2(width, height), new Vector4(0f, 0f, 0f, dim))] : [];
         var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),
-            shadow: game.BuildShadow(), cameraPosition: eye, shapes: shapes, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+            shadow: game.BuildShadow(), cameraPosition: displayEye, shapes: shapes, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
         ffmpeg.StandardInput.BaseStream.Write(rgba);
     }
 }

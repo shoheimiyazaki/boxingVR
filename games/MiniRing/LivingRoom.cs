@@ -80,19 +80,31 @@ public static class LivingRoom
     /// <summary>天井の照明の位置（テーブルの真上）。</summary>
     public static Vector3 CeilingLamp(Vector3 tableCenter) => new(tableCenter.X, CeilingHeight - LampDrop, tableCenter.Z);
 
-    /// <summary>床とテーブルの天板の当たり判定を置く（破片が転がる）。</summary>
+    /// <summary>
+    /// 床とテーブルの天板の当たり判定を置く（破片が転がる）。部屋は表示の空間にあるので、物理には表示の部屋を 1/<see cref="DisplaySpace.WorldScale"/> 倍した
+    /// 大きさで置く（物理の空間の近道。docs/DEBT.md「部屋の当たり判定」）。テーブルの水平の位置と広さはリング（物理）から出る。
+    /// </summary>
     public static void AddColliders(PhysicsWorld world, RingLayout layout)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(layout);
+        var display = DisplaySpace.Standard;
         var tableCenter = layout.Center;
         var tableHalf = layout.TableHalf;
-        var width = (MaxX - MinX) * 0.5f;
-        var depth = (MaxZ - MinZ) * 0.5f;
-        world.AddStaticBox(new Vector3((MinX + MaxX) * 0.5f, -0.05f, (MinZ + MaxZ) * 0.5f), new Vector3(width, 0.05f, depth));
-        world.AddStaticBox(new Vector3(tableCenter.X, TableTop - (TableThickness * 0.5f), tableCenter.Z), new Vector3(tableHalf, TableThickness * 0.5f, tableHalf));
-        world.AddStaticBox(new Vector3(tableCenter.X, TableTop + (PlinthHeight * 0.5f), tableCenter.Z), PlinthHalf(layout));
+        var width = display.ToPhysics((MaxX - MinX) * 0.5f);
+        var depth = display.ToPhysics((MaxZ - MinZ) * 0.5f);
+        var floor = display.ToPhysics(0.05f);
+        var thickness = display.ToPhysics(TableThickness);
+        var tableTop = display.ToPhysics(TableTop);
+        var floorCenter = display.ToPhysics(new Vector3((MinX + MaxX) * 0.5f, 0f, (MinZ + MaxZ) * 0.5f));
+        world.AddStaticBox(floorCenter with { Y = -floor }, new Vector3(width, floor, depth));
+        world.AddStaticBox(new Vector3(tableCenter.X, tableTop - (thickness * 0.5f), tableCenter.Z), new Vector3(tableHalf, thickness * 0.5f, tableHalf));
+        world.AddStaticBox(new Vector3(tableCenter.X, tableTop + (display.ToPhysics(PlinthHeight) * 0.5f), tableCenter.Z),
+            new Vector3(layout.PlinthHalf, display.ToPhysics(PlinthHeight) * 0.5f, layout.PlinthHalf));
     }
+
+    /// <summary>リングの台が立つ高さ（台座の上面）の、物理の空間の値。</summary>
+    public static float PhysicsStageBase => DisplaySpace.Standard.ToPhysics(StageBase);
 
     /// <summary>
     /// 部屋の見た目（床・壁・天井・巾木・窓・カーテン・ドア・ラグ・ローテーブル・台座・天井の照明・家具）。
@@ -102,8 +114,10 @@ public static class LivingRoom
     {
         ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(assets);
-        var tableCenter = layout.Center;
-        var tableHalf = layout.TableHalf;
+        var display = DisplaySpace.Standard; // テーブルの位置と広さはリング（物理の空間）から出す
+        var tableCenter = display.Point(layout.Center);
+        var tableHalf = display.Length(layout.TableHalf);
+        var plinthHalf = display.Length(layout.PlinthHalf);
         var cx = (MinX + MaxX) * 0.5f;
         var cz = (MinZ + MaxZ) * 0.5f;
         var width = (MaxX - MinX) * 0.5f;
@@ -185,7 +199,7 @@ public static class LivingRoom
         }
 
         // 箱庭の台座（テーブルに置いた明るい板）。
-        yield return assets.Wood.Over(Box(new Vector3(t.X, TableTop + (PlinthHeight * 0.5f), t.Z), PlinthHalf(layout), PlinthWood), WoodTile);
+        yield return assets.Wood.Over(Box(new Vector3(t.X, TableTop + (PlinthHeight * 0.5f), t.Z), new Vector3(plinthHalf, PlinthHeight * 0.5f, plinthHalf), PlinthWood), WoodTile);
 
         // 天井の照明（丸い灯体）。
         var lamp = CeilingLamp(t);
@@ -223,10 +237,8 @@ public static class LivingRoom
         new("pottedPlant", new Vector3(MinX + 0.35f, 0f, MinZ + 0.4f), 0f),
     ];
 
-    private static Vector3 PlinthHalf(RingLayout layout) => new(layout.PlinthHalf, PlinthHeight * 0.5f, layout.PlinthHalf);
-
     /// <summary>
-    /// 飛び散った破片が止まる高さ: リングの上（縁から 2 cm 外まで）はキャンバス、その外は台座の上、テーブルの天板の上、それより外は床。
+    /// 飛び散った破片が止まる高さ（物理の空間）: リングの上（縁から 2 cm 外まで）はキャンバス、その外は台座の上、テーブルの天板の上、それより外は床。
     /// </summary>
     public static float GroundAt(Vector3 p, RingLayout layout, float canvasHeight)
     {
@@ -235,8 +247,8 @@ public static class LivingRoom
         var d = MathF.Max(MathF.Abs(p.X - c.X), MathF.Abs(p.Z - c.Z));
         var onCanvas = layout.IsCage ? layout.EdgeDistance(p) > -0.02f : d < layout.Half + 0.02f; // 檻は六角形のキャンバス
         return onCanvas ? canvasHeight
-            : d < layout.PlinthHalf ? StageBase
-            : d < layout.TableHalf ? TableTop
+            : d < layout.PlinthHalf ? PhysicsStageBase
+            : d < layout.TableHalf ? DisplaySpace.Standard.ToPhysics(TableTop)
             : 0f;
     }
 

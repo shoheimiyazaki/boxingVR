@@ -207,7 +207,7 @@ internal sealed class SparVideo(int width, int height, int fps)
                 eye = focus + (side * 0.4f) + new Vector3(0f, 0.03f, 0f);
             }
 
-            var vp = Camera.ViewProjection(eye, look, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
+            var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, look, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
             ScreenTextDraw[] text =
             [
                 new(title, new Vector2(40f, 40f), 34f, White, TextAnchor.Left),
@@ -217,7 +217,7 @@ internal sealed class SparVideo(int width, int height, int fps)
                 new(string.Create(CultureInfo.InvariantCulture, $"{t:0.0} s"), new Vector2(width - 40f, height - 40f), 26f, Grey, TextAnchor.Right),
             ];
             var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),
-                shadow: game.BuildShadow(), cameraPosition: eye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                shadow: game.BuildShadow(), cameraPosition: displayEye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
             ffmpeg.StandardInput.BaseStream.Write(rgba);
             frames++;
         });

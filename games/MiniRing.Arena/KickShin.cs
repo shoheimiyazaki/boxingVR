@@ -317,7 +317,7 @@ internal static class KickShin
                 eye = new Vector3(Math.Clamp(eye.X, game.Ring.Center.X - half, game.Ring.Center.X + half), eye.Y, Math.Clamp(eye.Z, game.Ring.Center.Z - half, game.Ring.Center.Z + half));
                 var instances = new List<Aigis.Render.PrimitiveInstance>();
                 BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
-                var vp = Aigis.Render.Camera.ViewProjection(eye, middle, Vector3.UnitY, 55f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
+                var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, middle, Vector3.UnitY, 55f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
                 var text = new Aigis.Render.ScreenTextDraw[]
                 {
                     new($"{h.Name}・{(rear ? "後ろの足（右）" : "前の足（左）")}・{(oblique ? "斜め前" : "真横")}（蹴る人 {bodyId}、受ける人 {victimId}）", new Vector2(40f, 40f), 26f, white, Aigis.Render.TextAnchor.Left),
@@ -325,7 +325,7 @@ internal static class KickShin
                     new(hitText, new Vector2(40f, height - 40f), 24f, white, Aigis.Render.TextAnchor.Left),
                 };
                 var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),
-                    shadow: game.BuildShadow(), cameraPosition: eye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                    shadow: game.BuildShadow(), cameraPosition: displayEye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
                 ffmpeg.StandardInput.BaseStream.Write(rgba);
             }, null, Body(victimId));
         }

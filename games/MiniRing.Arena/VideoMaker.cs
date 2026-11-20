@@ -1110,8 +1110,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         var horizontal = reach * (1f - (0.3f * lying));
         var eye = mid + (direction * horizontal) + new Vector3(0f, (0.38f / 0.9f + (0.7f * lying)) * reach, 0f);
         var target = mid - new Vector3(0f, 0.06f, 0f);
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f), eye);
+        return DisplaySpace.Standard.Camera(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     /// <summary>
@@ -1125,8 +1124,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         var side = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(Vector3.Cross(axis, Vector3.UnitY)) : -Vector3.UnitX;
         var direction = Vector3.Transform(side, Quaternion.CreateFromAxisAngle(Vector3.UnitY, 0.5f - (0.08f * seconds)));
         var eye = mid + (direction * 1.35f) + new Vector3(0f, 0.75f, 0f); // 部屋の壁・天井に入らない距離
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, mid - new Vector3(0f, 0.1f, 0f), Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f), eye);
+        return DisplaySpace.Standard.Camera(eye, mid - new Vector3(0f, 0.1f, 0f), Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     /// <summary>
@@ -1140,8 +1138,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         var azimuth = 0.4f + (0.32f * seconds);
         var eye = new Vector3(center.X + (MathF.Sin(azimuth) * size * 1.05f), level + (size * 0.4f), center.Z - (MathF.Cos(azimuth) * size * 1.05f));
         var target = new Vector3(center.X, level - (size * 0.04f), center.Z);
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, target, Vector3.UnitY, 48f * MathF.PI / 180f, (float)width / height, 0.02f, 30f), eye);
+        return DisplaySpace.Standard.Camera(eye, target, Vector3.UnitY, 48f * MathF.PI / 180f, (float)width / height, 0.02f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     private IReadOnlyList<ScreenTextDraw> Title(string red, string blue, float fade)

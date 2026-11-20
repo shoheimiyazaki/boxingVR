@@ -152,10 +152,10 @@ internal static class KickVideo
         var direction = Vector3.Normalize((v - a) with { Y = 0f });
         var side = Vector3.Cross(Vector3.UnitY, direction); // 二人の間の線に垂直（真横から）
         var eye = oblique ? middle + (side * 0.6f) + (direction * 0.85f) + new Vector3(0f, 0.12f, 0f) : middle + (side * 1.05f) + new Vector3(0f, 0.1f, 0f);
-        var vp = Camera.ViewProjection(eye, middle, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
+        var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, middle, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
         UiShapeDraw[] shapes = dim > 0f ? [new UiShapeDraw(new Vector2(width * 0.5f, height * 0.5f), new Vector2(width, height), new Vector4(0f, 0f, 0f, dim))] : [];
         var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),
-            shadow: game.BuildShadow(), cameraPosition: eye, shapes: shapes, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+            shadow: game.BuildShadow(), cameraPosition: displayEye, shapes: shapes, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
         ffmpeg.StandardInput.BaseStream.Write(rgba);
     }
 }

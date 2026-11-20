@@ -9,6 +9,7 @@ namespace MiniRing.Desktop;
 /// <summary>
 /// 軌道カメラを、試合開始時の横アングルを基準に減衰のバネでゆっくり追従させる（描画だけ。試合の計算・記録には入らない）。
 /// 中ボタンで回した分は、そのまま「後ろからのずれ」として保つ（離しても元の後ろへは戻さない）。
+/// カメラは表示の空間（部屋）にあり、追う点は物理の空間で決めて <see cref="DisplaySpace"/> で移す。
 /// </summary>
 internal sealed class FollowCameraRig(OrbitCamera camera, float focusHeight)
 {
@@ -24,7 +25,7 @@ internal sealed class FollowCameraRig(OrbitCamera camera, float focusHeight)
         _last = now;
         var player = sense.Self.Origin;
         var opponent = sense.OpponentChest;
-        var focus = CameraFollow.Focus(player, opponent, focusHeight);
+        var focus = DisplaySpace.Standard.Point(CameraFollow.Focus(player, opponent, focusHeight));
         var behind = CameraFollow.BehindYaw(player, opponent, camera.YawRadians);
         if (!_placed)
         {

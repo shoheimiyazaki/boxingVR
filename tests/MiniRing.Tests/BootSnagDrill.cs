@@ -27,7 +27,7 @@ internal static class BootSnagDrill
         var layout = RingLayout.Boxing;
         var world = new PhysicsWorld();
         LivingRoom.AddColliders(world, layout);
-        var ring = new Ring(world, layout.Center, layout.Size, BoxingGame.RingSurfaceHeight, LivingRoom.StageBase);
+        var ring = new Ring(world, layout.Center, layout.Size, BoxingGame.RingSurfaceHeight, LivingRoom.PhysicsStageBase);
         var fighter = Fighter.Spawn(world, tuning ?? FighterTuning.Default, "walker", ring.SurfaceCenter + (offset ?? Vector3.Zero), yaw);
         return (world, fighter, ring, layout);
     }

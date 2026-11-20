@@ -81,7 +81,7 @@ public sealed class VfcCoreTests
             var direction = new Vector3(MathF.Cos(angle), 0f, MathF.Sin(angle));
             using var world = new PhysicsWorld();
             LivingRoom.AddColliders(world, layout);
-            var ring = new Ring(world, layout, BoxingGame.RingSurfaceHeight, LivingRoom.StageBase);
+            var ring = new Ring(world, layout, BoxingGame.RingSurfaceHeight, LivingRoom.PhysicsStageBase);
             var f = Fighter.Spawn(world, FighterTuning.Default, "walker", ring.SurfaceCenter, 0f);
             var min = float.MaxValue;
             for (var s = 0; s < (int)(4f / Dt); s++)

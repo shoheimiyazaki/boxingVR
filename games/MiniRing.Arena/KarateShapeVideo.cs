@@ -32,7 +32,7 @@ internal static class KarateShapeVideo
             foreach (var (name, offset, up) in views)
             {
                 var eye = center + offset;
-                var vp = Camera.ViewProjection(eye, center, up, 40f * MathF.PI / 180f, 480f / 360f, 0.005f, 5f);
+                var vp = Aigis.Render.Camera.ViewProjection(eye, center, up, 40f * MathF.PI / 180f, 480f / 360f, 0.005f, 5f);
                 var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, [], [],
                     [new($"{shape} {name}", new Vector2(10f, 20f), 18f, Vector4.Zero, TextAnchor.Left)],
                     voxels: [hand.Draw()]);
@@ -135,12 +135,12 @@ internal static class KarateShapeVideo
                 lines.Add(new DebugLine(aimNow - (Vector3.UnitX * arm), aimNow + (Vector3.UnitX * arm), new Vector4(1f, 1f, 0f, 1f)));
                 lines.Add(new DebugLine(aimNow - (Vector3.UnitY * arm), aimNow + (Vector3.UnitY * arm), new Vector4(1f, 1f, 0f, 1f)));
                 lines.Add(new DebugLine(aimNow - (Vector3.UnitZ * arm), aimNow + (Vector3.UnitZ * arm), new Vector4(1f, 1f, 0f, 1f)));
-                var vp = Camera.ViewProjection(eye, target, Vector3.UnitY, 40f * MathF.PI / 180f, 960f / 720f, 0.005f, 30f);
+                var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, target, Vector3.UnitY, 40f * MathF.PI / 180f, 960f / 720f, 0.005f, 30f);
                 ScreenTextDraw[] text = [new($"{shape} -> {goal}   4x slow", new Vector2(20f, 25f), 24f, Vector4.One, TextAnchor.Left),
                     new(string.Create(CultureInfo.InvariantCulture, $"t={t:0.000}s  hit={time:0.000}s  nearest={distance * 1000f:0.0}mm ({chosen!.Value.Zone})"), new Vector2(20f, 62f), 20f, Vector4.One, TextAnchor.Left)];
                 var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, text,
                     particles: game.BuildParticles(), lighting: game.BuildLighting(), shadow: game.BuildShadow(),
-                    cameraPosition: eye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                    cameraPosition: displayEye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
                 PngWriter.WriteRgba(Path.Combine(folder, $"frame_{frame:0000}.png"), 960, 720, rgba);
                 frameTimes.Add(t);
                 frame++;

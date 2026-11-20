@@ -25,15 +25,22 @@ public static class BoxingRenderer
 
     private const float BareFistScale = 0.55f;
 
-    /// <summary>部屋（ローテーブルに載った箱庭のリングの周り）と会場の飾り。リングも部屋も動かないので、リングの大きさごとに 1 度だけ作る。</summary>
+    /// <summary>
+    /// 部屋（ローテーブルに載った箱庭のリングの周り）と会場の飾り（表示の空間）。リングも部屋も動かないので、リングの大きさごとに 1 度だけ作る。
+    /// </summary>
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(RingLayout, float), PrimitiveInstance[]> Dressings = new();
 
     private static PrimitiveInstance[] Dressing(RingLayout layout, float windowLight) => Dressings.GetOrAdd((layout, windowLight), key =>
-        [.. LivingRoom.Visuals(key.Item1, RoomAssets.Instance, key.Item2), .. ArenaLook.Dressing(key.Item1.Center, key.Item1.Size, BoxingGame.RingSurfaceHeight)]);
+    {
+        var display = DisplaySpace.Standard;
+        return [.. LivingRoom.Visuals(key.Item1, RoomAssets.Instance, key.Item2),
+            .. ArenaLook.Dressing(display.Point(key.Item1.Center), display.Length(key.Item1.Size), display.Length(BoxingGame.RingSurfaceHeight))];
+    });
 
     /// <summary>
     /// 呼び出し側のリストを空にして詰め直す。へこんだ体は 1 万インスタンス近くになるので、毎フレーム新しいリストを
     /// 伸ばしながら作ると確保とコピーだけで数 ms かかる（計測: 新規 ≈ 5ms、使い回し ≈ 0.8ms）。
+    /// リング・体・武器・破片は物理の空間で作り、最後に表示の空間（<see cref="DisplaySpace"/>）へ移す。部屋と会場の飾りは初めから表示の空間。
     /// </summary>
     public static void Fill(BoxingGame game, bool showTargetGhosts, List<PrimitiveInstance> instances, List<DebugLine> lines)
     {
@@ -43,7 +50,19 @@ public static class BoxingRenderer
         instances.Clear();
         lines.Clear();
         instances.AddRange(game.Ring.Visuals);
+        var roomStart = instances.Count;
         instances.AddRange(Dressing(game.Layout, game.Mood.Window));
+        var roomEnd = instances.Count;
+        FillArena(game, showTargetGhosts, instances, lines);
+        var display = DisplaySpace.Standard;
+        display.Instances(instances, 0, roomStart);
+        display.Instances(instances, roomEnd, instances.Count);
+        display.Lines(lines);
+    }
+
+    /// <summary>物理の空間の描画（体・武器・破片・傷・息・手の目標）。</summary>
+    private static void FillArena(BoxingGame game, bool showTargetGhosts, List<PrimitiveInstance> instances, List<DebugLine> lines)
+    {
         AddFighter(instances, game.World, game.Player, game.Model, game.PlayerSkin, PlayerGlove);
         AddFighter(instances, game.World, game.Cpu, game.Model, game.CpuSkin, CpuGlove);
         foreach (var weapon in game.Weapons)
@@ -171,6 +190,8 @@ public static class BoxingRenderer
         {
             voxels.Add(prop.Draw()); // 休みの小物（ボトル・タオル・スマホ。持っている手の前腕に付いて描く）
         }
+
+        DisplaySpace.Standard.Voxels(voxels); // 物理の空間 → 表示の空間
     }
 
     /// <summary>

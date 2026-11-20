@@ -57,7 +57,7 @@ public static class DownCountHud
         {
             var fighter = down[i];
             var above = ((fighter.ChestPosition + fighter.PelvisPosition) * 0.5f) + (Vector3.UnitY * AboveBody);
-            if (Camera.TryWorldToScreen(viewProjection, above, screen, out var pixel))
+            if (Camera.TryWorldToScreen(viewProjection, game.Display.Point(above), screen, out var pixel)) // 描画の行列は表示の空間
             {
                 // 体が画面の上や端に寄っても、表示全体（打ち出した数字と名前まで）が画面に収まるように寄せる。
                 var bottom = pixel - new Vector2(0f, Gap);

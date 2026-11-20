@@ -43,6 +43,12 @@ public readonly record struct VrWorldPlacement(Vector3 VrAnchor, Vector3 WorldAn
         return Matrix4x4.Invert(Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(position), out var view) ? view : vrView;
     }
 
+    /// <summary>
+    /// 描画に使う「VR の空間 → 表示の空間」の変換: 物理の空間（この変換の行き先）を、さらに <paramref name="display"/> で表示の空間へ移したもの。
+    /// 表示 = 物理 × 縮尺なので、基準点と縮尺に表示の縮尺を掛けるだけ（回転は同じ）。目の描画（視点・目の位置・近い面）はこちらを使う。
+    /// </summary>
+    public VrWorldPlacement Displayed(DisplaySpace display) => display.IsIdentity ? this : this with { WorldAnchor = display.Point(WorldAnchor), Scale = Scale * display.Scale };
+
     /// <summary>歩いた分だけワールドの基準点を動かす（スティックの歩き）。</summary>
     public VrWorldPlacement Moved(Vector3 worldDelta) => this with { WorldAnchor = WorldAnchor + worldDelta };
 

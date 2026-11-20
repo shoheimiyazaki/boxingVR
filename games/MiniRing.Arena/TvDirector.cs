@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Numerics;
 using Aigis.Physics.Voxels;
-using Aigis.Render;
 
 namespace MiniRing.Arena;
 
@@ -594,8 +593,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var up = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(axis) : Vector3.UnitZ;
         var eye = target + new Vector3(0f, 0.9f - (0.06f * shotTime), 0f);
         eye = OutsideBody(eye, subject == game.Player ? game.Cpu : game.Player);
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, target, up, 40f * MathF.PI / 180f, Aspect, 0.02f, 30f), eye);
+        return DisplaySpace.Standard.Camera(eye, target, up, 40f * MathF.PI / 180f, Aspect, 0.02f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     /// <summary>
@@ -625,8 +623,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var eye = _ringsideSide > 0f ? left : right;
         eye.Y = subject.PelvisPosition.Y + (BodyScale(subject) * 0.9f);
         eye = OutsideBody(eye, subject == game.Player ? game.Cpu : game.Player);
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, target, Vector3.UnitY, 38f * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
+        return DisplaySpace.Standard.Camera(eye, target, Vector3.UnitY, 38f * MathF.PI / 180f, Aspect, 0.01f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     /// <summary>
@@ -672,8 +669,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var eye = chest + (inward * distance) + (side * 0.08f) + new Vector3(0f, 0.04f, 0f) + sway;
         var target = Vector3.Lerp(chest, subject.HeadPosition, 0.6f);
         eye = OutsideBody(eye, subject == game.Player ? game.Cpu : game.Player);
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
+        return DisplaySpace.Standard.Camera(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, Aspect, 0.01f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     /// <summary>
@@ -690,8 +686,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var level = (game.Player.ChestPosition.Y + game.Cpu.ChestPosition.Y) * 0.5f;
         var eye = new Vector3(center.X, level + (size * 0.95f), center.Z) + new Vector3(MathF.Sin(azimuth), 0f, -MathF.Cos(azimuth)) * (size * 1.1f);
         var target = new Vector3(center.X, level - (size * 0.12f), center.Z);
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, Aspect, 0.02f, 30f), eye);
+        return DisplaySpace.Standard.Camera(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, Aspect, 0.02f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     /// <summary>
@@ -732,8 +727,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var jitter = (Vector3.Cross(Vector3.UnitY, direction) * MathF.Sin((3.1f * videoTime) + 0.4f) + (Vector3.UnitY * MathF.Sin((2.7f * videoTime) + 1.3f))) * (0.006f * distance);
         var fov = 40f + (1.5f * MathF.Sin((0.6f * videoTime) + 2f));
         eye = OutsideBody(eye, subject == game.Player ? game.Cpu : game.Player);
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, _handFocus + jitter, Vector3.UnitY, fov * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
+        return DisplaySpace.Standard.Camera(eye, _handFocus + jitter, Vector3.UnitY, fov * MathF.PI / 180f, Aspect, 0.01f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     /// <summary>
@@ -766,8 +760,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var body = Vector3.Lerp(subject.ChestPosition, subject.PelvisPosition, 0.3f);
         var target = Vector3.Lerp(body, at, pan) + shake;
         eye = OutsideBody(eye, subject == game.Player ? game.Cpu : game.Player);
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, target, Vector3.UnitY, fov * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
+        return DisplaySpace.Standard.Camera(eye, target, Vector3.UnitY, fov * MathF.PI / 180f, Aspect, 0.01f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     /// <summary>リプレイのカメラ: 当たった所を中心に、打った側と打たれた側を結ぶ線の横から回り込む（ダメージの所が見える近さ）。</summary>
@@ -783,8 +776,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var angle = -0.9f + (1.4f * progress);
         var direction = Vector3.Transform(side, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
         var eye = focus + (direction * 0.5f) + new Vector3(0f, 0.1f, 0f);
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, focus, Vector3.UnitY, 40f * MathF.PI / 180f, Aspect, 0.01f, 30f), eye);
+        return DisplaySpace.Standard.Camera(eye, focus, Vector3.UnitY, 40f * MathF.PI / 180f, Aspect, 0.01f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     private float Aspect => (float)width / height;

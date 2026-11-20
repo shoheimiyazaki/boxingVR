@@ -186,7 +186,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _tuning = tuning ?? FighterTuning.Default;
         _corners = corners ?? BoxingCorners.Default;
         Layout = _corners.Layout;
-        _lighting = ArenaLook.Lighting(Layout.Center, Layout.Size, RingSurfaceHeight, mood);
+        _lighting = ArenaLook.Lighting(Display.Point(Layout.Center), Display.Length(Layout.Size), Display.Length(RingSurfaceHeight), mood); // 部屋の照明は表示の空間
         _screenFinish = mood is null || mood == ArenaMood.Default ? ArenaLook.ScreenFinish : ArenaLook.ScreenFinishFor(mood);
         _fx = new Random(seed ^ 0x5eed);
         _model = Models.GetOrAdd((_tuning.HalfExtents, _tuning.ModelSubdivisions), key => BoxerModel.Build(key.Item1, key.Item2));
@@ -1591,7 +1591,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _round++;
         _world = new PhysicsWorld();
         LivingRoom.AddColliders(_world, Layout);
-        _ring = new Ring(_world, Layout, RingSurfaceHeight, LivingRoom.StageBase);
+        _ring = new Ring(_world, Layout, RingSurfaceHeight, LivingRoom.PhysicsStageBase);
         var surface = _ring.SurfaceCenter;
         // コーナーから始める試合は、赤・青の休むコーナー（四角は手前左・奥右、檻は 240°・60° の頂点）に立ち、互いに向き合う（生成の向きは +Z が 0、Y 軸まわり）。
         // コーナーから始めない形（ドリル）は、中央で StartGap だけ離れて Z 軸の上で向き合う。
@@ -1885,10 +1885,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public IReadOnlyList<ParticleInstance> BuildParticles()
     {
         _renderParticles.Clear();
-        ArenaLook.WriteAtmosphere(Layout.Center, Layout.Size, RingSurfaceHeight, _lookTime, _renderParticles);
+        ArenaLook.WriteAtmosphere(Display.Point(Layout.Center), Display.Length(Layout.Size), Display.Length(RingSurfaceHeight), _lookTime, _renderParticles); // 表示の空間
+        var arena = _renderParticles.Count;
         _impacts.WriteParticles(_renderParticles);
         _debris.WriteTrails(_renderParticles);
         _wounds.WriteHalos(_renderParticles);
+        Display.Particles(_renderParticles, arena); // 物理の空間 → 表示の空間
         return _renderParticles;
     }
 
@@ -1896,7 +1898,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     public SceneLighting BuildLighting() => _lighting;
 
     /// <summary>リングに落ちる影。</summary>
-    public ShadowMapConfig? BuildShadow() => ArenaLook.Shadow(Layout.Center, Layout.Size, RingSurfaceHeight);
+    public ShadowMapConfig? BuildShadow() => ArenaLook.Shadow(Display.Point(Layout.Center), Display.Length(Layout.Size), Display.Length(RingSurfaceHeight));
+
+    /// <summary>物理の空間 → 表示の空間の変換（描画・カメラ・HUD が通す。試合の計算には入らない）。</summary>
+    public DisplaySpace Display { get; } = DisplaySpace.Standard;
 
     /// <summary>画面用の仕上げ（光のにじみ・陰り・コントラスト）。</summary>
     public PostProcessSettings? BuildPostProcess() => _screenFinish;

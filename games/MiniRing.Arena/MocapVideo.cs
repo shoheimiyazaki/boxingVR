@@ -64,7 +64,7 @@ internal sealed class MocapVideo(int width, int height, int fps)
 
             var center = P(hips) with { Y = 1.0f };
             var eye = center + new Vector3(-3.2f, 0.6f, 0.4f);
-            var vp = Camera.ViewProjection(eye, center, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.05f, 50f);
+            var vp = Aigis.Render.Camera.ViewProjection(eye, center, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.05f, 50f);
             var elevation = MathF.Asin(Math.Clamp(axis.Y, -1f, 1f)) * 180f / MathF.PI;
             ScreenTextDraw[] text =
             [

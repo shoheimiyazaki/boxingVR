@@ -337,9 +337,9 @@ internal static class NeckLab
             BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
             var center = victim.HeadPosition + new Vector3(0f, -0.025f, 0f);
             var eye = center + view + new Vector3(0f, 0.05f, 0f);
-            var vp = Aigis.Render.Camera.ViewProjection(eye, center, Vector3.UnitY, 38f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
+            var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, center, Vector3.UnitY, 38f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
             var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, [], particles: game.BuildParticles(), lighting: game.BuildLighting(),
-                shadow: game.BuildShadow(), cameraPosition: eye, shapes: [], postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                shadow: game.BuildShadow(), cameraPosition: displayEye, shapes: [], postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
             ffmpeg.StandardInput.BaseStream.Write(rgba);
         }
 
@@ -401,9 +401,9 @@ internal static class NeckLab
             toward = toward.LengthSquared() > 1e-6f ? Vector3.Normalize(toward) : Vector3.UnitZ;
             var across = Vector3.Cross(Vector3.UnitY, toward);
             var eye = center + (toward * 0.12f) + (across * 0.38f * -side) + new Vector3(0f, 0.04f, 0f);
-            var vp = Aigis.Render.Camera.ViewProjection(eye, center, Vector3.UnitY, 40f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
+            var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, center, Vector3.UnitY, 40f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
             var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, [], particles: game.BuildParticles(), lighting: game.BuildLighting(),
-                shadow: game.BuildShadow(), cameraPosition: eye, shapes: [], postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                shadow: game.BuildShadow(), cameraPosition: displayEye, shapes: [], postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
             ffmpeg.StandardInput.BaseStream.Write(rgba);
         }, target: ArmsDown ? () => new StandGuard(new GuardPosture("down", Vector3.Zero, new Vector3(0.45f, -0.75f, 0.05f))) : null);
         ffmpeg.StandardInput.Close();
