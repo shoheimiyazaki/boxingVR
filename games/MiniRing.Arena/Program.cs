@@ -75,7 +75,7 @@ try
         "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break", "org")),
         "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
-        "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns")),
+        "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns", "roster")),
         "portraits" => Portraits(Options.Parse(argv[1..], "out", "scale")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
         "voxcheck" => VoxCheck(Options.Parse(argv[1..], "in", "install")),
@@ -2018,6 +2018,13 @@ static int VisionLabCommand(Options o)
 
 static int Faces(Options o)
 {
+    // --roster all か id の並び: 名簿のキャラ（体格・顔はキャラのファイルの値）。無ければ --names のボット。
+    if (o.Get("roster") is { } roster)
+    {
+        var characters = roster == "all" ? [.. MiniRing.Characters.CharacterRoster.All] : roster.Split(',').Select(MiniRing.Characters.CharacterRoster.Get).ToList();
+        return FaceSheet.RunRoster(o.Get("out") ?? "docs/images/roster_faces.png", characters);
+    }
+
     var names = o.List("names", [.. BotCatalog.Names]).Select(Load).ToList();
     return FaceSheet.Run(o.Get("out") ?? "docs/images/gen13_faces.png", names, o.Int("columns", 3, min: 1));
 }

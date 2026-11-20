@@ -170,7 +170,7 @@ public static class FaceLayer
 
     /// <summary>
     /// 5 mm の頭の格子のセル (<paramref name="x"/>, <paramref name="y"/>, <paramref name="z"/>) を、その格子に残すか（頭蓋骨の中か）。
-    /// 脳・脊髄・首の段の筋肉・頸椎は残す。ほかの骨は、組み立てた顔の目と重なる所（眼窩）を抜き、脳に面していない（脳を包む殻でない）もので
+    /// 脳・脊髄・首の段の筋肉・頸椎は残す。ほかの骨は、組み立てた顔の目と重なる所（眼窩）を抜き、
     /// 組み立てた顔の外に出る所（8 つの細かいセルの半分より多くが顔の外）も抜く。それ以外（皮膚・髪・目・唇・顔の筋肉）は顔の層へ。
     /// </summary>
     private static bool Keeps(VoxelGrid head, FaceVolume composed, int x, int y, int z)
@@ -185,7 +185,8 @@ public static class FaceLayer
         // （首が折れたとき、頭をつなぐ肉の橋は 5 mm の格子の肉で数える: BoxerBody.BreakAt）。
         if (y <= BoxerSpine.NeckSlices.High)
         {
-            return material is BoxerAnatomy.Bone or BoxerAnatomy.Muscle || (material == BoxerAnatomy.Skin && Covered(composed, x, y, z) * 2 <= Subdivision * Subdivision * Subdivision);
+            return material is BoxerAnatomy.Bone or BoxerAnatomy.Muscle
+                || (material == BoxerAnatomy.Skin && Covered(composed, x, y, z) * 2 <= Subdivision * Subdivision * Subdivision && !InFrontOfFace(composed, x, y, z));
         }
 
         if (material != BoxerAnatomy.Bone)
@@ -211,7 +212,38 @@ public static class FaceLayer
             }
         }
 
-        return FacesBrain(head, x, y, z) || outside * 2 <= Subdivision * Subdivision * Subdivision; // 脳を包む殻は顔の外へ出ても残す（皮膚が包む）
+        // 顔の外へ半分以上出る骨は、脳を包む殻でも残さない: 残すと、それを包む皮膚が組み立てた顔の前へ出っ張った（目の間の鼻の付け根、2026-11-20）。
+        // その奥の脳は組み立てた顔が覆う（FaceLayerTests が、脳のセルが顔の層か骨に覆われていることを確かめる）。
+        return outside * 2 < Subdivision * Subdivision * Subdivision;
+    }
+
+    /// <summary>
+    /// 5 mm のセルが、同じ高さ・左右の位置で組み立てた顔の前の面より前にあるか（首の段の皮膚があご先の前へ出て、包む皮膚があごの下の出っ張りになった。2026-11-20）。
+    /// その列に組み立てた顔が無い（あごより下の首）なら前ではない。
+    /// </summary>
+    private static bool InFrontOfFace(FaceVolume composed, int x, int y, int z)
+    {
+        for (var dy = 0; dy < Subdivision; dy++)
+        {
+            for (var dx = 0; dx < Subdivision; dx++)
+            {
+                var (fx, fy) = ((x * Subdivision) + dx, (y * Subdivision) + dy);
+                for (var fz = composed.Nz - 1; fz >= 0; fz--)
+                {
+                    if (composed.At(fx, fy, fz) is not (FaceMaterial.Empty or FaceMaterial.Nostril))
+                    {
+                        if (z * Subdivision > fz)
+                        {
+                            return true;
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>5 mm のセルの中の、組み立てた顔の埋まった細かいセルの数（0..8）。</summary>
@@ -230,21 +262,6 @@ public static class FaceLayer
         }
 
         return count;
-    }
-
-    private static bool FacesBrain(VoxelGrid head, int x, int y, int z)
-    {
-        var (hx, hy, hz) = head.Dimensions;
-        foreach (var (dx, dy, dz) in Neighbours)
-        {
-            var (ax, ay, az) = (x + dx, y + dy, z + dz);
-            if (ax >= 0 && ay >= 0 && az >= 0 && ax < hx && ay < hy && az < hz && head.At(ax, ay, az) == BoxerAnatomy.Brain)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static readonly (int X, int Y, int Z)[] Neighbours = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)];

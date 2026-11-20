@@ -55,18 +55,34 @@ public sealed class FaceComposerLookTests
     }
 
     [TestMethod]
-    public void Eyes_StayAsSmallAsTheBaseFace_ForEveryEyelidShape()
+    public void Eyes_AreThreeOrFourWide_TwoOrThreeTall_WithAOneCellIris()
     {
-        // 基準の顔の目は幅 3 セル・高さ 1 セル。目の部品はどれも、正面から見える白目 + 黒目が 1 つの目で 4 セル幅以内・2 段以内。
+        // シンプルな顔（2026-11-20、ユーザーの指示）: 白目は幅 3〜4・高さ 2〜3、黒目は 1 セル。大きさの値（EyeSize）で崩れない。左右は鏡写し。
         foreach (var part in FacePartLibrary.Default.Parts("eyes"))
         {
-            var front = Front(Compose(("eyes", part.Id, 1f)));
-            var rows = Enumerable.Range(0, front.Length).Where(y => front[y].Any(IsEye)).ToList();
-            var cells = front.SelectMany(r => r).Count(IsEye);
-            Assert.IsTrue(cells is >= 4 and <= 20, $"{part.Id}: {cells} visible eye cells (both eyes)");
-            Assert.IsLessThanOrEqualTo(2, rows.Count, $"{part.Id}: eye rows");
-            var xs = rows.SelectMany(y => Enumerable.Range(0, 10).Where(x => IsEye(front[y][x]))).ToList();
-            Assert.IsLessThanOrEqualTo(6, xs.Max() - xs.Min() + 1, $"{part.Id}: one eye is at most 6 cells wide (wide-open); the others 4-5");
+            foreach (var size in new[] { 0.8f, 1f, 1.3f })
+            {
+                var spec = Spec(("eyes", part.Id, 1f)) with { Values = FaceParts.Default with { EyeSize = size } };
+                var front = Front(FaceComposer.Compose(spec, 20, 28, 20));
+                foreach (var (from, to) in new[] { (0, 10), (10, 20) })
+                {
+                    var cells = Enumerable.Range(0, 28).SelectMany(y => Enumerable.Range(from, to - from).Where(x => IsEye(front[y][x])).Select(x => (y, x))).ToList();
+                    var width = cells.Max(c => c.x) - cells.Min(c => c.x) + 1;
+                    var height = cells.Max(c => c.y) - cells.Min(c => c.y) + 1;
+                    Assert.IsTrue(width is 3 or 4, $"{part.Id} x{size}: eye width {width}");
+                    Assert.IsTrue(height is 2 or 3, $"{part.Id} x{size}: eye height {height}");
+                    Assert.AreEqual(width * height, cells.Count, $"{part.Id} x{size}: the white is a full rectangle");
+                    Assert.AreEqual(1, cells.Count(c => front[c.y][c.x] == FaceMaterial.Iris), $"{part.Id} x{size}: one iris cell");
+                }
+
+                for (var y = 0; y < 28; y++)
+                {
+                    for (var x = 0; x < 10; x++)
+                    {
+                        Assert.AreEqual(IsEye(front[y][x]), IsEye(front[y][19 - x]), $"{part.Id}: eyes mirror at row {y}");
+                    }
+                }
+            }
         }
     }
 
@@ -152,26 +168,107 @@ public sealed class FaceComposerLookTests
     }
 
     [TestMethod]
-    public void EyelidShapes_DifferInTheCrease_AndBlendBetween()
+    public void EyeParts_DifferInSize()
     {
-        int Crease(params (string, string, float)[] c) => Compose(c).Count(FaceMaterial.Shadow);
-        var mono = Crease(("eyes", "eyes.1", 1f));
-        var doubleLid = Crease(("eyes", "eyes.3", 1f));
-        var half = Crease(("eyes", "eyes.1", 0.5f), ("eyes", "eyes.3", 0.5f));
-        Assert.IsGreaterThan(mono, doubleLid, "a double eyelid has a visible crease");
-        Assert.IsTrue(half >= mono && half <= doubleLid + 2, $"half {half} between {mono} and {doubleLid}");
+        int White(string id) => Compose(("eyes", id, 1f)).Count(FaceMaterial.White);
+        Assert.IsGreaterThan(White("eyes.2"), White("eyes.3"), "a double eyelid (4x3) shows more white than an epicanthic fold (3x2)");
     }
 
     [TestMethod]
-    public void NoseBridge_IsShadedOnBothSides_AndHighBridgeStandsOutMoreThanFlat()
+    public void Nose_HasTwoSeparateNostrils_WithSkinBetween_AndNoBumpBetweenTheEyes()
     {
-        var flat = Compose(("browridge", "browridge.1", 1f));
-        var high = Compose(("browridge", "browridge.3", 1f));
-        Assert.IsGreaterThan(flat.Cells.Count(c => c != FaceMaterial.Empty), high.Cells.Count(c => c != FaceMaterial.Empty), "a high narrow bridge adds skin in front of the face");
-        var front = Front(high);
-        int Shaded(Func<int, bool> side) => Enumerable.Range(13, 8).Sum(y => front[y].Where((m, x) => m == FaceMaterial.Shadow && side(x) && Math.Abs(x - 9.5f) <= 3.5f).Count());
-        Assert.IsGreaterThan(0, Shaded(x => x < 10), "left flank of the bridge");
-        Assert.IsGreaterThan(0, Shaded(x => x >= 10), "right flank of the bridge");
+        // ユーザーの指摘（2026-11-20）: 鼻の穴が 1 本につながる・目の間の出っ張り。鼻は単純な形（NoseShape）: 底の行は [小鼻][穴][鼻柱][穴][小鼻]。
+        foreach (var part in FacePartLibrary.Default.Parts("nose"))
+        {
+            var v = Compose(("nose", part.Id, 1f));
+            var front = Front(v);
+            var rows = Enumerable.Range(0, 28).Where(y => front[y].Contains(FaceMaterial.Nostril)).ToList();
+            Assert.HasCount(1, rows, $"{part.Id}: nostrils on one row");
+            var xs = Enumerable.Range(0, 20).Where(x => front[rows[0]][x] == FaceMaterial.Nostril).ToList();
+            Assert.HasCount(2, xs, $"{part.Id}: two nostrils");
+            Assert.IsGreaterThan(1, xs[1] - xs[0], $"{part.Id}: skin (columella) between the nostrils");
+            Assert.AreEqual(19 - xs[0], xs[1], $"{part.Id}: the nostrils mirror");
+
+            // 目の行（白目のある行）では、目の間の柱が目の柱より前へ出ない。
+            int Top(int x, int y) => Enumerable.Range(0, 20).Reverse().First(z => v.At(x, 27 - y, z) != FaceMaterial.Empty);
+            foreach (var y in Enumerable.Range(0, 28).Where(y => front[y].Any(IsEye)))
+            {
+                var eye = Enumerable.Range(0, 20).Where(x => IsEye(front[y][x])).Max(x => Top(x, y));
+                var between = Enumerable.Range(8, 4).Max(x => Top(x, y));
+                Assert.IsLessThanOrEqualTo(eye, between, $"{part.Id}: row {y}: between the eyes ({between}) stands out of the eyes ({eye})");
+            }
+        }
+
+        int NoseCells(float nose) => FaceComposer.Compose(Spec() with { Values = FaceParts.Default with { Nose = nose } }, 20, 28, 20).Cells.Count(c => c != FaceMaterial.Empty);
+        Assert.IsGreaterThan(NoseCells(0.8f), NoseCells(1.3f), "a higher nose stands out more");
+    }
+
+    [TestMethod]
+    public void Silhouette_HasNoNotches_ForEveryRosterFace()
+    {
+        // 顔の線に変な凸凹（ユーザーの指摘）: 正面の頭の幅（髪・ひげ・耳を除く）は、隣の行との差が 2 セル以内、頬より下では行ごとに増えない。
+        foreach (var c in MiniRing.Characters.CharacterRoster.All)
+        {
+            var shape = FaceShape.From(c.Face.Values, c.Face.Weighted("jaw", FacePartLibrary.Default));
+            int Width(int y) => Enumerable.Range(0, 20).Count(x => Enumerable.Range(0, 20).Any(z => shape.Inside(x + 0.5f, y + 0.5f, z + 0.5f)));
+            // 頭頂の丸み（CrownRow より上: 楕円の上端は 1 行で開く）と、あご先の最後の行は除く。
+            for (var y = (int)FaceShape.CrownRow + 1; y < (int)shape.ChinBottom - 1; y++)
+            {
+                Assert.IsLessThanOrEqualTo(2, Math.Abs(Width(y) - Width(y - 1)), $"{c.Id}: row {y} width {Width(y)} vs {Width(y - 1)}");
+                if (y > 15)
+                {
+                    Assert.IsLessThanOrEqualTo(Width(y - 1), Width(y), $"{c.Id}: the face widens again at row {y}");
+                }
+            }
+        }
+    }
+
+    [TestMethod]
+    public void Brows_AreContinuous_AndOneCellAwayFromTheEyes()
+    {
+        foreach (var c in MiniRing.Characters.CharacterRoster.All)
+        {
+            var front = Front(FaceComposer.Compose(c.Face, 20, 28, 20));
+            foreach (var (from, to) in new[] { (0, 10), (10, 20) })
+            {
+                var brow = Enumerable.Range(0, 28).SelectMany(y => Enumerable.Range(from, to - from).Where(x => front[y][x] == FaceMaterial.Brow).Select(x => (y, x))).ToHashSet();
+                if (brow.Count == 0)
+                {
+                    continue;
+                }
+
+                var seen = new HashSet<(int, int)>();
+                var stack = new Stack<(int, int)>();
+                stack.Push(brow.First());
+                while (stack.Count > 0)
+                {
+                    var (y, x) = stack.Pop();
+                    if (brow.Contains((y, x)) && seen.Add((y, x)))
+                    {
+                        foreach (var (dy, dx) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                        {
+                            stack.Push((y + dy, x + dx));
+                        }
+                    }
+                }
+
+                Assert.HasCount(brow.Count, seen, $"{c.Id}: one connected brow");
+                foreach (var (y, x) in brow)
+                {
+                    for (var dy = -1; dy <= 1; dy++)
+                    {
+                        for (var dx = -1; dx <= 1; dx++)
+                        {
+                            var (ay, ax) = (y + dy, x + dx);
+                            if (ay is >= 0 and < 28 && ax is >= 0 and < 20)
+                            {
+                                Assert.IsFalse(IsEye(front[ay][ax]), $"{c.Id}: brow touches an eye at row {y}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     [TestMethod]
@@ -248,20 +345,15 @@ public sealed class FaceComposerLookTests
     }
 
     [TestMethod]
-    public void NoseShading_StaysOnTheNose_NotDownTheWholeFace()
+    public void Face_HasNoShadingLines()
     {
+        // 鼻の脇・眉の脇の影の線は、低い解像度でしわに見えた（2026-11-20）。顔の真ん中（耳の外側を除く）には影の皮膚が無い。
         var front = Front(Compose(("browridge", "browridge.3", 1f), ("nose", "nose.5", 1f)));
-        // 目の高さ（行 13）より上と、口の高さ（行 20）より下には、鼻の脇の影を作らない。
         for (var y = 0; y < 28; y++)
         {
-            if (y is >= 13 and <= 19)
+            for (var x = 3; x < 17; x++)
             {
-                continue;
-            }
-
-            for (var x = 6; x < 14; x++)
-            {
-                Assert.AreNotEqual(FaceMaterial.Shadow, front[y][x], $"nose shading outside the nose rows: row {y}, x={x}");
+                Assert.AreNotEqual(FaceMaterial.Shadow, front[y][x], $"shading at row {y}, x={x}");
             }
         }
     }

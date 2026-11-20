@@ -65,8 +65,8 @@
      "width": 8,
      "height": 3,
      "rows": [
-      "ssbbbsss",
-      "sbsssbbs",
+      "ssbbbbss",
+      "sbbssbbs",
       "ssssssss"
      ]
     }
@@ -85,8 +85,8 @@
      "height": 3,
      "rows": [
       "sbbsssss",
-      "sssbbsss",
-      "sssssbbs"
+      "ssbbbsss",
+      "ssssbbbs"
      ]
     }
    }
@@ -103,8 +103,8 @@
      "width": 8,
      "height": 3,
      "rows": [
-      "sssssbbb",
-      "sssbbsss",
+      "ssssbbbs",
+      "ssbbbsss",
       "sbbsssss"
      ]
     }
@@ -122,9 +122,9 @@
      "width": 8,
      "height": 3,
      "rows": [
-      "sbbbsbbs",
+      "sbbbbbbs",
       "bbbbbbbs",
-      "sbsbbsss"
+      "sbbbbbss"
      ]
     }
    }

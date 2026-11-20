@@ -80,8 +80,8 @@
   "face": {
     "parts": {
       "hair": { "hair.10": 1.0 },
-      "brows": { "brows.2": 0.6, "brows.6": 0.4 },
-      "eyes": { "eyes.4": 0.6, "eyes.6": 0.4 },
+      "brows": { "brows.2": 1.0 },
+      "eyes": { "eyes.4": 1.0 },
       "nose": { "nose.2": 0.7, "nose.6": 0.3 },
       "mouth": { "mouth.9": 0.6, "mouth.3": 0.4 },
       "jaw": { "jaw.9": 0.4, "jaw.2": 0.4, "jaw.11": 0.2 },

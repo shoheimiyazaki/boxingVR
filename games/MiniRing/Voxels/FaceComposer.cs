@@ -29,6 +29,9 @@ public static class FaceComposer
     /// </summary>
     private const float PaintThreshold = 0.4f;
 
+    /// <summary>眉を塗る閾値。眉は 1 つの部品で描く（混ぜない）ので、双一次の標本化で太らない 0.5（0.4 だと太い眉が 3 行になった）。</summary>
+    private const float BrowThreshold = 0.5f;
+
     private static float Smooth(float v, float a, float b)
     {
         var t = Math.Clamp((v - a) / (b - a), 0f, 1f);
@@ -96,7 +99,8 @@ public static class FaceComposer
             return sum;
         }
 
-        // 1. 頭の輪郭（視体積）と髪。
+        // 1. 頭の輪郭（少ない制御値の式: FaceShape）と髪。
+        var shape = FaceShape.From(p, jaws);
         var head = new bool[nx * ny * nz];
         var hairCand = new bool[nx * ny * nz];
         var cells = new FaceMaterial[nx * ny * nz];
@@ -106,27 +110,14 @@ public static class FaceComposer
             for (var y = 0; y < ny; y++)
             {
                 var ry = RefY(y);
-                var chin = Smooth(ry, 17f, 23f);
-                var hairRy = ry - (p.Hairline * HalfHeight);
+                var hairRow = ry - (p.Hairline * HalfHeight);
                 for (var x = 0; x < nx; x++)
                 {
                     var rx = RefX(x);
-                    var wrx = WidthX(rx, ry);
-                    var wrz = rz - ((p.Jaw - 1f) * 6f * chin);
-                    var inNoseRows = ry >= layout.NoseRowFrom && ry < layout.NoseRowTo + 1f;
-                    // 顔の形の部品（四角い・広い）は頭蓋骨の上を四角く描くものもあるので、頭の上（額より上）は基準の頭の丸い輪郭より外へ出さない。
-                    var cranium = Smooth(ry, 7f, 11f);
-                    var jawFront = Blend(jaws, j => j.Front.Solid(wrx, ry));
-                    var front = (cranium * jawFront) + ((1f - cranium) * MathF.Min(jawFront, library.BaseFront.Solid(wrx, ry)));
-                    var side = inNoseRows && wrz > layout.ProfileCap ? 0f : Blend(jaws, j => j.Side!.Solid(wrz, ry));
-                    // 上からの輪郭: あごの部品が持っていればそれ（顔の形）、無ければ基準の頭。
-                    var topPx = Blend(jaws, j =>
-                    {
-                        var t = j.Top ?? library.BaseTop;
-                        return t.Solid(wrx, FacePartLibrary.RefDepth - wrz) - t.Coverage(wrx, FacePartLibrary.RefDepth - wrz, FaceMaterial.Shadow);
-                    });
-                    var inside = front >= 0.5f && side >= 0.5f && topPx >= 0.5f;
+                    var inside = shape.Inside(rx, ry, rz);
                     var hx = Mid + ((rx - Mid) / p.FaceWidth);
+                    // 頭の上の丸み（CrownRow より上）は髪の部品の絵の頭より広いので、頭の中ならその下の行（CrownRow）の髪の絵を使う（頭頂に地肌の点が出ない）。
+                    var hairRy = inside && ry < FaceShape.CrownRow ? hairRow + FaceShape.CrownRow + 0.5f - ry : hairRow;
                     // 頭の上の髪は頭蓋骨に沿う: 髪の部品の輪郭が頭より 1 セル細くても、頭の中のセルは隣の 1 セルまでの髪を借りる（頭の角に地肌が出ない）。
                     var pad = inside ? 1f : 0f;
                     var hf = Blend(hairs, h => MathF.Max(h.Front.Coverage(hx, hairRy, FaceMaterial.Hair), MathF.Max(h.Front.Coverage(hx - pad, hairRy, FaceMaterial.Hair), h.Front.Coverage(hx + pad, hairRy, FaceMaterial.Hair))));
@@ -217,13 +208,6 @@ public static class FaceComposer
             }
         }
 
-        // 眉の張り出しと鼻筋の高さ: 眉・鼻筋の高さの前へ皮膚を足す（塗る前なので、眉・目は新しい表面に塗られる）。
-        var ridges = spec.Weighted("browridge", library);
-        if (ridges.Count > 0 || p.BrowRidge > 0f)
-        {
-            ApplyRelief(cells, head, nx, ny, ridges, layout, p, sx, sy, sz, nz);
-        }
-
         // 2. 表面（柱ごとの、いちばん前の詰まったセル）。目・眉・唇・そばかすは表面から塗る。
         var top = new int[nx * ny];
         for (var y = 0; y < ny; y++)
@@ -242,6 +226,13 @@ public static class FaceComposer
             }
         }
 
+        var hairFront = new bool[nx * ny];
+        for (var i = 0; i < hairFront.Length; i++)
+        {
+            hairFront[i] = top[i] >= 0 && cells[i + (nx * ny * top[i])] == FaceMaterial.Hair;
+        }
+
+        var browMask = BrowMask(brows, eyes, p, layout, nx, ny, RefX, RefY, hairFront);
         var paint = new FaceMaterial[cells.Length];
         for (var y = 0; y < ny; y++)
         {
@@ -272,7 +263,7 @@ public static class FaceComposer
                     FaceMaterial? m = null;
                     if (depth < PaintBand)
                     {
-                        m = Feature(brows, p, rx, ry, layout, brow: true) ?? Lip(mouths, p, rx, ry, layout) ?? Freckle(p, x, y, rx, ry, cells[i]);
+                        m = (browMask[x + (nx * y)] ? FaceMaterial.Brow : (FaceMaterial?)null) ?? Lip(mouths, p, rx, ry, layout) ?? Freckle(p, x, y, rx, ry, cells[i]);
                     }
 
                     if (Eye(eyes, p, rx, ry, layout, depth) is { } eye)
@@ -296,35 +287,18 @@ public static class FaceComposer
             }
         }
 
-        // 3. 鼻（正面 × 横の積。横の 0 列目が noseSurface、先端が前の端）と耳（頭の横の外の 2 セルに、横 × 正面の厚み）を足す。
+        // 3. 鼻（単純な形: NoseShape）と耳（頭の横の外の 2 セルに、横 × 正面の厚み）を足す。
         var extra = new FaceMaterial[cells.Length];
         if (noses.Count > 0)
         {
-            for (var z = 0; z < nz; z++)
+            var nose = NoseShape.From(noses, p, layout);
+            foreach (var (x, y, depth, material) in nose.Cells(nx, ny, RefX, RefY))
             {
-                var rz = RefZ(z);
-                for (var y = 0; y < ny; y++)
+                var surface = top[x + (nx * y)];
+                var z = surface + depth;
+                if (surface >= 0 && z < nz)
                 {
-                    var ry = RefY(y);
-                    for (var x = 0; x < nx; x++)
-                    {
-                        var rx = RefX(x);
-                        var anchorY = Blend(noses, n => n.Anchor.Y);
-                        var py = anchorY + ((ry - layout.NoseTopRow) / p.NoseLength);
-                        var sidePx = (rz - layout.NoseSurface) / p.Nose;
-                        if (sidePx < 0f)
-                        {
-                            continue;
-                        }
-
-                        var front = Blend(noses, n => n.Front.Solid((n.Front.Width / 2f) + ((rx - Mid) / p.NoseWidth), py));
-                        var side = Blend(noses, n => n.Side!.Solid(sidePx, py));
-                        if (front >= 0.5f && side >= 0.5f)
-                        {
-                            var nostril = Blend(noses, n => n.Front.Coverage((n.Front.Width / 2f) + ((rx - Mid) / p.NoseWidth), py, FaceMaterial.Nostril)) >= PaintThreshold;
-                            extra[Index(x, y, z)] = nostril ? FaceMaterial.Nostril : FaceMaterial.Skin;
-                        }
-                    }
+                    extra[Index(x, y, z)] = material;
                 }
             }
         }
@@ -389,78 +363,7 @@ public static class FaceComposer
             }
         }
 
-        ShadeRelief(cells, nx, ny, nz, sx, sy, sz, layout);
         return new FaceVolume(nx, ny, nz, cells);
-    }
-
-    /// <summary>陰にする、隣の柱との前後の差（参考図のセル）。</summary>
-    private const float ShadeStep = 1f;
-
-    /// <summary>
-    /// 凹凸の陰（見た目だけ）: 鼻の脇・鼻の下のように、隣の柱が表面より <see cref="ShadeStep"/> セル以上前へ出ている皮膚の表のセルを影の皮膚にする。
-    /// 正面から見た鼻筋が「鼻の穴の線」にしか見えないのを、左右の影で鼻筋の高さとして見せる。
-    /// </summary>
-    private static void ShadeRelief(FaceMaterial[] cells, int nx, int ny, int nz, float sx, float sy, float sz, FaceLayout layout)
-    {
-        var height = new int[nx * ny];
-        for (var y = 0; y < ny; y++)
-        {
-            for (var x = 0; x < nx; x++)
-            {
-                height[x + (nx * y)] = -1;
-                for (var z = nz - 1; z >= 0; z--)
-                {
-                    if (cells[x + (nx * (y + (ny * z)))] != FaceMaterial.Empty)
-                    {
-                        height[x + (nx * y)] = z;
-                        break;
-                    }
-                }
-            }
-        }
-
-        var step = (int)MathF.Max(1f, MathF.Round(ShadeStep / sz));
-        var shade = new List<int>();
-        for (var y = 0; y < ny; y++)
-        {
-            var ry = (ny - 1 - y + 0.5f) * sy;
-            if (ry < layout.NoseTopRow || ry > layout.NoseTopRow + 5f)
-            {
-                continue;
-            }
-
-            for (var x = 0; x < nx; x++)
-            {
-                var h = height[x + (nx * y)];
-                var dx = MathF.Abs(((x + 0.5f) * sx) - Mid);
-                if (h < 0 || dx > 3.5f)
-                {
-                    continue;
-                }
-
-                var left = x > 0 ? height[x - 1 + (nx * y)] : -1;
-                var right = x < nx - 1 ? height[x + 1 + (nx * y)] : -1;
-                if (left >= h + step || right >= h + step)
-                {
-                    shade.Add(x + (nx * (y + (ny * h))));
-                }
-
-                // 鼻の下: 1 つ下の柱が鼻先より引っ込んでいれば、その表。
-                var lower = y > 0 ? height[x + (nx * (y - 1))] : -1;
-                if (lower >= 0 && h >= lower + step + 1 && dx <= 4f)
-                {
-                    shade.Add(x + (nx * (y - 1 + (ny * lower))));
-                }
-            }
-        }
-
-        foreach (var i in shade)
-        {
-            if (cells[i] == FaceMaterial.Skin)
-            {
-                cells[i] = FaceMaterial.Shadow;
-            }
-        }
     }
 
     /// <summary>箱の膨張（チェビシェフ距離。軸ごとの半径はセル数。分離できるので 3 回の 1 次元）。</summary>
@@ -519,74 +422,156 @@ public static class FaceComposer
     }
 
     /// <summary>
-    /// 眉の張り出しと鼻筋の高さ。横の輪郭の部品（browridge）の行ごとの前の端（頭の横の格子の前後の位置）まで、基準の顔の前の面（<see cref="FaceLayout.ProfileCap"/>）の前へ
-    /// 皮膚を足す。幅は、眉の高さでは目の幅、鼻筋の高さでは鼻の幅へ連続に狭まる。<see cref="FaceParts.BrowRidge"/> は眉の高さの前の端へ足すセル数。
-    /// 皮膚だけの見た目と当たりの形（強さは変えない）。
+    /// 眉を置く正面の印（x + nx * y）。部品の形を写したあと、(1) 斜めにだけ接する所を埋めて 4 近傍でつなぎ、左右それぞれ最大のつながりだけを残す
+    /// （途切れた眉は低い解像度で汚れに見える）。(2) 目（白目・黒目）と 1 マス以上離れるまで、その側の眉を上へずらす（眉の高さの値や目の大きさで
+    /// 眉が目に触れると、まぶたの影のように見えた）。髪（前髪・生え際）からも 1 マス離す（髪と同じ暗い色に埋もれる）。両方から離しきれないときは、
+    /// 触れる行を削る。ユーザーの指示（2026-11-20）。
     /// </summary>
-    private static void ApplyRelief(FaceMaterial[] cells, bool[] head, int nx, int ny, IReadOnlyList<(FacePart Part, float Weight)> ridges,
-        FaceLayout layout, FaceParts p, float sx, float sy, float sz, int nz)
+    private static bool[] BrowMask(IReadOnlyList<(FacePart Part, float Weight)> brows, IReadOnlyList<(FacePart Part, float Weight)> eyes, FaceParts p,
+        FaceLayout layout, int nx, int ny, Func<int, float> refX, Func<int, float> refY, bool[] hairFront)
     {
-        var (anchorZ, anchorRow) = layout.BridgeAnchor;
+        var mask = new bool[nx * ny];
+        var eye = new bool[nx * ny];
         for (var y = 0; y < ny; y++)
         {
-            var ry = (ny - 1 - y + 0.5f) * sy;
-            var brow = Bump(ry, layout.BrowLeftImage.Y, 1.0f);
-            var edge = layout.ProfileCap + (p.BrowRidge * brow);
-            foreach (var (part, weight) in ridges)
+            for (var x = 0; x < nx; x++)
             {
-                // 部品の格子（8x12、留める点 (4, 6) = 頭の横の格子の (anchorZ, anchorRow)）の、この行の最後の詰まった列の前の縁 → 頭の前後の位置。
-                var local = ry - anchorRow + part.Anchor.Y;
-                var last = -1;
-                for (var cx = 0; cx < part.Front.Width; cx++)
+                mask[x + (nx * y)] = Feature(brows, p, refX(x), refY(y), layout, brow: true) is not null;
+                eye[x + (nx * y)] = Eye(eyes, p, refX(x), refY(y), layout, 0f) is FaceMaterial.White or FaceMaterial.Iris;
+            }
+        }
+
+        bool At(bool[] m, int x, int y) => x >= 0 && y >= 0 && x < nx && y < ny && m[x + (nx * y)];
+        var result = new bool[nx * ny];
+        foreach (var (from, to) in new[] { (0, nx / 2), (nx / 2, nx) })
+        {
+            var side = new bool[nx * ny];
+            for (var y = 0; y < ny; y++)
+            {
+                for (var x = from; x < to; x++)
                 {
-                    if (part.Front.Solid(cx + 0.5f, local) >= 0.5f)
+                    side[x + (nx * y)] = mask[x + (nx * y)];
+                }
+            }
+
+            // (1) 斜めだけで接する 2 つのセルの間を、横の 1 セルで埋める。
+            for (var y = 0; y + 1 < ny; y++)
+            {
+                for (var x = from; x + 1 < to; x++)
+                {
+                    if (At(side, x, y) && At(side, x + 1, y + 1) && !At(side, x + 1, y) && !At(side, x, y + 1))
                     {
-                        last = cx;
+                        side[x + 1 + (nx * y)] = true;
+                    }
+
+                    if (At(side, x + 1, y) && At(side, x, y + 1) && !At(side, x, y) && !At(side, x + 1, y + 1))
+                    {
+                        side[x + (nx * y)] = true;
+                    }
+                }
+            }
+
+            var keep = Largest(side, nx, ny);
+
+            // (2) 目と髪から 1 マス以上（8 近傍で）離す: 上へ 0〜4 マスずらした中で、目か髪に触れて削るセルがいちばん少ない位置（同じなら低い方）を選び、
+            // 触れるセルを削って最大のつながりだけを残す。
+            bool Near(bool[] m, int x, int y)
+            {
+                for (var dy = -1; dy <= 1; dy++)
+                {
+                    for (var dx = -1; dx <= 1; dx++)
+                    {
+                        if (At(m, x + dx, y + dy))
+                        {
+                            return true;
+                        }
                     }
                 }
 
-                var z = last < 0 ? 0f : last + 1 - part.Anchor.X + anchorZ;
-                edge += weight * MathF.Max(0f, z - layout.ProfileCap);
+                return false;
             }
 
-            if (edge <= layout.ProfileCap + 0.25f)
+            bool[] Trimmed(int s)
+            {
+                var t = (bool[])keep.Clone();
+                for (var i = 0; i < t.Length; i++)
+                {
+                    var (x, y) = (i % nx, (i / nx) + s);
+                    t[i] = t[i] && y < ny && !Near(eye, x, y) && !Near(hairFront, x, y);
+                }
+
+                return t;
+            }
+
+            var (shift, lost) = (0, int.MaxValue);
+            for (var s = 0; s <= 4; s++)
+            {
+                var n = keep.Count(c => c) - Trimmed(s).Count(c => c);
+                if (n < lost)
+                {
+                    (shift, lost) = (s, n);
+                }
+            }
+
+            keep = Largest(Trimmed(shift), nx, ny);
+
+            for (var i = 0; i < keep.Length; i++)
+            {
+                var y = (i / nx) + shift;
+                if (keep[i] && y < ny)
+                {
+                    result[(i % nx) + (nx * y)] = true;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>正面の印のうち、4 近傍でつながった最大のかたまりだけ。</summary>
+    private static bool[] Largest(bool[] mask, int nx, int ny)
+    {
+        var label = new int[mask.Length];
+        var best = (Label: 0, Size: 0);
+        var next = 0;
+        var stack = new Stack<int>();
+        for (var i = 0; i < mask.Length; i++)
+        {
+            if (!mask[i] || label[i] != 0)
             {
                 continue;
             }
 
-            var noseHalf = 1.6f * p.NoseWidth;
-            var half = noseHalf + ((6.5f - noseHalf) * (1f - Smooth(ry, layout.NoseTopRow - 2f, layout.NoseTopRow)));
-            for (var x = 0; x < nx; x++)
+            next++;
+            var size = 0;
+            label[i] = next;
+            stack.Push(i);
+            while (stack.Count > 0)
             {
-                var dx = MathF.Abs(((x + 0.5f) * sx) - Mid) / half;
-                if (dx >= 1f)
+                var c = stack.Pop();
+                size++;
+                var (x, y) = (c % nx, c / nx);
+                foreach (var (ax, ay) in new[] { (x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1) })
                 {
-                    continue;
-                }
-
-                var reach = layout.ProfileCap + ((edge - layout.ProfileCap) * (1f - (dx * dx)));
-                var column = x + (nx * y);
-                var top = -1;
-                for (var z = nz - 1; z >= 0; z--)
-                {
-                    if (cells[column + (nx * ny * z)] != FaceMaterial.Empty)
+                    var j = ax + (nx * ay);
+                    if (ax >= 0 && ay >= 0 && ax < nx && ay < ny && mask[j] && label[j] == 0)
                     {
-                        top = z;
-                        break;
+                        label[j] = next;
+                        stack.Push(j);
                     }
                 }
-
-                if (top < 0 || !head[column + (nx * ny * top)])
-                {
-                    continue;
-                }
-
-                for (var z = top + 1; z < nz && (z + 0.5f) * sz < reach; z++)
-                {
-                    cells[column + (nx * ny * z)] = FaceMaterial.Skin;
-                }
             }
+
+            best = size > best.Size ? (next, size) : best;
         }
+
+        var result = new bool[mask.Length];
+        for (var i = 0; i < mask.Length; i++)
+        {
+            result[i] = best.Label != 0 && label[i] == best.Label;
+        }
+
+        return result;
     }
 
     /// <summary>眉・影などの色の部位: (rx, ry) の眉の材質（無ければ null）。</summary>
@@ -616,7 +601,7 @@ public static class FaceComposer
             coverage += weight * part.Front.Coverage(part.Anchor.X - a, part.Anchor.Y - b, FaceMaterial.Brow);
         }
 
-        return coverage >= PaintThreshold ? FaceMaterial.Brow : null;
+        return coverage >= BrowThreshold ? FaceMaterial.Brow : null;
     }
 
     private static FaceMaterial? Lip(IReadOnlyList<(FacePart Part, float Weight)> mouths, FaceParts p, float rx, float ry, FaceLayout layout)
@@ -641,14 +626,16 @@ public static class FaceComposer
             return null;
         }
 
+        // 目は部品の絵のセルをそのまま写す（白目 3x2・3x3、黒目 2x2・1x1: ユーザーの指示、2026-11-20）。大きさ（EyeSize）・傾き（EyeTilt）で
+        // 引き伸ばすと 3x2 が 3x3・4 幅に崩れるので掛けず、目の中心は部品の留める点の端数に合わせてセルの格子へそろえる（左右は鏡写し）。
         var side = rx >= Mid ? 1f : -1f;
-        var image = side > 0 ? layout.EyeRightImage : layout.EyeLeftImage;
-        var cx = Mid + (side * MathF.Abs(image.X - Mid) * p.EyeSpacing);
-        var cy = image.Y - (p.EyeHeight * HalfHeight);
-        var (o, up) = (side * (rx - cx), -(ry - cy));
-        var (cos, sin) = (MathF.Cos(p.EyeTilt), MathF.Sin(p.EyeTilt));
-        var a = ((o * cos) + (up * sin)) / p.EyeSize;
-        var b = ((-o * sin) + (up * cos)) / p.EyeSize;
+        var anchor = eyes[0].Part.Anchor;
+        static float Snap(float v, float frac) => MathF.Round(v - frac) + frac;
+        var (fx, fy) = (anchor.X - MathF.Floor(anchor.X), anchor.Y - MathF.Floor(anchor.Y));
+        var left = Snap(Mid - (MathF.Abs(layout.EyeLeftImage.X - Mid) * p.EyeSpacing), fx);
+        var cx = side > 0 ? (2f * Mid) - left : left;
+        var cy = Snap(layout.EyeLeftImage.Y - (p.EyeHeight * HalfHeight), fy);
+        var (a, b) = (side * (rx - cx), -(ry - cy));
         Span<float> cover = stackalloc float[4];
         foreach (var (part, weight) in eyes)
         {

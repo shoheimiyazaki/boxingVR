@@ -79,7 +79,7 @@
   "face": {
     "parts": {
       "hair": { "hair.8": 0.7, "hair.1": 0.3 },
-      "brows": { "brows.3": 0.6, "brows.2": 0.4 },
+      "brows": { "brows.3": 1.0 },
       "eyes": { "eyes.4": 1.0 },
       "nose": { "nose.5": 0.6, "nose.1": 0.4 },
       "mouth": { "mouth.7": 1.0 },
