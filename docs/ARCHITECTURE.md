@@ -77,7 +77,7 @@ Fighter.ApplyControl
              脚: AddLegServos の股 AngularServo / 膝・足首 TwistServo に正弦歩行の目標（後退時は位相逆回し）
              首: AngularServo で直立へ
              腕: IK → 肩 AngularServo（上腕の回転）・肘 TwistServo（曲げ角）
-                 ＋ 拳を目標へ PD 力（目標速度フィードフォワード・上限 35N・反作用の半分を胸へ）
+                 ＋ 拳を目標へ筋肉の力（PD の指令 → 活性化 → Hill の力、ArmMuscle。BOXING.md 1-9）
   Down / GettingUp: 0.3 秒かけて力を抜いて崩れ、その後はいつも立とうとする。腰を上げられる高さ（StandReach）は意識で連続に決まり
              （床 → 膝立ち・座り込み → 中腰 → 立つ）、意識が戻るのに合わせて RiseTime の速さでゆっくり上げる（Rise）。
              腰が DownHeightRatio より下なら Down、上なら GettingUp（審判のカウントはどちらも続く）。

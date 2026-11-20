@@ -73,13 +73,34 @@ public sealed class ArmMuscleTests
     }
 
     [TestMethod]
-    public void TheAgonist_DoesNotLetGo_JustShortOfFullExtension()
+    public void TheAgonist_DoesNotLetGo_JustShortOfFullExtension_AndABentArmPushesWeakly()
     {
-        // 外へ押す筋は、伸びきりの手前（腕の長さの 9 割）でも等尺の 7 割を出す（伸びきりで 5 割）。
-        var near = ArmMuscle.ForceLength(0.9f, outward: true, Tuning.ArmMuscleOptimalExtension, Tuning.ArmMuscleEndForce, Tuning.ArmMuscleFlexedEnd);
-        var full = ArmMuscle.ForceLength(1f, outward: true, Tuning.ArmMuscleOptimalExtension, Tuning.ArmMuscleEndForce, Tuning.ArmMuscleFlexedEnd);
-        Assert.IsGreaterThan(0.7f - 1e-4f, near, "just short of full extension the pushing muscle keeps most of its force");
-        Assert.AreEqual(Tuning.ArmMuscleEndForce, full, 1e-4f);
+        // 関節ごとの力の出しやすさ: 肘の伸ばすトルクは伸びきりの近くで落ちるが、そこでは同じトルクが拳を肩から押し出す力に変わるてこが
+        // 大きい（ヤコビアン）。伸びきりの手前（肘 20°）でも拳を押し出す力は構え（肘 90°）と同じ（構えで頭打ち）で、曲げきり（130°）からは弱い。
+        const float upper = 0.109f;
+        const float lower = 0.10f;
+        var c = ArmMuscle.Constants.From(Tuning, 0f);
+        float Push(float bendDegrees)
+        {
+            var bend = bendDegrees * MathF.PI / 180f;
+            var r = MathF.Sqrt((upper * upper) + (lower * lower) + (2f * upper * lower * MathF.Cos(bend)));
+            return ArmMuscle.Leverage(new ArmMuscle.Pose(Vector3.UnitZ, r, Vector3.Zero, upper, lower), c).Elbow;
+        }
+
+        Assert.AreEqual(1f, Push(90f), 1e-3f, "the guard (elbow 90 degrees) is the reference");
+        Assert.IsGreaterThanOrEqualTo(0.999f, Push(20f), "just short of full extension the elbow still pushes the fist out as hard as from the guard (the lever makes up for the weaker torque)");
+        Assert.IsLessThan(0.7f, Push(130f), "a deeply bent arm pushes the fist out weakly");
+        // 伸びきり（てこ 0）でも有限（てこは 10° で頭打ち）。
+        Assert.IsLessThanOrEqualTo(1f, Push(0f), "the push never exceeds the guard's: beyond it the bones and the joint limit carry the load (the solver already does)");
+
+        // 動いている伸びきりの近くでは、肘の角速度が大きく、拳を押し出す力は速さの関係で落ちる（同じ拳の速さでも構えより弱い）。
+        var moving = new ArmMuscle.Pose(Vector3.UnitZ, 0.205f, new Vector3(0f, 0f, 1.5f), upper, lower);
+        var guard = new ArmMuscle.Pose(Vector3.UnitZ, MathF.Sqrt((upper * upper) + (lower * lower)), new Vector3(0f, 0f, 1.5f), upper, lower);
+        Span<float> forward = [0f, 0f, 0f, 0f, 1f, 0f];
+        var nearFull = ArmMuscle.Force(forward, Quaternion.Identity, 50f, moving, c, 0f, 1f).Z;
+        var atGuard = ArmMuscle.Force(forward, Quaternion.Identity, 50f, guard, c, 0f, 1f).Z;
+        Console.WriteLine($"push at 1.5 m/s: guard {atGuard:0.0} N, near full extension {nearFull:0.0} N");
+        Assert.IsLessThan(atGuard, nearFull, "a fist moving out near full extension needs a fast elbow, so it is pushed less");
     }
 
     [TestMethod]
@@ -107,12 +128,94 @@ public sealed class ArmMuscleTests
                 peakActivation = MathF.Max(peakActivation, a[i]);
             }
 
-            reach = MathF.Max(reach, Vector3.Distance(f.GloveCenter(Hand.Right), world.GetState(f.Parts.Chest).Position));
+            reach = MathF.Max(reach, Vector3.Distance(f.GloveCenter(Hand.Right), f.ShoulderPosition(Hand.Right)));
         }
 
-        Console.WriteLine($"peak activation {peakActivation:0.00}, chest-to-fist {reach:0.000} m (arm {f.ArmReach:0.000} m)");
+        Console.WriteLine($"peak activation {peakActivation:0.00}, shoulder-to-fist {reach:0.000} m (arm {f.ArmReach:0.000} m)");
         Assert.IsGreaterThan(0.95f, peakActivation, "a target out of reach drives the muscle fully");
-        Assert.IsGreaterThan(0.9f * f.ArmReach, reach, "and the fist goes out to full extension");
+        Assert.IsGreaterThan(0.9f * f.ArmReach, reach, "and the fist goes out to full extension (measured from the shoulder)");
+    }
+
+    [TestMethod]
+    public void Force_PullsAlongTheGroups_TurnsWithTheChest_AndTheAntagonistBrakesHarderThanItPushes()
+    {
+        var c = ArmMuscle.Constants.From(Tuning, 0f);
+        const float upper = 0.109f;
+        const float lower = 0.10f;
+        var guard = MathF.Sqrt((upper * upper) + (lower * lower));
+        Span<float> forward = [0f, 0f, 0f, 0f, 1f, 0f];
+        Span<float> backward = [0f, 0f, 0f, 0f, 0f, 1f];
+        Span<float> up = [0f, 0f, 1f, 0f, 0f, 0f];
+        var still = new ArmMuscle.Pose(Vector3.UnitZ, guard, Vector3.Zero, upper, lower);
+        Assert.AreEqual(50f, ArmMuscle.Force(forward, Quaternion.Identity, 50f, still, c, 0f, 1f).Z, 1e-3f, "the forward group at the guard pulls the full force forward");
+        Assert.AreEqual(50f, ArmMuscle.Force(up, Quaternion.Identity, 50f, still, c, 0f, 1f).Y, 1e-3f, "the shoulder group pulls the full force across the arm");
+
+        // 胸が右へ 90° 回れば、胸の前（+Z）のまとまりはワールドの +X を引く。
+        var turned = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2f);
+        var side = new ArmMuscle.Pose(Vector3.UnitX, guard, Vector3.Zero, upper, lower);
+        Assert.AreEqual(50f, ArmMuscle.Force(forward, turned, 50f, side, c, 0f, 1f).X, 1e-3f, "the groups turn with the chest");
+
+        // 拳が前へ 1 m/s で動いている: 前へ押す筋は縮みながら（弱い）、後ろへ引く筋は伸ばされながら（強い）。
+        var moving = still with { Velocity = new Vector3(0f, 0f, 1f) };
+        var push = ArmMuscle.Force(forward, Quaternion.Identity, 50f, moving, c, 0f, 1f).Z;
+        var brake = -ArmMuscle.Force(backward, Quaternion.Identity, 50f, moving, c, 0f, 1f).Z;
+        Console.WriteLine($"at 1 m/s outward: push {push:0.0} N, brake {brake:0.0} N");
+        Assert.IsLessThan(50f, push, "a shortening agonist is weaker than isometric");
+        Assert.IsGreaterThan(50f, brake, "a lengthening antagonist is stronger than isometric");
+    }
+
+    [TestMethod]
+    public void TheVelocityStiffness_IsSolvedOneStepAhead_SoTheForceDoesNotFlip()
+    {
+        // 伸びきりの近く（肘 15°）で拳の速さに対する粘りは固い。1 歩（1/240 s）で、筋の力だけで拳（0.33 kg）を動かしても、
+        // 速さが筋の最大の縮む速さを行き来して振れない（後退オイラー）。
+        var c = ArmMuscle.Constants.From(Tuning, 0f);
+        const float upper = 0.109f;
+        const float lower = 0.10f;
+        const float mass = 0.33f;
+        var bend = 15f * MathF.PI / 180f;
+        var r = MathF.Sqrt((upper * upper) + (lower * lower) + (2f * upper * lower * MathF.Cos(bend)));
+        Span<float> forward = [0f, 0f, 0f, 0f, 1f, 0f];
+        var v = 0f;
+        var forces = new List<float>();
+        for (var i = 0; i < 40; i++)
+        {
+            var force = ArmMuscle.Force(forward, Quaternion.Identity, 60f, new ArmMuscle.Pose(Vector3.UnitZ, r, new Vector3(0f, 0f, v), upper, lower), c, Dt, mass).Z;
+            forces.Add(force);
+            v += force * Dt / mass;
+        }
+
+        for (var i = 2; i < forces.Count; i++)
+        {
+            Assert.IsGreaterThanOrEqualTo(-1e-3f, forces[i - 1] - forces[i], $"the push only fades as the fist speeds up (step {i}: {forces[i - 1]:0.00} → {forces[i]:0.00} N)");
+        }
+    }
+
+    [TestMethod]
+    public void HoldingAnArmOutAtATargetOutOfReach_DoesNotCarryTheBodyForward()
+    {
+        // 届かない所を狙い続けて伸ばした腕は、伸びきりの肘のてこで最大の力を超えて押すが、その分は肩と拳の間の内力で、体を前へ運ばない。
+        // 同じ時間、構えたまま立つ体と比べて、骨盤が前へ流れる距離の差が 3 cm（腕の長さの 1 割半）を超えない。
+        var still = Drift(far: false);
+        var holding = Drift(far: true);
+        Console.WriteLine($"pelvis forward after 1.5 s: guard {still * 100f:0.0} cm, arm held out at a far target {holding * 100f:0.0} cm");
+        Assert.IsLessThan(0.03f, holding - still, "the arm held out does not drag the body forward");
+
+        static float Drift(bool far)
+        {
+            using var world = new PhysicsWorld();
+            world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+            var f = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
+            var forward = f.Frame.Forward;
+            var left = AiControl.Guard(Hand.Left, f.ArmReach);
+            var guard = AiControl.Guard(Hand.Right, f.ArmReach);
+            var right = far ? guard + new Vector3(0f, 0f, 2f * f.ArmReach) : guard;
+            FighterCommand Command(Vector3 r) => new(Vector3.Zero, forward, new HandCommand(left, false), new HandCommand(r, false), Vector3.Zero);
+            Step(world, f, Command(guard), 1f);
+            var start = f.PelvisPosition;
+            Step(world, f, Command(right), 1.5f);
+            return Vector3.Dot(f.PelvisPosition - start, forward);
+        }
     }
 
     private static void Step(PhysicsWorld world, Fighter f, FighterCommand command, float seconds)

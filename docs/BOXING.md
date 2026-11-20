@@ -151,6 +151,45 @@ coupling = ( a² + 0.55 · (1 − a²) ) × 関節の健全度
 - **縮めないと**、目標の距離の分だけ欲しい力が増え（奥 10 cm で 115 N）、20 cm から先は全部の歩で力の上限（約 62 N）に当たって頭打ちになる。拳の速さは 6 m/s 前後、エネルギーは 4 倍（2.7 → 11.6 J）。縮めない体は腕の届かない所を引き続けるので試合には使わない（反事実）。
 - 今の経路は、伸びきりであごの間合いでも胸に当たった（あごの奥へ打ち抜く点の下側を通る）。あごへ一度に置くと首（頭の箱の底）に当たる。奥へ置くと拳の線が上がってあごに当たる。
 
+### 1-9. 拳を引く筋肉（`ArmMuscle`、2026-11-20、PhysicsVersion 63、ブランチ claude/hill-muscle）
+
+拳を目標へ引く力を、PD のバネを上限で切る形から、人の筋肉の作り（神経の指令 → 活性化 → Hill 型の力）に寄せた。
+
+- **指令**: PD（`HandKp`・`HandKd`・目標の速度のフィードフォワード）は脳が出す指令の役。欲しい力 ÷ 最大の力（腕の筋力 `MaxHandForce` × 肉の残り × 体を借りる倍率 `PunchMechanics.ForceMultiplier`。意味は前と同じ）を長さ 1 に飽和させた興奮。拳を引く指令の目標は肩から腕の長さの球に縮めない（`ClampHandTarget` = false。腕の形の IK はいつも届く範囲で解く）。届かない点を狙えば全力の指令。
+- **活性化**: 胸のフレームの ±X・±Y・±Z の 6 つの筋のまとまり（主動筋と拮抗筋の対）が、指令の各成分の正の部分を一次遅れで追う（立ち上がり `MuscleActivationTime` 9 ms・緩み `MuscleDeactivationTime` 36 ms = 人の 15・60 ms × 相似則 0.596）。全力で出している主動筋はすぐには抜けず、止める筋（拮抗筋）は遅れて効く。ブレーキ（`HandKd`）も同じ式を通る。
+- **力 = 活性化 × 最大の力 × 関節の力の出しやすさ × 速さの関係**: まとまりの引く向きを、肩から拳への向き（肘の伸ばす・曲げる筋）と、それに直交する向き（肩の筋）に分ける。
+  - 肘: トルクと角度の関係（`ElbowTorque`: 90° で 1、伸びきり・曲げきりで 0.5、Kulig 1984・Murray 1995）× 構えのてこ / 今のてこ（てこ = 肩から拳の距離が肘の角度で変わる割合 L1 L2 sin θ / r、拳の向きへのヤコビアン）を 1 で頭打ち。伸びきりに近いほど同じトルクで拳を押す力は大きいので、肘のトルクが落ちても伸びきりの手前で押す力は抜けない。構えを超える分は骨と関節の制限（物理エンジンの拘束）が受け持つ。曲げきった腕からは弱い（肘 130° で 0.58）。
+  - 速さの関係は Hill の双曲線（`HandMuscleCurvature` a/F0 = 0.25）、伸ばされると 1.5 倍まで（`HandMuscleEccentricMax`）。関節の角速度で数える: 肘・肩とも最大 40 rad/s（線維 × 10 線維長/s ÷ てこ）× 相似則 → 67 rad/s（`ElbowMuscleMaxSpeed`・`ShoulderMuscleMaxSpeed`）。肘 90° の人形の腕で、拳を押し出す速さの上限 5.0 m/s、横へ振る速さの上限 9.9 m/s。伸びきりの近くは肘の角速度へのてこが大きく（10° で頭打ち）、外へ動く拳は押せない。
+  - 疲れ（`TiredHandSlowness`）は最大の縮む速さを下げる（1/v' = 1/v + slowness）。前の直線の近似を置き換え、二重にしない。
+  - 速さの関係が出す粘りは伸びきりの近くで固い（てこの比の 2 乗）ので、粘りの分は 1 歩先の速さで解く（後退オイラー: F / (1 + b dt / m)）。
+- **反作用**: 拳を押す力のうち体に反作用の無い分（腕の筋力の反作用の半分 `HandReactionShare` と、脚と腰から借りる分）は、腕が拳を力の向きへ押し出している間だけ効く（力の向きの肩に対する拳の速さが `BodyBorrowSpeed` 0.5 m/s で 0 → 1）。止まった腕の力は内力として全部を胸へ返す（届かない目標を狙い続ける腕は、前は 1.5 秒で体を 13 cm 前へ運んだ。今は 2.4 cm で、構えのまま立つ体と同じ）。
+- **体の姿勢**（胴のひねり・踏ん張り・体軸と作用線）は前と同じ `PunchMechanics` が最大の力の側で受け持つ。腕の関節の姿勢だけをこの式に入れたので、二重に数えない。
+
+**拳 1 点の版と関節ごとの版**: 最初は長さの関係を腕の伸び具合（肩から拳の距離 / 腕の長さ）の放物線で入れた（伸びきりで 0.5、コミット 07d5fa6）。拳の向きの力は肘のトルク ÷ てこなので、伸びきりに近いほど拳を押す力は肘のトルクより大きくなる（ヤコビアン）。拳 1 点の版はこれと逆向きに弱くしていたので、関節ごとの版に替えた。
+
+**測った結果**（生の記録 `docs/arena/muscle_punchlab.md`・`docs/arena/muscle_matches.md`）:
+
+| 右ストレート（punchlab、守らない相手） | 打ち出しの最高速 [m/s] | 当たった瞬間 [m/s] | エネルギー [J] | 脳しんとう |
+|---|---|---|---|---|
+| 62 相当・届く・今の経路 | 3.42 | 3.29 | 2.76 | 0.003 |
+| 63（関節ごと）・届く・今の経路 | 2.80 | 2.80 | 2.79 | 0.016 |
+| 62 相当・届く・0 秒で狙いへ | 3.19 | 1.78 | 0.64 | 0.004 |
+| 63・届く・0 秒で狙いへ | 2.60 | 2.39 | 1.86 | 0.000 |
+| 62 相当・伸びきりであご・頭の奥 10 cm | 3.43 | 2.55 | 2.72 | 0.194 |
+| 63・伸びきりであご・頭の奥 10 cm | 2.97 | 2.47 | 2.70 | 3.455（6 本とも倒れた） |
+
+- **当たる手前のブレーキは消えた**: 打ち出しの最高速と当たった瞬間の差が小さい（今の経路 3.42 → 3.29 が 2.80 → 2.80、狙いへ置いても 2.60 → 2.39）。全力の主動筋は緩みの時定数より速くは抜けない。
+- **振り出しは遅くなった**: 最高速 3.4 → 2.8〜3.0 m/s。前の体は拳の速さで力が落ちなかった（速さの上限が無い）。人の値から出した最大の縮む速さでは、拳が 2〜3 m/s で肘の力は等尺の 2〜3 割に落ちる。
+- 伸びきりであごの間合いで頭の奥へ打つと、拳があごに当たった後も押し続け（指令は届かない点へ全力）、頭の回転が 7 → 31 rad/s になり、6 本とも倒れた。打ち手のつんのめり（骨盤が前へ出た距離）は 4〜7 cm で、前（打ち手は倒れない）と同じく倒れなかった。
+
+| 打ち合い（champion:swarmer・counter:slugger、60 秒、種 8〜15） | 当たり | 当たった瞬間 p50 / p90 | 打ち出しの最高速 p50 / p90 | 乗る質量 p50 | エネルギー平均 | 光が出る割合 | あざ | 倒れた / 打たれずに | ダウン |
+|---|---|---|---|---|---|---|---|---|---|
+| 62 相当 | 1619 | 1.07 / 3.13 | 2.74 / 4.08 | 0.49 | 1.41 J | 29 % | 202 | 81 / 14 | 69 |
+| 63 拳 1 点（最初の版） | 1573 | 0.85 / 2.33 | 2.14 / 3.08 | 0.63 | 1.12 J | 28 % | 220 | 95 / 16 | 78 |
+| 63 関節ごと | 1530 | 0.86 / 2.36 | 2.21 / 3.16 | 0.60 | 0.98 J | 26 % | 154 | 86 / 21 | 76 |
+
+試合の拳は遅く・軽くなった（1 発のエネルギー 1.41 → 0.98 J）。勝ち負けの向きは変わらない（champion が swarmer に 7/8、counter は slugger に 0/8）。**この版はまだ試合の体にしていない**（全テストで 26 件が落ちる。docs/arena/muscle_matches.md の「残った問題」）。
+
 ## 2. 部位ダメージと打撃音（`HitZones.cs` / `BodyCondition.cs` / `Audio/`）
 
 **この節のダメージ（点数）は、動きに影響しません。** 点数が溜まったから反応が遅れる・よろめく、といった点数による性能低下はありません。
@@ -266,7 +305,7 @@ coupling = ( a² + 0.55 · (1 − a²) ) × 関節の健全度
 | スウェー | `FighterTuning.HipBackLeanShare`（後ろへ反らすときに腰が受け持つ割合。首ではなく上体ごと反る） |
 | 意識の段階 | `FighterTuning.FullToneConsciousness`（ふらつき始め）・`KnockoutConsciousness`（意識が途切れて倒れきる）・`FaintTone`・`FaintSag`（腰の落ち）・`FaintArmStrength`（腕の力）・`LimpConsciousness`（床に伸びる）・`ConcussionRecoveryRate`（戻る速さ、一定）、ダウンからの起き上がりは `RiseTime`・`DownHeightRatio`・`RecoverHeightRatio`・`RecoverHold`、ボットのガードの下げは `BoxerBot.FaintGuardDrop` |
 | 体の動きとタメを拳へ | `FighterTuning.BodyToFistTime`（渡す速さ）・`BodyToFistEfficiency`（拳の速さになる割合）・`LeadSpringHz`・`LeadSpringDamping`（拳の目標の先走りを戻すバネ）、タメの量は `HoverKp`（屈んだ脚）・`UprightKp`（傾いた・ひねった胸）、`LooseHandDamping`（振り出しの間のブレーキ）、ボットは全ての拳の振り出しで使う（`HandCommand.Spring`）。溜めの引きは `BoxerBot.LoadTwistRear`・`LoadTwistLead`・`LoadDip`、打ち抜く先へ目標が届く速さは `PunchSpec.LaunchShare` |
-| 拳の追従 | `FighterTuning.HandKp`・`HandKd`（拳のバネ）、VR の `VrPlayerControl.MotionGain`（動きの倍率） |
+| 拳の追従 | `FighterTuning.HandKp`・`HandKd`（脳の指令）、拳を引く筋肉 `MuscleActivationTime`・`MuscleDeactivationTime`・`ElbowMuscleMaxSpeed`・`ShoulderMuscleMaxSpeed`・`HandMuscleCurvature`・`HandMuscleEccentricMax`・`ElbowTorque` の値・`BodyBorrowSpeed`（§1-9）、VR の `VrPlayerControl.MotionGain`（動きの倍率） |
 | へこみ・色 | `FighterTuning.DentDepthPerDamage`、`MaxDentDepthPerHit`、`DentSpread`、`MaxDentRatio`、`ModelSubdivisions` |
 | ボクセルの体 | `FighterTuning.VoxelSize`、`CarvePerDamage`、`ChipSpeed`、`OrganDeathFraction`、`MinMuscleStrength`、`StandStrength`、`Voxels/BoxerAnatomy.cs`（[VOXEL_DAMAGE.md](VOXEL_DAMAGE.md)） |
 
