@@ -80,7 +80,8 @@ public sealed class BoneBreakTests
 
         Assert.IsNull(VoxelBending.FindBreak(limb, Vector3.Zero, new Vector3(0f, 0f, -4000f)), "a weapon's rule: flesh never snaps, so nothing does");
         Assert.IsNull(VoxelBending.FindBreak(limb, Vector3.Zero, new Vector3(0f, 0f, -50f), beamAxis: 0, loadBearingOnly: true), "a light push holds");
-        var broke = VoxelBending.FindBreak(limb, Vector3.Zero, new Vector3(0f, 0f, -4000f), beamAxis: 0, loadBearingOnly: true);
+        // 強い押し: 骨が折れる境目は約 4200 N（人形の単位では約 400 N で、以前の 400 N の押しは境目ちょうどだった）。境目から離して 5000 N で押す。
+        var broke = VoxelBending.FindBreak(limb, Vector3.Zero, new Vector3(0f, 0f, -5000f), beamAxis: 0, loadBearingOnly: true);
         Assert.IsNotNull(broke, "a hard push in the middle snaps the bone");
         Assert.IsInRange(3, 6, broke.Value.Slice, "near the middle");
     }

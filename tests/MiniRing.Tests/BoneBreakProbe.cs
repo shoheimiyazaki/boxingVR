@@ -58,10 +58,19 @@ public sealed class BoneBreakProbe
             var grid = BoxerAnatomy.Build(kind, half, tuning.VoxelSize);
             var axis = kind is BodyPartKind.Forearm or BodyPartKind.UpperArm ? 0 : 1;
             var across = axis == 0 ? Vector3.UnitZ : Vector3.UnitZ;
+            // 折れる力を ×1.1 の格子で上から挟み、二分法で 0.1 % まで詰める（格子だけでは ±10 % の段になって比べられない）。
+            bool Breaks(float f) => Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, Vector3.Zero, -across * f, axis, loadBearingOnly: true) is not null;
             var force = 1f;
-            while (force < 1e6f && Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, Vector3.Zero, -across * force, axis, loadBearingOnly: true) is null)
+            while (force < 1e6f && !Breaks(force))
             {
                 force *= 1.1f;
+            }
+
+            var low = force / 1.1f;
+            while (force - low > force * 1e-3f)
+            {
+                var mid = (low + force) * 0.5f;
+                if (Breaks(mid)) { force = mid; } else { low = mid; }
             }
 
             var k = Aigis.Physics.Voxels.VoxelBending.BeamStiffness(grid, across, axis, loadBearingOnly: true) ?? 0f;

@@ -19,9 +19,9 @@ public sealed class BreakCameraTests
     private static TvWound Wound(bool red, float score, bool healing = false) => new(red, Body: null!, Grid: default, Name: "右すね", Score: score) { Healing = healing };
 
     [TestMethod]
-    [DataRow(10f)]
-    [DataRow(20f)]
-    [DataRow(30f)]
+    [DataRow(16.78f)] // 休みの長さ [試合の s]（人形の単位の 10・20・30 s）
+    [DataRow(33.57f)]
+    [DataRow(50.35f)]
     public void PlanBreak_KeepsToTheBreakRules_ForEveryLengthHighlightAndWoundCount(float length)
     {
         var director = Director();
@@ -70,9 +70,9 @@ public sealed class BreakCameraTests
     }
 
     [TestMethod]
-    [DataRow(20f)]
-    [DataRow(26.7f)]
-    [DataRow(33.3f)]
+    [DataRow(33.57f)]
+    [DataRow(44.81f)]
+    [DataRow(55.89f)]
     public void PlanBreak_HoldsEachShotLongEnough_NoRapidSwitching(float length)
     {
         // 2026-11-18、ユーザー: インターバル中に選手を正面から映すカメラが短い周期でパカパカ入れ替わる（2.0〜4.0 秒のカットだった）。

@@ -34,7 +34,7 @@ public sealed class AttackPerceptionTests
         var sense = new FighterSense(default, 0.5634f, Vector3.UnitY * 2.817f, Vector3.Zero, true);
         var observed = new AttackObservation(sense, -Vector3.UnitY * 1.678f);
         var aim = observed.Aim(PunchSpec.Of(Technique.Jab), AimGoal.Center, Vector3.Zero, sense.ArmReach, 0.4196f);
-        Assert.AreEqual(2.817f * 0.75f, aim.Y, 1e-4f);
+        Assert.AreEqual(2.817f - (1.678f * 0.4196f), aim.Y, 1e-4f); // 頭の高さ − 見えた速さ × 先読み（人形の単位では 1 − 1 × 0.25 = 0.75）
         Assert.AreEqual(0f, aim.X, 1e-6f);
         Assert.AreEqual(0f, aim.Z, 1e-6f);
     }

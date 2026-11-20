@@ -156,7 +156,7 @@ public sealed class VrMotionTests
         var frame = clip.Sample(0.45f); // 突きの最中（左手はトリガーを離している）
         Assert.IsTrue(frame.LeftSlide);
         var small = VrMotionImitation.ToCommand(frame, Sense(0.5296f), Vector3.UnitZ);
-        var big = VrMotionImitation.ToCommand(frame, Sense(1.059f), Vector3.UnitZ);
+        var big = VrMotionImitation.ToCommand(frame, Sense(0.5296f * 2f), Vector3.UnitZ);
         Assert.AreEqual(0f, (small.Right.TargetLocal - (frame.RightTarget * 0.5296f)).Length(), 1e-6f);
         Assert.AreEqual(0f, (small.Left.TargetLocal - (frame.LeftTarget * 0.5296f)).Length(), 1e-6f);
         // 腕の長さが 2 倍の人形の目標は、ちょうど 2 倍（比が保たれる）。

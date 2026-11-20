@@ -14,7 +14,7 @@ public sealed class BodyCarryTests
     public void BodyCarry_IsTheBodysOwnClosingSpeedOverTheFists()
     {
         Assert.AreEqual(0f, PunchMechanics.BodyCarry(0f, 5.035f), 1e-6f, "体が止まって腕だけ伸ばした: 体は何も運ばない");
-        Assert.AreEqual(0.5f, PunchMechanics.BodyCarry(2.518f, 5.035f), 1e-6f, "体が 2.5 m/s で近づく: 半分");
+        Assert.AreEqual(0.5f, PunchMechanics.BodyCarry(2.5175f, 5.035f), 1e-6f, "体が 2.52 m/s で近づく: 半分");
         Assert.AreEqual(1f, PunchMechanics.BodyCarry(6.714f, 5.035f), 1e-6f, "体の方が速くても 1 まで（腕が縮む分は運ばない）");
         Assert.AreEqual(0f, PunchMechanics.BodyCarry(-1.678f, 5.035f), 1e-6f, "下がりながら打つ体は運ばない");
         Assert.AreEqual(0f, PunchMechanics.BodyCarry(1.678f, 0f), 1e-6f, "当たる速さが無ければ 0");
