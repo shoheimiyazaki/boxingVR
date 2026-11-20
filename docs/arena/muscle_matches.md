@@ -66,15 +66,16 @@
 - 比べ直し（65関節ごと − 62相当、種 8-15 × 組、試合ごとの対）光が出る割合 [%]: n=16 平均の差 -2.252 ± 1.306（95% 区間 -5.035〜0.531）符号検定 p=0.2101（+5/-11/=0）ρ=0.62 → 差なし
 - 比べ直し（65関節ごと − 62相当、種 8-15 × 組、試合ごとの対）打ち出しの最高速 p50 [m/s]: n=16 平均の差 -0.546 ± 0.061（95% 区間 -0.676〜-0.416）符号検定 p=0.0000（+0/-16/=0）ρ=0.75 → B が上
 
-## 残った問題（全テスト、tower32、1288 件中 1250 通過・28 落ち・10 実行しない）
+## 残った問題（全テスト、tower32、1288 件中 1255 通過・23 落ち・10 実行しない。チェックサムを取り直した後）
 
-枝の元（punch-path）で既に落ちていたのは TonfaTests.ScriptedStraightPunch と BuildReadTests の 2 件。この版で新しく落ちるのは 26 件。テストは緩めていない。
+枝の元（punch-path）で既に落ちていたのは TonfaTests.ScriptedStraightPunch と BuildReadTests の 2 件。この版で新しく落ちるのは 21 件。テストは緩めていない。
 
 | まとまり | テスト | 中身 | 見立て |
 |---|---|---|---|
-| チェックサム | CharacterSamenessTests 4 件・StepCostRegressionTests | 記録した試合のチェックサムが変わる | 体の物理を変えたので当然。CharacterSamenessProbe（tower32）で取り直した（コミット 99becf8） |
 | 拳が遅くなった | StaminaRushTests（連打の始め 10 秒の拳 2.11 < 2.2 m/s）、StaminaBudgetTests（空の腕の 1 発目が満タンの 0.70 倍 > 0.65） | Hill の速さの関係で、疲れていない拳がもう速さで頭打ち。疲れで落ちる割合が小さく見える | 物理として説明できる。採るなら期待値を測り直す |
 | 一撃で倒れる | EvasionBasicsTests（守らない相手が 1 発目で倒れる、8 種とも） | あごに当たった後も届かない点へ全力の指令で押し続け、頭が回る（punchlab の頭の奥 5・10 cm で頭の回転 7 → 31 rad/s） | 物理の結果だが、ゲームとして強すぎる。打ち抜いた後に指令を戻す経路（技の側）か、当たってからの筋の反射が要る |
 | 蹴り・肘 | KickShinTests 2 件、KickContactTests（かかと落としの後に立っていられない）、ElbowContactTests（突き上げの肘が当たらない） | 蹴る間の腕（釣り合い）・肘の経路が変わった | 調べていない |
-| 武器 | SwordTests・JointBridgeTests 2 件・BojutsuTests（返し）・ShieldTests（自傷 183 > 150）・WeaponGraspTests・TonfaTests（剣を受ける木） | 武器の振りは速さの関係で遅くなり、斬れる量が減る | 物理の結果。武器の型は前の体で決めた値なので、採るなら型の見直しが要る |
+| 武器 | SwordTests・JointBridgeTests 2 件・BojutsuTests（返し）・ShieldTests（自傷 183 > 150）・WeaponGraspTests・TonfaTests（剣を受ける木） | 武器の振りは速さの関係で遅くなり、斬れる量が減る（guardlab の受け手の死 25 → 6: `docs/arena/muscle_guardlab.md`） | 物理の結果。武器の型は前の体で決めた値なので、採るなら型の見直しが要る |
 | 体の動き | StepTests（ステップ 0.431 > 0.4 m）、BootSnagTests（斜めに歩いて 3 秒止まる）、LegLossTests 2 件（腰が 0.2 mm 上がる）、GrapplingTests（崩しが 2.5 cm < 5 cm）、BotTests（屈んでいる割合 31 % > 30 %）、GroundStrikeTests（倒れた相手へ 10 秒で当てる種 1/3 < 2/3） | 止まった腕の力を内力にしたので、腕で体を支える・引く近道の力が変わった（`BodyBorrowSpeed` の近道を外すと BootSnag・LegLoss・Stick は通る） | 前の値が近道の力の上で決めた値。採るなら一つずつ見直す |
+
+連打（RushPhysicsProbe.RushVersusPatientOutcome、種 1〜4 × 30 秒）: 前へ押しながらの弱の連打はダウンを 8 奪い 1 奪われる、溜めた強を 1 発ずつは 3 奪い 7 奪われる（連打が強い形はこの版でも残る）。
