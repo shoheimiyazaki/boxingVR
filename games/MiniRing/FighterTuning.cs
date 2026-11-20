@@ -142,8 +142,8 @@ public sealed record FighterTuning
     public float MaxHandForce { get; init; } = 35f;
 
     /// <summary>
-    /// 拳を引く指令（PD）の目標を肩から腕の長さの球の中へ縮めてから使うか。既定の false が試合の体（PhysicsVersion 63）: 指令はボットの置いた
-    /// 点へ向け、届かない点を狙えば全力の指令になる（腕の形 = 肩・肘のサーボの IK はいつも届く範囲で解く）。true は前の体（62 まで）を
+    /// 拳を引く指令（PD）の目標を肩から腕の長さの球の中へ縮めてから使うか。既定の false が試合の体（PhysicsVersion 65）: 指令はボットの置いた
+    /// 点へ向け、届かない点を狙えば全力の指令になる（腕の形 = 肩・肘のサーボの IK はいつも届く範囲で解く）。true は前の体（PhysicsVersion 60、punch-path まで）を
     /// 測るための反事実（punchlab の <c>--clamp true</c>）。試合には使わない。
     /// </summary>
     public bool ClampHandTarget { get; init; }

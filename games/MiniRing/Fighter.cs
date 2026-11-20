@@ -208,7 +208,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 63; // 63: 拳を引く力を Hill 型の筋肉に（指令 → 活性化の遅れ → 力 = 活性化 × 最大の力 × 長さ × 速さの関係、拮抗筋のブレーキ）、指令の目標を届く距離に縮めない。61・62 は claude/glove-v2・neck-muscle が使う。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 65; // 65: 拳を引く力を Hill 型の筋肉に（指令 → 活性化の遅れ → 力 = 活性化 × 最大の力 × 長さ × 速さの関係、拮抗筋のブレーキ）、指令の目標を届く距離に縮めない。62・63 は master（顔・CT の体）、64 は claude/neck-muscle が使う。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
