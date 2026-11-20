@@ -39,6 +39,9 @@ public sealed record FaceShape(float CraniumHalf, float CheekHalf, float JawHalf
 
     public const float JawRow = 19.5f;
 
+    /// <summary>あご先の下端のいちばん上（行）。あごの角（<see cref="JawRow"/>）から 6.5 行より短いと、放物線の終わりで 1 行に 4 セル細って角ばった（ヨアンドリ）。</summary>
+    public const float MinChinBottom = 26f;
+
     /// <summary>あご先の幅のあごの幅に対する比（調べた比の範囲 0.30〜0.60 の中ほどより細め）。</summary>
     public const float ChinRatio = 0.42f;
 
@@ -87,7 +90,7 @@ public sealed record FaceShape(float CraniumHalf, float CheekHalf, float JawHalf
         // 頬骨の幅: 頭の幅の 0.94 倍を基準に、頬骨の値で ±（0.08 × 差）。
         var cheek = MathF.Min(cranium, cranium * 0.94f * (1f + (0.08f * (p.Cheekbones - 1f))));
         var jawHalf = MathF.Min(cheek, jaw * p.FaceWidth * p.JawWidth);
-        return new FaceShape(cranium, cheek, jawHalf, Math.Clamp(bottom, 22f, FacePartLibrary.RefHeight - 1f), p.BrowRidge, p.Cheekbones, p.Jaw);
+        return new FaceShape(cranium, cheek, jawHalf, Math.Clamp(bottom, MinChinBottom, FacePartLibrary.RefHeight - 1f), p.BrowRidge, p.Cheekbones, p.Jaw);
     }
 
     /// <summary>あごの部品の正面の絵から、頭の半幅（額〜目の行の最大）・あごの半幅（あごの角の 3 行の平均）・あご先の下端（最後の詰まった行の下の縁）を測る。</summary>

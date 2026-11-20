@@ -208,7 +208,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 60; // 60: 生成した武器は、構えへ追いつく 1 秒と、そのとき重なっていた所が一度離れるまで、握った本人に当たらない（六尺棒が開始 0 秒で自分の首を折った）。58 は claude/glove-v2 が使う。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 62; // 62: シンプルな顔（頭は頭蓋の超楕円体 ＋ あごの塊の距離の場、鼻は単純な形、目は幅 3〜4 × 高さ 2〜3・黒目 1 セル、顔の外へ出る頭蓋骨・首の皮膚は残さない）。61 は claude/glove-v2 が使う。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
