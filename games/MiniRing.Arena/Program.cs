@@ -26,7 +26,7 @@ try
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
         "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
         "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
-        "punchlab" => PunchLabCommand(Options.Parse(argv[1..], "aim", "paths", "defenders", "ranges", "reach", "far", "seeds", "telegraph", "nocap", "log", "video", "slow", "width", "height", "fps")),
+        "punchlab" => PunchLabCommand(Options.Parse(argv[1..], "study", "depths", "aim", "paths", "defenders", "ranges", "reach", "far", "seeds", "telegraph", "nocap", "log", "video", "slow", "width", "height", "fps")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
         "groundlab" => GroundLabCommand(Options.Parse(argv[1..], "style", "moves", "bouts", "seconds", "seed", "log", "video", "practice", "candidates", "sigma", "validate")),
         "kickbalance" => KickBalanceCommand(Options.Parse(argv[1..], "style", "kicks", "teachings", "bouts", "seconds", "seed", "confirm", "log", "video")),
@@ -946,6 +946,36 @@ static int PunchLabCommand(Options o)
     }
 
     var setups = new List<PunchLab.Setup>();
+    if (o.Get("study") is { } study)
+    {
+        // 頭の向こう側の実験: 腕が伸びきったときに拳の先がちょうどあごに触れる間合いで、手を下げて立つ相手へ、今の経路・0 秒であごへ・0 秒で頭の奥（奥行きごと）。
+        // 反事実として、目標を肩から腕の長さの球へ縮めない体（測るだけ）。
+        if (study != "beyond")
+        {
+            throw new ArgumentException($"--study は beyond です（{study}）。");
+        }
+
+        var depths = o.List("depths", ["0.05", "0.1", "0.2", "0.4"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
+        PunchLab.Setup B(PunchLabPath p, float depth = 0f, bool noClamp = false) => new(p, "still", "chin", 0f, false, MiniRing.AimGoal.Chin, depth, noClamp);
+        setups.Add(B(PunchLabPath.Standard));
+        setups.Add(B(PunchLabPath.Instant));
+        setups.AddRange(depths.Select(d => B(PunchLabPath.Beyond, d)));
+        setups.Add(B(PunchLabPath.Instant, noClamp: true));
+        setups.AddRange(depths.Select(d => B(PunchLabPath.Beyond, d, true)));
+        if (o.Get("video") is { } beyondVideo)
+        {
+            var standard = B(PunchLabPath.Standard);
+            var beyondScenes = new List<(PunchLab.Setup, PunchLab.Setup)> { (standard, B(PunchLabPath.Instant)) };
+            beyondScenes.AddRange(depths.Select(d => (standard, B(PunchLabPath.Beyond, d))));
+            beyondScenes.Add((standard, B(PunchLabPath.Beyond, depths[^1], true)));
+            PunchLab.Video(beyondScenes, seeds[0], telegraph, o.Float("slow", 8f, min: 1f), o.Int("width", 1280, min: 320), o.Int("height", 720, min: 240), o.Int("fps", 30, min: 5), beyondVideo, Log, closeUp: true);
+            return 0;
+        }
+
+        new PunchLab(telegraph, Log).Run(setups, seeds);
+        return 0;
+    }
+
     foreach (var d in defenders)
     {
         foreach (var r in ranges)

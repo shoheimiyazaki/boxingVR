@@ -141,6 +141,12 @@ public sealed record FighterTuning
     public float LooseHandDamping { get; init; } = 0.3f;
     public float MaxHandForce { get; init; } = 35f;
 
+    /// <summary>
+    /// 拳の目標を肩から腕の長さの球の中へ縮めてから追うか（既定の true が試合の体）。false は調べもの専用の反事実（punchlab の <c>--noclamp</c>）:
+    /// 腕の届かない先に置いた目標をそのまま PD のバネに掛けて、届く距離の縮めが拳の力を頭打ちにしているかを測る。試合には使わない。
+    /// </summary>
+    public bool ClampHandTarget { get; init; } = true;
+
     /// <summary>手首の筋肉（武器を握ったとき、武器を向きの目標へ回すサーボ）の固さ [Hz]。</summary>
     public float WristServoHz { get; init; } = 15f;
 

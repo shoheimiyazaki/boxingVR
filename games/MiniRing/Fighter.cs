@@ -1176,6 +1176,9 @@ public sealed partial class Fighter
         return f.LinearVelocity + Vector3.Cross(f.AngularVelocity, GloveCenter(hand) - f.Position);
     }
 
+    /// <summary>最後に拳を目標へ引いた歩の中身（縮める前と後の目標・拳・欲しかった力・力の上限・実際の力。調べもの用: punchlab）。</summary>
+    internal HandDriveTrace HandTrace(Hand hand) => _arms[(int)hand].Trace;
+
     /// <summary>上腕と前腕の質量（体を使わずに拳に乗る質量）。</summary>
     public float ArmMass(Hand hand) => _world.GetMass(_arms[(int)hand].UpperArm) + _world.GetMass(_arms[(int)hand].Forearm);
 
@@ -4388,6 +4391,9 @@ public sealed partial class Fighter
         /// <summary>この歩で拳を目標へ押した力 [N]（ワールド。<see cref="Fighter.HandPush"/>）。</summary>
         public Vector3 LastForce { get; set; }
 
+        /// <summary>最後に <see cref="Drive"/> が拳を引いたときの中身（調べもの用。試合の計算には使わない）。</summary>
+        public HandDriveTrace Trace { get; private set; }
+
         /// <summary>拳の先に引いている武器の質量（<see cref="Fighter.CarriedMass"/> が毎歩決める）。</summary>
         public float CarriedMass { get; set; }
 
@@ -4568,9 +4574,10 @@ public sealed partial class Fighter
         {
             var shoulder = ShoulderPosition(world, chestId);
             var reach = UpperLength + LowerLength;
-            var planned = ArmIk.ClampReach(shoulder, frame.LocalToWorld(targetLocal), reach);
+            var rawTarget = frame.LocalToWorld(targetLocal);
+            var planned = tuning.ClampHandTarget ? ArmIk.ClampReach(shoulder, rawTarget, reach) : rawTarget;
             PlannedTarget = planned;
-            var target = Lead == Vector3.Zero ? planned : ArmIk.ClampReach(shoulder, planned + Lead, reach);
+            var target = Lead == Vector3.Zero ? planned : tuning.ClampHandTarget ? ArmIk.ClampReach(shoulder, planned + Lead, reach) : planned + Lead;
             LastTarget = target;
 
             // 目標速度（フィードフォワード）。キャリブレーション等の瞬間移動が力のスパイクにならないよう上限付き。
@@ -4624,6 +4631,7 @@ public sealed partial class Fighter
             }
 
             var force = ClampLength(desired, cap);
+            Trace = new HandDriveTrace(rawTarget, target, glove, gloveVelocity.Length(), desired.Length(), cap, force.Length());
             return (force, ClampLength(force, armForce));
         }
     }
@@ -4637,3 +4645,9 @@ internal readonly record struct HeldWeapon(int Body, Vector3 GripLocal, int? Soc
 /// 手首の筋肉（握りに届く前は null）。
 /// </summary>
 internal readonly record struct SupportGrip(int Body, Vector3 GripLocal, Hand Main, Vector3 MainGrip, int? Socket, int? Wrist = null, bool Reaching = false);
+
+/// <summary>
+/// 拳を目標へ引いた 1 歩の中身（調べもの用。試合の計算には使わない）: 入力の目標（ワールド、肩から腕の長さの球へ縮める前）・縮めた後の目標・拳の中心・拳の速さ [m/s]・
+/// PD が欲しかった力 [N]（加速度 × 腕の質量）・力の上限 [N]（腕の筋力 × 体を借りられる倍率）・実際に掛けた力 [N]。
+/// </summary>
+internal readonly record struct HandDriveTrace(Vector3 RawTarget, Vector3 Target, Vector3 Glove, float GloveSpeed, float Desired, float Cap, float Force);
