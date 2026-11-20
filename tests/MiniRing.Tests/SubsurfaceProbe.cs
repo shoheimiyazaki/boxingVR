@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調べもの: グローブの試合で、皮膚の下で潰れたセル・面で壊れたセルを、部位ごと・材質ごとに数える。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class SubsurfaceProbe
 {
     public TestContext TestContext { get; set; } = null!;

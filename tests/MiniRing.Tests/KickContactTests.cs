@@ -10,7 +10,7 @@ public sealed class KickContactTests
 {
     private const float Dt = 1f / 240f;
 
-    private sealed record KickResult(int Hits, int VictimCellsLost, float MinPelvis, float StartPelvis, FighterState AttackerState,
+    internal sealed record KickResult(int Hits, int VictimCellsLost, float MinPelvis, float StartPelvis, FighterState AttackerState,
         float MaxSpeed, float Mass, float MinAnkleToTarget, IReadOnlyList<KickPart> Parts, float MaxYawDeviation);
 
     private static int Cells(Fighter f) => f.Voxels!.Parts.Concat(f.Voxels.Fragments).Sum(p => p.Body.Grid.FilledCount);
@@ -27,7 +27,7 @@ public sealed class KickContactTests
     /// <summary>足は腕より短い（高い所ほど近づかないと届かない）: 蹴りごとの、胸と胸の距離（腕の長さ倍）。</summary>
     private static float ApproachOf(KickTechnique kind) => KickSpec.Of(kind).Standoff;
 
-    private static KickResult Run(KickTechnique kind, Hand side = Hand.Right, float durationScale = 1f, float closeIn = 0f)
+    internal static KickResult Run(KickTechnique kind, Hand side = Hand.Right, float durationScale = 1f, float closeIn = 0f)
     {
         // 蹴られる側は立って構えるだけ。蹴る側（赤）は台本の指令で歩いて詰め、止まって蹴る。
         using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("still", _ => new StandGuard()));
@@ -148,20 +148,6 @@ public sealed class KickContactTests
         // 0.45〜0.72 rad の間を動く（掃いた 9 点: 0.453・0.484・0.580・0.596・0.609・0.625・0.718・0.718・0.718。足が相手に 4〜5 回触れる反作用で軸足のまわりに体が回る分）。
         // 命令の向きは変えていない。回る蹴り（横 1.42・後ろ 3.13・回し 1.81 rad）とは 2 倍近く分かれる。
         Assert.IsLessThan(0.8f, results[KickTechnique.Axe].MaxYawDeviation);
-    }
-
-    [TestMethod]
-    [TestCategory("Probe")]
-    public void CloseInSweep_Probe()
-    {
-        foreach (var kind in new[] { KickTechnique.Back, KickTechnique.Axe })
-        {
-            foreach (var c in new[] { -0.04f, -0.02f, 0f, 0.01f, 0.02f, 0.03f, 0.04f, 0.06f, 0.08f })
-            {
-                var r = Run(kind, closeIn: c);
-                Console.WriteLine($"SWEEP {kind} closeIn {c:F2}: hits {r.Hits}, parts [{string.Join(',', r.Parts)}], speed {r.MaxSpeed:F2}, ankle {r.MinAnkleToTarget:F3}, pelvis {r.StartPelvis:F3}->{r.MinPelvis:F3}, {r.AttackerState}, yaw {r.MaxYawDeviation:F3}");
-            }
-        }
     }
 
     [TestMethod]

@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調査用: スタミナの減り方・戻り方（通常の実行から外す: 名前に Probe）。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class StaminaProbe
 {
     [TestMethod]

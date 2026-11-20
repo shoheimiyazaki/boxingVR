@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調査用: ボクセルのグローブとこれまでの拳（箱の当たり + エネルギーで掘る）を、同じボット同士の試合で比べる。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class GloveProbe
 {
     [TestMethod]

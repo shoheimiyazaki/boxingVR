@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 /// 首の調査用: 打たれていないときの首の揺れ、打たれたときに頭が持っていかれる量（拳の重さ・速さ別）、スウェーで上体と首のどちらが傾くか。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class NeckProbe
 {
     private const float Dt = 1f / 240f;

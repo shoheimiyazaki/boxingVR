@@ -11,6 +11,7 @@ namespace MiniRing.Tests;
 /// 層が無い・重み 0 なら判断はビット単位で今まで通り。相手の表は試合の相手のキャラから入り、記録の再生で同じになる。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class GamePlanTests
 {
     private const float Dt = 1f / 60f;

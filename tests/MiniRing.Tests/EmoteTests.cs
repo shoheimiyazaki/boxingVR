@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 /// 始めの映像で腕が真横に伸びない（T 字なし）・終わりのカット割り・記録 → 再生でビット単位に同じ。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class EmoteTests
 {
     private const float Dt = 1f / 60f;

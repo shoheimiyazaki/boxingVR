@@ -10,6 +10,7 @@ namespace MiniRing.Tests;
 /// 着いた足が滑り、構えの直しの踏み出しが止まらなかった（30 秒で 40〜80 cm、170〜260 歩）。直した後は 4 cm 以内・数歩。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class SlideTests
 {
     private const float Dt = 1f / 240f;

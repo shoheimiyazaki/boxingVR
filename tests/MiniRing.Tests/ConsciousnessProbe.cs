@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 /// 意識の段階ごとの体の見え方の調査用: 意識を一定に保ったまま 3 秒立たせ、腰がどれだけ落ちるか・倒れるか・拳（ガード）がどれだけ下がるか。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class ConsciousnessProbe
 {
     private const float Dt = 1f / 240f;
@@ -83,6 +84,7 @@ public sealed class ConsciousnessProbe
 }
 
 [TestClass]
+[TestCategory("Probe")]
 public sealed class HeadProportionProbe
 {
     [TestMethod]
@@ -102,6 +104,7 @@ public sealed class HeadProportionProbe
 }
 
 [TestClass]
+[TestCategory("Probe")]
 public sealed class HeadCarveProbe
 {
     [TestMethod]

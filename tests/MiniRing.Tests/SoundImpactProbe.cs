@@ -7,6 +7,7 @@ using MiniRing.Weapons;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("Probe")]
 public sealed class SoundImpactProbe
 {
     [TestMethod]

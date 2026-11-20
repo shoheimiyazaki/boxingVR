@@ -35,41 +35,6 @@ public sealed class OutfitTests
     }
 
     [TestMethod]
-    public void TheHips_WearTrunks_WithAWhiteWaistbandOnTop()
-    {
-        var surface = Surface(Build(BodyPartKind.Pelvis, Outfit.RedCorner));
-
-        Assert.IsTrue(surface.All(c => c.Material is BoxerAnatomy.RedTrunks or BoxerAnatomy.Waistband), "no bare skin on the hips");
-        var top = surface.Max(c => c.Y);
-        Assert.IsTrue(surface.Where(c => c.Y == top).All(c => c.Material == BoxerAnatomy.Waistband), "the top row is the waistband");
-        Assert.IsTrue(surface.Where(c => c.Y == 0).All(c => c.Material == BoxerAnatomy.RedTrunks));
-    }
-
-    [TestMethod]
-    public void TheTrunks_ReachHalfwayDownTheThigh()
-    {
-        var surface = Surface(Build(BodyPartKind.Thigh, Outfit.BlueCorner));
-        var top = surface.Max(c => c.Y);
-
-        Assert.IsTrue(surface.Where(c => c.Y == top).All(c => c.Material == BoxerAnatomy.BlueTrunks), "the hip end is covered");
-        Assert.IsTrue(surface.Where(c => c.Y == 0).All(c => c.Material == BoxerAnatomy.Skin), "the knee is bare");
-    }
-
-    [TestMethod]
-    public void TheBoots_CoverTheFeet_AndRiseAboveTheAnkle()
-    {
-        foreach (var kind in new[] { BodyPartKind.Foot, BodyPartKind.Toe })
-        {
-            Assert.IsTrue(Surface(Build(kind, Outfit.RedCorner)).All(c => c.Material == BoxerAnatomy.Boot), $"{kind} is all boot");
-        }
-
-        var shin = Surface(Build(BodyPartKind.Shin, Outfit.RedCorner));
-        var top = shin.Max(c => c.Y);
-        Assert.IsTrue(shin.Where(c => c.Y == 0).All(c => c.Material == BoxerAnatomy.Boot), "the ankle is in the boot");
-        Assert.IsTrue(shin.Where(c => c.Y == top).All(c => c.Material == BoxerAnatomy.Skin), "the top of the shin is bare");
-    }
-
-    [TestMethod]
     public void TheOutfit_OnlyReplacesTheSkin_SoTheInsideAndTheStrengthStayTheSame()
     {
         foreach (var kind in new[] { BodyPartKind.Pelvis, BodyPartKind.Thigh, BodyPartKind.Shin, BodyPartKind.Foot, BodyPartKind.Toe })

@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 標準出力に表を出す（--logger "console;verbosity=detailed"）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class PostureProbe
 {
     private const float Dt = 1f / 240f;

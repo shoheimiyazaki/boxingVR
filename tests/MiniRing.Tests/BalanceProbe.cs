@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 支えを床から出す体（<see cref="FighterTuning.SupportFromGround"/>）と前の体を比べる。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class BalanceProbe
 {
     private const float Dt = 1f / 240f;
@@ -101,6 +102,7 @@ public sealed class BalanceProbe
 }
 
 [TestClass]
+[TestCategory("Probe")]
 public sealed class BlackoutBalanceProbe
 {
     [TestMethod]
@@ -125,6 +127,7 @@ public sealed class BlackoutBalanceProbe
 }
 
 [TestClass]
+[TestCategory("Probe")]
 public sealed class RiseProbe
 {
     [TestMethod]
@@ -168,6 +171,7 @@ public sealed class RiseProbe
 }
 
 [TestClass]
+[TestCategory("Probe")]
 public sealed class ResonanceProbe
 {
     [TestMethod]

@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>ドリル動画と同じ設定（swarmer の守り、打ち返す、合図なし・予測あり、左フック、種 4）で、ウィービング中の上体の前傾と返しの拳の数を見る調査用。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class WeaveVideoProbe
 {
     [TestMethod]

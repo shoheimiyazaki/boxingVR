@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// （--logger "console;verbosity=detailed"）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class BatProbe
 {
     private static int Cells(Fighter f) => f.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);

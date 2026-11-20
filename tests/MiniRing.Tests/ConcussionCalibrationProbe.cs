@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 1 試合あたりのダウン・意識の最小・ダメージを数える。倍率は環境変数 CONCUSSION_SCALES（例 "1,10,30"）。直す前の版と比べるのに使う。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class ConcussionCalibrationProbe
 {
     private const float Dt = 1f / 60f;

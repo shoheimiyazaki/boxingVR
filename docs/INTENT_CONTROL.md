@@ -83,12 +83,7 @@ dotnet run --project games/MiniRing.Arena -c Release -- intentvideo --script doc
 
 物理の版は 18、ボットの判断の版は 16 のまま。swarmer 対 champion（種 3/17）各 20 秒の全 2,400 ホスト歩で、切り出し前と同じチェックサムになる fixture を残した。意図操作の記録は別に全 480 歩のチェックサムを照合する。
 
-固定値は同じ CPU／ランタイム環境での抽出検証専用。通常テストでは同じ環境で 2 回実行して比較する。今回の生成環境は Windows 10.0.26200、win-x64、.NET 10.0.11（SDK 10.0.400）、AMD64 Family 23 Model 96 Stepping 1。今回の固定値と明示比較する場合:
-
-```powershell
-$env:MINIRING_VERIFY_EXTRACTION = '1'
-dotnet test tests/MiniRing.Tests -c Release --filter FullyQualifiedName~BotExecutionBaseline
-```
+（2026-11-20: 切り出し前の固定値の fixture と、それと比べる環境変数は外した。`BotExecutionBaselineTests` は同じビルドで 2 回回して毎歩を比べるだけ。決定性の本体は `ReplayTests`。）
 
 18 歩保持した右手のピークは 2.015 m/s、1 歩の短押しは 1.897 m/s。前へ歩きながら保持すると 2.284 m/s（種 43、1 秒構えた後、解放後 18 歩で測定）。物理モデルへの加算倍率はない。
 

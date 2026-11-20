@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 /// 自分の動きだけでの HeadJolt の大きさも出す（--logger "console;verbosity=detailed"）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class ImpactProbe
 {
     private int _downs;
@@ -71,6 +72,7 @@ public sealed class ImpactProbe
 
 /// <summary>ダウンの原因の調査用: ダウンした瞬間の意識・脳しんとう・脚の力・直前 1 秒の被弾を出す。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class KnockdownProbe
 {
     [TestMethod]

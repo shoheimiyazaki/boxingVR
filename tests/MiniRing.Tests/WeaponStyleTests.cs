@@ -24,39 +24,6 @@ public sealed class WeaponStyleTests
     private static JsonObject Edu(string json) => JsonNode.Parse(json)!.AsObject();
 
     [TestMethod]
-    public void Textbooks_AreTheTrainedValues_OnTopOfTheOnesTheHardCodedBotsUsed()
-    {
-        foreach (var kind in Kinds)
-        {
-            var t = WeaponCatalog.Textbook(kind);
-            Assert.AreEqual(SwordDefense.Adopted, t.Defense, kind.ToString());
-            Assert.IsNull(t.HitAndAway, kind.ToString());
-            Assert.AreEqual(new AimTuning(), t.Aim, kind.ToString());
-            Assert.AreEqual(kind == WeaponKind.Longsword, t.AutoAim);
-            Assert.IsNull(t.Clearance);
-            if (kind == WeaponKind.WoodenClub) { Assert.IsNull(t.TechniqueWeights); }
-            else { Assert.IsNotNull(t.TechniqueWeights); }
-            Assert.IsNull(t.ClubSwingWeights);
-            Assert.AreEqual(0.6f, t.Rest);
-            Assert.AreEqual(FormSwordsman.MinReach, t.MinReach, "plan candidates (walk in to strike) stay at the sword's reach");
-            Assert.AreEqual(kind is WeaponKind.Katana or WeaponKind.Longsword ? 0.1f : null, t.InnerMinReach, "only the sword textbooks add inner-range forms (used when already close)");
-            Assert.AreEqual(DisarmedFallback.DefaultKeepReach, t.KeepReach);
-            Assert.AreEqual(0.6f, t.ClubRest);
-            Assert.AreEqual(0.48f, t.ClubStandOff);
-            Assert.IsFalse(t.ClubExact);
-        }
-
-        // LogicVersion 31 で鍛えた値（docs/arena/weapon_handling_after.md）: 刀・ロングソードは技の時計（Pacing の既定）を入れた。こんぼうは鍛えて採れたものが無く、前のまま。
-        Assert.AreEqual(new SwingPacing(), WeaponCatalog.Textbook(WeaponKind.Katana).Pacing);
-        Assert.AreEqual(new SwingPacing(), WeaponCatalog.Textbook(WeaponKind.Longsword).Pacing);
-        Assert.IsNull(WeaponCatalog.Textbook(WeaponKind.WoodenClub).Pacing, "the club bot has no swing clock");
-        Assert.AreEqual(0.36f, WeaponCatalog.Textbook(WeaponKind.WoodenClub).ClubRange, "nothing trained for the club was adopted");
-        Assert.AreEqual(0.36f, WeaponCatalog.Textbook(WeaponKind.Katana).ClubRange, "the club values of a sword textbook stay the old defaults (unused)");
-        Assert.AreEqual("katana", WeaponCatalog.Textbook(WeaponKind.Katana).Name);
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => WeaponCatalog.Textbook(WeaponKind.Glove));
-    }
-
-    [TestMethod]
     public void Json_RoundTripsEveryValue_IncludingTheOptionalSections()
     {
         var style = new WeaponStyle

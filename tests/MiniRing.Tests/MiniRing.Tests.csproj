@@ -15,7 +15,6 @@
     <Compile Include="..\..\games\MiniRing.Desktop\MenuView.cs" Link="MenuView.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuIcons.cs" Link="MenuIcons.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuSettings.cs" Link="MenuSettings.cs" />
-    <None Update="bot-execution-baseline.txt" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="..\..\games\MiniRing\MiniRing.csproj" />
     <ProjectReference Include="..\..\games\MiniRing.Vr\MiniRing.Vr.csproj" />
     <!-- Arena（対戦場・テレビ中継の道具）は InternalsVisibleTo で中まで参照する（以前はファイルを取り込んでいた）。 -->

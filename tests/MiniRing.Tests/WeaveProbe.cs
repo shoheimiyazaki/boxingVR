@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 /// ウィービングの調査用: 合図なし（自分の目と読みで反応する）で、左右のフックとコンビネーションのフックをどれだけきれいに通過させるか。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class WeaveProbe
 {
     [TestMethod]

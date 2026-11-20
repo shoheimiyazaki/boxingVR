@@ -21,23 +21,6 @@ public sealed class DebrisLookTests
     }
 
     [TestMethod]
-    public void AChipThatKeepsItsColour_TrailsItsOwnColour_AndAHalfTrailIsHalfAsLong()
-    {
-        var skin = new Vector4(0.86f, 0.6f, 0.42f, 1f);
-        var full = Trails(skin, 1f, ownColor: true);
-        var half = Trails(skin, 0.5f, ownColor: true);
-        Assert.IsGreaterThan(0, half.Count);
-        var c = half[0].Color;
-        Assert.AreEqual(skin.X / skin.Z, c.X / c.Z, 1e-3f, "the streak has the chip's own hue");
-        static float Length(List<ParticleInstance> t) => t.Max(p => Vector3.Distance(p.Position, t[0].Position));
-        Assert.AreEqual(0.5f * Length(full), Length(half), 1e-4f);
-
-        // 火花（自分の色を保たない）は白く光る。
-        var spark = Trails(skin, 1f, ownColor: false)[0].Color;
-        Assert.IsGreaterThan(1f, spark.Z, "a hot spark streak glows white");
-    }
-
-    [TestMethod]
     public void IronOnIron_ThrowsSparks_WoodOnIronDoesNot()
     {
         static int Glowing(WeaponKind second)

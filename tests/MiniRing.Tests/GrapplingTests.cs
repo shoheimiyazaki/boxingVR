@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 組み技の物理（docs/GRAPPLING.md）: 支えを床から出す体（崩し）、肘の靭帯（関節技）、掴んで投げる（場合分けなし）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class GrapplingTests
 {
     private const float Dt = 1f / 240f;

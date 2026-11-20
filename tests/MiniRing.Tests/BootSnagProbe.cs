@@ -2,6 +2,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調べもの: 1 体がリングの上を歩くときの足の引っかかり・体の停滞の表（docs/arena/boot_snag.md の元）。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class BootSnagProbe
 {
     public TestContext TestContext { get; set; } = null!;

@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// （版 43 の写しと並べるための Probe。通常の実行から外す）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class RushRangeProbe
 {
     private const float Dt = 1f / 60f;

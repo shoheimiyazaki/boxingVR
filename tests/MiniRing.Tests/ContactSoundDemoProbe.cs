@@ -14,6 +14,7 @@ namespace MiniRing.Tests;
 /// 数値（長さ・重心・高域の割合・減衰）も出す。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class ContactSoundDemoProbe
 {
     private const int Rate = ContactSound.SampleRate;

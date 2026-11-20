@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調べもの: 立っている・ふらついた体の、部位ごとのマットからの高さ（箱のいちばん低い所）。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class CanvasProbe
 {
     public TestContext TestContext { get; set; } = null!;

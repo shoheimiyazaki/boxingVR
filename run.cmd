@@ -87,10 +87,10 @@ goto :end
 rem "test" or "test fast": quick tier (no slow/visual/probe). "test all": everything but visual and probes (about an hour serially).
 rem Both write TestResults\local\<tier>.trx and print a short summary (failures, slow classes missing the "slow" tag).
 set "TIER=fast"
-set "FILTER=TestCategory!=slow&TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"
+set "FILTER=TestCategory!=slow&TestCategory!=visual&TestCategory!=Probe"
 if /i "%~2"=="all" (
   set "TIER=all"
-  set "FILTER=TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"
+  set "FILTER=TestCategory!=visual&TestCategory!=Probe"
 )
 dotnet test tests\MiniRing.Tests -c Release --filter "%FILTER%" --logger "trx;LogFileName=%TIER%.trx" --results-directory TestResults\local
 set "EXITCODE=%errorlevel%"

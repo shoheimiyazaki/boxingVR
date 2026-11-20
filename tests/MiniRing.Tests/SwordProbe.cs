@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調査用: 剣の基本の技を 1 回ずつ出して、狙った部位に何が起きたかを出す（--logger "console;verbosity=detailed"）。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class SwordProbe
 {
     [TestMethod]

@@ -16,10 +16,10 @@ public sealed class WeaponTangTests
 {
     public TestContext TestContext { get; set; } = null!;
 
-    private static readonly WeaponKind[] Swords = [WeaponKind.IronSword, WeaponKind.Katana, WeaponKind.Longsword];
+    internal static readonly WeaponKind[] Swords = [WeaponKind.IronSword, WeaponKind.Katana, WeaponKind.Longsword];
 
     /// <summary>握り（鍔より柄頭側）の x の上限 [m]（格子の座標）。鍔の位置から取る。</summary>
-    private static float GripEndX(WeaponKind kind) => kind switch
+    internal static float GripEndX(WeaponKind kind) => kind switch
     {
         WeaponKind.IronSword => -0.106f,
         WeaponKind.Katana => -0.159f + 0.085f - 0.00125f,
@@ -44,7 +44,7 @@ public sealed class WeaponTangTests
     }
 
     /// <summary>刃の先を横から押して、柄（鍔の手前）で折れる最小の力 [N]。柄で折れなければ無限大。</summary>
-    private static float GripBreakForce(WeaponKind kind, Vector3 across)
+    internal static float GripBreakForce(WeaponKind kind, Vector3 across)
     {
         var grid = Weapon.Build(kind, BoxerAnatomy.RedGlove, null);
         var tip = new Vector3(grid.HalfExtents.X - 0.01f, 0f, 0f);
@@ -59,48 +59,6 @@ public sealed class WeaponTangTests
         }
 
         return float.PositiveInfinity;
-    }
-
-    /// <summary>柄の断面（YZ 平面）を文字で書く（# = 鉄、w = 木）: 柄の真ん中と、鍔の手前、柄頭の手前。目で確かめる用。</summary>
-    [TestMethod]
-    public void Probe_GripCrossSections()
-    {
-        foreach (var kind in Swords)
-        {
-            var grid = Weapon.Build(kind, BoxerAnatomy.RedGlove, null);
-            var last = (int)MathF.Floor((GripEndX(kind) + grid.HalfExtents.X) / grid.CellSize.X) - 1;
-            foreach (var x in new[] { 3 * last / 4, last / 2, last / 4 })
-            {
-                TestContext.WriteLine($"{kind} slice {x} of grip (x {-grid.HalfExtents.X + ((x + 0.5f) * grid.CellSize.X):0.000} m):");
-                for (var y = grid.Dimensions.Y - 1; y >= 0; y--)
-                {
-                    var row = new System.Text.StringBuilder();
-                    for (var z = 0; z < grid.Dimensions.Z; z++)
-                    {
-                        var m = grid.At(x, y, z);
-                        row.Append(m == BoxerAnatomy.Iron ? '#' : m == BoxerAnatomy.Wood ? 'w' : '.');
-                    }
-
-                    if (row.ToString().Any(c => c != '.'))
-                    {
-                        TestContext.WriteLine("  " + row);
-                    }
-                }
-            }
-        }
-    }
-
-    [TestMethod]
-    public void Probe_GripBreakForce()
-    {
-        foreach (var kind in Swords)
-        {
-            var grid = Weapon.Build(kind, BoxerAnatomy.RedGlove, null);
-            var z = GripBreakForce(kind, Vector3.UnitZ);
-            var y = GripBreakForce(kind, Vector3.UnitY);
-            TestContext.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                $"{kind}: cells wood {grid.Remaining(BoxerAnatomy.Wood)} iron {grid.Remaining(BoxerAnatomy.Iron)}; grip breaks at Z {z:0.0} N, Y {y:0.0} N"));
-        }
     }
 
     [TestMethod]

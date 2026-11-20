@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>前へ折る（腰を折って頭を U 字に）ウィービングの形を比べる調査用（合図なし・予測あり、左フック）。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class WeaveFormProbe
 {
     [TestMethod]

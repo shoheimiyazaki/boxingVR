@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 /// 集計は標準出力にも出す（--logger "console;verbosity=detailed" で見える。調整の目安）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class MatchStatsProbe
 {
     [TestMethod]

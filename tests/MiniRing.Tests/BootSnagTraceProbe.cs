@@ -2,6 +2,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調べもの: 指定した道を歩く足・骨盤の位置の経過と、引っかかっている間の接触、原因を切り分ける実験。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class BootSnagTraceProbe
 {
     public TestContext TestContext { get; set; } = null!;

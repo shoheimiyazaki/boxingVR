@@ -13,6 +13,7 @@ namespace MiniRing.Tests;
 /// docs/video/vfc_regrowth_closeup.mp4 と、休みごとの PNG を書く。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 [TestCategory("visual")]
 public sealed class RegrowthVisualProbe
 {

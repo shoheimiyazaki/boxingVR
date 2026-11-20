@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 右は息切れで青くなった顔。.visualcheck/bruise_vs_cyanosis.png に書く。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 [TestCategory("visual")]
 public sealed class BruiseColorVisualProbe
 {

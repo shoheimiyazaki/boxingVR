@@ -3,6 +3,7 @@ using MiniRing.Bots;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("Probe")]
 public sealed class ZzGroundSeedsProbe
 {
     [TestMethod]

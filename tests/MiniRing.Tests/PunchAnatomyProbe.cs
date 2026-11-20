@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// 最大の時刻と当たった時刻の値を並べる。溜めた拳がなぜ当たる瞬間に速くならないかを見る。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class PunchAnatomyProbe
 {
     private const float Dt = 1f / 240f;

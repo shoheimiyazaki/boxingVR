@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調査用: 肩・腕の寸法（体フレーム、腕の長さ倍）。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class ElbowGeometryProbe
 {
     [TestMethod]

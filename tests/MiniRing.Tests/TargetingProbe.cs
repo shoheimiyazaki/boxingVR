@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調査用: 狙いどころの重みで、当たる場所がどう変わるか（通常の実行から外す: 名前に Probe）。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class TargetingProbe
 {
     [TestMethod]

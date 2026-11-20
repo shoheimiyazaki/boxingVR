@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 /// 回避からの返しの調査用: 拳のバネを緩める（回避で動いた体の運動量が拳に乗る）と、返しの拳の速さ・運動エネルギー・当たる割合がどう変わるか。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class CounterSpringProbe
 {
     private const float Dt = 1f / 240f;
@@ -85,6 +86,7 @@ public sealed class CounterSpringProbe
 }
 
 [TestClass]
+[TestCategory("Probe")]
 public sealed class CounterHitDetailProbe
 {
     [TestMethod]
@@ -123,6 +125,7 @@ public sealed class CounterHitDetailProbe
 }
 
 [TestClass]
+[TestCategory("Probe")]
 public sealed class CounterTraceProbe
 {
     [TestMethod]

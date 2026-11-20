@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>守りのドリルの内訳（打った数・頭・ガード・そのほか・守りを出した数）。版 43 の写しと並べるための Probe（通常の実行から外す）。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class DrillCompareProbe
 {
     [TestMethod]

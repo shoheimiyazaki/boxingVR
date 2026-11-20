@@ -7,7 +7,7 @@ namespace MiniRing.Tests;
 [TestClass]
 public sealed class FacePartLibraryTests
 {
-    private static FaceSpec Spec(params (string Category, string Id, float Weight)[] choice)
+    internal static FaceSpec Spec(params (string Category, string Id, float Weight)[] choice)
     {
         var parts = FacePartLibrary.Categories.ToDictionary(c => c, c => (IReadOnlyDictionary<string, float>)new Dictionary<string, float> { [$"{c}.1"] = 1f });
         parts["beard"] = new Dictionary<string, float>();
@@ -19,7 +19,7 @@ public sealed class FacePartLibraryTests
         return new FaceSpec(parts, FaceParts.Default);
     }
 
-    private static readonly string[] Names = ["Taro", "Ren", "Gaston", "Narong", "Yoandry"];
+    internal static readonly string[] Names = ["Taro", "Ren", "Gaston", "Narong", "Yoandry"];
 
     private static string Embedded(string name)
     {
@@ -179,42 +179,34 @@ public sealed class FacePartLibraryTests
         }
     }
 
-    /// <summary>調査用: FACE_DUMP_DIR に、組み立てた顔の格子を文字で書く（tools/face-parts/render.py が絵にする）。</summary>
     [TestMethod]
-    [TestCategory("Probe")]
-    public void Probe_DumpFaces()
+    public void EveryRosterCharacter_HasFaceColours_AndNoTwoShareAFace()
     {
-        var dir = Environment.GetEnvironmentVariable("FACE_DUMP_DIR");
-        if (string.IsNullOrEmpty(dir))
+        var faces = new HashSet<string>();
+        foreach (var c in MiniRing.Characters.CharacterRoster.All)
         {
-            Assert.Inconclusive("FACE_DUMP_DIR を指定してください。");
+            Assert.IsNotNull(c.Face.Skin, c.Id + " skin");
+            Assert.IsNotNull(c.Face.Hair, c.Id + " hair");
+            Assert.IsNotNull(c.Face.Iris, c.Id + " iris");
+            var v = FaceComposer.Compose(c.Face, 20, 28, 20);
+            faces.Add(string.Concat(v.Cells.Select(m => (char)('a' + (int)m))) + c.Face.Skin + c.Face.Hair + c.Face.Iris);
         }
 
-        Directory.CreateDirectory(dir);
-        const string symbols = ".shbwilenft";
-        void Dump(string name, FaceSpec spec)
-        {
-            var v = FaceComposer.Compose(spec, 20, 28, 20);
-            var colors = FacePalette.Resolve(spec).ToDictionary(c => symbols[(int)c.Key].ToString(), c => $"#{(int)((c.Value.X * 255f) + 0.5f):X2}{(int)((c.Value.Y * 255f) + 0.5f):X2}{(int)((c.Value.Z * 255f) + 0.5f):X2}");
-            File.WriteAllText(Path.Combine(dir, name + ".txt"), $"{v.Nx} {v.Ny} {v.Nz}\n{JsonSerializer.Serialize(colors)}\n" + new string([.. v.Cells.Select(c => symbols[(int)c])]));
-        }
+        Assert.HasCount(MiniRing.Characters.CharacterRoster.All.Count, faces, "no two fighters share a face");
+    }
 
-        foreach (var character in MiniRing.Characters.CharacterRoster.All)
-        {
-            Dump("roster_" + character.Id, character.Face);
-        }
-
-        foreach (var name in Names)
-        {
-            Dump(name, FaceSpec.For(name));
-        }
-
-        foreach (var category in new[] { "eyes", "brows", "mouth", "nose", "ears", "jaw", "hair", "beard", "browridge" })
-        {
-            for (var i = 1; i <= FacePartLibrary.Default.Parts(category).Count; i++)
-            {
-                Dump($"part_{category}_{i}", Spec((category, $"{category}.{i}", 1f)));
-            }
-        }
+    [TestMethod]
+    public void Load_StopsOnABadFrizzOrDensity()
+    {
+        var all = FacePartLibrary.Categories.ToDictionary(c => c, Embedded);
+        var baseJson = Embedded("base");
+        var badFrizz = all.ToDictionary(p => p.Key, p => p.Value);
+        badFrizz["hair"] = all["hair"].Replace("\"frizz\": 0.85", "\"frizz\": 2", StringComparison.Ordinal);
+        Assert.AreNotEqual(all["hair"], badFrizz["hair"]);
+        Assert.ThrowsExactly<InvalidDataException>(() => FacePartLibrary.Load(baseJson, badFrizz));
+        var badDensity = all.ToDictionary(p => p.Key, p => p.Value);
+        badDensity["beard"] = all["beard"].Replace("\"density\": 0.45", "\"density\": 0", StringComparison.Ordinal);
+        Assert.AreNotEqual(all["beard"], badDensity["beard"]);
+        Assert.ThrowsExactly<InvalidDataException>(() => FacePartLibrary.Load(baseJson, badDensity));
     }
 }
