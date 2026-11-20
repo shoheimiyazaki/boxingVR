@@ -208,7 +208,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 59; // 59: master の 57（顔の層・手の層）と、この枝の 53（滑りの直し・足の運びの構えを骨盤で寄せる・すべての関節のつなぎ）を合わせた。58 は claude/glove-v2 が使う。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 60; // 60: 生成した武器は、構えへ追いつく 1 秒と、そのとき重なっていた所が一度離れるまで、握った本人に当たらない（六尺棒が開始 0 秒で自分の首を折った）。58 は claude/glove-v2 が使う。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
