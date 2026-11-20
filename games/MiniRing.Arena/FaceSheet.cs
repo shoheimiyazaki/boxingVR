@@ -25,9 +25,19 @@ internal static class FaceSheet
         Matrix4x4.CreateRotationY(40f * MathF.PI / 180f),
     ];
 
+    /// <summary>名簿のキャラ（体格・顔の値はキャラのファイル）を 1 人 1 行で描く。</summary>
+    public static int RunRoster(string path, IReadOnlyList<MiniRing.Characters.FighterCharacter> characters)
+        => Draw(path, characters.Select(c => (c.Id, (Func<BoxingGame>)(() => new BoxingGame(seed: 1, corners: new BoxingCorners(c.Id, s => BotCatalog.Create("champion", s),
+            CpuBody: c.Build, CpuFace: c.Look.Parts, CpuLook: c.Look, CpuFaceSpec: c.Face))))).ToList());
+
     public static int Run(string path, IReadOnlyList<Contender> contenders, int columns)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(columns, 1);
+        return Draw(path, contenders.Select(c => (c.Name, (Func<BoxingGame>)(() => new BoxingGame(seed: 1, corners: new BoxingCorners(c.Name, s => c.Create(s), CpuBody: c.Build, CpuFace: c.Face))))).ToList());
+    }
+
+    private static int Draw(string path, IReadOnlyList<(string Name, Func<BoxingGame> Create)> contenders)
+    {
         var width = Views.Length * Tile;
         var height = contenders.Count * Tile;
         var rgba = new byte[width * height * 4];
@@ -39,7 +49,7 @@ internal static class FaceSheet
         for (var i = 0; i < contenders.Count; i++)
         {
             var c = contenders[i];
-            using var game = new BoxingGame(seed: 1, corners: new BoxingCorners(c.Name, s => c.Create(s), CpuBody: c.Build, CpuFace: c.Face));
+            using var game = c.Create();
             var head = game.Cpu.Voxels!.PartOf(game.Cpu.Parts.Head)!.Body.Grid;
             var face = game.Cpu.Voxels!.Face?.Body.Grid;
             VoxelGrid[] grids = face is null ? [head] : [head, face];
