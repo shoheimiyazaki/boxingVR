@@ -14,23 +14,23 @@ public sealed class OrganizationMatchTests
     public void WvcRulesAreTheTelevisionRulesUnchanged()
     {
         var wvc = Organizations.Get("wvc");
-        Assert.AreEqual(TvShowRules.Rules(3, 20f), TvShowRules.Rules(3, 20f, wvc));
+        Assert.AreEqual(TvShowRules.Rules(3, 33.57f), TvShowRules.Rules(3, 33.57f, wvc));
     }
 
     [TestMethod]
     public void VfcRulesCountNoDownsJudgeNothingRegrowAndResupply()
     {
-        var rules = TvShowRules.Rules(5, 25f, Organizations.Get("vfc"));
+        var rules = TvShowRules.Rules(5, 41.96f, Organizations.Get("vfc"));
         Assert.IsFalse(rules.CountsDowns);
         Assert.IsFalse(rules.JudgesDecision);
         Assert.AreEqual(0f, rules.RegenVoxelsPerSecond, "no budgeted healing (the WVC model)");
-        Assert.AreEqual(0.0005f, rules.RegrowthSpeed, "wounds grow back from the living edge in the breaks");
-        Assert.AreEqual(0.25f, rules.RegrowthTickSeconds);
-        Assert.AreEqual(3f, rules.StuckDoublingSeconds);
+        Assert.AreEqual(0.000839f, rules.RegrowthSpeed, "wounds grow back from the living edge in the breaks");
+        Assert.AreEqual(0.4196f, rules.RegrowthTickSeconds);
+        Assert.AreEqual(5.035f, rules.StuckDoublingSeconds);
         Assert.IsTrue(rules.ResupplyWeapons);
-        Assert.AreEqual(20f, rules.BruiseHalfLifeSeconds, "skin bruises fade in the breaks, as in the WVC");
+        Assert.AreEqual(33.57f, rules.BruiseHalfLifeSeconds, "skin bruises fade in the breaks, as in the WVC");
         Assert.AreEqual(5, rules.Rounds);
-        Assert.AreEqual(25f, rules.BreakSeconds);
+        Assert.AreEqual(41.96f, rules.BreakSeconds);
         // MatchRules.Vfc（試合の芯の決まり）と同じ決まりになる。
         // 始め・終わりの待ち時間（エモート）は TV の撮影だけが足すので、それを除けば同じ。
         Assert.AreEqual(MatchRules.Vfc, rules with { IntroSeconds = 0f, EndSeconds = 0f });
@@ -56,7 +56,7 @@ public sealed class OrganizationMatchTests
         var armed = TvShowRules.Stage(BotCatalog.Corners("boxer") with { CpuWeapon = Weapons.WeaponKind.Katana, PlayerWeapon = Weapons.WeaponKind.Longsword }, vfc);
         Assert.AreEqual(RingLayout.WeaponsCage, armed.Layout);
 
-        // 剣と素手の組も広い檻（素手の 1.3 m の檻では剣の間合いが檻の半分を占めた。2026-11-19、ユーザー: 小さすぎる）。
+        // 剣と素手の組も広い檻（素手の 1.3 m（人形の単位。実物大で 3.66 m）の檻では剣の間合いが檻の半分を占めた。2026-11-19、ユーザー: 小さすぎる）。
         var mixed = TvShowRules.Stage(BotCatalog.Corners("boxer") with { PlayerWeapon = Weapons.WeaponKind.Longsword }, vfc);
         Assert.AreEqual(RingLayout.WeaponsCage, mixed.Layout);
 
@@ -69,8 +69,8 @@ public sealed class OrganizationMatchTests
     public void VfcMatchFromTheOrganizationFileRunsInTheCage()
     {
         var vfc = Organizations.Get("vfc");
-        using var game = new BoxingGame(seed: 3, corners: TvShowRules.Stage(BotCatalog.Corners("boxer"), vfc), rules: TvShowRules.Rules(5, 25f, vfc), mood: vfc.ArenaMood);
-        for (var i = 0; i < 240; i++)
+        using var game = new BoxingGame(seed: 3, corners: TvShowRules.Stage(BotCatalog.Corners("boxer"), vfc), rules: TvShowRules.Rules(5, 41.96f, vfc), mood: vfc.ArenaMood);
+        for (var i = 0; i < 403; i++) // 約 1.68 秒
         {
             game.Step(default, 1f / 240f);
         }

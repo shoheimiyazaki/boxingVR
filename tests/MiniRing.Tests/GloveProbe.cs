@@ -21,7 +21,7 @@ public sealed class GloveProbe
                 using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("x", s => BotCatalog.Create("swarmer", s), s => BotCatalog.Create("champion", s), VoxelGloves: voxel));
                 var start = game.Player.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount) + game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
                 var wasDown = (false, false);
-                for (var i = 0; i < 60 * 30; i++)
+                for (var i = 0; i < 3021; i++)
                 {
                     game.Step(default, 1f / 60f);
                     hits += game.RecentHits.Count;
@@ -44,7 +44,7 @@ public sealed class GloveProbe
     public void WhoCutsTheSwordsman()
     {
         var basic = MiniRing.Weapons.SwordTechnique.Basics.First(t => t.Name == "kesa");
-        var through = basic with { Swing = basic.Swing with { StrikeFist = basic.Swing.StrikeFist + new System.Numerics.Vector3(0.1f, -0.2f, 0.35f), StrikeTime = 0.1f } };
+        var through = basic with { Swing = basic.Swing with { StrikeFist = basic.Swing.StrikeFist + new System.Numerics.Vector3(0.1f, -0.2f, 0.35f), StrikeTime = 0.1678f } };
         Dictionary<BodyPartKind, int>? before = null;
         MiniRing.Weapons.SwordDrill.Run(through, (game, t, swinging) =>
         {

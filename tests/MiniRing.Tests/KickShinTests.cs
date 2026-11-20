@@ -19,8 +19,8 @@ public sealed class KickShinTests
     {
         // 方位が +3.1 → −3.1 rad（どちらも「後ろ」寄り）の間を線形補間すると 0（前）を通ってしまう。短い方（後ろのまま）へ回る。
         var capture = Synthetic(3.1f, -3.1f);
-        var body = new LegBody(new Vector3(0f, -0.4f, 0f), new Vector3(-0.1f, -0.8f, 0f), 0.4f, 0.4f);
-        var command = capture.Evaluate(Hand.Right, 0.4f, new Vector3(0f, 0f, 0.5f), body, 0f);
+        var body = new LegBody(new Vector3(0f, -1.127f, 0f), new Vector3(-0.2817f, -2.254f, 0f), 1.127f, 1.127f);
+        var command = capture.Evaluate(Hand.Right, 0.4f, new Vector3(0f, 0f, 1.408f), body, 0f);
         var thighDirection = (command.KneeLocal!.Value - body.Hip) / body.Thigh;
         Assert.IsLessThan(-0.9f, thighDirection.Z, "the thigh stays pointing backwards while the azimuth crosses ±π");
     }
@@ -49,15 +49,15 @@ public sealed class KickShinTests
     public void TheTuneShiftsTheImpactOnly_AndKeepsTheStartOfTheKick()
     {
         var capture = CapturedKick.Load("roundhouse_low");
-        var body = new LegBody(new Vector3(0f, -0.3f, 0f), new Vector3(-0.07f, -0.6f, 0f), 0.3f, 0.3f);
-        var aim = new Vector3(0f, -0.1f, 0.4f);
+        var body = new LegBody(new Vector3(0f, -0.8451f, 0f), new Vector3(-0.1972f, -1.69f, 0f), 0.8451f, 0.8451f);
+        var aim = new Vector3(0f, -0.2817f, 1.127f);
         var tune = new KickTune(1f, 0.6f, 0.3f, 0.2f, 0f, -0.5f);
         var start = capture.Evaluate(Hand.Right, 0f, aim, body, -0.5f);
         var startTuned = capture.Evaluate(Hand.Right, 0f, aim, body, -0.5f, tune);
         Assert.AreEqual(0f, Vector3.Distance(start.KneeLocal!.Value, startTuned.KneeLocal!.Value), 1e-4f, "the window is closed at the start");
         var impact = capture.Evaluate(Hand.Right, capture.ImpactShare, aim, body, -0.5f);
         var impactTuned = capture.Evaluate(Hand.Right, capture.ImpactShare, aim, body, -0.5f, tune);
-        Assert.IsGreaterThan(0.03f, Vector3.Distance(impact.KneeLocal!.Value, impactTuned.KneeLocal!.Value), "the knee target moves at the impact moment");
+        Assert.IsGreaterThan(0.0845f, Vector3.Distance(impact.KneeLocal!.Value, impactTuned.KneeLocal!.Value), "the knee target moves at the impact moment");
     }
 
     [TestMethod]
@@ -69,7 +69,7 @@ public sealed class KickShinTests
             foreach (var t in new[] { tunes.Rear, tunes.Front })
             {
                 Assert.IsTrue(float.IsFinite(t.Standoff) && t.Standoff is > 0.5f and < 2f, name);
-                Assert.IsTrue(float.IsFinite(t.Seconds) && t.Seconds is > 0.2f and < 1.5f, name);
+                Assert.IsTrue(float.IsFinite(t.Seconds) && t.Seconds is > 0.3357f and < 2.518f, name);
             }
         }
 

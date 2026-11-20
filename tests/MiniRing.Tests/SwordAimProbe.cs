@@ -14,7 +14,7 @@ public sealed class SwordAimProbe
     public void KesaVariants()
     {
         var basic = SwordTechnique.Basics.First(t => t.Name == "kesa");
-        foreach (var time in new[] { 0.08f, 0.1f, 0.12f })
+        foreach (var time in new[] { 0.134f, 0.168f, 0.201f })
         {
             foreach (var depth in new[] { 0.3f, 0.35f, 0.4f })
             {

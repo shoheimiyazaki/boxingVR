@@ -16,15 +16,15 @@ public sealed class DamageModelTests
     [TestMethod]
     public void HeavyBlowSwungThroughTheChin_KnocksDown_ALightOneDoesNot()
     {
-        Assert.IsTrue(Blow(Chin, mass: 4.5f, speed: 2.2f).WentDown, "a heavy, fast blow to the chin drops him");
-        Assert.IsFalse(Blow(Chin, mass: 1.2f, speed: 0.9f).WentDown, "an arm punch to the chin does not");
+        Assert.IsTrue(Blow(Chin, mass: 45f, speed: 3.692f).WentDown, "a heavy, fast blow to the chin drops him");
+        Assert.IsFalse(Blow(Chin, mass: 12f, speed: 1.511f).WentDown, "an arm punch to the chin does not");
     }
 
     [TestMethod]
     public void TheSameBlowThroughTheMiddleOfTheHead_TwistsItFarLess()
     {
-        var chin = Blow(Chin, mass: 4.5f, speed: 2.2f);
-        var centre = Blow(Centre, mass: 4.5f, speed: 2.2f);
+        var chin = Blow(Chin, mass: 45f, speed: 3.692f);
+        var centre = Blow(Centre, mass: 45f, speed: 3.692f);
         Console.WriteLine($"twist: chin {chin.Twist:0.0} rad/s, through the centre {centre.Twist:0.0} rad/s");
 
         Assert.IsGreaterThan(5f * centre.Twist, chin.Twist, "off the centre of rotation, the head is twisted on the neck");
@@ -39,9 +39,9 @@ public sealed class DamageModelTests
     public void CarvingGrowsWithTheSquareOfTheSpeed()
     {
         // 削る量が数ボクセルだと、当たった所が骨か肉かで比が大きく揺れるので、数十ボクセル削れる速さで比べる。
-        var slow = Carved(speed: 1.5f);
-        var fast = Carved(speed: 3f);
-        Console.WriteLine($"carved: speed 1.5 → {slow} voxels, speed 3 → {fast}");
+        var slow = Carved(speed: 2.518f);
+        var fast = Carved(speed: 5.035f);
+        Console.WriteLine($"carved: speed 2.52 → {slow} voxels, speed 5.04 → {fast}");
 
         Assert.IsGreaterThan(0, slow);
         // 削る力は運動エネルギー（v²）で 4 倍。深く掘るほど硬い骨（肉の 8 倍）に当たるので、ボクセルの数は 4 倍より少ない。
@@ -54,8 +54,8 @@ public sealed class DamageModelTests
         var (game, cpu) = NewGame();
         using (game)
         {
-            // 意識が 0 のまま StillKoSeconds 動かないほど深い 1 発（2.2 m/s: 脳しんとう 1.3）はその場で K.O. になるので、
-            // 倒れても意識が少し残る 1 発（2.1 m/s）で、もがきながら 7 秒ほどで起き上がるまでを見る。
+            // 意識が 0 のまま StillKoSeconds 動かないほど深い 1 発はその場で K.O. になるので、倒れても意識が少し残る 1 発で、
+            // もがきながら起き上がるまでを見る（2026-11-20 実物大へ: 質量 ×10・速さ ×1.678・時間 ×1.678。下の経緯の数字は人形の単位）。
             // 2026-11-18（PhysicsVersion 45）: 脳しんとうの係数 ConcussionGain を 100 倍にした（体が運ぶ運動量を体自身の動きの分だけにしたので、
             // 試合の拳で頭をねじる運動量が約 1/7〜1/25 になった）。ここで当てる 1 発はテストが直接決める乗る質量なので、同じ脳しんとうの深さに
             // 合わせて質量を 4.5 kg → 0.7 kg にした（脳しんとうは運動量の 2 乗にほぼ比例）。測った数字（GetUpScanProbe。0.7 kg × 2.1 m/s は脳しんとう 0.90・4.2 秒で起き上がり、0.65 kg × 2.1 は 0.68 で倒れない）:
@@ -64,11 +64,11 @@ public sealed class DamageModelTests
             // （いまの試合の拳に乗る質量は腕 0.3〜0.4 kg ＋ 体の分でせいぜい 1 kg なので、0.7 kg は強い 1 発の質量）。
             // 2026-11-19（PhysicsVersion 60）: 脳しんとうを 1 つの値（頭の回転の速さ ÷ ConcussionSpin 40 rad/s の 2 乗）にした。前の拳の係数 0.0035 の約 1/5.6 なので、
             // 同じ深さの脳しんとうに合わせて体の分の質量（0.7 − 腕 0.33 kg）を √5.6 倍にし、1.2 kg にした（脳しんとうは体の分の運動量の 2 乗に比例）。
-            Hit(game, cpu, Chin(cpu), mass: 1.2f, speed: 2.2f);
+            Hit(game, cpu, Chin(cpu), mass: 12f, speed: 3.692f);
             Console.WriteLine($"concussion {cpu.Concussion:0.00}");
             var downAt = -1f;
             var upAt = -1f;
-            for (var t = 0f; t < 16f; t += Dt)
+            for (var t = 0f; t < 26.85f; t += Dt)
             {
                 game.Step(default, Dt);
                 if (downAt < 0f && cpu.State == FighterState.Down)
@@ -84,7 +84,7 @@ public sealed class DamageModelTests
 
             Console.WriteLine($"down at {downAt:0.00}s, standing again at {upAt:0.00}s, consciousness {cpu.Consciousness:0.00}");
             Assert.IsGreaterThanOrEqualTo(0f, downAt, "knocked down");
-            Assert.IsGreaterThan(downAt + 1.5f, upAt, "stays down for a while");
+            Assert.IsGreaterThan(downAt + 2.518f, upAt, "stays down for a while");
             Assert.IsTrue(upAt > 0f, "and gets back up once conscious again");
         }
     }
@@ -101,13 +101,13 @@ public sealed class DamageModelTests
             var victimBefore = Momentum(cpu.AllParts);
             var attackerBefore = Momentum(game.Player.AllParts);
             var headBefore = Momentum([cpu.Parts.Head]);
-            Hit(game, cpu, Chin(cpu), mass: 4.5f, speed: 2.2f);
+            Hit(game, cpu, Chin(cpu), mass: 45f, speed: 3.692f);
             var victimGain = Momentum(cpu.AllParts) - victimBefore;
             var attackerGain = Momentum(game.Player.AllParts) - attackerBefore;
             var headShare = (Momentum([cpu.Parts.Head]) - headBefore).Length() / victimGain.Length();
             Console.WriteLine($"victim gained {victimGain.Length():0.000} N·s, attacker {attackerGain.Length():0.000} N·s; the head took {headShare:P0}");
 
-            Assert.IsLessThan(1e-3f, (victimGain + attackerGain).Length(), "what the victim gets, the attacker loses");
+            Assert.IsLessThan(0.01678f, (victimGain + attackerGain).Length(), "what the victim gets, the attacker loses");
             Assert.IsGreaterThan(0.4f, headShare, "a fast blow leaves much of its momentum in the head it struck");
         }
     }
@@ -120,7 +120,7 @@ public sealed class DamageModelTests
             Hit(game, cpu, where(cpu), mass, speed);
             var twist = cpu.LastHeadTwist;
             var down = false;
-            for (var t = 0f; t < 2f; t += Dt)
+            for (var t = 0f; t < 3.357f; t += Dt)
             {
                 game.Step(default, Dt);
                 down |= cpu.State != FighterState.Standing;
@@ -137,7 +137,7 @@ public sealed class DamageModelTests
         {
             var before = Voxels(cpu);
             var chest = cpu.ChestPosition;
-            Hit(game, cpu, chest + (cpu.Frame.Forward * cpu.HalfExtents.Chest.Z), mass: 1.5f, speed, cpu.Parts.Chest, zone: HitZone.Body);
+            Hit(game, cpu, chest + (cpu.Frame.Forward * cpu.HalfExtents.Chest.Z), mass: 15f, speed, cpu.Parts.Chest, zone: HitZone.Body);
             return before - Voxels(cpu);
         }
     }
@@ -176,7 +176,7 @@ public sealed class DamageModelTests
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         var corners = new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s));
         var game = new BoxingGame(seed: 1, corners: corners);
-        for (var t = 0f; t < 1.5f; t += Dt)
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }

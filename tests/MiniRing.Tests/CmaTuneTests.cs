@@ -17,8 +17,8 @@ public sealed class CmaTuneTests
     [TestMethod]
     public void Punch_WithoutAttackerStyle_IsTheSameAsPassingTheDefaultAttacker()
     {
-        var plain = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: 5, seconds: 6f, cue: 0.04f);
-        var explicitAttacker = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: 5, seconds: 6f, cue: 0.04f,
+        var plain = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: 5, seconds: 10.07f, cue: 0.06714f);
+        var explicitAttacker = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: 5, seconds: 10.07f, cue: 0.06714f,
             attackerStyle: DefenseDrill.PunchAttacker("2", DefenseDrill.DefaultRange));
         Assert.AreEqual(plain, explicitAttacker, "攻め手を渡さない呼び出しは、既定の攻め手を渡した呼び出しと同じ結果");
         Assert.IsGreaterThan(0, plain.Punches);
@@ -28,10 +28,10 @@ public sealed class CmaTuneTests
     public void Punch_ChangingTheAttackersPunchBook_ChangesTheResult()
     {
         var cross = PunchBook.Default.Cross;
-        var changed = PunchBook.Default.With(Technique.Cross, cross with { Duration = 0.25f, Lateral = 0.4f });
+        var changed = PunchBook.Default.With(Technique.Cross, cross with { Duration = 0.4196f, Lateral = 0.4f });
         var attacker = DefenseDrill.PunchAttacker("2", DefenseDrill.DefaultRange) with { Punches = changed };
-        var plain = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: 5, seconds: 8f, cue: 0.04f);
-        var other = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: 5, seconds: 8f, cue: 0.04f, attackerStyle: attacker);
+        var plain = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: 5, seconds: 13.43f, cue: 0.06714f);
+        var other = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: 5, seconds: 13.43f, cue: 0.06714f, attackerStyle: attacker);
         Assert.AreNotEqual(plain, other, "攻め手の技の表が違えば、同じ種でも軌道が分かれて結果が変わる");
     }
 
@@ -42,7 +42,7 @@ public sealed class CmaTuneTests
         // 打ち返さない受け手でも、踏み込んだ攻め手の顔が受け手の構えた拳に触れて小さなダメージが出ることがある（種 2・3・7 で 1.3〜1.8）ので、
         // 「0」ではなく打ち返しより桁で小さいことを確かめる。
         // 体の運び（PhysicsVersion 45、2026-11-18）: 当たる速さが相対速度になったので、構えた受け手の拳へ攻め手が踏み込む接触
-        // （攻め手のガード・肘に 1 回 1.0〜1.4 点、押し出し 0 で腕だけの質量 0.33 kg）がきちんと数えられる。種 6 の 14 秒で
+        // （攻め手のガード・肘に 1 回 1.0〜1.4 点、押し出し 0 で腕だけの質量 0.33 kg）がきちんと数えられる。種 6 の 14 秒（人形の単位。いまは 23.5 秒）で
         // 版 43 は 打ち返す受け手 120.4 点・打ち返さない受け手 0.0 点（歩の後の拳の速さで数えていたので動かない拳は 0）、
         // いまは 打ち返す 68.9 点・打ち返さない 9.3 点（9 回）。比は 0.135（7.4 倍）なので、
         // 「桁で小さい」の 0.05 を「打ち返さない受け手は打ち返す受け手の 5 分の 1 未満」（0.2）にした。受け手が拳を打たなければ、
@@ -56,8 +56,8 @@ public sealed class CmaTuneTests
         var withoutRuns = new PunchDrillResult[seeds.Length];
         Parallel.For(0, seeds.Length, new ParallelOptions { MaxDegreeOfParallelism = 4 }, i =>
         {
-            withRuns[i] = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: seeds[i], seconds: 14f, cue: 0.04f);
-            withoutRuns[i] = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: false), seed: seeds[i], seconds: 14f, cue: 0.04f);
+            withRuns[i] = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: seeds[i], seconds: 23.5f, cue: 0.06714f);
+            withoutRuns[i] = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: false), seed: seeds[i], seconds: 23.5f, cue: 0.06714f);
         });
         var withCounters = withRuns.Sum(r => r.CounterDamage);
         var without = withoutRuns.Sum(r => r.CounterDamage);
@@ -82,12 +82,12 @@ public sealed class CmaTuneTests
     public void DrillMeter_CountsPunchAndBaseline()
     {
         var before = DrillMeter.Total;
-        DefenseDrill.Punch("2", Defense.Slip, Defender(counters: false), seed: 1, seconds: 2f, cue: 0.04f);
-        DefenseDrill.MeasureBaseline(PunchKind.Straight, 1, 2f);
+        DefenseDrill.Punch("2", Defense.Slip, Defender(counters: false), seed: 1, seconds: 3.357f, cue: 0.06714f);
+        DefenseDrill.MeasureBaseline(PunchKind.Straight, 1, 3.357f);
         var after = DrillMeter.Total;
         // 他のテストと並列に動くので、少なくとも自分の分は増えている（等号は主張しない）。
         Assert.IsGreaterThanOrEqualTo(2L, after.Calls - before.Calls);
-        Assert.IsGreaterThanOrEqualTo(4d, after.Seconds - before.Seconds);
+        Assert.IsGreaterThanOrEqualTo(6.714d, after.Seconds - before.Seconds);
     }
 
     [TestMethod]
@@ -120,14 +120,14 @@ public sealed class CmaTuneTests
     [TestMethod]
     public void DefenseTarget_PointIsFinite()
     {
-        var target = CmaTune.MakeTarget("defense:Slip", new CmaTuneConfig(["defense:Slip"], null, Seconds: 3f), BotCatalog.Champion);
+        var target = CmaTune.MakeTarget("defense:Slip", new CmaTuneConfig(["defense:Slip"], null, Seconds: 5.035f), BotCatalog.Champion);
         var point = target.Point(target.Initial(), 1000);
         Assert.IsTrue(double.IsFinite(point));
         Assert.AreEqual(target.Genes.Count, target.Initial().Length);
     }
 
     private static CmaTuneConfig Small(int generations, int? parallel = null) => new(["punch:2"], [Defense.Block], Generations: generations, Lambda: 4, Sigma: 0.15,
-        Samples: 1, Seconds: 5f, Seed: 3, ConfirmN: 0, MatchN: 0, MaxParallel: parallel);
+        Samples: 1, Seconds: 8.392f, Seed: 3, ConfirmN: 0, MatchN: 0, MaxParallel: parallel);
 
     private static CmaTuneState Read(string path) => JsonSerializer.Deserialize<CmaTuneState>(File.ReadAllText(path))!;
 

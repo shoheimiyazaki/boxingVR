@@ -42,7 +42,7 @@ public sealed class BodyToFistTests
     }
 
     /// <summary>
-    /// 0.35 秒前へ（step 正）または後ろへ（負）動いてから、右拳を構えから前へ 0.12 秒で出す。拳の最高速度と、打ち終わりの体幹の速さ。
+    /// 0.59 秒前へ（step 正）または後ろへ（負）動いてから、右拳を構えから前へ 0.2 秒で出す。拳の最高速度と、打ち終わりの体幹の速さ。
     /// </summary>
     private static (float Peak, float Trunk, float Rise) Punch(float spring, float step, bool duck = false)
     {
@@ -54,14 +54,14 @@ public sealed class BodyToFistTests
         var guard = AiControl.Guard(Hand.Right, f.ArmReach);
         var aim = guard + new Vector3(0f, 0.05f * f.ArmReach, 0.75f * f.ArmReach);
         FighterCommand Command(Vector3 move, Vector3 right, float s, float headDrop = 0f) => new(move, forward, new HandCommand(left, false), new HandCommand(right, false, s), new Vector3(0f, -headDrop, 0.25f * headDrop));
-        Step(world, f, Command(Vector3.Zero, guard, 0f), 1.5f);
+        Step(world, f, Command(Vector3.Zero, guard, 0f), 2.518f);
         var side = forward * step;
-        Step(world, f, Command(side, guard, 0f, duck ? 0.45f * f.ArmReach : 0f), 0.35f);
+        Step(world, f, Command(side, guard, 0f, duck ? 0.45f * f.ArmReach : 0f), 0.5874f);
         var peak = 0f;
         var rise = 0f;
-        for (var t = 0f; t < 0.2f; t += Dt)
+        for (var t = 0f; t < 0.3357f; t += Dt)
         {
-            var right = Vector3.Lerp(guard, aim, MathF.Min(1f, t / 0.12f));
+            var right = Vector3.Lerp(guard, aim, MathF.Min(1f, t / 0.2014f));
             f.ApplyControl(Command(Vector3.Zero, right, spring), Dt);
             world.Step(Dt);
             peak = MathF.Max(peak, f.GloveVelocity(Hand.Right).Length());

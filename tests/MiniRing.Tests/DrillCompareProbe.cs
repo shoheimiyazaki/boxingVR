@@ -11,7 +11,7 @@ public sealed class DrillCompareProbe
     [TestCategory("Probe")]
     public void EarlySlipDrill()
     {
-        var inside = new DefenseMove { HeadX = 0.5f, HeadY = -0.5f, HeadZ = -0.2f, Step = 1f, Duration = 0.3f, Rate = 60f, HandsUp = 0.3f, VsStraight = 1f };
+        var inside = new DefenseMove { HeadX = 0.5f, HeadY = -0.5f, HeadZ = -0.2f, Step = 1f, Duration = 0.5035f, Rate = 35.75f, HandsUp = 0.3f, VsStraight = 1f };
         var book = DefenseBook.Default.With(Defense.Duck, inside);
         static void KeepFresh(BoxingGame game, BoxerBot _)
         {
@@ -21,23 +21,23 @@ public sealed class DrillCompareProbe
 
         foreach (var seed in new[] { 1, 2, 3, 4, 5, 6, 7, 8 })
         {
-            var open = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: seed, seconds: 8f, telegraph: 0.08f, observe: KeepFresh);
+            var open = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: seed, seconds: 13.43f, telegraph: 0.1343f, observe: KeepFresh);
             Console.WriteLine($"EARLY seed {seed} open: {open}");
         }
     }
 
-    /// <summary>始めの 8 秒の開いた受け手: 攻め手の拳のすべての接触（部位・速さ・質量・ダメージ）と、頭と攻め手の拳の最短の距離。</summary>
+    /// <summary>始めの 13 秒（人形の単位で 8 秒）の開いた受け手: 攻め手の拳のすべての接触（部位・速さ・質量・ダメージ）と、頭と攻め手の拳の最短の距離。</summary>
     [TestMethod]
     [TestCategory("Probe")]
     public void EarlySlipHits()
     {
-        var inside = new DefenseMove { HeadX = 0.5f, HeadY = -0.5f, HeadZ = -0.2f, Step = 1f, Duration = 0.3f, Rate = 60f, HandsUp = 0.3f, VsStraight = 1f };
+        var inside = new DefenseMove { HeadX = 0.5f, HeadY = -0.5f, HeadZ = -0.2f, Step = 1f, Duration = 0.5035f, Rate = 35.75f, HandsUp = 0.3f, VsStraight = 1f };
         var book = DefenseBook.Default.With(Defense.Duck, inside);
         var t = 0f;
         foreach (var seed in new[] { 2, 5, 6 })
         {
             t = 0f;
-            var result = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: seed, seconds: 8f, telegraph: 0.08f,
+            var result = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: seed, seconds: 13.43f, telegraph: 0.1343f,
                 observe: (g, _) =>
                 {
                     t += 1f / 60f;
@@ -52,7 +52,7 @@ public sealed class DrillCompareProbe
         }
     }
 
-    /// <summary>予測する受け手の読み（OpponentRead）を、攻め手が拳を打つたびに見る: 直前 0.6 秒の確からしさと体の手がかりの最大、覚えた拳の数。</summary>
+    /// <summary>予測する受け手の読み（OpponentRead）を、攻め手が拳を打つたびに見る: 直前 1.0 秒の確からしさと体の手がかりの最大、覚えた拳の数。</summary>
     [TestMethod]
     [TestCategory("Probe")]
     public void PredictedSlipForecasts()
@@ -63,7 +63,7 @@ public sealed class DrillCompareProbe
             var maxBody = -99f;
             var t = 0f;
             var window = new Queue<(float T, float Like, float Body)>();
-            DefenseDrill.Punch("2", Defense.Slip, PredictionTests.SlipDefender(1f), seed: seed, seconds: 30f, telegraph: 0.08f,
+            DefenseDrill.Punch("2", Defense.Slip, PredictionTests.SlipDefender(1f), seed: seed, seconds: 50.35f, telegraph: 0.1343f,
                 observe: (g, bot) =>
                 {
                     t += 1f / 60f;
@@ -72,7 +72,7 @@ public sealed class DrillCompareProbe
                     var read = (OpponentRead)typeof(BoxerBot).GetField("_read", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(bot)!;
                     var f = read.Predict();
                     window.Enqueue((t, f.Likelihood, f.BodyEvidence));
-                    while (window.Count > 0 && window.Peek().T < t - 0.6f)
+                    while (window.Count > 0 && window.Peek().T < t - 1.007f)
                     {
                         window.Dequeue();
                     }
@@ -83,7 +83,7 @@ public sealed class DrillCompareProbe
                     }
 
                     var gv = g.Cpu.GloveVelocity(Hand.Right).Length();
-                    if (gv > 1f && (int)(t * 60) % 6 == 0 && window.Count > 0)
+                    if (gv > 1.678f && (int)(t * 60) % 6 == 0 && window.Count > 0)
                     {
                         maxLike = window.Max(w => w.Like);
                         maxBody = window.Max(w => w.Body);
@@ -112,7 +112,7 @@ public sealed class DrillCompareProbe
         };
         using var game = new BoxingGame(seed: 3, corners: corners);
         var used = new HashSet<string>();
-        for (var i = 0; i < 120 * 60 && !game.Player.IsDead && !game.Cpu.IsDead; i++)
+        for (var i = 0; i < 201 * 60 && !game.Player.IsDead && !game.Cpu.IsDead; i++)
         {
             game.Step(default, 1f / 60f);
             if (((DisarmedFallback)game.PlayerControl!).Armed is SwordsmanBot bot)
@@ -135,7 +135,7 @@ public sealed class DrillCompareProbe
     {
         foreach (var family in new[] { MiniRing.Weapons.SwingFamily.Chop })
         {
-            var r = MiniRing.Weapons.SwingTest.Run(MiniRing.Weapons.WeaponSwing.Default(family), 0.38f, (game, _, _) =>
+            var r = MiniRing.Weapons.SwingTest.Run(MiniRing.Weapons.WeaponSwing.Default(family), 1.070f, (game, _, _) =>
             {
                 game.Player.Stamina = 1f;
                 game.Cpu.Stamina = 1f;
@@ -156,8 +156,8 @@ public sealed class DrillCompareProbe
 
         foreach (var seed in new[] { 1, 2, 3, 4, 5 })
         {
-            var r = DefenseDrill.Punch("2", Defense.Slip, PredictionTests.SlipDefender(0f), seed: seed, seconds: 30f, telegraph: 0.08f, observe: KeepFresh);
-            var p = DefenseDrill.Punch("2", Defense.Slip, PredictionTests.SlipDefender(1f), seed: seed, seconds: 30f, telegraph: 0.08f, observe: KeepFresh);
+            var r = DefenseDrill.Punch("2", Defense.Slip, PredictionTests.SlipDefender(0f), seed: seed, seconds: 50.35f, telegraph: 0.1343f, observe: KeepFresh);
+            var p = DefenseDrill.Punch("2", Defense.Slip, PredictionTests.SlipDefender(1f), seed: seed, seconds: 50.35f, telegraph: 0.1343f, observe: KeepFresh);
             Console.WriteLine($"PRED seed {seed} react: {r}");
             Console.WriteLine($"PRED seed {seed} predict: {p}");
         }

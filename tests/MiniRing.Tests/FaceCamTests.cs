@@ -17,7 +17,7 @@ public sealed class FaceCamTests
         Vector2[]? first = null;
         Quaternion? firstOrientation = null;
         var turned = 0f;
-        for (var step = 0; step < 6 * 60; step++)
+        for (var step = 0; step < 604; step++)
         {
             game.Step(default, 1f / 60f);
             if (step % 30 != 0)
@@ -29,8 +29,8 @@ public sealed class FaceCamTests
             firstOrientation ??= head.Orientation;
             turned = MathF.Max(turned, AngleBetween(firstOrientation.Value, head.Orientation));
             var (viewProjection, eye) = faceCam.Camera(game, game.Player, 1f);
-            var projected = facePoints.Select(p => Project(viewProjection, head.Position + Vector3.Transform(p, head.Orientation))).ToArray();
-            Assert.IsGreaterThan(0.01f, Vector3.Distance(eye, head.Position), "the camera stands off the face");
+            var projected = facePoints.Select(p => Project(viewProjection, game.Display.Point(head.Position + Vector3.Transform(p, head.Orientation)))).ToArray();
+            Assert.IsGreaterThan(0.01f, Vector3.Distance(eye, game.Display.Point(head.Position)), "the camera stands off the face");
             first ??= projected;
             for (var i = 0; i < projected.Length; i++)
             {
@@ -50,10 +50,10 @@ public sealed class FaceCamTests
         var head = game.World.GetState(game.Player.Parts.Head);
         var (viewProjection, eye) = FaceCam.Default.Camera(game, game.Player, 1f);
         var forward = Vector3.Transform(Vector3.UnitZ, head.Orientation);
-        Assert.IsGreaterThan(0.99f, Vector3.Dot(Vector3.Normalize(eye - head.Position), forward), "in front of the face (head-local +Z, where the eyes are)");
-        var center = Project(viewProjection, head.Position);
+        Assert.IsGreaterThan(0.99f, Vector3.Dot(Vector3.Normalize(eye - game.Display.Point(head.Position)), forward), "in front of the face (head-local +Z, where the eyes are)");
+        var center = Project(viewProjection, game.Display.Point(head.Position));
         Assert.IsLessThan(0.3f, center.Length(), $"the head is near the middle of the pane: {center}");
-        var top = Project(viewProjection, head.Position + Vector3.Transform(new Vector3(0f, game.Player.HalfExtentsOf(game.Player.Parts.Head).Y, 0f), head.Orientation));
+        var top = Project(viewProjection, game.Display.Point(head.Position + Vector3.Transform(new Vector3(0f, game.Player.HalfExtentsOf(game.Player.Parts.Head).Y, 0f), head.Orientation)));
         Assert.IsLessThan(-0.1f, top.Y, "head-local up is up in the pane (Vulkan clip y points down)");
     }
 

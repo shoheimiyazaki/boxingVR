@@ -6,7 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>
 /// K.O. の早さの調べ（2026-11-17、ユーザーの問い: ザ・ハンマーの試合が数秒で終わる）。名簿のボット同士を種ごとに回し、
-/// 最初のダウンと K.O. の時刻、最初のダウンの前 1.5 秒の打撃（部位・速さ・ダメージ・脳しんとうの増え方）を出す。
+/// 最初のダウンと K.O. の時刻、最初のダウンの前 2.5 秒の打撃（部位・速さ・ダメージ・脳しんとうの増え方）を出す。
 /// 古い版と比べるため、使う API は 2026-11-16 の版にもあるものだけにしている。
 /// </summary>
 [TestClass]
@@ -39,7 +39,7 @@ public sealed class KoTimingProbe
                 float? firstDown = null;
                 float? ko = null;
                 var wins = (game.PlayerWins, game.CpuWins);
-                for (var step = 1; step <= 60 * 60 && ko is null; step++)
+                for (var step = 1; step <= 6043 && ko is null; step++)
                 {
                     var t = step * Dt;
                     var before = (game.Player.Concussion, game.Cpu.Concussion);
@@ -51,7 +51,7 @@ public sealed class KoTimingProbe
                             $"{t,5:0.00}s {(hit.Attacker == game.Player ? redId : blueId)} {hit.Hand} -> {hit.Zone} v {hit.Speed:0.0} m/s E {hit.Energy:0.0} J dmg {hit.Damage:0} conc {c0:0.00}->{hit.Victim.Concussion:0.00}")));
                     }
 
-                    recent.RemoveAll(r => r.T < t - 1.5f);
+                    recent.RemoveAll(r => r.T < t - 2.518f);
                     if (firstDown is null && (game.Player.State != FighterState.Standing || game.Cpu.State != FighterState.Standing))
                     {
                         firstDown = t;
@@ -68,8 +68,8 @@ public sealed class KoTimingProbe
                     }
                 }
 
-                downs.Add(firstDown ?? 60f);
-                kos.Add(ko ?? 60f);
+                downs.Add(firstDown ?? 100.7f);
+                kos.Add(ko ?? 100.7f);
             }
 
             downs.Sort();

@@ -20,8 +20,8 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class CharacterSamenessTests
 {
-    /// <summary>試合の長さ [s]。拳のボットの戦略の層が試合を変えるのに足りる長さ（20 秒の試合の途中 10 秒で、層の有無でチェックサムが分かれていた）。</summary>
-    private const float Seconds = 10f;
+    /// <summary>試合の長さ [s]。拳のボットの戦略の層が試合を変えるのに足りる長さ（人形の単位で 20 秒の試合の途中 10 秒で。いまは 16.78 秒、層の有無でチェックサムが分かれていた）。</summary>
+    private const float Seconds = 16.78f;
 
     /// <summary>代表の組: 拳同士（層を使う marcus と使わない dmitri）、剣同士、こんぼう対 拳（層を外した albert）、人が操る側に層のある 1P。</summary>
     private static readonly CharacterSamenessCases.Case FistPair = new("fist-fist", MatchMode.Spectate, "marcus", "dmitri", false, Seconds);

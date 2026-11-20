@@ -72,14 +72,15 @@ public sealed class BoneBreakTests
     [TestMethod]
     public void Bending_OnlyTheBoneCarriesTheSection_InALimb()
     {
-        var bone = new VoxelMaterial("bone", VoxelTissue.Bone, 8f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(1900f, 8e6f, 0.0005f, Tensile: 3e6f, Stiffness: 1e9f));
-        var flesh = new VoxelMaterial("flesh", VoxelTissue.Flesh, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(1060f, 0.1e6f, 0.005f));
+        // 人形の単位で作っていた材質・格子・押す力を、実物大の相似（BoxerAnatomy.Doll と同じ: 応力 ×1.2602・密度 ×0.4474・たわみ ×2.8169、長さ ×2.8169、力 ×10）で換算した値。
+        var bone = new VoxelMaterial("bone", VoxelTissue.Bone, 8f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(850.1f, 10.08e6f, 0.001408f, Tensile: 3.781e6f, Stiffness: 1.260e9f));
+        var flesh = new VoxelMaterial("flesh", VoxelTissue.Flesh, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(474.2f, 0.126e6f, 0.01408f));
         var palette = new VoxelPalette([Palette[0], flesh, bone]);
-        var limb = new VoxelGrid(palette, new Vector3(0.05f, 0.02f, 0.02f), (10, 4, 4), (_, n) => MathF.Abs(n.Y) < 0.5f && MathF.Abs(n.Z) < 0.5f ? Bone : Flesh);
+        var limb = new VoxelGrid(palette, new Vector3(0.1408f, 0.05634f, 0.05634f), (10, 4, 4), (_, n) => MathF.Abs(n.Y) < 0.5f && MathF.Abs(n.Z) < 0.5f ? Bone : Flesh);
 
-        Assert.IsNull(VoxelBending.FindBreak(limb, Vector3.Zero, new Vector3(0f, 0f, -400f)), "a weapon's rule: flesh never snaps, so nothing does");
-        Assert.IsNull(VoxelBending.FindBreak(limb, Vector3.Zero, new Vector3(0f, 0f, -5f), beamAxis: 0, loadBearingOnly: true), "a light push holds");
-        var broke = VoxelBending.FindBreak(limb, Vector3.Zero, new Vector3(0f, 0f, -400f), beamAxis: 0, loadBearingOnly: true);
+        Assert.IsNull(VoxelBending.FindBreak(limb, Vector3.Zero, new Vector3(0f, 0f, -4000f)), "a weapon's rule: flesh never snaps, so nothing does");
+        Assert.IsNull(VoxelBending.FindBreak(limb, Vector3.Zero, new Vector3(0f, 0f, -50f), beamAxis: 0, loadBearingOnly: true), "a light push holds");
+        var broke = VoxelBending.FindBreak(limb, Vector3.Zero, new Vector3(0f, 0f, -4000f), beamAxis: 0, loadBearingOnly: true);
         Assert.IsNotNull(broke, "a hard push in the middle snaps the bone");
         Assert.IsInRange(3, 6, broke.Value.Slice, "near the middle");
     }
@@ -94,10 +95,10 @@ public sealed class BoneBreakTests
             var half = tuning.HalfExtents.Forearm;
             var id = world.AddDynamicBox(Vector3.Zero, Quaternion.Identity, half, tuning.Masses.Forearm);
             var limb = new VoxelBody(world, id, BoxerAnatomy.Build(BodyPartKind.Forearm, half, tuning.VoxelSize)) { BeamAxis = 0 };
-            var glove = Weapon.CreateWorn(world, WeaponKind.Glove, BoxerAnatomy.RedGlove, new Vector3(0f, 0f, half.Z + 0.03f), Quaternion.Identity);
+            var glove = Weapon.CreateWorn(world, WeaponKind.Glove, BoxerAnatomy.RedGlove, new Vector3(0f, 0f, half.Z + 0.0845f), Quaternion.Identity);
             world.SetLinearVelocity(glove.Body.BodyId, new Vector3(0f, 0f, -speed));
             world.SetPairCollisionEnabled(id, glove.Body.BodyId, false);
-            for (var i = 0; i < 60; i++)
+            for (var i = 0; i < 101; i++)
             {
                 var sg = world.GetState(glove.Body.BodyId);
                 var sl = world.GetState(id);
@@ -111,9 +112,9 @@ public sealed class BoneBreakTests
             return false;
         }
 
-        Assert.IsFalse(Bends(2f, 2f), "an ordinary punch (2 m/s with the arm behind it) does not break the bone");
-        Assert.IsFalse(Bends(4f, 0f), "the glove alone, without the arm behind it, does not either");
-        Assert.IsTrue(Bends(4f, 2f), "a hard punch with the arm and body behind it does");
+        Assert.IsFalse(Bends(3.357f, 20f), "an ordinary punch (3.4 m/s with the arm behind it) does not break the bone");
+        Assert.IsFalse(Bends(6.714f, 0f), "the glove alone, without the arm behind it, does not either");
+        Assert.IsTrue(Bends(6.714f, 20f), "a hard punch with the arm and body behind it does");
     }
 
     // ── 試合の中: 腕が断たれる・折れる ──
@@ -175,7 +176,7 @@ public sealed class BoneBreakTests
     public void TwoHanded_ASeveredSupportingArm_HoldsTheClubForAMoment_ThenLetsGo_AndTheOtherHandHoldsOn()
     {
         using var game = TwoHandedClub();
-        Play(game, 1f);
+        Play(game, 1.678f);
         Assert.AreEqual(BoxingGame.SupportHand, game.Cpu.SupportOf(BoxingGame.WeaponHand), "both hands on the handle");
 
         var upper = game.Cpu.UpperArmId(BoxingGame.SupportHand);
@@ -188,9 +189,9 @@ public sealed class BoneBreakTests
         Assert.IsTrue(game.Cpu.HoldsOneHanded(BoxingGame.WeaponHand));
         Assert.AreEqual(1, game.Cpu.DeadGrips, "the dead hand still grips the handle");
 
-        Play(game, 0.5f);
+        Play(game, 0.839f);
         Assert.AreEqual(1, game.Cpu.DeadGrips, "for a moment");
-        Play(game, 4.5f);
+        Play(game, 7.553f);
         Assert.AreEqual(0, game.Cpu.DeadGrips, "within a few seconds its grip has gone");
     }
 
@@ -198,7 +199,7 @@ public sealed class BoneBreakTests
     public void TheElbowEndCarvedAway_TheForearmIsNoLongerHeld_AndDropsTheClub()
     {
         using var game = TwoHandedClub();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var upper = game.Cpu.UpperArmId(BoxingGame.WeaponHand);
         var n = Slices(game, upper);
         // 肘の側の端の 2 スライスを、肉ごと削り取る（骨が両側に残る切れ目はできない）。
@@ -226,17 +227,17 @@ public sealed class BoneBreakTests
 
         var elbowBefore = game.World.GetState(game.Cpu.ForearmId(BoxingGame.WeaponHand)).Position;
         var shoulder = game.World.GetState(upper).Position;
-        Play(game, 1f);
+        Play(game, 1.678f);
         var forearm = game.World.GetState(game.Cpu.ForearmId(BoxingGame.WeaponHand)).Position;
-        Assert.IsGreaterThan(0.1f, Vector3.Distance(forearm, elbowBefore), "the forearm fell away");
-        Assert.IsGreaterThan(Vector3.Distance(elbowBefore, shoulder) + 0.05f, Vector3.Distance(forearm, game.World.GetState(upper).Position), "away from the stump");
+        Assert.IsGreaterThan(0.2817f, Vector3.Distance(forearm, elbowBefore), "the forearm fell away");
+        Assert.IsGreaterThan(Vector3.Distance(elbowBefore, shoulder) + 0.1408f, Vector3.Distance(forearm, game.World.GetState(upper).Position), "away from the stump");
     }
 
     [TestMethod]
     public void TheElbowsFleshCutAway_BeyondTheEndOfTheBone_TheForearmFalls()
     {
         using var game = TwoHandedClub();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var upper = game.Cpu.UpperArmId(BoxingGame.WeaponHand);
         var part = game.Cpu.Voxels!.PartOf(upper)!;
         var grid = part.Body.Grid;
@@ -259,7 +260,7 @@ public sealed class BoneBreakTests
     public void AFistBlowThatOnlyGrazesTheElbowsFlesh_LeavesTheArmOn()
     {
         using var game = TwoHandedClub();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var upper = game.Cpu.UpperArmId(BoxingGame.WeaponHand);
         var part = game.Cpu.Voxels!.PartOf(upper)!;
         var grid = part.Body.Grid;
@@ -280,7 +281,7 @@ public sealed class BoneBreakTests
     public void AGloveOnABrokenArm_StaysOnTheHand_AndNeverHitsItsOwner()
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
-        Play(game, 1f);
+        Play(game, 1.678f);
         var forearm = game.Cpu.ForearmId(Hand.Left);
         var glove = game.GloveOf(game.Cpu, Hand.Left)!;
         var n = Slices(game, forearm);
@@ -289,20 +290,20 @@ public sealed class BoneBreakTests
         Assert.AreEqual(0, game.Cpu.DeadGrips, "a glove is worn, not gripped: it never slips off");
 
         var own = game.Cpu.Voxels!.Parts.Concat(game.Cpu.Voxels!.Fragments).Select(p => p.Body).ToHashSet();
-        for (var t = 0f; t < 3f; t += 1f / 60f)
+        for (var t = 0f; t < 5.035f; t += 1f / 60f)
         {
             game.Step(default, 1f / 60f);
             Assert.IsFalse(game.RecentCuts.Any(c => (c.A == glove.Body && own.Contains(c.B)) || (c.B == glove.Body && own.Contains(c.A))), "the dangling glove does not strike its own body");
         }
 
-        Assert.IsNotNull(game.Cpu.DeadHandOn(glove.Body.BodyId), "still on after 3 s");
+        Assert.IsNotNull(game.Cpu.DeadHandOn(glove.Body.BodyId), "still on after 5 s");
     }
 
     [TestMethod]
     public void ASecondBreak_TakesTheDeadHandsGripAlongWithTheHand()
     {
         using var game = TwoHandedClub();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var club = game.WeaponOf(game.Cpu)!;
         var upper = game.Cpu.UpperArmId(BoxingGame.SupportHand);
         game.BreakBone(game.Cpu, game.Cpu.Voxels!.BreakBent(upper, new VoxelBreak(0, Slices(game, upper) / 2, true, 2f))!, 1f);
@@ -322,13 +323,13 @@ public sealed class BoneBreakTests
         // 持ち主の手から外れて（WearsGlove は false）力の抜けた手にぶら下がる。描き手は WearsGlove だけを見て、はめる物が無かった頃の
         // 球のグローブを拳の位置に足していた。
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
-        Play(game, 1f);
+        Play(game, 1.678f);
         Assert.IsTrue(game.Cpu.WearsGlove(Hand.Left) && game.Cpu.FistCovered(Hand.Left), "a gloved fist before the break");
         var forearm = game.Cpu.ForearmId(Hand.Left);
         var broken = game.Cpu.Voxels!.BreakBent(forearm, new VoxelBreak(0, Slices(game, forearm) / 2, true, 2f));
         Assert.IsNotNull(broken);
         game.BreakBone(game.Cpu, broken, 1f);
-        Play(game, 1f);
+        Play(game, 1.678f);
 
         Assert.IsFalse(game.Cpu.WearsGlove(Hand.Left), "the dead hand no longer boxes with it");
         Assert.IsTrue(game.Cpu.FistCovered(Hand.Left), "but the voxel glove is still on it, so no sphere glove is added");
@@ -339,7 +340,7 @@ public sealed class BoneBreakTests
     public void ABentBone_LeavesThePieceHangingByTheFlesh_UndrivenAndLimp()
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
-        Play(game, 1f);
+        Play(game, 1.678f);
         var forearm = game.Cpu.ForearmId(Hand.Left);
         var n = Slices(game, forearm);
         var broken = game.Cpu.Voxels!.BreakBent(forearm, new VoxelBreak(0, n / 2, true, 2f));
@@ -351,11 +352,11 @@ public sealed class BoneBreakTests
         Assert.IsTrue(game.Cpu.ArmSevered(Hand.Left), "a broken arm no longer punches");
 
         var piece = broken.Fragment!.Body.BodyId;
-        Play(game, 2f);
+        Play(game, 3.357f);
         Assert.IsTrue(game.Cpu.HangsByFlesh(piece), "it still hangs on");
         var stub = game.World.GetState(forearm);
         var hanging = game.World.GetState(piece);
-        Assert.IsLessThan(0.1f, Vector3.Distance(stub.Position, hanging.Position), "hanging close to where it broke");
+        Assert.IsLessThan(0.2817f, Vector3.Distance(stub.Position, hanging.Position), "hanging close to where it broke");
     }
 
     /// <summary>骨の軸（部位のローカル X）のワールドの向き。</summary>
@@ -369,7 +370,7 @@ public sealed class BoneBreakTests
     public void FleshAtTheBreak_RemovedLater_ReleasesThePiece(bool fragmentSide, bool leg)
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
-        Play(game, 1f);
+        Play(game, 1.678f);
         var part = leg ? game.Cpu.Parts.LeftShin : game.Cpu.ForearmId(Hand.Left);
         var axis = leg ? 1 : 0;
         var dimensions = game.Cpu.Voxels!.PartOf(part)!.Body.Grid.Dimensions;
@@ -382,7 +383,7 @@ public sealed class BoneBreakTests
         {
             (fragmentSide ? bridge.Fragment.Grid : bridge.Stub.Grid).Break(fragmentSide ? cell.FragmentIndex : cell.StubIndex, removed);
         }
-        Play(game, 0.1f);
+        Play(game, 0.1678f);
         Assert.IsFalse(game.Cpu.HangsByFlesh(broken.Fragment.Body.BodyId), "no invisible link may survive missing flesh");
     }
 
@@ -390,7 +391,7 @@ public sealed class BoneBreakTests
     public void ASecondProximalBreak_MovesTheBridge_AndStillTracksItsFlesh()
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
-        Play(game, 1f);
+        Play(game, 1.678f);
         var forearm = game.Cpu.ForearmId(Hand.Left);
         var n = Slices(game, forearm);
         var first = game.Cpu.Voxels!.BreakBent(forearm, new VoxelBreak(0, n / 2, true, 2f))!;
@@ -408,7 +409,7 @@ public sealed class BoneBreakTests
                 grid.Break(i, removed);
             }
         }
-        Play(game, 0.1f);
+        Play(game, 0.1678f);
         Assert.IsFalse(game.Cpu.HangsByFlesh(first.Fragment.Body.BodyId));
     }
 
@@ -437,15 +438,15 @@ public sealed class BoneBreakTests
     public void NoFleshAtTheBreak_CreatesNoLink_AndThePieceFalls()
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
-        Play(game, 1f);
+        Play(game, 1.678f);
         var forearm = game.Cpu.ForearmId(Hand.Left);
         var broken = Cut(game, game.Cpu, forearm, [Slices(game, forearm) / 2])!;
         Assert.IsFalse(broken.Hangs);
         var id = broken.Fragment!.Body.BodyId;
         Assert.IsFalse(game.Cpu.HangsByFlesh(id));
         var start = game.World.GetState(id).Position;
-        Play(game, 0.4f);
-        Assert.IsLessThan(start.Y - 0.05f, game.World.GetState(id).Position.Y);
+        Play(game, 0.6714f);
+        Assert.IsLessThan(start.Y - 0.1408f, game.World.GetState(id).Position.Y);
     }
 
     [TestMethod]
@@ -454,7 +455,7 @@ public sealed class BoneBreakTests
         static float Sag(float fraction)
         {
             using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("reach", _ => new Scripted(s => Reach(s, high: false)), _ => new StandGuard()));
-            Play(game, 1f);
+            Play(game, 1.678f);
             var forearm = game.Cpu.ForearmId(Hand.Left);
             var broken = game.Cpu.Voxels!.BreakBent(forearm, new VoxelBreak(0, Slices(game, forearm) / 2, true, 2f))!;
             var cells = broken.Bridge!.Cells;
@@ -464,15 +465,15 @@ public sealed class BoneBreakTests
                 broken.Bridge.Stub.Grid.Break(cell.StubIndex, removed);
             }
             game.BreakBone(game.Cpu, broken, 1f);
-            Play(game, 3f);
+            Play(game, 5.035f);
             Assert.IsTrue(game.Cpu.HangsByFlesh(broken.Fragment!.Body.BodyId));
             var sum = 0f;
-            for (var i = 0; i < 120; i++)
+            for (var i = 0; i < 201; i++)
             {
                 Play(game, 1f / 60f);
                 sum += MathF.Acos(Math.Clamp(Vector3.Dot(Axis(game, forearm), Axis(game, broken.Fragment.Body.BodyId)), -1f, 1f));
             }
-            return sum / 120f;
+            return sum / 201f;
         }
 
         var full = Sag(1f);
@@ -489,12 +490,12 @@ public sealed class BoneBreakTests
     {
         // 拳を前へ突き出したまま、前腕の真ん中で折る: 折れた先は下へたわむが、真下へは垂れない（肉のバネが重さの多くを支える）。
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("reach", _ => new Scripted(s => Reach(s, high: false)), _ => new StandGuard()));
-        Play(game, 1f);
+        Play(game, 1.678f);
         var forearm = game.Cpu.ForearmId(Hand.Left);
         var broken = game.Cpu.Voxels!.BreakBent(forearm, new VoxelBreak(0, Slices(game, forearm) / 2, true, 2f))!;
         game.BreakBone(game.Cpu, broken, 1f);
         var piece = broken.Fragment!.Body.BodyId;
-        Play(game, 2f);
+        Play(game, 3.357f);
 
         var stub = Axis(game, forearm);
         var hanging = Axis(game, piece);
@@ -521,22 +522,22 @@ public sealed class BoneBreakTests
     {
         _high = false;
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("reach", _ => new Scripted(s => Reach(s, _high)), _ => new StandGuard()));
-        Play(game, 1f);
+        Play(game, 1.678f);
         var forearm = game.Cpu.ForearmId(Hand.Left);
         var upper = game.Cpu.UpperArmId(Hand.Left);
         var broken = game.Cpu.Voxels!.BreakBent(forearm, new VoxelBreak(0, Slices(game, forearm) / 2, true, 2f))!;
         game.BreakBone(game.Cpu, broken, 1f);
-        Play(game, 1f);
+        Play(game, 1.678f);
         var lowUpper = Axis(game, upper);
         var lowStub = game.World.GetState(forearm).Position.Y;
 
         _high = true; // 拳の目標を顔の高さへ上げる
-        Play(game, 1f);
+        Play(game, 1.678f);
         var highUpper = Axis(game, upper);
         var highStub = game.World.GetState(forearm).Position.Y;
 
         Assert.IsGreaterThan(15f * MathF.PI / 180f, MathF.Acos(Math.Clamp(Vector3.Dot(lowUpper, highUpper), -1f, 1f)), "the shoulder still turns the upper arm to the input");
-        Assert.IsGreaterThan(0.02f, highStub - lowStub, "and the forearm above the break rises with it");
+        Assert.IsGreaterThan(0.0563f, highStub - lowStub, "and the forearm above the break rises with it");
         Assert.AreEqual(Vector3.Zero, game.Cpu.HandPush(Hand.Left), "nothing pulls the dangling hand");
     }
 }

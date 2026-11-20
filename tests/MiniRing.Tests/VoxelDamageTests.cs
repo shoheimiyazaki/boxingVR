@@ -226,7 +226,7 @@ public sealed class VoxelDamageTests
     public void TheCrater_GlowsWhiteHotOnTheBody_ThenCoolsAway()
     {
         using var game = new BoxingGame(seed: 3);
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -234,8 +234,8 @@ public sealed class VoxelDamageTests
         var cpu = game.Cpu;
         var chest = game.World.GetState(cpu.Parts.Chest);
         var forward = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, chest.Orientation) with { Y = 0f });
-        var fist = chest.Position + (forward * (cpu.HalfExtentsOf(cpu.Parts.Chest).Z + 0.02f));
-        game.Strike(cpu, cpu.Parts.Chest, fist, -forward * 4f, 28f, game.Player);
+        var fist = chest.Position + (forward * (cpu.HalfExtentsOf(cpu.Parts.Chest).Z + 0.05634f));
+        game.Strike(cpu, cpu.Parts.Chest, fist, -forward * 6.714f, 28f, game.Player);
         Assert.IsGreaterThan(0, game.Wounds.Count, "the crater's faces glow");
 
         game.Step(default, 1f / 60f);
@@ -248,12 +248,12 @@ public sealed class VoxelDamageTests
         game.Wounds.WriteHalos(halos);
         Assert.IsNotEmpty(halos, "a halo of light around the crater while hot");
 
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++)
         {
             game.Step(default, 1f / 60f);
         }
 
-        Assert.IsGreaterThan(0, game.Wounds.Count, "still glowing after half a second");
+        Assert.IsGreaterThan(0, game.Wounds.Count, "still glowing after 0.84 s");
 
         game.Wounds.Step(WoundGlow.HeatSeconds); // 1.5 秒も試合を回すと次の打撃で新しい穴ができるので、傷の時計だけ進める
 
@@ -335,8 +335,8 @@ public sealed class VoxelDamageTests
         light.Spawn(Vector3.Zero, Vector3.UnitZ, 0.1f, Vector4.One, Jitter);
         var heavy = new ImpactEffects();
         heavy.Spawn(Vector3.Zero, Vector3.UnitZ, 0.9f, Vector4.One, Jitter);
-        light.Step(0.03f);
-        heavy.Step(0.03f);
+        light.Step(0.05035f);
+        heavy.Step(0.05035f);
         var lightShapes = new List<ParticleInstance>();
         var heavyShapes = new List<ParticleInstance>();
         light.WriteParticles(lightShapes);
@@ -348,12 +348,12 @@ public sealed class VoxelDamageTests
         Assert.IsTrue(heavyShapes.Any(p => p.Blend == ParticleBlend.Alpha), "a heavy blow pushes out a puff of air");
         Assert.IsGreaterThan(lightShapes.Count + 20, heavyShapes.Count, "the heavy blow's ring");
 
-        for (var i = 0; i < 45; i++)
+        for (var i = 0; i < 76; i++)
         {
             heavy.Step(1f / 60f);
         }
 
-        Assert.AreEqual(0, heavy.Count, "gone in under a second");
+        Assert.AreEqual(0, heavy.Count, "gone in under 1.3 s");
     }
 
     [TestMethod]
@@ -473,12 +473,12 @@ public sealed class VoxelDamageTests
         Assert.HasCount(1, cpu.Voxels!.Fragments);
         Assert.AreEqual(0f, cpu.ArmStrength(Hand.Left));
         var glove = cpu.GloveCenter(Hand.Left).Y;
-        for (var i = 0; i < 60; i++)
+        for (var i = 0; i < 101; i++)
         {
             game.Step(default, 1f / 60f);
         }
 
-        Assert.IsLessThan(glove - 0.05f, cpu.GloveCenter(Hand.Left).Y, "the cut-off hand drops");
+        Assert.IsLessThan(glove - 0.1408f, cpu.GloveCenter(Hand.Left).Y, "the cut-off hand drops");
         Assert.IsFalse(cpu.ArmSevered(Hand.Right));
     }
 
@@ -506,7 +506,7 @@ public sealed class VoxelDamageTests
         Assert.IsFalse(player.Owns(player.ForearmId(Hand.Left)), "the forearm hangs from the cut-off piece now");
         Assert.IsTrue(player.Owns(player.Parts.RightUpperArm), "the stub stays on the body");
         var reach = player.ArmReach;
-        for (var i = 0; i < 90; i++)
+        for (var i = 0; i < 151; i++)
         {
             game.Step(new BoxingInput(new FighterCommand(Vector3.Zero, Vector3.UnitZ,
                 new HandCommand(new Vector3(0f, 0f, reach), Grip: true), new HandCommand(new Vector3(0f, 0f, 0.5f * reach), false))), 1f / 60f);
@@ -557,7 +557,7 @@ public sealed class VoxelDamageTests
         StrikeUntil(game, cpu, cpu.Parts.LeftThigh, () => cpu.LegSevered, damage: 25f);
 
         Assert.IsTrue(cpu.CanStand);
-        for (var i = 0; i < 60 * 8; i++)
+        for (var i = 0; i < 806; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -705,10 +705,10 @@ public sealed class VoxelDamageTests
 
             foreach (var tag in new[] { BoxerAnatomy.Skin, BoxerAnatomy.Bone, VoxelBreakSound.BloodTag, VoxelBreakSound.DustTag })
             {
-                Assert.IsNotNull(VoxelBreakSound.Landings([new DebrisLanding(default, 2f, 0.005f, tag)], 1, style), $"{style} landing {tag}");
+                Assert.IsNotNull(VoxelBreakSound.Landings([new DebrisLanding(default, 3.357f, 0.01408f, tag)], 1, style), $"{style} landing {tag}");
             }
 
-            Assert.IsNull(VoxelBreakSound.Landings([new DebrisLanding(default, 2f, 0.005f, VoxelBreakSound.SparkTag)], 1, style));
+            Assert.IsNull(VoxelBreakSound.Landings([new DebrisLanding(default, 3.357f, 0.01408f, VoxelBreakSound.SparkTag)], 1, style));
             Assert.AreEqual((int)(1.8f * 44100) * 2, VoxelBreakSound.Fatal(7, style).Length, $"{style} fatal");
         }
 
@@ -719,8 +719,8 @@ public sealed class VoxelDamageTests
 
         // 床に落ちる音は小さい: 24 個が一度に強く落ちても、ピークは砕ける音の 1 割ほど。
         static float Peak(byte[] pcm) => Enumerable.Range(0, pcm.Length / 2).Max(i => Math.Abs((int)BitConverter.ToInt16(pcm, 2 * i))) / 32768f;
-        var rain = VoxelBreakSound.Landings([.. Enumerable.Repeat(new DebrisLanding(default, 3f, 0.006f, BoxerAnatomy.Bone), 24)], 1)!;
-        var gentle = VoxelBreakSound.Landings([new DebrisLanding(default, 0.4f, 0.003f, BoxerAnatomy.Skin)], 1)!;
+        var rain = VoxelBreakSound.Landings([.. Enumerable.Repeat(new DebrisLanding(default, 5.035f, 0.0169f, BoxerAnatomy.Bone), 24)], 1)!;
+        var gentle = VoxelBreakSound.Landings([new DebrisLanding(default, 0.6714f, 0.00845f, BoxerAnatomy.Skin)], 1)!;
         Assert.IsLessThanOrEqualTo(VoxelBreakSound.LandingLoudness + 0.01f, Peak(rain));
         Assert.IsLessThan(Peak(rain), Peak(gentle), "a gentle landing is quieter still");
 
@@ -754,9 +754,9 @@ public sealed class VoxelDamageTests
     public void AFasterSwing_WhooshesLouder_AndASlowOneIsSilent()
     {
         static float Peak(byte[] pcm) => Enumerable.Range(0, pcm.Length / 2).Max(i => Math.Abs((int)BitConverter.ToInt16(pcm, 2 * i))) / 32768f;
-        Assert.IsNull(SwingSound.Synthesize(SwingSound.MinSpeed - 0.1f, 1));
-        var gentle = SwingSound.Synthesize(1.4f, 1)!;
-        var hard = SwingSound.Synthesize(3.2f, 1)!;
+        Assert.IsNull(SwingSound.Synthesize(SwingSound.MinSpeed - 0.1678f, 1));
+        var gentle = SwingSound.Synthesize(2.35f, 1)!;
+        var hard = SwingSound.Synthesize(5.371f, 1)!;
         Assert.IsLessThan(Peak(hard), Peak(gentle));
         Assert.IsLessThanOrEqualTo(SwingSound.Loudness + 0.01f, Peak(hard), "a whoosh stays quiet");
         Assert.IsLessThan(gentle.Length, hard.Length, "a fast swing is short and sharp");
@@ -766,9 +766,9 @@ public sealed class VoxelDamageTests
     public void TheCpusPunches_AreHeardAsSwings_OncePerPunch()
     {
         // 音の発火回数を測る。疲労による攻撃停止は別の回帰テストで検証する。
-        using var game = new BoxingGame(FighterTuning.Default with { OxygenStorePerKg = 108_000f }, seed: 4);
+        using var game = new BoxingGame(FighterTuning.Default with { OxygenStorePerKg = 304_225f }, seed: 4);
         var swings = new List<SwingEvent>();
-        for (var i = 0; i < 20 * 60; i++)
+        for (var i = 0; i < 2014; i++)
         {
             game.Step(default, 1f / 60f);
             swings.AddRange(game.RecentSwings);
@@ -830,7 +830,7 @@ public sealed class VoxelDamageTests
     private static void Strike(BoxingGame game, Fighter victim, int part, float damage, Vector3 from)
     {
         var s = game.World.GetState(part);
-        var point = s.Position + (Vector3.Transform(from, s.Orientation) * 0.08f);
+        var point = s.Position + (Vector3.Transform(from, s.Orientation) * 0.2254f);
         game.Strike(victim, part, point, s.Position - point, damage);
     }
 }

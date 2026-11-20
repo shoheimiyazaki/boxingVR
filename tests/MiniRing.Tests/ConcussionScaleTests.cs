@@ -36,14 +36,14 @@ public sealed class ConcussionScaleTests
     }
 
     /// <summary>
-    /// 試合のボットの強めの 1 発（0.7 kg × 2 m/s。ボットの拳に乗る質量の p90 は 1.2 kg、当たる速さの平均 1.7 m/s）はあごに当たっても意識を全部は飛ばさない（測った値 0.13）。体を乗せて速くあごを振り抜く 1 発（1.5 kg × 3 m/s）は 1 発で飛ばす（4.5）。
+    /// 試合のボットの強めの 1 発（7 kg × 3.36 m/s。ボットの拳に乗る質量の p90 は 12 kg、当たる速さの平均 2.85 m/s。人形の単位で測った値を換算）はあごに当たっても意識を全部は飛ばさない（測った値 0.13）。体を乗せて速くあごを振り抜く 1 発（15 kg × 5.04 m/s）は 1 発で飛ばす（4.5）。
     /// </summary>
     [TestMethod]
     [TestCategory("slow")]
     public void AnOrdinaryHitStaysBelowAKnockout_AFastBodyLoadedShotToTheChinIsOne()
     {
-        var ordinary = ChinConcussion(mass: 0.7f, speed: 2.0f);
-        var big = ChinConcussion(mass: 1.5f, speed: 3.0f);
+        var ordinary = ChinConcussion(mass: 7f, speed: 3.357f);
+        var big = ChinConcussion(mass: 15f, speed: 5.035f);
         Console.WriteLine($"ordinary {ordinary:0.00}, big {big:0.00}");
         Assert.IsLessThan(1f, ordinary, "an ordinary hit leaves him partly conscious");
         Assert.IsGreaterThanOrEqualTo(1f, big, "a fast, body-loaded shot through the chin is a one-punch knockout");
@@ -54,7 +54,7 @@ public sealed class ConcussionScaleTests
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         var corners = new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s));
         using var game = new BoxingGame(seed: 1, corners: corners);
-        for (var t = 0f; t < 1.5f; t += Dt)
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }

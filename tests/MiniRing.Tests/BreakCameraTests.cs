@@ -137,16 +137,16 @@ public sealed class BreakCameraTests
     public void SkinBruises_FadeOnlyDuringTheBreak()
     {
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
-        var rules = new MatchRules(RoundSeconds: 1f, Rounds: 2, BreakSeconds: 4f) { BruiseHalfLifeSeconds = 2f };
+        var rules = new MatchRules(RoundSeconds: 1.678f, Rounds: 2, BreakSeconds: 6.714f) { BruiseHalfLifeSeconds = 3.357f };
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)), rules: rules);
         var body = game.Cpu.Voxels!;
-        body.BruiseSkin(game.Cpu.ChestPosition + (game.Cpu.Frame.Forward * game.Cpu.HalfExtents.Chest.Z), 4f);
+        body.BruiseSkin(game.Cpu.ChestPosition + (game.Cpu.Frame.Forward * game.Cpu.HalfExtents.Chest.Z), 112.7f);
         var fresh = body.SkinBruiseTotal();
         Assert.IsGreaterThan(0f, fresh);
 
         const float Dt = 1f / 60f;
         var roundEnd = 0f;
-        for (var t = 0f; t < 0.9f; t += Dt)
+        for (var t = 0f; t < 1.511f; t += Dt)
         {
             game.Step(default, Dt);
             roundEnd = body.SkinBruiseTotal();
@@ -161,14 +161,14 @@ public sealed class BreakCameraTests
         }
 
         var atBreak = body.SkinBruiseTotal();
-        for (var t = 0f; t < 2f; t += Dt)
+        for (var t = 0f; t < 3.357f; t += Dt)
         {
             game.Step(default, Dt);
         }
 
         var later = body.SkinBruiseTotal();
         Assert.IsTrue(game.InBreak || game.BreakLeft >= 0f);
-        Assert.IsLessThan(atBreak * 0.6f, later, $"休み 2 秒（半減期 2 秒）で半分ほどになる: {atBreak:0.00} → {later:0.00}");
+        Assert.IsLessThan(atBreak * 0.6f, later, $"休み 3.4 秒（半減期 3.4 秒）で半分ほどになる: {atBreak:0.00} → {later:0.00}");
         Assert.IsGreaterThan(atBreak * 0.35f, later, "消えてしまわない");
     }
 }

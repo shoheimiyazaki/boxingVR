@@ -28,8 +28,8 @@ public class GamepadIntentTests
     [TestMethod]
     public void TapAndHold_UseTheSameIntentControlAsKeyboard()
     {
-        var sense = new FighterSense(new BodyFrame(Vector3.Zero, 0f), 0.2f,
-            new(0f, 0.06f, 0.27f), new(0f, 0f, 0.27f), true, new(0f, 0.06f, 0f));
+        var sense = new FighterSense(new BodyFrame(Vector3.Zero, 0f), 0.5634f,
+            new(0f, 0.169f, 0.7606f), new(0f, 0f, 0.7606f), true, new(0f, 0.169f, 0f));
         var pad = new IntentControl();
         var keyboard = new IntentControl();
         for (var step = 0; step < 60; step++)

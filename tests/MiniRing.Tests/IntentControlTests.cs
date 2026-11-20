@@ -20,8 +20,8 @@ public sealed class IntentControlTests
     }
 
     private const float Dt = 1f / 60f;
-    private static FighterSense Sense => new(new BodyFrame(Vector3.Zero, 0f), 0.2f,
-        new(0f, 0.06f, 0.27f), new(0f, 0f, 0.27f), true, new(0f, 0.06f, 0f));
+    private static FighterSense Sense => new(new BodyFrame(Vector3.Zero, 0f), 0.5634f,
+        new(0f, 0.169f, 0.7606f), new(0f, 0f, 0.7606f), true, new(0f, 0.169f, 0f));
 
     [TestMethod]
     public void LateralEvade_StepsInRequestedDirection()
@@ -71,7 +71,7 @@ public sealed class IntentControlTests
         var control = new IntentControl { Input = new FighterIntent(Vector2.Zero, Heavy: true) };
         var first = control.Read(Sense, Dt);
         FighterCommand loaded = default;
-        for (var i = 0; i < 20; i++) { loaded = control.Read(Sense, Dt); }
+        for (var i = 0; i < 34; i++) { loaded = control.Read(Sense, Dt); }
         Assert.IsLessThan(first.TwistBias, loaded.TwistBias);
         Assert.IsLessThan(first.Right.TargetLocal.Z, loaded.Right.TargetLocal.Z);
         control.Input = default;
@@ -96,7 +96,7 @@ public sealed class IntentControlTests
     [TestMethod]
     public void ForwardEvade_ChoosesHookDefense()
     {
-        var sense = Sense with { OpponentRight = new GloveSense(new(0.1f, 0.06f, 0.1f), new(-1f, 0f, -0.1f)) };
+        var sense = Sense with { OpponentRight = new GloveSense(new(0.2817f, 0.169f, 0.2817f), new(-1.678f, 0f, -0.1678f)) };
         var control = new IntentControl { Input = new FighterIntent(Vector2.UnitY, Evade: true) };
         control.Read(sense, Dt);
         Assert.IsTrue(control.CurrentDefense is Defense.Weave or Defense.Duck);
@@ -122,7 +122,7 @@ public sealed class IntentControlTests
         control.Input = new FighterIntent(Vector2.Zero, Heavy: true);
         control.Read(Sense, Dt);
         control.Input = default;
-        for (var i = 0; i < 30; i++) { control.Read(Sense, Dt); }
+        for (var i = 0; i < 50; i++) { control.Read(Sense, Dt); }
         Assert.AreEqual(2, control.AttacksStarted);
         Assert.AreEqual("1-2", control.LastCombination);
     }
@@ -151,7 +151,7 @@ public sealed class IntentControlTests
         var control = new IntentControl { Input = new FighterIntent(Vector2.UnitY, Heavy: true) };
         control.Read(Sense, Dt);
         control.Input = new FighterIntent(-Vector2.UnitY, Heavy: true, Evade: true);
-        for (var i = 0; i < 60; i++)
+        for (var i = 0; i < 101; i++)
         {
             var command = control.Read(Sense, Dt);
             Assert.IsNull(control.CurrentTechnique);

@@ -30,7 +30,7 @@ public sealed class PassiveContactProbe
             }
         }
 
-        var r = DefenseDrill.Punch("2", Defense.Slip, defender, seed: 6, seconds: 14f, cue: 0.04f, observe: Observe);
+        var r = DefenseDrill.Punch("2", Defense.Slip, defender, seed: 6, seconds: 23.5f, cue: 0.0671f, observe: Observe);
         Console.WriteLine($"total {total:F1}; {r}");
     }
 }

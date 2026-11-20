@@ -13,7 +13,7 @@ public sealed class StepTests
     private const float Dt = 1f / 240f;
 
     /// <summary>ステップを指令する長さ [s]（ボタンを押した瞬間の短い指令）。</summary>
-    private const float Pulse = 0.08f;
+    private const float Pulse = 0.1343f;
 
     [TestMethod]
     public void AStepForward_CoversMoreGroundThanWalking_AndPeaksFaster()
@@ -23,9 +23,9 @@ public sealed class StepTests
         Console.WriteLine($"step forward {step:F3} m (peak {stepPeak:F2} m/s), walk {walk:F3} m (peak {walkPeak:F2} m/s)");
         Assert.IsGreaterThan(1.6f * walk, step, "a step closes the distance at once");
         Assert.IsGreaterThan(1.5f * walkPeak, stepPeak);
-        // 人のボクシングの踏み込み 0.5〜0.8 m を人形の縮尺 0.355 に直すと 18〜28 cm。
-        Assert.IsGreaterThan(0.12f, step);
-        Assert.IsLessThan(0.4f, step);
+        // 人のボクシングの踏み込みは 0.5〜0.8 m（実物大の体なのでそのまま）。
+        Assert.IsGreaterThan(0.338f, step);
+        Assert.IsLessThan(1.127f, step);
     }
 
     [TestMethod]
@@ -43,7 +43,7 @@ public sealed class StepTests
     {
         Measure(forward: true, stepping: true, out _, out _, out var f);
         Assert.IsGreaterThan(0f, f.StepEnergyReleased);
-        Assert.IsLessThanOrEqualTo(f.StepSpringCapacity + 1e-4f, f.StepEnergyReleased, "only what the spring held goes into the body");
+        Assert.IsLessThanOrEqualTo(f.StepSpringCapacity + 2.817e-3f, f.StepEnergyReleased, "only what the spring held goes into the body");
     }
 
     [TestMethod]
@@ -51,7 +51,7 @@ public sealed class StepTests
     {
         using var world = NewWorld();
         var f = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
-        Run(world, f, Idle(f), 1.5f);
+        Run(world, f, Idle(f), 2.518f);
         Assert.AreEqual(1f, f.StepCharge, 1e-3f, "standing in the stance, the legs are set");
         var forward = f.Frame.Forward;
         Run(world, f, Idle(f) with { Step = forward }, Pulse);
@@ -64,7 +64,7 @@ public sealed class StepTests
         var released = f.StepEnergyReleased;
         var refill = 0f;
         var chargeAtSet = -1f;
-        for (var i = 0; i < (int)(2f / Dt) && f.StepCharge < 0.95f; i++)
+        for (var i = 0; i < (int)(3.357f / Dt) && f.StepCharge < 0.95f; i++)
         {
             Run(world, f, Idle(f), Dt);
             refill += Dt;
@@ -75,8 +75,8 @@ public sealed class StepTests
         }
 
         Console.WriteLine($"spent {spent:F2}, refilled to 0.95 in {refill + Pulse:F2} s after the second press, charge when the feet were set {chargeAtSet:F2}");
-        Assert.IsLessThan(2f, refill, "the legs set the spring again");
-        Assert.IsGreaterThan(0.15f, refill + Pulse, "but not at once: the feet re-set and the muscles do the work");
+        Assert.IsLessThan(3.357f, refill, "the legs set the spring again");
+        Assert.IsGreaterThan(0.2518f, refill + Pulse, "but not at once: the feet re-set and the muscles do the work");
         Assert.IsLessThan(f.StepSpringCapacity * 2f, released);
         _ = start;
     }
@@ -94,11 +94,11 @@ public sealed class StepTests
     {
         using var world = NewWorld();
         var f = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
-        Run(world, f, Idle(f), 1.5f);
+        Run(world, f, Idle(f), 2.518f);
         f.Stamina = stamina;
         Run(world, f, Idle(f) with { Step = f.Frame.Forward }, Pulse);
         var time = 0f;
-        for (var i = 0; i < (int)(4f / Dt) && f.StepCharge < 0.95f; i++)
+        for (var i = 0; i < (int)(6.714f / Dt) && f.StepCharge < 0.95f; i++)
         {
             f.Stamina = MathF.Min(stamina, f.Stamina);
             Run(world, f, Idle(f), Dt);
@@ -109,21 +109,21 @@ public sealed class StepTests
     }
 
     /// <summary>
-    /// 立って構えてから、前（または後ろ）へ 1 回ステップする（または同じ時間だけ歩く指令を出す）。0.5 秒で進んだ距離 [m] を返す。
+    /// 立って構えてから、前（または後ろ）へ 1 回ステップする（または同じ時間だけ歩く指令を出す）。0.84 秒で進んだ距離 [m] を返す。
     /// </summary>
     private static float Measure(bool forward, bool stepping, out float peak, out bool pusherWasLead, out Fighter fighter)
     {
         var world = NewWorld();
         var f = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
         fighter = f;
-        Run(world, f, Idle(f), 1.5f);
+        Run(world, f, Idle(f), 2.518f);
         var direction = f.Frame.Forward * (forward ? 1f : -1f);
         var start = f.PelvisPosition;
         var lead = BallOf(world, f, Footwork.Lead);
         var rear = BallOf(world, f, Footwork.Rear);
         peak = 0f;
         var command = stepping ? Idle(f) with { Step = direction } : Idle(f) with { MoveWorld = direction };
-        for (var i = 0; i < (int)(0.5f / Dt); i++)
+        for (var i = 0; i < (int)(0.8392f / Dt); i++)
         {
             f.ApplyControl(i * Dt < Pulse ? command : Idle(f), Dt);
             world.Step(Dt);
@@ -141,7 +141,7 @@ public sealed class StepTests
     private static PhysicsWorld NewWorld()
     {
         var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         return world;
     }
 

@@ -20,7 +20,7 @@ public sealed class RingsideCameraTests
         var director = new TvDirector(1280, 720, Fps, 1f / 240f, "red", "blue");
         var previous = director.Ringside(game, game.Player, 0f).Eye;
         var largest = 0f;
-        for (var frame = 1; frame < 4 * Fps; frame++)
+        for (var frame = 1; frame < 201; frame++) // 約 6.7 秒（人形の単位の 4 秒）
         {
             game.StepStage(1f / Fps, StagePose.Corners); // 2 人がコーナーへ歩く: 相手の位置が動き続ける
             var eye = director.Ringside(game, game.Player, frame / (float)Fps).Eye;
@@ -28,7 +28,7 @@ public sealed class RingsideCameraTests
             previous = eye;
         }
 
-        // 側が入れ替わると、目の位置は 1 コマで選手の大きさの数倍（10 cm 以上）飛ぶ。選手と一緒に動くだけなら 1 コマ数 cm。
+        // 側が入れ替わると、目の位置は 1 コマで選手の大きさの数倍（10 cm 以上）飛ぶ。選手と一緒に動くだけなら 1 コマ数 cm（Eye は表示の空間の m なので換算しない）。
         Assert.IsLessThan(0.05f, largest, $"the ringside eye jumped {largest:0.000} m in one frame");
     }
 
@@ -40,7 +40,7 @@ public sealed class RingsideCameraTests
         var fresh = new TvDirector(1280, 720, Fps, 1f / 240f, "red", "blue");
         _ = held.Ringside(game, game.Player, 0f);
         _ = held.Ringside(game, game.Player, 2f);
-        for (var frame = 0; frame < 2 * Fps; frame++)
+        for (var frame = 0; frame < 101; frame++) // 約 3.4 秒
         {
             game.StepStage(1f / Fps, StagePose.Corners);
         }

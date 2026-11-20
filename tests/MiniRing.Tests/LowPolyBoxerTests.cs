@@ -193,10 +193,10 @@ public sealed class LowPolyBoxerTests
     {
         using var game = new BoxingGame(seed: 3);
         var dented = false;
-        for (var i = 0; i < 60 * 30 && !dented; i++)
+        for (var i = 0; i < 3021 && !dented; i++)
         {
             var player = game.Player;
-            var jab = MathF.Sin(i / 60f * 6f) > 0.3f ? 1f : 0.45f;
+            var jab = MathF.Sin(i / 60f * 3.575f) > 0.3f ? 1f : 0.45f;
             game.Step(new BoxingInput(new FighterCommand(new Vector3(0f, 0f, 0.4f), game.Cpu.ChestPosition - player.ChestPosition,
                 new HandCommand(new Vector3(0f, 0.1f, jab) * player.ArmReach, false),
                 new HandCommand(new Vector3(0f, 0.1f, 1.45f - jab) * player.ArmReach, false))), 1f / 60f);

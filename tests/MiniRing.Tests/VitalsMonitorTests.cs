@@ -20,7 +20,7 @@ public sealed class VitalsMonitorTests
     public void RestedFighterShowsCalmVitalsAndTheHeartBeats()
     {
         using var game = new BoxingGame(seed: 1);
-        for (var i = 0; i < 240; i++)
+        for (var i = 0; i < 403; i++)
         {
             game.Step(default, 1f / 240f);
         }

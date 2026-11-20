@@ -19,7 +19,7 @@ public sealed class OrgShowFixTests
     private const float Dt = 1f / 30f;
 
     private static TvCard WvcCard(bool belt = false)
-        => new("WVC 王座決定戦", "第1試合", TvCorner.Of(CharacterRoster.Get("marcus")), TvCorner.Of(CharacterRoster.Get("ramon")), TvShowRules.Rules(3, 20f), belt);
+        => new("WVC 王座決定戦", "第1試合", TvCorner.Of(CharacterRoster.Get("marcus")), TvCorner.Of(CharacterRoster.Get("ramon")), TvShowRules.Rules(3, 33.57f), belt);
 
     private static float GloveSpread(BoxingGame game) => MathF.Abs(game.Player.GloveCenter(Hand.Left).X - game.Player.GloveCenter(Hand.Right).X);
 
@@ -27,11 +27,11 @@ public sealed class OrgShowFixTests
     public void StageGame_StandsInGuard_AndDoesNotTouchTheRealMatch()
     {
         // 影の試合を回しながら本番を同じだけ進めた試合と、影の試合なしの試合で、本番のチェックサムが同じ。
-        using var lone = new BoxingGame(seed: 7, rules: TvShowRules.Rules(3, 20f));
-        using var accompanied = new BoxingGame(seed: 7, rules: TvShowRules.Rules(3, 20f));
-        using var stage = new BoxingGame(seed: 7, rules: TvShowRules.Rules(3, 20f));
+        using var lone = new BoxingGame(seed: 7, rules: TvShowRules.Rules(3, 33.57f));
+        using var accompanied = new BoxingGame(seed: 7, rules: TvShowRules.Rules(3, 33.57f));
+        using var stage = new BoxingGame(seed: 7, rules: TvShowRules.Rules(3, 33.57f));
         var spawnSpread = GloveSpread(stage);
-        for (var i = 0; i < 90; i++)
+        for (var i = 0; i < 151; i++) // 約 5 秒
         {
             stage.StepStage(Dt, StagePose.Center);
             lone.Step(default, 1f / 60f);
@@ -41,8 +41,8 @@ public sealed class OrgShowFixTests
         Assert.AreEqual(lone.StateChecksum(), accompanied.StateChecksum(), "影の試合は本番の試合に響かない");
         Assert.AreNotEqual(stage.StateChecksum(), accompanied.StateChecksum(), "影の試合は本番とは別の状態（ボットを読まず構えて立つだけ）");
 
-        // 生成直後は腕を真横に広げた姿勢。構えの指令で 3 秒進めると、拳は顔の前に寄っている（姿勢を書き込まず、目標をバネが追った結果）。
-        Assert.IsGreaterThan(0.4f, spawnSpread, "生成直後は拳が体の横に離れている（T ポーズ）");
+        // 生成直後は腕を真横に広げた姿勢。構えの指令で 5 秒進めると、拳は顔の前に寄っている（姿勢を書き込まず、目標をバネが追った結果）。
+        Assert.IsGreaterThan(1.127f, spawnSpread, "生成直後は拳が体の横に離れている（T ポーズ）");
         Assert.IsLessThan(spawnSpread * 0.6f, GloveSpread(stage), "構えて立つと両拳が体の前へ寄る");
         Assert.IsGreaterThan(stage.Player.ChestPosition.Z, stage.Player.GloveCenter(Hand.Left).Z, "拳は相手の側（胸の前）にある");
     }
@@ -50,8 +50,8 @@ public sealed class OrgShowFixTests
     [TestMethod]
     public void StageGame_IsDeterministic_AndWalksToTheCorners()
     {
-        using var a = new BoxingGame(seed: 5, rules: TvShowRules.Rules(3, 20f));
-        using var b = new BoxingGame(seed: 5, rules: TvShowRules.Rules(3, 20f));
+        using var a = new BoxingGame(seed: 5, rules: TvShowRules.Rules(3, 33.57f));
+        using var b = new BoxingGame(seed: 5, rules: TvShowRules.Rules(3, 33.57f));
         var corner = a.Layout.RestCorner(true, (a.Rules ?? MatchRules.Tv).CornerInset);
         corner.Y = 0f;
         float RedDistance(BoxingGame g)
@@ -61,7 +61,7 @@ public sealed class OrgShowFixTests
         }
 
         var before = RedDistance(a);
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++) // 約 6.7 秒
         {
             a.StepStage(Dt, StagePose.Corners);
             b.StepStage(Dt, StagePose.Corners);
@@ -101,7 +101,7 @@ public sealed class OrgShowFixTests
         Assert.IsFalse(healthy[FigurePart.Head].Gone);
 
         // 首を断たれて赤の勝ち: 負けた青の図は頭が「失った」で、全体が沈む。勝った赤は無傷のまま。
-        var neck = new TvResult(1, "K.O. — NECK DESTROYED  RED WINS", 2, 16f, [], []);
+        var neck = new TvResult(1, "K.O. — NECK DESTROYED  RED WINS", 2, 26.85f, [], []);
         var (loser, loserSunk) = VfcShow.ResultFigure(healthy, loser: true, neck);
         Assert.IsTrue(loser[FigurePart.Head].Gone, "首を断たれた体の図は頭が失われている");
         Assert.IsTrue(loserSunk);
@@ -111,11 +111,11 @@ public sealed class OrgShowFixTests
         Assert.IsFalse(winnerSunk);
 
         // 脳を壊されての死は、頭は残るが負けた側は沈む。判定・引き分けでは誰も沈まない。
-        var brain = new TvResult(-1, "K.O. — BRAIN DESTROYED  BLUE WINS", 3, 5f, [], []);
+        var brain = new TvResult(-1, "K.O. — BRAIN DESTROYED  BLUE WINS", 3, 8.392f, [], []);
         var (brainLoser, brainSunk) = VfcShow.ResultFigure(healthy, loser: true, brain);
         Assert.IsFalse(brainLoser[FigurePart.Head].Gone);
         Assert.IsTrue(brainSunk);
-        Assert.IsFalse(VfcShow.ResultFigure(healthy, loser: true, new TvResult(0, "DRAW", 5, 30f, [], [])).Sunk);
+        Assert.IsFalse(VfcShow.ResultFigure(healthy, loser: true, new TvResult(0, "DRAW", 5, 50.35f, [], [])).Sunk);
 
         // 元の図は変えない（不変）。
         Assert.IsFalse(healthy[FigurePart.Head].Gone);
@@ -126,8 +126,8 @@ public sealed class OrgShowFixTests
     {
         var show = ShowFormats.Create(Width, Height, Organization.Of("wvc"));
         using var game = new BoxingGame(seed: 3);
-        var win = new TvResult(1, "K.O. — BRAIN DESTROYED  RED WINS", 2, 16f, [100f], [90f]);
-        var draw = new TvResult(0, "DRAW", 3, 30f, [100f], [100f]);
+        var win = new TvResult(1, "K.O. — BRAIN DESTROYED  RED WINS", 2, 26.85f, [100f], [90f]);
+        var draw = new TvResult(0, "DRAW", 3, 50.35f, [100f], [100f]);
         var without = show.Result(WvcCard(), win, 4f, game, ShowBodies.None);
         var with = show.Result(WvcCard(belt: true), win, 4f, game, ShowBodies.None);
         Assert.IsGreaterThan(without.Shapes.Count + 100, with.Shapes.Count, "ベルト（金のボクセルの板）が足される");

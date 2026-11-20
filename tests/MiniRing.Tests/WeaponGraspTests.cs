@@ -49,7 +49,7 @@ public sealed class WeaponGraspTests
     }
 
     private static BoxingGame NewGame(Script script) =>
-        new(seed: 1, corners: SwordTraining.Corners(Katana, 1.2f) with { Player = _ => script });
+        new(seed: 1, corners: SwordTraining.Corners(Katana, 3.38f) with { Player = _ => script });
 
     private static void Play(BoxingGame game, float seconds)
     {
@@ -71,7 +71,7 @@ public sealed class WeaponGraspTests
     {
         var script = new Script();
         using var game = NewGame(script);
-        Play(game, 1f);
+        Play(game, 1.678f);
         var (top, bottom) = Weapon.TwoHandGripsOf(Katana);
         Assert.AreEqual(Hand.Left, game.Player.SupportOf(Hand.Right));
         Assert.AreEqual(top.X, game.Player.GripX(Hand.Right)!.Value, 1e-5f, "the right hand holds near the tsuba");
@@ -88,12 +88,12 @@ public sealed class WeaponGraspTests
     {
         var script = new Script();
         using var game = NewGame(script);
-        Play(game, 1f);
+        Play(game, 1.678f);
         var sword = game.WeaponOf(game.Player)!;
         var (top, _) = Weapon.TwoHandGripsOf(Katana);
 
         script.LetGoLeft = true;
-        Play(game, 1f / 30f);
+        Play(game, 0.05595f);
         script.LetGoLeft = false;
         Assert.IsFalse(game.Player.Wields(Hand.Left), "the left hand let go");
         Assert.IsTrue(game.Player.Wields(Hand.Right), "the right hand still holds the sword");
@@ -101,17 +101,17 @@ public sealed class WeaponGraspTests
         Assert.AreEqual(top.X, game.Player.GripX(Hand.Right)!.Value, 1e-5f, "the remaining hand keeps its grip");
 
         // 左手が柄から離れて素手の拳になる（左手は構えの位置のまま、右手は剣を持っている）。
-        Play(game, 1f);
+        Play(game, 1.678f);
         Assert.IsTrue(game.Player.WearsGlove(Hand.Left), "the empty left hand is a bare fist once it has moved off the handle");
 
         // 左手を柄へ持っていって Grip（まだ押さない間は添えない）。
         var spacing = FormSwordsman.Spacing(Katana) * game.Player.ArmReach;
         script.LeftAt = () => GripWorld(game, sword, top - new Vector3(spacing, 0f, 0f));
-        Play(game, 1f);
+        Play(game, 1.678f);
         Assert.IsFalse(game.Player.Wields(Hand.Left), "without Grip the hand just rests by the handle");
 
         script.GripLeft = true;
-        Play(game, 1f);
+        Play(game, 1.678f);
         Assert.AreEqual(Hand.Left, game.Player.SupportOf(Hand.Right), "the left hand grips again");
         Assert.IsFalse(game.Player.WearsGlove(Hand.Left), "the bare fist was taken off to hold the handle");
         Assert.IsFalse(game.Player.HoldsOneHanded(Hand.Right), "two hands again");
@@ -127,21 +127,21 @@ public sealed class WeaponGraspTests
     {
         var script = new Script();
         using var game = NewGame(script);
-        Play(game, 1f);
+        Play(game, 1.678f);
         var sword = game.WeaponOf(game.Player)!;
         var (_, bottom) = Weapon.TwoHandGripsOf(Katana);
         var height = game.World.GetState(sword.Body.BodyId).Position.Y;
 
         script.LetGoRight = true;
-        Play(game, 1f / 30f);
+        Play(game, 0.05595f);
         script.LetGoRight = false;
-        Play(game, 1f);
+        Play(game, 1.678f);
         Assert.IsFalse(game.Player.Wields(Hand.Right));
         Assert.IsTrue(game.Player.Wields(Hand.Left), "the left hand holds on");
         Assert.AreEqual(sword.Body.BodyId, game.Player.WieldedBody(Hand.Left), "as the hand that holds the sword now");
         Assert.AreEqual(bottom.X, game.Player.GripX(Hand.Left)!.Value, 1e-5f, "its grip did not move");
         Assert.IsTrue(game.Player.HoldsOneHanded(Hand.Left));
-        Assert.IsGreaterThan(height - 0.1f, game.World.GetState(sword.Body.BodyId).Position.Y, "the sword did not fall");
+        Assert.IsGreaterThan(height - 0.2817f, game.World.GetState(sword.Body.BodyId).Position.Y, "the sword did not fall");
     }
 
     /// <summary>落とした刀は床へ落ち、空いた左手だけで（鍔に近い握りで）拾え、右手が添えれば両手の間隔になる。</summary>
@@ -150,29 +150,29 @@ public sealed class WeaponGraspTests
     {
         var script = new Script();
         using var game = NewGame(script);
-        Play(game, 1f);
+        Play(game, 1.678f);
         var sword = game.WeaponOf(game.Player)!;
         var (top, bottom) = Weapon.TwoHandGripsOf(Katana);
         var heldAt = game.World.GetState(sword.Body.BodyId).Position.Y;
 
         script.LetGoLeft = true;
         script.LetGoRight = true;
-        Play(game, 1f / 30f);
+        Play(game, 0.05595f);
         script.LetGoLeft = false;
         script.LetGoRight = false;
-        Play(game, 1.5f);
+        Play(game, 2.518f);
         Assert.IsFalse(game.Player.Wields(Hand.Left) ||game.Player.Wields(Hand.Right), "both hands dropped it");
         Assert.AreNotEqual(sword.Body.BodyId, game.Player.WieldedBody(Hand.Right), "what the right hand carries now is only its bare fist");
         Assert.IsTrue(game.Player.WearsGlove(Hand.Left) && game.Player.WearsGlove(Hand.Right), "both empty hands are bare fists");
         var fallen = game.World.GetState(sword.Body.BodyId);
-        Assert.IsLessThan(heldAt - 0.2f, fallen.Position.Y, "the sword fell from the hand to the floor");
-        Assert.IsLessThan(0.1f, fallen.LinearVelocity.Length(), "and lies there");
+        Assert.IsLessThan(heldAt - 0.5634f, fallen.Position.Y, "the sword fell from the hand to the floor");
+        Assert.IsLessThan(0.1678f, fallen.LinearVelocity.Length(), "and lies there");
 
         // 刀を左手の所へ置く（この小さい体の腕は床まで届かないので、握れる高さへ持ち上げた物として。置いた直後の歩の前に Grip を押す）。
         script.GripLeft = true;
         var fist = game.Player.GloveCenter(Hand.Left);
         var s0 = game.World.GetState(sword.Body.BodyId);
-        game.World.SetDynamicPose(sword.Body.BodyId, fist + new Vector3(0f, 0.01f, 0f) - Vector3.Transform(top, s0.Orientation), s0.Orientation);
+        game.World.SetDynamicPose(sword.Body.BodyId, fist + new Vector3(0f, 0.02817f, 0f) - Vector3.Transform(top, s0.Orientation), s0.Orientation);
         Play(game, 1f / 60f);
         Assert.IsTrue(game.Player.Wields(Hand.Left), "the left hand picked it up");
         Assert.AreEqual(sword.Body.BodyId, game.Player.WieldedBody(Hand.Left));
@@ -180,14 +180,14 @@ public sealed class WeaponGraspTests
         Assert.AreEqual(top.X, game.Player.GripX(Hand.Left)!.Value, 1e-5f, "held near the tsuba");
         Assert.IsTrue(game.Player.HoldsOneHanded(Hand.Left));
         Assert.AreSame(sword, game.WeaponOf(game.Player), "the sword is the player's again");
-        Play(game, 1f);
-        Assert.IsLessThan(0.1f, Vector3.Distance(game.Player.GloveCenter(Hand.Left), GripWorld(game, sword, top)), "the grip follows the hand");
+        Play(game, 1.678f);
+        Assert.IsLessThan(0.2817f, Vector3.Distance(game.Player.GloveCenter(Hand.Left), GripWorld(game, sword, top)), "the grip follows the hand");
 
         // 右手を柄へ持っていって Grip で添える: 左手の握り（鍔の近く）から柄頭の側へ通常の間隔。
         var spacing = FormSwordsman.Spacing(Katana) * game.Player.ArmReach;
         script.RightAt = () => GripWorld(game, sword, top);
         script.GripRight = true;
-        Play(game, 1.5f);
+        Play(game, 2.518f);
         Assert.AreEqual(Hand.Right, game.Player.SupportOf(Hand.Left), "the right hand joined as the second hand");
         Assert.IsFalse(game.Player.WearsGlove(Hand.Right));
         Assert.IsFalse(game.Player.HoldsOneHanded(Hand.Left));
@@ -202,20 +202,20 @@ public sealed class WeaponGraspTests
     {
         var script = new Script();
         using var game = NewGame(script);
-        Play(game, 1f);
+        Play(game, 1.678f);
         var sword = game.WeaponOf(game.Player)!;
         var (top, _) = Weapon.TwoHandGripsOf(Katana);
         script.LetGoLeft = true;
         script.LetGoRight = true;
-        Play(game, 1f / 30f);
+        Play(game, 0.05595f);
         script.LetGoLeft = false;
         script.LetGoRight = false;
-        Play(game, 1.5f);
+        Play(game, 2.518f);
         script.GripLeft = true;
         script.GripRight = true;
         var fist = game.Player.GloveCenter(Hand.Left);
         var s0 = game.World.GetState(sword.Body.BodyId);
-        game.World.SetDynamicPose(sword.Body.BodyId, fist + new Vector3(0f, 0.01f, 0.3f) - Vector3.Transform(top, s0.Orientation), s0.Orientation);
+        game.World.SetDynamicPose(sword.Body.BodyId, fist + new Vector3(0f, 0.02817f, 0.8451f) - Vector3.Transform(top, s0.Orientation), s0.Orientation);
         Play(game, 1f / 60f);
         Assert.IsFalse(game.Player.Wields(Hand.Left) || game.Player.Wields(Hand.Right));
     }
@@ -224,8 +224,8 @@ public sealed class WeaponGraspTests
     [TestMethod]
     public void WithoutGrip_NothingChanges_TheBotKeepsItsTwoHandedHold()
     {
-        using var game = new BoxingGame(seed: 1, corners: SwordTraining.Corners(Katana, 1.2f));
-        Play(game, 2f);
+        using var game = new BoxingGame(seed: 1, corners: SwordTraining.Corners(Katana, 3.38f));
+        Play(game, 3.357f);
         var (top, bottom) = Weapon.TwoHandGripsOf(Katana);
         Assert.AreEqual(Hand.Left, game.Cpu.SupportOf(Hand.Right));
         Assert.AreEqual(top.X, game.Cpu.GripX(Hand.Right)!.Value, 1e-5f);

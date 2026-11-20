@@ -16,12 +16,12 @@ public sealed class BalanceProbe
     private static (PhysicsWorld World, Fighter Fighter, FighterCommand Idle) Stand(bool support)
     {
         var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         var f = Fighter.Spawn(world, FighterTuning.Default with { SupportFromGround = support }, "f", Vector3.Zero, 0f);
         var idle = new FighterCommand(Vector3.Zero, Vector3.UnitZ,
             new HandCommand(AiControl.Guard(Hand.Left, f.ArmReach), false),
             new HandCommand(AiControl.Guard(Hand.Right, f.ArmReach), false));
-        for (var i = 0; i < 240; i++)
+        for (var i = 0; i < 403; i++)
         {
             f.ApplyControl(idle, Dt);
             world.Step(Dt);
@@ -45,10 +45,10 @@ public sealed class BalanceProbe
                     var force = direction.Item2 * (weights * f.TotalMass * 9.81f);
                     var minUp = 1f;
                     var downAt = -1f;
-                    for (var i = 0; i < 240 * 2; i++)
+                    for (var i = 0; i < 806; i++)
                     {
                         f.ApplyControl(idle, Dt);
-                        if (i < 240)
+                        if (i < 403)
                         {
                             world.ApplyLinearImpulse(f.Parts.Chest, force * Dt);
                         }
@@ -83,7 +83,7 @@ public sealed class BalanceProbe
                     var minUp = 1f;
                     var falls = 0;
                     var wasUp = true;
-                    for (var i = 0; i < 240 * 3; i++)
+                    for (var i = 0; i < 1209; i++)
                     {
                         f.ApplyControl(idle with { MoveWorld = dir * speed }, Dt);
                         world.Step(Dt);
@@ -111,14 +111,14 @@ public sealed class BlackoutBalanceProbe
         const float dt = 1f / 60f;
         var still = MiniRing.Bots.BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new MiniRing.Bots.BoxerBot(still, s), s => new MiniRing.Bots.BoxerBot(still, s)));
-        for (var t = 0f; t < 1.5f; t += dt)
+        for (var t = 0f; t < 2.518f; t += dt)
         {
             game.Step(default, dt);
         }
 
         var f = game.Cpu;
         f.Concussion = 0.75f;
-        for (var t = 0f; t < 3f; t += dt)
+        for (var t = 0f; t < 5.035f; t += dt)
         {
             game.Step(default, dt);
             Console.WriteLine($"t {t:0.00} {f.State} bal {f.Balance:0.00} margin {f.SupportMargin * 100:0.0} up {f.Uprightness:0.00} pel {(f.PelvisPosition.Y - BoxingGame.RingSurfaceHeight) * 100:0.0} tone {f.Tone:0.00} hull {f.SupportHull.Count}");
@@ -135,12 +135,12 @@ public sealed class RiseProbe
     {
         const float dt = 1f / 240f;
         using var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         var f = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
         var idle = new FighterCommand(Vector3.Zero, Vector3.UnitZ,
             new HandCommand(AiControl.Guard(Hand.Left, f.ArmReach), false),
             new HandCommand(AiControl.Guard(Hand.Right, f.ArmReach), false));
-        for (var i = 0; i < 240; i++)
+        for (var i = 0; i < 403; i++)
         {
             f.ApplyControl(idle, dt);
             world.Step(dt);
@@ -148,19 +148,19 @@ public sealed class RiseProbe
 
         var dir = Environment.GetEnvironmentVariable("FALL") == "back" ? -Vector3.UnitZ : Vector3.UnitZ;
         f.Knockdown(dir, permanent: false);
-        world.ApplyLinearImpulse(f.Parts.Chest, dir * (2.5f * world.GetMass(f.Parts.Chest)));
-        world.ApplyLinearImpulse(f.Parts.Head, dir * (2.5f * world.GetMass(f.Parts.Head)));
+        world.ApplyLinearImpulse(f.Parts.Chest, dir * (4.196f * world.GetMass(f.Parts.Chest)));
+        world.ApplyLinearImpulse(f.Parts.Head, dir * (4.196f * world.GetMass(f.Parts.Head)));
         var standAt = -1f;
-        for (var i = 0; i < 240 * 8; i++)
+        for (var i = 0; i < 3223; i++)
         {
             f.ApplyControl(idle, dt);
             world.Step(dt);
-            if (standAt < 0f && i > 240 && f.State == FighterState.Standing)
+            if (standAt < 0f && i > 403 && f.State == FighterState.Standing)
             {
                 standAt = i * dt;
             }
 
-            if (i % 48 == 0)
+            if (i % 81 == 0)
             {
                 Console.WriteLine($"t {i * dt:0.0} {f.State} pel {f.PelvisPosition.Y * 100:0.0} up {f.Uprightness:0.00} rise {f.Rise:0.00} cap {f.RiseCap:0.00} limbs {f.LimbSupport:0.00} hull {f.SupportHull.Count} feet {f.FeetHullCount} fd {f.FeetDistance * 100:0.0} ankles {f.AnklePosition(Hand.Left).Y * 100:0.0}/{f.AnklePosition(Hand.Right).Y * 100:0.0}");
             }
@@ -180,15 +180,15 @@ public sealed class ResonanceProbe
         const float dt = 1f / 240f;
         var amp = float.Parse(Environment.GetEnvironmentVariable("AMP") ?? "0.3", System.Globalization.CultureInfo.InvariantCulture);
         var ki = float.Parse(Environment.GetEnvironmentVariable("KI") ?? "0", System.Globalization.CultureInfo.InvariantCulture);
-        foreach (var hz in new[] { 0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 2.5f, 3f, 4f })
+        foreach (var hz in new[] { 0.2979f, 0.4469f, 0.5958f, 0.7448f, 0.8937f, 1.192f, 1.490f, 1.787f, 2.383f })
         {
             using var world = new PhysicsWorld();
-            world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+            world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
             var f = Fighter.Spawn(world, FighterTuning.Default with { BalanceKi = ki }, "f", Vector3.Zero, 0f);
             var idle = new FighterCommand(Vector3.Zero, Vector3.UnitZ,
                 new HandCommand(AiControl.Guard(Hand.Left, f.ArmReach), false),
                 new HandCommand(AiControl.Guard(Hand.Right, f.ArmReach), false));
-            for (var i = 0; i < 240; i++)
+            for (var i = 0; i < 403; i++)
             {
                 f.ApplyControl(idle, dt);
                 world.Step(dt);
@@ -198,7 +198,7 @@ public sealed class ResonanceProbe
             var maxSway = 0f;
             var minBalance = 1f;
             var fellAt = -1f;
-            for (var i = 0; i < 240 * 4; i++)
+            for (var i = 0; i < 1611; i++)
             {
                 var t = i * dt;
                 f.ApplyControl(idle, dt);

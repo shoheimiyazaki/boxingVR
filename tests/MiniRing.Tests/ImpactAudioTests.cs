@@ -11,7 +11,7 @@ public sealed class ImpactAudioTests
     {
         var audio = new ImpactAudio();
         var voices = audio.Push(0, [ImpactCue.Touch(new ContactSoundEvent(Vector3.Zero, ContactPair.GloveGlove, 0.2f)),
-            ImpactCue.Touch(new ContactSoundEvent(new Vector3(0.01f, 0, 0), ContactPair.GloveGlove, 0.6f))]);
+            ImpactCue.Touch(new ContactSoundEvent(new Vector3(0.02817f, 0, 0), ContactPair.GloveGlove, 0.6f))]);
         Assert.AreEqual(1, voices.Count);
         Assert.AreEqual(0.6f, voices[0].Cue.Contact!.Value.Strength);
     }
@@ -41,8 +41,8 @@ public sealed class ImpactAudioTests
     [TestMethod]
     public void SmallSupportedMetalDecaysSoonerThanALongBlade()
     {
-        var compact = ContactResonance.Of(0.055f, 0.04f, 0.025f, 0.08f, true);
-        var blade = ContactResonance.Of(0.33f, 0.025f, 0.009f, 0.12f, true);
+        var compact = ContactResonance.Of(0.1549f, 0.1127f, 0.07042f, 0.8f, true);
+        var blade = ContactResonance.Of(0.9296f, 0.07042f, 0.02535f, 1.2f, true);
         Assert.IsLessThan(blade.DecayScale / 3f, compact.DecayScale);
         var shortPcm = ContactSound.Synthesize(ContactPair.MetalMetal, 1, 7, compact);
         var longPcm = ContactSound.Synthesize(ContactPair.MetalMetal, 1, 7, blade);
@@ -90,8 +90,8 @@ public sealed class ImpactAudioTests
     [TestMethod]
     public void SupportDampsTheSameGeometryWithoutChangingItsMass()
     {
-        var free = ContactResonance.Of(0.06f, 0.04f, 0.02f, 0.08f, false);
-        var held = ContactResonance.Of(0.06f, 0.04f, 0.02f, 0.08f, true);
+        var free = ContactResonance.Of(0.169f, 0.1127f, 0.05634f, 0.8f, false);
+        var held = ContactResonance.Of(0.169f, 0.1127f, 0.05634f, 0.8f, true);
         Assert.IsLessThan(free.DecayScale, held.DecayScale);
     }
 
@@ -116,7 +116,7 @@ public sealed class ImpactAudioTests
     public void HighSpeedZeroEnergyContactCannotEraseAnEnergeticContact()
     {
         var audio = new ImpactAudio();
-        var energetic = new ContactSoundEvent(Vector3.Zero, ContactPair.GloveGlove, 0.2f, Energy: 1f);
+        var energetic = new ContactSoundEvent(Vector3.Zero, ContactPair.GloveGlove, 0.2f, Energy: 28.17f);
         var fast = new ContactSoundEvent(Vector3.Zero, ContactPair.GloveGlove, 0.8f, Energy: 0f);
         var voice = audio.Push(0, [ImpactCue.Touch(energetic), ImpactCue.Touch(fast)]).Single();
         Assert.AreEqual(energetic, voice.Cue.Contact!.Value);
@@ -127,7 +127,7 @@ public sealed class ImpactAudioTests
     [TestMethod]
     public void NamedSweetSpotDoesNotAddSoundDamage()
     {
-        var head = new HitEvent(null!, Hand.Left, null!, HitZone.Head, Vector3.Zero, 2f, 0.1f, 0.5f, 10f);
+        var head = new HitEvent(null!, Hand.Left, null!, HitZone.Head, Vector3.Zero, 3.357f, 1f, 0.5f, 10f);
         Assert.AreEqual(HitTone.Of(head), HitTone.Of(head with { Zone = HitZone.Chin }));
         Assert.IsGreaterThan(HitTone.Of(head).Clean, HitTone.Of(head with { Damage = 20f }).Clean);
     }

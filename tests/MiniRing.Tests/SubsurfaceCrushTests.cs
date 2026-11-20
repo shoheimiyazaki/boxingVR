@@ -7,7 +7,7 @@ namespace MiniRing.Tests;
 
 /// <summary>
 /// 面の下へ伝わる圧力（エンジン <see cref="VoxelContact"/>、2026-11-12）: 詰め物の拳は皮膚を破れないが、皮膚の下の肉は潰れて面がへこむ。
-/// 拳の後ろで一緒に打ち込む腕と体の質量（massBehind）が無ければ、45 g のグローブそのものの打撃しか無く、何も潰れない。
+/// 拳の後ろで一緒に打ち込む腕と体の質量（massBehind）が無ければ、450 g のグローブそのものの打撃しか無く、何も潰れない。
 /// </summary>
 [TestClass]
 public sealed class SubsurfaceCrushTests
@@ -19,37 +19,37 @@ public sealed class SubsurfaceCrushTests
     private const byte Bone = 5;
     private const float Dt = 1f / 240f;
 
-    // 人形の値（MiniRing.Voxels.BoxerAnatomy と同じ: 人の値 × 相似則 0.32）。
+    // BoxerAnatomy.Doll と同じ相似の値: 強さ = 人の値 × StressSimilitude（0.32 × 1.2602 = 0.4033）、密度 = 人の値 × 0.4474、たわむ距離 = 人の値 × 2.817。
     private static readonly VoxelPalette Palette = new(
     [
         new VoxelMaterial("empty", VoxelTissue.Empty, 1f, false, Vector4.Zero, Vector4.Zero),
-        new VoxelMaterial("skin", VoxelTissue.Flesh, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(1100f, 1.2e6f * 0.32f, 0.005f, Wear: 0.12f)),
-        new VoxelMaterial("muscle", VoxelTissue.Flesh, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(1060f, 0.3e6f * 0.32f, 0.005f)),
-        new VoxelMaterial("leather", VoxelTissue.Solid, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(1100f, 2.0e6f * 0.32f, 0.004f)),
-        new VoxelMaterial("padding", VoxelTissue.Solid, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(120f, 0.15e6f * 0.32f, 0.008f)),
-        new VoxelMaterial("bone", VoxelTissue.Bone, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(1900f, 25e6f * 0.32f, 0.0005f)),
+        new VoxelMaterial("skin", VoxelTissue.Flesh, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(492.1f, 1.2e6f * MiniRing.Voxels.BoxerAnatomy.StressSimilitude, 0.01408f, Wear: 0.12f)),
+        new VoxelMaterial("muscle", VoxelTissue.Flesh, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(474.2f, 0.3e6f * MiniRing.Voxels.BoxerAnatomy.StressSimilitude, 0.01408f)),
+        new VoxelMaterial("leather", VoxelTissue.Solid, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(492.1f, 2.0e6f * MiniRing.Voxels.BoxerAnatomy.StressSimilitude, 0.01127f)),
+        new VoxelMaterial("padding", VoxelTissue.Solid, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(53.69f, 0.15e6f * MiniRing.Voxels.BoxerAnatomy.StressSimilitude, 0.02254f)),
+        new VoxelMaterial("bone", VoxelTissue.Bone, 1f, false, Vector4.One, Vector4.One, Mechanics: new VoxelMechanics(850.1f, 25e6f * MiniRing.Voxels.BoxerAnatomy.StressSimilitude, 0.001408f)),
     ]);
 
-    private const float GloveRadius = 0.024f;
+    private const float GloveRadius = 0.0676f;
 
-    /// <summary>皮膚 5 mm の下が肉の塊（8 cm × 4 cm × 8 cm、5 mm のセル）。上の面が +Y。重い（腕の付いた体の部位の代わり）。</summary>
+    /// <summary>皮膚 14 mm の下が肉の塊（23 cm × 11 cm × 23 cm、14 mm のセル）。上の面が +Y。重い（腕の付いた体の部位の代わり）。</summary>
     private static VoxelBody Flesh(PhysicsWorld world)
     {
-        var half = new Vector3(0.04f, 0.02f, 0.04f);
-        var grid = new VoxelGrid(Palette, half, 0.005f, (p, _) => p.Y > half.Y - 0.005f ? Skin : Muscle);
-        var id = world.AddDynamicBox(Vector3.Zero, Quaternion.Identity, half, 2f);
+        var half = new Vector3(0.1127f, 0.05634f, 0.1127f);
+        var grid = new VoxelGrid(Palette, half, 0.01408f, (p, _) => p.Y > half.Y - 0.01408f ? Skin : Muscle);
+        var id = world.AddDynamicBox(Vector3.Zero, Quaternion.Identity, half, 20f);
         return new VoxelBody(world, id, grid);
     }
 
-    /// <summary>グローブ（半径 2.4 cm の球: 外 4 mm が革、その内が詰め物、芯は骨。4 mm のセル、45 g）を、肉の上から −Y へ落とす。</summary>
+    /// <summary>グローブ（半径 6.8 cm の球: 外 11 mm が革、その内が詰め物、芯は骨。11 mm のセル、450 g）を、肉の上から −Y へ落とす。</summary>
     private static VoxelBody Glove(PhysicsWorld world, float speed)
     {
-        var grid = new VoxelGrid(Palette, new Vector3(GloveRadius), 0.004f, (p, _) =>
+        var grid = new VoxelGrid(Palette, new Vector3(GloveRadius), 0.01127f, (p, _) =>
         {
             var r = p.Length();
-            return r > GloveRadius ? (byte)0 : r > GloveRadius - 0.004f ? Leather : r > 0.012f ? Padding : Bone;
+            return r > GloveRadius ? (byte)0 : r > GloveRadius - 0.01127f ? Leather : r > 0.0338f ? Padding : Bone;
         });
-        var id = world.AddDynamicBox(new Vector3(0f, 0.02f + GloveRadius + 0.004f, 0f), Quaternion.Identity, new Vector3(GloveRadius), 0.045f);
+        var id = world.AddDynamicBox(new Vector3(0f, 0.05634f + GloveRadius + 0.01127f, 0f), Quaternion.Identity, new Vector3(GloveRadius), 0.45f);
         world.SetLinearVelocity(id, new Vector3(0f, -speed, 0f));
         return new VoxelBody(world, id, grid);
     }
@@ -64,7 +64,7 @@ public sealed class SubsurfaceCrushTests
         var gloveBefore = glove.Grid.FilledCount;
         int removed = 0, crushed = 0;
         var topLayer = 0;
-        for (var i = 0; i < 60; i++)
+        for (var i = 0; i < 101; i++)
         {
             var sg = world.GetState(glove.BodyId);
             var sf = world.GetState(flesh.BodyId);
@@ -90,8 +90,8 @@ public sealed class SubsurfaceCrushTests
     [TestMethod]
     public void APaddedFist_CannotBreakSkin_ButCrushesTheFleshBeneath_AndLeavesADent()
     {
-        var (removed, crushed, top, skin, gloveLost) = Punch(speed: 2f, massBehind: 3f);
-        Console.WriteLine($"2 m/s with 3 kg behind: removed {removed}, crushed beneath {crushed}, top layer {top}/{skin}, glove lost {gloveLost}");
+        var (removed, crushed, top, skin, gloveLost) = Punch(speed: 3.357f, massBehind: 30f);
+        Console.WriteLine($"3.36 m/s with 30 kg behind: removed {removed}, crushed beneath {crushed}, top layer {top}/{skin}, glove lost {gloveLost}");
         Assert.AreEqual(0, removed, "the skin holds: nothing flies off");
         Assert.IsGreaterThan(0, crushed, "the muscle under the skin is crushed");
         Assert.IsLessThan(skin, top, "the skin is pushed in over the crushed flesh: a dent");
@@ -101,8 +101,8 @@ public sealed class SubsurfaceCrushTests
     [TestMethod]
     public void TheGloveAlone_WithoutTheArmBehindIt_CrushesNothing()
     {
-        var (removed, crushed, _, _, _) = Punch(speed: 2f, massBehind: 0f);
-        Console.WriteLine($"2 m/s, glove alone: removed {removed}, crushed {crushed}");
+        var (removed, crushed, _, _, _) = Punch(speed: 3.357f, massBehind: 0f);
+        Console.WriteLine($"3.36 m/s, glove alone: removed {removed}, crushed {crushed}");
         Assert.AreEqual(0, removed + crushed);
     }
 
@@ -122,15 +122,15 @@ public sealed class SubsurfaceCrushTests
             world.TranslateBody(flesh.BodyId, -s.Position);
             world.SetLinearVelocity(flesh.BodyId, Vector3.Zero);
             world.SetAngularVelocity(flesh.BodyId, Vector3.Zero);
-            var glove = Glove(world, speed: 2f);
+            var glove = Glove(world, speed: 3.357f);
             world.SetPairCollisionEnabled(flesh.BodyId, glove.BodyId, false);
             var removed = 0;
-            for (var i = 0; i < 40; i++)
+            for (var i = 0; i < 67; i++)
             {
                 var sg = world.GetState(glove.BodyId);
                 var sf = world.GetState(flesh.BodyId);
                 world.Step(Dt);
-                removed += VoxelContact.Resolve(glove, sg, flesh, sf, massBehindA: 3f).RemovedFor(flesh).Count;
+                removed += VoxelContact.Resolve(glove, sg, flesh, sf, massBehindA: 30f).RemovedFor(flesh).Count;
             }
 
             world.TranslateBody(glove.BodyId, new Vector3(0f, 10f + blow, 0f)); // 打ち終えた拳はどける
@@ -150,7 +150,7 @@ public sealed class SubsurfaceCrushTests
     public void WornThrough_TheSkinTears()
     {
         // 擦り減りが丈夫さを使い切ったセルは裂ける（壊れたセルとして出てくる）。その手前までは赤くなるだけ。
-        var grid = new VoxelGrid(Palette, new Vector3(0.01f), 0.005f, (_, _) => Skin);
+        var grid = new VoxelGrid(Palette, new Vector3(0.02817f), 0.01408f, (_, _) => Skin);
         var removed = new List<RemovedVoxel>();
         var blows = 0;
         while (removed.Count == 0 && blows < 100)
@@ -212,9 +212,9 @@ public sealed class SubsurfaceCrushTests
     [TestMethod]
     public void AHarderPunch_CrushesMore()
     {
-        var soft = Punch(speed: 1.2f, massBehind: 3f).Crushed;
-        var hard = Punch(speed: 3f, massBehind: 3f).Crushed;
-        Console.WriteLine($"crushed beneath: 1.2 m/s {soft}, 3 m/s {hard}");
+        var soft = Punch(speed: 2.014f, massBehind: 30f).Crushed;
+        var hard = Punch(speed: 5.035f, massBehind: 30f).Crushed;
+        Console.WriteLine($"crushed beneath: 2.0 m/s {soft}, 5.0 m/s {hard}");
         Assert.IsGreaterThan(soft, hard);
     }
 }

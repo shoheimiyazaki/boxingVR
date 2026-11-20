@@ -52,11 +52,11 @@ public sealed class ClubGripTests
     public void TheClub_StaysInTheFist_WithTheGloveOff()
     {
         using var game = Armed(s => Guard(Hand.Right, s.ArmReach));
-        Play(game, 1f);
+        Play(game, 1.678f);
 
         Assert.IsTrue(game.Cpu.Wields(BoxingGame.WeaponHand));
         Assert.IsFalse(game.Cpu.Wields(Hand.Left), "the other hand keeps its glove");
-        Assert.IsLessThan(0.01f, Vector3.Distance(GripWorld(game), game.Cpu.GloveCenter(BoxingGame.WeaponHand)), "the grip stays at the fist");
+        Assert.IsLessThan(0.02817f, Vector3.Distance(GripWorld(game), game.Cpu.GloveCenter(BoxingGame.WeaponHand)), "the grip stays at the fist");
         Assert.IsFalse(game.Player.Wields(BoxingGame.WeaponHand));
     }
 
@@ -66,13 +66,13 @@ public sealed class ClubGripTests
         // 棍棒を真上へ（武器のローカル X → 体フレームの上）。
         var up = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 2f);
         using var game = Armed(s => Guard(Hand.Right, s.ArmReach) with { Orientation = up });
-        Play(game, 1f);
+        Play(game, 1.678f);
         Assert.IsGreaterThan(0.9f, Vector3.Dot(ClubAxis(game), Vector3.UnitY), "the club points up");
 
         // 前へ（体フレームの前 = +Z）。
         var forward = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2f);
         using var game2 = Armed(s => Guard(Hand.Right, s.ArmReach) with { Orientation = forward });
-        Play(game2, 1f);
+        Play(game2, 1.678f);
         Assert.IsGreaterThan(0.85f, Vector3.Dot(ClubAxis(game2), game2.Cpu.Frame.Forward), "the club points at the opponent");
     }
 
@@ -81,7 +81,7 @@ public sealed class ClubGripTests
     {
         var up = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 2f);
         using var weak = Armed(s => Guard(Hand.Right, s.ArmReach) with { Orientation = up }, tuning: FighterTuning.Default with { WristMaxTorque = 0.3f });
-        Play(weak, 1f);
+        Play(weak, 1.678f);
         Assert.IsLessThan(0.5f, Vector3.Dot(ClubAxis(weak), Vector3.UnitY), "a wrist too weak for the club's weight lets it hang");
     }
 
@@ -93,18 +93,18 @@ public sealed class ClubGripTests
         {
             var go = false;
             using var game = Armed(s => go ? new HandCommand(new Vector3(-0.05f * s.ArmReach, 0.05f * s.ArmReach, 0.95f * s.ArmReach), false) : Guard(Hand.Right, s.ArmReach), weapon);
-            Play(game, 1f);
+            Play(game, 1.678f);
             go = true;
-            for (var t = 0f; t < 1f; t += 1f / 240f)
+            for (var t = 0f; t < 1.678f; t += 1f / 240f)
             {
                 game.Step(default, 1f / 240f);
-                if (Vector3.Distance(game.Cpu.GloveCenter(BoxingGame.WeaponHand), game.Cpu.HandTargetWorld(BoxingGame.WeaponHand)) < 0.02f)
+                if (Vector3.Distance(game.Cpu.GloveCenter(BoxingGame.WeaponHand), game.Cpu.HandTargetWorld(BoxingGame.WeaponHand)) < 0.05634f)
                 {
                     return t;
                 }
             }
 
-            return 1f;
+            return 1.678f;
         }
 
         Assert.IsGreaterThan(TimeToReach(null), TimeToReach(WeaponKind.WoodenClub));
@@ -125,13 +125,13 @@ public sealed class ClubGripTests
     {
         using var game = TwoHands(s => WeaponSwing.GuardCommand(s.ArmReach, SwingFamily.Bat));
         Assert.IsNull(game.Cpu.SupportOf(BoxingGame.WeaponHand), "the left hand starts away from the handle");
-        Play(game, 1f);
+        Play(game, 1.678f);
 
         var (top, bottom) = Weapon.TwoHandGripsOf(WeaponKind.WoodenClub);
         Assert.AreEqual(BoxingGame.SupportHand, game.Cpu.SupportOf(BoxingGame.WeaponHand));
         Assert.IsTrue(game.Cpu.Wields(Hand.Left), "both gloves are off");
-        Assert.IsLessThan(0.01f, ToGrip(game, BoxingGame.WeaponHand, top), "the right hand holds the top of the handle");
-        Assert.IsLessThan(0.01f, ToGrip(game, BoxingGame.SupportHand, bottom), "the left hand holds below it");
+        Assert.IsLessThan(0.02817f, ToGrip(game, BoxingGame.WeaponHand, top), "the right hand holds the top of the handle");
+        Assert.IsLessThan(0.02817f, ToGrip(game, BoxingGame.SupportHand, bottom), "the left hand holds below it");
     }
 
     [TestMethod]
@@ -141,9 +141,9 @@ public sealed class ClubGripTests
         var forward = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2f);
         var go = false;
         using var game = TwoHands(s => go ? Guard(Hand.Right, s.ArmReach) with { Orientation = forward } : WeaponSwing.GuardCommand(s.ArmReach, SwingFamily.Bat));
-        Play(game, 1f);
+        Play(game, 1.678f);
         go = true;
-        Play(game, 1f);
+        Play(game, 1.678f);
         Assert.IsGreaterThan(0.85f, Vector3.Dot(ClubAxis(game), game.Cpu.Frame.Forward), "the club points at the opponent");
         Assert.AreEqual(BoxingGame.SupportHand, game.Cpu.SupportOf(BoxingGame.WeaponHand), "the left hand is still on the handle");
     }
@@ -152,7 +152,7 @@ public sealed class ClubGripTests
     public void TwoHanded_LettingGo_ReleasesTheSupportingHandToo()
     {
         using var game = TwoHands(s => WeaponSwing.GuardCommand(s.ArmReach, SwingFamily.Bat));
-        Play(game, 1f);
+        Play(game, 1.678f);
         game.Cpu.Unwield(BoxingGame.WeaponHand);
         Assert.IsFalse(game.Cpu.Wields(Hand.Left));
         Assert.IsNull(game.Cpu.SupportOf(BoxingGame.WeaponHand));
@@ -167,19 +167,19 @@ public sealed class ClubGripTests
         Quaternion AtOwnHead(in FighterSense s)
         {
             var me = game!.Cpu;
-            var toHead = me.Frame.InverseRotate(me.HeadPosition + new Vector3(0f, 0.025f, 0f) - me.GloveCenter(BoxingGame.WeaponHand)); // 棍棒の重さで垂れる分、少し上を狙う
+            var toHead = me.Frame.InverseRotate(me.HeadPosition + new Vector3(0f, 0.07042f, 0f) - me.GloveCenter(BoxingGame.WeaponHand)); // 棍棒の重さで垂れる分、少し上を狙う
             return WeaponSwing.Orientation(MathF.Atan2(toHead.X, toHead.Z), MathF.Asin(Math.Clamp(toHead.Y / toHead.Length(), -1f, 1f)));
         }
 
         var turn = false;
         game = Armed(s => new HandCommand(new Vector3(0f, 0.3f, 0.6f) * s.ArmReach, false, Orientation: turn ? AtOwnHead(s) : up));
         using var owner = game;
-        Play(game, 1f);
+        Play(game, 1.678f);
         var before = game.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount);
         var twist = 0f;
         turn = true;
         var own = new List<BodyPartKind>();
-        for (var t = 0f; t < 1f; t += 1f / 240f)
+        for (var t = 0f; t < 1.678f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
             own.AddRange(game.SelfWeaponHits.Select(h => h.Part));
@@ -188,7 +188,7 @@ public sealed class ClubGripTests
         }
 
         CollectionAssert.Contains(own, BodyPartKind.Head, $"the club strikes its owner's head (hit: {string.Join(",", own)})");
-        Assert.IsGreaterThan(0f, twist, "and twists it (concussion; it fades again within the second)");
+        Assert.IsGreaterThan(0f, twist, "and twists it (concussion; it fades again within 1.7 seconds)");
         Assert.IsLessThan(before, game.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount), "and crushes some of it");
     }
 
@@ -201,7 +201,7 @@ public sealed class ClubGripTests
         var own = game.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount);
         var batOwn = bat.Cpu.Voxels!.Layers.Sum(p => p.Body.Grid.FilledCount);
         var selfHits = 0;
-        for (var t = 0f; t < 2f; t += 1f / 60f)
+        for (var t = 0f; t < 3.357f; t += 1f / 60f)
         {
             game.Step(default, 1f / 60f);
             bat.Step(default, 1f / 60f);

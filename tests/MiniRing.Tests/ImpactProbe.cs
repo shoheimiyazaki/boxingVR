@@ -23,7 +23,7 @@ public sealed class ImpactProbe
             using var game = new BoxingGame(seed: seed, corners: corners);
             var pending = new List<(HitEvent Hit, int Steps, float Jolt)>();
             var wasDown = (false, false);
-            for (var i = 0; i < 240 * 30 && !game.RoundOver; i++)
+            for (var i = 0; i < 12085 && !game.RoundOver; i++)
             {
                 game.Step(default, 1f / 240f);
                 var down = (game.Player.State != FighterState.Standing, game.Cpu.State != FighterState.Standing);
@@ -84,7 +84,7 @@ public sealed class KnockdownProbe
             using var game = new BoxingGame(seed: seed, corners: corners);
             var recent = new List<(float T, HitEvent Hit)>();
             var was = (FighterState.Standing, FighterState.Standing);
-            for (var i = 0; i < 240 * 60 && !game.RoundOver; i++)
+            for (var i = 0; i < 24169 && !game.RoundOver; i++)
             {
                 var t = i / 240f;
                 game.Step(default, 1f / 240f);
@@ -93,8 +93,8 @@ public sealed class KnockdownProbe
                 {
                     if (f.State == FighterState.Down && before == FighterState.Standing)
                     {
-                        var hits = recent.Where(r => r.Hit.Victim == f && r.T > t - 1f).ToList();
-                        Console.WriteLine($"{red} vs {blue} t {t:0.0}: {(f == game.Player ? red : blue)} down, conscious {f.Consciousness:0.00} concussion {f.Concussion:0.00} legs {MathF.Min(f.LegStrength(true), f.LegStrength(false)):0.00} upright {f.Uprightness:0.00} dead {f.IsDead}; hits in last 1s: {string.Join(", ", hits.Select(h => $"{h.Hit.Zone} {h.Hit.ImpactMass:0.0}kg {h.Hit.Speed:0.0}m/s"))}");
+                        var hits = recent.Where(r => r.Hit.Victim == f && r.T > t - 1.678f).ToList();
+                        Console.WriteLine($"{red} vs {blue} t {t:0.0}: {(f == game.Player ? red : blue)} down, conscious {f.Consciousness:0.00} concussion {f.Concussion:0.00} legs {MathF.Min(f.LegStrength(true), f.LegStrength(false)):0.00} upright {f.Uprightness:0.00} dead {f.IsDead}; hits in last 1.7s: {string.Join(", ", hits.Select(h => $"{h.Hit.Zone} {h.Hit.ImpactMass:0.0}kg {h.Hit.Speed:0.0}m/s"))}");
                     }
                 }
 

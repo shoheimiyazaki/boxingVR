@@ -22,7 +22,7 @@ public sealed class HighlightRegressionTests
     {
         if (_cached is null)
         {
-            var all = Cards.Select(c => ExcitementRun.Bout(Contender.Named(c.Red), Contender.Named(c.Blue), c.Seed, 40f).Summarize()).ToList();
+            var all = Cards.Select(c => ExcitementRun.Bout(Contender.Named(c.Red), Contender.Named(c.Blue), c.Seed, 67.14f).Summarize()).ToList();
             foreach (var s in all)
             {
                 Console.WriteLine(s.Line());

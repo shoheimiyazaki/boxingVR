@@ -11,7 +11,7 @@ namespace MiniRing.Tests;
 [TestClass]
 public sealed class SwordInnerRangeTests
 {
-    private const float ArmReach = 0.188f;
+    private const float ArmReach = 0.5296f;
 
     private static SwordsmanBot Bot(WeaponKind weapon, int seed)
     {
@@ -29,13 +29,13 @@ public sealed class SwordInnerRangeTests
 
         for (var seed = 1; seed <= 40; seed++)
         {
-            var far = Bot(WeaponKind.Katana, seed).PlanAt(1.2f);
+            var far = Bot(WeaponKind.Katana, seed).PlanAt(3.380f);
             Assert.IsGreaterThanOrEqualTo(style.MinReach, far.Range, $"遠間では剣の間合いの技だけ（seed {seed}: {far.Name}）");
         }
 
         // 近い距離では、重みが 0 でない技のうち、間合いが今の距離の窓（SwordsmanBot.CloseWindow）に入る技（1 つも無ければいちばん近い技）から選ぶ。
         var chosenNames = new HashSet<string>();
-        foreach (var distance in new[] { 0.12f, 0.2f })
+        foreach (var distance in new[] { 0.338f, 0.5634f })
         {
             var live = all.Where(t => style.TechniqueWeights!.GetValueOrDefault(t.Name, 1f) > 0f).ToList();
             var fitting = live.Where(t => MathF.Abs(t.Range - distance) <= SwordsmanBot.CloseWindow).Select(t => t.Name).ToHashSet();
@@ -55,19 +55,19 @@ public sealed class SwordInnerRangeTests
         Assert.IsGreaterThan(1, chosenNames.Count, "重みの付いた技がばらけて選ばれる");
 
         // 同じ種・同じ距離なら同じ技（決定的）。
-        Assert.AreEqual(Bot(WeaponKind.Katana, 5).PlanAt(0.15f).Name, Bot(WeaponKind.Katana, 5).PlanAt(0.15f).Name);
+        Assert.AreEqual(Bot(WeaponKind.Katana, 5).PlanAt(0.4225f).Name, Bot(WeaponKind.Katana, 5).PlanAt(0.4225f).Name);
     }
 
     [TestMethod]
     public void TechniquesOfTheSameReach_AreChosenByWeight_NotByListOrder()
     {
-        var forms = FormSwordsman.Techniques(WeaponKind.Katana, ArmReach, 0f).Take(3).Select(t => t with { Range = 0.34f }).ToList();
+        var forms = FormSwordsman.Techniques(WeaponKind.Katana, ArmReach, 0f).Take(3).Select(t => t with { Range = 0.958f }).ToList();
         var weights = new Dictionary<string, float> { [forms[0].Name] = 1f, [forms[1].Name] = 1f, [forms[2].Name] = 0.0001f };
         var counts = new Dictionary<string, int>();
         for (var seed = 1; seed <= 200; seed++)
         {
             var bot = new SwordsmanBot(forms, FormSwordsman.Guard(WeaponKind.Katana), seed, SwordStance.Rate) { Weights = weights };
-            var name = bot.NearestAt(0.34f).Name;
+            var name = bot.NearestAt(0.958f).Name;
             counts[name] = counts.GetValueOrDefault(name) + 1;
         }
 
@@ -83,7 +83,7 @@ public sealed class SwordInnerRangeTests
         var style = WeaponCatalog.Textbook(WeaponKind.Longsword);
         for (var seed = 1; seed <= 40; seed++)
         {
-            Assert.IsGreaterThanOrEqualTo(style.MinReach, Bot(WeaponKind.Longsword, seed).PlanAt(0.15f).Range, $"seed {seed}");
+            Assert.IsGreaterThanOrEqualTo(style.MinReach, Bot(WeaponKind.Longsword, seed).PlanAt(0.4225f).Range, $"seed {seed}");
         }
     }
 
@@ -102,10 +102,10 @@ public sealed class SwordInnerRangeTests
             var sense = game.PlayerSense with
             {
                 OpponentChest = game.PlayerSense.Self.Origin + (game.PlayerSense.Self.Forward * technique.Range),
-                SelfWeapon = new WeaponSense(true, 0.2f, 0.3f),
+                SelfWeapon = new WeaponSense(true, 0.5634f, 0.845f),
             };
             bot.Read(sense, 1f / 60f);
-            Assert.IsNotNull(bot.Current, $"{technique.Name}: 剣先が 10 cm 欠けても脚・柄頭の間合いで出せる");
+            Assert.IsNotNull(bot.Current, $"{technique.Name}: 剣先が 28 cm 欠けても脚・柄頭の間合いで出せる");
         }
     }
 
@@ -123,7 +123,7 @@ public sealed class SwordInnerRangeTests
         var techniques = FormSwordsman.Techniques(weapon, reach, 0f);
         var hit = techniques.Single(t => t.Name == pommel);
         Assert.IsLessThan(Weapon.GripOf(weapon).X, MotionAim.StrikingEndX(hit, reach));
-        Assert.IsLessThan(0.33f, hit.Range);
+        Assert.IsLessThan(0.9296f, hit.Range);
         Assert.AreEqual(hit.Range / reach, MotionAim.Landing(hit, reach).Point.Z, 0.0001f);
         var front = techniques.Single(t => t.Name == kick);
         Assert.AreEqual(KickSpec.Of(KickTechnique.Front).Standoff * reach, front.Range, 0.0001f);

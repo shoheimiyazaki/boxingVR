@@ -33,7 +33,7 @@ public sealed class TonfaProbe
         {
             using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("tonfa", _ => new StandGuard(), s => new BoxerBot(BotCatalog.Tonfa, s), PlayerWear: HandWear.Tonfa, CpuWear: HandWear.Glove));
             var n = 0;
-            for (var i = 0; i < 20 * 60 && !game.RoundOver; i++)
+            for (var i = 0; i < 2014 && !game.RoundOver; i++)
             {
                 game.Step(default, 1f / 60f);
                 foreach (var hit in game.RecentHits.Where(h => h.Attacker == game.Player))
@@ -70,9 +70,9 @@ public sealed class TonfaProbe
             var face = Vector3.Normalize(toChest);
             var guard = new Vector3(0.15f * s.ArmReach, 0.1f * s.ArmReach, 0.45f * s.ArmReach);
             var near = distance < 1.3f * s.ArmReach;
-            var punching = near && (clock % 0.9f) < 0.3f; // 0.9 秒ごとに 0.3 秒、突き出す
+            var punching = near && (clock % 1.511f) < 0.5035f; // 1.51 秒ごとに 0.50 秒、突き出す（人形の単位で 0.9 秒ごとに 0.3 秒）
             var reach = s.Self.WorldToLocal(s.OpponentChest);
-            reach = reach with { X = -0.05f * s.ArmReach, Y = reach.Y - 0.05f };
+            reach = reach with { X = -0.05f * s.ArmReach, Y = reach.Y - 0.1408f };
             var jab = punching ? Vector3.Normalize(reach) * MathF.Min(reach.Length(), 0.95f * s.ArmReach) : guard;
             return new FighterCommand(near ? Vector3.Zero : face * 0.5f, face,
                 new HandCommand(new Vector3(0.15f * s.ArmReach, 0.1f * s.ArmReach, 0.45f * s.ArmReach), false),
@@ -98,7 +98,7 @@ public sealed class TonfaProbe
         // うち 2 回（体の割合 0.23・0.27、構えた相手の腕・拳 = Guard へ）は当たった点が拳の前の面より後ろ（x = −0.4・−2.7 cm）。master の手の層（はめる物の中の拳を手の格子に）の
         // トンファーの組で、構えの腕に当たる最初の突きが棒の後ろ側で当たる。受け手を倒れなくして 30 秒見ても突いた当たりは増えない（体の割合は 0.06〜0.09 に張り付く）。
         // master でも（別の所で: 突いた当たりが木でない）落ちる既知の失敗で、原因（手の層との関係など）は調べていない。
-        var all = ScriptedJabs(1, 12f);
+        var all = ScriptedJabs(1, 20.14f);
         foreach (var (hit, p) in all)
         {
             TestContext.WriteLine($"t hit face={hit.Face} speed={hit.Speed:F2} body share={hit.BodyShare:F2} local x={p.X * 100f:F1} y={p.Y * 100f:F1} z={p.Z * 100f:F1} cm zone={hit.Zone}");
@@ -116,14 +116,14 @@ public sealed class TonfaProbe
         // マージした master の側は当たり全部で 7 回（突きが 8 回に届かず、この列の最初の確認で落ちていた）。突きの数ではなく「突いた当たりは木の前の端」を確かめるテストなので、
         // 突いた当たりが数回あれば足りる。
         Assert.IsGreaterThan(5, driven.Count, "the straight punches are driven by the arm");
-        Assert.IsTrue(driven.All(h => h.Local.X > 0.025f), "and they land with the wood in front of the fist (past the hand's front face at 2.5 cm): the short end of the stick");
+        Assert.IsTrue(driven.All(h => h.Local.X > 0.0704f), "and they land with the wood in front of the fist (past the hand's front face at 7.0 cm): the short end of the stick");
         Assert.IsTrue(all.Any(h => h.Hit.Zone is not HitZone.Guard), "some reach the opponent's body, not only the guard");
     }
 
     [TestMethod]
     public void SwordAtTheGuard_TechniqueScan_Probe()
     {
-        foreach (var name in FormSwordsman.Techniques(WeaponKind.Katana, 0.188f).Select(t => t.Name))
+        foreach (var name in FormSwordsman.Techniques(WeaponKind.Katana, 0.5296f).Select(t => t.Name))
         {
             var g = TonfaTests.SwordAtTheGuard(HandWear.Glove, 1, name);
             var t = TonfaTests.SwordAtTheGuard(HandWear.Tonfa, 1, name);

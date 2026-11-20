@@ -49,18 +49,18 @@ public sealed class DownRecoveryTests
         float? kneelAt = null, uprightAt = null, standingAt = null;
         var consciousnessWhenStanding = 0f;
         var lowestWhileLimp = 1f;
-        for (var t = 0f; t < 12f && standingAt is null; t += Dt)
+        for (var t = 0f; t < 20.14f && standingAt is null; t += Dt)
         {
             game.Step(default, Dt);
             var ratio = (f.PelvisPosition.Y - ground) / stand;
-            if (t > 0.5f && f.Consciousness < FighterTuning.Default.LimpConsciousness)
+            if (t > 0.8392f && f.Consciousness < FighterTuning.Default.LimpConsciousness)
             {
                 lowestWhileLimp = MathF.Min(lowestWhileLimp, ratio);
             }
 
-            kneelAt ??= t > 0.5f && ratio > 0.4f ? t : null;
+            kneelAt ??= t > 0.8392f && ratio > 0.4f ? t : null;
             uprightAt ??= kneelAt is not null && ratio > 0.8f ? t : null;
-            if (t > 0.5f && f.State == FighterState.Standing)
+            if (t > 0.8392f && f.State == FighterState.Standing)
             {
                 standingAt = t;
                 consciousnessWhenStanding = f.Consciousness;
@@ -72,7 +72,7 @@ public sealed class DownRecoveryTests
         Assert.IsNotNull(standingAt, "always tries to stand, and does once conscious enough");
         Assert.IsNotNull(kneelAt);
         Assert.IsNotNull(uprightAt);
-        Assert.IsGreaterThan(0.6f, uprightAt.Value - kneelAt.Value, "rises gradually, not in one pop");
+        Assert.IsGreaterThan(1.007f, uprightAt.Value - kneelAt.Value, "rises gradually, not in one pop");
         // 立ち直りの条件は意識が KnockoutConsciousness 以上（Fighter.TickDown）。起き上がろうとする試み（Stir）が腰を上げる分、線のすぐ上（0.33）で立つ。
         Assert.IsGreaterThanOrEqualTo(FighterTuning.Default.KnockoutConsciousness, consciousnessWhenStanding, "stands only once consciousness has come back above the knockout line");
     }
@@ -84,11 +84,11 @@ public sealed class DownRecoveryTests
         var (ground, stand) = Settle(game);
         var sum = 0f;
         var n = 0;
-        for (var t = 0f; t < 4f; t += Dt)
+        for (var t = 0f; t < 6.714f; t += Dt)
         {
             f.Concussion = 1f - consciousness;
             game.Step(default, Dt);
-            if (t > 2.5f)
+            if (t > 4.196f)
             {
                 sum += f.PelvisPosition.Y - ground;
                 n++;
@@ -106,13 +106,13 @@ public sealed class DownRecoveryTests
 
     private static (float Ground, float Stand) Settle(BoxingGame game)
     {
-        for (var t = 0f; t < 1.5f; t += Dt)
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }
 
         var f = game.Cpu;
-        var ground = f.AllParts.Min(id => game.World.GetState(id).Position.Y) - 0.01f;
+        var ground = f.AllParts.Min(id => game.World.GetState(id).Position.Y) - 0.02817f;
         return (ground, f.PelvisPosition.Y - ground);
     }
 }

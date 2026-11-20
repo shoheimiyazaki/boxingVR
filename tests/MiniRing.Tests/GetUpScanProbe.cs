@@ -14,12 +14,12 @@ public sealed class GetUpScanProbe
     [TestCategory("Probe")]
     public void ScanMomentum()
     {
-        foreach (var (mass, speed) in new[] { (0.55f, 2.1f), (0.6f, 2.1f), (0.65f, 2.1f), (0.7f, 2.1f), (0.65f, 2.2f), (0.7f, 2.2f) })
+        foreach (var (mass, speed) in new[] { (5.5f, 3.525f), (6f, 3.525f), (6.5f, 3.525f), (7f, 3.525f), (6.5f, 3.692f), (7f, 3.692f) })
         {
             var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
             var corners = new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s));
             using var game = new BoxingGame(seed: 1, corners: corners);
-            for (var t = 0f; t < 1.5f; t += Dt)
+            for (var t = 0f; t < 2.518f; t += Dt)
             {
                 game.Step(default, Dt);
             }
@@ -32,7 +32,7 @@ public sealed class GetUpScanProbe
             var concussion = cpu.Concussion;
             var minCons = 1f;
             float downAt = -1f, upAt = -1f;
-            for (var t = 0f; t < 16f; t += Dt)
+            for (var t = 0f; t < 26.85f; t += Dt)
             {
                 game.Step(default, Dt);
                 minCons = Math.Min(minCons, cpu.Consciousness);

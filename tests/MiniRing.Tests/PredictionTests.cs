@@ -10,28 +10,28 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class PredictionTests
 {
-    private const float Reach = 0.19f;
+    private const float Reach = 0.5352f;
     private const float Dt = 1f / 240f;
 
-    /// <summary>1 秒ごとに、0.1 秒の溜め（右肩が前へ回る）のあと右拳を 0.15 秒出す相手（自分は原点で +Z を向く）。</summary>
+    /// <summary>1.68 秒ごとに、0.17 秒の溜め（右肩が前へ回る）のあと右拳を 0.25 秒出す相手（自分は原点で +Z を向く）。</summary>
     private static FighterSense Scripted(float t, float distance = 1.1f)
     {
-        var phase = t % 1f;
+        var phase = t % 1.678f;
         var z = distance * Reach;
-        var chest = new Vector3(0f, 0.3f, z);
-        var load = Math.Clamp(phase / 0.1f, 0f, 1f) * (phase < 0.4f ? 1f : 0f);
+        var chest = new Vector3(0f, 0.845f, z);
+        var load = Math.Clamp(phase / 0.1678f, 0f, 1f) * (phase < 0.6714f ? 1f : 0f);
         // 相手は −Z を向くので、相手の右肩は +X。溜めで右肩が前（−Z）へ、左肩が後ろへ。
-        var right = chest + new Vector3(0.2f * Reach, 0.05f, -0.1f * Reach * load);
-        var left = chest + new Vector3(-0.2f * Reach, 0.05f, 0.1f * Reach * load);
-        var punching = phase is >= 0.1f and < 0.25f;
-        var gloveR = chest + new Vector3(0.1f * Reach, 0.05f, -0.3f * Reach) - (punching ? new Vector3(0f, 0f, 4f * Reach * (phase - 0.1f)) : Vector3.Zero);
-        var gloveL = chest + new Vector3(-0.1f * Reach, 0.05f, -0.3f * Reach);
-        return new FighterSense(new BodyFrame(Vector3.Zero, 0f), Reach, chest + new Vector3(0f, 0.08f, 0f), chest, true,
-            new Vector3(0f, 0.36f, 0f),
+        var right = chest + new Vector3(0.2f * Reach, 0.1408f, -0.1f * Reach * load);
+        var left = chest + new Vector3(-0.2f * Reach, 0.1408f, 0.1f * Reach * load);
+        var punching = phase is >= 0.1678f and < 0.4196f;
+        var gloveR = chest + new Vector3(0.1f * Reach, 0.1408f, -0.3f * Reach) - (punching ? new Vector3(0f, 0f, 2.383f * Reach * (phase - 0.1678f)) : Vector3.Zero);
+        var gloveL = chest + new Vector3(-0.1f * Reach, 0.1408f, -0.3f * Reach);
+        return new FighterSense(new BodyFrame(Vector3.Zero, 0f), Reach, chest + new Vector3(0f, 0.2254f, 0f), chest, true,
+            new Vector3(0f, 1.014f, 0f),
             new GloveSense(gloveL, Vector3.Zero),
-            new GloveSense(gloveR, punching ? new Vector3(0f, 0f, -4f * Reach) : Vector3.Zero),
+            new GloveSense(gloveR, punching ? new Vector3(0f, 0f, -2.383f * Reach) : Vector3.Zero),
             Vector3.Zero,
-            new BodySense(left, right, chest - new Vector3(0f, 0.12f, 0f)));
+            new BodySense(left, right, chest - new Vector3(0f, 0.338f, 0f)));
     }
 
     [TestMethod]
@@ -39,16 +39,16 @@ public sealed class PredictionTests
     {
         var read = new OpponentRead();
         OpponentRead.Forecast loading = default, resting = default;
-        for (var t = 0f; t < 30f; t += Dt)
+        for (var t = 0f; t < 50.35f; t += Dt)
         {
             read.Observe(Scripted(t), Dt);
-            var phase = t % 1f;
-            if (t > 25f && MathF.Abs(phase - 0.06f) < Dt / 2f)
+            var phase = t % 1.678f;
+            if (t > 41.96f && MathF.Abs(phase - 0.1007f) < Dt / 2f)
             {
                 loading = read.Predict();
             }
 
-            if (t > 25f && MathF.Abs(phase - 0.6f) < Dt / 2f)
+            if (t > 41.96f && MathF.Abs(phase - 1.007f) < Dt / 2f)
             {
                 resting = read.Predict();
             }
@@ -67,7 +67,7 @@ public sealed class PredictionTests
     public void OpponentRead_WithoutABodyToSee_PredictsNothing()
     {
         var read = new OpponentRead();
-        for (var t = 0f; t < 10f; t += Dt)
+        for (var t = 0f; t < 16.78f; t += Dt)
         {
             read.Observe(Scripted(t) with { OpponentBody = default }, Dt);
         }
@@ -80,7 +80,7 @@ public sealed class PredictionTests
     [TestMethod]
     public void PredictedInsideSlip_AvoidsALoadedRightCross_ThatReactionCannot()
     {
-        // 反応だけ（予測なし）では、溜めがあっても右ストレートはほぼ全部頭に当たる（拳は 0.15 秒足らずで届く）。
+        // 反応だけ（予測なし）では、溜めがあっても右ストレートはほぼ全部頭に当たる（拳は 0.25 秒足らずで届く）。
         // 予測の差を測る。疲労による攻撃停止・速度低下を混ぜない。
         // 2026-11-18（PhysicsVersion 45）: 脳しんとうの係数を 100 倍にしたので、側頭への 1 発（12〜16 点）で受け手が倒れ、起き上がるまでの 9 秒ほど
         // 攻め手の拳が出ず、読み（OpponentRead）は倒れたときに覚えた拳を捨てて 30 秒の間に学び直せなかった（種 2・3 は予測の有無で結果が同じ、
@@ -103,8 +103,8 @@ public sealed class PredictionTests
         var predictingRuns = new PunchDrillResult[seeds.Length];
         Parallel.For(0, seeds.Length, i =>
         {
-            reactingRuns[i] = DefenseDrill.Punch("2", Defense.Slip, SlipDefender(0f), seed: seeds[i], seconds: 30f, telegraph: 0.08f, observe: KeepFresh);
-            predictingRuns[i] = DefenseDrill.Punch("2", Defense.Slip, SlipDefender(1f), seed: seeds[i], seconds: 30f, telegraph: 0.08f, observe: KeepFresh);
+            reactingRuns[i] = DefenseDrill.Punch("2", Defense.Slip, SlipDefender(0f), seed: seeds[i], seconds: 50.35f, telegraph: 0.1343f, observe: KeepFresh);
+            predictingRuns[i] = DefenseDrill.Punch("2", Defense.Slip, SlipDefender(1f), seed: seeds[i], seconds: 50.35f, telegraph: 0.1343f, observe: KeepFresh);
         });
 
         for (var i = 0; i < seeds.Length; i++)
@@ -137,8 +137,8 @@ public sealed class PredictionTests
         Assert.AreEqual(0f, style.Prediction);
         Assert.AreEqual(0f, style.EdgeRange);
 
-        var clamped = new BotStyle { Telegraph = 1f, Prediction = 2f, EdgeRange = float.NaN }.Validated();
-        Assert.AreEqual(0.2f, clamped.Telegraph);
+        var clamped = new BotStyle { Telegraph = 1.678f, Prediction = 2f, EdgeRange = float.NaN }.Validated();
+        Assert.AreEqual(0.3357f, clamped.Telegraph);
         Assert.AreEqual(1f, clamped.Prediction);
         Assert.AreEqual(0f, clamped.EdgeRange);
     }
@@ -147,13 +147,13 @@ public sealed class PredictionTests
     public void LoadedRightCross_WindsTheRightShoulderBack_BeforeTheFistMoves()
     {
         var attackers = new List<BoxerBot>();
-        var attacker = DefenseDrill.PunchAttacker("2", telegraph: 0.12f);
+        var attacker = DefenseDrill.PunchAttacker("2", telegraph: 0.2014f);
         var corners = new BoxingCorners("a", s => Keep(attackers, new BoxerBot(attacker, s)), s => new BoxerBot(SlipDefender(0f) with { DefenseRate = 0f }, s));
         using var game = new BoxingGame(seed: 2, corners: corners);
         var thrownAt = -1f;
         var twistAtThrow = 0f;
         var gloveAtThrow = Vector3.Zero;
-        for (var t = 0f; t < 6f; t += Dt)
+        for (var t = 0f; t < 10.07f; t += Dt)
         {
             game.Step(default, Dt);
             var thrown = attackers.Sum(a => a.Stats.Techniques.Values.Sum(c => c.Thrown));
@@ -164,11 +164,11 @@ public sealed class PredictionTests
                 gloveAtThrow = game.Cpu.Frame.InverseRotate(game.Cpu.GloveCenter(Hand.Right) - game.Cpu.Frame.Origin);
             }
 
-            if (thrownAt >= 0f && t >= thrownAt + 0.1f)
+            if (thrownAt >= 0f && t >= thrownAt + 0.1678f)
             {
                 // 溜めの終わり近く（拳はまだ出ていない）: 右肩を後ろへ引いて胴のバネを縮め（攻撃編 A1。以前は前へ回していた）、拳は前へ出ていない（少し引いている）。
                 // 体の動きは拳より先に出るので、相手はこの引きを読める（OpponentRead は向きによらず、拳の前の体の動きを覚える）。
-                Assert.IsLessThan(-0.01f, Twist(game) - twistAtThrow, "the right shoulder winds back first"); // 溜め 0.12 秒では引ききる（0.2 秒）手前
+                Assert.IsLessThan(-0.01f, Twist(game) - twistAtThrow, "the right shoulder winds back first"); // 溜め 0.2 秒では引ききる（0.34 秒）手前
                 var glove = game.Cpu.Frame.InverseRotate(game.Cpu.GloveCenter(Hand.Right) - game.Cpu.Frame.Origin);
                 Assert.IsLessThan(0.05f, (glove.Z - gloveAtThrow.Z) / game.Cpu.ArmReach, "the fist has not gone out yet");
                 return;

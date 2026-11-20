@@ -8,9 +8,9 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class BotTests
 {
-    private const float Reach = 0.19f;
-    private static readonly Vector3 GuardLocal = new(0.03f, 0f, 0.1f);
-    private static readonly Vector3 AimLocal = new(0f, 0.05f, 0.25f);
+    private const float Reach = 0.5352f;
+    private static readonly Vector3 GuardLocal = new(0.0845f, 0f, 0.2817f);
+    private static readonly Vector3 AimLocal = new(0f, 0.1408f, 0.7042f);
 
     [TestMethod]
     public void EveryPunch_StartsAndEndsAtTheGuard_AndReachesTowardTheAim()
@@ -131,7 +131,7 @@ public sealed class BotTests
         {
             var bot = new BoxerBot(style, seed);
             FighterCommand command = default;
-            for (var t = 0f; t < 0.3f; t += 1f / 240f)
+            for (var t = 0f; t < 0.5035f; t += 1f / 240f)
             {
                 command = bot.Read(sense, 1f / 240f);
             }
@@ -154,7 +154,7 @@ public sealed class BotTests
     [TestMethod]
     public void BotBout_IsDeterministic()
     {
-        var spec = new BoutSpec(Contender.Named("boxer"), Contender.Named("swarmer"), Seed: 3, Seconds: 6f);
+        var spec = new BoutSpec(Contender.Named("boxer"), Contender.Named("swarmer"), Seed: 3, Seconds: 10.07f);
 
         var a = BotArena.Run(spec);
         var b = BotArena.Run(spec);
@@ -167,7 +167,7 @@ public sealed class BotTests
     [TestMethod]
     public void ParallelBouts_GiveTheSameResultsAsRunningThemOneByOne()
     {
-        var specs = BotArena.RoundRobin([Contender.Named("boxer"), Contender.Named("swarmer"), Contender.Named("counter")], 2, 3f, 5);
+        var specs = BotArena.RoundRobin([Contender.Named("boxer"), Contender.Named("swarmer"), Contender.Named("counter")], 2, 5.035f, 5);
 
         var parallel = BotArena.RunAll(specs);
         var sequential = specs.Select(s => BotArena.Run(s)).ToList();
@@ -184,7 +184,7 @@ public sealed class BotTests
     {
         var twin = Contender.Of(BotCatalog.Swarmer with { Name = "boxer" });
 
-        Assert.ThrowsExactly<ArgumentException>(() => BotArena.RoundRobin([Contender.Named("boxer"), twin], 2, 3f, 1));
+        Assert.ThrowsExactly<ArgumentException>(() => BotArena.RoundRobin([Contender.Named("boxer"), twin], 2, 5.035f, 1));
     }
 
     [TestMethod]
@@ -196,13 +196,13 @@ public sealed class BotTests
         // 1 試合では、相手がふらついてガードを下げている間はジャブとストレートだけで足りることもある（ダメージ編 D2）ので、3 つの種を合わせて見る。
         var stats = new BotStats();
         var landed = 0;
-        // PhysicsVersion 29: このテストは十分な蓄えでの技選択の基準。20 秒で疲労・休息判断が
+        // PhysicsVersion 29: このテストは十分な蓄えでの技選択の基準。34 秒（人形の 20 秒）で疲労・休息判断が
         // 非活性になる測定用容量にし、既存の全 seed の勝利・複数技・命中の期待を保つ。
         // 既定容量の枯渇による勝敗は StaminaBudgetTests と StaminaLeagueProbe で別に測る。
-        var fresh = FighterTuning.Default with { OxygenStorePerKg = 108_000f };
+        var fresh = FighterTuning.Default with { OxygenStorePerKg = 304_200f };
         foreach (var seed in new[] { 1, 2, 3, 4, 5 }) // 2026-11-12: K.O. で早く終わる試合が増えたので、種を足して 60 秒以上を見る
         {
-            var result = BotArena.Run(new BoutSpec(Contender.Named(BotCatalog.DefaultCpu), Contender.Named(BotCatalog.Legacy), Seed: seed, Seconds: 20f), fresh);
+            var result = BotArena.Run(new BoutSpec(Contender.Named(BotCatalog.DefaultCpu), Contender.Named(BotCatalog.Legacy), Seed: seed, Seconds: 33.57f), fresh);
             Assert.AreEqual(1, result.Winner, $"seed {seed}: champion {result.Red.DamageDealt:0} vs legacy {result.Blue.DamageDealt:0}");
             stats.Merge(result.Red.Stats);
             landed += result.Red.Stats.Techniques.Values.Sum(t => t.Landed);
@@ -220,15 +220,15 @@ public sealed class BotTests
         var stats = new BotStats();
         foreach (var seed in new[] { 1, 2, 3, 4, 5, 6, 7, 8 }) // 2026-11-12: K.O. で早く終わる試合が増えたので、種を足して 60 秒以上を見る。2026-11-14: 顔の寸法で頭の質量が変わり 5 種では 29 % に揺れたので、基準値（24.0 %）を測った 8 種で見る
         {
-            stats.Merge(BotArena.Run(new BoutSpec(Contender.Named("swarmer"), Contender.Named("slugger"), Seed: seed, Seconds: 30f)).Red.Stats);
+            stats.Merge(BotArena.Run(new BoutSpec(Contender.Named("swarmer"), Contender.Named("slugger"), Seed: seed, Seconds: 50.35f)).Red.Stats);
         }
 
-        Assert.IsGreaterThan(60f, stats.Time);
+        Assert.IsGreaterThan(100.7f, stats.Time);
         // 2026-11-13（master と疲れの物理のマージ後）: 8 種の平均 24.0 %（間合いの層なしで 26.8 %）。防ぎたいのは以前の 30 % のしゃがみ続け。
         // 2026-11-18（ステップ・ダウンの間の審判の指示と master の剣・VFC の流れを合わせた後）: 8 種で 29.0 %（原因は分けて測っていない）。防ぎたい以前の 30 % 未満を境にする。
         Assert.IsLessThan(0.30f, stats.CrouchShare, $"crouched {stats.CrouchShare:P0}");
         // 最長は種 1 本の外れ値に左右される（2026-11-12 の 8 種: 0.42〜1.51 秒。疲れの有無で入れ替わる）。防ぎたいのは以前の 4 秒のしゃがみ続け。
-        Assert.IsLessThan(2f, stats.LongestCrouch, $"longest crouch {stats.LongestCrouch:0.0}s");
+        Assert.IsLessThan(3.357f, stats.LongestCrouch, $"longest crouch {stats.LongestCrouch:0.0}s");
     }
 
     [TestMethod]
@@ -238,7 +238,7 @@ public sealed class BotTests
         using var game = new BoxingGame(seed: 1, corners: corners);
         var start = game.Player.PelvisPosition;
         var away = new FighterCommand(new Vector3(0f, 0f, -1f), Vector3.UnitZ, default, default);
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(new BoxingInput(away), 1f / 60f); // ホストの「下がれ」は無視され、ボットが前へ出る
         }
@@ -247,13 +247,13 @@ public sealed class BotTests
         Assert.IsGreaterThan(start.Z, game.Player.PelvisPosition.Z, "the player bot steps in toward the CPU");
     }
 
-    /// <summary>原点で +Z を向いた自分に、正面 0.15m から頭へ 0.6m/s で向かってくる左の拳。</summary>
+    /// <summary>原点で +Z を向いた自分に、正面 0.42 m から頭へ 1.0 m/s で向かってくる左の拳。</summary>
     private static FighterSense Incoming()
     {
-        var self = new BodyFrame(new Vector3(0f, 1f, 0f), 0f);
-        var head = new Vector3(0f, 1.06f, 0.01f);
-        var glove = head + new Vector3(0f, 0f, 0.15f);
-        return new FighterSense(self, Reach, OpponentHead: new Vector3(0f, 1.06f, 0.24f), OpponentChest: new Vector3(0f, 0.98f, 0.24f), OpponentAlive: true,
-            SelfHead: head, OpponentLeft: new GloveSense(glove, new Vector3(0f, 0f, -0.6f)), OpponentRight: new GloveSense(new Vector3(0.05f, 1.0f, 0.3f), Vector3.Zero));
+        var self = new BodyFrame(new Vector3(0f, 2.817f, 0f), 0f);
+        var head = new Vector3(0f, 2.986f, 0.0282f);
+        var glove = head + new Vector3(0f, 0f, 0.4225f);
+        return new FighterSense(self, Reach, OpponentHead: new Vector3(0f, 2.986f, 0.6761f), OpponentChest: new Vector3(0f, 2.761f, 0.6761f), OpponentAlive: true,
+            SelfHead: head, OpponentLeft: new GloveSense(glove, new Vector3(0f, 0f, -1.007f)), OpponentRight: new GloveSense(new Vector3(0.1408f, 2.817f, 0.8451f), Vector3.Zero));
     }
 }

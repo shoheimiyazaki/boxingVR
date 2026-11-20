@@ -43,7 +43,7 @@ public sealed class FaceAndNameTests
     {
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
-        for (var t = 0f; t < 1.5f; t += 1f / 240f)
+        for (var t = 0f; t < 2.518f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
         }
@@ -51,7 +51,7 @@ public sealed class FaceAndNameTests
         var f = game.Cpu;
         var standingGloves = (f.GloveCenter(Hand.Left).Y + f.GloveCenter(Hand.Right).Y) * 0.5f;
         f.Concussion = 0.9f; // 倒れるが意識は少し残る（起き上がろうとする）
-        for (var t = 0f; t < 2.5f; t += 1f / 240f)
+        for (var t = 0f; t < 4.196f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
         }

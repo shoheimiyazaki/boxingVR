@@ -12,12 +12,12 @@ public sealed class SwordTrainingTests
     [TestMethod]
     public void EveryKatanaForm_IsInTheMenu_WithAStartingGapInsideTheRing()
     {
-        using var game = new BoxingGame(corners: SwordTraining.Corners(WeaponKind.Katana, 1f));
+        using var game = new BoxingGame(corners: SwordTraining.Corners(WeaponKind.Katana, 2.817f));
         var forms = SwordTraining.Forms(WeaponKind.Katana, game.PlayerSense.ArmReach);
         CollectionAssert.AreEqual(FormSwordsman.Forms(WeaponKind.Katana).Select(f => f.Name).ToList(), forms.Select(f => f.Name).ToList(), "型の全部（間の短い型も）を型の順に");
         foreach (var form in forms)
         {
-            Assert.IsTrue(form.Gap >= SwordTraining.MinGap && form.Gap <= SwordTraining.Ring.Size - 0.4f, $"{form.Name} の間 {form.Gap:0.00} m");
+            Assert.IsTrue(form.Gap >= SwordTraining.MinGap && form.Gap <= SwordTraining.Ring.Size - 1.127f, $"{form.Name} の間 {form.Gap:0.00} m");
         }
 
         var shomen = forms.Single(f => f.Name == "shomen");
@@ -29,27 +29,27 @@ public sealed class SwordTrainingTests
     [TestCategory("slow")]
     public void TheTrainingWorld_StartsAtTheFormsGap_AndTheSeiganTargetStaysPut()
     {
-        const float gap = 0.8f;
+        const float gap = 2.254f;
         using var game = new BoxingGame(corners: SwordTraining.Corners(WeaponKind.Katana, gap));
         Assert.IsNotNull(game.WeaponOf(game.Player), "自分は刀を握る");
         Assert.IsNotNull(game.WeaponOf(game.Cpu), "相手も刀を握る");
         var start = game.Cpu.Frame.Origin;
         var between = Vector3.Distance(game.Player.Frame.Origin with { Y = 0f }, start with { Y = 0f });
-        Assert.AreEqual(gap, between, 0.08f, "始めは型の間で向き合う");
+        Assert.AreEqual(gap, between, 0.2254f, "始めは型の間で向き合う");
 
-        // 始めの 1 秒は構えへ沈む（肩の中心が前へ数 cm 出る）。そこから 2 秒、歩かずにその場にいる。
+        // 始めの約 1.7 秒は構えへ沈む（肩の中心が前へ十数 cm 出る）。そこから約 3.4 秒、歩かずにその場にいる。
         var settled = Vector3.Zero;
-        for (var t = 0f; t < 3f; t += 1f / 240f)
+        for (var t = 0f; t < 5.035f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
-            if (settled == Vector3.Zero && t >= 1f)
+            if (settled == Vector3.Zero && t >= 1.678f)
             {
                 settled = game.Cpu.Frame.Origin;
             }
         }
 
         var moved = Vector3.Distance(game.Cpu.Frame.Origin with { Y = 0f }, settled with { Y = 0f });
-        Assert.IsTrue(moved < 0.02f, $"正眼の相手は歩かない（構えに落ち着いてから {moved * 100f:0.0} cm）");
+        Assert.IsTrue(moved < 0.05634f, $"正眼の相手は歩かない（構えに落ち着いてから {moved * 100f:0.0} cm）");
         var sword = game.WeaponOf(game.Cpu)!;
         var tip = game.World.GetState(sword.Body.BodyId);
         var forward = Vector3.Normalize((game.Player.Frame.Origin - game.Cpu.Frame.Origin) with { Y = 0f });

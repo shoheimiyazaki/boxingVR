@@ -30,8 +30,8 @@ public sealed class ShoulderSeamProbe
     [TestMethod]
     public void SweepTheShoulderSeam()
     {
-        var offsets = Enumerable.Range(-8, 17).Select(i => i * 0.0015f).ToArray();
-        var speeds = new[] { 0.4f, 3f, 8f, 16f };
+        var offsets = Enumerable.Range(-8, 17).Select(i => i * 0.004225f).ToArray();
+        var speeds = new[] { 0.6714f, 5.035f, 13.43f, 26.85f };
         var rows = new List<(string Cut, string Hand, float Offset, float Speed, bool Hit)>();
         var jobs = new List<(string Cut, int CutIndex, Hand Hand, float Offset, float Speed)>();
         for (var c = 0; c < Cuts.Length; c++)
@@ -78,7 +78,7 @@ public sealed class ShoulderSeamProbe
     {
         using var game = new BoxingGame(FighterTuning.Default, 1, new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard()));
         game.MaxContactPasses = passes;
-        for (var i = 0; i < 90; i++)
+        for (var i = 0; i < 151; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -89,7 +89,7 @@ public sealed class ShoulderSeamProbe
         var orientation = WeaponDrills.Edge(heading, across);
         var kind = WeaponKind.Katana;
         var middle = (Weapon.TipOf(kind).X + Weapon.TwoHandGripsOf(kind).Bottom.X) * 0.5f;
-        var start = joint + (scan * offset) - (heading * 0.10f) - Vector3.Transform(new Vector3(middle, 0f, 0f), orientation);
+        var start = joint + (scan * offset) - (heading * 0.2817f) - Vector3.Transform(new Vector3(middle, 0f, 0f), orientation);
         var weapon = game.AddWeapon(kind, start, orientation);
         var cells = new List<Vector3>();
         var grid = weapon.Body.Grid;
@@ -98,7 +98,7 @@ public sealed class ShoulderSeamProbe
             if (grid.MaterialAt(i) != 0)
             {
                 var (x, y, z) = grid.Coordinates(i);
-                if ((i % 5) == 0 && (grid.CellCenter(x, y, z) + weapon.Body.GridCenterLocal).X > Weapon.TipOf(kind).X - 0.12f)
+                if ((i % 5) == 0 && (grid.CellCenter(x, y, z) + weapon.Body.GridCenterLocal).X > Weapon.TipOf(kind).X - 0.338f)
                 {
                     cells.Add(grid.CellCenter(x, y, z));
                 }
@@ -106,7 +106,7 @@ public sealed class ShoulderSeamProbe
         }
 
         var embedded = 0;
-        var steps = (int)MathF.Ceiling(0.25f / speed * 240f) + 24;
+        var steps = (int)MathF.Ceiling(0.7042f / speed * 240f) + 40;
         for (var i = 0; i < steps; i++)
         {
             game.World.SetLinearVelocity(weapon.Body.BodyId, heading * speed);
@@ -138,8 +138,8 @@ public sealed class ShoulderSeamProbe
     [TestMethod]
     public void EmbeddedBladesAtTheShoulder()
     {
-        var offsets = Enumerable.Range(-4, 9).Select(i => i * 0.003f).ToArray();
-        var speeds = new[] { 2f };
+        var offsets = Enumerable.Range(-4, 9).Select(i => i * 0.00845f).ToArray();
+        var speeds = new[] { 3.357f };
         var jobs = new List<(int Cut, Hand Hand, float Offset, float Speed)>();
         for (var c = 0; c < Cuts.Length; c++)
         {
@@ -171,7 +171,7 @@ public sealed class ShoulderSeamProbe
     internal static bool Sweep(int cutIndex, Hand hand, float offset, float speed)
     {
         using var game = new BoxingGame(FighterTuning.Default, 1, new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard()));
-        for (var i = 0; i < 90; i++)
+        for (var i = 0; i < 151; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -185,9 +185,9 @@ public sealed class ShoulderSeamProbe
         var middle = (Weapon.TipOf(kind).X + Weapon.TwoHandGripsOf(kind).Bottom.X) * 0.5f;
         var local = new Vector3(middle, 0f, 0f);
         var target = joint + (scan * offset);
-        var start = target - (heading * 0.15f) - Vector3.Transform(local, orientation);
+        var start = target - (heading * 0.4225f) - Vector3.Transform(local, orientation);
         var weapon = game.AddWeapon(kind, start, orientation);
-        var steps = (int)MathF.Ceiling(0.30f / speed * 240f) + 2;
+        var steps = (int)MathF.Ceiling(0.845f / speed * 240f) + 3;
         for (var i = 0; i < steps; i++)
         {
             game.World.SetLinearVelocity(weapon.Body.BodyId, heading * speed);
@@ -206,8 +206,8 @@ public sealed class ShoulderSeamProbe
     [TestMethod]
     public void StabThroughTheShoulderSeam()
     {
-        var offsets = Enumerable.Range(-8, 17).Select(i => i * 0.0015f).ToArray();
-        var speeds = new[] { 3f, 14f };
+        var offsets = Enumerable.Range(-8, 17).Select(i => i * 0.004225f).ToArray();
+        var speeds = new[] { 5.035f, 23.5f };
         var dirs = new[] { "下", "体の中心へ", "後ろへ", "斜め下の内へ" };
         var jobs = new List<(int Dir, Hand Hand, float Speed, int I, int J)>();
         foreach (var d in Enumerable.Range(0, dirs.Length))
@@ -251,7 +251,7 @@ public sealed class ShoulderSeamProbe
     private static (bool Hit, bool Expected) Stab(int dir, Hand hand, float speed, float a, float b)
     {
         using var game = new BoxingGame(FighterTuning.Default, 1, new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard()));
-        for (var i = 0; i < 90; i++)
+        for (var i = 0; i < 151; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -270,7 +270,7 @@ public sealed class ShoulderSeamProbe
         var expected = false;
         foreach (var part in fighter.Voxels!.Parts)
         {
-            for (var s = -0.15f; s <= 0.15f && !expected; s += 0.001f)
+            for (var s = -0.4225f; s <= 0.4225f && !expected; s += 0.002817f)
             {
                 var cell = part.Body.Grid.CellAt(part.Body.WorldToGrid(target + (heading * s)));
                 expected |= cell >= 0 && part.Body.Grid.MaterialAt(cell) != 0;
@@ -280,9 +280,9 @@ public sealed class ShoulderSeamProbe
         var kind = WeaponKind.Katana;
         var orientation = WeaponDrills.Point(heading);
         var tip = Weapon.TipOf(kind);
-        var start = target - (heading * 0.15f) - Vector3.Transform(tip, orientation);
+        var start = target - (heading * 0.4225f) - Vector3.Transform(tip, orientation);
         var weapon = game.AddWeapon(kind, start, orientation);
-        var steps = (int)MathF.Ceiling(0.30f / speed * 240f) + 2;
+        var steps = (int)MathF.Ceiling(0.845f / speed * 240f) + 3;
         for (var i = 0; i < steps; i++)
         {
             game.World.SetLinearVelocity(weapon.Body.BodyId, heading * speed);

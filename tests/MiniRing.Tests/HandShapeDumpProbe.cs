@@ -15,8 +15,8 @@ namespace MiniRing.Tests;
 [TestCategory("Probe")]
 public sealed class HandShapeDumpProbe
 {
-    /// <summary>絵の柄の半径 [m]（直径 10 mm: 剣の柄 8 mm と棍棒の柄 14 mm の間）。</summary>
-    private const float GripRadius = 0.005f;
+    /// <summary>絵の柄の半径 [m]（直径 28 mm: 剣の柄 23 mm と棍棒の柄 39 mm の間）。</summary>
+    private const float GripRadius = 0.01408f;
 
     [TestMethod]
     public void Probe_DumpHandShapes()

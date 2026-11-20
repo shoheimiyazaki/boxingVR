@@ -12,10 +12,10 @@ public sealed class CrowdAndGrazeSoundTests
     [TestMethod]
     public void GrazeIsDeterministicShortAndQuieterThanHits()
     {
-        CollectionAssert.AreEqual(GrazeSound.Synthesize(3f, 7), GrazeSound.Synthesize(3f, 7));
-        CollectionAssert.AreNotEqual(GrazeSound.Synthesize(3f, 7), GrazeSound.Synthesize(3f, 8));
+        CollectionAssert.AreEqual(GrazeSound.Synthesize(5.035f, 7), GrazeSound.Synthesize(5.035f, 7));
+        CollectionAssert.AreNotEqual(GrazeSound.Synthesize(5.035f, 7), GrazeSound.Synthesize(5.035f, 8));
 
-        foreach (var speed in new[] { 0f, 1.5f, 3f, 10f })
+        foreach (var speed in new[] { 0f, 2.518f, 5.035f, 16.78f })
         {
             var pcm = GrazeSound.Synthesize(speed, 3);
             var seconds = pcm.Length / 2f / Rate;
@@ -26,7 +26,7 @@ public sealed class CrowdAndGrazeSoundTests
 
         Assert.IsLessThan(0.35f, GrazeSound.Loudness, "below the quietest punch hit");
         Assert.IsLessThan(SwingSound.Loudness, GrazeSound.Loudness, "below the swing whoosh");
-        Assert.IsLessThan(GrazeSound.Synthesize(1f, 3).Length, GrazeSound.Synthesize(4f, 3).Length, "faster grazes are shorter");
+        Assert.IsLessThan(GrazeSound.Synthesize(1.678f, 3).Length, GrazeSound.Synthesize(6.714f, 3).Length, "faster grazes are shorter");
     }
 
     [TestMethod]

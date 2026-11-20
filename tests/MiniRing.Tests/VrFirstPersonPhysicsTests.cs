@@ -17,7 +17,7 @@ public sealed class VrFirstPersonPhysicsTests
     private static readonly Vector3 Head = new(0f, 1.62f, 0f);
 
     private static BoxingGame NewGame() => new(FighterTuning.Default with { PlayerFatigue = false },
-        corners: SwordTraining.Corners(WeaponKind.Katana, 0.9f)) { HidePlayerHead = true };
+        corners: SwordTraining.Corners(WeaponKind.Katana, 2.535f)) { HidePlayerHead = true };
 
     private static VrRawFrame Raw(Vector3 head, float leftGrip, float rightGrip) => new(
         head, Quaternion.Identity,
@@ -47,15 +47,15 @@ public sealed class VrFirstPersonPhysicsTests
     {
         using var game = NewGame();
         var mapper = Mapper(firstPerson: true);
-        Run(game, mapper, Raw(Head, 1f, 1f), 1f); // 構えに落ち着く
+        Run(game, mapper, Raw(Head, 1f, 1f), 1.678f); // 構えに落ち着く
         var start = game.Player.HeadPosition;
         var pelvis = game.Player.PelvisPosition;
-        Run(game, mapper, Raw(Head, 1f, 1f), 8f);
+        Run(game, mapper, Raw(Head, 1f, 1f), 13.43f);
         var drift = Flat(game.Player.PelvisPosition, pelvis);
         var headDrift = Flat(game.Player.HeadPosition, start);
-        Console.WriteLine($"still HMD 8 s: pelvis drift {drift * 100f:0.0} cm, head drift {headDrift * 100f:0.0} cm (arm reach {game.Player.ArmReach * 100f:0.0} cm)");
-        Assert.IsTrue(drift < 0.03f, $"止まった HMD で体が滑る: {drift * 100f:0.0} cm");
-        Assert.IsTrue(headDrift < 0.03f, $"頭が漂う: {headDrift * 100f:0.0} cm");
+        Console.WriteLine($"still HMD 13.4 s: pelvis drift {drift * 100f:0.0} cm, head drift {headDrift * 100f:0.0} cm (arm reach {game.Player.ArmReach * 100f:0.0} cm)");
+        Assert.IsTrue(drift < 0.0845f, $"止まった HMD で体が滑る: {drift * 100f:0.0} cm");
+        Assert.IsTrue(headDrift < 0.0845f, $"頭が漂う: {headDrift * 100f:0.0} cm");
     }
 
     [TestMethod]
@@ -63,19 +63,19 @@ public sealed class VrFirstPersonPhysicsTests
     {
         using var game = NewGame();
         var mapper = Mapper(firstPerson: true);
-        Run(game, mapper, Raw(Head, 1f, 1f), 1f);
+        Run(game, mapper, Raw(Head, 1f, 1f), 1.678f);
         var scale = mapper.Placement!.Value.Scale;
         var startHead = game.Player.HeadPosition;
         var target = mapper.Placement!.Value.Point(Head + new Vector3(0f, 0f, -0.6f)); // 人の 0.6 m 前へ
         var distance = Flat(target, startHead);
-        Run(game, mapper, Raw(Head + new Vector3(0f, 0f, -0.6f), 1f, 1f), 6f);
+        Run(game, mapper, Raw(Head + new Vector3(0f, 0f, -0.6f), 1f, 1f), 10.07f);
         var remaining = Flat(target, game.Player.HeadPosition);
-        Console.WriteLine($"scale {scale:0.000}: target {distance * 100f:0.0} cm away, after 6 s {remaining * 100f:0.0} cm left (dead zone {VrPlayerMapper.WalkDeadZone * game.Player.ArmReach * 100f:0.0} cm)");
+        Console.WriteLine($"scale {scale:0.000}: target {distance * 100f:0.0} cm away, after 10.1 s {remaining * 100f:0.0} cm left (dead zone {VrPlayerMapper.WalkDeadZone * game.Player.ArmReach * 100f:0.0} cm)");
         Assert.IsTrue(remaining < (VrPlayerMapper.WalkDeadZone + 0.1f) * game.Player.ArmReach, $"頭が目標へ来ない: 残り {remaining * 100f:0.0} cm");
         Assert.IsTrue(remaining < distance * 0.5f, "目標へ近づく");
         var settled = game.Player.PelvisPosition;
-        Run(game, mapper, Raw(Head + new Vector3(0f, 0f, -0.6f), 1f, 1f), 3f);
-        Assert.IsTrue(Flat(game.Player.PelvisPosition, settled) < 0.03f, "着いたら止まる（行き過ぎ・往復しない）");
+        Run(game, mapper, Raw(Head + new Vector3(0f, 0f, -0.6f), 1f, 1f), 5.035f);
+        Assert.IsTrue(Flat(game.Player.PelvisPosition, settled) < 0.0845f, "着いたら止まる（行き過ぎ・往復しない）");
     }
 
     [TestMethod]
@@ -83,7 +83,7 @@ public sealed class VrFirstPersonPhysicsTests
     {
         using var game = NewGame();
         var mapper = Mapper(firstPerson: false);
-        Run(game, mapper, Raw(Head, 0f, 0f), 2f);
+        Run(game, mapper, Raw(Head, 0f, 0f), 3.357f);
         Assert.IsTrue(game.Player.Wields(Hand.Right) && game.Player.Wields(Hand.Left), "グリップを押していなくても、始めに握っている刀は落とさない");
     }
 
@@ -92,8 +92,8 @@ public sealed class VrFirstPersonPhysicsTests
     {
         using var game = NewGame();
         var mapper = Mapper(firstPerson: false);
-        Run(game, mapper, Raw(Head, 1f, 1f), 1f);
-        Run(game, mapper, Raw(Head, 0f, 1f), 1f);
+        Run(game, mapper, Raw(Head, 1f, 1f), 1.678f);
+        Run(game, mapper, Raw(Head, 0f, 1f), 1.678f);
         Assert.IsTrue(game.Player.Wields(Hand.Right), "右手は握ったまま");
         Assert.IsFalse(game.Player.Wields(Hand.Left), "左のグリップを離した左手は刀を放す（片手持ちに戻る）");
     }
@@ -103,8 +103,8 @@ public sealed class VrFirstPersonPhysicsTests
     {
         using var game = NewGame();
         var mapper = Mapper(firstPerson: false);
-        Run(game, mapper, Raw(Head, 1f, 1f), 1f);
-        Run(game, mapper, Raw(Head, 1f, 0f), 1f);
+        Run(game, mapper, Raw(Head, 1f, 1f), 1.678f);
+        Run(game, mapper, Raw(Head, 1f, 0f), 1.678f);
         Assert.IsFalse(game.Player.Wields(Hand.Right), "右のグリップを離せば刀を放す");
     }
 }

@@ -16,11 +16,11 @@ public sealed class GamePlanTests
 {
     private const float Dt = 1f / 60f;
 
-    /// <summary>距離 [cm] ごとの値の山（ガウスの形）を、2 cm の帯の表にする。</summary>
-    private static RangeBin[] Table(Func<float, float> dealt, Func<float, float> taken, float from = 13f, float to = 43f)
+    /// <summary>距離 [cm] ごとの値の山（ガウスの形）を、5.6 cm の帯（人形の単位の 2 cm）の表にする。</summary>
+    private static RangeBin[] Table(Func<float, float> dealt, Func<float, float> taken, float from = 36.62f, float to = 121.1f)
     {
         var bins = new List<RangeBin>();
-        for (var cm = from; cm <= to + 1e-3f; cm += 2f)
+        for (var cm = from; cm <= to + 1e-3f; cm += 5.634f)
         {
             bins.Add(new RangeBin { Cm = cm, Dealt = dealt(cm), Taken = taken(cm) });
         }
@@ -28,13 +28,13 @@ public sealed class GamePlanTests
         return [.. bins];
     }
 
-    private static float Bump(float cm, float center, float height, float width = 4f) => height * MathF.Exp(-0.5f * MathF.Pow((cm - center) / width, 2f));
+    private static float Bump(float cm, float center, float height, float width = 11.27f) => height * MathF.Exp(-0.5f * MathF.Pow((cm - center) / width, 2f));
 
-    /// <summary>自分は 25 cm で最もよく当て、相手は 17 cm で最もよく当てる（近いほど危ない）。</summary>
+    /// <summary>自分は 70 cm で最もよく当て、相手は 48 cm で最もよく当てる（近いほど危ない）。</summary>
     private static GamePlanStyle Plan(bool foe = true) => new GamePlanStyle
     {
-        Own = Table(cm => Bump(cm, 25f, 20f), cm => Bump(cm, 17f, 10f, 5f) + 1f),
-        Foe = foe ? Table(cm => Bump(cm, 17f, 20f, 5f) + 2f, cm => Bump(cm, 25f, 15f)) : [],
+        Own = Table(cm => Bump(cm, 70.42f, 20f), cm => Bump(cm, 47.89f, 10f, 14.08f) + 1f),
+        Foe = foe ? Table(cm => Bump(cm, 47.89f, 20f, 14.08f) + 2f, cm => Bump(cm, 70.42f, 15f)) : [],
     }.Validated();
 
     private static readonly PlanInputs Fresh = new(Opening: 0f, OpponentWinded: 0f, OpponentInjury: 0f, Stamina: 1f, Faintness: 0f, SelfInjury: 0f, Match: default);
@@ -46,19 +46,19 @@ public sealed class GamePlanTests
     [TestMethod]
     public void TheDistance_SitsNearTheMeritPeak_OfTheOwnTable()
     {
-        var plan = new GamePlanStyle { Own = Table(cm => Bump(cm, 25f, 20f), _ => 1f) }.Validated();
+        var plan = new GamePlanStyle { Own = Table(cm => Bump(cm, 70.42f, 20f), _ => 1f) }.Validated();
         var d = Cm(Decide(plan, Fresh));
-        Assert.AreEqual(25f, d, 1.5f, $"d* = {d:0.0} cm");
+        Assert.AreEqual(70.42f, d, 4.225f, $"d* = {d:0.0} cm");
     }
 
     [TestMethod]
     public void TheDistance_FromAMeasuredTable_SitsNearItsBestNet()
     {
-        // マーカスの表（docs/arena/maai_roster_ranges_bins.csv）: 差し引きの最大は 23〜25 cm、与えた量の最大は 25 cm。
+        // マーカスの表（docs/arena/maai_roster_ranges_bins.csv）: 差し引きの最大は 23〜25 cm、与えた量の最大は 25 cm（人形の単位。人の大きさで 65〜70 cm）。
         var marcus = CharacterRoster.Get("marcus").Style.GamePlan!;
         var d = Cm(Decide(marcus with { Foe = [] }, Fresh));
         Console.WriteLine($"marcus alone d* = {d:0.0} cm");
-        Assert.IsTrue(d is > 22f and < 28f, $"d* = {d:0.0} cm");
+        Assert.IsTrue(d is > 61.97f and < 78.87f, $"d* = {d:0.0} cm");
     }
 
     [TestMethod]
@@ -67,7 +67,7 @@ public sealed class GamePlanTests
         var alone = Cm(Decide(Plan(foe: false), Fresh));
         var withFoe = Cm(Decide(Plan(foe: true), Fresh));
         Console.WriteLine($"alone {alone:0.0} cm, knowing the foe {withFoe:0.0} cm");
-        Assert.IsGreaterThan(alone, withFoe, "the foe is best at 17 cm: stand farther from it");
+        Assert.IsGreaterThan(alone, withFoe, "the foe is best at 48 cm: stand farther from it");
     }
 
     [TestMethod]
@@ -84,7 +84,7 @@ public sealed class GamePlanTests
         {
             var worse = Decide(plan, input);
             Console.WriteLine($"{name}: {Cm(fresh):0.0} → {Cm(worse):0.0} cm, tempo {fresh.Tempo:0.00} → {worse.Tempo:0.00}");
-            Assert.IsGreaterThan(Cm(fresh), Cm(worse), name + ": farther from the threat at 17 cm");
+            Assert.IsGreaterThan(Cm(fresh), Cm(worse), name + ": farther from the threat at 48 cm");
             Assert.IsLessThan(fresh.Tempo, worse.Tempo, name + ": fewer punches");
         }
     }
@@ -103,7 +103,7 @@ public sealed class GamePlanTests
         {
             var better = Decide(plan, input);
             Console.WriteLine($"{name}: {Cm(fresh):0.0} → {Cm(better):0.0} cm, tempo {fresh.Tempo:0.00} → {better.Tempo:0.00}");
-            Assert.IsLessThan(MathF.Abs(Cm(fresh) - 25f), MathF.Abs(Cm(better) - 25f), name + ": nearer the merit peak at 25 cm");
+            Assert.IsLessThan(MathF.Abs(Cm(fresh) - 70.42f), MathF.Abs(Cm(better) - 70.42f), name + ": nearer the merit peak at 70 cm");
             Assert.IsGreaterThan(fresh.Tempo, better.Tempo, name + ": more punches");
         }
     }
@@ -113,16 +113,16 @@ public sealed class GamePlanTests
     {
         var plan = Plan();
         var fresh = Decide(plan, Fresh);
-        var stall = Decide(plan, Fresh with { Match = new MatchSense(Quiet: 10f) });
-        var losingEarly = Decide(plan, Fresh with { Match = new MatchSense(RoundElapsed: 3f, RoundLength: 30f, DamageLead: -60f) });
-        var losingLate = Decide(plan, Fresh with { Match = new MatchSense(RoundElapsed: 28f, RoundLength: 30f, DamageLead: -60f) });
-        var winningLate = Decide(plan, Fresh with { Match = new MatchSense(RoundElapsed: 28f, RoundLength: 30f, DamageLead: 60f) });
+        var stall = Decide(plan, Fresh with { Match = new MatchSense(Quiet: 16.78f) });
+        var losingEarly = Decide(plan, Fresh with { Match = new MatchSense(RoundElapsed: 5.035f, RoundLength: 50.35f, DamageLead: -60f) });
+        var losingLate = Decide(plan, Fresh with { Match = new MatchSense(RoundElapsed: 47f, RoundLength: 50.35f, DamageLead: -60f) });
+        var winningLate = Decide(plan, Fresh with { Match = new MatchSense(RoundElapsed: 47f, RoundLength: 50.35f, DamageLead: 60f) });
         Console.WriteLine($"fresh {Cm(fresh):0.0}/{fresh.Tempo:0.00}, stall {Cm(stall):0.0}/{stall.Tempo:0.00}, losing early {Cm(losingEarly):0.0}/{losingEarly.Tempo:0.00}, late {Cm(losingLate):0.0}/{losingLate.Tempo:0.00}, winning late {Cm(winningLate):0.0}/{winningLate.Tempo:0.00}");
 
-        Assert.IsLessThan(MathF.Abs(Cm(fresh) - 25f), MathF.Abs(Cm(stall) - 25f), "a stall draws toward the attack");
+        Assert.IsLessThan(MathF.Abs(Cm(fresh) - 70.42f), MathF.Abs(Cm(stall) - 70.42f), "a stall draws toward the attack");
         Assert.IsGreaterThan(fresh.Tempo, stall.Tempo, "a stall speeds the hands");
         Assert.IsGreaterThan(losingEarly.Tempo, losingLate.Tempo, "losing late urges more than losing early");
-        Assert.IsLessThan(MathF.Abs(Cm(losingEarly) - 25f), MathF.Abs(Cm(losingLate) - 25f));
+        Assert.IsLessThan(MathF.Abs(Cm(losingEarly) - 70.42f), MathF.Abs(Cm(losingLate) - 70.42f));
         Assert.AreEqual(fresh.Tempo, winningLate.Tempo, 1e-6f, "the clock alone does not urge the fighter who is ahead");
         Assert.AreEqual(1f, GamePlan.Losing(new MatchSense(DownLead: -10)), 1e-3f, "many downs behind: fully losing");
         Assert.AreEqual(0f, GamePlan.Losing(new MatchSense(DamageLead: 5f)));
@@ -130,7 +130,7 @@ public sealed class GamePlanTests
         // 打ち合いの無い時間につれて、急ぐ度合いは連続に増える（段階で切り替えない）。
         var previous = GamePlan.Urgency(plan, default);
         Assert.AreEqual(0f, previous, "no stall, no score: no urgency");
-        for (var quiet = 0.5f; quiet <= 30f; quiet += 0.5f)
+        for (var quiet = 0.8392f; quiet <= 50.35f; quiet += 0.8392f)
         {
             var u = GamePlan.Urgency(plan, new MatchSense(Quiet: quiet));
             Assert.IsGreaterThan(previous, u, $"quiet {quiet}");
@@ -169,16 +169,16 @@ public sealed class GamePlanTests
 
     // ---- ボットへの入れ方 ----
 
-    /// <summary>相手が 0.3 m 前に立って構えている見え方（試合の時刻・傷みは引数で）。</summary>
+    /// <summary>相手が 0.85 m 前に立って構えている見え方（試合の時刻・傷みは引数で）。</summary>
     private static FighterSense Sense(float t, MatchSense match = default, float selfInjury = 0f)
     {
-        var reach = 0.19f;
-        var chest = new Vector3(0f, 0.9f, 0.3f + (0.02f * MathF.Sin(t * 3f)));
-        var head = chest + new Vector3(0f, 0.12f, 0f);
-        return new FighterSense(new BodyFrame(new Vector3(0f, 0.95f, 0f), 0f), reach, head, chest, OpponentAlive: true,
-            SelfHead: new Vector3(0f, 1.07f, 0f),
-            OpponentLeft: new GloveSense(head + new Vector3(0.05f, -0.03f, -0.08f), Vector3.Zero),
-            OpponentRight: new GloveSense(head + new Vector3(-0.05f, -0.04f, -0.05f), Vector3.Zero),
+        var reach = 0.5352f;
+        var chest = new Vector3(0f, 2.535f, 0.8451f + (0.05634f * MathF.Sin(t * 1.787f)));
+        var head = chest + new Vector3(0f, 0.338f, 0f);
+        return new FighterSense(new BodyFrame(new Vector3(0f, 2.676f, 0f), 0f), reach, head, chest, OpponentAlive: true,
+            SelfHead: new Vector3(0f, 3.014f, 0f),
+            OpponentLeft: new GloveSense(head + new Vector3(0.1408f, -0.08451f, -0.2254f), Vector3.Zero),
+            OpponentRight: new GloveSense(head + new Vector3(-0.1408f, -0.1127f, -0.1408f), Vector3.Zero),
             OpponentArmReach: reach, SelfStamina: 1f, SelfInjury: selfInjury, Match: match);
     }
 
@@ -202,9 +202,9 @@ public sealed class GamePlanTests
         var weightZero = plain with { GamePlan = Plan() with { Weight = 0f } };
         var weightOne = plain with { GamePlan = Plan() };
         MatchSense Clock(float t) => new(RoundElapsed: t, Quiet: t);
-        var a = Commands(plain, 3, 600, Clock);
-        var b = Commands(weightZero, 3, 600, Clock);
-        var c = Commands(weightOne, 3, 600, Clock);
+        var a = Commands(plain, 3, 1007, Clock);
+        var b = Commands(weightZero, 3, 1007, Clock);
+        var c = Commands(weightOne, 3, 1007, Clock);
         CollectionAssert.AreEqual(a, b, "weight 0 plays exactly the textbook");
         Assert.IsTrue(a.Zip(c).Any(p => p.First != p.Second), "weight 1 changes the commands");
     }
@@ -215,7 +215,7 @@ public sealed class GamePlanTests
         static float Desired(BotStyle style)
         {
             var bot = new BoxerBot(style with { Attacks = false }, 5);
-            for (var i = 0; i < 30; i++)
+            for (var i = 0; i < 50; i++)
             {
                 bot.Read(Sense(i * Dt), Dt);
             }
@@ -223,7 +223,7 @@ public sealed class GamePlanTests
             return bot.ProbeState.Desired;
         }
 
-        var reach = 0.19f;
+        var reach = 0.5352f;
         var plan = Plan();
         var target = Decide(plan, Fresh).Distance / reach;
         var plain = Desired(BotCatalog.Champion);
@@ -256,17 +256,17 @@ public sealed class GamePlanTests
     [TestMethod]
     public void TheMatch_TellsTheClock_TheQuietTime_AndNoInjuryAtTheStart()
     {
-        using var game = new BoxingGame(seed: 2, corners: BotCatalog.Corners(BotCatalog.Boxer with { Attacks = false }), rules: new MatchRules(RoundSeconds: 20f, Rounds: 3));
-        for (var i = 0; i < 60; i++)
+        using var game = new BoxingGame(seed: 2, corners: BotCatalog.Corners(BotCatalog.Boxer with { Attacks = false }), rules: new MatchRules(RoundSeconds: 33.57f, Rounds: 3));
+        for (var i = 0; i < 101; i++)
         {
             game.Step(default, Dt);
         }
 
         var sense = game.CpuSense;
         Console.WriteLine(sense.Match);
-        Assert.AreEqual(20f, sense.Match.RoundLength);
+        Assert.AreEqual(33.57f, sense.Match.RoundLength);
         Assert.AreEqual(2, sense.Match.RoundsLeft);
-        Assert.IsTrue(sense.Match.RoundElapsed is > 0.9f and < 1.1f, $"elapsed {sense.Match.RoundElapsed}");
+        Assert.IsTrue(sense.Match.RoundElapsed is > 1.51f and < 1.846f, $"elapsed {sense.Match.RoundElapsed}");
         Assert.AreEqual(sense.Match.RoundElapsed, sense.Match.Quiet, 1e-4f, "nobody has scored yet");
         Assert.AreEqual(0f, sense.SelfInjury);
         Assert.AreEqual(0f, sense.OpponentInjury);
@@ -328,7 +328,7 @@ public sealed class GamePlanTests
         static ulong Run(BotStyle red, BotStyle blue)
         {
             using var game = new BoxingGame(seed: 9, corners: BotCatalog.Corners(blue) with { RedBotStyle = red });
-            for (var i = 0; i < 360; i++)
+            for (var i = 0; i < 604; i++)
             {
                 game.Step(default, Dt);
             }

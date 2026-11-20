@@ -169,8 +169,8 @@ public sealed class CharacterFileTests
     {
         var (red, blue) = Educated();
         // 途中の毎秒の状態で比べる（試合の終わりの 1 点だけでは、ダウンでラウンドが作り直されると両方が同じ初めの状態に戻り、差が見えないことがある: LogicVersion 36 で起きた）。
-        var plainChecksum = RunChecksums(new MatchSelection(MatchMode.Spectate, CharacterRoster.Get("marcus"), CharacterRoster.Get("dmitri")).Corners, 8f);
-        var educatedChecksum = RunChecksums(new MatchSelection(MatchMode.Spectate, red, blue).Corners, 8f);
+        var plainChecksum = RunChecksums(new MatchSelection(MatchMode.Spectate, CharacterRoster.Get("marcus"), CharacterRoster.Get("dmitri")).Corners, 13.43f);
+        var educatedChecksum = RunChecksums(new MatchSelection(MatchMode.Spectate, red, blue).Corners, 13.43f);
         Assert.IsTrue(plainChecksum.Zip(educatedChecksum).Any(p => p.First != p.Second), "the education reaches the bots");
 
         foreach (var mode in new[] { MatchMode.Spectate, MatchMode.Single })

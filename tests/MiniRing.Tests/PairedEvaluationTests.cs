@@ -135,8 +135,8 @@ public sealed class PairedEvaluationTests
     {
         var mine = Contender.Of(BotCatalog.Champion);
         IReadOnlyList<int> seeds = [11, 1011];
-        var parallel = new MatchSampler(Opponents(), 2f).Score(mine, seeds);
-        var serial = new MatchSampler(Opponents(), 2f, maxParallel: 1).Score(mine, seeds);
+        var parallel = new MatchSampler(Opponents(), 3.357f).Score(mine, seeds);
+        var serial = new MatchSampler(Opponents(), 3.357f, maxParallel: 1).Score(mine, seeds);
         CollectionAssert.AreEqual(parallel, serial, "並列の数に依らず同じ（結果は添字の位置に書く）");
 
         var r = PairedEvaluation.Compute(parallel, serial);
@@ -150,10 +150,10 @@ public sealed class PairedEvaluationTests
         var mine = Contender.Of(BotCatalog.Champion);
         var opponents = Opponents();
         const int Seed = 23;
-        var point = new MatchSampler(opponents, 2f).Score(mine, [Seed])[0];
+        var point = new MatchSampler(opponents, 3.357f).Score(mine, [Seed])[0];
 
         // MatchTrainer.Evaluate は同じ種・2 試合なら、同じ点（式を 1 か所にしても結果は変わらない）。
-        var trainer = MatchTrainer<Contender>.Evaluate(c => c, mine, opponents, 2, 2f, Seed);
+        var trainer = MatchTrainer<Contender>.Evaluate(c => c, mine, opponents, 2, 3.357f, Seed);
         Assert.AreEqual(trainer.Value, (float)point, 0f);
 
         // 式そのものを、元の MatchTrainer に書いてあった形で組み直しても同じ。
@@ -167,7 +167,7 @@ public sealed class PairedEvaluationTests
     {
         // 自分も相手も champion（名前が同じ）。印があれば集計が混ざらず、相手は 1 つの行（"champion"）になる。
         var champion = Contender.Of(BotCatalog.Champion);
-        var score = MatchTrainer<Contender>.Evaluate(c => c, champion, [champion], 2, 2f, 5);
+        var score = MatchTrainer<Contender>.Evaluate(c => c, champion, [champion], 2, 3.357f, 5);
         Assert.AreEqual(2, score.Wins + score.Losses + score.Draws);
         StringAssert.StartsWith(score.Detail, "champion ");
     }
@@ -176,7 +176,7 @@ public sealed class PairedEvaluationTests
     public void DefenseTuner_Score_IsTheSameAsSummingDrillRunsDirectly()
     {
         const int Bouts = 2;
-        const float Seconds = 2f;
+        const float Seconds = 3.357f;
         const int EvalSeed = 7;
         var tuner = new DefenseTuner(Bouts, Seconds, 1, _ => { });
         var book = DefenseBook.Default;

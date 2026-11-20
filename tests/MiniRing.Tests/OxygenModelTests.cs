@@ -23,11 +23,11 @@ public sealed class OxygenModelTests
 
         public Rig(FighterTuning tuning)
         {
-            _world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(8f, 0.5f, 8f));
+            _world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(22.54f, 1.408f, 22.54f));
             Fighter = Fighter.Spawn(_world, tuning, "oxygen", Vector3.Zero, 0f);
             _left = AiControl.Guard(Hand.Left, Fighter.ArmReach);
             _guard = AiControl.Guard(Hand.Right, Fighter.ArmReach);
-            Hold(2f);
+            Hold(3.357f);
         }
 
         private void Step(Vector3 right, float spring)
@@ -54,7 +54,7 @@ public sealed class OxygenModelTests
             {
                 var phase = i % period;
                 var extending = phase < period / 2;
-                Step(extending ? Vector3.Lerp(_guard, aim, MathF.Min(1f, phase * Dt / 0.06f)) : _guard, extending ? 1f : 0f);
+                Step(extending ? Vector3.Lerp(_guard, aim, MathF.Min(1f, phase * Dt / 0.1007f)) : _guard, extending ? 1f : 0f);
             }
         }
 
@@ -65,17 +65,17 @@ public sealed class OxygenModelTests
     public void OneArmWorkingHard_IsLimitedByItsOwnVessels_AndOnlyThatArmTires()
     {
         using var rig = new Rig(FighterTuning.Default);
-        rig.Fighter.SetOxygen(MuscleRegion.RightArm, 0.5f); // 右腕はもう打ち続けてきた（満タンから半分まで 20 秒ほどかかるのを省く）
+        rig.Fighter.SetOxygen(MuscleRegion.RightArm, 0.5f); // 右腕はもう打ち続けてきた（満タンから半分まで 34 秒ほどかかるのを省く）
         var vessels = 0;
         for (var i = 0; i < 60; i++)
         {
-            rig.PunchRight(0.25f, 0.25f);
+            rig.PunchRight(0.4196f, 0.4196f);
             vessels += rig.Fighter.LimitOf(MuscleRegion.RightArm) == OxygenLimit.Vessels ? 1 : 0;
         }
 
         var f = rig.Fighter;
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"15 s right-hand punching: right O2 {f.OxygenOf(MuscleRegion.RightArm):P0} vigor {f.VigorOf(MuscleRegion.RightArm):F2}, left O2 {f.OxygenOf(MuscleRegion.LeftArm):P0} vigor {f.VigorOf(MuscleRegion.LeftArm):F2}; vessel-limited samples {vessels}/60; pallor {f.Pallor:F2}, cyanosis {f.Cyanosis:F2}, winded {f.Winded:F2}"));
+            $"25 s right-hand punching: right O2 {f.OxygenOf(MuscleRegion.RightArm):P0} vigor {f.VigorOf(MuscleRegion.RightArm):F2}, left O2 {f.OxygenOf(MuscleRegion.LeftArm):P0} vigor {f.VigorOf(MuscleRegion.LeftArm):F2}; vessel-limited samples {vessels}/60; pallor {f.Pallor:F2}, cyanosis {f.Cyanosis:F2}, winded {f.Winded:F2}"));
         Assert.IsLessThan(0.45f, f.OxygenOf(MuscleRegion.RightArm), "打ち続けた右腕の蓄えは減る");
         Assert.IsGreaterThan(0.9f, f.OxygenOf(MuscleRegion.LeftArm), "構えていた左腕は満ちたまま");
         Assert.IsLessThan(f.VigorOf(MuscleRegion.LeftArm), f.VigorOf(MuscleRegion.RightArm), "右腕だけが弱る（腕の追従の遅れ）");
@@ -87,27 +87,27 @@ public sealed class OxygenModelTests
     [TestMethod]
     public void WeakHeart_LimitsTheRecovery_AndTheFaceTurnsPale()
     {
-        using var rig = new Rig(FighterTuning.Default with { HeartPower = 3f });
+        using var rig = new Rig(FighterTuning.Default with { HeartPower = 50.35f });
         rig.Fighter.EmptyArms();
-        rig.Hold(3f);
+        rig.Hold(5.035f);
         var f = rig.Fighter;
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"weak heart, 3 s after emptying the arms: limit {f.LimitOf(MuscleRegion.RightArm)}, right O2 {f.OxygenOf(MuscleRegion.RightArm):P0}, delivery {f.DeliveryOf(MuscleRegion.RightArm):F2} W; pallor {f.Pallor:F2}, cyanosis {f.Cyanosis:F2}"));
+            $"weak heart, 5 s after emptying the arms: limit {f.LimitOf(MuscleRegion.RightArm)}, right O2 {f.OxygenOf(MuscleRegion.RightArm):P0}, delivery {f.DeliveryOf(MuscleRegion.RightArm):F2} W; pallor {f.Pallor:F2}, cyanosis {f.Cyanosis:F2}"));
         Assert.AreEqual(OxygenLimit.Heart, f.LimitOf(MuscleRegion.RightArm));
         Assert.IsGreaterThan(0.5f, f.Pallor, "心臓が送りきれないと顔が青白い");
         Assert.IsLessThan(0.05f, f.Cyanosis, "肺は足りているので血の酸素は減らない");
-        Assert.IsLessThanOrEqualTo(3.01f, f.DeliveryOf(MuscleRegion.RightArm) + f.DeliveryOf(MuscleRegion.LeftArm), "両腕へは心臓の速さ（3 W）の分だけ");
+        Assert.IsLessThanOrEqualTo(50.52f, f.DeliveryOf(MuscleRegion.RightArm) + f.DeliveryOf(MuscleRegion.LeftArm), "両腕へは心臓の速さ（50 W）の分だけ");
     }
 
     [TestMethod]
     public void WeakLungs_DrainTheBlood_TheLipsTurnBlue_AndTheFighterPants()
     {
-        using var rig = new Rig(FighterTuning.Default with { LungPower = 3f });
+        using var rig = new Rig(FighterTuning.Default with { LungPower = 50.35f });
         rig.Fighter.EmptyArms();
-        rig.Hold(3f);
+        rig.Hold(5.035f);
         var f = rig.Fighter;
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"weak lungs, 3 s after emptying the arms: limit {f.LimitOf(MuscleRegion.RightArm)}, blood {f.BloodOxygen:P0}; cyanosis {f.Cyanosis:F2}, winded {f.Winded:F2}, pallor {f.Pallor:F2}"));
+            $"weak lungs, 5 s after emptying the arms: limit {f.LimitOf(MuscleRegion.RightArm)}, blood {f.BloodOxygen:P0}; cyanosis {f.Cyanosis:F2}, winded {f.Winded:F2}, pallor {f.Pallor:F2}"));
         Assert.AreEqual(OxygenLimit.Lungs, f.LimitOf(MuscleRegion.RightArm));
         Assert.IsLessThan(0.1f, f.BloodOxygen, "肺が追いつかず血の酸素が尽きる");
         Assert.IsGreaterThan(0.9f, f.Cyanosis, "唇・顔が青紫");
@@ -120,7 +120,7 @@ public sealed class OxygenModelTests
     {
         using var rig = new Rig(FighterTuning.Default);
         rig.Fighter.EmptyArms();
-        rig.Hold(2f);
+        rig.Hold(3.357f);
         var f = rig.Fighter;
         Assert.AreEqual(OxygenLimit.Vessels, f.LimitOf(MuscleRegion.RightArm));
         Assert.IsLessThan(0.05f, f.Pallor);

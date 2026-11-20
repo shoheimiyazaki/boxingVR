@@ -15,7 +15,7 @@ public sealed class GroundStrikeTests
     private const float Dt = 1f / 240f;
 
     /// <summary>倒れた相手を攻める時間 [s]。</summary>
-    internal const float DrillSeconds = 10f;
+    internal const float DrillSeconds = 16.78f;
 
     /// <summary>倒れた相手に当てた打撃の記録（<paramref name="FirstHitAt"/> は打ち下ろしを始めてからの時刻）。</summary>
     internal sealed record DrillResult(int Hits, float? FirstHitAt, int Started, string Names, float Damage, bool Downed, float Wounded = 0f);
@@ -32,7 +32,7 @@ public sealed class GroundStrikeTests
     internal static DrillResult Drill(BotStyle attacker, bool referee, WeaponKind? weapon = null, float seconds = DrillSeconds, bool useWeaponBots = false, int seed = 1, bool legacyWeapon = false)
     {
         using var game = new BoxingGame(seed: seed, corners: Corners(attacker, referee, weapon, useWeaponBots, legacyWeapon));
-        for (var t = 0f; t < 1.5f; t += Dt)
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }
@@ -112,7 +112,7 @@ public sealed class GroundStrikeTests
     private static (bool RoundOver, int CpuWins, float At, bool EverHolding) Count(bool referee, float seconds, float? reviveAt = null)
     {
         using var game = new BoxingGame(seed: 1, corners: Corners(Still, referee));
-        for (var t = 0f; t < 1.5f; t += Dt)
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }
@@ -148,18 +148,18 @@ public sealed class GroundStrikeTests
     [TestMethod]
     public void NoReferee_TenCountStillKnocksOut()
     {
-        var (over, wins, at, _) = Count(referee: false, seconds: 14f);
+        var (over, wins, at, _) = Count(referee: false, seconds: 23.5f);
         Console.WriteLine($"no referee: round over={over} at {at:0.0}s");
         Assert.IsTrue(over, "the ten count still ends the round without a referee");
         Assert.AreEqual(1, wins);
-        Assert.IsGreaterThan(Fighter.PhysicsVersion > 0 ? BoxingGame.CountSeconds - 1f : 0f, at, "not before the count is up");
+        Assert.IsGreaterThan(Fighter.PhysicsVersion > 0 ? BoxingGame.CountSeconds - BoxingGame.CountInterval : 0f, at, "not before the count is up");
     }
 
     [TestMethod]
     public void NoReferee_NoBreathAfterRecovering_WithReferee_ThereIs()
     {
-        var off = Count(referee: false, seconds: 9f, reviveAt: 3f);
-        var on = Count(referee: true, seconds: 9f, reviveAt: 3f);
+        var off = Count(referee: false, seconds: 15.11f, reviveAt: 5.035f);
+        var on = Count(referee: true, seconds: 15.11f, reviveAt: 5.035f);
         Assert.IsFalse(off.EverHolding, "no referee, nobody holds the fight after a recovery");
         Assert.IsTrue(on.EverHolding, "with a referee the fight is held for a breath (unchanged)");
     }
@@ -185,7 +185,7 @@ public sealed class GroundStrikeTests
     [TestMethod]
     public void NoReferee_KarateStompsAndStrikesDown()
     {
-        var r = Drill(BotCatalog.Karate, referee: false, seconds: 14f);
+        var r = Drill(BotCatalog.Karate, referee: false, seconds: 23.5f);
         Console.WriteLine(Line("karate", r));
         StringAssert.Contains(r.Names, "stomp", "the karate style (GroundStomp) uses foot stomps on a downed opponent");
     }
@@ -227,9 +227,9 @@ public sealed class GroundStrikeTests
         using var game = new BoxingGame(seed: 2, corners: corners);
         // 青（CPU）を倒れたままにし、赤（プレイヤー側の入力元）が弱で攻める。
         var hits = 0;
-        for (var t = 0f; t < 1.5f + 10f; t += Dt)
+        for (var t = 0f; t < 2.518f + 16.78f; t += Dt)
         {
-            if (t > 1.5f)
+            if (t > 2.518f)
             {
                 game.Cpu.Concussion = 0.97f;
             }
@@ -253,7 +253,7 @@ public sealed class GroundStrikeTests
         public FighterCommand Read(in FighterSense sense, float dt)
         {
             var basis = _inner.Read(sense, dt);
-            return GroundStrike.Applies(sense) ? Ground.Read(sense, basis, dt, GroundCall.Swing, load: 0.05f, steer: true) : basis;
+            return GroundStrike.Applies(sense) ? Ground.Read(sense, basis, dt, GroundCall.Swing, load: 0.08392f, steer: true) : basis;
         }
     }
 

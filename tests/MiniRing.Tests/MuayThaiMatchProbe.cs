@@ -31,7 +31,7 @@ public sealed class MuayThaiMatchProbe
                 float elbowEnergy = 0f, punchEnergy = 0f, kickEnergy = 0f;
                 var wasElbowing = false;
                 var elbowZones = new List<string>();
-                for (var i = 0; i < 240 * 40; i++)
+                for (var i = 0; i < 16113; i++) // 約 67 秒
                 {
                     game.Step(default, Dt);
                     var now = (game.PlayerControl as BoxerBot)?.CurrentElbow is not null;

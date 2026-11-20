@@ -18,13 +18,13 @@ public sealed class FirstPersonHeadVisualTests
     {
         const int Size = 480;
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
-        for (var i = 0; i < 90; i++)
+        for (var i = 0; i < 151; i++)
         {
             game.Step(default, 1f / 60f);
         }
 
         var head = game.World.GetState(game.Player.Parts.Head);
-        var eye = head.Position + (Vector3.UnitY * 0.02f);
+        var eye = head.Position + (Vector3.UnitY * 0.05634f); // 物理の空間で決めて、表示の空間へ移す（DisplaySpace）
         var target = game.Cpu.ChestPosition;
         var lighting = game.BuildLighting();
         var sheet = new byte[Size * 2 * Size * 4];
@@ -32,8 +32,8 @@ public sealed class FirstPersonHeadVisualTests
         for (var v = 0; v < 2; v++)
         {
             game.HidePlayerHead = v == 1;
-            var vp = Camera.ViewProjection(eye, target, Vector3.UnitY, 80f * MathF.PI / 180f, 1f, 0.01f, 30f);
-            var shot = renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [], lighting: lighting, cameraPosition: eye, voxels: game.BuildVoxelVolumes());
+            var (vp, displayEye) = game.Display.Camera(eye, target, Vector3.UnitY, 80f * MathF.PI / 180f, 1f, 0.01f, 30f);
+            var shot = renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [], lighting: lighting, cameraPosition: displayEye, voxels: game.BuildVoxelVolumes());
             for (var y = 0; y < Size; y++)
             {
                 Buffer.BlockCopy(shot, y * Size * 4, sheet, ((y * Size * 2) + (v * Size)) * 4, Size * 4);

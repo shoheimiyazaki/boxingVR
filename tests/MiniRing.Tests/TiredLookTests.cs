@@ -17,7 +17,7 @@ public sealed class TiredLookTests
     public void Fresh_ShowsNoBreath_AndNoFlash()
     {
         using var game = Game();
-        Step(game, 1f);
+        Step(game, 1.678f);
         Assert.AreEqual(0, Puffs(game), "a fresh fighter breathes unseen");
         Assert.AreEqual(0f, TiredLook.MeterFlash(game.Player));
     }
@@ -26,12 +26,12 @@ public sealed class TiredLookTests
     public void Winded_BreathesFaster_PuffsFromTheMouth_AndTheMeterFlashes()
     {
         using var game = Game();
-        Step(game, 0.5f);
+        Step(game, 0.839f);
         var restPhase = game.Cpu.BreathPhase;
         var tiredStart = game.Player.BreathPhase;
         var puffSeen = 0;
         var flashPeak = 0f;
-        for (var t = 0f; t < 2f; t += Dt)
+        for (var t = 0f; t < 3.357f; t += Dt)
         {
             game.Player.Stamina = 0f; // 尽きたまま（回復の分を毎歩消す）
             game.Step(default, Dt);
@@ -41,7 +41,7 @@ public sealed class TiredLookTests
 
         var tiredBreaths = game.Player.BreathPhase - tiredStart;
         var restBreaths = game.Cpu.BreathPhase - restPhase;
-        Console.WriteLine($"2 s: winded {tiredBreaths:0.00} breaths vs fresh {restBreaths:0.00}; puffs {puffSeen}; flash peak {flashPeak:0.00}; cyanosis {game.Player.Cyanosis:0.00}");
+        Console.WriteLine($"3.36 s: winded {tiredBreaths:0.00} breaths vs fresh {restBreaths:0.00}; puffs {puffSeen}; flash peak {flashPeak:0.00}; cyanosis {game.Player.Cyanosis:0.00}");
         Assert.IsGreaterThan(restBreaths * 4f, tiredBreaths, "panting is several times faster than resting");
         Assert.IsGreaterThan(0, puffSeen, "breath clouds come out of the mouth");
         Assert.IsGreaterThan(0.9f, flashPeak, "the empty meter flashes");

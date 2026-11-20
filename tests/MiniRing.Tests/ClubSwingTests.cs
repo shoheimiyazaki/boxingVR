@@ -47,9 +47,9 @@ public sealed class ClubSwingTests
         // 構えて間合いへ入る間の疲労で、打ち出す前から弱っている条件を混ぜない。
         // 2026-11-19（PhysicsVersion 53）: 間合い 0.38 は潰れたセル 41（下限 42）に落ちた。間合いを 0.02 ずつ掃くと（RangeSweep_Probe）
         // 0.30: 49・0.32: 54・0.34: 51・0.36: 53・0.38: 41・0.40: 83・0.42: 27・0.44: 27 と、当たる前の踏み込みの 1 歩のずれで大きく動く。
-        // 動かない帯（0.30〜0.36 はどれも 49〜54）の真ん中の 0.34 にした。下限（MaxCarve × 0.35）は変えていない。
+        // 動かない帯（0.30〜0.36 はどれも 49〜54）の真ん中の 0.34 にした（ここまで人形の単位。実物大では 0.34 → 0.9577 m）。下限（MaxCarve × 0.35）は変えていない。
         var lowest = 1f;
-        var r = SwingTest.Run(WeaponSwing.Default(SwingFamily.Chop), 0.34f, (game, _, _) =>
+        var r = SwingTest.Run(WeaponSwing.Default(SwingFamily.Chop), 0.9577f, (game, _, _) =>
         {
             lowest = MathF.Min(lowest, game.Player.Stamina);
             game.Player.Stamina = 1f;
@@ -78,7 +78,7 @@ public sealed class ClubSwingTests
     {
         using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("stand", _ => new StandGuard(), s => ClubBot.Basic(s), PlayerWeapon: WeaponKind.WoodenClub));
         var blows = 0;
-        for (var f = 0; f < 60 * 8; f++)
+        for (var f = 0; f < 806; f++)
         {
             game.Step(default, 1f / 60f);
             blows += game.WeaponHits.Count(h => h.Attacker == game.Player);

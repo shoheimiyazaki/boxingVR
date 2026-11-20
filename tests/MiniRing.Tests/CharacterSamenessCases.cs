@@ -15,25 +15,25 @@ internal static class CharacterSamenessCases
     /// <summary>拳同士・空手・剣（刀・ロングソード）・こんぼう・カタール・籠手を含む組、レフェリーあり/なし、観戦と 1P。</summary>
     internal static readonly Case[] All =
     [
-        new("glove-glove-referee", MatchMode.Spectate, "marcus", "dmitri", true, 12f),
-        new("glove-glove-noref", MatchMode.Spectate, "marcus", "dmitri", false, 20f),
-        new("karate-swarmer-noref", MatchMode.Spectate, "akira", "ramon", false, 20f),
-        new("katana-longsword-noref", MatchMode.Spectate, "jin", "konrad", false, 12f),
-        new("club-bare-noref", MatchMode.Spectate, "sean", "albert", false, 15f),
-        new("katar-gauntlet-referee", MatchMode.Spectate, "vikram", "gaston", true, 12f),
-        new("single-counter-vs-knuckles-noref", MatchMode.Single, "yoandry", "joao", false, 15f),
-        new("single-karate-vs-katana", MatchMode.Single, "akira", "jin", false, 10f),
+        new("glove-glove-referee", MatchMode.Spectate, "marcus", "dmitri", true, 20.14f),
+        new("glove-glove-noref", MatchMode.Spectate, "marcus", "dmitri", false, 33.57f),
+        new("karate-swarmer-noref", MatchMode.Spectate, "akira", "ramon", false, 33.57f),
+        new("katana-longsword-noref", MatchMode.Spectate, "jin", "konrad", false, 20.14f),
+        new("club-bare-noref", MatchMode.Spectate, "sean", "albert", false, 25.18f),
+        new("katar-gauntlet-referee", MatchMode.Spectate, "vikram", "gaston", true, 20.14f),
+        new("single-counter-vs-knuckles-noref", MatchMode.Single, "yoandry", "joao", false, 25.18f),
+        new("single-karate-vs-katana", MatchMode.Single, "akira", "jin", false, 16.78f),
     ];
 
     /// <summary>武器の扱いの教科書を JSON へ移す前後で同じ試合になることの物差し（2026-11-16、weapon handling 段 1）。刀・ロングソード・こんぼうの全組み合わせ（自分同士を含む）、レフェリーあり/なし。</summary>
     internal static readonly Case[] Weapons =
     [
-        new("w-katana-katana-referee", MatchMode.Spectate, "jin", "jin", true, 20f),
-        new("w-longsword-longsword-noref", MatchMode.Spectate, "konrad", "konrad", false, 20f),
-        new("w-katana-longsword-referee", MatchMode.Spectate, "jin", "konrad", true, 25f),
-        new("w-club-katana-noref", MatchMode.Spectate, "sean", "jin", false, 25f),
-        new("w-longsword-club-referee", MatchMode.Spectate, "konrad", "sean", true, 25f),
-        new("w-club-club-noref", MatchMode.Spectate, "sean", "sean", false, 20f),
+        new("w-katana-katana-referee", MatchMode.Spectate, "jin", "jin", true, 33.57f),
+        new("w-longsword-longsword-noref", MatchMode.Spectate, "konrad", "konrad", false, 33.57f),
+        new("w-katana-longsword-referee", MatchMode.Spectate, "jin", "konrad", true, 41.96f),
+        new("w-club-katana-noref", MatchMode.Spectate, "sean", "jin", false, 41.96f),
+        new("w-longsword-club-referee", MatchMode.Spectate, "konrad", "sean", true, 41.96f),
+        new("w-club-club-noref", MatchMode.Spectate, "sean", "sean", false, 33.57f),
     ];
 
     /// <summary>

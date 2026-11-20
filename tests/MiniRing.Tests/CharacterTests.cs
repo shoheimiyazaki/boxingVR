@@ -59,7 +59,7 @@ public sealed class CharacterTests
     [TestMethod]
     public void FaceTemplates_PreserveTwoEyesAndBrain_AndChangeTheFace()
     {
-        var grid = BoxerAnatomy.Build(BodyPartKind.Head, FighterTuning.Default.HalfExtents.Head, 0.005f);
+        var grid = BoxerAnatomy.Build(BodyPartKind.Head, FighterTuning.Default.HalfExtents.Head, 0.01408f);
         var look = FaceLook.For("test");
         var a = look with { Parts = FaceParts.Default };
         var b = look with { Parts = FaceParts.Default with { EyeSpacing = 1.25f, Nose = 1.3f, Jaw = 1.2f } };
@@ -227,7 +227,7 @@ public sealed class CharacterTests
         Assert.AreEqual(big.Cpu.LegCondition(true) * bigBuild.LegTorqueRatio, big.Cpu.LegStrength(true), 1e-5f);
         // 細い脚でも立てる（立てるかは筋肉の残り = 状態で決まる。細い脚は健康なまま）。
         Assert.IsTrue(thin.Cpu.CanStand);
-        for (var i = 0; i < 4 * 240; i++)
+        for (var i = 0; i < 1611; i++)
         {
             thin.Step(default, 1f / 240f);
         }

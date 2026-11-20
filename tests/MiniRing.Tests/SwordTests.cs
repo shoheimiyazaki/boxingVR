@@ -54,7 +54,7 @@ public sealed class SwordTests
             }
         });
         Assert.IsNotNull(distanceAtStart);
-        Assert.AreEqual(kote.Range, distanceAtStart.Value, SwordTechnique.Window + 0.01f);
+        Assert.AreEqual(kote.Range, distanceAtStart.Value, SwordTechnique.Window + 0.02817f);
     }
 
     [TestMethod]
@@ -63,7 +63,7 @@ public sealed class SwordTests
         // 中間の袈裟（胸へ斜め）を、相手の胸の先まで速く斬り抜く形で出すと、構えて立つ相手の胸を斬る（拳を相手の所で止める形は、
         // 当たる頃には腕が拳を止めにかかっていて押し込まないので、ほとんど斬れない）。
         var basic = SwordTechnique.Basics.First(t => t.Name == "kesa");
-        var through = basic with { Swing = basic.Swing with { StrikeFist = basic.Swing.StrikeFist + new Vector3(0.1f, -0.2f, 0.35f), StrikeTime = 0.1f } };
+        var through = basic with { Swing = basic.Swing with { StrikeFist = basic.Swing.StrikeFist + new Vector3(0.1f, -0.2f, 0.35f), StrikeTime = 0.168f } };
         // 刃の作用を測るので、狙いの再現中は疲労を一定にする。
         static void KeepFresh(BoxingGame game, float _, bool __)
         {
@@ -74,7 +74,7 @@ public sealed class SwordTests
         // 1 回の振りは間合い 2 cm の違いで 0〜84 セルと大きく揺れる（斬り抜く形は刃が相手の体を通り抜ける近さで出すため）。2026-11-14 の統合後、間合いぴったりの
         // この 1 回では 胸 34 セル・自分の腿 58 セルになり、元の「自分より多い」が崩れた（腿をかすめる振りは以前からあり、57 セル前後）。
         // そこで、間合いを −4〜+4 cm にずらした 5 回を合計して比べる: 胸 150 セル対 自分 58 セル。かすめるのは 1 回だけで、狙った部位のほうが多く斬れている（元の主張のまま）。
-        var ranges = new[] { -0.06f, -0.04f, -0.02f, 0f, 0.02f, 0.04f, 0.06f };
+        var ranges = new[] { -0.169f, -0.1127f, -0.0563f, 0f, 0.0563f, 0.1127f, 0.169f };
         var runs = new SwordResult[ranges.Length];
         Parallel.For(0, ranges.Length, i => runs[i] = SwordDrill.Run(through with { Range = basic.Range + ranges[i] }, KeepFresh));
         var target = runs.Sum(x => x.TargetCells);
@@ -82,7 +82,7 @@ public sealed class SwordTests
         // 2026-11-17（PhysicsVersion 40、脚の骨の端を太くした: 体の質量と立ち方がわずかに変わる）: 間合いぴったりの 1 回は胸 0 セル・自分の腿 60 セルになった
         // （ほかの 4 回は胸 50・44・19・19、自分 0）。1 回の振りの「胸を斬る」は揺れに負けるので、5 回の合計で見る（胸 132 セル対 自分 60 セル）。
         // 2026-11-17（PhysicsVersion 44、剣の柄に鉄の芯を通した: 剣が重くなり、振りが変わる）: 5 回の合計は 胸 90 セル対 自分 121 セル（かすめる回の数が変わった）。
-        // 間合いを −6〜+6 cm の 7 回にして合計で見る。
+        // 間合いを −6〜+6 cm（人形の単位。人の大きさで −17〜+17 cm）の 7 回にして合計で見る。
         Assert.IsGreaterThan(10f, target, "the chest is cut");
         var detail = string.Join(", ", runs.Select(x => $"{x.TargetCells}/{x.SelfCells}"));
         // 自分の腿をかすめるのは 1〜2 回の振りで、そのセル数が大きい（121 セル）。合計では勝てなくなったので、振りごとに「胸が自分より多い」回の数で見る。
@@ -94,10 +94,10 @@ public sealed class SwordTests
     public void TheSwordBot_PicksTechniquesByRange_AndCutsTheOpponent()
     {
         SwordBot? bot = null;
-        var fresh = FighterTuning.Default with { OxygenStorePerKg = 108_000f };
+        var fresh = FighterTuning.Default with { OxygenStorePerKg = 304_200f };
         using var game = new BoxingGame(fresh, seed: 2, corners: new BoxingCorners("stand", _ => new StandGuard(), s => bot = SwordBot.Basic(s), PlayerWeapon: WeaponKind.IronSword));
         var start = game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
-        for (var f = 0; f < 60 * 8 && !game.Cpu.IsDead; f++)
+        for (var f = 0; f < 806 && !game.Cpu.IsDead; f++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -118,7 +118,7 @@ public sealed class SwordTests
         };
         var bot = new SwordBot(techniques, seed: 1);
         var close = techniques[1];
-        var sense = Sense(techniques[0].Range + 0.2f);
+        var sense = Sense(techniques[0].Range + 0.5634f);
         _ = bot.Read(sense, 0.01f); // 遠くから: 狙いを決めて詰める
         Assert.IsNull(bot.Current);
         _ = bot.Read(Sense(close.Range), 0.01f);
@@ -132,7 +132,7 @@ public sealed class SwordTests
         var basics = SwordTechnique.Basics;
         var weights = basics.Select(t => t.Maai == Maai.Far ? 1f : 0f).ToList();
         var bot = new SwordBot(basics, seed: 3, weights: weights);
-        for (var d = 0.8f; d > 0.2f && bot.Current is null; d -= 0.01f)
+        for (var d = 2.254f; d > 0.5634f && bot.Current is null; d -= 0.02817f)
         {
             _ = bot.Read(Sense(d), 0.01f);
         }
@@ -154,12 +154,12 @@ public sealed class SwordTests
     public void TwoSwordsmen_Spar_AndBothCanBeCut()
     {
         var style = SwordStyle.Even(SwordTechnique.Basics);
-        var r = SwordSparring.Run(style, style, seed: 1, seconds: 8f);
+        var r = SwordSparring.Run(style, style, seed: 1, seconds: 13.43f);
         Assert.IsGreaterThan(0, r.RedUsed.Count + r.BlueUsed.Count, "techniques are thrown");
         Assert.IsGreaterThan(0f, r.DealtByRed + r.DealtByBlue, "someone is cut");
         Assert.AreEqual(r.DealtByRed, r.RedByTechnique.Values.Sum(), 1e-3f, "every lost voxel is put down to a technique or the guard");
     }
 
     private static FighterSense Sense(float distance) =>
-        new(new BodyFrame(Vector3.Zero, 0f), 0.17f, new Vector3(0f, 0.4f, distance), new Vector3(0f, 0.3f, distance), OpponentAlive: true);
+        new(new BodyFrame(Vector3.Zero, 0f), 0.4789f, new Vector3(0f, 1.127f, distance), new Vector3(0f, 0.845f, distance), OpponentAlive: true);
 }

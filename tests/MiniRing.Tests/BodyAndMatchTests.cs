@@ -29,7 +29,7 @@ public sealed class BodyAndMatchTests
         {
             using var fight = new BoxingGame(seed: seed, corners: new BoxingCorners("slugger", s => BotCatalog.Create("slugger", s), s => BotCatalog.Create("jabber", s)));
             var lowest = 1f;
-            for (var t = 0f; t < 12f; t += 1f / 60f)
+            for (var t = 0f; t < 20.14f; t += 1f / 60f)
             {
                 fight.Step(default, 1f / 60f);
                 lowest = MathF.Min(lowest, MathF.Min(fight.Player.Stamina, fight.Cpu.Stamina));
@@ -41,13 +41,13 @@ public sealed class BodyAndMatchTests
         // Attacks=false の BoxerBot も回り込み・間合い調整・頭の動きを出すため、休息の対照にはならない。
         // 移動と頭の指令が一定の StandGuard で、構えて休む条件を固定する。
         using var idle = new BoxingGame(seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard()));
-        for (var t = 0f; t < 12f; t += 1f / 60f)
+        for (var t = 0f; t < 20.14f; t += 1f / 60f)
         {
             idle.Step(default, 1f / 60f);
         }
 
         var spent = spentSum / seeds.Length;
-        Console.WriteLine($"in 12 s: fighting spent {spent:0.0000} at its lowest on average (min of the two), standing {idle.Cpu.Stamina:0.0000}");
+        Console.WriteLine($"in 20 s: fighting spent {spent:0.0000} at its lowest on average (min of the two), standing {idle.Cpu.Stamina:0.0000}");
         Assert.IsGreaterThan(0.1f + (1f - idle.Cpu.Stamina), spent, "fighting costs energy");
         Assert.IsGreaterThan(0.95f, idle.Cpu.Stamina, "standing in guard costs less than the heart and lungs give back");
     }
@@ -64,7 +64,7 @@ public sealed class BodyAndMatchTests
         Assert.IsLessThan(1f - 0.2f, f.Breath, "bruised lungs: short of breath");
         // 呼吸と循環のモデル（2026-11-18）: 息が詰まると血の酸素を失う（部位の筋肉の蓄えはそのまま）。
         Assert.IsLessThan(0.99f, f.BloodOxygen, "the blow knocked the wind out (blood oxygen dropped at once)");
-        for (var t = 0f; t < 6f; t += Dt)
+        for (var t = 0f; t < 10.07f; t += Dt)
         {
             game.Step(default, Dt);
         }
@@ -113,11 +113,11 @@ public sealed class BodyAndMatchTests
     {
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)),
-            rules: new MatchRules(RoundSeconds: 1f, Rounds: 2, BreakSeconds: 0.5f));
+            rules: new MatchRules(RoundSeconds: 1.678f, Rounds: 2, BreakSeconds: 0.8392f));
         var bells = new List<(float T, RoundBell Bell)>();
         var sawBreak = false;
         var hits = new List<string>();
-        for (var t = 0f; t < 4f && !game.MatchOver; t += 1f / 60f)
+        for (var t = 0f; t < 6.714f && !game.MatchOver; t += 1f / 60f)
         {
             game.Step(default, 1f / 60f);
             sawBreak |= game.InBreak;
@@ -139,13 +139,13 @@ public sealed class BodyAndMatchTests
         Assert.AreEqual(MathF.Abs(red - blue) <= 1f ? "DRAW" : red > blue ? "YOU WIN BY DECISION" : "CPU WINS BY DECISION", game.Decision);
     }
 
-    /// <summary>重い 1 発（4.5 kg × 2.2 m/s）を胴の前へ。<paramref name="height"/> / <paramref name="side"/> は胴の半分の大きさに対する位置。打った後のスタミナを返す。</summary>
+    /// <summary>重い 1 発（45 kg × 3.69 m/s）を胴の前へ。<paramref name="height"/> / <paramref name="side"/> は胴の半分の大きさに対する位置。打った後のスタミナを返す。</summary>
     private static float Blow(BoxingGame game, Fighter f, float height, float side = 0f)
     {
         var half = f.HalfExtents.Chest;
         var right = Vector3.Normalize(Vector3.Cross(f.Frame.Forward, Vector3.UnitY));
         var point = f.ChestPosition + (f.Frame.Forward * half.Z) + (right * (side * half.X)) + (Vector3.UnitY * (height * half.Y));
-        const float Mass = 4.5f, Speed = 2.2f;
+        const float Mass = 45f, Speed = 3.693f;
         var damage = PunchMechanics.Damage(Mass * Speed) * PunchMechanics.Sharpness(Speed);
         game.ApplyHit(new HitEvent(game.Player, Hand.Right, f, HitZone.Body, point, Speed, Mass, 0.7f, damage), f.Parts.Chest, -f.Frame.Forward * Speed);
         return f.Stamina;
@@ -159,7 +159,7 @@ public sealed class BodyAndMatchTests
 
     private static void Settle(BoxingGame game)
     {
-        for (var t = 0f; t < 1.5f; t += Dt)
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }

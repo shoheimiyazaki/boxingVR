@@ -18,7 +18,7 @@ public sealed class FaceColorVisualTests
     {
         const int Size = 360;
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()));
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -29,16 +29,17 @@ public sealed class FaceColorVisualTests
         Vector3 World(Vector3 local) => Vector3.Transform(local, toWorld);
         using var renderer = new HeadlessRenderer(Size, Size);
         var lighting = game.BuildLighting();
-        var eye = World(new Vector3(0f, 0.01f, 0.22f));
+        var eye = World(new Vector3(0f, 0.02817f, 0.6197f));
         var aim = World(new Vector3(0f, 0f, 0f));
         var up = Vector3.Normalize(World(new Vector3(0f, 1f, 0f)) - World(Vector3.Zero));
-        var vp = Camera.ViewProjection(eye, aim, up, 30f * MathF.PI / 180f, 1f, 0.01f, 30f);
+        var (vp, displayEye) = game.Display.Camera(eye, aim, up, 30f * MathF.PI / 180f, 1f, 0.01f, 30f);
 
         byte[] Shot(float cyanosis, float pallor)
         {
-            var pose = new EyePose(0f, World(new Vector3(0f, 0f, 2f)));
+            var pose = new EyePose(0f, World(new Vector3(0f, 0f, 5.634f)));
             var voxels = cpu.Voxels!.Layers.Select(p => p.Kind == BodyPartKind.Head ? p.Draw(cyanosis, pose, pallor) : p.Draw(0f)).ToList();
-            return renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [], lighting: lighting, cameraPosition: eye, voxels: voxels);
+            game.Display.Voxels(voxels); // 物理の空間 → 表示の空間
+            return renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [], lighting: lighting, cameraPosition: displayEye, voxels: voxels);
         }
 
         var shots = new[] { Shot(0f, 0f), Shot(0f, 1f), Shot(1f, 0f), Shot(1f, 1f) };

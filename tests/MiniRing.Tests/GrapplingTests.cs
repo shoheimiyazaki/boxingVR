@@ -36,7 +36,7 @@ public sealed class GrapplingTests
     {
         var (world, f, idle) = Stand(support: true);
         using var _ = world;
-        Run(world, f, idle, seconds: 1f);
+        Run(world, f, idle, seconds: 1.678f);
         Assert.IsGreaterThanOrEqualTo(3, f.SupportHull.Count, "both soles on the canvas make a polygon");
         Assert.IsLessThan(0f, f.SupportMargin, $"the centre of mass is over the feet (margin {f.SupportMargin})");
     }
@@ -44,10 +44,10 @@ public sealed class GrapplingTests
     [TestMethod]
     public void AModeratePull_IsCaughtByStepping_AHardPullTopplesTheFighter()
     {
-        // 胸を前へ、体重の 0.3 倍で 1 秒引く: 踏み直して立っている。
+        // 胸を前へ、体重の 0.3 倍で 1.7 秒引く: 踏み直して立っている。
         var moderate = Pull(0.3f, support: true);
         Assert.IsFalse(moderate.Fell, "a moderate pull is caught by stepping");
-        Assert.IsGreaterThan(0.02f, moderate.Moved, $"the fighter stepped with the pull (moved {moderate.Moved:0.000} m)");
+        Assert.IsGreaterThan(0.05634f, moderate.Moved, $"the fighter stepped with the pull (moved {moderate.Moved:0.000} m)");
 
         // 体重と同じ力で引く: 足が付いて行けず倒れる（崩し）。
         Assert.IsTrue(Pull(1f, support: true).Fell, "a pull as strong as the body weight topples a fighter supported by its feet");
@@ -65,7 +65,7 @@ public sealed class GrapplingTests
             using var _ = world;
             var start = f.PelvisPosition;
             var fell = false;
-            for (var i = 0; i < (int)(3f / Dt); i++)
+            for (var i = 0; i < (int)(5.035f / Dt); i++)
             {
                 f.ApplyControl(idle with { MoveWorld = direction }, Dt);
                 world.Step(Dt);
@@ -73,7 +73,7 @@ public sealed class GrapplingTests
             }
 
             Assert.IsFalse(fell, $"walking {direction}");
-            Assert.IsGreaterThan(0.5f, Vector3.Dot(f.PelvisPosition - start, direction), $"walked {direction}");
+            Assert.IsGreaterThan(1.408f, Vector3.Dot(f.PelvisPosition - start, direction), $"walked {direction}");
         }
     }
 
@@ -94,16 +94,16 @@ public sealed class GrapplingTests
     {
         // 前は、離した瞬間の手の速さが ThrowSpeed を超えると相手を倒していた（場合分け）。今は、倒れるかは物理だけで決まる。
         using var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         var a = Fighter.Spawn(world, FighterTuning.Default, "a", Vector3.Zero, 0f);
-        var b = Fighter.Spawn(world, FighterTuning.Default, "b", new Vector3(0f, 0f, 0.2f), MathF.PI);
+        var b = Fighter.Spawn(world, FighterTuning.Default, "b", new Vector3(0f, 0f, 0.5634f), MathF.PI);
         var grabbed = false;
-        for (var i = 0; i < (int)(2f / Dt); i++)
+        for (var i = 0; i < (int)(3.357f / Dt); i++)
         {
             var t = i * Dt;
-            var reach = new HandCommand(a.Frame.WorldToLocal(b.ChestPosition + new Vector3(0.03f, 0f, 0f)), Grip: t > 1f && t < 1.3f);
+            var reach = new HandCommand(a.Frame.WorldToLocal(b.ChestPosition + new Vector3(0.08451f, 0f, 0f)), Grip: t > 1.678f && t < 2.182f);
             // 掴んだ後、手を横へ速く振って離す。
-            if (t > 1.2f)
+            if (t > 2.014f)
             {
                 reach = reach with { TargetLocal = new Vector3(0.4f, 0f, 0.1f) * a.ArmReach };
             }
@@ -126,13 +126,13 @@ public sealed class GrapplingTests
         // 支え釣り込み足だけをかけ続ける柔術家と、構えて立つだけの受け。引いて、踏み直す足首の前へ足の裏を当てて塞ぐ。
         // 受けの重心（の捕捉点）が足の外へ出て、支えの残り（Fighter.Balance）が減る（崩し）。倒れきるかは、縦の支えが抜けるまでに
         // 踏み直せるか（SupportVerticalRecovery）の物理で、ここでは数えない（docs/GRAPPLING.md §7）。
-        var book = GrappleBook.Jujutsu with { Rate = 50f };
+        var book = GrappleBook.Jujutsu with { Rate = 29.79f };
         var corners = new BoxingCorners("jujutsu", s => new JujutsuBot(new Closer(), book, s, only: "sasae-tsurikomi-ashi"), _ => new StandGuard(),
             CpuWear: MiniRing.Weapons.HandWear.None);
         using var game = new BoxingGame(seed: 2, corners: corners);
         var maxMargin = float.NegativeInfinity;
         var minBalance = 1f;
-        for (var t = 0f; t < 10f; t += 1f / 60f)
+        for (var t = 0f; t < 16.78f; t += 1f / 60f)
         {
             game.Step(default, 1f / 60f);
             if (game.Player.State == FighterState.Standing && float.IsFinite(game.Player.SupportMargin))
@@ -142,7 +142,7 @@ public sealed class GrapplingTests
             }
         }
 
-        Assert.IsGreaterThan(0.05f, maxMargin, $"the receiver's centre of mass left its feet (max {maxMargin:0.000} m)");
+        Assert.IsGreaterThan(0.1408f, maxMargin, $"the receiver's centre of mass left its feet (max {maxMargin:0.000} m)");
         Assert.IsLessThan(0.5f, minBalance, $"the receiver lost much of its support (min balance {minBalance:0.00})");
     }
 
@@ -153,10 +153,10 @@ public sealed class GrapplingTests
         var start = f.PelvisPosition;
         var force = Vector3.UnitZ * (bodyWeights * f.TotalMass * -world.Gravity.Y);
         var fell = false;
-        for (var i = 0; i < (int)(2f / Dt); i++)
+        for (var i = 0; i < (int)(3.357f / Dt); i++)
         {
             f.ApplyControl(idle, Dt);
-            if (i * Dt < 1f)
+            if (i * Dt < 1.678f)
             {
                 world.ApplyLinearImpulse(f.Parts.Chest, force * Dt);
             }
@@ -170,8 +170,8 @@ public sealed class GrapplingTests
     }
 
     /// <summary>
-    /// 右肘に、前腕と上腕へ逆向きのねじり（てこ）を 1.5 秒かける（肘を反らせる向き: 曲げ角が小さくなる向きを、試しにかけて決める）。
-    /// 大きさは、肘を曲げて保つ筋（肘のサーボの上限）に勝つ分 ＋ 靭帯の降伏の <paramref name="torqueOverYield"/> 倍。0.2 秒かけて立ち上げる
+    /// 右肘に、前腕と上腕へ逆向きのねじり（てこ）を 2.5 秒かける（肘を反らせる向き: 曲げ角が小さくなる向きを、試しにかけて決める）。
+    /// 大きさは、肘を曲げて保つ筋（肘のサーボの上限）に勝つ分 ＋ 靭帯の降伏の <paramref name="torqueOverYield"/> 倍。0.34 秒かけて立ち上げる
     /// （軽い前腕へいきなり大きなねじりをかけると、関節の制限を突き抜けて回ってしまう）。
     /// </summary>
     private static (float Ligament, float MinAngle, float StrengthBefore, float StrengthAfter) Lever(float torqueOverYield)
@@ -184,17 +184,17 @@ public sealed class GrapplingTests
         var torque = servo + (f.ElbowLigamentYield * torqueOverYield);
         var sign = 0f;
         var minAngle = float.PositiveInfinity;
-        for (var i = 0; i < (int)(1.7f / Dt); i++)
+        for (var i = 0; i < (int)(2.853f / Dt); i++)
         {
             f.ApplyControl(idle, Dt);
             var axis = f.ElbowAxis(Hand.Right);
-            var ramp = Math.Clamp(i * Dt / 0.2f, 0f, 1f);
+            var ramp = Math.Clamp(i * Dt / 0.3357f, 0f, 1f);
             if (sign == 0f)
             {
                 // 試しに +軸へ少しかけて、曲げ角が減る（反る）向きを決める。
                 var angle0 = f.ElbowAngle(Hand.Right);
-                world.ApplyAngularImpulse(fore, axis * (0.05f * Dt));
-                world.ApplyAngularImpulse(upper, -axis * (0.05f * Dt));
+                world.ApplyAngularImpulse(fore, axis * (1.408f * Dt));
+                world.ApplyAngularImpulse(upper, -axis * (1.408f * Dt));
                 world.Step(Dt);
                 sign = f.ElbowAngle(Hand.Right) < angle0 ? 1f : -1f;
                 continue;
@@ -213,10 +213,10 @@ public sealed class GrapplingTests
     private static (PhysicsWorld World, Fighter Fighter, FighterCommand Idle) Stand(bool support)
     {
         var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         var f = Fighter.Spawn(world, FighterTuning.Default with { SupportFromGround = support }, "f", Vector3.Zero, 0f);
         var idle = Idle(f);
-        Run(world, f, idle, seconds: 1f);
+        Run(world, f, idle, seconds: 1.678f);
         return (world, f, idle);
     }
 
@@ -246,7 +246,7 @@ public sealed class CanvasImpactTests
         using var game = new BoxingGame(seed: 1, corners: corners);
         var impacts = new List<CanvasImpact>();
         game.Landed += impacts.Add;
-        for (var t = 0f; t < 2f; t += Dt)
+        for (var t = 0f; t < 3.357f; t += Dt)
         {
             game.Step(default, Dt);
         }
@@ -256,18 +256,18 @@ public sealed class CanvasImpactTests
         // 倒して寝かせ、全身を上へ投げ上げて落とす（投げで床に叩きつけられる代わり）。
         var f = game.Cpu;
         f.Knockdown(Vector3.UnitZ, permanent: true);
-        for (var t = 0f; t < 1.5f; t += Dt)
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }
 
-        f.Push(new Vector3(0f, 2.5f, 0f));
-        for (var t = 0f; t < 1.5f; t += Dt)
+        f.Push(new Vector3(0f, 4.196f, 0f));
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }
 
         Assert.IsNotEmpty(impacts, "a body dropped onto the canvas takes an impact");
-        Assert.IsGreaterThan(0.1f, impacts.Max(i => i.Energy), $"energy {impacts.Max(i => i.Energy):0.000} J");
+        Assert.IsGreaterThan(2.817f, impacts.Max(i => i.Energy), $"energy {impacts.Max(i => i.Energy):0.000} J");
     }
 }

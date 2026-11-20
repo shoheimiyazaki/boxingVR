@@ -40,22 +40,22 @@ public sealed class RoundRulesTests
     [TestMethod]
     public void SlowMotion_PlaysTheSameMatch_InSmallerSteps()
     {
-        // 0.75 倍（1/80 s の歩）で 3 秒進めても、1 倍（1/60 s の歩）と同じだけ試合の時間が進み、ちゃんと動く（3 サブステップに割れる）。
+        // 0.75 倍（1/80 s の歩）で 5 秒進めても、1 倍（1/60 s の歩）と同じだけ試合の時間が進み、ちゃんと動く（3 サブステップに割れる）。
         using var slow = new BoxingGame(seed: 2);
         using var normal = new BoxingGame(seed: 2);
-        for (var i = 0; i < 240; i++)
+        for (var i = 0; i < 404; i++)
         {
             slow.Step(default, 1f / 80f);
         }
 
-        for (var i = 0; i < 180; i++)
+        for (var i = 0; i < 303; i++)
         {
             normal.Step(default, 1f / 60f);
         }
 
         var drift = Vector3.Distance(slow.Cpu.ChestPosition, normal.Cpu.ChestPosition);
-        Console.WriteLine($"cpu chest apart by {drift * 100f:0.0} cm after 3 s of match time");
-        Assert.IsLessThan(0.05f, drift, "the same match, stepped finer");
+        Console.WriteLine($"cpu chest apart by {drift * 100f:0.0} cm after 5 s of match time");
+        Assert.IsLessThan(0.1408f, drift, "the same match, stepped finer");
     }
 
     [TestMethod]
@@ -81,7 +81,7 @@ public sealed class RoundRulesTests
         Assert.AreEqual(RoundBell.None, game.RecentBell);
         game.Cpu.Concussion = 3f; // 意識 0: 動かなくなり、その場で K.O.
         var bells = new List<RoundBell>();
-        for (var t = 0f; t < 8f && !game.RoundOver; t += 1f / 60f)
+        for (var t = 0f; t < 13.43f && !game.RoundOver; t += 1f / 60f)
         {
             game.Step(default, 1f / 60f);
             bells.Add(game.RecentBell);
@@ -96,13 +96,13 @@ public sealed class RoundRulesTests
     {
         using var game = new BoxingGame(seed: 1);
         var screen = new Vector2(1280, 720);
-        // リングを斜め上から見るカメラ（動画の既定のカメラに近い）。
+        // リングを斜め上から見るカメラ（動画の既定のカメラに近い）。目・注視点は物理の空間で決め、表示の空間の行列にする（HUD は表示の空間へ写す）。
         var center = BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight };
-        var vp = Aigis.Render.Camera.ViewProjection(center + new Vector3(0.6f, 0.5f, 0.9f), center, Vector3.UnitY, 45f * MathF.PI / 180f, screen.X / screen.Y, 0.02f, 30f);
+        var (vp, _) = game.Display.Camera(center + new Vector3(1.690f, 1.408f, 2.535f), center, Vector3.UnitY, 45f * MathF.PI / 180f, screen.X / screen.Y, 0.02f, 30f);
         game.Step(default, 1f / 60f);
         Assert.IsEmpty(DownCountHud.Text(game, vp, screen, _ => "X", _ => Vector4.One).ToList(), "nobody is down");
         game.Cpu.Concussion = 0.95f; // 倒れるが意識は戻る（カウントが進む）
-        for (var t = 0f; t < 3.2f; t += 1f / 60f)
+        for (var t = 0f; t < 5.371f; t += 1f / 60f)
         {
             game.Step(default, 1f / 60f);
         }
@@ -115,14 +115,14 @@ public sealed class RoundRulesTests
         CollectionAssert.Contains(text, "CPU DOWN");
         CollectionAssert.Contains(text, count.ToString(System.Globalization.CultureInfo.InvariantCulture));
         var pips = DownCountHud.Shapes(game, vp, screen).ToList();
-        Assert.HasCount((int)BoxingGame.CountSeconds, pips, "ten pips and no backdrop window");
+        Assert.HasCount(BoxingGame.CountNumbers, pips, "ten pips and no backdrop window");
 
         // 倒れた本人の上に出る: 体を画面へ写した所の真上（横は同じ、縦は上）。
-        Assert.IsTrue(Aigis.Render.Camera.TryWorldToScreen(vp, (game.Cpu.ChestPosition + game.Cpu.PelvisPosition) * 0.5f, screen, out var body));
+        Assert.IsTrue(Aigis.Render.Camera.TryWorldToScreen(vp, game.Display.Point((game.Cpu.ChestPosition + game.Cpu.PelvisPosition) * 0.5f), screen, out var body));
         var number = draws.Last(d => d.Text == count.ToString(System.Globalization.CultureInfo.InvariantCulture)); // 影の後に描く本体
         Console.WriteLine($"body at {body}, number at {number.ScreenPosPixels}, pips at y {pips[0].CenterPixels.Y}");
         // 真上の点を画面へ写した所（透視なので、体の点と横の位置は少しずれうる）。
-        Assert.IsTrue(Aigis.Render.Camera.TryWorldToScreen(vp, ((game.Cpu.ChestPosition + game.Cpu.PelvisPosition) * 0.5f) + (Vector3.UnitY * DownCountHud.AboveBody), screen, out var over));
+        Assert.IsTrue(Aigis.Render.Camera.TryWorldToScreen(vp, game.Display.Point(((game.Cpu.ChestPosition + game.Cpu.PelvisPosition) * 0.5f) + (Vector3.UnitY * DownCountHud.AboveBody)), screen, out var over));
         Assert.AreEqual(over.X, number.ScreenPosPixels.X, 1f, "right over the fighter");
         // 透視で、真上の点は体の点から画面の縦の距離に比例して横へずれる（倒れた所が画面の端へ寄るほど大きい）。縦の距離の 1 割まで。
         Assert.AreEqual(body.X, number.ScreenPosPixels.X, 0.1f * MathF.Abs(body.Y - number.ScreenPosPixels.Y), "nearly the same column on the screen");

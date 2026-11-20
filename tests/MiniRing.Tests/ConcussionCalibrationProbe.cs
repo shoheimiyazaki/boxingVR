@@ -5,7 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>
 /// 脳しんとうの値の合わせ直し（2026-11-18、PhysicsVersion 45。2026-11-19 から 1 つの値 <see cref="FighterTuning.ConcussionSpin"/>）: 拳だけのボット同士で、
-/// 意識を全部飛ばす頭の回転の速さを変えて、1 試合あたりのダウン・意識の最小・ダメージを数える。値は環境変数 CONCUSSION_SPINS [rad/s]（例 "20,30,40"）。
+/// 意識を全部飛ばす頭の回転の速さを変えて、1 試合あたりのダウン・意識の最小・ダメージを数える。値は環境変数 CONCUSSION_SPINS [rad/s]（例 "11.92,17.87,23.83"）。
 /// </summary>
 [TestClass]
 [TestCategory("Probe")]
@@ -19,7 +19,7 @@ public sealed class ConcussionCalibrationProbe
     [TestMethod]
     public void DownsPerBoutByConcussionSpin()
     {
-        var spins = (Environment.GetEnvironmentVariable("CONCUSSION_SPINS") ?? "20,30,40")
+        var spins = (Environment.GetEnvironmentVariable("CONCUSSION_SPINS") ?? "11.92,17.87,23.83")
             .Split(',').Select(s => float.Parse(s, CultureInfo.InvariantCulture)).ToArray();
         foreach (var spin in spins)
         {
@@ -35,7 +35,7 @@ public sealed class ConcussionCalibrationProbe
                     using var game = new BoxingGame(tuning, seed: seed, corners: corners);
                     var down = new bool[2];
                     var minAwake = new[] { 1f, 1f };
-                    for (var t = 0f; t < 60f && !game.MatchOver; t += Dt)
+                    for (var t = 0f; t < 100.7f && !game.MatchOver; t += Dt)
                     {
                         game.Step(new BoxingInput(default), Dt);
                         var fighters = new[] { game.Player, game.Cpu };

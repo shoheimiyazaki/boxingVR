@@ -18,7 +18,7 @@ public sealed class SlipTimelineProbe
         var defenders = new List<BoxerBot>();
         var move = new DefenseMove
         {
-            Outside = true, HeadX = 0.6f, HeadY = -0.7f, HeadZ = -0.3f, Step = 1f, Duration = 0.3f, Rate = 60f, HandsUp = 0.3f, GloveAnchor = 0f,
+            Outside = true, HeadX = 0.6f, HeadY = -0.7f, HeadZ = -0.3f, Step = 1f, Duration = 0.5035f, Rate = 35.75f, HandsUp = 0.3f, GloveAnchor = 0f,
             GloveWidth = 0.1f, GloveHeight = -0.03f, GloveForward = 0.25f, VsStraight = 1f,
         };
         var attacker = DefenseDrill.PunchAttacker("2");
@@ -32,7 +32,7 @@ public sealed class SlipTimelineProbe
         var headAtThrow = Vector3.Zero;
         var frameAtThrow = game.Player.Frame;
         var step = 0;
-        for (var t = 0f; t < 4f; t += 1f / 240f, step++)
+        for (var t = 0f; t < 6.714f; t += 1f / 240f, step++)
         {
             game.Step(default, 1f / 240f);
             cue.Update(t, attackers, defenders[^1]);
@@ -49,7 +49,7 @@ public sealed class SlipTimelineProbe
             }
 
             var since = t - throwAt;
-            if (throwAt >= 0f && since <= 0.3f && step % 6 == 0)
+            if (throwAt >= 0f && since <= 0.5035f && step % 6 == 0)
             {
                 var d = (head - headAtThrow) / reach;
                 var glove = Vector3.Distance(game.Cpu.GloveCenter(Hand.Right), game.Player.HeadPosition) / reach;
@@ -74,7 +74,7 @@ public sealed class SlipTimelineProbe
         var defenders = new List<BoxerBot>();
         var move = new DefenseMove
         {
-            Outside = true, HeadX = 0.6f, HeadY = -0.7f, HeadZ = -0.3f, Step = 1f, Duration = 0.3f, Rate = 60f, HandsUp = 0.3f, GloveAnchor = 0f,
+            Outside = true, HeadX = 0.6f, HeadY = -0.7f, HeadZ = -0.3f, Step = 1f, Duration = 0.5035f, Rate = 35.75f, HandsUp = 0.3f, GloveAnchor = 0f,
             GloveWidth = 0.1f, GloveHeight = -0.03f, GloveForward = 0.25f, VsStraight = 1f,
         };
         var attacker = DefenseDrill.PunchAttacker("2");
@@ -84,7 +84,7 @@ public sealed class SlipTimelineProbe
         using var game = new BoxingGame(FighterTuning.Default with { HeadScale = headScale }, seed: 3, corners: corners);
         int head = 0, any = 0;
         var zones = new Dictionary<HitZone, int>();
-        for (var t = 0f; t < 20f; t += 1f / 60f)
+        for (var t = 0f; t < 33.57f; t += 1f / 60f)
         {
             game.Step(default, 1f / 60f);
             cue.Update(t + (1f / 60f), attackers, defenders[^1]);

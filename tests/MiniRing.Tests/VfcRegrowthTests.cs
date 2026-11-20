@@ -16,8 +16,8 @@ public sealed class VfcRegrowthTests
 {
     private const float Dt = 1f / 240f;
 
-    /// <summary>休み 1 回（25 秒）ぶんの抽選: VFC の速さ・間隔で 100 回。</summary>
-    private static readonly int TicksPerBreak = (int)(25f / MatchRules.Vfc.RegrowthTickSeconds);
+    /// <summary>休み 1 回（42 秒。人形の単位で 25 秒）ぶんの抽選: VFC の速さ・間隔で 100 回。</summary>
+    private static readonly int TicksPerBreak = (int)(41.96f / MatchRules.Vfc.RegrowthTickSeconds);
 
     private static float TickAdvance => MatchRules.Vfc.RegrowthSpeed * MatchRules.Vfc.RegrowthTickSeconds;
 
@@ -51,7 +51,7 @@ public sealed class VfcRegrowthTests
     {
         var half = f.HalfExtents.Chest;
         var point = f.ChestPosition + (f.Frame.Forward * half.Z) + (Vector3.UnitY * (height * half.Y));
-        const float Mass = 4.5f, Speed = 2.2f;
+        const float Mass = 45f, Speed = 3.692f;
         var damage = PunchMechanics.Damage(Mass * Speed) * PunchMechanics.Sharpness(Speed);
         game.ApplyHit(new HitEvent(game.Player, Hand.Right, f, HitZone.Body, point, Speed, Mass, 0.7f, damage), f.Parts.Chest, -f.Frame.Forward * Speed);
     }
@@ -111,7 +111,7 @@ public sealed class VfcRegrowthTests
     public void AShallowWound_IsMostlyBack_AfterOneBreak()
     {
         using var game = StillGame();
-        Play(game, 1.5f);
+        Play(game, 2.518f);
         var f = game.Cpu;
         var full = Filled(f);
         for (var i = 0; i < 4; i++)
@@ -128,7 +128,7 @@ public sealed class VfcRegrowthTests
         }
 
         var back = (float)(Filled(f) - (full - carved)) / carved;
-        Console.WriteLine($"fist craters: {carved} cells carved, {back:P0} back after one 25 s break");
+        Console.WriteLine($"fist craters: {carved} cells carved, {back:P0} back after one 42 s break");
         Assert.IsGreaterThanOrEqualTo(0.8f, back, "a fist's crater is mostly back after one break");
     }
 
@@ -140,7 +140,7 @@ public sealed class VfcRegrowthTests
     public void ACutArm_KeepsOxygenForTheStump()
     {
         using var game = StillGame();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var f = game.Cpu;
         var forearm = f.ForearmId(Hand.Right);
         var part = f.Voxels!.PartOf(forearm)!;
@@ -148,9 +148,9 @@ public sealed class VfcRegrowthTests
         var cutAt = part.DistalHigh ? (int)(n * 0.3f) : n - 1 - (int)(n * 0.3f);
         Assert.IsNotNull(Cut(game, f, forearm, [cutAt]));
         Assert.IsTrue(f.ArmSevered(Hand.Right));
-        Play(game, 0.5f);
+        Play(game, 0.8392f);
         var (capacity, _) = f.OxygenBudgetOf(MuscleRegion.RightArm);
-        Assert.IsGreaterThan(1f, capacity, "切り株の筋肉にも酸素の蓄えがある");
+        Assert.IsGreaterThan(28.17f, capacity, "切り株の筋肉にも酸素の蓄えがある");
         Assert.IsGreaterThan(0.5f, f.OxygenOf(MuscleRegion.RightArm), "構えているだけの切り株は尽きない");
         Assert.IsTrue(float.IsFinite(f.HandSlowness) && f.HandSlowness < 1f, "切られた腕は拳の遅さに数えない");
     }
@@ -159,7 +159,7 @@ public sealed class VfcRegrowthTests
     public void ACutForearm_GrowsOnPastTheCut_ButIsNotWholeAfterOneBreak()
     {
         using var game = StillGame();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var f = game.Cpu;
         var forearm = f.ForearmId(Hand.Right);
         var part = f.Voxels!.PartOf(forearm)!;
@@ -189,7 +189,7 @@ public sealed class VfcRegrowthTests
     public void OnePass_NeverRestoresACellThatTouchesNoLivingCell()
     {
         using var game = StillGame();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var f = game.Cpu;
         var forearm = f.ForearmId(Hand.Right);
         var part = f.Voxels!.PartOf(forearm)!;
@@ -229,7 +229,7 @@ public sealed class VfcRegrowthTests
         byte[] Run()
         {
             using var game = StillGame();
-            Play(game, 1f);
+            Play(game, 1.678f);
             var f = game.Cpu;
             var forearm = f.ForearmId(Hand.Right);
             var part = f.Voxels!.PartOf(forearm)!;
@@ -263,9 +263,9 @@ public sealed class VfcRegrowthTests
     [TestMethod]
     public void InARound_OnlyBothDownAndUnableToStand_Regrows_FasterTheLongerItLasts_AndStopsOnceOneCanStand()
     {
-        var rules = MatchRules.Vfc with { RoundSeconds = 60f };
+        var rules = MatchRules.Vfc with { RoundSeconds = 100.7f };
         using var game = StillGame(rules);
-        Play(game, 1f);
+        Play(game, 1.678f);
         foreach (var f in new[] { game.Player, game.Cpu })
         {
             CarveBrain(f, 0.4f);
@@ -276,7 +276,7 @@ public sealed class VfcRegrowthTests
         // 片方だけ倒れている: 再生しない（相手が攻める場面を消さない）。
         game.Cpu.Knockdown(-game.Cpu.Frame.Forward, permanent: false);
         var brainBefore = game.Cpu.Voxels!.BrainFunction(0.1f);
-        for (var t = 0f; t < 2f; t += Dt)
+        for (var t = 0f; t < 3.357f; t += Dt)
         {
             game.Step(default, Dt);
             if (game.Player.State != FighterState.Standing)
@@ -291,7 +291,7 @@ public sealed class VfcRegrowthTests
         game.Player.Knockdown(-game.Player.Frame.Forward, permanent: false);
         var rates = new List<float>();
         var stoppedAt = -1f;
-        for (var t = 0f; t < 30f; t += Dt)
+        for (var t = 0f; t < 50.35f; t += Dt)
         {
             game.Step(default, Dt);
             if (game.RegrowingWhileStuck)
@@ -319,7 +319,7 @@ public sealed class VfcRegrowthTests
     public void AStumpGrownBackToTheElbow_SproutsANewForearm_AndTheOldOneStaysOnTheFloor()
     {
         using var game = StillGame();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var f = game.Cpu;
         var upper = f.UpperArmId(Hand.Right);
         var forearm = f.ForearmId(Hand.Right);
@@ -328,14 +328,14 @@ public sealed class VfcRegrowthTests
         Assert.IsNotNull(cut);
         Assert.IsFalse(f.Owns(forearm), "the forearm fell with the cut");
         var oldForearmCells = f.Voxels.PartOf(forearm)!.Body.Grid.FilledCount;
-        Play(game, 1f);
+        Play(game, 1.678f);
 
-        // 速く回す（1 回の抽選で 2 層）: 上腕が肘まで戻ると、前腕が芽から生え直す。
+        // 速く回す（1 回の抽選で 2 層: 2 × 14 mm）: 上腕が肘まで戻ると、前腕が芽から生え直す。
         var random = new Random(5);
         var sprouted = false;
         for (var i = 0; i < 400 && !sprouted; i++)
         {
-            var report = f.Regrow(random, 0.01f);
+            var report = f.Regrow(random, 0.02817f);
             sprouted = report.Rebudded.Contains(forearm);
             game.Step(default, Dt);
         }
@@ -350,12 +350,12 @@ public sealed class VfcRegrowthTests
         // 前腕が育ちきると、腕はまた駆動する。
         for (var i = 0; i < 800 && f.ArmSevered(Hand.Right); i++)
         {
-            f.Regrow(random, 0.01f);
+            f.Regrow(random, 0.02817f);
             game.Step(default, Dt);
         }
 
         Assert.IsFalse(f.ArmSevered(Hand.Right), "a whole arm again");
-        Play(game, 1f);
+        Play(game, 1.678f);
         var elbow = Vector3.Distance(game.World.GetState(forearm).Position, game.World.GetState(upper).Position);
         var rest = f.HalfExtents.UpperArm.X + f.HalfExtents.Forearm.X;
         Console.WriteLine($"upper arm to forearm centre {elbow * 100f:0.0} cm (rest {rest * 100f:0.0} cm)");
@@ -392,13 +392,13 @@ public sealed class VfcRegrowthTests
     public void ABentForearm_HealsBentButJoined_FleshFirstThenTheSpringStiffensThenTheBoneKnitsAndHolds()
     {
         using var game = StillGame();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var f = game.Cpu;
         var forearm = f.ForearmId(Hand.Right);
         var fragment = BendBreakForearm(game, f);
         Assert.IsTrue(f.HangsByFlesh(fragment));
         Assert.IsTrue(f.ArmSevered(Hand.Right));
-        Play(game, 2f);
+        Play(game, 3.357f);
         var hanging = f.FractureState(fragment)!.Value;
         var sag = AxisAngle(game, forearm, fragment);
         var random = new Random(4);
@@ -410,7 +410,7 @@ public sealed class VfcRegrowthTests
         {
             var report = f.Regrow(random, TickAdvance);
             Assert.IsFalse(report.Rebudded.Contains(forearm), "a bone hanging by its flesh is not replaced by a new bud");
-            for (var i = 0; i < 60; i++)
+            for (var i = 0; i < 101; i++)
             {
                 game.Step(default, Dt);
             }
@@ -423,7 +423,7 @@ public sealed class VfcRegrowthTests
             {
                 if (tick % 20 == 0)
                 {
-                    log.Add($"{tick * 0.25f:0}s flesh {state.Fraction:P0} {state.SpringHz:0.0} Hz angle {AxisAngle(game, forearm, fragment):0}°");
+                    log.Add($"{tick * 0.4196f:0}s flesh {state.Fraction:P0} {state.SpringHz:0.0} Hz angle {AxisAngle(game, forearm, fragment):0}°");
                 }
 
                 if (state.Fraction >= 1f && stiff is null)
@@ -434,36 +434,36 @@ public sealed class VfcRegrowthTests
             }
         }
 
-        Console.WriteLine($"hanging: flesh {hanging.Fraction:P0} {hanging.SpringHz:0.0} Hz, angle {sag:0}°; {string.Join("; ", log)}; knit at {knitAt * 0.25f:0} s");
+        Console.WriteLine($"hanging: flesh {hanging.Fraction:P0} {hanging.SpringHz:0.0} Hz, angle {sag:0}°; {string.Join("; ", log)}; knit at {knitAt * 0.4196f:0} s");
         Assert.IsGreaterThan(hanging.SpringHz * 2f, stiff!.Value.SpringHz, "the flesh grew back and the spring is stiffer");
         Assert.IsLessThan(sag, stiffAngle, "the stiffer flesh lifts the piece a little straighter");
         Assert.IsGreaterThanOrEqualTo(0, knitAt, "at last the bone knits");
         Assert.IsFalse(f.HangsByFlesh(fragment), "no longer hanging by the flesh");
         Assert.IsFalse(f.ArmSevered(Hand.Right), "the arm is driven again");
         Assert.IsTrue(f.Voxels!.Fragments.Any(p => p.Body.BodyId == fragment), "the same piece, not a new bud");
-        Play(game, 0.5f);
+        Play(game, 0.8392f);
         var knitAngle = AxisAngle(game, forearm, fragment);
-        Play(game, 2f);
+        Play(game, 3.357f);
         var later = AxisAngle(game, forearm, fragment);
-        Console.WriteLine($"knit angle {knitAngle:0.0}°, 2 s later {later:0.0}°");
+        Console.WriteLine($"knit angle {knitAngle:0.0}°, 3.4 s later {later:0.0}°");
         Assert.IsGreaterThan(1f, knitAngle, "it healed bent, not straight");
         Assert.IsLessThan(3f, MathF.Abs(later - knitAngle), "the bend is fixed once the bone has knit");
-        Assert.IsGreaterThan(-1f, game.World.GetState(fragment).Position.Y - game.World.GetState(forearm).Position.Y + 0.2f, "the piece did not fall to the floor");
+        Assert.IsGreaterThan(-2.817f, game.World.GetState(fragment).Position.Y - game.World.GetState(forearm).Position.Y + 0.5634f, "the piece did not fall to the floor");
     }
 
-    private static BoxingGame ClubMatch(Func<bool> drop, float breakSeconds = 2f) =>
+    private static BoxingGame ClubMatch(Func<bool> drop, float breakSeconds = 3.357f) =>
         new(seed: 1, corners: new BoxingCorners("club", _ => new Scripted(s => Guard(s, drop())), _ => new StandGuard(), CpuWeapon: WeaponKind.WoodenClub),
-            rules: MatchRules.Vfc with { RoundSeconds = 2f, BreakSeconds = breakSeconds });
+            rules: MatchRules.Vfc with { RoundSeconds = 3.357f, BreakSeconds = breakSeconds });
 
     [TestMethod]
     public void ADroppedWeapon_IsReplacedInTheBreak_NotDuringTheRound()
     {
         var drop = false;
         using var game = ClubMatch(() => drop);
-        Play(game, 0.5f);
+        Play(game, 0.8392f);
         var old = game.WeaponOf(game.Cpu)!;
         drop = true;
-        Play(game, 0.1f);
+        Play(game, 0.1678f);
         drop = false;
         Assert.IsFalse(game.Cpu.Wields(BoxingGame.WeaponHand));
         while (!game.InBreak)
@@ -492,12 +492,12 @@ public sealed class VfcRegrowthTests
     public void ARegrownArm_GetsANewWeapon_AndTheOldFistStaysOnTheOldHand()
     {
         var drop = false;
-        using var game = ClubMatch(() => drop, breakSeconds: 3f);
-        Play(game, 0.3f);
+        using var game = ClubMatch(() => drop, breakSeconds: 5.035f);
+        Play(game, 0.5035f);
         drop = true;
-        Play(game, 0.1f);
+        Play(game, 0.1678f);
         drop = false;
-        Play(game, 0.6f);
+        Play(game, 1.007f);
         var oldFist = game.GloveOf(game.Cpu, BoxingGame.WeaponHand);
         Assert.IsNotNull(oldFist, "the empty hand is a bare fist");
         var upper = game.Cpu.UpperArmId(BoxingGame.WeaponHand);
@@ -508,7 +508,7 @@ public sealed class VfcRegrowthTests
         var random = new Random(9);
         for (var i = 0; i < 1500 && game.Cpu.ArmSevered(BoxingGame.WeaponHand); i++)
         {
-            game.Cpu.Regrow(random, 0.01f);
+            game.Cpu.Regrow(random, 0.02817f);
             game.Step(default, Dt);
         }
 
@@ -522,14 +522,14 @@ public sealed class VfcRegrowthTests
 
         Assert.IsTrue(supplied, "the regrown hand is handed a new club in the break");
         Assert.AreEqual(WeaponKind.WoodenClub, game.WeaponOf(game.Cpu)!.Kind);
-        Assert.IsGreaterThan(-1f, game.World.GetState(oldFist.Body.BodyId).Position.Y, "the old fist stays with the old hand, not packed away");
+        Assert.IsGreaterThan(-2.817f, game.World.GetState(oldFist.Body.BodyId).Position.Y, "the old fist stays with the old hand, not packed away");
     }
 
     [TestMethod]
     public void AHandThatIsGone_GetsNoWeapon()
     {
         using var game = ClubMatch(() => false);
-        Play(game, 0.5f);
+        Play(game, 0.8392f);
         var upper = game.Cpu.UpperArmId(BoxingGame.WeaponHand);
         var n = game.Cpu.Voxels!.PartOf(upper)!.Body.Grid.Dimensions.X;
         Assert.IsNotNull(Cut(game, game.Cpu, upper, [n / 2]));

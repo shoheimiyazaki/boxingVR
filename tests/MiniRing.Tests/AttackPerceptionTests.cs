@@ -7,19 +7,21 @@ namespace MiniRing.Tests;
 public sealed class AttackPerceptionTests
 {
     [TestMethod]
-    public void DuckRemainsUnseenFor48Steps()
+    public void DuckRemainsUnseenForTheDelay()
     {
         var perception = new AttackPerception();
-        var standing = new FighterSense(default, 0.2f, Vector3.UnitY, Vector3.Zero, true);
+        var standing = new FighterSense(default, 0.5634f, Vector3.UnitY * 2.817f, Vector3.Zero, true);
         const float dt = 1f / 240f;
+        // 見えるまでの遅れの歩数（240 Hz。人形の単位で 0.2 秒 = 48 歩）。
+        var delaySteps = (int)MathF.Ceiling((AttackPerception.DelaySeconds / dt) - 1e-3f);
 
-        for (var step = 0; step < 48; step++)
+        for (var step = 0; step < delaySteps; step++)
         {
             Assert.IsNull(perception.Update(standing, dt));
         }
 
-        var ducking = standing with { OpponentHead = Vector3.UnitY * 0.7f };
-        for (var step = 0; step < 48; step++)
+        var ducking = standing with { OpponentHead = Vector3.UnitY * 1.972f };
+        for (var step = 0; step < delaySteps; step++)
         {
             Assert.AreEqual(standing.OpponentHead, perception.Update(ducking, dt)!.Value.Sense.OpponentHead);
         }
@@ -29,9 +31,11 @@ public sealed class AttackPerceptionTests
     [TestMethod]
     public void AimProjectsObservedHeadMotionTowardImpact()
     {
-        var sense = new FighterSense(default, 0.2f, Vector3.UnitY, Vector3.Zero, true);
-        var observed = new AttackObservation(sense, -Vector3.UnitY);
-        var aim = observed.Aim(PunchSpec.Of(Technique.Jab), AimGoal.Center, Vector3.Zero, sense.ArmReach, 0.25f);
-        Assert.AreEqual(Vector3.UnitY * 0.75f, aim);
+        var sense = new FighterSense(default, 0.5634f, Vector3.UnitY * 2.817f, Vector3.Zero, true);
+        var observed = new AttackObservation(sense, -Vector3.UnitY * 1.678f);
+        var aim = observed.Aim(PunchSpec.Of(Technique.Jab), AimGoal.Center, Vector3.Zero, sense.ArmReach, 0.4196f);
+        Assert.AreEqual(2.817f * 0.75f, aim.Y, 1e-4f);
+        Assert.AreEqual(0f, aim.X, 1e-6f);
+        Assert.AreEqual(0f, aim.Z, 1e-6f);
     }
 }

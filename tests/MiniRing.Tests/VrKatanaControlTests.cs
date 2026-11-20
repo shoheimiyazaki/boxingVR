@@ -14,14 +14,14 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class VrKatanaControlTests
 {
-    private const float Reach = 0.188f;
+    private const float Reach = 0.5296f;
 
     private static readonly Vector3 Head = new(0f, 1.62f, 0f);
 
     private static FighterSense Sense(float yaw = 0f, Vector3? selfHead = null, bool held = true) => new FighterSense(
-        new BodyFrame(Vector3.Zero, yaw), Reach, default, new Vector3(0f, 1f, 1f), true)
+        new BodyFrame(Vector3.Zero, yaw), Reach, default, new Vector3(0f, 2.817f, 2.817f), true)
     {
-        SelfHead = selfHead ?? new Vector3(0f, 0.3f, 0f),
+        SelfHead = selfHead ?? new Vector3(0f, 0.8451f, 0f),
         SelfWeapon = held ? new WeaponSense(true, 0.5f, 0.5f) : default,
     };
 
@@ -129,7 +129,7 @@ public sealed class VrKatanaControlTests
         var command = Mapper(VrTwoHand.Both).Read(Raw(1f, 1f), Sense(), Dt).Player;
         var follow = Mapper().Read(Raw(1f, 1f), Sense(), Dt).Player;
         Assert.AreEqual(command.Right.TargetLocal, follow.Right.TargetLocal);
-        Assert.IsTrue((command.Left.TargetLocal - follow.Left.TargetLocal).Length() > 0.02f, "both では左手は左のコントローラ（右手の柄の上の点ではない）");
+        Assert.IsTrue((command.Left.TargetLocal - follow.Left.TargetLocal).Length() > 0.05634f, "both では左手は左のコントローラ（右手の柄の上の点ではない）");
     }
 
     [TestMethod]
@@ -159,7 +159,7 @@ public sealed class VrKatanaControlTests
     public void FirstPersonPlacementPutsTheHmdOnThePuppetHeadAndFacesTheSameWay()
     {
         var mapper = Mapper(firstPerson: true);
-        var puppetHead = new Vector3(0.4f, 0.31f, -0.2f);
+        var puppetHead = new Vector3(1.127f, 0.8732f, -0.5634f);
         var yaw = 0.7f;
         var sense = Sense(yaw, puppetHead);
         mapper.Read(Raw(0f, 0f), sense, Dt);
@@ -177,13 +177,13 @@ public sealed class VrKatanaControlTests
     public void FirstPersonPlacementIsFixedWhenThePuppetIsPushedAway()
     {
         var mapper = Mapper(firstPerson: true);
-        mapper.Read(Raw(0f, 0f), Sense(0f, new Vector3(0f, 0.3f, 0f)), Dt);
+        mapper.Read(Raw(0f, 0f), Sense(0f, new Vector3(0f, 0.8451f, 0f)), Dt);
         var before = mapper.Placement!.Value;
-        mapper.Read(Raw(0f, 0f), Sense(0.4f, new Vector3(0.5f, 0.3f, 0.5f)), Dt);
+        mapper.Read(Raw(0f, 0f), Sense(0.4f, new Vector3(1.408f, 0.8451f, 1.408f)), Dt);
         Assert.AreEqual(before, mapper.Placement!.Value, "人形が押されてもカメラの変換は付いていかない");
         mapper.ResetPlacement();
-        mapper.Read(Raw(0f, 0f), Sense(0.4f, new Vector3(0.5f, 0.3f, 0.5f)), Dt);
-        Assert.AreEqual(0f, (mapper.Placement!.Value.Point(Head) - new Vector3(0.5f, 0.3f, 0.5f)).Length(), 1e-5f, "作り直したワールドでは合わせ直す");
+        mapper.Read(Raw(0f, 0f), Sense(0.4f, new Vector3(1.408f, 0.8451f, 1.408f)), Dt);
+        Assert.AreEqual(0f, (mapper.Placement!.Value.Point(Head) - new Vector3(1.408f, 0.8451f, 1.408f)).Length(), 1e-5f, "作り直したワールドでは合わせ直す");
     }
 
     [TestMethod]
@@ -257,7 +257,7 @@ public sealed class VrKatanaControlTests
         var checksum = game.StateChecksum();
         game.HidePlayerHead = true;
         var hidden = game.BuildVoxelVolumes().Count;
-        // 頭は 2 つの格子（5 mm の頭蓋・脳・首と、2.5 mm の顔の層。どちらも Kind は Head）になった。カメラは頭の中にあるので両方を外す。
+        // 頭は 2 つの格子（14 mm の頭蓋・脳・首と、7 mm の顔の層。どちらも Kind は Head）になった。カメラは頭の中にあるので両方を外す。
         var headLayers = game.Player.Voxels!.Layers.Count(p => p.Kind == BodyPartKind.Head);
         Assert.AreEqual(2, headLayers, "頭 = 頭の格子 + 顔の層");
         Assert.AreEqual(all - headLayers, hidden, "自分の頭の格子と顔の層だけを描かない（相手の頭は描く）");
@@ -316,7 +316,7 @@ public sealed class VrKatanaControlTests
         // 蹴りの途中は次の蹴りを始めない（Y を押しても右脚は動かない）。
         var during = mapper.Read(Buttons(true, true, false, false), sense, Dt).Player;
         Assert.IsNull(during.RightLeg);
-        for (var i = 0; i < 480; i++)
+        for (var i = 0; i < 806; i++)
         {
             mapper.Read(Buttons(false, false, false, false), sense, Dt);
         }
@@ -350,18 +350,18 @@ public sealed class VrKatanaControlTests
         {
             Assert.IsTrue(SwordTraining.Supports(weapon), $"{weapon}");
             var wear = weapon == WeaponKind.IronSword ? HandWear.Shield : HandWear.Glove;
-            using var probe = new BoxingGame(corners: SwordTraining.Corners(weapon, 1f, wear));
+            using var probe = new BoxingGame(corners: SwordTraining.Corners(weapon, 2.817f, wear));
             var forms = SwordTraining.Forms(weapon, probe.PlayerSense.ArmReach);
             Assert.IsTrue(forms.Count > 0, $"{weapon}: 型の一覧が空");
             foreach (var form in forms)
             {
-                Assert.IsTrue(form.Gap >= SwordTraining.MinGap && form.Gap <= SwordTraining.Ring.Size - 0.4f, $"{weapon} {form.Name}: 間 {form.Gap} がリングの外");
+                Assert.IsTrue(form.Gap >= SwordTraining.MinGap && form.Gap <= SwordTraining.Ring.Size - 1.127f, $"{weapon} {form.Name}: 間 {form.Gap} がリングの外");
             }
 
             using var game = new BoxingGame(corners: SwordTraining.Corners(weapon, forms[0].Gap, wear));
             Assert.IsTrue((game.Player.Wields(Hand.Right) || game.Player.Wields(Hand.Left)) && (game.Cpu.Wields(Hand.Right) || game.Cpu.Wields(Hand.Left)),
                 $"{weapon}: both fighters start holding the weapon");
-            for (var i = 0; i < 120; i++)
+            for (var i = 0; i < 201; i++)
             {
                 game.Step(default, Dt); // 両者が動く世界を作れる（例外なく進む）
             }

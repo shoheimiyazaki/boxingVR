@@ -36,7 +36,7 @@ public sealed class TonfaTests
     public void Tonfa_OnTheForearm_RendersFromOutsideAndAbove()
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard(), PlayerWear: HandWear.Tonfa, CpuWear: HandWear.Glove));
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -53,17 +53,18 @@ public sealed class TonfaTests
             outward = Vector3.Normalize(outward);
             foreach (var (name, eyeOffset) in new[]
             {
-                ("side", (outward * 0.22f) + new Vector3(0f, 0.03f, 0f)),
-                ("above", new Vector3(0f, 0.24f, 0f) + (outward * 0.02f)),
-                ("front", (Vector3.Normalize(game.Cpu.ChestPosition - game.Player.ChestPosition) * 0.25f) + new Vector3(0f, 0.04f, 0f)),
+                ("side", (outward * 0.6197f) + new Vector3(0f, 0.0845f, 0f)),
+                ("above", new Vector3(0f, 0.6761f, 0f) + (outward * 0.0563f)),
+                ("front", (Vector3.Normalize(game.Cpu.ChestPosition - game.Player.ChestPosition) * 0.7042f) + new Vector3(0f, 0.1127f, 0f)),
             })
             {
-                var eye = target + eyeOffset;
-                var vp = Camera.ViewProjection(eye, target, name == "above" ? Vector3.UnitZ : Vector3.UnitY, 55f * MathF.PI / 180f, 800f / 600f, 0.02f, 30f);
+                var eye = target + eyeOffset; // 物理の空間で決めて、表示の空間へ移す（DisplaySpace）
+                var (vp, displayEye) = game.Display.Camera(eye, target, name == "above" ? Vector3.UnitZ : Vector3.UnitY, 55f * MathF.PI / 180f, 800f / 600f, 0.02f, 30f);
                 var voxels = game.Player.Voxels!.Parts.Where(p => p.Body.BodyId == forearm || p.Body.BodyId == upper).Select(p => p.Draw()).ToList();
                 voxels.Add(game.GloveOf(game.Player, hand)!.Draw());
+                game.Display.Voxels(voxels);
                 var rgba = renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [],
-                    lighting: game.BuildLighting(), cameraPosition: eye, voxels: voxels);
+                    lighting: game.BuildLighting(), cameraPosition: displayEye, voxels: voxels);
                 PngWriter.WriteRgba(Path.Combine(output, $"tonfa_{hand}_{name}.png"), 800, 600, rgba);
             }
         }
@@ -103,22 +104,22 @@ public sealed class TonfaTests
         Assert.IsGreaterThan(0, hand.Remaining(BoxerAnatomy.HandBone), "the fist (its own grid) holds the handle");
         Assert.IsGreaterThan(0, hand.Remaining(BoxerAnatomy.HandSkin));
 
-        // 棒: 全長 17 cm 前後（手首から後ろへ 11 cm、前は手の前の面より 1.7 cm 前）、後ろは手首から 10 cm 以上（肘を少し越える）、前は手の前へ少し出る。
+        // 棒: 全長 47 cm 前後（手首から後ろへ 31 cm、前は手の前の面より 4.8 cm 前）、後ろは手首から 28 cm 以上（肘を少し越える）、前は手の前へ少し出る。
         var back = wood.Min(p => p.X);
         var front = wood.Max(p => p.X);
-        Assert.AreEqual(0.167f, front - back, 0.01f, "stick length: from past the elbow to just ahead of the fist");
-        Assert.IsLessThan(HandSkeleton.Wrist.X - 0.10f, back, "the long end passes the wrist toward the elbow");
-        Assert.AreEqual(handFront + 0.017f, front, 0.003f, "the short end sticks out 1.7 cm in front of the hand's front face");
+        Assert.AreEqual(0.4704f, front - back, 0.02817f, "stick length: from past the elbow to just ahead of the fist");
+        Assert.IsLessThan(HandSkeleton.Wrist.X - 0.2817f, back, "the long end passes the wrist toward the elbow");
+        Assert.AreEqual(handFront + 0.04789f, front, 0.008451f, "the short end sticks out 4.8 cm in front of the hand's front face");
         // 棒は前腕に平行（X に沿う）で、手の外側にある: 後ろの半分のセルは手の幅の外。
-        var rear = wood.Where(p => p.X < -0.04f).ToList();
-        Assert.IsTrue(rear.All(p => p.Z > handHalfZ - 0.001f), "the rear of the stick lies beside the arm, outside the hand's width");
-        Assert.AreEqual(handHalfZ + 0.001f + 0.008f, rear.Average(p => p.Z), 0.002f, "and parallel to the forearm");
+        var rear = wood.Where(p => p.X < -0.1127f).ToList();
+        Assert.IsTrue(rear.All(p => p.Z > handHalfZ - 0.002817f), "the rear of the stick lies beside the arm, outside the hand's width");
+        Assert.AreEqual(handHalfZ + 0.002817f + 0.02254f, rear.Average(p => p.Z), 0.005634f, "and parallel to the forearm");
         var rodY = rear.Average(q => q.Y);
-        Assert.IsLessThan(0.008f, rear.Max(p => MathF.Abs(p.Y - rodY)) - 0.0004f, "a round 16 mm rod");
+        Assert.IsLessThan(0.02254f, rear.Max(p => MathF.Abs(p.Y - rodY)) - 0.001127f, "a round 45 mm rod");
         // 握りの柄: 手が握る（GripPose の指の輪の中心を通って Z に沿う）木で、棒へつながる。
         var handleAt = HandSkeleton.GripCenter + Weapon.HandOriginOf(WeaponKind.Tonfa);
         Assert.AreEqual(BoxerAnatomy.Wood, grid.MaterialAt(grid.FilledCellAt(handleAt)), "the handle passes through the loop of the fingers");
-        Assert.IsTrue(wood.Any(p => MathF.Abs(p.X - HandSkeleton.GripCenter.X) < 0.002f && p.Z > handHalfZ - 0.001f && p.Z < handHalfZ + 0.004f), "the handle runs across to the stick");
+        Assert.IsTrue(wood.Any(p => MathF.Abs(p.X - HandSkeleton.GripCenter.X) < 0.005634f && p.Z > handHalfZ - 0.002817f && p.Z < handHalfZ + 0.01127f), "the handle runs across to the stick");
     }
 
     [TestMethod]
@@ -148,7 +149,7 @@ public sealed class TonfaTests
         var mass = game.World.GetMass(worn.Body.BodyId);
         Assert.AreEqual(expected, mass, expected * 0.01f);
         var bare = Weapon.Build(WeaponKind.Fist);
-        Assert.IsGreaterThan(grid.Remaining(BoxerAnatomy.Wood) * grid.CellVolume * 100f, mass, "heavier than the wood alone: the hand inside weighs too");
+        Assert.IsGreaterThan(grid.Remaining(BoxerAnatomy.Wood) * grid.CellVolume * 44.74f, mass, "heavier than the wood alone: the hand inside weighs too");
         TestContext.WriteLine($"tonfa {mass * 1000f:F1} g, wood cells {grid.Remaining(BoxerAnatomy.Wood)}, grid {grid.Dimensions}; bare-fist cells {bare.FilledCount}");
     }
 
@@ -167,7 +168,7 @@ public sealed class TonfaTests
         }
 
         // 両手とも、棒が前腕の同じ側（体の中心から見て外か内か）に付く: 左右の手は鏡。
-        for (var i = 0; i < 60; i++)
+        for (var i = 0; i < 101; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -177,7 +178,7 @@ public sealed class TonfaTests
         {
             var worn = game.GloveOf(game.Player, hand)!;
             var s = game.World.GetState(worn.Body.BodyId);
-            var stick = s.Position + Vector3.Transform(new Vector3(-0.06f, 0f, Weapon.MirroredOn(WeaponKind.Tonfa, hand) ? -0.036f : 0.036f) + Weapon.HandOriginOf(WeaponKind.Tonfa, Weapon.MirroredOn(WeaponKind.Tonfa, hand)), s.Orientation);
+            var stick = s.Position + Vector3.Transform(new Vector3(-0.169f, 0f, Weapon.MirroredOn(WeaponKind.Tonfa, hand) ? -0.1014f : 0.1014f) + Weapon.HandOriginOf(WeaponKind.Tonfa, Weapon.MirroredOn(WeaponKind.Tonfa, hand)), s.Orientation);
             var fist = game.Player.GloveCenter(hand);
             var other = game.Player.GloveCenter(hand == Hand.Left ? Hand.Right : Hand.Left);
             return Vector3.Dot(stick - fist, Vector3.Normalize(other - fist));
@@ -197,7 +198,7 @@ public sealed class TonfaTests
 
     // ── 打つ・受ける ──
 
-    private static readonly float ArmReach = 0.188f;
+    private static readonly float ArmReach = 0.5296f;
 
     /// <summary>
     /// 赤が刀の払い面を繰り返し、青（<paramref name="wear"/> をはめて構えて立つだけ）の頭へ斬りかかる。青の前腕・上腕が失ったセル、
@@ -214,7 +215,7 @@ public sealed class TonfaTests
         int Wood() => new[] { Hand.Left, Hand.Right }.Sum(h => game.GloveOf(game.Cpu, h)!.Body.Grid.Remaining(BoxerAnatomy.Wood));
         var (arms0, wood0) = (Arms(), Wood());
         var (cut, forearm, head, armCut) = (0, 0, 0, 0);
-        for (var i = 0; i < 10 * 60; i++)
+        for (var i = 0; i < 1007; i++)
         {
             game.Step(default, 1f / 60f);
             foreach (var h in game.WeaponHits.Where(h => h.Attacker == game.Player))
@@ -271,7 +272,7 @@ public sealed class TonfaTests
         Assert.AreEqual(0f, s.ThrowRate);
         // 判断の式は拳のボットのまま（違いは JSON の値だけ）。
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("tonfa", _ => new StandGuard(), x => new BoxerBot(s, x), PlayerWear: HandWear.Tonfa));
-        for (var i = 0; i < 5 * 60; i++)
+        for (var i = 0; i < 504; i++)
         {
             game.Step(default, 1f / 60f);
         }

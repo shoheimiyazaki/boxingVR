@@ -14,7 +14,7 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class WeaponTests
 {
-    private static WeaponOutcome Run(string name, int frames = 20)
+    private static WeaponOutcome Run(string name, int frames = 34) // 0.56 s（人形の単位で 20 フレーム = 0.33 s）
     {
         var trial = WeaponDrills.Trials.Single(t => t.Name == name);
         using var game = WeaponDrills.StillMatch();
@@ -39,10 +39,10 @@ public sealed class WeaponTests
         var flat = Run("sword-flat");
 
         Assert.IsGreaterThan(5, edge.Lost(VoxelTissue.Flesh), "the edge cuts skin and muscle");
-        // 平らな面そのものの当たり（最初の接触）は、体の 5mm のボクセルの角に斜めに当たって皮膚が少し擦れる程度。
+        // 平らな面そのものの当たり（最初の接触）は、体の 14 mm のボクセルの角に斜めに当たって皮膚が少し擦れる程度。
         // （手に持っていない剣は、中心から外れて腹を打たれると長さの軸まわりに速く回り、回ってきた刃が後から当たる。それは刃の仕事。）
         Assert.IsLessThan(edge.FirstContactLost / 3, flat.FirstContactLost, "the flat itself breaks little");
-        Assert.IsLessThan(3f, SpeedAfterOneFrame("sword-flat"), "the arm stops the flat");
+        Assert.IsLessThan(5.035f, SpeedAfterOneFrame("sword-flat"), "the arm stops the flat");
         Assert.AreEqual(0, edge.WeaponLost + flat.WeaponLost, "flesh does not hurt iron");
     }
 
@@ -72,13 +72,13 @@ public sealed class WeaponTests
         Assert.IsLessThan(3, blow.BodyLost.Values.Sum(), "no cut (a scuff of skin at most)");
         Assert.AreEqual(0, blow.Lost(VoxelTissue.Bone));
         // 頭の側で当たるので、当たった点は止まっても棍棒は回りながら重心の速さを少し残す。
-        Assert.IsLessThan(4.5f, SpeedAfterOneFrame("club-swing"), "the arm takes a good part of the club's momentum");
+        Assert.IsLessThan(7.553f, SpeedAfterOneFrame("club-swing"), "the arm takes a good part of the club's momentum");
     }
 
     [TestMethod]
     public void TheIronEdge_NotchesTheClub_AndStaysWhole()
     {
-        var clash = Run("edge-on-club", frames: 6);
+        var clash = Run("edge-on-club", frames: 10);
         Assert.IsGreaterThan(0, clash.TargetLost, "the edge bites into the wood");
         Assert.AreEqual(0, clash.WeaponLost, "the iron is not hurt");
     }
@@ -86,7 +86,7 @@ public sealed class WeaponTests
     [TestMethod]
     public void TheClub_CannotNotchTheSwordsFlat()
     {
-        var clash = Run("club-on-flat", frames: 6);
+        var clash = Run("club-on-flat", frames: 10);
         Assert.IsGreaterThan(0f, clash.PeakPressure, "they meet");
         Assert.AreEqual(0, clash.TargetLost, "wood cannot cut iron");
     }
@@ -96,8 +96,8 @@ public sealed class WeaponTests
     {
         using var game = WeaponDrills.StillMatch();
         var before = game.BuildVoxelVolumes().Count;
-        game.AddWeapon(WeaponKind.IronSword, BoxingGame.RingCenter + new Vector3(0.3f, 0.3f, 0f), Quaternion.Identity);
-        game.AddWeapon(WeaponKind.WoodenClub, BoxingGame.RingCenter + new Vector3(-0.3f, 0.3f, 0f), Quaternion.Identity);
+        game.AddWeapon(WeaponKind.IronSword, BoxingGame.RingCenter + new Vector3(0.8451f, 0.8451f, 0f), Quaternion.Identity);
+        game.AddWeapon(WeaponKind.WoodenClub, BoxingGame.RingCenter + new Vector3(-0.8451f, 0.8451f, 0f), Quaternion.Identity);
         Assert.AreEqual(before + 2, game.BuildVoxelVolumes().Count);
     }
 

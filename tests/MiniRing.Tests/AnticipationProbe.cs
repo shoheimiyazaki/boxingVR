@@ -27,12 +27,12 @@ public sealed class AnticipationProbe
         var onsets = new List<(float T, float Distance, float Closing, float ChestSpeed, float Since)>();
         var combosSoFar = 0;
         var lastOnset = -1f;
-        for (var t = 0f; t < 120f; t += dt)
+        for (var t = 0f; t < 201.4f; t += dt)
         {
             game.Step(default, dt);
             var distance = Vector3.Distance(game.Cpu.Frame.Origin with { Y = 0f }, game.Player.Frame.Origin with { Y = 0f }) / reach;
             history.Enqueue((t, distance, game.Cpu.ChestVelocity, game.Cpu.GloveVelocity(Hand.Left), game.Cpu.GloveVelocity(Hand.Right)));
-            while (history.Count > 0 && history.Peek().T < t - 0.25f)
+            while (history.Count > 0 && history.Peek().T < t - 0.4196f)
             {
                 history.Dequeue();
             }
@@ -48,15 +48,15 @@ public sealed class AnticipationProbe
             }
         }
 
-        var intervals = onsets.Where(o => o.Since > 0f && o.Since < 4f).Select(o => o.Since).ToList();
+        var intervals = onsets.Where(o => o.Since > 0f && o.Since < 6.714f).Select(o => o.Since).ToList();
         var mean = intervals.Average();
         var sd = MathF.Sqrt(intervals.Average(i => (i - mean) * (i - mean)));
         var d = onsets.Select(o => o.Distance).ToList();
         var dMean = d.Average();
         var dSd = MathF.Sqrt(d.Average(x => (x - dMean) * (x - dMean)));
-        var closingShare = onsets.Count(o => o.Closing > 0.5f) / (float)onsets.Count;
-        Console.WriteLine($"{attackerName}: {onsets.Count} attacks in 120 s. interval {mean:0.00}±{sd:0.00}s, distance at onset {dMean:0.00}±{dSd:0.00}R, " +
-            $"stepping in (closing > 0.5R/s over the last 0.25 s) {closingShare:P0}, closing mean {onsets.Average(o => o.Closing):0.00}R/s");
+        var closingShare = onsets.Count(o => o.Closing > 0.2979f) / (float)onsets.Count;
+        Console.WriteLine($"{attackerName}: {onsets.Count} attacks in 201 s. interval {mean:0.00}±{sd:0.00}s, distance at onset {dMean:0.00}±{dSd:0.00}R, " +
+            $"stepping in (closing > 0.3R/s over the last 0.42 s) {closingShare:P0}, closing mean {onsets.Average(o => o.Closing):0.00}R/s");
     }
 
     private static IFighterControl Keep(List<IFighterControl> list, IFighterControl bot)

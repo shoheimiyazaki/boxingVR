@@ -32,11 +32,11 @@ public sealed class KarateFistTests
         using var renderer = new HeadlessRenderer(640, 640);
         foreach (var (name, eye) in new[]
         {
-            ("front", new Vector3(0.09f, 0.025f, -0.04f)),
-            ("palm", new Vector3(0.015f, -0.09f, -0.035f)),
+            ("front", new Vector3(0.2535f, 0.07042f, -0.1127f)),
+            ("palm", new Vector3(0.04225f, -0.2535f, -0.09859f)),
         })
         {
-            var camera = Camera.ViewProjection(eye, Vector3.Zero, Vector3.UnitZ, 45f * MathF.PI / 180f, 1f, 0.001f, 2f);
+            var camera = Camera.ViewProjection(eye, Vector3.Zero, Vector3.UnitZ, 45f * MathF.PI / 180f, 1f, 0.002817f, 5.634f);
             var pixels = renderer.RenderPrimitiveScene(new Vector4(0.12f, 0.14f, 0.18f, 1f), camera, [], [],
                 cameraPosition: eye, voxels: [fist.Draw()]);
             PngWriter.WriteRgba(Path.Combine(output, $"karate_fist_{name}.png"), 640, 640, pixels);
@@ -51,11 +51,11 @@ public sealed class KarateFistTests
             .Where(i => grid.MaterialAt(i) != 0)
             .Max(i => Center(grid, i).X);
         var tips = Enumerable.Range(0, grid.CellCount)
-            .Where(i => grid.MaterialAt(i) != 0 && Center(grid, i).X > front - 0.0005f)
+            .Where(i => grid.MaterialAt(i) != 0 && Center(grid, i).X > front - 0.001408f)
             .Select(i => Center(grid, i)).ToArray();
-        Assert.IsTrue(tips.All(p => p.Z < 0.002f), "index and middle knuckles lead the ring and little fingers");
-        Assert.IsTrue(tips.Any(p => p.Z < -0.005f) && tips.Any(p => p.Z > -0.005f), "two knuckles, not one spike");
-        Assert.IsTrue(front - Weapon.GripOf(WeaponKind.Fist).X > 0.014f, "knuckles project ahead of the folded fingers");
+        Assert.IsTrue(tips.All(p => p.Z < 0.005634f), "index and middle knuckles lead the ring and little fingers");
+        Assert.IsTrue(tips.Any(p => p.Z < -0.01408f) && tips.Any(p => p.Z > -0.01408f), "two knuckles, not one spike");
+        Assert.IsTrue(front - Weapon.GripOf(WeaponKind.Fist).X > 0.03944f, "knuckles project ahead of the folded fingers");
         var boneBehind = 0;
         foreach (var p in tips)
         {
@@ -93,8 +93,8 @@ public sealed class KarateFistTests
     }
 
     [TestMethod]
-    [DataRow(7f)]
-    [DataRow(8f)]
+    [DataRow(11.75f)]
+    [DataRow(13.43f)]
     public void SameBlow_KnucklesConcentrateDamageComparedWithPalm_AndHurtTheirOwnSkin(float speed)
     {
         var old = Strike(LegacyFist(), Quaternion.Identity, speed);
@@ -114,18 +114,18 @@ public sealed class KarateFistTests
         Assert.AreEqual(0, knuckle.SkinLost, "the wood-valued hand skin is not worn by a flesh target");
     }
 
-    private static VoxelGrid LegacyFist() => new(BoxerAnatomy.Palette, new Vector3(0.014f), 0.002f,
-        (p, _) => p.Length() > 0.013f ? (byte)0 : p.Length() > 0.009f ? BoxerAnatomy.Skin : BoxerAnatomy.Bone);
+    private static VoxelGrid LegacyFist() => new(BoxerAnatomy.Palette, new Vector3(0.03944f), 0.005634f,
+        (p, _) => p.Length() > 0.03662f ? (byte)0 : p.Length() > 0.02535f ? BoxerAnatomy.Skin : BoxerAnatomy.Bone);
 
     private static (int TargetLost, int SkinLost, float Depth, float Pressure) Strike(VoxelGrid grid, Quaternion rotation, float speed)
     {
         using var world = new PhysicsWorld(gravity: Vector3.Zero);
         // Equal mass and initial velocity isolate the shape and materials, rather than giving one hand more energy.
-        var fistId = world.AddDynamicBox(new Vector3(-0.065f, 0f, 0f), rotation, grid.HalfExtents, 0.08f);
+        var fistId = world.AddDynamicBox(new Vector3(-0.1831f, 0f, 0f), rotation, grid.HalfExtents, 0.8f);
         var fist = new VoxelBody(world, fistId, grid);
-        var targetGrid = new VoxelGrid(BoxerAnatomy.Palette, new Vector3(0.025f), 0.005f,
-            (p, _) => p.X < -0.020f ? BoxerAnatomy.Skin : BoxerAnatomy.Muscle);
-        var targetId = world.AddDynamicBox(Vector3.Zero, Quaternion.Identity, targetGrid.HalfExtents, 1f);
+        var targetGrid = new VoxelGrid(BoxerAnatomy.Palette, new Vector3(0.07042f), 0.01408f,
+            (p, _) => p.X < -0.05634f ? BoxerAnatomy.Skin : BoxerAnatomy.Muscle);
+        var targetId = world.AddDynamicBox(Vector3.Zero, Quaternion.Identity, targetGrid.HalfExtents, 10f);
         var target = new VoxelBody(world, targetId, targetGrid);
         world.SetPairCollisionEnabled(fistId, targetId, false);
         world.SetLinearVelocity(fistId, new Vector3(speed, 0f, 0f));
@@ -133,7 +133,7 @@ public sealed class KarateFistTests
         var skin = grid.Remaining(BoxerAnatomy.Skin) + grid.Remaining(BoxerAnatomy.HandSkin);
         var depth = 0f;
         var pressure = 0f;
-        for (var step = 0; step < 30; step++)
+        for (var step = 0; step < 50; step++)
         {
             var a = world.GetState(fistId);
             var b = world.GetState(targetId);

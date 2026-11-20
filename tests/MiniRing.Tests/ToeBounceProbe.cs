@@ -27,7 +27,7 @@ public sealed class ToeBounceProbe
                     TwistBias: twist, LeftLeg: side == Hand.Left ? leg : null, RightLeg: side == Hand.Right ? leg : null);
             }
 
-            for (var i = 0; i < 360; i++)
+            for (var i = 0; i < 604; i++)
             {
                 game.Step(new BoxingInput(Cmd(null, 0f, 0f)), dt);
             }
@@ -36,7 +36,7 @@ public sealed class ToeBounceProbe
             var duration = spec.Seconds!.Value;
             var rest = new Vector3(side.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
             var series = new List<(float T, float A0, float A1)>();
-            for (var i = 0; i < (int)((duration + 0.8f) / dt); i++)
+            for (var i = 0; i < (int)((duration + 1.343f) / dt); i++)
             {
                 var t = i * dt;
                 var sense = game.PlayerSense;

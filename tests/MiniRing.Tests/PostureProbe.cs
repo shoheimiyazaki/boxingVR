@@ -26,18 +26,18 @@ public sealed class PostureProbe
         {
             using var world = NewWorld();
             var f = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
-            Run(world, f, Idle(f), 1.5f);
+            Run(world, f, Idle(f), 2.518f);
             var head0 = f.HeadPosition;
             var pelvis0 = f.PelvisPosition;
             var cmd = Idle(f) with { HeadOffset = new Vector3(x, y, z) * reach };
-            Run(world, f, cmd, 0.25f);
+            Run(world, f, cmd, 0.4196f);
             var head1 = f.HeadPosition;
-            Run(world, f, cmd, 0.75f);
+            Run(world, f, cmd, 1.259f);
             var head2 = f.HeadPosition;
             var pelvis2 = f.PelvisPosition;
             Console.WriteLine(
-                $"cmd ({x:+0.00;-0.00},{y:+0.00;-0.00},{z:+0.00;-0.00})R  head@0.25s ({(head1.X - head0.X) / reach:+0.00;-0.00},{(head1.Y - head0.Y) / reach:+0.00;-0.00},{(head1.Z - head0.Z) / reach:+0.00;-0.00})R  " +
-                $"head@1s ({(head2.X - head0.X) / reach:+0.00;-0.00},{(head2.Y - head0.Y) / reach:+0.00;-0.00},{(head2.Z - head0.Z) / reach:+0.00;-0.00})R  pelvis d ({(pelvis2.Y - pelvis0.Y) / reach:+0.00;-0.00},{(pelvis2.Z - pelvis0.Z) / reach:+0.00;-0.00})R  upright {f.Uprightness:0.00} {f.State}  face down {FaceDown(world, f):0}deg");
+                $"cmd ({x:+0.00;-0.00},{y:+0.00;-0.00},{z:+0.00;-0.00})R  head@0.42s ({(head1.X - head0.X) / reach:+0.00;-0.00},{(head1.Y - head0.Y) / reach:+0.00;-0.00},{(head1.Z - head0.Z) / reach:+0.00;-0.00})R  " +
+                $"head@1.68s ({(head2.X - head0.X) / reach:+0.00;-0.00},{(head2.Y - head0.Y) / reach:+0.00;-0.00},{(head2.Z - head0.Z) / reach:+0.00;-0.00})R  pelvis d ({(pelvis2.Y - pelvis0.Y) / reach:+0.00;-0.00},{(pelvis2.Z - pelvis0.Z) / reach:+0.00;-0.00})R  upright {f.Uprightness:0.00} {f.State}  face down {FaceDown(world, f):0}deg");
         }
     }
 
@@ -47,7 +47,7 @@ public sealed class PostureProbe
         using var world = NewWorld();
         var f = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
         var reach = f.ArmReach;
-        Run(world, f, Idle(f), 1.5f);
+        Run(world, f, Idle(f), 2.518f);
         var head0 = f.HeadPosition;
         Console.WriteLine("side+down");
         Trace(world, f, Idle(f) with { HeadOffset = new Vector3(0.5f, -0.6f, 0f) * reach }, head0, reach);
@@ -59,7 +59,7 @@ public sealed class PostureProbe
         using var world = NewWorld();
         var f = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
         var reach = f.ArmReach;
-        Run(world, f, Idle(f), 1.5f);
+        Run(world, f, Idle(f), 2.518f);
         var head0 = f.HeadPosition;
         Console.WriteLine("side+down+back, feet to the side");
         Trace(world, f, Idle(f) with { HeadOffset = new Vector3(0.6f, -0.7f, -0.3f) * reach, MoveWorld = new Vector3(1f, 0f, 0f) }, head0, reach);
@@ -69,9 +69,9 @@ public sealed class PostureProbe
     {
         for (var i = 1; i <= 8; i++)
         {
-            Run(world, f, cmd, 0.025f);
+            Run(world, f, cmd, 0.04196f);
             var d = (f.HeadPosition - head0) / reach;
-            Console.WriteLine($"step +{i * 0.025f:0.000}s head ({d.X:+0.00;-0.00},{d.Y:+0.00;-0.00},{d.Z:+0.00;-0.00})R  off-line {MathF.Sqrt((d.X * d.X) + (d.Y * d.Y)):0.00}R");
+            Console.WriteLine($"step +{i * 0.04196f:0.000}s head ({d.X:+0.00;-0.00},{d.Y:+0.00;-0.00},{d.Z:+0.00;-0.00})R  off-line {MathF.Sqrt((d.X * d.X) + (d.Y * d.Y)):0.00}R");
         }
     }
 
@@ -85,7 +85,7 @@ public sealed class PostureProbe
     private static PhysicsWorld NewWorld()
     {
         var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         return world;
     }
 

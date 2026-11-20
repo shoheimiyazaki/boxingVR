@@ -19,9 +19,9 @@ public sealed class LegLossProbe
     {
         using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("bout", s => BotCatalog.Create("champion", s), s => BotCatalog.Create("swarmer", s)));
         const float dt = 1f / 60f;
-        for (var t = 0; t < 20 * 60; t++)
+        for (var t = 0; t < 2014; t++)
         {
-            if (t == 2 * 60)
+            if (t == 201)
             {
                 if (cut == "shin")
                 {
@@ -91,7 +91,7 @@ public sealed class LegLossProbe
     public void Probe_SeedsThatCutALeg(string red, string blue)
     {
         var seeds = int.TryParse(Environment.GetEnvironmentVariable("LEGLOSS_SEEDS"), out var n) ? n : 8;
-        var seconds = float.TryParse(Environment.GetEnvironmentVariable("LEGLOSS_SECONDS"), System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 60f;
+        var seconds = float.TryParse(Environment.GetEnvironmentVariable("LEGLOSS_SECONDS"), System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 100.7f;
         var referee = Environment.GetEnvironmentVariable("LEGLOSS_REFEREE") == "on";
         var first = int.TryParse(Environment.GetEnvironmentVariable("LEGLOSS_FIRST"), out var f) ? f : 1;
         if (Environment.GetEnvironmentVariable("LEGLOSS_ONLY") is { Length: > 0 } only && only != red)
@@ -126,7 +126,7 @@ public sealed class LegLossProbe
     {
         var selection = new MatchSelection(MatchMode.Spectate, CharacterRoster.Get(red), CharacterRoster.Get(blue), false);
         using var game = new BoxingGame(seed: seed, corners: selection.Corners);
-        for (var i = 1; i <= 30 * 60 && !game.RoundOver; i++)
+        for (var i = 1; i <= 3021 && !game.RoundOver; i++)
         {
             game.Step(default, 1f / 60f);
             var f = watchRed ? game.Player : game.Cpu;
@@ -153,7 +153,7 @@ public sealed class LegLossProbe
             var selection = new MatchSelection(MatchMode.Spectate, CharacterRoster.Get(red), CharacterRoster.Get(blue), false);
             using var game = new BoxingGame(seed: seed, corners: selection.Corners);
             var seen = new HashSet<int>();
-            for (var i = 1; i <= 40 * 60 && !game.RoundOver; i++)
+            for (var i = 1; i <= 4028 && !game.RoundOver; i++)
             {
                 game.Step(default, 1f / 60f);
                 var events = game.BrokenBones.Select(b => (b.Victim, b.Body, b.Bent, Kind: "broken"))
@@ -204,7 +204,7 @@ public sealed class LegLossProbe
                 foreach (var across in new[] { System.Numerics.Vector3.UnitZ, axis == 0 ? System.Numerics.Vector3.UnitY : System.Numerics.Vector3.UnitX })
                 {
                     var force = 1f;
-                    while (force < 1e5f && Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, along * (2f * at * length), -across * force, axis, loadBearingOnly: true) is null)
+                    while (force < 1e6f && Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, along * (2f * at * length), -across * force, axis, loadBearingOnly: true) is null)
                     {
                         force *= 1.05f;
                     }
@@ -265,7 +265,7 @@ public sealed class LegLossProbe
             return $"{bone}/{grid.Initial(MiniRing.Voxels.BoxerAnatomy.Bone)} min{thinnest} flesh{grid.Fraction(VoxelTissue.Flesh):F2}";
         }
 
-        for (var i = 1; i <= 30 * 60 && !game.RoundOver; i++)
+        for (var i = 1; i <= 3021 && !game.RoundOver; i++)
         {
             game.Step(default, 1f / 60f);
             if (i % 15 == 0)
@@ -324,7 +324,7 @@ public sealed class LegLossProbe
             {
                 var force = 1f;
                 Aigis.Physics.Voxels.VoxelBreak? found = null;
-                while (force < 1e5f && (found = Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, along * (2f * at * length), -across * force, axis, loadBearingOnly: true, part.Body.BeamSlices)) is null)
+                while (force < 1e6f && (found = Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, along * (2f * at * length), -across * force, axis, loadBearingOnly: true, part.Body.BeamSlices)) is null)
                 {
                     force *= 1.05f;
                 }

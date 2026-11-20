@@ -44,7 +44,7 @@ public sealed class WornHandTests
             var hand = weapon.Hands[0];
             Assert.AreEqual(weapon.Body.BodyId, hand.Body.BodyId, $"{kind}: one rigid body");
             Assert.AreEqual(HandSkeleton.Parents.Count, hand.Body.Grid.FilledCount, $"{kind}: the bare hand's cells (5 mm)");
-            Assert.AreEqual(5f, hand.Body.Grid.CellSize.X * 1000f, 1e-3f, $"{kind}: the hand keeps its 5 mm cells");
+            Assert.AreEqual(14.08f, hand.Body.Grid.CellSize.X * 1000f, 1e-3f, $"{kind}: the hand keeps its 14 mm cells");
             var expected = MassOf(weapon.Body.Grid) + MassOf(hand.Body.Grid);
             Assert.AreEqual(expected, world.GetMass(weapon.Body.BodyId), expected * 1e-4f, $"{kind}: mass = object + hand, from the materials");
             Assert.IsGreaterThan(MassOf(weapon.Body.Grid), world.GetMass(weapon.Body.BodyId), $"{kind}: the hand weighs something");
@@ -115,7 +115,7 @@ public sealed class WornHandTests
             var handOnAxis = 0;
             for (var k = -6; k <= 6; k++)
             {
-                var along = new Vector3(axis.X, axis.Y, axis.Z + (0.002f * k));
+                var along = new Vector3(axis.X, axis.Y, axis.Z + (0.005634f * k));
                 onAxis += weapon.Body.Grid.FilledCellAt(along) >= 0 ? 1 : 0;
                 handOnAxis += hand.Body.Grid.FilledCellAt(along - hand.GridCenterLocal) >= 0 ? 1 : 0;
             }

@@ -35,7 +35,7 @@ public sealed class FormSwordsmanTests
         };
         using var game = new BoxingGame(seed: 3, corners: corners);
         var used = new HashSet<string>();
-        for (var step = 0; step < 40 * 60 && !game.Player.IsDead && !game.Cpu.IsDead; step++)
+        for (var step = 0; step < 4028 && !game.Player.IsDead && !game.Cpu.IsDead; step++)
         {
             game.Step(default, Dt);
             foreach (var control in new[] { game.CpuControl, game.PlayerControl })
@@ -100,7 +100,7 @@ public sealed class FormSwordsmanTests
         var command = control.Read(start, sense, Dt);
         seen.Add(new(command.Left.TargetLocal, command.Right.TargetLocal));
         var moved = 0f;
-        for (var i = 0; i < 90; i++)
+        for (var i = 0; i < 151; i++)
         {
             command = control.Read(default, sense, Dt);
             seen.Add(new(command.Left.TargetLocal, command.Right.TargetLocal));

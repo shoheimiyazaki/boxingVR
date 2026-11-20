@@ -40,9 +40,9 @@ public sealed class FootworkTests
 
         // 右へ回り込み続けても、左足が右足より前・左にある。
         var footwork = Standing(out var input);
-        for (var i = 0; i < 2400; i++)
+        for (var i = 0; i < 4028; i++)
         {
-            var yaw = 0.002f * i;
+            var yaw = 0.001192f * i;
             var body = Vector2.Lerp(footwork.Pose(Footwork.Lead).Ball.Xz(), footwork.Pose(Footwork.Rear).Ball.Xz(), 0.5f);
             footwork.Update(input with { FacingYaw = yaw, Body = body, Intent = Footwork.Rotate(new Vector2(-0.4f, 0.1f), yaw) }, Dt);
             var lead = Footwork.Unrotate(footwork.Pose(Footwork.Lead).Ball.Xz() - footwork.Pose(Footwork.Rear).Ball.Xz(), yaw);
@@ -56,7 +56,7 @@ public sealed class FootworkTests
     {
         var footwork = Standing(out var input);
         var steps = footwork.Steps;
-        footwork.Update(input with { BodyVelocity = new Vector2(0f, -0.6f) }, Dt); // 後ろへ押された
+        footwork.Update(input with { BodyVelocity = new Vector2(0f, -1.007f) }, Dt); // 後ろへ押された
         Assert.AreEqual(steps + 1, footwork.Steps);
         Assert.AreEqual(Footwork.Rear, footwork.Swinging, "the rear foot steps back to catch the body");
     }
@@ -66,7 +66,7 @@ public sealed class FootworkTests
     {
         using var world = NewWorld();
         var f = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
-        Run(world, f, Idle(f), 2f);
+        Run(world, f, Idle(f), 3.357f);
 
         var lead = world.GetState(f.HeelId(Footwork.Lead)).Position;
         var rear = world.GetState(f.HeelId(Footwork.Rear)).Position;
@@ -82,7 +82,7 @@ public sealed class FootworkTests
             var pitch = MathF.Asin(-Vector3.Transform(Vector3.UnitZ, heel.Orientation).Y);
             Console.WriteLine($"foot {foot}: heel pitch {pitch * 180f / MathF.PI:0.0} deg, toe y {toe.Position.Y:0.0000}, heel y {heel.Position.Y:0.0000}");
             Assert.IsGreaterThan(4f * MathF.PI / 180f, pitch, $"foot {foot}: the heel is raised (toes down)");
-            Assert.IsLessThan(0.017f, toe.Position.Y, $"foot {foot}: the toes stay on the floor (the toe box is 0.011 m half-thick)");
+            Assert.IsLessThan(0.04789f, toe.Position.Y, $"foot {foot}: the toes stay on the floor (the toe box is 0.031 m half-thick)");
         }
     }
 
@@ -91,7 +91,7 @@ public sealed class FootworkTests
     {
         using var world = NewWorld();
         var f = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
-        Run(world, f, Idle(f), 1.5f);
+        Run(world, f, Idle(f), 2.518f);
         var start = f.PelvisPosition;
         var leadStart = world.GetState(f.HeelId(Footwork.Lead)).Position;
         var steps = f.Footwork.Steps;
@@ -99,7 +99,7 @@ public sealed class FootworkTests
         var firstSwing = -1;
         var leadMovedAt = -1f;
         var bodyMovedAt = -1f;
-        for (var i = 0; i < (int)(1.5f / Dt); i++)
+        for (var i = 0; i < (int)(2.518f / Dt); i++)
         {
             f.ApplyControl(forward, Dt);
             world.Step(Dt);
@@ -108,21 +108,21 @@ public sealed class FootworkTests
                 firstSwing = f.Footwork.Swinging;
             }
 
-            if (leadMovedAt < 0f && world.GetState(f.HeelId(Footwork.Lead)).Position.Z - leadStart.Z > 0.01f)
+            if (leadMovedAt < 0f && world.GetState(f.HeelId(Footwork.Lead)).Position.Z - leadStart.Z > 0.02817f)
             {
                 leadMovedAt = i * Dt;
             }
 
-            if (bodyMovedAt < 0f && f.PelvisPosition.Z - start.Z > 0.01f)
+            if (bodyMovedAt < 0f && f.PelvisPosition.Z - start.Z > 0.02817f)
             {
                 bodyMovedAt = i * Dt;
             }
         }
 
         var moved = f.PelvisPosition.Z - start.Z;
-        Console.WriteLine($"moved {moved:0.000} m in 1.5 s, steps {f.Footwork.Steps - steps}, first {firstSwing}, lead moved at {leadMovedAt:0.000}s body at {bodyMovedAt:0.000}s");
+        Console.WriteLine($"moved {moved:0.000} m in 2.5 s, steps {f.Footwork.Steps - steps}, first {firstSwing}, lead moved at {leadMovedAt:0.000}s body at {bodyMovedAt:0.000}s");
         Assert.AreEqual(FighterState.Standing, f.State);
-        Assert.IsGreaterThan(0.3f, moved, "walks forward");
+        Assert.IsGreaterThan(0.8451f, moved, "walks forward");
         Assert.AreEqual(Footwork.Lead, firstSwing, "the lead foot steps first");
         Assert.IsLessThanOrEqualTo(bodyMovedAt, leadMovedAt, "the foot moves before the body");
     }
@@ -134,16 +134,16 @@ public sealed class FootworkTests
         return footwork.Swinging;
     }
 
-    /// <summary>構えで立った足の運び（原点で +Z を向き、脚の長さ 0.22m）。</summary>
+    /// <summary>構えで立った足の運び（原点で +Z を向き、脚の長さ 0.62 m）。</summary>
     private static Footwork Standing(out FootworkInput input)
     {
         var footwork = new Footwork(new FootworkTuning());
-        const float leg = 0.22f;
+        const float leg = 0.6197f;
         var t = new FootworkTuning();
         var x = 0.5f * t.StanceWidth * leg;
         var z = 0.5f * t.StanceLength * leg;
         footwork.Reset(new Vector2(x, z), t.LeadYawDegrees * MathF.PI / 180f, new Vector2(-x, -z), t.RearYawDegrees * MathF.PI / 180f);
-        input = new FootworkInput(0f, Vector2.Zero, Vector2.Zero, 6.4f, Vector2.Zero, 0f, 0f, leg);
+        input = new FootworkInput(0f, Vector2.Zero, Vector2.Zero, 3.813f, Vector2.Zero, 0f, 0f, leg);
         footwork.Update(input, Dt);
         Assert.AreEqual(-1, footwork.Swinging, "standing in the stance needs no step");
         return footwork;
@@ -152,7 +152,7 @@ public sealed class FootworkTests
     private static PhysicsWorld NewWorld()
     {
         var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         return world;
     }
 
@@ -176,7 +176,7 @@ internal static class FootworkTestExtensions
 }
 
 /// <summary>
-/// 足の運びの調査用: 1 人で立って 1.5 秒、そのあと前へ歩き続ける。計画した足の位置と実際の足の位置、骨盤の高さ・傾き、歩いた距離を出す
+/// 足の運びの調査用: 1 人で立って 2.5 秒、そのあと前へ歩き続ける。計画した足の位置と実際の足の位置、骨盤の高さ・傾き、歩いた距離を出す
 /// （--logger "console;verbosity=detailed"）。footwork が偽なら以前の動き（体を引いて脚は正弦の歩行）。
 /// </summary>
 [TestClass]
@@ -191,7 +191,7 @@ public sealed class FootworkProbe
     {
         var tuning = footwork ? FighterTuning.Default : FighterTuning.Default with { Footwork = new FootworkTuning { Enabled = false } };
         using var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         var f = Fighter.Spawn(world, tuning, "f", Vector3.Zero, 0f);
         var idle = new FighterCommand(Vector3.Zero, f.Frame.Forward, new HandCommand(AiControl.Guard(Hand.Left, f.ArmReach), false), new HandCommand(AiControl.Guard(Hand.Right, f.ArmReach), false));
         Vector3 Ball(int foot)
@@ -202,17 +202,17 @@ public sealed class FootworkProbe
 
         float Error() => Enumerable.Range(0, 2).Max(k => new Vector2(Ball(k).X - f.Footwork.Pose(k).Ball.X, Ball(k).Z - f.Footwork.Pose(k).Ball.Z).Length());
         var z0 = 0f;
-        for (var i = 0; i < 240 * 4; i++)
+        for (var i = 0; i < 1611; i++)
         {
-            f.ApplyControl(i < 360 ? idle : idle with { MoveWorld = Vector3.UnitZ }, 1f / 240f);
+            f.ApplyControl(i < 604 ? idle : idle with { MoveWorld = Vector3.UnitZ }, 1f / 240f);
             world.Step(1f / 240f);
-            if (i == 359)
+            if (i == 603)
             {
                 Console.WriteLine($"footwork {footwork}: standing, plan-to-feet error {Error():0.000} m, hover {f.HoverHeight:0.000} pelvis {f.PelvisPosition.Y:0.000}, upright chest {f.Tilt.Chest:0.00} pelvis {f.Tilt.Pelvis:0.00}, reach {f.LegReach.Lead:0.00}/{f.LegReach.Rear:0.00}, stand {f.StandHeight:0.000}, foot error {f.FootError.Lead} {f.FootError.Rear}, ankle lead {f.Ankle(0).Target * 57.3f:0.0}/{f.Ankle(0).Actual * 57.3f:0.0} rear {f.Ankle(1).Target * 57.3f:0.0}/{f.Ankle(1).Actual * 57.3f:0.0} deg");
                 z0 = f.PelvisPosition.Z;
             }
 
-            if (verbose && i % 6 == 0 && i > 340 && i < 640)
+            if (verbose && i % 6 == 0 && i > 571 && i < 1074)
             {
                 var fw = f.Footwork;
                 Console.WriteLine($"t {i / 240f:0.00} up {f.Uprightness:0.00} {f.State} pelvis ({f.PelvisPosition.X:0.000},{f.PelvisPosition.Y:0.000},{f.PelvisPosition.Z:0.000}) swing {fw.Swinging} " +
@@ -220,6 +220,6 @@ public sealed class FootworkProbe
             }
         }
 
-        Console.WriteLine($"footwork {footwork}: walked {f.PelvisPosition.Z - z0:0.000} m in 2.5 s, steps {f.Footwork.Steps}, end error {Error():0.000}, state {f.State}");
+        Console.WriteLine($"footwork {footwork}: walked {f.PelvisPosition.Z - z0:0.000} m in 4.2 s, steps {f.Footwork.Steps}, end error {Error():0.000}, state {f.State}");
     }
 }

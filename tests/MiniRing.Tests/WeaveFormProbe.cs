@@ -31,7 +31,7 @@ public sealed class WeaveFormProbe
             var total = PunchDrillResult.Empty;
             foreach (var seed in new[] { 11, 12, 13 })
             {
-                total += DefenseDrill.Punch("3", Defense.Weave, defender, seed, seconds: 20f, telegraph: 0.08f);
+                total += DefenseDrill.Punch("3", Defense.Weave, defender, seed, seconds: 33.57f, telegraph: 0.1343f);
             }
 
             Console.WriteLine($"{name}: clean {total.EvadeRate:P0}, head {total.HeadRate:P0}, guard {total.GuardRate:P0} of {total.Punches}");

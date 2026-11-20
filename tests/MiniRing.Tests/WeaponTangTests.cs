@@ -21,9 +21,9 @@ public sealed class WeaponTangTests
     /// <summary>握り（鍔より柄頭側）の x の上限 [m]（格子の座標）。鍔の位置から取る。</summary>
     internal static float GripEndX(WeaponKind kind) => kind switch
     {
-        WeaponKind.IronSword => -0.106f,
-        WeaponKind.Katana => -0.159f + 0.085f - 0.00125f,
-        _ => -0.19f + 0.0075f + 0.0075f + 0.065f - 0.0016f,
+        WeaponKind.IronSword => -0.2986f,
+        WeaponKind.Katana => -0.4479f + 0.2394f - 0.003521f,
+        _ => -0.5352f + 0.02113f + 0.02113f + 0.1831f - 0.004507f,
     };
 
     private static int CountSlice(VoxelGrid grid, int sliceX, byte material)
@@ -47,10 +47,10 @@ public sealed class WeaponTangTests
     internal static float GripBreakForce(WeaponKind kind, Vector3 across)
     {
         var grid = Weapon.Build(kind, BoxerAnatomy.RedGlove, null);
-        var tip = new Vector3(grid.HalfExtents.X - 0.01f, 0f, 0f);
+        var tip = new Vector3(grid.HalfExtents.X - 0.02817f, 0f, 0f);
         // 折れてよい断面を握り（柄頭から鍔の手前）に限る: 刀身が先に折れる力に隠れず、柄の断面そのものの強さが測れる。
         var lastGrip = (int)MathF.Floor((GripEndX(kind) + grid.HalfExtents.X) / grid.CellSize.X) - 1;
-        for (var force = 0.5f; force < 2e5f; force *= 1.03f)
+        for (var force = 5f; force < 2e6f; force *= 1.03f)
         {
             if (VoxelBending.FindBreak(grid, tip, across * force, candidates: (0, lastGrip)) is not null)
             {
@@ -113,8 +113,8 @@ public sealed class WeaponTangTests
     /// <summary>芯を入れる前に測った、柄で折れる最小の力（Z 向き、刃の先を押す）[N]。</summary>
     private static readonly Dictionary<WeaponKind, float> BaselineWoodOnly = new()
     {
-        [WeaponKind.IronSword] = 105.3f,
-        [WeaponKind.Katana] = 164.1f,
-        [WeaponKind.Longsword] = 61.9f,
+        [WeaponKind.IronSword] = 1053f,
+        [WeaponKind.Katana] = 1641f,
+        [WeaponKind.Longsword] = 619f,
     };
 }

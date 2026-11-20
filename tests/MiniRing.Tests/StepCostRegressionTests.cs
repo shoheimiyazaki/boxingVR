@@ -24,8 +24,8 @@ public sealed class StepCostRegressionTests
             PlayerTwoHanded = true, CpuTwoHanded = true,
         };
         using var game = new BoxingGame(seed: 0, corners: corners);
-        var allocations = new List<long>(2400);
-        for (var i = 0; i < 2400; i++)
+        var allocations = new List<long>(4028);
+        for (var i = 0; i < 4028; i++)
         {
             var before = GC.GetAllocatedBytesForCurrentThread();
             game.Step(default, 1f / 240f);

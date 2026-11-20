@@ -20,7 +20,7 @@ public sealed class SubsurfaceProbe
             int crushed = 0, removed = 0, punches = 0, crushingPunches = 0;
             var byMaterial = new Dictionary<byte, int>();
             var byPart = new Dictionary<BodyPartKind, int>();
-            for (var t = 0f; t < 45f && !game.RoundOver; t += 1f / 60f)
+            for (var t = 0f; t < 75.53f && !game.RoundOver; t += 1f / 60f)
             {
                 game.Step(default, 1f / 60f);
                 foreach (var c in game.RecentCuts.Where(c => c.FaceB is not (BoxerAnatomy.RedGlove or BoxerAnatomy.BlueGlove or BoxerAnatomy.Padding)))
@@ -28,7 +28,7 @@ public sealed class SubsurfaceProbe
                     var n = c.CrushedFor(c.B).Count;
                     crushed += n;
                     removed += c.RemovedB.Count;
-                    punches += c.ApproachSpeed > 1f ? 1 : 0;
+                    punches += c.ApproachSpeed > 1.678f ? 1 : 0;
                     crushingPunches += n > 0 ? 1 : 0;
                     foreach (var v in c.CrushedFor(c.B))
                     {
@@ -42,7 +42,7 @@ public sealed class SubsurfaceProbe
                 }
             }
 
-            TestContext.WriteLine($"seed {seed}: crushed beneath {crushed} in {crushingPunches} contacts (of {punches} faster than 1 m/s), broken at the face {removed}; " +
+            TestContext.WriteLine($"seed {seed}: crushed beneath {crushed} in {crushingPunches} contacts (of {punches} faster than 1.68 m/s), broken at the face {removed}; " +
                 $"materials {string.Join(", ", byMaterial.Select(kv => $"{kv.Key}:{kv.Value}"))}; parts {string.Join(", ", byPart.Select(kv => $"{kv.Key}:{kv.Value}"))}; " +
                 $"muscle red {game.Player.Voxels!.Muscle(game.Player.Parts.Chest):F2} blue {game.Cpu.Voxels!.Muscle(game.Cpu.Parts.Chest):F2}");
         }

@@ -22,7 +22,7 @@ public sealed class KatanaPerformanceProbe
         for (var seed = 0; seed < 5; seed++)
         {
             using var game = new BoxingGame(seed: seed, corners: corners);
-            for (var frame = 0; frame < 300; frame++)
+            for (var frame = 0; frame < 504; frame++)
             {
                 var start = Stopwatch.GetTimestamp();
                 game.Step(default, 1f / 60f);

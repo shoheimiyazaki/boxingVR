@@ -13,7 +13,7 @@ public sealed class BootSnagTraceProbe
     {
         foreach (var (n, w) in BootSnagDrill.Paths(1).Where(p => p.Name is "diagonals"))
         {
-            BootSnagDrill.Walk(n, w, 8f, TestContext.WriteLine, TestContext.WriteLine);
+            BootSnagDrill.Walk(n, w, 13.43f, TestContext.WriteLine, TestContext.WriteLine);
         }
     }
 
@@ -24,7 +24,7 @@ public sealed class BootSnagTraceProbe
         {
             foreach (var (n, w) in BootSnagDrill.Paths(1).Where(p => p.Name is "diagonals" or "random-1"))
             {
-                var r = BootSnagDrill.Walk(n, w, 25f, setup: (world, f) =>
+                var r = BootSnagDrill.Walk(n, w, 41.96f, setup: (world, f) =>
                 {
                     foreach (var foot in new[] { Footwork.Lead, Footwork.Rear })
                     {
@@ -45,14 +45,14 @@ public sealed class BootSnagTraceProbe
             var (world, f, ring, _) = BootSnagDrill.Build();
             using (world)
             {
-                for (var i = 0; i < 240; i++)
+                for (var i = 0; i < 403; i++)
                 {
                     f.ApplyControl(BootSnagDrill.Command(f, System.Numerics.Vector3.Zero, System.Numerics.Vector3.UnitZ), BootSnagDrill.Dt);
                     world.Step(BootSnagDrill.Dt);
                 }
 
                 var minY = 9f;
-                for (var i = 0; i < 240 * 8; i++)
+                for (var i = 0; i < 3223; i++)
                 {
                     f.ApplyControl(BootSnagDrill.Command(f, dir, System.Numerics.Vector3.UnitZ), BootSnagDrill.Dt);
                     world.Step(BootSnagDrill.Dt);

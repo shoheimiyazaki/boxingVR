@@ -37,7 +37,7 @@ public sealed class BreakActionProbe
         foreach (var name in only)
         {
             using var renderer = new HeadlessRenderer(Width, Height);
-            var rules = MatchRules.Tv with { Rounds = 2, RoundSeconds = 1f, BreakSeconds = 14f };
+            var rules = MatchRules.Tv with { Rounds = 2, RoundSeconds = 1.678f, BreakSeconds = 23.5f };
             var corners = new BoxingCorners("cpu", s => BotCatalog.Create("champion", s), s => BotCatalog.Create("swarmer", s),
                 BreakSource: (seed, _) => new BreakRoutine(seed, null, [name]));
             using var game = new BoxingGame(seed: 3, corners: corners, rules: rules);
@@ -47,7 +47,7 @@ public sealed class BreakActionProbe
             var shots = new List<int>();
             var taken = 0;
             var sheet = new List<byte[]>();
-            while (frame < 60 * 40)
+            while (frame < 4028)
             {
                 game.Step(default, Dt);
                 frame++;
@@ -130,19 +130,19 @@ public sealed class BreakActionProbe
         var right = frame.Right;
         var views = new[]
         {
-            (head + (forward * 0.34f) + (right * 0.16f) + new Vector3(0f, 0.02f, 0f), head + (forward * 0.02f) - new Vector3(0f, 0.035f, 0f), "front"),
-            (head - (right * 0.38f) + (forward * 0.06f) + new Vector3(0f, 0.02f, 0f), head + (forward * 0.04f) - new Vector3(0f, 0.035f, 0f), "side"),
-            // 体ぜんたい（腕を挙げる・体を折る動作が見える距離）: 正面やや斜めから、頭の高さの 0.75 m 前。
-            (head + (forward * 0.75f) + (right * 0.12f) + new Vector3(0f, 0.04f, 0f), head - new Vector3(0f, 0.12f, 0f), "body"),
+            (head + (forward * 0.9577f) + (right * 0.4507f) + new Vector3(0f, 0.0563f, 0f), head + (forward * 0.0563f) - new Vector3(0f, 0.0986f, 0f), "front"),
+            (head - (right * 1.07f) + (forward * 0.169f) + new Vector3(0f, 0.0563f, 0f), head + (forward * 0.1127f) - new Vector3(0f, 0.0986f, 0f), "side"),
+            // 体ぜんたい（腕を挙げる・体を折る動作が見える距離）: 正面やや斜めから、頭の高さの 2.1 m 前（物理の空間）。
+            (head + (forward * 2.113f) + (right * 0.338f) + new Vector3(0f, 0.1127f, 0f), head - new Vector3(0f, 0.338f, 0f), "body"),
         };
         foreach (var (eye, target, label) in views)
         {
-            var viewProjection = Camera.ViewProjection(eye, target, Vector3.UnitY, 55f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
+            var (viewProjection, displayEye) = game.Display.Camera(eye, target, Vector3.UnitY, 55f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
             var instances = new List<Aigis.Render.PrimitiveInstance>();
             var lines = new List<Aigis.Render.DebugLine>();
             BoxingRenderer.Fill(game, false, instances, lines);
             var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, [], particles: game.BuildParticles(), lighting: game.BuildLighting(),
-                shadow: game.BuildShadow(), cameraPosition: eye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                shadow: game.BuildShadow(), cameraPosition: displayEye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
             PngWriter.WriteRgba($"{path}_{label}.png", Width, Height, rgba);
             if (label == sheetView)
             {

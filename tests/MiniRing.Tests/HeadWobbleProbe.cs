@@ -17,7 +17,7 @@ public sealed class HeadWobbleProbe
         var peaks = new List<float>();
         var watch = new Dictionary<Fighter, (float Until, float Peak)>();
         const float dt = 1f / 240f;
-        for (var t = 0f; t < 60f; t += dt)
+        for (var t = 0f; t < 100.7f; t += dt)
         {
             game.Step(default, dt);
             foreach (var hit in game.RecentHits.Where(h => h.Zone is HitZone.Head or HitZone.Temple or HitZone.Chin))
@@ -25,7 +25,7 @@ public sealed class HeadWobbleProbe
                 var victim = hit.Attacker == game.Cpu ? game.Player : game.Cpu;
                 if (!watch.ContainsKey(victim))
                 {
-                    watch[victim] = (t + 0.3f, 0f);
+                    watch[victim] = (t + 0.5035f, 0f);
                 }
             }
 

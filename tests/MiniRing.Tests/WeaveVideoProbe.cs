@@ -16,7 +16,7 @@ public sealed class WeaveVideoProbe
         {
             Name = "swarmer", GuardHeight = swarmer.GuardHeight, GuardWidth = swarmer.GuardWidth, GuardReach = swarmer.GuardReach, Prediction = 1f,
         };
-        var attacker = DefenseDrill.PunchAttacker("3", telegraph: 0.08f);
+        var attacker = DefenseDrill.PunchAttacker("3", telegraph: 0.1343f);
         BoxerBot? bot = null;
         Spy? spy = null;
         using var game = new BoxingGame(seed: 4, corners: new BoxingCorners(attacker.Name, s => new BoxerBot(attacker, s), s =>
@@ -26,7 +26,7 @@ public sealed class WeaveVideoProbe
             return spy;
         }));
         float maxChest = -9f, maxPelvis = -9f, minHeadY = 9f;
-        for (var t = 0f; t < 14f; t += 1f / 240f)
+        for (var t = 0f; t < 23.5f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
             var f = game.Player;

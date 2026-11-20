@@ -33,7 +33,7 @@ public sealed class KickContactTests
         using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("still", _ => new StandGuard()));
         var attacker = game.Player;
         var victim = game.Cpu;
-        for (var i = 0; i < 240 * 6; i++)
+        for (var i = 0; i < 2417; i++)
         {
             var d = Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f });
             if (d < (ApproachOf(kind) * attacker.ArmReach) - closeIn)
@@ -45,7 +45,7 @@ public sealed class KickContactTests
             game.Step(new BoxingInput(Command(attacker, victim, toward, null, side)), Dt);
         }
 
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(new BoxingInput(Command(attacker, victim, Vector3.Zero, null, side)), Dt); // 止まって構える
         }
@@ -67,7 +67,7 @@ public sealed class KickContactTests
         var startYaw = attacker.Frame.YawRadians;
         var maxSpeed = 0f;
         var mass = 0f;
-        var steps = (int)((duration + 0.5f) / Dt);
+        var steps = (int)((duration + 0.8392f) / Dt);
         for (var i = 0; i < steps; i++)
         {
             var t = i * Dt;
@@ -108,7 +108,7 @@ public sealed class KickContactTests
             // 2026-11-19（PhysicsVersion 53、床から支える体とのマージ）: 後ろ蹴り 3 cm・かかと落とし 2 cm は、止まる位置のずれでどちらも蹴った側が倒れた
             // （後ろ蹴り 3 cm: 骨盤 0.800・GettingUp、かかと落とし 2 cm: 0.796・GettingUp。両方とも 1〜2 cm 離れた値では立ったまま）。蹴った側が立ったままの帯を
             // 掃いて（CloseInSweep_Probe。後ろ蹴り −4〜2・4〜8 cm、かかと落とし −2・0・3〜8 cm が立ったまま）、帯の中ほど（4〜8 cm が全く同じ結果）の 5 cm にした。
-            var r = Run(kind, closeIn: kind switch { KickTechnique.Back => 0.05f, KickTechnique.Axe => 0.05f, _ => 0f });
+            var r = Run(kind, closeIn: kind switch { KickTechnique.Back => 0.1408f, KickTechnique.Axe => 0.1408f, _ => 0f });
             Console.WriteLine($"{kind}: parts [{string.Join(',', r.Parts)}], hits {r.Hits}, victim cells lost {r.VictimCellsLost}, speed {r.MaxSpeed:F2} m/s, mass {r.Mass:F2} kg, closest ankle to aim {r.MinAnkleToTarget:F3} m, pelvis {r.StartPelvis:F3} -> min {r.MinPelvis:F3}, {r.AttackerState}");
             // 蹴りは未成熟なので、当たり・速さ・軸足・立ったままは警告にとどめる（Soft）。
             Soft.Check(r.Hits > 0, $"{kind} lands as a counted hit");

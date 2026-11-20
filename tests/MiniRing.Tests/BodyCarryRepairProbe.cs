@@ -20,7 +20,7 @@ public sealed class BodyCarryRepairProbe
             foreach (var counters in new[] { true, false })
             {
                 var tot = 0f;
-                var r = DefenseDrill.Punch("2", Defense.Slip, Defender(counters), seed: seed, seconds: 14f, cue: 0.04f,
+                var r = DefenseDrill.Punch("2", Defense.Slip, Defender(counters), seed: seed, seconds: 23.5f, cue: 0.06714f,
                     observe: (g, _) =>
                     {
                         foreach (var h in g.RecentHits.Where(h => h.Attacker == g.Player))

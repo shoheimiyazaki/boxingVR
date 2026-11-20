@@ -50,7 +50,7 @@ public sealed class FootShapeTests
                     TwistBias: twist, LeftLeg: side == Hand.Left ? leg : null, RightLeg: side == Hand.Right ? leg : null);
             }
 
-            for (var i = 0; i < 360; i++)
+            for (var i = 0; i < 604; i++)
             {
                 game.Step(new BoxingInput(Cmd(null, 0f, 0f)), dt);
             }
@@ -59,7 +59,7 @@ public sealed class FootShapeTests
             var duration = spec.Seconds!.Value;
             var rest = new Vector3(side.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
             var max = float.MinValue;
-            for (var i = 0; i < (int)((duration + 0.5f) / dt); i++)
+            for (var i = 0; i < (int)((duration + 0.8392f) / dt); i++)
             {
                 var t = i * dt;
                 var sense = game.PlayerSense;
@@ -79,7 +79,7 @@ public sealed class FootShapeTests
     public void TheFoot_RendersAsAFlatShoe_FromTheSideAboveAndFront()
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard()));
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -96,17 +96,18 @@ public sealed class FootShapeTests
         var sideways = Vector3.Cross(Vector3.UnitY, forward);
         foreach (var (name, offset, up) in new[]
         {
-            ("side", (sideways * 0.2f) + new Vector3(0f, 0.03f, 0f), Vector3.UnitY),
-            ("above", new Vector3(0f, 0.22f, 0f) - (forward * 0.02f), forward),
-            ("front", (forward * 0.2f) + new Vector3(0f, 0.05f, 0f) + (sideways * 0.05f), Vector3.UnitY),
+            ("side", (sideways * 0.5634f) + new Vector3(0f, 0.08451f, 0f), Vector3.UnitY),
+            ("above", new Vector3(0f, 0.6197f, 0f) - (forward * 0.05634f), forward),
+            ("front", (forward * 0.5634f) + new Vector3(0f, 0.1408f, 0f) + (sideways * 0.1408f), Vector3.UnitY),
         })
         {
-            var eye = target + offset;
-            var vp = Camera.ViewProjection(eye, target, up, 50f * MathF.PI / 180f, 800f / 600f, 0.02f, 30f);
+            var eye = target + offset; // 物理の空間で決めて、表示の空間へ移す（DisplaySpace）
+            var (vp, displayEye) = game.Display.Camera(eye, target, up, 50f * MathF.PI / 180f, 800f / 600f, 0.02f, 30f);
             var voxels = f.Voxels!.Parts.Where(p => p.Body.BodyId == heel || p.Body.BodyId == toe || f.KindOf(p.Body.BodyId) == BodyPartKind.Shin)
                 .Select(p => p.Draw()).ToList();
+            game.Display.Voxels(voxels); // 物理の空間 → 表示の空間
             var rgba = renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [],
-                lighting: game.BuildLighting(), cameraPosition: eye, voxels: voxels);
+                lighting: game.BuildLighting(), cameraPosition: displayEye, voxels: voxels);
             PngWriter.WriteRgba(Path.Combine(output, $"foot_{name}.png"), 800, 600, rgba);
         }
 

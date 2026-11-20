@@ -11,9 +11,9 @@ namespace MiniRing.Tests;
 [TestClass]
 public sealed class PunchPathTests
 {
-    private const float Reach = 0.19f;
-    private static readonly Vector3 GuardLocal = new(-0.025f, 0f, 0.07f);
-    private static readonly Vector3 AimLocal = new(0f, 0.03f, 0.2f);
+    private const float Reach = 0.5352f;
+    private static readonly Vector3 GuardLocal = new(-0.0704f, 0f, 0.1972f);
+    private static readonly Vector3 AimLocal = new(0f, 0.0845f, 0.5634f);
 
     [TestMethod]
     public void MinimumJerk_StartsAndEndsAtRest_AndPeaksInTheMiddle()
@@ -66,9 +66,9 @@ public sealed class PunchPathTests
         var d = spec.Duration;
         var arrived = spec.Evaluate(Hand.Right, d * PunchSpec.ArrivalShare, d, GuardLocal, AimLocal, Reach);
         var held = spec.Evaluate(Hand.Right, d * PunchSpec.OutboundShare, d, GuardLocal, AimLocal, Reach);
-        Assert.IsLessThan(1e-5f, Vector3.Distance(arrived, held), "着いてから戻り始めるまで、目標は打ち抜く先に留まる");
+        Assert.IsLessThan(2.817e-5f, Vector3.Distance(arrived, held), "着いてから戻り始めるまで、目標は打ち抜く先に留まる");
         var justAfter = spec.Evaluate(Hand.Right, d * (PunchSpec.OutboundShare + 0.01f), d, GuardLocal, AimLocal, Reach);
-        Assert.IsLessThan(0.002f, Vector3.Distance(held, justAfter), "戻りも静かに動き出す（等速の戻りだと 1% の時間で 2.5% 動いた）");
+        Assert.IsLessThan(0.00563f, Vector3.Distance(held, justAfter), "戻りも静かに動き出す（等速の戻りだと 1% の時間で 2.5% 動いた）");
     }
 
     /// <summary>
@@ -84,11 +84,11 @@ public sealed class PunchPathTests
         Assert.IsGreaterThan(uniform * 1.25f, smooth, $"打ち出しの最高速: 等速 {uniform:0.00} m/s → 今 {smooth:0.00} m/s");
     }
 
-    /// <summary>手を下げて立つ相手へ、1.05 腕の間合いまで寄ってから右ストレートを 1 本打ち、打ち出しから 0.2 秒の拳の速さの最大 [m/s]。</summary>
+    /// <summary>手を下げて立つ相手へ、1.05 腕の間合いまで寄ってから右ストレートを 1 本打ち、打ち出しから 0.34 秒の拳の速さの最大 [m/s]。</summary>
     private static float PeakFistSpeed(bool legacy)
     {
         const float dt = 1f / 240f;
-        const float load = 0.08f;
+        const float load = 0.1343f;
         const float range = 1.05f;
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", _ => new StandGuard(GuardPosture.LowGuard)));
         var me = game.Player;
@@ -98,7 +98,7 @@ public sealed class PunchPathTests
         var settled = 0;
         PunchAction? action = null;
         var peak = 0f;
-        for (var i = 0; i < 240 * 8; i++)
+        for (var i = 0; i < 3223; i++) // 約 13.4 秒
         {
             var sense = game.PlayerSense;
             var reach = sense.ArmReach;
@@ -116,9 +116,9 @@ public sealed class PunchPathTests
                 var error = distance - range;
                 var closing = last is { } l ? (distance - l) / dt : 0f;
                 last = distance;
-                move = toward * Math.Clamp((2f * error) + (0.6f * closing), -1f, 1f);
+                move = toward * Math.Clamp((2f * error) + (1.007f * closing), -1f, 1f);
                 settled = MathF.Abs(error) < 0.04f ? settled + 1 : 0;
-                if (settled > 120)
+                if (settled > 201)
                 {
                     action = new PunchAction(Technique.Cross, spec, -load, spec.Duration, false, AimWorld: sense.OpponentHead, Load: load);
                 }
@@ -131,12 +131,12 @@ public sealed class PunchPathTests
                 twist = TechniqueExecution.Twist(a, Hand.Right, style.Lead);
                 head = TechniqueExecution.HeadShift(a, style.Lead, reach);
                 move = toward * (spec.StepIn * TechniqueExecution.Envelope(a));
-                if (a.Time is >= 0f and < 0.2f)
+                if (a.Time is >= 0f and < 0.3357f)
                 {
                     peak = MathF.Max(peak, me.GloveVelocity(Hand.Right).Length());
                 }
 
-                if (a.Time > 0.2f)
+                if (a.Time > 0.3357f)
                 {
                     return peak;
                 }

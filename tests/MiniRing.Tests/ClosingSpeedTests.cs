@@ -27,7 +27,7 @@ public sealed class ClosingSpeedTests
     /// <summary>
     /// 構えたまま前へ歩き続け、ガードを固めた相手に拳を押し付けるだけでは、押している間は打撃に数えない（押す拳と押される相手が一緒に動く）。
     /// 再発防止: 前は拳の速さ（歩く速さ＋押し合いの揺れ）だけで数え、押し続けると 0.18 秒ごとに当たりが出た。
-    /// 歩いて最初にガードへぶつかる所（始めの 2 秒）は、歩く速さで閉じる本当の衝突なので数えない範囲から外す
+    /// 歩いて最初にガードへぶつかる所（始めの 3.4 秒）は、歩く速さで閉じる本当の衝突なので数えない範囲から外す
     /// （構えた腕に体の質量が乗る近道は CLAUDE.md §8「拳に乗る体の質量」）。
     /// </summary>
     [TestMethod]
@@ -40,7 +40,7 @@ public sealed class ClosingSpeedTests
         const float dt = 1f / 60f;
         var hits = 0;
         var damage = 0f;
-        for (var i = 0; i < 8 * 60; i++)
+        for (var i = 0; i < 806; i++)
         {
             player.Input = new FighterIntent(new Vector2(0f, 1f));
             cpu.Input = new FighterIntent(Vector2.Zero, Evade: true);
@@ -48,7 +48,7 @@ public sealed class ClosingSpeedTests
             foreach (var hit in game.RecentHits.Where(h => h.Attacker == game.Player))
             {
                 TestContext.WriteLine($"  t {i * dt:0.00} {hit.Zone} {hit.Hand} speed {hit.Speed:0.00} m/s, {hit.ImpactMass:0.0} kg, {hit.Damage:0.0} 点");
-                if (i * dt >= 2f)
+                if (i * dt >= 3.357f)
                 {
                     hits++;
                     damage += hit.Damage;
@@ -56,7 +56,7 @@ public sealed class ClosingSpeedTests
             }
         }
 
-        TestContext.WriteLine($"押している間（2 秒から）の当たり {hits} 回、{damage:0.0} 点");
+        TestContext.WriteLine($"押している間（3.4 秒から）の当たり {hits} 回、{damage:0.0} 点");
         Assert.AreEqual(0, hits, "拳を出さずに押し付け続けるだけでは打撃に数えない");
     }
 }

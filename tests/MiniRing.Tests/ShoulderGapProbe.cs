@@ -19,7 +19,7 @@ public sealed class ShoulderGapProbe
     public void MapTheShoulder()
     {
         using var game = new BoxingGame(VersusLab_Tuning(), 1, new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard(), CpuWeapon: WeaponKind.Katana, PlayerWeapon: WeaponKind.Katana, CpuTwoHanded: true, PlayerTwoHanded: true));
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -53,11 +53,11 @@ public sealed class ShoulderGapProbe
             var upper = fighter.UpperArmId(hand);
             var shoulder = game.World.GetState(upper).Position;
             TestContext.WriteLine($"{hand} upper-arm centre {shoulder}  chest {game.World.GetState(fighter.Parts.Chest).Position}");
-            // 体の枠の座標（X = 体の右、Y = 上、Z = 前）で、上腕の中心から ±15 cm を見る。
+            // 体の枠の座標（X = 体の右、Y = 上、Z = 前）で、上腕の中心から ±42 cm を見る。
             var local = cells.Select(c => (P: ToLocal(frame, c.P), c.Kind)).ToList();
             var centre = ToLocal(frame, shoulder);
-            Map(local, centre, "front view (X across, Y up), looking along Z", p => (p.X, p.Y), 0.005f);
-            Map(local, centre, "top view (X across, Z forward), looking down Y", p => (p.X, p.Z), 0.005f);
+            Map(local, centre, "front view (X across, Y up), looking along Z", p => (p.X, p.Y), 0.01408f);
+            Map(local, centre, "top view (X across, Z forward), looking down Y", p => (p.X, p.Z), 0.01408f);
         }
     }
 
@@ -66,7 +66,7 @@ public sealed class ShoulderGapProbe
     public void SlicesThroughTheShoulderJoint()
     {
         using var game = new BoxingGame(VersusLab_Tuning(), 1, new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard(), CpuWeapon: WeaponKind.Katana, PlayerWeapon: WeaponKind.Katana, CpuTwoHanded: true, PlayerTwoHanded: true));
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -105,14 +105,14 @@ public sealed class ShoulderGapProbe
             var joint = u.Position - (xAxis * side * halfX);
             var j = ToLocal(frame, joint);
             TestContext.WriteLine($"=== {hand} shoulder joint at {j} (body frame)");
-            foreach (var radius in new[] { 0.01f, 0.02f, 0.03f, 0.04f })
+            foreach (var radius in new[] { 0.02817f, 0.05634f, 0.0845f, 0.1127f })
             {
                 int total = 0, filled = 0;
-                for (var dz = -radius; dz <= radius; dz += 0.005f)
+                for (var dz = -radius; dz <= radius; dz += 0.01408f)
                 {
-                    for (var dy = -radius; dy <= radius; dy += 0.005f)
+                    for (var dy = -radius; dy <= radius; dy += 0.01408f)
                     {
-                        for (var dx = -radius; dx <= radius; dx += 0.005f)
+                        for (var dx = -radius; dx <= radius; dx += 0.01408f)
                         {
                             if ((dx * dx) + (dy * dy) + (dz * dz) > radius * radius)
                             {
@@ -121,7 +121,7 @@ public sealed class ShoulderGapProbe
 
                             total++;
                             var p = j + new Vector3(dx, dy, dz);
-                            filled += local.Any(c => MathF.Abs(c.P.X - p.X) < 0.0025f && MathF.Abs(c.P.Y - p.Y) < 0.0025f && MathF.Abs(c.P.Z - p.Z) < 0.0025f) ? 1 : 0;
+                            filled += local.Any(c => MathF.Abs(c.P.X - p.X) < 0.00704f && MathF.Abs(c.P.Y - p.Y) < 0.00704f && MathF.Abs(c.P.Z - p.Z) < 0.00704f) ? 1 : 0;
                         }
                     }
                 }
@@ -138,7 +138,7 @@ public sealed class ShoulderGapProbe
     private void SliceMap(List<(Vector3 P, BodyPartKind Kind)> cells, Vector3 centre, string title, Func<Vector3, (float A, float B)> axes, Func<Vector3, float> depth, float plane)
     {
         const int half = 16;
-        const float cell = 0.005f;
+        const float cell = 0.01408f;
         var (ca, cb) = axes(centre);
         var sb = new StringBuilder();
         sb.AppendLine(title);
@@ -178,7 +178,7 @@ public sealed class ShoulderGapProbe
     public void BodyBoxesInTheBodyFrame()
     {
         using var game = new BoxingGame(VersusLab_Tuning(), 1, new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard(), CpuWeapon: WeaponKind.Katana, PlayerWeapon: WeaponKind.Katana, CpuTwoHanded: true, PlayerTwoHanded: true));
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(default, 1f / 60f);
         }

@@ -27,15 +27,15 @@ public sealed class CornerAndDownTests
     {
         using var game = StillGame();
         var layout = game.Layout;
-        Assert.IsLessThan(0.05f, Flat(game.Player.PelvisPosition, layout.RestCorner(true, RingLayout.CornerInset)), "red in the near-left corner");
-        Assert.IsLessThan(0.05f, Flat(game.Cpu.PelvisPosition, layout.RestCorner(false, RingLayout.CornerInset)), "blue in the far-right corner");
+        Assert.IsLessThan(0.1408f, Flat(game.Player.PelvisPosition, layout.RestCorner(true, RingLayout.CornerInset)), "red in the near-left corner");
+        Assert.IsLessThan(0.1408f, Flat(game.Cpu.PelvisPosition, layout.RestCorner(false, RingLayout.CornerInset)), "blue in the far-right corner");
         var across = Vector3.Normalize((game.Cpu.PelvisPosition - game.Player.PelvisPosition) with { Y = 0f });
         Assert.IsGreaterThan(0.95f, Vector3.Dot(game.Player.Frame.Forward, across));
         Assert.IsGreaterThan(0.95f, Vector3.Dot(game.Cpu.Frame.Forward, -across));
 
         // ドリル・リーグ（コーナーから始めない既定の形）は、今までどおり中央で StartGap だけ離れる。
         using var drill = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(Still, s), s => new BoxerBot(Still, s), Ring: RingLayout.Boxing));
-        Assert.AreEqual(RingLayout.Boxing.StartGap, Flat(drill.Player.PelvisPosition, drill.Cpu.PelvisPosition), 0.05f);
+        Assert.AreEqual(RingLayout.Boxing.StartGap, Flat(drill.Player.PelvisPosition, drill.Cpu.PelvisPosition), 0.1408f);
     }
 
     [TestMethod]
@@ -43,7 +43,7 @@ public sealed class CornerAndDownTests
     {
         using var game = StillGame();
         // 2 人を中央で向き合わせるまで歩かせる（コーナーから始まるので）。
-        for (var t = 0f; t < 6f; t += Dt)
+        for (var t = 0f; t < 10.07f; t += Dt)
         {
             game.Step(default, Dt);
         }
@@ -55,7 +55,7 @@ public sealed class CornerAndDownTests
         var towardOpponent = 0f; // 最大のずれの向きと、倒れた所から相手への向きの内積（1 = 相手へ真っすぐ、−1 = 相手から真っすぐ離れる）
         Vector3? corner = null;
         var closest = float.MaxValue;
-        for (var t = 0f; t < 20f; t += Dt)
+        for (var t = 0f; t < 33.57f; t += Dt)
         {
             game.Step(default, Dt);
             if (game.Cpu.IsKnockedDown)
@@ -63,8 +63,8 @@ public sealed class CornerAndDownTests
                 counted += Dt;
                 corner ??= game.Layout.NeutralCorner(game.Cpu.PelvisPosition); // 数え始めの倒れた所からいちばん遠いニュートラルコーナー
                 closest = MathF.Min(closest, Flat(game.Player.PelvisPosition, corner.Value));
-                // 数え始めて 1 秒後（倒れきった所）から、立ち上がるまでに腰が水平に動いた距離。
-                if (counted >= 1f)
+                // 数え始めて 1.7 秒後（倒れきった所）から、立ち上がるまでに腰が水平に動いた距離。
+                if (counted >= 1.678f)
                 {
                     fellAt ??= game.Cpu.PelvisPosition;
                     var now = Flat(game.Cpu.PelvisPosition, fellAt.Value);
@@ -85,13 +85,13 @@ public sealed class CornerAndDownTests
 
         Console.WriteLine($"counted {counted:F1}s, downed drift {drift:F3} m (toward the opponent {towardOpponent:F2}), standing fighter came within {closest:F3} m of the neutral corner");
         Assert.IsNotNull(fellAt, "the downed fighter was counted");
-        Assert.IsLessThan(0.3f, closest, "the standing fighter went to the far neutral corner");
+        Assert.IsLessThan(0.845f, closest, "the standing fighter went to the far neutral corner");
         // 2026-11-19（PhysicsVersion 53、床から支える体と足の滑りの直しのマージ）: 起き上がるまでの腰のずれは 0.12 → 0.23 m（上限 0.15 を超えた）。向きは相手から真っすぐ離れる側
-        // （内積 −1.00）で、「相手の方へよろめく」ことはない。上限は 0.3 m（上の closest と同じ尺度）に直し、相手の側へ寄らないことを向きで確かめる。
+        // （内積 −1.00）で、「相手の方へよろめく」ことはない。上限は 0.3 m（人形の単位。いまは 0.845 m、上の closest と同じ尺度）に直し、相手の側へ寄らないことを向きで確かめる。
         // 足の運びの構えを寄せる量を、静かに立つ体の重心でなく骨盤で出す（Footwork.PlanStep）ようにしたので、起き上がる足は重心を追わず骨盤を追い、
         // 倒れた所から後ろへ少し流れる。重心で出すと 0.12 m になるが、止まって立つ体が流れる不具合（SlideTests）が戻る。重心の速さが 0.25 や 0.6 m/s を超えたときだけ重心で出す案は、
         // 起き上がりは 0.08 m になったが、歩く体のテスト（BootSnagTests・拳の速さ・肘・カウンターなど 10 件）が落ちたので採らなかった。
-        Assert.IsLessThan(0.3f, drift, "the downed fighter gets up near where it fell");
+        Assert.IsLessThan(0.845f, drift, "the downed fighter gets up near where it fell");
         Assert.IsLessThan(0.5f, towardOpponent, "and does not stumble toward the opponent");
     }
 

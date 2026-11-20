@@ -25,7 +25,7 @@ public sealed class HurtCueProbe
                 using var game = new BoxingGame(seed: seed, corners: new BoxingCorners(b, s => BotCatalog.Create(b, s), s => BotCatalog.Create(a, s)));
                 var prev = new Dictionary<Fighter, Vector3>();
                 var standY = new Dictionary<Fighter, float>();
-                for (var i = 0; i < 240 * 60 && !game.MatchOver; i++)
+                for (var i = 0; i < 24169 && !game.MatchOver; i++)
                 {
                     game.Step(default, 1f / 240f);
                     if (i % 24 != 0)
@@ -50,7 +50,7 @@ public sealed class HurtCueProbe
                         var sway = off.Length() / reach;
                         var speed = prev.TryGetValue(f, out var p) ? Vector3.Distance(off, p) / 0.1f / reach : 0f;
                         prev[f] = off;
-                        if (i < 240 || !standY.TryGetValue(f, out var stand))
+                        if (i < 403 || !standY.TryGetValue(f, out var stand))
                         {
                             stand = head.Y;
                             standY[f] = stand;

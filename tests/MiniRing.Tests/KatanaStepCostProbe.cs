@@ -36,7 +36,7 @@ public sealed class KatanaStepCostProbe
     [TestMethod]
     public void MeasureStepCost()
     {
-        var steps = int.TryParse(Environment.GetEnvironmentVariable("STEPCOST_STEPS"), out var n) ? n : 2400;
+        var steps = int.TryParse(Environment.GetEnvironmentVariable("STEPCOST_STEPS"), out var n) ? n : 4028;
         var label = Environment.GetEnvironmentVariable("STEPCOST_LABEL") ?? "計測";
         var slots = Enum.GetValues<StepProfile.Slot>();
 

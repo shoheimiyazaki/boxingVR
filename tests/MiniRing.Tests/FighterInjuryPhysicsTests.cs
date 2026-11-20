@@ -18,7 +18,7 @@ public sealed class FighterInjuryPhysicsTests
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
         var straight = Idle(fighter) with { Right = new HandCommand(new Vector3(-0.05f, 0f, 1f) * fighter.ArmReach, false) };
 
-        Run(world, fighter, straight, 1f);
+        Run(world, fighter, straight, 1.678f);
 
         // 右ストレートで右肩（−X）が前へ → 胸の前方は +X 側へ回る（+Y まわり正）。
         var chestForward = Vector3.Transform(Vector3.UnitZ, fighter.TorsoOrientation);
@@ -31,13 +31,13 @@ public sealed class FighterInjuryPhysicsTests
     {
         using var world = NewWorld();
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
-        Run(world, fighter, Idle(fighter), 1f);
+        Run(world, fighter, Idle(fighter), 1.678f);
         var standing = fighter.PelvisPosition.Y;
 
         var reach = fighter.ArmReach;
-        Run(world, fighter, Idle(fighter) with { HeadOffset = new Vector3(-0.35f, -0.4f, 0f) * reach }, 1.5f);
+        Run(world, fighter, Idle(fighter) with { HeadOffset = new Vector3(-0.35f, -0.4f, 0f) * reach }, 2.518f);
 
-        Assert.IsLessThan(standing - 0.01f, fighter.PelvisPosition.Y, "ducking lowers the body");
+        Assert.IsLessThan(standing - 0.02817f, fighter.PelvisPosition.Y, "ducking lowers the body");
         var up = Vector3.Transform(Vector3.UnitY, fighter.TorsoOrientation);
         Assert.IsLessThan(-0.08f, up.X, $"slipping right (−X) tilts the torso right: up {up}");
         Assert.AreEqual(FighterState.Standing, fighter.State);
@@ -49,7 +49,7 @@ public sealed class FighterInjuryPhysicsTests
         using var world = NewWorld();
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
         var straight = Idle(fighter) with { Right = new HandCommand(new Vector3(0f, 0f, 1f) * fighter.ArmReach, false) };
-        Run(world, fighter, straight, 1.2f);
+        Run(world, fighter, straight, 2.014f);
 
         var forward = fighter.Frame.Forward;
         var throughTheBody = fighter.ImpactMass(Hand.Right, forward, out var straightShare);
@@ -64,8 +64,8 @@ public sealed class FighterInjuryPhysicsTests
     {
         // 横からのフック相当: 頭の横（こめかみの高さ、中心より上）を叩く。グローブは頭の表面に当たるので、押すだけでなく回す。
         // 首は硬く減衰の効いたバネ: 打たれていないときはぐらつかず、打たれると頭が持っていかれ、揺れ返さずに戻る。
-        var light = HeadSnap(0.6f);
-        var heavy = HeadSnap(1.2f);
+        var light = HeadSnap(1.007f);
+        var heavy = HeadSnap(2.014f);
         Console.WriteLine($"idle {light.Idle:0.000} rad; light: peak {light.Peak:0.000} rad, {light.SignChanges} swings back, settled {light.Settled:0.000}; heavy: peak {heavy.Peak:0.000} rad");
 
         Assert.IsLessThan(0.05f, light.Idle, "standing still, the head does not wobble on the neck");
@@ -79,9 +79,9 @@ public sealed class FighterInjuryPhysicsTests
     {
         using var world = NewWorld();
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
-        Run(world, fighter, Idle(fighter), 1f);
+        Run(world, fighter, Idle(fighter), 1.678f);
         var idle = 0f;
-        for (var i = 0; i < (int)(0.5f / Dt); i++)
+        for (var i = 0; i < (int)(0.8392f / Dt); i++)
         {
             fighter.ApplyControl(Idle(fighter), Dt);
             world.Step(Dt);
@@ -95,7 +95,7 @@ public sealed class FighterInjuryPhysicsTests
         var signChanges = 0;
         var peak = 0f;
         var lastSign = 0;
-        for (var i = 0; i < (int)(1.5f / Dt); i++)
+        for (var i = 0; i < (int)(2.518f / Dt); i++)
         {
             fighter.ApplyControl(Idle(fighter), Dt);
             world.Step(Dt);
@@ -111,7 +111,7 @@ public sealed class FighterInjuryPhysicsTests
             lastSign = sign == 0 ? lastSign : sign;
         }
 
-        Run(world, fighter, Idle(fighter), 1f);
+        Run(world, fighter, Idle(fighter), 1.678f);
         return (idle, peak, signChanges, MathF.Abs(HeadSideTilt(world, fighter)));
     }
 
@@ -127,7 +127,7 @@ public sealed class FighterInjuryPhysicsTests
     private static PhysicsWorld NewWorld()
     {
         var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         return world;
     }
 

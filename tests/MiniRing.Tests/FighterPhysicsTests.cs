@@ -21,7 +21,7 @@ public sealed class FighterPhysicsTests
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Floor, 0f);
         var startPelvis = fighter.PelvisPosition;
 
-        Run(world, fighter, Idle(fighter), seconds: 3f);
+        Run(world, fighter, Idle(fighter), seconds: 5.035f);
 
         Assert.AreEqual(FighterState.Standing, fighter.State);
         Assert.IsGreaterThan(0.9f, fighter.Uprightness, $"upright {fighter.Uprightness}");
@@ -29,8 +29,8 @@ public sealed class FighterPhysicsTests
         Assert.IsLessThan(startPelvis.Y, fighter.PelvisPosition.Y, $"pelvis {fighter.PelvisPosition}");
         Assert.IsGreaterThan(0.8f * startPelvis.Y, fighter.PelvisPosition.Y, $"pelvis {fighter.PelvisPosition}");
         // 支えを床から出す体（PhysicsVersion 39）は、生成直後に脚を伸ばした T ポーズから構えへ沈む揺れを、
-        // 起こすねじりでなく足の踏み直しで受け止めるので、前の体より少し（5.1 cm）動く。立っているだけで歩き出さない（6 cm 以内）。
-        Assert.IsLessThan(0.06f, Horizontal(fighter.PelvisPosition - startPelvis));
+        // 起こすねじりでなく足の踏み直しで受け止めるので、前の体より少し（人形の単位で 5.1 cm）動く。立っているだけで歩き出さない（17 cm 以内）。
+        Assert.IsLessThan(0.169f, Horizontal(fighter.PelvisPosition - startPelvis));
     }
 
     [TestMethod]
@@ -41,10 +41,10 @@ public sealed class FighterPhysicsTests
         var start = fighter.PelvisPosition;
         var command = Idle(fighter) with { MoveWorld = Vector3.UnitX, FaceDirection = Vector3.UnitZ };
 
-        Run(world, fighter, command, seconds: 2f);
+        Run(world, fighter, command, seconds: 3.357f);
 
         Assert.AreEqual(FighterState.Standing, fighter.State);
-        Assert.IsGreaterThan(0.5f, fighter.PelvisPosition.X - start.X, $"moved {fighter.PelvisPosition - start}");
+        Assert.IsGreaterThan(1.408f, fighter.PelvisPosition.X - start.X, $"moved {fighter.PelvisPosition - start}");
         Assert.IsGreaterThan(0.85f, fighter.Uprightness);
     }
 
@@ -54,7 +54,7 @@ public sealed class FighterPhysicsTests
         using var world = NewWorld();
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Floor, 0f);
 
-        Run(world, fighter, Idle(fighter) with { FaceDirection = -Vector3.UnitZ }, seconds: 2f);
+        Run(world, fighter, Idle(fighter) with { FaceDirection = -Vector3.UnitZ }, seconds: 3.357f);
 
         var chestForward = Vector3.Transform(Vector3.UnitZ, world.GetState(fighter.Parts.Chest).Orientation);
         Assert.IsLessThan(-0.9f, chestForward.Z, $"chest forward {chestForward}");
@@ -67,7 +67,7 @@ public sealed class FighterPhysicsTests
         using var world = NewWorld();
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Floor, MathF.PI);
 
-        Run(world, fighter, Idle(fighter) with { FaceDirection = -Vector3.UnitZ }, seconds: 1.5f);
+        Run(world, fighter, Idle(fighter) with { FaceDirection = -Vector3.UnitZ }, seconds: 2.518f);
 
         var chestForward = Vector3.Transform(Vector3.UnitZ, world.GetState(fighter.Parts.Chest).Orientation);
         Assert.IsLessThan(-0.9f, chestForward.Z);
@@ -90,7 +90,7 @@ public sealed class FighterPhysicsTests
             Right = new HandCommand(hand == Hand.Right ? target : AiControl.Guard(Hand.Right, reach), false),
         };
 
-        Run(world, fighter, command, seconds: 1.5f);
+        Run(world, fighter, command, seconds: 2.518f);
 
         var error = Vector3.Distance(fighter.GloveCenter(hand), fighter.Frame.LocalToWorld(target));
         Assert.IsLessThan(reach * 0.15f, error, $"glove {fighter.GloveCenter(hand)} target {fighter.Frame.LocalToWorld(target)} error {error}");
@@ -107,7 +107,7 @@ public sealed class FighterPhysicsTests
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Floor, 0f);
         var reach = fighter.ArmReach;
 
-        Run(world, fighter, Idle(fighter), seconds: 1.5f);
+        Run(world, fighter, Idle(fighter), seconds: 2.518f);
 
         foreach (var hand in new[] { Hand.Left, Hand.Right })
         {
@@ -122,22 +122,22 @@ public sealed class FighterPhysicsTests
     {
         using var world = NewWorld();
         var a = Fighter.Spawn(world, FighterTuning.Default, "a", Floor, 0f);
-        var b = Fighter.Spawn(world, FighterTuning.Default, "b", Floor + new Vector3(0f, 0f, 0.2f), MathF.PI);
-        Run(world, [a, b], seconds: 0.5f, (f, opp) => Idle(f) with { FaceDirection = opp.ChestPosition - f.ChestPosition });
+        var b = Fighter.Spawn(world, FighterTuning.Default, "b", Floor + new Vector3(0f, 0f, 0.5634f), MathF.PI);
+        Run(world, [a, b], seconds: 0.8392f, (f, opp) => Idle(f) with { FaceDirection = opp.ChestPosition - f.ChestPosition });
 
         // 右手を相手の胸へ伸ばして握る。
         FighterCommand Reach(Fighter f, Fighter opp, bool grip) => Idle(f) with
         {
             FaceDirection = opp.ChestPosition - f.ChestPosition,
-            Right = new HandCommand(f.Frame.WorldToLocal(opp.ChestPosition + new Vector3(0.03f, 0f, 0f)), grip),
+            Right = new HandCommand(f.Frame.WorldToLocal(opp.ChestPosition + new Vector3(0.08451f, 0f, 0f)), grip),
         };
 
-        Run(world, [a, b], seconds: 1f, (f, opp) => f == a ? Reach(a, b, false) : Idle(f) with { FaceDirection = -Vector3.UnitZ });
-        Run(world, [a, b], seconds: 0.5f, (f, opp) => f == a ? Reach(a, b, true) : Idle(f) with { FaceDirection = -Vector3.UnitZ });
+        Run(world, [a, b], seconds: 1.678f, (f, opp) => f == a ? Reach(a, b, false) : Idle(f) with { FaceDirection = -Vector3.UnitZ });
+        Run(world, [a, b], seconds: 0.8392f, (f, opp) => f == a ? Reach(a, b, true) : Idle(f) with { FaceDirection = -Vector3.UnitZ });
         Assert.IsTrue(a.IsHolding(Hand.Right), $"glove {a.GloveCenter(Hand.Right)} chest {b.ChestPosition}");
         Assert.IsTrue(b.IsGrabbed);
 
-        Run(world, [a, b], seconds: 0.2f, (f, opp) => f == a ? Reach(a, b, false) : Idle(f));
+        Run(world, [a, b], seconds: 0.3357f, (f, opp) => f == a ? Reach(a, b, false) : Idle(f));
         Assert.IsFalse(a.IsHolding(Hand.Right));
         Assert.IsFalse(b.IsGrabbed);
     }
@@ -147,14 +147,14 @@ public sealed class FighterPhysicsTests
     {
         using var world = NewWorld();
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Floor, 0f);
-        Run(world, fighter, Idle(fighter), seconds: 0.5f);
+        Run(world, fighter, Idle(fighter), seconds: 0.8392f);
         var standing = fighter.PelvisPosition.Y;
 
         fighter.Knockdown(Vector3.UnitZ, permanent: false);
         // 倒れ方（仰向け・尻もち）は物理しだい。床に落ちた＝腰が立つ高さの 6 割より下へ一度は落ちる。起き上がりは手足で床を押して
         // 始まる（docs/GRAPPLING.md §8）ので、1 秒の時点ではもう起き上がる途中のこともある（倒れたまま＝ Down か GettingUp）。
         var lowest = float.PositiveInfinity;
-        for (var i = 0; i < (int)(1f / Dt); i++)
+        for (var i = 0; i < (int)(1.678f / Dt); i++)
         {
             fighter.ApplyControl(Idle(fighter), Dt);
             world.Step(Dt);
@@ -164,7 +164,7 @@ public sealed class FighterPhysicsTests
         Assert.AreNotEqual(FighterState.Standing, fighter.State);
         Assert.IsLessThan(0.6f * standing, lowest, "should actually be on the floor");
 
-        Run(world, fighter, Idle(fighter), seconds: 5f);
+        Run(world, fighter, Idle(fighter), seconds: 8.392f);
         Assert.AreEqual(FighterState.Standing, fighter.State, $"upright {fighter.Uprightness}");
     }
 
@@ -173,7 +173,7 @@ public sealed class FighterPhysicsTests
     {
         using var game = new BoxingGame(seed: 7);
         var hits = 0;
-        for (var i = 0; i < 60 * 20; i++)
+        for (var i = 0; i < 2014; i++)
         {
             var guard = new FighterCommand(Vector3.Zero, game.Cpu.ChestPosition - game.Player.ChestPosition,
                 new HandCommand(AiControl.Guard(Hand.Left, game.Player.ArmReach), false),
@@ -192,7 +192,7 @@ public sealed class FighterPhysicsTests
     private static PhysicsWorld NewWorld()
     {
         var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         return world;
     }
 

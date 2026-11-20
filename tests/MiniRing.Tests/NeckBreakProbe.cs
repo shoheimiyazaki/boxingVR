@@ -18,7 +18,7 @@ public sealed class NeckBreakProbe
 
     internal static float Threshold(VoxelGrid grid, Vector3 point, Vector3 dir, float tone)
     {
-        float lo = 0f, hi = 20000f;
+        float lo = 0f, hi = 200000f;
         for (var i = 0; i < 40; i++)
         {
             var mid = 0.5f * (lo + hi);
@@ -36,7 +36,7 @@ public sealed class NeckBreakProbe
         return hi;
     }
 
-    /// <summary>首の段の高さの点（各段の真ん中）と、あごの高さの点、首の柱の中心から 2 cm 横（種 4 の接触のずれ）。</summary>
+    /// <summary>首の段の高さの点（各段の真ん中）と、あごの高さの点、首の柱の中心から 5.6 cm 横（種 4 の接触のずれ）。</summary>
     internal static (string Name, Vector3 At, Vector3 Dir)[] Points(VoxelGrid grid)
     {
         var half = grid.HalfExtents;
@@ -44,22 +44,22 @@ public sealed class NeckBreakProbe
         float SliceY(float slice) => -half.Y + ((slice + 0.5f) * cell.Y);
         var oblique = Vector3.Normalize(new Vector3(-0.36f, 0.88f, -0.31f));
         var (low, high) = BoxerSpine.NeckSlices;
-        // 種 15（champion – swarmer、4.94 s）: 首の上の段の横の皮膚（顔の層）を、グローブが下から斜め上へ滑って押した接触（首の柱から 2.3 cm 横）。
+        // 種 15（champion – swarmer、4.94 s）: 首の上の段の横の皮膚（顔の層）を、グローブが下から斜め上へ滑って押した接触（首の柱から 6.5 cm 横）。
         var seed15 = Vector3.Normalize(new Vector3(19.97f, 20.90f, 15.16f));
-        var seed15At = new Vector3(-0.0226f, -0.0173f, -0.0014f);
+        var seed15At = new Vector3(-0.0637f, -0.0487f, -0.00394f);
         return
         [
             ("chin side", new Vector3(half.X, -0.5f * half.Y, 0f), -Vector3.UnitX),
             ("chin front", new Vector3(0f, -0.5f * half.Y, half.Z), -Vector3.UnitZ),
             ("neck(low) side", new Vector3(half.X, SliceY(low), 0f), -Vector3.UnitX),
             ("neck(low) front", new Vector3(0f, SliceY(low), half.Z), -Vector3.UnitZ),
-            ("neck(low) oblique", new Vector3(0.02f, SliceY(low), 0f), oblique),
-            ("neck(high) oblique", new Vector3(0.02f, SliceY(high), 0f), oblique),
-            ("skull base oblique", new Vector3(0.02f, SliceY(high + 1), 0f), oblique),
+            ("neck(low) oblique", new Vector3(0.0563f, SliceY(low), 0f), oblique),
+            ("neck(high) oblique", new Vector3(0.0563f, SliceY(high), 0f), oblique),
+            ("skull base oblique", new Vector3(0.0563f, SliceY(high + 1), 0f), oblique),
             ("seed15 neck skin", seed15At, seed15),
             // 同じ接触を、面が押す力（法線）と摩擦の範囲の引きずり（VoxelContact.PressedForce、μ 0.5・切っていない）で。力は打撃の力の大きさ。
-            ("neck(low) obl. pressed", new Vector3(0.02f, SliceY(low), 0f), VoxelContact.PressedForce(oblique, -Vector3.UnitX, 0f)),
-            ("neck(high) obl. pressed", new Vector3(0.02f, SliceY(high), 0f), VoxelContact.PressedForce(oblique, -Vector3.UnitX, 0f)),
+            ("neck(low) obl. pressed", new Vector3(0.0563f, SliceY(low), 0f), VoxelContact.PressedForce(oblique, -Vector3.UnitX, 0f)),
+            ("neck(high) obl. pressed", new Vector3(0.0563f, SliceY(high), 0f), VoxelContact.PressedForce(oblique, -Vector3.UnitX, 0f)),
             ("seed15 pressed", seed15At, VoxelContact.PressedForce(seed15, Vector3.UnitX, 0f)),
         ];
     }

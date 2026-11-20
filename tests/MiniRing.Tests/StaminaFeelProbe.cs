@@ -6,7 +6,7 @@ namespace MiniRing.Tests;
 /// <summary>
 /// スタミナの手触りの調べ（2026-11-17、ユーザーの目標: 弱・強を交互に連打する全力のラッシュが 10 秒、力が落ちながらさらに 10 秒まともに打てる。
 /// 1 ラウンド目は全力で続けられ、3 ラウンド目は今ぐらい。打ち合っていないときは減らない）。
-/// 人の操作（意図操作）で、立っている相手へ連打する・足だけ動かす、の 2 つを 1 秒ごとに記録する。
+/// 人の操作（意図操作）で、立っている相手へ連打する・足だけ動かす、の 2 つを 1.68 秒ごとに記録する。
 /// </summary>
 [TestClass]
 [TestCategory("Probe")]
@@ -17,7 +17,7 @@ public sealed class StaminaFeelProbe
     /// <summary>連打の前に前へ詰める秒数（0 なら離れたまま空を打つ）。</summary>
     private static float Approach { get; set; }
 
-    /// <summary>環境変数 STAMINA_TUNE="OxygenStorePerKg=320,VesselWorkingShare=0.4" で調整値を上書きする。</summary>
+    /// <summary>環境変数 STAMINA_TUNE="OxygenStorePerKg=901,VesselWorkingShare=0.4" で調整値を上書きする。</summary>
     internal static FighterTuning Tuning()
     {
         var tuning = FighterTuning.Default with { };
@@ -50,7 +50,7 @@ public sealed class StaminaFeelProbe
         return new BoxingGame(Tuning() with { ConcussionSpin = float.PositiveInfinity }, seed: 3, corners: corners);
     }
 
-    /// <summary>弱・強を交互に連打（押す 0.08 秒・離す 0.04 秒）。始めの 1.5 秒で前へ詰める。</summary>
+    /// <summary>弱・強を交互に連打（押す 0.134 秒・離す 0.067 秒）。<see cref="Approach"/> 秒だけ前へ詰める。</summary>
     private static FighterIntent Rush(float t)
     {
         if (t < Approach)
@@ -58,7 +58,7 @@ public sealed class StaminaFeelProbe
             return new FighterIntent(new Vector2(0f, 1f));
         }
 
-        var phase = (t - Approach) / 0.12f;
+        var phase = (t - Approach) / 0.2014f;
         var index = (int)MathF.Floor(phase);
         var down = phase - index < 0.67f;
         return new FighterIntent(Vector2.Zero, Light: down && index % 2 == 0, Heavy: down && index % 2 == 1);
@@ -67,8 +67,8 @@ public sealed class StaminaFeelProbe
     /// <summary>打たずに足だけ: 相手の周りを回り、時々前後に出入りする。</summary>
     private static FighterIntent Footwork(float t)
     {
-        var side = MathF.Sign(MathF.Sin(t * 0.7f));
-        var inOut = MathF.Sin(t * 1.9f) * 0.6f;
+        var side = MathF.Sign(MathF.Sin(t * 0.4171f));
+        var inOut = MathF.Sin(t * 1.132f) * 0.6f;
         return new FighterIntent(new Vector2(side, inOut));
     }
 
@@ -91,7 +91,7 @@ public sealed class StaminaFeelProbe
                 peak = MathF.Max(peak, (game.Player.GloveVelocity(hand) - game.Player.ChestVelocity).Length());
             }
 
-            if (step % 60 == 0)
+            if (step % 101 == 0)
             {
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
                     $"{t,4:0}  {game.Player.Stamina,6:P0}  {game.Player.RecentMusclePower,5:0.0}  {game.Player.RecoveryPower,6:0.0}  {peak,6:0.00}  {control.AttacksStarted - started,3}  E {game.Player.Endurance:0.00} {game.Cpu.State} {game.Player.State} w{game.PlayerWins}{game.CpuWins} {Vector3.Distance(game.Player.ChestPosition, game.Cpu.ChestPosition):0.00}"));
@@ -104,10 +104,10 @@ public sealed class StaminaFeelProbe
     [TestMethod]
     public void RushThenRest()
     {
-        Run("rush 40 s", t => t < 40f ? Rush(t) : default, 45f);
-        Run("rush 25 s", t => t < 25f ? Rush(t) : default, 35f, "marcus");
+        Run("rush 67 s", t => t < 67.14f ? Rush(t) : default, 75.53f);
+        Run("rush 42 s", t => t < 41.96f ? Rush(t) : default, 58.74f, "marcus");
     }
 
     [TestMethod]
-    public void FootworkOnly() => Run("footwork 30 s", Footwork, 30f);
+    public void FootworkOnly() => Run("footwork 50 s", Footwork, 50.35f);
 }

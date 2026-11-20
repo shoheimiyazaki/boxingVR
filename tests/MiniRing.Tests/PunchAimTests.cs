@@ -42,9 +42,9 @@ public sealed class PunchAimTests
         {
             var spec = PunchBook.Default.Of(technique);
             var guard = TechniqueExecution.Guard(Hand.Right, Hand.Left, Reach, new Vector3(0f, 0.1f * Reach, 0f), 1f, 1f, 1f, 0f);
-            for (var t = -0.2f; t <= spec.Duration; t += 0.01f)
+            for (var t = -0.3357f; t <= spec.Duration; t += 0.01678f)
             {
-                var action = new PunchAction(technique, spec, t, spec.Duration, false, Load: 0.2f);
+                var action = new PunchAction(technique, spec, t, spec.Duration, false, Load: 0.3357f);
                 var target = TechniqueExecution.Punch(action, Hand.Right, Hand.Left, guard, aim, Reach);
                 Assert.IsGreaterThan(0f, target.Z, $"{technique} loaded at {t:F2}s ({target})");
             }

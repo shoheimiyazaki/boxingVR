@@ -7,14 +7,14 @@ namespace MiniRing.Tests;
 /// <summary>
 /// 何も入力しないとき（空の入力・ほぼ静止した VR の姿勢）、体が床の上を流れていかない（ユーザー報告: VR の刀の稽古で、何も入力しなくても滑っていく）。
 /// 原因は足の運びの記憶: 着いた足の「置いた所」を毎歩実際の足へ合わせていたので足首を引く力が留める力にならず、もう一方の足を踏み出す反作用で
-/// 着いた足が滑り、構えの直しの踏み出しが止まらなかった（30 秒で 40〜80 cm、170〜260 歩）。直した後は 4 cm 以内・数歩。
+/// 着いた足が滑り、構えの直しの踏み出しが止まらなかった（人形の単位で 30 秒で 40〜80 cm、170〜260 歩）。直した後は 4 cm 以内・数歩（人形の単位。人の大きさで 11 cm）。VR の姿勢（頭・手のゆれ）は人の実物の寸法なので換算しない。
 /// </summary>
 [TestClass]
 [TestCategory("slow")]
 public sealed class SlideTests
 {
     private const float Dt = 1f / 240f;
-    private const float Seconds = 20f;
+    private const float Seconds = 33.57f;
 
     private sealed class IdleFoe : IFighterControl
     {
@@ -22,7 +22,7 @@ public sealed class SlideTests
         {
             var face = sense.OpponentChest - sense.Self.Origin;
             face.Y = 0f;
-            return new FighterCommand(Vector3.Zero, face, new HandCommand(new Vector3(0.1f, 0f, 0.15f), false), new HandCommand(new Vector3(-0.1f, 0f, 0.15f), false));
+            return new FighterCommand(Vector3.Zero, face, new HandCommand(new Vector3(0.2817f, 0f, 0.4225f), false), new HandCommand(new Vector3(-0.2817f, 0f, 0.4225f), false));
         }
     }
 
@@ -42,7 +42,7 @@ public sealed class SlideTests
     private static (float Drift, int Steps) Run(WeaponKind? weapon, bool vr, float headYaw, float sway)
     {
         var corners = weapon is { } w
-            ? SwordTraining.Corners(w, 0.9f)
+            ? SwordTraining.Corners(w, 2.535f)
             : new BoxingCorners("idle", _ => new IdleFoe(), Referee: false, BreakActions: false, Ring: RingLayout.DrillBoxing);
         using var game = new BoxingGame(FighterTuning.Default with { PlayerFatigue = false }, corners: corners);
         var mapper = new VrPlayerMapper(weaponMode: weapon is not null);
@@ -61,7 +61,7 @@ public sealed class SlideTests
     public void KatanaStandingStillWithAVrPoseDoesNotSlide()
     {
         var (drift, steps) = Run(WeaponKind.Katana, vr: true, headYaw: 0f, sway: 0f);
-        Assert.IsLessThan(0.08f, drift, $"静止した VR の姿勢（刀）で骨盤が流れた: {drift * 100f:0.0} cm");
+        Assert.IsLessThan(0.2254f, drift, $"静止した VR の姿勢（刀）で骨盤が流れた: {drift * 100f:0.0} cm");
         Assert.IsLessThan(12, steps, $"構えの踏み直しが止まらない: {steps} 歩");
     }
 
@@ -69,7 +69,7 @@ public sealed class SlideTests
     public void KatanaWithTwoCentimetreHeadSwayDoesNotSlide()
     {
         var (drift, steps) = Run(WeaponKind.Katana, vr: true, headYaw: 0f, sway: 0.02f);
-        Assert.IsLessThan(0.08f, drift, $"頭が 2 cm ゆれるだけで骨盤が流れた: {drift * 100f:0.0} cm（直す前は 20 秒で 45 cm）");
+        Assert.IsLessThan(0.2254f, drift, $"頭が 2 cm ゆれるだけで骨盤が流れた: {drift * 100f:0.0} cm（直す前は 20 秒で 45 cm）");
         Assert.IsLessThan(12, steps, $"構えの踏み直しが止まらない: {steps} 歩（直す前は 170 歩前後）");
     }
 
@@ -78,7 +78,7 @@ public sealed class SlideTests
     {
         // 頭が相手から 40 度それている（手は同じ位置）: 胴がひねられた構えのまま止まっていられる。
         var (drift, steps) = Run(WeaponKind.Katana, vr: true, headYaw: 0.7f, sway: 0f);
-        Assert.IsLessThan(0.08f, drift, $"胴をひねった構えで骨盤が流れた: {drift * 100f:0.0} cm（直す前は 20 秒で 29 cm）");
+        Assert.IsLessThan(0.2254f, drift, $"胴をひねった構えで骨盤が流れた: {drift * 100f:0.0} cm（直す前は 20 秒で 29 cm）");
         Assert.IsLessThan(12, steps, $"構えの踏み直しが止まらない: {steps} 歩");
     }
 
@@ -86,7 +86,7 @@ public sealed class SlideTests
     public void BareHandsWithHeadSwayDoNotSlide()
     {
         var (drift, steps) = Run(null, vr: true, headYaw: 0f, sway: 0.02f);
-        Assert.IsLessThan(0.08f, drift, $"素手の VR で頭が 2 cm ゆれるだけで骨盤が流れた: {drift * 100f:0.0} cm（直す前は 20 秒で 55 cm）");
+        Assert.IsLessThan(0.2254f, drift, $"素手の VR で頭が 2 cm ゆれるだけで骨盤が流れた: {drift * 100f:0.0} cm（直す前は 20 秒で 55 cm）");
         Assert.IsLessThan(12, steps, $"構えの踏み直しが止まらない: {steps} 歩");
     }
 }

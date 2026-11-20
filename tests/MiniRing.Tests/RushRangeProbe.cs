@@ -4,7 +4,7 @@ using System.Numerics;
 namespace MiniRing.Tests;
 
 /// <summary>
-/// StaminaRushTests の連打の写し: 始めの 10 秒の拳の最高速度が下がった原因を、間合い・当たりの数・ダメージ・相手が押し下げられた距離で見る
+/// StaminaRushTests の連打の写し: 始めの 17 秒（人形の単位の 10 秒）の拳の最高速度が下がった原因を、間合い・当たりの数・ダメージ・相手が押し下げられた距離で見る
 /// （版 43 の写しと並べるための Probe。通常の実行から外す）。
 /// </summary>
 [TestClass]
@@ -54,10 +54,10 @@ public sealed class RushRangeProbe
         var hitSpeed = 0f;
         var lastWork = 0f;
         var clock = 0f;
-        while (rushing < 20f && clock < 60f)
+        while (rushing < 33.57f && clock < 100.7f)
         {
             var standing = game.Player.State == FighterState.Standing && game.Cpu.State == FighterState.Standing;
-            var phase = tap / 0.12f;
+            var phase = tap / 0.2014f;
             var index = (int)MathF.Floor(phase);
             var down = standing && phase - index < 0.67f;
             control.Input = new FighterIntent(Vector2.Zero, Light: down && index % 2 == 0, Heavy: down && index % 2 == 1);
@@ -87,7 +87,7 @@ public sealed class RushRangeProbe
                 hitSpeed += h.Speed;
             }
 
-            if (second >= 1f)
+            if (second >= 1.678f)
             {
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
                     $"RUSH t {rushing:F0} peak {peak:F2} gap {gapSum / gapCount:F3} hits {hits} dmg {damage:F0} meanMass {hitMass / Math.Max(1, hits):F2} meanSpeed {hitSpeed / Math.Max(1, hits):F2} down {game.Cpu.State} work {game.Player.WorkDone - lastWork:F1} stamina {game.Player.Stamina:F2} cpuStamina {game.Cpu.Stamina:F2} cpuConsc {game.Cpu.Consciousness:F2} playerHeadSpeed {game.Player.ChestVelocity.Length():F2}"));

@@ -14,7 +14,7 @@ public sealed class StickTests
     [TestMethod]
     public void TheGuardPose_PutsEveryPartWhereTheGameBodyStands()
     {
-        // ゲームの体を 1.5 秒立たせた形を写し、順運動学で出した部位の中心が、物理の部位の中心と（骨盤を基準に）一致する。
+        // ゲームの体を立たせた形（StickBody.FromFighter）を写し、順運動学で出した部位の中心が、物理の部位の中心と（骨盤を基準に）一致する。
         var tuning = FighterTuning.Default;
         using var game = new BoxingGame(tuning, seed: 1, corners: new BoxingCorners("stick", _ => new StandGuard(), _ => new StandGuard()));
         var fighter = game.Cpu;
@@ -40,8 +40,8 @@ public sealed class StickTests
             worst = MathF.Max(worst, error);
         }
 
-        Assert.IsLessThan(0.01f, worst, "every part within 1 cm of the physics body");
-        Assert.AreEqual(fighter.SupportedMass, body.TotalMass, 0.02f, "the same mass (toes counted with the feet)");
+        Assert.IsLessThan(0.02817f, worst, "every part within 2.8 cm of the physics body");
+        Assert.AreEqual(fighter.SupportedMass, body.TotalMass, 0.2f, "the same mass (toes counted with the feet)");
     }
 
     [TestMethod]
@@ -50,11 +50,11 @@ public sealed class StickTests
         var body = Body.Value;
         var frame = new StickFrame(body, body.Guard);
         var load = StickDynamics.Static(frame, (true, true));
-        Assert.AreEqual(body.TotalMass * 9.81f, load.GroundForce.Y, 1e-3f, "the floor pushes up the whole weight");
+        Assert.AreEqual(body.TotalMass * 9.81f, load.GroundForce.Y, 1e-2f, "the floor pushes up the whole weight");
         Assert.IsLessThan(0f, load.ZmpOutside, "the pressure centre is inside both feet");
         var com = frame.CenterOfMass;
-        Assert.AreEqual(com.X, load.Zmp.X, 1e-4f, "standing still, the pressure centre is right under the centre of mass");
-        Assert.AreEqual(com.Z, load.Zmp.Z, 1e-4f);
+        Assert.AreEqual(com.X, load.Zmp.X, 2.817e-4f, "standing still, the pressure centre is right under the centre of mass");
+        Assert.AreEqual(com.Z, load.Zmp.Z, 2.817e-4f);
     }
 
     [TestMethod]
@@ -63,11 +63,11 @@ public sealed class StickTests
         var body = Body.Value;
         var frame = new StickFrame(body, body.Guard);
         var quiet = StickDynamics.Static(frame, (true, true));
-        var push = new StickForce(StickBody.Ids.Chest, body.Segments[StickBody.Ids.Chest].Center, new Vector3(0f, 0f, -10f));
+        var push = new StickForce(StickBody.Ids.Chest, body.Segments[StickBody.Ids.Chest].Center, new Vector3(0f, 0f, -100f));
         var pushed = StickDynamics.Static(frame, (true, true), [push]);
         Assert.IsLessThan(quiet.Zmp.Z, pushed.Zmp.Z, "pushed backward, the feet must press further back");
-        Assert.AreEqual(10f, pushed.GroundForce.Z, 1e-3f, "the floor holds the push with friction");
-        // 後ろへ押されると、後ろ足（構えの右足、-X・-Z の側）の膝が押し返し（1.1 → 2.8 N·m）、前足は軽くなる。
+        Assert.AreEqual(100f, pushed.GroundForce.Z, 1e-2f, "the floor holds the push with friction");
+        // 後ろへ押されると、後ろ足（構えの右足、-X・-Z の側）の膝が押し返し（人形の単位で 1.1 → 2.8 N·m、人の大きさで 31 → 79 N·m）、前足は軽くなる。
         Assert.IsGreaterThan(2f * quiet.Torques[StickBody.Ids.ShinR], pushed.Torques[StickBody.Ids.ShinR]);
         Assert.IsLessThan(quiet.Torques[StickBody.Ids.FootL], pushed.Torques[StickBody.Ids.FootL]);
     }
@@ -79,7 +79,7 @@ public sealed class StickTests
         var start = new StickFrame(body, body.Guard);
         var wrist = body.Segments[StickBody.Ids.ForearmL].Tip;
         var shoulder = start.Joints[StickBody.Ids.UpperArmL];
-        var goal = shoulder + new Vector3(0.02f, 0f, 0.8f * body.ArmReach); // 前へまっすぐ突く所
+        var goal = shoulder + new Vector3(0.05634f, 0f, 0.8f * body.ArmReach); // 前へまっすぐ突く所
         var ik = new StickIk(body);
         var targets = new List<StickTarget> { new(StickBody.Ids.ForearmL, wrist, goal) };
         targets.AddRange(StickIk.Plant(start, Hand.Left));
@@ -88,12 +88,12 @@ public sealed class StickTests
         var pose = ik.Solve(body.Guard, targets, (true, true));
         TestContext.WriteLine($"solve {watch.Elapsed.TotalMilliseconds:0.0} ms, cost {ik.LastCost:0.00000}");
         var frame = new StickFrame(body, pose);
-        Assert.IsLessThan(0.005f, Vector3.Distance(frame.Point(StickBody.Ids.ForearmL, wrist), goal), "the fist reaches within 5 mm");
+        Assert.IsLessThan(0.01408f, Vector3.Distance(frame.Point(StickBody.Ids.ForearmL, wrist), goal), "the fist reaches within 14 mm");
         var elbow = pose.Values[body.Offsets[StickBody.Ids.ForearmL]];
         Assert.IsGreaterThanOrEqualTo(-10f * MathF.PI / 180f, elbow, "the elbow never bends backward past its limit");
         foreach (var leg in new[] { Hand.Left, Hand.Right })
         {
-            Assert.IsLessThan(0.005f, frame.Sole(leg).Min(p => p.Y) - start.Sole(leg).Min(p => p.Y) + 0.0049f, "the planted feet stay on the floor");
+            Assert.IsLessThan(0.01408f, frame.Sole(leg).Min(p => p.Y) - start.Sole(leg).Min(p => p.Y) + 0.0138f, "the planted feet stay on the floor");
         }
     }
 
@@ -106,10 +106,10 @@ public sealed class StickTests
         var pelvis = body.Segments[StickBody.Ids.Pelvis].Center;
         var start = guard.Center(StickBody.Ids.Pelvis);
         var head = guard.Tip(StickBody.Ids.Head);
-        const float Depth = 0.03f;
+        const float Depth = 0.0845f;
         StickStep Step(float t, StickFrame now)
         {
-            var down = Depth * 0.5f * (1f - MathF.Cos(MathF.PI * t)); // 0 → 2 s で下がって戻る
+            var down = Depth * 0.5f * (1f - MathF.Cos(1.872f * t)); // 0 → 3.357 s で下がって戻る（1.872 = π / 1.678 [rad/s]）
             return new StickStep(
             [
                 new StickTarget(StickBody.Ids.Pelvis, pelvis, start - new Vector3(0f, down, 0f)),
@@ -117,7 +117,7 @@ public sealed class StickTests
             ], (true, true));
         }
 
-        var result = StickMotion.Run(body, Step, 2f);
+        var result = StickMotion.Run(body, Step, 3.357f);
         var lowest = result.Frames.Min(f => f.CenterOfMass.Y);
         var lift = body.TotalMass * 9.81f * (guard.CenterOfMass.Y - lowest);
         TestContext.WriteLine($"work {result.Work:0.000} J, m g dh {lift:0.000} J, {result.Summary()}");
@@ -128,16 +128,16 @@ public sealed class StickTests
     [TestMethod]
     public void Smoothness_AMinimumJerkReach_ScoresAboutMinusSix_AndAShakyOneMuchLower()
     {
-        // 躍度最小の 1 本の動き（5 次の多項式）の LDLJ は、この差分の計算で約 −4.9（連続の式の −6 より端の分だけ高い）。12 Hz の揺れを足すと大きく下がる。
+        // 躍度最小の 1 本の動き（5 次の多項式）の LDLJ は、この差分の計算で約 −4.9（連続の式の −6 より端の分だけ高い）。12 Hz の揺れを足すと大きく下がる。LDLJ は振れ幅に依らないので、実物大では長さだけ換算し、刻みの数と時間はそのまま（同じ値になる）。
         const float Dt = 1f / 60f;
         var smooth = new List<Vector3>();
         var shaky = new List<Vector3>();
         for (var i = 0; i <= 30; i++)
         {
             var u = i / 30f;
-            var x = 0.1f * ((10f * u * u * u) - (15f * u * u * u * u) + (6f * u * u * u * u * u));
+            var x = 0.2817f * ((10f * u * u * u) - (15f * u * u * u * u) + (6f * u * u * u * u * u));
             smooth.Add(new Vector3(x, 0f, 0f));
-            shaky.Add(new Vector3(x, 0.003f * MathF.Sin(2f * MathF.PI * 12f * i * Dt), 0f));
+            shaky.Add(new Vector3(x, 0.00845f * MathF.Sin(2f * MathF.PI * 12f * i * Dt), 0f));
         }
 
         var a = StickReview.Ldlj(smooth, Dt)!.Value;
@@ -157,7 +157,7 @@ public sealed class StickTests
         StickReview Reach(float times)
         {
             var far = guard.Joints[StickBody.Ids.UpperArmL] + new Vector3(0f, 0f, times * body.ArmReach);
-            var review = StickReview.Of(StickMotion.Run(body, (t, now) => new StickStep([new StickTarget(StickBody.Ids.ForearmL, wrist, far)], (true, true)), 0.6f));
+            var review = StickReview.Of(StickMotion.Run(body, (t, now) => new StickStep([new StickTarget(StickBody.Ids.ForearmL, wrist, far)], (true, true)), 1.007f));
             TestContext.WriteLine($"{times}x: {review.Report()}");
             return review;
         }
@@ -170,7 +170,7 @@ public sealed class StickTests
     public void Review_OfQuietStanding_HasNoWarnings()
     {
         var body = Body.Value;
-        var result = StickMotion.Run(body, (t, now) => new StickStep([], (true, true)), 1f);
+        var result = StickMotion.Run(body, (t, now) => new StickStep([], (true, true)), 1.678f);
         var review = StickReview.Of(result);
         TestContext.WriteLine(review.Report());
         Assert.AreEqual(0, review.Warnings, "standing still in the game's own guard raises no warning");

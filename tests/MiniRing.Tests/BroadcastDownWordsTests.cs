@@ -32,21 +32,21 @@ public sealed class BroadcastDownWordsTests
         Assert.IsTrue(events.Any(e => e.Type == "count"), "ダウンを数える団体はカウントを書く");
     }
 
-    /// <summary>構えて立つだけの 2 人の青を気絶させて倒し、6 秒の記録を取る。</summary>
+    /// <summary>構えて立つだけの 2 人の青を気絶させて倒し、10 秒の記録を取る。</summary>
     private static List<(string Type, string For, string Text)> Record(MatchRules rules)
     {
         var broadcast = new Broadcast("赤", "青");
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", _ => new StandGuard(), _ => new StandGuard()), rules: rules);
         var step = 0;
         var t = 0f;
-        for (; t < 1.5f; t += Dt, step++)
+        for (; t < 2.518f; t += Dt, step++)
         {
             game.Step(default, Dt);
             broadcast.Observe(game, t, step);
         }
 
         game.Cpu.Concussion = 0.95f; // 意識が飛んだ: すぐ倒れて数えられる
-        for (; t < 7.5f; t += Dt, step++)
+        for (; t < 12.59f; t += Dt, step++)
         {
             game.Step(default, Dt);
             broadcast.Observe(game, t, step);

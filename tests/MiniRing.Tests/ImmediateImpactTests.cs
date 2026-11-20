@@ -58,9 +58,9 @@ public sealed class ImmediateImpactTests
     {
         using var game = new BoxingGame(seed: 613);
         var sound = new ContactSoundEvent(Vector3.Zero, ContactPair.WoodFlesh, 0.7f,
-            ContactResonance.Of(0.3f, 0.03f, 0.03f, 0.2f, true), Energy: 1f);
+            ContactResonance.Of(0.8451f, 0.08451f, 0.08451f, 2f, true), Energy: 28.17f);
         var weapon = new WeaponHitEvent(game.Player, game.Cpu, BodyPartKind.Head, HitZone.Head,
-            Vector3.Zero, 3, 4f, 2f, 0f, 10f, BoxerAnatomy.Wood, sound);
+            Vector3.Zero, 3, 6.714f, 33.57f, 0f, 10f, BoxerAnatomy.Wood, sound);
         var cue = ImpactAudio.Gather([], [], [], weaponHits: [weapon]).Single();
         Assert.AreEqual(HitSurface.Wood, cue.Hit!.Value.Surface);
         Assert.AreEqual(sound, cue.Contact);

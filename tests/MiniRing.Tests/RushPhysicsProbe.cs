@@ -20,7 +20,7 @@ public sealed class RushPhysicsProbe
     {
         foreach (var forward in new[] { 1f, 0f })
         {
-            foreach (var period in new[] { 0.07f, 0.12f, 0.6f })
+            foreach (var period in new[] { 0.1175f, 0.2014f, 1.007f })
             {
                 Run(period, forward, seed: 3);
             }
@@ -29,7 +29,7 @@ public sealed class RushPhysicsProbe
 
     /// <summary>
     /// 勝負の結果で比べる: 前へ押しながら弱の高速連打（rush）と、間合いまで寄って溜めた強を 1 発ずつ（patient）を、既定の CPU に対して
-    /// 種 4 つ × 30 秒。与えた・受けたダメージ（得点の点）、奪ったダウン・奪われたダウン、CPU の意識の最小。
+    /// 種 4 つ × 50 秒（人形の単位の 30 秒）。与えた・受けたダメージ（得点の点）、奪ったダウン・奪われたダウン、CPU の意識の最小。
     /// </summary>
     [TestMethod]
     public void RushVersusPatientOutcome()
@@ -48,19 +48,19 @@ public sealed class RushPhysicsProbe
                 var awake = 1f;
                 var lastPlayer = game.Player;
                 double seedDealt = 0, seedTaken = 0;
-                while (clock < 30f)
+                while (clock < 50.35f)
                 {
                     var p = game.Player;
                     var close = Vector3.Distance(p.ChestPosition, game.Cpu.ChestPosition) < 1.1f * p.ArmReach;
                     if (mode == "rush")
                     {
-                        var phase = clock / 0.08f;
+                        var phase = clock / 0.1343f;
                         control.Input = new FighterIntent(new Vector2(0f, 1f), Light: phase - MathF.Floor(phase) < 0.5f);
                     }
                     else
                     {
-                        var phase = clock % 0.9f;
-                        control.Input = new FighterIntent(new Vector2(0f, close ? 0f : 1f), Heavy: close && phase < 0.25f);
+                        var phase = clock % 1.511f;
+                        control.Input = new FighterIntent(new Vector2(0f, close ? 0f : 1f), Heavy: close && phase < 0.4196f);
                     }
 
                     game.Step(new BoxingInput(default), Dt);
@@ -103,21 +103,21 @@ public sealed class RushPhysicsProbe
     {
         foreach (var seed in new[] { 2, 3, 5, 6, 7 })
         {
-            var with = Bots.DefenseDrill.Punch("2", Bots.Defense.Slip, Bots.DefenseDrill.Defender(Bots.BotCatalog.Champion.Defenses, defend: true, Bots.DefenseDrill.DefaultRange, true), seed: seed, seconds: 14f, cue: 0.04f);
-            var without = Bots.DefenseDrill.Punch("2", Bots.Defense.Slip, Bots.DefenseDrill.Defender(Bots.BotCatalog.Champion.Defenses, defend: true, Bots.DefenseDrill.DefaultRange, false), seed: seed, seconds: 14f, cue: 0.04f);
+            var with = Bots.DefenseDrill.Punch("2", Bots.Defense.Slip, Bots.DefenseDrill.Defender(Bots.BotCatalog.Champion.Defenses, defend: true, Bots.DefenseDrill.DefaultRange, true), seed: seed, seconds: 23.5f, cue: 0.0671f);
+            var without = Bots.DefenseDrill.Punch("2", Bots.Defense.Slip, Bots.DefenseDrill.Defender(Bots.BotCatalog.Champion.Defenses, defend: true, Bots.DefenseDrill.DefaultRange, false), seed: seed, seconds: 23.5f, cue: 0.0671f);
             Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
                 $"seed {seed}: with counters {with.CounterDamage:F1}, without {without.CounterDamage:F1}"));
         }
     }
 
     /// <summary>
-    /// 溜めた強（保持 <c>hold</c> 秒）と短押しの弱を、ガードを固めて立つ相手に、間合いで 1 発ずつ。種 1〜3 × 20 秒。
+    /// 溜めた強（保持 <c>hold</c> 秒）と短押しの弱を、ガードを固めて立つ相手に、間合いで 1 発ずつ。種 1〜3 × 34 秒。
     /// 1 発あたりの当たる速さ・乗る質量・体の割合・運動量・ダメージと、拳を出した瞬間の胸の回転・重心の前進の速さ。
     /// </summary>
     [TestMethod]
     public void ChargedVersusTap()
     {
-        foreach (var (name, heavy, hold, period) in new[] { ("tap jab", false, 0f, 0.6f), ("tap cross", true, 0f, 0.6f), ("charged cross", true, 0.25f, 1.0f), ("charged + step", true, 0.25f, 1.0f) })
+        foreach (var (name, heavy, hold, period) in new[] { ("tap jab", false, 0f, 1.007f), ("tap cross", true, 0f, 1.007f), ("charged cross", true, 0.4196f, 1.678f), ("charged + step", true, 0.4196f, 1.678f) })
         {
             int hits = 0;
             double speed = 0, mass = 0, share = 0, momentum = 0, damage = 0, spin = 0, advance = 0;
@@ -128,13 +128,13 @@ public sealed class RushPhysicsProbe
                 var control = (IntentControl)game.PlayerControl!;
                 var cpu = (IntentControl)game.CpuControl;
                 var clock = 0f;
-                while (clock < 20f)
+                while (clock < 33.57f)
                 {
                     var p = game.Player;
                     var close = Vector3.Distance(p.ChestPosition with { Y = 0f }, game.Cpu.ChestPosition with { Y = 0f }) < 1.15f * p.ArmReach;
                     var phase = clock % period;
-                    var press = close && phase < MathF.Max(hold, 0.05f) + Dt;
-                    var step = name.EndsWith("step", StringComparison.Ordinal) && close && phase >= hold && phase < hold + 0.2f;
+                    var press = close && phase < MathF.Max(hold, 0.0839f) + Dt;
+                    var step = name.EndsWith("step", StringComparison.Ordinal) && close && phase >= hold && phase < hold + 0.3357f;
                     control.Input = new FighterIntent(new Vector2(0f, close && !step ? 0f : 1f), Light: press && !heavy, Heavy: press && heavy);
                     cpu.Input = new FighterIntent(Vector2.Zero, Evade: true);
                     game.Step(new BoxingInput(default), Dt);
@@ -183,7 +183,7 @@ public sealed class RushPhysicsProbe
         var headV = new Vector3[2];
         var lastHead = new[] { game.Player.HeadPosition, game.Cpu.HeadPosition };
         Remember();
-        while (clock < 20f)
+        while (clock < 33.57f)
         {
             var phase = clock / period;
             var down = phase - MathF.Floor(phase) < 0.5f;
@@ -238,7 +238,7 @@ public sealed class RushPhysicsProbe
                 t.Straight += straight;
                 var bodyClose = Vector3.Dot(shoulderV.GetValueOrDefault((pi, hit.Hand)) - victimV, strike);
                 t.BodyClose += bodyClose;
-                t.BodyRatio += Math.Clamp(bodyClose / MathF.Max(0.1f, rel), 0f, 1f);
+                t.BodyRatio += Math.Clamp(bodyClose / MathF.Max(0.1678f, rel), 0f, 1f);
             }
 
             Remember();
