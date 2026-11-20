@@ -20,7 +20,7 @@ internal sealed class AttackLab(int bouts, float seconds, int seed, Action<strin
     private float TargetGuard { get; } = targetGuard;
 
     /// <summary>1 つの型 × 溜めの測定。</summary>
-    internal readonly record struct Result(string Combo, float Range, float Telegraph, int Thrown, int Hits, int HeadHits, float Speed, float Mass, float Energy, float Damage, float Seconds, float Gap = 0f)
+    internal readonly record struct Result(string Combo, float Range, float Telegraph, int Thrown, int Hits, int HeadHits, float Speed, float Mass, float Energy, float Damage, float Seconds, float Gap = 0f, float FistSpeed = 0f)
     {
         /// <summary>1 本あたりのダメージ。</summary>
         public float DamagePerCombo => Thrown > 0 ? Damage / Thrown : 0f;
@@ -47,12 +47,12 @@ internal sealed class AttackLab(int bouts, float seconds, int seed, Action<strin
         foreach (var combo in combos)
         {
             log($"#### {combo}\n");
-            log("| 間合い | 溜め [s] | 当たった拳 / 打った本数 | 頭 | 当たった速さ [m/s] | 拳に乗った質量 [kg] | 1 発の運動エネルギー [J] | 1 本のダメージ | 1 秒のダメージ | 胸の間 [腕] |");
-            log("|---|---|---|---|---|---|---|---|---|---|");
+            log("| 間合い | 溜め [s] | 当たった拳 / 打った本数 | 頭 | 当たった速さ（相対）[m/s] | 拳の速さ（接触する歩の制御前）[m/s] | 拳に乗った質量 [kg] | 1 発の運動エネルギー [J] | 1 本のダメージ | 1 秒のダメージ | 胸の間 [腕] |");
+            log("|---|---|---|---|---|---|---|---|---|---|---|");
             foreach (var r in results.Where(r => r.Combo == combo))
             {
                 log(string.Create(CultureInfo.InvariantCulture,
-                    $"| {r.Range:0.00} | {r.Telegraph:0.00} | {r.Hits} / {r.Thrown} | {r.HeadHits} | {r.Speed:0.00} | {r.Mass:0.00} | {r.Energy:0.00} | {r.DamagePerCombo:0.0} | {r.DamagePerSecond:0.00} | {r.Gap:0.00} |"));
+                    $"| {r.Range:0.00} | {r.Telegraph:0.00} | {r.Hits} / {r.Thrown} | {r.HeadHits} | {r.Speed:0.00} | {r.FistSpeed:0.00} | {r.Mass:0.00} | {r.Energy:0.00} | {r.DamagePerCombo:0.0} | {r.DamagePerSecond:0.00} | {r.Gap:0.00} |"));
             }
 
             log("");
@@ -73,9 +73,9 @@ internal sealed class AttackLab(int bouts, float seconds, int seed, Action<strin
         }).Validated();
         var target = BotCatalog.Boxer with { Name = "target", GuardHeight = TargetGuard, AttackRange = 0.7f, NeutralRange = 0.7f, EngageRange = 0.7f, EdgeRange = 0f, Attacks = false, DefenseRate = 0f, Prediction = 0f, CounterRate = 0f, ClinchRate = 0f, Circling = 0f, HeadMovement = 0f };
         int thrown = 0, hits = 0, head = 0;
-        float speed = 0f, mass = 0f, energy = 0f, damage = 0f, time = 0f;
+        float speed = 0f, fistSpeed = 0f, mass = 0f, energy = 0f, damage = 0f, time = 0f;
         float gap = 0f;
-        var open = new (float Start, float Energy, HitEvent Hit)?[2];
+        var open = new (float Start, float Energy, HitEvent Hit, float FistSpeed)?[2];
         void Flush(int h)
         {
             if (open[h] is { } g)
@@ -83,6 +83,7 @@ internal sealed class AttackLab(int bouts, float seconds, int seed, Action<strin
                 hits++;
                 head += g.Hit.Zone is HitZone.Chin or HitZone.Temple or HitZone.Head ? 1 : 0;
                 speed += g.Hit.Speed;
+                fistSpeed += g.FistSpeed;
                 mass += g.Hit.ImpactMass;
                 energy += g.Energy;
                 open[h] = null;
@@ -102,6 +103,9 @@ internal sealed class AttackLab(int bouts, float seconds, int seed, Action<strin
             using var game = new BoxingGame(seed: seed + b, corners: corners);
             for (var t = 0f; t < seconds; t += Dt)
             {
+                // punchlabと同じ観測時点: 接触する歩の制御前。筋の力積を適用した後の衝突キャッシュとは時点が異なる。
+                var leftSpeed = game.Cpu.GloveVelocity(Hand.Left).Length();
+                var rightSpeed = game.Cpu.GloveVelocity(Hand.Right).Length();
                 game.Step(default, Dt);
                 gap += System.Numerics.Vector3.Distance(game.Cpu.ChestPosition, game.Player.ChestPosition) / game.Cpu.ArmReach;
                 gapSteps++;
@@ -109,16 +113,17 @@ internal sealed class AttackLab(int bouts, float seconds, int seed, Action<strin
                 {
                     damage += hit.Damage;
                     var h = (int)hit.Hand;
+                    var before = hit.Hand == Hand.Left ? leftSpeed : rightSpeed;
                     var e = 0.5f * hit.ImpactMass * hit.Speed * hit.Speed;
                     // 1 発の拳は、最初に触れてから PunchWindow 秒の接触のうち、いちばん強いものだけを数える（押し付けたままの接触で薄めない）。
                     if (open[h] is { } g && t - g.Start < PunchWindow)
                     {
-                        open[h] = e > g.Energy ? (g.Start, e, hit) : g;
+                        open[h] = e > g.Energy ? (g.Start, e, hit, before) : g;
                     }
                     else
                     {
                         Flush(h);
-                        open[h] = (t, e, hit);
+                        open[h] = (t, e, hit, before);
                     }
                 }
             }
@@ -130,6 +135,6 @@ internal sealed class AttackLab(int bouts, float seconds, int seed, Action<strin
         }
 
         var steps = Math.Max(1, Combo.Named(combo).Steps.Count);
-        return new Result(combo, range, telegraph, thrown / steps, hits, head, hits > 0 ? speed / hits : 0f, hits > 0 ? mass / hits : 0f, hits > 0 ? energy / hits : 0f, damage, time, gap / Math.Max(1, gapSteps));
+        return new Result(combo, range, telegraph, thrown / steps, hits, head, hits > 0 ? speed / hits : 0f, hits > 0 ? mass / hits : 0f, hits > 0 ? energy / hits : 0f, damage, time, gap / Math.Max(1, gapSteps), hits > 0 ? fistSpeed / hits : 0f);
     }
 }
