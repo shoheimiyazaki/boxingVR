@@ -133,7 +133,9 @@ public sealed class KickContactTests
         // 横蹴りは足（足の箱 = 足刀・かかと、またはつま先）で当たる。足の向き（足刀を立てる）は持たないので、どちらが先に触れるかは寄り方の
         // わずかな違いで入れ替わる（CLAUDE.md §8 テコンドー）。PhysicsVersion 44 で寄る間の押し付けが打撃に数えられなくなり、つま先が相手の膝へ先に触れた。
         Assert.IsTrue(results[KickTechnique.Side].Parts.Any(p => p is KickPart.Foot or KickPart.Toe), "a side kick lands with the foot");
-        Assert.Contains(KickPart.Foot, results[KickTechnique.Axe].Parts, "an axe kick brings the heel down");
+        // かかと落としは足（足の箱 = かかと、またはつま先）で頭へ下ろす。PhysicsVersion 62（シンプルな顔: 頭の形を頭蓋とあごの塊の距離の場に）で頭頂の形が
+        // 変わり、2 つ目の接触が足の箱（Foot）からつま先（Toe）へ入れ替わった（master: Shin,Foot,Shin,Shin → Shin,Toe,Shin）。横蹴りと同じく、どちらが先に触れるかは寄り方と的の形のわずかな違いで入れ替わる。
+        Assert.IsTrue(results[KickTechnique.Axe].Parts.Any(p => p is KickPart.Foot or KickPart.Toe), "an axe kick brings the foot down");
         // 回る蹴りは、体の向きが実際に変わる（命令の向きを物理が追った結果）。かかと落としは体を回さない。
         Assert.IsGreaterThan(0.3f, results[KickTechnique.Roundhouse].MaxYawDeviation);
         Assert.IsGreaterThan(0.5f, results[KickTechnique.Side].MaxYawDeviation);

@@ -60,15 +60,23 @@ public sealed class FaceLayerVisualTests
         PngWriter.WriteRgba(Path.Combine(VisualDir(), "face_layer_views.png"), Size * views.Length, Size * ids.Length, sheet);
     }
 
-    /// <summary>名簿の 18 人の顔を正面から（試合の描画）。.visualcheck/face_layer_roster.png（6 列 × 3 行、名簿の順）。</summary>
+    /// <summary>名簿の 18 人の顔を正面から（試合の描画）。.visualcheck/face_layer_roster.png（6 列 × 3 行、名簿の順）。環境変数 FACE_IDS（id のカンマ区切り）で絞れる。</summary>
     [TestMethod]
-    public void Roster_Fronts()
+    public void Roster_Fronts() => RosterSheet("face_layer_roster.png", new Vector3(0f, 0f, 1f));
+
+    /// <summary>同じ並びを斜め（顔の前から 35 度・少し上）から。.visualcheck/face_layer_roster_34.png。</summary>
+    [TestMethod]
+    public void Roster_ThreeQuarters() => RosterSheet("face_layer_roster_34.png", Vector3.Normalize(new Vector3(0.6f, 0.2f, 0.85f)));
+
+    private static void RosterSheet(string file, Vector3 from)
     {
         const int Size = 300;
         const int Columns = 6;
-        var all = CharacterRoster.All;
-        var rows = (all.Count + Columns - 1) / Columns;
-        var sheet = new byte[Size * Columns * Size * rows * 4];
+        var only = Environment.GetEnvironmentVariable("FACE_IDS");
+        var all = string.IsNullOrEmpty(only) ? CharacterRoster.All : [.. only.Split(',').Select(CharacterRoster.Get)];
+        var columns = Math.Min(Columns, all.Count);
+        var rows = (all.Count + columns - 1) / columns;
+        var sheet = new byte[Size * columns * Size * rows * 4];
         using var renderer = new HeadlessRenderer(Size, Size);
         for (var k = 0; k < all.Count; k++)
         {
@@ -83,19 +91,19 @@ public sealed class FaceLayerVisualTests
             var voxels = game.Cpu.Voxels!;
             var toWorld = voxels.PartOf(game.Cpu.Parts.Head)!.Body.GridToWorld();
             Vector3 World(Vector3 local) => Vector3.Transform(local, toWorld);
-            var eye = World(new Vector3(0f, 0f, 0.3f));
+            var eye = World(from * 0.3f);
             var up = Vector3.Normalize(World(Vector3.UnitY) - World(Vector3.Zero));
             var vp = Camera.ViewProjection(eye, World(Vector3.Zero), up, 16f * MathF.PI / 180f, 1f, 0.01f, 30f);
             var draws = voxels.Layers.Select(p => p.Draw(0f, new Voxels.EyePose(0f, World(new Vector3(0f, 0f, 2f))))).ToList();
             var shot = renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [], lighting: game.BuildLighting(), cameraPosition: eye, voxels: draws);
-            var (ox, oy) = (k % Columns * Size, k / Columns * Size);
+            var (ox, oy) = (k % columns * Size, k / columns * Size);
             for (var y = 0; y < Size; y++)
             {
-                Buffer.BlockCopy(shot, y * Size * 4, sheet, ((((oy + y) * Size * Columns) + ox) * 4), Size * 4);
+                Buffer.BlockCopy(shot, y * Size * 4, sheet, ((((oy + y) * Size * columns) + ox) * 4), Size * 4);
             }
         }
 
-        PngWriter.WriteRgba(Path.Combine(VisualDir(), "face_layer_roster.png"), Size * Columns, Size * rows, sheet);
+        PngWriter.WriteRgba(Path.Combine(VisualDir(), file), Size * columns, Size * rows, sheet);
     }
 
     private static string VisualDir()

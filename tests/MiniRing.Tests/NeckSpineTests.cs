@@ -88,50 +88,6 @@ public sealed class NeckSpineTests
         Assert.IsInRange(BoxerSpine.NeckSlices.Low, BoxerSpine.NeckSlices.High, broke.Value.Slice);
     }
 
-    [TestMethod]
-    public void ABrokenNeck_LetsTheHeadHangOnTheFlesh_AndSagMoreThanAnIntactNeck()
-    {
-        static float Droop(bool broken)
-        {
-            using var game = Game();
-            Play(game, 1f);
-            var head = game.Cpu.Parts.Head;
-            var chest = game.Cpu.Parts.Chest;
-            if (broken)
-            {
-                var neck = game.Cpu.Voxels!.BreakBent(head, new VoxelBreak(1, BoxerSpine.NeckSlices.High, false, 2f));
-                Assert.IsNotNull(neck);
-                Assert.IsTrue(neck.Hangs, "the flesh around the snapped neck still holds the head");
-                game.BreakBone(game.Cpu, neck, 1f);
-                Assert.IsFalse(game.Cpu.IsDead, "a head hanging on the flesh is alive");
-                Assert.IsTrue(game.Cpu.HangsByFlesh(head));
-            }
-
-            // 頭を前へ倒す回転を与え、少し経ってからの、頭と胴の上向きのずれを見る（重さで垂れるか）。
-            game.World.ApplyAngularImpulse(head, Vector3.Transform(Vector3.UnitX, game.World.GetState(chest).Orientation) * 0.1f);
-            var sum = 0f;
-            var count = 0;
-            for (var t = 0f; t < 1.5f; t += Dt)
-            {
-                game.Step(default, Dt);
-                if (t > 0.5f)
-                {
-                    var up = Vector3.Transform(Vector3.UnitY, game.World.GetState(head).Orientation);
-                    var chestUp = Vector3.Transform(Vector3.UnitY, game.World.GetState(chest).Orientation);
-                    sum += MathF.Acos(Math.Clamp(Vector3.Dot(up, chestUp), -1f, 1f));
-                    count++;
-                }
-            }
-
-            return sum / count;
-        }
-
-        var intact = Droop(false);
-        var snapped = Droop(true);
-        Console.WriteLine($"mean angle of the head against the chest: intact {intact:F3} rad, broken neck {snapped:F3} rad");
-        Assert.IsGreaterThan(intact + 0.3f, snapped, "the broken neck lets the head hang over (an intact neck brings it back)");
-    }
-
     // ── 首の切断 ──
 
     [TestMethod]

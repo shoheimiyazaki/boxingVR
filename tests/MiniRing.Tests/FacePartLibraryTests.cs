@@ -111,11 +111,12 @@ public sealed class FacePartLibraryTests
     public void Blend_EndsAreTheParts_AndTheMiddleIsBetween()
     {
         FaceVolume Of(params (string, string, float)[] c) => FaceComposer.Compose(Spec(c), 20, 28, 20);
-        var straight = Of(("nose", "nose.1", 1f));
-        var hooked = Of(("nose", "nose.3", 1f));
-        var scaled = Of(("nose", "nose.1", 7f));
+        // 鼻は部品の絵を測った値を丸めた単純な形（NoseShape）なので、絵の混ぜは髪で確かめる（短い髪とアフロ）。
+        var straight = Of(("hair", "hair.2", 1f));
+        var hooked = Of(("hair", "hair.6", 1f));
+        var scaled = Of(("hair", "hair.2", 7f));
         CollectionAssert.AreEqual(straight.Cells, scaled.Cells, "weights are normalised, a single part at any weight is that part");
-        var mid = Of(("nose", "nose.1", 0.5f), ("nose", "nose.3", 0.5f));
+        var mid = Of(("hair", "hair.2", 0.5f), ("hair", "hair.6", 0.5f));
         CollectionAssert.AreNotEqual(straight.Cells, hooked.Cells);
         CollectionAssert.AreNotEqual(mid.Cells, straight.Cells);
         CollectionAssert.AreNotEqual(mid.Cells, hooked.Cells);
@@ -157,8 +158,9 @@ public sealed class FacePartLibraryTests
     public void Values_MoveTheFeatures()
     {
         var spec = FaceSpec.For("Gaston");
-        int Eyes(FaceParts v) => FaceComposer.Compose(spec with { Values = v }, 40, 56, 40).Count(FaceMaterial.White);
-        Assert.IsGreaterThan(Eyes(FaceParts.Default with { EyeSize = 0.8f }), Eyes(FaceParts.Default with { EyeSize = 1.25f }), "bigger eyes, more white");
+        // 目の大きさは部品の絵のまま（シンプルな顔: 白目 3〜4 x 2〜3）。鼻の幅の値は鼻を広げる。
+        int Nose(FaceParts v) => FaceComposer.Compose(spec with { Values = v }, 20, 28, 20).Cells.Count(c => c != FaceMaterial.Empty);
+        Assert.IsGreaterThan(Nose(FaceParts.Default with { NoseWidth = 0.7f }), Nose(FaceParts.Default with { NoseWidth = 1.5f }), "a wider nose, more cells");
         var narrow = FaceComposer.Compose(spec with { Values = FaceParts.Default with { FaceWidth = 0.9f } }, 40, 56, 40).Cells.Count(c => c != FaceMaterial.Empty);
         var wide = FaceComposer.Compose(spec with { Values = FaceParts.Default with { FaceWidth = 1.15f } }, 40, 56, 40).Cells.Count(c => c != FaceMaterial.Empty);
         Assert.IsGreaterThan(narrow, wide, "wider face, more cells");

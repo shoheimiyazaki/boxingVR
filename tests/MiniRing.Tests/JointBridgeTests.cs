@@ -199,7 +199,10 @@ public sealed class JointBridgeTests
         // 変わったので 2 行を取り直した（`necklab --mode slash --tilt 35 --arms down --offsets -0.005..0.005 --speeds 3.4,9` をつなぎ有り・無しで。
         // 表は docs/arena/necklab_slash_tilt35_v59_on.md・_off.md。つなぎ無しは断たれず頭が残り、有りは頭が落ちる振り: side 3.4 m/s +3 mm（首の削れ 21 → 36）・
         // front 3.4 m/s -5 mm（4 → 12）。ほかに side 3.4 +5・front 9 -2・back 3.4 -2/+2/+4 も同じ。落ちる高さは 1 mm 刻みで入れ替わる鋭い値で、固定した 2 行）。
-        foreach (var (dir, offset, speed) in new[] { ("side", 0.003f, 3.4f), ("front", -0.005f, 3.4f) })
+        // 62（シンプルな顔: 頭の形を頭蓋とあごの塊の距離の場に）: あごの下・首の付け根の顔の層の形が変わったので取り直した（同じ necklab を -6..+6 mm、1 mm 刻み・3.4 m/s で。
+        // 表は docs/arena/necklab_slash_tilt35_v62_on.md・_off.md。つなぎ無しは頭が残り、有りは落ちる振り: side +1 mm（首の削れ 6 → 33）・front 0 mm（4 → 12）。
+        // ほかに side +5、front +4、back -6・+2 も同じ）。
+        foreach (var (dir, offset, speed) in new[] { ("side", 0.001f, 3.4f), ("front", 0f, 3.4f) })
         {
             var without = NeckLab.SlashOnce(dir, offset, speed, bridges: false, tiltDegrees: 35f, armsDown: true);
             var with = NeckLab.SlashOnce(dir, offset, speed, bridges: true, tiltDegrees: 35f, armsDown: true);

@@ -139,9 +139,18 @@ def fmt_weights(w):
     return "{ " + ", ".join(f'"{k}": {v}' for k, v in w.items()) + " }"
 
 
+# 目と眉は 1 つの部品で描く（2026-11-20、シンプルな顔: 混ぜると白目が 3x3 に、眉が 3 行に太った）。いちばん重い部品（同じなら先の物）だけを書く。
+SINGLE = ("eyes", "brows")
+
+
+def single(w):
+    best = max(w.items(), key=lambda kv: (kv[1], -list(w).index(kv[0])))[0]
+    return {best: 1.0}
+
+
 def block(skin, hair, iris, parts, values):
     lines = ['  "face": {', '    "parts": {']
-    items = list(parts.items())
+    items = [(cat, single(w) if cat in SINGLE and w else w) for cat, w in parts.items()]
     for i, (cat, w) in enumerate(items):
         lines.append(f'      "{cat}": {fmt_weights(w)}' + ("," if i < len(items) - 1 else ""))
     lines.append("    },")
