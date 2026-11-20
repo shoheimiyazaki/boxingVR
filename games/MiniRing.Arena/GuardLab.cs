@@ -66,17 +66,17 @@ internal static class GuardLab
     [
         new("現行 Step", SwordDefense.Adopted, CounterAttack: true),
         new("連続（1 周目）", SwordDefense.Continuous, CounterAttack: true),
-        new("H1 届く受け（手 3 腕/s）", SwordDefense.Parrying with { Reach = true, HandSpeed = 3f }, CounterAttack: true),
-        new("H1 届く受け（手 6 腕/s）", SwordDefense.Parrying with { Reach = true, HandSpeed = 6f }, CounterAttack: true),
-        new("H1 届く受け（手 12 腕/s）", SwordDefense.Parrying with { Reach = true, HandSpeed = 12f }, CounterAttack: true),
+        new("H1 届く受け（手 1.79 腕/s）", SwordDefense.Parrying with { Reach = true, HandSpeed = 1.79f }, CounterAttack: true),
+        new("H1 届く受け（手 3.57 腕/s）", SwordDefense.Parrying with { Reach = true, HandSpeed = 3.57f }, CounterAttack: true),
+        new("H1 届く受け（手 7.15 腕/s）", SwordDefense.Parrying with { Reach = true, HandSpeed = 7.15f }, CounterAttack: true),
         new("H1 + H2 構えが線を覆う", SwordDefense.Parrying with { Reach = true, Economy = 0.5f }, CounterAttack: true),
-        new("H1 + H2 + H3 弧の読み", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Arc = true, Horizon = 0.35f }, CounterAttack: true),
-        new("H4 連続の傾き + H1〜H3", SwordDefense.Continuous with { Reach = true, Economy = 0.5f, Arc = true, Horizon = 0.35f }, CounterAttack: true),
+        new("H1 + H2 + H3 弧の読み", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Arc = true, Horizon = 0.587f }, CounterAttack: true),
+        new("H4 連続の傾き + H1〜H3", SwordDefense.Continuous with { Reach = true, Economy = 0.5f, Arc = true, Horizon = 0.587f }, CounterAttack: true),
         new("H1 + H2 動きの重み 1.5", SwordDefense.Parrying with { Reach = true, Economy = 1.5f }, CounterAttack: true),
-        new("H1 + H2 手 3 腕/s", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, HandSpeed = 3f }, CounterAttack: true),
-        new("H1 + H2 手 12 腕/s", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, HandSpeed = 12f }, CounterAttack: true),
-        new("H1 + H2 + 弧のみ（Horizon 0.25）", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Arc = true }, CounterAttack: true),
-        new("H1 + H2 + Horizon 0.35（弧なし）", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Horizon = 0.35f }, CounterAttack: true),
+        new("H1 + H2 手 1.79 腕/s", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, HandSpeed = 1.79f }, CounterAttack: true),
+        new("H1 + H2 手 7.15 腕/s", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, HandSpeed = 7.15f }, CounterAttack: true),
+        new("H1 + H2 + 弧のみ（Horizon 0.42）", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Arc = true }, CounterAttack: true),
+        new("H1 + H2 + Horizon 0.587（弧なし）", SwordDefense.Parrying with { Reach = true, Economy = 0.5f, Horizon = 0.587f }, CounterAttack: true),
         new("H4' 連続の傾き + H1 + H2（弧なし）", SwordDefense.Continuous with { Reach = true, Economy = 0.5f }, CounterAttack: true),
     ];
 
@@ -191,7 +191,7 @@ internal static class GuardLab
         using var game = new BoxingGame(VersusLab.Tuning, seed, new BoxingCorners("受け手", _ => defender, _ => attack.Create(seed),
             CpuWeapon: Shielded ? WeaponKind.IronSword : WeaponKind.Katana, PlayerWeapon: attack.Weapon, CpuTwoHanded: !Shielded, PlayerTwoHanded: attack.TwoHanded,
             CpuWear: Shielded ? HandWear.Shield : HandWear.Glove,
-            // 比較では種が入力条件を変えるよう、開始間隔を技の間合いの許容幅（±3 cm）だけ揺らす。全ての守りに同じ間隔を使う。
+            // 比較では種が入力条件を変えるよう、開始間隔を技の間合いの許容幅（±8 cm）だけ揺らす。全ての守りに同じ間隔を使う。
             Ring: variant.CounterAttack ? RingLayout.Weapons with { StartGap = RingLayout.Weapons.StartGap + (((2f * new Random(seed).NextSingle()) - 1f) * MotionTechnique.Window) } : null));
         var victim = game.Cpu.Voxels!;
         var start = victim.Parts.Sum(p => p.Body.Grid.FilledCount);

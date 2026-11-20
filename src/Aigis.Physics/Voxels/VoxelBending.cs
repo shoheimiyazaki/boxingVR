@@ -409,7 +409,7 @@ public static class VoxelBending
         public float[] CellActiveTie { get; init; } = [];
     }
 
-    private const float DefaultStiffness = 10e9f;
+    private const float DefaultStiffness = 12.60e9f; // 段 2（相似の換算）: 材料のヤング率が ×1.26 になるので、比を保つために同じ倍率
 
     private static BeamGeometry? BuildGeometry(VoxelGrid grid, int axis, int slices, bool loadBearingOnly)
     {

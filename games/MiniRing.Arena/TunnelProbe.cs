@@ -150,7 +150,7 @@ internal static class TunnelProbe
                         var pb = before[part.Body.BodyId];
                         var pNow = game.World.GetState(part.Body.BodyId);
                         var reach = Radius(w.Body) + Radius(part.Body);
-                        var moved = Vector3.Distance(wb.Position, wNow.Position) + Vector3.Distance(pb.Position, pNow.Position) + 0.02f;
+                        var moved = Vector3.Distance(wb.Position, wNow.Position) + Vector3.Distance(pb.Position, pNow.Position) + 0.0563f;
                         if (MathF.Min(Vector3.Distance(wb.Position, pb.Position), Vector3.Distance(wNow.Position, pNow.Position)) - moved > reach)
                         {
                             continue;
@@ -175,7 +175,7 @@ internal static class TunnelProbe
                             // 同じ姿勢でもう一度解いたら触れるか（触れるなら、ここまでの経路の差。触れないなら解き方の穴）と、手前の振り分けが外したか。
                             var again = VoxelContact.Resolve(w.Body, wb, part.Body, pb);
                             var cullReach = w.Body.Grid.HalfExtents.Length() + part.Body.Grid.HalfExtents.Length() + w.Body.GridCenterLocal.Length() + part.Body.GridCenterLocal.Length();
-                            var cullMoved = Vector3.Distance(wb.Position, wNow.Position) + Vector3.Distance(pb.Position, pNow.Position) + 0.01f;
+                            var cullMoved = Vector3.Distance(wb.Position, wNow.Position) + Vector3.Distance(pb.Position, pNow.Position) + 0.0282f;
                             var culled = MathF.Min(Vector3.Distance(wb.Position, pb.Position), Vector3.Distance(wNow.Position, pNow.Position)) - cullMoved > cullReach;
                             misses.Add(new Miss(pair, t, $"{(holder == game.Player ? "赤" : "青")}{w.Kind}", victim == holder ? "自分" : "相手", part.Kind, first == 0, cells, speed,
                                 $"{materials} (再解:{(again.Touched ? "触れた" : "触れず")} 振り分け:{(culled ? "外した" : "通した")} 初めの刻み {first})"));

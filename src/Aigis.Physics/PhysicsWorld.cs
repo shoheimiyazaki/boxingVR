@@ -204,8 +204,8 @@ public sealed partial class PhysicsWorld : IDisposable
                 BodyFriction = _bodyFriction,
                 ContactGrip = _contactGrip,
                 SoftContact = _softContact,
-                ContactSpringiness = new SpringSettings(30, 1),
-                MaximumRecoveryVelocity = 2f,
+                ContactSpringiness = new SpringSettings(ContactFrequencyHz, 1),
+                MaximumRecoveryVelocity = ContactMaximumRecoveryVelocity,
                 FrictionCoefficient = frictionCoefficient,
                 Contacts = _contactCollector,
                 ExcludedPairs = _excludedPairs,
@@ -256,8 +256,8 @@ public sealed partial class PhysicsWorld : IDisposable
         var handle = _simulation.Bodies.Add(BodyDescription.CreateDynamic(
             new RigidPose(position, orientation),
             box.ComputeInertia(mass),
-            new CollidableDescription(shapeIndex, 0.1f),
-            new BodyActivityDescription(0.01f)));
+            new CollidableDescription(shapeIndex, 0.2817f),
+            new BodyActivityDescription(DefaultSleepThreshold)));
         var id = RegisterBody(handle, Filter(group, subgroup));
         RegisterBodyMetadata(id, mass, new BodyShape(ShapeKind.Box, halfExtents));
         return id;
@@ -273,8 +273,8 @@ public sealed partial class PhysicsWorld : IDisposable
         var handle = _simulation.Bodies.Add(BodyDescription.CreateDynamic(
             new RigidPose(position, orientation),
             capsule.ComputeInertia(mass),
-            new CollidableDescription(shapeIndex, 0.1f),
-            new BodyActivityDescription(0.01f)));
+            new CollidableDescription(shapeIndex, 0.2817f),
+            new BodyActivityDescription(DefaultSleepThreshold)));
         var id = RegisterBody(handle, Filter(group, subgroup));
         RegisterBodyMetadata(id, mass, new BodyShape(ShapeKind.Capsule, new Vector3(radius, length * 0.5f, 0f)));
         return id;
@@ -289,8 +289,8 @@ public sealed partial class PhysicsWorld : IDisposable
         var handle = _simulation.Bodies.Add(BodyDescription.CreateDynamic(
             new RigidPose(position),
             sphere.ComputeInertia(mass),
-            new CollidableDescription(shapeIndex, 0.1f),
-            new BodyActivityDescription(0.01f)));
+            new CollidableDescription(shapeIndex, 0.2817f),
+            new BodyActivityDescription(DefaultSleepThreshold)));
         var id = RegisterBody(handle, Filter(group, subgroup));
         RegisterBodyMetadata(id, mass, new BodyShape(ShapeKind.Sphere, new Vector3(radius, 0f, 0f)));
         return id;
@@ -326,8 +326,8 @@ public sealed partial class PhysicsWorld : IDisposable
         var shapeIndex = _simulation.Shapes.Add(new Sphere(radius));
         var handle = _simulation.Bodies.Add(BodyDescription.CreateKinematic(
             new RigidPose(position),
-            new CollidableDescription(shapeIndex, 0.1f),
-            new BodyActivityDescription(0.01f)));
+            new CollidableDescription(shapeIndex, 0.2817f),
+            new BodyActivityDescription(DefaultSleepThreshold)));
         var id = RegisterBody(handle, Filter(group, subgroup));
         RegisterBodyMetadata(id, 0f, new BodyShape(ShapeKind.Sphere, new Vector3(radius, 0f, 0f)));
         return id;
@@ -340,8 +340,8 @@ public sealed partial class PhysicsWorld : IDisposable
         var shapeIndex = _simulation.Shapes.Add(new Capsule(radius, length));
         var handle = _simulation.Bodies.Add(BodyDescription.CreateKinematic(
             new RigidPose(position, orientation),
-            new CollidableDescription(shapeIndex, 0.1f),
-            new BodyActivityDescription(0.01f)));
+            new CollidableDescription(shapeIndex, 0.2817f),
+            new BodyActivityDescription(DefaultSleepThreshold)));
         var id = RegisterBody(handle, Filter(group, subgroup));
         RegisterBodyMetadata(id, 0f, new BodyShape(ShapeKind.Capsule, new Vector3(radius, length * 0.5f, 0f)));
         return id;
@@ -359,8 +359,8 @@ public sealed partial class PhysicsWorld : IDisposable
         var handle = _simulation.Bodies.Add(BodyDescription.CreateDynamic(
             new RigidPose(position, orientation),
             cylinder.ComputeInertia(mass),
-            new CollidableDescription(shapeIndex, 0.1f),
-            new BodyActivityDescription(0.01f)));
+            new CollidableDescription(shapeIndex, 0.2817f),
+            new BodyActivityDescription(DefaultSleepThreshold)));
         var id = RegisterBody(handle, Filter(group, subgroup));
         RegisterBodyMetadata(id, mass, new BodyShape(ShapeKind.Cylinder, new Vector3(radius, length * 0.5f, 0f)));
         return id;
@@ -373,8 +373,8 @@ public sealed partial class PhysicsWorld : IDisposable
         var shapeIndex = _simulation.Shapes.Add(new Cylinder(radius, length));
         var handle = _simulation.Bodies.Add(BodyDescription.CreateKinematic(
             new RigidPose(position, orientation),
-            new CollidableDescription(shapeIndex, 0.1f),
-            new BodyActivityDescription(0.01f)));
+            new CollidableDescription(shapeIndex, 0.2817f),
+            new BodyActivityDescription(DefaultSleepThreshold)));
         var id = RegisterBody(handle, Filter(group, subgroup));
         RegisterBodyMetadata(id, 0f, new BodyShape(ShapeKind.Cylinder, new Vector3(radius, length * 0.5f, 0f)));
         return id;
@@ -409,8 +409,8 @@ public sealed partial class PhysicsWorld : IDisposable
         var shapeIndex = _simulation.Shapes.Add(box);
         var handle = _simulation.Bodies.Add(BodyDescription.CreateKinematic(
             new RigidPose(position, orientation),
-            new CollidableDescription(shapeIndex, 0.1f),
-            new BodyActivityDescription(0.01f)));
+            new CollidableDescription(shapeIndex, 0.2817f),
+            new BodyActivityDescription(DefaultSleepThreshold)));
         var id = RegisterBody(handle, Filter(group, subgroup));
         RegisterBodyMetadata(id, 0f, new BodyShape(ShapeKind.Box, halfExtents));
         return id;
@@ -698,17 +698,24 @@ public sealed partial class PhysicsWorld : IDisposable
         _bodyFriction[new BodyHandle(id)] = friction;
     }
 
-    /// <summary>Contact stiffness of a pair with a soft side, Hz (the world's own is 30).
+    /// <summary>The world's contact spring, Hz. 30 Hz for the 60 cm doll world until 2026-11-20; the real-scale world keeps the
+    /// same motion by similarity (time × √(1/0.355) = 1.678 with gravity unchanged), so every frequency is × 0.5958.</summary>
+    public const float ContactFrequencyHz = 17.87f;
+
+    /// <summary>How fast the world pushes a penetrating pair apart, m/s (2 m/s in the doll world; speeds × 1.678 by similarity).</summary>
+    public const float ContactMaximumRecoveryVelocity = 3.357f;
+
+    /// <summary>Contact stiffness of a pair with a soft side, Hz (the world's own is <see cref="ContactFrequencyHz"/>; 30 in the doll world).
     /// <para>8 until 2026-09-29: that soft a spring let a closing claw push straight through the body
     /// it was shutting on (「掴むと爪を患者が貫通して外に出る」). The bounce the softness was for is
     /// removed by the over-damping and the slow recovery below, not by the stiffness.</para></summary>
-    public const float SoftContactFrequencyHz = 30f;
+    public const float SoftContactFrequencyHz = 17.87f;
 
     /// <summary>...its damping ratio. Over-damped, so a soft contact settles instead of ringing.</summary>
     public const float SoftContactDampingRatio = 3f;
 
-    /// <summary>...and how fast it pushes a penetrating pair apart, m/s (the world's own is 2).</summary>
-    public const float SoftContactMaximumRecoveryVelocity = 0.5f;
+    /// <summary>...and how fast it pushes a penetrating pair apart, m/s (the world's own is <see cref="ContactMaximumRecoveryVelocity"/>; 0.5 of 2 in the doll world).</summary>
+    public const float SoftContactMaximumRecoveryVelocity = 0.839f;
 
     /// <summary>
     /// Makes every contact this body takes part in SOFT: a low, over-damped contact spring and a slow
@@ -957,10 +964,11 @@ public sealed partial class PhysicsWorld : IDisposable
         }
     }
 
-    /// <summary>The sleep threshold every body is created with — Bepu's own squared-velocity figure.
+    /// <summary>The sleep threshold every body is created with — Bepu's own squared-velocity figure (0.01 in the 60 cm doll world;
+    /// a squared speed is × 1.678² = 2.817 by similarity).
     /// Named so <see cref="SetSleepThreshold"/>'s callers and its tests can say what they are
     /// restoring rather than restating the literal at each site.</summary>
-    public const float DefaultSleepThreshold = 0.01f;
+    public const float DefaultSleepThreshold = 0.02817f;
 
     /// <summary>
     /// Sets the squared-velocity threshold below which this body may go to sleep, or a NEGATIVE value

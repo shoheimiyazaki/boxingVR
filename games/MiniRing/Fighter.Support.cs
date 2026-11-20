@@ -395,7 +395,7 @@ public sealed partial class Fighter
 
     private (float Upright, float Vertical) BalanceOf(Vector3 com, float groundY)
     {
-        var h = MathF.Max(0.02f, com.Y - groundY);
+        var h = MathF.Max(0.0563f, com.Y - groundY);
         var omega = MathF.Sqrt(-_world.Gravity.Y / h);
         var v = CenterOfMassVelocity;
         var capture = new Vector2(com.X, com.Z) + (new Vector2(v.X, v.Z) / omega);
@@ -491,7 +491,7 @@ public sealed partial class Fighter
 
         _catchable.Build();
         var c = CenterOfMass;
-        var h = MathF.Max(0.05f, c.Y - (PelvisPosition.Y - _hoverHeight));
+        var h = MathF.Max(0.141f, c.Y - (PelvisPosition.Y - _hoverHeight));
         var omega = MathF.Sqrt(-_world.Gravity.Y / h);
         var com = new Vector2(c.X, c.Z);
         var want = com + (new Vector2(desired.X, desired.Z) / omega);

@@ -24,7 +24,7 @@ internal sealed class NoiseLab(int matchSamples, int drillSamples, int seedBase,
     public const double TargetT = 2.5;
 
     /// <summary>ドリルの合図の遅れ [s]（回避の基本動作の測り方と同じ）。</summary>
-    public const float DrillCue = 0.04f;
+    public const float DrillCue = 0.0671f;
 
     /// <summary>champion′ の変え幅（Cross の Duration [s]、Slip の HeadX）。測れる最小のずれとして 1 mm / 0.001。</summary>
     public const float Nudge = 0.001f;

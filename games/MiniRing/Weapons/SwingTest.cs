@@ -26,7 +26,7 @@ public sealed record SwingResult(WeaponSwing Swing, float Range, bool Landed, Bo
     /// 研究で上る坂: 威力が主。頭に当たらない振りは、渡した力積と、頭へどれだけ近づいたかで比べる（当たらない振り同士にも差を付け、
     /// 頭へ向かう方へ探索を導く）。自分を打って自分の意識を削る振りは、その分だけ引く。
     /// </summary>
-    public float Fitness => Concussion - SelfConcussion + (0.002f * Impulse) - (0.05f * HeadMiss) - (0.0005f * SelfCells);
+    public float Fitness => Concussion - SelfConcussion + (0.0001192f * Impulse) - (0.01775f * HeadMiss) - (0.0005f * SelfCells);
 }
 
 /// <summary>
@@ -38,7 +38,7 @@ public static class SwingTest
     private const float Dt = 1f / 240f;
 
     /// <summary>研究で見る、間合いのずれ [m]: 振りは間合い ± これでも試し、平均で比べる（1 点の間合いでしか効かない振りを選ばない）。</summary>
-    public const float RangeSpread = 0.02f;
+    public const float RangeSpread = 0.05634f;
 
     /// <summary>
     /// 間合い <paramref name="range"/> と、その ± <see cref="RangeSpread"/> の 3 点で振り、数値を平均した結果（当たった部位などは真ん中の
@@ -82,7 +82,7 @@ public static class SwingTest
         BodyPartKind? part = null;
         var started = false;
         var finishedAt = float.MaxValue;
-        for (var t = 0f; t < 6f && t < finishedAt + 0.3f; t += Dt)
+        for (var t = 0f; t < 10.07f && t < finishedAt + 0.5035f; t += Dt)
         {
             game.Step(default, Dt);
             var s = game.World.GetState(club.Body.BodyId);
@@ -123,7 +123,7 @@ public static class SwingTest
             afterStep?.Invoke(game, t, bot.Current is not null);
         }
 
-        return new SwingResult(swing, range, part is not null, part, tipSpeed, hitTipSpeed, impulse, twist, started ? MathF.Max(0f, game.Cpu.Concussion - concussionBefore) : 0f, started ? miss : 1f, cells,
+        return new SwingResult(swing, range, part is not null, part, tipSpeed, hitTipSpeed, impulse, twist, started ? MathF.Max(0f, game.Cpu.Concussion - concussionBefore) : 0f, started ? miss : 2.817f, cells,
             started ? MathF.Max(0f, game.Player.Concussion - selfBefore) : 0f, selfCells);
     }
 }

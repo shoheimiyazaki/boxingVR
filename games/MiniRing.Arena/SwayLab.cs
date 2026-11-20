@@ -21,7 +21,7 @@ internal sealed class SwayLab(int bouts, float seconds, int seed, Action<string>
             foreach (var hz in frequencies)
             {
                 var technique = Rhythm(hz, cycles, push);
-                var book = GrappleBook.Jujutsu with { Rate = 50f, Techniques = [technique] };
+                var book = GrappleBook.Jujutsu with { Rate = 29.8f, Techniques = [technique] };
                 var (attempts, throws, falls, margin, balance) = (0, 0, 0, float.NegativeInfinity, 1f);
                 for (var b = 0; b < bouts; b++)
                 {
@@ -57,7 +57,7 @@ internal sealed class SwayLab(int bouts, float seconds, int seed, Action<string>
     }
 
     /// <summary>
-    /// 揺さぶりの技の経路: 掴んで（0.25 秒）、周期 1/f で押す（両手を相手の側へ）・引く（手前へ）を n 回、最後に支え釣り込み足（引いて足首を塞ぐ）。
+    /// 揺さぶりの技の経路: 掴んで（0.42 秒）、周期 1/f で押す（両手を相手の側へ）・引く（手前へ）を n 回、最後に支え釣り込み足（引いて足首を塞ぐ）。
     /// f = 0 は揺さぶらずにすぐ支え釣り込み足（比べもの）。
     /// </summary>
     internal static GrappleTechnique Rhythm(float hz, int cycles, float push)
@@ -67,9 +67,9 @@ internal sealed class SwayLab(int bouts, float seconds, int seed, Action<string>
         var keys = new List<GrappleKey>
         {
             new(0f, Sleeve(0f, false), Collar(0f, false)),
-            new(0.25f, Sleeve(0f), Collar(0f)),
+            new(0.42f, Sleeve(0f), Collar(0f)),
         };
-        var t = 0.25f;
+        var t = 0.42f;
         if (hz > 0f)
         {
             var period = 1f / hz;
@@ -81,11 +81,11 @@ internal sealed class SwayLab(int bouts, float seconds, int seed, Action<string>
             }
         }
 
-        keys.Add(new GrappleKey(t + 0.2f, new GrappleHand(GrappleAnchor.Self, [0.35f, -0.15f, 0.45f], true), new GrappleHand(GrappleAnchor.Self, [0.05f, -0.1f, 0.5f], true),
+        keys.Add(new GrappleKey(t + 0.336f, new GrappleHand(GrappleAnchor.Self, [0.35f, -0.15f, 0.45f], true), new GrappleHand(GrappleAnchor.Self, [0.05f, -0.1f, 0.5f], true),
             new GrappleLeg(Hand.Left, GrappleAnchor.AnkleL, [0f, 0.04f, -0.1f]), Head: [0f, -0.05f, -0.15f], Spring: 0.3f));
-        keys.Add(new GrappleKey(t + 0.95f, new GrappleHand(GrappleAnchor.Self, [0.5f, -0.3f, 0.25f], true), new GrappleHand(GrappleAnchor.Self, [0.3f, -0.35f, 0.35f], true),
+        keys.Add(new GrappleKey(t + 1.594f, new GrappleHand(GrappleAnchor.Self, [0.5f, -0.3f, 0.25f], true), new GrappleHand(GrappleAnchor.Self, [0.3f, -0.35f, 0.35f], true),
             new GrappleLeg(Hand.Left, GrappleAnchor.AnkleL, [0f, 0.04f, -0.05f]), Head: [0f, -0.1f, -0.25f], Spring: 0.4f, Twist: -0.3f));
-        keys.Add(new GrappleKey(t + 1.15f, new GrappleHand(GrappleAnchor.Self, [0.2f, -0.1f, 0.5f]), new GrappleHand(GrappleAnchor.Self, [-0.2f, -0.1f, 0.5f])));
+        keys.Add(new GrappleKey(t + 1.930f, new GrappleHand(GrappleAnchor.Self, [0.2f, -0.1f, 0.5f]), new GrappleHand(GrappleAnchor.Self, [-0.2f, -0.1f, 0.5f])));
         return new GrappleTechnique($"rhythm-{hz:0.##}", 1f, [0.7f, -0.7f], keys);
     }
 }

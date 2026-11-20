@@ -13,7 +13,7 @@ namespace MiniRing.Voxels;
 /// <item><b>体の動きは変えない</b>: 親の部位の剛体を借りるだけ（<see cref="VoxelBody.Massless"/>: 質量も剛体の形も持たない。関節の力も無い）。
 /// 刃が触れたときの運動量の受け渡しは、普通の部位との接触と同じく親の剛体へ掛かる。</item>
 /// <item><b>どのセルがつなぎか</b>（<see cref="Refresh"/>）: 関節のまわり 5 セル以内で、いまの姿勢で親にも子にも埋まったセルが無く（そこは部位が当たる）、
-/// 親のセルも子のセルも 1 セル（約 5 mm）以内にある所。材質は、親の部位の「まわり」（<see cref="BoxerVoxelOverrides.HaloFor"/>: CT から作った体の、
+/// 親のセルも子のセルも 1 セル（約 14 mm）以内にある所。材質は、親の部位の「まわり」（<see cref="BoxerVoxelOverrides.HaloFor"/>: CT から作った体の、
 /// 切れ目の向こうにつながる組織）があればその所の組織、無ければ（またはそこが空なら）その 2 つの近いセルのうち強い方（骨が近ければ骨）。つなぎは毎歩、
 /// いまの 2 つの部位の格子から作り直す（姿勢の記憶は持たない。部位のセルが削れれば、つなぎもそのぶん細る）。</item>
 /// <item><b>断たれたら</b>（<see cref="Sever"/>）: つなぎのセルを刃の接触（<see cref="VoxelContact"/>。圧力と材質）が壊したら、そのセルがつないでいた
@@ -100,8 +100,8 @@ internal sealed class JointBridge
     public VoxelPart Child { get; }
 
     /// <summary>
-    /// 親の部位の組織を持つ格子（部位そのものが先頭）。頭は 5 mm の格子（頭蓋骨・脳・首）の外を顔の層（2.5 mm）が持つので、あごや首の付け根の組織は
-    /// 顔の層にある（PhysicsVersion 59: 顔の層を入れたとき、つなぎが 5 mm の格子だけを見ていて、外の組織が見えなかった）。
+    /// 親の部位の組織を持つ格子（部位そのものが先頭）。頭は 14 mm の格子（頭蓋骨・脳・首）の外を顔の層（7 mm）が持つので、あごや首の付け根の組織は
+    /// 顔の層にある（PhysicsVersion 59: 顔の層を入れたとき、つなぎが 14 mm の格子だけを見ていて、外の組織が見えなかった）。
     /// </summary>
     public IReadOnlyList<VoxelPart> ParentLayers { get; }
 
@@ -134,7 +134,7 @@ internal sealed class JointBridge
 
     /// <summary>
     /// 武器 <paramref name="weapon"/>（歩の前の姿勢 <paramref name="before"/> から今の姿勢まで動く）の格子の箱が掃く所のセルだけを、<see cref="Refresh(Func{Vector3, bool})"/> で作り直す。
-    /// 掃く所 = 歩の前と今の箱を、箱の角が動いた距離（と 1.2 cm）だけ広げた 2 つの箱。刃は細長いので、世界の軸に沿った箱より、触れうるセルがずっと少ない。
+    /// 掃く所 = 歩の前と今の箱を、箱の角が動いた距離（と 3.4 cm）だけ広げた 2 つの箱。刃は細長いので、世界の軸に沿った箱より、触れうるセルがずっと少ない。
     /// </summary>
     public bool RefreshNear(VoxelBody weapon, BodyState before)
     {
@@ -151,7 +151,7 @@ internal sealed class JointBridge
             moved = MathF.Max(moved, Vector3.Distance(Vector3.Transform(local, now), Vector3.Transform(local, then)));
         }
 
-        var reach = half + new Vector3(moved + 0.012f);
+        var reach = half + new Vector3(moved + 0.0338f);
         bool Inside(Vector3 world, Matrix4x4 inverse)
         {
             var p = Vector3.Transform(world, inverse);

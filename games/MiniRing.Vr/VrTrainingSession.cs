@@ -31,7 +31,7 @@ internal sealed class VrTrainingSession : IDisposable
         _firstPerson = firstPerson;
         _wear = wear;
         // 型の間は体の腕の長さで決まるので、一度作った試合の体から腕の長さを読む。
-        using (var probe = new BoxingGame(tuning, corners: SwordTraining.Corners(weapon, 1f, wear)))
+        using (var probe = new BoxingGame(tuning, corners: SwordTraining.Corners(weapon, 2.817f, wear)))
         {
             Forms = SwordTraining.Forms(weapon, probe.PlayerSense.ArmReach);
         }

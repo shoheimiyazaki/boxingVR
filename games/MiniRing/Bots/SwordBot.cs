@@ -27,13 +27,13 @@ public sealed class SwordBot : IFighterControl
     private float _plannedAt;
 
     /// <summary>狙った技の間合いに着けないまま、この秒数が過ぎたら狙いを決め直す（逃げる相手・詰まった間合い）。</summary>
-    public const float PlanPatience = 1.5f;
+    public const float PlanPatience = 2.518f;
 
     /// <param name="techniques">持っている技。</param>
     /// <param name="seed">技の選び方の乱数の種。</param>
     /// <param name="rest">技を出し終えてから次を狙うまでの間 [s]。</param>
     /// <param name="weights">技ごとの選ばれやすさ（null なら同じ。0 の技は出さない）。</param>
-    public SwordBot(IReadOnlyList<SwordTechnique> techniques, int seed, float rest = 0.5f, IReadOnlyList<float>? weights = null)
+    public SwordBot(IReadOnlyList<SwordTechnique> techniques, int seed, float rest = 0.8392f, IReadOnlyList<float>? weights = null)
     {
         ArgumentNullException.ThrowIfNull(techniques);
         if (techniques.Count == 0)
@@ -125,7 +125,7 @@ public sealed class SwordBot : IFighterControl
         }
 
         var want = resting ? StandOff : _plan!.Range;
-        var move = distance > want + 0.02f ? face : distance < want - 0.02f ? -face : Vector3.Zero;
+        var move = distance > want + 0.05634f ? face : distance < want - 0.05634f ? -face : Vector3.Zero;
         return new FighterCommand(move, face, guard, stance);
     }
 

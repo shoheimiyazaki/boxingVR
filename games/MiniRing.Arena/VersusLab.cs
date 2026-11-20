@@ -24,8 +24,8 @@ internal static class VersusLab
         return
         [
             Contender.Named("champion") with { Name = "拳" },
-            new("棍棒", s => new ClubBot([.. club.Select(c => c.Swing)], s, club.Average(c => c.Range), rest: 0.6f), WeaponKind.WoodenClub),
-            new("バット", s => new ClubBot([.. bat.Select(c => c.Swing)], s, bat.Average(c => c.Range), rest: 0.6f), WeaponKind.WoodenClub, TwoHanded: true),
+            new("棍棒", s => new ClubBot([.. club.Select(c => c.Swing)], s, club.Average(c => c.Range), rest: 1.007f), WeaponKind.WoodenClub),
+            new("バット", s => new ClubBot([.. bat.Select(c => c.Swing)], s, bat.Average(c => c.Range), rest: 1.007f), WeaponKind.WoodenClub, TwoHanded: true),
             new("日本刀", s => SwordLibraryLab.Bot(library, WeaponKind.Katana, s, defense, hitAndAway, aim).Armed, WeaponKind.Katana, TwoHanded: true),
             new("ロングソード", s => SwordLibraryLab.Bot(library, WeaponKind.Longsword, s, defense, hitAndAway, aim).Armed, WeaponKind.Longsword, TwoHanded: true),
         ];

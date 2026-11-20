@@ -198,13 +198,13 @@ internal sealed class SparVideo(int width, int height, int fps)
             axis.Y = 0f;
             var distance = axis.Length();
             var side = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(Vector3.Cross(axis, Vector3.UnitY)) : -Vector3.UnitX;
-            var eye = mid + (side * MathF.Max(0.85f, 1.6f * distance)) + new Vector3(0f, 0.15f, 0f);
-            var look = mid + new Vector3(0f, 0.05f, 0f);
+            var eye = mid + (side * MathF.Max(2.394f, 1.6f * distance)) + new Vector3(0f, 0.4225f, 0f);
+            var look = mid + new Vector3(0f, 0.141f, 0f);
             if (_closeUp?.Invoke(game) is { } focus)
             {
-                // 場面が指す所（首のあたりなど）へ寄る: 横から 0.4 m。
+                // 場面が指す所（首のあたりなど）へ寄る: 横から 1.13 m。
                 look = focus;
-                eye = focus + (side * 0.4f) + new Vector3(0f, 0.03f, 0f);
+                eye = focus + (side * 1.127f) + new Vector3(0f, 0.0845f, 0f);
             }
 
             var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, look, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);

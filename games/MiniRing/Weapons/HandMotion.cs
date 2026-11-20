@@ -77,6 +77,6 @@ internal sealed class HandMotion
     /// <summary>落ち着いたとみなす角度のずれ [rad]（セルが 1 つ動くほどの角度の 1/10: 2 mm / 16 mm の指の長さ ÷ 10）。</summary>
     private const float SettledAngle = 0.0125f;
 
-    /// <summary>落ち着いたとみなす角速度 [rad/s]（0.0125 rad を落ち着く時間 0.055 s で動く速さのおよそ 1/5）。</summary>
-    private const float SettledSpeed = 0.05f;
+    /// <summary>落ち着いたとみなす角速度 [rad/s]（0.0125 rad を落ち着く時間 0.092 s で動く速さのおよそ 1/5）。</summary>
+    private const float SettledSpeed = 0.02979f;
 }

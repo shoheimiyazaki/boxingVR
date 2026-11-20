@@ -32,7 +32,7 @@ public sealed record GamePlanStyle
     public float Caution { get; init; } = 1f;
 
     /// <summary>[s] 打ち合いの無い時間がこれくらい続くと急ぎ始める（1 − exp(−時間 / これ)）。小さいほど膠着を嫌う。</summary>
-    public float Patience { get; init; } = 8f;
+    public float Patience { get; init; } = 13.43f;
 
     /// <summary>0..3: 膠着・負け・ラウンドの終わりで急ぐ度合い。</summary>
     public float Pressure { get; init; } = 1f;
@@ -57,7 +57,7 @@ public sealed record GamePlanStyle
             Weight = Range(Weight, 0f, 1f, 0f),
             Boldness = Range(Boldness, 0f, 3f, 1f),
             Caution = Range(Caution, 0f, 3f, 1f),
-            Patience = Range(Patience, 0.5f, 120f, 8f),
+            Patience = Range(Patience, 0.8392f, 201.4f, 13.43f),
             Pressure = Range(Pressure, 0f, 3f, 1f),
             Own = Table(Own),
             Foe = Table(Foe),
@@ -102,8 +102,8 @@ public static class GamePlan
     /// <summary>負けている量の物差し [ダメージ]: 点の差がこれだけ負けていると負けている量 = 1 − 1/e ≈ 0.63（ダウン 1 つぶん）。</summary>
     public const float LeadScale = 40f;
 
-    /// <summary>距離の候補の間隔 [cm]（表は 2 cm の帯なので、その半分）。</summary>
-    public const float GridCm = 1f;
+    /// <summary>距離の候補の間隔 [cm]（表は人形の単位で 2 cm の帯、実物大で 5.6 cm の帯なので、その半分）。</summary>
+    public const float GridCm = 2.817f;
 
     /// <summary>softmax の温度 = S の幅（最大 − 最小）× これ。小さいほど山の頂へ寄る（0.25: 幅の 1/4 下がった距離の重みは頂の e⁻¹）。</summary>
     public const float TemperatureShare = 0.25f;

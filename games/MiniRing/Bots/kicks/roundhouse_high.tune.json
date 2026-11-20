@@ -1,7 +1,7 @@
 {
   "Rear": {
     "Standoff": 1.519047,
-    "Seconds": 0.41852012,
+    "Seconds": 0.7024,
     "AzimuthShift": 0.05135238,
     "ElevationShift": 0.45894217,
     "BendShift": -0.052377045,
@@ -9,7 +9,7 @@
   },
   "Front": {
     "Standoff": 1.1647717,
-    "Seconds": 0.59472215,
+    "Seconds": 0.9982,
     "AzimuthShift": 0.07188624,
     "ElevationShift": -0.21255648,
     "BendShift": 0.108813226,

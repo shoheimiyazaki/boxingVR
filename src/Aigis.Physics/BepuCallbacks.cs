@@ -88,7 +88,7 @@ internal struct NarrowPhaseCallbacks : INarrowPhaseCallbacks
     /// <summary>Bepu emits speculative contacts for nearby pairs (negative depth up to the speculative
     /// margin); only record a pair once its deepest contact is within this tolerance of the surface,
     /// so an observed contact means "actually touching", not merely "close".</summary>
-    private const float ContactRecordDepthThreshold = -0.01f;
+    private const float ContactRecordDepthThreshold = -0.02817f; // 1 cm in the 60 cm doll world, × 2.817 by similarity
 
     // ContactSpringiness/MaximumRecoveryVelocity/FrictionCoefficient are always set by the sole
     // caller (PhysicsWorld's constructor) before this runs, so there's no default to lazily

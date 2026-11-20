@@ -28,15 +28,15 @@ public sealed class PunchGenome
 {
     /// <summary>
     /// 値ごとの探索の幅（既定の値 ± 幅。1 か所の表）。溜めの横・低さ・打ち抜き・踏み込み・振り抜きは ±0.3（腕長単位。
-    /// 既定の値から隣の技の値までの 1/3 ほど: ストレートの溜めの横 0.1 とフックの 0.9 の間は 0.8）、時間は ±0.12 s
-    /// （既定 0.3〜0.5 s の 1/3 ほど）、頭のずれは ±0.12（範囲 ±0.4 の 1/3）。
+    /// 既定の値から隣の技の値までの 1/3 ほど: ストレートの溜めの横 0.1 とフックの 0.9 の間は 0.8）、時間は ±0.20 s
+    /// （既定 0.5〜0.84 s の 1/3 ほど）、頭のずれは ±0.12（範囲 ±0.4 の 1/3）。
     /// </summary>
     public static IReadOnlyDictionary<string, float> Widths { get; } = new Dictionary<string, float>
     {
         [nameof(PunchMove.Lateral)] = 0.3f,
         [nameof(PunchMove.Low)] = 0.3f,
         [nameof(PunchMove.Overshoot)] = 0.3f,
-        [nameof(PunchMove.Duration)] = 0.12f,
+        [nameof(PunchMove.Duration)] = 0.201f,
         [nameof(PunchMove.HeadShiftX)] = 0.12f,
         [nameof(PunchMove.HeadShiftY)] = 0.12f,
         [nameof(PunchMove.HeadShiftZ)] = 0.12f,

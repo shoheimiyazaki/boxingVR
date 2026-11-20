@@ -4,7 +4,7 @@ namespace MiniRing.Bots;
 
 /// <summary>
 /// 間合いの層（docs/LEARNING_PLAN.md の R）: 相手の拳が自分の頭へ届きうる所にいるか（危険度、0..1）と、そこに居続けた時間（さらされ）を見る。
-/// 打たれてから守るのでは間に合わない（ストレートは構えから当たるまで約 0.05 秒、反応は 0.12 秒以上。D1）ので、危ない所にいること自体を
+/// 打たれてから守るのでは間に合わない（ストレートは構えから当たるまで約 0.08 秒、反応は 0.2 秒以上。D1 の計測を相似で換算）ので、危ない所にいること自体を
 /// 手がかりにして、構え・頭の動き・当てずっぽうの回避・足運びを変える。どの層もここが出す連続の値を使い、技の名前で分けない。
 /// <para>
 /// 危険度は位置関係と速さだけから出す: 相手の肩（胸の少し上）から自分の頭までの距離が、相手の届く長さ（腕の長さ × <see cref="BotStyle.RangeThreat"/>）と、
@@ -18,7 +18,13 @@ internal sealed class RangeSense
     public const float Width = 0.15f;
 
     /// <summary>さらされの時定数 [s]: 危ない所を出ると、この速さで抜ける。</summary>
-    public const float ExposureDecay = 1.5f;
+    public const float ExposureDecay = 2.518f;
+
+    /// <summary>
+    /// さらされの物差し [s]: さらされを使う式（<see cref="BotStyle.RangeExit"/>・<see cref="BotStyle.RangePress"/>）は危険度 × (1 + さらされ / これ)。
+    /// 人形の単位では 1 s を暗に使っていた。実物大への相似の換算で時間を 1.678 倍にしたので、挙動を保つためにその 1 s を同じ倍率で換算した値。
+    /// </summary>
+    public const float ExposureScale = 1.678f;
 
     /// <summary>いまの危険度（0 = 届かない … 1 = 届く所の内側）。</summary>
     public float Danger { get; private set; }

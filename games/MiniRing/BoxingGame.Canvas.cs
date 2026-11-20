@@ -46,7 +46,7 @@ public sealed partial class BoxingGame
     }
 
     /// <summary>背負う接触とみなす、胴の箱どうしの水平のすき間 [m]。</summary>
-    private const float CarryContactGap = 0.01f;
+    private const float CarryContactGap = 0.02817f;
 
     private bool TorsosTouch(Fighter a, Fighter b)
     {

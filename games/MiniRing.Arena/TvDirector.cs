@@ -89,10 +89,10 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     private const float EventBonus = 40f;
 
     /// <summary>リプレイで当たる前に見せる長さ [試合の s]（構え・振りかぶり）。</summary>
-    public const float ReplayBefore = 1.0f;
+    public const float ReplayBefore = 1.678f;
 
     /// <summary>リプレイで当たった後に見せる長さ [試合の s]（崩れ・飛ぶ破片）。</summary>
-    public const float ReplayAfter = 0.7f;
+    public const float ReplayAfter = 1.175f;
 
     /// <summary>ダウンからカメラを切り替えるまでの間 [映像の s]（倒れる瞬間はいつものカメラで見せる）。</summary>
     private const float DownCutDelay = 0.8f;
@@ -180,7 +180,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
             if (down && !_wasDown.GetValueOrDefault(fighter))
             {
                 // ダウンは打たれてから数秒後に取られることがある（中腰で待つ DownFaintTime 4 秒）ので、長めにさかのぼる。
-                Boost(fighter == game.Player, step, "→ ダウン", fighter.ChestPosition, game.MatchRound, 4.5f, name: Name(fighter));
+                Boost(fighter == game.Player, step, "→ ダウン", fighter.ChestPosition, game.MatchRound, 7.553f, name: Name(fighter));
             }
 
             _wasDown[fighter] = down;
@@ -197,13 +197,13 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
                 var cause = new TvResult(1, game.Message, 0, 0f, [], []).Cause;
                 var what = cause.Length > 0 ? $"→ K.O.（{cause}）" : "→ K.O.";
                 var felled = _candidates.FindLastIndex(c => c.RedVictim == loserRed && c.Text.Contains("ダウン", StringComparison.Ordinal));
-                if (felled >= 0 && step - _candidates[felled].Step < (int)(40f / stepDt))
+                if (felled >= 0 && step - _candidates[felled].Step < (int)(67.14f / stepDt))
                 {
                     _candidates[felled] = _candidates[felled] with { Score = _candidates[felled].Score + 80f, Text = _candidates[felled].Text + " " + what };
                 }
                 else
                 {
-                    Boost(loserRed, step, what, game.Player.ChestPosition, game.MatchRound, 4.5f, 80f, Name(loserRed ? game.Player : game.Cpu));
+                    Boost(loserRed, step, what, game.Player.ChestPosition, game.MatchRound, 7.553f, 80f, Name(loserRed ? game.Player : game.Cpu));
                 }
             }
         }
@@ -276,8 +276,8 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         return lost;
     }
 
-    /// <summary>直前の 1.5 秒のうち同じ側が打たれた一番新しい場面に上乗せする（無ければその歩を場面にする）。</summary>
-    private void Boost(bool redVictim, int step, string what, Vector3 point, int round, float lookBackSeconds = 1.5f, float bonus = EventBonus, string name = "")
+    /// <summary>直前の 2.518 秒（試合の時間）のうち同じ側が打たれた一番新しい場面に上乗せする（無ければその歩を場面にする）。</summary>
+    private void Boost(bool redVictim, int step, string what, Vector3 point, int round, float lookBackSeconds = 2.518f, float bonus = EventBonus, string name = "")
     {
         var lookBack = (int)(lookBackSeconds / stepDt);
         for (var i = _candidates.Count - 1; i >= 0; i--)
@@ -591,7 +591,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var axis = game.Cpu.PelvisPosition - game.Player.PelvisPosition;
         axis.Y = 0f;
         var up = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(axis) : Vector3.UnitZ;
-        var eye = target + new Vector3(0f, 0.9f - (0.06f * shotTime), 0f);
+        var eye = target + new Vector3(0f, 2.535f - (0.169f * shotTime), 0f);
         eye = OutsideBody(eye, subject == game.Player ? game.Cpu : game.Player);
         return DisplaySpace.Standard.Camera(eye, target, up, 40f * MathF.PI / 180f, Aspect, 0.02f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
@@ -652,8 +652,8 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     /// <summary>体の軸からカメラの目を離す距離（体の大きさ = 頭と胸の間 の倍数）。腕を広げた胴の半分の幅より少し外（見て決めた値）。</summary>
     private const float BodyClearance = 2.5f;
 
-    /// <summary>選手の大きさの目安 [m]: 頭と胸の中心の間（体格が大きいほど長い）。カメラの距離をこれに比例させる。上限は、頭が断たれて飛んだときにカメラが部屋の端まで引かないように（体格の大きい選手でも 0.13 m ほど）。</summary>
-    private static float BodyScale(Fighter f) => Math.Clamp(Vector3.Distance(f.HeadPosition, f.ChestPosition), 0.03f, 0.2f);
+    /// <summary>選手の大きさの目安 [m]: 頭と胸の中心の間（体格が大きいほど長い）。カメラの距離をこれに比例させる。上限は、頭が断たれて飛んだときにカメラが部屋の端まで引かないように（体格の大きい選手でも 0.37 m ほど）。</summary>
+    private static float BodyScale(Fighter f) => Math.Clamp(Vector3.Distance(f.HeadPosition, f.ChestPosition), 0.0845f, 0.563f);
 
     /// <summary>リングの中のカメラマン（休み）: コーナーで休む選手の正面、胸の高さから手持ちで上半身を撮り、少しずつ寄る。</summary>
     public (Matrix4x4 ViewProjection, Vector3 Eye) Corner(BoxingGame game, Fighter subject, float shotTime, float videoTime)
@@ -665,8 +665,8 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var side = Vector3.Cross(Vector3.UnitY, inward);
         var distance = BodyScale(subject) * (5.2f - (0.4f * shotTime));
         // 手持ちの揺れ（決まった正弦の和。見た目だけ）。
-        var sway = (side * (0.008f * MathF.Sin(1.3f * videoTime))) + new Vector3(0f, 0.006f * MathF.Sin((2.1f * videoTime) + 1f), 0f);
-        var eye = chest + (inward * distance) + (side * 0.08f) + new Vector3(0f, 0.04f, 0f) + sway;
+        var sway = (side * (0.0225f * MathF.Sin(1.3f * videoTime))) + new Vector3(0f, 0.0169f * MathF.Sin((2.1f * videoTime) + 1f), 0f);
+        var eye = chest + (inward * distance) + (side * 0.225f) + new Vector3(0f, 0.113f, 0f) + sway;
         var target = Vector3.Lerp(chest, subject.HeadPosition, 0.6f);
         eye = OutsideBody(eye, subject == game.Player ? game.Cpu : game.Player);
         return DisplaySpace.Standard.Camera(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, Aspect, 0.01f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
@@ -717,8 +717,8 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var direction = Vector3.Transform(inward, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
         // ゆっくりした寄り引き（歩みながら近づく）。
         var distance = scale * (3.3f - (0.12f * shotTime) + (0.25f * MathF.Sin((0.7f * videoTime) + 0.5f)));
-        var shake = (Vector3.Cross(Vector3.UnitY, direction) * (0.004f * MathF.Sin(2.3f * videoTime) + (0.002f * MathF.Sin(5.1f * videoTime))))
-            + new Vector3(0f, (0.004f * MathF.Sin((1.7f * videoTime) + 1f)) + (0.002f * MathF.Sin((4.3f * videoTime) + 2f)), 0f);
+        var shake = (Vector3.Cross(Vector3.UnitY, direction) * (0.0113f * MathF.Sin(2.3f * videoTime) + (0.00563f * MathF.Sin(5.1f * videoTime))))
+            + new Vector3(0f, (0.0113f * MathF.Sin((1.7f * videoTime) + 1f)) + (0.00563f * MathF.Sin((4.3f * videoTime) + 2f)), 0f);
         // 横たわった選手（頭が腰の高さ近くまで下がった）は、胸の高さから撮ると重なった体で画面が埋まった（2026-11-18、VFC の決着の後）。
         // 頭が下がった分だけ、カメラマンは立ち上がって見下ろす（立っていれば 0、横たわれば距離の 1.2 倍の高さ）。
         var lying = Math.Clamp(1f - ((subject.HeadPosition.Y - subject.PelvisPosition.Y) / (scale * 3f)), 0f, 1f);
@@ -749,7 +749,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var back = scale * (4.4f - (0.5f * Ease(Math.Clamp(shotTime / WoundSeconds, 0f, 1f))));
         var eye = at + (inward * back) + (side * scale * 0.6f);
         eye.Y = MathF.Max(at.Y + (scale * 1.4f), floor + (scale * 1.6f));
-        eye += (side * (0.006f * MathF.Sin(1.3f * videoTime))) + new Vector3(0f, 0.005f * MathF.Sin((2.1f * videoTime) + 1f), 0f);
+        eye += (side * (0.0169f * MathF.Sin(1.3f * videoTime))) + new Vector3(0f, 0.0141f * MathF.Sin((2.1f * videoTime) + 1f), 0f);
         // 体全体（胸と腰の間）→ 傷へ振る（0.4〜1.3 秒）、ズームは 1.0〜3.0 秒で 46° → 12°（少し行き過ぎて戻る）。
         var pan = Ease(Math.Clamp((shotTime - 0.4f) / 0.9f, 0f, 1f));
         var zoom = Ease(Math.Clamp((shotTime - 1.0f) / 2.0f, 0f, 1f));
@@ -775,7 +775,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         var side = Vector3.Cross(axis, Vector3.UnitY);
         var angle = -0.9f + (1.4f * progress);
         var direction = Vector3.Transform(side, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
-        var eye = focus + (direction * 0.5f) + new Vector3(0f, 0.1f, 0f);
+        var eye = focus + (direction * 1.408f) + new Vector3(0f, 0.282f, 0f);
         return DisplaySpace.Standard.Camera(eye, focus, Vector3.UnitY, 40f * MathF.PI / 180f, Aspect, 0.01f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 

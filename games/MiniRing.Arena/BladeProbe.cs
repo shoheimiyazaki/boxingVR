@@ -67,10 +67,10 @@ internal static class BladeProbe
                      ("自分の体（握った前腕を除く）", episodes.Where(e => e.Victim == "自分" && e.Part != BodyPartKind.Forearm).ToList()),
                  })
         {
-            var longOnes = group.Where(e => e.End - e.Start >= 0.1f).ToList();
+            var longOnes = group.Where(e => e.End - e.Start >= 0.168f).ToList();
             report.AppendLine();
             report.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                $"{label}: めり込んだ区間 {group.Count}（0.1 秒以上 {longOnes.Count}、0.25 秒以上 {group.Count(e => e.End - e.Start >= 0.25f)}、0.1 秒以上で何も壊さなかった {longOnes.Count(e => e.Removed == 0)}）。長い順に 25:"));
+                $"{label}: めり込んだ区間 {group.Count}（0.17 秒以上 {longOnes.Count}、0.42 秒以上 {group.Count(e => e.End - e.Start >= 0.42f)}、0.17 秒以上で何も壊さなかった {longOnes.Count(e => e.Removed == 0)}）。長い順に 25:"));
             report.AppendLine();
             report.AppendLine("| 組 | 武器 | 部位 | 始め [s] | 長さ [s] | 最大のめり込み [セル] | 壊したセル | 接触あり | 止まった | 調べず | めり込んだ材質 |");
             report.AppendLine("|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|");

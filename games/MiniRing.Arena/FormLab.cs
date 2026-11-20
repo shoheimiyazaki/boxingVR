@@ -19,8 +19,8 @@ internal static class FormLab
         float Drop, float PelvisDrop, float Side, float SideRange, float SideStart, float SideEnd, float ForwardAtBottom,
         float DropTimeMs, float DurationMs, float EndDropShare, float GloveFar, float GloveAbove, Vector3[] Path);
 
-    /// <summary>軌跡を並べる間隔 [s] と本数（0〜0.7 秒）。</summary>
-    private const float PathStep = 0.05f;
+    /// <summary>軌跡を並べる間隔 [s] と本数（0〜1.17 秒）。</summary>
+    private const float PathStep = 0.0839f;
     private const int PathCount = 15;
 
     public static string Run(string punch, Defense slot, BotStyle style, DefenseMove move, float? cue, int bouts, float seconds, int seed)
@@ -74,7 +74,7 @@ internal static class FormLab
             $"### {slot} 対 {punch}（{e.Count} 回）: 外した {r.EvadeRate:P0}・頭 {r.HeadRate:P0}（回避中の頭 {r.HeadHits} / ガード {r.GuardHits} / ほか {r.OtherHits} / 気づけず頭 {r.OpenHeadHits}、拳 {r.Punches}）"));
         sb.AppendLine("動き: " + BasicsLab.Describe(move));
         sb.AppendLine();
-        sb.AppendLine("| 頭の沈み | 腰の沈み | 頭の横（最大） | 横の振れ幅 | 横 始め→終わり | 底での頭の前 | 沈みの 8 割まで | 記録の長さ（終わり +0.3 s） | 最後の沈み / 最大 | 拳と頭の最大距離 | 拳が頭より上 |");
+        sb.AppendLine("| 頭の沈み | 腰の沈み | 頭の横（最大） | 横の振れ幅 | 横 始め→終わり | 底での頭の前 | 沈みの 8 割まで | 記録の長さ（終わり +0.5 s） | 最後の沈み / 最大 | 拳と頭の最大距離 | 拳が頭より上 |");
         sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|");
         sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
             $"| {Avg(e, x => x.Drop):0.0} cm | {Avg(e, x => x.PelvisDrop):0.0} cm | {Avg(e, x => x.Side):0.0} cm | {Avg(e, x => x.SideRange):0.0} cm | {Avg(e, x => x.SideStart):0.0} → {Avg(e, x => x.SideEnd):0.0} cm | {Avg(e, x => x.ForwardAtBottom):0.0} cm | {Avg(e, x => x.DropTimeMs):0} ms | {Avg(e, x => x.DurationMs):0} ms | {Avg(e, x => x.EndDropShare):0.00} | {Avg(e, x => x.GloveFar):0.0} cm | {Avg(e, x => x.GloveAbove):0.0} cm |"));
@@ -110,7 +110,7 @@ internal static class FormLab
         private float? _after;
 
         /// <summary>回避の終わりから記録を続ける長さ [s]（起き上がりを見る）。</summary>
-        private const float AfterSeconds = 0.3f;
+        private const float AfterSeconds = 0.504f;
 
         public void Flush()
         {

@@ -80,7 +80,7 @@
     "comeback": 4,
     "bothHurt": 0,
     "bothHurtDamage": 200,
-    "quickSeconds": 15,
+    "quickSeconds": 25.18,
     "quickPenalty": 6,
     "drawPenalty": 1
   },

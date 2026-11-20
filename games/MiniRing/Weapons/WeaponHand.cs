@@ -5,7 +5,7 @@ using Aigis.Render.Voxels;
 namespace MiniRing.Weapons;
 
 /// <summary>
-/// 武器（はめる物・握る物）の剛体に重ねた手の格子 1 つ。手は 5 mm の格子（<see cref="HandSkeleton"/>）で、物の格子（<see cref="Weapon.Body"/>）とは
+/// 武器（はめる物・握る物）の剛体に重ねた手の格子 1 つ。手は 14 mm の格子（<see cref="HandSkeleton"/>）で、物の格子（<see cref="Weapon.Body"/>）とは
 /// 別の格子だが、同じ剛体に乗る（<see cref="VoxelBody.AddCompanion"/>）: 質量と当たりの箱は両方の格子の和、物が折れても手は切り離されない。
 /// </summary>
 public sealed class WeaponHand

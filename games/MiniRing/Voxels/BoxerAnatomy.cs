@@ -70,7 +70,7 @@ public static class BoxerAnatomy
 
     // ── 手（素手の拳・はめる物の中の拳）の組織: 見た目と組織の種類は皮膚・肉・骨のまま、押されたときのふるまい（固さ・強さ・密度）と
     // 削れにくさは木（WoodMechanics）の値（2026-11-18、ユーザーの指定。近道: docs/DEBT.md「手の物性を木の値で代用」）。
-    // 5 mm のセルでは手の細かい骨の集まりを表せない（指は 1 セルの骨）。木の値で、拳の当たりの硬さを手の形を保ったまま近似する。
+    // 14 mm のセルでは手の細かい骨の集まりを表せない（指は 1 セルの骨）。木の値で、拳の当たりの硬さを手の形を保ったまま近似する。
 
     // 色は皮膚・肉・骨とほとんど同じ（赤か緑を 0.01 ずらす）: 目では同じに見え、.vox の読み戻し（色 → 材質）では区別できる。
 
@@ -97,8 +97,8 @@ public static class BoxerAnatomy
     public static bool IsBoneLike(byte material) => material is Bone or HandBone;
 
     // ── 押されたときのふるまい（VoxelContact）: 密度 [kg/m³]・降伏する圧力 [Pa]・たわむ距離 [m]・（武器だけ）折れる曲げ応力とヤング率 [Pa]。
-    // 体の値は、人形の縮尺の剣（約 0.085kg）の刃が、ふつうの振り（6m/s）では皮膚と肉を切って骨で止まり、強い振り（16m/s）では
-    // 骨まで断つように合わせている（docs/VOXEL_WEAPONS.md）。ボクセルの刃先は本物よりずっと鈍い（1.25mm）ので、肉の値は本物の切れにくさより低い。
+    // 体の値は、剣（約 0.85kg）の刃が、ふつうの振り（10m/s）では皮膚と肉を切って骨で止まり、強い振り（27m/s）では
+    // 骨まで断つように合わせている（docs/VOXEL_WEAPONS.md。人形の単位（〜2026-11）では 0.085kg・6 / 16m/s で測った）。ボクセルの刃先は本物よりずっと鈍い（3.5mm）ので、肉の値は本物の切れにくさより低い。
     //
     // 人形の相似則: 人形の体は人のおよそ 0.32 倍（腕の長さの比、<see cref="Similitude"/>）。同じ重力の下で釣り合う動きは時間が √0.32 倍、
     // 速さが √0.32 倍になり、ぶつかる物の運動エネルギーは大きさの 4 乗で小さくなる（剣は人の剣のおよそ 1/100）。一方で材質の強さ（圧力）を
@@ -145,17 +145,37 @@ public static class BoxerAnatomy
     private static readonly VoxelMechanics LeatherMechanics = Doll(new(1100f, 2.0e6f, 0.004f));
 
 
-    /// <summary>人形の体の大きさの、人に対する比（腕の長さの比 0.17 m / 0.53 m）。材質の強さの相似則に使う。</summary>
+    /// <summary>人形の体の大きさの、人に対する比（腕の長さの比 0.17 m / 0.53 m）。2026-11-20 まで（人形の物理）材質の強さの相似則に使った値。</summary>
     public const float Similitude = 0.32f;
 
-    /// <summary>人の材質の値を、人形の相似則で縮める（強さ・引張・ヤング率・紐の応力 × <see cref="Similitude"/>。密度とたわむ距離はそのまま）。</summary>
+    /// <summary>
+    /// 段 2（相似の換算、REAL_SCALE_PLAN §2.3）の応力の倍率: 人形のときの <see cref="Similitude"/> に、人形 → 実物大の応力の相似の倍率
+    /// M/(L T²) = 10 / 2.817² = 1.260 を掛けた 0.4033（人の値の 4 割）。今の壊れ方を保つための近道で、段 3 で 1 にする（docs/DEBT.md）。
+    /// </summary>
+    public const float StressSimilitude = Similitude * 1.2602f;
+
+    /// <summary>
+    /// 段 2 の密度の倍率: 人形の武器は人の密度 × 人形の寸法だった（体に対して 1/2.24 の重さ）。実物大の寸法で同じ重さの比に保つには密度 × M/L³ = 10 / 22.35 = 0.4474。
+    /// 武器の質量（密度 × 体積）・曲げの慣性で効く。段 3 で 1 にする。
+    /// </summary>
+    public const float DensitySimilitude = 0.4474f;
+
+    /// <summary>段 2 のたわむ距離の倍率: 表の値（皮膚 5 mm など）は人形の体のセル（5 mm）で合わせた長さなので、実物大では × L = 2.817。段 3 で人の値（× 1）へ。</summary>
+    public const float GiveSimilitude = 2.8169f;
+
+    /// <summary>
+    /// 人の材質の値を、段 2 の相似則で今の人形と同じ壊れ方にする（強さ・引張・ヤング率・紐の応力 × <see cref="StressSimilitude"/>、
+    /// 密度 × <see cref="DensitySimilitude"/>、たわむ距離 × <see cref="GiveSimilitude"/>）。
+    /// </summary>
     public static VoxelMechanics Doll(VoxelMechanics human) => human with
     {
-        Strength = human.Strength * Similitude,
-        Tensile = human.Tensile * Similitude,
-        Stiffness = human.Stiffness * Similitude,
-        PassiveTie = human.PassiveTie * Similitude,
-        ActiveTie = human.ActiveTie * Similitude,
+        Density = human.Density * DensitySimilitude,
+        Give = human.Give * GiveSimilitude,
+        Strength = human.Strength * StressSimilitude,
+        Tensile = human.Tensile * StressSimilitude,
+        Stiffness = human.Stiffness * StressSimilitude,
+        PassiveTie = human.PassiveTie * StressSimilitude,
+        ActiveTie = human.ActiveTie * StressSimilitude,
     };
 
     /// <summary>グローブの詰め物（発泡材）: 軽く（120 kg/m³）、弱い圧力で潰れ（0.15 MPa）、大きくたわむ（8 mm）。拳の衝撃を広げて和らげる。</summary>

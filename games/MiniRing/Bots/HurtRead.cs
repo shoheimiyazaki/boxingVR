@@ -10,18 +10,18 @@ namespace MiniRing.Bots;
 /// ふらつき（頭の横の揺れの速さ）は疲れでも同じくらい増える（0.53→0.87）ので使わない。</item>
 /// <item>手応え: 自分の拳が当たった重さ（<see cref="IFighterControl.OnPunchLanded"/> のダメージ）を時定数で忘れながら足したもの。打った本人が感じる量。</item>
 /// </list>
-/// 2 つを「どちらかが開いていれば開いている」（1 − (1 − a)(1 − b)）で合わせ、0.25 秒でならす。
+/// 2 つを「どちらかが開いていれば開いている」（1 − (1 − a)(1 − b)）で合わせ、0.42 秒でならす。
 /// </summary>
 internal sealed class HurtRead
 {
     /// <summary>普段の構えの基準が、下がった構えへ寄る時定数 [s]（上がる側＝より構えた側へは <see cref="UsualFallSeconds"/>）。打たれて下がった構えを普段と取り違えないよう遅く。</summary>
-    private const float UsualRiseSeconds = 12f;
+    private const float UsualRiseSeconds = 20.14f;
 
     /// <summary>普段の構えの基準が、より高い構えへ寄る時定数 [s]。</summary>
-    private const float UsualFallSeconds = 1f;
+    private const float UsualFallSeconds = 1.678f;
 
     /// <summary>見積もりのならしの時定数 [s]。</summary>
-    private const float SmoothSeconds = 0.25f;
+    private const float SmoothSeconds = 0.4196f;
 
     private float _usual = float.NaN;
     private float _felt;

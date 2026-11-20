@@ -87,7 +87,7 @@ internal static class SeoiReference
         var samples = new List<Sample>();
         var toriFalls = 0;
         var toriWasUp = true;
-        var book = GrappleBook.Jujutsu with { Rate = 50f, Techniques = [technique] };
+        var book = GrappleBook.Jujutsu with { Rate = 29.8f, Techniques = [technique] };
         JujutsuBot? bot = null;
         var corners = new BoxingCorners("seoi", s => bot = new JujutsuBot(new Closer(), book, s, only: technique.Name), s => ThrowLab.Victim(victim, s),
             CpuWear: MiniRing.Weapons.HandWear.None);
@@ -148,7 +148,7 @@ internal static class SeoiReference
                     v.Length() * scale, -v.Y * scale, toriForward!.Value, toriDown!.Value, turnEnd, time - startTime - turnEnd));
                 start = null;
             }
-            else if (!active && time - startTime > 3f)
+            else if (!active && time - startTime > 5.04f)
             {
                 start = null; // 床に着かずに終わった技
             }

@@ -208,7 +208,7 @@ internal static class NeckLab
     internal static SlashResult SlashOnce(string dir, float offset, float speed, bool bridges = true, float tiltDegrees = 0f, bool armsDown = false)
     {
         using var game = new BoxingGame(SwordStance.Tuning, 1, new BoxingCorners("stand", _ => new StandGuard(armsDown ? DownPosture : null), _ => new StandGuard(armsDown ? DownPosture : null)));
-        for (var i = 0; i < 90; i++)
+        for (var i = 0; i < 151; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -240,13 +240,13 @@ internal static class NeckLab
         var kind = WeaponKind.Katana;
         var middle = (Weapon.TipOf(kind).X + Weapon.TwoHandGripsOf(kind).Bottom.X) * 0.5f;
         var target = joint + new Vector3(0f, offset, 0f);
-        var start = target - (heading * 0.15f) - Vector3.Transform(new Vector3(middle, 0f, 0f), orientation);
+        var start = target - (heading * 0.4225f) - Vector3.Transform(new Vector3(middle, 0f, 0f), orientation);
         var weapon = game.AddWeapon(kind, start, orientation);
         var head = victim.Voxels!.Parts.Single(x => x.Kind == BodyPartKind.Head).Body.Grid;
         var chestGrid = victim.Voxels.Parts.Single(x => x.Kind == BodyPartKind.Chest).Body.Grid;
         int headStart = head.FilledCount, chestStart = chestGrid.FilledCount, neckStart = NeckCells(victim.Voxels);
         var touched = false;
-        var steps = (int)MathF.Ceiling(0.30f / speed * 240f) + 2;
+        var steps = (int)MathF.Ceiling(0.845f / speed * 240f) + 2;
         for (var i = 0; i < steps; i++)
         {
             game.World.SetLinearVelocity(weapon.Body.BodyId, heading * speed);
@@ -255,7 +255,7 @@ internal static class NeckLab
             touched |= game.RecentCuts.Any(c => c.Touched);
         }
 
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(default, 1f / 240f); // 落ち着く
         }
@@ -265,13 +265,13 @@ internal static class NeckLab
     }
 
     /// <summary>
-    /// <see cref="SlashOnce"/> と同じ 1 振りを動画にする（体の横から首へ寄る。<paramref name="slow"/> 倍のスロー、振り終わって 1.2 秒まで）。音なし。
+    /// <see cref="SlashOnce"/> と同じ 1 振りを動画にする（体の横から首へ寄る。<paramref name="slow"/> 倍のスロー、振り終わって 2.0 秒まで）。音なし。
     /// </summary>
     public static void SlashVideo(string dir, float offset, float speed, bool bridges, bool armsDown, float slow, string outPath, float tiltDegrees = 0f)
     {
         const int Width = 960, Height = 540, Fps = 30;
         using var game = new BoxingGame(SwordStance.Tuning, 1, new BoxingCorners("stand", _ => new StandGuard(armsDown ? DownPosture : null), _ => new StandGuard(armsDown ? DownPosture : null)));
-        for (var i = 0; i < 90; i++)
+        for (var i = 0; i < 151; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -300,10 +300,10 @@ internal static class NeckLab
         var orientation = WeaponDrills.Edge(heading, across);
         var kind = WeaponKind.Katana;
         var middle = (Weapon.TipOf(kind).X + Weapon.TwoHandGripsOf(kind).Bottom.X) * 0.5f;
-        var start = joint + new Vector3(0f, offset, 0f) - (heading * 0.15f) - Vector3.Transform(new Vector3(middle, 0f, 0f), orientation);
+        var start = joint + new Vector3(0f, offset, 0f) - (heading * 0.4225f) - Vector3.Transform(new Vector3(middle, 0f, 0f), orientation);
         var weapon = game.AddWeapon(kind, start, orientation);
         // 刃が来る向きに対して横（刃の長さの向きの反対側）から、斜め上気味に首を見る。
-        var view = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, heading)) * 0.34f;
+        var view = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, heading)) * 0.9577f;
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
         using var renderer = new Aigis.Render.HeadlessRenderer(Width, Height);
         using var ffmpeg = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ffmpeg",
@@ -312,8 +312,8 @@ internal static class NeckLab
             RedirectStandardInput = true,
             UseShellExecute = false,
         }) ?? throw new IOException("ffmpeg を起動できません（PATH にありますか）。");
-        var steps = (int)MathF.Ceiling(0.30f / speed * 240f) + 2;
-        var total = steps + (int)(1.2f * 240f);
+        var steps = (int)MathF.Ceiling(0.845f / speed * 240f) + 2;
+        var total = steps + (int)(2.014f * 240f);
         var next = 0f;
         var perFrame = 1f / (Fps * slow);
         for (var i = 0; i < total; i++)
@@ -335,8 +335,8 @@ internal static class NeckLab
             var instances = new List<Aigis.Render.PrimitiveInstance>();
             var lines = new List<Aigis.Render.DebugLine>();
             BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
-            var center = victim.HeadPosition + new Vector3(0f, -0.025f, 0f);
-            var eye = center + view + new Vector3(0f, 0.05f, 0f);
+            var center = victim.HeadPosition + new Vector3(0f, -0.07042f, 0f);
+            var eye = center + view + new Vector3(0f, 0.1408f, 0f);
             var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, center, Vector3.UnitY, 38f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
             var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, [], particles: game.BuildParticles(), lighting: game.BuildLighting(),
                 shadow: game.BuildShadow(), cameraPosition: displayEye, shapes: [], postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
@@ -364,7 +364,7 @@ internal static class NeckLab
         }
 
         var motion = SwordForms.KatanaHorizontalAt($"nagi-h{height:0.00}", side, height);
-        var technique = new MotionTechnique(motion.Name, WeaponKind.Katana, motion, 0.5f);
+        var technique = new MotionTechnique(motion.Name, WeaponKind.Katana, motion, 1.408f);
         technique = technique with { Range = StrikeDrill.ReachOf(technique, armReach) + offset };
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
         using var renderer = new Aigis.Render.HeadlessRenderer(Width, Height);
@@ -384,7 +384,7 @@ internal static class NeckLab
                 started = t;
             }
 
-            if (t < started - 0.1f || t < next)
+            if (t < started - 0.1678f || t < next)
             {
                 return;
             }
@@ -395,12 +395,12 @@ internal static class NeckLab
             BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
             // 的（青）の首へ寄る。攻める赤の右（赤から見て左前）の斜め前から。
             var victim = game.Cpu;
-            var center = victim.HeadPosition + new Vector3(0f, -0.03f, 0f);
+            var center = victim.HeadPosition + new Vector3(0f, -0.08451f, 0f);
             var toward = game.Player.ChestPosition - victim.ChestPosition;
             toward.Y = 0f;
             toward = toward.LengthSquared() > 1e-6f ? Vector3.Normalize(toward) : Vector3.UnitZ;
             var across = Vector3.Cross(Vector3.UnitY, toward);
-            var eye = center + (toward * 0.12f) + (across * 0.38f * -side) + new Vector3(0f, 0.04f, 0f);
+            var eye = center + (toward * 0.3380f) + (across * 1.070f * -side) + new Vector3(0f, 0.1127f, 0f);
             var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, center, Vector3.UnitY, 40f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
             var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, [], particles: game.BuildParticles(), lighting: game.BuildLighting(),
                 shadow: game.BuildShadow(), cameraPosition: displayEye, shapes: [], postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
@@ -437,7 +437,7 @@ internal static class NeckLab
     private static Row One(float height, float side, float offset, FighterTuning tuning, MotionFrame guard, float armReach)
     {
         var motion = SwordForms.KatanaHorizontalAt($"nagi-h{height:0.00}", side, height);
-        var technique = new MotionTechnique(motion.Name, WeaponKind.Katana, motion, 0.5f);
+        var technique = new MotionTechnique(motion.Name, WeaponKind.Katana, motion, 1.408f);
         var reach = StrikeDrill.ReachOf(technique, armReach);
         technique = technique with { Range = reach + offset };
         var neckBroken = false;

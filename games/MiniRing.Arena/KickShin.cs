@@ -28,13 +28,13 @@ internal static class KickShin
     /// <summary>練習の差分の探索の範囲（正規化 [0, 1] ↔ 実際の値）。</summary>
     internal static readonly (string Name, float Low, float High)[] Ranges =
     [
-        ("間合い", 0.75f, 1.9f), ("長さ[s]", 0.4f, 0.95f), ("方位のずれ", -0.8f, 0.8f), ("仰角のずれ", -0.9f, 0.9f), ("膝を開く拍子", -0.15f, 0.15f), ("足首の曲げ", -1.0f, 0.4f),
+        ("間合い", 0.75f, 1.9f), ("長さ[s]", 0.671f, 1.594f), ("方位のずれ", -0.8f, 0.8f), ("仰角のずれ", -0.9f, 0.9f), ("膝を開く拍子", -0.15f, 0.15f), ("足首の曲げ", -1.0f, 0.4f),
     ];
 
     /// <summary>
     /// 前蹴りの間合いの上限（腕の長さ倍）。剣士・バットの型の間合い（<c>StrikeDrill.ReachOf</c>）は蹴りの Standoff × 腕の長さで、
-    /// 前蹴りは「間合いの内側の型」として <c>FormSwordsman.MinReach</c>（0.33 m、腕 0.188 m で 1.755 倍）より短くなければならない（BatFormsTests）。
-    /// 上限 1.9 で練習した前蹴りは 1.89 に張り付き、0.355 m で内側の型でなくなった。
+    /// 前蹴りは「間合いの内側の型」として <c>FormSwordsman.MinReach</c>（0.93 m、腕 0.53 m で 1.755 倍。人形の単位では 0.33 m・0.188 m）より短くなければならない（BatFormsTests）。
+    /// 上限 1.9 で練習した前蹴りは 1.89 に張り付き、1.0 m（人形の単位で 0.355 m）で内側の型でなくなった。
     /// </summary>
     internal const float FrontKickStandoffMax = 1.7f;
 
@@ -77,7 +77,7 @@ internal static class KickShin
 
         var band = !h.ShinBand ? 0f : o.Fraction < ShinLow ? ShinLow - o.Fraction : o.Fraction > ShinHigh ? o.Fraction - ShinHigh : 0f;
         var ok = InBand(h, o);
-        return (ok ? o.Damage + (0.2 * o.Momentum) : 0.1 * o.Damage) - (band > 0 ? 15 + (100 * band) : 0) - (h.Zones.Contains(o.Zone) ? 0 : 30) - (o.Fell ? 50 : 0);
+        return (ok ? o.Damage + (0.0119 * o.Momentum) : 0.1 * o.Damage) - (band > 0 ? 15 + (100 * band) : 0) - (h.Zones.Contains(o.Zone) ? 0 : 30) - (o.Fell ? 50 : 0);
     }
 
     internal static bool InBand(Height h, KneePractice.Outcome o) => o.Landed && (!h.ShinBand || o.Fraction is >= ShinLow and <= ShinHigh) && h.Zones.Contains(o.Zone) && !o.Fell;
@@ -120,10 +120,10 @@ internal static class KickShin
     /// <summary>練習の前の差分（人の動きの手本のまま。間合い・長さは kick_mocap_doll.md で振って選んだ値、中段は下段と上段の間）。</summary>
     internal static KickTune Baseline(Height h) => h.Technique switch
     {
-        KickTechnique.RoundhouseHigh => new KickTune(1.2f, 0.55f, 0f, 0f, 0f, -0.5f),
-        KickTechnique.Roundhouse => new KickTune(1.0f, 0.6f, 0f, 0f, 0f, -0.5f),
-        KickTechnique.Front => new KickTune(0.95f, 0.6f, 0f, 0f, 0f, -0.45f),
-        _ => new KickTune(1.0f, 0.65f, 0f, 0f, 0f, -0.5f),
+        KickTechnique.RoundhouseHigh => new KickTune(1.2f, 0.923f, 0f, 0f, 0f, -0.5f),
+        KickTechnique.Roundhouse => new KickTune(1.0f, 1.007f, 0f, 0f, 0f, -0.5f),
+        KickTechnique.Front => new KickTune(0.95f, 1.007f, 0f, 0f, 0f, -0.45f),
+        _ => new KickTune(1.0f, 1.091f, 0f, 0f, 0f, -0.5f),
     };
 
     /// <summary>練習して表を作る。<paramref name="practice"/> が false なら練習せず、組み込みの差分（練習の結果）と練習の前を比べる。</summary>
@@ -308,12 +308,12 @@ internal static class KickShin
 
                 var a = game.Player.ChestPosition;
                 var v = game.Cpu.ChestPosition;
-                var middle = ((a + v) * 0.5f) + new Vector3(0f, -0.14f, 0f);
+                var middle = ((a + v) * 0.5f) + new Vector3(0f, -0.394f, 0f);
                 var direction = Vector3.Normalize((v - a) with { Y = 0f });
                 var toKickingSide = Vector3.Cross(Vector3.UnitY, direction) * (rear ? -1f : 1f);
-                var offset = oblique ? (toKickingSide * 0.95f) + (direction * 0.4f) : toKickingSide * 1.25f;
-                var eye = middle + offset + new Vector3(0f, 0.12f, 0f);
-                var half = (game.Ring.Size * 0.5f) - 0.06f;
+                var offset = oblique ? (toKickingSide * 2.676f) + (direction * 1.127f) : toKickingSide * 3.521f;
+                var eye = middle + offset + new Vector3(0f, 0.338f, 0f);
+                var half = (game.Ring.Size * 0.5f) - 0.169f;
                 eye = new Vector3(Math.Clamp(eye.X, game.Ring.Center.X - half, game.Ring.Center.X + half), eye.Y, Math.Clamp(eye.Z, game.Ring.Center.Z - half, game.Ring.Center.Z + half));
                 var instances = new List<Aigis.Render.PrimitiveInstance>();
                 BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
@@ -396,7 +396,7 @@ internal static class KickShin
                     return;
                 }
 
-                next = t + 0.05f;
+                next = t + 0.0839f;
                 var a = game.Player;
                 var lb = a.LegBodyOf(side);
                 var cmd = (leg.Value.KneeLocal!.Value - lb.Hip) / lb.Thigh;

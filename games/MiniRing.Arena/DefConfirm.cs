@@ -26,7 +26,7 @@ internal static class DefConfirm
         var tuned = (JsonSerializer.Deserialize<DefenseBook>(File.ReadAllText(bookPath)) ?? throw new JsonException("空の本です。")).Validated();
         var start = champion.Defenses.With(defense, champion.Defenses.Of(defense).Validated());
         var seed = o.Int("seed", 1);
-        var seconds = o.Float("seconds", 40f, min: 1f);
+        var seconds = o.Float("seconds", 67.1f, min: 1f);
         var n = o.Int("confirm-n", 96, min: 2);
         var kinds = DefenseTuner.Targets(defense);
         var tuner = new DefenseTuner(1, seconds, 0, _ => { });

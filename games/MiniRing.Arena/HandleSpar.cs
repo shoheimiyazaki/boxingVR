@@ -49,14 +49,14 @@ internal static class HandleSpar
             });
         if (weapon == WeaponKind.WoodenClub)
         {
-            var range = Shift(p.ClubRange, 0.03f, 0.2f, 0.6f);
+            var range = Shift(p.ClubRange, 0.0845f, 0.563f, 1.690f);
             var swingWeights = MutateWeights(p.ClubSwingWeights, ClubBot.OneHanded.Select(f => f.ToString()));
             return (p with
             {
                 ClubSwingWeights = swingWeights.Values.Sum() > 0f ? swingWeights : p.ClubSwingWeights,
                 ClubRange = range,
-                ClubRest = Scale(p.ClubRest, 0.3f, 0.1f, 2f),
-                ClubStandOff = MathF.Max(range, Shift(p.ClubStandOff, 0.05f, 0.25f, 1f)),
+                ClubRest = Scale(p.ClubRest, 0.3f, 0.168f, 3.357f),
+                ClubStandOff = MathF.Max(range, Shift(p.ClubStandOff, 0.141f, 0.704f, 2.817f)),
                 ClubExact = random.NextDouble() < 0.15 ? !p.ClubExact : p.ClubExact,
             }).Validated();
         }
@@ -97,8 +97,8 @@ internal static class HandleSpar
             HitAndAway = hit,
             Clearance = clearance,
             Pacing = pacing,
-            Rest = Scale(p.Rest, 0.25f, 0.2f, 2f),
-            MinReach = Shift(p.MinReach, 0.02f, 0.26f, 0.42f),
+            Rest = Scale(p.Rest, 0.25f, 0.336f, 3.357f),
+            MinReach = Shift(p.MinReach, 0.0563f, 0.732f, 1.183f),
             TechniqueWeights = MutateWeights(p.TechniqueWeights, FormSwordsman.Forms(weapon).Select(f => f.Name)) is { } tw && tw.Values.Sum() > 0f ? tw : p.TechniqueWeights,
         }).Validated();
     }

@@ -32,7 +32,7 @@ public sealed record SwordResult(SwordTechnique Technique, float TargetCells, fl
     /// ドリルで上る坂: 効きが主。狙った部位の外を斬った分は 1/4 だけ数え（ガードの上からでも削れば次につながる）、狙った部位へ
     /// 届かない振りは近づいた距離で比べる。自分を斬った・打った分は引く。
     /// </summary>
-    public float Fitness => Effect + (0.25f * OtherCells / 60f) - Miss - SelfConcussion - (SelfCells / 60f);
+    public float Fitness => Effect + (0.25f * OtherCells / 60f) - (0.355f * Miss) - SelfConcussion - (SelfCells / 60f);
 }
 
 /// <summary>
@@ -84,7 +84,7 @@ public static class SwordDrill
         BodyPartKind? first = null;
         var started = false;
         var finishedAt = float.MaxValue;
-        for (var t = 0f; t < 6f && t < finishedAt + 0.3f; t += Dt)
+        for (var t = 0f; t < 10.07f && t < finishedAt + 0.5035f; t += Dt)
         {
             game.Step(default, Dt);
             var s = game.World.GetState(sword.Body.BodyId);
@@ -129,7 +129,7 @@ public static class SwordDrill
         var targetLost = targetStart - Cells(victim, target, fragments: true);
         var allLost = allStart - Cells(victim, null, fragments: true);
         return new SwordResult(technique, targetLost, victim.Fragments.Any(f => f.Kind == target) ? 1f : 0f, game.Cpu.IsDead ? 1f : 0f,
-            started ? MathF.Max(0f, game.Cpu.Concussion - concussionBefore) : 0f, allLost - targetLost, started ? miss : 1f, tipSpeed, first,
+            started ? MathF.Max(0f, game.Cpu.Concussion - concussionBefore) : 0f, allLost - targetLost, started ? miss : 2.817f, tipSpeed, first,
             started ? MathF.Max(0f, game.Player.Concussion - selfBefore) : 0f, ownStart - Cells(game.Player.Voxels!, null, fragments: false)); // 自分の体を切り落としたら、落ちた分も自分を斬った分
     }
 

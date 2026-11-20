@@ -150,7 +150,7 @@ public sealed class JujutsuBot : IFighterControl
         var normal = feet.LengthSquared() > 1e-8f ? Vector2.Normalize(new Vector2(-feet.Y, feet.X)) : new Vector2(0f, 1f);
         var com = Local(grapple.OpponentCom);
         var velocity = sense.Self.WorldToLocal(sense.Self.Origin + grapple.OpponentComVelocity);
-        var lean = (com - ((a + b) * 0.5f)) + (0.3f * new Vector2(velocity.X, velocity.Z));
+        var lean = (com - ((a + b) * 0.5f)) + (0.5035f * new Vector2(velocity.X, velocity.Z)); // 重心の速さを 0.5035 s 先へ延ばす（人形の単位の 0.3 s を相似で換算）
         return Vector2.Dot(normal, lean) >= 0f ? normal : -normal;
     }
 

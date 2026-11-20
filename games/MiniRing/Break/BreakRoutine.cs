@@ -40,32 +40,32 @@ public sealed class BreakRoutine : IBreakSource
     public const int MaxActions = 4;
 
     /// <summary>動作と動作の間の休みの最短 [s]。</summary>
-    public const float MinGap = 0.5f;
+    public const float MinGap = 0.8392f;
 
-    /// <summary>着いたとみなす、休みの歩きの指令の大きさ（0..1。コーナーの 3〜4 cm 手前で止まることがあるので、ぴったり 0 を待たない）と、歩く時間の上限 [s]。</summary>
+    /// <summary>着いたとみなす、休みの歩きの指令の大きさ（0..1。コーナーの 8〜11 cm 手前で止まることがあるので、ぴったり 0 を待たない）と、歩く時間の上限 [s]。</summary>
     public const float ArrivedMove = 0.3f;
 
-    public const float MaxWalk = 2.5f;
+    public const float MaxWalk = 4.196f;
 
     /// <summary>休みの終わりに残す余白 [s]（最後の動作を終えて構えへ戻る）。</summary>
-    public const float EndMargin = 0.6f;
+    public const float EndMargin = 1.007f;
 
-    /// <summary>試合の始め・終わりの動作（エモート）の数。動作が短い（2〜3 秒）ので、休みより多く並べる。</summary>
+    /// <summary>試合の始め・終わりの動作（エモート）の数。動作が短い（4〜5 秒）ので、休みより多く並べる。</summary>
     public const int MinEmotes = 2;
 
     public const int MaxEmotes = 3;
 
-    /// <summary>試合の始め・終わりの動作の間の最短 [s]（休みより詰める: 始め・終わりは 6〜7 秒に収める）。</summary>
-    public const float EmoteGap = 0.15f;
+    /// <summary>試合の始め・終わりの動作の間の最短 [s]（休みより詰める: 始め・終わりは 10〜12 秒に収める）。</summary>
+    public const float EmoteGap = 0.2518f;
 
-    /// <summary>始め・終わりの動作の終わりに残す余白 [s]（休みの 0.6 より短く: 動作の長さを少しでも多く使う）。</summary>
-    public const float EmoteEndMargin = 0.3f;
+    /// <summary>始め・終わりの動作の終わりに残す余白 [s]（休みの 1.0 より短く: 動作の長さを少しでも多く使う）。</summary>
+    public const float EmoteEndMargin = 0.5035f;
 
     /// <summary>煙・飛沫を出し終えてから、漂って消えるまで描き続ける時間 [s]（見た目だけ）。</summary>
-    public const float VaporLinger = 1.6f;
+    public const float VaporLinger = 2.685f;
 
     /// <summary>歩み寄りで、止まる距離の手前この距離 [m] から歩みを緩める。</summary>
-    public const float StandoffEase = 0.4f;
+    public const float StandoffEase = 1.127f;
 
     private readonly Random _random;
     private readonly BotStyle? _style;

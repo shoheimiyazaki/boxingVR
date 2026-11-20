@@ -24,12 +24,12 @@ public sealed class ImpactEffects
 
     private const int RingDots = 48;
     private const int TrailDots = 8;
-    private const float GlowLife = 0.16f;
-    private const float RingLife = 0.32f;
-    private const float HazeLife = 0.5f;
+    private const float GlowLife = 0.2685f;
+    private const float RingLife = 0.5371f;
+    private const float HazeLife = 0.8392f;
 
     /// <summary>光らせる位置を、当たった面から打った側へ浮かせる距離 [m]。</summary>
-    private const float SurfaceLift = 0.03f;
+    private const float SurfaceLift = 0.0845f;
 
     private readonly List<Effect> _effects = [];
 
@@ -54,8 +54,8 @@ public sealed class ImpactEffects
             _effects.Add(new Effect(EffectKind.Ring, surface, dir, Vector3.Zero, Vector4.Lerp(color, Vector4.One, 0.3f) with { W = 1f }, RingLife, s));
             for (var k = 0; k < 3; k++)
             {
-                var drift = (-dir * 0.08f) + (new Vector3(jitter(), jitter(), jitter()) * 0.06f);
-                _effects.Add(new Effect(EffectKind.Haze, surface + (drift * 0.1f), dir, drift, new Vector4(0.92f, 0.93f, 0.97f, 1f), HazeLife * (1f + (0.2f * jitter())), s));
+                var drift = (-dir * 0.1343f) + (new Vector3(jitter(), jitter(), jitter()) * 0.1007f);
+                _effects.Add(new Effect(EffectKind.Haze, surface + (drift * 0.1678f), dir, drift, new Vector4(0.92f, 0.93f, 0.97f, 1f), HazeLife * (1f + (0.2f * jitter())), s));
             }
         }
 
@@ -67,8 +67,8 @@ public sealed class ImpactEffects
             var around = scatter - (dir * Vector3.Dot(scatter, dir));
             var radial = around.LengthSquared() > 1e-8f ? Vector3.Normalize(around) : Vector3.Normalize(Vector3.Cross(dir, new Vector3(0.3f, 1f, 0.1f)));
             var heading = Vector3.Normalize((-dir * 0.55f) + radial + (scatter * 0.15f));
-            var speed = (1.2f + (2.4f * s)) * (1f + (0.25f * jitter()));
-            _effects.Add(new Effect(EffectKind.Trail, surface, heading, heading * speed, tint, 0.12f + (0.1f * s), s));
+            var speed = (2.014f + (4.028f * s)) * (1f + (0.25f * jitter()));
+            _effects.Add(new Effect(EffectKind.Trail, surface, heading, heading * speed, tint, 0.2014f + (0.1678f * s), s));
         }
     }
 
@@ -86,7 +86,7 @@ public sealed class ImpactEffects
             }
 
             // 空気に押し戻されるように減速する。
-            _effects[i] = e with { Age = age, Position = e.Position + (e.Velocity * dt), Velocity = e.Velocity * MathF.Max(0f, 1f - (4f * dt)) };
+            _effects[i] = e with { Age = age, Position = e.Position + (e.Velocity * dt), Velocity = e.Velocity * MathF.Max(0f, 1f - (2.383f * dt)) };
         }
     }
 
@@ -106,8 +106,8 @@ public sealed class ImpactEffects
                     // 最初の 2 割で一気にふくらみ、残りで薄れる。
                     var swell = t < 0.2f ? t / 0.2f : 1f;
                     var fade = t < 0.2f ? 1f : 1f - ((t - 0.2f) / 0.8f);
-                    // 粒は中心から外へ薄れるので、見える大きさは粒の半分ほど。前の光の玉（半径 0.015〜0.04m）と同じに見えるよう、直径の 2 倍にする。
-                    var size = 4f * (0.015f + (0.025f * e.Strength)) * (0.6f + (0.4f * swell));
+                    // 粒は中心から外へ薄れるので、見える大きさは粒の半分ほど。前の光の玉（半径 0.042〜0.11m）と同じに見えるよう、直径の 2 倍にする。
+                    var size = 4f * (0.04225f + (0.07042f * e.Strength)) * (0.6f + (0.4f * swell));
                     into.Add(new ParticleInstance(e.Position, size, e.Color with { W = 0.5f * fade * (0.6f + (0.4f * e.Strength)) }, Blend: ParticleBlend.Additive));
                     into.Add(new ParticleInstance(e.Position, size * 0.35f, Vector4.One with { W = 0.5f * fade }, Blend: ParticleBlend.Additive));
                     break;
@@ -116,12 +116,12 @@ public sealed class ImpactEffects
                 case EffectKind.Ring:
                 {
                     var spread = 1f - ((1f - t) * (1f - t)); // 速く広がって、ゆるむ
-                    var radius = 0.025f + ((0.04f + (0.08f * e.Strength)) * spread); // 前の衝撃の輪と同じ半径
+                    var radius = 0.07042f + ((0.1127f + (0.2254f * e.Strength)) * spread); // 前の衝撃の輪と同じ半径
                     var fade = (1f - t) * (1f - t);
                     var side = Vector3.Normalize(Vector3.Cross(e.Direction, MathF.Abs(e.Direction.Y) < 0.9f ? Vector3.UnitY : Vector3.UnitX));
                     var up = Vector3.Cross(e.Direction, side);
-                    // 帯の太さは前の輪（太さ 2 × (0.004〜0.009)m）が同じに見える粒の大きさ。隣の粒と重ねて、ぼけた 1 本の帯に見せる。
-                    var band = 4f * (0.004f + (0.005f * e.Strength)) * (1f - (0.5f * t));
+                    // 帯の太さは前の輪（太さ 2 × (0.011〜0.025)m）が同じに見える粒の大きさ。隣の粒と重ねて、ぼけた 1 本の帯に見せる。
+                    var band = 4f * (0.01127f + (0.01408f * e.Strength)) * (1f - (0.5f * t));
                     var dot = MathF.Max(band, 1.5f * 2f * MathF.PI * radius / RingDots);
                     var color = e.Color with { W = 0.32f * fade * (0.6f + (0.4f * e.Strength)) };
                     // 加算ではなく半透明で重ねる: 明るい肌やキャンバスの上でも、色のついた薄い膜として見える。
@@ -138,11 +138,11 @@ public sealed class ImpactEffects
                 case EffectKind.Trail:
                 {
                     var fade = 1f - t;
-                    var length = 2f * (0.015f + (0.035f * e.Strength)) * fade; // 前の光の筋と同じ長さ
+                    var length = 2f * (0.04225f + (0.09859f * e.Strength)) * fade; // 前の光の筋と同じ長さ
                     for (var k = 0; k < TrailDots; k++)
                     {
                         var back = k / (float)(TrailDots - 1);
-                        var size = (0.016f + (0.006f * e.Strength)) * (1f - (0.5f * back)); // 前の筋の太さ（約 8mm）が同じに見える大きさ
+                        var size = (0.04507f + (0.0169f * e.Strength)) * (1f - (0.5f * back)); // 前の筋の太さ（約 23mm）が同じに見える大きさ
                         var alpha = 0.45f * fade * (1f - (0.85f * back));
                         into.Add(new ParticleInstance(e.Position - (e.Direction * length * back), size, e.Color with { W = alpha }, Blend: ParticleBlend.Additive));
                     }
@@ -152,7 +152,7 @@ public sealed class ImpactEffects
 
                 case EffectKind.Haze:
                 {
-                    var size = (0.04f + (0.06f * e.Strength)) * (0.5f + (1.5f * MathF.Sqrt(t)));
+                    var size = (0.1127f + (0.169f * e.Strength)) * (0.5f + (1.5f * MathF.Sqrt(t)));
                     var alpha = 0.16f * MathF.Sin(MathF.PI * MathF.Min(1f, t * 1.4f)) * (1f - t);
                     into.Add(new ParticleInstance(e.Position, size, e.Color with { W = alpha }, Blend: ParticleBlend.Alpha));
                     break;

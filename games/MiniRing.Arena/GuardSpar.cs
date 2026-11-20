@@ -28,12 +28,12 @@ internal static class GuardSpar
         var child = p with
         {
             Mode = mode,
-            Horizon = Scale(p.Horizon, 0.25f, 0.1f, 0.6f),
+            Horizon = Scale(p.Horizon, 0.25f, 0.168f, 1.007f),
             Margin = Scale(p.Margin, 0.25f, 0.2f, 1.2f),
-            ThreatSpeed = Scale(p.ThreatSpeed, 0.25f, 3f, 14f),
-            HoldTime = Scale(p.HoldTime, 0.3f, 0.1f, 1f),
-            StepDelay = Shift(p.StepDelay, 0.03f, 0f, 0.2f),
-            HeadTime = Scale(p.HeadTime, 0.25f, 0.05f, 0.4f),
+            ThreatSpeed = Scale(p.ThreatSpeed, 0.25f, 1.79f, 8.34f),
+            HoldTime = Scale(p.HoldTime, 0.3f, 0.168f, 1.678f),
+            StepDelay = Shift(p.StepDelay, 0.0504f, 0f, 0.336f),
+            HeadTime = Scale(p.HeadTime, 0.25f, 0.0839f, 0.671f),
         };
 
         // 受け流しの値と打ち返すかは、受け流すときだけ効く（足と頭だけのときに変えても成績は変わらず、候補が無駄になる）。

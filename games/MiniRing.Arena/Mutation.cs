@@ -48,10 +48,10 @@ internal sealed class Mutation(int seed)
             HeadY = Tweak(prefix + "頭の沈み", m.HeadY, 0.08f * scale, DefenseRanges.HeadY, chance),
             HeadZ = Tweak(prefix + "頭の前後", m.HeadZ, 0.06f * scale, DefenseRanges.HeadZ, chance),
             EndX = m.Sweep ? Tweak(prefix + "抜ける横", m.EndX, 0.08f * scale, DefenseRanges.HeadX, chance) : m.EndX,
-            Duration = Tweak(prefix + "時間", m.Duration, 0.05f * scale, DefenseRanges.Duration, chance),
+            Duration = Tweak(prefix + "時間", m.Duration, 0.0839f * scale, DefenseRanges.Duration, chance),
             Move = Tweak(prefix + "足の前後", m.Move, 0.2f * scale, DefenseRanges.Move, chance),
             Step = Tweak(prefix + "足の横", m.Step, 0.2f * scale, DefenseRanges.Step, chance),
-            Rate = Tweak(prefix + "頭の速さ", m.Rate, 6f * scale, DefenseRanges.Rate, chance),
+            Rate = Tweak(prefix + "頭の速さ", m.Rate, 3.57f * scale, DefenseRanges.Rate, chance),
             // ブロックは常に拳を上げる（Validated が 1 に戻す）ので揺らさない（変えていない値を記録しない）。
             HandsUp = handsFixed ? m.HandsUp : Tweak(prefix + "拳を上げる", m.HandsUp, 0.2f * scale, DefenseRanges.HandsUp, chance),
             GloveWidth = Tweak(prefix + "拳の幅", m.GloveWidth, 0.04f * scale, DefenseRanges.GloveWidth, chance),

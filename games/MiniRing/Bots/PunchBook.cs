@@ -25,11 +25,11 @@ public static class PunchRanges
     public static ValueRange Overshoot { get; } = new(nameof(PunchMove.Overshoot), 0f, 0.6f);
 
     /// <summary>
-    /// 打ち出して戻るまでの時間 [s]。0.8 s より長いと的になる。下限 0.18 s: 振り出しの目標は技の時間の <see cref="PunchSpec.ArrivalShare"/>（0.18）で打ち抜く先へ着くので、
-    /// 0.18 s では 0.032 s。到着が 0.07 s 以下では拳の速さは拳のバネの追える速さで頭打ちで（右ストレートで到着 0.024〜0.072 s の最高速が 3.4〜3.7 m/s、docs/BOXING.md 1-7）、もっと短くしても拳は速くならず、
+    /// 打ち出して戻るまでの時間 [s]。1.34 s より長いと的になる。下限 0.30 s: 振り出しの目標は技の時間の <see cref="PunchSpec.ArrivalShare"/>（0.18）で打ち抜く先へ着くので、
+    /// 0.30 s では 0.054 s。到着が 0.12 s 以下では拳の速さは拳のバネの追える速さで頭打ちで（人形の単位の測定: 右ストレートで到着 0.024〜0.072 s の最高速が 3.4〜3.7 m/s、docs/BOXING.md 1-7）、もっと短くしても拳は速くならず、
     /// 戻りと次の拳が早まるだけになる（連打の間隔は人並みの範囲に留める）。
     /// </summary>
-    public static ValueRange Duration { get; } = new(nameof(PunchMove.Duration), 0.18f, 0.8f);
+    public static ValueRange Duration { get; } = new(nameof(PunchMove.Duration), 0.3021f, 1.343f);
 
     /// <summary>打つ間の頭のずれ（腕長単位）。±0.4 は体幹を大きく傾けた量で、それ以上は首・腰が追えず倒れる。</summary>
     public static ValueRange HeadShiftX { get; } = new(nameof(PunchMove.HeadShiftX), -0.4f, 0.4f);
@@ -70,7 +70,7 @@ public sealed record PunchMove
 
     public float Overshoot { get; init; }
 
-    public float Duration { get; init; } = 0.3f;
+    public float Duration { get; init; } = 0.5035f;
 
     /// <summary>胴を狙うか。技の正体なので <see cref="PunchBook.Validated"/> が既定へ戻す。</summary>
     public bool ToBody { get; init; }
@@ -134,30 +134,30 @@ public sealed record PunchMove
 [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
 public sealed record PunchBook
 {
-    public PunchMove Jab { get; init; } = Make(true, 0f, 0f, 0.25f, 0.30f, false, new(0.05f, 0f, 0.08f), 0.6f);
+    public PunchMove Jab { get; init; } = Make(true, 0f, 0f, 0.25f, 0.5035f, false, new(0.05f, 0f, 0.08f), 0.6f);
 
-    public PunchMove Cross { get; init; } = Make(false, 0.1f, 0f, 0.35f, 0.40f, false, new(0.12f, -0.02f, 0.14f), 0.35f);
+    public PunchMove Cross { get; init; } = Make(false, 0.1f, 0f, 0.35f, 0.6714f, false, new(0.12f, -0.02f, 0.14f), 0.35f);
 
     // 頭へのフックは肘の高さを越える溜め（Low 負）から、相手の顔を横切って振り抜く（PDCA サイクル 2）。
-    public PunchMove LeadHook { get; init; } = Make(true, 0.85f, -0.3f, 0.05f, 0.42f, false, new(-0.10f, -0.03f, 0.05f), 0.1f, sweep: 0.3f);
+    public PunchMove LeadHook { get; init; } = Make(true, 0.85f, -0.3f, 0.05f, 0.7049f, false, new(-0.10f, -0.03f, 0.05f), 0.1f, sweep: 0.3f);
 
-    public PunchMove RearHook { get; init; } = Make(false, 0.9f, -0.3f, 0.05f, 0.46f, false, new(0.12f, -0.03f, 0.06f), 0.1f, sweep: 0.3f);
+    public PunchMove RearHook { get; init; } = Make(false, 0.9f, -0.3f, 0.05f, 0.7721f, false, new(0.12f, -0.03f, 0.06f), 0.1f, sweep: 0.3f);
 
-    public PunchMove LeadUppercut { get; init; } = Make(true, 0.15f, 0.9f, 0.2f, 0.42f, false, new(-0.04f, -0.15f, 0.06f), 0.15f);
+    public PunchMove LeadUppercut { get; init; } = Make(true, 0.15f, 0.9f, 0.2f, 0.7049f, false, new(-0.04f, -0.15f, 0.06f), 0.15f);
 
-    public PunchMove RearUppercut { get; init; } = Make(false, 0.2f, 1.0f, 0.2f, 0.46f, false, new(0.06f, -0.15f, 0.06f), 0.15f);
+    public PunchMove RearUppercut { get; init; } = Make(false, 0.2f, 1.0f, 0.2f, 0.7721f, false, new(0.06f, -0.15f, 0.06f), 0.15f);
 
-    public PunchMove BodyJab { get; init; } = Make(true, 0f, 0.3f, 0.25f, 0.32f, true, new(0.04f, -0.35f, 0.12f), 0.7f);
+    public PunchMove BodyJab { get; init; } = Make(true, 0f, 0.3f, 0.25f, 0.5371f, true, new(0.04f, -0.35f, 0.12f), 0.7f);
 
-    public PunchMove BodyCross { get; init; } = Make(false, 0.1f, 0.3f, 0.3f, 0.42f, true, new(0.10f, -0.35f, 0.14f), 0.4f);
+    public PunchMove BodyCross { get; init; } = Make(false, 0.1f, 0.3f, 0.3f, 0.7049f, true, new(0.10f, -0.35f, 0.14f), 0.4f);
 
-    public PunchMove LeadBodyHook { get; init; } = Make(true, 0.8f, 0.35f, 0.15f, 0.44f, true, new(0.10f, -0.3f, 0.06f), 0.15f);
+    public PunchMove LeadBodyHook { get; init; } = Make(true, 0.8f, 0.35f, 0.15f, 0.7385f, true, new(0.10f, -0.3f, 0.06f), 0.15f);
 
-    public PunchMove RearBodyHook { get; init; } = Make(false, 0.85f, 0.35f, 0.15f, 0.48f, true, new(-0.08f, -0.3f, 0.06f), 0.15f);
+    public PunchMove RearBodyHook { get; init; } = Make(false, 0.85f, 0.35f, 0.15f, 0.8056f, true, new(-0.08f, -0.3f, 0.06f), 0.15f);
 
-    public PunchMove Overhand { get; init; } = Make(false, 0.55f, -0.7f, 0.25f, 0.50f, false, new(0.15f, -0.08f, 0.2f), 0.3f);
+    public PunchMove Overhand { get; init; } = Make(false, 0.55f, -0.7f, 0.25f, 0.8392f, false, new(0.15f, -0.08f, 0.2f), 0.3f);
 
-    public PunchMove Feint { get; init; } = Make(true, 0f, 0f, 0f, 0.20f, false, new(0.03f, -0.04f, 0.06f), 0.2f, extend: 0.35f);
+    public PunchMove Feint { get; init; } = Make(true, 0f, 0f, 0f, 0.3357f, false, new(0.03f, -0.04f, 0.06f), 0.2f, extend: 0.35f);
 
     /// <summary>最初の手書きの値（以前は <c>PunchSpec.Of</c> に直に書いてあった）。</summary>
     public static PunchBook Default { get; } = new();

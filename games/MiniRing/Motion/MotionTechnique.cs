@@ -16,7 +16,7 @@ public sealed record MotionTechnique(string Name, WeaponKind Weapon, SwordMotion
     IReadOnlyDictionary<BodyPartKind, float>? Skill = null)
 {
     /// <summary>技を出す間合いの幅 [m]: 間合いが <see cref="Range"/> ± これに入ったら出す。</summary>
-    public const float Window = 0.03f;
+    public const float Window = 0.0845f;
 
     /// <summary>間合い <paramref name="distance"/> で出せる技か。</summary>
     public bool Fits(float distance) => MathF.Abs(distance - Range) <= Window;

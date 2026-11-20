@@ -18,8 +18,8 @@ internal static class JointLab
     /// <summary>NearLost = 関節の中心から Radius 以内で削れたセル（両側の部位の合計）、ParentLost・ChildLost = 部位ぜんぶで削れたセル。</summary>
     internal sealed record JointResult(int NearLost, int ParentLost, int ChildLost, bool Severed, bool Touched, int BridgeCells, int EdgeCells);
 
-    /// <summary>関節の「そば」の半径 [m]（つなぎが壊す親・子の近いセルは 1 セル = 5 mm 以内）。</summary>
-    internal const float Radius = 0.02f;
+    /// <summary>関節の「そば」の半径 [m]（つなぎが壊す親・子の近いセルは 1 セル = 14 mm 以内）。</summary>
+    internal const float Radius = 0.0563f;
 
     /// <summary>名前（<c>Neck</c>・<c>LeftElbow</c>…）から関節を引く。</summary>
     internal static HumanoidRagdoll.RagdollJoint Parse(string name) =>
@@ -31,7 +31,7 @@ internal static class JointLab
     internal static Stage Prepare(HumanoidRagdoll.RagdollJoint joint, string dir, float offset, bool bridges, float bendDegrees, string axis)
     {
         var game = new BoxingGame(SwordStance.Tuning, 1, new BoxingCorners("stand", _ => new StandGuard(Down), _ => new StandGuard(Down)));
-        for (var i = 0; i < 90; i++)
+        for (var i = 0; i < 151; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -64,7 +64,7 @@ internal static class JointLab
         var kind = WeaponKind.Katana;
         var middle = (Weapon.TipOf(kind).X + Weapon.TwoHandGripsOf(kind).Bottom.X) * 0.5f;
         var target = center + new Vector3(0f, offset, 0f);
-        var start = target - (heading * 0.15f) - Vector3.Transform(new Vector3(middle, 0f, 0f), orientation);
+        var start = target - (heading * 0.423f) - Vector3.Transform(new Vector3(middle, 0f, 0f), orientation);
         var weapon = game.AddWeapon(kind, start, orientation);
         return new Stage(game, center, parentId, childId, heading, weapon, bridge.ActiveCells, bridge.EdgeCells);
     }
@@ -88,7 +88,7 @@ internal static class JointLab
         var (parentPoint, childPoint) = (parentBody.WorldToGrid(center), childBody.WorldToGrid(center));
         var (parentFilled, childFilled) = (Filled(parentGrid), Filled(childGrid));
         var touched = false;
-        var steps = (int)MathF.Ceiling(0.30f / speed * 240f) + 2;
+        var steps = (int)MathF.Ceiling(0.845f / speed * 240f) + 2;
         for (var i = 0; i < steps; i++)
         {
             game.World.SetLinearVelocity(weapon.Body.BodyId, heading * speed);
@@ -97,7 +97,7 @@ internal static class JointLab
             touched |= game.RecentCuts.Any(c => c.Touched);
         }
 
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(default, 1f / 240f); // 落ち着く
         }
@@ -107,7 +107,7 @@ internal static class JointLab
     }
 
     /// <summary>
-    /// 1 振りの動画（関節へ寄る。<paramref name="slow"/> 倍のスロー、振り終わって 1.2 秒まで）。音なし。<see cref="NeckLab.SlashVideo"/> と同じ撮り方。
+    /// 1 振りの動画（関節へ寄る。<paramref name="slow"/> 倍のスロー、振り終わって 2.0 秒まで）。音なし。<see cref="NeckLab.SlashVideo"/> と同じ撮り方。
     /// </summary>
     public static void Video(HumanoidRagdoll.RagdollJoint joint, string dir, float offset, float speed, bool bridges, float bendDegrees, string axis, float slow, string outPath)
     {
@@ -115,7 +115,7 @@ internal static class JointLab
         var stage = Prepare(joint, dir, offset, bridges, bendDegrees, axis);
         using var game = stage.Game;
         var (heading, weapon, center) = (stage.Heading, stage.Weapon, stage.Center);
-        var view = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, heading)) * 0.5f;
+        var view = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, heading)) * 1.408f;
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
         using var renderer = new Aigis.Render.HeadlessRenderer(Width, Height);
         using var ffmpeg = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ffmpeg",
@@ -124,8 +124,8 @@ internal static class JointLab
             RedirectStandardInput = true,
             UseShellExecute = false,
         }) ?? throw new IOException("ffmpeg を起動できません（PATH にありますか）。");
-        var steps = (int)MathF.Ceiling(0.30f / speed * 240f) + 2;
-        var total = steps + (int)(1.2f * 240f);
+        var steps = (int)MathF.Ceiling(0.845f / speed * 240f) + 2;
+        var total = steps + (int)(2.014f * 240f);
         var next = 0f;
         var perFrame = 1f / (Fps * slow);
         for (var i = 0; i < total; i++)
@@ -147,7 +147,7 @@ internal static class JointLab
             var instances = new List<Aigis.Render.PrimitiveInstance>();
             var lines = new List<Aigis.Render.DebugLine>();
             BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
-            var eye = center + view + new Vector3(0f, 0.08f, 0f);
+            var eye = center + view + new Vector3(0f, 0.225f, 0f);
             var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, center, Vector3.UnitY, 38f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
             var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, [], particles: game.BuildParticles(), lighting: game.BuildLighting(),
                 shadow: game.BuildShadow(), cameraPosition: displayEye, shapes: [], postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());

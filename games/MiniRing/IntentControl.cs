@@ -24,7 +24,7 @@ public sealed record IntentTuning
     /// </summary>
     public float BufferDurationShare { get; init; } = 1f;
     /// <summary>先行入力の寿命 [s]。押した順に並べて待つ（ジャブ・ジャブ・ストレートが押した順に出る長さ。ワンツーを続けて打てる程度で、長く居残らせない）。</summary>
-    public float BufferSeconds { get; init; } = 0.5f;
+    public float BufferSeconds { get; init; } = 0.8392f;
     /// <summary>先行入力を並べておける数。</summary>
     public int BufferCapacity { get; init; } = 4;
     /// <summary>
@@ -37,9 +37,9 @@ public sealed record IntentTuning
     /// <summary>同じ手の次の技を始められる、前の技の進み具合 [0..1]。前の拳が戻り始めたら（<see cref="PunchSpec.OutboundShare"/>）次を打ち出せる。</summary>
     public float SameHandGap { get; init; } = PunchSpec.OutboundShare;
     /// <summary>回避の反発を打ち返しとして選ぶ猶予 [s]。</summary>
-    public float CounterSeconds { get; init; } = 0.3f;
+    public float CounterSeconds { get; init; } = 0.5035f;
     /// <summary>動き出した拳を読む速さ [腕の長さ/s]。</summary>
-    public float ReadSpeed { get; init; } = 0.8f;
+    public float ReadSpeed { get; init; } = 0.4767f;
     /// <summary>回避で頭を沈める深さの倍率（守りの表の値に掛ける）。ダッキング・ウィービングを深く落とす。</summary>
     public float DropDepth { get; init; } = 1.45f;
     /// <summary>回避で頭を横へずらす量の倍率。</summary>
@@ -47,21 +47,21 @@ public sealed record IntentTuning
     /// <summary>スリップ・ウィービングで胴を反対の手側へ巻き込む角度 [rad]。解くとき逆の手のフックへ体のバネとして移る。</summary>
     public float CoilRadians { get; init; } = 22f * MathF.PI / 180f;
     /// <summary>巻き込みが満ちるまでの時間 [s]。</summary>
-    public float CoilSeconds { get; init; } = 0.12f;
+    public float CoilSeconds { get; init; } = 0.2014f;
     /// <summary>回避を押し続けたとき、守りの時間（守りの表の Duration）を過ぎてから頭と胴の目標を元の構えへ戻しきる時間 [s]。深く沈んだ姿勢は体が保てない（上体が前へ倒れてダウンになる）ので、押し続けても構えへ戻る。</summary>
-    public float RecoverSeconds { get; init; } = 0.3f;
+    public float RecoverSeconds { get; init; } = 0.5035f;
     /// <summary>
     /// ステップを押した瞬間から、脚のバネを放つ指令を出し続ける長さ [s]。体はバネを時定数 <see cref="FootworkTuning.StepPushTime"/> で放つので、
     /// その 2 倍ほどあれば貯めた分はほぼ出きる。長く押しても 1 回のステップ（押し直せば次）。
     /// </summary>
-    public float StepPulseSeconds { get; init; } = 0.08f;
+    public float StepPulseSeconds { get; init; } = 0.1343f;
 
     internal IntentTuning Validated()
     {
         if (!float.IsFinite(FullLoadSeconds) || FullLoadSeconds <= 0f || FullLoadSeconds > BotStyle.MaxTelegraph
             || !float.IsFinite(CloseRange) || CloseRange <= 0f
             || !float.IsFinite(BufferDurationShare) || BufferDurationShare <= 0f || BufferDurationShare > 1f
-            || !float.IsFinite(BufferSeconds) || BufferSeconds <= 0f || BufferSeconds > 2f
+            || !float.IsFinite(BufferSeconds) || BufferSeconds <= 0f || BufferSeconds > 3.357f
             || BufferCapacity is < 1 or > 16
             || !float.IsFinite(TapDurationScale) || TapDurationScale < 0.3f || TapDurationScale > 1f
             || !float.IsFinite(AlternateGap) || AlternateGap <= 0f || AlternateGap > 1f
@@ -73,7 +73,7 @@ public sealed record IntentTuning
             || !float.IsFinite(CoilRadians) || CoilRadians < 0f || CoilRadians > 1f
             || !float.IsFinite(CoilSeconds) || CoilSeconds <= 0f
             || !float.IsFinite(RecoverSeconds) || RecoverSeconds <= 0f
-            || !float.IsFinite(StepPulseSeconds) || StepPulseSeconds <= 0f || StepPulseSeconds > 0.5f)
+            || !float.IsFinite(StepPulseSeconds) || StepPulseSeconds <= 0f || StepPulseSeconds > 0.8392f)
         {
             throw new ArgumentOutOfRangeException(nameof(IntentTuning), "操作設定の時間・距離・速さが範囲外です。");
         }
@@ -418,7 +418,7 @@ public sealed class IntentControl : IFighterControl
         var duration = DurationFor(spec, request.Released ? MathF.Max(held, load) : held);
         Set(hand, new PunchAction(request.Technique, spec, time, duration, _clock <= _counterUntil,
             AimWorld: spec.ToBody ? sense.OpponentChest : sense.OpponentHead, Load: load));
-        if (_clock - _lastStartClock > _lastStartDuration + 0.4f)
+        if (_clock - _lastStartClock > _lastStartDuration + 0.6714f)
         {
             _chain.Clear(); // 間が空いたら別の連打
         }

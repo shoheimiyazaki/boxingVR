@@ -14,7 +14,7 @@ public static class VrMotionSynth
     /// 棒の突き: 身長 1.7 m の人が棒を両手で持ち（右手が前・左手が後ろの 0.25 m）、少し引いてから前へ 0.14 m 突き（写像で 2 倍になる）、構えへ戻る。
     /// 突きの間（0.30〜0.62 s）は左手のトリガーを離し（棒を滑らせる）、右手は握ったまま。
     /// </summary>
-    public static VrMotionClip StaffThrust(float puppetArmReach = 0.188f)
+    public static VrMotionClip StaffThrust(float puppetArmReach = 0.530f)
     {
         var mapper = new VrPlayerMapper(weaponMode: true);
         var recorder = new VrMotionRecorder("Staff", "synthetic staff thrust");

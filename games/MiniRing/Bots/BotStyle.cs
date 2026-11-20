@@ -11,8 +11,8 @@ namespace MiniRing.Bots;
 /// </summary>
 public sealed record BotStyle
 {
-    /// <summary>反応時間の下限 [s]（人の目と手の反応のおおよその下限）。</summary>
-    public const float MinReactionTime = 0.12f;
+    /// <summary>反応時間の下限 [s]（人の目と手の反応のおおよその下限。人形の単位の 0.12 s を相似で換算）。</summary>
+    public const float MinReactionTime = 0.2014f;
 
     /// <summary>飛んでくる拳に守りを出せる確率の上限（読み違い・見落としがある）。</summary>
     public const float MaxDefenseRate = 0.85f;
@@ -80,7 +80,7 @@ public sealed record BotStyle
 
     /// <summary>
     /// 自分から打っていない間、危険度に応じて外へ出る強さ（足運びの前後の指令に足す、0..1）。危ない所に居続けた時間（さらされ）が長いほど
-    /// 強く出る（危険度 × (1 + さらされ[s])）。
+    /// 強く出る（危険度 × (1 + さらされ / <see cref="RangeSense.ExposureScale"/>)）。
     /// </summary>
     public float RangeExit { get; init; }
 
@@ -91,7 +91,7 @@ public sealed record BotStyle
     public float RangeKeepOut { get; init; }
 
     /// <summary>
-    /// 危ない所に何もせず居続けることを、打って解消する強さ（0 = しない）。危険度 × (1 + さらされ[s]) × この値だけ、次の拳までの間（攻撃の間隔）を
+    /// 危ない所に何もせず居続けることを、打って解消する強さ（0 = しない）。危険度 × (1 + さらされ / <see cref="RangeSense.ExposureScale"/>) × この値だけ、次の拳までの間（攻撃の間隔）を
     /// 早く縮める。下がる（<see cref="RangeExit"/>・<see cref="RangeKeepOut"/>）と違って消極的にならない（R3: 下がる版は試合がつまらなかった）。
     /// </summary>
     public float RangePress { get; init; }
@@ -148,7 +148,7 @@ public sealed record BotStyle
     public float HurtFeltScale { get; init; } = 30f;
 
     /// <summary>手応えを忘れる時定数 [s]。</summary>
-    public float HurtMemory { get; init; } = 2.5f;
+    public float HurtMemory { get; init; } = 4.196f;
 
     /// <summary>開きに応じて攻めの間隔を縮める強さ（間隔の縮む速さが 1 + これ × 開き 倍）。0 = 従来。</summary>
     public float FinishTempo { get; init; } = 1.5f;
@@ -238,7 +238,7 @@ public sealed record BotStyle
     public const float MaxGuardHeight = 1.5f;
 
     /// <summary>溜めの上限 [s]（ボットはこの時間で引ききる）。</summary>
-    public const float MaxTelegraph = 0.2f;
+    public const float MaxTelegraph = 0.3357f;
 
     /// <summary>
     /// 打つ前の溜め（予備動作）[s]（0 = 溜めなし、上限 <see cref="MaxTelegraph"/>）。連打の最初の拳の前に、打つ手の肩を後ろへ引き、頭を引いて膝を沈め
@@ -256,7 +256,7 @@ public sealed record BotStyle
     // ── 守り ──
 
     /// <summary>拳が向かってくるのに気づいてから守りを出すまで [s]。</summary>
-    public float ReactionTime { get; init; } = 0.18f;
+    public float ReactionTime { get; init; } = 0.3021f;
 
     /// <summary>
     /// 動き出しを読む度合い（0..1）。0 は拳が速く向かってきてから気づく（近い間合いでは反応時間が間に合わない）。
@@ -316,7 +316,7 @@ public sealed record BotStyle
     /// <summary>Probability of selecting a kick. Zero preserves the old random sequence.</summary>
     public float KickRate { get; init; }
     /// <summary>Kick goal cycle duration in seconds.</summary>
-    public float KickDuration { get; init; } = 0.7f;
+    public float KickDuration { get; init; } = 1.175f;
     /// <summary>
     /// 蹴りを選ぶとき、その蹴りが届く間合い（<see cref="KickSpec.Standoff"/>）と今の間合いの合い具合で重みを連続に変える強さ（0 なら今までどおり
     /// 重みだけで選ぶ）。合わない間合いの蹴りほど exp(−強さ × (ずれ / 0.15)²) で選ばれにくくなる。種類での場合分けではなく、見える距離（腕の長さの倍数）から。
@@ -364,7 +364,7 @@ public sealed record BotStyle
     public float GroundDrive { get; init; } = 0.8f;
 
     /// <summary>倒れた相手への打ち下ろしの溜め [s]（振りかぶったまま構えて体のバネを縮める時間。<see cref="MaxTelegraph"/> まで）。</summary>
-    public float GroundLoad { get; init; } = 0.05f;
+    public float GroundLoad { get; init; } = 0.08392f;
 
     /// <summary>倒れた相手への攻めのうち、振り下ろす系（鉄槌・斬り下ろし・棍棒の打ち下ろし）を選ぶ割合（残りは突き下ろす系。棍棒は振り下ろす系だけ）。</summary>
     public float GroundCut { get; init; } = 0.5f;
@@ -373,8 +373,8 @@ public sealed record BotStyle
     public float GroundStomp { get; init; }
 
     /// <summary>倒れた相手への打ち下ろしの合間 [s]（次を決めるまで）。</summary>
-    public float GroundRest { get; init; } = 0.35f;
-    public SwordDefense Parry { get; init; } = SwordDefense.Parrying with { ThreatSpeed = 0.8f, Margin = 0.4f, Clearance = 0.18f };
+    public float GroundRest { get; init; } = 0.5874f;
+    public SwordDefense Parry { get; init; } = SwordDefense.Parrying with { ThreatSpeed = 0.4767f, Margin = 0.4f, Clearance = 0.18f };
     public IReadOnlyDictionary<KickTechnique, float> KickWeights { get; init; } = new Dictionary<KickTechnique, float>();
     public float ParryWeight { get; init; }
     public IReadOnlyDictionary<HandShape, float> HandShapeWeights { get; init; } = new Dictionary<HandShape, float>();
@@ -455,7 +455,7 @@ public sealed record BotStyle
             RangeThreat = Range(RangeThreat, 0.5f, 2.5f, 1.2f),
             RangeGuard = Unit(RangeGuard),
             RangeHeadMove = Unit(RangeHeadMove),
-            RangeGuess = Range(RangeGuess, 0f, 10f, 0f),
+            RangeGuess = Range(RangeGuess, 0f, 5.958f, 0f),
             RangeExit = Unit(RangeExit),
             RangeKeepOut = Unit(RangeKeepOut),
             RangePress = Range(RangePress, 0f, 10f, 0f),
@@ -467,7 +467,7 @@ public sealed record BotStyle
             HurtSagStart = Range(HurtSagStart, 0f, 0.5f, 0.06f),
             HurtSagSpan = Range(HurtSagSpan, 0.01f, 1f, 0.12f),
             HurtFeltScale = Range(HurtFeltScale, 1f, 500f, 30f),
-            HurtMemory = Range(HurtMemory, 0.1f, 20f, 2.5f),
+            HurtMemory = Range(HurtMemory, 0.1678f, 33.57f, 4.196f),
             FinishTempo = Range(FinishTempo, 0f, 5f, 1.5f),
             FinishPress = Range(FinishPress, 0f, 2f, 1.5f),
             FinishSpend = Range(FinishSpend, 0f, 1f, 0.6f),
@@ -492,26 +492,26 @@ public sealed record BotStyle
             GuardWidth = Range(GuardWidth, 0.2f, 1.5f, 1f),
             Telegraph = Range(Telegraph, 0f, MaxTelegraph, 0f),
             GuardReach = Range(GuardReach, 0.3f, 1.5f, 1f),
-            ReactionTime = Range(ReactionTime, MinReactionTime, 0.5f, 0.5f),
+            ReactionTime = Range(ReactionTime, MinReactionTime, 0.8392f, 0.8392f),
             DefenseRate = Range(DefenseRate, 0f, MaxDefenseRate, 0f),
             Face = Face?.Validate(),
             Build = Build?.Validate(),
             KickRate = Unit(KickRate),
-            KickDuration = Range(KickDuration, 0.4f, 1.2f, 0.7f),
+            KickDuration = Range(KickDuration, 0.6714f, 2.014f, 1.175f),
             KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
             BreakLikes = (BreakLikes ?? new Dictionary<string, float>()).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
             ElbowRate = Unit(ElbowRate),
             ElbowRangeFit = Range(ElbowRangeFit, 0f, 4f, 0f),
             ElbowWeights = (ElbowWeights ?? new Dictionary<ElbowTechnique, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
-            KickShift = Range(KickShift, 0f, 0.6f, 0f),
+            KickShift = Range(KickShift, 0f, 1.007f, 0f),
             Ground = Ground?.Validated(),
             KickLeanForward = Range(KickLeanForward, -0.4f, 0.4f, 0f),
             KickLeanSide = Range(KickLeanSide, -0.4f, 0.4f, 0f),
             GroundDrive = Unit(GroundDrive),
-            GroundLoad = Range(GroundLoad, 0f, MaxTelegraph, 0.05f),
+            GroundLoad = Range(GroundLoad, 0f, MaxTelegraph, 0.08392f),
             GroundCut = Unit(GroundCut),
             GroundStomp = Unit(GroundStomp),
-            GroundRest = Range(GroundRest, 0.1f, 3f, 0.35f),
+            GroundRest = Range(GroundRest, 0.1678f, 5.035f, 0.5874f),
             Parry = Parry ?? SwordDefense.Parrying,
             KickWeights = (KickWeights ?? new Dictionary<KickTechnique, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
             HandShapeWeights = (HandShapeWeights ?? new Dictionary<HandShape, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),

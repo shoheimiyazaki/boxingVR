@@ -6,14 +6,14 @@ using MiniRing.Bots;
 namespace MiniRing.Arena;
 
 /// <summary>
-/// 全キャラの顔を並べた画像（1 人 1 行: 正面・横・上・斜め 40 度）。試合の体の頭（頭蓋骨の中の 5 mm の格子と、その上に重ねた顔の層の 2.5 mm の格子:
+/// 全キャラの顔を並べた画像（1 人 1 行: 正面・横・上・斜め 40 度）。試合の体の頭（頭蓋骨の中の 14 mm の格子と、その上に重ねた顔の層の 7 mm の格子:
 /// <see cref="MiniRing.Voxels.FaceLayer"/>）を正射影で描く（描画エンジンは使わない: どの機械でも同じ絵になり、試合の体のボクセルそのものを見られる）。
 /// キャラの並びは標準出力に出す（上から下へ）。
 /// </summary>
 internal static class FaceSheet
 {
-    private const float PixelsPerMeter = 4000f; // 5 mm のセルが 20 px
-    private const int Tile = 360;               // 1 枚の大きさ（90 mm 四方）
+    private const float PixelsPerMeter = 1420f; // 14 mm のセルが 20 px
+    private const int Tile = 360;               // 1 枚の大きさ（254 mm 四方）
     private const int Background = 0x2b2f38;
 
     /// <summary>描く向き: 正面・横（本人の左から）・上（顔の前が下）・斜め 40 度。</summary>

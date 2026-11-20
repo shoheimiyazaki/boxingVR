@@ -9,7 +9,7 @@ namespace MiniRing.Motion;
 /// どの型も同じ構え（<see cref="Guard"/>）から始まって、構えへ戻る。技の選び方・狙い・守りは剣と同じ（<c>FormSwordsman</c> / <c>SwordsmanBot</c>）で、
 /// バットのための分岐は無い（CLAUDE.md §1.3）。棍棒は刃が無い（<c>Weapon.IsBlunt</c>）ので、当たりの違いは材料から出る。
 /// <para>
-/// 寸法は腕の長さ = 1（人形で 0.188 m）。棒は 21 cm（腕の 1.1 倍）しかなく、上の手（右手）から頭の端まで 0.84・握りの端（グリップエンド）まで 0.18。
+/// 寸法は腕の長さ = 1（人の大きさの体で 0.53 m）。棒は 59 cm（腕の 1.1 倍）しかなく、上の手（右手）から頭の端まで 0.84・握りの端（グリップエンド）まで 0.18。
 /// 剣よりずっと短いので、どの打ちも腕を伸ばして踏み込んで届かせる（<c>Step</c>）。右手の位置は肩の中心から測る。方位角は 0 が前・正が左、仰角は正が上。
 /// </para>
 /// 型の一覧（どれも構え → 打ち → 構え）:
@@ -25,7 +25,7 @@ namespace MiniRing.Motion;
 /// </summary>
 public static class BatForms
 {
-    /// <summary>両手の間隔（腕の長さ = 1。<see cref="MiniRing.Weapons.Weapon.HandSpacing"/> 0.028 m ÷ 腕の長さ 0.188 m）。</summary>
+    /// <summary>両手の間隔（腕の長さ = 1。<see cref="MiniRing.Weapons.Weapon.HandSpacing"/> 0.079 m ÷ 腕の長さ 0.53 m）。</summary>
     public const float Spacing = 0.149f;
 
     /// <summary>構え: 両手を胸の前、棒を斜め上へ立てて頭の端を相手の顔のほうへ。</summary>

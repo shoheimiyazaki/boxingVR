@@ -104,7 +104,7 @@ internal static class BreakDemo
         foreach (var shortcut in new[] { true, false })
         {
             var label = shortcut ? "近道あり" : "近道なし";
-            yield return new Scene($"{title}（{label}）", () => Bout(shortcut), 2f, act,
+            yield return new Scene($"{title}（{label}）", () => Bout(shortcut), 3.357f, act,
                 (game, done) => !done ? $"打ち合う（{label}）" : $"{after}（{label}: {Stance(game.Cpu)}）");
         }
     }
@@ -122,14 +122,14 @@ internal static class BreakDemo
                 CutLimb(game, game.Cpu, game.Cpu.Parts.RightThigh, 0.25f);
             }, "腰で座る"),
         .. LegScenes("すねの骨が折れる", game => BreakLimb(game, game.Cpu, game.Cpu.Parts.LeftShin), "折れたすねが肉でぶら下がる"),
-        new("両手の棍棒: 添えた左腕を切り落とす", TwoHandedBat, 1.5f,
+        new("両手の棍棒: 添えた左腕を切り落とす", TwoHandedBat, 2.518f,
             game =>
             {
                 var upper = game.Cpu.UpperArmId(BoxingGame.SupportHand);
                 Cut(game, game.Cpu, upper, [game.Cpu.Voxels!.PartOf(upper)!.Body.Grid.Dimensions.X / 2]);
             },
             (game, after) => !after ? "両手で握る" : game.Cpu.DeadGrips > 0 ? "切られた左手は、力が抜けるまで握ったまま" : "左手が抜けた（右手の片手持ち）"),
-        new("右肘の肉を斬り取る（骨の端より先）", TwoHandedBat, 1.5f,
+        new("右肘の肉を斬り取る（骨の端より先）", TwoHandedBat, 2.518f,
             game =>
             {
                 var upper = game.Cpu.UpperArmId(BoxingGame.WeaponHand);
@@ -142,20 +142,20 @@ internal static class BreakDemo
             },
             (game, after) => !after ? "両手で握る" : game.Cpu.DeadGrips > 0 ? "肘から先が外れた（右手はまだ握っている）" : "肘から先が落ちた"),
         new("棍棒が握りのすぐ先で折れる: 捨てて素手で戦う", () => new BoxingGame(seed: 1, corners: new BoxingCorners("club",
-                s => new DisarmedFallback(new Scripted(x => Guard(x, SwingFamily.Chop)), BotCatalog.Create(DisarmedFallback.FistStyle, s)), _ => new StandGuard(), CpuWeapon: WeaponKind.WoodenClub)), 1.5f,
+                s => new DisarmedFallback(new Scripted(x => Guard(x, SwingFamily.Chop)), BotCatalog.Create(DisarmedFallback.FistStyle, s)), _ => new StandGuard(), CpuWeapon: WeaponKind.WoodenClub)), 2.518f,
             game =>
             {
                 var club = game.WeaponOf(game.Cpu)!;
                 var grid = club.Body.Grid;
                 var grip = game.Cpu.WieldedGrip(BoxingGame.WeaponHand)!.Value.X;
-                var slice = (int)MathF.Floor((grip + 0.01f - club.Body.GridCenterLocal.X + grid.HalfExtents.X) / grid.CellSize.X);
+                var slice = (int)MathF.Floor((grip + 0.0282f - club.Body.GridCenterLocal.X + grid.HalfExtents.X) / grid.CellSize.X);
                 if (club.Body.SplitAt(0, slice, takeHigh: true) is { } piece)
                 {
-                    game.World.SetLinearVelocity(piece.BodyId, new Vector3(0f, 0.5f, 0f));
+                    game.World.SetLinearVelocity(piece.BodyId, new Vector3(0f, 0.839f, 0f));
                 }
             },
             (game, after) => !after ? "棍棒で構える" : game.Cpu.Wields(BoxingGame.WeaponHand) ? "柄だけになった" : "柄を捨てて、素手の拳で打つ"),
-        new("左の前腕の骨が折れる（肉でぶら下がる）", () => new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard())), 1.5f,
+        new("左の前腕の骨が折れる（肉でぶら下がる）", () => new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard())), 2.518f,
             game =>
             {
                 var forearm = game.Cpu.ForearmId(Hand.Left);
@@ -166,7 +166,7 @@ internal static class BreakDemo
                 }
             },
             (game, after) => !after ? "構える" : game.Cpu.Fractures > 0 ? "折れた先が肉でぶら下がる（駆動の無い弱いバネ）" : "肉が千切れて落ちた"),
-        new("首の骨が折れる（頭が肉でぶら下がる）", () => new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard())), 1.5f,
+        new("首の骨が折れる（頭が肉でぶら下がる）", () => new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard())), 2.518f,
             game =>
             {
                 // 折れた瞬間に、頭を前へ倒す打撃（頭への回転の力積）が入ったことにする。折れたあとの動き（垂れる・揺れる）は肉のバネと重さだけ。
@@ -174,12 +174,12 @@ internal static class BreakDemo
                 if (game.Cpu.Voxels!.BreakBent(head, new Aigis.Physics.Voxels.VoxelBreak(1, MiniRing.Voxels.BoxerSpine.NeckSlices.High, false, 2f)) is { } broken)
                 {
                     game.BreakBone(game.Cpu, broken, 1f);
-                    game.World.ApplyAngularImpulse(head, Vector3.Transform(Vector3.UnitX, game.World.GetState(game.Cpu.Parts.Chest).Orientation) * 0.1f);
+                    game.World.ApplyAngularImpulse(head, Vector3.Transform(Vector3.UnitX, game.World.GetState(game.Cpu.Parts.Chest).Orientation) * 4.728f);
                 }
             },
             (game, after) => !after ? "構える" : game.Cpu.IsDead ? "頭が離れて死んだ" : game.Cpu.HangsByFlesh(game.Cpu.Parts.Head) ? "首が折れた: 頭が肉でぶら下がる（首の筋は外れ、肉の断面に比例する弱いバネ）" : "肉が千切れた",
-            game => game.World.GetState(game.Cpu.Parts.Chest).Position + new Vector3(0f, 0.1f, 0f)),
-        new("首を斬る（頭が離れて落ち、その体は死ぬ）", () => new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard())), 1.5f,
+            game => game.World.GetState(game.Cpu.Parts.Chest).Position + new Vector3(0f, 0.282f, 0f)),
+        new("首を斬る（頭が離れて落ち、その体は死ぬ）", () => new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard())), 2.518f,
             game =>
             {
                 // 首の段（皮膚・筋肉・骨・脊髄のすべて）を斬り取った結果だけを起こす。頭が離れて落ちる・死ぬ・試合が終わるのは物理とゲームの決まり。
@@ -201,6 +201,6 @@ internal static class BreakDemo
                 }
             },
             (game, after) => !after ? "構える" : game.Cpu.IsDead ? $"首が断たれた: 頭が離れて落ちる、体は死ぬ（{game.Cpu.DeathCause}）" : "首は繋がっている",
-            game => game.World.GetState(game.Cpu.Parts.Chest).Position + new Vector3(0f, 0.1f, 0f)),
+            game => game.World.GetState(game.Cpu.Parts.Chest).Position + new Vector3(0f, 0.282f, 0f)),
     ];
 }

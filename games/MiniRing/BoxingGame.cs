@@ -79,14 +79,21 @@ public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFa
 /// </summary>
 public sealed partial class BoxingGame : IGame<BoxingInput>
 {
-    public const float CountSeconds = 10f;
+    /// <summary>10 カウントの長さ [s]（試合の時間。人形の単位の 10 s を実物大の時間へ ×√L）。数える数は <see cref="CountNumbers"/>、1 つの間は <see cref="CountInterval"/>。</summary>
+    public const float CountSeconds = 16.78f;
+
+    /// <summary>ダウンで数える数（10 カウント）。</summary>
+    public const int CountNumbers = 10;
+
+    /// <summary>カウントの 1 つの間 [s]（試合の時間。<see cref="CountSeconds"/> / <see cref="CountNumbers"/>）。</summary>
+    public const float CountInterval = CountSeconds / CountNumbers;
 
     /// <summary>
     /// 倒れたまま体がまったく動かない（<see cref="Fighter.StillTime"/>）のがこの秒数続いたら、10 カウントを待たずにその場で K.O.
     /// （審判が試合を止める）。意識が少しでもあれば起き上がろうとする試みで体が動く（試みの間隔 <see cref="FighterTuning.StirPeriodSlow"/> より長い）ので、
-    /// 止まるのは死んだ・完全に意識を失ったときだけ。ルールの値（物理量ではない）。
+    /// 止まるのは死んだ・完全に意識を失ったときだけ。ルールの値（物理量ではない。試合の時間なので実物大の時間: 人形の 4 s × √L）。
     /// </summary>
-    public const float StillKoSeconds = 4f;
+    public const float StillKoSeconds = 6.714f;
     /// <summary>物理のサブステップの速さ [Hz]。ホストの dt をこの速さの刻みに割る（既定は <see cref="DefaultSubstepRate"/> = 240）。試合ごとに変えられる（簡素化の測定用: 120・180）。ホストの dt がこの刻みの整数倍のときだけ割り切れる。記録の見出しには入らないので、既定以外で撮った記録は既定では再現しない。</summary>
     public float SubstepRate { get; set; } = DefaultSubstepRate;
 
@@ -100,15 +107,15 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     private static readonly System.Threading.AsyncLocal<float?> _defaultSubstepRate = new();
 
-    private const float RoundResetDelay = 3.5f;
-    private const float RehitCooldown = 0.18f;
+    private const float RoundResetDelay = 5.874f;
+    private const float RehitCooldown = 0.3021f;
     private const float MinimumDamage = 1f;
 
     /// <summary>拳に乗った質量のうち、物理の接触では伝わらない体の分を相手へ押し込む割合（反発を含めた運動量の受け渡し）。</summary>
     private const float KnockbackTransfer = 0.6f;
 
     /// <summary>1 発で相手の全身に与える速度変化の上限 [m/s]（吹き飛ばしすぎない）。</summary>
-    private const float MaxKnockbackSpeed = 0.6f;
+    private const float MaxKnockbackSpeed = 1.007f;
 
     private static readonly Hand[] Hands = [Hand.Left, Hand.Right];
 
@@ -151,7 +158,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private readonly Dictionary<Fighter, bool> _wasStanding = [];
 
     /// <summary>離された後、この時間 [s] 以内に倒れたら投げとみなす（見出しと記録だけ。物理は分けない）。</summary>
-    public const float ThrowWindow = 0.8f;
+    public const float ThrowWindow = 1.343f;
 
     /// <summary>投げが決まった（掴んでいた側, 倒れた側）。見出し・ドリルの記録用。</summary>
     public event Action<Fighter, Fighter>? Thrown;
@@ -280,7 +287,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <summary>リングを指定しない拳の試合（ドリルの場 <see cref="RingLayout.DrillBoxing"/>）のリングの 1 辺 [m]。この試合のリングは <see cref="Layout"/>。</summary>
     public static float RingSize => RingLayout.DrillBoxing.Size;
 
-    public const float RingSurfaceHeight = 0.75f;
+    public const float RingSurfaceHeight = 2.113f;
 
     /// <summary>この試合のリング（大きさと始めの間）。</summary>
     public RingLayout Layout { get; }
@@ -369,7 +376,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     }
 
     /// <summary>
-    /// （サブステップごとに調べる: 拳は 1 歩で数 cm 進むので、歩ごとでは 4 mm のすき間を飛び越えてしまう。）
+    /// （サブステップごとに調べる: 拳は 1 歩で数 cm 進むので、歩ごとでは 11 mm のすき間を飛び越えてしまう。）
     /// 拳が相手の頭・胴・腰の表面から <see cref="GrazeGap"/> 以内を速く（<see cref="GrazeMinSpeed"/> 以上）通り、打撃に数えられなかった
     /// （当たらなかった・触れただけ）とき、1 回の振りにつき 1 回、かすった音を出す。拳が速さの半分を下回ったら次を待つ。音のためだけ。
     /// </summary>
@@ -409,11 +416,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
     }
 
-    /// <summary>かすったとみなす、拳の表面と相手の体の表面のすき間 [m]（人形の体で 4 mm: 皮膚 1 層ほど）。音のためだけ。</summary>
-    private const float GrazeGap = 0.004f;
+    /// <summary>かすったとみなす、拳の表面と相手の体の表面のすき間 [m]（約 11 mm: 皮膚 1 層ほど）。音のためだけ。</summary>
+    private const float GrazeGap = 0.01127f;
 
     /// <summary>かすった音を出す拳の速さ [m/s]（振りの音 SwingSound.MinSpeed より少し下: 押し合いでは鳴らさない）。</summary>
-    private const float GrazeMinSpeed = 1f;
+    private const float GrazeMinSpeed = 1.678f;
 
     private void Substep(in FighterCommand playerCommand, FighterCommand? blue, float dt)
     {
@@ -528,9 +535,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
     /// <summary>
     /// ダウンから立ち直って構えた後、試合を戻すまでの一呼吸 [s]（審判の判断の値: 2026-11-13、ユーザーの指定「ワンテンポ入れてから再開」）。
-    /// 人形の 0.75 倍速の動画で 1.6 秒ほど: 立ち直った体が構えを取り直し、見ている人が「戻った」と分かる間。
+    /// 人形の 0.75 倍速の動画で 1.6 秒ほど（人形の単位で 1.2 s、実物大の時間で 2.01 s）: 立ち直った体が構えを取り直し、見ている人が「戻った」と分かる間。
     /// </summary>
-    public const float ResumePause = 1.2f;
+    public const float ResumePause = 2.014f;
 
     /// <summary>ダウンから立ち直った後の一呼吸の残り [s]（<see cref="ResumePause"/>）。</summary>
     private float _resumeHold;
@@ -705,7 +712,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         {
             var grid = weapon.Grids[i];
             var center = s.Position + Vector3.Transform(grid.GridCenterLocal, s.Orientation);
-            if (Vector3.Distance(center, glove) <= grid.Grid.HalfExtents.Length() + 0.01f)
+            if (Vector3.Distance(center, glove) <= grid.Grid.HalfExtents.Length() + 0.02817f)
             {
                 return false;
             }
@@ -1010,10 +1017,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             if (material.Tissue == VoxelTissue.Organ)
             {
                 // 臓器: 紫に光る火花（光の尾を引く）。血しぶきも飛ぶ。
-                _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.6f, Spin(40f), OrganSpark, life: 0.6f, glow: true, tag: chip.Material, heat: ChipHeat, trail: 1f, ownColor: true);
+                _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.6f, Spin(23.83f), OrganSpark, life: 1.007f, glow: true, tag: chip.Material, heat: ChipHeat, trail: 1f, ownColor: true);
                 for (var k = 0; k < 3; k++)
                 {
-                    _debris.Spawn(chip.Position, Fly(2f, 0.3f), chip.Orientation, chip.Size * 0.3f, Spin(50f), OrganSpark, life: 0.45f, glow: true, tag: VoxelBreakSound.SparkTag, heat: ChipHeat * 0.7f, trail: 1f, ownColor: true);
+                    _debris.Spawn(chip.Position, Fly(2f, 0.3f), chip.Orientation, chip.Size * 0.3f, Spin(29.79f), OrganSpark, life: 0.7553f, glow: true, tag: VoxelBreakSound.SparkTag, heat: ChipHeat * 0.7f, trail: 1f, ownColor: true);
                 }
 
                 Blood(chip, Fly, Spin);
@@ -1022,10 +1029,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
             // 欠片はそのままの色で、その色の光の尾を引く。尾の長さは材質で: 骨は長く（火花ほど）、皮膚・肉・金属・木は短く（その半分）。
             var trail = material.Tissue == VoxelTissue.Bone ? BoneTrail : ChipTrail;
-            _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.9f, Spin(40f), color, tag: chip.Material, heat: ChipHeat, trail: trail, ownColor: true);
+            _debris.Spawn(chip.Position, Fly(1.5f, 0.12f), chip.Orientation, chip.Size * 0.9f, Spin(23.83f), color, tag: chip.Material, heat: ChipHeat, trail: trail, ownColor: true);
             for (var k = 0; k < 2; k++)
             {
-                _debris.Spawn(chip.Position, Fly(1.8f, 0.25f), chip.Orientation, chip.Size * 0.45f, Spin(70f), color, life: 1.6f, tag: chip.Material, heat: ChipHeat * 0.7f, trail: trail, ownColor: true);
+                _debris.Spawn(chip.Position, Fly(1.8f, 0.25f), chip.Orientation, chip.Size * 0.45f, Spin(41.71f), color, life: 2.685f, tag: chip.Material, heat: ChipHeat * 0.7f, trail: trail, ownColor: true);
             }
 
             switch (material.Tissue)
@@ -1033,13 +1040,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
                 case VoxelTissue.Bone:
                     for (var k = 0; k < 3; k++)
                     {
-                        _debris.Spawn(chip.Position, Fly(1.6f, 0.35f), chip.Orientation, chip.Size * 0.25f, Spin(90f), BoneDust, life: 1.2f, tag: VoxelBreakSound.DustTag);
+                        _debris.Spawn(chip.Position, Fly(1.6f, 0.35f), chip.Orientation, chip.Size * 0.25f, Spin(53.62f), BoneDust, life: 2.014f, tag: VoxelBreakSound.DustTag);
                     }
 
                     break;
                 case VoxelTissue.Solid when chip.Material != BoxerAnatomy.Iron:
                     // 木が潰れると木くず。
-                    _debris.Spawn(chip.Position, Fly(1.4f, 0.4f), chip.Orientation, chip.Size * 0.4f, Spin(80f), material.Color, life: 1.4f, tag: VoxelBreakSound.DustTag);
+                    _debris.Spawn(chip.Position, Fly(1.4f, 0.4f), chip.Orientation, chip.Size * 0.4f, Spin(47.67f), material.Color, life: 2.35f, tag: VoxelBreakSound.DustTag);
                     break;
                 case VoxelTissue.Flesh:
                     Blood(chip, Fly, Spin);
@@ -1052,7 +1059,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     {
         for (var k = 0; k < 3; k++)
         {
-            _debris.Spawn(chip.Position, fly(2.1f, 0.3f), chip.Orientation, chip.Size * 0.35f, spin(60f), BloodColor, life: 2.2f, tag: VoxelBreakSound.BloodTag);
+            _debris.Spawn(chip.Position, fly(2.1f, 0.3f), chip.Orientation, chip.Size * 0.35f, spin(35.75f), BloodColor, life: 3.692f, tag: VoxelBreakSound.BloodTag);
         }
     }
 
@@ -1068,8 +1075,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             var scatter = new Vector3(Jitter(), Jitter(), Jitter());
             var dir = Vector3.Normalize((normal * (0.4f + (0.6f * MathF.Abs(Jitter())))) + (along * 0.6f) + (scatter * 0.7f) + new Vector3(1e-4f));
             var v = dir * (speed * (0.6f + (0.5f * MathF.Abs(Jitter()))));
-            _debris.Spawn(point, v, Quaternion.Identity, new Vector3(0.0012f), Vector3.Zero, Spark, life: 0.3f + (0.15f * MathF.Abs(Jitter())), glow: true,
-                tag: VoxelBreakSound.SparkTag, heat: 0.3f, trail: BoneTrail);
+            _debris.Spawn(point, v, Quaternion.Identity, new Vector3(0.00338f), Vector3.Zero, Spark, life: 0.5035f + (0.2518f * MathF.Abs(Jitter())), glow: true,
+                tag: VoxelBreakSound.SparkTag, heat: 0.5035f, trail: BoneTrail);
         }
     }
 
@@ -1098,19 +1105,19 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             for (var k = 0; k < Math.Min(4, flesh / 2); k++)
             {
                 var drop = (velocity * 1.2f) + (new Vector3(Jitter(), Jitter(), Jitter()) * (0.3f * velocity.Length()));
-                _debris.Spawn(chunk.Position, drop, chunk.Orientation, chunk.CellSize * 0.35f, new Vector3(Jitter(), Jitter(), Jitter()) * 60f, BloodColor, life: 2.2f, tag: VoxelBreakSound.BloodTag);
+                _debris.Spawn(chunk.Position, drop, chunk.Orientation, chunk.CellSize * 0.35f, new Vector3(Jitter(), Jitter(), Jitter()) * 35.75f, BloodColor, life: 3.692f, tag: VoxelBreakSound.BloodTag);
             }
         }
     }
 
     /// <summary>塊のはがれた断面が光っている時間 [s]（欠片と同じく白 → 黄 → 赤 → 元の色）。</summary>
-    private const float ChunkHeat = 0.5f;
+    private const float ChunkHeat = 0.8392f;
 
     /// <summary>塊の飛ぶ速さの倍率（欠片の 1.5 倍より遅い: 重い）。</summary>
     private const float ChunkFling = 1.3f;
 
     /// <summary>塊の回る速さ [rad/s]（欠片より、ゆっくり大きく回る）。</summary>
-    private const float ChunkSpin = 14f;
+    private const float ChunkSpin = 8.341f;
 
     /// <summary>当たった瞬間の光（<see cref="ImpactEffects"/>: 球とカプセルで、飛び散るボクセルと紛れない）。打った側のグローブの色。</summary>
     private void ImpactFlash(Vector3 point, Vector3 direction, float strength, Fighter? attacker)
@@ -1120,7 +1127,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     }
 
     /// <summary>砕けた欠片が光っている時間 [s]: 白 → 黄 → 赤 → 元の色と、空中で冷めていく（<see cref="VoxelDebris.HeatColor"/>）。</summary>
-    private const float ChipHeat = 0.5f;
+    private const float ChipHeat = 0.8392f;
 
     private static readonly Vector4 BloodColor = new(0.55f, 0.02f, 0.03f, 1f);
     private static readonly Vector4 BoneDust = new(1f, 0.98f, 0.9f, 1f);
@@ -1132,7 +1139,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private const float BoneTrail = 1f;
 
     /// <summary>金属同士の火花: 近づく速さ 1 m/s あたりの粒の数と、1 度に出す数の上限。</summary>
-    private const float SparksPerSpeed = 6f;
+    private const float SparksPerSpeed = 3.575f;
     private const int MaxSparks = 40;
     private static readonly Vector4 PlayerSpark = new(1f, 0.08f, 0.04f, 1f);
     private static readonly Vector4 CpuSpark = new(0.1f, 0.35f, 1f, 1f);
@@ -1495,8 +1502,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <summary>ダウンを数えている間に立っている側が向かうニュートラルコーナー（数え始めに決め、数え終わったら捨てる）。</summary>
     private readonly Dictionary<Fighter, Vector3> _neutralCorners = [];
 
-    /// <summary>ダウンを数えている間、立っている側が倒れた相手の体から取る距離 [m]（人形の身長 60 cm の 2/3: 倒れた体の長さの半分と足の幅）。</summary>
-    private const float DownClearance = 0.4f;
+    /// <summary>ダウンを数えている間、立っている側が倒れた相手の体から取る距離 [m]（身長 1.7 m の 2/3: 倒れた体の長さの半分と足の幅）。</summary>
+    private const float DownClearance = 1.127f;
 
     /// <summary>
     /// <paramref name="spot"/>（床の上）へ歩き、相手の方を向いて、拳を構えから <paramref name="guardDrop"/>（腕の長さ単位）だけ下げる指令
@@ -2108,7 +2115,7 @@ public readonly record struct BoneBreakEvent(Fighter Victim, BodyPartKind Part, 
 public readonly record struct ContactSoundEvent(Vector3 Position, Audio.ContactPair Pair, float Strength, Audio.ContactResonance? Resonance = null, float Energy = -1f);
 
 /// <summary>
-/// テレビ中継の試合の決まり（2026-11-12）: 1 ラウンド <paramref name="RoundSeconds"/> 秒 × <paramref name="Rounds"/> ラウンド、ラウンドの間
+/// テレビ中継の試合の決まり（2026-11-12。秒は試合の時間 = 実物大の物理の時間）: 1 ラウンド <paramref name="RoundSeconds"/> 秒 × <paramref name="Rounds"/> ラウンド、ラウンドの間
 /// <paramref name="BreakSeconds"/> 秒。休みの間、削れた体は一定の速さ（<paramref name="RegenVoxelsPerSecond"/> 個/秒）で内側から治る。
 /// K.O. で試合が終わり、最終ラウンドの終わりは判定（与えたダメージ）。団体によってダウンを数えない（<see cref="CountsDowns"/>）・判定しない（<see cref="JudgesDecision"/>）・
 /// 体を治さない（<paramref name="RegenVoxelsPerSecond"/> = 0）決まりもある（<see cref="Vfc"/>）。
@@ -2116,8 +2123,8 @@ public readonly record struct ContactSoundEvent(Vector3 Position, Audio.ContactP
 /// <param name="RoundSeconds">1 ラウンドの長さ [s]。</param>
 /// <param name="Rounds">ラウンドの数。</param>
 /// <param name="BreakSeconds">ラウンドの間の休み [s]。</param>
-/// <param name="RegenVoxelsPerSecond">休みの間に体が治る速さ [ボクセル/s]（1 人あたり。重い 1 発で削れる数十〜百個を 1 秒ほどで）。</param>
-public sealed record MatchRules(float RoundSeconds = 30f, int Rounds = 5, float BreakSeconds = 10f, float RegenVoxelsPerSecond = 150f)
+/// <param name="RegenVoxelsPerSecond">休みの間に体が治る速さ [ボクセル/s]（1 人あたり。重い 1 発で削れる数十〜百個を 1.7 秒ほどで）。</param>
+public sealed record MatchRules(float RoundSeconds = 50.35f, int Rounds = 5, float BreakSeconds = 16.78f, float RegenVoxelsPerSecond = 89.37f)
 {
     /// <summary>試合の長さの合計 [s]（始めの待ち時間・全ラウンドと休み。決着の後の <see cref="EndSeconds"/> は含まない）。</summary>
     public float TotalSeconds => IntroSeconds + (RoundSeconds * Rounds) + (BreakSeconds * Math.Max(0, Rounds - 1));
@@ -2129,13 +2136,13 @@ public sealed record MatchRules(float RoundSeconds = 30f, int Rounds = 5, float 
     public float DrawMinimum { get; init; } = 1f;
 
     /// <summary>休むコーナーの、リングの縁からの内側の距離 [m]（ロープとコーナーポストに触れない所）。</summary>
-    public float CornerInset { get; init; } = 0.07f;
+    public float CornerInset { get; init; } = 0.1972f;
 
     /// <summary>コーナーに着いたとみなす距離 [m]（それより近ければ歩かない）。</summary>
-    public float CornerArrive { get; init; } = 0.03f;
+    public float CornerArrive { get; init; } = 0.08451f;
 
     /// <summary>コーナーの手前で歩みを緩め始める距離 [m]。</summary>
-    public float CornerSlowDown { get; init; } = 0.1f;
+    public float CornerSlowDown { get; init; } = 0.2817f;
 
     /// <summary>コーナーへ歩く速さ（移動指令の大きさ 0..1。疲れた足取り）。</summary>
     public float RestWalk { get; init; } = 0.6f;
@@ -2144,10 +2151,10 @@ public sealed record MatchRules(float RoundSeconds = 30f, int Rounds = 5, float 
     public Vector3 RestGuardDrop { get; init; } = new(0f, -0.12f, 0.15f);
 
     /// <summary>
-    /// 休みの間に皮膚のあざが半分に引く時間 [s]（見た目だけのルール。生理ではない）: 休み 20 秒で中くらいのあざが半分ほどに見える。
+    /// 休みの間に皮膚のあざが半分に引く時間 [s]（見た目だけのルール。生理ではない）: 休み 33.6 秒（人形の単位で 20 秒）で中くらいのあざが半分ほどに見える。
     /// 0 以下ならあざは引かない。ラウンド中は引かない。臓器の打撲（別の物）には触れない。
     /// </summary>
-    public float BruiseHalfLifeSeconds { get; init; } = 20f;
+    public float BruiseHalfLifeSeconds { get; init; } = 33.57f;
 
     /// <summary>
     /// ダウンを数えるか。false なら動かないままの K.O.（<see cref="BoxingGame.StillKoSeconds"/>）も 10 カウント K.O. も無い（死とリングアウトは今のまま決着する）。
@@ -2181,7 +2188,7 @@ public sealed record MatchRules(float RoundSeconds = 30f, int Rounds = 5, float 
     public float RegrowthSpeed { get; init; }
 
     /// <summary>前線の再生の抽選の間隔 [s]（1 回の抽選で前線は 速さ × 間隔 だけ進む。間隔が短いほど滑らかに見え、計算は増える）。</summary>
-    public float RegrowthTickSeconds { get; init; } = 0.25f;
+    public float RegrowthTickSeconds { get; init; } = 0.4196f;
 
     /// <summary>
     /// ラウンド中に両者が倒れたまま、どちらも意識だけでは立てない（<see cref="Fighter.BodyLetsStand"/> が偽）とき、前線の再生が倍の速さになる時間 [s]
@@ -2194,28 +2201,28 @@ public sealed record MatchRules(float RoundSeconds = 30f, int Rounds = 5, float 
     /// </summary>
     public bool ResupplyWeapons { get; init; }
 
-    /// <summary>テレビ中継の標準: 30 秒 × 5 ラウンド、休み 10 秒。</summary>
+    /// <summary>テレビ中継の標準: 50.35 秒 × 5 ラウンド、休み 16.78 秒（人形の単位の 30 秒・10 秒を実物大の時間へ ×√L）。</summary>
     public static MatchRules Tv { get; } = new();
 
     /// <summary>
-    /// VFC（何でもありの団体、ユーザーの指定 2026-11-18）: 30 秒 × 5 ラウンド、休み 25 秒。ダウンは数えず（<see cref="CountsDowns"/> false）、
+    /// VFC（何でもありの団体、ユーザーの指定 2026-11-18）: 50.35 秒 × 5 ラウンド、休み 41.96 秒（人形の単位の 30 秒・25 秒 × √L）。ダウンは数えず（<see cref="CountsDowns"/> false）、
     /// 判定もしない（<see cref="JudgesDecision"/> false）。決着は死だけで、5 ラウンドを終えて両者が生きていれば両者生還の引き分け。
-    /// 傷は休みの間に前線の再生で少しずつ戻る（予算で治す <c>RegenVoxelsPerSecond</c> は 0）。皮膚のあざも休みに引く（20 s、WVC と同じ）。
+    /// 傷は休みの間に前線の再生で少しずつ戻る（予算で治す <c>RegenVoxelsPerSecond</c> は 0）。皮膚のあざも休みに引く（33.6 s、WVC と同じ）。
     /// ラウンド中に両者が倒れて意識だけでは立てないときも再生し、続くほど速くなる。休みの間に、失った武器を同じ種類で支給する。
     /// スタミナ・意識・打撲は今の生理の速さで戻る。
     /// <para>再生の値（ユーザーの指定「軽い傷は休み中におおよそ再生、大きな欠損は回復しきらない程度」から決めた。測った値は docs/VFC.md「再生」）:
-    /// 速さ 0.5 mm/s・抽選 0.25 s ごと（ボクセル 5 mm で 1 回の抽選の確率 0.025）。指示書の初めの値 1.2 mm/s では、前腕（人形で 9 cm）を
+    /// 速さ 0.84 mm/s・抽選 0.42 s ごと（人形の単位で 0.5 mm/s・0.25 s。ボクセル 14 mm で 1 回の抽選の確率 0.025、相似で変わらない）。以下の測定は人形の単位: 指示書の初めの値 1.2 mm/s では、前腕（人形で 9 cm）を
     /// 肘から 3 割で切った切り株が休み 1 回で元の長さまで戻った（+6.5 cm）: 候補のセルは横のどの生きたセルからでも届くので、実際の前線は 1 列ぶんの
     /// 確率から見積もった速さの約 2.2 倍で進む。0.5 mm/s で測り直すと、拳の削れ（4 発・208 セル）は休み 1 回で 88% 戻り、前腕の切り株は休み 1 回で
-    /// +3.0 cm（失った 6.5 cm の半分ほど）伸びる（<c>VfcRegrowthTests</c>）。両者ダウンの倍率は 3 s で倍。</para>
+    /// +3.0 cm（失った 6.5 cm の半分ほど）伸びる（<c>VfcRegrowthTests</c>）。両者ダウンの倍率は 5.03 s（人形の単位で 3 s）で倍。</para>
     /// </summary>
-    public static MatchRules Vfc { get; } = new(30f, 5, 25f, 0f)
+    public static MatchRules Vfc { get; } = new(50.35f, 5, 41.96f, 0f)
     {
         CountsDowns = false,
         JudgesDecision = false,
-        RegrowthSpeed = 0.0005f,
-        RegrowthTickSeconds = 0.25f,
-        StuckDoublingSeconds = 3f,
+        RegrowthSpeed = 0.000839f,
+        RegrowthTickSeconds = 0.4196f,
+        StuckDoublingSeconds = 5.035f,
         ResupplyWeapons = true,
     };
 }

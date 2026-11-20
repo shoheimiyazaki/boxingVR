@@ -16,7 +16,7 @@ public sealed class VrMotionRecorder(string? weapon, string note = "")
     private float _start;
     private float _playerHeight = 1.7f;
     private float _playerArm = PuppetMapping.ArmReachFromHeight(1.7f);
-    private float _puppetArm = 0.188f;
+    private float _puppetArm = 0.530f;
 
     public int Count => _frames.Count;
 

@@ -13,7 +13,7 @@ namespace MiniRing;
 /// </summary>
 public sealed class AiControl : IFighterControl
 {
-    private const float GrabDuration = 1.3f;
+    private const float GrabDuration = 2.182f;
 
     private readonly Random _random;
     private readonly float _aggression;
@@ -21,7 +21,7 @@ public sealed class AiControl : IFighterControl
     private Hand _activeHand;
     private Path _path;
     private float _actionTime;
-    private float _cooldown = 1.5f;
+    private float _cooldown = 2.518f;
     private float _strafe;
     private float _strafeTimer;
     private Vector3 _head;
@@ -58,7 +58,7 @@ public sealed class AiControl : IFighterControl
         _strafeTimer -= dt;
         if (_strafeTimer <= 0f)
         {
-            _strafeTimer = Range(0.6f, 1.6f);
+            _strafeTimer = Range(1.007f, 2.685f);
             _strafe = Range(-0.6f, 0.6f);
         }
 
@@ -82,10 +82,10 @@ public sealed class AiControl : IFighterControl
         else if (_action == Action.Grab)
         {
             var chestLocal = self.WorldToLocal(sense.OpponentChest);
-            grip = _actionTime > 0.25f;
+            grip = _actionTime > 0.4196f;
             var pull = new Vector3(-_activeHand.LocalSide() * 0.6f, 0.4f, -0.6f) * reach; // 体の反対側へ引き倒す
-            SetActive(ref left, ref right, _actionTime < 0.9f ? chestLocal : chestLocal + pull);
-            if (_actionTime > 0.9f)
+            SetActive(ref left, ref right, _actionTime < 1.511f ? chestLocal : chestLocal + pull);
+            if (_actionTime > 1.511f)
             {
                 move = -dir;
             }
@@ -103,13 +103,13 @@ public sealed class AiControl : IFighterControl
         _headTimer -= dt;
         if (_headTimer <= 0f)
         {
-            _headTimer = Range(0.4f, 1.4f);
+            _headTimer = Range(0.6714f, 2.35f);
             _headTarget = _random.NextSingle() < 0.5f
                 ? Vector3.Zero
                 : new Vector3(Range(-0.35f, 0.35f), Range(-0.4f, 0f), Range(-0.1f, 0.25f)) * reach;
         }
 
-        _head = Vector3.Lerp(_head, _headTarget, 1f - MathF.Exp(-8f * dt));
+        _head = Vector3.Lerp(_head, _headTarget, 1f - MathF.Exp(-4.767f * dt));
     }
 
     private void UpdateAction(float distance, float reach)
@@ -118,7 +118,7 @@ public sealed class AiControl : IFighterControl
         if (_action != Action.Idle && _actionTime >= duration)
         {
             _action = Action.Idle;
-            _cooldown = (1.4f + ((0.45f - 1.4f) * _aggression)) * Range(0.7f, 1.3f);
+            _cooldown = (2.35f + ((0.7553f - 2.35f) * _aggression)) * Range(0.7f, 1.3f);
         }
 
         if (_action != Action.Idle || _cooldown > 0f || distance > reach * 1.6f)
@@ -160,7 +160,7 @@ public sealed class AiControl : IFighterControl
         {
             var lateral = random.NextSingle();   // 0: まっすぐ … 1: 大きく横から
             var low = random.NextSingle() < 0.3f ? random.NextSingle() : 0f; // 下から
-            return new Path(hand, lateral, low, 0.25f + (0.15f * random.NextSingle()), 0.35f + (0.15f * lateral), random.NextSingle() < 0.25f);
+            return new Path(hand, lateral, low, 0.25f + (0.15f * random.NextSingle()), 0.5874f + (0.2518f * lateral), random.NextSingle() < 0.25f);
         }
 
         /// <summary>前半 60% で打ち出し（<see cref="PunchPath"/>）、後半で構えへ戻す。</summary>

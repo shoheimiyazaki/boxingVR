@@ -19,20 +19,20 @@ internal static class KarateShapeVideo
         using var renderer = new HeadlessRenderer(480, 360);
         var views = new (string Name, Vector3 Eye, Vector3 Up)[]
         {
-            ("side", new Vector3(0f, 0f, 0.075f), Vector3.UnitY),
-            ("top", new Vector3(0f, 0.075f, 0f), -Vector3.UnitZ),
-            ("oblique", new Vector3(0.025f, 0.045f, 0.055f), Vector3.UnitY),
+            ("side", new Vector3(0f, 0f, 0.211f), Vector3.UnitY),
+            ("top", new Vector3(0f, 0.211f, 0f), -Vector3.UnitZ),
+            ("oblique", new Vector3(0.0704f, 0.1268f, 0.155f), Vector3.UnitY),
         };
         foreach (var shape in Enum.GetValues<HandShape>())
         {
             using var world = new Aigis.Physics.PhysicsWorld();
             var hand = Weapon.CreateWorn(world, WeaponKind.Fist, BoxerAnatomy.RedGlove, new Vector3(0f, 1f, 0f), Quaternion.Identity);
             hand.SetHandShape(shape);
-            var center = new Vector3(0f, 1f, 0f) + new Vector3(0.01f, 0.005f, 0f);
+            var center = new Vector3(0f, 1f, 0f) + new Vector3(0.0282f, 0.0141f, 0f);
             foreach (var (name, offset, up) in views)
             {
                 var eye = center + offset;
-                var vp = Aigis.Render.Camera.ViewProjection(eye, center, up, 40f * MathF.PI / 180f, 480f / 360f, 0.005f, 5f);
+                var vp = Aigis.Render.Camera.ViewProjection(eye, center, up, 40f * MathF.PI / 180f, 480f / 360f, 0.0141f, 14.08f);
                 var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, [], [],
                     [new($"{shape} {name}", new Vector2(10f, 20f), 18f, Vector4.Zero, TextAnchor.Left)],
                     voxels: [hand.Draw()]);
@@ -99,8 +99,8 @@ internal static class KarateShapeVideo
             Directory.CreateDirectory(folder);
             const float slow = 4f;
             const int fps = 30;
-            var start = MathF.Max(0f, time - 0.25f);
-            var end = MathF.Min(probe.Elapsed, time + 0.35f);
+            var start = MathF.Max(0f, time - 0.4196f);
+            var end = MathF.Min(probe.Elapsed, time + 0.5874f);
             var frame = 0;
             var next = start;
             var audio = new float[(int)((end - start + 1f) * slow * HitSound.SampleRate)];
@@ -130,8 +130,8 @@ internal static class KarateShapeVideo
                 var target = (handAt + aimNow) * 0.5f;
                 var axis = Vector3.Normalize((game.Cpu.ChestPosition - game.Player.ChestPosition) with { Y = 0f });
                 var side = Vector3.Normalize(Vector3.Cross(axis, Vector3.UnitY));
-                var eye = target + (side * 0.11f) + new Vector3(0f, 0.035f, 0f);
-                var arm = 0.006f;
+                var eye = target + (side * 0.31f) + new Vector3(0f, 0.0986f, 0f);
+                var arm = 0.0169f;
                 lines.Add(new DebugLine(aimNow - (Vector3.UnitX * arm), aimNow + (Vector3.UnitX * arm), new Vector4(1f, 1f, 0f, 1f)));
                 lines.Add(new DebugLine(aimNow - (Vector3.UnitY * arm), aimNow + (Vector3.UnitY * arm), new Vector4(1f, 1f, 0f, 1f)));
                 lines.Add(new DebugLine(aimNow - (Vector3.UnitZ * arm), aimNow + (Vector3.UnitZ * arm), new Vector4(1f, 1f, 0f, 1f)));

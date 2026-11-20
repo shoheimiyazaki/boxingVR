@@ -60,7 +60,7 @@ public static class SwingSearch
     /// <summary>磨くときの 1 回の変え方の大きさ（遺伝子ごとの標準偏差 [rad・s]、<c>sigma</c> を掛ける）。</summary>
     private const float AngleStep = 0.3f;
 
-    private const float TimeStep = 0.04f;
+    private const float TimeStep = 0.0671f;
 
     /// <summary>遺伝子を 1 回ずつ変える確率（少なくとも 1 つは変える）。</summary>
     private const float MutationRate = 0.3f;

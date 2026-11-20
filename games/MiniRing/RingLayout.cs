@@ -14,7 +14,7 @@ public enum ArenaShape
 
 /// <summary>
 /// 試合の場の大きさ: リングの 1 辺と、ラウンドの始めに 2 人が立つ所（両者のコーナー、またはドリル用に中央で離れる距離）。リングを載せるローテーブルと台座はリングに合わせて広がり
-/// （リングの縁から台座の縁まで 8 cm、天板の縁まで 15 cm）、テーブルの手前の縁はいつもプレイヤーの立つ所（原点）から 20 cm 先にある。
+/// （リングの縁から台座の縁まで 22.5 cm、天板の縁まで 42 cm。物理の空間の長さ）、テーブルの手前の縁はいつもプレイヤーの立つ所（原点）から 56 cm 先にある。
 /// 檻（<see cref="ArenaShape.HexCage"/>）のときの <paramref name="Size"/> は向かい合う辺と辺の距離（内接円の直径）。
 /// </summary>
 /// <param name="Size">リングの 1 辺 [m]（檻は向かい合う辺と辺の距離 [m]）。</param>
@@ -26,49 +26,49 @@ public enum ArenaShape
 public sealed record RingLayout(float Size, float StartGap, ArenaShape Shape = ArenaShape.RopedSquare, bool FromCorners = false)
 {
     /// <summary>テーブルの手前の縁から、プレイヤーの立つ所（原点）までの距離 [m]。</summary>
-    private const float NearEdge = 0.2f;
+    private const float NearEdge = 0.5634f;
 
     /// <summary>
-    /// 試合の標準のリングの 1 辺 [m]（拳も武器も同じ）: 人の大きさで 5.3 m を、人形の縮尺（<see cref="FighterTuning.Scale"/> 0.355: 1.7 m の人が 60 cm）で縮めた 1.88 m。
-    /// 2026-11-18、ユーザーの指定: 動き回れるようにまず 7.3 m（プロのリングのロープの内側の上限、2.59 m）にしたが大きすぎたので、
-    /// 以前の 1.2 m（人なら 3.4 m）との中間（1.89 m）にした。
+    /// 試合の標準のリングの 1 辺 [m]（拳も武器も同じ）: 人の大きさで 5.3 m（表示では人形の縮尺 0.355 で 1.88 m に見える）。
+    /// 2026-11-18、ユーザーの指定: 動き回れるようにまず 7.3 m（プロのリングのロープの内側の上限）にしたが大きすぎたので、
+    /// 以前の 3.38 m（人形の単位で 1.2 m）との中間にした。
     /// </summary>
-    public const float StandardSize = 5.3f * 0.355f;
+    public const float StandardSize = 5.3f;
 
     /// <summary>ラウンドの始めに立つコーナーの、リングの縁からの内側の距離 [m]（ロープとコーナーポストに触れない所）。</summary>
-    public const float CornerInset = 0.1f;
+    public const float CornerInset = 0.2817f;
 
     /// <summary>
-    /// 拳の試合: 標準のリング（<see cref="StandardSize"/>）。コーナーから始めない形（ドリル）では 44 cm 離れて始める（拳の間合いの少し外）。
-    /// （2026-11-18 まで 1.2 m: 人形の身長の 2 倍、人なら 3.4 m で、下がる余地が少なかった。）
+    /// 拳の試合: 標準のリング（<see cref="StandardSize"/>）。コーナーから始めない形（ドリル）では 1.24 m 離れて始める（拳の間合いの少し外）。
+    /// （2026-11-18 まで 1.2 m（人形の単位）: 身長の 2 倍、人なら 3.4 m で、下がる余地が少なかった。）
     /// </summary>
-    public static RingLayout Boxing { get; } = new(StandardSize, 0.44f);
+    public static RingLayout Boxing { get; } = new(StandardSize, 1.239f);
 
     /// <summary>
     /// 武器同士の試合: 拳の試合と同じ標準のリング（2026-11-18、ユーザーの指定。それまでは 2.4 m: 剣道の試合場 9〜11 m 四方をテーブルに載る大きさに縮めた値）。
-    /// コーナーから始めない形では 1.0 m 離れて始める（剣道の開始線は 2 人の間 2.8 m、身長 1.7 m の 1.65 倍。
-    /// 人形では 1.0 m: どの技の間合い（34〜80 cm）よりも遠い遠間）。
+    /// コーナーから始めない形では 2.82 m 離れて始める（剣道の開始線は 2 人の間 2.8 m、身長 1.7 m の 1.65 倍。
+    /// どの技の間合い（0.96〜2.25 m）よりも遠い遠間）。
     /// </summary>
-    public static RingLayout Weapons { get; } = new(StandardSize, 1.0f);
+    public static RingLayout Weapons { get; } = new(StandardSize, 2.817f);
 
     /// <summary>
-    /// ドリル・調べもの・リーグ・テストの場（リングを指定しないで作った試合）: 2026-11-18 まで拳の試合のリングだった 1.2 m（人形の身長の 2 倍、人なら 3.4 m）で、
-    /// 中央で 44 cm 離れて始める。技を 1 つずつ磨くドリルと、その記録（docs/arena）・テストの数値はこの場で測ってきたので、比べられるよう残す。
+    /// ドリル・調べもの・リーグ・テストの場（リングを指定しないで作った試合）: 2026-11-18 まで拳の試合のリングだった 3.38 m（人形の単位で 1.2 m、身長の 2 倍）で、
+    /// 中央で 1.24 m 離れて始める。技を 1 つずつ磨くドリルと、その記録（docs/arena）・テストの数値はこの場で測ってきたので、比べられるよう残す。
     /// </summary>
-    public static RingLayout DrillBoxing { get; } = new(1.2f, 0.44f);
+    public static RingLayout DrillBoxing { get; } = new(3.38f, 1.239f);
 
-    /// <summary>武器同士のドリル・調べものの場: 2026-11-18 まで武器の試合のリングだった 2.4 m で、中央で 1.0 m 離れて始める。</summary>
-    public static RingLayout DrillWeapons { get; } = new(2.4f, 1.0f);
-
-    /// <summary>
-    /// 拳の試合の檻: 向かい合う辺の距離 1.3 m の正六角形（面積 ≈ 1.46 m²。四角い 1.2 m の 1.44 m² と同じ広さ）、始めの間は拳のリングと同じ 44 cm。
-    /// </summary>
-    public static RingLayout Cage { get; } = new(1.3f, 0.44f, ArenaShape.HexCage);
+    /// <summary>武器同士のドリル・調べものの場: 2026-11-18 まで武器の試合のリングだった 6.76 m（人形の単位で 2.4 m）で、中央で 2.82 m 離れて始める。</summary>
+    public static RingLayout DrillWeapons { get; } = new(6.761f, 2.817f);
 
     /// <summary>
-    /// 武器の試合の檻: 向かい合う辺の距離 2.6 m の正六角形（面積 ≈ 5.85 m²。四角い武器のリング 2.4 m の 5.76 m² と同じ広さ）、始めの間は 1.0 m。
+    /// 拳の試合の檻: 向かい合う辺の距離 3.66 m の正六角形（面積 ≈ 11.6 m²。四角い 3.38 m の 11.4 m² と同じ広さ）、始めの間は拳のリングと同じ 1.24 m。
     /// </summary>
-    public static RingLayout WeaponsCage { get; } = new(2.6f, 1.0f, ArenaShape.HexCage);
+    public static RingLayout Cage { get; } = new(3.662f, 1.239f, ArenaShape.HexCage);
+
+    /// <summary>
+    /// 武器の試合の檻: 向かい合う辺の距離 7.32 m の正六角形（面積 ≈ 46.4 m²。四角い武器のリング 6.76 m の 45.7 m² と同じ広さ）、始めの間は 2.82 m。
+    /// </summary>
+    public static RingLayout WeaponsCage { get; } = new(7.324f, 2.817f, ArenaShape.HexCage);
 
     /// <summary>檻か。</summary>
     public bool IsCage => Shape == ArenaShape.HexCage;
@@ -86,10 +86,10 @@ public sealed record RingLayout(float Size, float StartGap, ArenaShape Shape = A
     public float OuterHalf => IsCage ? Circumradius : Half;
 
     /// <summary>ローテーブルの天板の半分の幅 [m]（正方形）。</summary>
-    public float TableHalf => OuterHalf + 0.15f;
+    public float TableHalf => OuterHalf + 0.4225f;
 
     /// <summary>箱庭の台座の半分の幅 [m]（正方形）。</summary>
-    public float PlinthHalf => OuterHalf + 0.08f;
+    public float PlinthHalf => OuterHalf + 0.2254f;
 
     /// <summary>リング（とテーブル）の中心（床の上）。</summary>
     public Vector3 Center => new(0f, 0f, NearEdge + TableHalf);
@@ -163,7 +163,7 @@ public sealed record RingLayout(float Size, float StartGap, ArenaShape Shape = A
 
     /// <summary>形の検査をして自分を返す（リングが小さすぎる・始めの間がリングに収まらない・形が未知の場合は例外）。</summary>
     public RingLayout Validated() =>
-        Enum.IsDefined(Shape) && Size is >= 0.8f and <= 3.6f && StartGap > 0.1f && StartGap <= Size - 0.3f
+        Enum.IsDefined(Shape) && Size is >= 2.254f and <= 10.14f && StartGap > 0.2817f && StartGap <= Size - 0.8451f
             ? this
-            : throw new ArgumentOutOfRangeException(nameof(Size), $"リングは 1 辺 0.8〜3.6 m、始めの間は 0.1 m より広くリングの縁から 15 cm ずつ内に収まること（{Size} m, {StartGap} m, {Shape}）。");
+            : throw new ArgumentOutOfRangeException(nameof(Size), $"リングは 1 辺 2.25〜10.1 m、始めの間は 0.28 m より広くリングの縁から 42 cm ずつ内に収まること（{Size} m, {StartGap} m, {Shape}）。");
 }

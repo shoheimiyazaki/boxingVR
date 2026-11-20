@@ -158,7 +158,7 @@ public sealed class StickBody
     /// 関節の点をラグドールと同じ決め方（部位の端から重なり <c>0.03 × Scale</c> 内側）で置く。構えの姿勢は、同じ試合を
     /// <paramref name="settleSeconds"/> 秒進めて立った形を写す（<paramref name="game"/> はこの後に進む）。
     /// </summary>
-    public static StickBody FromFighter(BoxingGame game, Fighter fighter, FighterTuning tuning, float settleSeconds = 1.5f)
+    public static StickBody FromFighter(BoxingGame game, Fighter fighter, FighterTuning tuning, float settleSeconds = 2.518f)
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(fighter);
@@ -266,7 +266,7 @@ public sealed class StickBody
         var axis = Vector3.Normalize(forearm.Tip - forearm.Joint);
         var grip = forearm.Tip;
         var weapon = new StickSegment("weapon", Ids.Forearm(hand), StickJointKind.Ball, grip, grip + (axis * length), grip + (axis * centerFromGrip),
-            new Vector3(0.5f * length, 0.005f, 0.005f), mass, axis, swingLimit, -MathF.PI / 2f, MathF.PI / 2f, maxTorque);
+            new Vector3(0.5f * length, 0.01408f, 0.01408f), mass, axis, swingLimit, -MathF.PI / 2f, MathF.PI / 2f, maxTorque);
         var guard = new float[Dof + 3];
         Array.Copy(Guard.Values, guard, Dof);
         return new StickBody([.. Segments, weapon], Soles, ArmReach, Friction, new StickPose(guard)) { GripHands = twoHanded ? [Hand.Left, Hand.Right] : [hand], BackLength = backLength };
@@ -279,10 +279,10 @@ public sealed class StickBody
     public IReadOnlyList<Hand> GripHands { get; private init; } = [];
 
     /// <summary>刃の、握りから自傷を数え始める所までの長さ [m]（拳の中・すぐ先は手が握っている）。</summary>
-    public const float GripClearance = 0.02f;
+    public const float GripClearance = 0.0563f;
 
     /// <summary>刃の太さの半分 [m]（自傷の深さの見積もり）。</summary>
-    public const float BladeRadius = 0.004f;
+    public const float BladeRadius = 0.01127f;
 
     /// <summary>
     /// 姿勢 <paramref name="frame"/> で、刃（握りの <see cref="GripClearance"/> 先から刃先まで）が自分の体の部位（太さのある棒: 箱の短い 2 辺の平均を半径とする）へ

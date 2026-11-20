@@ -12,10 +12,10 @@ namespace MiniRing;
 /// </summary>
 public static class BoxingRenderer
 {
-    private const float EyeRadius = 0.005f;
+    private const float EyeRadius = 0.01408f;
 
-    /// <summary>手の目標の玉の半径 [m]（60cm の人形で見て分かり、拳より小さい）。</summary>
-    private const float TargetMarkerRadius = 0.011f;
+    /// <summary>手の目標の玉の半径 [m]（物理の空間。60cm の人形の大きさに縮めて見ても分かり、拳より小さい）。</summary>
+    private const float TargetMarkerRadius = 0.03099f;
 
     private static readonly Vector4 PlayerGlove = new(0.85f, 0.1f, 0.1f, 1f);
     private static readonly Vector4 CpuGlove = new(0.1f, 0.25f, 0.85f, 1f);

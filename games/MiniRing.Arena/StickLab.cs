@@ -134,10 +134,10 @@ internal sealed class StickLab(Action<string> log)
         var ground = StickGround.For(id);
         var start = GroundLab.GroundOf(id);
         var random = new Random(seed);
-        // 自傷: 刃が自分の体へ入り込む深さ 1 cm で 5（当たりの速さ 5 m/s ぶん）、入り込む時間 0.1 s で 2 を引く（自分を斬るとどめは採らない）。
-        static float Score(StickGround.Strike s) => !s.Started ? -10f
-            : s.ContactSpeed - (20f * s.Miss) - (60f * MathF.Max(0f, s.Result.MaxCaptureOutside)) - (2f * MathF.Max(0f, s.Result.PeakLoad.Ratio - 1f))
-              - (500f * MathF.Max(0f, s.Result.MaxSelfCut.Depth)) - (20f * s.Result.SelfCutSeconds);
+        // 自傷: 刃が自分の体へ入り込む深さ 2.8 cm で 8.4（当たりの速さ 8.4 m/s ぶん）、入り込む時間 0.17 s で 3.4 を引く（自分を斬るとどめは採らない）。点は速さ [m/s] の単位: 1 m・1 s あたりの重みを換算。
+        static float Score(StickGround.Strike s) => !s.Started ? -16.78f
+            : s.ContactSpeed - (11.92f * s.Miss) - (35.75f * MathF.Max(0f, s.Result.MaxCaptureOutside)) - (3.357f * MathF.Max(0f, s.Result.PeakLoad.Ratio - 1f))
+              - (297.9f * MathF.Max(0f, s.Result.MaxSelfCut.Depth)) - (20f * s.Result.SelfCutSeconds);
         var watch = Stopwatch.StartNew();
         var best = (G: start, S: ground.Run(move, start));
         var step = 0.08f;
@@ -155,7 +155,7 @@ internal sealed class StickLab(Action<string> log)
             var blade = m.WindElevation != 0f || m.StrikeElevation != 0f;
             var candidate = m with
             {
-                Duration = Math.Clamp(m.Duration * (1f + (0.1f * N())), 0.35f, 1.4f),
+                Duration = Math.Clamp(m.Duration * (1f + (0.1f * N())), 0.587f, 2.35f),
                 Stand = J(m.Stand, 0.05f, 1.2f),
                 Reach = J(m.Reach, 0.6f, 1.2f),
                 Rise = J(m.Rise, 0.1f, 1.2f),
@@ -213,9 +213,9 @@ internal sealed class StickLab(Action<string> log)
         var kick = StickKick.Standard();
         var style = BotCatalog.Style(styleName);
         var random = new Random(seed);
-        // 宙（床が上へ押さない歩）の外れは +∞ なので、0.5 m で丸める（探索が比べられるように）。
-        float Cost(StickResult r) => (400f * Math.Clamp(r.MaxZmpOutside, 0f, 0.5f)) + (40f * r.ZmpOutsideSeconds) + (400f * MathF.Max(0f, r.MaxCaptureOutside)) + (40f * r.CaptureOutsideSeconds)
-            + r.Strain + (10f * r.Work) + (50f * MathF.Max(0f, r.MaxTargetError - 0.01f));
+        // 宙（床が上へ押さない歩）の外れは +∞ なので、1.41 m で丸める（探索が比べられるように）。重みは人形の単位の点と同じになるよう、1 m・1 s・1 J あたりを換算。
+        float Cost(StickResult r) => (142f * Math.Clamp(r.MaxZmpOutside, 0f, 1.408f)) + (23.83f * r.ZmpOutsideSeconds) + (142f * MathF.Max(0f, r.MaxCaptureOutside)) + (23.83f * r.CaptureOutsideSeconds)
+            + r.Strain + (0.355f * r.Work) + (17.75f * MathF.Max(0f, r.MaxTargetError - 0.0282f));
         var best = (T: new StickKick.Teaching(0f, 0f, 0f), C: 0f);
         best.C = Cost(kick.Run(kind, style, best.T, approach));
         var step = 0.15f;

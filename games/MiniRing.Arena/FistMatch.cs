@@ -8,7 +8,7 @@ namespace MiniRing.Arena;
 /// <summary>
 /// 拳の打ち合いの物差し（<c>fistmatch</c>）: ボットの組 × 種の試合を回し、拳の当たりごとに当たる前の歩の拳の速さ（当たった瞬間の拳）・
 /// 相対の当たる速さ・乗る質量・エネルギー（<see cref="HitEvent.Energy"/>）・ダメージ・光（<see cref="BoxingGame.HitStrength"/>）、
-/// 技の打ち出しから終わりまでの拳の速さの最大（打ち出しの最高速）、倒れた回数（1 秒以内に拳を受けていない倒れは「打たれずに」）、
+/// 技の打ち出しから終わりまでの拳の速さの最大（打ち出しの最高速）、倒れた回数（1.68 秒以内に拳を受けていない倒れは「打たれずに」）、
 /// あざ（<see cref="Voxels.BoxerBody.SkinBruiseTotal"/>、ラウンドごとの終わりの値の合計）を 1 試合 1 行の JSON に書く。
 /// <c>--compare a.jsonl b.jsonl</c> は 2 つの記録（版の前後）を同じ試合どうしで対にして表と比べ直し（<see cref="PairedEvaluation"/>）を出す。
 /// </summary>
@@ -121,7 +121,7 @@ internal static class FistMatch
                 if (down && !wasDown[f])
                 {
                     falls++;
-                    unhit += clock - lastHit[f] > 1f ? 1 : 0;
+                    unhit += clock - lastHit[f] > 1.678f ? 1 : 0;
                 }
 
                 wasDown[f] = down;

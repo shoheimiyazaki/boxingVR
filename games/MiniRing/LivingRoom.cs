@@ -238,14 +238,14 @@ public static class LivingRoom
     ];
 
     /// <summary>
-    /// 飛び散った破片が止まる高さ（物理の空間）: リングの上（縁から 2 cm 外まで）はキャンバス、その外は台座の上、テーブルの天板の上、それより外は床。
+    /// 飛び散った破片が止まる高さ（物理の空間）: リングの上（縁から 5.6 cm 外まで）はキャンバス、その外は台座の上、テーブルの天板の上、それより外は床。
     /// </summary>
     public static float GroundAt(Vector3 p, RingLayout layout, float canvasHeight)
     {
         ArgumentNullException.ThrowIfNull(layout);
         var c = layout.Center;
         var d = MathF.Max(MathF.Abs(p.X - c.X), MathF.Abs(p.Z - c.Z));
-        var onCanvas = layout.IsCage ? layout.EdgeDistance(p) > -0.02f : d < layout.Half + 0.02f; // 檻は六角形のキャンバス
+        var onCanvas = layout.IsCage ? layout.EdgeDistance(p) > -0.05634f : d < layout.Half + 0.05634f; // 檻は六角形のキャンバス
         return onCanvas ? canvasHeight
             : d < layout.PlinthHalf ? PhysicsStageBase
             : d < layout.TableHalf ? DisplaySpace.Standard.ToPhysics(TableTop)

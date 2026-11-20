@@ -126,8 +126,8 @@ internal sealed class StyleTuner(IReadOnlyList<Contender> gauntlet, int bouts, f
             Anticipation = m.Tweak("動き出しを読む", parent.Anticipation, 0.15f, 0f, 1f),
             Prediction = m.Tweak("予測で避ける", parent.Prediction, 0.15f, 0f, 1f),
             EdgeRange = m.Tweak("間合いの端に立つ", parent.EdgeRange, 0.15f, 0f, 1f),
-            // 溜めは人の体で 0 にはできない（腰と肩が先に動く）ので、調整では 0.03 秒より短くしない。
-            Telegraph = m.Tweak("溜め", MathF.Max(0.03f, parent.Telegraph), 0.02f, 0.03f, 0.2f),
+            // 溜めは人の体で 0 にはできない（腰と肩が先に動く）ので、調整では 0.05 秒より短くしない。
+            Telegraph = m.Tweak("溜め", MathF.Max(0.0504f, parent.Telegraph), 0.0336f, 0.0504f, 0.3357f),
             DefenseRate = m.Tweak("守る率", parent.DefenseRate, 0.1f, 0f, BotStyle.MaxDefenseRate),
             BlockWeight = m.Tweak("ブロック", parent.BlockWeight, 0.3f, 0f, 3f),
             DuckWeight = m.Tweak("ダッキング", parent.DuckWeight, 0.3f, 0f, 3f),
@@ -160,7 +160,7 @@ internal sealed class StyleTuner(IReadOnlyList<Contender> gauntlet, int bouts, f
                 PunchSpeed = m.Tweak("手の速さ", parent.PunchSpeed, 0.05f, 0.8f, BotStyle.MaxPunchSpeed),
                 ReadGuard = m.Tweak("構えを読む", parent.ReadGuard, 0.15f, 0f, 1f),
                 ThrowRate = m.Tweak("投げ", parent.ThrowRate, 0.05f, 0f, 1f),
-                ReactionTime = m.Tweak("反応時間", parent.ReactionTime, 0.03f, BotStyle.MinReactionTime, 0.5f),
+                ReactionTime = m.Tweak("反応時間", parent.ReactionTime, 0.0504f, BotStyle.MinReactionTime, 0.839f),
             };
         }
 

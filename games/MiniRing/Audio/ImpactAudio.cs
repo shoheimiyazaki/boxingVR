@@ -17,11 +17,11 @@ public sealed record ImpactVoice(ImpactCue Cue, byte[] Pcm, double OccurredAt = 
 public sealed class ImpactAudio
 {
     public const double WindowSeconds = 0; // 互換用。打撃を保留しない。
-    public const float RadiusMeters = 0.07f;
+    public const float RadiusMeters = 0.1972f; // 同じ打撃とみなす距離 [m]（人形の単位で 0.07 m）
     public const int MaxBackgroundVoices = 2;
     public const float BackgroundPeakBudget = 0.12f;
-    // 人形の衝撃の基準エネルギー[J]。半分の音量になる値で、発音を切る閾値ではない。
-    public const float ContactEnergyScale = 0.08f;
+    // 衝撃の基準エネルギー[J]（人形の単位で 0.08 J）。半分の音量になる値で、発音を切る閾値ではない。
+    public const float ContactEnergyScale = 2.254f;
     private sealed record Background(double Ends, float Peak);
     private IReadOnlyList<Background> _background = [];
     private double _time;

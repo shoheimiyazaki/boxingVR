@@ -4,9 +4,9 @@ namespace MiniRing.Motion;
 
 /// <summary>
 /// 棒術（六尺棒）の型。<see cref="SwordForms"/> と同じ作り方（キーを滑らかにつないだ <see cref="SwordMotion"/>）で、棒の両手の動きを
-/// 目標の経路として書く（CLAUDE.md §1.2: 姿勢を書き込まない。体がバネで追った結果が見た目になる）。長さは腕の長さ = 1（人形で 0.188 m）。
+/// 目標の経路として書く（CLAUDE.md §1.2: 姿勢を書き込まない。体がバネで追った結果が見た目になる）。長さは腕の長さ = 1（人の大きさの体で 0.53 m）。
 /// <para>
-/// 棒は真ん中を肩幅（0.11 m）ほど離した両手で握る。右手（上の手）が +X の側、左手が −X の側で、左手は「右手 − 棒の向き × <see cref="Spacing"/>」の
+/// 棒は真ん中を肩幅（0.31 m）ほど離した両手で握る。右手（上の手）が +X の側、左手が −X の側で、左手は「右手 − 棒の向き × <see cref="Spacing"/>」の
 /// 位置（<see cref="SwordForms.FromKeys"/>）。棒は対称で、右手から +X の端まで 1.36、−X の端まで 1.94（腕の長さ）。向き（Blade）は右手の側の端を
 /// 指すので、前の端で打つ技は Blade が前、後ろの端で打つ技は Blade が後ろ（方位角が π 付近）を向く。どちらの端で打つかは、技の中で棒の向きが
 /// どう回るかだけで決まり、判断の側に「突きなら前の端」のような場合分けは無い（CLAUDE.md §1.3）。
@@ -18,7 +18,7 @@ namespace MiniRing.Motion;
 /// </summary>
 public static class StaffForms
 {
-    /// <summary>両手の間隔（腕の長さ = 1。<see cref="MiniRing.Weapons.Weapon.StaffHandSpacing"/> 0.11 m ÷ 腕の長さ 0.188 m）。</summary>
+    /// <summary>両手の間隔（腕の長さ = 1。<see cref="MiniRing.Weapons.Weapon.StaffHandSpacing"/> 0.31 m ÷ 腕の長さ 0.53 m）。</summary>
     public const float Spacing = 0.585f;
 
     /// <summary>構え（中段）: 右手を体の右の腰の前、前の端を相手の顔へ（棒の線は体の右側を通り、後ろの端は右の腰の後ろへ抜ける）。</summary>

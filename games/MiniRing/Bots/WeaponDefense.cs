@@ -123,7 +123,7 @@ public static class WeaponDefense
     /// <summary>線の上で見る点の数（握りから先まで等分）。</summary>
     private const int LineSamples = 5;
 
-    /// <summary>読む時間を分ける数（速い拳 3 m/s でも 1 つの刻みで 1.6 cm しか進まず、体の線の近く（数 cm の幅）を飛び越さない）。</summary>
+    /// <summary>読む時間を分ける数（速い拳 5 m/s でも 1 つの刻みで 4.4 cm しか進まず、体の線の近く（数 cm の幅）を飛び越さない）。</summary>
     private const int TimeSamples = 48;
 
     /// <summary>頭の動きの候補（そのまま・沈める <see cref="GuardPosture.Crouched"/>・引く <see cref="GuardPosture.Leaning"/>）[腕の長さ]。</summary>
@@ -647,9 +647,9 @@ public static class WeaponDefense
 
         static bool Better((bool Inside, float Depth, float Severity, float Gap) a, (bool Inside, float Depth, float Severity, float Gap) b) =>
             a.Inside != b.Inside ? a.Inside
-            : MathF.Abs(a.Depth - b.Depth) > 1e-4f ? a.Depth < b.Depth
-            : MathF.Abs(a.Severity - b.Severity) > 1e-6f ? a.Severity < b.Severity
-            : a.Gap > b.Gap + 1e-5f;
+            : MathF.Abs(a.Depth - b.Depth) > 2.817e-4f ? a.Depth < b.Depth
+            : MathF.Abs(a.Severity - b.Severity) > 2.817e-6f ? a.Severity < b.Severity
+            : a.Gap > b.Gap + 2.817e-5f;
     }
 
 

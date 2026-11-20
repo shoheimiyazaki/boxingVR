@@ -37,11 +37,11 @@ public readonly record struct ElbowSpec(ElbowTechnique Technique, float Duration
     public static ElbowSpec Of(ElbowTechnique technique) => technique switch
     {
         // 横肘: 肘を外・やや後ろへ引き、拳を耳（こめかみ）へ畳む。肩と胴のひねりで、肘を顔の高さの横から相手の顔の前を横切らせる。
-        ElbowTechnique.Horizontal => new(technique, 0.60f, 0.90f, new Vector3(0.9f, 0.1f, -0.5f), new Vector3(-0.9f, 0f, 0f), new Vector3(0.20f, 0.27f, 0.05f), Twist: 0.7f, StepIn: 0.8f, Lean: new Vector3(0f, -0.03f, 0.30f)),
+        ElbowTechnique.Horizontal => new(technique, 1.007f, 0.90f, new Vector3(0.9f, 0.1f, -0.5f), new Vector3(-0.9f, 0f, 0f), new Vector3(0.20f, 0.27f, 0.05f), Twist: 0.7f, StepIn: 0.8f, Lean: new Vector3(0f, -0.03f, 0.30f)),
         // 上げ肘: 肘を下へ引き、拳を顎の横へ。肘を相手の顎の下から突き上げる。
-        ElbowTechnique.Upward => new(technique, 0.55f, 0.90f, new Vector3(0.35f, -0.95f, 0.1f), new Vector3(0f, 0.9f, 0f), new Vector3(0.15f, 0.10f, 0.20f), Twist: 0.4f, StepIn: 0.8f, Lean: new Vector3(0f, -0.10f, 0.25f)),
+        ElbowTechnique.Upward => new(technique, 0.9231f, 0.90f, new Vector3(0.35f, -0.95f, 0.1f), new Vector3(0f, 0.9f, 0f), new Vector3(0.15f, 0.10f, 0.20f), Twist: 0.4f, StepIn: 0.8f, Lean: new Vector3(0f, -0.10f, 0.25f)),
         // 振り下ろし肘: 肘を高く引き、拳を頭の上へ。肘を上から斜めに打ち下ろす。
-        ElbowTechnique.Downward => new(technique, 0.60f, 0.90f, new Vector3(0.2f, 0.95f, -0.2f), new Vector3(0f, -0.9f, 0f), new Vector3(0.15f, 0.55f, 0.05f), Twist: 0.5f, StepIn: 0.8f, Lean: new Vector3(0f, -0.03f, 0.30f)),
+        ElbowTechnique.Downward => new(technique, 1.007f, 0.90f, new Vector3(0.2f, 0.95f, -0.2f), new Vector3(0f, -0.9f, 0f), new Vector3(0.15f, 0.55f, 0.05f), Twist: 0.5f, StepIn: 0.8f, Lean: new Vector3(0f, -0.03f, 0.30f)),
         _ => throw new ArgumentOutOfRangeException(nameof(technique)),
     };
 

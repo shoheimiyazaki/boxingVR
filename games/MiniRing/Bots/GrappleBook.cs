@@ -18,13 +18,13 @@ public sealed record GrappleBook
     public float Engage { get; init; } = 0.9f;
 
     /// <summary>組みに行ける間合いにいる 1 秒あたりに、組みに行く確率（試合での手数。打撃の教科書のボットの合間に）。</summary>
-    public float Rate { get; init; } = 0.8f;
+    public float Rate { get; init; } = 0.4767f;
 
     /// <summary>掴みに行ってから、掴めていなければあきらめる時間 [s]。</summary>
-    public float GripTimeout { get; init; } = 0.5f;
+    public float GripTimeout { get; init; } = 0.8392f;
 
     /// <summary>技の後、次に組みに行くまでの間 [s]。</summary>
-    public float Cooldown { get; init; } = 1.2f;
+    public float Cooldown { get; init; } = 2.014f;
 
     /// <summary>
     /// 自分の肘が極められている痛み（過伸展の力 / 靭帯の降伏）がこれを超えたら、極められた腕の拳を相手の引く向きへ預け、体ごと寄って荷重を逃がす（反射。0 なら逃げない）。
@@ -95,7 +95,7 @@ public sealed record GrappleKey(float T, GrappleHand? Left = null, GrappleHand? 
 /// <summary>
 /// 手の目標: 相手の点 <paramref name="Anchor"/> から <paramref name="Offset"/>（腕の長さ = 1）ずらした所。<paramref name="Limb"/> なら
 /// ずれは相手の腕の座標（x = 肩 → 手首の向き、y = 肘を伸ばしきった先へ反らせる向き、z = その 2 つに直交）、でなければ自分の体の座標。
-/// <paramref name="Grip"/> なら握る（4 cm 以内に相手の体があれば掴む）。
+/// <paramref name="Grip"/> なら握る（握れる距離（人形の単位で 4 cm）以内に相手の体があれば掴む）。
 /// </summary>
 public sealed record GrappleHand(GrappleAnchor Anchor, float[]? Offset = null, bool Grip = false, bool Limb = false);
 

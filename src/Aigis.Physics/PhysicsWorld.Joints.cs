@@ -66,7 +66,7 @@ public sealed partial class PhysicsWorld
     public Action<int>? OnJointBroken { get; set; }
 
     /// <summary>Pins two bodies together at a point (the socket of a ball-and-socket joint).</summary>
-    public int AddBallSocket(int bodyA, int bodyB, Vector3 localOffsetA, Vector3 localOffsetB, float frequency = 15f, float dampingRatio = 1f)
+    public int AddBallSocket(int bodyA, int bodyB, Vector3 localOffsetA, Vector3 localOffsetB, float frequency = 8.937f, float dampingRatio = 1f)
     {
         var id = Track(_simulation.Solver.Add(new BodyHandle(bodyA), new BodyHandle(bodyB), new BallSocket
         {
@@ -88,9 +88,9 @@ public sealed partial class PhysicsWorld
     /// so two bodies move and turn as one: a vehicle's parts (an ambulance's chassis and bumper, a car's two tiers)
     /// that must stay separate bodies, with their own ids and contacts, yet roll over together.
     /// <para>A stiff spring (Bepu's mass-normalised <paramref name="frequency"/>), not an infinitely rigid bond; at the
-    /// 30 Hz default two parts of a few hundred kilograms and up hold to millimetres under a car's own forces.</para>
+    /// 17.87 Hz default (30 Hz in the 60 cm doll world, × 0.5958 by similarity) two parts of a few hundred kilograms and up hold to millimetres under a car's own forces.</para>
     /// </summary>
-    public int AddWeld(int bodyA, int bodyB, float frequency = 30f, float dampingRatio = 1f)
+    public int AddWeld(int bodyA, int bodyB, float frequency = 17.87f, float dampingRatio = 1f)
     {
         ThrowIfDisposed();
         var a = GetState(bodyA);
@@ -226,7 +226,7 @@ public sealed partial class PhysicsWorld
     /// will actually act on — <c>f = sqrt(k/m)/(2*pi)</c>, <c>zeta = c/(2*sqrt(k*m))</c>.
     /// </para></summary>
     public int AddDistanceLimit(int bodyA, int bodyB, Vector3 localOffsetA, Vector3 localOffsetB,
-        float minDistance, float maxDistance, float frequency = 15f, float dampingRatio = 1f)
+        float minDistance, float maxDistance, float frequency = 8.937f, float dampingRatio = 1f)
     {
         if (!(minDistance >= 0f) || !(maxDistance >= minDistance) || !float.IsFinite(maxDistance))
         {
@@ -283,7 +283,7 @@ public sealed partial class PhysicsWorld
     }
 
     /// <summary>Cone limit: how far body B's axis may tilt away from body A's axis.</summary>
-    public int AddSwingLimit(int bodyA, int bodyB, Vector3 axisLocalA, Vector3 axisLocalB, float maxSwingRadians, float frequency = 15f, float dampingRatio = 1f)
+    public int AddSwingLimit(int bodyA, int bodyB, Vector3 axisLocalA, Vector3 axisLocalB, float maxSwingRadians, float frequency = 8.937f, float dampingRatio = 1f)
     {
         var id = Track(_simulation.Solver.Add(new BodyHandle(bodyA), new BodyHandle(bodyB), new SwingLimit
         {
@@ -302,7 +302,7 @@ public sealed partial class PhysicsWorld
     }
 
     /// <summary>Bounds the twist between two bodies around their basis Z axes.</summary>
-    public int AddTwistLimit(int bodyA, int bodyB, Quaternion basisA, Quaternion basisB, float minRadians, float maxRadians, float frequency = 15f, float dampingRatio = 1f)
+    public int AddTwistLimit(int bodyA, int bodyB, Quaternion basisA, Quaternion basisB, float minRadians, float maxRadians, float frequency = 8.937f, float dampingRatio = 1f)
     {
         var id = Track(_simulation.Solver.Add(new BodyHandle(bodyA), new BodyHandle(bodyB), new TwistLimit
         {
@@ -373,7 +373,7 @@ public sealed partial class PhysicsWorld
     /// about that shared axis free — unlike a ball-and-socket, which leaves all 3 rotational DOF free.
     /// Pair with <see cref="AddTwistLimit"/> sharing the same axis to bound how far that one free
     /// rotation may go (a real hinge's bend limit).</summary>
-    public int AddHinge(int bodyA, int bodyB, Vector3 localOffsetA, Vector3 localOffsetB, Vector3 hingeAxisLocalA, Vector3 hingeAxisLocalB, float frequency = 15f, float dampingRatio = 1f)
+    public int AddHinge(int bodyA, int bodyB, Vector3 localOffsetA, Vector3 localOffsetB, Vector3 hingeAxisLocalA, Vector3 hingeAxisLocalB, float frequency = 8.937f, float dampingRatio = 1f)
     {
         var id = Track(_simulation.Solver.Add(new BodyHandle(bodyA), new BodyHandle(bodyB), new Hinge
         {
@@ -398,7 +398,7 @@ public sealed partial class PhysicsWorld
     /// <see cref="AddBallSocket"/>/<see cref="AddSwingLimit"/>/<see cref="AddTwistLimit"/> recipe
     /// (those safety bounds stay in effect; the servo actively drives within them).</summary>
     public int AddAngularServo(int bodyA, int bodyB, Quaternion targetRelativeRotationLocalA,
-        float frequency = 15f, float dampingRatio = 1f, float maxSpeed = 10f, float baseSpeed = 0f, float maxForce = 50f)
+        float frequency = 8.937f, float dampingRatio = 1f, float maxSpeed = 5.958f, float baseSpeed = 0f, float maxForce = 50f)
     {
         var id = Track(_simulation.Solver.Add(new BodyHandle(bodyA), new BodyHandle(bodyB), new AngularServo
         {
@@ -453,7 +453,7 @@ public sealed partial class PhysicsWorld
     /// Bepu's doc comments alone, since <c>TwistServo</c>'s and <c>TwistLimit</c>'s doc text
     /// describe the twist axis with opposite signs.</summary>
     public int AddTwistServo(int bodyA, int bodyB, Quaternion basisA, Quaternion basisB, float targetAngleRadians,
-        float frequency = 15f, float dampingRatio = 1f, float maxSpeed = 10f, float baseSpeed = 0f, float maxForce = 50f)
+        float frequency = 8.937f, float dampingRatio = 1f, float maxSpeed = 5.958f, float baseSpeed = 0f, float maxForce = 50f)
     {
         var id = Track(_simulation.Solver.Add(new BodyHandle(bodyA), new BodyHandle(bodyB), new TwistServo
         {
@@ -495,7 +495,7 @@ public sealed partial class PhysicsWorld
     }
 
     /// <summary>A soft angular damper between two bodies (bleeds joint energy so limbs don't jitter).</summary>
-    public int AddAngularMotor(int bodyA, int bodyB, float maximumForce = 75f, float softness = 0.01f)
+    public int AddAngularMotor(int bodyA, int bodyB, float maximumForce = 75f, float softness = 0.01678f)
     {
         var id = Track(_simulation.Solver.Add(new BodyHandle(bodyA), new BodyHandle(bodyB), new AngularMotor
         {

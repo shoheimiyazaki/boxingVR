@@ -29,7 +29,7 @@ public static class SwordTraining
     public static RingLayout Ring => RingLayout.DrillWeapons;
 
     /// <summary>始めの間の下限 [m]（柄頭打ち・押し斬りのように内側で使う型でも、始めは体が重ならない）。</summary>
-    public const float MinGap = 0.2f;
+    public const float MinGap = 0.563f;
 
     /// <summary>
     /// 武器 <paramref name="weapon"/> の型の全部（間の短い型も含む。稽古なので試合の技の下限 <see cref="FormSwordsman.MinReach"/> では外さない）と、
@@ -37,7 +37,7 @@ public static class SwordTraining
     /// </summary>
     public static IReadOnlyList<TrainingForm> Forms(WeaponKind weapon, float armReach)
     {
-        var maxGap = Ring.Size - 0.4f; // リングの縁から 20 cm ずつ内（RingLayout の決まりより広め）
+        var maxGap = Ring.Size - 1.127f; // リングの縁から 56 cm ずつ内（RingLayout の決まりより広め）
         return
         [
             .. FormSwordsman.Techniques(FormsWeapon(weapon), armReach, float.NegativeInfinity)

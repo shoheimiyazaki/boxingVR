@@ -175,8 +175,8 @@ public static class VoxelBreakSound
         var bank = LandingBank(style);
         var grains = audible.Select(landing => (
             Source: bank[(int)LandingKindOf(landing.Tag)][random.Next(Variants)],
-            Pitch: Math.Clamp(0.005f / MathF.Max(1e-4f, landing.Size), 0.7f, 1.6f) * (0.9f + (0.2f * random.NextSingle())),
-            Gain: Math.Clamp(landing.Speed / 2.5f, 0.1f, 1f) * Math.Clamp(landing.Size / 0.005f, 0.3f, 1.5f) * 0.5f,
+            Pitch: Math.Clamp(0.01408f / MathF.Max(1e-4f, landing.Size), 0.7f, 1.6f) * (0.9f + (0.2f * random.NextSingle())),
+            Gain: Math.Clamp(landing.Speed / 4.196f, 0.1f, 1f) * Math.Clamp(landing.Size / 0.01408f, 0.3f, 1.5f) * 0.5f,
             Start: (int)(random.NextSingle() * 0.016f * SampleRate))).ToList();
         // 低く伸ばした粒も最後まで入る長さ（途中で切ると「プツッ」と鳴る）。
         var mix = new float[grains.Max(g => g.Start + (int)(g.Source.Length / g.Pitch) + 1)];

@@ -43,7 +43,7 @@ public sealed record WeaponStyle
     public SwingPacing? Pacing { get; init; }
 
     /// <summary>技を出し終えてから次を狙うまでの間 [s]。</summary>
-    public float Rest { get; init; } = 0.6f;
+    public float Rest { get; init; } = 1.007f;
 
     /// <summary>
     /// 技の選ばれやすさ（型の名前 → 重み。書いていない技は 1、0 の技は出さない）。null なら全部の技を同じ割合で。型の名前は武器の型（刀: tsuki・kesa・gyaku-kesa・nuki-do・kiriage・harai-men・hiki-men、
@@ -67,21 +67,21 @@ public sealed record WeaponStyle
     // ── こんぼう ──
 
     /// <summary>振り始める間合い [m]（胸と胸の水平の距離）。</summary>
-    public float ClubRange { get; init; } = 0.36f;
+    public float ClubRange { get; init; } = 1.014f;
 
     /// <summary>振り終えてから次を探すまでの間 [s]。</summary>
-    public float ClubRest { get; init; } = 0.6f;
+    public float ClubRest { get; init; } = 1.007f;
 
     /// <summary>打たない間に構えて待つ距離 [m]（相手の拳の届かない所）。</summary>
-    public float ClubStandOff { get; init; } = 0.48f;
+    public float ClubStandOff { get; init; } = 1.352f;
 
-    /// <summary>振るのを間合いが <see cref="ClubRange"/> ± 3 cm に入ったときだけにするか。</summary>
+    /// <summary>振るのを間合いが <see cref="ClubRange"/> ± 8.5 cm に入ったときだけにするか。</summary>
     public bool ClubExact { get; init; }
 
     /// <summary>こんぼうの振りの選ばれやすさ（振りの型 Chop・Side・Thrust → 重み。書いていない型は 1）。null なら同じ割合で。</summary>
     public IReadOnlyDictionary<string, float>? ClubSwingWeights { get; init; }
 
-    // この record の既定値（コード側）は、教科書を JSON へ移した時点（LogicVersion 30）までの値のまま。今の教科書の値（Pacing を入れる・こんぼうの間合い 0.30 m など）は
+    // この record の既定値（コード側）は、教科書を JSON へ移した時点（LogicVersion 30）までの値のまま。今の教科書の値（Pacing を入れる・こんぼうの間合い 0.845 m など）は
     // Bots/weapons/*.json が持つ（WeaponCatalog.Textbook）。new WeaponStyle() は「何も鍛えていない昔の値」。
 
     /// <summary>範囲の検査をして、検査済みの自分を返す。範囲の外・有限でない数は <see cref="ArgumentOutOfRangeException"/>（どの値かを書く）。</summary>
@@ -110,17 +110,17 @@ public sealed record WeaponStyle
             Check(pacing);
         }
 
-        InRange(Rest, 0f, 5f, nameof(Rest));
-        InRange(MinReach, 0f, 1.5f, nameof(MinReach));
+        InRange(Rest, 0f, 8.392f, nameof(Rest));
+        InRange(MinReach, 0f, 4.225f, nameof(MinReach));
         if (InnerMinReach is { } inner)
         {
             InRange(inner, 0f, MinReach, nameof(InnerMinReach));
         }
 
         InRange(KeepReach, 0f, 3f, nameof(KeepReach));
-        InRange(ClubRange, 0.1f, 1.2f, nameof(ClubRange));
-        InRange(ClubRest, 0f, 5f, nameof(ClubRest));
-        InRange(ClubStandOff, 0.1f, 2f, nameof(ClubStandOff));
+        InRange(ClubRange, 0.2817f, 3.380f, nameof(ClubRange));
+        InRange(ClubRest, 0f, 8.392f, nameof(ClubRest));
+        InRange(ClubStandOff, 0.2817f, 5.634f, nameof(ClubStandOff));
         CheckWeights(TechniqueWeights, nameof(TechniqueWeights), null);
         CheckWeights(ClubSwingWeights, nameof(ClubSwingWeights), [.. ClubBot.OneHanded.Select(f => f.ToString())]);
         return this;

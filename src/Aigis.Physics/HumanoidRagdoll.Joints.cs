@@ -278,10 +278,10 @@ public static partial class HumanoidRagdoll
         PhysicsWorld world, RagdollJoint joint, int bodyA, int bodyB, Vector3 localA, Vector3 localB, float motorScale)
     {
         var deg = MathF.PI / 180f;
-        var ball = world.AddBallSocket(bodyA, bodyB, localA, localB, frequency: 18f, dampingRatio: 1f);
-        var swing = world.AddSwingLimit(bodyA, bodyB, Vector3.UnitY, Vector3.UnitY, 40f * deg, frequency: 8f, dampingRatio: 1f);
-        var twist = world.AddTwistLimit(bodyA, bodyB, YAxisTwistBasis, YAxisTwistBasis, -12f * deg, 12f * deg, frequency: 12f, dampingRatio: 1f);
-        var motor = world.AddAngularMotor(bodyA, bodyB, maximumForce: AnkleJointMotorForce * motorScale, softness: 0.02f);
+        var ball = world.AddBallSocket(bodyA, bodyB, localA, localB, frequency: 10.72f, dampingRatio: 1f);
+        var swing = world.AddSwingLimit(bodyA, bodyB, Vector3.UnitY, Vector3.UnitY, 40f * deg, frequency: 4.767f, dampingRatio: 1f);
+        var twist = world.AddTwistLimit(bodyA, bodyB, YAxisTwistBasis, YAxisTwistBasis, -12f * deg, 12f * deg, frequency: 7.150f, dampingRatio: 1f);
+        var motor = world.AddAngularMotor(bodyA, bodyB, maximumForce: AnkleJointMotorForce * motorScale, softness: 0.03357f);
         return new JointGroup(joint, bodyA, bodyB, ball, swing, [ball, swing, twist, motor], false);
     }
 }

@@ -3,15 +3,16 @@ using System.Globalization;
 namespace MiniRing;
 
 /// <summary>
-/// 試合の再生の速さ（ゲームの秒 / 実時間の秒）。見ていてちょうどよい 0.75 倍を標準にし、0.5 倍・1.0 倍へ切り替えられる（ユーザーの指示: 2026-11-11）。
+/// 試合の再生の速さ（ゲームの秒 / 実時間の秒）。標準は 1.0 倍（実物大の物理では人の動きの速さがそのまま自然に見える）で、0.5 倍・0.75 倍へ切り替えられる
+/// （ユーザーの指示: 2026-11-11。それまでの標準 0.75 倍は、60 cm の人形の動きが人より √(1/0.355) ≈ 1.68 倍速く見えるのを手で抑えていた: docs/plans/REAL_SCALE_PLAN.md §0）。
 /// <para>ライブの Desktop / VR は専用スレッドで 1/240 秒ずつ進む。速度は歩を実行する実時間の間隔だけを変え、
 /// 物理の刻みを変えない。記録は適用済みの入力と各歩の刻みを持つので、表示速度を変えても照合できる。
 /// Arena など同期ホストでは従来どおり外側の刻みを調整できる。</para>
 /// </summary>
 public sealed class GameSpeed
 {
-    /// <summary>標準の速さ。</summary>
-    public const float Standard = 0.75f;
+    /// <summary>標準の速さ（実物大の物理の自然な速さ）。</summary>
+    public const float Standard = 1f;
 
     /// <summary>選べる表示・進行速度（遅い順）。</summary>
     public static IReadOnlyList<float> Choices { get; } = [0.5f, 0.75f, 1f];

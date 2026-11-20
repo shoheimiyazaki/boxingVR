@@ -31,10 +31,10 @@ internal static class AwayLab
     {
         float Gauss() => (float)(Math.Sqrt(-2.0 * Math.Log(1.0 - random.NextDouble())) * Math.Cos(2.0 * Math.PI * random.NextDouble()));
         return new HitAndAway(
-            Math.Clamp(p.Margin + (0.04f * Gauss()), -0.15f, 0.4f),
+            Math.Clamp(p.Margin + (0.113f * Gauss()), -0.423f, 1.127f),
             Math.Clamp(p.Lunge + (0.15f * Gauss()), 0f, 1.5f),
-            Math.Clamp(p.OpeningTime + (0.12f * Gauss()), 0f, 1.5f),
-            Math.Clamp(p.Patience * MathF.Exp(0.35f * Gauss()), 0.2f, 6f),
+            Math.Clamp(p.OpeningTime + (0.201f * Gauss()), 0f, 2.518f),
+            Math.Clamp(p.Patience * MathF.Exp(0.35f * Gauss()), 0.336f, 10.07f),
             Math.Clamp(p.Circle + (0.12f * Gauss()), 0f, 1f),
             random.NextDouble() < 0.15 ? !p.Debana : p.Debana).Validated();
     }

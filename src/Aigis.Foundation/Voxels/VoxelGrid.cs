@@ -48,8 +48,8 @@ public enum VoxelTissue : byte
 public sealed record VoxelMechanics(float Density, float Strength, float Give, float? Tensile = null, float? Stiffness = null, float? Wear = null,
     float? PassiveTie = null, float? ActiveTie = null)
 {
-    /// <summary>Soft default for a material that states none (yields easily, never snaps).</summary>
-    public static VoxelMechanics Default { get; } = new(1000f, 0.5e6f, 0.004f);
+    /// <summary>Soft default for a material that states none (yields easily, never snaps). MiniRing real-scale stage 2: the old doll-world default (1000 kg/m³, 0.5 MPa, 4 mm) scaled by the similarity factors (density ×0.4474, stress ×1.260, length ×2.817).</summary>
+    public static VoxelMechanics Default { get; } = new(447.4f, 0.6301e6f, 0.01127f);
 }
 
 /// <summary>

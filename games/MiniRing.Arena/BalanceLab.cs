@@ -27,7 +27,7 @@ internal sealed class BalanceLab(int seed, Action<string> log)
 
     public void Run(IReadOnlyList<string> only)
     {
-        log("| モデル | 立つ 3 秒: 動いた [cm] | 胸を引く 0.3 / 0.6 / 1.0 体重: 倒れた | 5 方向に歩く: 倒れた | 蹴り続ける 10 秒: 蹴った側が倒れた（前・回し・横） | 支え釣り込み足 2×10 秒: 投げ / 取り倒れ / 浮いた [s] | 試合 2×30 秒: ダウン / 浮いた [s] |");
+        log("| モデル | 立つ 5.0 秒: 動いた [cm] | 胸を引く 0.3 / 0.6 / 1.0 体重: 倒れた | 5 方向に歩く: 倒れた | 蹴り続ける 16.8 秒: 蹴った側が倒れた（前・回し・横） | 支え釣り込み足 2×16.8 秒: 投げ / 取り倒れ / 浮いた [s] | 試合 2×50.4 秒: ダウン / 浮いた [s] |");
         log("|---|---|---|---|---|---|---|");
         foreach (var (name, tuning) in Models.Where(m => only.Count == 0 || only.Contains(m.Name)))
         {
@@ -46,7 +46,7 @@ internal sealed class BalanceLab(int seed, Action<string> log)
     private static (PhysicsWorld World, Fighter Fighter, FighterCommand Idle) Spawn(FighterTuning tuning)
     {
         var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         var f = Fighter.Spawn(world, tuning, "f", Vector3.Zero, 0f);
         var idle = new FighterCommand(Vector3.Zero, Vector3.UnitZ,
             new HandCommand(AiControl.Guard(Hand.Left, f.ArmReach), false),
@@ -59,7 +59,7 @@ internal sealed class BalanceLab(int seed, Action<string> log)
         var (world, f, idle) = Spawn(tuning);
         using var _ = world;
         var start = f.PelvisPosition;
-        for (var i = 0; i < (int)(3f / Dt); i++)
+        for (var i = 0; i < (int)(5.035f / Dt); i++)
         {
             f.ApplyControl(idle, Dt);
             world.Step(Dt);
@@ -74,16 +74,16 @@ internal sealed class BalanceLab(int seed, Action<string> log)
         var (world, f, idle) = Spawn(tuning);
         using var _ = world;
         var fell = false;
-        for (var i = 0; i < (int)(3f / Dt); i++)
+        for (var i = 0; i < (int)(5.035f / Dt); i++)
         {
             f.ApplyControl(idle, Dt);
-            if (i * Dt is > 1f and < 2f)
+            if (i * Dt is > 1.678f and < 3.357f)
             {
                 world.ApplyLinearImpulse(f.Parts.Chest, Vector3.UnitZ * (weights * f.TotalMass * -world.Gravity.Y * Dt));
             }
 
             world.Step(Dt);
-            fell |= i * Dt > 1f && f.State != FighterState.Standing;
+            fell |= i * Dt > 1.678f && f.State != FighterState.Standing;
         }
 
         return fell;
@@ -97,9 +97,9 @@ internal sealed class BalanceLab(int seed, Action<string> log)
             var (world, f, idle) = Spawn(tuning);
             using var _ = world;
             var wasUp = true;
-            for (var i = 0; i < (int)(4f / Dt); i++)
+            for (var i = 0; i < (int)(6.714f / Dt); i++)
             {
-                f.ApplyControl(i * Dt < 1f ? idle : idle with { MoveWorld = dir }, Dt);
+                f.ApplyControl(i * Dt < 1.678f ? idle : idle with { MoveWorld = dir }, Dt);
                 world.Step(Dt);
                 var up = f.State == FighterState.Standing;
                 falls += wasUp && !up ? 1 : 0;
@@ -124,7 +124,7 @@ internal sealed class BalanceLab(int seed, Action<string> log)
         using var game = new BoxingGame(tuning, seed, corners);
         var falls = 0;
         var wasUp = true;
-        for (var t = 0f; t < 10f; t += GameDt)
+        for (var t = 0f; t < 16.78f; t += GameDt)
         {
             game.Step(default, GameDt);
             var up = game.Cpu.State == FighterState.Standing;
@@ -140,13 +140,13 @@ internal sealed class BalanceLab(int seed, Action<string> log)
         var (throws, falls, floating) = (0, 0, 0f);
         for (var b = 0; b < 2; b++)
         {
-            var book = GrappleBook.Jujutsu with { Rate = 50f };
+            var book = GrappleBook.Jujutsu with { Rate = 29.8f };
             var corners = new BoxingCorners("jujutsu", s => new JujutsuBot(new Closer(), book, s, only: "sasae-tsurikomi-ashi"), _ => new StandGuard(),
                 CpuWear: MiniRing.Weapons.HandWear.None);
             using var game = new BoxingGame(tuning, seed + b, corners);
             game.Thrown += (by, _) => throws += by == game.Cpu ? 1 : 0;
             var wasUp = true;
-            for (var t = 0f; t < 10f; t += GameDt)
+            for (var t = 0f; t < 16.78f; t += GameDt)
             {
                 game.Step(default, GameDt);
                 var up = game.Cpu.State == FighterState.Standing;
@@ -167,7 +167,7 @@ internal sealed class BalanceLab(int seed, Action<string> log)
             var corners = new BoxingCorners("swarmer", s => BotCatalog.Create("swarmer", s), s => BotCatalog.Create("champion", s));
             using var game = new BoxingGame(tuning, seed + b, corners);
             var wasUp = (true, true);
-            for (var t = 0f; t < 30f; t += GameDt)
+            for (var t = 0f; t < 50.35f; t += GameDt)
             {
                 game.Step(default, GameDt);
                 var up = (game.Player.State == FighterState.Standing, game.Cpu.State == FighterState.Standing);

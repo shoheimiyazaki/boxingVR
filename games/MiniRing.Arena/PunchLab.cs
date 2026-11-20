@@ -35,14 +35,14 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
     private const float Dt = 1f / 240f;
 
     /// <summary>間合いへ寄せる最長の時間 [s]と、寄せた後に構えを落ち着かせる時間 [s]。</summary>
-    private const float ApproachSeconds = 6f;
-    private const float SettleSeconds = 0.5f;
+    private const float ApproachSeconds = 10.07f;
+    private const float SettleSeconds = 0.8392f;
 
     /// <summary>打ち出してから見ている時間 [s]（倒れるか・脳しんとうを見る）。</summary>
-    private const float WatchSeconds = 2f;
+    private const float WatchSeconds = 3.357f;
 
     /// <summary>1 発の拳とみなす、打ち出しからの時間 [s]（この間の右の拳の当たりのうち、いちばん強いもの）。</summary>
-    private const float StrikeWindow = 0.45f;
+    private const float StrikeWindow = 0.7553f;
 
     /// <summary>反事実の目標の速度の上限 [m/s]（実質なし）。</summary>
     internal const float NoCapSpeed = 1000f;
@@ -160,7 +160,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
                 // 誤差に比例した歩きに、間合いの変わる速さで制動を掛ける（比例だけだと足の運びの遅れで ±0.17 腕揺れ続けた）。
                 var closing = _lastDistance is { } last ? (error - last) / Dt : 0f;
                 _lastDistance = error;
-                var move = toward * Math.Clamp((2f * error) + (0.6f * closing), -1f, 1f);
+                var move = toward * Math.Clamp((2f * error) + (1.007f * closing), -1f, 1f);
                 _clock += Dt;
                 if (_stable * Dt >= SettleSeconds || _clock > ApproachSeconds)
                 {
@@ -238,7 +238,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
                 headTarget = TechniqueExecution.HeadShift(Action, Style.Lead, reach);
             }
 
-            _head = Vector3.Lerp(_head, headTarget, 1f - MathF.Exp(-12f * dt)); // ボットの頭の目標の追い方と同じ
+            _head = Vector3.Lerp(_head, headTarget, 1f - MathF.Exp(-7.150f * dt)); // ボットの頭の目標の追い方と同じ
             var command = new FighterCommand(move, face.LengthSquared() > 1e-6f ? Vector3.Normalize(face) : Vector3.UnitZ,
                 new HandCommand(Guard(Hand.Left), false, Tuck: Style.ElbowTuck),
                 new HandCommand(right, false, spring, Tuck: TechniqueExecution.Tuck(Action, Style.ElbowTuck, false)),
@@ -301,12 +301,12 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
         while (bout.PunchTime is { } t && t < WatchSeconds)
         {
             var fist = attacker.GloveVelocity(Hand.Right).Length();
-            if (t >= 0f && t <= outbound + 0.05f)
+            if (t >= 0f && t <= outbound + 0.08392f)
             {
                 peak = MathF.Max(peak, fist);
             }
 
-            if (series && t >= -0.1f && t <= 0.4f)
+            if (series && t >= -0.1678f && t <= 0.6714f)
             {
                 points.Add((t, fist));
             }
@@ -398,14 +398,14 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
             log($"- {setup.Label}: " + string.Join("  ", trials[0].Drive!.Select(s => $"{F(s.T, "0.000")}s {F(s.RawGap * 100f, "0.0")}/{F(s.ClampedGap * 100f, "0.0")}cm {F(s.Desired, "0")}/{F(s.Cap, "0")}/{F(s.Force, "0")}N {F(s.Speed)}")));
         }
 
-        log("\n拳の速さの時系列（最初の種、10 ms ごと、[m/s]。t = 0 が打ち出し、負は溜め）:\n");
+        log("\n拳の速さの時系列（最初の種、約 17 ms ごと、[m/s]。t = 0 が打ち出し、負は溜め）:\n");
         var first = results.Where(r => r.Trials.Count > 0).Select(r => (r.Setup, r.Trials[0])).ToList();
         log("| t [s] | " + string.Join(" | ", first.Select(f => f.Setup.Label)) + " |");
         log("|---|" + string.Concat(first.Select(_ => "---|")));
-        for (var t = -0.1f; t <= 0.4001f; t += 0.01f)
+        for (var t = -0.1678f; t <= 0.6715f; t += 0.01678f)
         {
             var row = first.Select(f => f.Item2.Series.Count == 0 ? "" : F(f.Item2.Series.MinBy(p => MathF.Abs(p.T - t)).Speed));
-            log($"| {F(t)} | {string.Join(" | ", row)} |");
+            log($"| {F(t, "0.000")} | {string.Join(" | ", row)} |");
         }
     }
 
@@ -421,7 +421,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
     /// 金の線は拳の目標（拳から目標へ）。
     /// </summary>
     public static void Video(IReadOnlyList<(Setup Left, Setup Right)> scenes, int seed, float telegraph, float slow, int width, int height, int fps, string outPath, Action<string> log,
-        float slowFrom = -0.12f, float slowTo = 0.4f, float after = 1.6f, bool closeUp = false)
+        float slowFrom = -0.2014f, float slowTo = 0.6714f, float after = 2.685f, bool closeUp = false)
     {
         width -= width % 4; // 左右の半分がそれぞれ偶数の幅（yuv420p は奇数の幅を受けない）
         var half = width / 2;
@@ -469,7 +469,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
                     }
 
                     var fist = b.Game.Player.GloveVelocity(Hand.Right).Length();
-                    if (b.PunchTime is >= 0f and <= 0.3f)
+                    if (b.PunchTime is >= 0f and <= 0.5035f)
                     {
                         peaks[i] = MathF.Max(peaks[i], fist);
                     }
@@ -492,7 +492,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
                 Write(ffmpeg, frame, width, height, half, bouts.Select((b, i) =>
                 {
                     var lines = new List<DebugLine>();
-                    if (b.TargetWorld is { } target && b.PunchTime is { } pt && pt <= 0.4f)
+                    if (b.TargetWorld is { } target && b.PunchTime is { } pt && pt <= 0.6714f)
                     {
                         lines.Add(new DebugLine(b.Game.Player.GloveCenter(Hand.Right), target, Gold));
                     }
@@ -549,13 +549,13 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
         if (closeUp)
         {
             // 拳とあごを大きく: 打ち手の右肩と相手の頭の間を、あごの高さの真横から（右手の側）。
-            middle = (game.Player.ShoulderPosition(Hand.Right) + game.Cpu.HeadPosition) * 0.5f + new Vector3(0f, -0.02f, 0f);
-            eye = middle - (side * 0.38f) + new Vector3(0f, 0.01f, 0f);
+            middle = (game.Player.ShoulderPosition(Hand.Right) + game.Cpu.HeadPosition) * 0.5f + new Vector3(0f, -0.05634f, 0f);
+            eye = middle - (side * 1.070f) + new Vector3(0f, 0.02817f, 0f);
         }
         else
         {
-            middle = ((a + v) * 0.5f) + new Vector3(0f, -0.05f, 0f);
-            eye = middle - (side * 0.7f) + new Vector3(0f, 0.04f, 0f); // 打ち手の右手の側から真横に
+            middle = ((a + v) * 0.5f) + new Vector3(0f, -0.1408f, 0f);
+            eye = middle - (side * 1.972f) + new Vector3(0f, 0.1127f, 0f); // 打ち手の右手の側から真横に
         }
 
         var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, middle, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);

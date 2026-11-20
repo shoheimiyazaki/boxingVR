@@ -41,7 +41,7 @@ internal static class KneeLab
         float Distance() => Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f }) / reach;
 
         var stable = 0;
-        for (var i = 0; i < 240 * 10 && stable < 90; i++)
+        for (var i = 0; i < 4028 && stable < 151; i++)
         {
             var error = Distance() - standoff;
             if (MathF.Abs(error) < 0.03f)
@@ -56,7 +56,7 @@ internal static class KneeLab
             game.Step(new BoxingInput(Command(toward * MathF.Sign(error) * Math.Clamp(MathF.Abs(error) * 4f, 0.25f, 1f), null)), Dt);
         }
 
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(new BoxingInput(Command(Vector3.Zero, null)), Dt);
         }
@@ -67,16 +67,16 @@ internal static class KneeLab
         var foot = Quaternion.CreateFromAxisAngle(Vector3.UnitX, KickSpec.Of(KickTechnique.Roundhouse).FootPitch);
         var before = Cells(victim);
 
-        // 閉じたまま落ち着かせる（膝の位置の誤差と速さが小さくなるまで。上限 1.2 秒）。
+        // 閉じたまま落ち着かせる（膝の位置の誤差と速さが小さくなるまで。上限 2.0 秒）。
         var settle = 0f;
-        for (var i = 0; i < 288; i++)
+        for (var i = 0; i < 483; i++)
         {
             var closed = LegCommand.Knee(knee, spot.Twist, Closed, foot);
             game.Step(new BoxingInput(Command(Vector3.Zero, closed)), Dt);
             var goal = attacker.Frame.LocalToWorld(knee);
             onStep?.Invoke(game, "閉じて落ち着く", goal);
             settle = i * Dt;
-            if (i > 72 && Vector3.Distance(attacker.KneePosition(side), goal) < 0.012f * 1f)
+            if (i > 121 && Vector3.Distance(attacker.KneePosition(side), goal) < 0.0338f)
             {
                 break;
             }
@@ -90,7 +90,7 @@ internal static class KneeLab
         // 伸ばす（膝の目標・ねじり・体は動かさず、曲げだけ 0 へ）。
         HitEvent? first = null;
         var fraction = 0f;
-        for (var i = 0; i < 240; i++)
+        for (var i = 0; i < 403; i++)
         {
             var open = LegCommand.Knee(knee, spot.Twist, 0f, foot);
             game.Step(new BoxingInput(Command(Vector3.Zero, open)), Dt);

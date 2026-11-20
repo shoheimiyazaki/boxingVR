@@ -173,7 +173,7 @@ internal static class StickSwingVideo
         var vmax = Math.Max(1e-3f, speeds.Max());
         var views = new[] { SideView(plane), FrontView() };
         var renderer = new StickSolidRenderer(Panel, Panel);
-        var floor = rig.GuardFrame.Joints.Concat(Enumerable.Range(1, rig.Body.Segments.Count - 1).Select(rig.GuardFrame.Tip)).Min(p => p.Y) - 0.03f;
+        var floor = rig.GuardFrame.Joints.Concat(Enumerable.Range(1, rig.Body.Segments.Count - 1).Select(rig.GuardFrame.Tip)).Min(p => p.Y) - 0.0845f;
         var arguments = $"-y -loglevel error -f rawvideo -pix_fmt rgb24 -s {Width}x{Height} -r {Fps} -i - -c:v libx264 -pix_fmt yuv420p -crf 18 \"{mp4}\"";
         using var ffmpeg = Process.Start(new ProcessStartInfo("ffmpeg", arguments) { RedirectStandardInput = true, UseShellExecute = false })
             ?? throw new IOException("ffmpeg を起動できません（PATH にありますか）。");
@@ -252,7 +252,7 @@ internal static class StickSwingVideo
     private static void DrawPanel(StickSolidRenderer r, View view, SwingRig rig, SwingPlane plane, StickFrame frame, int now, Vector3[] tip, Vector3[] elbow, Vector3[] hand, float floor)
     {
         var body = rig.Body;
-        var target = rig.Shoulder - new Vector3(0f, 0.1f, 0f);
+        var target = rig.Shoulder - new Vector3(0f, 0.282f, 0f);
         var distance = rig.Reach * 1.75f / MathF.Tan(Fov * MathF.PI / 360f);
         r.Begin(target - (view.Look * distance), target, Fov);
 
@@ -261,16 +261,16 @@ internal static class StickSwingVideo
         {
             var isArm = i is StickBody.Ids.UpperArmR or StickBody.Ids.ForearmR;
             var isSword = i == StickBody.Ids.Weapon;
-            var radius = isSword ? 0.014f : Thickness(body.Segments[i]);
+            var radius = isSword ? 0.0394f : Thickness(body.Segments[i]);
             var color = isSword ? SwordColor : isArm ? ArmColor : BodyColor;
             r.Capsule(frame.Joints[i], frame.Tip(i), radius, color, isSword ? 0.6f : 0.2f);
             casters.Add((frame.Joints[i], frame.Tip(i), radius));
         }
 
-        r.Sphere(rig.Shoulder, 0.04f, new Vector3(0.12f, 0.12f, 0.12f));
-        r.Sphere(frame.Joints[StickBody.Ids.ForearmR], 0.035f, ElbowColor);
-        r.Sphere(frame.Joints[StickBody.Ids.Weapon], 0.035f, HandColor);
-        r.Sphere(tip[now], 0.03f, TipColor);
+        r.Sphere(rig.Shoulder, 0.113f, new Vector3(0.12f, 0.12f, 0.12f));
+        r.Sphere(frame.Joints[StickBody.Ids.ForearmR], 0.0986f, ElbowColor);
+        r.Sphere(frame.Joints[StickBody.Ids.Weapon], 0.0986f, HandColor);
+        r.Sphere(tip[now], 0.0845f, TipColor);
 
         void Trail(Vector3[] path, Vector3 color)
         {
@@ -279,11 +279,11 @@ internal static class StickSwingVideo
             {
                 if (i <= now)
                 {
-                    r.Capsule(path[i - 1], path[i], 0.008f, color, 0.1f);
+                    r.Capsule(path[i - 1], path[i], 0.0225f, color, 0.1f);
                 }
                 else
                 {
-                    r.Capsule(path[i - 1], path[i], 0.004f, pale, 0f);
+                    r.Capsule(path[i - 1], path[i], 0.0113f, pale, 0f);
                 }
             }
         }
@@ -297,9 +297,9 @@ internal static class StickSwingVideo
         var arrowColor = new Vector3(0.45f, 0.45f, 0.48f);
         var side = Vector3.Cross(plane.Normal, plane.Direction);
         var head = rig.Shoulder + (plane.Direction * half);
-        r.Capsule(rig.Shoulder - (plane.Direction * half), head, 0.007f, arrowColor, 0f);
-        r.Capsule(head, head - (plane.Direction * 0.15f) + (side * 0.08f), 0.007f, arrowColor, 0f);
-        r.Capsule(head, head - (plane.Direction * 0.15f) - (side * 0.08f), 0.007f, arrowColor, 0f);
+        r.Capsule(rig.Shoulder - (plane.Direction * half), head, 0.0197f, arrowColor, 0f);
+        r.Capsule(head, head - (plane.Direction * 0.423f) + (side * 0.225f), 0.0197f, arrowColor, 0f);
+        r.Capsule(head, head - (plane.Direction * 0.423f) - (side * 0.225f), 0.0197f, arrowColor, 0f);
 
         r.Floor(floor, casters);
         r.Disc(rig.Shoulder, plane.Normal, rig.Reach * 1.15f, new Vector3(0.35f, 0.55f, 0.95f), 0.12f);
@@ -310,7 +310,7 @@ internal static class StickSwingVideo
     {
         var e = new[] { s.HalfExtents.X, s.HalfExtents.Y, s.HalfExtents.Z };
         Array.Sort(e);
-        return Math.Clamp((e[0] + e[1]) * 0.5f, 0.02f, 0.14f);
+        return Math.Clamp((e[0] + e[1]) * 0.5f, 0.0563f, 0.394f);
     }
 
     /// <summary>左上の印: 1 本 = 断面を正面から見る視点、2 本 = 体の正面から見る視点。</summary>

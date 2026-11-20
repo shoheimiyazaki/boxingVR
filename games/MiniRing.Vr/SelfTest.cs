@@ -52,7 +52,7 @@ internal static unsafe class SelfTest
         var consumer = new VoxelSnapshotConsumer();
         var eyes = new[] { new Vector3(-0.032f, 1.55f, 0.05f), new Vector3(0.032f, 1.55f, 0.05f) };
         var targets = new[] { leftTarget, rightTarget };
-        var aim = game.Display.Point(game.Layout.Center with { Y = BoxingGame.RingSurfaceHeight + 0.15f }); // 目は表示の空間（部屋）
+        var aim = game.Display.Point(game.Layout.Center with { Y = BoxingGame.RingSurfaceHeight + 0.423f }); // 目は表示の空間（部屋）
         var views = eyes.Select(eye => Camera.OffCenterViewProjection(Matrix4x4.CreateLookAt(eye, aim, Vector3.UnitY),
             new FrustumWindow(-0.6f, 0.6f, -0.34f, 0.34f), 0.02f, 50f)).ToArray();
         var work = new List<double>();
@@ -104,7 +104,7 @@ internal static unsafe class SelfTest
     public static int FirstPerson(string outputDirectory)
     {
         var tuning = FighterTuning.Default with { PlayerFatigue = false };
-        using var game = new BoxingGame(tuning, corners: MiniRing.Motion.SwordTraining.Corners(Weapons.WeaponKind.Katana, 0.9f)) { HidePlayerHead = true };
+        using var game = new BoxingGame(tuning, corners: MiniRing.Motion.SwordTraining.Corners(Weapons.WeaponKind.Katana, 2.535f)) { HidePlayerHead = true };
         var mapper = new MiniRing.Motion.VrPlayerMapper(weaponMode: true)
         {
             GripHolds = true,
@@ -118,7 +118,7 @@ internal static unsafe class SelfTest
             new Vector3(-0.15f, 1.1f, -0.2f), new Vector3(0.15f, 1.25f, -0.4f), true, true,
             Vector2.Zero, Vector2.Zero, 1f, 1f, false, true, Quaternion.Identity, Quaternion.Identity);
         const float dt = 1f / 240f;
-        for (var i = 0; i < 480; i++)
+        for (var i = 0; i < 806; i++)
         {
             game.Step(mapper.Read(raw, game.PlayerSense, dt), dt);
         }
@@ -146,7 +146,7 @@ internal static unsafe class SelfTest
 
         // 比較用: 目の描画では頭の中にカメラがあって頭が見えないのは当たり前なので、後ろ斜め上から自分の頭を見て、隠す設定が効くことを確かめる。
         var puppetHead = game.Display.Point(game.PlayerSense.SelfHead);
-        var behind = puppetHead + game.Display.Point(new Vector3(0.12f, 0.10f, -0.30f));
+        var behind = puppetHead + game.Display.Point(new Vector3(0.338f, 0.282f, -0.845f));
         var outside = Camera.OffCenterViewProjection(Matrix4x4.CreateLookAt(behind, puppetHead, Vector3.UnitY), new FrustumWindow(-0.5f, 0.5f, -0.28f, 0.28f), 0.02f, 50f);
         foreach (var (hide, name) in new[] { (true, "vr_first_person_behind_hidden.png"), (false, "vr_first_person_behind_visible.png") })
         {
@@ -165,7 +165,7 @@ internal static unsafe class SelfTest
     public static int Run(string outputDirectory)
     {
         using var game = new BoxingGame(seed: 3);
-        for (var i = 0; i < 60; i++)
+        for (var i = 0; i < 101; i++)
         {
             game.Step(new BoxingInput(default), 1f / 60f);
         }
@@ -173,7 +173,7 @@ internal static unsafe class SelfTest
         var (instances, lines) = game.BuildRenderables();
         var voxels = game.BuildVoxelVolumes();
         var eye = new Vector3(0f, 1.55f, 0.05f);
-        var target = DisplaySpace.Standard.Point(BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight + 0.15f });
+        var target = DisplaySpace.Standard.Point(BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight + 0.423f });
         var view = Matrix4x4.CreateLookAt(eye, target, Vector3.UnitY);
         var window = new FrustumWindow(-0.6f, 0.6f, -0.34f, 0.34f);
         var viewProjection = Camera.OffCenterViewProjection(view, window, 0.02f, 50f);

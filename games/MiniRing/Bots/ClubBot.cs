@@ -26,10 +26,10 @@ public sealed class ClubBot : IFighterControl
     /// <param name="range">振り始める間合い [m]。</param>
     /// <param name="rest">振り終えてから次を探すまでの間 [s]。</param>
     /// <param name="standOff">打たない間に構えて待つ距離 [m]。</param>
-    /// <param name="exact">振るのを間合いが <see cref="Range"/> ± 3 cm に入ったときだけにする（近すぎれば下がってから振る）。
+    /// <param name="exact">振るのを間合いが <see cref="Range"/> ± 8.5 cm に入ったときだけにする（近すぎれば下がってから振る）。
     /// false なら間合いより近ければすぐ振る。</param>
     /// <param name="weights">振りごとの選ばれやすさ（<paramref name="swings"/> と同じ数の、0 以上の数。合計は正）。null なら同じ割合（今までの選び方: 乱数の使い方も同じ）。</param>
-    public ClubBot(IReadOnlyList<WeaponSwing> swings, int seed, float range = 0.36f, float rest = 0.25f, float standOff = 0.48f, bool exact = false, IReadOnlyList<float>? weights = null)
+    public ClubBot(IReadOnlyList<WeaponSwing> swings, int seed, float range = 1.014f, float rest = 0.4196f, float standOff = 1.352f, bool exact = false, IReadOnlyList<float>? weights = null)
     {
         _exact = exact;
         ArgumentNullException.ThrowIfNull(swings);
@@ -65,7 +65,7 @@ public sealed class ClubBot : IFighterControl
     public WeaponSwing? Current => _swing;
 
     /// <summary>研究の出発点の 3 つの振り（縦・横・突き）で戦うボット。</summary>
-    public static ClubBot Basic(int seed) => new([.. OneHanded.Select(WeaponSwing.Default)], seed, rest: 0.6f);
+    public static ClubBot Basic(int seed) => new([.. OneHanded.Select(WeaponSwing.Default)], seed, rest: 1.007f);
 
     /// <summary>
     /// 武器の教科書（とキャラの教育を重ねた <see cref="WeaponStyle"/>）で動くこんぼうのボット。振りは片手の 3 つの型（<see cref="OneHanded"/>）、
@@ -144,8 +144,8 @@ public sealed class ClubBot : IFighterControl
         // 打った後は下がって待ち、待ち終えたら踏み込んで、間合いに入ったら振る。
         var resting = _time < _restUntil;
         var want = resting ? StandOff : Range;
-        var move = distance > want + 0.03f ? face : distance < want - 0.03f ? -face : Vector3.Zero;
-        if (!resting && distance <= Range + 0.03f && (!_exact || distance >= Range - 0.03f))
+        var move = distance > want + 0.0845f ? face : distance < want - 0.0845f ? -face : Vector3.Zero;
+        if (!resting && distance <= Range + 0.0845f && (!_exact || distance >= Range - 0.0845f))
         {
             _swing = _swings[PickIndex()];
             _swingStart = _time;

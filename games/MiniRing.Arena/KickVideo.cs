@@ -61,7 +61,7 @@ internal static class KickVideo
         float Distance() => Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f }) / reach;
 
         var stable = 0;
-        for (var i = 0; i < 240 * 10 && stable < 90; i++)
+        for (var i = 0; i < 4028 && stable < 151; i++)
         {
             var error = Distance() - standoff;
             if (MathF.Abs(error) < 0.03f)
@@ -76,7 +76,7 @@ internal static class KickVideo
             game.Step(new BoxingInput(Command(toward * MathF.Sign(error) * Math.Clamp(MathF.Abs(error) * 4f, 0.25f, 1f), null, 0f, 0f)), Dt);
         }
 
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(new BoxingInput(Command(Vector3.Zero, null, 0f, 0f)), Dt);
         }
@@ -96,7 +96,7 @@ internal static class KickVideo
         var aimWorld = spec.AimWorld(game.PlayerSense);
         var rest = new Vector3(side.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
         var duration = BotCatalog.Taekwondo.KickDuration;
-        var steps = (int)((duration + 0.6f) / Dt);
+        var steps = (int)((duration + 1.007f) / Dt);
         var nextFrame = 0f;
         var simPerFrame = slow / fps;
         var lastHit = "";
@@ -148,10 +148,10 @@ internal static class KickVideo
         lines.AddRange(extra);
         var a = game.Player.ChestPosition;
         var v = game.Cpu.ChestPosition;
-        var middle = (a + v) * 0.5f + new Vector3(0f, -0.14f, 0f);
+        var middle = (a + v) * 0.5f + new Vector3(0f, -0.394f, 0f);
         var direction = Vector3.Normalize((v - a) with { Y = 0f });
         var side = Vector3.Cross(Vector3.UnitY, direction); // 二人の間の線に垂直（真横から）
-        var eye = oblique ? middle + (side * 0.6f) + (direction * 0.85f) + new Vector3(0f, 0.12f, 0f) : middle + (side * 1.05f) + new Vector3(0f, 0.1f, 0f);
+        var eye = oblique ? middle + (side * 1.690f) + (direction * 2.394f) + new Vector3(0f, 0.338f, 0f) : middle + (side * 2.958f) + new Vector3(0f, 0.282f, 0f);
         var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, middle, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
         UiShapeDraw[] shapes = dim > 0f ? [new UiShapeDraw(new Vector2(width * 0.5f, height * 0.5f), new Vector2(width, height), new Vector4(0f, 0f, 0f, dim))] : [];
         var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),

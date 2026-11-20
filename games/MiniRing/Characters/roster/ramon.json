@@ -101,21 +101,21 @@
     "style": {
       "BreakLikes": { "wipetears": 3.5, "crossself": 3, "hum": 2.5, "chestbeat": 2.5, "dance": 2, "roar": 2, "blowkiss": 2.5, "sandwich": 1.5, "bounce": 2, "headinhands": 2 },
       "GamePlan": {
-        "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 13.43, "Pressure": 1,
         "Own": [
-          { "Cm": 13, "Dealt": 23.023, "Taken": 4.006 },
-          { "Cm": 15, "Dealt": 18.275, "Taken": 7.12 },
-          { "Cm": 17, "Dealt": 15.867, "Taken": 9.428 },
-          { "Cm": 19, "Dealt": 10.332, "Taken": 6.568 },
-          { "Cm": 21, "Dealt": 8.012, "Taken": 7.84 },
-          { "Cm": 23, "Dealt": 5.637, "Taken": 6.314 },
-          { "Cm": 25, "Dealt": 2.746, "Taken": 5.694 },
-          { "Cm": 27, "Dealt": 1.588, "Taken": 3.732 },
-          { "Cm": 29, "Dealt": 0.401, "Taken": 3.551 },
-          { "Cm": 31, "Dealt": 0.177, "Taken": 0.918 },
-          { "Cm": 33, "Dealt": 0.182, "Taken": 0.948 },
-          { "Cm": 35, "Dealt": 0, "Taken": 0.538 },
-          { "Cm": 37, "Dealt": 0.313, "Taken": 0.535 }
+          { "Cm": 36.62, "Dealt": 13.718, "Taken": 2.387 },
+          { "Cm": 42.25, "Dealt": 10.889, "Taken": 4.242 },
+          { "Cm": 47.89, "Dealt": 9.454, "Taken": 5.617 },
+          { "Cm": 53.52, "Dealt": 6.156, "Taken": 3.913 },
+          { "Cm": 59.15, "Dealt": 4.774, "Taken": 4.671 },
+          { "Cm": 64.79, "Dealt": 3.359, "Taken": 3.762 },
+          { "Cm": 70.42, "Dealt": 1.636, "Taken": 3.393 },
+          { "Cm": 76.06, "Dealt": 0.946, "Taken": 2.224 },
+          { "Cm": 81.69, "Dealt": 0.239, "Taken": 2.116 },
+          { "Cm": 87.32, "Dealt": 0.105, "Taken": 0.547 },
+          { "Cm": 92.96, "Dealt": 0.108, "Taken": 0.565 },
+          { "Cm": 98.59, "Dealt": 0, "Taken": 0.321 },
+          { "Cm": 104.23, "Dealt": 0.186, "Taken": 0.319 }
         ]
       }
     },

@@ -59,7 +59,7 @@ public sealed class MatchHighlights
 
     /// <param name="tuning">測り方の値（省略で既定）。</param>
     /// <param name="matchSeconds">試合の長さの見込み [s]（見込みのモデルの「試合の進み」に使う）。</param>
-    public MatchHighlights(ExcitementTuning? tuning = null, float matchSeconds = 40f)
+    public MatchHighlights(ExcitementTuning? tuning = null, float matchSeconds = 67.14f)
     {
         _t = tuning ?? ExcitementTuning.Default;
         _matchSeconds = matchSeconds;

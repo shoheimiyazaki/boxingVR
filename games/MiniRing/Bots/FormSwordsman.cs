@@ -81,7 +81,7 @@ public static class FormSwordsman
         Weapon.IsRod(weapon) && Weapon.StrikeEndsX(weapon) is { Count: > 1 } ends ? (Weapon.GripOf(weapon).X - ends.Min()) / armReach : null;
 
     /// <summary>これより間合いが短い型は残さない [m]（打ち込まずその場で振る型は、剣士同士の間合いの技ではない。Arena の <c>SwordLibraryLab.MinReach</c> と同じ）。</summary>
-    public const float MinReach = 0.33f;
+    public const float MinReach = 0.930f;
 
     /// <summary>
     /// 型から作った技: 間合いは、その型の動きの中で物打ちが届く距離（<see cref="StrikeDrill.ReachOf"/>）。<see cref="MinReach"/> より短い型は除く。
@@ -91,7 +91,7 @@ public static class FormSwordsman
     /// <summary><see cref="Techniques(WeaponKind, float)"/> の、間合いの下限 <paramref name="minReach"/> [m] を選べる版（武器の教科書の <see cref="WeaponStyle.MinReach"/>）。</summary>
     public static IReadOnlyList<MotionTechnique> Techniques(WeaponKind weapon, float armReach, float minReach) =>
     [
-        .. Forms(weapon).Select(f => new MotionTechnique(f.Name, weapon, f, 0.5f, Skill: SwordFormSkills.For(weapon, f.Name)))
+        .. Forms(weapon).Select(f => new MotionTechnique(f.Name, weapon, f, 1.408f, Skill: SwordFormSkills.For(weapon, f.Name)))
             .Select(t => t with { Range = StrikeDrill.ReachOf(t, armReach) })
             .Where(t => t.Range >= minReach),
     ];

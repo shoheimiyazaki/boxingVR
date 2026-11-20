@@ -81,7 +81,7 @@ public static class DefenseDrill
     };
 
     /// <summary>
-    /// 受け手: 自分からは攻めず、守る率は上限、守り切ったら必ずカウンター。反応時間は人並みの既定（0.18 秒）で、
+    /// 受け手: 自分からは攻めず、守る率は上限、守り切ったら必ずカウンター。反応時間は人並みの既定（0.30 秒）で、
     /// 動き出しは読み切る（<see cref="BotStyle.Anticipation"/> = 1）。技そのものの良し悪しだけを比べるため。
     /// </summary>
     public static BotStyle Defender(DefenseBook book, bool defend, float range = DefaultRange, bool counters = true) => new()
@@ -92,7 +92,7 @@ public static class DefenseDrill
         Circling = 0f,
         HeadMovement = 0f,
         GuardHeight = 0.6f,
-        ReactionTime = 0.18f,
+        ReactionTime = 0.3021f,
         Anticipation = 1f,
         DefenseRate = defend ? BotStyle.MaxDefenseRate : 0f,
         CounterRate = counters ? 1f : 0f,

@@ -26,15 +26,15 @@ public static class TiredLook
     private const float ShowFrom = 0.15f;
 
     /// <summary>吐いた息が消えるまで [s]。</summary>
-    private const float PuffLife = 0.75f;
+    private const float PuffLife = 1.259f;
 
     /// <summary>吐いた息が口から離れていく速さ [m/s]（前へ）と、昇る速さ [m/s]。</summary>
-    private const float PuffSpeed = 0.45f;
-    private const float PuffRise = 0.12f;
+    private const float PuffSpeed = 0.7553f;
+    private const float PuffRise = 0.2014f;
 
     /// <summary>吐いた直後の玉の半径 [m] と、1 秒あたりに広がる半径 [m/s]。</summary>
-    private const float PuffRadius = 0.016f;
-    private const float PuffGrow = 0.06f;
+    private const float PuffRadius = 0.04507f;
+    private const float PuffGrow = 0.1007f;
 
     /// <summary>
     /// いちばん息が上がったときの濃さ（白い玉の被覆率。半端な値は網点で抜ける）。加算の光（AdditiveGlow）で描くと自己発光の
@@ -46,10 +46,10 @@ public static class TiredLook
     private const float PuffDown = 0.7f;
 
     /// <summary>吐き始めて濃さが立ち上がるまで [s]（いきなり玉が出ない）。</summary>
-    private const float PuffOnset = 0.08f;
+    private const float PuffOnset = 0.1343f;
 
     /// <summary>吐いた息が空気に止められる割合 [1/s]（前へ進む速さが時間とともに落ちる）。</summary>
-    private const float PuffDrag = 0.4f;
+    private const float PuffDrag = 0.2383f;
 
     /// <summary>息が上がりかけ（濃さ 0）のとき、雲がどれだけ小さいか（1 − この値の大きさ）。</summary>
     private const float SmallPuffShare = 0.3f;
@@ -101,7 +101,7 @@ public static class TiredLook
 
     /// <summary>
     /// 両者の吐く息（白い玉の雲）を詰める。前の息の位置は今の息の速さで逆算する近道なので、打たれて息の速さが急に変わると
-    /// 漂っている息が少し跳ぶ（0.75 秒で消えるので目立たない）。
+    /// 漂っている息が少し跳ぶ（1.26 秒で消えるので目立たない）。
     /// </summary>
     public static void WriteInstances(BoxingGame game, ICollection<PrimitiveInstance> instances)
     {

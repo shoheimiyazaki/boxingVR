@@ -18,9 +18,10 @@ namespace MiniRing;
 public readonly record struct DisplaySpace(float Scale)
 {
     /// <summary>
-    /// 物理の 1 m が表示で何 m か（試合のすべてのホストの値）。1 = 物理と表示が同じ大きさ。
+    /// 物理の 1 m が表示で何 m か（試合のすべてのホストの値）。物理は実物大の人（約 1.7 m）、表示はテーブルの上の約 60 cm の人形
+    /// （2026-11-20 までの人形の縮尺 0.355 と同じ大きさ。REAL_SCALE_PLAN 段 2）。
     /// </summary>
-    public const float WorldScale = 1f;
+    public const float WorldScale = 0.355f;
 
     /// <summary>試合のホスト（デスクトップ・VR・動画・テスト）の変換。</summary>
     public static DisplaySpace Standard { get; } = new(WorldScale);

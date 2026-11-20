@@ -389,7 +389,7 @@ public sealed partial class Fighter
     }
 
     /// <summary>見た目の合図（息の速さ・顔色）をならす時間 [s]。息や顔色は一瞬では変わらない。</summary>
-    private const float CueWindow = 1.5f;
+    private const float CueWindow = 2.518f;
 
     /// <summary>部位 <paramref name="region"/> の蓄えから <paramref name="joules"/> を使う（仕事の記録も足す）。</summary>
     private void Draw(int region, float joules)

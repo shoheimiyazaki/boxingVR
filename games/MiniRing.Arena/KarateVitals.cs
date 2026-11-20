@@ -13,12 +13,12 @@ internal sealed class KarateVitals
     private readonly int[] _initialMaterials;
     private int _near;
 
-    // 人形の頭は幅 5 cm。頭は 3 セル、腹は 6 セルの半径で局所損傷を分ける。
+    // 頭は幅 14 cm。頭は 3 セル、腹は 6 セルの半径で局所損傷を分ける。
     // 材料や打撃には使わない測定領域。初期の狙いを部位に固定し、動いても同じ場所を追う。
     internal KarateVitals(Fighter victim, AimGoal goal, Vector3 from)
     {
         _victim = victim;
-        Radius = goal is AimGoal.SolarPlexus or AimGoal.Liver ? 0.03f : 0.015f;
+        Radius = goal is AimGoal.SolarPlexus or AimGoal.Liver ? 0.0845f : 0.0423f;
         var point = victim.AsTarget.Point(goal, from)!.Value;
         var body = victim.Voxels!;
         _initialTotal = Total(body);

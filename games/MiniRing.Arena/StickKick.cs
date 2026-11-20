@@ -12,13 +12,13 @@ namespace MiniRing.Arena;
 internal sealed class StickKick
 {
     /// <summary>蹴る前に構えている時間 [s]。</summary>
-    private const float Before = 0.2f;
+    private const float Before = 0.336f;
 
     /// <summary>蹴り終えてから見続ける時間 [s]（足を下ろして立ち直れるか）。</summary>
-    private const float After = 0.6f;
+    private const float After = 1.007f;
 
     /// <summary>蹴り終えた足を、蹴る前に立っていた所へ（足の PD で）下ろす時間 [s]。その後に床へ貼る（一瞬で床へ引き下ろさない）。</summary>
-    private const float Landing = 0.2f;
+    private const float Landing = 0.336f;
 
     private readonly StickBody _body;
     private readonly LegBody[] _legs;
@@ -56,7 +56,7 @@ internal sealed class StickKick
     /// <param name="teaching">体重移しの教育の値。</param>
     /// <param name="dt">歩の間隔 [s]。</param>
     /// <param name="settings">IK の重み（null なら動きの既定）。</param>
-    /// <param name="approach">蹴り始めに体が前へ動いている速さ [m/s]（ゲームのボットは歩いて詰めながら蹴る: kickbalance で測ると 0.3〜0.4 m/s）。</param>
+    /// <param name="approach">蹴り始めに体が前へ動いている速さ [m/s]（ゲームのボットは歩いて詰めながら蹴る: kickbalance で測ると 0.3〜0.4 m/s（人形の単位）、人の大きさで 0.50〜0.67 m/s）。</param>
     public StickResult Run(KickTechnique kind, BotStyle style, Teaching teaching, float approach = 0f, float dt = 1f / 60f, StickIkSettings? settings = null)
     {
         var spec = KickSpec.Of(kind);

@@ -12,14 +12,14 @@ public static class BotCatalog
     public const string DefaultCpu = "champion";
 
     /// <summary>バランス型（ボクサーパンチャー）: ジャブで組み立てて 1-2-3、守りも一通り。</summary>
-    public static BotStyle Boxer { get; } = new() { Name = "boxer", Telegraph = 0.08f, Prediction = 0.5f, EdgeRange = 0.3f };
+    public static BotStyle Boxer { get; } = new() { Name = "boxer", Telegraph = 0.1343f, Prediction = 0.5f, EdgeRange = 0.3f };
 
     /// <summary>アウトボクサー: 遠い間合いからジャブ、打ったら離れる、回る、スウェーとバックステップで外す。</summary>
     public static BotStyle OutBoxer { get; } = new()
     {
         Name = "outboxer",
         Aim = new(Temple: 0.5f, GuardArm: 0.6f),
-        Telegraph = 0.06f, Prediction = 0.6f, EdgeRange = 0.7f,
+        Telegraph = 0.1007f, Prediction = 0.6f, EdgeRange = 0.7f,
         RangePress = 0.5f, RangeGuard = 0.6f, // 間合いの層（R3）: 外から打つので打って解消は弱め、入られたら構えを上げる
         Aggression = 0.45f,
         AttackRange = 1.02f,
@@ -50,7 +50,7 @@ public static class BotCatalog
     {
         Name = "counter",
         Aim = new(Chin: 2f, ExposedBrain: 2f),
-        Telegraph = 0.06f, Prediction = 0.9f, EdgeRange = 0.6f,
+        Telegraph = 0.1007f, Prediction = 0.9f, EdgeRange = 0.6f,
         RangePress = 0.5f, RangeGuard = 0.8f, // 間合いの層（R3）: 待って返すので打って解消は弱め、構えは厚く
         Aggression = 0.2f,
         NeutralRange = 1.25f,
@@ -97,7 +97,7 @@ public static class BotCatalog
     {
         Name = "jabber",
         Aim = new(Chin: 0.5f, GuardArm: 1.5f),
-        Telegraph = 0.04f, Prediction = 0.4f, EdgeRange = 0.5f,
+        Telegraph = 0.06714f, Prediction = 0.4f, EdgeRange = 0.5f,
         RangePress = 1f, RangeGuard = 0.4f, // 間合いの層（R3）: 手数で解消、構えは中くらい
         Aggression = 0.69988924f,
         AttackRange = 1.2508752f,
@@ -110,7 +110,7 @@ public static class BotCatalog
         Circling = 0.7468302f,
         HeadMovement = 0.24064939f,
         GuardHeight = 0.8652824f,
-        ReactionTime = 0.17016897f,
+        ReactionTime = 0.2856f,
         DefenseRate = 0.42078748f,
         BlockWeight = 0.42193776f, DuckWeight = 0.18083662f, SlipWeight = 0.6066941f, SwayWeight = 1.1851302f, StepBackWeight = 0.85980237f,
         CounterRate = 0.49122202f,
@@ -143,7 +143,7 @@ public static class BotCatalog
         Circling = 0.24455619f,
         HeadMovement = 0.47342592f,
         GuardHeight = 0.63381124f,
-        ReactionTime = 0.20958243f,
+        ReactionTime = 0.3518f,
         DefenseRate = 0.65155447f,
         BlockWeight = 0.9744193f, DuckWeight = 0.3500253f, SlipWeight = 0.6630055f, SwayWeight = 0.44248554f, StepBackWeight = 0.21706587f,
         CounterRate = 0.76079005f,

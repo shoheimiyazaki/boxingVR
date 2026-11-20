@@ -89,7 +89,7 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
     private static readonly Vector4 DeepBruise = new(0.28f, 0.02f, 0.05f, 1f);
 
     /// <summary>腫れの色から深い赤へ変わる時間の目安 [s]（見た目の合図。生理の時間ではない: 試合の中で色の変化が見えるよう短くした）。</summary>
-    private const float BruiseAgeSeconds = 8f;
+    private const float BruiseAgeSeconds = 13.43f;
 
     /// <summary>あざを描く最小の量（これより薄いと元の肌の色）。</summary>
     private const float BruiseVisible = 0.04f;
@@ -472,14 +472,14 @@ public sealed class BoxerBody
     /// <summary>全ての部位の格子: 各部位の前に、その部位に重ねた層（頭なら顔の層）。描画・あざ・再生・接触はこの順（固定）で回す。</summary>
     private readonly List<VoxelPart> _layers = [];
 
-    /// <summary>頭の剛体に重ねた顔の層（<see cref="FaceLayer"/>: 頭蓋骨の外の頭皮・顔・目・髪。2.5 mm の格子）。</summary>
+    /// <summary>頭の剛体に重ねた顔の層（<see cref="FaceLayer"/>: 頭蓋骨の外の頭皮・顔・目・髪。7 mm の格子）。</summary>
     private readonly VoxelPart? _face;
 
     /// <summary>頭の剛体に重ねた顔の層（<see cref="FaceLayer"/>）。頭蓋骨の外（頭皮・顔の肉・目・鼻・唇・耳・髪・ひげ）はこの格子だけにある。</summary>
     public VoxelPart? Face => _face;
 
     /// <summary>
-    /// 体に付いた全ての格子（部位と、その上に重ねた層）: 各部位の前に、その剛体に重ねた層（頭なら顔の層 → 頭の 5 mm の格子）。
+    /// 体に付いた全ての格子（部位と、その上に重ねた層）: 各部位の前に、その剛体に重ねた層（頭なら顔の層 → 頭の 14 mm の格子）。
     /// 層は部位と同じ剛体（<see cref="VoxelBody.BodyId"/> が同じ）で、種類（<see cref="VoxelPart.Kind"/>）も同じ。
     /// </summary>
     public IReadOnlyList<VoxelPart> Layers => _layers;
@@ -608,8 +608,8 @@ public sealed class BoxerBody
             float? massPerCell = null;
             if (kind == BodyPartKind.Head)
             {
-                // 頭: 5 mm の格子は頭蓋骨・脳・首の中だけ。その外は顔の層（2.5 mm）が持つ（FaceLayer）。頭の質量（体格の寸法から）を 2 つの格子の体積で分ける
-                // （ほかの部位と同じく、質量は体積に比例: 顔の層の 1 セルは 5 mm のセルの 1/8）。剛体の質量と当たりの箱は 2 つの格子の和になる（AddCompanion）。
+                // 頭: 14 mm の格子は頭蓋骨・脳・首の中だけ。その外は顔の層（7 mm）が持つ（FaceLayer）。頭の質量（体格の寸法から）を 2 つの格子の体積で分ける
+                // （ほかの部位と同じく、質量は体積に比例: 顔の層の 1 セルは 14 mm のセルの 1/8）。剛体の質量と当たりの箱は 2 つの格子の和になる（AddCompanion）。
                 var spec = face ?? (look is not null ? FaceSpec.FromLook(look, "face") : FaceSpec.For("standard"));
                 (grid, faceGrid, faceColors) = FaceLayer.Build(grid, spec);
                 massPerCell = world.GetMass(id) / MathF.Max(1f, grid.FilledCount + (faceGrid.FilledCount * FaceLayer.CellVolumeRatio));
@@ -1301,17 +1301,17 @@ public sealed class BoxerBody
         var skinDose = energy * SkinBruisePerJoule;
         foreach (var part in _layers)
         {
-            // あざの広がりは 5 mm のセルで決めた長さ（顔の層の細かいセルでも同じ広さ）。
+            // あざの広がりは 14 mm のセルで決めた長さ（顔の層の細かいセルでも同じ広さ）。
             var cell = part == _face ? FaceLayer.Subdivision * part.Body.Grid.CellSize.X : part.Body.Grid.CellSize.X;
             part.AddSkinBruise(point, skinDose, SkinBruiseRadiusCells * MathF.Max(1e-4f, cell));
         }
     }
 
     /// <summary>
-    /// 皮膚のあざの量 [/J]（見た目だけ。試合の計算には使わない）: 重い 1 発（3〜4 J）で打たれた点がはっきり色づき、
-    /// 同じ所へ 2〜3 発でどす黒くなる程度。臓器の打撲（<c>BruisePerJoule</c> 0.13）より濃く、外から読めるようにした。
+    /// 皮膚のあざの量 [/J]（見た目だけ。試合の計算には使わない）: 重い 1 発（85〜113 J）で打たれた点がはっきり色づき、
+    /// 同じ所へ 2〜3 発でどす黒くなる程度。臓器の打撲（<c>BruisePerJoule</c> 0.0046）より濃く、外から読めるようにした。
     /// </summary>
-    private const float SkinBruisePerJoule = 0.25f;
+    private const float SkinBruisePerJoule = 0.008875f;
 
     /// <summary>あざの広がり（1/e になる距離）[セル]。拳 1 つぶんより少し小さい斑点。</summary>
     private const float SkinBruiseRadiusCells = 2.5f;
@@ -1568,7 +1568,7 @@ public sealed class BoxerBody
         var carved = 0;
         if (part.Kind == BodyPartKind.Head && part.FragmentOf is null && _face is { } faceLayer)
         {
-            // 顔の層を先に削り、使い切らなかった分で頭蓋骨を削る。削る量は 5 mm のセル 1 個 = 1 の物差しなので、体積が 1/8 の顔のセルには 8 倍で渡す。
+            // 顔の層を先に削り、使い切らなかった分で頭蓋骨を削る。削る量は 14 mm のセル 1 個 = 1 の物差しなので、体積が 1/8 の顔のセルには 8 倍で渡す。
             var (faceCarved, faceSpent) = faceLayer.Body.ImpactSpending(point, direction, energy / FaceLayer.CellVolumeRatio, chipSpeed, jitter, chips, spread, chunks, cutFaces: cutFaces);
             carved += faceCarved;
             energy -= faceSpent * FaceLayer.CellVolumeRatio;

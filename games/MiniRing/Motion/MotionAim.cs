@@ -55,7 +55,7 @@ public static class MotionAim
     private static (Vector3 Point, int Frame, float EndX) Compute(MotionTechnique technique, float armReach)
     {
         var top = Weapon.GripOf(technique.Weapon);
-        var guardX = top.X + 0.012f;
+        var guardX = top.X + 0.0338f;
         var frames = technique.Motion.Frames;
         var dt = technique.Motion.FrameTime;
         var advance = new float[frames.Count];

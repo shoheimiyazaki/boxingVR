@@ -16,7 +16,7 @@ internal sealed class StickGround
     private const float Dt = 1f / 60f;
 
     /// <summary>1 回のとどめを見る長さ [s]（構え → 沈み → 振りかぶり → 打つ → 戻る）。</summary>
-    private const float Seconds = 1.8f;
+    private const float Seconds = 3.02f;
 
     private readonly StickBody _body;
     private readonly FighterTuning _tuning;
@@ -108,9 +108,9 @@ internal sealed class StickGround
 
         // 相手: 床に横たわり、体の軸は X に沿う。いちばん近い点（胸の辺り）が、立つ位置から Stand だけ前。
         var aimZ = origin.Z + (plan.Stand * reach);
-        var head = new Vector3(origin.X - (0.6f * reach), 0.03f, aimZ);
-        var chest = new Vector3(origin.X - (0.15f * reach), 0.035f, aimZ);
-        var pelvis = new Vector3(origin.X + (0.45f * reach), 0.035f, aimZ);
+        var head = new Vector3(origin.X - (0.6f * reach), 0.0845f, aimZ);
+        var chest = new Vector3(origin.X - (0.15f * reach), 0.0986f, aimZ);
+        var pelvis = new Vector3(origin.X + (0.45f * reach), 0.0986f, aimZ);
         var victim = new BodySense(chest + new Vector3(0f, 0f, -0.3f * reach), chest + new Vector3(0f, 0f, 0.3f * reach), pelvis);
         var weaponSense = _tool.Armed ? new WeaponSense(true, _length, _length) : default;
         var footwork = _tuning.Footwork;
@@ -161,7 +161,7 @@ internal sealed class StickGround
             var p0 = result.Frames[i - 1].Point(tipSegment, tip);
             var p1 = result.Frames[i].Point(tipSegment, tip);
             miss = MathF.Min(miss, Vector3.Distance(p1, Nearest(p1, head, pelvis)));
-            var surface = chest.Y + 0.01f;
+            var surface = chest.Y + 0.0282f;
             if (contact == 0f && p0.Y > surface && p1.Y <= surface && Vector2.Distance(new Vector2(p1.X, p1.Z), new Vector2(Nearest(p1, head, pelvis).X, aimZ)) < 0.6f * reach)
             {
                 contact = Vector3.Distance(p0, p1) / Dt;
