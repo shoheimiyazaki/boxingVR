@@ -1589,7 +1589,7 @@ public sealed partial class Fighter
 
         // HumanoidRagdoll は +Z 向き・T ポーズで生成される。足裏高さを測ってから全体を持ち上げ、ヨー回転する。
         var (parts, built, joints) = HumanoidRagdoll.BuildDetachable(world, feetPosition + new Vector3(0f, 1f, 0f), name, tuning.Masses, halfExtents, jointMotorScale: tuning.TorqueScale,
-            overlap: tuning.JointOverlap, footForwardOffset: tuning.FootForwardOffset);
+            overlap: tuning.JointOverlap, footForwardOffset: tuning.FootForwardOffset, elbowHz: tuning.ElbowHingeHz);
         RemoveNeckDamper(world, joints);
         var footBottom = world.GetState(parts.LeftFoot).Position.Y - built.Foot.Y;
         var lift = feetPosition.Y - footBottom + 0.00563f;

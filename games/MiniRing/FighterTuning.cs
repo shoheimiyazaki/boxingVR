@@ -445,6 +445,14 @@ public sealed record FighterTuning
     /// </summary>
     public float ElbowStopHz { get; init; } = 35.75f;
 
+    /// <summary>
+    /// 肘の関節（上腕と前腕をつなぐ位置の拘束）のバネの固さ [Hz]。物理エンジンの既定 8.94 Hz では、拳を打ち出す間に前腕が上腕から
+    /// 最大 32 mm（セル 2 つ強）離れ、肘に隙間が見えた（右ストレート、punchlab。20 Hz で 9.5 mm・30 Hz で 4.8 mm・45 Hz で 2.5 mm）。
+    /// 実際の肘は靭帯と関節包で隙間が開かないので、隙間がセルの半分（7 mm）を下回る固さにする。240 Hz の歩みで安定に解ける範囲
+    /// （つま先の止め <see cref="ToeStopHz"/> 35.75 Hz・肘の止め <see cref="ElbowStopHz"/> と同じ桁）。
+    /// </summary>
+    public float ElbowHingeHz { get; init; } = 45f;
+
     /// <summary>靭帯が切れるまでの伸び [rad]（過伸展がこれだけ増えたら切れる。約 20°。靭帯の破断のひずみは降伏のおよそ 2 倍）。</summary>
     public float LigamentRuptureStretch { get; init; } = 0.35f;
 
