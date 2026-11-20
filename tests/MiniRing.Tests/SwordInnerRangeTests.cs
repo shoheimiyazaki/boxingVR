@@ -86,4 +86,65 @@ public sealed class SwordInnerRangeTests
             Assert.IsGreaterThanOrEqualTo(style.MinReach, Bot(WeaponKind.Longsword, seed).PlanAt(0.15f).Range, $"seed {seed}");
         }
     }
+
+    /// <summary>剣先が欠けても（握った剣が短くなっても）、柄頭打ちと前蹴りの間合いは縮まない（2026-11-20、SwordExpansionTests から移した）。</summary>
+    [TestMethod]
+    [DataRow(WeaponKind.Katana, "tsuka-ate", "mae-geri")]
+    [DataRow(WeaponKind.Longsword, "knaufschlag", "tritt")]
+    public void LosingTheBladeTip_DoesNotShortenThePommelOrFoot(WeaponKind weapon, string pommel, string kick)
+    {
+        using var game = new BoxingGame();
+        var close = FormSwordsman.Techniques(weapon, game.Player.ArmReach, 0f).Where(t => t.Name == pommel || t.Name == kick).ToList();
+        Assert.HasCount(2, close, "both close techniques exist");
+        foreach (var technique in close)
+        {
+            var bot = new SwordsmanBot([technique], FormSwordsman.Guard(weapon), 1, SwordStance.Rate, exact: true);
+            var sense = game.PlayerSense with
+            {
+                OpponentChest = game.PlayerSense.Self.Origin + (game.PlayerSense.Self.Forward * technique.Range),
+                SelfWeapon = new WeaponSense(true, 0.2f, 0.3f),
+            };
+            bot.Read(sense, 1f / 60f);
+            Assert.IsNotNull(bot.Current, $"{technique.Name}: 剣先が 10 cm 欠けても脚・柄頭の間合いで出せる");
+        }
+    }
+
+    /// <summary>
+    /// 柄頭打ちは剣の握りより手前・腕の 1/3 未満の間合いで、前蹴りは蹴りの教科書の間合い（KickSpec）をそのまま使い、刃の技のどれより遠くから出す。
+    /// 蹴る間、剣は構えより下へ下がらない（蹴り足の通り道から上へ外す）。2026-11-20、SwordExpansionTests から移した。
+    /// </summary>
+    [TestMethod]
+    [DataRow(WeaponKind.Katana, "tsuka-ate", "mae-geri")]
+    [DataRow(WeaponKind.Longsword, "knaufschlag", "tritt")]
+    public void CloseTechniques_UseThePommelAndTheExistingFrontKick(WeaponKind weapon, string pommel, string kick)
+    {
+        using var game = new BoxingGame();
+        var reach = game.Player.ArmReach;
+        var techniques = FormSwordsman.Techniques(weapon, reach, 0f);
+        var hit = techniques.Single(t => t.Name == pommel);
+        Assert.IsLessThan(Weapon.GripOf(weapon).X, MotionAim.StrikingEndX(hit, reach));
+        Assert.IsLessThan(0.33f, hit.Range);
+        Assert.AreEqual(hit.Range / reach, MotionAim.Landing(hit, reach).Point.Z, 0.0001f);
+        var front = techniques.Single(t => t.Name == kick);
+        Assert.AreEqual(KickSpec.Of(KickTechnique.Front).Standoff * reach, front.Range, 0.0001f);
+        var time = front.Motion.Duration * KickSpec.ContactShare;
+        var command = MotionImitation.Command(front.Motion, time, game.PlayerSense, System.Numerics.Vector3.UnitZ, SwordStance.Rate, FighterTuning.Default.WalkSpeed, FighterTuning.Default.MaxTorsoTwistRadians);
+        Assert.IsNotNull(command.RightLeg);
+        Assert.IsGreaterThanOrEqualTo((front.Motion.Frames[0].Right * reach).Y - 0.0001f, command.Right.TargetLocal.Y, "蹴る間、剣は構えより下へ下がらない（蹴り足の通り道から上へ外す）");
+        Assert.IsLessThan(techniques.Where(t => t.Motion.Kick is null).Max(t => t.Range), front.Range);
+    }
+
+    /// <summary>刀・ロングソードの型は、aimlab の実測で手・肩・顔・胴・脚のどこかを打てる型を持ち、全部の型が同じ 7 部位で測ってある（2026-11-20、SwordExpansionTests から移した）。</summary>
+    [TestMethod]
+    public void TheMeasuredSkills_CoverTheHandsShouldersFaceBodyAndLegs()
+    {
+        using var game = new BoxingGame();
+        var techniques = new[] { WeaponKind.Katana, WeaponKind.Longsword }.SelectMany(w => FormSwordsman.Techniques(w, game.Player.ArmReach, 0f)).ToList();
+        foreach (var target in new[] { BodyPartKind.Forearm, BodyPartKind.UpperArm, BodyPartKind.Head, BodyPartKind.Chest, BodyPartKind.Thigh })
+        {
+            Assert.IsTrue(techniques.Any(t => t.Skill?.GetValueOrDefault(target) > 0f), $"{target}: aimlab の実測で打てる型を少なくとも一つ持つ");
+        }
+
+        Assert.IsTrue(techniques.All(t => t.Skill is { Count: 7 }), "全型を同じ 7 部位・5 構えで測る");
+    }
 }

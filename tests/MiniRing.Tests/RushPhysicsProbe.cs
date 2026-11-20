@@ -10,6 +10,7 @@ namespace MiniRing.Tests;
 /// 速度はどれも直前の歩の終わり（= この歩の始まり）の値（歩の後では接触で速度がそろってしまう）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class RushPhysicsProbe
 {
     private const float Dt = 1f / 60f;

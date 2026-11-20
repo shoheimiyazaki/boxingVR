@@ -15,6 +15,7 @@ namespace MiniRing.Tests;
 /// docs/video/vfc_fracture_healing.mp4 と、10 コマごとの PNG を書く。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 [TestCategory("visual")]
 public sealed class FractureHealingVisualProbe
 {

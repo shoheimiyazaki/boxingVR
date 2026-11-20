@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 /// 溜めの長さ × 予測の度合いごとに、頭に当たった割合・きれいに外した割合を出す（--logger "console;verbosity=detailed"）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class PredictionProbe
 {
     [TestMethod]

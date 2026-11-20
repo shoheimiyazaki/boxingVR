@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調査用: 拳の試合 5 組（champion 対 各スタイル、30 秒）の最後の StateChecksum を出す。通常の実行から外す（Probe）。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class PunchBookChecksumProbe
 {
     [TestMethod]

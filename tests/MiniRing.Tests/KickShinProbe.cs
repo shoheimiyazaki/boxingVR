@@ -1,0 +1,122 @@
+using System.Numerics;
+using MiniRing.Arena;
+using MiniRing.Bots;
+
+namespace MiniRing.Tests;
+
+/// <summary>
+/// 調査用（スイートの外）: 回し蹴り・前蹴りを受ける人へ 12 本ずつ蹴って、すねで狙いへ当たる本数・倒れる本数・当たる深さを数える。
+/// 前の足・後ろの足で股が狙いへ近づく/遠ざかること（左右の差の原因、docs/arena/kick_shin_lmh_cause.md）も測る。
+/// 2026-11-20 に <see cref="KickShinTests"/> から移した: 当たる部位・本数の下限は練習と物理の版ごとに取り直していた挙動の固定で、
+/// 物理の健全性・モデルの関係の主張ではない。蹴りの練習（karatelab・kicklab）の物差しとして使う。
+/// </summary>
+[TestClass]
+[TestCategory("Probe")]
+public sealed class KickShinProbe
+{
+    private static (int Landed, int OnTarget, int Fell, float MeanShin) Run(KickShin.Height h, bool rear)
+    {
+        var tune = KickSpec.Of(h.Technique).TuneFor(rear ? Hand.Right : Hand.Left)!;
+        var outcomes = KickShin.TuneConditions.Concat(KickShin.ConfirmConditions).Select(c => KickShin.Kick(h, rear, tune, c)).ToArray();
+        var landed = outcomes.Where(o => o.Landed).ToArray();
+        return (landed.Length, outcomes.Count(o => KickShin.InBand(h, o)), outcomes.Count(o => o.Fell), landed.Length == 0 ? 0f : landed.Average(o => o.Fraction));
+    }
+
+    [TestMethod]
+    public void TheRearFootRoundhouses_AtEachHeight_LandOnTheirTarget_WithTheLowerShin()
+    {
+        // 調整に使った 6 条件と使っていない 6 条件（受ける人・種が違う）。数は docs/arena/kick_shin_lmh_*.md の表で測った値から、少し余裕を引いて置く。
+        // 2026-11-18（床から支える体、PhysicsVersion 48）: 蹴る前に教科書どおり体重を軸足へ移し（KickMocap.Doll）、その体で練習し直した値で測り直した
+        // （docs/arena/kick_shin_lmh_gen48_shift.md、テストの 12 条件で ロー 7・ミドル 3・ハイ 2）。支えの外へ重心が出れば立つ力が抜けるので、
+        // 前の体（支えがどこからでも出た: ロー 11・ミドル 4・ハイ 4）より当たりにくい。回し蹴りは体重を移しても 6〜8 % 倒れる（docs/TAEKWONDO.md
+        // 「軸足に乗って蹴る」の kickbalance の測定）ので、12 本で 1 本までの転倒は物理のとおり（ミドルで 1 本）。
+        var (low, mid, high) = (Run(KickShin.Heights[0], true), Run(KickShin.Heights[1], true), Run(KickShin.Heights[2], true));
+        Console.WriteLine($"low {low}  mid {mid}  high {high}");
+        Assert.IsGreaterThanOrEqualTo(11, low.Landed);
+        Assert.IsGreaterThanOrEqualTo(6, low.OnTarget, "low: the shin (0.55-0.9) lands on the thigh/knee");
+        Assert.IsGreaterThanOrEqualTo(2, mid.OnTarget, "middle: the shin lands on the body");
+        Assert.IsGreaterThanOrEqualTo(1, high.OnTarget, "high: the shin lands on the head");
+        foreach (var r in new[] { low, mid, high })
+        {
+            Assert.IsLessThanOrEqualTo(1, r.Fell, "the kicker rarely falls (a roundhouse falls 6-8 % of the time even with the weight on the stance foot)");
+            Assert.IsInRange(0.5f, 0.95f, r.MeanShin, "on average the contact is on the lower shin");
+        }
+    }
+
+    [TestMethod]
+    public void TheFrontFootRoundhouses_Land_WithoutFalling_AndTheLowOneUsesTheShin()
+    {
+        var low = Run(KickShin.Heights[0], false);
+        var mid = Run(KickShin.Heights[1], false);
+        Console.WriteLine($"front-foot low {low}  mid {mid}");
+        // 2026-11-18（床から支える体）: 体重を後ろ足へ移して前の足で蹴る。測った値 ロー 当たり 9・狙い通り 3、ミドル 1（前の体では 10・4・2）。
+        Assert.IsGreaterThanOrEqualTo(8, low.Landed);
+        Assert.IsGreaterThanOrEqualTo(2, low.OnTarget);
+        Assert.IsGreaterThanOrEqualTo(1, mid.OnTarget);
+        // 2026-11-19（PhysicsVersion 53、足の滑りの直しとのマージ後に練習し直した）: 測った値 ロー 当たり 12・狙い通り 12・倒れ 0、ミドル 当たり 12・狙い通り 6・倒れ 1。
+        // 倒れは 0 → 1 本まで（24 本で 1 本 = 4 %。後ろの足の回し蹴りの上の許容 1 本 / 12 本と同じ見方で、回し蹴りは体重を移しても 6〜8 % 倒れる:
+        // docs/TAEKWONDO.md「軸足に乗って蹴る」）。練習した調整の 6 条件では倒れず（練習の点が倒れを −50）、使っていない条件（standard → edgar など）で 1 本倒れる。
+        // ミドルの前の足は 4 つの種（7・11・17・23）で練習し直したが、どれも使っていない条件で 1〜2 本倒れた。
+        // 2026-11-19（PhysicsVersion 59、顔・手の層と関節のつなぎ・滑りの直しのマージ）: 測った値 ロー 当たり 12・狙い通り 12・倒れ 0、ミドル 当たり 12・狙い通り 5・倒れ 2
+        // （直前の枝は 12・12・0 / 12・6・1、master は ロー 11・4・0 / ミドル 6・1・0。差分は練習し直していない: 当たり・狙い通りは直前の枝とほぼ同じ）。
+        // 倒れは 24 本で 2 本（8 %）まで許す: 回し蹴りの 4〜8 % の上端（頭の質量の分け方が変わって立ち方が数 mm ずれ、1 本が入れ替わった）。
+        Assert.IsLessThanOrEqualTo(2, low.Fell + mid.Fell, "the kicker stays standing (a roundhouse still falls in 4-8 % of the kicks)");
+    }
+
+    [TestMethod]
+    public void TheHumanFrontKick_LandsOnTheBody_WithBothLegs_AndTheKickerStaysStanding()
+    {
+        var front = KickShin.Heights[3];
+        Assert.IsNotNull(KickSpec.Of(KickTechnique.Front).Captured, "the front kick follows the captured model");
+        var rear = Run(front, true);
+        var lead = Run(front, false);
+        Console.WriteLine($"front kick rear {rear}  lead {lead}");
+        // 2026-11-18（床から支える体、体重を軸足へ移して蹴る）: 測った値 後ろ 当たり 12・胴 9、前 当たり 6・胴 4（前の体では 12・3、12・7）。
+        // 後ろの足は体重移しで練習し直して上がり、前の足は練習し直しても使っていない条件で良くならなかったので前の値のまま。
+        Assert.IsGreaterThanOrEqualTo(10, rear.Landed);
+        Assert.IsGreaterThanOrEqualTo(5, lead.Landed);
+        // 2026-11-19（PhysicsVersion 53）: 後ろの足の前蹴りは 6 → 4（測った値 当たり 12・胴 4・倒れ 1。前の足は 当たり 11・胴 10・倒れ 0）。足の滑りの直しで着いた足が留まる体では、
+        // 後ろの足の前蹴りは間合いを 1.9 まで空けないと胴に当たらず（上限なしの練習: 調整 5・使っていない 1 = 6 / 12。それより近いと腿に当たる）、
+        // 間合いを 1.7 までに抑えると（前蹴りが「間合いの内側の型」で、バットの型の候補から外れる条件: BatFormsTests、KickShin.FrontKickStandoffMax）
+        // 5 つの種（7・11・17・23・29）のどれでも 調整 + 使っていない = 4 / 12 までだった。転倒は 0 → 1 本まで（後ろの足 1・前の足 0）。
+        Assert.IsGreaterThanOrEqualTo(4, rear.OnTarget, "the rear foot front kick lands on the body");
+        Assert.IsGreaterThanOrEqualTo(3, lead.OnTarget, "the lead foot front kick lands on the body");
+        Assert.IsLessThanOrEqualTo(1, rear.Fell + lead.Fell, "the kicker stays standing (one fall in 24 kicks)");
+    }
+
+    [TestMethod]
+    public void TheFrontFootKick_MovesTheHipAwayFromTheTarget_AndTheRearFootKick_MovesItCloser()
+    {
+        // 左右の差の原因（docs/arena/kick_shin_lmh_cause.md）: 体は軸足を軸に回る。前の足（左）で蹴ると軸足は後ろの足で股が狙いから遠ざかり、
+        // 後ろの足（右）で蹴ると軸足が前の足で股が狙いへ近づく。蹴る脚の指令は左右で鏡になっているので、差は構えの違いだけから出る。
+        var spec = KickSpec.Of(KickTechnique.RoundhouseLow);
+        var baseline = KickShin.Baseline(KickShin.Heights[0]);
+        spec = spec with { Tunes = new KickTunes(baseline, baseline) };
+        var change = new Dictionary<Hand, float>();
+        foreach (var side in new[] { Hand.Left, Hand.Right })
+        {
+            var start = 0f;
+            var atContact = 0f;
+            KickMocap.Doll(BodyBuild.Standard, spec, side, baseline.Standoff, baseline.Seconds, 1, null, (game, leg, t) =>
+            {
+                var a = game.Player;
+                var aim = spec.AimWorld(game.PlayerSense);
+                var hip = a.HipPosition(side);
+                var d = Vector2.Distance(new Vector2(hip.X, hip.Z), new Vector2(aim.X, aim.Z));
+                if (t == 0f)
+                {
+                    start = d;
+                }
+
+                if (MathF.Abs(t - 0.36f) < 0.003f)
+                {
+                    atContact = d;
+                }
+            });
+            change[side] = atContact - start;
+        }
+
+        Assert.IsGreaterThan(0.03f, change[Hand.Left], "the front-foot kick pushes the hip away from the target");
+        Assert.IsLessThan(0f, change[Hand.Right], "the rear-foot kick brings the hip closer to the target");
+    }
+}

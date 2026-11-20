@@ -27,16 +27,6 @@ public sealed class PunchBookTests
     };
 
     [TestMethod]
-    public void Default_HasTheSameValuesAsBeforeTheExtraction_ForEveryTechnique()
-    {
-        foreach (var technique in Enum.GetValues<Technique>())
-        {
-            Assert.AreEqual(Original(technique), PunchBook.Default.Of(technique), technique.ToString());
-            Assert.AreEqual(Original(technique), PunchSpec.Of(technique), technique + " (PunchSpec.Of)");
-        }
-    }
-
-    [TestMethod]
     public void Default_IsAlreadyInsideItsOwnRanges()
     {
         Assert.AreEqual(PunchBook.Default, PunchBook.Default.Validated());

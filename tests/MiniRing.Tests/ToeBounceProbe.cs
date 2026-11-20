@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調査用: 蹴りの間と後に、つま先がかかと側に対して蝶番の軸まわりにどれだけ揺れるか。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class ToeBounceProbe
 {
     [TestMethod]

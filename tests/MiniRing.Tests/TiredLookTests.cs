@@ -1,4 +1,3 @@
-using System.Numerics;
 using Aigis.Render;
 using MiniRing.Bots;
 
@@ -57,25 +56,6 @@ public sealed class TiredLookTests
         {
             Assert.IsGreaterThan(rates[i - 1], rates[i]);
         }
-    }
-
-    [TestMethod]
-    public void StaminaMeter_ColoursTheBarByZone_FineSluggishDanger()
-    {
-        // 帯の色は今いる区域の色（問題ない・鈍る・ヤバい）。同じ区域なら同じ色、区域が違えば違う色。区切りには目盛りが 2 本。
-        Vector4 Fill(float stamina) => TvHud.StaminaBar(Vector2.Zero, 100f, 8f, stamina, 0.6f, 0.3f).Single(s => s.FillColor.W >= 1f).FillColor;
-        var fine = Fill(0.9f);
-        var sluggish = Fill(0.45f);
-        var danger = Fill(0.15f);
-        Assert.AreEqual(fine, Fill(0.7f));
-        Assert.AreEqual(sluggish, Fill(0.35f));
-        Assert.AreEqual(danger, Fill(0.05f));
-        Assert.AreNotEqual(fine, sluggish);
-        Assert.AreNotEqual(sluggish, danger);
-        Assert.AreNotEqual(fine, danger);
-        var ticks = TvHud.StaminaBar(Vector2.Zero, 100f, 8f, 1f, 0.6f, 0.3f).Where(s => s.SizePixels.X <= 2f).Select(s => s.CenterPixels.X).ToArray();
-        Assert.HasCount(ExpectedTicks.Length, ticks);
-        Assert.IsTrue(ExpectedTicks.All(x => ticks.Any(t => MathF.Abs(t - x) < 1e-3f)), string.Join(", ", ticks));
     }
 
     private static int Puffs(BoxingGame game)

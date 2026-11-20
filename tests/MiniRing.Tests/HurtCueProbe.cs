@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// その速さ）・頭の高さ。ボット同士の試合で 0.1 秒ごとに両者を測り、本当の Faintness の帯ごとに平均を出す（立ち回りの層の読みの物差し）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class HurtCueProbe
 {
     [TestMethod]

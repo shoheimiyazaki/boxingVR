@@ -4,9 +4,9 @@ using MiniRing.Desktop;
 namespace MiniRing.Tests;
 
 /// <summary>
-/// E0（キャラクターを 1 人 1 ファイルに）の「教育が空なら今と同じ試合」の物差し。名簿のキャラ同士の試合を
-/// ゲームと同じ道（<see cref="MatchSelection.Corners"/>）で作り、固定の入力で回して、状態のチェックサムを返す。
-/// 期待値は、名簿を 1 人 1 ファイルにする前（characters.json の時代）に <see cref="CharacterSamenessProbe"/> で取ったもの。
+/// 名簿のキャラ同士の試合をゲームと同じ道（<see cref="MatchSelection.Corners"/>）で作り、固定の入力で回して、状態のチェックサムを返す。
+/// <see cref="CharacterSamenessTests"/>（同じビルドの中の相対比較）と、調べもの（<see cref="CharacterSamenessProbe"/>・LegLossProbe）が使う。
+/// 2026-11-20 まではここの組の最終チェックサムを金型として持っていたが、版ごとの取り直しをやめた（金型は無い）。
 /// </summary>
 internal static class CharacterSamenessCases
 {
@@ -67,8 +67,14 @@ internal static class CharacterSamenessCases
             corners = corners with { PlayerWeaponStyle = LegacyWeaponStyle(corners.PlayerWeapon), CpuWeaponStyle = LegacyWeaponStyle(corners.CpuWeapon) };
         }
 
+        return Play(corners, c.Seconds);
+    }
+
+    /// <summary>この両コーナーの試合を、入力なしで <paramref name="seconds"/> 秒（1/60 秒のホスト歩）回し、途中（半分）と最後のチェックサムを返す。</summary>
+    internal static (ulong Half, ulong End) Play(BoxingCorners corners, float seconds)
+    {
         using var game = new BoxingGame(corners: corners);
-        var steps = (int)(c.Seconds * 60f);
+        var steps = (int)(seconds * 60f);
         var half = 0UL;
         for (var i = 1; i <= steps; i++)
         {

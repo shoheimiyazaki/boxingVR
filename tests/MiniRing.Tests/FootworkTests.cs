@@ -180,6 +180,7 @@ internal static class FootworkTestExtensions
 /// （--logger "console;verbosity=detailed"）。footwork が偽なら以前の動き（体を引いて脚は正弦の歩行）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class FootworkProbe
 {
     [TestMethod]

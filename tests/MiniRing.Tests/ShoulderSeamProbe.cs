@@ -11,6 +11,7 @@ namespace MiniRing.Tests;
 /// ずれと速さの表にする。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class ShoulderSeamProbe
 {
     public TestContext TestContext { get; set; } = null!;

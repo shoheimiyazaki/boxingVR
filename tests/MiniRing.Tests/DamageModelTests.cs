@@ -36,22 +36,6 @@ public sealed class DamageModelTests
     }
 
     [TestMethod]
-    public void BrainLoss_Probe()
-    {
-        foreach (var (name, where) in new (string, Func<Fighter, Vector3>)[] { ("chin", Chin), ("centre", Centre) })
-        {
-            var (game, cpu) = NewGame();
-            using (game)
-            {
-                int Brain() => cpu.Voxels!.Parts.Sum(p => p.Body.Grid.Remaining(MiniRing.Voxels.BoxerAnatomy.Brain));
-                var initial = cpu.Voxels!.Parts.Sum(p => p.Body.Grid.Initial(MiniRing.Voxels.BoxerAnatomy.Brain));
-                Hit(game, cpu, where(cpu), mass: 4.5f, speed: 2.2f);
-                Console.WriteLine($"{name}: brain {initial} → {Brain()} (lost {1f - ((float)Brain() / initial):P1}), function {cpu.Voxels.BrainFunction(FighterTuning.Default.BrainHalvingLoss):0.00}, concussion {cpu.Concussion:0.00}, consciousness {cpu.Consciousness:0.00}");
-            }
-        }
-    }
-
-    [TestMethod]
     public void CarvingGrowsWithTheSquareOfTheSpeed()
     {
         // 削る量が数ボクセルだと、当たった所が骨か肉かで比が大きく揺れるので、数十ボクセル削れる速さで比べる。
@@ -173,13 +157,13 @@ public sealed class DamageModelTests
     }
 
     /// <summary>あご: 頭の前・下の面（回転の中心から下へ外れている）。</summary>
-    private static Vector3 Chin(Fighter f) => f.HeadPosition + (f.Frame.Forward * f.HalfExtents.Head.Z) - new Vector3(0f, 0.8f * f.HalfExtents.Head.Y, 0f);
+    internal static Vector3 Chin(Fighter f) => f.HeadPosition + (f.Frame.Forward * f.HalfExtents.Head.Z) - new Vector3(0f, 0.8f * f.HalfExtents.Head.Y, 0f);
 
     /// <summary>頭の正面の真ん中（拳の向きが回転の中心を通る）。</summary>
-    private static Vector3 Centre(Fighter f) => f.HeadPosition + (f.Frame.Forward * f.HalfExtents.Head.Z);
+    internal static Vector3 Centre(Fighter f) => f.HeadPosition + (f.Frame.Forward * f.HalfExtents.Head.Z);
 
     /// <summary>正面から水平に、拳に <paramref name="mass"/> kg が乗った速さ <paramref name="speed"/> の 1 発を当てる。</summary>
-    private static void Hit(BoxingGame game, Fighter victim, Vector3 point, float mass, float speed, int? part = null, HitZone zone = HitZone.Chin)
+    internal static void Hit(BoxingGame game, Fighter victim, Vector3 point, float mass, float speed, int? part = null, HitZone zone = HitZone.Chin)
     {
         var velocity = -victim.Frame.Forward * speed;
         var damage = PunchMechanics.Damage(mass * speed) * PunchMechanics.Sharpness(speed);
@@ -187,7 +171,7 @@ public sealed class DamageModelTests
     }
 
     /// <summary>打たず守らない 2 人のボットで、立って落ち着いた試合。</summary>
-    private static (BoxingGame Game, Fighter Cpu) NewGame()
+    internal static (BoxingGame Game, Fighter Cpu) NewGame()
     {
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         var corners = new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s));

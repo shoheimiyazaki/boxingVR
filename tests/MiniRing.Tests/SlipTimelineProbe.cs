@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 合図は打ち始めと同時。標準出力に出す（--logger "console;verbosity=detailed"）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class SlipTimelineProbe
 {
     [TestMethod]

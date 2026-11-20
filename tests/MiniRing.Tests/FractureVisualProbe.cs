@@ -14,6 +14,7 @@ namespace MiniRing.Tests;
 
 /// <summary>診断用。手動の骨折・肉の削除を明示し、同じ実物理でぶら下がりから落下まで撮る。</summary>
 [TestClass]
+[TestCategory("Probe")]
 [TestCategory("visual")]
 public sealed class FractureVisualProbe
 {

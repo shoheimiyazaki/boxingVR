@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調査用（通常の実行から外す）: 回し蹴りの膝の経路を、間合いごとに動かして軌跡と当たりを出す。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class KneeKickProbe
 {
     private const float Dt = 1f / 240f;

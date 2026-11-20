@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>倒れた体が起き上がるまで: 当てる運動量を変えて、ダウン・起き上がり・意識（DamageModelTests の写し。通常の実行から外す）。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class GetUpScanProbe
 {
     private const float Dt = 1f / 240f;

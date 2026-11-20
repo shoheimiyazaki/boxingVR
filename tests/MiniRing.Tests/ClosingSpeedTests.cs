@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 逆に前へ出てくる相手へのカウンターには、相手が近づく速さが足されなかった（RushPhysicsProbe）。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class ClosingSpeedTests
 {
     public TestContext TestContext { get; set; } = null!;

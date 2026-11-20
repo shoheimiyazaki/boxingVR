@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>弱った相手を詰める層の調べもの: 相手が本当に弱った間、詰める側のボットが何を目指し、何をしていたか。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class FinishProbe
 {
     private static readonly (bool Fatigue, string Opponent)[] Cases = [(true, "dmitri"), (true, "marcus"), (true, "joao"), (false, "dmitri"), (false, "marcus"), (false, "joao")];

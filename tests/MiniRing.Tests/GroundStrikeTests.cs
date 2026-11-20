@@ -105,7 +105,7 @@ public sealed class GroundStrikeTests
 
     internal static bool Trace { get; set; }
 
-    private static string Line(string label, DrillResult r)
+    internal static string Line(string label, DrillResult r)
         => string.Create(CultureInfo.InvariantCulture, $"{label}: hits={r.Hits} firstHit={r.FirstHitAt:0.00}s started={r.Started} moves={r.Names} damage={r.Damage:0.0} wounded={r.Wounded:0.0}");
 
     /// <summary>赤を気絶させ続けて倒しておき、青は何もしない。レフェリーの有無で、数えと決着がどう変わるかを見る。</summary>
@@ -303,38 +303,5 @@ public sealed class GroundStrikeTests
         Assert.AreEqual(held.Direction, masked.Direction, "movement and evasion are untouched");
         Assert.IsTrue(masked.Evade);
         Assert.AreEqual(held, GroundTrigger.ForIntent(held, ground: false));
-    }
-
-    [TestMethod]
-    public void Probe_Weapons()
-    {
-        Trace = Environment.GetEnvironmentVariable("GROUND_TRACE") == "1";
-        foreach (var weapon in new[] { WeaponKind.Katana, WeaponKind.Longsword, WeaponKind.WoodenClub })
-        {
-            Console.WriteLine(Line(weapon.ToString(), Drill(BotCatalog.Champion, referee: false, weapon, useWeaponBots: true)));
-        }
-    }
-
-    [TestMethod]
-    public void Probe_WeaponsSeeds()
-    {
-        foreach (var weapon in new[] { WeaponKind.Katana, WeaponKind.Longsword, WeaponKind.WoodenClub })
-        {
-            for (var seed = 1; seed <= 6; seed++)
-            {
-                Console.WriteLine(Line($"{weapon} seed {seed} adopted", Drill(BotCatalog.Champion, referee: false, weapon, useWeaponBots: true, seed: seed)));
-                Console.WriteLine(Line($"{weapon} seed {seed} legacy ", Drill(BotCatalog.Champion, referee: false, weapon, useWeaponBots: true, seed: seed, legacyWeapon: true)));
-            }
-        }
-    }
-
-    [TestMethod]
-    public void Probe_Styles()
-    {
-        Trace = Environment.GetEnvironmentVariable("GROUND_TRACE") == "1";
-        foreach (var style in new[] { BotCatalog.Boxer, BotCatalog.Champion, BotCatalog.Swarmer, BotCatalog.Karate })
-        {
-            Console.WriteLine(Line(style.Name, Drill(style, referee: false)));
-        }
     }
 }

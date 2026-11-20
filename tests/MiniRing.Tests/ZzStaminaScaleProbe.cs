@@ -4,6 +4,7 @@ using Aigis.Physics;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("Probe")]
 public sealed class ZzStaminaScaleProbe
 {
     [TestMethod]

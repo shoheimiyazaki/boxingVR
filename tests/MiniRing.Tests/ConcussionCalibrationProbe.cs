@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 意識を全部飛ばす頭の回転の速さを変えて、1 試合あたりのダウン・意識の最小・ダメージを数える。値は環境変数 CONCUSSION_SPINS [rad/s]（例 "20,30,40"）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class ConcussionCalibrationProbe
 {
     private const float Dt = 1f / 60f;

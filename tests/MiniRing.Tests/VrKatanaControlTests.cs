@@ -11,6 +11,7 @@ namespace MiniRing.Tests;
 /// （VR の空間 → ワールドの変換、頭の目標へ歩く指令、自分の頭を描かない）。実機なし。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class VrKatanaControlTests
 {
     private const float Reach = 0.188f;

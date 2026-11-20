@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調べもの: 握った剣が胸を斬る振り（<c>SwordTests.AHeldSword_CutsThePartItIsAimedAt</c>）を、接触の掃き直し 1・2・3 回で出して、斬ったセルを比べる。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class HeldSwordPassesProbe
 {
     public TestContext TestContext { get; set; } = null!;

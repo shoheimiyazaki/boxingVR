@@ -1,15 +1,14 @@
 using System.Numerics;
-using MiniRing.Arena;
 using MiniRing.Bots;
 
 namespace MiniRing.Tests;
 
 /// <summary>
 /// 回し蹴りをロー・ミドル・ハイに分けた練習（docs/arena/kick_shin_lmh_*.md）: 手本の混ぜ合わせ、練習の差分（KickTune）、
-/// 前の足・後ろの足で当たる深さが違うこと（左右の差の原因）、3 つの高さが狙った所へすねで当たること、前蹴りの人の手本。
+/// 前蹴りの人の手本の読み込み（単体）。
+/// 試合を回して、すねで狙いへ当たる本数・倒れる本数を数える測定は <see cref="KickShinProbe"/>（2026-11-20、スイートの外へ移した: 当たる部位の指定は見た目・挙動の固定で、蹴りの練習の度に取り直していた）。
 /// </summary>
 [TestClass]
-[TestCategory("slow")]
 public sealed class KickShinTests
 {
     private static CapturedKick Synthetic(float azimuthA, float azimuthB, float elevation = 0f)
@@ -79,105 +78,5 @@ public sealed class KickShinTests
         Assert.AreEqual(1f, probe.For(Hand.Right).Standoff);
         Assert.AreEqual(2f, probe.For(Hand.Right, Hand.Right).Standoff, "with the right hand leading, the right leg is the front foot");
         Assert.AreEqual(1f, probe.For(Hand.Left, Hand.Right).Standoff);
-    }
-
-    private static (int Landed, int OnTarget, int Fell, float MeanShin) Run(KickShin.Height h, bool rear)
-    {
-        var tune = KickSpec.Of(h.Technique).TuneFor(rear ? Hand.Right : Hand.Left)!;
-        var outcomes = KickShin.TuneConditions.Concat(KickShin.ConfirmConditions).Select(c => KickShin.Kick(h, rear, tune, c)).ToArray();
-        var landed = outcomes.Where(o => o.Landed).ToArray();
-        return (landed.Length, outcomes.Count(o => KickShin.InBand(h, o)), outcomes.Count(o => o.Fell), landed.Length == 0 ? 0f : landed.Average(o => o.Fraction));
-    }
-
-    [TestMethod]
-    public void TheRearFootRoundhouses_AtEachHeight_LandOnTheirTarget_WithTheLowerShin()
-    {
-        // 調整に使った 6 条件と使っていない 6 条件（受ける人・種が違う）。数は docs/arena/kick_shin_lmh_*.md の表で測った値から、少し余裕を引いて置く。
-        // 2026-11-18（床から支える体、PhysicsVersion 48）: 蹴る前に教科書どおり体重を軸足へ移し（KickMocap.Doll）、その体で練習し直した値で測り直した
-        // （docs/arena/kick_shin_lmh_gen48_shift.md、テストの 12 条件で ロー 7・ミドル 3・ハイ 2）。支えの外へ重心が出れば立つ力が抜けるので、
-        // 前の体（支えがどこからでも出た: ロー 11・ミドル 4・ハイ 4）より当たりにくい。回し蹴りは体重を移しても 6〜8 % 倒れる（docs/TAEKWONDO.md
-        // 「軸足に乗って蹴る」の kickbalance の測定）ので、12 本で 1 本までの転倒は物理のとおり（ミドルで 1 本）。
-        var (low, mid, high) = (Run(KickShin.Heights[0], true), Run(KickShin.Heights[1], true), Run(KickShin.Heights[2], true));
-        Console.WriteLine($"low {low}  mid {mid}  high {high}");
-        // 蹴りは未成熟なので、本数・当たり先・転倒は警告にとどめる（Soft）。
-        Soft.Check(low.Landed >= 11, $"low roundhouse lands {low.Landed} (expected 11 or more)");
-        Soft.Check(low.OnTarget >= 6, $"low: the shin (0.55-0.9) lands on the thigh/knee {low.OnTarget} times (expected 6 or more)");
-        Soft.Check(mid.OnTarget >= 2, $"middle: the shin lands on the body {mid.OnTarget} times (expected 2 or more)");
-        Soft.Check(high.OnTarget >= 1, $"high: the shin lands on the head {high.OnTarget} times (expected 1 or more)");
-        foreach (var r in new[] { low, mid, high })
-        {
-            Soft.Check(r.Fell <= 1, $"the kicker rarely falls (a roundhouse falls 6-8 % of the time even with the weight on the stance foot): fell {r.Fell}");
-            Soft.Check(r.MeanShin is >= 0.5f and <= 0.95f, $"on average the contact is on the lower shin: {r.MeanShin:F2}");
-        }
-    }
-
-    [TestMethod]
-    public void TheFrontFootRoundhouses_Land_WithoutFalling_AndTheLowOneUsesTheShin()
-    {
-        var low = Run(KickShin.Heights[0], false);
-        var mid = Run(KickShin.Heights[1], false);
-        Console.WriteLine($"front-foot low {low}  mid {mid}");
-        // 2026-11-18（床から支える体）: 体重を後ろ足へ移して前の足で蹴る。測った値 ロー 当たり 9・狙い通り 3、ミドル 1（前の体では 10・4・2）。
-        // 蹴りは未成熟なので、本数・当たり先・転倒は警告にとどめる（Soft）。
-        // 2026-11-19（PhysicsVersion 53、足の滑りの直しとのマージ後に練習し直した）: 測った値 ロー 当たり 12・狙い通り 12・倒れ 0、ミドル 当たり 12・狙い通り 6・倒れ 1。
-        // 倒れは 24 本で 2 本（8 %）まで許す: 回し蹴りの 4〜8 % の上端（PhysicsVersion 59 の測り直し。docs/TAEKWONDO.md「軸足に乗って蹴る」）。
-        Soft.Check(low.Landed >= 8, $"front-foot low roundhouse lands {low.Landed} (expected 8 or more)");
-        Soft.Check(low.OnTarget >= 2, $"front-foot low on target {low.OnTarget} (expected 2 or more)");
-        Soft.Check(mid.OnTarget >= 1, $"front-foot middle on target {mid.OnTarget} (expected 1 or more)");
-        Soft.Check(low.Fell + mid.Fell <= 2, $"the kicker stays standing (fell {low.Fell + mid.Fell}; a roundhouse still falls in 4-8 % of the kicks)");
-    }
-
-    [TestMethod]
-    public void TheHumanFrontKick_LandsOnTheBody_WithBothLegs_AndTheKickerStaysStanding()
-    {
-        var front = KickShin.Heights[3];
-        Assert.IsNotNull(KickSpec.Of(KickTechnique.Front).Captured, "the front kick follows the captured model");
-        var rear = Run(front, true);
-        var lead = Run(front, false);
-        Console.WriteLine($"front kick rear {rear}  lead {lead}");
-        // 2026-11-18（床から支える体、体重を軸足へ移して蹴る）: 測った値 後ろ 当たり 12・胴 9、前 当たり 6・胴 4（前の体では 12・3、12・7）。
-        // 後ろの足は体重移しで練習し直して上がり、前の足は練習し直しても使っていない条件で良くならなかったので前の値のまま。
-        // 2026-11-19（PhysicsVersion 53）: 後ろの足の前蹴りは胴へ 4（間合いを 1.7 までに抑えると 4 / 12 まで。前の足は 当たり 11・胴 10）。転倒は 24 本で 1 本まで。
-        Soft.Check(rear.Landed >= 10, $"rear front kick lands {rear.Landed} (expected 10 or more)");
-        Soft.Check(lead.Landed >= 5, $"lead front kick lands {lead.Landed} (expected 5 or more)");
-        Soft.Check(rear.OnTarget >= 4, $"the rear foot front kick lands on the body {rear.OnTarget} times (expected 4 or more)");
-        Soft.Check(lead.OnTarget >= 3, $"the lead foot front kick lands on the body {lead.OnTarget} times (expected 3 or more)");
-        Soft.Check(rear.Fell + lead.Fell <= 1, $"the kicker stays standing (fell {rear.Fell + lead.Fell}; one fall in 24 kicks)");
-    }
-
-    [TestMethod]
-    public void TheFrontFootKick_MovesTheHipAwayFromTheTarget_AndTheRearFootKick_MovesItCloser()
-    {
-        // 左右の差の原因（docs/arena/kick_shin_lmh_cause.md）: 体は軸足を軸に回る。前の足（左）で蹴ると軸足は後ろの足で股が狙いから遠ざかり、
-        // 後ろの足（右）で蹴ると軸足が前の足で股が狙いへ近づく。蹴る脚の指令は左右で鏡になっているので、差は構えの違いだけから出る。
-        var spec = KickSpec.Of(KickTechnique.RoundhouseLow);
-        var baseline = KickShin.Baseline(KickShin.Heights[0]);
-        spec = spec with { Tunes = new KickTunes(baseline, baseline) };
-        var change = new Dictionary<Hand, float>();
-        foreach (var side in new[] { Hand.Left, Hand.Right })
-        {
-            var start = 0f;
-            var atContact = 0f;
-            KickMocap.Doll(BodyBuild.Standard, spec, side, baseline.Standoff, baseline.Seconds, 1, null, (game, leg, t) =>
-            {
-                var a = game.Player;
-                var aim = spec.AimWorld(game.PlayerSense);
-                var hip = a.HipPosition(side);
-                var d = Vector2.Distance(new Vector2(hip.X, hip.Z), new Vector2(aim.X, aim.Z));
-                if (t == 0f)
-                {
-                    start = d;
-                }
-
-                if (MathF.Abs(t - 0.36f) < 0.003f)
-                {
-                    atContact = d;
-                }
-            });
-            change[side] = atContact - start;
-        }
-
-        Soft.Check(change[Hand.Left] > 0.03f, $"the front-foot kick pushes the hip away from the target ({change[Hand.Left]:F3} m, expected more than 0.03)");
-        Soft.Check(change[Hand.Right] < 0f, $"the rear-foot kick brings the hip closer to the target ({change[Hand.Right]:F3} m, expected below 0)");
     }
 }

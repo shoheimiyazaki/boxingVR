@@ -145,8 +145,8 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
    - どちらも履歴は [docs/VERSIONS.md](docs/VERSIONS.md) の先頭に 1 行足す（コードの注釈は今の版の 1 行だけ）。並行の枝で番号がぶつかったら、マージで次の番号にして両方の枝の名前を書く。
    - 古い記録が再生できなくなるのは正しい（黙ってずれるより良い）。
 4. **シェーダー（`ShaderSource` の GLSL）を変えたら `PrecompiledShaders` の SPIR-V を作り直す**（shaderc で再コンパイルし、配列を置き換える。変更前に「今のソースを再コンパイルすると今の配列と一致する」ことを確かめてから）。
-5. **テスト**: 新しい振る舞いには、それが物理として起きていることを数値で確かめるテストを書く（例: 「踏み込みながら打つと拳が速く、体はそのぶん遅くなる」）。バグ修正には再発防止のテストを 1 つ。期待値が物理として間違っていたらテストを直す（説明を添える）。
-6. **テストは 2 段**: 変更中は速い段（`run.cmd test`、数分）、完了の前に全部（`run.cmd test all`、直列で約 1 時間。この PC は RAM が少ないので tower32 で 12 並びに回す: `bash tools/remote-test.sh`、約 5 分。raytrek は別の作業に使うので `--host raytrek` は頼まれたときだけ）。試合・長い物理を回すテストのクラスには `[TestCategory("slow")]` を付ける（目安: クラスで 3 秒以上）。README のテスト件数を合わせる。
+5. **テスト**: 新しい振る舞いには、それが物理として起きていることを数値で確かめるテストを書く（例: 「踏み込みながら打つと拳が速く、体はそのぶん遅くなる」）。バグ修正には再発防止のテストを 1 つ。期待値が物理として間違っていたらテストを直す（説明を添える）。テストが守るのは試合の面白さ・物理が壊れないこと・モデル間の関係（ボクセル ↔ 力学 ↔ 生理）で、見た目（形の寸法・当たる部位・色）は固定しない（目で見る: 7）。**金型を持たない**: 版ごとに取り直す固定のチェックサムや測った値の写しは書かず、同じビルドの中の比較（「教育が空 ≡ 教科書」など）か物理の不変量（順序・保存・単調）で書く。決定性は `ReplayTests`・`FixedSimulationTests` が見る。
+6. **テストは 2 段**: 変更中は速い段（`run.cmd test`、数分）、完了の前に全部（`run.cmd test all`、直列で約 1 時間。この PC は RAM が少ないので tower32 で 12 並びに回す: `bash tools/remote-test.sh`、約 5 分。raytrek は別の作業に使うので `--host raytrek` は頼まれたときだけ）。試合・長い物理を回すテストのクラスには `[TestCategory("slow")]` を付ける（目安: クラスで 3 秒以上）。調査用のクラスは名前に Probe を含め `[TestCategory("Probe")]` を付ける（目印で外す。通常のクラスに Probe のメソッドを置かない。`TestSuiteRulesTests` が見る）。README のテスト件数を合わせる。
 7. **目で見る**: 見た目・動きに関わる変更は、visual テスト（`.visualcheck/*.png`）か動画を作って**自分で中身を見てから**完了と言う。PNG があること・動画ができたことは正しさの証明ではない。動画は `py -3 tools/sheet.py <動画.mp4> [out.png] [--count 12] [--times 3.2,4.0]` で時刻入りのコマを格子に並べた 1 枚にして読む。
 8. **文書**: 仕組みを変えたら該当の `docs/*.md`（と `docs/GUIDE.html` の該当節）を直す。ボットや技を磨いたら `docs/BOT_PDCA.md` に、仮説 → 測った結果 → 採否を書き、生の記録を `docs/arena/` に残す。採否の比べ直し（使わなかった種・`PairedEvaluation.Confirm`）の結果は `docs/arena/confirm.jsonl` に 1 行の JSON で残る（新しい比べ直しの道具は `ConfirmLog.Append` を呼ぶ）。
 9. **コードレビュー**: 書いたら別の目（レビュー用のエージェント）で見る。指摘は直すか、直さない理由を言う。
@@ -157,8 +157,8 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 
 | 目的 | コマンド（リポジトリの根で） |
 |---|---|
-| 速いテスト | `dotnet test tests/MiniRing.Tests --filter "TestCategory!=slow&TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"`（= `run.cmd test`） |
-| 全テスト | `dotnet test tests/MiniRing.Tests --filter "TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe"`（= `run.cmd test all`。tower32 で 12 並び・約 5 分: `bash tools/remote-test.sh`） |
+| 速いテスト | `dotnet test tests/MiniRing.Tests --filter "TestCategory!=slow&TestCategory!=visual&TestCategory!=Probe"`（= `run.cmd test`） |
+| 全テスト | `dotnet test tests/MiniRing.Tests --filter "TestCategory!=visual&TestCategory!=Probe"`（= `run.cmd test all`。tower32 で 12 並び・約 5 分: `bash tools/remote-test.sh`） |
 | 調査用の Probe | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~<名前>" --logger "console;verbosity=detailed"` |
 | 版 | `... version` |
 | 総当たり | `... league --bouts 4 --seconds 60 --out docs/arena/<名前>.md`（名簿のキャラどうしは `rosterleague`） |

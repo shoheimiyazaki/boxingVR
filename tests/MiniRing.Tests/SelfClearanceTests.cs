@@ -1,5 +1,7 @@
 using System.Numerics;
+using MiniRing.Bots;
 using MiniRing.Motion;
+using MiniRing.Weapons;
 
 namespace MiniRing.Tests;
 
@@ -63,5 +65,47 @@ public sealed class SelfClearanceTests
         var second = clearance.Keep(frame, 2f);
         Assert.AreEqual(first, second);
         Assert.AreEqual(copy, frame, "the technique's own frame is never rewritten");
+    }
+
+    /// <summary>
+    /// 2026-11-18 に足した刀・ロングソードの型の表そのもの（ボットが傾ける前の目標）は、構えに始まって構えに戻り、刃の線が自分の頭・胴・脚を通らない
+    /// （2026-11-20、SwordExpansionTests から移した。形の名前の側・高さの固定は外した。前からある型は、構えへ戻る向きの誤差がこの許容を超えるもの（nuki-do 0.0028）があり、対象に入れていない）。
+    /// </summary>
+    [TestMethod]
+    [DataRow(WeaponKind.Katana, "shomen")]
+    [DataRow(WeaponKind.Katana, "migi-nagi")]
+    [DataRow(WeaponKind.Katana, "hidari-nagi")]
+    [DataRow(WeaponKind.Katana, "gyaku-kiriage")]
+    [DataRow(WeaponKind.Katana, "gyakufu")]
+    [DataRow(WeaponKind.Katana, "kote")]
+    [DataRow(WeaponKind.Katana, "kote-men")]
+    [DataRow(WeaponKind.Katana, "do-tsuki")]
+    [DataRow(WeaponKind.Katana, "katate-tsuki")]
+    [DataRow(WeaponKind.Katana, "tsuka-ate")]
+    [DataRow(WeaponKind.Katana, "oshi-giri")]
+    [DataRow(WeaponKind.Katana, "hiki-do")]
+    [DataRow(WeaponKind.Katana, "mae-geri")]
+    [DataRow(WeaponKind.Longsword, "scheitelhau")]
+    [DataRow(WeaponKind.Longsword, "schielhau")]
+    [DataRow(WeaponKind.Longsword, "krumphau")]
+    [DataRow(WeaponKind.Longsword, "zwerchhau-left")]
+    [DataRow(WeaponKind.Longsword, "unterhau-left")]
+    [DataRow(WeaponKind.Longsword, "stich-low")]
+    [DataRow(WeaponKind.Longsword, "knaufschlag")]
+    [DataRow(WeaponKind.Longsword, "schnitt")]
+    [DataRow(WeaponKind.Longsword, "tritt")]
+    public void TheAddedForms_ReturnToTheirGuard_AndKeepTheBladeOutsideTheBody(WeaponKind weapon, string name)
+    {
+        var form = FormSwordsman.Forms(weapon).Single(f => f.Name == name);
+        var first = form.Frames[0];
+        var last = form.Frames[^1];
+        Assert.IsLessThan(0.001f, Vector3.Distance(first.Right, last.Right), name);
+        // FromKeys は最終キーまでの端数（1/60 秒未満）を切り捨てる。向きの誤差は 0.12 度未満で構えに戻る。
+        Assert.IsLessThan(0.002f, Vector3.Distance(first.Blade, last.Blade), name);
+        var clearance = new SelfClearance();
+        var length = FormSwordsman.BladeLength(weapon, 0.188f);
+        Assert.IsTrue(form.Frames.All(f => float.IsFinite(f.Orientation.W)), name);
+        var inside = form.Frames.Count(f => clearance.Along(f.Right, f.Blade, length, f.Head).Clearance < 0f);
+        Assert.AreEqual(0, inside, $"{name}: 目標の刃の線が自分の体を通らない");
     }
 }

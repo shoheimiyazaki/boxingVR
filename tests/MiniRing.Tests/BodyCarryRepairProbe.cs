@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>体の運び（PhysicsVersion 45）で外れたテストの原因調べ（通常の実行から外す Probe）。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class BodyCarryRepairProbe
 {
     public TestContext TestContext { get; set; } = null!;

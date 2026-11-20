@@ -4,6 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>実戦で頭に当たった後の首の揺れ（胴に対する頭の傾きの最大）を、頭の大きさごとに比べる調査用。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class HeadWobbleProbe
 {
     [TestMethod]

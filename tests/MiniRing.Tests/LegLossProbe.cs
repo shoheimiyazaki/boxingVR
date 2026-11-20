@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調査用: 脚を断たれた体と、その相手が、その後どう打ち合うか（状態・腰の高さ・当たった数）を 1 秒ごとに書く。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class LegLossProbe
 {
     public TestContext TestContext { get; set; } = null!;

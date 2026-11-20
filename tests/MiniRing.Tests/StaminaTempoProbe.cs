@@ -12,6 +12,7 @@ namespace MiniRing.Tests;
 /// 環境変数 STAMINA_TUNE="VesselPowerPerKg=15,HeartPower=12" で調整値を上書きして試せる。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class StaminaTempoProbe
 {
     private const float Dt = 1f / 240f;

@@ -11,8 +11,8 @@
 #   filter:<expr>   any dotnet test filter
 #   --parallel N    run test classes in parallel with N workers (MSTest ClassLevel). Default 12 for `all`, 0 (serial)
 #                   otherwise. 2026-11-19: `all` with 12 workers gave the same results as serial (AGENT_DX_PLAN 段 2);
-#                   the wall time is bounded by the slowest class (CharacterSamenessTests, about 4.5 min), so more
-#                   workers do not help. Pass --parallel 0 to run serially.
+#                   the wall time is bounded by the slowest class (before 2026-11-20 CharacterSamenessTests at about
+#                   4.5 min; it dropped its golden tables then), so more workers help little. Pass --parallel 0 to run serially.
 #
 # What it sends: the commits of HEAD (as a git bundle; only the part the remote does not have yet), the uncommitted
 # diff (tracked files) and the untracked, non-ignored files. Remote layout (%USERPROFILE%\repos\rt-<local tree folder name>-<slot>;
@@ -36,8 +36,8 @@ while [ $# -gt 0 ]; do
 done
 
 case "$MODE" in
-  all) FILTER='TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe' ;;
-  fast) FILTER='TestCategory!=slow&TestCategory!=visual&TestCategory!=Probe&FullyQualifiedName!~Probe' ;;
+  all) FILTER='TestCategory!=visual&TestCategory!=Probe' ;;
+  fast) FILTER='TestCategory!=slow&TestCategory!=visual&TestCategory!=Probe' ;;
   probe:*) FILTER="FullyQualifiedName~${MODE#probe:}" ;;
   filter:*) FILTER="${MODE#filter:}" ;;
 esac

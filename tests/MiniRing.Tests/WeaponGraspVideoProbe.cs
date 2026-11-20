@@ -13,6 +13,7 @@ namespace MiniRing.Tests;
 /// （.visualcheck/weapon_grasp.mp4。ffmpeg が要る）。小さい体の腕は床まで届かないので、床に落ちた刀は左手の所へ置き直す（物理の置き直し）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class WeaponGraspVideoProbe
 {
     private sealed class Script : IFighterControl

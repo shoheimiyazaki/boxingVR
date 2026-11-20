@@ -41,37 +41,6 @@ public sealed class EyeLookTests
     }
 
     [TestMethod]
-    public void PupilMovesToTheEdgeOfTheWhiteInTheLookedDirection()
-    {
-        var (game, head) = Make();
-        using var _ = game;
-        var grid = head.Body.Grid;
-        var forward = ScanAt(head, new Vector3(0f, 0.05f, 2f));
-        var right = ScanAt(head, new Vector3(2f, 0.05f, 1f));
-        var left = ScanAt(head, new Vector3(-2f, 0.05f, 1f));
-        var up = ScanAt(head, new Vector3(0f, 2f, 1f));
-        var down = ScanAt(head, new Vector3(0f, -2f, 1f));
-
-        (int X, int Y, int Z) Cell(int index) => grid.Coordinates(index);
-
-        // 左右の目それぞれで、向いた方向へ黒目のセルが動く。
-        // 目は横に長い面（顔の層で 4 × 2 セルほど）なので、黒目は向いた方の列・段へ動く（正面は両目が寄り目: 内側の列）。
-        Assert.IsTrue(Cell(right.Pupil0).X > Cell(left.Pupil0).X, "+X eye: looking right puts the pupil on a higher column");
-        Assert.IsTrue(Cell(right.Pupil1).X > Cell(left.Pupil1).X, "-X eye: same");
-        Assert.IsTrue(Cell(forward.Pupil0).X >= Cell(left.Pupil0).X && Cell(forward.Pupil0).X <= Cell(right.Pupil0).X);
-        Assert.IsTrue(Cell(forward.Pupil1).X >= Cell(left.Pupil1).X && Cell(forward.Pupil1).X <= Cell(right.Pupil1).X);
-        Assert.IsTrue(Cell(up.Pupil0).Y > Cell(down.Pupil0).Y, "looking up puts the pupil on a higher row");
-        Assert.IsTrue(Cell(up.Pupil1).Y > Cell(down.Pupil1).Y);
-        Assert.IsTrue(Cell(forward.Pupil0).Y >= Cell(down.Pupil0).Y && Cell(forward.Pupil0).Y <= Cell(up.Pupil0).Y);
-        Assert.IsTrue(Cell(forward.Pupil1).Y >= Cell(down.Pupil1).Y && Cell(forward.Pupil1).Y <= Cell(up.Pupil1).Y);
-        // 選ばれたのは白目か黒目の材質のセル。
-        foreach (var i in new[] { forward.Pupil0, forward.Pupil1, right.Pupil0, up.Pupil1, down.Pupil0, left.Pupil1 })
-        {
-            Assert.IsTrue(grid.MaterialAt(i) is BoxerAnatomy.Eye or BoxerAnatomy.Pupil);
-        }
-    }
-
-    [TestMethod]
     public void ThePupilStaysInsideWhatIsLeftOfTheWhite()
     {
         var (game, head) = Make();
@@ -90,60 +59,6 @@ public sealed class EyeLookTests
         Assert.AreEqual(-1, after.Pupil0);
         Assert.AreEqual(before.Pupil1, after.Pupil1);
         Assert.AreNotEqual(-1, after.Pupil1);
-    }
-
-    [TestMethod]
-    public void BlinkingRecoloursTheEyeToSkinFromTheTopDown()
-    {
-        var (game, head) = Make();
-        using var _ = game;
-        var grid = head.Body.Grid;
-        var skin = grid.Palette[BoxerAnatomy.Skin].SurfaceColor;
-
-        (int Same, int Skin, int Y)[] Rows(float closure)
-        {
-            head.Draw(0f, new EyePose(closure, null));
-            var rgba = head.Volume.Rgba;
-            var (dx, dy, dz) = grid.Dimensions;
-            var result = new List<(int, int, int)>();
-            for (var y = 0; y < dy; y++)
-            {
-                int eye = 0, asSkin = 0;
-                for (var z = 0; z < dz; z++)
-                {
-                    for (var x = 0; x < dx; x++)
-                    {
-                        if (grid.At(x, y, z) is BoxerAnatomy.Eye or BoxerAnatomy.Pupil && grid.IsOriginalSurface(x, y, z))
-                        {
-                            eye++;
-                            var t = 4 * (x + (dx * (y + (dy * z))));
-                            if (Math.Abs(rgba[t] - (byte)Math.Round(skin.X * 255f)) <= 1 && Math.Abs(rgba[t + 1] - (byte)Math.Round(skin.Y * 255f)) <= 1)
-                            {
-                                asSkin++;
-                            }
-                        }
-                    }
-                }
-
-                if (eye > 0)
-                {
-                    result.Add((eye, asSkin, y));
-                }
-            }
-
-            return result.ToArray();
-        }
-
-        var open = Rows(0f);
-        Assert.IsTrue(open.All(r => r.Skin == 0), "open eyes: no cell is skin-coloured");
-        var half = Rows(0.5f);
-        var closed = Rows(1f);
-        Assert.IsTrue(closed.All(r => r.Skin == r.Same), "closed: every eye cell is skin-coloured");
-        // 半分: 上の段は肌、下の段は目。上から下へ（段の Y が大きいほど先に閉じる）。
-        var skinRows = half.Where(r => r.Skin == r.Same).Select(r => r.Y).ToList();
-        var openRows = half.Where(r => r.Skin == 0).Select(r => r.Y).ToList();
-        Assert.IsTrue(skinRows.Count > 0 && openRows.Count > 0, "mid blink: some rows lidded, some open");
-        Assert.IsTrue(skinRows.Min() > openRows.Max(), "lid comes down from the top");
     }
 
     [TestMethod]

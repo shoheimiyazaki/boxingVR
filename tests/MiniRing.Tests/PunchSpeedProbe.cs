@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// 腕の力の上限と、拳を引いておく量（予備動作）別に比べる。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class PunchSpeedProbe
 {
     private const float Dt = 1f / 240f;

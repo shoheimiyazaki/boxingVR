@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>攻撃のドリルの 1 発を追う調査用: 右ストレートの拳と相手の頭の距離・拳の速さ・拳の目標の先走りを、溜めの長さ別に。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class AttackTraceProbe
 {
     [TestMethod]

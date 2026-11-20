@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調査用: ナロン（ムエタイ）の試合で、肘・蹴り・拳が何回当たるか、肘打ちを何回出すか。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class MuayThaiMatchProbe
 {
     private const float Dt = 1f / 240f;

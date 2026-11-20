@@ -8,6 +8,7 @@ namespace MiniRing.Tests;
 /// エネルギーは湧かない（体の動きはそのぶん止まる）。止まった体から打つ拳は変わらない。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class BodyToFistTests
 {
     private const float Dt = 1f / 240f;

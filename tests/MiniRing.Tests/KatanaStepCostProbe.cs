@@ -13,6 +13,7 @@ namespace MiniRing.Tests;
 /// 最終チェックサムは計測を切った別の走りでも取り、計測が結果に響かないことを確かめる。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class KatanaStepCostProbe
 {
     private static readonly BoxingCorners KatanaCorners = BoxingCorners.Default with

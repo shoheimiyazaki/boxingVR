@@ -9,6 +9,7 @@ namespace MiniRing.Tests;
 /// （`--filter "FullyQualifiedName~GamePlanProbe" --logger "console;verbosity=detailed"`）。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class GamePlanProbe
 {
     [TestMethod]

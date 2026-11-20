@@ -6,6 +6,7 @@ namespace MiniRing.Tests;
 
 /// <summary>再現可能な測定用。通常テストからは名前の Probe で除外する。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class StaminaLeagueProbe
 {
     [TestMethod]

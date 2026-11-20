@@ -17,6 +17,7 @@ namespace MiniRing.Tests;
 /// SIMPLIFY_BOX_SECONDS（既定 20）。変更は静的な既定（<see cref="BoxingGame.DefaultSubstepRate"/> など）で、終わったら戻す。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class SimplifyProbe
 {
     private sealed record Variant(string Name, float Hz, int Passes, float Sample);

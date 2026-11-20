@@ -5,6 +5,7 @@ namespace MiniRing.Tests;
 
 /// <summary>調べもの: 斬り抜く袈裟を、振りの速さと抜ける先を少しずつ変えて出し、狙った胸を斬れたセルを並べる（1 本の試し斬りの揺らぎを見る）。</summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class SwordAimProbe
 {
     public TestContext TestContext { get; set; } = null!;

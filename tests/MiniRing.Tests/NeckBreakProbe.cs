@@ -11,6 +11,7 @@ namespace MiniRing.Tests;
 /// 種 4 の首の骨折の向き）を、張り 1（力の入った首）と張り 0（気を失った首）で。首の段の材質の数も書く。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class NeckBreakProbe
 {
     public TestContext TestContext { get; set; } = null!;

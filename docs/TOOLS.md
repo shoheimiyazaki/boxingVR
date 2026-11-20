@@ -6,9 +6,10 @@ CLAUDE.md §5 にはよく使う物だけを置き、ここに全部を書く。
 
 | 目的 | コマンド（リポジトリの根で） |
 |---|---|
-| 全テスト | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName!~Probe"` |
+| 全テスト | `dotnet test tests/MiniRing.Tests --filter "TestCategory!=visual&TestCategory!=Probe"`（= `run.cmd test all`。tower32 で: `bash tools/remote-test.sh`） |
 | ワークツリーと枝の状態（片付けの前） | `bash tools/wt-status.sh [--dirty] [--ignored]`（状態・master との先 / 後・最後のコミット・未コミット・無視されたファイル・ロック。読むだけ。`docs/WORKFLOW.md` §5） |
-| 調査用の Probe | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~<名前>" --logger "console;verbosity=detailed"` |
+| 調査用の Probe | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~<名前>" --logger "console;verbosity=detailed"`（tower32 で: `bash tools/remote-test.sh probe:<名前>`。Probe は `[TestCategory("Probe")]` で通常の実行から外れる） |
+| 名簿の組の試合のチェックサムを並べる（ある変更で変わる組・変わらない組を調べる） | `bash tools/remote-test.sh probe:CharacterSamenessProbe`（変更の前後で回して比べる。`CharacterSamenessTests` は 2026-11-20 から金型を持たないので、版を上げても取り直しは要らない） |
 | 総当たり | `dotnet run --project games/MiniRing.Arena -c Release -- league --bouts 4 --seconds 60 --out docs/arena/<名前>.md` |
 | 試合の面白さ（見どころ・ドラマ・緩急、docs/EXCITEMENT.md） | `... excitement --red champion --blue swarmer --seconds 40 --seeds 4 [--curve <接頭辞>]`（出来事の一覧とまとめ。`--curve` で曲線の CSV → `py -3 tools/excitement_curve.py <csv>... --out <png>`）・`... excitementleague [--pairs a:b,c:d] --seeds 2 --seconds 40 --out docs/arena/excitement_<日付>.md --label <名前>`（組ごとの表）・`... excitementfit --seeds 8 --out docs/arena/winmodel_<日付>.json`（観客の見込みのモデルを当てはめ直す。係数は `WinModel.Default` へ写す）。`video` は `<out>.highlights.txt`（映像の秒つきの一覧）も書く |
 | 名簿の総当たりと間合いのレポート（勝率・技ごとの間合い・得意 / 不得意の距離・画像入り） | `bash tools/roster-report/run-raytrek.sh media_tmp/roster-<日付>`（raytrek で約 2 時間）→ `shots.sh` → `build-data.mjs` → `analyze.mjs` → `build-images.mjs` → `build-page.mjs` → `preview.mjs` → 公開。手順は `docs/ROSTER_REPORT.md`。部品は `rosterleague --matrix <csv>`（1 試合 1 行）・`maailab [--ranges <接頭辞>]`（1 打ずつの間合いとダメージ、距離の帯ごとの与えた / 受けた）・`portraits --out <dir>`（肖像の PNG） |

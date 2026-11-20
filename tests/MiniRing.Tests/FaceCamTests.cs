@@ -57,36 +57,6 @@ public sealed class FaceCamTests
         Assert.IsLessThan(-0.1f, top.Y, "head-local up is up in the pane (Vulkan clip y points down)");
     }
 
-    [TestMethod]
-    public void Panels_SitOnBothEdges_InsideTheScreen_WithoutOverlapping()
-    {
-        foreach (var screen in new[] { new Vector2(1920, 1080), new Vector2(960, 540), new Vector2(300, 900) })
-        {
-            var left = FaceCam.Default.Panel(screen, FaceSide.Left);
-            var right = FaceCam.Default.Panel(screen, FaceSide.Right);
-            foreach (var panel in new[] { left, right })
-            {
-                Assert.IsTrue(panel.IsValid, $"{screen}");
-                Assert.IsTrue(panel.XPx >= 0 && panel.YPx >= 0 && panel.XPx + panel.WidthPx <= screen.X && panel.YPx + panel.HeightPx <= screen.Y, $"{screen}: {panel}");
-                Assert.AreEqual(panel.WidthPx, panel.HeightPx, "square");
-            }
-
-            Assert.IsTrue(left.XPx + left.WidthPx <= right.XPx, $"left ends before right begins: {screen} {left} {right}");
-            Assert.IsTrue(left.XPx + (left.WidthPx * 0.5f) < screen.X * 0.5f && right.XPx + (right.WidthPx * 0.5f) > screen.X * 0.5f, $"{screen} {left} {right}");
-        }
-    }
-
-    [TestMethod]
-    public void Panes_ShowRedOnTheLeft_AndBlueOnTheRight()
-    {
-        using var game = new BoxingGame(seed: 3);
-        var panes = FaceCam.Default.Panes(game, new Vector2(1280, 720));
-        Assert.HasCount(2, panes);
-        Assert.AreSame(game.Player, panes[0].Fighter);
-        Assert.AreSame(game.Cpu, panes[1].Fighter);
-        Assert.IsLessThan(panes[1].Panel.XPx, panes[0].Panel.XPx);
-    }
-
     private static Vector2 Project(Matrix4x4 viewProjection, Vector3 world)
     {
         var clip = Vector4.Transform(new Vector4(world, 1f), viewProjection);

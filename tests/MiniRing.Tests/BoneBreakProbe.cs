@@ -14,6 +14,7 @@ namespace MiniRing.Tests;
 /// あわせて、ボット同士のグローブの試合で骨が折れる回数を数える。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class BoneBreakProbe
 {
     public TestContext TestContext { get; set; } = null!;

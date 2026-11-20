@@ -4,6 +4,7 @@ using Aigis.Physics;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("slow")]
 public sealed class StaminaBudgetTests
 {
     private const float Dt = 1f / 240f;

@@ -14,7 +14,7 @@ public sealed class HandWearTests
 {
     public TestContext TestContext { get; set; } = null!;
 
-    private static readonly HandWear[] All = Enum.GetValues<HandWear>();
+    internal static readonly HandWear[] All = Enum.GetValues<HandWear>();
 
     [TestMethod]
     public void EveryWear_IsBuilt_AndWornOnBothHands_InTheCornerColour()
@@ -110,7 +110,7 @@ public sealed class HandWearTests
     /// 赤（<paramref name="wear"/> をはめたボット <paramref name="bot"/>）が、構えて立つだけの青（グローブ）を <paramref name="seconds"/> 秒打つ。
     /// どのはめる物でも、ボットは同じ拳の技（同じ種）で打つ。
     /// </summary>
-    private static BoutResult Bout(HandWear wear, string bot, float seconds = 12f, int seed = 1)
+    internal static BoutResult Bout(HandWear wear, string bot, float seconds = 12f, int seed = 1)
     {
         using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("stand", _ => new StandGuard(), s => BotCatalog.Create(bot, s), PlayerWear: wear, CpuWear: HandWear.Glove));
         int Filled() => game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount) + game.Cpu.Voxels!.Fragments.Sum(p => p.Body.Grid.FilledCount);
@@ -146,22 +146,9 @@ public sealed class HandWearTests
     /// <param name="MeanSpeed">打撃の速さの平均 [m/s]。</param>
     /// <param name="WearLost">赤のはめた物（両手）が失ったボクセル。</param>
     /// <param name="IronLost">そのうち鉄。</param>
-    private readonly record struct BoutResult(int Carved, int Hits, float MeanSpeed, int WearLost, int IronLost)
+    internal readonly record struct BoutResult(int Carved, int Hits, float MeanSpeed, int WearLost, int IronLost)
     {
         public override string ToString() => $"carved {Carved,5}  hits {Hits,3}  mean speed {MeanSpeed:F2} m/s  wear lost {WearLost} (iron {IronLost})";
-    }
-
-    /// <summary>調べもの: 2 つのボットの拳で、はめる物ごとの削れ方を並べる（docs/VOXEL_WEAPONS.md の表）。</summary>
-    [TestMethod]
-    public void HandWearBoutProbe()
-    {
-        foreach (var bot in new[] { "champion", "swarmer" })
-        {
-            foreach (var wear in All)
-            {
-                TestContext.WriteLine($"{bot,-9} {wear,-14} {Bout(wear, bot)}");
-            }
-        }
     }
 
     [TestMethod]

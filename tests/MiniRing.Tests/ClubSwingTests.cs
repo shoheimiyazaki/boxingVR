@@ -61,21 +61,6 @@ public sealed class ClubSwingTests
     }
 
     [TestMethod]
-    [TestCategory("Probe")]
-    public void RangeSweep_Probe()
-    {
-        foreach (var range in new[] { 0.30f, 0.32f, 0.34f, 0.36f, 0.38f, 0.40f, 0.42f, 0.44f })
-        {
-            var r = SwingTest.Run(WeaponSwing.Default(SwingFamily.Chop), range, (game, _, _) =>
-            {
-                game.Player.Stamina = 1f;
-                game.Cpu.Stamina = 1f;
-            }, gloves: false);
-            Console.WriteLine($"RSWEEP range {range:F2}: landed {r.Landed} cells {r.Cells}");
-        }
-    }
-
-    [TestMethod]
     public void TheBatStance_PutsBothHandsOnTheClub_AboveTheRightShoulder()
     {
         var bat = WeaponSwing.Default(SwingFamily.Bat);

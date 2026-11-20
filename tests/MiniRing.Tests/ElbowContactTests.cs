@@ -24,9 +24,9 @@ public sealed class ElbowContactTests
     /// 止まる距離は倍率に単調でなく（上向き: 0.9 倍で 1.11 腕・1.0 倍で 1.02 腕）、1.0 倍なら 3 つとも当たる（横 0.84 m/s・上 1.70 m/s・下 1.57 m/s）ので 1.0 に直した。
     /// 肘の速さ・当たりの数え方は変えていない（期待値は緩めていない）。
     /// </summary>
-    private const float CloseIn = 1.0f;
+    internal const float CloseIn = 1.0f;
 
-    private sealed record ElbowResult(string Zones, float StartDistance, int Hits, int VictimCellsLost, float MaxSpeed, float MaxMass, float MaxEnergy, float TotalEnergy, float MaxElbowSpeed, float MinElbowToAim);
+    internal sealed record ElbowResult(string Zones, float StartDistance, int Hits, int VictimCellsLost, float MaxSpeed, float MaxMass, float MaxEnergy, float TotalEnergy, float MaxElbowSpeed, float MinElbowToAim);
 
     private static int Cells(Fighter f) => f.Voxels!.Parts.Concat(f.Voxels.Fragments).Sum(p => p.Body.Grid.FilledCount);
 
@@ -42,7 +42,7 @@ public sealed class ElbowContactTests
     /// <summary>
     /// 立って構えるだけの相手へ、止まったまま台本の指令で肘を打つ。<paramref name="distanceScale"/> は胸と胸の距離（その肘の Standoff の倍率）。
     /// </summary>
-    private static ElbowResult Run(ElbowTechnique kind, Hand side = Hand.Right, float durationScale = 1f, float distanceScale = 1f)
+    internal static ElbowResult Run(ElbowTechnique kind, Hand side = Hand.Right, float durationScale = 1f, float distanceScale = 1f)
     {
         using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("still", _ => new StandGuard()));
         var attacker = game.Player;
@@ -111,11 +111,11 @@ public sealed class ElbowContactTests
     /// <summary>肘の先（前腕の肩寄りの端 = 上腕と前腕の継ぎ目）の位置。</summary>
     private static Vector3 ElbowTip(Fighter f, Hand side) => f.ElbowPosition(side);
 
-    private static string Describe(string name, ElbowResult r) => string.Create(CultureInfo.InvariantCulture,
+    internal static string Describe(string name, ElbowResult r) => string.Create(CultureInfo.InvariantCulture,
         $"{name}: zones [{r.Zones}] d0 {r.StartDistance:F2}, hits {r.Hits}, speed {r.MaxSpeed:F2} m/s, mass {r.MaxMass:F2} kg, energy {r.MaxEnergy:F3} J (sum {r.TotalEnergy:F3}), victim cells lost {r.VictimCellsLost}, elbow top speed {r.MaxElbowSpeed:F2} m/s, closest to aim {r.MinElbowToAim:F3} m");
 
     /// <summary>同じ台本の枠で、右のストレートを打つ（肘との比較の基準）。</summary>
-    private static ElbowResult RunPunch(Technique technique, float standoff, float duration)
+    internal static ElbowResult RunPunch(Technique technique, float standoff, float duration)
     {
         using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("still", _ => new StandGuard()));
         var attacker = game.Player;
@@ -168,20 +168,6 @@ public sealed class ElbowContactTests
         }
 
         return new ElbowResult(string.Join(",", zones), 0f, hits.Count, before - Cells(victim), maxSpeed, maxMass, maxEnergy, total, 0f, 0f);
-    }
-
-    [TestMethod]
-    public void Sweep_Probe()
-    {
-        Console.WriteLine(Describe("Cross x1.0", RunPunch(Technique.Cross, 1.0f, 0.45f)));
-        Console.WriteLine(Describe("Jab x0.9", RunPunch(Technique.Jab, 0.9f, 0.35f)));
-        foreach (var kind in Enum.GetValues<ElbowTechnique>())
-        {
-            foreach (var scale in new[] { CloseIn, 1.0f })
-            {
-                Console.WriteLine(Describe(kind + " x" + scale.ToString(CultureInfo.InvariantCulture), Run(kind, distanceScale: scale)));
-            }
-        }
     }
 
     [TestMethod]

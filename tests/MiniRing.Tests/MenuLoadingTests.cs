@@ -4,6 +4,7 @@ using MiniRing.Desktop;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("slow")]
 public sealed class MenuLoadingTests
 {
     [TestMethod]

@@ -10,6 +10,7 @@ namespace MiniRing.Tests;
 /// （C = 胸、A = 上腕、. = どの部位もない）。あわせて、肩から胴へ通る細い線（刃の厚みの線）が、どの部位にも触れずに通り抜けられる位置を数える。
 /// </summary>
 [TestClass]
+[TestCategory("Probe")]
 public sealed class ShoulderGapProbe
 {
     public TestContext TestContext { get; set; } = null!;

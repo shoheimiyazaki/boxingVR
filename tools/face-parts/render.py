@@ -1,4 +1,4 @@
-"""組み立てた顔の格子（FacePartLibraryTests.Probe_DumpFaces の txt）を、正面・横・上の 3 方向の絵にして、参考図と並べる。
+"""組み立てた顔の格子（FacePartDumpProbe.Probe_DumpFaces の txt）を、正面・横・上の 3 方向の絵にして、参考図と並べる。
 
 使い方（リポジトリの根で）:
     set FACE_DUMP_DIR=<dir>

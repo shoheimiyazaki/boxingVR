@@ -11,6 +11,7 @@ namespace MiniRing.Tests;
 /// 決着の画面の体の図（死んだ側は沈み、頭が離れた図は頭が輪郭だけ）、WVC の王座のベルト・採点の札・コール。
 /// </summary>
 [TestClass]
+[TestCategory("slow")]
 public sealed class OrgShowFixTests
 {
     private const int Width = 1280;
