@@ -72,7 +72,7 @@
 
 | まとまり | テスト | 中身 | 見立て |
 |---|---|---|---|
-| チェックサム | CharacterSamenessTests 4 件・StepCostRegressionTests | 記録した試合のチェックサムが変わる | 体の物理を変えたので当然。採るなら CharacterSamenessProbe で取り直す（まだ取っていない） |
+| チェックサム | CharacterSamenessTests 4 件・StepCostRegressionTests | 記録した試合のチェックサムが変わる | 体の物理を変えたので当然。CharacterSamenessProbe（tower32）で取り直した（コミット 99becf8） |
 | 拳が遅くなった | StaminaRushTests（連打の始め 10 秒の拳 2.11 < 2.2 m/s）、StaminaBudgetTests（空の腕の 1 発目が満タンの 0.70 倍 > 0.65） | Hill の速さの関係で、疲れていない拳がもう速さで頭打ち。疲れで落ちる割合が小さく見える | 物理として説明できる。採るなら期待値を測り直す |
 | 一撃で倒れる | EvasionBasicsTests（守らない相手が 1 発目で倒れる、8 種とも） | あごに当たった後も届かない点へ全力の指令で押し続け、頭が回る（punchlab の頭の奥 5・10 cm で頭の回転 7 → 31 rad/s） | 物理の結果だが、ゲームとして強すぎる。打ち抜いた後に指令を戻す経路（技の側）か、当たってからの筋の反射が要る |
 | 蹴り・肘 | KickShinTests 2 件、KickContactTests（かかと落としの後に立っていられない）、ElbowContactTests（突き上げの肘が当たらない） | 蹴る間の腕（釣り合い）・肘の経路が変わった | 調べていない |
