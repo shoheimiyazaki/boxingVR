@@ -41,6 +41,130 @@ public sealed class CtBoneProbe
         TestContext.WriteLine($"done: broken {reported.Count}");
     }
 
+    /// <summary>
+    /// 打たれた腕（前腕・上腕）の骨が、拳（グローブ・素手）の速さと拳の後ろの質量のどこから折れるか（BoneBreakTests.AGloveBlow… と同じ組み立て:
+    /// 無重力の自由な部位の真ん中へ、拳を真横から当てる）。環境変数 CT_OLD_VOX があれば CT を入れる前の体でも。
+    /// </summary>
+    [TestMethod]
+    public void ArmBreak_SpeedAndMassBehind()
+    {
+        var tuning = FighterTuning.Default;
+        var bodies = new List<(string, BoxerVoxelOverrides?)> { ("ct", BoxerVoxelOverrides.Shipped) };
+        if (Environment.GetEnvironmentVariable("CT_OLD_VOX") is { } old)
+        {
+            bodies.Insert(0, ("old", BoxerVoxelOverrides.Load(old)));
+        }
+
+        foreach (var (label, overrides) in bodies)
+        {
+            foreach (var (kind, half, mass) in new[]
+            {
+                (BodyPartKind.Forearm, tuning.HalfExtents.Forearm, tuning.Masses.Forearm),
+                (BodyPartKind.UpperArm, tuning.HalfExtents.UpperArm, tuning.Masses.UpperArm),
+            })
+            {
+                foreach (var wear in new[] { Weapons.WeaponKind.Glove, Weapons.WeaponKind.Fist })
+                {
+                    foreach (var behind in new[] { 0f, 1f, 2f, 4f, 8f })
+                    {
+                        var at = "none up to 12 m/s";
+                        for (var speed = 1f; speed <= 12.01f; speed += 0.5f)
+                        {
+                            if (Bends(kind, half, mass, wear, speed, behind, overrides))
+                            {
+                                at = string.Create(CultureInfo.InvariantCulture, $"{speed:0.0} m/s");
+                                break;
+                            }
+                        }
+
+                        TestContext.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{label} {kind} {wear} behind {behind:0} kg: breaks from {at}"));
+                    }
+                }
+            }
+        }
+
+        static bool Bends(BodyPartKind kind, Vector3 half, float mass, Weapons.WeaponKind wear, float speed, float behind, BoxerVoxelOverrides? overrides)
+        {
+            var tuning = FighterTuning.Default;
+            using var world = new Aigis.Physics.PhysicsWorld(gravity: Vector3.Zero);
+            var id = world.AddDynamicBox(Vector3.Zero, Quaternion.Identity, half, mass);
+            var limb = new Aigis.Physics.Voxels.VoxelBody(world, id, BoxerAnatomy.Build(kind, half, tuning.VoxelSize, null, null, overrides)) { BeamAxis = 0 };
+            // 素手は拳頭（正拳の先）を下（-Z）へ向け、拳頭が部位の真ん中の真上に来るように置く（グローブは丸いので向きによらない）。
+            var tip = Weapons.HandSkeleton.SeikenTip;
+            var (place, turn) = wear == Weapons.WeaponKind.Fist
+                ? (new Vector3(-tip.Z, -tip.Y, half.Z + 0.005f + tip.X), Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2f))
+                : (new Vector3(0f, 0f, half.Z + 0.03f), Quaternion.Identity);
+            var fist = Weapons.Weapon.CreateWorn(world, wear, BoxerAnatomy.RedGlove, place, turn);
+            world.SetLinearVelocity(fist.Body.BodyId, new Vector3(0f, 0f, -speed));
+            world.SetPairCollisionEnabled(id, fist.Body.BodyId, false);
+            for (var i = 0; i < 60; i++)
+            {
+                var sg = world.GetState(fist.Body.BodyId);
+                var sl = world.GetState(id);
+                world.Step(1f / 240f);
+                var hit = Aigis.Physics.Voxels.VoxelContact.Resolve(fist.Body, sg, limb, sl, massBehindA: behind);
+
+                if (hit.BentFor(limb) is not null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 試合の中で、拳が腕（肘・ガード）に当たった速さ・拳の後ろの質量の分布と、腕の骨が折れた数（グローブと素手、ボット同士の 60 秒 × 数試合）。
+    /// </summary>
+    [TestMethod]
+    public void ArmHitsAndBreaks_InBouts()
+    {
+        foreach (var wear in new[] { Weapons.HandWear.Glove, Weapons.HandWear.None })
+        {
+            var armHits = new List<(float Speed, float Mass)>();
+            var allSpeeds = new List<float>();
+            var breaks = new List<string>();
+            foreach (var (red, blue, seed) in new[] { ("champion", "swarmer", 1), ("slugger", "champion", 2), ("swarmer", "slugger", 3), ("champion", "counter", 4) })
+            {
+                using var game = new BoxingGame(seed: seed, rules: MatchRules.Tv with { Rounds = 1, RoundSeconds = 60f },
+                    corners: new BoxingCorners("cpu", s => BotCatalog.Create(red, s), s => BotCatalog.Create(blue, s), PlayerWear: wear, CpuWear: wear));
+                for (var i = 0; i < 60 * 60; i++)
+                {
+                    game.Step(default, 1f / 60f);
+                    foreach (var h in game.RecentHits.Where(h => !h.Kick && !h.Elbow))
+                    {
+                        allSpeeds.Add(h.Speed);
+                        if (h.Zone is HitZone.Guard or HitZone.Elbow or HitZone.Shoulder)
+                        {
+                            armHits.Add((h.Speed, h.ImpactMass));
+                        }
+                    }
+
+                    foreach (var b in game.BrokenBones.Where(b => b.Part is BodyPartKind.Forearm or BodyPartKind.UpperArm))
+                    {
+                        breaks.Add(string.Create(CultureInfo.InvariantCulture, $"{red}-{blue} t={i / 60f:F1}s {b.Victim.Name} {b.Part} bent={b.Bent}"));
+                    }
+                }
+            }
+
+            static string Q(IEnumerable<float> xs)
+            {
+                var s = xs.OrderBy(x => x).ToArray();
+                return s.Length == 0 ? "none" : string.Create(CultureInfo.InvariantCulture,
+                    $"n={s.Length} median {s[s.Length / 2]:0.00} p90 {s[(int)(s.Length * 0.9)]:0.00} max {s[^1]:0.00}");
+            }
+
+            TestContext.WriteLine($"{wear}: all punch speeds {Q(allSpeeds)}");
+            TestContext.WriteLine($"{wear}: arm-hit speeds {Q(armHits.Select(a => a.Speed))}; impact mass {Q(armHits.Select(a => a.Mass))}");
+            TestContext.WriteLine($"{wear}: arm bones broken {breaks.Count}");
+            foreach (var b in breaks)
+            {
+                TestContext.WriteLine("  " + b);
+            }
+        }
+    }
+
     /// <summary>部位の真ん中を折る力（BoneBreakProbe.BreakingForce_ByPart と同じ）を、CT を入れる前の体（環境変数 CT_OLD_VOX）と今の体で。</summary>
     [TestMethod]
     public void BreakingForce_OldAndCt()
