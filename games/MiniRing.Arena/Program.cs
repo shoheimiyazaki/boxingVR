@@ -1019,18 +1019,18 @@ static int PunchLabCommand(Options o)
     if (o.Get("study") is { } study)
     {
         // 頭の向こう側の実験: 腕が伸びきったときに拳の先がちょうどあごに触れる間合いで、手を下げて立つ相手へ、今の経路・0 秒であごへ・0 秒で頭の奥（奥行きごと）。
-        // 反事実として、目標を肩から腕の長さの球へ縮めない体（測るだけ）。
+        // 比べものとして、拳を引く指令の目標を肩から腕の長さの球へ縮める体（62 までの体、測るだけ）。
         if (study != "beyond")
         {
             throw new ArgumentException($"--study は beyond です（{study}）。");
         }
 
         var depths = o.List("depths", ["0.05", "0.1", "0.2", "0.4"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
-        PunchLab.Setup B(PunchLabPath p, float depth = 0f, bool noClamp = false) => new(p, "still", "chin", 0f, false, MiniRing.AimGoal.Chin, depth, noClamp);
+        PunchLab.Setup B(PunchLabPath p, float depth = 0f, bool clamp = false) => new(p, "still", "chin", 0f, false, MiniRing.AimGoal.Chin, depth, clamp);
         setups.Add(B(PunchLabPath.Standard));
         setups.Add(B(PunchLabPath.Instant));
         setups.AddRange(depths.Select(d => B(PunchLabPath.Beyond, d)));
-        setups.Add(B(PunchLabPath.Instant, noClamp: true));
+        setups.Add(B(PunchLabPath.Instant, clamp: true));
         setups.AddRange(depths.Select(d => B(PunchLabPath.Beyond, d, true)));
         if (o.Get("video") is { } beyondVideo)
         {

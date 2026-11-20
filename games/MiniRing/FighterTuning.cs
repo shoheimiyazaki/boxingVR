@@ -142,10 +142,58 @@ public sealed record FighterTuning
     public float MaxHandForce { get; init; } = 35f;
 
     /// <summary>
-    /// 拳の目標を肩から腕の長さの球の中へ縮めてから追うか（既定の true が試合の体）。false は調べもの専用の反事実（punchlab の <c>--noclamp</c>）:
-    /// 腕の届かない先に置いた目標をそのまま PD のバネに掛けて、届く距離の縮めが拳の力を頭打ちにしているかを測る。試合には使わない。
+    /// 拳を引く指令（PD）の目標を肩から腕の長さの球の中へ縮めてから使うか。既定の false が試合の体（PhysicsVersion 63）: 指令はボットの置いた
+    /// 点へ向け、届かない点を狙えば全力の指令になる（腕の形 = 肩・肘のサーボの IK はいつも届く範囲で解く）。true は前の体（62 まで）を
+    /// 測るための反事実（punchlab の <c>--clamp true</c>）。試合には使わない。
     /// </summary>
-    public bool ClampHandTarget { get; init; } = true;
+    public bool ClampHandTarget { get; init; }
+
+    // ── 拳を引く筋肉（Hill 型、ArmMuscle。docs/BOXING.md「拳を引く筋肉」）
+    // 時間と速さは人の値を人形の大きさの相似則で縮める: 体は人の Scale = 0.355 倍、同じ重力で釣り合う動きは時間 √0.355 = 0.596 倍・
+    // 速さ 0.596 倍（材質の強さを大きさに比例させたのと同じ相似則: docs/SWORD_MOTION.md §5）。力の大きさ（MaxHandForce）は今のまま
+    // （筋の断面 ∝ 大きさ²、BodyBuild.SectionRatio）。
+
+    /// <summary>
+    /// 筋肉の活性化の立ち上がりの時定数 [s]。人の筋は興奮から 10〜20 ms（Zajac 1989、Thelen 2003 は 15 ms）。15 ms × 0.596 = 9 ms。
+    /// </summary>
+    public float MuscleActivationTime { get; init; } = 0.009f;
+
+    /// <summary>
+    /// 筋肉の活性化の緩みの時定数 [s]。人の筋は 40〜80 ms（Thelen 2003 は 50 ms、Winters 1995 は 40〜60 ms）。60 ms × 0.596 = 36 ms。
+    /// 全力で出していた主動筋がすぐには抜けない（打ち抜ける）、止める筋が遅れて効く、の元。
+    /// </summary>
+    public float MuscleDeactivationTime { get; init; } = 0.036f;
+
+    /// <summary>
+    /// 拳の向きの最大の縮む速さ [m/s]（腕を半分曲げた構えで、肘・肩の筋が力を出せなくなる拳の速さ）。人の肘の伸筋の線維 6〜9 cm ×
+    /// 最大の縮む速さ 10 線維長/s ÷ てこ 2 cm ≒ 40 rad/s、肩から拳へのてこ（肘 90° で 0.22 m）を掛けて 8.9 m/s。× 0.596 = 5.3 m/s、
+    /// 人形の腕の長さ（肘 90° で 0.074 m × 67 rad/s）で 5.0 m/s。
+    /// </summary>
+    public float HandMuscleMaxSpeed { get; init; } = 5.0f;
+
+    /// <summary>Hill の式の曲がり a/F0（速筋の多い腕の筋で 0.2〜0.3: Hill 1938、Winters 1990）。</summary>
+    public float HandMuscleCurvature { get; init; } = 0.25f;
+
+    /// <summary>伸ばされながら出せる力の上限（等尺の何倍か）。人の筋で 1.3〜1.8（Katz 1939、Joyce 1969）。中ほどの 1.5。</summary>
+    public float HandMuscleEccentricMax { get; init; } = 1.5f;
+
+    /// <summary>伸ばされる側の力の、速さ 0 での傾きが縮む側の何倍か（Katz 1939 で 2〜6 倍）。急すぎると歩ごとに振れるので小さい側の 2。</summary>
+    public float HandMuscleEccentricSlope { get; init; } = 2f;
+
+    /// <summary>
+    /// 腕の筋が最も強い伸び具合（肩から拳の距離 / 腕の長さ）。肘の曲げ・伸ばしのトルクが最大になる肘 80〜100°（Kulig 1984）の、人形の腕での
+    /// 伸び具合 ≒ 0.6〜0.7。
+    /// </summary>
+    public float ArmMuscleOptimalExtension { get; init; } = 0.6f;
+
+    /// <summary>
+    /// 伸びきり（外へ押す筋）・曲げきり（内へ引く筋）での、最大に対する力の割合。肘の伸ばすトルクは伸びきりの近くで最大の 5〜6 割、
+    /// 曲げるトルクは曲げきりで 5 割前後（Kulig 1984、Murray 1995）。
+    /// </summary>
+    public float ArmMuscleEndForce { get; init; } = 0.5f;
+
+    /// <summary>曲げきり（肘 145°）の伸び具合（人形の腕: 上腕 0.109 m・前腕 0.10 m で 0.3）。</summary>
+    public float ArmMuscleFlexedEnd { get; init; } = 0.3f;
 
     /// <summary>手首の筋肉（武器を握ったとき、武器を向きの目標へ回すサーボ）の固さ [Hz]。</summary>
     public float WristServoHz { get; init; } = 15f;
@@ -215,10 +263,9 @@ public sealed record FighterTuning
     public float FractureSagRadians { get; init; } = 0.6f;
     public float HandReactionShare { get; init; } = 0.5f;
     /// <summary>
-    /// スタミナが尽きたときの、腕の筋肉が拳を肩に対して動かせる速さの上限の逆数 [s/m]（Hill の力と速さの関係を直線で近似: 上限の速さで出せる力が 0）。
-    /// 疲れていない筋肉は、この大きさの体では速さの上限が効かない（筋力が余っていて、力と速さの関係を入れると疲れていない剣の振り・鉄の拳まで
-    /// 遅くなり試合の結果が変わった。2026-11-12）。上限の逆数 = (1 − Vigor) / max(Vigor, 0.001) × この値。
-    /// 1 / 2.4 s/m を尺度に、供給仕事率が下がるほど短縮速度も連続に落とす。0 なら短縮速度の上限だけを外す（仕事予算は残る）。
+    /// 疲れた腕の筋肉の、最大の縮む速さを下げる量 [s/m]: 1 / v_max' = 1 / <see cref="HandMuscleMaxSpeed"/> + (1 − Vigor) / max(Vigor, 0.001) × この値
+    /// （Hill の力と速さの関係は <see cref="ArmMuscle.ForceVelocity"/> の 1 つ。疲れはその v_max を下げる）。蓄えの残りが半分の Vigor 0.5 で
+    /// v_max は 5.0 → 1.9 m/s。0 なら疲れで速さは落ちない（仕事予算は残る）。
     /// </summary>
     public float TiredHandSlowness { get; init; } = 1f / 2.4f;
 

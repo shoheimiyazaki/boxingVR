@@ -208,7 +208,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 60; // 60: 生成した武器は、構えへ追いつく 1 秒と、そのとき重なっていた所が一度離れるまで、握った本人に当たらない（六尺棒が開始 0 秒で自分の首を折った）。58 は claude/glove-v2 が使う。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 63; // 63: 拳を引く力を Hill 型の筋肉に（指令 → 活性化の遅れ → 力 = 活性化 × 最大の力 × 長さ × 速さの関係、拮抗筋のブレーキ）、指令の目標を届く距離に縮めない。61・62 は claude/glove-v2・neck-muscle が使う。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1178,6 +1178,9 @@ public sealed partial class Fighter
 
     /// <summary>最後に拳を目標へ引いた歩の中身（縮める前と後の目標・拳・欲しかった力・力の上限・実際の力。調べもの用: punchlab）。</summary>
     internal HandDriveTrace HandTrace(Hand hand) => _arms[(int)hand].Trace;
+
+    /// <summary>拳を引く筋肉の 6 つのまとまりの活性化（調べもの・テスト用。<see cref="ArmMuscle"/>）。</summary>
+    internal ReadOnlySpan<float> HandActivation(Hand hand) => _arms[(int)hand].Activation;
 
     /// <summary>上腕と前腕の質量（体を使わずに拳に乗る質量）。</summary>
     public float ArmMass(Hand hand) => _world.GetMass(_arms[(int)hand].UpperArm) + _world.GetMass(_arms[(int)hand].Forearm);
@@ -4040,6 +4043,12 @@ public sealed partial class Fighter
     {
         private Vector3 _previousTarget;
         private Vector3 _targetVelocity;
+
+        /// <summary>拳を引く筋肉の 6 つのまとまり（胸のフレームの ±X・±Y・±Z）の活性化 0..1（<see cref="ArmMuscle"/>）。</summary>
+        private readonly float[] _activation = new float[ArmMuscle.Groups];
+
+        /// <summary>拳を引く筋肉の活性化（調べもの・テスト用）。</summary>
+        internal ReadOnlySpan<float> Activation => _activation;
         private Vector3 _previousLocalTarget;
         private Vector3 _effortVelocity;
         private bool _hasPrevious;
@@ -4602,12 +4611,13 @@ public sealed partial class Fighter
             world.SetAngularServoTarget(ShoulderServo, Quaternion.Concatenate(upperRotation, Quaternion.Conjugate(chest.Orientation)));
             world.SetTwistServoTarget(ElbowServo, Math.Clamp(elbowAngle, 0f, 140f * MathF.PI / 180f));
 
-            // 2) 拳を目標へ PD 力で引く。力の上限は「腕の筋力 × 体の質量をどれだけ借りられるか」（PunchMechanics）:
-            //    体軸を通る向き・骨で突っ張れる向きほど脚と腰の力が乗り、軸から外れた手打ちは腕の力だけになる。
+            // 2) 拳を目標へ引く筋肉（ArmMuscle、Hill 型）。PD は脳が出す指令: 欲しい力 ÷ 最大の力 を 0..1 に飽和させた興奮。最大の力は
+            //    「腕の筋力 × 体の質量をどれだけ借りられるか」（PunchMechanics）: 体軸を通る向き・骨で突っ張れる向きほど脚と腰の力が乗り、
+            //    軸から外れた手打ちは腕の力だけになる。活性化は興奮を一次遅れで追い、力 = 活性化 × 最大の力 × 長さの関係 × 速さの関係。
             var f = world.GetState(Forearm);
             var glove = f.Position + Vector3.Transform(GloveLocal, f.Orientation);
             var gloveVelocity = f.LinearVelocity + Vector3.Cross(f.AngularVelocity, glove - f.Position);
-            // 拳を出していく間（spring）は、目標の手前でブレーキをかけない（減衰を弱める）: 実際のパンチも、当たるまで止める筋肉は働かない。
+            // 拳を出していく間（spring）は、目標の手前でブレーキをかけない指令にする（減衰を弱める）: 実際のパンチも、当たるまで止める筋肉へ指令を出さない。
             var kd = tuning.HandKd * (1f + ((tuning.LooseHandDamping - 1f) * Math.Clamp(spring, 0f, 1f)));
             var accel = FighterMath.HandAccel(glove, gloveVelocity, target, _targetVelocity, tuning.HandKp, kd);
             // 武器を握っていれば、拳は前腕と一緒に武器の重さも引く（武器の慣性は、この力と手首のトルクで動かす）。
@@ -4616,21 +4626,19 @@ public sealed partial class Fighter
             var bodyEffective = PunchMechanics.BodyEffectiveMass(inertia, torso, glove - centerOfMass, desired);
             var coupling = PunchMechanics.Coupling(glove - shoulder, desired, jointIntegrity: 1f);
             var armForce = tuning.MaxHandForce * forceScale;
-            var multiplier = PunchMechanics.ForceMultiplier(coupling, bodyEffective, totalMass, tuning.BodyDrive);
-            var muscleCap = tuning.MaxHandForce * multiplier;
-            var cap = armForce * multiplier;
-            // 疲れた筋肉の力と速さの関係（Hill の式を直線で近似）: 拳が肩に対して力の向きへ速く動いているほど、出せる力は減り、
-            // 縮む速さの上限（1 / slowness）で 0 になる。疲れていなければ slowness = 0 で上限なし（力の上限を下げても、
-            // この大きさの体では筋力が余っていて拳の速さは変わらなかった。A3、2026-11-12）。
-            if (slowness > 0f && desired.LengthSquared() > 1e-12f)
+            var cap = armForce * PunchMechanics.ForceMultiplier(coupling, bodyEffective, totalMass, tuning.BodyDrive);
+            var excitation = ArmMuscle.Excitation(desired, cap, chest.Orientation);
+            for (var i = 0; i < ArmMuscle.Groups; i++)
             {
-                var chestState = world.GetState(chestId);
-                var shoulderVelocity = chestState.LinearVelocity + Vector3.Cross(chestState.AngularVelocity, shoulder - chestState.Position);
-                var shortening = Vector3.Dot(gloveVelocity - shoulderVelocity, Vector3.Normalize(desired));
-                cap *= Math.Clamp(1f - (MathF.Max(0f, shortening) * slowness), 0f, 1f);
+                _activation[i] = ArmMuscle.Activate(_activation[i], ArmMuscle.GroupExcitation(excitation, i), dt, tuning.MuscleActivationTime, tuning.MuscleDeactivationTime);
             }
 
-            var force = ClampLength(desired, cap);
+            var shoulderVelocity = chest.LinearVelocity + Vector3.Cross(chest.AngularVelocity, shoulder - chest.Position);
+            var fromShoulder = glove - shoulder;
+            var distance = fromShoulder.Length();
+            var pose = new ArmMuscle.Pose(distance > 1e-6f ? fromShoulder / distance : frame.Forward, distance / MathF.Max(1e-4f, reach), gloveVelocity - shoulderVelocity);
+            // 疲れ（slowness）は最大の縮む速さを下げる形で同じ式に入る。
+            var force = ArmMuscle.Force(_activation, chest.Orientation, cap, pose, ArmMuscle.Constants.From(tuning, slowness));
             Trace = new HandDriveTrace(rawTarget, target, glove, gloveVelocity.Length(), desired.Length(), cap, force.Length());
             return (force, ClampLength(force, armForce));
         }

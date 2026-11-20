@@ -56,10 +56,10 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
     /// <param name="RangeName">reach（届く）・far（半歩遠い）は胸と胸の間 <paramref name="Range"/> [腕]。chin は「腕が伸びきったときに拳の先がちょうどあごに触れる」間合い
     /// （右肩からあごまで = 腕の長さ + グローブの半径。<paramref name="Range"/> は使わない）。</param>
     /// <param name="Depth">頭の向こう側へ置く奥行き [m]（<see cref="PunchLabPath.Beyond"/>）。</param>
-    /// <param name="NoClamp">拳の目標を肩から腕の長さの球へ縮めない反事実（<see cref="FighterTuning.ClampHandTarget"/> = false。測るだけ）。</param>
-    internal readonly record struct Setup(PunchLabPath Path, string Defender, string RangeName, float Range, bool NoCap, AimGoal Aim = AimGoal.Chin, float Depth = 0f, bool NoClamp = false)
+    /// <param name="Clamp">拳を引く指令の目標を肩から腕の長さの球へ縮める前の体（PhysicsVersion 62 まで、<see cref="FighterTuning.ClampHandTarget"/> = true。測るだけ）。</param>
+    internal readonly record struct Setup(PunchLabPath Path, string Defender, string RangeName, float Range, bool NoCap, AimGoal Aim = AimGoal.Chin, float Depth = 0f, bool Clamp = false)
     {
-        public string Label => $"{PathName(Path)}{(Path == PunchLabPath.Beyond ? $" {Depth * 100f:0} cm" : "")}{(Aim == AimGoal.Chin || Path == PunchLabPath.Beyond ? "" : "（狙い: 頭の真ん中）")}{(NoCap ? "（上限なし）" : "")}{(NoClamp ? "（縮めなし）" : "")} / {(Defender == "still" ? "守らない" : "ガード")} / {RangeName switch { "reach" => "届く", "chin" => "伸びきりであご", _ => "半歩遠い" }}";
+        public string Label => $"{PathName(Path)}{(Path == PunchLabPath.Beyond ? $" {Depth * 100f:0} cm" : "")}{(Aim == AimGoal.Chin || Path == PunchLabPath.Beyond ? "" : "（狙い: 頭の真ん中）")}{(NoCap ? "（上限なし）" : "")}{(Clamp ? "（縮める）" : "")} / {(Defender == "still" ? "守らない" : "ガード")} / {RangeName switch { "reach" => "届く", "chin" => "伸びきりであご", _ => "半歩遠い" }}";
     }
 
     /// <summary>拳を目標へ引いた 1 歩（打ち出しからの時刻・縮める前と後の目標と拳の距離・欲しかった力・力の上限・実際の力・拳の速さ）。</summary>
@@ -112,7 +112,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
             _range = setup.Range;
             Setup = setup;
             ControlFactory defender = setup.Defender == "still" ? _ => new StandGuard(GuardPosture.LowGuard) : s => new BoxerBot(GuardStyle(setup.Range).Validated(), s);
-            var tuning = new FighterTuning { MaxTargetSpeed = setup.NoCap ? NoCapSpeed : new FighterTuning().MaxTargetSpeed, ClampHandTarget = !setup.NoClamp };
+            var tuning = new FighterTuning { MaxTargetSpeed = setup.NoCap ? NoCapSpeed : new FighterTuning().MaxTargetSpeed, ClampHandTarget = setup.Clamp };
             Game = new BoxingGame(tuning, seed, new BoxingCorners(setup.Defender, defender));
             _puncher = new Puncher(setup.Path, telegraph, setup.Aim, setup.Depth);
         }
