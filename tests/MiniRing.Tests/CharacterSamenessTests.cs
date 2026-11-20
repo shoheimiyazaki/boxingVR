@@ -7,6 +7,7 @@ namespace MiniRing.Tests;
 /// <summary>
 /// E0: 教育が空なら、名簿を 1 人 1 ファイルにしても試合はビット単位で同じ（CLAUDE.md §1.8・§1.6）。
 /// 期待値は characters.json の時代に <see cref="CharacterSamenessProbe"/> で取ったチェックサム（途中と最後）。
+/// PhysicsVersion 56 で、グローブが本物の形（手の格子 + 4 mm の外形。形・質量・間合いが変わる）になったので、グローブ・こんぼう・はめる物を使う組（glove-glove-*・karate-swarmer-noref・club-bare-noref・katar-gauntlet-referee・single-counter-vs-knuckles-noref・w-club-*・w-longsword-club-referee。戦略の層ありの glove-glove-*・karate-swarmer-noref・katar-gauntlet-referee、教科書を鍛えた w-club-katana-noref・w-longsword-club-referee も）だけ取り直した（2026-11-19。刀・ロングソード同士・剣と空手の組はビット単位で同じ。raytrek の CharacterSamenessProbe）。
 /// PhysicsVersion 53 で、はめる物（メリケンサック・カタール・籠手）を使う 2 組（katar-gauntlet-referee・single-counter-vs-knuckles-noref。教育なしの値と、戦略の層ありの katar-gauntlet-referee）だけ取り直した（2026-11-19: はめる物の中の拳が 13 mm の球から手の格子へ。物の形・質量・当たりが変わる。ほかの組はビット単位で同じ。raytrek の CharacterSamenessProbe）。
 /// PhysicsVersion 51 で全部を取り直した（2026-11-19: ブランチ claude/hand-voxels の素手の拳（5 mm のセル・幅 40 mm・木の物性）を master の 50 と合わせた。tower32 の CharacterSamenessProbe）。
 /// PhysicsVersion 40 で取り直した（2026-11-17: 脚の骨の端を骨の胴と同じ太さにした・体が支える質量から外れた部位を除く・倒れている間の手を腰が戻ったら床から離す。グローブ同士のレフェリーなし・こんぼう同士は同じ。LegLossProbe.Probe_WhichRecordedMatchesLoseALimb）。その前は PhysicsVersion 39 で、腕・脚を失う試合だけ取り直した（2026-11-17: 脚を失っても残った脚の長さで立って戦い続ける・切り株の筋肉の断面を切れ目の手前だけで測る。腕も脚も失わない試合（グローブ同士・ロングソード同士など）はビット単位で同じことを確かめた: LegLossProbe.Probe_WhichRecordedMatchesLoseALimb）。その前は PhysicsVersion 38・LogicVersion 38 で取り直した（2026-11-17: スタミナを臨界パワーのモデルに・休む間の足と手数・拳の狙い・肘の締め）。その前は PhysicsVersion 37・LogicVersion 36（2026-11-16。37 はスタミナの容量を倍。36 の理由: スタミナの蓄え・供給を筋肉の量に比例させた（体格のあるキャラの試合が変わる）のと、弱った相手を詰める層を既定にした（ボットの立ち回りが変わる）。その前は PhysicsVersion 35・LogicVersion 32 で取り直した（前は PhysicsVersion 34）。理由: 素手を指の関節で組み直した（素手の質量・形が変わる）のと、急所の狙いの点を実際のセルから求めるようにした（ボットの狙いが変わる）。katana-longsword の途中（half）だけは手も急所も関わらず値が同じ。
@@ -52,6 +53,9 @@ public sealed class CharacterSamenessTests
         ["single-karate-vs-katana"] = (0xE81C08CB81EFC757, 0x09DBFD4EB28143F3),
     };
 
+    // 注（2026-11-19、PhysicsVersion 60: master の 59（剣の枝・CT の体）と glove-v2 の 58 のマージ。58 はグローブを前の球と同じ大きさの本物の形に作り直した。手の格子は入れない）。全部の表を CharacterSamenessProbe で取り直した: グローブをはめる組（拳の組・こんぼうの組・剣の組の拳の側）の表を、
+    // CharacterSamenessProbe で取り直した（Expected = NOPLAN-LEGACY、ExpectedWeapons = LEGACY、ExpectedAdopted・ExpectedGamePlan = SAME）。
+    // グローブの形・質量・大きさが変わるので、グローブが当たる試合はどれも変わる（剣・刀の組のうち拳が絡まない記録の一部は同じ値のまま）。
     // 注（2026-11-19、master に claude/face-f2 を入れた所: PhysicsVersion 57・LogicVersion 55）: 顔の層・手の層（ff63a89）と、master の spacing（拳・肘の狙い）・
     // 中継の直し 2（VFC の檻の選び方）・CT の動脈の材質が重なったので、全部の表を CharacterSamenessProbe で取り直した。
     // 注（LogicVersion 47:間合いの内側の技を試合で使い、同じ間合いの技の選びを重みで引くようにしたので、剣を握る組の LEGACY・SAME を取り直した。拳・こんぼう同士の組は元のまま一致）。

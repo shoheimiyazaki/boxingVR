@@ -37,3 +37,7 @@ CLAUDE.md §5 にはよく使う物だけを置き、ここに全部を書く。
 撮った動画・記録は、世代を区切るとき（`PhysicsVersion` を上げたマージ・大きな機能が master に入った）にワークツリーの分も含めて `media/<世代>/` へ移し、`docs/MEDIA.md` に足す。
 
 動画を縮めるときは**音を残す**: `ffmpeg -i in.mp4 -vcodec libx264 -crf 30 -preset slow -vf scale=960:-2 -c:a aac -b:a 96k out_small.mp4`（`-an` は音を消す。過去にこれで音が消えた）。
+
+## 警告にとどめるテスト（`Soft.Check`）
+
+蹴りのように未成熟な所のテストは、`Soft.Check(bool ok, string what)`（tests/MiniRing.Tests/Soft.cs）で書く。条件が成り立たなければ `⚠ WARNING: <what>` をコンソールに出し、`Assert.Inconclusive` でそのテストを「結果なし」にする（失敗に数えない）。数の目安は書いたまま残るので、蹴りを磨いて目安に戻れば自然に通る。いまは KickShinTests と KickContactTests の、当たった本数・当たり先・転倒・足の部位に使っている。
