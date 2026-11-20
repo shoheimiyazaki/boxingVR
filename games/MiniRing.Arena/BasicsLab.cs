@@ -30,7 +30,7 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
     /// </summary>
     public static DefenseMove SlipOutside { get; } = new()
     {
-        Outside = true, HeadX = 0.4f, HeadY = -0.5f, HeadZ = 0.05f, Duration = 0.35f, Rate = 30f,
+        Outside = true, HeadX = 0.4f, HeadY = -0.5f, HeadZ = 0.05f, Duration = 0.5874f, Rate = 17.87f,
         HandsUp = 0.3f, GloveAnchor = 0f, GloveWidth = 0.1f, GloveHeight = -0.03f, GloveForward = 0.25f,
         VsStraight = 1f,
     };
@@ -39,9 +39,9 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
     /// 技ごとの形（予測編 P7。頭を元の大きさに戻し、ずっとしゃがまないように磨き直す）。
     /// <list type="bullet">
     /// <item>スリップ: ストレートの外側へ、頭を斜め下へ滑らせる（横と下が同じくらい。後ろへ反らすとスウェーに見えるので、後ろは少しまで）。
-    /// 体は目標から遅れる（formlab で 100 ms に 3 cm）ので、目標は大きく取り、足も横へ運ぶ（2026-11-15、ユーザーの指摘「頭の動きが足りない」）。</item>
+    /// 体は目標から遅れる（formlab で 100 ms に 3 cm、人形の単位）ので、目標は大きく取り、足も横へ運ぶ（2026-11-15、ユーザーの指摘「頭の動きが足りない」）。</item>
     /// <item>ウィービング: 鉄棒をくぐるように、前へ出ながら頭を前へ下げ・腰を落として U 字に沈み、来るフックの反対側へ抜けて起き上がる
-    /// （頭を後ろへ引くとスウェーに見える。前へ出ないと沈みが浅く横へ抜けない。formlab: 前 12 cm・沈み 16 cm・横 13 cm）。</item>
+    /// （頭を後ろへ引くとスウェーに見える。前へ出ないと沈みが浅く横へ抜けない。formlab: 前 12 cm・沈み 16 cm・横 13 cm、人形の単位）。</item>
     /// <item>ローリング: フックの進む向きへ頭を流しながら浅く沈む。</item>
     /// <item>ダッキング: 腰から前へ折って短く深く沈み、すぐ起き上がる。拳は頭と一緒に下げる（構えの高さに残すと、拳が頭の上へ離れて万歳に見えた）。</item>
     /// </list>
@@ -58,7 +58,7 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
         {
             Sweep = true, Outside = false,
             HeadX = Math.Clamp(m.HeadX, -0.6f, 0f), EndX = Math.Clamp(m.EndX, 0.4f, 1f), HeadY = Math.Clamp(m.HeadY, -0.9f, -0.5f),
-            Duration = Math.Clamp(m.Duration, 0.25f, 0.5f), HeadZ = Math.Clamp(m.HeadZ, 0.15f, 0.5f), Move = Math.Clamp(m.Move, 0f, 1f),
+            Duration = Math.Clamp(m.Duration, 0.4196f, 0.8392f), HeadZ = Math.Clamp(m.HeadZ, 0.15f, 0.5f), Move = Math.Clamp(m.Move, 0f, 1f),
         }).Validated(),
         Defense.Roll => (m with
         {
@@ -67,7 +67,7 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
         }).Validated(),
         Defense.Duck => (m with
         {
-            Sweep = false, HeadY = Math.Clamp(m.HeadY, -0.7f, -0.35f), Duration = Math.Clamp(m.Duration, 0.15f, 0.35f), HeadZ = Math.Clamp(m.HeadZ, 0f, 0.35f),
+            Sweep = false, HeadY = Math.Clamp(m.HeadY, -0.7f, -0.35f), Duration = Math.Clamp(m.Duration, 0.2518f, 0.5874f), HeadZ = Math.Clamp(m.HeadZ, 0f, 0.35f),
             GloveAnchor = Math.Clamp(m.GloveAnchor, 0f, 0.2f),
         }).Validated(),
         _ => m.Validated(),
@@ -78,7 +78,7 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
     /// 減点なしで磨くと、どの技も深く長く沈む形になり、試合の 3 割をしゃがんで過ごした（予測編 P7）。
     /// </summary>
     public static float CrouchPenalty(DefenseMove m)
-        => 0.8f * MathF.Max(0f, -m.HeadY - 0.25f) * (m.Duration / 0.35f) * (m.Sweep ? 0.5f : 1f);
+        => 0.8f * MathF.Max(0f, -m.HeadY - 0.25f) * (m.Duration / 0.5874f) * (m.Sweep ? 0.5f : 1f);
 
     /// <summary>構えだけを比べる（守らない受け手が、頭に何割もらうか）。高さ × 左右の開き × 前への出し。</summary>
     public void GuardSurvey(IReadOnlyList<float> heights, IReadOnlyList<float> widths, IReadOnlyList<float> reaches)
@@ -196,7 +196,7 @@ internal sealed class BasicsLab(string punch, Defense slot, int bouts, float sec
 
     /// <summary>
     /// 合図の遅れが複数なら、全部で測って足し合わせる（1 つの遅れだけで磨くと、その時だけ当たらない形になった:
-    /// 0.04 秒で頭 0 % の形が、0 秒で 41 %・0.08 秒で 55 %。回避の基本動作 B4）。
+    /// 0.04 秒で頭 0 % の形が、0 秒で 41 %・0.08 秒で 55 %。回避の基本動作 B4、人形の単位）。
     /// </summary>
     private PunchDrillResult Evaluate(BotStyle defender, Defense? defense, int evalSeed)
         => cues is null || cues.Count == 0

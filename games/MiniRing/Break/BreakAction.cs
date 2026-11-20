@@ -97,8 +97,8 @@ public sealed record HandPath(HandAnchor Anchor, Path3 Path);
 /// <param name="NeedsPartner">相手が立っているときだけ選べる動作（握手・拍手など、相手がいて成り立つ動作）。</param>
 public sealed record BreakAction(
     string Name, float Seconds, PropKind? Prop, HandPath Main, HandPath? Other, Path3 Head, Path3 Twist, Path3 FaceYaw, BreakWeights Weights,
-    float Lead = 0.9f, float Release = 0.8f, PropHold Hold = default,
-    BreakScene Scenes = BreakScene.Break, BreakVapor? Vapor = null, float Stride = 0f, float Standoff = 0.9f, bool NeedsPartner = false);
+    float Lead = 1.511f, float Release = 1.343f, PropHold Hold = default,
+    BreakScene Scenes = BreakScene.Break, BreakVapor? Vapor = null, float Stride = 0f, float Standoff = 2.535f, bool NeedsPartner = false);
 
 /// <summary>動作を行う場面: 試合の始め（入場してから最初のゴングまで）・ラウンドの間の休み・試合の終わり（決着の後）。複数の場面で選べる動作は和で持つ。</summary>
 [Flags]

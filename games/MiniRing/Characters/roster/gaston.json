@@ -101,22 +101,22 @@
     "style": {
       "BreakLikes": { "bow": 3, "blowkiss": 3, "mirror": 3, "salute": 2, "selfie": 2, "hum": 2, "wave": 2, "pointcrowd": 1.5, "applause": 1.5, "energydrink": 0.3, "jelly": 0.4 },
       "GamePlan": {
-        "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 13.43, "Pressure": 1,
         "Own": [
-          { "Cm": 17, "Dealt": 15.125, "Taken": 12.666 },
-          { "Cm": 19, "Dealt": 19.744, "Taken": 13.062 },
-          { "Cm": 21, "Dealt": 21.031, "Taken": 12.193 },
-          { "Cm": 23, "Dealt": 16.542, "Taken": 10.319 },
-          { "Cm": 25, "Dealt": 11.347, "Taken": 8.108 },
-          { "Cm": 27, "Dealt": 5.462, "Taken": 8.06 },
-          { "Cm": 29, "Dealt": 2.902, "Taken": 6.322 },
-          { "Cm": 31, "Dealt": 1.518, "Taken": 4.476 },
-          { "Cm": 33, "Dealt": 0.575, "Taken": 2.201 },
-          { "Cm": 35, "Dealt": 0.335, "Taken": 1.38 },
-          { "Cm": 37, "Dealt": 0.052, "Taken": 1.331 },
-          { "Cm": 39, "Dealt": 0, "Taken": 0.574 },
-          { "Cm": 41, "Dealt": 0, "Taken": 0.64 },
-          { "Cm": 43, "Dealt": 0, "Taken": 0.312 }
+          { "Cm": 47.89, "Dealt": 9.012, "Taken": 7.547 },
+          { "Cm": 53.52, "Dealt": 11.764, "Taken": 7.783 },
+          { "Cm": 59.15, "Dealt": 12.531, "Taken": 7.265 },
+          { "Cm": 64.79, "Dealt": 9.856, "Taken": 6.148 },
+          { "Cm": 70.42, "Dealt": 6.761, "Taken": 4.831 },
+          { "Cm": 76.06, "Dealt": 3.254, "Taken": 4.802 },
+          { "Cm": 81.69, "Dealt": 1.729, "Taken": 3.767 },
+          { "Cm": 87.32, "Dealt": 0.904, "Taken": 2.667 },
+          { "Cm": 92.96, "Dealt": 0.343, "Taken": 1.311 },
+          { "Cm": 98.59, "Dealt": 0.2, "Taken": 0.822 },
+          { "Cm": 104.23, "Dealt": 0.031, "Taken": 0.793 },
+          { "Cm": 109.86, "Dealt": 0, "Taken": 0.342 },
+          { "Cm": 115.49, "Dealt": 0, "Taken": 0.381 },
+          { "Cm": 121.13, "Dealt": 0, "Taken": 0.186 }
         ]
       }
     },

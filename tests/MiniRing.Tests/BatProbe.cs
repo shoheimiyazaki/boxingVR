@@ -17,11 +17,11 @@ public sealed class BatProbe
     [TestCategory("Probe")]
     public void CellsPerBlow()
     {
-        // 拳: 最強のボット同士の 30 秒。打たれた歩の前後で、打たれた側のセルの減りを数える。
+        // 拳: 最強のボット同士の 50 秒（人形の 30 秒）。打たれた歩の前後で、打たれた側のセルの減りを数える。
         var punches = new List<(float Damage, int Cells)>();
         using (var game = new BoxingGame(seed: 1, corners: new BoxingCorners("champion", s => BotCatalog.Create("champion", s), s => BotCatalog.Create("slugger", s))))
         {
-            for (var i = 0; i < 240 * 30 && !game.RoundOver; i++)
+            for (var i = 0; i < 12084 && !game.RoundOver; i++)
             {
                 var before = (Cells(game.Player), Cells(game.Cpu));
                 game.Step(default, 1f / 240f);
@@ -42,7 +42,7 @@ public sealed class BatProbe
 
         foreach (var family in ClubBot.OneHanded.Append(SwingFamily.Bat))
         {
-            var r = SwingTest.Run(WeaponSwing.Default(family), 0.38f);
+            var r = SwingTest.Run(WeaponSwing.Default(family), 1.070f);
             Console.WriteLine($"{family} 出発点: power {r.Power:0.000} part {r.Part} cells {r.Cells:0} momentum {r.Impulse:0.00} hitSpeed {r.HitTipSpeed:0.0} tip {r.TipSpeed:0.0} miss {r.HeadMiss * 100f:0.0}cm");
         }
 
@@ -65,11 +65,11 @@ public sealed class BatProbe
     [TestCategory("Probe")]
     public void TheBatStance()
     {
-        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => new ClubBot([WeaponSwing.Default(SwingFamily.Bat)], 1, rest: 1000f, range: 0.1f), PlayerWeapon: WeaponKind.WoodenClub, PlayerTwoHanded: true));
-        for (var t = 0f; t < 2f; t += 1f / 240f)
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => new ClubBot([WeaponSwing.Default(SwingFamily.Bat)], 1, rest: 1000f, range: 0.2817f), PlayerWeapon: WeaponKind.WoodenClub, PlayerTwoHanded: true));
+        for (var t = 0f; t < 3.357f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
-            if (MathF.Abs(t % 0.25f) < 1f / 240f)
+            if (MathF.Abs(t % 0.4196f) < 1f / 240f)
             {
                 var club = game.WeaponOf(game.Player)!;
                 var s = game.World.GetState(club.Body.BodyId);
@@ -86,7 +86,7 @@ public sealed class BatProbe
     public void OneHandVersusTwo()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "../../../../../docs/arena/bat_swings.json");
-        var swings = new List<(WeaponSwing Swing, float Range)> { (WeaponSwing.Default(SwingFamily.Bat), 0.38f) };
+        var swings = new List<(WeaponSwing Swing, float Range)> { (WeaponSwing.Default(SwingFamily.Bat), 1.070f) };
         if (File.Exists(path))
         {
             swings.AddRange(System.Text.Json.JsonSerializer.Deserialize<List<Saved>>(File.ReadAllText(path), Json)!.Select(s => (s.Swing, s.Range)));
@@ -129,7 +129,7 @@ public sealed class BatProbe
             list.AddRange(System.Text.Json.JsonSerializer.Deserialize<List<Saved>>(File.ReadAllText(path), Json)!.Select(s => (s.Swing, s.Range)));
         }
 
-        list.AddRange(ClubBot.OneHanded.Append(SwingFamily.Bat).Select(f => (WeaponSwing.Default(f), 0.38f)));
+        list.AddRange(ClubBot.OneHanded.Append(SwingFamily.Bat).Select(f => (WeaponSwing.Default(f), 1.070f)));
         foreach (var (swing, range) in list)
         {
             var hits = new List<WeaponHitEvent>();

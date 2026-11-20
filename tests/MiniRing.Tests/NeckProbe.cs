@@ -21,18 +21,18 @@ public sealed class NeckProbe
         var lastHeadHit = new Dictionary<Fighter, float> { [game.Cpu] = -9f, [game.Player] = -9f };
         var watch = new List<(Fighter F, float Energy, float Until, float Peak)>();
         var snaps = new List<(float Energy, float Peak)>();
-        for (var t = 0f; t < 60f; t += Dt)
+        for (var t = 0f; t < 100.7f; t += Dt)
         {
             game.Step(default, Dt);
             foreach (var hit in game.RecentHits.Where(h => h.Zone is HitZone.Head or HitZone.Temple or HitZone.Chin))
             {
                 lastHeadHit[hit.Victim] = t;
-                watch.Add((hit.Victim, 0.5f * hit.ImpactMass * hit.Speed * hit.Speed, t + 0.3f, 0f));
+                watch.Add((hit.Victim, 0.5f * hit.ImpactMass * hit.Speed * hit.Speed, t + 0.504f, 0f));
             }
 
             foreach (var f in new[] { game.Cpu, game.Player })
             {
-                if (f.State == FighterState.Standing && t - lastHeadHit.GetValueOrDefault(f, -9f) > 1f && t > 2f)
+                if (f.State == FighterState.Standing && t - lastHeadHit.GetValueOrDefault(f, -9f) > 1.678f && t > 3.357f)
                 {
                     idle.Add(Tilt(game, f));
                 }
@@ -60,7 +60,7 @@ public sealed class NeckProbe
         Console.WriteLine($"end: relative axis in chest frame {axisChest} angle {Deg(2f * MathF.Acos(Math.Clamp(MathF.Abs(q.W), 0f, 1f))):0.0}°, cpu state {game.Cpu.State}");
         idle.Sort();
         Console.WriteLine($"idle head-to-chest tilt: median {Deg(idle[idle.Count / 2]):0.0}°, 90th {Deg(idle[(int)(idle.Count * 0.9f)]):0.0}°, 99th {Deg(idle[(int)(idle.Count * 0.99f)]):0.0}°");
-        foreach (var (lo, hi) in new[] { (0f, 2f), (2f, 5f), (5f, 10f), (10f, 99f) })
+        foreach (var (lo, hi) in new[] { (0f, 56.3f), (56.3f, 140.8f), (140.8f, 281.7f), (281.7f, 2789f) })
         {
             var band = snaps.Where(s => s.Energy >= lo && s.Energy < hi).Select(s => s.Peak).OrderBy(p => p).ToList();
             if (band.Count > 0)
@@ -80,7 +80,7 @@ public sealed class NeckProbe
         var f = game.Cpu;
         float headBack0 = 0f, chest0 = 0f, pelvis0 = 0f;
         float maxBack = 0f, chestAt = 0f, pelvisAt = 0f, neckAt = 0f;
-        for (var t = 0f; t < 4f; t += Dt)
+        for (var t = 0f; t < 6.714f; t += Dt)
         {
             swayer!.Time = t;
             if (MathF.Abs((t * 4f) - MathF.Round(t * 4f)) < Dt * 2f)
@@ -90,7 +90,7 @@ public sealed class NeckProbe
 
             game.Step(default, Dt);
             var back = -Vector3.Dot(f.HeadPosition - f.Frame.Origin, f.Frame.Forward);
-            if (t < 1.99f)
+            if (t < 3.340f)
             {
                 headBack0 = back;
                 chest0 = Pitch(game, f, f.Parts.Chest);
@@ -108,7 +108,7 @@ public sealed class NeckProbe
         Console.WriteLine($"sway: head back {maxBack:0.000} m; chest leaned back {Deg(chestAt):0.0}°, pelvis {Deg(pelvisAt):0.0}°, head on the neck {Deg(neckAt):0.0}° (positive = back)");
     }
 
-    /// <summary>2 秒目から 0.35 秒かけて頭を後ろへ（スウェーと同じ量）、0.4 秒保って戻す。</summary>
+    /// <summary>3.36 秒目から 0.59 秒かけて頭を後ろへ（スウェーと同じ量）、0.67 秒保って戻す。</summary>
     private sealed class Swayer(IFighterControl inner) : IFighterControl
     {
         public float Time { get; set; }
@@ -116,7 +116,7 @@ public sealed class NeckProbe
         public FighterCommand Read(in FighterSense sense, float dt)
         {
             var c = inner.Read(sense, dt);
-            var a = Math.Clamp((Time - 2f) / 0.35f, 0f, 1f) * (Time < 2.75f ? 1f : Math.Clamp(1f - ((Time - 2.75f) / 0.35f), 0f, 1f));
+            var a = Math.Clamp((Time - 3.357f) / 0.587f, 0f, 1f) * (Time < 4.616f ? 1f : Math.Clamp(1f - ((Time - 4.616f) / 0.587f), 0f, 1f));
             return c with { HeadOffset = c.HeadOffset + new Vector3(0f, 0.02f, -0.38f) * (a * sense.ArmReach) };
         }
     }

@@ -14,7 +14,7 @@ internal static class TvScout
     /// <summary>種ごとに試合を回した結果（種の順）。</summary>
     public static IReadOnlyList<TvScoutResult> Run(Contender red, Contender blue, HandWear redWear, HandWear blueWear, WeaponKind? redWeapon, WeaponKind? blueWeapon,
         int rounds, IEnumerable<int> seeds, float speed, int fps,
-        MiniRing.Characters.FighterCharacter? redCharacter = null, MiniRing.Characters.FighterCharacter? blueCharacter = null, bool referee = true, float breakSeconds = 10f, Organization? org = null)
+        MiniRing.Characters.FighterCharacter? redCharacter = null, MiniRing.Characters.FighterCharacter? blueCharacter = null, bool referee = true, float breakSeconds = 16.78f, Organization? org = null)
     {
         org ??= Organization.Default;
         var rules = TvShowRules.Rules(rounds, breakSeconds, org);
@@ -34,7 +34,7 @@ internal static class TvScout
             bool redWasDown = false, blueWasDown = false;
             var time = 0f;
             float bothDown = 0f, bothDownRun = 0f, longestBothDown = 0f;
-            while (!game.MatchOver && time < rules.TotalSeconds + 5f)
+            while (!game.MatchOver && time < rules.TotalSeconds + 8.392f)
             {
                 game.Step(default, stepDt);
                 time += stepDt;

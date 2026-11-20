@@ -9,7 +9,7 @@ using MiniRing.Voxels;
 namespace MiniRing.Tests;
 
 /// <summary>
-/// 頭の顔の層（F2、<see cref="FaceLayer"/>）: 頭の剛体に重ねた 2.5 mm の格子が頭蓋骨の外を持ち、5 mm の頭は頭蓋骨・脳・首の中だけ。
+/// 頭の顔の層（F2、<see cref="FaceLayer"/>）: 頭の剛体に重ねた 7 mm の格子が頭蓋骨の外を持ち、14 mm の頭は頭蓋骨・脳・首の中だけ。
 /// 脳のセルは変わらない・同じものを 2 回持たない・目は顔の層にあり見えを決める・打撃は顔の層を削る、を確かめる。
 /// </summary>
 [TestClass]
@@ -73,7 +73,7 @@ public sealed class FaceLayerTests
             var removed = full.FilledCount - inner.FilledCount;
             var faceVolume = face.FilledCount * FaceLayer.CellVolumeRatio;
             Console.WriteLine($"{id}: face layer {faceVolume:F1} vs removed outer head {removed} (5 mm cells), ratio {faceVolume / removed:F2}");
-            Assert.IsInRange(0.8f, 1.7f, faceVolume / removed, $"{id}: face layer {faceVolume:F1} vs removed outer head {removed} (5 mm cells)");
+            Assert.IsInRange(0.8f, 1.7f, faceVolume / removed, $"{id}: face layer {faceVolume:F1} vs removed outer head {removed} (14 mm cells)");
             Assert.IsGreaterThan(0, face.Remaining(BoxerAnatomy.Eye) + face.Remaining(BoxerAnatomy.Pupil), $"{id}: the eyes are in the face layer");
         }
     }

@@ -18,7 +18,7 @@ public sealed class JointBridgeTests
     private static BoxingGame StandingGame()
     {
         var game = new BoxingGame(FighterTuning.Default, 1, new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard()));
-        for (var i = 0; i < 60; i++)
+        for (var i = 0; i < 101; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -142,9 +142,9 @@ public sealed class JointBridgeTests
         // つなぎ無し → 有りで 断たれない → 断たれる行に置き換えた（RightKnee front +3 mm 3.4 m/s bend -40: 近くの削れ 58 → 77）。
         var rows = new[]
         {
-            (HumanoidRagdoll.RagdollJoint.RightKnee, "front", 0.003f, 3.4f, -40f),
-            (HumanoidRagdoll.RagdollJoint.LeftKnee, "front", 0.005f, 9f, 40f),
-            (HumanoidRagdoll.RagdollJoint.RightKnee, "front", 0.005f, 9f, -40f),
+            (HumanoidRagdoll.RagdollJoint.RightKnee, "front", 0.008451f, 5.707f, -40f),
+            (HumanoidRagdoll.RagdollJoint.LeftKnee, "front", 0.01408f, 15.11f, 40f),
+            (HumanoidRagdoll.RagdollJoint.RightKnee, "front", 0.01408f, 15.11f, -40f),
         };
         foreach (var (joint, dir, offset, speed, bend) in rows)
         {
@@ -167,8 +167,8 @@ public sealed class JointBridgeTests
     {
         foreach (var bend in new[] { 0f, 40f, -80f })
         {
-            var without = JointLab.SlashOnce(HumanoidRagdoll.RagdollJoint.RightElbow, "front", 0f, 9f, bridges: false, bend);
-            var with = JointLab.SlashOnce(HumanoidRagdoll.RagdollJoint.RightElbow, "front", 0f, 9f, bridges: true, bend);
+            var without = JointLab.SlashOnce(HumanoidRagdoll.RagdollJoint.RightElbow, "front", 0f, 15.11f, bridges: false, bend);
+            var with = JointLab.SlashOnce(HumanoidRagdoll.RagdollJoint.RightElbow, "front", 0f, 15.11f, bridges: true, bend);
             TestContext.WriteLine($"elbow bend {bend}: without {without}; with {with}");
             Assert.AreEqual(0, with.BridgeCells, $"bend {bend}: the elbow parts overlap, nothing to bridge");
             Assert.AreEqual(without, with, $"bend {bend}: no bridge cells, so the same cut");
@@ -184,7 +184,7 @@ public sealed class JointBridgeTests
     [TestCategory("slow")]
     public void TheAnkle_HasABridge_ThatABladeThroughTheGapTouches()
     {
-        var with = JointLab.SlashOnce(HumanoidRagdoll.RagdollJoint.LeftAnkle, "front", 0f, 9f, bridges: true, 40f, "forward");
+        var with = JointLab.SlashOnce(HumanoidRagdoll.RagdollJoint.LeftAnkle, "front", 0f, 15.11f, bridges: true, 40f, "forward");
         TestContext.WriteLine($"ankle: {with}");
         Assert.IsGreaterThan(0, with.BridgeCells, "the bent ankle has a gap that the bridge fills");
         Assert.IsTrue(with.Touched, "the blade touches the ankle");
@@ -208,7 +208,7 @@ public sealed class JointBridgeTests
         // 62（シンプルな顔: 頭の形を頭蓋とあごの塊の距離の場に）: あごの下・首の付け根の顔の層の形が変わったので取り直した（同じ necklab を -6..+6 mm、1 mm 刻み・3.4 m/s で。
         // 表は docs/arena/necklab_slash_tilt35_v62_on.md・_off.md。つなぎ無しは頭が残り、有りは落ちる振り: side +1 mm（首の削れ 6 → 33）・front 0 mm（4 → 12）。
         // ほかに side +5、front +4、back -6・+2 も同じ）。
-        foreach (var (dir, offset, speed) in new[] { ("side", 0.001f, 3.4f), ("front", 0f, 3.4f) })
+        foreach (var (dir, offset, speed) in new[] { ("side", 0.002817f, 5.707f), ("front", 0f, 5.707f) })
         {
             var without = NeckLab.SlashOnce(dir, offset, speed, bridges: false, tiltDegrees: 35f, armsDown: true);
             var with = NeckLab.SlashOnce(dir, offset, speed, bridges: true, tiltDegrees: 35f, armsDown: true);

@@ -7,8 +7,8 @@ public sealed class FistParryTests
     [TestMethod]
     public void Parry_SweepsAcrossTheIncomingFist_WithoutMovingTheHead()
     {
-        var sense = new FighterSense(new BodyFrame(Vector3.Zero, 0f), 0.19f, new(0f,0f,0.3f), new(0f,0f,0.3f), true,
-            OpponentRight: new(new(0.02f,0.05f,0.12f), new(0f,0f,-0.6f)));
+        var sense = new FighterSense(new BodyFrame(Vector3.Zero, 0f), 0.5352f, new(0f,0f,0.8451f), new(0f,0f,0.8451f), true,
+            OpponentRight: new(new(0.05634f,0.1408f,0.338f), new(0f,0f,-1.007f)));
         var move = DefenseBook.Default.Of(Defense.Parry);
         var start = TechniqueExecution.ParryGlove(move, sense, 1f, 0f);
         var end = TechniqueExecution.ParryGlove(move, sense, 1f, 0.5f);

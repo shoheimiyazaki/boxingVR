@@ -14,7 +14,7 @@ public static class GrazeSound
     public const float Loudness = 0.09f;
 
     /// <summary>この速さで最も明るく大きい [m/s]（パンチの速い所）。</summary>
-    private const float FullSpeed = 4f;
+    private const float FullSpeed = 6.714f;
 
     /// <summary>遅いかすり（0）と速いかすり（1）の長さ [s]。</summary>
     private const float SlowLength = 0.14f;

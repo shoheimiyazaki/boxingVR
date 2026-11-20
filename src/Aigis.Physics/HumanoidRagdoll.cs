@@ -822,10 +822,10 @@ public static partial class HumanoidRagdoll
 
     private static JointGroup AnkleJoint(PhysicsWorld world, RagdollJoint joint, int bodyA, int bodyB, Vector3 anchorWorld, Vector3 posA, Vector3 posB, float radians, float motorScale)
     {
-        var ball = world.AddBallSocket(bodyA, bodyB, anchorWorld - posA, anchorWorld - posB, frequency: 18f, dampingRatio: 1f);
-        var swing = world.AddSwingLimit(bodyA, bodyB, Vector3.UnitY, Vector3.UnitY, AnkleSwingLimitDegrees * radians, frequency: 8f, dampingRatio: 1f);
-        var twist = world.AddTwistLimit(bodyA, bodyB, YAxisTwistBasis, YAxisTwistBasis, -12f * radians, 12f * radians, frequency: 12f, dampingRatio: 1f);
-        var motor = world.AddAngularMotor(bodyA, bodyB, maximumForce: AnkleJointMotorForce * motorScale, softness: 0.02f);
+        var ball = world.AddBallSocket(bodyA, bodyB, anchorWorld - posA, anchorWorld - posB, frequency: 10.72f, dampingRatio: 1f);
+        var swing = world.AddSwingLimit(bodyA, bodyB, Vector3.UnitY, Vector3.UnitY, AnkleSwingLimitDegrees * radians, frequency: 4.767f, dampingRatio: 1f);
+        var twist = world.AddTwistLimit(bodyA, bodyB, YAxisTwistBasis, YAxisTwistBasis, -12f * radians, 12f * radians, frequency: 7.150f, dampingRatio: 1f);
+        var motor = world.AddAngularMotor(bodyA, bodyB, maximumForce: AnkleJointMotorForce * motorScale, softness: 0.03357f);
         return new JointGroup(joint, bodyA, bodyB, ball, swing, [ball, swing, twist, motor], false);
     }
 }

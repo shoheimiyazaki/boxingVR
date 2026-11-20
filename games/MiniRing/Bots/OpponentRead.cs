@@ -5,7 +5,7 @@ namespace MiniRing.Bots;
 /// <summary>
 /// 相手の読み（相手モデル）: 試合の中で相手を見て覚え、「まもなく（<see cref="Window"/> 秒以内に）打ってくるか」と
 /// 「どちらの手で、どの種類か」を見積もる。実際のボクサーが拳を見てからではなく、間合い・リズム・体の動き・癖から
-/// 次の拳を予測して避けるのと同じ考え方（拳は 0.2 秒足らずで届き、見てからの反応では間に合わない）。
+/// 次の拳を予測して避けるのと同じ考え方（拳は 0.34 秒足らずで届き、見てからの反応では間に合わない）。
 /// <para>
 /// 手がかり（特徴）は 5 つ: 間合い、相手の踏み込みの速さ、胴のひねりの速さ（片方の肩が前へ出る）、肩の前への傾きの速さ
 /// （体重移動）、前の拳からの時間（リズム・連打の間）。それぞれを区間に分け、「その区間にいた時、<see cref="Window"/> 秒以内に
@@ -15,21 +15,21 @@ namespace MiniRing.Bots;
 /// </summary>
 internal sealed class OpponentRead
 {
-    /// <summary>予測する先の時間 [s]。溜め（0.05〜0.1 秒）から拳が出るまでを含む長さ。</summary>
-    public const float Window = 0.15f;
+    /// <summary>予測する先の時間 [s]。溜め（0.08〜0.17 秒）から拳が出るまでを含む長さ。</summary>
+    public const float Window = 0.2518f;
 
     /// <summary>拳が出たとみなす、相手の胸に対する拳の外向きの速さ [腕の長さ/s]。</summary>
-    private const float OnsetSpeed = 2f;
+    private const float OnsetSpeed = 1.192f;
 
     /// <summary>拳が戻ったとみなす速さ [腕の長さ/s] と、その速さを下回り続ける時間 [s]。</summary>
-    private const float RestSpeed = 0.8f;
-    private const float RestTime = 0.08f;
+    private const float RestSpeed = 0.4767f;
+    private const float RestTime = 0.1343f;
 
     /// <summary>連打の 2 発目とみなす、前の拳からの時間 [s]。</summary>
-    private const float ComboGap = 0.6f;
+    private const float ComboGap = 1.007f;
 
     /// <summary>手がかりの速さをならす時定数 [s]。</summary>
-    private const float Smoothing = 0.015f;
+    private const float Smoothing = 0.02518f;
 
     /// <summary>予測を出すのに必要な、覚えた拳の数（少ないうちは当て推量になる）。</summary>
     private const int MinOnsets = 6;
@@ -42,10 +42,10 @@ internal sealed class OpponentRead
     private readonly Feature[] _features =
     [
         new("distance", 0.6f, 0.1f, 16),
-        new("closing", -1f, 0.5f, 8),
-        new("twist", -3.2f, 0.4f, 16, body: true),
-        new("lean", -1.2f, 0.4f, 9, body: true),
-        new("since", 0f, 0.1f, 26),
+        new("closing", -0.5958f, 0.2979f, 8), // [腕の長さ/s]（区間の幅も実物大の相似で換算: 1/時間）
+        new("twist", -1.907f, 0.2383f, 16, body: true),
+        new("lean", -0.715f, 0.2383f, 9, body: true),
+        new("since", 0f, 0.1678f, 26), // [s]
     ];
 
     private readonly Queue<Sample> _pending = new();
@@ -316,7 +316,7 @@ internal sealed class OpponentRead
     }
 
     /// <summary>ひねりの向き: 0 = 相手の左肩が前へ、1 = 右肩が前へ、2 = どちらでもない。</summary>
-    private static int TwistSign(float twistRate) => twistRate < -0.4f ? 0 : twistRate > 0.4f ? 1 : 2;
+    private static int TwistSign(float twistRate) => twistRate < -0.2383f ? 0 : twistRate > 0.2383f ? 1 : 2;
 
     private readonly record struct Sample(float Time, int[] Bins, float TwistRate);
 

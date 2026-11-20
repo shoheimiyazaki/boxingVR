@@ -13,11 +13,11 @@ public sealed class BodyCarryTests
     [TestMethod]
     public void BodyCarry_IsTheBodysOwnClosingSpeedOverTheFists()
     {
-        Assert.AreEqual(0f, PunchMechanics.BodyCarry(0f, 3f), 1e-6f, "体が止まって腕だけ伸ばした: 体は何も運ばない");
-        Assert.AreEqual(0.5f, PunchMechanics.BodyCarry(1.5f, 3f), 1e-6f, "体が 1.5 m/s で近づく: 半分");
-        Assert.AreEqual(1f, PunchMechanics.BodyCarry(4f, 3f), 1e-6f, "体の方が速くても 1 まで（腕が縮む分は運ばない）");
-        Assert.AreEqual(0f, PunchMechanics.BodyCarry(-1f, 3f), 1e-6f, "下がりながら打つ体は運ばない");
-        Assert.AreEqual(0f, PunchMechanics.BodyCarry(1f, 0f), 1e-6f, "当たる速さが無ければ 0");
+        Assert.AreEqual(0f, PunchMechanics.BodyCarry(0f, 5.035f), 1e-6f, "体が止まって腕だけ伸ばした: 体は何も運ばない");
+        Assert.AreEqual(0.5f, PunchMechanics.BodyCarry(2.5175f, 5.035f), 1e-6f, "体が 2.52 m/s で近づく: 半分");
+        Assert.AreEqual(1f, PunchMechanics.BodyCarry(6.714f, 5.035f), 1e-6f, "体の方が速くても 1 まで（腕が縮む分は運ばない）");
+        Assert.AreEqual(0f, PunchMechanics.BodyCarry(-1.678f, 5.035f), 1e-6f, "下がりながら打つ体は運ばない");
+        Assert.AreEqual(0f, PunchMechanics.BodyCarry(1.678f, 0f), 1e-6f, "当たる速さが無ければ 0");
     }
 
     /// <summary>
@@ -28,13 +28,13 @@ public sealed class BodyCarryTests
     public void BodyClosingSpeed_BlendsTheStrutAndTheLeverLikeTheCoupling()
     {
         var into = Vector3.UnitZ;
-        var shoulder = new Vector3(0f, 0f, 0.4f);   // クロス: 後ろの肩が回転で前へ
-        var atFist = new Vector3(-1.5f, 0f, 0f);    // 拳の所の胴の回転の速度は横向き
-        Assert.AreEqual(0.4f, PunchMechanics.BodyClosingSpeed(shoulder, atFist, Vector3.Zero, into, into), 1e-5f, "まっすぐの拳は付け根（肩）の速さ");
-        var hookAtFist = new Vector3(0f, 0f, 1.5f); // フック: 腕は横、胴の回転で拳の所が前へ
-        Assert.AreEqual(1.5f, PunchMechanics.BodyClosingSpeed(Vector3.Zero, hookAtFist, Vector3.Zero, Vector3.UnitX, into), 1e-5f, "腕の線が当たる向きに直交するフックは、当たる点の回転の速さ");
+        var shoulder = new Vector3(0f, 0f, 0.6714f);   // クロス: 後ろの肩が回転で前へ
+        var atFist = new Vector3(-2.518f, 0f, 0f);    // 拳の所の胴の回転の速度は横向き
+        Assert.AreEqual(0.6714f, PunchMechanics.BodyClosingSpeed(shoulder, atFist, Vector3.Zero, into, into), 1e-5f, "まっすぐの拳は付け根（肩）の速さ");
+        var hookAtFist = new Vector3(0f, 0f, 2.518f); // フック: 腕は横、胴の回転で拳の所が前へ
+        Assert.AreEqual(2.518f, PunchMechanics.BodyClosingSpeed(Vector3.Zero, hookAtFist, Vector3.Zero, Vector3.UnitX, into), 1e-5f, "腕の線が当たる向きに直交するフックは、当たる点の回転の速さ");
         var diagonal = Vector3.Normalize(new Vector3(1f, 0f, 1f)); // a² = 0.5: 重み 0.5 と 0.275
-        var expected = ((0.5f * 0.4f) + (0.275f * 1.5f)) / 0.775f;
+        var expected = ((0.5f * 0.6714f) + (0.275f * 2.518f)) / 0.775f;
         Assert.AreEqual(expected, PunchMechanics.BodyClosingSpeed(shoulder, hookAtFist, Vector3.Zero, diagonal, into), 1e-5f, "間は連結度と同じ重みで混ぜる");
     }
 
@@ -47,12 +47,12 @@ public sealed class BodyCarryTests
         using var game = new BoxingGame(seed: 3);
         var f = game.Player;
         var dir = Vector3.UnitZ;
-        const float fist = 3f;
-        const float body = 0.6f;
+        const float fist = 5.035f;
+        const float body = 1.007f;
         var carry = PunchMechanics.BodyCarry(body, fist);
         var arm = f.ArmMass(Hand.Right);
         var full = f.ImpactMass(Hand.Right, dir, out _, bodyFactor: 1f) - arm; // 連結度 × 体の有効質量
         var carried = (f.ImpactMass(Hand.Right, dir, out _, bodyFactor: carry) - arm) * fist;
-        Assert.AreEqual(full * body, carried, 1e-4f, "体の分の運動量 = 連結度 × 体の有効質量 × 体自身の速さ");
+        Assert.AreEqual(full * body, carried, 1.7e-3f, "体の分の運動量 = 連結度 × 体の有効質量 × 体自身の速さ");
     }
 }

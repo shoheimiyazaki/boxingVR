@@ -71,11 +71,11 @@ public sealed class PunchBookTests
     [TestMethod]
     public void PartialJson_KeepsDefaultsForWhatIsNotWritten()
     {
-        var style = BotStyle.FromJson("{\"Name\":\"x\",\"Punches\":{\"Cross\":{\"Duration\":0.55}}}");
+        var style = BotStyle.FromJson("{\"Name\":\"x\",\"Punches\":{\"Cross\":{\"Duration\":0.9231}}}");
 
         var cross = style.Punches.Of(Technique.Cross);
-        Assert.AreEqual(0.55f, cross.Duration);
-        var expected = PunchBook.Default.Of(Technique.Cross) with { Duration = 0.55f };
+        Assert.AreEqual(0.9231f, cross.Duration);
+        var expected = PunchBook.Default.Of(Technique.Cross) with { Duration = 0.9231f };
         Assert.AreEqual(expected, cross, "書いていない値（HeadShift・Extend など）は既定のまま");
         foreach (var technique in Enum.GetValues<Technique>().Where(t => t != Technique.Cross))
         {
@@ -126,7 +126,7 @@ public sealed class PunchBookTests
     {
         var slowCross = BotCatalog.Champion with
         {
-            Punches = PunchBook.Default.With(Technique.Cross, PunchBook.Default.Cross with { Duration = 0.6f }),
+            Punches = PunchBook.Default.With(Technique.Cross, PunchBook.Default.Cross with { Duration = 1.007f }),
         };
 
         var plain = Play(BotCatalog.Champion);
@@ -147,7 +147,7 @@ public sealed class PunchBookTests
     {
         using var game = new BoxingGame(seed: 5, corners: new BoxingCorners("champion",
             s => new BoxerBot(champion, s), s => BotCatalog.Create("swarmer", s)));
-        for (var step = 0; step < 1200; step++)
+        for (var step = 0; step < 2014; step++)
         {
             game.Step(default, 1f / 60f);
         }

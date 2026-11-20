@@ -19,7 +19,7 @@ internal static class StickPicture
         var height = Cell * 2;
         var image = new byte[width * height * 3];
         Array.Fill(image, (byte)255);
-        var scale = Cell * 0.8f / 0.6f; // 0.6 m がコマの 8 割
+        var scale = Cell * 0.8f / 1.69f; // 1.69 m（人の大きさの体）がコマの 8 割
         for (var k = 0; k < picks.Length; k++)
         {
             var frame = result.Frames[picks[k]];

@@ -85,21 +85,21 @@ public sealed class OrganizationTests
             var winnerDealt = r.Winner > 0 ? r.RedDealt : r.BlueDealt;
             var loserDealt = r.Winner > 0 ? r.BlueDealt : r.RedDealt;
             score += r.Winner != 0 && winnerDealt < loserDealt ? 4f : 0f;
-            score -= r.Round == 1 && r.RoundTime < 15f ? 6f : 0f;
+            score -= r.Round == 1 && r.RoundTime < 25.18f ? 6f : 0f;
             score -= r.Winner == 0 ? 1f : 0f;
             return score;
         }
 
         foreach (var r in new[]
         {
-            new TvScoutResult(1, "K.O.", true, 3, 20f, 100f, 300f, 2, 1, 1),
-            new TvScoutResult(2, "K.O.", true, 1, 6f, 40f, 0f, 0, 1, 1),
-            new TvScoutResult(3, "DRAW", false, 5, 30f, 100f, 100f, 0, 0, 0),
-            new TvScoutResult(4, "K.O. — BRAIN DESTROYED", true, 5, 12f, 250f, 80f, 3, 0, -1, Death: true),
+            new TvScoutResult(1, "K.O.", true, 3, 33.57f, 100f, 300f, 2, 1, 1),
+            new TvScoutResult(2, "K.O.", true, 1, 10.07f, 40f, 0f, 0, 1, 1),
+            new TvScoutResult(3, "DRAW", false, 5, 50.35f, 100f, 100f, 0, 0, 0),
+            new TvScoutResult(4, "K.O. — BRAIN DESTROYED", true, 5, 20.14f, 250f, 80f, 3, 0, -1, Death: true),
         })
         {
-            Assert.AreEqual(Old(r, 5, 30f), TvShowRules.Drama(r, 5, 30f, Organization.Of("wvc").Drama), 1e-5f);
-            Assert.AreEqual(Old(r, 5, 30f), TvShowRules.Drama(r, 5, 30f), 1e-5f, "重みを渡さなければ WVC");
+            Assert.AreEqual(Old(r, 5, 50.35f), TvShowRules.Drama(r, 5, 50.35f, Organization.Of("wvc").Drama), 1e-5f);
+            Assert.AreEqual(Old(r, 5, 50.35f), TvShowRules.Drama(r, 5, 50.35f), 1e-5f, "重みを渡さなければ WVC");
         }
     }
 
@@ -110,21 +110,21 @@ public sealed class OrganizationTests
         TvScoutResult Death(int round, float roundTime, float redDealt, float blueDealt, int winner, int downs = 0)
             => new(1, "K.O. — BRAIN DESTROYED", true, round, roundTime, redDealt, blueDealt, downs, 0, winner, Death: true);
 
-        var late = Death(5, 20f, 180f, 160f, 1);
-        var early = Death(2, 20f, 180f, 160f, 1);
-        var quick = Death(1, 6f, 40f, 0f, 1);
-        var comeback = Death(4, 15f, 120f, 300f, 1);
-        var oneSided = Death(4, 15f, 300f, 120f, 1);
-        var bothSurvive = new TvScoutResult(2, "DRAW", false, 5, 30f, 180f, 160f, 0, 0, 0);
+        var late = Death(5, 33.57f, 180f, 160f, 1);
+        var early = Death(2, 33.57f, 180f, 160f, 1);
+        var quick = Death(1, 10.07f, 40f, 0f, 1);
+        var comeback = Death(4, 25.18f, 120f, 300f, 1);
+        var oneSided = Death(4, 25.18f, 300f, 120f, 1);
+        var bothSurvive = new TvScoutResult(2, "DRAW", false, 5, 50.35f, 180f, 160f, 0, 0, 0);
 
-        Assert.IsTrue(TvShowRules.Drama(late, 5, 30f, w) > TvShowRules.Drama(early, 5, 30f, w), "後半の死 > 序盤の死");
-        Assert.IsTrue(TvShowRules.Drama(comeback, 5, 30f, w) > TvShowRules.Drama(oneSided, 5, 30f, w), "逆転 > 一方的");
-        Assert.IsTrue(TvShowRules.Drama(early, 5, 30f, w) > TvShowRules.Drama(quick, 5, 30f, w), "第 1 ラウンド 15 秒より前の決着は大きく下がる");
-        Assert.IsTrue(TvShowRules.Drama(late, 5, 30f, w) > TvShowRules.Drama(bothSurvive, 5, 30f, w), "死で決着 > 両者生還");
-        Assert.AreEqual(TvShowRules.Drama(late, 5, 30f, w), TvShowRules.Drama(late with { RedDowns = 4, BlueDowns = 3 }, 5, 30f, w), 1e-5f, "ダウンの数は点にならない");
-        var deep = Death(4, 15f, 250f, 250f, 1);
-        var shallow = Death(4, 15f, 250f, 20f, 1);
-        Assert.IsTrue(TvShowRules.Drama(deep, 5, 30f, w) > TvShowRules.Drama(shallow, 5, 30f, w), "両者が深く傷んでいる方が高い");
+        Assert.IsTrue(TvShowRules.Drama(late, 5, 50.35f, w) > TvShowRules.Drama(early, 5, 50.35f, w), "後半の死 > 序盤の死");
+        Assert.IsTrue(TvShowRules.Drama(comeback, 5, 50.35f, w) > TvShowRules.Drama(oneSided, 5, 50.35f, w), "逆転 > 一方的");
+        Assert.IsTrue(TvShowRules.Drama(early, 5, 50.35f, w) > TvShowRules.Drama(quick, 5, 50.35f, w), "第 1 ラウンド 25 秒より前の決着は大きく下がる");
+        Assert.IsTrue(TvShowRules.Drama(late, 5, 50.35f, w) > TvShowRules.Drama(bothSurvive, 5, 50.35f, w), "死で決着 > 両者生還");
+        Assert.AreEqual(TvShowRules.Drama(late, 5, 50.35f, w), TvShowRules.Drama(late with { RedDowns = 4, BlueDowns = 3 }, 5, 50.35f, w), 1e-5f, "ダウンの数は点にならない");
+        var deep = Death(4, 25.18f, 250f, 250f, 1);
+        var shallow = Death(4, 25.18f, 250f, 20f, 1);
+        Assert.IsTrue(TvShowRules.Drama(deep, 5, 50.35f, w) > TvShowRules.Drama(shallow, 5, 50.35f, w), "両者が深く傷んでいる方が高い");
     }
 
     [TestMethod]
@@ -375,7 +375,7 @@ public sealed class OrganizationVisualTests
     }
 
     private static TvCard Card(Organization org, string red, string blue)
-        => new("ファイトナイト", "第1試合", TvCorner.Of(CharacterRoster.Get(red)), TvCorner.Of(CharacterRoster.Get(blue)), TvShowRules.Rules(5, 25f));
+        => new("ファイトナイト", "第1試合", TvCorner.Of(CharacterRoster.Get(red)), TvCorner.Of(CharacterRoster.Get(blue)), TvShowRules.Rules(5, 41.96f));
 
     [TestMethod]
     public void Emblems_RenderOnBlack_AtLargeAndLogoSizes()
@@ -414,10 +414,10 @@ public sealed class OrganizationVisualTests
             var card = Card(org, red, blue);
             var (t1, s1) = g.Opening(card, 4f);
             PngWriter.WriteRgba(Path.Combine(outDir, $"org_opening_{org.Id}.png"), Width, Height, renderer.RenderPrimitiveScene(back, Matrix4x4.Identity, [], [], t1, shapes: s1));
-            var draw = new TvResult(0, "DRAW", 5, 30f, [100f, 120f, 90f, 80f, 60f], [90f, 100f, 110f, 70f, 80f]);
+            var draw = new TvResult(0, "DRAW", 5, 50.35f, [100f, 120f, 90f, 80f, 60f], [90f, 100f, 110f, 70f, 80f]);
             var (t2, s2) = g.Result(card, draw, 3.5f);
             PngWriter.WriteRgba(Path.Combine(outDir, $"org_result_draw_{org.Id}.png"), Width, Height, renderer.RenderPrimitiveScene(back, Matrix4x4.Identity, [], [], t2, shapes: s2));
-            var ko = new TvResult(1, "K.O. — BRAIN DESTROYED  BLUE WINS", 4, 18f, [100f, 120f, 90f, 80f], [90f, 100f, 110f, 70f]);
+            var ko = new TvResult(1, "K.O. — BRAIN DESTROYED  BLUE WINS", 4, 30.21f, [100f, 120f, 90f, 80f], [90f, 100f, 110f, 70f]);
             var (t3, s3) = g.Result(card, ko, 3.5f);
             PngWriter.WriteRgba(Path.Combine(outDir, $"org_result_ko_{org.Id}.png"), Width, Height, renderer.RenderPrimitiveScene(back, Matrix4x4.Identity, [], [], t3, shapes: s3));
             Assert.IsTrue(t1.Any(t => t.Text.Contains(org.Name, StringComparison.OrdinalIgnoreCase) || t.Text.Replace(" ", "").Contains(org.Name.ToUpperInvariant(), StringComparison.Ordinal)));

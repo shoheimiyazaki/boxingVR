@@ -5,7 +5,7 @@ namespace MiniRing.Motion;
 
 public static partial class SwordForms
 {
-    // 寸法は腕の長さ = 1、時間は実寸の人の秒。刃を体の外へ置き、戻しを打ちより遅くして追従の遅れを減らす。
+    // 寸法は腕の長さ = 1、時間は実寸の人の秒（試合の秒へは SwordStance.Rate で写す。ここでは換算しない）。刃を体の外へ置き、戻しを打ちより遅くして追従の遅れを減らす。
     private static IReadOnlyList<SwordMotion> KatanaAdditional() =>
     [
         // 真っ向: 中段から頭上へ上げ、中心線に沿って頭頂へ斬り下ろし、中段へ。

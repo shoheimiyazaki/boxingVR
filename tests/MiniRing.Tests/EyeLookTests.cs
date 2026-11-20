@@ -24,12 +24,12 @@ public sealed class EyeLookTests
     private static (BoxingGame Game, VoxelPart Head) Make()
     {
         var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()) with { CpuFaceSpec = RoundEyes("guard") });
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++)
         {
             game.Step(default, 1f / 60f);
         }
 
-        // 目は顔の層（頭の剛体に重ねた 2.5 mm の格子: FaceLayer）にある。
+        // 目は顔の層（頭の剛体に重ねた 7 mm の格子: FaceLayer）にある。
         return (game, game.Cpu.Voxels!.Face!);
     }
 
@@ -46,7 +46,7 @@ public sealed class EyeLookTests
         var (game, head) = Make();
         using var _ = game;
         var grid = head.Body.Grid;
-        var before = ScanAt(head, new Vector3(2f, 0f, 1f));
+        var before = ScanAt(head, new Vector3(5.634f, 0f, 2.817f));
         // +X 側の目の白目を全部削る: その目は塗らない（-1）。もう一方の目はそのまま動く。
         var cells = Enumerable.Range(0, grid.CellCount).Where(i => grid.MaterialAt(i) is BoxerAnatomy.Eye or BoxerAnatomy.Pupil && grid.Coordinates(i).X >= grid.Dimensions.X / 2).ToList();
         Assert.IsTrue(cells.Count > 0);
@@ -55,7 +55,7 @@ public sealed class EyeLookTests
             grid.Break(i, new List<RemovedVoxel>());
         }
 
-        var after = ScanAt(head, new Vector3(2f, 0f, 1f));
+        var after = ScanAt(head, new Vector3(5.634f, 0f, 2.817f));
         Assert.AreEqual(-1, after.Pupil0);
         Assert.AreEqual(before.Pupil1, after.Pupil1);
         Assert.AreNotEqual(-1, after.Pupil1);
@@ -77,7 +77,7 @@ public sealed class EyeLookTests
     [TestMethod]
     public void BlinkRateAndStateFollowTheCondition()
     {
-        static (int Blinks, float MaxClosure) Run(float winded, float awareness, bool dead, int seed = 7, float seconds = 60f)
+        static (int Blinks, float MaxClosure) Run(float winded, float awareness, bool dead, int seed = 7, float seconds = 100.7f)
         {
             var eyes = new EyeBlink();
             var blinks = 0;
@@ -102,13 +102,13 @@ public sealed class EyeLookTests
         Assert.AreEqual(Run(0.3f, 1f, false, 7), Run(0.3f, 1f, false, 7), "deterministic for the same seed");
 
         var dead = new EyeBlink();
-        dead.Advance(0.1f, 1, 0f, 0f, true);
+        dead.Advance(0.1678f, 1, 0f, 0f, true);
         Assert.AreEqual(1f, dead.Closure, 1e-4f);
         var unconscious = new EyeBlink();
-        unconscious.Advance(0.1f, 1, 0f, 0f, false);
+        unconscious.Advance(0.1678f, 1, 0f, 0f, false);
         Assert.IsTrue(unconscious.Closure > 0.85f, "no awareness: the lids hang almost shut");
         var half = new EyeBlink();
-        half.Advance(0.016f, 1, 0f, 0.5f, false);
+        half.Advance(0.02685f, 1, 0f, 0.5f, false);
         Assert.IsTrue(half.Closure is > 0.1f and < 0.6f, $"dim awareness: half-lidded ({half.Closure:0.00})");
     }
 
@@ -118,12 +118,12 @@ public sealed class EyeLookTests
         static float Hold(float energy, float distance)
         {
             var eyes = new EyeBlink();
-            eyes.Advance(0.016f, 3, 0f, 1f, false);
+            eyes.Advance(0.02685f, 3, 0f, 1f, false);
             eyes.Flinch(energy, distance);
-            eyes.Advance(0.016f, 3, 0f, 1f, false);
+            eyes.Advance(0.02685f, 3, 0f, 1f, false);
             Assert.IsTrue(eyes.Closure > 0.9f, "closes immediately");
             var t = 0f;
-            while (eyes.Closure > 0.5f && t < 2f)
+            while (eyes.Closure > 0.5f && t < 3.357f)
             {
                 eyes.Advance(0.01f, 3, 0f, 1f, false);
                 t += 0.01f;
@@ -132,9 +132,9 @@ public sealed class EyeLookTests
             return t;
         }
 
-        var hard = Hold(60f, 0.05f);
-        var soft = Hold(5f, 0.05f);
-        var far = Hold(60f, 0.6f);
+        var hard = Hold(1690f, 0.1408f);
+        var soft = Hold(140.8f, 0.1408f);
+        var far = Hold(1690f, 1.69f);
         Assert.IsTrue(hard > soft, $"harder blow, longer shut ({hard:0.00} vs {soft:0.00})");
         Assert.IsTrue(hard > far, $"blow nearer the eyes, longer shut ({hard:0.00} vs {far:0.00})");
     }
@@ -146,6 +146,6 @@ public sealed class EyeLookTests
         using var _ = game;
         var target = EyeGaze.TargetOf(game.Player, game.Cpu);
         Assert.IsNotNull(target);
-        Assert.IsTrue(Vector3.Distance(target.Value, game.Cpu.HeadPosition) < 0.05f, "no glove coming: the opponent's head");
+        Assert.IsTrue(Vector3.Distance(target.Value, game.Cpu.HeadPosition) < 0.1408f, "no glove coming: the opponent's head");
     }
 }

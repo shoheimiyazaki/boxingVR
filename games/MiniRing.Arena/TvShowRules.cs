@@ -30,19 +30,19 @@ internal sealed record TvScoutResult(int Seed, string Finish, bool Ko, int Round
 internal static class TvShowRules
 {
     /// <summary>
-    /// 試合の始め（入場から最初のゴングまで）の長さ [s]（ゲームの時間）。選手が始めのエモート（観客へ手を振る・準備運動…）をする。人形の 0.75 倍速の動画で 9 秒ほど。
+    /// 試合の始め（入場から最初のゴングまで）の長さ [s]（ゲームの時間）。選手が始めのエモート（観客へ手を振る・準備運動…）をする。0.75 倍速の動画で 15.7 秒ほど（人形の単位の 7 秒のときは 9 秒）。
     /// ゲームの決まりの値（<see cref="MatchRules.IntroSeconds"/>）。撮影と下見（tvscout）が同じ値を使うので、同じ種なら下見と撮影の試合は一致する。
     /// </summary>
-    public const float IntroSeconds = 7f;
+    public const float IntroSeconds = 11.75f;
 
     /// <summary>
     /// 試合の終わり（決着の後）に、立っている選手が終わりのエモートをする長さ [s]（ゲームの時間。<see cref="MatchRules.EndSeconds"/>）。
-    /// 人形の 0.75 倍速の動画で 9.3 秒: 勝者・敗者のカット（<see cref="TvDirector.PlanEnd"/>）を 8〜10 秒に収める。
+    /// 0.75 倍速の動画で 15.7 秒（人形の単位の 7 秒のときは 9.3 秒）: 勝者・敗者のカット（<see cref="TvDirector.PlanEnd"/>）を割合で分ける。
     /// </summary>
-    public const float EndSeconds = 7f;
+    public const float EndSeconds = 11.75f;
 
     /// <summary>世界を作った直後の助走 [s]（映像の始めに、生成直後の T 字の姿勢が映らないよう構えへ追いつかせる）。<see cref="BoxingCorners.SettleSeconds"/>。</summary>
-    public const float SettleSeconds = 1f;
+    public const float SettleSeconds = 1.678f;
 
     /// <summary>テレビ中継の決まり（ラウンドの数・休みの長さ。休みの間に治る量は標準と同じ）。撮影と下見（tvscout）が同じものを使う。</summary>
     public static MatchRules Rules(int rounds, float breakSeconds)

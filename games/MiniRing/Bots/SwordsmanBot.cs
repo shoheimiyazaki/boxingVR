@@ -39,11 +39,11 @@ namespace MiniRing.Bots;
 /// <param name="Economy">受けの評価に足す、構えからの動きの大きさの重み（構えのままで足りるなら動かさない。<see cref="WeaponDefense.ReachableParry"/>）。</param>
 /// <param name="Arc">相手の振りを肩まわりの弧として読むか（<see cref="WeaponLine.Predict"/>。false なら今の速度のまま直線）。</param>
 /// <param name="Cover">空いた手（左手）の物（盾・グローブ）を、来る線が体へ届く所へ差し入れて覆うか（<see cref="WeaponDefense.Cover"/>）。覆える広さは、その物の見える大きさ（<see cref="SwordsmanBot.OffhandRadius"/>）から。</param>
-public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, float Horizon = 0.25f, float Margin = 0.45f, float ThreatSpeed = 6f,
-    float HoldTime = 0.3f, bool Counter = true, bool WatchFists = true, DefenseMode Mode = DefenseMode.Legacy, float Deflect = 0.5f, float Forte = 0.35f,
-    float Lead = 0.1f, float StepDelay = 0.05f, float HeadTime = 0.15f, float Clearance = 0.6f, float Drive = 0f, float Bind = 1f, bool Flat = false, bool Cover = false,
-    bool Adaptive = false, float LoadSpeed = 12f, float YieldAngle = 1.1f, float YieldDistance = 0.08f, float CounterClearance = 0.6f, float CounterTime = 0.12f,
-    bool Reach = false, float HandSpeed = 6f, float ReactDelay = 0.03f, float TurnSpeed = 10f, float InterceptGap = 0.15f, float Economy = 0f, bool Arc = false)
+public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, float Horizon = 0.4196f, float Margin = 0.45f, float ThreatSpeed = 3.575f,
+    float HoldTime = 0.5035f, bool Counter = true, bool WatchFists = true, DefenseMode Mode = DefenseMode.Legacy, float Deflect = 0.5f, float Forte = 0.35f,
+    float Lead = 0.1f, float StepDelay = 0.08392f, float HeadTime = 0.2518f, float Clearance = 0.6f, float Drive = 0f, float Bind = 1f, bool Flat = false, bool Cover = false,
+    bool Adaptive = false, float LoadSpeed = 7.150f, float YieldAngle = 1.1f, float YieldDistance = 0.08f, float CounterClearance = 0.6f, float CounterTime = 0.2014f,
+    bool Reach = false, float HandSpeed = 3.575f, float ReactDelay = 0.05035f, float TurnSpeed = 5.958f, float InterceptGap = 0.15f, float Economy = 0f, bool Arc = false)
 {
     /// <summary>守らない。</summary>
     public static SwordDefense None { get; } = new(Enabled: false);
@@ -57,26 +57,26 @@ public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, 
         }
 
         WeaponStyle.InRange(BlockShare, 0f, 1f, "Defense.BlockShare");
-        WeaponStyle.InRange(Horizon, 0.02f, 1f, "Defense.Horizon");
+        WeaponStyle.InRange(Horizon, 0.03357f, 1.678f, "Defense.Horizon");
         WeaponStyle.InRange(Margin, 0f, 1.5f, "Defense.Margin");
-        WeaponStyle.InRange(ThreatSpeed, 0.5f, 20f, "Defense.ThreatSpeed");
-        WeaponStyle.InRange(HoldTime, 0f, 2f, "Defense.HoldTime");
+        WeaponStyle.InRange(ThreatSpeed, 0.2979f, 11.92f, "Defense.ThreatSpeed");
+        WeaponStyle.InRange(HoldTime, 0f, 3.357f, "Defense.HoldTime");
         WeaponStyle.InRange(Deflect, -1.2f, 1.2f, "Defense.Deflect");
         WeaponStyle.InRange(Forte, 0f, 1f, "Defense.Forte");
         WeaponStyle.InRange(Lead, -0.5f, 1f, "Defense.Lead");
-        WeaponStyle.InRange(StepDelay, 0f, 0.5f, "Defense.StepDelay");
-        WeaponStyle.InRange(HeadTime, 0f, 0.8f, "Defense.HeadTime");
+        WeaponStyle.InRange(StepDelay, 0f, 0.8392f, "Defense.StepDelay");
+        WeaponStyle.InRange(HeadTime, 0f, 1.343f, "Defense.HeadTime");
         WeaponStyle.InRange(Clearance, 0f, 2f, "Defense.Clearance");
         WeaponStyle.InRange(Drive, 0f, 1.5f, "Defense.Drive");
         WeaponStyle.InRange(Bind, 0f, 1f, "Defense.Bind");
-        WeaponStyle.InRange(LoadSpeed, 0.5f, 50f, "Defense.LoadSpeed");
+        WeaponStyle.InRange(LoadSpeed, 0.2979f, 29.79f, "Defense.LoadSpeed");
         WeaponStyle.InRange(YieldAngle, 0f, 1.5f, "Defense.YieldAngle");
         WeaponStyle.InRange(YieldDistance, 0f, 1f, "Defense.YieldDistance");
         WeaponStyle.InRange(CounterClearance, 0f, 2f, "Defense.CounterClearance");
-        WeaponStyle.InRange(CounterTime, 0.01f, 0.5f, "Defense.CounterTime");
-        WeaponStyle.InRange(HandSpeed, 0.5f, 60f, "Defense.HandSpeed");
-        WeaponStyle.InRange(ReactDelay, 0f, 0.5f, "Defense.ReactDelay");
-        WeaponStyle.InRange(TurnSpeed, 0.5f, 100f, "Defense.TurnSpeed");
+        WeaponStyle.InRange(CounterTime, 0.01678f, 0.8392f, "Defense.CounterTime");
+        WeaponStyle.InRange(HandSpeed, 0.2979f, 35.75f, "Defense.HandSpeed");
+        WeaponStyle.InRange(ReactDelay, 0f, 0.8392f, "Defense.ReactDelay");
+        WeaponStyle.InRange(TurnSpeed, 0.2979f, 59.58f, "Defense.TurnSpeed");
         WeaponStyle.InRange(InterceptGap, 0f, 1f, "Defense.InterceptGap");
         WeaponStyle.InRange(Economy, 0f, 5f, "Defense.Economy");
         return this;
@@ -94,7 +94,7 @@ public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, 
     /// </summary>
     public static SwordDefense Parrying { get; } = new(Mode: DefenseMode.ParryAndStep, Deflect: 0.52f, Lead: 0.2f, Drive: 0.3f, Bind: 0.3f);
 
-    /// <summary>比較用の連続の守り。基準速度 12 腕/s、最大約 63°、引き 0.08 腕。採否は docs/WEAPON_DEFENSE.md の測定で決める。</summary>
+    /// <summary>比較用の連続の守り。基準速度 7.15 腕/s、最大約 63°、引き 0.08 腕。採否は docs/WEAPON_DEFENSE.md の測定で決める。</summary>
     public static SwordDefense Continuous { get; } = new(Mode: DefenseMode.ParryAndStep, Adaptive: true, Deflect: 0.05f, Lead: 0.3f, Drive: 0.3f, Bind: 0.3f);
 }
 
@@ -109,11 +109,11 @@ public sealed record SwordDefense(bool Enabled = true, float BlockShare = 0.6f, 
 /// <param name="Patience">隙が来ないとき、自分から攻めて出るまでに待つ時間 [s]。</param>
 /// <param name="Circle">遠間で待つ間に横へ回る強さ（歩く速さに対する割合）。</param>
 /// <param name="Debana">相手が自分の技の間合いへ踏み込んできたら、その出端を打つか。</param>
-public sealed record HitAndAway(float Margin = 0.06f, float Lunge = 0.35f, float OpeningTime = 0.4f, float Patience = 1.2f, float Circle = 0.35f, bool Debana = true)
+public sealed record HitAndAway(float Margin = 0.169f, float Lunge = 0.35f, float OpeningTime = 0.6714f, float Patience = 2.014f, float Circle = 0.35f, bool Debana = true)
 {
     /// <summary>形の検査をして自分を返す。</summary>
     public HitAndAway Validated() =>
-        Margin is >= -0.2f and <= 0.5f && Lunge is >= 0f and <= 2f && OpeningTime is >= 0f and <= 2f && Patience is > 0f and <= 10f && Circle is >= 0f and <= 1f
+        Margin is >= -0.5634f and <= 1.408f && Lunge is >= 0f and <= 2f && OpeningTime is >= 0f and <= 3.357f && Patience is > 0f and <= 16.78f && Circle is >= 0f and <= 1f
             ? this
             : throw new ArgumentOutOfRangeException(nameof(Margin), "間合いの取り合いの値が範囲の外です。");
 }
@@ -181,7 +181,7 @@ public sealed class SwordsmanBot : IFighterControl
     private BodyPartKind? _openTarget;
 
     /// <summary>狙った技の間合いに着けないまま、この秒数が過ぎたら狙いを決め直す。</summary>
-    public const float PlanPatience = 1.5f;
+    public const float PlanPatience = 2.518f;
 
     /// <param name="techniques">持っている技。</param>
     /// <param name="guard">構え（技を出していない間のフレーム）。</param>
@@ -196,7 +196,7 @@ public sealed class SwordsmanBot : IFighterControl
     /// <param name="opponentReach">相手の肩から剣先までが届く長さ [腕の長さ]（これより先を通る剣先は届かないので守らない）。</param>
     /// <param name="hitAndAway">間合いの取り合い（打って離れる）。null なら、遠間で構えて技を 1 つずつ狙って詰める（ドリルと同じ）。</param>
     /// <param name="aim">狙いの付け方（<see cref="Aim"/> を決めたときの、通り道のずらし方）。null なら既定。</param>
-    public SwordsmanBot(IReadOnlyList<MotionTechnique> techniques, MotionFrame guard, int seed, float rate, float rest = 0.6f, bool exact = false, FighterTuning? tuning = null,
+    public SwordsmanBot(IReadOnlyList<MotionTechnique> techniques, MotionFrame guard, int seed, float rate, float rest = 1.007f, bool exact = false, FighterTuning? tuning = null,
         SwordDefense? defense = null, float bladeLength = 1.4f, float spacing = SwordForms.KatanaSpacing, float opponentReach = 3f, HitAndAway? hitAndAway = null, AimTuning? aim = null)
     {
         ArgumentNullException.ThrowIfNull(techniques);
@@ -221,7 +221,7 @@ public sealed class SwordsmanBot : IFighterControl
         _hitAndAway = hitAndAway?.Validated();
         _aimTuning = (aim ?? new AimTuning()).Validated();
         _circleSide = _hitAndAway is null || _random.Next(2) == 0 ? 1f : -1f;
-        StandOff = techniques.Max(x => x.Range) + 0.08f;
+        StandOff = techniques.Max(x => x.Range) + 0.2254f;
     }
 
     /// <summary>構えて向き合う距離 [m]（いちばん遠い技の間合いの少し外: 遠間）。</summary>
@@ -330,19 +330,19 @@ public sealed class SwordsmanBot : IFighterControl
     private float _distance = float.MaxValue;
 
     /// <summary>すでに近いときに、今の距離に合う技として数える間合いの幅 [m]（出す窓 <see cref="MotionTechnique.Window"/> より広い: 数 cm 歩いて合わせてから出す。手で決めた値）。</summary>
-    public const float CloseWindow = 0.15f;
+    public const float CloseWindow = 0.4225f;
 
     /// <summary>テスト用: 全部の技（<see cref="Pool"/>）のうち、間合いが今の距離 <paramref name="distance"/> にいちばん近い技（<see cref="NearestByRange"/>）。</summary>
     internal MotionTechnique NearestAt(float distance) => NearestByRange(Pool, distance);
 
     /// <summary>
-    /// <paramref name="from"/> のうち、間合いが今の距離 <paramref name="distance"/> にいちばん近い技。間合いが同じ（1 mm 以内）技が複数あるときは、
+    /// <paramref name="from"/> のうち、間合いが今の距離 <paramref name="distance"/> にいちばん近い技。間合いが同じ（約 3 mm 以内）技が複数あるときは、
     /// 並びの順でなく教科書の重みで種付きの乱数から選ぶ（同じ間合いの技が並びの先頭へ偏らない。1 つだけなら乱数を使わない）。
     /// </summary>
     private MotionTechnique NearestByRange(IReadOnlyList<MotionTechnique> from, float distance)
     {
         var best = from.Min(t => MathF.Abs(RangeOf(t) - distance));
-        var ties = from.Where(t => MathF.Abs(RangeOf(t) - distance) - best <= 0.001f).ToList();
+        var ties = from.Where(t => MathF.Abs(RangeOf(t) - distance) - best <= 0.002817f).ToList();
         return ties.Count == 1 ? ties[0] : PickFrom(ties);
     }
 
@@ -639,7 +639,7 @@ public sealed class SwordsmanBot : IFighterControl
         }
 
         var want = resting ? StandOff - _lost : RangeOf(_plan!);
-        var move = distance > want + 0.02f ? face : distance < want - 0.02f ? -face : Vector3.Zero;
+        var move = distance > want + 0.05634f ? face : distance < want - 0.05634f ? -face : Vector3.Zero;
         return MotionImitation.ToCommand(_guard, sense, face, 0f, _walkSpeed, _maxTwist, move);
     }
 
@@ -729,7 +729,7 @@ public sealed class SwordsmanBot : IFighterControl
         var reach = sense.ArmReach;
         var safe = SafeDistance(sense, h);
         // 遠間まで下がれたら待つ。追われて下がりきれないまま（ロープ際など）長く続いたら、下がるのをやめて待ち直す。
-        if (_retreating && (distance >= safe - 0.02f || _time - _retreatStart > PlanPatience))
+        if (_retreating && (distance >= safe - 0.05634f || _time - _retreatStart > PlanPatience))
         {
             _retreating = false;
             _waitStart = _time;
@@ -772,7 +772,7 @@ public sealed class SwordsmanBot : IFighterControl
 
             if (_time - _plannedAt <= PlanPatience)
             {
-                var step = distance > RangeOf(plan) + 0.02f ? face : distance < RangeOf(plan) - 0.02f ? -face : Vector3.Zero;
+                var step = distance > RangeOf(plan) + 0.05634f ? face : distance < RangeOf(plan) - 0.05634f ? -face : Vector3.Zero;
                 return MotionImitation.ToCommand(_guard, sense, face, 0f, _walkSpeed, _maxTwist, Footing(sense, step, face, reach));
             }
 
@@ -784,7 +784,7 @@ public sealed class SwordsmanBot : IFighterControl
 
         // 待つ（遠間で横へ回る）・下がる。
         var lateral = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, face));
-        var keep = _retreating || distance < safe - 0.03f ? -face : distance > safe + 0.03f ? face * 0.6f : Vector3.Zero;
+        var keep = _retreating || distance < safe - 0.0845f ? -face : distance > safe + 0.0845f ? face * 0.6f : Vector3.Zero;
         // 回る先にロープが近づいたら逆へ回る。決めたら、そのロープから離れるまで変えない（隅で毎フレーム入れ替わると動けない）。
         var ahead = BoxerBot.RopeBehind(sense.Self.Origin, -lateral * _circleSide, face, reach, sense.Arena).Behind;
         if (ahead > 0.5f && !_circleTurned)

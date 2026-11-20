@@ -47,11 +47,11 @@ public sealed class StaminaTempoProbe
 
         public Rig(FighterTuning tuning)
         {
-            World.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(8f, 0.5f, 8f));
+            World.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(22.54f, 1.408f, 22.54f));
             Fighter = Fighter.Spawn(World, tuning, "tempo", Vector3.Zero, 0f);
             Left = AiControl.Guard(Hand.Left, Fighter.ArmReach);
             Guard = AiControl.Guard(Hand.Right, Fighter.ArmReach);
-            for (var i = 0; i < 480; i++)
+            for (var i = 0; i < 806; i++)
             {
                 Step(Guard, 0f, Vector3.Zero);
             }
@@ -66,8 +66,8 @@ public sealed class StaminaTempoProbe
             Time += Dt;
         }
 
-        /// <summary>1 発（出す 0.2 s、戻す残り）。胸に対する拳の最大相対速度を返す。</summary>
-        public float Punch(float cycleSeconds, Vector3 move, float reach = 0.75f, float ramp = 0.12f, int extend = 48)
+        /// <summary>1 発（出す 0.34 s、戻す残り）。胸に対する拳の最大相対速度を返す。</summary>
+        public float Punch(float cycleSeconds, Vector3 move, float reach = 0.75f, float ramp = 0.2014f, int extend = 81)
         {
             var steps = (int)(cycleSeconds / Dt);
             var peak = 0f;
@@ -93,11 +93,11 @@ public sealed class StaminaTempoProbe
     public void PunchCost_Probe()
     {
         var tuning = Tuning() with { VesselPowerPerKg = 0f };
-        foreach (var (reach, ramp) in new[] { (0.75f, 0.12f), (1.2f, 0.08f), (1.6f, 0.06f), (2.2f, 0.05f), (3f, 0.04f) })
+        foreach (var (reach, ramp) in new[] { (0.75f, 0.2014f), (1.2f, 0.1343f), (1.6f, 0.1007f), (2.2f, 0.0839f), (3f, 0.0671f) })
         {
             using var rig = new Rig(tuning);
             var before = rig.Fighter.Stamina;
-            var peak = rig.Punch(0.5f, Vector3.Zero, reach, ramp);
+            var peak = rig.Punch(0.8392f, Vector3.Zero, reach, ramp);
             Console.WriteLine($"PC reach {reach} ramp {ramp}: peak {F(peak)} m/s, cost {F((before - rig.Fighter.Stamina) * tuning.OxygenStorePerKg * rig.Fighter.ArmMass(Hand.Right))} J");
         }
     }
@@ -115,8 +115,8 @@ public sealed class StaminaTempoProbe
             sb.Append("A rest(empty,guard):");
             for (var t = 1; t <= 10; t++)
             {
-                for (var i = 0; i < 240; i++) { rig.Step(rig.Guard, 0f, Vector3.Zero); }
-                sb.Append($" {t}s={F(rig.Fighter.Stamina)}");
+                for (var i = 0; i < 403; i++) { rig.Step(rig.Guard, 0f, Vector3.Zero); }
+                sb.Append($" {t * 1.678f:0.0}s={F(rig.Fighter.Stamina)}");
             }
 
             sb.AppendLine($" P={F(rig.Fighter.RecentMusclePower)} W");
@@ -130,8 +130,8 @@ public sealed class StaminaTempoProbe
             sb.Append($"B retreat move={speed}:");
             for (var t = 1; t <= 10; t++)
             {
-                for (var i = 0; i < 240; i++) { rig.Step(rig.Guard, 0f, new Vector3(0f, 0f, -speed * 0.5f)); }
-                sb.Append($" {t}s={F(rig.Fighter.Stamina)}");
+                for (var i = 0; i < 403; i++) { rig.Step(rig.Guard, 0f, new Vector3(0f, 0f, -speed * 0.5f)); }
+                sb.Append($" {t * 1.678f:0.0}s={F(rig.Fighter.Stamina)}");
             }
 
             sb.AppendLine($" P={F(rig.Fighter.RecentMusclePower)} W");
@@ -141,20 +141,20 @@ public sealed class StaminaTempoProbe
         float reference;
         using (var rig = new Rig(tuning))
         {
-            reference = rig.Punch(0.5f, Vector3.Zero);
+            reference = rig.Punch(0.8392f, Vector3.Zero);
         }
 
         sb.AppendLine($"C reference peak (full, first punch) = {F(reference)} m/s");
-        foreach (var wait in new[] { 0f, 0.5f, 1f, 1.5f, 2f, 3f })
+        foreach (var wait in new[] { 0f, 0.8392f, 1.678f, 2.518f, 3.357f, 5.035f })
         {
             using var rig = new Rig(tuning);
             rig.Fighter.Stamina = 0f;
             for (var i = 0; i < (int)(wait / Dt); i++) { rig.Step(rig.Guard, 0f, Vector3.Zero); }
-            var peak = rig.Punch(0.5f, Vector3.Zero);
+            var peak = rig.Punch(0.8392f, Vector3.Zero);
             sb.AppendLine($"C empty -> wait {wait:F1}s -> one punch: peak {F(peak)} ({F(peak / reference)} of full)");
         }
 
-        // C2: 空から 0.5 秒ごとに打ち続けて、最初に 8 割へ届く時刻
+        // C2: 空から 0.84 秒ごとに打ち続けて、最初に 8 割へ届く時刻
         using (var rig = new Rig(tuning))
         {
             rig.Fighter.Stamina = 0f;
@@ -163,23 +163,23 @@ public sealed class StaminaTempoProbe
             for (var n = 0; n < 12; n++)
             {
                 var start = rig.Time;
-                var peak = rig.Punch(0.5f, Vector3.Zero);
+                var peak = rig.Punch(0.8392f, Vector3.Zero);
                 peaks.Add(peak);
                 if (first < 0f && peak >= 0.8f * reference) { first = start; }
             }
 
-            sb.AppendLine($"C2 empty, try every 0.5s: first >=80% at t={(first < 0 ? "never" : F(first))}; peaks {string.Join(' ', peaks.Select(F))}; stamina {F(rig.Fighter.Stamina)}");
+            sb.AppendLine($"C2 empty, try every 0.84s: first >=80% at t={(first < 0 ? "never" : F(first))}; peaks {string.Join(' ', peaks.Select(F))}; stamina {F(rig.Fighter.Stamina)}");
         }
 
-        // D: 満タンから連打（0.5 秒周期と 0.33 秒周期）して空になるまで
-        foreach (var cycle in new[] { 0.5f, 0.3f })
+        // D: 満タンから連打（0.84 秒周期と 0.5 秒周期）して空になるまで
+        foreach (var cycle in new[] { 0.8392f, 0.5035f })
         {
             using var rig = new Rig(tuning);
             var emptyAt = -1f;
             var peaks = new List<float>();
             for (var n = 0; n < 60 && emptyAt < 0f; n++)
             {
-                peaks.Add(rig.Punch(cycle, Vector3.Zero, 1.6f, 0.06f, 29));
+                peaks.Add(rig.Punch(cycle, Vector3.Zero, 1.6f, 0.1007f, 49));
                 if (rig.Fighter.Stamina < 0.1f) { emptyAt = rig.Time; }
             }
 
@@ -191,7 +191,7 @@ public sealed class StaminaTempoProbe
         {
             rig.Fighter.Stamina = 0f;
             var peaks = new List<float>();
-            for (var n = 0; n < 20; n++) { peaks.Add(rig.Punch(0.3f, Vector3.Zero, 1.6f, 0.06f, 29)); }
+            for (var n = 0; n < 20; n++) { peaks.Add(rig.Punch(0.5035f, Vector3.Zero, 1.6f, 0.1007f, 49)); }
             sb.AppendLine($"E spam from empty: 1st {F(peaks[0])}, 10th {F(peaks[9])} ratio {F(peaks[9] / peaks[0])}; stamina {F(rig.Fighter.Stamina)}");
         }
 
@@ -213,10 +213,10 @@ public sealed class StaminaTempoProbe
             using var game = new BoxingGame(tuning, 3, new BoxingCorners("x", s => new BoxerBot(style, s), s => new BoxerBot(style, s)));
             var sum = 0f;
             var n = 0;
-            for (var step = 0; step < 60 * 20; step++)
+            for (var step = 0; step < 2014; step++)
             {
                 game.Step(default, 1f / 60f);
-                if (step > 180) { sum += game.Cpu.RecentMusclePower + game.Player.RecentMusclePower; n += 2; }
+                if (step > 302) { sum += game.Cpu.RecentMusclePower + game.Player.RecentMusclePower; n += 2; }
             }
 
             Console.WriteLine($"IDLE {name}: P {F(sum / n)} W, stamina {F(game.Cpu.Stamina)}");
@@ -231,12 +231,12 @@ public sealed class StaminaTempoProbe
         var blue = Environment.GetEnvironmentVariable("STAMINA_BLUE") ?? "jabber";
         using var game = new BoxingGame(tuning, 11, new BoxingCorners(blue, s => BotCatalog.Create(blue, s), s => BotCatalog.Create(red, s)));
         var line = new StringBuilder();
-        for (var step = 0; step < 3600; step++)
+        for (var step = 0; step < 6042; step++)
         {
             game.Step(default, 1f / 60f);
-            if (step % 60 == 59)
+            if (step % 101 == 100)
             {
-                line.AppendLine($"TL t={step / 60 + 1}s red st {F(game.Player.Stamina)} P {F(game.Player.RecentMusclePower)} R {F(game.Player.RecoveryPower)} | blue st {F(game.Cpu.Stamina)} P {F(game.Cpu.RecentMusclePower)} R {F(game.Cpu.RecoveryPower)}");
+                line.AppendLine($"TL t={(step + 1) / 60f:0.0}s red st {F(game.Player.Stamina)} P {F(game.Player.RecentMusclePower)} R {F(game.Player.RecoveryPower)} | blue st {F(game.Cpu.Stamina)} P {F(game.Cpu.RecentMusclePower)} R {F(game.Cpu.RecoveryPower)}");
             }
         }
 
@@ -248,7 +248,7 @@ public sealed class StaminaTempoProbe
     {
         var tuning = Tuning();
         var pairs = new[] { ("swarmer", "champion"), ("slugger", "jabber"), ("boxer", "outboxer"), ("champion", "slugger"), ("swarmer", "slugger"), ("jabber", "outboxer") };
-        var seconds = float.Parse(Environment.GetEnvironmentVariable("STAMINA_SECONDS") ?? "60", CultureInfo.InvariantCulture);
+        var seconds = float.Parse(Environment.GetEnvironmentVariable("STAMINA_SECONDS") ?? "100.7", CultureInfo.InvariantCulture);
         var seedCount = int.Parse(Environment.GetEnvironmentVariable("STAMINA_SEEDS") ?? "2", CultureInfo.InvariantCulture);
         var rows = new string[pairs.Length * seedCount];
         Parallel.For(0, rows.Length, index =>

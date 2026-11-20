@@ -103,7 +103,7 @@ public sealed class SelfClearanceTests
         // FromKeys は最終キーまでの端数（1/60 秒未満）を切り捨てる。向きの誤差は 0.12 度未満で構えに戻る。
         Assert.IsLessThan(0.002f, Vector3.Distance(first.Blade, last.Blade), name);
         var clearance = new SelfClearance();
-        var length = FormSwordsman.BladeLength(weapon, 0.188f);
+        var length = FormSwordsman.BladeLength(weapon, 0.5296f);
         Assert.IsTrue(form.Frames.All(f => float.IsFinite(f.Orientation.W)), name);
         var inside = form.Frames.Count(f => clearance.Along(f.Right, f.Blade, length, f.Head).Clearance < 0f);
         Assert.AreEqual(0, inside, $"{name}: 目標の刃の線が自分の体を通らない");

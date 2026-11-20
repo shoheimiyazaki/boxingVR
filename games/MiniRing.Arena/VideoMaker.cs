@@ -38,7 +38,7 @@ namespace MiniRing.Arena;
 /// <paramref name="render"/> が false とは一緒に使えない。
 /// </param>
 internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false,
-    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 10f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null, bool belt = false)
+    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 16.78f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null, bool belt = false)
 {
     private readonly Organization _org = org ?? Organization.Default;
 
@@ -47,7 +47,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         : !render;
 
     /// <summary>
-    /// テレビ中継の決まり。休みの長さを変えても、休みの間に治る量（速さ × 長さ）は標準（10 秒 × 150 個/秒）と同じにする（休みを長くした分だけ多く治らないように）。
+    /// テレビ中継の決まり。休みの長さを変えても、休みの間に治る量（速さ × 長さ）は標準（<see cref="MatchRules.Tv"/> の休みの長さ × 治る速さ）と同じにする（休みを長くした分だけ多く治らないように）。
     /// </summary>
     private readonly MatchRules? _rules = tv ? TvShowRules.Rules(tvRounds, tvBreak, org ?? Organization.Default) : null;
 
@@ -72,8 +72,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
     private float ResultSeconds => tv ? _resultSeconds : 5f;
 
-    /// <summary>K.O. の後、結果へ進むまでに撮る長さ [s]。ゲームが次のラウンドを始める（3.5 s）より短く。</summary>
-    private const float AftermathSeconds = 3f;
+    /// <summary>K.O. の後、結果へ進むまでに撮る長さ [試合の s]。ゲームが次のラウンドを始める（5.87 s）より短く。</summary>
+    private const float AftermathSeconds = 5.035f;
 
     /// <summary>字幕に出す「重い一撃」のダメージ（1 発でクリーンヒットと言える程度）。</summary>
     private const float BigHitDamage = 15f;
@@ -308,8 +308,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     // タイトル: 試合前の構えを背景に。テレビ中継は番組の型の場面の並び（団体ごとに別の番組）。
                     if (stage is not null)
                     {
-                        // 影の試合を構えて立つ指令で 1.5 秒進めてから映し始める（腕を真横に広げた生成直後の姿勢を映さない）。
-                        for (var warm = 0; warm < (int)MathF.Ceiling(1.5f * fps); warm++)
+                        // 影の試合を構えて立つ指令で 2.5 秒（試合の時間）進めてから映し始める（腕を真横に広げた生成直後の姿勢を映さない）。
+                        for (var warm = 0; warm < (int)MathF.Ceiling(2.518f * fps); warm++)
                         {
                             stage.StepStage(1f / fps, StagePose.Center);
                         }
@@ -1095,23 +1095,22 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         // 赤（プレイヤー側）が画面の左、青が右に映る側から見る（字幕の左右と合わせる）。
         var side = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(Vector3.Cross(axis, Vector3.UnitY)) : -Vector3.UnitX;
         // 両者の全身（頭と腰）が入るよう、4 点の真ん中を見て、4 点の水平の広がりに比例して引く（45° の画角の横幅は距離の 1.47 倍）。
-        // 以前は胸と胸の間だけで決めていたので、倒れた相手に覆いかぶさると 0.9 m まで寄り、体の一部しか映らなかった（2026-11-19、ユーザー）。打ち合う間合いでは今までの 0.9 m。
+        // 以前は胸と胸の間だけで決めていたので、倒れた相手に覆いかぶさると 0.9 m（人形の単位）まで寄り、体の一部しか映らなかった（2026-11-19、ユーザー）。打ち合う間合いでは今までの 2.54 m。
         Vector3[] points = [game.Player.HeadPosition, game.Player.PelvisPosition, game.Cpu.HeadPosition, game.Cpu.PelvisPosition];
         var min = points.Aggregate(Vector3.Min);
         var max = points.Aggregate(Vector3.Max);
         var mid = (min + max) * 0.5f;
         var spread = MathF.Max(axis.Length(), MathF.Max(max.X - min.X, max.Z - min.Z));
-        var reach = MathF.Max(0.9f, (spread + 0.5f) / 1.4f);
+        var reach = MathF.Max(2.535f, (spread + 1.408f) / 1.4f);
         // 離れている間は回り込みを小さくする（斜めから見ると手前の 1 人が画面の外へ出る）。
-        var angle = 0.6f * MathF.Sin(orbit) * (0.9f / reach);
+        var angle = 0.6f * MathF.Sin(orbit) * (2.535f / reach);
         var direction = Vector3.Transform(side, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
-        // 見下ろす高さ: 立ち合いは手前のロープ越し（0.38 / 0.9 ≈ 23°）、倒れた選手がいるほど高く俯瞰する（最大で約 48°）。横たわった体は低い角度では重なって見えない。
+        // 見下ろす高さ: 立ち合いは手前のロープ越し（1.070 / 2.535 ≈ 23°）、倒れた選手がいるほど高く俯瞰する（最大で約 48°）。横たわった体は低い角度では重なって見えない。
         var lying = MathF.Max(TvDirector.Lying(game.Player), TvDirector.Lying(game.Cpu));
         var horizontal = reach * (1f - (0.3f * lying));
-        var eye = mid + (direction * horizontal) + new Vector3(0f, (0.38f / 0.9f + (0.7f * lying)) * reach, 0f);
-        var target = mid - new Vector3(0f, 0.06f, 0f);
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f), eye);
+        var eye = mid + (direction * horizontal) + new Vector3(0f, (1.070f / 2.535f + (0.7f * lying)) * reach, 0f);
+        var target = mid - new Vector3(0f, 0.169f, 0f);
+        return DisplaySpace.Standard.Camera(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     /// <summary>
@@ -1124,9 +1123,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         axis.Y = 0f;
         var side = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(Vector3.Cross(axis, Vector3.UnitY)) : -Vector3.UnitX;
         var direction = Vector3.Transform(side, Quaternion.CreateFromAxisAngle(Vector3.UnitY, 0.5f - (0.08f * seconds)));
-        var eye = mid + (direction * 1.35f) + new Vector3(0f, 0.75f, 0f); // 部屋の壁・天井に入らない距離
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, mid - new Vector3(0f, 0.1f, 0f), Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f), eye);
+        var eye = mid + (direction * 3.803f) + new Vector3(0f, 2.113f, 0f); // 部屋の壁・天井に入らない距離
+        return DisplaySpace.Standard.Camera(eye, mid - new Vector3(0f, 0.282f, 0f), Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     /// <summary>
@@ -1140,8 +1138,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         var azimuth = 0.4f + (0.32f * seconds);
         var eye = new Vector3(center.X + (MathF.Sin(azimuth) * size * 1.05f), level + (size * 0.4f), center.Z - (MathF.Cos(azimuth) * size * 1.05f));
         var target = new Vector3(center.X, level - (size * 0.04f), center.Z);
-        eye = LivingRoom.KeepInside(eye, TvDirector.CameraMargin);
-        return (Camera.ViewProjection(eye, target, Vector3.UnitY, 48f * MathF.PI / 180f, (float)width / height, 0.02f, 30f), eye);
+        return DisplaySpace.Standard.Camera(eye, target, Vector3.UnitY, 48f * MathF.PI / 180f, (float)width / height, 0.02f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
     private IReadOnlyList<ScreenTextDraw> Title(string red, string blue, float fade)

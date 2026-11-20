@@ -30,18 +30,18 @@ public sealed class WeaponStyleTests
         {
             Name = "custom",
             Defense = SwordDefense.Parrying,
-            HitAndAway = new HitAndAway(Margin: 0.1f, Patience: 2f),
+            HitAndAway = new HitAndAway(Margin: 0.2817f, Patience: 3.357f),
             Aim = new AimTuning(MaxShift: 0.9f),
             AutoAim = true,
             Clearance = SelfClearance.Adopted,
             Pacing = new SwingPacing(Floor: 0.3f),
-            Rest = 0.4f,
-            MinReach = 0.4f,
-            InnerMinReach = 0.2f,
+            Rest = 0.6714f,
+            MinReach = 1.127f,
+            InnerMinReach = 0.5634f,
             KeepReach = 0.5f,
-            ClubRange = 0.4f,
-            ClubRest = 0.5f,
-            ClubStandOff = 0.6f,
+            ClubRange = 1.127f,
+            ClubRest = 0.8392f,
+            ClubStandOff = 1.690f,
             ClubExact = true,
         };
         Assert.AreEqual(style, WeaponStyle.FromJson(style.ToJson()));
@@ -87,13 +87,13 @@ public sealed class WeaponStyleTests
         Assert.AreSame(katana, WeaponEducation.Resolve(WeaponKind.Katana, null));
         Assert.AreSame(katana, WeaponEducation.Resolve(WeaponKind.Katana, new JsonObject()));
 
-        var educated = WeaponEducation.Resolve(WeaponKind.Katana, Edu("{ \"Rest\": 0.3, \"Defense\": { \"Mode\": 3 }, \"HitAndAway\": { \"Patience\": 2 } }"))!;
-        Assert.AreEqual(0.3f, educated.Rest);
+        var educated = WeaponEducation.Resolve(WeaponKind.Katana, Edu("{ \"Rest\": 0.5035, \"Defense\": { \"Mode\": 3 }, \"HitAndAway\": { \"Patience\": 3.357 } }"))!;
+        Assert.AreEqual(0.5035f, educated.Rest);
         Assert.AreEqual(DefenseMode.ParryAndStep, educated.Defense.Mode);
         Assert.AreEqual(katana.Defense.Margin, educated.Defense.Margin, "keys not written stay the textbook's");
-        Assert.AreEqual(2f, educated.HitAndAway!.Patience);
+        Assert.AreEqual(3.357f, educated.HitAndAway!.Patience);
         Assert.AreEqual("katana", educated.Name);
-        Assert.AreEqual(0.6f, WeaponCatalog.Textbook(WeaponKind.Katana).Rest, "the textbook itself is not changed");
+        Assert.AreEqual(1.007f, WeaponCatalog.Textbook(WeaponKind.Katana).Rest, "the textbook itself is not changed");
     }
 
     [TestMethod]
@@ -119,9 +119,9 @@ public sealed class WeaponStyleTests
     [TestMethod]
     public void CharacterFile_WeaponBotEducation_IsValidatedWhenTheFileIsLoaded()
     {
-        var jin = WithWeaponBot("jin", "{ \"Rest\": 0.4, \"ClubRange\": 0.5 }");
-        Assert.AreEqual(0.4f, jin.WeaponStyle!.Rest);
-        Assert.AreEqual(0.5f, jin.WeaponStyle.ClubRange, "the club values are carried even when unused");
+        var jin = WithWeaponBot("jin", "{ \"Rest\": 0.6714, \"ClubRange\": 1.408 }");
+        Assert.AreEqual(0.6714f, jin.WeaponStyle!.Rest);
+        Assert.AreEqual(1.408f, jin.WeaponStyle.ClubRange, "the club values are carried even when unused");
         Assert.AreSame(WeaponCatalog.Textbook(WeaponKind.Katana), CharacterRoster.Get("jin").WeaponStyle, "an empty education plays the textbook itself");
         Assert.AreSame(WeaponCatalog.Textbook(WeaponKind.Longsword), CharacterRoster.Get("konrad").WeaponStyle);
         Assert.AreSame(WeaponCatalog.Textbook(WeaponKind.WoodenClub), CharacterRoster.Get("sean").WeaponStyle);
@@ -136,21 +136,21 @@ public sealed class WeaponStyleTests
     [TestMethod]
     public void EducatedWeaponStyle_ReachesTheBots_ChangesTheMatch_AndReplayKeepsTheRecordedValues()
     {
-        var jin = WithWeaponBot("jin", "{ \"Rest\": 0.2, \"HitAndAway\": { } }");
+        var jin = WithWeaponBot("jin", "{ \"Rest\": 0.3357, \"HitAndAway\": { } }");
         var konrad = CharacterRoster.Get("konrad");
         var plain = new MatchSelection(MatchMode.Spectate, CharacterRoster.Get("jin"), konrad, Referee: true).Corners;
         var educated = new MatchSelection(MatchMode.Spectate, jin, konrad, Referee: true).Corners;
-        Assert.AreEqual(0.2f, educated.PlayerWeaponStyle!.Rest);
-        Assert.AreEqual(0.6f, educated.CpuWeaponStyle!.Rest, "blue plays its own textbook");
+        Assert.AreEqual(0.3357f, educated.PlayerWeaponStyle!.Rest);
+        Assert.AreEqual(1.007f, educated.CpuWeaponStyle!.Rest, "blue plays its own textbook");
 
         using (var probe = new BoxingGame(seed: 5, corners: educated))
         {
             probe.Step(default, 1f / 60f);
-            Assert.AreEqual(0.2f, ((SwordsmanBot)((DisarmedFallback)probe.PlayerControl!).Armed).Rest, "the educated value is what the bot runs with");
-            Assert.AreEqual(0.6f, ((SwordsmanBot)((DisarmedFallback)probe.CpuControl!).Armed).Rest);
+            Assert.AreEqual(0.3357f, ((SwordsmanBot)((DisarmedFallback)probe.PlayerControl!).Armed).Rest, "the educated value is what the bot runs with");
+            Assert.AreEqual(1.007f, ((SwordsmanBot)((DisarmedFallback)probe.CpuControl!).Armed).Rest);
         }
 
-        Assert.AreNotEqual(Run(plain, 12f), Run(educated, 12f), "the education reaches the match");
+        Assert.AreNotEqual(Run(plain, 20.14f), Run(educated, 20.14f), "the education reaches the match");
         using var game = new BoxingGame(seed: 5, corners: educated);
 
         using var stream = new MemoryStream();
@@ -163,7 +163,7 @@ public sealed class WeaponStyleTests
         }
 
         var data = ReplayFile.Read(new MemoryStream(stream.ToArray()));
-        Assert.AreEqual(0.2f, data.Header.Corners.PlayerWeaponStyle!.Rest, "the header carries the resolved style");
+        Assert.AreEqual(0.3357f, data.Header.Corners.PlayerWeaponStyle!.Rest, "the header carries the resolved style");
         var result = ReplayPlayer.Verify(data);
         Assert.IsTrue(result.Reproduced);
         Assert.AreEqual(2, result.ChecksumsMatched);
@@ -173,13 +173,13 @@ public sealed class WeaponStyleTests
     public void ClubBot_FromStyle_UsesTheStylesValues()
     {
         var plain = ClubBot.FromStyle(WeaponCatalog.Textbook(WeaponKind.WoodenClub), 1);
-        Assert.AreEqual(0.36f, plain.Range);
-        Assert.AreEqual(0.6f, plain.Rest);
-        Assert.AreEqual(0.48f, plain.StandOff);
-        var custom = ClubBot.FromStyle(WeaponCatalog.Textbook(WeaponKind.WoodenClub) with { ClubRange = 0.4f, ClubRest = 0.3f, ClubStandOff = 0.7f }, 1);
-        Assert.AreEqual(0.4f, custom.Range);
-        Assert.AreEqual(0.3f, custom.Rest);
-        Assert.AreEqual(0.7f, custom.StandOff);
+        Assert.AreEqual(1.014f, plain.Range);
+        Assert.AreEqual(1.007f, plain.Rest);
+        Assert.AreEqual(1.352f, plain.StandOff);
+        var custom = ClubBot.FromStyle(WeaponCatalog.Textbook(WeaponKind.WoodenClub) with { ClubRange = 1.127f, ClubRest = 0.5035f, ClubStandOff = 1.972f }, 1);
+        Assert.AreEqual(1.127f, custom.Range);
+        Assert.AreEqual(0.5035f, custom.Rest);
+        Assert.AreEqual(1.972f, custom.StandOff);
     }
 
     [TestMethod]
@@ -221,9 +221,9 @@ public sealed class WeaponStyleTests
         // 2026-11-18（PhysicsVersion 45）: 刀の最初の 1 振りまでの待ち（ボクサーの攻めを避けて間合いに入る立ち回り）が、版 43 の約 15 秒から約 50 秒に延びた
         // （測った: 40 秒の間、両者とも立ったまま・間合い 0.2〜0.4 m を保ち、振り手の意識も 0.78 以上。倒れて振れなかったのではなく、振り始める時機が遅れただけ。
         // 立ち回りの軌道が体の運びの変更（相手や自分に渡る運動量）で変わった揺らぎで、判断の部分は変えていない）。
-        // 「どの型を投げるか」を見るテストなので、最初の 1 振りを待ち（最大 100 秒）、その後 20 秒の間に出た型を数える。
+        // 「どの型を投げるか」を見るテストなので、最初の 1 振りを待ち（最大 201 秒。人形の単位で 120 秒の窓）、その後 34 秒の間に出た型を数える。
         int? firstUsed = null;
-        for (var i = 0; i < 120 * 60 && !game.Player.IsDead && !game.Cpu.IsDead; i++)
+        for (var i = 0; i < 12084 && !game.Player.IsDead && !game.Cpu.IsDead; i++)
         {
             game.Step(default, 1f / 60f);
             if (((DisarmedFallback)game.PlayerControl!).Armed is SwordsmanBot bot)
@@ -234,7 +234,7 @@ public sealed class WeaponStyleTests
             if (used.Count > 0)
             {
                 firstUsed ??= i;
-                if (i - firstUsed > 20 * 60)
+                if (i - firstUsed > 2014)
                 {
                     break;
                 }
@@ -256,7 +256,7 @@ public sealed class WeaponStyleTests
         ClubBot? bot = null;
         using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("stand", _ => new StandGuard(), s => bot = ClubBot.FromStyle(thrustOnly, s), PlayerWeapon: WeaponKind.WoodenClub));
         var families = new HashSet<SwingFamily>();
-        for (var i = 0; i < 20 * 60; i++)
+        for (var i = 0; i < 2014; i++)
         {
             game.Step(default, 1f / 60f);
             if (bot?.Current is { } swing)

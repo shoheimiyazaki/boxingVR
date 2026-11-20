@@ -34,14 +34,17 @@ public static class CameraFollow
         return away.LengthSquared() < 1e-6f ? fallback : MathF.Atan2(away.X, away.Y);
     }
 
-    /// <summary>動画と同じ赤が左の横位置。開始時は二人の胸の中点を少し上から見る。</summary>
+    /// <summary>
+    /// 動画と同じ赤が左の横位置。開始時は二人の胸の中点を少し上から見る。位置・距離は物理の空間（<paramref name="ringScale"/> はドリルの場に対するリングの比で、
+    /// 大きさは持たない）: 注視点は胸の 17 cm 下、目はそこから横へ 2.5 m・上へ 1.4 m（× 比）。
+    /// </summary>
     public static (Vector3 Eye, Vector3 Target) MatchOpeningView(Vector3 redChest, Vector3 blueChest, float ringScale)
     {
         var mid = (redChest + blueChest) * 0.5f;
         var axis = (blueChest - redChest) with { Y = 0f };
         var side = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(Vector3.Cross(axis, Vector3.UnitY)) : -Vector3.UnitX;
-        var target = mid - new Vector3(0f, 0.06f, 0f);
-        return (target + (side * 0.9f * ringScale) + (Vector3.UnitY * 0.5f * ringScale), target);
+        var target = mid - new Vector3(0f, 0.169f, 0f);
+        return (target + (side * 2.535f * ringScale) + (Vector3.UnitY * 1.408f * ringScale), target);
     }
     /// <summary>減衰のバネ（指数的に近づく。フレーム間隔に依らず同じ軌跡）。</summary>
     public static float Blend(float rate, float dt) => 1f - MathF.Exp(-MathF.Max(0f, rate) * MathF.Max(0f, dt));

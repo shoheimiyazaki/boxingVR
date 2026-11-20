@@ -16,13 +16,13 @@ internal static class FinishLab
     private const float Dt = 1f / 240f;
 
     /// <summary>拳を出したとみなす、胸に対する拳の外向きの速さ [腕の長さ/秒]。</summary>
-    private const float LaunchSpeed = 6f;
+    private const float LaunchSpeed = 3.575f;
 
     /// <summary>1 本の拳を見る長さの上限 [s]（引き戻しで終わらなければここで切る）。</summary>
-    private const float MaxPunchSeconds = 1f;
+    private const float MaxPunchSeconds = 1.678f;
 
     /// <summary>前の拳を出してからこれより短い間に出た拳を「続けて出した拳」（コンビネーションの 2 発目以降）とみなす [s]。</summary>
-    private const float FollowSeconds = 0.45f;
+    private const float FollowSeconds = 0.7553f;
 
     internal sealed class Tally
     {
@@ -93,7 +93,7 @@ internal static class FinishLab
         using var game = new BoxingGame(tuning, seed: seed, corners: corners);
         var tally = new Tally();
         var punches = new Punch?[2];
-        var sinceLaunch = 10f;
+        var sinceLaunch = 16.78f;
         var victimFighter = game.Cpu;
         var self = game.Player;
         var windStart = victimFighter.WindLost;

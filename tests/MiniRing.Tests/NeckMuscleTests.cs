@@ -14,7 +14,7 @@ public sealed class NeckMuscleTests
 {
     private static float Threshold(VoxelGrid grid, Vector3 point, Vector3 dir, float tone, int axis = 1, (int, int)? slices = null)
     {
-        float lo = 0f, hi = 20000f;
+        float lo = 0f, hi = 200000f;
         for (var i = 0; i < 40; i++)
         {
             var mid = 0.5f * (lo + hi);
@@ -57,9 +57,9 @@ public sealed class NeckMuscleTests
     {
         using var game = new BoxingGame(seed: 1);
         var grid = Head(game);
-        // 種 15（champion – swarmer、4.94 s）の接触: 首の上の段の横の皮膚を、グローブが首の柱から 2.3 cm 横で下から斜め上へ押した。
-        // 骨だけでは 42 N で折れる（その接触は 33 N で骨の強さの 0.78 倍）。測った（2026-11-20）: 張り 1 で 54 N、0 で 44 N。
-        var at = new Vector3(-0.0226f, -0.0173f, -0.0014f);
+        // 種 15（champion – swarmer、4.94 s）の接触: 首の上の段の横の皮膚を、グローブが首の柱から 6.5 cm 横で下から斜め上へ押した。
+        // 骨だけでは 42 N で折れる（その接触は 33 N で骨の強さの 0.78 倍）。測った（2026-11-20、人形の単位。実物大で約 10 倍）: 張り 1 で 54 N、0 で 44 N。
+        var at = new Vector3(-0.0637f, -0.0487f, -0.00394f);
         var dir = Vector3.Normalize(new Vector3(19.97f, 20.90f, 15.16f));
         var braced = Threshold(grid, at, dir, tone: 1f);
         var slack = Threshold(grid, at, dir, tone: 0f);
@@ -75,7 +75,7 @@ public sealed class NeckMuscleTests
         var braced = Threshold(grid, at, dir, tone: 1f);
         var half = Threshold(grid, at, dir, tone: 0.5f);
         var slack = Threshold(grid, at, dir, tone: 0f);
-        // 測った（2026-11-20）: 張り 1 で 593 N、0 で 482 N（骨だけなら 460 N）。張りに連続に従う。
+        // 測った（2026-11-20、人形の単位。実物大で約 10 倍）: 張り 1 で 593 N、0 で 482 N（骨だけなら 460 N）。張りに連続に従う。
         Assert.IsGreaterThan(slack * 1.15f, braced, $"braced {braced:0} N vs slack {slack:0} N");
         Assert.IsTrue(half > slack && half < braced, $"tone in between gives a neck in between: {slack:0} < {half:0} < {braced:0}");
     }
@@ -127,7 +127,7 @@ public sealed class NeckMuscleTests
     public void TheFighterBracesItsBeams_WithItsTone_AndLetsThemGoSlackWhenItFaints()
     {
         using var game = new BoxingGame(seed: 1);
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++) // 約 0.84 秒
         {
             game.Step(default, 1f / 60f);
         }
@@ -139,7 +139,7 @@ public sealed class NeckMuscleTests
         Assert.IsGreaterThan(0.9f, forearm.TieActivation, "and its arms");
 
         fighter.Concussion = 1f; // 意識が飛ぶ（張りが抜ける）
-        game.Step(default, 1f / 60f);
+        game.Step(default, 0.028f);
         Assert.IsLessThan(0.05f, head.TieActivation, $"a fainted fighter's neck is slack: {head.TieActivation:0.000}");
         Assert.IsLessThan(0.05f, forearm.TieActivation, "and so are its arms");
     }

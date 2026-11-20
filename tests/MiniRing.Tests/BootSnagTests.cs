@@ -9,7 +9,7 @@ public sealed class BootSnagTests
 {
     /// <summary>
     /// 対角・でたらめに歩く道は、直す前は後ろ足が前足より前へ出られず 1 cm ずつ刻み、伸びきった前足が置き直されないまま 25 秒のうち 17〜24 秒止まった
-    /// （骨盤の進みが指令の 1 割以下、回りきれない）。直した後は止まらず回りきる（止まっても 1 秒未満）。
+    /// （骨盤の進みが指令の 1 割以下、回りきれない）。直した後は止まらず回りきる（止まっても 1.7 秒未満。人形の単位で 1 秒）。
     /// </summary>
     [TestMethod]
     public void WalkingDiagonallyOnTheCanvas_NeverStallsAndFinishesTheCourse()
@@ -23,9 +23,9 @@ public sealed class BootSnagTests
                     continue;
                 }
 
-                var r = BootSnagDrill.Walk(name, waypoints, 25f);
+                var r = BootSnagDrill.Walk(name, waypoints, 41.96f);
                 Assert.IsTrue(r.Finished, $"{name} (seed {seed}): the walker never finished the course (stuck for {r.StallSeconds:0.0} s)");
-                Assert.IsLessThan(1f, r.StallSeconds, $"{name} (seed {seed}): stalled {r.StallSeconds:0.00} s over {r.Stalls} events");
+                Assert.IsLessThan(1.678f, r.StallSeconds, $"{name} (seed {seed}): stalled {r.StallSeconds:0.00} s over {r.Stalls} events");
                 Assert.AreEqual(0, r.FootSnags, $"{name} (seed {seed}): a swinging foot stuck on the floor {r.FootSnagSeconds:0.00} s");
                 Assert.IsGreaterThan(0.5f, r.SpeedRatio, $"{name} (seed {seed}): pelvis speed / command {r.SpeedRatio:0.00}");
             }
@@ -39,22 +39,22 @@ public sealed class BootSnagTests
         var (world, fighter, ring, _) = BootSnagDrill.Build();
         using (world)
         {
-            for (var i = 0; i < 240; i++)
+            for (var i = 0; i < 403; i++)
             {
                 fighter.ApplyControl(BootSnagDrill.Command(fighter, Vector3.Zero, Vector3.UnitZ), BootSnagDrill.Dt);
                 world.Step(BootSnagDrill.Dt);
             }
 
             var lowest = float.MaxValue;
-            for (var i = 0; i < 240 * 6; i++)
+            for (var i = 0; i < 2417; i++)
             {
                 fighter.ApplyControl(BootSnagDrill.Command(fighter, -Vector3.UnitZ, Vector3.UnitZ), BootSnagDrill.Dt);
                 world.Step(BootSnagDrill.Dt);
                 lowest = MathF.Min(lowest, MathF.Min(world.GetState(fighter.ToeId(0)).Position.Y, world.GetState(fighter.ToeId(1)).Position.Y));
             }
 
-            // つま先の箱の半分の厚さは約 1 cm。キャンバスに乗っていれば、中心はキャンバスの上 1 cm あたり。縁の外へ出れば 3 cm 以上下がる。
-            Assert.IsLessThan(ring.SurfaceHeight - 0.02f, lowest, $"toe never dropped below the canvas (lowest {lowest - ring.SurfaceHeight:0.000} m)");
+            // つま先の箱の半分の厚さは約 2.8 cm。キャンバスに乗っていれば、中心はキャンバスの上 2.8 cm あたり。縁の外へ出れば 8.5 cm 以上下がる。
+            Assert.IsLessThan(ring.SurfaceHeight - 0.0563f, lowest, $"toe never dropped below the canvas (lowest {lowest - ring.SurfaceHeight:0.000} m)");
         }
     }
 }

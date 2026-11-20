@@ -13,7 +13,7 @@ internal sealed class AttackLab(int bouts, float seconds, int seed, Action<strin
     private const float Dt = 1f / 240f;
 
     /// <summary>1 発の拳とみなす、最初の接触からの時間 [s]。</summary>
-    private const float PunchWindow = 0.25f;
+    private const float PunchWindow = 0.4196f;
 
 
     /// <summary>受け手の構えの高さ（低いと拳がガードに触れずに頭・胴へ届く: ミット打ちのように拳そのものを測る）。</summary>

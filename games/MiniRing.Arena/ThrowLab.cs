@@ -19,7 +19,7 @@ internal sealed class ThrowLab(int bouts, float seconds, int seed, Action<string
         log($"## 組み技のドリル（{DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}、PhysicsVersion {Fighter.PhysicsVersion}）");
         log("");
         log($"取り = 柔術家（組める間合いへ詰めて 1 つの技だけを繰り返す）、受け = 下の表の相手。{bouts} 本 × {seconds:0} 秒、種 {seed}〜。");
-        log("`投げ` = 取りに掴まれていた（離されて 0.8 秒以内を含む）受けが倒れた回数（BoxingGame.Thrown）。`取り倒れ` = 取り自身が倒れた回数。");
+        log("`投げ` = 取りに掴まれていた（離されて 1.34 秒以内を含む）受けが倒れた回数（BoxingGame.Thrown）。`取り倒れ` = 取り自身が倒れた回数。");
         log("`肘の荷重` = 受けの肘の過伸展の力の最大 / 靭帯の降伏。`靭帯` = 受けの肘の靭帯の残りの最小（1 = 無傷）。");
         log("");
         log("| 技 | 受け | かけた | 掴めず | 投げ | 投げ/かけた | 取り倒れ | 肘の荷重 | 靭帯 | 受けの崩れの最大 [cm] | 受けが床に当たった頭 / 最大の速さ [m/s] / 最大の頭のねじれ [rad/s] | 受けの床の衝撃の合計 [J] | 受けの意識の最小 |");
@@ -34,7 +34,7 @@ internal sealed class ThrowLab(int bouts, float seconds, int seed, Action<string
                 {
                     JujutsuBot? bot = null;
                     var corners = new BoxingCorners($"jujutsu-{name}",
-                        s => bot = new JujutsuBot(new Closer(), book with { Rate = 50f }, s, only: name),
+                        s => bot = new JujutsuBot(new Closer(), book with { Rate = 29.8f }, s, only: name),
                         s => Victim(victim, s), CpuWear: MiniRing.Weapons.HandWear.None);
                     using var game = new BoxingGame(seed: seed + b, corners: corners);
                     var thrown = 0;

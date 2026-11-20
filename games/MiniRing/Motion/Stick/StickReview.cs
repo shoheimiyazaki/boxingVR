@@ -21,28 +21,28 @@ public sealed record StickAlert(StickGrade Grade, string Kind, string Where, flo
 public sealed record StickReviewSettings
 {
     /// <summary>脚の関節（股・膝・足首）のサーボの最大の速さ [rad/s]（Fighter の LegServoSpeed）。</summary>
-    public float LegSpeed { get; init; } = 10f;
+    public float LegSpeed { get; init; } = 5.958f;
 
     /// <summary>腕の関節（肩・肘）のサーボの最大の速さ [rad/s]（<see cref="FighterTuning.ArmServoMaxSpeed"/>）。</summary>
-    public float ArmSpeed { get; init; } = 40f;
+    public float ArmSpeed { get; init; } = 23.83f;
 
     /// <summary>胴・首・手首（武器）の関節の速さの目安 [rad/s]（サーボの値が無いので、脚の 2 倍）。</summary>
-    public float TrunkSpeed { get; init; } = 20f;
+    public float TrunkSpeed { get; init; } = 11.92f;
 
     /// <summary>関節の範囲の端から、これ以内を「端に張り付いている」とする [rad]（3°）。</summary>
     public float LimitMargin { get; init; } = 3f * MathF.PI / 180f;
 
     /// <summary>IK が目標へ届けられなかった距離の閾値 [m]（追う遅れの後の目標との差。体の範囲・形として無理な目標）。</summary>
-    public float Reach { get; init; } = 0.01f;
+    public float Reach { get; init; } = 0.02817f;
 
     /// <summary>体の部位どうし・刃と体が入り込む深さの閾値 [m]。</summary>
-    public float Penetration { get; init; } = 0.005f;
+    public float Penetration { get; init; } = 0.01408f;
 
     /// <summary>両手で握る武器で、もう一方の手の目標が武器の線から外れている距離の閾値 [m]（両手で同じ棒を握れない目標）。</summary>
-    public float Grip { get; init; } = 0.01f;
+    public float Grip { get; init; } = 0.02817f;
 
     /// <summary>警報にする最短の長さ [s]（1 歩だけのちらつきを拾わない）。</summary>
-    public float MinDuration { get; init; } = 0.05f;
+    public float MinDuration { get; init; } = 0.0839f;
 
     /// <summary>
     /// 滑らかさの閾値（手先・刃先の 1 本の動き（速さの谷で切る）の、次元の無い躍度の対数 LDLJ。Balasubramanian ら 2015）。これより小さい
@@ -128,7 +128,7 @@ public sealed class StickReview
                     var duration = (i - start) * dt;
                     if (duration >= s.MinDuration)
                     {
-                        var grade = peak > warning || duration > 0.2f ? StickGrade.Warning : StickGrade.Caution;
+                        var grade = peak > warning || duration > 0.3357f ? StickGrade.Warning : StickGrade.Caution;
                         alerts.Add(new StickAlert(grade, kind, where, start * dt, i * dt, peak, unit));
                     }
 
@@ -211,7 +211,7 @@ public sealed class StickReview
 
         // 7. 崩れ: 捕捉点が足の支えの外へ（ゲームの立つ力が減る）・床が上へ押さない（宙）。
         var grounded = Enumerable.Range(0, n).Select(i => result.Steps[i].Support.Left || result.Steps[i].Support.Right).ToArray();
-        Series("捕捉点が支えの外へ出る", "重心", i => grounded[i] ? result.Loads[i].CaptureOutside : 0f, 0f, 0.02f, "m");
+        Series("捕捉点が支えの外へ出る", "重心", i => grounded[i] ? result.Loads[i].CaptureOutside : 0f, 0f, 0.0563f, "m");
         Series("床が上へ押さない（宙に浮く力が要る）", "全身", i => grounded[i] && float.IsPositiveInfinity(result.Loads[i].ZmpOutside) ? 1f : 0f, 0.5f, 0.5f, "");
 
         // 物差し: 滑らかさ（LDLJ）。
@@ -441,7 +441,7 @@ public sealed class StickReview
     }
 
     /// <summary>
-    /// 軌跡を 1 本ずつの動きに切る: 速さが山の 20 % を下回る谷で区切り、山が 5 cm/s 以上・6 歩以上の区間を返す。
+    /// 軌跡を 1 本ずつの動きに切る: 速さが山の 20 % を下回る谷で区切り、山が 8.4 cm/s 以上・10 歩以上の区間を返す（人形の単位で 5 cm/s・6 歩）。
     /// </summary>
     public static IEnumerable<(int From, int To)> Submovements(IReadOnlyList<Vector3> path, float dt)
     {
@@ -472,7 +472,7 @@ public sealed class StickReview
             else if (start >= 0)
             {
                 var end = Math.Min(n - 1, i);
-                if (peak >= 0.05f && end - start >= 6)
+                if (peak >= 0.0839f && end - start >= 10)
                 {
                     yield return (start, end);
                 }
@@ -484,7 +484,7 @@ public sealed class StickReview
     }
 
     /// <summary>
-    /// 軌跡の滑らかさ: 次元の無い躍度の対数 LDLJ = −ln(T³ / v_peak² ∫|躍度|² dt)（速さの山が 5 cm/s に満たない末端は null）。
+    /// 軌跡の滑らかさ: 次元の無い躍度の対数 LDLJ = −ln(T³ / v_peak² ∫|躍度|² dt)（速さの山が 8.4 cm/s に満たない末端は null）。
     /// </summary>
     public static float? Ldlj(IReadOnlyList<Vector3> path, float dt)
     {
@@ -500,7 +500,7 @@ public sealed class StickReview
             peak = MathF.Max(peak, Vector3.Distance(path[i + 1], path[i - 1]) / (2f * dt));
         }
 
-        if (peak < 0.05f)
+        if (peak < 0.0839f)
         {
             return null;
         }

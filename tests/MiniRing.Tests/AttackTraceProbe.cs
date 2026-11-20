@@ -10,7 +10,7 @@ public sealed class AttackTraceProbe
 {
     [TestMethod]
     [DataRow(0f)]
-    [DataRow(0.2f)]
+    [DataRow(0.3357f)]
     public void OneCross(float telegraph)
     {
         var attacker = (DefenseDrill.Attacker(PunchKind.Straight) with { Name = "a", Telegraph = telegraph, ComboWeights = new Dictionary<string, float> { ["2"] = 1f } }).Validated();
@@ -19,7 +19,7 @@ public sealed class AttackTraceProbe
         Spy? spy = null;
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("a", s => { var b = new BoxerBot(attacker, s); bots.Add(b); spy = new Spy(b); return spy; }, s => new BoxerBot(target, s)));
         var thrownAt = -1f;
-        for (var t = 0f; t < 8f; t += 1f / 240f)
+        for (var t = 0f; t < 13.43f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
             var a = game.Cpu;
@@ -28,7 +28,7 @@ public sealed class AttackTraceProbe
                 thrownAt = t;
             }
 
-            if (thrownAt >= 0f && t < thrownAt + telegraph + 0.35f && ((int)(t * 240f)) % 6 == 0)
+            if (thrownAt >= 0f && t < thrownAt + telegraph + 0.5874f && ((int)(t * 240f)) % 6 == 0)
             {
                 var glove = a.GloveCenter(Hand.Right);
                 var target3 = a.HandTargetWorld(Hand.Right);

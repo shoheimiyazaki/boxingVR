@@ -51,7 +51,7 @@ public sealed record GroundMove(string Name, GroundLimb Limb, float Duration, fl
         static float R(float v, float min, float max, float f) => Math.Clamp(float.IsFinite(v) ? v : f, min, max);
         return this with
         {
-            Duration = R(Duration, 0.1f, 3f, fallback.Duration),
+            Duration = R(Duration, 0.1678f, 5.035f, fallback.Duration),
             Stand = R(Stand, 0f, 2f, fallback.Stand),
             Reach = R(Reach, 0.3f, 2f, fallback.Reach),
             Rise = R(Rise, -1f, 2f, fallback.Rise),
@@ -96,8 +96,8 @@ public sealed record GroundTuning
     /// <summary>振りかぶりの後、打つ（落とす）区間の終わり（この値まで。以降は構えへ戻す）。</summary>
     public float StrikeShare { get; init; } = 0.62f;
 
-    /// <summary>沈みを動かす速さ [腕の長さ / s]（目標が届く所から外れた量に比例。手で決めた値）。</summary>
-    public float SinkRate { get; init; } = 4f;
+    /// <summary>沈みを動かす速さ [腕の長さ / s]（目標が届く所から外れた量に比例。手で決めた値。実物大の相似で 4 → 2.38）。</summary>
+    public float SinkRate { get; init; } = 2.383f;
 
     /// <summary>沈みの上限 [腕の長さ]。これ以上は上体が倒れて腕が使えない（試して決めた）。</summary>
     public float MaxSink { get; init; } = 1.5f;
@@ -126,16 +126,16 @@ public sealed record GroundTuning
     public float ApproachLean { get; init; } = 0.2f;
 
     /// <summary>着いたのに沈みきれないとき、打つのを待つ上限 [s]。</summary>
-    public float MaxWait { get; init; } = 0.8f;
+    public float MaxWait { get; init; } = 1.343f;
 
     /// <summary>立つ所へ着いても届かないとき、届くまで待つ上限 [s]（過ぎたら、届く所まで寄って打ちに行く）。</summary>
-    public float GiveUpSeconds { get; init; } = 1.0f;
+    public float GiveUpSeconds { get; init; } = 1.678f;
 
     /// <summary>あきらめて寄って打ちに行く距離の上限 [腕の長さ]。</summary>
     public float GiveUpRange { get; init; } = 1.2f;
 
     /// <summary>打たないと決めたあと、次を決めるまでの間 [s]。</summary>
-    public float RetryDelay { get; init; } = 0.25f;
+    public float RetryDelay { get; init; } = 0.4196f;
 
     /// <summary>手の目標を、肩から腕の長さのこの倍までに丸める（腕は伸びきっても越えられない）。</summary>
     public float ReachLimit { get; init; } = 0.98f;
@@ -156,25 +156,25 @@ public sealed record GroundTuning
     public float KneeForward { get; init; } = 0.15f;
 
     /// <summary>素手・グローブ・手にはめた物: 鉄槌（拳を高く上げて縦に打ち下ろす）。</summary>
-    public GroundMove Hammer { get; init; } = new("hammer", GroundLimb.Hand, 0.50f, 0.30f, 1.00f, 0.65f, 0.15f, 0f, 0f, 0.15f, 0.30f, 0.10f, 1f);
+    public GroundMove Hammer { get; init; } = new("hammer", GroundLimb.Hand, 0.8392f, 0.30f, 1.00f, 0.65f, 0.15f, 0f, 0f, 0.15f, 0.30f, 0.10f, 1f);
 
     /// <summary>
     /// 素手・グローブ・手にはめた物: 真下へ撃ち抜く突き（2026-11-17、ユーザーの指定）。立ったまま倒れた相手の脇に寄り、拳を狙いの真上へ上げ（引かない）、
     /// 体を持ち上げてから落としながら、狙いの奥まで真っすぐ突き抜ける。沈みは腕の 0.79 倍まで（倒れた相手の上へ崩れない）。値は groundlab の練習（40 候補、使わなかった種で 4 本の当たり 1→20・渡したエネルギー 2→67 J・攻め手の転倒 0。docs/arena/groundlab_practice.md）。
     /// </summary>
-    public GroundMove PunchDown { get; init; } = new("punch-down", GroundLimb.Hand, 0.39f, 0.07f, 0.88f, 0.52f, 0.21f, 0f, 0f, 0.60f, 0.27f, 0.41f, 1f, MaxSink: 0.79f);
+    public GroundMove PunchDown { get; init; } = new("punch-down", GroundLimb.Hand, 0.6546f, 0.07f, 0.88f, 0.52f, 0.21f, 0f, 0f, 0.60f, 0.27f, 0.41f, 1f, MaxSink: 0.79f);
 
     /// <summary>
     /// 踏みつけ（足裏で踏み下ろす、2026-11-17 に立ったまま踏む形へ）: 体重を軸足へ寄せながら膝を高く上げ、足裏を下へ向けたまま（足首の向きは立つときと同じ）
     /// 狙いの真上から真下へ踏み抜く。沈みはほとんど無し（立ったまま）。値は groundlab の練習（40 候補、使わなかった種で 4 本の渡したエネルギー 56→192 J・攻め手の転倒 0。docs/arena/groundlab_practice.md）。
     /// </summary>
-    public GroundMove Stomp { get; init; } = new("stomp", GroundLimb.Foot, 0.72f, 0.23f, 1.70f, 1.15f, 0f, 0f, 0f, 0.06f, 0.09f, 0.43f, 1f, MaxSink: 0.03f, StanceLean: 0.17f);
+    public GroundMove Stomp { get; init; } = new("stomp", GroundLimb.Foot, 1.208f, 0.23f, 1.70f, 1.15f, 0f, 0f, 0f, 0.06f, 0.09f, 0.43f, 1f, MaxSink: 0.03f, StanceLean: 0.17f);
 
     /// <summary>片手・両手で握った武器: 上段から振りかぶって斬り下ろす（刀・ロングソード・棍棒。握りの先が頭の後ろへ寝るまで振りかぶる）。</summary>
-    public GroundMove Cut { get; init; } = new("cut", GroundLimb.Hand, 0.65f, 0.80f, 0.95f, 0.70f, 0.20f, 2.3f, -0.75f, 0.10f, 0.30f, 0.10f, 1f);
+    public GroundMove Cut { get; init; } = new("cut", GroundLimb.Hand, 1.091f, 0.80f, 0.95f, 0.70f, 0.20f, 2.3f, -0.75f, 0.10f, 0.30f, 0.10f, 1f);
 
     /// <summary>刀・ロングソード: 切っ先を相手へ向けて高く構え、真上から突き下ろす（とどめ）。</summary>
-    public GroundMove Thrust { get; init; } = new("thrust-down", GroundLimb.Hand, 0.60f, 0.70f, 0.95f, 0.40f, 0.45f, -0.55f, -1.15f, 0.12f, 0.30f, 0.15f, 1f);
+    public GroundMove Thrust { get; init; } = new("thrust-down", GroundLimb.Hand, 1.007f, 0.70f, 0.95f, 0.40f, 0.45f, -0.55f, -1.15f, 0.12f, 0.30f, 0.15f, 1f);
 }
 
 /// <summary>入力元から倒れた相手への攻めへの呼びかけ。</summary>

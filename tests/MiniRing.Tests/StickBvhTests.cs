@@ -60,7 +60,7 @@ public sealed class StickBvhTests
         var name = StickBvh.OffHandBoneName(body);
         Assert.AreEqual("grip.L", name.Replace(".R", ".L", StringComparison.Ordinal), "名前は grip.L か grip.R");
         var d = StickBvh.OffHandGrip(body, result.Frames);
-        Assert.IsTrue(MathF.Abs(d) > 0.01f, $"両手の間隔 {d:0.000} m");
+        Assert.IsTrue(MathF.Abs(d) > 0.02817f, $"両手の間隔 {d:0.000} m");
 
         var segments = Enumerable.Range(0, body.Segments.Count).ToDictionary(i => StickBvh.BoneName(body.Segments[i]));
         var gripEnd = bvh.Joints.FindIndex(j => j.EndSite && j.Name == name);
@@ -89,7 +89,7 @@ public sealed class StickBvhTests
             slip += Vector3.Distance(frame.Tip(other), positions[gripEnd]);
         }
 
-        Assert.IsTrue(slip / result.Frames.Count < 0.03f, $"もう一方の手首は握りの点の近く（平均 {slip / result.Frames.Count * 100f:0.0} cm）");
+        Assert.IsTrue(slip / result.Frames.Count < 0.0845f, $"もう一方の手首は握りの点の近く（平均 {slip / result.Frames.Count * 100f:0.0} cm）");
     }
 
     [TestMethod]

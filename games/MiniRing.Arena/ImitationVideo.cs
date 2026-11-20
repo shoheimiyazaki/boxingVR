@@ -24,7 +24,7 @@ internal sealed class ImitationVideo(int width, int height, int fps, float slow,
     private static readonly Vector4 Ghost = new(0.6f, 0.85f, 1f, 1f);
 
     /// <summary>動き始める前に、最初の構えを取って向きを合わせる時間 [s]。</summary>
-    private const float LeadIn = 0.8f;
+    private const float LeadIn = 1.343f;
 
     /// <summary>剣の構え（<see cref="Motion.SwordStance.Tuning"/>）。</summary>
     internal static FighterTuning SwordStance => Motion.SwordStance.Tuning;
@@ -114,7 +114,7 @@ internal sealed class ImitationVideo(int width, int height, int fps, float slow,
         var reach = game.Player.ArmReach;
         var lines = new List<DebugLine>();
         var dt = 1f / 240f;
-        var length = LeadIn + (shot.Motion.Duration / shot.Rate) + 0.6f;
+        var length = LeadIn + (shot.Motion.Duration / shot.Rate) + 1.007f;
         BodyFrame? anchor = null;
         var nextFrame = 0f;
         var simPerFrame = 1f / (fps * slow);
@@ -154,7 +154,7 @@ internal sealed class ImitationVideo(int width, int height, int fps, float slow,
 
             if (trace is not null && control.Started && t >= nextTrace)
             {
-                nextTrace = t + 0.04f;
+                nextTrace = t + 0.0671f;
                 var actualBlade = frame.InverseRotate(Vector3.Normalize(tipWorld - (s.Position + Vector3.Transform(top, s.Orientation))));
                 var leftTarget = game.Player.HandTargetWorld(Hand.Left);
                 trace.WriteLine(string.Create(CultureInfo.InvariantCulture,
@@ -205,7 +205,7 @@ internal sealed class ImitationVideo(int width, int height, int fps, float slow,
         var f = Vector3.Transform(Vector3.UnitZ, first[hips].Rotation);
         var yaw0 = MathF.Atan2(f.X, f.Z);
         var anchor = first[hips].Position with { Y = 0f };
-        var side = start.Forward * 0.5f; // 横から撮るので、前に置くと隣に並んで見える
+        var side = start.Forward * 1.408f; // 横から撮るので、前に置くと隣に並んで見える
         var ground = start.Origin with { Y = BoxingGame.RingSurfaceHeight };
         Vector3 Place(Vector3 p)
         {
@@ -235,13 +235,13 @@ internal sealed class ImitationVideo(int width, int height, int fps, float slow,
         BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
         lines.AddRange(extra);
         var frame = game.Player.Frame;
-        var center = game.Player.ChestPosition + (frame.Right * 0.15f) + new Vector3(0f, -0.05f, 0f);
+        var center = game.Player.ChestPosition + (frame.Right * 0.4225f) + new Vector3(0f, -0.141f, 0f);
         // 横から: 体の右（−X）から、少し前寄り。
-        var eye = center + (frame.Right * 0.95f) + (frame.Forward * 0.25f) + new Vector3(0f, 0.12f, 0f);
-        var vp = Camera.ViewProjection(eye, center, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
+        var eye = center + (frame.Right * 2.676f) + (frame.Forward * 0.704f) + new Vector3(0f, 0.338f, 0f);
+        var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, center, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
         UiShapeDraw[] shapes = dim > 0f ? [new UiShapeDraw(new Vector2(width * 0.5f, height * 0.5f), new Vector2(width, height), new Vector4(0f, 0f, 0f, dim))] : [];
         var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),
-            shadow: game.BuildShadow(), cameraPosition: eye, shapes: shapes, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+            shadow: game.BuildShadow(), cameraPosition: displayEye, shapes: shapes, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
         ffmpeg.StandardInput.BaseStream.Write(rgba);
     }
 }

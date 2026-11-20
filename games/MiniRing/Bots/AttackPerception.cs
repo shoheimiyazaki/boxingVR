@@ -20,13 +20,13 @@ internal readonly record struct AttackObservation(FighterSense Sense, Vector3 Bo
 
 internal sealed class AttackPerception
 {
-    internal const float DelaySeconds = 0.2f;
+    internal const float DelaySeconds = 0.3375f; // 240 Hz の 81 歩（人形の単位の 0.2 秒 = 48 歩を相似で換算し、歩の数に丸めた）
     private readonly Queue<(double Time, AttackObservation Observation)> _history = new();
     private double _time;
     private AttackObservation? _visible;
 
-    /// <summary>相手の体の速さを見てとる時間 [s]（目が動きを捉える 0.15 秒ほど。1 歩ごとの速さの細かいぶれを先へ延ばさない）。</summary>
-    internal const float VelocitySeconds = 0.15f;
+    /// <summary>相手の体の速さを見てとる時間 [s]（目が動きを捉える 0.25 秒ほど。1 歩ごとの速さの細かいぶれを先へ延ばさない）。</summary>
+    internal const float VelocitySeconds = 0.2518f;
 
     private Vector3 _bodyVelocity;
 
@@ -38,7 +38,7 @@ internal sealed class AttackPerception
             OpponentTargets = sense.OpponentTargets?.Perceived(sense.OpponentHead, sense.OpponentHead, sense.SelfHead, 1f),
         };
         _history.Enqueue((_time, new AttackObservation(snapshot, _bodyVelocity)));
-        // 240 Hz の48歩と0.2秒の浮動小数点誤差を吸収する。
+        // 240 Hz の 81 歩と 0.3375 秒の浮動小数点誤差を吸収する。
         while (_history.TryPeek(out var next) && _time - next.Time >= DelaySeconds - 1e-7)
         {
             _visible = _history.Dequeue().Observation;

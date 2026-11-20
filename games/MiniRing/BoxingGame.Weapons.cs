@@ -22,17 +22,17 @@ public sealed partial class BoxingGame
     private readonly List<ContactSoundEvent> _recentContacts = [];
 
     /// <summary>この速さ [m/s] で近づいてぶつかったとき、当たった音がいちばん強い（拳の速い所）。</summary>
-    private const float ContactFullSpeed = 4f;
+    private const float ContactFullSpeed = 6.714f;
 
     /// <summary>これより遅く近づいた触れ合い [m/s] は鳴らさない（押し当てているだけ・構えた拳が触れ合っているだけ）。</summary>
-    private const float ContactSoundMinSpeed = 0.5f;
+    private const float ContactSoundMinSpeed = 0.8392f;
     private readonly Dictionary<Weapon, Fighter> _wielders = [];
     private readonly Dictionary<Weapon, Hand> _wieldHand = [];
     private readonly Dictionary<Weapon, float> _weaponCooldown = [];
     private readonly Dictionary<Weapon, float> _selfCooldown = [];
 
     /// <summary>体の重さを運ぶ打撃と数える、当たる所の速さの下限 [m/s]（押し当てているだけの接触は数えない）。</summary>
-    private const float MinimumBlowSpeed = 0.8f;
+    private const float MinimumBlowSpeed = 1.343f;
 
     /// <summary>
     /// 1 本の武器が体の部位に触れて押し戻され、別の部位の中へ入ったとき、同じ物理の 1 歩のうちに掃き直す回数の上限。
@@ -766,7 +766,7 @@ public sealed partial class BoxingGame
     }
 
     /// <summary>同じ 2 つの物の当たった音を、続けては鳴らさない間 [s]（1 回の当たりの中で跳ね返って触れ直す時間より長く、続けて打つ間より短く）。</summary>
-    private const float ContactQuietSeconds = 0.15f;
+    private const float ContactQuietSeconds = 0.2518f;
 
     /// <summary>物の組（剛体 id の組）ごとの、当たった音を鳴らさない残りの時間 [s]。</summary>
     private readonly Dictionary<(int, int), float> _contactQuiet = [];
@@ -857,7 +857,7 @@ public sealed partial class BoxingGame
         var aNow = _world.GetState(a.BodyId);
         var bNow = _world.GetState(b.BodyId);
         var reach = a.Grid.HalfExtents.Length() + b.Grid.HalfExtents.Length() + a.GridCenterLocal.Length() + b.GridCenterLocal.Length();
-        var moved = Vector3.Distance(aBefore.Position, aNow.Position) + Vector3.Distance(bBefore.Position, bNow.Position) + 0.01f;
+        var moved = Vector3.Distance(aBefore.Position, aNow.Position) + Vector3.Distance(bBefore.Position, bNow.Position) + 0.02817f;
         var gap = MathF.Min(Vector3.Distance(aBefore.Position, bBefore.Position), Vector3.Distance(aNow.Position, bNow.Position));
         return gap - moved <= reach;
     }
@@ -2002,7 +2002,7 @@ public sealed partial class BoxingGame
         }
 
         var speed = swing.Length();
-        var dir = speed > 0.2f ? swing / speed : -outward;
+        var dir = speed > 0.3357f ? swing / speed : -outward;
         var across = blade - (Vector3.Dot(blade, dir) * dir);
         across = across.LengthSquared() > 1e-6f ? Vector3.Normalize(across) : Vector3.Normalize(Vector3.Cross(dir, outward) + new Vector3(1e-4f));
         var side = Vector3.Cross(dir, across);
@@ -2068,7 +2068,7 @@ public sealed partial class BoxingGame
                 return new DebrisCell(v.LocalCenter - center, v.WasSurface ? material.SurfaceColor : material.Color, 0);
             }).ToArray();
             // 刃の進む向きへ前転する（刃は塊の、刃に近い側を押し出す）。
-            var spin = Vector3.Cross(outward, dir) * (speed * 25f);
+            var spin = Vector3.Cross(outward, dir) * (speed * 8.875f); // [rad/s per m/s] = 1/m
             _debris.SpawnChunk(position, velocity, s.Orientation, cell, cells, spin, tag: removed[members[0]].Material);
             // 塊の縁から欠ける細かい欠片（塊 4 つに 1 つ、多くて 3 つ）と、肉からの血。
             for (var k = 0; k < Math.Min(3, members.Count / 4); k++)
@@ -2080,7 +2080,7 @@ public sealed partial class BoxingGame
             for (var k = 0; k < Math.Min(4, flesh / 3); k++)
             {
                 _debris.Spawn(position, PointVelocity(position) + (Heading(0.2f, 0.1f) * fling * (0.9f + (0.2f * Jitter()))), s.Orientation, cell * 0.35f,
-                    new Vector3(Jitter(), Jitter(), Jitter()) * 40f, BloodColor, life: 2.2f, tag: VoxelBreakSound.BloodTag);
+                    new Vector3(Jitter(), Jitter(), Jitter()) * 23.83f, BloodColor, life: 3.692f, tag: VoxelBreakSound.BloodTag);
             }
         }
 
@@ -2089,7 +2089,7 @@ public sealed partial class BoxingGame
             var material = palette[v.Material];
             var color = material.Tissue == VoxelTissue.Organ ? OrganSpark : v.WasSurface ? material.SurfaceColor : material.Color;
             var trail = material.Tissue == VoxelTissue.Bone ? BoneTrail : ChipTrail;
-            _debris.Spawn(at, velocity, s.Orientation, cell * (0.9f * size), new Vector3(Jitter(), Jitter(), Jitter()) * 30f, color, glow: material.Tissue == VoxelTissue.Organ,
+            _debris.Spawn(at, velocity, s.Orientation, cell * (0.9f * size), new Vector3(Jitter(), Jitter(), Jitter()) * 17.87f, color, glow: material.Tissue == VoxelTissue.Organ,
                 tag: v.Material, heat: ChipHeat, trail: trail, ownColor: true);
         }
     }

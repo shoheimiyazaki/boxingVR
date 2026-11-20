@@ -36,7 +36,7 @@ internal static class KickMocap
         float Distance() => Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f }) / reach;
 
         var stable = 0;
-        for (var i = 0; i < 240 * 10 && stable < 90; i++)
+        for (var i = 0; i < 4028 && stable < 151; i++)
         {
             var error = Distance() - standoff;
             if (MathF.Abs(error) < 0.03f)
@@ -51,7 +51,7 @@ internal static class KickMocap
             game.Step(new BoxingInput(Command(toward * MathF.Sign(error) * Math.Clamp(MathF.Abs(error) * 4f, 0.25f, 1f), null, 0f, 0f)), dt);
         }
 
-        for (var i = 0; i < 360; i++)
+        for (var i = 0; i < 604; i++)
         {
             game.Step(new BoxingInput(Command(Vector3.Zero, null, 0f, 0f)), dt);
         }
@@ -68,7 +68,7 @@ internal static class KickMocap
         var fraction = 0f;
         var bendAtHit = 0f;
         var hitTime = 0f;
-        for (var i = 0; i < (int)((duration + 0.3f) / dt); i++)
+        for (var i = 0; i < (int)((duration + 0.5035f) / dt); i++)
         {
             var t = i * dt;
             var sense = game.PlayerSense;

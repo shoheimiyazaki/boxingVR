@@ -18,7 +18,7 @@ internal sealed class WeaponLab(int width, int height, int fps, float slow)
     private const float TitleSeconds = 1.5f;
 
     /// <summary>各項目で物理を進める長さ [s]（スローで <c>slow</c> 倍に伸びる）。</summary>
-    private const float TrialSeconds = 0.4f;
+    private const float TrialSeconds = 0.671f;
 
     private static readonly Vector4 White = new(1f, 1f, 1f, 1f);
     private static readonly Vector4 Grey = new(0.75f, 0.78f, 0.85f, 1f);
@@ -80,8 +80,8 @@ internal sealed class WeaponLab(int width, int height, int fps, float slow)
     {
         var side = Vector3.Cross(shot.Heading, Vector3.UnitY);
         side = side.LengthSquared() > 1e-4f ? Vector3.Normalize(side) : Vector3.UnitZ; // 真上から打つときは、リングの内側（+Z）から見る
-        var eye = shot.Focus + (side * 0.32f) + new Vector3(0f, 0.1f, 0f) - (shot.Heading * 0.05f);
-        return (Aigis.Render.Camera.ViewProjection(eye, shot.Focus, Vector3.UnitY, 40f * MathF.PI / 180f, (float)width / height, 0.01f, 30f), eye);
+        var eye = shot.Focus + (side * 0.901f) + new Vector3(0f, 0.282f, 0f) - (shot.Heading * 0.141f);
+        return DisplaySpace.Standard.Camera(eye, shot.Focus, Vector3.UnitY, 40f * MathF.PI / 180f, (float)width / height, 0.01f, 30f); // 物理の空間 → 表示の空間
     }
 
     private ScreenTextDraw[] TitleCard(WeaponTrial trial) =>

@@ -25,7 +25,7 @@ public sealed class HighlightTests
             using var game = new BoxingGame(seed: 5, corners: new BoxingCorners("swarmer", s => BotCatalog.Create("swarmer", s), s => BotCatalog.Create("champion", s)));
             var h = observe ? new MatchHighlights() : null;
             var sums = new List<ulong>();
-            for (var i = 0; i < 360; i++)
+            for (var i = 0; i < 604; i++)
             {
                 game.Step(default, Dt);
                 h?.Observe(game, (i + 1) * Dt, Dt);
@@ -43,8 +43,8 @@ public sealed class HighlightTests
     public void AnIdleMatch_EmitsNothing_AndScoresZero()
     {
         using var game = Idle();
-        var h = new MatchHighlights(matchSeconds: 4f);
-        for (var i = 0; i < 240; i++)
+        var h = new MatchHighlights(matchSeconds: 6.714f);
+        for (var i = 0; i < 403; i++)
         {
             game.Step(default, Dt);
             h.Observe(game, (i + 1) * Dt, Dt);

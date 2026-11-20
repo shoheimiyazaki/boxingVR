@@ -8,7 +8,7 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class DefenseTests
 {
-    private const float Reach = 0.19f;
+    private const float Reach = 0.5352f;
 
     [TestMethod]
     public void Weave_DipsInAUShape_AndCrossesToTheOtherSide()
@@ -58,8 +58,8 @@ public sealed class DefenseTests
         var v = wild.Validated();
 
         Assert.AreEqual(-0.7f, v.Duck.HeadY);
-        Assert.AreEqual(0.35f, v.Duck.Duration);
-        Assert.AreEqual(60f, v.Duck.Rate);
+        Assert.AreEqual(0.5874f, v.Duck.Duration);
+        Assert.AreEqual(DefenseRanges.Rate.Max, v.Duck.Rate);
         Assert.AreEqual(1f, v.Block.HandsUp);
     }
 
@@ -90,7 +90,7 @@ public sealed class DefenseTests
             for (var seed = 0; seed < 10; seed++)
             {
                 var bot = new BoxerBot(style, seed, Defense.Block);
-                for (var t = 0f; t < 0.3f; t += 1f / 240f)
+                for (var t = 0f; t < 0.5035f; t += 1f / 240f)
                 {
                     bot.Read(Windup(), 1f / 240f);
                 }
@@ -114,14 +114,14 @@ public sealed class DefenseTests
         // 相手が構えたまま歩いて近づく: 拳は速いが、体と同じ速さなので「腕の動き」は無い。
         var style = BotCatalog.Boxer with { Anticipation = 1f, DefenseRate = BotStyle.MaxDefenseRate, Attacks = false };
         var bot = new BoxerBot(style, 1, Defense.Block);
-        var walk = new Vector3(0f, 0f, -0.5f);
+        var walk = new Vector3(0f, 0f, -0.8392f);
         var sense = Windup() with
         {
-            OpponentLeft = new GloveSense(new Vector3(0.02f, 1.05f, 0.12f), walk),
-            OpponentRight = new GloveSense(new Vector3(-0.03f, 1.02f, 0.15f), walk),
+            OpponentLeft = new GloveSense(new Vector3(0.05634f, 2.958f, 0.338f), walk),
+            OpponentRight = new GloveSense(new Vector3(-0.08451f, 2.873f, 0.4225f), walk),
             OpponentVelocity = walk,
         };
-        for (var t = 0f; t < 0.4f; t += 1f / 240f)
+        for (var t = 0f; t < 0.6714f; t += 1f / 240f)
         {
             bot.Read(sense, 1f / 240f);
             Assert.AreEqual(Defense.None, bot.CurrentDefense);
@@ -132,9 +132,9 @@ public sealed class DefenseTests
     public void Drill_WithoutDefending_EqualsTheBaseline()
     {
         // 守る率 0 の受け手は、守る技に関わらず「守らない受け手」と同じ試合になる（ドリルの基準の確かめ）。
-        var open = DefenseDrill.MeasureBaseline(PunchKind.Straight, seed: 2, seconds: 4f);
+        var open = DefenseDrill.MeasureBaseline(PunchKind.Straight, seed: 2, seconds: 6.714f);
 
-        var again = DefenseDrill.MeasureBaseline(PunchKind.Straight, seed: 2, seconds: 4f);
+        var again = DefenseDrill.MeasureBaseline(PunchKind.Straight, seed: 2, seconds: 6.714f);
 
         Assert.AreEqual(open, again);
         Assert.IsGreaterThan(0, open.Punches, "the drill attacker throws");
@@ -174,7 +174,7 @@ public sealed class DefenseTests
             var bot = new BoxerBot(style, seed, Defense.Weave);
             FighterCommand command = default;
             var duration = style.Defenses.Weave.Duration;
-            for (var t = 0f; t < style.ReactionTime + duration + 0.15f; t += 1f / 240f)
+            for (var t = 0f; t < style.ReactionTime + duration + 0.2518f; t += 1f / 240f)
             {
                 command = bot.Read(sense, 1f / 240f);
             }
@@ -198,10 +198,10 @@ public sealed class DefenseTests
         var style = BotCatalog.Boxer with { Anticipation = 1f, DefenseRate = BotStyle.MaxDefenseRate, Attacks = false };
         var bot = new BoxerBot(style, 1, Defense.Block);
         var sense = Windup();
-        var glove = sense.SelfHead + new Vector3(0f, -0.01f, 0.08f);
+        var glove = sense.SelfHead + new Vector3(0f, -0.02817f, 0.2254f);
         var home = Vector3.Normalize(sense.OpponentChest - glove);
-        sense = sense with { OpponentLeft = new GloveSense(glove, home * 0.7f) };
-        for (var t = 0f; t < 0.4f; t += 1f / 240f)
+        sense = sense with { OpponentLeft = new GloveSense(glove, home * 1.175f) };
+        for (var t = 0f; t < 0.6714f; t += 1f / 240f)
         {
             bot.Read(sense, 1f / 240f);
             Assert.AreEqual(Defense.None, bot.CurrentDefense);
@@ -258,7 +258,7 @@ public sealed class DefenseTests
         var left = Vector3.Cross(Vector3.UnitY, dir);
 
         var (middle, _) = BoxerBot.RopeBehind(center, dir, left, Reach);
-        var (nearRopes, escape) = BoxerBot.RopeBehind(center + new Vector3(half - 0.05f, 0f, -half + 0.05f), dir, left, Reach);
+        var (nearRopes, escape) = BoxerBot.RopeBehind(center + new Vector3(half - 0.1408f, 0f, -half + 0.1408f), dir, left, Reach);
 
         Assert.AreEqual(0f, middle, "plenty of room behind in the middle of the ring");
         Assert.IsGreaterThan(0.8f, nearRopes, "the ropes are right behind");
@@ -270,11 +270,11 @@ public sealed class DefenseTests
     {
         // 相手は胸と胸で腕の長さの 2 倍先。拳が速く向かってきても、肩から頭まで届かないので避けない。
         var style = BotCatalog.Boxer with { EvadeReach = 1.2f, DefenseRate = BotStyle.MaxDefenseRate, Attacks = false };
-        var far = Coming() with { OpponentHead = new Vector3(0f, 1.06f, 2f * Reach), OpponentChest = new Vector3(0f, 0.98f, 2f * Reach) };
+        var far = Coming() with { OpponentHead = new Vector3(0f, 2.986f, 2f * Reach), OpponentChest = new Vector3(0f, 2.761f, 2f * Reach) };
         for (var seed = 0; seed < 5; seed++)
         {
             var bot = new BoxerBot(style, seed, Defense.Duck);
-            for (var t = 0f; t < 0.5f; t += 1f / 240f)
+            for (var t = 0f; t < 0.8392f; t += 1f / 240f)
             {
                 bot.Read(far, 1f / 240f);
                 Assert.AreEqual(Defense.None, bot.CurrentDefense);
@@ -285,7 +285,7 @@ public sealed class DefenseTests
         Assert.IsTrue(Enumerable.Range(0, 5).Any(seed =>
         {
             var bot = new BoxerBot(close, seed, Defense.Duck);
-            for (var t = 0f; t < 0.5f; t += 1f / 240f)
+            for (var t = 0f; t < 0.8392f; t += 1f / 240f)
             {
                 bot.Read(far, 1f / 240f);
             }
@@ -299,17 +299,17 @@ public sealed class DefenseTests
     {
         // 振りかぶりの時点では届かない距離 → 相手が踏み込んで届く距離に。見送った拳を見直して避ける。
         var style = BotCatalog.Boxer with { EvadeReach = 1.2f, DefenseRate = BotStyle.MaxDefenseRate, Attacks = false };
-        var far = Coming() with { OpponentHead = new Vector3(0f, 1.06f, 2f * Reach), OpponentChest = new Vector3(0f, 0.98f, 2f * Reach) };
-        var near = Coming() with { OpponentHead = new Vector3(0f, 1.06f, 0.9f * Reach), OpponentChest = new Vector3(0f, 0.98f, 0.9f * Reach) };
+        var far = Coming() with { OpponentHead = new Vector3(0f, 2.986f, 2f * Reach), OpponentChest = new Vector3(0f, 2.761f, 2f * Reach) };
+        var near = Coming() with { OpponentHead = new Vector3(0f, 2.986f, 0.9f * Reach), OpponentChest = new Vector3(0f, 2.761f, 0.9f * Reach) };
         Assert.IsTrue(Enumerable.Range(0, 10).Any(seed =>
         {
             var bot = new BoxerBot(style, seed, Defense.Duck);
-            for (var t = 0f; t < 0.3f; t += 1f / 240f)
+            for (var t = 0f; t < 0.5035f; t += 1f / 240f)
             {
                 bot.Read(far, 1f / 240f);
             }
 
-            for (var t = 0f; t < 0.1f; t += 1f / 240f)
+            for (var t = 0f; t < 0.1678f; t += 1f / 240f)
             {
                 bot.Read(near, 1f / 240f);
             }
@@ -328,11 +328,11 @@ public sealed class DefenseTests
         var signs = new HashSet<int>();
         for (var i = 0; i < 40; i++)
         {
-            var x = (i % 2 == 0 ? 1f : -1f) * 0.01f;
-            var origin = BoxingGame.RingCenter + new Vector3(x, 0.9f, -half + 0.05f);
+            var x = (i % 2 == 0 ? 1f : -1f) * 0.02817f;
+            var origin = BoxingGame.RingCenter + new Vector3(x, 2.535f, -half + 0.1408f);
             var sense = new FighterSense(new BodyFrame(origin, 0f), Reach,
-                OpponentHead: origin + new Vector3(0f, 0.06f, 0.8f * Reach), OpponentChest: origin + new Vector3(0f, -0.02f, 0.8f * Reach), OpponentAlive: true,
-                SelfHead: origin + new Vector3(0f, 0.06f, 0f));
+                OpponentHead: origin + new Vector3(0f, 0.169f, 0.8f * Reach), OpponentChest: origin + new Vector3(0f, -0.05634f, 0.8f * Reach), OpponentAlive: true,
+                SelfHead: origin + new Vector3(0f, 0.169f, 0f));
             var command = bot.Read(sense, 1f / 240f);
             signs.Add(MathF.Sign(command.MoveWorld.X));
         }
@@ -381,7 +381,7 @@ public sealed class DefenseTests
             var bot = new BoxerBot(style, seed, forced);
             var rear = style.Lead == Hand.Left ? Hand.Right : Hand.Left;
             var defended = false;
-            for (var t = 0f; t < 1.2f; t += 1f / 240f)
+            for (var t = 0f; t < 2.014f; t += 1f / 240f)
             {
                 bot.Read(sense, 1f / 240f);
                 if (bot.CurrentDefense != Defense.None)
@@ -402,24 +402,24 @@ public sealed class DefenseTests
         return false;
     }
 
-    /// <summary>正面 0.15m から頭へ 0.6m/s でまっすぐ向かってくる左の拳（そのまま見せ続ける）。</summary>
+    /// <summary>正面 0.42m から頭へ 1.0m/s でまっすぐ向かってくる左の拳（そのまま見せ続ける）。</summary>
     private static FighterSense Coming()
     {
-        var self = new BodyFrame(new Vector3(0f, 1f, 0f), 0f);
-        var head = new Vector3(0f, 1.06f, 0.01f);
-        return new FighterSense(self, Reach, OpponentHead: new Vector3(0f, 1.06f, 0.24f), OpponentChest: new Vector3(0f, 0.98f, 0.24f), OpponentAlive: true,
-            SelfHead: head, OpponentLeft: new GloveSense(head + new Vector3(0f, 0f, 0.15f), new Vector3(0f, 0f, -0.6f)),
-            OpponentRight: new GloveSense(new Vector3(0.05f, 1.0f, 0.3f), Vector3.Zero));
+        var self = new BodyFrame(new Vector3(0f, 2.817f, 0f), 0f);
+        var head = new Vector3(0f, 2.986f, 0.02817f);
+        return new FighterSense(self, Reach, OpponentHead: new Vector3(0f, 2.986f, 0.6761f), OpponentChest: new Vector3(0f, 2.761f, 0.6761f), OpponentAlive: true,
+            SelfHead: head, OpponentLeft: new GloveSense(head + new Vector3(0f, 0f, 0.4225f), new Vector3(0f, 0f, -1.007f)),
+            OpponentRight: new GloveSense(new Vector3(0.1408f, 2.817f, 0.8451f), Vector3.Zero));
     }
 
     /// <summary>原点で +Z を向いた自分の頭の右前で、外（自分の右）へ速く振りかぶる左の拳。</summary>
     private static FighterSense Windup()
     {
-        var self = new BodyFrame(new Vector3(0f, 1f, 0f), 0f);
-        var head = new Vector3(0f, 1.06f, 0.01f);
-        return new FighterSense(self, Reach, OpponentHead: new Vector3(0f, 1.06f, 0.22f), OpponentChest: new Vector3(0f, 0.98f, 0.22f), OpponentAlive: true,
+        var self = new BodyFrame(new Vector3(0f, 2.817f, 0f), 0f);
+        var head = new Vector3(0f, 2.986f, 0.02817f);
+        return new FighterSense(self, Reach, OpponentHead: new Vector3(0f, 2.986f, 0.6197f), OpponentChest: new Vector3(0f, 2.761f, 0.6197f), OpponentAlive: true,
             SelfHead: head,
-            OpponentLeft: new GloveSense(head + new Vector3(-0.06f, -0.01f, 0.1f), new Vector3(-0.6f, 0f, 0.1f)),
-            OpponentRight: new GloveSense(new Vector3(0.05f, 1.0f, 0.15f), Vector3.Zero));
+            OpponentLeft: new GloveSense(head + new Vector3(-0.169f, -0.02817f, 0.2817f), new Vector3(-1.007f, 0f, 0.1678f)),
+            OpponentRight: new GloveSense(new Vector3(0.1408f, 2.817f, 0.4225f), Vector3.Zero));
     }
 }

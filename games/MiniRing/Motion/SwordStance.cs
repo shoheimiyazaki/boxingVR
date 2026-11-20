@@ -5,17 +5,18 @@ public static class SwordStance
 {
     /// <summary>
     /// 剣の構え: 足は剣道の構えに近く、右足を半歩前（ボクサーの構えより前後も左右も狭い）、両足のつま先は前、後ろ足のかかとを少し上げる。
-    /// 両手で柄を締めた手首は、片手で棍棒を握るより固い（30 Hz。剣の向きの遅れが半分ほどになる）。
+    /// 両手で柄を締めた手首は、片手で棍棒を握るより固い（17.9 Hz。人形の単位で 30 Hz。剣の向きの遅れが半分ほどになる）。
     /// </summary>
     public static FighterTuning Tuning { get; } = FighterTuning.Default with
     {
-        WristServoHz = 30f,
+        WristServoHz = 17.87f,
         Footwork = FighterTuning.Default.Footwork with { StanceLength = 0.38f, StanceWidth = 0.22f, LeadYawDegrees = 0f, RearYawDegrees = -6f, HeelRaiseDegrees = 18f },
     };
 
     /// <summary>
-    /// 動きの再生の速さ: 人形の体の大きさは人のおよそ 0.32 倍（腕の長さの比）。同じ重力の下で体が釣り合う動きの速さは大きさの √ に比例するので、
-    /// 人の動きを 1/√0.32 ≈ 1.77 倍の速さでなぞる。
+    /// 動きの再生の速さ: 型・モーションキャプチャの時刻は録った人の秒。人形の単位では、人形の体（腕の長さの比で人の 0.32 倍）に合わせて
+    /// 1/√0.32 ≈ 1.77 倍の速さでなぞっていた。実物大の物理（時間 × √(1/0.355) = 1.678）でも同じ動きを保つため 1.77 / 1.678 ≈ 1.055 倍
+    /// （≈ √(0.355 / 0.32): 腕の長さの比 0.32 と体の縮尺 0.355 の違いが残る分。型・キャプチャのキーの時刻は換算しない: 時間の換算はこの 1 つに集める）。
     /// </summary>
-    public const float Rate = 1.77f;
+    public const float Rate = 1.055f;
 }

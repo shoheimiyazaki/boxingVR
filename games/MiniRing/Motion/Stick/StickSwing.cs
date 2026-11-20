@@ -203,12 +203,12 @@ public sealed class SwingRig
     public const int GeneCount = (KeyCount * PerKey) + KeyCount;
 
     /// <summary>剣先の速さを 1 とみなす値 [m/s]（点の速さの項の割り算。重みを比べやすくする単位で、物理の値ではない）。</summary>
-    public const float SpeedReference = 10f;
+    public const float SpeedReference = 16.78f;
 
     /// <summary>キーの間の時間の下限・上限 [s]。</summary>
-    public const float MinSegment = 0.06f;
+    public const float MinSegment = 0.1007f;
 
-    public const float MaxSegment = 0.5f;
+    public const float MaxSegment = 0.8392f;
 
     private const float Deg = MathF.PI / 180f;
 
@@ -646,12 +646,12 @@ public sealed class SwingRig
 
         if (selfCut > PenetrationLimit)
         {
-            disqualification += 5f + (1000f * selfCut);
+            disqualification += 5f + (355f * selfCut);
         }
 
         if (overlap > PenetrationLimit)
         {
-            disqualification += 5f + (1000f * overlap);
+            disqualification += 5f + (355f * overlap);
         }
 
         // 関節の範囲: 1° ほどの補間のはみ出しは許し、それを超えたら失格（はみ出し 0.1 rad ≈ 6° で罰 +2）。
@@ -693,8 +693,8 @@ public sealed class SwingRig
         };
     }
 
-    /// <summary>体の通り抜けの閾値 [m]（<see cref="StickReviewSettings.Penetration"/> と同じ 5 mm）。</summary>
-    private const float PenetrationLimit = 0.005f;
+    /// <summary>体の通り抜けの閾値 [m]（<see cref="StickReviewSettings.Penetration"/> と同じ 14 mm）。</summary>
+    private const float PenetrationLimit = 0.01408f;
 
     /// <summary>補間が関節の範囲をはみ出してよい量 [rad]（1°。キーの角が範囲の端にあると、躍度最小の補間はわずかに行き過ぎる）。</summary>
     private const float RangeTolerance = 1f * Deg;

@@ -10,7 +10,7 @@ public sealed class ClubSwingProbe
     [TestMethod]
     public void RangeSweep_Probe()
     {
-        foreach (var range in new[] { 0.30f, 0.32f, 0.34f, 0.36f, 0.38f, 0.40f, 0.42f, 0.44f })
+        foreach (var range in new[] { 0.8451f, 0.9014f, 0.9577f, 1.014f, 1.070f, 1.127f, 1.183f, 1.239f })
         {
             var r = SwingTest.Run(WeaponSwing.Default(SwingFamily.Chop), range, (game, _, _) =>
             {

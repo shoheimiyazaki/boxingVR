@@ -51,7 +51,7 @@ public static class StrikeDrill
         var victim = game.Cpu.Voxels!;
         var start = Count(victim);
         var sword = game.WeaponOf(game.Player)!;
-        var guardX = Weapon.GripOf(sword.Kind).X + 0.012f;
+        var guardX = Weapon.GripOf(sword.Kind).X + 0.0338f;
         var tipX = Weapon.TipOf(sword.Kind).X;
         var monouchi = 0;
         var own = Attached(game.Player.Voxels!);
@@ -59,7 +59,7 @@ public static class StrikeDrill
         var started = false;
         var concussionBefore = 0f;
         var finishedAt = float.MaxValue;
-        for (var t = 0f; t < 8f && t < finishedAt + 0.4f; t += Dt)
+        for (var t = 0f; t < 13.43f && t < finishedAt + 0.671f; t += Dt)
         {
             game.Step(default, Dt);
             if (bot.Current is not null && !started)

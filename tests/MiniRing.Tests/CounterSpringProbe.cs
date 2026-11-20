@@ -25,7 +25,7 @@ public sealed class CounterSpringProbe
         }
     }
 
-    internal static (int Thrown, int Hits, int HeadHits, float Speed, float Energy, float Damage) Run(Defense defense, string punch, float efficiency, float seconds = 20f)
+    internal static (int Thrown, int Hits, int HeadHits, float Speed, float Energy, float Damage) Run(Defense defense, string punch, float efficiency, float seconds = 33.57f)
     {
         var swarmer = BotCatalog.Swarmer;
         var defender = DefenseDrill.Defender(swarmer.Defenses, defend: true, counters: true) with
@@ -39,7 +39,7 @@ public sealed class CounterSpringProbe
         foreach (var seed in new[] { 1, 2 })
         {
             var defenders = new List<BoxerBot>();
-            var attacker = DefenseDrill.PunchAttacker(punch, telegraph: 0.08f);
+            var attacker = DefenseDrill.PunchAttacker(punch, telegraph: 0.1343f);
             Spy? spy = null;
             var corners = new BoxingCorners(attacker.Name, s => new BoxerBot(attacker, s), s =>
             {
@@ -99,17 +99,17 @@ public sealed class CounterHitDetailProbe
             {
                 GuardHeight = swarmer.GuardHeight, GuardWidth = swarmer.GuardWidth, GuardReach = swarmer.GuardReach, Prediction = 1f,
             };
-            var attacker = DefenseDrill.PunchAttacker("2", telegraph: 0.08f);
+            var attacker = DefenseDrill.PunchAttacker("2", telegraph: 0.1343f);
             using var game = new BoxingGame(FighterTuning.Default with { BodyToFistEfficiency = efficiency }, seed: 1,
                 corners: new BoxingCorners(attacker.Name, s => new BoxerBot(attacker, s), s => new BoxerBot(defender, s, Defense.Slip)));
             var peak = new float[2];
             var lines = new List<string>();
-            for (var t = 0f; t < 12f; t += 1f / 240f)
+            for (var t = 0f; t < 20.14f; t += 1f / 240f)
             {
                 game.Step(default, 1f / 240f);
                 for (var h = 0; h < 2; h++)
                 {
-                    peak[h] = MathF.Max(peak[h] * MathF.Exp(-(1f / 240f) / 0.25f), game.Player.GloveVelocity((Hand)h).Length());
+                    peak[h] = MathF.Max(peak[h] * MathF.Exp(-(1f / 240f) / 0.4196f), game.Player.GloveVelocity((Hand)h).Length());
                 }
 
                 foreach (var hit in game.RecentHits.Where(x => x.Attacker == game.Player))
@@ -136,17 +136,17 @@ public sealed class CounterTraceProbe
         {
             GuardHeight = swarmer.GuardHeight, GuardWidth = swarmer.GuardWidth, GuardReach = swarmer.GuardReach, Prediction = 1f,
         };
-        var attacker = DefenseDrill.PunchAttacker("2", telegraph: 0.08f);
+        var attacker = DefenseDrill.PunchAttacker("2", telegraph: 0.1343f);
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners(attacker.Name, s => new BoxerBot(attacker, s), s => new BoxerBot(defender, s, Defense.Slip)));
         var printed = 0;
-        for (var t = 0f; t < 12f && printed < 60; t += 1f / 240f)
+        for (var t = 0f; t < 20.14f && printed < 60; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
             var f = game.Player;
             for (var h = 0; h < 2; h++)
             {
                 var lead = f.HandLead((Hand)h);
-                if (lead.Length() > 0.002f && ((int)(t * 240f)) % 4 == 0)
+                if (lead.Length() > 0.005634f && ((int)(t * 240f)) % 4 == 0)
                 {
                     var toTarget = f.HandTargetWorld((Hand)h) - f.GloveCenter((Hand)h);
                     Console.WriteLine($"{t:0.000}s {(Hand)h}: lead {lead.Length():0.000} m, glove {f.GloveVelocity((Hand)h).Length():0.00} m/s, to target {toTarget.Length():0.000} m, trunk {(f.PelvisVelocity).Length():0.00} m/s");

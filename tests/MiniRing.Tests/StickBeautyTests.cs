@@ -27,9 +27,9 @@ public sealed class StickBeautyTests
     [TestMethod]
     public void AMinimumJerkLine_IsSmootherThanTheSameLineWithNoise_ByLdljAndSparc()
     {
-        var clean = MinimumJerkLine(0.3f, 0.5f, Vector3.UnitX);
+        var clean = MinimumJerkLine(0.845f, 0.8392f, Vector3.UnitX);
         var random = new Random(7);
-        var noisy = clean.Select(p => p + new Vector3(((random.NextSingle() * 2f) - 1f) * 0.005f, ((random.NextSingle() * 2f) - 1f) * 0.005f, ((random.NextSingle() * 2f) - 1f) * 0.005f)).ToArray();
+        var noisy = clean.Select(p => p + new Vector3(((random.NextSingle() * 2f) - 1f) * 0.01408f, ((random.NextSingle() * 2f) - 1f) * 0.01408f, ((random.NextSingle() * 2f) - 1f) * 0.01408f)).ToArray();
 
         var ldljClean = StickBeauty.Ldlj(clean, Dt)!.Value;
         var ldljNoisy = StickBeauty.Ldlj(noisy, Dt)!.Value;
@@ -44,10 +44,10 @@ public sealed class StickBeautyTests
     [TestMethod]
     public void TwoSpeedPeaks_AreWorseThanOne()
     {
-        var one = MinimumJerkLine(0.3f, 1.0f, Vector3.UnitX);
-        // 前半 0 → 0.15、後半 0.15 → 0.3 を、間に止まる谷をはさんでつなぐ（山が 2 つ）。
-        var first = MinimumJerkLine(0.3f, 0.5f, Vector3.UnitX, 0f, 0.5f);
-        var second = MinimumJerkLine(0.3f, 0.5f, Vector3.UnitX, 0.5f, 1f);
+        var one = MinimumJerkLine(0.845f, 1.678f, Vector3.UnitX);
+        // 前半 0 → 0.42、後半 0.42 → 0.845 を、間に止まる谷をはさんでつなぐ（山が 2 つ）。
+        var first = MinimumJerkLine(0.845f, 0.8392f, Vector3.UnitX, 0f, 0.5f);
+        var second = MinimumJerkLine(0.845f, 0.8392f, Vector3.UnitX, 0.5f, 1f);
         var two = first.Concat(second.Skip(1)).ToArray();
 
         Assert.AreEqual(1, StickBeauty.SpeedPeaks(StickBeauty.Speeds(one, Dt)));
@@ -59,14 +59,14 @@ public sealed class StickBeautyTests
     [TestMethod]
     public void TheMainSubmovement_IsTheValleyToValleyRunAroundTheTallestPeak()
     {
-        var first = MinimumJerkLine(0.1f, 0.4f, Vector3.UnitX);
-        var second = MinimumJerkLine(0.3f, 0.5f, Vector3.UnitX, 0f, 1f).Select(p => p + (0.1f * Vector3.UnitX));
+        var first = MinimumJerkLine(0.2817f, 0.6714f, Vector3.UnitX);
+        var second = MinimumJerkLine(0.845f, 0.8392f, Vector3.UnitX, 0f, 1f).Select(p => p + (0.2817f * Vector3.UnitX));
         var path = first.Concat(second.Skip(1)).ToArray();
         var speeds = StickBeauty.Speeds(path, Dt);
         var (from, to) = StickBeauty.MainSubmovement(speeds);
         var boundary = first.Length - 1;
-        Assert.IsTrue(Math.Abs(from - boundary) <= 2, $"主な動きは大きい方（2 本目）の始まり {boundary} から（{from}）");
-        Assert.IsTrue(to >= path.Length - 3, $"…終わりまで（{to}）");
+        Assert.IsTrue(Math.Abs(from - boundary) <= 3, $"主な動きは大きい方（2 本目）の始まり {boundary} から（{from}）");
+        Assert.IsTrue(to >= path.Length - 5, $"…終わりまで（{to}）");
     }
 
     private static Vector3[] Circle(float radius, int n, float rise = 0f, Vector3? normal = null)
@@ -85,9 +85,9 @@ public sealed class StickBeautyTests
     public void APlanarCircle_HasNoPlaneMisfit_AndATwistedHelixHasALargeOne()
     {
         var normal = Vector3.Normalize(new Vector3(1f, 1f, 0f));
-        var origin = new Vector3(0.1f, 0.2f, 0.3f);
-        var circle = Circle(0.3f, 100, normal: normal).Select(p => p + origin).ToArray();
-        var helix = Circle(0.3f, 100, rise: 0.6f, normal: normal).Select(p => p + origin).ToArray();
+        var origin = new Vector3(0.2817f, 0.5634f, 0.845f);
+        var circle = Circle(0.845f, 100, normal: normal).Select(p => p + origin).ToArray();
+        var helix = Circle(0.845f, 100, rise: 1.690f, normal: normal).Select(p => p + origin).ToArray();
 
         Assert.AreEqual(0f, StickBeauty.PlaneMisfit(circle, origin, normal), 1e-4f);
         Assert.IsTrue(StickBeauty.PlaneMisfit(helix, origin, normal) > 0.4f, "らせんは断面から大きく外れる");
@@ -103,7 +103,7 @@ public sealed class StickBeautyTests
     public void TheEdgeAngle_IsZeroWhenCuttingAlongTheEdge_AndRightAngleWhenSlappingWithTheFlat()
     {
         const int n = 120;
-        var tip = Circle(0.3f, n);
+        var tip = Circle(0.845f, n);
         var radial = tip.Select(Vector3.Normalize).ToArray();
         var tangent = radial.Select(r => Vector3.Cross(Vector3.UnitZ, r)).ToArray();
         var normalEdges = Enumerable.Repeat(Vector3.UnitZ, n).ToArray();
@@ -117,11 +117,11 @@ public sealed class StickBeautyTests
     [TestMethod]
     public void TheCurvatureVariation_IsNearZeroForACircleAndLargeForAWobblyPath()
     {
-        var circle = Circle(0.3f, 200);
+        var circle = Circle(0.845f, 200);
         var wobbly = Enumerable.Range(0, 200).Select(i =>
         {
             var s = i / 199f;
-            return new Vector3(0.3f * s, 0.03f * MathF.Sin(MathF.Tau * 4f * s), 0f);
+            return new Vector3(0.845f * s, 0.0845f * MathF.Sin(MathF.Tau * 4f * s), 0f);
         }).ToArray();
 
         var round = StickBeauty.CurvatureVariation(circle);

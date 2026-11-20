@@ -43,7 +43,7 @@ public sealed class TargetingTests
     public void TargetMap_FindsTheChinBelowTheFace_TheLiverLow_AndTheExposedBrain()
     {
         using var game = new BoxingGame(seed: 1);
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++)
         {
             game.Step(default, 1f / 60f);
         }

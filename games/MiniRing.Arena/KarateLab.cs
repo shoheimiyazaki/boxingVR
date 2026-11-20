@@ -48,7 +48,7 @@ internal sealed class KarateLab(int bouts, float seconds, int seed, Action<strin
         log("");
         log($"{bouts} 本 × 上限 {seconds:0} 秒、種 {seed}〜。素手、受け手 StandGuard、正拳 Seiken が対照。KO/ラウンド終了で停止し、新しい体を混ぜない。物理版 {Fighter.PhysicsVersion}。");
         log("発動 = BotStats の Thrown、命中 = HitEvent（空振りは含まない。同じ打ち出しの複数接触を含みうる）。/命中は全命中イベント数で割った量。終値は各本の平均。欠損は材質の残数の差、HP 低下は視界に別計上。");
-        log("局所 = 初期 TargetMap の狙い点を中心に頭は半径 15 mm、腹は 30 mm の球内で接触により削れ・潰れたセル。部位ローカルに固定して追跡（初期の側を固定）。外 = 全身欠損 − 局所。局所欠損は急所内部の破壊を意味しない。");
+        log("局所 = 初期 TargetMap の狙い点を中心に頭は半径 42 mm、腹は 85 mm の球内で接触により削れ・潰れたセル。部位ローカルに固定して追跡（初期の側を固定）。外 = 全身欠損 − 局所。局所欠損は急所内部の破壊を意味しない。");
         log("意識最大落ちは命中を含む 1/240 秒の前後差の最大（同じ歩に複数命中なら合計、回復分を含む）。ねじれは全歩の LastHeadTwist 最大（歩内で最後の呼び出し値。採点未満の接触も含む） [rad/s]。供給は Breath（心肺由来の供給上限の比）で、実回復 W ではない。打撲は心/肺/肝/腸の順。");
         log("");
         log("| 形 | 急所 | 発動 | 命中 | 全欠損/命中 | 局所/命中 | 外/命中 | 全欠損 終 | 局所 終 | 外 終 | 指骨/命中 | 指骨 終 | 皮膚 終 | 秒 平均 |");
@@ -196,11 +196,11 @@ internal sealed class KarateLab(int bouts, float seconds, int seed, Action<strin
         log("## パリー（手と腕の接触で拳の軌道を外へ曲げる）");
         log("");
         log($"基本動作のドリル（`basics` と同じ攻め手・受け手）。攻め手は 1 つの型（1 = ジャブ、2 = 右ストレート、3 = 左フック、4 = 右フック）だけを打ち続け、受け手は攻め手が打ち始めて合図の遅れだけ後に、決めた守りを必ず始める（反応の遅れを除き、守りの動きだけを比べる）。{bouts} 本 × {seconds:0} 秒。");
-        log("`最接近` = 打つたびに、拳が受け手の頭の中心へ最も近づいた距離の平均 [cm]（守らなければほぼ 0 = 当たる）。守りが拳の軌道を曲げた・頭を外した量。`手が触れた` = 受け手の手と攻め手の拳が 4 cm 以内に入った打つ回数（目標経路は手の置き場だけで、拳をそらすのは接触の力）。");
+        log("`最接近` = 打つたびに、拳が受け手の頭の中心へ最も近づいた距離の平均 [cm]（守らなければほぼ 0 = 当たる）。守りが拳の軌道を曲げた・頭を外した量。`手が触れた` = 受け手の手と攻め手の拳が 11 cm 以内に入った打つ回数（目標経路は手の置き場だけで、拳をそらすのは接触の力）。");
         log("");
         log("| 合図の遅れ [s] | 守り | 拳 | 打った数 | 守りを出した | 頭に当たった/打 | きれいに外した率 | 最接近 [cm] | 手が触れた/打 |");
         log("|---|---|---|---|---|---|---|---|---|");
-        foreach (var cue in cues ?? [0f, 0.06f])
+        foreach (var cue in cues ?? [0f, 0.101f])
         {
         foreach (var punch in new[] { "1", "2", "3", "4" })
         {
@@ -271,7 +271,7 @@ internal sealed class KarateLab(int bouts, float seconds, int seed, Action<strin
             {
                 var fist = game.Cpu.GloveCenter(hand);
                 current = MathF.Min(current, Vector3.Distance(fist, game.Player.HeadPosition));
-                touchedNow |= MathF.Min(Vector3.Distance(fist, game.Player.GloveCenter(Hand.Left)), Vector3.Distance(fist, game.Player.GloveCenter(Hand.Right))) < 0.04f;
+                touchedNow |= MathF.Min(Vector3.Distance(fist, game.Player.GloveCenter(Hand.Left)), Vector3.Distance(fist, game.Player.GloveCenter(Hand.Right))) < 0.113f;
             }
         }
 

@@ -17,11 +17,11 @@ public readonly record struct ContactResonance(float DecayScale)
         {
             throw new ArgumentOutOfRangeException(nameof(length), "寸法と質量は有限の正数が必要です。");
         }
-        // 33 cm / 120 g の細長い刃を基準に、長さと慣性で尾を延ばす。
+        // 93 cm / 1.2 kg（人形の単位で 33 cm / 120 g）の細長い刃を基準に、長さと慣性で尾を延ばす。
         // 支持損失は断面/長さに比例。手に密着した小塊は、細い柄で支持する刃より強く減衰する。
         var material = AcousticMaterial.Steel;
         var coupling = supported ? MathF.Sqrt(width * thickness) / length : 0f;
-        var decay = material.FreeDecay * (length / 0.33f) * MathF.Sqrt(mass / 0.12f) / (1f + (material.SupportLoss * coupling));
+        var decay = material.FreeDecay * (length / 0.9296f) * MathF.Sqrt(mass / 1.2f) / (1f + (material.SupportLoss * coupling));
         return new ContactResonance(Math.Clamp(decay / ReferenceDecaySeconds, 0.015f, 1.5f));
     }
 }

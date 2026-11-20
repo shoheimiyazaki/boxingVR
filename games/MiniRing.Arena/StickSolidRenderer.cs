@@ -86,7 +86,7 @@ internal sealed class StickSolidRenderer
     public void Sphere(Vector3 centre, float radius, Vector3 color, float gloss = 0.35f) => Capsule(centre, centre, radius, color, gloss);
 
     /// <summary>
-    /// 高さ <paramref name="height"/> の床（市松、0.5 m の升）を、まだ何も描いていない画素と床より奥の画素へ描き、<paramref name="casters"/> の影を落とす。
+    /// 高さ <paramref name="height"/> の床（市松、1.41 m の升）を、まだ何も描いていない画素と床より奥の画素へ描き、<paramref name="casters"/> の影を落とす。
     /// 影 = 円柱の両端を光の向きに床へ写した線分からの距離が半径より近い所（縁は柔らかく）。
     /// </summary>
     public void Floor(float height, IReadOnlyList<(Vector3 A, Vector3 B, float Radius)> casters)
@@ -111,7 +111,7 @@ internal sealed class StickSolidRenderer
                 }
 
                 var p = _eye + (rd * t);
-                var checker = ((int)MathF.Floor(p.X * 2f) + (int)MathF.Floor(p.Z * 2f)) % 2 == 0;
+                var checker = ((int)MathF.Floor(p.X * 0.71f) + (int)MathF.Floor(p.Z * 0.71f)) % 2 == 0; // 1.41 m 角の市松
                 var floor = checker ? new Vector3(0.84f, 0.83f, 0.80f) : new Vector3(0.76f, 0.75f, 0.72f);
                 var shadow = 0f;
                 var q = new Vector2(p.X, p.Z);
@@ -122,14 +122,14 @@ internal sealed class StickSolidRenderer
                 }
 
                 floor *= 1f - (0.45f * shadow);
-                var fade = SmoothStep(4f, 9f, t); // 遠い床は背景へ溶かす
+                var fade = SmoothStep(11.27f, 25.35f, t); // 遠い床は背景へ溶かす
                 _color[at] = Vector3.Lerp(floor, _color[at], fade);
                 _depth[at] = t;
             }
         });
     }
 
-    /// <summary>半透明の円盤（断面）。手前に物があればその物は覆わない。0.25 m ごとの同心の輪と縁を少し濃く。</summary>
+    /// <summary>半透明の円盤（断面）。手前に物があればその物は覆わない。0.704 m ごとの同心の輪と縁を少し濃く。</summary>
     public void Disc(Vector3 centre, Vector3 normal, float radius, Vector3 tint, float alpha)
     {
         var n = Vector3.Normalize(normal);
@@ -157,7 +157,7 @@ internal sealed class StickSolidRenderer
                     continue;
                 }
 
-                var ring = MathF.Abs((r / 0.25f) - MathF.Round(r / 0.25f)) < 0.02f || r > radius * 0.985f;
+                var ring = MathF.Abs((r / 0.704f) - MathF.Round(r / 0.704f)) < 0.02f || r > radius * 0.985f;
                 _color[at] = Vector3.Lerp(_color[at], tint, ring ? alpha * 2.5f : alpha);
             }
         });
@@ -201,7 +201,7 @@ internal sealed class StickSolidRenderer
         var za = Vector3.Dot(a - _eye, _forward);
         var zb = Vector3.Dot(b - _eye, _forward);
         var near = MathF.Min(za, zb) - radius;
-        if (near < 0.05f)
+        if (near < 0.141f)
         {
             return false;
         }

@@ -52,7 +52,7 @@ internal static class KickLab
 
         log($"# kicklab: {kind}（蹴る体 {bodyId}、すねの当てる点 ShinPoint {F(spec.ShinPoint)}、Overshoot {F(spec.Overshoot)}、現在の Standoff {F(spec.Standoff)}、PhysicsVersion {Fighter.PhysicsVersion}）");
         log("");
-        log($"蹴る人が目標の間合いまで歩いて止まり、0.5 秒構えてから 1 本蹴る（目標 {string.Join(", ", distances.Select(d => F(d)))}。止まる位置は足の運びで決まるので、表は蹴り始めの実測の間合いを {F(BinWidth)} 刻みに束ねる）。相手は構えて立つだけ。種ごとに左右の脚を替える{(onlySide is { } side ? $"（今回は {side} だけ）" : "")}。");
+        log($"蹴る人が目標の間合いまで歩いて止まり、0.84 秒構えてから 1 本蹴る（目標 {string.Join(", ", distances.Select(d => F(d)))}。止まる位置は足の運びで決まるので、表は蹴り始めの実測の間合いを {F(BinWidth)} 刻みに束ねる）。相手は構えて立つだけ。種ごとに左右の脚を替える{(onlySide is { } side ? $"（今回は {side} だけ）" : "")}。");
         log($"`当たったすねの点` = 当たった瞬間の、膝 → 足首の線へ落とした割合（0 = 膝、1 = 足首、1 超 = 足の甲・先）。`帯内` = その点が {F(BandLow)}〜{F(BandHigh)}（下すね〜足首のそば〜足の甲）に入った当たりが渡したエネルギーの割合（腿・膝の軽い当たりを数えないため、エネルギーで重みを付ける）。");
         log("`エネルギー` = `HitEvent.Energy`（組織へ渡った J）。`/蹴り` は 1 本の蹴りで渡した合計。");
         log("");
@@ -162,7 +162,7 @@ internal static class KickLab
         // 目標の間合いまで歩く（歩幅の刻みで止まるので、実測の間合いは目標から外れる。表は実測で束ねる）。
         var target = standoff * (1f + (((seed % 3) - 1) * 0.01f));
         var stable = 0;
-        for (var i = 0; i < 240 * 10 && stable < 90; i++)
+        for (var i = 0; i < 4028 && stable < 151; i++)
         {
             var error = Distance() - target;
             if (MathF.Abs(error) < 0.03f)
@@ -178,7 +178,7 @@ internal static class KickLab
             game.Step(new BoxingInput(Command(toward * MathF.Sign(error) * gain, null, 0f, 0f)), Dt);
         }
 
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(new BoxingInput(Command(Vector3.Zero, null, 0f, 0f)), Dt);
         }
@@ -190,7 +190,7 @@ internal static class KickLab
         var duration = BotCatalog.Taekwondo.KickDuration;
         var hits = new List<Hit>();
         var seen = new HashSet<HitEvent>();
-        var steps = (int)((duration + 0.4f) / Dt);
+        var steps = (int)((duration + 0.671f) / Dt);
         for (var i = 0; i < steps; i++)
         {
             var t = i * Dt;

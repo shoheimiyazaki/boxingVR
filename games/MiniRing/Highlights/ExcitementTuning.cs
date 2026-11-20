@@ -4,8 +4,12 @@ namespace MiniRing.Highlights;
 /// 試合の面白さ（見どころ）の測り方の値のすべて。検出の閾値（何を「出来事」と数えるか）と、総合点の重み。
 /// 試合の計算には一切使わない（読むだけの観測。<see cref="MatchHighlights"/>）。
 /// <para>
-/// 長さ・速さは「人の大きさ」に直した値（選手の身長を 1.75 m とみなす。リングは人の 5.3 m）。試合の中の箱は小さいので、
-/// 観測側が身長で割って直す（<see cref="MatchHighlights"/> の <c>Human</c>）。
+/// 長さ・速さは「人の大きさ」に直した値（選手の身長を 1.75 m とみなす。リングは人の 5.3 m）。観測側が身長の比で直す
+/// （<see cref="MatchHighlights"/> の <c>HumanHeight</c>。物理が実物大になったので比はほぼ 1）。
+/// 時間 [s] は試合の時間（実物大の物理の時間）。
+/// <para>実物大への換算（2026-11-20、docs/plans/REAL_SCALE_PLAN.md 段 2）: 人形のころは速さも長さの比（≈ 2.9 倍）だけで「人の m/s」に直していた
+/// （時間の相似 √L を入れていなかった）。同じ出来事を拾うよう、速さの閾値はその分（× 0.596）下げた。時間は × 1.678、エネルギーは × 28.2、
+/// 角速度は × 0.596、「1 分あたり」「1 秒あたり」で点にする重みは × 1.678（同じ試合が同じ点になる）。</para>
 /// </para>
 /// <para>
 /// 重みの方針（ユーザーの指定 2026-11-19）: 見た目の派手さ・技・暴力・逆転のドラマを、数字のダメージより重く数える。
@@ -18,12 +22,12 @@ public sealed record ExcitementTuning
 
     // ---- 検出: 打ち出し ----
 
-    /// <summary>拳が「打ち出された」とみなす、自分の胸に対する拳の速さの相手の頭の方向の成分 [人の m/s]。構えの揺れ（〜1.5 m/s）より十分大きく、
-    /// 実際のパンチの手の速さ（6〜10 m/s）より小さい値。</summary>
-    public float LaunchSpeed { get; init; } = 3.5f;
+    /// <summary>拳が「打ち出された」とみなす、自分の胸に対する拳の速さの相手の頭の方向の成分 [人の m/s]。構えの揺れ（〜0.9 m/s）より十分大きく、
+    /// 試合の拳の速さ（〜4.5 m/s）より小さい値。</summary>
+    public float LaunchSpeed { get; init; } = 2.085f;
 
     /// <summary>打ち出した拳が飛んでいるとみなす最長の時間 [s]。ジャブ〜フックの往復はこの中に収まる。</summary>
-    public float FlightSeconds { get; init; } = 0.6f;
+    public float FlightSeconds { get; init; } = 1.007f;
 
     // ---- 打ち合い ----
 
@@ -31,7 +35,7 @@ public sealed record ExcitementTuning
     public float ExchangeRange { get; init; } = 1.4f;
 
     /// <summary>打ち出しと打ち出しの間がこれ以内なら同じ打ち合いの続き [s]。</summary>
-    public float ExchangeGap { get; init; } = 1.0f;
+    public float ExchangeGap { get; init; } = 1.678f;
 
     // ---- 紙一重 ----
 
@@ -42,15 +46,15 @@ public sealed record ExcitementTuning
     public float ContactDistance { get; init; } = 0.15f;
 
     /// <summary>紙一重の強さの基準の拳の速さ [人の m/s]。</summary>
-    public float NearMissSpeedRef { get; init; } = 6f;
+    public float NearMissSpeedRef { get; init; } = 3.575f;
 
-    /// <summary>よけた速さの基準: 拳の通り道から頭が逃げる速さ [人の m/s]。スリップ・スウェーの頭の速さ（1〜2 m/s）。</summary>
-    public float EvadeSpeedRef { get; init; } = 1.5f;
+    /// <summary>よけた速さの基準: 拳の通り道から頭が逃げる速さ [人の m/s]。スリップ・スウェーの頭の速さ（0.6〜1.2 m/s）。</summary>
+    public float EvadeSpeedRef { get; init; } = 0.8937f;
 
     // ---- 打撃の強さ ----
 
     /// <summary>打撃のエネルギーの基準 [J、試合の値]。<see cref="HitEvent.Energy"/> の典型的な強打（試合で測った上位の値の目安）。</summary>
-    public float EnergyRef { get; init; } = 2f;
+    public float EnergyRef { get; init; } = 56.34f;
 
     /// <summary>皮一枚: 当たりのエネルギーがこれ × <see cref="EnergyRef"/> 以上なのに、削れたのが皮膚・髪だけ。</summary>
     public float GrazeEnergyShare { get; init; } = 0.5f;
@@ -61,14 +65,14 @@ public sealed record ExcitementTuning
     public float OnePunchConsciousness { get; init; } = 0.8f;
 
     /// <summary>一撃: ダウン・KO の前のこの時間に、打撃（ガード以外）が 1 つだけ [s]。</summary>
-    public float OnePunchWindow { get; init; } = 2f;
+    public float OnePunchWindow { get; init; } = 3.357f;
 
     /// <summary>打たれずに崩れたダウンの強さ（直前の打撃のエネルギーが 0 のとき）。倒れる見た目の驚きはあるが攻防の結果ではないので、
     /// 打撃で倒れたダウン（強さ 1）の 1/4。</summary>
     public float UnforcedKnockdown { get; init; } = 0.25f;
 
     /// <summary>立ち上がりの強さの基準: 倒れていた時間 [s]。長く倒れてから立つほど劇的。</summary>
-    public float RiseRefSeconds { get; init; } = 5f;
+    public float RiseRefSeconds { get; init; } = 8.392f;
 
     // ---- 体の破壊 ----
 
@@ -79,12 +83,12 @@ public sealed record ExcitementTuning
     public int ShatterGrains { get; init; } = 12;
 
     /// <summary>頭のねじれの基準の角速度 [rad/s、<see cref="Fighter.LastHeadTwist"/>]。意識は ω² で落ちるので強さも (ω / 基準)²。</summary>
-    public float HeadSnapTwist { get; init; } = 20f;
+    public float HeadSnapTwist { get; init; } = 11.92f;
 
     // ---- 連打 ----
 
     /// <summary>連打: この時間の中に同じ側のクリーンヒット（ガード以外）が <see cref="FlurryHits"/> 以上 [s]。</summary>
-    public float FlurrySeconds { get; init; } = 1f;
+    public float FlurrySeconds { get; init; } = 1.678f;
 
     public int FlurryHits { get; init; } = 3;
 
@@ -94,22 +98,22 @@ public sealed record ExcitementTuning
     public float DamageShareSoftening { get; init; } = 20f;
 
     /// <summary>見込みを記録する刻み [s]。</summary>
-    public float BeliefSample { get; init; } = 0.25f;
+    public float BeliefSample { get; init; } = 0.4196f;
 
     /// <summary>見込みの揺れやすさ（|Δp|/秒 の移動平均）の半減期 [s]。打ち合い 1〜2 回の長さ: いま試合が動いているかの記憶。</summary>
-    public float VolatilityHalfLife { get; init; } = 3f;
+    public float VolatilityHalfLife { get; init; } = 5.035f;
 
     /// <summary>「1 回の揺れ」を測る時間 [s]。ダウン 1 回（倒れて数えられる）が入る長さ。</summary>
-    public float SwingSeconds { get; init; } = 5f;
+    public float SwingSeconds { get; init; } = 8.392f;
 
     /// <summary>見込みの入れ替わりのヒステリシス（0.5 ± この値を越えて初めて入れ替わり）。小さな揺れで数えない。</summary>
     public float LeadHysteresis { get; init; } = 0.1f;
 
     /// <summary>驚き（Σ|Δp|）1 /分 あたりの点。</summary>
-    public float SurpriseWeight { get; init; } = 20f;
+    public float SurpriseWeight { get; init; } = 33.57f;
 
     /// <summary>はらはらの平均 1（|Δp|/秒）あたりの点。</summary>
-    public float SuspenseWeight { get; init; } = 100f;
+    public float SuspenseWeight { get; init; } = 167.8f;
 
     /// <summary>一番大きな揺れ 1（p が 0 → 1）あたりの点。</summary>
     public float SwingWeight { get; init; } = 20f;
@@ -120,13 +124,13 @@ public sealed record ExcitementTuning
     // ---- 緩急（慣れのある興奮の曲線、§B） ----
 
     /// <summary>興奮の曲線の刻み [s]。</summary>
-    public float ArousalSample { get; init; } = 0.25f;
+    public float ArousalSample { get; init; } = 0.4196f;
 
     /// <summary>興奮が基準へ戻る半減期 [s]。強打の後の「おおっ」が静まる長さ（数秒）。短いと出来事ごとの針、長いと平らになる。</summary>
-    public float ArousalHalfLife { get; init; } = 3f;
+    public float ArousalHalfLife { get; init; } = 5.035f;
 
-    /// <summary>目新しさの記憶の半減期 [s]。同じ種類が 6 秒に何度も来ると慣れる（打ち合いの間隔 1〜2 秒の 3〜6 倍）。</summary>
-    public float NoveltyHalfLife { get; init; } = 6f;
+    /// <summary>目新しさの記憶の半減期 [s]。同じ種類が 10 秒に何度も来ると慣れる（打ち合いの間隔 1.7〜3.4 秒の 3〜6 倍）。</summary>
+    public float NoveltyHalfLife { get; init; } = 10.07f;
 
     /// <summary>同じ選手の出来事の記憶が目新しさを下げる割合（同じ種類の半分）。一方的な展開にも慣れる。</summary>
     public float SideNoveltyShare { get; init; } = 0.5f;
@@ -141,7 +145,7 @@ public sealed record ExcitementTuning
     public float PeakProminence { get; init; } = 3f;
 
     /// <summary>山 1 つ/分 あたりの点。</summary>
-    public float PeakWeight { get; init; } = 3f;
+    public float PeakWeight { get; init; } = 5.035f;
 
     /// <summary>山の高さの平均 1 あたりの点（上限 <see cref="PeakHeightCap"/>）。</summary>
     public float PeakHeightWeight { get; init; } = 1f;
@@ -160,7 +164,7 @@ public sealed record ExcitementTuning
     // ---- 総合（§C） ----
 
     /// <summary>総合 = 派手さ × この重み + ドラマ × <see cref="DramaWeight"/> + 緩急 × <see cref="PacingWeight"/>。3 つがおおむね同じ桁になるように。</summary>
-    public float SpectacleWeight { get; init; } = 0.5f;
+    public float SpectacleWeight { get; init; } = 0.8392f;
 
     public float DramaWeight { get; init; } = 1f;
 
@@ -172,7 +176,7 @@ public sealed record ExcitementTuning
     public float IntensityCap { get; init; } = 3f;
 
     /// <summary>出来事のない時間がこれより長いと「退屈な時間」[s]。</summary>
-    public float DeadGapSeconds { get; init; } = 5f;
+    public float DeadGapSeconds { get; init; } = 8.392f;
 
     /// <summary>退屈な時間の割合 1 につき、点をこの割合だけ下げる。</summary>
     public float DeadTimePenalty { get; init; } = 0.5f;

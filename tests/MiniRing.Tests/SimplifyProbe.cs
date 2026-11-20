@@ -13,8 +13,8 @@ namespace MiniRing.Tests;
 /// 調査用（Probe: 通常の実行から外す）。物理を軽くする案（歩の速さ・掃き直しの回数・標本間隔）を、既定との比で測る
 /// （<c>docs/arena/gen13_simplify.md</c>）。固定 5 シードの刀試合とボクシング試合を物理の 1 歩（= 1 サブステップ）ずつ進め、
 /// 結果（ダウン・折れ・切断・削れたセル・打撃数・打撃エネルギー）と 1 歩の時間・試合時間 1 秒あたりの CPU 時間・静止した構えの震えを取る。
-/// 環境変数: SIMPLIFY_VARIANTS（既定 base,hz180,hz120,passes2,passes1,sample2）、SIMPLIFY_OUT（追記先）、SIMPLIFY_KATANA_SECONDS（既定 20）、
-/// SIMPLIFY_BOX_SECONDS（既定 20）。変更は静的な既定（<see cref="BoxingGame.DefaultSubstepRate"/> など）で、終わったら戻す。
+/// 環境変数: SIMPLIFY_VARIANTS（既定 base,hz180,hz120,passes2,passes1,sample2）、SIMPLIFY_OUT（追記先）、SIMPLIFY_KATANA_SECONDS（既定 33.57）、
+/// SIMPLIFY_BOX_SECONDS（既定 33.57）。変更は静的な既定（<see cref="BoxingGame.DefaultSubstepRate"/> など）で、終わったら戻す。
 /// </summary>
 [TestClass]
 [TestCategory("Probe")]
@@ -59,8 +59,8 @@ public sealed class SimplifyProbe
     public void Measure()
     {
         var names = (Environment.GetEnvironmentVariable("SIMPLIFY_VARIANTS") ?? "base,hz180,hz120,passes2,passes1,sample2").Split(',');
-        var katanaSeconds = float.TryParse(Environment.GetEnvironmentVariable("SIMPLIFY_KATANA_SECONDS"), CultureInfo.InvariantCulture, out var ks) ? ks : 20f;
-        var boxSeconds = float.TryParse(Environment.GetEnvironmentVariable("SIMPLIFY_BOX_SECONDS"), CultureInfo.InvariantCulture, out var bs) ? bs : 20f;
+        var katanaSeconds = float.TryParse(Environment.GetEnvironmentVariable("SIMPLIFY_KATANA_SECONDS"), CultureInfo.InvariantCulture, out var ks) ? ks : 33.57f;
+        var boxSeconds = float.TryParse(Environment.GetEnvironmentVariable("SIMPLIFY_BOX_SECONDS"), CultureInfo.InvariantCulture, out var bs) ? bs : 33.57f;
         var sb = new StringBuilder();
         var savedHz = BoxingGame.DefaultSubstepRate;
         var savedPasses = BoxingGame.DefaultMaxContactPasses;
@@ -71,7 +71,7 @@ public sealed class SimplifyProbe
             Apply(All[0]);
             using (var warm = new BoxingGame(seed: 100, corners: KatanaCorners))
             {
-                for (var i = 0; i < 1200; i++) { warm.Step(default, 1f / 240f); }
+                for (var i = 0; i < 2014; i++) { warm.Step(default, 1f / 240f); }
             }
 
             foreach (var name in names)
@@ -176,8 +176,8 @@ public sealed class SimplifyProbe
         var corners = BoxingCorners.Default with { CpuName = contender.Name, Cpu = s => contender.Create(s), Player = s => contender.Create(s) };
         using var game = new BoxingGame(seed: 3, corners: corners);
         var dt = 1f / hz;
-        var settle = (int)(1.5f * hz);
-        var window = (int)(3f * hz);
+        var settle = (int)(2.518f * hz);
+        var window = (int)(5.035f * hz);
         double s2 = 0, a2 = 0;
         var n = 0;
         Vector3[]? last = null;

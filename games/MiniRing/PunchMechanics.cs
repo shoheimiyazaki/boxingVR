@@ -36,12 +36,13 @@ public static class PunchMechanics
     public const float LeverTransfer = 0.55f;
 
     /// <summary>
-    /// この運動量 [kg·m/s] 未満は「触れただけ」（得点のルールの値）。PhysicsVersion 45 で 1 発の運動量が全体に約 1/5 になったが、境目は変えない:
+    /// この運動量 [kg·m/s] 未満は「触れただけ」（得点のルールの値）。PhysicsVersion 45 で 1 発の運動量が全体に約 1/5 になったが、境目は変えない（以下の数は人形の単位。人の大きさでは運動量 × 16.8・速さ × 1.68）:
     /// 0.05 にして尺度を √5 倍にすると、腕だけの 0.7 m/s ほどの触れ合いまで打撃に数えられ、短押しの当たりが 108 → 204 回に増えて、押し付ける連打が点でまた勝った
     /// （docs/arena/rush_physics.md）。前の境目でそれらが打撃になっていたのは、水増しした体の質量のため。
     /// </summary>
-    public const float MomentumThreshold = 0.25f;
-    public const float DamageScale = 11f;
+    public const float MomentumThreshold = 4.196f;
+    /// <summary>ダメージ = (√p − √境目) × これ [1/√(kg·m/s)]。人形の単位の 11 を、運動量 × 16.8 で同じダメージになるよう 11 / √16.78 にした。</summary>
+    public const float DamageScale = 2.685f;
     public const float MaxDamage = 40f;
 
     /// <summary>
@@ -136,8 +137,8 @@ public static class PunchMechanics
         return t * t * (3f - (2f * t));
     }
 
-    public const float SharpnessSpeedLow = 0.35f;
-    public const float SharpnessSpeedHigh = 0.8f;
+    public const float SharpnessSpeedLow = 0.587f;
+    public const float SharpnessSpeedHigh = 1.343f;
 
     /// <summary>
     /// 腕が出せる力の上限の倍率。体の質量を借りられるほど（連結度 × 有効質量 / 体重）脚・腰の力が乗る。

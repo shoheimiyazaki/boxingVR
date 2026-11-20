@@ -40,7 +40,7 @@ public sealed class WeaponDropTests
     {
         var drop = false;
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("club", _ => new Scripted(s => Guard(s, drop)), _ => new StandGuard(), CpuWeapon: WeaponKind.WoodenClub));
-        Play(game, 1f);
+        Play(game, 1.678f);
         Assert.IsTrue(game.Cpu.Wields(BoxingGame.WeaponHand));
         Assert.IsTrue(game.CpuSense.SelfArmed);
 
@@ -50,36 +50,36 @@ public sealed class WeaponDropTests
         Play(game, 1f / 60f);
         Assert.IsFalse(game.Cpu.Wields(BoxingGame.WeaponHand), "the hand let go");
         Assert.IsFalse(game.Cpu.WearsGlove(BoxingGame.WeaponHand), "no fist is made inside the club it just dropped");
-        Play(game, 0.6f);
+        Play(game, 1.007f);
         Assert.IsTrue(game.Cpu.WearsGlove(BoxingGame.WeaponHand), "once the club has fallen clear, the empty hand is a bare voxel fist");
         Assert.AreEqual(MiniRing.Weapons.HandWear.None.Kind(), game.GloveOf(game.Cpu, BoxingGame.WeaponHand)!.Kind);
         Assert.IsFalse(game.CpuSense.SelfArmed);
 
-        Assert.IsLessThan(held - 0.05f, game.World.GetState(club.Body.BodyId).Position.Y, "the club fell");
+        Assert.IsLessThan(held - 0.1408f, game.World.GetState(club.Body.BodyId).Position.Y, "the club fell");
     }
 
     private static FighterSense Sense(float reach, float fullReach) =>
-        new(default, 0.17f, new Vector3(0f, 1f, 0.5f), new Vector3(0f, 0.9f, 0.5f), true, SelfArmed: true, SelfWeapon: new WeaponSense(true, reach, fullReach));
+        new(default, 0.4789f, new Vector3(0f, 2.817f, 1.408f), new Vector3(0f, 2.535f, 1.408f), true, SelfArmed: true, SelfWeapon: new WeaponSense(true, reach, fullReach));
 
     [TestMethod]
     public void ABrokenWeapon_IsKeptWhileItStillReaches_AndThrownAwayWhenOnlyTheHiltIsLeft()
     {
         var armed = new Scripted(s => Guard(s));
         var keep = new DisarmedFallback(armed, new StandGuard());
-        var kept = keep.Read(Sense(reach: 0.2f, fullReach: 0.3f), 1f / 240f);
+        var kept = keep.Read(Sense(reach: 0.5634f, fullReach: 0.8451f), 1f / 240f);
         Assert.IsFalse(kept.Right.LetGo, "two thirds of the blade still reach well past the fist");
         Assert.IsTrue(keep.FightsWithBrokenWeapon);
 
         var whole = new DisarmedFallback(armed, new StandGuard());
-        Assert.IsFalse(whole.Read(Sense(reach: 0.3f, fullReach: 0.3f), 1f / 240f).Right.LetGo);
+        Assert.IsFalse(whole.Read(Sense(reach: 0.8451f, fullReach: 0.8451f), 1f / 240f).Right.LetGo);
         Assert.IsFalse(whole.FightsWithBrokenWeapon, "a whole weapon is just a weapon");
 
         var stub = new DisarmedFallback(armed, new StandGuard());
-        var thrown = stub.Read(Sense(reach: 0.03f, fullReach: 0.3f), 1f / 240f);
+        var thrown = stub.Read(Sense(reach: 0.0845f, fullReach: 0.8451f), 1f / 240f);
         Assert.IsTrue(thrown.Right.LetGo && thrown.Left.LetGo, "only the hilt is left: let go with both hands");
         Assert.IsTrue(stub.Discarded);
 
-        var fists = stub.Read(new FighterSense(default, 0.17f, new Vector3(0f, 1f, 0.5f), new Vector3(0f, 0.9f, 0.5f), true, SelfArmed: false), 1f / 240f);
+        var fists = stub.Read(new FighterSense(default, 0.4789f, new Vector3(0f, 2.817f, 1.408f), new Vector3(0f, 2.535f, 1.408f), true, SelfArmed: false), 1f / 240f);
         Assert.IsTrue(stub.Disarmed, "once it is gone, the fists take over");
         Assert.IsFalse(fists.Right.LetGo);
     }
@@ -89,20 +89,20 @@ public sealed class WeaponDropTests
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("club",
             s => new DisarmedFallback(new Scripted(x => Guard(x)), new StandGuard()), _ => new StandGuard(), CpuWeapon: WeaponKind.WoodenClub));
-        Play(game, 1f);
+        Play(game, 1.678f);
         var club = game.WeaponOf(game.Cpu)!;
         var full = game.CpuSense.SelfWeapon;
         Assert.IsTrue(full.Held);
         Assert.AreEqual(0f, full.Lost, 1e-3f, "a whole club");
 
-        // 握りのすぐ先で折る（握りから 1 cm ほどしか残らない）。
+        // 握りのすぐ先で折る（握りから 2.8 cm ほどしか残らない）。
         var grid = club.Body.Grid;
         var grip = game.Cpu.WieldedGrip(BoxingGame.WeaponHand)!.Value.X;
-        var slice = (int)MathF.Floor((grip + 0.01f - club.Body.GridCenterLocal.X + grid.HalfExtents.X) / grid.CellSize.X);
+        var slice = (int)MathF.Floor((grip + 0.02817f - club.Body.GridCenterLocal.X + grid.HalfExtents.X) / grid.CellSize.X);
         Assert.IsNotNull(club.Body.SplitAt(0, slice, takeHigh: true));
         Assert.IsLessThan(DisarmedFallback.DefaultKeepReach * game.Cpu.ArmReach, game.CpuSense.SelfWeapon.Reach, "only the handle is left");
 
-        Play(game, 1f);
+        Play(game, 1.678f);
         Assert.IsFalse(game.Cpu.Wields(BoxingGame.WeaponHand), "the bot threw the useless handle away");
         Assert.IsTrue(game.Cpu.WearsGlove(BoxingGame.WeaponHand), "and boxes with a bare fist");
     }
@@ -111,7 +111,7 @@ public sealed class WeaponDropTests
     public void AWholePointedBlade_HasLostNothing()
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("katana", _ => new Scripted(s => Guard(s)), _ => new StandGuard(), CpuWeapon: WeaponKind.Katana));
-        Play(game, 0.5f);
+        Play(game, 0.8392f);
         var sense = game.CpuSense.SelfWeapon;
         Assert.IsTrue(sense.Held);
         Assert.AreEqual(0f, sense.Lost, "the point's last millimetres are no cells, but nothing broke off");
@@ -122,7 +122,7 @@ public sealed class WeaponDropTests
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("club",
             s => new DisarmedFallback(new Scripted(x => Guard(x)), new StandGuard()), _ => new StandGuard(), CpuWeapon: WeaponKind.WoodenClub));
-        Play(game, 1f);
+        Play(game, 1.678f);
         var club = game.WeaponOf(game.Cpu)!;
         var full = game.CpuSense.SelfWeapon.Reach;
         var grid = club.Body.Grid;
@@ -132,7 +132,7 @@ public sealed class WeaponDropTests
         var broken = game.CpuSense.SelfWeapon;
         Assert.IsGreaterThan(0.2f * full, broken.Lost, "the tip is gone");
 
-        Play(game, 0.5f);
+        Play(game, 0.8392f);
         Assert.IsTrue(game.Cpu.Wields(BoxingGame.WeaponHand), "still worth holding");
     }
 }

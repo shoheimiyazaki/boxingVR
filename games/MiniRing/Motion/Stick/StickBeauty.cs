@@ -37,7 +37,7 @@ public static class StickBeauty
     /// 周波数（遮断周波数で割った物）に対する弧長に − を付けた値。小さい（負に大きい）ほど波形が複雑で、ぎくしゃくしている。滑らかな 1 つの山は約 −1.4。
     /// 遮断周波数は、振幅が <paramref name="amplitudeThreshold"/> 以上の最も高い周波数（上限 <paramref name="maxCutoffHz"/>）。
     /// </summary>
-    public static float? Sparc(IReadOnlyList<float> speed, float dt, float maxCutoffHz = 10f, float amplitudeThreshold = 0.05f, int padLevel = 4)
+    public static float? Sparc(IReadOnlyList<float> speed, float dt, float maxCutoffHz = 5.958f, float amplitudeThreshold = 0.05f, int padLevel = 4)
     {
         ArgumentNullException.ThrowIfNull(speed);
         if (speed.Count < 8 || speed.Max() < 1e-6f)
@@ -384,7 +384,7 @@ public static class StickBeauty
     /// <summary>
     /// 刃筋の角（速さで重みを付けた平均）[rad]: 刃先の速さの向きの、刃の向き <c>a</c> に垂直な成分 v⊥ が、刃の面（<c>a</c> と刃先の向き <c>e</c> が張る面）の中にあるか。
     /// 刃の面の法線 = a × e（刃の腹の向き）で、角 = asin(|v̂⊥ · 法線|)。0 = 刃先の向きへ（刃の面の中を）切っている、π/2 = 腹で叩いている。
-    /// 両刃なので符号は見ない。速さの無い（v⊥ が 1 cm/s 未満の）点は数えない。
+    /// 両刃なので符号は見ない。速さの無い（v⊥ が 1.7 cm/s 未満の）点は数えない。
     /// </summary>
     public static float EdgeAngle(IReadOnlyList<Vector3> tip, IReadOnlyList<Vector3> axes, IReadOnlyList<Vector3> edges, float dt, int from = 0, int to = -1)
     {
@@ -407,7 +407,7 @@ public static class StickBeauty
             var axis = Vector3.Normalize(axes[i]);
             var perpendicular = v - (Vector3.Dot(v, axis) * axis);
             var speed = perpendicular.Length();
-            if (speed < 0.01f)
+            if (speed < 0.01678f)
             {
                 continue;
             }

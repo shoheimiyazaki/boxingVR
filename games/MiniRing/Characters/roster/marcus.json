@@ -102,22 +102,22 @@
     "style": {
       "BreakLikes": { "applause": 3, "handshake": 3, "sandwich": 2.5, "headphones": 2.5, "glare": 2, "bow": 1.5, "pointup": 2, "raisearms": 1.5, "sportsdrink": 2, "hypecrowd": 1.5, "blowkiss": 0.3 },
       "GamePlan": {
-        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 8, "Pressure": 1,
+        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 13.43, "Pressure": 1,
         "Own": [
-          { "Cm": 17, "Dealt": 24.744, "Taken": 16.391 },
-          { "Cm": 19, "Dealt": 22.723, "Taken": 12.615 },
-          { "Cm": 21, "Dealt": 26.432, "Taken": 18.118 },
-          { "Cm": 23, "Dealt": 27.013, "Taken": 11.074 },
-          { "Cm": 25, "Dealt": 30.721, "Taken": 9.577 },
-          { "Cm": 27, "Dealt": 25.324, "Taken": 5.776 },
-          { "Cm": 29, "Dealt": 19.351, "Taken": 3.959 },
-          { "Cm": 31, "Dealt": 11.687, "Taken": 2.836 },
-          { "Cm": 33, "Dealt": 5.445, "Taken": 2.301 },
-          { "Cm": 35, "Dealt": 2.038, "Taken": 1.489 },
-          { "Cm": 37, "Dealt": 1.212, "Taken": 1.97 },
-          { "Cm": 39, "Dealt": 0.247, "Taken": 2.245 },
-          { "Cm": 41, "Dealt": 0.118, "Taken": 1.782 },
-          { "Cm": 43, "Dealt": 0.191, "Taken": 0.86 }
+          { "Cm": 47.89, "Dealt": 14.743, "Taken": 9.766 },
+          { "Cm": 53.52, "Dealt": 13.539, "Taken": 7.516 },
+          { "Cm": 59.15, "Dealt": 15.749, "Taken": 10.795 },
+          { "Cm": 64.79, "Dealt": 16.095, "Taken": 6.598 },
+          { "Cm": 70.42, "Dealt": 18.304, "Taken": 5.706 },
+          { "Cm": 76.06, "Dealt": 15.089, "Taken": 3.441 },
+          { "Cm": 81.69, "Dealt": 11.53, "Taken": 2.359 },
+          { "Cm": 87.32, "Dealt": 6.963, "Taken": 1.69 },
+          { "Cm": 92.96, "Dealt": 3.244, "Taken": 1.371 },
+          { "Cm": 98.59, "Dealt": 1.214, "Taken": 0.887 },
+          { "Cm": 104.23, "Dealt": 0.722, "Taken": 1.174 },
+          { "Cm": 109.86, "Dealt": 0.147, "Taken": 1.338 },
+          { "Cm": 115.49, "Dealt": 0.07, "Taken": 1.062 },
+          { "Cm": 121.13, "Dealt": 0.114, "Taken": 0.512 }
         ]
       }
     },

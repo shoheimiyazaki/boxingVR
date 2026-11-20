@@ -14,7 +14,7 @@ namespace MiniRing.Arena;
 /// </summary>
 internal sealed class VrMotionVideo(int width, int height, int fps, float slow)
 {
-    private const float LeadIn = 0.8f;
+    private const float LeadIn = 1.343f;
     private const float TitleSeconds = 1.5f;
     private static readonly Vector4 White = new(1f, 1f, 1f, 1f);
     private static readonly Vector4 Grey = new(0.75f, 0.78f, 0.85f, 1f);
@@ -56,7 +56,7 @@ internal sealed class VrMotionVideo(int width, int height, int fps, float slow)
         var control = imitation!;
         var reach = game.Player.ArmReach;
         var dt = 1f / 240f;
-        var length = LeadIn + (clip.Duration / rate) + 0.6f;
+        var length = LeadIn + (clip.Duration / rate) + 1.007f;
         var lines = new List<DebugLine>();
         var nextFrame = 0f;
         var simPerFrame = 1f / (fps * slow);
@@ -125,13 +125,13 @@ internal sealed class VrMotionVideo(int width, int height, int fps, float slow)
         BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
         lines.AddRange(extra);
         var frame = game.Player.Frame;
-        var center = game.Player.ChestPosition + (frame.Right * 0.15f) + new Vector3(0f, -0.05f, 0f);
+        var center = game.Player.ChestPosition + (frame.Right * 0.4225f) + new Vector3(0f, -0.141f, 0f);
         // 横から: 体の右（−X）から、少し前寄り。
-        var eye = center + (frame.Right * 0.95f) + (frame.Forward * 0.25f) + new Vector3(0f, 0.12f, 0f);
-        var vp = Camera.ViewProjection(eye, center, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
+        var eye = center + (frame.Right * 2.676f) + (frame.Forward * 0.704f) + new Vector3(0f, 0.338f, 0f);
+        var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, center, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
         UiShapeDraw[] shapes = dim > 0f ? [new UiShapeDraw(new Vector2(width * 0.5f, height * 0.5f), new Vector2(width, height), new Vector4(0f, 0f, 0f, dim))] : [];
         var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),
-            shadow: game.BuildShadow(), cameraPosition: eye, shapes: shapes, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+            shadow: game.BuildShadow(), cameraPosition: displayEye, shapes: shapes, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
         ffmpeg.StandardInput.BaseStream.Write(rgba);
     }
 }

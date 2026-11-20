@@ -67,8 +67,8 @@ public sealed partial class PhysicsWorld
         var handle = _simulation.Bodies.Add(BodyDescription.CreateDynamic(
             new RigidPose(position + Vector3.Transform(centre, orientation), orientation),
             inertia,
-            new CollidableDescription(shapeIndex, 0.1f),
-            new BodyActivityDescription(0.01f)));
+            new CollidableDescription(shapeIndex, 0.2817f),
+            new BodyActivityDescription(DefaultSleepThreshold)));
         var id = RegisterBody(handle, Filter(group, subgroup));
         RegisterBodyMetadata(id, mass, new BodyShape(ShapeKind.Compound, BoundingHalfExtents(parts, centre)));
         _lastDynamicInertia[id] = (mass, inertia);

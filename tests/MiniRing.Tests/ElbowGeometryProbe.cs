@@ -13,9 +13,9 @@ public sealed class ElbowGeometryProbe
     public void PrintArmGeometry()
     {
         using var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         var f = Fighter.Spawn(world, FighterTuning.Default, "g", Vector3.Zero, 0f);
-        for (var i = 0; i < 240; i++)
+        for (var i = 0; i < 403; i++)
         {
             f.ApplyControl(new FighterCommand(Vector3.Zero, Vector3.UnitZ, new HandCommand(AiControl.Guard(Hand.Left, f.ArmReach), false), new HandCommand(AiControl.Guard(Hand.Right, f.ArmReach), false)), 1f / 240f);
             world.Step(1f / 240f);

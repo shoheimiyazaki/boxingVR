@@ -57,7 +57,7 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
         log("");
     }
 
-    /// <summary>1 本: 技ごとの集計（打ち始め・当たり・エネルギー・その技の間かその後 1 秒以内に攻め手が倒れた回数）を <paramref name="totals"/> へ足し、攻め手が倒れた回数を返す。</summary>
+    /// <summary>1 本: 技ごとの集計（打ち始め・当たり・エネルギー・その技の間かその後 1.68 秒以内に攻め手が倒れた回数）を <paramref name="totals"/> へ足し、攻め手が倒れた回数を返す。</summary>
     private int Bout(BotStyle attacker, int boutSeed, SortedDictionary<string, Tally> totals)
     {
         using var game = new BoxingGame(seed: boutSeed, corners: Corners(attacker));
@@ -69,7 +69,7 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
         var since = float.PositiveInfinity;
         for (var t = 0f; t < seconds && !game.RoundOver; t += StepDt)
         {
-            if (t > 1.5f)
+            if (t > 2.518f)
             {
                 victim.Concussion = Out;
             }
@@ -112,7 +112,7 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
             if (wasStanding && !standing)
             {
                 falls++;
-                if (since <= 1f)
+                if (since <= 1.678f)
                 {
                     totals[last] = totals.GetValueOrDefault(last) + new Tally(0, 0, 0f, 1);
                 }
@@ -153,7 +153,7 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
     internal static bool Trace { get; set; } = Environment.GetEnvironmentVariable("GROUND_TRACE") == "1";
 
     /// <summary>攻め手が倒れた 1 回の罰 [J]（踏みつけ 1 回の約 1.5 倍: 倒れるくらいなら打たないほうが良い）。</summary>
-    private const float FallPenalty = 60f;
+    private const float FallPenalty = 1690f;
 
     /// <summary>点: 1 本あたりにその技で渡したエネルギー − 倒れた罰。</summary>
     private float Score(Tally t) => (t.Energy - (FallPenalty * t.Falls)) / bouts;
@@ -217,7 +217,7 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
         var foot = m.Limb == GroundLimb.Foot;
         return m with
         {
-            Duration = Math.Clamp(m.Duration * (1f + (0.1f * N())), 0.35f, 1.4f),
+            Duration = Math.Clamp(m.Duration * (1f + (0.1f * N())), 0.587f, 2.35f),
             Stand = J(m.Stand, 0.05f, 0.9f),
             Reach = J(m.Reach, 0.7f, foot ? 1.7f : 1.1f),
             Rise = J(m.Rise, 0.1f, 1.2f),
@@ -240,7 +240,7 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
         new VideoMaker(1280, 720, 30, speed: 0.5f).Make(red, blue, seed, seconds, output, console,
             afterStep: time =>
             {
-                if (time > 1.5f && game is not null)
+                if (time > 2.518f && game is not null)
                 {
                     game.Player.Concussion = Out;
                 }

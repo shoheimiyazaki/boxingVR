@@ -141,7 +141,7 @@ internal static partial class TvDraft
                     var victim = e.Who;
                     downs[victim] = downs.GetValueOrDefault(victim) + 1;
                     lying.Add(victim);
-                    var cause = events.Take(i).LastOrDefault(x => x.For == "実況" && x.Type is "hit" or "weapon_hit" && x.T >= e.T - 4.5f && HitText().Match(x.Text) is { Success: true } m && m.Groups["v"].Value == victim);
+                    var cause = events.Take(i).LastOrDefault(x => x.For == "実況" && x.Type is "hit" or "weapon_hit" && x.T >= e.T - 7.553f && HitText().Match(x.Text) is { Success: true } m && m.Groups["v"].Value == victim);
                     // 言い回しは決まった順に変える（同じ型の連続を避ける。乱数は使わない: 同じ記録なら同じ台本）。
                     var call = cause.Text is { } c && HitText().Match(c) is { Success: true } hm
                         ? (knockdowns++ % 3) switch

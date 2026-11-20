@@ -3,7 +3,7 @@ using MiniRing.Bots;
 namespace MiniRing.Tests;
 
 /// <summary>
-/// 意識の段階ごとの体の見え方の調査用: 意識を一定に保ったまま 3 秒立たせ、腰がどれだけ落ちるか・倒れるか・拳（ガード）がどれだけ下がるか。
+/// 意識の段階ごとの体の見え方の調査用: 意識を一定に保ったまま 5 秒立たせ、腰がどれだけ落ちるか・倒れるか・拳（ガード）がどれだけ下がるか。
 /// </summary>
 [TestClass]
 [TestCategory("Probe")]
@@ -19,12 +19,12 @@ public sealed class ConsciousnessProbe
             var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
             using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
             var f = game.Cpu;
-            for (var t = 0f; t < 1.5f; t += Dt)
+            for (var t = 0f; t < 2.518f; t += Dt)
             {
                 game.Step(default, Dt);
             }
 
-            var ground = f.AllParts.Min(id => game.World.GetState(id).Position.Y) - 0.01f;
+            var ground = f.AllParts.Min(id => game.World.GetState(id).Position.Y) - 0.02817f;
             float Height() => f.PelvisPosition.Y - ground;
             var stand = Height();
             var guard = f.GloveCenter(Hand.Left).Y - f.ChestPosition.Y;
@@ -32,12 +32,12 @@ public sealed class ConsciousnessProbe
             var downAt = -1f;
             var sum = 0f;
             var n = 0;
-            for (var t = 0f; t < 3f; t += Dt)
+            for (var t = 0f; t < 5.035f; t += Dt)
             {
                 f.Concussion = MathF.Max(0f, 1f - level);
                 game.Step(default, Dt);
                 minPelvis = MathF.Min(minPelvis, Height());
-                if (t > 1f)
+                if (t > 1.678f)
                 {
                     sum += Height();
                     n++;
@@ -58,25 +58,25 @@ public sealed class ConsciousnessProbe
     [TestMethod]
     public void RecoveryFromADeepConcussion()
     {
-        // 一度だけ深く意識を飛ばし、その後の意識・腰を上げようとする高さ・実際の腰の高さ・状態を 0.5 秒ごとに見る。
+        // 一度だけ深く意識を飛ばし、その後の意識・腰を上げようとする高さ・実際の腰の高さ・状態を 0.84 秒ごとに見る。
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
         var f = game.Cpu;
-        for (var t = 0f; t < 1.5f; t += Dt)
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }
 
-        var ground = f.AllParts.Min(id => game.World.GetState(id).Position.Y) - 0.01f;
+        var ground = f.AllParts.Min(id => game.World.GetState(id).Position.Y) - 0.02817f;
         var stand = f.PelvisPosition.Y - ground;
         f.Concussion = 0.95f;
         var next = 0f;
-        for (var t = 0f; t < 16f; t += Dt)
+        for (var t = 0f; t < 26.85f; t += Dt)
         {
             game.Step(default, Dt);
             if (t >= next)
             {
-                next += 0.5f;
+                next += 0.8392f;
                 Console.WriteLine($"t {t,5:0.0}s consciousness {f.Consciousness:0.00} tone {f.Tone:0.00} reach {f.StandReach:0.00} rise {f.Rise:0.00} pelvis {(f.PelvisPosition.Y - ground) / stand:P0} upright {f.Uprightness:0.00} {f.State}");
             }
         }
@@ -108,23 +108,23 @@ public sealed class HeadProportionProbe
 public sealed class HeadCarveProbe
 {
     [TestMethod]
-    [DataRow(1.15f, 450f, 45f)]
-    [DataRow(0.8f, 160f, 16f)]
-    [DataRow(0.8f, 120f, 12f)]
+    [DataRow(1.15f, 450f, 1.598f)]
+    [DataRow(0.8f, 160f, 0.568f)]
+    [DataRow(0.8f, 120f, 0.426f)]
     public void BrainLeftAfterAHeavyBlow(float headScale, float maxCarve, float perJoule)
     {
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         foreach (var (name, low) in new[] { ("chin", 0.8f), ("centre", 0f) })
         {
             using var game = new BoxingGame(FighterTuning.Default with { HeadScale = headScale, MaxCarve = maxCarve, CarvePerJoule = perJoule }, seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
-            for (var t = 0f; t < 1.5f; t += 1f / 240f)
+            for (var t = 0f; t < 2.518f; t += 1f / 240f)
             {
                 game.Step(default, 1f / 240f);
             }
 
             var cpu = game.Cpu;
             var point = cpu.HeadPosition + (cpu.Frame.Forward * cpu.HalfExtents.Head.Z) - new System.Numerics.Vector3(0f, low * cpu.HalfExtents.Head.Y, 0f);
-            const float mass = 4.5f, speed = 2.2f;
+            const float mass = 45f, speed = 3.693f;
             var damage = PunchMechanics.Damage(mass * speed) * PunchMechanics.Sharpness(speed);
             game.ApplyHit(new HitEvent(game.Player, Hand.Right, cpu, HitZone.Chin, point, speed, mass, 0.7f, damage), cpu.Parts.Head, -cpu.Frame.Forward * speed);
             Console.WriteLine($"head {headScale}, MaxCarve {maxCarve}, {name}: brain function {cpu.Voxels!.BrainFunction(FighterTuning.Default.BrainHalvingLoss):0.00}, twist {cpu.LastHeadTwist:0} rad/s");

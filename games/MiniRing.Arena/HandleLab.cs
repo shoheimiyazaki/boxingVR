@@ -26,7 +26,7 @@ internal static class HandleLab
     private const float Dt = 1f / 60f;
 
     /// <summary>技を出し終えてから、まだ 1 振りの当たりに数える余韻 [s]（振り切りの最後に当たる・切り落としが 1 歩遅れる）。</summary>
-    public const float Tail = 0.15f;
+    public const float Tail = 0.252f;
 
     /// <summary>1 振り。</summary>
     internal sealed class Swing
@@ -389,7 +389,7 @@ internal static class HandleLab
     private static void Edge(Swing swing, WeaponKind kind, Aigis.Physics.BodyState state, Vector3 point)
     {
         var v = state.LinearVelocity + Vector3.Cross(state.AngularVelocity, point - state.Position);
-        if (v.Length() < 0.05f)
+        if (v.Length() < 0.0839f)
         {
             return;
         }

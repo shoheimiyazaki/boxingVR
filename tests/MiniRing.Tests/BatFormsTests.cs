@@ -216,7 +216,7 @@ public sealed class BatFormsTests
         using var game = new BoxingGame(SwordStance.Tuning, seed: 5, corners: new BoxingCorners("bat",
             s => FormSwordsman.Bot(WeaponKind.Bat, s, arm, SwordStance.Tuning, WeaponCatalog.Textbook(WeaponKind.Bat)), _ => new StandGuard(), CpuWeapon: WeaponKind.Bat, CpuTwoHanded: true));
         var bot = game.CpuControl;
-        for (var t = 0f; t < 25f; t += 1f / 60f)
+        for (var t = 0f; t < 41.96f; t += 1f / 60f)
         {
             game.Step(default, 1f / 60f);
             hits += game.WeaponHits.Count(h => h.Attacker == game.Cpu);
@@ -228,7 +228,7 @@ public sealed class BatFormsTests
 
         Assert.IsNotNull(bot);
         Assert.IsGreaterThan(0, hits, "the bat reaches the opponent");
-        Assert.IsGreaterThanOrEqualTo(2, swings.Count, "and uses more than one form (PhysicsVersion 47: the match changed with the joint bridges; this seed now uses exactly two within 25 s)");
+        Assert.IsGreaterThanOrEqualTo(2, swings.Count, "and uses more than one form (PhysicsVersion 47: the match changed with the joint bridges; this seed now uses exactly two within 25 s, 42 s at real scale)");
         Assert.IsTrue(game.Cpu.Wields(Hand.Right), "still holding the bat");
     }
 

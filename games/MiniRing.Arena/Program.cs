@@ -411,7 +411,7 @@ static int LearnLabCommand(Options o)
     var first = Kind(o.Get("first") ?? "Straight");
     var second = Kind(o.Get("second") ?? "Hook");
     var seeds = o.Int("seeds", 6, min: 1);
-    var seconds = o.Float("seconds", 120f, min: 2f);
+    var seconds = o.Float("seconds", 201.4f, min: 2f);
     var seed = o.Int("seed", 1);
     var prior = o.Float("prior", 4f, min: 0.5f);
     var scale = o.Float("scale", 10f, min: 0.5f);
@@ -475,7 +475,7 @@ static int Tune(Options o)
 static int Drill(Options o)
 {
     var book = LoadBook(o.Get("book"));
-    var tuner = new DefenseTuner(o.Int("bouts", 8, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Console.WriteLine);
+    var tuner = new DefenseTuner(o.Int("bouts", 8, min: 1), o.Float("seconds", 33.57f, min: 1f), o.Int("seed", 1), Console.WriteLine);
     var (_, results) = tuner.Matrix(book, o.Int("seed", 1) + 500);
     var text = DefenseTuner.MatrixTable(results);
     Console.WriteLine(text);
@@ -515,7 +515,7 @@ static int DrillTune(Options o)
     var ranges = o.List("ranges", [DefenseDrill.DefaultRange.ToString(CultureInfo.InvariantCulture)]).Select(r => float.Parse(r, CultureInfo.InvariantCulture)).ToList();
     var counters = bool.Parse(o.Get("counters") ?? "true");
     var combos = bool.Parse(o.Get("combos") ?? "false");
-    var tuner = new DefenseTuner(o.Int("bouts", 8, min: 1), o.Float("seconds", 20f, min: 1f), seed, Log, ranges, counters, combos);
+    var tuner = new DefenseTuner(o.Int("bouts", 8, min: 1), o.Float("seconds", 33.57f, min: 1f), seed, Log, ranges, counters, combos);
     var meterStart = DrillMeter.Total;
     var before = tuner.Matrix(book, seed + 500);
     Log("## 最適化の前の表\n\n" + DefenseTuner.MatrixTable(before.Results));
@@ -587,8 +587,8 @@ static int KarateLabCommand(Options o)
         KarateShapeVideo.Make(video, o.Float("seconds", 30f, min: 1f), o.Int("seed", 1), Log);
     }
 
-    new KarateLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log,
-        o.List("cues", ["0", "0.06"]).Select(c => float.Parse(c, CultureInfo.InvariantCulture)).ToList())
+    new KarateLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 33.57f, min: 1f), o.Int("seed", 1), Log,
+        o.List("cues", ["0", "0.1007"]).Select(c => float.Parse(c, CultureInfo.InvariantCulture)).ToList())
         .Run(only.Contains("shapes"), only.Contains("parry"), only.Contains("kicks"));
     return 0;
 }
@@ -609,7 +609,7 @@ static int PracticeLabCommand(Options o)
     foreach (var name in o.List("only", ["seoi-nage"]))
     {
         new PracticeLab(o.Int("seed", 1), Log).Run(MiniRing.Bots.GrappleBook.Jujutsu.Technique(name), o.Int("candidates", 20, min: 1), o.Int("bouts", 2, min: 1),
-            o.Float("seconds", 10f, min: 1f), o.Int("validate", 301), o.Float("sigma", 0.06f, min: 0.001f));
+            o.Float("seconds", 16.78f, min: 1f), o.Int("validate", 301), o.Float("sigma", 0.06f, min: 0.001f));
     }
 
     return 0;
@@ -630,7 +630,7 @@ static int SeoiLabCommand(Options o)
 
     if (o.Get("reference") == "train")
     {
-        new SeoiLab(o.Int("seed", 1), Log).TrainToReference(o.Int("candidates", 24, min: 1), o.Int("bouts", 2, min: 1), o.Float("seconds", 10f, min: 1f), o.Int("validate", 101));
+        new SeoiLab(o.Int("seed", 1), Log).TrainToReference(o.Int("candidates", 24, min: 1), o.Int("bouts", 2, min: 1), o.Float("seconds", 16.78f, min: 1f), o.Int("validate", 101));
         return 0;
     }
 
@@ -639,7 +639,7 @@ static int SeoiLabCommand(Options o)
         var technique = MiniRing.Bots.GrappleBook.Jujutsu.Technique("seoi-nage");
         foreach (var victim in o.List("victims", ["stand", "champion"]))
         {
-            SeoiReference.Run(technique, victim, o.Int("validate", 101), o.Int("bouts", 4, min: 1), o.Float("seconds", 12f, min: 1f), Log);
+            SeoiReference.Run(technique, victim, o.Int("validate", 101), o.Int("bouts", 4, min: 1), o.Float("seconds", 20.14f, min: 1f), Log);
         }
 
         return 0;
@@ -649,12 +649,12 @@ static int SeoiLabCommand(Options o)
     {
         var p0 = SeoiLab.Params.Initial;
         new SeoiLab(o.Int("seed", 1), Log).Compare([
-            ("深さ 0.30", p0 with { Depth = 0.3f }), ("深さ 0.15", p0), ("深さ 0.05", p0 with { Depth = 0.05f }), ("深さ -0.05", p0 with { Depth = -0.05f })],
-            o.Int("validate", 101), o.Int("bouts", 2, min: 1), o.Float("seconds", 10f, min: 1f));
+            ("深さ 0.85", p0 with { Depth = 0.845f }), ("深さ 0.42", p0), ("深さ 0.14", p0 with { Depth = 0.141f }), ("深さ -0.14", p0 with { Depth = -0.141f })],
+            o.Int("validate", 101), o.Int("bouts", 2, min: 1), o.Float("seconds", 16.78f, min: 1f));
         return 0;
     }
 
-    new SeoiLab(o.Int("seed", 1), Log).Train(o.Int("candidates", 24, min: 1), o.Int("bouts", 2, min: 1), o.Float("seconds", 10f, min: 1f), o.Int("validate", 101));
+    new SeoiLab(o.Int("seed", 1), Log).Train(o.Int("candidates", 24, min: 1), o.Int("bouts", 2, min: 1), o.Float("seconds", 16.78f, min: 1f), o.Int("validate", 101));
     return 0;
 }
 
@@ -672,8 +672,8 @@ static int SwayLabCommand(Options o)
     }
 
     static float F(string v) => float.Parse(v, CultureInfo.InvariantCulture);
-    new SwayLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 15f, min: 1f), o.Int("seed", 1), Log)
-        .Run([.. o.List("hz", ["0", "0.75", "1", "1.5", "2", "2.5", "3"]).Select(F)], [.. o.List("ki", ["0", "3"]).Select(F)], o.Int("cycles", 3, min: 1), o.Float("push", 0.25f, min: 0f));
+    new SwayLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 25.18f, min: 1f), o.Int("seed", 1), Log)
+        .Run([.. o.List("hz", ["0", "0.447", "0.596", "0.894", "1.19", "1.49", "1.79"]).Select(F)], [.. o.List("ki", ["0", "3"]).Select(F)], o.Int("cycles", 3, min: 1), o.Float("push", 0.25f, min: 0f));
     return 0;
 }
 
@@ -712,7 +712,7 @@ static int ThrowLabCommand(Options o)
     {
         // 1 つの技だけをかけ続ける柔術家（青、素手）と、構えて立つ受け（赤）を撮る。
         var only = techniques[0];
-        var book = MiniRing.Bots.GrappleBook.Jujutsu with { Rate = 50f };
+        var book = MiniRing.Bots.GrappleBook.Jujutsu with { Rate = 29.8f };
         var victim = o.List("victims", ["stand"])[0];
         var red = new Contender(victim, s => ThrowLab.Victim(victim, s));
         var blue = new Contender("jujutsu", s => new MiniRing.Bots.JujutsuBot(new MiniRing.Bots.Closer(), book, s, only: only));
@@ -723,7 +723,7 @@ static int ThrowLabCommand(Options o)
         return 0;
     }
 
-    new ThrowLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log, o.Get("trace") == "yes")
+    new ThrowLab(o.Int("bouts", 2, min: 1), o.Float("seconds", 33.57f, min: 1f), o.Int("seed", 1), Log, o.Get("trace") == "yes")
         .Run(techniques, o.List("victims", ["stand", "champion"]));
     return 0;
 }
@@ -751,7 +751,7 @@ static int GroundLabCommand(Options o)
         return 0;
     }
 
-    var lab = new GroundLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 12f, min: 2f), o.Int("seed", 1), Log);
+    var lab = new GroundLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 20.14f, min: 2f), o.Int("seed", 1), Log);
     if (o.Get("practice") == "yes")
     {
         foreach (var move in moves)
@@ -793,7 +793,7 @@ static int KickBalanceCommand(Options o)
         return 0;
     }
 
-    new KickBalanceLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log)
+    new KickBalanceLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 33.57f, min: 1f), o.Int("seed", 1), Log)
         .Run(o.Get("style") ?? "karate", kinds, teachings, o.Int("confirm", 0));
     return 0;
 }
@@ -906,7 +906,7 @@ static int KickMocapCommand(Options o)
     if (o.Get("doll") is { } doll)
     {
         float[] Floats(string key, string[] fallback) => o.List(key, fallback).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToArray();
-        KickMocap.Compare(doll, Floats("durations", ["0.5", "0.6", "0.75", "0.9"]), Floats("distances", ["1.0", "1.2", "1.4"]), Log);
+        KickMocap.Compare(doll, Floats("durations", ["0.839", "1.007", "1.259", "1.511"]), Floats("distances", ["1.0", "1.2", "1.4"]), Log);
         return 0;
     }
 
@@ -975,7 +975,7 @@ static int FinishLabCommand(Options o)
 
     var levels = o.List("levels", ["0.45", "0.6"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
     FinishLab.Report(o.List("attackers", ["ramon", "yoandry", "marcus"]), o.List("victims", ["dmitri", "joao", "ramon"]), levels,
-        o.Int("bouts", 2, min: 1), o.Float("seconds", 20f, min: 1f), SetOf(o), Log,
+        o.Int("bouts", 2, min: 1), o.Float("seconds", 33.57f, min: 1f), SetOf(o), Log,
         o.Get("aim") is { } aim ? Enum.Parse<MiniRing.AimGoal>(aim, ignoreCase: true) : (MiniRing.AimGoal?)null,
         o.List("victim-set", []).Select(p => p.Split('=')).ToDictionary(p => p[0], p => float.Parse(p[1], CultureInfo.InvariantCulture)));
     return 0;
@@ -1028,7 +1028,7 @@ static int PunchLabCommand(Options o)
             throw new ArgumentException($"--study は beyond です（{study}）。");
         }
 
-        var depths = o.List("depths", ["0.05", "0.1", "0.2", "0.4"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
+        var depths = o.List("depths", ["0.141", "0.282", "0.563", "1.127"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
         PunchLab.Setup B(PunchLabPath p, float depth = 0f, bool clamp = false) => new(p, "still", "chin", 0f, false, MiniRing.AimGoal.Chin, depth, clamp);
         setups.Add(B(PunchLabPath.Standard));
         setups.Add(B(PunchLabPath.Instant));
@@ -1090,7 +1090,7 @@ static int PunchLabCommand(Options o)
 static int AttackLabCommand(Options o)
 {
     var combos = o.List("combos", ["1", "2", "3", "4", "5", "6", "1b", "2b", "3b", "4b", "1-2", "1-2-3", "2-3", "3-2", "1-1-2", "6-3", "6-3-2", "3-4", "5-2"]);
-    var telegraphs = o.List("telegraphs", ["0", "0.05", "0.1", "0.15", "0.2"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
+    var telegraphs = o.List("telegraphs", ["0", "0.0839", "0.1678", "0.2518", "0.3357"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
     var logPath = o.Get("log");
     void Log(string line)
     {
@@ -1102,7 +1102,7 @@ static int AttackLabCommand(Options o)
     }
 
     var ranges = o.List("ranges", ["0.9", "1.05", "1.2"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
-    new AttackLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), Log).Run(combos, telegraphs, ranges);
+    new AttackLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 33.57f, min: 1f), o.Int("seed", 1), Log).Run(combos, telegraphs, ranges);
     return 0;
 }
 
@@ -1128,7 +1128,7 @@ static int CounterLabCommand(Options o)
         }
     }
 
-    var lab = new CounterLab(o.Int("bouts", 6, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1), ranges, Log, bool.Parse(o.Get("combos") ?? "false"));
+    var lab = new CounterLab(o.Int("bouts", 6, min: 1), o.Float("seconds", 33.57f, min: 1f), o.Int("seed", 1), ranges, Log, bool.Parse(o.Get("combos") ?? "false"));
     var studied = lab.Run(book, evasions);
     if (o.Get("out") is { } outPath)
     {
@@ -1164,7 +1164,7 @@ static int Basics(Options o)
 
     var cueList = o.Get("cue") is { } c && c != "none" ? c.Split(',').Select(x => float.Parse(x, CultureInfo.InvariantCulture)).ToList() : null;
     var start = o.Get("move") is { } movePath ? LoadMove(movePath) : slot == Defense.Slip ? style.Defenses.Of(Defense.Slip) : style.Defenses.Of(slot);
-    var lab = new BasicsLab(punch, slot, o.Int("bouts", 6, min: 1), o.Float("seconds", 20f, min: 1f), seed, ranges, Log, cueList, o.Float("telegraph", 0f, min: 0f), o.Float("predict", 0f, min: 0f));
+    var lab = new BasicsLab(punch, slot, o.Int("bouts", 6, min: 1), o.Float("seconds", 33.57f, min: 1f), seed, ranges, Log, cueList, o.Float("telegraph", 0f, min: 0f), o.Float("predict", 0f, min: 0f));
     if (o.Get("cues") is not null)
     {
         var delays = o.List("cues", []).Select(d => float.Parse(d, CultureInfo.InvariantCulture)).ToList();
@@ -1217,7 +1217,7 @@ static int FormLabCommand(Options o)
     var move = FormLab.Apply(o.Get("move") is { } path ? LoadMove(path) : style.Defenses.Of(slot), o.Get("set"));
     // 省略は 0 秒の合図（拳と同時に回避）。none は受け手自身の目と反応。
     float? cue = o.Get("cue") switch { null => 0f, "none" => null, var c => float.Parse(c, CultureInfo.InvariantCulture) };
-    var text = FormLab.Run(punch, slot, style, move, cue, o.Int("bouts", 3, min: 1), o.Float("seconds", 20f, min: 1f), o.Int("seed", 1));
+    var text = FormLab.Run(punch, slot, style, move, cue, o.Int("bouts", 3, min: 1), o.Float("seconds", 33.57f, min: 1f), o.Int("seed", 1));
     Console.WriteLine(text);
     if (o.Get("log") is { } log)
     {
@@ -1239,7 +1239,7 @@ static int SwingLabCommand(Options o)
     {
         // 研究の出発点の振りと、見つけた振り（--best の JSON）を動画に。
         var found = SwingLab.Load(o.Get("best") ?? "docs/arena/club_swings.json");
-        var list = found.Select(f => ($"{SwingLab.Name(f.Swing.Family)} — 出発点", MiniRing.Weapons.WeaponSwing.Default(f.Swing.Family), 0.38f))
+        var list = found.Select(f => ($"{SwingLab.Name(f.Swing.Family)} — 出発点", MiniRing.Weapons.WeaponSwing.Default(f.Swing.Family), 1.070f))
             .Concat(found.Select(f => ($"{SwingLab.Name(f.Swing.Family)} — 研究で見つけた振り", f.Swing, f.Range))).ToList();
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(video))!);
         new SwingVideo(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), o.Float("slow", 4f, min: 1f)).Make(list, video, Console.Out);
@@ -1374,11 +1374,11 @@ static int GuardLabCommand(Options o)
     if (o.Get("video") is { } video)
     {
         // 動画: 選んだ打ち手を、選んだ守り方（最後の 1 つ。--try があればそれ）で続けて撮る。
-        new SparVideo(1280, 720, 30).MakeGuard(library, attacks, variants[^1], o.Int("seed", 1), o.Float("seconds", 4.5f), video, Console.Out);
+        new SparVideo(1280, 720, 30).MakeGuard(library, attacks, variants[^1], o.Int("seed", 1), o.Float("seconds", 7.553f), video, Console.Out);
         return 0;
     }
 
-    var report = GuardLab.Run(library, attacks, variants, o.Int("seeds", 2), o.Float("seconds", 4.5f), Console.Out, out _, o.Int("seed", 1), o.Int("parallel", 2, min: 1));
+    var report = GuardLab.Run(library, attacks, variants, o.Int("seeds", 2), o.Float("seconds", 7.553f), Console.Out, out _, o.Int("seed", 1), o.Int("parallel", 2, min: 1));
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {
@@ -1428,10 +1428,10 @@ static int NoiseLabCommand(Options o)
 
     float[] Floats(string name, float[] fallback) => o.List(name, fallback.Select(f => f.ToString(CultureInfo.InvariantCulture)).ToList()).Select(s => float.Parse(s, CultureInfo.InvariantCulture)).ToArray();
     var matchSeconds = Floats("match-seconds", [30f, 45f, 60f]);
-    var drillSeconds = Floats("drill-seconds", [10f, 20f, 40f]);
+    var drillSeconds = Floats("drill-seconds", [16.78f, 33.57f, 67.14f]);
     var lab = new NoiseLab(o.Int("match-n", 12, min: 4), o.Int("drill-n", 48, min: 4), o.Int("seed", 1), o.Get("parallel") is null ? null : o.Int("parallel", 1, min: 1),
         line => Console.Error.WriteLine($"{DateTime.Now:HH:mm:ss} {line}"));
-    var report = lab.Run(only, matchSeconds, drillSeconds, o.Float("match-ref", 45f, min: 1f), o.Float("drill-ref", 20f, min: 1f));
+    var report = lab.Run(only, matchSeconds, drillSeconds, o.Float("match-ref", 45f, min: 1f), o.Float("drill-ref", 33.57f, min: 1f));
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {
@@ -1519,7 +1519,7 @@ static int JointLabCommand(Options o)
 
     if (o.Get("video") is { } video)
     {
-        JointLab.Video(JointLab.Parse(o.Get("joint") ?? "LeftElbow"), o.Get("dir") ?? "side", o.Float("offset", 0f), o.Float("speed", 3.4f, min: 0.1f), o.Get("bridges") != "off",
+        JointLab.Video(JointLab.Parse(o.Get("joint") ?? "LeftElbow"), o.Get("dir") ?? "side", o.Float("offset", 0f), o.Float("speed", 5.707f, min: 0.1f), o.Get("bridges") != "off",
             o.Float("bend", 0f), o.Get("axis") ?? "right", o.Float("slow", 8f, min: 0.25f), video);
         return 0;
     }
@@ -1528,8 +1528,8 @@ static int JointLabCommand(Options o)
         ? [.. named.Split(',').Select(JointLab.Parse)]
         : Enum.GetValues<Aigis.Physics.HumanoidRagdoll.RagdollJoint>().ToArray();
     var report = JointLab.Table(joints,
-        [.. o.List("offsets", ["-0.01", "-0.005", "0", "0.005", "0.01"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
-        [.. o.List("speeds", ["9"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
+        [.. o.List("offsets", ["-0.0282", "-0.0141", "0", "0.0141", "0.0282"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
+        [.. o.List("speeds", ["15.11"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
         o.Float("bend", 40f), (int)o.Float("parallel", 3f, min: 1f));
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
@@ -1546,7 +1546,7 @@ static int NeckLabCommand(Options o)
     NeckLab.ArmsDown = o.Get("arms") == "down";
     if (o.Get("video") is { } slashVideo && o.Get("mode") == "slash")
     {
-        NeckLab.SlashVideo(o.Get("dir") ?? "back", o.Float("offset", -0.003f), o.Float("speed", 3.4f, min: 0.1f), o.Get("bridges") != "off", o.Get("arms") == "down", o.Float("slow", 8f, min: 0.25f), slashVideo, o.Float("tilt", 0f));
+        NeckLab.SlashVideo(o.Get("dir") ?? "back", o.Float("offset", -0.00845f), o.Float("speed", 5.707f, min: 0.1f), o.Get("bridges") != "off", o.Get("arms") == "down", o.Float("slow", 8f, min: 0.25f), slashVideo, o.Float("tilt", 0f));
         return 0;
     }
 
@@ -1559,10 +1559,10 @@ static int NeckLabCommand(Options o)
     var report = o.Get("mode") == "geom"
         ? NeckLab.Geometry()
         : o.Get("mode") == "slash"
-        ? NeckLab.Slash([.. o.List("offsets", ["-0.012", "-0.009", "-0.006", "-0.003", "0", "0.003", "0.006", "0.009", "0.012", "0.016", "0.02", "0.025"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
-            [.. o.List("speeds", ["3.4", "9"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))], o.Get("bridges") != "off", o.Float("tilt", 0f))
+        ? NeckLab.Slash([.. o.List("offsets", ["-0.0338", "-0.0254", "-0.0169", "-0.00845", "0", "0.00845", "0.0169", "0.0254", "0.0338", "0.0451", "0.0563", "0.0704"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
+            [.. o.List("speeds", ["5.707", "15.11"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))], o.Get("bridges") != "off", o.Float("tilt", 0f))
         : NeckLab.Cut([.. o.List("heights", ["0.2", "0.3", "0.4", "0.5", "0.6", "0.7"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))],
-            [.. o.List("offsets", ["-0.04", "0", "0.04"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))]);
+            [.. o.List("offsets", ["-0.113", "0", "0.113"]).Select(s => float.Parse(s, CultureInfo.InvariantCulture))]);
     Console.WriteLine(report);
     if (o.Get("out") is { } path)
     {
@@ -1689,7 +1689,7 @@ static int ImitateCommand(Options o)
     // 日本刀（剣道のモーションキャプチャ）とロングソード（型のキー）の基本を、ラグドールがなぞる動画。
     var output = o.Get("out") ?? "videos/sword_basics.mp4";
     Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
-    var rate = o.Float("rate", 1.77f, min: 0.1f); // 体の大きさの比 0.32 の 1/√（同じ重力の下でつり合う速さ）
+    var rate = o.Float("rate", 1.055f, min: 0.1f); // 人形の 1.77（体の大きさの比 0.32 の 1/√）を実物大の時間 ×1.678 で割った値（挙動を保つ）。実物大の人の手本ならほぼ 1
     var shots = (o.Get("weapon") switch
     {
         "katana" => MiniRing.Bots.FormSwordsman.Forms(MiniRing.Weapons.WeaponKind.Katana).Select(f => new ImitationVideo.Shot(f.Name, MiniRing.Weapons.WeaponKind.Katana, f, rate)).ToList(),
@@ -1834,7 +1834,7 @@ static int BreakDemoCommand(Options o)
     Directory.CreateDirectory(Path.GetDirectoryName(video)!);
     var only = o.Get("only");
     var scenes = BreakDemo.Scenes().Where(s => only is null || s.Title.Contains(only, StringComparison.Ordinal)).ToList();
-    new SparVideo(1280, 720, o.Int("fps", 30, min: 10)).MakeBreakDemo(scenes, o.Float("seconds", 6f, min: 2f), video, Console.Out);
+    new SparVideo(1280, 720, o.Int("fps", 30, min: 10)).MakeBreakDemo(scenes, o.Float("seconds", 10.07f, min: 2f), video, Console.Out);
     Console.WriteLine(video);
     return 0;
 }
@@ -2023,7 +2023,7 @@ static int DrillVideo(Options o, string punch)
     var move = o.Get("move") is { } path ? LoadMove(path) : style?.Defenses.Of(slot) ?? BasicsLab.SlipOutside;
     var book = (style?.Defenses ?? DefenseBook.Default).With(slot, move);
     var range = o.Float("range", DefenseDrill.DefaultRange, min: 0.8f);
-    float? cue = o.Get("cue") is { } c && c != "none" ? float.Parse(c, CultureInfo.InvariantCulture) : 0.04f;
+    float? cue = o.Get("cue") is { } c && c != "none" ? float.Parse(c, CultureInfo.InvariantCulture) : 0.0671f;
     var attacker = DefenseDrill.PunchAttacker(punch, range, telegraph: o.Float("telegraph", 0f, min: 0f));
     if (o.Get("attacker-style") is { } attackerStyleName)
     {
@@ -2258,7 +2258,7 @@ static int KickShinCommand(Options o)
     var spec = MiniRing.Bots.KickSpec.Of(kind);
     if (o.Get("diag") is not null)
     {
-        KickShin.Diag(o.Get("body") ?? "standard", spec, o.Float("standoff", spec.Standoff), o.Float("seconds", spec.Seconds ?? 0.65f), Log);
+        KickShin.Diag(o.Get("body") ?? "standard", spec, o.Float("standoff", spec.Standoff), o.Float("seconds", spec.Seconds ?? 1.091f), Log);
         return 0;
     }
 

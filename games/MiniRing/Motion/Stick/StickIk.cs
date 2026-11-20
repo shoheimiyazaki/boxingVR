@@ -15,23 +15,24 @@ public readonly record struct StickYaw(int Segment, float Yaw, float Weight = 1f
 
 /// <summary>
 /// IK の重み（docs/STICK_MOTION.md §3）。目標の外れ [m] の 2 乗に対して、休みの姿勢からの外れ [rad]、関節の負担（トルク ÷ 上限）、
-/// 重心が足の支えの外へ出た距離 [m]、前の姿勢からの差 [rad] の 2 乗をどれだけ重く見るか。
+/// 重心が足の支えの外へ出た距離 [m]、前の姿勢からの差 [rad] の 2 乗をどれだけ重く見るか。[m] の 2 乗と比べる角・負担の重みは、実物大で
+/// 長さ × 2.817 の 2 乗（7.935 倍）にして、人形の単位のときと同じ解の釣り合いを保つ。
 /// </summary>
 public sealed record StickIkSettings
 {
     public static StickIkSettings Default { get; } = new();
 
     /// <summary>休みの姿勢（ゲームの体の構え）へ寄せる重み。小さいほど目標を優先して大きく動く。</summary>
-    public float Rest { get; init; } = 0.0004f;
+    public float Rest { get; init; } = 0.003174f;
 
     /// <summary>関節の負担（静力学のトルク ÷ 上限）の重み。中間の関節を、重さを支えやすい所へ置く。</summary>
-    public float Effort { get; init; } = 0.0002f;
+    public float Effort { get; init; } = 0.001587f;
 
     /// <summary>重心が着いた足の凸包の外へ出た距離の重み。</summary>
     public float Balance { get; init; } = 4f;
 
     /// <summary>前の姿勢からの差の重み（動きの中で、歩ごとに解がちらつかない）。</summary>
-    public float Previous { get; init; } = 0.002f;
+    public float Previous { get; init; } = 0.01587f;
 
     /// <summary>反復の上限。</summary>
     public int Iterations { get; init; } = 20;

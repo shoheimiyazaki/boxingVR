@@ -28,10 +28,10 @@ public sealed class StaminaIdleServoTests
         };
         using var game = new BoxingGame(seed: 1, corners: corners);
         var minEarly = 1f;
-        for (var step = 0; step < 60 * 60; step++)
+        for (var step = 0; step < 6042; step++)
         {
             game.Step(new BoxingInput(default), Dt);
-            if (step < 5 * 60)
+            if (step < 503)
             {
                 minEarly = MathF.Min(minEarly, game.Player.Stamina);
             }
@@ -43,8 +43,8 @@ public sealed class StaminaIdleServoTests
     private static void Check(string name, Weapons.WeaponKind? weapon, bool twoHanded, float earlyFloor)
     {
         var (final, minEarly) = Run(weapon, twoHanded);
-        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{name}: 60 s {final:P2}, min in first 5 s {minEarly:P2}"));
-        Assert.IsGreaterThanOrEqualTo(0.95f, final, $"{name}: 入力なしで 60 秒後に回復している");
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{name}: 100.7 s {final:P2}, min in first 8.4 s {minEarly:P2}"));
+        Assert.IsGreaterThanOrEqualTo(0.95f, final, $"{name}: 入力なしで約 101 秒（人形の単位で 60 秒）後に回復している");
         Assert.IsGreaterThanOrEqualTo(earlyFloor, minEarly, $"{name}: 生成直後の姿勢の落ち着きで蓄えを削らない");
     }
 

@@ -15,7 +15,7 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class BojutsuTests
 {
-    private static readonly float ArmReach = 0.188f;
+    private static readonly float ArmReach = 0.5296f;
 
     private sealed class Scripted(Func<FighterSense, FighterCommand> read) : IFighterControl
     {
@@ -26,7 +26,7 @@ public sealed class BojutsuTests
 
     private static MotionTechnique Technique(SwordMotion form)
     {
-        var t = new MotionTechnique(form.Name, WeaponKind.Staff, form, 0.5f);
+        var t = new MotionTechnique(form.Name, WeaponKind.Staff, form, 1.408f);
         return t with { Range = StrikeDrill.ReachOf(t, ArmReach) };
     }
 
@@ -37,7 +37,7 @@ public sealed class BojutsuTests
     {
         var grid = Weapon.Build(WeaponKind.Staff);
         var length = 2f * grid.HalfExtents.X;
-        Assert.AreEqual(0.62f, length, 0.03f, "about the height of the reference body (0.355 x 1.75 m)");
+        Assert.AreEqual(1.746f, length, 0.0845f, "about the height of the reference body (1.75 m)");
         Assert.IsGreaterThan(3f * ArmReach, length, "and much longer than an arm");
         // 材質は木だけ（刃も鉄の飾りもない）。
         Assert.AreEqual(grid.FilledCount, grid.Remaining(Voxels.BoxerAnatomy.Wood), "all wood");
@@ -47,7 +47,7 @@ public sealed class BojutsuTests
         Assert.AreEqual(-ends[1], ends[0], 1e-6f, "symmetric about the middle");
         foreach (var x in ends)
         {
-            Assert.IsGreaterThanOrEqualTo(0, grid.FilledCellAt(new Vector3(x - (MathF.Sign(x) * 0.002f), 0f, 0f)), $"the cells reach the end at {x}");
+            Assert.IsGreaterThanOrEqualTo(0, grid.FilledCellAt(new Vector3(x - (MathF.Sign(x) * 0.00563f), 0f, 0f)), $"the cells reach the end at {x}");
         }
 
         var (nx, ny, nz) = grid.Dimensions;
@@ -81,7 +81,7 @@ public sealed class BojutsuTests
         var grid = staff.Body.Grid;
         var expected = grid.FilledCount * grid.CellVolume * grid.Palette[Voxels.BoxerAnatomy.Wood].MechanicsOrDefault.Density;
         Assert.AreEqual(expected, game.World.GetMass(staff.Body.BodyId), expected * 0.01f);
-        Assert.IsGreaterThan(0.03f, expected);
+        Assert.IsGreaterThan(0.3f, expected);
     }
 
     // ── 両手の握り ──
@@ -93,7 +93,7 @@ public sealed class BojutsuTests
         Assert.AreEqual(-top.X, bottom.X, 1e-6f, "held by the middle");
         Assert.AreEqual(Weapon.StaffHandSpacing, top.X - bottom.X, 1e-6f);
         Assert.AreEqual(top, Weapon.GripOf(WeaponKind.Staff));
-        Assert.IsGreaterThan(top.X + 0.2f, Weapon.TipOf(WeaponKind.Staff).X, "the front end is far beyond the hand");
+        Assert.IsGreaterThan(top.X + 0.5634f, Weapon.TipOf(WeaponKind.Staff).X, "the front end is far beyond the hand");
         Assert.AreEqual(StaffForms.Spacing, Weapon.StaffHandSpacing / ArmReach, 0.01f, "the form spacing in arm lengths is the same distance");
     }
 
@@ -101,8 +101,8 @@ public sealed class BojutsuTests
     public void BothHands_HoldTheStaff_AShoulderWidthApart()
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard",
-            _ => new Scripted(s => FormSwordsman.GuardCommand(WeaponKind.Staff, s, Vector3.UnitZ, 0.6f, 0.5f)), _ => new StandGuard(), CpuWeapon: WeaponKind.Staff, CpuTwoHanded: true));
-        for (var i = 0; i < 180; i++)
+            _ => new Scripted(s => FormSwordsman.GuardCommand(WeaponKind.Staff, s, Vector3.UnitZ, 1.007f, 0.5f)), _ => new StandGuard(), CpuWeapon: WeaponKind.Staff, CpuTwoHanded: true));
+        for (var i = 0; i < 302; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -110,9 +110,9 @@ public sealed class BojutsuTests
         var fighter = game.Cpu;
         Assert.AreEqual(Hand.Left, fighter.SupportOf(Hand.Right), "the left hand grips the staff beside the right");
         var between = Vector3.Distance(fighter.GloveCenter(Hand.Right), fighter.GloveCenter(Hand.Left));
-        Assert.AreEqual(Weapon.StaffHandSpacing, between, 0.02f, "the hands stay a grip apart along the staff");
+        Assert.AreEqual(Weapon.StaffHandSpacing, between, 0.0563f, "the hands stay a grip apart along the staff");
         var shoulders = Vector3.Distance(fighter.ShoulderPosition(Hand.Left), fighter.ShoulderPosition(Hand.Right));
-        Assert.AreEqual(Weapon.StaffHandSpacing, shoulders, 0.01f, "that is the width of the shoulders");
+        Assert.AreEqual(Weapon.StaffHandSpacing, shoulders, 0.0282f, "that is the width of the shoulders");
     }
 
     // ── 型 ──
@@ -183,8 +183,8 @@ public sealed class BojutsuTests
             var (result, hits) = Drill(form);
             Assert.IsGreaterThan(0, result.Cells, $"{form.Name} damages the opponent");
             Assert.IsNotEmpty(hits, $"{form.Name} registers a blow");
-            Assert.IsLessThan(0.55f, Technique(form).Range, $"{form.Name}: the range is the reach of a staff, not further");
-            Assert.IsGreaterThan(0.3f, Technique(form).Range, $"{form.Name}: a staff outreaches a sword range");
+            Assert.IsLessThan(1.549f, Technique(form).Range, $"{form.Name}: the range is the reach of a staff, not further");
+            Assert.IsGreaterThan(0.845f, Technique(form).Range, $"{form.Name}: a staff outreaches a sword range");
         }
     }
 
@@ -203,7 +203,7 @@ public sealed class BojutsuTests
         // 手首が向きを支えていたときは返しの後ろの端が当たった（ドリルで 2 / 4 打）が、偶力だけでは棒の向きの追従が遅れて当たらない
         // （手の間隔を 11 → 15 cm にすると戻るが、型の「両手が肩から届く」「棒が体を通らない」設計の寸法を外れる）。型を広い握りで設計し直すまで
         // 後ろの端は要求しない（docs/BOJUTSU.md「滑る握り」の残り）。
-        // 端の打撃だけを数える（棒の半分の長さの外側の半分: |x| > 0.155 m）。2026-11-19（PhysicsVersion 57、顔の層）: 返しの途中で棒の真ん中（両手の間の
+        // 端の打撃だけを数える（棒の半分の長さの外側の半分: |x| > 0.437 m）。2026-11-19（PhysicsVersion 57、顔の層）: 返しの途中で棒の真ん中（両手の間の
         // すぐ外、x = −0.07〜−0.11 m）が相手の頭の顔の層に触れるようになり、符号だけで数えると「後ろの端」に入っていた（端の打撃は前の端 0.30 の 1 打）。
         // 確かめたいのは「どちらの端で打ったか」なので、真ん中の接触は数えない。
         var endReach = 0.5f * Weapon.StrikeEndsX(WeaponKind.Staff)[0];
@@ -231,12 +231,12 @@ public sealed class BojutsuTests
         new([.. FormSwordsman.Techniques(WeaponKind.Staff, ArmReach)], FormSwordsman.Guard(WeaponKind.Staff), seed: 1, SwordStance.Rate, defense: defense,
             bladeLength: FormSwordsman.BladeLength(WeaponKind.Staff, ArmReach), spacing: StaffForms.Spacing);
 
-    /// <summary>相手の刀・棍棒が、上から自分の頭へ速く振り下ろされてくる見え方（相手は 45 cm 前）。</summary>
+    /// <summary>相手の刀・棍棒が、上から自分の頭へ速く振り下ろされてくる見え方（相手は 1.27 m 前）。</summary>
     private static FighterSense Overhead() =>
-        new(new BodyFrame(Vector3.Zero, 0f), ArmReach, new Vector3(0f, 0.1f, 0.45f), new Vector3(0f, 0f, 0.45f), OpponentAlive: true,
-            SelfHead: new Vector3(0f, 0.08f, 0f),
-            OpponentBody: new BodySense(new Vector3(0.05f, 0.05f, 0.4f), new Vector3(-0.05f, 0.05f, 0.4f), new Vector3(0f, -0.15f, 0.45f)),
-            OpponentBlade: new BladeSense(true, new Vector3(0f, 0.1f, 0.35f), new Vector3(0f, 0.25f, 0.05f), new Vector3(0f, -3f, -0.5f)),
+        new(new BodyFrame(Vector3.Zero, 0f), ArmReach, new Vector3(0f, 0.2817f, 1.268f), new Vector3(0f, 0f, 1.268f), OpponentAlive: true,
+            SelfHead: new Vector3(0f, 0.2254f, 0f),
+            OpponentBody: new BodySense(new Vector3(0.1408f, 0.1408f, 1.127f), new Vector3(-0.1408f, 0.1408f, 1.127f), new Vector3(0f, -0.4225f, 1.268f)),
+            OpponentBlade: new BladeSense(true, new Vector3(0f, 0.2817f, 0.9859f), new Vector3(0f, 0.7042f, 0.1408f), new Vector3(0f, -5.035f, -0.8392f)),
             SelfArmed: true);
 
     [TestMethod]
@@ -265,7 +265,7 @@ public sealed class BojutsuTests
         Assert.IsNull(FormSwordsman.RearLength(WeaponKind.Katana, ArmReach), "a sword has one striking end");
         var guard = FormSwordsman.Guard(WeaponKind.Staff).Blade;
         var length = FormSwordsman.BladeLength(WeaponKind.Staff, ArmReach);
-        var top = new Vector3(0f, 0.08f, 0f) / ArmReach;
+        var top = new Vector3(0f, 0.2254f, 0f) / ArmReach;
         var bottom = new Vector3(0f, -1.2f, 0f);
         float Closest(MotionFrame frame, float from)
         {
@@ -289,11 +289,11 @@ public sealed class BojutsuTests
     private static (int Lost, int Blocks, int Evasions) Meet(SwordDefense defense, int seed)
     {
         var staffBot = StaffBot(defense);
-        var red = FormSwordsman.Bot(WeaponKind.Katana, seed, ArmReach, SwordStance.Tuning, WeaponCatalog.Textbook(WeaponKind.Katana) with { Rest = 0.3f });
+        var red = FormSwordsman.Bot(WeaponKind.Katana, seed, ArmReach, SwordStance.Tuning, WeaponCatalog.Textbook(WeaponKind.Katana) with { Rest = 0.5035f });
         using var game = new BoxingGame(SwordStance.Tuning, seed: seed, corners: new BoxingCorners("meet", _ => staffBot, _ => red,
             CpuWeapon: WeaponKind.Staff, PlayerWeapon: WeaponKind.Katana, CpuTwoHanded: true, PlayerTwoHanded: true, Referee: true));
         var before = Cells(game.Cpu.Voxels!);
-        for (var i = 0; i < 20 * 60 && !game.Cpu.IsDead; i++)
+        for (var i = 0; i < 2014 && !game.Cpu.IsDead; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -326,11 +326,11 @@ public sealed class BojutsuTests
         var tech = FormSwordsman.Techniques(WeaponKind.Katana, ArmReach).First(t => t.Name == "harai-men");
         var red = new SwordsmanBot([tech], FormSwordsman.Guard(WeaponKind.Katana), seed, SwordStance.Rate, rest: 1000f, exact: true, tuning: SwordStance.Tuning,
             bladeLength: FormSwordsman.BladeLength(WeaponKind.Katana, ArmReach), spacing: FormSwordsman.Spacing(WeaponKind.Katana));
-        var blue = new Scripted(s => MotionImitation.ToCommand(pose, s, Vector3.Normalize(new Vector3(s.OpponentChest.X - s.Self.Origin.X, 0f, s.OpponentChest.Z - s.Self.Origin.Z)), 0f, 0.6f, 0.5f));
+        var blue = new Scripted(s => MotionImitation.ToCommand(pose, s, Vector3.Normalize(new Vector3(s.OpponentChest.X - s.Self.Origin.X, 0f, s.OpponentChest.Z - s.Self.Origin.Z)), 0f, 1.007f, 0.5f));
         using var game = new BoxingGame(SwordStance.Tuning, seed: seed, corners: new BoxingCorners("cut", _ => blue, _ => red,
             CpuWeapon: WeaponKind.Staff, PlayerWeapon: WeaponKind.Katana, CpuTwoHanded: true, PlayerTwoHanded: true, Referee: true));
         var cut = 0;
-        for (var i = 0; i < 8 * 60; i++)
+        for (var i = 0; i < 806; i++)
         {
             game.Step(default, 1f / 60f);
             cut += game.WeaponHits.Where(h => h.Attacker == game.Player).Sum(h => h.Cells); // 刀が相手の体を削ったセル（自分の棒で自分を削った分は入らない）

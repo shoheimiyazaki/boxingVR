@@ -9,10 +9,10 @@ namespace MiniRing.Arena;
 /// <summary>
 /// 試合の面白さ（派手さ・ドラマ・緩急）を測る（docs/EXCITEMENT.md）。
 /// <list type="bullet">
-/// <item><c>excitement --red champion --blue swarmer --seconds 40 --seeds 4 [--curve 接頭辞]</c>: 1 組を何試合か回し、出来事の一覧とまとめ。
+/// <item><c>excitement --red champion --blue swarmer --seconds 67 --seeds 4 [--curve 接頭辞]</c>: 1 組を何試合か回し、出来事の一覧とまとめ。
 /// <c>--curve</c> は各試合の曲線（秒, 興奮, p_red）を <c>接頭辞_種.csv</c> に書く（tools/excitement_curve.py で図にする）。</item>
-/// <item><c>excitementleague --pairs champion:swarmer,... --seeds 2 --seconds 40 --out docs/arena/excitement_日付.md --label 名前</c>: 何組かの表。</item>
-/// <item><c>excitementfit --seeds 8 --seconds 40 --out docs/arena/winmodel_日付.json</c>: 観客の見込みのモデル（<see cref="WinModel"/>）を当てはめる。</item>
+/// <item><c>excitementleague --pairs champion:swarmer,... --seeds 2 --seconds 67 --out docs/arena/excitement_日付.md --label 名前</c>: 何組かの表。</item>
+/// <item><c>excitementfit --seeds 8 --seconds 67 --out docs/arena/winmodel_日付.json</c>: 観客の見込みのモデル（<see cref="WinModel"/>）を当てはめる。</item>
 /// </list>
 /// </summary>
 internal static class ExcitementLab
@@ -26,13 +26,13 @@ internal static class ExcitementLab
     public static readonly string[] FitPairs = ["champion:swarmer", "slugger:outboxer", "counter:jabber", "boxer:slugger", "swarmer:counter", "jabber:champion"];
 
     public static int SingleCommand(Options o) =>
-        Single(o.Get("red") ?? "champion", o.Get("blue") ?? "swarmer", o.Float("seconds", 40f, min: 1f), o.Int("seeds", 4, min: 1), o.Int("seed", 1), o.Get("out"), o.Get("curve"));
+        Single(o.Get("red") ?? "champion", o.Get("blue") ?? "swarmer", o.Float("seconds", 67.14f, min: 1f), o.Int("seeds", 4, min: 1), o.Int("seed", 1), o.Get("out"), o.Get("curve"));
 
     public static int LeagueCommand(Options o) =>
-        League(o.List("pairs", DefaultPairs), o.Float("seconds", 40f, min: 1f), o.Int("seeds", 2, min: 1), o.Int("seed", 1), o.Get("out"), o.Get("label") ?? "");
+        League(o.List("pairs", DefaultPairs), o.Float("seconds", 67.14f, min: 1f), o.Int("seeds", 2, min: 1), o.Int("seed", 1), o.Get("out"), o.Get("label") ?? "");
 
     public static int FitCommand(Options o) =>
-        Fit(o.List("pairs", FitPairs), o.Float("seconds", 40f, min: 1f), o.Int("seeds", 8, min: 2), o.Int("seed", 1), o.Get("out"));
+        Fit(o.List("pairs", FitPairs), o.Float("seconds", 67.14f, min: 1f), o.Int("seeds", 8, min: 2), o.Int("seed", 1), o.Get("out"));
 
     public static int Single(string red, string blue, float seconds, int seeds, int seed, string? outPath, string? curvePrefix = null)
     {

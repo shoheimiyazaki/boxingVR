@@ -37,37 +37,40 @@ public sealed record WeaponOutcome(
 public static class WeaponDrills
 {
     /// <summary>
-    /// 速さの相似則: 材質の強さを人形の大きさに比例して縮めた（<see cref="BoxerAnatomy.Doll"/>）ので、振りの速さは √大きさ 倍にする
-    /// （運動エネルギー ∝ 速さ² と、壊すのに要る仕事 ∝ 強さ の比が、人の大きさのときと同じになる）。
+    /// 振りの速さの相似の倍率（(b) 相似の近道。段 3 で材料を実物（(a)）へ戻したら 1 にして消す: docs/plans/REAL_SCALE_PLAN.md §2.3）:
+    /// 人の振りの速さ [m/s] にこれを掛けて、ドリルの速さにする。人形の単位（〜2026-11）では、材質の強さを人形の大きさに比例して縮めた
+    /// （<see cref="BoxerAnatomy.Doll"/>）ので √<see cref="BoxerAnatomy.Similitude"/> = √0.32 倍にしていた（運動エネルギー ∝ 速さ² と、
+    /// 壊すのに要る仕事 ∝ 強さ の比を人の大きさのときと同じにする）。実物大の (b) 相似では、同じ壊れ方を保つ速さは人形の速さの T = 1.6784 倍
+    /// なので、√0.32 × 1.6784 ≈ 0.9494。
     /// </summary>
-    private static readonly float DollSpeed = MathF.Sqrt(BoxerAnatomy.Similitude);
+    private const float SwingSpeedSimilitude = 0.9494f;
 
-    /// <summary>ふつうの振りの速さ [m/s]（人形の縮尺の剣の、当たる所の速さ。人の大きさで 6 m/s）。</summary>
-    public static readonly float OrdinarySpeed = 6f * DollSpeed;
+    /// <summary>ふつうの振りの速さ [m/s]（剣の当たる所の速さ。人の 6 m/s × <see cref="SwingSpeedSimilitude"/> ≈ 5.7 m/s）。</summary>
+    public static readonly float OrdinarySpeed = 6f * SwingSpeedSimilitude;
 
-    /// <summary>強い振りの速さ [m/s]（人の大きさで 16 m/s）。</summary>
-    public static readonly float HardSpeed = 16f * DollSpeed;
+    /// <summary>強い振りの速さ [m/s]（人の 16 m/s × <see cref="SwingSpeedSimilitude"/> ≈ 15.2 m/s）。</summary>
+    public static readonly float HardSpeed = 16f * SwingSpeedSimilitude;
 
-    /// <summary>刃の真ん中あたり（鍔から 13cm 先）の、刃先（ローカル −Y の縁）。</summary>
-    public static Vector3 EdgeMiddle { get; } = new(0.03f, -0.009f, 0f);
+    /// <summary>刃の真ん中あたり（鍔から 37cm 先）の、刃先（ローカル −Y の縁）。</summary>
+    public static Vector3 EdgeMiddle { get; } = new(0.08451f, -0.02535f, 0f);
 
     /// <summary>剣の腹の同じ所（ローカル −Z の面）。</summary>
-    public static Vector3 FlatMiddle { get; } = new(0.03f, 0f, -0.002f);
+    public static Vector3 FlatMiddle { get; } = new(0.08451f, 0f, -0.005634f);
 
     /// <summary>剣の切っ先。</summary>
-    public static Vector3 SwordPoint { get; } = new(0.165f, 0f, 0f);
+    public static Vector3 SwordPoint { get; } = new(0.4648f, 0f, 0f);
 
     /// <summary>棍棒の頭の側面（ローカル −Y の面）。</summary>
-    public static Vector3 ClubHeadSide { get; } = new(0.08f, -0.011f, 0f);
+    public static Vector3 ClubHeadSide { get; } = new(0.2254f, -0.03099f, 0f);
 
     /// <summary>棍棒の頭の端。</summary>
-    public static Vector3 ClubEnd { get; } = new(0.105f, 0f, 0f);
+    public static Vector3 ClubEnd { get; } = new(0.2958f, 0f, 0f);
 
-    /// <summary>どちらも構えて立っているだけの試合。構えに落ち着くまで 1 秒進めてから返す。</summary>
+    /// <summary>どちらも構えて立っているだけの試合。構えに落ち着くまで 1.68 秒（人形の単位の 1 秒の換算）進めてから返す。</summary>
     public static BoxingGame StillMatch()
     {
         var game = new BoxingGame(seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard()));
-        for (var f = 0; f < 60; f++)
+        for (var f = 0; f < 101; f++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -106,13 +109,13 @@ public static class WeaponDrills
     }
 
     /// <summary>
-    /// 武器の <paramref name="striking"/>（武器のローカルの当てる点）が、<paramref name="target"/> の 5cm 手前から
+    /// 武器の <paramref name="striking"/>（武器のローカルの当てる点）が、<paramref name="target"/> の 14cm 手前から
     /// <paramref name="heading"/> へ <paramref name="speed"/> で飛んでいくように置く。
     /// </summary>
     public static Weapon Launch(BoxingGame game, WeaponKind kind, Quaternion orientation, Vector3 striking, Vector3 target, Vector3 heading, float speed)
     {
         ArgumentNullException.ThrowIfNull(game);
-        var weapon = game.AddWeapon(kind, target - (heading * 0.05f) - Vector3.Transform(striking, orientation), orientation);
+        var weapon = game.AddWeapon(kind, target - (heading * 0.1408f) - Vector3.Transform(striking, orientation), orientation);
         game.World.SetLinearVelocity(weapon.Body.BodyId, heading * speed);
         return weapon;
     }
@@ -136,13 +139,13 @@ public static class WeaponDrills
     /// <summary>CPU の腹を前から: 武器の <paramref name="striking"/> を先にして突く。</summary>
     private static WeaponShot AtBelly(BoxingGame game, WeaponKind kind, Vector3 striking, float speed)
     {
-        var belly = game.World.GetState(game.Cpu.Parts.Pelvis).Position + new Vector3(0f, 0.01f, 0f);
+        var belly = game.World.GetState(game.Cpu.Parts.Pelvis).Position + new Vector3(0f, 0.02817f, 0f);
         var into = -game.Cpu.Frame.Forward;
         return new WeaponShot(Launch(game, kind, Point(into), striking, belly, into, speed), null, belly, into);
     }
 
-    /// <summary>リングの上 35cm の空中（2 人から離れた所）。</summary>
-    private static Vector3 MidAir => BoxingGame.RingCenter + new Vector3(0.3f, BoxingGame.RingSurfaceHeight + 0.35f, 0f);
+    /// <summary>リングの上 99cm の空中（2 人から離れた所）。</summary>
+    private static Vector3 MidAir => BoxingGame.RingCenter + new Vector3(0.8451f, BoxingGame.RingSurfaceHeight + 0.9859f, 0f);
 
     /// <summary>実験場の全項目（並びは動画の順）。</summary>
     public static IReadOnlyList<WeaponTrial> Trials { get; } =
@@ -164,15 +167,15 @@ public static class WeaponDrills
             {
                 var club = g.AddWeapon(WeaponKind.WoodenClub, MidAir, Quaternion.Identity);
                 var down = -Vector3.UnitY;
-                var sword = Launch(g, WeaponKind.IronSword, Edge(down, Vector3.UnitZ), EdgeMiddle, MidAir + new Vector3(0.05f, 0.012f, 0f), down, OrdinarySpeed);
+                var sword = Launch(g, WeaponKind.IronSword, Edge(down, Vector3.UnitZ), EdgeMiddle, MidAir + new Vector3(0.1408f, 0.0338f, 0f), down, OrdinarySpeed);
                 return new WeaponShot(sword, club, MidAir, down);
             }),
-        new("club-on-flat", "木の棍棒 × 鉄の剣の腹", $"空中に寝かせた剣の腹へ、上から棍棒で {8f * DollSpeed:0.0} m/s",
+        new("club-on-flat", "木の棍棒 × 鉄の剣の腹", $"空中に寝かせた剣の腹へ、上から棍棒で {8f * SwingSpeedSimilitude:0.0} m/s",
             g =>
             {
                 var sword = g.AddWeapon(WeaponKind.IronSword, MidAir, Quaternion.CreateFromAxisAngle(Vector3.UnitX, -MathF.PI / 2f));
                 var down = -Vector3.UnitY;
-                var club = Launch(g, WeaponKind.WoodenClub, Edge(down, Vector3.UnitZ), ClubHeadSide, MidAir + new Vector3(0.03f, 0.003f, 0f), down, 8f * DollSpeed);
+                var club = Launch(g, WeaponKind.WoodenClub, Edge(down, Vector3.UnitZ), ClubHeadSide, MidAir + new Vector3(0.08451f, 0.008451f, 0f), down, 8f * SwingSpeedSimilitude);
                 return new WeaponShot(club, sword, MidAir, down);
             }),
     ];

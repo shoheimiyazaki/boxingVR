@@ -146,7 +146,7 @@ public static class EyeGaze
 
     /// <summary>
     /// <paramref name="self"/> が見ている点（ワールド）。相手の頭を見る。相手の拳がこちらへ速く来ているときは、その拳の方へ視線が寄る
-    /// （寄る割合は拳が近づく速さに応じて連続。5 m/s で 0.8）。意識が薄れる（<see cref="Fighter.Awareness"/> が <see cref="FocusAwareness"/> 未満）か死んでいれば
+    /// （寄る割合は拳が近づく速さに応じて連続。8.4 m/s で 0.8）。意識が薄れる（<see cref="Fighter.Awareness"/> が <see cref="FocusAwareness"/> 未満）か死んでいれば
     /// 焦点が合わず null（正面を向く）。見た目だけ。
     /// </summary>
     public static Vector3? TargetOf(Fighter self, Fighter opponent)
@@ -187,7 +187,7 @@ public static class EyeGaze
     public const float FocusAwareness = 0.35f;
 
     /// <summary>視線が拳へ寄り切る拳の近づく速さ [m/s]。見た目の値。</summary>
-    public const float GloveApproachSpeed = 5f;
+    public const float GloveApproachSpeed = 8.392f;
 
     /// <summary>拳が最も速く近づくときに、頭から拳へ寄る視線の割合の上限。</summary>
     public const float GloveGazeShare = 0.8f;
@@ -196,46 +196,46 @@ public static class EyeGaze
 /// <summary>
 /// まばたきとまぶたの状態（見た目だけ。試合の計算・チェックサムには使わない。決定的: 間隔の揺らぎはファイターごとの決まった数列）。
 /// <list type="bullet">
-/// <item>ふつうのまばたき: 間隔 <see cref="CalmInterval"/>（4.2 秒）から、疲れ・痛みが増すほど <see cref="StressedInterval"/>（1.4 秒）まで連続に詰まる。
-/// 1 回 0.16 秒（疲れるほど 0.22 秒まで遅い）。閉じる 35 %・開く 65 %。</item>
+/// <item>ふつうのまばたき: 間隔 <see cref="CalmInterval"/>（7.0 秒）から、疲れ・痛みが増すほど <see cref="StressedInterval"/>（2.35 秒）まで連続に詰まる。
+/// 1 回 0.27 秒（疲れるほど 0.37 秒まで遅い）。閉じる 35 %・開く 65 %。</item>
 /// <item>意識が薄れるほどまぶたが落ちる（<see cref="EyeGaze.FocusAwareness"/> 未満から半開き、意識が無ければほぼ閉じる）。死ねば閉じる。</item>
 /// <item>打たれた瞬間は反射で目をつぶる（<see cref="Flinch"/>: 強いほど長く閉じ、痛みの記憶が残って目を細め、まばたきが増える）。</item>
 /// </list>
 /// </summary>
 public sealed class EyeBlink
 {
-    /// <summary>落ち着いているときのまばたきの間隔 [s]（人は 2〜6 秒に 1 回ほど）。</summary>
-    public const float CalmInterval = 4.2f;
+    /// <summary>落ち着いているときのまばたきの間隔 [s]（人形の単位の 4.2 秒を相似で換算。人は 2〜6 秒に 1 回ほど）。</summary>
+    public const float CalmInterval = 7.049f;
 
     /// <summary>疲れ・痛みが最大のときの間隔 [s]。</summary>
-    public const float StressedInterval = 1.4f;
+    public const float StressedInterval = 2.350f;
 
     /// <summary>1 回のまばたきの長さ [s]（落ち着いているとき。疲れると <see cref="TiredExtraSeconds"/> だけ長く）。</summary>
-    public const float BlinkSeconds = 0.16f;
+    public const float BlinkSeconds = 0.2685f;
 
     /// <summary>疲れ切ったときに、1 回のまばたきが長くなる分 [s]。</summary>
-    public const float TiredExtraSeconds = 0.06f;
+    public const float TiredExtraSeconds = 0.1007f;
 
     /// <summary>まばたきのうち、閉じる側が占める割合（残りが開く側）。</summary>
     public const float ClosingShare = 0.35f;
 
     /// <summary>反射で閉じたあと、開いていく時間 [s]。</summary>
-    public const float FlinchOpenSeconds = 0.08f;
+    public const float FlinchOpenSeconds = 0.1343f;
 
     /// <summary>打撃の強さ 0 のときに目をつぶる時間 [s]。強さ 1 でさらに <see cref="FlinchExtraSeconds"/> 足す。</summary>
-    public const float FlinchBaseSeconds = 0.12f;
+    public const float FlinchBaseSeconds = 0.2014f;
 
     /// <summary>強さ 1 の打撃で足す、目をつぶる時間 [s]。</summary>
-    public const float FlinchExtraSeconds = 0.55f;
+    public const float FlinchExtraSeconds = 0.9231f;
 
     /// <summary>反射の強さの基準のエネルギー [J]。強さ = 1 − exp(−E / この値) × 目の近さ。</summary>
-    public const float FlinchEnergy = 15f;
+    public const float FlinchEnergy = 422.5f;
 
     /// <summary>打たれた点が目から離れるほど反射が弱まる距離 [m]（exp(−d / この値)）。</summary>
-    public const float FlinchReach = 0.4f;
+    public const float FlinchReach = 1.127f;
 
     /// <summary>痛みの記憶が抜ける速さ [/s]。</summary>
-    public const float PainRecoveryRate = 0.12f;
+    public const float PainRecoveryRate = 0.0715f;
 
     /// <summary>痛みで目を細める最大の閉じ具合。</summary>
     public const float SquintMax = 0.3f;
@@ -274,7 +274,7 @@ public sealed class EyeBlink
         {
             _seed = unchecked(((uint)seedHint * 2654435761u) + 0x9E3779B9u);
             _seeded = true;
-            _untilBlink = Lerp(0.5f, 2.5f, Hash01(_seed, -1));
+            _untilBlink = Lerp(0.8392f, 4.196f, Hash01(_seed, -1));
         }
 
         _dead = dead;

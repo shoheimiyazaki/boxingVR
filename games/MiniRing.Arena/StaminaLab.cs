@@ -30,7 +30,7 @@ internal static class StaminaLab
         _ => throw new ArgumentException($"変種 '{name}' はありません（off, on, hard, pace, hard-pace）。", nameof(name)),
     };
 
-    private static FighterTuning Hard => FighterTuning.Default with { OxygenStorePerKg = 72f, VesselPowerPerKg = 1.9f };
+    private static FighterTuning Hard => FighterTuning.Default with { OxygenStorePerKg = 202.8f, VesselPowerPerKg = 3.189f };
 
     /// <summary>配分する変種の手数の落とし方（A2 で測った値。スタイルの既定は 0 = 配分しない）。</summary>
     private const float PaceDrop = 0.6f;

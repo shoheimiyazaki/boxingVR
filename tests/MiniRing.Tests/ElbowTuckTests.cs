@@ -16,12 +16,12 @@ public sealed class ElbowTuckTests
     private static (Vector3 Upper, Vector3 Fore) Hold(float tuck)
     {
         using var world = new PhysicsWorld();
-        world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
+        world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "tuck", Vector3.Zero, 0f);
         var reach = fighter.ArmReach;
         var left = AiControl.Guard(Hand.Left, reach);
         var right = AiControl.Guard(Hand.Right, reach);
-        for (var step = 0; step < 480; step++)
+        for (var step = 0; step < 806; step++)
         {
             fighter.ApplyControl(new FighterCommand(Vector3.Zero, Vector3.UnitZ, new HandCommand(left, false, Tuck: tuck), new HandCommand(right, false, Tuck: tuck)), Dt);
             world.Step(Dt);

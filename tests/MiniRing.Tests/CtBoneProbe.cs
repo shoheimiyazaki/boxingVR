@@ -16,11 +16,11 @@ public sealed class CtBoneProbe
     [TestMethod]
     public void BonesAfterAShortRound()
     {
-        using var game = new BoxingGame(seed: 3, rules: MatchRules.Tv with { Rounds = 2, RoundSeconds = 1f, BreakSeconds = 14f },
+        using var game = new BoxingGame(seed: 3, rules: MatchRules.Tv with { Rounds = 2, RoundSeconds = 1.678f, BreakSeconds = 23.5f },
             corners: new BoxingCorners("cpu", s => BotCatalog.Create("champion", s), s => BotCatalog.Create("swarmer", s),
                 BreakSource: (seed, _) => new BreakRoutine(seed, null, ["coffee:R"])));
         var reported = new HashSet<string>();
-        for (var i = 0; i < 60 * 30; i++)
+        for (var i = 0; i < 3021; i++)
         {
             game.Step(default, 1f / 60f);
             foreach (var f in new[] { game.Player, game.Cpu })
@@ -65,10 +65,10 @@ public sealed class CtBoneProbe
             {
                 foreach (var wear in new[] { Weapons.WeaponKind.Glove, Weapons.WeaponKind.Fist })
                 {
-                    foreach (var behind in new[] { 0f, 1f, 2f, 4f, 8f })
+                    foreach (var behind in new[] { 0f, 10f, 20f, 40f, 80f })
                     {
-                        var at = "none up to 12 m/s";
-                        for (var speed = 1f; speed <= 12.01f; speed += 0.5f)
+                        var at = "none up to 20 m/s";
+                        for (var speed = 1.678f; speed <= 20.15f; speed += 0.8392f)
                         {
                             if (Bends(kind, half, mass, wear, speed, behind, overrides))
                             {
@@ -92,12 +92,12 @@ public sealed class CtBoneProbe
             // 素手は拳頭（正拳の先）を下（-Z）へ向け、拳頭が部位の真ん中の真上に来るように置く（グローブは丸いので向きによらない）。
             var tip = Weapons.HandSkeleton.SeikenTip;
             var (place, turn) = wear == Weapons.WeaponKind.Fist
-                ? (new Vector3(-tip.Z, -tip.Y, half.Z + 0.005f + tip.X), Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2f))
-                : (new Vector3(0f, 0f, half.Z + 0.03f), Quaternion.Identity);
+                ? (new Vector3(-tip.Z, -tip.Y, half.Z + 0.01408f + tip.X), Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2f))
+                : (new Vector3(0f, 0f, half.Z + 0.0845f), Quaternion.Identity);
             var fist = Weapons.Weapon.CreateWorn(world, wear, BoxerAnatomy.RedGlove, place, turn);
             world.SetLinearVelocity(fist.Body.BodyId, new Vector3(0f, 0f, -speed));
             world.SetPairCollisionEnabled(id, fist.Body.BodyId, false);
-            for (var i = 0; i < 60; i++)
+            for (var i = 0; i < 101; i++)
             {
                 var sg = world.GetState(fist.Body.BodyId);
                 var sl = world.GetState(id);
@@ -115,7 +115,7 @@ public sealed class CtBoneProbe
     }
 
     /// <summary>
-    /// 試合の中で、拳が腕（肘・ガード）に当たった速さ・拳の後ろの質量の分布と、腕の骨が折れた数（グローブと素手、ボット同士の 60 秒 × 数試合）。
+    /// 試合の中で、拳が腕（肘・ガード）に当たった速さ・拳の後ろの質量の分布と、腕の骨が折れた数（グローブと素手、ボット同士の 100 秒 × 数試合）。
     /// </summary>
     [TestMethod]
     public void ArmHitsAndBreaks_InBouts()
@@ -127,9 +127,9 @@ public sealed class CtBoneProbe
             var breaks = new List<string>();
             foreach (var (red, blue, seed) in new[] { ("champion", "swarmer", 1), ("slugger", "champion", 2), ("swarmer", "slugger", 3), ("champion", "counter", 4) })
             {
-                using var game = new BoxingGame(seed: seed, rules: MatchRules.Tv with { Rounds = 1, RoundSeconds = 60f },
+                using var game = new BoxingGame(seed: seed, rules: MatchRules.Tv with { Rounds = 1, RoundSeconds = 100.7f },
                     corners: new BoxingCorners("cpu", s => BotCatalog.Create(red, s), s => BotCatalog.Create(blue, s), PlayerWear: wear, CpuWear: wear));
-                for (var i = 0; i < 60 * 60; i++)
+                for (var i = 0; i < 6042; i++)
                 {
                     game.Step(default, 1f / 60f);
                     foreach (var h in game.RecentHits.Where(h => !h.Kick && !h.Elbow))
@@ -190,7 +190,7 @@ public sealed class CtBoneProbe
                 {
                     var point = axis == 0 ? new Vector3(at * 2f * half.X, 0f, 0f) : new Vector3(0f, at * 2f * half.Y, 0f);
                     var force = 1f;
-                    while (force < 1e5f && Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, point, -Vector3.UnitZ * force, axis, loadBearingOnly: true) is null)
+                    while (force < 1e6f && Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, point, -Vector3.UnitZ * force, axis, loadBearingOnly: true) is null)
                     {
                         force *= 1.05f;
                     }

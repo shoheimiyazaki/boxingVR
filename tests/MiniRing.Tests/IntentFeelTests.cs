@@ -31,7 +31,7 @@ public sealed class IntentFeelTests
         var corners = passiveCpu ? BoxingCorners.Default with { Cpu = _ => new IntentControl() } : null;
         var game = new BoxingGame(tuning, seed: seed, corners: corners);
         var control = only is { } d ? new IntentControl(style: OnlyEvasion(d)) : new IntentControl();
-        for (var i = 0; i < 60; i++)
+        for (var i = 0; i < 101; i++)
         {
             game.Step(new BoxingInput(control.Read(game.PlayerSense, Dt)), Dt);
         }
@@ -40,7 +40,7 @@ public sealed class IntentFeelTests
     }
 
     private static FighterSense Incoming(FighterSense sense)
-        => sense with { OpponentRight = new GloveSense(sense.OpponentChest + new Vector3(0f, 0.1f, 0f), (sense.Self.Origin - sense.OpponentChest) * 4f) };
+        => sense with { OpponentRight = new GloveSense(sense.OpponentChest + new Vector3(0f, 0.2817f, 0f), (sense.Self.Origin - sense.OpponentChest) * 2.383f) };
 
     /// <summary>回避を押してからの頭の下がり（Drop）と、構えの体の座標での横のずれ（Lateral）の最大 [cm]。</summary>
     private static (float Drop, float Lateral) HeadMotionCm(Defense defense, float seconds)
@@ -67,29 +67,29 @@ public sealed class IntentFeelTests
     [TestMethod]
     public void Duck_DropsTheHeadFast_KneesFoldUnderGravity()
     {
-        // 改善前（脚のサーボがダンパになって沈みが遅かった・膝より腰のヒンジで下げていた）は 0.2 秒で 4.1 cm。
-        var duck = HeadMotionCm(Defense.Duck, 0.2f);
-        var weave = HeadMotionCm(Defense.Weave, 0.2f);
-        TestContext.WriteLine($"ダッキング 0.2 秒: 頭 {duck.Drop:0.0} cm 下がる / ウィービング {weave.Drop:0.0} cm");
-        Assert.IsGreaterThan(7f, duck.Drop, "ダッキングは 0.2 秒で頭が 7 cm 以上沈む（改善前 4.1 cm）");
-        Assert.IsGreaterThan(3.5f, weave.Drop, "ウィービングも改善前（2.3 cm）の 1.5 倍以上");
+        // 改善前（脚のサーボがダンパになって沈みが遅かった・膝より腰のヒンジで下げていた）は 0.2 秒で 4.1 cm（人形の単位）。
+        var duck = HeadMotionCm(Defense.Duck, 0.3357f);
+        var weave = HeadMotionCm(Defense.Weave, 0.3357f);
+        TestContext.WriteLine($"ダッキング 0.34 秒: 頭 {duck.Drop:0.0} cm 下がる / ウィービング {weave.Drop:0.0} cm");
+        Assert.IsGreaterThan(19.72f, duck.Drop, "ダッキングは 0.34 秒で頭が 20 cm 以上沈む（改善前は人形の単位で 4.1 cm）");
+        Assert.IsGreaterThan(9.859f, weave.Drop, "ウィービングも改善前（2.3 cm）の 1.5 倍以上");
     }
 
     [TestMethod]
     public void HeldDuck_StaysStanding_EvenWithACounterFromTheSink()
     {
-        // 沈んだまま 1.5 秒押し続けても、体を打ち返しても、ダウンにならない（膝を折るだけ。腰・手・上体がマットに着かない）。
+        // 沈んだまま 2.5 秒押し続けても、体を打ち返しても、ダウンにならない（膝を折るだけ。腰・手・上体がマットに着かない）。
         // 相手は入力なし: 既定の CPU だと、サーボの仕事の精算を直して（PhysicsVersion 30）CPU が疲れなくなったため
-        // 相手の 15 J の打撃で倒れ、自分の沈みと打ち返しの試験にならなかった。
+        // 相手の 15 J（人形の単位） の打撃で倒れ、自分の沈みと打ち返しの試験にならなかった。
         foreach (var attack in new[] { false, true })
         {
             var (game, control) = Settled(Defense.Duck, passiveCpu: true);
             using var _ = game;
             var lowest = float.PositiveInfinity;
             var minUpright = 1f;
-            for (var i = 0; i < 90; i++)
+            for (var i = 0; i < 151; i++)
             {
-                control.Input = new FighterIntent(Vector2.UnitY, Heavy: attack && i is >= 30 and < 33, Evade: true);
+                control.Input = new FighterIntent(Vector2.UnitY, Heavy: attack && i is >= 50 and < 55, Evade: true);
                 game.Step(new BoxingInput(control.Read(Incoming(game.PlayerSense), Dt)), Dt);
                 lowest = MathF.Min(lowest, game.Player.HeadPosition.Y);
                 minUpright = MathF.Min(minUpright, game.Player.Uprightness);
@@ -103,31 +103,31 @@ public sealed class IntentFeelTests
     [TestMethod]
     public void Slip_MovesTheHeadSideways_Quickly()
     {
-        var slip = HeadMotionCm(Defense.Slip, 0.2f);
-        TestContext.WriteLine($"スリップ 0.2 秒: 横 {slip.Lateral:0.0} cm");
-        Assert.IsGreaterThan(5f, slip.Lateral, "スリップは 0.2 秒で頭が 5 cm 以上横へずれる");
+        var slip = HeadMotionCm(Defense.Slip, 0.3357f);
+        TestContext.WriteLine($"スリップ 0.34 秒: 横 {slip.Lateral:0.0} cm");
+        Assert.IsGreaterThan(14.08f, slip.Lateral, "スリップは 0.34 秒で頭が 14 cm 以上横へずれる");
     }
 
     [TestMethod]
     public void TapJabs_FireRapidly_AndTapIsQuickerThanHold()
     {
-        var tapStarts = StartSteps(heldSteps: 1, gapSteps: 5, count: 4);
-        var holdStarts = StartSteps(heldSteps: 9, gapSteps: 5, count: 4);
-        TestContext.WriteLine($"短押しの連打の打ち出し間隔 {Interval(tapStarts):0.000} s / 0.15 秒押してから離す連打 {Interval(holdStarts):0.000} s");
+        var tapStarts = StartSteps(heldSteps: 1, gapSteps: 8, count: 4);
+        var holdStarts = StartSteps(heldSteps: 15, gapSteps: 8, count: 4);
+        TestContext.WriteLine($"短押しの連打の打ち出し間隔 {Interval(tapStarts):0.000} s / 0.25 秒押してから離す連打 {Interval(holdStarts):0.000} s");
         Assert.HasCount(4, tapStarts, "短押しは 4 回とも打ち出される");
-        Assert.IsLessThan(0.2f, Interval(tapStarts), "短押しのジャブは 0.2 秒より短い間隔で連打できる（改善前は 0.3 秒以上）");
+        Assert.IsLessThan(0.3357f, Interval(tapStarts), "短押しのジャブは 0.34 秒より短い間隔で連打できる（改善前は人形の単位で 0.3 秒以上）");
         Assert.IsLessThan(Interval(holdStarts), Interval(tapStarts), "押して溜めたジャブは重く、間隔が長い");
     }
 
     private static List<int> StartSteps(int heldSteps, int gapSteps, int count)
     {
         var control = new IntentControl();
-        var sense = new FighterSense(new BodyFrame(Vector3.Zero, 0f), 0.2f,
-            new(0f, 0.06f, 0.27f), new(0f, 0f, 0.27f), true, new(0f, 0.06f, 0f));
+        var sense = new FighterSense(new BodyFrame(Vector3.Zero, 0f), 0.5634f,
+            new(0f, 0.169f, 0.7606f), new(0f, 0f, 0.7606f), true, new(0f, 0.169f, 0f));
         var starts = new List<int>();
         var period = heldSteps + gapSteps;
         var seen = 0;
-        for (var step = 0; step < period * count + 60; step++)
+        for (var step = 0; step < period * count + 101; step++)
         {
             var phase = step % period;
             control.Input = new FighterIntent(Vector2.Zero, Light: step < period * count && phase < heldSteps);
@@ -148,13 +148,13 @@ public sealed class IntentFeelTests
     public void JabJabStraight_ComeOutInThePressedOrder()
     {
         var control = new IntentControl();
-        var sense = new FighterSense(new BodyFrame(Vector3.Zero, 0f), 0.2f,
-            new(0f, 0.06f, 0.27f), new(0f, 0f, 0.27f), true, new(0f, 0.06f, 0f));
-        // J・J・K を 0.1 秒おきに短く押す。
-        for (var step = 0; step < 90; step++)
+        var sense = new FighterSense(new BodyFrame(Vector3.Zero, 0f), 0.5634f,
+            new(0f, 0.169f, 0.7606f), new(0f, 0f, 0.7606f), true, new(0f, 0.169f, 0f));
+        // J・J・K を 0.17 秒おきに短く押す。
+        for (var step = 0; step < 151; step++)
         {
             control.Input = new FighterIntent(Vector2.Zero,
-                Light: step is 0 or 1 or 6 or 7, Heavy: step is 12 or 13);
+                Light: step is 0 or 1 or 10 or 11, Heavy: step is 20 or 21);
             control.Read(sense, Dt);
         }
 
@@ -167,29 +167,29 @@ public sealed class IntentFeelTests
     public void BufferedPresses_ExpireInsteadOfFiringLate()
     {
         var control = new IntentControl();
-        var sense = new FighterSense(new BodyFrame(Vector3.Zero, 0f), 0.2f,
-            new(0f, 0.06f, 0.27f), new(0f, 0f, 0.27f), true, new(0f, 0.06f, 0f));
-        // 強攻撃を長押ししている間、次の押下は待たされる。0.5 秒以上待たされたら捨てられる（離したあとに遅れて出ない）。
-        for (var step = 0; step < 60; step++)
+        var sense = new FighterSense(new BodyFrame(Vector3.Zero, 0f), 0.5634f,
+            new(0f, 0.169f, 0.7606f), new(0f, 0f, 0.7606f), true, new(0f, 0.169f, 0f));
+        // 強攻撃を長押ししている間、次の押下は待たされる。0.84 秒以上待たされたら捨てられる（離したあとに遅れて出ない）。
+        for (var step = 0; step < 101; step++)
         {
-            control.Input = new FighterIntent(Vector2.Zero, Light: step is 5 or 6, Heavy: true);
+            control.Input = new FighterIntent(Vector2.Zero, Light: step is 8 or 9, Heavy: true);
             control.Read(sense, Dt);
         }
 
         Assert.AreEqual(0, control.QueuedCount, "待たされすぎた先行入力は消える");
         control.Input = default;
-        for (var i = 0; i < 120; i++) { control.Read(sense, Dt); }
+        for (var i = 0; i < 201; i++) { control.Read(sense, Dt); }
         CollectionAssert.AreEqual(new[] { Technique.Cross }, control.StartedTechniques.ToArray());
     }
 
     [TestMethod]
     public void AttackDuringDuck_IsABodyBlow_AndSlipGivesTheOppositeHandHook()
     {
-        var sense = Incoming(new FighterSense(new BodyFrame(Vector3.Zero, 0f), 0.2f,
-            new(0f, 0.06f, 0.27f), new(0f, 0f, 0.27f), true, new(0f, 0.06f, 0f)));
+        var sense = Incoming(new FighterSense(new BodyFrame(Vector3.Zero, 0f), 0.5634f,
+            new(0f, 0.169f, 0.7606f), new(0f, 0f, 0.7606f), true, new(0f, 0.169f, 0f)));
         var duck = new IntentControl(style: OnlyEvasion(Defense.Duck)) { Input = new FighterIntent(Vector2.UnitY, Evade: true) };
         duck.Read(sense, Dt);
-        for (var i = 0; i < 8; i++) { duck.Read(sense, Dt); }
+        for (var i = 0; i < 13; i++) { duck.Read(sense, Dt); }
         duck.Input = new FighterIntent(Vector2.UnitY, Light: true, Evade: true);
         duck.Read(sense, Dt);
         Assert.AreEqual(Defense.Duck, duck.CurrentDefense, "押している間は沈んだままで打つ");
@@ -211,7 +211,7 @@ public sealed class IntentFeelTests
         var (game, control) = Settled(Defense.Duck);
         using var _ = game;
         control.Input = new FighterIntent(Vector2.UnitY, Evade: true);
-        for (var i = 0; i < 12; i++)
+        for (var i = 0; i < 20; i++)
         {
             game.Step(new BoxingInput(control.Read(Incoming(game.PlayerSense), Dt)), Dt);
         }
@@ -219,7 +219,7 @@ public sealed class IntentFeelTests
         var sunk = (game.PlayerSense.Self.Origin.Y - Settled(Defense.Duck).Game.PlayerSense.Self.Origin.Y) * 100f;
         control.Input = new FighterIntent(Vector2.UnitY, Light: true, Evade: true);
         var peak = 0f;
-        for (var i = 0; i < 18; i++)
+        for (var i = 0; i < 30; i++)
         {
             var command = control.Read(Incoming(game.PlayerSense), Dt);
             game.Step(new BoxingInput(command), Dt);
@@ -229,7 +229,7 @@ public sealed class IntentFeelTests
 
         TestContext.WriteLine($"沈んだ体から打つボディの拳のピーク {peak:0.00} m/s（立ったまま 18 歩保持した右手のストレートは約 2 m/s）、体の高さの差 {sunk:0.0} cm");
         Assert.AreEqual(Technique.LeadBodyHook, control.CurrentTechnique);
-        Assert.IsGreaterThan(0.5f, peak, "ボディの拳が体のバネに乗って出る");
+        Assert.IsGreaterThan(0.8392f, peak, "ボディの拳が体のバネに乗って出る");
     }
 
     [TestMethod]
@@ -240,16 +240,16 @@ public sealed class IntentFeelTests
         var frame = game.PlayerSense.Self;
         var start = frame.WorldToLocal(game.Player.PelvisPosition);
         control.Input = new FighterIntent(Vector2.UnitX, Evade: true);
-        for (var i = 0; i < 21; i++)
+        for (var i = 0; i < 35; i++)
         {
             game.Step(new BoxingInput(control.Read(game.PlayerSense, Dt)), Dt);
         }
 
         var moved = frame.WorldToLocal(game.Player.PelvisPosition) - start;
         var faceError = MathF.Abs(BodyFrame.DeltaAngle(game.PlayerSense.Self.YawRadians, BodyFrame.YawOf(game.PlayerSense.OpponentChest - game.PlayerSense.Self.Origin, frame.YawRadians)));
-        TestContext.WriteLine($"横＋回避 0.35 秒: 右へ {-moved.X * 100:0.0} cm（前後 {moved.Z * 100:0.0} cm）、相手への向きのずれ {faceError * 57.3f:0.0}°");
+        TestContext.WriteLine($"横＋回避 0.59 秒: 右へ {-moved.X * 100:0.0} cm（前後 {moved.Z * 100:0.0} cm）、相手への向きのずれ {faceError * 57.3f:0.0}°");
         Assert.AreEqual(Defense.SideStep, control.CurrentDefense);
-        Assert.IsLessThan(-0.06f, moved.X, "押した右側（体のローカル −X）へ 6 cm 以上動く");
+        Assert.IsLessThan(-0.169f, moved.X, "押した右側（体のローカル −X）へ 17 cm 以上動く");
         Assert.IsLessThan(0.35f, faceError, "歩きながらも相手のほうを向いたまま");
     }
 
@@ -280,15 +280,15 @@ public sealed class IntentFeelTests
         var toOpponent = Vector3.Normalize(new Vector3(line.X, 0f, line.Z));
         control.Input = new FighterIntent(Vector2.Zero, World: expected);
         FighterCommand command = default;
-        for (var i = 0; i < 60; i++)
+        for (var i = 0; i < 101; i++)
         {
             command = control.Read(game.PlayerSense, Dt);
             game.Step(new BoxingInput(command), Dt);
         }
 
         var moved = game.Player.PelvisPosition - before;
-        TestContext.WriteLine($"カメラ基準の奥へ 1 秒: ワールド ({moved.X * 100:0.0}, {moved.Z * 100:0.0}) cm、期待の向き ({expected.X:0.00}, {expected.Y:0.00})");
-        Assert.IsGreaterThan(0.1f, Vector2.Dot(new Vector2(moved.X, moved.Z), expected), "カメラの奥の向きへ 10 cm 以上動く");
+        TestContext.WriteLine($"カメラ基準の奥へ 1.7 秒: ワールド ({moved.X * 100:0.0}, {moved.Z * 100:0.0}) cm、期待の向き ({expected.X:0.00}, {expected.Y:0.00})");
+        Assert.IsGreaterThan(0.2817f, Vector2.Dot(new Vector2(moved.X, moved.Z), expected), "カメラの奥の向きへ 28 cm 以上動く");
         Assert.IsLessThan(0.3f, MathF.Abs(Vector3.Dot(Vector3.Normalize(new Vector3(moved.X, 0f, moved.Z)), toOpponent)), "相手との線に対してはほぼ直角に動く");
         Assert.AreEqual(expected.X, command.MoveWorld.X, 1e-4f);
         Assert.AreEqual(expected.Y, command.MoveWorld.Z, 1e-4f);

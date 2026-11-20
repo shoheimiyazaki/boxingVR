@@ -16,7 +16,7 @@ public sealed class ShieldTests
 {
     public TestContext TestContext { get; set; } = null!;
 
-    private static readonly float ArmReach = 0.188f;
+    private static readonly float ArmReach = 0.5296f;
 
     private static readonly string[] FormNames = ["tsuki", "kiri-oroshi", "yoko-barai"];
 
@@ -61,24 +61,24 @@ public sealed class ShieldTests
         Assert.IsGreaterThan(0, hand.Remaining(BoxerAnatomy.HandBone), "the fist (its own grid) grips the handle");
         Assert.AreEqual(grid.FilledCount, grid.Remaining(BoxerAnatomy.Wood) + grid.Remaining(BoxerAnatomy.Iron), "the shield's own grid is wood and iron only");
 
-        // 板: 直径 16 cm（人の 60 cm の 0.27 倍）、厚さ 4 mm、木。手の中心の面（X ≈ 0）にある。板の中心は手の高さの真ん中（手の座標の Y ≠ 0）。
+        // 板: 直径 45 cm（人形の単位で 16 cm）、厚さ 11 mm、木。手の中心の面（X ≈ 0）にある。板の中心は手の高さの真ん中（手の座標の Y ≠ 0）。
         var plateY = 0.5f * (wood.Max(p => p.Y) + wood.Min(p => p.Y));
         float Radial(Vector3 p) => MathF.Sqrt(((p.Y - plateY) * (p.Y - plateY)) + (p.Z * p.Z));
         var plateRadius = wood.Max(Radial);
-        Assert.AreEqual(0.08f, plateRadius, 0.004f, "diameter 16 cm");
-        Assert.IsTrue(wood.All(p => MathF.Abs(p.X) <= 0.0031f), "the plate is a thin layer in the fist's centre plane");
-        Assert.AreEqual(0.004f, wood.Max(p => p.X) - wood.Min(p => p.X) + 0.002f, 0.0021f, "4 mm thick");
-        Assert.IsTrue(wood.All(p => Radial(p) > 0.02f), "the plate is open at the middle: the arm and the boss's hollow");
+        Assert.AreEqual(0.2254f, plateRadius, 0.01127f, "diameter 45 cm");
+        Assert.IsTrue(wood.All(p => MathF.Abs(p.X) <= 0.00873f), "the plate is a thin layer in the fist's centre plane");
+        Assert.AreEqual(0.01127f, wood.Max(p => p.X) - wood.Min(p => p.X) + 0.00563f, 0.00592f, "11 mm thick");
+        Assert.IsTrue(wood.All(p => Radial(p) > 0.05634f), "the plate is open at the middle: the arm and the boss's hollow");
 
-        // 縁の鉄の輪: 板の外の縁（半径 7.8〜8 cm）に鉄がある。
-        Assert.IsTrue(iron.Any(p => Radial(p) > 0.077f && MathF.Abs(p.X) < 0.003f), "an iron rim around the edge");
-        // 椀（ボス）: 手の前を覆う、手の形に沿った殻。頂きは手の前の面（手の格子の最前面）から、隙間 4 mm + 殻 3 mm 前。
+        // 縁の鉄の輪: 板の外の縁（半径 22〜22.5 cm）に鉄がある。
+        Assert.IsTrue(iron.Any(p => Radial(p) > 0.2169f && MathF.Abs(p.X) < 0.00845f), "an iron rim around the edge");
+        // 椀（ボス）: 手の前を覆う、手の形に沿った殻。頂きは手の前の面（手の格子の最前面）から、隙間 11 mm + 殻 8 mm 前（人形の単位で 4 mm + 3 mm）。
         var handBounds = hand.OccupiedBounds()!.Value;
         var handFront = handBounds.Center.X + handBounds.HalfExtents.X;
-        var boss = iron.Where(p => p.X > 0.004f).ToList();
+        var boss = iron.Where(p => p.X > 0.01127f).ToList();
         Assert.IsNotEmpty(boss);
-        Assert.AreEqual(handFront + 0.007f, boss.Max(p => p.X), 0.003f, "the boss bulges 4 mm clear + 3 mm shell in front of the hand's front face");
-        Assert.IsTrue(boss.All(p => Radial(p) < 0.05f), "and covers only the middle (the hand's own width)");
+        Assert.AreEqual(handFront + 0.01972f, boss.Max(p => p.X), 0.00845f, "the boss bulges 11 mm clear + 8 mm shell in front of the hand's front face");
+        Assert.IsTrue(boss.All(p => Radial(p) < 0.1408f), "and covers only the middle (the hand's own width)");
         // 握り棒: 手が握る（GripPose の指の輪の中心を通って Z に沿う）鉄。
         var barAt = HandSkeleton.GripCenter + Weapon.HandOriginOf(WeaponKind.Shield);
         Assert.AreEqual(BoxerAnatomy.Iron, grid.MaterialAt(grid.FilledCellAt(barAt)), "the grip bar passes through the loop of the fingers");
@@ -120,7 +120,7 @@ public sealed class ShieldTests
         Assert.IsFalse(game.Player.Wields(Hand.Left), "the shield is worn, not a second weapon");
         Assert.AreEqual(WeaponKind.Shield, game.GloveOf(game.Player, Hand.Left)!.Kind);
         Assert.IsNull(game.GloveOf(game.Player, Hand.Right), "the right hand holds the sword");
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -158,14 +158,14 @@ public sealed class ShieldTests
 
         // 型の経路が、台本の指令でも目標になる: 指令の左手は盾の位置、向きの指令がある。
         var sense = new FighterSense(new BodyFrame(Vector3.Zero, 0f), ArmReach, Vector3.UnitZ, Vector3.UnitZ, true);
-        var command = FormSwordsman.Command(forms[0], 0.1f, sense, Vector3.UnitZ, 0.6f, 0.5f);
+        var command = FormSwordsman.Command(forms[0], 0.1f, sense, Vector3.UnitZ, 1.007f, 0.5f);
         Assert.IsNotNull(command.Left.Orientation, "the shield's facing goes to the wrist servo as a target");
-        Assert.AreEqual(guard.Left.Z * ArmReach, command.Left.TargetLocal.Z, 0.01f);
+        Assert.AreEqual(guard.Left.Z * ArmReach, command.Left.TargetLocal.Z, 0.02817f);
     }
 
     private static StrikeResult Drill(SwordMotion form, HandWear wear = HandWear.Shield)
     {
-        var technique = new MotionTechnique(form.Name, WeaponKind.IronSword, form, 0.5f);
+        var technique = new MotionTechnique(form.Name, WeaponKind.IronSword, form, 1.408f);
         technique = technique with { Range = StrikeDrill.ReachOf(technique, ArmReach) };
         return StrikeDrill.Run(technique, FormSwordsman.Guard(WeaponKind.IronSword), SwordStance.Rate, FighterTuning.Default, wear: wear);
     }
@@ -177,7 +177,7 @@ public sealed class ShieldTests
         {
             var result = Drill(form);
             TestContext.WriteLine($"{form.Name}: reach {result.Technique.Range:F3} m, cells {result.Cells}, first {result.FirstPart}, self {result.SelfCells}");
-            Assert.IsGreaterThan(0.2f, result.Technique.Range, $"{form.Name} has a usable range");
+            Assert.IsGreaterThan(0.5634f, result.Technique.Range, $"{form.Name} has a usable range");
             Assert.IsGreaterThan(0, result.Cells, $"{form.Name} reaches and cuts the opponent standing in guard");
         }
     }
@@ -213,7 +213,7 @@ public sealed class ShieldTests
         int Shield() => game.GloveOf(game.Cpu, Hand.Left)!.Body.Grid.FilledCount;
         var (body0, shield0) = (Body(), Shield());
         var hits = 0;
-        for (var i = 0; i < 8 * 60; i++)
+        for (var i = 0; i < 806; i++)
         {
             game.Step(default, 1f / 60f);
             hits += game.WeaponHits.Count(h => h.Attacker == game.Player);
@@ -239,7 +239,7 @@ public sealed class ShieldTests
         var toward = sense.OpponentChest - sense.Self.Origin;
         toward.Y = 0f;
         var face = toward.LengthSquared() > 1e-8f ? Vector3.Normalize(toward) : sense.Self.Forward;
-        return MotionImitation.ToCommand(frame, sense, face, 0f, 0.6f, 0.5f);
+        return MotionImitation.ToCommand(frame, sense, face, 0f, 1.007f, 0.5f);
     }
 
     [TestMethod]
@@ -285,7 +285,7 @@ public sealed class ShieldTests
             var jin = CharacterRoster.Get("jin");
             var corners = new MatchSelection(MatchMode.Spectate, edgar, jin).Corners with { UseWeaponBots = true };
             using var game = new BoxingGame(seed: seed, corners: corners);
-            for (var i = 0; i < 20 * 60 && !game.RoundOver; i++)
+            for (var i = 0; i < 2014 && !game.RoundOver; i++)
             {
                 game.Step(default, 1f / 60f);
                 swings += game.WeaponHits.Count(h => h.Attacker == game.Player);
@@ -297,7 +297,7 @@ public sealed class ShieldTests
             }
         }
 
-        TestContext.WriteLine($"self touches {touches}, cells {cells} in 2 × 20 s");
+        TestContext.WriteLine($"self touches {touches}, cells {cells} in 2 × 33.6 s");
         Assert.IsGreaterThan(0, swings, "the sword actually fought (the bound is not met by standing still)");
         Assert.IsLessThan(150, cells, "the sword's cuts on its own body stay small");
     }

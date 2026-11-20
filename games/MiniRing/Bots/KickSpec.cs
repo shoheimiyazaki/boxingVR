@@ -46,14 +46,14 @@ public readonly record struct KickSpec(KickTechnique Technique, float Duration, 
 
     /// <summary>人の動きの手本と、練習の差分から作る回し蹴り。間合い・長さ・足首の曲げは後ろの足の差分（ボットは後ろの足で蹴る）。</summary>
     private static KickSpec FromCapture(KickTechnique technique, CapturedKick capture, KickTunes tunes)
-        => new(technique, 0.90f, 0.85f, 0.60f, -0.20f, Twist: 0.6f, Spin: 1.0f, Standoff: tunes.Rear.Standoff, FootPitch: tunes.Rear.FootPitch,
+        => new(technique, 1.511f, 0.85f, 0.60f, -0.20f, Twist: 0.6f, Spin: 1.0f, Standoff: tunes.Rear.Standoff, FootPitch: tunes.Rear.FootPitch,
             Seconds: tunes.Rear.Seconds, Captured: capture, Tunes: tunes);
 
     /// <summary>手作りの回し蹴り（kneelab 段 2 の通り道）。人の動きから作った既定との比べもの用。</summary>
-    public static KickSpec HandmadeRoundhouse => Of(KickTechnique.Roundhouse) with { Captured = null, Tunes = null, Seconds = 0.793f, Standoff = 1.0f, FootPitch = -0.41f };
+    public static KickSpec HandmadeRoundhouse => Of(KickTechnique.Roundhouse) with { Captured = null, Tunes = null, Seconds = 1.331f, Standoff = 1.0f, FootPitch = -0.41f };
 
     /// <summary>手作りの前蹴り（足首の目標の経路）。人の動きから作った既定との比べもの用。</summary>
-    public static KickSpec HandmadeFront => Of(KickTechnique.Front) with { Captured = null, Tunes = null, Seconds = null, Duration = 0.80f, Lateral = 0f, ChamberHeight = 0.52f, Overshoot = 0.14f, Twist = 0f, Spin = 0f, Standoff = 0.95f, FootPitch = -0.45f };
+    public static KickSpec HandmadeFront => Of(KickTechnique.Front) with { Captured = null, Tunes = null, Seconds = null, Duration = 1.343f, Lateral = 0f, ChamberHeight = 0.52f, Overshoot = 0.14f, Twist = 0f, Spin = 0f, Standoff = 0.95f, FootPitch = -0.45f };
 
     /// <summary>蹴る脚の差分（<paramref name="lead"/> は構えの前の手の側。null は左）。人の動きの手本でない蹴りは null。</summary>
     public KickTune? TuneFor(Hand leg, Hand? lead = null) => Tunes?.For(leg, lead);
@@ -68,25 +68,25 @@ public readonly record struct KickSpec(KickTechnique Technique, float Duration, 
     {
         // 前蹴り（中段）: 人の動き（極真空手の中段の前蹴り S02、ミット 1.04 m）の手本 front_mid.json を膝の制御でなぞる。狙いは胴（胸と腰の中点）。手作りの足首の経路は HandmadeFront（比べもの用）。
         KickTechnique.Front => FromCapture(technique, FrontCapture.Value, FrontTunes.Value),
-        KickTechnique.Low => new(technique, 0.85f, 0.65f, 0.38f, 0.16f, Standoff: 0.95f),
-        KickTechnique.Middle => new(technique, 0.95f, 0.72f, 0.60f, 0.15f, Standoff: 0.9f),
-        KickTechnique.High => new(technique, 1.12f, 0.78f, 0.82f, 0.12f, Standoff: 0.8f),
-        KickTechnique.Knee => new(technique, 0.75f, 0f, 0.56f, 0.08f, Standoff: 0.8f, FootPitch: 0.9f),
+        KickTechnique.Low => new(technique, 1.427f, 0.65f, 0.38f, 0.16f, Standoff: 0.95f),
+        KickTechnique.Middle => new(technique, 1.594f, 0.72f, 0.60f, 0.15f, Standoff: 0.9f),
+        KickTechnique.High => new(technique, 1.880f, 0.78f, 0.82f, 0.12f, Standoff: 0.8f),
+        KickTechnique.Knee => new(technique, 1.259f, 0f, 0.56f, 0.08f, Standoff: 0.8f, FootPitch: 0.9f),
         // 回し蹴り（中段）: 胴（脇腹・肝臓）への蹴り。手本は人の下段と上段を狙いの高さで混ぜた物（roundhouse_mid.json。人のデータに中段の廻し蹴りが無い）。
         // 練習の差分（間合い・長さ・足首の曲げ・当たる瞬間の腿の向き・膝を開く拍子）は roundhouse_mid.tune.json。docs/arena/kick_shin_lmh_*.md。
         // Practiced は手作り（kneelab 段 2）で、HandmadeRoundhouse（比べもの用）だけが使う。2026-11-18 に床から支える体（PhysicsVersion 48）で練習し直した
-        // （taeyun・当たる所は正面・間合い 1.2 / 0.9、λ=8・12 世代、足の曲げ −0.41、長さ 0.793 s。比べ直しの運動量の合計 15.4 → 40.5: docs/arena/kneelab_stage2_gen48.md）。
+        // （taeyun・当たる所は正面・間合い 1.2 / 0.9、λ=8・12 世代、足の曲げ −0.41、長さ 0.793 s（人形の単位）。比べ直しの運動量の合計 15.4 → 40.5: docs/arena/kneelab_stage2_gen48.md）。
         KickTechnique.Roundhouse => FromCapture(technique, MidCapture.Value, MidTunes.Value) with { Practiced = new KneePath(1.413f, 0.172f, 1.324f, 0.023f, 0f, 0f, 0f, 0.818f, 0.542f, 0.247f, 0.187f, 0.507f) },
         // 回し蹴り（上段）: 人の廻し蹴り上段（肩〜頭）の手本。狙いは頭。
         KickTechnique.RoundhouseHigh => FromCapture(technique, HighCapture.Value, HighTunes.Value),
         // 回し蹴り（下段）: 人の廻し蹴り下段（膝〜腰のミット）の手本。狙いは相手の腿。
         KickTechnique.RoundhouseLow => FromCapture(technique, LowCapture.Value, LowTunes.Value),
         // 横蹴り: 膝を胸へたたみ、体を横へ向けて（足が相手へ向く）、足の外側・かかとで真っすぐ押し出す。
-        KickTechnique.Side => new(technique, 0.95f, 0.30f, 0.55f, 0.16f, Twist: 0.5f, Spin: 1.45f, Standoff: 0.95f, FootPitch: 0f),
+        KickTechnique.Side => new(technique, 1.594f, 0.30f, 0.55f, 0.16f, Twist: 0.5f, Spin: 1.45f, Standoff: 0.95f, FootPitch: 0f),
         // 後ろ蹴り: 背を向ける回転（体ごと 150°）の中で脚を畳み、後ろへ伸ばす。足裏・かかとが当たる。
-        KickTechnique.Back => new(technique, 1.00f, 0.20f, 0.50f, 0.12f, Twist: 0.5f, Spin: -2.6f, Standoff: 0.85f, FootPitch: -0.3f),
+        KickTechnique.Back => new(technique, 1.678f, 0.20f, 0.50f, 0.12f, Twist: 0.5f, Spin: -2.6f, Standoff: 0.85f, FootPitch: -0.3f),
         // かかと落とし: 脚を相手の肩より上まで振り上げ（体は正面のまま）、かかとを先に振り下ろす。
-        KickTechnique.Axe => new(technique, 1.05f, 0f, 0.85f, 0.10f, Standoff: 0.85f, FootPitch: -0.6f),
+        KickTechnique.Axe => new(technique, 1.762f, 0f, 0.85f, 0.10f, Standoff: 0.85f, FootPitch: -0.6f),
         _ => throw new ArgumentOutOfRangeException(nameof(technique)),
     };
 

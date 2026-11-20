@@ -60,7 +60,7 @@ public sealed class TaekwondoTests
         var used = new HashSet<KickTechnique>();
         var landed = 0;
         var seen = new HashSet<HitEvent>();
-        for (var i = 0; i < 240 * 45; i++)
+        for (var i = 0; i < 18127; i++) // 75.5 s（人形の単位で 45 s）
         {
             game.Step(default, 1f / 240f);
             if (bot?.CurrentKick is { } kind)

@@ -25,12 +25,12 @@ internal sealed class SwingLab(int generations, int lambda, int seed)
         report.AppendLine("# 棍棒の振りの研究（swinglab）");
         report.AppendLine();
         report.AppendLine(string.Create(CultureInfo.InvariantCulture,
-            $"型ごとに (1+{lambda}) 進化戦略 × {generations} 世代（種 {seed}）。的は構えて立つ相手（StandGuard、両手のグローブで顔を守る）。威力 = 1 振りで相手に溜まった脳しんとう（0.25 でふらつき、0.7 で意識が途切れる）。どの数値も、間合い ± 2 cm の 3 点で振った平均（1 点の間合いでしか効かない振りを選ばないため）。"));
+            $"型ごとに (1+{lambda}) 進化戦略 × {generations} 世代（種 {seed}）。的は構えて立つ相手（StandGuard、両手のグローブで顔を守る）。威力 = 1 振りで相手に溜まった脳しんとう（0.25 でふらつき、0.7 で意識が途切れる）。どの数値も、間合い ± {SwingTest.RangeSpread * 100f:0.0} cm の 3 点で振った平均（1 点の間合いでしか効かない振りを選ばないため）。"));
         report.AppendLine();
         var best = new List<SwingResult>();
         foreach (var family in families)
         {
-            var start = SwingTest.RunAround(WeaponSwing.Default(family), 0.38f);
+            var start = SwingTest.RunAround(WeaponSwing.Default(family), 1.070f);
             var champion = start;
             var log2 = new StringBuilder();
             log2.AppendLine("| 世代 | 威力 | 頭に | 頭の速さ [m/s] | 当たった時の頭の速さ | 運動量 [N·s] | 頭のねじれ [rad/s] | 頭への最短 [cm] | 壊したボクセル | 自分の脳しんとう |");
@@ -148,8 +148,8 @@ internal sealed class SwingLab(int generations, int lambda, int seed)
         var swings = best.Select(b => b.Swing).ToList();
         var twoHanded = swings[0].TwoHanded;
         var name = twoHanded ? "bat" : "club";
-        var club = new Contender(name, s => new ClubBot(swings, s, range, rest: 0.6f), WeaponKind.WoodenClub, twoHanded);
-        var basic = new Contender(name + "-basic", s => new ClubBot([.. swings.Select(w => w.Family).Distinct().Select(WeaponSwing.Default)], s, rest: 0.6f), WeaponKind.WoodenClub, twoHanded);
+        var club = new Contender(name, s => new ClubBot(swings, s, range, rest: 1.007f), WeaponKind.WoodenClub, twoHanded);
+        var basic = new Contender(name + "-basic", s => new ClubBot([.. swings.Select(w => w.Family).Distinct().Select(WeaponSwing.Default)], s, rest: 1.007f), WeaponKind.WoodenClub, twoHanded);
         var champion = Contender.Named("champion");
         var text = new StringBuilder();
         text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"各 {bouts} 試合 × {seconds:0} 秒。"));
@@ -200,13 +200,13 @@ internal sealed class SwingLab(int generations, int lambda, int seed)
             WindupElevation = Math.Clamp(s.WindupElevation + (0.35f * N()), -1.4f, 2.8f),
             StrikeAzimuth = s.StrikeAzimuth + (0.35f * N()),
             StrikeElevation = Math.Clamp(s.StrikeElevation + (0.35f * N()), -1.4f, 1.4f),
-            WindupTime = Math.Clamp(s.WindupTime * (1f + (0.25f * N())), 0.15f, 0.7f),
-            StrikeTime = Math.Clamp(s.StrikeTime * (1f + (0.25f * N())), 0.08f, 0.4f),
+            WindupTime = Math.Clamp(s.WindupTime * (1f + (0.25f * N())), 0.252f, 1.175f),
+            StrikeTime = Math.Clamp(s.StrikeTime * (1f + (0.25f * N())), 0.134f, 0.671f),
             WristDelay = Math.Clamp(s.WristDelay + (0.2f * N()), 0f, 0.85f),
             Twist = Math.Clamp(s.Twist + (0.25f * N()), -0.8f, 0.8f),
             Step = Math.Clamp(s.Step + (0.3f * N()), 0f, 1f),
             Ease = Math.Clamp(s.Ease + (0.5f * N()), 1f, 3.5f),
         };
-        return (next, Math.Clamp(range + (0.04f * N()), 0.28f, 0.5f));
+        return (next, Math.Clamp(range + (0.113f * N()), 0.789f, 1.408f));
     }
 }

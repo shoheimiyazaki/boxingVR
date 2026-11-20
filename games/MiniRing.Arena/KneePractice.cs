@@ -20,7 +20,7 @@ internal static class KneePractice
     private static readonly (string Name, float Low, float High)[] Ranges =
     [
         ("抱えの方位", 0.6f, 1.6f), ("抱えの仰角", -0.1f, 0.7f), ("途中の方位", 0f, 1.4f), ("途中の仰角", -0.1f, 0.7f), ("抱えのねじり", -2f, 2f),
-        ("当たる時刻", 0.35f, 0.7f), ("開く先行", 0.03f, 0.3f), ("体の回転", 0f, 1.5f), ("胴のひねり", 0f, 0.6f), ("長さ[s]", 0.5f, 1.2f),
+        ("当たる時刻", 0.35f, 0.7f), ("開く先行", 0.03f, 0.3f), ("体の回転", 0f, 1.5f), ("胴のひねり", 0f, 0.6f), ("長さ[s]", 0.839f, 2.014f),
     ];
 
     internal sealed record Genome(KneePath Path, float Duration, float FootPitch);
@@ -59,7 +59,7 @@ internal static class KneePractice
         float Distance() => Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f }) / reach;
 
         var stable = 0;
-        for (var i = 0; i < 240 * 10 && stable < 90; i++)
+        for (var i = 0; i < 4028 && stable < 151; i++)
         {
             var error = Distance() - standoff;
             if (MathF.Abs(error) < 0.03f)
@@ -74,7 +74,7 @@ internal static class KneePractice
             game.Step(new BoxingInput(Command(toward * MathF.Sign(error) * Math.Clamp(MathF.Abs(error) * 4f, 0.25f, 1f), null, 0f, 0f)), Dt);
         }
 
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(new BoxingInput(Command(Vector3.Zero, null, 0f, 0f)), Dt);
         }
@@ -86,7 +86,7 @@ internal static class KneePractice
         var fraction = 0f;
         var bendAtHit = 0f;
         var hitTime = 0f;
-        var steps = (int)((g.Duration + 0.3f) / Dt);
+        var steps = (int)((g.Duration + 0.504f) / Dt);
         for (var i = 0; i < steps; i++)
         {
             var t = i * Dt;
@@ -124,7 +124,7 @@ internal static class KneePractice
 
     /// <summary>始めの値（今の回し蹴り）に近い通り道。</summary>
     internal static Genome Baseline(KneeLab.Spot impact, float footPitch)
-        => new(new KneePath(KickSpec.KneeChamberAzimuth, KickSpec.KneeChamberElevation, 0.6f, 0.4f, impact.Azimuth, impact.Elevation, impact.Twist, 0f, 0.53f, 0.25f, 1.0f, 0.6f), 0.9f, footPitch);
+        => new(new KneePath(KickSpec.KneeChamberAzimuth, KickSpec.KneeChamberElevation, 0.6f, 0.4f, impact.Azimuth, impact.Elevation, impact.Twist, 0f, 0.53f, 0.25f, 1.0f, 0.6f), 1.51f, footPitch);
 
     public static void Stage2(string bodyId, KneeLab.Spot impact, float footPitch, IReadOnlyList<float> tuneStandoffs, IReadOnlyList<float> confirmStandoffs, int generations, int lambda,
         string? videoDir, Action<string> log)
@@ -147,7 +147,7 @@ internal static class KneePractice
             return sum / tuneStandoffs.Count;
         }
 
-        var start = Encode(Baseline(impact, footPitch).Path, 0.9f);
+        var start = Encode(Baseline(impact, footPitch).Path, 1.51f);
         var cma = new CmaEs(start, seed: 7, initialSigma: 0.2, maximize: true, lambda: lambda, maxGenerations: generations);
         var best = (Score: Score(start), X: start);
         log($"始めの値の運動量（調整の間合い平均）: {F((float)best.Score)}");

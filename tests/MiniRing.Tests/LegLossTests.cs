@@ -18,7 +18,7 @@ public sealed class LegLossTests
     {
         using var game = new BoxingGame(seed: 2);
         var cpu = game.Cpu;
-        Play(game, 1f);
+        Play(game, 1.678f);
         var standing = cpu.PelvisPosition.Y;
         var full = cpu.LegSupportLength(true);
 
@@ -32,9 +32,9 @@ public sealed class LegLossTests
         // 支えは短い切り株と片足の小さな多角形だけで、相手へ歩み寄る体は 2〜7 秒のうちに支えの外へ出て倒れる（種 1〜8 のどれも。
         // 足の運び・支えの変更の前の物理でも同じ）。この試験が前に通っていたのは、1 歩ずれると変わる偶然（種 2・60 歩の待ちで 1 歩ずらすと落ちる）。
         // 倒れた後に起き上がれないのは別の課題。この試験が確かめるのは切り株の高さ（腰が下りる量）と、切った直後に立てること。
-        Play(game, 1f);
+        Play(game, 1.678f);
         Assert.AreEqual(FighterState.Standing, cpu.State, "back on the stump and fighting right after the cut");
-        Play(game, 7f);
+        Play(game, 11.75f);
         TestContext.WriteLine($"standing {standing:F3}  now {cpu.PelvisPosition.Y:F3}  shortfall {cpu.LegShortfall:F3}  state {cpu.State}  hover {cpu.HoverHeight:F3}");
         Assert.IsFalse(game.RoundOver && game.PlayerWins > 0, "the round does not end on the lost leg");
         var drop = standing - cpu.PelvisPosition.Y;
@@ -49,9 +49,9 @@ public sealed class LegLossTests
         {
             using var game = new BoxingGame(seed: 2);
             var cpu = game.Cpu;
-            Play(game, 1f);
+            Play(game, 1.678f);
             Cut(game, cpu, part(cpu).Part, part(cpu).At);
-            Play(game, 8f);
+            Play(game, 13.43f);
             TestContext.WriteLine($"hips {cpu.PelvisPosition.Y:F3}  shortfall {cpu.LegShortfall:F3}  state {cpu.State}  cond {cpu.LegCondition(true):F2} thighStr {cpu.Strength(cpu.Parts.LeftThigh):F2} muscle {cpu.Voxels!.Muscle(cpu.Parts.LeftThigh):F2} support {cpu.LegSupportLength(true):F3}/{cpu.LegSupportLength(false):F3} thighPos {game.World.GetState(cpu.Parts.LeftThigh).Position} pelvis {cpu.PelvisPosition}");
             Assert.IsTrue(cpu.CanStand);
             return cpu.PelvisPosition.Y;
@@ -67,7 +67,7 @@ public sealed class LegLossTests
     {
         using var game = new BoxingGame(seed: 2);
         var cpu = game.Cpu;
-        Play(game, 0.5f);
+        Play(game, 0.8392f);
         Cut(game, cpu, cpu.Parts.LeftShin, 0.4f);
         // 切れ目の先（破片へ移ったスライス）を断面に数えると、切り株の筋肉は 0 近くになって立てなかった。
         Assert.IsGreaterThan(0.35f, cpu.LegCondition(true), $"stump condition {cpu.LegCondition(true):F2}");
@@ -79,7 +79,7 @@ public sealed class LegLossTests
         // 近道あり（FighterTuning.LegLossSupportShortcut）の比べもの。既定（近道なし）は下の WithoutTheShortcut_BothLegsGone_*。
         using var game = new BoxingGame(Shortcut, seed: 2);
         var cpu = game.Cpu;
-        Play(game, 0.5f);
+        Play(game, 0.8392f);
         var full = cpu.LegSupportLength(true);
         var standingHips = cpu.PelvisPosition.Y;
         Cut(game, cpu, cpu.Parts.LeftThigh, 0.2f);
@@ -93,7 +93,7 @@ public sealed class LegLossTests
         var down = 0f;
         var longestDown = 0f;
         var highest = 0f;
-        const int Steps = 16 * 60;
+        const int Steps = 1611;
         for (var t = 0; t < Steps; t++)
         {
             game.Step(default, Dt);
@@ -109,7 +109,7 @@ public sealed class LegLossTests
         // マージ後は 48〜57 %（平均 50 %）で、種 2 の 58 % はその散らばりの中の 1 点）。座って打つ体は動くたびに倒れて座り直すので、確かめるのは
         // 「立ち直って戦う時間がかなりある」（4 分の 1 より長い）こと。10 カウントにならないことは下の最長のダウンで見る。
         Assert.IsGreaterThan(0.25f, share, "sitting up on the pelvis and fighting a large part of the time (a quarter at least; 35-58 % measured)");
-        Assert.IsLessThan(5f, longestDown, "never down long enough to be counted out");
+        Assert.IsLessThan(8.392f, longestDown, "never down long enough to be counted out");
         Assert.IsLessThan(standingHips, highest, "the hips never go above where they stood on whole legs (no launch)");
     }
 
@@ -122,14 +122,14 @@ public sealed class LegLossTests
         // （腹筋で起き上がる仕組みが無い）、床でもがいたまま 10 カウントになる。体は浮き上がらない。
         using var game = new BoxingGame(seed: 2);
         var cpu = game.Cpu;
-        Play(game, 0.5f);
+        Play(game, 0.8392f);
         var standingHips = cpu.PelvisPosition.Y;
         Cut(game, cpu, cpu.Parts.LeftThigh, 0.2f);
         Cut(game, cpu, cpu.Parts.RightThigh, 0.2f);
         var highest = 0f;
         var standing = 0;
         var steps = 0;
-        for (; steps < 16 * 60 && !game.RoundOver; steps++)
+        for (; steps < 1611 && !game.RoundOver; steps++)
         {
             game.Step(default, Dt);
             highest = MathF.Max(highest, cpu.PelvisPosition.Y);
@@ -138,7 +138,7 @@ public sealed class LegLossTests
 
         TestContext.WriteLine($"round over {game.RoundOver} after {steps * Dt:F1}s  standing {standing * Dt:F1}s  {game.Message}");
         Assert.IsTrue(game.RoundOver && game.PlayerWins > 0, "counted out on the canvas");
-        Assert.IsLessThan(2f, standing * Dt, "never back up for long");
+        Assert.IsLessThan(3.357f, standing * Dt, "never back up for long");
         Assert.IsLessThan(standingHips, highest, "the hips never go above where they stood on whole legs (no launch)");
     }
 
@@ -149,14 +149,14 @@ public sealed class LegLossTests
         // 2026-11-19（rush-physics・間合いの層とのマージ後）: 前は「切った後 8 秒待てば、相手へ寄る歩みで支えの外へ出て倒れる」を見ていたが、
         // それは待つ間のボットの動き（体の揺れ・当たり）しだいの偶然だった（切った体は 2 つの版とも支えの余白 −0.03 m の所で立ち続け、版 48 では 5 秒目に
         // 重心が支えの外 8 cm へ流れて倒れ、マージ後は同じ 8 秒で流れずに立ち続けた。重心の動きは同じ物理で、ボットの揺れだけが違う）。
-        // 支えの外へ出す力を決めて与える: 全身を 2.5 m/s（重い 1 発の押し込みを超える速さ）で押し、前後左右の 4 方向の合計で見る
+        // 支えの外へ出す力を決めて与える: 全身を 4.2 m/s（人形の単位で 2.5 m/s）（重い 1 発の押し込みを超える速さ）で押し、前後左右の 4 方向の合計で見る
         // （1 方向だけだと、押す前に 1 歩ずれただけで倒れる・倒れないが入れ替わる。測った 4 方向の合計: 立っていない時間は 4 方向 × 4 秒のうち、
         // 切った体が 15.4 秒、脚が無傷の体は起き上がりが早く 8.2 秒）。脚が無傷の体も押しには倒れる（足の運びで踏み直せないほどの押し）が、すぐ立ち直る。
         var intact = ShoveAndWatch(cut: false);
         var stump = ShoveAndWatch(cut: true);
         TestContext.WriteLine($"not standing, summed over 4 shoves: intact {intact.Down:F1}s  cut {stump.Down:F1}s  shortfall {stump.Shortfall:F3}");
         Assert.IsTrue(stump.CanStand, "the stump still has the strength to bear weight");
-        Assert.IsGreaterThan(intact.Down + 1f, stump.Down, "without stepping, the body falls off its stump and takes longer to get back up than a whole body");
+        Assert.IsGreaterThan(intact.Down + 1.678f, stump.Down, "without stepping, the body falls off its stump and takes longer to get back up than a whole body");
         Assert.IsLessThan(stump.StandingHips, stump.Highest, "and is never lifted from nowhere");
     }
 
@@ -171,16 +171,16 @@ public sealed class LegLossTests
         {
             using var game = new BoxingGame(seed: 2);
             var cpu = game.Cpu;
-            Play(game, 1f);
+            Play(game, 1.678f);
             standingHips = cpu.PelvisPosition.Y;
             if (cut)
             {
                 Cut(game, cpu, cpu.Parts.LeftThigh, 0.5f);
             }
 
-            Play(game, 1f);
-            cpu.Push(direction * 2.5f);
-            for (var t = 0; t < 4 * 60 && !game.RoundOver; t++)
+            Play(game, 1.678f);
+            cpu.Push(direction * 4.196f);
+            for (var t = 0; t < 403 && !game.RoundOver; t++)
             {
                 game.Step(default, Dt);
                 down += cpu.State != FighterState.Standing ? Dt : 0f;
@@ -222,16 +222,16 @@ public sealed class LegLossTests
             // 端の近く（長さの 45 % の所）を直角に押して折れる力は、端を細く作っていた頃の腿 138〜301 N・すね 43〜98 N を下回らず、
             // 折れる所は端の段ではない。
             var half = grid.HalfExtents.Y;
-            var force = 1f;
+            var force = 10f;
             Aigis.Physics.Voxels.VoxelBreak? found = null;
-            while (force < 1e5f && (found = Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, new Vector3(0f, -0.9f * half, 0f), -Vector3.UnitZ * force, 1, loadBearingOnly: true, part.Body.BeamSlices)) is null)
+            while (force < 1e6f && (found = Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, new Vector3(0f, -0.9f * half, 0f), -Vector3.UnitZ * force, 1, loadBearingOnly: true, part.Body.BeamSlices)) is null)
             {
                 force *= 1.05f;
             }
 
             var ends = (Array.IndexOf(bone, withBone[0]), Array.LastIndexOf(bone, withBone[^1]));
             TestContext.WriteLine($"{(body == f.Parts.LeftThigh ? "thigh" : "shin")} bone [{string.Join(",", bone)}] breaks at {force:F0} N in slice {found?.Slice}");
-            Assert.IsGreaterThan(150f, force);
+            Assert.IsGreaterThan(1500f, force);
             Assert.IsTrue(found is { } b && b.Slice != ends.Item1 && b.Slice != ends.Item2, "it does not snap at the end of the bone");
         }
     }

@@ -25,9 +25,9 @@ public sealed class ArmBehindProbe
     {
         var red = CharacterRoster.Get("marcus");
         var blue = CharacterRoster.Get("dmitri");
-        MaaiLab.RunBout(red, blue, 7, 8f, referee: true, onStep: (game, now) =>
+        MaaiLab.RunBout(red, blue, 7, 13.43f, referee: true, onStep: (game, now) =>
         {
-            if (now < 6.5f || now > 7.8f || ((int)MathF.Round(now / MaaiLab.StepDt) % 6) != 0)
+            if (now < 10.91f || now > 13.09f || ((int)MathF.Round(now / MaaiLab.StepDt) % 6) != 0)
             {
                 return;
             }
@@ -53,7 +53,7 @@ public sealed class ArmBehindProbe
             var (a, b) = pair;
             var events = new List<string>();
             var inEvent = new bool[4];
-            MaaiLab.RunBout(CharacterRoster.Get(a), CharacterRoster.Get(b), 11, 40f, referee: true, onStep: (game, now) =>
+            MaaiLab.RunBout(CharacterRoster.Get(a), CharacterRoster.Get(b), 11, 67.14f, referee: true, onStep: (game, now) =>
             {
                 var k = 0;
                 foreach (var f in new[] { game.Player, game.Cpu })

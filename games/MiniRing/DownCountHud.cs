@@ -12,7 +12,7 @@ namespace MiniRing;
 public static class DownCountHud
 {
     /// <summary>名前の札（「YOU DOWN」の YOU の部分）が出始める、倒れてからの時間 [s]。転んだだけの一瞬は出さない。</summary>
-    public const float ShowAfter = 0.5f;
+    public const float ShowAfter = 0.8392f;
 
     /// <summary>数字の大きさ [px]。体の上に浮かべるので、画面の真ん中に出していた頃（96）より小さく。</summary>
     private const float NumberSize = 72f;
@@ -21,8 +21,8 @@ public static class DownCountHud
     private const float PipSize = 11f;
     private const float PipGap = 5f;
 
-    /// <summary>表示を浮かべる高さ [m]: 倒れた体（胸と腰の間）の真上、これだけ上（人形の縮尺で、寝た体の厚みの 2 倍ほど）。</summary>
-    internal const float AboveBody = 0.16f;
+    /// <summary>表示を浮かべる高さ [m]（物理の空間）: 倒れた体（胸と腰の間）の真上、これだけ上（寝た体の厚みの 2 倍ほど）。</summary>
+    internal const float AboveBody = 0.4507f;
 
     /// <summary>体の上の点と表示の下端の間 [px]（目盛りが体に重ならない）。</summary>
     private const float Gap = 6f;
@@ -38,7 +38,7 @@ public static class DownCountHud
     public static int Count(Fighter fighter)
     {
         ArgumentNullException.ThrowIfNull(fighter);
-        return (int)MathF.Min(BoxingGame.CountSeconds, MathF.Floor(fighter.DownTime));
+        return (int)MathF.Min(BoxingGame.CountNumbers, MathF.Floor(fighter.DownTime / BoxingGame.CountInterval));
     }
 
     /// <summary>
@@ -57,11 +57,11 @@ public static class DownCountHud
         {
             var fighter = down[i];
             var above = ((fighter.ChestPosition + fighter.PelvisPosition) * 0.5f) + (Vector3.UnitY * AboveBody);
-            if (Camera.TryWorldToScreen(viewProjection, above, screen, out var pixel))
+            if (Camera.TryWorldToScreen(viewProjection, game.Display.Point(above), screen, out var pixel)) // 描画の行列は表示の空間
             {
                 // 体が画面の上や端に寄っても、表示全体（打ち出した数字と名前まで）が画面に収まるように寄せる。
                 var bottom = pixel - new Vector2(0f, Gap);
-                var halfWidth = 0.5f * ((BoxingGame.CountSeconds * (PipSize + PipGap)) + 40f);
+                var halfWidth = 0.5f * ((BoxingGame.CountNumbers * (PipSize + PipGap)) + 40f);
                 yield return (fighter, new Vector2(Math.Clamp(bottom.X, halfWidth, MathF.Max(halfWidth, screen.X - halfWidth)),
                     Math.Clamp(bottom.Y, BlockHeight, MathF.Max(BlockHeight, screen.Y - BottomMargin))));
             }
@@ -96,8 +96,8 @@ public static class DownCountHud
             var nameTop = numberTop - NameSize - 4f;
             if (count >= 1)
             {
-                // 数が増えた瞬間に 1.4 倍で打ち出し、0.25 秒ほどで元の大きさへ（下端を揃えて大きくする）。
-                var since = fighter.DownTime - MathF.Floor(fighter.DownTime);
+                // 数が増えた瞬間に 1.4 倍で打ち出し、カウント 1 つの間の 1/4 ほどで元の大きさへ（下端を揃えて大きくする）。
+                var since = (fighter.DownTime / BoxingGame.CountInterval) - MathF.Floor(fighter.DownTime / BoxingGame.CountInterval); // カウントの間の中の位置 [0..1)
                 var size = NumberSize * (1f + (0.4f * MathF.Exp(-since * 10f)));
                 var alpha = 0.8f + (0.2f * MathF.Exp(-since * 4f));
                 var top = numberTop - ((size - NumberSize) * 0.85f);
@@ -120,9 +120,9 @@ public static class DownCountHud
         foreach (var (fighter, bottom) in Counted(game, viewProjection, screen))
         {
             var count = Count(fighter);
-            var width = (BoxingGame.CountSeconds * (PipSize + PipGap)) - PipGap;
+            var width = (BoxingGame.CountNumbers * (PipSize + PipGap)) - PipGap;
             var y = PipRow(bottom);
-            for (var i = 0; i < (int)BoxingGame.CountSeconds; i++)
+            for (var i = 0; i < BoxingGame.CountNumbers; i++)
             {
                 var x = bottom.X - (width * 0.5f) + (PipSize * 0.5f) + (i * (PipSize + PipGap));
                 yield return UiShapeDraw.Rounded(new Vector2(x, y), new Vector2(PipSize), 3f, i < count ? Gold : PipOff);

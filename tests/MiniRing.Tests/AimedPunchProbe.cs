@@ -10,7 +10,7 @@ public sealed class AimedPunchProbe
     [TestMethod]
     public void OpenHeadRate_BySeed()
     {
-        var inside = new DefenseMove { HeadX = 0.5f, HeadY = -0.5f, HeadZ = -0.2f, Step = 1f, Duration = 0.3f, Rate = 60f, HandsUp = 0.3f, VsStraight = 1f };
+        var inside = new DefenseMove { HeadX = 0.5f, HeadY = -0.5f, HeadZ = -0.2f, Step = 1f, Duration = 0.5035f, Rate = 35.75f, HandsUp = 0.3f, VsStraight = 1f };
         var book = DefenseBook.Default.With(Defense.Duck, inside);
         static void KeepFresh(BoxingGame game, BoxerBot _)
         {
@@ -20,7 +20,7 @@ public sealed class AimedPunchProbe
 
         for (var seed = 1; seed <= 8; seed++)
         {
-            var r = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: seed, seconds: 8f, telegraph: 0.08f, observe: KeepFresh);
+            var r = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: seed, seconds: 13.43f, telegraph: 0.1343f, observe: KeepFresh);
             Console.WriteLine($"seed {seed}: {r}");
         }
     }

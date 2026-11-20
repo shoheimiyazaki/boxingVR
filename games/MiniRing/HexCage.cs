@@ -13,23 +13,23 @@ namespace MiniRing;
 internal static class HexCage
 {
     /// <summary>
-    /// 金網の高さ [m]（キャンバスの面から）。UFC の金網は人 1.8 m に対し約 1.75 m（≈ 1 倍）、身長 60 cm の人形では 0.6 m だが、
-    /// 拳・武器の見た目を隠しすぎないよう、0.5 m（人形の身長の 0.83 倍。振り回す剣の上端・倒れた体は越えない高さ）に縮めた。
+    /// 金網の高さ [m]（キャンバスの面から）。UFC の金網は人 1.8 m に対し約 1.75 m（≈ 1 倍）だが、
+    /// 拳・武器の見た目を隠しすぎないよう、1.41 m（身長の 0.83 倍。振り回す剣の上端・倒れた体は越えない高さ）に縮めた。
     /// </summary>
-    public const float WallHeight = 0.5f;
+    public const float WallHeight = 1.408f;
 
     /// <summary>
-    /// 壁の当たり判定の厚み [m]。固定ステップ 240 Hz で、拳・武器・破片が 1 歩で進む距離（拳 6 m/s で 2.5 cm、剣の先 10 m/s で 4 cm）より厚くして抜けさせない。
+    /// 壁の当たり判定の厚み [m]。固定ステップ 240 Hz で、拳・武器・破片が 1 歩で進む距離（拳 10 m/s で 4.2 cm、剣の先 17 m/s で 7 cm）より厚くして抜けさせない。
     /// 見た目の金網はこれより細いが、当たりは箱 1 枚（金網の網目では当たらない）。
     /// </summary>
-    public const float WallThickness = 0.06f;
+    public const float WallThickness = 0.169f;
 
-    private const float PostHalf = 0.02f;
-    private const float RailHalf = 0.016f;
-    private const float RodThickness = 0.006f;
+    private const float PostHalf = 0.05634f;
+    private const float RailHalf = 0.04507f;
+    private const float RodThickness = 0.0169f;
 
     /// <summary>棒の菱形の格子の間隔 [m]（隣り合う平行な棒の垂直な距離。ボクセルの図柄に合う太さに対して広め）。</summary>
-    private const float RodPitch = 0.06f;
+    private const float RodPitch = 0.169f;
 
     private static readonly Vector4 StandColor = new(0.1f, 0.1f, 0.11f, 1f);
     private static readonly Vector4 ApronColor = new(0.08f, 0.08f, 0.09f, 1f);
@@ -51,7 +51,7 @@ internal static class HexCage
         var center = layout.Center;
         var apothem = layout.Half;
         var radius = layout.Circumradius;
-        var stand = surfaceHeight - 0.06f - baseHeight;
+        var stand = surfaceHeight - 0.169f - baseHeight;
 
         // 台・エプロン・キャンバス: 長さ R の箱（半分 R/2）を 0°・60°・120° に回した 3 枚で六角形になる。当たりは面の高さで支える（キャンバスは見た目だけ）。
         for (var i = 0; i < 3; i++)
@@ -59,8 +59,8 @@ internal static class HexCage
             var q = FacingNormal(NormalAngle(i));
             var halfLength = radius * 0.5f;
             AddBox(world, visuals, new Vector3(center.X, baseHeight + (stand * 0.5f), center.Z), q, new Vector3(halfLength * 0.9f, stand * 0.5f, apothem * 0.9f), StandColor, solid: true);
-            AddBox(world, visuals, new Vector3(center.X, surfaceHeight - 0.03f, center.Z), q, new Vector3(halfLength + 0.02f, 0.03f, apothem + 0.02f), ApronColor, solid: true);
-            AddBox(world, visuals, new Vector3(center.X, surfaceHeight - 0.003f, center.Z), q, new Vector3(halfLength, 0.004f, apothem), CanvasColor, solid: false);
+            AddBox(world, visuals, new Vector3(center.X, surfaceHeight - 0.08451f, center.Z), q, new Vector3(halfLength + 0.05634f, 0.08451f, apothem + 0.05634f), ApronColor, solid: true);
+            AddBox(world, visuals, new Vector3(center.X, surfaceHeight - 0.00845f, center.Z), q, new Vector3(halfLength, 0.01127f, apothem), CanvasColor, solid: false);
         }
 
         for (var edge = 0; edge < 6; edge++)
@@ -72,8 +72,8 @@ internal static class HexCage
         for (var vertex = 0; vertex < 6; vertex++)
         {
             var a = VertexAngle(vertex);
-            var postHeight = WallHeight + 0.04f;
-            var p = new Vector3(center.X + (radius * MathF.Cos(a)), surfaceHeight + (postHeight * 0.5f) - 0.01f, center.Z + (radius * MathF.Sin(a)));
+            var postHeight = WallHeight + 0.1127f;
+            var p = new Vector3(center.X + (radius * MathF.Cos(a)), surfaceHeight + (postHeight * 0.5f) - 0.02817f, center.Z + (radius * MathF.Sin(a)));
             AddBox(world, visuals, p, FacingNormal(a), new Vector3(PostHalf, postHeight * 0.5f, PostHalf), PadColor, solid: false);
         }
     }
@@ -86,7 +86,7 @@ internal static class HexCage
 
         // 壁の箱: 内側の面が辺（キャンバスの縁）に付く。角の外側の隙間は、外側の面を伸ばした分（t·tan30°）の長さで埋める。
         var halfLength = (radius * 0.5f) + (WallThickness * MathF.Tan(MathF.PI / 6f));
-        var bottom = surfaceHeight - 0.03f; // 床のエプロンに重ねて隙間を作らない
+        var bottom = surfaceHeight - 0.08451f; // 床のエプロンに重ねて隙間を作らない
         var halfY = (surfaceHeight + WallHeight - bottom) * 0.5f;
         var wallCenter = center + (normal * (apothem + (WallThickness * 0.5f)));
         wallCenter.Y = bottom + halfY;
@@ -94,7 +94,7 @@ internal static class HexCage
 
         // 金網の見た目: 辺の内側の面に、辺に沿った幅 L・高さ H の面の中に斜め 45° の細い棒を 2 方向に並べる。
         var length = radius;
-        var inner = center + (normal * (apothem - 0.004f));
+        var inner = center + (normal * (apothem - 0.01127f));
         var step = RodPitch * MathF.Sqrt(2f);
         for (var sign = -1; sign <= 1; sign += 2)
         {
@@ -130,11 +130,11 @@ internal static class HexCage
         }
 
         // 上端・下端のパッド（辺に沿う長い箱、黒）。
-        var railLength = (radius * 0.5f) + 0.02f;
-        var top = center + (normal * (apothem + 0.004f)) + (Vector3.UnitY * (surfaceHeight + WallHeight));
-        visuals.Add(Instance(top, q, new Vector3(railLength, RailHalf, RailHalf + 0.008f), PadColor));
-        var foot = center + (normal * (apothem + 0.004f)) + (Vector3.UnitY * (surfaceHeight + 0.01f));
-        visuals.Add(Instance(foot, q, new Vector3(railLength, 0.012f, RailHalf), PadColor));
+        var railLength = (radius * 0.5f) + 0.05634f;
+        var top = center + (normal * (apothem + 0.01127f)) + (Vector3.UnitY * (surfaceHeight + WallHeight));
+        visuals.Add(Instance(top, q, new Vector3(railLength, RailHalf, RailHalf + 0.02254f), PadColor));
+        var foot = center + (normal * (apothem + 0.01127f)) + (Vector3.UnitY * (surfaceHeight + 0.02817f));
+        visuals.Add(Instance(foot, q, new Vector3(railLength, 0.0338f, RailHalf), PadColor));
     }
 
     private static void AddBox(PhysicsWorld world, List<PrimitiveInstance> visuals, Vector3 position, Quaternion orientation, Vector3 halfExtents, Vector4 color, bool solid)

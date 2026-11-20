@@ -84,7 +84,7 @@ internal static class TvBodyWords
 /// テレビ中継の生の記録（<c>*.telemetry.json</c>、描画・音と同じく試合には触れない。読むだけ）: 実況・解説の LLM に渡す、言葉で
 /// 情景を思い描けるくらいの細かい情報（2026-11-17、ユーザーの指定）。
 /// <list type="bullet">
-/// <item>0.1 秒ごとの姿勢: 頭・両拳の位置（自分の腰から、相手の方を前にして、前・左・床からの高さ）、腰の高さ、前傾・横の傾き、
+/// <item>0.168 秒（試合の時間）ごとの姿勢: 頭・両拳の位置（自分の腰から、相手の方を前にして、前・左・床からの高さ）、腰の高さ、前傾・横の傾き、
 /// 相手への向き、相手との距離、スタミナ・意識・ダウン、いまの技と守り。長さは選手の身長に合わせた人の大きさの cm。</item>
 /// <item>当たりごと: 打った側・技・手足・打たれた場所（細かい呼び名）・急所・速さ・運動量・エネルギー・ダメージ、その歩で削れたセル
 /// （場所 × 材質）。</item>
@@ -93,7 +93,7 @@ internal static class TvBodyWords
 /// </summary>
 internal sealed class TvTelemetry
 {
-    private const float SampleSeconds = 0.1f;
+    private const float SampleSeconds = 0.168f;
 
     private static readonly JsonSerializerOptions JsonOptions = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 

@@ -50,15 +50,15 @@
   "crowd": { "reactionGain": 1.2, "ambienceGain": 0.6 },
   "countsDowns": false,
   // 試合の決まり（ユーザーの指定 2026-11-18）: 判定しない（5 ラウンドを終えて両者が生きていれば両者生還の引き分け）・レフェリーなし・六角形の金網の檻。
-  // 傷は休みの間に、生きている所に接する壊れた所から確率で少しずつ戻る（前線の再生 regrowth: 速さ 0.5 mm/s・抽選 0.25 s ごと（MatchRules.Vfc と同じ。根拠はそこ）。軽い傷は休み 1 回でおおよそ戻り、
-  // 失った手足は戻りきらない）。ラウンド中に両者が倒れて意識だけでは立てないときも再生し、3 s ごとに倍の速さになる。WVC の予算で治す再生（regenerates）は使わない。
+  // 傷は休みの間に、生きている所に接する壊れた所から確率で少しずつ戻る（前線の再生 regrowth: 速さ 0.84 mm/s・抽選 0.42 s ごと（MatchRules.Vfc と同じ。根拠はそこ）。軽い傷は休み 1 回でおおよそ戻り、
+  // 失った手足は戻りきらない）。ラウンド中に両者が倒れて意識だけでは立てないときも再生し、5 s ごとに倍の速さになる。WVC の予算で治す再生（regenerates）は使わない。
   // 休みの間に、失った武器（落とした・折れて捨てた・手を失った）を、手が武器を保持できれば同じ種類で支給する（resupplyWeapons）。
   "match": {
     "judgesDecision": false,
     "regenerates": false,
     "referee": false,
     "arena": "hexCage",
-    "regrowth": { "speed": 0.0005, "tickSeconds": 0.25, "stuckDoublingSeconds": 3 },
+    "regrowth": { "speed": 0.000839, "tickSeconds": 0.4196, "stuckDoublingSeconds": 5.035 },
     "resupplyWeapons": true
   },
   "text": {
@@ -106,7 +106,7 @@
     "comeback": 4,
     "bothHurt": 4,
     "bothHurtDamage": 200,
-    "quickSeconds": 15,
+    "quickSeconds": 25.18,
     "quickPenalty": 8,
     "drawPenalty": 2
   },

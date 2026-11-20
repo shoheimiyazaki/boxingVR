@@ -31,10 +31,10 @@ public sealed class BoneBreakProbe
         })
         {
             TestContext.WriteLine($"{kind}: half {half} mass {mass:0.000} kg");
-            foreach (var speed in new[] { 1f, 2f, 3f, 4f, 6f })
+            foreach (var speed in new[] { 1.678f, 3.357f, 5.035f, 6.714f, 10.07f })
             {
                 var line = $"  v {speed:0.0} m/s:";
-                foreach (var behind in new[] { 0f, 0.5f, 1f, 2f, 4f })
+                foreach (var behind in new[] { 0f, 5f, 10f, 20f, 40f })
                 {
                     var (bent, ratio, force) = Hit(kind, half, mass, speed, behind);
                     line += string.Create(CultureInfo.InvariantCulture, $"  M{behind:0.0}: {(bent ? "BREAK" : "ok")} F {force:0} N");
@@ -58,10 +58,19 @@ public sealed class BoneBreakProbe
             var grid = BoxerAnatomy.Build(kind, half, tuning.VoxelSize);
             var axis = kind is BodyPartKind.Forearm or BodyPartKind.UpperArm ? 0 : 1;
             var across = axis == 0 ? Vector3.UnitZ : Vector3.UnitZ;
+            // 折れる力を ×1.1 の格子で上から挟み、二分法で 0.1 % まで詰める（格子だけでは ±10 % の段になって比べられない）。
+            bool Breaks(float f) => Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, Vector3.Zero, -across * f, axis, loadBearingOnly: true) is not null;
             var force = 1f;
-            while (force < 1e5f && Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, Vector3.Zero, -across * force, axis, loadBearingOnly: true) is null)
+            while (force < 1e6f && !Breaks(force))
             {
                 force *= 1.1f;
+            }
+
+            var low = force / 1.1f;
+            while (force - low > force * 1e-3f)
+            {
+                var mid = (low + force) * 0.5f;
+                if (Breaks(mid)) { force = mid; } else { low = mid; }
             }
 
             var k = Aigis.Physics.Voxels.VoxelBending.BeamStiffness(grid, across, axis, loadBearingOnly: true) ?? 0f;
@@ -79,13 +88,13 @@ public sealed class BoneBreakProbe
         var axis = kind is BodyPartKind.Forearm or BodyPartKind.UpperArm ? 0 : 1;
         var limb = new VoxelBody(world, id, grid) { BeamAxis = axis };
         // 骨の軸に直角（Z）から、部位の真ん中へ。
-        var glove = Weapon.CreateWorn(world, WeaponKind.Glove, BoxerAnatomy.RedGlove, new Vector3(0f, 0f, half.Z + 0.03f), Quaternion.Identity);
+        var glove = Weapon.CreateWorn(world, WeaponKind.Glove, BoxerAnatomy.RedGlove, new Vector3(0f, 0f, half.Z + 0.0845f), Quaternion.Identity);
         world.SetLinearVelocity(glove.Body.BodyId, new Vector3(0f, 0f, -speed));
         world.SetPairCollisionEnabled(id, glove.Body.BodyId, false);
         var bent = false;
         var ratio = 0f;
         var force = 0f;
-        for (var i = 0; i < 60 && !bent; i++)
+        for (var i = 0; i < 101 && !bent; i++)
         {
             var sg = world.GetState(glove.Body.BodyId);
             var sl = world.GetState(id);
@@ -113,7 +122,7 @@ public sealed class BoneBreakProbe
             {
                 using var game = new BoxingGame(seed: seed, corners: new BoxingCorners(blue, s => BotCatalog.Create(blue, s), s => BotCatalog.Create(red, s)));
                 var lines = new List<string>();
-                for (var t = 0f; t < 60f && !game.RoundOver; t += 1f / 60f)
+                for (var t = 0f; t < 100.7f && !game.RoundOver; t += 1f / 60f)
                 {
                     game.Step(default, 1f / 60f);
                     foreach (var b in game.BrokenBones)
@@ -131,7 +140,7 @@ public sealed class BoneBreakProbe
             }
         }
 
-        TestContext.WriteLine($"{bouts} bouts x 60 s: {breaks} broken bones ({string.Join(", ", byPart.Select(kv => $"{kv.Key} {kv.Value}"))}), {severs} severed");
+        TestContext.WriteLine($"{bouts} bouts x 101 s: {breaks} broken bones ({string.Join(", ", byPart.Select(kv => $"{kv.Key} {kv.Value}"))}), {severs} severed");
     }
 
     [TestMethod]
@@ -142,7 +151,7 @@ public sealed class BoneBreakProbe
             using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("slugger", s => BotCatalog.Create("slugger", s), s => BotCatalog.Create("champion", s)));
             var breaks = new List<string>();
             var maxMassBehind = 0f;
-            for (var t = 0f; t < 60f && !game.RoundOver; t += 1f / 60f)
+            for (var t = 0f; t < 100.7f && !game.RoundOver; t += 1f / 60f)
             {
                 game.Step(default, 1f / 60f);
                 breaks.AddRange(game.BrokenBones.Select(b => string.Create(CultureInfo.InvariantCulture, $"{t:0.0}s {b.Victim.Name} {b.Part}")));

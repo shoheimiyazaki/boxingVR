@@ -4,7 +4,7 @@ namespace MiniRing.Motion;
 
 /// <summary>
 /// 片手剣と盾の型。<see cref="SwordForms"/> と同じ作り方（キーを滑らかにつないだ <see cref="SwordMotion"/>）で、右手の剣の経路と、左手（盾をはめた手）の経路を
-/// 目標として書く（CLAUDE.md §1.2: 姿勢を書き込まない。体がバネで追った結果が見た目になる）。長さは腕の長さ = 1（人形で 0.188 m）。
+/// 目標として書く（CLAUDE.md §1.2: 姿勢を書き込まない。体がバネで追った結果が見た目になる）。長さは腕の長さ = 1（人の大きさの体で 0.53 m）。
 /// <para>
 /// 剣は片手（<see cref="MiniRing.Weapons.WeaponKind.IronSword"/>: 握りの真ん中を握る。握りから切っ先まで 1.58 腕の長さ）。両手の間隔は無く、左手は盾の位置として
 /// キーに書く（<see cref="SwordKey.Left"/>）。盾は拳にはめた丸い板で、表（椀の側）は <see cref="ShieldFacing"/> の向き。

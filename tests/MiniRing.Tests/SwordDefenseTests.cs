@@ -27,14 +27,14 @@ public sealed class SwordDefenseTests
         Vector3.Normalize(new Vector3(0f, -0.8f, 0.6f)), Vector3.Zero, 0f, Vector3.Zero);
 
     private static SwordsmanBot Bot(SwordDefense defense) =>
-        new([new MotionTechnique("men", WeaponKind.Katana, SwordForms.Katana()[0], 0.45f)], Guard, seed: 1, rate: 1.77f, defense: defense);
+        new([new MotionTechnique("men", WeaponKind.Katana, SwordForms.Katana()[0], 1.268f)], Guard, seed: 1, rate: 1.055f, defense: defense);
 
-    /// <summary>相手の剣先が、上から自分の頭へ速く振り下ろされてくる見え方（相手は 50 cm 前）。</summary>
+    /// <summary>相手の剣先が、上から自分の頭へ速く振り下ろされてくる見え方（相手は 1.4 m 前）。</summary>
     private static FighterSense Incoming(bool blade) =>
-        new(new BodyFrame(Vector3.Zero, 0f), 0.17f, new Vector3(0f, 0.1f, 0.5f), new Vector3(0f, 0f, 0.5f), OpponentAlive: true,
-            SelfHead: new Vector3(0f, 0.08f, 0f),
-            OpponentBody: new BodySense(new Vector3(0.05f, 0.05f, 0.45f), new Vector3(-0.05f, 0.05f, 0.45f), new Vector3(0f, -0.15f, 0.5f)),
-            OpponentBlade: blade ? new BladeSense(true, new Vector3(0f, 0.1f, 0.4f), new Vector3(0f, 0.25f, 0.05f), new Vector3(0f, -3f, -0.5f)) : default,
+        new(new BodyFrame(Vector3.Zero, 0f), 0.4789f, new Vector3(0f, 0.2817f, 1.408f), new Vector3(0f, 0f, 1.408f), OpponentAlive: true,
+            SelfHead: new Vector3(0f, 0.2254f, 0f),
+            OpponentBody: new BodySense(new Vector3(0.1408f, 0.1408f, 1.268f), new Vector3(-0.1408f, 0.1408f, 1.268f), new Vector3(0f, -0.4225f, 1.408f)),
+            OpponentBlade: blade ? new BladeSense(true, new Vector3(0f, 0.2817f, 1.127f), new Vector3(0f, 0.7042f, 0.1408f), new Vector3(0f, -5.035f, -0.8392f)) : default,
             SelfArmed: true);
 
     [TestMethod]
@@ -64,7 +64,7 @@ public sealed class SwordDefenseTests
     {
         // 同じ剣先の動きでも、相手が遠く（剣が届かない）なら守らない。
         var far = Incoming(blade: true);
-        far = far with { OpponentBody = new BodySense(new Vector3(0.05f, 0.05f, 1.5f), new Vector3(-0.05f, 0.05f, 1.5f), new Vector3(0f, -0.15f, 1.5f)) };
+        far = far with { OpponentBody = new BodySense(new Vector3(0.1408f, 0.1408f, 4.225f), new Vector3(-0.1408f, 0.1408f, 4.225f), new Vector3(0f, -0.4225f, 4.225f)) };
         var bot = Bot(new SwordDefense());
         _ = bot.Read(far, 1f / 60f);
         Assert.IsFalse(bot.Defending);
@@ -127,16 +127,16 @@ public sealed class SwordDefenseTests
     [TestMethod]
     public void OneHanded_ASideKnockTurnsTheKatanaFurther_ThanTwoHanded()
     {
-        // 刀を前へ水平に構えさせ、両手で 1 秒持つ（片手の方は、ここで左手を放す: 手首のバネ 1/3）。0.5 秒置いてから、刀を横から
+        // 刀を前へ水平に構えさせ、両手で 1.7 秒持つ（片手の方は、ここで左手を放す: 手首のバネ 1/3）。0.84 秒置いてから、刀を横から
         // 打たれたように鉛直の軸のまわりへ回す力積を与え、構えからいちばん大きくそれた角度を測る。バネが弱いほど大きくそれる。
-        static float Knocked(bool letGo, float knock = 0.02f)
+        static float Knocked(bool letGo, float knock = 0.9456f)
         {
             var hold = new MotionFrame(new Vector3(-0.1f, -0.2f, 0.75f), new Vector3(-0.1f, -0.2f, 0.29f), Vector3.UnitZ, -Vector3.UnitY, Vector3.Zero, 0f, Vector3.Zero);
             using var game = new BoxingGame(SwordStance.Tuning, seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(),
                 _ => new MotionImitation(new SwordMotion("hold", 1f / 60f, [hold, hold]), loop: true), PlayerWeapon: WeaponKind.Katana, PlayerTwoHanded: true,
-                Ring: new RingLayout(2.4f, 1.6f)));
+                Ring: new RingLayout(6.761f, 4.507f)));
             // 的は刀の届かない所に立たせる（前へ構えた刀が的の胸に当たって止まると、回りにくさが手首のバネでなく当たりで決まる）。
-            for (var t = 0f; t < 1f; t += 1f / 240f)
+            for (var t = 0f; t < 1.678f; t += 1f / 240f)
             {
                 game.Step(default, 1f / 240f);
             }
@@ -147,7 +147,7 @@ public sealed class SwordDefenseTests
                 Assert.IsTrue(game.Player.HoldsOneHanded(Hand.Right));
             }
 
-            for (var t = 0f; t < 0.5f; t += 1f / 240f)
+            for (var t = 0f; t < 0.8392f; t += 1f / 240f)
             {
                 game.Step(default, 1f / 240f);
             }
@@ -157,7 +157,7 @@ public sealed class SwordDefenseTests
             var before = Axis();
             game.World.ApplyAngularImpulse(id, new Vector3(0f, knock, 0f));
             var worst = 0f;
-            for (var t = 0f; t < 0.4f; t += 1f / 240f)
+            for (var t = 0f; t < 0.6714f; t += 1f / 240f)
             {
                 game.Step(default, 1f / 240f);
                 worst = MathF.Max(worst, MathF.Acos(Math.Clamp(Vector3.Dot(Axis(), before), -1f, 1f)));

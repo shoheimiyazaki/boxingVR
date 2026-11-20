@@ -388,7 +388,7 @@ public sealed class LiveStreamTests
     {
         var broadcast = new Broadcast("赤", "青", "jabber", "slugger");
         using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("slugger", s => BotCatalog.Create("slugger", s), s => BotCatalog.Create("jabber", s)), rules: MatchRules.Tv);
-        const float seconds = 12f;
+        const float seconds = 20.14f;
         const float dt = 1f / 60f;
         var pieces = new float[(int)((seconds + 4f) * Rate)];
         Broadcast.MixAmbience(pieces, Rate, seed: 3);

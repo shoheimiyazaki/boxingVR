@@ -1,7 +1,7 @@
 namespace MiniRing.Tests;
 
 /// <summary>
-/// CPU 同士で 30 秒打ち合い、ヒットの分布が「急所がばらける・体重の乗り方に幅がある・スタミナが減る」ことを確かめる。
+/// CPU 同士で 50 秒（人形の単位で 30 秒）打ち合い、ヒットの分布が「急所がばらける・体重の乗り方に幅がある・スタミナが減る」ことを確かめる。
 /// 集計は標準出力にも出す（--logger "console;verbosity=detailed" で見える。調整の目安）。
 /// </summary>
 [TestClass]
@@ -14,7 +14,7 @@ public sealed class MatchStatsProbe
         using var game = new BoxingGame(seed: 11);
         var ai = new AiControl(99, 0.8f);
         var hits = new List<HitEvent>();
-        for (var i = 0; i < 60 * 30; i++)
+        for (var i = 0; i < 3021; i++) // 60 Hz の歩で約 50.3 秒
         {
             game.Step(new BoxingInput(ai.Read(game.PlayerSense, 1f / 60f)), 1f / 60f);
             hits.AddRange(game.RecentHits);

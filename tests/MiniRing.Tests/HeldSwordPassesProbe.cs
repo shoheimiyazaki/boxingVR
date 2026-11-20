@@ -14,7 +14,7 @@ public sealed class HeldSwordPassesProbe
     public void KesaThrough_ByPasses()
     {
         var basic = SwordTechnique.Basics.First(t => t.Name == "kesa");
-        var through = basic with { Swing = basic.Swing with { StrikeFist = basic.Swing.StrikeFist + new Vector3(0.1f, -0.2f, 0.35f), StrikeTime = 0.1f } };
+        var through = basic with { Swing = basic.Swing with { StrikeFist = basic.Swing.StrikeFist + new Vector3(0.1f, -0.2f, 0.35f), StrikeTime = 0.1678f } };
         foreach (var passes in new[] { 1, 2, 3 })
         {
             BoxingGame.DefaultMaxContactPasses = passes;

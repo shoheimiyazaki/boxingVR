@@ -139,7 +139,7 @@ public sealed class RoomAssetsTests
             Assert.IsTrue(min.Z >= LivingRoom.MinZ - 0.01f && max.Z <= LivingRoom.MaxZ + 0.01f, $"inside the front and back walls: {label}");
             Assert.IsLessThan(LivingRoom.CeilingHeight, max.Y, $"under the ceiling: {label}");
             // 武器の試合の広いリングでも、テーブルのまわりを歩ける。
-            var (table, tableHalf) = (layout.Center, layout.TableHalf);
+            var (table, tableHalf) = (DisplaySpace.Standard.Point(layout.Center), DisplaySpace.Standard.Length(layout.TableHalf)); // 部屋は表示の空間、リングとテーブルの広さは物理の空間から
             var clearOfTable = max.X < table.X - tableHalf - 0.3f || min.X > table.X + tableHalf + 0.3f
                 || max.Z < table.Z - tableHalf - 0.3f || min.Z > table.Z + tableHalf + 0.3f;
             Assert.IsTrue(clearOfTable, $"room to walk around the table: {label}");

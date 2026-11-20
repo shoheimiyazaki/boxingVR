@@ -11,7 +11,7 @@ public sealed class VrMotionTests
 {
     private static readonly Quaternion Facing = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI); // コントローラ・HMD の前が +Z
 
-    private static FighterSense Sense(float armReach) => new(new BodyFrame(Vector3.Zero, 0f), armReach, default, new Vector3(0f, 1f, 1f), true);
+    private static FighterSense Sense(float armReach) => new(new BodyFrame(Vector3.Zero, 0f), armReach, default, new Vector3(0f, 2.817f, 2.817f), true);
 
     private static XrInputFrame Frame(float leftTrigger, float rightTrigger, Quaternion? rightHand = null) => new(
         new Vector3(0f, 1.58f, 0f), Facing,
@@ -23,7 +23,7 @@ public sealed class VrMotionTests
     public void ReleasedTriggerSlidesAndHeldTriggerGrips()
     {
         var control = new VrPlayerControl(weaponMode: true);
-        var sense = Sense(0.188f);
+        var sense = Sense(0.5296f);
         var command = control.Read(Frame(leftTrigger: 0f, rightTrigger: 1f), sense, 1f / 90f).Player;
         Assert.IsTrue(command.Left.Slide, "トリガーを離した左手は棒を滑らせる");
         Assert.IsFalse(command.Right.Slide, "トリガーを引いた右手は握る");
@@ -36,7 +36,7 @@ public sealed class VrMotionTests
     public void TriggerHasHysteresis()
     {
         var control = new VrPlayerControl(weaponMode: true);
-        var sense = Sense(0.188f);
+        var sense = Sense(0.5296f);
         bool Slide(float trigger) => control.Read(Frame(trigger, 1f), sense, 1f / 90f).Player.Left.Slide;
         Assert.IsTrue(Slide(0.5f), "押した値（0.55）に届かないうちは離したまま");
         Assert.IsFalse(Slide(0.6f));
@@ -48,7 +48,7 @@ public sealed class VrMotionTests
     public void WeaponOrientationIsTheControllerOrientationInTheBodyFrame()
     {
         var control = new VrPlayerControl(weaponMode: true);
-        var sense = Sense(0.188f);
+        var sense = Sense(0.5296f);
         var yawed = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI + 0.5f); // 前（−Z）が、体の前から 0.5 rad 横を向く
         var command = control.Read(Frame(1f, 1f, rightHand: yawed), sense, 1f / 90f).Player;
         var q = command.Right.Orientation ?? throw new AssertFailedException("武器を持つ試合では向きの目標を出す");
@@ -66,7 +66,7 @@ public sealed class VrMotionTests
     public void BareHandsKeepTheOldBehaviour()
     {
         var control = new VrPlayerControl();
-        var command = control.Read(Frame(0f, 0f), Sense(0.188f), 1f / 90f).Player;
+        var command = control.Read(Frame(0f, 0f), Sense(0.5296f), 1f / 90f).Player;
         Assert.IsNull(command.Left.Orientation);
         Assert.IsNull(command.Right.Orientation);
         Assert.IsFalse(command.Left.Slide);
@@ -129,15 +129,15 @@ public sealed class VrMotionTests
     public void RecorderThinsOutFastStepsAndKeepsTheDisplayRate()
     {
         var mapper = new VrPlayerMapper(true);
-        var sense = Sense(0.188f);
+        var sense = Sense(0.5296f);
         var frame = Frame(1f, 1f).ToRaw();
         var fast = new VrMotionRecorder("Staff");
         var display = new VrMotionRecorder("Staff");
         for (var i = 0; i < 480; i++)
         {
             var command = mapper.Read(frame, sense, 1f / 240f).Player;
-            fast.Add(i / 240f, frame, command, mapper, 0.188f);
-            display.Add(i / 90f, frame, command, mapper, 0.188f);
+            fast.Add(i / 240f, frame, command, mapper, 0.5296f);
+            display.Add(i / 90f, frame, command, mapper, 0.5296f);
         }
 
         Assert.IsTrue(fast.Count < 480 && fast.Count > 150, $"240 Hz は間引く: {fast.Count}");
@@ -155,10 +155,10 @@ public sealed class VrMotionTests
         var clip = VrMotionSynth.StaffThrust();
         var frame = clip.Sample(0.45f); // 突きの最中（左手はトリガーを離している）
         Assert.IsTrue(frame.LeftSlide);
-        var small = VrMotionImitation.ToCommand(frame, Sense(0.188f), Vector3.UnitZ);
-        var big = VrMotionImitation.ToCommand(frame, Sense(0.376f), Vector3.UnitZ);
-        Assert.AreEqual(0f, (small.Right.TargetLocal - (frame.RightTarget * 0.188f)).Length(), 1e-6f);
-        Assert.AreEqual(0f, (small.Left.TargetLocal - (frame.LeftTarget * 0.188f)).Length(), 1e-6f);
+        var small = VrMotionImitation.ToCommand(frame, Sense(0.5296f), Vector3.UnitZ);
+        var big = VrMotionImitation.ToCommand(frame, Sense(0.5296f * 2f), Vector3.UnitZ);
+        Assert.AreEqual(0f, (small.Right.TargetLocal - (frame.RightTarget * 0.5296f)).Length(), 1e-6f);
+        Assert.AreEqual(0f, (small.Left.TargetLocal - (frame.LeftTarget * 0.5296f)).Length(), 1e-6f);
         // 腕の長さが 2 倍の人形の目標は、ちょうど 2 倍（比が保たれる）。
         Assert.AreEqual(0f, (big.Right.TargetLocal - (small.Right.TargetLocal * 2f)).Length(), 1e-5f);
         Assert.AreEqual(0f, (big.Left.TargetLocal - (small.Left.TargetLocal * 2f)).Length(), 1e-5f);
@@ -173,7 +173,7 @@ public sealed class VrMotionTests
     {
         var clip = VrMotionSynth.StaffThrust();
         var control = new VrMotionImitation(clip);
-        var sense = Sense(0.188f);
+        var sense = Sense(0.5296f);
         for (var i = 0; i < 120; i++)
         {
             control.Read(sense, 1f / 240f);
@@ -216,7 +216,7 @@ public sealed class VrMotionTests
         try
         {
             var mapper = new VrPlayerMapper(true);
-            var sense = Sense(0.188f);
+            var sense = Sense(0.5296f);
             var frame = Frame(1f, 1f);
             var toggle = frame with { RecordTogglePressed = true };
             using (var session = new VrMotionSession(WeaponKind.Staff, directory, startRecording: false))
@@ -224,15 +224,15 @@ public sealed class VrMotionTests
                 for (var i = 0; i < 30; i++)
                 {
                     var f = i == 5 ? toggle : frame; // 5 歩目で開始
-                    session.Step(f, mapper.Read(f.ToRaw(), sense, 1f / 90f).Player, mapper, 0.188f, 1f / 90f);
+                    session.Step(f, mapper.Read(f.ToRaw(), sense, 1f / 90f).Player, mapper, 0.5296f, 1f / 90f);
                 }
 
                 Assert.IsTrue(session.Recording);
-                session.Step(toggle, mapper.Read(toggle.ToRaw(), sense, 1f / 90f).Player, mapper, 0.188f, 1f / 90f); // 停止して保存
+                session.Step(toggle, mapper.Read(toggle.ToRaw(), sense, 1f / 90f).Player, mapper, 0.5296f, 1f / 90f); // 停止して保存
                 Assert.IsFalse(session.Recording);
                 for (var i = 0; i < 10; i++)
                 {
-                    session.Step(frame, mapper.Read(frame.ToRaw(), sense, 1f / 90f).Player, mapper, 0.188f, 1f / 90f);
+                    session.Step(frame, mapper.Read(frame.ToRaw(), sense, 1f / 90f).Player, mapper, 0.5296f, 1f / 90f);
                 }
             }
 

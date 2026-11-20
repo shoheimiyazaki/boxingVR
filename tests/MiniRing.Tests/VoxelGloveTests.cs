@@ -31,13 +31,13 @@ public sealed class VoxelGloveTests
     [TestMethod]
     public void Punches_LandThroughTheGloves_AndThePaddingSparesTheSkin()
     {
-        // 拳のボット同士 20 秒: 打撃はグローブの接触で数えられ、詰め物が衝撃を広げるので、これまでの拳（エネルギーで掘る）より削れない。
+        // 拳のボット同士 34 秒（人形の単位で 20 秒）: 打撃はグローブの接触で数えられ、詰め物が衝撃を広げるので、これまでの拳（エネルギーで掘る）より削れない。
         static (int Hits, int Lost) Bout(bool voxel, int seed)
         {
             using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("x", s => BotCatalog.Create("swarmer", s), s => BotCatalog.Create("champion", s), VoxelGloves: voxel));
             var start = game.Player.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount) + game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
             var hits = 0;
-            for (var i = 0; i < 60 * 20; i++)
+            for (var i = 0; i < 2014; i++)
             {
                 game.Step(default, 1f / 60f);
                 hits += game.RecentHits.Count;
@@ -46,7 +46,7 @@ public sealed class VoxelGloveTests
             return (hits, start - (game.Player.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount) + game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount)));
         }
 
-        // 1 つの種では 20 秒で削れるのは 3 セルほど（グローブも古い拳も同じ 3）で、足の運びの揺れ 1 つで順位が入れ替わる。
+        // 1 つの種では 34 秒で削れるのは 3 セルほど（グローブも古い拳も同じ 3）で、足の運びの揺れ 1 つで順位が入れ替わる。
         // 削れ方の差は 3 つの種の合計で見る（打撃の数・削れた数とも足し合わせる）。
         static (int Hits, int Lost) Total(bool voxel)
         {
@@ -74,9 +74,9 @@ public sealed class VoxelGloveTests
         var glove = game.GloveOf(game.Cpu, Hand.Left)!;
         var before = glove.Body.Grid.FilledCount;
         var at = game.Cpu.GloveCenter(Hand.Left);
-        var sword = game.AddWeapon(WeaponKind.IronSword, at + new Vector3(0f, 0.06f, 0f), Quaternion.CreateFromAxisAngle(Vector3.UnitZ, 0f));
-        game.World.SetLinearVelocity(sword.Body.BodyId, new Vector3(0f, -5f, 0f));
-        for (var i = 0; i < 8; i++)
+        var sword = game.AddWeapon(WeaponKind.IronSword, at + new Vector3(0f, 0.169f, 0f), Quaternion.CreateFromAxisAngle(Vector3.UnitZ, 0f));
+        game.World.SetLinearVelocity(sword.Body.BodyId, new Vector3(0f, -8.392f, 0f));
+        for (var i = 0; i < 13; i++)
         {
             game.Step(default, 1f / 240f);
         }

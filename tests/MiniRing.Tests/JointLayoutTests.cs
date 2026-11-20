@@ -20,7 +20,7 @@ public sealed class JointLayoutTests
         var elbowToInnerEnd = half.Forearm.X - (Vector3.Distance(forearm.Position, f.ShoulderPosition(Hand.Right)) - LengthOfUpperArm(f));
         Console.WriteLine($"forearm half {half.Forearm.X:0.000}, juts behind the elbow {elbowToInnerEnd:0.000} m, reach {f.ArmReach:0.000}");
         Assert.IsLessThan(0.25f * half.Forearm.X, elbowToInnerEnd, "the forearm hardly juts out behind the elbow (was 0.03 m, 60 % of its half-length)");
-        Assert.AreEqual(0.188f, f.ArmReach, 0.004f, "the arm still reaches as far as before");
+        Assert.AreEqual(0.5296f, f.ArmReach, 0.01127f, "the arm still reaches as far as before");
 
         // かかとは足首から後ろへ、足の長さの 1/4 ほどまで（人の足の比率）。
         foreach (var foot in new[] { Footwork.Lead, Footwork.Rear })

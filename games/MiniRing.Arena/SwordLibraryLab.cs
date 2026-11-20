@@ -22,14 +22,14 @@ namespace MiniRing.Arena;
 internal sealed class SwordLibraryLab(int seed)
 {
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false, IncludeFields = true };
-    private static readonly float[] Ranges = [0.3f, 0.35f, 0.4f, 0.45f, 0.5f, 0.55f, 0.6f, 0.65f, 0.7f, 0.75f, 0.8f];
+    private static readonly float[] Ranges = [0.845f, 0.986f, 1.127f, 1.268f, 1.408f, 1.549f, 1.690f, 1.831f, 1.972f, 2.113f, 2.254f];
     private const string Kendo = "data/mocap/sfu_kendo/";
 
     /// <summary>剣ごと・部位ごとに残す技の数（いちばん効いた順に。同じ部位でも違う形・間合いの技を持たせる）。</summary>
     private const int PerTarget = 3;
 
-    /// <summary>残す技の、いちばん短い間合い [m]（胸と胸。人の大きさでおよそ 1 m）。</summary>
-    private const float MinReach = 0.33f;
+    /// <summary>残す技の、いちばん短い間合い [m]（胸と胸。およそ 0.93 m）。</summary>
+    private const float MinReach = 0.930f;
 
     /// <summary>保存する一覧: 剣ごとの構えのフレームと技。</summary>
     internal sealed record Library(Dictionary<WeaponKind, MotionFrame> Guards, List<MotionTechnique> Techniques);
@@ -46,7 +46,7 @@ internal sealed class SwordLibraryLab(int seed)
             $"体の材質の強さは人形の相似則で人の {MiniRing.Voxels.BoxerAnatomy.Similitude:0.00} 倍（BoxerAnatomy.Doll）。間合いは、物打ち（鍔から切っ先までの先の 4 割）で斬ったボクセル / 60 + 脳しんとう − 自分を斬った分 / 60（決め手）で決める（鍔元や手で押し付けて削った分・押し付けで落とした腕は数えない）。"));
         report.AppendLine();
         report.AppendLine(string.Create(CultureInfo.InvariantCulture,
-            $"日本刀の技は SFU の剣道のモーションキャプチャ（data/mocap/sfu_kendo）から切り出した打ち、ロングソードの技は型の打ち。どれも両手持ちで、人の動きを腕の長さの比で縮め {rate:0.00} 倍の速さでなぞる。技の間合いは、技の動きの中で剣先がいちばん速い時に物打ちが届く距離（一足一刀: 人の剣士の打ち込む距離をそのまま縮めたもの）。構えて立つ相手へその間合い（と前後 5 cm）から 1 回ずつ出して、何を斬ったかを測った。効き = 失わせたボクセル / 60 + 切り落とし × 2 + 死 × 3 + 脳しんとう − 自分を斬った分 / 60。"));
+            $"日本刀の技は SFU の剣道のモーションキャプチャ（data/mocap/sfu_kendo）から切り出した打ち、ロングソードの技は型の打ち。どれも両手持ちで、人の動きを腕の長さの比で縮め {rate:0.00} 倍の速さでなぞる。技の間合いは、技の動きの中で剣先がいちばん速い時に物打ちが届く距離（一足一刀: 人の剣士の打ち込む距離をそのまま縮めたもの）。構えて立つ相手へその間合い（と前後 14 cm）から 1 回ずつ出して、何を斬ったかを測った。効き = 失わせたボクセル / 60 + 切り落とし × 2 + 死 × 3 + 脳しんとう − 自分を斬った分 / 60。"));
         report.AppendLine();
 
         var guards = new Dictionary<WeaponKind, MotionFrame>();
@@ -61,18 +61,18 @@ internal sealed class SwordLibraryLab(int seed)
             {
                 var (from, to) = (MathF.Max(0f, s.Start - 0.3f), MathF.Min(clip.Duration, s.End + 0.35f));
                 var name = string.Create(CultureInfo.InvariantCulture, $"{file[5..^7]}@{s.Start:0.00}");
-                candidates.Add(new MotionTechnique(name, WeaponKind.Katana, MotionRetarget.FromBvh(clip, name, from, to), 0.5f));
+                candidates.Add(new MotionTechnique(name, WeaponKind.Katana, MotionRetarget.FromBvh(clip, name, from, to), 1.408f));
             }
         }
 
         // 日本刀の型（突き・袈裟・逆袈裟・抜き胴・斬り上げ・払い面・引き面）も、モーションキャプチャの打ちと並べて試す。
-        candidates.AddRange(SwordForms.Katana().Select(f => new MotionTechnique(f.Name, WeaponKind.Katana, f, 0.5f)));
+        candidates.AddRange(SwordForms.Katana().Select(f => new MotionTechnique(f.Name, WeaponKind.Katana, f, 1.408f)));
         var forms = SwordForms.Longsword();
         guards[WeaponKind.Longsword] = forms[0].Frames[0];
-        candidates.AddRange(forms.Skip(1).Select(f => new MotionTechnique(f.Name, WeaponKind.Longsword, f, 0.5f)));
+        candidates.AddRange(forms.Skip(1).Select(f => new MotionTechnique(f.Name, WeaponKind.Longsword, f, 1.408f)));
         log.WriteLine($"candidates: {candidates.Count}");
 
-        // 間合いを決める: 技の動きの物打ちが届く距離（一足一刀）。そこから出して、何を斬ったかを測る（前後 5 cm でも測って並べる）。
+        // 間合いを決める: 技の動きの物打ちが届く距離（一足一刀）。そこから出して、何を斬ったかを測る（前後 14 cm でも測って並べる）。
         float armReach;
         using (var probe = new BoxingGame(tuning))
         {
@@ -83,7 +83,7 @@ internal sealed class SwordLibraryLab(int seed)
         foreach (var c in candidates)
         {
             var reach = StrikeDrill.ReachOf(c, armReach);
-            var ranges = new[] { reach - 0.05f, reach, reach + 0.05f };
+            var ranges = new[] { reach - 0.141f, reach, reach + 0.141f };
             var results = new StrikeResult[ranges.Length];
             Parallel.For(0, ranges.Length, i => results[i] = StrikeDrill.Run(c with { Range = ranges[i] }, guards[c.Weapon], rate, tuning));
             var at = results[1];
@@ -96,7 +96,7 @@ internal sealed class SwordLibraryLab(int seed)
 
         report.AppendLine("## 技ごとの、間合いと効き");
         report.AppendLine();
-        report.AppendLine("| 剣 | 技（切り出した所） | 一足一刀の間合い [cm] | 決め手 | 物打ちで斬った | 失わせたボクセル | いちばん斬った部位 | 切り落とし | 死 | 自分を斬った | 決め手（間合い −5 / ±0 / +5 cm） |");
+        report.AppendLine("| 剣 | 技（切り出した所） | 一足一刀の間合い [cm] | 決め手 | 物打ちで斬った | 失わせたボクセル | いちばん斬った部位 | 切り落とし | 死 | 自分を斬った | 決め手（間合い −14 / ±0 / +14 cm） |");
         report.AppendLine("|---|---|---:|---:|---:|---:|---|---|---|---:|---|");
         foreach (var (best, results) in tried)
         {
@@ -214,7 +214,7 @@ internal sealed class SwordLibraryLab(int seed)
             var d = game.Cpu.ChestPosition - game.Player.ChestPosition;
             d.Y = 0f;
             sum += d.Length();
-            close += d.Length() < 0.3f ? 1f : 0f;
+            close += d.Length() < 0.845f ? 1f : 0f;
             count++;
             afterStep?.Invoke(game, t, Swordsman(redBot), Swordsman(blueBot));
         }
@@ -235,7 +235,7 @@ internal sealed class SwordLibraryLab(int seed)
         text.AppendLine();
         text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"各 {bouts} 試合 × {seconds:0} 秒（死んだら終わり）。間合いは胸と胸の水平の距離。"));
         text.AppendLine();
-        text.AppendLine("| 組（赤 対 青） | 平均の間合い [cm] | 30 cm より近かった時間 | 赤が失ったボクセル（平均） | 青が失ったボクセル（平均） | 赤が死んだ | 青が死んだ | 受け（赤/青、平均） | 外し（赤/青、平均） | 武器を落とした（赤/青） |");
+        text.AppendLine("| 組（赤 対 青） | 平均の間合い [cm] | 85 cm より近かった時間 | 赤が失ったボクセル（平均） | 青が失ったボクセル（平均） | 赤が死んだ | 青が死んだ | 受け（赤/青、平均） | 外し（赤/青、平均） | 武器を落とした（赤/青） |");
         text.AppendLine("|---|---:|---:|---:|---:|---:|---:|---|---|---|");
         var usage = new Dictionary<string, (int Count, float Distance)>();
         foreach (var (red, blue) in new[] { (WeaponKind.Katana, WeaponKind.Katana), (WeaponKind.Longsword, WeaponKind.Longsword), (WeaponKind.Katana, WeaponKind.Longsword) })

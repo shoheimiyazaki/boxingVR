@@ -45,7 +45,7 @@ public sealed class HandSkeletonTests
 
                 bones++;
                 var d = Vector3.Distance(CenterOf(grid, state.Placement[i]), positions[i]);
-                // 2 セルまで: 5 mm のセル（2026-11-18）では、手首を斜めに振る手刀の骨が写しの食い違いで 1.77 セル離れる。
+                // 2 セルまで: 14 mm のセル（人形の単位で 5 mm）（2026-11-18）では、手首を斜めに振る手刀の骨が写しの食い違いで 1.77 セル離れる。
                 Assert.IsLessThanOrEqualTo(Cell * 2f, d, $"{shape}: a bone cell is within a cell of its joint-angle position");
                 if (d > Cell * 0.9f)
                 {
@@ -169,7 +169,7 @@ public sealed class HandSkeletonTests
         var remaining = (hand.HandState.Pose.Joint(1, 0) - target) / (start - target);
         Assert.IsLessThan(0.2f, remaining, $"after the settle time ({HandSkeleton.FingerSettleSeconds} s) the finger has covered almost the whole way (left {remaining:P0})");
         Assert.IsGreaterThan(0f, hand.HandState.Pose.Joint(1, 0) - target - 1e-4f, "and it did not overshoot");
-        for (; t < 0.5f; t += Dt)
+        for (; t < 0.8392f; t += Dt)
         {
             hand.SetHandShape(HandShape.SpearHand, Dt);
         }
@@ -200,7 +200,7 @@ public sealed class HandSkeletonTests
         var hand = NewHand(world);
         // 薬指（2）の基節の骨を 1 セル折る。
         hand.Body.Grid.Break(hand.HandState!.Placement[ParentOf(2, FingerSegment.Proximal, 1)], []);
-        for (var t = 0f; t < 1f; t += 1f / 240f)
+        for (var t = 0f; t < 1.678f; t += 1f / 240f)
         {
             hand.SetHandShape(HandShape.SpearHand, 1f / 240f);
         }
@@ -276,7 +276,7 @@ public sealed class HandSkeletonTests
             .MinBy(i => Vector3.Distance(HandSkeleton.Positions(new HandPose(Angles(0f)))[i], HandSkeleton.WristJoint));
         Assert.IsLessThan(Cell * 1.5f, Vector3.Distance(flexed[carpal], extended[carpal]), "the cell at the joint stays");
         var tip = Enumerable.Range(0, HandSkeleton.Parents.Count).MaxBy(i => HandSkeleton.Positions(new HandPose(Angles(0f)))[i].X);
-        Assert.IsGreaterThan(0.02f, Vector3.Distance(flexed[tip], extended[tip]), "the fingertip swings through the range");
+        Assert.IsGreaterThan(0.05634f, Vector3.Distance(flexed[tip], extended[tip]), "the fingertip swings through the range");
     }
 
     [TestMethod]
@@ -375,6 +375,6 @@ public sealed class HandSkeletonTests
         var spear = NewHand(world);
         spear.SetHandShape(HandShape.SpearHand);
         var fist = NewHand(world);
-        Assert.IsGreaterThan(fist.StrikeOffset(Vector3.UnitX)!.Value.X + 0.008f, spear.StrikeOffset(Vector3.UnitX)!.Value.X, "the fingertips reach further from the grip than the knuckles");
+        Assert.IsGreaterThan(fist.StrikeOffset(Vector3.UnitX)!.Value.X + 0.02254f, spear.StrikeOffset(Vector3.UnitX)!.Value.X, "the fingertips reach further from the grip than the knuckles");
     }
 }

@@ -67,7 +67,7 @@ public sealed class StickSwingTests
     {
         var rig = Rig.Value;
         Assert.IsTrue(rig.Body.Armed);
-        Assert.IsTrue(rig.BladeLength > 0.1f);
+        Assert.IsTrue(rig.BladeLength > 0.2817f);
         var random = new Random(3);
         for (var i = 0; i < 20; i++)
         {
@@ -100,7 +100,7 @@ public sealed class StickSwingTests
             }
 
             genes[(k * SwingRig.PerKey) + 3] = rig.Body.Guard.Values[rig.Body.Offsets[StickBody.Ids.ForearmR]];
-            genes[(SwingRig.KeyCount * SwingRig.PerKey) + k] = 0.5f;
+            genes[(SwingRig.KeyCount * SwingRig.PerKey) + k] = 0.8392f;
         }
 
         var trace = rig.Simulate(genes);

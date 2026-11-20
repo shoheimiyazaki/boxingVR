@@ -8,7 +8,7 @@ namespace MiniRing.Tests;
 /// <summary>
 /// 調べもの: グローブの試合（動画と同じ経路: <see cref="VideoMaker.Corners"/>・コーナーから・標準の速さ 30 fps の歩）で、首・腕・脚の梁が曲げで
 /// 折れる数と、折れなかった打撃も含めた首の曲げの比（骨の応力 / 骨の強さ。1 を超えると折れる）の上位を数える。
-/// 環境変数 NECKBOUT_RED / NECKBOUT_BLUE（既定 champion / swarmer）、NECKBOUT_SEEDS（既定 8-27）、NECKBOUT_SECONDS（既定 45）。
+/// 環境変数 NECKBOUT_RED / NECKBOUT_BLUE（既定 champion / swarmer）、NECKBOUT_SEEDS（既定 8-27）、NECKBOUT_SECONDS（既定 75.5）。
 /// </summary>
 [TestClass]
 [TestCategory("Probe")]
@@ -24,7 +24,7 @@ public sealed class NeckBoutProbe
         var range = (Environment.GetEnvironmentVariable("NECKBOUT_SEEDS") ?? "8-27").Split('-');
         var (first, last) = (int.Parse(range[0], CultureInfo.InvariantCulture), int.Parse(range[^1], CultureInfo.InvariantCulture));
         var trace = float.TryParse(Environment.GetEnvironmentVariable("NECKBOUT_TRACE"), CultureInfo.InvariantCulture, out var tr) ? tr : 0f;
-        var seconds = float.TryParse(Environment.GetEnvironmentVariable("NECKBOUT_SECONDS"), CultureInfo.InvariantCulture, out var s) ? s : 45f;
+        var seconds = float.TryParse(Environment.GetEnvironmentVariable("NECKBOUT_SECONDS"), CultureInfo.InvariantCulture, out var s) ? s : 75.5f;
         var frameDt = GameSpeed.Standard / 30f;
         var steps = Math.Max(1, (int)MathF.Ceiling((frameDt / (1f / 60f)) - 1e-3f));
         var stepDt = frameDt / steps;

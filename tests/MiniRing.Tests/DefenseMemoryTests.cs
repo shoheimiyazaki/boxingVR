@@ -121,7 +121,7 @@ public sealed class DefenseMemoryTests
         var learner = Style() with { Attacks = false, ClinchRate = 0f, ThrowRate = 0f };
         var bots = new List<BoxerBot>();
         // 学習と記憶の引き継ぎを検証する対照条件。疲労で攻め手が休み続け、守る機会が消える条件とは分ける。
-        var fresh = FighterTuning.Default with { OxygenStorePerKg = 108_000f };
+        var fresh = FighterTuning.Default with { OxygenStorePerKg = 304_225f };
         using var game = new BoxingGame(fresh, seed: 3, corners: new BoxingCorners("swarmer", s => BotCatalog.Create("swarmer", s), s =>
         {
             var bot = new BoxerBot(learner, s);
@@ -129,11 +129,11 @@ public sealed class DefenseMemoryTests
             return bot;
         }));
         // ボットが作り直されるのは、K.O. などでラウンドを始め直したとき（テレビ中継の決まりのラウンドの区切りでは作り直さない）。
-        // ここでは 15 秒ごとに始め直しを頼んで、その時と同じ道を通す。10 秒ずつでは守りが 30 秒で 2〜4 回しかなく、届いた拳が 0 になる
+        // ここでは 25 秒（人形の単位で 15 秒）ごとに始め直しを頼んで、その時と同じ道を通す。10 秒ずつでは守りが 30 秒で 2〜4 回しかなく、届いた拳が 0 になる
         // 流れもあった（間合いの層のマージ後、2026-11-13）。
         for (var round = 0; round < 3; round++)
         {
-            for (var t = 0f; t < 15f; t += 1f / 60f)
+            for (var t = 0f; t < 25.18f; t += 1f / 60f)
             {
                 game.Step(default, 1f / 60f);
             }

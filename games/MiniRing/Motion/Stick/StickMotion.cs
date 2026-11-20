@@ -151,10 +151,10 @@ public static class StickMotion
     public static StickIkSettings MotionSettings { get; } = StickIkSettings.Default with { Balance = 0f, Effort = 0f };
 
     /// <summary>
-    /// 関節の角を通す低域フィルタの 1 回分の切れ目 [Hz]（前後に 1 回ずつ通す位相の遅れの無いもの。2 回通すので実効の −3 dB は約 0.64 倍の 6.4 Hz）。ゲームの体のサーボ・手足の PD は 5〜9 Hz で、
+    /// 関節の角を通す低域フィルタの 1 回分の切れ目 [Hz]（前後に 1 回ずつ通す位相の遅れの無いもの。2 回通すので実効の −3 dB は約 0.64 倍の 3.8 Hz）。ゲームの体のサーボ・手足の PD は 3〜5.4 Hz で、
     /// それより速い角の変化（IK の収束の揺らぎ）は体が追えない。2 階の差分（加速度）がその揺らぎで膨らまないように落とす。
     /// </summary>
-    public const float SmoothingHz = 10f;
+    public const float SmoothingHz = 5.958f;
 
     /// <param name="body">体。</param>
     /// <param name="step">時刻と今の姿勢から、その歩の指示を出す。</param>

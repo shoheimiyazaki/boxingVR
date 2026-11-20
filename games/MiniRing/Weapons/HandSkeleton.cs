@@ -56,21 +56,21 @@ public sealed class HandPose
 /// 素手の骨格: 手を「掌と、4 本 × 3 節の指」の骨と、その周りの肉・皮膚のセルの並びとして持つ（親セルの表）。手形は各関節の曲げ角で決まり
 /// （<see cref="PoseOf"/>）、親セルは節の向きに沿って並べ直される（<see cref="Positions"/>）。剛体は増やさない（手は 1 つの剛体の中の格子）。
 /// <list type="bullet">
-/// <item>密度: セルは体と同じ 5 mm（<see cref="FighterTuning.VoxelSize"/>。手のセル 1 つの体積は前腕のセルと同じ）。</item>
+/// <item>密度: セルは体と同じ 14 mm（<see cref="FighterTuning.VoxelSize"/>。手のセル 1 つの体積は前腕のセルと同じ）。</item>
 /// <item>大きさ（2026-11-18、ユーザーの指摘「拳が小さく見える」）: 人の握った拳の幅（拳頭の並び）は前腕の太さの 1.1〜1.3 倍
-/// （拳の幅 8.5〜9 cm、前腕の中ほどの太さ 7〜8 cm）。人形の前腕の箱は太さ 32 mm（<see cref="FighterTuning.Scale"/> 0.355 × 0.09 m）なので、
-/// 拳の幅は 8 セル = 40 mm（1.25 倍）。掌は長さ 6 セル（30 mm）・厚さ 3 セル（15 mm）。指は幅 2 セル（10 mm）× 高さ 3 セル（骨 1 セルの上下を皮膚が包み、
-/// 横は隣の指と接する。骨は手の中心の側のセル、外の側は皮膚）で、4 本並べると掌の幅と同じ 40 mm。握った拳の高さは掌と曲げた指で約 30 mm。</item>
+/// （拳の幅 8.5〜9 cm、前腕の中ほどの太さ 7〜8 cm）。前腕の箱は太さ 90 mm（人の 0.09 m）なので、
+/// 拳の幅は 8 セル = 113 mm（1.25 倍）。掌は長さ 6 セル（85 mm）・厚さ 3 セル（42 mm）。指は幅 2 セル（28 mm）× 高さ 3 セル（骨 1 セルの上下を皮膚が包み、
+/// 横は隣の指と接する。骨は手の中心の側のセル、外の側は皮膚）で、4 本並べると掌の幅と同じ 113 mm。握った拳の高さは掌と曲げた指で約 85 mm。</item>
 /// <item>指の節の長さ（セル）: 人さし指・薬指 4・2・1、中指 4・2・2、小指 3・2・1（<see cref="LengthsHalf"/>）。</item>
 /// <item>手首の関節（<see cref="WristJoint"/>、手根骨の真ん中）が回転の中心。腕の先が手を握る点（<see cref="Wrist"/>）はその半セル後ろ（掌の後ろの面）。手首の動く範囲は人の可動域（<see cref="Range"/>: 掌屈 80°・背屈 70°・橈屈 20°・尺屈 30°）で、手形はその範囲の関節角で作る。</item>
 /// <item>材質は手の組織（<see cref="BoxerAnatomy.HandSkin"/>・<see cref="BoxerAnatomy.HandMuscle"/>・<see cref="BoxerAnatomy.HandBone"/>: 見た目は皮膚・肉・骨、物性は木）。</item>
 /// </list>
-/// 座標は半セル（<see cref="H"/> = 2.5 mm）の整数で書く。格子は原点を挟んで偶数個のセルなので、奇数がセルの中心、偶数がセルの境。
+/// 座標は半セル（<see cref="H"/> = 7 mm）の整数で書く。格子は原点を挟んで偶数個のセルなので、奇数がセルの中心、偶数がセルの境。
 /// </summary>
 internal static class HandSkeleton
 {
     /// <summary>セルの一辺 [m]（体のボクセルと同じ。<see cref="FighterTuning.VoxelSize"/>）。</summary>
-    public const float Cell = 0.005f;
+    public const float Cell = 0.01408f;
 
     /// <summary>半セル [m]。寸法はこの整数倍で書く。</summary>
     private const float H = 0.5f * Cell;
@@ -108,8 +108,8 @@ internal static class HandSkeleton
     private static float BoneSide(int finger) => finger is < 2 or Thumb ? 1f : -1f;
 
     /// <summary>
-    /// 指ごとの節の長さ [半セル]（基節・中節・末節）。人の指の骨（中指で 45・26・18 mm、拳の幅 85 mm）を拳の幅の比 40 / 85 で縮め、セルに丸めた:
-    /// 中指 20・10・10 mm（40 mm）、人さし指・薬指 20・10・5 mm、小指 15・10・5 mm。指の長さは掌（30 mm）より少し長い（人と同じ）。
+    /// 指ごとの節の長さ [半セル]（基節・中節・末節）。人の指の骨（中指で 45・26・18 mm、拳の幅 85 mm）を人形の単位の拳の幅の比 40 / 85 で縮め、セルに丸めた
+    /// （以下の mm は人形の単位。実物大では 2.8 倍）: 中指 20・10・10 mm（40 mm）、人さし指・薬指 20・10・5 mm、小指 15・10・5 mm。指の長さは掌（30 mm）より少し長い（人と同じ）。
     /// 貫手では中指の先が前に出る。
     /// </summary>
     private static readonly float[][] LengthsHalf = [[8f, 4f, 2f], [8f, 4f, 4f], [8f, 4f, 2f], [6f, 4f, 2f], [6f, 4f, 4f]]; // 親指: 中手骨 15・基節 10・末節 10 mm（人の 45・30・22 mm を 40/85 で丸め、基節を 1 セル短く: 拳の前を人さし指・中指の 2 本ぶんだけ横切る。ピクセル画の参考）
@@ -346,13 +346,13 @@ internal static class HandSkeleton
     // ── 関節の動き（バネ・ダンパ）: 時間は人の測定から、強さはその時間と慣性から ──
 
     /// <summary>
-    /// 指が目標の曲げ角に落ち着くまでの時間 [s]（臨界減衰の 95 %）。人が拳を握るのに 0.1 s ほど、人形の縮尺（長さ 1/3.5。
-    /// 重力下の振り子の時間は長さの平方根に比例）で 0.1 × 0.53 ≈ 0.055 s。
+    /// 指が目標の曲げ角に落ち着くまでの時間 [s]（臨界減衰の 95 %）。人が拳を握るのに 0.1 s ほど（人形の単位では、重力下の振り子の時間が
+    /// 長さの平方根に比例するので 0.1 × 0.53 ≈ 0.055 s にしていた。その換算 0.055 × 1.6784）。
     /// </summary>
-    public const float FingerSettleSeconds = 0.055f;
+    public const float FingerSettleSeconds = 0.0923f;
 
     /// <summary>手首が目標の向きに落ち着くまでの時間 [s]。手全体を回すので指より少しゆっくり（人の手首は指の 1.5 倍ほど）。</summary>
-    public const float WristSettleSeconds = 0.08f;
+    public const float WristSettleSeconds = 0.1343f;
 
     /// <summary>力を抜いた手へ戻そうとする受け身の力（腱・関節包のばね）の、完全に力を入れたときの強さに対する割合。力が入らない関節（折れた骨の節）はこれだけで保たれる。</summary>
     public const float PassiveShare = 0.02f;

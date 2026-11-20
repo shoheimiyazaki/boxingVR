@@ -108,8 +108,7 @@ public sealed record FaceCam
         var eye = head.Position + Vector3.Transform(new Vector3(0f, 0f, DistanceInHeadHalfHeights * halfHeight), head.Orientation);
         var target = head.Position + Vector3.Transform(new Vector3(0f, AimAboveCenter * halfHeight, 0f), head.Orientation);
         var up = Vector3.Transform(Vector3.UnitY, head.Orientation);
-        var viewProjection = Aigis.Render.Camera.ViewProjection(eye, target, up, FovYDegrees * MathF.PI / 180f, aspect, NearPlane, FarPlane);
-        return (viewProjection, eye);
+        return game.Display.Camera(eye, target, up, FovYDegrees * MathF.PI / 180f, aspect, NearPlane, FarPlane); // 頭（物理の空間）→ 表示の空間
     }
 
     /// <summary>1 つの顔の窓の描き方（窓の中へ、下の画面の上に重ねる）。</summary>

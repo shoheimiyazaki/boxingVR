@@ -11,7 +11,7 @@ namespace MiniRing.Tests;
 /// <summary>
 /// 診断用（VFC の骨折の治り方、2026-11-18 ユーザーの指定「曲がったままつながるように。先に肉を直して、バネが硬くなってやや真っすぐなってから最後に骨が
 /// なおって骨折による関節は固定」）: 右前腕と左上腕を打撃の曲げで折り、肉の橋を 1/8 だけ残してぶら下げる。VFC の決まり（短いラウンド・休み 25 秒）・檻で回し、
-/// 肉が戻る → バネが固くなってやや真っすぐ → 骨がつながって固定、を正面から撮る（ゲームの 0.5 秒 = 動画の 1 コマの早回し）。
+/// 肉が戻る → バネが固くなってやや真っすぐ → 骨がつながって固定、を正面から撮る（ゲームの 0.84 秒 = 動画の 1 コマの早回し）。
 /// docs/video/vfc_fracture_healing.mp4 と、10 コマごとの PNG を書く。
 /// </summary>
 [TestClass]
@@ -23,7 +23,7 @@ public sealed class FractureHealingVisualProbe
     public void BentArms_HealBent_Closeup()
     {
         const int Width = 960, Height = 540, Fps = 30;
-        const float GamePerFrame = 0.5f, Dt = 1f / 120f;
+        const float GamePerFrame = 0.8392f, Dt = 1f / 120f;
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "CLAUDE.md")))
         {
@@ -33,7 +33,7 @@ public sealed class FractureHealingVisualProbe
         Assert.IsNotNull(root);
         var output = Path.Combine(root.FullName, "docs", "video", "vfc_fracture_healing.mp4");
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
-        var rules = MatchRules.Vfc with { RoundSeconds = 3f, Rounds = 6, BreakSeconds = 25f };
+        var rules = MatchRules.Vfc with { RoundSeconds = 5.035f, Rounds = 6, BreakSeconds = 41.96f };
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", _ => new StandGuard(), _ => new StandGuard(), Referee: false, Ring: RingLayout.Cage), rules: rules);
         using var renderer = new HeadlessRenderer(Width, Height);
         using var ffmpeg = Process.Start(new ProcessStartInfo("ffmpeg", $"-y -loglevel error -f rawvideo -pix_fmt rgba -s {Width}x{Height} -r {Fps} -i - -c:v libx264 -pix_fmt yuv420p -crf 20 -preset fast \"{output}\"")
@@ -46,7 +46,7 @@ public sealed class FractureHealingVisualProbe
         (int Stub, int Piece, string Name)[] breaks = [];
         var time = 0f;
         var round = 0;
-        for (var frame = 0; time < rules.TotalSeconds - 1f; frame++)
+        for (var frame = 0; time < rules.TotalSeconds - 1.678f; frame++)
         {
             for (var t = 0f; t < GamePerFrame; t += Dt)
             {
@@ -54,21 +54,22 @@ public sealed class FractureHealingVisualProbe
                 time += Dt;
             }
 
-            if (breaks.Length == 0 && time > 1f)
+            if (breaks.Length == 0 && time > 1.678f)
             {
                 breaks = [Bend(game, f, f.ForearmId(Hand.Right), "右前腕"), Bend(game, f, f.UpperArmId(Hand.Left), "左上腕")];
             }
 
             round = game.InBreak ? round : game.MatchRound;
             var chest = f.ChestPosition;
-            var target = chest - new Vector3(0f, 0.05f, 0f);
-            var eye = target + (f.Frame.Forward * 0.36f) + new Vector3(0f, 0.03f, 0f);
-            var vp = Camera.ViewProjection(eye, target, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
+            var target = chest - new Vector3(0f, 0.1408f, 0f);
+            var eye = target + (f.Frame.Forward * 1.014f) + new Vector3(0f, 0.08451f, 0f); // 物理の空間で決めて、表示の空間へ移す（DisplaySpace）
+            var (vp, displayEye) = game.Display.Camera(eye, target, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
             var voxels = f.Voxels!.Parts.Where(p => f.Owns(p.Body.BodyId)).Concat(f.Voxels.Fragments.Where(p => f.HangsByFlesh(p.Body.BodyId) || f.IsKnit(p.Body.BodyId)))
                 .Select(p => p.Draw()).ToList();
+            game.Display.Voxels(voxels); // 物理の空間 → 表示の空間
             var lines = new List<ScreenTextDraw>
             {
-                new("VFC の骨折の治り方: 曲げで折り、肉を 1/8 だけ残してぶら下げる（ゲーム 0.5 秒 = 1 コマ）", new Vector2(20f, 28f), 19f, Vector4.One, TextAnchor.Left),
+                new("VFC の骨折の治り方: 曲げで折り、肉を 1/8 だけ残してぶら下げる（ゲーム 0.84 秒 = 1 コマ）", new Vector2(20f, 28f), 19f, Vector4.One, TextAnchor.Left),
                 new(game.InBreak ? $"休み（残り {game.BreakLeft:0} 秒）" : $"ラウンド {game.MatchRound}", new Vector2(20f, 56f), 20f, Vector4.One, TextAnchor.Left),
             };
             var y = 84f;
@@ -83,7 +84,7 @@ public sealed class FractureHealingVisualProbe
 
             lines.Add(new($"右腕 {(f.ArmSevered(Hand.Right) ? "駆動しない" : "駆動する")}  左腕 {(f.ArmSevered(Hand.Left) ? "駆動しない" : "駆動する")}", new Vector2(20f, y), 20f, Vector4.One, TextAnchor.Left));
             lines.Add(new(time.ToString("0.0", CultureInfo.InvariantCulture) + " s", new Vector2(20f, Height - 30f), 20f, Vector4.One, TextAnchor.Left));
-            var rgba = renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [.. lines], lighting: game.BuildLighting(), cameraPosition: eye, voxels: voxels);
+            var rgba = renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [.. lines], lighting: game.BuildLighting(), cameraPosition: displayEye, voxels: voxels);
             ffmpeg.StandardInput.BaseStream.Write(rgba);
             if (frame % 10 == 0)
             {

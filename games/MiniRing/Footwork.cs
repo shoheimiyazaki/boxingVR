@@ -38,17 +38,17 @@ public sealed record FootworkTuning
     public float MaxSpread { get; init; } = 1.2f;
 
     /// <summary>1 歩にかける時間 [s]（小さな歩幅は短く、最大の歩幅は長く）。</summary>
-    public float StepTimeMin { get; init; } = 0.09f;
-    public float StepTimeMax { get; init; } = 0.17f;
+    public float StepTimeMin { get; init; } = 0.151f;
+    public float StepTimeMax { get; init; } = 0.285f;
 
     /// <summary>1 歩踏んでからこの時間 [s] までに両足とも置き直しが要れば、もう一方の足から踏む（交互に運ぶ）。</summary>
-    public float FollowTime { get; init; } = 0.4f;
+    public float FollowTime { get; init; } = 0.671f;
 
     /// <summary>踏み出す足を持ち上げる高さ（すり足に近く、低い）。</summary>
     public float StepLift { get; init; } = 0.05f;
 
     /// <summary>移動の意図をどれだけ先まで見越して足を置くか [s]。</summary>
-    public float Lookahead { get; init; } = 0.3f;
+    public float Lookahead { get; init; } = 0.503f;
 
     /// <summary>捕捉点が両足の真ん中からこれだけ離れるまでは、構えの中心を動かさない。</summary>
     public float CaptureDeadband { get; init; } = 0.08f;
@@ -71,23 +71,23 @@ public sealed record FootworkTuning
     public float PivotHeelRaiseDegrees { get; init; } = 22f;
 
     /// <summary>体が移動の指令に付いていく遅れ [s]（この間に足が先に踏み出す）。</summary>
-    public float BodyLag { get; init; } = 0.04f;
+    public float BodyLag { get; init; } = 0.0671f;
 
     /// <summary>体を両足の間の支えの点へ寄せる速さ [1/s] と、その速度の上限 [m/s]。</summary>
-    public float Centering { get; init; } = 5f;
-    public float MaxCentering { get; init; } = 0.25f;
+    public float Centering { get; init; } = 2.979f;
+    public float MaxCentering { get; init; } = 0.42f;
 
     /// <summary>体が支えの点からこれだけ離れたら、離れる向きの速さを抑え始める（その倍で止める）。体が足を置いて先へ行かない。</summary>
     public float Tether { get; init; } = 0.25f;
 
     /// <summary>足首を置き場所へ引くバネと減衰 [1/s², 1/s]（手の拳と同じ PD）と、その力の上限（TorqueScale / Scale 倍する前）。</summary>
-    public float FootKp { get; init; } = 900f;
-    public float FootKd { get; init; } = 50f;
+    public float FootKp { get; init; } = 319.5f;
+    public float FootKd { get; init; } = 29.79f;
     public float MaxFootForce { get; init; } = 150f;
 
     /// <summary>
     /// 蹴っている脚の足首を引く力の上限が、歩く足の何倍か。歩く足の上限は床の摩擦に勝つ分で決めた値で、蹴りは脚の筋肉の全力（股・膝・足首）を
-    /// 足首の 1 点の力に置き換える近道。蹴りの足の速さが、人形の拳（3〜6 m/s）に比べて 1 m/s 台だったので上げた（KickContactTests の表）。
+    /// 足首の 1 点の力に置き換える近道。蹴りの足の速さが、人形の拳（3〜6 m/s、人形の単位）に比べて 1 m/s 台だったので上げた（KickContactTests の表）。
     /// </summary>
     public float KickFootForceGain { get; init; } = 4f;
 
@@ -95,8 +95,8 @@ public sealed record FootworkTuning
     /// 膝の制御（蹴り、<see cref="LegCommand.KneeLocal"/>）の膝の点を目標へ引くバネと減衰 [1/s², 1/s]（拳・足首と同じ PD）と、力の上限が歩く足の上限の何倍か。
     /// 足首 1 点だった蹴りの力（<see cref="KickFootForceGain"/>）の考え方を膝へ移した値（調べ方は docs/TAEKWONDO.md）。
     /// </summary>
-    public float KneeKp { get; init; } = 900f;
-    public float KneeKd { get; init; } = 50f;
+    public float KneeKp { get; init; } = 319.5f;
+    public float KneeKd { get; init; } = 29.79f;
     public float KickKneeForceGain { get; init; } = 4f;
 
     /// <summary>
@@ -105,8 +105,8 @@ public sealed record FootworkTuning
     /// </summary>
     public float KickLegTorqueGain { get; init; } = 3f;
 
-    /// <summary>膝の制御で蹴っている脚の、股・膝のサーボの最大の速さ [rad/s]（歩く足は 10）。すねを振る速さの上限（足首 1 点の近道の代わりに、関節の速さの上限で決める）。</summary>
-    public float KickLegServoSpeed { get; init; } = 30f;
+    /// <summary>膝の制御で蹴っている脚の、股・膝のサーボの最大の速さ [rad/s]（歩く足は 5.96）。すねを振る速さの上限（足首 1 点の近道の代わりに、関節の速さの上限で決める）。</summary>
+    public float KickLegServoSpeed { get; init; } = 17.87f;
 
     /// <summary>立っているときの膝の曲げ（骨盤の高さの上限を決める）。</summary>
     public float KneeBendDegrees { get; init; } = 30f;
@@ -123,21 +123,21 @@ public sealed record FootworkTuning
 
     /// <summary>
     /// ステップの脚のバネに貯められるエネルギー [J/kg]（体が支える質量 1 kg あたり、無傷・基準体格の脚。脚の力 <see cref="Fighter.LegStrength"/> に比例）。
-    /// 人のボクシングの踏み込み（0.5〜0.8 m）を人形の縮尺 0.355 に直した 18〜28 cm を、1 回のステップで進むように合わせた値（StepTests: 3 J/kg で
-    /// 前へ 18 cm・後ろへ 24 cm、骨盤の速さの山 0.87・1.01 m/s。歩く指令を同じ時間出すと 5 cm）。蹴る脚の傾きの効率・腕や脚が引きずられる分・着地の減速で、
+    /// 人のボクシングの踏み込み（0.5〜0.8 m）を 1 回のステップで進むように合わせた値（StepTests、人形の単位: 3 J/kg で
+    /// 前へ 18 cm・後ろへ 24 cm、骨盤の速さの山 0.87・1.01 m/s。人の大きさでは 8.45 J/kg で 51 cm・68 cm、1.46・1.70 m/s。歩く指令を同じ時間出すと 14 cm）。蹴る脚の傾きの効率・腕や脚が引きずられる分・着地の減速で、
     /// 貯めた分の一部だけが進む距離になる。
     /// </summary>
-    public float StepSpringPerKg { get; init; } = 3f;
+    public float StepSpringPerKg { get; init; } = 8.451f;
 
     /// <summary>
     /// 脚のバネを縮め直す筋肉の仕事率 [W/kg]（体が支える質量 1 kg あたり、無傷の脚。脚の疲れ（<see cref="Fighter.VigorOf"/> の脚）と脚の力で下がる）。
-    /// 両足が着いていれば貯めきるまで 3 / 8 ≈ 0.4 秒（片足が宙にある間は半分の速さ）。蹴り出しから 95 % まで貯め直すのは測って 0.62 秒（StepTests。
-    /// 足を整え直しながら貯める）、人の踏み込みの間隔 1 秒前後を人形の時間（√0.355 倍）に直した 0.6 秒に合わせた。仕事はスタミナから払う（疲れると 0.97 秒）。
+    /// 両足が着いていれば貯めきるまで 8.45 / 13.4 ≈ 0.63 秒（片足が宙にある間は半分の速さ）。蹴り出しから 95 % まで貯め直すのは測って 1.04 秒（StepTests の人形の単位の 0.62 秒。
+    /// 足を整え直しながら貯める）、人の踏み込みの間隔 1 秒前後に合わせた。仕事はスタミナから払う（疲れると 1.6 秒）。
     /// </summary>
-    public float StepLoadPowerPerKg { get; init; } = 8f;
+    public float StepLoadPowerPerKg { get; init; } = 13.43f;
 
-    /// <summary>脚のバネを放つ時定数 [s]（床を蹴っている長さ。人の蹴り出し 0.1〜0.15 秒を人形の時間 √0.355 倍に直した 0.06〜0.09 秒の、残り 1/e までの時間）。</summary>
-    public float StepPushTime { get; init; } = 0.035f;
+    /// <summary>脚のバネを放つ時定数 [s]（床を蹴っている長さ。人の蹴り出し 0.1〜0.15 秒の、残り 1/e までの時間）。</summary>
+    public float StepPushTime { get; init; } = 0.0587f;
 
     /// <summary>靴底とキャンバスの摩擦係数（ゴムと帆布）。蹴る脚が寝ているほど、水平に押せる力は床を押し付ける力 × これまで。</summary>
     public float StepFriction { get; init; } = 0.8f;
@@ -157,16 +157,16 @@ public sealed record FootworkTuning
     /// <summary>
     /// 着いている足の「置いた所」の記憶が、実際の足の位置へ寄る時定数 [s]（0 以下で毎歩すぐ合わせる＝以前の動き）。足首を引く力（FootKp・MaxFootForce）は
     /// 記憶の位置へ足を留めるので、これが短いと留める力が働かず、もう一方の足を踏み出す反作用で着いた足が滑り、構えの直しの踏み出しが止まらなくなる
-    /// （何も入力しなくても 30 秒で 40〜80 cm 流れた。tests SlideTests の表）。踏み直しの 1 周期（0.2 秒）より十分長く、押され続けて足が動いたときに
-    /// 計画し直せる長さ。測った値: 0.5 秒で 3 歩・4 cm 以内（頭を斜めに向けた姿勢で 11 歩・4.7 cm）、2 秒で全部 3 歩・4 cm 以内。
+    /// （何も入力しなくても 30 秒で 40〜80 cm 流れた。tests SlideTests の表、人形の単位）。踏み直しの 1 周期（0.34 秒）より十分長く、押され続けて足が動いたときに
+    /// 計画し直せる長さ。測った値（人形の単位）: 0.5 秒で 3 歩・4 cm 以内（頭を斜めに向けた姿勢で 11 歩・4.7 cm）、2 秒で全部 3 歩・4 cm 以内。
     /// </summary>
-    public float HoldRelax { get; init; } = 1f;
+    public float HoldRelax { get; init; } = 1.678f;
 
     /// <summary>
     /// 歩く・ステップ・蹴りの指令が止まってから、着いた足の置いた所を留め始めるまでの時間 [s]。止まって構えを整える間（体が止まり、足が構えへ寄る）は
-    /// 足の置き方を実際の足へ合わせ、落ち着いた立ち姿になってから留める。蹴りの手本（KickShin・KneePractice）は止まって 0.4〜0.9 秒で蹴るので、それより長く置いた。
+    /// 足の置き方を実際の足へ合わせ、落ち着いた立ち姿になってから留める。蹴りの手本（KickShin・KneePractice）は止まって 0.7〜1.5 秒で蹴るので、それより長く置いた。
     /// </summary>
-    public float HoldSettleSeconds { get; init; } = 1f;
+    public float HoldSettleSeconds { get; init; } = 1.678f;
 }
 
 /// <summary>1 本の足の置き方（ワールド）: 母指球の位置（地面の上、持ち上げを含む）、つま先の向き、かかとの浮き。</summary>
@@ -235,7 +235,7 @@ public sealed class Footwork
     private float _hipOffset;
     private float _facing;
     private float _reach;
-    private float _legLength = 0.2f;
+    private float _legLength = 0.563f;
 
     public Footwork(FootworkTuning tuning)
     {

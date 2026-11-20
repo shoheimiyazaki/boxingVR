@@ -26,8 +26,9 @@ public sealed class SnapshotTests
         using var renderer = new HeadlessRenderer(Width, Height);
         var (eye, target) = CameraFollow.MatchOpeningView(game.Player.ChestPosition, game.Cpu.ChestPosition, 1f);
         var camera = new Aigis.Player.OrbitCamera();
-        camera.SetView(eye, target);
-        Assert.IsLessThan(0.0001f, Vector3.Distance(eye, camera.Eye));
+        var displayEye = game.Display.Point(eye); // 物理の空間 → 表示の空間（OrbitCamera は表示の空間）
+        camera.SetView(displayEye, game.Display.Point(target));
+        Assert.IsLessThan(0.0001f, Vector3.Distance(displayEye, camera.Eye));
         var view = camera.ViewProjection((float)Width / Height);
         var (instances, lines) = game.BuildRenderables();
         var pixels = Render(renderer, game, view, camera.Eye, instances, lines, []);
@@ -61,20 +62,20 @@ public sealed class SnapshotTests
         using var game = new BoxingGame(seed: 3);
         using var renderer = new HeadlessRenderer(Width, Height);
 
-        // VR で立ったプレイヤーの目線（原点・目の高さ 1.55m）からリングを見下ろす。
+        // VR で立ったプレイヤーの目線（表示の空間の原点・目の高さ 1.55m）から、表示の空間へ移したリング（物理の空間の注視点）を見下ろす。
         var eye = new Vector3(0f, 1.55f, 0.05f);
-        var target = BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight + 0.15f };
+        var target = game.Display.Point(BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight + 0.4225f });
         var viewProjection = Camera.ViewProjection(eye, target, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.02f, 50f);
 
         var time = 0f;
-        foreach (var at in new[] { 0.1f, 2f, 6f })
+        foreach (var at in new[] { 0.168f, 3.357f, 10.07f })
         {
             while (time < at)
             {
                 var player = game.Player;
                 game.Step(new BoxingInput(new FighterCommand(Vector3.Zero, game.Cpu.ChestPosition - player.ChestPosition,
                     new HandCommand(AiControl.Guard(Hand.Left, player.ArmReach), false),
-                    new HandCommand(new Vector3(0.05f, 0.05f, MathF.Sin(time * 3f) > 0.6f ? 1f : 0.5f) * player.ArmReach, false))), 1f / 60f);
+                    new HandCommand(new Vector3(0.05f, 0.05f, MathF.Sin(time * 1.787f) > 0.6f ? 1f : 0.5f) * player.ArmReach, false))), 1f / 60f);
                 time += 1f / 60f;
             }
 
@@ -104,10 +105,10 @@ public sealed class SnapshotTests
         const int Big = 480;
         using var bigRenderer = new HeadlessRenderer(Big, Big);
         var eye = new Vector3(0f, 1.55f, 0.05f);
-        var target = BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight + 0.15f };
+        var target = game.Display.Point(BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight + 0.4225f });
         var viewProjection = Camera.ViewProjection(eye, target, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.02f, 50f);
         var time = 0f;
-        foreach (var at in new[] { 1f, 4f, 8f, 14f })
+        foreach (var at in new[] { 1.678f, 6.714f, 13.43f, 23.5f })
         {
             while (time < at)
             {
@@ -145,17 +146,17 @@ public sealed class SnapshotTests
         Directory.CreateDirectory(outDir);
         using var game = new BoxingGame(seed: 3);
         using var renderer = new HeadlessRenderer(Width, Height);
-        for (var i = 0; i < 60; i++)
+        for (var i = 0; i < 101; i++)
         {
             game.Step(default, 1f / 60f);
         }
 
-        var ring = BoxingGame.RingCenter with { Y = LivingRoom.TableTop + 0.2f };
+        var ring = game.Display.Point(BoxingGame.RingCenter) with { Y = LivingRoom.TableTop + 0.2f }; // 部屋（表示の空間）から見るので、リングの中心を表示の空間へ
         foreach (var (name, eye, target) in new[]
                  {
                      ("corner", new Vector3(LivingRoom.MinX + 0.4f, 1.6f, LivingRoom.MinZ + 0.3f), ring),
                      ("far", new Vector3(LivingRoom.MaxX - 0.5f, 1.5f, LivingRoom.MaxZ - 0.5f), ring),
-                     ("low", BoxingGame.RingCenter + new Vector3(1.9f, 0.7f, -0.8f), ring),
+                     ("low", game.Display.Point(BoxingGame.RingCenter) + new Vector3(1.9f, 0.7f, -0.8f), ring),
                  })
         {
             var viewProjection = Camera.ViewProjection(eye, target, Vector3.UnitY, 70f * MathF.PI / 180f, (float)Width / Height, 0.02f, 50f);
@@ -176,7 +177,7 @@ public sealed class SnapshotTests
         Directory.CreateDirectory(outDir);
         using var game = new BoxingGame(seed: 3);
         using var renderer = new HeadlessRenderer(Width, Height);
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -186,10 +187,9 @@ public sealed class SnapshotTests
         var face = Vector3.Transform(Vector3.UnitZ, head.Orientation) with { Y = 0f };
         face = Vector3.Normalize(face);
         var side = Vector3.Cross(Vector3.UnitY, face);
-        foreach (var (name, offset) in new[] { ("front", face * 0.12f), ("back", (-face * 0.1f) + (side * 0.06f) + new Vector3(0f, 0.05f, 0f)) })
+        foreach (var (name, offset) in new[] { ("front", face * 0.338f), ("back", (-face * 0.2817f) + (side * 0.169f) + new Vector3(0f, 0.1408f, 0f)) })
         {
-            var eye = head.Position + offset;
-            var viewProjection = Camera.ViewProjection(eye, head.Position, Vector3.UnitY, 40f * MathF.PI / 180f, (float)Width / Height, 0.005f, 20f);
+            var (viewProjection, eye) = game.Display.Camera(head.Position + offset, head.Position, Vector3.UnitY, 40f * MathF.PI / 180f, (float)Width / Height, 0.005f, 20f);
             var (instances, lines) = game.BuildRenderables();
             PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_head_{name}.png"), Width, Height, Render(renderer, game, viewProjection, eye, instances, lines, []));
         }
@@ -204,7 +204,7 @@ public sealed class SnapshotTests
         Directory.CreateDirectory(outDir);
         using var game = new BoxingGame(seed: 3);
         using var renderer = new HeadlessRenderer(Width, Height);
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++)
         {
             game.Step(new BoxingInput(new FighterCommand(Vector3.Zero, Vector3.UnitZ,
                 new HandCommand(AiControl.Guard(Hand.Left, game.Player.ArmReach), false),
@@ -214,8 +214,8 @@ public sealed class SnapshotTests
         var cpu = game.Cpu;
         var head = game.World.GetState(cpu.Parts.Head);
         var toCamera = Vector3.Normalize(game.Player.HeadPosition - head.Position) with { Y = 0f };
-        var eye = head.Position + (Vector3.Normalize(toCamera) * 0.22f) + new Vector3(0.04f, 0.02f, 0f);
-        var viewProjection = Camera.ViewProjection(eye, head.Position - new Vector3(0f, 0.05f, 0f), Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+        var (viewProjection, eye) = game.Display.Camera(head.Position + (Vector3.Normalize(toCamera) * 0.6197f) + new Vector3(0.1127f, 0.0563f, 0f),
+            head.Position - new Vector3(0f, 0.1408f, 0f), Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
 
         void Shoot(string name)
         {
@@ -236,7 +236,7 @@ public sealed class SnapshotTests
             game.Strike(cpu, part, fist, -forward, damage * 2f); // ボクセルの体も削る（体の見た目はこちら）
         }
 
-        for (var i = 0; i < 12; i++)
+        for (var i = 0; i < 20; i++)
         {
             game.Step(default, 1f / 60f); // 削れた破片を飛ばしてから撮る（直後は穴の中に詰まっている）
         }
@@ -257,7 +257,7 @@ public sealed class SnapshotTests
         Directory.CreateDirectory(outDir);
         using var game = new BoxingGame(seed: 3);
         using var renderer = new HeadlessRenderer(Width, Height);
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++)
         {
             game.Step(new BoxingInput(new FighterCommand(Vector3.Zero, Vector3.UnitZ,
                 new HandCommand(AiControl.Guard(Hand.Left, game.Player.ArmReach), false),
@@ -269,17 +269,17 @@ public sealed class SnapshotTests
         var between = Vector3.Normalize((cpu - player) with { Y = 0f });
         var across = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, between));
 
-        void Shoot(string name, Vector3 eye, Vector3 target)
+        void Shoot(string name, Vector3 physicsEye, Vector3 target)
         {
-            var viewProjection = Camera.ViewProjection(eye, target, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+            var (viewProjection, eye) = game.Display.Camera(physicsEye, target, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
             var (instances, lines) = game.BuildRenderables();
             PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_outfit_{name}.png"), Width, Height, Render(renderer, game, viewProjection, eye, instances, lines, []));
         }
 
         var middle = (player + cpu) * 0.5f;
         // 横はロープの上から見下ろし、前はプレイヤーの横へ大きく外して CPU の全身を入れる。
-        Shoot("side", middle + (across * 0.9f) + new Vector3(0f, 0.3f, 0f), middle - new Vector3(0f, 0.08f, 0f));
-        Shoot("front", cpu - (between * 0.75f) + (across * 0.5f) + new Vector3(0f, 0.15f, 0f), cpu - new Vector3(0f, 0.1f, 0f));
+        Shoot("side", middle + (across * 2.535f) + new Vector3(0f, 0.845f, 0f), middle - new Vector3(0f, 0.2254f, 0f));
+        Shoot("front", cpu - (between * 2.113f) + (across * 1.408f) + new Vector3(0f, 0.4225f, 0f), cpu - new Vector3(0f, 0.2817f, 0f));
         Assert.IsGreaterThan(0, game.Cpu.Voxels!.PartOf(game.Cpu.Parts.Pelvis)!.Body.Grid.Initial(MiniRing.Voxels.BoxerAnatomy.BlueTrunks));
     }
 
@@ -294,7 +294,7 @@ public sealed class SnapshotTests
         Directory.CreateDirectory(outDir);
         using var game = new BoxingGame(seed: 3);
         using var renderer = new HeadlessRenderer(Width, Height);
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -312,9 +312,8 @@ public sealed class SnapshotTests
 
         var chest = game.World.GetState(cpu.Parts.Chest);
         var front = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, chest.Orientation) with { Y = 0f });
-        var target = chest.Position + new Vector3(0f, -0.08f, 0f);
-        var eye = target + (front * 0.5f) + new Vector3(0f, 0.05f, 0f);
-        var viewProjection = Camera.ViewProjection(eye, target, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+        var target = chest.Position + new Vector3(0f, -0.2254f, 0f);
+        var (viewProjection, eye) = game.Display.Camera(target + (front * 1.408f) + new Vector3(0f, 0.1408f, 0f), target, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
         var rgba = renderer.RenderPrimitiveScene(IGameClear, viewProjection, [], [], [], cameraPosition: eye, voxels: voxels);
         PngWriter.WriteRgba(Path.Combine(outDir, "miniring_cutaway.png"), Width, Height, rgba);
         Assert.IsGreaterThan(0, rgba.Where((_, i) => i % 4 == 0).Count(r => r > 60), "the body was drawn");
@@ -328,7 +327,7 @@ public sealed class SnapshotTests
         Directory.CreateDirectory(outDir);
         using var game = new BoxingGame(seed: 3);
         using var renderer = new HeadlessRenderer(Width, Height);
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -340,15 +339,15 @@ public sealed class SnapshotTests
         var half = cpu.HalfExtentsOf(cpu.Parts.Chest).Z;
         // 右から斜めに入るフック。
         var blow = Vector3.Normalize(-forward + (side * 0.8f));
-        var fist = chest.Position - (blow * (half + 0.02f));
-        game.Strike(cpu, cpu.Parts.Chest, fist, blow * 4f, 28f, game.Player);
-        for (var i = 0; i < 4; i++)
+        var fist = chest.Position - (blow * (half + 0.05634f));
+        game.Strike(cpu, cpu.Parts.Chest, fist, blow * 6.714f, 28f, game.Player);
+        for (var i = 0; i < 7; i++)
         {
             game.Step(default, 1f / 60f);
         }
 
-        var eye = chest.Position + (Vector3.Normalize(Vector3.Cross(blow, Vector3.UnitY) - (blow * 0.5f)) * 0.42f) + new Vector3(0f, 0.3f, 0f); // 打った側の斜め上から（輪が楕円に見え、手前の体に遮られない）
-        var viewProjection = Camera.ViewProjection(eye, chest.Position, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+        var (viewProjection, eye) = game.Display.Camera(chest.Position + (Vector3.Normalize(Vector3.Cross(blow, Vector3.UnitY) - (blow * 0.5f)) * 1.183f) + new Vector3(0f, 0.845f, 0f), // 打った側の斜め上から（輪が楕円に見え、手前の体に遮られない）
+            chest.Position, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
         var (instances, lines) = game.BuildRenderables();
         var rgba = Render(renderer, game, viewProjection, eye, instances, lines, []);
         PngWriter.WriteRgba(Path.Combine(outDir, "miniring_impact.png"), Width, Height, rgba);
@@ -366,7 +365,7 @@ public sealed class SnapshotTests
         Directory.CreateDirectory(outDir);
         using var game = new BoxingGame(seed: 3);
         using var renderer = new HeadlessRenderer(Width, Height);
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -377,12 +376,12 @@ public sealed class SnapshotTests
         var half = cpu.HalfExtentsOf(cpu.Parts.Head).Z;
         var blow = -forward;
         var fist = head.Position - (blow * (half + FighterTuning.Default.GloveRadius));
-        game.Strike(cpu, cpu.Parts.Head, fist, blow * 4f, 28f, game.Player, recoil: blow * 0.4f);
+        game.Strike(cpu, cpu.Parts.Head, fist, blow * 6.714f, 28f, game.Player, recoil: blow * 0.6714f);
         var side = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, forward));
-        var eye = head.Position + (side * 0.45f) + (forward * 0.05f) + new Vector3(0f, 0.05f, 0f);
-        var viewProjection = Camera.ViewProjection(eye, head.Position + (forward * 0.05f), Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+        var (viewProjection, eye) = game.Display.Camera(head.Position + (side * 1.268f) + (forward * 0.1408f) + new Vector3(0f, 0.1408f, 0f),
+            head.Position + (forward * 0.1408f), Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
         var stepped = 0;
-        foreach (var frame in new[] { 3, 15, 30, 60 })
+        foreach (var frame in new[] { 5, 25, 50, 101 })
         {
             while (stepped < frame)
             {
@@ -394,8 +393,8 @@ public sealed class SnapshotTests
             var rgba = Render(renderer, game, viewProjection, eye, instances, lines, []);
             PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_face_f{frame:00}.png"), Width, Height, rgba);
             // 殴った側の斜め前から: えぐれた顔の断面が、白 → 黄 → 赤と冷めていく。
-            var frontEye = head.Position + (forward * 0.3f) + (side * 0.12f) + new Vector3(0f, 0.06f, 0f);
-            var front = Camera.ViewProjection(frontEye, head.Position, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
+            var (front, frontEye) = game.Display.Camera(head.Position + (forward * 0.845f) + (side * 0.338f) + new Vector3(0f, 0.169f, 0f),
+                head.Position, Vector3.UnitY, 50f * MathF.PI / 180f, (float)Width / Height, 0.01f, 20f);
             PngWriter.WriteRgba(Path.Combine(outDir, $"miniring_face_front_f{frame:00}.png"), Width, Height, Render(renderer, game, front, frontEye, instances, lines, []));
         }
 

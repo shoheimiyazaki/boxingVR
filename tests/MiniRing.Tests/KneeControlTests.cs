@@ -25,7 +25,7 @@ public sealed class KneeControlTests
     private static BoxingGame Settled()
     {
         var game = new BoxingGame(seed: 3, corners: new BoxingCorners("still", _ => new StandGuard()));
-        for (var i = 0; i < 240; i++)
+        for (var i = 0; i < 403; i++)
         {
             game.Step(new BoxingInput(Command(game.Player, game.Cpu, null)), Dt);
         }
@@ -56,8 +56,8 @@ public sealed class KneeControlTests
         using var game = Settled();
         var body = game.Player.LegBodyOf(Side);
         Console.WriteLine($"hip {body.Hip}, rest knee {body.RestKnee}, thigh {body.Thigh:F3}, shin {body.Shin:F3}, reach {game.Player.ArmReach:F3}");
-        Assert.IsGreaterThan(0.05f, body.Thigh);
-        Assert.IsGreaterThan(0.05f, body.Shin);
+        Assert.IsGreaterThan(0.1408f, body.Thigh);
+        Assert.IsGreaterThan(0.1408f, body.Shin);
         Assert.IsLessThan(body.Hip.Y, body.RestKnee.Y, "the knee is below the hip");
     }
 
@@ -69,7 +69,7 @@ public sealed class KneeControlTests
         var goal = KneeAt(body, 1f, 0.2f, 0.5f);
         var goalWorld = game.Player.Frame.LocalToWorld(goal);
         var start = Vector3.Distance(game.Player.KneePosition(Side), goalWorld);
-        Run(game, LegCommand.Knee(goal, null, null), 0.5f);
+        Run(game, LegCommand.Knee(goal, null, null), 0.8392f);
         var end = Vector3.Distance(game.Player.KneePosition(Side), game.Player.Frame.LocalToWorld(goal));
         Console.WriteLine($"knee error {start:F3} -> {end:F3} (thigh {body.Thigh:F3})");
         Assert.IsLessThan(start * 0.25f, end, "the knee point is pulled to its target");
@@ -82,18 +82,18 @@ public sealed class KneeControlTests
         using var game = Settled();
         var body = game.Player.LegBodyOf(Side);
         var knee = KneeAt(body, 1f, 0.1f, 0.5f);
-        Run(game, LegCommand.Knee(knee, 0f, 1.6f), 0.6f);
+        Run(game, LegCommand.Knee(knee, 0f, 1.6f), 1.007f);
         var bent = game.Player.KneeBend(Side);
-        Run(game, LegCommand.Knee(knee, 0f, 0.05f), 0.6f);
+        Run(game, LegCommand.Knee(knee, 0f, 0.05f), 1.007f);
         var straight = game.Player.KneeBend(Side);
         Console.WriteLine($"bend 1.6 -> {bent:F2}, bend 0.05 -> {straight:F2}");
         Assert.IsGreaterThan(1.2f, bent, "the knee bends to the target");
         Assert.IsLessThan(0.35f, straight, "the knee straightens to the target");
 
         // フリー: 曲がった形を作ってからフリーにすると、膝のバネで元へは戻らない（ダンパだけ。重力でわずかに動くのは物理）。
-        Run(game, LegCommand.Knee(knee, 0f, 1.2f), 0.6f);
+        Run(game, LegCommand.Knee(knee, 0f, 1.2f), 1.007f);
         var before = game.Player.KneeBend(Side);
-        Run(game, LegCommand.Knee(knee, 0f, null), 0.15f);
+        Run(game, LegCommand.Knee(knee, 0f, null), 0.2518f);
         var after = game.Player.KneeBend(Side);
         Console.WriteLine($"free knee: {before:F2} -> {after:F2}");
         Assert.IsLessThan(0.5f, MathF.Abs(after - before), "a free knee has no spring that returns it");
@@ -105,9 +105,9 @@ public sealed class KneeControlTests
         using var game = Settled();
         var body = game.Player.LegBodyOf(Side);
         var knee = KneeAt(body, 1f, 0.3f, 0.3f);
-        Run(game, LegCommand.Knee(knee, 0f, 0.8f), 0.6f);
+        Run(game, LegCommand.Knee(knee, 0f, 0.8f), 1.007f);
         var zero = game.Player.ThighTwist(Side);
-        Run(game, LegCommand.Knee(knee, 1.0f, 0.8f), 0.6f);
+        Run(game, LegCommand.Knee(knee, 1.0f, 0.8f), 1.007f);
         var turned = game.Player.ThighTwist(Side);
         Console.WriteLine($"twist 0 -> {zero:F2}, twist 1.0 -> {turned:F2}");
         Assert.IsLessThan(0.3f, MathF.Abs(zero), "the thigh settles at the commanded twist 0");
@@ -118,12 +118,12 @@ public sealed class KneeControlTests
         foreach (var free in new[] { true, false })
         {
             var thigh = game.Player.World;
-            Run(game, LegCommand.Knee(knee, 0f, 0.8f), 0.5f);
+            Run(game, LegCommand.Knee(knee, 0f, 0.8f), 0.8392f);
             var axis = Vector3.Normalize(game.Player.KneePosition(Side) - game.Player.HipPosition(Side));
             var id = game.Player.ThighBody(Side);
-            thigh.ApplyAngularImpulse(id, axis * (3f * thigh.GetMass(id) * 0.135f * 0.135f));
+            thigh.ApplyAngularImpulse(id, axis * (1.787f * thigh.GetMass(id) * 0.3803f * 0.3803f));
             var kicked = game.Player.ThighTwist(Side);
-            Run(game, LegCommand.Knee(knee, free ? null : 0f, 0.8f), 0.4f);
+            Run(game, LegCommand.Knee(knee, free ? null : 0f, 0.8f), 0.6714f);
             after[free ? "free" : "held"] = game.Player.ThighTwist(Side);
             Console.WriteLine($"{(free ? "free" : "held")}: twist right after the shove {kicked:F2} -> {after[free ? "free" : "held"]:F2}");
         }
@@ -198,7 +198,7 @@ public sealed class KneeControlTests
     [TestMethod]
     public void PracticedRoundhouse_ClosedBeforeTheImpact_OpenAtIt_AndLandsAtTwoStandoffs()
     {
-        // 磨いた回し蹴り（左脚、taeyun）を 2 つの間合いで蹴る: 当たる。当たる 0.5 秒前は実際の膝が閉じ（曲げ 1 rad 以上）、当たった瞬間は開いている（曲げ 0.6 rad 以下）。
+        // 磨いた回し蹴り（左脚、taeyun）を 2 つの間合いで蹴る: 当たる。当たる 0.84 秒前は実際の膝が閉じ（曲げ 1 rad 以上）、当たった瞬間は開いている（曲げ 0.6 rad 以下）。
         // 当たったすねの点は膝から 0.5〜1.6（下すね〜足の甲・つま先。0.6〜0.9 には入らない: docs/TAEKWONDO.md の残った問題）。
         var spec = KickSpec.HandmadeRoundhouse;
         var body = MiniRing.Characters.CharacterRoster.Get("taeyun").Build;
@@ -217,7 +217,7 @@ public sealed class KneeControlTests
                     TwistBias: twist, LeftLeg: leg);
             }
 
-            for (var i = 0; i < 240 * 8; i++)
+            for (var i = 0; i < 3222; i++)
             {
                 if (Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f }) < approach * reach)
                 {
@@ -227,7 +227,7 @@ public sealed class KneeControlTests
                 game.Step(new BoxingInput(Cmd(Vector3.Normalize((victim.ChestPosition - attacker.ChestPosition) with { Y = 0f }), null, 0f, 0f)), Dt);
             }
 
-            for (var i = 0; i < 360; i++)
+            for (var i = 0; i < 604; i++)
             {
                 game.Step(new BoxingInput(Cmd(Vector3.Zero, null, 0f, 0f)), Dt);
             }
@@ -239,7 +239,7 @@ public sealed class KneeControlTests
             var bendAtHit = 0f;
             var fraction = 0f;
             var bends = new List<float>();
-            for (var i = 0; i < (int)((duration + 0.3f) / Dt); i++)
+            for (var i = 0; i < (int)((duration + 0.5035f) / Dt); i++)
             {
                 var t = i * Dt;
                 var sense = game.PlayerSense;
@@ -261,7 +261,7 @@ public sealed class KneeControlTests
             }
 
             Assert.IsNotNull(hitTime, $"lands at approach {approach}");
-            var before = hitTime.Value - 0.3f;
+            var before = hitTime.Value - 0.5035f;
             Console.WriteLine($"approach {approach}: hit at {hitTime:F2} s, bend at hit {bendAtHit:F2}, shin point {fraction:F2}");
             Assert.IsLessThan(0.6f, bendAtHit, "the knee is open at the impact");
             // 2026-11-19（PhysicsVersion 59、顔・手の層と関節のつなぎ・滑りの直しのマージ）: 間合い 1.1 で当たるすねの点が 0.35（膝の曲げ 0.44。直前の枝は 0.69・曲げ 0.33、
@@ -269,8 +269,8 @@ public sealed class KneeControlTests
             // すねの上の方で当たる。当たる点の下限を 0.5 → 0.3 にした（0.3 も上すね。0.6〜0.9 に入らない問題は docs/TAEKWONDO.md のまま）。
             Assert.IsGreaterThanOrEqualTo(0.3f, fraction);
             Assert.IsLessThanOrEqualTo(1.6f, fraction);
-            Assert.IsGreaterThan(0.2f, hitTime.Value, "not an early bump");
-            Assert.IsGreaterThan(1.0f, bends[(int)(before / Dt)], "the knee was still closed 0.3 s before the impact");
+            Assert.IsGreaterThan(0.3357f, hitTime.Value, "not an early bump");
+            Assert.IsGreaterThan(1.0f, bends[(int)(before / Dt)], "the knee was still closed 0.5 s before the impact");
         }
     }
 
@@ -298,7 +298,7 @@ public sealed class KneeControlTests
                     TwistBias: twist, LeftLeg: side == Hand.Left ? leg : null, RightLeg: side == Hand.Right ? leg : null);
             }
 
-            for (var i = 0; i < 240 * 8; i++)
+            for (var i = 0; i < 3222; i++)
             {
                 var d = Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f });
                 if (d < spec.Standoff * reach)
@@ -309,7 +309,7 @@ public sealed class KneeControlTests
                 game.Step(new BoxingInput(Cmd(Vector3.Normalize((victim.ChestPosition - attacker.ChestPosition) with { Y = 0f }), null, 0f, 0f)), Dt);
             }
 
-            for (var i = 0; i < 360; i++)
+            for (var i = 0; i < 604; i++)
             {
                 game.Step(new BoxingInput(Cmd(Vector3.Zero, null, 0f, 0f)), Dt);
             }
@@ -319,7 +319,7 @@ public sealed class KneeControlTests
             var duration = spec.Seconds!.Value;
             var hits = new List<(float Fraction, float Energy)>();
             var seen = new HashSet<HitEvent>();
-            for (var i = 0; i < (int)((duration + 0.4f) / Dt); i++)
+            for (var i = 0; i < (int)((duration + 0.6714f) / Dt); i++)
             {
                 var t = i * Dt;
                 var sense = game.PlayerSense;

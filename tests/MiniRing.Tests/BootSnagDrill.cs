@@ -8,16 +8,16 @@ namespace MiniRing.Tests;
 /// (1) 足の引っかかり: 踏み出している足（Footwork が宙へ運ぼうとしている足）の母指球の目標が実際のつま先から遠く離れているのに、
 ///     その足の水平の速さがほぼ 0 で、足が床に触れている（箱の底がキャンバスから数 mm 以内）歩。
 /// (2) 体の停滞: 移動の指令（長さ 1）に対し、直近 <see cref="Window"/> 秒に骨盤が指令の向きへ進んだ平均の速さが、歩く速さの
-///     <see cref="StalledRatio"/> 未満の歩（目標の点まで 4 cm 以内に着いたら次の点へ移るので、着いて止まった分は数えない）。
+///     <see cref="StalledRatio"/> 未満の歩（目標の点まで 11 cm 以内に着いたら次の点へ移るので、着いて止まった分は数えない）。
 /// 回数は連続の数、時間はその歩数 × dt。
 /// </summary>
 internal static class BootSnagDrill
 {
     public const float Dt = 1f / 240f;
-    public const float FarFromTarget = 0.04f;
-    public const float StalledSpeed = 0.05f;
-    public const float OnFloor = 0.004f;
-    public const float Window = 0.5f;
+    public const float FarFromTarget = 0.1127f;
+    public const float StalledSpeed = 0.0839f;
+    public const float OnFloor = 0.01127f;
+    public const float Window = 0.8392f;
     public const float StalledRatio = 0.25f;
 
     public readonly record struct Result(string Name, int FootSnags, float FootSnagSeconds, int Stalls, float StallSeconds, float LongestStall, float Seconds, float SpeedRatio, int FootSteps, bool Finished);
@@ -27,7 +27,7 @@ internal static class BootSnagDrill
         var layout = RingLayout.Boxing;
         var world = new PhysicsWorld();
         LivingRoom.AddColliders(world, layout);
-        var ring = new Ring(world, layout.Center, layout.Size, BoxingGame.RingSurfaceHeight, LivingRoom.StageBase);
+        var ring = new Ring(world, layout.Center, layout.Size, BoxingGame.RingSurfaceHeight, LivingRoom.PhysicsStageBase);
         var fighter = Fighter.Spawn(world, tuning ?? FighterTuning.Default, "walker", ring.SurfaceCenter + (offset ?? Vector3.Zero), yaw);
         return (world, fighter, ring, layout);
     }
@@ -36,10 +36,10 @@ internal static class BootSnagDrill
         new HandCommand(AiControl.Guard(Hand.Left, f.ArmReach), false),
         new HandCommand(AiControl.Guard(Hand.Right, f.ArmReach), false));
 
-    /// <summary>歩く道（リングの中心からの水平オフセットの列）。縁から 0.2 m 内に収める。</summary>
+    /// <summary>歩く道（リングの中心からの水平オフセットの列）。縁から 0.56 m 内に収める。</summary>
     public static IEnumerable<(string Name, Vector2[] Waypoints)> Paths(int seed)
     {
-        const float r = 0.38f;
+        const float r = 1.070f;
         yield return ("forward-back", [new(0, 0), new(0, r), new(0, -r), new(0, r), new(0, -r)]);
         yield return ("side-side", [new(0, 0), new(r, 0), new(-r, 0), new(r, 0), new(-r, 0)]);
         yield return ("diagonals", [new(0, 0), new(r, r), new(-r, -r), new(r, -r), new(-r, r), new(0, 0)]);
@@ -55,11 +55,11 @@ internal static class BootSnagDrill
         var rng = new Random(seed);
         var random = Enumerable.Range(0, 10).Select(_ => new Vector2(((float)rng.NextDouble() * 2f) - 1f, ((float)rng.NextDouble() * 2f) - 1f) * r).ToArray();
         yield return ($"random-{seed}", random);
-        yield return ("quick-reversals", [new(0, 0), new(0.2f, 0), new(-0.2f, 0), new(0.2f, 0.15f), new(-0.2f, -0.15f), new(0.2f, 0), new(-0.2f, 0)]);
+        yield return ("quick-reversals", [new(0, 0), new(0.5634f, 0), new(-0.5634f, 0), new(0.5634f, 0.4225f), new(-0.5634f, -0.4225f), new(0.5634f, 0), new(-0.5634f, 0)]);
     }
 
     /// <summary>1 つの道を歩く。顔は +Z（リングの奥）へ向けたまま、横も後ろも歩く。<paramref name="maxSeconds"/> までに回りきらなければ Finished が偽。</summary>
-    public static Result Walk(string name, Vector2[] waypoints, float maxSeconds = 25f, Action<string>? trace = null, Action<string>? contacts = null,
+    public static Result Walk(string name, Vector2[] waypoints, float maxSeconds = 41.96f, Action<string>? trace = null, Action<string>? contacts = null,
         FighterTuning? tuning = null, Action<PhysicsWorld, Fighter>? setup = null)
     {
         var (world, f, ring, _) = Build(new Vector3(waypoints[0].X, 0f, waypoints[0].Y), 0f, tuning);
@@ -67,7 +67,7 @@ internal static class BootSnagDrill
         {
             setup?.Invoke(world, f);
             var face = Vector3.UnitZ;
-            for (var i = 0; i < (int)(1f / Dt); i++)
+            for (var i = 0; i < (int)(1.678f / Dt); i++)
             {
                 f.ApplyControl(Command(f, Vector3.Zero, face), Dt);
                 world.Step(Dt);
@@ -96,7 +96,7 @@ internal static class BootSnagDrill
             {
                 var to = center + new Vector3(waypoints[target].X, 0f, waypoints[target].Y) - f.PelvisPosition;
                 to.Y = 0f;
-                if (to.Length() < 0.04f)
+                if (to.Length() < 0.1127f)
                 {
                     target++;
                     history.Clear();
@@ -167,7 +167,7 @@ internal static class BootSnagDrill
                     footRun = 0;
                 }
 
-                if (trace is not null && steps % 48 == 0)
+                if (trace is not null && steps % 81 == 0)
                 {
                     var pp = f.PelvisPosition - center;
                     var lt = world.GetState(f.ToeId(0)).Position - center;
@@ -177,7 +177,7 @@ internal static class BootSnagDrill
                     trace($"t={steps * Dt:0.0} wp{target} pelvis ({pp.X:0.000},{pp.Z:0.000}) y {pp.Y:0.000} sw {f.Footwork.Swinging} toeL ({lt.X:0.000},{lt.Y:0.000},{lt.Z:0.000}) tgtL ({pl.X:0.000},{pl.Z:0.000}) toeR ({rt.X:0.000},{rt.Y:0.000},{rt.Z:0.000}) tgtR ({pr.X:0.000},{pr.Z:0.000}) stall {stallRun} {FootDebug(f.Footwork, center)}");
                 }
 
-                if (contacts is not null && steps % 48 == 0 && stallRun > 0)
+                if (contacts is not null && steps % 81 == 0 && stallRun > 0)
                 {
                     foreach (var c in world.Contacts())
                     {

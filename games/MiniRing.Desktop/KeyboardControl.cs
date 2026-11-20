@@ -37,7 +37,7 @@ internal sealed class KeyboardControl
             (input.IsKeyDown(Key.Left) ? 0.35f : 0f) - (input.IsKeyDown(Key.Right) ? 0.35f : 0f),
             input.IsKeyDown(Key.Down) ? -0.4f : 0f,
             input.IsKeyDown(Key.Up) ? 0.3f : 0f) * reach;
-        _head = Vector3.Lerp(_head, headTarget, 1f - MathF.Exp(-12f * dt));
+        _head = Vector3.Lerp(_head, headTarget, 1f - MathF.Exp(-7.15f * dt));
 
         var aim = sense.Self.WorldToLocal(input.IsKeyDown(Key.AltLeft) ? sense.OpponentChest : sense.OpponentHead);
         var lateral = input.IsKeyDown(Key.ControlLeft) ? 1f : 0f;
@@ -55,8 +55,8 @@ internal sealed class KeyboardControl
     private Vector3 Arm(Hand hand, bool punching, Vector3 aim, float lateral, float low, float reach, float dt)
     {
         var i = (int)hand;
-        // 出すときは速く（≈0.12s）、戻すときはゆっくり（≈0.2s）。
-        _extend[i] = Math.Clamp(_extend[i] + (dt * (punching ? 8f : -5f)), 0f, 1f);
+        // 出すときは速く（≈0.21s）、戻すときはゆっくり（≈0.34s）。
+        _extend[i] = Math.Clamp(_extend[i] + (dt * (punching ? 4.77f : -2.98f)), 0f, 1f);
         var t = _extend[i];
         return PunchPath.Point(AiControl.Guard(hand, reach), PunchPath.Windup(hand, lateral, low, reach), PunchPath.Through(aim, 0.3f, reach), t);
     }

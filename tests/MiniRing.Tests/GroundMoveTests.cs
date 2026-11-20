@@ -33,7 +33,7 @@ public sealed class GroundMoveTests
     public void KickWeightShift_IsInTheKarateAndTaekwondoTextbooks()
     {
         // kickbalance（docs/TAEKWONDO.md「軸足に乗って蹴る」）で採った教育の値。ほかのスタイルは今までどおり（0）。
-        Assert.AreEqual(0.35f, BotCatalog.Karate.KickShift, 1e-6f);
+        Assert.AreEqual(0.5874f, BotCatalog.Karate.KickShift, 1e-6f);
         Assert.AreEqual(0.3f, BotCatalog.Taekwondo.KickLeanForward, 1e-6f);
         Assert.AreEqual(0f, BotCatalog.Boxer.KickShift);
     }

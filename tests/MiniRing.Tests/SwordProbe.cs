@@ -46,7 +46,7 @@ public sealed class SwordProbe
             ("basic", kesa),
             ("through", kesa with { Swing = kesa.Swing with { StrikeFist = kesa.Swing.StrikeFist + new System.Numerics.Vector3(0.1f, -0.2f, 0.35f) } }),
             ("through+ease", kesa with { Swing = kesa.Swing with { StrikeFist = kesa.Swing.StrikeFist + new System.Numerics.Vector3(0.1f, -0.2f, 0.35f), Ease = 2f } }),
-            ("through+fast", kesa with { Swing = kesa.Swing with { StrikeFist = kesa.Swing.StrikeFist + new System.Numerics.Vector3(0.1f, -0.2f, 0.35f), StrikeTime = 0.1f } }),
+            ("through+fast", kesa with { Swing = kesa.Swing with { StrikeFist = kesa.Swing.StrikeFist + new System.Numerics.Vector3(0.1f, -0.2f, 0.35f), StrikeTime = 0.168f } }),
         };
         var results = new SwordResult[variants.Length];
         Parallel.For(0, variants.Length, i => results[i] = SwordDrill.Run(variants[i].Item2));
@@ -63,8 +63,8 @@ public sealed class SwordProbe
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
         var style = SwordStyle.Even(SwordTechnique.Basics);
-        var r = SwordSparring.Run(style, style, seed: 1, seconds: 20f);
-        Console.WriteLine($"spar 20s took {watch.Elapsed.TotalSeconds:0.0}s: red dealt {r.DealtByRed} blue dealt {r.DealtByBlue} died {r.RedDied}/{r.BlueDied} red used {string.Join(",", r.RedUsed)} by {string.Join(",", r.RedByTechnique.Select(kv => $"{kv.Key}={kv.Value}"))}");
+        var r = SwordSparring.Run(style, style, seed: 1, seconds: 33.57f);
+        Console.WriteLine($"spar 33.6s took {watch.Elapsed.TotalSeconds:0.0}s: red dealt {r.DealtByRed} blue dealt {r.DealtByBlue} died {r.RedDied}/{r.BlueDied} red used {string.Join(",", r.RedUsed)} by {string.Join(",", r.RedByTechnique.Select(kv => $"{kv.Key}={kv.Value}"))}");
     }
 
     [TestMethod]

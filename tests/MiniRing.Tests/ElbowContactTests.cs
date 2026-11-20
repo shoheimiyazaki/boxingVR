@@ -48,7 +48,7 @@ public sealed class ElbowContactTests
         var attacker = game.Player;
         var victim = game.Cpu;
         var spec = ElbowSpec.Of(kind);
-        for (var i = 0; i < 240 * 6; i++)
+        for (var i = 0; i < 2417; i++)
         {
             var d = Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f });
             if (d < spec.Standoff * distanceScale * attacker.ArmReach)
@@ -60,7 +60,7 @@ public sealed class ElbowContactTests
             game.Step(new BoxingInput(Command(attacker, victim, toward, null, side, 0f)), Dt);
         }
 
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(new BoxingInput(Command(attacker, victim, Vector3.Zero, null, side, 0f)), Dt);
         }
@@ -78,7 +78,7 @@ public sealed class ElbowContactTests
         var minToAim = float.MaxValue;
         var zones = new List<string>();
         var startDistance = Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f }) / attacker.ArmReach;
-        var steps = (int)((duration + 0.5f) / Dt);
+        var steps = (int)((duration + 0.8392f) / Dt);
         var previous = ElbowTip(attacker, side);
         for (var i = 0; i < steps; i++)
         {
@@ -120,7 +120,7 @@ public sealed class ElbowContactTests
         using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("still", _ => new StandGuard()));
         var attacker = game.Player;
         var victim = game.Cpu;
-        for (var i = 0; i < 240 * 6; i++)
+        for (var i = 0; i < 2417; i++)
         {
             var d = Vector3.Distance(attacker.ChestPosition with { Y = 0f }, victim.ChestPosition with { Y = 0f });
             if (d < standoff * attacker.ArmReach)
@@ -131,7 +131,7 @@ public sealed class ElbowContactTests
             game.Step(new BoxingInput(Command(attacker, victim, Vector3.Normalize((victim.ChestPosition - attacker.ChestPosition) with { Y = 0f }), null, Hand.Right, 0f)), Dt);
         }
 
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             game.Step(new BoxingInput(Command(attacker, victim, Vector3.Zero, null, Hand.Right, 0f)), Dt);
         }
@@ -143,7 +143,7 @@ public sealed class ElbowContactTests
         var hits = new HashSet<HitEvent>();
         var zones = new List<string>();
         float maxSpeed = 0f, maxMass = 0f, maxEnergy = 0f, total = 0f;
-        var steps = (int)((duration + 0.5f) / Dt);
+        var steps = (int)((duration + 0.8392f) / Dt);
         for (var i = 0; i < steps; i++)
         {
             var t = i * Dt;

@@ -14,13 +14,13 @@ public static class SwingSound
     public const int SampleRate = HitSound.SampleRate;
 
     /// <summary>これより遅い振りは鳴らさない [m/s]。</summary>
-    public const float MinSpeed = 1.2f;
+    public const float MinSpeed = 2.014f;
 
     /// <summary>いちばん速い振りの音量（砕ける音は 1 前後）。</summary>
     public const float Loudness = 0.12f;
 
     /// <summary>この速さで最大の音量 [m/s]。</summary>
-    private const float FullSpeed = 2.4f;
+    private const float FullSpeed = 4.028f;
 
     /// <summary>振りの速さの、0（<see cref="MinSpeed"/>）〜 1（最大）。</summary>
     public static float Strength(float speed) => Math.Clamp((speed - MinSpeed) / (FullSpeed - MinSpeed), 0f, 1f);

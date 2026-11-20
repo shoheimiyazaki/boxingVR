@@ -4,27 +4,27 @@ using Aigis.Foundation.Voxels;
 namespace MiniRing.Voxels;
 
 /// <summary>
-/// 頭の顔の層（F2、2026-11-19）: 頭の剛体に重ねる 2 つ目の格子（頭の箱と同じ箱を、5 mm の格子の 2 倍の細かさ = 約 2.5 mm で分けたもの）。
-/// 頭蓋骨の外（頭皮・顔の肉・目・鼻・唇・耳・髪・ひげ）は顔の層だけにあり、5 mm の頭の格子は頭蓋骨・脳・首の中（頸椎・脊髄・首の筋肉）だけを持つ
+/// 頭の顔の層（F2、2026-11-19）: 頭の剛体に重ねる 2 つ目の格子（頭の箱と同じ箱を、14 mm の格子の 2 倍の細かさ = 約 7 mm で分けたもの）。
+/// 頭蓋骨の外（頭皮・顔の肉・目・鼻・唇・耳・髪・ひげ）は顔の層だけにあり、14 mm の頭の格子は頭蓋骨・脳・首の中（頸椎・脊髄・首の筋肉）だけを持つ
 /// （同じものを 2 つの格子に持たない: CLAUDE.md §1.5）。顔の形は <see cref="FaceComposer"/> がキャラの <see cref="FaceSpec"/> から組み立てる。
 /// <list type="bullet">
-/// <item>5 mm の格子に残すセル: 脳・脊髄、首の段（<see cref="BoxerSpine.NeckSlices"/> の上の端まで）の筋肉と骨、頭蓋骨。ただし頭蓋骨のうち、
+/// <item>14 mm の格子に残すセル: 脳・脊髄、首の段（<see cref="BoxerSpine.NeckSlices"/> の上の端まで）の筋肉と骨、頭蓋骨。ただし頭蓋骨のうち、
 /// 組み立てた顔の目（白目・瞳）と重なる所（眼窩）と、脳に面していない（脳を包む殻ではない）もので組み立てた顔の外に出る所は抜く（顔の形に合わせる）。
 /// 脳は 1 セルも動かさない（意識のモデルの量が変わらない）。</item>
-/// <item>顔の層 = 組み立てた顔 ∪ 残したセルを 1 セル（約 2.5 mm）包む皮膚 − 残したセルと重なる所。組み立てた顔が頭蓋骨より狭い所でも、骨はいつも皮膚の下にある。</item>
-/// <item>材質: 髪・眉 → 髪、白目 → 目、瞳 → 黒目、唇 → 唇、それ以外（皮膚・影・鼻の穴・そばかす・無精ひげ…）→ 皮膚。強さ・密度は 5 mm の同じ材質と同じ。色の違いは <see cref="FaceCellColors"/>（見た目だけ）。</item>
+/// <item>顔の層 = 組み立てた顔 ∪ 残したセルを 1 セル（約 7 mm）包む皮膚 − 残したセルと重なる所。組み立てた顔が頭蓋骨より狭い所でも、骨はいつも皮膚の下にある。</item>
+/// <item>材質: 髪・眉 → 髪、白目 → 目、瞳 → 黒目、唇 → 唇、それ以外（皮膚・影・鼻の穴・そばかす・無精ひげ…）→ 皮膚。強さ・密度は 14 mm の同じ材質と同じ。色の違いは <see cref="FaceCellColors"/>（見た目だけ）。</item>
 /// </list>
 /// </summary>
 public static class FaceLayer
 {
-    /// <summary>顔の層のセルが、5 mm の頭の格子の 1 セルを各軸で何個に分けるか（5 mm → 2.5 mm）。</summary>
+    /// <summary>顔の層のセルが、14 mm の頭の格子の 1 セルを各軸で何個に分けるか（14 mm → 7 mm）。</summary>
     public const int Subdivision = 2;
 
-    /// <summary>顔の層の 1 セルの体積の、5 mm の頭の格子の 1 セルに対する比（質量と、削る量の物差し）。</summary>
+    /// <summary>顔の層の 1 セルの体積の、14 mm の頭の格子の 1 セルに対する比（質量と、削る量の物差し）。</summary>
     public const float CellVolumeRatio = 1f / (Subdivision * Subdivision * Subdivision);
 
     /// <summary>
-    /// 作った頭の格子 <paramref name="head"/>（5 mm、顔の色の表）を、頭蓋骨の中（<c>Inner</c>: 同じ箱・同じ細かさ）と、顔の層（<c>Face</c>: 同じ箱を
+    /// 作った頭の格子 <paramref name="head"/>（14 mm、顔の色の表）を、頭蓋骨の中（<c>Inner</c>: 同じ箱・同じ細かさ）と、顔の層（<c>Face</c>: 同じ箱を
     /// <see cref="Subdivision"/> 倍の細かさで、<paramref name="spec"/> の顔を組み立てて頭蓋骨の外だけを置いたもの）に分ける。色の表は <paramref name="head"/> のもの。
     /// </summary>
     public static (VoxelGrid Inner, VoxelGrid Face) Split(VoxelGrid head, FaceSpec spec, FacePartLibrary? library = null)
@@ -47,7 +47,7 @@ public static class FaceLayer
         int HeadIndex(int x, int y, int z) => x + (hx * (y + (hy * z)));
         int Index(int x, int y, int z) => x + (nx * (y + (ny * z)));
 
-        // 1. 5 mm の格子に残すセル。
+        // 1. 14 mm の格子に残すセル。
         var keep = new bool[hx * hy * hz];
         for (var z = 0; z < hz; z++)
         {
@@ -97,7 +97,7 @@ public static class FaceLayer
                 {
                     if (Kept(x, y, z))
                     {
-                        continue; // 頭蓋骨・脳・首の中は 5 mm の格子だけが持つ
+                        continue; // 頭蓋骨・脳・首の中は 14 mm の格子だけが持つ
                     }
 
                     var shaped = composed.At(x, y, z);
@@ -169,7 +169,7 @@ public static class FaceLayer
     }
 
     /// <summary>
-    /// 5 mm の頭の格子のセル (<paramref name="x"/>, <paramref name="y"/>, <paramref name="z"/>) を、その格子に残すか（頭蓋骨の中か）。
+    /// 14 mm の頭の格子のセル (<paramref name="x"/>, <paramref name="y"/>, <paramref name="z"/>) を、その格子に残すか（頭蓋骨の中か）。
     /// 脳・脊髄・首の段の筋肉・頸椎は残す。ほかの骨は、組み立てた顔の目と重なる所（眼窩）を抜き、
     /// 組み立てた顔の外に出る所（8 つの細かいセルの半分より多くが顔の外）も抜く。それ以外（皮膚・髪・目・唇・顔の筋肉）は顔の層へ。
     /// </summary>
@@ -181,8 +181,8 @@ public static class FaceLayer
             return true;
         }
 
-        // 首の段: 首は顔ではない。組み立てた顔（あご・ひげ・唇）と重ならない所は、皮膚・筋肉・頸椎とも 5 mm の格子に残す
-        // （首が折れたとき、頭をつなぐ肉の橋は 5 mm の格子の肉で数える: BoxerBody.BreakAt）。
+        // 首の段: 首は顔ではない。組み立てた顔（あご・ひげ・唇）と重ならない所は、皮膚・筋肉・頸椎とも 14 mm の格子に残す
+        // （首が折れたとき、頭をつなぐ肉の橋は 14 mm の格子の肉で数える: BoxerBody.BreakAt）。
         if (y <= BoxerSpine.NeckSlices.High)
         {
             return material is BoxerAnatomy.Bone or BoxerAnatomy.Muscle
@@ -218,7 +218,7 @@ public static class FaceLayer
     }
 
     /// <summary>
-    /// 5 mm のセルが、同じ高さ・左右の位置で組み立てた顔の前の面より前にあるか（首の段の皮膚があご先の前へ出て、包む皮膚があごの下の出っ張りになった。2026-11-20）。
+    /// 14 mm のセルが、同じ高さ・左右の位置で組み立てた顔の前の面より前にあるか（首の段の皮膚があご先の前へ出て、包む皮膚があごの下の出っ張りになった。2026-11-20）。
     /// その列に組み立てた顔が無い（あごより下の首）なら前ではない。
     /// </summary>
     private static bool InFrontOfFace(FaceVolume composed, int x, int y, int z)
@@ -246,7 +246,7 @@ public static class FaceLayer
         return false;
     }
 
-    /// <summary>5 mm のセルの中の、組み立てた顔の埋まった細かいセルの数（0..8）。</summary>
+    /// <summary>14 mm のセルの中の、組み立てた顔の埋まった細かいセルの数（0..8）。</summary>
     private static int Covered(FaceVolume composed, int x, int y, int z)
     {
         var count = 0;
@@ -267,7 +267,7 @@ public static class FaceLayer
     private static readonly (int X, int Y, int Z)[] Neighbours = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)];
 
     /// <summary>
-    /// 組み立てた顔の材質 → 体の材質（<see cref="BoxerAnatomy"/>）。空は空気。鼻の穴は皮膚（暗い色だけ: 2.5 mm の穴にすると奥の鼻の骨が見えた）。ここに無い材質（影・そばかす・無精ひげなど、皮膚の上の
+    /// 組み立てた顔の材質 → 体の材質（<see cref="BoxerAnatomy"/>）。空は空気。鼻の穴は皮膚（暗い色だけ: 7 mm の穴にすると奥の鼻の骨が見えた）。ここに無い材質（影・そばかす・無精ひげなど、皮膚の上の
     /// 色の違いだけの物。部品の表に後から足した物を含む）は皮膚（強さ・密度は皮膚、色の違いは今は描かない: docs/DEBT.md「顔の層」）。
     /// </summary>
     public static byte MaterialOf(FaceMaterial material) => material switch

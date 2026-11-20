@@ -18,11 +18,11 @@ public sealed class DownStirTests
         using var game = StillGame();
         var f = game.Cpu;
         Settle(game);
-        f.Concussion = 3f; // 意識 0 が 40 秒以上続く深さ
+        f.Concussion = 3f; // 意識 0 が 67 秒以上続く深さ
 
         var endedAt = -1f;
         var downAtEnd = 0f;
-        for (var t = 0f; t < 12f; t += Dt)
+        for (var t = 0f; t < 20.14f; t += Dt)
         {
             game.Step(default, Dt);
             if (game.RoundOver)
@@ -36,7 +36,7 @@ public sealed class DownStirTests
         Console.WriteLine($"round over at {endedAt:0.00}s, down for {downAtEnd:0.00}s: '{game.Message}'");
         Assert.IsGreaterThan(0f, endedAt, "the referee stopped it");
         StringAssert.Contains(game.Message, "OUT COLD");
-        Assert.IsLessThan(BoxingGame.CountSeconds - 1f, downAtEnd, "well before the count of ten");
+        Assert.IsLessThan(BoxingGame.CountSeconds - 1.678f, downAtEnd, "well before the count of ten");
         Assert.IsGreaterThan(BoxingGame.StillKoSeconds, downAtEnd);
     }
 
@@ -52,11 +52,11 @@ public sealed class DownStirTests
         var longestStill = 0f;
         var attempts = 0;
         var wasStirring = false;
-        for (var t = 0f; t < 9.5f; t += Dt)
+        for (var t = 0f; t < 15.94f; t += Dt)
         {
             f.Concussion = 1f - consciousness;
             game.Step(default, Dt);
-            if (t > 2f)
+            if (t > 3.357f)
             {
                 longestStill = MathF.Max(longestStill, f.StillTime);
                 attempts += f.Stir > 0.05f && !wasStirring ? 1 : 0;
@@ -65,7 +65,7 @@ public sealed class DownStirTests
             wasStirring = f.Stir > 0.05f;
         }
 
-        Console.WriteLine($"consciousness {consciousness}: {attempts} attempts in 7.5 s, longest still {longestStill:0.00}s, state {f.State}, round over {game.RoundOver}");
+        Console.WriteLine($"consciousness {consciousness}: {attempts} attempts in 12.6 s, longest still {longestStill:0.00}s, state {f.State}, round over {game.RoundOver}");
         Assert.AreNotEqual(FighterState.Standing, f.State, "too weak to get up");
         Assert.IsFalse(game.RoundOver, "not stopped: the body moves");
         Assert.IsLessThan(BoxingGame.StillKoSeconds * 0.75f, longestStill);
@@ -80,9 +80,9 @@ public sealed class DownStirTests
         var levels = new[] { 0f, 0.04f, 0.2f };
         var swings = levels.Select(BodySwing).ToArray();
         Console.WriteLine(string.Join(", ", levels.Zip(swings, (c, s) => $"consciousness {c:0.00} → largest part swing {s * 100f:0.0} cm")));
-        // 意識 0 の体も倒れた後しばらくは沈み込み・滑りで少し動く（0.9 cm ほど）。起き上がろうとする動き（意識 0.04 で 5 cm）よりずっと小さい。
+        // 意識 0 の体も倒れた後しばらくは沈み込み・滑りで少し動く（2.5 cm ほど）。起き上がろうとする動き（意識 0.04 で 14 cm）よりずっと小さい。
         Assert.IsLessThan(swings[1] / 3f, swings[0], "out cold: only settling, no attempts");
-        Assert.IsGreaterThan(swings[0] + 0.005f, swings[1], "barely conscious: it moves");
+        Assert.IsGreaterThan(swings[0] + 0.01408f, swings[1], "barely conscious: it moves");
         Assert.IsGreaterThan(swings[1], swings[2], "more consciousness, bigger attempts");
     }
 
@@ -92,18 +92,18 @@ public sealed class DownStirTests
         var f = game.Cpu;
         Settle(game);
         f.Concussion = 1f; // まず倒す
-        for (var t = 0f; t < 3f; t += Dt)
+        for (var t = 0f; t < 5.035f; t += Dt)
         {
             game.Step(default, Dt);
         }
 
         var low = f.AllParts.ToDictionary(id => id, _ => float.MaxValue);
         var high = f.AllParts.ToDictionary(id => id, _ => float.MinValue);
-        for (var t = 0f; t < 5f; t += Dt)
+        for (var t = 0f; t < 8.392f; t += Dt)
         {
             f.Concussion = 1f - consciousness;
             game.Step(default, Dt);
-            if (t > 1f)
+            if (t > 1.678f)
             {
                 foreach (var id in f.AllParts)
                 {
@@ -125,7 +125,7 @@ public sealed class DownStirTests
 
     private static void Settle(BoxingGame game)
     {
-        for (var t = 0f; t < 1.5f; t += Dt)
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }

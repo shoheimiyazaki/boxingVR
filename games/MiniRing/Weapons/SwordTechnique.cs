@@ -27,10 +27,10 @@ public enum Maai
 public sealed record SwordTechnique(string Name, BodyPartKind Target, Maai Maai, float Range, WeaponSwing Swing)
 {
     /// <summary>技を出す間合いの幅 [m]: 間合いが <see cref="Range"/> ± これに入ったら振る。</summary>
-    public const float Window = 0.03f;
+    public const float Window = 0.08451f;
 
     /// <summary>ドリルで間合いを動かしてよい幅 [m]（基本の間合い ± これ。技がほかの間合いの技にならないように）。</summary>
-    public const float RangeLeeway = 0.05f;
+    public const float RangeLeeway = 0.1408f;
 
     /// <summary>間合い <paramref name="distance"/> で出せる技か。</summary>
     public bool Fits(float distance) => MathF.Abs(distance - Range) <= Window;
@@ -74,7 +74,7 @@ public sealed record SwordTechnique(string Name, BodyPartKind Target, Maai Maai,
 
     private static WeaponSwing Sword(Vector3 windupFist, float windupAz, float windupEl, Vector3 strikeFist, float strikeAz, float strikeEl,
         float windup, float strike, float step, float roll = 0f) =>
-        new(SwingFamily.Sword, windupFist, windupAz, windupEl, strikeFist, strikeAz, strikeEl, windup, strike, 0.35f,
+        new(SwingFamily.Sword, windupFist, windupAz, windupEl, strikeFist, strikeAz, strikeEl, windup, strike, 0.5874f,
             WristDelay: 0f, Twist: 0f, Step: step, Ease: 1f, Roll: roll);
 
     /// <summary>
@@ -84,25 +84,25 @@ public sealed record SwordTechnique(string Name, BodyPartKind Target, Maai Maai,
     public static IReadOnlyList<SwordTechnique> Basics { get; } =
     [
         // ── 遠間（踏み込んで届かせる）
-        new("kote", BodyPartKind.Forearm, Maai.Far, 0.50f,
-            Sword(new Vector3(-0.08f, 0.25f, 0.45f), 0f, 1.3f, new Vector3(-0.05f, 0.0f, 0.85f), 0.05f, -0.15f, 0.18f, 0.12f, step: 0.8f)),
-        new("katate-tsuki", BodyPartKind.Chest, Maai.Far, 0.52f,
-            Sword(new Vector3(-0.1f, 0.0f, 0.3f), 0.05f, 0.1f, new Vector3(-0.02f, 0.2f, 1.05f), 0f, 0.05f, 0.2f, 0.15f, step: 1f, roll: MathF.PI / 2f)),
+        new("kote", BodyPartKind.Forearm, Maai.Far, 1.408f,
+            Sword(new Vector3(-0.08f, 0.25f, 0.45f), 0f, 1.3f, new Vector3(-0.05f, 0.0f, 0.85f), 0.05f, -0.15f, 0.3021f, 0.2014f, step: 0.8f)),
+        new("katate-tsuki", BodyPartKind.Chest, Maai.Far, 1.465f,
+            Sword(new Vector3(-0.1f, 0.0f, 0.3f), 0.05f, 0.1f, new Vector3(-0.02f, 0.2f, 1.05f), 0f, 0.05f, 0.3357f, 0.2518f, step: 1f, roll: MathF.PI / 2f)),
 
         // ── 中間（一足一刀）
-        new("men", BodyPartKind.Head, Maai.Mid, 0.42f,
-            Sword(new Vector3(-0.05f, 0.65f, 0.2f), 0f, 1.9f, new Vector3(-0.05f, 0.2f, 0.75f), 0f, -0.1f, 0.3f, 0.15f, step: 0.5f)),
-        new("kesa", BodyPartKind.Chest, Maai.Mid, 0.40f,
-            Sword(new Vector3(-0.4f, 0.6f, 0.15f), -0.9f, 1.5f, new Vector3(0.2f, 0.0f, 0.65f), 0.5f, -0.5f, 0.3f, 0.15f, step: 0.3f)),
-        new("do", BodyPartKind.Pelvis, Maai.Mid, 0.40f,
-            Sword(new Vector3(-0.05f, 0.6f, 0.2f), 0f, 1.9f, new Vector3(0.25f, -0.05f, 0.6f), 1.0f, -0.3f, 0.3f, 0.15f, step: 0.5f, roll: MathF.PI / 2f)),
+        new("men", BodyPartKind.Head, Maai.Mid, 1.183f,
+            Sword(new Vector3(-0.05f, 0.65f, 0.2f), 0f, 1.9f, new Vector3(-0.05f, 0.2f, 0.75f), 0f, -0.1f, 0.5035f, 0.2518f, step: 0.5f)),
+        new("kesa", BodyPartKind.Chest, Maai.Mid, 1.127f,
+            Sword(new Vector3(-0.4f, 0.6f, 0.15f), -0.9f, 1.5f, new Vector3(0.2f, 0.0f, 0.65f), 0.5f, -0.5f, 0.5035f, 0.2518f, step: 0.3f)),
+        new("do", BodyPartKind.Pelvis, Maai.Mid, 1.127f,
+            Sword(new Vector3(-0.05f, 0.6f, 0.2f), 0f, 1.9f, new Vector3(0.25f, -0.05f, 0.6f), 1.0f, -0.3f, 0.5035f, 0.2518f, step: 0.5f, roll: MathF.PI / 2f)),
 
         // ── 近間（鍔迫り合いの近さ。引き技は下がりながら）
-        new("hiki-kote", BodyPartKind.Forearm, Maai.Close, 0.29f,
-            Sword(new Vector3(-0.1f, 0.3f, 0.3f), 0f, 1.3f, new Vector3(-0.05f, 0.05f, 0.55f), 0.05f, -0.2f, 0.2f, 0.12f, step: -0.8f)),
-        new("hiki-do", BodyPartKind.Pelvis, Maai.Close, 0.29f,
-            Sword(new Vector3(-0.05f, 0.35f, 0.25f), 0f, 1.2f, new Vector3(0.2f, -0.05f, 0.45f), 0.9f, -0.3f, 0.25f, 0.15f, step: -0.8f, roll: MathF.PI / 2f)),
-        new("sune", BodyPartKind.Shin, Maai.Close, 0.31f,
-            Sword(new Vector3(-0.35f, 0.2f, 0.2f), -0.8f, 0.6f, new Vector3(0.05f, -0.6f, 0.55f), 0.4f, -1.1f, 0.25f, 0.15f, step: 0.2f)),
+        new("hiki-kote", BodyPartKind.Forearm, Maai.Close, 0.8169f,
+            Sword(new Vector3(-0.1f, 0.3f, 0.3f), 0f, 1.3f, new Vector3(-0.05f, 0.05f, 0.55f), 0.05f, -0.2f, 0.3357f, 0.2014f, step: -0.8f)),
+        new("hiki-do", BodyPartKind.Pelvis, Maai.Close, 0.8169f,
+            Sword(new Vector3(-0.05f, 0.35f, 0.25f), 0f, 1.2f, new Vector3(0.2f, -0.05f, 0.45f), 0.9f, -0.3f, 0.4196f, 0.2518f, step: -0.8f, roll: MathF.PI / 2f)),
+        new("sune", BodyPartKind.Shin, Maai.Close, 0.8732f,
+            Sword(new Vector3(-0.35f, 0.2f, 0.2f), -0.8f, 0.6f, new Vector3(0.05f, -0.6f, 0.55f), 0.4f, -1.1f, 0.4196f, 0.2518f, step: 0.2f)),
     ];
 }

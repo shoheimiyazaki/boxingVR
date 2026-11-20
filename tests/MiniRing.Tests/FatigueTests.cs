@@ -25,10 +25,10 @@ public sealed class FatigueTests
         var peaks = new List<float>();
         var peak = 0f;
         var extended = false;
-        for (var t = 0f; t < 6f; t += Dt)
+        for (var t = 0f; t < 10.07f; t += Dt)
         {
-            var phase = (int)(t / 0.5f);
-            var nowExtended = t > 1f && phase % 2 == 1;
+            var phase = (int)(t / 0.8392f);
+            var nowExtended = t > 1.678f && phase % 2 == 1;
             if (nowExtended != extended)
             {
                 if (extended)
@@ -65,7 +65,7 @@ public sealed class FatigueTests
         var fresh = PeakFistSpeed(tired: false, strike);
         var tired = PeakFistSpeed(tired: true, strike);
         Console.WriteLine($"sideways {sideways}: fresh peak {fresh:0.00} m/s, tired peak {tired:0.00} m/s");
-        // 2026-11-13: 直線 2.07 → 1.94 m/s（−6 %）、横 2.23 → 2.02 m/s（−9 %）。疲れた筋肉の速さの上限 2.4 m/s に近い速い拳ほど落ちる。
+        // 2026-11-13（人形の単位）: 直線 2.07 → 1.94 m/s（−6 %）、横 2.23 → 2.02 m/s（−9 %）。疲れた筋肉の速さの上限 2.4 m/s に近い速い拳ほど落ちる。
         Assert.IsLessThan(0.96f * fresh, tired, "疲れた拳は遅い");
     }
 }

@@ -12,20 +12,20 @@ namespace MiniRing.Tests;
 [TestClass]
 public sealed class WeaponSplitTests
 {
-    private const float TableTop = 1f;
+    private const float TableTop = 2.817f;
 
-    /// <summary>卓の +X 側の縁の x（部屋の床 x -2.7〜2.7、z -2〜4.4 の内側に置く）。</summary>
-    private const float TableEdge = 2f;
+    /// <summary>卓の +X 側の縁の x（物理の空間の部屋の床 x -7.6〜7.6、z -5.6〜12.4 の内側に置く）。</summary>
+    private const float TableEdge = 5.634f;
 
     /// <summary>卓の縁（+X 側）から棍棒の頭が突き出して載っている状態を作る。棍棒の重心は卓の上にあり、動かずに止まる。</summary>
     private static (BoxingGame Game, Weapon Club, Vector3 Origin) ClubOnTableEdge()
     {
         var game = new BoxingGame(seed: 1);
-        var table = new Vector3(1.5f, TableTop - 0.5f, 3f);
-        game.World.AddStaticBox(table, new Vector3(0.5f, 0.5f, 0.5f));
-        var origin = new Vector3(table.X + 0.5f - 0.03f, TableTop + 0.02f, table.Z);
+        var table = new Vector3(4.225f, TableTop - 1.408f, 8.451f);
+        game.World.AddStaticBox(table, new Vector3(1.408f, 1.408f, 1.408f));
+        var origin = new Vector3(table.X + 1.408f - 0.0845f, TableTop + 0.05634f, table.Z);
         var club = game.AddWeapon(WeaponKind.WoodenClub, origin, Quaternion.Identity);
-        for (var i = 0; i < 240; i++)
+        for (var i = 0; i < 403; i++)
         {
             game.Step(default, 1f / 240f);
         }
@@ -75,7 +75,7 @@ public sealed class WeaponSplitTests
         var stumpY = game.World.GetState(stump.BodyId).Position.Y;
         var edge = TableEdge;
         // 卓の縁から 2〜4 cm 外の断面（頭の突き出した所）を丸ごと消す: 先はつながりを失う。
-        CarveBand(stump, SliceOfWorldX(stump, edge + 0.02f), SliceOfWorldX(stump, edge + 0.035f));
+        CarveBand(stump, SliceOfWorldX(stump, edge + 0.05634f), SliceOfWorldX(stump, edge + 0.09859f));
         game.Step(default, 1f / 240f);
 
         Assert.AreEqual(count + 1, game.Weapons.Count, "the club split into two bodies");
@@ -87,13 +87,13 @@ public sealed class WeaponSplitTests
         Assert.AreEqual(massBefore, game.World.GetMass(stump.BodyId) + game.World.GetMass(tip.Body.BodyId), massBefore * 0.35f, "the carved band took its mass; the two pieces share the rest");
 
         var tipStart = game.World.GetState(tip.Body.BodyId).Position.Y;
-        for (var i = 0; i < 240; i++)
+        for (var i = 0; i < 403; i++)
         {
             game.Step(default, 1f / 240f);
         }
 
-        Assert.IsLessThan(tipStart - 0.3f, game.World.GetState(tip.Body.BodyId).Position.Y, "the tip fell off the table edge (it did not hang in the air)");
-        Assert.AreEqual(stumpY, game.World.GetState(stump.BodyId).Position.Y, 0.01f, "the stump stayed on the table");
+        Assert.IsLessThan(tipStart - 0.8451f, game.World.GetState(tip.Body.BodyId).Position.Y, "the tip fell off the table edge (it did not hang in the air)");
+        Assert.AreEqual(stumpY, game.World.GetState(stump.BodyId).Position.Y, 0.02817f, "the stump stayed on the table");
     }
 
     [TestMethod]
@@ -103,7 +103,7 @@ public sealed class WeaponSplitTests
         using var _ = game;
         var count = game.Weapons.Count;
         var stump = club.Body;
-        var from = SliceOfWorldX(stump, TableEdge + 0.015f);
+        var from = SliceOfWorldX(stump, TableEdge + 0.04225f);
         // 斜めの切り口: 高さ（Y のセル）が上がるほど切る断面が先へずれる（どの断面も消すのは 2 セルぶんの幅の斜めの帯）。
         var grid = stump.Grid;
         var removed = new List<RemovedVoxel>();
@@ -133,7 +133,7 @@ public sealed class WeaponSplitTests
         var count = game.Weapons.Count;
         var body = club.Body;
         var (cy, cz) = (body.Grid.Dimensions.Y / 2, body.Grid.Dimensions.Z / 2);
-        CarveBand(body, SliceOfWorldX(body, TableEdge + 0.02f), SliceOfWorldX(body, TableEdge + 0.035f), keepColumn: (cy, cz));
+        CarveBand(body, SliceOfWorldX(body, TableEdge + 0.05634f), SliceOfWorldX(body, TableEdge + 0.09859f), keepColumn: (cy, cz));
         Assert.AreEqual(1, body.Grid.ConnectedComponents().Count, "the one column joins the tip to the rest");
         game.Step(default, 1f / 240f);
         Assert.AreEqual(count, game.Weapons.Count, "a single column of cells still connecting keeps it one body");
@@ -145,16 +145,16 @@ public sealed class WeaponSplitTests
         var (game, club, _) = ClubOnTableEdge();
         using var _ = game;
         var stump = club.Body;
-        CarveBand(stump, SliceOfWorldX(stump, TableEdge + 0.02f), SliceOfWorldX(stump, TableEdge + 0.035f));
+        CarveBand(stump, SliceOfWorldX(stump, TableEdge + 0.05634f), SliceOfWorldX(stump, TableEdge + 0.09859f));
         game.Step(default, 1f / 240f);
         var tip = game.Weapons[^1];
         Assert.AreEqual(tip.Body.Grid.Remaining(Voxels.BoxerAnatomy.Wood), tip.Body.Grid.FilledCount, "the piece is all wood, as the club is");
-        for (var i = 0; i < 480; i++)
+        for (var i = 0; i < 806; i++)
         {
             game.Step(default, 1f / 240f);
         }
 
-        Assert.IsLessThan(TableTop - 0.5f, game.World.GetState(tip.Body.BodyId).Position.Y, "it landed below the table top and lies there (the floor and the room hold it)");
-        Assert.IsGreaterThan(-0.5f, game.World.GetState(tip.Body.BodyId).Position.Y, $"and did not fall through the floor (y {game.World.GetState(tip.Body.BodyId).Position.Y})");
+        Assert.IsLessThan(TableTop - 1.408f, game.World.GetState(tip.Body.BodyId).Position.Y, "it landed below the table top and lies there (the floor and the room hold it)");
+        Assert.IsGreaterThan(-1.408f, game.World.GetState(tip.Body.BodyId).Position.Y, $"and did not fall through the floor (y {game.World.GetState(tip.Body.BodyId).Position.Y})");
     }
 }

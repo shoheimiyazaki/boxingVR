@@ -22,7 +22,7 @@ internal static class MaaiLab
     internal const float StepDt = 1f / 60f;
 
     /// <summary>技の時計が終わってから、当たりをその打ちに数える長さ [s]（BoxerBot.LandWindow と同じ）。</summary>
-    private const float Grace = 0.15f;
+    private const float Grace = 0.252f;
 
     /// <summary>曲線の帯の幅（自分の腕の長さ倍）。</summary>
     private const float BinWidth = 0.1f;
@@ -31,10 +31,10 @@ internal static class MaaiLab
     private const int MinBinThrows = 8;
 
     /// <summary>得意・不得意の距離の帯の幅 [cm]（胸と胸の水平距離）。</summary>
-    internal const float RangeBinCm = 2f;
+    internal const float RangeBinCm = 5.63f;
 
     /// <summary>得意・不得意を選ぶときに要る、その帯にいた時間の合計の下限 [s]（全試合）。</summary>
-    internal const double MinRangeSeconds = 30;
+    internal const double MinRangeSeconds = 50.35;
 
     /// <summary>1 試合の、1 人の、1 つの距離の帯での時間・与えた・受けたダメージ。</summary>
     internal sealed record RangeCell(string Fighter, string Opponent, int Bin, double Seconds, double Dealt, double Taken, int Bout = -1);

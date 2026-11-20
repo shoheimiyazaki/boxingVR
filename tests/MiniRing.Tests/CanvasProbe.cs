@@ -16,17 +16,17 @@ public sealed class CanvasProbe
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
         var f = game.Cpu;
-        for (var t = 0f; t < 1.5f; t += 1f / 240f)
+        for (var t = 0f; t < 2.518f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
         }
 
         Report(game, f, "standing");
-        for (var t = 0f; t < 0.6f; t += 1f / 240f)
+        for (var t = 0f; t < 1.007f; t += 1f / 240f)
         {
             f.Concussion = 0.71f;
             game.Step(default, 1f / 240f);
-            if (t is > 0.1f and < 0.12f || t is > 0.28f and < 0.3f || t is > 0.5f and < 0.52f)
+            if (t is > 0.1678f and < 0.2014f || t is > 0.47f and < 0.5035f || t is > 0.8392f and < 0.8728f)
             {
                 Report(game, f, $"dazed t={t:0.00}");
             }

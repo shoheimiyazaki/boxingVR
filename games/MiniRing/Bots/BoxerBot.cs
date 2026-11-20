@@ -18,43 +18,43 @@ namespace MiniRing.Bots;
 public sealed class BoxerBot : IFighterControl
 {
     /// <summary>
-    /// 「向かってくる」とみなす拳の速さ [腕の長さ/s]。60cm の人形の腕は約 0.19m、パンチは 0.5〜1m/s なので、
-    /// 人の大きさの絶対値（0.7m/s など）ではほとんどの拳を見落とす（PDCA サイクル 1）。
+    /// 「向かってくる」とみなす拳の速さ [腕の長さ/s]。腕の長さの単位で見る（PDCA サイクル 1、人形の単位のころ: 絶対の速さ 0.7 m/s では
+    /// ほとんどの拳を見落とした）。実物大への相似の換算で 2 → 1.19（腕の長さ/s は 1/時間の次元）。
     /// </summary>
-    private const float MinThreatSpeed = 2f;
-    private const float ThreatHorizon = 0.45f;
+    private const float MinThreatSpeed = 1.192f;
+    private const float ThreatHorizon = 0.7553f;
 
     /// <summary>
     /// 動き出しを読み切ったとき（<see cref="BotStyle.Anticipation"/> = 1）の、気づく拳の速さ [腕の長さ/s] と先読みの時間 [s]。
     /// 拳が相手の体に対してこの速さで動き出せば、まだ遠くても「来る」と見る（防御ドリル D1）。
     /// </summary>
-    private const float CueThreatSpeed = 0.8f;
-    private const float CueHorizon = 0.7f;
+    private const float CueThreatSpeed = 0.4767f;
+    private const float CueHorizon = 1.175f;
 
     /// <summary>
     /// 振りかぶりを合図に読むときの拳の速さ [腕の長さ/s]（<see cref="BotStyle.Anticipation"/> = 1 のとき。0 では実質読まない）。
-    /// フックは外へ約 0.09 秒振りかぶってから約 0.11 秒で振り込むので、振り込みを見てからでは人並みの反応時間では間に合わない
-    /// （防御ドリル D1 の計測）。振りかぶりの拳はおよそ 3 腕の長さ/s で動く。
+    /// フックは外へ約 0.15 秒振りかぶってから約 0.18 秒で振り込むので、振り込みを見てからでは人並みの反応時間では間に合わない
+    /// （防御ドリル D1 の計測を相似で換算）。振りかぶりの拳はおよそ 1.8 腕の長さ/s で動く。
     /// </summary>
-    private const float WindupCueSpeed = 2.5f;
+    private const float WindupCueSpeed = 1.490f;
 
     /// <summary>拳の手がかりが途切れても追跡を続ける時間 [s]（振りかぶりから振り込みへの切り返しで一瞬遅くなる）。</summary>
-    private const float ThreatGap = 0.06f;
-    private const float LandWindow = 0.15f;
+    private const float ThreatGap = 0.1007f;
+    private const float LandWindow = 0.2518f;
 
     /// <summary>
     /// 拳が狙いを追う時間（その拳の時間に対する割合）。打ち始めのこの間だけ相手の頭（胴）の今の位置を追い、あとはその点へ打ち抜く。
     /// 人の拳は打ち出したら行き先を直せない。以前は当たるまで毎回狙い直していたため、頭をどう動かしても拳が付いてきて、
     /// 合図と同時に回避を始めても右ストレートを 1 発もきれいに外せなかった（回避の基本動作 B2）。
     /// </summary>
-    /// <summary>クリンチを考えるダメージ（約 1 秒の時定数で減っていく直近の被ダメージ。クリーンヒット 1〜2 発ぶん）。</summary>
+    /// <summary>クリンチを考えるダメージ（約 1.7 秒の時定数で減っていく直近の被ダメージ。クリーンヒット 1〜2 発ぶん）。</summary>
     private const float ClinchDamage = 14f;
-    private const float ClinchDuration = 0.9f;
-    private const float ThrowDuration = 1.3f;
-    private const float ApproachTimeout = 1.2f;
+    private const float ClinchDuration = 1.511f;
+    private const float ThrowDuration = 2.182f;
+    private const float ApproachTimeout = 2.014f;
 
     /// <summary>1 回の守りを続ける上限 [s]（拳が向かってくる限り守るが、守ったまま固まらない）。</summary>
-    private const float MaxDefenseDuration = 0.7f;
+    private const float MaxDefenseDuration = 1.175f;
 
     /// <summary>頭がこれ（腕の長さ単位）より下がっていたら「しゃがんでいる」。</summary>
     private const float CrouchDepth = 0.25f;
@@ -66,16 +66,16 @@ public sealed class BoxerBot : IFighterControl
     /// しゃがみの疲れの上限 [s]。これを超えたら頭を沈める守り（ダッキング・ウィービング・沈むスリップ）を選びにくくし、
     /// 拳が来続けても沈んだまま守り続けない（起き上がる）。ずっとしゃがんだまま戦わない（予測編 P7: インファイターが 30 % しゃがんでいた）。
     /// </summary>
-    private const float CrouchBudget = 0.4f;
+    private const float CrouchBudget = 0.6714f;
 
     /// <summary>疲れが上限を超えたとき、頭を沈める守りの重みに掛ける倍率。</summary>
     private const float TiredCrouchWeight = 0.15f;
 
     /// <summary>頭を沈める守りを、拳が来続けても沈んだまま延ばしてよい上限 [s]（沈まない守りは <see cref="MaxDefenseDuration"/>）。</summary>
-    private const float MaxCrouchedDefense = 0.45f;
+    private const float MaxCrouchedDefense = 0.7553f;
 
     /// <summary>予測で守りを始めたあと、次に予測で動くまでの間 [s]（同じ手がかりで何度も守りを出さない）。</summary>
-    private const float PredictionCooldown = 0.5f;
+    private const float PredictionCooldown = 0.8392f;
 
     /// <summary>相手の打ち始めの間合いから外へ置く余裕（腕の長さ倍、<see cref="BotStyle.EdgeRange"/>）。</summary>
     private const float EdgeMargin = 0.1f;
@@ -142,7 +142,7 @@ public sealed class BoxerBot : IFighterControl
     private bool _comboIsCounter;
     private bool _wantAttack;
     private float _approachTime;
-    private float _cooldown = 1f;
+    private float _cooldown = 1.678f; // 最初の攻めまでの間 [s]
     private float _exitTimer;
     private Defense _defense;
     private float _defenseTime;
@@ -209,7 +209,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 58; // 58: 拳の技の目標を最小躍度の曲線で動かし、振り出しを短く（LaunchShare 0.5 → 0.3）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 59; // 59: ボットの時間・速さ・距離を実物大の単位へ（相似の換算）。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;
@@ -266,14 +266,14 @@ public sealed class BoxerBot : IFighterControl
         var dir = distance > 1e-3f ? toOpponent / distance : self.Forward;
         var headLocal = sense.SelfHead == default ? new Vector3(0f, 0.3f * reach, 0f) : self.WorldToLocal(sense.SelfHead);
 
-        _recentDamage *= MathF.Exp(-dt);
+        _recentDamage *= MathF.Exp(-dt / 1.678f); // 時定数 1.678 s（人形の単位の 1 s を相似で換算）
         if (!sense.OpponentAlive)
         {
             ResetActions();
             _read.Pause();
             _crouchTime = MathF.Max(0f, _crouchTime - (CrouchRecovery * dt)); // 相手が倒れている間に、しゃがみの疲れも抜ける
             var back = Math.Clamp((distance - (Style.NeutralRange + 0.3f) * reach) / reach * 3f, -1f, 0f);
-            _head = Vector3.Lerp(_head, Vector3.Zero, 1f - MathF.Exp(-8f * dt));
+            _head = Vector3.Lerp(_head, Vector3.Zero, 1f - MathF.Exp(-4.767f * dt));
             return new FighterCommand(dir * back, dir,
                 new HandCommand(Guard(Hand.Left, reach, headLocal), false), new HandCommand(Guard(Hand.Right, reach, headLocal), false), _head);
         }
@@ -362,7 +362,7 @@ public sealed class BoxerBot : IFighterControl
             GrappleTargets(sense, reach, dt, ref left, ref right, ref grip, ref move, dir);
         }
 
-        _head = Vector3.Lerp(_head, HeadTarget(reach, dt), 1f - MathF.Exp(-(_defense is Defense.None ? 12f : _defenseMove.Rate) * dt));
+        _head = Vector3.Lerp(_head, HeadTarget(reach, dt), 1f - MathF.Exp(-(_defense is Defense.None ? 7.150f : _defenseMove.Rate) * dt));
         var crouched = _head.Y < -CrouchDepth * reach;
         _crouchTime = crouched ? _crouchTime + dt : MathF.Max(0f, _crouchTime - (CrouchRecovery * dt));
         // 一度疲れたら、疲れが抜けきるまで（立ち上がって息を整えるまで）沈む守りを控える。
@@ -557,7 +557,7 @@ public sealed class BoxerBot : IFighterControl
             return false;
         }
 
-        var cueSpeed = (WindupCueSpeed + (6f * (1f - anticipation))) * reach;
+        var cueSpeed = (WindupCueSpeed + (3.575f * (1f - anticipation))) * reach;
         var r = head - glove.Position;
         var speed = glove.Velocity.Length();
         // 引き戻す拳（相手自身の胸へまっすぐ戻る）は合図にしない。振りかぶりは横・下へ開くので残る。頭から離れるかどうかでは
@@ -760,7 +760,7 @@ public sealed class BoxerBot : IFighterControl
     /// <summary>打ちに入る間合い（胸と胸、腕の長さ倍）: 腕が相手より短いほど相手の腕の内側へ深く入る（<see cref="BotStyle.BuildInside"/>）。</summary>
     private float AttackRangeNow => Style.AttackRange * _build.Inside(Style);
 
-    /// <summary>拳が守りを始めた時の頭（胴）の所まで「届いた」とみなす、拳の中心からの距離 [腕の長さ]（頭の半径 + 拳の半径 ≈ 6.6 cm、腕の長さ 0.188 m）。</summary>
+    /// <summary>拳が守りを始めた時の頭（胴）の所まで「届いた」とみなす、拳の中心からの距離 [腕の長さ]（頭の半径 + 拳の半径 ≈ 19 cm、腕の長さ 0.53 m）。</summary>
     private const float PunchArrivedDistance = 0.35f;
 
     /// <summary>いまの守りの間に受けたダメージ（守りの報酬に使う）。</summary>
@@ -1063,7 +1063,7 @@ public sealed class BoxerBot : IFighterControl
         // 危険度 × (1 + さらされ) に比例して、次の拳までの間を早く縮める（RangePress）。
         // 弱った相手を詰める層: 相手が開いているほど次の拳までの間を早く縮める（FinishTempo）。
         // 戦略の層: 得と脅威の釣り合い・急ぐ度合いで次の拳までの間を縮める・空ける（PlanTempo。層が無ければ 1 を掛けるだけ）。
-        _cooldown -= dt * (1f - ((1f - Style.RestTempo) * RestNeed)) * (1f + (Style.RangePress * _range.Danger * (1f + _range.Exposure))) * _build.Tempo(Style) * (1f + (Style.FinishTempo * _hurt.Opening)) * PlanTempo;
+        _cooldown -= dt * (1f - ((1f - Style.RestTempo) * RestNeed)) * (1f + (Style.RangePress * _range.Danger * (1f + (_range.Exposure / RangeSense.ExposureScale)))) * _build.Tempo(Style) * (1f + (Style.FinishTempo * _hurt.Opening)) * PlanTempo;
         _exitTimer = MathF.Max(0f, _exitTimer - dt);
         if (_kick is not null || _elbow is not null || _defense != Defense.None || _clinchTime >= 0f || _throwTime >= 0f || _combo is not null)
         {
@@ -1100,7 +1100,7 @@ public sealed class BoxerBot : IFighterControl
             else if (_approachTime > ApproachTimeout || distance > EngageRange * reach * 1.3f)
             {
                 _wantAttack = false;
-                _cooldown = 0.3f;
+                _cooldown = 0.5035f;
                 ApproachGiveUps++;
             }
 
@@ -1133,9 +1133,9 @@ public sealed class BoxerBot : IFighterControl
     /// </summary>
     private void UpdateStopJab(in FighterSense sense, Vector3 dir, float distance, float reach, float dt)
     {
-        // 相手の胴がこちらへ向かう速さ（自分の動きと物理の揺れを含めないよう、相手の速度から。0.05 秒でならす）。
+        // 相手の胴がこちらへ向かう速さ（自分の動きと物理の揺れを含めないよう、相手の速度から。0.08 秒でならす）。
         var closing = -Vector3.Dot(sense.OpponentVelocity with { Y = 0f }, dir);
-        _opponentClosing += (closing - _opponentClosing) * (1f - MathF.Exp(-dt / 0.05f));
+        _opponentClosing += (closing - _opponentClosing) * (1f - MathF.Exp(-dt / 0.08392f));
         _stopJabCooldown = MathF.Max(0f, _stopJabCooldown - dt);
         if (!Style.Attacks || Style.StopJab <= 0f || _stopJabCooldown > 0f || _defense != Defense.None || Grappling
             || _combo is not null || _wantAttack || _hands[(int)Style.Lead].Active)
@@ -1143,9 +1143,9 @@ public sealed class BoxerBot : IFighterControl
             return;
         }
 
-        if (_opponentClosing > 1.5f * reach && distance < Style.NeutralRange * _build.StandOff(Style) * reach && distance > 0.8f * reach)
+        if (_opponentClosing > 0.8937f * reach && distance < Style.NeutralRange * _build.StandOff(Style) * reach && distance > 0.8f * reach)
         {
-            _stopJabCooldown = 0.6f;
+            _stopJabCooldown = 1.007f;
             if (_random.NextSingle() < Style.StopJab)
             {
                 StartCombo(StopJabCombo, counter: false);
@@ -1261,16 +1261,16 @@ public sealed class BoxerBot : IFighterControl
         if (_comboIndex >= combo.Steps.Count)
         {
             _combo = null;
-            _cooldown = ((1.3f + ((0.3f - 1.3f) * PacedAggression)) * Range(0.7f, 1.3f)) + duration + load;
+            _cooldown = ((2.182f + ((0.5035f - 2.182f) * PacedAggression)) * Range(0.7f, 1.3f)) + duration + load;
             if (_random.NextSingle() < Style.ExitAfterCombo * _build.Leave(Style))
             {
-                _exitTimer = load + duration + 0.5f;
+                _exitTimer = load + duration + 0.8392f;
             }
 
             if (_random.NextSingle() < Style.PivotAfterCombo)
             {
                 // 前の手の側へ回り込む（相手の後ろの手から離れ、相手の正面から外れる）。
-                _pivotTimer = load + duration + 0.45f;
+                _pivotTimer = load + duration + 0.7553f;
                 _pivotSide = Style.Lead.LocalSide();
                 Stats.Pivoted();
             }
@@ -1339,16 +1339,16 @@ public sealed class BoxerBot : IFighterControl
         if (_clinchTime >= 0f)
         {
             // クリンチ: 両手で相手の胴を抱えて動きを止め、ゆっくり離す（投げにならない速さで）。
-            var holding = _clinchTime > 0.12f && _clinchTime < ClinchDuration;
+            var holding = _clinchTime > 0.2014f && _clinchTime < ClinchDuration;
             left = chest + (new Vector3(0.12f, 0.05f, 0f) * reach);
             right = chest + (new Vector3(-0.12f, 0.05f, 0f) * reach);
             grip = (holding, holding);
             move = dir * 0.4f;
             _clinchTime += dt;
-            if (_clinchTime > ClinchDuration + 0.1f)
+            if (_clinchTime > ClinchDuration + 0.1678f)
             {
                 _clinchTime = -1f;
-                _exitTimer = 0.6f;
+                _exitTimer = 1.007f;
             }
 
             return;
@@ -1356,20 +1356,20 @@ public sealed class BoxerBot : IFighterControl
 
         // 投げ: 片手で胴を掴み、体の反対側へ引き倒して、速く動いているうちに離す。
         var pull = new Vector3(-_throwHand.LocalSide() * 0.6f, 0.4f, -0.6f) * reach;
-        var target = _throwTime < 0.9f ? chest : chest + pull;
+        var target = _throwTime < 1.511f ? chest : chest + pull;
         Set(_throwHand, ref left, ref right, target);
-        var held = _throwTime > 0.25f && _throwTime < ThrowDuration;
+        var held = _throwTime > 0.4196f && _throwTime < ThrowDuration;
         grip = _throwHand == Hand.Left ? (held, false) : (false, held);
-        if (_throwTime > 0.9f)
+        if (_throwTime > 1.511f)
         {
             move = -dir;
         }
 
         _throwTime += dt;
-        if (_throwTime > ThrowDuration + 0.05f)
+        if (_throwTime > ThrowDuration + 0.08392f)
         {
             _throwTime = -1f;
-            _cooldown = 0.8f;
+            _cooldown = 1.343f;
         }
     }
 
@@ -1380,7 +1380,7 @@ public sealed class BoxerBot : IFighterControl
         _circleTimer -= dt;
         if (_circleTimer <= 0f)
         {
-            _circleTimer = Range(0.8f, 2.5f);
+            _circleTimer = Range(1.343f, 4.196f);
             // 基本は前の手の側へ回る（相手の強い後ろの手から離れる）。
             _circleDirection = (_random.NextSingle() < 0.7f ? 1f : -1f) * Style.Lead.LocalSide();
         }
@@ -1418,7 +1418,7 @@ public sealed class BoxerBot : IFighterControl
         // 間合いの層: 自分から打っていない間は、危ない所から外へ出る（危ない所に居続けるのが一番危ない）。居続けた時間が長いほど強く。
         if (!_wantAttack && _combo is null)
         {
-            approach -= Style.RangeExit * _range.Danger * (1f + _range.Exposure) * (1f - press);
+            approach -= Style.RangeExit * _range.Danger * (1f + (_range.Exposure / RangeSense.ExposureScale)) * (1f - press);
         }
 
         foreach (var action in _hands)
@@ -1519,7 +1519,7 @@ public sealed class BoxerBot : IFighterControl
     internal static Vector3 StayInside(Vector3 position, float reach, RingLayout ring)
     {
         var half = ring.Half;
-        var margin = MathF.Max(0.12f, 0.8f * reach);
+        var margin = MathF.Max(0.338f, 0.8f * reach);
         var offset = position - ring.Center;
         static float Push(float o, float half, float margin)
         {
@@ -1553,7 +1553,7 @@ public sealed class BoxerBot : IFighterControl
         _headIdleTimer -= dt * (1f + (2f * restless));
         if (_headIdleTimer <= 0f)
         {
-            _headIdleTimer = Range(0.35f, 1.1f);
+            _headIdleTimer = Range(0.5874f, 1.846f);
             var a = MathF.Min(1f, Style.HeadMovement + restless);
             _headIdle = _random.NextSingle() < 1f - (0.7f * a)
                 ? Vector3.Zero

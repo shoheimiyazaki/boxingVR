@@ -39,7 +39,7 @@ public sealed class SpawnWeaponOverlapTests
         foreach (var (redId, blueId) in new[] { ("daichi", "sean"), ("sean", "daichi"), ("jin", "sean"), ("konrad", "sean") })
         {
             using var game = TvGame(redId, blueId, seed: 1);
-            // 助走（コンストラクタの中で 1 秒）の間の接触・骨折は、試合の最初の歩まで消されずに残っている。
+            // 助走（コンストラクタの中で約 1.7 秒）の間の接触・骨折は、試合の最初の歩まで消されずに残っている。
             // 生成の重なりを当てていたときは六尺棒が胸・頭を 100〜280 セル削った。構えへ下ろす途中で刀が胸をかすめる（jin: 2 セル）のは、
             // 離れた後の本物の接触なので数に許す。
             var carved = game.SelfTouches.Sum(t => t.Removed);
@@ -47,24 +47,24 @@ public sealed class SpawnWeaponOverlapTests
             Assert.AreEqual(0, game.BrokenBones.Count, $"{redId} 対 {blueId}: 助走の間に骨が折れた（{string.Join(", ", game.BrokenBones.Select(b => b.Part))}）");
             Assert.IsFalse(game.Player.IsDead || game.Cpu.IsDead, $"{redId} 対 {blueId}: 助走の間に死んだ");
 
-            for (var i = 0; i < 60 * 2 && !game.MatchOver; i++)
+            for (var i = 0; i < 201 && !game.MatchOver; i++)
             {
                 game.Step(default, 1f / 60f);
             }
 
-            Assert.IsFalse(game.MatchOver, $"{redId} 対 {blueId}: 始まって 2 秒で決着した（{game.Message}）");
+            Assert.IsFalse(game.MatchOver, $"{redId} 対 {blueId}: 始まって 3.4 秒で決着した（{game.Message}）");
 
-            // 免除は一度離れるまで: 打ち合ううちに全部の組が離れ、自分の体にも当たるようになる（刀は 8 秒、ロングソードは 10 秒で 0 だった）。
-            for (var i = 0; i < 60 * 10 && !game.MatchOver && game.SpawnOverlapCount > 0; i++)
+            // 免除は一度離れるまで: 打ち合ううちに全部の組が離れ、自分の体にも当たるようになる（人形の単位で刀は 8 秒、ロングソードは 10 秒で 0 だった）。
+            for (var i = 0; i < 1007 && !game.MatchOver && game.SpawnOverlapCount > 0; i++)
             {
                 game.Step(default, 1f / 60f);
             }
 
-            Assert.AreEqual(0, game.SpawnOverlapCount, $"{redId} 対 {blueId}: 生成の重なりの免除が 12 秒たっても残っている");
+            Assert.AreEqual(0, game.SpawnOverlapCount, $"{redId} 対 {blueId}: 生成の重なりの免除が約 20 秒たっても残っている");
         }
     }
 
-    /// <summary>テレビ中継の下見（tvscout）と同じ作り方の VFC の試合（名簿のキャラ・コーナーから・檻・助走 1 秒）。</summary>
+    /// <summary>テレビ中継の下見（tvscout）と同じ作り方の VFC の試合（名簿のキャラ・コーナーから・檻・助走約 1.7 秒）。</summary>
     private static BoxingGame TvGame(string redId, string blueId, int seed)
     {
         var red = CharacterRoster.Get(redId);
@@ -75,6 +75,6 @@ public sealed class SpawnWeaponOverlapTests
         var corners = Arena.TvShowRules.Stage(Arena.VideoMaker.WithCharacters(
             Arena.VideoMaker.Corners(redContender, blueContender, seed, red.Wear, blue.Wear, red.Weapon, blue.Weapon,
                 s => blueContender.Create(s), s => redContender.Create(s), true), red, blue), org);
-        return new BoxingGame(seed: seed, corners: corners, rules: Arena.TvShowRules.Rules(1, 10f, org));
+        return new BoxingGame(seed: seed, corners: corners, rules: Arena.TvShowRules.Rules(1, 16.78f, org));
     }
 }

@@ -120,9 +120,9 @@ public sealed class SwordMotionTests
             // 握りの点は柄の軸の上にあり、柄の中には鉄の芯（茎）が通っている（PhysicsVersion 44）ので、木か芯の鉄。刀身ではない（鍔より手前）。
             Assert.IsTrue(Material(grid, top) is BoxerAnatomy.Wood or BoxerAnatomy.Iron, $"{kind} top grip is on the handle");
             Assert.IsTrue(Material(grid, bottom) is BoxerAnatomy.Wood or BoxerAnatomy.Iron, $"{kind} bottom grip is on the handle");
-            Assert.AreEqual(BoxerAnatomy.Wood, Material(grid, top + new Vector3(0f, 0.0035f, 0f)), $"{kind}: beside the tang the handle is wood");
-            Assert.IsGreaterThan(0.03f, top.X - bottom.X, $"{kind}: the hands are apart on the hilt");
-            Assert.AreEqual(BoxerAnatomy.Iron, Material(grid, Weapon.TipOf(kind) - new Vector3(0.01f, 0f, 0f)), $"{kind} has a steel point");
+            Assert.AreEqual(BoxerAnatomy.Wood, Material(grid, top + new Vector3(0f, 0.00986f, 0f)), $"{kind}: beside the tang the handle is wood");
+            Assert.IsGreaterThan(0.0845f, top.X - bottom.X, $"{kind}: the hands are apart on the hilt");
+            Assert.AreEqual(BoxerAnatomy.Iron, Material(grid, Weapon.TipOf(kind) - new Vector3(0.02817f, 0f, 0f)), $"{kind} has a steel point");
         }
 
         Assert.IsFalse(Weapon.CanTwoHand(WeaponKind.IronSword));
@@ -136,7 +136,7 @@ public sealed class SwordMotionTests
         MotionImitation? control = null;
         using var game = new BoxingGame(SwordStance.Tuning, seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(),
             _ => control = new MotionImitation(guard, SwordStance.Rate, loop: true), PlayerWeapon: WeaponKind.Katana, PlayerTwoHanded: true));
-        for (var t = 0f; t < 1.5f; t += 1f / 60f)
+        for (var t = 0f; t < 2.518f; t += 1f / 60f)
         {
             game.Step(default, 1f / 60f);
         }
@@ -155,16 +155,16 @@ public sealed class SwordMotionTests
     public void TheSwordsman_ClosesToTheTechniquesRange_BeforeStriking()
     {
         var forms = SwordForms.Longsword();
-        var oberhau = new MotionTechnique("oberhau", WeaponKind.Longsword, forms.First(f => f.Name == "oberhau"), 0.55f);
+        var oberhau = new MotionTechnique("oberhau", WeaponKind.Longsword, forms.First(f => f.Name == "oberhau"), 1.549f);
         SwordsmanBot? bot = null;
         using var game = new BoxingGame(SwordStance.Tuning, seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(),
             s => bot = new SwordsmanBot([oberhau], forms[0].Frames[0], s, SwordStance.Rate, exact: true, tuning: SwordStance.Tuning), PlayerWeapon: WeaponKind.Longsword, PlayerTwoHanded: true));
-        for (var t = 0f; t < 4f && bot!.Used.Count == 0; t += 1f / 60f)
+        for (var t = 0f; t < 6.714f && bot!.Used.Count == 0; t += 1f / 60f)
         {
             game.Step(default, 1f / 60f);
         }
 
         Assert.AreEqual(1, bot!.Used.Count, "the technique is thrown");
-        Assert.AreEqual(oberhau.Range, bot.UsedAt[0], MotionTechnique.Window + 0.01f, "from its own range");
+        Assert.AreEqual(oberhau.Range, bot.UsedAt[0], MotionTechnique.Window + 0.02817f, "from its own range");
     }
 }

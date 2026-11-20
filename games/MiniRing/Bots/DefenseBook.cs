@@ -44,7 +44,7 @@ public sealed record DefenseMove
     public float EndX { get; init; }
 
     /// <summary>守りを続ける時間 [s]（拳が向かってくる間は延ばす）。</summary>
-    public float Duration { get; init; } = 0.35f;
+    public float Duration { get; init; } = 0.5874f;
 
     /// <summary>足の前後（移動指令の前向き成分、負で下がる）。</summary>
     public float Move { get; init; }
@@ -53,7 +53,7 @@ public sealed record DefenseMove
     public float Step { get; init; }
 
     /// <summary>頭が目標へ寄る速さ [1/s]（大きいほど鋭く動く。体の軸の傾きとして伝わる）。</summary>
-    public float Rate { get; init; } = 26f;
+    public float Rate { get; init; } = 15.49f;
 
     /// <summary>両拳を顔の前へ上げる度合い（0 = 構えのまま … 1 = 顔を覆う）。ブロックは常に 1。</summary>
     public float HandsUp { get; init; }
@@ -134,10 +134,10 @@ public sealed record DefenseMove
             HeadY = DefenseRanges.HeadY.Clamp(HeadY, 0f),
             HeadZ = DefenseRanges.HeadZ.Clamp(HeadZ, 0f),
             EndX = Sweep ? DefenseRanges.HeadX.Clamp(EndX, 0f) : headX, // 横へ抜けない技では使わないので、始めと同じにそろえる
-            Duration = DefenseRanges.Duration.Clamp(Duration, 0.35f),
+            Duration = DefenseRanges.Duration.Clamp(Duration, 0.5874f),
             Move = DefenseRanges.Move.Clamp(Move, 0f),
             Step = DefenseRanges.Step.Clamp(Step, 0f),
-            Rate = DefenseRanges.Rate.Clamp(Rate, 26f),
+            Rate = DefenseRanges.Rate.Clamp(Rate, 15.49f),
             HandsUp = DefenseRanges.HandsUp.Clamp(HandsUp, 0f),
             GloveAnchor = DefenseRanges.GloveAnchor.Clamp(GloveAnchor, 0f),
             GloveWidth = DefenseRanges.GloveWidth.Clamp(GloveWidth, 0.1f),
@@ -167,13 +167,13 @@ public static class DefenseRanges
     public static ValueRange HeadZ { get; } = new(nameof(DefenseMove.HeadZ), -0.5f, 0.4f);
 
     /// <summary>守りを続ける時間 [s]。</summary>
-    public static ValueRange Duration { get; } = new(nameof(DefenseMove.Duration), 0.15f, 0.7f);
+    public static ValueRange Duration { get; } = new(nameof(DefenseMove.Duration), 0.2518f, 1.175f);
 
     public static ValueRange Move { get; } = new(nameof(DefenseMove.Move), -1f, 1f);
 
     public static ValueRange Step { get; } = new(nameof(DefenseMove.Step), -1f, 1f);
 
-    public static ValueRange Rate { get; } = new(nameof(DefenseMove.Rate), 6f, 60f);
+    public static ValueRange Rate { get; } = new(nameof(DefenseMove.Rate), 3.575f, 35.75f);
 
     public static ValueRange HandsUp { get; } = new(nameof(DefenseMove.HandsUp), 0f, 1f);
 
@@ -213,13 +213,13 @@ public sealed record DefenseBook
 {
     public DefenseMove Block { get; init; } = new()
     {
-        Duration = 0.35f, HandsUp = 1f,
+        Duration = 0.5874f, HandsUp = 1f,
         VsStraight = 1f, VsHook = 1f, VsUppercut = 1f, VsBody = 1f,
     };
 
     public DefenseMove Duck { get; init; } = new()
     {
-        HeadY = -0.5f, HeadZ = 0.18f, Duration = 0.4f,
+        HeadY = -0.5f, HeadZ = 0.18f, Duration = 0.6714f,
         VsStraight = 1f, VsHook = 1f,
     };
 
@@ -227,52 +227,52 @@ public sealed record DefenseBook
     public DefenseMove Weave { get; init; } = new()
     {
         // 真ん中から沈み、来る拳と反対の側へ抜ける（拳の方へ頭を寄せてから沈むと、自分から当たりに行く）。
-        Sweep = true, HeadX = 0f, EndX = 0.3f, HeadY = -0.45f, HeadZ = 0.12f, Duration = 0.45f,
+        Sweep = true, HeadX = 0f, EndX = 0.3f, HeadY = -0.45f, HeadZ = 0.12f, Duration = 0.7553f,
         VsHook = 1f, VsStraight = 0.5f,
     };
 
     public DefenseMove Slip { get; init; } = new()
     {
-        HeadX = 0.42f, EndX = 0.42f, HeadY = -0.1f, HeadZ = 0.08f, Duration = 0.3f,
+        HeadX = 0.42f, EndX = 0.42f, HeadY = -0.1f, HeadZ = 0.08f, Duration = 0.5035f,
         VsStraight = 1f,
     };
 
     public DefenseMove Sway { get; init; } = new()
     {
-        HeadY = 0.02f, HeadZ = -0.38f, Move = -0.4f, Duration = 0.35f,
+        HeadY = 0.02f, HeadZ = -0.38f, Move = -0.4f, Duration = 0.5874f,
         VsStraight = 1f, VsHook = 1f, VsUppercut = 1f,
     };
 
     public DefenseMove StepBack { get; init; } = new()
     {
-        HeadZ = -0.12f, Move = -1f, Duration = 0.4f,
+        HeadZ = -0.12f, Move = -1f, Duration = 0.6714f,
         VsStraight = 1f, VsHook = 1f, VsUppercut = 1f, VsBody = 1f,
     };
 
     /// <summary>サイドステップ: 足で横へ出て拳の線から外れる（角度を取る）。</summary>
     public DefenseMove SideStep { get; init; } = new()
     {
-        HeadX = 0.15f, EndX = 0.15f, Step = 1f, Move = -0.2f, Duration = 0.35f,
+        HeadX = 0.15f, EndX = 0.15f, Step = 1f, Move = -0.2f, Duration = 0.5874f,
         VsStraight = 1f, VsHook = 0.5f, VsUppercut = 0.5f, VsBody = 1f,
     };
 
     /// <summary>インサイドスリップ: スリップしながら半歩踏み込む（外した拳の内側で打ち返す距離に入る）。</summary>
     public DefenseMove SlipIn { get; init; } = new()
     {
-        HeadX = 0.38f, EndX = 0.38f, HeadY = -0.15f, HeadZ = 0.15f, Move = 0.4f, Duration = 0.3f,
+        HeadX = 0.38f, EndX = 0.38f, HeadY = -0.15f, HeadZ = 0.15f, Move = 0.4f, Duration = 0.5035f,
         VsStraight = 1f,
     };
 
     /// <summary>ローリング: 真ん中から、来る拳の進む向き（拳から離れる側）へ沈みながら頭を流す。</summary>
     public DefenseMove Roll { get; init; } = new()
     {
-        Sweep = true, HeadX = 0f, EndX = 0.45f, HeadY = -0.3f, HeadZ = -0.05f, Move = -0.2f, Duration = 0.35f, HandsUp = 0.5f,
+        Sweep = true, HeadX = 0f, EndX = 0.45f, HeadY = -0.3f, HeadZ = -0.05f, Move = -0.2f, Duration = 0.5874f, HandsUp = 0.5f,
         VsHook = 1f, VsStraight = 0.5f,
     };
 
     public DefenseMove Parry { get; init; } = new()
     {
-        Duration = 0.35f,
+        Duration = 0.5874f,
         // karatelab（docs/arena/gen12_karatelab_parry_v3_forearm.md）の測定: パリーは来る拳の弧（フック）の頭への当たりを 0.92〜0.95 → 0.73〜0.78 に減らすが、
         // ストレート・ジャブの直線は変えられない（1.00 → 1.00）。効く相手の重みを高くする。
         VsStraight = 0.15f, VsBody = 0.3f, VsHook = 1f,

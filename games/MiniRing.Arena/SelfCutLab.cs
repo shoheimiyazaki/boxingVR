@@ -26,7 +26,7 @@ internal static class SelfCutLab
     public static int Passes { get; set; } = 3;
 
     /// <summary>打たれてからこの秒数のうちは、体勢が崩れている（事故）とみなす。</summary>
-    public const float AccidentWindow = 0.4f;
+    public const float AccidentWindow = 0.671f;
 
     /// <summary>
     /// 1 回の自傷。<paramref name="TargetClear"/> は、その時ボットが出していた目標（右手の位置と剣の向き）の刃の線が、自分の体の箱（<see cref="SelfClearance"/>）から

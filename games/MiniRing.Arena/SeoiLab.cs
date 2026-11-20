@@ -5,7 +5,7 @@ namespace MiniRing.Arena;
 
 /// <summary>
 /// 背負い投げを鍛えるドリル（docs/GRAPPLING.md §11）: 引かずに自分の体を運ぶ背負い投げの経路を、数個の値から作り、乱数で候補を作って試し、
-/// 「きれいな投げ」（受けが倒れ、取りはその 0.5 秒後も立っている）が多く、取りが倒れないものを選ぶ。選んだものは、選ぶのに使わなかった種と、
+/// 「きれいな投げ」（受けが倒れ、取りはその 0.84 秒後も立っている）が多く、取りが倒れないものを選ぶ。選んだものは、選ぶのに使わなかった種と、
 /// 動いて打つ相手（チャンピオン）で比べ直す（CLAUDE.md §1.8）。結果は技の経路の値（教科書のデータ）として出すだけ。
 /// </summary>
 internal sealed class SeoiLab(int seed, Action<string> log)
@@ -27,14 +27,14 @@ internal sealed class SeoiLab(int seed, Action<string> log)
         float Drop = 0f,    // 投げの始めに、腰をさらに素早く落とす量（頭の下げに足す）
         float Draw = 0f)    // 入る間、両手を取りの前へ出す量（体を回すと受けが前へ引き出される）
     {
-        public static Params Initial { get; } = new(0.4f, 0.15f, 0f, -0.45f, 0.15f, 0f, 0.75f, 0.05f, 3.0f);
+        public static Params Initial { get; } = new(0.671f, 0.15f, 0f, -0.45f, 0.252f, 0f, 0.75f, 0.05f, 3.0f);
 
         public string Short => string.Create(CultureInfo.InvariantCulture,
             $"entry {Entry:0.00} depth {Depth:0.00} side {Side:0.00} crouch {Crouch:0.00} hold {Hold:0.00} lift {Lift:0.00} bow {Bow:0.00} hand {HandHigh:0.00} turn {Turn:0.00} advance {Advance:0.00} drop {Drop:0.00} draw {Draw:0.00}");
     }
 
     /// <summary>
-    /// 経路: 掴む（0.25 秒）→ 両手を取りの体に固定し（左手は胸の前の高い所で袖を釣り、右手は右肩の前で襟を持つ）、回って背を向けながら、
+    /// 経路: 掴む（0.42 秒）→ 両手を取りの体に固定し（左手は胸の前の高い所で袖を釣り、右手は右肩の前で襟を持つ）、回って背を向けながら、
     /// 取りの立ち位置を相手の腰のすぐ前（背中が相手のお腹に付く所）へ運び、腰を落とす。手は体と一緒に動くので、受けは腕で引かれるのでなく
     /// 取りの体の回転と踏み込みで運ばれる（Entry）→ 背中を付けたまま止まる（Hold）→ 膝を伸ばして腰で跳ね上げ、前へ体を折る → 両手を前下へ → 離す。
     /// </summary>
@@ -45,11 +45,11 @@ internal sealed class SeoiLab(int seed, Action<string> log)
         GrappleHand BodyLeft() => new(GrappleAnchor.Self, [0.2f, p.HandHigh, 0.35f + p.Draw], true);
         GrappleHand BodyRight() => new(GrappleAnchor.Self, [-0.1f, p.HandHigh + 0.05f, 0.2f + p.Draw], true);
         GrappleHand Spot() => new(GrappleAnchor.Pelvis, [p.Side, 0f, p.Depth]);
-        var t0 = 0.25f;
+        var t0 = 0.42f;
         var entry = t0 + p.Entry;
         var hold = entry + p.Hold;
-        var lift = hold + 0.35f;
-        var drop = lift + 0.3f;
+        var lift = hold + 0.587f;
+        var drop = lift + 0.504f;
         var keys = new List<GrappleKey>
         {
             new(0f, Sleeve(false), Lapel(false)),
@@ -58,12 +58,12 @@ internal sealed class SeoiLab(int seed, Action<string> log)
             new(entry, BodyLeft(), BodyRight(), Head: [0f, p.Crouch, 0.05f], Turn: p.Turn, Stand: Spot()),
             new(hold, BodyLeft(), BodyRight(), Head: [0f, p.Crouch, 0.1f], Turn: p.Turn, Stand: Spot()),
             // 投げの始め: 腰をさらに素早く落とし（論文: 取りの重心が下へ 1.1〜1.4 m/s）、投げる向きへ出始める。
-            new(hold + 0.1f, BodyLeft(), BodyRight(), Head: [0f, p.Crouch - p.Drop, 0.2f], Turn: p.Turn, Move: [0f, p.Advance]),
+            new(hold + 0.168f, BodyLeft(), BodyRight(), Head: [0f, p.Crouch - p.Drop, 0.2f], Turn: p.Turn, Move: [0f, p.Advance]),
             // 跳ね上げ: 膝を伸ばして腰を上げ、前へ体を折る（手は体に付いたまま、体と一緒に前下へ回る）。
             new(lift, BodyLeft(), BodyRight(), Head: [0f, p.Lift, p.Bow], Turn: p.Turn, Spring: 0.6f, Move: [0f, p.Advance]),
             new(drop, new GrappleHand(GrappleAnchor.Self, [0.1f, -0.55f, 0.4f], true), new GrappleHand(GrappleAnchor.Self, [-0.1f, -0.55f, 0.45f], true),
                 Head: [0f, p.Lift - 0.1f, p.Bow + 0.1f], Turn: p.Turn, Spring: 0.6f, Move: [0f, p.Advance]),
-            new(drop + 0.2f, new GrappleHand(GrappleAnchor.Self, [0.2f, -0.1f, 0.5f]), new GrappleHand(GrappleAnchor.Self, [-0.2f, -0.1f, 0.5f]), Turn: p.Turn),
+            new(drop + 0.336f, new GrappleHand(GrappleAnchor.Self, [0.2f, -0.1f, 0.5f]), new GrappleHand(GrappleAnchor.Self, [-0.2f, -0.1f, 0.5f]), Turn: p.Turn),
         };
         return new GrappleTechnique(name, 0.8f, [0f, -1f], keys);
     }
@@ -81,7 +81,7 @@ internal sealed class SeoiLab(int seed, Action<string> log)
 
     internal static Score Evaluate(GrappleTechnique technique, string victim, int seed, int bouts, float seconds)
     {
-        var book = GrappleBook.Jujutsu with { Rate = 50f, Techniques = [technique] };
+        var book = GrappleBook.Jujutsu with { Rate = 29.8f, Techniques = [technique] };
         var (clean, throws, falls, missed, attempts) = (0, 0, 0, 0, 0);
         var (gap, load, lifted) = (float.PositiveInfinity, 0f, 0f);
         for (var b = 0; b < bouts; b++)
@@ -133,7 +133,7 @@ internal sealed class SeoiLab(int seed, Action<string> log)
                     {
                         pending.RemoveAt(i); // 取りも倒れた: きれいでない
                     }
-                    else if (time - pending[i] >= 0.5f)
+                    else if (time - pending[i] >= 0.839f)
                     {
                         clean++;
                         pending.RemoveAt(i);
@@ -187,15 +187,15 @@ internal sealed class SeoiLab(int seed, Action<string> log)
             var p = near
                 ? b0 with
                 {
-                    Entry = Math.Clamp(b0.Entry + R(-0.1f, 0.1f), 0.25f, 0.8f), Depth = Math.Clamp(b0.Depth + R(-0.08f, 0.08f), -0.15f, 0.3f),
-                    Crouch = Math.Clamp(b0.Crouch + R(-0.08f, 0.08f), -0.6f, -0.25f), Hold = Math.Clamp(b0.Hold + R(-0.08f, 0.08f), 0f, 0.3f),
+                    Entry = Math.Clamp(b0.Entry + R(-0.168f, 0.168f), 0.42f, 1.343f), Depth = Math.Clamp(b0.Depth + R(-0.08f, 0.08f), -0.15f, 0.3f),
+                    Crouch = Math.Clamp(b0.Crouch + R(-0.08f, 0.08f), -0.6f, -0.25f), Hold = Math.Clamp(b0.Hold + R(-0.134f, 0.134f), 0f, 0.504f),
                     Lift = Math.Clamp(b0.Lift + R(-0.1f, 0.1f), -0.3f, 0.15f), Bow = Math.Clamp(b0.Bow + R(-0.12f, 0.12f), 0.3f, 1f),
                     HandHigh = Math.Clamp(b0.HandHigh + R(-0.1f, 0.1f), -0.2f, 0.3f), Advance = Math.Clamp(b0.Advance + R(-0.3f, 0.3f), 0f, 1.2f),
                     Drop = Math.Clamp(b0.Drop + R(-0.1f, 0.1f), 0f, 0.3f), Draw = Math.Clamp(b0.Draw + R(-0.1f, 0.1f), -0.1f, 0.35f),
                 }
                 : b0 with
                 {
-                    Entry = R(0.25f, 0.8f), Depth = R(-0.15f, 0.3f), Crouch = R(-0.6f, -0.25f), Hold = R(0f, 0.3f), Lift = R(-0.3f, 0.15f), Bow = R(0.3f, 1f),
+                    Entry = R(0.42f, 1.343f), Depth = R(-0.15f, 0.3f), Crouch = R(-0.6f, -0.25f), Hold = R(0f, 0.504f), Lift = R(-0.3f, 0.15f), Bow = R(0.3f, 1f),
                     HandHigh = R(-0.2f, 0.3f), Advance = R(0f, 1.2f), Drop = R(0f, 0.3f), Draw = R(-0.1f, 0.35f),
                 };
             var score = Score(p);
@@ -241,10 +241,10 @@ internal sealed class SeoiLab(int seed, Action<string> log)
             var b0 = best.P;
             var candidate = near
                 ? new Params(
-                    Math.Clamp(b0.Entry + R(-0.1f, 0.1f), 0.25f, 0.8f), Math.Clamp(b0.Depth + R(-0.08f, 0.08f), -0.1f, 0.4f), Math.Clamp(b0.Side + R(-0.1f, 0.1f), -0.3f, 0.3f),
-                    Math.Clamp(b0.Crouch + R(-0.08f, 0.08f), -0.6f, -0.3f), Math.Clamp(b0.Hold + R(-0.08f, 0.08f), 0f, 0.4f), Math.Clamp(b0.Lift + R(-0.1f, 0.1f), -0.3f, 0.15f),
+                    Math.Clamp(b0.Entry + R(-0.168f, 0.168f), 0.42f, 1.343f), Math.Clamp(b0.Depth + R(-0.08f, 0.08f), -0.1f, 0.4f), Math.Clamp(b0.Side + R(-0.1f, 0.1f), -0.3f, 0.3f),
+                    Math.Clamp(b0.Crouch + R(-0.08f, 0.08f), -0.6f, -0.3f), Math.Clamp(b0.Hold + R(-0.134f, 0.134f), 0f, 0.671f), Math.Clamp(b0.Lift + R(-0.1f, 0.1f), -0.3f, 0.15f),
                     Math.Clamp(b0.Bow + R(-0.12f, 0.12f), 0.3f, 0.9f), Math.Clamp(b0.HandHigh + R(-0.1f, 0.1f), -0.2f, 0.3f), Math.Clamp(b0.Turn + R(-0.25f, 0.25f), 2.6f, 3.5f))
-                : new Params(R(0.25f, 0.8f), R(-0.1f, 0.4f), R(-0.3f, 0.3f), R(-0.6f, -0.3f), R(0f, 0.4f), R(-0.3f, 0.15f), R(0.3f, 0.9f), R(-0.2f, 0.3f), R(2.6f, 3.5f));
+                : new Params(R(0.42f, 1.343f), R(-0.1f, 0.4f), R(-0.3f, 0.3f), R(-0.6f, -0.3f), R(0f, 0.671f), R(-0.3f, 0.15f), R(0.3f, 0.9f), R(-0.2f, 0.3f), R(2.6f, 3.5f));
             var score = Evaluate(candidate, "stand", seed, bouts, seconds);
             log($"| {i}{(near ? "（近く）" : "")} | {candidate.Short} | {score} | {score.Value:0.0} |");
             if (score.Value > best.S.Value)

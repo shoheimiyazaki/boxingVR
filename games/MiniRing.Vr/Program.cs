@@ -212,7 +212,7 @@ using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))
             {
                 rendered = true;
                 // 一人称: 目の位置・間隔・向きに「VR の空間 → ワールド」の変換（縮尺つき）を掛ける。近い面も縮尺どおりに縮める。
-                var placement = scene.Placement;
+                var placement = scene.Placement?.Displayed(DisplaySpace.Standard); // VR の空間 → 物理の空間 → 表示の空間（描画は表示の空間）
                 var view = placement?.View(eye.View) ?? eye.View;
                 var position = placement?.Point(eye.Position) ?? eye.Position;
                 var near = 0.02f * MathF.Min(1f, placement?.Scale ?? 1f);

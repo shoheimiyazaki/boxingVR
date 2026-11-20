@@ -9,16 +9,16 @@ namespace MiniRing.Tests;
 [TestClass]
 public sealed class HurtReadTests
 {
-    private const float Reach = 0.6f;
+    private const float Reach = 1.69f;
     private const float Dt = 1f / 60f;
 
-    /// <summary>相手の頭の高さ 1.5 m、両拳を頭から <paramref name="drop"/> × 腕の長さ下に構えた見え方。</summary>
-    private static FighterSense Sense(float drop, float gloveDepth = 0.6f / Reach)
+    /// <summary>相手の頭の高さ 4.2 m、両拳を頭から <paramref name="drop"/> × 腕の長さ下に構えた見え方。</summary>
+    private static FighterSense Sense(float drop, float gloveDepth = 1.69f / Reach)
     {
-        var head = new Vector3(0f, 1.5f, 0.8f);
+        var head = new Vector3(0f, 4.225f, 2.254f);
         var gloveY = head.Y - (drop * Reach);
-        return new FighterSense(new BodyFrame(Vector3.Zero, 0f), Reach, head, head - new Vector3(0f, 0.3f, 0f), OpponentAlive: true,
-            OpponentLeft: new GloveSense(new Vector3(0.1f, gloveY, (gloveDepth - 0.4f) * Reach), Vector3.Zero), OpponentRight: new GloveSense(new Vector3(-0.1f, gloveY, (gloveDepth - 0.4f) * Reach), Vector3.Zero),
+        return new FighterSense(new BodyFrame(Vector3.Zero, 0f), Reach, head, head - new Vector3(0f, 0.8451f, 0f), OpponentAlive: true,
+            OpponentLeft: new GloveSense(new Vector3(0.2817f, gloveY, (gloveDepth - 0.4f) * Reach), Vector3.Zero), OpponentRight: new GloveSense(new Vector3(-0.2817f, gloveY, (gloveDepth - 0.4f) * Reach), Vector3.Zero),
             OpponentArmReach: Reach);
     }
 
@@ -36,8 +36,8 @@ public sealed class HurtReadTests
     {
         var high = new HurtRead();
         var low = new HurtRead();
-        Run(high, 0.26f, 5f);
-        Run(low, 0.40f, 5f);
+        Run(high, 0.26f, 8.392f);
+        Run(low, 0.40f, 8.392f);
 
         Assert.IsLessThan(0.02f, high.Opening);
         Assert.IsLessThan(0.02f, low.Opening, "普段から低い構えの相手を、弱ったと取り違えない（その相手の普段と比べる）");
@@ -51,8 +51,8 @@ public sealed class HurtReadTests
         foreach (var sag in new[] { 0.30f, 0.43f, 0.49f })
         {
             var read = new HurtRead();
-            Run(read, 0.26f, 5f);
-            Run(read, sag, 1f);
+            Run(read, 0.26f, 8.392f);
+            Run(read, sag, 1.678f);
             openings.Add(read.Opening);
         }
 
@@ -66,12 +66,12 @@ public sealed class HurtReadTests
     public void LandedBlows_Open_AndTheFeelingFades()
     {
         var read = new HurtRead();
-        Run(read, 0.26f, 3f);
+        Run(read, 0.26f, 5.035f);
         read.Landed(15f);
         read.Landed(15f);
-        Run(read, 0.26f, 1f);
+        Run(read, 0.26f, 1.678f);
         var right = read.Opening;
-        Run(read, 0.26f, 10f);
+        Run(read, 0.26f, 16.78f);
 
         Assert.IsGreaterThan(0.4f, right, "重いのを 2 発当てた手応えで開く");
         Assert.IsLessThan(0.05f, read.Opening, "手応えは忘れる");
@@ -98,11 +98,11 @@ public sealed class HurtReadTests
         {
             var bot = new BoxerBot(style with { Attacks = false }, seed: 3);
             var before = 0f;
-            for (var t = 0f; t < 6f; t += Dt)
+            for (var t = 0f; t < 10.07f; t += Dt)
             {
-                var sense = Sense(t < 4f ? 0.26f : 0.47f) with { OpponentChest = new Vector3(0f, 1.2f, 1.5f * Reach), OpponentHead = new Vector3(0f, 1.5f, 1.5f * Reach), SelfHead = new Vector3(0f, 1.5f, 0f) };
+                var sense = Sense(t < 6.714f ? 0.26f : 0.47f) with { OpponentChest = new Vector3(0f, 3.38f, 1.5f * Reach), OpponentHead = new Vector3(0f, 4.225f, 1.5f * Reach), SelfHead = new Vector3(0f, 4.225f, 0f) };
                 bot.Read(sense, Dt);
-                if (t < 4f)
+                if (t < 6.714f)
                 {
                     before = bot.ProbeState.Desired;
                 }

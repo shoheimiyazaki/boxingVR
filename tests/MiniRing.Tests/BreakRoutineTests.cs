@@ -12,13 +12,13 @@ public sealed class BreakRoutineTests
 {
     private const float Dt = 1f / 60f;
 
-    private static readonly MatchRules ShortRules = MatchRules.Tv with { Rounds = 2, RoundSeconds = 1f, BreakSeconds = 16f };
+    private static readonly MatchRules ShortRules = MatchRules.Tv with { Rounds = 2, RoundSeconds = 1.678f, BreakSeconds = 26.85f };
 
     private static BoxingGame NewGame(int seed, Func<int, Fighter, IBreakSource?>? source = null, bool actions = true) =>
         new(seed: seed, rules: ShortRules, corners: new BoxingCorners("cpu", s => BotCatalog.Create("champion", s), s => BotCatalog.Create("swarmer", s),
             BreakActions: actions, BreakSource: source));
 
-    private static void StepUntil(BoxingGame game, Func<bool> done, int maxSteps = 60 * 40)
+    private static void StepUntil(BoxingGame game, Func<bool> done, int maxSteps = 4028)
     {
         for (var i = 0; i < maxSteps && !done(); i++)
         {
@@ -37,13 +37,13 @@ public sealed class BreakRoutineTests
         var restGlove = float.MaxValue;
         var nearest = float.MaxValue;
         var nearestCap = float.MaxValue;
-        for (var i = 0; i < 60 * 14 && game.InBreak; i++)
+        for (var i = 0; i < 1410 && game.InBreak; i++)
         {
             game.Step(default, Dt);
             var glove = Vector3.Distance(self.GloveCenter(Hand.Right), self.HeadPosition);
-            // 休みに入った直後の 0.5 秒は、拳がまだ試合のガード（顔の前）から休みの構えへ下りていく途中なので数えない
-            // （鐘の瞬間のガードは試合の流れで顔に近いことがあり、頭から 9 cm だった: 2026-11-18、支えのモデルの後）。
-            if (game.BreakSourceOf(self)?.Holding is null && i >= 30)
+            // 休みに入った直後の 0.84 秒は、拳がまだ試合のガード（顔の前）から休みの構えへ下りていく途中なので数えない
+            // （鐘の瞬間のガードは試合の流れで顔に近いことがあり、頭から 9 cm（人形の単位）だった: 2026-11-18、支えのモデルの後）。
+            if (game.BreakSourceOf(self)?.Holding is null && i >= 50)
             {
                 restGlove = MathF.Min(restGlove, glove);
             }
@@ -52,14 +52,14 @@ public sealed class BreakRoutineTests
             {
                 Assert.AreEqual(PropKind.Bottle, bottle.Kind);
                 nearest = MathF.Min(nearest, glove);
-                var cap = Vector3.Transform(new Vector3(0.05f, 0f, 0f), bottle.GridToWorld());
+                var cap = Vector3.Transform(new Vector3(0.1408f, 0f, 0f), bottle.GridToWorld());
                 nearestCap = MathF.Min(nearestCap, Vector3.Distance(cap, self.HeadPosition));
             }
         }
 
-        Assert.IsLessThan(0.1f, nearest, "ボトルを持つ拳が口の近く（頭から 10 cm 以内）へ来る");
-        Assert.IsLessThan(0.06f, nearestCap, "ボトルの口（キャップ）が頭の近く（頭の中心から 6 cm 以内）へ来る");
-        Assert.IsGreaterThan(0.13f, restGlove, "動作の外（休みの構え）では拳は頭から遠い");
+        Assert.IsLessThan(0.2817f, nearest, "ボトルを持つ拳が口の近く（頭から 28 cm 以内）へ来る");
+        Assert.IsLessThan(0.169f, nearestCap, "ボトルの口（キャップ）が頭の近く（頭の中心から 17 cm 以内）へ来る");
+        Assert.IsGreaterThan(0.3662f, restGlove, "動作の外（休みの構え）では拳は頭から遠い");
     }
 
     [TestMethod]
@@ -71,7 +71,7 @@ public sealed class BreakRoutineTests
         var nearest = float.MaxValue;
         var turned = 0f;
         var forwardAtRest = self.Frame.Forward;
-        for (var i = 0; i < 60 * 14 && game.InBreak; i++)
+        for (var i = 0; i < 1410 && game.InBreak; i++)
         {
             game.Step(default, Dt);
             if (game.BreakProps.Any(p => p.Owner == self && p.Kind == PropKind.Phone))
@@ -81,7 +81,7 @@ public sealed class BreakRoutineTests
             }
         }
 
-        Assert.IsLessThan(0.075f, nearest, "スマホを持つ拳が耳（頭の横）の近くへ来る");
+        Assert.IsLessThan(0.2113f, nearest, "スマホを持つ拳が耳（頭の横）の近くへ来る");
         Assert.IsGreaterThan(0.1f, turned, "電話の間は体の向きを相手の方から少しそらす");
     }
 
@@ -119,7 +119,7 @@ public sealed class BreakRoutineTests
     {
         using var game = NewGame(5, actions: false);
         StepUntil(game, () => game.InBreak);
-        for (var i = 0; i < 60 * 8; i++)
+        for (var i = 0; i < 806; i++)
         {
             game.Step(default, Dt);
         }
@@ -174,7 +174,7 @@ public sealed class BreakRoutineTests
         {
             var routine = new BreakRoutine(seed, style);
             var sense = game.PlayerSense;
-            routine.Read(sense, rest, 16f, Dt);
+            routine.Read(sense, rest, 26.85f, Dt);
             if (routine.Plan!.Any(p => p.Action.Name == BreakBook.Drink))
             {
                 withDrink++;
@@ -202,7 +202,7 @@ public sealed class BreakRoutineTests
         using (var recorder = new ReplayRecorder(stream, game, "test"))
         {
             var ai = new AiControl(11 * 31, 0.8f);
-            for (var i = 0; i < 60 * 12; i++)
+            for (var i = 0; i < 1208; i++)
             {
                 recorder.Step(game, new BoxingInput(ai.Read(game.PlayerSense, Dt)), Dt);
             }

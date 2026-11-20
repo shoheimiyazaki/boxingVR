@@ -26,7 +26,7 @@ internal sealed class SwordLab(int generations, int lambda, int seed)
         report.AppendLine("# 剣の技のドリル（swordlab）");
         report.AppendLine();
         report.AppendLine(string.Create(CultureInfo.InvariantCulture,
-            $"技ごとに基本の形から (1+{lambda}) 進化戦略 × {generations} 世代（種 {seed}）。的は構えて立つ相手（StandGuard、両手のグローブで顔を守る）。効き = 狙った部位から斬り取ったボクセル / 60 + 切り落とし × 2 + 死 × 3 + 脳しんとう。どの数値も、間合い ± 2 cm の 3 点で出した平均（切り落とし・死はその割合）。間合いは基本の間合い ± {SwordTechnique.RangeLeeway * 100f:0} cm の中で動かす。"));
+            $"技ごとに基本の形から (1+{lambda}) 進化戦略 × {generations} 世代（種 {seed}）。的は構えて立つ相手（StandGuard、両手のグローブで顔を守る）。効き = 狙った部位から斬り取ったボクセル / 60 + 切り落とし × 2 + 死 × 3 + 脳しんとう。どの数値も、間合い ± {SwingTest.RangeSpread * 100f:0.0} cm の 3 点で出した平均（切り落とし・死はその割合）。間合いは基本の間合い ± {SwordTechnique.RangeLeeway * 100f:0} cm の中で動かす。"));
         report.AppendLine();
         var techniques = SwordTechnique.Basics.Where(t => only is null || only.Contains(t.Name)).ToList();
         // 前に磨いた技（一部だけ磨くときに残りに使う）は、長いドリルの前に読んでおく（壊れていたらここで止まる）。
@@ -216,15 +216,15 @@ internal sealed class SwordLab(int generations, int lambda, int seed)
             WindupElevation = Math.Clamp(s.WindupElevation + (0.35f * N()), -1.4f, 2.8f),
             StrikeAzimuth = s.StrikeAzimuth + (0.35f * N()),
             StrikeElevation = Math.Clamp(s.StrikeElevation + (0.35f * N()), -1.4f, 1.4f),
-            WindupTime = Math.Clamp(s.WindupTime * (1f + (0.25f * N())), 0.12f, 0.7f),
-            StrikeTime = Math.Clamp(s.StrikeTime * (1f + (0.25f * N())), 0.06f, 0.4f),
+            WindupTime = Math.Clamp(s.WindupTime * (1f + (0.25f * N())), 0.201f, 1.175f),
+            StrikeTime = Math.Clamp(s.StrikeTime * (1f + (0.25f * N())), 0.101f, 0.671f),
             WristDelay = Math.Clamp(s.WristDelay + (0.2f * N()), 0f, 0.85f),
             Twist = Math.Clamp(s.Twist + (0.25f * N()), -0.8f, 0.8f),
             Step = Math.Clamp(s.Step + (0.3f * N()), -1f, 1f), // 負は下がりながら（引き技）
             Ease = Math.Clamp(s.Ease + (0.5f * N()), 1f, 3.5f),
             Roll = WrapRoll(s.Roll + (0.4f * N())),
         };
-        var range = Math.Clamp(t.Range + (0.04f * N()), basic.Range - SwordTechnique.RangeLeeway, basic.Range + SwordTechnique.RangeLeeway);
+        var range = Math.Clamp(t.Range + (0.113f * N()), basic.Range - SwordTechnique.RangeLeeway, basic.Range + SwordTechnique.RangeLeeway);
         return t with { Swing = swing, Range = range };
     }
 }

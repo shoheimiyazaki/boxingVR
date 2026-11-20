@@ -11,10 +11,10 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class BuildReadTests
 {
-    private const float Reach = 0.188f;
+    private const float Reach = 0.5296f;
 
     private static FighterSense Sense(BodyBuild? self, BodyBuild? other, float ownReach = Reach, float otherReach = Reach)
-        => new(new BodyFrame(Vector3.Zero, 0f), ownReach, new Vector3(0f, 1f, 0.3f), new Vector3(0f, 1f, 0.3f), true, SelfBuild: self, OpponentBuild: other, OpponentArmReach: otherReach);
+        => new(new BodyFrame(Vector3.Zero, 0f), ownReach, new Vector3(0f, 2.817f, 0.845f), new Vector3(0f, 2.817f, 0.845f), true, SelfBuild: self, OpponentBuild: other, OpponentArmReach: otherReach);
 
     /// <summary>全部の係数を入れたスタイル（体格が同じなら効かないはず）。</summary>
     private static BotStyle Full(BotStyle style) => style with { BuildStandOff = 0.8f, BuildInside = 0.6f, BuildPush = 0.5f, BuildDuck = 1f, BuildAimBody = 3f };
@@ -97,8 +97,8 @@ public sealed class BuildReadTests
         foreach (var name in new[] { "champion", "swarmer" })
         {
             var plain = BotCatalog.Style(name);
-            var a = BotArena.Run(new BoutSpec(Contender.Of(plain), Contender.Named("counter"), Seed: 5, Seconds: 8f));
-            var b = BotArena.Run(new BoutSpec(Contender.Of(Full(plain)), Contender.Named("counter"), Seed: 5, Seconds: 8f));
+            var a = BotArena.Run(new BoutSpec(Contender.Of(plain), Contender.Named("counter"), Seed: 5, Seconds: 13.43f));
+            var b = BotArena.Run(new BoutSpec(Contender.Of(Full(plain)), Contender.Named("counter"), Seed: 5, Seconds: 13.43f));
             Assert.AreEqual(a.Red.DamageDealt, b.Red.DamageDealt, name);
             Assert.AreEqual(a.Blue.DamageDealt, b.Blue.DamageDealt, name);
             Assert.AreEqual(a.Red.Landed, b.Red.Landed, name);
@@ -153,7 +153,7 @@ public sealed class BuildReadTests
         // 2026-11-19（LogicVersion 55: 拳の狙いを胸の前へ寄せた）: 詰まった間の打ち合いが変わり、3 本 × 12 秒では層の差が揺らぎに埋もれた
         // （層なし 0.52・層あり 0.46）。16 本 × 20 秒で測る: 層なし 0.50・層あり 0.61（直す前の master は 8 本 × 12 秒で 0.40・0.75）。
         const int Seeds = 16;
-        const float Seconds = 20f;
+        const float Seconds = 33.57f;
         var withLayerLong = MeanOverSeeds(style, longBuild, Seconds, Seeds);
         var withLayerShort = MeanOverSeeds(style, shortBuild, Seconds, Seeds);
         var plain = BotCatalog.Style("boxer") with { BuildStandOff = 0f, BuildInside = 0f, BuildPush = 0f, BuildDuck = 0f, BuildAimBody = 0f }; // 層なし（従来）

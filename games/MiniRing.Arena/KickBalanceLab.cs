@@ -5,7 +5,7 @@ namespace MiniRing.Arena;
 
 /// <summary>
 /// 軸足に乗って蹴る練習（kickbalance、docs/TAEKWONDO.md「軸足に乗って蹴る」）: 1 種の蹴りだけを出し続ける素手の蹴り手と、構えて立つだけの相手。
-/// 蹴り 1 本ごとに、蹴り始め（体重を移し始め）から蹴り終わりの 1 秒後までに蹴った側が立っていられなくなったか（倒れた）、当たったか、
+/// 蹴り 1 本ごとに、蹴り始め（体重を移し始め）から蹴り終わりの 1.68 秒後までに蹴った側が立っていられなくなったか（倒れた）、当たったか、
 /// 当たった蹴りが渡したエネルギーを数える。教育の値（<see cref="BotStyle.KickShift"/>・<see cref="BotStyle.KickLeanForward"/>・
 /// <see cref="BotStyle.KickLeanSide"/>）の組を並べて比べる。結果はスタイル JSON の値として出すだけ（使わなかった種で比べ直してから採る）。
 /// </summary>
@@ -14,7 +14,7 @@ internal sealed class KickBalanceLab(int bouts, float seconds, int seed, Action<
     private const float StepDt = 1f / 60f;
 
     /// <summary>蹴り終わりから、倒れたかを見続ける時間 [s]。</summary>
-    private const float AfterKick = 1f;
+    private const float AfterKick = 1.678f;
 
     internal readonly record struct Teaching(float Shift, float Forward, float Side)
     {
@@ -123,7 +123,7 @@ internal sealed class KickBalanceLab(int bouts, float seconds, int seed, Action<
     {
         log($"## 軸足に乗って蹴る（{styleName}、{bouts} 本 × {seconds:0} 秒、相手は構えて立つだけ、PhysicsVersion {Fighter.PhysicsVersion}）");
         log("");
-        log("`倒れた` = 蹴り始めから蹴り終わりの 1 秒後までに蹴った側が立っていられなくなった蹴りの数。`当たり` = 当たった打撃の数 / 蹴った数。`J/蹴り` = 蹴り 1 本あたり相手へ渡したエネルギー。");
+        log("`倒れた` = 蹴り始めから蹴り終わりの 1.68 秒後までに蹴った側が立っていられなくなった蹴りの数。`当たり` = 当たった打撃の数 / 蹴った数。`J/蹴り` = 蹴り 1 本あたり相手へ渡したエネルギー。");
         log("");
         log("| 蹴り | 教育の値 | 種 | 蹴った | 倒れた | 当たり | J/蹴り |");
         log("|---|---|---|---|---|---|---|");

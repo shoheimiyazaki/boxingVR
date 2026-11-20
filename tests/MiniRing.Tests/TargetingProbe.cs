@@ -11,7 +11,7 @@ public sealed class TargetingProbe
     public void WhereTheAimPointsAre_Probe()
     {
         using var game = new BoxingGame(seed: 1);
-        for (var i = 0; i < 60; i++)
+        for (var i = 0; i < 101; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -50,7 +50,7 @@ public sealed class TargetingProbe
                 var style = swarmer with { Aim = aim };
                 var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
                 using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(style, s)));
-                for (var t = 0f; t < 20f; t += 1f / 60f)
+                for (var t = 0f; t < 33.57f; t += 1f / 60f)
                 {
                     game.Step(default, 1f / 60f);
                     foreach (var hit in game.RecentHits)

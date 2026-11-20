@@ -103,7 +103,7 @@ public sealed class KarateVitalsTests
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("karate-vitals",
             s => bot = new BoxerBot(style, s, forcedAim: AimGoal.Liver), _ => new StandGuard(),
             PlayerWear: HandWear.None, CpuWear: HandWear.None));
-        for (var i = 0; i < 12 * 240; i++)
+        for (var i = 0; i < 4834; i++)
         {
             game.Step(default, 1f / 240f);
         }

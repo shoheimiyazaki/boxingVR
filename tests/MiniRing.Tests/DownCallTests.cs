@@ -4,7 +4,7 @@ namespace MiniRing.Tests;
 
 /// <summary>
 /// 審判のダウン（2026-11-13、ユーザーの指定）: 足の裏以外がマットに着いた・倒れたらすぐダウン。中腰でまだ立っているなら、意識が
-/// <see cref="FighterTuning.KnockoutConsciousness"/> を下回ったまま <see cref="FighterTuning.DownFaintTime"/>（4 秒）待ってからダウン
+/// <see cref="FighterTuning.KnockoutConsciousness"/> を下回ったまま <see cref="FighterTuning.DownFaintTime"/>（約 6.7 秒）待ってからダウン
 /// （その間は相手が攻め続けてよい）。立ち直って構えたら、一呼吸（<see cref="BoxingGame.ResumePause"/>）置いてから試合を戻す。
 /// </summary>
 [TestClass]
@@ -19,11 +19,11 @@ public sealed class DownCallTests
         using var game = StillGame();
         var f = game.Cpu;
         Settle(game);
-        // 意識 0.25（張りが抜け始めて腰が落ちる）から、意識の戻る速さで 0.7 秒ほどで 0.3 を越えて戻る: 一瞬飛んだだけ。
+        // 意識 0.25（張りが抜け始めて腰が落ちる）から、意識の戻る速さで 1.2 秒ほどで 0.3 を越えて戻る: 一瞬飛んだだけ。
         f.Concussion = 0.75f;
         var longestFaint = 0f;
         var everCounted = false;
-        for (var t = 0f; t < 3f; t += Dt)
+        for (var t = 0f; t < 5.035f; t += Dt)
         {
             game.Step(default, Dt);
             longestFaint = MathF.Max(longestFaint, f.FaintTime);
@@ -44,7 +44,7 @@ public sealed class DownCallTests
         Settle(game);
         f.Concussion = 0.95f; // 意識 0.05: 張りが抜けて崩れ落ちる
         var calledAt = -1f;
-        for (var t = 0f; t < 5f && calledAt < 0f; t += Dt)
+        for (var t = 0f; t < 8.392f && calledAt < 0f; t += Dt)
         {
             game.Step(default, Dt);
             calledAt = f.IsKnockedDown ? t : calledAt;
@@ -52,19 +52,19 @@ public sealed class DownCallTests
 
         Console.WriteLine($"down called at {calledAt:0.00}s");
         Assert.IsGreaterThan(0f, calledAt, "a down is called");
-        Assert.IsLessThan(FighterTuning.Default.DownFaintTime - 1f, calledAt, "as soon as the body reaches the canvas, not after the wait");
+        Assert.IsLessThan(FighterTuning.Default.DownFaintTime - 1.678f, calledAt, "as soon as the body reaches the canvas, not after the wait");
     }
 
     [TestMethod]
     public void Dazed_ButStillUpright_IsCountedOnlyAfterTheWait()
     {
-        // 意識を 0.3 のすぐ下に保つ: 張りが少し抜けて腰が落ちた中腰。マットに着かなければ、4 秒待ってからダウン。
+        // 意識を 0.3 のすぐ下に保つ: 張りが少し抜けて腰が落ちた中腰。マットに着かなければ、約 6.7 秒待ってからダウン。
         using var game = StillGame();
         var f = game.Cpu;
         Settle(game);
         var calledAt = -1f;
         var upright = true;
-        for (var t = 0f; t < 6f && calledAt < 0f; t += Dt)
+        for (var t = 0f; t < 10.07f && calledAt < 0f; t += Dt)
         {
             f.Concussion = 1f - (FighterTuning.Default.KnockoutConsciousness - 0.01f);
             game.Step(default, Dt);
@@ -74,7 +74,7 @@ public sealed class DownCallTests
 
         Console.WriteLine($"dazed down called at {calledAt:0.00}s, upright until then {upright}");
         Assert.IsTrue(upright, "standing (and hittable) while the referee waits");
-        Assert.AreEqual(FighterTuning.Default.DownFaintTime, calledAt, 0.1f, "called when the wait is over");
+        Assert.AreEqual(FighterTuning.Default.DownFaintTime, calledAt, 0.1678f, "called when the wait is over");
     }
 
     [TestMethod]
@@ -87,7 +87,7 @@ public sealed class DownCallTests
         bool down = false, recovered = false;
         var held = 0f;
         var holdStartedRightAway = false;
-        for (var t = 0f; t < 20f && !(recovered && !game.Holding && held > 0f); t += Dt)
+        for (var t = 0f; t < 33.57f && !(recovered && !game.Holding && held > 0f); t += Dt)
         {
             game.Step(default, Dt);
             down |= f.IsKnockedDown;
@@ -103,7 +103,7 @@ public sealed class DownCallTests
         Console.WriteLine($"down {down}, recovered {recovered}, held {held:0.00}s");
         Assert.IsTrue(down && recovered, "went down and got back up");
         Assert.IsTrue(holdStartedRightAway, "the referee holds the fight as soon as the fighter is up");
-        Assert.AreEqual(BoxingGame.ResumePause, held, 0.05f, "for one beat, then the fight goes on");
+        Assert.AreEqual(BoxingGame.ResumePause, held, 0.08392f, "for one beat, then the fight goes on");
     }
 
     private static BoxingGame StillGame()
@@ -114,7 +114,7 @@ public sealed class DownCallTests
 
     private static void Settle(BoxingGame game)
     {
-        for (var t = 0f; t < 1.5f; t += Dt)
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }
@@ -132,16 +132,16 @@ public sealed class DownGraceTests
         // 2026-11-17、ユーザーの指定: 倒れてすぐに起き上がれない時だけダウン。スリップ・投げられてすぐ立ったのは取らない。
         var corners = new BoxingCorners("still", _ => new StandGuard(), _ => new StandGuard());
         using var game = new BoxingGame(seed: 1, corners: corners);
-        for (var t = 0f; t < 1.5f; t += Dt)
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }
 
         var f = game.Cpu;
-        f.Knockdown(System.Numerics.Vector3.UnitZ, permanent: false); // 意識ははっきりしている。床から立つには 2.5 秒ほどかかる
+        f.Knockdown(System.Numerics.Vector3.UnitZ, permanent: false); // 意識ははっきりしている。床から立つには 4.2 秒ほどかかる
         var countedAt = -1f;
         var downTimeThen = 0f;
-        for (var t = 0f; t < 4f && countedAt < 0f; t += Dt)
+        for (var t = 0f; t < 6.714f && countedAt < 0f; t += Dt)
         {
             game.Step(default, Dt);
             if (f.IsKnockedDown)
@@ -151,8 +151,8 @@ public sealed class DownGraceTests
             }
         }
 
-        Assert.IsGreaterThanOrEqualTo(FighterTuning.Default.DownGrace - 0.05f, countedAt, $"no down within the grace (counted at {countedAt:0.00})");
-        Assert.IsGreaterThan(FighterTuning.Default.DownGrace - 0.1f, downTimeThen, "the count runs from the fall");
+        Assert.IsGreaterThanOrEqualTo(FighterTuning.Default.DownGrace - 0.08392f, countedAt, $"no down within the grace (counted at {countedAt:0.00})");
+        Assert.IsGreaterThan(FighterTuning.Default.DownGrace - 0.1678f, downTimeThen, "the count runs from the fall");
     }
 
     [TestMethod]
@@ -160,7 +160,7 @@ public sealed class DownGraceTests
     {
         var corners = new BoxingCorners("still", _ => new StandGuard(), _ => new StandGuard());
         using var game = new BoxingGame(seed: 1, corners: corners);
-        for (var t = 0f; t < 1.5f; t += Dt)
+        for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
         }
@@ -168,7 +168,7 @@ public sealed class DownGraceTests
         var f = game.Cpu;
         f.Concussion = 0.95f;
         var countedAt = -1f;
-        for (var t = 0f; t < 3f && countedAt < 0f; t += Dt)
+        for (var t = 0f; t < 5.035f && countedAt < 0f; t += Dt)
         {
             game.Step(default, Dt);
             countedAt = f.IsKnockedDown ? t : countedAt;

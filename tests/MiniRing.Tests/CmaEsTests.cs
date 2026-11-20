@@ -355,16 +355,16 @@ public sealed class CmaEsTests
         // 範囲で切られない値は、既定の値が [0, 1] の真ん中。
         var cross = new PunchGenome(Technique.Cross);
         var duration = cross.Genes.Single(g => g.Name == nameof(PunchMove.Duration));
-        Assert.AreEqual(0.5, duration.Encode(0.40f), 1e-6);
-        Assert.AreEqual(0.28f, duration.Lo, 1e-6f);
-        Assert.AreEqual(0.52f, duration.Hi, 1e-6f);
+        Assert.AreEqual(0.5, duration.Encode(0.6714f), 1e-6);
+        Assert.AreEqual(0.4704f, duration.Lo, 1e-6f);
+        Assert.AreEqual(0.8724f, duration.Hi, 1e-6f);
     }
 
     [TestMethod]
     public void PunchGenome_OutOfRangeBaseline_StillHasAMovableGene()
     {
-        // 回帰（レビュー指摘）: 範囲の外の中心（Duration 1.0 > 上限 0.8）で Lo > Hi になり、遺伝子が黙って動かなくなっていた。
-        var baseline = PunchBook.Default.MoveOf(Technique.Cross) with { Duration = 1.0f };
+        // 回帰（レビュー指摘）: 範囲の外の中心（Duration 1.678 > 上限 1.343。人形の単位では 1.0 > 0.8）で Lo > Hi になり、遺伝子が黙って動かなくなっていた。
+        var baseline = PunchBook.Default.MoveOf(Technique.Cross) with { Duration = 1.678f };
         var duration = new PunchGenome(Technique.Cross, baseline).Genes.Single(g => g.Name == nameof(PunchMove.Duration));
         Assert.IsTrue(duration.Lo < duration.Hi, $"Lo {duration.Lo} < Hi {duration.Hi}");
         Assert.AreEqual(PunchRanges.Duration.Max, duration.Center, 1e-6f);

@@ -17,7 +17,7 @@ public sealed class PresentationSimulationTests
         using var started = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         var backend = new CapturingAudio(started, release);
-        var hits = new List<HitEvent> { new(game.Player, Hand.Left, game.Cpu, HitZone.Head, Vector3.Zero, 3f, 1f, 0f, 3f) };
+        var hits = new List<HitEvent> { new(game.Player, Hand.Left, game.Cpu, HitZone.Head, Vector3.Zero, 5.035f, 10f, 0f, 3f) };
         using (var sound = new HitSoundGame(game, () => hits, new HitSoundPlayer(backend), bells: () => RoundBell.Start)
             { DeferredPlayback = true, CaptureCrowd = _ => [new CrowdCue(0, null, 0, 0)] })
         {

@@ -69,8 +69,8 @@ public sealed record CharacterPortrait(PortraitImage Face, PortraitImage Body, f
 /// </summary>
 public static class CharacterPortraits
 {
-    /// <summary>全身の写しの 1 ピクセルの実寸 [m]。ボクセル 1 つ（5 mm）= 1 ピクセル（顔の目・髪・ひげが見える細かさ）。</summary>
-    public const float BodyPixelMeters = 0.005f;
+    /// <summary>全身の写しの 1 ピクセルの実寸 [m]（物理の空間）。ボクセル 1 つ（14 mm）= 1 ピクセル（顔の目・髪・ひげが見える細かさ）。</summary>
+    public const float BodyPixelMeters = 0.01408f;
 
     /// <summary>1 人の肖像を作る（背景スレッドから呼べる。物理のワールドは使い捨て）。</summary>
     public static CharacterPortrait Build(FighterCharacter character)
@@ -110,7 +110,7 @@ public static class CharacterPortraits
 
             if (id == fighter.Parts.Head)
             {
-                // 頭は試合の体と同じく、頭蓋骨の中（5 mm）と顔の層（2.5 mm、キャラの顔: FaceLayer）の 2 つの格子。
+                // 頭は試合の体と同じく、頭蓋骨の中（14 mm）と顔の層（7 mm、キャラの顔: FaceLayer）の 2 つの格子。
                 var (inner, faceLayer) = FaceLayer.Split(grid, character.Face);
                 head.Add(new Placed(inner, position, orientation, half));
                 head.Add(new Placed(faceLayer, position, orientation, half));
@@ -123,7 +123,7 @@ public static class CharacterPortraits
 
         if (palette is null) { throw new InvalidOperationException("体の部位が 1 つも作られませんでした。"); }
         var body = Render(parts, palette, BodyPixelMeters, out var height, out var width);
-        var face = Render(head, palette, tuning.VoxelSize / FaceLayer.Subdivision, out _, out _); // 顔は顔の層の細かさ（1 ピクセル = 約 2.5 mm）
+        var face = Render(head, palette, tuning.VoxelSize / FaceLayer.Subdivision, out _, out _); // 顔は顔の層の細かさ（1 ピクセル = 約 7 mm）
         return new CharacterPortrait(face, body, height, width);
     }
 
@@ -152,7 +152,7 @@ public static class CharacterPortraits
         var rows = (int)MathF.Ceiling((max.Y - min.Y) / pixel);
         var materials = new byte[columns * rows];
         var depth = new float[columns * rows];
-        var cell = 0.00125f; // 奥行きの刻み: 顔の層のセル（約 2.5 mm）の半分
+        var cell = 0.003521f; // 奥行きの刻み: 顔の層のセル（約 7 mm）の半分
         for (var row = 0; row < rows; row++)
         {
             var y = max.Y - ((row + 0.5f) * pixel);

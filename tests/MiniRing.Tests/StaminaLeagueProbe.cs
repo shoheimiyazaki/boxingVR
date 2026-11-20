@@ -29,7 +29,7 @@ public sealed class StaminaLeagueProbe
             var fullStamina = 0f;
             var hits = 0;
             var fullHits = 0;
-            for (var step = 0; step < 3600; step++)
+            for (var step = 0; step < 6042; step++)
             {
                 if (round != game.Round)
                 {
@@ -52,8 +52,8 @@ public sealed class StaminaLeagueProbe
                     }
                 }
 
-                stamina += (emptyRed ? game.Player : game.Cpu).Stamina / 3600f;
-                fullStamina += (emptyRed ? game.Cpu : game.Player).Stamina / 3600f;
+                stamina += (emptyRed ? game.Player : game.Cpu).Stamina / 6042f;
+                fullStamina += (emptyRed ? game.Cpu : game.Player).Stamina / 6042f;
             }
 
             var wins = emptyRed ? game.PlayerWins : game.CpuWins;
@@ -64,7 +64,7 @@ public sealed class StaminaLeagueProbe
         });
 
         var text = new StringBuilder("# スタミナ枯渇の対照試合\n\n");
-        text.AppendLine("PhysicsVersion 29 / LogicVersion 26。各スタイル同士 4 試合 × 60 秒、種 41/42、赤青交替。両者のボットには SelfStamina=1 を見せ、休息判断を同条件で止める。体の疲れは両者とも有効。片側だけラウンド開始時の蓄えを 0 にする（維持はしない）。もう片側は通常の満タン開始。勝ち点は league と同じくラウンド勝利数、同数ならダメージ差で決める。\n");
+        text.AppendLine("PhysicsVersion 29 / LogicVersion 26。各スタイル同士 4 試合 × 100.7 秒（人形の単位の 60 秒）、種 41/42、赤青交替。両者のボットには SelfStamina=1 を見せ、休息判断を同条件で止める。体の疲れは両者とも有効。片側だけラウンド開始時の蓄えを 0 にする（維持はしない）。もう片側は通常の満タン開始。勝ち点は league と同じくラウンド勝利数、同数ならダメージ差で決める。\n");
         text.AppendLine("| スタイル | 枯渇開始の勝ち点 | 満タン開始の勝ち点 | 枯渇側ダメージ | 満タン側ダメージ | 枯渇側当たり | 満タン側当たり | 枯渇側平均蓄え | 満タン側平均蓄え |");
         text.AppendLine("|---|---|---|---|---|---|---|---|---|");
         foreach (var style in styles)

@@ -351,7 +351,7 @@ public sealed class Weapon
             return new Weapon(kind, new VoxelBody(world, id, grid));
         }
 
-        // 手にはめる物: 物の格子（2 mm）に、中の手の格子（5 mm、素手と同じ手のモデル）を同じ剛体に重ねる。質量は材質の密度 × 体積の和
+        // 手にはめる物: 物の格子（5.6 mm）に、中の手の格子（14 mm、素手と同じ手のモデル）を同じ剛体に重ねる。質量は材質の密度 × 体積の和
         // （materialMass: 手の組織の材質の密度も数える。セル数に比例させると、細かい物のセルと粗い手のセルが同じ重さになってしまう）。
         var weapon = new Weapon(kind, new VoxelBody(world, id, grid, materialMass: true));
         var state = new BareHandState().Placed(spec.Pose, out var handGrid, spec.Held);
@@ -375,12 +375,12 @@ public sealed class Weapon
     }
 
     /// <summary>
-    /// 片手で握る所（武器のローカル）: 剣は握りの真ん中、棍棒は握りの端から 1.5cm、両手持ちの刀剣は上の手（鍔の下）の所。
+    /// 片手で握る所（武器のローカル）: 剣は握りの真ん中、棍棒は握りの端から 4.2cm、両手持ちの刀剣は上の手（鍔の下）の所。
     /// </summary>
     public static Vector3 GripOf(WeaponKind kind, bool mirrored = false) => kind switch
     {
         WeaponKind.IronSword => new Vector3((GuardFrom + PommelAt) * 0.5f, 0f, 0f),
-        WeaponKind.WoodenClub => new Vector3(-ClubHalfLength + 0.015f, 0f, 0f),
+        WeaponKind.WoodenClub => new Vector3(-ClubHalfLength + 0.04225f, 0f, 0f),
         WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.Bat => TwoHandGripsOf(kind).Top,
         WeaponKind.Glove => -GloveBounds.Center, // 手首（腕の先）= グローブの座標の原点
         WeaponKind.Fist => HandSkeleton.Wrist, // 腕の先が手を握る所（手首）
@@ -435,8 +435,8 @@ public sealed class Weapon
         var grid = Build(kind);
         var tip = TipOf(kind);
         var step = grid.CellSize.X * 0.5f;
-        // 打つ所から内へ、最初に埋まったセルの材質（尖った切っ先は先の数 mm がセルにならないので、2 cm 内まで見る）。
-        for (var i = 0; step * i <= 0.02f; i++)
+        // 打つ所から内へ、最初に埋まったセルの材質（尖った切っ先は先の 1 cm ほどがセルにならないので、5.6 cm 内まで見る）。
+        for (var i = 0; step * i <= 0.05634f; i++)
         {
             var at = grid.FilledCellAt(tip - new Vector3(step * i, 0f, 0f));
             if (at >= 0)
@@ -449,7 +449,7 @@ public sealed class Weapon
     }
 
     /// <summary>両手で握るときの、2 つの拳の間隔 [m]（素手の拳の幅ほど）。</summary>
-    public const float HandSpacing = 0.028f;
+    public const float HandSpacing = 0.07887f;
 
     /// <summary>
     /// 両手で握る所（武器のローカル）: 下の手（添える手）は 1 本で握るときの所、上の手（利き手）はその 1 拳ぶん先。
@@ -461,11 +461,11 @@ public sealed class Weapon
         {
             case WeaponKind.Katana:
                 // 右手は鍔のすぐ下、左手は柄頭（剣道の握り: 両手は柄の両端）。
-                return (new Vector3(KatanaGuardAt - 0.012f, 0f, 0f), new Vector3(-KatanaHalfLength + 0.011f, 0f, 0f));
+                return (new Vector3(KatanaGuardAt - 0.0338f, 0f, 0f), new Vector3(-KatanaHalfLength + 0.03099f, 0f, 0f));
             case WeaponKind.Longsword:
-                return (new Vector3(LongGuardAt - 0.011f, 0f, 0f), new Vector3(LongPommelAt + LongPommelRadius + 0.008f, 0f, 0f));
+                return (new Vector3(LongGuardAt - 0.03099f, 0f, 0f), new Vector3(LongPommelAt + LongPommelRadius + 0.02254f, 0f, 0f));
             case WeaponKind.WoodenClub or WeaponKind.Bat:
-                var bottom = new Vector3(-ClubHalfLength + 0.015f, 0f, 0f); // 片手で握る所（棍棒の握りの端から 1.5cm）
+                var bottom = new Vector3(-ClubHalfLength + 0.04225f, 0f, 0f); // 片手で握る所（棍棒の握りの端から 4.2cm）
                 return (bottom + new Vector3(HandSpacing, 0f, 0f), bottom);
             case WeaponKind.Staff or WeaponKind.Jo:
                 // 棒の真ん中をはさんで、両手を肩幅ほど離す（右手が +X 側、左手が −X 側。棒は対称で、どちらの端も打つ）。
@@ -479,11 +479,11 @@ public sealed class Weapon
     public static Vector3 TipOf(WeaponKind kind) => kind switch
     {
         WeaponKind.IronSword => new Vector3(SwordHalfLength, 0f, 0f),
-        WeaponKind.WoodenClub or WeaponKind.Bat => new Vector3(ClubHalfLength - 0.01f, 0f, 0f),
+        WeaponKind.WoodenClub or WeaponKind.Bat => new Vector3(ClubHalfLength - 0.02817f, 0f, 0f),
         WeaponKind.Katana => new Vector3(KatanaHalfLength, KatanaSori, 0f),
         WeaponKind.Longsword => new Vector3(LongHalfLength, 0f, 0f),
         WeaponKind.Staff or WeaponKind.Jo => new Vector3(RodOf(kind).HalfLength - StaffTipInset, 0f, 0f),
-        WeaponKind.Glove => new Vector3(GloveFront, 0f, 0f) - GloveBounds.Center, // 拳頭の前の詰め物の外の面（前の球と同じく、握りの 24 mm 前）
+        WeaponKind.Glove => new Vector3(GloveFront, 0f, 0f) - GloveBounds.Center, // 拳頭の前の詰め物の外の面（前の球と同じく、握りの 68 mm 前）
         WeaponKind.Fist => HandSkeleton.SeikenTip,
         WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield => WornTipInHand(kind) - WornBoundsOf(kind).Center, // 手の座標の打つ所を、物の格子の座標へ
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
@@ -497,7 +497,7 @@ public sealed class Weapon
     {
         WeaponKind.Katana => [TipOf(kind).X, -KatanaHalfLength],
         WeaponKind.Longsword => [TipOf(kind).X, LongPommelAt - LongPommelRadius],
-        WeaponKind.Bat => [TipOf(kind).X, -ClubHalfLength + 0.01f], // 頭の端と、握りの端（グリップエンド。先と同じ 1cm 手前）
+        WeaponKind.Bat => [TipOf(kind).X, -ClubHalfLength + 0.02817f], // 頭の端と、握りの端（グリップエンド。先と同じ 2.8cm 手前）
         _ => IsRod(kind) ? [TipOf(kind).X, -TipOf(kind).X] : [TipOf(kind).X],
     };
 
@@ -556,19 +556,19 @@ public sealed class Weapon
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
     };
 
-    // ── 剣（人形の縮尺: 実物の片手剣のおよそ 0.36 倍）。刃の薄さを形で表すため、体より細かい 1.25mm のセル。
-    private const float SwordCell = 0.00125f;
-    private const float SwordHalfLength = 0.165f;
-    private const float BladeFrom = -0.1f;
-    private const float BladeHalfWidth = 0.009f;
-    private const float BladeSpine = 0.00375f;
-    private const float PointLength = 0.03f;
-    private const float GuardFrom = -0.106f;
-    private const float GuardHalfWidth = 0.02f;
-    private const float GuardHalfThickness = 0.0025f;
-    private const float GripRadius = 0.004f;
-    private const float PommelAt = -0.159f;
-    private const float PommelRadius = 0.006f;
+    // ── 剣（実物の片手剣ほど: 全長 93 cm。人形の単位（〜2026-11）では実物のおよそ 0.36 倍）。刃の薄さを形で表すため、体より細かい 3.5mm のセル。
+    private const float SwordCell = 0.003521f;
+    private const float SwordHalfLength = 0.4648f;
+    private const float BladeFrom = -0.2817f;
+    private const float BladeHalfWidth = 0.02535f;
+    private const float BladeSpine = 0.01056f;
+    private const float PointLength = 0.08451f;
+    private const float GuardFrom = -0.2986f;
+    private const float GuardHalfWidth = 0.05634f;
+    private const float GuardHalfThickness = 0.007042f;
+    private const float GripRadius = 0.01127f;
+    private const float PommelAt = -0.4479f;
+    private const float PommelRadius = 0.0169f;
 
     /// <summary>
     /// 刃（x が <see cref="BladeFrom"/> から先）: 幅は切っ先の手前 <see cref="PointLength"/> から 0 へ細り、断面は菱形
@@ -577,7 +577,7 @@ public sealed class Weapon
     /// </summary>
     private static VoxelGrid Sword()
     {
-        var half = new Vector3(SwordHalfLength, GuardHalfWidth, 0.0045f);
+        var half = new Vector3(SwordHalfLength, GuardHalfWidth, 0.01268f);
         return new VoxelGrid(BoxerAnatomy.Palette, half, SwordCell, (p, _) =>
         {
             if (p.X >= BladeFrom)
@@ -623,11 +623,11 @@ public sealed class Weapon
         return (p.Y * p.Y) + (p.Z * p.Z) <= r * r;
     }
 
-    // ── 棍棒（人形の縮尺: 長さ 21cm、握りの太さ 1.4cm から頭の太さ 2.4cm）。刃がないので 2.5mm のセル。
-    private const float ClubCell = 0.0025f;
-    private const float ClubHalfLength = 0.105f;
-    private const float ClubGripRadius = 0.007f;
-    private const float ClubHeadRadius = 0.012f;
+    // ── 棍棒（長さ 59cm、握りの太さ 3.9cm から頭の太さ 6.8cm。人形の単位では 21cm・1.4cm・2.4cm）。刃がないので 7mm のセル。
+    private const float ClubCell = 0.007042f;
+    private const float ClubHalfLength = 0.2958f;
+    private const float ClubGripRadius = 0.01972f;
+    private const float ClubHeadRadius = 0.0338f;
 
     /// <summary>握り（−X）から頭（+X）へ太くなる丸い木の棒。頭の端は丸い。</summary>
     private static VoxelGrid Club()
@@ -648,25 +648,25 @@ public sealed class Weapon
         });
     }
 
-    // ── 棒（六尺棒。人形の縮尺 0.355: 実物の 180 cm → 64 cm、太さ 3 cm → 1.1 cm）。刃がないので棍棒と同じ 2.5 mm のセル。
-    // 棒の寸法の根拠: 長さは基準体格の身長（0.355 × 1.75 m = 62 cm）ほど（六尺棒は背丈ほど）。太さは実物の縮尺だと半径 5 mm で、
-    // 2.5 mm のセルで丸く見えるよう半径 6 mm（セル 5 個ぶん）にした。
-    private const float StaffCell = 0.0025f;
-    private const float StaffHalfLength = 0.31f;
-    private const float StaffRadius = 0.006f;
+    // ── 棒（六尺棒。実物 1.8 m、太さ 3 cm）。刃がないので棍棒と同じ 7 mm のセル。
+    // 棒の寸法の根拠: 長さは基準体格の身長（1.75 m）ほど（六尺棒は背丈ほど。値は人形の単位の 62 cm の換算で 1.746 m: ちょうど 1.75 m にすると
+    // セルの数が 248.5 の境に乗る）。太さは実物だと半径 15 mm で、7 mm のセルで丸く見えるよう半径 17 mm（セル 5 個ぶん）にした。
+    private const float StaffCell = 0.007042f;
+    private const float StaffHalfLength = 0.8732f;
+    private const float StaffRadius = 0.0169f;
 
-    /// <summary>打つ所（<see cref="TipOf"/>）を、端の丸みの少し手前に置く距離 [m]（棍棒の頭と同じ 1 cm）。</summary>
-    private const float StaffTipInset = 0.01f;
+    /// <summary>打つ所（<see cref="TipOf"/>）を、端の丸みの少し手前に置く距離 [m]（棍棒の頭と同じ 2.8 cm）。</summary>
+    private const float StaffTipInset = 0.02817f;
 
     /// <summary>
-    /// 両手の間隔 [m]: 肩幅ほど（人形の肩の幅 10.7 cm（測った）。<c>docs/BOJUTSU.md</c>）。棒は両手のてこで回すので、間隔が広いほど向きの指令が楽。
+    /// 両手の間隔 [m]: 肩幅ほど（肩の幅 30 cm。人形の単位で測った 10.7 cm の換算。<c>docs/BOJUTSU.md</c>）。棒は両手のてこで回すので、間隔が広いほど向きの指令が楽。
     /// </summary>
-    public const float StaffHandSpacing = 0.11f;
+    public const float StaffHandSpacing = 0.3099f;
 
-    // ── 杖（4 尺 2 寸 ≒ 128 cm、ユーザーの指定で 130 cm。人形の縮尺 0.355: 130 cm → 46 cm、太さ 2.4 cm → 0.85 cm）。
-    // 実物の縮尺の半径 4.3 mm を、2.5 mm のセルで丸く見えるよう 5 mm（セル 4 個ぶん）にした（六尺棒と同じ丸め方）。
-    private const float JoHalfLength = 0.23f;
-    private const float JoRadius = 0.005f;
+    // ── 杖（4 尺 2 寸 ≒ 128 cm、ユーザーの指定で 130 cm（値は人形の単位の 46 cm の換算で 1.296 m）、太さ 2.4 cm）。
+    // 実物の半径 12 mm を、7 mm のセルで丸く見えるよう 14 mm（セル 4 個ぶん）にした（六尺棒と同じ丸め方）。
+    private const float JoHalfLength = 0.6479f;
+    private const float JoRadius = 0.01408f;
 
     /// <summary>丸い木の棒（六尺棒・杖）。両端は半球で丸める。太さは一定。</summary>
     private static VoxelGrid Rod(WeaponKind kind)
@@ -687,24 +687,24 @@ public sealed class Weapon
         });
     }
 
-    // ── 日本刀（人形の縮尺: 実物のおよそ 0.32 倍。刃長 72 cm → 23 cm、柄 27 cm → 8.5 cm、反り 1.8 cm → 0.6 cm）。1.25mm のセル。
-    private const float KatanaCell = 0.00125f;
-    private const float KatanaHalfLength = 0.159f;
-    private const float KatanaGuardAt = -KatanaHalfLength + 0.085f;
-    private const float KatanaBladeWidth = 0.0095f;
-    private const float KatanaBack = 0.0025f;
-    private const float KatanaSori = 0.006f;
-    private const float KatanaPoint = 0.02f;
-    private const float KatanaTsubaRadius = 0.013f;
-    private const float KatanaTsubaHalf = 0.00125f;
-    private const float KatanaGripHalfWidth = 0.0045f;
-    private const float KatanaGripHalfThick = 0.0035f;
+    // ── 日本刀（刃長 66 cm、柄 24 cm、反り 1.7 cm。人形の単位では実物（72・27・1.8 cm）の 0.32 倍で書いていたので、換算すると実物より 1 割短い）。3.5mm のセル。
+    private const float KatanaCell = 0.003521f;
+    private const float KatanaHalfLength = 0.4479f;
+    private const float KatanaGuardAt = -KatanaHalfLength + 0.2394f;
+    private const float KatanaBladeWidth = 0.02676f;
+    private const float KatanaBack = 0.007042f;
+    private const float KatanaSori = 0.0169f;
+    private const float KatanaPoint = 0.05634f;
+    private const float KatanaTsubaRadius = 0.03662f;
+    private const float KatanaTsubaHalf = 0.003521f;
+    private const float KatanaGripHalfWidth = 0.01268f;
+    private const float KatanaGripHalfThick = 0.009859f;
 
-    // 茎の寸法の根拠（人形の縮尺 0.32 倍、柄の幅 9 mm・厚さ 7 mm に対して）: 実物の刀の茎は刀身の幅を保って柄頭の近くまで通り、
-    // 柄木・柄巻きがまわりを覆う。根元は柄の幅の 5〜6 割（0.55）、端は少し細る（0.4）。厚さは柄の厚さ 7 mm の半分ほどの 3.7 mm（セル 3 個。刀身の峰 2.5 mm より少し厚い）。
+    // 茎の寸法の根拠（柄の幅 25 mm・厚さ 20 mm に対して）: 実物の刀の茎は刀身の幅を保って柄頭の近くまで通り、
+    // 柄木・柄巻きがまわりを覆う。根元は柄の幅の 5〜6 割（0.55）、端は少し細る（0.4）。厚さは柄の厚さ 20 mm の半分ほどの 7.9 mm（セル 2〜3 個。刀身の峰 7 mm より少し厚い）。
     private const float KatanaTangRootShare = 0.55f;
     private const float KatanaTangEndShare = 0.4f;
-    private const float KatanaTangHalfThick = 0.0014f;
+    private const float KatanaTangHalfThick = 0.003944f;
 
     /// <summary>
     /// 刀身（鍔から先）: 中心線は鍔から切っ先へ放物線で +Y（峰の側）へ反る。幅（Y）は刃（−Y の縁）から峰まで、厚さ（Z）は峰で
@@ -760,19 +760,19 @@ public sealed class Weapon
         });
     }
 
-    // ── ロングソード（人形の縮尺 0.32 倍: 刃長 90 cm → 29 cm、鍔 22 cm → 7 cm、握り 20 cm → 6.5 cm）。
-    private const float LongCell = 0.00125f;
-    private const float LongHalfLength = 0.19f;
-    private const float LongPommelRadius = 0.0075f;
+    // ── ロングソード（刃長 82 cm、鍔 20 cm、握り 18 cm。人形の単位では実物（90・22・20 cm）の 0.32 倍で書いていたので、換算すると実物より 1 割小さい）。
+    private const float LongCell = 0.003521f;
+    private const float LongHalfLength = 0.5352f;
+    private const float LongPommelRadius = 0.02113f;
     private const float LongPommelAt = -LongHalfLength + LongPommelRadius;
-    private const float LongGuardAt = LongPommelAt + LongPommelRadius + 0.065f;
-    private const float LongGuardHalfWidth = 0.035f;
-    private const float LongGuardHalfThick = 0.0016f;
-    private const float LongBladeBase = 0.008f;
-    private const float LongBladeTip = 0.004f;
-    private const float LongSpine = 0.002f;
-    private const float LongPoint = 0.03f;
-    private const float LongGripRadius = 0.0045f;
+    private const float LongGuardAt = LongPommelAt + LongPommelRadius + 0.1831f;
+    private const float LongGuardHalfWidth = 0.09859f;
+    private const float LongGuardHalfThick = 0.004507f;
+    private const float LongBladeBase = 0.02254f;
+    private const float LongBladeTip = 0.01127f;
+    private const float LongSpine = 0.005634f;
+    private const float LongPoint = 0.08451f;
+    private const float LongGripRadius = 0.01268f;
 
     /// <summary>
     /// 刀身（鍔から先）: 幅は根元の <see cref="LongBladeBase"/> から先の <see cref="LongBladeTip"/> へ細り、切っ先の手前 <see cref="LongPoint"/>
@@ -780,7 +780,7 @@ public sealed class Weapon
     /// </summary>
     private static VoxelGrid Longsword()
     {
-        var half = new Vector3(LongHalfLength, LongGuardHalfWidth, 0.0045f);
+        var half = new Vector3(LongHalfLength, LongGuardHalfWidth, 0.01268f);
         return new VoxelGrid(BoxerAnatomy.Palette, half, LongCell, (p, _) =>
         {
             if (p.X > LongGuardAt + LongGuardHalfThick)
@@ -800,7 +800,7 @@ public sealed class Weapon
 
             if (p.X >= LongGuardAt - LongGuardHalfThick)
             {
-                return MathF.Abs(p.Y) <= LongGuardHalfWidth && MathF.Abs(p.Z) <= 0.0016f ? BoxerAnatomy.Iron : (byte)0;
+                return MathF.Abs(p.Y) <= LongGuardHalfWidth && MathF.Abs(p.Z) <= 0.004507f ? BoxerAnatomy.Iron : (byte)0;
             }
 
             if (Vector3.Distance(p, new Vector3(LongPommelAt, 0f, 0f)) <= LongPommelRadius)
@@ -812,29 +812,29 @@ public sealed class Weapon
         });
     }
 
-    // ── ボクシンググローブ（本物の形を人形の縮尺で。形の目標は docs/plans/glove_refs/ のピクセル画: 正面・横・上）。
-    // 大きさは前の球（半径 24 mm = 幅 48 mm）に合わせる: 大きいと構えが互いに触れて、すぐ組み合って崩れる（2026-11-19 の動画）。
+    // ── ボクシンググローブ（本物の形で。形の目標は docs/plans/glove_refs/ のピクセル画: 正面・横・上）。
+    // 大きさは前の球（半径 68 mm = 幅 135 mm）に合わせる: 大きいと構えが互いに触れて、すぐ組み合って崩れる（2026-11-19 の動画）。
     // 中に手の格子は持たない（近道: docs/DEBT.md「手の物性を木の値で代用」の「グローブは手のモデルを持たない」）。拳の代わりに、前の球と同じ
-    // 骨の芯（密な材質。質量と、詰め物の奥の硬い面）を本体の中に置く。手の格子を入れると、手（約 60 mm）が入る大きさにするしかなく、
+    // 骨の芯（密な材質。質量と、詰め物の奥の硬い面）を本体の中に置く。手の格子を入れると、手（約 170 mm）が入る大きさにするしかなく、
     // 前の球の約 2 倍の大きさ・質量になって、体の物理が広く変わった（前の版 56〜58 の作り直しの記録）。
     // 座標は「グローブの座標」: 原点が手首（腕の先 = 握る点）、+X が拳を突き出す向き、+Y が手の甲、Z が幅。
-    private const float GloveCell = 0.004f;          // 4 mm のセル（前の球と同じ。2 mm は接触が重すぎた）
-    private const float GloveFront = 0.024f;         // 打つ面: 手首の 24 mm 前（前の球の中心から前の面までと同じ）
-    private const float GloveBodyBack = -0.014f;     // 本体の後ろの端（ここから後ろはカフ）。本体の長さ 38 mm
-    private const float GloveBodyHalfY = 0.022f;     // 本体の高さの半分（ピクセル画の高さ 13 マス : 幅 14 マス ≒ 0.93）
-    private const float GloveBodyHalfZ = 0.022f;     // 本体の幅の半分（親指の袋まで入れて幅 46〜48 mm = 前の球の直径 48 mm）
-    private const float GloveHalfZ = 0.0245f;        // 親指の袋まで入れた幅の半分
-    private const float GloveLeather = 0.0045f;      // 革の厚さ（セル 1.1 個ぶん: セルちょうどだと、セルの中心が境に乗って詰め物が表に出る）
+    private const float GloveCell = 0.01126f;          // 11 mm のセル（前の球と同じ。5.6 mm は接触が重すぎた）。4 mm × 2.8169 = 0.011268 より少し小さく: X のセル数 15.5 が丸めで 16 のまま残るように
+    private const float GloveFront = 0.06761f;         // 打つ面: 手首の 68 mm 前（前の球の中心から前の面までと同じ）
+    private const float GloveBodyBack = -0.03944f;     // 本体の後ろの端（ここから後ろはカフ）。本体の長さ 107 mm
+    private const float GloveBodyHalfY = 0.06197f;     // 本体の高さの半分（ピクセル画の高さ 13 マス : 幅 14 マス ≒ 0.93）
+    private const float GloveBodyHalfZ = 0.06197f;     // 本体の幅の半分（親指の袋まで入れて幅 130〜135 mm = 前の球の直径 135 mm）
+    private const float GloveHalfZ = 0.06901f;        // 親指の袋まで入れた幅の半分
+    private const float GloveLeather = 0.01268f;      // 革の厚さ（セル 1.1 個ぶん: セルちょうどだと、セルの中心が境に乗って詰め物が表に出る）
     private const float GloveRoundness = 2.6f;       // 超楕円体の指数（2 = 楕円体、大きいほど角ばった箱）。拳の正面・上の輪郭がほぼ丸い角の四角
-    private const float GloveCuffInner = 0.0165f;    // カフの内半径（前腕の箱の太さの半分 16 mm のすぐ外）
-    private const float GloveCuffOuter = 0.0205f;    // カフの外半径（壁 4 mm = セル 1 個）
-    private const float GloveCuffLength = 0.02f;     // カフの長さ（本体の後ろの端から後ろへ。ピクセル画のカフ 7 マスを縮めた）
-    private const float GloveBandWidth = 0.004f;     // カフの後ろの縁の白い帯
-    private const float GloveBlend = 0.005f;         // 本体とカフ・親指の袋のつなぎ目をなめらかにする幅
-    private static readonly Vector3 GloveThumbCenter = new(0.003f, -0.0135f, -0.0165f); // 親指の袋（拳の下・横、人さし指の側。先は拳頭の横へ付く）
-    private static readonly Vector3 GloveThumbHalf = new(0.0135f, 0.0075f, 0.008f);
-    private static readonly Vector3 GloveCoreCenter = new(-0.002f, 0f, 0f);             // 骨の芯（拳の代わり）。前の球の芯は半径 12 mm
-    private static readonly Vector3 GloveCoreHalf = new(0.010f, 0.010f, 0.012f);
+    private const float GloveCuffInner = 0.04648f;    // カフの内半径（前腕の箱の太さの半分 45 mm のすぐ外）
+    private const float GloveCuffOuter = 0.05775f;    // カフの外半径（壁 11 mm = セル 1 個）
+    private const float GloveCuffLength = 0.05634f;     // カフの長さ（本体の後ろの端から後ろへ。ピクセル画のカフ 7 マスを縮めた）
+    private const float GloveBandWidth = 0.01127f;     // カフの後ろの縁の白い帯
+    private const float GloveBlend = 0.01408f;         // 本体とカフ・親指の袋のつなぎ目をなめらかにする幅
+    private static readonly Vector3 GloveThumbCenter = new(0.008451f, -0.03803f, -0.04648f); // 親指の袋（拳の下・横、人さし指の側。先は拳頭の横へ付く）
+    private static readonly Vector3 GloveThumbHalf = new(0.03803f, 0.02113f, 0.02254f);
+    private static readonly Vector3 GloveCoreCenter = new(-0.005634f, 0f, 0f);             // 骨の芯（拳の代わり）。前の球の芯は半径 34 mm
+    private static readonly Vector3 GloveCoreHalf = new(0.02817f, 0.02817f, 0.0338f);
 
     /// <summary>グローブの形（グローブの座標）を囲む箱の、中心と半分の大きさ（セルの端が形の端に乗るよう半セル足す）。</summary>
     private static (Vector3 Center, Vector3 Half) GloveBounds { get; } = BoundsOfGlove();
@@ -879,7 +879,7 @@ public sealed class Weapon
     /// <summary>
     /// グローブ（グローブの座標）。外形（本体・カフ・親指の袋の滑らかな最小値）の内側を満たす: 外側 <see cref="GloveLeather"/> は革
     /// （親指の袋の出っ張りは濃い色）、その内は詰め物、芯は骨（拳の代わり）。カフは壁全体が革で、前腕が通る空洞を残す。
-    /// 後ろの縁に白い帯、上に白い紐の目、親指の袋のまわりに白い縫い目。詰め物は前の面でいちばん厚い（前から芯まで 16 mm、甲・掌は 12 mm）。
+    /// 後ろの縁に白い帯、上に白い紐の目、親指の袋のまわりに白い縫い目。詰め物は前の面でいちばん厚い（前から芯まで 45 mm、甲・掌は 34 mm）。
     /// </summary>
     private static byte GloveAt(Vector3 p, byte leather)
     {
@@ -896,17 +896,17 @@ public sealed class Weapon
         }
 
         var inCuff = p.X < GloveBodyBack;
-        if (inCuff && p.Y > GloveCuffOuter - 0.006f && MathF.Abs(p.Z) < 0.004f
-            && (int)MathF.Floor((p.X - (GloveBodyBack - GloveCuffLength)) / 0.008f) % 2 == 0 && p.X < GloveBodyBack - 0.003f)
+        if (inCuff && p.Y > GloveCuffOuter - 0.0169f && MathF.Abs(p.Z) < 0.01127f
+            && (int)MathF.Floor((p.X - (GloveBodyBack - GloveCuffLength)) / 0.02254f) % 2 == 0 && p.X < GloveBodyBack - 0.008451f)
         {
-            return BoxerAnatomy.GloveTrim; // 紐の目（カフの上、4 mm おき）
+            return BoxerAnatomy.GloveTrim; // 紐の目（カフの上、11 mm おき）
         }
 
         var thumb = GloveThumb(p);
         if (s > -GloveLeather)
         {
             // 親指の袋のまわりの縫い目（袋の面が本体の面と交わる線）と、袋の外側の濃い革。
-            if (!inCuff && MathF.Abs(thumb) < 0.002f && body < 0.001f && body > -0.003f)
+            if (!inCuff && MathF.Abs(thumb) < 0.005634f && body < 0.002817f && body > -0.008451f)
             {
                 return BoxerAnatomy.GloveTrim;
             }
@@ -931,70 +931,71 @@ public sealed class Weapon
     }
 
     // ── 手にはめる物（グローブ以外）。形は「手の座標」で書く: 原点は手の格子の中心（掌の真ん中。HandSkeleton と同じ座標）、+X は拳を突き出す向き、
-    // Z は拳頭の並ぶ向き（親指の側から小指の側）、Y は手の甲と掌を結ぶ向き。中の手は素手と同じ手のモデル（5 mm の格子: HandSkeleton・BareHandState）で、
-    // 物の格子（2 mm、刃の薄いカタールは 1.25 mm）とは別の格子として、同じ剛体に重ねる（AddHand）。物のセルは手のセルを避けて置く（二重に固くならない）。
+    // Z は拳頭の並ぶ向き（親指の側から小指の側）、Y は手の甲と掌を結ぶ向き。中の手は素手と同じ手のモデル（14 mm の格子: HandSkeleton・BareHandState）で、
+    // 物の格子（5.6 mm、刃の薄いカタールは 3.5 mm）とは別の格子として、同じ剛体に重ねる（AddHand）。物のセルは手のセルを避けて置く（二重に固くならない）。
     // 物の寸法は、中の手の寸法（手の格子から測る）を基準にして書く: 手が大きくなれば物もそれに合わせて大きくなる。
-    // 人形の縮尺はおよそ 0.5 倍（人の拳の幅 9 cm → 拳の幅 4〜5 cm）。物の太さ・長さは、人の物をその縮尺にし、手の寸法に対する比で決めた。
+    // 手は人よりおよそ 1.4 倍大きい（人の拳の幅 9 cm → 拳の幅 11〜14 cm。人形の単位で拳を大きくした手の換算）。物の太さ・長さは、人の物を
+    // 人形の単位の縮尺（およそ 0.5 倍）にして手の寸法に対する比で決めた値の換算。
 
-    /// <summary>素手の拳の半径 [m]（グローブの半径 2.4 cm × 0.55。<see cref="CoverRadiusOf"/> の素手の拳の広がりの目安。形は <see cref="HandSkeleton"/> が決める）。</summary>
-    private const float FistRadius = 0.013f;
+    /// <summary>素手の拳の半径 [m]（グローブの半径 6.8 cm × 0.55。<see cref="CoverRadiusOf"/> の素手の拳の広がりの目安。形は <see cref="HandSkeleton"/> が決める）。</summary>
+    private const float FistRadius = 0.03662f;
 
-    /// <summary>メリケンサック・籠手・トンファー・盾のセル [m]（2 mm: メリケンサックの突起が 1〜2 セルで形になる大きさ）。</summary>
-    private const float WornCell = 0.002f;
+    /// <summary>メリケンサック・籠手・トンファー・盾のセル [m]（5.6 mm: メリケンサックの突起が 1〜2 セルで形になる大きさ）。</summary>
+    private const float WornCell = 0.005634f;
 
-    /// <summary>カタールのセル [m]（刃の薄さを形で表すため、剣と同じ 1.25 mm）。</summary>
-    private const float KatarCell = 0.00125f;
+    /// <summary>カタールのセル [m]（刃の薄さを形で表すため、剣と同じ 3.5 mm）。</summary>
+    private const float KatarCell = 0.003521f;
 
     /// <summary>指のピッチ [m]（指 1 本の幅 = 2 セル。<see cref="HandSkeleton"/> の指は横に 2 セルおき）。</summary>
-    private const float FingerPitch = 0.01f;
+    private const float FingerPitch = 0.02817f;
 
     // メリケンサック（人の: 幅 9 cm、前の棒の高さ 1.3 cm・厚さ 1.2 cm → 手の寸法に対する比）。素手の正拳のまま、拳頭の前の面に棒が接する。
-    private const float DusterBar = 0.004f;         // 前の棒の厚さ（X）
-    private const float DusterBarMargin = 0.002f;   // 棒が拳頭の列の高さの外へ広がる分
-    private const float DusterBoss = 0.004f;        // 拳頭ごとの突起の半径（前の棒から前へ出る）
-    private const float DusterEndPlate = 0.003f;    // 両端の板の厚さ（Z）
-    private const float DusterEndGap = 0.001f;      // 両端の板と拳の幅の間
-    private const float DusterEndBack = 0.005f;     // 両端の板の後ろの端（X。指の付け根の少し手前）
+    private const float DusterBar = 0.01127f;         // 前の棒の厚さ（X）
+    private const float DusterBarMargin = 0.005634f;   // 棒が拳頭の列の高さの外へ広がる分
+    private const float DusterBoss = 0.01127f;        // 拳頭ごとの突起の半径（前の棒から前へ出る）
+    private const float DusterEndPlate = 0.008451f;    // 両端の板の厚さ（Z）
+    private const float DusterEndGap = 0.002817f;      // 両端の板と拳の幅の間
+    private const float DusterEndBack = 0.01408f;     // 両端の板の後ろの端（X。指の付け根の少し手前）
 
-    // カタール（人の: 刃 25 cm・根元の幅 5 cm、枠 15 cm → 刃の長さは今まで通り 7 cm、根元の幅は手の幅に対する人の比 0.58 × 手の半分）。
+    // カタール（人の: 刃 25 cm・根元の幅 5 cm、枠 15 cm → 刃の長さは今まで通り 20 cm（人形の単位の 7 cm の換算）、根元の幅は手の幅に対する人の比 0.58 × 手の半分）。
     // 手は横木（握り棒）を握り（GripPose）、枠の面は握り棒の高さ（HandSkeleton.GripCenter.Y）。
-    private const float KatarGripRadius = 0.004f;      // 握る横木の半径（直径 8 mm）。手のセル（5 mm）の対角の半分 3.54 mm より太くないと、棒が手のセルを空けられない（4 つのセルの角に棒の軸が来る）
-    private const float KatarBladeGap = 0.006f;        // 拳頭の前の面から刃の根元まで
-    private const float KatarBladeLength = 0.07f;      // 刃の根元から切っ先まで
-    private const float KatarBladeHalfWidth = 0.0145f; // 刃の根元の幅の半分（Z）
-    private const float KatarPoint = 0.02f;            // 切っ先: 最後の 2 cm で 0 へ尖る
-    private const float KatarSpine = 0.003f;           // 鎬の厚さ（Y）
-    private const float KatarBarGap = 0.002f;          // 手の幅の外から、両脇の棒の内の面まで
-    private const float KatarBarThick = 0.0025f;       // 枠の棒の太さ
-    private const float KatarBarBack = 0.024f;         // 両脇の棒の後ろの端（腕の先の握る所から後ろ。前腕に沿う）
+    private const float KatarGripRadius = 0.01127f;      // 握る横木の半径（直径 23 mm）。手のセル（14 mm）の対角の半分 10 mm より太くないと、棒が手のセルを空けられない（4 つのセルの角に棒の軸が来る）
+    private const float KatarBladeGap = 0.0169f;        // 拳頭の前の面から刃の根元まで
+    private const float KatarBladeLength = 0.1972f;      // 刃の根元から切っ先まで
+    private const float KatarBladeHalfWidth = 0.04085f; // 刃の根元の幅の半分（Z）
+    private const float KatarPoint = 0.05634f;            // 切っ先: 最後の 5.6 cm で 0 へ尖る
+    private const float KatarSpine = 0.008451f;           // 鎬の厚さ（Y）
+    private const float KatarBarGap = 0.005634f;          // 手の幅の外から、両脇の棒の内の面まで
+    private const float KatarBarThick = 0.007042f;       // 枠の棒の太さ
+    private const float KatarBarBack = 0.06761f;         // 両脇の棒の後ろの端（腕の先の握る所から後ろ。前腕に沿う）
 
-    // 籠手（人の: 板 2 mm 前後の鋼を拳の上に、その下に詰め物 → 手の表面から 2 mm の詰め物、その外 2.5 mm の鉄・革の殻）。
+    // 籠手（人の: 板 2 mm 前後の鋼を拳の上に、その下に詰め物 → 手の表面から 5.6 mm の詰め物、その外 7 mm の鉄・革の殻）。
     // 殻は手の形に沿う（手のセルからの距離で決める）。
-    private const float GauntletPadding = 0.002f;     // 詰め物の厚さ（手の外の面から）
-    private const float GauntletShell = 0.0025f;      // 鉄の板・革の厚さ
+    private const float GauntletPadding = 0.005634f;     // 詰め物の厚さ（手の外の面から）
+    private const float GauntletShell = 0.007042f;      // 鉄の板・革の厚さ
     private const float GauntletPlateFrom = 0f;       // 鉄の板が覆う所（手の座標の X がこれより前: 拳頭・指・甲の前半。それより後ろは革）
-    private const float GauntletCuffLength = 0.017f;  // 手首の鉄の輪の長さ
-    private const float GauntletCuffBack = 0.018f;    // 輪の後ろの端（腕の先の握る所から後ろ）
-    private const float GauntletCuffInner = 0.017f;   // 輪の内の半径（前腕の箱の太さ 32 mm の外）
-    private const float GauntletCuffOuter = 0.0195f;  // 輪の外の半径
+    private const float GauntletCuffLength = 0.04789f;  // 手首の鉄の輪の長さ
+    private const float GauntletCuffBack = 0.0507f;    // 輪の後ろの端（腕の先の握る所から後ろ）
+    private const float GauntletCuffInner = 0.04789f;   // 輪の内の半径（前腕の箱の太さ 90 mm の外）
+    private const float GauntletCuffOuter = 0.05493f;  // 輪の外の半径
 
     // トンファー（人の: 全長 50 cm 前後・握りの柄 12 cm 前後・棒の太さ 3 cm 前後）。棒は手の外側（Z の正の側）に前腕と平行に置き、
     // 後ろの端は肘を少し越える。前の端は拳の前へ。握りの柄は手が握る（GripPose）。
-    private const float TonfaStickRadius = 0.008f;    // 棒の半径（直径 16 mm = 手の幅 5 cm に対する人の比 0.33）
-    private const float TonfaStickGap = 0.001f;       // 手の幅の外から棒の内の面まで
-    private const float TonfaStickLift = 0.006f;      // 棒の中心の高さ: 握る柄の軸より甲の側へ（柄と棒が重なって一つにつながる）
-    private const float TonfaHandleRadius = 0.004f;   // 握りの柄の半径（直径 8 mm。手のセルの対角の半分より太く）
-    private const float TonfaBack = 0.11f;            // 棒の後ろの端（腕の先の握る所から後ろ。肘を少し越える）
-    private const float TonfaFrontBeyond = 0.017f;    // 棒の前の端（拳の前の面から前へ）
+    private const float TonfaStickRadius = 0.02254f;    // 棒の半径（直径 45 mm = 手の幅 14 cm に対する人の比 0.33）
+    private const float TonfaStickGap = 0.002817f;       // 手の幅の外から棒の内の面まで
+    private const float TonfaStickLift = 0.0169f;      // 棒の中心の高さ: 握る柄の軸より甲の側へ（柄と棒が重なって一つにつながる）
+    private const float TonfaHandleRadius = 0.01127f;   // 握りの柄の半径（直径 23 mm。手のセルの対角の半分より太く）
+    private const float TonfaBack = 0.3099f;            // 棒の後ろの端（腕の先の握る所から後ろ。肘を少し越える）
+    private const float TonfaFrontBeyond = 0.04789f;    // 棒の前の端（拳の前の面から前へ）
 
-    // 盾（人の: 丸盾の直径 60 cm・板の厚さ 1.5 cm 前後 → 人形の縮尺で直径 16 cm・板の厚さ 4 mm）。椀（ボス）は手の形に沿う殻（手のセルからの
+    // 盾（人の: 丸盾の直径 60 cm・板の厚さ 1.5 cm 前後 → 直径 45 cm・板の厚さ 11 mm（人形の単位の 16 cm・4 mm の換算））。椀（ボス）は手の形に沿う殻（手のセルからの
     // 距離）で前半分を覆い、板は手の中心の面（X が ±板の厚さ）に広がる。手は鉄の握り棒を握る（GripPose）。
-    private const float ShieldRadius = 0.08f;         // 板の半径（直径 16 cm）
-    private const float ShieldPlateHalf = 0.002f;     // 板の厚さの半分（厚さ 4 mm）
-    private const float ShieldRim = 0.002f;           // 縁を巻く鉄の輪の幅（1 セル）
-    private const float ShieldBossClear = 0.004f;     // 椀の内側と手の間の隙間
-    private const float ShieldBossShell = 0.003f;     // 椀の殻の厚さ（1.5 セル: 1 セルだと曲面で穴が開く）
-    private const float ShieldGripRadius = 0.004f;    // 握り棒の半径（直径 8 mm。手のセルの対角の半分より太く）
+    private const float ShieldRadius = 0.2254f;         // 板の半径（直径 45 cm）
+    private const float ShieldPlateHalf = 0.005634f;     // 板の厚さの半分（厚さ 11 mm）
+    private const float ShieldRim = 0.005634f;           // 縁を巻く鉄の輪の幅（1 セル）
+    private const float ShieldBossClear = 0.01127f;     // 椀の内側と手の間の隙間
+    private const float ShieldBossShell = 0.008451f;     // 椀の殻の厚さ（1.5 セル: 1 セルだと曲面で穴が開く）
+    private const float ShieldGripRadius = 0.01127f;    // 握り棒の半径（直径 23 mm。手のセルの対角の半分より太く）
 
     /// <summary>手にはめる物の中の手: 手の姿勢と、握る棒（素手の正拳なら null）。</summary>
     private readonly record struct WornHandSpec(HandPose Pose, Func<Vector3, bool>? Held);
@@ -1075,7 +1076,7 @@ public sealed class Weapon
         /// <summary>点 <paramref name="p"/> から、手のセルの箱までの最短距離 [m]（手の中は 0。2 セルより遠い所は 1 m）。</summary>
         public float Distance(Vector3 p)
         {
-            const float Reach = 0.011f;
+            const float Reach = 0.03099f;
             if (p.X < Min.X - Reach || p.Y < Min.Y - Reach || p.Z < Min.Z - Reach || p.X > Max.X + Reach || p.Y > Max.Y + Reach || p.Z > Max.Z + Reach)
             {
                 return 1f;

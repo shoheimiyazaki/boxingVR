@@ -14,7 +14,7 @@ public sealed class DebrisLookTests
     private static List<ParticleInstance> Trails(Vector4 color, float trail, bool ownColor)
     {
         var debris = new VoxelDebris(capacity: 4);
-        debris.Spawn(Vector3.Zero, new Vector3(1f, 0f, 0f), Quaternion.Identity, new Vector3(0.005f), Vector3.Zero, color, heat: 0.5f, trail: trail, ownColor: ownColor);
+        debris.Spawn(Vector3.Zero, new Vector3(1.678f, 0f, 0f), Quaternion.Identity, new Vector3(0.01408f), Vector3.Zero, color, heat: 0.5f, trail: trail, ownColor: ownColor);
         var list = new List<ParticleInstance>();
         debris.WriteTrails(list);
         return list;
@@ -26,13 +26,13 @@ public sealed class DebrisLookTests
         static int Glowing(WeaponKind second)
         {
             using var game = new BoxingGame(seed: 1);
-            var at = new Vector3(0f, BoxingGame.RingSurfaceHeight + 0.4f, 0f);
+            var at = new Vector3(0f, BoxingGame.RingSurfaceHeight + 1.127f, 0f);
             // 寝かせた剣へ、上から刃（鉄）か棍棒（木）を速く当てる。
             game.AddWeapon(WeaponKind.IronSword, at, Quaternion.CreateFromAxisAngle(Vector3.UnitX, -MathF.PI / 2f));
-            var striker = game.AddWeapon(second, at + new Vector3(0.03f, 0.03f, 0f), Quaternion.CreateFromAxisAngle(Vector3.UnitZ, 0f));
-            game.World.SetLinearVelocity(striker.Body.BodyId, new Vector3(0f, -4f, 0f));
+            var striker = game.AddWeapon(second, at + new Vector3(0.0845f, 0.0845f, 0f), Quaternion.CreateFromAxisAngle(Vector3.UnitZ, 0f));
+            game.World.SetLinearVelocity(striker.Body.BodyId, new Vector3(0f, -6.714f, 0f));
             var before = Count(game);
-            for (var i = 0; i < 12; i++)
+            for (var i = 0; i < 20; i++)
             {
                 game.Step(default, 1f / 240f);
             }
@@ -58,10 +58,10 @@ public sealed class DebrisLookTests
         var trial = WeaponDrills.Trials.Single(t => t.Name == "sword-edge");
         using var game = WeaponDrills.StillMatch();
         var shot = trial.Setup(game);
-        WeaponDrills.Run(trial, game, shot, 8, 1f / 60f);
+        WeaponDrills.Run(trial, game, shot, 13, 1f / 60f);
         var list = new List<PrimitiveInstance>();
         game.Debris.WriteInstances(list);
-        var offsets = list.Select(p => p.Model.Translation - shot.Focus).Where(o => o.Length() > 0.02f).ToList();
+        var offsets = list.Select(p => p.Model.Translation - shot.Focus).Where(o => o.Length() > 0.05634f).ToList();
         Assert.IsGreaterThan(10, offsets.Count, "pieces fly");
         var along = offsets.Average(o => Vector3.Dot(Vector3.Normalize(o), shot.Heading));
         Assert.IsGreaterThan(0.5f, along, $"they fly on along the cut (mean cosine {along:0.00})");

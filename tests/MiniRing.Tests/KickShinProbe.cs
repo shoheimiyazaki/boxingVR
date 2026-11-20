@@ -108,7 +108,7 @@ public sealed class KickShinProbe
                     start = d;
                 }
 
-                if (MathF.Abs(t - 0.36f) < 0.003f)
+                if (MathF.Abs(t - 0.6042f) < 0.003f)
                 {
                     atContact = d;
                 }
@@ -116,7 +116,7 @@ public sealed class KickShinProbe
             change[side] = atContact - start;
         }
 
-        Assert.IsGreaterThan(0.03f, change[Hand.Left], "the front-foot kick pushes the hip away from the target");
+        Assert.IsGreaterThan(0.0845f, change[Hand.Left], "the front-foot kick pushes the hip away from the target");
         Assert.IsLessThan(0f, change[Hand.Right], "the rear-foot kick brings the hip closer to the target");
     }
 }

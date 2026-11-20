@@ -4,9 +4,9 @@
   // 値は手で書いた最初の経路（throwlab で測って直す。docs/arena/throwlab_*.md）。
   "Name": "jujutsu",
   "Engage": 0.95,
-  "Rate": 0.8,
-  "GripTimeout": 0.5,
-  "Cooldown": 1.2,
+  "Rate": 0.4767,
+  "GripTimeout": 0.8392,
+  "Cooldown": 2.014,
   "EscapeLoad": 0.6,
   "Techniques": [
     {
@@ -14,12 +14,12 @@
       "Name": "sumi-otoshi", "Weight": 1, "Kuzushi": [0.7, -0.7],
       "Keys": [
         { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0] } },
-        { "T": 0.25, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
-        { "T": 0.45, "Left": { "Anchor": "Self", "Offset": [0.3, -0.15, 0.5], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.0, -0.1, 0.55], "Grip": true },
+        { "T": 0.4196, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
+        { "T": 0.7553, "Left": { "Anchor": "Self", "Offset": [0.3, -0.15, 0.5], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.0, -0.1, 0.55], "Grip": true },
           "Move": [0.5, -0.5], "Head": [0, -0.05, -0.25], "Spring": 0.4 },
-        { "T": 1.1,  "Left": { "Anchor": "Self", "Offset": [0.45, -0.3, 0.3], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.25, -0.35, 0.4], "Grip": true },
+        { "T": 1.846,  "Left": { "Anchor": "Self", "Offset": [0.45, -0.3, 0.3], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.25, -0.35, 0.4], "Grip": true },
           "Move": [0.5, -0.5], "Head": [0, -0.1, -0.35], "Spring": 0.4 },
-        { "T": 1.3,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+        { "T": 2.182,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
       ]
     },
     {
@@ -28,16 +28,16 @@
       "Name": "osoto-gari", "Weight": 1, "Kuzushi": [0.5, 0.85],
       "Keys": [
         { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0] } },
-        { "T": 0.25, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
-        { "T": 0.6,  "Left": { "Anchor": "Self", "Offset": [0.4, -0.35, 0.3], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.05, 0.35], "Grip": true },
+        { "T": 0.4196, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
+        { "T": 1.007,  "Left": { "Anchor": "Self", "Offset": [0.4, -0.35, 0.3], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.05, 0.35], "Grip": true },
           "Move": [0.5, 1.0], "Head": [0, 0, 0.1], "Spring": 0.3 },
-        { "T": 0.8,  "Left": { "Anchor": "Self", "Offset": [0.4, -0.35, 0.3], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.1, 0.4], "Grip": true },
+        { "T": 1.343,  "Left": { "Anchor": "Self", "Offset": [0.4, -0.35, 0.3], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.1, 0.4], "Grip": true },
           "Leg": { "Side": "Right", "Anchor": "AnkleL", "Offset": [0, 0.2, 0.3] }, "Head": [0, 0, 0.1], "Spring": 0.3 },
-        { "T": 1.05, "Left": { "Anchor": "Self", "Offset": [0.45, -0.4, 0.2], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.3, 0.45], "Grip": true },
+        { "T": 1.762, "Left": { "Anchor": "Self", "Offset": [0.45, -0.4, 0.2], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.3, 0.45], "Grip": true },
           "Leg": { "Side": "Right", "Anchor": "AnkleL", "Offset": [0, 0.2, -0.35] }, "Head": [0, -0.1, 0.1], "Spring": 0.5 },
-        { "T": 1.35, "Left": { "Anchor": "Self", "Offset": [0.45, -0.45, 0.2], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0, -0.4, 0.6], "Grip": true },
+        { "T": 2.266, "Left": { "Anchor": "Self", "Offset": [0.45, -0.45, 0.2], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0, -0.4, 0.6], "Grip": true },
           "Head": [0, -0.15, 0] },
-        { "T": 1.5,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+        { "T": 2.518,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
       ]
     },
     {
@@ -45,13 +45,13 @@
       "Name": "deashi-barai", "Weight": 1, "Kuzushi": [-1, 0.2],
       "Keys": [
         { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0] } },
-        { "T": 0.25, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
-        { "T": 0.45, "Left": { "Anchor": "ElbowL", "Offset": [-0.3, 0.15, 0], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [-0.25, 0.1, 0.1], "Grip": true },
+        { "T": 0.4196, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
+        { "T": 0.7553, "Left": { "Anchor": "ElbowL", "Offset": [-0.3, 0.15, 0], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [-0.25, 0.1, 0.1], "Grip": true },
           "Leg": { "Side": "Left", "Anchor": "AnkleL", "Offset": [0.25, 0.05, -0.05] }, "Spring": 0.3 },
-        { "T": 0.7,  "Left": { "Anchor": "ElbowL", "Offset": [-0.4, 0.1, -0.1], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [-0.35, -0.1, 0.1], "Grip": true },
+        { "T": 1.175,  "Left": { "Anchor": "ElbowL", "Offset": [-0.4, 0.1, -0.1], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [-0.35, -0.1, 0.1], "Grip": true },
           "Leg": { "Side": "Left", "Anchor": "AnkleL", "Offset": [-0.45, 0.06, 0] }, "Spring": 0.5 },
-        { "T": 1.0,  "Left": { "Anchor": "Self", "Offset": [-0.1, -0.3, 0.4], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.3, -0.4, 0.4], "Grip": true } },
-        { "T": 1.2,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+        { "T": 1.678,  "Left": { "Anchor": "Self", "Offset": [-0.1, -0.3, 0.4], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.3, -0.4, 0.4], "Grip": true } },
+        { "T": 2.014,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
       ]
     },
     {
@@ -60,12 +60,12 @@
       "Name": "sasae-tsurikomi-ashi", "Weight": 1, "Kuzushi": [0.7, -0.7],
       "Keys": [
         { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0] } },
-        { "T": 0.25, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
-        { "T": 0.45, "Left": { "Anchor": "Self", "Offset": [0.35, -0.15, 0.45], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.05, -0.1, 0.5], "Grip": true },
+        { "T": 0.4196, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
+        { "T": 0.7553, "Left": { "Anchor": "Self", "Offset": [0.35, -0.15, 0.45], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.05, -0.1, 0.5], "Grip": true },
           "Leg": { "Side": "Left", "Anchor": "AnkleL", "Offset": [0, 0.04, -0.1] }, "Head": [0, -0.05, -0.15], "Spring": 0.3 },
-        { "T": 1.2,  "Left": { "Anchor": "Self", "Offset": [0.5, -0.3, 0.25], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.3, -0.35, 0.35], "Grip": true },
+        { "T": 2.014,  "Left": { "Anchor": "Self", "Offset": [0.5, -0.3, 0.25], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [0.3, -0.35, 0.35], "Grip": true },
           "Leg": { "Side": "Left", "Anchor": "AnkleL", "Offset": [0, 0.04, -0.05] }, "Head": [0, -0.1, -0.25], "Twist": -0.3, "Spring": 0.4 },
-        { "T": 1.4,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+        { "T": 2.35,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
       ]
     },
     {
@@ -74,16 +74,16 @@
       "Name": "osoto-otoshi", "Weight": 0.6, "Kuzushi": [0.4, 0.9],
       "Keys": [
         { "T": 0,    "Left": { "Anchor": "ElbowL" }, "Right": { "Anchor": "Head", "Offset": [0, -0.05, 0] } },
-        { "T": 0.25, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.05, 0], "Grip": true } },
-        { "T": 0.55, "Left": { "Anchor": "Self", "Offset": [0.4, -0.3, 0.3], "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.15, 0.35], "Grip": true },
+        { "T": 0.4196, "Left": { "Anchor": "ElbowL", "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.05, 0], "Grip": true } },
+        { "T": 0.9231, "Left": { "Anchor": "Self", "Offset": [0.4, -0.3, 0.3], "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.15, 0.35], "Grip": true },
           "Move": [0.5, 1.0], "Head": [0, 0, 0.1], "Spring": 0.4 },
-        { "T": 0.75, "Left": { "Anchor": "Self", "Offset": [0.4, -0.35, 0.3], "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.3, 0.45], "Grip": true },
+        { "T": 1.259, "Left": { "Anchor": "Self", "Offset": [0.4, -0.35, 0.3], "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.3, 0.45], "Grip": true },
           "Leg": { "Side": "Right", "Anchor": "AnkleL", "Offset": [0, 0.2, 0.3] }, "Spring": 0.5 },
-        { "T": 1.0,  "Left": { "Anchor": "Self", "Offset": [0.45, -0.4, 0.2], "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.7, 0.5], "Grip": true },
+        { "T": 1.678,  "Left": { "Anchor": "Self", "Offset": [0.45, -0.4, 0.2], "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.7, 0.5], "Grip": true },
           "Leg": { "Side": "Right", "Anchor": "AnkleL", "Offset": [0, 0.2, -0.35] }, "Head": [0, -0.2, 0.15], "Spring": 0.8 },
-        { "T": 1.35, "Left": { "Anchor": "Self", "Offset": [0.45, -0.5, 0.2], "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.8, 0.4], "Grip": true },
+        { "T": 2.266, "Left": { "Anchor": "Self", "Offset": [0.45, -0.5, 0.2], "Grip": true }, "Right": { "Anchor": "Head", "Offset": [0, -0.8, 0.4], "Grip": true },
           "Head": [0, -0.3, 0.1], "Spring": 0.8 },
-        { "T": 1.5,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+        { "T": 2.518,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
       ]
     },
     {
@@ -92,11 +92,11 @@
       "Name": "kubi-nage", "Weight": 0.6, "Kuzushi": [0.8, 0.3],
       "Keys": [
         {"T": 0, "Left": {"Anchor": "ElbowL", "Offset": [-0.0108, -0.063, -0.0165]}, "Right": {"Anchor": "Head", "Offset": [-0.19, 0.0475, 0.097]}, "Spring": 0.1185, "Twist": -0.0087},
-        {"T": 0.2562, "Left": {"Anchor": "ElbowL", "Offset": [0.0421, 0.0423, 0.0044], "Grip": true}, "Right": {"Anchor": "Head", "Offset": [-0.1623, -0.0506, 0.1068], "Grip": true}, "Move": [0.1234, 0.9895], "Spring": 0.1413, "Twist": -0.0433},
-        {"T": 0.5551, "Left": {"Anchor": "Self", "Offset": [0.4157, -0.3305, 0.145], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [0.0934, -0.139, 0.3152], "Grip": true}, "Move": [-0.2231, 0.1125], "Head": [0.035, -0.1908, 0.0744], "Spring": 0.4222, "Twist": 0.5127},
-        {"T": 0.8967, "Left": {"Anchor": "Self", "Offset": [0.5466, -0.5141, -0.0388], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [0.5854, -0.748, 0.2742], "Grip": true}, "Head": [0.008, -0.419, 0.0485], "Spring": 0.6421, "Twist": 0.4608},
-        {"T": 1.1102, "Left": {"Anchor": "Self", "Offset": [0.5456, -0.5818, -0.078], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [0.6354, -0.8781, 0.2966], "Grip": true}, "Head": [-0.0294, -0.5294, 0.1491], "Twist": 0.085},
-        {"T": 1.2383, "Left": {"Anchor": "Self", "Offset": [0.0148, -0.1894, 0.677]}, "Right": {"Anchor": "Self", "Offset": [-0.2026, -0.0308, 0.4504]}, "Twist": 0.0619}
+        {"T": 0.43, "Left": {"Anchor": "ElbowL", "Offset": [0.0421, 0.0423, 0.0044], "Grip": true}, "Right": {"Anchor": "Head", "Offset": [-0.1623, -0.0506, 0.1068], "Grip": true}, "Move": [0.1234, 0.9895], "Spring": 0.1413, "Twist": -0.0433},
+        {"T": 0.9317, "Left": {"Anchor": "Self", "Offset": [0.4157, -0.3305, 0.145], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [0.0934, -0.139, 0.3152], "Grip": true}, "Move": [-0.2231, 0.1125], "Head": [0.035, -0.1908, 0.0744], "Spring": 0.4222, "Twist": 0.5127},
+        {"T": 1.505, "Left": {"Anchor": "Self", "Offset": [0.5466, -0.5141, -0.0388], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [0.5854, -0.748, 0.2742], "Grip": true}, "Head": [0.008, -0.419, 0.0485], "Spring": 0.6421, "Twist": 0.4608},
+        {"T": 1.863, "Left": {"Anchor": "Self", "Offset": [0.5456, -0.5818, -0.078], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [0.6354, -0.8781, 0.2966], "Grip": true}, "Head": [-0.0294, -0.5294, 0.1491], "Twist": 0.085},
+        {"T": 2.078, "Left": {"Anchor": "Self", "Offset": [0.0148, -0.1894, 0.677]}, "Right": {"Anchor": "Self", "Offset": [-0.2026, -0.0308, 0.4504]}, "Twist": 0.0619}
       ]
     },
     {
@@ -106,14 +106,14 @@
       "Name": "seoi-nage", "Weight": 0.8, "Kuzushi": [0, -1],
       "Keys": [
         {"T": 0, "Left": {"Anchor": "ElbowL", "Offset": [0.0054, 0.038, -0.0367]}, "Right": {"Anchor": "ShoulderR", "Offset": [-0.075, -0.1859, 0.0638]}, "Spring": 0.2135, "Twist": 0.0582},
-        {"T": 0.2162, "Left": {"Anchor": "ElbowL", "Offset": [0.0326, 0.0672, 0.0705], "Grip": true}, "Right": {"Anchor": "ShoulderR", "Offset": [0.0375, -0.0269, -0.0106], "Grip": true}, "Twist": 0.0931},
-        {"T": 0.4324, "Left": {"Anchor": "Self", "Offset": [0.2675, 0.0412, 0.4416], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.0751, 0.1275, 0.3196], "Grip": true}, "Move": [0.0567, -1.0425], "Head": [-0.0118, -0.0009, -0.0541], "Twist": -0.0235},
-        {"T": 0.6054, "Left": {"Anchor": "Self", "Offset": [0.2528, 0.0769, 0.3769], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.0536, 0.0569, 0.2684], "Grip": true}, "Head": [-0.0166, -0.2872, 0.0178], "Twist": -0.031, "Turn": 1.5, "Stand": {"Anchor": "Pelvis", "Offset": [0.0939, -0.0405, -0.004]}},
-        {"T": 0.7783, "Left": {"Anchor": "Self", "Offset": [0.1935, -0.0771, 0.2851], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.173, 0.0806, 0.1182], "Grip": true}, "Head": [0.0998, -0.3947, 0.0842], "Spring": 0.1157, "Twist": 0.0329, "Turn": 3, "Stand": {"Anchor": "Pelvis", "Offset": [0.062, 0.0009, 0.0367]}},
-        {"T": 0.8648, "Left": {"Anchor": "Self", "Offset": [0.1635, -0.0377, 0.2816], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.0641, 0.0622, 0.1255], "Grip": true}, "Move": [0.1915, 0.5803], "Head": [-0.0178, -0.5719, 0.2302], "Twist": 0.0356, "Turn": 3},
-        {"T": 1.1243, "Left": {"Anchor": "Self", "Offset": [0.1132, 0.095, 0.4332], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.0859, 0.0753, 0.2175], "Grip": true}, "Move": [-0.0686, 0.7216], "Head": [0.0154, 0.0082, 0.8945], "Spring": 0.7228, "Twist": 0.0309, "Turn": 3},
-        {"T": 1.3837, "Left": {"Anchor": "Self", "Offset": [0.116, -0.5764, 0.4397], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.2191, -0.6109, 0.4841], "Grip": true}, "Head": [-0.1364, -0.1285, 0.9189], "Spring": 0.5511, "Twist": -0.0254, "Turn": 3},
-        {"T": 1.5567, "Left": {"Anchor": "Self", "Offset": [0.2265, -0.1151, 0.4838]}, "Right": {"Anchor": "Self", "Offset": [-0.1863, -0.1433, 0.5356]}, "Twist": -0.0845, "Turn": 3}
+        {"T": 0.3629, "Left": {"Anchor": "ElbowL", "Offset": [0.0326, 0.0672, 0.0705], "Grip": true}, "Right": {"Anchor": "ShoulderR", "Offset": [0.0375, -0.0269, -0.0106], "Grip": true}, "Twist": 0.0931},
+        {"T": 0.7257, "Left": {"Anchor": "Self", "Offset": [0.2675, 0.0412, 0.4416], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.0751, 0.1275, 0.3196], "Grip": true}, "Move": [0.0567, -1.0425], "Head": [-0.0118, -0.0009, -0.0541], "Twist": -0.0235},
+        {"T": 1.016, "Left": {"Anchor": "Self", "Offset": [0.2528, 0.0769, 0.3769], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.0536, 0.0569, 0.2684], "Grip": true}, "Head": [-0.0166, -0.2872, 0.0178], "Twist": -0.031, "Turn": 1.5, "Stand": {"Anchor": "Pelvis", "Offset": [0.0939, -0.0405, -0.004]}},
+        {"T": 1.306, "Left": {"Anchor": "Self", "Offset": [0.1935, -0.0771, 0.2851], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.173, 0.0806, 0.1182], "Grip": true}, "Head": [0.0998, -0.3947, 0.0842], "Spring": 0.1157, "Twist": 0.0329, "Turn": 3, "Stand": {"Anchor": "Pelvis", "Offset": [0.062, 0.0009, 0.0367]}},
+        {"T": 1.451, "Left": {"Anchor": "Self", "Offset": [0.1635, -0.0377, 0.2816], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.0641, 0.0622, 0.1255], "Grip": true}, "Move": [0.1915, 0.5803], "Head": [-0.0178, -0.5719, 0.2302], "Twist": 0.0356, "Turn": 3},
+        {"T": 1.887, "Left": {"Anchor": "Self", "Offset": [0.1132, 0.095, 0.4332], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.0859, 0.0753, 0.2175], "Grip": true}, "Move": [-0.0686, 0.7216], "Head": [0.0154, 0.0082, 0.8945], "Spring": 0.7228, "Twist": 0.0309, "Turn": 3},
+        {"T": 2.322, "Left": {"Anchor": "Self", "Offset": [0.116, -0.5764, 0.4397], "Grip": true}, "Right": {"Anchor": "Self", "Offset": [-0.2191, -0.6109, 0.4841], "Grip": true}, "Head": [-0.1364, -0.1285, 0.9189], "Spring": 0.5511, "Twist": -0.0254, "Turn": 3},
+        {"T": 2.613, "Left": {"Anchor": "Self", "Offset": [0.2265, -0.1151, 0.4838]}, "Right": {"Anchor": "Self", "Offset": [-0.1863, -0.1433, 0.5356]}, "Twist": -0.0845, "Turn": 3}
       ]
     },
     {
@@ -123,14 +123,14 @@
       "Name": "tomoe-nage", "Weight": 0.6, "Kuzushi": [0, -1],
       "Keys": [
         { "T": 0,    "Left": { "Anchor": "ShoulderL", "Offset": [0, -0.15, 0] }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0] } },
-        { "T": 0.25, "Left": { "Anchor": "ShoulderL", "Offset": [0, -0.15, 0], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
-        { "T": 0.6,  "Left": { "Anchor": "Self", "Offset": [0.15, -0.1, 0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.15, -0.1, 0.35], "Grip": true },
+        { "T": 0.4196, "Left": { "Anchor": "ShoulderL", "Offset": [0, -0.15, 0], "Grip": true }, "Right": { "Anchor": "ShoulderR", "Offset": [0, -0.15, 0], "Grip": true } },
+        { "T": 1.007,  "Left": { "Anchor": "Self", "Offset": [0.15, -0.1, 0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.15, -0.1, 0.35], "Grip": true },
           "Leg": { "Side": "Right", "Anchor": "Pelvis", "Offset": [0, -0.05, -0.08] }, "Move": [0, 0.4], "Head": [0, -0.45, -0.35], "Spring": 0.3 },
-        { "T": 1.0,  "Left": { "Anchor": "Self", "Offset": [0.12, -0.2, 0.15], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.12, -0.2, 0.15], "Grip": true },
+        { "T": 1.678,  "Left": { "Anchor": "Self", "Offset": [0.12, -0.2, 0.15], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.12, -0.2, 0.15], "Grip": true },
           "Leg": { "Side": "Right", "Anchor": "Pelvis", "Offset": [0, 0, -0.05] }, "Head": [0, -0.6, -0.5], "Spring": 0.5 },
-        { "T": 1.35, "Left": { "Anchor": "Self", "Offset": [0.1, 0.05, -0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, 0.05, -0.35], "Grip": true },
+        { "T": 2.266, "Left": { "Anchor": "Self", "Offset": [0.1, 0.05, -0.35], "Grip": true }, "Right": { "Anchor": "Self", "Offset": [-0.1, 0.05, -0.35], "Grip": true },
           "Leg": { "Side": "Right", "Anchor": "Pelvis", "Offset": [0, 0.45, 0.25] }, "Head": [0, -0.6, -0.5], "Spring": 0.8 },
-        { "T": 1.55, "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+        { "T": 2.602, "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
       ]
     },
     {
@@ -139,12 +139,12 @@
       "Name": "waki-gatame", "Weight": 0.8, "Kuzushi": [0.6, -0.6], "Extension": 1,
       "Keys": [
         { "T": 0,    "Left": { "Anchor": "WristL" }, "Right": { "Anchor": "ElbowL", "Offset": [-0.12, 0, 0], "Limb": true } },
-        { "T": 0.25, "Left": { "Anchor": "WristL", "Grip": true }, "Right": { "Anchor": "ElbowL", "Offset": [-0.12, 0, 0], "Limb": true, "Grip": true } },
-        { "T": 0.8,  "Left": { "Anchor": "WristL", "Offset": [0.35, 0, 0], "Limb": true, "Grip": true }, "Right": { "Anchor": "ElbowL", "Offset": [-0.08, 0.3, 0], "Limb": true, "Grip": true },
+        { "T": 0.4196, "Left": { "Anchor": "WristL", "Grip": true }, "Right": { "Anchor": "ElbowL", "Offset": [-0.12, 0, 0], "Limb": true, "Grip": true } },
+        { "T": 1.343,  "Left": { "Anchor": "WristL", "Offset": [0.35, 0, 0], "Limb": true, "Grip": true }, "Right": { "Anchor": "ElbowL", "Offset": [-0.08, 0.3, 0], "Limb": true, "Grip": true },
           "Move": [0.4, -0.4], "Head": [0, -0.15, 0], "Spring": 0.3 },
-        { "T": 1.8,  "Left": { "Anchor": "WristL", "Offset": [0.4, 0, 0], "Limb": true, "Grip": true }, "Right": { "Anchor": "ElbowL", "Offset": [-0.08, 0.45, 0], "Limb": true, "Grip": true },
+        { "T": 3.021,  "Left": { "Anchor": "WristL", "Offset": [0.4, 0, 0], "Limb": true, "Grip": true }, "Right": { "Anchor": "ElbowL", "Offset": [-0.08, 0.45, 0], "Limb": true, "Grip": true },
           "Move": [0.3, -0.3], "Head": [0, -0.2, 0], "Spring": 0.3 },
-        { "T": 2.0,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
+        { "T": 3.357,  "Left": { "Anchor": "Self", "Offset": [0.2, -0.1, 0.5] }, "Right": { "Anchor": "Self", "Offset": [-0.2, -0.1, 0.5] } }
       ]
     }
   ]

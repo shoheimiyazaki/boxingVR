@@ -45,9 +45,9 @@ public sealed partial class Fighter
     /// <summary>骨盤の地面からの高さの目標（調べもの用）。</summary>
     private float _hoverHeight;
 
-    /// <summary>骨盤の高さのずれの積分 [m/s²]（足の運びの間だけ）と、その積分の速さ [1/s²]。</summary>
+    /// <summary>骨盤の高さのずれの積分 [m/s²]（足の運びの間だけ）と、その積分の速さ [1/s³]（ずれ [m] × 時間 [s] → 加速度。人形の単位の 150 を実物大へ）。</summary>
     private float _hoverIntegral;
-    private const float HoverKi = 150f;
+    private const float HoverKi = 31.73f;
 
     /// <summary>骨盤の姿勢の目標（脚の IK はこの姿勢の骨盤から解く。今の姿勢から解くと、脚は傾いた骨盤を支え直さない）。</summary>
     private Quaternion _pelvisTarget = Quaternion.Identity;
@@ -76,10 +76,10 @@ public sealed partial class Fighter
     private readonly int _neck;
 
     /// <summary>
-    /// 首のバネが目標へ戻す角速度の上限 [rad/s]。減衰比が小さいと戻りの速度が大きく、上限が低いと（Aigis 既定の 10）
+    /// 首のバネが目標へ戻す角速度の上限 [rad/s]。減衰比が小さいと戻りの速度が大きく、上限が低いと（Aigis 既定の 10。人形の単位）
     /// そこで頭打ちになってバネとして働かず、頭が可動域の端まで倒れたまま戻らない。
     /// </summary>
-    private const float NeckServoMaxSpeed = 60f;
+    private const float NeckServoMaxSpeed = 35.75f;
     private readonly float _standHeight;
 
     /// <summary>
@@ -147,7 +147,7 @@ public sealed partial class Fighter
         var pelvisY = world.GetState(parts.Pelvis).Position.Y;
         var footBottom = MathF.Min(world.GetState(parts.LeftFoot).Position.Y, world.GetState(parts.RightFoot).Position.Y) - halfExtents.Foot.Y;
         _standHeight = pelvisY - footBottom;
-        _restTorso = MathF.Max(0.05f, world.GetState(parts.Head).Position.Y - pelvisY);
+        _restTorso = MathF.Max(0.141f, world.GetState(parts.Head).Position.Y - pelvisY);
         var height = world.GetState(parts.Head).Position.Y + halfExtents.Head.Y - footBottom;
         _inertia = BodyInertia.Cylinder(TotalMass, height, halfExtents.Chest.X);
 
@@ -216,7 +216,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 66; // 66: 作業中の枝（打ち合いの直し・グローブ v2・拳の筋肉・CT の体）をまとめて合わせた。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 67; // 67: 物理を実物大の人の単位へ（相似の換算。表示は DisplaySpace で人形の大きさ）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -763,7 +763,7 @@ public sealed partial class Fighter
             }
 
             var p = _world.GetState(piece);
-            var link = _world.AddBallSocket(piece, grip.Held, Vector3.Transform(at - p.Position, Quaternion.Conjugate(p.Orientation)), grip.HeldLocal, frequency: 30f, dampingRatio: 1f);
+            var link = _world.AddBallSocket(piece, grip.Held, Vector3.Transform(at - p.Position, Quaternion.Conjugate(p.Orientation)), grip.HeldLocal, frequency: 17.87f, dampingRatio: 1f);
             _deadGrips[i] = grip with { Socket = link, Hand = piece };
         }
     }
@@ -1586,7 +1586,7 @@ public sealed partial class Fighter
             overlap: tuning.JointOverlap, footForwardOffset: tuning.FootForwardOffset);
         RemoveNeckDamper(world, joints);
         var footBottom = world.GetState(parts.LeftFoot).Position.Y - built.Foot.Y;
-        var lift = feetPosition.Y - footBottom + 0.002f;
+        var lift = feetPosition.Y - footBottom + 0.00563f;
         var toes = AddToes(world, tuning, name, parts, built);
         var pivot = world.GetState(parts.Pelvis).Position;
         var rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yawRadians);
@@ -1612,11 +1612,11 @@ public sealed partial class Fighter
             var toe = world.AddDynamicBox(s.Position + Vector3.Transform(FootGeometry.ToeCenterOnHeel(heel), s.Orientation), s.Orientation, toeHalf,
                 tuning.Masses.Foot / (1f - FootGeometry.ToeShare) * FootGeometry.ToeShare); // 足（かかと側）は足の質量の残り
             world.SetName(toe, name + "_" + side + "_toe");
-            world.AddHinge(foot, toe, FootGeometry.BallOnHeel(heel), FootGeometry.BallOnToe(heel), Vector3.UnitX, Vector3.UnitX, frequency: 18f);
+            world.AddHinge(foot, toe, FootGeometry.BallOnHeel(heel), FootGeometry.BallOnToe(heel), Vector3.UnitX, Vector3.UnitX, frequency: 10.72f);
             var deg = MathF.PI / 180f;
             world.AddTwistLimit(foot, toe, HumanoidRagdoll.XAxisTwistBasis, HumanoidRagdoll.XAxisTwistBasis, -60f * deg, 25f * deg, frequency: tuning.ToeStopHz);
             var servo = world.AddTwistServo(foot, toe, HumanoidRagdoll.XAxisTwistBasis, HumanoidRagdoll.XAxisTwistBasis, 0f,
-                tuning.LegServoHz, 1f, 20f, 0f, tuning.ToeMaxTorque * tuning.TorqueScale);
+                tuning.LegServoHz, 1f, 11.92f, 0f, tuning.ToeMaxTorque * tuning.TorqueScale);
             // 自分の体とはぶつけない（ラグドールの部位どうしと同じ。かかと側とは蝶番で接している）。
             foreach (var id in parts.All)
             {
@@ -1947,7 +1947,7 @@ public sealed partial class Fighter
         var flat = new Vector3(direction.X, 0f, direction.Z);
         if (flat.LengthSquared() > 1e-4f)
         {
-            _world.ApplyLinearImpulse(Parts.Chest, Vector3.Normalize(flat) * (0.6f * _world.GetMass(Parts.Chest)));
+            _world.ApplyLinearImpulse(Parts.Chest, Vector3.Normalize(flat) * (1.007f * _world.GetMass(Parts.Chest)));
         }
     }
 
@@ -2027,7 +2027,7 @@ public sealed partial class Fighter
 
         var target = _world.GetState(best);
         var localOnTarget = Vector3.Transform(bestPoint - target.Position, Quaternion.Conjugate(target.Orientation));
-        var constraint = _world.AddBallSocket(arm.GloveBody, best, arm.GloveLocal, localOnTarget, frequency: 30f, dampingRatio: 1f);
+        var constraint = _world.AddBallSocket(arm.GloveBody, best, arm.GloveLocal, localOnTarget, frequency: 17.87f, dampingRatio: 1f);
         _world.MakeBreakable(constraint, _tuning.GrabBreakForce);
         arm.GrabConstraint = constraint;
         arm.Grabbed = opponent;
@@ -2164,7 +2164,7 @@ public sealed partial class Fighter
         {
             // 足元の床が見つからない（ロープの外へ乗り出した等）間は、今の目標のまま（床の高さが分からないのに下げない）。
             var actual = grounded ? Math.Clamp(height / StandTargetHeight, 0f, 1f) : _rise;
-            var falling = grounded && _world.GetState(Parts.Pelvis).LinearVelocity.Y < -0.3f;
+            var falling = grounded && _world.GetState(Parts.Pelvis).LinearVelocity.Y < -0.5035f;
             up = falling ? MathF.Min(_rise, actual) : MathF.Min(up, actual + RiseLead);
         }
 
@@ -2421,7 +2421,7 @@ public sealed partial class Fighter
     private void StepFeet(in FighterCommand command, float height, float dt)
     {
         var pelvis = _world.GetState(Parts.Pelvis);
-        var omega = MathF.Sqrt(-_world.Gravity.Y / MathF.Max(0.05f, height));
+        var omega = MathF.Sqrt(-_world.Gravity.Y / MathF.Max(0.141f, height));
         var intent = command.ClampedMove * (_tuning.WalkSpeed * VigorOf(MuscleRegion.Legs));
         var twist = _twist / MathF.Max(1e-3f, _tuning.MaxTorsoTwistRadians);
         // 体重: 頭を前へ出せば前足、反らせば後ろ足へ。右の拳（後ろの手）を打つときは前足へ乗せる。
@@ -2516,7 +2516,7 @@ public sealed partial class Fighter
     {
         // 母指球を軸にかかとを浮かせ（X 軸回りにつま先側へ）、つま先の向きへ回す。
         var foot = Quaternion.Concatenate(Quaternion.CreateFromAxisAngle(Vector3.UnitX, pose.HeelRaise), Quaternion.CreateFromAxisAngle(Vector3.UnitY, pose.Yaw));
-        var ball = new Vector3(pose.Ball.X, groundY + pose.Ball.Y + 0.001f, pose.Ball.Z);
+        var ball = new Vector3(pose.Ball.X, groundY + pose.Ball.Y + 0.00282f, pose.Ball.Z);
         return (ball + Vector3.Transform(leg.AnkleOnHeel - leg.BallOnHeel, foot), foot);
     }
 
@@ -2801,7 +2801,7 @@ public sealed partial class Fighter
         var twist = Math.Clamp(PunchMechanics.TorsoTwist(command.Left.TargetLocal, command.Right.TargetLocal, ArmReach, _tuning.MaxTorsoTwistRadians) + bias,
             -_tuning.MaxTorsoTwistRadians, _tuning.MaxTorsoTwistRadians);
         _twist = twist;
-        var torsoLength = MathF.Max(0.05f, HeadPosition.Y - PelvisPosition.Y);
+        var torsoLength = MathF.Max(0.141f, HeadPosition.Y - PelvisPosition.Y);
         var head = command.HeadOffset;
         var moveLean = Math.Clamp(_forwardSpeed / _tuning.WalkSpeed, -1f, 1f) * (6f * MathF.PI / 180f);
         // 腰の沈みで届かない分の頭の下げは、股から上体を前へ折って（ヒップヒンジ）下げる。首だけ・背中を丸めるだけでは沈まない。
@@ -2873,7 +2873,7 @@ public sealed partial class Fighter
 
     private void TrackSpeed(Vector3 v, float dt)
     {
-        var blend = 1f - MathF.Exp(-6f * dt);
+        var blend = 1f - MathF.Exp(-3.575f * dt);
         _smoothedSpeed = Lerp(_smoothedSpeed, new Vector2(v.X, v.Z).Length(), blend);
         _forwardSpeed = Lerp(_forwardSpeed, Vector3.Dot(v, new BodyFrame(Vector3.Zero, _facingYaw).Forward), blend);
     }
@@ -3248,10 +3248,10 @@ public sealed partial class Fighter
         return 1f;
     }
 
-    /// <summary>脚のサーボの最大の速さ [rad/s]（歩く足は Aigis の既定 10。膝の制御で蹴っている脚は <see cref="FootworkTuning.KickLegServoSpeed"/>）。</summary>
+    /// <summary>脚のサーボの最大の速さ [rad/s]（歩く足は 5.958 = Aigis の既定 10 を人形の単位から実物大へ。膝の制御で蹴っている脚は <see cref="FootworkTuning.KickLegServoSpeed"/>）。</summary>
     private float KneeKickSpeed(bool aigisLeft) => KneeKickTorque(aigisLeft) > 1f ? _tuning.Footwork.KickLegServoSpeed : LegServoSpeed;
 
-    private const float LegServoSpeed = 10f;
+    private const float LegServoSpeed = 5.958f;
 
     private void SetServoScale(float scale)
     {
@@ -3523,7 +3523,7 @@ public sealed partial class Fighter
         // つながりを外した頭は、静かに立っていた体の一部としてすでに眠りの候補だったので、そのままだと空中で眠って落ちない。自分の速度を書き直して起こす。
         _world.SetSleepThreshold(head, -1f); // 眠らせない
         var before = _world.GetState(head);
-        _world.SetLinearVelocity(head, before.LinearVelocity + new Vector3(0f, -0.01f, 0f)); // 速度が変わらないと起きない
+        _world.SetLinearVelocity(head, before.LinearVelocity + new Vector3(0f, -0.0168f, 0f)); // 速度が変わらないと起きない
 
         if (stub is { } neck)
         {
@@ -3700,7 +3700,7 @@ public sealed partial class Fighter
                 continue;
             }
 
-            var link = _world.AddBallSocket(arm.GloveBody, grip.Held, arm.GloveLocal, grip.HeldLocal, frequency: 30f, dampingRatio: 1f);
+            var link = _world.AddBallSocket(arm.GloveBody, grip.Held, arm.GloveLocal, grip.HeldLocal, frequency: 17.87f, dampingRatio: 1f);
             _deadGrips[i] = grip with { Socket = link, Hand = arm.GloveBody };
         }
     }
@@ -3832,7 +3832,7 @@ public sealed partial class Fighter
         arm.WornLoose |= worn;
 
         // 手が付いている剛体（前腕、前腕が切れたら破片）と握る所を、つなぎ直す（切れた前腕の切り株の側に残った玉継手は、空を握っている）。
-        var link = _world.AddBallSocket(arm.GloveBody, body, arm.GloveLocal, grip, frequency: 30f, dampingRatio: 1f);
+        var link = _world.AddBallSocket(arm.GloveBody, body, arm.GloveLocal, grip, frequency: 17.87f, dampingRatio: 1f);
         _deadGrips.Add(new DeadGrip(link, body, arm.GloveBody, grip, 0f, worn));
     }
 
@@ -4217,7 +4217,7 @@ public sealed partial class Fighter
             var fist = GlovePosition(world);
             world.SetDynamicPose(body, fist - Vector3.Transform(gripLocal, orientation), orientation);
             world.SetLinearVelocity(body, f.LinearVelocity);
-            var socket = world.AddBallSocket(Forearm, body, GloveLocal, gripLocal, frequency: 30f, dampingRatio: 1f);
+            var socket = world.AddBallSocket(Forearm, body, GloveLocal, gripLocal, frequency: 17.87f, dampingRatio: 1f);
             var wrist = world.AddAngularServo(Forearm, body, along, tuning.WristServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.WristMaxTorque * tuning.TorqueScale);
             Held = new HeldWeapon(body, gripLocal, socket, wrist, along, world.GetMass(body));
         }
@@ -4228,7 +4228,7 @@ public sealed partial class Fighter
         /// </summary>
         public void Grasp(PhysicsWorld world, FighterTuning tuning, int body, Vector3 gripLocal)
         {
-            var socket = world.AddBallSocket(Forearm, body, GloveLocal, gripLocal, frequency: 30f, dampingRatio: 1f);
+            var socket = world.AddBallSocket(Forearm, body, GloveLocal, gripLocal, frequency: 17.87f, dampingRatio: 1f);
             var relative = Quaternion.Concatenate(world.GetState(body).Orientation, Quaternion.Conjugate(world.GetState(Forearm).Orientation));
             var wrist = world.AddAngularServo(Forearm, body, relative, tuning.WristServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.WristMaxTorque * tuning.TorqueScale);
             Held = new HeldWeapon(body, gripLocal, socket, wrist, relative, world.GetMass(body));
@@ -4289,11 +4289,11 @@ public sealed partial class Fighter
             var grip = new Vector3(x, 0f, 0f);
             if (Held is { Socket: null } held)
             {
-                Held = held with { GripLocal = grip, Socket = world.AddBallSocket(Forearm, held.Body, GloveLocal, grip, frequency: 30f, dampingRatio: 1f) };
+                Held = held with { GripLocal = grip, Socket = world.AddBallSocket(Forearm, held.Body, GloveLocal, grip, frequency: 17.87f, dampingRatio: 1f) };
             }
             else if (Support is { Socket: null } support)
             {
-                Support = support with { GripLocal = grip, Socket = world.AddBallSocket(Forearm, support.Body, GloveLocal, grip, frequency: 30f, dampingRatio: 1f), Reaching = false };
+                Support = support with { GripLocal = grip, Socket = world.AddBallSocket(Forearm, support.Body, GloveLocal, grip, frequency: 17.87f, dampingRatio: 1f), Reaching = false };
             }
         }
 
@@ -4462,7 +4462,7 @@ public sealed partial class Fighter
                 return;
             }
 
-            var socket = world.AddBallSocket(Forearm, support.Body, GloveLocal, support.GripLocal, frequency: 30f, dampingRatio: 1f);
+            var socket = world.AddBallSocket(Forearm, support.Body, GloveLocal, support.GripLocal, frequency: 17.87f, dampingRatio: 1f);
             var relative = Quaternion.Concatenate(world.GetState(support.Body).Orientation, Quaternion.Conjugate(world.GetState(Forearm).Orientation));
             var wrist = world.AddAngularServo(Forearm, support.Body, relative, tuning.WristServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.WristMaxTorque * tuning.TorqueScale);
             Support = support with { Socket = socket, Wrist = wrist, Reaching = false };

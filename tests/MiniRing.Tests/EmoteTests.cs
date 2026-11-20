@@ -17,7 +17,7 @@ public sealed class EmoteTests
 {
     private const float Dt = 1f / 60f;
 
-    private static readonly MatchRules IntroRules = MatchRules.Tv with { Rounds = 1, RoundSeconds = 8f, IntroSeconds = 7f, EndSeconds = 7f };
+    private static readonly MatchRules IntroRules = MatchRules.Tv with { Rounds = 1, RoundSeconds = 13.43f, IntroSeconds = 11.75f, EndSeconds = 11.75f };
 
     private static BoxingGame NewGame(int seed, MatchRules? rules = null, Func<int, Fighter, IBreakSource?>? source = null, float settle = 0f, string red = "champion", string blue = "swarmer") =>
         new(seed: seed, rules: rules ?? IntroRules, corners: new BoxingCorners("cpu", s => BotCatalog.Create(red, s), s => BotCatalog.Create(blue, s),
@@ -74,7 +74,7 @@ public sealed class EmoteTests
             for (var seed = 1; seed <= 60; seed++)
             {
                 var routine = new BreakRoutine(seed, null, scene: BreakScene.End, mood: mood);
-                routine.Read(sense, rest, 7f, Dt);
+                routine.Read(sense, rest, 11.75f, Dt);
                 foreach (var (_, action, _) in routine.Plan!)
                 {
                     total++;
@@ -97,7 +97,7 @@ public sealed class EmoteTests
         for (var seed = 1; seed <= 12; seed++)
         {
             var routine = new BreakRoutine(seed, style, scene: BreakScene.Start);
-            routine.Read(sense, rest, 6f, Dt);
+            routine.Read(sense, rest, 10.07f, Dt);
             Assert.IsTrue(routine.Plan!.Any(p => p.Action.Name == BreakEmotes.Wave), "好みの倍率が大きい動作は始めの並びに必ず入る");
         }
     }
@@ -110,10 +110,10 @@ public sealed class EmoteTests
         var likes = new Dictionary<string, float> { [BreakEmotes.Handshake] = 1e7f };
         var style = BotCatalog.Boxer with { BreakLikes = likes };
         var alone = new BreakRoutine(1, style, scene: BreakScene.End);
-        alone.Read(game.PlayerSense with { OpponentAlive = false }, rest, 7f, Dt);
+        alone.Read(game.PlayerSense with { OpponentAlive = false }, rest, 11.75f, Dt);
         Assert.IsFalse(alone.Plan!.Any(p => p.Action.NeedsPartner), "相手が倒れていれば握手・拍手の相手がいない動作は選ばない");
         var together = new BreakRoutine(1, style, scene: BreakScene.End);
-        together.Read(game.PlayerSense with { OpponentAlive = true }, rest, 7f, Dt);
+        together.Read(game.PlayerSense with { OpponentAlive = true }, rest, 11.75f, Dt);
         Assert.IsTrue(together.Plan!.Any(p => p.Action.Name == BreakEmotes.Handshake));
     }
 
@@ -130,7 +130,7 @@ public sealed class EmoteTests
         var seen = new HashSet<string>();
         var bells = 0;
         var roundLeftWhileIntro = game.RoundLeft;
-        for (var i = 0; i < 60 * 9 && game.MatchRound == 1; i++)
+        for (var i = 0; i < 906 && game.MatchRound == 1; i++)
         {
             game.Step(default, Dt);
             bells += game.RecentBell == RoundBell.Start ? 1 : 0;
@@ -167,8 +167,8 @@ public sealed class EmoteTests
         for (var seed = 1; seed <= 20 && found is null; seed++) // 決着する種は物理の版ごとに変わる（足の運びを変えた版で 1〜6 には無かった）
         {
             var game = NewGame(seed, red: "champion", blue: "swarmer");
-            // 始めの待ち 7 秒 + 1 ラウンド 8 秒 = 15 秒で時間切れの判定になる（KO なら早く終わる）。14 秒では判定の前に切れていた。
-            for (var i = 0; i < 60 * 16 && !game.MatchOver; i++)
+            // 始めの待ち 11.75 秒 + 1 ラウンド 13.43 秒 = 25.2 秒で時間切れの判定になる（KO なら早く終わる。人形の単位では 7 + 8 = 15 秒、14 秒では判定の前に切れていた）。
+            for (var i = 0; i < 1611 && !game.MatchOver; i++)
             {
                 game.Step(default, Dt);
             }
@@ -191,7 +191,7 @@ public sealed class EmoteTests
         Assert.AreEqual(BreakScene.End, match.EmoteScene);
         var seen = new HashSet<string>();
         var standing = new HashSet<Fighter>();
-        for (var i = 0; i < 60 * 8; i++)
+        for (var i = 0; i < 806; i++)
         {
             match.Step(default, Dt);
             foreach (var f in Both(match))
@@ -211,9 +211,9 @@ public sealed class EmoteTests
     [TestMethod]
     public void NoEndSecondsMeansTheOldWalkToTheCorner()
     {
-        using var game = NewGame(5, MatchRules.Tv with { Rounds = 1, RoundSeconds = 2f });
+        using var game = NewGame(5, MatchRules.Tv with { Rounds = 1, RoundSeconds = 3.357f });
         Assert.IsFalse(game.InIntro, "始めの待ち時間 0 なら最初の歩からゴング");
-        for (var i = 0; i < 60 * 4 && !game.MatchOver; i++)
+        for (var i = 0; i < 403 && !game.MatchOver; i++)
         {
             game.Step(default, Dt);
         }
@@ -254,30 +254,30 @@ public sealed class EmoteTests
     // ── 小物 ──
 
     [TestMethod]
-    [DataRow("banana", PropKind.Banana, 0.047f)]
-    [DataRow("sportsdrink", PropKind.SportsBottle, 0.06f)]
-    [DataRow("coffee", PropKind.Cup, 0.06f)]
-    [DataRow("cigarette", PropKind.Cigarette, 0.05f)]
-    [DataRow("mouthguard", PropKind.MouthGuard, 0.045f)]
+    [DataRow("banana", PropKind.Banana, 0.1324f)]
+    [DataRow("sportsdrink", PropKind.SportsBottle, 0.169f)]
+    [DataRow("coffee", PropKind.Cup, 0.169f)]
+    [DataRow("cigarette", PropKind.Cigarette, 0.1408f)]
+    [DataRow("mouthguard", PropKind.MouthGuard, 0.1268f)]
     public void ThePropEndComesToTheMouth(string name, PropKind kind, float limit)
     {
-        using var game = NewGame(3, MatchRules.Tv with { Rounds = 2, RoundSeconds = 1f, BreakSeconds = 14f },
+        using var game = NewGame(3, MatchRules.Tv with { Rounds = 2, RoundSeconds = 1.678f, BreakSeconds = 23.5f },
             (seed, _) => new BreakRoutine(seed, null, [name + ":R"]));
-        for (var i = 0; i < 60 * 40 && !game.InBreak; i++)
+        for (var i = 0; i < 4028 && !game.InBreak; i++)
         {
             game.Step(default, Dt);
         }
 
         var self = game.Player;
         var nearest = float.MaxValue;
-        for (var i = 0; i < 60 * 14 && game.InBreak; i++)
+        for (var i = 0; i < 1410 && game.InBreak; i++)
         {
             game.Step(default, Dt);
             if (game.BreakProps.FirstOrDefault(p => p.Owner == self) is { } prop)
             {
                 Assert.AreEqual(kind, prop.Kind);
                 var end = Vector3.Transform(new Vector3(prop.Grid.HalfExtents.X * 0.85f, 0f, 0f), prop.GridToWorld());
-                var mouth = self.HeadPosition + Vector3.Transform(new Vector3(0f, -0.012f, 0.025f), self.HeadOrientation);
+                var mouth = self.HeadPosition + Vector3.Transform(new Vector3(0f, -0.0338f, 0.07042f), self.HeadOrientation);
                 nearest = MathF.Min(nearest, Vector3.Distance(end, mouth));
             }
         }
@@ -288,9 +288,9 @@ public sealed class EmoteTests
     [TestMethod]
     public void TheEarbudGoesToTheEarAndTheHeadphonesSitOnTheHead()
     {
-        using var game = NewGame(3, MatchRules.Tv with { Rounds = 2, RoundSeconds = 1f, BreakSeconds = 14f },
+        using var game = NewGame(3, MatchRules.Tv with { Rounds = 2, RoundSeconds = 1.678f, BreakSeconds = 23.5f },
             (seed, _) => new BreakRoutine(seed, null, ["earbud:R", "headphones"]));
-        for (var i = 0; i < 60 * 40 && !game.InBreak; i++)
+        for (var i = 0; i < 4028 && !game.InBreak; i++)
         {
             game.Step(default, Dt);
         }
@@ -298,7 +298,7 @@ public sealed class EmoteTests
         var self = game.Player;
         var nearestEar = float.MaxValue;
         var headphoneOffset = float.MaxValue;
-        for (var i = 0; i < 60 * 14 && game.InBreak; i++)
+        for (var i = 0; i < 1410 && game.InBreak; i++)
         {
             game.Step(default, Dt);
             if (game.BreakProps.FirstOrDefault(p => p.Owner == self) is not { } prop)
@@ -308,7 +308,7 @@ public sealed class EmoteTests
 
             if (prop.Kind == PropKind.Earbud)
             {
-                var ear = self.HeadPosition + Vector3.Transform(new Vector3(-0.025f, 0f, 0f), self.HeadOrientation); // 右手の側の耳（頭の −X）
+                var ear = self.HeadPosition + Vector3.Transform(new Vector3(-0.07042f, 0f, 0f), self.HeadOrientation); // 右手の側の耳（頭の −X）
                 nearestEar = MathF.Min(nearestEar, Vector3.Distance(Vector3.Transform(Vector3.Zero, prop.GridToWorld()), ear));
             }
             else if (prop.Kind == PropKind.Headphones)
@@ -318,23 +318,23 @@ public sealed class EmoteTests
             }
         }
 
-        Assert.IsLessThan(0.05f, nearestEar, $"イヤホンが耳の近くへ来る（最短 {nearestEar * 100f:F1} cm）");
-        Assert.IsLessThan(0.002f, headphoneOffset, "ヘッドホンは頭の中心に付く");
+        Assert.IsLessThan(0.1408f, nearestEar, $"イヤホンが耳の近くへ来る（最短 {nearestEar * 100f:F1} cm）");
+        Assert.IsLessThan(0.005634f, headphoneOffset, "ヘッドホンは頭の中心に付く");
     }
 
     [TestMethod]
     public void TheCigaretteMakesSmokeThatLeavesTheMouthOnly()
     {
-        using var game = NewGame(3, MatchRules.Tv with { Rounds = 2, RoundSeconds = 1f, BreakSeconds = 14f },
+        using var game = NewGame(3, MatchRules.Tv with { Rounds = 2, RoundSeconds = 1.678f, BreakSeconds = 23.5f },
             (seed, _) => new BreakRoutine(seed, null, ["cigarette:R"]));
-        for (var i = 0; i < 60 * 40 && !game.InBreak; i++)
+        for (var i = 0; i < 4028 && !game.InBreak; i++)
         {
             game.Step(default, Dt);
         }
 
         var smoked = 0;
         var before = new List<PrimitiveCount>();
-        for (var i = 0; i < 60 * 14 && game.InBreak; i++)
+        for (var i = 0; i < 1410 && game.InBreak; i++)
         {
             game.Step(default, Dt);
             var instances = new List<Aigis.Render.PrimitiveInstance>();
@@ -402,10 +402,10 @@ public sealed class EmoteTests
         }
 
         // IsGreaterThan(下限, 値): 値 > 下限。
-        Assert.IsGreaterThan(Count("akira", BreakEmotes.Headphones, BreakScene.Break, 16f), Count("dmitri", BreakEmotes.Headphones, BreakScene.Break, 16f), "民謡を聴くドミトリーはヘッドホンを選びやすい");
-        Assert.IsGreaterThan(Count("narong", BreakEmotes.Cigarette, BreakScene.Break, 16f), Count("yoandry", BreakEmotes.Cigarette, BreakScene.Break, 16f), "葉巻が趣味のヨアンドリだけがたばこを選ぶ");
-        Assert.IsGreaterThan(Count("joao", BreakEmotes.Bow, BreakScene.Start, 7f), Count("dmitri", BreakEmotes.Bow, BreakScene.Start, 7f), "深く頭を下げるドミトリーは、ふてくされやすいジョアンよりお辞儀を選ぶ");
-        Assert.IsGreaterThan(Count("akira", BreakEmotes.Dance, BreakScene.Start, 7f), Count("taeyun", BreakEmotes.Dance, BreakScene.Start, 7f), "趣味がダンスのテユンは、無口な空手家のアキラよりダンスを選ぶ");
+        Assert.IsGreaterThan(Count("akira", BreakEmotes.Headphones, BreakScene.Break, 26.85f), Count("dmitri", BreakEmotes.Headphones, BreakScene.Break, 26.85f), "民謡を聴くドミトリーはヘッドホンを選びやすい");
+        Assert.IsGreaterThan(Count("narong", BreakEmotes.Cigarette, BreakScene.Break, 26.85f), Count("yoandry", BreakEmotes.Cigarette, BreakScene.Break, 26.85f), "葉巻が趣味のヨアンドリだけがたばこを選ぶ");
+        Assert.IsGreaterThan(Count("joao", BreakEmotes.Bow, BreakScene.Start, 11.75f), Count("dmitri", BreakEmotes.Bow, BreakScene.Start, 11.75f), "深く頭を下げるドミトリーは、ふてくされやすいジョアンよりお辞儀を選ぶ");
+        Assert.IsGreaterThan(Count("akira", BreakEmotes.Dance, BreakScene.Start, 11.75f), Count("taeyun", BreakEmotes.Dance, BreakScene.Start, 11.75f), "趣味がダンスのテユンは、無口な空手家のアキラよりダンスを選ぶ");
     }
 
     // ── 終わりのカット割り ──
@@ -437,10 +437,10 @@ public sealed class EmoteTests
     [TestMethod]
     public void TheEndAndIntroRulesLengthenTheMatchPlan()
     {
-        var rules = TvShowRules.Rules(3, 20f);
+        var rules = TvShowRules.Rules(3, 33.57f);
         Assert.AreEqual(TvShowRules.IntroSeconds, rules.IntroSeconds);
         Assert.AreEqual(TvShowRules.EndSeconds, rules.EndSeconds);
-        Assert.AreEqual(TvShowRules.IntroSeconds + (30f * 3) + (20f * 2), rules.TotalSeconds, 1e-3f);
+        Assert.AreEqual(TvShowRules.IntroSeconds + (MatchRules.Tv.RoundSeconds * 3) + (33.57f * 2), rules.TotalSeconds, 1.678e-3f);
         Assert.AreEqual(TvShowRules.SettleSeconds, TvShowRules.Stage(BotCatalog.Corners(BotCatalog.DefaultCpu), Organization.Default).SettleSeconds);
     }
 

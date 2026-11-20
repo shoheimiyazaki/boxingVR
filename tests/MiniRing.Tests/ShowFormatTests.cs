@@ -28,7 +28,7 @@ public sealed class ShowFormatTests
     }
 
     private static TvCard Card(string red = "jin", string blue = "konrad")
-        => new("VFC ファイトナイト", "第1試合", TvCorner.Of(CharacterRoster.Get(red)), TvCorner.Of(CharacterRoster.Get(blue)), TvShowRules.Rules(5, 25f, Organization.Of("vfc")));
+        => new("VFC ファイトナイト", "第1試合", TvCorner.Of(CharacterRoster.Get(red)), TvCorner.Of(CharacterRoster.Get(blue)), TvShowRules.Rules(5, 41.96f, Organization.Of("vfc")));
 
     private static TvProgram Program()
         => TvProgram.FromJson("""{"title":"VFC トーナメント","bouts":[{"bout":"準決勝第1試合","red":"jin","blue":"konrad","winner":"red","method":"K.O.","cause":"首を断たれて"},{"bout":"決勝","red":"jin","blue":"marcus","current":true,"stake":"勝者が王者"}]}""", TvProgram.RosterName);
@@ -51,7 +51,7 @@ public sealed class ShowFormatTests
     public void Wvc_PreFight_IsTheLegacyOpening()
     {
         var show = ShowFormats.Create(Width, Height, Organization.Of("wvc"));
-        var card = new TvCard("ファイトナイト", "第1試合", TvCorner.Of(CharacterRoster.Get("marcus")), TvCorner.Of(CharacterRoster.Get("yoandry")), TvShowRules.Rules(5, 25f));
+        var card = new TvCard("ファイトナイト", "第1試合", TvCorner.Of(CharacterRoster.Get("marcus")), TvCorner.Of(CharacterRoster.Get("yoandry")), TvShowRules.Rules(5, 41.96f));
         var plain = show.PreFight(card, null, hasProfiles: false);
         const float Calls = 2 * MiniRing.Arena.Shows.Wvc.WvcShowParts.CallSeconds;
         Assert.AreEqual("opening,call,call", string.Join(",", plain.Select(s => s.EventType)));
@@ -113,7 +113,7 @@ public sealed class ShowFormatTests
         var show = ShowFormats.Create(Width, Height, Organization.Of("vfc"));
         var card = Card();
         var program = Program();
-        using var game = new BoxingGame(seed: 3, rules: TvShowRules.Rules(5, 25f, Organization.Of("vfc")));
+        using var game = new BoxingGame(seed: 3, rules: TvShowRules.Rules(5, 41.96f, Organization.Of("vfc")));
         var forbidden = new[] { "本日のプログラム", "選手の比較", "与えたダメージ", "試合終了", "LIVE", "REPLAY", "BREAK" };
         var draws = new List<ShowDraw>();
         foreach (var scene in show.PreFight(card, program, hasProfiles: true))
@@ -292,7 +292,7 @@ public sealed class ShowFormatTests
         Save("vfc_walkout_blue", show.Scene(scenes[4], card, program, 3.5f));
         Save("vfc_faceoff", show.Scene(scenes[5], card, program, 2.5f));
 
-        using var game = new BoxingGame(seed: 3, rules: TvShowRules.Rules(5, 25f, vfc));
+        using var game = new BoxingGame(seed: 3, rules: TvShowRules.Rules(5, 41.96f, vfc));
         var p = game.Player.Parts;
         var bodies = new ShowBodies((f, body) => f == game.Player && body == p.LeftForearm ? "骨折" : f == game.Player && body == p.RightUpperArm ? "切断" : f == game.Cpu && body == p.LeftShin ? "骨折" : null);
         var cam = show.Arrange(FaceCam.Default, Width, Height);
@@ -307,14 +307,14 @@ public sealed class ShowFormatTests
         Save("vfc_result_draw", show.Result(card, new TvResult(0, "DRAW", 5, 30f, [], []), 4.5f, game, bodies));
 
         var wvc = ShowFormats.Create(Width, Height, Organization.Of("wvc"));
-        var wvcCard = new TvCard("ファイトナイト", "第1試合", TvCorner.Of(CharacterRoster.Get("marcus")), TvCorner.Of(CharacterRoster.Get("yoandry")), TvShowRules.Rules(5, 25f));
+        var wvcCard = new TvCard("ファイトナイト", "第1試合", TvCorner.Of(CharacterRoster.Get("marcus")), TvCorner.Of(CharacterRoster.Get("yoandry")), TvShowRules.Rules(5, 41.96f));
         var wvcScenes = wvc.PreFight(wvcCard, program, hasProfiles: true);
         Save("wvc_program", wvc.Scene(wvcScenes[0], wvcCard, program, 4f));
         Save("wvc_opening", wvc.Scene(wvcScenes[1], wvcCard, program, 4f));
         Save("wvc_tape", wvc.Scene(wvcScenes[2], wvcCard, program, 6f));
         Save("wvc_call_red", wvc.Scene(wvcScenes[3], wvcCard, program, 4f));
         Save("wvc_call_blue", wvc.Scene(wvcScenes[4], wvcCard, program, 4f));
-        using var wvcGame = new BoxingGame(seed: 3, rules: TvShowRules.Rules(5, 25f));
+        using var wvcGame = new BoxingGame(seed: 3, rules: TvShowRules.Rules(5, 41.96f));
         var wvcCam = wvc.Arrange(FaceCam.Default, Width, Height);
         Save("wvc_match", wvc.MatchHud(wvcGame, wvcCam.Panel(new Vector2(Width, Height), FaceSide.Left), wvcCam.Panel(new Vector2(Width, Height), FaceSide.Right), "マーカス", "ヨアンドリー", ShowBodies.None));
         var wvcReplay = wvc.ReplayOverlay(2, "マーカスの右がヨアンドリーのこめかみに", 0.4f);

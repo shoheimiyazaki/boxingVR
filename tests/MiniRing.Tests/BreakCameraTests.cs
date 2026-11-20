@@ -19,9 +19,9 @@ public sealed class BreakCameraTests
     private static TvWound Wound(bool red, float score, bool healing = false) => new(red, Body: null!, Grid: default, Name: "右すね", Score: score) { Healing = healing };
 
     [TestMethod]
-    [DataRow(10f)]
-    [DataRow(20f)]
-    [DataRow(30f)]
+    [DataRow(16.78f)] // 休みの長さ [試合の s]（人形の単位の 10・20・30 s）
+    [DataRow(33.57f)]
+    [DataRow(50.35f)]
     public void PlanBreak_KeepsToTheBreakRules_ForEveryLengthHighlightAndWoundCount(float length)
     {
         var director = Director();
@@ -70,9 +70,9 @@ public sealed class BreakCameraTests
     }
 
     [TestMethod]
-    [DataRow(20f)]
-    [DataRow(26.7f)]
-    [DataRow(33.3f)]
+    [DataRow(33.57f)]
+    [DataRow(44.81f)]
+    [DataRow(55.89f)]
     public void PlanBreak_HoldsEachShotLongEnough_NoRapidSwitching(float length)
     {
         // 2026-11-18、ユーザー: インターバル中に選手を正面から映すカメラが短い周期でパカパカ入れ替わる（2.0〜4.0 秒のカットだった）。
@@ -137,16 +137,16 @@ public sealed class BreakCameraTests
     public void SkinBruises_FadeOnlyDuringTheBreak()
     {
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
-        var rules = new MatchRules(RoundSeconds: 1f, Rounds: 2, BreakSeconds: 4f) { BruiseHalfLifeSeconds = 2f };
+        var rules = new MatchRules(RoundSeconds: 1.678f, Rounds: 2, BreakSeconds: 6.714f) { BruiseHalfLifeSeconds = 3.357f };
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)), rules: rules);
         var body = game.Cpu.Voxels!;
-        body.BruiseSkin(game.Cpu.ChestPosition + (game.Cpu.Frame.Forward * game.Cpu.HalfExtents.Chest.Z), 4f);
+        body.BruiseSkin(game.Cpu.ChestPosition + (game.Cpu.Frame.Forward * game.Cpu.HalfExtents.Chest.Z), 112.7f);
         var fresh = body.SkinBruiseTotal();
         Assert.IsGreaterThan(0f, fresh);
 
         const float Dt = 1f / 60f;
         var roundEnd = 0f;
-        for (var t = 0f; t < 0.9f; t += Dt)
+        for (var t = 0f; t < 1.511f; t += Dt)
         {
             game.Step(default, Dt);
             roundEnd = body.SkinBruiseTotal();
@@ -161,14 +161,14 @@ public sealed class BreakCameraTests
         }
 
         var atBreak = body.SkinBruiseTotal();
-        for (var t = 0f; t < 2f; t += Dt)
+        for (var t = 0f; t < 3.357f; t += Dt)
         {
             game.Step(default, Dt);
         }
 
         var later = body.SkinBruiseTotal();
         Assert.IsTrue(game.InBreak || game.BreakLeft >= 0f);
-        Assert.IsLessThan(atBreak * 0.6f, later, $"休み 2 秒（半減期 2 秒）で半分ほどになる: {atBreak:0.00} → {later:0.00}");
+        Assert.IsLessThan(atBreak * 0.6f, later, $"休み 3.4 秒（半減期 3.4 秒）で半分ほどになる: {atBreak:0.00} → {later:0.00}");
         Assert.IsGreaterThan(atBreak * 0.35f, later, "消えてしまわない");
     }
 }

@@ -38,14 +38,14 @@ public sealed class VisionTests
     public void BlindSide_HasSlowerPunchEvidence_AndCannotAccessLiveTargets()
     {
         var frame = new BodyFrame(Vector3.Zero, 0f);
-        var raw = new FighterSense(frame, 0.2f, new(0, 0, 1), new(0, -0.1f, 1), true,
-            OpponentLeft: new(new(0.2f, 0, 1), new(0, 0, -4)),
-            OpponentRight: new(new(-0.2f, 0, 1), new(0, 0, -4)));
+        var raw = new FighterSense(frame, 0.5634f, new(0, 0, 2.817f), new(0, -0.2817f, 2.817f), true,
+            OpponentLeft: new(new(0.5634f, 0, 2.817f), new(0, 0, -6.714f)),
+            OpponentRight: new(new(-0.5634f, 0, 2.817f), new(0, 0, -6.714f)));
         var filter = new VisionPerception(13);
         filter.Update(raw, VisionState.Healthy, 1f / 240f);
         var moved = raw with {
-            OpponentLeft = raw.OpponentLeft with { Position = new(0.2f, 0, 0.5f) },
-            OpponentRight = raw.OpponentRight with { Position = new(-0.2f, 0, 0.5f) }
+            OpponentLeft = raw.OpponentLeft with { Position = new(0.5634f, 0, 1.408f) },
+            OpponentRight = raw.OpponentRight with { Position = new(-0.5634f, 0, 1.408f) }
         };
         var seen = filter.Update(moved, new VisionState(0f, 1f), 1f / 240f);
         Assert.IsGreaterThan(Vector3.Distance(seen.OpponentRight.Position, moved.OpponentRight.Position),
@@ -85,10 +85,10 @@ public sealed class VisionTests
     /// <summary>
     /// 受け手の目の状態ごとに、同じ拳（相手の右ストレート）が来るのを受け手が見て、守りを始めるまでの時間 [s]。
     /// 試合の初期配置の見え方（<see cref="BoxingGame.Sense"/>）から、相手の右の拳を受け手の頭へ一定の速さで動かす。
-    /// 受け手のボット（守る率 100 %・反応 0.18 秒）には、見える度合いで遅れ・ぶれた写し（<see cref="VisionPerception"/>）を渡す。
+    /// 受け手のボット（守る率 100 %・反応 0.30 秒）には、見える度合いで遅れ・ぶれた写し（<see cref="VisionPerception"/>）を渡す。
     /// 守りを始めなければ <see cref="float.PositiveInfinity"/>。
     /// </summary>
-    private static float DefenseStart(VisionState eyes, int seed, float speedInReaches = 12f)
+    private static float DefenseStart(VisionState eyes, int seed, float speedInReaches = 7.150f)
     {
         using var game = new BoxingGame(seed: 2);
         var sense = BoxingGame.Sense(game.Player, game.Cpu);
@@ -104,17 +104,17 @@ public sealed class VisionTests
         var speed = speedInReaches * raw.ArmReach;
         var start = raw.OpponentRight.Position;
         var direction = Vector3.Normalize(raw.SelfHead - start);
-        var bot = new BoxerBot((DefenseDrill.Defender(DefenseBook.Default, defend: true) with { ReactionTime = 0.18f }).Validated(), seed, Defense.Slip);
+        var bot = new BoxerBot((DefenseDrill.Defender(DefenseBook.Default, defend: true) with { ReactionTime = 0.3021f }).Validated(), seed, Defense.Slip);
         var filter = new VisionPerception(seed);
         const float dt = 1f / 240f;
         // 構え（見えている状態）で少し待ってから拳を出す。
-        for (var step = 0; step < 120; step++)
+        for (var step = 0; step < 201; step++)
         {
             var seen = filter.Update(raw, eyes, dt);
             bot.Read(seen, dt);
         }
 
-        for (var step = 0; step < 240; step++)
+        for (var step = 0; step < 403; step++)
         {
             var t = step * dt;
             var glove = new GloveSense(start + (direction * speed * t), direction * speed);

@@ -61,8 +61,8 @@ public sealed class NeckSpineTests
         var grid = Grid(game, game.Cpu.Parts.Head);
         // 頭の横（あごの高さ）から真横へ押す 1 点の力。
         var at = new Vector3(grid.HalfExtents.X, -0.5f * grid.HalfExtents.Y, 0f);
-        var force = -Vector3.UnitX * 250f;
-        Assert.IsNull(VoxelBending.FindBreak(grid, at, force, 1, loadBearingOnly: true, BoxerSpine.NeckSlices), "an intact neck holds 250 N");
+        var force = -Vector3.UnitX * 2500f;
+        Assert.IsNull(VoxelBending.FindBreak(grid, at, force, 1, loadBearingOnly: true, BoxerSpine.NeckSlices), "an intact neck holds 2500 N");
 
         // 首の骨のセルを、各段 4 つのうち 3 つ削る（残った断面は 1/4）。
         var (low, high) = BoxerSpine.NeckSlices;
@@ -83,7 +83,7 @@ public sealed class NeckSpineTests
         var grid = Grid(game, game.Cpu.Parts.Head);
         var at = new Vector3(grid.HalfExtents.X, 0.7f * grid.HalfExtents.Y, 0f);
         // どんなに大きな力でも、折れる所の候補は首の段だけ。
-        var broke = VoxelBending.FindBreak(grid, at, -Vector3.UnitX * 100000f, 1, loadBearingOnly: true, BoxerSpine.NeckSlices);
+        var broke = VoxelBending.FindBreak(grid, at, -Vector3.UnitX * 1000000f, 1, loadBearingOnly: true, BoxerSpine.NeckSlices);
         Assert.IsNotNull(broke);
         Assert.IsInRange(BoxerSpine.NeckSlices.Low, BoxerSpine.NeckSlices.High, broke.Value.Slice);
     }
@@ -94,7 +94,7 @@ public sealed class NeckSpineTests
     public void CuttingTheNeckThrough_DropsTheHead_AndTheBodyDies()
     {
         using var game = Game();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var head = game.Cpu.Parts.Head;
         var grid = Grid(game, head);
         var cut = BoxerSpine.NeckSlices.High;
@@ -111,10 +111,10 @@ public sealed class NeckSpineTests
         Assert.IsFalse(game.Cpu.Owns(head), "the head is no longer part of the body");
         Assert.IsFalse(game.Cpu.HangsByFlesh(head));
 
-        Play(game, 0.5f);
+        Play(game, 0.839f);
         Assert.IsTrue(game.RoundOver, "the match ends");
         var chestTop = game.World.GetState(game.Cpu.Parts.Chest).Position.Y + game.Cpu.HalfExtentsOf(game.Cpu.Parts.Chest).Y;
-        Assert.IsLessThan(before.Y - 0.25f, game.World.GetState(head).Position.Y, "the head fell to the mat (it did not stay asleep in the air)");
+        Assert.IsLessThan(before.Y - 0.704f, game.World.GetState(head).Position.Y, "the head fell to the mat (it did not stay asleep in the air)");
         Assert.IsLessThan(chestTop, game.World.GetState(head).Position.Y);
     }
 
@@ -122,7 +122,7 @@ public sealed class NeckSpineTests
     public void TheFleshAcrossTheNeck_TornAway_LaterOnLetsTheHeadGo()
     {
         using var game = Game();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var head = game.Cpu.Parts.Head;
         var broken = game.Cpu.Voxels!.BreakBent(head, new VoxelBreak(1, BoxerSpine.NeckSlices.High, false, 2f))!;
         game.BreakBone(game.Cpu, broken, 1f);
@@ -134,7 +134,7 @@ public sealed class NeckSpineTests
             bridge.Fragment.Grid.Break(cell.FragmentIndex, removed);
         }
 
-        Play(game, 0.1f);
+        Play(game, 0.168f);
         Assert.IsFalse(game.Cpu.HangsByFlesh(head), "no invisible link may survive the missing flesh");
         Assert.IsTrue(game.Cpu.IsDead, "the head came off");
     }
@@ -158,7 +158,7 @@ public sealed class NeckSpineTests
     public void HalfTheCervicalCord_WeakensArmsAndLegs_AllOfItLeavesTheBodyUnableToStand()
     {
         using var game = Game();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var head = game.Cpu.Parts.Head;
         var arm = game.Cpu.ArmStrength(Hand.Left);
         var legs = game.Cpu.LegCondition(true);
@@ -166,14 +166,14 @@ public sealed class NeckSpineTests
 
         CutCord(game, head, CordCut.Half);
         Assert.AreEqual(0.5f, game.Cpu.Voxels!.CordFunction(CordLevel.Cervical), 1e-4f, "half the cord's section is left");
-        Play(game, 3f);
+        Play(game, 5.035f);
         Assert.IsLessThan(0.75f * arm, game.Cpu.ArmStrength(Hand.Left), "the arms are weaker");
         Assert.IsLessThan(0.75f * legs, game.Cpu.LegCondition(true), "so are the legs");
         Assert.IsTrue(game.Cpu.CanStand, "still standing with half the cord");
 
         CutCord(game, head, CordCut.Whole);
         Assert.AreEqual(0f, game.Cpu.Voxels.CordFunction(CordLevel.Cervical), 1e-4f);
-        Play(game, 3f);
+        Play(game, 5.035f);
         Assert.IsFalse(game.Cpu.CanStand, "no signal below the neck: the body cannot stand");
         Assert.IsLessThan(0.25f, game.Cpu.ArmStrength(Hand.Left), "the arms hang (only the floor of the muscles' strength is left)");
         Assert.IsFalse(game.Cpu.IsDead, "a cut cord alone is not death");
@@ -183,12 +183,12 @@ public sealed class NeckSpineTests
     public void TheLumbarCordAlone_LeavesTheArmsStrong_AndTakesTheLegs()
     {
         using var game = Game();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var arm = game.Cpu.ArmStrength(Hand.Left);
         CutCord(game, game.Cpu.Parts.Pelvis, CordCut.Whole);
         Assert.AreEqual(1f, game.Cpu.Voxels!.CordFunction(CordLevel.Cervical), 1e-4f);
         Assert.AreEqual(0f, game.Cpu.Voxels.CordFunction(CordLevel.Lumbar), 1e-4f);
-        Play(game, 3f);
+        Play(game, 5.035f);
         Assert.AreEqual(arm, game.Cpu.ArmStrength(Hand.Left), 0.02f * arm, "the arms are untouched");
         Assert.IsFalse(game.Cpu.CanStand, "but the legs are gone");
     }
@@ -197,11 +197,11 @@ public sealed class NeckSpineTests
     public void TheThoracicCord_TakesTheChestAndLegs_NotTheArms()
     {
         using var game = Game();
-        Play(game, 1f);
+        Play(game, 1.678f);
         var arm = game.Cpu.ArmStrength(Hand.Left);
         var chest = game.Cpu.Strength(game.Cpu.Parts.Chest);
         CutCord(game, game.Cpu.Parts.Chest, CordCut.Whole);
-        Play(game, 3f);
+        Play(game, 5.035f);
         Assert.AreEqual(arm, game.Cpu.ArmStrength(Hand.Left), 0.02f * arm);
         Assert.IsLessThan(0.5f * chest, game.Cpu.Strength(game.Cpu.Parts.Chest));
         Assert.IsFalse(game.Cpu.CanStand);
@@ -211,10 +211,10 @@ public sealed class NeckSpineTests
     public void TheCordIsFeltByTheBreath_AndTheNeckMuscles()
     {
         using var game = Game();
-        Play(game, 1f);
+        Play(game, 1.678f);
         Assert.AreEqual(1f, game.Cpu.Breath, 1e-4f);
         CutCord(game, game.Cpu.Parts.Head, CordCut.Whole);
-        Play(game, 3f);
+        Play(game, 5.035f);
         Assert.IsLessThan(0.1f, game.Cpu.Breath, "the muscles that breathe have no signal");
     }
 
@@ -222,13 +222,13 @@ public sealed class NeckSpineTests
     public void TheCordNeverDropsToZeroAtOnce_ItRelaxesLikeADeadHand()
     {
         using var game = Game();
-        Play(game, 1f);
+        Play(game, 1.678f);
         CutCord(game, game.Cpu.Parts.Head, CordCut.Whole);
-        Play(game, 0.1f);
+        Play(game, 0.168f);
         var early = game.Cpu.CervicalCord;
-        Play(game, 3f);
-        Assert.IsGreaterThan(0.3f, early, "after 0.1 s the signal has not yet gone");
-        Assert.IsLessThan(0.05f, game.Cpu.CervicalCord, "after 3 s it has");
+        Play(game, 5.035f);
+        Assert.IsGreaterThan(0.3f, early, "after 0.17 s the signal has not yet gone");
+        Assert.IsLessThan(0.05f, game.Cpu.CervicalCord, "after 5 s it has");
     }
 
     // ── 構造 ──
@@ -239,7 +239,7 @@ public sealed class NeckSpineTests
         foreach (var character in CharacterRoster.All)
         {
             using var game = new BoxingGame(seed: 1, corners: new MatchSelection(MatchMode.Versus, character, character).Corners with { Cpu = _ => new StandGuard(), Player = _ => new StandGuard() });
-            Play(game, 0.5f);
+            Play(game, 0.839f);
             foreach (var fighter in new[] { game.Player, game.Cpu })
             {
                 var grid = fighter.Voxels!.PartOf(fighter.Parts.Head)!.Body.Grid;

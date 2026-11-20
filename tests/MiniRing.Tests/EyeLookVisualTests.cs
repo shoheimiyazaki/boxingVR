@@ -18,7 +18,7 @@ public sealed class EyeLookVisualTests
     {
         const int Size = 420;
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("guard", _ => new StandGuard(), _ => new StandGuard()) with { CpuFaceSpec = EyeLookTests.RoundEyes("guard") });
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 50; i++)
         {
             game.Step(default, 1f / 60f);
         }
@@ -29,27 +29,28 @@ public sealed class EyeLookVisualTests
         Vector3 World(Vector3 local) => Vector3.Transform(local, toWorld);
         using var renderer = new HeadlessRenderer(Size, Size);
         var lighting = game.BuildLighting();
-        var eyeLine = new Vector3(0f, 0.0075f, 0f);
-        var eye = World(eyeLine + new Vector3(0f, 0f, 0.14f));
-        var aim = World(eyeLine + new Vector3(0f, 0f, 0.03f));
+        var eyeLine = new Vector3(0f, 0.02113f, 0f);
+        var eye = World(eyeLine + new Vector3(0f, 0f, 0.3944f));
+        var aim = World(eyeLine + new Vector3(0f, 0f, 0.08451f));
         var up = Vector3.Normalize(World(new Vector3(0f, 1f, 0f)) - World(Vector3.Zero));
-        var vp = Camera.ViewProjection(eye, aim, up, 30f * MathF.PI / 180f, 1f, 0.01f, 30f);
+        var (vp, displayEye) = game.Display.Camera(eye, aim, up, 30f * MathF.PI / 180f, 1f, 0.01f, 30f);
 
         byte[] Shot(Vector3 localGaze, float closure)
         {
             var pose = new EyePose(closure, World(localGaze));
             var voxels = cpu.Voxels!.Layers.Select(p => p.Kind == BodyPartKind.Head ? p.Draw(0f, pose) : p.Draw(0f)).ToList();
-            return renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [], lighting: lighting, cameraPosition: eye, voxels: voxels);
+            game.Display.Voxels(voxels); // 物理の空間 → 表示の空間
+            return renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], [], lighting: lighting, cameraPosition: displayEye, voxels: voxels);
         }
 
         var shots = new[]
         {
-            Shot(new Vector3(-1f, 0.0075f, 1f), 0f),
-            Shot(new Vector3(1f, 0.0075f, 1f), 0f),
-            Shot(new Vector3(0f, 1f, 1f), 0f),
-            Shot(new Vector3(0f, -1f, 1f), 0f),
-            Shot(new Vector3(0f, 0.0075f, 2f), 0.5f),
-            Shot(new Vector3(0f, 0.0075f, 2f), 1f),
+            Shot(new Vector3(-2.817f, 0.02113f, 2.817f), 0f),
+            Shot(new Vector3(2.817f, 0.02113f, 2.817f), 0f),
+            Shot(new Vector3(0f, 2.817f, 2.817f), 0f),
+            Shot(new Vector3(0f, -2.817f, 2.817f), 0f),
+            Shot(new Vector3(0f, 0.02113f, 5.634f), 0.5f),
+            Shot(new Vector3(0f, 0.02113f, 5.634f), 1f),
         };
         var sheet = new byte[Size * 3 * Size * 2 * 4];
         for (var s = 0; s < shots.Length; s++)

@@ -32,7 +32,7 @@ public sealed class SoundImpactProbe
                 var kind = voice.Cue.Hit is not null ? "hit" : voice.Cue.Shatter is not null ? "shatter" : "contact";
                 voiceRows.Add(string.Create(CultureInfo.InvariantCulture, $"{voice.OccurredAt:F4},{kind},{voice.Cue.Source},{peak},{voice.Cue.Hit?.Intensity ?? 0},{onset}"));
             }
-            for (var step = 0; step < 720; step++)
+            for (var step = 0; step < 1208; step++)
             {
                 game.Step(default, 1f / 60f);
                 hits += game.RecentHits.Count;
@@ -58,8 +58,8 @@ public sealed class SoundImpactProbe
             {
                 NoteVoice(voice);
             }
-            Console.WriteLine($"{wear}: 12s hits={hits}, contacts={contacts}, shatters={shatters}, grains={grains}, grazes={grazes}; sources/s={(contacts + shatters + grazes) / 12f:F2}");
-            Console.WriteLine($"new voices={voices}, audible(-34dB)={audible} ({audible / 12f:F2}/s), hit voices={hitVoices}, final checksum={game.StateChecksum()}");
+            Console.WriteLine($"{wear}: 20.1s hits={hits}, contacts={contacts}, shatters={shatters}, grains={grains}, grazes={grazes}; sources/s={(contacts + shatters + grazes) / 20.13f:F2}");
+            Console.WriteLine($"new voices={voices}, audible(-34dB)={audible} ({audible / 20.13f:F2}/s), hit voices={hitVoices}, final checksum={game.StateChecksum()}");
             if (metalContacts.FirstOrDefault(c => c.Resonance is not null).Resonance is { } shape)
             {
                 var samples = SoundAnalysis.ToFloats(ContactSound.Synthesize(ContactPair.MetalMetal, 1f, 7, shape));

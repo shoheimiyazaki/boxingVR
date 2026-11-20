@@ -29,7 +29,7 @@ public sealed class FractureVisualProbe
             {
                 using var game = new BoxingGame(seed: seed, corners: new BoxingCorners(blue,
                     s => BotCatalog.Create(blue, s), s => BotCatalog.Create(red, s), PlayerWear: HandWear.Katar, CpuWear: HandWear.Katar));
-                for (var frame = 0; frame < 12 * 60 && !game.RoundOver; frame++)
+                for (var frame = 0; frame < 1208 && !game.RoundOver; frame++)
                 {
                     game.Step(default, 1f / 60f);
                     if (game.RecentSevers.Count > 0)
@@ -110,15 +110,16 @@ public sealed class FractureVisualProbe
             }
             game.Step(default, 1f / Fps);
             focus ??= game.World.GetState(forearm).Position;
-            var target = focus.Value - new Vector3(0f, severed ? 0.12f : 0.02f, 0f);
+            var target = focus.Value - new Vector3(0f, severed ? 0.338f : 0.05634f, 0f);
             // 左腕の外側から見る。体・ロープ・相手は描かず、実際の上腕・前腕・手だけを抽出する。
             var outward = game.World.GetState(forearm).Position - game.Cpu.ChestPosition;
             outward.Y = 0f;
-            var eye = target + Vector3.Normalize(outward) * (severed ? 0.6f : 0.28f) + new Vector3(0f, 0.025f, 0f);
-            var vp = Camera.ViewProjection(eye, target, Vector3.UnitY, 55f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
+            var eye = target + Vector3.Normalize(outward) * (severed ? 1.69f : 0.7887f) + new Vector3(0f, 0.07042f, 0f); // 物理の空間で決めて、表示の空間へ移す（DisplaySpace）
+            var (vp, displayEye) = game.Display.Camera(eye, target, Vector3.UnitY, 55f * MathF.PI / 180f, (float)Width / Height, 0.02f, 30f);
             var voxels = game.Cpu.Voxels!.Parts.Where(p => p.Body.BodyId == forearm || p.Body.BodyId == upper)
                 .Concat(game.Cpu.Voxels.Fragments.Where(p => p.FragmentOf == forearm)).Select(p => p.Draw()).ToList();
             voxels.Add(game.GloveOf(game.Cpu, Hand.Left)!.Draw());
+            game.Display.Voxels(voxels); // 物理の空間 → 表示の空間
             var label = broken is null ? "正常な前腕" : severed ? "肉 0 → 拘束解除・自由落下" : thin ? "肉の断面 1/8 → 弱いバネ・振り子" : "骨折・肉の断面 100% → 関節として保持";
             ScreenTextDraw[] text =
             [
@@ -128,7 +129,7 @@ public sealed class FractureVisualProbe
                 new(t.ToString("0.00", CultureInfo.InvariantCulture) + " s", new Vector2(25f, Height - 35f), 24f, Vector4.One, TextAnchor.Left),
             ];
             var rgba = renderer.RenderPrimitiveScene(new Vector4(0.08f, 0.1f, 0.14f, 1f), vp, [], [], text,
-                lighting: game.BuildLighting(), cameraPosition: eye, voxels: voxels);
+                lighting: game.BuildLighting(), cameraPosition: displayEye, voxels: voxels);
             ffmpeg.StandardInput.BaseStream.Write(rgba);
             if (frame is 60 or 120 or 150 or 165 or 180)
             {

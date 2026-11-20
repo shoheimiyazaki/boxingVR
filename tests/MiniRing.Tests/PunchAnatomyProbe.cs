@@ -19,7 +19,7 @@ public sealed class PunchAnatomyProbe
     {
         foreach (var distance in new[] { 1.0f, 1.25f })
         {
-            foreach (var (name, heavy, hold) in new[] { ("tap jab", false, 0f), ("tap cross", true, 0f), ("charged cross", true, 0.25f) })
+            foreach (var (name, heavy, hold) in new[] { ("tap jab", false, 0f), ("tap cross", true, 0f), ("charged cross", true, 0.4196f) })
             {
                 foreach (var seed in new[] { 1, 2 })
                 {
@@ -39,14 +39,14 @@ public sealed class PunchAnatomyProbe
         var hand = heavy ? (lead == Hand.Left ? Hand.Right : Hand.Left) : lead;
         var clock = 0f;
         // 寄る
-        while (clock < 6f && Flat(game.Cpu.ChestPosition - p.ChestPosition).Length() > distance * p.ArmReach)
+        while (clock < 10.07f && Flat(game.Cpu.ChestPosition - p.ChestPosition).Length() > distance * p.ArmReach)
         {
             control.Input = new FighterIntent(new Vector2(0f, 1f));
             game.Step(new BoxingInput(default), Dt);
             clock += Dt;
         }
 
-        for (var i = 0; i < 120; i++)
+        for (var i = 0; i < 201; i++)
         {
             control.Input = new FighterIntent(Vector2.Zero);
             game.Step(new BoxingInput(default), Dt);
@@ -60,7 +60,7 @@ public sealed class PunchAnatomyProbe
         float peakArm = 0f, peakArmT = 0f, peakAbs = 0f, peakSpin = 0f, peakSpinT = 0f, peakBody = 0f, peakBodyT = 0f, peakCom = 0f;
         string? hitLine = null;
         var released = -1f;
-        while (t < hold + 0.6f)
+        while (t < hold + 1.007f)
         {
             var down = t < MathF.Max(hold, Dt);
             control.Input = new FighterIntent(Vector2.Zero, Light: down && !heavy, Heavy: down && heavy);

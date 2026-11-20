@@ -11,8 +11,8 @@ public sealed class ElbowContactProbe
     [TestMethod]
     public void Sweep_Probe()
     {
-        Console.WriteLine(ElbowContactTests.Describe("Cross x1.0", ElbowContactTests.RunPunch(Technique.Cross, 1.0f, 0.45f)));
-        Console.WriteLine(ElbowContactTests.Describe("Jab x0.9", ElbowContactTests.RunPunch(Technique.Jab, 0.9f, 0.35f)));
+        Console.WriteLine(ElbowContactTests.Describe("Cross x1.0", ElbowContactTests.RunPunch(Technique.Cross, 1.0f, 0.7553f)));
+        Console.WriteLine(ElbowContactTests.Describe("Jab x0.9", ElbowContactTests.RunPunch(Technique.Jab, 0.9f, 0.5874f)));
         foreach (var kind in Enum.GetValues<ElbowTechnique>())
         {
             foreach (var scale in new[] { ElbowContactTests.CloseIn, 1.0f })

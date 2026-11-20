@@ -5,7 +5,7 @@ using MiniRing.Characters;
 namespace MiniRing.Tests;
 
 /// <summary>
-/// スタミナの試合での効き方の調べ（2026-11-17）: 名簿のボット同士の 3 ラウンド（30 秒 × 3、休み 10 秒）を、ラウンドごとに
+/// スタミナの試合での効き方の調べ（2026-11-17）: 名簿のボット同士の 3 ラウンド（50.35 秒 × 3、休み 16.78 秒。人形の単位の 30 秒・10 秒）を、ラウンドごとに
 /// 平均と最低のスタミナ・休みたい度合い（RestNeed &gt; 0.5）の時間・棒立ち（打っていない・守っていない・ほぼ動いていない）の時間・
 /// 打った数・仕事率・持久力で見る。ユーザーの目標: 1 ラウンド目は全力で続けられ、3 ラウンド目は疲れる。棒立ちが少ない。
 /// 調整値は STAMINA_TUNE（<see cref="StaminaFeelProbe.Tuning"/>）。
@@ -60,13 +60,13 @@ public sealed class StaminaMatchProbe
             var blueStyle = Styled(blue.Resolve(red.Id));
             var corners = new BoxingCorners(blueStyle.Name, s => blueBot = new BoxerBot(blueStyle, s), s => redBot = new BoxerBot(redStyle, s),
                 PlayerWear: red.Wear, CpuWear: blue.Wear, PlayerBody: red.Build, CpuBody: blue.Build);
-            using var game = new BoxingGame(tuning, seed: seed, corners: corners, rules: new MatchRules(30f, 3, 10f));
+            using var game = new BoxingGame(tuning, seed: seed, corners: corners, rules: new MatchRules(50.35f, 3, 16.78f));
             var rounds = new Dictionary<(int Corner, int Round), Round>();
             var thrownBefore = new int[2];
             var lastRound = 1;
             // 胴打ちの追跡: 角ごと・手ごとに、いま出している拳が胴打ちか、もう当たりを数えたか。
             var open = new (bool Active, bool Body, bool Landed)[2, 2];
-            for (var step = 0; step < (int)((30f * 3 + 20f + 30f) / Dt) && !game.MatchOver; step++)
+            for (var step = 0; step < (int)(235.0f / Dt) && !game.MatchOver; step++)
             {
                 var windBefore = (game.Player.WindLost, game.Cpu.WindLost);
                 game.Step(default, Dt);
@@ -120,7 +120,7 @@ public sealed class StaminaMatchProbe
                     r.Stamina += fighter.Stamina;
                     r.Min = MathF.Min(r.Min, fighter.Stamina);
                     r.Rest += probe.RestNeed > 0.5f ? 1 : 0;
-                    r.Idle += !probe.Attacking && !probe.Defending && speed < 0.3f ? 1 : 0;
+                    r.Idle += !probe.Attacking && !probe.Defending && speed < 0.1787f ? 1 : 0;
                     r.Power += fighter.RecentMusclePower / fighter.Build.MassRatio;
                     r.Endurance = fighter.Endurance;
                     r.Thrown = bot.Stats.Techniques.Values.Sum(t => t.Thrown) - thrownBefore[corner];

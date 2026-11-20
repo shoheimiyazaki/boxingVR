@@ -12,10 +12,10 @@ public sealed class PredictionProbe
 {
     [TestMethod]
     [DataRow(0f)]
-    [DataRow(0.05f)]
-    [DataRow(0.08f)]
-    [DataRow(0.12f)]
-    [DataRow(0.16f)]
+    [DataRow(0.0839f)]
+    [DataRow(0.1343f)]
+    [DataRow(0.2014f)]
+    [DataRow(0.2685f)]
     public void RightCross_InsideSlip_ByPrediction(float telegraph)
     {
         foreach (var prediction in new[] { 0f, 1f })
@@ -24,7 +24,7 @@ public sealed class PredictionProbe
             var total = PunchDrillResult.Empty;
             for (var seed = 1; seed <= 3; seed++)
             {
-                total += DefenseDrill.Punch("2", Defense.Slip, defender, seed, 40f, telegraph: telegraph);
+                total += DefenseDrill.Punch("2", Defense.Slip, defender, seed, 67.14f, telegraph: telegraph);
             }
 
             Console.WriteLine($"telegraph {telegraph:0.00}s prediction {prediction:0.0}: {total}");
@@ -33,13 +33,13 @@ public sealed class PredictionProbe
 
     /// <summary>外側へ横下に外すスリップ（相手の右ストレートの外、拳の軌跡の横下へ頭を落とす）を、予測で始める。</summary>
     [TestMethod]
-    [DataRow(0.08f)]
+    [DataRow(0.1343f)]
     public void RightCross_OutsideSlip_ByPrediction(float telegraph)
     {
         foreach (var (name, move) in new[]
         {
-            ("outside-down", new DefenseMove { Outside = true, HeadX = 0.5f, HeadY = -0.6f, HeadZ = -0.2f, EndX = 0.5f, Duration = 0.3f, Step = 1f, Rate = 60f, HandsUp = 0.3f, GloveWidth = 0.1f, GloveHeight = -0.03f, GloveForward = 0.25f, VsStraight = 1f }),
-            ("outside-wide", new DefenseMove { Outside = true, HeadX = 0.7f, HeadY = -0.5f, HeadZ = -0.1f, EndX = 0.7f, Duration = 0.3f, Step = 1f, Rate = 60f, HandsUp = 0.3f, GloveWidth = 0.1f, GloveHeight = -0.03f, GloveForward = 0.25f, VsStraight = 1f }),
+            ("outside-down", new DefenseMove { Outside = true, HeadX = 0.5f, HeadY = -0.6f, HeadZ = -0.2f, EndX = 0.5f, Duration = 0.5035f, Step = 1f, Rate = 35.75f, HandsUp = 0.3f, GloveWidth = 0.1f, GloveHeight = -0.03f, GloveForward = 0.25f, VsStraight = 1f }),
+            ("outside-wide", new DefenseMove { Outside = true, HeadX = 0.7f, HeadY = -0.5f, HeadZ = -0.1f, EndX = 0.7f, Duration = 0.5035f, Step = 1f, Rate = 35.75f, HandsUp = 0.3f, GloveWidth = 0.1f, GloveHeight = -0.03f, GloveForward = 0.25f, VsStraight = 1f }),
             ("inside", PredictionTests.SlipDefender(0f).Defenses.Of(Defense.Slip)),
         })
         {
@@ -47,7 +47,7 @@ public sealed class PredictionProbe
             var total = PunchDrillResult.Empty;
             for (var seed = 1; seed <= 3; seed++)
             {
-                total += DefenseDrill.Punch("2", Defense.Slip, defender, seed, 40f, telegraph: telegraph);
+                total += DefenseDrill.Punch("2", Defense.Slip, defender, seed, 67.14f, telegraph: telegraph);
             }
 
             Console.WriteLine($"{name} telegraph {telegraph:0.00}: head {total.HeadRate:P0} clean {total.EvadeRate:P0} (in defense head {total.HeadHits} guard {total.GuardHits} other {total.OtherHits}, open head {total.OpenHeadHits}, of {total.Punches})");
@@ -66,7 +66,7 @@ public sealed class PredictionProbe
                 var total = PunchDrillResult.Empty;
                 for (var seed = 1; seed <= 3; seed++)
                 {
-                    total += DefenseDrill.Punch("2", Defense.Slip, defender, seed, 30f, telegraph: 0.08f);
+                    total += DefenseDrill.Punch("2", Defense.Slip, defender, seed, 50.35f, telegraph: 0.1343f);
                 }
 
                 Console.WriteLine($"prediction {prediction:0.0} body cue {cue:0.0}: head {total.HeadRate:P0} clean {total.EvadeRate:P0} covered {total.Coverage:P0} ({total.Punches} punches)");
@@ -79,12 +79,12 @@ public sealed class PredictionProbe
     public void CuedSlip()
     {
         var defender = PredictionTests.SlipDefender(0f);
-        foreach (var (telegraph, cue) in new[] { (0.08f, 0f), (0.08f, 0.04f), (0.08f, 0.08f), (0.16f, 0f), (0.16f, 0.07f), (0.16f, 0.12f) })
+        foreach (var (telegraph, cue) in new[] { (0.1343f, 0f), (0.1343f, 0.0671f), (0.1343f, 0.1343f), (0.2685f, 0f), (0.2685f, 0.1175f), (0.2685f, 0.2014f) })
         {
             var total = PunchDrillResult.Empty;
             for (var seed = 1; seed <= 3; seed++)
             {
-                total += DefenseDrill.Punch("2", Defense.Slip, defender, seed, 40f, cue: cue, telegraph: telegraph);
+                total += DefenseDrill.Punch("2", Defense.Slip, defender, seed, 67.14f, cue: cue, telegraph: telegraph);
             }
 
             Console.WriteLine($"cued telegraph {telegraph:0.00}s cue +{cue:0.00}s: head {total.HeadRate:P0} clean {total.EvadeRate:P0} ({total.HeadHits}+{total.OpenHeadHits} head, {total.OtherHits} other of {total.Punches})");
@@ -93,8 +93,8 @@ public sealed class PredictionProbe
 
     /// <summary>予測の守りを始めた時と、相手が打つと決めた時（溜めの始め）の差、その 1 発の結果を並べる。</summary>
     [TestMethod]
-    [DataRow(0.08f, 1f)]
-    [DataRow(0.12f, 1f)]
+    [DataRow(0.1343f, 1f)]
+    [DataRow(0.2014f, 1f)]
     public void Timing(float telegraph, float prediction)
     {
         var attackers = new List<BoxerBot>();
@@ -108,7 +108,7 @@ public sealed class PredictionProbe
         var hits = new List<(float T, string Zone)>();
         var was = Defense.None;
         var thrownSoFar = 0;
-        for (var t = 0f; t < 40f; t += 1f / 240f)
+        for (var t = 0f; t < 67.14f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
             var now = defenders[^1].CurrentDefense;
@@ -130,8 +130,8 @@ public sealed class PredictionProbe
 
         foreach (var throwAt in throws.Skip(5).Take(40))
         {
-            var start = starts.Where(s => s.T > throwAt - 0.6f && s.T < throwAt + 0.4f).Select(s => ((float T, float Side, bool Predicted)?)s).LastOrDefault();
-            var hit = hits.Where(h => h.T > throwAt && h.T < throwAt + 0.4f).Select(h => h.Zone).FirstOrDefault() ?? "-";
+            var start = starts.Where(s => s.T > throwAt - 1.007f && s.T < throwAt + 0.6714f).Select(s => ((float T, float Side, bool Predicted)?)s).LastOrDefault();
+            var hit = hits.Where(h => h.T > throwAt && h.T < throwAt + 0.6714f).Select(h => h.Zone).FirstOrDefault() ?? "-";
             Console.WriteLine($"throw {throwAt:0.000}: defense {(start is { } s ? $"{s.T - throwAt:+0.000;-0.000}s side {s.Side:+0;-0} {(s.Predicted ? "predicted" : "reacted")}" : "none")}  hit {hit}");
         }
 
@@ -142,7 +142,7 @@ public sealed class PredictionProbe
     /// <summary>溜めの前後で、受け手が読む手がかり（踏み込み・ひねり・前傾の速さ）がどう動くかを出す（受け手は守らない）。</summary>
     [TestMethod]
     [DataRow(0f)]
-    [DataRow(0.08f)]
+    [DataRow(0.1343f)]
     public void CueSignals(float telegraph)
     {
         var attackers = new List<BoxerBot>();
@@ -154,7 +154,7 @@ public sealed class PredictionProbe
         var log = new List<(float T, (float Closing, float Twist, float Lean) Cue)>();
         var throws = new List<float>();
         var thrownSoFar = 0;
-        for (var t = 0f; t < 20f; t += 1f / 240f)
+        for (var t = 0f; t < 33.57f; t += 1f / 240f)
         {
             game.Step(default, 1f / 240f);
             log.Add((t, defenders[^1].Opponent.Cues));
@@ -167,13 +167,13 @@ public sealed class PredictionProbe
         }
 
         // 溜めの始めからの時刻ごとの平均（10 発以上）。
-        for (var offset = -0.3f; offset <= 0.2f; offset += 0.025f)
+        for (var offset = -0.5035f; offset <= 0.3357f; offset += 0.04196f)
         {
             var at = throws.Skip(3).Select(th => log.MinBy(l => MathF.Abs(l.T - (th + offset))).Cue).ToList();
             Console.WriteLine($"telegraph {telegraph:0.00} {offset:+0.000;-0.000}s closing {at.Average(c => c.Closing):+0.00;-0.00} twist {at.Average(c => c.Twist):+0.00;-0.00} lean {at.Average(c => c.Lean):+0.00;-0.00}");
         }
 
-        var idle = log.Where(l => throws.All(th => MathF.Abs(l.T - th) > 0.5f)).ToList();
+        var idle = log.Where(l => throws.All(th => MathF.Abs(l.T - th) > 0.8392f)).ToList();
         Console.WriteLine($"telegraph {telegraph:0.00} idle sd: closing {Sd(idle.Select(l => l.Cue.Closing)):0.00} twist {Sd(idle.Select(l => l.Cue.Twist)):0.00} lean {Sd(idle.Select(l => l.Cue.Lean)):0.00}");
     }
 

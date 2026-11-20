@@ -63,7 +63,7 @@ var profiler = new StartupProfiler();
 profiler.Mark("process start");
 
 // 自分のファイターの真後ろ・少し上（リング手前に立って見下ろす大人の目線）から見る。
-var camera = new OrbitCamera(initialDistance: 0.9f) { Target = BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight + 0.2f } };
+var camera = new OrbitCamera(initialDistance: 0.9f) { Target = DisplaySpace.Standard.Point(BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight + 0.563f }) }; // カメラは表示の空間（部屋）にある
 camera.ApplyDrag(new Vector2(-MathF.PI / 0.005f, -60f));
 var options = new GameHost.Options(
     "Mini Ring Boxing",
@@ -167,7 +167,7 @@ MatchSession OpenReplay(ReplayData data)
     {
         replay.Game.FaceCam = faceCam;
         replay.Game.Speed = speed;
-        var openingTarget = replay.Game.Layout.Center with { Y = BoxingGame.RingSurfaceHeight + 0.2f };
+        var openingTarget = replay.Game.Display.Point(replay.Game.Layout.Center with { Y = BoxingGame.RingSurfaceHeight + 0.563f });
         var placeCamera = true;
         var sound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds),
             () => replay.FrameShatters, () => replay.FrameLandings, () => replay.FrameSwings, () => replay.FrameBell,
@@ -202,7 +202,7 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
             LocalVersusControl.IsKarate(corners.PlayerName, corners.PlayerWear),
             corners.PlayerStyle);
         var local = new LocalVersusControl(corners);
-        var followCamera = new FollowCameraRig(camera, BoxingGame.RingSurfaceHeight + 0.2f);
+        var followCamera = new FollowCameraRig(camera, BoxingGame.RingSurfaceHeight + 0.563f);
         if (!args.Contains("--no-record"))
         {
             recorder = ReplayRecorder.TryStartFile(replayDirectory, game, "desktop", out var message);
@@ -221,7 +221,7 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
         var previousStep = -1L;
         return new MatchSession(game, presentation, input =>
         {
-            if (placeCamera) { camera.SetView(eye, target); placeCamera = false; }
+            if (placeCamera) { camera.SetView(game.Display.Point(eye), game.Display.Point(target)); placeCamera = false; } // 物理の空間 → 表示の空間
             ReadSpeed(input);
             var scene = presentation.Latest;
             var dt = Math.Min(ReplayFile.MaxDt, Math.Max(0, scene.Step - previousStep) / 240f);

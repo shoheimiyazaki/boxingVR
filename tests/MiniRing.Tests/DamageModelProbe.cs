@@ -17,7 +17,7 @@ public sealed class DamageModelProbe
             {
                 int Brain() => cpu.Voxels!.Parts.Sum(p => p.Body.Grid.Remaining(MiniRing.Voxels.BoxerAnatomy.Brain));
                 var initial = cpu.Voxels!.Parts.Sum(p => p.Body.Grid.Initial(MiniRing.Voxels.BoxerAnatomy.Brain));
-                DamageModelTests.Hit(game, cpu, where(cpu), mass: 4.5f, speed: 2.2f);
+                DamageModelTests.Hit(game, cpu, where(cpu), mass: 45f, speed: 3.692f);
                 Console.WriteLine($"{name}: brain {initial} → {Brain()} (lost {1f - ((float)Brain() / initial):P1}), function {cpu.Voxels.BrainFunction(FighterTuning.Default.BrainHalvingLoss):0.00}, concussion {cpu.Concussion:0.00}, consciousness {cpu.Consciousness:0.00}");
             }
         }

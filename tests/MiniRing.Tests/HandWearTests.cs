@@ -110,7 +110,7 @@ public sealed class HandWearTests
     /// 赤（<paramref name="wear"/> をはめたボット <paramref name="bot"/>）が、構えて立つだけの青（グローブ）を <paramref name="seconds"/> 秒打つ。
     /// どのはめる物でも、ボットは同じ拳の技（同じ種）で打つ。
     /// </summary>
-    internal static BoutResult Bout(HandWear wear, string bot, float seconds = 12f, int seed = 1)
+    internal static BoutResult Bout(HandWear wear, string bot, float seconds = 20.14f, int seed = 1)
     {
         using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("stand", _ => new StandGuard(), s => BotCatalog.Create(bot, s), PlayerWear: wear, CpuWear: HandWear.Glove));
         int Filled() => game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount) + game.Cpu.Voxels!.Fragments.Sum(p => p.Body.Grid.FilledCount);
@@ -163,7 +163,7 @@ public sealed class HandWearTests
         var bots = new[] { "swarmer", "champion" };
         var jobs = All.SelectMany(w => seeds.SelectMany(seed => bots.Select(bot => (w, seed, bot)))).ToArray();
         var bouts = new BoutResult[jobs.Length];
-        Parallel.For(0, jobs.Length, i => bouts[i] = Bout(jobs[i].w, jobs[i].bot, 12f, jobs[i].seed));
+        Parallel.For(0, jobs.Length, i => bouts[i] = Bout(jobs[i].w, jobs[i].bot, 20.14f, jobs[i].seed));
         var result = All.ToDictionary(w => w, w => Enumerable.Range(0, jobs.Length).Where(i => jobs[i].w == w).Select(i => bouts[i]).Aggregate(Sum));
         foreach (var (wear, r) in result)
         {

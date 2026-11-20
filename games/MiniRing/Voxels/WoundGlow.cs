@@ -16,7 +16,7 @@ namespace MiniRing.Voxels;
 public sealed class WoundGlow
 {
     /// <summary>断面が光っている時間 [s]。</summary>
-    public const float HeatSeconds = 1.5f;
+    public const float HeatSeconds = 2.518f;
 
     /// <summary>同時に光らせる面の上限（超えたら古いものから消す）。</summary>
     public const int Capacity = 4000;

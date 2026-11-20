@@ -21,7 +21,7 @@ namespace MiniRing.Arena;
 /// <param name="MatchSeconds">試合の長さ [s]。</param>
 /// <param name="MaxParallel">並列の数の上限（省略で全コア）。</param>
 internal sealed record CmaTuneConfig(IReadOnlyList<string> Targets, IReadOnlyList<Defense>? Defenses, int Generations = 40, int Lambda = 0, double Sigma = 0.15,
-    int Samples = 48, float Seconds = 40f, int Seed = 1, int ConfirmN = 96, int MatchN = 16, float MatchSeconds = 45f, int? MaxParallel = null);
+    int Samples = 48, float Seconds = 67.1f, int Seed = 1, int ConfirmN = 96, int MatchN = 16, float MatchSeconds = 75.5f, int? MaxParallel = null);
 
 /// <summary>世代ごとの記録（点は「その世代の種での比べ」で、世代の間では比べられない）。</summary>
 /// <param name="Generation">世代（1 から）。</param>
@@ -95,7 +95,7 @@ internal sealed class PunchTarget : CmaTarget
     public const float Range = DefenseDrill.DefaultRange;
 
     /// <summary>ドリルの合図の遅れ [s]（<c>video --drill</c> の既定、<see cref="NoiseLab.DrillCue"/> と同じ）。</summary>
-    public const float Cue = 0.04f;
+    public const float Cue = 0.0671f;
 
     private readonly string _punch;
     private readonly Technique _technique;

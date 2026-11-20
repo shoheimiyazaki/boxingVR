@@ -26,7 +26,7 @@ public sealed class KneeKickProbe
                     TwistBias: twist, RightLeg: leg);
             }
 
-            for (var i = 0; i < 240 * 8; i++)
+            for (var i = 0; i < 3222; i++)
             {
                 var d = Vector3.Distance(a.ChestPosition with { Y = 0f }, v.ChestPosition with { Y = 0f });
                 if (d < standoff * a.ArmReach)
@@ -38,7 +38,7 @@ public sealed class KneeKickProbe
                 game.Step(new BoxingInput(Cmd(toward, null, 0f, 0f)), Dt);
             }
 
-            for (var i = 0; i < 120; i++)
+            for (var i = 0; i < 201; i++)
             {
                 game.Step(new BoxingInput(Cmd(Vector3.Zero, null, 0f, 0f)), Dt);
             }
@@ -48,11 +48,11 @@ public sealed class KneeKickProbe
             var sense = game.PlayerSense;
             var aimWorld = spec.AimWorld(sense);
             var rest = new Vector3(side.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
-            var duration = 0.9f;
+            var duration = 1.511f;
             Console.WriteLine($"--- standoff {standoff}: chest distance {Vector3.Distance(a.ChestPosition with { Y = 0f }, v.ChestPosition with { Y = 0f }) / reach:F2} reach");
             var hits = new HashSet<HitEvent>();
             var minShin = float.MaxValue;
-            for (var i = 0; i < (int)((duration + 0.4f) / Dt); i++)
+            for (var i = 0; i < (int)((duration + 0.6714f) / Dt); i++)
             {
                 var t = i * Dt;
                 var yaw = t <= duration ? spec.FaceYaw(side, t, duration) : 0f;

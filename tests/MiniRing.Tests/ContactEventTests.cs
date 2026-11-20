@@ -31,7 +31,7 @@ public sealed class ContactEventTests
     {
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("slugger", s => BotCatalog.Create("slugger", s), s => BotCatalog.Create("champion", s), PlayerWear: HandWear.Glove, CpuWear: HandWear.Glove));
         var pairs = new Dictionary<ContactPair, int>();
-        for (var t = 0f; t < 15f; t += 1f / 60f)
+        for (var t = 0f; t < 25.18f; t += 1f / 60f)
         {
             game.Step(default, 1f / 60f);
             foreach (var c in game.RecentContacts)
