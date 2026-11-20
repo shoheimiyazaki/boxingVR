@@ -102,11 +102,29 @@ public static class BoxerAnatomy
     // ヤング率に <see cref="Similitude"/> を掛ける（鉄と木も同じ割合なので、材質の強さの比 = 壊れ方の非対称は変わらない）。
     // 皮膚の擦り減り（Wear）: 破れない打撃でも、1 発ごとに丈夫さの一部が減る（皮膚の強さいっぱいの押しで 1 発 12%、半分の押しで 3%）。
     // 同じ所を打たれ続けると赤くなっていき（血がにじむ）、やがて裂ける（顔のカット）。グローブの試合で測って決めた（docs/VOXEL_WEAPONS.md）。
-    private static readonly VoxelMechanics SkinMechanics = Doll(new(1100f, 1.2e6f, 0.005f, Wear: SkinWear));
+    private static readonly VoxelMechanics SkinMechanics = Doll(new(1100f, 1.2e6f, 0.005f, Wear: SkinWear, PassiveTie: SoftTissuePassiveTie));
 
     /// <summary>皮膚の強さいっぱいで押す 1 発が擦り減らす、丈夫さの割合（<see cref="VoxelMechanics.Wear"/>）。</summary>
     private const float SkinWear = 0.12f;
-    private static readonly VoxelMechanics MuscleMechanics = Doll(new(1060f, 0.3e6f, 0.005f));
+    private static readonly VoxelMechanics MuscleMechanics = Doll(new(1060f, 0.3e6f, 0.005f, PassiveTie: SoftTissuePassiveTie, ActiveTie: MuscleActiveTie));
+
+    // ── 曲げを支える肉（2026-11-20、PhysicsVersion 61）: 腕・脚・首の梁（VoxelBending.FindBreak）では、骨のセルだけが曲げの応力を持つが、伸ばされる側の
+    // 筋肉・皮膚は紐として先に曲げを受け持つ（紐の応力 × 面積 × 断面の中心からの距離まで。受けきれない分だけ骨へ行く）。首の柱は椎骨と椎間板・靭帯の
+    // 連なりで、骨が歪むより先に周りの肉が張って支える。筋肉の分は体の張り（VoxelBody.TieActivation = Fighter.Tone × 神経の働き）に比例する:
+    // 力の入った首は強く、気を失った首は受動の分だけ。肉が削れれば紐のセルが減り、その分だけ支えも減る（見える欠損 = 弱さ、CLAUDE.md §1.7）。
+
+    /// <summary>
+    /// 筋肉が全力で縮んだときの引張の応力 [Pa]（人の値。<see cref="Doll"/> で相似則を掛ける）: 骨格筋の最大等尺張力（比張力）は生理学的断面積あたり
+    /// 0.3〜0.4 MPa（例: Fukunaga ら、Powell ら）。その真ん中の 0.35 MPa。紐として数えるのは梁の断面にある筋肉のセルの面積（線維の向きは梁の向きと見る）。
+    /// </summary>
+    private const float MuscleActiveTie = 0.35e6f;
+
+    /// <summary>
+    /// 張りに依らない受動の引張の応力 [Pa]（人の値）: 筋膜・腱鞘・靭帯・皮膚が、骨が折れる手前のひずみ（数 %）で受け持つ分。軟組織の応力 – ひずみの曲線の
+    /// つま先の領域（コラーゲンが伸びきる前）で、筋の受動張力（平行弾性要素、至適長で最大等尺張力の 1 割前後）と同じ程度の 0.035 MPa
+    /// （= <see cref="MuscleActiveTie"/> の 1 割）。靭帯のセルは無いので、筋肉・皮膚のセルに薄く持たせる。小さいので、気を失った首はほぼ骨だけで支える。
+    /// </summary>
+    private const float SoftTissuePassiveTie = 0.035e6f;
     // 骨は腕・脚の梁として曲げを受ける（肉は質量だけ。VoxelBody.BeamAxis）: 打撃の曲げが骨の強さを超えた所で折れる（VoxelBending。武器が折れる
     // のと同じモデル）。値は皮質骨（曲げて折れる強さ 150 MPa・ヤング率 17 GPa）を、ボクセルの骨の太さに合わせた実効値にする（BoneSectionShare）。
     private static readonly VoxelMechanics BoneMechanics = Doll(new(1900f, 25e6f, 0.0005f,
@@ -136,12 +154,14 @@ public static class BoxerAnatomy
     /// <summary>人形の体の大きさの、人に対する比（腕の長さの比 0.17 m / 0.53 m）。材質の強さの相似則に使う。</summary>
     public const float Similitude = 0.32f;
 
-    /// <summary>人の材質の値を、人形の相似則で縮める（強さ・引張・ヤング率 × <see cref="Similitude"/>。密度とたわむ距離はそのまま）。</summary>
+    /// <summary>人の材質の値を、人形の相似則で縮める（強さ・引張・ヤング率・紐の応力 × <see cref="Similitude"/>。密度とたわむ距離はそのまま）。</summary>
     public static VoxelMechanics Doll(VoxelMechanics human) => human with
     {
         Strength = human.Strength * Similitude,
         Tensile = human.Tensile * Similitude,
         Stiffness = human.Stiffness * Similitude,
+        PassiveTie = human.PassiveTie * Similitude,
+        ActiveTie = human.ActiveTie * Similitude,
     };
 
     /// <summary>グローブの詰め物（発泡材）: 軽く（120 kg/m³）、弱い圧力で潰れ（0.15 MPa）、大きくたわむ（8 mm）。拳の衝撃を広げて和らげる。</summary>

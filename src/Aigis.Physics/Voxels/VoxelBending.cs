@@ -34,7 +34,25 @@ public static class VoxelBending
     /// The slices (inclusive) where the body may snap (null: any). The rest of the body still carries the load and gives the inertia;
     /// it only never breaks there (a head: the skull is not where it snaps, the neck is).
     /// </param>
-    public static VoxelBreak? FindBreak(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null)
+    /// <param name="tieActivation">
+    /// How hard the soft cells that pull as ties (muscle: <see cref="VoxelMechanics.ActiveTie"/>) pull, 0..1 (only with
+    /// <paramref name="loadBearingOnly"/>). The ties on the stretched side of a section take the bending first, each up to its tie stress
+    /// (passive + activation × active) × area × its distance from the section's centre; the load-bearing cells take only what is left
+    /// (a jointed column such as a spine gives before its bone is strained, so the flesh around it is what holds it first). A tie
+    /// yields, it never snaps the beam.
+    /// </param>
+    public static VoxelBreak? FindBreak(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f)
+        => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, minRatio: 1f);
+
+    /// <summary>
+    /// The most strained cross-section, as <see cref="FindBreak"/> finds it but whether or not it snaps (<see cref="VoxelBreak.Ratio"/> may be
+    /// below 1: how close the blow came to breaking it). Null when nothing carries a section. For diagnostics: the same sums as <see cref="FindBreak"/>,
+    /// which returns this result exactly when its ratio is above 1.
+    /// </summary>
+    public static VoxelBreak? WorstBend(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f)
+        => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, minRatio: 0f);
+
+    private static VoxelBreak? Worst(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis, bool loadBearingOnly, (int Low, int High)? candidates, float tieActivation, float minRatio)
     {
         ArgumentNullException.ThrowIfNull(grid);
         var (nx, ny, nz) = grid.Dimensions;
@@ -71,6 +89,7 @@ public static class VoxelBending
         var cellAlong = axis == 0 ? cell.X : axis == 1 ? cell.Y : cell.Z;
         var sectionCellArea = grid.CellVolume / cellAlong;
         var pointSlice = (int)MathF.Floor((Vector3.Dot(point, lengthAxis) + Vector3.Dot(grid.HalfExtents, lengthAxis)) / cellAlong);
+        var activation = Math.Clamp(tieActivation, 0f, 1f);
 
         var sliceLoads = Scratch(ref _sliceLoadsScratch, slices);
         for (var c = 0; c < cellAt.Length; c++)
@@ -121,6 +140,28 @@ public static class VoxelBending
             // Stress varies across the section along e (square to the length and to the bending axis).
             var e = Vector3.Normalize(Vector3.Cross(lengthAxis, bending / magnitude));
             var depth = MathF.Sqrt(Square(e.X * cell.X) + Square(e.Y * cell.Y) + Square(e.Z * cell.Z));
+            // 引っぱりの紐（筋肉・靭帯・皮膚）: 伸ばされる側（e の向きの側。打撃の点が切れ目より下なら裏返る）のセルが、自分の紐の応力 × 面積 × 中心からの
+            // 距離まで曲げを先に受け持つ。骨のセルは残りだけを受ける（関節の連なった柱は骨が歪む前に曲がるので、まず周りの肉が支える）。
+            var ties = geometry.Ties[s];
+            if (ties.Length > 0)
+            {
+                var stretched = high ? 1f : -1f;
+                var held = 0f;
+                foreach (var c in ties)
+                {
+                    var y = stretched * Vector3.Dot(cellAt[c] - origin, e);
+                    if (y > 0f)
+                    {
+                        held += (geometry.CellPassiveTie[c] + (activation * geometry.CellActiveTie[c])) * sectionCellArea * y;
+                    }
+                }
+
+                magnitude -= held;
+                if (magnitude <= 1e-9f)
+                {
+                    continue;
+                }
+            }
             // 合成断面（換算断面法）: 曲げの剛性は各セルのヤング率 E × 断面二次モーメントの和 ΣEI。曲げ応力は面からの距離 y に比例し、
             // セルごとに σ = M·y·E / ΣEI（ヤング率の高い鉄の芯ほど大きく受け持つ）。どのセルも自分の引張強さ（木 60 MPa、鉄 1.5 GPa）を
             // 超えたら折れる: 比 = 最大の σ / 引張。1 種類の材料の断面（骨・木だけ）では E が約分されて従来の M·y/I/引張と同じ。
@@ -138,7 +179,7 @@ public static class VoxelBending
                 ratio = MathF.Max(ratio, magnitude * y * cellStiffness[c] / flexural / cellTensile[c]);
             }
 
-            if (ratio > 1f && (worst is null || ratio > worst.Value.Ratio))
+            if (ratio > minRatio && (worst is null || ratio > worst.Value.Ratio))
             {
                 // The smaller piece breaks off.
                 var highCount = 0;
@@ -357,6 +398,15 @@ public static class VoxelBending
 
         /// <summary>Where each slice's carrying cells centre.</summary>
         public Vector3[] Origins { get; init; } = [];
+
+        /// <summary>The soft cells of each slice that pull as ties (<see cref="VoxelMechanics.PassiveTie"/> / <see cref="VoxelMechanics.ActiveTie"/>; only when only the load-bearing cells carry the section).</summary>
+        public int[][] Ties { get; init; } = [];
+
+        /// <summary>Each cell's passive tie stress [Pa] (0 for none).</summary>
+        public float[] CellPassiveTie { get; init; } = [];
+
+        /// <summary>Each cell's tie stress at full activation, on top of the passive one [Pa] (0 for none).</summary>
+        public float[] CellActiveTie { get; init; } = [];
     }
 
     private const float DefaultStiffness = 10e9f;
@@ -367,6 +417,8 @@ public static class VoxelBending
         var volume = grid.CellVolume;
         var cells = new List<(int Slice, Vector3 At, float Mass, float Tensile)>(grid.FilledCount);
         var stiffnesses = new List<float>(grid.FilledCount);
+        var passiveTies = new List<float>(grid.FilledCount);
+        var activeTies = new List<float>(grid.FilledCount);
         float total = 0f;
         var moment = Vector3.Zero;
         for (var i = 0; i < grid.CellCount; i++)
@@ -393,6 +445,9 @@ public static class VoxelBending
             var mass = k.Density * volume;
             cells.Add((axis == 0 ? x : axis == 1 ? y : z, at, mass, tensile));
             stiffnesses.Add(k.Stiffness ?? DefaultStiffness);
+            var tied = loadBearingOnly && float.IsNaN(tensile); // a tie only where the cell bears no bending of its own
+            passiveTies.Add(tied ? MathF.Max(0f, k.PassiveTie ?? 0f) : 0f);
+            activeTies.Add(tied ? MathF.Max(0f, k.ActiveTie ?? 0f) : 0f);
             total += mass;
             moment += at * mass;
         }
@@ -422,8 +477,10 @@ public static class VoxelBending
 
         var sections = new int[slices][];
         var origins = new Vector3[slices];
+        var ties = new int[slices][];
         for (var s = 0; s < slices; s++)
         {
+            ties[s] = bySlice[s].FindAll(c => passiveTies[c] > 0f || activeTies[c] > 0f).ToArray();
             sections[s] = loadBearingOnly ? bySlice[s].FindAll(c => !float.IsNaN(cells[c].Tensile)).ToArray() : bySlice[s].ToArray();
             // 断面の中心 = 曲げの剛性（E）で重みを付けた重心（合成断面の中立軸の通る所。1 種類の材料ならセルの重心）。
             var weighted = Vector3.Zero;
@@ -446,6 +503,9 @@ public static class VoxelBending
             CellStiffness = stiffnesses.ToArray(),
             Sections = sections,
             Origins = origins,
+            Ties = ties,
+            CellPassiveTie = passiveTies.ToArray(),
+            CellActiveTie = activeTies.ToArray(),
         };
     }
 
