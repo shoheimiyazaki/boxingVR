@@ -32,7 +32,9 @@ import nifti  # noqa: E402
 import vox  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
-SHIPPED = REPO / "games/MiniRing/Voxels/boxer.vox"
+# The hand-made body the CT goes into (outline, skin and trunks, the face shell, the feet): boxer.vox before the CT body
+# was installed in it. The installed file is the CT body itself, so building from it would build on its own output.
+SHIPPED_BEFORE_CT = "3a0e3ff:games/MiniRing/Voxels/boxer.vox"
 STEP = 2  # keep every 2nd CT voxel (1.5 mm -> 3 mm)
 
 # Game part order and cell counts are read from the shipped .vox (the game's own grids at the default build).
@@ -40,6 +42,7 @@ PART_ORDER = ["Head", "Chest", "Pelvis", "UpperArm", "Forearm", "Thigh", "Shin",
 
 # Outfit (BoxerAnatomy.Dress): pelvis surface is trunks, its top band the waistband.
 RED_TRUNKS, WAISTBAND, HAIR, LIP, PUPIL = 10, 12, 14, 21, 15
+HEAD_SHELL = [L.SKIN, HAIR, LIP, L.EYE, PUPIL]  # the hand-edited face shell of the shipped head
 BOOT = 13
 COVERINGS = [1, RED_TRUNKS, 11, WAISTBAND, BOOT]  # skin and clothes: what an outer cell may be
 WAISTBAND_FROM = 0.55  # normalised Y, BoxerAnatomy.WaistbandFrom
@@ -771,14 +774,31 @@ def to_game(grid_cls: np.ndarray) -> np.ndarray:
     return lut[grid_cls]
 
 
+def head_inner_box(shipped: np.ndarray) -> tuple[slice, slice, slice]:
+    """The box around the shipped head's inside (everything under the hand-edited face shell)."""
+    inside = (shipped != 0) & ~np.isin(shipped, HEAD_SHELL)
+    idx = np.nonzero(inside)
+    return tuple(slice(int(a.min()), int(a.max()) + 1) for a in idx)
+
+
 def merge_head(shipped: np.ndarray, ct_head: np.ndarray) -> np.ndarray:
-    """Keep the hand-edited face (skin, hair, lips, eyes) and its outline; take the inside from the CT."""
-    shell = np.isin(shipped, [L.SKIN, HAIR, LIP, L.EYE, PUPIL])
+    """Keep the hand-edited face (skin, hair, lips, eyes) and its outline; take the inside from the CT, which was drawn
+    into the box under the shell (head_inner_box). The game's face layer (FaceLayer) drops the 5 mm shell and keeps the
+    skull and the brain, so the CT skull has to lie just under the shell, not in it."""
+    shell = np.isin(shipped, HEAD_SHELL)
     out = shipped.copy()
     inside = (shipped != 0) & ~shell
-    ct = ct_head.copy()
+    box = head_inner_box(shipped)
+    ct = np.zeros_like(shipped)
+    ct[box] = ct_head
     ct[ct == 0] = L.MUSCLE  # the edited outline is a little larger than the CT head in places: fill with flesh
     out[inside] = ct[inside]
+    # The skull is a sheet of 5-8 mm, under half a cell (one cell is 14-23 mm of the person), so the vote keeps it only
+    # in patches and the brain lies open to the flesh between them. A sheet thinner than a cell is still a closed
+    # sheet: the flesh cells face to face with the brain become bone (the CT's skull fills the rest of the ring already).
+    brain = out == L.BRAIN
+    ring = ndimage.binary_dilation(brain) & ~brain
+    out[ring & (out == L.MUSCLE)] = L.BONE
     return out
 
 
@@ -812,21 +832,40 @@ def trace_limb_arteries(scratch: Path, part_ids: np.ndarray, limbs: list[list[in
     return found
 
 
-def fit_outline(grid_cls: np.ndarray, outline: np.ndarray, keep_core: bool = False) -> tuple[np.ndarray, dict]:
+def fit_outline(grid_cls: np.ndarray, outline: np.ndarray, keep_core: bool = False, bare: np.ndarray | None = None) -> tuple[np.ndarray, dict]:
     """An athletic body (the user's request 2026-11-19: a boxer's build, more muscle on the chest): the outline is the
     game's boxer body (the shipped grid's filled cells), the inside is the CT. Cells inside the outline that the CT leaves
     empty become muscle (the chest, shoulders and back fill out to the boxer's shape over the CT's ribs); CT cells outside
     the outline are dropped (the CT man's belly). The CT's fat is already muscle in the game (labels.GAME_MATERIAL)."""
     grid = grid_cls.copy()
-    if keep_core:  # the outline bulges where a bone, organ or tube of the CT pokes out (wrapped in one cell of flesh)
+    moved = 0
+    if keep_core:
+        # A bone, organ or tube of the CT that pokes out of the outline, or lies in its outer layer (add_skin covers that
+        # layer with skin), moves to the nearest cell under the skin that is not core yet (nearest first), so the part
+        # keeps the game's outline (its contact shape and mass; CLAUDE.md 1.7: the size you see is the strength) and the
+        # CT's amount of each tissue.
+        under_skin = outline & ~outer_layer(outline)
         core = np.isin(grid, CORE_CLASSES)
-        outline = outline | ndimage.binary_dilation(core, structure=ndimage.generate_binary_structure(3, 1))
+        free = under_skin & ~core
+        out_core = core & ~under_skin
+        if bare is not None:  # arteries left bare where they leave through a joint face (add_skin) stay where they are
+            out_core &= ~(bare & (grid == L.CLS_ARTERY))
+        depth = ndimage.distance_transform_edt(~under_skin)
+        for p in sorted(map(tuple, np.argwhere(out_core)), key=lambda q: (depth[q], q)):
+            if not free.any():
+                break
+            _, idx = ndimage.distance_transform_edt(~free, return_indices=True)
+            target = tuple(int(idx[a][p]) for a in range(3))
+            grid[target] = grid[p]
+            grid[p] = L.CLS_EMPTY  # moved, not copied (inside the outline the emptied cell becomes muscle below)
+            free[target] = False
+            moved += 1
     outside = (grid != L.CLS_EMPTY) & ~outline
     dropped = {L.NAMES[c]: int(n) for c, n in zip(*np.unique(grid[outside], return_counts=True))}
     grid[outside] = L.CLS_EMPTY
     added = outline & (grid == L.CLS_EMPTY)
     grid[added] = L.CLS_MUSCLE
-    return grid, {"added_muscle": int(added.sum()), "dropped": dropped}
+    return grid, {"added_muscle": int(added.sum()), "dropped": dropped, "core_moved_in": moved}
 
 
 def split_legs(cls: np.ndarray, named: dict, unlabeled_bone: np.ndarray, bx, by, bz):
@@ -882,7 +921,7 @@ def split_legs(cls: np.ndarray, named: dict, unlabeled_bone: np.ndarray, bx, by,
     return part, landmarks, axes
 
 
-def fit_part(norm, classes, dims, outline, cross_axes):
+def fit_part(norm, classes, dims, outline, cross_axes, bare=None):
     """Vote, then fit the CT inside the boxer outline (fit_outline). If the outline would cut off bone, organs or tubes
     (the CT is wider than the boxer there), the CT is drawn in a little across the part (never along it, so joints and
     cut heights stay), at most to OUTLINE_MIN_SCALE; what still pokes out keeps its place and the outline bulges around
@@ -899,25 +938,26 @@ def fit_part(norm, classes, dims, outline, cross_axes):
         if lost <= OUTLINE_CORE_LOSS * max(core(voted).sum(), 1):
             break
     scaled, voted, stats, info = best
-    fitted, outline_stats = fit_outline(voted, outline, keep_core=True)
+    fitted, outline_stats = fit_outline(voted, outline, keep_core=True, bare=bare)
     return fitted, scaled, stats, outline_stats | info
 
 
 def build_part(name, value, frame, part_ids, cls, bx, by, bz, sub, shipped, straighten=False, order=(0, 1, 2), cross_axes=(0, 2)):
-    dims = shipped[name].shape
+    # The head's CT goes into the box under the face shell (merge_head); every other part fills its whole box.
+    dims = tuple(s.stop - s.start for s in head_inner_box(shipped[name])) if name == "Head" else shipped[name].shape
     norm, classes, flags, (lo, hi) = part_samples(part_ids, value, cls, bx, by, bz, frame, dims, sub["tubes"],
                                                   straighten=straighten, order=order)
     if name == "Head":
         grid_cls, stats = vote(norm, classes, dims)
         outline_stats = None
     else:
-        grid_cls, norm, stats, outline_stats = fit_part(norm, classes, dims, shipped[name] != 0, cross_axes)
+        grid_cls, norm, stats, outline_stats = fit_part(norm, classes, dims, shipped[name] != 0, cross_axes, bare=joint_faces(dims, name))
     tube_stats = {}
     for tube in TUBES:
         course = course_corridor(dims, name, grid_cls) if tube == L.CLS_ARTERY else None
         grid_cls, tube_stats[L.NAMES[tube]] = connect_tube(grid_cls, tube, norm, flags[tube], dims, name, course)
     # The head keeps the hand-edited face shell, so its CT cells go in without their own skin layer (the skull lies right
-    # under the skin, in the CT's outermost cells). The other parts take the shipped covering on the shipped outline.
+    # under the skin, in the CT's outermost cells, which now land just under the shell). The other parts take the shipped covering on the shipped outline.
     game = merge_head(shipped["Head"], to_game(grid_cls)) if name == "Head" else add_skin(to_game(grid_cls), name, shipped[name])
     halo = None
     if name != "Head":
@@ -990,11 +1030,18 @@ def main() -> None:
     parser.add_argument("--legs", help="a second subject whose legs make the thighs and shins (a leg angiography, e.g. s0774)")
     parser.add_argument("--legs-set", default="full")
     parser.add_argument("--out", required=True)
+    parser.add_argument("--shipped", default=SHIPPED_BEFORE_CT,
+                        help="the hand-made body: a .vox path, or <commit>:<path> read from git (default: boxer.vox before the CT)")
     args = parser.parse_args()
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    shipped_models, palette = vox.read(SHIPPED)
+    shipped_path = Path(args.shipped)
+    if not shipped_path.is_file():  # <commit>:<path> in this repository
+        import subprocess
+        shipped_path = out_dir / "shipped_before_ct.vox"
+        shipped_path.write_bytes(subprocess.run(["git", "-C", str(REPO), "show", args.shipped], check=True, capture_output=True).stdout)
+    shipped_models, palette = vox.read(shipped_path)
     palette = list(palette)
     palette[L.ARTERY] = ARTERY_RGBA  # the shipped file predates the artery material
     shipped = {m.name: vox.from_vox_axes(m.cells) for m in shipped_models}

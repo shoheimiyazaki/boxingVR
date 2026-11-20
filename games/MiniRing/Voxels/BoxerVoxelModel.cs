@@ -240,7 +240,22 @@ public sealed class BoxerVoxelOverrides
     public IReadOnlyCollection<BodyPartKind> HaloKinds => _halos.Keys.ToArray();
 
     /// <summary>直した部位の中身。<see cref="Materials"/> は x + Dx × (y + Dy × z) の順の材質番号。トランクスは赤（コーナーで塗り替える）。</summary>
-    public sealed record PartCells((int X, int Y, int Z) Dimensions, byte[] Materials);
+    public sealed record PartCells((int X, int Y, int Z) Dimensions, byte[] Materials)
+    {
+        /// <summary>X で鏡に写したもの（体の +X 側の腕・脚のまわり。<see cref="BoxerBody"/> の部位の格子と同じ写し方）。</summary>
+        public PartCells MirroredX()
+        {
+            var (nx, ny, nz) = Dimensions;
+            var cells = new byte[Materials.Length];
+            for (var i = 0; i < cells.Length; i++)
+            {
+                var x = i % nx;
+                cells[i] = Materials[i - x + (nx - 1 - x)];
+            }
+
+            return this with { Materials = cells };
+        }
+    }
 
     /// <summary>ゲームに組み込んだ直し（games/MiniRing/Voxels/boxer.vox）。無ければ null（生成のまま）。</summary>
     public static BoxerVoxelOverrides? Shipped => ShippedModel.Value;

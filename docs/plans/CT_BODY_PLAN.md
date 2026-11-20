@@ -175,6 +175,24 @@ s1029 の写り方: 腕は体の横に下ろし、前腕は手首の手前で切
 
 手（`claude/hand-layers`・`claude/fist-thumb` の枝で作り直し中）にはこの計画は触らない。前腕の格子は手首まで。
 
+## 7.5 段 2 の途中経過（2026-11-20、枝 claude/ct-body。引き継ぎ）
+
+済んだこと（PhysicsVersion 63、`docs/VERSIONS.md`）:
+- (a) 鏡: +X 側（人の左、Aigis の Right）の腕・脚・足・つま先は、左右で共有する格子を X で鏡に写す（`Fighter.OnPlusXSide`、`BoxerBody.MirroredX`、まわりは `PartCells.MirroredX`、`LimbMirrorTests`）。鏡だけ（元の boxer.vox）では全テストのうち試合のチェックサム 4 件だけが変わった（元の上腕に左右で 8 セルの違いがある）。
+- (b) 脊髄: 胸・腰は、中身にもう脊髄のある格子に `BoxerSpine` が置かない。頭の首の段はいつも置く（CT の頭は頭蓋の底より上）。
+- (c) 臓器の死: 材質ごとに全部位の和で数える（`DeathCause`）ので、腸が胸と腰にまたがっても変わらない。
+- 頭: CT を顔の殻の内側の箱へ写し（`head_inner_box`）、脳に面した肉を骨にして頭蓋を閉じる。顔の層（`FaceLayer`）は 5 mm の殻を捨てて頭蓋骨と脳を残す。
+- 外形: 外形は元の体と同じ（はみ出す骨・臓器・管と皮膚の層にかかったものは皮膚の下へ寄せる、`fit_outline`）。道具は元の体を git の `3a0e3ff:games/MiniRing/Voxels/boxer.vox` から読む（`--shipped`。入れた boxer.vox から作り直すと自分の出力の上に作ってしまう）。
+- 骨: 皮質骨の値そのもの（実効値の割合 0.076・0.031 を外した）。脚の骨の端を太らせる `WithJointEnds` は、両端から続いて胴より細い段だけに胴の断面を置く（全部の段の和を置くと CT の曲がった大腿骨が太い柱になった）。真ん中を折る力（`CtBoneProbe.BreakingForce_OldAndCt`）: 前腕 89 → 145 N・上腕 138 → 349・すね 248 → 248・腿 424 → 138。
+- (d) `boxer.vox` に入れた（`voxcheck --install yes`）。(e) 出典は `games/MiniRing/Assets/CREDITS.md`。
+
+残り（全テスト 1274 件中 20 件が tower32 で落ちる。チェックサムの 5 件と既知の Tonfa の 1 件のほか 14 件）:
+- 骨の較正の期待値: `BoneBreakTests.AGloveBlow_BreaksTheForearmBone_OnlyWhenItIsHardAndHasTheArmBehindIt`（前腕が 145 N になり、腕の乗った 1 発でも折れない）、`LegLossTests.TheLegBones_AreAsThickAtTheJointsAsInTheShaft…`（`WithJointEnds` の新しい決まりに合わせて直すか、CT の骨端で確かめる）。
+- 首: `NeckSpineTests.TheSpine_AddsNoCellsAndNoMass…`・`ThinnedNeckBone_BreaksUnderASideBlow…`（CT の頭の首の段の骨の量）。
+- 刃と関節のつなぎ: `JointBridgeTests` の首と膝の 2 件（まわりの組織が骨になって刃が止まる?）、`DebrisLookTests.ABladeCut…`、`VoxelDamageTests.CarvedFlesh_WeakensTheArm…`、`CharacterTests.MuscleLoss…`（CT の肉の並び）。
+- 武器・ボット: `BojutsuTests` 2 件、`TonfaTests.ASwordSweepingAtTheGuard…`、`PredictionTests.PredictedInsideSlip…`、`GroundStrikeTests.NoReferee_WeaponBotWoundsADownedOpponent (WoodenClub)`（`BuildReadTests.SameStyle_LongArms…` は回によって落ちる）。
+- 最後にチェックサムを取り直す（`CharacterSamenessTests` 4 件・`StepCostRegressionTests`）。そのあと attacklab とリーグで今の体と比べ、動画を見る（完了の条件）。
+
 ## 8. 分かっている限界（段 1 の体）
 
 - 年配（68 歳）の多発外傷の CT。脂肪が多く、ボクサーの体ではない。

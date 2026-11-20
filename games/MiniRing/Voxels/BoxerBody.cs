@@ -512,13 +512,19 @@ public sealed class BoxerBody
     /// </summary>
     /// <remarks><c>standardShapes</c>: 体格が基準でないときの、基準体格の形（呼び出し側が 1 度だけ作って渡す）。</remarks>
     /// <remarks><c>lookPalette</c>: 顔の色の表（最初の部位で作り、以降は使い回す）。</remarks>
+    // mirrorX: 体の +X 側の腕・脚（Fighter.OnPlusXSide）。左右で共有する格子（−X 側の向き）を X で鏡に写す。
     internal static VoxelGrid BuildPartGrid(BodyPartKind kind, Vector3 half, FighterTuning tuning, LowPoly.BoxerModel? shapes,
-        LowPoly.BoxerModel? standardShapes, Outfit? outfit, BoxerVoxelOverrides? overrides, FaceLook? look, ref VoxelPalette? lookPalette)
+        LowPoly.BoxerModel? standardShapes, Outfit? outfit, BoxerVoxelOverrides? overrides, FaceLook? look, ref VoxelPalette? lookPalette, bool mirrorX = false)
     {
         var sourceHalf = half / tuning.Build.ScaleOf(kind);
         // 同じ材質セルを伸縮する。太さを変えてセルを増やすと解像度と筋肉量が混ざる。
         var sourceShape = tuning.Build != BodyBuild.Standard ? standardShapes?.Mesh(kind) : shapes?.Mesh(kind);
         var source = BoxerAnatomy.Build(kind, sourceHalf, tuning.VoxelSize, sourceShape, outfit, overrides);
+        if (mirrorX)
+        {
+            source = MirroredX(source);
+        }
+
         var grid = source;
         if (half != sourceHalf)
         {
@@ -539,6 +545,22 @@ public sealed class BoxerBody
 
         BoxerSpine.Place(kind, grid); // 頸椎・脊髄は外見のセルに触れず、中の材質だけ（顔の彫り直しの後に置いて位置を保つ）
         return grid;
+    }
+
+    /// <summary>格子を X で鏡に写したもの（材質だけ。作ったばかりの、傷の無い格子に使う）。</summary>
+    internal static VoxelGrid MirroredX(VoxelGrid grid)
+    {
+        ArgumentNullException.ThrowIfNull(grid);
+        var (nx, ny, nz) = grid.Dimensions;
+        var cell = grid.CellSize;
+        var half = grid.HalfExtents;
+        return new VoxelGrid(grid.Palette, half, grid.Dimensions, (point, _) =>
+        {
+            var x = Math.Clamp((int)MathF.Floor((point.X + half.X) / cell.X), 0, nx - 1);
+            var y = Math.Clamp((int)MathF.Floor((point.Y + half.Y) / cell.Y), 0, ny - 1);
+            var z = Math.Clamp((int)MathF.Floor((point.Z + half.Z) / cell.Z), 0, nz - 1);
+            return grid.At(nx - 1 - x, y, z);
+        });
     }
 
     /// <param name="fighter">体の持ち主。</param>
@@ -570,7 +592,7 @@ public sealed class BoxerBody
             var half = fighter.HalfExtentsOf(id);
             standardShapes ??= tuning.Build != BodyBuild.Standard
                 ? LowPoly.BoxerModel.Build((tuning with { Build = BodyBuild.Standard }).HalfExtents, tuning.ModelSubdivisions) : null;
-            var grid = BuildPartGrid(kind, half, tuning, shapes, standardShapes, outfit, overrides, look, ref lookPalette);
+            var grid = BuildPartGrid(kind, half, tuning, shapes, standardShapes, outfit, overrides, look, ref lookPalette, mirrorX: fighter.OnPlusXSide(id));
             // 腕は長さが X: Aigis の Left 腕は −X 側に付くので体から遠いのは −X、Right 腕は +X。脚は Y で、遠いのは下。
             var (axis, distalHigh) = kind switch
             {
@@ -631,7 +653,10 @@ public sealed class BoxerBody
         {
             if (_byBody.TryGetValue(parentId, out var parentPart) && _byBody.TryGetValue(childId, out var childPart))
             {
-                _bridges.Add(new JointBridge(joint, parentPart, childPart, anchor, LayersOf(parentPart), LayersOf(childPart), overrides?.HaloFor(parentPart.Kind, parentPart.Body.Grid.Dimensions)));
+                // まわりは部位の格子と同じ向きで読む: +X 側の腕・脚は格子と一緒に鏡に写す。
+                var halo = overrides?.HaloFor(parentPart.Kind, parentPart.Body.Grid.Dimensions);
+                halo = halo is not null && fighter.OnPlusXSide(parentId) ? halo.MirroredX() : halo;
+                _bridges.Add(new JointBridge(joint, parentPart, childPart, anchor, LayersOf(parentPart), LayersOf(childPart), halo));
             }
         }
 
