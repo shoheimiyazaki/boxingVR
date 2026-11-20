@@ -107,12 +107,12 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
         private int _stable;
         private float? _lastDistance;
 
-        public Bout(Setup setup, int seed, float telegraph)
+        public Bout(Setup setup, int seed, float telegraph, FighterTuning? measuredTuning = null)
         {
             _range = setup.Range;
             Setup = setup;
             ControlFactory defender = setup.Defender == "still" ? _ => new StandGuard(GuardPosture.LowGuard) : s => new BoxerBot(GuardStyle(setup.Range).Validated(), s);
-            var tuning = new FighterTuning { MaxTargetSpeed = setup.NoCap ? NoCapSpeed : new FighterTuning().MaxTargetSpeed, ClampHandTarget = setup.Clamp };
+            var tuning = (measuredTuning ?? FighterTuning.Default) with { MaxTargetSpeed = setup.NoCap ? NoCapSpeed : (measuredTuning ?? FighterTuning.Default).MaxTargetSpeed, ClampHandTarget = setup.Clamp };
             Game = new BoxingGame(tuning, seed, new BoxingCorners(setup.Defender, defender));
             _puncher = new Puncher(setup.Path, telegraph, setup.Aim, setup.Depth);
         }

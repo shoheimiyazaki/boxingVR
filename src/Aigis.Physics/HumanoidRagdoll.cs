@@ -355,6 +355,9 @@ public static partial class HumanoidRagdoll
 
     public const float Overlap = 0.03f;
 
+    /// <summary>Default hinge position-constraint spring (Hz), same as <see cref="PhysicsWorld.AddHinge"/>.</summary>
+    public const float DefaultHingeHz = 8.937f;
+
     /// <summary>How far the foot's center sits forward of the ankle. See <see cref="Overlap"/>
     /// for why this is public.</summary>
     public const float FootForwardOffset = 0.05f;
@@ -526,11 +529,11 @@ public static partial class HumanoidRagdoll
     /// with its size, or every child box visibly juts out behind its joint (a 3 cm overlap on a 60 cm figure's 12 cm forearm sticks a
     /// quarter of it out behind the elbow). <see cref="JointAnchors"/> and the pose helpers assume the defaults.</remarks>
     public static (Parts Parts, HalfExtents HalfExtents, IReadOnlyList<JointGroup> Joints) BuildDetachable(PhysicsWorld world, Vector3 pelvisPosition, string namePrefix = "", MassDistribution? masses = null, HalfExtents? halfExtents = null, float jointMotorScale = 1f, bool selfCollision = false,
-        float overlap = Overlap, float footForwardOffset = FootForwardOffset)
-        => BuildCore(world, pelvisPosition, namePrefix, masses ?? MassDistribution.Default, halfExtents ?? HalfExtents.Default, jointMotorScale, selfCollision, overlap, footForwardOffset);
+        float overlap = Overlap, float footForwardOffset = FootForwardOffset, float elbowHz = DefaultHingeHz)
+        => BuildCore(world, pelvisPosition, namePrefix, masses ?? MassDistribution.Default, halfExtents ?? HalfExtents.Default, jointMotorScale, selfCollision, overlap, footForwardOffset, elbowHz);
 
     private static (Parts Parts, HalfExtents HalfExtents, IReadOnlyList<JointGroup> Joints) BuildCore(PhysicsWorld world, Vector3 pelvisPosition, string namePrefix, MassDistribution masses, HalfExtents dimensions, float jointMotorScale, bool selfCollision,
-        float overlap = Overlap, float footForwardOffset = FootForwardOffset)
+        float overlap = Overlap, float footForwardOffset = FootForwardOffset, float elbowHz = DefaultHingeHz)
     {
         ArgumentNullException.ThrowIfNull(world);
         if (!float.IsFinite(overlap) || overlap < 0f)
@@ -657,8 +660,8 @@ public static partial class HumanoidRagdoll
         // Elbows (upperarm-forearm): hinge, bend axis Y (curls the forearm forward), 0..~145deg.
         // Right uses the mirrored basis (see YAxisTwistBasisMirrored) so a shared positive servo
         // target curls both forearms toward the same world direction despite the mirrored rest.
-        var lElbow = HingeJoint(world, RagdollJoint.LeftElbow, lUpperArm, lForearm, lForearmPos - new Vector3(-1f * (forearmHalf.X - overlap), 0f, 0f), lUpperArmPos, lForearmPos, Vector3.UnitY, YAxisTwistBasis, -10f * deg, 145f * deg, jointMotorScale);
-        var rElbow = HingeJoint(world, RagdollJoint.RightElbow, rUpperArm, rForearm, rForearmPos - new Vector3(1f * (forearmHalf.X - overlap), 0f, 0f), rUpperArmPos, rForearmPos, Vector3.UnitY, YAxisTwistBasisMirrored, -10f * deg, 145f * deg, jointMotorScale);
+        var lElbow = HingeJoint(world, RagdollJoint.LeftElbow, lUpperArm, lForearm, lForearmPos - new Vector3(-1f * (forearmHalf.X - overlap), 0f, 0f), lUpperArmPos, lForearmPos, Vector3.UnitY, YAxisTwistBasis, -10f * deg, 145f * deg, jointMotorScale, elbowHz);
+        var rElbow = HingeJoint(world, RagdollJoint.RightElbow, rUpperArm, rForearm, rForearmPos - new Vector3(1f * (forearmHalf.X - overlap), 0f, 0f), rUpperArmPos, rForearmPos, Vector3.UnitY, YAxisTwistBasisMirrored, -10f * deg, 145f * deg, jointMotorScale, elbowHz);
 
         // Hips (pelvis-thigh): ball-and-socket, twist/swing around Y (the leg's own length axis).
         var lHip = BallJoint(world, RagdollJoint.LeftHip, pelvis, lThigh, pelvisPos + new Vector3(0f, -pelvisHalf.Y, 0f), pelvisPos, lThighPos, Vector3.UnitY, YAxisTwistBasis, 90f * deg, -40f * deg, 40f * deg, isSpineOrNeck: false, jointMotorScale);
@@ -812,9 +815,9 @@ public static partial class HumanoidRagdoll
     /// <see cref="BallJoint"/> joints can be), so <see cref="JointGroup.IsSpineOrNeck"/> is always
     /// false here.</summary>
     private static JointGroup HingeJoint(PhysicsWorld world, RagdollJoint joint, int bodyA, int bodyB, Vector3 anchorWorld, Vector3 posA, Vector3 posB,
-        Vector3 hingeAxis, Quaternion twistBasis, float minBendRadians, float maxBendRadians, float motorScale)
+        Vector3 hingeAxis, Quaternion twistBasis, float minBendRadians, float maxBendRadians, float motorScale, float frequency = DefaultHingeHz)
     {
-        var hinge = world.AddHinge(bodyA, bodyB, anchorWorld - posA, anchorWorld - posB, hingeAxis, hingeAxis);
+        var hinge = world.AddHinge(bodyA, bodyB, anchorWorld - posA, anchorWorld - posB, hingeAxis, hingeAxis, frequency);
         var twist = world.AddTwistLimit(bodyA, bodyB, twistBasis, twistBasis, minBendRadians, maxBendRadians);
         var motor = world.AddAngularMotor(bodyA, bodyB, maximumForce: DefaultJointMotorForce * motorScale);
         return new JointGroup(joint, bodyA, bodyB, hinge, twist, [hinge, twist, motor], false);
