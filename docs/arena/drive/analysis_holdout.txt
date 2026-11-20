@@ -1,0 +1,20 @@
+holdout pairs 100  seeds [np.float64(4.0), np.float64(5.0), np.float64(6.0)]  after = 70 N·m + feedforward 1, before = 28.2 N·m + feedforward 0
+peakFist           before   5.009  after   5.426  diff +0.416  (paired SD 0.202, improved 97% of points)  n=100
+fistHit            before   4.119  after   4.733  diff +0.614  (paired SD 0.638, improved 81% of points)  n=100
+peakShoulderFwd    before   0.731  after   1.123  diff +0.392  (paired SD 0.196, improved 99% of points)  n=100
+realPeakChestRate  before   3.382  after   6.682  diff +3.300  (paired SD 0.932, improved 100% of points)  n=100
+mass               before   8.622  after   9.612  diff +0.990  (paired SD 2.065, improved 68% of points)  n=100
+energy             before  75.736  after 114.614  diff +38.879  (paired SD 29.906, improved 91% of points)  n=100
+momentum           before  35.083  after  46.183  diff +11.100  (paired SD 8.717, improved 88% of points)  n=100
+  model r2 before: corr +0.715 bias -0.515 RMSE 0.970  (real mean 3.38, model mean 3.90)
+  model r4 before: corr +0.517 bias +1.073 RMSE 1.476  (real mean 3.38, model mean 2.31)
+  model r6 before: corr +0.371 bias +1.777 RMSE 2.087  (real mean 3.38, model mean 1.60)
+  model r2 after: corr +0.911 bias -2.355 RMSE 2.494  (real mean 6.68, model mean 9.04)
+  model r4 after: corr +0.726 bias +0.564 RMSE 1.263  (real mean 6.68, model mean 6.12)
+  model r6 after: corr +0.469 bias +2.269 RMSE 2.691  (real mean 6.68, model mean 4.41)
+predicted change of chest rate (r4): mean 3.808  real mean 3.3  corr 0.613
+marginal shoulder speed per chest rad/s: 0.11879585710725117
+tgt_far_s1 fistHit 4.77637 closing 4.6851 mass 8.91965 E 97.8939 mom 41.7894 peak 5.24578 chest 5.57358 shoulder 0.978986
+tgt_far_s4 fistHit 4.77637 closing 4.6851 mass 8.91965 E 97.8939 mom 41.7894 peak 5.24578 chest 5.57358 shoulder 0.978986
+tgt_reach_s1 fistHit 4.18979 closing 4.2496 mass 8.49284 E 76.6864 mom 36.0911 peak 4.91863 chest 4.89894 shoulder 0.842115
+tgt_reach_s4 fistHit 4.18979 closing 4.2496 mass 8.49284 E 76.6864 mom 36.0911 peak 4.91863 chest 4.89894 shoulder 0.842115

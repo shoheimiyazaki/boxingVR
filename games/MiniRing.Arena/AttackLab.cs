@@ -8,7 +8,7 @@ namespace MiniRing.Arena;
 /// 拳ごとに、当たった速さ・拳に乗った質量（体重の乗り）・1 発の運動エネルギー・ダメージと、1 本（溜めを含む）にかかる時間を測る。
 /// 溜めの威力は場合分けせず物理に任せる（溜めで縮めた体のバネと、体の動きが拳に移る: <see cref="Fighter"/> の体の動きとタメを拳へ移す仕組み）。
 /// </summary>
-internal sealed class AttackLab(int bouts, float seconds, int seed, Action<string> log, float targetGuard = 0.2f)
+internal sealed class AttackLab(int bouts, float seconds, int seed, Action<string> log, float targetGuard = 0.2f, FighterTuning? tuning = null)
 {
     private const float Dt = 1f / 240f;
 
@@ -100,7 +100,7 @@ internal sealed class AttackLab(int bouts, float seconds, int seed, Action<strin
                 bots.Add(bot);
                 return bot;
             }, s => new BoxerBot(target, s));
-            using var game = new BoxingGame(seed: seed + b, corners: corners);
+            using var game = new BoxingGame(tuning, seed: seed + b, corners: corners);
             for (var t = 0f; t < seconds; t += Dt)
             {
                 // punchlabと同じ観測時点: 接触する歩の制御前。筋の力積を適用した後の衝突キャッシュとは時点が異なる。

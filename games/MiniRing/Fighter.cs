@@ -39,6 +39,9 @@ public sealed partial class Fighter
     /// <summary>いまの胴のひねり [rad]（足の運びの軸足の回転に使う）。</summary>
     private float _twist;
 
+    /// <summary>胴のひねりの目標の動く速さ [rad/s]（平滑化。回すバネの速度の先行、<see cref="FighterTuning.TrunkTwistFeedForward"/>）。</summary>
+    private float _twistRate;
+
     /// <summary>両脚（腿・すね・足・つま先）の質量。</summary>
     private float _legMass;
 
@@ -216,7 +219,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 67; // 67: 物理を実物大の人の単位へ（相似の換算。表示は DisplaySpace で人形の大きさ）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 68; // 68: 胴のひねりを回旋筋のトルク（70 N·m）と目標の速さの先行で回す（駆動の DOE）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1221,6 +1224,9 @@ public sealed partial class Fighter
 
     /// <summary>上腕と前腕の質量（体を使わずに拳に乗る質量）。</summary>
     public float ArmMass(Hand hand) => _world.GetMass(_arms[(int)hand].UpperArm) + _world.GetMass(_arms[(int)hand].Forearm);
+
+    /// <summary>肩から肘・肘から拳の長さ [m]（調べもの用: 駆動の縮約モデル）。</summary>
+    internal (float Upper, float Lower) ArmLengths(Hand hand) => (_arms[(int)hand].UpperLength, _arms[(int)hand].LowerLength);
 
     /// <summary>
     /// いまの姿勢で、拳が方向 <paramref name="direction"/> に当たったときに乗る質量（<see cref="PunchMechanics"/>）。
@@ -2800,6 +2806,8 @@ public sealed partial class Fighter
         var bias = float.IsFinite(command.TwistBias) ? command.TwistBias : 0f;
         var twist = Math.Clamp(PunchMechanics.TorsoTwist(command.Left.TargetLocal, command.Right.TargetLocal, ArmReach, _tuning.MaxTorsoTwistRadians) + bias,
             -_tuning.MaxTorsoTwistRadians, _tuning.MaxTorsoTwistRadians);
+        _twistRate = Lerp(_twistRate, Math.Clamp((twist - _twist) / MathF.Max(1e-4f, dt), -_tuning.TrunkTwistMaxRate, _tuning.TrunkTwistMaxRate),
+            Math.Clamp(_tuning.TargetVelocitySmoothing * dt, 0f, 1f)); // 拳の目標の速度と同じ平滑化
         _twist = twist;
         var torsoLength = MathF.Max(0.141f, HeadPosition.Y - PelvisPosition.Y);
         var head = command.HeadOffset;
@@ -2825,14 +2833,19 @@ public sealed partial class Fighter
         // 頭を後ろへ引いた分（後ろへ歩くときの傾き・ヒップヒンジは含めない）だけ、腰の受け持ちを増やす。
         var sway = Math.Clamp(MathF.Atan2(head.Z, torsoLength), -_tuning.MaxLeanRadians, 0f);
         _pelvisTarget = Upright(_tuning.HipTwistShare, 0.25f, (0.25f * pitch) + ((_tuning.HipBackLeanShare - 0.25f) * sway));
-        ApplyUprightImpulse(Parts.Pelvis, _pelvisTarget, scale, dt);
-        ApplyUprightImpulse(Parts.Chest, Upright(1f, 1f, pitch), scale * 0.9f, dt);
+        var feedForward = _tuning.TrunkTwistFeedForward * _twistRate;
+        ApplyUprightImpulse(Parts.Pelvis, _pelvisTarget, scale, dt, feedForward * _tuning.HipTwistShare);
+        ApplyUprightImpulse(Parts.Chest, Upright(1f, 1f, pitch), scale * 0.9f, dt, feedForward);
     }
 
     private readonly Vector3[] _uprightIntegral = new Vector3[2];
     private Vector2 _centerIntegral;
 
-    private void ApplyUprightImpulse(int body, Quaternion target, float scale, float dt)
+    /// <summary>
+    /// 体の軸を目標の向きへ起こす・回す PD（部位の角速度の力積）。傾き（前後・左右）は <see cref="FighterTuning.UprightKp"/> のバネ、鉛直軸まわり（ひねり）は
+    /// 回旋筋のトルクから決めたバネ（<see cref="FighterTuning.TrunkRotatorTorque"/>）と、ひねりの目標の動く速さの先行 <paramref name="yawRate"/> [rad/s]。
+    /// </summary>
+    private void ApplyUprightImpulse(int body, Quaternion target, float scale, float dt, float yawRate = 0f)
     {
         var s = _world.GetState(body);
         var error = FighterMath.RotationError(s.Orientation, target);
@@ -2841,7 +2854,14 @@ public sealed partial class Fighter
         var slot = body == Parts.Pelvis ? 0 : 1;
         _uprightIntegral[slot] = (_uprightIntegral[slot] * MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.BalanceIntegralSeconds))) + (error * dt);
         var accel = (error * _tuning.UprightKp) + (_uprightIntegral[slot] * (_tuning.BalanceKi * _tuning.UprightKp)) - (s.AngularVelocity * _tuning.UprightKd);
-        accel = ClampLength(accel * scale, _tuning.MaxUprightAccel);
+        // 鉛直軸まわり（ひねり）: 回旋筋のトルクから決めたバネ。Kp は可動域の端の誤差でちょうど最大のトルク、減衰比は傾きのバネと同じ。
+        var chestYawInertia = MathF.Max(1e-4f, _world.GetLocalInertiaDiagonal(Parts.Chest).Y);
+        var rotatorTorque = _tuning.TrunkRotatorTorque * _tuning.TorqueScale;
+        var yawKp = rotatorTorque / (chestYawInertia * MathF.Max(1e-3f, _tuning.MaxTorsoTwistRadians));
+        var yawKd = _tuning.UprightKd / MathF.Sqrt(_tuning.UprightKp) * MathF.Sqrt(yawKp); // 2ζ√Kp（ζ = UprightKd / 2√UprightKp）
+        var yaw = (error.Y * yawKp) + (_uprightIntegral[slot].Y * (_tuning.BalanceKi * yawKp)) + ((yawRate - s.AngularVelocity.Y) * yawKd);
+        var yawLimit = rotatorTorque / MathF.Max(1e-4f, _world.GetLocalInertiaDiagonal(body).Y);
+        accel = ClampLength(new Vector3(accel.X, 0f, accel.Z) * scale, _tuning.MaxUprightAccel) + new Vector3(0f, Math.Clamp(yaw * scale, -yawLimit, yawLimit), 0f);
         // 加速度を慣性で力積へ（PhysicsWorld.GetLocalInertiaDiagonal の推奨式）。
         var local = Vector3.Transform(accel, Quaternion.Conjugate(s.Orientation));
         var impulse = Vector3.Transform(local * _world.GetLocalInertiaDiagonal(body) * dt, s.Orientation);

@@ -1,0 +1,17 @@
+pairs 100  seeds [np.float64(4.0), np.float64(5.0), np.float64(6.0)]
+peakFist           before   5.009  after   5.582  diff +0.573  (paired SD 0.362, improved 92% of points)  n=100
+fistHit            before   4.119  after   4.926  diff +0.807  (paired SD 0.801, improved 83% of points)  n=100
+peakShoulderFwd    before   0.731  after   1.311  diff +0.580  (paired SD 0.220, improved 100% of points)  n=100
+realPeakChestRate  before   3.382  after   8.615  diff +5.233  (paired SD 1.218, improved 100% of points)  n=100
+mass               before   8.622  after   8.853  diff +0.231  (paired SD 2.728, improved 53% of points)  n=100
+energy             before  75.736  after 116.157  diff +40.422  (paired SD 41.479, improved 81% of points)  n=100
+momentum           before  35.083  after  44.564  diff +9.481  (paired SD 12.209, improved 79% of points)  n=100
+  model r2 before: corr +0.715 bias -0.515 RMSE 0.970  (real mean 3.38, model mean 3.90)
+  model r4 before: corr +0.517 bias +1.073 RMSE 1.476  (real mean 3.38, model mean 2.31)
+  model r6 before: corr +0.371 bias +1.777 RMSE 2.087  (real mean 3.38, model mean 1.60)
+  model r2 after: corr +0.940 bias -3.011 RMSE 3.195  (real mean 8.62, model mean 11.63)
+  model r4 after: corr +0.874 bias -0.183 RMSE 0.964  (real mean 8.62, model mean 8.80)
+  model r6 after: corr +0.731 bias +1.826 RMSE 2.257  (real mean 8.62, model mean 6.79)
+predicted change of chest rate (r4): mean 6.489810799999998  real mean 5.23331483  corr 0.7285883312503219
+lever (shoulder/chest rate) 0.21992642125756504  predicted shoulder change 1.4272808638826948 real shoulder change 0.57998946
+predicted peak fist change 1.4272808638826948  real 0.5731766

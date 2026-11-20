@@ -25,7 +25,7 @@ try
         "drill" => Drill(Options.Parse(argv[1..], "book", "bouts", "seconds", "seed", "out")),
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
         "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
-        "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
+        "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log", "legacytrunk")),
         "fistmatch" => FistMatchCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "referee", "parallel", "out", "compare", "labels", "log", "confirm")),
         "punchlab" => PunchLabCommand(Options.Parse(argv[1..], "study", "depths", "aim", "paths", "defenders", "ranges", "reach", "far", "seeds", "telegraph", "nocap", "log", "video", "slow", "width", "height", "fps")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
@@ -1102,7 +1102,9 @@ static int AttackLabCommand(Options o)
     }
 
     var ranges = o.List("ranges", ["0.9", "1.05", "1.2"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
-    new AttackLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 33.57f, min: 1f), o.Int("seed", 1), Log).Run(combos, telegraphs, ranges);
+    // --legacytrunk true: PhysicsVersion 67 の胴のひねり（回旋筋のトルク 28.2 N·m・先行なし）で測る反事実（変更前後の比べ用。試合には使わない）。
+    var tuning = o.Get("legacytrunk") is { } legacy && bool.Parse(legacy) ? global::MiniRing.FighterTuning.Default with { TrunkRotatorTorque = 28.2f, TrunkTwistFeedForward = 0f } : null;
+    new AttackLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 33.57f, min: 1f), o.Int("seed", 1), Log, tuning: tuning).Run(combos, telegraphs, ranges);
     return 0;
 }
 

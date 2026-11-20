@@ -76,6 +76,33 @@ public sealed record FighterTuning
     public float UprightKp { get; init; } = 213f;
     public float UprightKd { get; init; } = 23.8f;
     public float MaxUprightAccel { get; init; } = 532.5f; // 上体を起こす角加速度の上限 [rad/s²]
+
+    /// <summary>
+    /// 胴の回旋筋（腹斜筋・多裂筋・回旋筋群）が出せる最大トルク [N·m]（TorqueScale 倍する前）。胸と腰を、向きの目標（両手の位置から決めるひねり）へ
+    /// 鉛直軸のまわりで回すバネの強さを決める: バネ定数 Kp = これ / (胸の鉛直軸まわりの慣性 × <see cref="MaxTorsoTwistRadians"/>)（ひねりの可動域の端でちょうど
+    /// この力）、減衰は <see cref="UprightKd"/> と同じ減衰比（<c>2ζ√Kp</c>）、角加速度の上限はこの力 / その部位の慣性。傾き（前後・左右）は従来の
+    /// <see cref="UprightKp"/>・<see cref="UprightKd"/>・<see cref="MaxUprightAccel"/> のまま。
+    /// 70 N·m は、人の体幹の回旋の静的な最大トルク 70〜120 N·m の下の端（成人、Mayer 1984 ほか。パンチの動作の動的な値は 150〜250 N·m 級でさらに大きいので、
+    /// 控えめな側を採った）。PhysicsVersion 67 までは、傾きと同じバネ（Kp = 213 /s²）を鉛直軸にも使っていて、胸の慣性 0.217 kg·m² × 213 × 可動域 0.611 rad = 28 N·m
+    /// （人の約 1/4〜1/5）しか出ず、胸の回旋は 2 rad/s（人 8〜12）にとどまった。測った値（docs/plans/DRIVE_DOE_ANALYSIS.md、docs/arena/drive/doe_trunk_grid.csv、基準の点）:
+    /// 28 → 60 → 90 → 120 N·m（先行 1）で拳の最高速 4.70 → 4.90 → 4.99 → 4.97 m/s、胸の最大角速度 3.4 → 4.7 → 5.4 → 5.9 rad/s。90 N·m 以上は効きが飽和し、
+    /// 80・90・120 N·m では、距離の差を 0.02 の余裕で測る試合のテスト（BuildReadTests.SameStyle_LongArms…）か、触れるだけの肘が当たるかどうかの縁のテスト
+    /// （ElbowContactTests.AFasterElbow…）のどちらかが外れる（70・60 N·m は両方通る。縁の値に敏感な測り方で、物理の誤りではない）。
+    /// </summary>
+    public float TrunkRotatorTorque { get; init; } = 70f;
+
+    /// <summary>
+    /// 胴のひねりの目標が動く速さ（角速度）を、回すバネの速度の目標に入れる割合（0 = 位置のバネだけ、1 = 目標の速さへそのまま合わせる）。
+    /// 拳を引く PD（<see cref="HandKd"/>）が目標の速度を先行に使うのと同じ構成（一つの現象には一つのモデル）: 位置のバネだけだと、減衰が
+    /// 目標への追いつきを Kp·誤差 / Kd に抑え、動く目標に遅れて追う。倍率ではなく、1 = 目標の動きと同じ速さで回そうとする。
+    /// </summary>
+    public float TrunkTwistFeedForward { get; init; } = 1f;
+
+    /// <summary>
+    /// 胴のひねりの目標の速さの上限 [rad/s]（先行の飽和）。人の体幹の回旋の角速度の最高は、パンチ・投げで 15 rad/s ほど（骨盤 8〜12、胸 12〜15）。
+    /// 目標が飛んだ（指令が一歩で変わった）ときの先行の暴れを抑える。
+    /// </summary>
+    public float TrunkTwistMaxRate { get; init; } = 15f;
     public float TurnSpeedRadians { get; init; } = 3.744f; // 向きを変える角速度の上限 [rad/s]（人形の単位の 2π × 0.596）
 
     // ── 移動・脚

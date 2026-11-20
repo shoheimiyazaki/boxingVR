@@ -54,7 +54,7 @@ public sealed class TrunkScaleProbe
             var fist = f.GloveVelocity(Hand.Right);
             var command = f.LastCommand;
             var target = Math.Clamp(PunchMechanics.TorsoTwist(command.Left.TargetLocal, command.Right.TargetLocal, f.ArmReach, tuning.MaxTorsoTwistRadians) + command.TwistBias, -tuning.MaxTorsoTwistRadians, tuning.MaxTorsoTwistRadians);
-            var facing = Quaternion.CreateFromAxisAngle(Vector3.UnitY, f.Frame.Yaw);
+            var facing = Quaternion.CreateFromAxisAngle(Vector3.UnitY, f.Frame.YawRadians);
             var chestYaw = -FighterMath.RotationError(chest.Orientation, facing).Y;
             var pelvisYaw = -FighterMath.RotationError(pelvis.Orientation, facing).Y;
             var pdAccel = ((target - chestYaw) * tuning.UprightKp) - (chest.AngularVelocity.Y * tuning.UprightKd);
