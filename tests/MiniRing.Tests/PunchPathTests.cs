@@ -128,7 +128,7 @@ public sealed class PunchPathTests
                 var aim = sense.Self.WorldToLocal(a.AimWorld);
                 right = legacy && a.Time >= 0f ? UniformPath(spec, a.Time, Guard(Hand.Right), aim, reach) : TechniqueExecution.Punch(a, Hand.Right, style.Lead, Guard(Hand.Right), aim, reach);
                 spring = TechniqueExecution.Spring(a);
-                twist = TechniqueExecution.Twist(a, Hand.Right, style.Lead);
+                twist = TechniqueExecution.Twist(a, Hand.Right);
                 head = TechniqueExecution.HeadShift(a, style.Lead, reach);
                 move = toward * (spec.StepIn * TechniqueExecution.Envelope(a));
                 if (a.Time is >= 0f and < 0.3357f)

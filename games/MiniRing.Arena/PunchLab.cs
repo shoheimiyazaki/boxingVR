@@ -67,7 +67,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
     /// 省略（null）なら従来と同じ。<paramref name="TwistBias"/> = 打ち出しの間に足す胴のひねりの目標 [rad]、<paramref name="StepInScale"/> = 踏み込みの倍、
     /// <paramref name="Spring"/> = 体から拳への移送の割合（0..1、既定 1）。
     /// </summary>
-    internal sealed record DriveKnobs(float TwistBias = 0f, float StepInScale = 1f, float Spring = 1f);
+    internal sealed record DriveKnobs(float TwistBias = 0f, float StepInScale = 1f, float Spring = 1f, float TwistLead = 0f, float HandDelay = 0f, float FootDrive = 0f);
 
     /// <summary>拳を目標へ引いた 1 歩（打ち出しからの時刻・縮める前と後の目標と拳の距離・欲しかった力・力の上限・実際の力・拳の速さ）。</summary>
     internal readonly record struct DriveStep(float T, float RawGap, float ClampedGap, float Desired, float Cap, float Force, float Speed);
@@ -239,9 +239,10 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
             if (Started && Action.Active)
             {
                 var aim = self.WorldToLocal(Action.AimWorld);
-                right = Target(aim, Guard(Hand.Right), reach);
-                spring = TechniqueExecution.Spring(Action) * (knobs?.Spring ?? 1f);
-                twist = TechniqueExecution.Twist(Action, Hand.Right, Style.Lead) + ((knobs?.TwistBias ?? 0f) * (Action.Time >= 0f ? MathF.Max(0f, 1f - (2f * Action.Time / Action.Duration)) : 0f));
+                var handAction = TechniqueExecution.Shift(Action, knobs is { } handSettings ? -handSettings.HandDelay : TechniqueExecution.PunchHandAdvanceSeconds);
+                right = Target(handAction, aim, Guard(Hand.Right), reach);
+                spring = TechniqueExecution.Spring(handAction) * (knobs?.Spring ?? 1f);
+                twist = TechniqueExecution.Twist(TechniqueExecution.Shift(Action, knobs?.TwistLead ?? 0f), Hand.Right) + ((knobs?.TwistBias ?? 0f) * (Action.Time >= 0f ? MathF.Max(0f, 1f - (2f * Action.Time / Action.Duration)) : 0f));
                 headTarget = TechniqueExecution.HeadShift(Action, Style.Lead, reach);
             }
 
@@ -249,7 +250,8 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
             var command = new FighterCommand(move, face.LengthSquared() > 1e-6f ? Vector3.Normalize(face) : Vector3.UnitZ,
                 new HandCommand(Guard(Hand.Left), false, Tuck: Style.ElbowTuck),
                 new HandCommand(right, false, spring, Tuck: TechniqueExecution.Tuck(Action, Style.ElbowTuck, false)),
-                _head, twist);
+                _head, twist, Step: TechniqueExecution.GroundDrive(Action, face.LengthSquared() > 1e-6f ? Vector3.Normalize(face) : Vector3.UnitZ,
+                    knobs?.TwistLead ?? 0f, knobs?.FootDrive ?? TechniqueExecution.PunchGroundDrive));
             if (Started)
             {
                 Elapsed += dt;
@@ -262,11 +264,11 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
             return command;
         }
 
-        private Vector3 Target(Vector3 aim, Vector3 guard, float reach)
+        private Vector3 Target(in PunchAction handAction, Vector3 aim, Vector3 guard, float reach)
         {
             if (path == PunchLabPath.Standard || Action.Time < 0f)
             {
-                return TechniqueExecution.Punch(Action, Hand.Right, Style.Lead, guard, aim, reach);
+                return TechniqueExecution.Punch(handAction, Hand.Right, Style.Lead, guard, aim, reach);
             }
 
             // 打ち出しの瞬間に一度に置いた目標（あご、または打ち抜く点）。狙いはワールドの点で保つ（体フレームは体と一緒に動く）。

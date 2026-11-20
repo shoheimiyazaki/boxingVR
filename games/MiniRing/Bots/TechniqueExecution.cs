@@ -7,9 +7,10 @@ internal static class TechniqueExecution
 {
     internal const float FullLoad = BotStyle.MaxTelegraph;
     // 既存ボットの値をそのまま移す。角度 [rad]、沈み・拳の引きは腕の長さ倍。
-    // 25° / 12° の逆ひねりと 0.08 腕の沈みで体のバネを縮める。
-    private const float LoadTwistRear = 25f * MathF.PI / 180f;
-    private const float LoadTwistLead = 12f * MathF.PI / 180f;
+    // 標準の右ストレートは最大溜めから腰と胸の実測回転角の合計が約 70° になるように設定。
+    private const float TwistReleaseSeconds = 0.015f;
+    private const float LoadTwistRadians = 12f * MathF.PI / 180f;
+    private const float ForwardTwistShare = 0.40f;
     private const float LoadDip = 0.08f;
     private static readonly Vector3 LoadCockRear = new(0f, -0.03f, -0.1f);
     private static readonly Vector3 LoadCockLead = new(0f, -0.01f, -0.05f);
@@ -71,16 +72,45 @@ internal static class TechniqueExecution
     internal static Vector3 LoadShift(in PunchAction action, float lead, float reach)
         => new Vector3(-0.5f * action.Spec.HeadShift.X * lead, -LoadDip, -0.5f * action.Spec.HeadShift.Z) * (reach * Wound(action));
 
-    internal static float Twist(in PunchAction action, Hand hand, Hand lead)
+    // 最大溜めの単独計測で、肩の前進と拳速を順に比較した値。
+    internal const float PunchHandAdvanceSeconds = 0.020f;
+    internal const float PunchGroundDrive = 1f;
+
+    internal static PunchAction HandPhase(in PunchAction action) => Shift(action, PunchHandAdvanceSeconds);
+
+    internal static PunchAction Shift(in PunchAction action, float seconds)
+    {
+        var loadShare = Math.Clamp(action.Load / FullLoad, 0f, 1f);
+        var time = action.Time + (seconds * loadShare * (action.Time < 0f ? Wound(action) : 1f));
+        return action with { Time = time };
+    }
+
+    internal static Vector3 GroundDrive(in PunchAction action, Vector3 forward, float lead, float strength)
+    {
+        if (!action.Active || !action.Loaded)
+        {
+            return Vector3.Zero;
+        }
+
+        const float pushSeconds = 0.080f;
+        var time = Shift(action, lead).Time;
+        var phase = Math.Clamp(time / pushSeconds, 0f, 1f);
+        return forward * (strength * Math.Clamp(action.Load / FullLoad, 0f, 1f) * 4f * phase * (1f - phase));
+    }
+
+    internal static float Twist(in PunchAction action, Hand hand)
     {
         if (!action.Active || !action.Loaded)
         {
             return 0f;
         }
 
-        var share = action.Time < 0f ? -Wound(action) : MathF.Min(1f, action.Load / FullLoad) * MathF.Max(0f, 1f - (2f * action.Time / action.Duration));
-        var size = hand == lead ? LoadTwistLead : LoadTwistRear;
-        return (hand == Hand.Right ? 1f : -1f) * size * share;
+        var load = MathF.Min(1f, action.Load / FullLoad);
+        var release = Math.Clamp(action.Time / TwistReleaseSeconds, 0f, 1f);
+        var blend = release * release * (3f - (2f * release));
+        var forward = ForwardTwistShare * (1f - Math.Clamp((action.Time - TwistReleaseSeconds) / (action.Duration * 0.5f), 0f, 1f));
+        var share = action.Time < 0f ? -Wound(action) : load * (-1f + ((1f + forward) * blend));
+        return (hand == Hand.Right ? 1f : -1f) * LoadTwistRadians * share;
     }
 
     internal static Vector3 DefenseHead(DefenseMove m, float side, float progress)

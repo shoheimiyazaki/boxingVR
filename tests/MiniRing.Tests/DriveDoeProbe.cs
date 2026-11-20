@@ -121,13 +121,13 @@ public sealed class DriveDoeProbe
     // ---------------------------------------------------------------- 1 点
 
     internal sealed record Sample(float T, Vector3 Glove, Vector3 GloveV, Vector3 Shoulder, Vector3 ShoulderV, Vector3 Target, float Cap, float Desired, float Force,
-        float Spring, Vector3 Dir, float ChestYaw, float PelvisYaw, Vector3 ChestV, float Fist, float ActSum, float Kd, float TwistTarget, float ChestRate, Vector3 ChestToShoulder, float TwistShape, float TwistBiasCmd);
+        float Spring, Vector3 Dir, float ChestYaw, float PelvisYaw, Vector3 ChestV, float Fist, float ActSum, float Kd, float TwistTarget, float ChestRate, Vector3 ChestToShoulder, float TwistShape, float TwistBiasCmd, Vector3 ChestOmega, float PelvisRate, Vector3 FrontOnChest);
 
     internal sealed record RunResult(bool Hit, float THit, Dictionary<string, double> F, List<Sample> Series, float[] Act0, float ArmMass, float Upper, float Lower, float MaxTargetSpeed, float Smoothing, TuningSnap Snap, float ChestYawInertia = 0.2167f);
 
     internal sealed record TuningSnap(FighterTuning Tuning);
 
-    internal static RunResult RunOne(double[] values, bool frozen, int seed)
+    internal static RunResult RunOne(double[] values, bool frozen, int seed, bool lockYaw = false)
     {
         var tuning = ApplyTuning(values);
         var knobs = new PunchLab.DriveKnobs((float)values[15], (float)values[16], (float)values[17]);
@@ -144,6 +144,24 @@ public sealed class DriveDoeProbe
         var world = game.World;
         var chest0 = world.GetState(f.Parts.Chest);
         var pelvis0 = world.GetState(f.Parts.Pelvis);
+        void LockYaw(int part, Quaternion reference)
+        {
+            var state = world.GetState(part);
+            var forward = Vector3.Transform(Vector3.UnitZ, state.Orientation);
+            var original = Vector3.Transform(Vector3.UnitZ, reference);
+            var yawDelta = MathF.Atan2(original.X, original.Z) - MathF.Atan2(forward.X, forward.Z);
+            var yaw = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yawDelta);
+            world.SetDynamicPose(part, state.Position, yaw * state.Orientation);
+            world.SetLinearVelocity(part, state.LinearVelocity);
+            world.SetAngularVelocity(part, state.AngularVelocity with { Y = 0f });
+        }
+
+        if (lockYaw)
+        {
+            LockYaw(f.Parts.Chest, chest0.Orientation);
+            LockYaw(f.Parts.Pelvis, pelvis0.Orientation);
+        }
+
         var series = new List<Sample>();
         var act0 = f.HandActivation(Hand.Right).ToArray();
         var armMass = f.ArmMass(Hand.Right);
@@ -177,7 +195,13 @@ public sealed class DriveDoeProbe
             var spring = f.LastCommand.Right.Spring;
             var kd = tuning.HandKd * (1f + ((tuning.LooseHandDamping - 1f) * Math.Clamp(spring, 0f, 1f)));
             series.Add(new Sample(t, glove, gloveV, shoulder, shoulderV, trace.Target, trace.Cap, trace.Desired, trace.Force, spring, dir,
-                chestYaw, pelvisYaw, chest.LinearVelocity, gloveV.Length(), actSum, kd, twistTarget, chest.AngularVelocity.Y, shoulder - chest.Position, PunchMechanics.TorsoTwist(cmd.Left.TargetLocal, cmd.Right.TargetLocal, f.ArmReach, 1f), float.IsFinite(cmd.TwistBias) ? cmd.TwistBias : 0f));
+                chestYaw, pelvisYaw, chest.LinearVelocity, gloveV.Length(), actSum, kd, twistTarget, chest.AngularVelocity.Y, shoulder - chest.Position, PunchMechanics.TorsoTwist(cmd.Left.TargetLocal, cmd.Right.TargetLocal, f.ArmReach, 1f), float.IsFinite(cmd.TwistBias) ? cmd.TwistBias : 0f,
+                chest.AngularVelocity, pelvis.AngularVelocity.Y, Vector3.Transform(Vector3.UnitZ, chest.Orientation)));
+            if (lockYaw)
+            {
+                LockYaw(f.Parts.Chest, chest0.Orientation);
+                LockYaw(f.Parts.Pelvis, pelvis0.Orientation);
+            }
             if (frozen)
             {
                 world.SetDynamicPose(f.Parts.Chest, chest0.Position, chest0.Orientation);
@@ -465,7 +489,7 @@ public sealed class DriveDoeProbe
 
     // ---------------------------------------------------------------- 実行
 
-    private static string OutDir
+    internal static string OutDir
     {
         get
         {
@@ -722,4 +746,59 @@ public sealed class DriveDoeProbe
 
         Execute(Label("targets"), jobs, Threads);
     }
+    /// <summary>v68 の基準入力を使い、肘の短縮速度・Hill 曲率・腕サーボの組み合わせを比較する。</summary>
+    [TestMethod]
+    public void FistSpeed_Grid()
+    {
+        var baseline = Factors.Select(f => f.Base).ToArray();
+        var elbowSpeeds = new[] { baseline[1], 50d, 60d };
+        var curvatures = new[] { baseline[20], 0.35d, 0.45d };
+        var servoRates = new[] { baseline[6], 12d };
+        var jobs =
+            from elbow in elbowSpeeds
+            from curvature in curvatures
+            from servo in servoRates
+            from seed in Enumerable.Range(1, 3)
+            select ($"grid_{Array.IndexOf(elbowSpeeds, elbow)}{Array.IndexOf(curvatures, curvature)}{Array.IndexOf(servoRates, servo)}_s{seed}",
+                "grid", false, seed, ArmSpeedFactors(baseline, elbow, curvature, servo, baseline[18]));
+        Execute("fist_speed_grid_v68", jobs.ToArray(), Threads);
+    }
+
+    /// <summary>格子で選んだ設定を種 4〜6、基準と半歩遠い間合いで検証する。</summary>
+    [TestMethod]
+    public void FistSpeed_Holdout()
+    {
+        var baseline = Factors.Select(f => f.Base).ToArray();
+        var selected = Environment.GetEnvironmentVariable("FIST_SPEED_GRID_POINT")
+            ?? throw new InvalidOperationException("Set FIST_SPEED_GRID_POINT to the selected three grid indices.");
+        if (selected.Length != 3 || selected[0] is < '0' or > '2' || selected[1] is < '0' or > '2' || selected[2] is < '0' or > '1')
+        {
+            throw new ArgumentException("Grid point must contain elbow 0–2, curvature 0–2 and servo 0–1.", nameof(selected));
+        }
+
+        var elbow = new[] { baseline[1], 50d, 60d }[selected[0] - '0'];
+        var curvature = new[] { baseline[20], 0.35d, 0.45d }[selected[1] - '0'];
+        var servo = new[] { baseline[6], 12d }[selected[2] - '0'];
+        var settings = new[] { "baseline", "candidate" };
+        var jobs =
+            from seed in Enumerable.Range(4, 3)
+            from range in new[] { baseline[18], 1.3d }
+            from setting in settings
+            let values = setting == "baseline"
+                ? ArmSpeedFactors(baseline, baseline[1], baseline[20], baseline[6], range)
+                : ArmSpeedFactors(baseline, elbow, curvature, servo, range)
+            select ($"{setting}_{(range == baseline[18] ? "reach" : "far")}_s{seed}", setting, false, seed, values);
+        Execute($"fist_speed_holdout_{selected}_v68", jobs.ToArray(), Threads);
+    }
+
+    private static double[] ArmSpeedFactors(double[] baseline, double elbow, double curvature, double servo, double range)
+        => baseline.Select((value, index) => index switch
+        {
+            1 => elbow,
+            6 => servo,
+            18 => range,
+            20 => curvature,
+            _ => value,
+        }).ToArray();
+
 }

@@ -14,7 +14,7 @@ public sealed class TrunkTwistTests
     /// <summary>右ストレートを 1 本打たせ、打ち出しから当たる頃（0.13 秒）までの胸の鉛直軸まわりの角速度の最大 [rad/s] と、肩の前進の最大 [m/s] を返す。</summary>
     private static (float ChestRate, float ShoulderForward) Punch(FighterTuning tuning)
     {
-        using var bout = new PunchLab.Bout(new(PunchLabPath.Standard, "still", "reach", 1.05f, false), 1, 0.1343f, tuning);
+        using var bout = new PunchLab.Bout(new(PunchLabPath.Standard, "still", "reach", 1.05f, false), 1, 0.1343f, tuning with { HipTwistShare = 0.45f, ChestTwistResponseSeconds = 0.025f }, new PunchLab.DriveKnobs());
         for (var guard = 0; bout.PunchTime is null; guard++)
         {
             Assert.IsLessThan(6000, guard, "打ち出しまで寄せられる");
@@ -52,7 +52,7 @@ public sealed class TrunkTwistTests
         var legacy = FighterTuning.Default with { TrunkRotatorTorque = 28.2f, TrunkTwistFeedForward = 0f };
         var stronger = legacy with { TrunkRotatorTorque = 120f };
         var feedForward = legacy with { TrunkTwistFeedForward = 1f };
-        var both = FighterTuning.Default; // 既定 = 70 N·m + 先行 1
+        var both = FighterTuning.Default;
 
         var baseline = Punch(legacy);
         var strong = Punch(stronger);
@@ -65,6 +65,81 @@ public sealed class TrunkTwistTests
         Assert.IsGreaterThan(ff.ChestRate, all.ChestRate, $"先行にトルクを足すとさらに速い: {all.ChestRate:F2} 対 {ff.ChestRate:F2}");
         Assert.IsGreaterThan(baseline.ShoulderForward, all.ShoulderForward, $"胸が速く回ると肩が前へ出る: {all.ShoulderForward:F2} 対 {baseline.ShoulderForward:F2}");
         Assert.IsGreaterThan(4f, all.ChestRate, $"既定の体の胸は 4 rad/s を超えて回る: {all.ChestRate:F2}");
+    }
+
+    [TestMethod]
+    public void LoadedCross_ReversesThePelvisBeforeTheChest()
+    {
+        var baseline = LoadedCross(FighterTuning.Default with { PelvisRotatorTorque = null });
+        var adjusted = LoadedCross(FighterTuning.Default);
+        Assert.IsGreaterThan(baseline, adjusted, "腰のトルクを上げると腰の最高角速度が上がる");
+    }
+
+    private static float LoadedCross(FighterTuning tuning)
+    {
+        using var bout = new PunchLab.Bout(new(PunchLabPath.Standard, "still", "reach", 1.05f, false), 1, Bots.BotStyle.MaxTelegraph, tuning with { HipTwistShare = 0.45f, ChestTwistResponseSeconds = 0.025f }, new PunchLab.DriveKnobs());
+        for (var guard = 0; bout.PunchTime is null; guard++)
+        {
+            Assert.IsLessThan(6000, guard);
+            bout.Step();
+        }
+
+        var fighter = bout.Game.Player;
+        var world = bout.Game.World;
+        float Yaw(int part) => BodyFrame.DeltaAngle(fighter.Frame.YawRadians,
+            BodyFrame.YawOf(Vector3.Transform(Vector3.UnitZ, world.GetState(part).Orientation), fighter.Frame.YawRadians));
+        var startPelvis = Yaw(fighter.Parts.Pelvis);
+        var startChest = Yaw(fighter.Parts.Chest);
+        var loadedPelvis = startPelvis;
+        var loadedChest = startChest;
+        var pelvisForward = float.PositiveInfinity;
+        var chestForward = float.PositiveInfinity;
+        var peakFist = 0f;
+        var maxPelvis = float.NegativeInfinity;
+        var maxChest = float.NegativeInfinity;
+        var maxPelvisRate = 0f;
+        var maxChestRate = 0f;
+        while (bout.PunchTime is { } time && time < 0.25f)
+        {
+            var pelvis = Yaw(fighter.Parts.Pelvis);
+            var chest = Yaw(fighter.Parts.Chest);
+            if (time < 0f)
+            {
+                loadedPelvis = pelvis;
+                loadedChest = chest;
+            }
+            else
+            {
+                if (pelvis >= startPelvis)
+                {
+                    pelvisForward = MathF.Min(pelvisForward, time);
+                }
+
+                if (chest >= startChest)
+                {
+                    chestForward = MathF.Min(chestForward, time);
+                }
+
+                peakFist = MathF.Max(peakFist, fighter.GloveVelocity(Hand.Right).Length());
+                maxPelvis = MathF.Max(maxPelvis, pelvis);
+                maxChest = MathF.Max(maxChest, chest);
+                maxPelvisRate = MathF.Max(maxPelvisRate, world.GetState(fighter.Parts.Pelvis).AngularVelocity.Y);
+                maxChestRate = MathF.Max(maxChestRate, world.GetState(fighter.Parts.Chest).AngularVelocity.Y);
+            }
+
+            bout.Step();
+        }
+
+        Console.WriteLine($"load pelvis={loadedPelvis - startPelvis:F3} rad chest={loadedChest - startChest:F3} rad; return pelvis={pelvisForward:F4}s chest={chestForward:F4}s; fistPeak={peakFist:F3} m/s");
+        var pelvisSweep = (maxPelvis - loadedPelvis) * 180f / MathF.PI;
+        var chestSweep = (maxChest - loadedChest) * 180f / MathF.PI;
+        Console.WriteLine($"sweep pelvis={pelvisSweep:F2}° chest={chestSweep:F2}° sum={pelvisSweep + chestSweep:F2}°; peak yaw pelvis={maxPelvisRate:F2} chest={maxChestRate:F2} rad/s");
+        Assert.IsLessThan(startPelvis, loadedPelvis, "腰が構えから逆回転して溜める");
+        Assert.IsLessThan(startChest, loadedChest, "胸が構えから逆回転して溜める");
+        Assert.IsTrue(float.IsFinite(chestForward), "胸が前方へ戻る");
+        Assert.IsLessThan(chestForward, pelvisForward, "腰が胸より先に構えの向きを通過する");
+        Assert.AreEqual(70f, pelvisSweep + chestSweep, 3f, "最大溜めからの腰と胸の回転角の合計");
+        return maxPelvisRate;
     }
 
     /// <summary>傾き（前後・左右）のバネは変えていない: 回旋筋のトルクを変えても、立っている体の傾きの保ち方（胸が起きている）は同じ。</summary>

@@ -209,7 +209,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 59; // 59: ボットの時間・速さ・距離を実物大の単位へ（相似の換算）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 62; // 62: 溜めた拳で脚のバネを放ち、手の解放を先行させる。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;
@@ -345,7 +345,7 @@ public sealed class BoxerBot : IFighterControl
             if (action.Active)
             {
                 var aim = self.WorldToLocal(action.AimWorld) + action.AimOffset;
-                var target = TechniqueExecution.Punch(action, hand, Style.Lead, Guard(hand, reach, headLocal), aim, reach);
+                var target = TechniqueExecution.Punch(TechniqueExecution.HandPhase(action), hand, Style.Lead, Guard(hand, reach, headLocal), aim, reach);
 
                 Set(hand, ref left, ref right, target);
             }
@@ -415,14 +415,15 @@ public sealed class BoxerBot : IFighterControl
 
         StepProfile.End(StepProfile.Slot.BotExecute, executeStart);
         return new FighterCommand(move, kickFace, leftHand, rightHand, head, LoadTwist() + kickTwist + elbowTwist, LeftLeg: _kickSide == Hand.Left ? leg : null, RightLeg: _kickSide == Hand.Right ? leg : null,
-            Step: _kick is null && _clinchTime < 0f && _throwTime < 0f ? _step : Vector3.Zero);
+            Step: _kick is null && _clinchTime < 0f && _throwTime < 0f ? _step + TechniqueExecution.GroundDrive(_hands[(int)Hand.Left], kickFace, 0f, TechniqueExecution.PunchGroundDrive)
+                + TechniqueExecution.GroundDrive(_hands[(int)Hand.Right], kickFace, 0f, TechniqueExecution.PunchGroundDrive) : Vector3.Zero);
     }
 
     /// <summary>
     /// 体の動きとタメを拳へ移すか（<see cref="HandCommand.Spring"/>）: 拳を出していく間。溜め（引いて縮めた体のバネ）・回避・前の拳で
     /// 動いた体の運動量が拳に乗る。溜めの無い拳・止まった体から出す拳には、渡すものがほとんど無い（場合分けしない）。
     /// </summary>
-    private float Spring(Hand hand) => TechniqueExecution.Spring(_hands[(int)hand]);
+    private float Spring(Hand hand) => TechniqueExecution.Spring(TechniqueExecution.HandPhase(_hands[(int)hand]));
 
     public void OnPunchLanded(Hand hand, float damage)
     {
@@ -1620,7 +1621,7 @@ public sealed class BoxerBot : IFighterControl
         var twist = 0f;
         foreach (var hand in Hands)
         {
-            twist += TechniqueExecution.Twist(_hands[(int)hand], hand, Style.Lead);
+            twist += TechniqueExecution.Twist(_hands[(int)hand], hand);
         }
 
         return twist;

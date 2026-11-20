@@ -89,7 +89,10 @@ public sealed record FighterTuning
     /// 80・90・120 N·m では、距離の差を 0.02 の余裕で測る試合のテスト（BuildReadTests.SameStyle_LongArms…）か、触れるだけの肘が当たるかどうかの縁のテスト
     /// （ElbowContactTests.AFasterElbow…）のどちらかが外れる（70・60 N·m は両方通る。縁の値に敏感な測り方で、物理の誤りではない）。
     /// </summary>
-    public float TrunkRotatorTorque { get; init; } = 70f;
+    public float TrunkRotatorTorque { get; init; } = 120f;
+
+    /// <summary>腰の回旋筋のトルク上限 [N·m]。null なら胸と同じ値を使う。150 N·m で最大溜めの腰の角速度 3.67 rad/s。</summary>
+    public float? PelvisRotatorTorque { get; init; } = 150f;
 
     /// <summary>
     /// 胴のひねりの目標が動く速さ（角速度）を、回すバネの速度の目標に入れる割合（0 = 位置のバネだけ、1 = 目標の速さへそのまま合わせる）。
@@ -97,6 +100,9 @@ public sealed record FighterTuning
     /// 目標への追いつきを Kp·誤差 / Kd に抑え、動く目標に遅れて追う。倍率ではなく、1 = 目標の動きと同じ速さで回そうとする。
     /// </summary>
     public float TrunkTwistFeedForward { get; init; } = 1f;
+
+    /// <summary>腰から胸へひねりの指令が移る時定数 [s]。腰の解放後も胸に逆回転の溜めが残る。</summary>
+    public float ChestTwistResponseSeconds { get; init; } = 0.012f;
 
     /// <summary>
     /// 胴のひねりの目標の速さの上限 [rad/s]（先行の飽和）。人の体幹の回旋の角速度の最高は、パンチ・投げで 15 rad/s ほど（骨盤 8〜12、胸 12〜15）。
@@ -327,7 +333,7 @@ public sealed record FighterTuning
     public float WeightShiftShare { get; init; } = 0.3f;
     /// <summary>両手の位置から決める胴のひねりの最大角。腰はその一部だけ回る。</summary>
     public float MaxTorsoTwistRadians { get; init; } = 35f * MathF.PI / 180f;
-    public float HipTwistShare { get; init; } = 0.45f;
+    public float HipTwistShare { get; init; } = 0.95f;
     /// <summary>頭のずれ（前傾・スリップ）で胴を傾けられる最大角。</summary>
     public float MaxLeanRadians { get; init; } = 30f * MathF.PI / 180f;
 
