@@ -45,10 +45,17 @@ public readonly record struct PunchSpec(
     public const float OutboundShare = 0.6f;
 
     /// <summary>
-    /// 拳の目標が打ち抜く先へ届くまでの、振り出しに占める割合。目標は経路を先回りし、拳はそれを肩・肘の筋肉の力で追う:
-    /// 拳の速さは予定の時間ではなく、筋肉の力・加速できる距離（予備動作で引いた分）・体のバネのタメで決まる。
+    /// 拳の目標が打ち抜く先へ届くまでの、振り出しに占める割合。目標は経路を先回りし（<see cref="PunchPath.MinimumJerk"/> の速さの山で）、
+    /// 拳はそれを肩・肘の筋肉の力で追う: 拳の速さは予定の時間ではなく、筋肉の力・加速できる距離・体のバネのタメで決まる。
+    /// 0.3（右ストレート 0.4 s で 0.072 s）は、既定の右ストレートの行程（構え → 打ち抜く先 約 1 腕）で目標の速さの山（平均の 1.875 倍）が目標の速度の上限
+    /// <see cref="FighterTuning.MaxTargetSpeed"/>（6 m/s）を越えない短さ（時間の短い技・行程の長い技では山が上限を越え、目標の速度のフィードフォワードがそこで切れる）。これより短くしても拳は速くならない（punchlab、届く間合いの右ストレートの打ち出しの最高速:
+    /// 0.1 / 0.15 / 0.2 / 0.3 で 3.6 / 3.6 / 3.6 / 3.4 m/s、当たった瞬間 3.3 / 3.3 / 3.2 / 3.3 m/s。拳のバネが追える速さで頭打ち）。0.5 は 2.9 m/s。
+    /// 前の値（0.5、目標は等速）は 2.0 m/s だった（docs/BOXING.md 1-7）。
     /// </summary>
-    public const float LaunchShare = 0.5f;
+    public const float LaunchShare = 0.3f;
+
+    /// <summary>打ち出しから、拳の目標が打ち抜く先へ届くまでの、技の時間に占める割合（<see cref="OutboundShare"/> × <see cref="LaunchShare"/>）。</summary>
+    public const float ArrivalShare = OutboundShare * LaunchShare;
 
     /// <summary>経路の曲がり（0 = 構えから狙いへまっすぐ … 1 = 溜めの点を通る）。溜めの横・下の大きさで決める（0.5 以上で 1）。</summary>
     public float Curve => Math.Clamp(MathF.Max(Lateral, MathF.Abs(Low)) / 0.5f, 0f, 1f);
@@ -58,6 +65,8 @@ public readonly record struct PunchSpec(
 
     /// <summary>
     /// 時刻 <paramref name="time"/> の拳の目標（体フレームのローカル）。前半で <see cref="PunchPath"/> を打ち出し、後半で構えへ戻す。
+    /// 経路の上の進み具合は時間の最小躍度の曲線（<see cref="PunchPath.MinimumJerk"/>）: 目標の速さは打ち出しの途中で山になり、打ち抜く先・構えで 0 に戻る。
+    /// 技の種類で形を分けず、どの技も同じ式で、違いは時間（<see cref="Duration"/>）と行程（溜め・打ち抜き）だけ。
     /// </summary>
     public Vector3 Evaluate(Hand hand, float time, float duration, Vector3 guard, Vector3 aim, float reach)
     {
@@ -67,8 +76,9 @@ public readonly record struct PunchSpec(
         // 外側の下から弧を描いて来て、頭の横下へ外す回避に自分から当たりに行っていた（基本動作編 B9）。
         var straight = (guard + through) * 0.5f;
         var windup = Vector3.Lerp(straight, PunchPath.Windup(hand, Lateral, Low, reach), Curve);
-        var outbound = PunchPath.Point(guard, windup, through, MathF.Min(t / (OutboundShare * LaunchShare), Extend));
-        return Vector3.Lerp(outbound, guard, MathF.Max(0f, (t - OutboundShare) / (1f - OutboundShare)));
+        // フェイント（Extend < 1）は同じ曲線を途中までの行程に縮める（途中で切ると、速さの山の近くで目標が急に止まる。レビュー指摘）。
+        var outbound = PunchPath.Point(guard, windup, through, Extend * PunchPath.MinimumJerk(t / ArrivalShare));
+        return Vector3.Lerp(outbound, guard, PunchPath.MinimumJerk((t - OutboundShare) / (1f - OutboundShare)));
     }
 }
 

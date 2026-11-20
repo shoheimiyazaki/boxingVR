@@ -9,7 +9,7 @@ namespace MiniRing.Arena;
 /// <summary>右ストレートの拳の目標の動かし方（punchlab の比べる軸）。</summary>
 internal enum PunchLabPath
 {
-    /// <summary>今の技の経路（<see cref="PunchSpec.Evaluate"/>: 構え → 打ち抜く先を等速で）。</summary>
+    /// <summary>今の技の経路（<see cref="PunchSpec.Evaluate"/>。LogicVersion 57 までは構え → 打ち抜く先を等速、58 から最小躍度の曲線）。</summary>
     Standard,
 
     /// <summary>打ち出しの瞬間に、拳の目標を狙いの点（既定は相手のあごの中心）へ一度に置く（経路なし）。</summary>
@@ -51,7 +51,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
 
     /// <summary>1 本の測定。</summary>
     internal readonly record struct Trial(int Seed, float Distance, bool Hit, HitZone Zone, float TimeToHit, float Peak, float FistAtHit, float Closing, float Mass,
-        float Energy, float Damage, float HeadTwist, float Concussion, float Glow, float Bruise, bool Fell, IReadOnlyList<(float T, float Speed)> Series);
+        float Energy, float Damage, float HeadTwist, float Concussion, float Glow, float Bruise, bool Fell, IReadOnlyList<(float T, float Speed)> Series, bool Settled = true);
 
     internal static string PathName(PunchLabPath path) => path switch
     {
@@ -101,6 +101,9 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
 
         public Setup Setup { get; }
 
+        /// <summary>間合いに寄せ終わってから打ち始めたか（偽なら寄せる時間が尽きて、その場の間合いで打った）。</summary>
+        public bool Settled { get; private set; }
+
         public BoxingGame Game { get; }
 
         /// <summary>打ち出しからの時間 [s]（溜めの間は負、寄せている間は null）。</summary>
@@ -126,6 +129,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
                 _clock += Dt;
                 if (_stable * Dt >= SettleSeconds || _clock > ApproachSeconds)
                 {
+                    Settled = _stable * Dt >= SettleSeconds;
                     _puncher.Start(sense);
                 }
 
@@ -220,7 +224,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
             var outbound = Action.Duration * PunchSpec.OutboundShare;
             var back = MathF.Max(0f, (Action.Time - outbound) / (Action.Duration - outbound));
             var placed = path == PunchLabPath.Instant ? aim : PunchPath.Through(aim, _spec.Overshoot, reach);
-            return Vector3.Lerp(placed, guard, back);
+            return Vector3.Lerp(placed, guard, PunchPath.MinimumJerk(back)); // 戻りは今の経路と同じ曲線
         }
     }
 
@@ -257,13 +261,14 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
             }
 
             bout.Step();
+            var after = bout.PunchTime ?? t; // 当たりはこの歩で起きた: 時刻は歩の終わり、拳の速さは当たる前の歩の値（当たった後は接触で揃ってしまう）
             foreach (var hit in game.RecentHits.Where(h => h.Attacker == attacker && h.Hand == Hand.Right && !h.Kick && !h.Elbow))
             {
-                if (t >= 0f && t <= StrikeWindow && hit.Energy > bestEnergy)
+                if (after > 0f && after <= StrikeWindow && hit.Energy > bestEnergy)
                 {
                     best = hit;
                     bestEnergy = hit.Energy;
-                    timeToHit = t;
+                    timeToHit = after;
                     fistAtHit = fist;
                     twist = victim.LastHeadTwist;
                 }
@@ -275,8 +280,8 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
 
         var bruise = (victim.Voxels?.SkinBruiseTotal() ?? 0f) - bruise0;
         return best is { } h
-            ? new Trial(seed, distance, true, h.Zone, timeToHit, peak, fistAtHit, h.Speed, h.ImpactMass, h.Energy, h.Damage, twist, concussion, BoxingGame.HitStrength(h.Damage), bruise, fell, points)
-            : new Trial(seed, distance, false, HitZone.Body, -1f, peak, 0f, 0f, 0f, 0f, 0f, 0f, concussion, 0f, bruise, fell, points);
+            ? new Trial(seed, distance, true, h.Zone, timeToHit, peak, fistAtHit, h.Speed, h.ImpactMass, h.Energy, h.Damage, twist, concussion, BoxingGame.HitStrength(h.Damage), bruise, fell, points, bout.Settled)
+            : new Trial(seed, distance, false, HitZone.Body, -1f, peak, 0f, 0f, 0f, 0f, 0f, 0f, concussion, 0f, bruise, fell, points, bout.Settled);
     }
 
     public IReadOnlyList<(Setup Setup, IReadOnlyList<Trial> Trials)> Run(IReadOnlyList<Setup> setups, IReadOnlyList<int> seeds)
@@ -302,7 +307,8 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
         {
             var hits = trials.Where(t => t.Hit).ToList();
             float Mean(Func<Trial, float> f) => hits.Count > 0 ? hits.Average(f) : 0f;
-            log($"| {setup.Label} | {F(trials.Average(t => t.Distance))} | {hits.Count} / {trials.Count} | {string.Join(" ", hits.GroupBy(h => h.Zone).Select(g => $"{g.Key} {g.Count()}"))} | {F(Mean(t => t.TimeToHit), "0.000")} | {F(trials.Average(t => t.Peak))} | {F(Mean(t => t.FistAtHit))} | {F(Mean(t => t.Closing))} | {F(Mean(t => t.Mass))} | {F(Mean(t => t.Energy))} | {F(Mean(t => t.Damage), "0.0")} | {F(Mean(t => t.HeadTwist), "0.0")} | {F(trials.Average(t => t.Concussion), "0.000")} | {F(Mean(t => t.Glow))} | {F(trials.Average(t => t.Bruise), "0.0")} | {trials.Count(t => t.Fell)} |");
+            var unsettled = trials.Count(t => !t.Settled);
+            log($"| {setup.Label} | {F(trials.Average(t => t.Distance))}{(unsettled > 0 ? $"（寄せきれず {unsettled}）" : "")} | {hits.Count} / {trials.Count} | {string.Join(" ", hits.GroupBy(h => h.Zone).Select(g => $"{g.Key} {g.Count()}"))} | {F(Mean(t => t.TimeToHit), "0.000")} | {F(trials.Average(t => t.Peak))} | {F(Mean(t => t.FistAtHit))} | {F(Mean(t => t.Closing))} | {F(Mean(t => t.Mass))} | {F(Mean(t => t.Energy))} | {F(Mean(t => t.Damage), "0.0")} | {F(Mean(t => t.HeadTwist), "0.0")} | {F(trials.Average(t => t.Concussion), "0.000")} | {F(Mean(t => t.Glow))} | {F(trials.Average(t => t.Bruise), "0.0")} | {trials.Count(t => t.Fell)} |");
         }
 
         log("\n拳の速さの時系列（最初の種、10 ms ごと、[m/s]。t = 0 が打ち出し、負は溜め）:\n");
@@ -330,6 +336,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
     public static void Video(IReadOnlyList<(Setup Left, Setup Right)> scenes, int seed, float telegraph, float slow, int width, int height, int fps, string outPath, Action<string> log,
         float slowFrom = -0.12f, float slowTo = 0.4f, float after = 1.6f)
     {
+        width -= width % 4; // 左右の半分がそれぞれ偶数の幅（yuv420p は奇数の幅を受けない）
         var half = width / 2;
         using var renderer = new HeadlessRenderer((uint)half, (uint)height);
         using var ffmpeg = Process.Start(new ProcessStartInfo("ffmpeg",

@@ -116,11 +116,13 @@ public sealed class EvasionBasicsTests
         var openHead = HeadShare(openRuns);
         var slippedHead = HeadShare(slippedRuns);
         var slippedEvade = 1f - (slippedRuns.Sum(r => r.Failed) / (float)slippedRuns.Sum(r => r.Defenses));
-        Console.WriteLine($"open {openRuns.Sum(r => r.Punches)} punches head {openHead:P0}, slipped head {slippedHead:P0} evade {slippedEvade:P0}");
+        Console.WriteLine($"open {openRuns.Sum(r => r.Punches)} punches head {openHead:P0}, slipped head {slippedHead:P0} evade {slippedEvade:P0}; punches per seed {string.Join(",", openRuns.Select(r => r.Punches))}");
 
         // 構えたまま動かない受け手は、頭に 4 発当たると意識が 1.0 → 0.70 → 0.55 → 0 と落ちて倒れ、ラウンドが終わる（2026-11-18、床から支える体で測り直し: 1.5 秒で
         // 4 発・全部頭）。ここの打数は標本の大きさでなく「倒れるまでに打たれた数」なので、どの種でも倒れるまでの 4 発以上で、頭に当たる割合は下で見る。
-        Assert.IsTrue(openRuns.All(r => r.Punches >= 4), "every seed: at least four punches before the still defender falls");
+        // 2026-11-20（LogicVersion 58、拳の経路）: 右ストレートが速く重くなり（打ち出しの最高速 2.0 → 3.4 m/s）、種 7 では 3 発で倒れる（種 1〜8: 7,5,7,7,7,5,3,5 発）。
+        // 頭に当たる割合は 65 %、外せば 5 %（前は 47 % と 0 近く）で主張は変わらないので、倒れるまでの数の下限を 3 にした。
+        Assert.IsTrue(openRuns.All(r => r.Punches >= 3), "every seed: at least three punches before the still defender falls");
         // 頭を人の比率（HeadScale 0.8）に小さくしてから、打たれてのけぞった頭は溜めの始めに決めた狙いから外れやすくなった（82 % → 71 %。ダメージ編 D2）。
         // 2026-11-17: 狙いを体（胴）の速さで延ばすようにしてから 57 %（打たれて下がった体の速さの分だけ奥を狙い、戻った頭の手前を通る拳が出る。詰めのドリルでは顔に当たる割合が上がった）。
         // 2026-11-18（PhysicsVersion 45、体の運び）: 構えて止まった攻め手の拳は、体が前へ動かないので腕だけの質量（0.33 kg）で当たる。

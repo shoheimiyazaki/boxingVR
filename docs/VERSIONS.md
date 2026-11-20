@@ -63,6 +63,7 @@
 
 ボットの判断の仕組みを変えたら上げる。
 
+- **58**: 拳の技の経路（ブランチ claude/punch-path）: 拳の目標を経路の上で等速に動かすのをやめ、時間の最小躍度の曲線（`PunchPath.MinimumJerk`）で動かす（速さの山が振り出しの途中）。打ち抜く先へ着くまでを技の時間の 0.3 → 0.18（`LaunchShare` 0.5 → 0.3）、戻りも同じ曲線。届く間合いの右ストレートの打ち出しの最高速 2.0 → 3.4 m/s（punchlab）、試合（champion:swarmer・counter:slugger、種 8〜15）の打ち出しの最高速 p50 2.12 → 2.74 m/s、1 発のエネルギー 1.03 → 1.41 J、光が出る当たり 26 → 28 %。フェイントは同じ曲線を途中までの行程に縮める。狙いの先読み（AimLead の時間）を着く時間に合わせる案は、使っていない種で比べ直して採らなかった。`docs/BOXING.md` 1-7・`docs/BOT_PDCA.md`。
 - **57**: master の 55（間の層を外した・拳と肘の狙いを自分の胸の前より手前に来ないように寄せた）と、ブランチ claude/sword-combat-techniques-51f876 の 55（下の行）を合わせた（2026-11-19 のマージ、PhysicsVersion 59）。56 はブランチ claude/ct-body が使う（この枝の関節のつなぎを取り込んだ番号）ので飛ばした。
 - **56**: ⚠ 55 が 2 つあったのを合わせた（2026-11-19、枝 claude/ct-body でのマージ）: ブランチ claude/spacing-control-features-a34e7d の 55（間の層を外した・拳と肘の狙いを自分の胸の前に寄せた）と、ブランチ claude/sword-combat-techniques-51f876（worktree-agent-a1d3b799d8ec924e6、関節のつなぎ）の 55（下の行: master の 54 と滑りの直しの後の蹴りの差分）。判断の中身はそれぞれの 55 のまま。
 - **55**: master の 54 と、ブランチ claude/sword-combat-techniques-51f876 の 52（滑りの直しの後の蹴りの差分）を合わせた（2026-11-19 のマージ）。蹴りの差分は 53 の物理で練習し直す。 練習し直した（2026-11-19）: `kickshin --practice yes`（方位 ±0.8・仰角 ±0.9 に広げ、前蹴りの間合いは 1.7 まで: BatFormsTests）で 4 ファイルを取り直した（docs/arena/kick_shin_lmh_v53_*.md、docs/TAEKWONDO.md）。

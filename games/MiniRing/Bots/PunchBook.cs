@@ -24,7 +24,11 @@ public static class PunchRanges
     /// <summary>狙いの奥へ打ち抜く量。0.6 腕長（腕を伸ばしきった先）を越える目標は体が追えない。</summary>
     public static ValueRange Overshoot { get; } = new(nameof(PunchMove.Overshoot), 0f, 0.6f);
 
-    /// <summary>打ち出して戻るまでの時間 [s]。0.18 s より短い目標は肩・肘のバネが追えず、0.8 s より長いと的になる。</summary>
+    /// <summary>
+    /// 打ち出して戻るまでの時間 [s]。0.8 s より長いと的になる。下限 0.18 s: 振り出しの目標は技の時間の <see cref="PunchSpec.ArrivalShare"/>（0.18）で打ち抜く先へ着くので、
+    /// 0.18 s では 0.032 s。到着が 0.07 s 以下では拳の速さは拳のバネの追える速さで頭打ちで（右ストレートで到着 0.024〜0.072 s の最高速が 3.4〜3.7 m/s、docs/BOXING.md 1-7）、もっと短くしても拳は速くならず、
+    /// 戻りと次の拳が早まるだけになる（連打の間隔は人並みの範囲に留める）。
+    /// </summary>
     public static ValueRange Duration { get; } = new(nameof(PunchMove.Duration), 0.18f, 0.8f);
 
     /// <summary>打つ間の頭のずれ（腕長単位）。±0.4 は体幹を大きく傾けた量で、それ以上は首・腰が追えず倒れる。</summary>

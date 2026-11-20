@@ -47,10 +47,24 @@ public sealed class CmaTuneTests
         // いまは 打ち返す 68.9 点・打ち返さない 9.3 点（9 回）。比は 0.135（7.4 倍）なので、
         // 「桁で小さい」の 0.05 を「打ち返さない受け手は打ち返す受け手の 5 分の 1 未満」（0.2）にした。受け手が拳を打たなければ、
         // 点は攻め手が自分から踏み込んだ接触の分だけで、打ち返しの分は増えない。
-        var withCounters = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: 6, seconds: 14f, cue: 0.04f);
-        var without = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: false), seed: 6, seconds: 14f, cue: 0.04f);
-        Assert.IsGreaterThan(10f, withCounters.CounterDamage, "守って打ち返す受け手は、攻め手にダメージを与える");
-        Assert.IsLessThan(0.2f * withCounters.CounterDamage, without.CounterDamage, "打ち返さない受け手は、踏み込まれた触れ合いの分だけ（打ち返しの 5 分の 1 未満）");
+        // 拳の経路（LogicVersion 58、2026-11-20）: 攻め手の右ストレートが速く重くなり（打ち出しの最高速 2.0 → 3.4 m/s）、ドリルの 14 秒のうちに受け手が倒れて
+        // 終わる種が増えた（打った本数 4〜14）。打ち返しの機会が減り、種 6 だけでは 打ち返す 17.0 点・打ち返さない 6.9 点（比 0.41）になった。
+        // 種 1〜8 では、打ち返す受け手の点は打ち返さない受け手以上（種 1 は 4 本で倒れて同点）で、合計 213.9 点 対 78.2 点（比 0.37）。
+        // 1 つの種の比は倒れる時刻で揺れるので、種 1〜8 の合計で「打ち返さない受け手は打ち返す受け手の半分未満」を見る。
+        var seeds = Enumerable.Range(1, 8).ToArray();
+        var withRuns = new PunchDrillResult[seeds.Length];
+        var withoutRuns = new PunchDrillResult[seeds.Length];
+        Parallel.For(0, seeds.Length, new ParallelOptions { MaxDegreeOfParallelism = 4 }, i =>
+        {
+            withRuns[i] = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: true), seed: seeds[i], seconds: 14f, cue: 0.04f);
+            withoutRuns[i] = DefenseDrill.Punch("2", Defense.Slip, Defender(counters: false), seed: seeds[i], seconds: 14f, cue: 0.04f);
+        });
+        var withCounters = withRuns.Sum(r => r.CounterDamage);
+        var without = withoutRuns.Sum(r => r.CounterDamage);
+        Console.WriteLine($"counter damage (seeds 1-8): with {withCounters:0.0}, without {without:0.0}");
+        Assert.IsGreaterThan(40f, withCounters, "守って打ち返す受け手は、攻め手にダメージを与える");
+        Assert.IsTrue(Enumerable.Range(0, seeds.Length).All(i => withRuns[i].CounterDamage >= withoutRuns[i].CounterDamage), "どの種でも、打ち返す受け手の点は打ち返さない受け手以上");
+        Assert.IsLessThan(0.5f * withCounters, without, "打ち返さない受け手は、踏み込まれた触れ合いの分だけ（打ち返しの半分未満）");
     }
 
     [TestMethod]

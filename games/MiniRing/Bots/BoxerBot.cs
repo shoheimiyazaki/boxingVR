@@ -209,7 +209,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 57; // 57: master の 55（間の層を外した・拳と肘の狙いの寄せ）と、この枝の 55（53 の物理で練習し直した蹴りの差分）を合わせた。56 は claude/ct-body が使う。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 58; // 58: 拳の技の目標を最小躍度の曲線で動かし、振り出しを短く（LaunchShare 0.5 → 0.3）。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;
@@ -1250,6 +1250,8 @@ public sealed class BoxerBot : IFighterControl
         // カウンターとストップジャブは溜めない（回避の流れ・相手の踏み込みに合わせて、すぐ出す）。
         var load = _comboIndex == 0 && !_comboIsCounter && combo != StopJabCombo ? Style.Telegraph : 0f;
         _shapes[(int)puncher] = KarateHandChoice.Pick(Style.HandShapeWeights, goal, Style.HandShapeWeights.Count > 0 ? _random.NextSingle() : 0f);
+        // 拳が届くまでの時間は振り出しの全部（OutboundShare）で数える。目標が打ち抜く先へ着く時間（ArrivalShare）で数える案は、種 4〜7 では
+        // エネルギーが 2 割増えたが、使っていない種 8〜15 で比べ直すと増えず、ダウンと打たれずに倒れる数が増えたので採らなかった（2026-11-20、docs/BOT_PDCA.md）。
         var lead = (AttackPerception.DelaySeconds + load + duration * PunchSpec.OutboundShare) * Style.AimLead;
         var aim = observation.Aim(spec, goal, selfHead, _reach, lead);
         _hands[(int)puncher] = new PunchAction(technique, spec, -load, duration, _comboIsCounter, aimOffset, AimWorld: aim, Load: load, Goal: goal);

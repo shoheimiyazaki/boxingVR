@@ -43,7 +43,8 @@ public sealed class BotTests
         static Vector3 Quarter(Technique t)
         {
             var spec = PunchSpec.Of(t);
-            return spec.Evaluate(spec.Lead ? Hand.Left : Hand.Right, spec.Duration * 0.15f, spec.Duration, GuardLocal, AimLocal, Reach);
+            // 経路の真ん中（最小躍度の曲線で進み具合 0.5 になる時刻）: 溜めの点の側へいちばん膨らむ所。
+            return spec.Evaluate(spec.Lead ? Hand.Left : Hand.Right, spec.Duration * PunchSpec.ArrivalShare * 0.5f, spec.Duration, GuardLocal, AimLocal, Reach);
         }
 
         var jab = Quarter(Technique.Jab);
