@@ -68,7 +68,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
     /// <summary>1 本の測定。</summary>
     internal readonly record struct Trial(int Seed, float Distance, bool Hit, HitZone Zone, float TimeToHit, float Peak, float FistAtHit, float Closing, float Mass,
         float Energy, float Damage, float HeadTwist, float Concussion, float Glow, float Bruise, bool Fell, IReadOnlyList<(float T, float Speed)> Series, bool Settled = true,
-        float ChinGap = float.NaN, IReadOnlyList<DriveStep>? Drive = null);
+        float ChinGap = float.NaN, IReadOnlyList<DriveStep>? Drive = null, float Lunge = 0f, bool AttackerFell = false);
 
     internal static string PathName(PunchLabPath path) => path switch
     {
@@ -290,6 +290,13 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
         HitEvent? best = null;
         float bestEnergy = -1f, timeToHit = -1f, fistAtHit = 0f, peak = 0f, twist = 0f, concussion = 0f;
         var fell = false;
+        // つんのめり: 打ち手の骨盤が打ち出しの所から相手の向きへ出た水平の距離の最大、と打ち手が倒れたか。
+        var pelvis0 = attacker.PelvisPosition;
+        var toward = victim.PelvisPosition - pelvis0;
+        toward = toward with { Y = 0f };
+        toward = toward.LengthSquared() > 1e-8f ? Vector3.Normalize(toward) : attacker.Frame.Forward;
+        var lunge = 0f;
+        var attackerFell = false;
         var outbound = PunchBook.Default.Of(Technique.Cross).Duration * PunchSpec.OutboundShare;
         while (bout.PunchTime is { } t && t < WatchSeconds)
         {
@@ -326,12 +333,14 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
 
             concussion = MathF.Max(concussion, victim.Concussion - concussion0);
             fell |= victim.State != FighterState.Standing;
+            lunge = MathF.Max(lunge, Vector3.Dot(attacker.PelvisPosition - pelvis0, toward));
+            attackerFell |= attacker.State != FighterState.Standing;
         }
 
         var bruise = (victim.Voxels?.SkinBruiseTotal() ?? 0f) - bruise0;
         return best is { } h
-            ? new Trial(seed, distance, true, h.Zone, timeToHit, peak, fistAtHit, h.Speed, h.ImpactMass, h.Energy, h.Damage, twist, concussion, BoxingGame.HitStrength(h.Damage), bruise, fell, points, bout.Settled, chinGap, drive)
-            : new Trial(seed, distance, false, HitZone.Body, -1f, peak, 0f, 0f, 0f, 0f, 0f, 0f, concussion, 0f, bruise, fell, points, bout.Settled, chinGap, drive);
+            ? new Trial(seed, distance, true, h.Zone, timeToHit, peak, fistAtHit, h.Speed, h.ImpactMass, h.Energy, h.Damage, twist, concussion, BoxingGame.HitStrength(h.Damage), bruise, fell, points, bout.Settled, chinGap, drive, lunge, attackerFell)
+            : new Trial(seed, distance, false, HitZone.Body, -1f, peak, 0f, 0f, 0f, 0f, 0f, 0f, concussion, 0f, bruise, fell, points, bout.Settled, chinGap, drive, lunge, attackerFell);
     }
 
     public IReadOnlyList<(Setup Setup, IReadOnlyList<Trial> Trials)> Run(IReadOnlyList<Setup> setups, IReadOnlyList<int> seeds)
@@ -351,14 +360,14 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
     private void Report(IReadOnlyList<(Setup Setup, IReadOnlyList<Trial> Trials)> results)
     {
         log($"狙い {(aim == AimGoal.Chin ? "あご" : "頭の真ん中")}、溜め {F(telegraph)} s、右ストレート（{F(PunchBook.Default.Of(Technique.Cross).Duration)} s）。値は当たった本の平均（最高速だけは全部の本）。\n");
-        log("| 条件 | 間合い [腕] | 当たり / 本 | 当たった所 | 当たるまで [s] | 打ち出しの最高速 [m/s] | 当たった瞬間の拳 [m/s] | 当たる速さ（相対）[m/s] | 乗る質量 [kg] | エネルギー [J] | ダメージ | 頭の回転 [rad/s] | 脳しんとう | 光 | あざ | 倒れた |");
-        log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        log("| 条件 | 間合い [腕] | 当たり / 本 | 当たった所 | 当たるまで [s] | 打ち出しの最高速 [m/s] | 当たった瞬間の拳 [m/s] | 当たる速さ（相対）[m/s] | 乗る質量 [kg] | エネルギー [J] | ダメージ | 頭の回転 [rad/s] | 脳しんとう | 光 | あざ | 倒れた | 打ち手の骨盤が前へ [cm] | 打ち手が倒れた |");
+        log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         foreach (var (setup, trials) in results)
         {
             var hits = trials.Where(t => t.Hit).ToList();
             float Mean(Func<Trial, float> f) => hits.Count > 0 ? hits.Average(f) : 0f;
             var unsettled = trials.Count(t => !t.Settled);
-            log($"| {setup.Label} | {F(trials.Average(t => t.Distance))}{(unsettled > 0 ? $"（寄せきれず {unsettled}）" : "")} | {hits.Count} / {trials.Count} | {string.Join(" ", hits.GroupBy(h => h.Zone).Select(g => $"{g.Key} {g.Count()}"))} | {F(Mean(t => t.TimeToHit), "0.000")} | {F(trials.Average(t => t.Peak))} | {F(Mean(t => t.FistAtHit))} | {F(Mean(t => t.Closing))} | {F(Mean(t => t.Mass))} | {F(Mean(t => t.Energy))} | {F(Mean(t => t.Damage), "0.0")} | {F(Mean(t => t.HeadTwist), "0.0")} | {F(trials.Average(t => t.Concussion), "0.000")} | {F(Mean(t => t.Glow))} | {F(trials.Average(t => t.Bruise), "0.0")} | {trials.Count(t => t.Fell)} |");
+            log($"| {setup.Label} | {F(trials.Average(t => t.Distance))}{(unsettled > 0 ? $"（寄せきれず {unsettled}）" : "")} | {hits.Count} / {trials.Count} | {string.Join(" ", hits.GroupBy(h => h.Zone).Select(g => $"{g.Key} {g.Count()}"))} | {F(Mean(t => t.TimeToHit), "0.000")} | {F(trials.Average(t => t.Peak))} | {F(Mean(t => t.FistAtHit))} | {F(Mean(t => t.Closing))} | {F(Mean(t => t.Mass))} | {F(Mean(t => t.Energy))} | {F(Mean(t => t.Damage), "0.0")} | {F(Mean(t => t.HeadTwist), "0.0")} | {F(trials.Average(t => t.Concussion), "0.000")} | {F(Mean(t => t.Glow))} | {F(trials.Average(t => t.Bruise), "0.0")} | {trials.Count(t => t.Fell)} | {F(trials.Average(t => t.Lunge * 100f), "0.0")} | {trials.Count(t => t.AttackerFell)} |");
         }
 
         if (results.Any(r => r.Setup.RangeName == "chin"))

@@ -25,9 +25,7 @@ internal static class FistMatch
 
     public static Bout Run(Contender red, Contender blue, string pair, int seed, float seconds, bool referee)
     {
-        var redBots = new List<IFighterControl>();
-        var blueBots = new List<IFighterControl>();
-        var corners = new BoxingCorners(blue.Name, s => Track(blueBots, blue.Create(s)), s => Track(redBots, red.Create(s)),
+        var corners = new BoxingCorners(blue.Name, s => blue.Create(s), s => red.Create(s),
             PlayerName: red.Name, PlayerBody: red.Build, CpuBody: blue.Build, PlayerFace: red.Face, CpuFace: blue.Face, Referee: referee);
         using var game = new BoxingGame(null, seed, corners);
         var hits = new List<Hit>();
@@ -76,9 +74,8 @@ internal static class FistMatch
             game.Step(default, StepDt);
             clock += StepDt;
             fighters = [game.Player, game.Cpu];
-            var redBot = redBots.Count > 0 ? redBots[^1] as BoxerBot : null;
-            var blueBot = blueBots.Count > 0 ? blueBots[^1] as BoxerBot : null;
-            BoxerBot?[] brains = [redBot, blueBot];
+            // 今のラウンドの操作元（工場は休みの間などにも呼ばれるので、作った順の最後ではなく試合が使っている物）
+            BoxerBot?[] brains = [Brain(game.PlayerControl), Brain(game.CpuControl)];
             foreach (var hit in game.RecentHits)
             {
                 var a = hit.Attacker == game.Player ? 0 : 1;
@@ -97,7 +94,8 @@ internal static class FistMatch
                     continue;
                 }
 
-                var tech = brains[a]?.CurrentTechnique(hit.Hand)?.ToString() ?? "-";
+                // 当たった歩の中で技が終わることがある（当たりを見て戻す）: そのときは歩の始めの技。
+                var tech = (brains[a]?.CurrentTechnique(hit.Hand) ?? techOf[a, (int)hit.Hand])?.ToString() ?? "-";
                 hits.Add(new Hit(tech, gloveSpeed[a, (int)hit.Hand], hit.Speed, hit.ImpactMass, hit.Energy, hit.Damage, BoxingGame.HitStrength(hit.Damage), hit.Zone.ToString()));
             }
 
@@ -173,11 +171,12 @@ internal static class FistMatch
         }
     }
 
-    private static IFighterControl Track(List<IFighterControl> list, IFighterControl bot)
+    private static BoxerBot? Brain(IFighterControl? control) => control switch
     {
-        list.Add(bot);
-        return bot;
-    }
+        BoxerBot bot => bot,
+        JujutsuBot jujutsu => jujutsu.Inner as BoxerBot,
+        _ => null,
+    };
 
     /// <summary>組 × 種の試合を並列に回し、1 試合 1 行の JSON を <paramref name="outPath"/> に書く（順は組・種の順）。</summary>
     public static IReadOnlyList<Bout> Collect(IReadOnlyList<(Contender Red, Contender Blue)> pairs, IReadOnlyList<int> seeds, float seconds, bool referee,
