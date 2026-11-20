@@ -36,6 +36,17 @@ public static class PunchPath
         return strikable + ((strikable.LengthSquared() > 1e-8f ? Vector3.Normalize(strikable) : Vector3.UnitZ) * (overshoot * reach));
     }
 
+    /// <summary>
+    /// 最小躍度の曲線 s(u) = 10u³ − 15u⁴ + 6u⁵（u = 0..1 → 0..1）: 始めと終わりで速さも加速度も 0、速さの山は真ん中（u = 0.5）で平均の 1.875 倍。
+    /// 人が手を素早く的へ動かすときの速さの形（Flash &amp; Hogan 1985）。拳の目標をこの時間の関数で動かすと、拳は振り出しの途中で最も速くなる
+    /// （等速で動かすと、始めに目標が急に動き出して終わりで急に止まる）。
+    /// </summary>
+    public static float MinimumJerk(float u)
+    {
+        var s = Math.Clamp(u, 0f, 1f);
+        return s * s * s * (10f + (s * ((6f * s) - 15f)));
+    }
+
     /// <summary>経路上の点（<paramref name="t"/> = 0 で構え、1 で狙いの奥）。</summary>
     public static Vector3 Point(Vector3 guard, Vector3 windup, Vector3 through, float t)
     {

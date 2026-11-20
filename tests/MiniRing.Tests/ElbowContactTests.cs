@@ -152,7 +152,7 @@ public sealed class ElbowContactTests
             if (t <= duration)
             {
                 var target = spec.Evaluate(Hand.Right, t, duration, AiControl.Guard(Hand.Right, reach), aim, reach);
-                var spring = t < duration * PunchSpec.OutboundShare * PunchSpec.LaunchShare ? 1f : 0f;
+                var spring = t < duration * PunchSpec.ArrivalShare ? 1f : 0f;
                 command = new HandCommand(target, false, spring);
             }
 

@@ -503,12 +503,14 @@ public sealed partial class Fighter
     /// 力積による仕事 max(0, F·v dt + |F|²dt²/(2m)) と保持費を予算内に収める。
     /// 静止時も二次項を含めるため、v=0 を抜け道にして加速できない。制動の仕事は蓄えへ戻さない。
     /// </summary>
-    private void ApplyArmDrive(Arm arm, Vector3 force, Vector3 armPart, bool weightShift, float dt)
+    private void ApplyArmDrive(Arm arm, Vector3 force, Vector3 armPart, Vector3 internalPart, bool weightShift, float dt)
     {
-        var bodyForce = weightShift ? (force - armPart) * _tuning.WeightShiftShare : Vector3.Zero;
+        // internalPart: 肩と拳の間の内力（止まった腕を押す力・肘のてこで最大の力を超えた分）。反作用は全部を胸へ（体を前へ運ばない）。
+        var borrowed = force - internalPart;
+        var bodyForce = weightShift ? (borrowed - armPart) * _tuning.WeightShiftShare : Vector3.Zero;
         var chestMass = _world.GetMass(Parts.Chest);
         var pelvisMass = _world.GetMass(Parts.Pelvis);
-        var chestForce = (-armPart * _tuning.HandReactionShare) + (bodyForce * chestMass / (chestMass + pelvisMass));
+        var chestForce = (-armPart * _tuning.HandReactionShare) - internalPart + (bodyForce * chestMass / (chestMass + pelvisMass));
         var pelvisForce = bodyForce * pelvisMass / (chestMass + pelvisMass);
         var linear = 0f;
         var quadratic = 0f;
@@ -521,14 +523,14 @@ public sealed partial class Fighter
         Include(arm.Forearm, force);
         Include(Parts.Chest, chestForce);
         Include(Parts.Pelvis, pelvisForce);
-        var holding = _tuning.IsometricCost * force.Length() * dt;
+        var holding = _tuning.IsometricCost * MathF.Min(force.Length(), arm.LastCap) * dt; // 筋が出している力（肘のてこで増えた分は骨が受ける）
         var requested = linear + quadratic + holding;
         var budget = FatigueEnabled ? _budget[(int)arm.Region] : requested;
         var scale = MuscleWork.ForceScale(linear, quadratic, holding, budget);
         SpendMuscleEnergy(arm.Region, (linear * scale) + (quadratic * scale * scale) + (holding * scale));
         arm.LastForce = force * scale;
         _world.ApplyLinearImpulse(arm.Forearm, force * (scale * dt));
-        _world.ApplyLinearImpulse(Parts.Chest, -armPart * (_tuning.HandReactionShare * scale * dt));
+        _world.ApplyLinearImpulse(Parts.Chest, -((armPart * _tuning.HandReactionShare) + internalPart) * (scale * dt));
         if (weightShift && bodyForce.LengthSquared() > 0f)
         {
             ApplySharedImpulse(bodyForce * (scale * dt));

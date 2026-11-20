@@ -1205,6 +1205,12 @@ public sealed partial class Fighter
         return f.LinearVelocity + Vector3.Cross(f.AngularVelocity, GloveCenter(hand) - f.Position);
     }
 
+    /// <summary>最後に拳を目標へ引いた歩の中身（縮める前と後の目標・拳・欲しかった力・力の上限・実際の力。調べもの用: punchlab）。</summary>
+    internal HandDriveTrace HandTrace(Hand hand) => _arms[(int)hand].Trace;
+
+    /// <summary>拳を引く筋肉の 6 つのまとまりの活性化（調べもの・テスト用。<see cref="ArmMuscle"/>）。</summary>
+    internal ReadOnlySpan<float> HandActivation(Hand hand) => _arms[(int)hand].Activation;
+
     /// <summary>上腕と前腕の質量（体を使わずに拳に乗る質量）。</summary>
     public float ArmMass(Hand hand) => _world.GetMass(_arms[(int)hand].UpperArm) + _world.GetMass(_arms[(int)hand].Forearm);
 
@@ -2961,7 +2967,7 @@ public sealed partial class Fighter
             }
 
             var drive = arm.Drive(_world, _tuning, frame, target, armScale * ArmStrength(arm.Hand), _inertia, com, torso, SupportedMass, dt, Parts.Chest, spring, HandSlownessOf(arm.Hand), hand.Tuck);
-            ApplyArmDrive(arm, drive.Force, drive.ArmPart, weightShift, dt);
+            ApplyArmDrive(arm, drive.Force, drive.ArmPart, drive.Internal, weightShift, dt);
             arm.DriveWrist(_world, frame, arm.Support is { } held && arm.SlideSpan is null ? command.For(held.Main).Orientation : hand.Orientation);
         }
 
@@ -4071,6 +4077,12 @@ public sealed partial class Fighter
     {
         private Vector3 _previousTarget;
         private Vector3 _targetVelocity;
+
+        /// <summary>拳を引く筋肉の 6 つのまとまり（胸のフレームの ±X・±Y・±Z）の活性化 0..1（<see cref="ArmMuscle"/>）。</summary>
+        private readonly float[] _activation = new float[ArmMuscle.Groups];
+
+        /// <summary>拳を引く筋肉の活性化（調べもの・テスト用）。</summary>
+        internal ReadOnlySpan<float> Activation => _activation;
         private Vector3 _previousLocalTarget;
         private Vector3 _effortVelocity;
         private bool _hasPrevious;
@@ -4171,6 +4183,9 @@ public sealed partial class Fighter
         }
         public float UpperLength { get; private init; }
         public float LowerLength { get; private init; }
+
+        /// <summary>肘の関節の点（前腕のローカル）。拳を引く筋肉の肘の角度は、今の拳の点（はめる物・握った物で動く）とこの点の距離で数える。</summary>
+        public Vector3 ElbowOnForearm { get; private init; }
         public Vector3 LastTarget { get; private set; }
 
         /// <summary>指令どおりの拳の目標（先走りを足す前）。</summary>
@@ -4422,6 +4437,12 @@ public sealed partial class Fighter
         /// <summary>この歩で拳を目標へ押した力 [N]（ワールド。<see cref="Fighter.HandPush"/>）。</summary>
         public Vector3 LastForce { get; set; }
 
+        /// <summary>最後に拳を引いた歩の最大の力 [N]（腕の筋力 × 体を借りる倍率。等尺の費用は筋が出す力をこれまでで数える）。</summary>
+        public float LastCap { get; private set; }
+
+        /// <summary>最後に <see cref="Drive"/> が拳を引いたときの中身（調べもの用。試合の計算には使わない）。</summary>
+        public HandDriveTrace Trace { get; private set; }
+
         /// <summary>拳の先に引いている武器の質量（<see cref="Fighter.CarriedMass"/> が毎歩決める）。</summary>
         public float CarriedMass { get; set; }
 
@@ -4531,6 +4552,7 @@ public sealed partial class Fighter
                 HomeGloveLocal = Vector3.Transform(glove - f.Position, Quaternion.Conjugate(f.Orientation)),
                 UpperLength = Vector3.Distance(shoulder, elbow),
                 LowerLength = Vector3.Distance(elbow, glove),
+                ElbowOnForearm = Vector3.Transform(elbow - f.Position, Quaternion.Conjugate(f.Orientation)),
             };
         }
 
@@ -4577,6 +4599,7 @@ public sealed partial class Fighter
         public void DriveStump(PhysicsWorld world, BodyFrame frame, Vector3 targetLocal, int chestId, float tuck = 0f)
         {
             LastForce = Vector3.Zero;
+            Array.Clear(_activation); // 拳を引く筋肉は駆動していない（腕が戻ったときは、また 0 から立ち上がる）
             var shoulder = ShoulderPosition(world, chestId);
             var reach = UpperLength + LowerLength;
             var target = ArmIk.ClampReach(shoulder, frame.LocalToWorld(targetLocal), reach);
@@ -4596,15 +4619,19 @@ public sealed partial class Fighter
             }
         }
 
-        /// <summary>腕を目標へ駆動し、体から借りた力 [N]（脚と腰が地面を押して出す分）を返す。</summary>
-        public (Vector3 Force, Vector3 ArmPart) Drive(PhysicsWorld world, FighterTuning tuning, BodyFrame frame, Vector3 targetLocal, float forceScale,
+        /// <summary>
+        /// 腕を目標へ駆動し、拳に掛ける力 [N]・そのうち腕の筋力の分（残りは脚と腰が地面を押して出す分）・最大の力を超えた分（伸びきりに近い
+        /// 腕の肘のてこで増えた力。肩と拳の間の内力なので、反作用は全部を胸へ返す）を返す。
+        /// </summary>
+        public (Vector3 Force, Vector3 ArmPart, Vector3 Internal) Drive(PhysicsWorld world, FighterTuning tuning, BodyFrame frame, Vector3 targetLocal, float forceScale,
             BodyInertia inertia, Vector3 centerOfMass, Quaternion torso, float totalMass, float dt, int chestId, float spring = 0f, float slowness = 0f, float tuck = 0f)
         {
             var shoulder = ShoulderPosition(world, chestId);
             var reach = UpperLength + LowerLength;
-            var planned = ArmIk.ClampReach(shoulder, frame.LocalToWorld(targetLocal), reach);
+            var rawTarget = frame.LocalToWorld(targetLocal);
+            var planned = tuning.ClampHandTarget ? ArmIk.ClampReach(shoulder, rawTarget, reach) : rawTarget;
             PlannedTarget = planned;
-            var target = Lead == Vector3.Zero ? planned : ArmIk.ClampReach(shoulder, planned + Lead, reach);
+            var target = Lead == Vector3.Zero ? planned : tuning.ClampHandTarget ? ArmIk.ClampReach(shoulder, planned + Lead, reach) : planned + Lead;
             LastTarget = target;
 
             // 目標速度（フィードフォワード）。キャリブレーション等の瞬間移動が力のスパイクにならないよう上限付き。
@@ -4629,12 +4656,13 @@ public sealed partial class Fighter
             world.SetAngularServoTarget(ShoulderServo, Quaternion.Concatenate(upperRotation, Quaternion.Conjugate(chest.Orientation)));
             world.SetTwistServoTarget(ElbowServo, Math.Clamp(elbowAngle, 0f, 140f * MathF.PI / 180f));
 
-            // 2) 拳を目標へ PD 力で引く。力の上限は「腕の筋力 × 体の質量をどれだけ借りられるか」（PunchMechanics）:
-            //    体軸を通る向き・骨で突っ張れる向きほど脚と腰の力が乗り、軸から外れた手打ちは腕の力だけになる。
+            // 2) 拳を目標へ引く筋肉（ArmMuscle、Hill 型）。PD は脳が出す指令: 欲しい力 ÷ 最大の力 を 0..1 に飽和させた興奮。最大の力は
+            //    「腕の筋力 × 体の質量をどれだけ借りられるか」（PunchMechanics）: 体軸を通る向き・骨で突っ張れる向きほど脚と腰の力が乗り、
+            //    軸から外れた手打ちは腕の力だけになる。活性化は興奮を一次遅れで追い、力 = 活性化 × 最大の力 × 長さの関係 × 速さの関係。
             var f = world.GetState(Forearm);
             var glove = f.Position + Vector3.Transform(GloveLocal, f.Orientation);
             var gloveVelocity = f.LinearVelocity + Vector3.Cross(f.AngularVelocity, glove - f.Position);
-            // 拳を出していく間（spring）は、目標の手前でブレーキをかけない（減衰を弱める）: 実際のパンチも、当たるまで止める筋肉は働かない。
+            // 拳を出していく間（spring）は、目標の手前でブレーキをかけない指令にする（減衰を弱める）: 実際のパンチも、当たるまで止める筋肉へ指令を出さない。
             var kd = tuning.HandKd * (1f + ((tuning.LooseHandDamping - 1f) * Math.Clamp(spring, 0f, 1f)));
             var accel = FighterMath.HandAccel(glove, gloveVelocity, target, _targetVelocity, tuning.HandKp, kd);
             // 武器を握っていれば、拳は前腕と一緒に武器の重さも引く（武器の慣性は、この力と手首のトルクで動かす）。
@@ -4643,22 +4671,32 @@ public sealed partial class Fighter
             var bodyEffective = PunchMechanics.BodyEffectiveMass(inertia, torso, glove - centerOfMass, desired);
             var coupling = PunchMechanics.Coupling(glove - shoulder, desired, jointIntegrity: 1f);
             var armForce = tuning.MaxHandForce * forceScale;
-            var multiplier = PunchMechanics.ForceMultiplier(coupling, bodyEffective, totalMass, tuning.BodyDrive);
-            var muscleCap = tuning.MaxHandForce * multiplier;
-            var cap = armForce * multiplier;
-            // 疲れた筋肉の力と速さの関係（Hill の式を直線で近似）: 拳が肩に対して力の向きへ速く動いているほど、出せる力は減り、
-            // 縮む速さの上限（1 / slowness）で 0 になる。疲れていなければ slowness = 0 で上限なし（力の上限を下げても、
-            // この大きさの体では筋力が余っていて拳の速さは変わらなかった。A3、2026-11-12）。
-            if (slowness > 0f && desired.LengthSquared() > 1e-12f)
+            var cap = armForce * PunchMechanics.ForceMultiplier(coupling, bodyEffective, totalMass, tuning.BodyDrive);
+            var excitation = ArmMuscle.Excitation(desired, cap, chest.Orientation);
+            for (var i = 0; i < ArmMuscle.Groups; i++)
             {
-                var chestState = world.GetState(chestId);
-                var shoulderVelocity = chestState.LinearVelocity + Vector3.Cross(chestState.AngularVelocity, shoulder - chestState.Position);
-                var shortening = Vector3.Dot(gloveVelocity - shoulderVelocity, Vector3.Normalize(desired));
-                cap *= Math.Clamp(1f - (MathF.Max(0f, shortening) * slowness), 0f, 1f);
+                _activation[i] = ArmMuscle.Activate(_activation[i], ArmMuscle.GroupExcitation(excitation, i), dt, tuning.MuscleActivationTime, tuning.MuscleDeactivationTime);
             }
 
-            var force = ClampLength(desired, cap);
-            return (force, ClampLength(force, armForce));
+            var shoulderVelocity = chest.LinearVelocity + Vector3.Cross(chest.AngularVelocity, shoulder - chest.Position);
+            var fromShoulder = glove - shoulder;
+            var distance = fromShoulder.Length();
+            var elbowPoint = f.Position + Vector3.Transform(ElbowOnForearm, f.Orientation);
+            var pose = new ArmMuscle.Pose(distance > 1e-6f ? fromShoulder / distance : frame.Forward, distance, gloveVelocity - shoulderVelocity, UpperLength,
+                MathF.Max(1e-3f, Vector3.Distance(elbowPoint, glove)));
+            // 疲れ（slowness）は最大の縮む速さを下げる形で同じ式に入る。
+            var force = ArmMuscle.Force(_activation, chest.Orientation, cap, pose, ArmMuscle.Constants.From(tuning, slowness), dt, chainMass);
+            Trace = new HandDriveTrace(rawTarget, target, glove, gloveVelocity.Length(), desired.Length(), cap, force.Length());
+            // 拳を押す力のうち、体に反作用の無い分（腕の筋力の半分の近道と、脚と腰から借りる分）は、腕が拳を力の向きへ押し出している間だけ
+            // （力の向きの肩に対する拳の速さが BodyBorrowSpeed で 0 → 1、smoothstep）。伸びきって止まった腕・押し付けたまま止まった拳の力は、
+            // 骨と関節を通って胸へ返る内力で、体を前へ運ばない。肘のてこで最大の力を超えた分も内力。
+            LastCap = cap;
+            var muscle = ClampLength(force, cap);
+            var push = muscle.LengthSquared() > 1e-12f ? Vector3.Dot(pose.Velocity, Vector3.Normalize(muscle)) / MathF.Max(1e-4f, tuning.BodyBorrowSpeed) : 0f;
+            var drive = Math.Clamp(push, 0f, 1f);
+            drive = drive * drive * (3f - (2f * drive));
+            var borrowed = muscle * drive;
+            return (force, ClampLength(borrowed, armForce), force - borrowed);
         }
     }
 }
@@ -4671,3 +4709,9 @@ internal readonly record struct HeldWeapon(int Body, Vector3 GripLocal, int? Soc
 /// 手首の筋肉（握りに届く前は null）。
 /// </summary>
 internal readonly record struct SupportGrip(int Body, Vector3 GripLocal, Hand Main, Vector3 MainGrip, int? Socket, int? Wrist = null, bool Reaching = false);
+
+/// <summary>
+/// 拳を目標へ引いた 1 歩の中身（調べもの用。試合の計算には使わない）: 入力の目標（ワールド、肩から腕の長さの球へ縮める前）・縮めた後の目標・拳の中心・拳の速さ [m/s]・
+/// PD が欲しかった力 [N]（加速度 × 腕の質量）・力の上限 [N]（腕の筋力 × 体を借りられる倍率）・実際に掛けた力 [N]。
+/// </summary>
+internal readonly record struct HandDriveTrace(Vector3 RawTarget, Vector3 Target, Vector3 Glove, float GloveSpeed, float Desired, float Cap, float Force);

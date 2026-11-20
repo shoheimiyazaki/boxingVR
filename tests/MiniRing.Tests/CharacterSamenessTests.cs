@@ -41,6 +41,9 @@ public sealed class CharacterSamenessTests
     // 2026-11-18（PhysicsVersion 44: ダウンの間の審判の指示）: レフェリーのいる試合でダウンが入る組だけ取り直した（CharacterSamenessProbe。ほかの組は変わらない）。
     // 2026-11-18（LogicVersion 50 の作業中）: マージ 000bd92（PhysicsVersion 46）で master 側の値が入り、ブランチの審判の指示で取り直したレフェリーありの組の値が
     // 消えていたので戻した（glove-glove-referee は d6b1257 で取り直した値と同じ。katar-gauntlet-referee の終わりも同じ理由。レフェリーなしの組は変わらない）。
+    // 2026-11-20（PhysicsVersion 65: 拳を引く力を Hill 型の筋肉に、ブランチ claude/hill-muscle）: 全部の表を CharacterSamenessProbe（tower32）で取り直した
+    // （Expected ← NOPLAN-LEGACY、ExpectedWeapons ← LEGACY、ExpectedAdopted ← SAME、ExpectedGamePlan ← LEGACY）。武器を握った手も同じ式で引くので、
+    // 拳の組だけでなく武器の組も含めて 25 行すべてが変わった。
     private static readonly Dictionary<string, (ulong Half, ulong End)> Expected = new()
     {
         ["glove-glove-referee"] = (0x9D62474D6F7658C7, 0x40A0D11FCBC6AAFB),
