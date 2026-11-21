@@ -1,0 +1,15 @@
+{
+  "_comment": "2026-11-21: 物理の統合（枝 claude/physics-consolidate-df71d8 @ 3fb4b1a、肘 45 Hz 入り、PhysicsVersion 79・LogicVersion 62）の作業中のモデルで撮る WVC の番組 2（ノンタイトル）。IVF は master に無く、取り込むと BoxingGame など 7 ファイルで衝突し、番組の型と放送席も無いので、2 本目のボクシングの番組は WVC のノンタイトルの夜にした。セミは前へ出る側 対 待って返す側、メインは完成形 対 ジャブ。種は下見で選ぶ。",
+  "event": "WVC ボクシングナイト",
+  "program": "WVC ボクシングナイト",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-newphysics-nontitle-1121",
+  "scoutSeeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "partLimitMiB": 29,
+  "commentary": { "writer": "prospective", "model": "haiku" },
+  "bouts": [
+    { "red": "ramon", "blue": "yoandry", "seed": "auto", "bout": "セミファイナル", "stake": "ノンタイトル 3 ラウンド", "next": "上位との対戦" },
+    { "red": "marcus", "blue": "albert", "seed": "auto", "bout": "メインイベント", "stake": "王座挑戦者決定戦", "next": "WVC 世界王座への挑戦権" }
+  ]
+}
