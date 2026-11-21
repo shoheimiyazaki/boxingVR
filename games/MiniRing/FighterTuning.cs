@@ -342,6 +342,9 @@ public sealed record FighterTuning
 
     /// <summary>拳の前方目標から脚の回旋と踏み込みの配分を連続に変える（分割胴）。</summary>
     public bool AdaptivePunchForm { get; init; }
+
+    /// <summary>試験用。親子関節のトルクと床・相手との接触で駆動する。</summary>
+    public bool JointDrive { get; init; }
     /// <summary>右手を出す間に左のガードを引く距離の上限（腕の長さの割合）。</summary>
     public float CompactLeftRetractShare { get; init; } = 0.08f;
     /// <summary>脚のばねを解放する入力が手の目標に追いつく時定数 [s]。</summary>
@@ -870,6 +873,14 @@ public sealed record FighterTuning
     {
         AdaptivePunchForm = true,
         ArmServoMaxSpeed = DynamicPunch.ArmServoMaxSpeed,
+    };
+
+    /// <summary>関節と接触を介した運動量伝達の試験設定。</summary>
+    public static FighterTuning MomentumPunch { get; } = AdaptivePunch with
+    {
+        JointDrive = true,
+        LegServoHz = 22f,
+        Footwork = AdaptivePunch.Footwork with { HeelRaiseDegrees = 0f, PivotHeelRaiseDegrees = 0f },
     };
 
     internal static Vector3 Up => Vector3.UnitY;

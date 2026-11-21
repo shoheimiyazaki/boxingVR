@@ -321,14 +321,15 @@ internal struct PoseIntegratorCallbacks : IPoseIntegratorCallbacks
     private Vector3Wide _gravityDt;
     private Vector<float> _minLinearY;
 
-    public PoseIntegratorCallbacks(Vector3 gravity, float? terminalVelocity = null, bool planarMotion = false) : this()
+    public PoseIntegratorCallbacks(Vector3 gravity, float? terminalVelocity = null, bool planarMotion = false, bool conserveAngularMomentum = false) : this()
     {
         Gravity = gravity;
         TerminalVelocity = terminalVelocity;
         PlanarMotion = planarMotion;
+        AngularIntegrationMode = conserveAngularMomentum ? AngularIntegrationMode.ConserveMomentum : AngularIntegrationMode.Nonconserving;
     }
 
-    public readonly AngularIntegrationMode AngularIntegrationMode => AngularIntegrationMode.Nonconserving;
+    public readonly AngularIntegrationMode AngularIntegrationMode { get; }
     public readonly bool AllowSubstepsForUnconstrainedBodies => false;
     public readonly bool IntegrateVelocityForKinematics => false;
 

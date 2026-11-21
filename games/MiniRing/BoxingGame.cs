@@ -894,7 +894,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 同じ運動量の反作用を打った側の全身へ返す（運動量は湧かない）。
         // 物理の接触が運ぶのは打った四肢そのものの質量（腕、蹴りなら脚）だけ。残りの体の分を足す。
         var extraMass = hit.ImpactMass - (hit.Kick ? hit.Attacker.KickingMass(hit.Hand) : hit.Attacker.ArmMass(hit.Hand));
-        var push = extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f
+        var push = !hit.Attacker.UsesJointDrive && extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f
             ? CarryBody(hit.Attacker, victim, victimBody, hit.Point, Vector3.Normalize(gloveVelocity) * (extraMass * hit.Speed * KnockbackTransfer), hit.Speed, alsoTwist)
             : Vector3.Zero;
         if (!carve)
@@ -1596,7 +1596,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _wasCounted.Clear();
         _neutralCorners.Clear();
         _round++;
-        _world = new PhysicsWorld();
+        _world = new PhysicsWorld(conserveAngularMomentum: _tuning.JointDrive);
         LivingRoom.AddColliders(_world, Layout);
         _ring = new Ring(_world, Layout, RingSurfaceHeight, LivingRoom.PhysicsStageBase);
         var surface = _ring.SurfaceCenter;

@@ -235,7 +235,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 78; // 78: 拳の目標距離で回旋と踏み込みを連続に配分する。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 79; // 79: 親子の関節と接触で駆動する試験設定。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -2283,6 +2283,11 @@ public sealed partial class Fighter
             // 脚を失っても意識があれば、腕と体はもがく（死んでいれば Stir は 0）。
             ControlScale = Ramp(1f, _tuning.DownDriveScale, _stateTime, _tuning.CollapseDuration) * StirredTone;
             SetServoScale(ControlScale);
+            if (UsesJointDrive)
+            {
+                SetJointLegStrength(ControlScale, dt);
+            }
+
             DriveArms(IsDead ? command : PostOnTheCanvas(command, grounded, height), ControlScale, weightShift: false, dt);
             return;
         }
@@ -2369,6 +2374,11 @@ public sealed partial class Fighter
         }
         ControlScale = Math.Clamp(scale, 0f, 1f);
         SetServoScale(scale);
+        if (UsesJointDrive)
+        {
+            SetJointLegStrength(scale, dt);
+        }
+
         // 脚の肉が削られるほど体を持ち上げる力・歩く力が落ち、胴の肉が削られるほど体の軸を保つ力が落ちる。
         var legs = MathF.Min(LegStrength(true), LegStrength(false));
         // 頭を下げる量のうち、腰から前へ折る分（HipHingeShare）を除いた残りを膝と股を曲げて腰を落とす。
@@ -2380,12 +2390,13 @@ public sealed partial class Fighter
         if (footwork && !_footworkActive)
         {
             ResetFootwork();
+            _jointStanceTarget = null;
         }
 
         _footworkActive = footwork;
         var groundY = PelvisPosition.Y - height;
         BeginSupportWrench();
-        if (grounded)
+        if (grounded && !UsesJointDrive)
         {
             ApplyHover(command, height, scale * legs, footwork, footwork ? LegsAllowHeight(groundY) : float.PositiveInfinity, dt);
         }
@@ -2399,17 +2410,28 @@ public sealed partial class Fighter
             var footCommand = handDrivenStep && forwardShare > 0f
                 ? command with { Step = Frame.Forward * (_wavePush * forwardShare) }
                 : command;
-            StepFeet(footCommand, height, dt);
-            var yawPush = handDrivenStep ? _waveYawPush * (1f - forwardShare) : 0f;
-            StepWithLegSpring(footCommand, groundY, scale * legs, dt, yawPush);
-            ApplyBodyOverFeet(command, scale * legs, dt);
-            ApplyLegs(groundY, dt);
+            if (UsesJointDrive)
+            {
+                DriveThroughFeet(footCommand, height, groundY, dt);
+            }
+            else
+            {
+                StepFeet(footCommand, height, dt);
+                var yawPush = handDrivenStep ? _waveYawPush * (1f - forwardShare) : 0f;
+                StepWithLegSpring(footCommand, groundY, scale * legs, dt, yawPush);
+                ApplyBodyOverFeet(command, scale * legs, dt);
+                ApplyLegs(groundY, dt);
+            }
         }
         else
         {
-            ApplyMovement(command, scale * legs, dt);
+            if (!UsesJointDrive)
+            {
+                ApplyMovement(command, scale * legs, dt);
+            }
+
             ApplyGait(dt);
-            if (_tuning.SupportFromGround && _tuning.SupportModel != SupportModel.Cop && State != FighterState.Standing && grounded && !LegSevered)
+            if (!UsesJointDrive && _tuning.SupportFromGround && _tuning.SupportModel != SupportModel.Cop && State != FighterState.Standing && grounded && !LegSevered)
             {
                 ApplyRiseLegs(groundY, dt); // 起き上がる間は、足を重心の下へ寄せる（Fighter.Support.cs）
             }
@@ -2421,7 +2443,10 @@ public sealed partial class Fighter
         }
 
         // 立たせる力（ホバー・起こすねじり・移動）を、床に着いている所で出せる分へ直す（Fighter.Support.cs）。
-        LimitToSupport(groundY, grounded, dt);
+        if (!UsesJointDrive)
+        {
+            LimitToSupport(groundY, grounded, dt);
+        }
 
         // 意識が薄れると腕を上げていられない（ガードが重さで下がる）。
         // 疲れると拳を運ぶ力が落ちる（パンチが遅く軽くなり、ガードが下がる）。体を支える脚は意識（張り）で決まり、疲れでは崩れない。
@@ -2587,10 +2612,10 @@ public sealed partial class Fighter
     /// 脚の IK: 足の置き方から股・膝・足首・つま先のサーボの目標を決める。骨盤は今の位置と、目標の姿勢にあるとして解く
     /// （今の姿勢から解くと、傾いた骨盤を脚が支え直さず、骨盤が 45° 傾いた）。高さのずれは骨盤の高さの制御が積分で打ち消す。
     /// </summary>
-    private void ApplyLegs(float groundY, float dt)
+    private void ApplyLegs(float groundY, float dt, Vector3? pelvisTarget = null)
     {
         var pelvis = _world.GetState(Parts.Pelvis);
-        pelvis = pelvis with { Orientation = _pelvisTarget };
+        pelvis = pelvis with { Orientation = _pelvisTarget, Position = pelvisTarget ?? pelvis.Position };
 
         var inverse = Quaternion.Conjugate(pelvis.Orientation);
         for (var i = 0; i < 2; i++)
@@ -2632,7 +2657,10 @@ public sealed partial class Fighter
             leg.AnkleTarget = LegIk.AnklePitch(shin, foot);
             SetTwistTarget(leg.AnkleServo, leg.AnkleTarget);
             SetTwistTarget(leg.ToeServo, kick is null ? -pose.HeelRaise : 0f);
-            DriveFoot(leg, ankle, pose.Swinging || kick is not null, pelvisId: Parts.Pelvis, dt);
+            if (!UsesJointDrive)
+            {
+                DriveFoot(leg, ankle, pose.Swinging || kick is not null, pelvisId: Parts.Pelvis, dt);
+            }
         }
     }
 
@@ -2676,6 +2704,10 @@ public sealed partial class Fighter
         leg.AnkleTarget = LegKnee.Wrap(2f * MathF.Atan2(orientation.X, orientation.W));
         SetTwistTarget(leg.AnkleServo, leg.AnkleTarget);
         SetTwistTarget(leg.ToeServo, 0f);
+        if (UsesJointDrive)
+        {
+            return;
+        }
 
         var velocity = thigh.LinearVelocity + Vector3.Cross(thigh.AngularVelocity, kneeNow - thigh.Position);
         var targetVelocity = leg.HasTarget && dt > 0f ? ClampLength((goal - leg.LastTarget) / dt, _tuning.MaxTargetSpeed) : Vector3.Zero;
@@ -2887,6 +2919,24 @@ public sealed partial class Fighter
         // 頭を後ろへ引いた分（後ろへ歩くときの傾き・ヒップヒンジは含めない）だけ、腰の受け持ちを増やす。
         var sway = Math.Clamp(MathF.Atan2(head.Z, torsoLength), -_tuning.MaxLeanRadians, 0f);
         _pelvisTarget = Upright(_pelvisTwist, 0.25f, (0.25f * pitch) + ((_tuning.HipBackLeanShare - 0.25f) * sway));
+        var chestTarget = Upright(_twist, 1f, pitch);
+        if (UsesJointDrive)
+        {
+            if (Parts.Abdomen is { } middle && !_detached.Contains(middle) && !_detached.Contains(Parts.Pelvis))
+            {
+                var waistPitch = (0.25f * pitch) + ((_tuning.HipBackLeanShare - 0.25f) * sway);
+                var middleTarget = Upright(_abdomenTwist, 0.6f, Lerp(waistPitch, pitch, 0.5f));
+                DriveRelativeTorso(Parts.Pelvis, middle, _pelvisTarget, middleTarget, abdomenRate - _pelvisTwistRate, scale, dt);
+                DriveRelativeTorso(middle, Parts.Chest, middleTarget, chestTarget, _twistRate - abdomenRate, scale * 0.9f, dt);
+            }
+            else if (Parts.Abdomen is null && !_detached.Contains(Parts.Pelvis))
+            {
+                DriveRelativeTorso(Parts.Pelvis, Parts.Chest, _pelvisTarget, chestTarget, _twistRate - _pelvisTwistRate, scale * 0.9f, dt);
+            }
+
+            return;
+        }
+
         var feedForward = _tuning.TrunkTwistFeedForward * _twistRate;
         ApplyUprightImpulse(Parts.Pelvis, _pelvisTarget, scale, dt, _tuning.TrunkTwistFeedForward * _pelvisTwistRate);
         if (Parts.Abdomen is { } abdomen && !_detached.Contains(abdomen))
@@ -2896,7 +2946,7 @@ public sealed partial class Fighter
                 _tuning.TrunkTwistFeedForward * Math.Clamp(abdomenRate, -rateLimit, rateLimit));
         }
 
-        ApplyUprightImpulse(Parts.Chest, Upright(_twist, 1f, pitch), scale * 0.9f, dt, feedForward);
+        ApplyUprightImpulse(Parts.Chest, chestTarget, scale * 0.9f, dt, feedForward);
     }
 
     // 各部位が一つ手前の指令を追う。関節の位置は物理で解く。
@@ -3119,7 +3169,7 @@ public sealed partial class Fighter
             arm.UpdateLead(_tuning.LeadSpringHz, _tuning.LeadSpringDamping, dt);
             var spring = State == FighterState.Standing && float.IsFinite(hand.Spring) ? Math.Clamp(hand.Spring, 0f, 1f) : 0f; // 倒れている間は移さない
             var armScale = scale * VigorOf(arm.Region); // 疲れはその腕の酸素から（呼吸・循環のモデル）
-            if (spring > 0f)
+            if (!UsesJointDrive && spring > 0f)
             {
                 TransferBodyMotion(arm, frame.LocalToWorld(target), spring * armScale, dt);
             }
@@ -3129,7 +3179,10 @@ public sealed partial class Fighter
             }
 
             var drive = arm.Drive(_world, _tuning, frame, target, armScale * ArmStrength(arm.Hand), _inertia, com, torso, SupportedMass, dt, Parts.Chest, spring, HandSlownessOf(arm.Hand), hand.Tuck);
-            ApplyArmDrive(arm, drive.Force, drive.ArmPart, drive.Internal, weightShift, dt);
+            if (!UsesJointDrive)
+            {
+                ApplyArmDrive(arm, drive.Force, drive.ArmPart, drive.Internal, weightShift, dt);
+            }
             arm.DriveWrist(_world, frame, arm.Support is { } held && arm.SlideSpan is null ? command.For(held.Main).Orientation : hand.Orientation);
         }
 
@@ -3414,7 +3467,7 @@ public sealed partial class Fighter
         // 値が変わったときだけ Bepu の拘束を書き換える（毎サブステップ 9 本の Get/ApplyDescription を避ける）。
         // 脚・腕のサーボの強さには、その脚・腕の肉の残り（力）を掛ける。
         var left = t * MathF.Max(0.01f, LegStrength(true)) * KneeKickTorque(true);
-        if (Changed(0, left))
+        if (!UsesJointDrive && Changed(0, left))
         {
             SetAngularStrength(_legs.LeftHip, _tuning.LegServoHz, _tuning.HipMaxTorque * left, KneeKickSpeed(true));
             SetTwistStrength(_legs.LeftKnee, _tuning.LegServoHz, _tuning.KneeMaxTorque * left, KneeKickSpeed(true));
@@ -3422,7 +3475,7 @@ public sealed partial class Fighter
         }
 
         var right = t * MathF.Max(0.01f, LegStrength(false)) * KneeKickTorque(false);
-        if (Changed(4, right))
+        if (!UsesJointDrive && Changed(4, right))
         {
             SetAngularStrength(_legs.RightHip, _tuning.LegServoHz, _tuning.HipMaxTorque * right, KneeKickSpeed(false));
             SetTwistStrength(_legs.RightKnee, _tuning.LegServoHz, _tuning.KneeMaxTorque * right, KneeKickSpeed(false));
@@ -4289,6 +4342,8 @@ public sealed partial class Fighter
         public float Side => Hand.LocalSide();
         public int UpperArm { get; private init; }
         public int Forearm { get; private init; }
+        public float ShoulderTorqueFactor { get; private set; } = 1f;
+        public float ElbowTorqueFactor { get; private set; } = 1f;
         public int ShoulderServo { get; private init; }
         public int ElbowServo { get; private set; }
 
@@ -4815,8 +4870,29 @@ public sealed partial class Fighter
             var pole = Pole(shoulder, frame, reach, tuck);
             var (elbow, hand) = ArmIk.SolveTwoBone(shoulder, target, pole, UpperLength, LowerLength);
             var (upperRotation, elbowAngle) = ArmIk.JointTargets(shoulder, elbow, hand, ArmIk.BendNormal(shoulder, target, pole), Side);
+            var elbowTarget = Math.Clamp(elbowAngle, 0f, 140f * MathF.PI / 180f);
             world.SetAngularServoTarget(ShoulderServo, Quaternion.Concatenate(upperRotation, Quaternion.Conjugate(chest.Orientation)));
-            world.SetTwistServoTarget(ElbowServo, Math.Clamp(elbowAngle, 0f, 140f * MathF.PI / 180f));
+            world.SetTwistServoTarget(ElbowServo, elbowTarget);
+            if (tuning.JointDrive)
+            {
+                var upper = world.GetState(UpperArm);
+                var forearm = world.GetState(Forearm);
+                var shoulderError = FighterMath.RotationError(upper.Orientation, upperRotation);
+                var shoulderRate = shoulderError.LengthSquared() > 1e-8f
+                    ? Vector3.Dot(upper.AngularVelocity - chest.AngularVelocity, Vector3.Normalize(shoulderError))
+                    : 0f;
+                var basis = Side > 0f ? HumanoidRagdoll.YAxisTwistBasisMirrored : HumanoidRagdoll.YAxisTwistBasis;
+                var axis = Vector3.Transform(Vector3.UnitZ, upper.Orientation * basis);
+                var jointBend = world.GetTwistAngle(ElbowServo);
+                var elbowRate = MathF.Sign(elbowTarget - jointBend) * Vector3.Dot(forearm.AngularVelocity - upper.AngularVelocity, axis);
+                var jointConstants = ArmMuscle.Constants.From(tuning, slowness);
+                float VelocityFactor(float rate, float limit) => ArmMuscle.ForceVelocity(rate / MathF.Max(1e-3f, limit),
+                    jointConstants.Curvature, jointConstants.EccentricMax, jointConstants.EccentricSlope);
+                ShoulderTorqueFactor = VelocityFactor(shoulderRate, jointConstants.ShoulderSpeed);
+                ElbowTorqueFactor = VelocityFactor(elbowRate, jointConstants.ElbowSpeed)
+                    * ArmMuscle.ElbowTorque(MathF.Abs(jointBend), jointConstants.ElbowPeak, jointConstants.ElbowLimit, jointConstants.ElbowEndTorque);
+                return default;
+            }
 
             // 2) 拳を目標へ引く筋肉（ArmMuscle、Hill 型）。PD は脳が出す指令: 欲しい力 ÷ 最大の力 を 0..1 に飽和させた興奮。最大の力は
             //    「腕の筋力 × 体の質量をどれだけ借りられるか」（PunchMechanics）: 体軸を通る向き・骨で突っ張れる向きほど脚と腰の力が乗り、

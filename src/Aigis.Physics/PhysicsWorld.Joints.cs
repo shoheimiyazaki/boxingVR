@@ -568,6 +568,44 @@ public sealed partial class PhysicsWorld
         return _simulation.Solver.GetAccumulatedImpulseMagnitude(_constraints[id]);
     }
 
+    /// <summary>World-space angular impulse on body A from a solved angular or twist servo.</summary>
+    public Vector3 GetAngularServoImpulse(int id, Quaternion orientationA, Quaternion orientationB)
+    {
+        ThrowIfDisposed();
+        var handle = _constraints[id];
+        var impulses = new AngularImpulseComponents();
+        var type = _simulation.Solver.HandleToConstraint[handle.Value].TypeId;
+        switch (type)
+        {
+            case AngularServoTypeProcessor.BatchTypeId:
+                _simulation.Solver.EnumerateAccumulatedImpulses(handle, ref impulses);
+                return impulses.Value;
+            case TwistServoTypeProcessor.BatchTypeId:
+                _simulation.Solver.GetDescription(handle, out TwistServo twist);
+                _simulation.Solver.EnumerateAccumulatedImpulses(handle, ref impulses);
+                var axisA = Vector3.Transform(Vector3.UnitZ, Quaternion.Concatenate(twist.LocalBasisA, orientationA));
+                var axisB = Vector3.Transform(Vector3.UnitZ, Quaternion.Concatenate(twist.LocalBasisB, orientationB));
+                var axis = axisA + axisB;
+                return impulses.Value.X * (axis.LengthSquared() < 1e-20f ? axisA : Vector3.Normalize(axis));
+            default:
+                throw new ArgumentException("Expected an angular or twist servo.", nameof(id));
+        }
+    }
+
+    private struct AngularImpulseComponents : IForEach<float>
+    {
+        private int _count;
+        private Vector3 _value = Vector3.Zero;
+        public readonly Vector3 Value => _value;
+
+        public AngularImpulseComponents() { }
+
+        public void LoopBody(float impulse)
+        {
+            _value[_count++] = impulse;
+        }
+    }
+
     /// <summary>Turns a dynamic body kinematic in place: it stops responding to gravity, contacts and
     /// impulses, still pushes dynamic bodies it collides with, and is moved only by
     /// <see cref="SetKinematicVelocity"/>/<see cref="SetKinematicPose(int, System.Numerics.Vector3)"/>. The inverse of

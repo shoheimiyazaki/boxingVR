@@ -154,12 +154,14 @@ public sealed partial class PhysicsWorld : IDisposable
     /// <see cref="PlanarMotion"/>. <see langword="false"/> (the default) leaves motion unchanged.</param>
     /// <param name="maxDamping">Optional ceiling on every body's damping; see <see cref="MaxDamping"/>.
     /// <c>null</c> (the default) leaves each body's own value alone.</param>
+    /// <param name="conserveAngularMomentum">Use angular integration that conserves angular momentum in free rotation.</param>
     public PhysicsWorld(
         Vector3? gravity = null,
         float frictionCoefficient = 1f,
         float? terminalVelocity = null,
         bool planarMotion = false,
-        float? maxDamping = null)
+        float? maxDamping = null,
+        bool conserveAngularMomentum = false)
     {
         // transform-auditor finding (TASK-180 re-review): an unvalidated non-positive/non-finite
         // value here silently inverts gravity for every dynamic body. IntegrateVelocity clamps to
@@ -211,7 +213,7 @@ public sealed partial class PhysicsWorld : IDisposable
                 ExcludedPairs = _excludedPairs,
                 PairBudget = _contactPairBudget,
             },
-            new PoseIntegratorCallbacks(Gravity, TerminalVelocity, PlanarMotion),
+            new PoseIntegratorCallbacks(Gravity, TerminalVelocity, PlanarMotion, conserveAngularMomentum),
             new SolveDescription(velocityIterationCount: 8, substepCount: 1, fallbackBatchThreshold: SolverBatchLimit));
         // _bodyDamping is not read by any INarrowPhaseCallbacks/IPoseIntegratorCallbacks struct (G5
         // is applied once per Step, not per-substep -- see Step's comment), so nothing calls its

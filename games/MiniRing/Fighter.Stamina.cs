@@ -24,7 +24,7 @@ public sealed partial class Fighter
     internal float StepMuscleAuthorized { get; private set; }
     private readonly List<ServoWork> _servoWork = [];
 
-    private readonly record struct ServoWork(int Joint, int BodyA, int BodyB, float Speed, float Reserved, MuscleRegion Region);
+    private readonly record struct ServoWork(int Joint, int BodyA, int BodyB, float Speed, float Reserved, MuscleRegion Region, Quaternion BeforeA, Quaternion BeforeB);
 
     /// <summary>部位ごとの酸素の蓄えの残り（0..1、容量に対する割合。容量は肉の残りで変わるので割合で持つ）。</summary>
     private readonly float[] _oxygen = [1f, 1f, 1f, 1f];
@@ -142,7 +142,8 @@ public sealed partial class Fighter
     {
         0 or 1 => ArmMass((Hand)region),
         2 => _legMass,
-        _ => _world.GetMass(Parts.Chest) + _world.GetMass(Parts.Pelvis),
+        _ => _world.GetMass(Parts.Chest) + _world.GetMass(Parts.Pelvis)
+            + (UsesJointDrive && Parts.Abdomen is { } abdomen ? _world.GetMass(abdomen) : 0f),
     };
 
     /// <summary>
@@ -293,6 +294,19 @@ public sealed partial class Fighter
                 continue;
             }
 
+            if (UsesJointDrive)
+            {
+                var a = _world.GetState(servo.BodyA).Orientation;
+                var b = _world.GetState(servo.BodyB).Orientation;
+                var before = Quaternion.Concatenate(servo.BeforeB, Quaternion.Conjugate(servo.BeforeA));
+                var afterRotation = Quaternion.Concatenate(b, Quaternion.Conjugate(a));
+                var travel = Vector3.Transform(FighterMath.RotationError(before, afterRotation), servo.BeforeA);
+                // The solver reports the impulse on A. The measured rotation is B relative to A.
+                var impulseOnParent = _world.GetAngularServoImpulse(servo.Joint, servo.BeforeA, servo.BeforeB);
+                Draw((int)servo.Region, MathF.Max(0f, -Vector3.Dot(impulseOnParent, travel) / dt));
+                continue;
+            }
+
             // 精算は実際の速さで数える: 拘束の力積 J がした仕事は J ×（前後の速さの平均）以下。向きは取れないので、
             // 解く前と解いた後の相対角速度の大きい方を掛けて安全側にする（止まった体を加速した分は後の速さに出る）。
             // 力積²の項は取り置き（ReserveServo）だけの上限で、静止して重さを支えるだけの力積を仕事として数えない。
@@ -303,6 +317,11 @@ public sealed partial class Fighter
         }
 
         _servoWork.Clear();
+        if (UsesJointDrive)
+        {
+            SettleJointWork();
+        }
+
         var follow = 1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.StaminaRecoveryWindow));
         var stepWork = 0f;
         for (var i = 0; i < MuscleRegions.Count; i++)
@@ -425,13 +444,13 @@ public sealed partial class Fighter
             var vigor = VigorOf(arm.Region);
             if (_world.HasConstraint(arm.ShoulderServo))
             {
-                var shoulder = ReserveServo(arm.Region, arm.ShoulderServo, Parts.Chest, arm.UpperArm, 40f * _tuning.TorqueScale * ControlScale * FaintArm * vigor * Strength(arm.UpperArm), allowance, dt);
+                var shoulder = ReserveServo(arm.Region, arm.ShoulderServo, Parts.Chest, arm.UpperArm, 40f * _tuning.TorqueScale * ControlScale * FaintArm * vigor * Strength(arm.UpperArm) * arm.ShoulderTorqueFactor, allowance, dt);
                 _world.SetAngularServoSettings(arm.ShoulderServo, _tuning.ArmServoHz, shoulder);
             }
 
             if (_world.HasConstraint(arm.ElbowServo))
             {
-                var elbow = ReserveServo(arm.Region, arm.ElbowServo, arm.UpperArm, arm.Forearm, 30f * _tuning.TorqueScale * ControlScale * FaintArm * vigor * Strength(arm.Forearm), allowance, dt);
+                var elbow = ReserveServo(arm.Region, arm.ElbowServo, arm.UpperArm, arm.Forearm, 30f * _tuning.TorqueScale * ControlScale * FaintArm * vigor * Strength(arm.Forearm) * arm.ElbowTorqueFactor, allowance, dt);
                 _world.SetTwistServoSettings(arm.ElbowServo, _tuning.ArmServoHz, elbow);
             }
             var wrist = arm.Held?.Wrist ?? arm.Support?.Wrist;
@@ -446,7 +465,9 @@ public sealed partial class Fighter
 
     private float ReserveServo(MuscleRegion region, int joint, int a, int b, float torque, float allowance, float dt)
     {
-        var speed = (_world.GetState(a).AngularVelocity - _world.GetState(b).AngularVelocity).Length();
+        var beforeA = _world.GetState(a);
+        var beforeB = _world.GetState(b);
+        var speed = (beforeA.AngularVelocity - beforeB.AngularVelocity).Length();
         float MaxInverse(int id)
         {
             var inertia = _world.GetLocalInertiaDiagonal(id);
@@ -460,7 +481,7 @@ public sealed partial class Fighter
         var reserved = (impulse * speed) + (0.5f * impulse * impulse * inverse);
         _budget[(int)region] = MathF.Max(0f, _budget[(int)region] - reserved);
         StepMuscleAuthorized += reserved;
-        _servoWork.Add(new ServoWork(joint, a, b, speed, reserved, region));
+        _servoWork.Add(new ServoWork(joint, a, b, speed, reserved, region, beforeA.Orientation, beforeB.Orientation));
         return torque * scale;
     }
 

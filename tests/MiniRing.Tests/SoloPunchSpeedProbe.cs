@@ -66,7 +66,7 @@ public sealed partial class SoloPunchSpeedProbe
         float contactFriction = 1f)
     {
         var dt = 1f / physicsHz;
-        using var world = new PhysicsWorld(new Vector3(0f, -gravity, 0f), contactFriction);
+        using var world = new PhysicsWorld(new Vector3(0f, -gravity, 0f), contactFriction, conserveAngularMomentum: tuning.JointDrive);
         world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         var fighter = Fighter.Spawn(world, tuning, "solo", Vector3.Zero, 0f);
         var model = BoxerModel.Build(tuning.HalfExtents, tuning.ModelSubdivisions);

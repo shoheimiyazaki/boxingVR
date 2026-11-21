@@ -663,7 +663,7 @@ public sealed partial class BoxingGame
     /// </summary>
     private float MassBehind(Weapon weapon)
     {
-        if (!Weapon.IsWorn(weapon.Kind) || HolderOf(weapon) is not { } holder)
+        if (!Weapon.IsWorn(weapon.Kind) || HolderOf(weapon) is not { } holder || holder.UsesJointDrive)
         {
             return 0f;
         }
@@ -1841,9 +1841,18 @@ public sealed partial class BoxingGame
             return false;
         }
 
-        // 体の質量が乗るのは、腕が拳を当たりへ押し出している分だけ（置いた拳に相手が突っ込んだ・戻る途中・押し付けただけなら腕の質量だけ）。
-        var drive = BodyFactor(attacker, velocity, hit.Point, attacker.ShoulderPosition(hand), attacker.Parts.Chest, struck, hit.Direction);
-        var impactMass = attacker.ImpactMass(hand, velocity, out var bodyShare, drive);
+        float impactMass;
+        var bodyShare = 0f;
+        if (attacker.UsesJointDrive)
+        {
+            // 接触ソルバーが実際に渡した法線方向の力積だけを得点の運動量に使う。
+            impactMass = MathF.Abs(Vector3.Dot(hit.ImpulseOnB, hit.Normal)) / speed;
+        }
+        else
+        {
+            var drive = BodyFactor(attacker, velocity, hit.Point, attacker.ShoulderPosition(hand), attacker.Parts.Chest, struck, hit.Direction);
+            impactMass = attacker.ImpactMass(hand, velocity, out bodyShare, drive);
+        }
         var (kind, normalized, armHand) = victim.Locate(part.Body.BodyId, hit.Point);
         var zone = HitZones.Classify(kind, normalized, armHand.LocalSide());
         var damage = PunchMechanics.Damage(impactMass * speed) * PunchMechanics.Sharpness(speed) * ZoneDamage.Multiplier(zone);
@@ -1853,6 +1862,11 @@ public sealed partial class BoxingGame
         }
 
         _hitCooldown[(attacker, hand)] = RehitCooldown;
+        if (attacker.UsesJointDrive && contactTwist != Vector3.Zero)
+        {
+            victim.TwistHead(contactTwist);
+        }
+
         // 打った面の材質（はめた物の側）: 打撃音を、グローブ・素手・鉄で変える。
         var face = hit.A == part.Body ? hit.FaceB : hit.FaceA;
         ApplyHit(new HitEvent(attacker, hand, victim, zone, hit.Point, speed, impactMass, bodyShare, damage, face), part.Body.BodyId, velocity, carve: false, alsoTwist: contactTwist);
