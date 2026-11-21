@@ -45,6 +45,7 @@ public sealed class BoxerModel
     {
         BodyPartKind.Head => h.Head,
         BodyPartKind.Chest => h.Chest,
+        BodyPartKind.Abdomen => h.Chest,
         BodyPartKind.Pelvis => h.Pelvis,
         BodyPartKind.UpperArm => h.UpperArm,
         BodyPartKind.Forearm => h.Forearm,

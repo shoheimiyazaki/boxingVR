@@ -67,6 +67,7 @@ public static partial class HumanoidRagdoll
         var side = SideSign(joint);
         return joint switch
         {
+            RagdollJoint.Thoracolumbar => (new Vector3(0f, -parentHalfExtents.Y, 0f), new Vector3(0f, childHalfExtents.Y, 0f)),
             RagdollJoint.Spine => (
                 new Vector3(0f, Overlap - parentHalfExtents.Y, 0f),
                 new Vector3(0f, childHalfExtents.Y, 0f)),
@@ -213,6 +214,8 @@ public static partial class HumanoidRagdoll
                 world, joint, bodyA, bodyB, localA, localB,
                 Vector3.UnitY, YAxisTwistBasis, Radians(30f), Radians(-30f), Radians(30f),
                 isSpineOrNeck: true, jointMotorScale),
+            RagdollJoint.Thoracolumbar => BallGroup(world, joint, bodyA, bodyB, localA, localB,
+                Vector3.UnitY, YAxisTwistBasis, Radians(25f), Radians(-30f), Radians(30f), isSpineOrNeck: true, jointMotorScale),
             RagdollJoint.Neck => BallGroup(
                 world, joint, bodyA, bodyB, localA, localB,
                 Vector3.UnitY, YAxisTwistBasis, Radians(45f), Radians(-70f), Radians(70f),

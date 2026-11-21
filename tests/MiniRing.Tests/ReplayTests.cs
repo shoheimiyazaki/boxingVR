@@ -11,6 +11,35 @@ namespace MiniRing.Tests;
 public sealed class ReplayTests
 {
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void PunchPreset_ReplaysMatch(bool dynamicPunch)
+    {
+        var tuning = dynamicPunch ? FighterTuning.DynamicPunch : FighterTuning.CompactPunch;
+        using var game = new BoxingGame(tuning, seed: 1);
+        using var stream = new MemoryStream();
+        var player = game.Player;
+        Assert.IsTrue(player.Parts.Abdomen.HasValue);
+        var command = new FighterCommand(Vector3.Zero, player.Frame.Forward,
+            new HandCommand(new Vector3(0.15f, 0.10f, 0.30f), false),
+            new HandCommand(new Vector3(-0.15f, 0.10f, 0.42f), false));
+        using (var recorder = new ReplayRecorder(stream, game, "test"))
+        {
+            for (var i = 0; i < ReplayRecorder.ChecksumInterval; i++)
+            {
+                recorder.Step(game, new BoxingInput(command), 1f / 60f);
+            }
+        }
+
+        var data = ReplayFile.Read(new MemoryStream(stream.ToArray()));
+        Assert.AreEqual(tuning.ElbowMuscleMaxSpeed, data.Header.Tuning.ElbowMuscleMaxSpeed);
+        Assert.AreEqual(tuning.WaveHandSeconds, data.Header.Tuning.WaveHandSeconds);
+        Assert.AreEqual(tuning.ArmServoMaxSpeed, data.Header.Tuning.ArmServoMaxSpeed);
+        Assert.AreEqual(tuning.CompactTorsoWave, data.Header.Tuning.CompactTorsoWave);
+        Assert.IsTrue(ReplayPlayer.Verify(data).Reproduced);
+    }
+
+    [TestMethod]
     public void LocalVersus_ReplaysBothControllers()
     {
         var corners = Bots.BotCatalog.Corners("boxer") with { ExternalBlue = true };

@@ -55,18 +55,31 @@ public sealed partial class SoloPunchSpeedProbe
                 return new DebugLine(origin, origin + direction * 0.48f, color);
             }
 
-            DebugLine[] axes = [Axis(fighter.Parts.Pelvis, pelvisYaw, HipColor), Axis(fighter.Parts.Chest, chestYaw, Gold)];
+            var axes = new List<DebugLine> { Axis(fighter.Parts.Pelvis, pelvisYaw, HipColor), Axis(fighter.Parts.Chest, chestYaw, Gold) };
+            const float degreesPerRadian = 180f / MathF.PI;
+            var abdomenYaw = float.NaN;
+            if (fighter.Parts.Abdomen is { } abdomen)
+            {
+                abdomenYaw = BodyFrame.YawOf(Vector3.Transform(Vector3.UnitZ, world.GetState(abdomen).Orientation), 0f) * degreesPerRadian;
+                axes.Add(Axis(abdomen, abdomenYaw, new Vector4(0.74f, 0.97f, 0.44f, 1f)));
+            }
             instances.Add(new PrimitiveInstance(PrimitiveKind.Sphere, Matrix4x4.CreateTranslation(aim),
                 new Vector3(0.014f, 0f, 0f), Gold, MaterialKind.XRayFill));
             var status = time < 0f ? "溜め" : "打ち出し";
-            ScreenTextDraw[] labels =
-            [
+            var labels = new List<ScreenTextDraw>
+            {
                 new("右ストレート   対戦相手なし", new Vector2(44f, 44f), 32f, Vector4.One, TextAnchor.Left),
                 new(string.Create(CultureInfo.InvariantCulture, $"拳速 {speed:F2} m/s    最高 {peak:F2} m/s"), new Vector2(44f, 92f), 26f, Gold, TextAnchor.Left),
                 new(string.Create(CultureInfo.InvariantCulture, $"腰 {pelvisYaw:+0.0;-0.0;0.0}°"), new Vector2(44f, 137f), 24f, HipColor, TextAnchor.Left),
                 new(string.Create(CultureInfo.InvariantCulture, $"肩 {chestYaw:+0.0;-0.0;0.0}°"), new Vector2(205f, 137f), 24f, Gold, TextAnchor.Left),
                 new(string.Create(CultureInfo.InvariantCulture, $"{status}  {time:+0.000;-0.000;0.000} 秒   |   1/8 スロー"), new Vector2(44f, 662f), 22f, Vector4.One, TextAnchor.Left),
-            ];
+            };
+            if (float.IsFinite(abdomenYaw))
+            {
+                labels.Add(new ScreenTextDraw(string.Create(CultureInfo.InvariantCulture, $"腹部 {abdomenYaw:+0.0;-0.0;0.0}°"),
+                    new Vector2(365f, 137f), 24f, new Vector4(0.74f, 0.97f, 0.44f, 1f), TextAnchor.Left));
+            }
+
             var eye = Center + new Vector3(-2.6f, 2.05f, 1.3f);
             var vp = Camera.ViewProjection(eye,
                 Center, Vector3.UnitY, MathF.PI / 4f, (float)Width / Height, 0.02f, 30f);

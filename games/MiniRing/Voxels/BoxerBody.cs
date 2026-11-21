@@ -547,6 +547,19 @@ public sealed class BoxerBody
         return grid;
     }
 
+    private static VoxelGrid SliceTorso(VoxelGrid source, Vector3 half, float chestShare, bool abdomen)
+    {
+        var (nx, ny, nz) = source.Dimensions;
+        var boundary = Math.Clamp((int)MathF.Round(ny * (1f - chestShare)), 1, ny - 1);
+        var countY = abdomen ? boundary : ny - boundary;
+        var offset = abdomen ? 0 : boundary;
+        return new VoxelGrid(source.Palette, half, (nx, countY, nz), (_, normalized) =>
+        {
+            static int Cell(float value, int count) => Math.Clamp((int)((value + 1f) * 0.5f * count), 0, count - 1);
+            return source.At(Cell(normalized.X, nx), Cell(normalized.Y, countY) + offset, Cell(normalized.Z, nz));
+        });
+    }
+
     /// <summary>格子を X で鏡に写したもの（材質だけ。作ったばかりの、傷の無い格子に使う）。</summary>
     internal static VoxelGrid MirroredX(VoxelGrid grid)
     {
@@ -586,13 +599,26 @@ public sealed class BoxerBody
         var p = fighter.Parts;
         VoxelPalette? lookPalette = null;
         LowPoly.BoxerModel? standardShapes = null;
+        VoxelGrid? wholeTorso = null;
         foreach (var id in fighter.AllParts)
         {
             var kind = fighter.KindOf(id);
             var half = fighter.HalfExtentsOf(id);
             standardShapes ??= tuning.Build != BodyBuild.Standard
                 ? LowPoly.BoxerModel.Build((tuning with { Build = BodyBuild.Standard }).HalfExtents, tuning.ModelSubdivisions) : null;
-            var grid = BuildPartGrid(kind, half, tuning, shapes, standardShapes, outfit, overrides, look, ref lookPalette, mirrorX: fighter.OnPlusXSide(id));
+            VoxelGrid grid;
+            if (p.Abdomen is not null && kind is BodyPartKind.Chest or BodyPartKind.Abdomen)
+            {
+                var wholeHalf = tuning.HalfExtents.Chest;
+                wholeTorso ??= BuildPartGrid(BodyPartKind.Chest, wholeHalf, tuning, shapes, standardShapes,
+                    outfit, overrides, look, ref lookPalette);
+                grid = SliceTorso(wholeTorso, half, fighter.HalfExtents.Chest.Y / wholeHalf.Y, kind == BodyPartKind.Abdomen);
+            }
+            else
+            {
+                grid = BuildPartGrid(kind, half, tuning, shapes, standardShapes, outfit, overrides, look,
+                    ref lookPalette, mirrorX: fighter.OnPlusXSide(id));
+            }
             // 腕は長さが X: Aigis の Left 腕は −X 側に付くので体から遠いのは −X、Right 腕は +X。脚は Y で、遠いのは下。
             var (axis, distalHigh) = kind switch
             {

@@ -34,7 +34,7 @@ public sealed partial class Fighter
     /// <summary>
     /// 脚のバネを貯める・放つ（足の運びの歩ごと、体を足の上へ運ぶ前）。<paramref name="groundY"/> は床の高さ、<paramref name="legs"/> は脚の力の倍率。
     /// </summary>
-    private void StepWithLegSpring(in FighterCommand command, float groundY, float legs, float dt)
+    private void StepWithLegSpring(in FighterCommand command, float groundY, float legs, float dt, float yawPush = 0f)
     {
         var t = _tuning.Footwork;
         var capacity = StepSpringCapacity;
@@ -54,6 +54,11 @@ public sealed partial class Fighter
         var step = command.ClampedStep;
         var share = step.Length();
         var pushed = share > 1e-4f && StepSpring > 1e-6f && Push(step / share, share, groundY, dt);
+        if (!pushed && planted >= 1f && MathF.Abs(yawPush) > 1e-4f && StepSpring > 1e-6f)
+        {
+            pushed = PushYaw(yawPush, dt);
+        }
+
         if (!pushed && planted > 0f && StepSpring < capacity)
         {
             // 仕事はスタミナから払う（疲れると縮め直すのが遅い）。
@@ -137,6 +142,35 @@ public sealed partial class Fighter
         StepEnergyReleased += along * released;
         ApplySharedImpulse(direction * impulse);
         _glide = direction;
+        return true;
+    }
+
+    // 左右の足の反力を偶力として扱い、並進力積は加えない。
+    private bool PushYaw(float request, float dt)
+    {
+        var feet = Vector2.Distance(BallOnGround(_legParts[0]), BallOnGround(_legParts[1]));
+        var footwork = _tuning.Footwork;
+        var pelvis = _world.GetState(Parts.Pelvis);
+        var localAxis = Vector3.Transform(Vector3.UnitY, Quaternion.Conjugate(pelvis.Orientation));
+        var inertia = _world.GetLocalInertiaDiagonal(Parts.Pelvis);
+        var inverseInertia = Vector3.Dot(localAxis, localAxis / Vector3.Max(inertia, new Vector3(1e-4f)));
+        var sign = MathF.Sign(request);
+        var workSpeed = MathF.Max(0f, sign * pelvis.AngularVelocity.Y);
+        var budget = StepSpring * MathF.Abs(request) * (1f - MathF.Exp(-dt / MathF.Max(1e-4f, footwork.StepPushTime)));
+        var velocityAfter = MathF.Sqrt(workSpeed * workSpeed + 2f * inverseInertia * budget);
+        var fromEnergy = (velocityAfter - workSpeed) / inverseInertia;
+        // 足の荷重は半分ずつと見積もり、摩擦と母指球の間隔で偶力を制限する。
+        var fromGrip = footwork.StepFriction * SupportedMass * -_world.Gravity.Y * feet * 0.5f * dt;
+        var impulse = MathF.Min(fromEnergy, fromGrip);
+        if (impulse <= 1e-6f)
+        {
+            return false;
+        }
+
+        var energy = impulse * (workSpeed + 0.5f * inverseInertia * impulse);
+        StepSpring = MathF.Max(0f, StepSpring - energy);
+        StepEnergyReleased += energy;
+        _world.ApplyAngularImpulse(Parts.Pelvis, Vector3.UnitY * (sign * impulse));
         return true;
     }
 

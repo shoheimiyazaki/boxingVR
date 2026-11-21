@@ -69,7 +69,7 @@ public static class BoxerShapes
     public static LowPolyMesh For(BodyPartKind kind) => kind switch
     {
         BodyPartKind.Head => Head(),
-        BodyPartKind.Chest => Chest(),
+        BodyPartKind.Chest or BodyPartKind.Abdomen => Chest(),
         BodyPartKind.Pelvis => Pelvis(),
         BodyPartKind.UpperArm => UpperArm().Rotated(LimbAlongX),
         BodyPartKind.Forearm => Forearm().Rotated(LimbAlongX),

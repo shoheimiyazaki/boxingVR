@@ -334,6 +334,21 @@ public sealed record FighterTuning
     /// <summary>両手の位置から決める胴のひねりの最大角。腰はその一部だけ回る。</summary>
     public float MaxTorsoTwistRadians { get; init; } = 35f * MathF.PI / 180f;
     public float HipTwistShare { get; init; } = 0.95f;
+
+    /// <summary>腹部を別剛体に分け、手の目標だけで骨盤から胸までのひねりを駆動する試験設定。</summary>
+    public bool SplitTorso { get; init; }
+    /// <summary>分割胴の試験設定で、脚のばねを直進でなく腰の回旋に使う。</summary>
+    public bool CompactTorsoWave { get; init; }
+    /// <summary>右手を出す間に左のガードを引く距離の上限（腕の長さの割合）。</summary>
+    public float CompactLeftRetractShare { get; init; } = 0.08f;
+    /// <summary>脚のばねを解放する入力が手の目標に追いつく時定数 [s]。</summary>
+    public float WaveFootSeconds { get; init; } = 0.025f;
+    public float WavePelvisSeconds { get; init; } = 0.012f;
+    public float WaveAbdomenSeconds { get; init; } = 0.020f;
+    public float WaveChestSeconds { get; init; } = 0.022f;
+    public float WaveHandSeconds { get; init; } = 0.100f;
+    /// <summary>脚のバネを全開放する手の目標の先行距離（腕の長さの割合）。</summary>
+    public float WaveFootTravelShare { get; init; } = 0.12f;
     /// <summary>頭のずれ（前傾・スリップ）で胴を傾けられる最大角。</summary>
     public float MaxLeanRadians { get; init; } = 30f * MathF.PI / 180f;
 
@@ -823,6 +838,29 @@ public sealed record FighterTuning
 
 
     public static FighterTuning Default { get; } = new();
+
+    /// <summary>その場での回旋を使う、分割胴のコンパクトなボクシング設定。</summary>
+    public static FighterTuning CompactPunch { get; } = Default with
+    {
+        SplitTorso = true,
+        CompactTorsoWave = true,
+        ElbowMuscleMaxSpeed = 200f,
+        ArmServoMaxSpeed = 50f,
+        WaveHandSeconds = 0.035f,
+    };
+
+    /// <summary>踏み込みの並進と体幹の回旋を使う、分割胴のボクシング設定。</summary>
+    public static FighterTuning DynamicPunch { get; } = Default with
+    {
+        SplitTorso = true,
+        MaxTorsoTwistRadians = 65f * MathF.PI / 180f,
+        TrunkRotatorTorque = 240f,
+        ElbowMuscleMaxSpeed = 200f,
+        WaveHandSeconds = 0.025f,
+        WaveFootSeconds = 0.050f,
+        WaveFootTravelShare = 0.24f,
+        Footwork = Default.Footwork with { StepPushTime = 0.030f },
+    };
 
     internal static Vector3 Up => Vector3.UnitY;
 }

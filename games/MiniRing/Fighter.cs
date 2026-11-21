@@ -44,6 +44,13 @@ public sealed partial class Fighter
     private float _pelvisTwist;
     private float _pelvisTwistRate;
     private float _chestTwistBias;
+    private float _wavePelvisTwist;
+    private float _abdomenTwist;
+    private (Vector3 Left, Vector3 Right)? _waveHands;
+    private (float Left, float Right)? _waveFootReference;
+    private float _wavePush;
+    private float _waveYawPush;
+    private float _splitChestTwist;
 
     /// <summary>両脚（腿・すね・足・つま先）の質量。</summary>
     private float _legMass;
@@ -222,7 +229,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 72; // 72: 腰の回旋割合と胸の応答を調整。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 77; // 77: コンパクト版の左手が左肩に追従して引ける。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1219,6 +1226,9 @@ public sealed partial class Fighter
         return f.LinearVelocity + Vector3.Cross(f.AngularVelocity, GloveCenter(hand) - f.Position);
     }
 
+    // 計測専用。分割胴の回旋目標を変えず、右手に届く目標だけを比較する。
+    internal Func<Vector3, Vector3>? ProbeRightHandTarget { get; set; }
+
     /// <summary>最後に拳を目標へ引いた歩の中身（縮める前と後の目標・拳・欲しかった力・力の上限・実際の力。調べもの用: punchlab）。</summary>
     internal HandDriveTrace HandTrace(Hand hand) => _arms[(int)hand].Trace;
 
@@ -1353,6 +1363,7 @@ public sealed partial class Fighter
     {
         var p = Parts;
         return part == p.Head ? BodyPartKind.Head
+            : part == p.Abdomen ? BodyPartKind.Abdomen
             : part == p.Chest ? BodyPartKind.Chest
             : part == p.Pelvis ? BodyPartKind.Pelvis
             : part == p.LeftUpperArm || part == p.RightUpperArm ? BodyPartKind.UpperArm
@@ -1592,7 +1603,7 @@ public sealed partial class Fighter
 
         // HumanoidRagdoll は +Z 向き・T ポーズで生成される。足裏高さを測ってから全体を持ち上げ、ヨー回転する。
         var (parts, built, joints) = HumanoidRagdoll.BuildDetachable(world, feetPosition + new Vector3(0f, 1f, 0f), name, tuning.Masses, halfExtents, jointMotorScale: tuning.TorqueScale,
-            overlap: tuning.JointOverlap, footForwardOffset: tuning.FootForwardOffset, elbowHz: tuning.ElbowHingeHz);
+            overlap: tuning.JointOverlap, footForwardOffset: tuning.FootForwardOffset, elbowHz: tuning.ElbowHingeHz, splitTorso: tuning.SplitTorso);
         RemoveNeckDamper(world, joints);
         var footBottom = world.GetState(parts.LeftFoot).Position.Y - built.Foot.Y;
         var lift = feetPosition.Y - footBottom + 0.00563f;
@@ -2075,6 +2086,7 @@ public sealed partial class Fighter
         var h = HalfExtents;
         var p = Parts;
         return part == p.Pelvis ? h.Pelvis
+            : part == p.Abdomen ? h.Chest with { Y = _tuning.HalfExtents.Chest.Y - h.Chest.Y }
             : part == p.Chest ? h.Chest
             : part == p.Head ? h.Head
             : part == p.LeftUpperArm || part == p.RightUpperArm ? h.UpperArm
@@ -2372,11 +2384,16 @@ public sealed partial class Fighter
             ApplyHover(command, height, scale * legs, footwork, footwork ? LegsAllowHeight(groundY) : float.PositiveInfinity, dt);
         }
 
+        var drivenHands = Parts.Abdomen is not null ? AdvanceHandWave(command, dt) : command;
         ApplyFacingAndUpright(command, scale * CoreStrength, dt);
         if (footwork)
         {
-            StepFeet(command, height, dt);
-            StepWithLegSpring(command, groundY, scale * legs, dt);
+            var footCommand = Parts.Abdomen is not null && !_tuning.CompactTorsoWave && command.ClampedStep.LengthSquared() < 1e-8f
+                ? command with { Step = Frame.Forward * _wavePush }
+                : command;
+            StepFeet(footCommand, height, dt);
+            var yawPush = Parts.Abdomen is not null && _tuning.CompactTorsoWave && command.ClampedStep.LengthSquared() < 1e-8f ? _waveYawPush : 0f;
+            StepWithLegSpring(footCommand, groundY, scale * legs, dt, yawPush);
             ApplyBodyOverFeet(command, scale * legs, dt);
             ApplyLegs(groundY, dt);
         }
@@ -2400,7 +2417,7 @@ public sealed partial class Fighter
 
         // 意識が薄れると腕を上げていられない（ガードが重さで下がる）。
         // 疲れると拳を運ぶ力が落ちる（パンチが遅く軽くなり、ガードが下がる）。体を支える脚は意識（張り）で決まり、疲れでは崩れない。
-        DriveArms(command, ControlScale * FaintArm, weightShift: grounded && State == FighterState.Standing, dt);
+        DriveArms(drivenHands, ControlScale * FaintArm, weightShift: grounded && State == FighterState.Standing, dt);
     }
 
     /// <summary>今の両足の位置で、足の運びを置き直す（立ち直ったとき・生成直後）。</summary>
@@ -2806,7 +2823,7 @@ public sealed partial class Fighter
             _facingYaw += Math.Clamp(BodyFrame.DeltaAngle(_facingYaw, desired), -maxStep, maxStep);
         }
 
-        var bias = float.IsFinite(command.TwistBias) ? command.TwistBias : 0f;
+        var bias = !_tuning.SplitTorso && float.IsFinite(command.TwistBias) ? command.TwistBias : 0f;
         var maxTwist = _tuning.MaxTorsoTwistRadians;
         var armTwist = PunchMechanics.TorsoTwist(command.Left.TargetLocal, command.Right.TargetLocal, ArmReach, maxTwist);
         // 腰がひねりの指令を先に受ける。胸の指令は筋の応答時間で追い、両部位は各自の PD で回る。
@@ -2814,6 +2831,21 @@ public sealed partial class Fighter
         _chestTwistBias = Lerp(_chestTwistBias, bias, response);
         var chestTwist = Math.Clamp(armTwist + _chestTwistBias, -maxTwist, maxTwist);
         var pelvisTwist = Math.Clamp(armTwist + bias, -maxTwist, maxTwist) * _tuning.HipTwistShare;
+        var abdomenRate = 0f;
+        if (Parts.Abdomen is not null)
+        {
+            // 手の位置差から出したひねりを、腰→腹→胸へ順に伝える。
+            var previous = _abdomenTwist;
+            var hipResponse = 1f - MathF.Exp(-dt / _tuning.WavePelvisSeconds);
+            var abdomenResponse = 1f - MathF.Exp(-dt / _tuning.WaveAbdomenSeconds);
+            var chestResponse = 1f - MathF.Exp(-dt / _tuning.WaveChestSeconds);
+            (_wavePelvisTwist, _abdomenTwist, _splitChestTwist) = AdvanceTorsoChain(
+                armTwist, _wavePelvisTwist, previous, _splitChestTwist, hipResponse, abdomenResponse, chestResponse);
+            pelvisTwist = _wavePelvisTwist * _tuning.HipTwistShare;
+            chestTwist = _splitChestTwist;
+            abdomenRate = (_abdomenTwist - previous) / MathF.Max(1e-4f, dt);
+        }
+
         var rateLimit = _tuning.TrunkTwistMaxRate;
         var smoothing = Math.Clamp(_tuning.TargetVelocitySmoothing * dt, 0f, 1f);
         var step = MathF.Max(1e-4f, dt);
@@ -2848,10 +2880,69 @@ public sealed partial class Fighter
         _pelvisTarget = Upright(_pelvisTwist, 0.25f, (0.25f * pitch) + ((_tuning.HipBackLeanShare - 0.25f) * sway));
         var feedForward = _tuning.TrunkTwistFeedForward * _twistRate;
         ApplyUprightImpulse(Parts.Pelvis, _pelvisTarget, scale, dt, _tuning.TrunkTwistFeedForward * _pelvisTwistRate);
+        if (Parts.Abdomen is { } abdomen && !_detached.Contains(abdomen))
+        {
+            var waistPitch = (0.25f * pitch) + ((_tuning.HipBackLeanShare - 0.25f) * sway);
+            ApplyUprightImpulse(abdomen, Upright(_abdomenTwist, 0.6f, Lerp(waistPitch, pitch, 0.5f)), scale, dt,
+                _tuning.TrunkTwistFeedForward * Math.Clamp(abdomenRate, -rateLimit, rateLimit));
+        }
+
         ApplyUprightImpulse(Parts.Chest, Upright(_twist, 1f, pitch), scale * 0.9f, dt, feedForward);
     }
 
-    private readonly Vector3[] _uprightIntegral = new Vector3[2];
+    // 各部位が一つ手前の指令を追う。関節の位置は物理で解く。
+    private static (float Pelvis, float Abdomen, float Chest) AdvanceTorsoChain(
+        float handTwist, float pelvis, float abdomen, float chest, float hipResponse, float abdomenResponse, float chestResponse)
+        => (Lerp(pelvis, handTwist, hipResponse), Lerp(abdomen, pelvis, abdomenResponse), Lerp(chest, abdomen, chestResponse));
+
+    private FighterCommand AdvanceHandWave(in FighterCommand command, float dt)
+    {
+        var left = command.Left.TargetLocal;
+        var right = command.Right.TargetLocal;
+        if (!FiniteLegTarget(left) || !FiniteLegTarget(right))
+        {
+            _wavePush = 0f;
+            _waveYawPush = 0f;
+            return command;
+        }
+
+        var previous = _waveHands ?? (left, right);
+        var response = 1f - MathF.Exp(-dt / _tuning.WaveHandSeconds);
+        var following = (Left: Vector3.Lerp(previous.Left, left, response), Right: Vector3.Lerp(previous.Right, right, response));
+        _waveHands = following;
+
+        // 握りの目標が前へ逃げる量で脚のばねを解放する。実際に押せる力は接地とばね残量で決まる。
+        var footReference = _waveFootReference ?? (left.Z, right.Z);
+        var footResponse = 1f - MathF.Exp(-dt / _tuning.WaveFootSeconds);
+        _waveFootReference = (Lerp(footReference.Left, left.Z, footResponse), Lerp(footReference.Right, right.Z, footResponse));
+        var leftError = MathF.Max(0f, left.Z - footReference.Left);
+        var rightError = MathF.Max(0f, right.Z - footReference.Right);
+        var travel = MathF.Max(1e-4f, ArmReach * _tuning.WaveFootTravelShare);
+        _wavePush = Math.Clamp(MathF.Max(leftError, rightError) / travel, 0f, 1f);
+        // +Y の回旋で右腰（−X）が前（+Z）、左腰（+X）が後ろへ動く。
+        _waveYawPush = Math.Clamp((rightError - leftError) / travel, -1f, 1f);
+        var leftTarget = following.Left;
+        if (_tuning.CompactTorsoWave && _tuning.CompactLeftRetractShare > 0f && _waveYawPush > 0f)
+        {
+            var arm = _arms[(int)Hand.Left];
+            var chest = _world.GetState(Parts.Chest);
+            var restShoulder = arm.ShoulderOnChest - arm.ShoulderCenterOnChest;
+            var offset = following.Left - restShoulder - Vector3.UnitZ * (_tuning.CompactLeftRetractShare * ArmReach);
+            var shoulderLocal = Frame.WorldToLocal(arm.ShoulderPosition(_world, Parts.Chest));
+            var facing = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -_facingYaw);
+            var chestInFrame = Quaternion.Concatenate(chest.Orientation, facing);
+            var shoulderTarget = shoulderLocal + Vector3.Transform(offset, chestInFrame);
+            leftTarget = Vector3.Lerp(leftTarget, shoulderTarget, _waveYawPush);
+        }
+
+        return command with
+        {
+            Left = command.Left with { TargetLocal = leftTarget },
+            Right = command.Right with { TargetLocal = ProbeRightHandTarget?.Invoke(following.Right) ?? following.Right },
+        };
+    }
+
+    private readonly Vector3[] _uprightIntegral = new Vector3[3];
     private Vector2 _centerIntegral;
 
     /// <summary>
@@ -2864,7 +2955,7 @@ public sealed partial class Fighter
         var error = FighterMath.RotationError(s.Orientation, target);
         // 釣り合いの PID（docs/GRAPPLING.md §9）: 漏れのある積分 I（時定数 BalanceIntegralSeconds）が、ずれたままの姿勢を
         // 遅れて押し戻す（戻りすぎて揺れ返す）。Ki = BalanceKi × Kp。BalanceKi = 0 で前の PD のまま。
-        var slot = body == Parts.Pelvis ? 0 : 1;
+        var slot = body == Parts.Pelvis ? 0 : body == Parts.Chest ? 1 : 2;
         _uprightIntegral[slot] = (_uprightIntegral[slot] * MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.BalanceIntegralSeconds))) + (error * dt);
         var accel = (error * _tuning.UprightKp) + (_uprightIntegral[slot] * (_tuning.BalanceKi * _tuning.UprightKp)) - (s.AngularVelocity * _tuning.UprightKd);
         // 鉛直軸まわり（ひねり）: 回旋筋のトルクから決めたバネ。Kp は可動域の端の誤差でちょうど最大のトルク、減衰比は傾きのバネと同じ。
@@ -4727,8 +4818,10 @@ public sealed partial class Fighter
             var pose = new ArmMuscle.Pose(distance > 1e-6f ? fromShoulder / distance : frame.Forward, distance, gloveVelocity - shoulderVelocity, UpperLength,
                 MathF.Max(1e-3f, Vector3.Distance(elbowPoint, glove)));
             // 疲れ（slowness）は最大の縮む速さを下げる形で同じ式に入る。
-            var force = ArmMuscle.Force(_activation, chest.Orientation, cap, pose, ArmMuscle.Constants.From(tuning, slowness), dt, chainMass);
-            Trace = new HandDriveTrace(rawTarget, target, glove, gloveVelocity.Length(), desired.Length(), cap, force.Length());
+            var constants = ArmMuscle.Constants.From(tuning, slowness);
+            var force = ArmMuscle.Force(_activation, chest.Orientation, cap, pose, constants, dt, chainMass,
+                out var bend, out var elbowShortening);
+            Trace = new HandDriveTrace(rawTarget, target, glove, gloveVelocity.Length(), desired.Length(), cap, force.Length(), bend, elbowShortening);
             // 拳を押す力のうち、体に反作用の無い分（腕の筋力の半分の近道と、脚と腰から借りる分）は、腕が拳を力の向きへ押し出している間だけ
             // （力の向きの肩に対する拳の速さが BodyBorrowSpeed で 0 → 1、smoothstep）。伸びきって止まった腕・押し付けたまま止まった拳の力は、
             // 骨と関節を通って胸へ返る内力で、体を前へ運ばない。肘のてこで最大の力を超えた分も内力。
@@ -4756,4 +4849,4 @@ internal readonly record struct SupportGrip(int Body, Vector3 GripLocal, Hand Ma
 /// 拳を目標へ引いた 1 歩の中身（調べもの用。試合の計算には使わない）: 入力の目標（ワールド、肩から腕の長さの球へ縮める前）・縮めた後の目標・拳の中心・拳の速さ [m/s]・
 /// PD が欲しかった力 [N]（加速度 × 腕の質量）・力の上限 [N]（腕の筋力 × 体を借りられる倍率）・実際に掛けた力 [N]。
 /// </summary>
-internal readonly record struct HandDriveTrace(Vector3 RawTarget, Vector3 Target, Vector3 Glove, float GloveSpeed, float Desired, float Cap, float Force);
+internal readonly record struct HandDriveTrace(Vector3 RawTarget, Vector3 Target, Vector3 Glove, float GloveSpeed, float Desired, float Cap, float Force, float ElbowBend = 0f, float ElbowShortening = 0f);

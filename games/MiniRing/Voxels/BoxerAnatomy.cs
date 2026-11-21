@@ -556,6 +556,7 @@ public static class BoxerAnatomy
     {
         BodyPartKind.Head => HeadAt(n),
         BodyPartKind.Chest => ChestAt(n),
+        BodyPartKind.Abdomen => ChestAt(n with { Y = -0.62f + (0.38f * n.Y) }),
         BodyPartKind.Pelvis => PelvisAt(n),
         BodyPartKind.UpperArm or BodyPartKind.Forearm => Rod(n.Y, n.Z, 0.42f),
         BodyPartKind.Thigh or BodyPartKind.Shin => Rod(n.X, n.Z, 0.4f),

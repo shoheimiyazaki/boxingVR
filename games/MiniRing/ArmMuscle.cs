@@ -157,8 +157,12 @@ public static class ArmMuscle
     /// てこの比だけ大きい（速さの尺度は頭打ちにしない）。肩（直交する向き）: 構えの肩から拳の距離 / 今の距離。
     /// </summary>
     public static (float Elbow, float ElbowSpeed, float Shoulder, float ElbowReference, float ShoulderReference) Leverage(in Pose pose, in Constants c)
+        => Leverage(pose, c, out _);
+
+    private static (float Elbow, float ElbowSpeed, float Shoulder, float ElbowReference, float ShoulderReference) Leverage(
+        in Pose pose, in Constants c, out float bend)
     {
-        var bend = ElbowBend(pose.Distance, pose.Upper, pose.Lower);
+        bend = ElbowBend(pose.Distance, pose.Upper, pose.Lower);
         var reference = ElbowLever(c.ElbowPeak, pose.Upper, pose.Lower, c.MinBend);
         var lever = reference / MathF.Max(1e-6f, ElbowLever(bend, pose.Upper, pose.Lower, c.MinBend));
         var referenceDistance = MathF.Sqrt((pose.Upper * pose.Upper) + (pose.Lower * pose.Lower) + (2f * pose.Upper * pose.Lower * MathF.Cos(c.ElbowPeak)));
@@ -194,21 +198,26 @@ public static class ArmMuscle
 
     /// <summary>
     /// 活性化した 6 つのまとまりが拳に出す力（ワールド）。まとまりの引く向き d を、肩から拳への向き（肘の伸ばす・曲げる筋）と直交する向き
-    /// （肩の筋）に分け、それぞれに関節の力の出しやすさ（<see cref="Leverage"/>）と、関節の縮む速さ（拳の速さ × てこの比 / 最大の縮む速さ）の
+    /// （肩の筋）に分け、それぞれに関節の力の出しやすさ（<see cref="Leverage(in Pose, in Constants)"/>）と、関節の縮む速さ（拳の速さ × てこの比 / 最大の縮む速さ）の
     /// 速さの関係を掛けて足す。
     /// <para>速さの関係は拳の速さに対する粘り（傾き b = −dF/dv ≥ 0）を持つ。伸びきりの近くでは関節の角速度へのてこが大きく、粘りはてこの比の 2 乗で
     /// 固くなるので、歩ごとに力が振れないよう、粘りの分は 1 歩先の速さで解く（後退オイラー: F / (1 + b dt / m)、m は拳が引く質量）。
     /// 歩が細かい極限では元の式と同じ。</para>
     /// </summary>
     public static Vector3 Force(ReadOnlySpan<float> activation, Quaternion chest, float maxForce, in Pose pose, in Constants c, float dt, float mass)
+        => Force(activation, chest, maxForce, pose, c, dt, mass, out _, out _);
+
+    internal static Vector3 Force(ReadOnlySpan<float> activation, Quaternion chest, float maxForce, in Pose pose, in Constants c, float dt, float mass,
+        out float elbowBend, out float elbowShortening)
     {
         var radialForce = 0f;
         var radialDamping = 0f;
         var tangentForce = Vector3.Zero;
         var tangentDamping = 0f;
         var radialSpeed = Vector3.Dot(pose.Velocity, pose.Radial);
-        var (elbowStrength, elbowSpeed, shoulderStrength, elbowLever, shoulderLever) = Leverage(pose, c);
+        var (elbowStrength, elbowSpeed, shoulderStrength, elbowLever, shoulderLever) = Leverage(pose, c, out elbowBend);
         var elbowMax = c.Tired(c.ElbowSpeed, elbowLever);
+        elbowShortening = radialSpeed * elbowSpeed / elbowMax;
         var shoulderMax = c.Tired(c.ShoulderSpeed, shoulderLever);
         for (var i = 0; i < Groups; i++)
         {
