@@ -48,6 +48,12 @@ public sealed partial class Fighter
     private float _abdomenTwist;
     private (Vector3 Left, Vector3 Right)? _waveHands;
     private (float Left, float Right)? _waveFootReference;
+    internal float PunchForm { get; private set; }
+    private float ForwardPunchShare => _tuning.AdaptivePunchForm ? PunchForm : _tuning.CompactTorsoWave ? 0f : 1f;
+    private float PunchTwistLimit => FormValue(_tuning.MaxTorsoTwistRadians, FighterTuning.DynamicPunch.MaxTorsoTwistRadians);
+
+    private float FormValue(float compact, float dynamicValue)
+        => _tuning.AdaptivePunchForm ? Lerp(compact, dynamicValue, PunchForm) : compact;
     private float _wavePush;
     private float _waveYawPush;
     private float _splitChestTwist;
@@ -229,7 +235,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 77; // 77: コンパクト版の左手が左肩に追従して引ける。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 78; // 78: 拳の目標距離で回旋と踏み込みを連続に配分する。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -2388,11 +2394,13 @@ public sealed partial class Fighter
         ApplyFacingAndUpright(command, scale * CoreStrength, dt);
         if (footwork)
         {
-            var footCommand = Parts.Abdomen is not null && !_tuning.CompactTorsoWave && command.ClampedStep.LengthSquared() < 1e-8f
-                ? command with { Step = Frame.Forward * _wavePush }
+            var handDrivenStep = Parts.Abdomen is not null && command.ClampedStep.LengthSquared() < 1e-8f;
+            var forwardShare = ForwardPunchShare;
+            var footCommand = handDrivenStep && forwardShare > 0f
+                ? command with { Step = Frame.Forward * (_wavePush * forwardShare) }
                 : command;
             StepFeet(footCommand, height, dt);
-            var yawPush = Parts.Abdomen is not null && _tuning.CompactTorsoWave && command.ClampedStep.LengthSquared() < 1e-8f ? _waveYawPush : 0f;
+            var yawPush = handDrivenStep ? _waveYawPush * (1f - forwardShare) : 0f;
             StepWithLegSpring(footCommand, groundY, scale * legs, dt, yawPush);
             ApplyBodyOverFeet(command, scale * legs, dt);
             ApplyLegs(groundY, dt);
@@ -2449,7 +2457,8 @@ public sealed partial class Fighter
         var pelvis = _world.GetState(Parts.Pelvis);
         var omega = MathF.Sqrt(-_world.Gravity.Y / MathF.Max(0.141f, height));
         var intent = command.ClampedMove * (_tuning.WalkSpeed * VigorOf(MuscleRegion.Legs));
-        var twist = _twist / MathF.Max(1e-3f, _tuning.MaxTorsoTwistRadians);
+        var twistLimit = PunchTwistLimit;
+        var twist = _twist / MathF.Max(1e-3f, twistLimit);
         // 体重: 頭を前へ出せば前足、反らせば後ろ足へ。右の拳（後ろの手）を打つときは前足へ乗せる。
         var weight = Math.Clamp((command.HeadOffset.Z / (0.4f * ArmReach)) + (0.6f * MathF.Max(0f, twist)), -1f, 1f);
         var lead = _legParts[Footwork.Lead];
@@ -2476,7 +2485,7 @@ public sealed partial class Fighter
             input = input with { Com = new Vector2(com.X, com.Z), ComVelocity = new Vector2(comVelocity.X, comVelocity.Z) };
         }
 
-        _footwork.Update(input, dt);
+        _footwork.Update(input, dt, twistLimit);
     }
 
     /// <summary>足の母指球の実際の位置（水平面）。</summary>
@@ -2824,7 +2833,7 @@ public sealed partial class Fighter
         }
 
         var bias = !_tuning.SplitTorso && float.IsFinite(command.TwistBias) ? command.TwistBias : 0f;
-        var maxTwist = _tuning.MaxTorsoTwistRadians;
+        var maxTwist = PunchTwistLimit;
         var armTwist = PunchMechanics.TorsoTwist(command.Left.TargetLocal, command.Right.TargetLocal, ArmReach, maxTwist);
         // 腰がひねりの指令を先に受ける。胸の指令は筋の応答時間で追い、両部位は各自の PD で回る。
         var response = 1f - MathF.Exp(-dt / _tuning.ChestTwistResponseSeconds);
@@ -2903,43 +2912,62 @@ public sealed partial class Fighter
         {
             _wavePush = 0f;
             _waveYawPush = 0f;
+            PunchForm = 0f;
             return command;
         }
 
+        if (_tuning.AdaptivePunchForm)
+        {
+            // 肩の中央から前方への目標を腕長で正規化し、近い打ち抜き目標から奥の打ち抜き目標へ滑らかにつなぐ。
+            const float compactReach = 1.15f;
+            const float dynamicReach = 1.55f;
+            var reach = MathF.Max(left.Z, right.Z) / MathF.Max(1e-4f, ArmReach);
+            var u = Math.Clamp((reach - compactReach) / (dynamicReach - compactReach), 0f, 1f);
+            PunchForm = u * u * (3f - 2f * u);
+        }
+
+        var dynamicTuning = FighterTuning.DynamicPunch;
         var previous = _waveHands ?? (left, right);
-        var response = 1f - MathF.Exp(-dt / _tuning.WaveHandSeconds);
+        var response = 1f - MathF.Exp(-dt / FormValue(_tuning.WaveHandSeconds, dynamicTuning.WaveHandSeconds));
         var following = (Left: Vector3.Lerp(previous.Left, left, response), Right: Vector3.Lerp(previous.Right, right, response));
         _waveHands = following;
 
         // 握りの目標が前へ逃げる量で脚のばねを解放する。実際に押せる力は接地とばね残量で決まる。
         var footReference = _waveFootReference ?? (left.Z, right.Z);
-        var footResponse = 1f - MathF.Exp(-dt / _tuning.WaveFootSeconds);
+        var footResponse = 1f - MathF.Exp(-dt / FormValue(_tuning.WaveFootSeconds, dynamicTuning.WaveFootSeconds));
         _waveFootReference = (Lerp(footReference.Left, left.Z, footResponse), Lerp(footReference.Right, right.Z, footResponse));
         var leftError = MathF.Max(0f, left.Z - footReference.Left);
         var rightError = MathF.Max(0f, right.Z - footReference.Right);
-        var travel = MathF.Max(1e-4f, ArmReach * _tuning.WaveFootTravelShare);
+        var travel = MathF.Max(1e-4f, ArmReach * FormValue(_tuning.WaveFootTravelShare, dynamicTuning.WaveFootTravelShare));
         _wavePush = Math.Clamp(MathF.Max(leftError, rightError) / travel, 0f, 1f);
         // +Y の回旋で右腰（−X）が前（+Z）、左腰（+X）が後ろへ動く。
         _waveYawPush = Math.Clamp((rightError - leftError) / travel, -1f, 1f);
-        var leftTarget = following.Left;
-        if (_tuning.CompactTorsoWave && _tuning.CompactLeftRetractShare > 0f && _waveYawPush > 0f)
-        {
-            var arm = _arms[(int)Hand.Left];
-            var chest = _world.GetState(Parts.Chest);
-            var restShoulder = arm.ShoulderOnChest - arm.ShoulderCenterOnChest;
-            var offset = following.Left - restShoulder - Vector3.UnitZ * (_tuning.CompactLeftRetractShare * ArmReach);
-            var shoulderLocal = Frame.WorldToLocal(arm.ShoulderPosition(_world, Parts.Chest));
-            var facing = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -_facingYaw);
-            var chestInFrame = Quaternion.Concatenate(chest.Orientation, facing);
-            var shoulderTarget = shoulderLocal + Vector3.Transform(offset, chestInFrame);
-            leftTarget = Vector3.Lerp(leftTarget, shoulderTarget, _waveYawPush);
-        }
-
+        var retract = _waveYawPush * (1f - ForwardPunchShare);
+        var leftTarget = RetractGuard(Hand.Left, following.Left, retract);
+        var rightTarget = _tuning.AdaptivePunchForm ? RetractGuard(Hand.Right, following.Right, -retract) : following.Right;
         return command with
         {
             Left = command.Left with { TargetLocal = leftTarget },
-            Right = command.Right with { TargetLocal = ProbeRightHandTarget?.Invoke(following.Right) ?? following.Right },
+            Right = command.Right with { TargetLocal = ProbeRightHandTarget?.Invoke(rightTarget) ?? rightTarget },
         };
+    }
+
+    private Vector3 RetractGuard(Hand hand, Vector3 target, float weight)
+    {
+        if (weight <= 0f || _tuning.CompactLeftRetractShare <= 0f)
+        {
+            return target;
+        }
+
+        var arm = _arms[(int)hand];
+        var chest = _world.GetState(Parts.Chest);
+        var restShoulder = arm.ShoulderOnChest - arm.ShoulderCenterOnChest;
+        var offset = target - restShoulder - Vector3.UnitZ * (_tuning.CompactLeftRetractShare * ArmReach);
+        var shoulderLocal = Frame.WorldToLocal(arm.ShoulderPosition(_world, Parts.Chest));
+        var facing = Quaternion.CreateFromAxisAngle(Vector3.UnitY, -_facingYaw);
+        var chestInFrame = Quaternion.Concatenate(chest.Orientation, facing);
+        var shoulderTarget = shoulderLocal + Vector3.Transform(offset, chestInFrame);
+        return Vector3.Lerp(target, shoulderTarget, weight);
     }
 
     private readonly Vector3[] _uprightIntegral = new Vector3[3];
@@ -2960,9 +2988,10 @@ public sealed partial class Fighter
         var accel = (error * _tuning.UprightKp) + (_uprightIntegral[slot] * (_tuning.BalanceKi * _tuning.UprightKp)) - (s.AngularVelocity * _tuning.UprightKd);
         // 鉛直軸まわり（ひねり）: 回旋筋のトルクから決めたバネ。Kp は可動域の端の誤差でちょうど最大のトルク、減衰比は傾きのバネと同じ。
         var chestYawInertia = MathF.Max(1e-4f, _world.GetLocalInertiaDiagonal(Parts.Chest).Y);
-        var torque = body == Parts.Pelvis ? _tuning.PelvisRotatorTorque ?? _tuning.TrunkRotatorTorque : _tuning.TrunkRotatorTorque;
+        var trunkTorque = FormValue(_tuning.TrunkRotatorTorque, FighterTuning.DynamicPunch.TrunkRotatorTorque);
+        var torque = body == Parts.Pelvis ? _tuning.PelvisRotatorTorque ?? trunkTorque : trunkTorque;
         var rotatorTorque = torque * _tuning.TorqueScale;
-        var yawKp = rotatorTorque / (chestYawInertia * MathF.Max(1e-3f, _tuning.MaxTorsoTwistRadians));
+        var yawKp = rotatorTorque / (chestYawInertia * MathF.Max(1e-3f, PunchTwistLimit));
         var yawKd = _tuning.UprightKd / MathF.Sqrt(_tuning.UprightKp) * MathF.Sqrt(yawKp); // 2ζ√Kp（ζ = UprightKd / 2√UprightKp）
         var yaw = (error.Y * yawKp) + (_uprightIntegral[slot].Y * (_tuning.BalanceKi * yawKp)) + ((yawRate - s.AngularVelocity.Y) * yawKd);
         var yawLimit = rotatorTorque / MathF.Max(1e-4f, _world.GetLocalInertiaDiagonal(body).Y);

@@ -51,6 +51,50 @@ public sealed class SplitTorsoTests
     }
 
     [TestMethod]
+    public void AdaptivePunch_FormWeightFollowsEitherHandTarget()
+    {
+        float Punch(float reach, bool leftHand)
+        {
+            using var world = NewWorld();
+            var fighter = Fighter.Spawn(world, FighterTuning.AdaptivePunch, "adaptive", Vector3.Zero, 0f);
+            var forward = fighter.Frame.Forward;
+            var left = new HandCommand(new Vector3(0.15f, 0.08f, 0.24f), false);
+            var right = new HandCommand(new Vector3(-0.15f, 0.08f, 0.24f), false);
+            var guard = new FighterCommand(Vector3.Zero, forward, left, right);
+            void Step(FighterCommand command)
+            {
+                fighter.ApplyControl(command, Dt);
+                world.Step(Dt);
+            }
+
+            for (var i = 0; i < 480; i++)
+            {
+                Step(guard);
+            }
+
+            for (var i = 1; i <= 48; i++)
+            {
+                var z = 0.24f + (i / 48f * ((fighter.ArmReach * reach) - 0.24f));
+                var command = leftHand
+                    ? guard with { Left = left with { TargetLocal = left.TargetLocal with { Z = z } } }
+                    : guard with { Right = right with { TargetLocal = right.TargetLocal with { Z = z } } };
+                Step(command);
+            }
+
+            return fighter.PunchForm;
+        }
+
+        var close = Punch(1.15f, leftHand: false);
+        var middle = Punch(1.35f, leftHand: false);
+        var far = Punch(1.55f, leftHand: false);
+        var left = Punch(1.35f, leftHand: true);
+        Assert.AreEqual(0f, close, 1e-4f);
+        Assert.AreEqual(0.5f, middle, 1e-4f);
+        Assert.AreEqual(1f, far, 1e-4f);
+        Assert.AreEqual(middle, left, 1e-4f);
+    }
+
+    [TestMethod]
     public void SplitTorso_MatchSpawnsVoxelBodiesAndRuns()
     {
         var tuning = FighterTuning.Default with { SplitTorso = true };

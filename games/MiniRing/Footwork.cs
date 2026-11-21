@@ -230,6 +230,7 @@ public sealed class Footwork
     private float _swingTime;
     private float _swingDuration;
     private float _twist;
+    private float? _twistLimit;
     private float _weight;
     private Vector2 _reachCenter;
     private float _hipOffset;
@@ -279,7 +280,7 @@ public sealed class Footwork
         var heel = t.HeelRaiseDegrees * radians;
         // ひねりの軸足: 右の拳（ひねり正）は後ろ足、左の拳（負）は前足を母指球で回す。
         var drive = foot == Rear ? MathF.Max(0f, _twist) : MathF.Max(0f, -_twist);
-        var pivot = _tuning.PivotShare * _twist * MaxTwist * (foot == Rear ? (_twist > 0f ? 1f : 0.25f) : (_twist < 0f ? 1f : 0.25f));
+        var pivot = _tuning.PivotShare * _twist * (_twistLimit ?? MaxTwist) * (foot == Rear ? (_twist > 0f ? 1f : 0.25f) : (_twist < 0f ? 1f : 0.25f));
         heel += drive * t.PivotHeelRaiseDegrees * radians;
         if (foot != _swinging)
         {
@@ -299,8 +300,11 @@ public sealed class Footwork
     private float SwingProgress => _swingDuration <= 0f ? 1f : Math.Clamp(_swingTime / _swingDuration, 0f, 1f);
 
     /// <summary>1 ステップ分進める: 踏み出している足を運び、着いたら次の足を決める。</summary>
-    public void Update(in FootworkInput input, float dt)
+    public void Update(in FootworkInput input, float dt) => Update(input, dt, MaxTwist);
+
+    internal void Update(in FootworkInput input, float dt, float twistLimit)
     {
+        _twistLimit = twistLimit;
         _twist = Math.Clamp(float.IsFinite(input.Twist) ? input.Twist : 0f, -1f, 1f);
         _weight = Math.Clamp(float.IsFinite(input.Weight) ? input.Weight : 0f, -1f, 1f);
         _legLength = MathF.Max(0.01f, input.LegLength);

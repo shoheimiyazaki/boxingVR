@@ -11,18 +11,25 @@ namespace MiniRing.Tests;
 public sealed class ReplayTests
 {
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public void PunchPreset_ReplaysMatch(bool dynamicPunch)
+    [DataRow(nameof(FighterTuning.CompactPunch))]
+    [DataRow(nameof(FighterTuning.DynamicPunch))]
+    [DataRow(nameof(FighterTuning.AdaptivePunch))]
+    public void PunchPreset_ReplaysMatch(string preset)
     {
-        var tuning = dynamicPunch ? FighterTuning.DynamicPunch : FighterTuning.CompactPunch;
+        var tuning = preset switch
+        {
+            nameof(FighterTuning.CompactPunch) => FighterTuning.CompactPunch,
+            nameof(FighterTuning.DynamicPunch) => FighterTuning.DynamicPunch,
+            nameof(FighterTuning.AdaptivePunch) => FighterTuning.AdaptivePunch,
+            _ => throw new ArgumentException("Unknown punch preset.", nameof(preset)),
+        };
         using var game = new BoxingGame(tuning, seed: 1);
         using var stream = new MemoryStream();
         var player = game.Player;
         Assert.IsTrue(player.Parts.Abdomen.HasValue);
         var command = new FighterCommand(Vector3.Zero, player.Frame.Forward,
             new HandCommand(new Vector3(0.15f, 0.10f, 0.30f), false),
-            new HandCommand(new Vector3(-0.15f, 0.10f, 0.42f), false));
+            new HandCommand(new Vector3(-0.15f, 0.10f, 1.35f * player.ArmReach), false));
         using (var recorder = new ReplayRecorder(stream, game, "test"))
         {
             for (var i = 0; i < ReplayRecorder.ChecksumInterval; i++)
@@ -36,6 +43,7 @@ public sealed class ReplayTests
         Assert.AreEqual(tuning.WaveHandSeconds, data.Header.Tuning.WaveHandSeconds);
         Assert.AreEqual(tuning.ArmServoMaxSpeed, data.Header.Tuning.ArmServoMaxSpeed);
         Assert.AreEqual(tuning.CompactTorsoWave, data.Header.Tuning.CompactTorsoWave);
+        Assert.AreEqual(tuning.AdaptivePunchForm, data.Header.Tuning.AdaptivePunchForm);
         Assert.IsTrue(ReplayPlayer.Verify(data).Reproduced);
     }
 

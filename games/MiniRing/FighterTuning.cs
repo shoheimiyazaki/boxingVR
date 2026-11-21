@@ -339,6 +339,9 @@ public sealed record FighterTuning
     public bool SplitTorso { get; init; }
     /// <summary>分割胴の試験設定で、脚のばねを直進でなく腰の回旋に使う。</summary>
     public bool CompactTorsoWave { get; init; }
+
+    /// <summary>拳の前方目標から脚の回旋と踏み込みの配分を連続に変える（分割胴）。</summary>
+    public bool AdaptivePunchForm { get; init; }
     /// <summary>右手を出す間に左のガードを引く距離の上限（腕の長さの割合）。</summary>
     public float CompactLeftRetractShare { get; init; } = 0.08f;
     /// <summary>脚のばねを解放する入力が手の目標に追いつく時定数 [s]。</summary>
@@ -860,6 +863,13 @@ public sealed record FighterTuning
         WaveFootSeconds = 0.050f,
         WaveFootTravelShare = 0.24f,
         Footwork = Default.Footwork with { StepPushTime = 0.030f },
+    };
+
+    /// <summary>拳の目標距離から打ち分ける分割胴。腕のサーボ速度は両フォームで共通にする。</summary>
+    public static FighterTuning AdaptivePunch { get; } = CompactPunch with
+    {
+        AdaptivePunchForm = true,
+        ArmServoMaxSpeed = DynamicPunch.ArmServoMaxSpeed,
     };
 
     internal static Vector3 Up => Vector3.UnitY;

@@ -53,10 +53,13 @@ public sealed partial class Fighter
 
         var step = command.ClampedStep;
         var share = step.Length();
-        var pushed = share > 1e-4f && StepSpring > 1e-6f && Push(step / share, share, groundY, dt);
-        if (!pushed && planted >= 1f && MathF.Abs(yawPush) > 1e-4f && StepSpring > 1e-6f)
+        var releaseSeconds = FormValue(t.StepPushTime, FighterTuning.DynamicPunch.Footwork.StepPushTime);
+        var release = 1f - MathF.Exp(-dt / MathF.Max(1e-4f, releaseSeconds));
+        var pushed = share > 1e-4f && StepSpring > 1e-6f && Push(step / share, share, groundY, dt, release);
+        if ((!pushed || _tuning.AdaptivePunchForm) && planted >= 1f && MathF.Abs(yawPush) > 1e-4f && StepSpring > 1e-6f)
         {
-            pushed = PushYaw(yawPush, dt);
+            // 両方に配分したときも、回旋へ使う分は踏み込み後に残った同じばねから払う。
+            pushed |= PushYaw(yawPush, dt, release);
         }
 
         if (!pushed && planted > 0f && StepSpring < capacity)
@@ -70,9 +73,10 @@ public sealed partial class Fighter
     /// <summary>
     /// 脚のバネを、向き <paramref name="direction"/>（水平の単位ベクトル）へ割合 <paramref name="share"/> だけ放つ。蹴るのは、その向きに対して腰より後ろにある、
     /// 床に着いた足。脚は股と母指球を結ぶ線に沿って押すので、移動の向きへの効率はその線の水平の成分で、水平の力は床の摩擦までしか出ない。
+    /// <paramref name="release"/> はこの刻みで解放できるばねエネルギーの割合。
     /// </summary>
     /// <returns>床を蹴ったか（蹴れる足が無い・足が腰の真下か前にあるなら蹴らない）。</returns>
-    private bool Push(Vector3 direction, float share, float groundY, float dt)
+    private bool Push(Vector3 direction, float share, float groundY, float dt, float release)
     {
         var t = _tuning.Footwork;
         var pelvis = _world.GetState(Parts.Pelvis);
@@ -118,7 +122,7 @@ public sealed partial class Fighter
         }
 
         var mass = SupportedMass;
-        var released = StepSpring * share * (1f - MathF.Exp(-dt / MathF.Max(1e-4f, t.StepPushTime)));
+        var released = StepSpring * share * release;
         var velocity = Vector3.Dot(pelvis.LinearVelocity, direction);
         var forward = MathF.Max(0f, velocity);
         var gain = along * released; // 移動の向きへ渡る運動エネルギー（残りは脚の線の鉛直の成分: 体を支えるのに使われて消える）
@@ -146,7 +150,7 @@ public sealed partial class Fighter
     }
 
     // 左右の足の反力を偶力として扱い、並進力積は加えない。
-    private bool PushYaw(float request, float dt)
+    private bool PushYaw(float request, float dt, float release)
     {
         var feet = Vector2.Distance(BallOnGround(_legParts[0]), BallOnGround(_legParts[1]));
         var footwork = _tuning.Footwork;
@@ -156,7 +160,7 @@ public sealed partial class Fighter
         var inverseInertia = Vector3.Dot(localAxis, localAxis / Vector3.Max(inertia, new Vector3(1e-4f)));
         var sign = MathF.Sign(request);
         var workSpeed = MathF.Max(0f, sign * pelvis.AngularVelocity.Y);
-        var budget = StepSpring * MathF.Abs(request) * (1f - MathF.Exp(-dt / MathF.Max(1e-4f, footwork.StepPushTime)));
+        var budget = StepSpring * MathF.Abs(request) * release;
         var velocityAfter = MathF.Sqrt(workSpeed * workSpeed + 2f * inverseInertia * budget);
         var fromEnergy = (velocityAfter - workSpeed) / inverseInertia;
         // 足の荷重は半分ずつと見積もり、摩擦と母指球の間隔で偶力を制限する。

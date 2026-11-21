@@ -105,6 +105,20 @@ public sealed partial class SoloPunchSpeedProbe
         }
     }
 
+    [TestMethod]
+    public void AdaptivePunch_StandardCrossMovesFartherForDistantAims()
+    {
+        var previousTravel = -1f;
+        foreach (var range in new[] { 0.80f, 0.95f, 1.05f, 1.15f, 1.30f, 1.45f })
+        {
+            var result = RunShoulderTrial("adaptive", FighterTuning.AdaptivePunch, range: range);
+            Assert.IsGreaterThan(previousTravel, result.PelvisTravel);
+            previousTravel = result.PelvisTravel;
+            Console.WriteLine(FormattableString.Invariant(
+                $"adaptive range={range:F2}, fist={result.AtFist.Fist:F2} m/s, pelvis={100f * result.PelvisTravel:F2} cm"));
+        }
+    }
+
     private static string DynamicRow(int id, ShoulderTrial run) => string.Create(CultureInfo.InvariantCulture,
         $"{id},{run.Name},{run.Tuning.WaveFootSeconds:G9},{run.Tuning.WaveFootTravelShare:G9},{run.Tuning.Footwork.StepPushTime:G9},{run.Tuning.MaxTorsoTwistRadians * 180f / MathF.PI:G9},{run.Tuning.TrunkRotatorTorque:G9},{run.Tuning.ElbowMuscleMaxSpeed:G9},{run.Tuning.ArmServoMaxSpeed:G9},{run.Tuning.WaveHandSeconds:G9},{run.Load:G9},{run.Range:G9},{run.Hz},{run.AtFist.Fist:G9},{run.AtFist.Shoulder:G9},{run.PelvisTravel:G9},{run.BodyTravel:G9}");
 }
