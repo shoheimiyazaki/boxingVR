@@ -30,9 +30,9 @@ public sealed class WeaponHand
     public Vector3 GridCenterLocal => Body.GridCenterLocal;
 
     /// <summary>この手を描く指示（格子の変化をテクスチャへ写す）。</summary>
-    internal VoxelVolumeDraw Draw()
+    internal VoxelVolumeDraw Draw(HandSkinTint? skin = null)
     {
-        Volume.Sync(Body.Grid);
+        Volume.Sync(Body.Grid, skin?.Key ?? 0, skin?.Recolor);
         return new VoxelVolumeDraw(Volume, VoxelVolume.CellToWorld(Body.Grid, Body.GridToWorld()));
     }
 }

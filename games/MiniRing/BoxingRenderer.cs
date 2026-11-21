@@ -183,7 +183,7 @@ public static class BoxingRenderer
 
         foreach (var weapon in game.Weapons)
         {
-            weapon.AddDraws(voxels);
+            weapon.AddDraws(voxels, game.WielderOf(weapon)?.Voxels?.SkinColor); // 素手の拳は持ち主の肌の色で
         }
 
         foreach (var prop in game.BreakProps)

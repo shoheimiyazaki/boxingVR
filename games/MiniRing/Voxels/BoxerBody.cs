@@ -1419,6 +1419,12 @@ public sealed class BoxerBody
     /// </summary>
     public float OrganFunction(byte organ, float halvingLoss) => (1f - BruiseOf(organ)) * BrainFunctionOf(OrganLoss(organ), halvingLoss);
 
+    /// <summary>
+    /// この体の肌の色（顔の層・頭・首・胴・手足が使う色の表の皮膚。名簿の顔の肌 → <see cref="FaceLayer.LookWith"/>）。素手の拳など体の外の格子も、この色で描いて肌をそろえる。
+    /// 見た目だけ。
+    /// </summary>
+    public Vector4 SkinColor => _parts[0].Body.Grid.Palette[BoxerAnatomy.Skin].Color;
+
     /// <summary>体に付いている部位（Aigis の 13 + つま先 2）。</summary>
     public IReadOnlyList<VoxelPart> Parts => _parts;
 

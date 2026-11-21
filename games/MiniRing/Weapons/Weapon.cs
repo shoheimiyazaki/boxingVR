@@ -94,6 +94,9 @@ public enum WeaponKind
 /// </summary>
 public sealed class Weapon
 {
+    private HandSkinTint? _skinTint;
+    private Vector4 _skinTintColor;
+
     private Weapon(WeaponKind kind, VoxelBody body, bool initializeHand = true)
     {
         Kind = kind;
@@ -275,10 +278,10 @@ public sealed class Weapon
         return _strength;
     }
 
-    /// <summary>この武器を描く指示（格子の変化をテクスチャへ写す）。</summary>
-    public VoxelVolumeDraw Draw()
+    /// <summary>この武器を描く指示（格子の変化をテクスチャへ写す）。<paramref name="skin"/> があれば、素手の拳（手の皮膚）をその肌の色で描く。</summary>
+    public VoxelVolumeDraw Draw(HandSkinTint? skin = null)
     {
-        Volume.Sync(Body.Grid);
+        Volume.Sync(Body.Grid, skin?.Key ?? 0, skin?.Recolor);
         return new VoxelVolumeDraw(Volume, VoxelVolume.CellToWorld(Body.Grid, Body.GridToWorld()));
     }
 
@@ -296,14 +299,23 @@ public sealed class Weapon
         return false;
     }
 
-    /// <summary>この武器の全ての格子（物 → 手の順）を描く指示を <paramref name="draws"/> へ足す。</summary>
-    public void AddDraws(List<VoxelVolumeDraw> draws)
+    /// <summary>
+    /// この武器の全ての格子（物 → 手の順）を描く指示を <paramref name="draws"/> へ足す。<paramref name="skinColor"/> は持ち主の体の肌の色
+    /// （<see cref="BoxerBody.SkinColor"/>）。あれば、手の皮膚をその色で描く（顔・首・体と手の肌をそろえる。見た目だけ）。
+    /// </summary>
+    public void AddDraws(List<VoxelVolumeDraw> draws, Vector4? skinColor = null)
     {
         ArgumentNullException.ThrowIfNull(draws);
-        draws.Add(Draw());
+        if (skinColor is { } color && (_skinTint is null || _skinTintColor != color))
+        {
+            (_skinTint, _skinTintColor) = (new HandSkinTint(color), color);
+        }
+
+        var tint = skinColor is null ? null : _skinTint;
+        draws.Add(Draw(tint));
         for (var i = 0; i < _hands.Count; i++)
         {
-            draws.Add(_hands[i].Draw());
+            draws.Add(_hands[i].Draw(tint));
         }
     }
 

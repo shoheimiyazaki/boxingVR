@@ -92,6 +92,9 @@ public sealed partial class BoxingGame
     /// <summary>武器を握る手（利き手）。</summary>
     public const Hand WeaponHand = Hand.Right;
 
+    /// <summary><paramref name="weapon"/> を持っている（はめている）選手（誰も持っていなければ null）。描画が手の肌の色を持ち主から引くのに使う。</summary>
+    public Fighter? WielderOf(Weapon weapon) => _wielders.TryGetValue(weapon, out var holder) ? holder : null;
+
     /// <summary><paramref name="fighter"/> が握っている武器（無ければ null）。</summary>
     public Weapon? WeaponOf(Fighter fighter)
     {
