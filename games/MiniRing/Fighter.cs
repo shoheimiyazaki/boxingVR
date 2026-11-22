@@ -1689,6 +1689,7 @@ public sealed partial class Fighter
             // 見た目だけ（吐く息・メーターの点滅の拍子）。小数部だけが意味を持つので、float の精度が落ちる前に整数ぶん戻す。
             BreathPhase += dt * TiredLook.BreathsPerSecond(Winded);
             BreathPhase -= BreathPhase >= 1024f ? 1024f : 0f;
+            ApplyChinReflex();
             HeartPhase += dt * HeartRate / 60f;
             HeartPhase -= HeartPhase >= 1024f ? 1024f : 0f;
         }
@@ -3012,6 +3013,7 @@ public sealed partial class Fighter
             var middleTarget = Upright(_abdomenTwist, 0.6f, Lerp(waistPitch, pitch, 0.5f));
             DriveRelativeTorso(Parts.Pelvis, waist, _pelvisTarget, middleTarget, abdomenRate - _pelvisTwistRate, scale, dt);
             DriveRelativeTorso(waist, Parts.Chest, middleTarget, chestTarget, _twistRate - abdomenRate, scale * 0.9f, dt);
+            ApplyBreathing(waist, Parts.Chest, dt);
             return;
         }
 
@@ -3119,6 +3121,9 @@ public sealed partial class Fighter
         // 鉛直軸まわり（ひねり）: 回旋筋のトルクから決めたバネ。Kp は可動域の端の誤差でちょうど最大のトルク、減衰比は傾きのバネと同じ。
         // 腰から打つ体の骨盤: 外からのねじりで骨盤から上の胴全体（関節でつながった腹・胸・頭・腕）を起こし・回すので、その合成の慣性で効かせる。
         var hipRoot = UsesHipDrive && body == Parts.Pelvis;
+        // 腰の駆動も胴の筋: 胴の酸素が切れれば腰の回転（鉛直軸まわりのひねり）が遅れる（2026-11-22、スタミナの仕様）。立つための起こす力（傾き）は
+        // 意識で決まり、疲れでは崩れない（脚を弱めて崩れ落ちた過去の失敗。docs/BOXING.md §2）。
+        var yawVigor = hipRoot ? VigorOf(MuscleRegion.Trunk) : 1f;
         var inertia = hipRoot ? UpperBodyInertiaAboutPelvis(s) : _world.GetLocalInertiaDiagonal(body);
         var chestYawInertia = MathF.Max(1e-4f, hipRoot ? inertia.Y : _world.GetLocalInertiaDiagonal(Parts.Chest).Y);
         var trunkTorque = FormValue(_tuning.TrunkRotatorTorque, FighterTuning.DynamicPunch.TrunkRotatorTorque);
@@ -3128,13 +3133,18 @@ public sealed partial class Fighter
         var yawKd = _tuning.UprightKd / MathF.Sqrt(_tuning.UprightKp) * MathF.Sqrt(yawKp); // 2ζ√Kp（ζ = UprightKd / 2√UprightKp）
         var yaw = (error.Y * yawKp) + (_uprightIntegral[slot].Y * (_tuning.BalanceKi * yawKp)) + ((yawRate - spin.Y) * yawKd);
         var yawLimit = rotatorTorque / MathF.Max(1e-4f, inertia.Y);
-        accel = ClampLength(new Vector3(accel.X, 0f, accel.Z) * scale, _tuning.MaxUprightAccel) + new Vector3(0f, tiltOnly ? 0f : Math.Clamp(yaw * scale, -yawLimit, yawLimit), 0f);
+        accel = ClampLength(new Vector3(accel.X, 0f, accel.Z) * scale, _tuning.MaxUprightAccel) + new Vector3(0f, tiltOnly ? 0f : Math.Clamp(yaw * scale * yawVigor, -yawLimit, yawLimit), 0f);
         // 加速度を慣性で力積へ（PhysicsWorld.GetLocalInertiaDiagonal の推奨式）。
         var local = Vector3.Transform(accel, Quaternion.Conjugate(s.Orientation));
         var impulse = Vector3.Transform(local * inertia * dt, s.Orientation);
         if (tiltOnly)
         {
             impulse.Y = 0f;
+        }
+
+        if (hipRoot)
+        {
+            CountHipWork(impulse, s.AngularVelocity, dt);
         }
 
         _world.ApplyAngularImpulse(body, impulse);

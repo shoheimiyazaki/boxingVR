@@ -714,7 +714,7 @@ public sealed record FighterTuning
     /// StaminaRushTests（種 3、人形の単位）で拳の速さ 0〜10 秒 2.81・10〜20 秒 2.18・20〜30 秒 1.70 m/s。360 J/kg・600 J/kg（人形の単位）では始めの 10 秒の中で腕が尽きた（2.18・2.69 m/s）。
     /// 脚と胴は同じ 1 kg あたりで大きい蓄えになるが、脚の関節のサーボの仕事をまだ数えていない（docs/DEBT.md）ので、ほとんど減らない。
     /// </summary>
-    public float OxygenStorePerKg { get; init; } = 2113f;
+    public float OxygenStorePerKg { get; init; } = 1500f;
 
     /// <summary>
     /// 筋肉 1 kg あたりの血管の太さ [W/kg]: 休んでいる部位へ中枢から届けられる酸素の速さの上限（部位の血管の流れ = これ × 部位の質量 × 残った筋肉 × 持久力）。
@@ -763,6 +763,37 @@ public sealed record FighterTuning
 
     /// <summary>低残量で蓄えを放出する時間 [s]。0.34 秒（打ち出し程度）へ連続に制限する。余裕があれば瞬発力として蓄え全量を使える。</summary>
     public float StaminaReleaseWindow { get; init; } = 0.336f;
+
+    /// <summary>
+    /// 筋の努力（トルク）をならす時間 [s]（酸素の仕事を数えるとき）。0.03 秒: 筋の活性化（<see cref="MuscleActivationTime"/> 15 ms・<see cref="MuscleDeactivationTime"/> 60 ms）の間。
+    /// 歩ごとの PD のぶれ（120 Hz 付近）は追従できないので落ち、パンチの動き（数 Hz）は残る（2026-11-22、TrunkWorkProbe: ならさないと立つだけで胴が 2.8 kW の正の仕事を溜めた）。
+    /// </summary>
+    public float MuscleEffortWindow { get; init; } = 0.05f;
+
+    /// <summary>
+    /// 胴の質量のうち、回す・支える筋の割合（胴の酸素の蓄えと血管の元の質量に掛ける）。胴の大半は骨・内臓・脂肪で、骨盤と胴を回す筋（腹斜筋・多裂筋・臀筋）はその一部。
+    /// 0.06（2026-11-22、TrunkWorkProbe: 弱強の全力の連打で胴の仕事は約 340 W。質量そのままだと 74 kJ の蓄えで、20 秒打っても 1 割も減らない。
+    /// 腕の連打が 5 秒で落ち、胴がそのあとの数秒で追って落ちるよう、測って決めた値。教科書の筋の割合ではなく、合わせた値）。
+    /// </summary>
+    public float TrunkMuscleShare { get; init; } = 0.06f;
+
+    /// <summary>
+    /// 息が上がったとき（<see cref="Fighter.Winded"/> = 1）に、気道を開く体の反射が首を反らす角度 [rad]（首の筋の目標。頭は首のバネで追うので、打たれれば崩れる）。
+    /// 0.35（20°）: 激しい運動のあとにあごが上がる、肩で息をする姿勢の程度。安静（Winded 0）では反らさない。
+    /// </summary>
+    public float ChinReflexRadians { get; init; } = 0.35f;
+
+    /// <summary>
+    /// 呼吸の筋（横隔膜・肋間筋）が、吸うときに胸を反らす最大のトルク [N·m]（胸と腹の関節に入れる周期の力。<see cref="BreathRestShare"/> から Winded 1 まで連続）。
+    /// 胴の関節の筋のばね（約 320 N·m/rad）で追う胸が数度ゆれる大きさ。胴の仕事として酸素に数える。
+    /// </summary>
+    public float BreathTorque { get; init; } = 30f;
+
+    /// <summary>安静の呼吸（Winded 0）の深さの、あえぎの呼吸（Winded 1）に対する割合。</summary>
+    public float BreathRestShare { get; init; } = 0.15f;
+
+    /// <summary>胴の回旋筋のてこの腕 [m]（等尺性の費用で、トルクを筋の力に直す。腹斜筋・脊柱起立筋は背骨から 12 cm ほど）。</summary>
+    public float TrunkMuscleArm { get; init; } = 0.12f;
 
     /// <summary>1 歩の仕事予算のうち肩・肘・手首サーボに先に取り置く割合。残りは両拳の PD・移送が共用する。</summary>
     public float StaminaServoShare { get; init; } = 0.5f;

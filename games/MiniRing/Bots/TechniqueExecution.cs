@@ -15,12 +15,13 @@ internal static class TechniqueExecution
     private static readonly Vector3 LoadCockRear = new(0f, -0.03f, -0.1f);
     private static readonly Vector3 LoadCockLead = new(0f, -0.01f, -0.05f);
 
-    internal static Vector3 Guard(Hand hand, Hand leadHand, float reach, Vector3 headLocal, float height, float width, float extension, float faintness)
+    // tiredDrop: 疲れて構えを下げる量 [腕の長さ]（入力元の判断: 酸素を節約するため。体の強さではない。BotStyle.TiredGuardDrop × 酸素の負債）。
+    internal static Vector3 Guard(Hand hand, Hand leadHand, float reach, Vector3 headLocal, float height, float width, float extension, float faintness, float tiredDrop = 0f)
     {
         var lead = hand == leadHand;
         var chin = headLocal.Y - (0.15f * reach);
         var low = -0.12f * reach;
-        var y = low + ((chin - low) * height * (lead ? 0.85f : 1f)) - (0.35f * faintness * reach);
+        var y = low + ((chin - low) * height * (lead ? 0.85f : 1f)) - (0.35f * faintness * reach) - (tiredDrop * reach);
         return new Vector3(hand.LocalSide() * (lead ? 0.17f : 0.13f) * width * reach, y, (lead ? 0.52f : 0.36f) * extension * reach);
     }
 

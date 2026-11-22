@@ -109,7 +109,8 @@ public sealed partial class Fighter
     /// k は筋のばねの振動数 f と、関節より先の部位の関節まわりの慣性 I から k = I (2πf)²、b は臨界減衰 2√(k I)。
     /// 筋の力には上限がある: 接触の間に関節が出せる角の力積は τ_max T で、打撃が関節を回そうとする速さ v / r（r は関節から当たった点まで）を止めるには
     /// D (v / r) だけ要るので、D ≤ τ_max T r / v（打撃が速いほど、筋は関節を固めきれずに曲がる）。v が 0（速さを渡さない）なら上限を掛けない。
-    /// 疲れ・意識による筋の弱りは入れない（打撃の受け止めは反射の固さ）。
+    /// 疲れによる筋の弱り（2026-11-22、スタミナの仕様）: ばね k も出せるトルクも、その関節を動かす部位の駆動の割合 <see cref="VigorOf"/> に比例して落ちる
+    /// （酸素の切れた腕は当たりの瞬間に関節を固められない）。意識による弱りは入れない（反射の固さ）。
     /// </summary>
     private double Bracing(ImpactJoint joint, int child, Vector3 point, float closingSpeed)
     {
@@ -126,11 +127,21 @@ public sealed partial class Fighter
             _ => (0f, t.TrunkRotatorTorque * scale), // 背骨（胴の関節の筋: ばねは DriveRelativeTorso と同じ τ / 可動域）
         };
 
+        var vigor = joint.Kind switch
+        {
+            HumanoidRagdoll.RagdollJoint.LeftShoulder or HumanoidRagdoll.RagdollJoint.LeftElbow => VigorOf(MuscleRegion.LeftArm),
+            HumanoidRagdoll.RagdollJoint.RightShoulder or HumanoidRagdoll.RagdollJoint.RightElbow => VigorOf(MuscleRegion.RightArm),
+            HumanoidRagdoll.RagdollJoint.Neck => 1f,
+            HumanoidRagdoll.RagdollJoint.LeftHip or HumanoidRagdoll.RagdollJoint.RightHip or HumanoidRagdoll.RagdollJoint.LeftKnee
+                or HumanoidRagdoll.RagdollJoint.RightKnee or HumanoidRagdoll.RagdollJoint.LeftAnkle or HumanoidRagdoll.RagdollJoint.RightAnkle => VigorOf(MuscleRegion.Legs),
+            _ => VigorOf(MuscleRegion.Trunk),
+        };
+        maxTorque *= vigor;
         var s = _world.GetState(child);
         var d = s.Position - joint.Anchor;
         var local = _world.GetLocalInertiaDiagonal(child);
         var inertia = MathF.Max(local.X, MathF.Max(local.Y, local.Z)) + (_world.GetMass(child) * d.LengthSquared());
-        var stiffness = hz > 0f ? inertia * MathF.Pow(2f * MathF.PI * hz, 2f) : maxTorque / MathF.Max(0.1f, PunchTwistLimit);
+        var stiffness = (hz > 0f ? inertia * MathF.Pow(2f * MathF.PI * hz, 2f) * vigor : maxTorque / MathF.Max(0.1f, PunchTwistLimit));
         var damping = 2f * MathF.Sqrt(stiffness * inertia);
         var contact = t.ImpactContactSeconds;
         double bracing = (stiffness * contact * contact / (MathF.PI * MathF.PI)) + (damping * contact);
