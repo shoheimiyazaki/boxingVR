@@ -150,8 +150,11 @@ public sealed class IntentControl : IFighterControl
     /// <summary>先行入力に今並んでいる数。</summary>
     public int QueuedCount => _queue.Count;
 
+    private float _stamina = 1f;
+
     public FighterCommand Read(in FighterSense sense, float dt)
     {
+        _stamina = float.IsFinite(sense.SelfStamina) ? Math.Clamp(sense.SelfStamina, 0f, 1f) : 1f;
         // A repeated presentation snapshot has no elapsed simulation time, but its
         // press/release edges still need to be observed without advancing a technique.
         if (!float.IsFinite(dt) || dt < 0f || dt > Replay.ReplayFile.MaxDt)
@@ -296,7 +299,7 @@ public sealed class IntentControl : IFighterControl
     }
 
     private Vector3 Guard(Hand hand, float reach, Vector3 head, float faintness)
-        => TechniqueExecution.Guard(hand, _style.Lead, reach, head, _style.GuardHeight, _style.GuardWidth, _style.GuardReach, faintness);
+        => TechniqueExecution.Guard(hand, _style.Lead, reach, head, _style.GuardHeight, _style.GuardWidth, _style.GuardReach, faintness, _style.TiredGuardDrop * TechniqueExecution.Tiredness(_stamina));
 
     private PunchAction Action(Hand hand) => hand == Hand.Left ? _left : _right;
 

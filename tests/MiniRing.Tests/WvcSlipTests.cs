@@ -49,7 +49,8 @@ public sealed class WvcSlipTests
         }
 
         Assert.IsLessThanOrEqualTo(1, highConsciousnessFalls);
-        Assert.IsGreaterThanOrEqualTo(15, hits);
+        // 2026-11-22（物理 87）: 持ち時間が 5 秒のスタミナ（胴・腰の酸素も数える）で、疲れた選手の手数が減った（15 → 1〜11 発。同じ種でも物理の小さな違いで揺れる）。打ち合いが起きていることだけを見る。
+        Assert.IsGreaterThanOrEqualTo(3, hits);
         Assert.IsTrue(knockdownWithLossOfConsciousness);
     }
 }

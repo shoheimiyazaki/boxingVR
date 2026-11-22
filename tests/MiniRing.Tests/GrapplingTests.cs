@@ -42,6 +42,7 @@ public sealed class GrapplingTests
     }
 
     [TestMethod]
+    [Ignore("投げ・崩し・関節技は休止（2026-11-22、ユーザーの指定。docs/GRAPPLING.md）")]
     public void AModeratePull_IsCaughtByStepping_AHardPullTopplesTheFighter()
     {
         // 胸を前へ、体重の 0.3 倍で 1.7 秒引く: 踏み直して立っている。
@@ -78,6 +79,7 @@ public sealed class GrapplingTests
     }
 
     [TestMethod]
+    [Ignore("投げ・崩し・関節技は休止（2026-11-22、ユーザーの指定。docs/GRAPPLING.md）")]
     public void HyperextendingTheElbow_BelowTheLigamentsYield_LeavesItWhole_AboveItStretchesAndTears()
     {
         Assert.AreEqual(1f, Lever(torqueOverYield: 0.5f).Ligament, 1e-6f, "below the yield nothing stretches");
@@ -90,6 +92,7 @@ public sealed class GrapplingTests
     }
 
     [TestMethod]
+    [Ignore("投げ・崩し・関節技は休止（2026-11-22、ユーザーの指定。docs/GRAPPLING.md）")]
     public void ReleasingAGripFast_DoesNotKnockTheOpponentDown_ByItself()
     {
         // 前は、離した瞬間の手の速さが ThrowSpeed を超えると相手を倒していた（場合分け）。今は、倒れるかは物理だけで決まる。
@@ -121,6 +124,7 @@ public sealed class GrapplingTests
     }
 
     [TestMethod]
+    [Ignore("投げ・崩し・関節技は休止（2026-11-22、ユーザーの指定。docs/GRAPPLING.md）")]
     public void SasaeTsurikomiAshi_BreaksAStandingOpponentsBalance_ByPhysicsAlone()
     {
         // 支え釣り込み足だけをかけ続ける柔術家と、構えて立つだけの受け。引いて、踏み直す足首の前へ足の裏を当てて塞ぐ。

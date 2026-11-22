@@ -71,14 +71,14 @@ try
         "swordlab" => SwordLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "techniques")),
         "swinglab" => SwingLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "families")),
         "weaponlab" => WeaponLabCommand(Options.Parse(argv[1..], "out", "table", "width", "height", "fps", "slow", "video")),
-        "intentvideo" => IntentVideo(Options.Parse(argv[1..], "script", "blue", "seed", "seconds", "width", "height", "out")),
+        "intentvideo" => IntentVideo(Options.Parse(argv[1..], "script", "blue", "seed", "seconds", "width", "height", "out", "camera-scale")),
         "version" => Print($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}"),
         "tvdraft" => TvDraftCommand(Options.Parse(argv[1..], "events", "out", "org")),
         "tvmerge" => TvMergeCommand(Options.Parse(argv[1..], "draft", "extras", "out")),
         "tvlint" => TvLintCommand(Options.Parse(argv[1..], "script", "events", "manifest", "org")),
         "tvdigest" => TvDigestCommand(Options.Parse(argv[1..], "events", "out", "org")),
         "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break", "org")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt", "camera-scale", "camera-focus")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns", "roster")),
         "portraits" => Portraits(Options.Parse(argv[1..], "out", "scale")),
@@ -1863,8 +1863,9 @@ static int WeaponLabCommand(Options o)
 static int IntentVideo(Options o)
 {
     var script = MiniRing.IntentScript.Load(o.Get("script") ?? "docs/arena/intent_demo.json");
-    var blue = Load(o.Get("blue") ?? "champion");
-    if (blue.Create(1) is not BoxerBot)
+    var standing = o.Get("blue") == "stand"; // 構えて立つだけの的（空振りの連打で疲れ方を見る）
+    var blue = standing ? new Contender("stand", _ => new MiniRing.StandGuard()) : Load(o.Get("blue") ?? "champion");
+    if (!standing && blue.Create(1) is not BoxerBot)
     {
         throw new ArgumentException("意図操作の動画の相手は記録できるボクシングボットを指定してください。");
     }
@@ -1872,7 +1873,7 @@ static int IntentVideo(Options o)
     var output = Path.GetFullPath(o.Get("out") ?? "docs/video/gen10_intent.mp4");
     Directory.CreateDirectory(Path.GetDirectoryName(output)!);
     new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), 30,
-        faceCam: MiniRing.FaceCam.Default, speed: 1f)
+        faceCam: MiniRing.FaceCam.Default, speed: 1f, cameraScale: o.Float("camera-scale", 1f, min: 0.3f))
         .Make(Contender.Named("intent"), blue, o.Int("seed", 31), o.Float("seconds", 14f, min: 1f), output, Console.Out, intentScript: script);
     var recording = MiniRing.Replay.ReplayFile.Read(Path.ChangeExtension(output, ".mrrep"));
     var result = MiniRing.Replay.ReplayPlayer.Verify(recording);
@@ -1926,8 +1927,12 @@ static int Video(Options o)
     var blueCharacter = o.Get("blue-char") is { } blueId ? MiniRing.Characters.CharacterRoster.Get(blueId) : null;
     var set = SetOf(o);
     // キャラクターは教科書に教育を重ねた解決済みのスタイル（相手ごとの備えは、もう片方がキャラクターのときだけ効く）。--set はその上にさらに重ねる。
-    var red = redCharacter is not null ? RosterLeague.ContenderOf(redCharacter, blueCharacter?.Id, set) : LoadWith(o.Get("red") ?? "champion", set);
-    var blue = blueCharacter is not null ? RosterLeague.ContenderOf(blueCharacter, redCharacter?.Id, set) : LoadWith(o.Get("blue") ?? "jabber", set);
+    var red = redCharacter is not null ? RosterLeague.ContenderOf(redCharacter, blueCharacter?.Id, set)
+        : o.Get("red") == "rush" ? new Contender("rush", _ => new RushControl()) // その場で打ち続ける（疲れ方を見るため。--blue stand と組む）
+        : LoadWith(o.Get("red") ?? "champion", set);
+    var blue = blueCharacter is not null ? RosterLeague.ContenderOf(blueCharacter, redCharacter?.Id, set)
+        : o.Get("blue") == "stand" ? new Contender("stand", _ => new MiniRing.StandGuard()) // 構えて立つだけの的（疲れ方を見るため）
+        : LoadWith(o.Get("blue") ?? "jabber", set);
     // 描かずに出来事だけ作る下回し（--render off）と、実時間で描いて流す生配信（--live <url> | on。--voices は実況の声の manifest.json）。
     var render = (o.Get("render") ?? "on") switch
     {
@@ -1969,7 +1974,8 @@ static int Video(Options o)
         tvRounds: o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1), tvEvent: o.Get("event") ?? "ファイトナイト", tvBout: o.Get("bout") ?? "",
         tvBreak: o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f), render: render, live: live,
         tvProgram: o.Get("program") is { } programPath ? TvProgram.FromJson(File.ReadAllText(programPath), TvProgram.RosterName) : null,
-        org: OrgOption(o), belt: (o.Get("belt") ?? "off") switch { "on" => true, "off" => false, _ => throw new ArgumentException("--belt は on か off にしてください。") })
+        org: OrgOption(o), belt: (o.Get("belt") ?? "off") switch { "on" => true, "off" => false, _ => throw new ArgumentException("--belt は on か off にしてください。") },
+        cameraScale: o.Float("camera-scale", 1f, min: 0.3f), focusRed: (o.Get("camera-focus") ?? "both") switch { "both" => false, "red" => true, _ => throw new ArgumentException("--camera-focus は both か red にしてください。") })
         .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 45f, min: 1f), output, Console.Out, untilKo: (o.Get("until-ko") ?? "no") switch { "yes" => true, "no" => false, _ => throw new ArgumentException("--until-ko は yes か no にしてください。") },
             redWear: o.Get("red-wear") is { } rwear ? MiniRing.Weapons.HandWears.Parse(rwear) : redCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove,
             blueWear: o.Get("blue-wear") is { } bwear ? MiniRing.Weapons.HandWears.Parse(bwear) : blueCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove,

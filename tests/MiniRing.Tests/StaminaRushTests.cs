@@ -4,11 +4,10 @@ using System.Numerics;
 namespace MiniRing.Tests;
 
 /// <summary>
-/// ユーザーの目標（2026-11-17）: 弱・強のボタンを交互に連打する全力のラッシュが 10 秒、力が落ちながらさらに 10 秒まともに打てる。
-/// 意図操作で、ガードを固めた相手へ 50.4 秒（人形の単位で 30 秒）連打し、連打を始めてからの 16.8 秒ごとに、1.68 秒ごとの拳の最大の速さを平均して比べる（人の大きさの時間。以下の測定は人形の単位）。
-/// 測定（基準体格、種 3）: 0〜10 秒 3.45 m/s、10〜20 秒 1.86 m/s（0.54 倍）、20〜30 秒 1.35 m/s（StaminaFeelProbe）。
-/// 49（足の滑りの直し）: 2.49・2.13（0.86 倍）・1.30 m/s。止まっている間に足が流れなくなり、打つたびに体が滑って前へ出る分が拳の速さに乗らなくなった
-/// （同じ種で 49 の前の立ち方へ戻すと 2.90・1.65・1.28）。着いた足が体を支えるぶん、打つ拳は遅い。
+/// ユーザーの仕様（2026-11-22、PhysicsVersion 87）: 体重を乗せたラッシュ（弱・強のボタンを交互に連打）が 5 秒続き、その後の 5 秒で動きが鈍り、
+/// 酸素の供給と釣り合ったノロノロのパンチになる（物理 86 までの目標は 17 秒ずつだった）。
+/// 意図操作で、ガードを固めた相手へ 20 秒連打し、5 秒ごとの窓で、0.83 秒ごとの拳の最大の速さを平均して比べる。
+/// 測定（基準体格、種 3、TrunkWorkProbe / StaminaRushTests）: 0〜5 秒 約 5.6 m/s、5〜10 秒 約 3.1 m/s（0.56 倍）、10〜15 秒・15〜20 秒 約 2.1 m/s（満タンの 4 割）。
 /// 相手が倒れて連打が止まった間は数えない（脳しんとうは切る。崩れて倒れることはある）。
 /// </summary>
 [TestClass]
@@ -17,22 +16,22 @@ public sealed class StaminaRushTests
 {
     private const float Dt = 1f / 60f;
 
-    [TestMethod]
-    public void AlternatingRush_FullForTenSeconds_ThenFadesOverTheNextTen()
+    private static double[] RushWindows(float seconds, Action<BoxingGame>? setup = null)
     {
         var corners = BoxingCorners.Default with { Player = _ => new IntentControl(), Cpu = _ => new IntentControl() };
-        // 意識（ConcussionSpin を無限大に）に加え、腹の打撲による体の張りの低下（CoreToneFloor）も切る: 的の相手は胴を打たれ続け、7 秒ほどで膝から力が抜けて倒れる
-        // （2026-11-18、床から支える体で測り直し）。倒れて待つ間に打つ側のスタミナが戻ると 10 秒の全力が延びてしまう。測るのは打つ側の拳とスタミナ。
+        // 意識（ConcussionSpin を無限大に）に加え、腹の打撲による体の張りの低下（CoreToneFloor）も切る: 的の相手は胴を打たれ続けて倒れる。
+        // 倒れて待つ間に打つ側のスタミナが戻ると全力が延びてしまう。測るのは打つ側の拳とスタミナ。
         using var game = new BoxingGame(FighterTuning.Default with { ConcussionSpin = float.PositiveInfinity, CoreToneFloor = 1f }, seed: 3, corners: corners);
+        setup?.Invoke(game);
         var control = (IntentControl)game.PlayerControl!;
-        ((IntentControl)game.CpuControl).Input = new FighterIntent(Vector2.Zero, Evade: true);
+        ((IntentControl)game.CpuControl!).Input = new FighterIntent(Vector2.Zero, Evade: true);
         var rushing = 0f;
         var clock = 0f;
         var tap = 0f;
         var second = 0f;
         var peak = 0f;
-        var windows = new (double Sum, int Count)[3];
-        while (rushing < 50.35f && clock < 151.1f)
+        var windows = new (double Sum, int Count)[(int)(seconds / 5f)];
+        while (rushing < seconds - 1e-3f && clock < 3f * seconds)
         {
             var standing = game.Player.State == FighterState.Standing && game.Cpu.State == FighterState.Standing;
             var phase = tap / 0.2014f;
@@ -54,21 +53,28 @@ public sealed class StaminaRushTests
                 peak = MathF.Max(peak, (game.Player.GloveVelocity(hand) - game.Player.ChestVelocity).Length());
             }
 
-            if (second >= 1.678f)
+            if (second >= 0.8333f)
             {
-                var window = Math.Min(2, (int)((rushing - 1e-3f) / 16.78f));
+                var window = Math.Min(windows.Length - 1, (int)((rushing - 1e-3f) / 5f));
                 windows[window] = (windows[window].Sum + peak, windows[window].Count + 1);
                 second = 0f;
                 peak = 0f;
             }
         }
 
-        var mean = windows.Select(w => w.Count > 0 ? w.Sum / w.Count : 0).ToArray();
+        Assert.IsTrue(windows.All(w => w.Count >= 4), "どの 5 秒も連打できている");
+        return [.. windows.Select(w => w.Count > 0 ? w.Sum / w.Count : 0.0)];
+    }
+
+    [TestMethod]
+    public void AlternatingRush_FullForFiveSeconds_ThenFadesOverTheNextFive_AndSettlesAtTheSupply()
+    {
+        var mean = RushWindows(20f);
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"rush fist peak per 1.68 s: 0-16.8 s {mean[0]:F2}, 16.8-33.6 s {mean[1]:F2}, 33.6-50.4 s {mean[2]:F2} m/s; stamina {game.Player.Stamina:P0}"));
-        Assert.IsTrue(windows.All(w => w.Count >= 8), "どの 16.8 秒も連打できている");
-        Assert.IsGreaterThan(3.693, mean[0], "始めの 16.8 秒は全力（満タンの拳。49: 足が着いたままなので 4.2 m/s 前後。滑っていた頃は 5 m/s 前後）");
-        Assert.IsTrue(mean[1] < 0.9 * mean[0] && mean[1] > 0.35 * mean[0], "次の 16.8 秒は落ちながらもまともに打てる（49: 0.86 倍）");
-        Assert.IsLessThan(mean[1], mean[2], "その後はさらに弱い");
+            $"rush fist peak per 0.83 s: 0-5 s {mean[0]:F2}, 5-10 s {mean[1]:F2}, 10-15 s {mean[2]:F2}, 15-20 s {mean[3]:F2} m/s"));
+        Assert.IsGreaterThan(4.5, mean[0], "始めの 5 秒は全力（体重を乗せた満タンの拳）");
+        Assert.IsTrue(mean[1] < 0.8 * mean[0] && mean[1] > 0.4 * mean[0], "次の 5 秒で落ちていく");
+        Assert.IsTrue(mean[3] > 0.25 * mean[0] && mean[3] < 0.6 * mean[0], "その後は酸素の供給と釣り合ったノロノロのパンチ（満タンの 3〜6 割）");
+        Assert.IsTrue(Math.Abs(mean[2] - mean[3]) < 0.3 * mean[3], "10 秒を過ぎたら速さが落ち続けない（供給と釣り合って止まる）");
     }
 }

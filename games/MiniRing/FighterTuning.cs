@@ -714,27 +714,27 @@ public sealed record FighterTuning
     /// StaminaRushTests（種 3、人形の単位）で拳の速さ 0〜10 秒 2.81・10〜20 秒 2.18・20〜30 秒 1.70 m/s。360 J/kg・600 J/kg（人形の単位）では始めの 10 秒の中で腕が尽きた（2.18・2.69 m/s）。
     /// 脚と胴は同じ 1 kg あたりで大きい蓄えになるが、脚の関節のサーボの仕事をまだ数えていない（docs/DEBT.md）ので、ほとんど減らない。
     /// </summary>
-    public float OxygenStorePerKg { get; init; } = 2113f;
+    public float OxygenStorePerKg { get; init; } = 1300f;
 
     /// <summary>
     /// 筋肉 1 kg あたりの血管の太さ [W/kg]: 休んでいる部位へ中枢から届けられる酸素の速さの上限（部位の血管の流れ = これ × 部位の質量 × 残った筋肉 × 持久力）。
     /// 75.5 W/kg（人形の単位で 45 W/kg。基準体格の腕で 250 W、働いている腕へは <see cref="VesselWorkingShare"/> 倍の 112 W）: ラウンドの間の 17 秒で空の両腕が 6 割ほど戻る
     /// （StaminaTempoTests、人形の単位: 10 秒 59 %・16 秒 95 %）。片手の強い 1 発を 0.5 秒ごと（腕 1 本 146 W）なら 50 秒で 7 割残る。
     /// </summary>
-    public float VesselPowerPerKg { get; init; } = 75.53f;
+    public float VesselPowerPerKg { get; init; } = 100f;
 
     /// <summary>
-    /// 心臓が全部位へ送れる酸素の速さの合計 [W]（基準体格、心臓が無傷のとき。筋肉の量の比と心臓の働きに比例）。504 W（人形の単位で 30 W）: 空の両腕が休んで戻る速さ
-    /// （250 W × 2）とちょうど同じ。全力の連打（両腕 112 W × 2 + 脚・胴 67 W）より上なので、無傷の心臓は戦っている間はボトルネックにならず、
+    /// 心臓が全部位へ送れる酸素の速さの合計 [W]（基準体格、心臓が無傷のとき。筋肉の量の比と心臓の働きに比例）。900 W（2026-11-22 に 504 W から: 胴の筋の仕事を数え、
+    /// 胴も蓄えを戻すようになったので、空の両腕が休んで戻る速さ（330 W × 2）に胴の血管（約 210 W）を足した）。全力の連打（両腕 112 W × 2 + 脚・胴 67 W）より上なので、無傷の心臓は戦っている間はボトルネックにならず、
     /// 心臓が傷むと腕の戻りがすぐ心臓で止まる。
     /// </summary>
-    public float HeartPower { get; init; } = 503.5f;
+    public float HeartPower { get; init; } = 900f;
 
     /// <summary>
-    /// 肺が血へ酸素を取り込める速さ [W]（基準体格、肺が無傷のとき。筋肉の量の比・肺の働き・頸の脊髄に比例）。537 W（人形の単位で 32 W）: 無傷なら心臓より少し上
+    /// 肺が血へ酸素を取り込める速さ [W]（基準体格、肺が無傷のとき。筋肉の量の比・肺の働き・頸の脊髄に比例）。950 W（2026-11-22 に 537 W から、心臓 900 W に合わせて。元は人形の単位で 32 W）: 無傷なら心臓より少し上
     /// （ふつうは肺がボトルネックにならない）。肺が傷む・息が詰まると血の酸素が減り、心臓が送れる分が肺の速さまで落ちる。
     /// </summary>
-    public float LungPower { get; init; } = 537.1f;
+    public float LungPower { get; init; } = 950f;
 
     /// <summary>
     /// 血の酸素の蓄え [J]（基準体格）: 肺と部位のあいだのため。845 J（人形の単位で 30 J）: 心臓が全力で送って 1.7 秒ほど。小さいので、肺が追いつかなければすぐ空になり、
@@ -763,6 +763,34 @@ public sealed record FighterTuning
 
     /// <summary>低残量で蓄えを放出する時間 [s]。0.34 秒（打ち出し程度）へ連続に制限する。余裕があれば瞬発力として蓄え全量を使える。</summary>
     public float StaminaReleaseWindow { get; init; } = 0.336f;
+
+    /// <summary>
+    /// 筋の努力（トルク）をならす時間 [s]（酸素の仕事を数えるとき）。0.03 秒: 筋の活性化（<see cref="MuscleActivationTime"/> 15 ms・<see cref="MuscleDeactivationTime"/> 60 ms）の間。
+    /// 歩ごとの PD のぶれ（120 Hz 付近）は追従できないので落ち、パンチの動き（数 Hz）は残る（2026-11-22、TrunkWorkProbe: ならさないと立つだけで胴が 2.8 kW の正の仕事を溜めた）。
+    /// </summary>
+    public float MuscleEffortWindow { get; init; } = 0.05f;
+
+    /// <summary>
+    /// 胴の質量のうち、回す・支える筋の割合（胴の酸素の蓄えと血管の元の質量に掛ける）。胴の大半は骨・内臓・脂肪で、骨盤と胴を回す筋（腹斜筋・多裂筋・臀筋）はその一部。
+    /// 0.06（2026-11-22、TrunkWorkProbe: 弱強の全力の連打で胴の仕事は約 340 W。質量そのままだと 74 kJ の蓄えで、20 秒打っても 1 割も減らない。
+    /// 腕の連打が 5 秒で落ち、胴がそのあとの数秒で追って落ちるよう、測って決めた値。教科書の筋の割合ではなく、合わせた値）。
+    /// </summary>
+    public float TrunkMuscleShare { get; init; } = 0.06f;
+
+    /// <summary>
+    /// 息が上がったとき（<see cref="Fighter.Winded"/> = 1）に、気道を開く体の反射が首を反らす角度 [rad]（首の筋の目標。頭は首のバネで追うので、打たれれば崩れる）。
+    /// 0.35（20°）: 激しい運動のあとにあごが上がる、肩で息をする姿勢の程度。安静（Winded 0）では反らさない。
+    /// </summary>
+    public float ChinReflexRadians { get; init; } = 0.35f;
+
+    /// <summary>
+    /// 呼吸の筋（横隔膜・肋間筋）が、吸うときに胸を反らす最大のトルク [N·m]（胸と腹の関節に入れる周期の力。深さは Winded に比例し、安静では出さない）。
+    /// 胴の関節の筋のばね（約 320 N·m/rad）で追う胸が数度ゆれる大きさ。胴の仕事として酸素に数える。
+    /// </summary>
+    public float BreathTorque { get; init; } = 30f;
+
+    /// <summary>胴の回旋筋のてこの腕 [m]（等尺性の費用で、トルクを筋の力に直す。腹斜筋・脊柱起立筋は背骨から 12 cm ほど）。</summary>
+    public float TrunkMuscleArm { get; init; } = 0.12f;
 
     /// <summary>1 歩の仕事予算のうち肩・肘・手首サーボに先に取り置く割合。残りは両拳の PD・移送が共用する。</summary>
     public float StaminaServoShare { get; init; } = 0.5f;

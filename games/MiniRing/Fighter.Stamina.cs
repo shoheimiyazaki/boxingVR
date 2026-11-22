@@ -23,6 +23,7 @@ public sealed partial class Fighter
     internal float StepMuscleBudget { get; private set; }
     internal float StepMuscleAuthorized { get; private set; }
     private readonly List<ServoWork> _servoWork = [];
+    private readonly Dictionary<int, Vector3> _servoRate = [];
 
     private readonly record struct ServoWork(int Joint, int BodyA, int BodyB, float Speed, float Reserved, MuscleRegion Region, Quaternion BeforeA, Quaternion BeforeB);
 
@@ -98,6 +99,9 @@ public sealed partial class Fighter
     /// <summary>血の酸素の残り（0..1）。肺が追いつかないと減る。</summary>
     public float BloodOxygen => _blood;
 
+    /// <summary>テストが、試合で後のラウンドまで来た体を作る（した仕事の合計を直に置く: <see cref="Endurance"/> が落ちる）。</summary>
+    internal void SetWorkDone(float joules) => _workDone = MathF.Max(0f, joules);
+
     /// <summary>テストが部位ごとに疲れた体を作る（蓄えの残りを直に置く）。</summary>
     internal void SetOxygen(MuscleRegion region, float fill) => _oxygen[(int)region] = Math.Clamp(fill, 0f, 1f);
 
@@ -137,13 +141,13 @@ public sealed partial class Fighter
     /// </summary>
     private float MuscleMassRatio => _tuning.Build.MassRatio;
 
-    /// <summary>部位の質量 [kg]（体に付いている物理の体の質量）。</summary>
+    /// <summary>部位の質量 [kg]（体に付いている物理の体の質量。胴は回して支える筋の分だけ: <see cref="FighterTuning.TrunkMuscleShare"/>）。</summary>
     private float RegionMass(int region) => region switch
     {
         0 or 1 => ArmMass((Hand)region),
         2 => _legMass,
-        _ => _world.GetMass(Parts.Chest) + _world.GetMass(Parts.Pelvis)
-            + (Parts.Abdomen is { } abdomen ? _world.GetMass(abdomen) : 0f),
+        _ => (_world.GetMass(Parts.Chest) + _world.GetMass(Parts.Pelvis)
+            + (Parts.Abdomen is { } abdomen ? _world.GetMass(abdomen) : 0f)) * _tuning.TrunkMuscleShare,
     };
 
     /// <summary>
@@ -226,8 +230,8 @@ public sealed partial class Fighter
     private bool FatigueEnabled => _tuning.StaminaFatigue;
 
     /// <summary>
-    /// 部位 <paramref name="region"/> の駆動の割合: 蓄えに余裕があれば 1、尽きるほど「届く速さ /（届く速さ + 直近の仕事率）」へ近づく。
-    /// 固定の最低筋力は設けない。
+    /// 部位 <paramref name="region"/> の駆動の割合: 蓄えに余裕があれば 1、尽きるほど「届く速さ /（届く速さ + 直近の仕事率）」へ近づく
+    /// （ただし続けて保てる力 <see cref="FighterTuning.VesselWorkingShare"/> × <see cref="Endurance"/> が上限）。固定の最低筋力は設けない。
     /// </summary>
     public float VigorOf(MuscleRegion region)
     {
@@ -239,7 +243,11 @@ public sealed partial class Fighter
         var i = (int)region;
         var fresh = Freshness(i);
         var supply = _regionSupply[i];
-        return fresh + ((1f - fresh) * supply / MathF.Max(1e-6f, supply + _regionPower[i]));
+        var power = fresh + ((1f - fresh) * supply / MathF.Max(1e-6f, supply + _regionPower[i]));
+        // 続けて保てる力（2026-11-22、慢性の疲れ）: 蓄えが尽きた筋が続けて出せるのは、血管の流れが支える分（働く筋への流れの割合 × 持久力）だけ。
+        // 動いていなくても重さを保つ力はここで頭打ちになるので、持久力が落ちた体は、蓄えが戻るまで構えを保てない（構えが下がる）。
+        var sustain = fresh + ((1f - fresh) * _tuning.VesselWorkingShare * Endurance);
+        return MathF.Min(power, sustain);
     }
 
     /// <summary>いちばん疲れた部位の駆動の割合（切られた腕は数えない）。調べもの・ボットの読み用。</summary>
@@ -310,23 +318,19 @@ public sealed partial class Fighter
             // 精算は実際の速さで数える: 拘束の力積 J がした仕事は J ×（前後の速さの平均）以下。向きは取れないので、
             // 解く前と解いた後の相対角速度の大きい方を掛けて安全側にする（止まった体を加速した分は後の速さに出る）。
             // 力積²の項は取り置き（ReserveServo）だけの上限で、静止して重さを支えるだけの力積を仕事として数えない。
+            // 関節の相対角速度は、胴の筋と同じ時間（MuscleEffortWindow）でならしたベクトルで見る: 保っているだけの関節が歩ごとに震える分（正負に振れる）は
+            // 平均で消え、実際に動いた分だけが仕事になる（2026-11-22、TrunkWorkProbe: 構えて立つだけで腕 1 本 88 W を数え、回復を止めていた）。
             var impulse = _world.GetConstraintImpulseMagnitude(servo.Joint);
-            var after = (_world.GetState(servo.BodyA).AngularVelocity - _world.GetState(servo.BodyB).AngularVelocity).Length();
-            var spent = MathF.Min(servo.Reserved, impulse * MathF.Max(servo.Speed, after));
+            var relative = _world.GetState(servo.BodyA).AngularVelocity - _world.GetState(servo.BodyB).AngularVelocity;
+            var smoothing = 1f - MathF.Exp(-dt / MathF.Max(1e-4f, _tuning.MuscleEffortWindow));
+            var smoothed = _servoRate.TryGetValue(servo.Joint, out var previousRate) ? previousRate + ((relative - previousRate) * smoothing) : relative;
+            _servoRate[servo.Joint] = smoothed;
+            var spent = MathF.Min(servo.Reserved, impulse * smoothed.Length());
             Draw((int)servo.Region, spent);
         }
 
         _servoWork.Clear();
-        if (UsesJointDrive)
-        {
-            SettleJointWork();
-        }
-        else
-        {
-            // 腰から打つ体の胴の関節の筋（DriveRelativeTorso）の仕事は、酸素の蓄えに数えない（呼吸・循環は分割胴に合わせていない近道:
-            // 数えると構えて立っているだけで息が上がった。docs/DEBT.md「腰から打つ体」）。記録だけ毎歩捨てる（溜め続けない）。
-            _jointWork.Clear();
-        }
+        SettleJointWork(dt);
 
         var follow = 1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.StaminaRecoveryWindow));
         var stepWork = 0f;

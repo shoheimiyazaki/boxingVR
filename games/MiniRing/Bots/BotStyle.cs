@@ -72,6 +72,12 @@ public sealed record BotStyle
     /// <summary>危険度に応じて構えを上げる度合い（0 = 上げない … 1 = 危険度 1 で目の高さまで顔を覆う）。</summary>
     public float RangeGuard { get; init; }
 
+    /// <summary>
+    /// 疲れたときに構えを下げる量 [腕の長さ]（スタミナ 0 のとき。0 = 下げない）。両手を上げて保つにも酸素が要るので、息が上がったら節約して手を下げる
+    /// （2026-11-22、慢性の疲れの見た目。入力元の判断であって、体の強さを変えるものではない）。下げた手は頭を守りにくい。
+    /// </summary>
+    public float TiredGuardDrop { get; init; } = 0.25f;
+
     /// <summary>危険度に応じて頭を大きく・細かく動かす度合い（的を絞らせない。<see cref="HeadMovement"/> に足す）。</summary>
     public float RangeHeadMove { get; init; }
 
@@ -454,6 +460,7 @@ public sealed record BotStyle
             ElbowTuck = Range(ElbowTuck, 0f, 1f, 0.5f),
             RangeThreat = Range(RangeThreat, 0.5f, 2.5f, 1.2f),
             RangeGuard = Unit(RangeGuard),
+            TiredGuardDrop = Range(TiredGuardDrop, 0f, 1f, 0.25f),
             RangeHeadMove = Unit(RangeHeadMove),
             RangeGuess = Range(RangeGuess, 0f, 5.958f, 0f),
             RangeExit = Unit(RangeExit),
