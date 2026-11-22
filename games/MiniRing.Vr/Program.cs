@@ -117,7 +117,7 @@ var matchTuning = args.Contains("--hybrid-punch")
     : args.Contains("--adaptive-punch")
     ? FighterTuning.AdaptivePunch
     : args.Contains("--dynamic-punch") ? FighterTuning.DynamicPunch
-    : args.Contains("--compact-punch") ? FighterTuning.CompactPunch : args.Contains("--match-punch") ? FighterTuning.MatchPunch : FighterTuning.Default;
+    : args.Contains("--compact-punch") ? FighterTuning.CompactPunch : FighterTuning.Default;
 var vrTuning = matchTuning with { PlayerFatigue = false }; // VR の手触りの調整が終わるまで、自分の腕は疲れない
 var recordingMessage = "training: replays are not recorded";
 using (xr)

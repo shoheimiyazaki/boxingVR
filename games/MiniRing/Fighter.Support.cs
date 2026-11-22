@@ -514,6 +514,12 @@ public sealed partial class Fighter
     /// <summary>直しのねじりの力積を、骨盤と胸へ質量の比で分ける（起こすねじりをかけていた 2 つの部位）。</summary>
     private void SplitTorque(Vector3 angularImpulse)
     {
+        if (UsesHipDrive)
+        {
+            _world.ApplyAngularImpulse(Parts.Pelvis, angularImpulse); // 腰から打つ体: 外から起こす・回すねじりは骨盤だけにかかっている
+            return;
+        }
+
         var pelvisMass = _world.GetMass(Parts.Pelvis);
         var chestMass = _world.GetMass(Parts.Chest);
         var total = pelvisMass + chestMass;

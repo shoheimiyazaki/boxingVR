@@ -182,7 +182,9 @@ public sealed class StickBody
         segments[Ids.Pelvis] = new("pelvis", -1, StickJointKind.Root, pelvis, pelvis + new Vector3(0f, H(p.Pelvis).Y, 0f), pelvis, H(p.Pelvis), world.GetMass(p.Pelvis), Vector3.UnitY, 0f, 0f, 0f, 0f);
         // 背骨: 骨盤の上の中心。胴を起こす力はゲームでは体の外から来る（CLAUDE.md §8）ので、上限は股と同じ値を置く（腹・背の筋の目安）。
         var spine = pelvis + new Vector3(0f, H(p.Pelvis).Y, 0f);
-        segments[Ids.Chest] = new("chest", Ids.Pelvis, StickJointKind.Ball, spine, chest + new Vector3(0f, H(p.Chest).Y, 0f), chest, H(p.Chest), world.GetMass(p.Chest),
+        // 分割胴の腹は棒の体では胸の節に含める（棒の体は胴を 1 本で持つ。質量の合計をゲームの体と合わせる）。
+        var torsoMass = world.GetMass(p.Chest) + (p.Abdomen is { } abdomen ? world.GetMass(abdomen) : 0f);
+        segments[Ids.Chest] = new("chest", Ids.Pelvis, StickJointKind.Ball, spine, chest + new Vector3(0f, H(p.Chest).Y, 0f), chest, H(p.Chest), torsoMass,
             Vector3.UnitY, 30f * deg, -30f * deg, 30f * deg, tuning.HipMaxTorque * leg);
         var neck = chest + new Vector3(0f, H(p.Chest).Y, 0f);
         segments[Ids.Head] = new("head", Ids.Chest, StickJointKind.Ball, neck, head + new Vector3(0f, H(p.Head).Y, 0f), head, H(p.Head), world.GetMass(p.Head),

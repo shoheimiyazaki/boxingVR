@@ -143,7 +143,7 @@ public sealed partial class Fighter
         0 or 1 => ArmMass((Hand)region),
         2 => _legMass,
         _ => _world.GetMass(Parts.Chest) + _world.GetMass(Parts.Pelvis)
-            + (UsesJointDrive && Parts.Abdomen is { } abdomen ? _world.GetMass(abdomen) : 0f),
+            + (Parts.Abdomen is { } abdomen ? _world.GetMass(abdomen) : 0f),
     };
 
     /// <summary>

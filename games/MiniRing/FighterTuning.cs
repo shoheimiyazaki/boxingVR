@@ -335,8 +335,37 @@ public sealed record FighterTuning
     public float MaxTorsoTwistRadians { get; init; } = 35f * MathF.PI / 180f;
     public float HipTwistShare { get; init; } = 0.95f;
 
-    /// <summary>腹部を別剛体に分け、手の目標だけで骨盤から胸までのひねりを駆動する試験設定。</summary>
+    /// <summary>腹部を別剛体に分け、手の目標だけで骨盤から胸までのひねりを駆動する（標準: 2026-11-22 に制式採用）。</summary>
     public bool SplitTorso { get; init; }
+
+    /// <summary>
+    /// 腰から打つ体（2026-11-22、ユーザーの指定「パンチの地面を足でける反力は簡略化し、腰から」）。外から駆動するのは骨盤だけ:
+    /// <list type="bullet">
+    /// <item>骨盤の向き（ひねり・傾き）と水平の運びは、脚と床の代わりに外から強く駆動する。その力・ねじりは支えのモデル（<c>LimitToSupport</c>: 捕捉点・CoP・摩擦）が
+    /// 床で出せる分へ直す（床の反力は別のモデル）。傾きのバネは骨盤から上の胴全体（腹・胸・頭・腕）の傾きの慣性で効かせる（立つのは近道）。</item>
+    /// <item>腹・胸は、骨盤 → 腹 → 胸の関節の筋のトルク（<see cref="TrunkRotatorTorque"/>、反作用つき）だけで回る・起きる。胸の回旋は腰の回旋から物理で伝わる。</item>
+    /// <item>拳を引く力の反作用は全部を胸へ（<see cref="HandReactionShare"/> = 1）、体から拳への近道の移送（<c>TransferBodyMotion</c>）と体重を外から押す移送（<see cref="WeightShiftShare"/>）は使わない。</item>
+    /// <item>拳の踏み込みは脚のバネで床を蹴らず、腰を前へ運ぶ（<see cref="HipShiftDistance"/>）。</item>
+    /// <item>縦の支え（ホバー）は骨盤・腹・胸へ質量の比で分ける（立つ近道）。水平の力は骨盤だけへ（上体は背骨の関節で付いてくる）。</item>
+    /// </list>
+    /// </summary>
+    public bool HipDrive { get; init; }
+
+    /// <summary>
+    /// 腰から打つ体（<see cref="HipDrive"/>）で、前へ打ち込む拳が腰を支えの中心から前へ運ぶ距離の上限 [m]（体重移動）。打ち込みの度合い（手の目標が足の基準より前へ出た割合）に比例。
+    /// 捕捉点が足で受け止められる範囲（<c>KeepCaptureOverFeet</c>）で頭打ちになる。
+    /// </summary>
+    public float HipShiftDistance { get; init; } = 0.15f;
+
+    /// <summary>
+    /// 腰から打つ体の、胸の前傾の目標の上限 [rad]（傾き <see cref="MaxLeanRadians"/> ＋ 腰から折る <see cref="MaxHingeRadians"/> の和を頭打ちにする）。
+    /// 世界から直接起こしていた体では胸が目標の 70° まで届かなかったが、関節の筋で追う胸は届き、倒れたとみなす傾き（<see cref="FallUprightness"/> 0.4 = 66°）を越えて
+    /// 足で釣り合ったまま「倒れた」と数えられた（標準ボット 9 試合で 9 回）。深いダッキングの胴の前傾は 45〜60° ほど。
+    /// </summary>
+    public float MaxTrunkPitchRadians { get; init; } = 55f * MathF.PI / 180f;
+
+    /// <summary>腰から打つ体の、腰を運ぶ水平の加速度の上限 [m/s²]（歩く <see cref="MaxMoveAccel"/> より強い: 腰は強い力で駆動できる。床の摩擦・釣り合いで別に制限）。</summary>
+    public float HipDriveAccel { get; init; } = 14f;
     /// <summary>分割胴の試験設定で、脚のばねを直進でなく腰の回旋に使う。</summary>
     public bool CompactTorsoWave { get; init; }
 
@@ -860,10 +889,11 @@ public sealed record FighterTuning
     }
 
 
-    public static FighterTuning Default { get; } = new();
+    /// <summary>従来の体（一体の胴・腕と体を世界から直接動かす）。比べもの・古い記録の再生用。標準は <see cref="Default"/>（分割胴、2026-11-22 に制式採用）。</summary>
+    public static FighterTuning Legacy { get; } = new();
 
     /// <summary>その場での回旋を使う、分割胴のコンパクトなボクシング設定。</summary>
-    public static FighterTuning CompactPunch { get; } = Default with
+    public static FighterTuning CompactPunch { get; } = Legacy with
     {
         SplitTorso = true,
         CompactTorsoWave = true,
@@ -873,7 +903,7 @@ public sealed record FighterTuning
     };
 
     /// <summary>踏み込みの並進と体幹の回旋を使う、分割胴のボクシング設定。</summary>
-    public static FighterTuning DynamicPunch { get; } = Default with
+    public static FighterTuning DynamicPunch { get; } = Legacy with
     {
         SplitTorso = true,
         MaxTorsoTwistRadians = 65f * MathF.PI / 180f,
@@ -882,7 +912,7 @@ public sealed record FighterTuning
         WaveHandSeconds = 0.025f,
         WaveFootSeconds = 0.050f,
         WaveFootTravelShare = 0.24f,
-        Footwork = Default.Footwork with { StepPushTime = 0.030f },
+        Footwork = Legacy.Footwork with { StepPushTime = 0.030f },
     };
 
     /// <summary>拳の目標距離から打ち分ける分割胴。腕のサーボ速度は両フォームで共通にする。</summary>
@@ -911,16 +941,17 @@ public sealed record FighterTuning
     };
 
     /// <summary>
-    /// 面白さの測定で選んだ試合用の体（2026-11-22）: ダイナミック版（<see cref="DynamicPunch"/>）に、体幹の回旋トルク 360 N·m・意識の戻りの速さ 2 倍・
-    /// 足で受け止められる捕捉点のずれの許容 2 倍（<see cref="SupportRecovery"/> 1.0・<see cref="SupportVerticalRecovery"/> 3）を重ねた。
-    /// 標準ボット 3 組（champion:swarmer・slugger:outboxer・counter:jabber）× 種 1〜16 の面白さの総合点は 標準の体 154.6 → 182.9、別の種（21〜24）の
-    /// 9 組平均で 154.2 → 193.4（`excitementleague --tune Preset=MatchPunch`。docs/arena/excitement_generations_2026-11-22.md）。
-    /// 足の受け止め許容を戻すと打たれずに倒れる回数が 1.5 → 4.2 回/試合に増える（`SelfFallTests`）。
-    /// <b>標準にはしていない</b>: 分割胴の体は質量の帳尻・酸素の部位・ボクセルの臓器位置・同梱の体モデルがまだ合っていない
-    /// （標準にすると `ShippedModel_IfAny_FitsTheDefaultSettings`・`BoneAndOrganGoals_…`・`TheGuardPose_…`・`RestedFighterShowsCalmVitalsAndTheHeartBeats` ほか 7 件が落ちた。docs/DEBT.md「分割胴の体の組み込み」）。
+    /// 標準の体（2026-11-22、ユーザーの指定で分割胴を制式採用）: 胸と腹に分けた胴（<see cref="SplitTorso"/>）。腰は脚と床の代わりに外から強く回し・運び
+    /// （床の反力は <c>LimitToSupport</c> の支えのモデルで別に持つ）、腹・胸・腕は体の中の関節の力（反作用つき）で腰を追う。立つのはホバーの近道。
+    /// 出発点はダイナミック版（<see cref="DynamicPunch"/>）に体幹の回旋トルク 360 N·m・意識の戻り 2 倍・足の受け止め許容 2 倍を重ねた値
+    /// （標準ボット 3 組の面白さ 従来の体 154.6 → 182.9。docs/arena/excitement_generations_2026-11-22.md）。従来の体は <see cref="Legacy"/>。
     /// </summary>
-    public static FighterTuning MatchPunch { get; } = DynamicPunch with
+    public static FighterTuning Default { get; } = DynamicPunch with
     {
+        HipDrive = true,
+        HandReactionShare = 1f,
+        WeightShiftShare = 0f,
+        PelvisRotatorTorque = 300f,
         TrunkRotatorTorque = 360f,
         ConcussionRecoveryRate = 0.0834f,
         SupportRecovery = 1.0f,

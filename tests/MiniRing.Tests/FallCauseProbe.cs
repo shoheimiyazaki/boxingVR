@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Globalization;
 using MiniRing.Bots;
 using MiniRing.Highlights;
@@ -6,7 +7,7 @@ namespace MiniRing.Tests;
 
 /// <summary>
 /// 調べもの: 標準ボットの試合で、立っていた体が自分でバランスを失って倒れた回数と原因（<see cref="Fighter.LastFallCause"/>）、倒れる直前の傾き・足の浮いていた時間を数える。
-/// <c>MINIRING_FALL_PRESET</c> に <c>MatchPunch</c> を渡すと試合用の体で数える（既定は <see cref="FighterTuning.Default"/>）。
+/// <c>MINIRING_FALL_PRESET</c> に <c>Legacy</c> を渡すと従来の体で数える（既定は <see cref="FighterTuning.Default"/>）。
 /// </summary>
 [TestClass]
 [TestCategory("Probe")]
@@ -19,7 +20,7 @@ public sealed class FallCauseProbe
     public void Measure()
     {
         var preset = Environment.GetEnvironmentVariable("MINIRING_FALL_PRESET");
-        var tuning = preset == "MatchPunch" ? FighterTuning.MatchPunch : FighterTuning.Default;
+        var tuning = preset == "Legacy" ? FighterTuning.Legacy : FighterTuning.Default;
         var causes = new Dictionary<string, int>();
         var falls = 0;
         foreach (var pair in new[] { ("champion", "swarmer"), ("slugger", "outboxer"), ("counter", "jabber") })
@@ -49,7 +50,7 @@ public sealed class FallCauseProbe
                             causes[cause] = causes.GetValueOrDefault(cause) + 1;
                             falls++;
                             TestContext.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                                $"{pair.Item1}:{pair.Item2}/{seed} t={t:F1}s {who} {cause} upright={fighter.Uprightness:F2} consciousness={fighter.Consciousness:F2} minVerticalBalance(1s)={queue.Min(q => q.V):F2} minBalance={queue.Min(q => q.B):F2}"));
+                                $"{pair.Item1}:{pair.Item2}/{seed} t={t:F1}s {who} {cause} upright={fighter.Uprightness:F2} chestUp={Vector3.Transform(Vector3.UnitY, game.World.GetState(fighter.Parts.Chest).Orientation).Y:F2} pelvisUp={Vector3.Transform(Vector3.UnitY, game.World.GetState(fighter.Parts.Pelvis).Orientation).Y:F2} vel={game.World.GetState(fighter.Parts.Pelvis).LinearVelocity.Length():F2} consciousness={fighter.Consciousness:F2} minVerticalBalance(1s)={queue.Min(q => q.V):F2} minBalance={queue.Min(q => q.B):F2}"));
                         }
                     }
 

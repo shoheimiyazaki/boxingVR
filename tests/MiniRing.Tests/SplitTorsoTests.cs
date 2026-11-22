@@ -35,6 +35,7 @@ public sealed class SplitTorsoTests
         var loadedAbdomen = Yaw(abdomen);
         var loadedChest = Yaw(fighter.Parts.Chest);
         var footEnergyBefore = fighter.StepEnergyReleased;
+        var pelvisBefore = fighter.PelvisPosition;
         var release = load with { Right = right with { TargetLocal = right.TargetLocal with { Z = 0.65f } } };
         for (var i = 0; i < 38; i++)
         {
@@ -43,7 +44,9 @@ public sealed class SplitTorsoTests
         }
 
         Console.WriteLine($"pelvis={loadedPelvis:F3}->{Yaw(fighter.Parts.Pelvis):F3}, abdomen={loadedAbdomen:F3}->{Yaw(abdomen):F3}, chest={loadedChest:F3}->{Yaw(fighter.Parts.Chest):F3}");
-        Assert.IsGreaterThan(footEnergyBefore, fighter.StepEnergyReleased, "拳の目標が前へ動くと脚のばねを放つ");
+        // 腰から打つ体（標準）は拳の踏み込みで脚のバネに床を蹴らせず、腰を前へ運ぶ（体重移動）。
+        Assert.AreEqual(footEnergyBefore, fighter.StepEnergyReleased, "腰から打つ体は拳で脚のばねを放たない");
+        Assert.IsGreaterThan(0.01f, Vector3.Dot(fighter.PelvisPosition - pelvisBefore, forward), "拳の目標が前へ動くと腰が前へ運ばれる");
         Assert.IsGreaterThan(loadedPelvis + 0.04f, Yaw(fighter.Parts.Pelvis));
         Assert.IsGreaterThan(loadedAbdomen + 0.04f, Yaw(abdomen));
         Assert.IsGreaterThan(loadedChest + 0.04f, Yaw(fighter.Parts.Chest));

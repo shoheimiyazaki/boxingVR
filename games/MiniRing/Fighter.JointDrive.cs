@@ -11,6 +11,12 @@ public sealed partial class Fighter
 
     internal bool UsesJointDrive => _tuning.JointDrive;
 
+    /// <summary>
+    /// 腰から打つ体（<see cref="FighterTuning.HipDrive"/>）: 外から駆動するのは骨盤だけで、腹・胸は関節の筋で追う。立っている間だけ
+    /// （倒れて起き上がる間は従来の立たせる近道。見た目優先で近道でよい: ユーザーの指定 2026-11-22）。関節駆動の体では使わない。
+    /// </summary>
+    internal bool UsesHipDrive => _tuning.HipDrive && !_tuning.JointDrive && Parts.Abdomen is not null && State == FighterState.Standing;
+
     internal bool UsesLegacyGloveImpact => _tuning.JointLegacyGloveImpact;
 
     private float JointSupportAssist => UsesJointDrive && _tuning.SupportFromGround ? Math.Clamp(_tuning.JointSupportAssist, 0f, 1f) : 0f;
