@@ -46,7 +46,10 @@
   "crowd": { "reactionGain": 1, "ambienceGain": 1 },
   "countsDowns": true,
   // 試合の決まり: 最終ラウンドの終わりは判定・休みに浅い傷が治る・レフェリーがいる・四角いリング（今までの中継のまま）。
-  "match": { "judgesDecision": true, "regenerates": true, "referee": true, "arena": "ropedSquare" },
+  "match": {
+    "judgesDecision": true, "regenerates": true, "referee": true, "arena": "ropedSquare",
+    "concussionSpinScale": 2.0142677, "limbBendStrengthScale": 0.60
+  },
   "text": {
     "openingRule": "{seconds}秒 × {rounds}ラウンド　・　K.O. か判定で決着",
     "finishWord": "K.O.",

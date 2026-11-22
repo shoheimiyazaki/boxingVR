@@ -655,6 +655,9 @@ public sealed partial class BoxingGame
         return holder.SupportOf(hand) is { } support ? force + holder.HandPush(support) : force;
     }
 
+    private static bool UseLegacyWornImpact(Fighter fighter, WeaponKind kind)
+        => !fighter.UsesJointDrive || (kind == WeaponKind.Glove && fighter.UsesLegacyGloveImpact);
+
     /// <summary>
     /// 手にはめた物の後ろで一緒に打ち込む質量 [kg]（<see cref="VoxelContact.Resolve"/> の massBehind）: 拳の有効質量
     /// （<see cref="Fighter.ImpactMass(Hand, Vector3)"/>: 腕と、拳の向きに乗る体の分）。ボクセルの接触は関節を見ないので、渡さないと
@@ -663,7 +666,7 @@ public sealed partial class BoxingGame
     /// </summary>
     private float MassBehind(Weapon weapon)
     {
-        if (!Weapon.IsWorn(weapon.Kind) || HolderOf(weapon) is not { } holder || holder.UsesJointDrive)
+        if (!Weapon.IsWorn(weapon.Kind) || HolderOf(weapon) is not { } holder || !UseLegacyWornImpact(holder, weapon.Kind))
         {
             return 0f;
         }
@@ -1264,7 +1267,7 @@ public sealed partial class BoxingGame
         // （カタールの刃が斬った所も、メリケンサックの突起が潰した所も、同じ接触が壊した分）。
         if (Weapon.IsWorn(weapon.Kind))
         {
-            if (!(part.FragmentOf is null && HolderOf(weapon) is { } puncher && puncher != victim && Punch(puncher, HandOf(weapon), victim, part, hit, contactTwist)))
+            if (!(part.FragmentOf is null && HolderOf(weapon) is { } puncher && puncher != victim && Punch(puncher, HandOf(weapon), victim, part, hit, contactTwist, UseLegacyWornImpact(puncher, weapon.Kind))))
             {
                 if (contactTwist != Vector3.Zero && MayStrike(victim))
                 {
@@ -1824,7 +1827,7 @@ public sealed partial class BoxingGame
     /// 乗る質量は拳の有効質量（<see cref="Fighter.ImpactMass(Hand, Vector3)"/>）。ダメージが小さすぎる触れ合い・押し合いは数えない（拳の打撃と同じ）。
     /// 体を削るのはボクセル同士の接触が壊した分だけ（エネルギーで掘る近道は使わない）。数えたら true。
     /// </summary>
-    private bool Punch(Fighter attacker, Hand hand, Fighter victim, VoxelPart part, VoxelContactResult hit, Vector3 contactTwist)
+    private bool Punch(Fighter attacker, Hand hand, Fighter victim, VoxelPart part, VoxelContactResult hit, Vector3 contactTwist, bool legacyImpact)
     {
         if (RoundOver || Holding || !MayStrike(victim) || _hitCooldown[(attacker, hand)] > 0f)
         {
@@ -1843,7 +1846,7 @@ public sealed partial class BoxingGame
 
         float impactMass;
         var bodyShare = 0f;
-        if (attacker.UsesJointDrive)
+        if (!legacyImpact)
         {
             // 接触ソルバーが実際に渡した法線方向の力積だけを得点の運動量に使う。
             impactMass = MathF.Abs(Vector3.Dot(hit.ImpulseOnB, hit.Normal)) / speed;
@@ -1862,14 +1865,15 @@ public sealed partial class BoxingGame
         }
 
         _hitCooldown[(attacker, hand)] = RehitCooldown;
-        if (attacker.UsesJointDrive && contactTwist != Vector3.Zero)
+        if (!legacyImpact && contactTwist != Vector3.Zero)
         {
             victim.TwistHead(contactTwist);
         }
 
         // 打った面の材質（はめた物の側）: 打撃音を、グローブ・素手・鉄で変える。
         var face = hit.A == part.Body ? hit.FaceB : hit.FaceA;
-        ApplyHit(new HitEvent(attacker, hand, victim, zone, hit.Point, speed, impactMass, bodyShare, damage, face), part.Body.BodyId, velocity, carve: false, alsoTwist: contactTwist);
+        ApplyHit(new HitEvent(attacker, hand, victim, zone, hit.Point, speed, impactMass, bodyShare, damage, face),
+            part.Body.BodyId, velocity, carve: false, alsoTwist: contactTwist, legacyWornImpact: legacyImpact);
         return true;
     }
 

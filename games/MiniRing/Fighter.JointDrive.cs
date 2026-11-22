@@ -11,6 +11,12 @@ public sealed partial class Fighter
 
     internal bool UsesJointDrive => _tuning.JointDrive;
 
+    internal bool UsesLegacyGloveImpact => _tuning.JointLegacyGloveImpact;
+
+    private float JointSupportAssist => UsesJointDrive && _tuning.SupportFromGround ? Math.Clamp(_tuning.JointSupportAssist, 0f, 1f) : 0f;
+
+    private bool UsesGroundSupport => !UsesJointDrive || JointSupportAssist > 0f;
+
     private void DriveRelativeTorso(int parent, int child, Quaternion parentTarget, Quaternion childTarget, float yawRate, float scale, float dt)
     {
         var a = _world.GetState(parent);
@@ -127,6 +133,44 @@ public sealed partial class Fighter
         var target = pelvis + ClampLength(horizontal, 0.18f * _standHeight);
         target.Y = groundY + (StandTargetHeight * (1f + _crouch))
             - Math.Clamp(0.20f * _world.GetState(Parts.Pelvis).LinearVelocity.Y, -0.08f, 0.08f);
-        ApplyLegs(groundY, dt, target);
+        var ankleAdjustment = Vector3.Zero;
+        if (_tuning.JointStanceAnkleGain != 0f && _world.Gravity.Y < 0f)
+        {
+            var comHeight = MathF.Max(HalfExtents.Pelvis.Y, CenterOfMass.Y - groundY);
+            var captureTime = MathF.Sqrt(comHeight / -_world.Gravity.Y);
+            // Apply the correction only as a target angle for a planted ankle.
+            ankleAdjustment = (center + velocity * captureTime - _jointStanceTarget.Value)
+                * (_tuning.JointStanceAnkleGain / comHeight);
+        }
+
+        ApplyLegs(groundY, dt, target, ankleAdjustment);
+    }
+
+    private int JointStanceContacts()
+    {
+        if (!UsesJointDrive || (_tuning.JointStanceHipShare <= 0f && _tuning.JointStanceAnkleGain == 0f && JointSupportAssist <= 0f))
+        {
+            return 0;
+        }
+
+        var stance = 0;
+        foreach (var contact in _world.Contacts())
+        {
+            // Static contacts are reported with the body as A and the outward normal.
+            if (!contact.StaticB || contact.Normal.Y < 0.5f)
+            {
+                continue;
+            }
+
+            for (var i = 0; i < _legParts.Length; i++)
+            {
+                if (contact.A == _legParts[i].Heel || contact.A == _legParts[i].Toe)
+                {
+                    stance |= 1 << i;
+                }
+            }
+        }
+
+        return stance;
     }
 }

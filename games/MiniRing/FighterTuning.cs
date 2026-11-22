@@ -345,6 +345,20 @@ public sealed record FighterTuning
 
     /// <summary>試験用。親子関節のトルクと床・相手との接触で駆動する。</summary>
     public bool JointDrive { get; init; }
+
+    /// <summary>正の値で従来の接地制限付き補助を使う。姿勢・移動のゲインと脚の補助力上限に掛け、重力補償は既存の式を使う。</summary>
+    public float JointSupportAssist { get; init; }
+
+    /// <summary>関節駆動で、別工程のグローブ接触に従来の打撃処理を使う。</summary>
+    public bool JointLegacyGloveImpact { get; init; }
+
+    /// <summary>支持脚の股関節が骨盤の姿勢を受け持つ割合。</summary>
+    [JsonInclude]
+    internal float JointStanceHipShare { get; init; }
+
+    /// <summary>重心の位置と速度のずれを、支持足の足首角へ返す無次元の係数。</summary>
+    [JsonInclude]
+    internal float JointStanceAnkleGain { get; init; }
     /// <summary>右手を出す間に左のガードを引く距離の上限（腕の長さの割合）。</summary>
     public float CompactLeftRetractShare { get; init; } = 0.08f;
     /// <summary>脚のばねを解放する入力が手の目標に追いつく時定数 [s]。</summary>
@@ -404,8 +418,11 @@ public sealed record FighterTuning
     /// </summary>
     public float SupportRecovery { get; init; } = 0.5f;
 
-    /// <summary>縦の支え（腰を持ち上げる力）が 0 になる捕捉点の外れの、<see cref="SupportRecovery"/> に対する倍率（起こすねじりより遅く抜ける）。</summary>
+    /// <summary>縦の支えが 0 になる支持領域からの距離を <see cref="SupportRecovery"/> の倍数で表す。</summary>
     public float SupportVerticalRecovery { get; init; } = 1.5f;
+
+    /// <summary>縦の支持も捕捉点から見積もる。関節駆動の試験設定では従来の制御を使う。</summary>
+    public bool UseCaptureForVerticalSupport { get; init; }
 
     /// <summary>
     /// 釣り合いの PID の積分の強さ [1/s]（docs/GRAPPLING.md §9）: 上体を起こすねじり・重心を足の上へ寄せる力に、ずれの漏れのある積分 × これ × 比例の固さ を足す。
@@ -879,8 +896,18 @@ public sealed record FighterTuning
     public static FighterTuning MomentumPunch { get; } = AdaptivePunch with
     {
         JointDrive = true,
+        UseCaptureForVerticalSupport = true,
+        JointStanceHipShare = 0.50f,
+        JointStanceAnkleGain = 1f,
         LegServoHz = 22f,
-        Footwork = AdaptivePunch.Footwork with { HeelRaiseDegrees = 0f, PivotHeelRaiseDegrees = 0f },
+        Footwork = AdaptivePunch.Footwork with { HeelRaiseDegrees = 0f, PivotHeelRaiseDegrees = 0f, CapturePlacementShare = 1f },
+    };
+
+    /// <summary>関節駆動のパンチと従来の立位補助を組み合わせた試合設定。</summary>
+    public static FighterTuning HybridPunch { get; } = MomentumPunch with
+    {
+        JointSupportAssist = 0.5f,
+        JointLegacyGloveImpact = true,
     };
 
     internal static Vector3 Up => Vector3.UnitY;

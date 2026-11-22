@@ -235,7 +235,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 79; // 79: 親子の関節と接触で駆動する試験設定。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 83; // 83: WVC の頭部回転と四肢の曲げ破断を調整。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -2396,13 +2396,14 @@ public sealed partial class Fighter
         _footworkActive = footwork;
         var groundY = PelvisPosition.Y - height;
         BeginSupportWrench();
-        if (grounded && !UsesJointDrive)
+        var supportScale = scale * (UsesJointDrive ? JointSupportAssist : 1f);
+        if (grounded && UsesGroundSupport)
         {
-            ApplyHover(command, height, scale * legs, footwork, footwork ? LegsAllowHeight(groundY) : float.PositiveInfinity, dt);
+            ApplyHover(command, height, supportScale * legs, footwork, footwork ? LegsAllowHeight(groundY) : float.PositiveInfinity, dt);
         }
 
         var drivenHands = Parts.Abdomen is not null ? AdvanceHandWave(command, dt) : command;
-        ApplyFacingAndUpright(command, scale * CoreStrength, dt);
+        ApplyFacingAndUpright(command, scale * CoreStrength, dt, grounded);
         if (footwork)
         {
             var handDrivenStep = Parts.Abdomen is not null && command.ClampedStep.LengthSquared() < 1e-8f;
@@ -2410,7 +2411,7 @@ public sealed partial class Fighter
             var footCommand = handDrivenStep && forwardShare > 0f
                 ? command with { Step = Frame.Forward * (_wavePush * forwardShare) }
                 : command;
-            if (UsesJointDrive)
+            if (!UsesGroundSupport)
             {
                 DriveThroughFeet(footCommand, height, groundY, dt);
             }
@@ -2418,20 +2419,25 @@ public sealed partial class Fighter
             {
                 StepFeet(footCommand, height, dt);
                 var yawPush = handDrivenStep ? _waveYawPush * (1f - forwardShare) : 0f;
-                StepWithLegSpring(footCommand, groundY, scale * legs, dt, yawPush);
-                ApplyBodyOverFeet(command, scale * legs, dt);
+                if (!UsesJointDrive)
+                {
+                    StepWithLegSpring(footCommand, groundY, scale * legs, dt, yawPush);
+                }
+
+                ApplyBodyOverFeet(command, supportScale * legs, dt);
                 ApplyLegs(groundY, dt);
             }
         }
         else
         {
-            if (!UsesJointDrive)
+            if (UsesGroundSupport && (!UsesJointDrive || grounded))
             {
-                ApplyMovement(command, scale * legs, dt);
+                ApplyMovement(command, supportScale * legs, dt);
             }
 
             ApplyGait(dt);
-            if (!UsesJointDrive && _tuning.SupportFromGround && _tuning.SupportModel != SupportModel.Cop && State != FighterState.Standing && grounded && !LegSevered)
+            if (UsesGroundSupport && _tuning.SupportFromGround && _tuning.SupportModel != SupportModel.Cop && State != FighterState.Standing && grounded && !LegSevered
+                && (!UsesJointDrive || !_limbs.IsEmpty))
             {
                 ApplyRiseLegs(groundY, dt); // 起き上がる間は、足を重心の下へ寄せる（Fighter.Support.cs）
             }
@@ -2443,7 +2449,7 @@ public sealed partial class Fighter
         }
 
         // 立たせる力（ホバー・起こすねじり・移動）を、床に着いている所で出せる分へ直す（Fighter.Support.cs）。
-        if (!UsesJointDrive)
+        if (UsesGroundSupport)
         {
             LimitToSupport(groundY, grounded, dt);
         }
@@ -2612,12 +2618,13 @@ public sealed partial class Fighter
     /// 脚の IK: 足の置き方から股・膝・足首・つま先のサーボの目標を決める。骨盤は今の位置と、目標の姿勢にあるとして解く
     /// （今の姿勢から解くと、傾いた骨盤を脚が支え直さず、骨盤が 45° 傾いた）。高さのずれは骨盤の高さの制御が積分で打ち消す。
     /// </summary>
-    private void ApplyLegs(float groundY, float dt, Vector3? pelvisTarget = null)
+    private void ApplyLegs(float groundY, float dt, Vector3? pelvisTarget = null, Vector3 ankleAdjustment = default)
     {
         var pelvis = _world.GetState(Parts.Pelvis);
         pelvis = pelvis with { Orientation = _pelvisTarget, Position = pelvisTarget ?? pelvis.Position };
 
         var inverse = Quaternion.Conjugate(pelvis.Orientation);
+        var stance = JointStanceContacts();
         for (var i = 0; i < 2; i++)
         {
             var leg = _legParts[i];
@@ -2651,15 +2658,36 @@ public sealed partial class Fighter
             var toes = kick?.KneeTargetLocal is { } kneeGoal ? Frame.LocalToWorld(kneeGoal) - pivot : new Vector3(MathF.Sin(pose.Yaw), 0f, MathF.Cos(pose.Yaw));
             var (thigh, knee, reach) = LegIk.Solve(Vector3.Transform(ankle - pivot, inverse), leg.ThighToKnee, leg.ShinLength, Vector3.Transform(toes, inverse));
             leg.ReachRatio = reach;
-            _world.SetAngularServoTarget(leg.HipServo, thigh);
+            var hipTarget = thigh;
+            var planted = !pose.Swinging && kick is null && (stance & (1 << i)) != 0;
+            if (planted)
+            {
+                // The planted thigh provides the angular reference for holding the pelvis.
+                var thighOrientation = _world.GetState(leg.Thigh).Orientation;
+                var balanceTarget = Quaternion.Concatenate(thighOrientation, inverse);
+                hipTarget = Quaternion.Slerp(thigh, balanceTarget, _tuning.JointStanceHipShare);
+            }
+
+            _world.SetAngularServoTarget(leg.HipServo, hipTarget);
             SetTwistTarget(leg.KneeServo, knee);
-            var shin = Quaternion.Concatenate(Quaternion.Concatenate(Quaternion.CreateFromAxisAngle(Vector3.UnitX, knee), thigh), pelvis.Orientation);
-            leg.AnkleTarget = LegIk.AnklePitch(shin, foot);
+            var shin = Quaternion.Concatenate(Quaternion.Concatenate(Quaternion.CreateFromAxisAngle(Vector3.UnitX, knee), hipTarget), pelvis.Orientation);
+            var anklePitch = LegIk.AnklePitch(shin, foot);
+            if (planted && ankleAdjustment != Vector3.Zero)
+            {
+                var forward = Vector3.Transform(Vector3.UnitZ, Quaternion.CreateFromAxisAngle(Vector3.UnitY, pose.Yaw));
+                const float swingLimit = HumanoidRagdoll.AnkleSwingLimitDegrees * MathF.PI / 180f;
+                // Feedback may reduce an already unreachable IK target, but must not drive it farther past the stop.
+                anklePitch = Math.Clamp(anklePitch + Vector3.Dot(ankleAdjustment, forward),
+                    MathF.Min(-swingLimit, anklePitch), MathF.Max(swingLimit, anklePitch));
+            }
+
+            leg.AnkleTarget = anklePitch;
             SetTwistTarget(leg.AnkleServo, leg.AnkleTarget);
             SetTwistTarget(leg.ToeServo, kick is null ? -pose.HeelRaise : 0f);
-            if (!UsesJointDrive)
+            if (UsesGroundSupport && (!UsesJointDrive || stance != 0))
             {
-                DriveFoot(leg, ankle, pose.Swinging || kick is not null, pelvisId: Parts.Pelvis, dt);
+                DriveFoot(leg, ankle, pose.Swinging || kick is not null, pelvisId: Parts.Pelvis, dt,
+                    strength: UsesJointDrive ? JointSupportAssist : 1f);
             }
         }
     }
@@ -2855,7 +2883,7 @@ public sealed partial class Fighter
     /// 体の軸の向き: 向き（相手へロックオン）＋ 両手の位置からのひねり（前に出た手・横切る手の側の肩が前へ）
     /// ＋ 頭の位置からの前傾・横傾き。腰は胸のひねりの一部だけ回る。
     /// </summary>
-    private void ApplyFacingAndUpright(in FighterCommand command, float scale, float dt)
+    private void ApplyFacingAndUpright(in FighterCommand command, float scale, float dt, bool grounded)
     {
         if (command.FaceDirection.LengthSquared() > 1e-4f)
         {
@@ -2922,6 +2950,13 @@ public sealed partial class Fighter
         var chestTarget = Upright(_twist, 1f, pitch);
         if (UsesJointDrive)
         {
+            if (grounded && UsesGroundSupport)
+            {
+                var assist = scale * JointSupportAssist;
+                ApplyUprightImpulse(Parts.Pelvis, _pelvisTarget, assist, dt, tiltOnly: true);
+                ApplyUprightImpulse(Parts.Chest, chestTarget, assist * 0.9f, dt, tiltOnly: true);
+            }
+
             if (Parts.Abdomen is { } middle && !_detached.Contains(middle) && !_detached.Contains(Parts.Pelvis))
             {
                 var waistPitch = (0.25f * pitch) + ((_tuning.HipBackLeanShare - 0.25f) * sway);
@@ -3027,7 +3062,7 @@ public sealed partial class Fighter
     /// 体の軸を目標の向きへ起こす・回す PD（部位の角速度の力積）。傾き（前後・左右）は <see cref="FighterTuning.UprightKp"/> のバネ、鉛直軸まわり（ひねり）は
     /// 回旋筋のトルクから決めたバネ（<see cref="FighterTuning.TrunkRotatorTorque"/>）と、ひねりの目標の動く速さの先行 <paramref name="yawRate"/> [rad/s]。
     /// </summary>
-    private void ApplyUprightImpulse(int body, Quaternion target, float scale, float dt, float yawRate = 0f)
+    private void ApplyUprightImpulse(int body, Quaternion target, float scale, float dt, float yawRate = 0f, bool tiltOnly = false)
     {
         var s = _world.GetState(body);
         var error = FighterMath.RotationError(s.Orientation, target);
@@ -3045,10 +3080,15 @@ public sealed partial class Fighter
         var yawKd = _tuning.UprightKd / MathF.Sqrt(_tuning.UprightKp) * MathF.Sqrt(yawKp); // 2ζ√Kp（ζ = UprightKd / 2√UprightKp）
         var yaw = (error.Y * yawKp) + (_uprightIntegral[slot].Y * (_tuning.BalanceKi * yawKp)) + ((yawRate - s.AngularVelocity.Y) * yawKd);
         var yawLimit = rotatorTorque / MathF.Max(1e-4f, _world.GetLocalInertiaDiagonal(body).Y);
-        accel = ClampLength(new Vector3(accel.X, 0f, accel.Z) * scale, _tuning.MaxUprightAccel) + new Vector3(0f, Math.Clamp(yaw * scale, -yawLimit, yawLimit), 0f);
+        accel = ClampLength(new Vector3(accel.X, 0f, accel.Z) * scale, _tuning.MaxUprightAccel) + new Vector3(0f, tiltOnly ? 0f : Math.Clamp(yaw * scale, -yawLimit, yawLimit), 0f);
         // 加速度を慣性で力積へ（PhysicsWorld.GetLocalInertiaDiagonal の推奨式）。
         var local = Vector3.Transform(accel, Quaternion.Conjugate(s.Orientation));
         var impulse = Vector3.Transform(local * _world.GetLocalInertiaDiagonal(body) * dt, s.Orientation);
+        if (tiltOnly)
+        {
+            impulse.Y = 0f;
+        }
+
         _world.ApplyAngularImpulse(body, impulse);
         RecordSupportTorque(impulse);
     }

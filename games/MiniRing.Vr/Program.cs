@@ -9,6 +9,7 @@ using MiniRing.Vr;
 // ウィンドウは無い（状態はこのコンソールに出る）。Ctrl+C で終了。
 //   --runtime <auto|meta|vd|steamvr|system|path.json>  使う OpenXR ランタイム（既定 auto）
 //   --compact-punch    分割胴のコンパクトな回旋を使う試合設定
+//   --hybrid-punch           関節駆動のパンチと従来の立位・打撃処理を組み合わせた試合設定
 //   --adaptive-punch        拳の目標距離から回旋と踏み込みを連続に配分する試合設定
 //   --dynamic-punch         脚の踏み込みを拳に乗せる分割胴の試合設定
 //   --scale <0.3..1.0>  目の解像度倍率（既定 0.8。重いときは下げる）
@@ -111,7 +112,9 @@ catch (InvalidOperationException ex)
 }
 
 // 試合は replays/ に自動で記録する（デスクトップ版の --replay で再生、--verify で照合できる）。
-var matchTuning = args.Contains("--adaptive-punch")
+var matchTuning = args.Contains("--hybrid-punch")
+    ? FighterTuning.HybridPunch
+    : args.Contains("--adaptive-punch")
     ? FighterTuning.AdaptivePunch
     : args.Contains("--dynamic-punch") ? FighterTuning.DynamicPunch
     : args.Contains("--compact-punch") ? FighterTuning.CompactPunch : FighterTuning.Default;

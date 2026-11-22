@@ -89,7 +89,8 @@ internal sealed record OrgCast(OrgSeat Announcer, OrgSeat Commentator);
 /// 傷の前線の再生（<see cref="Regrowth"/>、VFC。書かなければしない）・休みに失った武器を支給するか（<see cref="ResupplyWeapons"/>）。
 /// ダウンを数えるかは <see cref="Organization.CountsDowns"/>（下書き・画面と共有）。
 /// </summary>
-internal sealed record OrgMatch(bool JudgesDecision, bool Regenerates, bool Referee, ArenaShape Arena, OrgRegrowth? Regrowth = null, bool ResupplyWeapons = false);
+internal sealed record OrgMatch(bool JudgesDecision, bool Regenerates, bool Referee, ArenaShape Arena, OrgRegrowth? Regrowth = null, bool ResupplyWeapons = false,
+    float ConcussionSpinScale = 1f, float LimbBendStrengthScale = 1f);
 
 /// <summary>
 /// 傷の前線の再生の値（団体のファイルの <c>match.regrowth</c>）: 前線の速さ [m/s]（<see cref="MatchRules.RegrowthSpeed"/>）・抽選の間隔 [s]

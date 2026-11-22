@@ -188,6 +188,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <param name="mood">会場の雰囲気（照明と画面の仕上げ。描画だけで試合に響かない）。null なら今の明るい部屋。</param>
     public BoxingGame(FighterTuning? tuning = null, int seed = 1, BoxingCorners? corners = null, MatchRules? rules = null, ArenaMood? mood = null)
     {
+        if (rules is not null && (!float.IsFinite(rules.ConcussionSpinScale) || rules.ConcussionSpinScale <= 0f
+            || !float.IsFinite(rules.LimbBendStrengthScale) || rules.LimbBendStrengthScale <= 0f))
+        {
+            throw new ArgumentOutOfRangeException(nameof(rules), "Impact response scales must be finite and positive.");
+        }
+
         Rules = rules;
         Mood = mood ?? ArenaMood.Default;
         _tuning = tuning ?? FighterTuning.Default;
@@ -876,7 +882,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <param name="gloveVelocity">拳の速度（歩の前）。</param>
     /// <param name="carve">拳の運動エネルギーで当たった所を掘るか（素手の拳の近道）。ボクセルのグローブの打撃は、接触そのものが壊した分だけなので false。</param>
     /// <param name="alsoTwist">物理の接触が頭を回した分（グローブのボクセルの接触の力積）。</param>
-    internal void ApplyHit(HitEvent hit, int victimBody, Vector3 gloveVelocity, bool carve = true, Vector3 alsoTwist = default)
+    /// <param name="legacyWornImpact">関節駆動でも、グローブ接触を解いた呼び出しでは従来の運動量を渡す。</param>
+    internal void ApplyHit(HitEvent hit, int victimBody, Vector3 gloveVelocity, bool carve = true, Vector3 alsoTwist = default, bool legacyWornImpact = false)
     {
         if (RoundOver || Resting || Holding)
         {
@@ -894,7 +901,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 同じ運動量の反作用を打った側の全身へ返す（運動量は湧かない）。
         // 物理の接触が運ぶのは打った四肢そのものの質量（腕、蹴りなら脚）だけ。残りの体の分を足す。
         var extraMass = hit.ImpactMass - (hit.Kick ? hit.Attacker.KickingMass(hit.Hand) : hit.Attacker.ArmMass(hit.Hand));
-        var push = !hit.Attacker.UsesJointDrive && extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f
+        var push = (!hit.Attacker.UsesJointDrive || legacyWornImpact) && extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f
             ? CarryBody(hit.Attacker, victim, victimBody, hit.Point, Vector3.Normalize(gloveVelocity) * (extraMass * hit.Speed * KnockbackTransfer), hit.Speed, alsoTwist)
             : Vector3.Zero;
         if (!carve)
@@ -908,6 +915,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 受けた腕にかかる衝撃は同じ: ブロックし続けた腕は削れていく。破片は、のけぞる体の動き（push）に乗って流れる。
         // 削る量は拳の運動エネルギー（½ m v²）に比例: 体重の乗った速い 1 発ほど急に深く掘れる（非線形）。
         var energy = hit.Energy;
+        if (!hit.Kick && !hit.Elbow)
+        {
+            _impacts.SpawnPunchCue(hit.Point, gloveVelocity, energy,
+                hit.Zone is HitZone.Guard or HitZone.Elbow or HitZone.Shoulder);
+        }
+
         // 皮膚の上からでも、衝撃は組織を伝わって臓器を打つ（一時的な打撲。削れれば別に恒久的に効く）。
         victim.BruiseOrgans(hit.Point, energy);
         victim.Eyes.Flinch(energy, Vector3.Distance(hit.Point, victim.HeadPosition)); // 打たれた瞬間の反射（見た目だけ）
@@ -1608,9 +1621,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
                     Layout.RestCorner(false, RingLayout.CornerInset).Z - Layout.RestCorner(true, RingLayout.CornerInset).Z))
             : (surface - new Vector3(0f, 0f, Layout.StartGap * 0.5f), surface + new Vector3(0f, 0f, Layout.StartGap * 0.5f), 0f);
         // VR のプレイヤーには、手触りの調整が終わるまでスタミナの疲れを効かせない（FighterTuning.PlayerFatigue）。
+        var concussionSpin = _tuning.ConcussionSpin * (Rules?.ConcussionSpinScale ?? 1f);
         var playerTuning = (_tuning.PlayerFatigue ? _tuning : _tuning with { StaminaFatigue = false })
-            with { Build = _corners.PlayerBody ?? _tuning.Build };
-        var cpuTuning = _tuning with { Build = _corners.CpuBody ?? _tuning.Build };
+            with { Build = _corners.PlayerBody ?? _tuning.Build, ConcussionSpin = concussionSpin };
+        var cpuTuning = _tuning with { Build = _corners.CpuBody ?? _tuning.Build, ConcussionSpin = concussionSpin };
         if (!_corners.Referee)
         {
             // レフェリーなし: 倒れた相手を打ち下ろせるよう、腰を落とせる深さを広げる（レフェリーありの試合の体は変わらない）。
@@ -1628,10 +1642,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var playerLook = _corners.PlayerLook ?? (_corners.PlayerName is { } redName ? FaceLook.For(Bots.BotNames.RingNameOf(redName)) with { Parts = _corners.PlayerFace ?? FaceParts.For(redName) } : null);
         var cpuLook = _corners.CpuLook ?? (FaceLook.For(Bots.BotNames.RingNameOf(_corners.CpuName)) with { Parts = _corners.CpuFace ?? FaceParts.For(_corners.CpuName) });
         // 顔の層の形（部品）: 名簿のキャラは自分の顔（PlayerFaceSpec / CpuFaceSpec）、無ければ見た目の髪型・眉・ひげと名前から（FaceSpec.FromLook）。
+        var limbBendStrength = Rules?.LimbBendStrengthScale ?? 1f;
         Player.Voxels = new BoxerBody(Player, _world, playerTuning, playerModel, Outfit.RedCorner, BoxerVoxelOverrides.Shipped, playerLook,
-            _corners.PlayerFaceSpec ?? (playerLook is null ? null : FaceSpec.FromLook(playerLook, _corners.PlayerLabel ?? _corners.PlayerName ?? "player")));
+            _corners.PlayerFaceSpec ?? (playerLook is null ? null : FaceSpec.FromLook(playerLook, _corners.PlayerLabel ?? _corners.PlayerName ?? "player")), limbBendStrength);
         Cpu.Voxels = new BoxerBody(Cpu, _world, cpuTuning, cpuModel, Outfit.BlueCorner, BoxerVoxelOverrides.Shipped, cpuLook,
-            _corners.CpuFaceSpec ?? FaceSpec.FromLook(cpuLook, _corners.CpuLabel ?? _corners.CpuName));
+            _corners.CpuFaceSpec ?? FaceSpec.FromLook(cpuLook, _corners.CpuLabel ?? _corners.CpuName), limbBendStrength);
         Player.RefreshVoxelMass();
         Cpu.RefreshVoxelMass();
         // 破片はリングの上ならリングの面、その外は箱庭の台座・ローテーブルの天板、さらに外は床で止まる。
@@ -2126,6 +2141,12 @@ public readonly record struct ContactSoundEvent(Vector3 Position, Audio.ContactP
 /// <param name="RegenVoxelsPerSecond">休みの間に体が治る速さ [ボクセル/s]（1 人あたり。重い 1 発で削れる数十〜百個を 1.7 秒ほどで）。</param>
 public sealed record MatchRules(float RoundSeconds = 50.35f, int Rounds = 5, float BreakSeconds = 16.78f, float RegenVoxelsPerSecond = 89.37f)
 {
+    /// <summary>意識を失う頭部角速度の倍率。1 は体の標準値。</summary>
+    public float ConcussionSpinScale { get; init; } = 1f;
+
+    /// <summary>腕・脚の骨の曲げ破断応力の倍率。1 は材質の標準値。</summary>
+    public float LimbBendStrengthScale { get; init; } = 1f;
+
     /// <summary>試合の長さの合計 [s]（始めの待ち時間・全ラウンドと休み。決着の後の <see cref="EndSeconds"/> は含まない）。</summary>
     public float TotalSeconds => IntroSeconds + (RoundSeconds * Rounds) + (BreakSeconds * Math.Max(0, Rounds - 1));
 

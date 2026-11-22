@@ -49,7 +49,7 @@ internal static class TvShowRules
         => MatchRules.Tv with { Rounds = rounds, BreakSeconds = breakSeconds, RegenVoxelsPerSecond = MatchRules.Tv.RegenVoxelsPerSecond * MatchRules.Tv.BreakSeconds / breakSeconds, IntroSeconds = IntroSeconds, EndSeconds = EndSeconds };
 
     /// <summary>
-    /// 団体の決まり（<see cref="Organization.CountsDowns"/>・<see cref="OrgMatch"/>）を重ねたテレビ中継の決まり。WVC は <see cref="Rules(int, float)"/> と同じ値、
+    /// 団体の決まり（<see cref="Organization.CountsDowns"/>・<see cref="OrgMatch"/>）を重ねたテレビ中継の決まり。WVC は標準の試合に打撃の調整を重ね、
     /// VFC はダウンを数えず・判定せず・休みに傷が前線の再生で少しずつ戻り、失った武器を支給する（<see cref="MatchRules.Vfc"/> と同じ決まり）。撮影と下見（tvscout）が同じものを使う。
     /// </summary>
     public static MatchRules Rules(int rounds, float breakSeconds, Organization org)
@@ -68,6 +68,8 @@ internal static class TvShowRules
             RegrowthTickSeconds = regrowth?.TickSeconds ?? rules.RegrowthTickSeconds,
             StuckDoublingSeconds = regrowth?.StuckDoublingSeconds ?? 0f,
             ResupplyWeapons = org.Match.ResupplyWeapons,
+            ConcussionSpinScale = org.Match.ConcussionSpinScale,
+            LimbBendStrengthScale = org.Match.LimbBendStrengthScale,
         };
     }
 

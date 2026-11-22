@@ -40,6 +40,23 @@ public sealed class JointPunchSeriesTests
     }
 
     [TestMethod]
+    [DataRow(240)]
+    [DataRow(480)]
+    public void MeasureHybridRepeatedPunches(int hz)
+    {
+        var tuning = FighterTuning.HybridPunch;
+        var same = RunSeries(alternate: false, grounded: true, 1f / hz, tuning);
+        var alternating = RunSeries(alternate: true, grounded: true, 1f / hz, tuning);
+        Console.WriteLine(FormattableString.Invariant(
+            $"same speed={same.First.Speed:F3}/{same.Second.Speed:F3}/{same.Third.Speed:F3}, waist={same.First.Waist:F2}/{same.Second.Waist:F2}/{same.Third.Waist:F2}, alternate speed={alternating.Second.Speed:F3}/{alternating.Third.Speed:F3}, work same/alt={same.TotalWork:F2}/{alternating.TotalWork:F2} J, legs same/alt={same.Legs:F2}/{alternating.Legs:F2} J"));
+        Assert.AreEqual(FighterState.Standing, same.FinalState);
+        Assert.AreEqual(FighterState.Standing, alternating.FinalState);
+        Assert.IsTrue(same.Second.Speed < same.First.Speed && same.Third.Speed < same.First.Speed);
+        Assert.IsTrue(alternating.Second.Speed > same.Second.Speed && alternating.Third.Speed > same.Third.Speed);
+        Assert.IsGreaterThan(same.TotalWork, alternating.TotalWork);
+    }
+
+    [TestMethod]
     [TestCategory("Probe")]
     public void MeasureMomentumDriveInABotMatch()
     {
@@ -52,6 +69,10 @@ public sealed class JointPunchSeriesTests
         [
             ("adaptive", FighterTuning.AdaptivePunch),
             ("momentum", momentum),
+            ("hybrid 50% direct contact", FighterTuning.HybridPunch with { JointLegacyGloveImpact = false }),
+            ("hybrid 50%", FighterTuning.HybridPunch),
+            ("hybrid 80%", FighterTuning.HybridPunch with { JointSupportAssist = 0.8f }),
+            ("hybrid 100%", FighterTuning.HybridPunch with { JointSupportAssist = 1f }),
             ("wide stance", momentum with { Footwork = wide }),
             ("quick recovery step", momentum with { Footwork = quick }),
             ("smaller foot pivot", momentum with { Footwork = momentum.Footwork with { PivotShare = 0.35f } }),
@@ -79,14 +100,22 @@ public sealed class JointPunchSeriesTests
         }
     }
 
-    private readonly record struct Strike(float Speed, float Shoulder, float Waist, float Chest, float InitialYaw, float PeakYawSpeed);
-    private readonly record struct Series(Strike First, Strike Second, Strike Third, float Trunk, float Legs, float Arms,
+    internal readonly record struct Strike(float Speed, float Shoulder, Vector3 Toward, Vector3 Span, float InitialYaw, float PeakYawSpeed,
+        float PeakTime, FighterState EndState)
+    {
+        public float Waist => Toward.X;
+        public float Chest => Toward.Z;
+    }
+
+    internal readonly record struct Series(Strike First, Strike Second, Strike Third, float Trunk, float Legs, float Arms,
         FighterState State, FighterState FinalState)
     {
         public float TotalWork => Trunk + Legs + Arms;
     }
 
-    private static Series RunSeries(bool alternate, bool grounded, float dt)
+    internal const float ThrowSeconds = 0.13f;
+
+    internal static Series RunSeries(bool alternate, bool grounded, float dt, FighterTuning? preset = null, float guardSeconds = 0.06f)
     {
         using var world = new PhysicsWorld(grounded ? null : Vector3.Zero, conserveAngularMomentum: true);
         if (grounded)
@@ -94,7 +123,7 @@ public sealed class JointPunchSeriesTests
             world.AddStaticBox(new Vector3(0f, -1.408f, 0f), new Vector3(14.08f, 1.408f, 14.08f));
         }
 
-        var tuning = FighterTuning.MomentumPunch with
+        var tuning = (preset ?? FighterTuning.MomentumPunch) with
         {
             StaminaFatigue = false,
             NoGroundFallTime = grounded ? FighterTuning.MomentumPunch.NoGroundFallTime : 3f,
@@ -123,17 +152,20 @@ public sealed class JointPunchSeriesTests
         var legs = fighter.RegionWork(MuscleRegion.Legs);
         var arms = fighter.RegionWork(MuscleRegion.LeftArm) + fighter.RegionWork(MuscleRegion.RightArm);
         float Yaw(int part) => BodyFrame.YawOf(Vector3.Transform(Vector3.UnitZ, world.GetState(part).Orientation), 0f);
+        var abdomen = fighter.Parts.Abdomen ?? throw new InvalidOperationException("The series probe requires a split torso.");
+        Vector3 ReadYaw() => new(Yaw(fighter.Parts.Pelvis), Yaw(abdomen), Yaw(fighter.Parts.Chest));
+
         Strike Punch(Hand hand, FighterCommand start)
         {
             var sign = hand == Hand.Right ? 1f : -1f;
-            var waist = Yaw(fighter.Parts.Pelvis);
-            var chest = Yaw(fighter.Parts.Chest);
+            var startYaw = ReadYaw();
             var peak = 0f;
             var shoulder = 0f;
             var peakYawSpeed = 0f;
-            var waistSweep = 0f;
-            var chestSweep = 0f;
-            var count = (int)MathF.Round(0.13f / dt);
+            var peakTime = 0f;
+            var mostForward = Vector3.Zero;
+            var mostBackward = Vector3.Zero;
+            var count = (int)MathF.Round(ThrowSeconds / dt);
             var initial = start.For(hand);
             var target = guard.For(hand).TargetLocal with { Z = 0.72f };
             for (var i = 1; i <= count; i++)
@@ -146,22 +178,28 @@ public sealed class JointPunchSeriesTests
                 if (forward > peak)
                 {
                     peak = forward;
+                    peakTime = i * dt;
                     peakYawSpeed = sign * world.GetState(fighter.Parts.Pelvis).AngularVelocity.Y;
                     var state = world.GetState(fighter.Parts.Chest);
                     shoulder = (state.LinearVelocity + Vector3.Cross(state.AngularVelocity, fighter.ShoulderPosition(hand) - state.Position)).Z;
                 }
 
-                waistSweep = MathF.Max(waistSweep, sign * BodyFrame.DeltaAngle(waist, Yaw(fighter.Parts.Pelvis)));
-                chestSweep = MathF.Max(chestSweep, sign * BodyFrame.DeltaAngle(chest, Yaw(fighter.Parts.Chest)));
+                var yaw = ReadYaw();
+                var travel = sign * new Vector3(BodyFrame.DeltaAngle(startYaw.X, yaw.X),
+                    BodyFrame.DeltaAngle(startYaw.Y, yaw.Y), BodyFrame.DeltaAngle(startYaw.Z, yaw.Z));
+                mostForward = Vector3.Max(mostForward, travel);
+                mostBackward = Vector3.Min(mostBackward, travel);
             }
 
-            return new Strike(peak, shoulder, waistSweep * 180f / MathF.PI, chestSweep * 180f / MathF.PI,
-                sign * waist * 180f / MathF.PI, peakYawSpeed);
+            const float degreesPerRadian = 180f / MathF.PI;
+            return new Strike(peak, shoulder, mostForward * degreesPerRadian,
+                (mostForward - mostBackward) * degreesPerRadian, sign * startYaw.X * degreesPerRadian, peakYawSpeed,
+                peakTime, fighter.State);
         }
 
         void Recover()
         {
-            for (var i = 0; i < MathF.Round(0.06f / dt); i++)
+            for (var i = 0; i < MathF.Round(guardSeconds / dt); i++)
             {
                 Step(guard);
             }

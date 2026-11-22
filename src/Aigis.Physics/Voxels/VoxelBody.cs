@@ -144,6 +144,9 @@ public sealed class VoxelBody
     /// </summary>
     public int? BeamAxis { get; set; }
 
+    /// <summary>Multiplier on the beam material's tensile limit in bending.</summary>
+    public float BeamTensileScale { get; init; } = 1f;
+
     /// <summary>
     /// True for a contact shape that only borrows another body's rigid body (a bridge between two limb parts: it rides the parent's pose and
     /// takes the contact's impulse on it) and owns none of its mass or collider: <see cref="UpdateMass"/> then changes nothing.

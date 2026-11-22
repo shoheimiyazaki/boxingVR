@@ -41,20 +41,25 @@ public static class VoxelBending
     /// (a jointed column such as a spine gives before its bone is strained, so the flesh around it is what holds it first). A tie
     /// yields, it never snaps the beam.
     /// </param>
-    public static VoxelBreak? FindBreak(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f)
-        => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, minRatio: 1f);
+    /// <param name="tensileScale">Positive multiplier on the section's tensile limit.</param>
+    public static VoxelBreak? FindBreak(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f, float tensileScale = 1f)
+        => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, tensileScale, minRatio: 1f);
 
     /// <summary>
     /// The most strained cross-section, as <see cref="FindBreak"/> finds it but whether or not it snaps (<see cref="VoxelBreak.Ratio"/> may be
     /// below 1: how close the blow came to breaking it). Null when nothing carries a section. For diagnostics: the same sums as <see cref="FindBreak"/>,
     /// which returns this result exactly when its ratio is above 1.
     /// </summary>
-    public static VoxelBreak? WorstBend(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f)
-        => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, minRatio: 0f);
+    public static VoxelBreak? WorstBend(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f, float tensileScale = 1f)
+        => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, tensileScale, minRatio: 0f);
 
-    private static VoxelBreak? Worst(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis, bool loadBearingOnly, (int Low, int High)? candidates, float tieActivation, float minRatio)
+    private static VoxelBreak? Worst(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis, bool loadBearingOnly, (int Low, int High)? candidates, float tieActivation, float tensileScale, float minRatio)
     {
         ArgumentNullException.ThrowIfNull(grid);
+        if (!float.IsFinite(tensileScale) || tensileScale <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tensileScale));
+        }
         var (nx, ny, nz) = grid.Dimensions;
         var axis = beamAxis ?? (nx >= ny && nx >= nz ? 0 : ny >= nz ? 1 : 2);
         var slices = axis == 0 ? nx : axis == 1 ? ny : nz;
@@ -176,7 +181,7 @@ public static class VoxelBending
             foreach (var c in section)
             {
                 var y = MathF.Abs(Vector3.Dot(cellAt[c] - origin, e)) + (0.5f * depth);
-                ratio = MathF.Max(ratio, magnitude * y * cellStiffness[c] / flexural / cellTensile[c]);
+                ratio = MathF.Max(ratio, magnitude * y * cellStiffness[c] / flexural / (cellTensile[c] * tensileScale));
             }
 
             if (ratio > minRatio && (worst is null || ratio > worst.Value.Ratio))

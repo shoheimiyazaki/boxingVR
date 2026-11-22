@@ -584,8 +584,9 @@ public sealed class BoxerBody
     /// <param name="overrides">ボクセル編集ソフトで直した中身（<see cref="BoxerVoxelOverrides.Shipped"/> など）。null なら生成のまま。</param>
     /// <param name="look">顔（肌・髪の色と髪型・眉・ひげ。<see cref="FaceLook"/>）。null なら作ったまま。見た目だけ。</param>
     /// <param name="face">顔の層の形（<see cref="FaceSpec"/>: 部位ごとの部品と値）。null なら <paramref name="look"/> から（<see cref="FaceSpec.FromLook"/>）、それも無ければ既定の顔。</param>
+    /// <param name="limbBendStrength">腕・脚の骨の曲げ破断応力に掛ける倍率。</param>
     public BoxerBody(Fighter fighter, PhysicsWorld world, FighterTuning tuning, LowPoly.BoxerModel? shapes = null, Outfit? outfit = null, BoxerVoxelOverrides? overrides = null, FaceLook? look = null,
-        FaceSpec? face = null)
+        FaceSpec? face = null, float limbBendStrength = 1f)
     {
         ArgumentNullException.ThrowIfNull(fighter);
         ArgumentNullException.ThrowIfNull(world);
@@ -641,7 +642,12 @@ public sealed class BoxerBody
                 massPerCell = world.GetMass(id) / MathF.Max(1f, grid.FilledCount + (faceGrid.FilledCount * FaceLayer.CellVolumeRatio));
             }
 
-            var body = new VoxelBody(world, id, grid, materialMass: false, massPerCell: massPerCell) { BeamAxis = axis, BeamSlices = kind == BodyPartKind.Head ? NeckBoneSlices(grid) : null };
+            var body = new VoxelBody(world, id, grid, materialMass: false, massPerCell: massPerCell)
+            {
+                BeamAxis = axis,
+                BeamSlices = kind == BodyPartKind.Head ? NeckBoneSlices(grid) : null,
+                BeamTensileScale = kind is BodyPartKind.Forearm or BodyPartKind.UpperArm or BodyPartKind.Shin or BodyPartKind.Thigh ? limbBendStrength : 1f,
+            };
             if (faceGrid is not null)
             {
                 // 剛体の箱と質量は作ったまま（頭の箱 = 2 つの格子を入れる箱、質量はもう 2 つの格子で分けてある）。ほかの部位と同じく、格子が削れて

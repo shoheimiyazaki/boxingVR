@@ -12,17 +12,27 @@ public sealed class JointDriveTests
     [DataRow(240)]
     [DataRow(480)]
     [DataRow(960)]
-    public void InternalDrivePreservesMomentumWithoutContacts(int hz)
+    [DataRow(240, true)]
+    public void InternalDrivePreservesMomentumWithoutContacts(int hz, bool hybridAboveFloor = false)
     {
         var dt = 1f / hz;
         using var world = new PhysicsWorld(Vector3.Zero, conserveAngularMomentum: true);
-        var fighter = Fighter.Spawn(world, FighterTuning.MomentumPunch, "air", Vector3.Zero, 0f);
+        if (hybridAboveFloor)
+        {
+            world.AddStaticBox(new Vector3(0f, -1.5f, 0f), new Vector3(7f, 1f, 7f));
+        }
+
+        var tuning = hybridAboveFloor ? FighterTuning.HybridPunch : FighterTuning.MomentumPunch;
+        var fighter = Fighter.Spawn(world, tuning, "air", Vector3.Zero, 0f);
         foreach (var id in fighter.AllParts)
         {
             world.SetDamping(id, 0f, 0f);
         }
 
-        var input = Command(fighter, rightReach: 1.4f);
+        var input = Command(fighter, rightReach: 1.4f) with
+        {
+            MoveWorld = hybridAboveFloor ? Vector3.UnitZ : Vector3.Zero,
+        };
         for (var i = 0; i < hz / 10; i++)
         {
             fighter.ApplyControl(input, dt);
@@ -66,6 +76,46 @@ public sealed class JointDriveTests
         Console.WriteLine(FormattableString.Invariant($"floor state={fighter.State}, pelvis={fighter.PelvisPosition}, head={fighter.HeadPosition.Y:G6}"));
         Assert.AreEqual(FighterState.Standing, fighter.State);
         Assert.IsTrue(fighter.PelvisPosition.Y > 0.55f);
+    }
+
+    [TestMethod]
+    public void JointBalanceControlExtendsTheInitialGuard()
+    {
+        var candidate = FighterTuning.MomentumPunch;
+        var baseline = candidate with { JointStanceHipShare = 0f, JointStanceAnkleGain = 0f, Footwork = candidate.Footwork with { CapturePlacementShare = 0f } };
+        Assert.IsGreaterThan(Hold(baseline), Hold(candidate));
+
+        static int Hold(FighterTuning tuning)
+        {
+            using var world = new PhysicsWorld(conserveAngularMomentum: true);
+            world.AddStaticBox(new Vector3(0f, -1f, 0f), new Vector3(7f, 1f, 7f));
+            var fighter = Fighter.Spawn(world, tuning, "grounded hip", Vector3.Zero, 0f);
+            var input = Command(fighter, rightReach: 0.48f);
+            var steps = 0;
+            for (; steps < 480 && fighter.State == FighterState.Standing; steps++)
+            {
+                fighter.ApplyControl(input, Dt);
+                world.Step(Dt);
+            }
+
+            return steps;
+        }
+    }
+
+    [TestMethod]
+    public void HybridGuardCanStayUprightWithoutAnOpponent()
+    {
+        const int seconds = 6;
+        using var world = new PhysicsWorld(conserveAngularMomentum: true);
+        world.AddStaticBox(new Vector3(0f, -1f, 0f), new Vector3(7f, 1f, 7f));
+        var fighter = Fighter.Spawn(world, FighterTuning.HybridPunch, "hybrid guard", Vector3.Zero, 0f);
+        var input = Command(fighter, rightReach: 0.48f);
+        for (var i = 0; i < seconds * 240; i++)
+        {
+            fighter.ApplyControl(input, Dt);
+            world.Step(Dt);
+            Assert.AreEqual(FighterState.Standing, fighter.State);
+        }
     }
 
     [TestMethod]
@@ -169,9 +219,11 @@ public sealed class JointDriveTests
     }
 
     [TestMethod]
-    public void JointDriveHitDoesNotAddASyntheticBodyImpulse()
+    [DataRow(false)]
+    [DataRow(true)]
+    public void JointDriveHitWithoutWornContactDoesNotAddASyntheticBodyImpulse(bool hybrid)
     {
-        using var game = new BoxingGame(FighterTuning.MomentumPunch);
+        using var game = new BoxingGame(hybrid ? FighterTuning.HybridPunch : FighterTuning.MomentumPunch);
         var point = game.Cpu.ChestPosition;
         var before = game.World.SnapshotDynamics().ToDictionary(body => body.Id);
         var hit = new HitEvent(game.Player, Hand.Right, game.Cpu, HitZone.Body, point,
