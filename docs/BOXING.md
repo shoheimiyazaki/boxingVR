@@ -577,6 +577,10 @@ dotnet test tests/MiniRing.Tests --filter 'FullyQualifiedName~JointPunchSeriesTe
 
 再計測は `WvcMatchPacingProbe`。`MINIRING_WVC_CASE` に `albert ramon 9` を渡すとWVC既定、`albert ramon 9 23.83 1` で修正前の頭部基準・骨強度を指定できる。
 
+### 1-25. 試合用の体 `MatchPunch` と転倒（物理83のまま、標準は変えない）
+
+ダイナミック版に体幹トルク 360 N·m・意識の戻り 2 倍・足の受け止め許容 2 倍（`SupportRecovery` 1.0・`SupportVerticalRecovery` 3）を重ねた設定 `FighterTuning.MatchPunch` を足した（`--match-punch`、`excitementleague --tune Preset=MatchPunch`）。標準ボット 3 組の面白さは標準の体 154.6 → 182.9（48 試合）。打たれずに倒れる回数は、ダイナミック版そのままで 4.2、`MatchPunch` で 1.5、標準の体で 0.7、Codex のハイブリッド `HybridPunch` で 3.4 回/試合。倒れる前は必ず捕捉点が支えの外にあり、腰が落ちる。標準にしていない理由（分割胴の体の組み込み）と測定の全部は [excitement_generations_2026-11-22.md](arena/excitement_generations_2026-11-22.md)・[DEBT.md](DEBT.md)。倒れた原因は `Fighter.LastFallCause` で読める。
+
 ## 2. 部位ダメージと打撃音（`HitZones.cs` / `BodyCondition.cs` / `Audio/`）
 
 **この節のダメージ（点数）は、動きに影響しません。** 点数が溜まったから反応が遅れる・よろめく、といった点数による性能低下はありません。

@@ -910,5 +910,22 @@ public sealed record FighterTuning
         JointLegacyGloveImpact = true,
     };
 
+    /// <summary>
+    /// 面白さの測定で選んだ試合用の体（2026-11-22）: ダイナミック版（<see cref="DynamicPunch"/>）に、体幹の回旋トルク 360 N·m・意識の戻りの速さ 2 倍・
+    /// 足で受け止められる捕捉点のずれの許容 2 倍（<see cref="SupportRecovery"/> 1.0・<see cref="SupportVerticalRecovery"/> 3）を重ねた。
+    /// 標準ボット 3 組（champion:swarmer・slugger:outboxer・counter:jabber）× 種 1〜16 の面白さの総合点は 標準の体 154.6 → 182.9、別の種（21〜24）の
+    /// 9 組平均で 154.2 → 193.4（`excitementleague --tune Preset=MatchPunch`。docs/arena/excitement_generations_2026-11-22.md）。
+    /// 足の受け止め許容を戻すと打たれずに倒れる回数が 1.5 → 4.2 回/試合に増える（`SelfFallTests`）。
+    /// <b>標準にはしていない</b>: 分割胴の体は質量の帳尻・酸素の部位・ボクセルの臓器位置・同梱の体モデルがまだ合っていない
+    /// （標準にすると `ShippedModel_IfAny_FitsTheDefaultSettings`・`BoneAndOrganGoals_…`・`TheGuardPose_…`・`RestedFighterShowsCalmVitalsAndTheHeartBeats` ほか 7 件が落ちた。docs/DEBT.md「分割胴の体の組み込み」）。
+    /// </summary>
+    public static FighterTuning MatchPunch { get; } = DynamicPunch with
+    {
+        TrunkRotatorTorque = 360f,
+        ConcussionRecoveryRate = 0.0834f,
+        SupportRecovery = 1.0f,
+        SupportVerticalRecovery = 3f,
+    };
+
     internal static Vector3 Up => Vector3.UnitY;
 }

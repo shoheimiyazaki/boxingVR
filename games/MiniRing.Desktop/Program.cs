@@ -199,7 +199,7 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
         : args.Contains("--adaptive-punch")
         ? FighterTuning.AdaptivePunch
         : args.Contains("--dynamic-punch") ? FighterTuning.DynamicPunch
-        : args.Contains("--compact-punch") ? FighterTuning.CompactPunch : FighterTuning.Default;
+        : args.Contains("--compact-punch") ? FighterTuning.CompactPunch : args.Contains("--match-punch") ? FighterTuning.MatchPunch : FighterTuning.Default;
     var game = new BoxingGame(tuning, corners: corners.StartingAtCorners(), rules: tv ? MatchRules.Tv : null) { FaceCam = faceCam, Speed = speed }; // 試合はコーナーから
     ReplayRecorder? recorder = null;
     try

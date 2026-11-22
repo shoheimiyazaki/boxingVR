@@ -120,6 +120,9 @@ public sealed partial class Fighter
     private float _stateTime;
     private float _tiltTime;
     private float _noGroundTime;
+
+    /// <summary>立っていた体が自分でバランスを失って倒れた、最後の原因（調べもの・実況の手がかり。打たれて意識を失った倒れ方は含まない）。</summary>
+    public string? LastFallCause { get; private set; }
     private int _grabbedByCount;
     private bool _stayDown;
 
@@ -2117,8 +2120,10 @@ public sealed partial class Fighter
         }
 
         // 腰・上体・手がマットに着いた、または倒れた（足が浮いた・大きく傾いた）: すぐダウン。
-        if ((grounded && TouchesCanvas(PelvisPosition.Y - height)) || _noGroundTime > _tuning.NoGroundFallTime || _tiltTime > _tuning.FallGrace)
+        var touchedCanvas = grounded && TouchesCanvas(PelvisPosition.Y - height);
+        if (touchedCanvas || _noGroundTime > _tuning.NoGroundFallTime || _tiltTime > _tuning.FallGrace)
         {
+            LastFallCause = touchedCanvas ? "腰・上体がマットに着いた" : _noGroundTime > _tuning.NoGroundFallTime ? "足が浮いた" : "大きく傾いた";
             Enter(FighterState.Down);
             return;
         }
