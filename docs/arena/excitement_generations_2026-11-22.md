@@ -81,3 +81,7 @@ miniring-arena excitementleague --pairs champion:swarmer,slugger:outboxer,counte
 - 転倒したダウンを見込み・点にどう数えるかの測り方の見直し（物理が決める: 倒れた理由が自分か打撃か）。
 
 再計測: `excitementleague --pairs … --seeds 8 --seed <1|9|21|31> --tune Preset=MatchPunch`。自力転倒は `FallCauseProbe`・`SelfFallTests`。
+
+### 追記: 物理84（分割胴を標準・腰から打つ体）
+
+`MatchPunch` はユーザーの指定で標準の体になり、腰から打つ体（[BOXING.md §1-26](../BOXING.md#1-26-腰から打つ体分割胴を標準に物理84)）に作り替えた。標準 3 組 × 種 1〜16（48 試合）: 従来の体（`--tune Preset=Legacy`）154.6、標準 183.3。打たれずに倒れる回数 0.6 → 0.2 回/試合。上の「標準にしなかった理由」の穴のうち、体モデルの書き出し・臓器の狙い・棒の体の質量・胴の酸素の部位は直した。呼吸・循環の 1 件（`OneArmWorkingHard_…`）はユーザーの指定で後回し。

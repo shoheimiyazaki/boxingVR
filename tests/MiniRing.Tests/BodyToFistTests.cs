@@ -6,6 +6,8 @@ namespace MiniRing.Tests;
 /// <summary>
 /// 体の動きが拳に乗る（拳が体にバネでつながる）: 回避で動いている体から打つ拳は、体幹の運動エネルギーの一部をもらって速く出る。
 /// エネルギーは湧かない（体の動きはそのぶん止まる）。止まった体から打つ拳は変わらない。
+/// 体から拳への移送（<c>Fighter.TransferBodyMotion</c>）は従来の体（<see cref="FighterTuning.Legacy"/>）の近道なので、その 2 つのテストは従来の体で見る。
+/// 標準の腰から打つ体は移送を使わず、体の動きは関節を通って拳へ届く（<see cref="StandardBody_CarriesTheSteppingBodyIntoTheFist_ThroughItsJoints"/>）。
 /// </summary>
 [TestClass]
 [TestCategory("slow")]
@@ -41,14 +43,28 @@ public sealed class BodyToFistTests
         Assert.IsLessThan(plain.Rise, carried.Rise, "and the body rises slower by what it gave");
     }
 
+
+    [TestMethod]
+    public void StandardBody_CarriesTheSteppingBodyIntoTheFist_ThroughItsJoints()
+    {
+        // 腰から打つ体（標準）: 近道の移送なしで、踏み込む体の勢いは肩から拳へ物理で乗り、下がる体からの拳は遅い。
+        // 測った値（2026-11-22、PhysicsVersion 84）: 踏み込み 3.49・止まった体 2.53・下がりながら 1.74 m/s。
+        var stepping = Punch(spring: 1f, step: 1f, tuning: FighterTuning.Default);
+        var still = Punch(spring: 1f, step: 0f, tuning: FighterTuning.Default);
+        var backing = Punch(spring: 1f, step: -1f, tuning: FighterTuning.Default);
+        Console.WriteLine($"standard body: stepping in {stepping.Peak:0.00}, still {still.Peak:0.00}, backing off {backing.Peak:0.00} m/s");
+
+        Assert.IsGreaterThan(1.15f * still.Peak, stepping.Peak, "the stepping body's motion reaches the fist through the joints");
+        Assert.IsLessThan(still.Peak, backing.Peak, "a fist thrown while backing off is slower");
+    }
     /// <summary>
     /// 0.59 秒前へ（step 正）または後ろへ（負）動いてから、右拳を構えから前へ 0.2 秒で出す。拳の最高速度と、打ち終わりの体幹の速さ。
     /// </summary>
-    private static (float Peak, float Trunk, float Rise) Punch(float spring, float step, bool duck = false)
+    private static (float Peak, float Trunk, float Rise) Punch(float spring, float step, bool duck = false, FighterTuning? tuning = null)
     {
         using var world = new PhysicsWorld();
         world.AddStaticBox(new Vector3(0f, -0.5f, 0f), new Vector3(5f, 0.5f, 5f));
-        var f = Fighter.Spawn(world, FighterTuning.Default, "f", Vector3.Zero, 0f);
+        var f = Fighter.Spawn(world, tuning ?? FighterTuning.Legacy, "f", Vector3.Zero, 0f);
         var forward = f.Frame.Forward;
         var left = AiControl.Guard(Hand.Left, f.ArmReach);
         var guard = AiControl.Guard(Hand.Right, f.ArmReach);
