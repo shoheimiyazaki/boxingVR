@@ -1822,8 +1822,8 @@ public sealed partial class Fighter
 
     /// <summary>
     /// 息の上がり方（0..1、見た目だけ）: 肺の仕事の大きさ。肺が取り込んでいる速さの、今の肺の上限 <see cref="LungCapacity"/> に対する割合（楽な分を引く）と、
-    /// 血の酸素の減り（肺が追いつかない）の大きい方。死んでいれば 0（息をしない）。吐く息の速さ・濃さはここから出る。部位の筋肉だけの疲れ（腕の蓄えが
-    /// 尽きても全身では酸素が足りている）では上がらない: それは腕の遅れに出る。体の物理の計算には使わない
+    /// 血の酸素の減り（肺が追いつかない）の大きい方。死んでいれば 0（息をしない）。吐く息の速さ・濃さと、息が上がった体の反射（あごが上がる・胸の上下: 物理 87、<see cref="FighterTuning.ChinReflexRadians"/>・<see cref="FighterTuning.BreathTorque"/>）はここから出る。部位の筋肉だけの疲れ（腕の蓄えが
+    /// 尽きても全身では酸素が足りている）では上がらない: それは腕の遅れに出る。体の物理には上の反射だけが使う
     /// （ボットの戦略の層は、相手の見える手がかりとしてこの量を読む: <see cref="FighterSense.OpponentWinded"/>）。
     /// </summary>
     public float Winded => IsDead ? 0f : Math.Clamp(MathF.Max(
