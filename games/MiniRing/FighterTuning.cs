@@ -784,13 +784,10 @@ public sealed record FighterTuning
     public float ChinReflexRadians { get; init; } = 0.35f;
 
     /// <summary>
-    /// 呼吸の筋（横隔膜・肋間筋）が、吸うときに胸を反らす最大のトルク [N·m]（胸と腹の関節に入れる周期の力。<see cref="BreathRestShare"/> から Winded 1 まで連続）。
+    /// 呼吸の筋（横隔膜・肋間筋）が、吸うときに胸を反らす最大のトルク [N·m]（胸と腹の関節に入れる周期の力。深さは Winded に比例し、安静では出さない）。
     /// 胴の関節の筋のばね（約 320 N·m/rad）で追う胸が数度ゆれる大きさ。胴の仕事として酸素に数える。
     /// </summary>
     public float BreathTorque { get; init; } = 30f;
-
-    /// <summary>安静の呼吸（Winded 0）の深さの、あえぎの呼吸（Winded 1）に対する割合。</summary>
-    public float BreathRestShare { get; init; } = 0.15f;
 
     /// <summary>胴の回旋筋のてこの腕 [m]（等尺性の費用で、トルクを筋の力に直す。腹斜筋・脊柱起立筋は背骨から 12 cm ほど）。</summary>
     public float TrunkMuscleArm { get; init; } = 0.12f;

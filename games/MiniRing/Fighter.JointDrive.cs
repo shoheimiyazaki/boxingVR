@@ -58,14 +58,17 @@ public sealed partial class Fighter
 
         var a = _world.GetState(parent);
         var b = _world.GetState(child);
-        var linear = MathF.Max(0f, Vector3.Dot(impulse, b.AngularVelocity - a.AngularVelocity));
-        var quadratic = 0.5f * (ImpulseInertiaTerm(parent, a.Orientation) + ImpulseInertiaTerm(child, b.Orientation));
+        // 酸素の予算で締めるのは動かす力（回旋）だけ（2026-11-22）: 胴は、関節の回旋の軸（親の局所の Y）の成分だけを予算で締める。体を起こして保つトルク
+        // （傾き・横の成分、等尺性）まで締めると、蓄えの尽きた胴が後ろへ崩れた（のけぞり -30°）。他の部位は力積の全体を締める。
         var index = (int)region;
-        // 胴の筋は予算で締めない（2026-11-22）: 酸素の取り置きは「この力積で体を加速する」仕事の上限で、体を起こして保つだけのトルク（等尺性）まで
-        // 締めると、蓄えの尽きた胴が後ろへ崩れた（のけぞり -30°）。胴の疲れは回旋（軸）の筋の駆動の割合 VigorOf だけに出す。
-        var gated = FatigueEnabled && region != MuscleRegion.Trunk;
+        var twistAxis = region == MuscleRegion.Trunk ? Vector3.Transform(Vector3.UnitY, a.Orientation) : Vector3.Zero;
+        var twist = twistAxis * Vector3.Dot(impulse, twistAxis);
+        var gatedPart = region == MuscleRegion.Trunk ? twist : impulse;
+        var linear = MathF.Max(0f, Vector3.Dot(gatedPart, b.AngularVelocity - a.AngularVelocity));
+        var quadratic = 0.5f * (ImpulseInertiaTerm(parent, a.Orientation) + ImpulseInertiaTerm(child, b.Orientation));
+        var gated = FatigueEnabled;
         var scale = gated ? MuscleWork.ForceScale(linear, quadratic, 0f, _budget[index]) : 1f;
-        var applied = impulse * scale;
+        var applied = region == MuscleRegion.Trunk ? (impulse - twist) + (twist * scale) : impulse * scale;
         if (gated)
         {
             var reserved = (linear * scale) + (quadratic * scale * scale);
@@ -87,7 +90,7 @@ public sealed partial class Fighter
 
         float ImpulseInertiaTerm(int body, Quaternion orientation)
         {
-            var local = Vector3.Transform(impulse, Quaternion.Conjugate(orientation));
+            var local = Vector3.Transform(gatedPart, Quaternion.Conjugate(orientation));
             return Vector3.Dot(local, local / _world.GetLocalInertiaDiagonal(body));
         }
     }
@@ -117,19 +120,19 @@ public sealed partial class Fighter
 
     /// <summary>
     /// 呼吸の筋（横隔膜・肋間筋）: 吸うたびに胸を反らす周期のトルクを、腹と胸の関節へ入れる（吐くのは胴の筋のばねの戻り）。深さは息の上がり方 <see cref="Winded"/> で
-    /// 安静（<see cref="FighterTuning.BreathRestShare"/>）からあえぎまで、周期は <see cref="BreathPhase"/>（<see cref="TiredLook.BreathsPerSecond"/>）。
+    /// 息の上がり方に比例して（安静では出さない）、周期は <see cref="BreathPhase"/>（<see cref="TiredLook.BreathsPerSecond"/>）。
     /// 胴の関節の筋と同じ経路（<see cref="ApplyMuscleCouple"/>）なので、この仕事も胴の酸素に数える。
     /// </summary>
     private void ApplyBreathing(int parent, int chest, float dt)
     {
-        if (IsDead)
+        if (IsDead || Winded < 0.02f)
         {
             return;
         }
 
         var phase = BreathPhase - MathF.Floor(BreathPhase);
         var pulse = MathF.Sin(MathF.PI * phase);
-        var depth = _tuning.BreathRestShare + ((1f - _tuning.BreathRestShare) * Winded);
+        var depth = Winded; // 安静の呼吸は筋の力を出さない（胸のばねの戻りだけ）。息が上がった分だけ呼吸の筋が胸を反らす
         var axis = Vector3.Transform(Vector3.UnitX, _world.GetState(parent).Orientation);
         ApplyMuscleCouple(parent, chest, -axis * (_tuning.BreathTorque * depth * pulse * pulse * dt), MuscleRegion.Trunk, dt, channel: 1);
     }
