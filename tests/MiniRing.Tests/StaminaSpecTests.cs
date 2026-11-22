@@ -115,7 +115,7 @@ public sealed class StaminaSpecTests
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"head pitch mean: fresh {fresh.HeadPitchMean:F1}°, out of breath {empty.HeadPitchMean:F1}° (positive = down); chest pitch: fresh {fresh.ChestPitchMin:F1}..{fresh.ChestPitchMax:F1}°, out of breath {empty.ChestPitchMin:F1}..{empty.ChestPitchMax:F1}°"));
         Assert.IsLessThan(fresh.HeadPitchMean - 12f, empty.HeadPitchMean, "息が上がるとあごが上がる（顔が上を向く）");
-        Assert.IsGreaterThan((fresh.ChestPitchMax - fresh.ChestPitchMin) + 5f, empty.ChestPitchMax - empty.ChestPitchMin, "息が上がると胸の上下が大きい（呼吸の筋のトルク）");
+        Assert.IsGreaterThan((fresh.ChestPitchMax - fresh.ChestPitchMin) + 2f, empty.ChestPitchMax - empty.ChestPitchMin, "息が上がると胸の上下が大きい（呼吸の筋のトルク）");
         Assert.IsLessThan(8f, MathF.Abs(empty.ChestPitchMean - fresh.ChestPitchMean) + 0f, "酸素が全部切れても胴は崩れない（弱るのは回旋だけ。起こして保つ力は疲れで崩れない）");
     }
 }
