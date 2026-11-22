@@ -388,7 +388,7 @@ public sealed partial class Fighter
     /// </summary>
     public float Balance { get; private set; } = 1f;
 
-    /// <summary>縦の支え（腰を持ち上げる力）の残り: 捕捉点の外れが 2L で 0（<see cref="Balance"/> は L で 0）。</summary>
+    /// <summary>縦の支え（腰を持ち上げる力）の残り。捕捉点が外にある間、現在の重心と支持領域の距離から求める。</summary>
     public float VerticalBalance { get; private set; } = 1f;
 
     private readonly SupportPolygon _region = new();
@@ -398,10 +398,12 @@ public sealed partial class Fighter
         var h = MathF.Max(0.0563f, com.Y - groundY);
         var omega = MathF.Sqrt(-_world.Gravity.Y / h);
         var v = CenterOfMassVelocity;
-        var capture = new Vector2(com.X, com.Z) + (new Vector2(v.X, v.Z) / omega);
+        var position = new Vector2(com.X, com.Z);
+        var capture = position + (new Vector2(v.X, v.Z) / omega);
         var legLength = LegIk.MaxLength(_legParts[0].ThighToKnee, _legParts[0].ShinLength);
         var recovery = MathF.Max(1e-3f, _tuning.SupportRecovery * legLength);
         float outside;
+        float liftOutside;
         if (_tuning.SupportRegion == SupportRegion.Disk && State == FighterState.Standing && _footworkActive)
         {
             // 両足の母指球を直径の両端とする円（足の長さの半分だけ大きく）。
@@ -409,7 +411,9 @@ public sealed partial class Fighter
             var b = BallOnGround(_legParts[1]);
             var heel = HalfExtents.Foot;
             var radius = (0.5f * Vector2.Distance(a, b)) + heel.Z + FootGeometry.ToeHalf(heel).Z;
-            outside = Vector2.Distance(capture, 0.5f * (a + b)) - radius;
+            var middle = 0.5f * (a + b);
+            outside = Vector2.Distance(capture, middle) - radius;
+            liftOutside = _tuning.UseCaptureForVerticalSupport ? outside : Vector2.Distance(position, middle) - radius;
         }
         else
         {
@@ -438,10 +442,12 @@ public sealed partial class Fighter
 
             _region.Build();
             outside = _region.SignedDistance(capture);
+            liftOutside = _tuning.UseCaptureForVerticalSupport ? outside : _region.SignedDistance(position);
         }
 
         var share = 1f - Math.Clamp(outside / recovery, 0f, 1f);
-        var vertical = 1f - Math.Clamp(outside / (_tuning.SupportVerticalRecovery * recovery), 0f, 1f);
+        // 捕捉点が足で受け止められる間は縦の支持を保つ。捕捉点が外に出ても、横の速度だけでは縦の力を抜かない。
+        var vertical = share >= 1f ? 1f : 1f - Math.Clamp(liftOutside / (_tuning.SupportVerticalRecovery * recovery), 0f, 1f);
         return (share * share, vertical * vertical);
     }
 
@@ -508,6 +514,12 @@ public sealed partial class Fighter
     /// <summary>直しのねじりの力積を、骨盤と胸へ質量の比で分ける（起こすねじりをかけていた 2 つの部位）。</summary>
     private void SplitTorque(Vector3 angularImpulse)
     {
+        if (UsesHipDrive)
+        {
+            _world.ApplyAngularImpulse(Parts.Pelvis, angularImpulse); // 腰から打つ体: 外から起こす・回すねじりは骨盤だけにかかっている
+            return;
+        }
+
         var pelvisMass = _world.GetMass(Parts.Pelvis);
         var chestMass = _world.GetMass(Parts.Chest);
         var total = pelvisMass + chestMass;

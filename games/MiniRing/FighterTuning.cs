@@ -76,6 +76,39 @@ public sealed record FighterTuning
     public float UprightKp { get; init; } = 213f;
     public float UprightKd { get; init; } = 23.8f;
     public float MaxUprightAccel { get; init; } = 532.5f; // 上体を起こす角加速度の上限 [rad/s²]
+
+    /// <summary>
+    /// 胴の回旋筋（腹斜筋・多裂筋・回旋筋群）が出せる最大トルク [N·m]（TorqueScale 倍する前）。胸と腰を、向きの目標（両手の位置から決めるひねり）へ
+    /// 鉛直軸のまわりで回すバネの強さを決める: バネ定数 Kp = これ / (胸の鉛直軸まわりの慣性 × <see cref="MaxTorsoTwistRadians"/>)（ひねりの可動域の端でちょうど
+    /// この力）、減衰は <see cref="UprightKd"/> と同じ減衰比（<c>2ζ√Kp</c>）、角加速度の上限はこの力 / その部位の慣性。傾き（前後・左右）は従来の
+    /// <see cref="UprightKp"/>・<see cref="UprightKd"/>・<see cref="MaxUprightAccel"/> のまま。
+    /// 70 N·m は、人の体幹の回旋の静的な最大トルク 70〜120 N·m の下の端（成人、Mayer 1984 ほか。パンチの動作の動的な値は 150〜250 N·m 級でさらに大きいので、
+    /// 控えめな側を採った）。PhysicsVersion 67 までは、傾きと同じバネ（Kp = 213 /s²）を鉛直軸にも使っていて、胸の慣性 0.217 kg·m² × 213 × 可動域 0.611 rad = 28 N·m
+    /// （人の約 1/4〜1/5）しか出ず、胸の回旋は 2 rad/s（人 8〜12）にとどまった。測った値（docs/plans/DRIVE_DOE_ANALYSIS.md、docs/arena/drive/doe_trunk_grid.csv、基準の点）:
+    /// 28 → 60 → 90 → 120 N·m（先行 1）で拳の最高速 4.70 → 4.90 → 4.99 → 4.97 m/s、胸の最大角速度 3.4 → 4.7 → 5.4 → 5.9 rad/s。90 N·m 以上は効きが飽和し、
+    /// 80・90・120 N·m では、距離の差を 0.02 の余裕で測る試合のテスト（BuildReadTests.SameStyle_LongArms…）か、触れるだけの肘が当たるかどうかの縁のテスト
+    /// （ElbowContactTests.AFasterElbow…）のどちらかが外れる（70・60 N·m は両方通る。縁の値に敏感な測り方で、物理の誤りではない）。
+    /// </summary>
+    public float TrunkRotatorTorque { get; init; } = 120f;
+
+    /// <summary>腰の回旋筋のトルク上限 [N·m]。null なら胸と同じ値を使う。150 N·m で最大溜めの腰の角速度 3.67 rad/s。</summary>
+    public float? PelvisRotatorTorque { get; init; } = 150f;
+
+    /// <summary>
+    /// 胴のひねりの目標が動く速さ（角速度）を、回すバネの速度の目標に入れる割合（0 = 位置のバネだけ、1 = 目標の速さへそのまま合わせる）。
+    /// 拳を引く PD（<see cref="HandKd"/>）が目標の速度を先行に使うのと同じ構成（一つの現象には一つのモデル）: 位置のバネだけだと、減衰が
+    /// 目標への追いつきを Kp·誤差 / Kd に抑え、動く目標に遅れて追う。倍率ではなく、1 = 目標の動きと同じ速さで回そうとする。
+    /// </summary>
+    public float TrunkTwistFeedForward { get; init; } = 1f;
+
+    /// <summary>腰から胸へひねりの指令が移る時定数 [s]。腰の解放後も胸に逆回転の溜めが残る。</summary>
+    public float ChestTwistResponseSeconds { get; init; } = 0.012f;
+
+    /// <summary>
+    /// 胴のひねりの目標の速さの上限 [rad/s]（先行の飽和）。人の体幹の回旋の角速度の最高は、パンチ・投げで 15 rad/s ほど（骨盤 8〜12、胸 12〜15）。
+    /// 目標が飛んだ（指令が一歩で変わった）ときの先行の暴れを抑える。
+    /// </summary>
+    public float TrunkTwistMaxRate { get; init; } = 15f;
     public float TurnSpeedRadians { get; init; } = 3.744f; // 向きを変える角速度の上限 [rad/s]（人形の単位の 2π × 0.596）
 
     // ── 移動・脚
@@ -300,7 +333,87 @@ public sealed record FighterTuning
     public float WeightShiftShare { get; init; } = 0.3f;
     /// <summary>両手の位置から決める胴のひねりの最大角。腰はその一部だけ回る。</summary>
     public float MaxTorsoTwistRadians { get; init; } = 35f * MathF.PI / 180f;
-    public float HipTwistShare { get; init; } = 0.45f;
+    public float HipTwistShare { get; init; } = 0.95f;
+
+    /// <summary>腹部を別剛体に分け、手の目標だけで骨盤から胸までのひねりを駆動する（標準: 2026-11-22 に制式採用）。</summary>
+    public bool SplitTorso { get; init; }
+
+    /// <summary>
+    /// 腰から打つ体（2026-11-22、ユーザーの指定「パンチの地面を足でける反力は簡略化し、腰から」）。外から駆動するのは骨盤だけ:
+    /// <list type="bullet">
+    /// <item>骨盤の向き（ひねり・傾き）と水平の運びは、脚と床の代わりに外から強く駆動する。その力・ねじりは支えのモデル（<c>LimitToSupport</c>: 標準の <see cref="SupportModel"/> = Soft は捕捉点が足の外へ出た分だけ減らす。CoP・摩擦の制限 SoftCop は掛けない: 掛けると打たれずに倒れる回数が 0.1 → 4.4 回/試合）が
+    /// 床で出せる分へ直す（床の反力は別のモデル）。傾きのバネは骨盤から上の胴全体（腹・胸・頭・腕）の傾きの慣性で効かせる（立つのは近道）。</item>
+    /// <item>腹・胸は、骨盤 → 腹 → 胸の関節の筋のトルク（<see cref="TrunkRotatorTorque"/>、反作用つき）だけで回る・起きる。胸の回旋は腰の回旋から物理で伝わる。</item>
+    /// <item>拳を引く力の反作用は全部を胸へ（<see cref="HandReactionShare"/> = 1）、体から拳への近道の移送（<c>TransferBodyMotion</c>）と体重を外から押す移送（<see cref="WeightShiftShare"/>）は使わない。</item>
+    /// <item>拳の踏み込みは脚のバネで床を蹴らず、腰を前へ運ぶ（<see cref="HipShiftDistance"/>）。</item>
+    /// <item>縦の支え（ホバー）は骨盤・腹・胸へ質量の比で分ける（立つ近道）。水平の力は骨盤だけへ（上体は背骨の関節で付いてくる）。</item>
+    /// </list>
+    /// </summary>
+    public bool HipDrive { get; init; }
+
+    /// <summary>
+    /// 当たりを、関節で連なった両者の体の有効質量（<see cref="Fighter.ArticulatedMass"/>）の衝突として解く（2026-11-22、ユーザーの指定: 拳に乗る体重を物理から）。
+    /// 力積 J = (1 + 反発) × 近づく速さ ÷ (1/m打つ側 + 1/m打たれる側)。ボクセルの接触が 2 つの剛体だけで渡した分との差を、当たった点に作用・反作用で加え、
+    /// 体への伝わりは物理の関節に任せる（式の有効質量 <c>PunchMechanics.ImpactMass</c> と、体の分の運動量を足す押し込み <c>CarryBody</c> は使わない）。
+    /// 手にはめた物（グローブ）の打撃に効く。
+    /// </summary>
+    public bool ArticulatedImpact { get; init; }
+
+    /// <summary>
+    /// 打撃の接触が続く時間 [s]（<see cref="Fighter.ArticulatedMass"/> の関節の筋の構え）。この間に関節の筋（サーボ）がばね k・減衰 b で出せる受け止めを、
+    /// 関節の回りに足す慣性 D = k T²/π² + b T とみなす（半周期の正弦の接触）。筋の力の上限で頭打ち（D ≤ τ_max T r / v: 関節が出せる角の力積 ÷ 必要な回りの速さ）。
+    /// 12 ms: グローブの打撃の接触の長さの目安（10〜20 ms、Walilko ほか 2005 の打撃の力の時間の幅）。
+    /// </summary>
+    public float ImpactContactSeconds { get; init; } = 0.012f;
+
+    /// <summary>
+    /// 腰から打つ体（<see cref="HipDrive"/>）で、前へ打ち込む拳が腰を支えの中心から前へ運ぶ距離の上限 [m]（体重移動）。打ち込みの度合い（手の目標が足の基準より前へ出た割合）に比例。
+    /// 捕捉点が足で受け止められる範囲（<c>KeepCaptureOverFeet</c>）で頭打ちになる。
+    /// </summary>
+    public float HipShiftDistance { get; init; } = 0.15f;
+
+    /// <summary>
+    /// 腰から打つ体の、胸の前傾の目標の上限 [rad]（傾き <see cref="MaxLeanRadians"/> ＋ 腰から折る <see cref="MaxHingeRadians"/> の和を頭打ちにする）。
+    /// 世界から直接起こしていた体では胸が目標の 70° まで届かなかったが、関節の筋で追う胸は届き、倒れたとみなす傾き（<see cref="FallUprightness"/> 0.4 = 66°）を越えて
+    /// 足で釣り合ったまま「倒れた」と数えられた（標準ボット 9 試合で 9 回）。深いダッキングの胴の前傾は 45〜60° ほど。
+    /// </summary>
+    public float MaxTrunkPitchRadians { get; init; } = 55f * MathF.PI / 180f;
+
+    /// <summary>腰から打つ体の、腰を運ぶ水平の加速度の上限 [m/s²]（歩く <see cref="MaxMoveAccel"/> より強い: 腰は強い力で駆動できる。床の摩擦・釣り合いで別に制限）。</summary>
+    public float HipDriveAccel { get; init; } = 14f;
+
+    /// <summary>分割胴の試験設定で、脚のばねを直進でなく腰の回旋に使う。</summary>
+    public bool CompactTorsoWave { get; init; }
+
+    /// <summary>拳の前方目標から脚の回旋と踏み込みの配分を連続に変える（分割胴）。</summary>
+    public bool AdaptivePunchForm { get; init; }
+
+    /// <summary>試験用。親子関節のトルクと床・相手との接触で駆動する。</summary>
+    public bool JointDrive { get; init; }
+
+    /// <summary>正の値で従来の接地制限付き補助を使う。姿勢・移動のゲインと脚の補助力上限に掛け、重力補償は既存の式を使う。</summary>
+    public float JointSupportAssist { get; init; }
+
+    /// <summary>関節駆動で、別工程のグローブ接触に従来の打撃処理を使う。</summary>
+    public bool JointLegacyGloveImpact { get; init; }
+
+    /// <summary>支持脚の股関節が骨盤の姿勢を受け持つ割合。</summary>
+    [JsonInclude]
+    internal float JointStanceHipShare { get; init; }
+
+    /// <summary>重心の位置と速度のずれを、支持足の足首角へ返す無次元の係数。</summary>
+    [JsonInclude]
+    internal float JointStanceAnkleGain { get; init; }
+    /// <summary>右手を出す間に左のガードを引く距離の上限（腕の長さの割合）。</summary>
+    public float CompactLeftRetractShare { get; init; } = 0.08f;
+    /// <summary>脚のばねを解放する入力が手の目標に追いつく時定数 [s]。</summary>
+    public float WaveFootSeconds { get; init; } = 0.025f;
+    public float WavePelvisSeconds { get; init; } = 0.012f;
+    public float WaveAbdomenSeconds { get; init; } = 0.020f;
+    public float WaveChestSeconds { get; init; } = 0.022f;
+    public float WaveHandSeconds { get; init; } = 0.100f;
+    /// <summary>脚のバネを全開放する手の目標の先行距離（腕の長さの割合）。</summary>
+    public float WaveFootTravelShare { get; init; } = 0.12f;
     /// <summary>頭のずれ（前傾・スリップ）で胴を傾けられる最大角。</summary>
     public float MaxLeanRadians { get; init; } = 30f * MathF.PI / 180f;
 
@@ -350,8 +463,11 @@ public sealed record FighterTuning
     /// </summary>
     public float SupportRecovery { get; init; } = 0.5f;
 
-    /// <summary>縦の支え（腰を持ち上げる力）が 0 になる捕捉点の外れの、<see cref="SupportRecovery"/> に対する倍率（起こすねじりより遅く抜ける）。</summary>
+    /// <summary>縦の支えが 0 になる支持領域からの距離を <see cref="SupportRecovery"/> の倍数で表す。</summary>
     public float SupportVerticalRecovery { get; init; } = 1.5f;
+
+    /// <summary>縦の支持も捕捉点から見積もる。関節駆動の試験設定では従来の制御を使う。</summary>
+    public bool UseCaptureForVerticalSupport { get; init; }
 
     /// <summary>
     /// 釣り合いの PID の積分の強さ [1/s]（docs/GRAPPLING.md §9）: 上体を起こすねじり・重心を足の上へ寄せる力に、ずれの漏れのある積分 × これ × 比例の固さ を足す。
@@ -417,6 +533,14 @@ public sealed record FighterTuning
     /// 前腕が回りきってしまった（GrapplingTests）。人形の単位の 60 Hz（人の大きさで 35.75 Hz）で同じねじりのめり込みは数度（固さ ∝ 振動数²）。240 Hz の歩で解ける上限の内。
     /// </summary>
     public float ElbowStopHz { get; init; } = 35.75f;
+
+    /// <summary>
+    /// 肘の関節（上腕と前腕をつなぐ位置の拘束）のバネの固さ [Hz]。物理エンジンの既定 8.94 Hz では、拳を打ち出す間に前腕が上腕から
+    /// 最大 32 mm（セル 2 つ強）離れ、肘に隙間が見えた（右ストレート、punchlab。20 Hz で 9.5 mm・30 Hz で 4.8 mm・45 Hz で 2.5 mm）。
+    /// 実際の肘は靭帯と関節包で隙間が開かないので、隙間がセルの半分（7 mm）を下回る固さにする。240 Hz の歩みで安定に解ける範囲
+    /// （つま先の止め <see cref="ToeStopHz"/> 35.75 Hz・肘の止め <see cref="ElbowStopHz"/> と同じ桁）。
+    /// </summary>
+    public float ElbowHingeHz { get; init; } = 45f;
 
     /// <summary>靭帯が切れるまでの伸び [rad]（過伸展がこれだけ増えたら切れる。約 20°。靭帯の破断のひずみは降伏のおよそ 2 倍）。</summary>
     public float LigamentRuptureStretch { get; init; } = 0.35f;
@@ -781,7 +905,75 @@ public sealed record FighterTuning
     }
 
 
-    public static FighterTuning Default { get; } = new();
+    /// <summary>従来の体（一体の胴・腕と体を世界から直接動かす）。比べもの・古い記録の再生用。標準は <see cref="Default"/>（分割胴、2026-11-22 に制式採用）。</summary>
+    public static FighterTuning Legacy { get; } = new();
+
+    /// <summary>その場での回旋を使う、分割胴のコンパクトなボクシング設定。</summary>
+    public static FighterTuning CompactPunch { get; } = Legacy with
+    {
+        SplitTorso = true,
+        CompactTorsoWave = true,
+        ElbowMuscleMaxSpeed = 200f,
+        ArmServoMaxSpeed = 50f,
+        WaveHandSeconds = 0.035f,
+    };
+
+    /// <summary>踏み込みの並進と体幹の回旋を使う、分割胴のボクシング設定。</summary>
+    public static FighterTuning DynamicPunch { get; } = Legacy with
+    {
+        SplitTorso = true,
+        MaxTorsoTwistRadians = 65f * MathF.PI / 180f,
+        TrunkRotatorTorque = 240f,
+        ElbowMuscleMaxSpeed = 200f,
+        WaveHandSeconds = 0.025f,
+        WaveFootSeconds = 0.050f,
+        WaveFootTravelShare = 0.24f,
+        Footwork = Legacy.Footwork with { StepPushTime = 0.030f },
+    };
+
+    /// <summary>拳の目標距離から打ち分ける分割胴。腕のサーボ速度は両フォームで共通にする。</summary>
+    public static FighterTuning AdaptivePunch { get; } = CompactPunch with
+    {
+        AdaptivePunchForm = true,
+        ArmServoMaxSpeed = DynamicPunch.ArmServoMaxSpeed,
+    };
+
+    /// <summary>関節と接触を介した運動量伝達の試験設定。</summary>
+    public static FighterTuning MomentumPunch { get; } = AdaptivePunch with
+    {
+        JointDrive = true,
+        UseCaptureForVerticalSupport = true,
+        JointStanceHipShare = 0.50f,
+        JointStanceAnkleGain = 1f,
+        LegServoHz = 22f,
+        Footwork = AdaptivePunch.Footwork with { HeelRaiseDegrees = 0f, PivotHeelRaiseDegrees = 0f, CapturePlacementShare = 1f },
+    };
+
+    /// <summary>関節駆動のパンチと従来の立位補助を組み合わせた試合設定。</summary>
+    public static FighterTuning HybridPunch { get; } = MomentumPunch with
+    {
+        JointSupportAssist = 0.5f,
+        JointLegacyGloveImpact = true,
+    };
+
+    /// <summary>
+    /// 標準の体（2026-11-22、ユーザーの指定で分割胴を制式採用）: 胸と腹に分けた胴（<see cref="SplitTorso"/>）。腰は脚と床の代わりに外から強く回し・運び
+    /// （床の反力は <c>LimitToSupport</c> の支えのモデルで別に持つ）、腹・胸・腕は体の中の関節の力（反作用つき）で腰を追う。立つのはホバーの近道。
+    /// 出発点はダイナミック版（<see cref="DynamicPunch"/>）に体幹の回旋トルク 360 N·m・意識の戻り 2 倍・足の受け止め許容 2 倍を重ねた値
+    /// （標準ボット 3 組の面白さ 従来の体 154.6 → 182.9。docs/arena/excitement_generations_2026-11-22.md）。従来の体は <see cref="Legacy"/>。
+    /// </summary>
+    public static FighterTuning Default { get; } = DynamicPunch with
+    {
+        HipDrive = true,
+        ArticulatedImpact = true,
+        HandReactionShare = 1f,
+        WeightShiftShare = 0f,
+        PelvisRotatorTorque = 300f,
+        TrunkRotatorTorque = 360f,
+        ConcussionRecoveryRate = 0.0834f,
+        SupportRecovery = 1.0f,
+        SupportVerticalRecovery = 3f,
+    };
 
     internal static Vector3 Up => Vector3.UnitY;
 }

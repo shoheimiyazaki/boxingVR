@@ -23,6 +23,10 @@ if (args.Contains("--control") && Option("--control") is not ("classic" or "inte
 //   --break-sound <glass|crumble|crunch|circuit|metal>  ボクセルが砕ける音の方式（既定 glass）
 //   --hit-sound <on|off>  パンチが当たる音（既定 on。ダメージを知らせる音）
 //   --tv                    テレビ中継風: 30 秒 × 5 ラウンド・休み 10 秒（休みに体が治る）、得点表と時計、会場の歓声
+//   --compact-punch         分割胴のコンパクトな回旋を使う試合設定
+//   --hybrid-punch           関節駆動のパンチと従来の立位・打撃処理を組み合わせた試合設定
+//   --adaptive-punch        拳の目標距離から回旋と踏み込みを連続に配分する試合設定
+//   --dynamic-punch         脚の踏み込みを拳に乗せる分割胴の試合設定
 //   --no-facecam            画面の両脇の顔の窓を出さない（窓の分の描画が要らない）
 //   --speed <0.5|0.75|1>    最初の速さ（既定 0.75 倍）。遊んでいる間・再生中も 1 / 2 / 3 キーで 0.5 / 0.75 / 1.0 倍に切り替わる
 //   --wear <glove|none|knuckles|katar|gauntlet>  両コーナーが手にはめる物（既定 glove。--quick のときだけ。メニューからの試合は、はめる物・武器をキャラクターが決める）
@@ -190,7 +194,13 @@ MatchSession OpenReplay(ReplayData data)
 
 MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
 {
-    var game = new BoxingGame(corners: corners.StartingAtCorners(), rules: tv ? MatchRules.Tv : null) { FaceCam = faceCam, Speed = speed }; // 試合はコーナーから
+    var tuning = args.Contains("--hybrid-punch")
+        ? FighterTuning.HybridPunch
+        : args.Contains("--adaptive-punch")
+        ? FighterTuning.AdaptivePunch
+        : args.Contains("--dynamic-punch") ? FighterTuning.DynamicPunch
+        : args.Contains("--compact-punch") ? FighterTuning.CompactPunch : FighterTuning.Default;
+    var game = new BoxingGame(tuning, corners: corners.StartingAtCorners(), rules: tv ? MatchRules.Tv : null) { FaceCam = faceCam, Speed = speed }; // 試合はコーナーから
     ReplayRecorder? recorder = null;
     try
     {

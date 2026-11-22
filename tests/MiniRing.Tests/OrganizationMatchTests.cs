@@ -11,10 +11,18 @@ namespace MiniRing.Tests;
 public sealed class OrganizationMatchTests
 {
     [TestMethod]
-    public void WvcRulesAreTheTelevisionRulesUnchanged()
+    public void WvcRulesAddImpactCalibrationToTheStandardTelevisionRules()
     {
         var wvc = Organizations.Get("wvc");
-        Assert.AreEqual(TvShowRules.Rules(3, 33.57f), TvShowRules.Rules(3, 33.57f, wvc));
+        var baseline = TvShowRules.Rules(3, 33.57f);
+        var calibrated = TvShowRules.Rules(3, 33.57f, wvc);
+        Assert.AreEqual(48f, FighterTuning.Default.ConcussionSpin * calibrated.ConcussionSpinScale, 0.001f);
+        Assert.AreEqual(0.60f, calibrated.LimbBendStrengthScale);
+        Assert.AreEqual(baseline, calibrated with
+        {
+            ConcussionSpinScale = baseline.ConcussionSpinScale,
+            LimbBendStrengthScale = baseline.LimbBendStrengthScale,
+        });
     }
 
     [TestMethod]

@@ -16,6 +16,7 @@ public enum BodyPartKind
 
     /// <summary>つま先（足の前、母指球の蝶番から先）。</summary>
     Toe,
+    Abdomen,
 }
 
 /// <summary>打たれた場所。ダメージの倍率（<see cref="ZoneDamage"/>）と、打撃音・傷の見た目を決める。</summary>
@@ -64,7 +65,7 @@ public static class HitZones
             BodyPartKind.Chest when u.Z > 0f && u.X > 0.05f && u.X < 0.75f && u.Y > -0.2f && u.Y < 0.65f => HitZone.Heart,
             BodyPartKind.Chest when u.X < -0.2f && u.Y < 0f => HitZone.Liver,
             BodyPartKind.Chest when u.Z > 0f && MathF.Abs(u.X) < 0.35f && u.Y < 0.1f => HitZone.SolarPlexus,
-            BodyPartKind.Chest => HitZone.Body,
+            BodyPartKind.Chest or BodyPartKind.Abdomen => HitZone.Body,
             BodyPartKind.Pelvis when u.X < -0.3f && u.Y > 0.3f => HitZone.Liver,
             BodyPartKind.Pelvis => HitZone.Body,
 

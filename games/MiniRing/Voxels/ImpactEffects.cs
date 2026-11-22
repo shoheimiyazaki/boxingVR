@@ -27,6 +27,9 @@ public sealed class ImpactEffects
     private const float GlowLife = 0.2685f;
     private const float RingLife = 0.5371f;
     private const float HazeLife = 0.8392f;
+    private const float PunchCueLife = 0.17f;
+    private const float PunchRingLife = 0.30f;
+    private const float FullPunchCueEnergy = 75f;
 
     /// <summary>光らせる位置を、当たった面から打った側へ浮かせる距離 [m]。</summary>
     private const float SurfaceLift = 0.0845f;
@@ -72,6 +75,20 @@ public sealed class ImpactEffects
         }
     }
 
+    /// <summary>得点の部位補正前のエネルギーを使い、ガードとクリーンヒットを光の色と形で区別する。</summary>
+    internal void SpawnPunchCue(Vector3 point, Vector3 direction, float energy, bool guarded)
+    {
+        var dir = direction.LengthSquared() > 1e-12f ? Vector3.Normalize(direction) : Vector3.UnitY;
+        var strength = MathF.Sqrt(Math.Clamp(energy / FullPunchCueEnergy, 0f, 1f));
+        var surface = point - (dir * (1.5f * SurfaceLift));
+        var color = guarded ? new Vector4(0.20f, 0.66f, 1f, 1f) : new Vector4(1f, 0.61f, 0.18f, 1f);
+        _effects.Add(new Effect(EffectKind.PunchCue, surface, dir, Vector3.Zero, color, PunchCueLife, strength));
+        if (!guarded && strength >= 0.75f)
+        {
+            _effects.Add(new Effect(EffectKind.Ring, surface, dir, Vector3.Zero, color, PunchRingLife, strength));
+        }
+    }
+
     /// <summary>時間を進め、消えたものを捨てる。</summary>
     public void Step(float dt)
     {
@@ -101,6 +118,15 @@ public sealed class ImpactEffects
             var t = e.Age / e.Life;
             switch (e.Kind)
             {
+                case EffectKind.PunchCue:
+                {
+                    var size = (0.20f + (0.16f * e.Strength)) * (1f + (0.25f * t));
+                    var alpha = (0.25f + (0.35f * e.Strength)) * (1f - t);
+                    into.Add(new ParticleInstance(e.Position, size, e.Color with { W = alpha }, Blend: ParticleBlend.Alpha));
+                    into.Add(new ParticleInstance(e.Position, size * 0.38f, Vector4.One with { W = alpha }, Blend: ParticleBlend.Additive));
+                    break;
+                }
+
                 case EffectKind.Glow:
                 {
                     // 最初の 2 割で一気にふくらみ、残りで薄れる。
@@ -164,6 +190,7 @@ public sealed class ImpactEffects
     private enum EffectKind
     {
         Glow,
+        PunchCue,
         Ring,
         Trail,
         Haze,

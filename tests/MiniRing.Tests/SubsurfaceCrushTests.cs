@@ -189,7 +189,9 @@ public sealed class SubsurfaceCrushTests
         // へこみ: 肝臓のセルが潰れ、その前のセルが押し込まれた（数は減らずに中身が入れ替わる）。休みの再生は、それも元の配置に戻す。
         using var game = new MiniRing.BoxingGame(seed: 1);
         var body = game.Cpu.Voxels!;
-        var chest = body.Parts.First(p => p.Kind == MiniRing.BodyPartKind.Chest).Body.Grid;
+        // 肝臓のある胴の格子（分割胴では胴の下の部分 = 腹）。
+        var chest = body.Parts.Where(p => p.Kind is MiniRing.BodyPartKind.Chest or MiniRing.BodyPartKind.Abdomen).Select(p => p.Body.Grid)
+            .First(g => Enumerable.Range(0, g.CellCount).Any(i => g.AtIndex(i) == MiniRing.Voxels.BoxerAnatomy.Liver));
         var liver = Enumerable.Range(0, chest.CellCount).First(i => chest.AtIndex(i) == MiniRing.Voxels.BoxerAnatomy.Liver);
         var (x, y, z) = chest.Coordinates(liver);
         var skinBefore = chest.Remaining(MiniRing.Voxels.BoxerAnatomy.Skin);

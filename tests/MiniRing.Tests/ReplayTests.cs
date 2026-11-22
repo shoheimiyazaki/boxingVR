@@ -11,6 +11,54 @@ namespace MiniRing.Tests;
 public sealed class ReplayTests
 {
     [TestMethod]
+    [DataRow(nameof(FighterTuning.CompactPunch))]
+    [DataRow(nameof(FighterTuning.DynamicPunch))]
+    [DataRow(nameof(FighterTuning.AdaptivePunch))]
+    [DataRow(nameof(FighterTuning.MomentumPunch))]
+    [DataRow(nameof(FighterTuning.HybridPunch))]
+    public void PunchPreset_ReplaysMatch(string preset)
+    {
+        var tuning = preset switch
+        {
+            nameof(FighterTuning.CompactPunch) => FighterTuning.CompactPunch,
+            nameof(FighterTuning.DynamicPunch) => FighterTuning.DynamicPunch,
+            nameof(FighterTuning.AdaptivePunch) => FighterTuning.AdaptivePunch,
+            nameof(FighterTuning.MomentumPunch) => FighterTuning.MomentumPunch,
+            nameof(FighterTuning.HybridPunch) => FighterTuning.HybridPunch,
+            _ => throw new ArgumentException("Unknown punch preset.", nameof(preset)),
+        };
+        using var game = new BoxingGame(tuning, seed: 1);
+        using var stream = new MemoryStream();
+        var player = game.Player;
+        Assert.IsTrue(player.Parts.Abdomen.HasValue);
+        var command = new FighterCommand(Vector3.Zero, player.Frame.Forward,
+            new HandCommand(new Vector3(0.15f, 0.10f, 0.30f), false),
+            new HandCommand(new Vector3(-0.15f, 0.10f, 1.35f * player.ArmReach), false));
+        using (var recorder = new ReplayRecorder(stream, game, "test"))
+        {
+            for (var i = 0; i < ReplayRecorder.ChecksumInterval; i++)
+            {
+                recorder.Step(game, new BoxingInput(command), 1f / 60f);
+            }
+        }
+
+        var data = ReplayFile.Read(new MemoryStream(stream.ToArray()));
+        Assert.AreEqual(tuning.ElbowMuscleMaxSpeed, data.Header.Tuning.ElbowMuscleMaxSpeed);
+        Assert.AreEqual(tuning.WaveHandSeconds, data.Header.Tuning.WaveHandSeconds);
+        Assert.AreEqual(tuning.ArmServoMaxSpeed, data.Header.Tuning.ArmServoMaxSpeed);
+        Assert.AreEqual(tuning.CompactTorsoWave, data.Header.Tuning.CompactTorsoWave);
+        Assert.AreEqual(tuning.AdaptivePunchForm, data.Header.Tuning.AdaptivePunchForm);
+        Assert.AreEqual(tuning.JointDrive, data.Header.Tuning.JointDrive);
+        Assert.AreEqual(tuning.JointSupportAssist, data.Header.Tuning.JointSupportAssist);
+        Assert.AreEqual(tuning.UseCaptureForVerticalSupport, data.Header.Tuning.UseCaptureForVerticalSupport);
+        Assert.AreEqual(tuning.JointLegacyGloveImpact, data.Header.Tuning.JointLegacyGloveImpact);
+        Assert.AreEqual(tuning.JointStanceHipShare, data.Header.Tuning.JointStanceHipShare);
+        Assert.AreEqual(tuning.JointStanceAnkleGain, data.Header.Tuning.JointStanceAnkleGain);
+        Assert.AreEqual(tuning.Footwork.CapturePlacementShare, data.Header.Tuning.Footwork.CapturePlacementShare);
+        Assert.IsTrue(ReplayPlayer.Verify(data).Reproduced);
+    }
+
+    [TestMethod]
     public void LocalVersus_ReplaysBothControllers()
     {
         var corners = Bots.BotCatalog.Corners("boxer") with { ExternalBlue = true };
@@ -103,7 +151,7 @@ public sealed class ReplayTests
             PlayerBody = new BodyBuild(1.1f, 1.2f),
             Ring = new RingLayout(5.634f, 2.254f),
         };
-        var rules = new MatchRules { RestGuardDrop = new Vector3(0.1f, -0.2f, 0.3f) };
+        var rules = new MatchRules { RestGuardDrop = new Vector3(0.1f, -0.2f, 0.3f), ConcussionSpinScale = 2f, LimbBendStrengthScale = 0.60f };
         using var game = new BoxingGame(seed: 11, corners: corners, rules: rules);
         using var stream = new MemoryStream();
         using (var recorder = new ReplayRecorder(stream, game, "test")) { }
@@ -113,6 +161,8 @@ public sealed class ReplayTests
         Assert.AreEqual(corners.PlayerBody, header.Corners.PlayerBody);
         Assert.AreEqual(corners.Ring, header.Corners.Ring);
         Assert.AreEqual(rules.RestGuardDrop, header.MatchSettings!.Rules!.RestGuardDrop);
+        Assert.AreEqual(rules.ConcussionSpinScale, header.MatchSettings.Rules.ConcussionSpinScale);
+        Assert.AreEqual(rules.LimbBendStrengthScale, header.MatchSettings.Rules.LimbBendStrengthScale);
     }
 
     [TestMethod]

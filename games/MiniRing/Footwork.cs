@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Text.Json.Serialization;
 
 namespace MiniRing;
 
@@ -63,6 +64,10 @@ public sealed record FootworkTuning
     /// 倒立振子の捕捉点（重心 + 速度 / ω）が、両足を結ぶ線からこれだけ離れたら、その向きへ踏み出して体を受け止める。
     /// </summary>
     public float CaptureMargin { get; init; } = 0.16f;
+
+    /// <summary>立て直す一歩の構え中心を、捕捉点へ寄せる割合。</summary>
+    [JsonInclude]
+    internal float CapturePlacementShare { get; init; }
 
     /// <summary>胴のひねりのうち、母指球を軸に足を回す（かかとを外へ返す）割合。足先から腰へひねりを伝える。</summary>
     public float PivotShare { get; init; } = 0.8f;
@@ -230,6 +235,7 @@ public sealed class Footwork
     private float _swingTime;
     private float _swingDuration;
     private float _twist;
+    private float? _twistLimit;
     private float _weight;
     private Vector2 _reachCenter;
     private float _hipOffset;
@@ -279,7 +285,7 @@ public sealed class Footwork
         var heel = t.HeelRaiseDegrees * radians;
         // ひねりの軸足: 右の拳（ひねり正）は後ろ足、左の拳（負）は前足を母指球で回す。
         var drive = foot == Rear ? MathF.Max(0f, _twist) : MathF.Max(0f, -_twist);
-        var pivot = _tuning.PivotShare * _twist * MaxTwist * (foot == Rear ? (_twist > 0f ? 1f : 0.25f) : (_twist < 0f ? 1f : 0.25f));
+        var pivot = _tuning.PivotShare * _twist * (_twistLimit ?? MaxTwist) * (foot == Rear ? (_twist > 0f ? 1f : 0.25f) : (_twist < 0f ? 1f : 0.25f));
         heel += drive * t.PivotHeelRaiseDegrees * radians;
         if (foot != _swinging)
         {
@@ -299,8 +305,11 @@ public sealed class Footwork
     private float SwingProgress => _swingDuration <= 0f ? 1f : Math.Clamp(_swingTime / _swingDuration, 0f, 1f);
 
     /// <summary>1 ステップ分進める: 踏み出している足を運び、着いたら次の足を決める。</summary>
-    public void Update(in FootworkInput input, float dt)
+    public void Update(in FootworkInput input, float dt) => Update(input, dt, MaxTwist);
+
+    internal void Update(in FootworkInput input, float dt, float twistLimit)
     {
+        _twistLimit = twistLimit;
         _twist = Math.Clamp(float.IsFinite(input.Twist) ? input.Twist : 0f, -1f, 1f);
         _weight = Math.Clamp(float.IsFinite(input.Weight) ? input.Weight : 0f, -1f, 1f);
         _legLength = MathF.Max(0.01f, input.LegLength);
@@ -359,6 +368,14 @@ public sealed class Footwork
         var deadband = t.CaptureDeadband * leg;
         var center = middle + (drift.Length() > deadband ? drift * (1f - (deadband / drift.Length())) : Vector2.Zero)
             + ClampLength(input.Intent * t.Lookahead, t.MaxLookahead * leg);
+        // 踏み直しが必要なら、置き先も重心の速度を止められる側に寄せる。
+        var off = DistanceToSegment(capture, _ball[Lead], _ball[Rear]);
+        var falling = off > t.CaptureMargin * leg;
+        if (falling && t.CapturePlacementShare > 0f)
+        {
+            center = Vector2.Lerp(center, capture, t.CapturePlacementShare);
+        }
+
         _reachCenter = input.Body + (input.BodyVelocity * (0.5f * t.StepTimeMax));
         _hipOffset = input.HipOffset;
         _facing = input.FacingYaw;
@@ -377,9 +394,6 @@ public sealed class Footwork
         need[Lead] |= input.LeadOverreach;
         need[Rear] |= input.RearOverreach;
 
-        // 捕捉点が両足を結ぶ線（支え）から外れたら、倒れる向きの足から踏み出して受け止める。
-        var off = DistanceToSegment(capture, _ball[Lead], _ball[Rear]);
-        var falling = off > t.CaptureMargin * leg;
         // 片方の脚を膝の制御で動かしている間（回し蹴り・前蹴りの膝の経路）は、構えを直す 1 歩は踏まない: 残る足は体重を受ける唯一の軸足で、
         // それを振り出せば体を支える足が無くなる（床からの支えの体では、その間に崩れた）。倒れていく（捕捉点が支えの外）ときだけ、
         // 軸足で跳んで受け止める。蹴る脚は指令が動かす。足首の目標で蹴る蹴り（後ろ蹴り・かかと落とし・横蹴り）は対象外: 体が大きく回る間、

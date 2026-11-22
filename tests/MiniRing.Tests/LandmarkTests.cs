@@ -25,6 +25,12 @@ public sealed class LandmarkTests
         });
     }
 
+    private static int FilledAt(MiniRing.Voxels.VoxelPart part, Vector3 world)
+    {
+        Matrix4x4.Invert(part.Body.GridToWorld(), out var inverse);
+        return part.Body.Grid.FilledCellAt(Vector3.Transform(world, inverse));
+    }
+
     private static float CellDistance(VoxelGrid grid, Matrix4x4 gridToWorld, Vector3 world, Func<byte, bool> material)
     {
         var best = float.MaxValue;
@@ -123,11 +129,12 @@ public sealed class LandmarkTests
             {
                 var point = cpu.AsTarget.Point(goal, from);
                 Assert.IsNotNull(point, $"{name}: {goal}");
-                var part = goal is AimGoal.Chin or AimGoal.Temple ? face : chest;
+                // 胴の狙いは胸か腹（分割胴では胴の下の部分が腹の格子）の、点を含む方の格子で見る。
+                var candidates = goal is AimGoal.Chin or AimGoal.Temple ? [face]
+                    : cpu.Parts.Abdomen is { } abdomen ? new[] { chest, cpu.Voxels.PartOf(abdomen)! } : [chest];
+                var part = candidates.FirstOrDefault(c => FilledAt(c, point!.Value) >= 0) ?? candidates[0];
                 var grid = part.Body.Grid;
-                Matrix4x4.Invert(part.Body.GridToWorld(), out var inverse);
-                var local = Vector3.Transform(point!.Value, inverse);
-                var index = grid.FilledCellAt(local);
+                var index = FilledAt(part, point!.Value);
                 Assert.IsGreaterThanOrEqualTo(0, index, $"{name}: {goal} sits on a filled cell");
                 Assert.IsTrue(grid.MaterialAt(index) is BoxerAnatomy.Skin or BoxerAnatomy.Lip or BoxerAnatomy.Hair or BoxerAnatomy.Muscle, $"{name}: {goal} sits on the skin ({grid.MaterialAt(index)})");
                 var (x, y, z) = grid.Coordinates(index);

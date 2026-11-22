@@ -25,7 +25,7 @@ try
         "drill" => Drill(Options.Parse(argv[1..], "book", "bouts", "seconds", "seed", "out")),
         "drilltune" => DrillTune(Options.Parse(argv[1..], "defense", "book", "gens", "pop", "bouts", "seconds", "seed", "log", "out", "ranges", "counters", "combos")),
         "finishlab" => FinishLabCommand(Options.Parse(argv[1..], "attackers", "victims", "levels", "bouts", "seconds", "set", "log", "aim", "victim-set")),
-        "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log")),
+        "attacklab" => AttackLabCommand(Options.Parse(argv[1..], "combos", "telegraphs", "ranges", "bouts", "seconds", "seed", "log", "legacytrunk", "tune")),
         "fistmatch" => FistMatchCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "referee", "parallel", "out", "compare", "labels", "log", "confirm")),
         "punchlab" => PunchLabCommand(Options.Parse(argv[1..], "study", "depths", "aim", "paths", "defenders", "ranges", "reach", "far", "seeds", "telegraph", "nocap", "log", "video", "slow", "width", "height", "fps")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
@@ -60,9 +60,9 @@ try
         "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes", "hz", "sample")),
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
         "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway", "clearance", "passes", "hz", "sample", "margin", "tilt", "pacing", "slack", "angle")),
-        "excitement" => ExcitementLab.SingleCommand(Options.Parse(argv[1..], "red", "blue", "seconds", "seeds", "seed", "out", "curve")),
+        "excitement" => ExcitementLab.SingleCommand(Options.Parse(argv[1..], "red", "blue", "seconds", "seeds", "seed", "out", "curve", "tune", "style")),
         "excitementfit" => ExcitementLab.FitCommand(Options.Parse(argv[1..], "pairs", "seconds", "seeds", "seed", "out")),
-        "excitementleague" => ExcitementLab.LeagueCommand(Options.Parse(argv[1..], "pairs", "seconds", "seeds", "seed", "out", "label")),
+        "excitementleague" => ExcitementLab.LeagueCommand(Options.Parse(argv[1..], "pairs", "seconds", "seeds", "seed", "out", "label", "tune", "style")),
         "swordlib" => SwordLibCommand(Options.Parse(argv[1..], "out", "best", "bouts", "seconds", "seed", "fight", "video", "red", "blue")),
         "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead", "weapon", "vrmotion")),
         "vrmotion-synth" => VrMotionSynthCommand(Options.Parse(argv[1..], "out")),
@@ -1102,7 +1102,9 @@ static int AttackLabCommand(Options o)
     }
 
     var ranges = o.List("ranges", ["0.9", "1.05", "1.2"]).Select(t => float.Parse(t, CultureInfo.InvariantCulture)).ToList();
-    new AttackLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 33.57f, min: 1f), o.Int("seed", 1), Log).Run(combos, telegraphs, ranges);
+    // --legacytrunk true: PhysicsVersion 67 の胴のひねり（回旋筋のトルク 28.2 N·m・先行なし）で測る反事実（変更前後の比べ用。試合には使わない）。
+    var tuning = o.Get("legacytrunk") is { } legacy && bool.Parse(legacy) ? global::MiniRing.FighterTuning.Default with { TrunkRotatorTorque = 28.2f, TrunkTwistFeedForward = 0f } : MiniRing.Arena.TuningOverride.Parse(o.Get("tune"));
+    new AttackLab(o.Int("bouts", 3, min: 1), o.Float("seconds", 33.57f, min: 1f), o.Int("seed", 1), Log, tuning: tuning).Run(combos, telegraphs, ranges);
     return 0;
 }
 

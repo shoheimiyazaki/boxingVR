@@ -62,6 +62,13 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
         public string Label => $"{PathName(Path)}{(Path == PunchLabPath.Beyond ? $" {Depth * 100f:0} cm" : "")}{(Aim == AimGoal.Chin || Path == PunchLabPath.Beyond ? "" : "（狙い: 頭の真ん中）")}{(NoCap ? "（上限なし）" : "")}{(Clamp ? "（縮める）" : "")} / {(Defender == "still" ? "守らない" : "ガード")} / {RangeName switch { "reach" => "届く", "chin" => "伸びきりであご", _ => "半歩遠い" }}";
     }
 
+    /// <summary>
+    /// 測定用の入力の差し替え（駆動の DOE、docs/plans/DRIVE_DOE_ANALYSIS.md）。FighterCommand の中身を変えるだけで、物理の値は変えない。
+    /// 省略（null）なら従来と同じ。<paramref name="TwistBias"/> = 打ち出しの間に足す胴のひねりの目標 [rad]、<paramref name="StepInScale"/> = 踏み込みの倍、
+    /// <paramref name="Spring"/> = 体から拳への移送の割合（0..1、既定 1）。
+    /// </summary>
+    internal sealed record DriveKnobs(float TwistBias = 0f, float StepInScale = 1f, float Spring = 1f, float TwistLead = 0f, float HandDelay = 0f, float FootDrive = 0f);
+
     /// <summary>拳を目標へ引いた 1 歩（打ち出しからの時刻・縮める前と後の目標と拳の距離・欲しかった力・力の上限・実際の力・拳の速さ）。</summary>
     internal readonly record struct DriveStep(float T, float RawGap, float ClampedGap, float Desired, float Cap, float Force, float Speed);
 
@@ -107,14 +114,14 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
         private int _stable;
         private float? _lastDistance;
 
-        public Bout(Setup setup, int seed, float telegraph)
+        public Bout(Setup setup, int seed, float telegraph, FighterTuning? measuredTuning = null, DriveKnobs? knobs = null)
         {
             _range = setup.Range;
             Setup = setup;
             ControlFactory defender = setup.Defender == "still" ? _ => new StandGuard(GuardPosture.LowGuard) : s => new BoxerBot(GuardStyle(setup.Range).Validated(), s);
-            var tuning = new FighterTuning { MaxTargetSpeed = setup.NoCap ? NoCapSpeed : new FighterTuning().MaxTargetSpeed, ClampHandTarget = setup.Clamp };
+            var tuning = (measuredTuning ?? FighterTuning.Default) with { MaxTargetSpeed = setup.NoCap ? NoCapSpeed : (measuredTuning ?? FighterTuning.Default).MaxTargetSpeed, ClampHandTarget = setup.Clamp };
             Game = new BoxingGame(tuning, seed, new BoxingCorners(setup.Defender, defender));
-            _puncher = new Puncher(setup.Path, telegraph, setup.Aim, setup.Depth);
+            _puncher = new Puncher(setup.Path, telegraph, setup.Aim, setup.Depth, knobs);
         }
 
         public Setup Setup { get; }
@@ -184,7 +191,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
     /// <summary>
     /// 右ストレートだけを打つ入力元。体の目標はボットと同じ共有の実行部から出し、拳の目標だけを <see cref="PunchLabPath"/> で差し替える。
     /// </summary>
-    internal sealed class Puncher(PunchLabPath path, float telegraph, AimGoal aim, float depth = 0f)
+    internal sealed class Puncher(PunchLabPath path, float telegraph, AimGoal aim, float depth = 0f, DriveKnobs? knobs = null)
     {
         private static readonly BotStyle Style = BotCatalog.Boxer;
         private readonly PunchSpec _spec = PunchBook.Default.Of(Technique.Cross);
@@ -198,7 +205,7 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
         public float Elapsed { get; private set; }
 
         /// <summary>今の踏み込み（移動指令の前向き成分、ボットと同じ <c>StepIn × Envelope</c>）。</summary>
-        public float StepIn => Action.Active ? _spec.StepIn * TechniqueExecution.Envelope(Action) : 0f;
+        public float StepIn => Action.Active ? _spec.StepIn * (knobs?.StepInScale ?? 1f) * TechniqueExecution.Envelope(Action) : 0f;
 
         public void Start(in FighterSense sense, Vector3 punchingShoulder)
         {
@@ -232,9 +239,10 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
             if (Started && Action.Active)
             {
                 var aim = self.WorldToLocal(Action.AimWorld);
-                right = Target(aim, Guard(Hand.Right), reach);
-                spring = TechniqueExecution.Spring(Action);
-                twist = TechniqueExecution.Twist(Action, Hand.Right, Style.Lead);
+                var handAction = TechniqueExecution.Shift(Action, knobs is { } handSettings ? -handSettings.HandDelay : TechniqueExecution.PunchHandAdvanceSeconds);
+                right = Target(handAction, aim, Guard(Hand.Right), reach);
+                spring = TechniqueExecution.Spring(handAction) * (knobs?.Spring ?? 1f);
+                twist = TechniqueExecution.Twist(TechniqueExecution.Shift(Action, knobs?.TwistLead ?? 0f), Hand.Right) + ((knobs?.TwistBias ?? 0f) * (Action.Time >= 0f ? MathF.Max(0f, 1f - (2f * Action.Time / Action.Duration)) : 0f));
                 headTarget = TechniqueExecution.HeadShift(Action, Style.Lead, reach);
             }
 
@@ -242,7 +250,8 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
             var command = new FighterCommand(move, face.LengthSquared() > 1e-6f ? Vector3.Normalize(face) : Vector3.UnitZ,
                 new HandCommand(Guard(Hand.Left), false, Tuck: Style.ElbowTuck),
                 new HandCommand(right, false, spring, Tuck: TechniqueExecution.Tuck(Action, Style.ElbowTuck, false)),
-                _head, twist);
+                _head, twist, Step: TechniqueExecution.GroundDrive(Action, face.LengthSquared() > 1e-6f ? Vector3.Normalize(face) : Vector3.UnitZ,
+                    knobs?.TwistLead ?? 0f, knobs?.FootDrive ?? TechniqueExecution.PunchGroundDrive));
             if (Started)
             {
                 Elapsed += dt;
@@ -255,11 +264,11 @@ internal sealed class PunchLab(float telegraph, Action<string> log, AimGoal aim 
             return command;
         }
 
-        private Vector3 Target(Vector3 aim, Vector3 guard, float reach)
+        private Vector3 Target(in PunchAction handAction, Vector3 aim, Vector3 guard, float reach)
         {
             if (path == PunchLabPath.Standard || Action.Time < 0f)
             {
-                return TechniqueExecution.Punch(Action, Hand.Right, Style.Lead, guard, aim, reach);
+                return TechniqueExecution.Punch(handAction, Hand.Right, Style.Lead, guard, aim, reach);
             }
 
             // 打ち出しの瞬間に一度に置いた目標（あご、または打ち抜く点）。狙いはワールドの点で保つ（体フレームは体と一緒に動く）。

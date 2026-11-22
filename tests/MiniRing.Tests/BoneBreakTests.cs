@@ -84,6 +84,12 @@ public sealed class BoneBreakTests
         var broke = VoxelBending.FindBreak(limb, Vector3.Zero, new Vector3(0f, 0f, -5000f), beamAxis: 0, loadBearingOnly: true);
         Assert.IsNotNull(broke, "a hard push in the middle snaps the bone");
         Assert.IsInRange(3, 6, broke.Value.Slice, "near the middle");
+
+        var mediumPush = new Vector3(0f, 0f, -3000f);
+        Assert.IsNull(VoxelBending.FindBreak(limb, Vector3.Zero, mediumPush, beamAxis: 0, loadBearingOnly: true));
+        var calibrated = VoxelBending.FindBreak(limb, Vector3.Zero, mediumPush, beamAxis: 0, loadBearingOnly: true, tensileScale: 0.60f);
+        Assert.IsNotNull(calibrated);
+        Assert.AreEqual(broke.Value.Slice, calibrated.Value.Slice);
     }
 
     [TestMethod]

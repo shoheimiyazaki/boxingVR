@@ -290,8 +290,9 @@ public sealed class IntentControl : IFighterControl
         return new FighterCommand(move, face,
             new(left, false, TechniqueExecution.Spring(_left), Tuck: TechniqueExecution.Tuck(_left, _style.ElbowTuck, guardingBody)),
             new(right, false, TechniqueExecution.Spring(_right), Tuck: TechniqueExecution.Tuck(_right, _style.ElbowTuck, guardingBody)), head,
-            TechniqueExecution.Twist(_left, Hand.Left, _style.Lead) + TechniqueExecution.Twist(_right, Hand.Right, _style.Lead) + (CoilHand() is { } hand0 ? CoilTwist(hand0) * coil : 0f),
-            Step: step);
+            TechniqueExecution.Twist(_left, Hand.Left) + TechniqueExecution.Twist(_right, Hand.Right) + (CoilHand() is { } hand0 ? CoilTwist(hand0) * coil : 0f),
+            Step: step + TechniqueExecution.GroundDrive(_left, face, 0f, TechniqueExecution.PunchGroundDrive)
+                + TechniqueExecution.GroundDrive(_right, face, 0f, TechniqueExecution.PunchGroundDrive));
     }
 
     private Vector3 Guard(Hand hand, float reach, Vector3 head, float faintness)

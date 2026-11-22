@@ -189,9 +189,15 @@ public static class BoxerVoxelModel
         foreach (var id in fighter.AllParts)
         {
             var kind = fighter.KindOf(id);
+            if (kind == BodyPartKind.Abdomen)
+            {
+                continue; // 分割胴: 腹は胸と 1 つの胴の格子として書き出し・直す（BoxerBody が胸と腹に切り分ける）
+            }
+
             if (!parts.ContainsKey(kind))
             {
-                parts[kind] = BoxerAnatomy.Build(kind, fighter.HalfExtentsOf(id), tuning.VoxelSize, shapes.Mesh(kind), Outfit.RedCorner, overrides);
+                var half = kind == BodyPartKind.Chest && fighter.Parts.Abdomen is not null ? tuning.HalfExtents.Chest : fighter.HalfExtentsOf(id);
+                parts[kind] = BoxerAnatomy.Build(kind, half, tuning.VoxelSize, shapes.Mesh(kind), Outfit.RedCorner, overrides);
             }
         }
 

@@ -83,12 +83,12 @@ public static class ExcitementRun
 {
     public const float StepDt = 1f / 60f;
 
-    public static MatchHighlights Bout(Contender red, Contender blue, int seed, float seconds, ExcitementTuning? tuning = null, Action<BoxingGame, float>? afterStep = null)
+    public static MatchHighlights Bout(Contender red, Contender blue, int seed, float seconds, ExcitementTuning? tuning = null, Action<BoxingGame, float>? afterStep = null, FighterTuning? fighter = null)
     {
         ArgumentNullException.ThrowIfNull(red);
         ArgumentNullException.ThrowIfNull(blue);
         var corners = new BoxingCorners(blue.Name, s => blue.Create(s), s => red.Create(s), PlayerName: red.Name, PlayerBody: red.Build, CpuBody: blue.Build, PlayerFace: red.Face, CpuFace: blue.Face);
-        using var game = new BoxingGame(null, seed, corners);
+        using var game = new BoxingGame(fighter, seed, corners);
         var highlights = new MatchHighlights(tuning, seconds);
         var steps = (int)MathF.Ceiling(seconds / StepDt);
         for (var i = 0; i < steps; i++)

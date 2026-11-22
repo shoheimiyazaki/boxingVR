@@ -1,0 +1,83 @@
+LHS rows 1821  frozen 910  hits free 911 / 911  hits frozen 864 / 910
+
+== free / peakFist: n=911  mean=5.192 sd=0.749  CV R2(quadratic+interactions)=0.936
+   重要度（その要素を含む項の分散 / 全分散）: Range +0.229, MaxHandForce +0.098, UprightKpRatio +0.091, Curvature +0.071, ArmServoHz +0.053, HandKp +0.046, BodyDrive +0.044, ElbowMax +0.036, Telegraph +0.021, MaxTwistDeg +0.016
+   線形の効き（±1 SD あたり、元の単位）: ElbowMax +0.446, Range +0.321, UprightKpRatio +0.216, Curvature +0.186, MaxHandForce +0.181, ArmServoHz +0.132, BodyDrive +0.105, Telegraph +0.104, HandKp +0.099, MaxTwistDeg +0.089
+
+== free / fistHit: n=911  mean=4.433 sd=1.006  CV R2(quadratic+interactions)=0.729
+   重要度（その要素を含む項の分散 / 全分散）: Range +0.338, UprightKpRatio +0.202, Telegraph +0.043, ElbowMax +0.039, MaxTwistDeg +0.033, ArmServoHz +0.030, TwistBias +0.027, MaxHandForce +0.026, BodyDrive +0.020, Curvature +0.020
+   線形の効き（±1 SD あたり、元の単位）: ElbowMax +0.473, UprightKpRatio +0.380, Range +0.266, MaxTwistDeg +0.157, Telegraph +0.138, TwistBias +0.134, MaxHandForce +0.094, ActTime -0.090, Curvature +0.084, BodyDrive +0.080
+
+== free / closing: n=911  mean=4.468 sd=1.018  CV R2(quadratic+interactions)=0.721
+   重要度（その要素を含む項の分散 / 全分散）: Range +0.265, UprightKpRatio +0.207, Telegraph +0.041, MaxTwistDeg +0.036, ElbowMax +0.030, ArmServoHz +0.030, MaxHandForce +0.028, TwistBias +0.028, BodyDrive +0.023, Curvature +0.023
+   線形の効き（±1 SD あたり、元の単位）: ElbowMax +0.530, UprightKpRatio +0.389, MaxTwistDeg +0.171, Range +0.163, Telegraph +0.140, TwistBias +0.134, MaxHandForce +0.107, Curvature +0.100, BodyDrive +0.090, ActTime -0.089
+
+== free / mass: n=911  mean=8.754 sd=2.025  CV R2(quadratic+interactions)=0.769
+   重要度（その要素を含む項の分散 / 全分散）: Range +0.354, MaxTwistDeg +0.221, UprightKpRatio +0.163, Telegraph +0.109, ArmServoHz +0.076, StepInScale +0.025, TwistBias +0.024, MaxHandForce +0.022, ElbowMax +0.021, ReactShare +0.018
+   線形の効き（±1 SD あたり、元の単位）: MaxTwistDeg +0.885, Range +0.845, Telegraph +0.627, ArmServoHz +0.416, UprightKpRatio +0.410, ElbowMax -0.308, StepInScale +0.306, BodyDrive -0.228, TwistBias -0.197, ReactShare -0.192
+
+== free / energy: n=911  mean=93.140 sd=48.005  CV R2(quadratic+interactions)=0.775
+   重要度（その要素を含む項の分散 / 全分散）: Range +0.243, UprightKpRatio +0.218, MaxTwistDeg +0.121, Telegraph +0.085, ArmServoHz +0.054, ElbowMax +0.051, Curvature +0.015, TwistBias +0.014, StepInScale +0.013, ShoulderMax +0.012
+   線形の効き（±1 SD あたり、元の単位）: UprightKpRatio +19.615, ElbowMax +18.292, MaxTwistDeg +15.905, Range +14.266, Telegraph +12.070, ArmServoHz +6.459, StepInScale +4.504, ActTime -3.316, ShoulderMax -3.000, ReactShare -2.964
+
+== frozen / peakFist: n=910  mean=4.770 sd=0.649  CV R2(quadratic+interactions)=0.938
+   重要度（その要素を含む項の分散 / 全分散）: Range +0.131, MaxHandForce +0.130, Curvature +0.092, HandKp +0.065, ArmServoHz +0.064, ElbowMax +0.048, BodyDrive +0.047, Telegraph +0.014, UprightKpRatio +0.009, ActTime +0.007
+   線形の効き（±1 SD あたり、元の単位）: ElbowMax +0.451, Range +0.202, Curvature +0.188, MaxHandForce +0.186, ArmServoHz +0.139, HandKp +0.116, BodyDrive +0.099, Telegraph +0.072, UprightKpRatio +0.066, ActTime -0.065
+
+== frozen / fistHit: n=864  mean=3.151 sd=1.049  CV R2(quadratic+interactions)=0.616
+   重要度（その要素を含む項の分散 / 全分散）: Range +0.388, ElbowMax +0.064, Curvature +0.050, MaxHandForce +0.044, MaxTwistDeg +0.028, Spring +0.028, LooseDamp +0.027, BodyDrive +0.024, ActTime +0.024, HandKp +0.021
+   線形の効き（±1 SD あたり、元の単位）: ElbowMax +0.579, Range -0.285, Curvature +0.177, ActTime -0.173, MaxHandForce +0.130, ArmServoHz -0.110, BodyDrive +0.091, BodyTime -0.077, ShoulderMax -0.073, HipShare -0.065
+
+== frozen / closing: n=864  mean=3.139 sd=0.965  CV R2(quadratic+interactions)=0.525
+   重要度（その要素を含む項の分散 / 全分散）: Range +0.269, MaxHandForce +0.054, Curvature +0.040, ElbowMax +0.035, Spring +0.033, ArmServoHz +0.029, MaxTwistDeg +0.028, ActTime +0.028, HandKp +0.027, LooseDamp +0.026
+   線形の効き（±1 SD あたり、元の単位）: ElbowMax +0.563, Range -0.288, ActTime -0.152, Curvature +0.149, MaxHandForce +0.148, ArmServoHz -0.137, BodyDrive +0.097, ShoulderMax -0.095, Telegraph +0.068, Spring -0.057
+
+== frozen / mass: n=864  mean=4.567 sd=1.363  CV R2(quadratic+interactions)=0.673
+   重要度（その要素を含む項の分散 / 全分散）: Range +0.455, UprightKpRatio +0.200, MaxTwistDeg +0.107, MaxHandForce +0.029, LooseDamp +0.017, HandKp +0.017, Curvature +0.016, ElbowMax +0.013, ArmServoHz +0.012, Telegraph +0.012
+   線形の効き（±1 SD あたり、元の単位）: Range +0.848, UprightKpRatio +0.504, MaxTwistDeg +0.392, ElbowMax -0.209, MaxHandForce -0.148, Curvature -0.134, HandKp -0.093, ShoulderMax -0.062, ArmServoHz -0.061, BodyDrive -0.057
+
+== frozen / energy: n=864  mean=23.547 sd=14.701  CV R2(quadratic+interactions)=0.324
+   重要度（その要素を含む項の分散 / 全分散）: Range +0.165, UprightKpRatio +0.086, MaxTwistDeg +0.068, ElbowMax +0.054, MaxHandForce +0.046, ArmServoHz +0.042, ActTime +0.036, Spring +0.035, LooseDamp +0.034, ShoulderMax +0.032
+   線形の効き（±1 SD あたり、元の単位）: ElbowMax +7.467, UprightKpRatio +2.921, MaxTwistDeg +2.536, ArmServoHz -2.438, ActTime -2.203, ShoulderMax -1.565, MaxHandForce +1.556, Curvature +1.555, BodyDrive +1.260, Telegraph +1.042
+
+体の寄与（自由 − 固定） peakFist: mean +0.422  sd 0.274  range -0.21..+1.35
+
+体の寄与（自由 − 固定） peakShoulderFwd: mean +0.924  sd 0.337  range +0.07..+1.89
+
+体の寄与（自由 − 固定） peakChestYaw: mean +5.060  sd 2.315  range +0.38..+12.59
+   体の寄与を決める要素（線形、±1 SD あたり）: UprightKpRatio +0.150, Range +0.118, MaxTwistDeg +0.077, TwistBias +0.054, Telegraph +0.032, HipShare +0.028, ReactShare -0.023, StepInScale +0.022
+
+== 縮約モデル（M33 = 質量 上腕+前腕 / M13 = 0.4 倍 / Ideal = Hill の速さの関係なし） vs 実測の最高速 peakFist
+   free   m33PeakFist     corr +0.750  bias(real-model) +1.212  RMSE 1.382  real≈0.56·model+2.97
+   free   m13PeakFist     corr +0.671  bias(real-model) +0.614  RMSE 1.075  real≈0.42·model+3.26
+   free   mIdealPeakFist  corr +0.458  bias(real-model) -3.254  RMSE 3.540  real≈0.22·model+3.34
+   free 残差（実測 − M33）の線形の効き: ArmServoHz +0.312, Range -0.291, HandKp -0.187, MaxHandForce -0.186, UprightKpRatio +0.177, ActTime +0.128, ElbowMax +0.117, BodyDrive -0.110  (残差 mean +1.212 sd 0.664)
+   frozen m33PeakFist     corr +0.819  bias(real-model) +1.036  RMSE 1.162  real≈0.59·model+2.57
+   frozen m13PeakFist     corr +0.740  bias(real-model) +0.461  RMSE 0.853  real≈0.46·model+2.80
+   frozen mIdealPeakFist  corr +0.382  bias(real-model) -3.561  RMSE 3.822  real≈0.16·model+3.40
+   frozen 残差（実測 − M33）の線形の効き: Range -0.316, ArmServoHz +0.240, MaxHandForce -0.173, HandKp -0.102, ActTime +0.086, BodyDrive -0.081, UprightKpRatio +0.061, Telegraph +0.045  (残差 mean +1.036 sd 0.526)
+
+== 1 要素ずつの格子（peakFist 自由 / 固定、水準 0..8 は下限..上限）
+   MaxHandForce    [175 .. 700] free   4.15  4.33  4.49  4.55  4.56  4.55  4.56  4.56  4.57   frozen  4.03  4.24  4.40  4.47  4.47  4.46  4.46  4.46  4.47
+   ElbowMax        [20 .. 80] free   3.70  4.08  4.39  4.64  4.85  5.01  5.17  5.31  5.37   frozen  3.60  3.99  4.30  4.55  4.76  4.94  5.09  5.17  5.27
+   ShoulderMax     [20 .. 80] free   4.58  4.57  4.56  4.55  4.55  4.55  4.54  4.55  4.57   frozen  4.48  4.48  4.47  4.47  4.46  4.45  4.45  4.44  4.48
+   ActTime         [0.008 .. 0.04] free   4.55  4.56  4.55  4.54  4.54  4.52  4.46  4.52  4.46   frozen  4.47  4.47  4.47  4.46  4.45  4.44  4.41  4.40  4.38
+   HandKp          [200 .. 1000] free   4.18  4.43  4.57  4.63  4.56  4.59  4.52  4.56  4.50   frozen  4.09  4.33  4.47  4.53  4.48  4.50  4.46  4.42  4.42
+   LooseDamp       [0.1 .. 1] free   4.56  4.56  4.56  4.55  4.55  4.54  4.54  4.54  4.54   frozen  4.49  4.48  4.47  4.46  4.46  4.46  4.45  4.45  4.44
+   ArmServoHz      [4 .. 20] free   4.17  4.37  4.52  4.58  4.63  4.64  4.65  4.65  4.62   frozen  4.02  4.28  4.41  4.52  4.61  4.66  4.70  4.71  4.69
+   BodyEff         [0 .. 1] free   4.54  4.55  4.55  4.55  4.56  4.56  4.56  4.56  4.56   frozen  4.45  4.46  4.46  4.47  4.47  4.47  4.47  4.47  4.47
+   BodyTime        [0.02 .. 0.2] free   4.52  4.55  4.56  4.56  4.56  4.56  4.56  4.56  4.57   frozen  4.48  4.47  4.47  4.47  4.47  4.47  4.46  4.46  4.46
+   ReactShare      [0 .. 1] free   4.62  4.60  4.58  4.57  4.56  4.54  4.53  4.51  4.51   frozen  4.47  4.47  4.47  4.47  4.47  4.47  4.47  4.47  4.47
+   BorrowSpeed     [0.3 .. 2] free   4.56  4.56  4.56  4.55  4.56  4.55  4.55  4.55  4.55   frozen  4.47  4.47  4.47  4.47  4.47  4.47  4.47  4.47  4.47
+   BodyDrive       [0 .. 3] free   4.24  4.34  4.43  4.51  4.56  4.55  4.55  4.55  4.55   frozen  4.17  4.27  4.35  4.42  4.47  4.47  4.46  4.46  4.46
+   MaxTwistDeg     [20 .. 70] free   4.54  4.54  4.55  4.56  4.58  4.59  4.61  4.63  4.64   frozen  4.48  4.47  4.47  4.47  4.46  4.46  4.46  4.45  4.44
+   HipShare        [0.2 .. 1] free   4.52  4.53  4.55  4.56  4.58  4.60  4.61  4.62  4.62   frozen  4.47  4.47  4.47  4.47  4.47  4.47  4.47  4.47  4.47
+   UprightKpRatio  [0.5 .. 3] free   4.39  4.51  4.59  4.67  4.76  4.87  4.85  4.91  4.98   frozen  4.38  4.46  4.47  4.48  4.49  4.47  4.54  4.52  4.54
+   TwistBias       [0 .. 0.6] free   4.56  4.60  4.65  4.69  4.73  4.75  4.78  4.79  4.80   frozen  4.47  4.47  4.48  4.48  4.48  4.48  4.48  4.48  4.48
+   StepInScale     [0 .. 3] free   4.52  4.53  4.55  4.56  4.58  4.59  4.61  4.63  4.64   frozen  4.47  4.47  4.47  4.47  4.47  4.47  4.47  4.48  4.48
+   Spring          [0 .. 1] free   4.55  4.55  4.55  4.55  4.55  4.56  4.56  4.56  4.56   frozen  4.44  4.44  4.44  4.45  4.45  4.46  4.46  4.46  4.47
+   Range           [0.9 .. 1.4] free   3.82  4.22  4.53  4.58  4.68  4.63  4.68  4.75  4.73   frozen  3.76  4.15  4.45  4.47  4.56  4.57  4.58  4.62  4.63
+   Telegraph       [0 .. 0.3] free   4.38  4.41  4.46  4.52  4.58  4.65  4.70  4.73  4.75   frozen  4.40  4.37  4.40  4.44  4.47  4.50  4.52  4.55  4.57
+   Curvature       [0.12 .. 0.5] free   4.19  4.36  4.48  4.58  4.66  4.72  4.77  4.83  4.87   frozen  4.09  4.26  4.39  4.49  4.58  4.64  4.70  4.75  4.79
+   MinLeverDeg     [4 .. 30] free   4.55  4.55  4.56  4.56  4.56  4.55  4.55  4.55  4.55   frozen  4.47  4.47  4.47  4.47  4.47  4.47  4.47  4.47  4.47
+   LeadHz          [0.5 .. 6] free   4.56  4.56  4.56  4.55  4.55  4.55  4.55  4.55  4.54   frozen  4.47  4.47  4.47  4.47  4.46  4.46  4.46  4.46  4.46

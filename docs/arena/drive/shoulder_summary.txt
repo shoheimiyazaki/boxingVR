@@ -1,0 +1,55 @@
+Baseline (per seed, pre-contact peak and contact samples)
+{'seed': 1.0, 'hitTime': 0.12403, 'closing': 4.48447, 'fistSpeed': 4.36015, 'mass': 9.67829, 'energy': 97.31734, 'shoulder': 0.89647, 'chest': 0.12236, 'yaw': 0.73201, 'tilt': 0.0421, 'lever': 0.15212, 'depth': 0.0, 'chestRate': 4.81198, 'pelvisRate': 2.96199}
+peaks {'fistSpeed': (4.6708, 0.1157), 'shoulder': (0.8965, 0.1199), 'chestRate': (4.8136, 0.1157), 'pelvisRate': (3.0168, 0.1115)}
+wider lever (+0.04 m) direct contact delta 0.1924791716
+{'seed': 2.0, 'hitTime': 0.12403, 'closing': 4.48447, 'fistSpeed': 4.36015, 'mass': 9.67829, 'energy': 97.31734, 'shoulder': 0.89647, 'chest': 0.12236, 'yaw': 0.73201, 'tilt': 0.0421, 'lever': 0.15212, 'depth': 0.0, 'chestRate': 4.81198, 'pelvisRate': 2.96199}
+peaks {'fistSpeed': (4.6708, 0.1157), 'shoulder': (0.8965, 0.1199), 'chestRate': (4.8136, 0.1157), 'pelvisRate': (3.0168, 0.1115)}
+wider lever (+0.04 m) direct contact delta 0.1924791716
+{'seed': 3.0, 'hitTime': 0.12403, 'closing': 4.48447, 'fistSpeed': 4.36015, 'mass': 9.67829, 'energy': 97.31734, 'shoulder': 0.89647, 'chest': 0.12236, 'yaw': 0.73201, 'tilt': 0.0421, 'lever': 0.15212, 'depth': 0.0, 'chestRate': 4.81198, 'pelvisRate': 2.96199}
+peaks {'fistSpeed': (4.6708, 0.1157), 'shoulder': (0.8965, 0.1199), 'chestRate': (4.8136, 0.1157), 'pelvisRate': (3.0168, 0.1115)}
+wider lever (+0.04 m) direct contact delta 0.1924791716
+Maximum shoulder decomposition error: 3.117000000052439e-07
+grid pairs 162 hits free/locked [162, 162]
+fistSpeed mean free-minus-locked peak 0.409
+shoulder mean free-minus-locked peak 0.6247
+chest mean free-minus-locked peak -0.0174
+yaw mean free-minus-locked peak 0.6493
+yaw model bias and RMSE 0.3418 0.8851
+lhs pairs 60 hits free/locked [60, 60]
+fistSpeed mean free-minus-locked peak 0.5676
+shoulder mean free-minus-locked peak 0.8803
+chest mean free-minus-locked peak -0.0463
+yaw mean free-minus-locked peak 1.0089
+yaw model bias and RMSE 1.0598 1.6105
+holdout pairs 6 hits free/locked [6, 6]
+fistSpeed mean free-minus-locked peak 0.533
+shoulder mean free-minus-locked peak 0.7295
+chest mean free-minus-locked peak -0.0464
+yaw mean free-minus-locked peak 0.8041
+yaw model bias and RMSE 0.3555 0.3593
+grid marginal fist peak torque {45.0: 4.4152, 70.0: 4.5719, 120.0: 4.7721}
+grid marginal fist peak rom {25.0: 4.6065, 35.0000021: 4.5876, 50.0: 4.5652}
+grid marginal fist peak hip {0.25: 4.5571, 0.449999988: 4.599, 0.65: 4.6032}
+grid marginal fist peak ff {0.0: 4.4985, 1.0: 4.6744}
+candidate/contact grid 45.0 1.05 0 {'fistSpeed': 3.5187, 'fistForward': 3.438, 'shoulder': 0.8332, 'chest': 0.163, 'yaw': 0.6345, 'tilt': 0.0358, 'chestRate': 4.1352, 'mass': 10.1327, 'energy': 64.421}
+candidate/contact grid 70.0 1.05 0 {'fistSpeed': 4.3602, 'fistForward': 4.2931, 'shoulder': 0.8965, 'chest': 0.1224, 'yaw': 0.732, 'tilt': 0.0421, 'chestRate': 4.812, 'mass': 9.6783, 'energy': 97.3173}
+candidate/contact grid 120.0 1.05 0 {'fistSpeed': 3.9013, 'fistForward': 3.8332, 'shoulder': 0.953, 'chest': 0.0926, 'yaw': 0.8121, 'tilt': 0.0483, 'chestRate': 5.5028, 'mass': 9.7151, 'energy': 78.2952}
+candidate/contact holdout 70.0 1.05 0 {'fistSpeed': 4.3602, 'fistForward': 4.2931, 'shoulder': 0.8965, 'chest': 0.1224, 'yaw': 0.732, 'tilt': 0.0421, 'chestRate': 4.812, 'mass': 9.6783, 'energy': 97.3173}
+candidate/contact holdout 70.0 1.05 1 {'fistSpeed': 3.7265, 'fistForward': 3.6684, 'shoulder': 0.1832, 'chest': 0.1436, 'yaw': 0.0, 'tilt': 0.0396, 'chestRate': 0.0, 'mass': 6.4591, 'energy': 46.7468}
+candidate/contact holdout 70.0 1.3 0 {'fistSpeed': 3.7978, 'fistForward': 3.7366, 'shoulder': 1.0903, 'chest': 0.2396, 'yaw': 0.8175, 'tilt': 0.0332, 'chestRate': 5.6142, 'mass': 10.3581, 'energy': 72.8486}
+candidate/contact holdout 70.0 1.3 1 {'fistSpeed': 0.864, 'fistForward': 0.8058, 'shoulder': 0.3403, 'chest': 0.3071, 'yaw': 0.0, 'tilt': 0.0332, 'chestRate': 0.0, 'mass': 11.8912, 'energy': 4.188}
+LHS step/translation Pearson r: 0.5592
+grid A/B shoulder-peak interaction (min/mean/max) -0.1756 -0.0994 -0.0045
+grid A model free contact sensitivity (min/mean/max)
+shoulderPeakDelta 0.3011 1.1246 2.5394
+fistPeakCarriageDelta 0.085 0.7738 1.7591
+fistPeakPdDelta -0.6688 -0.2502 0.2179
+carriageAtContact -0.0967 0.4721 1.6715
+pdAtContact -1.9186 -0.5578 0.168
+holdout A/B shoulder-peak interaction (min/mean/max) -0.1969 -0.0769 0.1092
+holdout A model free contact sensitivity (min/mean/max)
+shoulderPeakDelta 0.1983 1.0839 2.6152
+fistPeakCarriageDelta 0.0571 0.7458 1.782
+fistPeakPdDelta -0.847 -0.288 0.2179
+carriageAtContact -0.2234 0.2714 1.6715
+pdAtContact -1.9186 -0.5579 0.168

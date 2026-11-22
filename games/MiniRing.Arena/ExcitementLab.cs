@@ -26,21 +26,21 @@ internal static class ExcitementLab
     public static readonly string[] FitPairs = ["champion:swarmer", "slugger:outboxer", "counter:jabber", "boxer:slugger", "swarmer:counter", "jabber:champion"];
 
     public static int SingleCommand(Options o) =>
-        Single(o.Get("red") ?? "champion", o.Get("blue") ?? "swarmer", o.Float("seconds", 67.14f, min: 1f), o.Int("seeds", 4, min: 1), o.Int("seed", 1), o.Get("out"), o.Get("curve"));
+        Single(o.Get("red") ?? "champion", o.Get("blue") ?? "swarmer", o.Float("seconds", 67.14f, min: 1f), o.Int("seeds", 4, min: 1), o.Int("seed", 1), o.Get("out"), o.Get("curve"), TuningOverride.Parse(o.Get("tune")), o.Get("style"));
 
     public static int LeagueCommand(Options o) =>
-        League(o.List("pairs", DefaultPairs), o.Float("seconds", 67.14f, min: 1f), o.Int("seeds", 2, min: 1), o.Int("seed", 1), o.Get("out"), o.Get("label") ?? "");
+        League(o.List("pairs", DefaultPairs), o.Float("seconds", 67.14f, min: 1f), o.Int("seeds", 2, min: 1), o.Int("seed", 1), o.Get("out"), o.Get("label") ?? "", TuningOverride.Parse(o.Get("tune")), o.Get("style"));
 
     public static int FitCommand(Options o) =>
         Fit(o.List("pairs", FitPairs), o.Float("seconds", 67.14f, min: 1f), o.Int("seeds", 8, min: 2), o.Int("seed", 1), o.Get("out"));
 
-    public static int Single(string red, string blue, float seconds, int seeds, int seed, string? outPath, string? curvePrefix = null)
+    public static int Single(string red, string blue, float seconds, int seeds, int seed, string? outPath, string? curvePrefix = null, FighterTuning? fighter = null, string? style = null)
     {
         var sb = new StringBuilder();
         var all = new List<ExcitementSummary>();
         for (var i = 0; i < seeds; i++)
         {
-            var h = ExcitementRun.Bout(Contender.Named(red), Contender.Named(blue), seed + i, seconds);
+            var h = ExcitementRun.Bout(StyleOverride.Contender(red, style), StyleOverride.Contender(blue, style), seed + i, seconds, fighter: fighter);
             var s = h.Summarize();
             all.Add(s);
             if (curvePrefix is not null)
@@ -81,10 +81,13 @@ internal static class ExcitementLab
         File.WriteAllLines(path, lines);
     }
 
-    public static int League(IReadOnlyList<string> pairs, float seconds, int seeds, int seed, string? outPath, string label)
+    public static int League(IReadOnlyList<string> pairs, float seconds, int seeds, int seed, string? outPath, string label, FighterTuning? fighter = null, string? style = null)
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
         var rows = new List<(string Pair, ExcitementSummary Mean)>();
+        var points = new Dictionary<HighlightKind, float>();
+        var falls = 0;
+        var paused = 0f;
         var all = new List<ExcitementSummary>();
         foreach (var pair in pairs)
         {
@@ -92,7 +95,16 @@ internal static class ExcitementLab
             var bouts = new List<ExcitementSummary>();
             for (var i = 0; i < seeds; i++)
             {
-                var s = ExcitementRun.Bout(Contender.Named(red), Contender.Named(blue), seed + i, seconds).Summarize();
+                var fallCounter = new FallCounter();
+                var h = ExcitementRun.Bout(StyleOverride.Contender(red, style), StyleOverride.Contender(blue, style), seed + i, seconds, fighter: fighter, afterStep: (g, t) => fallCounter.Observe(g, t));
+                falls += fallCounter.Falls;
+                paused += fallCounter.PausedSeconds;
+                var s = h.Summarize();
+                foreach (var e in h.Events)
+                {
+                    points[e.Kind] = points.GetValueOrDefault(e.Kind) + (ExcitementTuning.Default.Weights.GetValueOrDefault(e.Kind) * MathF.Min(e.Intensity, ExcitementTuning.Default.IntensityCap));
+                }
+
                 Console.Error.WriteLine($"{pair} 種 {seed + i}: {s.Line()}");
                 bouts.Add(s);
             }
@@ -103,6 +115,10 @@ internal static class ExcitementLab
 
         var text = Table(label, rows, ExcitementSummary.Mean(all), seconds, seeds, seed);
         Console.WriteLine(text);
+        var perBout = Math.Max(1, all.Count);
+        Console.WriteLine($"\n打たれずに倒れた回数（意識 90 % 以上のまま立ちから倒れた）: 1 試合あたり {(float)falls / perBout:0.0}");
+        Console.WriteLine($"試合が止まっている時間（数え・休み・ラウンドの間）: 1 試合あたり {paused / perBout:0.0} 秒");
+        Console.WriteLine("\n1 試合あたりの出来事の点（重み × 強さ。派手さの内訳）: " + string.Join("  ", points.OrderByDescending(p => p.Value).Select(p => $"{p.Key}={p.Value / perBout:0.0}")));
         Console.Error.WriteLine($"{all.Count} bouts in {watch.Elapsed.TotalSeconds:0}s");
         if (outPath is not null)
         {
