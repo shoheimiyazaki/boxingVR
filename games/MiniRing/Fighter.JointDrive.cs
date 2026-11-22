@@ -7,7 +7,7 @@ public sealed partial class Fighter
     private Vector3? _jointStanceTarget;
     private readonly List<JointWork> _jointWork = [];
 
-    private readonly record struct JointWork(int Parent, int Child, Quaternion Before, Vector3 Torque, MuscleRegion Region, float Hold);
+    private readonly record struct JointWork(int Parent, int Child, Quaternion Before, Vector3 Torque, MuscleRegion Region, float Hold, int Channel);
 
     /// <summary>
     /// 関節ごとの筋の努力（活性化でならしたトルク、親の局所の向き）。酸素の仕事はこの値で数える: 実際の筋は活性化に時間がかかり、
@@ -49,7 +49,7 @@ public sealed partial class Fighter
         ApplyMuscleCouple(parent, child, Vector3.Transform(torque, a.Orientation) * dt, MuscleRegion.Trunk, dt);
     }
 
-    private void ApplyMuscleCouple(int parent, int child, Vector3 impulse, MuscleRegion region, float dt)
+    private void ApplyMuscleCouple(int parent, int child, Vector3 impulse, MuscleRegion region, float dt, int channel = 0)
     {
         if (impulse.LengthSquared() <= 0f)
         {
@@ -75,13 +75,13 @@ public sealed partial class Fighter
 
         var inverse = Quaternion.Conjugate(a.Orientation);
         var instant = Vector3.Transform(applied / dt, inverse);
-        var key = (parent, child);
+        var key = (parent, child + (channel * 100000)); // 同じ関節に別の筋（呼吸）が入るときは努力のならしを分ける
         var follow = 1f - MathF.Exp(-dt / MathF.Max(1e-4f, _tuning.MuscleEffortWindow));
         var effort = _muscleEffort.TryGetValue(key, out var previous) ? previous + ((instant - previous) * follow) : instant;
         _muscleEffort[key] = effort;
         // 保つ分（等尺性）: 筋が出している力 = トルク ÷ てこの腕。動かさなくても力を出すだけで酸素を使う（腕の IsometricCost と同じ量）。
         var hold = _tuning.IsometricCost * effort.Length() / MathF.Max(1e-3f, _tuning.TrunkMuscleArm) * dt;
-        _jointWork.Add(new JointWork(parent, child, Quaternion.Concatenate(b.Orientation, inverse), effort, region, hold));
+        _jointWork.Add(new JointWork(parent, child, Quaternion.Concatenate(b.Orientation, inverse), effort, region, hold, channel));
         _world.ApplyAngularImpulse(child, applied);
         _world.ApplyAngularImpulse(parent, -applied);
 
@@ -131,7 +131,7 @@ public sealed partial class Fighter
         var pulse = MathF.Sin(MathF.PI * phase);
         var depth = _tuning.BreathRestShare + ((1f - _tuning.BreathRestShare) * Winded);
         var axis = Vector3.Transform(Vector3.UnitX, _world.GetState(parent).Orientation);
-        ApplyMuscleCouple(parent, chest, -axis * (_tuning.BreathTorque * depth * pulse * pulse * dt), MuscleRegion.Trunk, dt);
+        ApplyMuscleCouple(parent, chest, -axis * (_tuning.BreathTorque * depth * pulse * pulse * dt), MuscleRegion.Trunk, dt, channel: 1);
     }
 
     private Vector3 _hipEffort;
@@ -163,7 +163,7 @@ public sealed partial class Fighter
             var displacement = FighterMath.RotationError(motor.Before, after);
             // 動かす分（ならした筋の努力 × ならした関節の実際の回転の速さ、の正の部分）+ 保つ分。両方を同じ時間でならすので、
             // 歩ごとの振動（努力と回転が偶然そろう）は仕事に数えず、数 Hz のパンチ・ひねりの仕事は残る。
-            var key = (motor.Parent, motor.Child);
+            var key = (motor.Parent, motor.Child + (motor.Channel * 100000));
             var follow = 1f - MathF.Exp(-dt / MathF.Max(1e-4f, _tuning.MuscleEffortWindow));
             var instant = displacement / dt;
             var rate = _muscleRate.TryGetValue(key, out var previous) ? previous + ((instant - previous) * follow) : instant;

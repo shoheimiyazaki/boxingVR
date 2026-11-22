@@ -47,6 +47,32 @@ public sealed class FractureRateProbe
     }
 
     [TestMethod]
+    public void GlovedRoster_FractureRatePerRound_TenSeeds()
+    {
+        var gloved = CharacterRoster.All.Where(c => c.Weapon is null && c.Wear == Weapons.HandWear.Glove).ToList();
+        var jobs = new List<(FighterCharacter Red, FighterCharacter Blue, int Seed)>();
+        for (var i = 0; i < gloved.Count; i++)
+        {
+            for (var j = i + 1; j < gloved.Count; j++)
+            {
+                for (var seed = 1; seed <= 10; seed++)
+                {
+                    jobs.Add((gloved[i], gloved[j], seed));
+                }
+            }
+        }
+
+        var results = new ConcurrentBag<int>();
+        Parallel.ForEach(jobs, new ParallelOptions { MaxDegreeOfParallelism = 12 }, job =>
+        {
+            var outcome = RosterLeague.RunBout(job.Red, job.Blue, job.Seed, 50.35f, referee: true);
+            results.Add(outcome.RedTally.BonesBroken + outcome.BlueTally.BonesBroken);
+        });
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"gloved roster ({string.Join(",", gloved.Select(c => c.Id))}): {results.Count} rounds, with a broken bone {100.0 * results.Count(b => b > 0) / results.Count:0.0} %, {(double)results.Sum() / results.Count:0.00} bones/round"));
+    }
+
+    [TestMethod]
     public void Roster_FractureRatePerRound()
     {
         var all = CharacterRoster.All;

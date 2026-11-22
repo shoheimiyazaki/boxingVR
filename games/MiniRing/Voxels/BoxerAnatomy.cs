@@ -192,6 +192,7 @@ public static class BoxerAnatomy
 
     /// <summary>木の削れにくさ（木の武器と手の組織が同じ値を使う）。</summary>
     private const float WoodToughness = 5f;
+    private const float BoneToughness = 8f;
 
     private static Vector4 Rgb(float r, float g, float b) => new(r, g, b, 1f);
 
@@ -205,7 +206,7 @@ public static class BoxerAnatomy
         new VoxelMaterial("empty", VoxelTissue.Empty, 1f, false, Vector4.Zero, Vector4.Zero),
         new VoxelMaterial("skin", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.86f, 0.6f, 0.42f), Rgb(0.86f, 0.6f, 0.42f), Stainable: 1f, Mechanics: SkinMechanics),
         new VoxelMaterial("muscle", VoxelTissue.Flesh, 1f, false, Rgb(0.8f, 0.05f, 0.07f), Rgb(0.8f, 0.05f, 0.07f), Stainable: 0.3f, Mechanics: MuscleMechanics),
-        new VoxelMaterial("bone", VoxelTissue.Bone, 8f, false, Rgb(1f, 0.98f, 0.88f), Rgb(1f, 0.98f, 0.88f), Stainable: 0f, Mechanics: BoneMechanics),
+        new VoxelMaterial("bone", VoxelTissue.Bone, BoneToughness, false, Rgb(1f, 0.98f, 0.88f), Rgb(1f, 0.98f, 0.88f), Stainable: 0f, Mechanics: BoneMechanics),
         new VoxelMaterial("brain", VoxelTissue.Organ, 1.4f, true, Rgb(1f, 0.4f, 0.8f), Rgb(1f, 0.4f, 0.8f), Stainable: 0f, Mechanics: BrainMechanics),
         new VoxelMaterial("heart", VoxelTissue.Organ, 1.4f, true, Rgb(0.55f, 0f, 0.35f), Rgb(0.55f, 0f, 0.35f), Stainable: 0f, Mechanics: OrganMechanics),
         new VoxelMaterial("lung", VoxelTissue.Organ, 1.2f, true, Rgb(0.45f, 0.8f, 1f), Rgb(0.45f, 0.8f, 1f), Stainable: 0f, Mechanics: OrganMechanics),
