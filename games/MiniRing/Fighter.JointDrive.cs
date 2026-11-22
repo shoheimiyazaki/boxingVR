@@ -62,11 +62,17 @@ public sealed partial class Fighter
         // 蓄えの尽きた胴が後ろへ崩れた（のけぞり -30°）。回旋の軸だけに絞って締めても、小さい胴の蓄えでは試合の手数が落ちすぎた（WvcSlipTests の打ち合い 1 発）。
         // 胴の疲れは回旋（軸）の筋の駆動の割合 VigorOf だけに出す（DriveRelativeTorso・ApplyUprightImpulse）。
         var index = (int)region;
-        var linear = MathF.Max(0f, Vector3.Dot(impulse, b.AngularVelocity - a.AngularVelocity));
+        // 酸素の予算で締めるのは動かす力（回旋）だけ（2026-11-22）: 胴は、関節の回旋の軸（親の局所の Y）の成分だけを予算で締める。体を起こして保つトルク
+        // （傾き・横の成分、等尺性）まで締めると、蓄えの尽きた胴が後ろへ崩れた（のけぞり -30°）。他の部位は力積の全体を締める。
+        var index = (int)region;
+        var twistAxis = region == MuscleRegion.Trunk ? Vector3.Transform(Vector3.UnitY, a.Orientation) : Vector3.Zero;
+        var twist = twistAxis * Vector3.Dot(impulse, twistAxis);
+        var gatedPart = region == MuscleRegion.Trunk ? twist : impulse;
+        var linear = MathF.Max(0f, Vector3.Dot(gatedPart, b.AngularVelocity - a.AngularVelocity));
         var quadratic = 0.5f * (ImpulseInertiaTerm(parent, a.Orientation) + ImpulseInertiaTerm(child, b.Orientation));
-        var gated = FatigueEnabled && region != MuscleRegion.Trunk;
+        var gated = FatigueEnabled;
         var scale = gated ? MuscleWork.ForceScale(linear, quadratic, 0f, _budget[index]) : 1f;
-        var applied = impulse * scale;
+        var applied = region == MuscleRegion.Trunk ? (impulse - twist) + (twist * scale) : impulse * scale;
         if (gated)
         {
             var reserved = (linear * scale) + (quadratic * scale * scale);
@@ -88,7 +94,7 @@ public sealed partial class Fighter
 
         float ImpulseInertiaTerm(int body, Quaternion orientation)
         {
-            var local = Vector3.Transform(impulse, Quaternion.Conjugate(orientation));
+            var local = Vector3.Transform(gatedPart, Quaternion.Conjugate(orientation));
             return Vector3.Dot(local, local / _world.GetLocalInertiaDiagonal(body));
         }
     }
