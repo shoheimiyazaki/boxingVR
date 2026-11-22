@@ -220,7 +220,8 @@ public sealed class CharacterTests
         var bigBuild = new BodyBuild(Height: 1.1f, Legs: 1.1f, Muscle: 1.3f);
         using var normal = new BoxingGame(seed: 13);
         using var big = new BoxingGame(seed: 13, corners: BoxingCorners.Default with { CpuBody = bigBuild });
-        using var thin = new BoxingGame(seed: 13, corners: BoxingCorners.Default with { CpuBody = new BodyBuild(Muscle: 0.7f) });
+        // 相手は構えて立つだけ（2026-11-22: 殴り合う試合のままだと、打たれて倒れた回数の揺れでこの確認が割れた。確かめたいのは細い脚で立てること）。
+        using var thin = new BoxingGame(seed: 13, corners: BoxingCorners.Default with { CpuBody = new BodyBuild(Muscle: 0.7f), Player = _ => new StandGuard() });
         Assert.AreEqual(1f, normal.Cpu.LegStrength(true), 1e-5f);
         Assert.IsGreaterThan(normal.Cpu.LegStrength(true), big.Cpu.LegStrength(true));
         Assert.IsLessThan(normal.Cpu.LegStrength(true), thin.Cpu.LegStrength(true));
