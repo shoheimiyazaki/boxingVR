@@ -15,6 +15,38 @@ namespace MiniRing.Tests;
 public sealed class FractureRateProbe
 {
     [TestMethod]
+    public void Roster_FractureRatePerRound_ByBoneStrength()
+    {
+        var all = CharacterRoster.All;
+        var jobs = new List<(float Scale, FighterCharacter Red, FighterCharacter Blue)>();
+        foreach (var scale in new[] { 1.5f, 2f, 3f, 4f })
+        {
+            for (var i = 0; i < all.Count; i++)
+            {
+                for (var j = i + 1; j < all.Count; j++)
+                {
+                    jobs.Add((scale, all[i], all[j]));
+                }
+            }
+        }
+
+        var results = new ConcurrentBag<(float Scale, int Broken, bool Armed)>();
+        Parallel.ForEach(jobs, new ParallelOptions { MaxDegreeOfParallelism = 24 }, job =>
+        {
+            BoxingGame.LimbBendProbeScale = job.Scale;
+            var outcome = RosterLeague.RunBout(job.Red, job.Blue, seed: 1, 50.35f, referee: true);
+            results.Add((job.Scale, outcome.RedTally.BonesBroken + outcome.BlueTally.BonesBroken, job.Red.Weapon is not null || job.Blue.Weapon is not null || job.Red.Wear != Weapons.HandWear.Glove || job.Blue.Wear != Weapons.HandWear.Glove));
+        });
+        foreach (var scale in results.Select(r => r.Scale).Distinct().OrderBy(x => x))
+        {
+            var all1 = results.Where(r => r.Scale == scale).ToList();
+            var glove = all1.Where(r => !r.Armed).ToList();
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"bone strength x{scale}: rounds with a break {100.0 * all1.Count(r => r.Broken > 0) / all1.Count:0.0} % ({all1.Count} rounds, {(double)all1.Sum(r => r.Broken) / all1.Count:0.00} bones/round); glove-only {100.0 * glove.Count(r => r.Broken > 0) / glove.Count:0.0} % ({glove.Count} rounds)"));
+        }
+    }
+
+    [TestMethod]
     public void Roster_FractureRatePerRound()
     {
         var all = CharacterRoster.All;

@@ -63,11 +63,16 @@ public sealed partial class Fighter
         var index = (int)region;
         // 胴の筋は予算で締めない（2026-11-22）: 酸素の取り置きは「この力積で体を加速する」仕事の上限で、体を起こして保つだけのトルク（等尺性）まで
         // 締めると、蓄えの尽きた胴が後ろへ崩れた（のけぞり -30°）。胴の疲れは回旋（軸）の筋の駆動の割合 VigorOf だけに出す。
-        var scale = FatigueEnabled && region != MuscleRegion.Trunk ? MuscleWork.ForceScale(linear, quadratic, 0f, _budget[index]) : 1f;
+        var gated = FatigueEnabled && region != MuscleRegion.Trunk;
+        var scale = gated ? MuscleWork.ForceScale(linear, quadratic, 0f, _budget[index]) : 1f;
         var applied = impulse * scale;
-        var reserved = (linear * scale) + (quadratic * scale * scale);
-        _budget[index] = MathF.Max(0f, _budget[index] - reserved);
-        StepMuscleAuthorized += reserved;
+        if (gated)
+        {
+            var reserved = (linear * scale) + (quadratic * scale * scale);
+            _budget[index] = MathF.Max(0f, _budget[index] - reserved);
+            StepMuscleAuthorized += reserved;
+        }
+
         var inverse = Quaternion.Conjugate(a.Orientation);
         var instant = Vector3.Transform(applied / dt, inverse);
         var key = (parent, child);

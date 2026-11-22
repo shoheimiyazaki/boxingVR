@@ -79,6 +79,10 @@ public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFa
 /// </summary>
 public sealed partial class BoxingGame : IGame<BoxingInput>
 {
+    /// <summary>調べもの用（スレッドごと）: 試合の決まり（<see cref="MatchRules.LimbBendStrengthScale"/>）が無いとき、腕・脚の骨の曲げ強さに掛ける倍率（0 以下は 1）。骨折の頻度の測定（FractureRateProbe）。</summary>
+    [ThreadStatic]
+    internal static float LimbBendProbeScale;
+
     /// <summary>10 カウントの長さ [s]（試合の時間。人形の単位の 10 s を実物大の時間へ ×√L）。数える数は <see cref="CountNumbers"/>、1 つの間は <see cref="CountInterval"/>。</summary>
     public const float CountSeconds = 16.78f;
 
@@ -1643,7 +1647,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var playerLook = _corners.PlayerLook ?? (_corners.PlayerName is { } redName ? FaceLook.For(Bots.BotNames.RingNameOf(redName)) with { Parts = _corners.PlayerFace ?? FaceParts.For(redName) } : null);
         var cpuLook = _corners.CpuLook ?? (FaceLook.For(Bots.BotNames.RingNameOf(_corners.CpuName)) with { Parts = _corners.CpuFace ?? FaceParts.For(_corners.CpuName) });
         // 顔の層の形（部品）: 名簿のキャラは自分の顔（PlayerFaceSpec / CpuFaceSpec）、無ければ見た目の髪型・眉・ひげと名前から（FaceSpec.FromLook）。
-        var limbBendStrength = Rules?.LimbBendStrengthScale ?? 1f;
+        var limbBendStrength = Rules?.LimbBendStrengthScale ?? (LimbBendProbeScale > 0f ? LimbBendProbeScale : 1f);
         Player.Voxels = new BoxerBody(Player, _world, playerTuning, playerModel, Outfit.RedCorner, BoxerVoxelOverrides.Shipped, playerLook,
             _corners.PlayerFaceSpec ?? (playerLook is null ? null : FaceSpec.FromLook(playerLook, _corners.PlayerLabel ?? _corners.PlayerName ?? "player")), limbBendStrength);
         Cpu.Voxels = new BoxerBody(Cpu, _world, cpuTuning, cpuModel, Outfit.BlueCorner, BoxerVoxelOverrides.Shipped, cpuLook,

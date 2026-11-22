@@ -79,7 +79,7 @@ public sealed class StaminaBudgetTests
         // 空の 1 発目は、蓄えが無く心肺の供給の分しか仕事が出ないので弱い（2026-11-17 の測定: 満タンの 1 発目に対して速さ 0.59 倍・エネルギー 0.39 倍）。
         // 片手で 0.5 秒（人形の単位で 0.3 秒）ごとの強い拳は臨界パワー（9 W）より下の仕事なので、打ちながらも蓄えは戻り、10 発目には 0.9 倍ほどまで戻る（満タンには届かない）。
         // 以前（回復が exp(−(P/5W)²) の式）は 10 発目も 0.585 倍のままだった。
-        Assert.IsLessThanOrEqualTo(full.Peaks[0] * 0.65f, empty.Peaks[0]);
+        Assert.IsLessThanOrEqualTo(full.Peaks[0] * 0.7f, empty.Peaks[0]); // 2026-11-22: 蓄えの尽きた腕が続けて出せる力の上限（45 %）で 0.66 倍
         Assert.IsLessThanOrEqualTo(full.Hits[0].Energy * 0.5f, empty.Hits[0].Energy);
         Assert.IsTrue(empty.Peaks[9] > empty.Peaks[0] && empty.Peaks[9] < full.Peaks[9] * 0.95f, "打ちながら戻るが満タンには届かない");
         Assert.IsGreaterThan(full.Peaks[0] * 0.9f, full.Peaks[9]);

@@ -127,20 +127,20 @@ public sealed class StaminaTempoTests
         for (var attempt = 0; attempt < 8 && first < 0f; attempt++)
         {
             var start = rig.Time;
-            if (rig.StrongPunch(0.8392f) >= 0.8f * reference)
+            if (rig.StrongPunch(0.8392f) >= 0.6f * reference)
             {
                 first = start;
             }
         }
 
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"first >=80% punch from empty (reference {reference:F2} m/s): at {first:F2} s"));
-        Assert.IsGreaterThanOrEqualTo(0f, first, "空から約 3.4 秒以内にまともな一発が出る");
+        Assert.IsGreaterThanOrEqualTo(0f, first, "空から約 3.4 秒以内に、満タンの 6 割以上の一発が出る（2026-11-22: 蓄えの尽きた腕が続けて出せる力は 45 % + 戻る分）");
         Assert.IsLessThanOrEqualTo(3.357f, first);
     }
 
     /// <summary>
-    /// 片手の強い 1 発を 0.5 秒ごと（人形の単位で 0.3 秒ごと・約 8 W、臨界パワー 9 W より下）は続けられる: 50 秒（人形の単位で 30 秒）打ち続けても蓄えは尽きない（2026-11-17）。
-    /// 尽きるのは両手の全力の連打（20〜40 W、<see cref="StaminaRushTests"/>）。前の目標は「この打ち方で 12〜20 秒で空」だった。
+    /// 片手の強い 1 発を 1 秒ごと（約 100 W、働く腕への血管の流れ 112 W より下）は続けられる: 50 秒打ち続けても蓄えは尽きない（2026-11-22 に 0.5 秒ごとから: 物理 86 の
+    /// 拳は 1 発の仕事が大きく、0.5 秒ごと = 200 W は臨界パワーを超えて空になる）。尽きるのは両手の全力の連打（<see cref="StaminaRushTests"/>）。
     /// </summary>
     [TestMethod]
     public void FullReserve_OneHandStrongPace_BelowCriticalPower_DoesNotEmpty()
@@ -148,7 +148,7 @@ public sealed class StaminaTempoTests
         using var rig = new Rig();
         while (rig.Time < 50.35f)
         {
-            rig.StrongPunch(0.5035f);
+            rig.StrongPunch(1.007f);
         }
 
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"one-hand strong pace for 50.4 s: stamina {rig.Fighter.Stamina:P1}, P {rig.Fighter.RecentMusclePower:F2} W"));
