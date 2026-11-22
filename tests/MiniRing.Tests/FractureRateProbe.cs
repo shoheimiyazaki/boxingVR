@@ -33,11 +33,11 @@ public sealed class FractureRateProbe
         }
 
         var seconds = 50.35f;
-        var results = new ConcurrentBag<(string Red, string Blue, int Broken, int RedLost, int BlueLost)>();
+        var results = new ConcurrentBag<(string Red, string Blue, int Broken, int RedLost, int BlueLost, bool Armed)>();
         Parallel.ForEach(pairs, new ParallelOptions { MaxDegreeOfParallelism = 12 }, pair =>
         {
             var outcome = RosterLeague.RunBout(pair.Red, pair.Blue, seed: 1, seconds, referee: true);
-            results.Add((pair.Red.Id, pair.Blue.Id, outcome.RedTally.BonesBroken + outcome.BlueTally.BonesBroken, outcome.RedTally.BonesLost, outcome.BlueTally.BonesLost));
+            results.Add((pair.Red.Id, pair.Blue.Id, outcome.RedTally.BonesBroken + outcome.BlueTally.BonesBroken, outcome.RedTally.BonesLost, outcome.BlueTally.BonesLost, pair.Red.Weapon is not null || pair.Blue.Weapon is not null || pair.Red.Wear != Weapons.HandWear.Glove || pair.Blue.Wear != Weapons.HandWear.Glove));
         });
 
         var rounds = results.Count;
@@ -45,6 +45,16 @@ public sealed class FractureRateProbe
         var total = results.Sum(r => r.Broken);
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"pairs {rounds} (one {seconds:0.0} s round each): rounds with a broken bone {withBreak} ({100.0 * withBreak / rounds:0.0} %), bones broken {total} ({(double)total / rounds:0.00} per round)"));
+        foreach (var armed in new[] { false, true })
+        {
+            var group = results.Where(r => r.Armed == armed).ToList();
+            if (group.Count > 0)
+            {
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                    $"  {(armed ? "armed or other wear" : "glove vs glove, no weapon")}: {group.Count} rounds, with a break {100.0 * group.Count(r => r.Broken > 0) / group.Count:0.0} %, bones {(double)group.Sum(r => r.Broken) / group.Count:0.00} per round"));
+            }
+        }
+
         foreach (var r in results.Where(r => r.Broken > 0).OrderByDescending(r => r.Broken))
         {
             Console.WriteLine($"  {r.Red} vs {r.Blue}: {r.Broken} (red lost {r.RedLost}, blue lost {r.BlueLost})");

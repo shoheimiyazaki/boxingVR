@@ -16,7 +16,7 @@ public sealed class StaminaRushTests
 {
     private const float Dt = 1f / 60f;
 
-    private static float[] RushWindows(float seconds, Action<BoxingGame>? setup = null)
+    private static double[] RushWindows(float seconds, Action<BoxingGame>? setup = null)
     {
         var corners = BoxingCorners.Default with { Player = _ => new IntentControl(), Cpu = _ => new IntentControl() };
         // 意識（ConcussionSpin を無限大に）に加え、腹の打撲による体の張りの低下（CoreToneFloor）も切る: 的の相手は胴を打たれ続けて倒れる。
@@ -63,7 +63,7 @@ public sealed class StaminaRushTests
         }
 
         Assert.IsTrue(windows.All(w => w.Count >= 4), "どの 5 秒も連打できている");
-        return [.. windows.Select(w => w.Count > 0 ? w.Sum / w.Count : 0)];
+        return [.. windows.Select(w => w.Count > 0 ? w.Sum / w.Count : 0.0)];
     }
 
     [TestMethod]
@@ -75,6 +75,6 @@ public sealed class StaminaRushTests
         Assert.IsGreaterThan(4.5, mean[0], "始めの 5 秒は全力（体重を乗せた満タンの拳）");
         Assert.IsTrue(mean[1] < 0.8 * mean[0] && mean[1] > 0.4 * mean[0], "次の 5 秒で落ちていく");
         Assert.IsTrue(mean[3] > 0.25 * mean[0] && mean[3] < 0.6 * mean[0], "その後は酸素の供給と釣り合ったノロノロのパンチ（満タンの 3〜6 割）");
-        Assert.IsTrue(MathF.Abs((float)(mean[2] - mean[3])) < 0.3 * mean[3], "10 秒を過ぎたら速さが落ち続けない（供給と釣り合って止まる）");
+        Assert.IsTrue(Math.Abs(mean[2] - mean[3]) < 0.3 * mean[3], "10 秒を過ぎたら速さが落ち続けない（供給と釣り合って止まる）");
     }
 }
