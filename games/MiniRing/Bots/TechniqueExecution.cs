@@ -16,6 +16,12 @@ internal static class TechniqueExecution
     private static readonly Vector3 LoadCockLead = new(0f, -0.01f, -0.05f);
 
     // tiredDrop: 疲れて構えを下げる量 [腕の長さ]（入力元の判断: 酸素を節約するため。体の強さではない。BotStyle.TiredGuardDrop × 酸素の負債）。
+    /// <summary>構えを下げ始めるスタミナ（<see cref="FighterTuning.TiredKnee"/> と同じ 0.45: 体の動きが鈍り始める所）。</summary>
+    internal const float TiredGuardKnee = 0.45f;
+
+    /// <summary>疲れの度合い（0 = 元気 … 1 = 空）: 鈍り始め <see cref="TiredGuardKnee"/> から線形。元気な間は 0 で、構えは変わらない。</summary>
+    internal static float Tiredness(float stamina) => Math.Clamp(1f - (stamina / TiredGuardKnee), 0f, 1f);
+
     internal static Vector3 Guard(Hand hand, Hand leadHand, float reach, Vector3 headLocal, float height, float width, float extension, float faintness, float tiredDrop = 0f)
     {
         var lead = hand == leadHand;

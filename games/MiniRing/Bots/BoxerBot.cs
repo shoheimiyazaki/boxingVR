@@ -490,7 +490,7 @@ public sealed class BoxerBot : IFighterControl
     public Vector3 Guard(Hand hand, float reach, Vector3 headLocal)
     {
         var height = Style.GuardHeight + ((BotStyle.MaxGuardHeight - Style.GuardHeight) * Style.RangeGuard * _range.Danger);
-        return TechniqueExecution.Guard(hand, Style.Lead, reach, headLocal, height, Style.GuardWidth, Style.GuardReach, _faintness, Style.TiredGuardDrop * (1f - _stamina));
+        return TechniqueExecution.Guard(hand, Style.Lead, reach, headLocal, height, Style.GuardWidth, Style.GuardReach, _faintness, Style.TiredGuardDrop * TechniqueExecution.Tiredness(_stamina));
     }
 
     // ── 守り ──

@@ -299,7 +299,7 @@ public sealed class IntentControl : IFighterControl
     }
 
     private Vector3 Guard(Hand hand, float reach, Vector3 head, float faintness)
-        => TechniqueExecution.Guard(hand, _style.Lead, reach, head, _style.GuardHeight, _style.GuardWidth, _style.GuardReach, faintness, _style.TiredGuardDrop * (1f - _stamina));
+        => TechniqueExecution.Guard(hand, _style.Lead, reach, head, _style.GuardHeight, _style.GuardWidth, _style.GuardReach, faintness, _style.TiredGuardDrop * TechniqueExecution.Tiredness(_stamina));
 
     private PunchAction Action(Hand hand) => hand == Hand.Left ? _left : _right;
 
