@@ -58,10 +58,6 @@ public sealed partial class Fighter
 
         var a = _world.GetState(parent);
         var b = _world.GetState(child);
-        // 胴の筋は酸素の予算で締めない（2026-11-22）: 取り置きは「この力積で体を加速する」仕事の上限で、体を起こして保つだけのトルク（等尺性）まで締めると、
-        // 蓄えの尽きた胴が後ろへ崩れた（のけぞり -30°）。回旋の軸だけに絞って締めても、小さい胴の蓄えでは試合の手数が落ちすぎた（WvcSlipTests の打ち合い 1 発）。
-        // 胴の疲れは回旋（軸）の筋の駆動の割合 VigorOf だけに出す（DriveRelativeTorso・ApplyUprightImpulse）。
-        var index = (int)region;
         // 酸素の予算で締めるのは動かす力（回旋）だけ（2026-11-22）: 胴は、関節の回旋の軸（親の局所の Y）の成分だけを予算で締める。体を起こして保つトルク
         // （傾き・横の成分、等尺性）まで締めると、蓄えの尽きた胴が後ろへ崩れた（のけぞり -30°）。他の部位は力積の全体を締める。
         var index = (int)region;
