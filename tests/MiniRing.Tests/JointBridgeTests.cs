@@ -33,8 +33,8 @@ public sealed class JointBridgeTests
         foreach (var fighter in new[] { game.Player, game.Cpu })
         {
             var bridges = fighter.Voxels!.Bridges;
-            // 首・脊椎・肩 2・肘 2・腰 2・膝 2・足首 2（関節の種類で選ばない。手首は別の関節ではない）。
-            Assert.HasCount(12, bridges);
+            // 首・脊椎・肩 2・肘 2・腰 2・膝 2・足首 2（関節の種類で選ばない。手首は別の関節ではない）。分割胴は胸と腹の間の背骨の関節がもう 1 つ。
+            Assert.HasCount(fighter.Parts.Abdomen is null ? 12 : 13, bridges);
             foreach (var bridge in bridges)
             {
                 Assert.AreEqual(bridge.Parent.Body.BodyId, bridge.Body.BodyId, $"{bridge.Joint}: rides the parent's rigid body (no body of its own)");

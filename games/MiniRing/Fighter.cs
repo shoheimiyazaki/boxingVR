@@ -2422,12 +2422,15 @@ public sealed partial class Fighter
             }
             else
             {
-                StepFeet(footCommand, height, dt);
+                // 腰から打つ体: 手の目標から出す踏み込み（_wavePush）を足の運びの踏み出しへは渡さない。体が前へ動くと手の目標も動き、遅れて追う基準との差が
+                // 押しを保って、足が踏み出し続けた（静かに立つ VR の構えで骨盤が 20 秒に 1.3 m 流れた: SlideTests）。足は腰（HipShiftDistance）を後から追う。
+                StepFeet(UsesHipDrive ? command : footCommand, height, dt);
                 var yawPush = handDrivenStep ? _waveYawPush * (1f - forwardShare) : 0f;
                 if (UsesHipDrive)
                 {
-                    // 腰から打つ体: 拳の踏み込み・回旋で脚のバネに床を蹴らせない（腰を外から運び・回す: ApplyBodyOverFeet・ApplyFacingAndUpright）。
-                    // 入力元のステップ（意図の踏み込み・下がり）は脚のバネのまま。
+                    // 腰から打つ体: 手の目標から出す踏み込み・回旋（_wavePush）では脚のバネを放たない（腰の行き先を運ぶ: ApplyBodyOverFeet）。
+                    // ステップの指令（技の踏み込み GroundDrive・入力元のステップ）は脚に貯めたエネルギーで腰を運ぶ: 水平の力積は骨盤だけへかかり
+                    // （ApplySharedImpulse）、床の摩擦の上限で切られる（足が床を蹴る脚の動きは解かない近道）。
                     StepWithLegSpring(command, groundY, scale * legs, dt);
                 }
                 else if (!UsesJointDrive)
@@ -2514,7 +2517,10 @@ public sealed partial class Fighter
         var active = lead.Command is not null || _legParts[Footwork.Rear].Command is not null || command.ClampedMove.LengthSquared() > 0f || command.ClampedStep.LengthSquared() > 0f;
         _restSeconds = active ? 0f : _restSeconds + dt;
         var kicking = _restSeconds < _tuning.Footwork.HoldSettleSeconds;
-        var input = new FootworkInput(_facingYaw, new Vector2(pelvis.Position.X, pelvis.Position.Z), new Vector2(pelvis.LinearVelocity.X, pelvis.LinearVelocity.Z),
+        // 腰から打つ体: わざと前へ運んだ腰（体重移動 HipShift）は、足の置き直しの基準から外す（運んだ腰を足が追って踏み出し、また腰が前へ…と流れないように）。
+        // 倒れかけ（捕捉点が足の外）の判断は重心のまま（下の Com）。
+        var planned = pelvis.Position - HipShift;
+        var input = new FootworkInput(_facingYaw, new Vector2(planned.X, planned.Z), new Vector2(pelvis.LinearVelocity.X, pelvis.LinearVelocity.Z),
             omega, new Vector2(intent.X, intent.Z), twist, weight, legLength,
             lead.ReachRatio > 0.995f, _legParts[Footwork.Rear].ReachRatio > 0.995f, BallOnGround(lead), BallOnGround(_legParts[Footwork.Rear]), MathF.Max(0.3f * legLength, reach),
             LeadFree: kicking, RearFree: kicking,
@@ -2542,6 +2548,12 @@ public sealed partial class Fighter
     /// 体（骨盤）を動かす: 移動の指令に少し遅れて付いていき（足が先に踏み出し、体が後から動く）、両足の間の支えの点
     /// （体重のかけ方で前後へ寄る）へは弱く寄せる。足は体の捕捉点と移動の意図から置き場所を決めるので、体は足から離れない。
     /// </summary>
+    /// <summary>
+    /// 腰から打つ体の体重移動: 前へ打ち込む拳の度合い（<see cref="_wavePush"/> × 前へ打つ割合）だけ、腰の行き先を支えの中心から前へ運ぶ量 [m]（水平）。
+    /// 足の運びはこの分を置き直しの基準から外す（足を踏み出さずに前足へ乗る）。
+    /// </summary>
+    private Vector3 HipShift => UsesHipDrive ? new BodyFrame(Vector3.Zero, _facingYaw).Forward * (_tuning.HipShiftDistance * _wavePush * ForwardPunchShare) : Vector3.Zero;
+
     private void ApplyBodyOverFeet(in FighterCommand command, float scale, float dt)
     {
         var t = _tuning.Footwork;
@@ -2554,7 +2566,8 @@ public sealed partial class Fighter
         var rearKick = _legParts[1].Command is not null;
         var support = leadKick != rearKick ? new Vector2(_footwork.Pose(leadKick ? 1 : 0).Ball.X, _footwork.Pose(leadKick ? 1 : 0).Ball.Z) : _footwork.SupportCenter;
         // 腰から打つ体の体重移動: 前へ打ち込む拳の度合い（_wavePush）だけ、腰の行き先を支えの中心から前へ運ぶ（脚で床を蹴る代わりに腰から）。
-        var shift = UsesHipDrive ? new BodyFrame(Vector3.Zero, _facingYaw).Forward * (_tuning.HipShiftDistance * _wavePush) : Vector3.Zero;
+        // 置き換えた脚のバネの踏み込みと同じく、前へ打つ割合（ForwardPunchShare）を掛ける。
+        var shift = HipShift;
         var toSupport = support + new Vector2(back.X + shift.X, back.Z + shift.Z) - new Vector2(pelvis.Position.X, pelvis.Position.Z);
         _centerIntegral = (_centerIntegral * MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.BalanceIntegralSeconds))) + (toSupport * dt);
         var centering = (toSupport * t.Centering) + (_centerIntegral * (_tuning.BalanceKi * t.Centering));
@@ -3100,7 +3113,9 @@ public sealed partial class Fighter
         // 遅れて押し戻す（戻りすぎて揺れ返す）。Ki = BalanceKi × Kp。BalanceKi = 0 で前の PD のまま。
         var slot = body == Parts.Pelvis ? 0 : body == Parts.Chest ? 1 : 2;
         _uprightIntegral[slot] = (_uprightIntegral[slot] * MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.BalanceIntegralSeconds))) + (error * dt);
-        var accel = (error * _tuning.UprightKp) + (_uprightIntegral[slot] * (_tuning.BalanceKi * _tuning.UprightKp)) - (s.AngularVelocity * _tuning.UprightKd);
+        // 腰から打つ体の骨盤: ねじりの力積は骨盤から上の胴全体の慣性で効かせるので、減衰も胴全体の回り（質量の重みの平均の角速度）で見る（骨盤だけの角速度で見ると歩ごとに揺れ返す）。
+        var spin = s.AngularVelocity;
+        var accel = (error * _tuning.UprightKp) + (_uprightIntegral[slot] * (_tuning.BalanceKi * _tuning.UprightKp)) - (spin * _tuning.UprightKd);
         // 鉛直軸まわり（ひねり）: 回旋筋のトルクから決めたバネ。Kp は可動域の端の誤差でちょうど最大のトルク、減衰比は傾きのバネと同じ。
         // 腰から打つ体の骨盤: 外からのねじりで骨盤から上の胴全体（関節でつながった腹・胸・頭・腕）を起こし・回すので、その合成の慣性で効かせる。
         var hipRoot = UsesHipDrive && body == Parts.Pelvis;
@@ -3111,7 +3126,7 @@ public sealed partial class Fighter
         var rotatorTorque = torque * _tuning.TorqueScale;
         var yawKp = rotatorTorque / (chestYawInertia * MathF.Max(1e-3f, PunchTwistLimit));
         var yawKd = _tuning.UprightKd / MathF.Sqrt(_tuning.UprightKp) * MathF.Sqrt(yawKp); // 2ζ√Kp（ζ = UprightKd / 2√UprightKp）
-        var yaw = (error.Y * yawKp) + (_uprightIntegral[slot].Y * (_tuning.BalanceKi * yawKp)) + ((yawRate - s.AngularVelocity.Y) * yawKd);
+        var yaw = (error.Y * yawKp) + (_uprightIntegral[slot].Y * (_tuning.BalanceKi * yawKp)) + ((yawRate - spin.Y) * yawKd);
         var yawLimit = rotatorTorque / MathF.Max(1e-4f, inertia.Y);
         accel = ClampLength(new Vector3(accel.X, 0f, accel.Z) * scale, _tuning.MaxUprightAccel) + new Vector3(0f, tiltOnly ? 0f : Math.Clamp(yaw * scale, -yawLimit, yawLimit), 0f);
         // 加速度を慣性で力積へ（PhysicsWorld.GetLocalInertiaDiagonal の推奨式）。
@@ -3148,6 +3163,26 @@ public sealed partial class Fighter
         }
 
         return Vector3.Max(sum, new Vector3(1e-4f));
+    }
+
+    /// <summary>骨盤・腹・胸・頭の角速度の、質量の重みの平均 [rad/s、ワールド]（腰から打つ体で、骨盤の起こす・回すバネの減衰が見る胴全体の回り）。</summary>
+    private Vector3 UpperBodySpin()
+    {
+        var sum = Vector3.Zero;
+        var mass = 0f;
+        foreach (var id in new[] { Parts.Pelvis, Parts.Abdomen ?? Parts.Pelvis, Parts.Chest, Parts.Head })
+        {
+            if (_detached.Contains(id) || (id == Parts.Pelvis && mass > 0f))
+            {
+                continue; // 腹の無い体では骨盤を 2 度数えない
+            }
+
+            var m = _world.GetMass(id);
+            sum += _world.GetState(id).AngularVelocity * m;
+            mass += m;
+        }
+
+        return mass > 0f ? sum / mass : Vector3.Zero;
     }
 
     private void ApplyMovement(in FighterCommand command, float scale, float dt)

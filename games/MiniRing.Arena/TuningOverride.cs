@@ -56,6 +56,7 @@ internal static class TuningOverride
         type == typeof(float) ? float.Parse(text, CultureInfo.InvariantCulture)
         : type == typeof(int) ? int.Parse(text, CultureInfo.InvariantCulture)
         : type == typeof(bool) ? bool.Parse(text)
+        : type.IsEnum ? Enum.Parse(type, text)
         : throw new ArgumentException($"{name} は {type.Name} 型で、--tune では差し替えられません。");
 }
 

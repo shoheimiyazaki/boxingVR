@@ -341,7 +341,7 @@ public sealed record FighterTuning
     /// <summary>
     /// 腰から打つ体（2026-11-22、ユーザーの指定「パンチの地面を足でける反力は簡略化し、腰から」）。外から駆動するのは骨盤だけ:
     /// <list type="bullet">
-    /// <item>骨盤の向き（ひねり・傾き）と水平の運びは、脚と床の代わりに外から強く駆動する。その力・ねじりは支えのモデル（<c>LimitToSupport</c>: 捕捉点・CoP・摩擦）が
+    /// <item>骨盤の向き（ひねり・傾き）と水平の運びは、脚と床の代わりに外から強く駆動する。その力・ねじりは支えのモデル（<c>LimitToSupport</c>: 標準の <see cref="SupportModel"/> = Soft は捕捉点が足の外へ出た分だけ減らす。CoP・摩擦の制限 SoftCop は掛けない: 掛けると打たれずに倒れる回数が 0.1 → 4.4 回/試合）が
     /// 床で出せる分へ直す（床の反力は別のモデル）。傾きのバネは骨盤から上の胴全体（腹・胸・頭・腕）の傾きの慣性で効かせる（立つのは近道）。</item>
     /// <item>腹・胸は、骨盤 → 腹 → 胸の関節の筋のトルク（<see cref="TrunkRotatorTorque"/>、反作用つき）だけで回る・起きる。胸の回旋は腰の回旋から物理で伝わる。</item>
     /// <item>拳を引く力の反作用は全部を胸へ（<see cref="HandReactionShare"/> = 1）、体から拳への近道の移送（<c>TransferBodyMotion</c>）と体重を外から押す移送（<see cref="WeightShiftShare"/>）は使わない。</item>
@@ -366,6 +366,7 @@ public sealed record FighterTuning
 
     /// <summary>腰から打つ体の、腰を運ぶ水平の加速度の上限 [m/s²]（歩く <see cref="MaxMoveAccel"/> より強い: 腰は強い力で駆動できる。床の摩擦・釣り合いで別に制限）。</summary>
     public float HipDriveAccel { get; init; } = 14f;
+
     /// <summary>分割胴の試験設定で、脚のばねを直進でなく腰の回旋に使う。</summary>
     public bool CompactTorsoWave { get; init; }
 

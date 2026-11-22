@@ -321,6 +321,12 @@ public sealed partial class Fighter
         {
             SettleJointWork();
         }
+        else
+        {
+            // 腰から打つ体の胴の関節の筋（DriveRelativeTorso）の仕事は、酸素の蓄えに数えない（呼吸・循環は分割胴に合わせていない近道:
+            // 数えると構えて立っているだけで息が上がった。docs/DEBT.md「腰から打つ体」）。記録だけ毎歩捨てる（溜め続けない）。
+            _jointWork.Clear();
+        }
 
         var follow = 1f - MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.StaminaRecoveryWindow));
         var stepWork = 0f;
@@ -505,7 +511,8 @@ public sealed partial class Fighter
             return;
         }
 
-        var chestMass = _world.GetMass(Parts.Chest);
+        // 力積を受ける部位の質量と速度で仕事を数える（腰から打つ体の水平の力は骨盤だけ: ApplySharedImpulse）。
+        var chestMass = UsesHipDrive ? 0f : _world.GetMass(Parts.Chest);
         var pelvisMass = _world.GetMass(Parts.Pelvis);
         var mass = chestMass + pelvisMass;
         var velocity = ((_world.GetState(Parts.Chest).LinearVelocity * chestMass) +
