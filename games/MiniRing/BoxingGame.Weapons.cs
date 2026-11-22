@@ -677,6 +677,12 @@ public sealed partial class BoxingGame
             return 0f;
         }
 
+        if (holder.UsesArticulatedImpact)
+        {
+            // 関節で連なった体の、拳の向きの有効質量から、はめた物そのものを除いた分（打たれる点はまだ決まっていないので拳の中心で）。
+            return MathF.Max(0f, holder.ArticulatedMass(weapon.Body.BodyId, holder.GloveCenter(hand), velocity) - _world.GetMass(weapon.Body.BodyId));
+        }
+
         // 体の質量は、拳の打撃と同じく当たりへ運べる分だけ（BodyFactor）。打たれる部位はまだ決まっていないので、相手の体の重心の速度で見る。
         var factor = BodyFactor(holder, velocity, holder.GloveCenter(hand), holder.ShoulderPosition(hand), holder.Parts.Chest, PreStepBodyVelocity(OpponentOf(holder)), velocity);
         return holder.ImpactMass(hand, velocity, out _, factor);
@@ -1844,6 +1850,11 @@ public sealed partial class BoxingGame
             return false;
         }
 
+        if (attacker.UsesArticulatedImpact)
+        {
+            return ArticulatedPunch(attacker, hand, victim, part, hit, contactTwist, velocity, speed);
+        }
+
         float impactMass;
         var bodyShare = 0f;
         if (!legacyImpact)
@@ -1878,7 +1889,53 @@ public sealed partial class BoxingGame
     }
 
     /// <summary>
-    /// 刃が振り抜けた所の、斬った側の動き: 当たった所の刃の速さ（打たれた部位に対して、歩の前の姿勢から）と、刃の向き（ワールド）。
+    /// グローブの打撃を、関節で連なった両者の体の衝突として解く（<see cref="FighterTuning.ArticulatedImpact"/>）。
+    /// 力積 J = (1 + 反発) × 近づく速さ × 換算質量（1/m打つ側 + 1/m打たれる側 の逆数）。m は当たった点・当たる向きの <see cref="Fighter.ArticulatedMass"/>。
+    /// ボクセルの接触が 2 つの剛体（グローブと打たれた部位）だけで渡した法線の力積との差を、当たった点に作用・反作用で加える（体への伝わりは関節の拘束が解く）。
+    /// 頭なら、点のずれが回した分を接触の回しに足して脳しんとう。得点の運動量は J（乗った質量は J ÷ 速さ）。
+    /// </summary>
+    private bool ArticulatedPunch(Fighter attacker, Hand hand, Fighter victim, VoxelPart part, VoxelContactResult hit, Vector3 contactTwist, Vector3 velocity, float speed)
+    {
+        var glove = hit.A == part.Body ? hit.B : hit.A;
+        var direction = hit.Direction.LengthSquared() > 1e-12f ? Vector3.Normalize(hit.Direction) : Vector3.Normalize(velocity);
+        var striker = attacker.ArticulatedMass(glove.BodyId, hit.Point, direction);
+        var struckMass = victim.ArticulatedMass(part.Body.BodyId, hit.Point, direction);
+        var reduced = 1f / ((1f / MathF.Max(1e-3f, striker)) + (1f / MathF.Max(1e-3f, struckMass)));
+        var impulse = (1f + VoxelContact.Restitution) * speed * reduced;
+        var impactMass = impulse / speed;
+        var (kind, normalized, armHand) = victim.Locate(part.Body.BodyId, hit.Point);
+        var zone = HitZones.Classify(kind, normalized, armHand.LocalSide());
+        var damage = PunchMechanics.Damage(impulse) * PunchMechanics.Sharpness(speed) * ZoneDamage.Multiplier(zone);
+        if (damage < MinimumDamage)
+        {
+            return false;
+        }
+
+        _hitCooldown[(attacker, hand)] = RehitCooldown;
+        // 接触が 2 つの剛体だけで渡した分との差を、当たった点に作用・反作用で加える。
+        var given = MathF.Abs(Vector3.Dot(hit.ImpulseOnB, hit.Normal));
+        var extra = direction * MathF.Max(0f, impulse - given);
+        var struckState = _world.GetState(part.Body.BodyId);
+        var gloveState = _world.GetState(glove.BodyId);
+        var twist = Vector3.Cross(hit.Point - struckState.Position, extra);
+        _world.ApplyLinearImpulse(part.Body.BodyId, extra);
+        _world.ApplyAngularImpulse(part.Body.BodyId, twist);
+        _world.ApplyLinearImpulse(glove.BodyId, -extra);
+        _world.ApplyAngularImpulse(glove.BodyId, Vector3.Cross(hit.Point - gloveState.Position, -extra));
+        if (part.Body.BodyId == victim.Parts.Head)
+        {
+            victim.TwistHead(contactTwist + twist); // 頭がねじられた分だけ脳しんとう（接触の回しと、足した力積の回し）
+        }
+
+        var bodyShare = striker > 1e-3f ? Math.Clamp((striker - attacker.ArmMass(hand)) / striker, 0f, 1f) : 0f;
+        var face = hit.A == part.Body ? hit.FaceB : hit.FaceA;
+        ApplyHit(new HitEvent(attacker, hand, victim, zone, hit.Point, speed, impactMass, bodyShare, damage, face),
+            part.Body.BodyId, velocity, carve: false, alsoTwist: contactTwist, carryBody: false);
+        return true;
+    }
+
+    /// <summary>
+    /// 刃が振り抜けた所の、斬った側の動き:当たった所の刃の速さ（打たれた部位に対して、歩の前の姿勢から）と、刃の向き（ワールド）。
     /// </summary>
     private (Vector3 Swing, Vector3 Blade) SwingAt(Weapon weapon, VoxelBody struck, Vector3 point)
     {

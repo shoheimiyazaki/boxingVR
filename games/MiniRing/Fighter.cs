@@ -238,7 +238,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 84; // 84: 分割胴を標準に、腰から打つ体（HipDrive）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 85; // 85: グローブの当たりを関節で連なった体の衝突で解く。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }

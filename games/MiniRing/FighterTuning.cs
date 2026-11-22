@@ -352,6 +352,14 @@ public sealed record FighterTuning
     public bool HipDrive { get; init; }
 
     /// <summary>
+    /// 当たりを、関節で連なった両者の体の有効質量（<see cref="Fighter.ArticulatedMass"/>）の衝突として解く（2026-11-22、ユーザーの指定: 拳に乗る体重を物理から）。
+    /// 力積 J = (1 + 反発) × 近づく速さ ÷ (1/m打つ側 + 1/m打たれる側)。ボクセルの接触が 2 つの剛体だけで渡した分との差を、当たった点に作用・反作用で加え、
+    /// 体への伝わりは物理の関節に任せる（式の有効質量 <c>PunchMechanics.ImpactMass</c> と、体の分の運動量を足す押し込み <c>CarryBody</c> は使わない）。
+    /// 手にはめた物（グローブ）の打撃に効く。
+    /// </summary>
+    public bool ArticulatedImpact { get; init; }
+
+    /// <summary>
     /// 腰から打つ体（<see cref="HipDrive"/>）で、前へ打ち込む拳が腰を支えの中心から前へ運ぶ距離の上限 [m]（体重移動）。打ち込みの度合い（手の目標が足の基準より前へ出た割合）に比例。
     /// 捕捉点が足で受け止められる範囲（<c>KeepCaptureOverFeet</c>）で頭打ちになる。
     /// </summary>
@@ -950,6 +958,7 @@ public sealed record FighterTuning
     public static FighterTuning Default { get; } = DynamicPunch with
     {
         HipDrive = true,
+        ArticulatedImpact = true,
         HandReactionShare = 1f,
         WeightShiftShare = 0f,
         PelvisRotatorTorque = 300f,

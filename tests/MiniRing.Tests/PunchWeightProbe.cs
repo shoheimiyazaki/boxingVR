@@ -38,7 +38,8 @@ public sealed class PunchWeightProbe
 
     private static string Line(string name, FighterTuning tuning, float telegraph)
     {
-        using var bout = new PunchLab.Bout(new(PunchLabPath.Standard, "still", "reach", 1.05f, false), 1, telegraph, tuning);
+        var path = Environment.GetEnvironmentVariable("MINIRING_PUNCH_PATH") == "through" ? PunchLabPath.InstantThrough : PunchLabPath.Standard;
+        using var bout = new PunchLab.Bout(new(path, "still", "reach", 1.05f, false), 1, telegraph, tuning);
         while (bout.PunchTime is null)
         {
             bout.Step();
@@ -72,6 +73,16 @@ public sealed class PunchWeightProbe
         var motion = FormattableString.Invariant(
             $"{name,-12} load={telegraph:F2} yaw pelvis/abdomen/chest={pelvisYaw:F1}/{abdomenYaw:F1}/{chestYaw:F1} rad/s shoulder={shoulderPeak:F2} fist={fistPeak:F2} m/s pelvisFwd={pelvisForward * 100f:F1} cm ");
         var impact = h is { } x ? FormattableString.Invariant($"HIT speed={x.Speed:F2} mass={x.ImpactMass:F2} body={x.BodyShare:F2} energy={x.Energy:F1} J") : "no hit";
+        if (h is { } y)
+        {
+            // 当たった瞬間（歩の後）の、拳の向きの両者の関節で連なった有効質量と、腕の伸び（肩 → 拳 ÷ 腕の長さ）・腕の線と拳の向きの揃い。
+            var dir = f.GloveVelocity(Hand.Right).LengthSquared() > 1e-6f ? Vector3.Normalize(f.GloveVelocity(Hand.Right)) : f.Frame.Forward;
+            var arm = f.GloveCenter(Hand.Right) - f.ShoulderPosition(Hand.Right);
+            var striker = f.ArticulatedMass(f.ForearmId(Hand.Right), y.Point, dir);
+            var victim = bout.Game.Cpu;
+            var struck = victim.ArticulatedMass(victim.Parts.Head, y.Point, dir);
+            impact += FormattableString.Invariant($" | m_striker={striker:F2} m_head={struck:F2} extension={arm.Length() / f.ArmReach:F2} align={Vector3.Dot(Vector3.Normalize(arm), dir):F2}");
+        }
         return motion + impact;
     }
 }

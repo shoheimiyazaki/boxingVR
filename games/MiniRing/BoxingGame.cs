@@ -883,7 +883,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <param name="carve">拳の運動エネルギーで当たった所を掘るか（素手の拳の近道）。ボクセルのグローブの打撃は、接触そのものが壊した分だけなので false。</param>
     /// <param name="alsoTwist">物理の接触が頭を回した分（グローブのボクセルの接触の力積）。</param>
     /// <param name="legacyWornImpact">関節駆動でも、グローブ接触を解いた呼び出しでは従来の運動量を渡す。</param>
-    internal void ApplyHit(HitEvent hit, int victimBody, Vector3 gloveVelocity, bool carve = true, Vector3 alsoTwist = default, bool legacyWornImpact = false)
+    /// <param name="carryBody">体の分の運動量を押し込む近道（CarryBody）を使うか。関節で連なった体の衝突として解いた打撃（ArticulatedPunch）は、力積をもう加えたので false。</param>
+    internal void ApplyHit(HitEvent hit, int victimBody, Vector3 gloveVelocity, bool carve = true, Vector3 alsoTwist = default, bool legacyWornImpact = false, bool carryBody = true)
     {
         if (RoundOver || Resting || Holding)
         {
@@ -901,7 +902,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 同じ運動量の反作用を打った側の全身へ返す（運動量は湧かない）。
         // 物理の接触が運ぶのは打った四肢そのものの質量（腕、蹴りなら脚）だけ。残りの体の分を足す。
         var extraMass = hit.ImpactMass - (hit.Kick ? hit.Attacker.KickingMass(hit.Hand) : hit.Attacker.ArmMass(hit.Hand));
-        var push = (!hit.Attacker.UsesJointDrive || legacyWornImpact) && extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f
+        var push = carryBody && (!hit.Attacker.UsesJointDrive || legacyWornImpact) && extraMass > 0f && gloveVelocity.LengthSquared() > 1e-8f
             ? CarryBody(hit.Attacker, victim, victimBody, hit.Point, Vector3.Normalize(gloveVelocity) * (extraMass * hit.Speed * KnockbackTransfer), hit.Speed, alsoTwist)
             : Vector3.Zero;
         if (!carve)
