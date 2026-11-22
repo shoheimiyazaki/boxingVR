@@ -680,7 +680,7 @@ public sealed partial class BoxingGame
         if (holder.UsesArticulatedImpact)
         {
             // 関節で連なった体の、拳の向きの有効質量から、はめた物そのものを除いた分（打たれる点はまだ決まっていないので拳の中心で）。
-            return MathF.Max(0f, holder.ArticulatedMass(weapon.Body.BodyId, holder.GloveCenter(hand), velocity) - _world.GetMass(weapon.Body.BodyId));
+            return MathF.Max(0f, holder.ArticulatedMass(weapon.Body.BodyId, holder.GloveCenter(hand), velocity, velocity.Length()) - _world.GetMass(weapon.Body.BodyId));
         }
 
         // 体の質量は、拳の打撃と同じく当たりへ運べる分だけ（BodyFactor）。打たれる部位はまだ決まっていないので、相手の体の重心の速度で見る。
@@ -1898,8 +1898,8 @@ public sealed partial class BoxingGame
     {
         var glove = hit.A == part.Body ? hit.B : hit.A;
         var direction = hit.Direction.LengthSquared() > 1e-12f ? Vector3.Normalize(hit.Direction) : Vector3.Normalize(velocity);
-        var striker = attacker.ArticulatedMass(glove.BodyId, hit.Point, direction);
-        var struckMass = victim.ArticulatedMass(part.Body.BodyId, hit.Point, direction);
+        var striker = attacker.ArticulatedMass(glove.BodyId, hit.Point, direction, speed);
+        var struckMass = victim.ArticulatedMass(part.Body.BodyId, hit.Point, direction, speed);
         var reduced = 1f / ((1f / MathF.Max(1e-3f, striker)) + (1f / MathF.Max(1e-3f, struckMass)));
         var impulse = (1f + VoxelContact.Restitution) * speed * reduced;
         var impactMass = impulse / speed;

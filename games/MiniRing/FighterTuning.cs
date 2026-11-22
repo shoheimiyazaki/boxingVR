@@ -360,6 +360,13 @@ public sealed record FighterTuning
     public bool ArticulatedImpact { get; init; }
 
     /// <summary>
+    /// 打撃の接触が続く時間 [s]（<see cref="Fighter.ArticulatedMass"/> の関節の筋の構え）。この間に関節の筋（サーボ）がばね k・減衰 b で出せる受け止めを、
+    /// 関節の回りに足す慣性 D = k T²/π² + b T とみなす（半周期の正弦の接触）。筋の力の上限で頭打ち（D ≤ τ_max T r / v: 関節が出せる角の力積 ÷ 必要な回りの速さ）。
+    /// 12 ms: グローブの打撃の接触の長さの目安（10〜20 ms、Walilko ほか 2005 の打撃の力の時間の幅）。
+    /// </summary>
+    public float ImpactContactSeconds { get; init; } = 0.012f;
+
+    /// <summary>
     /// 腰から打つ体（<see cref="HipDrive"/>）で、前へ打ち込む拳が腰を支えの中心から前へ運ぶ距離の上限 [m]（体重移動）。打ち込みの度合い（手の目標が足の基準より前へ出た割合）に比例。
     /// 捕捉点が足で受け止められる範囲（<c>KeepCaptureOverFeet</c>）で頭打ちになる。
     /// </summary>

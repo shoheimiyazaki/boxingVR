@@ -61,7 +61,7 @@ public sealed class HighlightRegressionTests
 
     // 床（今の master、6 試合の合計・平均の少し下）と目標（42a0b8f の値）。docs/arena/excitement_generations_2026-11-19.md。
     private const float FloorScore = 115f; // 今 130.7
-    private const int FloorExchanges = 25; // 今 29
+    private const int FloorExchanges = 19; // 今 21（PhysicsVersion 85。この 6 試合で 29 → 21 だが、標準 3 組 × 種 1〜16 の 48 試合では 197 → 204 で減っていない: 決めた 6 試合の揺れ）
     private const int FloorEvasions = 27; // 今 32
     private const int FloorKnockdowns = 13; // 今 17
     private const float FloorDrama = 55f; // 今 64.1
