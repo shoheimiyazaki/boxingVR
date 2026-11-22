@@ -22,6 +22,8 @@ namespace MiniRing.Arena;
 /// （出来た動画を引き伸ばすのと違い、コマが重複しない）。音は映像の時刻に置き、音そのものの速さ・高さは変えない。</param>
 /// <param name="tv">テレビ中継風（<see cref="MatchRules.Tv"/> の 30 秒 × 5 ラウンド、得点表と時計、会場の歓声、実況用の出来事の記録 *.events.json）。</param>
 /// <param name="faceCam">試合中、画面の両脇に両コーナーの顔の窓を出す（<see cref="FaceCam"/>）。null なら出さない。</param>
+/// <param name="cameraScale">試合中のカメラの引き具合の倍率（練習試合の全景。1 が標準、小さいほど寄る）。</param>
+/// <param name="focusRed">練習試合の全景で、赤だけを写す（相手が遠くても寄れる。疲れ方を近くで見る用）。</param>
 /// <param name="tvRounds">テレビ中継のラウンドの数（1 ラウンドは <see cref="MatchRules.Tv"/> の 30 秒のまま）。</param>
 /// <param name="tvEvent">テレビ中継の冒頭に出す大会名。</param>
 /// <param name="tvBout">テレビ中継の冒頭に出す「第 1 試合」などの札（空なら出さない）。</param>
@@ -38,7 +40,7 @@ namespace MiniRing.Arena;
 /// <paramref name="render"/> が false とは一緒に使えない。
 /// </param>
 internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false,
-    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 16.78f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null, bool belt = false)
+    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 16.78f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null, bool belt = false, float cameraScale = 1f, bool focusRed = false)
 {
     private readonly Organization _org = org ?? Organization.Default;
 
@@ -55,7 +57,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// 顔の窓。テレビ中継では番組の型（<see cref="ITvShow.Arrange"/>）が置き場を決める（WVC は左下・右下で、窓の下に名札とスタミナのメーター）。
     /// それ以外は渡されたまま（両脇の中ほど）。
     /// </summary>
-    private readonly FaceCam? _faceCam = tv && faceCam is not null ? ShowFormats.Create(width, height, org ?? Organization.Default).Arrange(faceCam, width, height) : faceCam;
+    private readonly FaceCam? _faceCam = faceCam is not null ? ShowFormats.Create(width, height, org ?? Organization.Default).Arrange(faceCam, width, height) : faceCam;
 
     /// <summary>試合を 1 歩進める時間の上限 [s]（ホストの 1 歩と同じ）。速さを落とすと 1 歩はこれより短くなる。</summary>
     private const float MaxStepDt = 1f / 60f;
@@ -155,6 +157,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         }
 
         var show = ShowFormats.Create(width, height, _org);
+        var practiceGraphics = new TvShowGraphics(width, height, _org);
         _scenes = card is null ? [] : show.PreFight(card, tvProgram, redCharacter?.Profile is not null && blueCharacter?.Profile is not null);
         _resultSeconds = show.ResultSeconds;
         _captionY = show.CaptionY(height);
@@ -757,7 +760,14 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         };
                         var overlay = MatchOverlay(redRing, blueRing, redCaption, blueCaption, flashes, redDamage, blueDamage, time, untilKo || tv ? null : seconds, game, vp);
                         IEnumerable<UiShapeDraw> hudShapes = tv ? TvHud.Shapes(game, screen) : StaminaBars(game);
-                        if (tv && _faceCam is not null)
+                        if (!tv && _faceCam is not null)
+                        {
+                            // 練習試合: WVC の中継と同じ配置（顔の窓は左下・右下、窓の下に名札とスタミナ、窓の内側に酸素の体の図）。
+                            var (cornerText, cornerShapes) = practiceGraphics.MatchHud(game, _faceCam.Panel(screen, FaceSide.Left), _faceCam.Panel(screen, FaceSide.Right), redRing, blueRing, practiceClock: time);
+                            overlay.InsertRange(0, cornerText);
+                            hudShapes = cornerShapes;
+                        }
+                        else if (tv && _faceCam is not null)
                         {
                             // 顔の窓を左下・右下に: 上の得点表の代わりに、時計と、窓の下の名札・スタミナ。
                             var (cornerText, cornerShapes) = show.MatchHud(game, _faceCam.Panel(screen, FaceSide.Left), _faceCam.Panel(screen, FaceSide.Right), redRing, blueRing, bodies);
@@ -1096,12 +1106,12 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         var side = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(Vector3.Cross(axis, Vector3.UnitY)) : -Vector3.UnitX;
         // 両者の全身（頭と腰）が入るよう、4 点の真ん中を見て、4 点の水平の広がりに比例して引く（45° の画角の横幅は距離の 1.47 倍）。
         // 以前は胸と胸の間だけで決めていたので、倒れた相手に覆いかぶさると 0.9 m（人形の単位）まで寄り、体の一部しか映らなかった（2026-11-19、ユーザー）。打ち合う間合いでは今までの 2.54 m。
-        Vector3[] points = [game.Player.HeadPosition, game.Player.PelvisPosition, game.Cpu.HeadPosition, game.Cpu.PelvisPosition];
+        Vector3[] points = focusRed ? [game.Player.HeadPosition, game.Player.PelvisPosition] : [game.Player.HeadPosition, game.Player.PelvisPosition, game.Cpu.HeadPosition, game.Cpu.PelvisPosition];
         var min = points.Aggregate(Vector3.Min);
         var max = points.Aggregate(Vector3.Max);
         var mid = (min + max) * 0.5f;
-        var spread = MathF.Max(axis.Length(), MathF.Max(max.X - min.X, max.Z - min.Z));
-        var reach = MathF.Max(2.535f, (spread + 1.408f) / 1.4f);
+        var spread = MathF.Max(focusRed ? 0f : axis.Length(), MathF.Max(max.X - min.X, max.Z - min.Z));
+        var reach = MathF.Max(2.535f, (spread + 1.408f) / 1.4f) * cameraScale; // cameraScale < 1 で寄る（--camera-scale。既定 1）
         // 離れている間は回り込みを小さくする（斜めから見ると手前の 1 人が画面の外へ出る）。
         var angle = 0.6f * MathF.Sin(orbit) * (2.535f / reach);
         var direction = Vector3.Transform(side, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
@@ -1179,10 +1189,16 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                 list.InsertRange(0, TvHud.Text(game, new Vector2(w, h), red, blue));
             }
         }
+        else if (_faceCam is not null)
+        {
+            list.RemoveRange(0, 5); // 練習試合の顔の窓つき: 上の名前・ダメージの代わりに、窓の下の名札と時計（TvShowGraphics.MatchHud）
+        }
 
         // 顔の窓を左下・右下に置くときは、字幕を窓の内側へずらす。
-        var captionInset = tv && _faceCam is not null ? _faceCam.Panel(new Vector2(w, h), FaceSide.Left).WidthPx + 48f : 28f;
-        var captionY = tv ? _captionY : h - 96f;
+        var captionInset = _faceCam is not null
+            ? _faceCam.Panel(new Vector2(w, h), FaceSide.Left).WidthPx + 48f + (tv ? 0f : TvShowGraphics.StaminaFigureWidth(_faceCam.Panel(new Vector2(w, h), FaceSide.Left).HeightPx) + 14f)
+            : 28f;
+        var captionY = tv || _faceCam is not null ? _captionY : h - 96f;
         AddCaption(list, redCaption, new Vector2(captionInset, captionY), TextAnchor.Left, Red, time);
         AddCaption(list, blueCaption, new Vector2(w - captionInset, captionY), TextAnchor.Right, Blue, time);
         for (var i = 0; i < flashes.Count; i++)

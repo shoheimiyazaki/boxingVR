@@ -501,7 +501,7 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
     /// 試合中の表示（顔の窓を左下・右下に置くとき）: 上の真ん中にラウンドと時計、右上に LIVE、各コーナーの顔の窓の下に
     /// コーナーの色の名札とスタミナのメーター。顔の窓そのものと縁は <see cref="FaceCam"/> が描く（窓の中に文字を置かない。動画では窓で上書きされる）。
     /// </summary>
-    public (IReadOnlyList<ScreenTextDraw> Text, IReadOnlyList<UiShapeDraw> Shapes) MatchHud(BoxingGame game, RenderViewport redPanel, RenderViewport bluePanel, string red, string blue)
+    public (IReadOnlyList<ScreenTextDraw> Text, IReadOnlyList<UiShapeDraw> Shapes) MatchHud(BoxingGame game, RenderViewport redPanel, RenderViewport bluePanel, string red, string blue, float? practiceClock = null)
     {
         ArgumentNullException.ThrowIfNull(game);
         var w = (float)width;
@@ -510,9 +510,11 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
 
         // ラウンドと時計（ラウンド中は残り、休みは BREAK と残り、試合の後は FINAL）。
         var rounds = game.Rules?.Rounds ?? 0;
-        var (label, clock) = game.MatchOver
-            ? ("FINAL", rounds > 0 ? $"R{game.MatchRound}" : "")
-            : game.InBreak ? ("BREAK", Clock(game.BreakLeft)) : ($"ROUND {game.MatchRound}/{rounds}", Clock(game.RoundLeft));
+        var (label, clock) = practiceClock is { } elapsed
+            ? ("SPARRING", Clock(elapsed))
+            : game.MatchOver
+                ? ("FINAL", rounds > 0 ? $"R{game.MatchRound}" : "")
+                : game.InBreak ? ("BREAK", Clock(game.BreakLeft)) : ($"ROUND {game.MatchRound}/{rounds}", Clock(game.RoundLeft));
         var clockCenter = new Vector2(w * 0.5f, 46f);
         shapes.Add(UiShapeDraw.Rounded(clockCenter, new Vector2(150f, 66f), 8f, new Vector4(0.93f, 0.93f, 0.95f, 0.95f)));
         shapes.Add(UiShapeDraw.Rounded(clockCenter - new Vector2(0f, 23f), new Vector2(150f, 20f), 8f, Ink with { W = 0.92f }));
@@ -532,9 +534,68 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
             var barTop = plateTop + 30f;
             shapes.Add(new UiShapeDraw(new Vector2(centerX, barTop + 8f), new Vector2(plateWidth, 16f), Ink));
             shapes.AddRange(TvHud.StaminaBar(new Vector2(centerX - (plateWidth * 0.5f) + 6f, barTop + 8f), plateWidth - 12f, 8f, fighter));
+            if (practiceClock is not null)
+            {
+                // 練習試合: 窓の内側（画面の中央寄り）に、部位ごとの酸素の蓄えの体の図。
+                var figureWidth = StaminaFigureWidth(panel.HeightPx);
+                var left = panel.XPx < w * 0.5f ? panel.XPx + panel.WidthPx + 14f : panel.XPx - 14f - figureWidth;
+                StaminaFigure(text, shapes, fighter, new Vector2(left, panel.YPx), panel.HeightPx / FigureHeight);
+            }
         }
 
         return (text, shapes);
+    }
+
+    private const float FigureWidth = 14f;
+    private const float FigureHeight = 31f;
+
+    /// <summary>酸素の体の図の幅 [px]（顔の窓の高さ <paramref name="panelHeight"/> に図の高さを合わせたとき）。字幕を図の内側へずらすのに使う。</summary>
+    public static float StaminaFigureWidth(float panelHeight) => panelHeight / FigureHeight * FigureWidth;
+
+    /// <summary>
+    /// 酸素の体の図（描画だけ）。左腕・右腕・脚・胴の 4 つの部位ごとに、筋肉の酸素の蓄え（<see cref="Fighter.OxygenOf"/>、0..1）を、
+    /// 部位の枠の中を下から満たす色で表す。蓄えが減ると色が上から抜けていき、空なら枠だけになる。色は蓄えの多さ（緑・黄・赤。
+    /// 区切りは <see cref="TvHud.StaminaBar(Vector2, float, float, Fighter)"/> と同じ）。画面の左の腕が本人の右（<see cref="VfcShow"/> の体の図と同じ向き）。
+    /// </summary>
+    public void StaminaFigure(List<ScreenTextDraw> text, List<UiShapeDraw> shapes, Fighter fighter, Vector2 topLeft, float unit)
+    {
+        ArgumentNullException.ThrowIfNull(fighter);
+        var line = MathF.Max(1.5f, unit * 0.22f);
+        var frame = White with { W = 0.75f };
+        var danger = TiredLook.DangerBelow;
+        var sluggish = MathF.Max(danger, fighter.SluggishBelow);
+
+        // 部位 = 縦につながった枠の組。満ちた高さは、組の全体（いちばん上から下まで）に対する割合で、下から数える。
+        void Region(MuscleRegion region, (float X, float Y, float W, float H)[] parts)
+        {
+            var level = Math.Clamp(fighter.OxygenOf(region), 0f, 1f);
+            var top = parts.Min(p => p.Y);
+            var bottom = parts.Max(p => p.Y + p.H);
+            var fillTop = bottom - ((bottom - top) * level);
+            var color = level < danger ? new Vector4(0.95f, 0.2f, 0.18f, 1f) : level < sluggish ? new Vector4(0.98f, 0.8f, 0.15f, 1f) : new Vector4(0.3f, 0.9f, 0.4f, 1f);
+            foreach (var (x, y, w, h) in parts)
+            {
+                var size = new Vector2(w * unit, h * unit);
+                var center = topLeft + new Vector2((x + (w * 0.5f)) * unit, (y + (h * 0.5f)) * unit);
+                shapes.Add(new UiShapeDraw(center, size, new Vector4(0f, 0f, 0f, 0.55f)));
+                var from = MathF.Max(y, fillTop);
+                var to = y + h;
+                if (to - from > 1e-3f && level > 0.003f)
+                {
+                    var fillSize = new Vector2(size.X, (to - from) * unit);
+                    shapes.Add(new UiShapeDraw(topLeft + new Vector2((x + (w * 0.5f)) * unit, (from + to) * 0.5f * unit), fillSize, color));
+                }
+
+                shapes.Add(UiShapeDraw.Outline(center, size, 0f, frame, line));
+            }
+        }
+
+        shapes.Add(UiShapeDraw.Outline(topLeft + new Vector2(7f * unit, 2.1f * unit), new Vector2(4f * unit, 4.2f * unit), 0f, frame with { W = 0.4f }, line)); // 頭（酸素の対象ではない）
+        Region(MuscleRegion.RightArm, [(0.4f, 5f, 2.4f, 6f), (0.4f, 11.2f, 2.4f, 5.8f)]);
+        Region(MuscleRegion.LeftArm, [(11.2f, 5f, 2.4f, 6f), (11.2f, 11.2f, 2.4f, 5.8f)]);
+        Region(MuscleRegion.Trunk, [(3f, 5f, 8f, 8f), (4f, 13.4f, 6f, 3.6f)]);
+        Region(MuscleRegion.Legs, [(4f, 17.4f, 2.8f, 7f), (7.2f, 17.4f, 2.8f, 7f), (4f, 24.6f, 2.8f, 6.4f), (7.2f, 24.6f, 2.8f, 6.4f)]);
+        text.Add(new ScreenTextDraw("O2", topLeft + new Vector2(0.4f * unit, 0.2f * unit), MathF.Max(12f, unit * 2.2f), White with { W = 0.85f }));
     }
 
     /// <summary>

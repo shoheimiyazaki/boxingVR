@@ -61,6 +61,44 @@ public sealed class EyeLookTests
         Assert.AreNotEqual(-1, after.Pupil1);
     }
 
+    /// <summary>
+    /// 回帰: 顔の層では、もとの瞳のセルが顔の色の表の瞳の色のまま残り、視線で動かした黒目と合わせて 1 つの目に黒目が 2 つ見えた
+    /// （2026-11-23、ユーザー）。どこを見ていても、目ごとに暗い（瞳の）セルは 1 つだけ。
+    /// </summary>
+    [TestMethod]
+    public void EachEyeShowsExactlyOnePupilWhereverItLooks()
+    {
+        var (game, head) = Make();
+        using var _ = game;
+        var grid = head.Body.Grid;
+        var half = grid.Dimensions.X / 2;
+        foreach (var target in new[] { new Vector3(0f, 0f, 5.634f), new Vector3(5.634f, 0f, 2.817f), new Vector3(-5.634f, 2.817f, 2.817f), new Vector3(2.817f, -2.817f, 5.634f) })
+        {
+            var toWorld = head.Body.GridToWorld();
+            var draw = head.Draw(0f, new EyePose(0f, Vector3.Transform(target, toWorld)));
+            var rgba = draw.Volume.Rgba;
+            var (w, h, _d) = grid.Dimensions;
+            var counts = new int[2];
+            for (var i = 0; i < grid.CellCount; i++)
+            {
+                if (grid.MaterialAt(i) is not (BoxerAnatomy.Eye or BoxerAnatomy.Pupil))
+                {
+                    continue;
+                }
+
+                var (x, y, z) = grid.Coordinates(i);
+                var t = 4 * (x + (w * (y + (h * z))));
+                if (((rgba[t] + rgba[t + 1] + rgba[t + 2]) / (3f * 255f)) < 0.5f) // 白目は明るく、瞳は暗い（既定の色）
+                {
+                    counts[x >= half ? 0 : 1]++;
+                }
+            }
+
+            Assert.AreEqual(1, counts[0], $"+X eye looking at {target}");
+            Assert.AreEqual(1, counts[1], $"-X eye looking at {target}");
+        }
+    }
+
     [TestMethod]
     public void EyeAnimationDoesNotChangeTheMaterialsOrThePhysics()
     {

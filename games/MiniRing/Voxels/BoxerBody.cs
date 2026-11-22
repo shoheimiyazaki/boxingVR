@@ -21,6 +21,9 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
     /// <summary>白目を明るい面として描く印（<see cref="VoxelVolume"/> の alpha 0.5: 照明の陰でも白目が灰色に沈まない。見た目だけ）。</summary>
     private const float BrightWhite = 0.5f;
 
+    /// <summary>顔の層の肌のセルの明るさの扱い（W。1 未満は明るい面として描く: 白目と同じ仕組み）。顔の細かい格子は凹凸の影が深く、肌の値が同じでも体より暗く灰色に見えた（ユーザー、2026-11-23）。見た目だけ。</summary>
+    private const float FaceSkinBright = 0.8f;
+
     /// <summary>チアノーゼを丸める段の数（テクスチャの書き直しはこの段が変わったときだけ）。</summary>
     private const int CyanosisSteps = 16;
 
@@ -267,7 +270,7 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
             {
                 if (cellColors?.At(grid.Index(x, y, z), m) is { } own)
                 {
-                    color = own with { W = color.W };
+                    color = own with { W = m == BoxerAnatomy.Skin ? FaceSkinBright : color.W };
                 }
 
                 if (eyeOn && m is BoxerAnatomy.Eye or BoxerAnatomy.Pupil)
@@ -283,7 +286,7 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
 
                     var isPupil = grid.Index(x, y, z) == (first ? scan.Pupil0 : scan.Pupil1);
                     var material = palette[isPupil ? BoxerAnatomy.Pupil : BoxerAnatomy.Eye];
-                    if (!isPupil && cellColors is not null)
+                    if (!isPupil && cellColors is not null && m == BoxerAnatomy.Eye)
                     {
                         return color with { W = m == BoxerAnatomy.Eye ? BrightWhite : 1f }; // 白目・瞳の色（顔の色の表）。白目は明るい面として描く
                     }
