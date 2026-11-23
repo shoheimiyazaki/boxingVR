@@ -174,13 +174,14 @@ public sealed class HandWearTests
     [TestMethod]
     [DataRow(5f)]
     [DataRow(7f)]
-    public void PaddedGlove_ProtectsTheSurfaceOnAGlancingBlow(float speed)
+    public void PaddedGlove_ReducesPressureAndKeepsTheSurfaceIntact_OnAGlancingBlow(float speed)
     {
         const float angle = 25f;
         var padded = Contact(WeaponKind.Glove, speed, angle);
         var bare = Contact(WeaponKind.Fist, speed, angle);
         Assert.AreEqual(bare.ApproachSpeed, padded.ApproachSpeed, 0.001f);
-        Assert.IsNotEmpty(bare.RemovedB, "the bare fist breaks the surface");
+        // 拳の実寸と当たる面積によって皮膚が破れる速さは変わる。同じ速度での接触圧を比べる。
+        Assert.IsLessThan(bare.Pressure, padded.Pressure, "padding lowers the peak pressure compared to the bare fist");
         Assert.IsEmpty(padded.RemovedB, "the padded glove leaves the surface intact");
     }
 
