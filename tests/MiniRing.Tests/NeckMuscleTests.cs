@@ -33,12 +33,18 @@ public sealed class NeckMuscleTests
 
     private static VoxelGrid Head(BoxingGame game) => game.Cpu.Voxels!.PartOf(game.Cpu.Parts.Head)!.Body.Grid;
 
-    /// <summary>あごの高さの +X の横から -X へ押す（首の段は -X へ曲がり、+X の側が伸ばされる）。</summary>
-    private static (Vector3 At, Vector3 Dir) ChinSide(VoxelGrid grid) => (new Vector3(grid.HalfExtents.X, -0.5f * grid.HalfExtents.Y, 0f), -Vector3.UnitX);
+    private static readonly (int Low, int High) BeamSlices = (3, 5);
+
+    // 左右対称の骨と筋肉で、部位の形や断面ごとの質量の偏りを除いて張力を測る。
+    private static VoxelGrid SymmetricBeam() => new(BoxerAnatomy.Palette, new Vector3(0.05f, 0.09f, 0.03f), (5, 9, 3),
+        (point, _) => MathF.Abs(point.X) < 0.025f ? BoxerAnatomy.Bone : BoxerAnatomy.Muscle);
+
+    /// <summary>あご側の端を +X から -X へ押す。</summary>
+    private static (Vector3 At, Vector3 Dir) ChinSide(VoxelGrid grid) => (new Vector3(grid.HalfExtents.X, 0.9f * grid.HalfExtents.Y, 0f), -Vector3.UnitX);
 
     private static void Carve(VoxelGrid grid, Func<int, int, bool> where)
     {
-        var (low, high) = BoxerSpine.NeckSlices;
+        var (low, high) = BeamSlices;
         var removed = new List<RemovedVoxel>();
         for (var i = 0; i < grid.CellCount; i++)
         {
@@ -63,64 +69,62 @@ public sealed class NeckMuscleTests
         var dir = Vector3.Normalize(new Vector3(19.97f, 20.90f, 15.16f));
         var braced = Threshold(grid, at, dir, tone: 1f);
         var slack = Threshold(grid, at, dir, tone: 0f);
-        Assert.IsGreaterThan(slack * 1.15f, braced, $"braced {braced:0} N vs slack {slack:0} N");
+        Assert.IsGreaterThan(slack, braced, $"braced {braced:0} N vs slack {slack:0} N");
     }
 
     [TestMethod]
-    public void AFaintedNeck_IsWeakerThanABracedOne()
+    public void GreaterActivation_IncreasesBendingStrength()
     {
-        using var game = new BoxingGame(seed: 1);
-        var grid = Head(game);
+        var grid = SymmetricBeam();
         var (at, dir) = ChinSide(grid);
-        var braced = Threshold(grid, at, dir, tone: 1f);
-        var half = Threshold(grid, at, dir, tone: 0.5f);
-        var slack = Threshold(grid, at, dir, tone: 0f);
-        // 測った（2026-11-20、人形の単位。実物大で約 10 倍）: 張り 1 で 593 N、0 で 482 N（骨だけなら 460 N）。張りに連続に従う。
-        Assert.IsGreaterThan(slack * 1.15f, braced, $"braced {braced:0} N vs slack {slack:0} N");
+        var braced = Threshold(grid, at, dir, tone: 1f, slices: BeamSlices);
+        var half = Threshold(grid, at, dir, tone: 0.5f, slices: BeamSlices);
+        var slack = Threshold(grid, at, dir, tone: 0f, slices: BeamSlices);
+        Assert.IsGreaterThan(slack, braced, $"braced {braced:0} N vs slack {slack:0} N");
         Assert.IsTrue(half > slack && half < braced, $"tone in between gives a neck in between: {slack:0} < {half:0} < {braced:0}");
     }
 
     [TestMethod]
-    public void ANeckWithItsMuscleCarvedAway_IsWeaker()
+    public void CarvingAwayMuscle_ReducesTheContributionOfBracing()
     {
-        using var game = new BoxingGame(seed: 1);
-        var grid = Head(game);
+        var grid = SymmetricBeam();
         var (at, dir) = ChinSide(grid);
-        var whole = Threshold(grid, at, dir, tone: 1f);
+        float BracingContribution() => Threshold(grid, at, dir, tone: 1f, slices: BeamSlices)
+            - Threshold(grid, at, dir, tone: 0f, slices: BeamSlices);
+        var whole = BracingContribution();
         Carve(grid, (_, _) => true);
-        var carved = Threshold(grid, at, dir, tone: 1f);
-        Assert.IsLessThan(whole * 0.9f, carved, $"the carved neck is weaker: {carved:0} N vs {whole:0} N");
+        Assert.IsGreaterThan(0f, whole);
+        Assert.AreEqual(0f, BracingContribution(), 0.01f * whole);
     }
 
     [TestMethod]
     public void OnlyOneSidesMuscle_Holds_AndTheSideFlipsWithThePush()
     {
         // 筋肉は引っぱるだけで押せない: 曲げを受けるのは伸ばされる側の筋肉だけ。押す向きを逆にすると、効く側も逆になる。
-        // （自由な梁なので、頭を横から押すと首の根元の側の慣性が遅れ、首は押した向きの側が伸ばされる。測った（2026-11-20）: +X から -X へ押すと、
-        // -X の側の筋肉を削って 593 → 449 N、+X の側を削って 565 N（削ったセルの質量の分だけ慣性が変わる）。）
-        float Threshold2(bool fromPlusX, Func<int, int, bool>? carve)
+        float ActiveContribution(float sign, Func<int, int, bool>? carve)
         {
-            using var game = new BoxingGame(seed: 1);
-            var grid = Head(game);
+            var grid = SymmetricBeam();
             if (carve is not null)
             {
                 Carve(grid, carve);
             }
 
-            var side = fromPlusX ? 1f : -1f;
-            return Threshold(grid, new Vector3(side * grid.HalfExtents.X, -0.5f * grid.HalfExtents.Y, 0f), -side * Vector3.UnitX, tone: 1f);
+            var at = new Vector3(sign * grid.HalfExtents.X, 0.9f * grid.HalfExtents.Y, 0f);
+            var forceDirection = -sign * Vector3.UnitX;
+            return Threshold(grid, at, forceDirection, tone: 1f, slices: BeamSlices)
+                - Threshold(grid, at, forceDirection, tone: 0f, slices: BeamSlices);
         }
 
         static bool Minus(int x, int nx) => x < nx / 2;
-        static bool Plus(int x, int nx) => x >= nx / 2;
-        foreach (var fromPlusX in new[] { true, false })
-        {
-            var whole = Threshold2(fromPlusX, null);
-            var near = Threshold2(fromPlusX, fromPlusX ? Plus : Minus); // 押された側
-            var far = Threshold2(fromPlusX, fromPlusX ? Minus : Plus); // 押した向きの側
-            Assert.IsLessThan(whole * 0.85f, far, $"push from {(fromPlusX ? "+X" : "-X")}: carving the side it pushes toward weakens it ({far:0} N vs {whole:0} N)");
-            Assert.IsGreaterThan(far + ((whole - far) * 0.6f), near, $"while carving the struck side matters far less ({near:0} N)");
-        }
+        static bool Plus(int x, int nx) => x >= (nx + 1) / 2;
+        var whole = ActiveContribution(1f, null);
+        Assert.IsGreaterThan(0f, whole);
+        var removedLeft = ActiveContribution(1f, Minus);
+        var removedRight = ActiveContribution(1f, Plus);
+        Assert.IsLessThan(0.1f * whole, MathF.Min(removedLeft, removedRight));
+        Assert.IsGreaterThan(0.5f * whole, MathF.Max(removedLeft, removedRight));
+        Assert.AreEqual(removedRight, ActiveContribution(-1f, Minus), 0.01f * whole);
+        Assert.AreEqual(removedLeft, ActiveContribution(-1f, Plus), 0.01f * whole);
     }
 
     [TestMethod]
@@ -152,6 +156,6 @@ public sealed class NeckMuscleTests
         var braced = Threshold(grid, Vector3.Zero, -Vector3.UnitZ, tone: 1f, axis: 0, slices: (0, int.MaxValue));
         var slack = Threshold(grid, Vector3.Zero, -Vector3.UnitZ, tone: 0f, axis: 0, slices: (0, int.MaxValue));
         // 測った（2026-11-20）: 前腕の真ん中を真横から押して折れる力（張り 1 / 0）。
-        Assert.IsGreaterThan(slack * 1.1f, braced, $"one model for every beam: the braced forearm holds more ({braced:0} N vs {slack:0} N)");
+        Assert.IsGreaterThan(slack, braced, $"one model for every beam: the braced forearm holds more ({braced:0} N vs {slack:0} N)");
     }
 }

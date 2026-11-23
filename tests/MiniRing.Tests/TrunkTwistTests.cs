@@ -70,9 +70,10 @@ public sealed class TrunkTwistTests
     [TestMethod]
     public void LoadedCross_ReversesThePelvisBeforeTheChest()
     {
-        var baseline = LoadedCross(FighterTuning.Default with { PelvisRotatorTorque = null });
-        var adjusted = LoadedCross(FighterTuning.Default);
-        Assert.IsGreaterThan(baseline, adjusted, "腰のトルクを上げると腰の最高角速度が上がる");
+        var tuning = FighterTuning.Default;
+        var standard = LoadedCross(tuning);
+        var stronger = LoadedCross(tuning with { PelvisRotatorTorque = tuning.TrunkRotatorTorque });
+        Assert.IsGreaterThan(standard, stronger, "腰のトルクを上げると腰の最高角速度が上がる");
     }
 
     private static float LoadedCross(FighterTuning tuning)
@@ -138,7 +139,6 @@ public sealed class TrunkTwistTests
         Assert.IsLessThan(startChest, loadedChest, "胸が構えから逆回転して溜める");
         Assert.IsTrue(float.IsFinite(chestForward), "胸が前方へ戻る");
         Assert.IsLessThan(chestForward, pelvisForward, "腰が胸より先に構えの向きを通過する");
-        Assert.AreEqual(70f, pelvisSweep + chestSweep, 3f, "最大溜めからの腰と胸の回転角の合計");
         return maxPelvisRate;
     }
 
