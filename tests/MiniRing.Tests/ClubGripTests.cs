@@ -88,26 +88,35 @@ public sealed class ClubGripTests
     [TestMethod]
     public void TheFist_IsSlowerToReachItsTarget_WhenItCarriesTheClub()
     {
-        // 構えから、拳を体の前へ大きく突き出す。腕は前腕と棍棒の重さを合わせて引くので、棍棒を持つ方が遅い。
-        static float TimeToReach(WeaponKind? weapon)
+        static int StepsToAdvance(WeaponKind? weapon)
         {
+            const float dt = 1f / 240f;
+            const float guardSeconds = 1.678f;
+            const float targetAdvanceInArmLengths = 0.2f;
             var go = false;
-            using var game = Armed(s => go ? new HandCommand(new Vector3(-0.05f * s.ArmReach, 0.05f * s.ArmReach, 0.95f * s.ArmReach), false) : Guard(Hand.Right, s.ArmReach), weapon);
-            Play(game, 1.678f);
+            using var game = Armed(s => go
+                ? new HandCommand(new Vector3(-0.05f * s.ArmReach, 0.05f * s.ArmReach, 0.95f * s.ArmReach), false)
+                : Guard(Hand.Right, s.ArmReach), weapon);
+            Play(game, guardSeconds);
+            var fighter = game.Cpu;
+            float ForwardPosition() => fighter.Frame.WorldToLocal(fighter.GloveCenter(BoxingGame.WeaponHand)).Z;
+            var start = ForwardPosition();
+            var crossing = start + (targetAdvanceInArmLengths * fighter.ArmReach);
             go = true;
-            for (var t = 0f; t < 1.678f; t += 1f / 240f)
+            for (var step = 1; step <= 240; step++)
             {
-                game.Step(default, 1f / 240f);
-                if (Vector3.Distance(game.Cpu.GloveCenter(BoxingGame.WeaponHand), game.Cpu.HandTargetWorld(BoxingGame.WeaponHand)) < 0.05634f)
+                game.Step(default, dt);
+                if (ForwardPosition() >= crossing)
                 {
-                    return t;
+                    return step;
                 }
             }
 
-            return 1.678f;
+            Assert.Fail($"{weapon}: the hand never advanced to {crossing:F3} m (started at {start:F3} m, ended at {ForwardPosition():F3} m)");
+            return 0;
         }
 
-        Assert.IsGreaterThan(TimeToReach(null), TimeToReach(WeaponKind.WoodenClub));
+        Assert.IsGreaterThan(StepsToAdvance(null), StepsToAdvance(WeaponKind.WoodenClub));
     }
 
     /// <summary>CPU に棍棒を両手で握らせ、右手（上の手）を <paramref name="right"/> の指令で動かす。左手の指令は何を出しても使われない。</summary>
