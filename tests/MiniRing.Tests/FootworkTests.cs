@@ -52,6 +52,31 @@ public sealed class FootworkTests
     }
 
     [TestMethod]
+    public void Footwork_KeepsTheLoadedFootDown_WhenTheOtherFootCanTakeTheLongerStep()
+    {
+        var tuning = FighterTuning.Default.Footwork;
+        var lead = new Vector2(0.35f, 0.40f);
+        var rear = new Vector2(-0.07f, -0.46f);
+        var body = new Vector2(-0.04f, 0.044f);
+        var com = Vector2.Lerp(rear, lead, 0.82f);
+        var input = new FootworkInput(0f, body, Vector2.Zero, 3.7f, new Vector2(0.52f, 0.67f), 0f, 0f, 0.97f,
+            LeadBall: lead, RearBall: rear, Reach: 0.52f, Com: com);
+
+        int FirstSwing(FootworkTuning settings)
+        {
+            var footwork = new Footwork(settings);
+            const float yawOffset = 0.46f;
+            footwork.Reset(lead, (settings.LeadYawDegrees * MathF.PI / 180f) + yawOffset,
+                rear, (settings.RearYawDegrees * MathF.PI / 180f) - yawOffset);
+            footwork.Update(input, Dt);
+            return footwork.Swinging;
+        }
+
+        Assert.AreEqual(Footwork.Lead, FirstSwing(tuning with { ShuffleShare = 0f }), "the lead foot only shuffles");
+        Assert.AreEqual(Footwork.Rear, FirstSwing(tuning), "the lead foot keeps supporting the weight");
+    }
+
+    [TestMethod]
     public void Footwork_CatchesAPushedBody_WithAStepTowardTheFall()
     {
         var footwork = Standing(out var input);

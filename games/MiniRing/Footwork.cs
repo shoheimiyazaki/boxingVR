@@ -117,7 +117,7 @@ public sealed record FootworkTuning
     public float KneeBendDegrees { get; init; } = 30f;
 
     /// <summary>
-    /// 踏み出す足の 1 歩が <c>StepThreshold × 脚の長さ</c> のこの割合に満たない（刻み）とき、もう一方の足の脚が伸びきっていて（IK の届き具合 0.995 以上）大きく動けるなら、
+    /// 踏み出す足の 1 歩が <c>StepThreshold × 脚の長さ</c> のこの割合に満たない（刻み）とき、もう一方の足が大きく動け、脚が伸びきっているか横または斜めに歩くときに重心が先の足に寄っているなら、
     /// そちらから出る。前足が伸びきって置き直しを待つ間、後ろ足が前足より前へ出られず 1 cm ずつ刻み続けて足が運べなくなった
     /// （対角に歩く 25 秒のうち 19 秒止まった、docs/arena/boot_snag.md）。0 で従来（刻んでも先の足のまま）。
     /// </summary>
@@ -277,6 +277,27 @@ public sealed class Footwork
         SupportCenter = Vector2.Lerp(rearBall, leadBall, 0.5f);
     }
 
+    private static bool IsLoadedSidestepFoot(in FootworkInput input, int foot)
+    {
+        if (input.LegHeld || input.Intent == Vector2.Zero || input.Com is not { } com
+            || input.LeadBall is not { } lead || input.RearBall is not { } rear)
+        {
+            return false;
+        }
+
+        // 真っすぐ前後に動くときは向きに応じた足順を優先する。横成分が十分ある移動で刻みが詰まるときだけ使う。
+        var intent = Unrotate(input.Intent, input.FacingYaw);
+        if (MathF.Abs(intent.X) <= 0.5f * MathF.Abs(intent.Y))
+        {
+            return false;
+        }
+
+        // 母指球間の重心の射影から荷重を見積もる。中央の 10% は同程度の荷重とみなす。
+        var stance = lead - rear;
+        var loadOffset = Vector2.Dot(com - Vector2.Lerp(lead, rear, 0.5f), stance);
+        return (foot == Lead ? loadOffset : -loadOffset) > 0.05f * stance.LengthSquared();
+    }
+
     /// <summary>足 <paramref name="foot"/> の今の置き方（踏み出している足は宙の途中）。</summary>
     public FootPose Pose(int foot)
     {
@@ -307,7 +328,7 @@ public sealed class Footwork
     /// <summary>1 ステップ分進める: 踏み出している足を運び、着いたら次の足を決める。</summary>
     public void Update(in FootworkInput input, float dt) => Update(input, dt, MaxTwist);
 
-    internal void Update(in FootworkInput input, float dt, float twistLimit)
+    internal void Update(in FootworkInput input, float dt, float twistLimit, bool canShiftLoad = true)
     {
         _twistLimit = twistLimit;
         _twist = Math.Clamp(float.IsFinite(input.Twist) ? input.Twist : 0f, -1f, 1f);
@@ -334,7 +355,7 @@ public sealed class Footwork
             var relax = _tuning.HoldRelax <= 0f ? 1f : 1f - MathF.Exp(-dt / _tuning.HoldRelax);
             _ball[Lead] = input.LeadBall is { } leadActual ? Vector2.Lerp(_ball[Lead], leadActual, input.LeadFree ? 1f : relax) : _ball[Lead];
             _ball[Rear] = input.RearBall is { } rearActual ? Vector2.Lerp(_ball[Rear], rearActual, input.RearFree ? 1f : relax) : _ball[Rear];
-            PlanStep(input);
+            PlanStep(input, canShiftLoad);
         }
 
         UpdateSupport(input);
@@ -350,7 +371,7 @@ public sealed class Footwork
 
     private float StanceYaw(int foot) => (foot == Lead ? _tuning.LeadYawDegrees : _tuning.RearYawDegrees) * MathF.PI / 180f;
 
-    private void PlanStep(in FootworkInput input)
+    private void PlanStep(in FootworkInput input, bool canShiftLoad)
     {
         var t = _tuning;
         var leg = _legLength;
@@ -433,18 +454,28 @@ public sealed class Footwork
         }
 
         // 構えの制約（足を交差させない・開きすぎない）で先の足が動けなければ、もう一方の足から出る。
-        var moved = TryTarget(foot0, home, input.FacingYaw, out var target, out var targetYaw);
-        // 動けても、半歩にも満たない刻み（後ろ足が前足より前へ出られず 1 cm ずつ刻む）で、もう一方の足が脚を伸びきらせていて（届かない所にある）大きく動けるなら、
-        // そちらから出る。刻みの足を選び続けると、前足は伸びきったまま置き直されず、体は足に引かれて止まる（引っかかりに見える）。
-        var shuffle = t.ShuffleShare * t.StepThreshold * leg;
-        if (!moved || (Vector2.Distance(target, _ball[foot0]) < shuffle && (foot0 == Lead ? input.RearOverreach : input.LeadOverreach)
-            && TryTarget(1 - foot0, home, input.FacingYaw, out var other, out var otherYaw)
-            && Vector2.Distance(other, _ball[1 - foot0]) >= shuffle))
+        if (!TryTarget(foot0, home, input.FacingYaw, out var target, out var targetYaw))
         {
             foot0 = 1 - foot0;
             if (!TryTarget(foot0, home, input.FacingYaw, out target, out targetYaw))
             {
                 return;
+            }
+        }
+        else
+        {
+            var shuffle = t.ShuffleShare * t.StepThreshold * leg;
+            var other = 1 - foot0;
+            var otherOverreach = other == Lead ? input.LeadOverreach : input.RearOverreach;
+            // 刻みしかできない足が重心に近いときは、その足を支えにし、構えを保って大きく運べるもう一方の足を先に出す。
+            if (Vector2.Distance(target, _ball[foot0]) < shuffle
+                && (otherOverreach || (canShiftLoad && IsLoadedSidestepFoot(input, foot0)))
+                && TryTarget(other, home, input.FacingYaw, out var otherTarget, out var otherYaw)
+                && Vector2.Distance(otherTarget, _ball[other]) >= shuffle)
+            {
+                foot0 = other;
+                target = otherTarget;
+                targetYaw = otherYaw;
             }
         }
 

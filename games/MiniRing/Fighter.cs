@@ -238,7 +238,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 88; // 肘打ちの回旋を右ストレートと同じ腰→腹→胸の順で伝える。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 89; // 歩行で短い刻みしかできないときの足選び。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -2534,7 +2534,8 @@ public sealed partial class Fighter
             input = input with { Com = new Vector2(com.X, com.Z), ComVelocity = new Vector2(comVelocity.X, comVelocity.Z) };
         }
 
-        _footwork.Update(input, dt, twistLimit);
+        var canShiftLoad = LegShortfall <= 1e-3f && lead.Command is null && _legParts[Footwork.Rear].Command is null;
+        _footwork.Update(input, dt, twistLimit, canShiftLoad);
     }
 
     /// <summary>足の母指球の実際の位置（水平面）。</summary>
