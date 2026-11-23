@@ -209,7 +209,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 63; // 63: 疲れたら構えを下げる（TiredGuardDrop）。62: 溜めた拳で脚のバネを放ち、手の解放を先行させる。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 64; // 肘打ちの軌跡と回旋・踏み込みのタイミング。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;

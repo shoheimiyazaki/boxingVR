@@ -23,10 +23,10 @@ public readonly record struct ElbowSpec(ElbowTechnique Technique, float Duration
     float Twist, float StepIn, Vector3 Lean)
 {
     /// <summary>肘を引き終える割合。</summary>
-    public const float ChamberShare = 0.30f;
+    public const float ChamberShare = 0.22f;
 
     /// <summary>肘が当てる点を通る割合（そのあと振り抜く）。</summary>
-    public const float ContactShare = 0.46f;
+    public const float ContactShare = 0.44f;
 
     /// <summary>肘の点の目標が肩からどれだけ離れるか（腕の長さ倍。極の向きだけが効くので、肘の点の目標が肩から外れすぎない程度）。</summary>
     public const float PoleDistance = 1.0f;
@@ -34,14 +34,19 @@ public readonly record struct ElbowSpec(ElbowTechnique Technique, float Duration
     /// <summary>体フレームでの肩の横の位置（腕の長さ倍。標準の体 0.283）。</summary>
     public const float ShoulderHalfWidth = 0.283f;
 
+
+    private const float SweepEndShare = (2f * ContactShare) - ChamberShare;
+    private const float FoldInShare = 0.30f;
+    private const float FoldOutShare = 0.70f;
+
     public static ElbowSpec Of(ElbowTechnique technique) => technique switch
     {
-        // 横肘: 肘を外・やや後ろへ引き、拳を耳（こめかみ）へ畳む。肩と胴のひねりで、肘を顔の高さの横から相手の顔の前を横切らせる。
-        ElbowTechnique.Horizontal => new(technique, 1.007f, 0.90f, new Vector3(0.9f, 0.1f, -0.5f), new Vector3(-0.9f, 0f, 0f), new Vector3(0.20f, 0.27f, 0.05f), Twist: 0.7f, StepIn: 0.8f, Lean: new Vector3(0f, -0.03f, 0.30f)),
+        // 横肘: 肘を外へ開き、拳を耳（こめかみ）へ畳む。肩と胴のひねりで、肘を顔の高さの横から相手の顔の前を横切らせる。
+        ElbowTechnique.Horizontal => new(technique, 1.007f, 0.90f, new Vector3(0.9f, 0.075f, 0.55f), new Vector3(-0.54f, 0f, 0f), new Vector3(0.20f, 0.27f, 0.05f), Twist: 1.01f, StepIn: 0.8f, Lean: new Vector3(0f, -0.03f, 0.30f)),
         // 上げ肘: 肘を下へ引き、拳を顎の横へ。肘を相手の顎の下から突き上げる。
-        ElbowTechnique.Upward => new(technique, 0.9231f, 0.90f, new Vector3(0.35f, -0.95f, 0.1f), new Vector3(0f, 0.9f, 0f), new Vector3(0.15f, 0.10f, 0.20f), Twist: 0.4f, StepIn: 0.8f, Lean: new Vector3(0f, -0.10f, 0.25f)),
+        ElbowTechnique.Upward => new(technique, 0.9231f, 0.90f, new Vector3(0.35f, -0.7125f, 0.55f), new Vector3(0f, 0.54f, 0f), new Vector3(0.15f, 0.10f, 0.20f), Twist: 0.77f, StepIn: 0.8f, Lean: new Vector3(0f, -0.10f, 0.25f)),
         // 振り下ろし肘: 肘を高く引き、拳を頭の上へ。肘を上から斜めに打ち下ろす。
-        ElbowTechnique.Downward => new(technique, 1.007f, 0.90f, new Vector3(0.2f, 0.95f, -0.2f), new Vector3(0f, -0.9f, 0f), new Vector3(0.15f, 0.55f, 0.05f), Twist: 0.5f, StepIn: 0.8f, Lean: new Vector3(0f, -0.03f, 0.30f)),
+        ElbowTechnique.Downward => new(technique, 1.007f, 0.90f, new Vector3(0.2f, 0.7125f, 0.55f), new Vector3(0f, -0.54f, 0f), new Vector3(0.15f, 0.55f, 0.05f), Twist: 0.85f, StepIn: 0.8f, Lean: new Vector3(0f, -0.03f, 0.30f)),
         _ => throw new ArgumentOutOfRangeException(nameof(technique)),
     };
 
@@ -74,27 +79,17 @@ public readonly record struct ElbowSpec(ElbowTechnique Technique, float Duration
         var through = Unit(toward + new Vector3(side * Through.X, Through.Y, Through.Z));
         var anchor = new Vector3(side * HandAnchor.X, HandAnchor.Y, HandAnchor.Z) * reach;
 
-        float Fold() => t <= ChamberShare ? Smooth(t / ChamberShare) : t <= 0.70f ? 1f : 1f - Smooth((t - 0.70f) / 0.30f);
-        Vector3 direction;
-        if (t <= ChamberShare)
-        {
-            direction = Unit(Vector3.Lerp(rest, chamber, Smooth(t / ChamberShare)));
-        }
-        else if (t <= ContactShare)
-        {
-            direction = Unit(Vector3.Lerp(chamber, toward, Smooth((t - ChamberShare) / (ContactShare - ChamberShare))));
-        }
-        else if (t <= 0.58f)
-        {
-            direction = Unit(Vector3.Lerp(toward, through, Smooth((t - ContactShare) / (0.58f - ContactShare))));
-        }
-        else
-        {
-            direction = Unit(Vector3.Lerp(through, rest, Smooth((t - 0.58f) / 0.42f)));
-        }
+        // フックと同じベジェ曲線を肩から見た向きに適用する。曲線の中点が狙いを向くよう制御点を選ぶ。
+        var control = (2f * toward) - (0.5f * (chamber + through));
+        var direction = t < ChamberShare
+            ? Unit(Vector3.Lerp(rest, chamber, PunchPath.MinimumJerk(t / ChamberShare)))
+            : t <= SweepEndShare
+                ? Unit(PunchPath.Point(chamber, control, through, PunchPath.MinimumJerk((t - ChamberShare) / (SweepEndShare - ChamberShare))))
+                : Unit(Vector3.Lerp(through, rest, PunchPath.MinimumJerk((t - SweepEndShare) / (1f - SweepEndShare))));
 
         // 拳は耳へ畳む（肘を引くあいだに構えから動かす）。肘を打ち抜いたあとも畳んだまま、構えへ戻すとき一緒に戻す。
-        var handTarget = Vector3.Lerp(guardHand, anchor, Fold());
+        var fold = t <= FoldInShare ? Smooth(t / FoldInShare) : t <= FoldOutShare ? 1f : 1f - Smooth((t - FoldOutShare) / (1f - FoldOutShare));
+        var handTarget = Vector3.Lerp(guardHand, anchor, fold);
         return (handTarget, shoulder + (direction * (PoleDistance * reach)));
     }
 
@@ -111,22 +106,28 @@ public readonly record struct ElbowSpec(ElbowTechnique Technique, float Duration
         return new HandCommand(handTarget, false, ElbowTarget: elbowTarget);
     }
 
-    /// <summary>胴のひねりの上乗せ [rad]（正で右肩が前）。当てる前は逆へ少し引いて体のバネを縮め、当たる点で肘の側の肩を前へ回し、戻す。</summary>
+    /// <summary>胴を回す目標 [rad]（正で右肩が前）。当てる前は逆へ少し引いて体のバネを縮め、当たる点で肘の側の肩を前へ回し、戻す。</summary>
     public float TorsoTwist(Hand hand, float time, float duration)
     {
         var t = Math.Clamp(time / MathF.Max(1e-3f, duration), 0f, 1f);
-        var profile = t <= ChamberShare ? -0.4f * Smooth(t / ChamberShare)
-            : t <= ContactShare ? Math.Clamp(-0.4f + (1.4f * Smooth((t - ChamberShare) / (ContactShare - ChamberShare))), -0.4f, 1f)
-            : t <= 0.70f ? 1f
-            : Smooth(1f - ((t - 0.70f) / 0.30f));
+        // 肘が狙いの方向を通る前に腰の目標を立ち上げ、腹と胸が追う時間を取る。
+        const float windupEnd = 0.15f;
+        const float driveEnd = 0.36f;
+        const float release = 0.72f;
+        const float preload = 0.28f;
+        var profile = t <= windupEnd ? -preload * Smooth(t / windupEnd)
+            : t <= driveEnd ? -preload + ((1f + preload) * Smooth((t - windupEnd) / (driveEnd - windupEnd)))
+            : t <= release ? 1f : Smooth((1f - t) / (1f - release));
         return -hand.LocalSide() * Twist * profile;
     }
 
-    /// <summary>体を出す強さ（0..1）: 引く間は 0、当てるころ最大、戻す間に 0 へ（踏み込み・頭の前傾の山）。</summary>
+    /// <summary>体を出す強さ（0..1）: 肘を開く間に立ち上げ、当てるころ最大、戻す間に 0 へ（踏み込み・頭の前傾の山）。</summary>
     public static float Envelope(float time, float duration)
     {
         var t = Math.Clamp(time / MathF.Max(1e-3f, duration), 0f, 1f);
-        return t < ChamberShare ? 0f : MathF.Sin(MathF.PI * Math.Clamp((t - ChamberShare) / (0.70f - ChamberShare), 0f, 1f));
+        const float start = 0.04f;
+        const float end = 0.84f;
+        return t < start ? 0f : MathF.Sin(MathF.PI * Math.Clamp((t - start) / (end - start), 0f, 1f));
     }
 
     /// <summary>踏み込みの強さ（移動指令の前向き成分の上乗せ）。</summary>
