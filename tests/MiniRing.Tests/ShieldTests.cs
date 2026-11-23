@@ -67,7 +67,8 @@ public sealed class ShieldTests
         var plateRadius = wood.Max(Radial);
         Assert.AreEqual(0.2254f, plateRadius, 0.01127f, "diameter 45 cm");
         Assert.IsTrue(wood.All(p => MathF.Abs(p.X) <= 0.00873f), "the plate is a thin layer in the fist's centre plane");
-        Assert.AreEqual(0.01127f, wood.Max(p => p.X) - wood.Min(p => p.X) + 0.00563f, 0.00592f, "11 mm thick");
+        Assert.AreEqual(0.01127f, wood.Max(p => p.X) - wood.Min(p => p.X) + grid.CellSize.X, 0.0001f,
+            "the board keeps its 11 mm thickness when the boss is fitted to the hand");
         Assert.IsTrue(wood.All(p => Radial(p) > 0.05634f), "the plate is open at the middle: the arm and the boss's hollow");
 
         // 縁の鉄の輪: 板の外の縁（半径 22〜22.5 cm）に鉄がある。
