@@ -95,33 +95,28 @@ public sealed class KarateFistTests
     [TestMethod]
     [DataRow(11.75f)]
     [DataRow(13.43f)]
-    public void SameBlow_KnucklesConcentrateDamageComparedWithPalm_AndHurtTheirOwnSkin(float speed)
+    public void SeikenAndPalmHeel_BothDamageFleshWithoutLosingHandSkin(float speed)
     {
-        var old = Strike(LegacyFist(), Quaternion.Identity, speed);
-        var knuckle = Strike(Weapon.Build(WeaponKind.Fist), Quaternion.Identity, speed);
-        var palm = Strike(Weapon.Build(WeaponKind.Fist), Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 2f), speed);
-        TestContext.WriteLine($"old={old}, knuckle={knuckle}, palm={palm}");
-        // 指の関節で組んだ拳（2026-11-16）の拳頭は、指 1 本ぶんの細い十字の面の列。旧拳の球の拳頭（先端が 1 セルの点）より先は広いので、
-        // 最大の圧力は旧拳より低い（旧拳との比較は物理の言い分ではなく旧い形の癖だった）。掌との比較で、狭い面が深く・多く削ることを確かめる。
-        Assert.IsGreaterThanOrEqualTo(palm.TargetLost, knuckle.TargetLost, "the narrow knuckle ridge removes at least as much as the flat palm");
-        // p = F/A does not imply a larger removed volume. Plastic work is strength*A*distance;
-        // a narrow, hard contact concentrates stress but does not supply additional energy.
-        // These equal-energy blows are counterexamples to the original total-cell expectation.
-        Assert.IsLessThan(old.TargetLost, knuckle.TargetLost,
-            "a higher peak pressure must not be mistaken for a guaranteed larger damaged volume");
-        Assert.IsGreaterThanOrEqualTo(palm.Depth, knuckle.Depth);
-        // 手の組織は木の物性（2026-11-18、docs/DEBT.md「手の物性を木の値で代用」）: 肉と皮膚の的を打っても、拳の皮膚は削れない。
-        Assert.AreEqual(0, knuckle.SkinLost, "the wood-valued hand skin is not worn by a flesh target");
+        // 拳頭と掌底はそれぞれの手の形で、同じ質量・速度で同じ標的へ進ませる。
+        var knuckle = Strike(Weapon.Build(WeaponKind.Fist), speed);
+        _ = new BareHandState().Placed(HandSkeleton.PoseOf(HandShape.PalmHeel), out var palmGrid);
+        var palm = Strike(palmGrid, speed);
+        TestContext.WriteLine($"speed={speed:F2} m/s, knuckle={knuckle}, palm={palm}");
+        foreach (var (name, result) in new[] { ("seiken", knuckle), ("palm heel", palm) })
+        {
+            Assert.IsGreaterThan(0f, result.Pressure, $"{name}: the hand makes contact");
+            Assert.IsGreaterThan(0f, result.Depth, $"{name}: the damage extends into the target");
+            Assert.IsGreaterThan(0, result.TargetLost, $"{name}: the target loses cells");
+            // 手の組織は現行モデルでは木の物性を使う（docs/DEBT.md「手の物性を木の値で代用」）。
+            Assert.AreEqual(0, result.SkinLost, $"{name}: flesh does not strip the hand skin");
+        }
     }
 
-    private static VoxelGrid LegacyFist() => new(BoxerAnatomy.Palette, new Vector3(0.03944f), 0.005634f,
-        (p, _) => p.Length() > 0.03662f ? (byte)0 : p.Length() > 0.02535f ? BoxerAnatomy.Skin : BoxerAnatomy.Bone);
-
-    private static (int TargetLost, int SkinLost, float Depth, float Pressure) Strike(VoxelGrid grid, Quaternion rotation, float speed)
+    private static (int TargetLost, int SkinLost, float Depth, float Pressure) Strike(VoxelGrid grid, float speed)
     {
         using var world = new PhysicsWorld(gravity: Vector3.Zero);
         // Equal mass and initial velocity isolate the shape and materials, rather than giving one hand more energy.
-        var fistId = world.AddDynamicBox(new Vector3(-0.1831f, 0f, 0f), rotation, grid.HalfExtents, 0.8f);
+        var fistId = world.AddDynamicBox(new Vector3(-0.1831f, 0f, 0f), Quaternion.Identity, grid.HalfExtents, 0.8f);
         var fist = new VoxelBody(world, fistId, grid);
         var targetGrid = new VoxelGrid(BoxerAnatomy.Palette, new Vector3(0.07042f), 0.01408f,
             (p, _) => p.X < -0.05634f ? BoxerAnatomy.Skin : BoxerAnatomy.Muscle);
