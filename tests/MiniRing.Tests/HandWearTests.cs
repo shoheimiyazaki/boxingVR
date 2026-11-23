@@ -156,51 +156,78 @@ public sealed class HandWearTests
     }
 
     [TestMethod]
-    public void PaddedGlove_TransmitsLessPressureThanAnEquallyShapedRigidFace()
+    [DataRow(3f, 0f)]
+    [DataRow(3f, 25f)]
+    [DataRow(5f, 0f)]
+    [DataRow(5f, 25f)]
+    [DataRow(7f, 0f)]
+    [DataRow(7f, 25f)]
+    public void PaddedGlove_TransmitsLessPressureThanAnEquallyShapedRigidFace(float speed, float angle)
     {
-        // 皮膚を張った同じ的に、外形・質量・速度を揃えた物を当てて、覆いの材質の差だけを見る。
-        const float ImpactSpeed = 5f;
-        const float MassBehind = 3f;
-        var padded = Contact(rigid: false);
-        var rigidFace = Contact(rigid: true);
-        Assert.IsTrue(padded.Touched && rigidFace.Touched);
-        Assert.AreEqual(ImpactSpeed, padded.ApproachSpeed, 0.001f);
-        Assert.AreEqual(padded.ApproachSpeed, rigidFace.ApproachSpeed, 0.001f);
-        Assert.IsLessThan(rigidFace.Pressure, padded.Pressure, "the padded face reduces peak pressure");
-        Assert.IsEmpty(padded.RemovedB, "the padded blow leaves the surface intact");
-        Assert.IsLessThan(rigidFace.CrushedB?.Count ?? 0, padded.CrushedB?.Count ?? 0, "it also reduces subsurface damage in this controlled blow");
+        var padded = Contact(WeaponKind.Glove, speed, angle);
+        var rigid = Contact(WeaponKind.Glove, speed, angle, rigid: true);
+        Assert.AreEqual(speed * MathF.Cos(angle * MathF.PI / 180f), padded.ApproachSpeed, 0.001f);
+        Assert.AreEqual(padded.ApproachSpeed, rigid.ApproachSpeed, 0.001f);
+        Assert.IsLessThan(rigid.Pressure, padded.Pressure, "the padded face reduces peak pressure");
+    }
 
-        static VoxelContactResult Contact(bool rigid)
+    [TestMethod]
+    [DataRow(5f)]
+    [DataRow(7f)]
+    public void PaddedGlove_ProtectsTheSurfaceOnAGlancingBlow(float speed)
+    {
+        const float angle = 25f;
+        var padded = Contact(WeaponKind.Glove, speed, angle);
+        var bare = Contact(WeaponKind.Fist, speed, angle);
+        Assert.AreEqual(bare.ApproachSpeed, padded.ApproachSpeed, 0.001f);
+        Assert.IsNotEmpty(bare.RemovedB, "the bare fist breaks the surface");
+        Assert.IsEmpty(padded.RemovedB, "the padded glove leaves the surface intact");
+    }
+
+    [TestMethod]
+    public void PaddedGlove_ReducesSubsurfaceCrushing_InTheModerateHeadOnBlow()
+    {
+        const float speed = 5f;
+        var padded = Contact(WeaponKind.Glove, speed, 0f);
+        var rigid = Contact(WeaponKind.Glove, speed, 0f, rigid: true);
+        Assert.IsEmpty(padded.RemovedB);
+        Assert.IsLessThan(rigid.CrushedB?.Count ?? 0, padded.CrushedB?.Count ?? 0);
+    }
+
+    private static VoxelContactResult Contact(WeaponKind kind, float speed, float angle, bool rigid = false)
+    {
+        // Both strikers get the same mass and motion. Remapping the glove allows a materials-only comparison.
+        using var world = new PhysicsWorld(gravity: Vector3.Zero);
+        var glove = Weapon.Build(kind);
+        if (rigid)
         {
-            using var world = new PhysicsWorld(gravity: Vector3.Zero);
-            var glove = Weapon.Build(WeaponKind.Glove);
-            if (rigid)
-            {
-                glove.Remap((_, material, _) => material == 0 ? material : BoxerAnatomy.Iron);
-            }
-
-            var target = new VoxelGrid(BoxerAnatomy.Palette, new Vector3(0.07042f), 0.01408f,
-                (p, _) => p.X < -0.05634f ? BoxerAnatomy.Skin : BoxerAnatomy.Muscle);
-            var strikerId = world.AddDynamicBox(new Vector3(-0.26f, 0f, 0f), glove.HalfExtents, 0.8f);
-            var targetId = world.AddDynamicBox(Vector3.Zero, target.HalfExtents, 10f);
-            var striker = new VoxelBody(world, strikerId, glove);
-            var flesh = new VoxelBody(world, targetId, target);
-            world.SetPairCollisionEnabled(strikerId, targetId, false);
-            world.SetLinearVelocity(strikerId, new Vector3(ImpactSpeed, 0f, 0f));
-            for (var step = 0; step < 50; step++)
-            {
-                var strikerBefore = world.GetState(strikerId);
-                var targetBefore = world.GetState(targetId);
-                world.Step(1f / 240f);
-                var hit = VoxelContact.Resolve(striker, strikerBefore, flesh, targetBefore, massBehindA: MassBehind);
-                if (hit.Touched)
-                {
-                    return hit;
-                }
-            }
-
-            throw new AssertFailedException("the controlled blow did not reach the target");
+            glove.Remap((_, material, _) => material == 0 ? material : BoxerAnatomy.Iron);
         }
+
+        var target = new VoxelGrid(BoxerAnatomy.Palette, new Vector3(0.07042f), 0.01408f,
+            (p, _) => p.X < -0.05634f ? BoxerAnatomy.Skin : BoxerAnatomy.Muscle);
+        var radians = angle * MathF.PI / 180f;
+        var direction = new Vector3(MathF.Cos(radians), MathF.Sin(radians), 0f);
+        var start = new Vector3(-0.14f, 0f, 0f) - (direction * 0.12f);
+        var strikerId = world.AddDynamicBox(start, glove.HalfExtents, 0.8f);
+        var targetId = world.AddDynamicBox(Vector3.Zero, target.HalfExtents, 10f);
+        var striker = new VoxelBody(world, strikerId, glove);
+        var flesh = new VoxelBody(world, targetId, target);
+        world.SetPairCollisionEnabled(strikerId, targetId, false);
+        world.SetLinearVelocity(strikerId, direction * speed);
+        for (var step = 0; step < 80; step++)
+        {
+            var strikerBefore = world.GetState(strikerId);
+            var targetBefore = world.GetState(targetId);
+            world.Step(1f / 240f);
+            var hit = VoxelContact.Resolve(striker, strikerBefore, flesh, targetBefore, massBehindA: 3f);
+            if (hit.Touched)
+            {
+                return hit;
+            }
+        }
+
+        throw new AssertFailedException("the controlled blow did not reach the target");
     }
 
     [TestMethod]
