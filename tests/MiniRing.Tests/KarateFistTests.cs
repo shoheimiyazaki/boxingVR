@@ -51,10 +51,11 @@ public sealed class KarateFistTests
             .Where(i => grid.MaterialAt(i) != 0)
             .Max(i => Center(grid, i).X);
         var tips = Enumerable.Range(0, grid.CellCount)
-            .Where(i => grid.MaterialAt(i) != 0 && Center(grid, i).X > front - 0.001408f)
+            .Where(i => grid.MaterialAt(i) != 0 && Center(grid, i).X > front - (grid.CellSize.X / 2f))
             .Select(i => Center(grid, i)).ToArray();
-        Assert.IsTrue(tips.All(p => p.Z < 0.005634f), "index and middle knuckles lead the ring and little fingers");
-        Assert.IsTrue(tips.Any(p => p.Z < -0.01408f) && tips.Any(p => p.Z > -0.01408f), "two knuckles, not one spike");
+        var betweenLeadingKnuckles = -2f * grid.CellSize.Z;
+        Assert.IsTrue(tips.All(p => p.Z < grid.CellSize.Z / 2f), "index and middle knuckles lead the ring and little fingers");
+        Assert.IsTrue(tips.Any(p => p.Z < betweenLeadingKnuckles) && tips.Any(p => p.Z > betweenLeadingKnuckles), "two knuckles, not one spike");
         Assert.IsTrue(front - Weapon.GripOf(WeaponKind.Fist).X > 0.03944f, "knuckles project ahead of the folded fingers");
         var boneBehind = 0;
         foreach (var p in tips)

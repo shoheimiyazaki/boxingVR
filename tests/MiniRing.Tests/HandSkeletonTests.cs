@@ -27,6 +27,35 @@ public sealed class HandSkeletonTests
     }
 
     [TestMethod]
+    public void BareHand_KeepsAdultProportionsFromWristToFingertip()
+    {
+        _ = new BareHandState().Placed(HandSkeleton.PoseOf(HandShape.SpearHand), out var open);
+        _ = new BareHandState().Placed(HandSkeleton.PoseOf(HandShape.Seiken), out var fist);
+
+        static Vector3[] Occupied(VoxelGrid grid) => Enumerable.Range(0, grid.CellCount)
+            .Where(i => grid.MaterialAt(i) != 0).Select(i => CenterOf(grid, i)).ToArray();
+
+        // ANSUR II の成人男性平均は手長 193 mm、掌幅 88 mm。拳全体の幅には折り畳んだ親指も含む。
+        var openCells = Occupied(open);
+        var wristToTip = openCells.Max(p => p.X) + (open.CellSize.X / 2f) - HandSkeleton.Wrist.X;
+        Assert.IsTrue(wristToTip is >= 0.175f and <= 0.205f, $"wrist to fingertip {wristToTip * 1000f:F1} mm");
+        var fistCells = Occupied(fist);
+        var fistWidth = fistCells.Max(p => p.Z) - fistCells.Min(p => p.Z) + fist.CellSize.Z;
+        Assert.IsTrue(fistWidth is >= 0.085f and <= 0.115f, $"clenched fist including thumb {fistWidth * 1000f:F1} mm");
+
+        float WristSliceWidth(float fromSocket)
+        {
+            var slice = fistCells.Where(p => MathF.Abs(p.X - HandSkeleton.Wrist.X - fromSocket) < fist.CellSize.X / 2f).ToArray();
+            Assert.IsNotEmpty(slice, "the hand extends to both sides of the forearm socket");
+            return slice.Max(p => p.Z) - slice.Min(p => p.Z) + fist.CellSize.Z;
+        }
+
+        var wristWidth = WristSliceWidth(fist.CellSize.X / 2f);
+        Assert.IsTrue(wristWidth is >= 0.045f and <= 0.065f, $"wrist width {wristWidth * 1000f:F1} mm");
+        Assert.IsLessThan(wristWidth, WristSliceWidth(-fist.CellSize.X / 2f), "the overlap inside the forearm tapers");
+    }
+
+    [TestMethod]
     public void BoneCells_SitWhereTheJointAnglesPutThem_InEveryShape()
     {
         foreach (var shape in Enum.GetValues<HandShape>())
@@ -45,7 +74,7 @@ public sealed class HandSkeletonTests
 
                 bones++;
                 var d = Vector3.Distance(CenterOf(grid, state.Placement[i]), positions[i]);
-                // 2 セルまで: 14 mm のセル（人形の単位で 5 mm）（2026-11-18）では、手首を斜めに振る手刀の骨が写しの食い違いで 1.77 セル離れる。
+                // 斜めに曲げると隣のセルとの取り合いがある。骨のずれは 2 セルまで。
                 Assert.IsLessThanOrEqualTo(Cell * 2f, d, $"{shape}: a bone cell is within a cell of its joint-angle position");
                 if (d > Cell * 0.9f)
                 {

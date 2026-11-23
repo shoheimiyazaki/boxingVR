@@ -363,7 +363,7 @@ public sealed class Weapon
             return new Weapon(kind, new VoxelBody(world, id, grid));
         }
 
-        // 手にはめる物: 物の格子（5.6 mm）に、中の手の格子（14 mm、素手と同じ手のモデル）を同じ剛体に重ねる。質量は材質の密度 × 体積の和
+        // 手にはめる物: 物の格子と中の手の格子（素手と同じ手のモデル）を同じ剛体に重ねる。質量は材質の密度 × 体積の和
         // （materialMass: 手の組織の材質の密度も数える。セル数に比例させると、細かい物のセルと粗い手のセルが同じ重さになってしまう）。
         var weapon = new Weapon(kind, new VoxelBody(world, id, grid, materialMass: true));
         var state = new BareHandState().Placed(spec.Pose, out var handGrid, spec.Held);
@@ -943,7 +943,7 @@ public sealed class Weapon
     }
 
     // ── 手にはめる物（グローブ以外）。形は「手の座標」で書く: 原点は手の格子の中心（掌の真ん中。HandSkeleton と同じ座標）、+X は拳を突き出す向き、
-    // Z は拳頭の並ぶ向き（親指の側から小指の側）、Y は手の甲と掌を結ぶ向き。中の手は素手と同じ手のモデル（14 mm の格子: HandSkeleton・BareHandState）で、
+    // Z は拳頭の並ぶ向き（親指の側から小指の側）、Y は手の甲と掌を結ぶ向き。中の手は素手と同じ手のモデル（HandSkeleton・BareHandState）で、
     // 物の格子（5.6 mm、刃の薄いカタールは 3.5 mm）とは別の格子として、同じ剛体に重ねる（AddHand）。物のセルは手のセルを避けて置く（二重に固くならない）。
     // 物の寸法は、中の手の寸法（手の格子から測る）を基準にして書く: 手が大きくなれば物もそれに合わせて大きくなる。
     // 手は人よりおよそ 1.4 倍大きい（人の拳の幅 9 cm → 拳の幅 11〜14 cm。人形の単位で拳を大きくした手の換算）。物の太さ・長さは、人の物を
@@ -971,7 +971,7 @@ public sealed class Weapon
 
     // カタール（人の: 刃 25 cm・根元の幅 5 cm、枠 15 cm → 刃の長さは今まで通り 20 cm（人形の単位の 7 cm の換算）、根元の幅は手の幅に対する人の比 0.58 × 手の半分）。
     // 手は横木（握り棒）を握り（GripPose）、枠の面は握り棒の高さ（HandSkeleton.GripCenter.Y）。
-    private const float KatarGripRadius = 0.01127f;      // 握る横木の半径（直径 23 mm）。手のセル（14 mm）の対角の半分 10 mm より太くないと、棒が手のセルを空けられない（4 つのセルの角に棒の軸が来る）
+    private const float KatarGripRadius = 0.01127f;      // 握る横木の半径（直径 23 mm）。手のセルの面の半対角より大きくし、軸の周りのセルを空ける
     private const float KatarBladeGap = 0.0169f;        // 拳頭の前の面から刃の根元まで
     private const float KatarBladeLength = 0.1972f;      // 刃の根元から切っ先まで
     private const float KatarBladeHalfWidth = 0.04085f; // 刃の根元の幅の半分（Z）
