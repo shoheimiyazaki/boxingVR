@@ -3,6 +3,8 @@
   league [--bots a,b,...] [--bouts N] [--seconds S] [--seed X] [--out file.md]   総当たりの順位表と技の内訳
   excitement [--red a] [--blue b] [--seconds S] [--seeds N] [--seed X] [--out file.md] [--curve 接頭辞]   試合の面白さ（見どころ・ドラマ・緩急）の一覧とまとめ（docs/EXCITEMENT.md）
   excitementleague [--pairs a:b,c:d] [--seconds S] [--seeds N] [--seed X] [--out file.md] [--label 名前]   何組かの面白さの表
+  excitementpanel --out file.json [--pairs a:b,c:d] [--seeds 8] [--seed 1] [--seconds 67.14] [--parallel 4]   6 組のドラマを対戦別に記録
+  excitementcompare --before base.json --after candidate.json [--out diff.json]   対戦を対応づけ、分布と差を比較
   excitementfit [--pairs a:b,...] [--seconds S] [--seeds N] [--seed X] [--out file.json]   観客の見込みのモデル（WinModel）を当てはめる
   tune --base NAME [--gens G] [--pop P] [--bouts N] [--seconds S] [--gauntlet a,b] [--seed X] [--log file.md] [--out style.json]
                                                                                   スタイルの自動調整（PDCA を世代ごとに記録）

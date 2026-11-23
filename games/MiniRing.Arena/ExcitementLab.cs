@@ -128,7 +128,7 @@ internal static class ExcitementLab
         return 0;
     }
 
-    private static (string Red, string Blue) Split(string pair)
+    internal static (string Red, string Blue) Split(string pair)
     {
         var parts = pair.Split(':');
         return parts.Length == 2 ? (parts[0], parts[1]) : throw new ArgumentException($"--pairs は 赤:青 をカンマで区切ってください（{pair}）。");
