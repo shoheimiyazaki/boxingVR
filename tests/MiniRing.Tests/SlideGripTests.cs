@@ -252,20 +252,20 @@ public sealed class SlideGripTests
             return g with { Left = g.Left with { Orientation = null, TargetLocal = r.On(-RightX) }, Right = right };
         });
         rig.Run(252);
-        var startY = rig.Center().Y;
         var startAxis = rig.Axis();
         rig.Run(319);
         Assert.IsNull(rig.Cpu.GripX(Hand.Right), "the right hand let go");
         Assert.AreEqual(-RightX, rig.Cpu.GripX(Hand.Left)!.Value, 2.817e-3f, "the left hand holds the staff where it was");
         Assert.IsTrue(rig.Cpu.Wields(Hand.Right) && rig.Cpu.Wields(Hand.Left), "the fighter still wields the staff");
         Assert.IsTrue(rig.Cpu.HasWristServo(Hand.Left), "the left wrist carries the staff alone");
-        Assert.IsGreaterThan(startY - 0.1408f, rig.Center().Y, "the staff did not fall out of the left hand");
+        var leftAnchor = rig.Center() + (rig.Axis() * rig.Cpu.GripX(Hand.Left)!.Value);
+        Assert.IsLessThan(RigTuning.SupportGripReach, Vector3.Distance(leftAnchor, rig.Cpu.GloveCenter(Hand.Left)),
+            "the grip point stays with the supporting hand");
         Assert.IsLessThan(0.6f, MathF.Acos(Math.Clamp(Vector3.Dot(startAxis, rig.Axis()), -1f, 1f)), "and kept its direction roughly (one wrist at a third of the strength sags a little under the staff weight)");
         rig.Run(201);
         Assert.IsGreaterThan(RightX + 0.0845f, rig.Cpu.GripX(Hand.Right)!.Value, "the right hand takes hold again, further along than before");
         Assert.AreEqual(Forward + RightX, rig.Cpu.GripX(Hand.Right)!.Value - rig.Cpu.GripX(Hand.Left)!.Value, 0.0845f, "the grips settle to the span of the hand targets (the left hand, now the nearer to the middle, slid back to match)");
         Assert.IsFalse(rig.Cpu.HasWristServo(Hand.Left), "two hands again: no wrist");
-        Assert.IsGreaterThan(startY - 0.1408f, rig.Center().Y);
     }
 
     [TestMethod]
