@@ -375,8 +375,8 @@ public sealed record BotStyle
     /// <summary>倒れた相手への攻めのうち、振り下ろす系（鉄槌・斬り下ろし・棍棒の打ち下ろし）を選ぶ割合（残りは突き下ろす系。棍棒は振り下ろす系だけ）。</summary>
     public float GroundCut { get; init; } = 0.5f;
 
-    /// <summary>倒れた相手を拳で攻めるとき、踏みつけ（足）を選ぶ割合（武器を握っていないときだけ。空手向き）。</summary>
-    public float GroundStomp { get; init; }
+    /// <summary>武器を握っていないとき、踏みつけを選ぶ割合。既定は空手の教科書と同じ。</summary>
+    public float GroundStomp { get; init; } = 0.6f;
 
     /// <summary>倒れた相手への打ち下ろしの合間 [s]（次を決めるまで）。</summary>
     public float GroundRest { get; init; } = 0.5874f;

@@ -175,6 +175,6 @@ dotnet run --project games/MiniRing.Arena -c Release -- intentvideo --script doc
 
 - 移動は今のまま: 相手の横へ回る（体の軸の横）のはプレイヤーの操作です。頭を沈めて前傾するのは `GroundStrike` が頭のずれ（`HeadOffset`）で出します（届く高さまで）。
 - 押している間は溜め、離して打つ（溜めの長さは `BotStyle.MaxTelegraph` まで。威力は掛けず、体のバネ・落とす速さが物理で決める）。
-- 素手: 弱 = 鉄槌（`hammer`）、強 = 沈んで突き下ろし（`drop-thrust`）。空手の強は踏み下ろし（`stomp`）。
+- 素手の弱は鉄槌（`hammer`）。強は相手の頭から首の範囲を狙う踏み下ろし（`stomp`）。
 - 日本刀・ロングソード: 弱 = 斬り下ろし（`cut`）、強 = 突き下ろし（`thrust-down`）。こんぼう: 打ち下ろし（`cut`）。
 - VR は手の位置がそのまま目標なので何も足していません（レフェリーなしでは、倒れた相手への打撃が数えられるだけ）。
