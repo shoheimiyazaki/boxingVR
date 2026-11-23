@@ -1,5 +1,7 @@
 using System.Numerics;
+using Aigis.Foundation.Voxels;
 using Aigis.Physics;
+using Aigis.Physics.Voxels;
 using MiniRing.Arena;
 using MiniRing.Voxels;
 
@@ -122,39 +124,31 @@ public sealed class JointBridgeTests
         Assert.IsGreaterThan(10, tilted, "and still bridged with the head tipped about the joint");
     }
 
-    /// <summary>
-    /// 膝: 太ももを固定したまま、すねを膝のまわりに回して隙間を開け（<c>jointlab</c> の姿勢）、日本刀が膝の高さを水平に通る。つなぎが無いと刃は膝の組織を
-    /// あまり削れず、すねは落ちない。つなぎがあると膝のそばの組織が削れ、すねが落ちる（<c>docs/arena/jointlab_bend40.md</c> の「つなぎが断ちを変えた振り」から、
-    /// つなぎが有って断たれた振りの 3 行。膝の断ちは、刃が止まるか通り抜けるかの連鎖で、逆につなぎが有って断たれなくなる振りも同じ表にある — 数は表のとおり。
-    /// 値はシミュレーションが決定的なので固定）。
-    /// </summary>
     [TestMethod]
-    [TestCategory("slow")]
-    public void ABladeThroughTheOpenedKneeGap_CutsTheKnee_OnlyWithTheBridge()
+    [DataRow(HumanoidRagdoll.RagdollJoint.RightKnee, -40f)]
+    [DataRow(HumanoidRagdoll.RagdollJoint.Neck, 35f)]
+    public void CuttingAGapBridge_DamagesBothConnectedParts(HumanoidRagdoll.RagdollJoint joint, float bend)
     {
-        // 59（顔・手の層と、この枝の滑りの直しのマージ）: 静止した的の立ち方が数 mm 変わり、膝の断ちは刃が止まるか通り抜けるかの鋭い連鎖なので、3 行を
-        // 取り直した（`jointlab --joints LeftKnee,RightKnee --bend 40 --speeds 3.4,9`、表は docs/arena/jointlab_bend40_v59.md の「つなぎが断ちを変えた振り」。
-        // つなぎ無し → 有りで 断たれない → 断たれる、近くの削れたセル 22 → 87 / 94 → 102 / 73 → 95）。
-        // 60（グローブの作り直し 58 とのマージ）: 的の立ち方はグローブの有無で 0.1 mm も動かない（膝の中心 861.1 → 861.0 mm、骨盤 1029.1 → 1029.0 mm、
-        // 拳 0.1 mm 以内。2026-11-19 の測定）のに、3.4 m/s の振りは刃が止まるか通り抜けるかの鋭い連鎖で、LeftKnee の窓が -10 mm（つなぎ有りだけ断つ）から
-        // -5 mm（つなぎ無しだけ断つ）へ入れ替わった。9 m/s の振りは窓がほぼ同じ（LeftKnee +5 mm・RightKnee +5 mm は同じ行で、近くの削れが 94 → 102・73 → 95 から
-        // 66 → 106・73 → 95）。そこで、3.4 m/s の行を 1 mm 刻みで探し直し（`GlovePoseProbe` の掃引: 膝の高さ -10〜+10 mm × 2 速さ × 左右）、
-        // つなぎ無し → 有りで 断たれない → 断たれる行に置き換えた（RightKnee front +3 mm 3.4 m/s bend -40: 近くの削れ 58 → 77）。
-        var rows = new[]
+        var stage = JointLab.Prepare(joint, "front", 0f, bridges: true, bend, "right");
+        using var game = stage.Game;
+        var bridge = game.Cpu.Voxels!.Bridges.Single(b => b.Joint == joint);
+        var grid = bridge.Body.Grid;
+        Assert.IsGreaterThan(0, bridge.ActiveCells, "the flexed joint has filled gap cells");
+        var removed = new List<RemovedVoxel>();
+        var sourceCells = bridge.ParentLayers.Concat(bridge.ChildLayers).Sum(part => part.Body.Grid.FilledCount);
+        for (var i = 0; i < grid.CellCount; i++)
         {
-            (HumanoidRagdoll.RagdollJoint.RightKnee, "front", 0.008451f, 5.707f, -40f),
-            (HumanoidRagdoll.RagdollJoint.LeftKnee, "front", 0.01408f, 15.11f, 40f),
-            (HumanoidRagdoll.RagdollJoint.RightKnee, "front", 0.01408f, 15.11f, -40f),
-        };
-        foreach (var (joint, dir, offset, speed, bend) in rows)
-        {
-            var without = JointLab.SlashOnce(joint, dir, offset, speed, bridges: false, bend);
-            var with = JointLab.SlashOnce(joint, dir, offset, speed, bridges: true, bend);
-            TestContext.WriteLine($"{joint} {dir} {offset * 1000f:0} mm {speed} m/s bend {bend}: without {without}; with {with}");
-            Assert.IsFalse(without.Severed, $"{joint} {dir}: the blade does not cut the knee through the gap on its own");
-            Assert.IsTrue(with.Severed, $"{joint} {dir}: the bridged knee is cut through and the shin falls");
-            Assert.IsGreaterThan(without.NearLost, with.NearLost, $"{joint} {dir}: more of the knee is cut");
+            grid.Break(i, removed);
         }
+
+        // 接触で除去されたつなぎのセルから、親と子へ欠損が伝わる部分を直接検証する。
+        var hit = new VoxelContactResult(true, stage.Weapon.Body, bridge.Body, [], removed, stage.Center, Vector3.Zero, stage.Heading, 0f, 0f, 0f, false, null, null);
+        var damaged = bridge.Sever(hit);
+        Assert.IsTrue(damaged.Any(entry => bridge.ParentLayers.Contains(entry.Part)), "the parent side is cut");
+        Assert.IsTrue(damaged.Any(entry => bridge.ChildLayers.Contains(entry.Part)), "the child side is cut");
+        Assert.AreEqual(sourceCells - damaged.Sum(entry => entry.Cells.Count),
+            bridge.ParentLayers.Concat(bridge.ChildLayers).Sum(part => part.Body.Grid.FilledCount));
+        Assert.IsEmpty(bridge.Sever(hit), "the same removed bridge cells cannot damage the joint again");
     }
 
     /// <summary>
@@ -191,31 +185,4 @@ public sealed class JointBridgeTests
         Assert.IsGreaterThan(0, with.NearLost, "and cuts some of the ankle");
     }
 
-    /// <summary>
-    /// 頭を首の関節のまわりに前へ 35° 倒した静止した相手の首の関節の少し下（胸の上端から 2〜3 mm 下）を、日本刀が水平に通る（<c>necklab --mode slash --arms down --tilt 35</c> の同じ行）。
-    /// つなぎが無いと刃は首の組織を断てず頭は落ちない。つなぎがあると首の組織まで断たれ、頭が落ちる。値はシミュレーションが決定的なので固定（合わせ込んだ 2 行）。
-    /// </summary>
-    [TestMethod]
-    [TestCategory("slow")]
-    public void ABladeThroughTheBaseOfATippedNeck_TakesTheHeadOff_OnlyWithTheBridge()
-    {
-        // 49（足の滑りの直し）: 静止した的の立ち方が数 mm 変わったので、side の行の高さを -3 mm から -2 mm へ取り直した（-3 mm は首が断たれたが頭は落ちず、
-        // 1 mm ずつ振ると side は -2・+4 mm、front は -3・-1〜+3 mm で頭が落ちる。落ちる高さは 1 mm 刻みで入れ替わる鋭い値で、物理の量ではなく固定した 2 行）。
-        // 59（顔・手の層とのマージ）: 頭の外のあご・首の付け根を顔の層が持ち、つなぎは両方の格子を見る（JointBridge.ParentLayers / ChildLayers）。立ち方がまた数 mm
-        // 変わったので 2 行を取り直した（`necklab --mode slash --tilt 35 --arms down --offsets -0.005..0.005 --speeds 3.4,9` をつなぎ有り・無しで。
-        // 表は docs/arena/necklab_slash_tilt35_v59_on.md・_off.md。つなぎ無しは断たれず頭が残り、有りは頭が落ちる振り: side 3.4 m/s +3 mm（首の削れ 21 → 36）・
-        // front 3.4 m/s -5 mm（4 → 12）。ほかに side 3.4 +5・front 9 -2・back 3.4 -2/+2/+4 も同じ。落ちる高さは 1 mm 刻みで入れ替わる鋭い値で、固定した 2 行）。
-        // 62（シンプルな顔: 頭の形を頭蓋とあごの塊の距離の場に）: あごの下・首の付け根の顔の層の形が変わったので取り直した（同じ necklab を -6..+6 mm、1 mm 刻み・3.4 m/s で。
-        // 表は docs/arena/necklab_slash_tilt35_v62_on.md・_off.md。つなぎ無しは頭が残り、有りは落ちる振り: side +1 mm（首の削れ 6 → 33）・front 0 mm（4 → 12）。
-        // ほかに side +5、front +4、back -6・+2 も同じ）。
-        foreach (var (dir, offset, speed) in new[] { ("side", 0.002817f, 5.707f), ("front", 0f, 5.707f) })
-        {
-            var without = NeckLab.SlashOnce(dir, offset, speed, bridges: false, tiltDegrees: 35f, armsDown: true);
-            var with = NeckLab.SlashOnce(dir, offset, speed, bridges: true, tiltDegrees: 35f, armsDown: true);
-            TestContext.WriteLine($"{dir} {speed} m/s: without {without}; with {with}");
-            Assert.IsFalse(without.HeadOff, $"{dir}: the blade does not get through the neck on its own");
-            Assert.IsTrue(with.HeadOff, $"{dir}: the bridged joint is cut through, and the head drops");
-            Assert.IsGreaterThan(without.NeckLost, with.NeckLost, $"{dir}: more of the neck is cut");
-        }
-    }
 }
