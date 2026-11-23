@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Numerics;
 using MiniRing.Bots;
 using MiniRing.Weapons;
 
@@ -47,6 +48,7 @@ public sealed class GroundStrikeTests
         float? startedAt = null;
         for (var t = 0f; t < seconds; t += Dt)
         {
+            var wasDown = victim.State != FighterState.Standing;
             victim.Concussion = 0.97f; // 気を失って倒れたまま
             game.Step(default, Dt);
             if (!downed && victim.State != FighterState.Standing)
@@ -65,27 +67,30 @@ public sealed class GroundStrikeTests
             if (ground is { Started: > 0 })
             {
                 startedAt ??= t;
+            }
+
+            // レフェリーありでも実際のヒットを数える。倒れた歩は立っている間の接触が混ざるので除く。
+            if (wasDown && victim.State != FighterState.Standing && (referee || startedAt is not null))
+            {
                 foreach (var hit in game.RecentHits.Where(h => h.Attacker == game.Cpu && h.Victim == victim))
                 {
                     hits++;
                     damage += hit.Damage;
-                    first ??= t - startedAt;
+                    first ??= t - (startedAt ?? t);
                 }
-            }
-            else if (!referee)
-            {
-                // 倒れた相手を攻める前に当たった（かすった）打撃は、このドリルでは数えない。
             }
 
             if (Trace && ground is not null && ((int)(t / Dt)) % 30 == 0)
             {
                 var g = game.Cpu.GloveCenter(ground.CurrentHand);
-                var gl = game.Cpu.GloveCenter(Hand.Left);
                 var cmd = ((GroundStriker)game.CpuControl).Last.For(ground.CurrentHand).TargetLocal;
                 var act = game.Cpu.Frame.WorldToLocal(g);
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"    cmd=({cmd.X:0.000},{cmd.Y:0.000},{cmd.Z:0.000}) actual=({act.X:0.000},{act.Y:0.000},{act.Z:0.000}) headOffsetY={((GroundStriker)game.CpuControl).Last.HeadOffset.Y:0.000} stamina={game.Cpu.Stamina:0.00} tone={game.Cpu.Tone:0.00} upright={game.Cpu.Uprightness:0.00}"));
-                var near = MathF.Min(MathF.Min(victim.DistanceToPart(victim.Parts.Chest, g), victim.DistanceToPart(victim.Parts.Head, g)), MathF.Min(victim.DistanceToPart(victim.Parts.Chest, gl), victim.DistanceToPart(victim.Parts.Head, gl)));
-                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  t={t:0.00} {ground.CurrentName}/{ground.CurrentHand} striking={ground.Striking} dist={ground.Distance:0.00} gap={ground.Gap:0.00} sink={ground.Sink:0.00} started={ground.Started} gloveToVictim={near:0.000}m shoulderY={game.Cpu.ShoulderPosition(Hand.Left).Y:0.000} gloveR=({g.X:0.00},{g.Y:0.00},{g.Z:0.00}) head=({victim.HeadPosition.X:0.00},{victim.HeadPosition.Y:0.00},{victim.HeadPosition.Z:0.00}) chest=({victim.ChestPosition.X:0.00},{victim.ChestPosition.Y:0.00},{victim.ChestPosition.Z:0.00}) me=({game.Cpu.ShoulderPosition(Hand.Left).X:0.00},{game.Cpu.ShoulderPosition(Hand.Left).Z:0.00})"));
+                float NearTorso(Vector3 p) => MathF.Min(victim.DistanceToPart(victim.Parts.Pelvis, p),
+                    MathF.Min(victim.DistanceToPart(victim.Parts.Chest, p), victim.DistanceToPart(victim.Parts.Head, p)));
+                var targetGap = NearTorso(game.Cpu.Frame.LocalToWorld(cmd));
+                var gloveGap = NearTorso(g);
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  t={t:0.00} {ground.CurrentName}/{ground.CurrentHand} striking={ground.Striking} dist={ground.Distance:0.00} gap={ground.Gap:0.00} sink={ground.Sink:0.00} started={ground.Started} targetGap={targetGap:0.000}m gloveGap={gloveGap:0.000}m shoulderY={game.Cpu.ShoulderPosition(ground.CurrentHand).Y:0.000} gloveR=({g.X:0.00},{g.Y:0.00},{g.Z:0.00}) head=({victim.HeadPosition.X:0.00},{victim.HeadPosition.Y:0.00},{victim.HeadPosition.Z:0.00}) chest=({victim.ChestPosition.X:0.00},{victim.ChestPosition.Y:0.00},{victim.ChestPosition.Z:0.00}) me=({game.Cpu.ShoulderPosition(Hand.Left).X:0.00},{game.Cpu.ShoulderPosition(Hand.Left).Z:0.00})"));
             }
 
             if (ground?.CurrentName is { } current && (names.Count == 0 || names[^1] != current))
@@ -140,9 +145,9 @@ public sealed class GroundStrikeTests
         Console.WriteLine(Line("referee off", off));
         Console.WriteLine(Line("referee on", on));
         Assert.IsTrue(off.Downed && on.Downed, "the victim was knocked out in both");
-        Assert.IsGreaterThan(0, off.Hits, "without a referee, strikes on the downed opponent are counted (ApplyHit)");
         Assert.AreEqual(0, on.Hits, "with a referee, a downed opponent is not struck (unchanged)");
         Assert.AreEqual(0, on.Started, "with a referee the bot never attacks a downed opponent");
+        Assert.IsGreaterThan(0, off.Hits, "without a referee, strikes on the downed opponent are counted (ApplyHit)");
     }
 
     [TestMethod]
