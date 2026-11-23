@@ -87,7 +87,8 @@ public sealed class CmaTuneTests
         var after = DrillMeter.Total;
         // 他のテストと並列に動くので、少なくとも自分の分は増えている（等号は主張しない）。
         Assert.IsGreaterThanOrEqualTo(2L, after.Calls - before.Calls);
-        Assert.IsGreaterThanOrEqualTo(6.714d, after.Seconds - before.Seconds);
+        const double RoundingToleranceSeconds = 1e-9;
+        Assert.IsGreaterThanOrEqualTo(6.714d - RoundingToleranceSeconds, after.Seconds - before.Seconds);
     }
 
     [TestMethod]
