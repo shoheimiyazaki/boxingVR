@@ -19,7 +19,7 @@ public sealed class GroundStrikeTests
     internal const float DrillSeconds = 16.78f;
 
     /// <summary>倒れた相手に当てた打撃の記録（<paramref name="FirstHitAt"/> は打ち下ろしを始めてからの時刻）。</summary>
-    internal sealed record DrillResult(int Hits, float? FirstHitAt, int Started, string Names, float Damage, bool Downed, float Wounded = 0f);
+    internal sealed record DrillResult(int Hits, float? FirstHitAt, int Started, string Names, float Damage, bool Downed, float Wounded = 0f, float HeadStompDamage = 0f);
 
     // 攻めない的: 弱った相手を詰める層（FinishPress など）も切る（攻めない体が「相手の構えが下がった」と読んで前へ詰めると、的の位置が試合ごとに変わる）。
     private static BotStyle Still => BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f, FinishTempo = 0f, FinishPress = 0f, FinishSpend = 0f };
@@ -42,6 +42,7 @@ public sealed class GroundStrikeTests
         var woundedBefore = victim.Condition.TotalDamage;
         var hits = 0;
         var damage = 0f;
+        var headStompDamage = 0f;
         float? first = null;
         var names = new List<string>();
         var downed = false;
@@ -76,6 +77,12 @@ public sealed class GroundStrikeTests
                 {
                     hits++;
                     damage += hit.Damage;
+                    if (ground is { Striking: true, CurrentName: "stomp" } && hit.Kick
+                        && hit.KickerPart is KickPart.Foot or KickPart.Toe
+                        && hit.Zone is HitZone.Head or HitZone.Temple or HitZone.Chin or HitZone.Neck)
+                    {
+                        headStompDamage += hit.Damage;
+                    }
                     first ??= t - (startedAt ?? t);
                 }
             }
@@ -105,7 +112,7 @@ public sealed class GroundStrikeTests
         }
 
         var started = (game.CpuControl as GroundStriker)?.Ground.Started ?? 0;
-        return new DrillResult(hits, first, started, string.Join(",", names), damage, downed, victim.Condition.TotalDamage - woundedBefore);
+        return new DrillResult(hits, first, started, string.Join(",", names), damage, downed, victim.Condition.TotalDamage - woundedBefore, headStompDamage);
     }
 
     internal static bool Trace { get; set; }
@@ -185,6 +192,19 @@ public sealed class GroundStrikeTests
         Assert.IsGreaterThan(0, r.Started, $"{name} starts at least one strike on the downed opponent");
         Assert.IsGreaterThanOrEqualTo(2, runs.Count(x => x.Hits > 0), $"{name} lands at least one counted strike on the downed opponent within {DrillSeconds} s in 2 of 3 seeds");
         Assert.IsGreaterThan(0f, r.Damage);
+    }
+
+    [TestMethod]
+    public void NoReferee_BoxerStompDamagesTheDownedOpponentsHeadOrNeck()
+    {
+        var runs = Enumerable.Range(1, 3).Select(seed => Drill(BotCatalog.Boxer, referee: false, seed: seed)).ToArray();
+        foreach (var run in runs)
+        {
+            Console.WriteLine($"{Line("boxer", run)} head/neck stomp damage={run.HeadStompDamage:0.0}");
+        }
+
+        Assert.IsTrue(runs.All(r => r.Downed));
+        Assert.IsGreaterThan(0f, runs.Max(r => r.HeadStompDamage));
     }
 
     [TestMethod]
