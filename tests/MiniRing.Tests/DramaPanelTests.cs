@@ -14,16 +14,18 @@ public sealed class DramaPanelTests
             new("a:b", 2, "a", "b", 90f),
             new("c:d", 1, "d", "c", 50f),
         ]);
+        const float nearTieDrama = 50.00001f;
         var after = before with
         {
             PhysicsVersion = 89,
-            Bouts = [before.Bouts[2] with { Drama = 50.00001f }, before.Bouts[1] with { Drama = 120f }, before.Bouts[0] with { Drama = 10f }],
+            Bouts = [before.Bouts[2] with { Drama = nearTieDrama }, before.Bouts[1] with { Drama = 120f }, before.Bouts[0] with { Drama = 10f }],
         };
 
         var (total, cards, interval) = DramaPanel.Compare(before, after);
         Assert.AreEqual(3, total.Count);
         Assert.AreEqual(50d, total.Before.Median);
-        Assert.AreEqual(18d, total.After.P10, 1e-8);
+        // P10 lies 20% of the way from the lowest to the middle of the three values.
+        Assert.AreEqual(10d + (0.2d * (nearTieDrama - 10d)), total.After.P10, 1e-8);
         Assert.AreEqual(0d, total.PairedChange.Median, 0.0001d);
         Assert.AreEqual(1, total.Lower);
         Assert.AreEqual(1, total.Equal);
