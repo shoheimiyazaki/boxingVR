@@ -49,7 +49,7 @@ public sealed class PhotoFaceTests
                     c = Skin;
                 }
 
-                if (y is >= 60 and < 130 && x is >= 80 and < 320)
+                if (y < 130 && x is >= 80 and < 320 && (y >= 60 || hair == Skin)) // 坊主の絵は頭の上まで肌
                 {
                     c = hair;
                 }

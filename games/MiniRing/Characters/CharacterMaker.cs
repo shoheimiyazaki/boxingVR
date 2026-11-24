@@ -44,10 +44,10 @@ public sealed record CharacterDraft
     public string Tagline { get; init; } = "";
 
     /// <summary>身長 [cm]。</summary>
-    public int HeightCm { get; init; } = (int)CharacterProfile.BaseHeightCm;
+    public int HeightCm { get; init; } = CharacterProfile.StandardHeightCm;
 
     /// <summary>体重 [kg]（計量・階級の体重。体格の太さはここから解く）。</summary>
-    public int WeightKg { get; init; } = (int)CharacterProfile.BaseWeightKg;
+    public int WeightKg { get; init; } = CharacterProfile.StandardWeightKg;
 
     /// <summary>
     /// 身長の比と太さの比をそのまま持つとき（名簿のキャラを読み込んだとき）。式で出し直した身長・体重が <see cref="HeightCm"/>・<see cref="WeightKg"/> と同じ間は
@@ -215,17 +215,18 @@ public static class CharacterMaker
     }
 
     /// <summary>
-    /// 新しい下書き: 体型 <paramref name="bodyType"/>・ルーツ <paramref name="root"/> の初めの値（身長 175 cm・体重はその体型の太さから）。
+    /// 新しい下書き: 体型 <paramref name="bodyType"/>・ルーツ <paramref name="root"/> の初めの値（身長は基準の体・体重はその体型の太さから）。
     /// 名前・国は空（画面で書く）。
     /// </summary>
-    public static CharacterDraft NewDraft(string bodyType = "standard", string root = "east-asia", int heightCm = 175)
+    public static CharacterDraft NewDraft(string bodyType = "standard", string root = "east-asia", int? heightCm = null)
     {
+        var height = heightCm ?? CharacterProfile.StandardHeightCm;
         var type = BodyTypeOf(bodyType);
         var face = RootOf(root).Face();
         return new CharacterDraft
         {
-            HeightCm = heightCm,
-            WeightKg = BodySizing.WeightFor(heightCm, type.Muscle),
+            HeightCm = height,
+            WeightKg = BodySizing.WeightFor(height, type.Muscle, type.Arms, type.Legs),
             Arms = type.Arms,
             Legs = type.Legs,
             Face = FaceDraft.From(face, LookOf(face)),

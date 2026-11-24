@@ -74,18 +74,18 @@ public sealed class IvfTests
     public void WeighIn_UsesTheVisibleBody_AndOnlySameClassBoutsAreMade()
     {
         var ivf = Ivf;
-        var ramon = CharacterRoster.Get("ramon");
+        var joao = CharacterRoster.Get("joao");
         var albert = CharacterRoster.Get("albert");
         var marcus = CharacterRoster.Get("marcus");
-        Assert.AreEqual(ramon.Profile!.WeightKg, OrgBouts.WeightOf(ramon), "計量 = 見えている体の体重（プロフィールと同じ）");
+        Assert.AreEqual(joao.Profile!.WeightKg, OrgBouts.WeightOf(joao), "計量 = 見えている体の体重（プロフィールと同じ）");
 
-        var (red, blue, division) = OrgBouts.Enter(ivf, ramon, albert);
+        var (red, blue, division) = OrgBouts.Enter(ivf, joao, albert);
         Assert.AreEqual("middle", division.Id);
         Assert.AreEqual(HandWear.Glove, blue.Wear, "素手のアルバートにもグローブを着ける");
         Assert.AreEqual(albert.Build, blue.Build, "体はそのまま");
 
-        var mismatch = Assert.ThrowsExactly<ArgumentException>(() => OrgBouts.Enter(ivf, ramon, marcus));
-        StringAssert.Contains(mismatch.Message, "104 kg");
+        var mismatch = Assert.ThrowsExactly<ArgumentException>(() => OrgBouts.Enter(ivf, joao, marcus));
+        StringAssert.Contains(mismatch.Message, $"{marcus.Profile!.WeightKg} kg");
         StringAssert.Contains(mismatch.Message, "ヘビー級");
 
         // 武器の選手・蹴る教科書の選手は IVF に出られない。WVC は無差別で、どの組み合わせも組める（今までの中継のまま）。
@@ -100,9 +100,10 @@ public sealed class IvfTests
     public void Pool_SplitsTheRosterByWeight_RespectingMembership()
     {
         var ivf = OrgBouts.Pool(Ivf, CharacterRoster.All);
-        Assert.AreEqual("albert,joao,ramon,vikram", string.Join(",", ivf["middle"].Select(c => c.Id)));
+        // 2026-11-24: 体重 = 物理の体の質量（ramon 63 kg はライト級、yoandry 72 kg はミドル級）。
+        Assert.AreEqual("albert,joao,vikram,yoandry", string.Join(",", ivf["middle"].Select(c => c.Id)));
         Assert.AreEqual("dmitri,marcus", string.Join(",", ivf["heavy"].Select(c => c.Id)));
-        Assert.IsEmpty(ivf["light"]);
+        Assert.AreEqual("ramon", string.Join(",", ivf["light"].Select(c => c.Id)));
 
         var wvc = OrgBouts.Pool(Organization.Of("wvc"), CharacterRoster.All);
         Assert.IsTrue(wvc["open"].All(c => c.Org == "wvc"));

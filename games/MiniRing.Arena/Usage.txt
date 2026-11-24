@@ -45,7 +45,7 @@
   noiselab [--only drill,match] [--match-n N] [--drill-n N] [--match-seconds a,b] [--drill-seconds a,b] [--seed X] [--parallel P] [--out f.md]
                                                                                   評価の雑音を測る（種による揺れ・小さな変更での揺れ・差を言うのに要る標本の数・1 標本の長さ）
   visionlab [--only start,aim] [--bouts N] [--seconds S] [--seed X] [--log f.md]  目を潰されて始める・目を狙うスタイルの測定
-  faces [--out f.png] [--names a,b|f.json] [--columns N]                                全キャラの顔（正面と斜め）を並べた画像
+  faces [--out f.png] [--names a,b|f.json] [--roster all|id,f.json] [--columns N]                           全キャラの顔（正面と斜め）を並べた画像
   voxexport [--out boxer.vox] [--from current|generated]                         ボクサーの中身を .vox へ（Vengi・MagicaVoxel で直す）
   voxcheck --in boxer.vox [--install yes]                                        直した .vox を確かめ、生成との差を出す（yes でゲームに組み込む）
   weaponexport [--out weapons.vox] [--from current|generated]                    武器・はめる物の中身を .vox へ（256 を超える軸は塊に分ける）

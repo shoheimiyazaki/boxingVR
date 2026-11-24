@@ -2334,7 +2334,7 @@ static int Faces(Options o)
     // --roster all か id の並び: 名簿のキャラ（体格・顔はキャラのファイルの値）。無ければ --names のボット。
     if (o.Get("roster") is { } roster)
     {
-        var characters = roster == "all" ? [.. MiniRing.Characters.CharacterRoster.All] : roster.Split(',').Select(MiniRing.Characters.CharacterRoster.Get).ToList();
+        var characters = roster == "all" ? [.. MiniRing.Characters.CharacterRoster.All] : roster.Split(',').Select(CharacterArg).ToList();
         return FaceSheet.RunRoster(o.Get("out") ?? "docs/images/roster_faces.png", characters);
     }
 
