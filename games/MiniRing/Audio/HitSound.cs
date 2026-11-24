@@ -35,8 +35,8 @@ public enum HitSurface
 /// <param name="Surface">打った面の材質。</param>
 public readonly record struct HitTone(float Intensity, float Clean, HitTarget Target, HitSurface Surface = HitSurface.Glove)
 {
-    /// <summary>この程度のダメージで最も重い音になる。</summary>
-    public const float FullDamage = 28f;
+    /// <summary>この程度のダメージで最も重い音になる（尺度と測った分布は <see cref="MiniRing.HitLook"/>）。</summary>
+    public const float FullDamage = HitLook.FullDamage;
 
     public static HitTone Of(in HitEvent hit)
     {
@@ -46,7 +46,7 @@ public readonly record struct HitTone(float Intensity, float Clean, HitTarget Ta
             HitZone.Chin or HitZone.Temple or HitZone.Head or HitZone.Neck => HitTarget.Head,
             _ => HitTarget.Body,
         };
-        var intensity = Math.Clamp(hit.Damage / FullDamage, 0f, 1f);
+        var intensity = HitLook.Loudness(hit.Damage);
         // 部位名で「急所」の音を上乗せせず、実際に伝わったダメージと連結度で連続に決める。
         var clean = target == HitTarget.Guard ? 0.1f * hit.BodyShare : 0.35f + (0.5f * hit.BodyShare) + (0.25f * intensity);
         return new HitTone(intensity, Math.Clamp(clean, 0f, 1f), target, SurfaceOf(hit.Face));

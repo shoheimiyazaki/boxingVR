@@ -1016,8 +1016,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
     }
 
-    /// <summary>打撃の強さ 0（かすり）〜 1（とても重い 1 発）。ダメージ 3 で 0、30 で 1 にかけて、平方根で（中くらいの差も見える）。</summary>
-    internal static float HitStrength(float damage) => MathF.Sqrt(Math.Clamp((damage - 3f) / 27f, 0f, 1f));
+    /// <summary>打撃の強さ 0（かすり）〜 1（とても重い 1 発）。尺度（どのダメージで 0・1 か）と測った分布は <see cref="HitLook"/>。</summary>
+    internal static float HitStrength(float damage) => HitLook.Strength(damage);
 
     /// <summary>
     /// 削れたボクセルを砕け散らせる。散り方で「どの向きに・どれだけ強く」当たったかが読めるように、どの破片も
