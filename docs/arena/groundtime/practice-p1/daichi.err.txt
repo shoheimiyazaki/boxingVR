@@ -1,0 +1,1 @@
+error: 次元は 1..30（ヤコビ法の想定） (Parameter 'initialMean')

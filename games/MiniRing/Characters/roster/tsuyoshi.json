@@ -98,6 +98,13 @@
   "textbook": "tonfa",
   "education": {
     "style": {
+      "Ground": {"WindShare": 0.4, "StrikeShare": 0.62, "SinkRate": 2.383, "MaxSink": 1.5, "SinkStepDown": 0.5, "SinkStepUp": 0.6, "ReadyGap": 0.07, "ReadyDistance": 0.805, "ArriveTolerance": 0.08, "SlowDistance": 0.6, "CrouchSpan": 0.35, "ApproachLean": 0.2, "MaxWait": 1.343, "GiveUpSeconds": 1.843, "GiveUpRange": 1.2, "RetryDelay": 0.467, "ReachLimit": 0.98, "GuardBladeAzimuth": 0.1, "GuardBladeElevation": 0.4, "FootRestSide": 0.2, "FootRestDrop": 1.4, "KneeUp": 0.2, "KneeForward": 0.15, "Hammer": {"Name": "hammer", "Limb": 0, "Duration": 0.839, "Stand": 0.3, "Reach": 1, "Rise": 0.65, "Pull": 0.15, "WindElevation": 0, "StrikeElevation": 0, "Overshoot": 0.15, "Dip": 0.3, "Lean": 0.1, "Spring": 1, "StanceLean": 0, "Through": 0, "AimFrom": 0, "AimTo": 2}, "PunchDown": {"Name": "punch-down", "Limb": 0, "Duration": 0.655, "Stand": 0.07, "Reach": 0.88, "Rise": 0.52, "Pull": 0.21, "WindElevation": 0, "StrikeElevation": 0, "Overshoot": 0.6, "Dip": 0.27, "Lean": 0.41, "Spring": 1, "MaxSink": 0.79, "StanceLean": 0, "Through": 0, "AimFrom": 0, "AimTo": 2}, "Stomp": {"Name": "stomp", "Limb": 1, "Duration": 1.324, "Stand": 1.026, "Reach": 1.517, "Rise": 1.238, "Pull": -0.043, "WindElevation": 0, "StrikeElevation": 0, "Overshoot": 0.095, "Dip": 0.09, "Lean": 0.43, "Spring": 1, "MaxSink": 0.03, "StanceLean": 0.138, "Through": 0.104, "AimFrom": 0.683, "AimTo": 1.746}, "Kick": {"Name": "kick", "Limb": 1, "Duration": 0.597, "Stand": 0.389, "Reach": 1.787, "Rise": 0.086, "Pull": 0.49, "WindElevation": 0, "StrikeElevation": 0, "Overshoot": 0.338, "Dip": 0.05, "Lean": 0.1, "Spring": 1, "MaxSink": 0.03, "StanceLean": 0.238, "Through": 0.349, "AimFrom": 1.338, "AimTo": 1.977}, "Cut": {"Name": "cut", "Limb": 0, "Duration": 1.091, "Stand": 0.8, "Reach": 0.95, "Rise": 0.7, "Pull": 0.2, "WindElevation": 2.3, "StrikeElevation": -0.75, "Overshoot": 0.1, "Dip": 0.3, "Lean": 0.1, "Spring": 1, "StanceLean": 0, "Through": 0, "AimFrom": 0, "AimTo": 2}, "Thrust": {"Name": "thrust-down", "Limb": 0, "Duration": 1.007, "Stand": 0.7, "Reach": 0.95, "Rise": 0.4, "Pull": 0.45, "WindElevation": -0.55, "StrikeElevation": -1.15, "Overshoot": 0.12, "Dip": 0.3, "Lean": 0.15, "Spring": 1, "StanceLean": 0, "Through": 0, "AimFrom": 0, "AimTo": 2}},
+      "GroundDrive": 0.915,
+      "GroundRest": 0.306,
+      "GroundLoad": 0.076,
+      "GroundCut": 0.713,
+      "GroundStomp": 0.921,
+      "GroundKick": 0.506,
       "BreakLikes": { "hum": 3, "onigiri": 2.5, "wave": 2.5, "handshake": 2.5, "applause": 2, "bow": 2, "selfie": 1.5, "stretcharms": 1.5, "roar": 0.3 },
       "GamePlan": {
         "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 13.43, "Pressure": 1,
