@@ -87,7 +87,17 @@
       "DefenseRate": 0.644,
       "CounterRate": 0.97,
       "ExitAfterCombo": 0.83,
-      "AttackRange": 1.235
+      "AttackRange": 1.235,
+      "BreakLikes": {
+        "neckcrack": 2,
+        "looksky": 2.5,
+        "salute": 2,
+        "forwardbend": 1.5,
+        "sportsdrink": 1.5,
+        "bow": 1.5,
+        "selfie": 0.3,
+        "blowkiss": 0.3
+      }
     },
     "vs": {},
     "weaponBot": null
@@ -159,5 +169,20 @@
       "ライトヘビー級の新人で全勝",
       "我慢強く、打たれても下がらない"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Daniyar Seitkali",
+      "reading": "Daniyar Seitkali",
+      "hudName": "Daniyar",
+      "origin": "Kazakhstan",
+      "tagline": "IVF light heavyweight, wind of the steppe",
+      "profile": {
+        "birthplace": "Almaty, Kazakhstan",
+        "hometown": "Almaty",
+        "stance": "Orthodox",
+        "quote": "The wind never stops."
+      }
+    }
   }
 }

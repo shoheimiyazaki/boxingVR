@@ -18,5 +18,20 @@
   "quote": "左は話す、右は答える。",
   "commentaryNotes": [
     "サウスポーのジャブ使い"
-  ]
+  ],
+  "breakLikes": {
+    "hum": 3,
+    "dance": 2.5,
+    "crossself": 2,
+    "sportsdrink": 1.5,
+    "fistpump": 2,
+    "applause": 1.5,
+    "cigarette": 0
+  },
+  "en": {
+    "tagline": "Southpaw jab artist from Guadalajara",
+    "birthplace": "Guadalajara, Mexico",
+    "hometown": "Guadalajara",
+    "quote": "The left asks, the right answers."
+  }
 }

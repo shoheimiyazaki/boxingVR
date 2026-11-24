@@ -86,7 +86,16 @@
       "CounterRate": 0.4,
       "ExitAfterCombo": 0.906,
       "AttackRange": 1.25,
-      "Southpaw": true
+      "Southpaw": true,
+      "BreakLikes": {
+        "hum": 3,
+        "dance": 2.5,
+        "crossself": 2,
+        "sportsdrink": 1.5,
+        "fistpump": 2,
+        "applause": 1.5,
+        "cigarette": 0
+      }
     },
     "vs": {},
     "weaponBot": null
@@ -161,5 +170,20 @@
       "新人リーグで一番早い KO は 1R 14 秒",
       "サウスポーのジャブ使い"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Abel Navarrete",
+      "reading": "Abel Navarrete",
+      "hudName": "Abel",
+      "origin": "Mexico",
+      "tagline": "Southpaw jab artist from Guadalajara",
+      "profile": {
+        "birthplace": "Guadalajara, Mexico",
+        "hometown": "Guadalajara",
+        "stance": "Southpaw",
+        "quote": "The left asks, the right answers."
+      }
+    }
   }
 }

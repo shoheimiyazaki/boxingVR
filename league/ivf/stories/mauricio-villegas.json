@@ -18,5 +18,20 @@
   "quote": "重い荷物ほど、腰で持つ。",
   "commentaryNotes": [
     "遅咲きのヘビー級の新人"
-  ]
+  ],
+  "breakLikes": {
+    "handshake": 2.5,
+    "applause": 2,
+    "pointup": 3,
+    "sandwich": 1.5,
+    "towelhead": 2,
+    "wavetwo": 2,
+    "selfie": 0.5
+  },
+  "en": {
+    "tagline": "IVF heavyweight, El Cargador",
+    "birthplace": "Tijuana, Mexico",
+    "hometown": "Tijuana",
+    "quote": "The heavier the load, the more you lift with your hips."
+  }
 }

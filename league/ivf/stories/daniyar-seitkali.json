@@ -19,5 +19,21 @@
   "commentaryNotes": [
     "ライトヘビー級の新人で全勝",
     "我慢強く、打たれても下がらない"
-  ]
+  ],
+  "breakLikes": {
+    "neckcrack": 2,
+    "looksky": 2.5,
+    "salute": 2,
+    "forwardbend": 1.5,
+    "sportsdrink": 1.5,
+    "bow": 1.5,
+    "selfie": 0.3,
+    "blowkiss": 0.3
+  },
+  "en": {
+    "tagline": "IVF light heavyweight, wind of the steppe",
+    "birthplace": "Almaty, Kazakhstan",
+    "hometown": "Almaty",
+    "quote": "The wind never stops."
+  }
 }

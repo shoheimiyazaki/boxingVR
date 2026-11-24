@@ -18,5 +18,21 @@
   "quote": "足が止まったら、もう俺じゃない。",
   "commentaryNotes": [
     "細身で長身、足を使うボクサー型"
-  ]
+  ],
+  "breakLikes": {
+    "bounce": 3,
+    "headphones": 2.5,
+    "hum": 2,
+    "gloveclap": 2,
+    "pointcrowd": 1.5,
+    "shadowbox": 2,
+    "bow": 0.5,
+    "prayer": 0.6
+  },
+  "en": {
+    "tagline": "IVF lightweight with quick feet",
+    "birthplace": "Philadelphia, United States",
+    "hometown": "North Philadelphia",
+    "quote": "When my feet stop, that's not me anymore."
+  }
 }

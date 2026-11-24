@@ -499,6 +499,37 @@ internal static class CircuitCommand
         JsonArray StoryList(string key, int min = 1) => story[key]?.AsArray() is { } a && a.Count >= min && a.All(x => !string.IsNullOrWhiteSpace(x?.GetValue<string>()))
             ? (JsonArray)a.DeepClone() : throw new InvalidDataException($"{storyPath}: {key} は空でない文を {min} つ以上にしてください。");
         node["tagline"] = story["tagline"]?.GetValue<string>() ?? $"{league.Org.LogoText} {division}の新鋭";
+
+        // 休みの動作の好み（教育。物語の趣味・人柄から手で選ぶ: 歌が好きなら口ずさむ…。好き（倍率 > 1）は 5〜10 個、EmoteTests が見る）。
+        // 新人リーグの試合は好みを持たない新人のファイルのまま記録してあり、ここで変えるのは登録した名簿のファイルだけ。
+        node["education"]!["style"]!["BreakLikes"] = story["breakLikes"] is JsonObject likes && likes.Count(p => p.Value!.GetValue<float>() > 1f) is >= 5 and <= 10
+            ? likes.DeepClone() : throw new InvalidDataException($"{storyPath}: breakLikes に好き（倍率 > 1）を 5〜10 個書いてください。");
+
+        // 英語の表示（locales.en）: 名前は生成の綴り（id）から、国名は決まりの english、紹介の文は物語の en。
+        var english = story["en"]?.AsObject() ?? throw new InvalidDataException($"{storyPath}: en（英語の tagline・birthplace・hometown・quote）がありません。");
+        string En(string key) => english[key]?.GetValue<string>() is { Length: > 0 } v && v.All(ch => ch < 0x3000) ? v
+            : throw new InvalidDataException($"{storyPath}: en.{key} を英語で書いてください。");
+        var words = id.Split('-').Select(w => char.ToUpperInvariant(w[0]) + w[1..]).ToList();
+        var country = league.Config.Countries.TryGetValue(c.Country.Id, out var names) && names.English is { Length: > 0 } e ? e
+            : throw new InvalidDataException($"国 {c.Country.Id} の english が決まり（Orgs/circuit）にありません。");
+        node["locales"] = new JsonObject
+        {
+            ["en"] = new JsonObject
+            {
+                ["name"] = string.Join(' ', words),
+                ["reading"] = string.Join(' ', words),
+                ["hudName"] = words[0],
+                ["origin"] = country,
+                ["tagline"] = En("tagline"),
+                ["profile"] = new JsonObject
+                {
+                    ["birthplace"] = english["birthplace"]?.GetValue<string>() ?? country,
+                    ["hometown"] = En("hometown"),
+                    ["stance"] = southpaw ? "Southpaw" : "Orthodox",
+                    ["quote"] = En("quote"),
+                },
+            },
+        };
         return new JsonObject
         {
             ["age"] = generated["age"]?.GetValue<int>() ?? 20,

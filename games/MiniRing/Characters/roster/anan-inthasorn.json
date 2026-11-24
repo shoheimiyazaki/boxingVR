@@ -86,7 +86,17 @@
       "DefenseRate": 0.423,
       "CounterRate": 0.543,
       "ExitAfterCombo": 0.859,
-      "AttackRange": 1.216
+      "AttackRange": 1.216,
+      "BreakLikes": {
+        "bow": 2.5,
+        "prayer": 2,
+        "banana": 2.5,
+        "shadowbox": 2,
+        "wipenose": 1.5,
+        "stretcharms": 1.5,
+        "roar": 0.3,
+        "selfie": 0.4
+      }
     },
     "vs": {},
     "weaponBot": null
@@ -158,5 +168,20 @@
       "新人リーグで一番早い KO は 1R 40 秒",
       "今季の登録で最年少"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Anan Inthasorn",
+      "reading": "Anan Inthasorn",
+      "hudName": "Anan",
+      "origin": "Thailand",
+      "tagline": "IVF lightweight jab prodigy",
+      "profile": {
+        "birthplace": "Bangkok, Thailand",
+        "hometown": "Bangkok (Thonburi)",
+        "stance": "Orthodox",
+        "quote": "The jab never lies."
+      }
+    }
   }
 }

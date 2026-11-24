@@ -87,7 +87,16 @@
       "DefenseRate": 0.255,
       "CounterRate": 0.321,
       "ExitAfterCombo": 0.167,
-      "AttackRange": 0.975
+      "AttackRange": 0.975,
+      "BreakLikes": {
+        "hum": 3.5,
+        "dance": 3,
+        "applause": 2,
+        "chestbeat": 2.5,
+        "hypecrowd": 2,
+        "wipetears": 1.5,
+        "bow": 0.6
+      }
     },
     "vs": {},
     "weaponBot": null
@@ -159,5 +168,20 @@
       "新人リーグで一番早い KO は 1R 19 秒",
       "前に出る強打者（slugger の教科書）"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Sipho Van Wyk",
+      "reading": "Sipho Van Wyk",
+      "hudName": "Sipho",
+      "origin": "South Africa",
+      "tagline": "IVF light heavyweight puncher, The Drum",
+      "profile": {
+        "birthplace": "Johannesburg, South Africa",
+        "hometown": "Soweto, Johannesburg",
+        "stance": "Orthodox",
+        "quote": "Forward. Always forward."
+      }
+    }
   }
 }

@@ -18,5 +18,21 @@
   "quote": "ジャブは嘘をつかない。",
   "commentaryNotes": [
     "今季の登録で最年少"
-  ]
+  ],
+  "breakLikes": {
+    "bow": 2.5,
+    "prayer": 2,
+    "banana": 2.5,
+    "shadowbox": 2,
+    "wipenose": 1.5,
+    "stretcharms": 1.5,
+    "roar": 0.3,
+    "selfie": 0.4
+  },
+  "en": {
+    "tagline": "IVF lightweight jab prodigy",
+    "birthplace": "Bangkok, Thailand",
+    "hometown": "Bangkok (Thonburi)",
+    "quote": "The jab never lies."
+  }
 }

@@ -18,5 +18,21 @@
   "quote": "一発で変わる。だから一発に備える。",
   "commentaryNotes": [
     "日本出身、ヘビー級の長身サウスポー"
-  ]
+  ],
+  "breakLikes": {
+    "bow": 3,
+    "mirror": 2,
+    "neckcrack": 2,
+    "onigiri": 2.5,
+    "mouthguard": 1.5,
+    "looksky": 1.5,
+    "dance": 0.4,
+    "blowkiss": 0.2
+  },
+  "en": {
+    "tagline": "IVF southpaw heavyweight from Fukuoka",
+    "birthplace": "Fukuoka, Japan",
+    "hometown": "Fukuoka",
+    "quote": "One punch changes everything, so I prepare for that one punch."
+  }
 }
