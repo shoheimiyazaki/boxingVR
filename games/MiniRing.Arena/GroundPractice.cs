@@ -126,6 +126,25 @@ internal sealed class GroundPractice(Action<string> log, int parallel = 1)
         return knobs;
     }
 
+    /// <summary>練習の値の名前（<c>GroundRest</c>・<c>stomp.Reach</c> など）で教育を上書きしたドリルの教え（groundtime --drill --teach）。</summary>
+    internal static FinishDrill.Teach? Override(string id, string victim, IReadOnlyDictionary<string, float> values)
+    {
+        if (values.Count == 0)
+        {
+            return null;
+        }
+
+        var c = CharacterRoster.Get(id);
+        var knobs = Knobs(c, fixedAim: false).ToDictionary(k => k.Name);
+        var state = Start(id, victim);
+        foreach (var (name, v) in values)
+        {
+            state = knobs.TryGetValue(name, out var k) ? k.Set(state, v) : throw new ArgumentException($"知らない値: {name}（{string.Join(", ", knobs.Keys)}）");
+        }
+
+        return TeachOf(c, state);
+    }
+
     /// <summary>キャラの今の教育（練習の始め）。</summary>
     internal static State Start(string id, string victim)
     {

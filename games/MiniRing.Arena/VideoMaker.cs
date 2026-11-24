@@ -122,10 +122,12 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// <param name="redCharacter">赤が名簿のキャラクターなら、その体格・顔・表示名（ボットのスタイルは <paramref name="red"/>）。</param>
     /// <param name="referee">レフェリーがいるか（false ならカウント中も攻撃でき、倒れた相手へ打ち下ろす）。</param>
     /// <param name="blueCharacter">青が名簿のキャラクターなら、その体格・顔・表示名。</param>
+    /// <param name="editCorners">両コーナーを最後に差し替える（ドリルの動画で檻の中央から始めるなど）。null なら何もしない。</param>
     public void Make(Contender red, Contender blue, int seed, float seconds, string outPath, TextWriter log, Action<float>? afterStep = null, bool untilKo = false,
         MiniRing.Weapons.HandWear redWear = MiniRing.Weapons.HandWear.Glove, MiniRing.Weapons.HandWear blueWear = MiniRing.Weapons.HandWear.Glove,
         IntentScript? intentScript = null, Action<BoxingGame>? setup = null, MiniRing.Weapons.WeaponKind? redWeapon = null, MiniRing.Weapons.WeaponKind? blueWeapon = null,
-        MiniRing.Characters.FighterCharacter? redCharacter = null, MiniRing.Characters.FighterCharacter? blueCharacter = null, bool referee = true)
+        MiniRing.Characters.FighterCharacter? redCharacter = null, MiniRing.Characters.FighterCharacter? blueCharacter = null, bool referee = true,
+        Func<BoxingCorners, BoxingCorners>? editCorners = null)
     {
         var redBots = new List<IFighterControl>();
         var blueBots = new List<IFighterControl>();
@@ -134,6 +136,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         // 画面と実況ではリングネームで呼ぶ（ドリルで生まれた個体にもそれぞれの名前がある）。
         // 名簿のキャラクター（--red-char / --blue-char）は、体格・顔・表示名をそのキャラクターの値にする（ボットの性格はスタイル）。
         corners = TvShowRules.Stage(WithCharacters(corners, redCharacter, blueCharacter), _org);
+        corners = editCorners?.Invoke(corners) ?? corners; // ドリルの動画: 檻の中央から始めるなど
         var redRing = redCharacter?.HudName ?? BotNames.RingNameOf(red.Name);
         var blueRing = blueCharacter?.HudName ?? BotNames.RingNameOf(blue.Name);
         using var game = new BoxingGame(seed: seed, corners: corners, rules: _rules ?? rules, mood: _org.ArenaMood);

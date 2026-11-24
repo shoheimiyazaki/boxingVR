@@ -95,6 +95,7 @@
 
 ボットの判断の仕組みを変えたら上げる。
 
+- **66**（2026-11-24、枝 `claude/vfc-ground-5de882`）: VFC の倒れた相手への攻め（docs/BOT_PDCA.md「VFC の倒れた相手への攻めを短く」）。自分も倒れている間は倒れた相手を攻めない（`FighterSense.SelfDowned`）。倒れた相手を蹴る（`GroundTuning.Kick`・`BotStyle.GroundKick`）。踏んだ直後でも続けて踏む（「直前に踏んだら手の技を挟む」をやめた）。技ごとに狙う範囲（`GroundMove.AimFrom`/`AimTo`、刃の教科書は首）と前へ抜ける量（`Through`）。武器の教科書・教育がとどめの経路を持つ（`WeaponStyle.Ground`）。VFC の名簿のキャラごとに練習した教育。
 - **次の版（枝 `claude/ground-strike-rework`）**: 素手のボットが倒れた相手の頭・首を踏みつける。デスクトップの素手操作でも強攻撃で同じ技を出す。
 - **64**（2026-11-23、枝 `claude/master-test-check`）: フックと同じベジェ曲線で肘の向きを狙いへ振り、回旋と踏み込みを先に始める。
 - **63**（2026-11-22、`claude/stamina-balance`）: 疲れたら構えを下げる（`BotStyle.TiredGuardDrop` 0.25 腕の長さ × 疲れ（スタミナが 0.45 を下回った分）。入力元の判断で、体の強さではない。意図操作も同じ）。

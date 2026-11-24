@@ -229,18 +229,21 @@ run.cmd arena cmatune --target defense:Slip,defense:Duck   # 対象が複数な�
 - 守りのために、ボットは `FighterSense` で相手の拳の位置と速度、自分の頭の位置を見ます。
 - リプレイの見出しには CPU のボット名が入ります（形式の版 2）。版 1 の記録は、CPU が `legacy` だった頃の試合として再生します。
 
-## 倒れた相手への攻め（レフェリーなしの試合、2026-11-16、LogicVersion 29）
+## 倒れた相手への攻め（レフェリーなしの試合、2026-11-16、LogicVersion 29。2026-11-24 に LogicVersion 66 で直した）
 
-`BoxingGame` は、レフェリーなし（`BoxingCorners.Referee = false`）のときだけ、ボットを `GroundStriker`（`Bots/GroundStrike.cs`）に包みます。相手が立っている間・レフェリーがいる間は中のボットの指令をそのまま返すので、既定の試合の判断は変わりません。相手が倒れている間（`OpponentDowned && MayStrikeDowned`）は、いつものボットを読みつつ、手足の目標・頭のずれ・移動を `GroundStrike` が上書きします。
+`BoxingGame` は、レフェリーなし（`BoxingCorners.Referee = false`）のときだけ、ボットを `GroundStriker`（`Bots/GroundStrike.cs`）に包みます。相手が立っている間・レフェリーがいる間は中のボットの指令をそのまま返すので、既定の試合の判断は変わりません。相手が倒れている間（`OpponentDowned && MayStrikeDowned`）で、**自分は立っている間**（`!SelfDowned`。倒れたまま打ち続けると起き上がれず、床で両者がもつれた）は、いつものボットを読みつつ、手足の目標・頭のずれ・移動を `GroundStrike` が上書きします。
 
 | 道具 | 攻め（`GroundMove`） |
 |---|---|
-| 素手・グローブ・メリケンサック・カタール・籠手 | `hammer`（鉄槌）・`drop-thrust`（沈んで突き下ろし）。カタールは手の目標の向きがそのまま刃の向き |
-| 空手（素手 + `GroundStomp`） | 上に加えて `stomp`（踏み下ろし。足首の目標を相手の上から下へ） |
-| 日本刀・ロングソード（両手） | `thrust-down`（上からの突き下ろし）・`cut`（上段からの斬り下ろし） |
-| こんぼう（片手） | `cut`（振りかぶっての打ち下ろし） |
+| 素手・グローブ・メリケンサック・カタール・籠手・トンファー | `hammer`（鉄槌）・`punch-down`（真下への突き）・`stomp`（踏みつけ）・`kick`（蹴り: 足を手前へ引いてから床の近くを前へ振り抜く）。カタールは手の目標の向きがそのまま刃の向き |
+| 日本刀・ロングソード（両手）・片手剣 | `thrust-down`（上からの突き下ろし）・`cut`（上段からの斬り下ろし） |
+| こんぼう（片手）・棒 | `cut`（振りかぶっての打ち下ろし。棒は突き下ろしも） |
 
-選び方: 狙いは倒れた体の軸（腰〜頭）のうち水平で自分にいちばん近い点。振り下ろす系か突き下ろす系かは `BotStyle.GroundCut`、踏みつけは `GroundStomp`、打つかどうかは `GroundDrive`、溜めは `GroundLoad`、合間は `GroundRest`。値は JSON で変えられる（karate.json は `GroundStomp` 0.6）。相手が立ち上がりかけて `OpponentAlive` に戻ったら、いつもの技へ戻る。
+- 選び方: 武器を握っていなければ `GroundStomp` の割合で足の技、そのうち `GroundKick` の割合で蹴り（残りは踏みつけ）。続けて踏んでよい（2026-11-24 に「直前に踏んだら手の技を挟む」をやめた）。手の技は振り下ろす系か突き下ろす系かを `GroundCut`。打つかどうかは `GroundDrive`、溜めは `GroundLoad`、合間は `GroundRest`。
+- 狙い: 倒れた体の軸（腰 0 → 両肩の真ん中 1 → 頭 2 の折れ線）のうち、技の狙う範囲（`GroundMove.AimFrom`〜`AimTo`）で水平にいちばん近い点。範囲は技の値（教科書・教育）で、急所の場所の狙い（種類の分岐ではない）。踏みつけ・蹴りの既定は首〜頭（1.5〜2）、刃の教科書（`katana`・`longsword`・`swordshield` の `Ground`）は斬り下ろし・突き下ろしとも首（1.5）。`Through` は狙いより前へ抜ける量（蹴り）。
+- 経路の値の在りか: 素手はスタイル・教育の `Ground`（`GroundTuning`）。武器を握るなら武器の教科書・`education.weaponBot` の `Ground`（`WeaponStyle.Ground`、`BoxingGame.WithWeaponGround`）。武器の長さ・握りで合う経路が違うため。
+- VFC の名簿のキャラは、とどめのドリル（`groundtime --drill`）で倒れた相手を死なせるまでの秒を CMA-ES で縮めた教育を持つ（`groundtime --practice`、`tools/ground-education.py`。docs/BOT_PDCA.md「VFC の倒れた相手への攻めを短く」）。
+- 相手が立ち上がりかけて `OpponentAlive` に戻ったら、いつもの技へ戻る。
 
 ## 狙いどころ（戦略: どこを打つか、2026-11-12、LogicVersion 10）
 

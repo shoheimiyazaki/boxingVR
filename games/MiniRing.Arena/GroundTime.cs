@@ -336,11 +336,12 @@ internal static class FinishDrill
 /// <summary>とどめのドリルの動画（groundtime --drill a --victims v --video out.mp4）: 名簿のキャラが、気を失って倒れた名簿のキャラを攻める。檻・コーナーから。</summary>
 internal static class FinishDrillVideo
 {
-    public static void Make(string attackerId, string victimId, int seed, float seconds, string output, TextWriter console)
+    public static void Make(string attackerId, string victimId, int seed, float seconds, string output, TextWriter console, FinishDrill.Teach? teach = null)
     {
         var a = CharacterRoster.Get(attackerId);
         var v = CharacterRoster.Get(victimId);
         var style = a.Resolve(victimId);
+        style = teach?.Invoke(style, null).Style ?? style; // 素手のキャラの教えだけ（武器の経路は名簿の値）
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f, FinishTempo = 0f, FinishPress = 0f, FinishSpend = 0f };
         var red = new Contender("victim", s => new BoxerBot(still, s));
         var blue = new Contender(style.Name, s => BotCatalog.Bot(style, s));
@@ -353,6 +354,7 @@ internal static class FinishDrillVideo
                     game.Player.Concussion = MathF.Max(game.Player.Concussion, 0.97f);
                 }
             },
-            redWear: v.Wear, blueWear: a.Wear, setup: g => game = g, blueWeapon: a.Weapon, redCharacter: v, blueCharacter: a, referee: false);
+            redWear: v.Wear, blueWear: a.Wear, setup: g => game = g, blueWeapon: a.Weapon, redCharacter: v, blueCharacter: a, referee: false,
+            editCorners: c => c with { Ring = c.Ring! with { FromCorners = false } });
     }
 }

@@ -60,12 +60,13 @@ public sealed class CharacterSamenessTests
 
     /// <summary>
     /// 倒れた相手への攻め（GroundStrike）の好みは、名前で引いた教科書そのものではなく、解決して JSON を通した（検証済みの）スタイルから読む。
-    /// 教育が空のとき、その好みの値が教科書と同じ（値域の丸めで変わらない）ことを全スタイル・全キャラで確かめる。
+    /// その好みの値が、教科書（キャラなら教科書に教育を重ねた物）と同じ（値域の丸めで変わらない）ことを全スタイル・全キャラで確かめる。
+    /// 2026-11-24: VFC のキャラは教育に倒れた相手への攻めの好みを持つ（LogicVersion 66）ので、比べる先を教育を重ねたスタイルにした。
     /// </summary>
     [TestMethod]
     public void GroundPreferences_OfTheResolvedStyle_EqualTheTextbooks()
     {
-        static float[] Ground(BotStyle s) => [s.GroundDrive, s.GroundLoad, s.GroundCut, s.GroundStomp, s.GroundRest, s.Southpaw ? 1f : 0f];
+        static float[] Ground(BotStyle s) => [s.GroundDrive, s.GroundLoad, s.GroundCut, s.GroundStomp, s.GroundKick, s.GroundRest, s.Southpaw ? 1f : 0f];
         foreach (var textbook in BotCatalog.Styles)
         {
             var viaCorners = BotCatalog.Corners(textbook).CpuStyle!;
@@ -75,8 +76,8 @@ public sealed class CharacterSamenessTests
         foreach (var c in CharacterRoster.All)
         {
             var viaCorners = new MatchSelection(MatchMode.Spectate, c, CharacterRoster.Get("albert")).Corners;
-            CollectionAssert.AreEqual(Ground(BotCatalog.Style(c.StyleName)), Ground(viaCorners.RedBotStyle!), c.Id);
-            CollectionAssert.AreEqual(Ground(BotCatalog.Style(c.StyleName)), Ground(viaCorners.PlayerStyle!), c.Id);
+            CollectionAssert.AreEqual(Ground(c.Resolve("albert")), Ground(viaCorners.RedBotStyle!), c.Id);
+            CollectionAssert.AreEqual(Ground(c.Resolve("albert")), Ground(viaCorners.PlayerStyle!), c.Id);
         }
     }
 
