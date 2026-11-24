@@ -50,15 +50,16 @@
   "crowd": { "reactionGain": 1.2, "ambienceGain": 0.6 },
   "countsDowns": false,
   // 試合の決まり（ユーザーの指定 2026-11-18）: 判定しない（5 ラウンドを終えて両者が生きていれば両者生還の引き分け）・レフェリーなし・六角形の金網の檻。
-  // 傷は休みの間に、生きている所に接する壊れた所から確率で少しずつ戻る（前線の再生 regrowth: 速さ 0.84 mm/s・抽選 0.42 s ごと（MatchRules.Vfc と同じ。根拠はそこ）。軽い傷は休み 1 回でおおよそ戻り、
-  // 失った手足は戻りきらない）。ラウンド中に両者が倒れて意識だけでは立てないときも再生し、5 s ごとに倍の速さになる。WVC の予算で治す再生（regenerates）は使わない。
+  // 傷は休みの間に、生きている所に接する壊れた所から確率で戻る（前線の再生 regrowth: 速さ 1.26 mm/s・抽選 0.42 s ごと。MatchRules.Vfc と同じ。根拠はそこ。
+  // 2026-11-24 にユーザーの指定「VFC はもっと早く」で 0.84 → 1.26 mm/s）。ラウンド中に両者が倒れて意識だけでは立てないときも再生し、5 s ごとに倍の速さになる。
+  // 予算で内側から治す再生（regenVoxelsPerSecond）は 0。
   // 休みの間に、失った武器（落とした・折れて捨てた・手を失った）を、手が武器を保持できれば同じ種類で支給する（resupplyWeapons）。
   "match": {
     "judgesDecision": false,
-    "regenerates": false,
+    "regenVoxelsPerSecond": 0,
     "referee": false,
     "arena": "hexCage",
-    "regrowth": { "speed": 0.000839, "tickSeconds": 0.4196, "stuckDoublingSeconds": 5.035 },
+    "regrowth": { "speed": 0.001259, "tickSeconds": 0.4196, "stuckDoublingSeconds": 5.035 },
     "resupplyWeapons": true
   },
   // 出場（2026-11-19、3 団体の整理）: 無差別・何でもあり。

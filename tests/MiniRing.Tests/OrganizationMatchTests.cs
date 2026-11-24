@@ -5,24 +5,46 @@ namespace MiniRing.Tests;
 
 /// <summary>
 /// 団体の試合の決まり（団体のファイルの <c>match</c>・<c>countsDowns</c>）が、中継の撮影・下見の試合（<see cref="TvShowRules.Rules(int, float, Organization)"/>・
-/// <see cref="TvShowRules.Stage"/>）に通ること。WVC は今の中継と同じ決まり・同じ場、VFC はダウンを数えず・判定せず・治らず・レフェリーなし・六角形の檻。
+/// <see cref="TvShowRules.Stage"/>）に通ること。WVC は今の中継と同じ決まり・同じ場、VFC はダウンを数えず・判定せず・予算でなく前線の再生で治り・レフェリーなし・六角形の檻。
 /// </summary>
 [TestClass]
 public sealed class OrganizationMatchTests
 {
     [TestMethod]
-    public void WvcRulesAddImpactCalibrationToTheStandardTelevisionRules()
+    public void WvcRulesAddImpactCalibrationAndSlowHealingToTheStandardTelevisionRules()
     {
         var wvc = Organizations.Get("wvc");
         var baseline = TvShowRules.Rules(3, 33.57f);
         var calibrated = TvShowRules.Rules(3, 33.57f, wvc);
         Assert.AreEqual(48f, FighterTuning.Default.ConcussionSpin * calibrated.ConcussionSpinScale, 0.001f);
         Assert.AreEqual(0.60f, calibrated.LimbBendStrengthScale);
+        // WVC は休みにほとんど治らない（ユーザーの指定 2026-11-24）: 予算の速さは標準より小さく、0 ではない。
+        Assert.IsTrue(calibrated.RegenVoxelsPerSecond > 0f && calibrated.RegenVoxelsPerSecond < 0.05f * baseline.RegenVoxelsPerSecond,
+            $"WVC heals {calibrated.RegenVoxelsPerSecond} voxels/s against the standard {baseline.RegenVoxelsPerSecond}");
         Assert.AreEqual(baseline, calibrated with
         {
             ConcussionSpinScale = baseline.ConcussionSpinScale,
             LimbBendStrengthScale = baseline.LimbBendStrengthScale,
+            RegenVoxelsPerSecond = baseline.RegenVoxelsPerSecond,
         });
+    }
+
+    [TestMethod]
+    public void AnOrganizationFileMustStateItsHealingSpeed()
+    {
+        // 書き忘れた団体が黙って「治らない」（0）にならないよう、治る速さは必ず書く。
+        using var stream = typeof(Organizations).Assembly.GetManifestResourceStream("MiniRing.Arena.Orgs.ivf.json")!;
+        var json = new StreamReader(stream).ReadToEnd();
+        Assert.Contains("\"regenVoxelsPerSecond\": 89.37,", json);
+        var error = Assert.ThrowsExactly<InvalidDataException>(() => Organizations.FromFiles([("ivf.json", json.Replace("\"regenVoxelsPerSecond\": 89.37,", ""))]));
+        StringAssert.Contains(error.Message, "ivf.json");
+    }
+
+    [TestMethod]
+    public void IvfHealsAtTheStandardSpeed()
+    {
+        var rules = TvShowRules.Rules(3, MatchRules.Tv.BreakSeconds, Organizations.Get("ivf"));
+        Assert.AreEqual(MatchRules.Tv.RegenVoxelsPerSecond, rules.RegenVoxelsPerSecond, "the IVF keeps the standard healing");
     }
 
     [TestMethod]
@@ -32,7 +54,7 @@ public sealed class OrganizationMatchTests
         Assert.IsFalse(rules.CountsDowns);
         Assert.IsFalse(rules.JudgesDecision);
         Assert.AreEqual(0f, rules.RegenVoxelsPerSecond, "no budgeted healing (the WVC model)");
-        Assert.AreEqual(0.000839f, rules.RegrowthSpeed, "wounds grow back from the living edge in the breaks");
+        Assert.AreEqual(0.001259f, rules.RegrowthSpeed, "wounds grow back from the living edge in the breaks");
         Assert.AreEqual(0.4196f, rules.RegrowthTickSeconds);
         Assert.AreEqual(5.035f, rules.StuckDoublingSeconds);
         Assert.IsTrue(rules.ResupplyWeapons);

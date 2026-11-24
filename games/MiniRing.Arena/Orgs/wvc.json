@@ -45,9 +45,11 @@
   },
   "crowd": { "reactionGain": 1, "ambienceGain": 1 },
   "countsDowns": true,
-  // 試合の決まり: 最終ラウンドの終わりは判定・休みに浅い傷が治る・レフェリーがいる・四角いリング（今までの中継のまま）。
+  // 試合の決まり: 最終ラウンドの終わりは判定・レフェリーがいる・四角いリング（今までの中継のまま）。
+  // 休みの間の再生はほとんど無い（ユーザーの指定 2026-11-24「顔が削れたのがインターバル中に完治している。ほぼ治らないぐらいでいい」）: 1.79 個/秒（標準 89.37 の 2%）、
+  // 休み 16.78 s で 30 個ほど。部位（内側から外へ）を先に、顔の層を最後に治すので、顔の表面の削れはまず残る。
   "match": {
-    "judgesDecision": true, "regenerates": true, "referee": true, "arena": "ropedSquare",
+    "judgesDecision": true, "regenVoxelsPerSecond": 1.79, "referee": true, "arena": "ropedSquare",
     "concussionSpinScale": 2.0142677, "limbBendStrengthScale": 0.60
   },
   // 出場（2026-11-19、3 団体の整理）: 無差別級。ボクサー同士がメインで、まれに異種格闘技戦（素手・はめる物・武器の選手も招く）。はめる物は選手のまま。
