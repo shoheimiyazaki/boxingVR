@@ -168,6 +168,27 @@ public sealed record BotStyle
     /// <summary>開きに応じて休みを後回しにする強さ（休む度合いを 1 − 開き × これ 倍）。蓄えが無ければ体は動かない（物理が上限）。0 = 従来。</summary>
     public float FinishSpend { get; init; } = 0.6f;
 
+    /// <summary>
+    /// 開きの読みに、相手の見える息の上がり（<see cref="FighterSense.OpponentWinded"/>、<see cref="TiredLook"/> が描く量）をどれだけ足すか（0..2）。
+    /// 開き = 1 − (1 − 構え)(1 − 手応え)(1 − これ × 息)(1 − <see cref="HurtInjury"/> × 傷み)。0 = 従来（2026-11-24 に足した）。
+    /// </summary>
+    public float HurtWinded { get; init; }
+
+    /// <summary>開きの読みに、相手の見えている傷み（<see cref="FighterSense.OpponentInjury"/>: 折れて垂れた腕・削れた筋）をどれだけ足すか（0..2）。0 = 従来。</summary>
+    public float HurtInjury { get; init; }
+
+    /// <summary>
+    /// フィニッシュのコンビネーション（型の名前 → 重み、キャラの教育）。開きが大きいほど、普段の表（<see cref="ComboWeights"/>）でなくこの表から選ぶ
+    /// （割合 = 開き × <see cref="FinishComboShare"/>。場合分けでなく、開きに比例した混ぜ方）。空なら普段の表だけ。
+    /// </summary>
+    public IReadOnlyDictionary<string, float> FinishCombos { get; init; } = new Dictionary<string, float>();
+
+    /// <summary>フィニッシュの表から選ぶ割合の上限（開き 1 のとき、0..1）。打ち終えて離れる・回り込む割合も（1 − 開き × これ）倍に減らす。0 = 従来。</summary>
+    public float FinishComboShare { get; init; }
+
+    /// <summary>開きに応じて連打の拳と拳の間を詰める強さ（間 × (1 − 開き × これ)、0..0.8）。最初の拳の溜めは変えない（威力は体のバネから）。0 = 従来。</summary>
+    public float FinishGap { get; init; }
+
     // ── 学ぶ（docs/LEARNING_PLAN.md の B1）──
 
     /// <summary>守りの効き目を経験で覚え、選び方を変えるか（<see cref="DefenseMemory"/>）。</summary>
@@ -375,8 +396,13 @@ public sealed record BotStyle
     /// <summary>倒れた相手への攻めのうち、振り下ろす系（鉄槌・斬り下ろし・棍棒の打ち下ろし）を選ぶ割合（残りは突き下ろす系。棍棒は振り下ろす系だけ）。</summary>
     public float GroundCut { get; init; } = 0.5f;
 
-    /// <summary>武器を握っていないとき、踏みつけを選ぶ割合。既定は空手の教科書と同じ。</summary>
+    /// <summary>武器を握っていないとき、足の技（踏みつけ・蹴り）を選ぶ割合。既定は空手の教科書と同じ。</summary>
     public float GroundStomp { get; init; } = 0.6f;
+
+    /// <summary>足の技のうち、倒れた相手を蹴る（<see cref="GroundTuning.Kick"/>）割合（残りは踏みつけ）。既定 0（蹴らない。2026-11-24 に足した）。</summary>
+    public float GroundKick { get; init; }
+    /// <summary>足で踏むときに、かかとの踏み下ろしの連打（<see cref="GroundTuning.HeelStomp"/>）を選ぶ割合 0..1（残りは足裏の踏みつけ）。</summary>
+    public float GroundHeel { get; init; } = 1f;
 
     /// <summary>倒れた相手への打ち下ろしの合間 [s]（次を決めるまで）。</summary>
     public float GroundRest { get; init; } = 0.5874f;
@@ -478,6 +504,11 @@ public sealed record BotStyle
             FinishTempo = Range(FinishTempo, 0f, 5f, 1.5f),
             FinishPress = Range(FinishPress, 0f, 2f, 1.5f),
             FinishSpend = Range(FinishSpend, 0f, 1f, 0.6f),
+            HurtWinded = Range(HurtWinded, 0f, 2f, 0f),
+            HurtInjury = Range(HurtInjury, 0f, 2f, 0f),
+            FinishCombos = (FinishCombos ?? new Dictionary<string, float>()).Where(p => Combo.All.Any(c => c.Name == p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
+            FinishComboShare = Unit(FinishComboShare),
+            FinishGap = Range(FinishGap, 0f, 0.8f, 0f),
             LearnPrior = Range(LearnPrior, 0.5f, 100f, 4f),
             LearnDamageScale = Range(LearnDamageScale, 0.5f, 100f, 10f),
             AttackRange = attack,
@@ -518,6 +549,8 @@ public sealed record BotStyle
             GroundLoad = Range(GroundLoad, 0f, MaxTelegraph, 0.08392f),
             GroundCut = Unit(GroundCut),
             GroundStomp = Unit(GroundStomp),
+            GroundKick = Unit(GroundKick),
+            GroundHeel = Unit(GroundHeel),
             GroundRest = Range(GroundRest, 0.1678f, 5.035f, 0.5874f),
             Parry = Parry ?? SwordDefense.Parrying,
             KickWeights = (KickWeights ?? new Dictionary<KickTechnique, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),

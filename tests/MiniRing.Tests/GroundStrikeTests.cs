@@ -77,7 +77,7 @@ public sealed class GroundStrikeTests
                 {
                     hits++;
                     damage += hit.Damage;
-                    if (ground is { Striking: true, CurrentName: "stomp" } && hit.Kick
+                    if (ground is { Striking: true, CurrentName: "stomp" or "heel-stomp" } && hit.Kick
                         && hit.KickerPart is KickPart.Foot or KickPart.Toe
                         && hit.Zone is HitZone.Head or HitZone.Temple or HitZone.Chin or HitZone.Neck)
                     {

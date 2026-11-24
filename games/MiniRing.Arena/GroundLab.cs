@@ -20,7 +20,8 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
     internal static BotStyle Attacker(string styleName, string move, GroundTuning? ground = null) => (BotCatalog.Style(styleName) with
     {
         GroundDrive = 1f,
-        GroundStomp = move == "stomp" ? 1f : 0f,
+        GroundStomp = move is "stomp" or "heel" ? 1f : 0f,
+        GroundHeel = move == "heel" ? 1f : 0f, // stomp = 足裏の踏みつけ、heel = かかとの踏み下ろしの連打
         GroundCut = move == "hammer" ? 1f : 0f,
         Ground = ground ?? BotCatalog.Style(styleName).Ground,
     }).Validated();
@@ -28,9 +29,13 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
     internal static BoxingCorners Corners(BotStyle attacker) =>
         new("attacker", s => new BoxerBot(attacker, s), s => new BoxerBot(Still, s), CpuStyleJson: attacker.ToJson(), Referee: false);
 
-    internal readonly record struct Tally(int Started, int Hits, float Energy, int Falls)
+    /// <summary>技ごとの集計。<paramref name="MaxHit"/> はいちばん大きい 1 発のエネルギー [J]（外れ値を除いた 1 撃の平均 <see cref="TrimmedPerHit"/> に使う）。</summary>
+    internal readonly record struct Tally(int Started, int Hits, float Energy, int Falls, float MaxHit = 0f)
     {
-        public static Tally operator +(Tally a, Tally b) => new(a.Started + b.Started, a.Hits + b.Hits, a.Energy + b.Energy, a.Falls + b.Falls);
+        public static Tally operator +(Tally a, Tally b) => new(a.Started + b.Started, a.Hits + b.Hits, a.Energy + b.Energy, a.Falls + b.Falls, MathF.Max(a.MaxHit, b.MaxHit));
+
+        /// <summary>いちばん大きい 1 発を除いた、1 撃あたりのエネルギー [J]（まれに出る飛び抜けた 1 発で練習の採否が決まらないように）。</summary>
+        public float TrimmedPerHit => Hits > 1 ? (Energy - MaxHit) / (Hits - 1) : 0f;
     }
 
     public void Run(string styleName, IReadOnlyList<string> moves)
@@ -98,7 +103,7 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
             {
                 if (hit.Attacker == game.Cpu && hit.Victim == victim && striking)
                 {
-                    totals[name] = totals.GetValueOrDefault(name) + new Tally(0, 1, hit.Energy, 0);
+                    totals[name] = totals.GetValueOrDefault(name) + new Tally(0, 1, hit.Energy, 0, hit.Energy);
                 }
             }
 
@@ -140,6 +145,7 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
     {
         "hammer" => g.Hammer,
         "stomp" => g.Stomp,
+        "heel" => g.HeelStomp,
         _ => g.PunchDown,
     };
 
@@ -147,6 +153,7 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
     {
         "hammer" => g with { Hammer = m },
         "stomp" => g with { Stomp = m },
+        "heel" => g with { HeelStomp = m },
         _ => g with { PunchDown = m },
     };
 
@@ -209,15 +216,104 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
         log("");
     }
 
+    /// <summary>
+    /// かかとの連打の練習（1 撃の威力を上げる、2026-11-24 ユーザーの指定）: 経路（<see cref="GroundTuning.HeelStomp"/>）と連打の形（<see cref="HeelBarrage"/>:
+    /// 下ろす区間・つま先の角・腰の落とし）を少しずつ変え、点 = 1 撃あたりに渡したエネルギー [J]（いちばん大きい 1 発を除く: <see cref="Tally.TrimmedPerHit"/>）が良くなったら採る。ただし攻め手が始めより多く倒れる・
+    /// 当たる数が始めの <see cref="HeelMinHitShare"/> を切る候補は採らない（1 撃を重くして数や立ち姿を失わない）。最後に使わなかった種で比べ直す。
+    /// </summary>
+    public void PracticeHeel(string styleName, int candidates, float sigma, int validationSeed)
+    {
+        var random = new Random(seed ^ 0x4ee1);
+        var start = BotCatalog.Style(styleName).Ground ?? GroundTuning.Default;
+        var first = Measure(styleName, "heel", start, seed);
+        var best = (G: start, T: first);
+        static float PerHit(Tally t) => t.TrimmedPerHit;
+        bool Allowed(Tally t) => t.Falls <= first.Falls && t.Hits >= HeelMinHitShare * first.Hits;
+        var step = sigma;
+        var successes = 0;
+        log($"## かかとの連打の練習（1 撃の威力。{styleName}、種 {seed}〜、{bouts} 本 × {seconds:0} 秒、{candidates} 候補）");
+        log("");
+        log("| 候補 | 幅 | 打ち始め | 当たり | J | J/当たり（最大の 1 発を除く） | 最大の 1 発 | 倒れた | 採った |");
+        log("|---|---|---|---|---|---|---|---|---|");
+        log($"| 0 | - | {first.Started} | {first.Hits} | {first.Energy:0} | {PerHit(first):0.0} | {first.MaxHit:0} | {first.Falls} | - |");
+        for (var i = 1; i <= candidates; i++)
+        {
+            var g = MutateHeel(best.G, step, random);
+            var t = Measure(styleName, "heel", g, seed);
+            var taken = Allowed(t) && PerHit(t) > PerHit(best.T);
+            log($"| {i} | {step:0.000} | {t.Started} | {t.Hits} | {t.Energy:0} | {PerHit(t):0.0} | {t.MaxHit:0} | {t.Falls} | {(taken ? "採った" : "")} |");
+            if (taken)
+            {
+                best = (g, t);
+                successes++;
+            }
+
+            if (i % 5 == 0)
+            {
+                step *= successes > 1 ? 1.3f : 0.75f;
+                successes = 0;
+            }
+        }
+
+        log("");
+        log($"### 比べ直し（使わなかった種 {validationSeed}〜）");
+        log("");
+        log("| 経路 | 打ち始め | 当たり | J | J/当たり（最大の 1 発を除く） | 最大の 1 発 | 倒れた |");
+        log("|---|---|---|---|---|---|---|");
+        foreach (var (label, g) in new[] { ("始め", start), ("練習した", best.G) })
+        {
+            var t = Measure(styleName, "heel", g, validationSeed);
+            log($"| {label} | {t.Started} | {t.Hits} | {t.Energy:0} | {PerHit(t):0.0} | {t.MaxHit:0} | {t.Falls} |");
+        }
+
+        log("");
+        log($"練習した経路: `{best.G.HeelStomp}`");
+        log("");
+        log($"練習した連打: `{best.G.HeelBarrage}`");
+        log("");
+    }
+
+    /// <summary>かかとの連打の練習で、当たる数が始めのこの割合を切る候補は採らない。</summary>
+    private const float HeelMinHitShare = 0.6f;
+
+    /// <summary>かかとの連打の経路と形を少し変える（<see cref="PracticeHeel"/>）。</summary>
+    private static GroundTuning MutateHeel(GroundTuning g, float step, Random random)
+    {
+        float N() => (float)(Math.Sqrt(-2.0 * Math.Log(1.0 - random.NextDouble())) * Math.Cos(2.0 * Math.PI * random.NextDouble()));
+        float J(float v, float lo, float hi) => Math.Clamp(v + (step * N()), lo, hi);
+        var m = g.HeelStomp;
+        var b = g.HeelBarrage;
+        return g with
+        {
+            HeelStomp = m with
+            {
+                Duration = Math.Clamp(m.Duration * (1f + (0.1f * N())), 0.17f, 0.6f),
+                Stand = J(m.Stand, 0f, 0.6f),
+                Rise = J(m.Rise, 0.2f, 1.0f),
+                Overshoot = J(m.Overshoot, 0f, 0.4f),
+                Lean = J(m.Lean, -0.2f, 0.4f),
+                StanceLean = J(m.StanceLean, 0f, 0.4f),
+            },
+            HeelBarrage = (b with
+            {
+                DownShare = J(b.DownShare, 0.1f, 0.7f),
+                Pitch = J(b.Pitch, -0.3f, 0.7f),
+                Drop = J(b.Drop, 0f, 0.3f),
+            }).Validated(),
+        };
+    }
+
     /// <summary>経路を少し変える: 時間を 0.85〜1.15 倍、寸法（腕の長さ単位）に幅 <paramref name="step"/> の正規乱数。沈みの上限は浅いまま（立って打つ）。</summary>
     private static GroundMove Mutate(GroundMove m, float step, Random random)
     {
         float N() => (float)(Math.Sqrt(-2.0 * Math.Log(1.0 - random.NextDouble())) * Math.Cos(2.0 * Math.PI * random.NextDouble()));
         float J(float v, float lo, float hi) => Math.Clamp(v + (step * N()), lo, hi);
-        var foot = m.Limb == GroundLimb.Foot;
+        var foot = m.Limb is GroundLimb.Foot or GroundLimb.Heel;
+        // かかとの連打の Duration は 1 回の踏み下ろしの時間（短い）。ほかは 1 回の攻め全体の時間。
+        var (shortest, longest) = m.Limb == GroundLimb.Heel ? (0.17f, 0.6f) : (0.587f, 2.35f);
         return m with
         {
-            Duration = Math.Clamp(m.Duration * (1f + (0.1f * N())), 0.587f, 2.35f),
+            Duration = Math.Clamp(m.Duration * (1f + (0.1f * N())), shortest, longest),
             Stand = J(m.Stand, 0.05f, 0.9f),
             Reach = J(m.Reach, 0.7f, foot ? 1.7f : 1.1f),
             Rise = J(m.Rise, 0.1f, 1.2f),
@@ -237,7 +333,8 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
         var red = new Contender("victim", s => new BoxerBot(Still, s));
         var blue = new Contender(attacker.Name, s => new BoxerBot(attacker, s));
         BoxingGame? game = null;
-        new VideoMaker(1280, 720, 30, speed: 0.5f).Make(red, blue, seed, seconds, output, console,
+        // 足の技は横の低い角度から撮る（俯瞰では足の上げ下げが見えない）。
+        new VideoMaker(1280, 720, 30, speed: 0.5f) { SideView = move is "stomp" or "heel" }.Make(red, blue, seed, seconds, output, console,
             afterStep: time =>
             {
                 if (time > 2.518f && game is not null)

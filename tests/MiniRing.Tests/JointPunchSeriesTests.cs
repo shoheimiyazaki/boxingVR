@@ -149,7 +149,7 @@ public sealed class JointPunchSeriesTests
         }
 
         var trunk = fighter.RegionWork(MuscleRegion.Trunk);
-        var legs = fighter.RegionWork(MuscleRegion.Legs);
+        var legs = (fighter.RegionWork(MuscleRegion.LeftLeg) + fighter.RegionWork(MuscleRegion.RightLeg));
         var arms = fighter.RegionWork(MuscleRegion.LeftArm) + fighter.RegionWork(MuscleRegion.RightArm);
         float Yaw(int part) => BodyFrame.YawOf(Vector3.Transform(Vector3.UnitZ, world.GetState(part).Orientation), 0f);
         var abdomen = fighter.Parts.Abdomen ?? throw new InvalidOperationException("The series probe requires a split torso.");
@@ -209,7 +209,7 @@ public sealed class JointPunchSeriesTests
         Recover();
         var second = Punch(alternate ? Hand.Left : Hand.Right, guard);
         var trunkWork = fighter.RegionWork(MuscleRegion.Trunk) - trunk;
-        var legWork = fighter.RegionWork(MuscleRegion.Legs) - legs;
+        var legWork = (fighter.RegionWork(MuscleRegion.LeftLeg) + fighter.RegionWork(MuscleRegion.RightLeg)) - legs;
         var armWork = fighter.RegionWork(MuscleRegion.LeftArm) + fighter.RegionWork(MuscleRegion.RightArm) - arms;
         var state = fighter.State;
         Recover();

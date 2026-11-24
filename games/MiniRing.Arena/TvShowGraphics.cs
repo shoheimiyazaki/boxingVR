@@ -606,7 +606,8 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         Region(MuscleRegion.RightArm, [(0.4f, 5f, 2.4f, 6f), (0.4f, 11.2f, 2.4f, 5.8f)]);
         Region(MuscleRegion.LeftArm, [(11.2f, 5f, 2.4f, 6f), (11.2f, 11.2f, 2.4f, 5.8f)]);
         Region(MuscleRegion.Trunk, [(3f, 5f, 8f, 8f), (4f, 13.4f, 6f, 3.6f)]);
-        Region(MuscleRegion.Legs, [(4f, 17.4f, 2.8f, 7f), (7.2f, 17.4f, 2.8f, 7f), (4f, 24.6f, 2.8f, 6.4f), (7.2f, 24.6f, 2.8f, 6.4f)]);
+        Region(MuscleRegion.RightLeg, [(4f, 17.4f, 2.8f, 7f), (4f, 24.6f, 2.8f, 6.4f)]);
+        Region(MuscleRegion.LeftLeg, [(7.2f, 17.4f, 2.8f, 7f), (7.2f, 24.6f, 2.8f, 6.4f)]);
         text.Add(new ScreenTextDraw("O2", topLeft + new Vector2(0.4f * unit, 0.2f * unit), MathF.Max(12f, unit * 2.2f), White with { W = 0.85f }));
     }
 

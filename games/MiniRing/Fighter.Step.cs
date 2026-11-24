@@ -65,8 +65,8 @@ public sealed partial class Fighter
         if (!pushed && planted > 0f && StepSpring < capacity)
         {
             // 仕事はスタミナから払う（疲れると縮め直すのが遅い）。
-            var power = t.StepLoadPowerPerKg * SupportedMass * MathF.Max(0f, legs) * VigorOf(MuscleRegion.Legs) * planted;
-            StepSpring += SpendMuscleEnergy(MuscleRegion.Legs, MathF.Min(capacity - StepSpring, power * dt));
+            var power = t.StepLoadPowerPerKg * SupportedMass * MathF.Max(0f, legs) * LegsVigor * planted;
+            StepSpring += SpendLegsEnergy(MathF.Min(capacity - StepSpring, power * dt));
         }
     }
 

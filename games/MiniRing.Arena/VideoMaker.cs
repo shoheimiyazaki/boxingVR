@@ -30,6 +30,7 @@ namespace MiniRing.Arena;
 /// <param name="tvBreak">テレビ中継のラウンドの間の休み [s]（休みの間に治る量は休みの長さ × 団体の治る速さ）。</param>
 /// <param name="ring">場（<c>--ring</c>）。null なら団体と武器から決まる既定の場（<see cref="TvShowRules.Stage"/>）。</param>
 /// <param name="tvNotes">台本の資料に足すこの試合の行（計量・王座とランキングの席。<see cref="OrgBouts.Billing"/>）。</param>
+/// <param name="rules">中継でない動画（<paramref name="tv"/> が偽）の試合の決まり（ドリルの動画で VFC の決まりにする。既定は無し）。中継の札や場面は作らない。</param>
 /// <param name="render">
 /// false なら描かない下回し: <see cref="HeadlessRenderer"/>・ffmpeg・音を作らず、試合と演出（<see cref="TvDirector"/>・リプレイの影の試合・<see cref="Broadcast"/>）だけを同じに回して
 /// *.events.json だけを書く（コマは数えるだけ。物理の速さで終わる）。mp4・wav・タイムラインは書かない。
@@ -43,9 +44,12 @@ namespace MiniRing.Arena;
 /// </param>
 internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false,
     int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 16.78f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null, bool belt = false, float cameraScale = 1f, bool focusRed = false,
-    IReadOnlyList<string>? tvNotes = null, RingLayout? ring = null)
+    IReadOnlyList<string>? tvNotes = null, RingLayout? ring = null, MatchRules? rules = null)
 {
     private readonly Organization _org = org ?? Organization.Default;
+
+    /// <summary>倒れた選手がいても俯瞰へ上げず、横の低い角度のまま見る（足の上げ下げを横から見るドリルの動画）。</summary>
+    public bool SideView { get; init; }
 
     /// <summary>両コーナーを団体の場に重ねる。<c>--ring</c> で場を決めたなら、団体の既定の場の代わりにそれを使う（コーナーから始めるのは同じ）。</summary>
     private BoxingCorners Staged(BoxingCorners corners) =>
@@ -126,10 +130,12 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// <param name="redCharacter">赤が名簿のキャラクターなら、その体格・顔・表示名（ボットのスタイルは <paramref name="red"/>）。</param>
     /// <param name="referee">レフェリーがいるか（false ならカウント中も攻撃でき、倒れた相手へ打ち下ろす）。</param>
     /// <param name="blueCharacter">青が名簿のキャラクターなら、その体格・顔・表示名。</param>
+    /// <param name="editCorners">両コーナーを最後に差し替える（ドリルの動画で檻の中央から始めるなど）。null なら何もしない。</param>
     public void Make(Contender red, Contender blue, int seed, float seconds, string outPath, TextWriter log, Action<float>? afterStep = null, bool untilKo = false,
         MiniRing.Weapons.HandWear redWear = MiniRing.Weapons.HandWear.Glove, MiniRing.Weapons.HandWear blueWear = MiniRing.Weapons.HandWear.Glove,
         IntentScript? intentScript = null, Action<BoxingGame>? setup = null, MiniRing.Weapons.WeaponKind? redWeapon = null, MiniRing.Weapons.WeaponKind? blueWeapon = null,
-        MiniRing.Characters.FighterCharacter? redCharacter = null, MiniRing.Characters.FighterCharacter? blueCharacter = null, bool referee = true)
+        MiniRing.Characters.FighterCharacter? redCharacter = null, MiniRing.Characters.FighterCharacter? blueCharacter = null, bool referee = true,
+        Func<BoxingCorners, BoxingCorners>? editCorners = null)
     {
         var redBots = new List<IFighterControl>();
         var blueBots = new List<IFighterControl>();
@@ -138,9 +144,10 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         // 画面と実況ではリングネームで呼ぶ（ドリルで生まれた個体にもそれぞれの名前がある）。
         // 名簿のキャラクター（--red-char / --blue-char）は、体格・顔・表示名をそのキャラクターの値にする（ボットの性格はスタイル）。
         corners = Staged(WithCharacters(corners, redCharacter, blueCharacter));
+        corners = editCorners?.Invoke(corners) ?? corners; // ドリルの動画: 檻の中央から始めるなど
         var redRing = redCharacter?.HudName ?? BotNames.RingNameOf(red.Name);
         var blueRing = blueCharacter?.HudName ?? BotNames.RingNameOf(blue.Name);
-        using var game = new BoxingGame(seed: seed, corners: corners, rules: _rules, mood: _org.ArenaMood);
+        using var game = new BoxingGame(seed: seed, corners: corners, rules: _rules ?? rules, mood: _org.ArenaMood);
         setup?.Invoke(game);
         var intent = intentScript is null ? null : new IntentControl();
         var intentRound = game.Round;
@@ -1150,7 +1157,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         var mid = (min + max) * 0.5f;
         var spread = MathF.Max(focusRed ? 0f : axis.Length(), MathF.Max(max.X - min.X, max.Z - min.Z));
         var reach = MathF.Max(2.535f, (spread + 1.408f) / 1.4f) * cameraScale; // cameraScale < 1 で寄る（--camera-scale。既定 1）
-        var lying = MathF.Max(TvDirector.Lying(game.Player), TvDirector.Lying(game.Cpu));
+        var lying = SideView ? 0f : MathF.Max(TvDirector.Lying(game.Player), TvDirector.Lying(game.Cpu));
         var sideYaw = MathF.Atan2(side.X, side.Z);
         var continuing = frame == _mainFrame + 1;
         _mainFrame = frame;

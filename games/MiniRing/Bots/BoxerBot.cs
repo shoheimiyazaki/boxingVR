@@ -84,6 +84,12 @@ public sealed class BoxerBot : IFighterControl
 
     private readonly Random _random;
     private readonly (Combo Combo, float Cumulative)[] _comboTable;
+
+    /// <summary>フィニッシュのコンビネーションの表（<see cref="BotStyle.FinishCombos"/>、名前順の累積の重み）。</summary>
+    private readonly (Combo Combo, float Cumulative)[] _finishTable;
+
+    /// <summary>今フィニッシュの表から選ぶ割合（開き × <see cref="BotStyle.FinishComboShare"/>）。表が空なら 0。</summary>
+    private float FinishShare => _finishTable.Length == 0 ? 0f : Math.Clamp(Style.FinishComboShare * _hurt.Opening, 0f, 1f);
     private readonly PunchAction[] _hands = new PunchAction[2];
     private readonly ThreatTrack[] _threats = new ThreatTrack[2];
     private readonly Defense? _forcedDefense;
@@ -203,13 +209,16 @@ public sealed class BoxerBot : IFighterControl
         var cumulative = 0f;
         _comboTable = Style.ComboWeights.Where(p => p.Value > 0f).OrderBy(p => p.Key, StringComparer.Ordinal)
             .Select(p => (Combo.Named(p.Key), cumulative += p.Value)).ToArray();
+        var finishCumulative = 0f;
+        _finishTable = Style.FinishCombos.Where(p => p.Value > 0f).OrderBy(p => p.Key, StringComparer.Ordinal)
+            .Select(p => (Combo.Named(p.Key), finishCumulative += p.Value)).ToArray();
     }
 
     /// <summary>
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 65; // 素手ファイターがダウン中の相手の頭・首を踏む。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 70; // 倒れた相手への攻め: 蹴り・続けて踏む・かかとの連打（踏み替え・練習した経路）・狙う範囲（刃は首）・キャラごとの練習（68・69 を合わせた）。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;
@@ -1158,13 +1167,15 @@ public sealed class BoxerBot : IFighterControl
 
     private Combo PickCombo()
     {
-        if (_comboTable.Length == 0)
+        // フィニッシュの表: 開きに比例した割合でこの表から選ぶ（表が空なら乱数を引かない: 教育の無いキャラの判断は従来のまま）。
+        var table = _finishTable.Length > 0 && _random.NextSingle() < FinishShare ? _finishTable : _comboTable;
+        if (table.Length == 0)
         {
             return Combo.Named("1");
         }
 
-        var pick = _random.NextSingle() * _comboTable[^1].Cumulative;
-        foreach (var (combo, cumulative) in _comboTable)
+        var pick = _random.NextSingle() * table[^1].Cumulative;
+        foreach (var (combo, cumulative) in table)
         {
             if (pick < cumulative)
             {
@@ -1172,7 +1183,7 @@ public sealed class BoxerBot : IFighterControl
             }
         }
 
-        return _comboTable[^1].Combo;
+        return table[^1].Combo;
     }
 
     private void StartCombo(Combo combo, bool counter)
@@ -1258,17 +1269,17 @@ public sealed class BoxerBot : IFighterControl
         _hands[(int)puncher] = new PunchAction(technique, spec, -load, duration, _comboIsCounter, aimOffset, AimWorld: aim, Load: load, Goal: goal);
         Stats.Thrown(technique, _comboIsCounter);
         _comboIndex++;
-        _comboClock = load + (duration * combo.Gap); // 次の拳は、この拳が出てから数える（溜めを含めないと 1-2 がほぼ同時に出た。レビュー指摘）
+        _comboClock = load + (duration * combo.Gap * (1f - (Style.FinishGap * _hurt.Opening))); // 開きに応じて詰める（FinishGap）。 次の拳は、この拳が出てから数える（溜めを含めないと 1-2 がほぼ同時に出た。レビュー指摘）
         if (_comboIndex >= combo.Steps.Count)
         {
             _combo = null;
             _cooldown = ((2.182f + ((0.5035f - 2.182f) * PacedAggression)) * Range(0.7f, 1.3f)) + duration + load;
-            if (_random.NextSingle() < Style.ExitAfterCombo * _build.Leave(Style))
+            if (_random.NextSingle() < Style.ExitAfterCombo * _build.Leave(Style) * (1f - FinishShare))
             {
                 _exitTimer = load + duration + 0.8392f;
             }
 
-            if (_random.NextSingle() < Style.PivotAfterCombo)
+            if (_random.NextSingle() < Style.PivotAfterCombo * (1f - FinishShare))
             {
                 // 前の手の側へ回り込む（相手の後ろの手から離れ、相手の正面から外れる）。
                 _pivotTimer = load + duration + 0.7553f;

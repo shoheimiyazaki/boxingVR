@@ -50,5 +50,10 @@
   "ClubRest": 1.007,
   "ClubStandOff": 1.352,
   "ClubExact": false,
-  "ClubSwingWeights": null
+  "ClubSwingWeights": null,
+  "Ground": {
+    "Cut": { "Name": "cut", "Limb": 0, "Duration": 1.091, "Stand": 0.8, "Reach": 0.95, "Rise": 0.7, "Pull": 0.2, "WindElevation": 2.3, "StrikeElevation": -0.75, "Overshoot": 0.1, "Dip": 0.3, "Lean": 0.1, "Spring": 1, "MaxSink": null, "StanceLean": 0, "Through": 0, "AimFrom": 1.5, "AimTo": 1.5 },
+    "Thrust": { "Name": "thrust-down", "Limb": 0, "Duration": 1.007, "Stand": 0.7, "Reach": 0.95, "Rise": 0.4, "Pull": 0.45, "WindElevation": -0.55, "StrikeElevation": -1.15, "Overshoot": 0.12, "Dip": 0.3, "Lean": 0.15, "Spring": 1, "MaxSink": null, "StanceLean": 0, "Through": 0, "AimFrom": 1.5, "AimTo": 1.5 }
+  }
 }
+

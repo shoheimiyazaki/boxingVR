@@ -60,7 +60,10 @@ internal sealed class HurtRead
 
         Sag = Math.Clamp((drop - _usual - style.HurtSagStart) / MathF.Max(1e-3f, style.HurtSagSpan), 0f, 1f);
         var felt = 1f - MathF.Exp(-_felt / MathF.Max(1e-3f, style.HurtFeltScale));
-        var target = 1f - ((1f - Sag) * (1f - felt));
+        // 見える息の上がり・見えている傷み（折れた腕など）も、相手が開いている手がかり（2026-11-24、係数は教育: HurtWinded・HurtInjury。0 なら従来）。
+        var winded = Math.Clamp(style.HurtWinded * (float.IsFinite(sense.OpponentWinded) ? sense.OpponentWinded : 0f), 0f, 1f);
+        var injured = Math.Clamp(style.HurtInjury * (float.IsFinite(sense.OpponentInjury) ? sense.OpponentInjury : 0f), 0f, 1f);
+        var target = 1f - ((1f - Sag) * (1f - felt) * (1f - winded) * (1f - injured));
         Opening += (target - Opening) * (1f - MathF.Exp(-dt / SmoothSeconds));
     }
 

@@ -62,6 +62,7 @@
   learnlab [--first] [--second] [--seeds] [--seconds] [--seed] [--prior] [--scale] [--combos] [--defender] [--out]
   rangelab [--variants] [--bots] [--bouts] [--seconds] [--seed] [--weapons] [--out]
   finishlab [--attackers] [--victims] [--levels] [--bouts] [--seconds] [--set] [--log] [--aim] [--victim-set]
+  groundtime --seeds --out [--chars] [--shard k/n] | --compare a,b [--labels] [--confirm yes] [--log] | --drill ids [--victims] [--seconds] [--video] | --practice id [--gens] [--lambda] [--parallel] [--out] [--log]
   groundlab [--style] [--moves hammer,thrust,stomp,punch-down] [--bouts] [--seconds] [--seed] [--log] [--video] [--practice yes] [--candidates] [--sigma] [--validate]
                                                                                   倒れた相手への攻め（立ったまま真下へ突く・踏みつけ）: 技ごとの打ち始め・当たり・J・攻め手の転倒
   kickbalance [--style karate] [--kicks Front,Side] [--teachings 0:0:0,0.35:0.3:0] [--bouts] [--seconds] [--seed] [--confirm] [--log] [--video]

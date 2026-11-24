@@ -5,7 +5,7 @@ namespace MiniRing;
 /// <summary>
 /// 呼吸と循環（2026-11-18、ユーザーの設計）: 筋肉の短い疲れを、部位ごとの酸素の出入りで書く。
 /// <list type="bullet">
-/// <item>部位（<see cref="MuscleRegion"/>: 左腕・右腕・脚・胴）の筋肉は、それぞれ酸素の蓄え（筋肉の中の酸素と、それで作り直せるエネルギー）を持つ。
+/// <item>部位（<see cref="MuscleRegion"/>: 左腕・右腕・左脚・右脚・胴）の筋肉は、それぞれ酸素の蓄え（筋肉の中の酸素と、それで作り直せるエネルギー）を持つ。
 /// 大きさは部位の質量 × 残った筋肉 × <see cref="FighterTuning.OxygenStorePerKg"/>。筋肉の仕事はここから出ていく。</item>
 /// <item>中枢（心臓）から部位へ送れる速さの上限は血管の太さで、部位の質量 × 残った筋肉 × <see cref="FighterTuning.VesselPowerPerKg"/>。
 /// 縮んでいる筋肉は自分の血管を押しつぶすので、働いている部位へ流れ込む速さは休んでいるときより下がる（<see cref="FighterTuning.VesselWorkingShare"/>）。</item>
@@ -28,7 +28,7 @@ public sealed partial class Fighter
     private readonly record struct ServoWork(int Joint, int BodyA, int BodyB, float Speed, float Reserved, MuscleRegion Region, Quaternion BeforeA, Quaternion BeforeB);
 
     /// <summary>部位ごとの酸素の蓄えの残り（0..1、容量に対する割合。容量は肉の残りで変わるので割合で持つ）。</summary>
-    private readonly float[] _oxygen = [1f, 1f, 1f, 1f];
+    private readonly float[] _oxygen = [1f, 1f, 1f, 1f, 1f];
 
     /// <summary>部位ごとに、この物理の歩で使ってよい仕事 [J]（蓄えと届いた酸素から。<see cref="UpdateStamina"/> が決める）。</summary>
     private readonly float[] _budget = new float[MuscleRegions.Count];
@@ -145,7 +145,8 @@ public sealed partial class Fighter
     private float RegionMass(int region) => region switch
     {
         0 or 1 => ArmMass((Hand)region),
-        2 => _legMass,
+        (int)MuscleRegion.LeftLeg => LegSideMass(Hand.Left),
+        (int)MuscleRegion.RightLeg => LegSideMass(Hand.Right),
         _ => (_world.GetMass(Parts.Chest) + _world.GetMass(Parts.Pelvis)
             + (Parts.Abdomen is { } abdomen ? _world.GetMass(abdomen) : 0f)) * _tuning.TrunkMuscleShare,
     };
@@ -157,7 +158,8 @@ public sealed partial class Fighter
     private float RegionMuscle(int region) => region switch
     {
         0 or 1 => 0.5f * (Strength(_arms[region].UpperArm) + Strength(_arms[region].Forearm)),
-        2 => 0.5f * (LegCondition(true) + LegCondition(false)),
+        (int)MuscleRegion.LeftLeg => LegCondition(_legParts[(int)Hand.Left].AigisLeft),
+        (int)MuscleRegion.RightLeg => LegCondition(_legParts[(int)Hand.Right].AigisLeft),
         _ => CoreStrength,
     };
 
@@ -495,6 +497,48 @@ public sealed partial class Fighter
         return torque * scale;
     }
 
+    /// <summary>両脚で受け持つ仕事（歩く・脚のバネを縮める）の、両脚の予算の合計。</summary>
+    private float LegsBudget => _budget[(int)MuscleRegion.LeftLeg] + _budget[(int)MuscleRegion.RightLeg];
+
+    /// <summary>
+    /// 両脚で受け持つ仕事を、左右の脚の予算の比で分けて払う（左右がそろっていれば半分ずつ: 脚を 1 つの蓄えで数えていた頃と同じ減り方）。払えた量を返す。
+    /// </summary>
+    private float SpendLegsEnergy(float requested)
+    {
+        var left = _budget[(int)MuscleRegion.LeftLeg];
+        var right = _budget[(int)MuscleRegion.RightLeg];
+        var total = left + right;
+        var share = total > 1e-9f ? left / total : 0.5f;
+        return SpendMuscleEnergy(MuscleRegion.LeftLeg, requested * share) + SpendMuscleEnergy(MuscleRegion.RightLeg, requested * (1f - share));
+    }
+
+    /// <summary>両脚の駆動の割合（歩く・脚のバネ: 両脚が受け持つ。左右の平均）。</summary>
+    private float LegsVigor => 0.5f * (VigorOf(MuscleRegion.LeftLeg) + VigorOf(MuscleRegion.RightLeg));
+
+    /// <summary>脚 <paramref name="leg"/> の筋肉の部位（本人の左右）。</summary>
+    private MuscleRegion LegRegion(Leg leg) => leg == _legParts[(int)Hand.Left] ? MuscleRegion.LeftLeg : MuscleRegion.RightLeg;
+
+    /// <summary>本人の左右の脚の酸素の蓄えの残り（0..1。自分が感じる脚の疲れ: <see cref="FighterSense.SelfLegOxygenLeft"/>）。</summary>
+    public float LegOxygen(Hand side) => _oxygen[(int)(side == Hand.Left ? MuscleRegion.LeftLeg : MuscleRegion.RightLeg)];
+
+    /// <summary>
+    /// 足の点を引く力（蹴り・踏み下ろしの <see cref="DriveFoot"/>、膝の制御）の仕事を、その脚の蓄えから払い、払える分まで力を縮める（腕の拳を引く力
+    /// <see cref="ApplyArmDrive"/> と同じ数え方: 力積がした仕事 max(0, F·v dt) + |F|²dt²/(2m) + 力を保つ費用）。<paramref name="point"/> は力が掛かる体、
+    /// <paramref name="velocity"/> はその点の速さ。反作用を受ける骨盤の分も数える。返すのは縮めた後の力。
+    /// </summary>
+    private Vector3 PayLegDrive(Leg leg, int point, Vector3 velocity, Vector3 force, float dt)
+    {
+        var region = LegRegion(leg);
+        var pelvis = _world.GetState(Parts.Pelvis);
+        var linear = (MathF.Max(0f, Vector3.Dot(force, velocity)) + MathF.Max(0f, Vector3.Dot(-force, pelvis.LinearVelocity))) * dt;
+        var quadratic = force.LengthSquared() * dt * dt * 0.5f * ((1f / MathF.Max(1e-3f, _world.GetMass(point))) + (1f / MathF.Max(1e-3f, _world.GetMass(Parts.Pelvis))));
+        var holding = _tuning.IsometricCost * force.Length() * dt;
+        var budget = FatigueEnabled ? _budget[(int)region] : linear + quadratic + holding;
+        var scale = MuscleWork.ForceScale(linear, quadratic, holding, budget);
+        SpendMuscleEnergy(region, (linear * scale) + (quadratic * scale * scale) + (holding * scale));
+        return force * scale;
+    }
+
     private float SpendMuscleEnergy(MuscleRegion region, float requested)
     {
         var r = (int)region;
@@ -524,9 +568,9 @@ public sealed partial class Fighter
         var linear = MathF.Max(0f, Vector3.Dot(force, velocity)) * dt;
         var quadratic = force.LengthSquared() * dt * dt / (2f * mass);
         var walking = _tuning.WalkCost * SupportedMass * new Vector2(velocity.X, velocity.Z).Length() * LastCommand.ClampedMove.Length() * dt;
-        var budget = FatigueEnabled ? _budget[(int)MuscleRegion.Legs] : linear + quadratic + walking;
+        var budget = FatigueEnabled ? LegsBudget : linear + quadratic + walking;
         var scale = MuscleWork.ForceScale(linear, quadratic, walking, budget);
-        SpendMuscleEnergy(MuscleRegion.Legs, (linear * scale) + (quadratic * scale * scale) + (walking * scale));
+        SpendLegsEnergy((linear * scale) + (quadratic * scale * scale) + (walking * scale));
         ApplySharedImpulse(force * (scale * dt));
         RecordSupportForce(force * (scale * dt));
     }
@@ -577,8 +621,13 @@ public enum MuscleRegion
 {
     LeftArm = 0,
     RightArm = 1,
-    Legs = 2,
+
+    /// <summary>本人の左脚（2026-11-24 に脚を左右に分けた。前は両脚で 1 つ）。</summary>
+    LeftLeg = 2,
     Trunk = 3,
+
+    /// <summary>本人の右脚。</summary>
+    RightLeg = 4,
 }
 
 /// <summary>部位へ届く酸素の速さを決めた所（呼吸・循環のボトルネック）。</summary>
@@ -600,7 +649,7 @@ public enum OxygenLimit
 /// <summary><see cref="MuscleRegion"/> の数。</summary>
 internal static class MuscleRegions
 {
-    internal const int Count = 4;
+    internal const int Count = 5;
 }
 
 /// <summary>同じ向きの力を縮めて仕事予算に合わせる。二次式の単調区間を二分する純関数。</summary>

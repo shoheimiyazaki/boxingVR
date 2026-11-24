@@ -51,8 +51,10 @@ public sealed class TrunkWorkProbe
                     work[i] = p.RegionWork((MuscleRegion)i);
                 }
 
+                work[2] += p.RegionWork(MuscleRegion.RightLeg); // 脚は左右の合計
+
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                    $"{t,4:0}  | {O(MuscleRegion.LeftArm)} {O(MuscleRegion.RightArm)} {O(MuscleRegion.Legs)} {O(MuscleRegion.Trunk)} | {work[0] - last[0],6:0} {work[1] - last[1],6:0} {work[2] - last[2],6:0} {work[3] - last[3],6:0} | {peak,5:0.00}  {p.Endurance:0.00}  {p.Winded:0.00}  {p.State}"));
+                    $"{t,4:0}  | {O(MuscleRegion.LeftArm)} {O(MuscleRegion.RightArm)} {O(MuscleRegion.LeftLeg)}/{O(MuscleRegion.RightLeg)} {O(MuscleRegion.Trunk)} | {work[0] - last[0],6:0} {work[1] - last[1],6:0} {work[2] - last[2],6:0} {work[3] - last[3],6:0} | {peak,5:0.00}  {p.Endurance:0.00}  {p.Winded:0.00}  {p.State}"));
                 last = work;
                 peak = 0f;
             }

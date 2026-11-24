@@ -118,4 +118,30 @@ public sealed class HurtReadTests
         Assert.AreEqual(off.Before, off.After, 0.02f, "層なしは立ち位置を変えない");
         Assert.IsLessThan(on.Before - 0.15f, on.After, "層ありは打つ間合いへ詰める");
     }
+
+    [TestMethod]
+    public void VisibleTirednessAndInjury_OpenContinuously_OnlyWithTheEducatedWeights()
+    {
+        // 2026-11-24: 見える息の上がり（TiredLook）・見えている傷み（折れた腕）も開きの手がかり。係数（教育）が 0 なら従来どおり開かない。
+        static float OpenAfter(float winded, float injury, BotStyle style)
+        {
+            var read = new HurtRead();
+            for (var t = 0f; t < 3f; t += Dt)
+            {
+                read.Observe(Sense(0.26f) with { OpponentWinded = winded, OpponentInjury = injury }, style, Dt);
+            }
+
+            return read.Opening;
+        }
+
+        var plain = new BotStyle();
+        var taught = new BotStyle { HurtWinded = 1f, HurtInjury = 1f };
+        Assert.IsLessThan(0.02f, OpenAfter(0.8f, 0.6f, plain), "係数 0 なら息・傷みでは開かない（従来の判断）");
+        var weak = OpenAfter(0.3f, 0f, taught);
+        var strong = OpenAfter(0.8f, 0f, taught);
+        var hurt = OpenAfter(0.8f, 0.5f, taught);
+        Assert.IsGreaterThan(0.2f, weak);
+        Assert.IsGreaterThan(weak, strong, "息が上がるほど開く（連続）");
+        Assert.IsGreaterThan(strong, hurt, "傷みが重なるとさらに開く");
+    }
 }

@@ -343,7 +343,8 @@ public sealed class ShieldTests
         Assert.AreEqual(WeaponKind.IronSword, c.Weapon);
         Assert.AreEqual(HandWear.Shield, c.Wear);
         Assert.AreEqual("剣と盾", c.EquipmentName);
-        Assert.AreSame(WeaponCatalog.Textbook(WeaponKind.IronSword), c.WeaponStyle, "an empty education plays the weapon's textbook itself");
+        // 2026-11-24: エドガーの武器の教育はとどめの経路（weaponBot.Ground）だけ。
+        CharacterRosterTests.AssertWeaponTextbookPlusGround(WeaponCatalog.Textbook(WeaponKind.IronSword), c.WeaponStyle, c.Id);
         Assert.IsTrue(CharacterRoster.Countries.ContainsKey(c.Country.Id));
         Assert.Contains(c, CharacterRoster.All);
         _ = c.Look.Validate();

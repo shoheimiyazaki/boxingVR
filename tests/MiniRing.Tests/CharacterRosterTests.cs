@@ -46,7 +46,27 @@ public sealed class CharacterRosterTests
         Assert.IsNotNull(resolved.GamePlan, "the roster education carries the game plan: " + message);
         Assert.IsNull(textbook.GamePlan, "textbooks carry no game plan: " + message);
         Assert.IsNotEmpty(resolved.BreakLikes, "the roster education carries the break-time likes: " + message);
-        Assert.AreEqual((textbook with { BreakLikes = resolved.BreakLikes }).ToJson(), (resolved with { GamePlan = null }).ToJson(), "apart from the game plan and the break likes, the textbook itself: " + message);
+        Assert.AreEqual((textbook with { BreakLikes = resolved.BreakLikes }).ToJson(), (WithTextbookGround(resolved, textbook) with { GamePlan = null }).ToJson(), "apart from the game plan, the break likes and the ground finishing, the textbook itself: " + message);
+    }
+
+    /// <summary>
+    /// 倒れた相手への攻めの教育（2026-11-24、VFC のキャラの練習: <c>Ground</c>・<c>GroundDrive</c>…）を教科書の値に戻したスタイル。
+    /// 名簿の教育は休みの好み・戦略の層・倒れた相手への攻めの 3 つ。
+    /// </summary>
+    internal static BotStyle WithTextbookGround(BotStyle resolved, BotStyle textbook) => resolved with
+    {
+        Ground = textbook.Ground, GroundDrive = textbook.GroundDrive, GroundRest = textbook.GroundRest, GroundLoad = textbook.GroundLoad,
+        GroundCut = textbook.GroundCut, GroundStomp = textbook.GroundStomp, GroundKick = textbook.GroundKick, GroundHeel = textbook.GroundHeel,
+    };
+
+    /// <summary>倒れた相手への攻めの教育の鍵（<c>education.style</c>）。</summary>
+    internal static readonly string[] GroundKeys = ["Ground", "GroundCut", "GroundDrive", "GroundHeel", "GroundKick", "GroundLoad", "GroundRest", "GroundStomp"];
+
+    /// <summary>武器の教育（<c>education.weaponBot</c>）が無いか、とどめの経路（<c>Ground</c>）だけで、それ以外は武器の教科書そのもの。</summary>
+    internal static void AssertWeaponTextbookPlusGround(WeaponStyle textbook, WeaponStyle? resolved, string message)
+    {
+        Assert.IsNotNull(resolved, message);
+        Assert.AreEqual(textbook.ToJson(), (resolved with { Ground = textbook.Ground }).ToJson(), "apart from the ground finishing, the weapon's textbook itself: " + message);
     }
 
     /// <summary>決めた名簿（CLAUDE_BRIEF_ROSTER_MENU の表）: id・武器・はめる物・スタイル・身長/腕/脚/筋肉。</summary>
