@@ -32,11 +32,11 @@ public static class BodySizing
             throw new ArgumentOutOfRangeException(nameof(weightKg), weightKg, $"身長 {heightCm} cm で作れる体重は {lo}〜{hi} kg です（筋肉の太さが基準の {MinRatio}〜{MaxRatio} 倍）。");
         }
 
-        foreach (var (value, name) in new[] { (arms, "腕の長さ"), (legs, "脚の長さ") })
+        foreach (var (value, name, param) in new[] { (arms, "腕の長さ", nameof(arms)), (legs, "脚の長さ", nameof(legs)) })
         {
             if (!float.IsFinite(value) || value is < MinRatio or > MaxRatio)
             {
-                throw new ArgumentOutOfRangeException(nameof(arms), value, $"{name}は基準の {MinRatio}〜{MaxRatio} 倍にしてください。");
+                throw new ArgumentOutOfRangeException(param, value, $"{name}は基準の {MinRatio}〜{MaxRatio} 倍にしてください。");
             }
         }
 

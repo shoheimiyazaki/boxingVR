@@ -28,12 +28,18 @@ public static partial class CharacterFile
     };
 
     /// <summary>1 人のファイルの中身（JSON の文字列、末尾に改行）。</summary>
-    public static string Write(FighterCharacter character)
-        => NumberArrays().Replace(ToNode(character).ToJsonString(Pretty), m => "[" + string.Join(", ", m.Groups[1].Value.Split(',', StringSplitOptions.TrimEntries)) + "]") + "\n";
+    public static string Write(FighterCharacter character) => Format(ToNode(character));
 
-    /// <summary>数だけの配列（色の RGB）。名簿の手書きのファイルと同じく 1 行に書く。</summary>
-    [GeneratedRegex(@"\[\s*(-?[0-9][0-9.eE+-]*(?:\s*,\s*-?[0-9][0-9.eE+-]*)*)\s*\]")]
-    private static partial Regex NumberArrays();
+    /// <summary>ファイルの JSON の木を文字列にする（色の RGB の配列は名簿の手書きのファイルと同じく 1 行）。</summary>
+    public static string Format(JsonObject node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        return ColorArrays().Replace(node.ToJsonString(Pretty), m => m.Groups[1].Value + "[" + string.Join(", ", m.Groups[2].Value.Split(',', StringSplitOptions.TrimEntries)) + "]") + "\n";
+    }
+
+    /// <summary>色の欄（skin・hair・eyes・iris）の数の配列。欄の名前の後ろだけを見るので、文字列の中身は触らない。</summary>
+    [GeneratedRegex(@"(""(?:skin|hair|eyes|iris)"": )\[\s*(-?[0-9][0-9.eE+-]*(?:\s*,\s*-?[0-9][0-9.eE+-]*)*)\s*\]")]
+    private static partial Regex ColorArrays();
 
     /// <summary>1 人のファイルの JSON の木（欄の順は名簿の手書きのファイルと同じ）。</summary>
     public static JsonObject ToNode(FighterCharacter character)

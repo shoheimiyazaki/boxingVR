@@ -62,6 +62,31 @@ public sealed class CharacterMakerTests
     }
 
     [TestMethod]
+    public void ARosterCharacter_ThroughTheDraft_KeepsItsEducationRecordBodyAndFace()
+    {
+        foreach (var c in CharacterRoster.All)
+        {
+            var (back, json) = CharacterMaker.ToFile(CharacterMaker.FromCharacter(c));
+            Assert.AreEqual(c.Style.ToJson(), back.Style.ToJson(), $"{c.Id}: 育てた教育が残る");
+            Assert.AreEqual(c.WeaponStyle?.ToJson(), back.WeaponStyle?.ToJson(), c.Id);
+            Assert.AreEqual(c.Record.Count, back.Record.Count, c.Id);
+            Assert.AreEqual(c.Build, back.Build, c.Id);
+            Assert.AreEqual(c.Order, back.Order, c.Id);
+            Assert.IsTrue(JsonNode.DeepEquals(CharacterFile.Face(c.Face), CharacterFile.Face(back.Face)), c.Id);
+            var again = CharacterMaker.ToFile(CharacterMaker.FromCharacter(back)).Json;
+            var diff = json.Split('\n').Zip(again.Split('\n')).FirstOrDefault(p => p.First != p.Second);
+            Assert.AreEqual(json, again, $"{c.Id}: {diff.First} → {diff.Second}");
+        }
+    }
+
+    [TestMethod]
+    public void TextThatLooksLikeANumberArray_IsWrittenAsItIs()
+    {
+        var c = CharacterRoster.Get("akira") with { Tagline = "[12,3] の男" };
+        Assert.AreEqual("[12,3] の男", Reload(c.Id, CharacterFile.Write(c)).Tagline);
+    }
+
+    [TestMethod]
     public void TheSolvedBuild_GivesBackTheAskedHeightAndWeight_AndWeightGrowsOnlyTheMuscle()
     {
         foreach (var height in new[] { 150, 163, 175, 188, 201 })

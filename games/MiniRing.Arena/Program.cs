@@ -2347,7 +2347,7 @@ static int Maker(Options o) => MiniRing.Arena.Maker.MakerServer.Run(o.Int("port"
 
 // --red-char / --blue-char: 名簿の id か、キャラクターのファイル（.json。キャラメイクで作ったファイル。CharacterRoster.LoadFile が名簿と同じ検証をする）。
 static MiniRing.Characters.FighterCharacter CharacterArg(string value)
-    => value.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || File.Exists(value)
+    => value.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
         ? MiniRing.Characters.CharacterRoster.LoadFile(value)
         : MiniRing.Characters.CharacterRoster.Get(value);
 

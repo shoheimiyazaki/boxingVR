@@ -36,11 +36,13 @@ internal sealed class MakerServer
 
     private readonly string? _rosterDir;
     private readonly string _saveDir;
+    private readonly int _port;
 
-    public MakerServer(string? rosterDir, string saveDir)
+    public MakerServer(string? rosterDir, string saveDir, int port)
     {
         _rosterDir = rosterDir;
         _saveDir = saveDir;
+        _port = port;
     }
 
     /// <summary>コマンド: 口を開いて、止めるまで答える。</summary>
@@ -48,7 +50,7 @@ internal sealed class MakerServer
     {
         var rosterDir = FindRosterDir();
         var dir = saveDir is not null ? Path.GetFullPath(saveDir) : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MiniRing", "characters");
-        var server = new MakerServer(rosterDir, dir);
+        var server = new MakerServer(rosterDir, dir, port);
         using var listener = new HttpListener();
         var url = $"http://localhost:{port}/";
         listener.Prefixes.Add(url);
@@ -98,6 +100,12 @@ internal sealed class MakerServer
         try
         {
             var path = request.Url?.AbsolutePath ?? "/";
+            if (Refusal(request) is { } refusal)
+            {
+                WriteError(response, 403, refusal);
+                return;
+            }
+
             if (request.HttpMethod == "GET" && path is "/" or "/index.html")
             {
                 WriteBytes(response, "text/html; charset=utf-8", Page());
@@ -138,11 +146,44 @@ internal sealed class MakerServer
         {
             WriteError(response, 404, ex.Message);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex)
         {
+            // 予期しない失敗でも口を止めない（ログに全部、画面には短く）。返事が書けない（切れた）ときは捨てる。
             Console.Error.WriteLine($"キャラメイク: {request.Url}: {ex}");
-            WriteError(response, 500, $"処理に失敗しました: {ex.Message}");
+            try
+            {
+                WriteError(response, 500, $"処理に失敗しました: {ex.Message}");
+            }
+            catch (Exception writeFailure) when (writeFailure is HttpListenerException or ObjectDisposedException or InvalidOperationException or IOException)
+            {
+                response.Abort();
+            }
         }
+    }
+
+    /// <summary>
+    /// この画面からの要求でなければ断る理由（受けるなら null）。口はファイルを書くので、ほかのサイトのページがブラウザ越しに送る要求
+    /// （CSRF・DNS の付け替え）を受けない: 相手がこの PC・Host が localhost のこの口・Origin があればこの口・POST は JSON（ほかのサイトからは事前の確認が要り、この口は答えない）。
+    /// </summary>
+    internal string? Refusal(HttpListenerRequest request)
+    {
+        var self = $"localhost:{_port}";
+        if (!request.IsLocal || !string.Equals(request.UserHostName, self, StringComparison.OrdinalIgnoreCase))
+        {
+            return $"この口は http://{self}/ からだけ使えます。";
+        }
+
+        if (request.Headers["Origin"] is { } origin && !string.Equals(origin, $"http://{self}", StringComparison.OrdinalIgnoreCase))
+        {
+            return "ほかのページからの要求は受けません。";
+        }
+
+        if (request.HttpMethod == "POST" && request.ContentType?.StartsWith("application/json", StringComparison.OrdinalIgnoreCase) != true)
+        {
+            return "POST は application/json だけ受けます。";
+        }
+
+        return null;
     }
 
     private static byte[] Page()
@@ -338,9 +379,17 @@ internal sealed class MakerServer
         var dataUrl = body["png"]?.GetValue<string>() ?? throw new InvalidDataException("png がありません。");
         var comma = dataUrl.IndexOf(',', StringComparison.Ordinal);
         var bytes = Convert.FromBase64String(comma >= 0 ? dataUrl[(comma + 1)..] : dataUrl);
+        const int MaxPhotoSide = 2048; // 画面は 640 px に縮めて送る。大きすぎる PNG（展開の爆弾）は読まない
         DecodedImage image;
         try
         {
+            // 展開する前に、PNG の頭（IHDR）の幅・高さで大きさを確かめる。
+            if (bytes.Length < 24 || System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(16)) > MaxPhotoSide
+                || System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(20)) > MaxPhotoSide)
+            {
+                throw new InvalidDataException($"写真は {MaxPhotoSide} px 以下の PNG にしてください。");
+            }
+
             image = PngReader.ReadRgba(new MemoryStream(bytes));
         }
         catch (Exception ex) when (ex is InvalidDataException or NotSupportedException or EndOfStreamException)
@@ -380,8 +429,21 @@ internal sealed class MakerServer
             throw new InvalidDataException($"送られた物が大きすぎます（{MaxRequestBytes / 1024 / 1024} MB まで。写真は縮めて送ります）。");
         }
 
-        using var reader = new StreamReader(request.InputStream, Encoding.UTF8);
-        return JsonNode.Parse(reader.ReadToEnd()) ?? throw new InvalidDataException("空の JSON です。");
+        // 長さの無い（chunked）要求も上限までしか読まない。
+        using var memory = new MemoryStream();
+        var buffer = new byte[81920];
+        int read;
+        while ((read = request.InputStream.Read(buffer)) > 0)
+        {
+            if (memory.Length + read > MaxRequestBytes)
+            {
+                throw new InvalidDataException($"送られた物が大きすぎます（{MaxRequestBytes / 1024 / 1024} MB まで）。");
+            }
+
+            memory.Write(buffer, 0, read);
+        }
+
+        return JsonNode.Parse(memory.ToArray()) ?? throw new InvalidDataException("空の JSON です。");
     }
 
     private static void WriteJson(HttpListenerResponse response, JsonNode node)

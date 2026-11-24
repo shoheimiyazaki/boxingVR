@@ -192,6 +192,10 @@ async function api(path, body) {
 const hex = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
 const rgb = h => [1, 3, 5].map(i => Math.round(parseInt(h.slice(i, i + 2), 16) / 255 * 1000) / 1000);
 const fmt = (v, d = 2) => Number(v).toFixed(d);
+// 文を要素に入れる（サーバーの文・パスを HTML として読まない）。parts は [文, 組] の並び（組: 'error' | 'okmsg' | 'hint' | 'pre'）。
+function say(el, ...parts) {
+  el.replaceChildren(...parts.map(([text, cls]) => { const e = document.createElement(cls === 'pre' ? 'pre' : 'p'); if (cls !== 'pre') e.className = cls; e.textContent = text; return e; }));
+}
 
 function fillSelect(sel, items, keep = false) {
   if (!keep) sel.innerHTML = '';
@@ -477,7 +481,7 @@ $('autoPoints').onclick = async () => {
     drawPoints();
     $('photoMsg').textContent = '目印を置きました。ずれていればドラッグで直してから「この写真から顔を作る」。';
   } catch (e) {
-    $('photoMsg').innerHTML = '<span class="error">自動の目印が使えませんでした（' + e.message + '）。点を手で置いてください。</span>';
+    say($('photoMsg'), ['自動の目印が使えませんでした（' + e.message + '）。点を手で置いてください。', 'error']);
   }
 };
 
@@ -487,13 +491,13 @@ $('usePhoto').onclick = async () => {
     const r = await api('/api/photo', { png: canvas.toDataURL('image/png'), points, face: draft.face });
     draft.face = r.face; showDraft(); changed();
     $('measured').hidden = false; $('measured').textContent = '読み取った比（両目の間 = 1）\n' + JSON.stringify(r.measured, null, 1);
-    $('photoMsg').innerHTML = '<span class="okmsg">顔を写真から作りました。髪型・耳・眉の形は「顔」で選んでください。</span>';
-  } catch (e) { $('photoMsg').innerHTML = '<span class="error">' + e.message + '</span>'; }
+    say($('photoMsg'), ['顔を写真から作りました。髪型・耳・眉の形は「顔」で選んでください。', 'okmsg']);
+  } catch (e) { say($('photoMsg'), [e.message, 'error']); }
 };
 
 // ---- 保存 ----
 $('download').onclick = () => {
-  if (!lastJson) { $('saveMsg').innerHTML = '<span class="error">まだファイルができていません（右の赤い文字を直してください）。</span>'; return; }
+  if (!lastJson) { say($('saveMsg'), ['まだファイルができていません（右の赤い文字を直してください）。', 'error']); return; }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([lastJson], { type: 'application/json' }));
   a.download = (draft.id || 'fighter') + '.json'; a.click(); URL.revokeObjectURL(a.href);
@@ -505,10 +509,10 @@ async function save(target) {
       if (!confirm(r.path + ' はもうあります。上書きしますか？')) return;
       r = await api('/api/save', { draft, target, overwrite: true });
     }
-    $('saveMsg').innerHTML = '<p class="okmsg">保存しました: ' + r.path + '</p>'
-      + (r.rebuild ? '<p class="hint">名簿はゲームに組み込まれます。ビルドし直すと、メニュー・rosterleague・video に出ます。</p>' : '<p class="hint">このファイルは video の --red-char / --blue-char にそのまま渡せます。</p>')
-      + '<p class="hint">試合の動画:</p><pre>' + r.video + '</pre>';
-  } catch (e) { $('saveMsg').innerHTML = '<span class="error">' + e.message + '</span>'; }
+    say($('saveMsg'), ['保存しました: ' + r.path, 'okmsg'],
+      [r.rebuild ? '名簿はゲームに組み込まれます。ビルドし直すと、メニュー・rosterleague・video に出ます。' : 'このファイルは video の --red-char / --blue-char にそのまま渡せます。', 'hint'],
+      ['試合の動画:', 'hint'], [r.video, 'pre']);
+  } catch (e) { say($('saveMsg'), [e.message, 'error']); }
 }
 $('saveDir').onclick = () => save('dir');
 $('saveRoster').onclick = () => save('roster');

@@ -49,6 +49,15 @@ public sealed record CharacterDraft
     /// <summary>体重 [kg]（計量・階級の体重。体格の太さはここから解く）。</summary>
     public int WeightKg { get; init; } = (int)CharacterProfile.BaseWeightKg;
 
+    /// <summary>
+    /// 身長の比と太さの比をそのまま持つとき（名簿のキャラを読み込んだとき）。式で出し直した身長・体重が <see cref="HeightCm"/>・<see cref="WeightKg"/> と同じ間は
+    /// この値を使い（作り直して体の寸法が丸めでずれないように）、違えば身長・体重から解き直す。
+    /// </summary>
+    public float? HeightRatio { get; init; }
+
+    /// <inheritdoc cref="HeightRatio"/>
+    public float? MuscleRatio { get; init; }
+
     /// <summary>腕の長さの比（身長に掛ける）。</summary>
     public float Arms { get; init; } = 1f;
 
@@ -69,6 +78,12 @@ public sealed record CharacterDraft
 
     /// <summary>プロフィール（任意。身長・体重は体から入れ直すので、書かなくてよい）。</summary>
     public CharacterProfile? Profile { get; init; }
+
+    /// <summary>教育（ファイルの <c>"education"</c> をそのまま。キャラメイクは変えない）。名簿のキャラを読み込んで直したとき、育てた教育を失わないように運ぶ。null なら空。</summary>
+    public System.Text.Json.Nodes.JsonObject? Education { get; init; }
+
+    /// <summary>育ちの記録（ファイルの <c>"record"</c> をそのまま運ぶ）。null なら空。</summary>
+    public System.Text.Json.Nodes.JsonArray? Record { get; init; }
 }
 
 /// <summary>下書きの顔（ファイルの <c>"face"</c> と同じ欄）。</summary>
@@ -234,6 +249,8 @@ public static class CharacterMaker
             Tagline = character.Tagline,
             HeightCm = CharacterProfile.HeightOf(character.Build),
             WeightKg = CharacterProfile.WeightOf(character.Build),
+            HeightRatio = character.Build.Height,
+            MuscleRatio = character.Build.Muscle,
             Arms = character.Build.Arms,
             Legs = character.Build.Legs,
             Face = FaceDraft.From(character.Face, character.Look),
@@ -241,6 +258,8 @@ public static class CharacterMaker
             Wear = CharacterFile.WearName(character.Wear),
             Weapon = character.Weapon is { } w ? CharacterFile.WeaponName(w) : null,
             Profile = character.Profile,
+            Education = CharacterFile.ToNode(character)["education"]!.AsObject(),
+            Record = CharacterFile.ToNode(character)["record"]!.AsArray(),
         };
     }
 
@@ -252,7 +271,18 @@ public static class CharacterMaker
     {
         ArgumentNullException.ThrowIfNull(draft);
         var character = Build(draft);
-        var json = CharacterFile.Write(character);
+        var node = CharacterFile.ToNode(character);
+        if (draft.Education is { } education)
+        {
+            node["education"] = education.DeepClone();
+        }
+
+        if (draft.Record is { } record)
+        {
+            node["record"] = record.DeepClone();
+        }
+
+        var json = CharacterFile.Format(node);
         var loaded = CharacterRoster.FromFiles([($"{character.Id}.json", json)], knownIds ?? [.. CharacterRoster.All.Select(c => c.Id)]).Single();
         return (loaded, json);
     }
@@ -261,7 +291,7 @@ public static class CharacterMaker
     public static FaceLook LookOf(FaceSpec face)
     {
         ArgumentNullException.ThrowIfNull(face);
-        var hair = face.Parts.TryGetValue("hair", out var h) && h.Count > 0 ? h.MaxBy(p => p.Value).Key : null;
+        var hair = face.Parts.TryGetValue("hair", out var h) && h.Count > 0 ? h.OrderByDescending(p => p.Value).ThenBy(p => p.Key, StringComparer.Ordinal).First().Key : null;
         var style = hair switch
         {
             null or "hair.3" => Hairstyle.Bald,
@@ -287,6 +317,11 @@ public static class CharacterMaker
         try
         {
             build = BodySizing.Solve(d.HeightCm, d.WeightKg, d.Arms, d.Legs);
+            if (d is { HeightRatio: { } h, MuscleRatio: { } m } && new BodyBuild(h, d.Arms, d.Legs, m) is var kept
+                && kept.Validate() is var _ && CharacterProfile.HeightOf(kept) == d.HeightCm && CharacterProfile.WeightOf(kept) == d.WeightKg)
+            {
+                build = kept; // 読み込んだ体のまま（身長・体重を変えていない）
+            }
         }
         catch (ArgumentOutOfRangeException ex)
         {
@@ -306,7 +341,7 @@ public static class CharacterMaker
         WeaponKind? weapon = string.IsNullOrWhiteSpace(d.Weapon) ? null
             : CharacterFile.Weapons.Cast<WeaponKind?>().FirstOrDefault(w => CharacterFile.WeaponName(w!.Value).Equals(d.Weapon.Trim(), StringComparison.OrdinalIgnoreCase))
               ?? throw new InvalidDataException($"武器 '{d.Weapon}' は知りません（{string.Join(", ", CharacterFile.Weapons.Select(CharacterFile.WeaponName))}）。");
-        var face = d.Face.ToSpec();
+        var face = (d.Face ?? throw new InvalidDataException("face を書いてください。")).ToSpec();
         var look = LookOf(face);
         var profile = d.Profile is { } p ? p with { HeightCm = d.HeightCm, WeightKg = d.WeightKg } : null;
         var order = d.Order > 0 ? d.Order : CharacterRoster.All.Max(c => c.Order) + 1;
