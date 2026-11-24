@@ -29,7 +29,7 @@ try
         "fistmatch" => FistMatchCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "referee", "parallel", "out", "compare", "labels", "log", "confirm")),
         "punchlab" => PunchLabCommand(Options.Parse(argv[1..], "study", "depths", "aim", "paths", "defenders", "ranges", "reach", "far", "seeds", "telegraph", "nocap", "log", "video", "slow", "width", "height", "fps")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
-        "groundtime" => GroundTimeCommand(Options.Parse(argv[1..], "chars", "seeds", "rounds", "shard", "out", "compare", "labels", "log", "confirm", "drill", "victims", "seconds", "practice", "hold-victims", "hold-seeds", "gens", "lambda", "seed", "video", "parallel", "teach", "recheck")),
+        "groundtime" => GroundTimeCommand(Options.Parse(argv[1..], "chars", "seeds", "rounds", "shard", "out", "compare", "labels", "log", "confirm", "drill", "victims", "seconds", "org", "practice", "hold-victims", "hold-seeds", "gens", "lambda", "seed", "video", "parallel", "teach", "recheck")),
         "groundlab" => GroundLabCommand(Options.Parse(argv[1..], "style", "moves", "bouts", "seconds", "seed", "log", "video", "practice", "candidates", "sigma", "validate")),
         "kickbalance" => KickBalanceCommand(Options.Parse(argv[1..], "style", "kicks", "teachings", "bouts", "seconds", "seed", "confirm", "log", "video")),
         "stick" => StickCommand(Options.Parse(StickSwingLab.WithYes(argv[1..]), "style", "kicks", "teachings", "png", "design", "candidates", "seed", "log", "approach", "ground", "moves", "path", "out", "forms", "detail", "swing", "planes", "samples", "weights", "video", "polish", "iterations", "character", "limits", "bvh", "bvh-scale")),
@@ -775,6 +775,24 @@ static int GroundTimeCommand(Options o)
         Log($"- 試合ごと（{bouts} 試合を同じ組・同じ種で対に）");
         Log($"  - 倒れた相手が倒れたまま死んで決着: {killed}");
         Log($"  - 相手が倒れていた秒の合計: {floor}");
+        if (after.Any(b => b.Chances is not null) && before.Any(b => b.Chances is not null))
+        {
+            Log("");
+            Log(GroundTime.ChanceHeader);
+            Log(GroundTime.ChanceSummary(labels[0], before));
+            Log(GroundTime.ChanceSummary(labels[1], after));
+            var (share, first, nc) = GroundTime.CompareChances(before, after);
+            Log($"- チャンスのあった試合ごと（{nc} 試合を同じ組・同じ種で対に）");
+            Log($"  - チャンスのうち倒した割合: {share}");
+            Log($"  - 最初のチャンスが終わるまでの秒（短いほど早く決めた）: {first}");
+            if ((o.Get("confirm") ?? "no") == "yes")
+            {
+                var seeds2 = after.Select(b => b.Seed).Distinct().Order().ToList();
+                var d2 = new Dictionary<string, string> { ["bouts"] = nc.ToString(CultureInfo.InvariantCulture) };
+                ConfirmLog.Append("groundtime", "チャンスのうち倒した割合（試合ごと）", labels[1], labels[0], seeds2, share, d2);
+                ConfirmLog.Append("groundtime", "最初のチャンスが終わるまでの秒", labels[1], labels[0], seeds2, first, d2);
+            }
+        }
         if ((o.Get("confirm") ?? "no") == "yes")
         {
             var seeds = after.Select(b => b.Seed).Distinct().Order().ToList();
@@ -845,7 +863,7 @@ static int GroundTimeCommand(Options o)
     var seedList = o.List("seeds", ["1", "2"]).Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToList();
     var rounds = o.Int("rounds", MiniRing.MatchRules.Vfc.Rounds, min: 1);
     var (shard, shards) = o.Get("shard") is { } sh ? (int.Parse(sh.Split('/')[0], CultureInfo.InvariantCulture), int.Parse(sh.Split('/')[1], CultureInfo.InvariantCulture)) : (0, 1);
-    var org = Organizations.Get("vfc");
+    var org = Organizations.Get(o.Get("org") ?? "vfc");
     var outPath = o.Get("out") ?? throw new ArgumentException("--out <file.jsonl> が要ります。");
     var jobs = GroundTime.Pairs(chars).SelectMany(p => seedList.Select(s => (p.Red, p.Blue, Seed: s))).Where((_, i) => i % shards == shard).ToList();
     foreach (var (red, blue, seed) in jobs)

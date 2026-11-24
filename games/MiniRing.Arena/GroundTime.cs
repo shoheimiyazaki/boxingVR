@@ -19,9 +19,25 @@ namespace MiniRing.Arena;
 internal sealed record GroundEpisode(string Victim, float Start, int Round, float Seconds, string End, bool AttackerStanding, float AttackerDownShare,
     int Strikes, float Damage, IReadOnlyDictionary<string, int> Moves);
 
+/// <summary>
+/// 立っている相手に来たチャンスの 1 回（<see cref="GroundTime"/>、2026-11-24）。チャンスは測る側の物差しで、受け手の体の量から決める（ボットの判断には使わない）:
+/// 両者が立っていて、受け手のスタミナが <see cref="GroundTime.ChanceStamina"/> 未満・意識が <see cref="GroundTime.ChanceConsciousness"/> 未満・
+/// 見えている傷み（<see cref="Fighter.Injury"/>）が <see cref="GroundTime.ChanceInjury"/> 以上のどれか。
+/// </summary>
+/// <param name="Victim">チャンスを作った側（"red" / "blue"）。</param>
+/// <param name="Round">ラウンド。</param>
+/// <param name="Start">ラウンドの始めからの時刻 [s]。</param>
+/// <param name="Seconds">始まりから終わりまで [s]。</param>
+/// <param name="End">down（受け手が倒れた・死んだ: 決めた）・escaped（チャンスでなくなって <see cref="GroundTime.EscapeSeconds"/> 続いた）・bell・other。</param>
+/// <param name="Damage">この間に受け手が受けたダメージ。</param>
+internal sealed record ChanceEpisode(string Victim, int Round, float Start, float Seconds, string End, float Damage);
+
 /// <summary>1 試合の結果（<see cref="GroundTime"/>）。</summary>
 internal sealed record GroundBout(string Red, string Blue, int Seed, string Finish, bool Death, int Round, float RoundTime, IReadOnlyList<GroundEpisode> Episodes, string Versions)
 {
+    /// <summary>立っている相手に来たチャンスの場面（2026-11-24、フィニッシュの物差し。古い記録には無い）。</summary>
+    public IReadOnlyList<ChanceEpisode>? Chances { get; init; }
+
     /// <summary>この試合の最初の「倒れた相手を攻められる場面」（攻める側が立っていた回）。無ければ null。</summary>
     public GroundEpisode? FirstChance => Episodes.FirstOrDefault(e => e.AttackerStanding);
 }
@@ -38,23 +54,37 @@ internal static class GroundTime
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
 
+    /// <summary>チャンスの物差し: 受け手のスタミナがこれ未満。</summary>
+    public const float ChanceStamina = 0.25f;
+
+    /// <summary>チャンスの物差し: 受け手の意識がこれ未満（打たれて薄れている）。</summary>
+    public const float ChanceConsciousness = 0.7f;
+
+    /// <summary>チャンスの物差し: 受け手の見えている傷み（折れた腕・削れた筋）がこれ以上。</summary>
+    public const float ChanceInjury = 0.25f;
+
+    /// <summary>チャンスの物差しを外れてこれだけ続いたら、逃げられたとみなす [s]。</summary>
+    public const float EscapeSeconds = 1.678f;
+
     public static GroundBout Run(string redId, string blueId, int seed, int rounds, Organization org)
     {
         var redCharacter = CharacterRoster.Get(redId);
         var blueCharacter = CharacterRoster.Get(blueId);
         var red = RosterLeague.ContenderOf(redCharacter, blueId, null);
         var blue = RosterLeague.ContenderOf(blueCharacter, redId, null);
-        var rules = TvShowRules.Rules(rounds, MiniRing.MatchRules.Vfc.BreakSeconds, org);
+        var rules = TvShowRules.Rules(rounds, org.Match.Referee ? MiniRing.MatchRules.Tv.BreakSeconds : MiniRing.MatchRules.Vfc.BreakSeconds, org);
         // 歩の幅は中継の下見と同じ（30 fps・0.75 倍の速さ → 1/80 s を 1/60 s 以下に割る）。
         var frameDt = MiniRing.GameSpeed.Standard / 30f;
         var stepsPerFrame = Math.Max(1, (int)MathF.Ceiling((frameDt / (1f / 60f)) - 1e-3f));
         var stepDt = frameDt / stepsPerFrame;
         var corners = TvShowRules.Stage(VideoMaker.WithCharacters(
-            VideoMaker.Corners(red, blue, seed, redCharacter.Wear, blueCharacter.Wear, redCharacter.Weapon, blueCharacter.Weapon, s => blue.Create(s), s => red.Create(s), referee: false),
+            VideoMaker.Corners(red, blue, seed, redCharacter.Wear, blueCharacter.Wear, redCharacter.Weapon, blueCharacter.Weapon, s => blue.Create(s), s => red.Create(s), referee: org.Match.Referee),
             redCharacter, blueCharacter), org);
         using var game = new BoxingGame(seed: seed, corners: corners, rules: rules);
         var episodes = new List<GroundEpisode>();
         var open = new Dictionary<string, Open>();
+        var chances = new List<ChanceEpisode>();
+        var chanceOpen = new Dictionary<string, (int Round, float Start, float Seconds, float Off, float Damage0)>();
         var time = 0f;
         var roundClock = 0f;
         var lastRound = game.MatchRound;
@@ -71,6 +101,14 @@ internal static class GroundTime
             roundClock += game.Resting ? 0f : stepDt;
             Track("red", game.Player, game.Cpu, game.CpuControl as GroundStriker);
             Track("blue", game.Cpu, game.Player, game.PlayerControl as GroundStriker);
+            TrackChance("red", game.Player, game.Cpu);
+            TrackChance("blue", game.Cpu, game.Player);
+        }
+
+        foreach (var (victim, c) in chanceOpen)
+        {
+            var self = victim == "red" ? game.Player : game.Cpu;
+            chances.Add(new ChanceEpisode(victim, c.Round, c.Start, c.Seconds, self.IsDead || self.State != FighterState.Standing ? "down" : "other", self.Condition.TotalDamage - c.Damage0));
         }
 
         // 試合の終わりで閉じていない回を閉じる。
@@ -81,7 +119,35 @@ internal static class GroundTime
         }
 
         return new GroundBout(redId, blueId, seed, game.Decision ?? game.Message, game.Decision is null && TvScoutResult.IsDeath(game.Message),
-            game.MatchRound, rules.RoundSeconds - game.RoundLeft, episodes, $"physics {Fighter.PhysicsVersion} logic {BoxerBot.LogicVersion}");
+            game.MatchRound, rules.RoundSeconds - game.RoundLeft, episodes, $"physics {Fighter.PhysicsVersion} logic {BoxerBot.LogicVersion}") { Chances = chances };
+
+        void TrackChance(string victim, Fighter self, Fighter attacker)
+        {
+            var isOpen = chanceOpen.TryGetValue(victim, out var c);
+            var chance = !game.Resting && self.State == FighterState.Standing && attacker.State == FighterState.Standing && !self.IsDead
+                && (self.Stamina < ChanceStamina || self.Consciousness < ChanceConsciousness || self.Injury(felt: false) >= ChanceInjury);
+            if (!isOpen)
+            {
+                if (chance)
+                {
+                    chanceOpen[victim] = (game.MatchRound, roundClock, 0f, 0f, self.Condition.TotalDamage);
+                }
+
+                return;
+            }
+
+            string? end = self.IsDead || self.State != FighterState.Standing ? "down" : game.Resting ? (game.MatchOver ? "other" : "bell") : null;
+            c = (c.Round, c.Start, c.Seconds + stepDt, chance ? 0f : c.Off + stepDt, c.Damage0);
+            end ??= c.Off >= EscapeSeconds ? "escaped" : null;
+            if (end is null)
+            {
+                chanceOpen[victim] = c;
+                return;
+            }
+
+            chances.Add(new ChanceEpisode(victim, c.Round, c.Start, end == "escaped" ? c.Seconds - c.Off : c.Seconds, end, self.Condition.TotalDamage - c.Damage0));
+            chanceOpen.Remove(victim);
+        }
 
         void Track(string victim, Fighter self, Fighter attacker, GroundStriker? striker)
         {
@@ -216,6 +282,31 @@ internal static class GroundTime
         static double Floor(GroundBout b) => b.Episodes.Where(e => e.AttackerStanding).Sum(e => (double)e.Seconds);
         return (PairedEvaluation.Compute([.. pairs.Select(p => Killed(p.A))], [.. pairs.Select(p => Killed(p.B))]),
             PairedEvaluation.Compute([.. pairs.Select(p => Floor(p.A))], [.. pairs.Select(p => Floor(p.B))]), pairs.Count);
+    }
+
+    /// <summary>チャンスの場面の要約: 回数・決めた（倒した）割合・決めるまでの中央値・すべての回の中央値。</summary>
+    public static string ChanceSummary(string label, IReadOnlyList<GroundBout> bouts)
+    {
+        var c = bouts.SelectMany(b => b.Chances ?? []).ToList();
+        var down = c.Where(x => x.End == "down").ToList();
+        return string.Create(CultureInfo.InvariantCulture,
+            $"| {label} | {c.Count} | {down.Count} ({100f * down.Count / Math.Max(1, c.Count):0}%) | {Median(down.Select(x => x.Seconds)):0.0} | {Median(c.Select(x => x.Seconds)):0.0} | {c.Count(x => x.End == "escaped")} | {c.Count(x => x.End == "bell")} | {(c.Count > 0 ? c.Average(x => x.Damage) : 0f):0.0} |");
+    }
+
+    public static readonly string ChanceHeader = "| 版 | チャンス | 倒した（決めた） | 決めるまでの中央値 [s] | すべての回の中央値 [s] | 逃げられた | ゴング | 1 回のダメージ |" + Environment.NewLine + "|---|---|---|---|---|---|---|---|";
+
+    /// <summary>
+    /// 試合ごとのチャンスの比べ（同じ組・同じ種、両方の版でチャンスのあった試合）: その試合のチャンスのうち倒した割合と、最初のチャンスが終わるまでの秒。
+    /// </summary>
+    public static (PairedResult DownShare, PairedResult FirstSeconds, int N) CompareChances(IReadOnlyList<GroundBout> before, IReadOnlyList<GroundBout> after)
+    {
+        var map = before.ToDictionary(b => (b.Red, b.Blue, b.Seed));
+        var pairs = after.Where(b => map.TryGetValue((b.Red, b.Blue, b.Seed), out var o) && (b.Chances?.Count ?? 0) > 0 && (o.Chances?.Count ?? 0) > 0)
+            .Select(b => (A: b, B: map[(b.Red, b.Blue, b.Seed)])).ToList();
+        static double Share(GroundBout b) => b.Chances!.Count(x => x.End == "down") / (double)b.Chances!.Count;
+        static double First(GroundBout b) => b.Chances![0].Seconds;
+        return (PairedEvaluation.Compute([.. pairs.Select(p => Share(p.A))], [.. pairs.Select(p => Share(p.B))]),
+            PairedEvaluation.Compute([.. pairs.Select(p => First(p.A))], [.. pairs.Select(p => First(p.B))]), pairs.Count);
     }
 
     /// <summary>3 秒を超えて倒れていた（滑って手をついただけでない）攻められる場面の、終わるまでの中央値と死の割合。</summary>
