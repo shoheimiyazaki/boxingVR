@@ -813,7 +813,7 @@ static int GroundTimeCommand(Options o)
         static IReadOnlyList<int> Ints2(IReadOnlyList<string> s) => [.. s.Select(x => int.Parse(x, CultureInfo.InvariantCulture))];
         var wvc = FinishPractice.Victims.Where(v => v != finishId).ToList();
         new FinishPractice(Log, o.Int("parallel", 1, min: 1)).Practice(finishId,
-            o.List("victims", wvc.Take(4).ToList()), Ints2(o.List("seeds", ["2", "3"])),
+            o.List("victims", wvc.Take(4).ToList()), Ints2(o.List("seeds", ["2", "3", "6", "7"])),
             o.List("hold-victims", wvc.Skip(4).ToList()), Ints2(o.List("hold-seeds", ["102", "103", "104", "105"])),
             o.Int("gens", 6, min: 1), o.Int("lambda", 10, min: 4), o.Float("seconds", 10f, min: 2f), o.Int("seed", 1), o.Get("out") ?? $"{finishId}.finish.json");
         return 0;

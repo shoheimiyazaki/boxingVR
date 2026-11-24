@@ -150,6 +150,21 @@ internal sealed class FinishPractice(Action<string> log, int parallel = 1)
         log(string.Create(CultureInfo.InvariantCulture, $"- 比べ直し（受け手 {string.Join(",", holdVictims)}・種 {string.Join(",", holdSeeds)}、A = 練習した、B = 今、点は倒すまでの秒、小さいほど良い）: 今 {before.Average():0.00} → 練習した {after.Average():0.00}、{result}"));
         ConfirmLog.Append("groundtime --finish-practice", $"{id}: チャンスから倒すまでの秒", "練習した", "今", holdSeeds, result,
             new Dictionary<string, string> { ["victims"] = string.Join(",", holdVictims) });
+        // 2 回目の比べ直し（2026-11-24: 1 回目だけ良くて別の種で再現しないことがあった）: さらに別の種（holdSeeds + 100）で、良いときだけ採る。
+        var better = result.CiHigh < 0d;
+        var second = (PairedResult?)null;
+        if (better)
+        {
+            var seeds2 = holdSeeds.Select(x => x + 100).ToList();
+            var before2 = Scores(id, null, holdVictims, seeds2, seconds);
+            var after2 = Scores(id, Decode(chosenX), holdVictims, seeds2, seconds);
+            second = PairedEvaluation.Compute(after2, before2);
+            better = second.CiHigh < 0d;
+            log(string.Create(CultureInfo.InvariantCulture, $"- 比べ直し 2（種 {string.Join(",", seeds2)}）: 今 {before2.Average():0.00} → 練習した {after2.Average():0.00}、{second}"));
+            ConfirmLog.Append("groundtime --finish-practice", $"{id}: チャンスから倒すまでの秒（2 回目）", "練習した", "今", seeds2, second,
+                new Dictionary<string, string> { ["victims"] = string.Join(",", holdVictims) });
+        }
+
         log("");
         var taught = Decode(chosenX)(current);
         var edu = new Dictionary<string, object?>
@@ -158,6 +173,6 @@ internal sealed class FinishPractice(Action<string> log, int parallel = 1)
             ["FinishPress"] = taught.FinishPress, ["FinishSpend"] = taught.FinishSpend, ["HurtWinded"] = taught.HurtWinded, ["HurtInjury"] = taught.HurtInjury,
             ["FinishCombos"] = taught.FinishCombos.Where(p => p.Value > 0.05f).ToDictionary(p => p.Key, p => MathF.Round(p.Value, 3)),
         };
-        File.WriteAllText(outPath, JsonSerializer.Serialize(new { Id = id, Better = result.CiHigh < 0d, Before = before.Average(), After = after.Average(), Result = result.ToString(), Education = edu }, Json));
+        File.WriteAllText(outPath, JsonSerializer.Serialize(new { Id = id, Better = better, Before = before.Average(), After = after.Average(), Result = result.ToString(), Second = second?.ToString(), Education = edu }, Json));
     }
 }
