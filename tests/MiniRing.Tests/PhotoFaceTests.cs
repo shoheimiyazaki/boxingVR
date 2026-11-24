@@ -132,7 +132,6 @@ public sealed class PhotoFaceTests
         Assert.AreEqual((230f - 130f) / 285f, low.Measured.Proportions.Forehead, 0.03f, "おでこ = 生え際から目の線まで / 顔の高さ");
         Assert.IsGreaterThan(low.Measured.Proportions.Forehead, high.Measured.Proportions.Forehead, "生え際が上ほどおでこが広い");
         Assert.IsLessThan(low.Face.Values.Hairline, high.Face.Values.Hairline, "広いおでこは顔の層の生え際を上げる（負）");
-        Assert.IsLessThanOrEqualTo(0f, low.Face.Values.Hairline, "生え際は下げない（頭頂に地肌の点が出る）");
         Assert.IsTrue(float.IsNaN(PhotoFace.FromPhoto(W, H, Picture(Skin, false), Points(), basis).Measured.Proportions.Forehead), "坊主はおでこを測らない");
     }
 

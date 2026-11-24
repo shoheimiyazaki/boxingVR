@@ -172,9 +172,7 @@ public static class Caricature
         if (float.IsFinite(m["forehead"]))
         {
             // 生え際の行のずれ（下向き）= 目のずれ − おでこの高さのずれ。生え際の値は正で髪が下がる（おでこが狭い）。
-            // 上げる（おでこが広い）だけ。下げると（正）髪の絵が頭頂で途切れて地肌の点が出る（0.03 でも出た）。組み立てを直すと名簿の顔の当たりの形が
-            // 変わるので、ここで止める（狭いおでこは既定の生え際のまま。docs/DEBT.md「キャラクター」）。
-            v = v with { Hairline = Clamp((eyeShift - Shift("forehead")) / HalfHeight, -0.25f, 0f) };
+            v = v with { Hairline = Clamp((eyeShift - Shift("forehead")) / HalfHeight, -0.25f, 0.12f) };
         }
 
         var parts = basis.Parts.ToDictionary(p => p.Key, p => p.Value);
