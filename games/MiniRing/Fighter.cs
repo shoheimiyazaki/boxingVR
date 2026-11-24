@@ -238,7 +238,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 92; // 休みの再生の速さを団体の値に（WVC ほぼ治らない・VFC 速く）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 93; // 足の点の目標を足首からかかとへ一般化（かかとの制御）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1262,6 +1262,22 @@ public sealed partial class Fighter
         var p = _legParts[(int)leg];
         var s = _world.GetState(p.Heel);
         return s.Position + Vector3.Transform(p.AnkleOnHeel, s.Orientation);
+    }
+
+    /// <summary>かかとの点（足裏の後ろの縁。<see cref="FootPoint.Heel"/>）。左右は本人の左右。</summary>
+    public Vector3 HeelPosition(Hand leg)
+    {
+        var p = _legParts[(int)leg];
+        var s = _world.GetState(p.Heel);
+        return s.Position + Vector3.Transform(p.HeelOnHeel, s.Orientation);
+    }
+
+    /// <summary>かかとの点の速度。</summary>
+    public Vector3 HeelVelocity(Hand leg)
+    {
+        var p = _legParts[(int)leg];
+        var s = _world.GetState(p.Heel);
+        return s.LinearVelocity + Vector3.Cross(s.AngularVelocity, Vector3.Transform(p.HeelOnHeel, s.Orientation));
     }
 
     public float LegLength => LegIk.MaxLength(_legParts[0].ThighToKnee, _legParts[0].ShinLength);
@@ -2678,10 +2694,10 @@ public sealed partial class Fighter
                 continue;
             }
 
+            var (point, pointTarget) = (leg.AnkleOnHeel, ankle);
             if (kick is { } requested)
             {
-                ankle = Frame.LocalToWorld(requested.TargetLocal);
-                foot = Quaternion.Concatenate(requested.Orientation ?? Quaternion.Identity, Quaternion.CreateFromAxisAngle(Vector3.UnitY, _facingYaw));
+                (ankle, foot, point, pointTarget) = RequestedFoot(leg, requested);
             }
             var pivot = pelvis.Position + Vector3.Transform(leg.PivotOnPelvis, pelvis.Orientation);
             var toes = kick?.KneeTargetLocal is { } kneeGoal ? Frame.LocalToWorld(kneeGoal) - pivot : new Vector3(MathF.Sin(pose.Yaw), 0f, MathF.Cos(pose.Yaw));
@@ -2715,10 +2731,22 @@ public sealed partial class Fighter
             SetTwistTarget(leg.ToeServo, kick is null ? -pose.HeelRaise : 0f);
             if (UsesGroundSupport && (!UsesJointDrive || stance != 0))
             {
-                DriveFoot(leg, ankle, pose.Swinging || kick is not null, pelvisId: Parts.Pelvis, dt,
-                    strength: UsesJointDrive ? JointSupportAssist : 1f);
+                DriveFoot(leg, pointTarget, pose.Swinging || kick is not null, pelvisId: Parts.Pelvis, dt,
+                    strength: UsesJointDrive ? JointSupportAssist : 1f, point: point);
             }
         }
+    }
+
+    /// <summary>
+    /// 足の点の目標（<see cref="LegCommand.Point"/>）から、IK の足首の目標・足の向き（世界）と、PD 力で引く点（かかと側の足のローカル）とその目標（世界）。
+    /// 足首の目標はかかと（など）の目標から、目標の足の向きで足首までの差を戻した所: 足がその向きなら選んだ点が目標に来る。
+    /// </summary>
+    private (Vector3 Ankle, Quaternion Foot, Vector3 Point, Vector3 PointTarget) RequestedFoot(Leg leg, in LegCommand requested)
+    {
+        var foot = Quaternion.Concatenate(requested.Orientation ?? Quaternion.Identity, Quaternion.CreateFromAxisAngle(Vector3.UnitY, _facingYaw));
+        var target = Frame.LocalToWorld(requested.TargetLocal);
+        var point = requested.Point == FootPoint.Heel ? leg.HeelOnHeel : leg.AnkleOnHeel;
+        return (target + Vector3.Transform(leg.AnkleOnHeel - point, foot), foot, point, target);
     }
 
     /// <summary>
@@ -2844,11 +2872,19 @@ public sealed partial class Fighter
     /// 足首を目標へ PD 力で引く（手の拳と同じ）。サーボだけでは、すり足の足が床の摩擦に負けて置き場所まで運べない。
     /// 反作用は骨盤へ（脚の筋肉が体と足の間で出す力）。着いている足では目標がそこなので、足を床に留める力になる。
     /// </summary>
-    private void DriveFoot(Leg leg, Vector3 ankleTarget, bool swinging, int pelvisId, float dt, float strength = 1f)
+    private void DriveFoot(Leg leg, Vector3 ankleTarget, bool swinging, int pelvisId, float dt, float strength = 1f, Vector3? point = null)
     {
         var t = _tuning.Footwork;
         var heel = _world.GetState(leg.Heel);
-        var ankle = heel.Position + Vector3.Transform(leg.AnkleOnHeel, heel.Orientation);
+        // 引く足の点（既定は足首。かかとの制御ならかかと: LegCommand.Point）。点が変わった歩は、前の点の目標から目標の速さを出さない。
+        var onHeel = point ?? leg.AnkleOnHeel;
+        if (onHeel != leg.DrivenPoint)
+        {
+            leg.HasTarget = false;
+            leg.DrivenPoint = onHeel;
+        }
+
+        var ankle = heel.Position + Vector3.Transform(onHeel, heel.Orientation);
         var velocity = heel.LinearVelocity + Vector3.Cross(heel.AngularVelocity, ankle - heel.Position);
         var targetVelocity = leg.HasTarget && dt > 0f ? ClampLength((ankleTarget - leg.LastTarget) / dt, _tuning.MaxTargetSpeed) : Vector3.Zero;
         leg.LastTarget = ankleTarget;
@@ -4378,6 +4414,12 @@ public sealed partial class Fighter
         /// <summary>母指球（かかと側の足のローカル）。</summary>
         public Vector3 BallOnHeel { get; private init; }
 
+        /// <summary>かかとの点（かかと側の足のローカル。<see cref="FootPoint.Heel"/>）。</summary>
+        public Vector3 HeelOnHeel { get; private init; }
+
+        /// <summary>直前の歩で PD 力で引いた足の点（変わったら目標の速さを出し直す）。</summary>
+        public Vector3 DrivenPoint { get; set; }
+
         /// <summary>最後の IK で、足首の目標までの距離 / 伸ばしきった脚の長さ（1 を超えたら届いていない）。</summary>
         public float ReachRatio { get; set; }
 
@@ -4437,6 +4479,8 @@ public sealed partial class Fighter
                 ShinLength = Vector3.Distance(knee, ankle),
                 AnkleOnHeel = Vector3.Transform(ankle - heel.Position, Quaternion.Conjugate(heel.Orientation)),
                 BallOnHeel = FootGeometry.BallOnHeel(half.Foot),
+                HeelOnHeel = FootGeometry.HeelOnHeel(half.Foot),
+                DrivenPoint = Vector3.Transform(ankle - heel.Position, Quaternion.Conjugate(heel.Orientation)),
             };
         }
     }

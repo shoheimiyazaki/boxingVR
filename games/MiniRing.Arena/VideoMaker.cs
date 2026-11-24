@@ -47,6 +47,9 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 {
     private readonly Organization _org = org ?? Organization.Default;
 
+    /// <summary>倒れた選手がいても俯瞰へ上げず、横の低い角度のまま見る（足の上げ下げを横から見るドリルの動画）。</summary>
+    public bool SideView { get; init; }
+
     /// <summary>両コーナーを団体の場に重ねる。<c>--ring</c> で場を決めたなら、団体の既定の場の代わりにそれを使う（コーナーから始めるのは同じ）。</summary>
     private BoxingCorners Staged(BoxingCorners corners) =>
         TvShowRules.Stage(ring is null ? corners : corners with { Ring = ring with { FromCorners = corners.Ring?.FromCorners ?? false } }, _org);
@@ -1139,7 +1142,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         var angle = 0.6f * MathF.Sin(orbit) * (2.535f / reach);
         var direction = Vector3.Transform(side, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
         // 見下ろす高さ: 立ち合いは手前のロープ越し（1.070 / 2.535 ≈ 23°）、倒れた選手がいるほど高く俯瞰する（最大で約 48°）。横たわった体は低い角度では重なって見えない。
-        var lying = MathF.Max(TvDirector.Lying(game.Player), TvDirector.Lying(game.Cpu));
+        var lying = SideView ? 0f : MathF.Max(TvDirector.Lying(game.Player), TvDirector.Lying(game.Cpu));
         var horizontal = reach * (1f - (0.3f * lying));
         var eye = mid + (direction * horizontal) + new Vector3(0f, (1.070f / 2.535f + (0.7f * lying)) * reach, 0f);
         var target = mid - new Vector3(0f, 0.169f, 0f);

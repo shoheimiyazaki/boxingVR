@@ -5,7 +5,7 @@ namespace MiniRing;
 /// <summary>
 /// 脚の指令（肩中心の体フレーム）。足の運びの外で脚を動かす入力（蹴り・踏み下ろし）の契約。姿勢・位置は直接書き込まない。
 /// <para>
-/// 2 つの制御の形がある。<see cref="KneeLocal"/> が null なら足首の目標（<see cref="TargetLocal"/>。踏み下ろしなど）。
+/// 2 つの制御の形がある。<see cref="KneeLocal"/> が null なら足の点の目標（足首・かかとを <see cref="TargetLocal"/> へ。踏み下ろしなど。下の段落）。
 /// null でなければ <b>膝の制御</b>（蹴り。2026-11-17）: 膝の位置にバネの制御点を置き、
 /// 膝の位置（<see cref="KneeLocal"/>）・腿の軸（股 → 膝）まわりのねじり（<see cref="KneeTwist"/>）・膝の曲げ伸ばし（<see cref="KneeBend"/>）の 3 つだけで脚を動かす。
 /// すねは膝の曲げ伸ばしの 1 次元しか入力できず、足首は引かない（すねの先は膝の曲げと慣性で振られる）。
@@ -16,16 +16,35 @@ namespace MiniRing;
 /// <see cref="KneeBend"/> [rad]: 0 = 伸ばしきり、<see cref="LegIk.MaxKnee"/> まで。null = フリー（膝のサーボは今の角度を目標にし、バネは効かずダンパだけ）。
 /// 膝の制御のとき <see cref="TargetLocal"/> は膝の位置（読む側の便宜）、<see cref="KneeTargetLocal"/> は使わない。
 /// </para>
+/// <para>
+/// 足の点の目標（膝の制御でないとき。2026-11-24 に足首の目標を一般化）: 足の <see cref="Point"/>（足首・かかと）を <see cref="TargetLocal"/> へ、
+/// 足の向きを <see cref="Orientation"/>（体フレーム。null は立つときの向き）にする。どの点でも同じモデル: 足の向きから足首の目標を出して
+/// 股・膝・足首を IK とサーボで追わせ、選んだ点を PD 力で引く（反作用は骨盤）。上限は脚の筋肉の断面 × 酸素 × 張り（膝の制御と同じ）。
+/// <see cref="KneeTargetLocal"/> は膝を向けたい点（IK の膝の向き）。
+/// </para>
 /// </summary>
 public readonly record struct LegCommand(Vector3 TargetLocal, Vector3? KneeTargetLocal = null, Quaternion? Orientation = null, float Spring = 1f,
-    Vector3? KneeLocal = null, float? KneeTwist = null, float? KneeBend = null)
+    Vector3? KneeLocal = null, float? KneeTwist = null, float? KneeBend = null, FootPoint Point = FootPoint.Ankle)
 {
+    /// <summary>かかとの制御の指令: かかとの点を <paramref name="heel"/> へ、足の向きを <paramref name="foot"/>（体フレーム）にする。<paramref name="knee"/> は膝を向けたい点。</summary>
+    public static LegCommand Heel(Vector3 heel, Quaternion foot, Vector3? knee = null) => new(heel, knee, foot, Point: FootPoint.Heel);
+
     /// <summary>膝の制御の指令（足の向きの目標 <paramref name="foot"/> は足首の曲げだけが使う）。</summary>
     public static LegCommand Knee(Vector3 knee, float? twist, float? bend, Quaternion? foot = null)
         => new(knee, null, foot, 1f, knee, twist, bend);
 
     /// <summary>膝の制御か（false なら足首の目標）。</summary>
     public bool IsKneeControl => KneeLocal.HasValue;
+}
+
+/// <summary>足の点の目標（<see cref="LegCommand.Point"/>）で引く、足の点。</summary>
+public enum FootPoint
+{
+    /// <summary>足首（すねと足の関節）。</summary>
+    Ankle,
+
+    /// <summary>かかと（足裏の後ろの縁: かかと側の足の箱の後ろ・下の辺の真ん中。<see cref="FootGeometry.HeelOnHeel"/>）。</summary>
+    Heel,
 }
 
 /// <summary>

@@ -555,11 +555,11 @@ public sealed partial class Fighter
             var pose = new FootPose(new Vector3(ball.X, 0f, ball.Y), _facingYaw, 0f, true);
             var (ankle, foot) = AnkleTarget(leg, pose, groundY);
             var toes = forward;
+            var (point, pointTarget) = (leg.AnkleOnHeel, ankle);
             if (leg.Command is { } requested)
             {
                 // 入力元の足の目標（捨て身技で相手の腰に足を当てる）: 足を寄せる反射の代わりにそれを追う。
-                ankle = Frame.LocalToWorld(requested.TargetLocal);
-                foot = Quaternion.Concatenate(requested.Orientation ?? Quaternion.Identity, Quaternion.CreateFromAxisAngle(Vector3.UnitY, _facingYaw));
+                (ankle, foot, point, pointTarget) = RequestedFoot(leg, requested);
                 toes = requested.KneeTargetLocal is { } kneeGoal ? Frame.LocalToWorld(kneeGoal) - pivot : forward;
             }
 
@@ -573,7 +573,7 @@ public sealed partial class Fighter
             SetTwistTarget(leg.ToeServo, 0f);
             // 足を運ぶ力は、倒れていく間は抜けていて、起き上がる力（ControlScale: 張り × 起き上がる試み）の分だけ戻る。
             // 気を失っている体は足を寄せない（Awareness 0 で 0）。
-            DriveFoot(leg, ankle, swinging: true, pelvisId: Parts.Pelvis, dt, strength: leg.Command is null ? ControlScale * ControlScale * Awareness : ControlScale);
+            DriveFoot(leg, pointTarget, swinging: true, pelvisId: Parts.Pelvis, dt, strength: leg.Command is null ? ControlScale * ControlScale * Awareness : ControlScale, point: point);
         }
     }
 }

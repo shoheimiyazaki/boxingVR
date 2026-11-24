@@ -236,11 +236,11 @@ run.cmd arena cmatune --target defense:Slip,defense:Duck   # 対象が複数な�
 | 道具 | 攻め（`GroundMove`） |
 |---|---|
 | 素手・グローブ・メリケンサック・カタール・籠手 | `hammer`（鉄槌）・`drop-thrust`（沈んで突き下ろし）。カタールは手の目標の向きがそのまま刃の向き |
-| 空手（素手 + `GroundStomp`） | 上に加えて `stomp`（踏み下ろし。足首の目標を相手の上から下へ） |
+| 空手（素手 + `GroundStomp`） | 上に加えて足の技: `heel-stomp`（かかとの踏み下ろしの連打。かかとの制御でかかとを頭・首の約 30 cm 上へ上げ、0.30 s ごとに 6 回踏み下ろす。`HeelBarrage`、2026-11-24）か `stomp`（足裏の踏みつけ。足首の目標を相手の上から下へ）。どちらかは `GroundHeel`（既定 1 = 連打） |
 | 日本刀・ロングソード（両手） | `thrust-down`（上からの突き下ろし）・`cut`（上段からの斬り下ろし） |
 | こんぼう（片手） | `cut`（振りかぶっての打ち下ろし） |
 
-選び方: 狙いは倒れた体の軸（腰〜頭）のうち水平で自分にいちばん近い点。振り下ろす系か突き下ろす系かは `BotStyle.GroundCut`、踏みつけは `GroundStomp`、打つかどうかは `GroundDrive`、溜めは `GroundLoad`、合間は `GroundRest`。値は JSON で変えられる（karate.json は `GroundStomp` 0.6）。相手が立ち上がりかけて `OpponentAlive` に戻ったら、いつもの技へ戻る。
+選び方: 狙いは倒れた体の軸（腰〜頭）のうち水平で自分にいちばん近い点。振り下ろす系か突き下ろす系かは `BotStyle.GroundCut`、足の技は `GroundStomp`（そのうち連打は `GroundHeel`）、打つかどうかは `GroundDrive`、溜めは `GroundLoad`、合間は `GroundRest`。値は JSON で変えられる（karate.json は `GroundStomp` 0.6）。相手が立ち上がりかけて `OpponentAlive` に戻ったら、いつもの技へ戻る。
 
 ## 狙いどころ（戦略: どこを打つか、2026-11-12、LogicVersion 10）
 
