@@ -82,6 +82,7 @@ try
         "weighin" => WeighInCommand(Options.Parse(argv[1..], "org")),
         "rankings" => RankingsCommand(Options.Parse(argv[1..], "org", "division", "seeds", "rounds", "break", "crown", "out", "report")),
         "title" => TitleCommand(Options.Parse(argv[1..], "org", "winner", "loser", "out")),
+        "circuit" => MiniRing.Arena.Circuit.CircuitCommand.Run(argv[1..]),
         "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break", "org")),
         "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt", "camera-scale", "camera-focus", "ring")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),

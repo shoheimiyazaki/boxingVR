@@ -17,5 +17,7 @@
     <EmbeddedResource Include="Maker\maker.html" LogicalName="MiniRing.Arena.Maker.maker.html" />
     <!-- 団体の王座とランキングの記録（rankings・title のコマンドが書き直す。試合と試合の間にだけ変わる）。 -->
     <EmbeddedResource Include="Orgs\standings\*.json" LogicalName="MiniRing.Arena.Standings.%(Filename)%(Extension)" />
+    <!-- 新人リーグの決まり（人数・国の割合と名前の表・引退・登録。docs/plans/IVF_PROSPECTS_PLAN.md）。 -->
+    <EmbeddedResource Include="Orgs\circuit\*.json" LogicalName="MiniRing.Arena.Circuit.%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

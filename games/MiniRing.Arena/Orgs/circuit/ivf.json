@@ -1,0 +1,149 @@
+{
+  // IVF の新人リーグ（2026-11-25、docs/plans/IVF_PROSPECTS_PLAN.md）。大量の新人を種から作り、同じくらいの戦績どうしで組み、負けが込んだら引退させ、
+  // 勝ち上がった上位を正式な名簿とランキングへ登録する。強さの値は持たない（体格・教科書・教育の小さな揺らぎだけ。CLAUDE.md §1.7・§1.8）。
+  "org": "ivf",
+  "seed": 20261125,
+  // 生成の仕組みの版（ProspectFactory の式を変えたら上げる。記録の新人のファイルはハッシュで守られるので、古い新人は作り直さずにファイルのまま使う）。
+  "generatorVersion": 1,
+
+  // 階級ごとの母数と、引く体重の幅 [kg]（IVF の階級の境目の内側。ヘビーの上は名簿のマーカス 125 kg まで）。
+  "divisions": [
+    { "id": "light", "count": 56, "minKg": 56, "maxKg": 64 },
+    { "id": "middle", "count": 56, "minKg": 65, "maxKg": 73 },
+    { "id": "lightheavy", "count": 48, "minKg": 74, "maxKg": 80 },
+    { "id": "cruiser", "count": 40, "minKg": 81, "maxKg": 91 },
+    { "id": "heavy", "count": 40, "minKg": 92, "maxKg": 125 }
+  ],
+
+  // 体: 身長 [cm] は一様、腕・脚の比は正規（±2σ で切る）。太さ（筋肉）は計量の体重から解き（BodySizing.Solve）、この幅を外れたら身長から引き直す。
+  // 基準の体は 145 cm・68 kg（物理の体の値。docs/CHARACTERS.md）。幅は名簿の 18 人（太さ 0.92〜1.2）を少し広げた。
+  "body": { "minCm": 130, "maxCm": 172, "limbSd": 0.035, "minMuscle": 0.86, "maxMuscle": 1.25 },
+  "age": { "min": 18, "max": 26 },
+
+  // 教科書（IVF に出られるボクシングの 7 つ）の重み。
+  "textbooks": { "champion": 1, "jabber": 1, "slugger": 1, "boxer": 1, "outboxer": 1, "swarmer": 1, "counter": 1 },
+  // 教育の小さな揺らぎ（FighterCommand を出す側の値だけ: 手数・回り込み・頭の動き・守りの率・返しの率・間合い）。教科書の値 × (1 + N(0, sd)) を [min, max] に収め、3 桁に丸める。
+  // 反応の速さ（ReactionTime）・拳の速さ（PunchSpeed）は体の能力に近いので揺らさない（§1.7）。southpaw は左右の構え（技の選択）の確率。
+  "education": {
+    "sd": 0.12,
+    "keys": [
+      { "key": "Aggression", "min": 0.05, "max": 1 },
+      { "key": "Circling", "min": 0, "max": 1 },
+      { "key": "HeadMovement", "min": 0, "max": 1 },
+      { "key": "DefenseRate", "min": 0, "max": 0.85 },
+      { "key": "CounterRate", "min": 0, "max": 1 },
+      { "key": "ExitAfterCombo", "min": 0, "max": 1 },
+      { "key": "AttackRange", "min": 0.75, "max": 1.25 }
+    ],
+    "southpaw": 0.15
+  },
+
+  // 顔: 髪型の候補（顔の部品の id）と、ひげの確率、顔の値の揺らぎ（倍率の sd）。色と残りの部品は国のルーツ（maker.json）から。
+  "face": {
+    "hairs": ["hair.1", "hair.2", "hair.7", "hair.8", "hair.9", "hair.10"],
+    "beards": ["beard.1", "beard.2"],
+    "beardChance": 0.2,
+    "valueSd": 0.05,
+    "values": ["cheekbones", "jaw", "faceWidth", "nose", "noseLength"]
+  },
+
+  // 国の割合（相対の重み）。出典: BoxRec の現役プロ（1 年以内に 1 試合以上）の国別の数を報じた二次情報（zamin.uz の記事: Mexico 約 4,200・Argentina 830・Thailand 800・
+  // Philippines 770・South Africa 520・Australia 520、日付は不明）と、古い BoxingScene のまとめ（USA 約 3,150・Mexico 2,750・Japan 1,250）。英国・旧ソ連圏（ロシア・ウクライナ・
+  // ウズベキスタン・カザフスタン）・欧州・キューバ（プロは少なくアマが強い）・韓国・インドは、これらに合わせた推定。大まかな比で、正確な統計ではない。
+  // roots は顔のルーツ（maker.json）の重み（見た目だけ。強さに関係しない）。order: given = 名・姓（「・」で区切る）、family = 姓 名（sep で区切る）。
+  // 名前は「綴り|表記|読み」（読みを省けば表記と同じ）。その国にふつうにある名・姓から、組み合わせを種で引く（架空の人物）。
+  "countries": {
+    "mexico": { "weight": 20, "roots": { "latin-america": 1 }, "order": "given",
+      "given": ["Diego|ディエゴ", "Hector|エクトル", "Ramiro|ラミロ", "Emilio|エミリオ", "Joaquin|ホアキン", "Rodrigo|ロドリゴ", "Ulises|ウリセス", "Gerardo|ヘラルド", "Mauricio|マウリシオ", "Saul|サウル", "Ivan|イバン", "Alonso|アロンソ", "Fermin|フェルミン", "Abel|アベル"],
+      "family": ["Salcedo|サルセド", "Villegas|ビジェガス", "Ochoa|オチョア", "Benitez|ベニテス", "Quintero|キンテロ", "Zamora|サモラ", "Cervantes|セルバンテス", "Aguilar|アギラル", "Rosales|ロサレス", "Escobedo|エスコベド", "Navarrete|ナバレテ", "Ibarra|イバラ", "Trujillo|トルヒーヨ", "Mendoza|メンドサ"] },
+    "usa": { "weight": 15, "roots": { "africa": 0.45, "europe-north": 0.3, "latin-america": 0.25 }, "order": "given",
+      "given": ["Marcus|マーカス", "Darnell|ダーネル", "Tyrell|タイレル", "Caleb|ケイレブ", "Jalen|ジェイレン", "Dwayne|ドウェイン", "Travis|トラビス", "Andre|アンドレ", "Wesley|ウェズリー", "Corey|コーリー", "Malik|マリク", "Brandon|ブランドン", "Isaiah|アイザイア", "Victor|ビクター"],
+      "family": ["Whitfield|ウィットフィールド", "Carver|カーバー", "Bishop|ビショップ", "Holloway|ホロウェイ", "Prescott|プレスコット", "Merritt|メリット", "Dalton|ダルトン", "Booker|ブッカー", "Rhodes|ローズ", "Gaines|ゲインズ", "Sutton|サットン", "Mabry|メイブリー", "Pruitt|プルーイット", "Langston|ラングストン"] },
+    "uk": { "weight": 7, "roots": { "europe-north": 0.8, "africa": 0.2 }, "order": "given",
+      "given": ["Callum|カラム", "Liam|リアム", "Owen|オーウェン", "Harvey|ハーベイ", "Declan|デクラン", "Rhys|リース", "Jamie|ジェイミー", "Connor|コナー", "Ethan|イーサン", "Lewis|ルイス", "Kofi|コフィ", "Archie|アーチー"],
+      "family": ["Ashworth|アシュワース", "Pennington|ペニントン", "Hargreaves|ハーグリーブス", "Bramley|ブラムリー", "Whitlock|ウィットロック", "Kershaw|カーショー", "Thornton|ソーントン", "Fairbairn|フェアバーン", "Holt|ホルト", "Mensah|メンサー", "Redfern|レッドファーン", "Oakley|オークリー"] },
+    "argentina": { "weight": 5, "roots": { "europe-south": 0.6, "latin-america": 0.4 }, "order": "given",
+      "given": ["Matias|マティアス", "Facundo|ファクンド", "Lautaro|ラウタロ", "Gaston|ガストン", "Nahuel|ナウエル", "Ezequiel|エセキエル", "Franco|フランコ", "Leandro|レアンドロ", "Tomas|トマス", "Agustin|アグスティン"],
+      "family": ["Ferreyra|フェレイラ", "Bustos|ブストス", "Peralta|ペラルタ", "Quiroga|キロガ", "Sosa|ソサ", "Ledesma|レデスマ", "Funes|フネス", "Arce|アルセ", "Godoy|ゴドイ", "Villalba|ビジャルバ"] },
+    "philippines": { "weight": 5, "roots": { "southeast-asia": 1 }, "order": "given",
+      "given": ["Jerwin|ジャーウィン", "Rey|レイ", "Arnel|アーネル", "Jomar|ジョマール", "Ricardo|リカルド", "Romeo|ロメオ", "Mark|マーク", "Christian|クリスチャン", "Dindo|ディンド", "Elmer|エルマー"],
+      "family": ["Dimaculangan|ディマクランガン", "Magbanua|マグバヌア", "Tolentino|トレンティーノ", "Bautista|バウティスタ", "Lacson|ラクソン", "Ocampo|オカンポ", "Sumalpong|スマルポン", "Villanueva|ビジャヌエバ", "Dela Pena|デラペーニャ", "Manalo|マナロ"] },
+    "thailand": { "weight": 5, "roots": { "southeast-asia": 1 }, "order": "given",
+      "given": ["Somchai|ソムチャイ", "Anan|アナン", "Kittisak|キッティサック", "Thanawat|タナワット", "Surachai|スラチャイ", "Wichai|ウィチャイ", "Nattapong|ナッタポン", "Chaiwat|チャイワット", "Prasert|プラサート", "Sakda|サクダー"],
+      "family": ["Saetang|セータン", "Boonmee|ブンミー", "Srisuk|シースック", "Chaiyaphum|チャイヤプーム", "Kaewkla|ケーオクラー", "Thongdee|トーンディー", "Rattanakul|ラッタナクン", "Phromma|プロムマー", "Siriwat|シリワット", "Inthasorn|インタソーン"] },
+    "japan": { "weight": 6, "roots": { "east-asia": 1 }, "order": "family", "sep": " ",
+      "given": ["Kenta|健太|ケンタ", "Shota|翔太|ショウタ", "Daisuke|大輔|ダイスケ", "Yuto|悠斗|ユウト", "Ryo|亮|リョウ", "Takumi|拓海|タクミ", "Kosuke|康介|コウスケ", "Haruki|陽樹|ハルキ", "Sota|蒼太|ソウタ", "Kaito|海斗|カイト", "Naoki|直樹|ナオキ", "Yusei|勇成|ユウセイ"],
+      "family": ["Hayashida|林田|ハヤシダ", "Morioka|森岡|モリオカ", "Tsuchiya|土屋|ツチヤ", "Nishikawa|西川|ニシカワ", "Kurata|倉田|クラタ", "Shimazu|島津|シマヅ", "Okabe|岡部|オカベ", "Hirano|平野|ヒラノ", "Sakuma|佐久間|サクマ", "Kanno|菅野|カンノ", "Ishiguro|石黒|イシグロ", "Miyagi|宮城|ミヤギ"] },
+    "russia": { "weight": 4, "roots": { "europe-north": 1 }, "order": "given",
+      "given": ["Alexei|アレクセイ", "Pavel|パーヴェル", "Nikita|ニキータ", "Roman|ロマン", "Yegor|エゴール", "Stanislav|スタニスラフ", "Kirill|キリル", "Anton|アントン", "Gleb|グレブ", "Timur|ティムール"],
+      "family": ["Sokolov|ソコロフ", "Zaitsev|ザイツェフ", "Belov|ベロフ", "Orlov|オルロフ", "Gromov|グロモフ", "Kovrigin|コブリギン", "Tarasov|タラソフ", "Lebedev|レベデフ", "Shirokov|シロコフ", "Volkov|ヴォルコフ"] },
+    "southafrica": { "weight": 3, "roots": { "africa": 0.8, "europe-north": 0.2 }, "order": "given",
+      "given": ["Sipho|シフォ", "Thabo|タボ", "Lwazi|ルワジ", "Mandla|マンドラ", "Kagiso|カギソ", "Pieter|ピーテル", "Bongani|ボンガニ", "Tshepo|ツェポ"],
+      "family": ["Dlamini|ドラミニ", "Mokoena|モコエナ", "Nkosi|ンコシ", "Khumalo|クマロ", "Van Wyk|ファンワイク", "Mabaso|マバソ", "Sithole|シトレ", "Ndlovu|ンドロブ"] },
+    "australia": { "weight": 3, "roots": { "europe-north": 0.8, "pacific": 0.2 }, "order": "given",
+      "given": ["Lachlan|ラクラン", "Brodie|ブロディ", "Riley|ライリー", "Jarrah|ジャラ", "Mitchell|ミッチェル", "Cooper|クーパー", "Tane|ターネ", "Hayden|ヘイデン"],
+      "family": ["McAllister|マカリスター", "Brennan|ブレナン", "Fletcher|フレッチャー", "Hollis|ホリス", "Tuilagi|トゥイラギ", "Garrick|ギャリック", "Pearce|ピアース", "Kingsley|キングズリー"] },
+    "uzbekistan": { "weight": 2, "roots": { "middle-east": 0.6, "east-asia": 0.4 }, "order": "given",
+      "given": ["Sardor|サルドル", "Jasur|ジャスール", "Bekzod|ベクゾド", "Otabek|オタベク", "Shokhrukh|ショフルフ", "Ulugbek|ウルグベク"],
+      "family": ["Rakhimov|ラヒモフ", "Tursunov|トゥルスノフ", "Nazarov|ナザロフ", "Yusupov|ユスポフ", "Ergashev|エルガシェフ", "Karimov|カリモフ"] },
+    "kazakhstan": { "weight": 2, "roots": { "east-asia": 0.6, "europe-north": 0.4 }, "order": "given",
+      "given": ["Yerlan|エルラン", "Daniyar|ダニヤル", "Aibek|アイベク", "Nurlan|ヌルラン", "Askar|アスカル", "Madi|マディ"],
+      "family": ["Seitkali|セイトカリ", "Zhunusov|ジュヌソフ", "Abenov|アベノフ", "Kassymov|カスイモフ", "Omarov|オマロフ", "Tleuov|トレウオフ"] },
+    "ukraine": { "weight": 2, "roots": { "europe-north": 1 }, "order": "given",
+      "given": ["Bohdan|ボフダン", "Taras|タラス", "Ostap|オスタプ", "Andriy|アンドリー", "Mykola|ミコラ", "Yaroslav|ヤロスラフ"],
+      "family": ["Kovalenko|コバレンコ", "Shevchuk|シェフチュク", "Hnatiuk|フナチュク", "Melnyk|メルニク", "Tkachuk|トカチュク", "Bondar|ボンダル"] },
+    "brazil": { "weight": 2, "roots": { "latin-america": 0.5, "africa": 0.3, "europe-south": 0.2 }, "order": "given",
+      "given": ["Thiago|チアゴ", "Rafael|ハファエル", "Wellington|ウェリントン", "Edson|エジソン", "Caio|カイオ", "Leandro|レアンドロ"],
+      "family": ["Nascimento|ナシメント", "Barbosa|バルボーザ", "Cardoso|カルドーゾ", "Moreira|モレイラ", "Teixeira|テイシェイラ", "Araujo|アラウージョ"] },
+    "germany": { "weight": 2, "roots": { "europe-north": 1 }, "order": "given",
+      "given": ["Jonas|ヨナス", "Felix|フェリックス", "Lukas|ルーカス", "Niklas|ニクラス", "Tobias|トビアス", "Malte|マルテ"],
+      "family": ["Brandt|ブラント", "Kessler|ケスラー", "Vogt|フォークト", "Hartmann|ハルトマン", "Reuter|ロイター", "Albers|アルバース"] },
+    "france": { "weight": 2, "roots": { "europe-south": 0.6, "africa": 0.2, "middle-east": 0.2 }, "order": "given",
+      "given": ["Mathis|マティス", "Yanis|ヤニス", "Bastien|バスティアン", "Karim|カリム", "Quentin|カンタン", "Moussa|ムーサ"],
+      "family": ["Lefevre|ルフェーヴル", "Marchand|マルシャン", "Benali|ベナリ", "Girard|ジラール", "Diallo|ディアロ", "Rousseau|ルソー"] },
+    "ireland": { "weight": 1, "roots": { "europe-north": 1 }, "order": "given",
+      "given": ["Cian|キアン", "Oisin|オシーン", "Darragh|ダラー", "Ronan|ローナン"],
+      "family": ["Brennock|ブレノック", "Gallagher|ギャラガー", "Mulcahy|マルケイ", "Dunleavy|ダンレビー"] },
+    "cuba": { "weight": 1, "roots": { "latin-america": 0.5, "africa": 0.5 }, "order": "given",
+      "given": ["Yordenis|ヨルデニス", "Osmay|オスマイ", "Lazaro|ラサロ", "Yunier|ユニエル"],
+      "family": ["Cardenas|カルデナス", "Hechavarria|エチャバリア", "Pineda|ピネダ", "Valdes|バルデス"] },
+    "korea": { "weight": 1, "roots": { "east-asia": 1 }, "order": "family",
+      "given": ["Minjun|ミンジュン", "Seojin|ソジン", "Hyunwoo|ヒョヌ", "Jiho|ジホ"],
+      "family": ["Kim|キム", "Park|パク", "Jung|チョン", "Han|ハン"] },
+    "india": { "weight": 1, "roots": { "south-asia": 1 }, "order": "given",
+      "given": ["Arjun|アルジュン", "Rohit|ロヒト", "Karan|カラン", "Vivek|ヴィヴェク"],
+      "family": ["Sangwan|サングワン", "Rathore|ラトール", "Dahiya|ダヒヤ", "Bhatia|バティア"] }
+  },
+  // 実在の有名な選手の名前（綴り、小文字）。引いた名前がこれと同じなら引き直す。
+  "denyNames": [
+    "saul alvarez", "manny pacquiao", "naoya inoue", "tyson fury", "anthony joshua", "floyd mayweather", "mike tyson", "muhammad ali",
+    "oleksandr usyk", "vasyl lomachenko", "gennady golovkin", "dmitry bivol", "artur beterbiev", "terence crawford", "canelo alvarez",
+    "julio chavez", "erik morales", "marco barrera", "nonito donaire", "roman gonzalez", "kazuto ioka", "ryota murata", "lennox lewis",
+    "ricky hatton", "joe calzaghe", "wladimir klitschko", "vitali klitschko", "ryan garcia", "devin haney", "gervonta davis",
+    "shakur stevenson", "teofimo lopez", "errol spence", "jaime munguia", "david benavidez", "katie taylor", "andy ruiz", "deontay wilder",
+    "joseph parker", "daniel dubois", "zhilei zhang", "junto nakatani", "kenshiro teraji", "takuma inoue", "roman bautista", "mark magsayo"
+  ],
+
+  // 興行と試合。
+  "season": {
+    "events": 6,
+    "prospectRounds": 3,
+    "challengeRounds": 5,
+    "breakSeconds": 16.78
+  },
+  // 引退（戦績だけから。どれか 1 つで引退。負けを足すと引退が解けない = 単調）。
+  // netLosses: 負け − 勝ち がこれ以上（上がり目の無い選手を興行に出し続けない）。losingStreak: この数の連敗（立て直せない流れ）。koLosses: 倒されての負けの通算（体を守る）。
+  "retire": { "netLosses": 3, "losingStreak": 3, "koLosses": 3 },
+  // 登録: この試合数以上の現役から、点（IVF の順位の点）→ 勝ち → 倒した勝ち → 与えた−受けた の順で、階級ごとに上位をこの人数。
+  "register": { "perDivision": 2, "minBouts": 4, "maxChallenges": 3 },
+  // 教科書ごとの戦い方の一言（登録した新人のプロフィールの書き出し。教科書の JSON の性格を言葉にしたもの）。
+  "styleText": {
+    "champion": "攻守の均整がとれた正統派。ジャブで間合いを作り、隙に強打を重ねる",
+    "jabber": "ジャブを細かく刻んで主導権を握る。相手が入る前に間合いを切る",
+    "slugger": "前に出て強打を振る。打ち合いを恐れない",
+    "boxer": "足を使って打っては離れる。手数とポイントを積み上げる",
+    "outboxer": "遠い間合いを保ち、相手の届かない所から当てる",
+    "swarmer": "頭を振って懐へ潜り込み、近い間合いで連打を浴びせる",
+    "counter": "相手に打たせて、外した瞬間に返しを合わせる"
+  }
+}
