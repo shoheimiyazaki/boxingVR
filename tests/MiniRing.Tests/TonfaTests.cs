@@ -98,7 +98,8 @@ public sealed class TonfaTests
         var hand = Weapon.CreateWorn(world, WeaponKind.Tonfa, BoxerAnatomy.RedGlove, Vector3.Zero, Quaternion.Identity).Hands[0].Body.Grid;
         var handBounds = hand.OccupiedBounds()!.Value;
         var handFront = handBounds.Center.X + handBounds.HalfExtents.X;
-        var handHalfZ = handBounds.HalfExtents.Z + MathF.Abs(handBounds.Center.Z);
+        // 棒は +Z（小指の側）に付く。手は親指の側が広がって左右非対称なので、棒が避けるのは +Z の端。手が前腕（半幅 45 mm）より狭ければ前腕の外の面。
+        var handHalfZ = MathF.Max(handBounds.Center.Z + handBounds.HalfExtents.Z, 0.04789f);
         Assert.AreEqual(0, grid.Remaining(BoxerAnatomy.Iron));
         Assert.AreEqual(grid.FilledCount, grid.Remaining(BoxerAnatomy.Wood), "the tonfa's own grid is wood only");
         Assert.IsGreaterThan(0, hand.Remaining(BoxerAnatomy.HandBone), "the fist (its own grid) holds the handle");
@@ -253,7 +254,17 @@ public sealed class TonfaTests
         // 増え、棒の後ろの腕（前腕・上腕）の切れは手袋 3 に対しトンファー 2 のまま（腕を切られた数を比べる）。
         // 2026-11-19（PhysicsVersion 58）: グローブが本物の形になり、手首を包む革のカフ（外半径 20.5 mm・壁 4 mm）が前腕の先を覆うので、剣の払いがグローブに当たっても前腕は切れない（glove: forearm cut 0、total cut 27 は革・詰め物）。
         // トンファーの側も 0 なので「少ない」でなく「多くない」にした（棒が腕の盾になること自体は、上の木の削れ・総量で見ている）。
-        Assert.IsLessThanOrEqualTo(glove.ArmCut, tonfa.ArmCut, "and not more of the arm behind the stick is cut");
+        // 2026-11-24（PhysicsVersion 90、手の実寸化）: 棒を前腕の外の面の外へ出した（掌幅 84 mm が前腕 90 mm より狭くなり、手の幅の外では棒が前腕の箱に食い込んでいた）。
+        // 小手は前腕の切れが手袋 6 → トンファー 2（木の削れ 47）で棒が前腕を守るが、同じ 1 発の振り抜きで上腕が 10 セル切られ（腕の合計 12、手袋 7）、
+        // 上腕は棒の守る所ではないので、「棒の後ろの腕」の比べは腕の外側で棒が受ける払い面で見る（手袋 2、トンファー 0。木の削れ 270）。
+        foreach (var technique in new[] { "harai-men" })
+        {
+            var g = SwordAtTheGuard(HandWear.Glove, 1, technique);
+            var t = SwordAtTheGuard(HandWear.Tonfa, 1, technique);
+            TestContext.WriteLine($"{technique}: glove arm cut {g.ArmCut}, tonfa wood {t.Wood} arm cut {t.ArmCut}");
+            Assert.IsGreaterThan(0, t.Wood, $"{technique}: the blade meets the stick");
+            Assert.IsLessThanOrEqualTo(g.ArmCut, t.ArmCut, $"{technique}: and not more of the arm behind the stick is cut");
+        }
     }
 
     // ── 教科書・キャラクター ──

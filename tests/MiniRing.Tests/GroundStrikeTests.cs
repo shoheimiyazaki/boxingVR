@@ -275,10 +275,24 @@ public sealed class GroundStrikeTests
 
         public GroundStrike Ground { get; } = new(BotCatalog.Boxer, GroundTool.Fist, 5);
 
+        private readonly GroundTuning _tuning = new();
+
+        private bool _seen;
+
         public FighterCommand Read(in FighterSense sense, float dt)
         {
             var basis = _inner.Read(sense, dt);
-            return GroundStrike.Applies(sense) ? Ground.Read(sense, basis, dt, GroundCall.Swing, load: 0.08392f, steer: true) : basis;
+            if (!GroundStrike.Applies(sense))
+            {
+                return basis;
+            }
+
+            // 人は倒れた相手のそばまで歩いてから弱を押す。呼びかけは押した時に打ち始める（届くまで待たない）ので、遠くから呼び続けると、
+            // 沈み始めた体が立つ所へ歩けないまま空振りを繰り返す（2026-11-24、版 89 でも同じ: 距離 0.7 腕で止まり、振り 8 回で当たり 0）。
+            // 届く所（打ち始めの距離と高さの内）に着くまでは自動で歩いて沈み、着いたら弱を押す。
+            var ready = _seen && Ground.Distance <= _tuning.ReadyDistance && Ground.Gap <= _tuning.ReadyGap;
+            _seen = true;
+            return Ground.Read(sense, basis, dt, ready ? GroundCall.Swing : GroundCall.Auto, load: 0.08392f, steer: true);
         }
     }
 

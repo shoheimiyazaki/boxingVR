@@ -13,7 +13,7 @@ miniring-vr --weapon longsword --cpu jabber      # 相手のスタイルを選�
 - `--weapon`: `staff` / `katana` / `longsword` / `ironsword` / `woodenclub` など（`WeaponKind` の名前、大文字小文字は問わない）。棒・刀・ロングソードは両手持ち（既存の `Support` の作り方）。
 - `--cpu-weapon <kind|none>`: 相手の武器。既定は自分と同じ。`--weapon` が無いと使えない。
 - `--cpu <style>`: 相手のスタイル（既定 `champion`）。キャラクター（roster）の選択は未対応。
-- **グリップで持つ（体の側、2026-11-19）**: 握っていない手が `HandCommand.Grip = true` で、手が柄から `FighterTuning.WeaponGraspReach`（5 cm）以内にあれば握る。自分が握っている武器があれば、その手として添える（先に握った手から柄頭の側へ `FormSwordsman.Spacing` × 腕の長さ、柄の端まで）。なければ、落ちている武器を鍔に近い握り（`Weapon.GripOf`）で拾う（左手だけでも可）。武器は動かさず、今のずれのまま玉継手でつなぐ。素手の拳をはめていれば外す。`HandCommand.LetGo` は握っている手だけを放し、もう一方がまだ握っていればその手が片手で持つ（手首のバネは `OneHandWristShare`）。ボット・従来の操作は Grip を出さないので変わらない。テスト: `WeaponGraspTests`。小さい体の腕は床に届かないので、床の武器を拾うには写像の側でしゃがむ・体を折る必要がある（体の側では、手が柄の近くに来れば拾える）。
+- **グリップで持つ（体の側、2026-11-19）**: 握っていない手が `HandCommand.Grip = true` で、手が柄から `FighterTuning.WeaponGraspReach`（15.2 cm = 1.8 × 掌幅 84.5 mm。2026-11-24 の手の実寸化で 14.1 cm から。大きくなった手が柄のそばで止まる距離 14.2 cm を超えて握れなくなったため）以内にあれば握る。自分が握っている武器があれば、その手として添える（先に握った手から柄頭の側へ `FormSwordsman.Spacing` × 腕の長さ、柄の端まで）。なければ、落ちている武器を鍔に近い握り（`Weapon.GripOf`）で拾う（左手だけでも可）。武器は動かさず、今のずれのまま玉継手でつなぐ。素手の拳をはめていれば外す。`HandCommand.LetGo` は握っている手だけを放し、もう一方がまだ握っていればその手が片手で持つ（手首のバネは `OneHandWristShare`）。ボット・従来の操作は Grip を出さないので変わらない。テスト: `WeaponGraspTests`。小さい体の腕は床に届かないので、床の武器を拾うには写像の側でしゃがむ・体を折る必要がある（体の側では、手が柄の近くに来れば拾える）。
 - `--weapon` を付けなければ今まで通りの素手の VR（`BoxingCorners.Default`、`Orientation` null・`Slide` false）。
 
 ### 入力の写像（`VrPlayerMapper`、ホスト非依存）

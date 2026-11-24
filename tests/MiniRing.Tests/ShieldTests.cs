@@ -67,8 +67,9 @@ public sealed class ShieldTests
         var plateRadius = wood.Max(Radial);
         Assert.AreEqual(0.2254f, plateRadius, 0.01127f, "diameter 45 cm");
         Assert.IsTrue(wood.All(p => MathF.Abs(p.X) <= 0.00873f), "the plate is a thin layer in the fist's centre plane");
-        Assert.AreEqual(0.01127f, wood.Max(p => p.X) - wood.Min(p => p.X) + grid.CellSize.X, 0.0001f,
-            "the board keeps its 11 mm thickness when the boss is fitted to the hand");
+        // 厚さは格子の刻みの整数倍でしか表せない: 11 mm の板は、刻みの半分（誤差の最大）の内に収まる。
+        Assert.AreEqual(0.01127f, wood.Max(p => p.X) - wood.Min(p => p.X) + grid.CellSize.X, 0.5f * grid.CellSize.X,
+            "the board keeps its 11 mm thickness (to within the grid step) when the boss is fitted to the hand");
         Assert.IsTrue(wood.All(p => Radial(p) > 0.05634f), "the plate is open at the middle: the arm and the boss's hollow");
 
         // 縁の鉄の輪: 板の外の縁（半径 22〜22.5 cm）に鉄がある。
@@ -114,7 +115,14 @@ public sealed class ShieldTests
     [TestMethod]
     public void SwordInTheRightHand_ShieldOnTheLeft()
     {
-        using var game = new BoxingGame(seed: 1, corners: BoxingCorners.Default with { PlayerWeapon = WeaponKind.IronSword, PlayerWear = HandWear.Shield });
+        // 2026-11-24: 操作なし（人の入力が空）の腕は構えの指令を持たず、剣は自分の腹へ向いて自傷で死ぬ（版 89 でも手袋の側で同じ。盾の側は 379 セルの自傷で運よく生き残っていた）。
+        // 剣と盾の構え（SwordShieldForms.Guard）をとらせて、「持たせ方が正しく、構えて立っていれば死なない」を見る。
+        using var game = new BoxingGame(seed: 1, corners: BoxingCorners.Default with
+        {
+            PlayerWeapon = WeaponKind.IronSword,
+            PlayerWear = HandWear.Shield,
+            Player = _ => new Scripted((sense, _) => Command(SwordShieldForms.Guard(), sense)),
+        });
         Assert.AreEqual(WeaponKind.IronSword, game.WeaponOf(game.Player)!.Kind);
         Assert.IsTrue(game.Player.Wields(Hand.Right));
         Assert.IsTrue(game.Player.WearsGlove(Hand.Left));
@@ -247,7 +255,10 @@ public sealed class ShieldTests
     public void TheShield_TakesTheSwordsSwing_AndTheBodyBehindItLosesLessThanWithTheShieldDown()
     {
         var total = new Dictionary<string, (int Body, int Shield, int Hits)> { ["down"] = default, ["step"] = default, ["cover"] = default };
-        foreach (var technique in new[] { "harai-men", "kesa" })
+        // 2026-11-24（PhysicsVersion 90、手の実寸化）: 払い面 1 本では下ろした盾の損失が 75 セルと小さく、1 発の当たり方（cover は 2 発・体 54）で半分の比が決まったので、
+        // 体へ届く振りを増やした（払い面・袈裟・右払い・左払い・正面。下ろした盾 700 セル、step 22、cover 54）。逆袈裟は左側の盾の位置を斜めに通るだけで体へは届かず
+        // （3 つとも体 0）、下ろした盾の端を直接切るので、体を守る比べには入れない。
+        foreach (var technique in new[] { "harai-men", "kesa", "migi-nagi", "hidari-nagi", "shomen" })
         {
             foreach (var seed in Seeds)
             {

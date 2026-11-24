@@ -988,7 +988,8 @@ public sealed class Weapon
     private const float GauntletPlateFrom = 0f;       // 鉄の板が覆う所（手の座標の X がこれより前: 拳頭・指・甲の前半。それより後ろは革）
     private const float GauntletCuffLength = 0.04789f;  // 手首の鉄の輪の長さ
     private const float GauntletCuffBack = 0.0507f;    // 輪の後ろの端（腕の先の握る所から後ろ）
-    private const float GauntletCuffInner = 0.04789f;   // 輪の内の半径（前腕の箱の太さ 90 mm の外）
+    private const float ForearmOuter = 0.04789f;         // 前腕の箱（太さ 90 mm）の外の面（半幅 45 mm + 2.8 mm）。籠手の輪・トンファーの棒はこの外に置く
+    private const float GauntletCuffInner = ForearmOuter;   // 輪の内の半径（前腕の箱の太さ 90 mm の外）
     private const float GauntletCuffOuter = 0.05493f;  // 輪の外の半径
 
     // トンファー（人の: 全長 50 cm 前後・握りの柄 12 cm 前後・棒の太さ 3 cm 前後）。棒は手の外側（Z の正の側）に前腕と平行に置き、
@@ -1170,7 +1171,8 @@ public sealed class Weapon
 
     private static float StickY => HandSkeleton.GripCenter.Y + TonfaStickLift;
 
-    private static float StickZ(HandTemplate t) => t.Max.Z + TonfaStickGap + TonfaStickRadius;
+    /// <summary>棒の中心の横（Z）。手が前腕より狭い（実寸化: 掌幅 84 mm は前腕 90 mm より狭い）と、手の幅の外では棒が前腕の箱に食い込むので、前腕の外の面を基準にする。</summary>
+    private static float StickZ(HandTemplate t) => MathF.Max(t.Max.Z, ForearmOuter) + TonfaStickGap + TonfaStickRadius;
 
     /// <summary>盾の板の中心の高さ（手の高さの真ん中）。</summary>
     private static float PlateY(HandTemplate t) => 0.5f * (t.Min.Y + t.Max.Y);
