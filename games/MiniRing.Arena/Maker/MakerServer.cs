@@ -423,7 +423,8 @@ internal sealed class MakerServer
         }
 
         var basis = body["face"] is { } f ? f.Deserialize<FaceDraft>(Json)!.ToSpec() : CharacterMaker.Roots[0].Face();
-        var result = PhotoFace.FromPhoto(image.Width, image.Height, image.Rgba, points, basis);
+        var gain = body["gain"] is JsonValue g && g.TryGetValue<float>(out var gv) ? gv : Caricature.DefaultGain;
+        var result = PhotoFace.FromPhoto(image.Width, image.Height, image.Rgba, points, basis, gain: gain);
         return new JsonObject
         {
             ["face"] = JsonSerializer.SerializeToNode(FaceDraft.From(result.Face, CharacterMaker.LookOf(result.Face)), Json),

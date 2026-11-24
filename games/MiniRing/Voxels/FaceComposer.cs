@@ -38,6 +38,9 @@ public static class FaceComposer
         return t * t * (3f - (2f * t));
     }
 
+    /// <summary>生え際のずらしが頭頂（<see cref="FaceShape.CrownRow"/>）から何行で全部になるか（額の生え際は 8〜10 行目）。</summary>
+    private const float HairlineTaperRows = 5f;
+
     /// <summary>ひげの厚み（顔の表面から何セル（参考図）の深さまで）。</summary>
     private const float BeardDepth = 3f;
 
@@ -110,14 +113,16 @@ public static class FaceComposer
             for (var y = 0; y < ny; y++)
             {
                 var ry = RefY(y);
-                var hairRow = ry - (p.Hairline * HalfHeight);
+                // 生え際の値は額の生え際の所だけ絵をずらし、頭頂（CrownRow）へ向かってずらしを 0 にする（頭頂は自分の行の絵のまま。2026-11-24:
+                // 前は絵全体をずらしたので、髪を下げると頭頂の前の方が絵の外になって地肌の点が出た）。生え際 0 では前と同じ。
+                var hairRow = ry - (p.Hairline * HalfHeight * Smooth(ry, FaceShape.CrownRow, FaceShape.CrownRow + HairlineTaperRows));
                 for (var x = 0; x < nx; x++)
                 {
                     var rx = RefX(x);
                     var inside = shape.Inside(rx, ry, rz);
                     var hx = Mid + ((rx - Mid) / p.FaceWidth);
                     // 頭の上の丸み（CrownRow より上）は髪の部品の絵の頭より広いので、頭の中ならその下の行（CrownRow）の髪の絵を使う（頭頂に地肌の点が出ない）。
-                    var hairRy = inside && ry < FaceShape.CrownRow ? hairRow + FaceShape.CrownRow + 0.5f - ry : hairRow;
+                    var hairRy = inside && ry < FaceShape.CrownRow ? FaceShape.CrownRow + 0.5f : hairRow;
                     // 頭の上の髪は頭蓋骨に沿う: 髪の部品の輪郭が頭より 1 セル細くても、頭の中のセルは隣の 1 セルまでの髪を借りる（頭の角に地肌が出ない）。
                     var pad = inside ? 1f : 0f;
                     var hf = Blend(hairs, h => MathF.Max(h.Front.Coverage(hx, hairRy, FaceMaterial.Hair), MathF.Max(h.Front.Coverage(hx - pad, hairRy, FaceMaterial.Hair), h.Front.Coverage(hx + pad, hairRy, FaceMaterial.Hair))));

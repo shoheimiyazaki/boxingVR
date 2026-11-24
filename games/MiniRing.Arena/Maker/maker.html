@@ -134,6 +134,8 @@
         <button id="resetPoints">目印を真ん中に置く</button>
         <button id="usePhoto" class="primary">この写真から顔を作る</button>
       </div>
+      <label class="row">似顔絵の強さ <input type="range" id="gain" min="0" max="4" step="0.25" value="2.5"><span class="val" id="v-gain">2.5</span></label>
+      <p class="hint">平均の顔からのずれ（顔の高さ・幅に対する目・鼻・口の位置と大きさ）を何倍に強めるか。0 = 平均の顔、1 = 写真のまま、2〜3 = 似顔絵。変えたら「この写真から顔を作る」をもう一度。</p>
       <div class="hint" id="ptName">点を押すと名前が出ます。</div>
       <div id="photoWrap"><canvas id="photoCanvas" width="10" height="10"></canvas><div id="pointLayer"></div></div>
       <div id="photoMsg"></div>
@@ -431,6 +433,7 @@ function resetPoints() {
   drawPoints();
 }
 $('resetPoints').onclick = resetPoints;
+$('gain').oninput = () => { $('v-gain').textContent = $('gain').value; };
 
 function drawPoints() {
   const layer = $('pointLayer'); layer.innerHTML = '';
@@ -489,7 +492,7 @@ $('autoPoints').onclick = async () => {
 $('usePhoto').onclick = async () => {
   if (!photoLoaded || !points) { $('photoMsg').textContent = '先に写真を選んで、目印を置いてください。'; return; }
   try {
-    const r = await api('/api/photo', { png: canvas.toDataURL('image/png'), points, face: draft.face });
+    const r = await api('/api/photo', { png: canvas.toDataURL('image/png'), points, face: draft.face, gain: parseFloat($('gain').value) });
     draft.face = r.face; showDraft(); changed();
     $('measured').hidden = false; $('measured').textContent = '読み取った比（両目の間 = 1）\n' + JSON.stringify(r.measured, null, 1);
     say($('photoMsg'), ['顔を写真から作りました。髪型・耳・眉の形は「顔」で選んでください。', 'okmsg']);

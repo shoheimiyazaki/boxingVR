@@ -20,28 +20,29 @@ public sealed record FaceParts(
 {
     public static FaceParts Default => new();
 
+    /// <summary>値の幅。位置・寸法の幅は似顔絵（<see cref="MiniRing.Characters.Caricature"/>）の誇張が入るように 2026-11-24 に広げた（名簿の顔は前の幅の内側のまま）。</summary>
     public FaceParts Validate()
     {
-        Check(EyeSpacing, 0.75f, 1.25f);
+        Check(EyeSpacing, 0.7f, 1.4f);
         Check(Nose, 0.75f, 1.3f);
         Check(Jaw, 0.75f, 1.3f);
         Check(EyeSize, 0.7f, 1.35f);
-        Check(EyeHeight, -0.1f, 0.1f);
+        Check(EyeHeight, -0.2f, 0.2f);
         Check(EyeTilt, -0.45f, 0.45f);
-        Check(BrowHeight, -0.08f, 0.08f);
+        Check(BrowHeight, -0.12f, 0.12f);
         Check(BrowTilt, -0.5f, 0.5f);
         Check(BrowThickness, 0.6f, 1.8f);
-        Check(NoseWidth, 0.7f, 1.5f);
-        Check(NoseLength, 0.7f, 1.4f);
-        Check(MouthWidth, 0.6f, 1.4f);
-        Check(MouthHeight, -0.07f, 0.07f);
-        Check(Lips, 0.5f, 1.8f);
+        Check(NoseWidth, 0.6f, 1.7f);
+        Check(NoseLength, 0.5f, 1.8f);
+        Check(MouthWidth, 0.5f, 1.6f);
+        Check(MouthHeight, -0.14f, 0.14f);
+        Check(Lips, 0.4f, 2.2f);
         Check(EarSize, 0.6f, 1.5f);
         Check(EarHeight, -0.1f, 0.1f);
-        Check(JawWidth, 0.8f, 1.25f);
+        Check(JawWidth, 0.7f, 1.35f);
         Check(Cheekbones, 0.5f, 1.8f);
-        Check(Hairline, -0.12f, 0.12f);
-        Check(FaceWidth, 0.85f, 1.2f);
+        Check(Hairline, -0.25f, 0.12f); // 負 = 生え際が上（おでこが広い）。正へ広げると頭頂に地肌が出るので上だけ広げた
+        Check(FaceWidth, 0.8f, 1.25f);
         Check(BrowRidge, 0f, 2f);
         Check(Freckles, 0f, 1f);
         return this;

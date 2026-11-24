@@ -146,7 +146,7 @@ public static class CharacterMaker
         AllowTrailingCommas = true,
     };
 
-    private static readonly Lazy<(IReadOnlyList<BodyType> Types, IReadOnlyList<FaceRoot> Roots)> Table = new(() =>
+    private static readonly Lazy<(IReadOnlyList<BodyType> Types, IReadOnlyList<FaceRoot> Roots, IReadOnlyDictionary<string, Norm> Norms)> Table = new(() =>
     {
         using var stream = typeof(CharacterMaker).Assembly.GetManifestResourceStream(TableResource)
             ?? throw new InvalidOperationException($"組み込みのキャラメイクの表 {TableResource} が見つかりません（MiniRing.csproj の EmbeddedResource）。");
@@ -160,6 +160,9 @@ public static class CharacterMaker
     /// <summary>ルーツ（顔のテンプレート）の表。</summary>
     public static IReadOnlyList<FaceRoot> Roots => Table.Value.Roots;
 
+    /// <summary>写真から作る顔の、顔の比の平均とばらつき（<see cref="FaceProportions"/> の鍵ごと。<see cref="Caricature"/> が使う）。</summary>
+    public static IReadOnlyDictionary<string, Norm> PhotoNorms => Table.Value.Norms;
+
     /// <summary>id から体型を引く。</summary>
     public static BodyType BodyTypeOf(string id) => BodyTypes.FirstOrDefault(t => t.Id == id)
         ?? throw new ArgumentException($"体型 '{id}' はありません（{string.Join(", ", BodyTypes.Select(t => t.Id))}）。", nameof(id));
@@ -169,7 +172,7 @@ public static class CharacterMaker
         ?? throw new ArgumentException($"ルーツ '{id}' はありません（{string.Join(", ", Roots.Select(r => r.Id))}）。", nameof(id));
 
     /// <summary>キャラメイクの表の JSON を読んで検証する（色・顔の値・部品の重み・体型の比の範囲）。</summary>
-    public static (IReadOnlyList<BodyType> Types, IReadOnlyList<FaceRoot> Roots) TableFromJson(string json)
+    public static (IReadOnlyList<BodyType> Types, IReadOnlyList<FaceRoot> Roots, IReadOnlyDictionary<string, Norm> Norms) TableFromJson(string json)
     {
         TableDto dto;
         try
@@ -211,7 +214,21 @@ public static class CharacterMaker
             throw new InvalidDataException("体型とルーツは 1 つ以上・id は重ならないようにしてください。");
         }
 
-        return (types, roots);
+        var keys = new FaceProportions(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).Entries.Select(e => e.Key).ToList();
+        var norms = new Dictionary<string, Norm>();
+        foreach (var key in keys)
+        {
+            norms[key] = dto.PhotoNorms?.TryGetValue(key, out var pair) == true && pair is { Length: 2 } && float.IsFinite(pair[0]) && pair[0] > 0f && float.IsFinite(pair[1]) && pair[1] > 0f
+                ? new Norm(pair[0], pair[1])
+                : throw new InvalidDataException($"photoNorms.{key} は [平均, 標準偏差]（どちらも正）にしてください。");
+        }
+
+        if (dto.PhotoNorms!.Keys.Except(keys).FirstOrDefault() is { } unknown)
+        {
+            throw new InvalidDataException($"photoNorms.{unknown} は知りません（{string.Join(", ", keys)}）。");
+        }
+
+        return (types, roots, norms);
     }
 
     /// <summary>
@@ -363,6 +380,7 @@ public static class CharacterMaker
     {
         public List<BodyType>? BodyTypes { get; init; }
         public List<RootDto>? Roots { get; init; }
+        public Dictionary<string, float[]>? PhotoNorms { get; init; }
     }
 
     private sealed class RootDto

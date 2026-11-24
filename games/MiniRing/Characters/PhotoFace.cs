@@ -10,8 +10,8 @@ namespace MiniRing.Characters;
 /// （MediaPipe Face Landmarker、Apache-2.0）か、手で置いた点。ここは点と画素から測るだけで、外部の何にも送らない（写真は個人情報: この PC の中だけで扱う）。
 /// </para>
 /// <para>
-/// 測る量はどれも両目の中心の間の距離（<c>IOD</c>）を単位にした比で、平均的な顔の比（下の <c>Ref*</c>、成人の顔の計測の平均の概数）からのずれを顔の値へ写す
-/// （連続の写し。範囲は <see cref="FaceParts.Validate"/> の幅に収める）。部品（目・あご・口・鼻）は、測った比にいちばん近い部品の重みにする。
+/// 形は似顔絵: 顔の高さと幅に対する目・鼻・口の位置と大きさ（<see cref="FaceProportions"/>）を測り、平均からのずれを誇張して顔の値と部品へ写す
+/// （<see cref="Caricature"/>）。
 /// 髪型・耳・眉の形・眉の張り出しは正面の写真から測れないので、元の顔（<c>basis</c>）のまま。色は頬・額の上・目の中の画素の中央値。
 /// </para>
 /// 見た目だけで強さに関係しない（体格は変えない。CLAUDE.md §1.7）。
@@ -27,24 +27,6 @@ public static class PhotoFace
         "mouthLeft", "mouthRight", "lipTop", "lipBottom", "chin",
         "cheekLeft", "cheekRight", "jawLeft", "jawRight", "forehead",
     ];
-
-    // 平均的な顔の比（IOD = 両目の中心の間 ≒ 62 mm を 1 とする。成人の顔の計測の平均の概数）。
-    private const float RefCheekWidth = 2.25f;   // 頬骨の高さの顔の幅 ≒ 140 mm
-    private const float RefJawShare = 0.78f;     // あごの角の幅 / 頬の幅（下顎角幅 ≒ 頬骨弓幅の 0.75〜0.8）
-    private const float RefEyeWidth = 0.5f;      // 目の幅 ≒ 30 mm
-    private const float RefInnerGap = 1.05f;     // 目頭の間 / 目の幅（≒ 目 1 つぶん）
-    private const float RefEyeAspect = 0.32f;    // 目の高さ / 幅
-    private const float RefBrowAbove = 0.33f;    // 目の中心から眉まで ≒ 20 mm
-    private const float RefNoseWidth = 0.58f;    // 小鼻の幅 ≒ 36 mm
-    private const float RefNoseLength = 0.75f;   // 鼻根から鼻先まで（縦）≒ 46 mm
-    private const float RefMouthWidth = 0.82f;   // 口の幅 ≒ 50 mm
-    private const float RefLipShare = 0.33f;     // 唇の厚み（上唇の上〜下唇の下）/ 口の幅
-    private const float RefEyeToChin = 1.95f;    // 目の高さからあご先まで ≒ 120 mm
-    private const float RefMouthShare = 0.35f;   // 鼻先〜口の中心 / 鼻先〜あご先
-    private const float RefForehead = 1.05f;     // 目の高さから生え際まで ≒ 65 mm
-
-    /// <summary>頭の箱の正規化座標 1 の実寸 / IOD（顔の層の頭の高さの半分 ≒ 115 mm = 1.85 IOD）。位置のずれの値を IOD の比から写す。</summary>
-    private const float NormalizedPerIod = 1f / 1.85f;
 
     /// <summary>
     /// 肌との違い（<see cref="Unlike"/>: 色み（明るさで割った rgb）の距離 × <see cref="ChromaWeight"/> ＋ 明るさの比の対数の大きさ）がこれを超えたら、肌ではない（髪・ひげ）と見る。
@@ -70,9 +52,8 @@ public static class PhotoFace
     /// <summary>目の中で、肌の明るさのこれ倍より暗い画素を瞳（虹彩・瞳孔）と見る（白目と肌を外す）。</summary>
     private const float IrisDarkerThanSkin = 0.8f;
 
-    /// <summary>測った量（IOD を 1 とする比）。画面に出して、何を読み取ったかを見せる。</summary>
-    public sealed record Measurements(float CheekWidth, float JawShare, float EyeWidth, float InnerGap, float EyeAspect, float EyeTilt, float BrowAbove,
-        float NoseWidth, float NoseLength, float MouthWidth, float LipShare, float EyeToChin, float MouthShare, float Forehead, float ChinUnlike, float HairUnlike, float HairAbove);
+    /// <summary>測った量: 顔の比（<see cref="FaceProportions"/>）と、色から読んだ量（あご先・髪の肌との違い、生え際の高さ [IOD]、髪が無ければ NaN）。画面に出して、何を読み取ったかを見せる。</summary>
+    public sealed record Measurements(FaceProportions Proportions, float ChinUnlike, float HairUnlike, float HairAbove);
 
     /// <summary>写真から作った顔と、測った量。</summary>
     public sealed record Result(FaceSpec Face, Measurements Measured);
@@ -81,8 +62,10 @@ public static class PhotoFace
     /// 写真（RGBA、行は上から）と目印の点から顔を作る。<paramref name="basis"/> は測れない部位（髪型・耳・眉・張り出し）の元の顔。
     /// 点が足りない・画像の外・目が重なっているなら <see cref="InvalidDataException"/>。同じ入力からはいつも同じ出力。
     /// </summary>
-    public static Result FromPhoto(int width, int height, ReadOnlySpan<byte> rgba, IReadOnlyDictionary<string, Vector2> points, FaceSpec basis)
+    public static Result FromPhoto(int width, int height, ReadOnlySpan<byte> rgba, IReadOnlyDictionary<string, Vector2> points, FaceSpec basis,
+        IReadOnlyDictionary<string, Norm>? norms = null, float gain = Caricature.DefaultGain)
     {
+        norms ??= CharacterMaker.PhotoNorms;
         ArgumentNullException.ThrowIfNull(points);
         ArgumentNullException.ThrowIfNull(basis);
         if (width <= 0 || height <= 0 || rgba.Length != width * height * 4)
@@ -107,17 +90,7 @@ public static class PhotoFace
             throw new InvalidDataException("両目の点が近すぎます（写真の顔が小さすぎるか、点が重なっています）。");
         }
 
-        float Dist(string a, string b) => Vector2.Distance(P(a), P(b)) / iod;
-        var eyeY = (leftEye.Y + rightEye.Y) / 2f;
-        var cheekWidth = Dist("cheekLeft", "cheekRight");
-        var eyeWidth = (Dist("leftEyeOuter", "leftEyeInner") + Dist("rightEyeOuter", "rightEyeInner")) / 2f;
-        var eyeHeight = (Dist("leftEyeTop", "leftEyeBottom") + Dist("rightEyeTop", "rightEyeBottom")) / 2f;
-        var tiltLeft = MathF.Atan2(P("leftEyeInner").Y - P("leftEyeOuter").Y, MathF.Abs(P("leftEyeInner").X - P("leftEyeOuter").X));
-        var tiltRight = MathF.Atan2(P("rightEyeInner").Y - P("rightEyeOuter").Y, MathF.Abs(P("rightEyeInner").X - P("rightEyeOuter").X));
-        var noseTip = P("noseTip");
         var chin = P("chin");
-        var mouthY = (P("lipTop").Y + P("lipBottom").Y) / 2f;
-        var mouthWidth = Dist("mouthLeft", "mouthRight");
 
         // 色: 頬（目の下と口の端の間を外へ寄せた所）・額の上（髪）・目の中（瞳）・あご先（ひげ）。
         var image = new Sampler(width, height, rgba);
@@ -127,7 +100,8 @@ public static class PhotoFace
         var skin = image.Median([(cheekL, radius), (cheekR, radius)]);
         // 髪: 額の目印から上へ、肌でない色が初めて出る所（生え際）の少し上の色。最後まで肌なら髪が無い（額の上が肌のまま頭の上まで）。
         var (hair, hairUnlike, hairAbove) = (skin, 0f, float.NaN);
-        for (var up = 0.1f; up <= HairSearchIod + 1e-4f; up += 0.1f)
+        Vector2? hairline = null;
+        for (var up = 0.05f; up <= HairSearchIod + 1e-4f; up += 0.05f)
         {
             var center = P("forehead") - new Vector2(0f, up * iod);
             if (center.Y < 0f)
@@ -140,7 +114,7 @@ public static class PhotoFace
             {
                 var above = center - new Vector2(0f, 0.15f * iod);
                 hair = above.Y >= 0f ? image.Median([(above, 0.1f * iod)]) : patch;
-                (hairUnlike, hairAbove) = (Unlike(patch, skin), up);
+                (hairUnlike, hairAbove, hairline) = (Unlike(patch, skin), up, center); // 中央値が髪に変わった所 ≒ 生え際（窓の真ん中）
                 break;
             }
 
@@ -153,48 +127,9 @@ public static class PhotoFace
         var chinPatch = image.Median([(Vector2.Lerp(P("lipBottom"), chin, 0.55f), 0.14f * iod)]);
         var chinUnlike = Unlike(chinPatch, skin);
 
-        var measured = new Measurements(
-            CheekWidth: cheekWidth,
-            JawShare: Dist("jawLeft", "jawRight") / MathF.Max(1e-3f, cheekWidth),
-            EyeWidth: eyeWidth,
-            InnerGap: Dist("leftEyeInner", "rightEyeInner") / MathF.Max(1e-3f, eyeWidth),
-            EyeAspect: eyeHeight / MathF.Max(1e-3f, eyeWidth),
-            EyeTilt: (tiltLeft + tiltRight) / 2f,
-            BrowAbove: (eyeY - ((P("leftBrow").Y + P("rightBrow").Y) / 2f)) / iod,
-            NoseWidth: Dist("noseLeft", "noseRight"),
-            NoseLength: (noseTip.Y - P("noseBridge").Y) / iod,
-            MouthWidth: mouthWidth,
-            LipShare: (P("lipBottom").Y - P("lipTop").Y) / iod / MathF.Max(1e-3f, mouthWidth),
-            EyeToChin: (chin.Y - eyeY) / iod,
-            MouthShare: (mouthY - noseTip.Y) / MathF.Max(1e-3f, chin.Y - noseTip.Y),
-            Forehead: (eyeY - P("forehead").Y) / iod,
-            ChinUnlike: chinUnlike,
-            HairUnlike: hairUnlike,
-            HairAbove: hairAbove);
-
-        var v = basis.Values with
-        {
-            FaceWidth = Clamp(1f + (0.8f * ((measured.CheekWidth / RefCheekWidth) - 1f)), 0.85f, 1.2f),
-            JawWidth = Clamp(measured.JawShare / RefJawShare, 0.8f, 1.25f),
-            Cheekbones = Clamp(1.3f + (3f * (RefJawShare - measured.JawShare)), 0.5f, 1.8f),
-            EyeSize = Clamp(measured.EyeWidth / RefEyeWidth, 0.7f, 1.35f),
-            EyeSpacing = Clamp(measured.InnerGap / RefInnerGap, 0.75f, 1.25f),
-            EyeTilt = Clamp(measured.EyeTilt, -0.45f, 0.45f),
-            EyeHeight = Clamp((measured.EyeToChin - RefEyeToChin) * 0.5f * NormalizedPerIod, -0.1f, 0.1f),
-            BrowHeight = Clamp((measured.BrowAbove - RefBrowAbove) * NormalizedPerIod, -0.08f, 0.08f),
-            NoseWidth = Clamp(measured.NoseWidth / RefNoseWidth, 0.7f, 1.5f),
-            NoseLength = Clamp(measured.NoseLength / RefNoseLength, 0.7f, 1.4f),
-            MouthWidth = Clamp(measured.MouthWidth / RefMouthWidth, 0.6f, 1.4f),
-            MouthHeight = Clamp((RefMouthShare - measured.MouthShare) * 0.4f, -0.07f, 0.07f),
-            Lips = Clamp(measured.LipShare / RefLipShare, 0.5f, 1.8f),
-            Hairline = Clamp((measured.Forehead - RefForehead) * 0.5f * NormalizedPerIod, -0.12f, 0.12f),
-        };
-
-        var parts = basis.Parts.ToDictionary(p => p.Key, p => p.Value);
-        parts["eyes"] = Nearest(measured.EyeAspect, ("eyes.1", 0.22f), ("eyes.6", 0.27f), ("eyes.3", 0.32f), ("eyes.5", 0.4f));
-        parts["mouth"] = Blend(measured.LipShare, ("mouth.7", 0.22f), ("mouth.8", 0.33f), ("mouth.9", 0.44f), ("mouth.10", 0.55f));
-        parts["nose"] = Blend(measured.NoseWidth, ("nose.4", 0.48f), ("nose.1", 0.58f), ("nose.2", 0.7f));
-        parts["jaw"] = Blend(measured.JawShare, ("jaw.1", 0.66f), ("jaw.10", 0.76f), ("jaw.9", 0.86f));
+        var proportions = FaceProportions.Measure(points, hairline);
+        var measured = new Measurements(proportions, chinUnlike, hairUnlike, hairAbove);
+        var (v, parts) = Caricature.Apply(basis, proportions, norms, gain);
         if (float.IsNaN(hairAbove))
         {
             parts["hair"] = new Dictionary<string, float> { ["hair.3"] = 1f };
@@ -222,32 +157,6 @@ public static class PhotoFace
         return (ChromaWeight * Vector3.Distance(Chroma(c), Chroma(skin))) + MathF.Abs(MathF.Log(shade));
     }
 
-    /// <summary>いちばん近い 1 部品（目は 1 部品: 名簿の決まり）。</summary>
-    private static Dictionary<string, float> Nearest(float value, params (string Id, float At)[] parts)
-        => new Dictionary<string, float> { [parts.MinBy(p => MathF.Abs(p.At - value)).Id] = 1f };
-
-    /// <summary>並んだ 2 つの部品の間を直線で混ぜる（端の外は端の部品だけ）。</summary>
-    private static Dictionary<string, float> Blend(float value, params (string Id, float At)[] parts)
-    {
-        if (value <= parts[0].At)
-        {
-            return new Dictionary<string, float> { [parts[0].Id] = 1f };
-        }
-
-        for (var i = 1; i < parts.Length; i++)
-        {
-            if (value <= parts[i].At)
-            {
-                var t = (value - parts[i - 1].At) / (parts[i].At - parts[i - 1].At);
-                var w = MathF.Round(t, 2);
-                return w <= 0f ? new Dictionary<string, float> { [parts[i - 1].Id] = 1f }
-                    : w >= 1f ? new Dictionary<string, float> { [parts[i].Id] = 1f }
-                    : new Dictionary<string, float> { [parts[i - 1].Id] = 1f - w, [parts[i].Id] = w };
-            }
-        }
-
-        return new Dictionary<string, float> { [parts[^1].Id] = 1f };
-    }
 
     /// <summary>画素を読む（範囲の外は読まない）。</summary>
     private readonly ref struct Sampler(int width, int height, ReadOnlySpan<byte> rgba)

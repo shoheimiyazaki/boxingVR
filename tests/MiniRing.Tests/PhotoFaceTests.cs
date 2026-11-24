@@ -1,5 +1,6 @@
 using System.Numerics;
 using MiniRing.Characters;
+using MiniRing.Voxels;
 
 namespace MiniRing.Tests;
 
@@ -30,7 +31,7 @@ public sealed class PhotoFaceTests
     };
 
     /// <summary>合成の顔の絵（背景・顔の楕円・額の上の髪・白目と瞳と瞳孔・唇・ひげ）。</summary>
-    private static byte[] Picture(Vector3 hair, bool beard)
+    private static byte[] Picture(Vector3 hair, bool beard, int hairBottom = 130)
     {
         var rgba = new byte[W * H * 4];
         void Put(int x, int y, Vector3 c)
@@ -49,7 +50,7 @@ public sealed class PhotoFaceTests
                     c = Skin;
                 }
 
-                if (y < 130 && x is >= 80 and < 320 && (y >= 60 || hair == Skin)) // 坊主の絵は頭の上まで肌
+                if (y < hairBottom && x is >= 80 and < 320 && (y >= 60 || hair == Skin)) // 坊主の絵は頭の上まで肌
                 {
                     c = hair;
                 }
@@ -116,8 +117,43 @@ public sealed class PhotoFaceTests
         var wide = Read(Hair, false, Points(mouthHalf: 48f, jawHalf: 95f));
         Assert.IsGreaterThan(narrow.Face.Values.MouthWidth, wide.Face.Values.MouthWidth, "広い口");
         Assert.IsGreaterThan(narrow.Face.Values.JawWidth, wide.Face.Values.JawWidth, "広いあご");
-        Assert.IsLessThan(narrow.Face.Values.Cheekbones, wide.Face.Values.Cheekbones, "あごが広いほど頬骨は目立たない");
-        Assert.AreEqual(1f, Read(Hair, false).Measured.EyeWidth / 0.5f, 1e-4f, "目の幅 50 px / IOD 100 px");
+        var m = Read(Hair, false).Measured.Proportions;
+        Assert.AreEqual(50f / 224f, m.EyeWidth, 1e-4f, "目の幅 50 px / 顔の幅（頬の端から端）224 px");
+        Assert.AreEqual(285f / 224f, m.Aspect, 1e-4f, "顔の高さ（額 135 → あご 420）/ 幅");
+        Assert.AreEqual((230f - 135f) / 285f, m.EyeRow, 1e-4f, "目の位置は額から下へ顔の高さの比");
+    }
+
+    [TestMethod]
+    public void AHigherHairline_IsABiggerForehead_AndRaisesTheVoxelHairline()
+    {
+        var basis = CharacterMaker.RootOf("europe-south").Face();
+        var low = PhotoFace.FromPhoto(W, H, Picture(Hair, false, hairBottom: 130), Points(), basis);
+        var high = PhotoFace.FromPhoto(W, H, Picture(Hair, false, hairBottom: 110), Points(), basis);
+        Assert.AreEqual((230f - 130f) / 285f, low.Measured.Proportions.Forehead, 0.03f, "おでこ = 生え際から目の線まで / 顔の高さ");
+        Assert.IsGreaterThan(low.Measured.Proportions.Forehead, high.Measured.Proportions.Forehead, "生え際が上ほどおでこが広い");
+        Assert.IsLessThan(low.Face.Values.Hairline, high.Face.Values.Hairline, "広いおでこは顔の層の生え際を上げる（負）");
+        Assert.IsTrue(float.IsNaN(PhotoFace.FromPhoto(W, H, Picture(Skin, false), Points(), basis).Measured.Proportions.Forehead), "坊主はおでこを測らない");
+    }
+
+    [TestMethod]
+    public void TheAverageFace_IsTheDefaultFace_AndTheGainScalesTheDeviation()
+    {
+        var norms = CharacterMaker.PhotoNorms;
+        float Mean(string key) => norms[key].Mean;
+        var average = new FaceProportions(Mean("aspect"), Mean("jawWidth"), Mean("eyeSpan"), Mean("eyeWidth"), Mean("eyeOpen"), Mean("eyeRow"),
+            Mean("browRow"), Mean("noseRow"), Mean("noseWidth"), Mean("mouthRow"), Mean("mouthWidth"), Mean("lipThickness")) { Forehead = Mean("forehead") };
+        var basis = new FaceSpec(CharacterMaker.Roots[0].Face().Parts, FaceParts.Default);
+        var (values, parts) = Caricature.Apply(basis, average, norms, gain: 3f);
+        Assert.AreEqual(FaceParts.Default, values, "平均の顔は、どれだけ誇張しても既定の顔");
+        Assert.AreEqual("eyes.3", parts["eyes"].Keys.Single());
+
+        var wideMouth = average with { MouthWidth = Mean("mouthWidth") + norms["mouthWidth"].Sd, EyeRow = Mean("eyeRow") + norms["eyeRow"].Sd };
+        var once = Caricature.Apply(basis, wideMouth, norms, gain: 1f).Values;
+        var twice = Caricature.Apply(basis, wideMouth, norms, gain: 2f).Values;
+        Assert.AreEqual(2f * (once.MouthWidth - 1f), twice.MouthWidth - 1f, 1e-4f, "口の幅のずれは強さに比例");
+        Assert.IsLessThan(0f, once.EyeHeight, "目が低い顔は目の位置の値が下（負）");
+        Assert.AreEqual(2f * once.EyeHeight, twice.EyeHeight, 1e-4f);
+        Assert.AreEqual(FaceParts.Default, Caricature.Apply(basis, wideMouth, norms, gain: 0f).Values, "強さ 0 は平均の顔");
     }
 
     [TestMethod]
