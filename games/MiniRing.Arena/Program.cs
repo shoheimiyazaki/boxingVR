@@ -59,6 +59,7 @@ try
         "jointlab" => JointLabCommand(Options.Parse(argv[1..], "joints", "offsets", "speeds", "bend", "parallel", "out", "video", "joint", "dir", "offset", "speed", "axis", "bridges", "slow", "dims")),
         "necklab" => NeckLabCommand(Options.Parse(argv[1..], "mode", "heights", "offsets", "arms", "speeds", "speed", "dir", "bridges", "tilt", "out", "video", "height", "side", "offset", "slow")),
         "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes", "hz", "sample")),
+        "bladecut" => BladeCutCommand(Options.Parse(argv[1..], "mode", "weapon", "target", "speed", "speeds", "targets", "weapons", "drive", "mass", "fromtip", "imposed", "tilt", "parallel", "out", "csv", "slow", "pairs", "seeds", "seconds")),
         "bladeprobe" => BladeProbeCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out")),
         "versus" => VersusCommand(Options.Parse(argv[1..], "bouts", "seconds", "seed", "out", "defense", "video", "red", "blue", "hitaway", "clearance", "passes", "hz", "sample", "margin", "tilt", "pacing", "slack", "angle")),
         "excitement" => ExcitementLab.SingleCommand(Options.Parse(argv[1..], "red", "blue", "seconds", "seeds", "seed", "out", "curve", "tune", "style")),
@@ -1795,6 +1796,64 @@ static int SelfCutCommand(Options o)
     }
 
     return 0;
+}
+
+// 刃の切れ味の計測台（docs/BLADE_CUT_STUDY.md）。--mode study（全部の表と CSV）| one（1 振り）| film（1 振りの動画）| ingame（試合の中の刃の当たり）。
+static int BladeCutCommand(Options o)
+{
+    var mode = o.Get("mode") ?? "study";
+    var parallel = o.Int("parallel", 4, min: 1);
+    switch (mode)
+    {
+        case "study":
+        {
+            var speeds = o.Get("speeds") is null ? null : o.List("speeds", []).Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToList();
+            var targets = o.Get("targets") is null ? null : o.List("targets", []).Select(BladeCutLab.ParseTarget).ToList();
+            var blades = o.Get("weapons") is null ? null : o.List("weapons", []).Select(BladeCutLab.ParseBlade).ToList();
+            var (markdown, csv) = BladeCutLab.Study(parallel, Console.Out, speeds, targets, blades, extras: o.Get("speeds") is null);
+            var output = o.Get("out") ?? "docs/arena/bladecut.md";
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
+            File.WriteAllText(output, markdown);
+            File.WriteAllText(o.Get("csv") ?? Path.ChangeExtension(output, ".csv"), csv);
+            Console.WriteLine(output);
+            return 0;
+        }
+
+        case "edge":
+        {
+            var (markdown, csv) = BladeCutLab.EdgeStudy(parallel, Console.Out);
+            var output = o.Get("out") ?? "docs/arena/bladecut_edge.md";
+            File.WriteAllText(output, markdown);
+            File.WriteAllText(o.Get("csv") ?? Path.ChangeExtension(output, ".csv"), csv);
+            Console.WriteLine(output);
+            return 0;
+        }
+
+        case "ingame":
+        {
+            var pairs = o.List("pairs", ["jin-konrad", "edgar-jin", "konrad-edgar"]).Select(p => p.Split('-')).Select(p => (p[0], p[1])).ToList();
+            var text = BladeCutLab.InGame(pairs, o.Int("seeds", 2, min: 1), o.Float("seconds", 40f, min: 1f), Console.Out, o.Int("parallel", 3, min: 1));
+            Console.WriteLine(text);
+            if (o.Get("out") is { } path)
+            {
+                File.WriteAllText(path, text);
+            }
+
+            return 0;
+        }
+
+        case "one" or "film":
+        {
+            var c = new BladeCutLab.Case(BladeCutLab.ParseBlade(o.Get("weapon") ?? "katana"), BladeCutLab.ParseTarget(o.Get("target") ?? "forearm"), o.Float("speed", 10f, min: 0.1f),
+                o.Float("drive", 0f, min: 0f), o.Float("mass", 1f, min: 0.01f), o.Float("fromtip", 0.12f, min: 0f), o.Get("imposed") == "on" ? BladeCutLab.Mode.Imposed : BladeCutLab.Mode.Free, o.Float("tilt", 0f));
+            var row = mode == "film" ? BladeCutLab.Film(c, o.Get("out") ?? "videos/bladecut.mp4", o.Float("slow", 20f, min: 1f)) : BladeCutLab.Run(c);
+            Console.WriteLine(BladeCutLab.Csv([row]));
+            return 0;
+        }
+
+        default:
+            throw new ArgumentException("--mode は study / edge / one / film / ingame のどれかにしてください。");
+    }
 }
 
 static int BladeProbeCommand(Options o)

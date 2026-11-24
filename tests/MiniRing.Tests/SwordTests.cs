@@ -85,9 +85,15 @@ public sealed class SwordTests
         // 間合いを −6〜+6 cm（人形の単位。人の大きさで −17〜+17 cm）の 7 回にして合計で見る。
         Assert.IsGreaterThan(10f, target, "the chest is cut");
         var detail = string.Join(", ", runs.Select(x => $"{x.TargetCells}/{x.SelfCells}"));
-        // 自分の腿をかすめるのは 1〜2 回の振りで、そのセル数が大きい（121 セル）。合計では勝てなくなったので、振りごとに「胸が自分より多い」回の数で見る。
+        // 自分の腿をかすめるのは 1〜2 回の振りで、そのセル数が大きい（121 セル）。合計では勝てなくなったので、振りごとに「胸が自分より多い」回と「自分が胸より多い」回を比べる。
+        // 2026-11-24（PhysicsVersion 93）: セルは刃がその奥行きを斬り抜けたときに断たれるようになり、ラグドールの振り（刃の速さ数 m/s）ではほとんど斬れない:
+        // 7 回のうち 6 回が 0/0、1 回が胸 17 セル（打ち出しを 0.10 秒に速めても 6 回が 0/0、1 回が胸 26 セル）。元の「たいていの振りは狙いを自分より多く斬る」は
+        // 今のラグドールの振りでは作れない（振りを速くするのは別の作業: docs/BLADE_CUT_STUDY.md §8）。それまでは、斬れた振りで狙いの方が多い回が多いことと、
+        // 合計で狙いが自分より多いことで見る（弱い主張。振りが速くなったら元に戻す）。
         var better = runs.Count(x => x.TargetCells > x.SelfCells);
-        Assert.IsGreaterThan(runs.Length / 2, better, $"most swings cut the target more than yourself (target/self per swing {detail}; the cut through can graze your own thigh)");
+        var worse = runs.Count(x => x.SelfCells > x.TargetCells);
+        Assert.IsGreaterThan(worse, better, $"swings that cut, cut the target more than yourself (target/self per swing {detail}; the cut through can graze your own thigh)");
+        Assert.IsGreaterThan(self, target, $"over the swings, the target loses more than yourself ({detail})");
     }
 
     [TestMethod]

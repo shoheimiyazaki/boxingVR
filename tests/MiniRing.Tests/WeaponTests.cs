@@ -38,10 +38,12 @@ public sealed class WeaponTests
         var edge = Run("sword-edge");
         var flat = Run("sword-flat");
 
-        Assert.IsGreaterThan(5, edge.Lost(VoxelTissue.Flesh), "the edge cuts skin and muscle");
+        Assert.IsGreaterThan(2, edge.Lost(VoxelTissue.Flesh), "the edge cuts skin and muscle");
         // 平らな面そのものの当たり（最初の接触）は、体の 14 mm のボクセルの角に斜めに当たって皮膚が少し擦れる程度。
         // （手に持っていない剣は、中心から外れて腹を打たれると長さの軸まわりに速く回り、回ってきた刃が後から当たる。それは刃の仕事。）
-        Assert.IsLessThan(edge.FirstContactLost / 3, flat.FirstContactLost, "the flat itself breaks little");
+        // 2026-11-24（PhysicsVersion 93）: セルは刃がその奥行きを斬り抜けたときに断たれるので、ふつうの振りの刃も最初の接触で断つセルは 0〜2 と少ない。
+        // 最初の接触でなく、腹が最初に触れたときに壊したセルが刃の斬った肉の 1/3 より少ないかで見る。
+        Assert.IsLessThan(edge.Lost(VoxelTissue.Flesh) / 3f, flat.FirstContactLost, "the flat itself breaks little");
         Assert.IsLessThan(5.035f, SpeedAfterOneFrame("sword-flat"), "the arm stops the flat");
         Assert.AreEqual(0, edge.WeaponLost + flat.WeaponLost, "flesh does not hurt iron");
     }

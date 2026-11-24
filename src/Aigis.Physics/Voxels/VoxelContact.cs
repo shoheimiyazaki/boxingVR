@@ -303,6 +303,7 @@ public static class VoxelContact
     private static VoxelBody? Snap(VoxelBody body, Vector3 worldPoint, Vector3 worldDirection, float contactForce, float energy)
     {
         var grid = body.Grid;
+
         for (var m = 1; m < grid.Palette.Count; m++)
         {
             if (grid.Remaining((byte)m) > 0 && grid.Palette[(byte)m].MechanicsOrDefault.Tensile is null)
@@ -743,6 +744,27 @@ public static class VoxelContact
 
         private static readonly List<(int Slot, int Field, Vector3 At)> NoOverlaps = [];
 
+        // The overlap lists one Run uses (one per sample that touches), lent from a per-thread pool and given back when the next Run
+        // starts: a contact makes a list per sample it touches, and a blade resting in a notch touches on every sample of every step.
+        // Every list lives only within the Run that leased it (Run is the only caller of Overlaps, and does not nest).
+        [ThreadStatic]
+        private static List<List<(int Slot, int Field, Vector3 At)>>? _overlapPool;
+
+        private int _leased;
+
+        private List<(int Slot, int Field, Vector3 At)> Lease()
+        {
+            var pool = _overlapPool ??= [];
+            if (_leased == pool.Count)
+            {
+                pool.Add([]);
+            }
+
+            var list = pool[_leased++];
+            list.Clear();
+            return list;
+        }
+
         /// <summary>The probe cells inside a filled field cell at sample <paramref name="k"/> (field frame): (probe cell slot, field cell
         /// index, probe cell centre in the field frame).</summary>
         private List<(int Slot, int Field, Vector3 At)> Overlaps(int k)
@@ -753,7 +775,7 @@ public static class VoxelContact
             }
 
             var (q, t) = Pose(k);
-            List<(int, int, Vector3)>? hits = null;
+            List<(int Slot, int Field, Vector3 At)>? hits = null;
             var grid = _field.Grid;
             var half = grid.HalfExtents;
             for (var g = 0; g < _superCount; g++)
@@ -787,7 +809,7 @@ public static class VoxelContact
                         var f = grid.CellAt(p);
                         if (f >= 0 && (grid.MaterialAt(f) != 0 || _brokenField.ContainsKey(f)))
                         {
-                            (hits ??= []).Add((i, f, p));
+                            (hits ??= Lease()).Add((i, f, p));
                         }
                     }
                 }
@@ -798,7 +820,10 @@ public static class VoxelContact
 
         /// <summary>The area [m²] the overlapping probe cells cover across the blow (projected on the plane square to
         /// <paramref name="along"/>, field frame, in probe-cell-sized bins).</summary>
-        private float Area(List<(int Slot, int Field, Vector3 At)> overlaps, Vector3 along)
+        private float Area(List<(int Slot, int Field, Vector3 At)> overlaps, Vector3 along) => Area(overlaps, along, null, 0f);
+
+        /// <summary>The same, over only the overlaps whose strength (<paramref name="strengths"/>, by index) is at least <paramref name="atLeast"/> (all if null).</summary>
+        private float Area(List<(int Slot, int Field, Vector3 At)> overlaps, Vector3 along, float[]? strengths, float atLeast)
         {
             if (overlaps.Count == 0)
             {
@@ -808,14 +833,30 @@ public static class VoxelContact
             var u = Vector3.Normalize(Vector3.Cross(along, MathF.Abs(along.X) < 0.9f ? Vector3.UnitX : Vector3.UnitY));
             var w = Vector3.Cross(along, u);
             var bin = MinCell(_probe.Grid);
-            var bins = new HashSet<(int, int)>();
-            foreach (var (_, _, at) in overlaps)
+            var bins = _areaBinsScratch ??= [];
+            bins.Clear();
+            for (var i = 0; i < overlaps.Count; i++)
             {
+                if (strengths is not null && strengths[i] < atLeast)
+                {
+                    continue;
+                }
+
+                var at = overlaps[i].At;
                 bins.Add(((int)MathF.Floor(Vector3.Dot(at, u) / bin), (int)MathF.Floor(Vector3.Dot(at, w) / bin)));
             }
 
             return bins.Count * bin * bin;
         }
+
+        [ThreadStatic]
+        private static HashSet<(int, int)>? _areaBinsScratch;
+
+        [ThreadStatic]
+        private static float[]? _strengthScratch;
+
+        [ThreadStatic]
+        private static float[]? _distinctScratch;
 
         public Hit? Run()
         {
@@ -824,8 +865,10 @@ public static class VoxelContact
                 return null;
             }
 
+            _leased = 0;
+
             var first = -1;
-            List<(int Slot, int Field, Vector3 At)> touching = [];
+            var touching = NoOverlaps;
             var scanStart = StepProfile.Begin();
             for (var k = 0; k <= _samples; k++)
             {
@@ -951,26 +994,25 @@ public static class VoxelContact
                 var advance = Advance(contactOnProbe, k, localAlong);
                 var cost = through * advance;
                 var driven = drive * advance;
-                if (push < through || cost > left + driven)
+                if (push < through)
                 {
                     stoppedAt = k;
                     break;
                 }
 
-                left -= MathF.Max(0f, cost - driven);
-                foreach (var (slot, fieldCell, _) in now)
+                if (cost > left + driven)
                 {
-                    if (probeYields)
-                    {
-                        _probe.Grid.Break(_cellIndex[slot], removedProbe);
-                    }
-
-                    var material = _field.Grid.MaterialAt(fieldCell);
-                    if (fieldYields && material != 0 && _field.Grid.Break(fieldCell, removedField))
-                    {
-                        _brokenField[fieldCell] = material;
-                    }
+                    // The blow runs out partway through this advance: it cuts on only as far as its energy (and the drive) pays for,
+                    // and stops there. The cells keep how far they were cut (a notch), so the next blow carries on from it.
+                    var partial = through > drive ? left / (through - drive) : advance;
+                    CutInto(now, probeYields, fieldYields, MathF.Min(partial, advance), localAlong, qFirst, removedProbe, removedField);
+                    left = 0f;
+                    stoppedAt = k;
+                    break;
                 }
+
+                left -= MathF.Max(0f, cost - driven);
+                CutInto(now, probeYields, fieldYields, advance, localAlong, qFirst, removedProbe, removedField);
             }
 
             var stopped = stoppedAt >= 0;
@@ -1450,28 +1492,29 @@ public static class VoxelContact
         /// </summary>
         private float Resistance(List<(int Slot, int Field, Vector3 At)> overlaps, bool probeSide, Vector3 along)
         {
-            var strengths = new float[overlaps.Count];
-            for (var i = 0; i < overlaps.Count; i++)
+            var n = overlaps.Count;
+            var strengths = _strengthScratch is { } s0 && s0.Length >= n ? s0 : _strengthScratch = new float[Math.Max(n, 64)];
+            var distinct = _distinctScratch is { } d0 && d0.Length >= n ? d0 : _distinctScratch = new float[Math.Max(n, 64)];
+            var kinds = 0;
+            for (var i = 0; i < n; i++)
             {
                 var (slot, field, _) = overlaps[i];
                 var grid = probeSide ? _probe.Grid : _field.Grid;
                 var material = probeSide ? grid.MaterialAt(_cellIndex[slot]) : FieldMaterial(field);
-                strengths[i] = (material == 0 ? VoxelMechanics.Default : grid.Palette[material].MechanicsOrDefault).Strength;
+                var strength = (material == 0 ? VoxelMechanics.Default : grid.Palette[material].MechanicsOrDefault).Strength;
+                strengths[i] = strength;
+                if (Array.IndexOf(distinct, strength, 0, kinds) < 0)
+                {
+                    distinct[kinds++] = strength;
+                }
             }
 
+            // Area() reads the strengths by index, and its own bin set is a different scratch, so the two may nest.
             var hold = 0f;
-            foreach (var strength in strengths.Distinct())
+            for (var k = 0; k < kinds; k++)
             {
-                var harder = new List<(int, int, Vector3)>();
-                for (var i = 0; i < overlaps.Count; i++)
-                {
-                    if (strengths[i] >= strength)
-                    {
-                        harder.Add(overlaps[i]);
-                    }
-                }
-
-                hold = MathF.Max(hold, strength * Area(harder, along));
+                var strength = distinct[k];
+                hold = MathF.Max(hold, strength * Area(overlaps, along, strengths, strength));
             }
 
             return hold;
@@ -1501,6 +1544,54 @@ public static class VoxelContact
 
             return MathF.Max(1e-5f, (n == 0 ? VoxelMechanics.Default.Give : probeGive / n) + fieldGive);
         }
+
+        /// <summary>
+        /// 2026-11-24 (PhysicsVersion 93): the yielding side's cells in the way are cut by <paramref name="advance"/> [m] of the blow,
+        /// not broken whole the moment they yield. A cell is cut through once the blow has advanced across its whole depth along
+        /// the blow (its extent along <paramref name="along"/>): each advance wears that share of its toughness away
+        /// (<see cref="VoxelGrid.Wear"/>, the same toughness a pressed face wears), and it breaks when none is left. A blade that
+        /// stops partway leaves the cell standing, notched — so a bone a few cells across holds unless the blow has the energy to
+        /// cut all the way through it (plastic work: strength × area × depth), rather than snapping the moment the edge bites.
+        /// </summary>
+        private void CutInto(List<(int Slot, int Field, Vector3 At)> now, bool probeYields, bool fieldYields, float advance, Vector3 along,
+            Quaternion probeToField, List<RemovedVoxel> removedProbe, List<RemovedVoxel> removedField)
+        {
+            if (advance <= 0f)
+            {
+                return;
+            }
+
+            var probeAlong = Vector3.Transform(along, Quaternion.Conjugate(probeToField));
+            var probeShare = advance / Extent(_probe.Grid.CellSize, probeAlong);
+            var fieldShare = advance / Extent(_field.Grid.CellSize, along);
+            var probeCut = _probeCutScratch ??= [];
+            var fieldCut = _fieldCutScratch ??= [];
+            probeCut.Clear();
+            fieldCut.Clear();
+            foreach (var (slot, fieldCell, _) in now)
+            {
+                if (probeYields && probeCut.Add(_cellIndex[slot]))
+                {
+                    _probe.Grid.Wear(_cellIndex[slot], probeShare, removedProbe);
+                }
+
+                var material = _field.Grid.MaterialAt(fieldCell);
+                if (fieldYields && material != 0 && fieldCut.Add(fieldCell) && _field.Grid.Wear(fieldCell, fieldShare, removedField))
+                {
+                    _brokenField[fieldCell] = material;
+                }
+            }
+        }
+
+        // One pair of sets per thread, reused by every sweep (a sweep is made per contact; these must not allocate per step).
+        [ThreadStatic]
+        private static HashSet<int>? _probeCutScratch;
+        [ThreadStatic]
+        private static HashSet<int>? _fieldCutScratch;
+
+        /// <summary>How deep [m] a box cell of <paramref name="size"/> is along the unit direction <paramref name="along"/> (its own frame).</summary>
+        private static float Extent(Vector3 size, Vector3 along)
+            => MathF.Max(1e-6f, (MathF.Abs(along.X) * size.X) + (MathF.Abs(along.Y) * size.Y) + (MathF.Abs(along.Z) * size.Z));
 
         /// <summary>A field cell's material, or what it was if this sweep broke it.</summary>
         private byte FieldMaterial(int cell) => _brokenField.TryGetValue(cell, out var was) ? was : _field.Grid.MaterialAt(cell);

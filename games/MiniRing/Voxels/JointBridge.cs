@@ -209,10 +209,10 @@ internal sealed class JointBridge
                     byte material = 0;
                     var sp = (Layer: -1, Cell: -1);
                     var sc = (Layer: -1, Cell: -1);
-                    if (!FilledIn(ParentLayers, l => center + parentOffsets[l]) && !FilledIn(ChildLayers, l => Vector3.Transform(center, toChildLayers[l])))
+                    if (!FilledIn(ParentLayers, center, parentOffsets, null) && !FilledIn(ChildLayers, center, null, toChildLayers))
                     {
-                        sp = Nearest(ParentLayers, l => center + parentOffsets[l], reach);
-                        sc = Nearest(ChildLayers, l => Vector3.Transform(center, toChildLayers[l]), reach);
+                        sp = Nearest(ParentLayers, center, parentOffsets, null, reach);
+                        sc = Nearest(ChildLayers, center, null, toChildLayers, reach);
                         if (sp.Cell >= 0 && sc.Cell >= 0)
                         {
                             var gridA = ParentLayers[sp.Layer].Body.Grid;
@@ -306,12 +306,19 @@ internal sealed class JointBridge
         return x < 0 || y < 0 || z < 0 || x >= nx || y >= ny || z >= nz ? (byte)0 : halo.Materials[x + (nx * (y + (ny * z)))];
     }
 
-    /// <summary>層のどれかの格子で、点（層の番号 → その格子の座標 <paramref name="localIn"/>）が埋まったセルの中か。</summary>
-    private static bool FilledIn(IReadOnlyList<VoxelPart> layers, Func<int, Vector3> localIn)
+    /// <summary>
+    /// つなぎの格子の点 <paramref name="center"/> の、層 <paramref name="l"/> の格子での座標: 平行移動 <paramref name="offsets"/> か、変換 <paramref name="transforms"/> で
+    /// （どちらか一方を渡す。セルごとにラムダを作らない: 刃が関節のそばにある歩ごとに全セルで呼ばれる）。
+    /// </summary>
+    private static Vector3 LocalIn(int l, Vector3 center, Vector3[]? offsets, Matrix4x4[]? transforms)
+        => offsets is not null ? center + offsets[l] : Vector3.Transform(center, transforms![l]);
+
+    /// <summary>層のどれかの格子で、点（層の番号 → その格子の座標 <see cref="LocalIn"/>）が埋まったセルの中か。</summary>
+    private static bool FilledIn(IReadOnlyList<VoxelPart> layers, Vector3 center, Vector3[]? offsets, Matrix4x4[]? transforms)
     {
         for (var l = 0; l < layers.Count; l++)
         {
-            if (layers[l].Body.Grid.FilledCellAt(localIn(l)) >= 0)
+            if (layers[l].Body.Grid.FilledCellAt(LocalIn(l, center, offsets, transforms)) >= 0)
             {
                 return true;
             }
@@ -323,13 +330,13 @@ internal sealed class JointBridge
     /// <summary>
     /// 層のどれかの格子で、点から <paramref name="reach"/> 以内にあるいちばん近い埋まったセルの（層の番号, セル）（無ければ (-1, -1)）。同じ近さなら先の層（部位そのもの）。
     /// </summary>
-    private static (int Layer, int Cell) Nearest(IReadOnlyList<VoxelPart> layers, Func<int, Vector3> localIn, float reach)
+    private static (int Layer, int Cell) Nearest(IReadOnlyList<VoxelPart> layers, Vector3 center, Vector3[]? offsets, Matrix4x4[]? transforms, float reach)
     {
         var best = (Layer: -1, Cell: -1);
         var bestDistance = float.MaxValue;
         for (var l = 0; l < layers.Count; l++)
         {
-            var (cell, distance) = NearestIn(layers[l].Body.Grid, localIn(l), reach);
+            var (cell, distance) = NearestIn(layers[l].Body.Grid, LocalIn(l, center, offsets, transforms), reach);
             if (cell >= 0 && distance < bestDistance)
             {
                 best = (l, cell);
