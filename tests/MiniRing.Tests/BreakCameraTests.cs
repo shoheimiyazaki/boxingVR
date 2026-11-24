@@ -12,7 +12,8 @@ namespace MiniRing.Tests;
 [TestCategory("slow")]
 public sealed class BreakCameraTests
 {
-    private static TvDirector Director() => new(1280, 720, 30, 1f / 80f, "赤", "青");
+    // 動画の 1 歩（VideoMaker.MaxStepDt = 1/60 s、30 fps で 1 コマ 2 歩）。リプレイの長さはこの歩で決まる（1/80 s のままでは 2026-11-24 の遅いリプレイが実際より 3 秒長かった）。
+    private static TvDirector Director() => new(1280, 720, 30, 1f / 60f, "赤", "青");
 
     private static TvHighlight Highlight(int step, float score) => new(step, RedVictim: step % 2 == 0, Point: Vector3.Zero, Score: score, Text: "場面", Round: 1);
 
@@ -96,7 +97,8 @@ public sealed class BreakCameraTests
         var reds = new HashSet<bool>();
         for (var i = 0; i < 6; i++)
         {
-            foreach (var s in director.PlanBreak(30f, [Highlight(1000, 30f)], redFirst: true))
+            // 休み 40 秒（リプレイを 0.25 倍に遅くした 2026-11-24 から、30 秒の休みはリプレイ 1 本と選手のカットで埋まり、差し込みの入る余りが無い）。
+            foreach (var s in director.PlanBreak(40f, [Highlight(1000, 30f)], redFirst: true))
             {
                 shots.Add(s.Shot);
                 if (s.Shot == TvShot.Handheld)

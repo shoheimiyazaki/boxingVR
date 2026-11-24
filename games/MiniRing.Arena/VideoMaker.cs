@@ -332,7 +332,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     {
                         if (card is null)
                         {
-                            var (plainView, plainEye) = CameraAt(game, t * 0.15f);
+                            var (plainView, plainEye) = CameraAt(game, t * 0.15f, frame);
                             Emit(plainView, plainEye, Title(redRing, blueRing, MathF.Min(1f, t / 0.6f)), Dim(0.6f));
                             continue;
                         }
@@ -387,6 +387,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     BoxingGame? replayGame = null;
                     var replayDone = 0; // 影の試合が進んだ歩の数
                     TvHighlight? replaying = null;
+                    var replayFrames = 0; // いまのリプレイで映したコマの数（1 歩を TvDirector.ReplayFramesPerStep コマ映す）
                     var replayDeviation = 0f; // 影の試合と本番の胸の位置の差の最大 [m]（決定的なら 0）
                     var mainTrack = new List<(Vector3 Red, Vector3 Blue)>();
                     var breakDoing = new Dictionary<Fighter, string?>(); // 休みの動作の、いま中継に伝えてある名前（選手ごと）
@@ -730,18 +731,19 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             if (replaying != highlight)
                             {
                                 replaying = highlight;
+                                replayFrames = 0;
                                 while (replayDone < first + 1)
                                 {
                                     StepReplay();
                                 }
                             }
-                            else if (replayDone < last + 1 && replayDone < mainTrack.Count)
+                            else if (++replayFrames % TvDirector.ReplayFramesPerStep == 0 && replayDone < last + 1 && replayDone < mainTrack.Count)
                             {
                                 StepReplay();
                             }
 
                             BoxingRenderer.Fill(replayGame!, showTargetGhosts: false, instances, lines);
-                            var (rvp, reye) = director.Replay(replayGame!, highlight, Math.Clamp((replayDone - 1 - first) / (float)(last - first), 0f, 1f));
+                            var (rvp, reye) = director.Replay(replayGame!, highlight, Math.Clamp(replayFrames / (float)((last - first) * TvDirector.ReplayFramesPerStep), 0f, 1f));
                             var (replayText, replayShapes) = show.ReplayOverlay(highlight.Round, highlight.Text, at);
                             Emit(rvp, reye, replayText, [.. replayShapes, .. wipe], scene: replayGame);
                             continue;
@@ -763,7 +765,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             TvShot.Wound => director.Wound(game, subject!, cut!.Value.Wound!, shotTime, at),
                             TvShot.Handheld => director.Handheld(game, subject!, shotTime, at),
                             TvShot.Wide => director.Wide(game, shotTime),
-                            _ => CameraAt(game, (TitleSeconds * 0.15f) + (time / speed * 0.15f)),
+                            _ => CameraAt(game, (TitleSeconds * 0.15f) + (time / speed * 0.15f), frame),
                         };
                         var overlay = MatchOverlay(redRing, blueRing, redCaption, blueCaption, flashes, redDamage, blueDamage, time, untilKo || tv ? null : seconds, game, vp);
                         IEnumerable<UiShapeDraw> hudShapes = tv ? TvHud.Shapes(game, screen) : StaminaBars(game);
@@ -817,16 +819,22 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                         }
 
                         var startAt = frame / (float)fps;
-                        var length = (last - first) / (float)fps;
+                        var length = (((last - first) * TvDirector.ReplayFramesPerStep) + TvDirector.ReplayFramesPerStep - 1) / (float)fps; // 最後のコマの時刻（コマの数 − 1。抜けのワイプが最後のコマで真ん中に来る）
+                        var finaleFrames = 0;
                         broadcast?.Note(startAt, "replay", "", $"決着のリプレイ（スロー）: {finale.Text}");
                         while (true)
                         {
                             var rel = (frame / (float)fps) - startAt;
                             var wipe = rel < 0.25f ? show.Wipe(0.5f + (rel / 0.5f)) : rel > length - 0.25f ? show.Wipe((rel - length + 0.25f) / 0.5f) : [];
                             BoxingRenderer.Fill(replayGame!, showTargetGhosts: false, instances, lines);
-                            var (rvp, reye) = director.Replay(replayGame!, finale, Math.Clamp((replayDone - 1 - first) / (float)(last - first), 0f, 1f));
+                            var (rvp, reye) = director.Replay(replayGame!, finale, Math.Clamp(finaleFrames / (float)((last - first) * TvDirector.ReplayFramesPerStep), 0f, 1f));
                             var (replayText, replayShapes) = show.ReplayOverlay(finale.Round, finale.Text, frame / (float)fps);
                             Emit(rvp, reye, replayText, [.. replayShapes, .. wipe], scene: replayGame);
+                            if (++finaleFrames % TvDirector.ReplayFramesPerStep != 0)
+                            {
+                                continue;
+                            }
+
                             if (replayDone >= last + 1)
                             {
                                 break;
@@ -869,7 +877,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
                     for (var t = 0f; t < ResultSeconds; t += 1f / fps)
                     {
-                        var (vp, eye) = CameraAt(game, ((TitleSeconds + (time / speed)) * 0.15f) + (t * 0.15f));
+                        var (vp, eye) = CameraAt(game, ((TitleSeconds + (time / speed)) * 0.15f) + (t * 0.15f), frame);
                         if (card is not null)
                         {
                             var result = new TvResult(winner, finish, finishRound, finishRoundTime,
@@ -1120,8 +1128,12 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
     /// <summary>
     /// 2 人の中点を、リングの横から少し見下ろす。<paramref name="orbit"/> [rad] でゆっくり回り込む（横 ±35°）。
+    /// 2026-11-24（ユーザー: 激しく位置を入れ替えるとカメラが動きすぎて気持ち悪い。もう少しふんわり回る・完全に追わなくてよい）から、
+    /// 狙う目と見る点を毎コマ置き直さず、ゆるいバネで追う（<see cref="MainFollow"/>）。横の側は「赤が左」を好むが、2 人が入れ替わって
+    /// 反対の側の方が近くなったら（<see cref="MainKeepSide"/> より離れたら）、反対の側から撮り続ける（半周まわらない）。
+    /// <paramref name="frame"/> が前の呼び出しの次のコマでなければ（カットの直後）、追わずにその場へ置く。見た目だけ。
     /// </summary>
-    private (Matrix4x4 ViewProjection, Vector3 Eye) CameraAt(BoxingGame game, float orbit)
+    private (Matrix4x4 ViewProjection, Vector3 Eye) CameraAt(BoxingGame game, float orbit, int frame)
     {
         var axis = game.Cpu.ChestPosition - game.Player.ChestPosition;
         axis.Y = 0f;
@@ -1135,16 +1147,66 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         var mid = (min + max) * 0.5f;
         var spread = MathF.Max(focusRed ? 0f : axis.Length(), MathF.Max(max.X - min.X, max.Z - min.Z));
         var reach = MathF.Max(2.535f, (spread + 1.408f) / 1.4f) * cameraScale; // cameraScale < 1 で寄る（--camera-scale。既定 1）
-        // 離れている間は回り込みを小さくする（斜めから見ると手前の 1 人が画面の外へ出る）。
-        var angle = 0.6f * MathF.Sin(orbit) * (2.535f / reach);
-        var direction = Vector3.Transform(side, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
-        // 見下ろす高さ: 立ち合いは手前のロープ越し（1.070 / 2.535 ≈ 23°）、倒れた選手がいるほど高く俯瞰する（最大で約 48°）。横たわった体は低い角度では重なって見えない。
         var lying = MathF.Max(TvDirector.Lying(game.Player), TvDirector.Lying(game.Cpu));
-        var horizontal = reach * (1f - (0.3f * lying));
-        var eye = mid + (direction * horizontal) + new Vector3(0f, (1.070f / 2.535f + (0.7f * lying)) * reach, 0f);
-        var target = mid - new Vector3(0f, 0.169f, 0f);
+        var sideYaw = MathF.Atan2(side.X, side.Z);
+        var continuing = frame == _mainFrame + 1;
+        _mainFrame = frame;
+        if (!continuing)
+        {
+            _mainMid = mid;
+            _mainReach = reach;
+            _mainLying = lying;
+            _mainYaw = sideYaw;
+        }
+        else
+        {
+            // 入れ替わって反対の側の方が近いなら、その側を狙う（赤が左に戻るのは、2 人がまた回って赤の側が近くなったとき）。
+            if (MathF.Abs(MathF.IEEERemainder(sideYaw - _mainYaw, 2f * MathF.PI)) > MainKeepSide)
+            {
+                sideYaw += MathF.PI;
+            }
+
+            var dt = 1f / fps;
+            _mainYaw = CameraFollow.DampYaw(_mainYaw, sideYaw, MainTurn, dt);
+            _mainMid = CameraFollow.DampTarget(_mainMid, mid, MainFollow, dt);
+            // 引くのは早めに（2 人が画面の外へ出ないよう）、寄るのはゆっくり。
+            _mainReach += (reach - _mainReach) * CameraFollow.Blend(reach > _mainReach ? MainPullOut : MainPushIn, dt);
+            _mainLying += (lying - _mainLying) * CameraFollow.Blend(MainFollow, dt);
+        }
+
+        var smoothSide = new Vector3(MathF.Sin(_mainYaw), 0f, MathF.Cos(_mainYaw));
+        // 離れている間は回り込みを小さくする（斜めから見ると手前の 1 人が画面の外へ出る）。
+        var angle = 0.6f * MathF.Sin(orbit) * (2.535f / _mainReach);
+        var direction = Vector3.Transform(smoothSide, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
+        // 見下ろす高さ: 立ち合いは手前のロープ越し（1.070 / 2.535 ≈ 23°）、倒れた選手がいるほど高く俯瞰する（最大で約 48°）。横たわった体は低い角度では重なって見えない。
+        var horizontal = _mainReach * (1f - (0.3f * _mainLying));
+        var eye = TvDirector.InsideCage(game.Layout, _mainMid + (direction * horizontal) + new Vector3(0f, (1.070f / 2.535f + (0.7f * _mainLying)) * _mainReach, 0f)); // 檻なら金網の内側から（手前の金網で隠れない）
+        var target = _mainMid - new Vector3(0f, 0.169f, 0f);
         return DisplaySpace.Standard.Camera(eye, target, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
+
+    /// <summary>いつものカメラが横へ回る速さ [1/s]（時定数 2.5 秒。2 人が回り込んでも、ゆっくり付いていく。見て決めた値）。</summary>
+    private const float MainTurn = 0.4f;
+
+    /// <summary>いつものカメラの見る点が 2 人の真ん中を追う速さ [1/s]（時定数 0.8 秒）。</summary>
+    private const float MainFollow = 1.25f;
+
+    /// <summary>2 人が離れたときに引く速さ [1/s]（時定数 0.5 秒。画面の外へ出ないよう早め）。</summary>
+    private const float MainPullOut = 2f;
+
+    /// <summary>2 人が近づいたときに寄る速さ [1/s]（時定数 2 秒）。</summary>
+    private const float MainPushIn = 0.5f;
+
+    /// <summary>
+    /// 「赤が左」の側がいまの向きからこれ [rad] より離れたら、反対の側から撮る（100°。90° を少し超えて、側の行き来を繰り返さない）。
+    /// </summary>
+    private const float MainKeepSide = 1.745f;
+
+    private int _mainFrame = int.MinValue;
+    private Vector3 _mainMid;
+    private float _mainReach;
+    private float _mainLying;
+    private float _mainYaw;
 
     /// <summary>
     /// テレビ中継の冒頭: 部屋ごとリングを引きで見下ろし、ゆっくり回り込む（生成直後の構える前の姿勢が小さくしか映らない）。

@@ -77,7 +77,7 @@ internal sealed record TvWound(bool Red, VoxelBody Body, Vector3 Grid, string Na
 /// <item>ラウンド中はいつもの中継カメラ。ダウンを取られたら一呼吸おいて、天井のカメラとリング脇のカメラマンを交互に。</item>
 /// <item>休みの間は、選手を映すカット（手持ち・コーナー・リング脇）を優先し、リング全体・天井を差し込み、リプレイは 1〜2 本、傷のアップは多くて 1 カット（<see cref="PlanBreak"/>）。</item>
 /// <item>リプレイは、そのラウンドで重かった場面（ダメージ・ダウン・骨折・切断）を 2 つまで、時刻の順に。同じ試合をもう一度回した影の試合（決定的なので同じに進む）を
-/// 1 歩ごとに 1 コマで描く（30 fps・1 歩 1/80 s なら実時間の 0.375 倍のスロー）。</item>
+/// 1 歩を <see cref="ReplayFramesPerStep"/> コマで描く（30 fps・1 歩 1/60 s なら実時間の 0.25 倍のスロー）。</item>
 /// </list>
 /// </summary>
 internal sealed class TvDirector(int width, int height, int fps, float stepDt, string redName, string blueName, string? redGear = null, string? blueGear = null)
@@ -88,11 +88,20 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     /// <summary>ダウン・骨折・切断の見どころの上乗せ（重い 1 発 2 つ分ほど）。</summary>
     private const float EventBonus = 40f;
 
-    /// <summary>リプレイで当たる前に見せる長さ [試合の s]（構え・振りかぶり）。</summary>
-    public const float ReplayBefore = 1.678f;
+    /// <summary>リプレイで当たる前に見せる長さ [試合の s]（構え・振りかぶり）。1.678 → 1.2（2026-11-24、スローを 0.25 倍へ落としたので、1 本が長くなりすぎないよう縮めた）。</summary>
+    public const float ReplayBefore = 1.2f;
 
-    /// <summary>リプレイで当たった後に見せる長さ [試合の s]（崩れ・飛ぶ破片）。</summary>
-    public const float ReplayAfter = 1.175f;
+    /// <summary>リプレイで当たった後に見せる長さ [試合の s]（崩れ・飛ぶ破片）。1.175 → 1.0（同じ理由）。</summary>
+    public const float ReplayAfter = 1.0f;
+
+    /// <summary>
+    /// リプレイで影の試合の 1 歩を何コマ映すか。1 → 2（2026-11-24、ユーザー: リプレイはさらに速度を落として。30 fps・1 歩 1/60 s で実時間の 0.5 倍 → 0.25 倍）。
+    /// 試合の 1 歩の長さは変えない（影の試合が本番と同じに進む決定性のため）。カメラはコマごとに動くので、絵は止まらずに流れる。
+    /// </summary>
+    public const int ReplayFramesPerStep = 2;
+
+    /// <summary>ダウンの前に打たれた一発を探す長さ [試合の s]（ダウンは打たれてから数秒後に取られることがある）。</summary>
+    private const float DownLookBack = 7.553f;
 
     /// <summary>ダウンからカメラを切り替えるまでの間 [映像の s]（倒れる瞬間はいつものカメラで見せる）。</summary>
     private const float DownCutDelay = 0.8f;
@@ -129,6 +138,9 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     private readonly Dictionary<VoxelBody, (bool Red, string Name, float Score, Vector3 Sum)> _wounds = [];
     private readonly Dictionary<Fighter, bool> _wasDown = [];
 
+    /// <summary>選手ごとに最後に打たれた一発（歩・点・説明）。キーは打たれたのが赤か。ダウンの場面をさかのぼって探すのに使う。</summary>
+    private readonly Dictionary<bool, (int Step, Vector3 Point, string Text)> _lastHit = [];
+
     /// <summary>前の休みに傷のアップで映した部位（次の休みで、まだ傷が残っていれば治りかけとして映す候補）。</summary>
     private readonly HashSet<VoxelBody> _shown = [];
 
@@ -155,6 +167,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         string Name(Fighter f) => f == game.Player ? redName : blueName;
         foreach (var hit in game.RecentHits)
         {
+            _lastHit[hit.Victim == game.Player] = (step, hit.Point, string.Create(CultureInfo.InvariantCulture, $"{Name(hit.Attacker)}の{(hit.Elbow ? "肘" : hit.Kick ? "蹴り" : hit.Hand == Hand.Left ? "左" : "右")}が{Name(hit.Victim)}の{MiniRing.Audio.Broadcast.ZoneName(hit.Zone)}に"));
             AddWound(hit.Victim == game.Player, hit.Victim, hit.Point, hit.Damage);
             if (hit.Damage >= 8f)
             {
@@ -165,6 +178,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
 
         foreach (var hit in game.WeaponHits)
         {
+            _lastHit[hit.Victim == game.Player] = (step, hit.Point, string.Create(CultureInfo.InvariantCulture, $"{Name(hit.Attacker)}の{(hit.Attacker == game.Player ? redGear : blueGear) ?? "武器"}が{Name(hit.Victim)}の{MiniRing.Audio.Broadcast.ZoneName(hit.Zone)}に"));
             // 刃は数字のダメージが小さくても深く削る（削れたセルの数）ので、両方で重みを付ける。
             AddWound(hit.Victim == game.Player, hit.Victim, hit.Point, hit.Damage + (0.25f * hit.Cells));
             if (hit.Damage >= 8f || hit.Cells >= 15)
@@ -180,7 +194,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
             if (down && !_wasDown.GetValueOrDefault(fighter))
             {
                 // ダウンは打たれてから数秒後に取られることがある（中腰で待つ DownFaintTime 4 秒）ので、長めにさかのぼる。
-                Boost(fighter == game.Player, step, "→ ダウン", fighter.ChestPosition, game.MatchRound, 7.553f, name: Name(fighter));
+                Boost(fighter == game.Player, step, "→ ダウン", fighter.ChestPosition, game.MatchRound, DownLookBack, name: Name(fighter));
             }
 
             _wasDown[fighter] = down;
@@ -203,7 +217,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
                 }
                 else
                 {
-                    Boost(loserRed, step, what, game.Player.ChestPosition, game.MatchRound, 7.553f, 80f, Name(loserRed ? game.Player : game.Cpu));
+                    Boost(loserRed, step, what, game.Player.ChestPosition, game.MatchRound, DownLookBack, 80f, Name(loserRed ? game.Player : game.Cpu));
                 }
             }
         }
@@ -276,7 +290,11 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         return lost;
     }
 
-    /// <summary>直前の 2.518 秒（試合の時間）のうち同じ側が打たれた一番新しい場面に上乗せする（無ければその歩を場面にする）。</summary>
+    /// <summary>
+    /// 直前の <paramref name="lookBackSeconds"/>（試合の時間）のうち同じ側が打たれた一番新しい場面（重い打撃の候補）に上乗せする。候補に無ければ、
+    /// その間に打たれた一番新しい一発（軽くても）を場面にし、それも無ければその歩を場面にする。
+    /// 軽い打撃の後に崩れたダウンが倒れた歩を場面にしたので、リプレイは倒れる所から始まり、打たれた所が映らなかった（2026-11-24、ユーザー）。
+    /// </summary>
     private void Boost(bool redVictim, int step, string what, Vector3 point, int round, float lookBackSeconds = 2.518f, float bonus = EventBonus, string name = "")
     {
         var lookBack = (int)(lookBackSeconds / stepDt);
@@ -293,6 +311,14 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
                 _candidates[i] = c with { Score = c.Score + bonus, Text = c.Text + " " + what };
                 return;
             }
+        }
+
+        if (_lastHit.TryGetValue(redVictim, out var last) && last.Step >= step - lookBack)
+        {
+            // 候補は歩の順に並べておく（上の探し方が新しい方から見て、古い所で止めるため）。
+            var at = _candidates.FindIndex(c => c.Step > last.Step);
+            _candidates.Insert(at < 0 ? _candidates.Count : at, new TvHighlight(last.Step, redVictim, last.Point, bonus, last.Text + " " + what, round));
+            return;
         }
 
         _candidates.Add(new TvHighlight(step, redVictim, point, bonus, $"{name} {what.TrimStart('→', ' ')}".Trim(), round));
@@ -327,7 +353,7 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
     }
 
     /// <summary>リプレイ 1 本の映像の長さ [s]（1 歩 1 コマ）。</summary>
-    public float ReplaySeconds => ((ReplayBefore + ReplayAfter) / stepDt) / fps;
+    public float ReplaySeconds => ((int)(ReplayBefore / stepDt) + (int)(ReplayAfter / stepDt) + 1) * ReplayFramesPerStep / (float)fps;
 
     /// <summary>休みのカット割りで、選手の体が大きく映るカット（映像の 6 割以上をこれにする）。</summary>
     public static bool ShowsFighter(TvShot shot) => shot is TvShot.Handheld or TvShot.Corner or TvShot.Ringside or TvShot.Wound or TvShot.Replay;
@@ -763,21 +789,137 @@ internal sealed class TvDirector(int width, int height, int fps, float stepDt, s
         return DisplaySpace.Standard.Camera(eye, target, Vector3.UnitY, fov * MathF.PI / 180f, Aspect, 0.01f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
 
-    /// <summary>リプレイのカメラ: 当たった所を中心に、打った側と打たれた側を結ぶ線の横から回り込む（ダメージの所が見える近さ）。</summary>
+    /// <summary>
+    /// リプレイのカメラ: 打った側と打たれた側の間（当たった所へ寄せた点）を、2 人を結ぶ線の横から見る。2026-11-24（ユーザー: 打つ所が見切れる・
+    /// 倒れる場所にカメラが最初からある・腕が折れる瞬間が手前の腕に隠れる）に組み直した:
+    /// <list type="bullet">
+    /// <item>見る点は 2 人の胸の中点と当たった点の間で、コマごとにゆっくり追う（倒れていく体へ先回りしない）。距離は 2 人の間合いに比例し、打つ拳・武器も入る。</item>
+    /// <item>回り込む側は、当たった点が打たれた側の胸から寄っている側（折れた腕・打たれた顔の側）。反対の腕・体の陰にならない。1 本の間は側を変えず、少しだけ回る。</item>
+    /// </list>
+    /// 見た目だけ（影の試合には触れない）。1 コマに 1 回呼ぶ。
+    /// </summary>
     public (Matrix4x4 ViewProjection, Vector3 Eye) Replay(BoxingGame replay, TvHighlight highlight, float progress)
     {
         var victim = highlight.RedVictim ? replay.Player : replay.Cpu;
         var attacker = highlight.RedVictim ? replay.Cpu : replay.Player;
-        var focus = Vector3.Lerp(victim.ChestPosition, highlight.Point, 0.5f);
         var axis = victim.ChestPosition - attacker.ChestPosition;
         axis.Y = 0f;
-        axis = axis.LengthSquared() > 1e-6f ? Vector3.Normalize(axis) : Vector3.UnitX;
-        var side = Vector3.Cross(axis, Vector3.UnitY);
-        var angle = -0.9f + (1.4f * progress);
-        var direction = Vector3.Transform(side, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
-        var eye = focus + (direction * 1.408f) + new Vector3(0f, 0.282f, 0f);
-        return DisplaySpace.Standard.Camera(eye, focus, Vector3.UnitY, 40f * MathF.PI / 180f, Aspect, 0.01f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
+        var spread = axis.Length();
+        axis = spread > 1e-3f ? axis / spread : Vector3.UnitX;
+        // 2 人の頭と腰が入る箱の真ん中から当たった点へ寄せた点を見て、箱の広がり（横・高さの大きい方）に比例して引く
+        // （胸の間だけを見ると、倒れた選手が画面の下へ外れた）。
+        Vector3[] points = [victim.HeadPosition, victim.PelvisPosition, attacker.HeadPosition, attacker.PelvisPosition];
+        var min = points.Aggregate(Vector3.Min);
+        var max = points.Aggregate(Vector3.Max);
+        var extent = MathF.Max(MathF.Max(max.X - min.X, max.Z - min.Z), max.Y - min.Y);
+        var desired = Vector3.Lerp((min + max) * 0.5f, highlight.Point, ReplayPointShare);
+        var reach = MathF.Max(ReplayDistance, (MathF.Max(spread, extent) + ReplayMargin) / ReplayWidthPerDistance);
+        var rise = ReplayRise + (ReplayLyingRise * Lying(victim));
+        if (_replayOf != highlight)
+        {
+            _replayOf = highlight;
+            _replayFocus = desired;
+            _replayReach = reach;
+            _replayRise = rise;
+            _replaySide = ReplaySide(axis, highlight.Point - victim.ChestPosition);
+        }
+        else
+        {
+            var blend = CameraFollow.Blend(ReplayFollowRate, 1f / fps);
+            _replayFocus = Vector3.Lerp(_replayFocus, desired, blend);
+            _replayReach += (reach - _replayReach) * blend;
+            _replayRise += (rise - _replayRise) * blend;
+        }
+
+        var angle = ReplaySweep * (progress - 0.5f);
+        var direction = Vector3.Transform(_replaySide, Quaternion.CreateFromAxisAngle(Vector3.UnitY, angle));
+        var eye = InsideCage(replay.Layout, _replayFocus + (direction * _replayReach) + new Vector3(0f, _replayRise * _replayReach, 0f));
+        return DisplaySpace.Standard.Camera(eye, _replayFocus, Vector3.UnitY, 40f * MathF.PI / 180f, Aspect, 0.01f, 30f, TvDirector.CameraMargin); // 物理の空間で決めた目 → 表示の空間（部屋の内側へ寄せる）
     }
+
+    /// <summary>
+    /// リプレイで回り込む側（水平の単位ベクトル）: 打った側から打たれた側への向き <paramref name="axis"/> の横のうち、当たった点が打たれた側の胸から
+    /// 寄っている側（<paramref name="offset"/> = 当たった点 − 胸）。ほぼ正面に当たったときは今までの側（<c>axis × 上</c>）。
+    /// </summary>
+    public static Vector3 ReplaySide(Vector3 axis, Vector3 offset)
+    {
+        var side = Vector3.Cross(axis, Vector3.UnitY);
+        offset.Y = 0f;
+        return Vector3.Dot(offset, side) < -ReplaySideDeadZone ? -side : side;
+    }
+
+    /// <summary>
+    /// 檻（<see cref="RingLayout.IsCage"/>）なら、カメラの目を金網の内側（辺から <see cref="CageInset"/> 内）へ寄せ、寄せた水平の距離 × <see cref="CageRise"/> だけ高くする
+    /// （近づいたぶん見下ろして 2 人を入れる）。狭い檻（3.66 m）では 2 人から 2.5 m 引く目が金網の外に出て、大事な場面が手前の金網でほとんど見えなかった
+    /// （2026-11-24、ユーザー）。四角いリングはそのまま（ロープ越しの絵）。見た目だけ。
+    /// </summary>
+    public static Vector3 InsideCage(RingLayout layout, Vector3 eye)
+    {
+        if (!layout.IsCage)
+        {
+            return eye;
+        }
+
+        var center = layout.Center;
+        var limit = layout.Half - CageInset;
+        var flat = new Vector2(eye.X - center.X, eye.Z - center.Z);
+        var before = flat.Length();
+        for (var pass = 0; pass < 2; pass++)
+        {
+            for (var edge = 0; edge < 6; edge++)
+            {
+                var angle = HexCage.NormalAngle(edge);
+                var normal = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                var over = Vector2.Dot(flat, normal) - limit;
+                if (over > 0f)
+                {
+                    flat -= normal * over;
+                }
+            }
+        }
+
+        var lost = MathF.Max(0f, before - flat.Length());
+        return new Vector3(center.X + flat.X, eye.Y + (lost * CageRise), center.Z + flat.Y);
+    }
+
+    /// <summary>檻の中でカメラの目を辺から離す距離 [m]（金網の棒と手前の描画の切れを避ける。見て決めた値）。</summary>
+    private const float CageInset = 0.15f;
+
+    /// <summary>金網の内側へ寄せた水平の距離に対して、目を高くする割合（寄ったぶん見下ろして 2 人を入れる。見て決めた値）。</summary>
+    private const float CageRise = 0.6f;
+
+    /// <summary>リプレイの見る点を、2 人の頭と腰の箱の真ん中から当たった点へ寄せる割合（見て決めた値）。</summary>
+    private const float ReplayPointShare = 0.35f;
+
+    /// <summary>打たれた側が横たわるほど足す見下ろしの高さ（距離に対する比。いつものカメラの倒れた選手の俯瞰と同じ考え。見て決めた値）。</summary>
+    private const float ReplayLyingRise = 0.6f;
+
+    /// <summary>リプレイのカメラの最短の距離 [m]（今までの 1.408 m。打ち合う間合いではこの距離）。</summary>
+    private const float ReplayDistance = 1.408f;
+
+    /// <summary>2 人の間合いの外に取る余白 [m]（両側の頭と振った腕が入る）。</summary>
+    private const float ReplayMargin = 0.8f;
+
+    /// <summary>画角 40°・16:9 の横幅は距離の約 1.3 倍。</summary>
+    private const float ReplayWidthPerDistance = 1.3f;
+
+    /// <summary>見る点・距離を追う速さ [1/s]（時定数 0.8 秒。倒れていく体へゆっくり付いていく）。</summary>
+    private const float ReplayFollowRate = 1.25f;
+
+    /// <summary>1 本のリプレイで回り込む角 [rad]（約 34°。今までの 80° は、スローを遅くすると回りすぎに見える）。</summary>
+    private const float ReplaySweep = 0.6f;
+
+    /// <summary>見下ろす高さ（距離に対する比。今までの 0.282 / 1.408）。</summary>
+    private const float ReplayRise = 0.2f;
+
+    /// <summary>当たった点が胸の正面にほぼ重なるとき（[m]、これより小さい横のずれ）は、今までの側から撮る。</summary>
+    private const float ReplaySideDeadZone = 0.02f;
+
+    private TvHighlight? _replayOf;
+    private Vector3 _replayFocus;
+    private Vector3 _replaySide;
+    private float _replayReach;
+    private float _replayRise;
 
     private float Aspect => (float)width / height;
 
