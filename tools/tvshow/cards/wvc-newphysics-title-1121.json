@@ -1,0 +1,15 @@
+{
+  "_comment": "2026-11-21: 物理の統合（実物大の段 3、枝 claude/physics-consolidate-df71d8 @ 3fb4b1a、肘 45 Hz 入り、PhysicsVersion 79・LogicVersion 62）の作業中のモデルで撮る WVC の番組 1。顔合わせは 11-19 の番組（wvc-program-1119）と同じにして、古い物理（版 59）と見比べられるようにした。種は下見で選ぶ。",
+  "event": "WVC ファイトナイト",
+  "program": "WVC ファイトナイト",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-newphysics-title-1121",
+  "scoutSeeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "partLimitMiB": 29,
+  "commentary": { "writer": "prospective", "model": "haiku" },
+  "bouts": [
+    { "red": "albert", "blue": "ramon", "seed": "auto", "bout": "セミファイナル", "stake": "勝者は王座挑戦者の候補へ", "next": "挑戦者の候補" },
+    { "red": "marcus", "blue": "dmitri", "seed": "auto", "bout": "メインイベント", "stake": "WVC 世界王座決定戦", "next": "WVC 世界王座獲得", "belt": true }
+  ]
+}
