@@ -875,6 +875,11 @@ static int GroundTimeCommand(Options o)
         {
             var teach = (o.Get("teach") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(kv => kv.Split('=')).ToDictionary(kv => kv[0], kv => float.Parse(kv[1], CultureInfo.InvariantCulture));
             var runs = victims.Where(v => v != attacker).SelectMany(v => drillSeeds.Select(s => FinishDrill.Run(attacker, v, s, seconds, GroundPractice.Override(attacker, v, teach)))).ToList();
+            foreach (var r in runs)
+            {
+                Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture, $"run {r.Attacker} {r.Victim} {r.Seed} {r.Killed} {r.Seconds:0.000} {r.Cells} {r.AttackerFalls}"));
+            }
+
             var moves = runs.SelectMany(r => r.Moves).GroupBy(kv => kv.Key).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => $"{g.Key} {g.Sum(kv => kv.Value)}");
             var causes = runs.Where(r => r.Killed).GroupBy(r => r.Cause).OrderByDescending(g => g.Count()).Select(g => $"{g.Key} {g.Count()}");
             Log(string.Create(CultureInfo.InvariantCulture,
