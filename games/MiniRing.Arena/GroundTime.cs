@@ -66,12 +66,13 @@ internal static class GroundTime
     /// <summary>チャンスの物差しを外れてこれだけ続いたら、逃げられたとみなす [s]。</summary>
     public const float EscapeSeconds = 1.678f;
 
-    public static GroundBout Run(string redId, string blueId, int seed, int rounds, Organization org)
+    public static GroundBout Run(string redId, string blueId, int seed, int rounds, Organization org, IReadOnlyDictionary<string, float>? set = null)
     {
         var redCharacter = CharacterRoster.Get(redId);
         var blueCharacter = CharacterRoster.Get(blueId);
-        var red = RosterLeague.ContenderOf(redCharacter, blueId, null);
-        var blue = RosterLeague.ContenderOf(blueCharacter, redId, null);
+        // set: 両者のスタイルの値の上書き（--set GroundHeel=0 などで、倒れた相手への攻めを全員そろえて比べる）。
+        var red = RosterLeague.ContenderOf(redCharacter, blueId, set);
+        var blue = RosterLeague.ContenderOf(blueCharacter, redId, set);
         var rules = TvShowRules.Rules(rounds, org.Match.Referee ? MiniRing.MatchRules.Tv.BreakSeconds : MiniRing.MatchRules.Vfc.BreakSeconds, org);
         // 歩の幅は中継の下見と同じ（30 fps・0.75 倍の速さ → 1/80 s を 1/60 s 以下に割る）。
         var frameDt = MiniRing.GameSpeed.Standard / 30f;
