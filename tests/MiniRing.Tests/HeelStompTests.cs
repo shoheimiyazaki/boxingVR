@@ -173,4 +173,100 @@ public sealed class HeelStompTests
         Assert.AreEqual(b.Count, lows, "one drive below the aim per stroke");
         Assert.AreEqual(m.Rise * reach, top, 1e-3f, "the heel is lifted the rise above the aim between strokes");
     }
+
+    [TestMethod]
+    public void Stomping_PaysFromTheStompingLegsOwnReserve()
+    {
+        // 足を引く力と、蹴る脚の股・膝のサーボの仕事は、その脚の蓄えから出る（脚は左右で別の蓄え）。
+        var attacker = Attacker(heel: true);
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("attacker", s => new BoxerBot(attacker, s),
+            s => new BoxerBot(BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f, FinishTempo = 0f, FinishPress = 0f, FinishSpend = 0f }, s),
+            CpuStyleJson: attacker.ToJson(), Referee: false));
+        var work = new float[2];
+        for (var t = 0f; t < 16f; t += Dt)
+        {
+            if (t > 2.518f)
+            {
+                game.Player.Concussion = 0.97f;
+            }
+
+            var before = (game.Cpu.RegionWork(MuscleRegion.LeftLeg), game.Cpu.RegionWork(MuscleRegion.RightLeg));
+            game.Step(default, Dt);
+            var ground = (game.CpuControl as GroundStriker)?.Ground;
+            if (ground is { Striking: true, CurrentName: "heel-stomp" })
+            {
+                work[(int)ground.CurrentFoot] += game.Cpu.RegionWork(ground.CurrentFoot == Hand.Left ? MuscleRegion.LeftLeg : MuscleRegion.RightLeg)
+                    - (ground.CurrentFoot == Hand.Left ? before.Item1 : before.Item2);
+                var standing = ground.CurrentFoot == Hand.Left ? Hand.Right : Hand.Left;
+                work[(int)standing] -= game.Cpu.RegionWork(standing == Hand.Left ? MuscleRegion.LeftLeg : MuscleRegion.RightLeg)
+                    - (standing == Hand.Left ? before.Item1 : before.Item2);
+            }
+        }
+
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"stomping leg minus standing leg work: left {work[0]:0} J, right {work[1]:0} J"));
+        Assert.IsGreaterThan(200f, work.Sum(), "while stomping, the stomping leg does clearly more work than the standing leg");
+    }
+
+    [TestMethod]
+    public void HeelBarrage_SwitchesToTheOtherFoot_WhenTheStompingLegTires_AndKeepsBalance()
+    {
+        var attacker = Attacker(heel: true);
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("attacker", s => new BoxerBot(attacker, s),
+            s => new BoxerBot(BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f, FinishTempo = 0f, FinishPress = 0f, FinishSpend = 0f }, s),
+            CpuStyleJson: attacker.ToJson(), Referee: false));
+        Hand? first = null;
+        Hand? after = null;
+        var falls = 0;
+        var standing = true;
+        var hitsAfter = 0;
+        float? switchedAt = null;
+        for (var t = 0f; t < 20f; t += Dt)
+        {
+            if (t > 2.518f)
+            {
+                game.Player.Concussion = 0.97f;
+            }
+
+            game.Step(default, Dt);
+            var ground = (game.CpuControl as GroundStriker)?.Ground;
+            if (first is null && ground is { Striking: true, CurrentName: "heel-stomp" })
+            {
+                // 連打が始まった: 踏む脚の蓄えを 3 割まで減らす（疲れた脚）。
+                first = ground.CurrentFoot;
+                game.Cpu.SetOxygen(first == Hand.Left ? MuscleRegion.LeftLeg : MuscleRegion.RightLeg, 0.3f);
+            }
+
+            if (first is not null && after is null && ground is { FootSwitches: > 0 })
+            {
+                after = ground.CurrentFoot;
+            }
+
+            if (after is not null)
+            {
+                hitsAfter += game.RecentHits.Count(h => h.Attacker == game.Cpu && h.Victim == game.Player && h.Kick && h.Hand == after);
+            }
+
+            var up = game.Cpu.State == FighterState.Standing;
+            if (standing && !up)
+            {
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"fell at t={t:0.00} move={ground?.CurrentName} foot={ground?.CurrentFoot} switches={ground?.FootSwitches} O2 L={game.Cpu.LegOxygen(Hand.Left):0.00} R={game.Cpu.LegOxygen(Hand.Right):0.00}"));
+            }
+
+            if (ground is { FootSwitches: > 0 } && after is not null && switchedAt is null)
+            {
+                switchedAt = t;
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"switched at t={t:0.00}"));
+            }
+
+            falls += standing && !up ? 1 : 0;
+            standing = up;
+        }
+
+        Console.WriteLine($"first foot={first} switched to={after} hits with the new foot={hitsAfter} falls={falls}");
+        Assert.IsNotNull(first, "the heel barrage started");
+        Assert.IsNotNull(after, "the tired stomping leg is switched for the other");
+        Assert.AreNotEqual(first, after);
+        Assert.IsGreaterThan(0, hitsAfter, "the new foot keeps stomping and lands");
+        Assert.AreEqual(0, falls, "the attacker keeps its balance through the switch");
+    }
 }

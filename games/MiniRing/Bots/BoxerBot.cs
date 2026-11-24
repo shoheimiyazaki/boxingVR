@@ -218,7 +218,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 68; // 倒れた相手への攻め: 蹴り・続けて踏む・かかとの踏み下ろしの連打・狙う範囲（刃は首）・キャラごとの練習（66・67 を合わせた）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 70; // 倒れた相手への攻め: 蹴り・続けて踏む・かかとの連打（踏み替え・練習した経路）・狙う範囲（刃は首）・キャラごとの練習（68・69 を合わせた）。履歴は docs/VERSIONS.md
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;

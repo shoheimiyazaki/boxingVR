@@ -123,6 +123,8 @@ public readonly record struct BodySense(Vector3 LeftShoulder, Vector3 RightShoul
 /// （残った筋の断面・折れて垂れた先・落ちた部位だけ。意識・臓器・神経は入れない）、<paramref name="OpponentWinded"/> は相手の息の上がり（<see cref="TiredLook"/> が描くのと同じ
 /// <see cref="Fighter.Winded"/>。見た目の手がかり）、<paramref name="Match"/> は試合の時刻・点の差・打ち合いの無い時間（<see cref="MatchSense"/>）。既定値は「傷み無し・
 /// 息は普通・時刻を知らない」で、読まない入力元は今までと同じに動く。どれも読むだけで、体の物理には響かない。</para>
+/// <para><paramref name="SelfLegOxygenLeft"/>・<paramref name="SelfLegOxygenRight"/> は自分の左右の脚の酸素の蓄えの残り（0..1、<see cref="Fighter.LegOxygen"/>。
+/// 自分が感じる脚の疲れ。倒れた相手を踏む脚を、疲れた脚から元気な脚へ踏み替えるため: <see cref="Bots.HeelBarrage"/>）。既定は 1（疲れていない）。</para>
 /// <para><paramref name="SelfSupplies"/> はこの試合で休みに武器を支給された回数（<see cref="MatchRules.ResupplyWeapons"/>）。武器を失って拳で戦っていた入力元が、
 /// 支給された新しい武器を握ったと知るため（<see cref="Bots.DisarmedFallback"/>）。</para>
 /// </summary>
@@ -135,12 +137,15 @@ public readonly record struct FighterSense(
     bool OpponentDowned = false, bool MayStrikeDowned = false, BodyBuild? SelfBuild = null, BodyBuild? OpponentBuild = null,
     LegBody? SelfLegLeft = null, LegBody? SelfLegRight = null,
     float SelfInjury = 0f, float OpponentInjury = 0f, float OpponentWinded = 0f, MatchSense Match = default, int SelfSupplies = 0, GrappleSense? Grapple = null,
-    bool SelfDowned = false)
+    bool SelfDowned = false, float SelfLegOxygenLeft = 1f, float SelfLegOxygenRight = 1f)
 {
     /// <summary>自分の脚の寸法と立った形の膝（体フレーム）。分からなければ腕の長さからの見積もり。</summary>
     public LegBody SelfLeg(Hand leg) => (leg == Hand.Left ? SelfLegLeft : SelfLegRight) ?? LegBody.FromReach(leg, ArmReach);
 
     public GloveSense Opponent(Hand hand) => hand == Hand.Left ? OpponentLeft : OpponentRight;
+
+    /// <summary>自分の脚 <paramref name="leg"/> の酸素の蓄えの残り（0..1）。</summary>
+    public float SelfLegOxygen(Hand leg) => leg == Hand.Left ? SelfLegOxygenLeft : SelfLegOxygenRight;
 
     /// <summary>この試合のリング（分からなければ拳の試合の標準）。</summary>
     public RingLayout Arena => Ring ?? RingLayout.DrillBoxing;
