@@ -132,8 +132,9 @@ public sealed partial class Fighter
             HumanoidRagdoll.RagdollJoint.LeftShoulder or HumanoidRagdoll.RagdollJoint.LeftElbow => VigorOf(MuscleRegion.LeftArm),
             HumanoidRagdoll.RagdollJoint.RightShoulder or HumanoidRagdoll.RagdollJoint.RightElbow => VigorOf(MuscleRegion.RightArm),
             HumanoidRagdoll.RagdollJoint.Neck => 1f,
-            HumanoidRagdoll.RagdollJoint.LeftHip or HumanoidRagdoll.RagdollJoint.RightHip or HumanoidRagdoll.RagdollJoint.LeftKnee
-                or HumanoidRagdoll.RagdollJoint.RightKnee or HumanoidRagdoll.RagdollJoint.LeftAnkle or HumanoidRagdoll.RagdollJoint.RightAnkle => VigorOf(MuscleRegion.Legs),
+            // 脚の Aigis の左は本人の右（_legParts の並び: aigisLeft の脚が Footwork.Rear = 本人の右）。
+            HumanoidRagdoll.RagdollJoint.LeftHip or HumanoidRagdoll.RagdollJoint.LeftKnee or HumanoidRagdoll.RagdollJoint.LeftAnkle => VigorOf(MuscleRegion.RightLeg),
+            HumanoidRagdoll.RagdollJoint.RightHip or HumanoidRagdoll.RagdollJoint.RightKnee or HumanoidRagdoll.RagdollJoint.RightAnkle => VigorOf(MuscleRegion.LeftLeg),
             _ => VigorOf(MuscleRegion.Trunk),
         };
         maxTorque *= vigor;

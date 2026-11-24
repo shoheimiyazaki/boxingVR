@@ -238,7 +238,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 93; // 足の点の目標を足首からかかとへ一般化（かかとの制御）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 94; // 脚の酸素の蓄えを左右に分け、蹴る脚の足を引く力と股・膝のサーボをその脚から払う。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1262,6 +1262,13 @@ public sealed partial class Fighter
         var p = _legParts[(int)leg];
         var s = _world.GetState(p.Heel);
         return s.Position + Vector3.Transform(p.AnkleOnHeel, s.Orientation);
+    }
+
+    /// <summary>本人の左右の脚の質量 [kg]（腿・すね・かかと側の足・つま先。脚の筋肉の部位の大きさ）。</summary>
+    private float LegSideMass(Hand side)
+    {
+        var p = _legParts[(int)side];
+        return _world.GetMass(p.Thigh) + _world.GetMass(p.Shin) + _world.GetMass(p.Heel) + _world.GetMass(p.Toe);
     }
 
     /// <summary>かかとの点（足裏の後ろの縁。<see cref="FootPoint.Heel"/>）。左右は本人の左右。</summary>
@@ -2518,7 +2525,7 @@ public sealed partial class Fighter
     {
         var pelvis = _world.GetState(Parts.Pelvis);
         var omega = MathF.Sqrt(-_world.Gravity.Y / MathF.Max(0.141f, height));
-        var intent = command.ClampedMove * (_tuning.WalkSpeed * VigorOf(MuscleRegion.Legs));
+        var intent = command.ClampedMove * (_tuning.WalkSpeed * LegsVigor);
         var twistLimit = PunchTwistLimit;
         var twist = _twist / MathF.Max(1e-3f, twistLimit);
         // 体重: 頭を前へ出せば前足、反らせば後ろ足へ。右の拳（後ろの手）を打つときは前足へ乗せる。
@@ -2594,7 +2601,7 @@ public sealed partial class Fighter
             centering *= t.MaxCentering / centering.Length();
         }
 
-        var desired = (_laggedMove * (_tuning.WalkSpeed * VigorOf(MuscleRegion.Legs))) + new Vector3(centering.X, 0f, centering.Y);
+        var desired = (_laggedMove * (_tuning.WalkSpeed * LegsVigor)) + new Vector3(centering.X, 0f, centering.Y);
         // 体は足より先へは行けない: 支えの点から離れるほど、離れる向きの速さを抑える（足が追いつくのを待つ）。
         var away = -toSupport;
         var distance = away.Length();
@@ -2688,6 +2695,11 @@ public sealed partial class Fighter
 
             var (ankle, foot) = AnkleTarget(leg, pose, groundY);
             var kick = leg.Command;
+            if (kick is not null && !UsesJointDrive)
+            {
+                BudgetKickLegServos(leg, dt);
+            }
+
             if (kick is { IsKneeControl: true } kneeControl)
             {
                 ApplyKneeControl(leg, kneeControl, pelvis, dt);
@@ -2801,10 +2813,11 @@ public sealed partial class Fighter
         leg.KneeDriven = true;
         leg.LastError = goal - kneeNow;
         var mass = _world.GetMass(leg.Thigh) + _world.GetMass(leg.Shin) + _world.GetMass(leg.Heel) + _world.GetMass(leg.Toe);
-        var scale = LegStrength(leg.AigisLeft) * VigorOf(MuscleRegion.Legs) * Tone;
+        var scale = LegStrength(leg.AigisLeft) * VigorOf(LegRegion(leg)) * Tone;
         var force = ClampLength(FighterMath.HandAccel(kneeNow, velocity, goal, targetVelocity, t.KneeKp, t.KneeKd) * mass,
             t.MaxFootForce * _tuning.TorqueScale / _tuning.Scale * scale * t.KickKneeForceGain);
         // 力は膝の点にかかる（腿の重心まわりのトルクにもなる）。反作用は骨盤へ（脚の筋肉が体と脚の間で出す力）。
+        force = PayLegDrive(leg, leg.Thigh, velocity, force, dt); // 脚の筋肉の仕事はその脚の蓄えから
         _world.ApplyLinearImpulse(leg.Thigh, force * dt);
         _world.ApplyAngularImpulse(leg.Thigh, Vector3.Cross(kneeNow - thigh.Position, force) * dt);
         _world.ApplyLinearImpulse(Parts.Pelvis, -force * dt);
@@ -2891,13 +2904,19 @@ public sealed partial class Fighter
         leg.HasTarget = true;
         leg.LastError = ankleTarget - ankle;
         var mass = _world.GetMass(leg.Heel) + _world.GetMass(leg.Toe) + _world.GetMass(leg.Shin);
-        var kickScale = leg.Command is null ? 1f : LegStrength(leg.AigisLeft) * VigorOf(MuscleRegion.Legs) * Tone;
+        var kickScale = leg.Command is null ? 1f : LegStrength(leg.AigisLeft) * VigorOf(LegRegion(leg)) * Tone;
         var force = ClampLength(FighterMath.HandAccel(ankle, velocity, ankleTarget, targetVelocity, t.FootKp, t.FootKd) * mass,
             t.MaxFootForce * _tuning.TorqueScale / _tuning.Scale * kickScale * strength * (leg.Command is null ? 1f : t.KickFootForceGain));
         if (!swinging)
         {
             // 着いている足は床から持ち上げない（上向きに引くと、その反作用で骨盤が下へ引かれ、体が目標より沈んでいた）。
             force.Y = MathF.Min(0f, force.Y);
+        }
+
+        if (leg.Command is not null)
+        {
+            // 蹴り・踏み下ろしで足を引く仕事は、その脚の蓄えから払う（歩く足を床に留める力は歩く費用 WalkCost で数える）。
+            force = PayLegDrive(leg, leg.Heel, velocity, force, dt);
         }
         _world.ApplyLinearImpulse(leg.Heel, force * dt);
         _world.ApplyLinearImpulse(pelvisId, -force * dt);
@@ -3238,7 +3257,7 @@ public sealed partial class Fighter
     private void ApplyMovement(in FighterCommand command, float scale, float dt)
     {
         var pelvis = _world.GetState(Parts.Pelvis);
-        var accel = FighterMath.MoveAccel(pelvis.LinearVelocity, command.ClampedMove * (_tuning.WalkSpeed * VigorOf(MuscleRegion.Legs) * StrideSpeedRatio), _tuning.MoveGain, _tuning.MaxMoveAccel);
+        var accel = FighterMath.MoveAccel(pelvis.LinearVelocity, command.ClampedMove * (_tuning.WalkSpeed * LegsVigor * StrideSpeedRatio), _tuning.MoveGain, _tuning.MaxMoveAccel);
         ApplyLocomotion(accel * (SupportedMass * scale), dt);
         TrackSpeed(pelvis.LinearVelocity, dt);
     }
@@ -3697,6 +3716,31 @@ public sealed partial class Fighter
         {
             _world.SetAngularServoSettings(servo, hz, force, maxSpeed: maxSpeed);
         }
+    }
+
+    /// <summary>
+    /// 蹴る・踏み下ろす脚（入力元の脚の指令がある脚）の股・膝のサーボの仕事を、その脚の蓄えから取り置いて払う（腕の肩・肘のサーボ
+    /// <see cref="BudgetArmServos"/> と同じ取り置きと精算）。強さは <see cref="SetServoScale"/> と同じ式に脚の疲れ（<see cref="VigorOf"/>）を掛けた値。
+    /// 歩く脚のサーボは歩く費用（<see cref="FighterTuning.WalkCost"/>）で数えるので、ここでは払わない。書き換えた強さは、蹴り終えた歩で
+    /// <see cref="SetServoScale"/> が掛け直す（覚えた値を捨てる）。
+    /// </summary>
+    private void BudgetKickLegServos(Leg leg, float dt)
+    {
+        var region = LegRegion(leg);
+        var allowance = _budget[(int)region] * _tuning.StaminaServoShare * 0.5f;
+        var strength = _tuning.TorqueScale * Math.Clamp(ControlScale, 0.01f, 1.5f) * MathF.Max(0.01f, LegStrength(leg.AigisLeft)) * KneeKickTorque(leg.AigisLeft) * VigorOf(region);
+        var speed = KneeKickSpeed(leg.AigisLeft);
+        if (_world.HasConstraint(leg.HipServo))
+        {
+            SetAngularStrength(leg.HipServo, _tuning.LegServoHz, ReserveServo(region, leg.HipServo, Parts.Pelvis, leg.Thigh, _tuning.HipMaxTorque * strength, allowance, dt), speed);
+        }
+
+        if (_world.HasConstraint(leg.KneeServo))
+        {
+            SetTwistStrength(leg.KneeServo, _tuning.LegServoHz, ReserveServo(region, leg.KneeServo, leg.Thigh, leg.Shin, _tuning.KneeMaxTorque * strength, allowance, dt), speed);
+        }
+
+        _servoSettings[leg.AigisLeft ? 0 : 4] = float.NaN; // 蹴り終えたら SetServoScale が強さを掛け直す
     }
 
     private void SetTwistStrength(int servo, float hz, float force, float? maxSpeed = null)

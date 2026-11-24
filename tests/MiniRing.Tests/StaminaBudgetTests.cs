@@ -184,6 +184,6 @@ public sealed class StaminaBudgetTests
             world.Step(Dt);
         }
 
-        return fighter.OxygenOf(MuscleRegion.Legs); // 歩く仕事は脚の蓄えから（呼吸・循環のモデル、2026-11-18）
+        return 0.5f * (fighter.OxygenOf(MuscleRegion.LeftLeg) + fighter.OxygenOf(MuscleRegion.RightLeg)); // 歩く仕事は両脚の蓄えから（呼吸・循環のモデル、2026-11-18）
     }
 }

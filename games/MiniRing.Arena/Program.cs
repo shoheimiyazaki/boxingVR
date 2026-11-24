@@ -761,6 +761,12 @@ static int GroundLabCommand(Options o)
     {
         foreach (var move in moves)
         {
+            if (move == "heel")
+            {
+                lab.PracticeHeel(style, o.Int("candidates", 20, min: 1), o.Float("sigma", 0.08f, min: 0.001f), o.Int("validate", 301)); // 1 撃の威力を点にする
+                continue;
+            }
+
             lab.Practice(style, move, o.Int("candidates", 20, min: 1), o.Float("sigma", 0.08f, min: 0.001f), o.Int("validate", 301));
         }
 

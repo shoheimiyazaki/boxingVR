@@ -181,10 +181,11 @@ public sealed record GroundTuning
 
     /// <summary>
     /// かかとの踏み下ろしの連打（2026-11-24、ユーザーの指定）: 体重を軸足へ寄せ、かかとを狙い（頭・首）の真上へ上げて（<see cref="GroundMove.Rise"/>。
-    /// 基準の体格で約 30 cm）、つま先を起こした足のかかとで踏み下ろすのを速く繰り返す。<see cref="GroundMove.Duration"/> は 1 回の時間、
-    /// 回数・足の向きは <see cref="HeelBarrage"/>。立つ所・届く距離・軸足への寄せは踏みつけ（<see cref="Stomp"/>）と同じ値から始めた。
+    /// 基準の体格で約 36 cm）、つま先を起こした足のかかとで踏み下ろすのを速く繰り返す。<see cref="GroundMove.Duration"/> は 1 回の時間、
+    /// 回数・足の向きは <see cref="HeelBarrage"/>。値は 1 撃の威力を点にした練習（groundlab --moves heel --practice yes、40 候補。使わなかった種 301〜で
+    /// 1 撃 132 → 564 J（最大の 1 発を除く平均）・当たり 27 → 26・攻め手の転倒 0。docs/arena/groundlab_heel_practice.md）。
     /// </summary>
-    public GroundMove HeelStomp { get; init; } = new("heel-stomp", GroundLimb.Heel, 0.30f, 0.23f, 1.70f, 0.48f, 0f, 0f, 0f, 0.06f, 0f, 0.10f, 1f, MaxSink: 0.03f, StanceLean: 0.17f);
+    public GroundMove HeelStomp { get; init; } = new("heel-stomp", GroundLimb.Heel, 0.373f, 0.072f, 1.70f, 0.577f, 0f, 0f, 0f, 0.054f, 0f, 0.067f, 1f, MaxSink: 0.03f, StanceLean: 0.188f);
 
     /// <summary>かかとの踏み下ろしの連打の回数・足の向きなど（<see cref="HeelStomp"/> が 1 回の寸法）。</summary>
     public HeelBarrage HeelBarrage { get; init; } = HeelBarrage.Default;
@@ -241,6 +242,19 @@ public sealed class GroundStrike
 
     /// <summary>踏みつけの足（打ち始めた歩で決め、踏み終えるまで変えない。毎歩選び直すと左右がちらついて両足が床から離れた）。</summary>
     private Hand _foot;
+
+    /// <summary>かかとの連打の、まだ踏む回数（0 = 連打の外。踏み替えると、残りを新しい足で上げ直して踏む）と、直前の歩の何回目か。</summary>
+    private int _heelLeft;
+    private int _heelStroke = -1;
+
+    /// <summary>踏み替えの残り（0 = 踏み替えない）: 今の足を構えへ下ろし終えたら、反対の足でこの回数を踏む。</summary>
+    private int _switchLeft;
+
+    /// <summary>かかとの連打で足を踏み替えた回数（観戦・テスト用）。</summary>
+    public int FootSwitches { get; private set; }
+
+    /// <summary>今（直近に）踏んでいる足（足の技のとき）。</summary>
+    public Hand CurrentFoot => _foot;
     private bool _stomped;
 
     public GroundStrike(BotStyle style, GroundTool tool, int seed, bool club = false, GroundTuning? tuning = null)
@@ -280,6 +294,8 @@ public sealed class GroundStrike
     {
         _move = null;
         _plan = null;
+        _heelLeft = 0;
+        _switchLeft = 0;
         _sink = 0f;
         _waited = 0f;
     }
@@ -394,7 +410,7 @@ public sealed class GroundStrike
 
         if (m.Limb == GroundLimb.Heel)
         {
-            return Heel(m, result, basis, aimLocal, reach, dt);
+            return Heel(sense, m, result, basis, aimLocal, reach, dt);
         }
 
         // 打ち下ろしの途中: 打つ位置まで届かない間は、打ち始めの手前（振りかぶり）で待つ。
@@ -564,23 +580,56 @@ public sealed class GroundStrike
     /// かかとの踏み下ろしの連打（<see cref="HeelBarrage"/>）の 1 歩: 踏み続ける間は待たずに経路を進める（届く所までは寄ってから始める）。
     /// 体重を軸足（踏まない側）の上へ寄せ、頭を少し前（相手の側）へ出す。
     /// </summary>
-    private FighterCommand Heel(GroundMove m, FighterCommand result, in FighterCommand basis, Vector3 aimLocal, float reach, float dt)
+    private FighterCommand Heel(in FighterSense sense, GroundMove m, FighterCommand result, in FighterCommand basis, Vector3 aimLocal, float reach, float dt)
     {
-        var barrage = _t.HeelBarrage;
+        if (_heelLeft <= 0)
+        {
+            // 連打の始め: 踏む足は狙いに近い側。ただし、その脚がもう片方より蓄えが十分減っていれば、元気な方で踏む。
+            _heelLeft = _t.HeelBarrage.Count;
+            _heelStroke = -1;
+            _foot = _t.HeelBarrage.Fresher(sense, _foot);
+        }
+
+        var barrage = _t.HeelBarrage with { Count = _heelLeft };
         _time += dt;
+        var stroke = barrage.Stroke(m, _time);
+        if (stroke > 0 && stroke != _heelStroke && _switchLeft == 0 && barrage.Fresher(sense, _foot) != _foot)
+        {
+            // 踏む脚が疲れた（もう片方より蓄えが十分減った）: 足を上げきった所で踏むのをやめて構えへ下ろし（体重は軸足のまま）、
+            // 下ろし終えたら、残りを反対の足で上げ直して踏む（両足が床から離れないように）。
+            _switchLeft = _heelLeft - stroke;
+            _heelLeft = stroke;
+            barrage = barrage with { Count = _heelLeft };
+            stroke = -1;
+        }
+
+        _heelStroke = stroke;
         var head = basis.HeadOffset + new Vector3(0f, -_sink * reach, _t.ApproachLean * MathF.Min(_sink, 1f) * reach);
+        if (_time >= barrage.Length(m) && _switchLeft > 0)
+        {
+            _foot = _foot == Hand.Left ? Hand.Right : Hand.Left;
+            FootSwitches++;
+            _heelLeft = _switchLeft;
+            _switchLeft = 0;
+            _heelStroke = -1;
+            barrage = barrage with { Count = _heelLeft };
+            _time = 0f;
+        }
+
         if (_time >= barrage.Length(m))
         {
             _move = null;
             _plan = null;
             _stomped = true;
+            _heelLeft = 0;
             _nextAt = _clock + _style.GroundRest;
             _time = 0f;
             return result with { HeadOffset = head };
         }
 
         var weight = barrage.Weight(m, _time);
-        head += new Vector3(-_foot.LocalSide() * m.StanceLean * weight * reach, 0f, m.Lean * weight * reach);
+        // 体重を軸足へ寄せ（StanceLean）、頭を前へ（Lean）。踏み下ろす間は腰を落として体重を乗せ、上げる間に戻す（Drop）。
+        head += new Vector3(-_foot.LocalSide() * m.StanceLean * weight * reach, -barrage.Drop * barrage.DropAt(m, _time) * reach, m.Lean * weight * reach);
         var rest = new Vector3(_foot.LocalSide() * _t.FootRestSide * reach, -_t.FootRestDrop * reach, 0f);
         var leg = barrage.Leg(m, _time, aimLocal, rest, new Vector3(0f, _t.KneeUp, _t.KneeForward) * reach, reach);
         result = result with { HeadOffset = head };

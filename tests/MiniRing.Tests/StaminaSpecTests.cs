@@ -50,7 +50,7 @@ public sealed class StaminaSpecTests
             var p = game.Player;
             minArms = MathF.Min(minArms, MathF.Min(p.OxygenOf(MuscleRegion.LeftArm), p.OxygenOf(MuscleRegion.RightArm)));
             minTrunk = MathF.Min(minTrunk, p.OxygenOf(MuscleRegion.Trunk));
-            minLegs = MathF.Min(minLegs, p.OxygenOf(MuscleRegion.Legs));
+            minLegs = MathF.Min(minLegs, MathF.Min(p.OxygenOf(MuscleRegion.LeftLeg), p.OxygenOf(MuscleRegion.RightLeg)));
             if (step == (int)(2f / Dt))
             {
                 workAt2 = p.RegionWork(MuscleRegion.Trunk);

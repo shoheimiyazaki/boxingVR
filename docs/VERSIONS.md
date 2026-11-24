@@ -9,6 +9,7 @@
 
 体の物理・当たり・静的な形（リング・部屋の当たり判定を含む）を変えたら上げる。22 以前は git の履歴を見る。
 
+- **94**（2026-11-24、枝 `claude/heel-control-378a8d`、ユーザーの指定「スタミナが減ってきたらもう片方の足に踏み変える」のため）: 脚の酸素の蓄えを左右に分けた（`MuscleRegion.LeftLeg`・`RightLeg`。前は両脚で 1 つ）。蹴る・踏み下ろす脚（脚の指令がある脚）の、足（膝）を引く PD の仕事と股・膝のサーボの仕事を、腕と同じ数え方でその脚の蓄えから払い、払える分まで力を縮める（前は数えていなかった）。歩く・脚のバネは両脚で受け持ち、左右の予算の比で分ける（左右がそろえば前と同じ減り方）。`HeelStompTests.Stomping_PaysFromTheStompingLegsOwnReserve`・docs/BOXING.md §2・DEBT「スタミナと臓器の効き方」。
 - **93**（2026-11-24、枝 `claude/heel-control-378a8d`）: 脚の足の点の目標（`LegCommand` の膝の制御でない形）を「足のどの点（`FootPoint`: 足首・かかと）をどの向きで引くか」へ一般化した（かかとの制御 `LegCommand.Heel`）。足の向きから足首の目標を出して IK・サーボで追い、選んだ点を PD 力で引く（反作用は骨盤、上限は足首の目標と同じ脚の筋肉 × 酸素 × 張り）。足首の目標の入力は前と同じ計算。新しい入力が体に届くので上げた。`HeelStompTests`・docs/TAEKWONDO.md「かかとの制御」。
 - **92**（2026-11-24、枝 `claude/org-healing-2917e1`。91 の `claude/cage-start-d616e4` とのマージで 92）: ラウンドの間の再生の速さを団体のファイルの値にした（`match.regenVoxelsPerSecond`。前の `regenerates` の真偽を置き換えた）。ユーザーの指定で WVC は 89.37 → 1.79 個/秒（ほぼ治らない: 削れた顔が休みの間に完治していた）、VFC の前線の再生は 0.84 → 1.26 mm/s（もっと早く。`MatchRules.Vfc` も同じ）、IVF は標準の 89.37 のまま（値を明示）。治る量は休みの長さ × 速さ（`TvShowRules.Rules` が休みを延ばすと速さを下げていたのをやめた）。WVC・VFC の試合の結果が変わる（記録は `MatchRules` を持つので古い記録の再生は変わらないが、同じ種の中継・総当たりが変わるので上げた）。`OrgHealingTests`・docs/ORGS.md・docs/VFC.md「再生」。
 - **91**（2026-11-24、枝 `claude/cage-start-d616e4`）: コーナーの立つ所（始め・休み・ニュートラルコーナー）を、一律の距離（`RingLayout.CornerInset` 0.28 m・`MatchRules.CornerInset` 0.20 m、どちらも消した）から、生成した姿勢の体と持ち物（武器・盾・はめる物）の格子の箱を上から見た輪郭が、ロープ・金網の当たりの面から `RingLayout.CornerClearance`（5.6 cm）以上内側に収まる、角にいちばん近い所へ変えた（`RingLayout.CornerFor`・`BoxingGame.PlaceAtCorner`）。檻の 120° の角で、剣・棍棒・盾が生まれた時点で金網に食い込み、5 ラウンド動けなかった。四角いリングでも T 字の腕がロープに入っていたので、全員が前より内側から始まる。テストは `CornerClearanceTests`。
@@ -98,6 +99,7 @@
 
 ボットの判断の仕組みを変えたら上げる。
 
+- **69**（2026-11-24、枝 `claude/heel-control-378a8d`。68 は `claude/vfc-ground-5de882` がこの枝の 67 と合わせた番号）: かかとの連打で、踏む脚の酸素の蓄えが軸足より `HeelBarrage.SwitchMargin`（0.10）少なくなったら、足を上げきった所で踏むのをやめて構えへ下ろし、反対の足で残りを踏む（連打の始めも元気な方の足）。自分の脚の蓄えを `FighterSense.SelfLegOxygenLeft/Right` で感じる。経路を 1 撃の威力を点にした練習の値にした（下ろす区間 0.4 → 0.1・1 回 0.30 → 0.37 s・上げる高さ 0.48 → 0.58 腕。使わなかった種で 1 撃 132 → 564 J、当たり 27 → 26、転倒 0。`docs/arena/groundlab_heel_practice.md`）。踏み下ろす間に腰を落とす `HeelBarrage.Drop`（既定 0、練習で 0 に戻った）を足した。
 - **67**（2026-11-24、枝 `claude/heel-control-378a8d`。66 は `claude/vfc-ground-5de882`・`claude/six-limbed-alien` が使っている）: 倒れた相手を足で踏むとき、かかとの踏み下ろしの連打（`GroundTuning.HeelStomp`・`HeelBarrage`: かかとを頭・首の約 30 cm 上へ上げ、0.30 s ごとに 6 回踏み下ろす）を選ぶ（`BotStyle.GroundHeel`、既定 1）。足裏の踏みつけより当たり 28 → 48・渡したエネルギー 167 → 661 J/打ち（groundlab 4 本 × 20 s、`docs/arena/groundlab_heel.md`）、攻め手の転倒 0。
 - **次の版（枝 `claude/ground-strike-rework`）**: 素手のボットが倒れた相手の頭・首を踏みつける。デスクトップの素手操作でも強攻撃で同じ技を出す。
 - **64**（2026-11-23、枝 `claude/master-test-check`）: フックと同じベジェ曲線で肘の向きを狙いへ振り、回旋と踏み込みを先に始める。

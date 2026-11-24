@@ -179,11 +179,12 @@ public sealed partial class Fighter
 
     private void SetJointLegStrength(float scale, float dt)
     {
-        var index = (int)MuscleRegion.Legs;
-        var unassigned = 2 * 4;
         foreach (var leg in _legParts)
         {
-            var strength = scale * _tuning.TorqueScale * LegStrength(leg.AigisLeft) * VigorOf(MuscleRegion.Legs);
+            var region = LegRegion(leg);
+            var index = (int)region;
+            var unassigned = 4;
+            var strength = scale * _tuning.TorqueScale * LegStrength(leg.AigisLeft) * VigorOf(region);
             var speed = KneeKickSpeed(leg.AigisLeft);
             Set(leg.HipServo, Parts.Pelvis, leg.Thigh, _tuning.HipMaxTorque, angular: true);
             Set(leg.KneeServo, leg.Thigh, leg.Shin, _tuning.KneeMaxTorque);
@@ -198,7 +199,7 @@ public sealed partial class Fighter
                     return;
                 }
 
-                var limit = ReserveServo(MuscleRegion.Legs, joint, parent, child, torque * strength, allowance, dt);
+                var limit = ReserveServo(region, joint, parent, child, torque * strength, allowance, dt);
                 if (angular)
                 {
                     SetAngularStrength(joint, _tuning.LegServoHz, limit, speed);
