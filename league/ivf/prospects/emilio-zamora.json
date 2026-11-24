@@ -1,0 +1,108 @@
+{
+  "id": "emilio-zamora",
+  "order": 1227,
+  "org": "ivf",
+  "name": "エミリオ・サモラ",
+  "reading": "エミリオ サモラ",
+  "hudName": "エミリオ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.94,
+      "jaw": 1.026,
+      "noseWidth": 1.1,
+      "noseLength": 0.968,
+      "cheekbones": 1.471,
+      "faceWidth": 1.027
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {
+        "beard.1": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.94,
+      "jaw": 1.026,
+      "noseWidth": 1.1,
+      "noseLength": 0.968,
+      "cheekbones": 1.471,
+      "faceWidth": 1.027
+    },
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0513,
+      "arms": 0.998,
+      "legs": 1.007,
+      "muscle": 1.2459
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.929,
+      "Circling": 0.219,
+      "HeadMovement": 0.784,
+      "DefenseRate": 0.517,
+      "CounterRate": 0.653,
+      "ExitAfterCombo": 0.082,
+      "AttackRange": 0.75,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 227,
+      "age": 21,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -22,6 +22,9 @@ internal sealed record TvScoutResult(int Seed, string Finish, bool Ko, int Round
 
     /// <summary>両者が同時に倒れていた時間の、いちばん長く続いた 1 回 [s]。</summary>
     public float LongestBothDown { get; init; }
+
+    /// <summary>試合の終わりの状態のチェックサム（<see cref="BoxingGame.StateChecksum"/>）。記録から回し直して同じかを確かめる（新人リーグの verify）。</summary>
+    public ulong Checksum { get; init; }
 }
 
 /// <summary>

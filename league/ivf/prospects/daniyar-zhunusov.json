@@ -1,0 +1,107 @@
+{
+  "id": "daniyar-zhunusov",
+  "order": 1140,
+  "org": "ivf",
+  "name": "ダニヤル・ジュヌソフ",
+  "reading": "ダニヤル ジュヌソフ",
+  "hudName": "ダニヤル",
+  "origin": "カザフスタン",
+  "country": "kazakhstan",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.89, 0.769, 0.659],
+    "hair": [0.165, 0.129, 0.106],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.965,
+      "jaw": 0.955,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 0.927,
+      "cheekbones": 1.148,
+      "faceWidth": 0.95
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.965,
+      "jaw": 0.955,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 0.927,
+      "cheekbones": 1.148,
+      "faceWidth": 0.95
+    },
+    "skin": [0.89, 0.769, 0.659],
+    "hair": [0.165, 0.129, 0.106],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9639,
+      "arms": 1.019,
+      "legs": 1.021,
+      "muscle": 1.116
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.187,
+      "Circling": 0.491,
+      "HeadMovement": 0.476,
+      "DefenseRate": 0.85,
+      "CounterRate": 0.855,
+      "ExitAfterCombo": 0.468,
+      "AttackRange": 0.953
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 140,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

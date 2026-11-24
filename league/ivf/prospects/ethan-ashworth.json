@@ -1,0 +1,103 @@
+{
+  "id": "ethan-ashworth",
+  "order": 1024,
+  "org": "ivf",
+  "name": "イーサン・アシュワース",
+  "reading": "イーサン アシュワース",
+  "hudName": "イーサン",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Full",
+    "eyes": [0.349, 0.49, 0.608],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.957,
+      "jaw": 0.932,
+      "noseLength": 1.21,
+      "cheekbones": 1.325,
+      "faceWidth": 0.916
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.957,
+      "jaw": 0.932,
+      "noseLength": 1.21,
+      "cheekbones": 1.325,
+      "faceWidth": 0.916
+    },
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.349, 0.49, 0.608]
+  },
+  "body": {
+    "build": {
+      "height": 0.9371,
+      "arms": 1.014,
+      "legs": 0.971,
+      "muscle": 1.0559
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 1,
+      "Circling": 0.149,
+      "HeadMovement": 0.513,
+      "DefenseRate": 0.507,
+      "CounterRate": 0.768,
+      "ExitAfterCombo": 0.755,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 24,
+      "age": 19,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

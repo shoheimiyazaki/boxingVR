@@ -1,0 +1,107 @@
+{
+  "id": "ivan-trujillo",
+  "order": 1228,
+  "org": "ivf",
+  "name": "イバン・トルヒーヨ",
+  "reading": "イバン トルヒーヨ",
+  "hudName": "イバン",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.94,
+      "jaw": 1.011,
+      "noseWidth": 1.1,
+      "noseLength": 1.034,
+      "cheekbones": 1.331,
+      "faceWidth": 0.982
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.94,
+      "jaw": 1.011,
+      "noseWidth": 1.1,
+      "noseLength": 1.034,
+      "cheekbones": 1.331,
+      "faceWidth": 0.982
+    },
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0164,
+      "arms": 0.991,
+      "legs": 1.04,
+      "muscle": 1.1472
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 1,
+      "Circling": 0.186,
+      "HeadMovement": 0.721,
+      "DefenseRate": 0.583,
+      "CounterRate": 0.644,
+      "ExitAfterCombo": 0.112,
+      "AttackRange": 0.767
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 228,
+      "age": 20,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

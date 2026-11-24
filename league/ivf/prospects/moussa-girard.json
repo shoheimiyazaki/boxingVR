@@ -1,0 +1,107 @@
+{
+  "id": "moussa-girard",
+  "order": 1111,
+  "org": "ivf",
+  "name": "ムーサ・ジラール",
+  "reading": "ムーサ ジラール",
+  "hudName": "ムーサ",
+  "origin": "フランス",
+  "country": "france",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.824, 0.659, 0.51],
+    "hair": [0.11, 0.09, 0.078],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.977,
+      "jaw": 1.019,
+      "browThickness": 1.35,
+      "noseLength": 1.23,
+      "cheekbones": 1.295,
+      "faceWidth": 1.028
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.6": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.3": 0.5,
+        "nose.5": 0.5
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.977,
+      "jaw": 1.019,
+      "browThickness": 1.35,
+      "noseLength": 1.23,
+      "cheekbones": 1.295,
+      "faceWidth": 1.028
+    },
+    "skin": [0.824, 0.659, 0.51],
+    "hair": [0.11, 0.09, 0.078],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.1027,
+      "arms": 0.995,
+      "legs": 1.004,
+      "muscle": 0.868
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.686,
+      "Circling": 0.752,
+      "HeadMovement": 0.27,
+      "DefenseRate": 0.472,
+      "CounterRate": 0.407,
+      "ExitAfterCombo": 1,
+      "AttackRange": 1.193
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 111,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

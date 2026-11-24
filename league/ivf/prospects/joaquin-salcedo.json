@@ -1,0 +1,107 @@
+{
+  "id": "joaquin-salcedo",
+  "order": 1126,
+  "org": "ivf",
+  "name": "ホアキン・サルセド",
+  "reading": "ホアキン サルセド",
+  "hudName": "ホアキン",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.227, 0.165, 0.122],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 1.076,
+      "jaw": 1.033,
+      "noseWidth": 1.1,
+      "noseLength": 1.037,
+      "cheekbones": 1.388,
+      "faceWidth": 0.977
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {
+        "beard.1": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.076,
+      "jaw": 1.033,
+      "noseWidth": 1.1,
+      "noseLength": 1.037,
+      "cheekbones": 1.388,
+      "faceWidth": 0.977
+    },
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.227, 0.165, 0.122],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.05,
+      "arms": 1.031,
+      "legs": 0.973,
+      "muscle": 0.9736
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.734,
+      "Circling": 0.172,
+      "HeadMovement": 0.183,
+      "DefenseRate": 0.336,
+      "CounterRate": 0.33,
+      "ExitAfterCombo": 0.141,
+      "AttackRange": 0.962
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 126,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

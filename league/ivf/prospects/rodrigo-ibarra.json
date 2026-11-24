@@ -1,0 +1,105 @@
+{
+  "id": "rodrigo-ibarra",
+  "order": 1001,
+  "org": "ivf",
+  "name": "ロドリゴ・イバラ",
+  "reading": "ロドリゴ イバラ",
+  "hudName": "ロドリゴ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.227, 0.165, 0.122],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.984,
+      "jaw": 0.963,
+      "noseWidth": 1.1,
+      "noseLength": 0.948,
+      "cheekbones": 1.452,
+      "faceWidth": 0.971
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.984,
+      "jaw": 0.963,
+      "noseWidth": 1.1,
+      "noseLength": 0.948,
+      "cheekbones": 1.452,
+      "faceWidth": 0.971
+    },
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.227, 0.165, 0.122],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.911,
+      "arms": 0.996,
+      "legs": 1.029,
+      "muscle": 1.0841
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.686,
+      "Circling": 0.713,
+      "HeadMovement": 0.233,
+      "DefenseRate": 0.422,
+      "CounterRate": 0.536,
+      "ExitAfterCombo": 0.802,
+      "AttackRange": 1.229
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 1,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

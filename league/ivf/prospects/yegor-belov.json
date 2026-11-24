@@ -1,0 +1,103 @@
+{
+  "id": "yegor-belov",
+  "order": 1072,
+  "org": "ivf",
+  "name": "エゴール・ベロフ",
+  "reading": "エゴール ベロフ",
+  "hudName": "エゴール",
+  "origin": "ロシア",
+  "country": "russia",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.533, 0.439, 0.267],
+    "hairstyle": "Crop",
+    "eyes": [0.349, 0.49, 0.608],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.078,
+      "jaw": 0.978,
+      "noseLength": 1.135,
+      "cheekbones": 1.294,
+      "faceWidth": 1.076
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.078,
+      "jaw": 0.978,
+      "noseLength": 1.135,
+      "cheekbones": 1.294,
+      "faceWidth": 1.076
+    },
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.533, 0.439, 0.267],
+    "iris": [0.349, 0.49, 0.608]
+  },
+  "body": {
+    "build": {
+      "height": 0.9833,
+      "arms": 0.993,
+      "legs": 0.967,
+      "muscle": 1.0781
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.506,
+      "Circling": 0.345,
+      "HeadMovement": 0.334,
+      "DefenseRate": 0.535,
+      "CounterRate": 0.466,
+      "ExitAfterCombo": 0.355,
+      "AttackRange": 1.036
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 72,
+      "age": 20,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

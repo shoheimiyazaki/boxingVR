@@ -1,0 +1,103 @@
+{
+  "id": "pavel-lebedev",
+  "order": 1077,
+  "org": "ivf",
+  "name": "パーヴェル・レベデフ",
+  "reading": "パーヴェル レベデフ",
+  "hudName": "パーヴェル",
+  "origin": "ロシア",
+  "country": "russia",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.533, 0.439, 0.267],
+    "hairstyle": "Crop",
+    "eyes": [0.424, 0.506, 0.569],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.061,
+      "jaw": 1.047,
+      "noseLength": 1.228,
+      "cheekbones": 1.424,
+      "faceWidth": 1.071
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.061,
+      "jaw": 1.047,
+      "noseLength": 1.228,
+      "cheekbones": 1.424,
+      "faceWidth": 1.071
+    },
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.533, 0.439, 0.267],
+    "iris": [0.424, 0.506, 0.569]
+  },
+  "body": {
+    "build": {
+      "height": 0.9266,
+      "arms": 1.001,
+      "legs": 0.994,
+      "muscle": 1.1439
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.793,
+      "Circling": 0.812,
+      "HeadMovement": 0.269,
+      "DefenseRate": 0.411,
+      "CounterRate": 0.48,
+      "ExitAfterCombo": 0.929,
+      "AttackRange": 1.065
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 77,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

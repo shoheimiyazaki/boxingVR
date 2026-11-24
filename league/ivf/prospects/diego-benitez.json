@@ -1,0 +1,105 @@
+{
+  "id": "diego-benitez",
+  "order": 1239,
+  "org": "ivf",
+  "name": "ディエゴ・ベニテス",
+  "reading": "ディエゴ ベニテス",
+  "hudName": "ディエゴ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.678, 0.475, 0.325],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.478, 0.322, 0.188],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.983,
+      "jaw": 1.059,
+      "noseWidth": 1.1,
+      "noseLength": 1.021,
+      "cheekbones": 1.298,
+      "faceWidth": 0.975
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.983,
+      "jaw": 1.059,
+      "noseWidth": 1.1,
+      "noseLength": 1.021,
+      "cheekbones": 1.298,
+      "faceWidth": 0.975
+    },
+    "skin": [0.678, 0.475, 0.325],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.478, 0.322, 0.188]
+  },
+  "body": {
+    "build": {
+      "height": 1.1029,
+      "arms": 0.971,
+      "legs": 0.992,
+      "muscle": 1.1124
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.599,
+      "Circling": 0.834,
+      "HeadMovement": 0.237,
+      "DefenseRate": 0.43,
+      "CounterRate": 0.486,
+      "ExitAfterCombo": 0.862,
+      "AttackRange": 1.075
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 239,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

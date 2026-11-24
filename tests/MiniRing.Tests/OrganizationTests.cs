@@ -304,13 +304,15 @@ public sealed class OrganizationTests
             Assert.AreEqual("vfc", CharacterRoster.Get(id).Org, id);
         }
 
+        // 手で作った名簿の VFC 以外は WVC。新人リーグで作られ登録された選手（2026-11-25）は IVF。
+        var handMade = MiniRing.Arena.Circuit.ProspectFactory.ReservedIds(CharacterRoster.All).ToHashSet();
         foreach (var c in CharacterRoster.All.Where(c => !VfcFighters.Contains(c.Id)))
         {
-            Assert.AreEqual("wvc", c.Org, c.Id);
+            Assert.AreEqual(handMade.Contains(c.Id) ? "wvc" : "ivf", c.Org, c.Id);
         }
 
         // 武器・グローブ以外のはめる物を使う選手は VFC、素手・グローブの拳は WVC（空手・テコンドー・ムエタイも）。
-        foreach (var c in CharacterRoster.All)
+        foreach (var c in CharacterRoster.All.Where(c => handMade.Contains(c.Id)))
         {
             var anything = c.Weapon is not null || c.Wear is not (MiniRing.Weapons.HandWear.Glove or MiniRing.Weapons.HandWear.None);
             Assert.AreEqual(anything ? "vfc" : "wvc", c.Org, $"{c.Id}: {c.EquipmentName}");

@@ -1,0 +1,163 @@
+{
+  "id": "sipho-van-wyk",
+  "order": 1128,
+  "org": "ivf",
+  "name": "シフォ・ファンワイク",
+  "reading": "シフォ ファンワイク",
+  "hudName": "シフォ",
+  "origin": "南アフリカ",
+  "country": "southafrica",
+  "tagline": "IVF ライトヘビー級の新鋭",
+  "look": {
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.032,
+      "jaw": 1.002,
+      "noseWidth": 1.2,
+      "noseLength": 1.048,
+      "lips": 1.1,
+      "cheekbones": 1.371,
+      "faceWidth": 1.022
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.032,
+      "jaw": 1.002,
+      "noseWidth": 1.2,
+      "noseLength": 1.048,
+      "lips": 1.1,
+      "cheekbones": 1.371,
+      "faceWidth": 1.022
+    },
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0617,
+      "arms": 0.963,
+      "legs": 0.999,
+      "muscle": 0.9688
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.711,
+      "Circling": 0.17,
+      "HeadMovement": 0.18,
+      "DefenseRate": 0.255,
+      "CounterRate": 0.321,
+      "ExitAfterCombo": 0.167,
+      "AttackRange": 0.975
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 128,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ],
+  "profile": {
+    "age": 23,
+    "heightCm": 155,
+    "weightKg": 76,
+    "birthplace": "南アフリカ",
+    "hometown": "ヨハネスブルグ（ソウェト）",
+    "stance": "オーソドックス",
+    "nicknameStory": "強打から「ザ・ドラム」。打つたびにジムの壁が響くと言われた。",
+    "fightRecord": {
+      "wins": 7,
+      "losses": 1,
+      "draws": 0,
+      "kos": 7
+    },
+    "career": [
+      "シーズン1・IVF 新人リーグ 第1興行: ユニエル・ピネダに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第2興行: カンタン・マルシャンに1R KO 負け",
+      "シーズン1・IVF 新人リーグ 第3興行: ニクラス・フォークトに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第4興行: ラクラン・トゥイラギに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第5興行: ラミロ・セルバンテスに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第6興行: ホアキン・サルセドに1R KO 勝ち",
+      "シーズン1・IVF ライトヘビー級ランキング挑戦: ダニヤル・セイトカリに1R KO 勝ち",
+      "シーズン1・IVF ライトヘビー級王座戦: ガストン・ド・ヴァロワに1R KO 勝ち"
+    ],
+    "trainer": "ソウェトの古いジムを守るジョゼフ・マシレラ",
+    "fightingStyle": "前に出て強打を振る。打ち合いを恐れない。155 cm・76 kg のライトヘビー級で、腕は基準の 0.96 倍。",
+    "strengths": [
+      "倒し切る決定力（7勝のうち7KO）",
+      "打ち合いで相手より多く当てる"
+    ],
+    "weaknesses": [
+      "腕が短く、懐へ入らないと届かない",
+      "1つの負けから学ぶ途中",
+      "5 ラウンドの長い試合の経験が浅い"
+    ],
+    "personality": "陽気で歌好き。強打者なのに試合後は涙もろい。",
+    "hobbies": [
+      "合唱",
+      "サッカー",
+      "祖母の家庭菜園"
+    ],
+    "family": "祖母に育てられた。祖母の家の庭で古タイヤを叩いたのが始まり。",
+    "episodes": [
+      "前に出て打ち合う強打者",
+      "ジムの合唱で低音を担当している",
+      "初めての賞金で祖母の家の屋根を直した",
+      "入場曲は祖母がよく歌っていた古い合唱曲"
+    ],
+    "quote": "前へ。いつも前へ。",
+    "commentaryNotes": [
+      "IVF 新人リーグ シーズン1で5勝1敗（5KO）。ライトヘビー級の上位で正式に登録された",
+      "南アフリカ出身、23歳",
+      "新人リーグで一番早い KO は 1R 19 秒",
+      "前に出る強打者（slugger の教科書）"
+    ]
+  }
+}

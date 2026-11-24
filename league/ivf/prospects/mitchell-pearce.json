@@ -1,0 +1,103 @@
+{
+  "id": "mitchell-pearce",
+  "order": 1209,
+  "org": "ivf",
+  "name": "ミッチェル・ピアース",
+  "reading": "ミッチェル ピアース",
+  "hudName": "ミッチェル",
+  "origin": "オーストラリア",
+  "country": "australia",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.533, 0.439, 0.267],
+    "hairstyle": "Crop",
+    "eyes": [0.376, 0.451, 0.306],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.98,
+      "jaw": 0.965,
+      "noseLength": 1.123,
+      "cheekbones": 1.334,
+      "faceWidth": 1.024
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.98,
+      "jaw": 0.965,
+      "noseLength": 1.123,
+      "cheekbones": 1.334,
+      "faceWidth": 1.024
+    },
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.533, 0.439, 0.267],
+    "iris": [0.376, 0.451, 0.306]
+  },
+  "body": {
+    "build": {
+      "height": 1.1848,
+      "arms": 1.05,
+      "legs": 0.948,
+      "muscle": 1.0387
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.829,
+      "Circling": 0.175,
+      "HeadMovement": 0.758,
+      "DefenseRate": 0.558,
+      "CounterRate": 0.637,
+      "ExitAfterCombo": 0.085,
+      "AttackRange": 0.938
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 209,
+      "age": 26,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

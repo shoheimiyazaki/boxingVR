@@ -1,0 +1,103 @@
+{
+  "id": "roman-orlov",
+  "order": 1044,
+  "org": "ivf",
+  "name": "ロマン・オルロフ",
+  "reading": "ロマン オルロフ",
+  "hudName": "ロマン",
+  "origin": "ロシア",
+  "country": "russia",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Full",
+    "eyes": [0.482, 0.522, 0.533],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.989,
+      "jaw": 0.937,
+      "noseLength": 1.15,
+      "cheekbones": 1.39,
+      "faceWidth": 0.987
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.989,
+      "jaw": 0.937,
+      "noseLength": 1.15,
+      "cheekbones": 1.39,
+      "faceWidth": 0.987
+    },
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.482, 0.522, 0.533]
+  },
+  "body": {
+    "build": {
+      "height": 1.044,
+      "arms": 0.986,
+      "legs": 0.997,
+      "muscle": 0.906
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.194,
+      "Circling": 0.553,
+      "HeadMovement": 0.477,
+      "DefenseRate": 0.803,
+      "CounterRate": 0.893,
+      "ExitAfterCombo": 0.405,
+      "AttackRange": 0.963
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 44,
+      "age": 26,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

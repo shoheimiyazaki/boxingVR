@@ -1,0 +1,105 @@
+{
+  "id": "askar-tleuov",
+  "order": 1023,
+  "org": "ivf",
+  "name": "アスカル・トレウオフ",
+  "reading": "アスカル トレウオフ",
+  "hudName": "アスカル",
+  "origin": "カザフスタン",
+  "country": "kazakhstan",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Crop",
+    "eyes": [0.349, 0.49, 0.608],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.969,
+      "jaw": 0.955,
+      "noseLength": 1.181,
+      "cheekbones": 1.363,
+      "faceWidth": 1.013
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {
+        "beard.1": 1
+      },
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.969,
+      "jaw": 0.955,
+      "noseLength": 1.181,
+      "cheekbones": 1.363,
+      "faceWidth": 1.013
+    },
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.349, 0.49, 0.608]
+  },
+  "body": {
+    "build": {
+      "height": 1.0531,
+      "arms": 1.047,
+      "legs": 1.04,
+      "muscle": 0.883
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.909,
+      "Circling": 0.218,
+      "HeadMovement": 0.933,
+      "DefenseRate": 0.484,
+      "CounterRate": 0.618,
+      "ExitAfterCombo": 0.105,
+      "AttackRange": 0.964
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 23,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

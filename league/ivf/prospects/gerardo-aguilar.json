@@ -1,0 +1,105 @@
+{
+  "id": "gerardo-aguilar",
+  "order": 1117,
+  "org": "ivf",
+  "name": "ヘラルド・アギラル",
+  "reading": "ヘラルド アギラル",
+  "hudName": "ヘラルド",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.068,
+      "jaw": 0.968,
+      "noseWidth": 1.1,
+      "noseLength": 0.958,
+      "cheekbones": 1.352,
+      "faceWidth": 0.998
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.068,
+      "jaw": 0.968,
+      "noseWidth": 1.1,
+      "noseLength": 0.958,
+      "cheekbones": 1.352,
+      "faceWidth": 0.998
+    },
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9294,
+      "arms": 0.998,
+      "legs": 0.974,
+      "muscle": 1.1861
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.724,
+      "Circling": 0.76,
+      "HeadMovement": 0.26,
+      "DefenseRate": 0.475,
+      "CounterRate": 0.507,
+      "ExitAfterCombo": 0.893,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 117,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

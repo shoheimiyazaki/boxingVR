@@ -1,0 +1,107 @@
+{
+  "id": "andre-booker",
+  "order": 1153,
+  "org": "ivf",
+  "name": "アンドレ・ブッカー",
+  "reading": "アンドレ ブッカー",
+  "hudName": "アンドレ",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.99,
+      "jaw": 0.956,
+      "noseWidth": 1.2,
+      "noseLength": 1.046,
+      "lips": 1.1,
+      "cheekbones": 1.298,
+      "faceWidth": 0.955
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.99,
+      "jaw": 0.956,
+      "noseWidth": 1.2,
+      "noseLength": 1.046,
+      "lips": 1.1,
+      "cheekbones": 1.298,
+      "faceWidth": 0.955
+    },
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.03,
+      "arms": 1.015,
+      "legs": 0.975,
+      "muscle": 1.0195
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.695,
+      "Circling": 0.119,
+      "HeadMovement": 0.221,
+      "DefenseRate": 0.266,
+      "CounterRate": 0.271,
+      "ExitAfterCombo": 0.156,
+      "AttackRange": 0.9
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 153,
+      "age": 21,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

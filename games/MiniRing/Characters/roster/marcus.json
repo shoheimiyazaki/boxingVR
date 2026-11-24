@@ -18,7 +18,7 @@
     "nicknameStory": "リングネームの「ザ・ハンマー」は、屋根職人だった父の手伝いで子どもの頃から金槌を振っていたことから。一撃の重さを見たトレーナーが、そのままリングネームにした。",
     "fightRecord": {
       "wins": 38,
-      "losses": 2,
+      "losses": 3,
       "draws": 0,
       "kos": 33
     },
@@ -31,7 +31,8 @@
       "2020年: ヨアンドリの返しに惑わされ、初の敗戦（判定）",
       "2021年: ヨアンドリに再戦でKO勝ちし、雪辱を果たす",
       "2023年: 素手のアルバートを判定で下す。腕の長い相手のジャブに苦しんだ",
-      "2024年: 挑戦者ラモンを最終ラウンドまで粘られた末に判定で退ける"
+      "2024年: 挑戦者ラモンを最終ラウンドまで粘られた末に判定で退ける",
+      "シーズン1・IVF ヘビー級王座戦: マウリシオ・ビジェガスに1R KO 負け"
     ],
     "trainer": "元ヘビー級の名トレーナー、レジー・ワシントン。デトロイトのジム「モーターシティ」を率いる",
     "fightingStyle": "身長が高く腕が長く、筋肉も厚いヘビー級の王者。長いジャブで間合いを作り、体重の乗った右ストレートで仕留める基本に忠実なボクシング。守りも堅く、完成度の高さが特徴。",
@@ -73,51 +74,169 @@
     ]
   },
   "look": {
-    "skin": [0.3, 0.19, 0.12], "hair": [0.05, 0.05, 0.05], "hairstyle": "Bald", "eyes": [0.12, 0.07, 0.03],
-    "brows": true, "beard": false,
-    "parts": { "jaw": 1.12, "jawWidth": 1.1, "cheekbones": 1.1 }
+    "skin": [0.3, 0.19, 0.12],
+    "hair": [0.05, 0.05, 0.05],
+    "hairstyle": "Bald",
+    "eyes": [0.12, 0.07, 0.03],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "jaw": 1.12,
+      "jawWidth": 1.1,
+      "cheekbones": 1.1
+    }
   },
   "face": {
     "parts": {
-      "hair": { "hair.10": 1.0 },
-      "brows": { "brows.2": 1.0 },
-      "eyes": { "eyes.4": 1.0 },
-      "nose": { "nose.2": 0.7, "nose.6": 0.3 },
-      "mouth": { "mouth.9": 0.6, "mouth.3": 0.4 },
-      "jaw": { "jaw.9": 0.4, "jaw.2": 0.4, "jaw.11": 0.2 },
-      "ears": { "ears.2": 1.0 },
-      "beard": { "beard.7": 1.0 },
-      "browridge": { "browridge.2": 1.0 }
+      "hair": {
+        "hair.10": 1.0
+      },
+      "brows": {
+        "brows.2": 1.0
+      },
+      "eyes": {
+        "eyes.4": 1.0
+      },
+      "nose": {
+        "nose.2": 0.7,
+        "nose.6": 0.3
+      },
+      "mouth": {
+        "mouth.9": 0.6,
+        "mouth.3": 0.4
+      },
+      "jaw": {
+        "jaw.9": 0.4,
+        "jaw.2": 0.4,
+        "jaw.11": 0.2
+      },
+      "ears": {
+        "ears.2": 1.0
+      },
+      "beard": {
+        "beard.7": 1.0
+      },
+      "browridge": {
+        "browridge.2": 1.0
+      }
     },
-    "values": { "cheekbones": 1.3, "noseWidth": 1.3, "mouthWidth": 1.15, "jawWidth": 1.2, "faceWidth": 1.14, "browHeight": -0.03, "browThickness": 1.4, "lips": 1.1 },
-    "skin": [0.439, 0.29, 0.208], "hair": [0.09, 0.082, 0.078], "iris": [0.188, 0.125, 0.09]
+    "values": {
+      "cheekbones": 1.3,
+      "noseWidth": 1.3,
+      "mouthWidth": 1.15,
+      "jawWidth": 1.2,
+      "faceWidth": 1.14,
+      "browHeight": -0.03,
+      "browThickness": 1.4,
+      "lips": 1.1
+    },
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.09, 0.082, 0.078],
+    "iris": [0.188, 0.125, 0.09]
   },
   "body": {
-    "build": { "height": 1.12, "arms": 1.1, "legs": 1, "muscle": 1.15 },
+    "build": {
+      "height": 1.12,
+      "arms": 1.1,
+      "legs": 1,
+      "muscle": 1.15
+    },
     "wear": "glove",
     "weapon": null
   },
   "textbook": "champion",
   "education": {
     "style": {
-      "BreakLikes": { "applause": 3, "handshake": 3, "sandwich": 2.5, "headphones": 2.5, "glare": 2, "bow": 1.5, "pointup": 2, "raisearms": 1.5, "sportsdrink": 2, "hypecrowd": 1.5, "blowkiss": 0.3 },
+      "BreakLikes": {
+        "applause": 3,
+        "handshake": 3,
+        "sandwich": 2.5,
+        "headphones": 2.5,
+        "glare": 2,
+        "bow": 1.5,
+        "pointup": 2,
+        "raisearms": 1.5,
+        "sportsdrink": 2,
+        "hypecrowd": 1.5,
+        "blowkiss": 0.3
+      },
       "GamePlan": {
-        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 13.43, "Pressure": 1,
+        "Weight": 1,
+        "Boldness": 1,
+        "Caution": 1,
+        "Patience": 13.43,
+        "Pressure": 1,
         "Own": [
-          { "Cm": 47.89, "Dealt": 14.743, "Taken": 9.766 },
-          { "Cm": 53.52, "Dealt": 13.539, "Taken": 7.516 },
-          { "Cm": 59.15, "Dealt": 15.749, "Taken": 10.795 },
-          { "Cm": 64.79, "Dealt": 16.095, "Taken": 6.598 },
-          { "Cm": 70.42, "Dealt": 18.304, "Taken": 5.706 },
-          { "Cm": 76.06, "Dealt": 15.089, "Taken": 3.441 },
-          { "Cm": 81.69, "Dealt": 11.53, "Taken": 2.359 },
-          { "Cm": 87.32, "Dealt": 6.963, "Taken": 1.69 },
-          { "Cm": 92.96, "Dealt": 3.244, "Taken": 1.371 },
-          { "Cm": 98.59, "Dealt": 1.214, "Taken": 0.887 },
-          { "Cm": 104.23, "Dealt": 0.722, "Taken": 1.174 },
-          { "Cm": 109.86, "Dealt": 0.147, "Taken": 1.338 },
-          { "Cm": 115.49, "Dealt": 0.07, "Taken": 1.062 },
-          { "Cm": 121.13, "Dealt": 0.114, "Taken": 0.512 }
+          {
+            "Cm": 47.89,
+            "Dealt": 14.743,
+            "Taken": 9.766
+          },
+          {
+            "Cm": 53.52,
+            "Dealt": 13.539,
+            "Taken": 7.516
+          },
+          {
+            "Cm": 59.15,
+            "Dealt": 15.749,
+            "Taken": 10.795
+          },
+          {
+            "Cm": 64.79,
+            "Dealt": 16.095,
+            "Taken": 6.598
+          },
+          {
+            "Cm": 70.42,
+            "Dealt": 18.304,
+            "Taken": 5.706
+          },
+          {
+            "Cm": 76.06,
+            "Dealt": 15.089,
+            "Taken": 3.441
+          },
+          {
+            "Cm": 81.69,
+            "Dealt": 11.53,
+            "Taken": 2.359
+          },
+          {
+            "Cm": 87.32,
+            "Dealt": 6.963,
+            "Taken": 1.69
+          },
+          {
+            "Cm": 92.96,
+            "Dealt": 3.244,
+            "Taken": 1.371
+          },
+          {
+            "Cm": 98.59,
+            "Dealt": 1.214,
+            "Taken": 0.887
+          },
+          {
+            "Cm": 104.23,
+            "Dealt": 0.722,
+            "Taken": 1.174
+          },
+          {
+            "Cm": 109.86,
+            "Dealt": 0.147,
+            "Taken": 1.338
+          },
+          {
+            "Cm": 115.49,
+            "Dealt": 0.07,
+            "Taken": 1.062
+          },
+          {
+            "Cm": 121.13,
+            "Dealt": 0.114,
+            "Taken": 0.512
+          }
         ]
       }
     },

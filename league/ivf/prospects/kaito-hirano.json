@@ -1,0 +1,107 @@
+{
+  "id": "kaito-hirano",
+  "order": 1017,
+  "org": "ivf",
+  "name": "平野 海斗",
+  "reading": "ヒラノ カイト",
+  "hudName": "カイト",
+  "origin": "日本",
+  "country": "japan",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.89, 0.769, 0.659],
+    "hair": [0.09, 0.11, 0.133],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.061,
+      "jaw": 0.99,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.03,
+      "cheekbones": 1.259,
+      "faceWidth": 0.952
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 1.061,
+      "jaw": 0.99,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.03,
+      "cheekbones": 1.259,
+      "faceWidth": 0.952
+    },
+    "skin": [0.89, 0.769, 0.659],
+    "hair": [0.09, 0.11, 0.133],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 0.9757,
+      "arms": 1.022,
+      "legs": 0.996,
+      "muscle": 0.9394
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.172,
+      "Circling": 0.431,
+      "HeadMovement": 0.577,
+      "DefenseRate": 0.845,
+      "CounterRate": 0.817,
+      "ExitAfterCombo": 0.507,
+      "AttackRange": 0.75
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 17,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

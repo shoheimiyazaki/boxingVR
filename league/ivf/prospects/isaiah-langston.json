@@ -1,0 +1,103 @@
+{
+  "id": "isaiah-langston",
+  "order": 1102,
+  "org": "ivf",
+  "name": "アイザイア・ラングストン",
+  "reading": "アイザイア ラングストン",
+  "hudName": "アイザイア",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Crop",
+    "eyes": [0.424, 0.506, 0.569],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.028,
+      "jaw": 1.007,
+      "noseLength": 1.108,
+      "cheekbones": 1.351,
+      "faceWidth": 0.962
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.028,
+      "jaw": 1.007,
+      "noseLength": 1.108,
+      "cheekbones": 1.351,
+      "faceWidth": 0.962
+    },
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.424, 0.506, 0.569]
+  },
+  "body": {
+    "build": {
+      "height": 0.9453,
+      "arms": 1.002,
+      "legs": 0.994,
+      "muscle": 1.1249
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.446,
+      "Circling": 0.4,
+      "HeadMovement": 0.372,
+      "DefenseRate": 0.579,
+      "CounterRate": 0.514,
+      "ExitAfterCombo": 0.473,
+      "AttackRange": 1.016
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 102,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -18,7 +18,7 @@
     "nicknameStory": "リングネームの「エル・トロ」は雄牛のこと。背は低いが前傾して頭から突っ込む姿が闘牛の牛を思わせ、観客が呼び始めた。",
     "fightRecord": {
       "wins": 27,
-      "losses": 8,
+      "losses": 10,
       "draws": 2,
       "kos": 22
     },
@@ -30,7 +30,9 @@
       "2020年: 初のランキング入り。判定を避けるため、全試合ノックアウトを狙うスタイルを貫く",
       "2023年: ガロとの前へ出る同士の対決を制して、初のトーナメント権を獲得",
       "2024年: 王者ザ・ハンマーに挑戦。最終ラウンドまで前へ出続けるも判定で敗退",
-      "2026年: WVCボクシングトーナメントに出場。準決勝でザ・ハンマーと再戦"
+      "2026年: WVCボクシングトーナメントに出場。準決勝でザ・ハンマーと再戦",
+      "シーズン1・IVF ライト級ランキング挑戦: アナン・インタソーンに2R KO 負け",
+      "シーズン1・IVF ライト級ランキング挑戦: アンドレ・ビショップに1R KO 負け"
     ],
     "trainer": "元闘牛士の息子で、元プロボクサーのエルネスト・ロハス。グアダラハラの古いジムを仕切る",
     "fightingStyle": "身長は低く、腕も短め。そのため遠くから打ち合う不利を、頭を低くして相手の懐へ入り込むことで解決している。腕が短いから外から打つより、ゼロ距離の連打で勝負する。筋肉が太く、被弾にも耐える。",
@@ -72,50 +74,161 @@
     ]
   },
   "look": {
-    "skin": [0.76, 0.53, 0.36], "hair": [0.05, 0.05, 0.05], "hairstyle": "Crop", "eyes": [0.12, 0.07, 0.03],
-    "brows": true, "beard": true,
-    "parts": { "jaw": 1.05 }
+    "skin": [0.76, 0.53, 0.36],
+    "hair": [0.05, 0.05, 0.05],
+    "hairstyle": "Crop",
+    "eyes": [0.12, 0.07, 0.03],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "jaw": 1.05
+    }
   },
   "face": {
     "parts": {
-      "hair": { "hair.2": 1.0 },
-      "brows": { "brows.2": 1.0 },
-      "eyes": { "eyes.4": 1.0 },
-      "nose": { "nose.2": 0.5, "nose.6": 0.5 },
-      "mouth": { "mouth.3": 0.5, "mouth.8": 0.5 },
-      "jaw": { "jaw.2": 0.6, "jaw.9": 0.4 },
-      "ears": { "ears.4": 0.5, "ears.2": 0.5 },
-      "beard": { "beard.2": 1.0 },
-      "browridge": { "browridge.2": 0.5, "browridge.3": 0.5 }
+      "hair": {
+        "hair.2": 1.0
+      },
+      "brows": {
+        "brows.2": 1.0
+      },
+      "eyes": {
+        "eyes.4": 1.0
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.6": 0.5
+      },
+      "mouth": {
+        "mouth.3": 0.5,
+        "mouth.8": 0.5
+      },
+      "jaw": {
+        "jaw.2": 0.6,
+        "jaw.9": 0.4
+      },
+      "ears": {
+        "ears.4": 0.5,
+        "ears.2": 0.5
+      },
+      "beard": {
+        "beard.2": 1.0
+      },
+      "browridge": {
+        "browridge.2": 0.5,
+        "browridge.3": 0.5
+      }
     },
-    "values": { "cheekbones": 1.4, "eyeSize": 0.88, "noseWidth": 1.25, "jawWidth": 1.2, "faceWidth": 1.12, "browThickness": 1.4, "nose": 0.95 },
-    "skin": [0.682, 0.471, 0.329], "hair": [0.129, 0.106, 0.09], "iris": [0.396, 0.255, 0.153]
+    "values": {
+      "cheekbones": 1.4,
+      "eyeSize": 0.88,
+      "noseWidth": 1.25,
+      "jawWidth": 1.2,
+      "faceWidth": 1.12,
+      "browThickness": 1.4,
+      "nose": 0.95
+    },
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.396, 0.255, 0.153]
   },
   "body": {
-    "build": { "height": 0.92, "arms": 0.95, "legs": 1, "muscle": 1.1 },
+    "build": {
+      "height": 0.92,
+      "arms": 0.95,
+      "legs": 1,
+      "muscle": 1.1
+    },
     "wear": "glove",
     "weapon": null
   },
   "textbook": "swarmer",
   "education": {
     "style": {
-      "BreakLikes": { "wipetears": 3.5, "crossself": 3, "hum": 2.5, "chestbeat": 2.5, "dance": 2, "roar": 2, "blowkiss": 2.5, "sandwich": 1.5, "bounce": 2, "headinhands": 2 },
+      "BreakLikes": {
+        "wipetears": 3.5,
+        "crossself": 3,
+        "hum": 2.5,
+        "chestbeat": 2.5,
+        "dance": 2,
+        "roar": 2,
+        "blowkiss": 2.5,
+        "sandwich": 1.5,
+        "bounce": 2,
+        "headinhands": 2
+      },
       "GamePlan": {
-        "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 13.43, "Pressure": 1,
+        "Weight": 0,
+        "Boldness": 1,
+        "Caution": 1,
+        "Patience": 13.43,
+        "Pressure": 1,
         "Own": [
-          { "Cm": 36.62, "Dealt": 13.718, "Taken": 2.387 },
-          { "Cm": 42.25, "Dealt": 10.889, "Taken": 4.242 },
-          { "Cm": 47.89, "Dealt": 9.454, "Taken": 5.617 },
-          { "Cm": 53.52, "Dealt": 6.156, "Taken": 3.913 },
-          { "Cm": 59.15, "Dealt": 4.774, "Taken": 4.671 },
-          { "Cm": 64.79, "Dealt": 3.359, "Taken": 3.762 },
-          { "Cm": 70.42, "Dealt": 1.636, "Taken": 3.393 },
-          { "Cm": 76.06, "Dealt": 0.946, "Taken": 2.224 },
-          { "Cm": 81.69, "Dealt": 0.239, "Taken": 2.116 },
-          { "Cm": 87.32, "Dealt": 0.105, "Taken": 0.547 },
-          { "Cm": 92.96, "Dealt": 0.108, "Taken": 0.565 },
-          { "Cm": 98.59, "Dealt": 0, "Taken": 0.321 },
-          { "Cm": 104.23, "Dealt": 0.186, "Taken": 0.319 }
+          {
+            "Cm": 36.62,
+            "Dealt": 13.718,
+            "Taken": 2.387
+          },
+          {
+            "Cm": 42.25,
+            "Dealt": 10.889,
+            "Taken": 4.242
+          },
+          {
+            "Cm": 47.89,
+            "Dealt": 9.454,
+            "Taken": 5.617
+          },
+          {
+            "Cm": 53.52,
+            "Dealt": 6.156,
+            "Taken": 3.913
+          },
+          {
+            "Cm": 59.15,
+            "Dealt": 4.774,
+            "Taken": 4.671
+          },
+          {
+            "Cm": 64.79,
+            "Dealt": 3.359,
+            "Taken": 3.762
+          },
+          {
+            "Cm": 70.42,
+            "Dealt": 1.636,
+            "Taken": 3.393
+          },
+          {
+            "Cm": 76.06,
+            "Dealt": 0.946,
+            "Taken": 2.224
+          },
+          {
+            "Cm": 81.69,
+            "Dealt": 0.239,
+            "Taken": 2.116
+          },
+          {
+            "Cm": 87.32,
+            "Dealt": 0.105,
+            "Taken": 0.547
+          },
+          {
+            "Cm": 92.96,
+            "Dealt": 0.108,
+            "Taken": 0.565
+          },
+          {
+            "Cm": 98.59,
+            "Dealt": 0,
+            "Taken": 0.321
+          },
+          {
+            "Cm": 104.23,
+            "Dealt": 0.186,
+            "Taken": 0.319
+          }
         ]
       }
     },

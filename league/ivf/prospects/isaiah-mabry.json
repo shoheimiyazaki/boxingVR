@@ -1,0 +1,107 @@
+{
+  "id": "isaiah-mabry",
+  "order": 1220,
+  "org": "ivf",
+  "name": "アイザイア・メイブリー",
+  "reading": "アイザイア メイブリー",
+  "hudName": "アイザイア",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.09, 0.082, 0.078],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.99,
+      "jaw": 0.939,
+      "noseWidth": 1.2,
+      "noseLength": 1.026,
+      "lips": 1.1,
+      "cheekbones": 1.434,
+      "faceWidth": 0.96
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.99,
+      "jaw": 0.939,
+      "noseWidth": 1.2,
+      "noseLength": 1.026,
+      "lips": 1.1,
+      "cheekbones": 1.434,
+      "faceWidth": 0.96
+    },
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.09, 0.082, 0.078],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.1326,
+      "arms": 0.968,
+      "legs": 0.995,
+      "muscle": 1.0179
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.425,
+      "Circling": 0.346,
+      "HeadMovement": 0.444,
+      "DefenseRate": 0.603,
+      "CounterRate": 0.551,
+      "ExitAfterCombo": 0.34,
+      "AttackRange": 0.847
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 220,
+      "age": 22,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

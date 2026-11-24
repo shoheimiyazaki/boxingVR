@@ -1,0 +1,108 @@
+{
+  "id": "nattapong-thongdee",
+  "order": 1182,
+  "org": "ivf",
+  "name": "ナッタポン・トーンディー",
+  "reading": "ナッタポン トーンディー",
+  "hudName": "ナッタポン",
+  "origin": "タイ",
+  "country": "thailand",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.659, 0.443, 0.282],
+    "hair": [0.098, 0.098, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.94,
+      "jaw": 1.044,
+      "noseWidth": 1.12,
+      "noseLength": 1.027,
+      "cheekbones": 1.381,
+      "faceWidth": 1.04
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.94,
+      "jaw": 1.044,
+      "noseWidth": 1.12,
+      "noseLength": 1.027,
+      "cheekbones": 1.381,
+      "faceWidth": 1.04
+    },
+    "skin": [0.659, 0.443, 0.282],
+    "hair": [0.098, 0.098, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.1091,
+      "arms": 1.002,
+      "legs": 0.969,
+      "muscle": 0.9807
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.509,
+      "Circling": 0.394,
+      "HeadMovement": 0.4,
+      "DefenseRate": 0.508,
+      "CounterRate": 0.513,
+      "ExitAfterCombo": 0.49,
+      "AttackRange": 0.832
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 182,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

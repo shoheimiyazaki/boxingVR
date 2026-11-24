@@ -1,0 +1,103 @@
+{
+  "id": "declan-pennington",
+  "order": 1049,
+  "org": "ivf",
+  "name": "デクラン・ペニントン",
+  "reading": "デクラン ペニントン",
+  "hudName": "デクラン",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.569, 0.286, 0.157],
+    "hairstyle": "Crop",
+    "eyes": [0.482, 0.522, 0.533],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.939,
+      "jaw": 1.018,
+      "noseLength": 1.22,
+      "cheekbones": 1.436,
+      "faceWidth": 0.996
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.939,
+      "jaw": 1.018,
+      "noseLength": 1.22,
+      "cheekbones": 1.436,
+      "faceWidth": 0.996
+    },
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.569, 0.286, 0.157],
+    "iris": [0.482, 0.522, 0.533]
+  },
+  "body": {
+    "build": {
+      "height": 0.9149,
+      "arms": 0.974,
+      "legs": 1.006,
+      "muscle": 1.073
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 0.99,
+      "Circling": 0.156,
+      "HeadMovement": 0.499,
+      "DefenseRate": 0.48,
+      "CounterRate": 0.787,
+      "ExitAfterCombo": 0.57,
+      "AttackRange": 1.237
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 49,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "id": "hayden-hollis",
+  "order": 1164,
+  "org": "ivf",
+  "name": "ヘイデン・ホリス",
+  "reading": "ヘイデン ホリス",
+  "hudName": "ヘイデン",
+  "origin": "オーストラリア",
+  "country": "australia",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.659, 0.478, 0.333],
+    "hair": [0.165, 0.122, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.918,
+      "jaw": 0.952,
+      "noseWidth": 1.18,
+      "noseLength": 0.988,
+      "cheekbones": 1.445,
+      "faceWidth": 1.025
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.7": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.1": 0.4,
+        "nose.2": 0.6
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.918,
+      "jaw": 0.952,
+      "noseWidth": 1.18,
+      "noseLength": 0.988,
+      "cheekbones": 1.445,
+      "faceWidth": 1.025
+    },
+    "skin": [0.659, 0.478, 0.333],
+    "hair": [0.165, 0.122, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.083,
+      "arms": 1.049,
+      "legs": 1.006,
+      "muscle": 0.9782
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.424,
+      "Circling": 0.746,
+      "HeadMovement": 0.334,
+      "DefenseRate": 0.591,
+      "CounterRate": 0.461,
+      "ExitAfterCombo": 0.785,
+      "AttackRange": 0.965
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 164,
+      "age": 19,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

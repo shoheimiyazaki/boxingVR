@@ -1,0 +1,106 @@
+{
+  "id": "thanawat-kaewkla",
+  "order": 1087,
+  "org": "ivf",
+  "name": "タナワット・ケーオクラー",
+  "reading": "タナワット ケーオクラー",
+  "hudName": "タナワット",
+  "origin": "タイ",
+  "country": "thailand",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.78, 0.604, 0.439],
+    "hair": [0.098, 0.098, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.872,
+      "jaw": 0.965,
+      "noseWidth": 1.12,
+      "noseLength": 0.97,
+      "cheekbones": 1.377,
+      "faceWidth": 1.008
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.872,
+      "jaw": 0.965,
+      "noseWidth": 1.12,
+      "noseLength": 0.97,
+      "cheekbones": 1.377,
+      "faceWidth": 1.008
+    },
+    "skin": [0.78, 0.604, 0.439],
+    "hair": [0.098, 0.098, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0901,
+      "arms": 1.04,
+      "legs": 0.969,
+      "muscle": 0.8815
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.777,
+      "Circling": 0.159,
+      "HeadMovement": 0.238,
+      "DefenseRate": 0.298,
+      "CounterRate": 0.293,
+      "ExitAfterCombo": 0.151,
+      "AttackRange": 0.893
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 87,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

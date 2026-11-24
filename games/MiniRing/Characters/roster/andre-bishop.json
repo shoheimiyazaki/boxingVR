@@ -1,0 +1,163 @@
+{
+  "id": "andre-bishop",
+  "order": 1048,
+  "org": "ivf",
+  "name": "アンドレ・ビショップ",
+  "reading": "アンドレ ビショップ",
+  "hudName": "アンドレ",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF ライト級の新鋭",
+  "look": {
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.09, 0.082, 0.078],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.039,
+      "jaw": 0.992,
+      "noseWidth": 1.2,
+      "noseLength": 0.936,
+      "lips": 1.1,
+      "cheekbones": 1.333,
+      "faceWidth": 0.986
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.039,
+      "jaw": 0.992,
+      "noseWidth": 1.2,
+      "noseLength": 0.936,
+      "lips": 1.1,
+      "cheekbones": 1.333,
+      "faceWidth": 0.986
+    },
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.09, 0.082, 0.078],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0529,
+      "arms": 1.021,
+      "legs": 1.004,
+      "muscle": 0.8673
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.565,
+      "Circling": 0.42,
+      "HeadMovement": 0.413,
+      "DefenseRate": 0.558,
+      "CounterRate": 0.437,
+      "ExitAfterCombo": 0.36,
+      "AttackRange": 0.956
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 48,
+      "age": 20,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ],
+  "profile": {
+    "age": 20,
+    "heightCm": 154,
+    "weightKg": 61,
+    "birthplace": "アメリカ",
+    "hometown": "フィラデルフィア（ノース・フィラデルフィア）",
+    "stance": "オーソドックス",
+    "nicknameStory": "リングネームは無い。本人いわく「名前で覚えてもらえるまで勝つ」。",
+    "fightRecord": {
+      "wins": 8,
+      "losses": 1,
+      "draws": 0,
+      "kos": 8
+    },
+    "career": [
+      "シーズン1・IVF 新人リーグ 第1興行: ディンド・マナロに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第2興行: アナン・インタソーンに2R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第3興行: クーパー・マカリスターに1R KO 負け",
+      "シーズン1・IVF 新人リーグ 第4興行: ロドリゴ・ナバレテに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第5興行: ディンド・ビジャヌエバに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第6興行: アイザイア・ウィットフィールドに1R KO 勝ち",
+      "シーズン1・IVF ライト級ランキング挑戦: ラモン・\"エル・トロ\"・カスティージョに1R KO 勝ち",
+      "シーズン1・IVF ライト級ランキング挑戦: アナン・インタソーンに1R KO 勝ち",
+      "シーズン1・IVF ライト級王座戦: アナン・インタソーンに1R KO 勝ち"
+    ],
+    "trainer": "地元のレクリエーション・センターでコーチを続けるレイモンド・ハーディ",
+    "fightingStyle": "足を使って打っては離れる。手数とポイントを積み上げる。154 cm・61 kg のライト級で、腕は基準の 1.02 倍。",
+    "strengths": [
+      "倒し切る決定力（8勝のうち8KO）"
+    ],
+    "weaknesses": [
+      "細い体で、もらうと流される",
+      "1つの負けから学ぶ途中",
+      "5 ラウンドの長い試合の経験が浅い"
+    ],
+    "personality": "明るくよくしゃべるが、リングに上がると表情が消える。相手の癖を試合中にノートへ書くように覚えていく。",
+    "hobbies": [
+      "バスケットボール",
+      "古いソウルのレコード集め",
+      "弟たちの宿題を見ること"
+    ],
+    "family": "母と弟 3 人の 5 人家族。長男として家計を助けながら、夜にジムへ通った。",
+    "episodes": [
+      "細い体を「鞭みたいだ」と言われ、それを褒め言葉と受け取っている",
+      "ジムの床を毎晩自分でモップがけしてから帰る",
+      "試合前に必ず母へ短い音声のメッセージを送る",
+      "減量中でも弟たちの夕食だけは自分で作る"
+    ],
+    "quote": "足が止まったら、もう俺じゃない。",
+    "commentaryNotes": [
+      "IVF 新人リーグ シーズン1で5勝1敗（5KO）。ライト級の上位で正式に登録された",
+      "アメリカ出身、20歳",
+      "新人リーグで一番早い KO は 1R 13 秒",
+      "細身で長身、足を使うボクサー型"
+    ]
+  }
+}

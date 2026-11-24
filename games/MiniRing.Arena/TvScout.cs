@@ -51,7 +51,7 @@ internal static class TvScout
             var winner = game.PlayerWins > game.CpuWins ? 1 : game.CpuWins > game.PlayerWins ? -1 : 0;
             results.Add(new TvScoutResult(seed, game.Decision ?? game.Message, game.Decision is null, game.MatchRound, rules.RoundSeconds - game.RoundLeft,
                 game.Cpu.Condition.TotalDamage, game.Player.Condition.TotalDamage, redDowns, blueDowns, winner,
-                Death: game.Decision is null && TvScoutResult.IsDeath(game.Message)) { BothDownSeconds = bothDown, LongestBothDown = longestBothDown });
+                Death: game.Decision is null && TvScoutResult.IsDeath(game.Message)) { BothDownSeconds = bothDown, LongestBothDown = longestBothDown, Checksum = game.StateChecksum() });
         }
         return [.. results.OrderBy(r => r.Seed)];
     }

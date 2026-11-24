@@ -1,0 +1,109 @@
+{
+  "id": "marcus-whitfield",
+  "order": 1183,
+  "org": "ivf",
+  "name": "マーカス・ウィットフィールド",
+  "reading": "マーカス ウィットフィールド",
+  "hudName": "マーカス",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.275, 0.173, 0.122],
+    "hair": [0.09, 0.082, 0.078],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.986,
+      "jaw": 1.051,
+      "noseWidth": 1.2,
+      "noseLength": 0.945,
+      "lips": 1.1,
+      "cheekbones": 1.219,
+      "faceWidth": 1.056
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.986,
+      "jaw": 1.051,
+      "noseWidth": 1.2,
+      "noseLength": 0.945,
+      "lips": 1.1,
+      "cheekbones": 1.219,
+      "faceWidth": 1.056
+    },
+    "skin": [0.275, 0.173, 0.122],
+    "hair": [0.09, 0.082, 0.078],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9863,
+      "arms": 1.008,
+      "legs": 0.961,
+      "muscle": 1.1565
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.211,
+      "Circling": 0.535,
+      "HeadMovement": 0.514,
+      "DefenseRate": 0.833,
+      "CounterRate": 1,
+      "ExitAfterCombo": 0.549,
+      "AttackRange": 0.96
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 183,
+      "age": 22,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

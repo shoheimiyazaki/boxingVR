@@ -1,0 +1,103 @@
+{
+  "id": "quentin-girard",
+  "order": 1222,
+  "org": "ivf",
+  "name": "カンタン・ジラール",
+  "reading": "カンタン ジラール",
+  "hudName": "カンタン",
+  "origin": "フランス",
+  "country": "france",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.851, 0.706, 0.588],
+    "hair": [0.204, 0.157, 0.129],
+    "hairstyle": "Crop",
+    "eyes": [0.431, 0.486, 0.42],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.97,
+      "jaw": 0.975,
+      "noseLength": 1.042,
+      "cheekbones": 1.442,
+      "faceWidth": 0.957
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.3": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.3": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.97,
+      "jaw": 0.975,
+      "noseLength": 1.042,
+      "cheekbones": 1.442,
+      "faceWidth": 0.957
+    },
+    "skin": [0.851, 0.706, 0.588],
+    "hair": [0.204, 0.157, 0.129],
+    "iris": [0.431, 0.486, 0.42]
+  },
+  "body": {
+    "build": {
+      "height": 1.0359,
+      "arms": 0.975,
+      "legs": 1.013,
+      "muscle": 1.182
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.555,
+      "Circling": 0.857,
+      "HeadMovement": 0.235,
+      "DefenseRate": 0.622,
+      "CounterRate": 0.466,
+      "ExitAfterCombo": 0.778,
+      "AttackRange": 1.073
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 222,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

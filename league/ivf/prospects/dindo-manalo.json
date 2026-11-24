@@ -1,0 +1,106 @@
+{
+  "id": "dindo-manalo",
+  "order": 1008,
+  "org": "ivf",
+  "name": "ディンド・マナロ",
+  "reading": "ディンド マナロ",
+  "hudName": "ディンド",
+  "origin": "フィリピン",
+  "country": "philippines",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.659, 0.443, 0.282],
+    "hair": [0.098, 0.098, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.904,
+      "jaw": 0.902,
+      "noseWidth": 1.12,
+      "noseLength": 1.044,
+      "cheekbones": 1.428,
+      "faceWidth": 1.023
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.904,
+      "jaw": 0.902,
+      "noseWidth": 1.12,
+      "noseLength": 1.044,
+      "cheekbones": 1.428,
+      "faceWidth": 1.023
+    },
+    "skin": [0.659, 0.443, 0.282],
+    "hair": [0.098, 0.098, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.027,
+      "arms": 1.003,
+      "legs": 0.956,
+      "muscle": 0.9047
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.377,
+      "Circling": 0.641,
+      "HeadMovement": 0.363,
+      "DefenseRate": 0.581,
+      "CounterRate": 0.425,
+      "ExitAfterCombo": 0.878,
+      "AttackRange": 1.09
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 8,
+      "age": 22,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "id": "jasur-yusupov",
+  "order": 1124,
+  "org": "ivf",
+  "name": "ジャスール・ユスポフ",
+  "reading": "ジャスール ユスポフ",
+  "hudName": "ジャスール",
+  "origin": "ウズベキスタン",
+  "country": "uzbekistan",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.843, 0.714, 0.596],
+    "hair": [0.106, 0.106, 0.114],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.962,
+      "jaw": 1.007,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.009,
+      "cheekbones": 1.275,
+      "faceWidth": 1.046
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.962,
+      "jaw": 1.007,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.009,
+      "cheekbones": 1.275,
+      "faceWidth": 1.046
+    },
+    "skin": [0.843, 0.714, 0.596],
+    "hair": [0.106, 0.106, 0.114],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9853,
+      "arms": 0.969,
+      "legs": 1.041,
+      "muscle": 1.0914
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.685,
+      "Circling": 0.819,
+      "HeadMovement": 0.22,
+      "DefenseRate": 0.474,
+      "CounterRate": 0.485,
+      "ExitAfterCombo": 0.96,
+      "AttackRange": 1.107
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 124,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

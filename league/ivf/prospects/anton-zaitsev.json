@@ -1,0 +1,103 @@
+{
+  "id": "anton-zaitsev",
+  "order": 1139,
+  "org": "ivf",
+  "name": "アントン・ザイツェフ",
+  "reading": "アントン ザイツェフ",
+  "hudName": "アントン",
+  "origin": "ロシア",
+  "country": "russia",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.788, 0.659, 0.416],
+    "hairstyle": "Full",
+    "eyes": [0.424, 0.506, 0.569],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.932,
+      "jaw": 0.95,
+      "noseLength": 1.195,
+      "cheekbones": 1.305,
+      "faceWidth": 1.012
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.932,
+      "jaw": 0.95,
+      "noseLength": 1.195,
+      "cheekbones": 1.305,
+      "faceWidth": 1.012
+    },
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.788, 0.659, 0.416],
+    "iris": [0.424, 0.506, 0.569]
+  },
+  "body": {
+    "build": {
+      "height": 1.1004,
+      "arms": 1.013,
+      "legs": 0.985,
+      "muscle": 0.9005
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.779,
+      "Circling": 0.833,
+      "HeadMovement": 0.248,
+      "DefenseRate": 0.401,
+      "CounterRate": 0.431,
+      "ExitAfterCombo": 1,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 139,
+      "age": 22,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

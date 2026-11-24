@@ -1,0 +1,105 @@
+{
+  "id": "ramiro-villegas",
+  "order": 1137,
+  "org": "ivf",
+  "name": "ラミロ・ビジェガス",
+  "reading": "ラミロ ビジェガス",
+  "hudName": "ラミロ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.072,
+      "jaw": 1.005,
+      "noseWidth": 1.1,
+      "noseLength": 1.039,
+      "cheekbones": 1.328,
+      "faceWidth": 1.009
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.072,
+      "jaw": 1.005,
+      "noseWidth": 1.1,
+      "noseLength": 1.039,
+      "cheekbones": 1.328,
+      "faceWidth": 1.009
+    },
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9868,
+      "arms": 1.028,
+      "legs": 0.986,
+      "muscle": 1.0969
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.418,
+      "Circling": 0.698,
+      "HeadMovement": 0.294,
+      "DefenseRate": 0.723,
+      "CounterRate": 0.507,
+      "ExitAfterCombo": 0.817,
+      "AttackRange": 1.115
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 137,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "id": "ivan-ochoa",
+  "order": 1223,
+  "org": "ivf",
+  "name": "イバン・オチョア",
+  "reading": "イバン オチョア",
+  "hudName": "イバン",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.227, 0.165, 0.122],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.985,
+      "jaw": 0.952,
+      "noseWidth": 1.1,
+      "noseLength": 1.006,
+      "cheekbones": 1.416,
+      "faceWidth": 0.965
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.985,
+      "jaw": 0.952,
+      "noseWidth": 1.1,
+      "noseLength": 1.006,
+      "cheekbones": 1.416,
+      "faceWidth": 0.965
+    },
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.227, 0.165, 0.122],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0847,
+      "arms": 0.975,
+      "legs": 1.05,
+      "muscle": 1.0387
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.644,
+      "Circling": 0.124,
+      "HeadMovement": 0.234,
+      "DefenseRate": 0.242,
+      "CounterRate": 0.3,
+      "ExitAfterCombo": 0.153,
+      "AttackRange": 0.863
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 223,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

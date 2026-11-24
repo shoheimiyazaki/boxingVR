@@ -1,0 +1,107 @@
+{
+  "id": "darnell-mabry",
+  "order": 1085,
+  "org": "ivf",
+  "name": "ダーネル・メイブリー",
+  "reading": "ダーネル メイブリー",
+  "hudName": "ダーネル",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.275, 0.173, 0.122],
+    "hair": [0.09, 0.082, 0.078],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.074,
+      "jaw": 0.995,
+      "noseWidth": 1.2,
+      "noseLength": 0.968,
+      "lips": 1.1,
+      "cheekbones": 1.352,
+      "faceWidth": 1.032
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.074,
+      "jaw": 0.995,
+      "noseWidth": 1.2,
+      "noseLength": 0.968,
+      "lips": 1.1,
+      "cheekbones": 1.352,
+      "faceWidth": 1.032
+    },
+    "skin": [0.275, 0.173, 0.122],
+    "hair": [0.09, 0.082, 0.078],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0043,
+      "arms": 0.948,
+      "legs": 1.027,
+      "muscle": 1.0095
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 1,
+      "Circling": 0.151,
+      "HeadMovement": 0.408,
+      "DefenseRate": 0.715,
+      "CounterRate": 0.933,
+      "ExitAfterCombo": 0.662,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 85,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

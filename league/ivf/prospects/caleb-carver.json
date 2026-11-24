@@ -1,0 +1,107 @@
+{
+  "id": "caleb-carver",
+  "order": 1097,
+  "org": "ivf",
+  "name": "ケイレブ・カーバー",
+  "reading": "ケイレブ カーバー",
+  "hudName": "ケイレブ",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.353, 0.227, 0.157],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.998,
+      "jaw": 1.08,
+      "noseWidth": 1.2,
+      "noseLength": 0.997,
+      "lips": 1.1,
+      "cheekbones": 1.337,
+      "faceWidth": 0.912
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.998,
+      "jaw": 1.08,
+      "noseWidth": 1.2,
+      "noseLength": 0.997,
+      "lips": 1.1,
+      "cheekbones": 1.337,
+      "faceWidth": 0.912
+    },
+    "skin": [0.353, 0.227, 0.157],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.1191,
+      "arms": 0.987,
+      "legs": 0.951,
+      "muscle": 0.8761
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.486,
+      "Circling": 0.703,
+      "HeadMovement": 0.327,
+      "DefenseRate": 0.653,
+      "CounterRate": 0.407,
+      "ExitAfterCombo": 1,
+      "AttackRange": 0.938
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 97,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "id": "takumi-ishiguro",
+  "order": 1235,
+  "org": "ivf",
+  "name": "石黒 拓海",
+  "reading": "イシグロ タクミ",
+  "hudName": "タクミ",
+  "origin": "日本",
+  "country": "japan",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.788, 0.639, 0.514],
+    "hair": [0.09, 0.11, 0.133],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.974,
+      "jaw": 0.953,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.008,
+      "cheekbones": 1.144,
+      "faceWidth": 0.985
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.974,
+      "jaw": 0.953,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.008,
+      "cheekbones": 1.144,
+      "faceWidth": 0.985
+    },
+    "skin": [0.788, 0.639, 0.514],
+    "hair": [0.09, 0.11, 0.133],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.1633,
+      "arms": 1.024,
+      "legs": 0.985,
+      "muscle": 0.9892
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 1,
+      "Circling": 0.179,
+      "HeadMovement": 0.389,
+      "DefenseRate": 0.499,
+      "CounterRate": 0.93,
+      "ExitAfterCombo": 0.714,
+      "AttackRange": 1.249,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 235,
+      "age": 22,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

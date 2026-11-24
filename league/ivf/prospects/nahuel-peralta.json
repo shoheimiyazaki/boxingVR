@@ -1,0 +1,105 @@
+{
+  "id": "nahuel-peralta",
+  "order": 1213,
+  "org": "ivf",
+  "name": "ナウエル・ペラルタ",
+  "reading": "ナウエル ペラルタ",
+  "hudName": "ナウエル",
+  "origin": "アルゼンチン",
+  "country": "argentina",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.99,
+      "jaw": 0.957,
+      "noseWidth": 1.1,
+      "noseLength": 1.021,
+      "cheekbones": 1.292,
+      "faceWidth": 1.001
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.99,
+      "jaw": 0.957,
+      "noseWidth": 1.1,
+      "noseLength": 1.021,
+      "cheekbones": 1.292,
+      "faceWidth": 1.001
+    },
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0816,
+      "arms": 0.981,
+      "legs": 0.985,
+      "muscle": 1.1867
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.916,
+      "Circling": 0.228,
+      "HeadMovement": 0.964,
+      "DefenseRate": 0.607,
+      "CounterRate": 0.68,
+      "ExitAfterCombo": 0.098,
+      "AttackRange": 0.871
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 213,
+      "age": 20,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

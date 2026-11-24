@@ -99,7 +99,9 @@ public sealed class IvfTests
     [TestMethod]
     public void Pool_SplitsTheRosterByWeight_RespectingMembership()
     {
-        var ivf = OrgBouts.Pool(Ivf, CharacterRoster.All);
+        // 手で作った名簿で見る（新人リーグで登録された選手は Circuit のテストが見る）。
+        var handMade = MiniRing.Arena.Circuit.ProspectFactory.ReservedIds(CharacterRoster.All).ToHashSet();
+        var ivf = OrgBouts.Pool(Ivf, CharacterRoster.All.Where(c => handMade.Contains(c.Id)));
         // 2026-11-24: 体重 = 物理の体の質量（ramon 63 kg はライト級、yoandry 72 kg はミドル級）。
         Assert.AreEqual("albert,joao,vikram,yoandry", string.Join(",", ivf["middle"].Select(c => c.Id)));
         Assert.AreEqual("dmitri,marcus", string.Join(",", ivf["heavy"].Select(c => c.Id)));

@@ -1,0 +1,106 @@
+{
+  "id": "wichai-kaewkla",
+  "order": 1162,
+  "org": "ivf",
+  "name": "ウィチャイ・ケーオクラー",
+  "reading": "ウィチャイ ケーオクラー",
+  "hudName": "ウィチャイ",
+  "origin": "タイ",
+  "country": "thailand",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.78, 0.604, 0.439],
+    "hair": [0.098, 0.098, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.926,
+      "jaw": 0.959,
+      "noseWidth": 1.12,
+      "noseLength": 1.021,
+      "cheekbones": 1.422,
+      "faceWidth": 1.022
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.926,
+      "jaw": 0.959,
+      "noseWidth": 1.12,
+      "noseLength": 1.021,
+      "cheekbones": 1.422,
+      "faceWidth": 1.022
+    },
+    "skin": [0.78, 0.604, 0.439],
+    "hair": [0.098, 0.098, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0727,
+      "arms": 0.992,
+      "legs": 0.966,
+      "muscle": 1.0489
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 1,
+      "Circling": 0.176,
+      "HeadMovement": 0.449,
+      "DefenseRate": 0.627,
+      "CounterRate": 0.898,
+      "ExitAfterCombo": 0.783,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 162,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

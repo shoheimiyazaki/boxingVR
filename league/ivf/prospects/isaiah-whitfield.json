@@ -1,0 +1,109 @@
+{
+  "id": "isaiah-whitfield",
+  "order": 1002,
+  "org": "ivf",
+  "name": "アイザイア・ウィットフィールド",
+  "reading": "アイザイア ウィットフィールド",
+  "hudName": "アイザイア",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.998,
+      "jaw": 0.975,
+      "noseWidth": 1.2,
+      "noseLength": 1.005,
+      "lips": 1.1,
+      "cheekbones": 1.38,
+      "faceWidth": 1.013
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {
+        "beard.1": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.998,
+      "jaw": 0.975,
+      "noseWidth": 1.2,
+      "noseLength": 1.005,
+      "lips": 1.1,
+      "cheekbones": 1.38,
+      "faceWidth": 1.013
+    },
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0101,
+      "arms": 1.044,
+      "legs": 1.015,
+      "muscle": 0.8918
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.388,
+      "Circling": 0.772,
+      "HeadMovement": 0.243,
+      "DefenseRate": 0.771,
+      "CounterRate": 0.421,
+      "ExitAfterCombo": 0.995,
+      "AttackRange": 1.206
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 2,
+      "age": 19,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

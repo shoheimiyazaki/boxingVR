@@ -1,0 +1,107 @@
+{
+  "id": "victor-rhodes",
+  "order": 1033,
+  "org": "ivf",
+  "name": "ビクター・ローズ",
+  "reading": "ビクター ローズ",
+  "hudName": "ビクター",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.275, 0.173, 0.122],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.019,
+      "jaw": 0.991,
+      "noseWidth": 1.2,
+      "noseLength": 1.089,
+      "lips": 1.1,
+      "cheekbones": 1.349,
+      "faceWidth": 1.019
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.019,
+      "jaw": 0.991,
+      "noseWidth": 1.2,
+      "noseLength": 1.089,
+      "lips": 1.1,
+      "cheekbones": 1.349,
+      "faceWidth": 1.019
+    },
+    "skin": [0.275, 0.173, 0.122],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.8874,
+      "arms": 1.026,
+      "legs": 1.041,
+      "muscle": 1.1061
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.466,
+      "Circling": 0.388,
+      "HeadMovement": 0.462,
+      "DefenseRate": 0.53,
+      "CounterRate": 0.486,
+      "ExitAfterCombo": 0.436,
+      "AttackRange": 0.919
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 33,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

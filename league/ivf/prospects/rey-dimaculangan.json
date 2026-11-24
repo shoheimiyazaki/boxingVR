@@ -1,0 +1,106 @@
+{
+  "id": "rey-dimaculangan",
+  "order": 1175,
+  "org": "ivf",
+  "name": "レイ・ディマクランガン",
+  "reading": "レイ ディマクランガン",
+  "hudName": "レイ",
+  "origin": "フィリピン",
+  "country": "philippines",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.78, 0.604, 0.439],
+    "hair": [0.137, 0.11, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.89,
+      "jaw": 0.976,
+      "noseWidth": 1.12,
+      "noseLength": 0.951,
+      "cheekbones": 1.371,
+      "faceWidth": 0.991
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.89,
+      "jaw": 0.976,
+      "noseWidth": 1.12,
+      "noseLength": 0.951,
+      "cheekbones": 1.371,
+      "faceWidth": 0.991
+    },
+    "skin": [0.78, 0.604, 0.439],
+    "hair": [0.137, 0.11, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.125,
+      "arms": 0.989,
+      "legs": 0.986,
+      "muscle": 0.9438
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.781,
+      "Circling": 0.889,
+      "HeadMovement": 0.258,
+      "DefenseRate": 0.509,
+      "CounterRate": 0.443,
+      "ExitAfterCombo": 0.963,
+      "AttackRange": 1.16
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 175,
+      "age": 20,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "id": "abel-navarrete",
+  "order": 1063,
+  "org": "ivf",
+  "name": "アベル・ナバレテ",
+  "reading": "アベル ナバレテ",
+  "hudName": "アベル",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF ミドル級の新鋭",
+  "look": {
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.125, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.983,
+      "jaw": 0.995,
+      "noseWidth": 1.1,
+      "noseLength": 1.008,
+      "cheekbones": 1.396,
+      "faceWidth": 1.012
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.983,
+      "jaw": 0.995,
+      "noseWidth": 1.1,
+      "noseLength": 1.008,
+      "cheekbones": 1.396,
+      "faceWidth": 1.012
+    },
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.125, 0.106, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0743,
+      "arms": 0.953,
+      "legs": 0.963,
+      "muscle": 0.9367
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.735,
+      "Circling": 0.669,
+      "HeadMovement": 0.249,
+      "DefenseRate": 0.434,
+      "CounterRate": 0.4,
+      "ExitAfterCombo": 0.906,
+      "AttackRange": 1.25,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 63,
+      "age": 24,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ],
+  "profile": {
+    "age": 24,
+    "heightCm": 154,
+    "weightKg": 73,
+    "birthplace": "メキシコ",
+    "hometown": "グアダラハラ",
+    "stance": "サウスポー",
+    "nicknameStory": "左構えから「エル・スルド（左利き）」と呼ばれるが、本人はアベルと呼ばれる方が好き。",
+    "fightRecord": {
+      "wins": 9,
+      "losses": 1,
+      "draws": 0,
+      "kos": 9
+    },
+    "career": [
+      "シーズン1・IVF 新人リーグ 第1興行: オスマイ・バルデスに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第2興行: アグスティン・フネスに2R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第3興行: エゴール・ベロフに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第4興行: タナワット・ケーオクラーに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第5興行: アグスティン・フェレイラに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第6興行: ウルグベク・ナザロフに1R KO 勝ち",
+      "シーズン1・IVF ミドル級ランキング挑戦: ヨアンドリ・モラレスに1R KO 勝ち",
+      "シーズン1・IVF ミドル級ランキング挑戦: ジョアン・\"ガロ\"・シルバに1R KO 勝ち",
+      "シーズン1・IVF ミドル級ランキング挑戦: ヴィクラム・ラトールに1R KO 勝ち",
+      "シーズン1・IVF ミドル級王座戦: アルバート・クロムウェルに2R KO 負け"
+    ],
+    "trainer": "叔父のフェリペ・ナバレテ。家の裏庭のジムで育てた",
+    "fightingStyle": "ジャブを細かく刻んで主導権を握る。相手が入る前に間合いを切る。154 cm・73 kg のミドル級で、腕は基準の 0.95 倍。サウスポー。",
+    "strengths": [
+      "倒し切る決定力（9勝のうち9KO）",
+      "サウスポーの構えで相手の読みを外す"
+    ],
+    "weaknesses": [
+      "腕が短く、懐へ入らないと届かない",
+      "1つの負けから学ぶ途中",
+      "もらう数が当てる数より多い",
+      "5 ラウンドの長い試合の経験が浅い"
+    ],
+    "personality": "冗談好きで陽気。ただし減量中は誰とも口をきかない。",
+    "hobbies": [
+      "マリアッチのギター",
+      "サッカー観戦（地元クラブの熱狂的なファン）",
+      "祖母の料理の手伝い"
+    ],
+    "family": "大家族の 6 人兄弟の 4 番目。兄 2 人もアマチュアのボクサーだった。",
+    "episodes": [
+      "新人リーグのミドル級を負けなしで終えた",
+      "サウスポーは生まれつきではなく、叔父に右の怪我の間に覚えさせられた",
+      "入場曲は自分でギターを弾いて録った",
+      "計量の後は必ず祖母のポソレを一杯だけ食べる"
+    ],
+    "quote": "左は話す、右は答える。",
+    "commentaryNotes": [
+      "IVF 新人リーグ シーズン1で6勝0敗（6KO）。ミドル級の上位で正式に登録された",
+      "メキシコ出身、24歳",
+      "新人リーグで一番早い KO は 1R 14 秒",
+      "サウスポーのジャブ使い"
+    ]
+  }
+}

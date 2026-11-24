@@ -1,0 +1,107 @@
+{
+  "id": "thiago-araujo",
+  "order": 1043,
+  "org": "ivf",
+  "name": "チアゴ・アラウージョ",
+  "reading": "チアゴ アラウージョ",
+  "hudName": "チアゴ",
+  "origin": "ブラジル",
+  "country": "brazil",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 1.08,
+      "jaw": 0.928,
+      "noseWidth": 1.1,
+      "noseLength": 1.06,
+      "cheekbones": 1.394,
+      "faceWidth": 1.031
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {
+        "beard.1": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.08,
+      "jaw": 0.928,
+      "noseWidth": 1.1,
+      "noseLength": 1.06,
+      "cheekbones": 1.394,
+      "faceWidth": 1.031
+    },
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0262,
+      "arms": 0.985,
+      "legs": 0.97,
+      "muscle": 0.9288
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.975,
+      "Circling": 0.202,
+      "HeadMovement": 0.904,
+      "DefenseRate": 0.508,
+      "CounterRate": 0.611,
+      "ExitAfterCombo": 0.116,
+      "AttackRange": 0.75
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 43,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

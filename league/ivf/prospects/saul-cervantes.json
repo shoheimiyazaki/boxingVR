@@ -1,0 +1,105 @@
+{
+  "id": "saul-cervantes",
+  "order": 1027,
+  "org": "ivf",
+  "name": "サウル・セルバンテス",
+  "reading": "サウル セルバンテス",
+  "hudName": "サウル",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.478, 0.322, 0.188],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.037,
+      "jaw": 0.948,
+      "noseWidth": 1.1,
+      "noseLength": 1.021,
+      "cheekbones": 1.418,
+      "faceWidth": 0.977
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.037,
+      "jaw": 0.948,
+      "noseWidth": 1.1,
+      "noseLength": 1.021,
+      "cheekbones": 1.418,
+      "faceWidth": 0.977
+    },
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.478, 0.322, 0.188]
+  },
+  "body": {
+    "build": {
+      "height": 1.025,
+      "arms": 1.024,
+      "legs": 0.96,
+      "muscle": 0.8892
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.232,
+      "Circling": 0.53,
+      "HeadMovement": 0.537,
+      "DefenseRate": 0.767,
+      "CounterRate": 1,
+      "ExitAfterCombo": 0.589,
+      "AttackRange": 1.019
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 27,
+      "age": 21,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

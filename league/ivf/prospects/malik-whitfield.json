@@ -1,0 +1,106 @@
+{
+  "id": "malik-whitfield",
+  "order": 1202,
+  "org": "ivf",
+  "name": "マリク・ウィットフィールド",
+  "reading": "マリク ウィットフィールド",
+  "hudName": "マリク",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.086,
+      "jaw": 1.07,
+      "noseWidth": 1.1,
+      "noseLength": 0.927,
+      "cheekbones": 1.51,
+      "faceWidth": 0.995
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.086,
+      "jaw": 1.07,
+      "noseWidth": 1.1,
+      "noseLength": 0.927,
+      "cheekbones": 1.51,
+      "faceWidth": 0.995
+    },
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0872,
+      "arms": 1.013,
+      "legs": 0.998,
+      "muscle": 1.0431
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.434,
+      "Circling": 0.443,
+      "HeadMovement": 0.429,
+      "DefenseRate": 0.488,
+      "CounterRate": 0.56,
+      "ExitAfterCombo": 0.374,
+      "AttackRange": 0.993,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 202,
+      "age": 21,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

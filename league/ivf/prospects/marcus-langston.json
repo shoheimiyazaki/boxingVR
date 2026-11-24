@@ -1,0 +1,107 @@
+{
+  "id": "marcus-langston",
+  "order": 1025,
+  "org": "ivf",
+  "name": "マーカス・ラングストン",
+  "reading": "マーカス ラングストン",
+  "hudName": "マーカス",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.353, 0.227, 0.157],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.03,
+      "jaw": 0.982,
+      "noseWidth": 1.2,
+      "noseLength": 0.947,
+      "lips": 1.1,
+      "cheekbones": 1.305,
+      "faceWidth": 1.025
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.03,
+      "jaw": 0.982,
+      "noseWidth": 1.2,
+      "noseLength": 0.947,
+      "lips": 1.1,
+      "cheekbones": 1.305,
+      "faceWidth": 1.025
+    },
+    "skin": [0.353, 0.227, 0.157],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 0.9716,
+      "arms": 1.003,
+      "legs": 1.031,
+      "muscle": 0.9765
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.677,
+      "Circling": 0.159,
+      "HeadMovement": 0.204,
+      "DefenseRate": 0.341,
+      "CounterRate": 0.304,
+      "ExitAfterCombo": 0.13,
+      "AttackRange": 0.75
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 25,
+      "age": 21,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

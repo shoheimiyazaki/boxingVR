@@ -1,0 +1,52 @@
+{
+  "org": "ivf",
+  "asOf": "2026-11-25",
+  "basis": "階級ごとの総当たり（両コーナー × 種 1,2,3・5R・休み 17 秒）。physics 90・logic 65。2026-11-24 に体重を物理の体の質量にそろえて階級が変わった 2 人（ramon → ライト級、yoandry → ミドル級）は、試合をせずに移った階級のランキングの末尾へ。新人リーグ シーズン 1 の上位を末尾に登録",
+  "divisions": [
+    {
+      "division": "light",
+      "champion": null,
+      "ranking": [
+        "ramon",
+        "anan-inthasorn",
+        "andre-bishop"
+      ]
+    },
+    {
+      "division": "middle",
+      "champion": "albert",
+      "ranking": [
+        "vikram",
+        "joao",
+        "yoandry",
+        "abel-navarrete",
+        "ulugbek-nazarov"
+      ]
+    },
+    {
+      "division": "lightheavy",
+      "champion": "gaston",
+      "ranking": [
+        "daniyar-seitkali",
+        "sipho-van-wyk"
+      ]
+    },
+    {
+      "division": "cruiser",
+      "champion": null,
+      "ranking": [
+        "ivan-escobedo",
+        "prasert-rattanakul"
+      ]
+    },
+    {
+      "division": "heavy",
+      "champion": "marcus",
+      "ranking": [
+        "dmitri",
+        "mauricio-villegas",
+        "takumi-ishiguro"
+      ]
+    }
+  ]
+}

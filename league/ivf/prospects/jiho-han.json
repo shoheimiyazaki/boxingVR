@@ -1,0 +1,108 @@
+{
+  "id": "jiho-han",
+  "order": 1149,
+  "org": "ivf",
+  "name": "ハン・ジホ",
+  "reading": "ハン ジホ",
+  "hudName": "ジホ",
+  "origin": "韓国",
+  "country": "korea",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.788, 0.639, 0.514],
+    "hair": [0.09, 0.11, 0.133],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.074,
+      "jaw": 1.054,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.014,
+      "cheekbones": 1.162,
+      "faceWidth": 0.89
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 1.074,
+      "jaw": 1.054,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.014,
+      "cheekbones": 1.162,
+      "faceWidth": 0.89
+    },
+    "skin": [0.788, 0.639, 0.514],
+    "hair": [0.09, 0.11, 0.133],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9181,
+      "arms": 0.989,
+      "legs": 0.971,
+      "muscle": 1.2447
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.605,
+      "Circling": 0.164,
+      "HeadMovement": 0.163,
+      "DefenseRate": 0.311,
+      "CounterRate": 0.259,
+      "ExitAfterCombo": 0.16,
+      "AttackRange": 0.917,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 149,
+      "age": 26,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

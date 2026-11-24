@@ -1,0 +1,103 @@
+{
+  "id": "malte-brandt",
+  "order": 1078,
+  "org": "ivf",
+  "name": "マルテ・ブラント",
+  "reading": "マルテ ブラント",
+  "hudName": "マルテ",
+  "origin": "ドイツ",
+  "country": "germany",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.788, 0.659, 0.416],
+    "hairstyle": "Crop",
+    "eyes": [0.376, 0.451, 0.306],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.956,
+      "jaw": 0.966,
+      "noseLength": 1.231,
+      "cheekbones": 1.388,
+      "faceWidth": 0.97
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.956,
+      "jaw": 0.966,
+      "noseLength": 1.231,
+      "cheekbones": 1.388,
+      "faceWidth": 0.97
+    },
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.788, 0.659, 0.416],
+    "iris": [0.376, 0.451, 0.306]
+  },
+  "body": {
+    "build": {
+      "height": 1.1163,
+      "arms": 0.993,
+      "legs": 1.002,
+      "muscle": 0.8709
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.708,
+      "Circling": 0.771,
+      "HeadMovement": 0.207,
+      "DefenseRate": 0.369,
+      "CounterRate": 0.59,
+      "ExitAfterCombo": 0.883,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 78,
+      "age": 21,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

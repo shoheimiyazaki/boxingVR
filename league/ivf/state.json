@@ -1,0 +1,1702 @@
+{
+  "org": "ivf",
+  "season": 1,
+  "eventsDone": 6,
+  "fighters": {
+    "jerwin-ocampo": {
+      "division": "light",
+      "country": "philippines",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "rodrigo-ibarra": {
+      "division": "light",
+      "country": "mexico",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "isaiah-whitfield": {
+      "division": "light",
+      "country": "usa",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "jerwin-manalo": {
+      "division": "light",
+      "country": "philippines",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "lautaro-funes": {
+      "division": "light",
+      "country": "argentina",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "alonso-ochoa": {
+      "division": "light",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "franco-ledesma": {
+      "division": "light",
+      "country": "argentina",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "cooper-mcallister": {
+      "division": "light",
+      "country": "australia",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "dindo-manalo": {
+      "division": "light",
+      "country": "philippines",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "edson-araujo": {
+      "division": "light",
+      "country": "brazil",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "dindo-villanueva": {
+      "division": "light",
+      "country": "philippines",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "gerardo-rosales": {
+      "division": "light",
+      "country": "mexico",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "alonso-navarrete": {
+      "division": "light",
+      "country": "mexico",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "jiho-park": {
+      "division": "light",
+      "country": "korea",
+      "status": "retired",
+      "since": 5,
+      "reason": "3 連敗"
+    },
+    "jamie-hargreaves": {
+      "division": "light",
+      "country": "uk",
+      "status": "retired",
+      "since": 5,
+      "reason": "3 連敗"
+    },
+    "hector-zamora": {
+      "division": "light",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "jomar-ocampo": {
+      "division": "light",
+      "country": "philippines",
+      "status": "retired",
+      "since": 4,
+      "reason": "3 連敗"
+    },
+    "kaito-hirano": {
+      "division": "light",
+      "country": "japan",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "anan-inthasorn": {
+      "division": "light",
+      "country": "thailand",
+      "status": "registered",
+      "since": 6,
+      "reason": null
+    },
+    "kofi-holt": {
+      "division": "light",
+      "country": "uk",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "kofi-oakley": {
+      "division": "light",
+      "country": "uk",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "wichai-chaiyaphum": {
+      "division": "light",
+      "country": "thailand",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "thanawat-srisuk": {
+      "division": "light",
+      "country": "thailand",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "askar-tleuov": {
+      "division": "light",
+      "country": "kazakhstan",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "ethan-ashworth": {
+      "division": "light",
+      "country": "uk",
+      "status": "retired",
+      "since": 3,
+      "reason": "試合で死亡"
+    },
+    "marcus-langston": {
+      "division": "light",
+      "country": "usa",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "tane-pearce": {
+      "division": "light",
+      "country": "australia",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "saul-cervantes": {
+      "division": "light",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "surachai-boonmee": {
+      "division": "light",
+      "country": "thailand",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "shota-shimazu": {
+      "division": "light",
+      "country": "japan",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "elmer-dimaculangan": {
+      "division": "light",
+      "country": "philippines",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "ulises-rosales": {
+      "division": "light",
+      "country": "mexico",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "ivan-ibarra": {
+      "division": "light",
+      "country": "mexico",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "victor-rhodes": {
+      "division": "light",
+      "country": "usa",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "seojin-han": {
+      "division": "light",
+      "country": "korea",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "gerardo-villegas": {
+      "division": "light",
+      "country": "mexico",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "yusei-hirano": {
+      "division": "light",
+      "country": "japan",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "brandon-sutton": {
+      "division": "light",
+      "country": "usa",
+      "status": "retired",
+      "since": 6,
+      "reason": "3 連敗"
+    },
+    "kaito-morioka": {
+      "division": "light",
+      "country": "japan",
+      "status": "retired",
+      "since": 4,
+      "reason": "3 連敗"
+    },
+    "prasert-phromma": {
+      "division": "light",
+      "country": "thailand",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "pieter-sithole": {
+      "division": "light",
+      "country": "southafrica",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "hector-mendoza": {
+      "division": "light",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "diego-zamora": {
+      "division": "light",
+      "country": "mexico",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "thiago-araujo": {
+      "division": "light",
+      "country": "brazil",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "roman-orlov": {
+      "division": "light",
+      "country": "russia",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "mark-tolentino": {
+      "division": "light",
+      "country": "philippines",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "marcus-mabry": {
+      "division": "light",
+      "country": "usa",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "corey-merritt": {
+      "division": "light",
+      "country": "usa",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "andre-bishop": {
+      "division": "light",
+      "country": "usa",
+      "status": "registered",
+      "since": 6,
+      "reason": null
+    },
+    "declan-pennington": {
+      "division": "light",
+      "country": "uk",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "liam-bramley": {
+      "division": "light",
+      "country": "uk",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "jasur-tursunov": {
+      "division": "light",
+      "country": "uzbekistan",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "rodrigo-navarrete": {
+      "division": "light",
+      "country": "mexico",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "bohdan-hnatiuk": {
+      "division": "light",
+      "country": "ukraine",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "bongani-van-wyk": {
+      "division": "light",
+      "country": "southafrica",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "kaito-okabe": {
+      "division": "light",
+      "country": "japan",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "fermin-salcedo": {
+      "division": "middle",
+      "country": "mexico",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "wellington-barbosa": {
+      "division": "middle",
+      "country": "brazil",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "osmay-valdes": {
+      "division": "middle",
+      "country": "cuba",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "bohdan-melnyk": {
+      "division": "middle",
+      "country": "ukraine",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "kittisak-phromma": {
+      "division": "middle",
+      "country": "thailand",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "ulugbek-nazarov": {
+      "division": "middle",
+      "country": "uzbekistan",
+      "status": "registered",
+      "since": 6,
+      "reason": null
+    },
+    "alonso-mendoza": {
+      "division": "middle",
+      "country": "mexico",
+      "status": "retired",
+      "since": 4,
+      "reason": "3 連敗"
+    },
+    "abel-navarrete": {
+      "division": "middle",
+      "country": "mexico",
+      "status": "registered",
+      "since": 6,
+      "reason": null
+    },
+    "daisuke-miyagi": {
+      "division": "middle",
+      "country": "japan",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "emilio-ochoa": {
+      "division": "middle",
+      "country": "mexico",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "yuto-okabe": {
+      "division": "middle",
+      "country": "japan",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "mauricio-navarrete": {
+      "division": "middle",
+      "country": "mexico",
+      "status": "retired",
+      "since": 5,
+      "reason": "3 連敗"
+    },
+    "dwayne-holloway": {
+      "division": "middle",
+      "country": "usa",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "emilio-mendoza": {
+      "division": "middle",
+      "country": "mexico",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "owen-fairbairn": {
+      "division": "middle",
+      "country": "uk",
+      "status": "retired",
+      "since": 5,
+      "reason": "3 連敗"
+    },
+    "corey-bishop": {
+      "division": "middle",
+      "country": "usa",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "yegor-belov": {
+      "division": "middle",
+      "country": "russia",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "yunier-hechavarria": {
+      "division": "middle",
+      "country": "cuba",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "wesley-mabry": {
+      "division": "middle",
+      "country": "usa",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "kofi-ashworth": {
+      "division": "middle",
+      "country": "uk",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "thanawat-siriwat": {
+      "division": "middle",
+      "country": "thailand",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "pavel-lebedev": {
+      "division": "middle",
+      "country": "russia",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "malte-brandt": {
+      "division": "middle",
+      "country": "germany",
+      "status": "retired",
+      "since": 4,
+      "reason": "試合で死亡"
+    },
+    "roman-volkov": {
+      "division": "middle",
+      "country": "russia",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "harvey-thornton": {
+      "division": "middle",
+      "country": "uk",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "wesley-carver": {
+      "division": "middle",
+      "country": "usa",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "gaston-godoy": {
+      "division": "middle",
+      "country": "argentina",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "franco-bustos": {
+      "division": "middle",
+      "country": "argentina",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "caleb-bishop": {
+      "division": "middle",
+      "country": "usa",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "darnell-mabry": {
+      "division": "middle",
+      "country": "usa",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "fermin-zamora": {
+      "division": "middle",
+      "country": "mexico",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "thanawat-kaewkla": {
+      "division": "middle",
+      "country": "thailand",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "tane-brennan": {
+      "division": "middle",
+      "country": "australia",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "malik-merritt": {
+      "division": "middle",
+      "country": "usa",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "agustin-ferreyra": {
+      "division": "middle",
+      "country": "argentina",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "ulises-navarrete": {
+      "division": "middle",
+      "country": "mexico",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "rhys-pennington": {
+      "division": "middle",
+      "country": "uk",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "stanislav-sokolov": {
+      "division": "middle",
+      "country": "russia",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "shokhrukh-ergashev": {
+      "division": "middle",
+      "country": "uzbekistan",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "moussa-marchand": {
+      "division": "middle",
+      "country": "france",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "agustin-funes": {
+      "division": "middle",
+      "country": "argentina",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "caleb-carver": {
+      "division": "middle",
+      "country": "usa",
+      "status": "retired",
+      "since": 2,
+      "reason": "試合で死亡"
+    },
+    "roman-lebedev": {
+      "division": "middle",
+      "country": "russia",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "wichai-thongdee": {
+      "division": "middle",
+      "country": "thailand",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "dwayne-mabry": {
+      "division": "middle",
+      "country": "usa",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "declan-oakley": {
+      "division": "middle",
+      "country": "uk",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "isaiah-langston": {
+      "division": "middle",
+      "country": "usa",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "emilio-quintero": {
+      "division": "middle",
+      "country": "mexico",
+      "status": "retired",
+      "since": 5,
+      "reason": "3 連敗"
+    },
+    "joaquin-aguilar": {
+      "division": "middle",
+      "country": "mexico",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "darnell-merritt": {
+      "division": "middle",
+      "country": "usa",
+      "status": "retired",
+      "since": 4,
+      "reason": "3 連敗"
+    },
+    "darnell-booker": {
+      "division": "middle",
+      "country": "usa",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "brandon-merritt": {
+      "division": "middle",
+      "country": "usa",
+      "status": "retired",
+      "since": 4,
+      "reason": "3 連敗"
+    },
+    "ivan-mendoza": {
+      "division": "middle",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "malte-vogt": {
+      "division": "middle",
+      "country": "germany",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "cian-brennock": {
+      "division": "middle",
+      "country": "ireland",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "moussa-girard": {
+      "division": "middle",
+      "country": "france",
+      "status": "retired",
+      "since": 2,
+      "reason": "試合で死亡"
+    },
+    "leandro-villalba": {
+      "division": "lightheavy",
+      "country": "argentina",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "ulises-trujillo": {
+      "division": "lightheavy",
+      "country": "mexico",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "tyrell-holloway": {
+      "division": "lightheavy",
+      "country": "usa",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "fermin-ibarra": {
+      "division": "lightheavy",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "taras-hnatiuk": {
+      "division": "lightheavy",
+      "country": "ukraine",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "gerardo-aguilar": {
+      "division": "lightheavy",
+      "country": "mexico",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "hayden-kingsley": {
+      "division": "lightheavy",
+      "country": "australia",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "romeo-dela-pena": {
+      "division": "lightheavy",
+      "country": "philippines",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "daniyar-seitkali": {
+      "division": "lightheavy",
+      "country": "kazakhstan",
+      "status": "registered",
+      "since": 6,
+      "reason": null
+    },
+    "lachlan-tuilagi": {
+      "division": "lightheavy",
+      "country": "australia",
+      "status": "retired",
+      "since": 5,
+      "reason": "3 連敗"
+    },
+    "tobias-albers": {
+      "division": "lightheavy",
+      "country": "germany",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "thiago-teixeira": {
+      "division": "lightheavy",
+      "country": "brazil",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "jasur-yusupov": {
+      "division": "lightheavy",
+      "country": "uzbekistan",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "darnell-gaines": {
+      "division": "lightheavy",
+      "country": "usa",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "joaquin-salcedo": {
+      "division": "lightheavy",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "mykola-hnatiuk": {
+      "division": "lightheavy",
+      "country": "ukraine",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "sipho-van-wyk": {
+      "division": "lightheavy",
+      "country": "southafrica",
+      "status": "registered",
+      "since": 6,
+      "reason": null
+    },
+    "rohit-sangwan": {
+      "division": "lightheavy",
+      "country": "india",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "matias-villalba": {
+      "division": "lightheavy",
+      "country": "argentina",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "mauricio-salcedo": {
+      "division": "lightheavy",
+      "country": "mexico",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "ivan-quintero": {
+      "division": "lightheavy",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "lachlan-pearce": {
+      "division": "lightheavy",
+      "country": "australia",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "isaiah-sutton": {
+      "division": "lightheavy",
+      "country": "usa",
+      "status": "retired",
+      "since": 4,
+      "reason": "3 連敗"
+    },
+    "archie-whitlock": {
+      "division": "lightheavy",
+      "country": "uk",
+      "status": "retired",
+      "since": 6,
+      "reason": "3 連敗"
+    },
+    "quentin-marchand": {
+      "division": "lightheavy",
+      "country": "france",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "ramiro-villegas": {
+      "division": "lightheavy",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "ramiro-navarrete": {
+      "division": "lightheavy",
+      "country": "mexico",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "anton-zaitsev": {
+      "division": "lightheavy",
+      "country": "russia",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "daniyar-zhunusov": {
+      "division": "lightheavy",
+      "country": "kazakhstan",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "sipho-nkosi": {
+      "division": "lightheavy",
+      "country": "southafrica",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "yunier-pineda": {
+      "division": "lightheavy",
+      "country": "cuba",
+      "status": "retired",
+      "since": 1,
+      "reason": "試合で死亡"
+    },
+    "caleb-prescott": {
+      "division": "lightheavy",
+      "country": "usa",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "romeo-dimaculangan": {
+      "division": "lightheavy",
+      "country": "philippines",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "vivek-bhatia": {
+      "division": "lightheavy",
+      "country": "india",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "kagiso-ndlovu": {
+      "division": "lightheavy",
+      "country": "southafrica",
+      "status": "retired",
+      "since": 1,
+      "reason": "試合で死亡"
+    },
+    "cian-mulcahy": {
+      "division": "lightheavy",
+      "country": "ireland",
+      "status": "retired",
+      "since": 4,
+      "reason": "3 連敗"
+    },
+    "rodrigo-escobedo": {
+      "division": "lightheavy",
+      "country": "mexico",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "jiho-han": {
+      "division": "lightheavy",
+      "country": "korea",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "roman-sokolov": {
+      "division": "lightheavy",
+      "country": "russia",
+      "status": "retired",
+      "since": 4,
+      "reason": "試合で死亡"
+    },
+    "gleb-kovrigin": {
+      "division": "lightheavy",
+      "country": "russia",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "gaston-sosa": {
+      "division": "lightheavy",
+      "country": "argentina",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "andre-booker": {
+      "division": "lightheavy",
+      "country": "usa",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "ryo-okabe": {
+      "division": "lightheavy",
+      "country": "japan",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "niklas-vogt": {
+      "division": "lightheavy",
+      "country": "germany",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "joaquin-ochoa": {
+      "division": "lightheavy",
+      "country": "mexico",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "mark-dimaculangan": {
+      "division": "lightheavy",
+      "country": "philippines",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "niklas-albers": {
+      "division": "lightheavy",
+      "country": "germany",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "ramiro-cervantes": {
+      "division": "lightheavy",
+      "country": "mexico",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "diego-mendoza": {
+      "division": "cruiser",
+      "country": "mexico",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "alonso-rosales": {
+      "division": "cruiser",
+      "country": "mexico",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "wichai-kaewkla": {
+      "division": "cruiser",
+      "country": "thailand",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "archie-redfern": {
+      "division": "cruiser",
+      "country": "uk",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "hayden-hollis": {
+      "division": "cruiser",
+      "country": "australia",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "mauricio-zamora": {
+      "division": "cruiser",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "nahuel-sosa": {
+      "division": "cruiser",
+      "country": "argentina",
+      "status": "retired",
+      "since": 1,
+      "reason": "試合で死亡"
+    },
+    "tyrell-carver": {
+      "division": "cruiser",
+      "country": "usa",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "emilio-benitez": {
+      "division": "cruiser",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "dwayne-sutton": {
+      "division": "cruiser",
+      "country": "usa",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "yaroslav-melnyk": {
+      "division": "cruiser",
+      "country": "ukraine",
+      "status": "retired",
+      "since": 4,
+      "reason": "3 連敗"
+    },
+    "alonso-villegas": {
+      "division": "cruiser",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "brandon-rhodes": {
+      "division": "cruiser",
+      "country": "usa",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "travis-rhodes": {
+      "division": "cruiser",
+      "country": "usa",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "joaquin-ibarra": {
+      "division": "cruiser",
+      "country": "mexico",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "rey-dimaculangan": {
+      "division": "cruiser",
+      "country": "philippines",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "joaquin-escobedo": {
+      "division": "cruiser",
+      "country": "mexico",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "yusei-kurata": {
+      "division": "cruiser",
+      "country": "japan",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "daisuke-nishikawa": {
+      "division": "cruiser",
+      "country": "japan",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "jamie-redfern": {
+      "division": "cruiser",
+      "country": "uk",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "ramiro-quintero": {
+      "division": "cruiser",
+      "country": "mexico",
+      "status": "retired",
+      "since": 4,
+      "reason": "通算の負け越し 3"
+    },
+    "thabo-mabaso": {
+      "division": "cruiser",
+      "country": "southafrica",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "nattapong-thongdee": {
+      "division": "cruiser",
+      "country": "thailand",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "marcus-whitfield": {
+      "division": "cruiser",
+      "country": "usa",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "ezequiel-funes": {
+      "division": "cruiser",
+      "country": "argentina",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "corey-sutton": {
+      "division": "cruiser",
+      "country": "usa",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "ethan-thornton": {
+      "division": "cruiser",
+      "country": "uk",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "romeo-villanueva": {
+      "division": "cruiser",
+      "country": "philippines",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "brandon-mabry": {
+      "division": "cruiser",
+      "country": "usa",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "aibek-omarov": {
+      "division": "cruiser",
+      "country": "kazakhstan",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "ivan-escobedo": {
+      "division": "cruiser",
+      "country": "mexico",
+      "status": "registered",
+      "since": 6,
+      "reason": null
+    },
+    "saul-ochoa": {
+      "division": "cruiser",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "prasert-rattanakul": {
+      "division": "cruiser",
+      "country": "thailand",
+      "status": "registered",
+      "since": 6,
+      "reason": null
+    },
+    "yanis-diallo": {
+      "division": "cruiser",
+      "country": "france",
+      "status": "retired",
+      "since": 4,
+      "reason": "3 連敗"
+    },
+    "arjun-dahiya": {
+      "division": "cruiser",
+      "country": "india",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "yuto-kurata": {
+      "division": "cruiser",
+      "country": "japan",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "lautaro-sosa": {
+      "division": "cruiser",
+      "country": "argentina",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "ryo-hayashida": {
+      "division": "cruiser",
+      "country": "japan",
+      "status": "retired",
+      "since": 5,
+      "reason": "通算の負け越し 3"
+    },
+    "stanislav-orlov": {
+      "division": "cruiser",
+      "country": "russia",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "tshepo-van-wyk": {
+      "division": "cruiser",
+      "country": "southafrica",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "fermin-rosales": {
+      "division": "heavy",
+      "country": "mexico",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "arnel-lacson": {
+      "division": "heavy",
+      "country": "philippines",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "malik-whitfield": {
+      "division": "heavy",
+      "country": "usa",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "rhys-kershaw": {
+      "division": "heavy",
+      "country": "uk",
+      "status": "retired",
+      "since": 5,
+      "reason": "試合で死亡"
+    },
+    "tyrell-gaines": {
+      "division": "heavy",
+      "country": "usa",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "caleb-gaines": {
+      "division": "heavy",
+      "country": "usa",
+      "status": "retired",
+      "since": 5,
+      "reason": "3 連敗"
+    },
+    "rey-sumalpong": {
+      "division": "heavy",
+      "country": "philippines",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "victor-bishop": {
+      "division": "heavy",
+      "country": "usa",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "darragh-dunleavy": {
+      "division": "heavy",
+      "country": "ireland",
+      "status": "retired",
+      "since": 5,
+      "reason": "試合で死亡"
+    },
+    "mitchell-pearce": {
+      "division": "heavy",
+      "country": "australia",
+      "status": "retired",
+      "since": 4,
+      "reason": "3 連敗"
+    },
+    "saul-ibarra": {
+      "division": "heavy",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "mauricio-quintero": {
+      "division": "heavy",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "diego-trujillo": {
+      "division": "heavy",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "nahuel-peralta": {
+      "division": "heavy",
+      "country": "argentina",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "kofi-bramley": {
+      "division": "heavy",
+      "country": "uk",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "shota-miyagi": {
+      "division": "heavy",
+      "country": "japan",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "yegor-sokolov": {
+      "division": "heavy",
+      "country": "russia",
+      "status": "retired",
+      "since": 4,
+      "reason": "3 連敗"
+    },
+    "chaiwat-saetang": {
+      "division": "heavy",
+      "country": "thailand",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "wellington-nascimento": {
+      "division": "heavy",
+      "country": "brazil",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "victor-dalton": {
+      "division": "heavy",
+      "country": "usa",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "isaiah-mabry": {
+      "division": "heavy",
+      "country": "usa",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "tyrell-sutton": {
+      "division": "heavy",
+      "country": "usa",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "quentin-girard": {
+      "division": "heavy",
+      "country": "france",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "ivan-ochoa": {
+      "division": "heavy",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "gaston-funes": {
+      "division": "heavy",
+      "country": "argentina",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "mauricio-villegas": {
+      "division": "heavy",
+      "country": "mexico",
+      "status": "registered",
+      "since": 6,
+      "reason": null
+    },
+    "yuto-kanno": {
+      "division": "heavy",
+      "country": "japan",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "emilio-zamora": {
+      "division": "heavy",
+      "country": "mexico",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "ivan-trujillo": {
+      "division": "heavy",
+      "country": "mexico",
+      "status": "retired",
+      "since": 3,
+      "reason": "通算の負け越し 3"
+    },
+    "bongani-mabaso": {
+      "division": "heavy",
+      "country": "southafrica",
+      "status": "retired",
+      "since": 5,
+      "reason": "倒されての負け 3 回"
+    },
+    "emilio-rosales": {
+      "division": "heavy",
+      "country": "mexico",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "marcus-bishop": {
+      "division": "heavy",
+      "country": "usa",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "lewis-whitlock": {
+      "division": "heavy",
+      "country": "uk",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "connor-pennington": {
+      "division": "heavy",
+      "country": "uk",
+      "status": "retired",
+      "since": 4,
+      "reason": "倒されての負け 3 回"
+    },
+    "sardor-ergashev": {
+      "division": "heavy",
+      "country": "uzbekistan",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "takumi-ishiguro": {
+      "division": "heavy",
+      "country": "japan",
+      "status": "registered",
+      "since": 6,
+      "reason": null
+    },
+    "thanawat-chaiyaphum": {
+      "division": "heavy",
+      "country": "thailand",
+      "status": "active",
+      "since": 0,
+      "reason": null
+    },
+    "kosuke-morioka": {
+      "division": "heavy",
+      "country": "japan",
+      "status": "retired",
+      "since": 6,
+      "reason": "倒されての負け 3 回"
+    },
+    "askar-seitkali": {
+      "division": "heavy",
+      "country": "kazakhstan",
+      "status": "retired",
+      "since": 6,
+      "reason": "3 連敗"
+    },
+    "diego-benitez": {
+      "division": "heavy",
+      "country": "mexico",
+      "status": "retired",
+      "since": 4,
+      "reason": "3 連敗"
+    }
+  },
+  "byes": {
+    "jamie-redfern": 1,
+    "ramiro-quintero": 1,
+    "marcus-langston": 1,
+    "owen-fairbairn": 1,
+    "gleb-kovrigin": 1,
+    "lautaro-sosa": 1,
+    "victor-bishop": 1,
+    "rodrigo-ibarra": 1,
+    "anton-zaitsev": 1,
+    "diego-trujillo": 1,
+    "kofi-oakley": 1,
+    "emilio-zamora": 1
+  },
+  "challengesDone": true
+}

@@ -1,0 +1,103 @@
+{
+  "id": "ethan-thornton",
+  "order": 1186,
+  "org": "ivf",
+  "name": "イーサン・ソーントン",
+  "reading": "イーサン ソーントン",
+  "hudName": "イーサン",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.533, 0.439, 0.267],
+    "hairstyle": "Crop",
+    "eyes": [0.376, 0.451, 0.306],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.053,
+      "jaw": 1.093,
+      "noseLength": 1.144,
+      "cheekbones": 1.349,
+      "faceWidth": 1.016
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.053,
+      "jaw": 1.093,
+      "noseLength": 1.144,
+      "cheekbones": 1.349,
+      "faceWidth": 1.016
+    },
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.533, 0.439, 0.267],
+    "iris": [0.376, 0.451, 0.306]
+  },
+  "body": {
+    "build": {
+      "height": 1.1374,
+      "arms": 0.993,
+      "legs": 0.975,
+      "muscle": 0.9288
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.845,
+      "Circling": 0.176,
+      "HeadMovement": 0.943,
+      "DefenseRate": 0.608,
+      "CounterRate": 0.539,
+      "ExitAfterCombo": 0.108,
+      "AttackRange": 0.75
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 186,
+      "age": 26,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "id": "tshepo-van-wyk",
+  "order": 1199,
+  "org": "ivf",
+  "name": "ツェポ・ファンワイク",
+  "reading": "ツェポ ファンワイク",
+  "hudName": "ツェポ",
+  "origin": "南アフリカ",
+  "country": "southafrica",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.948,
+      "noseWidth": 1.2,
+      "noseLength": 1.005,
+      "lips": 1.1,
+      "cheekbones": 1.358,
+      "faceWidth": 0.95
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {
+        "beard.1": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.948,
+      "noseWidth": 1.2,
+      "noseLength": 1.005,
+      "lips": 1.1,
+      "cheekbones": 1.358,
+      "faceWidth": 0.95
+    },
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0456,
+      "arms": 0.997,
+      "legs": 0.957,
+      "muscle": 1.0682
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.859,
+      "Circling": 0.178,
+      "HeadMovement": 0.883,
+      "DefenseRate": 0.625,
+      "CounterRate": 0.67,
+      "ExitAfterCombo": 0.093,
+      "AttackRange": 0.855
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 199,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

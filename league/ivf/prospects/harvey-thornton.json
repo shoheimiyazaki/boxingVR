@@ -1,0 +1,104 @@
+{
+  "id": "harvey-thornton",
+  "order": 1080,
+  "org": "ivf",
+  "name": "ハーベイ・ソーントン",
+  "reading": "ハーベイ ソーントン",
+  "hudName": "ハーベイ",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.533, 0.439, 0.267],
+    "hairstyle": "Crop",
+    "eyes": [0.482, 0.522, 0.533],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.946,
+      "jaw": 1.061,
+      "noseLength": 1.094,
+      "cheekbones": 1.361,
+      "faceWidth": 0.949
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.946,
+      "jaw": 1.061,
+      "noseLength": 1.094,
+      "cheekbones": 1.361,
+      "faceWidth": 0.949
+    },
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.533, 0.439, 0.267],
+    "iris": [0.482, 0.522, 0.533]
+  },
+  "body": {
+    "build": {
+      "height": 0.9974,
+      "arms": 0.987,
+      "legs": 0.977,
+      "muscle": 0.9882
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.494,
+      "Circling": 0.767,
+      "HeadMovement": 0.334,
+      "DefenseRate": 0.612,
+      "CounterRate": 0.475,
+      "ExitAfterCombo": 0.762,
+      "AttackRange": 0.925,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 80,
+      "age": 24,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

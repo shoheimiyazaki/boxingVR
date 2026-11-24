@@ -1,0 +1,103 @@
+{
+  "id": "franco-bustos",
+  "order": 1083,
+  "org": "ivf",
+  "name": "フランコ・ブストス",
+  "reading": "フランコ ブストス",
+  "hudName": "フランコ",
+  "origin": "アルゼンチン",
+  "country": "argentina",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.773, 0.624, 0.506],
+    "hair": [0.204, 0.157, 0.129],
+    "hairstyle": "Crop",
+    "eyes": [0.533, 0.451, 0.243],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.969,
+      "jaw": 1.058,
+      "noseLength": 1.035,
+      "cheekbones": 1.418,
+      "faceWidth": 1.061
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.3": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.3": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.969,
+      "jaw": 1.058,
+      "noseLength": 1.035,
+      "cheekbones": 1.418,
+      "faceWidth": 1.061
+    },
+    "skin": [0.773, 0.624, 0.506],
+    "hair": [0.204, 0.157, 0.129],
+    "iris": [0.533, 0.451, 0.243]
+  },
+  "body": {
+    "build": {
+      "height": 0.995,
+      "arms": 1.025,
+      "legs": 0.982,
+      "muscle": 0.9973
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 1,
+      "Circling": 0.161,
+      "HeadMovement": 0.396,
+      "DefenseRate": 0.503,
+      "CounterRate": 0.661,
+      "ExitAfterCombo": 0.746,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 83,
+      "age": 19,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

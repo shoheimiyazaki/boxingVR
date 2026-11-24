@@ -1,0 +1,107 @@
+{
+  "id": "daisuke-nishikawa",
+  "order": 1178,
+  "org": "ivf",
+  "name": "西川 大輔",
+  "reading": "ニシカワ ダイスケ",
+  "hudName": "ダイスケ",
+  "origin": "日本",
+  "country": "japan",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.89, 0.769, 0.659],
+    "hair": [0.106, 0.106, 0.114],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.951,
+      "jaw": 1.046,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 0.946,
+      "cheekbones": 1.15,
+      "faceWidth": 1.001
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.951,
+      "jaw": 1.046,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 0.946,
+      "cheekbones": 1.15,
+      "faceWidth": 1.001
+    },
+    "skin": [0.89, 0.769, 0.659],
+    "hair": [0.106, 0.106, 0.114],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0277,
+      "arms": 0.935,
+      "legs": 0.992,
+      "muscle": 1.1146
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.676,
+      "Circling": 0.782,
+      "HeadMovement": 0.243,
+      "DefenseRate": 0.443,
+      "CounterRate": 0.555,
+      "ExitAfterCombo": 0.73,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 178,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

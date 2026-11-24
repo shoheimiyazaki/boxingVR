@@ -1,0 +1,161 @@
+{
+  "id": "mauricio-villegas",
+  "order": 1225,
+  "org": "ivf",
+  "name": "マウリシオ・ビジェガス",
+  "reading": "マウリシオ ビジェガス",
+  "hudName": "マウリシオ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF ヘビー級の新鋭",
+  "look": {
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.125, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.026,
+      "jaw": 0.94,
+      "noseWidth": 1.1,
+      "noseLength": 0.939,
+      "cheekbones": 1.346,
+      "faceWidth": 0.96
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.026,
+      "jaw": 0.94,
+      "noseWidth": 1.1,
+      "noseLength": 0.939,
+      "cheekbones": 1.346,
+      "faceWidth": 0.96
+    },
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.125, 0.106, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.1219,
+      "arms": 0.945,
+      "legs": 1.026,
+      "muscle": 1.0504
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 0.762,
+      "Circling": 0.154,
+      "HeadMovement": 0.429,
+      "DefenseRate": 0.49,
+      "CounterRate": 0.926,
+      "ExitAfterCombo": 0.85,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 225,
+      "age": 26,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ],
+  "profile": {
+    "age": 26,
+    "heightCm": 167,
+    "weightKg": 105,
+    "birthplace": "メキシコ",
+    "hometown": "ティフアナ",
+    "stance": "オーソドックス",
+    "nicknameStory": "港町の荷揚げの仕事から「エル・カルガドール（荷揚げ人）」。",
+    "fightRecord": {
+      "wins": 7,
+      "losses": 1,
+      "draws": 0,
+      "kos": 7
+    },
+    "career": [
+      "シーズン1・IVF 新人リーグ 第1興行: エミリオ・ロサレスに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第2興行: マウリシオ・キンテロに3R KO 負け",
+      "シーズン1・IVF 新人リーグ 第3興行: 菅野 悠斗に1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第4興行: タイレル・サットンに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第5興行: コフィ・ブラムリーに1R KO 勝ち",
+      "シーズン1・IVF 新人リーグ 第6興行: アイザイア・メイブリーに3R KO 勝ち",
+      "シーズン1・IVF ヘビー級ランキング挑戦: ドミトリー・ヴォルコフに2R KO 勝ち",
+      "シーズン1・IVF ヘビー級王座戦: マーカス・\"ザ・ハンマー\"・ブルックスに1R KO 勝ち"
+    ],
+    "trainer": "ティフアナの老舗ジムの主、ドン・ラウル・メサ",
+    "fightingStyle": "攻守の均整がとれた正統派。ジャブで間合いを作り、隙に強打を重ねる。167 cm・105 kg のヘビー級で、腕は基準の 0.95 倍。",
+    "strengths": [
+      "倒し切る決定力（7勝のうち7KO）",
+      "打ち合いで相手より多く当てる"
+    ],
+    "weaknesses": [
+      "腕が短く、懐へ入らないと届かない",
+      "1つの負けから学ぶ途中",
+      "5 ラウンドの長い試合の経験が浅い"
+    ],
+    "personality": "面倒見がよく、ジムの若手の兄貴分。試合前はよく笑う。",
+    "hobbies": [
+      "料理（タコスの屋台を手伝っていた）",
+      "古い車の修理",
+      "海釣り"
+    ],
+    "family": "妻と幼い娘が一人。娘の写真をガウンの内側に入れて入場する。",
+    "episodes": [
+      "荷揚げの仕事をしながらプロになった遅咲き",
+      "ヘビー級の新人で上位に入った",
+      "試合の後は必ず娘に電話をする",
+      "荷揚げの仲間がいまも試合ごとに横断幕を作ってくれる"
+    ],
+    "quote": "重い荷物ほど、腰で持つ。",
+    "commentaryNotes": [
+      "IVF 新人リーグ シーズン1で5勝1敗（5KO）。ヘビー級の上位で正式に登録された",
+      "メキシコ出身、26歳",
+      "新人リーグで一番早い KO は 1R 12 秒",
+      "遅咲きのヘビー級の新人"
+    ]
+  }
+}

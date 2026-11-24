@@ -1,0 +1,107 @@
+{
+  "id": "wesley-mabry",
+  "order": 1074,
+  "org": "ivf",
+  "name": "ウェズリー・メイブリー",
+  "reading": "ウェズリー メイブリー",
+  "hudName": "ウェズリー",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.09, 0.082, 0.078],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.03,
+      "jaw": 1.036,
+      "noseWidth": 1.2,
+      "noseLength": 0.984,
+      "lips": 1.1,
+      "cheekbones": 1.349,
+      "faceWidth": 0.958
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.03,
+      "jaw": 1.036,
+      "noseWidth": 1.2,
+      "noseLength": 0.984,
+      "lips": 1.1,
+      "cheekbones": 1.349,
+      "faceWidth": 0.958
+    },
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.09, 0.082, 0.078],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.938,
+      "arms": 0.972,
+      "legs": 0.969,
+      "muscle": 1.1463
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.744,
+      "Circling": 0.172,
+      "HeadMovement": 0.218,
+      "DefenseRate": 0.323,
+      "CounterRate": 0.304,
+      "ExitAfterCombo": 0.134,
+      "AttackRange": 0.84
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 74,
+      "age": 21,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "id": "leandro-villalba",
+  "order": 1112,
+  "org": "ivf",
+  "name": "レアンドロ・ビジャルバ",
+  "reading": "レアンドロ ビジャルバ",
+  "hudName": "レアンドロ",
+  "origin": "アルゼンチン",
+  "country": "argentina",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.851, 0.706, 0.588],
+    "hair": [0.204, 0.157, 0.129],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.029,
+      "jaw": 0.943,
+      "noseLength": 0.975,
+      "cheekbones": 1.463,
+      "faceWidth": 0.95
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.3": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.3": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.029,
+      "jaw": 0.943,
+      "noseLength": 0.975,
+      "cheekbones": 1.463,
+      "faceWidth": 0.95
+    },
+    "skin": [0.851, 0.706, 0.588],
+    "hair": [0.204, 0.157, 0.129],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9954,
+      "arms": 1.037,
+      "legs": 1.007,
+      "muscle": 1.0991
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.624,
+      "Circling": 0.727,
+      "HeadMovement": 0.236,
+      "DefenseRate": 0.35,
+      "CounterRate": 0.556,
+      "ExitAfterCombo": 1,
+      "AttackRange": 1.242
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 112,
+      "age": 26,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

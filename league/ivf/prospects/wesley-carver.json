@@ -1,0 +1,107 @@
+{
+  "id": "wesley-carver",
+  "order": 1081,
+  "org": "ivf",
+  "name": "ウェズリー・カーバー",
+  "reading": "ウェズリー カーバー",
+  "hudName": "ウェズリー",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.962,
+      "jaw": 1.011,
+      "noseWidth": 1.2,
+      "noseLength": 0.909,
+      "lips": 1.1,
+      "cheekbones": 1.37,
+      "faceWidth": 1.043
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.962,
+      "jaw": 1.011,
+      "noseWidth": 1.2,
+      "noseLength": 0.909,
+      "lips": 1.1,
+      "cheekbones": 1.37,
+      "faceWidth": 1.043
+    },
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9616,
+      "arms": 0.999,
+      "legs": 1.026,
+      "muscle": 1.0881
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.437,
+      "Circling": 0.795,
+      "HeadMovement": 0.359,
+      "DefenseRate": 0.573,
+      "CounterRate": 0.433,
+      "ExitAfterCombo": 0.985,
+      "AttackRange": 1.224
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 81,
+      "age": 22,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

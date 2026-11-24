@@ -1,0 +1,109 @@
+{
+  "id": "tyrell-sutton",
+  "order": 1221,
+  "org": "ivf",
+  "name": "タイレル・サットン",
+  "reading": "タイレル サットン",
+  "hudName": "タイレル",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 1.022,
+      "jaw": 0.978,
+      "noseWidth": 1.2,
+      "noseLength": 0.993,
+      "lips": 1.1,
+      "cheekbones": 1.395,
+      "faceWidth": 1.045
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.022,
+      "jaw": 0.978,
+      "noseWidth": 1.2,
+      "noseLength": 0.993,
+      "lips": 1.1,
+      "cheekbones": 1.395,
+      "faceWidth": 1.045
+    },
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.1344,
+      "arms": 0.994,
+      "legs": 1.003,
+      "muscle": 0.9625
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.503,
+      "Circling": 0.454,
+      "HeadMovement": 0.369,
+      "DefenseRate": 0.586,
+      "CounterRate": 0.552,
+      "ExitAfterCombo": 0.429,
+      "AttackRange": 0.949
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 221,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

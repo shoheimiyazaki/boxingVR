@@ -1,0 +1,107 @@
+{
+  "id": "bongani-van-wyk",
+  "order": 1054,
+  "org": "ivf",
+  "name": "ボンガニ・ファンワイク",
+  "reading": "ボンガニ ファンワイク",
+  "hudName": "ボンガニ",
+  "origin": "南アフリカ",
+  "country": "southafrica",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.966,
+      "jaw": 0.979,
+      "noseWidth": 1.2,
+      "noseLength": 1.05,
+      "lips": 1.1,
+      "cheekbones": 1.295,
+      "faceWidth": 0.969
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.966,
+      "jaw": 0.979,
+      "noseWidth": 1.2,
+      "noseLength": 1.05,
+      "lips": 1.1,
+      "cheekbones": 1.295,
+      "faceWidth": 0.969
+    },
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 0.9593,
+      "arms": 0.965,
+      "legs": 0.991,
+      "muscle": 1.0155
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.566,
+      "Circling": 0.364,
+      "HeadMovement": 0.392,
+      "DefenseRate": 0.633,
+      "CounterRate": 0.533,
+      "ExitAfterCombo": 0.414,
+      "AttackRange": 0.832
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 54,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

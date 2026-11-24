@@ -1,0 +1,105 @@
+{
+  "id": "malte-vogt",
+  "order": 1109,
+  "org": "ivf",
+  "name": "マルテ・フォークト",
+  "reading": "マルテ フォークト",
+  "hudName": "マルテ",
+  "origin": "ドイツ",
+  "country": "germany",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.788, 0.659, 0.416],
+    "hairstyle": "Crop",
+    "eyes": [0.482, 0.522, 0.533],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 1.069,
+      "jaw": 1.001,
+      "noseLength": 1.195,
+      "cheekbones": 1.363,
+      "faceWidth": 0.988
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.069,
+      "jaw": 1.001,
+      "noseLength": 1.195,
+      "cheekbones": 1.363,
+      "faceWidth": 0.988
+    },
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.788, 0.659, 0.416],
+    "iris": [0.482, 0.522, 0.533]
+  },
+  "body": {
+    "build": {
+      "height": 0.9693,
+      "arms": 0.996,
+      "legs": 0.983,
+      "muscle": 1.0418
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.228,
+      "Circling": 0.501,
+      "HeadMovement": 0.429,
+      "DefenseRate": 0.804,
+      "CounterRate": 0.933,
+      "ExitAfterCombo": 0.541,
+      "AttackRange": 0.796
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 109,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

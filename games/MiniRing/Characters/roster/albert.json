@@ -17,10 +17,10 @@
     "stance": "オーソドックス",
     "nicknameStory": "リングネームは名のアルバートから。曽祖父が同じ名で、昔の見世物ボクシング小屋の親方だった。その名を継いで素手でリングに上がる。",
     "fightRecord": {
-      "wins": 29,
+      "wins": 30,
       "losses": 6,
       "draws": 2,
-      "kos": 12
+      "kos": 13
     },
     "career": [
       "2008年: 16歳。祖父のパブの裏手にある古いボクシングジムで素手の練習を始める",
@@ -30,7 +30,8 @@
       "2018年: 初のランキング入り。長い腕を活かしたジャブでKOより判定勝ちを積み上げる",
       "2021年: ガストンと英仏対決。11ラウンドの接戦の末に判定勝ち",
       "2023年: 王者ザ・ハンマーと対戦し、重い一撃をもらい判定負け。ここから接近戦への対処を磨く",
-      "2025年: ジャブの打ち方を見直し、その後の6試合を4勝2分でまとめる"
+      "2025年: ジャブの打ち方を見直し、その後の6試合を4勝2分でまとめる",
+      "シーズン1・IVF ミドル級王座戦: アベル・ナバレテに2R KO 勝ち"
     ],
     "trainer": "祖父の旧友で元興行師のテッド・ハーグローヴ。ロンドンの古いジム「ブラック・ブリッジ」を取り仕切る",
     "fightingStyle": "素手の拳に、標準よりやや長い腕。ジャブを細かく刻み、相手が踏み込む前に間合いを切る。ジャブで体を起こし、そこへ右を重ねる。素手なので拳の当て方を細かく選ぶ。",
@@ -72,51 +73,165 @@
     ]
   },
   "look": {
-    "skin": [0.95, 0.78, 0.66], "hair": [0.35, 0.2, 0.1], "hairstyle": "Full", "eyes": [0.25, 0.13, 0.05],
-    "brows": true, "beard": true,
-    "parts": { "jaw": 1.08 }
+    "skin": [0.95, 0.78, 0.66],
+    "hair": [0.35, 0.2, 0.1],
+    "hairstyle": "Full",
+    "eyes": [0.25, 0.13, 0.05],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "jaw": 1.08
+    }
   },
   "face": {
     "parts": {
-      "hair": { "hair.8": 0.7, "hair.1": 0.3 },
-      "brows": { "brows.3": 1.0 },
-      "eyes": { "eyes.4": 1.0 },
-      "nose": { "nose.5": 0.6, "nose.1": 0.4 },
-      "mouth": { "mouth.7": 1.0 },
-      "jaw": { "jaw.8": 0.5, "jaw.9": 0.5 },
-      "ears": { "ears.2": 0.5, "ears.3": 0.5 },
-      "beard": { "beard.2": 1.0 },
-      "browridge": { "browridge.3": 1.0 }
+      "hair": {
+        "hair.8": 0.7,
+        "hair.1": 0.3
+      },
+      "brows": {
+        "brows.3": 1.0
+      },
+      "eyes": {
+        "eyes.4": 1.0
+      },
+      "nose": {
+        "nose.5": 0.6,
+        "nose.1": 0.4
+      },
+      "mouth": {
+        "mouth.7": 1.0
+      },
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "ears": {
+        "ears.2": 0.5,
+        "ears.3": 0.5
+      },
+      "beard": {
+        "beard.2": 1.0
+      },
+      "browridge": {
+        "browridge.3": 1.0
+      }
     },
-    "values": { "cheekbones": 1.5, "noseLength": 1.25, "nose": 1.2, "jaw": 1.1, "browThickness": 1.2, "faceWidth": 0.97, "mouthWidth": 0.9 },
-    "skin": [0.851, 0.678, 0.58], "hair": [0.286, 0.188, 0.145], "iris": [0.533, 0.451, 0.243]
+    "values": {
+      "cheekbones": 1.5,
+      "noseLength": 1.25,
+      "nose": 1.2,
+      "jaw": 1.1,
+      "browThickness": 1.2,
+      "faceWidth": 0.97,
+      "mouthWidth": 0.9
+    },
+    "skin": [0.851, 0.678, 0.58],
+    "hair": [0.286, 0.188, 0.145],
+    "iris": [0.533, 0.451, 0.243]
   },
   "body": {
-    "build": { "height": 1, "arms": 1.04, "legs": 1, "muscle": 1 },
+    "build": {
+      "height": 1,
+      "arms": 1.04,
+      "legs": 1,
+      "muscle": 1
+    },
     "wear": "none",
     "weapon": null
   },
   "textbook": "jabber",
   "education": {
     "style": {
-      "BreakLikes": { "coffee": 3, "handshake": 3, "applause": 2.5, "bow": 2, "salute": 1.5, "mirror": 1.5, "shadowbox": 1.2, "roar": 0.3, "blowkiss": 0.2, "dance": 0.4 },
+      "BreakLikes": {
+        "coffee": 3,
+        "handshake": 3,
+        "applause": 2.5,
+        "bow": 2,
+        "salute": 1.5,
+        "mirror": 1.5,
+        "shadowbox": 1.2,
+        "roar": 0.3,
+        "blowkiss": 0.2,
+        "dance": 0.4
+      },
       "GamePlan": {
-        "Weight": 0, "Boldness": 1, "Caution": 1, "Patience": 13.43, "Pressure": 1,
+        "Weight": 0,
+        "Boldness": 1,
+        "Caution": 1,
+        "Patience": 13.43,
+        "Pressure": 1,
         "Own": [
-          { "Cm": 47.89, "Dealt": 7.572, "Taken": 10.358 },
-          { "Cm": 53.52, "Dealt": 9.254, "Taken": 10.388 },
-          { "Cm": 59.15, "Dealt": 8.139, "Taken": 8.589 },
-          { "Cm": 64.79, "Dealt": 8.181, "Taken": 6.264 },
-          { "Cm": 70.42, "Dealt": 5.669, "Taken": 5.544 },
-          { "Cm": 76.06, "Dealt": 2.957, "Taken": 4.145 },
-          { "Cm": 81.69, "Dealt": 1.332, "Taken": 2.654 },
-          { "Cm": 87.32, "Dealt": 0.365, "Taken": 1.662 },
-          { "Cm": 92.96, "Dealt": 0.117, "Taken": 0.966 },
-          { "Cm": 98.59, "Dealt": 0.121, "Taken": 0.726 },
-          { "Cm": 104.23, "Dealt": 0.081, "Taken": 1.347 },
-          { "Cm": 109.86, "Dealt": 0, "Taken": 0.583 },
-          { "Cm": 115.49, "Dealt": 0, "Taken": 1.293 },
-          { "Cm": 121.13, "Dealt": 0.201, "Taken": 0.416 }
+          {
+            "Cm": 47.89,
+            "Dealt": 7.572,
+            "Taken": 10.358
+          },
+          {
+            "Cm": 53.52,
+            "Dealt": 9.254,
+            "Taken": 10.388
+          },
+          {
+            "Cm": 59.15,
+            "Dealt": 8.139,
+            "Taken": 8.589
+          },
+          {
+            "Cm": 64.79,
+            "Dealt": 8.181,
+            "Taken": 6.264
+          },
+          {
+            "Cm": 70.42,
+            "Dealt": 5.669,
+            "Taken": 5.544
+          },
+          {
+            "Cm": 76.06,
+            "Dealt": 2.957,
+            "Taken": 4.145
+          },
+          {
+            "Cm": 81.69,
+            "Dealt": 1.332,
+            "Taken": 2.654
+          },
+          {
+            "Cm": 87.32,
+            "Dealt": 0.365,
+            "Taken": 1.662
+          },
+          {
+            "Cm": 92.96,
+            "Dealt": 0.117,
+            "Taken": 0.966
+          },
+          {
+            "Cm": 98.59,
+            "Dealt": 0.121,
+            "Taken": 0.726
+          },
+          {
+            "Cm": 104.23,
+            "Dealt": 0.081,
+            "Taken": 1.347
+          },
+          {
+            "Cm": 109.86,
+            "Dealt": 0,
+            "Taken": 0.583
+          },
+          {
+            "Cm": 115.49,
+            "Dealt": 0,
+            "Taken": 1.293
+          },
+          {
+            "Cm": 121.13,
+            "Dealt": 0.201,
+            "Taken": 0.416
+          }
         ]
       }
     },
