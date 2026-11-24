@@ -168,6 +168,27 @@ public sealed record BotStyle
     /// <summary>開きに応じて休みを後回しにする強さ（休む度合いを 1 − 開き × これ 倍）。蓄えが無ければ体は動かない（物理が上限）。0 = 従来。</summary>
     public float FinishSpend { get; init; } = 0.6f;
 
+    /// <summary>
+    /// 開きの読みに、相手の見える息の上がり（<see cref="FighterSense.OpponentWinded"/>、<see cref="TiredLook"/> が描く量）をどれだけ足すか（0..2）。
+    /// 開き = 1 − (1 − 構え)(1 − 手応え)(1 − これ × 息)(1 − <see cref="HurtInjury"/> × 傷み)。0 = 従来（2026-11-24 に足した）。
+    /// </summary>
+    public float HurtWinded { get; init; }
+
+    /// <summary>開きの読みに、相手の見えている傷み（<see cref="FighterSense.OpponentInjury"/>: 折れて垂れた腕・削れた筋）をどれだけ足すか（0..2）。0 = 従来。</summary>
+    public float HurtInjury { get; init; }
+
+    /// <summary>
+    /// フィニッシュのコンビネーション（型の名前 → 重み、キャラの教育）。開きが大きいほど、普段の表（<see cref="ComboWeights"/>）でなくこの表から選ぶ
+    /// （割合 = 開き × <see cref="FinishComboShare"/>。場合分けでなく、開きに比例した混ぜ方）。空なら普段の表だけ。
+    /// </summary>
+    public IReadOnlyDictionary<string, float> FinishCombos { get; init; } = new Dictionary<string, float>();
+
+    /// <summary>フィニッシュの表から選ぶ割合の上限（開き 1 のとき、0..1）。打ち終えて離れる・回り込む割合も（1 − 開き × これ）倍に減らす。0 = 従来。</summary>
+    public float FinishComboShare { get; init; }
+
+    /// <summary>開きに応じて連打の拳と拳の間を詰める強さ（間 × (1 − 開き × これ)、0..0.8）。最初の拳の溜めは変えない（威力は体のバネから）。0 = 従来。</summary>
+    public float FinishGap { get; init; }
+
     // ── 学ぶ（docs/LEARNING_PLAN.md の B1）──
 
     /// <summary>守りの効き目を経験で覚え、選び方を変えるか（<see cref="DefenseMemory"/>）。</summary>
@@ -481,6 +502,11 @@ public sealed record BotStyle
             FinishTempo = Range(FinishTempo, 0f, 5f, 1.5f),
             FinishPress = Range(FinishPress, 0f, 2f, 1.5f),
             FinishSpend = Range(FinishSpend, 0f, 1f, 0.6f),
+            HurtWinded = Range(HurtWinded, 0f, 2f, 0f),
+            HurtInjury = Range(HurtInjury, 0f, 2f, 0f),
+            FinishCombos = (FinishCombos ?? new Dictionary<string, float>()).Where(p => Combo.All.Any(c => c.Name == p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
+            FinishComboShare = Unit(FinishComboShare),
+            FinishGap = Range(FinishGap, 0f, 0.8f, 0f),
             LearnPrior = Range(LearnPrior, 0.5f, 100f, 4f),
             LearnDamageScale = Range(LearnDamageScale, 0.5f, 100f, 10f),
             AttackRange = attack,

@@ -29,7 +29,7 @@ try
         "fistmatch" => FistMatchCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "referee", "parallel", "out", "compare", "labels", "log", "confirm")),
         "punchlab" => PunchLabCommand(Options.Parse(argv[1..], "study", "depths", "aim", "paths", "defenders", "ranges", "reach", "far", "seeds", "telegraph", "nocap", "log", "video", "slow", "width", "height", "fps")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
-        "groundtime" => GroundTimeCommand(Options.Parse(argv[1..], "chars", "seeds", "rounds", "shard", "out", "compare", "labels", "log", "confirm", "drill", "victims", "seconds", "org", "practice", "hold-victims", "hold-seeds", "gens", "lambda", "seed", "video", "parallel", "teach", "recheck")),
+        "groundtime" => GroundTimeCommand(Options.Parse(argv[1..], "chars", "seeds", "rounds", "shard", "out", "compare", "labels", "log", "confirm", "drill", "victims", "seconds", "org", "finish", "finish-practice", "practice", "hold-victims", "hold-seeds", "gens", "lambda", "seed", "video", "parallel", "teach", "recheck")),
         "groundlab" => GroundLabCommand(Options.Parse(argv[1..], "style", "moves", "bouts", "seconds", "seed", "log", "video", "practice", "candidates", "sigma", "validate")),
         "kickbalance" => KickBalanceCommand(Options.Parse(argv[1..], "style", "kicks", "teachings", "bouts", "seconds", "seed", "confirm", "log", "video")),
         "stick" => StickCommand(Options.Parse(StickSwingLab.WithYes(argv[1..]), "style", "kicks", "teachings", "png", "design", "candidates", "seed", "log", "approach", "ground", "moves", "path", "out", "forms", "detail", "swing", "planes", "samples", "weights", "video", "polish", "iterations", "character", "limits", "bvh", "bvh-scale")),
@@ -801,6 +801,31 @@ static int GroundTimeCommand(Options o)
             ConfirmLog.Append("groundtime", "VFC: 最初の攻められる場面が死で終わった割合", labels[1], labels[0], seeds, finished, detail);
             ConfirmLog.Append("groundtime", "VFC: 倒れた相手が倒れたまま死んで決着した試合の割合", labels[1], labels[0], seeds, killed, detail);
             ConfirmLog.Append("groundtime", "VFC: 試合ごとの、相手が倒れていた秒の合計", labels[1], labels[0], seeds, floor, detail);
+        }
+
+        return 0;
+    }
+
+    if (o.Get("finish-practice") is { } finishId)
+    {
+        // フィニッシュの練習: --finish-practice id [--victims a,b,c --seeds 2,3 --hold-victims d,e --hold-seeds 102,103 --gens 6 --lambda 10 --seconds 10 --parallel 4]
+        static IReadOnlyList<int> Ints2(IReadOnlyList<string> s) => [.. s.Select(x => int.Parse(x, CultureInfo.InvariantCulture))];
+        var wvc = FinishPractice.Victims.Where(v => v != finishId).ToList();
+        new FinishPractice(Log, o.Int("parallel", 1, min: 1)).Practice(finishId,
+            o.List("victims", wvc.Take(4).ToList()), Ints2(o.List("seeds", ["2", "3"])),
+            o.List("hold-victims", wvc.Skip(4).ToList()), Ints2(o.List("hold-seeds", ["102", "103", "104", "105"])),
+            o.Int("gens", 6, min: 1), o.Int("lambda", 10, min: 4), o.Float("seconds", 10f, min: 2f), o.Int("seed", 1), o.Get("out") ?? $"{finishId}.finish.json");
+        return 0;
+    }
+
+    if (o.Get("finish") is { } finishIds)
+    {
+        // フィニッシュのドリルの表: --finish a,b --victims c,d --seeds 2,3 --seconds 10
+        var seconds2 = o.Float("seconds", 10f, min: 2f);
+        foreach (var id in finishIds.Split(','))
+        {
+            var runs = o.List("victims", ["marcus", "ramon"]).Where(v => v != id).SelectMany(v => o.List("seeds", ["2", "3"]).Select(s => FinishChance.Run(id, v, int.Parse(s, CultureInfo.InvariantCulture), seconds2))).ToList();
+            Log(string.Create(CultureInfo.InvariantCulture, $"| {id} | {runs.Count} | 倒した {runs.Count(r => r.Downed)} | 中央値 {GroundTime.Median(runs.Where(r => r.Downed).Select(r => r.Seconds)):0.0} s | 平均 {runs.Average(r => r.Seconds):0.0} s | ダメージ {runs.Average(r => r.Damage):0.0} |"));
         }
 
         return 0;
