@@ -172,7 +172,7 @@ public sealed class ReplayTests
             new HandCommand(Vector3.One, false, Shape: HandShape.KnifeHand),
             new HandCommand(Vector3.Zero, true, Shape: HandShape.SpearHand),
             LeftLeg: new LegCommand(new Vector3(0.1f, 0.2f, 0.3f), new Vector3(0.4f, 0.5f, 0.6f), Quaternion.Identity, 0.7f),
-            RightLeg: new LegCommand(new Vector3(-0.1f, 0.2f, 0.3f)));
+            RightLeg: LegCommand.Heel(new Vector3(-0.1f, -0.9f, 0.3f), Quaternion.CreateFromAxisAngle(Vector3.UnitX, -0.3f))); // かかとの制御も記録に残る（版 14）
         using var game = new BoxingGame(seed: 13, corners: Bots.BotCatalog.Corners("boxer") with
         {
             PlayerWear = Weapons.HandWear.None,

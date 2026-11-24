@@ -48,7 +48,11 @@ public sealed class GroundStrikeAimTests
     [TestMethod]
     public void Feet_MayStompAgainRightAfterAStomp()
     {
-        var style = BotCatalog.Boxer with { GroundStomp = 1f, GroundKick = 0f, GroundDrive = 1f, GroundRest = 0.1678f };
+        // 既定の足の技はかかとの踏み下ろしの連打（GroundHeel 1、2026-11-24 に合わせた）。足裏の踏みつけを続けるかは GroundHeel 0 で見る。
+        var heel = new GroundStrike(BotCatalog.Boxer with { GroundStomp = 1f, GroundKick = 0f, GroundDrive = 1f }, GroundTool.Fist, 3);
+        heel.Read(Sense(0.5f), default, Dt, steer: false);
+        Assert.AreEqual("heel-stomp", heel.CurrentName);
+        var style = BotCatalog.Boxer with { GroundStomp = 1f, GroundKick = 0f, GroundHeel = 0f, GroundDrive = 1f, GroundRest = 0.1678f };
         var ground = new GroundStrike(style, GroundTool.Fist, 3);
         var sense = Sense(0.5f);
         ground.Read(sense, default, Dt, steer: false);

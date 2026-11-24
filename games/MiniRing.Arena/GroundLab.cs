@@ -20,7 +20,8 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
     internal static BotStyle Attacker(string styleName, string move, GroundTuning? ground = null) => (BotCatalog.Style(styleName) with
     {
         GroundDrive = 1f,
-        GroundStomp = move == "stomp" ? 1f : 0f,
+        GroundStomp = move is "stomp" or "heel" ? 1f : 0f,
+        GroundHeel = move == "heel" ? 1f : 0f, // stomp = 足裏の踏みつけ、heel = かかとの踏み下ろしの連打
         GroundCut = move == "hammer" ? 1f : 0f,
         Ground = ground ?? BotCatalog.Style(styleName).Ground,
     }).Validated();
@@ -140,6 +141,7 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
     {
         "hammer" => g.Hammer,
         "stomp" => g.Stomp,
+        "heel" => g.HeelStomp,
         _ => g.PunchDown,
     };
 
@@ -147,6 +149,7 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
     {
         "hammer" => g with { Hammer = m },
         "stomp" => g with { Stomp = m },
+        "heel" => g with { HeelStomp = m },
         _ => g with { PunchDown = m },
     };
 
@@ -214,10 +217,12 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
     {
         float N() => (float)(Math.Sqrt(-2.0 * Math.Log(1.0 - random.NextDouble())) * Math.Cos(2.0 * Math.PI * random.NextDouble()));
         float J(float v, float lo, float hi) => Math.Clamp(v + (step * N()), lo, hi);
-        var foot = m.Limb == GroundLimb.Foot;
+        var foot = m.Limb is GroundLimb.Foot or GroundLimb.Heel;
+        // かかとの連打の Duration は 1 回の踏み下ろしの時間（短い）。ほかは 1 回の攻め全体の時間。
+        var (shortest, longest) = m.Limb == GroundLimb.Heel ? (0.17f, 0.6f) : (0.587f, 2.35f);
         return m with
         {
-            Duration = Math.Clamp(m.Duration * (1f + (0.1f * N())), 0.587f, 2.35f),
+            Duration = Math.Clamp(m.Duration * (1f + (0.1f * N())), shortest, longest),
             Stand = J(m.Stand, 0.05f, 0.9f),
             Reach = J(m.Reach, 0.7f, foot ? 1.7f : 1.1f),
             Rise = J(m.Rise, 0.1f, 1.2f),
@@ -237,7 +242,8 @@ internal sealed class GroundLab(int bouts, float seconds, int seed, Action<strin
         var red = new Contender("victim", s => new BoxerBot(Still, s));
         var blue = new Contender(attacker.Name, s => new BoxerBot(attacker, s));
         BoxingGame? game = null;
-        new VideoMaker(1280, 720, 30, speed: 0.5f).Make(red, blue, seed, seconds, output, console,
+        // 足の技は横の低い角度から撮る（俯瞰では足の上げ下げが見えない）。
+        new VideoMaker(1280, 720, 30, speed: 0.5f) { SideView = move is "stomp" or "heel" }.Make(red, blue, seed, seconds, output, console,
             afterStep: time =>
             {
                 if (time > 2.518f && game is not null)

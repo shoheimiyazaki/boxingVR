@@ -46,6 +46,7 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 ///                | v5: 左右の手形 int32 | 左右の脚指令（有無、目標、膝目標・向きの有無と値、Spring）
 ///   0x02 Checksum: int32 step（そのステップを終えた直後）| uint64 BoxingGame.StateChecksum()
 /// </code>
+/// 版 14: 脚指令の最後に足の点（int32。<see cref="LegCommand.Point"/>: 0 = 足首・1 = かかと。版 13 までの記録は足首）。
 /// 版 13: Step の最後にステップの指令（float × 3。<see cref="FighterCommand.Step"/>。版 12 までの記録は 0）。
 /// 版 11: Step の最後に左右の握りを滑らせる指令（bool Slide。<see cref="HandCommand.Slide"/>。版 10 までの記録は false）。
 /// 版 12: 脚指令の最後に膝の制御（膝の位置・ねじり・曲げ。それぞれ 有無 bool + 値。<see cref="LegCommand.KneeLocal"/>）。
@@ -57,7 +58,7 @@ public sealed record ReplayData(ReplayHeader Header, IReadOnlyList<ReplayStep> S
 /// </summary>
 public static class ReplayFile
 {
-    public const int Version = 13;
+    public const int Version = 14;
     public const string Extension = ".mrrep";
     /// <summary>1 ステップの時間刻みとして受け付ける上限 [s]（壊れたファイルの値を物理に渡さない）。</summary>
     public const float MaxDt = 0.25f;
@@ -355,6 +356,9 @@ public static class ReplayFile
         {
             writer.Write(bend);
         }
+
+        // 版 14: 足の点（足首・かかと）。
+        writer.Write((int)value.Point);
     }
 
     private static HandShape ReadShape(BinaryReader reader)
@@ -400,7 +404,17 @@ public static class ReplayFile
             kneeBend = reader.ReadBoolean() ? ReadFinite(reader) : null;
         }
 
-        return new LegCommand(target, knee, orientation, spring, kneeLocal, kneeTwist, kneeBend);
+        var point = FootPoint.Ankle;
+        if (version >= 14)
+        {
+            point = (FootPoint)reader.ReadInt32();
+            if (!Enum.IsDefined(point))
+            {
+                throw new InvalidDataException("脚の足の点が不正です。");
+            }
+        }
+
+        return new LegCommand(target, knee, orientation, spring, kneeLocal, kneeTwist, kneeBend, point);
     }
 
     private static float ReadTuck(BinaryReader reader)

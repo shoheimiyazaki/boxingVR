@@ -20,6 +20,9 @@ public static class FootGeometry
     /// <summary>母指球（つま先の蝶番）の位置（かかと側のローカル: 前の下の縁）。</summary>
     public static Vector3 BallOnHeel(Vector3 heel) => new(0f, -heel.Y, heel.Z);
 
+    /// <summary>かかとの点（かかと側のローカル: 後ろの下の縁。<see cref="FootPoint.Heel"/>）。</summary>
+    public static Vector3 HeelOnHeel(Vector3 heel) => new(0f, -heel.Y, -heel.Z);
+
     /// <summary>母指球の位置（つま先のローカル: 後ろの下の縁）。</summary>
     public static Vector3 BallOnToe(Vector3 heel)
     {

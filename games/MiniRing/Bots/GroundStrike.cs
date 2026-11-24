@@ -4,7 +4,14 @@ using MiniRing.Motion;
 namespace MiniRing.Bots;
 
 /// <summary>倒れた相手を攻める手足。</summary>
-public enum GroundLimb { Hand, Foot }
+public enum GroundLimb
+{
+    Hand,
+    Foot,
+
+    /// <summary>かかと（かかとの制御で踏み下ろしを連打する: <see cref="HeelBarrage"/>）。</summary>
+    Heel,
+}
 
 /// <summary>
 /// 倒れた相手への攻めに使う道具（手に持った物の寸法）。<paramref name="Length"/> は握りから先の端まで（腕の長さ = 1）。素手・グローブ・
@@ -93,6 +100,8 @@ public sealed record GroundTuning
             PunchDown = (PunchDown ?? d.PunchDown).Validated(d.PunchDown),
             Stomp = (Stomp ?? d.Stomp).Validated(d.Stomp),
             Kick = (Kick ?? d.Kick).Validated(d.Kick),
+            HeelStomp = (HeelStomp ?? d.HeelStomp).Validated(d.HeelStomp) with { Limb = GroundLimb.Heel },
+            HeelBarrage = (HeelBarrage ?? d.HeelBarrage).Validated(),
             Cut = (Cut ?? d.Cut).Validated(d.Cut),
             Thrust = (Thrust ?? d.Thrust).Validated(d.Thrust),
         };
@@ -184,6 +193,16 @@ public sealed record GroundTuning
     /// </summary>
     public GroundMove Kick { get; init; } = new("kick", GroundLimb.Foot, 0.80f, 0.45f, 1.70f, 0.20f, 0.70f, 0f, 0f, 0.02f, 0.05f, 0.10f, 1f, MaxSink: 0.03f, StanceLean: 0.17f,
         Through: 0.35f, AimFrom: 1.5f);
+
+    /// <summary>
+    /// かかとの踏み下ろしの連打（2026-11-24、ユーザーの指定）: 体重を軸足へ寄せ、かかとを狙い（頭・首）の真上へ上げて（<see cref="GroundMove.Rise"/>。
+    /// 基準の体格で約 30 cm）、つま先を起こした足のかかとで踏み下ろすのを速く繰り返す。<see cref="GroundMove.Duration"/> は 1 回の時間、
+    /// 回数・足の向きは <see cref="HeelBarrage"/>。立つ所・届く距離・軸足への寄せは踏みつけ（<see cref="Stomp"/>）と同じ値から始めた。
+    /// </summary>
+    public GroundMove HeelStomp { get; init; } = new("heel-stomp", GroundLimb.Heel, 0.30f, 0.23f, 1.70f, 0.48f, 0f, 0f, 0f, 0.06f, 0f, 0.10f, 1f, MaxSink: 0.03f, StanceLean: 0.17f, AimFrom: 1.5f);
+
+    /// <summary>かかとの踏み下ろしの連打の回数・足の向きなど（<see cref="HeelStomp"/> が 1 回の寸法）。</summary>
+    public HeelBarrage HeelBarrage { get; init; } = HeelBarrage.Default;
 
     /// <summary>片手・両手で握った武器: 上段から振りかぶって斬り下ろす（刀・ロングソード・棍棒。握りの先が頭の後ろへ寝るまで振りかぶる）。</summary>
     public GroundMove Cut { get; init; } = new("cut", GroundLimb.Hand, 1.091f, 0.80f, 0.95f, 0.70f, 0.20f, 2.3f, -0.75f, 0.10f, 0.30f, 0.10f, 1f);
@@ -390,6 +409,11 @@ public sealed class GroundStrike
             return result with { HeadOffset = basis.HeadOffset + new Vector3(0f, -_sink * reach, _t.ApproachLean * MathF.Min(_sink, 1f) * reach) };
         }
 
+        if (m.Limb == GroundLimb.Heel)
+        {
+            return Heel(m, result, basis, aimLocal, reach, dt);
+        }
+
         // 打ち下ろしの途中: 打つ位置まで届かない間は、打ち始めの手前（振りかぶり）で待つ。
         var hold = _time >= m.Duration * _t.WindShare && gap > _t.ReadyGap && _waited < _t.MaxWait;
         if (hold)
@@ -468,7 +492,8 @@ public sealed class GroundStrike
         // 足の技のうち蹴りを選ぶ割合は GroundKick。
         if (!armed && _random.NextDouble() < _style.GroundStomp)
         {
-            return _random.NextDouble() < _style.GroundKick ? _t.Kick : _t.Stomp;
+            // 足の技のうち GroundKick の割合で蹴り、残りは GroundHeel の割合でかかとの踏み下ろしの連打、残りは足裏の踏みつけ。
+            return _random.NextDouble() < _style.GroundKick ? _t.Kick : _random.NextDouble() < _style.GroundHeel ? _t.HeelStomp : _t.Stomp;
         }
 
         return catalog.Thrust is null || _random.NextDouble() < _style.GroundCut ? catalog.Swing : catalog.Thrust;
@@ -568,6 +593,32 @@ public sealed class GroundStrike
         }
 
         return (pos, orientation, blade);
+    }
+
+    /// <summary>
+    /// かかとの踏み下ろしの連打（<see cref="HeelBarrage"/>）の 1 歩: 踏み続ける間は待たずに経路を進める（届く所までは寄ってから始める）。
+    /// 体重を軸足（踏まない側）の上へ寄せ、頭を少し前（相手の側）へ出す。
+    /// </summary>
+    private FighterCommand Heel(GroundMove m, FighterCommand result, in FighterCommand basis, Vector3 aimLocal, float reach, float dt)
+    {
+        var barrage = _t.HeelBarrage;
+        _time += dt;
+        var head = basis.HeadOffset + new Vector3(0f, -_sink * reach, _t.ApproachLean * MathF.Min(_sink, 1f) * reach);
+        if (_time >= barrage.Length(m))
+        {
+            _move = null;
+            _plan = null;
+            _nextAt = _clock + _style.GroundRest;
+            _time = 0f;
+            return result with { HeadOffset = head };
+        }
+
+        var weight = barrage.Weight(m, _time);
+        head += new Vector3(-_foot.LocalSide() * m.StanceLean * weight * reach, 0f, m.Lean * weight * reach);
+        var rest = new Vector3(_foot.LocalSide() * _t.FootRestSide * reach, -_t.FootRestDrop * reach, 0f);
+        var leg = barrage.Leg(m, _time, aimLocal, rest, new Vector3(0f, _t.KneeUp, _t.KneeForward) * reach, reach);
+        result = result with { HeadOffset = head };
+        return _foot == Hand.Left ? result with { LeftLeg = leg } : result with { RightLeg = leg };
     }
 
     /// <summary>踏み下ろし: 足を相手の上へ上げ（振りかぶり）、真下へ踏み下ろし、引き戻す。足首の目標は体フレーム。</summary>
