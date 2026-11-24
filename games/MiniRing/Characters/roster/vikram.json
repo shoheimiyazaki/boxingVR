@@ -99,6 +99,7 @@
   "textbook": "boxer",
   "education": {
     "style": {
+      "GroundHeel": 0,
       "BreakLikes": { "salute": 3, "bow": 2.5, "handshake": 2, "prayer": 2, "pointup": 2, "raisearms": 1.5, "hum": 2, "glare": 2, "chestbeat": 1.5, "blowkiss": 0.2, "selfie": 0.3 },
       "GamePlan": {
         "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 13.43, "Pressure": 1,
