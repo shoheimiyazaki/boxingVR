@@ -3661,9 +3661,13 @@ public sealed partial class Fighter
 
     private const float LegServoSpeed = 5.958f;
 
+    /// <summary>直前の <see cref="SetServoScale"/> の強さの倍率（蹴る脚のサーボの取り置き <see cref="BudgetKickLegServos"/> が同じ値を使う）。</summary>
+    private float _servoScale = 1f;
+
     private void SetServoScale(float scale)
     {
         var s = Math.Clamp(scale, 0.01f, 1.5f);
+        _servoScale = s;
         var t = _tuning.TorqueScale * s;
         // 値が変わったときだけ Bepu の拘束を書き換える（毎サブステップ 9 本の Get/ApplyDescription を避ける）。
         // 脚・腕のサーボの強さには、その脚・腕の肉の残り（力）を掛ける。
@@ -3728,7 +3732,7 @@ public sealed partial class Fighter
     {
         var region = LegRegion(leg);
         var allowance = _budget[(int)region] * _tuning.StaminaServoShare * 0.5f;
-        var strength = _tuning.TorqueScale * Math.Clamp(ControlScale, 0.01f, 1.5f) * MathF.Max(0.01f, LegStrength(leg.AigisLeft)) * KneeKickTorque(leg.AigisLeft) * VigorOf(region);
+        var strength = _tuning.TorqueScale * _servoScale * MathF.Max(0.01f, LegStrength(leg.AigisLeft)) * KneeKickTorque(leg.AigisLeft) * VigorOf(region);
         var speed = KneeKickSpeed(leg.AigisLeft);
         if (_world.HasConstraint(leg.HipServo))
         {

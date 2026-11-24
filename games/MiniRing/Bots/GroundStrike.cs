@@ -595,8 +595,8 @@ public sealed class GroundStrike
         var stroke = barrage.Stroke(m, _time);
         if (stroke > 0 && stroke != _heelStroke && _switchLeft == 0 && barrage.Fresher(sense, _foot) != _foot)
         {
-            // 踏む脚が疲れた（もう片方より蓄えが十分減った）: 足を上げきった所で踏むのをやめて構えへ下ろし（体重は軸足のまま）、
-            // 下ろし終えたら、残りを反対の足で上げ直して踏む（両足が床から離れないように）。
+            // 踏む脚が疲れた（もう片方より蓄えが十分減った）: 足を上げきった所で踏むのをやめて構えへ下ろし（連打の終わりと同じく、下ろす間に
+            // 軸足への寄せも戻す）、下ろし終えたら、残りを反対の足で上げ直して踏む（上げたまま反対の足を上げると、両足が床から離れて倒れた）。
             _switchLeft = _heelLeft - stroke;
             _heelLeft = stroke;
             barrage = barrage with { Count = _heelLeft };
