@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using MiniRing.Voxels;
 using MiniRing.Weapons;
 
@@ -9,10 +10,10 @@ namespace MiniRing.Characters;
 
 /// <summary>
 /// キャラクターのファイル（名簿の <c>roster/&lt;id&gt;.json</c> と同じ形）を書く。読み込みは <see cref="CharacterRoster"/> だけで、ここは逆向き。
-/// 書いた物を <see cref="CharacterRoster.FromFiles"/> で読み直すと同じキャラになる（<c>CharacterFileWriteTests</c>）。新しい形式は作らない:
+/// 書いた物を <see cref="CharacterRoster.FromFiles"/> で読み直すと同じキャラになる（<c>CharacterMakerTests</c>）。新しい形式は作らない:
 /// 欄の名前・意味は読み込みの DTO と同じ。顔の値（<see cref="FaceParts"/>）は既定と違う値だけを書く（名簿の手書きのファイルと同じ）。
 /// </summary>
-public static class CharacterFile
+public static partial class CharacterFile
 {
     private static readonly JsonSerializerOptions Camel = new()
     {
@@ -27,7 +28,12 @@ public static class CharacterFile
     };
 
     /// <summary>1 人のファイルの中身（JSON の文字列、末尾に改行）。</summary>
-    public static string Write(FighterCharacter character) => ToNode(character).ToJsonString(Pretty) + "\n";
+    public static string Write(FighterCharacter character)
+        => NumberArrays().Replace(ToNode(character).ToJsonString(Pretty), m => "[" + string.Join(", ", m.Groups[1].Value.Split(',', StringSplitOptions.TrimEntries)) + "]") + "\n";
+
+    /// <summary>数だけの配列（色の RGB）。名簿の手書きのファイルと同じく 1 行に書く。</summary>
+    [GeneratedRegex(@"\[\s*(-?[0-9][0-9.eE+-]*(?:\s*,\s*-?[0-9][0-9.eE+-]*)*)\s*\]")]
+    private static partial Regex NumberArrays();
 
     /// <summary>1 人のファイルの JSON の木（欄の順は名簿の手書きのファイルと同じ）。</summary>
     public static JsonObject ToNode(FighterCharacter character)

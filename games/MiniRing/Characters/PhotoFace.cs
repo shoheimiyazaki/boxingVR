@@ -50,10 +50,13 @@ public static class PhotoFace
     private const float BaldColorDistance = 0.12f;
 
     /// <summary>あご先の明るさ / 頬の明るさ。これより暗いほどひげが濃い（無精ひげ → 短いひげ）。</summary>
-    private const float StubbleShade = 0.82f;
+    private const float StubbleShade = 0.72f;
 
     /// <inheritdoc cref="StubbleShade"/>
-    private const float BeardShade = 0.62f;
+    private const float BeardShade = 0.55f;
+
+    /// <summary>目の中で、肌の明るさのこれ倍より暗い画素を瞳（虹彩・瞳孔）と見る（白目と肌を外す）。</summary>
+    private const float IrisDarkerThanSkin = 0.8f;
 
     /// <summary>測った量（IOD を 1 とする比）。画面に出して、何を読み取ったかを見せる。</summary>
     public sealed record Measurements(float CheekWidth, float JawShare, float EyeWidth, float InnerGap, float EyeAspect, float EyeTilt, float BrowAbove,
@@ -112,9 +115,9 @@ public static class PhotoFace
         var skin = image.Median([(cheekL, radius), (cheekR, radius)]);
         var hairPoint = P("forehead") - new Vector2(0f, 0.3f * iod);
         var hair = image.Median([(hairPoint, 0.18f * iod)]);
-        var iris = Vector3.Lerp(
-            image.IrisOf(P("leftEyeOuter"), P("leftEyeInner"), P("leftEyeTop"), P("leftEyeBottom")),
-            image.IrisOf(P("rightEyeOuter"), P("rightEyeInner"), P("rightEyeTop"), P("rightEyeBottom")), 0.5f);
+        var irisLuma = IrisDarkerThanSkin * Luma(skin);
+        var iris = image.IrisOf(irisLuma, (P("leftEyeOuter"), P("leftEyeInner"), P("leftEyeTop"), P("leftEyeBottom")),
+            (P("rightEyeOuter"), P("rightEyeInner"), P("rightEyeTop"), P("rightEyeBottom"))) ?? basis.Iris ?? new Vector3(0.19f, 0.13f, 0.09f);
         var chinPatch = image.Median([(Vector2.Lerp(P("lipBottom"), chin, 0.55f), 0.14f * iod)]);
         var chinShade = Luma(chinPatch) / MathF.Max(1e-3f, Luma(skin));
         var hairToSkin = Vector3.Distance(hair, skin);
@@ -239,25 +242,31 @@ public static class PhotoFace
             return colors.Count == 0 ? new Vector3(0.5f) : MedianByLuma(colors, 0.5f);
         }
 
-        /// <summary>目の中（目頭・目尻・上・下で囲んだ真ん中の幅の半分）の、暗い方から 3 割の所の色（白目と瞳孔の黒を外した虹彩の色）。</summary>
-        public Vector3 IrisOf(Vector2 outer, Vector2 inner, Vector2 top, Vector2 bottom)
+        /// <summary>
+        /// 両目の中（目頭・目尻・上・下で囲んだ、真ん中の幅の半分）で、明るさが <paramref name="below"/> より暗い画素（白目と肌を外した虹彩・瞳孔）の、
+        /// 明るさの中央値の色。そういう画素が無ければ null（写真の目が小さすぎる・閉じている）。
+        /// </summary>
+        public Vector3? IrisOf(float below, params (Vector2 Outer, Vector2 Inner, Vector2 Top, Vector2 Bottom)[] eyes)
         {
-            var center = (outer + inner) / 2f;
-            var halfWidth = Vector2.Distance(outer, inner) * 0.25f;
-            var halfHeight = MathF.Max(1f, Vector2.Distance(top, bottom) * 0.5f);
             var colors = new List<Vector3>();
-            for (var y = (int)MathF.Floor(center.Y - halfHeight); y <= (int)MathF.Ceiling(center.Y + halfHeight); y++)
+            foreach (var (outer, inner, top, bottom) in eyes)
             {
-                for (var x = (int)MathF.Floor(center.X - halfWidth); x <= (int)MathF.Ceiling(center.X + halfWidth); x++)
+                var center = (outer + inner) / 2f;
+                var halfWidth = Vector2.Distance(outer, inner) * 0.25f;
+                var halfHeight = MathF.Max(1f, Vector2.Distance(top, bottom) * 0.5f);
+                for (var y = (int)MathF.Floor(center.Y - halfHeight); y <= (int)MathF.Ceiling(center.Y + halfHeight); y++)
                 {
-                    if (x >= 0 && y >= 0 && x < width && y < height)
+                    for (var x = (int)MathF.Floor(center.X - halfWidth); x <= (int)MathF.Ceiling(center.X + halfWidth); x++)
                     {
-                        colors.Add(At(x, y));
+                        if (x >= 0 && y >= 0 && x < width && y < height && At(x, y) is var c && Luma(c) < below)
+                        {
+                            colors.Add(c);
+                        }
                     }
                 }
             }
 
-            return colors.Count == 0 ? new Vector3(0.19f, 0.13f, 0.09f) : MedianByLuma(colors, 0.3f);
+            return colors.Count == 0 ? null : MedianByLuma(colors, 0.5f);
         }
 
         private static Vector3 MedianByLuma(List<Vector3> colors, float quantile)

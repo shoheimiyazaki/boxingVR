@@ -25,6 +25,13 @@ internal static class PortraitExport
 
     private static void Write(string path, PortraitImage image, int scale)
     {
+        var (width, height, rgba) = Rgba(image, scale);
+        PngWriter.WriteRgba(path, width, height, rgba);
+    }
+
+    /// <summary>肖像を scale 倍の四角へ広げた RGBA（背景は透明）。</summary>
+    public static (int Width, int Height, byte[] Rgba) Rgba(PortraitImage image, int scale)
+    {
         var width = image.Width * scale;
         var height = image.Height * scale;
         var rgba = new byte[width * height * 4];
@@ -47,6 +54,6 @@ internal static class PortraitExport
             }
         }
 
-        PngWriter.WriteRgba(path, width, height, rgba);
+        return (width, height, rgba);
     }
 }

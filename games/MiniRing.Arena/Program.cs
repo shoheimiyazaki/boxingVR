@@ -87,6 +87,7 @@ try
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns", "roster")),
         "portraits" => Portraits(Options.Parse(argv[1..], "out", "scale")),
+        "maker" => Maker(Options.Parse(argv[1..], "port", "save-dir", "open")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
         "voxcheck" => VoxCheck(Options.Parse(argv[1..], "in", "install")),
         "weaponexport" => WeaponExport(Options.Parse(argv[1..], "out", "from")),
@@ -1928,8 +1929,8 @@ static int Video(Options o)
     }
 
     // 名簿のキャラクター（--red-char / --blue-char <id>。games/MiniRing/Characters/roster/<id>.json）: ボットのスタイル・武器・はめる物・体格・顔・表示名をそのキャラクターの値にする。
-    var redCharacter = o.Get("red-char") is { } redId ? MiniRing.Characters.CharacterRoster.Get(redId) : null;
-    var blueCharacter = o.Get("blue-char") is { } blueId ? MiniRing.Characters.CharacterRoster.Get(blueId) : null;
+    var redCharacter = o.Get("red-char") is { } redId ? CharacterArg(redId) : null;
+    var blueCharacter = o.Get("blue-char") is { } blueId ? CharacterArg(blueId) : null;
     // 団体の試合なら計量を通す（出られない・階級が違えば止める。IVF はグローブを着ける）。見出しに階級・タイトルマッチを足し、台本の資料に計量と席を足す。
     (redCharacter, blueCharacter, var division) = EnterOrg(o, redCharacter, blueCharacter);
     var (billing, billingNotes) = division is not null && OrgOption(o) is { } billedOrg
@@ -2086,8 +2087,8 @@ static int TvScoutCommand(Options o)
         ? MiniRing.GameSpeed.Parse(speedText) ?? throw new ArgumentException("--speed は 0.5 / 0.75 / 1 のどれかです。")
         : MiniRing.GameSpeed.Standard;
     // 名簿のキャラクター（--red-char / --blue-char）は video と同じ決め方（スタイル・武器・はめる物・体格・顔）。
-    var redCharacter = o.Get("red-char") is { } redId ? MiniRing.Characters.CharacterRoster.Get(redId) : null;
-    var blueCharacter = o.Get("blue-char") is { } blueId ? MiniRing.Characters.CharacterRoster.Get(blueId) : null;
+    var redCharacter = o.Get("red-char") is { } redId ? CharacterArg(redId) : null;
+    var blueCharacter = o.Get("blue-char") is { } blueId ? CharacterArg(blueId) : null;
     (redCharacter, blueCharacter, _) = EnterOrg(o, redCharacter, blueCharacter); // 撮影と同じ計量・はめる物
     var rounds = o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1);
     var red = redCharacter is not null ? RosterLeague.ContenderOf(redCharacter, blueCharacter?.Id, null) : Load(o.Get("red") ?? "champion");
@@ -2342,6 +2343,14 @@ static int Faces(Options o)
 }
 
 // 名簿の肖像（メニューの顔・全身の絵）を PNG に（--out フォルダ、--scale 1 ピクセルの拡大、既定 4）。
+static int Maker(Options o) => MiniRing.Arena.Maker.MakerServer.Run(o.Int("port", 5180, min: 1), o.Get("save-dir"), o.Get("open") != "no");
+
+// --red-char / --blue-char: 名簿の id か、キャラクターのファイル（.json。キャラメイクで作ったファイル。CharacterRoster.LoadFile が名簿と同じ検証をする）。
+static MiniRing.Characters.FighterCharacter CharacterArg(string value)
+    => value.EndsWith(".json", StringComparison.OrdinalIgnoreCase) || File.Exists(value)
+        ? MiniRing.Characters.CharacterRoster.LoadFile(value)
+        : MiniRing.Characters.CharacterRoster.Get(value);
+
 static int Portraits(Options o) => PortraitExport.Run(o.Get("out") ?? "portraits", MiniRing.Characters.CharacterRoster.All, o.Int("scale", 4, min: 1));
 
 static int VoxExport(Options o)
