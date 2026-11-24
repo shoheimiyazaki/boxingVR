@@ -172,6 +172,7 @@ internal sealed class CircuitLeague
             RedDowns = r.RedDowns,
             BlueDowns = r.BlueDowns,
             Drama = MathF.Round(TvShowRules.Drama(r, spec.Rounds, rules.RoundSeconds, Org.Drama), 2),
+            Death = r.Death,
             Checksum = "0x" + r.Checksum.ToString("x16", CultureInfo.InvariantCulture),
         };
     }

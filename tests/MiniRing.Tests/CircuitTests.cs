@@ -133,6 +133,11 @@ public sealed class CircuitTests
         Assert.IsNull(CircuitRules.RetireReason(FighterTally.Of("me", [], Ivf.Ranking), rules));
         var three = Enumerable.Range(0, rules.LosingStreak).Select(i => Bout($"l{i}", "me", $"o{i}", "blue", "DEC")).ToList();
         StringAssert.Contains(CircuitRules.RetireReason(FighterTally.Of("me", three, Ivf.Ranking), rules), "負け");
+
+        // 試合で死んだ選手は、それまでの戦績によらず引退（戻らない）。
+        var died = new[] { Bout("w1", "me", "o1", "red", "KO"), Bout("d", "o2", "me", "red", "KO") with { Death = true } };
+        Assert.AreEqual("試合で死亡", CircuitRules.RetireReason(FighterTally.Of("me", died, Ivf.Ranking), rules));
+        Assert.IsNull(CircuitRules.RetireReason(FighterTally.Of("o2", died, Ivf.Ranking), rules), "勝った側は死んでいない");
     }
 
     [TestMethod]

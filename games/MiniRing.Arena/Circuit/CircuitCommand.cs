@@ -60,7 +60,9 @@ internal static class CircuitCommand
                     continue;
                 }
 
-                var ordered = CircuitRules.Order(active.Select(id => FighterTally.Of(id, ledger, league.Org.Ranking)));
+                // 並びが同じ（最初の興行は全員 0 点）なら、種で混ぜる（名前の順で組まない）。
+                var ordered = CircuitRules.Order(active.Select(id => FighterTally.Of(id, ledger, league.Org.Ranking)),
+                    id => CircuitRandom.Mix(league.Config.Seed, (ulong)evt, CircuitRandom.Hash(id)));
                 var (pairs, bye) = CircuitRules.Pair(ordered, ledger, byes);
                 if (bye is not null)
                 {

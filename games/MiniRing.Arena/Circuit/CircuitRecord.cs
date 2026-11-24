@@ -48,6 +48,9 @@ internal sealed record BoutRecord
     public int RedDowns { get; init; }
     public int BlueDowns { get; init; }
     public float Drama { get; init; }
+
+    /// <summary>負けた側が試合で死んだ（臓器・首の破壊。<see cref="TvScoutResult.IsDeath"/>）。</summary>
+    public bool Death { get; init; }
     public required string Checksum { get; init; }
 
     public string? WinnerId => Winner switch { "red" => Red, "blue" => Blue, _ => null };
@@ -138,6 +141,9 @@ internal static class BoutLedger
 /// <summary>1 人の戦績（記録から数える）。</summary>
 internal sealed record FighterTally(string Id, int Wins, int Losses, int Draws, int Kos, int KoLosses, int Streak, float Dealt, float Taken, float Points)
 {
+    /// <summary>試合で死んだ（負けた試合の記録に死がある）。</summary>
+    public bool Died { get; init; }
+
     public int Bouts => Wins + Losses + Draws;
 
     /// <summary>今の連敗の数（最後の試合から数えて続く負け）。</summary>
@@ -147,6 +153,7 @@ internal sealed record FighterTally(string Id, int Wins, int Losses, int Draws, 
     public static FighterTally Of(string id, IEnumerable<BoutRecord> bouts, OrgRanking points)
     {
         int w = 0, l = 0, d = 0, ko = 0, kol = 0, streak = 0;
+        var died = false;
         float dealt = 0f, taken = 0f, pts = 0f;
         foreach (var b in bouts.Where(b => b.Involves(id)))
         {
@@ -171,11 +178,12 @@ internal sealed record FighterTally(string Id, int Wins, int Losses, int Draws, 
             {
                 l++;
                 kol += finish ? 1 : 0;
+                died |= b.Death;
                 streak = streak < 0 ? streak - 1 : -1;
             }
         }
 
-        return new FighterTally(id, w, l, d, ko, kol, streak, dealt, taken, pts);
+        return new FighterTally(id, w, l, d, ko, kol, streak, dealt, taken, pts) { Died = died };
     }
 
     /// <summary>「12勝3敗1分（8KO）」。</summary>
@@ -190,6 +198,11 @@ internal static class CircuitRules
     {
         ArgumentNullException.ThrowIfNull(t);
         ArgumentNullException.ThrowIfNull(rules);
+        if (t.Died)
+        {
+            return "試合で死亡";
+        }
+
         if (t.Losses - t.Wins >= rules.NetLosses)
         {
             return $"通算の負け越し {t.Losses - t.Wins}";
@@ -208,10 +221,10 @@ internal static class CircuitRules
         return null;
     }
 
-    /// <summary>順位の並び: 点 → 勝ち → 倒した勝ち → 与えた − 受けた → id。</summary>
-    public static IReadOnlyList<FighterTally> Order(IEnumerable<FighterTally> tallies)
+    /// <summary>順位の並び: 点 → 勝ち → 倒した勝ち → 与えた − 受けた → <paramref name="tieBreak"/>（無ければ id）。</summary>
+    public static IReadOnlyList<FighterTally> Order(IEnumerable<FighterTally> tallies, Func<string, ulong>? tieBreak = null)
         => [.. tallies.OrderByDescending(t => t.Points).ThenByDescending(t => t.Wins).ThenByDescending(t => t.Kos)
-            .ThenByDescending(t => t.Dealt - t.Taken).ThenBy(t => t.Id, StringComparer.Ordinal)];
+            .ThenByDescending(t => t.Dealt - t.Taken).ThenBy(t => tieBreak?.Invoke(t.Id) ?? 0UL).ThenBy(t => t.Id, StringComparer.Ordinal)];
 
     /// <summary>
     /// 同じくらいの戦績どうしの組み合わせ（スイス式）: 順位の並びで、上から順に、まだ当たっていない一番近い相手と組む（全員と当たっていれば隣）。
