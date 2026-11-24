@@ -90,7 +90,6 @@ public static class PhotoFace
             throw new InvalidDataException("両目の点が近すぎます（写真の顔が小さすぎるか、点が重なっています）。");
         }
 
-        var proportions = FaceProportions.Measure(points);
         var chin = P("chin");
 
         // 色: 頬（目の下と口の端の間を外へ寄せた所）・額の上（髪）・目の中（瞳）・あご先（ひげ）。
@@ -101,7 +100,8 @@ public static class PhotoFace
         var skin = image.Median([(cheekL, radius), (cheekR, radius)]);
         // 髪: 額の目印から上へ、肌でない色が初めて出る所（生え際）の少し上の色。最後まで肌なら髪が無い（額の上が肌のまま頭の上まで）。
         var (hair, hairUnlike, hairAbove) = (skin, 0f, float.NaN);
-        for (var up = 0.1f; up <= HairSearchIod + 1e-4f; up += 0.1f)
+        Vector2? hairline = null;
+        for (var up = 0.05f; up <= HairSearchIod + 1e-4f; up += 0.05f)
         {
             var center = P("forehead") - new Vector2(0f, up * iod);
             if (center.Y < 0f)
@@ -114,7 +114,7 @@ public static class PhotoFace
             {
                 var above = center - new Vector2(0f, 0.15f * iod);
                 hair = above.Y >= 0f ? image.Median([(above, 0.1f * iod)]) : patch;
-                (hairUnlike, hairAbove) = (Unlike(patch, skin), up);
+                (hairUnlike, hairAbove, hairline) = (Unlike(patch, skin), up, center); // 中央値が髪に変わった所 ≒ 生え際（窓の真ん中）
                 break;
             }
 
@@ -127,6 +127,7 @@ public static class PhotoFace
         var chinPatch = image.Median([(Vector2.Lerp(P("lipBottom"), chin, 0.55f), 0.14f * iod)]);
         var chinUnlike = Unlike(chinPatch, skin);
 
+        var proportions = FaceProportions.Measure(points, hairline);
         var measured = new Measurements(proportions, chinUnlike, hairUnlike, hairAbove);
         var (v, parts) = Caricature.Apply(basis, proportions, norms, gain);
         if (float.IsNaN(hairAbove))

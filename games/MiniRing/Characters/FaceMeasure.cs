@@ -22,18 +22,23 @@ namespace MiniRing.Characters;
 public sealed record FaceProportions(float Aspect, float JawWidth, float EyeSpan, float EyeWidth, float EyeOpen, float EyeRow, float BrowRow,
     float NoseRow, float NoseWidth, float MouthRow, float MouthWidth, float LipThickness)
 {
+    /// <summary>おでこの高さ（生え際から目の線まで / H）。生え際は髪の色で見つける（<see cref="PhotoFace"/>）ので、髪が無い・見つからなければ NaN（その写真では使わない）。</summary>
+    public float Forehead { get; init; } = float.NaN;
+
     /// <summary>鍵の名前（<c>photoNorms</c>）と値。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public IReadOnlyList<(string Key, float Value)> Entries =>
     [
         ("aspect", Aspect), ("jawWidth", JawWidth), ("eyeSpan", EyeSpan), ("eyeWidth", EyeWidth), ("eyeOpen", EyeOpen), ("eyeRow", EyeRow),
         ("browRow", BrowRow), ("noseRow", NoseRow), ("noseWidth", NoseWidth), ("mouthRow", MouthRow), ("mouthWidth", MouthWidth), ("lipThickness", LipThickness),
+        ("forehead", Forehead),
     ];
 
     /// <summary>
     /// 目印の点（<see cref="PhotoFace.PointNames"/>、画素の座標）から測る。目の線の向きに合わせて回し、W・H が小さすぎれば <see cref="InvalidDataException"/>。
+    /// <paramref name="hairline"/> は生え際の点（画素の座標。無ければおでこの高さは NaN）。
     /// </summary>
-    public static FaceProportions Measure(IReadOnlyDictionary<string, Vector2> points)
+    public static FaceProportions Measure(IReadOnlyDictionary<string, Vector2> points, Vector2? hairline = null)
     {
         ArgumentNullException.ThrowIfNull(points);
         Vector2 Raw(string name) => points.TryGetValue(name, out var p) ? p : throw new InvalidDataException($"目印の点 '{name}' がありません。");
@@ -79,7 +84,10 @@ public sealed record FaceProportions(float Aspect, float JawWidth, float EyeSpan
             NoseWidth: X("noseLeft", "noseRight") / w,
             MouthRow: Row((P("lipTop").Y + P("lipBottom").Y) / 2f),
             MouthWidth: X("mouthLeft", "mouthRight") / w,
-            LipThickness: (P("lipBottom").Y - P("lipTop").Y) / h);
+            LipThickness: (P("lipBottom").Y - P("lipTop").Y) / h)
+        {
+            Forehead = hairline is { } line ? -Vector2.Dot(line - origin, uy) / h : float.NaN,
+        };
     }
 }
 
@@ -161,6 +169,13 @@ public static class Caricature
             MouthWidth = Clamp(Ratio("mouthWidth"), 0.5f, 1.6f),
             Lips = Clamp(Ratio("lipThickness"), 0.4f, 2.2f),
         };
+        if (float.IsFinite(m["forehead"]))
+        {
+            // 生え際の行のずれ（下向き）= 目のずれ − おでこの高さのずれ。生え際の値は正で髪が下がる（おでこが狭い）。
+            // 上げる（おでこが広い）だけ。下げると（正）髪の絵が頭頂で途切れて地肌の点が出る（0.03 でも出た）。組み立てを直すと名簿の顔の当たりの形が
+            // 変わるので、ここで止める（狭いおでこは既定の生え際のまま。docs/DEBT.md「キャラクター」）。
+            v = v with { Hairline = Clamp((eyeShift - Shift("forehead")) / HalfHeight, -0.25f, 0f) };
+        }
 
         var parts = basis.Parts.ToDictionary(p => p.Key, p => p.Value);
         // 部品の選び（z = 誇張したずれ / ばらつき）: 細い目 → 一重、開いた目 → 大きい目。唇・鼻・あごは並んだ 2 つの部品を混ぜる。

@@ -41,7 +41,7 @@ public sealed record FaceParts(
         Check(EarHeight, -0.1f, 0.1f);
         Check(JawWidth, 0.7f, 1.35f);
         Check(Cheekbones, 0.5f, 1.8f);
-        Check(Hairline, -0.12f, 0.12f);
+        Check(Hairline, -0.25f, 0.12f); // 負 = 生え際が上（おでこが広い）。正へ広げると頭頂に地肌が出るので上だけ広げた
         Check(FaceWidth, 0.8f, 1.25f);
         Check(BrowRidge, 0f, 2f);
         Check(Freckles, 0f, 1f);
