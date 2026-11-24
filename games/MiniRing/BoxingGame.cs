@@ -1493,7 +1493,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private FighterCommand RestCommand(Fighter self, Fighter opponent)
     {
         var rules = Rules ?? MatchRules.Tv;
-        return WalkTo(self, opponent, Layout.RestCorner(self == Player, rules.CornerInset), rules.RestGuardDrop, rules.RestWalk);
+        return WalkTo(self, opponent, Layout.RestCorner(self == Player, FootprintOf(self)), rules.RestGuardDrop, rules.RestWalk);
     }
 
     /// <summary>
@@ -1511,7 +1511,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 行き先のコーナーは数え始めに 1 度だけ決める（倒れた体が対角線の上で動くたびに選び直すと、行き先が入れ替わって揺れる）。
         if (!_neutralCorners.TryGetValue(self, out var corner))
         {
-            corner = Layout.NeutralCorner(opponent.PelvisPosition, rules.CornerInset);
+            corner = Layout.NeutralCorner(opponent.PelvisPosition, FootprintOf(self));
             _neutralCorners[self] = corner;
         }
 
@@ -1635,12 +1635,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         LivingRoom.AddColliders(_world, Layout);
         _ring = new Ring(_world, Layout, RingSurfaceHeight, LivingRoom.PhysicsStageBase);
         var surface = _ring.SurfaceCenter;
-        // コーナーから始める試合は、赤・青の休むコーナー（四角は手前左・奥右、檻は 240°・60° の頂点）に立ち、互いに向き合う（生成の向きは +Z が 0、Y 軸まわり）。
+        // コーナーから始める試合は、赤・青の休むコーナー（四角は手前左・奥右、檻は 240°・60° の頂点の側）の対角線の上で、互いに向き合う（生成の向きは +Z が 0、Y 軸まわり）。
+        // ここでは仮に角の近くへ生み、持ち物を持たせてから、体と持ち物の輪郭が縁に触れない所へ移す（PlaceAtCorner）。
         // コーナーから始めない形（ドリル）は、中央で StartGap だけ離れて Z 軸の上で向き合う。
+        var redCorner = Layout.RestCorner(true, []);
+        var blueCorner = Layout.RestCorner(false, []);
         var (redFeet, blueFeet, redYaw) = Layout.FromCorners
-            ? (Layout.RestCorner(true, RingLayout.CornerInset) with { Y = surface.Y }, Layout.RestCorner(false, RingLayout.CornerInset) with { Y = surface.Y },
-                MathF.Atan2(Layout.RestCorner(false, RingLayout.CornerInset).X - Layout.RestCorner(true, RingLayout.CornerInset).X,
-                    Layout.RestCorner(false, RingLayout.CornerInset).Z - Layout.RestCorner(true, RingLayout.CornerInset).Z))
+            ? (redCorner with { Y = surface.Y }, blueCorner with { Y = surface.Y }, MathF.Atan2(blueCorner.X - redCorner.X, blueCorner.Z - redCorner.Z))
             : (surface - new Vector3(0f, 0f, Layout.StartGap * 0.5f), surface + new Vector3(0f, 0f, Layout.StartGap * 0.5f), 0f);
         // VR のプレイヤーには、手触りの調整が終わるまでスタミナの疲れを効かせない（FighterTuning.PlayerFatigue）。
         var concussionSpin = _tuning.ConcussionSpin * (Rules?.ConcussionSpinScale ?? 1f);
@@ -1702,6 +1703,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             Wear(Player, _corners.PlayerWear);
             Wear(Cpu, _corners.CpuWear);
         }
+
+        _footprints.Clear();
+        PlaceAtCorner(Player, red: true);
+        PlaceAtCorner(Cpu, red: false);
 
         // 前のラウンドの操作元から、覚えたことを引き継がせる（学ぶボット。IFighterControl.CarryOver）。
         var previousCpu = _round > 1 ? _cpuControl : null;
@@ -2165,12 +2170,12 @@ public readonly record struct ContactSoundEvent(Vector3 Position, Audio.ContactP
 /// テレビ中継の試合の決まり（2026-11-12。秒は試合の時間 = 実物大の物理の時間）: 1 ラウンド <paramref name="RoundSeconds"/> 秒 × <paramref name="Rounds"/> ラウンド、ラウンドの間
 /// <paramref name="BreakSeconds"/> 秒。休みの間、削れた体は一定の速さ（<paramref name="RegenVoxelsPerSecond"/> 個/秒）で内側から治る。
 /// K.O. で試合が終わり、最終ラウンドの終わりは判定（与えたダメージ）。団体によってダウンを数えない（<see cref="CountsDowns"/>）・判定しない（<see cref="JudgesDecision"/>）・
-/// 体を治さない（<paramref name="RegenVoxelsPerSecond"/> = 0）決まりもある（<see cref="Vfc"/>）。
+/// 予算で治さない（<paramref name="RegenVoxelsPerSecond"/> = 0。前線の再生 <see cref="RegrowthSpeed"/> で治す <see cref="Vfc"/>）決まりもある。治る速さは団体のファイルの値（WVC はほぼ治らない）。
 /// </summary>
 /// <param name="RoundSeconds">1 ラウンドの長さ [s]。</param>
 /// <param name="Rounds">ラウンドの数。</param>
 /// <param name="BreakSeconds">ラウンドの間の休み [s]。</param>
-/// <param name="RegenVoxelsPerSecond">休みの間に体が治る速さ [ボクセル/s]（1 人あたり。重い 1 発で削れる数十〜百個を 1.7 秒ほどで）。</param>
+/// <param name="RegenVoxelsPerSecond">休みの間に体が治る速さ [ボクセル/s]（1 人あたり。治る量は休みの長さ × これ。標準は重い 1 発で削れる数十〜百個を 1.7 秒ほどで: IVF の値。団体ごとの値は団体のファイル）。</param>
 public sealed record MatchRules(float RoundSeconds = 50.35f, int Rounds = 5, float BreakSeconds = 16.78f, float RegenVoxelsPerSecond = 89.37f)
 {
     /// <summary>意識を失う頭部角速度の倍率。1 は体の標準値。</summary>
@@ -2187,9 +2192,6 @@ public sealed record MatchRules(float RoundSeconds = 50.35f, int Rounds = 5, flo
 
     /// <summary>判定で引き分けとする、与えたダメージの差の下限（どちらもほとんど当てていないとき）。</summary>
     public float DrawMinimum { get; init; } = 1f;
-
-    /// <summary>休むコーナーの、リングの縁からの内側の距離 [m]（ロープとコーナーポストに触れない所）。</summary>
-    public float CornerInset { get; init; } = 0.1972f;
 
     /// <summary>コーナーに着いたとみなす距離 [m]（それより近ければ歩かない）。</summary>
     public float CornerArrive { get; init; } = 0.08451f;
@@ -2273,13 +2275,15 @@ public sealed record MatchRules(float RoundSeconds = 50.35f, int Rounds = 5, flo
     /// 速さ 0.84 mm/s・抽選 0.42 s ごと（人形の単位で 0.5 mm/s・0.25 s。ボクセル 14 mm で 1 回の抽選の確率 0.025、相似で変わらない）。以下の測定は人形の単位: 指示書の初めの値 1.2 mm/s では、前腕（人形で 9 cm）を
     /// 肘から 3 割で切った切り株が休み 1 回で元の長さまで戻った（+6.5 cm）: 候補のセルは横のどの生きたセルからでも届くので、実際の前線は 1 列ぶんの
     /// 確率から見積もった速さの約 2.2 倍で進む。0.5 mm/s で測り直すと、拳の削れ（4 発・208 セル）は休み 1 回で 88% 戻り、前腕の切り株は休み 1 回で
-    /// +3.0 cm（失った 6.5 cm の半分ほど）伸びる（<c>VfcRegrowthTests</c>）。両者ダウンの倍率は 5.03 s（人形の単位で 3 s）で倍。</para>
+    /// +3.0 cm（失った 6.5 cm の半分ほど）伸びる（<c>VfcRegrowthTests</c>）。両者ダウンの倍率は 5.03 s（人形の単位で 3 s）で倍。
+    /// 2026-11-24 にユーザーの指定「VFC はもっと早く」で 1.5 倍の 1.26 mm/s（人形の単位で 0.75 mm/s）にした。2 倍（人形で 1.0 mm/s）は、初めの値 1.2 mm/s で
+    /// 切り株が休み 1 回で元へ戻ったのに近く、「大きな欠損は回復しきらない」が残らないので 1.5 倍にした（測った値は docs/VFC.md「再生」）。</para>
     /// </summary>
     public static MatchRules Vfc { get; } = new(50.35f, 5, 41.96f, 0f)
     {
         CountsDowns = false,
         JudgesDecision = false,
-        RegrowthSpeed = 0.000839f,
+        RegrowthSpeed = 0.001259f,
         RegrowthTickSeconds = 0.4196f,
         StuckDoublingSeconds = 5.035f,
         ResupplyWeapons = true,

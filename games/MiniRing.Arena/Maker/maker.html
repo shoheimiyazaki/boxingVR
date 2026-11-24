@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ボクサー作成</title>
+<style>
+  :root {
+    --bg: #1e2128; --panel: #272b34; --line: #3a3f4b; --text: #e8e6e3; --muted: #9aa0ab; --accent: #e0a23a; --bad: #e0564a; --ok: #6cc28a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 "Segoe UI", "Yu Gothic UI", "Hiragino Sans", sans-serif; }
+  header { display: flex; align-items: baseline; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 18px; margin: 0; }
+  header .note { color: var(--muted); font-size: 12px; }
+  main { display: grid; grid-template-columns: minmax(340px, 470px) 1fr; gap: 0; min-height: calc(100vh - 48px); }
+  #controls { border-right: 1px solid var(--line); overflow-y: auto; max-height: calc(100vh - 48px); }
+  #preview { padding: 12px 16px; overflow-y: auto; max-height: calc(100vh - 48px); }
+  nav { display: flex; flex-wrap: wrap; gap: 2px; padding: 8px; position: sticky; top: 0; background: var(--bg); z-index: 2; border-bottom: 1px solid var(--line); }
+  nav button { flex: 1; }
+  nav button.on { background: var(--accent); color: #1b1b1b; border-color: var(--accent); }
+  section { display: none; padding: 10px 14px 24px; }
+  section.on { display: block; }
+  h2 { font-size: 15px; margin: 14px 0 6px; color: var(--accent); }
+  label.row { display: grid; grid-template-columns: 112px 1fr 64px; align-items: center; gap: 8px; margin: 5px 0; }
+  label.row.two { grid-template-columns: 112px 1fr; }
+  input, select, button, textarea { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
+  input[type=range] { padding: 0; accent-color: var(--accent); }
+  input[type=color] { padding: 0 2px; height: 28px; width: 48px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #1b1b1b; border-color: var(--accent); font-weight: 600; }
+  .val { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .chips button.on { border-color: var(--accent); color: var(--accent); }
+  .swatches { display: flex; gap: 4px; flex-wrap: wrap; }
+  .swatch { width: 22px; height: 22px; border-radius: 3px; border: 1px solid var(--line); cursor: pointer; }
+  .part { display: grid; grid-template-columns: 70px 1fr 1fr 70px; gap: 6px; align-items: center; margin: 4px 0; }
+  .part.single { grid-template-columns: 70px 1fr; }
+  .part select, .part input, label.row input, label.row select { min-width: 0; width: 100%; }
+  #controls { overflow-x: hidden; }
+  .hint { color: var(--muted); font-size: 12px; }
+  .error { color: var(--bad); white-space: pre-wrap; }
+  .okmsg { color: var(--ok); white-space: pre-wrap; word-break: break-all; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; margin: 8px 0 12px; }
+  .stat { background: var(--panel); border-radius: 4px; padding: 6px 8px; }
+  .stat b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 12px; }
+  .views { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+  .views figure { margin: 0; }
+  .views figcaption { color: var(--muted); font-size: 12px; text-align: center; }
+  #faceImg { width: min(100%, 660px); image-rendering: pixelated; background: #2b2f38; border-radius: 6px; }
+  #bodyImg { height: min(440px, 62vh); image-rendering: pixelated; background: #2b2f38; border-radius: 6px; padding: 8px; }
+  #photoWrap { position: relative; display: inline-block; margin-top: 8px; touch-action: none; }
+  #photoCanvas { max-width: 100%; display: block; border-radius: 4px; }
+  #pointLayer { position: absolute; inset: 0; }
+  .pt { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--accent); border: 1px solid #000; cursor: grab; }
+  .pt.sel { background: #fff; }
+  #ptName { min-height: 1.5em; }
+  pre { background: var(--panel); padding: 8px; border-radius: 4px; max-height: 260px; overflow: auto; font-size: 11px; }
+  .busy { opacity: 0.55; transition: opacity 0.2s; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } #controls, #preview { max-height: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>ボクサー作成</h1>
+  <span class="note">この PC の中だけで動きます（localhost）。写真はどこにも送らず、ファイルにも残しません。</span>
+</header>
+<main>
+  <div id="controls">
+    <nav id="tabs">
+      <button data-tab="basic" class="on">基本</button>
+      <button data-tab="body">体</button>
+      <button data-tab="face">顔</button>
+      <button data-tab="photo">写真</button>
+      <button data-tab="style">スタイル</button>
+      <button data-tab="save">保存</button>
+    </nav>
+
+    <section id="tab-basic" class="on">
+      <h2>名前と国</h2>
+      <label class="row two">id <input id="f-id" placeholder="小文字・数字・- _（ファイル名になる）"></label>
+      <label class="row two">名前 <input id="f-name"></label>
+      <label class="row two">読み <input id="f-reading" placeholder="カタカナ（空なら名前）"></label>
+      <label class="row two">画面の名前 <input id="f-hudName" placeholder="試合の画面の短い名前（空なら名前）"></label>
+      <label class="row two">国 <select id="f-country"></select></label>
+      <label class="row two">出身の表示 <input id="f-origin" placeholder="空なら国の名前"></label>
+      <label class="row two">一言 <input id="f-tagline" placeholder="例: 下町の新人"></label>
+      <label class="row two">団体 <select id="f-org"></select></label>
+      <p class="hint">実在の人物をモデルにしないでください（名簿は全員が架空の人物です）。</p>
+      <h2>読み込む</h2>
+      <label class="row two">名簿から <select id="loadRoster"><option value="">（選ぶと下書きを置き換え）</option></select></label>
+      <label class="row two">ファイルから <input type="file" id="loadFile" accept=".json,application/json"></label>
+      <button id="newDraft">新しく作り直す</button>
+    </section>
+
+    <section id="tab-body">
+      <h2>体格</h2>
+      <p class="hint">強さは体から出ます（太いほど腕の力が強く、重いほど押し負けない）。能力値の倍率はありません。</p>
+      <div class="chips" id="bodyTypes"></div>
+      <div class="hint" id="bodyTypeNote"></div>
+      <label class="row">身長 <input type="range" id="f-heightCm" min="140" max="215" step="1"><span class="val" id="v-heightCm"></span></label>
+      <label class="row">体重 <input type="range" id="f-weightKg" min="40" max="160" step="1"><span class="val" id="v-weightKg"></span></label>
+      <label class="row">腕の長さ <input type="range" id="f-arms" min="0.85" max="1.15" step="0.01"><span class="val" id="v-arms"></span></label>
+      <label class="row">脚の長さ <input type="range" id="f-legs" min="0.85" max="1.15" step="0.01"><span class="val" id="v-legs"></span></label>
+      <p class="hint">体重は名簿の体重の式（72 kg × 身長の比² × 太さの比）を太さについて解きます。物理の体の質量（部位の体積に比例）は右に並べて出します。</p>
+    </section>
+
+    <section id="tab-face">
+      <h2>ルーツ（顔のテンプレート）</h2>
+      <p class="hint">見た目の出発点だけです（体格・強さは変わりません）。当てたあとは全部変えられます。</p>
+      <label class="row two">ルーツ <select id="root"></select></label>
+      <div id="rootSwatches"></div>
+      <button id="applyRoot">このテンプレートを当てる</button>
+      <h2>色</h2>
+      <label class="row two">肌 <input type="color" id="c-skin"></label>
+      <label class="row two">髪 <input type="color" id="c-hair"></label>
+      <label class="row two">瞳 <input type="color" id="c-iris"></label>
+      <h2>部品</h2>
+      <p class="hint">2 つの部品を選ぶと形を混ぜます（右の数 = 2 つ目の割合）。目と眉は 1 つだけ。</p>
+      <div id="parts"></div>
+      <h2>寸法・位置</h2>
+      <div id="values"></div>
+    </section>
+
+    <section id="tab-photo">
+      <h2>顔写真から作る</h2>
+      <p class="hint">写真はこのブラウザとこの PC の中だけで扱います。自動の目印はブラウザの中の MediaPipe（Apache-2.0。初回だけライブラリとモデルを CDN から読みます。写真は送りません）。
+        点はドラッグで直せます。正面を向いた明るい写真が向いています。</p>
+      <input type="file" id="photoFile" accept="image/*">
+      <div class="chips">
+        <button id="autoPoints">自動で目印を探す</button>
+        <button id="resetPoints">目印を真ん中に置く</button>
+        <button id="usePhoto" class="primary">この写真から顔を作る</button>
+      </div>
+      <div class="hint" id="ptName">点を押すと名前が出ます。</div>
+      <div id="photoWrap"><canvas id="photoCanvas" width="10" height="10"></canvas><div id="pointLayer"></div></div>
+      <div id="photoMsg"></div>
+      <pre id="measured" hidden></pre>
+    </section>
+
+    <section id="tab-style">
+      <h2>ボクサースタイル（教科書）</h2>
+      <p class="hint">教科書は全員共通の基本です。教育（キャラごとの差分）は空から始まり、試合と試合の間に育てます。</p>
+      <label class="row two">教科書 <select id="f-textbook"></select></label>
+      <h2>手と武器</h2>
+      <label class="row two">はめる物 <select id="f-wear"></select></label>
+      <label class="row two">握る武器 <select id="f-weapon"><option value="">なし</option></select></label>
+    </section>
+
+    <section id="tab-save">
+      <h2>保存</h2>
+      <p class="hint">名簿と同じ形の 1 ファイル（&lt;id&gt;.json）です。保存の前に名簿の読み込みで確かめます。</p>
+      <div class="chips" style="flex-direction:column; align-items:stretch">
+        <button id="download">ファイルをダウンロード</button>
+        <button id="saveDir">キャラの場所へ保存</button>
+        <button id="saveRoster" class="primary">名簿（roster/）へ追加</button>
+      </div>
+      <div class="hint" id="dirs"></div>
+      <div id="saveMsg"></div>
+    </section>
+  </div>
+
+  <div id="preview">
+    <div class="error" id="err"></div>
+    <div class="stats" id="stats"></div>
+    <div class="views" id="views">
+      <figure><img id="faceImg" alt="試合の頭（正面・斜め・横）"><figcaption>試合の頭のボクセル（正面・斜め 40 度・横）</figcaption></figure>
+      <figure><img id="bodyImg" alt="全身"><figcaption>全身（試合の体の格子）</figcaption></figure>
+    </div>
+    <details><summary>保存されるファイル</summary><pre id="json"></pre></details>
+  </div>
+</main>
+
+<script type="module">
+const $ = id => document.getElementById(id);
+let catalog = null;
+let draft = null;
+let lastJson = '';
+let previewTimer = 0;
+let previewSeq = 0;
+let typeMuscle = null; // 選んだ体型の太さ（体重を手で動かすまで、身長を変えると体重をこの太さで出し直す）
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+const hex = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
+const rgb = h => [1, 3, 5].map(i => Math.round(parseInt(h.slice(i, i + 2), 16) / 255 * 1000) / 1000);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+// 文を要素に入れる（サーバーの文・パスを HTML として読まない）。parts は [文, 組] の並び（組: 'error' | 'okmsg' | 'hint' | 'pre'）。
+function say(el, ...parts) {
+  el.replaceChildren(...parts.map(([text, cls]) => { const e = document.createElement(cls === 'pre' ? 'pre' : 'p'); if (cls !== 'pre') e.className = cls; e.textContent = text; return e; }));
+}
+
+function fillSelect(sel, items, keep = false) {
+  if (!keep) sel.innerHTML = '';
+  for (const it of items) {
+    const o = document.createElement('option');
+    o.value = it.id ?? it; o.textContent = it.name ?? it.label ?? it;
+    sel.appendChild(o);
+  }
+}
+
+// ---- 下書き ↔ 画面 ----
+const textFields = ['id', 'name', 'reading', 'hudName', 'origin', 'tagline', 'country', 'org', 'textbook', 'wear', 'weapon'];
+
+function showDraft() {
+  for (const f of textFields) $('f-' + f).value = draft[f] ?? '';
+  for (const f of ['heightCm', 'weightKg', 'arms', 'legs']) $('f-' + f).value = draft[f];
+  showBodyValues();
+  $('c-skin').value = hex(draft.face.skin);
+  $('c-hair').value = hex(draft.face.hair);
+  $('c-iris').value = hex(draft.face.iris);
+  buildParts();
+  buildValues();
+}
+
+function showBodyValues() {
+  $('v-heightCm').textContent = draft.heightCm + ' cm';
+  $('v-weightKg').textContent = draft.weightKg + ' kg';
+  $('v-arms').textContent = fmt(draft.arms);
+  $('v-legs').textContent = fmt(draft.legs);
+}
+
+function changed() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(preview, 300);
+}
+
+for (const f of textFields) $('f-' + f).addEventListener('input', e => { draft[f] = e.target.value || (f === 'weapon' ? null : ''); changed(); });
+for (const f of ['heightCm', 'weightKg']) $('f-' + f).addEventListener('input', e => {
+  draft[f] = parseInt(e.target.value, 10);
+  if (f === 'weightKg') { typeMuscle = null; for (const x of $('bodyTypes').children) x.classList.remove('on'); }
+  else if (typeMuscle !== null) draft.weightKg = weightFor(draft.heightCm, typeMuscle);
+  showBodyValues(); changed();
+});
+for (const f of ['arms', 'legs']) $('f-' + f).addEventListener('input', e => { draft[f] = parseFloat(e.target.value); showBodyValues(); changed(); });
+$('f-heightCm').addEventListener('change', () => clampWeight());
+for (const c of ['skin', 'hair', 'iris']) $('c-' + c).addEventListener('input', e => { draft.face[c] = rgb(e.target.value); changed(); });
+
+// 体重の幅（名簿の体重の式で、太さが 0.6〜1.5 倍）。身長を変えたら、体重を幅の中へ寄せる。
+function weightFor(cm, muscle) { const h = Math.round(cm / 175 * 10000) / 10000; return Math.round(72 * h * h * muscle); }
+function weightRange(cm) { const h = Math.round(cm / 175 * 10000) / 10000; const w = 72 * h * h; return [Math.ceil(w * 0.6), Math.floor(w * 1.5)]; }
+function clampWeight() {
+  const [lo, hi] = weightRange(draft.heightCm);
+  $('f-weightKg').min = lo; $('f-weightKg').max = hi;
+  draft.weightKg = Math.max(lo, Math.min(hi, draft.weightKg));
+  $('f-weightKg').value = draft.weightKg; $('f-heightCm').value = draft.heightCm; showBodyValues(); changed();
+}
+
+function buildBodyTypes() {
+  const box = $('bodyTypes');
+  for (const t of catalog.bodyTypes) {
+    const b = document.createElement('button');
+    b.textContent = t.label; b.title = t.note;
+    b.onclick = () => {
+      typeMuscle = t.muscle;
+      draft.weightKg = weightFor(draft.heightCm, t.muscle);
+      draft.arms = t.arms; draft.legs = t.legs;
+      for (const x of box.children) x.classList.toggle('on', x === b);
+      $('bodyTypeNote').textContent = t.note;
+      showDraft(); clampWeight();
+    };
+    box.appendChild(b);
+  }
+}
+
+// ---- 顔の部品 ----
+function buildParts() {
+  const box = $('parts'); box.innerHTML = '';
+  for (const [category, list] of Object.entries(catalog.faceParts)) {
+    const weights = draft.face.parts[category] ?? {};
+    const ids = Object.keys(weights).sort((a, b) => weights[b] - weights[a]);
+    const single = catalog.singleParts.includes(category);
+    const optional = catalog.optionalParts.includes(category);
+    const row = document.createElement('div'); row.className = 'part' + (single ? ' single' : '');
+    const name = document.createElement('span'); name.textContent = category; row.appendChild(name);
+    const first = document.createElement('select');
+    if (optional) first.appendChild(new Option('なし', ''));
+    for (const p of list) first.appendChild(new Option(p.id + ' ' + p.name, p.id));
+    first.value = ids[0] ?? '';
+    row.appendChild(first);
+    let second = null, mix = null;
+    if (!single) {
+      second = document.createElement('select');
+      second.appendChild(new Option('（混ぜない）', ''));
+      for (const p of list) second.appendChild(new Option(p.id + ' ' + p.name, p.id));
+      second.value = ids[1] ?? '';
+      mix = document.createElement('input'); mix.type = 'number'; mix.min = 0.05; mix.max = 0.95; mix.step = 0.05;
+      mix.value = ids[1] ? fmt(weights[ids[1]] / (weights[ids[0]] + weights[ids[1]])) : 0.5;
+      row.appendChild(second); row.appendChild(mix);
+    }
+    const apply = () => {
+      const w = {};
+      if (first.value) {
+        if (second && second.value && second.value !== first.value) {
+          const t = Math.max(0.05, Math.min(0.95, parseFloat(mix.value) || 0.5));
+          w[first.value] = Math.round((1 - t) * 100) / 100; w[second.value] = Math.round(t * 100) / 100;
+        } else w[first.value] = 1;
+      }
+      draft.face.parts[category] = w; changed();
+    };
+    first.onchange = apply; if (second) { second.onchange = apply; mix.onchange = apply; }
+    box.appendChild(row);
+  }
+}
+
+const valueLabels = {
+  eyeSpacing: '目の間', nose: '鼻の高さ', jaw: 'あご先の前後', eyeSize: '目の大きさ', eyeHeight: '目の高さ', eyeTilt: '目の傾き',
+  browHeight: '眉の高さ', browTilt: '眉の傾き', browThickness: '眉の太さ', noseWidth: '鼻の幅', noseLength: '鼻の長さ',
+  mouthWidth: '口の幅', mouthHeight: '口の高さ', lips: '唇の厚さ', earSize: '耳の大きさ', earHeight: '耳の高さ',
+  jawWidth: 'あごの幅', cheekbones: '頬骨', hairline: '生え際', faceWidth: '顔の幅', browRidge: '眉の張り出し', freckles: 'そばかす',
+};
+
+function buildValues() {
+  const box = $('values'); box.innerHTML = '';
+  for (const v of catalog.faceValues) {
+    const label = document.createElement('label'); label.className = 'row';
+    label.append(valueLabels[v.key] ?? v.key);
+    const input = document.createElement('input'); input.type = 'range'; input.min = v.min; input.max = v.max;
+    input.step = (v.max - v.min) / 100; input.value = draft.face.values[v.key] ?? v.default;
+    const out = document.createElement('span'); out.className = 'val'; out.textContent = fmt(input.value);
+    input.oninput = () => { draft.face.values[v.key] = Math.round(parseFloat(input.value) * 1000) / 1000; out.textContent = fmt(input.value); changed(); };
+    input.ondblclick = () => { input.value = v.default; input.oninput(); };
+    label.append(input, out); box.appendChild(label);
+  }
+}
+
+function buildRoots() {
+  fillSelect($('root'), catalog.roots.map(r => ({ id: r.id, name: r.label })));
+  const show = () => {
+    const r = catalog.roots.find(x => x.id === $('root').value);
+    const box = $('rootSwatches'); box.innerHTML = '';
+    for (const [kind, colors, label] of [['skin', r.skins, '肌'], ['hair', r.hairs, '髪'], ['iris', r.irises, '瞳']]) {
+      const line = document.createElement('div'); line.className = 'swatches'; line.style.margin = '4px 0';
+      const t = document.createElement('span'); t.textContent = label; t.style.width = '32px'; line.appendChild(t);
+      colors.forEach(c => {
+        const s = document.createElement('span'); s.className = 'swatch'; s.style.background = hex(c); s.title = 'この色にする';
+        s.onclick = () => { draft.face[kind] = c; $('c-' + kind).value = hex(c); changed(); };
+        line.appendChild(s);
+      });
+      box.appendChild(line);
+    }
+  };
+  $('root').onchange = show; show();
+  $('applyRoot').onclick = async () => {
+    const r = await api('/api/root', { root: $('root').value });
+    draft.face = r.face; showDraft(); changed();
+  };
+}
+
+// ---- プレビュー ----
+async function preview() {
+  const seq = ++previewSeq;
+  $('views').classList.add('busy');
+  try {
+    const r = await api('/api/preview', { draft });
+    if (seq !== previewSeq) return;
+    $('err').textContent = '';
+    $('faceImg').src = r.faceImage; $('bodyImg').src = r.bodyImage;
+    lastJson = r.json; $('json').textContent = r.json;
+    const b = r.build;
+    $('f-weightKg').min = r.weightRange[0]; $('f-weightKg').max = r.weightRange[1];
+    $('stats').innerHTML = [
+      [draft.heightCm + ' cm', '身長'], [draft.weightKg + ' kg', '体重（計量・階級）'], [fmt(r.physicalMassKg, 1) + ' kg', '物理の体の質量'],
+      [fmt(b.muscle, 3), '筋肉の太さ（基準 = 1）'], [fmt(r.armStrength), '腕の力（断面の比）'], [fmt(r.massRatio), '見た目の重さの比 H³M²'],
+      [fmt(b.height * b.arms), '腕の長さ（基準 = 1）'],
+    ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
+  } catch (e) {
+    if (seq === previewSeq) $('err').textContent = e.message;
+  } finally {
+    if (seq === previewSeq) $('views').classList.remove('busy');
+  }
+}
+
+// ---- 読み込み ----
+async function loadDraft(d) { draft = d; draft.weapon = draft.weapon ?? null; showDraft(); clampWeight(); }
+
+$('loadRoster').onchange = async e => { if (e.target.value) { await loadDraft((await api('/api/load', { id: e.target.value })).draft); e.target.value = ''; } };
+$('loadFile').onchange = async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try { await loadDraft((await api('/api/import', { json: await file.text() })).draft); }
+  catch (err) { $('err').textContent = err.message; }
+};
+$('newDraft').onclick = async () => newDraft();
+
+async function newDraft() {
+  const d = (await api('/api/new', { bodyType: 'standard', root: catalog.roots[0].id })).draft;
+  Object.assign(d, { id: 'newbie', name: '新人', country: catalog.countries[0].id, tagline: '期待の新人' });
+  await loadDraft(d);
+}
+
+// ---- 写真 ----
+const canvas = $('photoCanvas');
+let points = null;
+let photoLoaded = false;
+let selected = null;
+
+$('photoFile').onchange = e => {
+  const file = e.target.files[0]; if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, 640 / Math.max(img.width, img.height));
+    canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(img.src);
+    photoLoaded = true; resetPoints(); $('photoMsg').textContent = '';
+  };
+  img.src = URL.createObjectURL(file);
+};
+
+// 目印の初めの位置（真ん中の顔の型。IOD を 1 とした並び）。
+const template = {
+  leftEyeOuter: [-0.75, 0], leftEyeInner: [-0.25, 0], leftEyeTop: [-0.5, -0.08], leftEyeBottom: [-0.5, 0.08],
+  rightEyeInner: [0.25, 0], rightEyeOuter: [0.75, 0], rightEyeTop: [0.5, -0.08], rightEyeBottom: [0.5, 0.08],
+  leftBrow: [-0.5, -0.33], rightBrow: [0.5, -0.33], noseBridge: [0, -0.05], noseTip: [0, 0.72], noseLeft: [-0.29, 0.72], noseRight: [0.29, 0.72],
+  mouthLeft: [-0.41, 1.2], mouthRight: [0.41, 1.2], lipTop: [0, 1.1], lipBottom: [0, 1.32], chin: [0, 1.95],
+  cheekLeft: [-1.12, 0.2], cheekRight: [1.12, 0.2], jawLeft: [-0.88, 1.3], jawRight: [0.88, 1.3], forehead: [0, -1.05],
+};
+function resetPoints() {
+  if (!photoLoaded) return;
+  const iod = Math.min(canvas.width, canvas.height) * 0.22, cx = canvas.width / 2, cy = canvas.height * 0.42;
+  points = {};
+  for (const n of catalog.pointNames) points[n] = { x: cx + template[n][0] * iod, y: cy + template[n][1] * iod };
+  drawPoints();
+}
+$('resetPoints').onclick = resetPoints;
+
+function drawPoints() {
+  const layer = $('pointLayer'); layer.innerHTML = '';
+  if (!points) return;
+  const k = canvas.clientWidth / canvas.width;
+  for (const [name, p] of Object.entries(points)) {
+    const d = document.createElement('div'); d.className = 'pt' + (name === selected ? ' sel' : ''); d.title = name;
+    d.style.left = (p.x * k) + 'px'; d.style.top = (p.y * k) + 'px';
+    d.onpointerdown = ev => {
+      ev.preventDefault(); selected = name; $('ptName').textContent = name; d.setPointerCapture(ev.pointerId);
+      const rect = canvas.getBoundingClientRect();
+      d.onpointermove = mv => {
+        p.x = Math.max(0, Math.min(canvas.width, (mv.clientX - rect.left) / k));
+        p.y = Math.max(0, Math.min(canvas.height, (mv.clientY - rect.top) / k));
+        d.style.left = (p.x * k) + 'px'; d.style.top = (p.y * k) + 'px';
+      };
+      d.onpointerup = () => { d.onpointermove = null; drawPoints(); };
+    };
+    layer.appendChild(d);
+  }
+}
+window.addEventListener('resize', drawPoints);
+
+// MediaPipe の顔の目印（478 点）から使う点（写真の左 = 本人の右）。
+const mediapipeIndex = {
+  leftEyeOuter: 33, leftEyeInner: 133, leftEyeTop: 159, leftEyeBottom: 145, rightEyeInner: 362, rightEyeOuter: 263, rightEyeTop: 386, rightEyeBottom: 374,
+  leftBrow: 105, rightBrow: 334, noseBridge: 168, noseTip: 1, noseLeft: 129, noseRight: 358, mouthLeft: 61, mouthRight: 291, lipTop: 0, lipBottom: 17,
+  chin: 152, cheekLeft: 234, cheekRight: 454, jawLeft: 172, jawRight: 397, forehead: 10,
+};
+let landmarker = null;
+$('autoPoints').onclick = async () => {
+  if (!photoLoaded) { $('photoMsg').textContent = '先に写真を選んでください。'; return; }
+  $('photoMsg').textContent = '目印を探しています（初回はライブラリとモデルを読み込みます）…';
+  try {
+    if (!landmarker) {
+      const base = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+      const vision = await import(base + '/vision_bundle.mjs');
+      const files = await vision.FilesetResolver.forVisionTasks(base + '/wasm');
+      landmarker = await vision.FaceLandmarker.createFromOptions(files, {
+        baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task' },
+        runningMode: 'IMAGE', numFaces: 1,
+      });
+    }
+    const result = landmarker.detect(canvas);
+    const face = result.faceLandmarks?.[0];
+    if (!face) { $('photoMsg').textContent = '顔が見つかりませんでした。点を手で置いてください。'; return; }
+    points = {};
+    for (const [n, i] of Object.entries(mediapipeIndex)) points[n] = { x: face[i].x * canvas.width, y: face[i].y * canvas.height };
+    drawPoints();
+    $('photoMsg').textContent = '目印を置きました。ずれていればドラッグで直してから「この写真から顔を作る」。';
+  } catch (e) {
+    say($('photoMsg'), ['自動の目印が使えませんでした（' + e.message + '）。点を手で置いてください。', 'error']);
+  }
+};
+
+$('usePhoto').onclick = async () => {
+  if (!photoLoaded || !points) { $('photoMsg').textContent = '先に写真を選んで、目印を置いてください。'; return; }
+  try {
+    const r = await api('/api/photo', { png: canvas.toDataURL('image/png'), points, face: draft.face });
+    draft.face = r.face; showDraft(); changed();
+    $('measured').hidden = false; $('measured').textContent = '読み取った比（両目の間 = 1）\n' + JSON.stringify(r.measured, null, 1);
+    say($('photoMsg'), ['顔を写真から作りました。髪型・耳・眉の形は「顔」で選んでください。', 'okmsg']);
+  } catch (e) { say($('photoMsg'), [e.message, 'error']); }
+};
+
+// ---- 保存 ----
+$('download').onclick = () => {
+  if (!lastJson) { say($('saveMsg'), ['まだファイルができていません（右の赤い文字を直してください）。', 'error']); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lastJson], { type: 'application/json' }));
+  a.download = (draft.id || 'fighter') + '.json'; a.click(); URL.revokeObjectURL(a.href);
+};
+async function save(target) {
+  try {
+    let r = await api('/api/save', { draft, target });
+    if (r.exists) {
+      if (!confirm(r.path + ' はもうあります。上書きしますか？')) return;
+      r = await api('/api/save', { draft, target, overwrite: true });
+    }
+    say($('saveMsg'), ['保存しました: ' + r.path, 'okmsg'],
+      [r.rebuild ? '名簿はゲームに組み込まれます。ビルドし直すと、メニュー・rosterleague・video に出ます。' : 'このファイルは video の --red-char / --blue-char にそのまま渡せます。', 'hint'],
+      ['試合の動画:', 'hint'], [r.video, 'pre']);
+  } catch (e) { say($('saveMsg'), [e.message, 'error']); }
+}
+$('saveDir').onclick = () => save('dir');
+$('saveRoster').onclick = () => save('roster');
+
+// ---- タブ ----
+for (const b of $('tabs').children) b.onclick = () => {
+  for (const x of $('tabs').children) x.classList.toggle('on', x === b);
+  for (const s of document.querySelectorAll('section')) s.classList.toggle('on', s.id === 'tab-' + b.dataset.tab);
+  if (b.dataset.tab === 'photo') drawPoints();
+};
+
+// ---- 始め ----
+(async () => {
+  catalog = await api('/api/catalog');
+  fillSelect($('f-country'), catalog.countries);
+  fillSelect($('f-org'), catalog.orgs);
+  fillSelect($('f-textbook'), catalog.textbooks);
+  fillSelect($('f-wear'), catalog.wears);
+  fillSelect($('f-weapon'), catalog.weapons, true);
+  fillSelect($('loadRoster'), catalog.roster, true);
+  $('dirs').textContent = 'キャラの場所: ' + catalog.saveDir + ' ／ 名簿: ' + (catalog.rosterDir ?? '（リポジトリの根で動かすと使えます）');
+  if (!catalog.rosterDir) $('saveRoster').disabled = true;
+  buildBodyTypes(); buildRoots();
+  await newDraft();
+})().catch(e => { $('err').textContent = '始められませんでした: ' + e.message; });
+</script>
+</body>
+</html>

@@ -31,7 +31,7 @@
                                                                                   回避からのカウンターの研究（型 × 打ち始めの総当たり）
   basics [--punch 2] [--slot Duck] [--style swarmer] [--guards 0.6,1.0,1.5] [--guard H] [--gens G] [--pop P] [--log f.md] [--out f.json]
                                                                                   回避の基本動作の最適化（1 つの型だけを打たせて、外す形を磨く）
-  video [--red A] [--blue B] [--seed X] [--seconds S] [--width W --height H --fps F] [--out file.mp4] [--red-weapon W --blue-weapon W]  [--red-char ID --blue-char ID]（名簿のキャラクター。武器・体格・顔・名前がそのキャラクターの値）
+  video [--red A] [--blue B] [--seed X] [--seconds S] [--width W --height H --fps F] [--out file.mp4] [--red-weapon W --blue-weapon W]  [--red-char ID|f.json --blue-char ID|f.json]（名簿のキャラクターか、キャラメイクで作ったファイル。武器・体格・顔・名前がそのキャラクターの値）
                                                                                   ボット同士の試合を字幕・打撃音つきの mp4 に（ffmpeg が必要）
                                                                                   [--program p.json]（--tv on のとき、冒頭に大会の「本日のプログラム」の表。tvshow.ps1 が書く）
   weaponlab [--out file.mp4] [--table file.md] [--width W --height H --fps F] [--slow X] [--video on|off]
@@ -105,3 +105,4 @@
   tvdigest [--events] [--out] [--org]
   tvscout [--red] [--blue] [--red-wear] [--blue-wear] [--red-weapon] [--blue-weapon] [--rounds] [--seeds] [--speed] [--fps] [--red-char] [--blue-char] [--referee] [--break] [--org]
   portraits [--out] [--scale]
+  maker [--port 5180] [--save-dir DIR] [--open yes|no]                           キャラメイクの画面（localhost の Web。体・顔・写真・スタイルから 1 ファイルを作る）

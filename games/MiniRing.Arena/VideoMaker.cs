@@ -27,7 +27,8 @@ namespace MiniRing.Arena;
 /// <param name="tvRounds">テレビ中継のラウンドの数（1 ラウンドは <see cref="MatchRules.Tv"/> の 30 秒のまま）。</param>
 /// <param name="tvEvent">テレビ中継の冒頭に出す大会名。</param>
 /// <param name="tvBout">テレビ中継の冒頭に出す「第 1 試合」などの札（空なら出さない）。</param>
-/// <param name="tvBreak">テレビ中継のラウンドの間の休み [s]（休みの間に治る量は標準と同じ）。</param>
+/// <param name="tvBreak">テレビ中継のラウンドの間の休み [s]（休みの間に治る量は休みの長さ × 団体の治る速さ）。</param>
+/// <param name="ring">場（<c>--ring</c>）。null なら団体と武器から決まる既定の場（<see cref="TvShowRules.Stage"/>）。</param>
 /// <param name="tvNotes">台本の資料に足すこの試合の行（計量・王座とランキングの席。<see cref="OrgBouts.Billing"/>）。</param>
 /// <param name="rules">中継でない動画（<paramref name="tv"/> が偽）の試合の決まり（ドリルの動画で VFC の決まりにする。既定は無し）。中継の札や場面は作らない。</param>
 /// <param name="render">
@@ -43,16 +44,20 @@ namespace MiniRing.Arena;
 /// </param>
 internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false,
     int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 16.78f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null, bool belt = false, float cameraScale = 1f, bool focusRed = false,
-    IReadOnlyList<string>? tvNotes = null, MatchRules? rules = null)
+    IReadOnlyList<string>? tvNotes = null, RingLayout? ring = null, MatchRules? rules = null)
 {
     private readonly Organization _org = org ?? Organization.Default;
+
+    /// <summary>両コーナーを団体の場に重ねる。<c>--ring</c> で場を決めたなら、団体の既定の場の代わりにそれを使う（コーナーから始めるのは同じ）。</summary>
+    private BoxingCorners Staged(BoxingCorners corners) =>
+        TvShowRules.Stage(ring is null ? corners : corners with { Ring = ring with { FromCorners = corners.Ring?.FromCorners ?? false } }, _org);
 
     private readonly bool _off = live is not null && !render
         ? throw new ArgumentException("--live と --render off は一緒に使えません（生配信は描かないと流せません）。")
         : !render;
 
     /// <summary>
-    /// テレビ中継の決まり。休みの長さを変えても、休みの間に治る量（速さ × 長さ）は標準（<see cref="MatchRules.Tv"/> の休みの長さ × 治る速さ）と同じにする（休みを長くした分だけ多く治らないように）。
+    /// テレビ中継の決まり（団体の決まりを重ねる）。休みの間に治る量は休みの長さ × 団体の治る速さ（2026-11-24 から。休みを長くすれば多く治る）。
     /// </summary>
     private readonly MatchRules? _rules = tv ? TvShowRules.Rules(tvRounds, tvBreak, org ?? Organization.Default) : null;
 
@@ -135,7 +140,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             s => Keep(blueBots, blue.Create(s)), intentScript is null ? s => Keep(redBots, red.Create(s)) : null, referee);
         // 画面と実況ではリングネームで呼ぶ（ドリルで生まれた個体にもそれぞれの名前がある）。
         // 名簿のキャラクター（--red-char / --blue-char）は、体格・顔・表示名をそのキャラクターの値にする（ボットの性格はスタイル）。
-        corners = TvShowRules.Stage(WithCharacters(corners, redCharacter, blueCharacter), _org);
+        corners = Staged(WithCharacters(corners, redCharacter, blueCharacter));
         corners = editCorners?.Invoke(corners) ?? corners; // ドリルの動画: 檻の中央から始めるなど
         var redRing = redCharacter?.HudName ?? BotNames.RingNameOf(red.Name);
         var blueRing = blueCharacter?.HudName ?? BotNames.RingNameOf(blue.Name);
@@ -155,7 +160,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             blueCharacter is null ? TvCorner.Of(blueRing, blue.Name, blueWear, blueWeapon) : TvCorner.Of(blueCharacter) with { Seat = SeatOf(blueCharacter) }, _rules, belt);
         // 試合の前の場面の生の絵のための影の試合（生成直後の T ポーズを映さない。本番の試合は進めない）。同じ種・両コーナー・決まり・雰囲気。
         var stage = card is null ? null : new BoxingGame(seed: seed,
-            corners: TvShowRules.Stage(WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter), _org),
+            corners: Staged(WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter)),
             rules: _rules, mood: _org.ArenaMood);
         if (stage is not null)
         {
@@ -407,7 +412,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     {
                         if (replayGame is null)
                         {
-                            var replayCorners = TvShowRules.Stage(WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter), _org);
+                            var replayCorners = Staged(WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter));
                             replayGame = new BoxingGame(seed: seed, corners: replayCorners, rules: _rules, mood: _org.ArenaMood);
                             setup?.Invoke(replayGame);
                         }

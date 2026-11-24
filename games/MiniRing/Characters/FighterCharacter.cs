@@ -55,6 +55,9 @@ public sealed record FighterCharacter(string Id, string Name, string Reading, st
     /// <summary>所属の団体の id（<c>wvc</c>・<c>vfc</c>。ファイルの <c>org</c>、無ければ <see cref="DefaultOrg"/>）。中継の団体のファイル（Arena の <c>Orgs/&lt;id&gt;.json</c>）の id。強さは体から物理で出るので、所属は強さに響かない（中継の見せ方と対戦の組み合わせの印）。</summary>
     public string Org { get; init; } = DefaultOrg;
 
+    /// <summary>名簿の並び順（ファイルの <c>order</c>。小さい順、同じなら id）。書き出し（<see cref="CharacterFile"/>）が同じ値を書く。</summary>
+    public int Order { get; init; }
+
     /// <summary>所属が書かれていないときの団体の id。</summary>
     public const string DefaultOrg = "wvc";
 

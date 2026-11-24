@@ -308,7 +308,10 @@ public sealed class VfcRegrowthTests
         Console.WriteLine($"regrew for {rates.Count * Dt:0.0} s, rate {rates.FirstOrDefault():0.00} → {rates.LastOrDefault():0.0}, stopped at {stoppedAt:0.0} s, " +
             $"brain {brainBefore:0.000} → {game.Cpu.Voxels.BrainFunction(0.1f):0.000}, lets stand: red {game.Player.BodyLetsStand} blue {game.Cpu.BodyLetsStand}");
         Assert.IsNotEmpty(rates, "both down and unable to stand: the bodies regrow");
-        Assert.IsGreaterThan(rates[0] * 2f, rates[^1], "the longer it lasts, the faster");
+        // 倍率は続いた時間で 2^(t / StuckDoublingSeconds)。2026-11-24 に再生を 1.5 倍にしてから、脳はほぼ倍の時間（5 s）で戻るので、2 倍ちょうどには届かないことがある。
+        var lasted = (rates.Count - 1) * Dt; // 最初の標本は続いた時間 0
+        Assert.IsGreaterThan(rates[0] * 1.5f, rates[^1], "the longer it lasts, the faster");
+        Assert.AreEqual(rates[0] * MathF.Pow(2f, lasted / rules.StuckDoublingSeconds), rates[^1], 0.02f * rates[^1], "the rate doubles every StuckDoublingSeconds");
         Assert.IsGreaterThan(brainBefore, game.Cpu.Voxels.BrainFunction(0.1f), "the brain grew back");
         Assert.IsGreaterThan(0f, stoppedAt, "it stopped");
         Assert.IsTrue(game.Player.BodyLetsStand || game.Cpu.BodyLetsStand || game.Player.State == FighterState.Standing || game.Cpu.State == FighterState.Standing,

@@ -84,10 +84,11 @@ try
         "rankings" => RankingsCommand(Options.Parse(argv[1..], "org", "division", "seeds", "rounds", "break", "crown", "out", "report")),
         "title" => TitleCommand(Options.Parse(argv[1..], "org", "winner", "loser", "out")),
         "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break", "org")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt", "camera-scale", "camera-focus")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt", "camera-scale", "camera-focus", "ring")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns", "roster")),
         "portraits" => Portraits(Options.Parse(argv[1..], "out", "scale")),
+        "maker" => Maker(Options.Parse(argv[1..], "port", "save-dir", "open")),
         "voxexport" => VoxExport(Options.Parse(argv[1..], "out", "from")),
         "voxcheck" => VoxCheck(Options.Parse(argv[1..], "in", "install")),
         "weaponexport" => WeaponExport(Options.Parse(argv[1..], "out", "from")),
@@ -2097,8 +2098,8 @@ static int Video(Options o)
     }
 
     // 名簿のキャラクター（--red-char / --blue-char <id>。games/MiniRing/Characters/roster/<id>.json）: ボットのスタイル・武器・はめる物・体格・顔・表示名をそのキャラクターの値にする。
-    var redCharacter = o.Get("red-char") is { } redId ? MiniRing.Characters.CharacterRoster.Get(redId) : null;
-    var blueCharacter = o.Get("blue-char") is { } blueId ? MiniRing.Characters.CharacterRoster.Get(blueId) : null;
+    var redCharacter = o.Get("red-char") is { } redId ? CharacterArg(redId) : null;
+    var blueCharacter = o.Get("blue-char") is { } blueId ? CharacterArg(blueId) : null;
     // 団体の試合なら計量を通す（出られない・階級が違えば止める。IVF はグローブを着ける）。見出しに階級・タイトルマッチを足し、台本の資料に計量と席を足す。
     (redCharacter, blueCharacter, var division) = EnterOrg(o, redCharacter, blueCharacter);
     var (billing, billingNotes) = division is not null && OrgOption(o) is { } billedOrg
@@ -2155,6 +2156,7 @@ static int Video(Options o)
         tvBreak: o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f), render: render, live: live,
         tvProgram: o.Get("program") is { } programPath ? TvProgram.FromJson(File.ReadAllText(programPath), TvProgram.RosterName) : null,
         org: OrgOption(o), belt: (o.Get("belt") ?? "off") switch { "on" => true, "off" => false, _ => throw new ArgumentException("--belt は on か off にしてください。") },
+        ring: RingOption(o.Get("ring")),
         cameraScale: o.Float("camera-scale", 1f, min: 0.3f), focusRed: (o.Get("camera-focus") ?? "both") switch { "both" => false, "red" => true, _ => throw new ArgumentException("--camera-focus は both か red にしてください。") })
         .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 45f, min: 1f), output, Console.Out, untilKo: (o.Get("until-ko") ?? "no") switch { "yes" => true, "no" => false, _ => throw new ArgumentException("--until-ko は yes か no にしてください。") },
             redWear: o.Get("red-wear") is { } rwear ? MiniRing.Weapons.HandWears.Parse(rwear) : redCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove,
@@ -2254,8 +2256,8 @@ static int TvScoutCommand(Options o)
         ? MiniRing.GameSpeed.Parse(speedText) ?? throw new ArgumentException("--speed は 0.5 / 0.75 / 1 のどれかです。")
         : MiniRing.GameSpeed.Standard;
     // 名簿のキャラクター（--red-char / --blue-char）は video と同じ決め方（スタイル・武器・はめる物・体格・顔）。
-    var redCharacter = o.Get("red-char") is { } redId ? MiniRing.Characters.CharacterRoster.Get(redId) : null;
-    var blueCharacter = o.Get("blue-char") is { } blueId ? MiniRing.Characters.CharacterRoster.Get(blueId) : null;
+    var redCharacter = o.Get("red-char") is { } redId ? CharacterArg(redId) : null;
+    var blueCharacter = o.Get("blue-char") is { } blueId ? CharacterArg(blueId) : null;
     (redCharacter, blueCharacter, _) = EnterOrg(o, redCharacter, blueCharacter); // 撮影と同じ計量・はめる物
     var rounds = o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1);
     var red = redCharacter is not null ? RosterLeague.ContenderOf(redCharacter, blueCharacter?.Id, null) : Load(o.Get("red") ?? "champion");
@@ -2346,6 +2348,17 @@ static int TvDigestCommand(Options o)
 
 // 中継の主催団体（--org wvc|vfc|ivf）。指定が無ければ null（動画・下見は WVC、台本の道具は記録の org に従う）。
 static Organization? OrgOption(Options o) => o.Get("org") is { } id ? Organizations.Get(id) : null;
+
+// 場（--ring cage | weaponscage | boxing | weapons）: 団体・武器から決まる既定の場の代わりに使う（例: 狭い檻で武器どうしを撮る）。
+static MiniRing.RingLayout? RingOption(string? name) => name switch
+{
+    null => null,
+    "cage" => MiniRing.RingLayout.Cage,
+    "weaponscage" => MiniRing.RingLayout.WeaponsCage,
+    "boxing" => MiniRing.RingLayout.Boxing,
+    "weapons" => MiniRing.RingLayout.Weapons,
+    _ => throw new ArgumentException("--ring は cage・weaponscage・boxing・weapons のどれかにしてください。"),
+};
 
 // 団体の試合に両者を通す（両方が名簿のキャラのとき）: 出場の条件・計量（階級制なら同じ階級）を確かめ、団体のはめる物（IVF はグローブ）を着ける。
 // 片方でもキャラでなければそのまま（ボットの名前で組む試し撮りは計量しない）。
@@ -2499,6 +2512,14 @@ static int Faces(Options o)
 }
 
 // 名簿の肖像（メニューの顔・全身の絵）を PNG に（--out フォルダ、--scale 1 ピクセルの拡大、既定 4）。
+static int Maker(Options o) => MiniRing.Arena.Maker.MakerServer.Run(o.Int("port", 5180, min: 1), o.Get("save-dir"), o.Get("open") != "no");
+
+// --red-char / --blue-char: 名簿の id か、キャラクターのファイル（.json。キャラメイクで作ったファイル。CharacterRoster.LoadFile が名簿と同じ検証をする）。
+static MiniRing.Characters.FighterCharacter CharacterArg(string value)
+    => value.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+        ? MiniRing.Characters.CharacterRoster.LoadFile(value)
+        : MiniRing.Characters.CharacterRoster.Get(value);
+
 static int Portraits(Options o) => PortraitExport.Run(o.Get("out") ?? "portraits", MiniRing.Characters.CharacterRoster.All, o.Int("scale", 4, min: 1));
 
 static int VoxExport(Options o)

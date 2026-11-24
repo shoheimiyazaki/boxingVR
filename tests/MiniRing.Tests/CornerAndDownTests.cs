@@ -27,8 +27,8 @@ public sealed class CornerAndDownTests
     {
         using var game = StillGame();
         var layout = game.Layout;
-        Assert.IsLessThan(0.1408f, Flat(game.Player.PelvisPosition, layout.RestCorner(true, RingLayout.CornerInset)), "red in the near-left corner");
-        Assert.IsLessThan(0.1408f, Flat(game.Cpu.PelvisPosition, layout.RestCorner(false, RingLayout.CornerInset)), "blue in the far-right corner");
+        Assert.IsLessThan(0.1408f, Flat(game.Player.PelvisPosition, layout.RestCorner(true, game.FootprintOf(game.Player))), "red in the near-left corner");
+        Assert.IsLessThan(0.1408f, Flat(game.Cpu.PelvisPosition, layout.RestCorner(false, game.FootprintOf(game.Cpu))), "blue in the far-right corner");
         var across = Vector3.Normalize((game.Cpu.PelvisPosition - game.Player.PelvisPosition) with { Y = 0f });
         Assert.IsGreaterThan(0.95f, Vector3.Dot(game.Player.Frame.Forward, across));
         Assert.IsGreaterThan(0.95f, Vector3.Dot(game.Cpu.Frame.Forward, -across));
@@ -61,7 +61,7 @@ public sealed class CornerAndDownTests
             if (game.Cpu.IsKnockedDown)
             {
                 counted += Dt;
-                corner ??= game.Layout.NeutralCorner(game.Cpu.PelvisPosition); // 数え始めの倒れた所からいちばん遠いニュートラルコーナー
+                corner ??= game.Layout.NeutralCorner(game.Cpu.PelvisPosition, game.FootprintOf(game.Player)); // 数え始めの倒れた所からいちばん遠いニュートラルコーナー
                 closest = MathF.Min(closest, Flat(game.Player.PelvisPosition, corner.Value));
                 // 数え始めて 1.7 秒後（倒れきった所）から、立ち上がるまでに腰が水平に動いた距離。
                 if (counted >= 1.678f)

@@ -80,8 +80,10 @@ public sealed class DownStirTests
         var levels = new[] { 0f, 0.04f, 0.2f };
         var swings = levels.Select(BodySwing).ToArray();
         Console.WriteLine(string.Join(", ", levels.Zip(swings, (c, s) => $"consciousness {c:0.00} → largest part swing {s * 100f:0.0} cm")));
-        // 意識 0 の体も倒れた後しばらくは沈み込み・滑りで少し動く（2.5 cm ほど）。起き上がろうとする動き（意識 0.04 で 14 cm）よりずっと小さい。
-        Assert.IsLessThan(swings[1] / 3f, swings[0], "out cold: only settling, no attempts");
+        // 意識 0 の体も倒れた後しばらくは沈み込み・滑りで少し動く（1.6 cm ほど）。起き上がろうとする動き（意識 0.04 で 4.2 cm、0.2 で 25 cm）より小さい。
+        // （2026-11-24 まで、意識の戻る深さで倒していたので、起き上がりかけた体が倒れ直す分が両方に入っていた: 0.04 で 14 cm・0 で 0.8〜7.7 cm。
+        // 寝かせてから測ると 0.04 の試みは Stir の上限 0.04 の弱い力で、意識 0 の沈み込みの 2 倍余り。比は 1/2 で見る。）
+        Assert.IsLessThan(swings[1] / 2f, swings[0], "out cold: only settling, no attempts");
         Assert.IsGreaterThan(swings[0] + 0.01408f, swings[1], "barely conscious: it moves");
         Assert.IsGreaterThan(swings[1], swings[2], "more consciousness, bigger attempts");
     }
@@ -91,7 +93,9 @@ public sealed class DownStirTests
         using var game = StillGame();
         var f = game.Cpu;
         Settle(game);
-        f.Concussion = 1f; // まず倒す
+        // まず倒して、意識の戻らない深さ（OutCold と同じ）で寝かせておく。1 のままだと 5 秒の間に意識が戻って起き上がりかけ、意識を決めた直後に
+        // 倒れ直す脚の沈み込みが測る窓に入った（その時刻は、倒れた体が向く相手の立つ所で変わる。2026-11-24、コーナーの立つ所の変更で 0.8 → 7.7 cm）。
+        f.Concussion = 3f;
         for (var t = 0f; t < 5.035f; t += Dt)
         {
             game.Step(default, Dt);
