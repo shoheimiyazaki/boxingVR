@@ -56,7 +56,11 @@ internal sealed class GroundPractice(Action<string> log, int parallel = 1)
         yield return K("Rise", -0.2f, 1.4f, m => m.Rise, (m, v) => m with { Rise = v });
         yield return K("Pull", -0.3f, 1f, m => m.Pull, (m, v) => m with { Pull = v });
         yield return K("Overshoot", 0f, 0.8f, m => m.Overshoot, (m, v) => m with { Overshoot = v });
-        yield return K("Through", -0.2f, 0.8f, m => m.Through, (m, v) => m with { Through = v });
+        if (!blade)
+        {
+            yield return K("Through", -0.2f, 0.8f, m => m.Through, (m, v) => m with { Through = v }); // 前へ抜ける量は足の技（蹴り）だけ。30 次元に収めるため
+        }
+
         yield return foot
             ? K("StanceLean", 0f, 0.4f, m => m.StanceLean, (m, v) => m with { StanceLean = v })
             : K("MaxSink", 0f, 1.5f, m => m.MaxSink ?? 1.5f, (m, v) => m with { MaxSink = v });
