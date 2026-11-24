@@ -73,7 +73,8 @@ internal sealed class LocalVersusControl(BoxingCorners corners)
 
         var red = ReadSide(input, 0, yaw, Key.W, Key.A, Key.S, Key.D, Key.F, Key.G, Key.H);
         var blue = ReadSide(input, 1, yaw, Key.Up, Key.Left, Key.Down, Key.Right, Key.J, Key.K, Key.L);
-        return new BoxingInput(_red.Read(red, player, dt), reset, _blue.Read(blue, cpu, dt));
+        return new BoxingInput(_red.Read(red, player, dt, input.IsKeyDown(Key.T), input.IsKeyDown(Key.ControlLeft)), reset,
+            _blue.Read(blue, cpu, dt, input.IsKeyDown(Key.O), input.IsKeyDown(Key.ControlRight)));
     }
 
     internal static DesktopFighterControl RedControl(BoxingCorners corners) =>

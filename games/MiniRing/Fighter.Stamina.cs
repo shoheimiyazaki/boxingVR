@@ -157,7 +157,7 @@ public sealed partial class Fighter
     private float RegionMuscle(int region) => region switch
     {
         0 or 1 => 0.5f * (Strength(_arms[region].UpperArm) + Strength(_arms[region].Forearm)),
-        2 => 0.5f * (LegCondition(true) + LegCondition(false)),
+        2 => _rearLegs.Length == 0 ? 0.5f * (LegCondition(true) + LegCondition(false)) : MultiLegStrength() / _tuning.Build.LegTorqueRatio,
         _ => CoreStrength,
     };
 

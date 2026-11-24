@@ -38,6 +38,6 @@ internal sealed class IntentKeyboardControl(WeaponKind? weapon = null, bool kara
             input.IsKeyDown(Key.K) || input.IsMouseButtonDown(MouseButton.Left) || pad.Heavy,
             input.IsKeyDown(Key.Space) || pad.Evade, movement,
             Step: input.IsKeyDown(Key.L) || input.IsKeyDown(Key.ShiftLeft) || input.IsGamepadButtonDown(GamepadButton.East));
-        return new BoxingInput(_control.Read(intent, sense, dt), reset);
+        return new BoxingInput(_control.Read(intent, sense, dt, input.IsKeyDown(Key.F), input.IsKeyDown(Key.ControlLeft)), reset);
     }
 }

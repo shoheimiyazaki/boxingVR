@@ -595,6 +595,10 @@ public sealed class BoxerBody
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(tuning);
         _deathFraction = tuning.OrganDeathFraction;
+        if (tuning.Build.FourLegged)
+        {
+            outfit = null;
+        }
         if (look is not null && face is not null)
         {
             look = FaceLayer.LookWith(look, face); // 顔の肌・髪・瞳の色を体にも（顔と首の肌がそろう。見た目だけ）

@@ -1979,7 +1979,7 @@ public sealed partial class BoxingGame
         _disconnectScratch.Clear();
         foreach (var weapon in _weapons)
         {
-            if (!Weapon.IsWorn(weapon.Kind)
+            if ((!Weapon.IsWorn(weapon.Kind) || weapon.Kind == WeaponKind.SickleClaw)
                 && (!_connectedAt.TryGetValue(weapon, out var version) || version != weapon.Body.Grid.GeometryVersion))
             {
                 _disconnectScratch.Add(weapon);

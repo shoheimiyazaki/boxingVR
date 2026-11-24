@@ -406,11 +406,13 @@ public static class CharacterRoster
         public float Legs { get; init; } = 1f;
         public float Muscle { get; init; } = 1f;
 
+        public bool FourLegged { get; init; }
+
         public BodyBuild ToBuild()
         {
             try
             {
-                return new BodyBuild(Height, Arms, Legs, Muscle).Validate();
+                return new BodyBuild(Height, Arms, Legs, Muscle, FourLegged).Validate();
             }
             catch (ArgumentOutOfRangeException ex)
             {

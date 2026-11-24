@@ -54,10 +54,33 @@ public sealed record CharacterProfile
     public IReadOnlyList<string> CommentaryNotes { get; init; } = [];
 
     /// <summary>見えている体の身長 [cm]。</summary>
-    public static int HeightOf(BodyBuild build) => (int)MathF.Round(BaseHeightCm * build.Height, MidpointRounding.AwayFromZero);
+    public static int HeightOf(BodyBuild build)
+    {
+        if (!build.FourLegged)
+        {
+            return Rounded(BaseHeightCm * build.Height);
+        }
+
+        var tuning = FighterTuning.Default with { Build = build };
+        var h = tuning.HalfExtents;
+        var height = (2f * (h.Foot.Y + h.Shin.Y + h.Thigh.Y + h.Pelvis.Y + h.Chest.Y + h.Head.Y)) - (5f * tuning.JointOverlap);
+        return Rounded(height * 100f);
+    }
 
     /// <summary>見えている体の体重 [kg]。</summary>
-    public static int WeightOf(BodyBuild build) => (int)MathF.Round(BaseWeightKg * build.Height * build.Height * build.Muscle, MidpointRounding.AwayFromZero);
+    public static int WeightOf(BodyBuild build)
+    {
+        if (!build.FourLegged)
+        {
+            return Rounded(BaseWeightKg * build.Height * build.Height * build.Muscle);
+        }
+
+        var m = (FighterTuning.Default with { Build = build }).Masses;
+        return Rounded(m.Pelvis + m.Chest + m.Head + (2f * (m.UpperArm + m.Forearm))
+            + (4f * (m.Thigh + m.Shin + (m.Foot / (1f - FootGeometry.ToeShare)))));
+    }
+
+    private static int Rounded(float value) => (int)MathF.Round(value, MidpointRounding.AwayFromZero);
 
     /// <summary>中身を確かめる（足りない項目・体と合わない身長と体重・ありえない戦績は例外）。</summary>
     public CharacterProfile Validate(BodyBuild build)

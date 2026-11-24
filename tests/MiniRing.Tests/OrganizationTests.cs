@@ -16,7 +16,7 @@ namespace MiniRing.Tests;
 public sealed class OrganizationTests
 {
     private static readonly string[] Ids = ["ivf", "vfc", "wvc"];
-    private static readonly string[] VfcFighters = ["daichi", "edgar", "gaston", "jin", "joao", "konrad", "sean", "tsuyoshi", "vikram"];
+    private static readonly string[] VfcFighters = ["daichi", "edgar", "galva", "gaston", "jin", "joao", "konrad", "sean", "tsuyoshi", "vikram"];
 
     private const string KnockoutEvents = """
         {"red":"ジン","blue":"コンラート","redDiscipline":"日本刀","blueDiscipline":"ロングソード","bout":"第1試合","org":"vfc","events":[

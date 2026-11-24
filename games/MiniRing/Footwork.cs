@@ -328,7 +328,7 @@ public sealed class Footwork
     /// <summary>1 ステップ分進める: 踏み出している足を運び、着いたら次の足を決める。</summary>
     public void Update(in FootworkInput input, float dt) => Update(input, dt, MaxTwist);
 
-    internal void Update(in FootworkInput input, float dt, float twistLimit, bool canShiftLoad = true)
+    internal void Update(in FootworkInput input, float dt, float twistLimit, bool canShiftLoad = true, bool allowStep = true)
     {
         _twistLimit = twistLimit;
         _twist = Math.Clamp(float.IsFinite(input.Twist) ? input.Twist : 0f, -1f, 1f);
@@ -355,7 +355,10 @@ public sealed class Footwork
             var relax = _tuning.HoldRelax <= 0f ? 1f : 1f - MathF.Exp(-dt / _tuning.HoldRelax);
             _ball[Lead] = input.LeadBall is { } leadActual ? Vector2.Lerp(_ball[Lead], leadActual, input.LeadFree ? 1f : relax) : _ball[Lead];
             _ball[Rear] = input.RearBall is { } rearActual ? Vector2.Lerp(_ball[Rear], rearActual, input.RearFree ? 1f : relax) : _ball[Rear];
-            PlanStep(input, canShiftLoad);
+            if (allowStep)
+            {
+                PlanStep(input, canShiftLoad);
+            }
         }
 
         UpdateSupport(input);

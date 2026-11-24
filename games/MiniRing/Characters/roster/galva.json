@@ -1,0 +1,151 @@
+{
+  "id": "galva",
+  "order": 99,
+  "name": "ガルヴァ",
+  "reading": "ガルヴァ",
+  "hudName": "ガルヴァ",
+  "origin": "外縁宙域",
+  "country": "japan",
+  "tagline": "四脚の低い構えから左右の鎌を振るう異星生物",
+  "org": "vfc",
+  "look": {
+    "skin": [
+      0.2,
+      0.43,
+      0.39
+    ],
+    "hair": [
+      0.1,
+      0.19,
+      0.17
+    ],
+    "hairstyle": "Bald",
+    "eyes": [
+      0.95,
+      0.48,
+      0.1
+    ],
+    "brows": false,
+    "beard": false
+  },
+  "body": {
+    "build": {
+      "height": 0.99,
+      "arms": 1.12,
+      "legs": 0.96,
+      "muscle": 1.08,
+      "fourLegged": true
+    },
+    "wear": "sickle-claw",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "KickRate": 0.4,
+      "KickDuration": 0.72,
+      "KickShift": 0,
+      "KickWeights": {
+        "Front": 1,
+        "Low": 1
+      },
+      "BreakLikes": {
+        "roar": 3,
+        "stretcharms": 2,
+        "deepbreath": 2,
+        "bow": 1.4,
+        "neckroll": 1.3
+      }
+    }
+  },
+  "record": [],
+  "profile": {
+    "age": 24,
+    "heightCm": 141,
+    "weightKg": 129,
+    "birthplace": "外縁宙域",
+    "hometown": "日本の観測施設",
+    "stance": "四足立ち",
+    "nicknameStory": "観測班が記録していた呼び名が登録名になった。",
+    "trainer": "観測施設の運動班",
+    "fightingStyle": "相手との距離に応じて両腕の斬り払いと突きを使い、低い位置へ前脚を伸ばす。",
+    "strengths": [
+      "左右の鎌の間合い",
+      "三脚で支えながら前脚を出せる"
+    ],
+    "weaknesses": [
+      "前脚を出している間は足の踏み替えが遅れる"
+    ],
+    "personality": "周囲を見回してから間合いを詰める。",
+    "hobbies": [
+      "床の反響を聴く"
+    ],
+    "family": "外縁宙域の個体群に属する。",
+    "quote": "〔低い二連の鳴き声〕",
+    "career": [
+      "観測施設で歩行と対面訓練を開始",
+      "公開練習の後にVFCへ登録"
+    ],
+    "episodes": [
+      "鏡に映る自分に横向きの構えを取った",
+      "初めてのマットで前脚を交互に上げて硬さを確かめた",
+      "練習では動く標的にも左右どちらの鎌も使った",
+      "試合前は四つの足裏で床を叩いて反響を確かめる"
+    ],
+    "commentaryNotes": [
+      "前脚を出すときは残り三脚で支える",
+      "両手は骨質の鎌で、突きにも使う"
+    ]
+  },
+  "face": {
+    "parts": {
+      "hair": {},
+      "brows": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "nose": {
+        "nose.4": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "jaw": {
+        "jaw.9": 1
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "beard": {},
+      "browridge": {}
+    },
+    "values": {
+      "eyeSize": 1.35,
+      "eyeSpacing": 1.25,
+      "eyeTilt": 0.35,
+      "noseWidth": 0.7,
+      "noseLength": 0.7,
+      "mouthWidth": 0.66,
+      "lips": 0.5,
+      "earSize": 0.65,
+      "faceWidth": 1.15,
+      "jawWidth": 0.82,
+      "cheekbones": 1.55
+    },
+    "skin": [
+      0.2,
+      0.43,
+      0.39
+    ],
+    "hair": [
+      0.1,
+      0.19,
+      0.17
+    ],
+    "iris": [
+      0.95,
+      0.48,
+      0.1
+    ]
+  }
+}

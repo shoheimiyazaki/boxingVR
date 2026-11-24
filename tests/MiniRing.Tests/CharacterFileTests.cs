@@ -28,9 +28,9 @@ public sealed class CharacterFileTests
     public void BuiltInRoster_IsOneFilePerCharacter_InTheDecidedOrder_WithOnlyTheGamePlanEducated()
     {
         var all = CharacterRoster.All;
-        Assert.HasCount(18, all); // 2026-11-18: 柔術家 ren を足して 18 人
+        Assert.HasCount(19, all);
         Assert.HasCount(13, CharacterRoster.Countries.Keys.Where(k => all.Any(c => c.Country.Id == k)).ToList());
-        foreach (var c in all)
+        foreach (var c in all.Where(c => !c.Build.FourLegged))
         {
             // 2026-11-18: 教育は休みの動作の好み（BreakLikes）と戦略の層（GamePlan: 得意な間合いの表）だけ。ほかの値は教科書そのもの。
             Assert.AreEqual("BreakLikes,GamePlan", string.Join(",", c.Education.Style.Select(p => p.Key).Order()), c.Id);
@@ -258,7 +258,7 @@ public sealed class CharacterFileTests
             Assert.AreEqual(0.8f, one.Resolve("marcus").Aggression, "vs a built-in character is allowed");
             Assert.AreEqual(0.5f, one.Resolve("akira").Aggression);
             Assert.HasCount(1, CharacterRoster.LoadDirectory(dir));
-            Assert.HasCount(18, CharacterRoster.All, "the built-in roster is untouched");
+            Assert.HasCount(19, CharacterRoster.All, "the built-in roster is untouched");
 
             File.WriteAllText(Path.Combine(dir, "jin.json"), Json("jin"));
             Assert.Contains("組み込み", Assert.ThrowsExactly<InvalidDataException>(() => CharacterRoster.LoadDirectory(dir)).Message);

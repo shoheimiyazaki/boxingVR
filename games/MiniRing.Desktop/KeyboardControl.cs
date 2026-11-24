@@ -19,6 +19,7 @@ internal sealed class KeyboardControl
 {
     private readonly float[] _extend = new float[2];
     private Vector3 _head;
+    private FrontLegStrike _frontLeg = new();
 
     public BoxingInput Read(InputSnapshot input, float cameraYaw, FighterSense sense, float dt)
     {
@@ -48,7 +49,13 @@ internal sealed class KeyboardControl
             new HandCommand(left, input.IsKeyDown(Key.Q)),
             new HandCommand(right, input.IsKeyDown(Key.E)),
             _head);
-        return new BoxingInput(command, input.WasKeyPressed(Key.R));
+        var reset = input.WasKeyPressed(Key.R);
+        if (reset)
+        {
+            _frontLeg = new FrontLegStrike();
+        }
+
+        return new BoxingInput(_frontLeg.Read(command, sense, input.IsKeyDown(Key.F), lateral > 0f, dt), reset);
     }
 
     /// <summary>構え → 溜め（横 / 下）→ 狙いの奥、を 2 次ベジェで結ぶ。押している間だけ進み、離すと構えへ戻る。</summary>

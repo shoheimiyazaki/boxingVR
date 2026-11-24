@@ -3,7 +3,7 @@ using System.Numerics;
 namespace MiniRing;
 
 /// <summary>基準体格に対する寸法。太さは長さと独立、筋力は断面積から求める。</summary>
-public sealed record BodyBuild(float Height = 1f, float Arms = 1f, float Legs = 1f, float Muscle = 1f)
+public sealed record BodyBuild(float Height = 1f, float Arms = 1f, float Legs = 1f, float Muscle = 1f, bool FourLegged = false)
 {
     public static BodyBuild Standard { get; } = new();
 
@@ -24,6 +24,7 @@ public sealed record BodyBuild(float Height = 1f, float Arms = 1f, float Legs = 
         BodyPartKind.UpperArm or BodyPartKind.Forearm => new(Height * Arms, Height * Muscle, Height * Muscle),
         BodyPartKind.Thigh or BodyPartKind.Shin => new(Height * Muscle, Height * Legs, Height * Muscle),
         BodyPartKind.Head => new(Height),
+        BodyPartKind.Pelvis when FourLegged => new(Height * Muscle, Height, Height * Muscle * 3.2f),
         _ => new(Height * Muscle, Height, Height * Muscle),
     };
 

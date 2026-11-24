@@ -46,9 +46,11 @@ public sealed partial class Fighter
         StepSpring = MathF.Min(StepSpring, capacity); // 脚が傷めば貯めておける分も減る
         // 脚ごとに、床に着いている脚の筋肉だけが自分のバネを縮め直す（宙にある足・蹴っている足は床を押せない）。両足が着いていれば全力、片足なら半分。
         var planted = 0f;
-        for (var i = 0; i < 2; i++)
+        var limbCount = _legParts.Length + _rearLegs.Length;
+        for (var i = 0; i < limbCount; i++)
         {
-            planted += !_footwork.Pose(i).Swinging && _legParts[i].Command is null ? 0.5f : 0f;
+            var (leg, pose) = StanceLeg(i);
+            planted += !pose.Swinging && leg.Command is null && (_rearFootwork is null || !_detached.Contains(leg.Heel)) ? 1f / limbCount : 0f;
         }
 
         var step = command.ClampedStep;
@@ -82,10 +84,10 @@ public sealed partial class Fighter
         var pelvis = _world.GetState(Parts.Pelvis);
         Leg? pusher = null;
         var best = float.PositiveInfinity;
-        for (var i = 0; i < 2; i++)
+        for (var i = 0; i < _legParts.Length + _rearLegs.Length; i++)
         {
-            var leg = _legParts[i];
-            if (_footwork.Pose(i).Swinging || leg.Command is not null)
+            var (leg, pose) = StanceLeg(i);
+            if (pose.Swinging || leg.Command is not null || (_rearFootwork is not null && _detached.Contains(leg.Heel)))
             {
                 continue; // 宙にある足は蹴れない
             }

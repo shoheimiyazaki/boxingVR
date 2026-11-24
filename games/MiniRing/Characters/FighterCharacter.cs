@@ -115,6 +115,7 @@ public sealed record FighterCharacter(string Id, string Name, string Reading, st
         HandWear.Gauntlet => "籠手",
         HandWear.Tonfa => "トンファー",
         HandWear.Shield => "盾",
+        HandWear.SickleClaw => "鎌状の手",
         _ => wear.ToString(),
     };
 }
