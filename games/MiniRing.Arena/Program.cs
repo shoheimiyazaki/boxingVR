@@ -66,8 +66,9 @@ try
         "excitementpanel" => DramaPanel.Capture(Options.Parse(argv[1..], "out", "pairs", "seconds", "seed", "seeds", "parallel")),
         "excitementcompare" => DramaPanel.CompareCommand(Options.Parse(argv[1..], "before", "after", "out")),
         "swordlib" => SwordLibCommand(Options.Parse(argv[1..], "out", "best", "bouts", "seconds", "seed", "fight", "video", "red", "blue")),
-        "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead", "weapon", "vrmotion")),
+        "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead", "weapon", "vrmotion", "wear")),
         "vrmotion-synth" => VrMotionSynthCommand(Options.Parse(argv[1..], "out")),
+        "vrforms" => VrFormsCommand(Options.Parse(argv[1..], "dir", "rank", "seed", "bouts", "seconds", "out", "video", "width", "height", "fps", "slow", "only", "confirm")),
         "mocap" => MocapCommand(Options.Parse(argv[1..], "bvh", "out", "from", "to", "speed", "width", "height", "fps", "strikes")),
         "sparlab" => SparLabCommand(Options.Parse(argv[1..], "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out", "final-bouts", "final-seconds", "video", "width", "height", "fps")),
         "swordlab" => SwordLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "techniques")),
@@ -1658,6 +1659,33 @@ static int SwordLibCommand(Options o)
     return 0;
 }
 
+static int VrFormsCommand(Options o)
+{
+    // VR の記録から選んだ振りを刀の剣士の型にして、教科書の型の剣士と戦わせる（docs/arena/vrforms_*.md、docs/VR_MOTION.md）。
+    var lab = new VrFormsLab(o.Int("seed", 1), o.Int("bouts", 8, min: 1), o.Float("seconds", 60f, min: 1f), o.List("only", []), o.Get("confirm") == "yes"); // --only kote,nuki-do: 差し替える型だけ。--confirm yes: 比べ直しの台帳へ
+    var dir = o.Get("dir") ?? "docs/vrmotion";
+    var rank = o.Int("rank", 1, min: 1);
+    if (o.Get("video") is { } video)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(video))!);
+        lab.Video(dir, rank, o.Int("seed", 1), video, o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), o.Float("slow", 1f, min: 0.25f), Console.Out);
+        return 0;
+    }
+
+    var report = lab.Run(dir, rank, Console.Out);
+    if (o.Get("out") is { } outPath)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
+        File.WriteAllText(outPath, report);
+    }
+    else
+    {
+        Console.Write(report);
+    }
+
+    return 0;
+}
+
 static int VrMotionSynthCommand(Options o)
 {
     // VR の実機なしで、記録 → なぞりの道を確かめる合成の記録（棒の突き）を書く。
@@ -1680,7 +1708,10 @@ static int ImitateCommand(Options o)
             : throw new ArgumentException($"Unknown weapon '{weaponName}'.");
         var vrOut = o.Get("out") ?? "videos/vrmotion.mp4";
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(vrOut))!);
-        var vrVideo = new VrMotionVideo(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), o.Float("slow", 1f, min: 0.25f));
+        var vrWear = o.Get("wear") is { } wearName // --wear shield: 左手に盾（片手剣と盾の稽古の記録）
+            ? Enum.TryParse<MiniRing.Weapons.HandWear>(wearName, ignoreCase: true, out var w) ? w : throw new ArgumentException($"Unknown hand wear '{wearName}'.")
+            : MiniRing.Weapons.HandWear.Glove;
+        var vrVideo = new VrMotionVideo(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), o.Float("slow", 1f, min: 0.25f), vrWear);
         var vrRate = o.Float("rate", 1f, min: 0.1f);
         var vrTitle = Path.GetFileNameWithoutExtension(vrPath);
         if (o.Get("measure") is not null)

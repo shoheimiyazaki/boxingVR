@@ -12,7 +12,7 @@ namespace MiniRing.Arena;
 /// 赤が武器を両手で握り（記録の見出しの武器、または <c>--weapon</c>）、相手に背を向けて、記録した両手の目標・武器の向き・頭のずれ・歩きを
 /// 自分の腕の長さで当てはめてなぞる。金の線は両手の目標（右手 = 黄、左手 = 水色の点）、画面の隅に両手の目標からのずれと、左手のトリガー（滑り）の状態を出す。
 /// </summary>
-internal sealed class VrMotionVideo(int width, int height, int fps, float slow)
+internal sealed class VrMotionVideo(int width, int height, int fps, float slow, HandWear wear = HandWear.Glove)
 {
     private const float LeadIn = 1.343f;
     private const float TitleSeconds = 1.5f;
@@ -53,7 +53,7 @@ internal sealed class VrMotionVideo(int width, int height, int fps, float slow)
         VrMotionImitation? imitation = null;
         var twoHanded = MiniRing.Bots.FormSwordsman.Handles(weapon);
         using var game = new BoxingGame(Motion.SwordStance.Tuning, seed: 1, corners: new BoxingCorners("imitate", _ => new StandGuard(),
-            _ => imitation = new VrMotionImitation(clip, rate, faceAway: true, leadIn: LeadIn), PlayerWeapon: weapon, PlayerTwoHanded: twoHanded));
+            _ => imitation = new VrMotionImitation(clip, rate, faceAway: true, leadIn: LeadIn), PlayerWeapon: weapon, PlayerTwoHanded: twoHanded, PlayerWear: wear));
         var control = imitation!;
         var reach = game.Player.ArmReach;
         var cellsBefore = BodyCells(game.Player);

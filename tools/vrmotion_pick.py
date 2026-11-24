@@ -22,6 +22,7 @@ import glob
 import json
 import math
 import os
+import re
 import shutil
 import sys
 from dataclasses import dataclass, asdict
@@ -30,6 +31,7 @@ import numpy as np
 from scipy.ndimage import median_filter
 from scipy.signal import find_peaks, savgol_filter
 
+SHIELD = False  # --shield: 左手が盾を持つ記録（盾が前にある割合を点に掛ける）
 BLADE_HUMAN = 0.85  # 右手（鍔元）から切っ先まで [m]: 刀身 70 cm の打刀を両手で持ったときの、右手から切っ先
 BLADE_FORM = 1.7  # 型の経路で切っ先を測る長さ（腕の長さ = 1。SwordForms.Blade と同じ）
 SEG_FLOOR = 0.2  # 振りの区間: 切っ先の速さが山の 20% より上の続き
@@ -176,6 +178,7 @@ class Swing:
     hold: float
     tip_min_y: float = 9.0  # 振りの間と振り抜き（後 0.25 s）の、切っ先の最も低い高さ [m]（床 = 0）
     tip_peak_y: float = 9.0  # 最高速の瞬間（当たる瞬間）の切っ先の高さ [m]
+    shield_front: float = 0.0  # 振りの前後（前 0.3 s・後 0.6 s）で、左手（盾）の目標が体の前（腕の長さ 0.4 より前）にある割合
     vdown: float = 0.0  # 最高速の瞬間の、切っ先の下向きの速さ [m/s]
     motion_axial: float = 0.0  # 速い間に切っ先が刀の軸に沿って動く割合（その振り自身の。突き下ろしなら 1 に近い）
     ground_align: float = 0.0  # その振り自身の軸の割合で混ぜた刃筋（型に依らない）
@@ -214,7 +217,8 @@ def score_swing(sw: Swing) -> float:
     selfcut = max(0.0, 2.0 * sw.self_share, sw.self_cells / 40.0)  # 自分を斬る振りは手本にならない: 40 セル（腕の肉の 1 か所ほど）で 0
     if sw.self_cells == CRASHED:
         return 0.0  # なぞりで落ちた振りは選ばない
-    return base * (1.0 - min(1.0, selfcut))
+    shield = (0.5 + 0.5 * sw.shield_front) if SHIELD else 1.0  # 盾を持つ型（--shield）: 振りの間も盾を前に保つ方が手本になる
+    return base * (1.0 - min(1.0, selfcut)) * shield
 
 
 def ground_score(sw: Swing) -> float:
@@ -234,7 +238,8 @@ def analyse(path: str, forms: dict[str, Form]) -> tuple[ClipResult, list[Swing],
     c = {n: i for i, n in enumerate(d["columns"])}
     F = np.array(d["frames"], float)
     name = os.path.basename(path)
-    form_name = name.split("_katana_")[-1].replace(".vrmotion", "")
+    m = re.match(r"^\d{8}_\d{6}_([a-z]+)_(.+)\.vrmotion$", name)
+    form_name = m.group(2) if m else name
     note = d.get("note", "")
     gap = note.split("gap ")[-1].split(" m")[0] if "gap" in note else ""
     t = F[:, 0]
@@ -267,6 +272,7 @@ def analyse(path: str, forms: dict[str, Form]) -> tuple[ClipResult, list[Swing],
 
     # 写像後（体フレーム、腕の長さ = 1）: 型と比べる
     rt = smooth(despike(col("rTarget.x")), dt)
+    left_t = smooth(despike(col("lTarget.x")), dt)
     wq = despike_quat(col("rWeaponQ.x", 4))
     blade_b = unit(qrot(wq, np.array([1.0, 0.0, 0.0])))
     tip_b = smooth(rt + BLADE_FORM * blade_b, dt)
@@ -322,6 +328,7 @@ def analyse(path: str, forms: dict[str, Form]) -> tuple[ClipResult, list[Swing],
         sw.ground = ground_score(sw)
         w_lo, w_hi = max(0, lo - int(SELF_WINDOW[0] / dt)), min(len(t), hi + int(SELF_WINDOW[1] / dt) + 1)
         sw.self_share = float(selfhit[w_lo:w_hi].mean())
+        sw.shield_front = float((left_t[w_lo:w_hi, 2] > 0.4).mean())
         sw.score = score_swing(sw)
         swings.append(sw)
     res.swings = len(swings)
@@ -411,10 +418,17 @@ def main() -> int:
     ap.add_argument("--ground-rows", type=int, default=25)
     ap.add_argument("--ground-sim", type=int, default=16, help="--trim-all で、倒れた相手への攻撃の上位をいくつ切り出すか（なぞりで測る）")
     ap.add_argument("--ground-picks", type=int, default=4, help="倒れた相手への攻撃として切り出す数")
+    ap.add_argument("--weapon", default="katana", help="記録の名前の武器（katana・ironsword…）。この武器の記録だけを読む")
+    ap.add_argument("--blade-scale", type=float, default=1.0, help="刀身の長さの刀に対する比（片手剣は 1.214: 型の書き出しの blade の比）")
+    ap.add_argument("--shield", action="store_true", help="左手が盾を持つ記録")
     ap.add_argument("--close", type=float, default=5.0, help="2 本目も選ぶ点の差")
     args = ap.parse_args()
+    global BLADE_HUMAN, BLADE_FORM, SHIELD
+    BLADE_HUMAN *= args.blade_scale
+    BLADE_FORM *= args.blade_scale
+    SHIELD = args.shield
     forms = load_forms(args.forms)
-    files = sorted({os.path.basename(p): p for d in args.dirs for p in glob.glob(os.path.join(d, "*.vrmotion"))}.values(), key=os.path.basename)
+    files = sorted({os.path.basename(p): p for d in args.dirs for p in glob.glob(os.path.join(d, f"*_{args.weapon}_*.vrmotion"))}.values(), key=os.path.basename)
     results = []
     sim = {}
     if args.sim and os.path.exists(args.sim):
@@ -441,15 +455,15 @@ def main() -> int:
         for r, k, sw in ground_candidates(results)[:args.ground_sim]:
             trim(r.source, sw, os.path.join(args.trim_all, ground_key(r, k) + ".vrmotion"))
     order = list(forms)
-    lines = ["| 型 | 記録 | 写し方 | 長さ s | 飛び | 振り | 切っ先 m/s | 手 m/s | 刃筋 | 副の山 | LDLJ | 狙い（ずれ / cos） | 型のずれ | なぞりのずれ | 自傷セル | 握り | 点 | 除外 |",
-             "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|---:|---:|---|"]
+    lines = ["| 型 | 記録 | 写し方 | 長さ s | 飛び | 振り | 切っ先 m/s | 手 m/s | 刃筋 | 副の山 | LDLJ | 狙い（ずれ / cos） | 型のずれ | なぞりのずれ | 自傷セル | 盾が前 | 握り | 点 | 除外 |",
+             "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|---:|---:|---|"]
     for r in sorted(results, key=lambda r: (order.index(r.form) if r.form in order else 99, -(r.best.score if r.best else -1))):
         b = r.best
         if b:
             lines.append(f"| {r.form} | {r.file[:15]} | {mapping_name(r.gain)} | {r.duration:.1f} | {r.spikes} | {r.swings} | {b.vmax:.1f} | {b.hand:.1f} | {b.align:+.2f} | {b.sub_peaks} | {b.ldlj:.1f} | "
-                         f"{b.aim_dist:.2f} / {b.aim_cos:+.2f} | {b.form_dist:.2f} | {fmt(b.track, '.2f')} | {fmt(b.self_cells, 'd')} | {b.hold:.0%} | {b.score:.0f} | {r.reject} |")
+                         f"{b.aim_dist:.2f} / {b.aim_cos:+.2f} | {b.form_dist:.2f} | {fmt(b.track, '.2f')} | {fmt(b.self_cells, 'd')} | {b.shield_front:.0%} | {b.hold:.0%} | {b.score:.0f} | {r.reject} |")
         else:
-            lines.append(f"| {r.form} | {r.file[:15]} | {mapping_name(r.gain)} | {r.duration:.1f} | {r.spikes} | 0 | | | | | | | | | | | | {r.reject} |")
+            lines.append(f"| {r.form} | {r.file[:15]} | {mapping_name(r.gain)} | {r.duration:.1f} | {r.spikes} | 0 | | | | | | | | | | | | | {r.reject} |")
     ground = ground_candidates(results)
     lines += ["", "### 倒れた相手への攻撃の候補（全部の記録の全部の振りから。点の順）", "",
               f"最高速の瞬間に切っ先が {GROUND_LOW} m より下にあり、刀を握り、下向きに動く振り {len(ground)} 本。",
@@ -470,11 +484,11 @@ def main() -> int:
             ok = sorted((r for r in results if r.form == form and r.best and not r.reject and r.best.score > 0), key=lambda r: -r.best.score)
             picks = ok[:1] + [r for r in ok[1:2] if ok[0].best.score - r.best.score <= args.close]
             for rank, r in enumerate(picks, 1):
-                out = os.path.join(args.pick_dir, f"katana_{form}_{rank}_{r.file[:15]}.vrmotion")
+                out = os.path.join(args.pick_dir, f"{args.weapon}_{form}_{rank}_{r.file[:15]}.vrmotion")
                 trim(r.source, r.best, out)
                 print(f"pick {form} #{rank}: {r.file} swing {r.best.t_start:.2f}-{r.best.t_end:.2f} s score {r.best.score:.0f} -> {out}")
         for n, (r, k, sw) in enumerate([g for g in ground if g[2].ground > 0][:args.ground_picks], 1):
-            out = os.path.join(args.pick_dir, f"katana_ground_{n}_{r.file[:15]}_{r.form}.vrmotion")
+            out = os.path.join(args.pick_dir, f"{args.weapon}_ground_{n}_{r.file[:15]}_{r.form}.vrmotion")
             trim(r.source, sw, out)
             print(f"ground #{n}: {r.file} swing {sw.t_start:.2f}-{sw.t_end:.2f} s score {sw.ground:.0f} -> {out}")
     print(f"{len(results)} clips -> {args.out}")

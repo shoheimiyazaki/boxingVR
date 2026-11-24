@@ -56,6 +56,8 @@ miniring-arena imitate --vrmotion x.vrmotion --measure yes                      
 
 **記録から良い振りを選ぶ**（2026-11-24）: `py -3 tools/vrmotion_pick.py --forms <型の書き出し> --out <表> [--pick-dir docs/vrmotion] [--trim-all <切り出し>] [--sim <なぞりの CSV>] <記録のフォルダ>…`。切っ先の速さ・刃筋・滑らかさ・型の狙い・型の経路との近さ・なぞりの自傷で点を付け、型ごとの上位と倒れた相手への攻撃の候補を、振りの前後だけ切り出して書く。型の経路は調査用のテスト `KatanaFormDumpProbe`（環境変数 `KATANA_FORMS_OUT`）、なぞりの測定は `bash tools/vrmotion_sim.sh <切り出し> <CSV>`。点の付け方・表・選んだ振り: [arena/vrmotion_pick_2026-11-24.md](arena/vrmotion_pick_2026-11-24.md)。選んだ写しは `docs/vrmotion/katana_*.vrmotion`。
 
+**試合で使う**（2026-11-25）: `VrMotionForms.ToSwordMotion` が、選んだ写しを剣士の型（`SwordMotion`）にする（打ちの山の前 0.7 s・後 0.4 s を正眼から繋いで正眼へ戻す目標の経路）。`FormSwordsman.Bot(..., techniques:)` で技の一覧を差し替えられる（省略すれば武器の型）。`miniring-arena vrforms [--only kote,nuki-do] [--seed 101 --bouts 16 --confirm yes] [--video x.mp4]` が教科書の型の剣士と戦わせて比べる。結果は docs/BOT_PDCA.md「VR の振りを刀の剣士の型にする」（今は差なし、採らない）。盾を持ってなぞるのは `imitate --vrmotion … --weapon ironsword --wear shield`。
+
 ## 4. 次の段（今回は作っていない）
 
 - 記録から技の経路（`StaffForms` のキー: 右手の位置・棒の向き・ひねり）を取り出す。正規化（腕の長さ = 1）の両手の目標と武器の向きがそのまま材料になる。
