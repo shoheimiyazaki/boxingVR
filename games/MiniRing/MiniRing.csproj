@@ -29,6 +29,7 @@
     <EmbeddedResource Include="Bots\grapple\*.json" LogicalName="MiniRing.Bots.grapple.%(Filename)%(Extension)" />
     <!-- キャラクターの名簿（国籍・武器・肌の色・体格・名前。docs/CHARACTERS.md）。 -->
     <EmbeddedResource Include="Characters\countries.json" LogicalName="MiniRing.Characters.countries.json" />
+    <EmbeddedResource Include="Characters\maker.json" LogicalName="MiniRing.Characters.maker.json" />
     <EmbeddedResource Include="Characters\roster\*.json" LogicalName="MiniRing.Characters.roster.%(Filename)%(Extension)" />
     <!-- 顔の部品の表（Codex の参考図から tools/face-parts/build_face_parts.py で作る。docs/CHARACTERS.md §2）。 -->
     <EmbeddedResource Include="Voxels\FaceParts\*.json" LogicalName="MiniRing.Voxels.FaceParts.%(Filename)%(Extension)" />
