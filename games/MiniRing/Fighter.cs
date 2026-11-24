@@ -238,7 +238,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 92; // 休みの再生の速さを団体の値に（WVC ほぼ治らない・VFC 速く）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 95; // 手首を固く・強く・強い減衰に（片手の刀が狙いに止まる）、VR の浮いた武器、繰り上がった手が武器の手に。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1469,8 +1469,8 @@ public sealed partial class Fighter
             _world.SetPairCollisionEnabled(body, id, false);
         }
 
+        arm.Glove = glove; // 手首の固さは、はめる物か握る物かで決まる（Arm.WristHz）ので、つなぐ前に
         arm.Wield(_world, _tuning, body, gripLocal);
-        arm.Glove = glove;
         arm.Bare |= !glove;
         arm.WristShare = 1f;
         arm.SlideSpan = glove ? null : slideSpan;
@@ -1494,8 +1494,8 @@ public sealed partial class Fighter
             _world.SetPairCollisionEnabled(body, id, false);
         }
 
-        arm.Grasp(_world, _tuning, body, gripLocal);
         arm.Glove = false;
+        arm.Grasp(_world, _tuning, body, gripLocal);
         arm.Bare = true;
         arm.WristShare = twoHandedKind && slideSpan is null ? _tuning.OneHandWristShare : 1f;
         arm.SlideSpan = slideSpan;
@@ -3333,6 +3333,7 @@ public sealed partial class Fighter
         }
 
         EnsureSlideWrists();
+        UpdateSharedGrips();
         // 添え手の握りが成立して新しい手首が生まれた歩も含め、すべての目標・直接力積を与えた後に関節を制約する。
         _budget[(int)MuscleRegion.LeftArm] += leftAllowance;
         _budget[(int)MuscleRegion.RightArm] += rightAllowance;
@@ -3643,6 +3644,25 @@ public sealed partial class Fighter
             {
                 arm.SetStrength(_world, _tuning, a * Strength(arm.UpperArm), a * Strength(arm.Forearm));
                 arm.SetWristStrength(_world, _tuning, a * Strength(arm.Forearm));
+            }
+        }
+    }
+
+    /// <summary>
+    /// 両手で同じ武器を握っているか（<see cref="Arm.SharedGrip"/>）を決め直し、変わった腕の手首の固さを入れ直す（両手持ちは柔らかく、1 本の手で
+    /// 握ると固く: <see cref="Arm.WristHz"/>）。疲れを数えない体（VR のプレイヤー）は手首の強さを毎歩は入れ直さないので、ここで変わった時に入れる。
+    /// </summary>
+    private void UpdateSharedGrips()
+    {
+        foreach (var arm in _arms)
+        {
+            var other = _arms[arm.Hand == Hand.Left ? (int)Hand.Right : (int)Hand.Left];
+            // 添えに行っている（まだ握っていない）手・棒の上を滑っている手も、両手で持つ武器に向かっている手として数える。
+            var shared = arm.WeaponBody is { } body && other.WeaponBody == body;
+            if (shared != arm.SharedGrip)
+            {
+                arm.SharedGrip = shared;
+                arm.SetWristStrength(_world, _tuning, arm.LastWristScale);
             }
         }
     }
@@ -4588,7 +4608,7 @@ public sealed partial class Fighter
             world.SetDynamicPose(body, fist - Vector3.Transform(gripLocal, orientation), orientation);
             world.SetLinearVelocity(body, f.LinearVelocity);
             var socket = world.AddBallSocket(Forearm, body, GloveLocal, gripLocal, frequency: 17.87f, dampingRatio: 1f);
-            var wrist = world.AddAngularServo(Forearm, body, along, tuning.WristServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.WristMaxTorque * tuning.TorqueScale);
+            var wrist = world.AddAngularServo(Forearm, body, along, WristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
             Held = new HeldWeapon(body, gripLocal, socket, wrist, along, world.GetMass(body));
         }
 
@@ -4600,7 +4620,7 @@ public sealed partial class Fighter
         {
             var socket = world.AddBallSocket(Forearm, body, GloveLocal, gripLocal, frequency: 17.87f, dampingRatio: 1f);
             var relative = Quaternion.Concatenate(world.GetState(body).Orientation, Quaternion.Conjugate(world.GetState(Forearm).Orientation));
-            var wrist = world.AddAngularServo(Forearm, body, relative, tuning.WristServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.WristMaxTorque * tuning.TorqueScale);
+            var wrist = world.AddAngularServo(Forearm, body, relative, WristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
             Held = new HeldWeapon(body, gripLocal, socket, wrist, relative, world.GetMass(body));
         }
 
@@ -4723,7 +4743,7 @@ public sealed partial class Fighter
 
             HoldOrientation = null;
             var relative = Quaternion.Concatenate(world.GetState(body).Orientation, Quaternion.Conjugate(world.GetState(Forearm).Orientation));
-            var wrist = world.AddAngularServo(Forearm, body, relative, tuning.WristServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.WristMaxTorque * tuning.TorqueScale);
+            var wrist = world.AddAngularServo(Forearm, body, relative, WristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
             if (Held is { } held)
             {
                 Held = held with { Wrist = wrist };
@@ -4834,7 +4854,7 @@ public sealed partial class Fighter
 
             var socket = world.AddBallSocket(Forearm, support.Body, GloveLocal, support.GripLocal, frequency: 17.87f, dampingRatio: 1f);
             var relative = Quaternion.Concatenate(world.GetState(support.Body).Orientation, Quaternion.Conjugate(world.GetState(Forearm).Orientation));
-            var wrist = world.AddAngularServo(Forearm, support.Body, relative, tuning.WristServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.WristMaxTorque * tuning.TorqueScale);
+            var wrist = world.AddAngularServo(Forearm, support.Body, relative, WristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
             Support = support with { Socket = socket, Wrist = wrist, Reaching = false };
         }
 
@@ -4871,6 +4891,30 @@ public sealed partial class Fighter
         /// <summary>拳に付けているのはボクセルのグローブ（握った武器ではない）。</summary>
         public bool Glove { get; set; }
 
+        /// <summary>
+        /// もう一方の手も同じ武器を握っているか、添えに行っている（両手持ち。<see cref="Fighter"/> が毎歩 <c>UpdateSharedGrips</c> で決める）。両手の間は武器の向きを
+        /// 2 つの拳の偶力が決めるので、手首は固めない（固めると両手と武器の閉じた輪の中で手首どうしが押し合い、体が滑った: SlideTests）。
+        /// </summary>
+        public bool SharedGrip { get; set; }
+
+        /// <summary>
+        /// 手首を固めて握っているか: 両手で持つ武器（刀・ロングソード…）を 1 本の手だけで支えている（<see cref="WristShare"/> &lt; 1。はめる物・両手持ち・
+        /// 片手の武器は今まで通り）。片手の武器まで固めると、片手剣と盾の守り手の守りが崩れた（ShieldTests: 構えた盾で体の損傷 22 → 325 セル。2026-11-25）。
+        /// </summary>
+        private bool Clenched => !Glove && !SharedGrip && WristShare < 1f;
+
+        /// <summary>
+        /// 手首のサーボの固さ [Hz]: 両手で持つ武器を 1 本の手で支えるとき（<see cref="Clenched"/>）は柄を握り込んで手首を固めた
+        /// <see cref="FighterTuning.GripWristServoHz"/>、それ以外（はめる物・両手持ち・片手の武器）は <see cref="FighterTuning.WristServoHz"/>。
+        /// </summary>
+        public float WristHz(FighterTuning tuning) => Clenched ? tuning.GripWristServoHz : tuning.WristServoHz;
+
+        /// <summary>手首が出せる最大トルク（TorqueScale 倍する前）。<see cref="WristHz"/> と同じ分け方。</summary>
+        public float WristTorque(FighterTuning tuning) => Clenched ? tuning.GripWristMaxTorque : tuning.WristMaxTorque;
+
+        /// <summary>手首のサーボの減衰比。<see cref="WristHz"/> と同じ分け方。</summary>
+        public float WristDamping(FighterTuning tuning) => Clenched ? tuning.GripWristDampingRatio : tuning.WristDampingRatio;
+
         /// <summary>はめた物が、腕の骨折・切断の後も力の抜けた手に付いたまま（持ち主の手としては外れている）。</summary>
         public bool WornLoose { get; set; }
 
@@ -4887,7 +4931,7 @@ public sealed partial class Fighter
             var wrist = Held?.Wrist ?? Support?.Wrist;
             if (wrist is { } id && world.HasConstraint(id))
             {
-                world.SetAngularServoSettings(id, tuning.WristServoHz * MathF.Sqrt(WristShare), tuning.WristMaxTorque * tuning.TorqueScale * WristShare * Math.Max(0.01f, scale));
+                world.SetAngularServoSettings(id, WristHz(tuning) * MathF.Sqrt(WristShare), WristTorque(tuning) * tuning.TorqueScale * WristShare * Math.Max(0.01f, scale), WristDamping(tuning));
             }
         }
         public bool GripWasHeld { get; set; }

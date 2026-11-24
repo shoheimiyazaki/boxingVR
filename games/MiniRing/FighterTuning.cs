@@ -249,11 +249,38 @@ public sealed record FighterTuning
     /// </summary>
     public float ElbowMinLeverRadians { get; init; } = 10f * MathF.PI / 180f;
 
-    /// <summary>手首の筋肉（武器を握ったとき、武器を向きの目標へ回すサーボ）の固さ [Hz]。</summary>
+    /// <summary>手首の筋肉（手にはめた物: グローブ・素手の拳・トンファー・盾を、向きの目標へ回すサーボ）の固さ [Hz]。握った武器は <see cref="GripWristServoHz"/>。</summary>
     public float WristServoHz { get; init; } = 8.94f;
 
-    /// <summary>手首が武器を回す最大トルク（TorqueScale 倍する前。肩の 40 の 1/4）。重い武器ほど向きを変えるのが遅れる。</summary>
+    /// <summary>手にはめた物を回す最大トルク（TorqueScale 倍する前。肩の 40 の 1/4）。握った武器は <see cref="GripWristMaxTorque"/>。</summary>
     public float WristMaxTorque { get; init; } = 10f;
+
+    /// <summary>手にはめた物の手首のサーボの減衰比（1 = 臨界減衰）。握った武器は <see cref="GripWristDampingRatio"/>。</summary>
+    public float WristDampingRatio { get; init; } = 1f;
+
+    /// <summary>
+    /// 両手で持つ武器（刀・ロングソード・バット…）を 1 本の手だけで支えるとき（<see cref="OneHandWristShare"/> の割合が掛かるとき）の、武器を向きの目標へ回す手首の固さ [Hz]。柄を握り込むと前腕の
+    /// 屈筋と伸筋が一緒に縮んで手首が固まる（はめた物の <see cref="WristServoHz"/> より固い）。両手で持つ間（添えに行っている間も）は
+    /// <see cref="WristServoHz"/>: 向きは 2 つの拳の偶力が決め、両手と武器の閉じた輪の中で固い手首どうしが押し合うと体が滑った（SlideTests 26.8 cm）。
+    /// 片手の武器（片手剣・こんぼう）も今まで通り: 固めると片手剣と盾の守り手の守りが崩れた（ShieldTests）。片手剣を片手で 20° 上げて前へ向けると
+    /// 16° 垂れるのは残る（VrOneHandSwordProbe.OneHandedIronSwordWithTheOldWrist。25 Hz にすると切っ先が暴れたので別に調べる）。サーボのバネは前腕と武器の間の実効の慣性に対する値なので、前腕が軽いと刀の重さに負けて垂れる:
+    /// 8.94 では片手の刀（√(1/3) 倍の 5.2 Hz）が狙いから 22° 垂れ、切っ先が 15 mm 揺れた。25 で片手 2.7°、向きを 40° 変えて 0.31 s で 5° 以内（前は 2 秒でも入らない。周期 1 秒・±1.5° の体ごとのゆっくりした揺れは残る。2026-11-25、ユーザーの指摘
+    /// 「片手で剣を持つと狙った所に保持できない・切っ先がビヨンビヨン震える」。<c>VrOneHandSwordProbe</c>: 右手だけで刀を持ち、20° 上げて前へ向けた
+    /// コントローラを止めた 1 秒）。
+    /// </summary>
+    public float GripWristServoHz { get; init; } = 25f;
+
+    /// <summary>
+    /// 両手で持つ武器を 1 本の手で支える手首の最大トルク（TorqueScale 倍する前）。片手の刀は 1/3 で 6.7 N·m（人の手首の屈曲の最大 10〜15 N·m の内）。10 では
+    /// 向きを変えるたびに頭打ちになって揺れが残った（同じ調査で 10 → 20 にして切っ先の揺れ 8 → 4 mm。両手で持つのを分ける前の測り）。
+    /// </summary>
+    public float GripWristMaxTorque { get; init; } = 20f;
+
+    /// <summary>
+    /// 両手で持つ武器を 1 本の手で支える手首のサーボの減衰比。前腕と武器は肩・肘のバネの先で一緒に揺れるので、臨界より強く減衰させて揺れを吸う
+    /// （1 → 3 で向きを 40° 変えた後の狙いのずれの振れ 4.4° → 1.5°、同じ調査。両手で持つのを分ける前の測り）。
+    /// </summary>
+    public float GripWristDampingRatio { get; init; } = 3f;
 
     /// <summary>
     /// 両手で握っていた武器を片手で持つことになったときの、手首の角度のバネ（固さとトルク）の割合。両手の握りは、2 本の手首に加えて、

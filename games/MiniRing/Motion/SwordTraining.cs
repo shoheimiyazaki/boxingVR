@@ -45,22 +45,65 @@ public static class SwordTraining
         ];
     }
 
+    /// <summary>構えて動かない相手（今までの稽古の相手。<see cref="GuardHold"/>）。</summary>
+    public const string Seigan = "seigan";
+
+    /// <summary>無防備の相手: 武器を持たず、腕を下げて立っているだけ（<see cref="GuardPosture.Defenseless"/>）。</summary>
+    public const string Defenseless = "defenseless";
+
+    /// <summary>同じ武器で戦ってくる相手（武器の教科書のボット: <see cref="WeaponCatalog.Textbook"/>）。</summary>
+    public const string WeaponFighter = "weapon";
+
     /// <summary>
-    /// 稽古の試合の設定: 赤（プレイヤー = VR の人）も青（相手）も <paramref name="weapon"/> を握り、青は構えて動かない（<see cref="GuardHold"/>）。
-    /// 2 人は中央で <paramref name="gap"/> だけ離れて向き合う。審判・休みの動作は無し。
+    /// 稽古の相手の並び（VR の右スティックの上下で選ぶ順。2026-11-25、ユーザーの要望「トレーニングのとき相手を選べるように: 無防備の相手、
+    /// 各スタイルで戦ってくる相手など」）: 構えて動かない・無防備・同じ武器で戦ってくる（ボットのある武器だけ）・素手の各スタイル（<see cref="BotCatalog.Styles"/>。
+    /// 古い版の champion-v1 と、はめる物の要るトンファーは外す）。
     /// </summary>
-    public static BoxingCorners Corners(WeaponKind weapon, float gap, HandWear wear = HandWear.Glove) => new(
-        "seigan",
-        _ => new GuardHold(weapon),
-        PlayerWear: wear,
-        CpuWear: wear,
-        PlayerWeapon: weapon,
-        CpuWeapon: weapon,
-        PlayerTwoHanded: FormSwordsman.Handles(weapon),
-        CpuTwoHanded: FormSwordsman.Handles(weapon),
-        Ring: Ring with { StartGap = gap },
-        Referee: false,
-        BreakActions: false);
+    public static IReadOnlyList<string> Opponents(WeaponKind weapon) =>
+    [
+        Seigan,
+        Defenseless,
+        .. WeaponCatalog.HasBot(weapon) ? [WeaponFighter] : Array.Empty<string>(),
+        .. BotCatalog.Styles.Select(s => s.Name).Where(n => n is not ("champion-v1" or "tonfa")),
+    ];
+
+    /// <summary>
+    /// 稽古の試合の設定: 赤（プレイヤー = VR の人）は <paramref name="weapon"/> を握る（<paramref name="floats"/> なら目の前に浮いた武器を取る:
+    /// <see cref="BoxingCorners.PlayerWeaponFloats"/>）。青は <paramref name="opponent"/>（<see cref="Opponents"/> の 1 つ。既定は構えて動かない
+    /// <see cref="GuardHold"/>）。2 人は中央で <paramref name="gap"/> だけ離れて向き合う。審判・休みの動作は無し。
+    /// </summary>
+    public static BoxingCorners Corners(WeaponKind weapon, float gap, HandWear wear = HandWear.Glove, string opponent = Seigan, bool floats = false)
+    {
+        var seigan = new BoxingCorners(
+            Seigan,
+            _ => new GuardHold(weapon),
+            PlayerWear: wear,
+            CpuWear: wear,
+            PlayerWeapon: weapon,
+            CpuWeapon: weapon,
+            PlayerTwoHanded: FormSwordsman.Handles(weapon),
+            CpuTwoHanded: FormSwordsman.Handles(weapon),
+            Ring: Ring with { StartGap = gap },
+            Referee: false,
+            BreakActions: false,
+            PlayerWeaponFloats: floats);
+        return opponent switch
+        {
+            Seigan => seigan,
+            Defenseless => seigan with { CpuName = Defenseless, Cpu = _ => new StandGuard(GuardPosture.Defenseless), CpuWeapon = null, CpuTwoHanded = false, CpuWear = HandWear.Glove },
+            WeaponFighter => seigan with { CpuName = WeaponFighter, UseWeaponBots = true },
+            _ => BotCatalog.Corners(opponent) with
+            {
+                PlayerWear = wear,
+                PlayerWeapon = weapon,
+                PlayerTwoHanded = FormSwordsman.Handles(weapon),
+                Ring = Ring with { StartGap = gap },
+                Referee = false,
+                BreakActions = false,
+                PlayerWeaponFloats = floats,
+            },
+        };
+    }
 }
 
 /// <summary>

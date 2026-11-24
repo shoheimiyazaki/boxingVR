@@ -77,11 +77,13 @@ public sealed class VrKatanaControlTests
     }
 
     [TestMethod]
-    public void NothingIsLetGoWhenNoWeaponIsHeldOrTheFocusIsLost()
+    public void AReleaseLetsGoWhateverTheHandHolds_ButLosingFocusNever()
     {
+        // 離した手の放すは、主の武器を握っているか（SelfWeapon）に依らず出す: 左手だけで持つ物も放せる（2026-11-25）。握っていない手の
+        // 放すは試合の側（BoxingGame.LetGo）が無視する。
         var mapper = Mapper(VrTwoHand.Both);
         mapper.Read(Raw(1f, 1f), Sense(), Dt);
-        Assert.IsFalse(mapper.Read(Raw(0f, 1f), Sense(held: false), Dt).Player.Left.LetGo, "握っていない手の離しは何も起こさない");
+        Assert.IsTrue(mapper.Read(Raw(0f, 1f), Sense(held: false), Dt).Player.Left.LetGo, "主の武器を握っていなくても、離した手の放すを出す");
         mapper.Read(Raw(1f, 1f), Sense(), Dt);
         var lost = mapper.Read(Raw(1f, 1f, focused: false), Sense(), Dt).Player;
         Assert.IsFalse(lost.Left.Grip, "フォーカスを失えば離す");

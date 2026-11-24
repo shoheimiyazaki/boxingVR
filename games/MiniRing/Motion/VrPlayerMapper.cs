@@ -212,7 +212,9 @@ public sealed class VrPlayerMapper(bool weaponMode = false)
             leftOrientation = _lastOrientation[1];
         }
 
-        var letGo = GripHolds && sense.SelfWeapon.Held; // 握っているときだけ放す（握っていない手の離しは何も起こさない）
+        // 離した手が握っている物を放す。握っていない手・グローブの手の放すは試合の側が無視する（BoxingGame.LetGo）。主の武器を握っているか
+        // （SelfWeapon）では決めない: 左手だけで持つ物・拾った 2 本目を放せなかった（2026-11-25）。
+        var letGo = GripHolds;
         var command = new FighterCommand(move, sense.OpponentChest - sense.Self.Origin,
             HandOf(MiniRing.Hand.Left, left, leftOrientation, grabLeft, letGo && releasedLeft, frame),
             HandOf(MiniRing.Hand.Right, _lastHandLocal[1], _lastOrientation[1], grabRight, letGo && releasedRight, frame),

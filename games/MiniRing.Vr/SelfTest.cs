@@ -174,7 +174,40 @@ internal static unsafe class SelfTest
             PngWriter.WriteRgba(Path.Combine(outputDirectory, name), 960, 540, pixels);
         }
 
+        FloatingWeapon(outputDirectory, head);
         return 0;
+    }
+
+    /// <summary>
+    /// VR の稽古の始め（<see cref="BoxingCorners.PlayerWeaponFloats"/>）: 刀は手に持たず目の前に浮いている。手は体の横（グリップを押さない）で 1 秒立ち、
+    /// 目だけ下を見た一人称の視点で描く（<c>.visualcheck/vr_first_person_floating.png</c>）。
+    /// </summary>
+    private static void FloatingWeapon(string outputDirectory, Vector3 head)
+    {
+        using var game = new BoxingGame(FighterTuning.Default with { PlayerFatigue = false },
+            corners: MiniRing.Motion.SwordTraining.Corners(Weapons.WeaponKind.Katana, 2.535f, opponent: MiniRing.Motion.SwordTraining.Defenseless, floats: true))
+        {
+            HidePlayerHead = true,
+            PlayerBodyOpacity = BoxingRenderer.FirstPersonBodyOpacity,
+        };
+        var mapper = new MiniRing.Motion.VrPlayerMapper(weaponMode: true) { GripHolds = true, FirstPerson = true, HeldWeapon = Weapons.WeaponKind.Katana };
+        var raw = new MiniRing.Motion.VrRawFrame(head, Quaternion.Identity,
+            new Vector3(-0.25f, 0.95f, -0.05f), new Vector3(0.25f, 0.95f, -0.05f), true, true,
+            Vector2.Zero, Vector2.Zero, 0f, 0f, false, true, Quaternion.Identity, Quaternion.Identity);
+        for (var i = 0; i < 240; i++)
+        {
+            game.Step(mapper.Read(raw, game.PlayerSense, 1f / 240f), 1f / 240f);
+        }
+
+        var placement = mapper.Placement!.Value.Displayed(game.Display);
+        Matrix4x4.Invert(Matrix4x4.CreateFromQuaternion(Quaternion.CreateFromAxisAngle(Vector3.UnitX, -0.5f)) * Matrix4x4.CreateTranslation(head), out var vrView);
+        var viewProjection = Camera.OffCenterViewProjection(placement.View(vrView), new FrustumWindow(-1.0f, 1.0f, -0.563f, 0.563f), 0.02f * placement.Scale, 50f);
+        var (instances, lines) = game.BuildRenderables();
+        using var reference = new HeadlessRenderer(960, 540);
+        var pixels = reference.RenderPrimitiveScene(ArenaLook.Background, viewProjection, instances, lines, particles: game.BuildParticles(),
+            lighting: game.BuildLighting(), shadow: game.BuildShadow(), cameraPosition: placement.Point(head), voxels: game.BuildVoxelVolumes());
+        PngWriter.WriteRgba(Path.Combine(outputDirectory, "vr_first_person_floating.png"), 960, 540, pixels);
+        Console.WriteLine($"[first-person selftest] floating weapon: {game.Weapons.Count(game.IsFloating)} floating, player holds {game.Player.Wields(Hand.Right)}");
     }
 
     public static int Run(string outputDirectory)

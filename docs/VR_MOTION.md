@@ -68,6 +68,7 @@ miniring-arena imitate --vrmotion x.vrmotion --measure yes                      
 | ボタン | 何が起きるか |
 |---|---|
 | 右スティック 左・右 | 前・次の型（刀は `FormSwordsman.Forms(Katana)` の 20 型の順: shomen・kesa・…）。変えるたびにワールドを作り直し、その型の間で向き合う。記録は型ごとに新しいファイルへ切り替わる。右手に短い振動 |
+| 右スティック 上・下 | 前・次の相手（2026-11-25、`SwordTraining.Opponents`）: `seigan`（構えて動かない、今までの相手）・`defenseless`（武器も構えも無く両手を下ろして立つ）・`weapon`（同じ武器で戦ってくる、武器の教科書のボット。ボットのある武器だけ）・素手の各スタイル（boxer・outboxer・swarmer・counter・slugger・jabber・champion・karate・taekwondo・muaythai・jujutsu）。変えるたびに作り直す（型はそのまま）。右手に短い振動、コンソールに相手と型 |
 | 左スティック | 歩く（`--first-person` では VR の空間の原点をワールドで動かし、体がそれを追って歩く） |
 | グリップ（左右） | 武器を持つ（§6）。両手持ちで両方を押している間は右のコントローラが両手を動かす（`--two-hand right`、既定）。離した手は武器を放す |
 | トリガー | 使わない |
@@ -82,7 +83,8 @@ miniring-arena imitate --vrmotion x.vrmotion --measure yes                      
 - **武器**: `run_vr_training_katana.cmd`（① 右手で両手）・`_katana_fpv.cmd`（② 一人称）に加え、`run_vr_training_longsword.cmd`・`jo`・`club`（こんぼう = 片手。型はバットの型を借りる。`docs/DEBT.md`）・`swordshield`（片手剣 + 左手の盾: `--shield`。左のコントローラが盾を動かす）と、それぞれの `_fpv.cmd`（`jo`・`longsword`・`swordshield`）。`--training` は `katana`/`longsword`/`staff`/`jo`/`ironsword`/`bat`/`woodenclub`。
 
 - **始めの間**（`SwordTraining.Forms`）: その型の動き（踏み込みを含む）で物打ちが相手の体の面にちょうど届く距離（`StrikeDrill.ReachOf`）。試合の技の下限（0.33 m）では外さず、全部の型を並べる（柄頭打ち・押し斬りも）。下限 0.2 m・上限はリングの縁から 20 cm 内。コンソールに型の名前と間（ゲームの寸法と人の大きさ）を出す。
-- **相手**（`GuardHold`）: 武器の型の構え（刀は中段 = `FormSwordsman.Guard`）を相手へ向いてとり続ける。歩かない・打たない・受けない。体はバネで構えを追うので、打たれれば持っていかれ、構えへ戻る。
+- **自分の武器は目の前に浮いている**（2026-11-25、`BoxingCorners.PlayerWeaponFloats`。VR の試合も同じ）: 手には持たずに始まり、胸の前・少し下に握りを右へ向けて、切っ先を前へ 45° 上げた刀が浮いて体に付いてくる。手を握りへ伸ばしてグリップを押すと取れる（もう一方の手を柄へ添えるのも同じ）。浮いている間は誰の体・武器とも当たらない。放した武器が床などで止まって 1.5 秒（`BoxingGame.FloatReturnSeconds`）経つと、また目の前に浮く。手はグローブでなく素手で始まる（盾の稽古は盾のまま）。近道は docs/DEBT.md「VR の浮いた武器」。
+- **相手**（既定 `seigan` = `GuardHold`。右スティックの上下で選ぶ）: 武器の型の構え（刀は中段 = `FormSwordsman.Guard`）を相手へ向いてとり続ける。歩かない・打たない・受けない。体はバネで構えを追うので、打たれれば持っていかれ、構えへ戻る。
 - **ワールド**: 武器のドリルのリング（`RingLayout.DrillWeapons`、2.4 m）の中央で向き合う。審判・休みの動作・ラウンドは無し。試合の記録（replays）は取らない。型を変える・作り直す（A+B+X+Y）と `BoxingGame` を作り直す（§1.1: 位置は書き込まない）。身長の合わせ（写像）は作り直しても残る。
 - コード: `games/MiniRing/Motion/SwordTraining.cs`（型の並びと間・試合の設定・`GuardHold`・`StickFlick`）、`games/MiniRing.Vr/VrTrainingSession.cs`（スティック・記録・振動）、`VrMotionSession` に記録の名前と注・`Stop`・`Restart`、`Motion/KickRunner.cs`（蹴りの実行と `FaceButtonTracker`）。テスト `SwordTrainingTests`。
 - **確かめていないこと（実機が無い）**: ヘッドセットで、型を変えたときに立ち位置が正しく変わるか・振動が届くか・相手が正眼に見えるか。ヘッドセットの中では型の名前が見えない（コンソールだけ）ので、型の順と振動で数える。見える札（ワールドの中の文字）は未実装。
@@ -96,6 +98,10 @@ miniring-arena imitate --vrmotion x.vrmotion --measure yes                      
 - `VrPlayerMapper.GripHolds`（VR ホストの武器の試合で有効）: グリップ = `HandCommand.Grip`（素手の掴みと同じ欄）。**トリガーは使わない**（`Slide` は常に false）。握っていない手で、手が柄の近くにあれば持つ（拾う・添える）のは体の側（B の作業）。
 - 武器を握っている手でグリップを**離した瞬間**だけ `HandCommand.LetGo = true` を 1 歩出す（離しっぱなしでは出さない: 始めに握っていた武器を、グリップを押したことのない人がいきなり落とさない。フォーカスを失った離しでも出さない）。握っていない（`SelfWeapon.Held` が false の）ときは出さない。
 - 旧（トリガーで握る・離すと滑る）は `GripHolds = false` で残してある（合成の記録 `VrMotionSynth` と旧の単体テスト用）。
+
+- **放す（2026-11-25）**: グリップを離した瞬間の `LetGo` は、主の武器を握っているか（`SelfWeapon`）に依らず出す（握っていない手の放すは `BoxingGame.LetGo` が無視する）。右だけ離して左が片手で持つことになった武器は、左を武器の手にする（`BoxingGame.FollowPromotedHand`）。それまでは右を離した後の左手の物を放せなかった。
+- **拾う（2026-11-25）**: 両手で握れる武器は、柄のどこ（両手の握りの点を結ぶ線分）でも拳から `WeaponGraspReach`（15 cm）以内なら拾える（`BoxingGame.GraspDistance`）。それまでは鍔元の 1 点だけ。
+- **片手の刀の握り（2026-11-25）**: 両手で持つ武器（刀・ロングソード・杖・バット）を 1 本の手で支えるときの手首のサーボを 25 Hz・20 N·m・減衰比 3 にした（`FighterTuning.GripWristServoHz`・`GripWristMaxTorque`・`GripWristDampingRatio`、前は 8.94・10・1。片手の割合 1/3 は掛かったまま）。両手で持つ間（添えに行っている間も）・グローブ・片手の武器は今まで通り（両手と刀の閉じた輪の中で固い手首どうしが押し合うと体が滑り、片手剣まで固めると片手剣と盾のボットの守りが崩れたため）。**片手剣（`--weapon ironsword`）は直していない**: 片手で 20° 上げて前へ向けると 16° 垂れる（`VrOneHandSwordProbe.OneHandedIronSwordWithTheOldWrist`。25 Hz にすると切っ先が暴れたので別に調べる）。片手で 20° 上げて前へ向けた刀の狙いのずれ 21.9° → 2.7°、向きを 40° 変えて 5° 以内に入るまで 0.31 s（前は 2 秒でも入らない）。周期 1 秒・±1.5° の体ごとのゆっくりした揺れは残る（`VrOneHandSwordProbe`・`VrWeaponHandlingTests`。体の物理なのでボットの片手の武器も同じ）。
 
 ### 6.2 ① `--two-hand right`（既定）
 
@@ -129,6 +135,7 @@ miniring-arena imitate --vrmotion x.vrmotion --measure yes                      
 4. A 単独で合わせ、4 つ同時で作り直し、X・Y の蹴り（前蹴り・膝蹴りの切り替わり）が押し間違いなく出るか。Quest Touch の X・Y・A・B の割り当て（Index は A・B）。
 5. 稽古を終えたとき（Ctrl+C）に今の記録が保存されるか。`motions/` に型ごとのファイルができているか。
 6. 一人称の「頭の位置のずれ」の許容（頭の目標と体の頭の差）が大きすぎて酔わないか。デッドゾーン・傾けの上限・基準点の頭打ち（`VrPlayerMapper` の定数）の調整。
+8. （2026-11-25）始めに刀が目の前に浮いて見え、手を伸ばしてグリップで取れるか。放して床に落ちた刀が 1.5 秒ほどで目の前に戻るか。片手で持った刀が狙った向きで止まり、切っ先が震えないか。右を離した後、左のグリップを離して落とせるか。右スティックの上下で相手が変わるか（無防備・同じ武器・素手の各スタイル）。
 7. （2026-11-24）一人称で、手の目標の玉（水色・握ると黄色）が実際の手（コントローラ）の所に見えるか。ゆっくり動かすと玉は手に付いてくるか、体の手（グローブ・素手）が遅れて玉を追うか。速く振ると玉と体の手の差が開くのは体の側（バネで追う）。思った所へ振れるか。半透明の自分の腕・胴が邪魔でないか・薄すぎて自分の体の向きが分からなくならないか（`BoxingRenderer.FirstPersonBodyOpacity`）。
 
 ## 実機で試してほしいこと（確かめていない、§1〜§3 の分）
