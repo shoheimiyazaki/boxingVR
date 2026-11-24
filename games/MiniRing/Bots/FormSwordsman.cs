@@ -144,12 +144,14 @@ public static class FormSwordsman
     /// 武器の教科書（とキャラの教育を重ねた <see cref="WeaponStyle"/>）で動く試合の剣士。値は全部 <paramref name="style"/> から（コードに数字を埋めない）。
     /// 教科書が今までの既定と同じ値のとき、試合はビット単位で同じ。
     /// <paramref name="offhandRadius"/> は空いた手の物（盾・グローブ）が面を広げる半径 [腕の長さ]（<see cref="SwordsmanBot.OffhandRadius"/>）。
+    /// <paramref name="techniques"/> は技の一覧の差し替え（VR の記録から作った型を試すとき: <see cref="VrMotionForms"/>、Arena の <c>vrforms</c>）。null なら武器の型。
     /// </summary>
-    public static DisarmedFallback Bot(WeaponKind weapon, int seed, float armReach, FighterTuning tuning, WeaponStyle style, float offhandRadius = 0f)
+    public static DisarmedFallback Bot(WeaponKind weapon, int seed, float armReach, FighterTuning tuning, WeaponStyle style, float offhandRadius = 0f,
+        IReadOnlyList<MotionTechnique>? techniques = null)
     {
         ArgumentNullException.ThrowIfNull(style);
         CheckTechniqueNames(weapon, style.TechniqueWeights);
-        var bot = new SwordsmanBot([.. Techniques(weapon, armReach, style.InnerMinReach ?? style.MinReach)], Guard(weapon), seed, SwordStance.Rate, rest: style.Rest, tuning: tuning,
+        var bot = new SwordsmanBot([.. techniques ?? Techniques(weapon, armReach, style.InnerMinReach ?? style.MinReach)], Guard(weapon), seed, SwordStance.Rate, rest: style.Rest, tuning: tuning,
             defense: style.Defense, bladeLength: BladeLength(weapon, armReach), spacing: Spacing(weapon), opponentReach: 3f, hitAndAway: style.HitAndAway, aim: style.Aim)
         {
             AutoAim = style.AutoAim,

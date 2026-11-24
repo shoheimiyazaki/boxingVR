@@ -47,12 +47,16 @@ miniring-vr --weapon longsword --cpu jabber      # 相手のスタイルを選�
 ```
 miniring-arena vrmotion-synth --out docs/vrmotion/staff_thrust_synthetic.vrmotion     # 合成の記録（棒の突き）を作る
 miniring-arena imitate --vrmotion motions/xxx.vrmotion [--weapon staff] [--slow 2] [--rate 1] --out x.mp4
-miniring-arena imitate --vrmotion x.vrmotion --measure yes                            # 動画を作らず、両手の目標からのずれだけ
+miniring-arena imitate --vrmotion x.vrmotion --measure yes                            # 動画を作らず、両手の目標からのずれと、自分の刃で失った体のセル（self cells lost）だけ
 ```
 
 動画は赤が武器を持って相手に背を向けてなぞる。金の線・十字は両手の目標（右 = 金、左 = 水色）、画面の隅に目標からのずれ（腕の長さ = 1）と、トリガーを離している手の表示。
 
 `docs/vrmotion/staff_thrust_synthetic.vrmotion` は実機の代わりの合成（身長 1.7 m の人が棒を両手で持ち、少し引いて 14 cm 突く。突きの間は左手のトリガーを離す）。人の体の寸法の軌跡を作って実機と同じ `VrPlayerMapper` → `VrMotionRecorder` に通したもの。なぞり方（2026-11-17 の測定）: 右手の目標からのずれ 平均 0.05・左手 0.23（腕の長さ = 1。左手は両手持ちの棒の握りが決める側）。
+
+**記録から良い振りを選ぶ**（2026-11-24）: `py -3 tools/vrmotion_pick.py --forms <型の書き出し> --out <表> [--pick-dir docs/vrmotion] [--trim-all <切り出し>] [--sim <なぞりの CSV>] <記録のフォルダ>…`。切っ先の速さ・刃筋・滑らかさ・型の狙い・型の経路との近さ・なぞりの自傷で点を付け、型ごとの上位と倒れた相手への攻撃の候補を、振りの前後だけ切り出して書く。型の経路は調査用のテスト `KatanaFormDumpProbe`（環境変数 `KATANA_FORMS_OUT`）、なぞりの測定は `bash tools/vrmotion_sim.sh <切り出し> <CSV>`。点の付け方・表・選んだ振り: [arena/vrmotion_pick_2026-11-24.md](arena/vrmotion_pick_2026-11-24.md)。選んだ写しは `docs/vrmotion/katana_*.vrmotion`。
+
+**試合で使う**（2026-11-25）: `VrMotionForms.ToSwordMotion` が、選んだ写しを剣士の型（`SwordMotion`）にする（打ちの山の前 0.7 s・後 0.4 s を正眼から繋いで正眼へ戻す目標の経路）。`FormSwordsman.Bot(..., techniques:)` で技の一覧を差し替えられる（省略すれば武器の型）。`miniring-arena vrforms [--only kote,nuki-do] [--seed 101 --bouts 16 --confirm yes] [--video x.mp4]` が教科書の型の剣士と戦わせて比べる。結果は docs/BOT_PDCA.md「VR の振りを刀の剣士の型にする」（今は差なし、採らない）。盾を持ってなぞるのは `imitate --vrmotion … --weapon ironsword --wear shield`。
 
 ## 4. 次の段（今回は作っていない）
 

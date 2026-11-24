@@ -12,7 +12,7 @@ namespace MiniRing.Arena;
 /// 赤が武器を両手で握り（記録の見出しの武器、または <c>--weapon</c>）、相手に背を向けて、記録した両手の目標・武器の向き・頭のずれ・歩きを
 /// 自分の腕の長さで当てはめてなぞる。金の線は両手の目標（右手 = 黄、左手 = 水色の点）、画面の隅に両手の目標からのずれと、左手のトリガー（滑り）の状態を出す。
 /// </summary>
-internal sealed class VrMotionVideo(int width, int height, int fps, float slow)
+internal sealed class VrMotionVideo(int width, int height, int fps, float slow, HandWear wear = HandWear.Glove)
 {
     private const float LeadIn = 1.343f;
     private const float TitleSeconds = 1.5f;
@@ -21,7 +21,8 @@ internal sealed class VrMotionVideo(int width, int height, int fps, float slow)
     private static readonly Vector4 Gold = new(1f, 0.85f, 0.3f, 1f);
     private static readonly Vector4 Ghost = new(0.6f, 0.85f, 1f, 1f);
 
-    internal readonly record struct Tracking(float MeanRightError, float MeanLeftError, int Steps);
+    /// <summary>なぞれ方: 両手の目標からの平均のずれ（腕の長さ = 1）と、なぞった人形が自分の刃で失った体のセルの数（自分を斬る記録を見分ける）。</summary>
+    internal readonly record struct Tracking(float MeanRightError, float MeanLeftError, int Steps, int SelfCellsLost = 0);
 
     public Tracking Make(VrMotionClip clip, WeaponKind? weapon, float rate, string title, string outPath, TextWriter log)
     {
@@ -41,7 +42,7 @@ internal sealed class VrMotionVideo(int width, int height, int fps, float slow)
         }
 
         log.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"{title}: right hand error {result.MeanRightError:0.00} left hand error {result.MeanLeftError:0.00} (arm lengths, {result.Steps} steps)"));
+            $"{title}: right hand error {result.MeanRightError:0.00} left hand error {result.MeanLeftError:0.00} (arm lengths, {result.Steps} steps), self cells lost {result.SelfCellsLost}"));
         return result;
     }
 
@@ -52,9 +53,10 @@ internal sealed class VrMotionVideo(int width, int height, int fps, float slow)
         VrMotionImitation? imitation = null;
         var twoHanded = MiniRing.Bots.FormSwordsman.Handles(weapon);
         using var game = new BoxingGame(Motion.SwordStance.Tuning, seed: 1, corners: new BoxingCorners("imitate", _ => new StandGuard(),
-            _ => imitation = new VrMotionImitation(clip, rate, faceAway: true, leadIn: LeadIn), PlayerWeapon: weapon, PlayerTwoHanded: twoHanded));
+            _ => imitation = new VrMotionImitation(clip, rate, faceAway: true, leadIn: LeadIn), PlayerWeapon: weapon, PlayerTwoHanded: twoHanded, PlayerWear: wear));
         var control = imitation!;
         var reach = game.Player.ArmReach;
+        var cellsBefore = BodyCells(game.Player);
         var dt = 1f / 240f;
         var length = LeadIn + (clip.Duration / rate) + 1.007f;
         var lines = new List<DebugLine>();
@@ -108,8 +110,11 @@ internal sealed class VrMotionVideo(int width, int height, int fps, float slow)
             ], lines, 0f);
         }
 
-        return count == 0 ? default : new Tracking(rightSum / count, leftSum / count, count);
+        var selfCells = cellsBefore - BodyCells(game.Player);
+        return count == 0 ? new Tracking(float.NaN, float.NaN, 0, selfCells) : new Tracking(rightSum / count, leftSum / count, count, selfCells);
     }
+
+    private static int BodyCells(Fighter fighter) => fighter.Voxels?.Parts.Sum(p => p.Body.Grid.FilledCount) ?? 0;
 
     private static void AddCross(List<DebugLine> lines, Vector3 p, Vector4 color, float size)
     {

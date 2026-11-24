@@ -53,6 +53,10 @@ public static class VoxelBending
     public static VoxelBreak? WorstBend(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f, float tensileScale = 1f)
         => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, tensileScale, minRatio: 0f);
 
+    // Jitted fully optimised from the start (no tiering, so no on-stack replacement): with OSR this method crashed with an
+    // AccessViolationException in long matches (.NET 10.0.4xx; reproduced with a katana finishing a downed fighter, gone with
+    // DOTNET_TC_OnStackReplacement=0). The arithmetic is the same either way.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]
     private static VoxelBreak? Worst(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis, bool loadBearingOnly, (int Low, int High)? candidates, float tieActivation, float tensileScale, float minRatio)
     {
         ArgumentNullException.ThrowIfNull(grid);
