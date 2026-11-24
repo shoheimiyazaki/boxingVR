@@ -1,0 +1,20 @@
+{
+  "org": "wvc",
+  "asOf": "2026-11-19",
+  "basis": "階級ごとの総当たり（両コーナー × 種 1,2・5R・休み 10 秒）。physics 45・logic 49",
+  "divisions": [
+    {
+      "division": "open",
+      "champion": "marcus",
+      "ranking": [
+        "dmitri",
+        "yoandry",
+        "narong",
+        "taeyun",
+        "akira",
+        "ramon",
+        "albert"
+      ]
+    }
+  ]
+}

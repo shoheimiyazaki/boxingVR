@@ -28,6 +28,7 @@ namespace MiniRing.Arena;
 /// <param name="tvEvent">テレビ中継の冒頭に出す大会名。</param>
 /// <param name="tvBout">テレビ中継の冒頭に出す「第 1 試合」などの札（空なら出さない）。</param>
 /// <param name="tvBreak">テレビ中継のラウンドの間の休み [s]（休みの間に治る量は標準と同じ）。</param>
+/// <param name="tvNotes">台本の資料に足すこの試合の行（計量・王座とランキングの席。<see cref="OrgBouts.Billing"/>）。</param>
 /// <param name="render">
 /// false なら描かない下回し: <see cref="HeadlessRenderer"/>・ffmpeg・音を作らず、試合と演出（<see cref="TvDirector"/>・リプレイの影の試合・<see cref="Broadcast"/>）だけを同じに回して
 /// *.events.json だけを書く（コマは数えるだけ。物理の速さで終わる）。mp4・wav・タイムラインは書かない。
@@ -40,7 +41,8 @@ namespace MiniRing.Arena;
 /// <paramref name="render"/> が false とは一緒に使えない。
 /// </param>
 internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false,
-    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 16.78f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null, bool belt = false, float cameraScale = 1f, bool focusRed = false)
+    int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 16.78f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null, bool belt = false, float cameraScale = 1f, bool focusRed = false,
+    IReadOnlyList<string>? tvNotes = null)
 {
     private readonly Organization _org = org ?? Organization.Default;
 
@@ -145,8 +147,8 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         }
 
         var card = _rules is null ? null : new TvCard(tvEvent, tvBout,
-            redCharacter is null ? TvCorner.Of(redRing, red.Name, redWear, redWeapon) : TvCorner.Of(redCharacter),
-            blueCharacter is null ? TvCorner.Of(blueRing, blue.Name, blueWear, blueWeapon) : TvCorner.Of(blueCharacter), _rules, belt);
+            redCharacter is null ? TvCorner.Of(redRing, red.Name, redWear, redWeapon) : TvCorner.Of(redCharacter) with { Seat = SeatOf(redCharacter) },
+            blueCharacter is null ? TvCorner.Of(blueRing, blue.Name, blueWear, blueWeapon) : TvCorner.Of(blueCharacter) with { Seat = SeatOf(blueCharacter) }, _rules, belt);
         // 試合の前の場面の生の絵のための影の試合（生成直後の T ポーズを映さない。本番の試合は進めない）。同じ種・両コーナー・決まり・雰囲気。
         var stage = card is null ? null : new BoxingGame(seed: seed,
             corners: TvShowRules.Stage(WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter), _org),
@@ -164,7 +166,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         var broadcast = card is null ? null : new Broadcast(redRing, blueRing, red.Name, blue.Name)
         {
             OrgId = _org.Id,
-            RulesSheet = _org.RulesSheet,
+            RulesSheet = [.. _org.RulesSheet, .. tvNotes ?? []], // 団体の決まりに、この試合の計量と席（IVF の階級・王座）を足す
             ReactionGain = _org.Crowd.ReactionGain,
             AmbienceGain = _org.Crowd.AmbienceGain,
             RedGear = GearName(redWeapon),
@@ -1055,6 +1057,22 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         MiniRing.Break.BreakEmotes.Hum => "口ずさみながら体を揺らしている",
         _ => name,
     };
+
+    /// <summary>
+    /// 団体の中の階級と席（「ミドル級 王者」「ヘビー級 2位」）。階級制でなく席も無ければ null（比べる表に行を出さない）。
+    /// 階級制なら席が無くても階級だけ出す（計量の結果）。
+    /// </summary>
+    private string? SeatOf(MiniRing.Characters.FighterCharacter character)
+    {
+        var seat = OrgStandings.Of(_org).SeatOf(character.Id);
+        if (!_org.HasWeightClasses)
+        {
+            return seat is null ? null : $"{_org.LogoText} {seat}";
+        }
+
+        var division = _org.DivisionOf(OrgBouts.WeightOf(character)).Name;
+        return seat is null ? division : $"{division} {seat}";
+    }
 
     /// <summary>握る武器の呼び名（中継の言葉）。拳なら null。</summary>
     private static string? GearName(MiniRing.Weapons.WeaponKind? weapon) => weapon switch

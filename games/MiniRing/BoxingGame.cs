@@ -555,6 +555,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <summary>前の物理の歩で、ダウン（審判が数えていた）だった両者。</summary>
     private readonly HashSet<Fighter> _wasCounted = [];
 
+    /// <summary>このラウンドに取られたダウンの数（<see cref="MatchRules.KnockdownLimit"/> 用。ラウンドの始まりに 0 へ戻す）。</summary>
+    private readonly Dictionary<Fighter, int> _roundKnockdowns = [];
+
+    /// <summary>このラウンドに <paramref name="fighter"/> が取られたダウンの数（ダウンを数える団体で、休み・試合の後を除く）。</summary>
+    public int RoundKnockdowns(Fighter fighter) => _roundKnockdowns.GetValueOrDefault(fighter);
+
     /// <summary>
     /// 相手の体への打撃を数えてよいか（ゲームの決まり。物理は同じ）。立っている相手には常に数える。倒れている相手（起き上がり中を含む）は、
     /// レフェリーがいれば数えない（ダウンはカウントで決着）、いなければ数える（<see cref="BoxingCorners.Referee"/>。技の種類では分けない）。
@@ -590,6 +596,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             {
                 if (_wasCounted.Add(fighter))
                 {
+                    if (CountsDowns && !Resting)
+                    {
+                        _roundKnockdowns[fighter] = RoundKnockdowns(fighter) + 1; // 新しいダウン（立っていた → 倒れた）。3 ノックダウン制（KnockdownLimit）が数える
+                    }
+
                     // 取られたダウンを試合を通して数える（戦略の層の点の差 MatchSense.DownLead。読むだけ）。
                     if (fighter == Player)
                     {
@@ -1208,6 +1219,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         {
             EndRound(cpuWon: still == Player, "K.O. — OUT COLD");
         }
+        else if (CountsDowns && Rules?.KnockdownLimit is > 0 and var limit && Fighters.FirstOrDefault(f => RoundKnockdowns(f) >= limit) is { } floored)
+        {
+            EndRound(cpuWon: floored == Player, $"TKO — {limit} KNOCKDOWNS"); // 1 ラウンドに limit 回のダウンで止める（団体の決まり）
+        }
         else if (_ring.IsOut(Player.PelvisPosition))
         {
             EndRound(cpuWon: true, "RING OUT");
@@ -1403,6 +1418,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
                 {
                     fighter.ResetCount(); // 倒れたまま休みに入っても、次のラウンドで数え直す
                 }
+
+                _roundKnockdowns.Clear(); // ダウンの数はラウンドごと
 
                 RecentBell = RoundBell.Start;
                 ShowMessage($"ROUND {MatchRound}", 1.5f);
@@ -2226,6 +2243,12 @@ public sealed record MatchRules(float RoundSeconds = 50.35f, int Rounds = 5, flo
     /// 休みの間に、試合の始めに持っていた武器を失った選手へ、同じ種類の新しい武器を手に支給するか（手が武器を保持できるときだけ。1 回の休みに 1 本まで）。
     /// </summary>
     public bool ResupplyWeapons { get; init; }
+
+    /// <summary>
+    /// 1 ラウンドに取られたダウンがこの数に届いたら、その場で TKO（<c>"TKO — 3 KNOCKDOWNS"</c>）。0 なら無い（既定、WVC）。IVF は 3（3 ノックダウン制）。
+    /// ダウンを数える団体（<see cref="CountsDowns"/>）でだけ効く。数は審判がダウンを取った回数（<see cref="Fighter.IsKnockedDown"/> になった回数）で、ラウンドの始まりに 0 へ戻る。
+    /// </summary>
+    public int KnockdownLimit { get; init; }
 
     /// <summary>テレビ中継の標準: 50.35 秒 × 5 ラウンド、休み 16.78 秒（人形の単位の 30 秒・10 秒を実物大の時間へ ×√L）。</summary>
     public static MatchRules Tv { get; } = new();

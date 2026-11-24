@@ -70,6 +70,7 @@ internal static class TvShowRules
             ResupplyWeapons = org.Match.ResupplyWeapons,
             ConcussionSpinScale = org.Match.ConcussionSpinScale,
             LimbBendStrengthScale = org.Match.LimbBendStrengthScale,
+            KnockdownLimit = org.Match.KnockdownLimit,
         };
     }
 

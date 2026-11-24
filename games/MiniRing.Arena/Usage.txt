@@ -1,5 +1,8 @@
 ボット同士の対戦場。
   rosterleague [--wear id=glove,...] [--chars a,b,...] [--bouts N] [--seconds S] [--seed X] [--referee on|off] [--parallel N] [--set A=v,B=v [--ab on [--layered id]]] [--gameplan on|off|ab] [--matrix file.csv] [--out file.md]   名簿のキャラの総当たり（体格・距離の帯・打撃の表）
+  weighin [--org ivf]   名簿の計量の表（体重・階級・王座とランキングの席。docs/ORGS.md）
+  rankings --org ivf [--division id] [--seeds 1,2] [--rounds 5] [--break S] [--crown on|off] [--out standings.json] [--report f.md]   階級ごとの総当たりでランキングを決め直す（組み込みの記録なので、使うにはビルドし直す）
+  title --org ivf --winner id --loser id [--out standings.json]   試合の結果で王座とランキングを動かす
   league [--bots a,b,...] [--bouts N] [--seconds S] [--seed X] [--out file.md]   総当たりの順位表と技の内訳
   excitement [--red a] [--blue b] [--seconds S] [--seeds N] [--seed X] [--out file.md] [--curve 接頭辞]   試合の面白さ（見どころ・ドラマ・緩急）の一覧とまとめ（docs/EXCITEMENT.md）
   excitementleague [--pairs a:b,c:d] [--seconds S] [--seeds N] [--seed X] [--out file.md] [--label 名前]   何組かの面白さの表

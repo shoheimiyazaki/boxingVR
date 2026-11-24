@@ -127,6 +127,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | `docs/commentary/README.md` | 動画の語りの LLM 向け説明書: 型（テレビの実況＋解説・一人実況・心の声）× 役 × 個性の層と組み合わせ（`docs/TV_BROADCAST.md` が中継の道具） |
 | `docs/BREAK_ROUTINE.md` | ラウンドの間の休みの選手の動作（水を飲む・汗を拭く・スマホ・電話・深呼吸…）: 目標の経路・選び方・小物（ボクセルの物）・近道 |
 | `docs/VFC.md` / `docs/plans/VFC_PLAN.md` | VFC（Voxel Fighting Championship、何でもありの団体）: ダウンを取らない・死だけが決着・5R で両者生還なら引き分け・休みに治らない・六角形の金網の檻。団体の違いは `games/MiniRing.Arena/Orgs/<id>.json`（見せ方と試合の決まり）、撮影は `--org vfc`・札の `"org"` |
+| `docs/ORGS.md` | 3 団体（WVC・VFC・IVF）の決まり・出場の条件・階級と計量・王座とランキングの比べと、記録（`Orgs/standings/`）・道具（`weighin`・`rankings`・`title`）。IVF = 階級制のボクシング団体（3 ノックダウン制） |
 | `docs/MEDIA.md` | 動画・リプレイの保管（`media/<世代>/`、git の外）の索引と、世代の区切り方 |
 | `docs/EXCITEMENT.md` | 試合の面白さの測り方: 見どころ（打ち合い・紙一重・カウンター・ダウン・骨折…の物理の定義）・観客の見込みの驚きとはらはら（ドラマ）・慣れのある興奮の曲線（緩急）・テストの床 |
 | `docs/ROSTER_REPORT.md` | 名簿の総当たり（組ごとの勝率と区間）・技ごとの間合いとダメージ・得意 / 不得意の距離を測り、ゲームの画像入りのレポート（Data 型の Artifact）にする手順・定義・考察の書き方（道具は `tools/roster-report/`） |
