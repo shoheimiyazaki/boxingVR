@@ -28,6 +28,7 @@ namespace MiniRing.Arena;
 /// <param name="tvEvent">テレビ中継の冒頭に出す大会名。</param>
 /// <param name="tvBout">テレビ中継の冒頭に出す「第 1 試合」などの札（空なら出さない）。</param>
 /// <param name="tvBreak">テレビ中継のラウンドの間の休み [s]（休みの間に治る量は標準と同じ）。</param>
+/// <param name="ring">場（<c>--ring</c>）。null なら団体と武器から決まる既定の場（<see cref="TvShowRules.Stage"/>）。</param>
 /// <param name="tvNotes">台本の資料に足すこの試合の行（計量・王座とランキングの席。<see cref="OrgBouts.Billing"/>）。</param>
 /// <param name="render">
 /// false なら描かない下回し: <see cref="HeadlessRenderer"/>・ffmpeg・音を作らず、試合と演出（<see cref="TvDirector"/>・リプレイの影の試合・<see cref="Broadcast"/>）だけを同じに回して
