@@ -1,0 +1,15 @@
+{
+  "_comment": "2026-11-24: 枝 claude/master-test-check @ 075c737（PhysicsVersion 90: 肘打ちを腰から・短い横の刻み・素手の実寸）で撮る WVC の番組。セミは素手どうし（正拳の空手家 対 ベアナックルの拳闘家）で、実寸になった素手の拳を見せる。メインは 1 勝 1 敗の因縁の決着戦（王者ザ・ハンマー 対 2020 年に唯一判定で破った返しの名手ヨアンドリ）を王座戦に。種は下見で選ぶ。プロスペクティブ制の実況解説。",
+  "event": "WVC ファイトナイト",
+  "program": "WVC ファイトナイト",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-p90-1124",
+  "scoutSeeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "partLimitMiB": 29,
+  "commentary": { "writer": "prospective", "model": "haiku" },
+  "bouts": [
+    { "red": "akira", "blue": "albert", "seed": "auto", "bout": "セミファイナル", "stake": "素手どうし、正拳 対 ベアナックル", "next": "王座挑戦者の候補" },
+    { "red": "marcus", "blue": "yoandry", "seed": "auto", "bout": "メインイベント", "stake": "WVC 世界ヘビー級タイトルマッチ、1 勝 1 敗の決着戦", "next": "WVC 世界王座防衛", "belt": true }
+  ]
+}

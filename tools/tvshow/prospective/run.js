@@ -272,6 +272,7 @@ async function main() {
   // 試合の前の場面（団体の番組の型が決める名前。記録に prefight の印が付く）は、種類の名前で決め打たずに印で見分ける。
   const isScreen = (e) => e.for === '実況' && (e.prefight || SCREEN.includes(e.type));
   const isTrigger = (e) => e.prefight || config.triggers.includes(e.type);
+  const calls = new Set(config.calls || []); // 実況が必ずコールする出来事（解説の途中なら切って実況へ）
   const sees = (s, e) => config.seats[s].sees.includes(e.for);
 
   // 選手の資料（未来の出来事を含む digest は渡さない）。
@@ -712,7 +713,16 @@ async function main() {
       const g = groups[gi++];
       T = Math.max(T, g.t);
       const text = (s) => g.events.filter((e) => sees(s, e)).map((e) => e.text).join(' / ');
-      if (cur && cur.wrapping && g.events.some((e) => sees(cur.seat, e))) {
+      const call = g.events.some((e) => calls.has(e.type) && sees('announcer', e));
+      if (cur && cur.seat !== 'announcer' && call) {
+        // ダウン・決着は実況がコールする: 解説の言葉はそこで切り、実況にマイクを渡す（config.calls）。
+        finish(cur, T, '実況のコール');
+        cur = null;
+        pending = null;
+        log.push(`${fmt(T)}s 実況のコールのため解説を切る`);
+        await mic('announcer', `出来事が起きました: ${text('announcer')}`);
+      }
+      else if (cur && cur.wrapping && g.events.some((e) => sees(cur.seat, e))) {
         // 言い切ると決めた言葉の途中: 新しい出来事は、次に話すときの記録として渡す（マイクは動かさない）。
         log.push(`${fmt(T)}s ${cur.seat} は言い切る途中（${g.events.map((e) => e.type).join('・')} は次に渡す）`);
       }

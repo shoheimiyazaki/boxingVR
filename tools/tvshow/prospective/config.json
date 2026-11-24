@@ -7,6 +7,8 @@
   "_seats": "席の名前・役・人物の説明のファイル・声は、札の団体のファイル（games/MiniRing.Arena/Orgs/<id>.json の cast）から読む。ここには席の見え方（sees）と資料の索引だけ。",
   "_triggers": "話している途中でもマイクを渡し直す出来事（席から見えるものだけ）。数の多い細かい出来事（カメラ・カウント・守り・狙い・体の中の様子）は履歴には入るが、マイクは動かさない。試合の始め・休み・終わりの選手の動作（*_scene・*_action）はマイクを動かす（入場の待ち時間に誰も話さなかった。2026-11-18）。試合の前の場面（団体の番組の型が決める名前。記録に prefight の印が付く）は、名前によらず全部がここに入る。",
   "triggers": ["intro_scene", "start_action", "end_scene", "end_action", "break_action", "round_start", "round_end", "wound_cam", "wound_zoom", "hit", "weapon_hit", "knockdown", "get_up", "fracture", "severed", "eye", "replay", "ko", "decision", "result"],
+  "_calls": "実況が必ず声に出す出来事（ダウン・決着）。解説が話している途中に起きたら、解説の言葉をそこで切って実況にマイクを渡す。解説へマイクを戻すと、解説は打撃の説明を続けて「ダウン」を誰も言わなかった（2026-11-24、物理 90 の WVC メインで 2 か所）。",
+  "calls": ["knockdown", "ko", "decision"],
   "_frames": "キーとなるフレーム（画像）を切り出す出来事。出来事の時刻から offset 秒後の 1 枚。試合の前の場面（prefight の印）は全部に 1 枚ずつ。",
   "frames": ["round_start", "knockdown", "fracture", "severed", "replay", "wound_zoom", "ko", "result"],
   "frameOffset": 0.4,

@@ -1,0 +1,40 @@
+{
+  "_comment": "2026-11-24: 枝 claude/master-test-check @ 075c737（PhysicsVersion 90・LogicVersion 65）で撮る VFC の番組。檻・死まで（決着は死だけ、5R で両者生還なら引き分け）。持つ武器のある組なので広い檻（7.32 m）。セミは盾で受ける剣士 対 棍棒の荒くれ（受けの硬さと一撃の重さ）、メインは西の両手剣 対 東の刀（長さと間合いの剣士どうし）。持つ武器なしの組（狭い檻）は試合にならなかったので差し替えた（vfc-p90-cage-1124.json）。種は 6 種の下見で選んだ（ドラマの点が最も高い種）。プロスペクティブ制の実況解説。",
+  "org": "vfc",
+  "event": "VFC ファイトナイト",
+  "program": "VFC ファイトナイト",
+  "rounds": 5,
+  "break": 25,
+  "out": "docs/video/vfc-p90-1124",
+  "scoutSeeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "partLimitMiB": 29,
+  "commentary": {
+    "writer": "prospective",
+    "model": "haiku"
+  },
+  "bouts": [
+    {
+      "red": "edgar",
+      "blue": "sean",
+      "seed": 4,
+      "bout": "セミファイナル",
+      "stake": "盾で受け切るか、棍棒で盾ごと砕くか"
+    },
+    {
+      "red": "konrad",
+      "blue": "jin",
+      "seed": 5,
+      "bout": "メインイベント",
+      "stake": "西の両手剣 対 東の刀、間合いを取った方が生き残る"
+    }
+  ]
+}

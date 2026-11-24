@@ -1,0 +1,40 @@
+{
+  "_comment": "2026-11-24: 物理 90 の VFC の最初の札（持つ武器なし → 狭い檻）。撮ったが番組に使わなかった: 狭い檻（3.66 m）で両者のスタミナが開始 7〜8 秒で尽き、檻の壁にもたれたまま 5 ラウンドが続いた（壁が支えるのでダウンにもならない）。ガストンは 8 種すべてで与えたダメージ 0。記録として残す（docs/plans/TV_PROGRAMS_P90_2026-11-24.md）。",
+  "org": "vfc",
+  "event": "VFC ファイトナイト",
+  "program": "VFC ファイトナイト",
+  "rounds": 5,
+  "break": 25,
+  "out": "docs/video/vfc-p90-1124-cage",
+  "scoutSeeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "partLimitMiB": 29,
+  "commentary": {
+    "writer": "prospective",
+    "model": "haiku"
+  },
+  "bouts": [
+    {
+      "red": "vikram",
+      "blue": "joao",
+      "seed": 2,
+      "bout": "セミファイナル",
+      "stake": "刃の拳 対 鉄の拳、近間の殺し合い"
+    },
+    {
+      "red": "gaston",
+      "blue": "tsuyoshi",
+      "seed": 3,
+      "bout": "メインイベント",
+      "stake": "鉄の籠手か、木の棒か。受けの硬い方が生き残る"
+    }
+  ]
+}
