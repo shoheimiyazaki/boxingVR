@@ -496,7 +496,8 @@ internal static class CircuitCommand
         }
 
         string Story(string key) => story[key]?.GetValue<string>() is { Length: > 0 } s ? s : throw new InvalidDataException($"{storyPath}: {key} がありません。");
-        JsonArray StoryList(string key) => story[key]?.AsArray() is { Count: > 0 } a ? (JsonArray)a.DeepClone() : throw new InvalidDataException($"{storyPath}: {key} が空です。");
+        JsonArray StoryList(string key, int min = 1) => story[key]?.AsArray() is { } a && a.Count >= min && a.All(x => !string.IsNullOrWhiteSpace(x?.GetValue<string>()))
+            ? (JsonArray)a.DeepClone() : throw new InvalidDataException($"{storyPath}: {key} は空でない文を {min} つ以上にしてください。");
         node["tagline"] = story["tagline"]?.GetValue<string>() ?? $"{league.Org.LogoText} {division}の新鋭";
         return new JsonObject
         {
@@ -517,7 +518,7 @@ internal static class CircuitCommand
             ["personality"] = Story("personality"),
             ["hobbies"] = StoryList("hobbies"),
             ["family"] = Story("family"),
-            ["episodes"] = StoryList("episodes"),
+            ["episodes"] = StoryList("episodes", min: 4), // 中継で使えるエピソードが 4 つ以上（CharacterProfileTests）
             ["quote"] = Story("quote"),
             ["commentaryNotes"] = Strings(notes),
         };

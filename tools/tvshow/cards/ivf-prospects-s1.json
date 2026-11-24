@@ -1,0 +1,16 @@
+{
+  "_comment": "IVF 新人リーグ シーズン 1 の挑戦試合（docs/arena/ivf_prospects.md）。種・ラウンド・休みは記録（league/ivf/bouts.jsonl の s1-c01-light・s1-c02-heavy）と同じなので、映像は記録の試合そのもの（circuit verify と同じ終わり）。動かし方: powershell -ExecutionPolicy Bypass -File tools/tvshow/tvshow.ps1 -Card tools/tvshow/cards/ivf-prospects-s1.json",
+  "org": "ivf",
+  "event": "IVF 新人の挑戦",
+  "rounds": 5,
+  "break": 16.78,
+  "out": "media/ivf-prospects-s1",
+  "partLimitMiB": 29,
+  "commentary": { "writer": "llm", "model": "haiku" },
+  "bouts": [
+    { "red": "ramon", "blue": "anan-inthasorn", "seed": 1979829201, "bout": "ライト級 ランキング挑戦", "stake": "ライト級 1 位への挑戦", "next": "ランキング 1 位",
+      "notes": "青のアナンは、240 人の新人が戦った IVF 新人リーグを勝ち上がってランキングに登録されたばかりの 18 歳。赤のラモンはライト級 1 位のレギュラー。" },
+    { "red": "marcus", "blue": "mauricio-villegas", "seed": 1943506367, "bout": "ヘビー級タイトルマッチ", "stake": "IVF ヘビー級王座", "next": "王座獲得", "belt": true,
+      "notes": "青のマウリシオは IVF 新人リーグを勝ち上がった新参で、この試合の前にランキング 1 位のドミトリーを倒して挑戦権を得た。赤のマーカス（ザ・ハンマー）は王者。" }
+  ]
+}

@@ -36,6 +36,7 @@ CLAUDE.md §5 にはよく使う物だけを置き、ここに全部を書く。
 | 姿勢のモデルを比べる・揺さぶりで崩す | `... -- balancelab [--only old,cop,soft-poly,soft-disk,softcop]`（立つ・引く・歩く・蹴る・投げ・試合で、倒れた回数・浮いた時間）/ `... -- swaylab [--hz 0,1,2] [--ki 0,3] [--cycles 3] [--push 0.25]`（周波数ごとに揺さぶってから支え釣り込み足。`docs/GRAPPLING.md` §7・§9） |
 | 回避の形を体の動きで測る | `... -- formlab --punch 3 --slot Weave --style swarmer [--set "HeadY=-0.8,Step=0.8"] [--cue 0] [--bouts 3]`（頭の横・上下・前の軌跡、腰の沈み、拳と頭の距離。`docs/BOT_PDCA.md`） |
 | 団体の計量・ランキング・王座（docs/ORGS.md） | `... -- weighin --org ivf` / `rankings --org ivf --seeds 1,2,3 --report docs/arena/ivf_rankings.md` / `title --org ivf --winner a --loser b` |
+| IVF の新人リーグ（docs/plans/IVF_PROSPECTS_PLAN.md） | `... -- circuit season --workers 24`（種から新人を作り興行を回す。tower32 で）/ `circuit register` / `circuit challenge --workers 5` / `circuit profiles` / `circuit report` / `circuit verify --bout s1-c02-heavy` |
 | ボクセルの書き出し・確かめ | `... -- voxexport --out boxer.vox` / `voxcheck --in boxer.vox [--install yes]`（武器・はめる物は `weaponexport --out weapons.vox` / `weaponcheck --in weapons.vox [--install yes]`） |
 | CT から体のボクセルを作る | `py -3 -I tools/ct-body/fetch.py survey`・`fetch.py subject s1029`（TotalSegmentator を範囲指定で 1 人ぶん、リポジトリの外 `../ct-data/` へ）→ `build.py s1029 --out ../ct-data/out`（部位の .vox）→ `render.py <今.vox> <CT.vox> --out compare.png`（正面・横・上・断面）。計画は `docs/plans/CT_BODY_PLAN.md` |
 
