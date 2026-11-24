@@ -119,6 +119,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | `docs/BOJUTSU.md` | 棒術（六尺棒）: 棒の形・両手の握り・両端を使う型の経路・教科書・測定・近道 |
 | `docs/TONFA.md` | トンファー（両手にはめる木の棒）: 形・打ち方・前腕の受け・教科書・測定・近道 |
 | `docs/SWORD_SHIELD.md` | 片手剣と盾: 盾の形・片手の型・左手で覆う守り・教科書・測定・近道 |
+| `docs/BLADE_CUT_STUDY.md` | 刃の切れ味の計測（1 関節の円弧の振り）: 速さ・運動量・エネルギーのどれが斬る量を決めるか、肉は斬れて骨は断てない境目、実物との比べ（`bladecut`） |
 | `docs/WEAPON_DEFENSE.md` | 武器を選ばない守り（読み・受け流し・足と頭で外す・間合いを保つ）と守りのドリル（guardlab） |
 | `docs/VR_MOTION.md` | VR で武器を持つ（`--weapon`・トリガーで握る／離すと滑る・コントローラの向き）、VR の動きの記録（`.vrmotion`）と、記録をなぞる（`imitate --vrmotion`）、実機で試す手順 |
 | `docs/REUSE.md` | エンジン（Aigis）と iTVision から持ってきたもの、エンジンへの変更 |

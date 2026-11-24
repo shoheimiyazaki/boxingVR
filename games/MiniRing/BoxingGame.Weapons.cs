@@ -648,15 +648,26 @@ public sealed partial class BoxingGame
     {
         // 打つ面が柔らかい物（グローブの革・素手の皮膚）は押し込まない: 腕が押し付ける力は詰め物や肉が広い面で受けて散らす（圧力のモデルは
         // 表の面だけを見るので、その下で押す腕の力を数えると、構えた拳を押し付けているだけで肌が削れてしまう）。硬い面（鉄・木）は伝える。
-        if (HolderOf(weapon) is not { } holder || !Weapon.HasRigidFace(weapon.Kind))
+        if (!Weapon.HasRigidFace(weapon.Kind))
         {
             return Vector3.Zero;
+        }
+
+        if (HolderOf(weapon) is not { } holder)
+        {
+            return FreeDrive?.Invoke(weapon) ?? Vector3.Zero;
         }
 
         var hand = HandOf(weapon);
         var force = holder.HandPush(hand);
         return holder.SupportOf(hand) is { } support ? force + holder.HandPush(support) : force;
     }
+
+    /// <summary>
+    /// 計測台（<c>miniring-arena bladecut</c>）だけが使う入口: 誰も握っていない武器に、握った手の代わりに押し込む力 [N]（ワールド）を与える。
+    /// null（既定）なら握られていない武器は押し込まない（試合はこれを使わない）。
+    /// </summary>
+    public Func<Weapon, Vector3>? FreeDrive { get; set; }
 
     private static bool UseLegacyWornImpact(Fighter fighter, WeaponKind kind)
         => !fighter.UsesJointDrive || (kind == WeaponKind.Glove && fighter.UsesLegacyGloveImpact);
