@@ -166,5 +166,20 @@
       0.48,
       0.1
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Galva",
+      "reading": "Galva",
+      "hudName": "Galva",
+      "origin": "The Outer Reaches",
+      "tagline": "An alien on four legs, swinging a sickle from each arm",
+      "profile": {
+        "birthplace": "The Outer Reaches",
+        "hometown": "An observation station in Japan",
+        "stance": "Four-legged stance",
+        "quote": "[two low calls]"
+      }
+    }
   }
 }

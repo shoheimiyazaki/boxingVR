@@ -10,6 +10,7 @@ using MiniRing.Weapons;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("slow")]
 public sealed class AlienTests
 {
     private const float Dt = 1f / 240f;

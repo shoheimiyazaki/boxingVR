@@ -159,5 +159,20 @@
       "ライトヘビー級の新人で全勝",
       "我慢強く、打たれても下がらない"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Daniyar Seitkali",
+      "reading": "Daniyar Seitkali",
+      "hudName": "Daniyar",
+      "origin": "Kazakhstan",
+      "tagline": "IVF light heavyweight prospect",
+      "profile": {
+        "birthplace": "Kazakhstan",
+        "hometown": "Almaty",
+        "stance": "Orthodox",
+        "quote": "The wind never stops."
+      }
+    }
   }
 }

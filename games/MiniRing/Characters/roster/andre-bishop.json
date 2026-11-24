@@ -159,5 +159,20 @@
       "新人リーグで一番早い KO は 1R 13 秒",
       "細身で長身、足を使うボクサー型"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Andre Bishop",
+      "reading": "Andre Bishop",
+      "hudName": "Andre",
+      "origin": "USA",
+      "tagline": "IVF lightweight prospect",
+      "profile": {
+        "birthplace": "USA",
+        "hometown": "Philadelphia (North Philadelphia)",
+        "stance": "Orthodox",
+        "quote": "When my feet stop, that's not me anymore."
+      }
+    }
   }
 }

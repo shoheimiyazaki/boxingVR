@@ -161,5 +161,20 @@
       "新人リーグで一番早い KO は 1R 14 秒",
       "日本出身、ヘビー級の長身サウスポー"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Takumi Ishiguro",
+      "reading": "Takumi Ishiguro",
+      "hudName": "Takumi",
+      "origin": "Japan",
+      "tagline": "IVF heavyweight prospect",
+      "profile": {
+        "birthplace": "Japan",
+        "hometown": "Fukuoka",
+        "stance": "Southpaw",
+        "quote": "One punch changes everything, so I prepare for that one."
+      }
+    }
   }
 }

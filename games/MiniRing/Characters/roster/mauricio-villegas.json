@@ -157,5 +157,20 @@
       "新人リーグで一番早い KO は 1R 12 秒",
       "遅咲きのヘビー級の新人"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Mauricio Villegas",
+      "reading": "Mauricio Villegas",
+      "hudName": "Mauricio",
+      "origin": "Mexico",
+      "tagline": "IVF heavyweight prospect",
+      "profile": {
+        "birthplace": "Mexico",
+        "hometown": "Tijuana",
+        "stance": "Orthodox",
+        "quote": "The heavier the load, the more you lift with the hips."
+      }
+    }
   }
 }

@@ -158,5 +158,20 @@
       "新人リーグで一番早い KO は 1R 40 秒",
       "今季の登録で最年少"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Anan Inthasorn",
+      "reading": "Anan Inthasorn",
+      "hudName": "Anan",
+      "origin": "Thailand",
+      "tagline": "IVF lightweight prospect",
+      "profile": {
+        "birthplace": "Thailand",
+        "hometown": "Bangkok (Thonburi)",
+        "stance": "Orthodox",
+        "quote": "The jab never lies."
+      }
+    }
   }
 }

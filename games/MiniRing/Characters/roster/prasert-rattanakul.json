@@ -157,5 +157,20 @@
       "新人リーグで一番早い KO は 1R 17 秒",
       "タイ出身のクルーザー級"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Prasert Rattanakul",
+      "reading": "Prasert Rattanakul",
+      "hudName": "Prasert",
+      "origin": "Thailand",
+      "tagline": "IVF cruiserweight prospect",
+      "profile": {
+        "birthplace": "Thailand",
+        "hometown": "Khon Kaen",
+        "stance": "Orthodox",
+        "quote": "Quiet, and strong."
+      }
+    }
   }
 }

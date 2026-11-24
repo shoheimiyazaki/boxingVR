@@ -155,5 +155,20 @@
       "新人リーグで一番早い KO は 1R 19 秒",
       "クルーザー級の新人で負けなし"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Ivan Escobedo",
+      "reading": "Ivan Escobedo",
+      "hudName": "Ivan",
+      "origin": "Mexico",
+      "tagline": "IVF cruiserweight prospect",
+      "profile": {
+        "birthplace": "Mexico",
+        "hometown": "Monterrey",
+        "stance": "Orthodox",
+        "quote": "I throw the rest of my father's punches."
+      }
+    }
   }
 }

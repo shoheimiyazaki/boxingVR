@@ -5,6 +5,7 @@ using MiniRing.Weapons;
 namespace MiniRing.Tests;
 
 [TestClass]
+[TestCategory("slow")]
 public sealed class ClawTrajectoryTests
 {
     [TestMethod]

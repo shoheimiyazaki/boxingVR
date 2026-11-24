@@ -159,5 +159,20 @@
       "新人リーグで一番早い KO は 1R 19 秒",
       "前に出る強打者（slugger の教科書）"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Sipho van Wyk",
+      "reading": "Sipho van Wyk",
+      "hudName": "Sipho",
+      "origin": "South Africa",
+      "tagline": "IVF light heavyweight prospect",
+      "profile": {
+        "birthplace": "South Africa",
+        "hometown": "Johannesburg (Soweto)",
+        "stance": "Orthodox",
+        "quote": "Forward. Always forward."
+      }
+    }
   }
 }
