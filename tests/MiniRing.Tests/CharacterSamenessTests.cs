@@ -66,7 +66,7 @@ public sealed class CharacterSamenessTests
     [TestMethod]
     public void GroundPreferences_OfTheResolvedStyle_EqualTheTextbooks()
     {
-        static float[] Ground(BotStyle s) => [s.GroundDrive, s.GroundLoad, s.GroundCut, s.GroundStomp, s.GroundKick, s.GroundRest, s.Southpaw ? 1f : 0f];
+        static float[] Ground(BotStyle s) => [s.GroundDrive, s.GroundLoad, s.GroundCut, s.GroundStomp, s.GroundKick, s.GroundHeel, s.GroundRest, s.Southpaw ? 1f : 0f];
         foreach (var textbook in BotCatalog.Styles)
         {
             var viaCorners = BotCatalog.Corners(textbook).CpuStyle!;

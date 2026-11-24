@@ -56,11 +56,11 @@ public sealed class CharacterRosterTests
     internal static BotStyle WithTextbookGround(BotStyle resolved, BotStyle textbook) => resolved with
     {
         Ground = textbook.Ground, GroundDrive = textbook.GroundDrive, GroundRest = textbook.GroundRest, GroundLoad = textbook.GroundLoad,
-        GroundCut = textbook.GroundCut, GroundStomp = textbook.GroundStomp, GroundKick = textbook.GroundKick,
+        GroundCut = textbook.GroundCut, GroundStomp = textbook.GroundStomp, GroundKick = textbook.GroundKick, GroundHeel = textbook.GroundHeel,
     };
 
     /// <summary>倒れた相手への攻めの教育の鍵（<c>education.style</c>）。</summary>
-    internal static readonly string[] GroundKeys = ["Ground", "GroundCut", "GroundDrive", "GroundKick", "GroundLoad", "GroundRest", "GroundStomp"];
+    internal static readonly string[] GroundKeys = ["Ground", "GroundCut", "GroundDrive", "GroundHeel", "GroundKick", "GroundLoad", "GroundRest", "GroundStomp"];
 
     /// <summary>武器の教育（<c>education.weaponBot</c>）が無いか、とどめの経路（<c>Ground</c>）だけで、それ以外は武器の教科書そのもの。</summary>
     internal static void AssertWeaponTextbookPlusGround(WeaponStyle textbook, WeaponStyle? resolved, string message)
