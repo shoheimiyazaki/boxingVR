@@ -204,6 +204,27 @@ internal static class GroundTime
     /// 前（<paramref name="before"/>）と後（<paramref name="after"/>）を同じ組・同じ種で対にして比べる。点は試合ごとに、最初の攻められる場面の
     /// 「倒れてから終わるまでの秒（ゴングで切れたらそこまで）」と「死で終わったか（1/0）」。どちらの版でも場面があった試合だけを対にする。
     /// </summary>
+    /// <summary>
+    /// 試合ごとの比べ（2026-11-24、比べ直しの種を見る前に決めた物差し）: 倒れた相手が倒れたまま死んで決着したか（1/0）と、攻め手が立っていて相手が倒れていた秒の合計
+    /// （床の時間。速く殺せば試合も早く終わり、短くなる）。同じ組・同じ種の試合を対にする。
+    /// </summary>
+    public static (PairedResult KilledOnGround, PairedResult GroundSeconds, int N) CompareBouts(IReadOnlyList<GroundBout> before, IReadOnlyList<GroundBout> after)
+    {
+        var map = before.ToDictionary(b => (b.Red, b.Blue, b.Seed));
+        var pairs = after.Where(b => map.ContainsKey((b.Red, b.Blue, b.Seed))).Select(b => (A: b, B: map[(b.Red, b.Blue, b.Seed)])).ToList();
+        static double Killed(GroundBout b) => b.Episodes.Any(e => e.AttackerStanding && e.End == "death") ? 1d : 0d;
+        static double Floor(GroundBout b) => b.Episodes.Where(e => e.AttackerStanding).Sum(e => (double)e.Seconds);
+        return (PairedEvaluation.Compute([.. pairs.Select(p => Killed(p.A))], [.. pairs.Select(p => Killed(p.B))]),
+            PairedEvaluation.Compute([.. pairs.Select(p => Floor(p.A))], [.. pairs.Select(p => Floor(p.B))]), pairs.Count);
+    }
+
+    /// <summary>3 秒を超えて倒れていた（滑って手をついただけでない）攻められる場面の、終わるまでの中央値と死の割合。</summary>
+    public static string LongDowns(IReadOnlyList<GroundBout> bouts)
+    {
+        var e = bouts.SelectMany(b => b.Episodes).Where(x => x.AttackerStanding && x.Seconds > 3f).ToList();
+        return string.Create(CultureInfo.InvariantCulture, $"{e.Count} 回・中央値 {Median(e.Select(x => x.Seconds)):0.0} s・死 {e.Count(x => x.End == "death")}（{100f * e.Count(x => x.End == "death") / Math.Max(1, e.Count):0}%）・起きた {e.Count(x => x.End == "rose")}・ゴング {e.Count(x => x.End == "bell")}");
+    }
+
     public static (PairedResult Seconds, PairedResult Finished, int N) Compare(IReadOnlyList<GroundBout> before, IReadOnlyList<GroundBout> after)
     {
         var map = before.ToDictionary(b => (b.Red, b.Blue, b.Seed));

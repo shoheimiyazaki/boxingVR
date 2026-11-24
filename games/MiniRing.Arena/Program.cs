@@ -770,12 +770,19 @@ static int GroundTimeCommand(Options o)
         Log($"- 最初の攻められる場面（両方の版で場面があった {n} 試合を同じ組・同じ種で対に、A = {labels[1]}、B = {labels[0]}）");
         Log($"  - 倒れてから終わるまで [s]: {seconds}");
         Log($"  - 死で終わった割合: {finished}");
+        Log($"- 3 秒を超えて倒れていた場面: {labels[0]} {GroundTime.LongDowns(before)} / {labels[1]} {GroundTime.LongDowns(after)}");
+        var (killed, floor, bouts) = GroundTime.CompareBouts(before, after);
+        Log($"- 試合ごと（{bouts} 試合を同じ組・同じ種で対に）");
+        Log($"  - 倒れた相手が倒れたまま死んで決着: {killed}");
+        Log($"  - 相手が倒れていた秒の合計: {floor}");
         if ((o.Get("confirm") ?? "no") == "yes")
         {
             var seeds = after.Select(b => b.Seed).Distinct().Order().ToList();
             var detail = new Dictionary<string, string> { ["pairs"] = n.ToString(CultureInfo.InvariantCulture) };
             ConfirmLog.Append("groundtime", "VFC: 倒れてから終わるまでの秒（最初の攻められる場面）", labels[1], labels[0], seeds, seconds, detail);
             ConfirmLog.Append("groundtime", "VFC: 最初の攻められる場面が死で終わった割合", labels[1], labels[0], seeds, finished, detail);
+            ConfirmLog.Append("groundtime", "VFC: 倒れた相手が倒れたまま死んで決着した試合の割合", labels[1], labels[0], seeds, killed, detail);
+            ConfirmLog.Append("groundtime", "VFC: 試合ごとの、相手が倒れていた秒の合計", labels[1], labels[0], seeds, floor, detail);
         }
 
         return 0;
