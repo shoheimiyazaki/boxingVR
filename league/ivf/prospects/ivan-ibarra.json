@@ -1,0 +1,105 @@
+{
+  "id": "ivan-ibarra",
+  "order": 1032,
+  "org": "ivf",
+  "name": "イバン・イバラ",
+  "reading": "イバン イバラ",
+  "hudName": "イバン",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.125, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.97,
+      "jaw": 1.096,
+      "noseWidth": 1.1,
+      "noseLength": 0.987,
+      "cheekbones": 1.384,
+      "faceWidth": 0.987
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.97,
+      "jaw": 1.096,
+      "noseWidth": 1.1,
+      "noseLength": 0.987,
+      "cheekbones": 1.384,
+      "faceWidth": 0.987
+    },
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.125, 0.106, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.998,
+      "arms": 1,
+      "legs": 1.04,
+      "muscle": 0.9162
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.878,
+      "Circling": 0.2,
+      "HeadMovement": 0.816,
+      "DefenseRate": 0.608,
+      "CounterRate": 0.667,
+      "ExitAfterCombo": 0.117,
+      "AttackRange": 0.75
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 32,
+      "age": 20,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "id": "vivek-bhatia",
+  "order": 1145,
+  "org": "ivf",
+  "name": "ヴィヴェク・バティア",
+  "reading": "ヴィヴェク バティア",
+  "hudName": "ヴィヴェク",
+  "origin": "インド",
+  "country": "india",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.753, 0.541, 0.376],
+    "hair": [0.169, 0.125, 0.098],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.931,
+      "jaw": 0.946,
+      "browThickness": 1.3,
+      "noseLength": 1.075,
+      "cheekbones": 1.393,
+      "faceWidth": 1.016
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.3": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.1": 0.4,
+        "nose.3": 0.6
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.931,
+      "jaw": 0.946,
+      "browThickness": 1.3,
+      "noseLength": 1.075,
+      "cheekbones": 1.393,
+      "faceWidth": 1.016
+    },
+    "skin": [0.753, 0.541, 0.376],
+    "hair": [0.169, 0.125, 0.098],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.1274,
+      "arms": 0.973,
+      "legs": 0.993,
+      "muscle": 0.8974
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.881,
+      "Circling": 0.155,
+      "HeadMovement": 0.68,
+      "DefenseRate": 0.472,
+      "CounterRate": 0.516,
+      "ExitAfterCombo": 0.102,
+      "AttackRange": 0.987
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 145,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

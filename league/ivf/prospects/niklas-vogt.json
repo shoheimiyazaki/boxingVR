@@ -1,0 +1,105 @@
+{
+  "id": "niklas-vogt",
+  "order": 1155,
+  "org": "ivf",
+  "name": "ニクラス・フォークト",
+  "reading": "ニクラス フォークト",
+  "hudName": "ニクラス",
+  "origin": "ドイツ",
+  "country": "germany",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Crop",
+    "eyes": [0.376, 0.451, 0.306],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 1.046,
+      "jaw": 0.998,
+      "noseLength": 1.163,
+      "cheekbones": 1.391,
+      "faceWidth": 0.982
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.046,
+      "jaw": 0.998,
+      "noseLength": 1.163,
+      "cheekbones": 1.391,
+      "faceWidth": 0.982
+    },
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.376, 0.451, 0.306]
+  },
+  "body": {
+    "build": {
+      "height": 0.9509,
+      "arms": 0.962,
+      "legs": 1.009,
+      "muscle": 1.1625
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.53,
+      "Circling": 0.817,
+      "HeadMovement": 0.319,
+      "DefenseRate": 0.694,
+      "CounterRate": 0.465,
+      "ExitAfterCombo": 0.93,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 155,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

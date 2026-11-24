@@ -1,0 +1,105 @@
+{
+  "id": "ramiro-cervantes",
+  "order": 1159,
+  "org": "ivf",
+  "name": "ラミロ・セルバンテス",
+  "reading": "ラミロ セルバンテス",
+  "hudName": "ラミロ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.678, 0.475, 0.325],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.971,
+      "jaw": 1.04,
+      "noseWidth": 1.1,
+      "noseLength": 0.956,
+      "cheekbones": 1.457,
+      "faceWidth": 0.997
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.971,
+      "jaw": 1.04,
+      "noseWidth": 1.1,
+      "noseLength": 0.956,
+      "cheekbones": 1.457,
+      "faceWidth": 0.997
+    },
+    "skin": [0.678, 0.475, 0.325],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9507,
+      "arms": 1.003,
+      "legs": 0.996,
+      "muscle": 1.1553
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.733,
+      "Circling": 0.167,
+      "HeadMovement": 0.244,
+      "DefenseRate": 0.292,
+      "CounterRate": 0.314,
+      "ExitAfterCombo": 0.167,
+      "AttackRange": 0.75
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 159,
+      "age": 21,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

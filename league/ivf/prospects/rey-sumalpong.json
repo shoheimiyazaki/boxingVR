@@ -1,0 +1,106 @@
+{
+  "id": "rey-sumalpong",
+  "order": 1206,
+  "org": "ivf",
+  "name": "レイ・スマルポン",
+  "reading": "レイ スマルポン",
+  "hudName": "レイ",
+  "origin": "フィリピン",
+  "country": "philippines",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.137, 0.11, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.932,
+      "jaw": 1.049,
+      "noseWidth": 1.12,
+      "noseLength": 1.097,
+      "cheekbones": 1.318,
+      "faceWidth": 1.078
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.932,
+      "jaw": 1.049,
+      "noseWidth": 1.12,
+      "noseLength": 1.097,
+      "cheekbones": 1.318,
+      "faceWidth": 1.078
+    },
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.137, 0.11, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0401,
+      "arms": 1.044,
+      "legs": 0.98,
+      "muscle": 1.225
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.199,
+      "Circling": 0.497,
+      "HeadMovement": 0.618,
+      "DefenseRate": 0.734,
+      "CounterRate": 0.817,
+      "ExitAfterCombo": 0.594,
+      "AttackRange": 0.964
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 206,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

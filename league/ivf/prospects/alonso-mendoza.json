@@ -1,0 +1,103 @@
+{
+  "id": "alonso-mendoza",
+  "order": 1062,
+  "org": "ivf",
+  "name": "アロンソ・メンドサ",
+  "reading": "アロンソ メンドサ",
+  "hudName": "アロンソ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.944,
+      "noseWidth": 1.1,
+      "noseLength": 1.049,
+      "cheekbones": 1.298,
+      "faceWidth": 0.963
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.944,
+      "noseWidth": 1.1,
+      "noseLength": 1.049,
+      "cheekbones": 1.298,
+      "faceWidth": 0.963
+    },
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0213,
+      "arms": 1.013,
+      "legs": 1.055,
+      "muscle": 0.9433
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.583,
+      "Circling": 0.154,
+      "HeadMovement": 0.22,
+      "DefenseRate": 0.307,
+      "CounterRate": 0.292,
+      "ExitAfterCombo": 0.166,
+      "AttackRange": 0.944
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 62,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

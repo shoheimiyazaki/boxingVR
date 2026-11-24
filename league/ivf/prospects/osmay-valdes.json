@@ -1,0 +1,105 @@
+{
+  "id": "osmay-valdes",
+  "order": 1058,
+  "org": "ivf",
+  "name": "オスマイ・バルデス",
+  "reading": "オスマイ バルデス",
+  "hudName": "オスマイ",
+  "origin": "キューバ",
+  "country": "cuba",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.125, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.988,
+      "jaw": 1.059,
+      "noseWidth": 1.1,
+      "noseLength": 0.978,
+      "cheekbones": 1.464,
+      "faceWidth": 1.006
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.988,
+      "jaw": 1.059,
+      "noseWidth": 1.1,
+      "noseLength": 0.978,
+      "cheekbones": 1.464,
+      "faceWidth": 1.006
+    },
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.125, 0.106, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0805,
+      "arms": 0.995,
+      "legs": 0.987,
+      "muscle": 0.8935
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.45,
+      "Circling": 0.619,
+      "HeadMovement": 0.263,
+      "DefenseRate": 0.69,
+      "CounterRate": 0.448,
+      "ExitAfterCombo": 0.865,
+      "AttackRange": 1.015
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 58,
+      "age": 20,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

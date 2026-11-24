@@ -1,0 +1,105 @@
+{
+  "id": "mauricio-villegas",
+  "order": 1225,
+  "org": "ivf",
+  "name": "マウリシオ・ビジェガス",
+  "reading": "マウリシオ ビジェガス",
+  "hudName": "マウリシオ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.125, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.026,
+      "jaw": 0.94,
+      "noseWidth": 1.1,
+      "noseLength": 0.939,
+      "cheekbones": 1.346,
+      "faceWidth": 0.96
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.026,
+      "jaw": 0.94,
+      "noseWidth": 1.1,
+      "noseLength": 0.939,
+      "cheekbones": 1.346,
+      "faceWidth": 0.96
+    },
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.125, 0.106, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.1219,
+      "arms": 0.945,
+      "legs": 1.026,
+      "muscle": 1.0504
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 0.762,
+      "Circling": 0.154,
+      "HeadMovement": 0.429,
+      "DefenseRate": 0.49,
+      "CounterRate": 0.926,
+      "ExitAfterCombo": 0.85,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 225,
+      "age": 26,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

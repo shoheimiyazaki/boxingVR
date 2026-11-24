@@ -135,7 +135,7 @@
   // netLosses: 負け − 勝ち がこれ以上（上がり目の無い選手を興行に出し続けない）。losingStreak: この数の連敗（立て直せない流れ）。koLosses: 倒されての負けの通算（体を守る）。
   "retire": { "netLosses": 3, "losingStreak": 3, "koLosses": 3 },
   // 登録: この試合数以上の現役から、点（IVF の順位の点）→ 勝ち → 倒した勝ち → 与えた−受けた の順で、階級ごとに上位をこの人数。
-  "register": { "perDivision": 2, "minBouts": 4, "maxChallenges": 3 },
+  "register": { "perDivision": 2, "minBouts": 4, "maxChallenges": 4 },
   // 教科書ごとの戦い方の一言（登録した新人のプロフィールの書き出し。教科書の JSON の性格を言葉にしたもの）。
   "styleText": {
     "champion": "攻守の均整がとれた正統派。ジャブで間合いを作り、隙に強打を重ねる",

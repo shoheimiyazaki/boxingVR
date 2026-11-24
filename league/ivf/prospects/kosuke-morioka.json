@@ -1,0 +1,107 @@
+{
+  "id": "kosuke-morioka",
+  "order": 1237,
+  "org": "ivf",
+  "name": "森岡 康介",
+  "reading": "モリオカ コウスケ",
+  "hudName": "コウスケ",
+  "origin": "日本",
+  "country": "japan",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.741, 0.565, 0.42],
+    "hair": [0.09, 0.11, 0.133],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.961,
+      "jaw": 1.019,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.012,
+      "cheekbones": 1.222,
+      "faceWidth": 0.952
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.961,
+      "jaw": 1.019,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.012,
+      "cheekbones": 1.222,
+      "faceWidth": 0.952
+    },
+    "skin": [0.741, 0.565, 0.42],
+    "hair": [0.09, 0.11, 0.133],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.1103,
+      "arms": 1.04,
+      "legs": 0.99,
+      "muscle": 1.0863
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.534,
+      "Circling": 0.793,
+      "HeadMovement": 0.352,
+      "DefenseRate": 0.775,
+      "CounterRate": 0.443,
+      "ExitAfterCombo": 0.873,
+      "AttackRange": 0.84
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 237,
+      "age": 26,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "id": "lautaro-funes",
+  "order": 1004,
+  "org": "ivf",
+  "name": "ラウタロ・フネス",
+  "reading": "ラウタロ フネス",
+  "hudName": "ラウタロ",
+  "origin": "アルゼンチン",
+  "country": "argentina",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.773, 0.624, 0.506],
+    "hair": [0.122, 0.102, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.533, 0.451, 0.243],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.98,
+      "jaw": 1.053,
+      "noseLength": 1.008,
+      "cheekbones": 1.282,
+      "faceWidth": 1.082
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.3": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.3": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.98,
+      "jaw": 1.053,
+      "noseLength": 1.008,
+      "cheekbones": 1.282,
+      "faceWidth": 1.082
+    },
+    "skin": [0.773, 0.624, 0.506],
+    "hair": [0.122, 0.102, 0.09],
+    "iris": [0.533, 0.451, 0.243]
+  },
+  "body": {
+    "build": {
+      "height": 0.9627,
+      "arms": 0.947,
+      "legs": 0.997,
+      "muscle": 1.036
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.217,
+      "Circling": 0.514,
+      "HeadMovement": 0.561,
+      "DefenseRate": 0.85,
+      "CounterRate": 0.945,
+      "ExitAfterCombo": 0.55,
+      "AttackRange": 0.901
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 4,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

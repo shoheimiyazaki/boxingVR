@@ -1,0 +1,109 @@
+{
+  "id": "yunier-pineda",
+  "order": 1142,
+  "org": "ivf",
+  "name": "ユニエル・ピネダ",
+  "reading": "ユニエル ピネダ",
+  "hudName": "ユニエル",
+  "origin": "キューバ",
+  "country": "cuba",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.977,
+      "jaw": 0.992,
+      "noseWidth": 1.2,
+      "noseLength": 1.027,
+      "lips": 1.1,
+      "cheekbones": 1.373,
+      "faceWidth": 1.018
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.977,
+      "jaw": 0.992,
+      "noseWidth": 1.2,
+      "noseLength": 1.027,
+      "lips": 1.1,
+      "cheekbones": 1.373,
+      "faceWidth": 1.018
+    },
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.113,
+      "arms": 0.973,
+      "legs": 1.031,
+      "muscle": 0.8972
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.223,
+      "Circling": 0.508,
+      "HeadMovement": 0.44,
+      "DefenseRate": 0.658,
+      "CounterRate": 0.998,
+      "ExitAfterCombo": 0.496,
+      "AttackRange": 0.787
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 142,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

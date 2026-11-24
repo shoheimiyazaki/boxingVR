@@ -1,0 +1,103 @@
+{
+  "id": "tane-brennan",
+  "order": 1088,
+  "org": "ivf",
+  "name": "ターネ・ブレナン",
+  "reading": "ターネ ブレナン",
+  "hudName": "ターネ",
+  "origin": "オーストラリア",
+  "country": "australia",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.788, 0.659, 0.416],
+    "hairstyle": "Crop",
+    "eyes": [0.349, 0.49, 0.608],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.005,
+      "jaw": 0.993,
+      "noseLength": 1.154,
+      "cheekbones": 1.347,
+      "faceWidth": 0.982
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.005,
+      "jaw": 0.993,
+      "noseLength": 1.154,
+      "cheekbones": 1.347,
+      "faceWidth": 0.982
+    },
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.788, 0.659, 0.416],
+    "iris": [0.349, 0.49, 0.608]
+  },
+  "body": {
+    "build": {
+      "height": 0.9522,
+      "arms": 1.038,
+      "legs": 1.06,
+      "muscle": 1.0542
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.972,
+      "Circling": 0.188,
+      "HeadMovement": 0.94,
+      "DefenseRate": 0.484,
+      "CounterRate": 0.584,
+      "ExitAfterCombo": 0.089,
+      "AttackRange": 0.831
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 88,
+      "age": 21,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

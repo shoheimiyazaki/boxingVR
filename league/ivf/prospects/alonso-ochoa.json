@@ -1,0 +1,106 @@
+{
+  "id": "alonso-ochoa",
+  "order": 1005,
+  "org": "ivf",
+  "name": "アロンソ・オチョア",
+  "reading": "アロンソ オチョア",
+  "hudName": "アロンソ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.678, 0.475, 0.325],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.976,
+      "jaw": 0.979,
+      "noseWidth": 1.1,
+      "noseLength": 0.935,
+      "cheekbones": 1.478,
+      "faceWidth": 1.057
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.976,
+      "jaw": 0.979,
+      "noseWidth": 1.1,
+      "noseLength": 0.935,
+      "cheekbones": 1.478,
+      "faceWidth": 1.057
+    },
+    "skin": [0.678, 0.475, 0.325],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0483,
+      "arms": 0.967,
+      "legs": 1.013,
+      "muscle": 0.8666
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 0.984,
+      "Circling": 0.144,
+      "HeadMovement": 0.434,
+      "DefenseRate": 0.551,
+      "CounterRate": 0.715,
+      "ExitAfterCombo": 0.635,
+      "AttackRange": 1.156,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 5,
+      "age": 26,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

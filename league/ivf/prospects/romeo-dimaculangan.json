@@ -1,0 +1,106 @@
+{
+  "id": "romeo-dimaculangan",
+  "order": 1144,
+  "org": "ivf",
+  "name": "ロメオ・ディマクランガン",
+  "reading": "ロメオ ディマクランガン",
+  "hudName": "ロメオ",
+  "origin": "フィリピン",
+  "country": "philippines",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.098, 0.098, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.865,
+      "jaw": 0.989,
+      "noseWidth": 1.12,
+      "noseLength": 1.019,
+      "cheekbones": 1.308,
+      "faceWidth": 0.974
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.865,
+      "jaw": 0.989,
+      "noseWidth": 1.12,
+      "noseLength": 1.019,
+      "cheekbones": 1.308,
+      "faceWidth": 0.974
+    },
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.098, 0.098, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.1289,
+      "arms": 1.012,
+      "legs": 1.013,
+      "muscle": 0.8901
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.976,
+      "Circling": 0.182,
+      "HeadMovement": 0.928,
+      "DefenseRate": 0.504,
+      "CounterRate": 0.586,
+      "ExitAfterCombo": 0.083,
+      "AttackRange": 0.795
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 144,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

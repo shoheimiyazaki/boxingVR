@@ -1,0 +1,105 @@
+{
+  "id": "joaquin-ochoa",
+  "order": 1156,
+  "org": "ivf",
+  "name": "ホアキン・オチョア",
+  "reading": "ホアキン オチョア",
+  "hudName": "ホアキン",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.678, 0.475, 0.325],
+    "hair": [0.125, 0.106, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.999,
+      "jaw": 0.943,
+      "noseWidth": 1.1,
+      "noseLength": 1.005,
+      "cheekbones": 1.31,
+      "faceWidth": 0.978
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.999,
+      "jaw": 0.943,
+      "noseWidth": 1.1,
+      "noseLength": 1.005,
+      "cheekbones": 1.31,
+      "faceWidth": 0.978
+    },
+    "skin": [0.678, 0.475, 0.325],
+    "hair": [0.125, 0.106, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9163,
+      "arms": 1.019,
+      "legs": 1.003,
+      "muscle": 1.2221
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.668,
+      "Circling": 0.581,
+      "HeadMovement": 0.274,
+      "DefenseRate": 0.446,
+      "CounterRate": 0.481,
+      "ExitAfterCombo": 0.832,
+      "AttackRange": 1.139
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 156,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

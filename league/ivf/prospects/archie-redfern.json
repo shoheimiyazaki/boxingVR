@@ -1,0 +1,103 @@
+{
+  "id": "archie-redfern",
+  "order": 1163,
+  "org": "ivf",
+  "name": "アーチー・レッドファーン",
+  "reading": "アーチー レッドファーン",
+  "hudName": "アーチー",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.569, 0.286, 0.157],
+    "hairstyle": "Full",
+    "eyes": [0.482, 0.522, 0.533],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.957,
+      "jaw": 1.022,
+      "noseLength": 1.091,
+      "cheekbones": 1.342,
+      "faceWidth": 1.035
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.957,
+      "jaw": 1.022,
+      "noseLength": 1.091,
+      "cheekbones": 1.342,
+      "faceWidth": 1.035
+    },
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.569, 0.286, 0.157],
+    "iris": [0.482, 0.522, 0.533]
+  },
+  "body": {
+    "build": {
+      "height": 1.1462,
+      "arms": 1.023,
+      "legs": 0.993,
+      "muscle": 0.9241
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.777,
+      "Circling": 0.169,
+      "HeadMovement": 0.811,
+      "DefenseRate": 0.58,
+      "CounterRate": 0.521,
+      "ExitAfterCombo": 0.117,
+      "AttackRange": 0.763
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 163,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

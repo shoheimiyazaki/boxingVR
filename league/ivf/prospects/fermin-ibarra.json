@@ -1,0 +1,105 @@
+{
+  "id": "fermin-ibarra",
+  "order": 1115,
+  "org": "ivf",
+  "name": "フェルミン・イバラ",
+  "reading": "フェルミン イバラ",
+  "hudName": "フェルミン",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.678, 0.475, 0.325],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.93,
+      "jaw": 0.951,
+      "noseWidth": 1.1,
+      "noseLength": 1.006,
+      "cheekbones": 1.419,
+      "faceWidth": 1.035
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.93,
+      "jaw": 0.951,
+      "noseWidth": 1.1,
+      "noseLength": 1.006,
+      "cheekbones": 1.419,
+      "faceWidth": 1.035
+    },
+    "skin": [0.678, 0.475, 0.325],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.135,
+      "arms": 0.989,
+      "legs": 0.968,
+      "muscle": 0.8722
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.729,
+      "Circling": 0.775,
+      "HeadMovement": 0.227,
+      "DefenseRate": 0.414,
+      "CounterRate": 0.478,
+      "ExitAfterCombo": 0.884,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 115,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

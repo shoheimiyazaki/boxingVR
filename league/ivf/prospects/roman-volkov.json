@@ -1,0 +1,103 @@
+{
+  "id": "roman-volkov",
+  "order": 1079,
+  "org": "ivf",
+  "name": "ロマン・ヴォルコフ",
+  "reading": "ロマン ヴォルコフ",
+  "hudName": "ロマン",
+  "origin": "ロシア",
+  "country": "russia",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.533, 0.439, 0.267],
+    "hairstyle": "Full",
+    "eyes": [0.349, 0.49, 0.608],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.003,
+      "jaw": 0.995,
+      "noseLength": 1.188,
+      "cheekbones": 1.309,
+      "faceWidth": 1.031
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.003,
+      "jaw": 0.995,
+      "noseLength": 1.188,
+      "cheekbones": 1.309,
+      "faceWidth": 1.031
+    },
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.533, 0.439, 0.267],
+    "iris": [0.349, 0.49, 0.608]
+  },
+  "body": {
+    "build": {
+      "height": 1.0154,
+      "arms": 0.99,
+      "legs": 1.042,
+      "muscle": 0.9636
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.779,
+      "Circling": 0.182,
+      "HeadMovement": 0.214,
+      "DefenseRate": 0.293,
+      "CounterRate": 0.256,
+      "ExitAfterCombo": 0.162,
+      "AttackRange": 1.017
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 79,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

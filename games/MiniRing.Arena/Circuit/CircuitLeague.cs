@@ -71,6 +71,7 @@ internal sealed class CircuitLeague
     public string StatePath => Path.Combine(Root, "state.json");
     public string BaselinePath => Path.Combine(Root, "baseline.json");
     public string WorkDir => Path.Combine(Root, "work");
+    public string ChallengeStartPath => Path.Combine(Root, "challenge-start.json");
 
     /// <summary>新人のファイルのパス（リポジトリの根から、/ で区切る。記録に書く形）。</summary>
     public string ProspectPath(string id) => ToRecordPath(Path.Combine(ProspectsDir, $"{id}.json"));
@@ -209,7 +210,7 @@ internal sealed class CircuitLeague
             {
                 var output = Path.Combine(WorkDir, $"{tag}.{i}.jsonl");
                 File.Delete(output);
-                var psi = ChildProcess(["circuit", "fight", "--league", Root, "--card", cardPath, "--shard", i.ToString(CultureInfo.InvariantCulture),
+                var psi = ChildProcess(["circuit", "fight", "--org", card.Org, "--league", Root, "--card", cardPath, "--shard", i.ToString(CultureInfo.InvariantCulture),
                     "--of", n.ToString(CultureInfo.InvariantCulture), "--out", output]);
                 return (Process: Process.Start(psi) ?? throw new InvalidOperationException("子のプロセスを起こせません。"), Output: output);
             }).ToList();

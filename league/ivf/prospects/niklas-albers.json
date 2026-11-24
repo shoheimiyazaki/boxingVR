@@ -1,0 +1,103 @@
+{
+  "id": "niklas-albers",
+  "order": 1158,
+  "org": "ivf",
+  "name": "ニクラス・アルバース",
+  "reading": "ニクラス アルバース",
+  "hudName": "ニクラス",
+  "origin": "ドイツ",
+  "country": "germany",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Full",
+    "eyes": [0.349, 0.49, 0.608],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.985,
+      "jaw": 0.916,
+      "noseLength": 1.13,
+      "cheekbones": 1.437,
+      "faceWidth": 0.96
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.985,
+      "jaw": 0.916,
+      "noseLength": 1.13,
+      "cheekbones": 1.437,
+      "faceWidth": 0.96
+    },
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.349, 0.49, 0.608]
+  },
+  "body": {
+    "build": {
+      "height": 0.9655,
+      "arms": 1.062,
+      "legs": 0.991,
+      "muscle": 1.1326
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.393,
+      "Circling": 0.621,
+      "HeadMovement": 0.33,
+      "DefenseRate": 0.565,
+      "CounterRate": 0.397,
+      "ExitAfterCombo": 0.791,
+      "AttackRange": 1.035
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 158,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

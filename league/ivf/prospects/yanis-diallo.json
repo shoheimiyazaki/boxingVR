@@ -1,0 +1,103 @@
+{
+  "id": "yanis-diallo",
+  "order": 1193,
+  "org": "ivf",
+  "name": "ヤニス・ディアロ",
+  "reading": "ヤニス ディアロ",
+  "hudName": "ヤニス",
+  "origin": "フランス",
+  "country": "france",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.773, 0.624, 0.506],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Full",
+    "eyes": [0.431, 0.486, 0.42],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.048,
+      "jaw": 0.977,
+      "noseLength": 0.998,
+      "cheekbones": 1.294,
+      "faceWidth": 0.963
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.3": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.3": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.048,
+      "jaw": 0.977,
+      "noseLength": 0.998,
+      "cheekbones": 1.294,
+      "faceWidth": 0.963
+    },
+    "skin": [0.773, 0.624, 0.506],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.431, 0.486, 0.42]
+  },
+  "body": {
+    "build": {
+      "height": 1.0478,
+      "arms": 1.023,
+      "legs": 0.965,
+      "muscle": 1.0415
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.223,
+      "Circling": 0.439,
+      "HeadMovement": 0.541,
+      "DefenseRate": 0.738,
+      "CounterRate": 0.82,
+      "ExitAfterCombo": 0.427,
+      "AttackRange": 1.003
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 193,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

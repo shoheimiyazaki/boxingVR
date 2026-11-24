@@ -1,0 +1,105 @@
+{
+  "id": "wellington-barbosa",
+  "order": 1057,
+  "org": "ivf",
+  "name": "ウェリントン・バルボーザ",
+  "reading": "ウェリントン バルボーザ",
+  "hudName": "ウェリントン",
+  "origin": "ブラジル",
+  "country": "brazil",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.478, 0.322, 0.188],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.956,
+      "jaw": 1.034,
+      "noseWidth": 1.1,
+      "noseLength": 1.067,
+      "cheekbones": 1.333,
+      "faceWidth": 1.032
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.956,
+      "jaw": 1.034,
+      "noseWidth": 1.1,
+      "noseLength": 1.067,
+      "cheekbones": 1.333,
+      "faceWidth": 1.032
+    },
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.478, 0.322, 0.188]
+  },
+  "body": {
+    "build": {
+      "height": 1.0855,
+      "arms": 0.988,
+      "legs": 1.013,
+      "muscle": 0.8612
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.683,
+      "Circling": 0.774,
+      "HeadMovement": 0.264,
+      "DefenseRate": 0.42,
+      "CounterRate": 0.508,
+      "ExitAfterCombo": 0.819,
+      "AttackRange": 1.224
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 57,
+      "age": 19,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

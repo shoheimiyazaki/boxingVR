@@ -1,0 +1,105 @@
+{
+  "id": "connor-pennington",
+  "order": 1233,
+  "org": "ivf",
+  "name": "コナー・ペニントン",
+  "reading": "コナー ペニントン",
+  "hudName": "コナー",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Crop",
+    "eyes": [0.376, 0.451, 0.306],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.935,
+      "jaw": 0.994,
+      "noseLength": 1.201,
+      "cheekbones": 1.4,
+      "faceWidth": 0.923
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.935,
+      "jaw": 0.994,
+      "noseLength": 1.201,
+      "cheekbones": 1.4,
+      "faceWidth": 0.923
+    },
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.376, 0.451, 0.306]
+  },
+  "body": {
+    "build": {
+      "height": 1.1051,
+      "arms": 0.954,
+      "legs": 0.988,
+      "muscle": 1.0093
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.564,
+      "Circling": 0.143,
+      "HeadMovement": 0.184,
+      "DefenseRate": 0.25,
+      "CounterRate": 0.266,
+      "ExitAfterCombo": 0.169,
+      "AttackRange": 0.835
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 233,
+      "age": 26,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

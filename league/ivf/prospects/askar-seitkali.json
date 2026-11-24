@@ -1,0 +1,108 @@
+{
+  "id": "askar-seitkali",
+  "order": 1238,
+  "org": "ivf",
+  "name": "アスカル・セイトカリ",
+  "reading": "アスカル セイトカリ",
+  "hudName": "アスカル",
+  "origin": "カザフスタン",
+  "country": "kazakhstan",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.788, 0.639, 0.514],
+    "hair": [0.106, 0.106, 0.114],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.044,
+      "jaw": 0.984,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.001,
+      "cheekbones": 1.223,
+      "faceWidth": 1.018
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 1.044,
+      "jaw": 0.984,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.001,
+      "cheekbones": 1.223,
+      "faceWidth": 1.018
+    },
+    "skin": [0.788, 0.639, 0.514],
+    "hair": [0.106, 0.106, 0.114],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 0.9693,
+      "arms": 0.99,
+      "legs": 0.983,
+      "muscle": 1.2432
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 1,
+      "Circling": 0.159,
+      "HeadMovement": 0.464,
+      "DefenseRate": 0.635,
+      "CounterRate": 0.82,
+      "ExitAfterCombo": 0.734,
+      "AttackRange": 1.25,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 238,
+      "age": 26,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

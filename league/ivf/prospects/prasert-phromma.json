@@ -1,0 +1,108 @@
+{
+  "id": "prasert-phromma",
+  "order": 1039,
+  "org": "ivf",
+  "name": "プラサート・プロムマー",
+  "reading": "プラサート プロムマー",
+  "hudName": "プラサート",
+  "origin": "タイ",
+  "country": "thailand",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.659, 0.443, 0.282],
+    "hair": [0.098, 0.098, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.977,
+      "jaw": 1.015,
+      "noseWidth": 1.12,
+      "noseLength": 1.007,
+      "cheekbones": 1.387,
+      "faceWidth": 1.055
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {
+        "beard.1": 1
+      },
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.977,
+      "jaw": 1.015,
+      "noseWidth": 1.12,
+      "noseLength": 1.007,
+      "cheekbones": 1.387,
+      "faceWidth": 1.055
+    },
+    "skin": [0.659, 0.443, 0.282],
+    "hair": [0.098, 0.098, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 0.9414,
+      "arms": 0.979,
+      "legs": 0.948,
+      "muscle": 1.0074
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.447,
+      "Circling": 0.379,
+      "HeadMovement": 0.457,
+      "DefenseRate": 0.57,
+      "CounterRate": 0.461,
+      "ExitAfterCombo": 0.402,
+      "AttackRange": 0.806
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 39,
+      "age": 20,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

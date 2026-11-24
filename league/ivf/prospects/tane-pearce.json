@@ -1,0 +1,105 @@
+{
+  "id": "tane-pearce",
+  "order": 1026,
+  "org": "ivf",
+  "name": "ターネ・ピアース",
+  "reading": "ターネ ピアース",
+  "hudName": "ターネ",
+  "origin": "オーストラリア",
+  "country": "australia",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Full",
+    "eyes": [0.424, 0.506, 0.569],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.919,
+      "jaw": 1.019,
+      "noseLength": 1.104,
+      "cheekbones": 1.346,
+      "faceWidth": 0.934
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.919,
+      "jaw": 1.019,
+      "noseLength": 1.104,
+      "cheekbones": 1.346,
+      "faceWidth": 0.934
+    },
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.424, 0.506, 0.569]
+  },
+  "body": {
+    "build": {
+      "height": 1.0055,
+      "arms": 0.952,
+      "legs": 0.948,
+      "muscle": 0.9744
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.186,
+      "Circling": 0.495,
+      "HeadMovement": 0.482,
+      "DefenseRate": 0.755,
+      "CounterRate": 0.842,
+      "ExitAfterCombo": 0.55,
+      "AttackRange": 0.805
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 26,
+      "age": 21,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "id": "lewis-whitlock",
+  "order": 1232,
+  "org": "ivf",
+  "name": "ルイス・ウィットロック",
+  "reading": "ルイス ウィットロック",
+  "hudName": "ルイス",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Crop",
+    "eyes": [0.424, 0.506, 0.569],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.966,
+      "jaw": 0.96,
+      "noseLength": 1.16,
+      "cheekbones": 1.388,
+      "faceWidth": 0.975
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.966,
+      "jaw": 0.96,
+      "noseLength": 1.16,
+      "cheekbones": 1.388,
+      "faceWidth": 0.975
+    },
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.424, 0.506, 0.569]
+  },
+  "body": {
+    "build": {
+      "height": 1.0648,
+      "arms": 1.028,
+      "legs": 1.017,
+      "muscle": 1.173
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 0.81,
+      "Circling": 0.168,
+      "HeadMovement": 0.437,
+      "DefenseRate": 0.552,
+      "CounterRate": 0.725,
+      "ExitAfterCombo": 0.657,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 232,
+      "age": 19,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

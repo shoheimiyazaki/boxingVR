@@ -1,0 +1,106 @@
+{
+  "id": "arjun-dahiya",
+  "order": 1194,
+  "org": "ivf",
+  "name": "アルジュン・ダヒヤ",
+  "reading": "アルジュン ダヒヤ",
+  "hudName": "アルジュン",
+  "origin": "インド",
+  "country": "india",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.639, 0.431, 0.282],
+    "hair": [0.11, 0.09, 0.078],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.071,
+      "jaw": 0.982,
+      "browThickness": 1.3,
+      "noseLength": 1.159,
+      "cheekbones": 1.36,
+      "faceWidth": 0.941
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.3": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.1": 0.4,
+        "nose.3": 0.6
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.071,
+      "jaw": 0.982,
+      "browThickness": 1.3,
+      "noseLength": 1.159,
+      "cheekbones": 1.36,
+      "faceWidth": 0.941
+    },
+    "skin": [0.639, 0.431, 0.282],
+    "hair": [0.11, 0.09, 0.078],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 0.9699,
+      "arms": 0.976,
+      "legs": 0.995,
+      "muscle": 1.167
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.782,
+      "Circling": 0.194,
+      "HeadMovement": 0.921,
+      "DefenseRate": 0.601,
+      "CounterRate": 0.554,
+      "ExitAfterCombo": 0.098,
+      "AttackRange": 0.845,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 194,
+      "age": 22,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

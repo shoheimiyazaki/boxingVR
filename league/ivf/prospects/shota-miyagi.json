@@ -1,0 +1,108 @@
+{
+  "id": "shota-miyagi",
+  "order": 1215,
+  "org": "ivf",
+  "name": "宮城 翔太",
+  "reading": "ミヤギ ショウタ",
+  "hudName": "ショウタ",
+  "origin": "日本",
+  "country": "japan",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.843, 0.714, 0.596],
+    "hair": [0.106, 0.106, 0.114],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.961,
+      "jaw": 1.006,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.034,
+      "cheekbones": 1.179,
+      "faceWidth": 1.025
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.961,
+      "jaw": 1.006,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.034,
+      "cheekbones": 1.179,
+      "faceWidth": 1.025
+    },
+    "skin": [0.843, 0.714, 0.596],
+    "hair": [0.106, 0.106, 0.114],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0827,
+      "arms": 1.044,
+      "legs": 0.971,
+      "muscle": 1.1786
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.248,
+      "Circling": 0.473,
+      "HeadMovement": 0.473,
+      "DefenseRate": 0.85,
+      "CounterRate": 0.899,
+      "ExitAfterCombo": 0.556,
+      "AttackRange": 0.943,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 215,
+      "age": 20,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

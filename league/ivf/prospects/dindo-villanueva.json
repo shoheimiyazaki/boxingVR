@@ -1,0 +1,106 @@
+{
+  "id": "dindo-villanueva",
+  "order": 1010,
+  "org": "ivf",
+  "name": "ディンド・ビジャヌエバ",
+  "reading": "ディンド ビジャヌエバ",
+  "hudName": "ディンド",
+  "origin": "フィリピン",
+  "country": "philippines",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.137, 0.11, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.969,
+      "jaw": 1.009,
+      "noseWidth": 1.12,
+      "noseLength": 0.971,
+      "cheekbones": 1.328,
+      "faceWidth": 1.003
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.969,
+      "jaw": 1.009,
+      "noseWidth": 1.12,
+      "noseLength": 0.971,
+      "cheekbones": 1.328,
+      "faceWidth": 1.003
+    },
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.137, 0.11, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9838,
+      "arms": 1.041,
+      "legs": 0.966,
+      "muscle": 0.9669
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 1,
+      "Circling": 0.132,
+      "HeadMovement": 0.453,
+      "DefenseRate": 0.485,
+      "CounterRate": 0.802,
+      "ExitAfterCombo": 0.725,
+      "AttackRange": 1.243
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 10,
+      "age": 26,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

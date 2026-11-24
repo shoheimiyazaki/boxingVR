@@ -1,0 +1,103 @@
+{
+  "id": "bohdan-hnatiuk",
+  "order": 1053,
+  "org": "ivf",
+  "name": "ボフダン・フナチュク",
+  "reading": "ボフダン フナチュク",
+  "hudName": "ボフダン",
+  "origin": "ウクライナ",
+  "country": "ukraine",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Full",
+    "eyes": [0.349, 0.49, 0.608],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.006,
+      "jaw": 1.03,
+      "noseLength": 1.181,
+      "cheekbones": 1.334,
+      "faceWidth": 0.985
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.006,
+      "jaw": 1.03,
+      "noseLength": 1.181,
+      "cheekbones": 1.334,
+      "faceWidth": 0.985
+    },
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.349, 0.49, 0.608]
+  },
+  "body": {
+    "build": {
+      "height": 1.027,
+      "arms": 1.035,
+      "legs": 1.006,
+      "muscle": 0.8611
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.606,
+      "Circling": 0.181,
+      "HeadMovement": 0.221,
+      "DefenseRate": 0.358,
+      "CounterRate": 0.294,
+      "ExitAfterCombo": 0.18,
+      "AttackRange": 0.854
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 53,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

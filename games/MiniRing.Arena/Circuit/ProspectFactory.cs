@@ -41,6 +41,13 @@ internal static class ProspectFactory
         return [.. divisions.Zip(people)];
     }
 
+    /// <summary>
+    /// 新人の名前が重なってはいけない名簿の id: 名簿のうち新人リーグで作られた選手（record に kind: generated）を除く。登録した新人が名簿に入っても、
+    /// 同じ種で作り直したときの名前の引き直しが変わらない（作り直しても同じファイル）。
+    /// </summary>
+    public static IReadOnlyList<string> ReservedIds(IEnumerable<FighterCharacter> roster)
+        => [.. roster.Where(c => !c.Record.Any(r => r["kind"]?.GetValue<string>() == "generated")).Select(c => c.Id)];
+
     /// <summary>全員を作る（番号の順。id は前の人・<paramref name="takenIds"/> と重ならない）。</summary>
     public static IReadOnlyList<Prospect> All(CircuitConfig config, Organization org, IReadOnlyCollection<string> takenIds)
     {
@@ -179,7 +186,7 @@ internal static class ProspectFactory
                 continue; // この身長では作れない体重
             }
 
-            if (build.Muscle < b.MinMuscle || build.Muscle > b.MaxMuscle || org.DivisionOf(weight).Id != division.Id)
+            if (build.Muscle < b.MinMuscle || build.Muscle > b.MaxMuscle || org.DivisionOf(CharacterProfile.WeightOf(build)).Id != division.Id)
             {
                 continue;
             }

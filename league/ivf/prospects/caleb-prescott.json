@@ -1,0 +1,107 @@
+{
+  "id": "caleb-prescott",
+  "order": 1143,
+  "org": "ivf",
+  "name": "ケイレブ・プレスコット",
+  "reading": "ケイレブ プレスコット",
+  "hudName": "ケイレブ",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.353, 0.227, 0.157],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.036,
+      "jaw": 0.947,
+      "noseWidth": 1.2,
+      "noseLength": 1.037,
+      "lips": 1.1,
+      "cheekbones": 1.303,
+      "faceWidth": 1.003
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.036,
+      "jaw": 0.947,
+      "noseWidth": 1.2,
+      "noseLength": 1.037,
+      "lips": 1.1,
+      "cheekbones": 1.303,
+      "faceWidth": 1.003
+    },
+    "skin": [0.353, 0.227, 0.157],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0843,
+      "arms": 0.982,
+      "legs": 0.968,
+      "muscle": 0.9407
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.521,
+      "Circling": 0.443,
+      "HeadMovement": 0.454,
+      "DefenseRate": 0.532,
+      "CounterRate": 0.459,
+      "ExitAfterCombo": 0.388,
+      "AttackRange": 1.04
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 143,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

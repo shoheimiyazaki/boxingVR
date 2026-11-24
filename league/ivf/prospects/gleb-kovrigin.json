@@ -1,0 +1,105 @@
+{
+  "id": "gleb-kovrigin",
+  "order": 1151,
+  "org": "ivf",
+  "name": "グレブ・コブリギン",
+  "reading": "グレブ コブリギン",
+  "hudName": "グレブ",
+  "origin": "ロシア",
+  "country": "russia",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.569, 0.286, 0.157],
+    "hairstyle": "Full",
+    "eyes": [0.482, 0.522, 0.533],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.986,
+      "jaw": 1.055,
+      "noseLength": 1.125,
+      "cheekbones": 1.3,
+      "faceWidth": 0.996
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {
+        "beard.1": 1
+      },
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.986,
+      "jaw": 1.055,
+      "noseLength": 1.125,
+      "cheekbones": 1.3,
+      "faceWidth": 0.996
+    },
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.569, 0.286, 0.157],
+    "iris": [0.482, 0.522, 0.533]
+  },
+  "body": {
+    "build": {
+      "height": 1.0024,
+      "arms": 1.066,
+      "legs": 0.967,
+      "muscle": 1.0788
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.698,
+      "Circling": 0.229,
+      "HeadMovement": 0.813,
+      "DefenseRate": 0.584,
+      "CounterRate": 0.646,
+      "ExitAfterCombo": 0.106,
+      "AttackRange": 0.851
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 151,
+      "age": 20,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "id": "rhys-pennington",
+  "order": 1092,
+  "org": "ivf",
+  "name": "リース・ペニントン",
+  "reading": "リース ペニントン",
+  "hudName": "リース",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.569, 0.286, 0.157],
+    "hairstyle": "Full",
+    "eyes": [0.376, 0.451, 0.306],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.094,
+      "jaw": 0.959,
+      "noseLength": 1.064,
+      "cheekbones": 1.391,
+      "faceWidth": 1.01
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.094,
+      "jaw": 0.959,
+      "noseLength": 1.064,
+      "cheekbones": 1.391,
+      "faceWidth": 1.01
+    },
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.569, 0.286, 0.157],
+    "iris": [0.376, 0.451, 0.306]
+  },
+  "body": {
+    "build": {
+      "height": 0.9057,
+      "arms": 1.037,
+      "legs": 1.027,
+      "muscle": 1.1491
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.821,
+      "Circling": 0.242,
+      "HeadMovement": 0.919,
+      "DefenseRate": 0.548,
+      "CounterRate": 0.553,
+      "ExitAfterCombo": 0.095,
+      "AttackRange": 0.927
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 92,
+      "age": 20,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

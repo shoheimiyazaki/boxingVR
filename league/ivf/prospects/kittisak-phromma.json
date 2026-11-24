@@ -1,0 +1,106 @@
+{
+  "id": "kittisak-phromma",
+  "order": 1060,
+  "org": "ivf",
+  "name": "キッティサック・プロムマー",
+  "reading": "キッティサック プロムマー",
+  "hudName": "キッティサック",
+  "origin": "タイ",
+  "country": "thailand",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.659, 0.443, 0.282],
+    "hair": [0.137, 0.11, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.899,
+      "jaw": 0.976,
+      "noseWidth": 1.12,
+      "noseLength": 1.01,
+      "cheekbones": 1.381,
+      "faceWidth": 1.057
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.899,
+      "jaw": 0.976,
+      "noseWidth": 1.12,
+      "noseLength": 1.01,
+      "cheekbones": 1.381,
+      "faceWidth": 1.057
+    },
+    "skin": [0.659, 0.443, 0.282],
+    "hair": [0.137, 0.11, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 0.9013,
+      "arms": 0.959,
+      "legs": 1.023,
+      "muscle": 1.2183
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 0.906,
+      "Circling": 0.173,
+      "HeadMovement": 0.458,
+      "DefenseRate": 0.627,
+      "CounterRate": 0.732,
+      "ExitAfterCombo": 0.573,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 60,
+      "age": 26,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

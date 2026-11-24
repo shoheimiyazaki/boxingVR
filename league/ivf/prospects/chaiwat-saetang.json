@@ -1,0 +1,106 @@
+{
+  "id": "chaiwat-saetang",
+  "order": 1217,
+  "org": "ivf",
+  "name": "チャイワット・セータン",
+  "reading": "チャイワット セータン",
+  "hudName": "チャイワット",
+  "origin": "タイ",
+  "country": "thailand",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.098, 0.098, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.912,
+      "jaw": 1.026,
+      "noseWidth": 1.12,
+      "noseLength": 0.956,
+      "cheekbones": 1.248,
+      "faceWidth": 0.962
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.912,
+      "jaw": 1.026,
+      "noseWidth": 1.12,
+      "noseLength": 0.956,
+      "cheekbones": 1.248,
+      "faceWidth": 0.962
+    },
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.098, 0.098, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0454,
+      "arms": 1.039,
+      "legs": 1.031,
+      "muscle": 1.2094
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.913,
+      "Circling": 0.247,
+      "HeadMovement": 0.819,
+      "DefenseRate": 0.574,
+      "CounterRate": 0.565,
+      "ExitAfterCombo": 0.105,
+      "AttackRange": 0.853
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 217,
+      "age": 22,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

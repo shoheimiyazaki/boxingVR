@@ -1,0 +1,107 @@
+{
+  "id": "kaito-okabe",
+  "order": 1055,
+  "org": "ivf",
+  "name": "岡部 海斗",
+  "reading": "オカベ カイト",
+  "hudName": "カイト",
+  "origin": "日本",
+  "country": "japan",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.741, 0.565, 0.42],
+    "hair": [0.09, 0.11, 0.133],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.036,
+      "jaw": 0.963,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.058,
+      "cheekbones": 1.184,
+      "faceWidth": 1.013
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 1.036,
+      "jaw": 0.963,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.058,
+      "cheekbones": 1.184,
+      "faceWidth": 1.013
+    },
+    "skin": [0.741, 0.565, 0.42],
+    "hair": [0.09, 0.11, 0.133],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0072,
+      "arms": 1.036,
+      "legs": 0.97,
+      "muscle": 0.9215
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.538,
+      "Circling": 0.348,
+      "HeadMovement": 0.417,
+      "DefenseRate": 0.609,
+      "CounterRate": 0.484,
+      "ExitAfterCombo": 0.407,
+      "AttackRange": 1.09
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 55,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

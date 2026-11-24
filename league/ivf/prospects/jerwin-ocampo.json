@@ -1,0 +1,107 @@
+{
+  "id": "jerwin-ocampo",
+  "order": 1000,
+  "org": "ivf",
+  "name": "ジャーウィン・オカンポ",
+  "reading": "ジャーウィン オカンポ",
+  "hudName": "ジャーウィン",
+  "origin": "フィリピン",
+  "country": "philippines",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.098, 0.098, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.872,
+      "jaw": 0.999,
+      "noseWidth": 1.12,
+      "noseLength": 0.976,
+      "cheekbones": 1.359,
+      "faceWidth": 1.06
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.872,
+      "jaw": 0.999,
+      "noseWidth": 1.12,
+      "noseLength": 0.976,
+      "cheekbones": 1.359,
+      "faceWidth": 1.06
+    },
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.098, 0.098, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0187,
+      "arms": 0.975,
+      "legs": 0.985,
+      "muscle": 0.9459
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.594,
+      "Circling": 0.616,
+      "HeadMovement": 0.231,
+      "DefenseRate": 0.409,
+      "CounterRate": 0.497,
+      "ExitAfterCombo": 0.942,
+      "AttackRange": 1.25,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 0,
+      "age": 26,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

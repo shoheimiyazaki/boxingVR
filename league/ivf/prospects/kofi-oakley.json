@@ -1,0 +1,103 @@
+{
+  "id": "kofi-oakley",
+  "order": 1020,
+  "org": "ivf",
+  "name": "コフィ・オークリー",
+  "reading": "コフィ オークリー",
+  "hudName": "コフィ",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.533, 0.439, 0.267],
+    "hairstyle": "Crop",
+    "eyes": [0.482, 0.522, 0.533],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.027,
+      "jaw": 1.036,
+      "noseLength": 1.063,
+      "cheekbones": 1.308,
+      "faceWidth": 0.916
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.027,
+      "jaw": 1.036,
+      "noseLength": 1.063,
+      "cheekbones": 1.308,
+      "faceWidth": 0.916
+    },
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.533, 0.439, 0.267],
+    "iris": [0.482, 0.522, 0.533]
+  },
+  "body": {
+    "build": {
+      "height": 1.0706,
+      "arms": 1.001,
+      "legs": 0.97,
+      "muscle": 0.8653
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.451,
+      "Circling": 0.757,
+      "HeadMovement": 0.289,
+      "DefenseRate": 0.595,
+      "CounterRate": 0.401,
+      "ExitAfterCombo": 0.675,
+      "AttackRange": 0.908
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 20,
+      "age": 26,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

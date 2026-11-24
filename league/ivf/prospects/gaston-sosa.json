@@ -1,0 +1,104 @@
+{
+  "id": "gaston-sosa",
+  "order": 1152,
+  "org": "ivf",
+  "name": "ガストン・ソサ",
+  "reading": "ガストン ソサ",
+  "hudName": "ガストン",
+  "origin": "アルゼンチン",
+  "country": "argentina",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.773, 0.624, 0.506],
+    "hair": [0.204, 0.157, 0.129],
+    "hairstyle": "Full",
+    "eyes": [0.431, 0.486, 0.42],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.021,
+      "jaw": 1.041,
+      "noseLength": 0.968,
+      "cheekbones": 1.224,
+      "faceWidth": 0.945
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.3": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.3": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.021,
+      "jaw": 1.041,
+      "noseLength": 0.968,
+      "cheekbones": 1.224,
+      "faceWidth": 0.945
+    },
+    "skin": [0.773, 0.624, 0.506],
+    "hair": [0.204, 0.157, 0.129],
+    "iris": [0.431, 0.486, 0.42]
+  },
+  "body": {
+    "build": {
+      "height": 1.0664,
+      "arms": 0.992,
+      "legs": 1.05,
+      "muscle": 0.978
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.754,
+      "Circling": 0.205,
+      "HeadMovement": 0.716,
+      "DefenseRate": 0.6,
+      "CounterRate": 0.641,
+      "ExitAfterCombo": 0.122,
+      "AttackRange": 0.839,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 152,
+      "age": 26,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

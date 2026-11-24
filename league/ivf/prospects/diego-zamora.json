@@ -1,0 +1,105 @@
+{
+  "id": "diego-zamora",
+  "order": 1042,
+  "org": "ivf",
+  "name": "ディエゴ・サモラ",
+  "reading": "ディエゴ サモラ",
+  "hudName": "ディエゴ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.967,
+      "jaw": 0.946,
+      "noseWidth": 1.1,
+      "noseLength": 0.936,
+      "cheekbones": 1.322,
+      "faceWidth": 1.007
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.967,
+      "jaw": 0.946,
+      "noseWidth": 1.1,
+      "noseLength": 0.936,
+      "cheekbones": 1.322,
+      "faceWidth": 1.007
+    },
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 0.9481,
+      "arms": 0.98,
+      "legs": 0.988,
+      "muscle": 1.0438
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.164,
+      "Circling": 0.432,
+      "HeadMovement": 0.546,
+      "DefenseRate": 0.85,
+      "CounterRate": 0.75,
+      "ExitAfterCombo": 0.413,
+      "AttackRange": 1.154
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 42,
+      "age": 20,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

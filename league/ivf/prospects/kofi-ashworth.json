@@ -1,0 +1,104 @@
+{
+  "id": "kofi-ashworth",
+  "order": 1075,
+  "org": "ivf",
+  "name": "コフィ・アシュワース",
+  "reading": "コフィ アシュワース",
+  "hudName": "コフィ",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.569, 0.286, 0.157],
+    "hairstyle": "Crop",
+    "eyes": [0.424, 0.506, 0.569],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.985,
+      "jaw": 0.998,
+      "noseLength": 1.148,
+      "cheekbones": 1.393,
+      "faceWidth": 0.981
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.985,
+      "jaw": 0.998,
+      "noseLength": 1.148,
+      "cheekbones": 1.393,
+      "faceWidth": 0.981
+    },
+    "skin": [0.827, 0.702, 0.643],
+    "hair": [0.569, 0.286, 0.157],
+    "iris": [0.424, 0.506, 0.569]
+  },
+  "body": {
+    "build": {
+      "height": 0.9872,
+      "arms": 0.981,
+      "legs": 0.998,
+      "muscle": 1.0577
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.47,
+      "Circling": 0.458,
+      "HeadMovement": 0.34,
+      "DefenseRate": 0.579,
+      "CounterRate": 0.535,
+      "ExitAfterCombo": 0.341,
+      "AttackRange": 0.916,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 75,
+      "age": 19,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

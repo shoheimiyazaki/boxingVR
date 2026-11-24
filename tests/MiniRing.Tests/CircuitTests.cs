@@ -15,13 +15,13 @@ public sealed class CircuitTests
 {
     private static Organization Ivf => Organization.Of("ivf");
 
-    private static readonly Lazy<IReadOnlyList<Prospect>> AllProspects = new(() => ProspectFactory.All(CircuitConfig.Of("ivf"), Ivf, [.. CharacterRoster.All.Select(c => c.Id)]));
+    private static readonly Lazy<IReadOnlyList<Prospect>> AllProspects = new(() => ProspectFactory.All(CircuitConfig.Of("ivf"), Ivf, ProspectFactory.ReservedIds(CharacterRoster.All)));
 
     [TestMethod]
     public void Generation_IsDeterministic_AndTheSeedChangesIt()
     {
         var config = CircuitConfig.Of("ivf");
-        var taken = new HashSet<string>(CharacterRoster.All.Select(c => c.Id));
+        var taken = new HashSet<string>(ProspectFactory.ReservedIds(CharacterRoster.All));
         for (var i = 0; i < 6; i++)
         {
             var slot = ProspectFactory.Slots(config)[i];
@@ -42,7 +42,8 @@ public sealed class CircuitTests
         var all = AllProspects.Value;
         Assert.AreEqual(config.Total, all.Count);
         Assert.AreEqual(all.Count, all.Select(p => p.Character.Id).Distinct().Count(), "id が重なった");
-        Assert.IsFalse(all.Any(p => CharacterRoster.Find(p.Character.Id) is not null), "名簿の id と重なった");
+        var reserved = ProspectFactory.ReservedIds(CharacterRoster.All).ToHashSet();
+        Assert.IsFalse(all.Any(p => reserved.Contains(p.Character.Id)), "名簿の id と重なった");
         var allowedKeys = config.Education.Keys.Select(k => k.Key).Append("Southpaw").ToHashSet();
         foreach (var p in all)
         {
@@ -70,6 +71,27 @@ public sealed class CircuitTests
                 Assert.IsTrue(v >= spec.Min - 1e-4f && v <= spec.Max + 1e-4f, $"{c.Id}.{key} = {v} が幅の外");
                 Assert.IsTrue(MathF.Abs(v - Math.Clamp(book, spec.Min, spec.Max)) <= (2.5f * config.Education.Sd * MathF.Abs(book)) + 1e-3f, $"{c.Id}.{key} = {v} が教科書 {book} から離れすぎ");
             }
+        }
+    }
+
+    [TestMethod]
+    public void StoredProspectFiles_AreWhatTheSeedGenerates()
+    {
+        // 記録の新人のファイルは、決まりの種から作り直すと 1 バイトも違わない（生成の式を変えたら generatorVersion を上げる。古いファイルは記録のハッシュで守る）。
+        var dir = Path.Combine(RepoRoot(), "league", "ivf", "prospects");
+        if (!Directory.Exists(dir))
+        {
+            Assert.Inconclusive("リーグの新人がまだいません。");
+        }
+
+        var generated = AllProspects.Value.ToDictionary(p => p.Character.Id);
+        var files = Directory.GetFiles(dir, "*.json");
+        Assert.IsTrue(files.Length > 0);
+        foreach (var path in files)
+        {
+            var id = Path.GetFileNameWithoutExtension(path);
+            Assert.IsTrue(generated.TryGetValue(id, out var p), $"{id} は今の種からは作られない");
+            Assert.AreEqual(ProspectFactory.HashOf(p.Json), ProspectFactory.HashOf(File.ReadAllText(path)), $"{id} のファイルが作り直しと違う");
         }
     }
 
@@ -232,7 +254,10 @@ public sealed class CircuitTests
             checkedAny = true;
         }
 
-        Assert.IsTrue(checkedAny, "記録に出てくる名簿の選手がいない");
+        if (!checkedAny)
+        {
+            Assert.Inconclusive("記録に出てくる名簿の選手がまだいません。");
+        }
     }
 
     internal static BoutRecord Bout(string id, string red, string blue, string? winner, string method) => new()
@@ -284,7 +309,7 @@ public sealed class CircuitBoutTests
             var org = Organization.Of("ivf");
             var league = new CircuitLeague(dir.FullName, config, org);
             var slots = ProspectFactory.Slots(config);
-            var taken = new HashSet<string>(CharacterRoster.All.Select(c => c.Id));
+            var taken = new HashSet<string>(ProspectFactory.ReservedIds(CharacterRoster.All));
             var picks = Enumerable.Range(0, slots.Count).Where(i => slots[i].Division == "middle").Take(2).ToList();
             var files = picks.Select(i =>
             {

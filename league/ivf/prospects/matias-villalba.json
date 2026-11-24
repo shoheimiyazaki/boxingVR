@@ -1,0 +1,103 @@
+{
+  "id": "matias-villalba",
+  "order": 1130,
+  "org": "ivf",
+  "name": "マティアス・ビジャルバ",
+  "reading": "マティアス ビジャルバ",
+  "hudName": "マティアス",
+  "origin": "アルゼンチン",
+  "country": "argentina",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.851, 0.706, 0.588],
+    "hair": [0.122, 0.102, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.431, 0.486, 0.42],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.918,
+      "jaw": 0.956,
+      "noseLength": 0.971,
+      "cheekbones": 1.408,
+      "faceWidth": 1.088
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.3": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.3": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.918,
+      "jaw": 0.956,
+      "noseLength": 0.971,
+      "cheekbones": 1.408,
+      "faceWidth": 1.088
+    },
+    "skin": [0.851, 0.706, 0.588],
+    "hair": [0.122, 0.102, 0.09],
+    "iris": [0.431, 0.486, 0.42]
+  },
+  "body": {
+    "build": {
+      "height": 1.0057,
+      "arms": 1.004,
+      "legs": 1.024,
+      "muscle": 1.0503
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.927,
+      "Circling": 0.193,
+      "HeadMovement": 0.833,
+      "DefenseRate": 0.641,
+      "CounterRate": 0.605,
+      "ExitAfterCombo": 0.096,
+      "AttackRange": 0.887
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 130,
+      "age": 26,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

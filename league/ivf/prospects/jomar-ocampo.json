@@ -1,0 +1,106 @@
+{
+  "id": "jomar-ocampo",
+  "order": 1016,
+  "org": "ivf",
+  "name": "ジョマール・オカンポ",
+  "reading": "ジョマール オカンポ",
+  "hudName": "ジョマール",
+  "origin": "フィリピン",
+  "country": "philippines",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.098, 0.098, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.887,
+      "jaw": 0.957,
+      "noseWidth": 1.12,
+      "noseLength": 0.98,
+      "cheekbones": 1.359,
+      "faceWidth": 0.99
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.887,
+      "jaw": 0.957,
+      "noseWidth": 1.12,
+      "noseLength": 0.98,
+      "cheekbones": 1.359,
+      "faceWidth": 0.99
+    },
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.098, 0.098, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 0.9838,
+      "arms": 0.991,
+      "legs": 0.979,
+      "muscle": 0.9404
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.817,
+      "Circling": 0.816,
+      "HeadMovement": 0.268,
+      "DefenseRate": 0.5,
+      "CounterRate": 0.528,
+      "ExitAfterCombo": 0.848,
+      "AttackRange": 1.045
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 16,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

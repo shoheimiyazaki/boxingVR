@@ -1,0 +1,107 @@
+{
+  "id": "seojin-han",
+  "order": 1034,
+  "org": "ivf",
+  "name": "ハン・ソジン",
+  "reading": "ハン ソジン",
+  "hudName": "ソジン",
+  "origin": "韓国",
+  "country": "korea",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.843, 0.714, 0.596],
+    "hair": [0.106, 0.106, 0.114],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.082,
+      "jaw": 0.95,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.008,
+      "cheekbones": 1.247,
+      "faceWidth": 0.885
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 1.082,
+      "jaw": 0.95,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 1.008,
+      "cheekbones": 1.247,
+      "faceWidth": 0.885
+    },
+    "skin": [0.843, 0.714, 0.596],
+    "hair": [0.106, 0.106, 0.114],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9154,
+      "arms": 0.983,
+      "legs": 0.991,
+      "muscle": 1.1223
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 0.918,
+      "Circling": 0.126,
+      "HeadMovement": 0.474,
+      "DefenseRate": 0.588,
+      "CounterRate": 0.708,
+      "ExitAfterCombo": 0.704,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 34,
+      "age": 21,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

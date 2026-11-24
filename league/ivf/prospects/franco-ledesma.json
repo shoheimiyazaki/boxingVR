@@ -1,0 +1,105 @@
+{
+  "id": "franco-ledesma",
+  "order": 1006,
+  "org": "ivf",
+  "name": "フランコ・レデスマ",
+  "reading": "フランコ レデスマ",
+  "hudName": "フランコ",
+  "origin": "アルゼンチン",
+  "country": "argentina",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.851, 0.706, 0.588],
+    "hair": [0.122, 0.102, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.533, 0.451, 0.243],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 1.035,
+      "jaw": 1.002,
+      "noseLength": 0.909,
+      "cheekbones": 1.379,
+      "faceWidth": 1.035
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.3": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.3": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.035,
+      "jaw": 1.002,
+      "noseLength": 0.909,
+      "cheekbones": 1.379,
+      "faceWidth": 1.035
+    },
+    "skin": [0.851, 0.706, 0.588],
+    "hair": [0.122, 0.102, 0.09],
+    "iris": [0.533, 0.451, 0.243]
+  },
+  "body": {
+    "build": {
+      "height": 0.9922,
+      "arms": 0.948,
+      "legs": 0.949,
+      "muscle": 0.9788
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.425,
+      "Circling": 0.756,
+      "HeadMovement": 0.352,
+      "DefenseRate": 0.603,
+      "CounterRate": 0.459,
+      "ExitAfterCombo": 0.811,
+      "AttackRange": 1.15
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 6,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

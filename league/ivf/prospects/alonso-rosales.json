@@ -1,0 +1,107 @@
+{
+  "id": "alonso-rosales",
+  "order": 1161,
+  "org": "ivf",
+  "name": "アロンソ・ロサレス",
+  "reading": "アロンソ ロサレス",
+  "hudName": "アロンソ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.227, 0.165, 0.122],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 1.076,
+      "jaw": 1.039,
+      "noseWidth": 1.1,
+      "noseLength": 0.975,
+      "cheekbones": 1.282,
+      "faceWidth": 1.051
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.8": 1
+      },
+      "beard": {
+        "beard.1": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.076,
+      "jaw": 1.039,
+      "noseWidth": 1.1,
+      "noseLength": 0.975,
+      "cheekbones": 1.282,
+      "faceWidth": 1.051
+    },
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.227, 0.165, 0.122],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.1627,
+      "arms": 0.963,
+      "legs": 0.942,
+      "muscle": 0.9202
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.643,
+      "Circling": 0.162,
+      "HeadMovement": 0.185,
+      "DefenseRate": 0.326,
+      "CounterRate": 0.33,
+      "ExitAfterCombo": 0.13,
+      "AttackRange": 0.84
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 161,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

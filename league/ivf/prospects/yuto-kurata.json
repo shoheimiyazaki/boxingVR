@@ -1,0 +1,107 @@
+{
+  "id": "yuto-kurata",
+  "order": 1195,
+  "org": "ivf",
+  "name": "倉田 悠斗",
+  "reading": "クラタ ユウト",
+  "hudName": "ユウト",
+  "origin": "日本",
+  "country": "japan",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.788, 0.639, 0.514],
+    "hair": [0.09, 0.11, 0.133],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.965,
+      "jaw": 0.959,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 0.916,
+      "cheekbones": 1.235,
+      "faceWidth": 0.929
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.965,
+      "jaw": 0.959,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 0.916,
+      "cheekbones": 1.235,
+      "faceWidth": 0.929
+    },
+    "skin": [0.788, 0.639, 0.514],
+    "hair": [0.09, 0.11, 0.133],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0911,
+      "arms": 0.992,
+      "legs": 1.026,
+      "muscle": 0.9905
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.543,
+      "Circling": 0.761,
+      "HeadMovement": 0.331,
+      "DefenseRate": 0.596,
+      "CounterRate": 0.409,
+      "ExitAfterCombo": 0.708,
+      "AttackRange": 1.098
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 195,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

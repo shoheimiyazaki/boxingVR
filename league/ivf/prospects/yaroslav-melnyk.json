@@ -1,0 +1,104 @@
+{
+  "id": "yaroslav-melnyk",
+  "order": 1170,
+  "org": "ivf",
+  "name": "ヤロスラフ・メルニク",
+  "reading": "ヤロスラフ メルニク",
+  "hudName": "ヤロスラフ",
+  "origin": "ウクライナ",
+  "country": "ukraine",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.533, 0.439, 0.267],
+    "hairstyle": "Full",
+    "eyes": [0.376, 0.451, 0.306],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.001,
+      "jaw": 1.087,
+      "noseLength": 1.1,
+      "cheekbones": 1.395,
+      "faceWidth": 0.935
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.001,
+      "jaw": 1.087,
+      "noseLength": 1.1,
+      "cheekbones": 1.395,
+      "faceWidth": 0.935
+    },
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.533, 0.439, 0.267],
+    "iris": [0.376, 0.451, 0.306]
+  },
+  "body": {
+    "build": {
+      "height": 0.9502,
+      "arms": 1.009,
+      "legs": 0.997,
+      "muscle": 1.226
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 0.784,
+      "Circling": 0.148,
+      "HeadMovement": 0.516,
+      "DefenseRate": 0.552,
+      "CounterRate": 0.879,
+      "ExitAfterCombo": 0.804,
+      "AttackRange": 1.25,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 170,
+      "age": 20,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

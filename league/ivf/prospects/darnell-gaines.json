@@ -1,0 +1,104 @@
+{
+  "id": "darnell-gaines",
+  "order": 1125,
+  "org": "ivf",
+  "name": "ダーネル・ゲインズ",
+  "reading": "ダーネル ゲインズ",
+  "hudName": "ダーネル",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.533, 0.439, 0.267],
+    "hairstyle": "Full",
+    "eyes": [0.376, 0.451, 0.306],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.985,
+      "jaw": 0.961,
+      "noseLength": 1.162,
+      "cheekbones": 1.353,
+      "faceWidth": 1.048
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.985,
+      "jaw": 0.961,
+      "noseLength": 1.162,
+      "cheekbones": 1.353,
+      "faceWidth": 1.048
+    },
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.533, 0.439, 0.267],
+    "iris": [0.376, 0.451, 0.306]
+  },
+  "body": {
+    "build": {
+      "height": 1.097,
+      "arms": 1.025,
+      "legs": 1.003,
+      "muscle": 0.9147
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.875,
+      "Circling": 0.172,
+      "HeadMovement": 0.781,
+      "DefenseRate": 0.488,
+      "CounterRate": 0.547,
+      "ExitAfterCombo": 0.095,
+      "AttackRange": 0.75,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 125,
+      "age": 20,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

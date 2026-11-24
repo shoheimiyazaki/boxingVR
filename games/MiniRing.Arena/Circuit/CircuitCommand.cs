@@ -23,6 +23,10 @@ internal static class CircuitCommand
 
         var o = Options.Parse(argv[1..], "org", "league", "workers", "events", "only", "limit", "card", "shard", "of", "out", "bout", "standings");
         var org = Organizations.Get(o.Get("org") ?? "ivf");
+        if (argv[0] == "fight" && o.Get("card") is { } cardPath)
+        {
+            org = Organizations.Get(JsonSerializer.Deserialize<BoutCard>(File.ReadAllText(cardPath), CircuitLeague.Json)!.Org); // 子はカードの団体で回す
+        }
         var config = CircuitConfig.Of(org.Id);
         var league = new CircuitLeague(o.Get("league") ?? Path.Combine("league", org.Id), config, org);
         return argv[0] switch
@@ -104,7 +108,7 @@ internal static class CircuitCommand
     {
         var only = o.Get("only");
         var limit = o.Int("limit", int.MaxValue, min: 2);
-        var all = ProspectFactory.All(league.Config, league.Org, [.. CharacterRoster.All.Select(c => c.Id)]);
+        var all = ProspectFactory.All(league.Config, league.Org, ProspectFactory.ReservedIds(CharacterRoster.All));
         var chosen = all.Where(p => only is null || p.Division == only).GroupBy(p => p.Division).SelectMany(g => g.Take(limit)).ToList();
         Directory.CreateDirectory(league.ProspectsDir);
         foreach (var p in chosen)
@@ -171,7 +175,9 @@ internal static class CircuitCommand
 
         league.SaveState(state with { Fighters = fighters });
         var output = o.Get("standings") ?? Path.Combine("games", "MiniRing.Arena", "Orgs", "standings", $"{league.Org.Id}.json");
-        File.WriteAllText(output, (standings with { AsOf = Today(), Basis = standings.Basis + $"。新人リーグ シーズン {state.Season} の上位を末尾に登録" }).ToJson());
+        var seated = (standings with { AsOf = Today(), Basis = standings.Basis + $"。新人リーグ シーズン {state.Season} の上位を末尾に登録" }).ToJson();
+        File.WriteAllText(output, seated);
+        File.WriteAllText(league.ChallengeStartPath, seated); // 挑戦の始めの席（挑戦はここから読み直す）
         Console.Error.WriteLine($"→ {RosterDir}・{output}（組み込みなので、挑戦の前にビルドし直す）");
         return 0;
     }
@@ -208,21 +214,31 @@ internal static class CircuitCommand
     private static int Challenge(CircuitLeague league, Options o)
     {
         var state = league.LoadState() ?? throw new InvalidOperationException("リーグがまだありません。");
-        if (state.ChallengesDone)
+        if (!File.Exists(league.ChallengeStartPath))
         {
-            Console.Error.WriteLine("挑戦は済んでいます。");
-            return 0;
+            throw new InvalidOperationException($"{league.ChallengeStartPath} がありません（先に circuit register）。");
+        }
+
+        // 始めの席は登録の直後にリーグへ残した物（組み込みの記録はビルドし直すまで古いので読まない）。済んだ試合は記録から読み直すので、途中で止まっても同じ所から続く。
+        var known = Directory.GetFiles(RosterDir, "*.json").Select(Path.GetFileNameWithoutExtension).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var standings = OrgStandings.FromJson(File.ReadAllText(league.ChallengeStartPath), league.Org, known);
+        var registered = state.Fighters.Where(f => f.Value.Status == LeagueEntry.Registered).Select(f => f.Key).ToHashSet(StringComparer.Ordinal);
+        var missing = registered.Where(id => standings.SeatOf(id) is null).ToList();
+        if (missing.Count > 0)
+        {
+            throw new InvalidDataException($"登録した選手 {string.Join(", ", missing)} が始めの席にありません。");
         }
 
         var workers = o.Int("workers", 1, min: 1);
         var commit = CircuitLeague.Commit();
-        var standings = OrgStandings.Of(league.Org);
+        var done = league.Ledger().ToDictionary(b => b.Id, StringComparer.Ordinal);
         var climbers = league.Config.Divisions.ToDictionary(d => d.Id, d => new Queue<string>(
-            standings.Divisions.First(s => s.Division == d.Id).Ranking.Where(id => state.Fighters.TryGetValue(id, out var e) && e.Status == LeagueEntry.Registered)));
+            standings.Divisions.First(s => s.Division == d.Id).Ranking.Where(registered.Contains)));
         var climbed = new Dictionary<string, int>();
         var vacantHeld = new HashSet<string>();
         var met = new HashSet<(string, string)>();
         var evt = league.Config.Season.Events;
+        var output = o.Get("standings") ?? Path.Combine("games", "MiniRing.Arena", "Orgs", "standings", $"{league.Org.Id}.json");
         for (var step = 1; step < 100; step++)
         {
             var specs = new List<BoutSpec>();
@@ -252,9 +268,10 @@ internal static class CircuitCommand
 
                 if (bout is { } b)
                 {
-                    var (redFile, redHash) = league.Snapshot(Path.Combine(RosterDir, $"{b.Red}.json"), keepCopy: true);
-                    var (blueFile, blueHash) = league.Snapshot(Path.Combine(RosterDir, $"{b.Blue}.json"), keepCopy: true);
-                    specs.Add(new BoutSpec(string.Create(CultureInfo.InvariantCulture, $"s{state.Season}-c{step:00}-{division.Id}"), state.Season, evt + step, b.Kind == "challenge" ? "challenge" : "title",
+                    var id = string.Create(CultureInfo.InvariantCulture, $"s{state.Season}-c{step:00}-{division.Id}");
+                    var (redFile, redHash) = done.TryGetValue(id, out var prior) ? (prior.RedFile, prior.RedHash) : league.Snapshot(Path.Combine(RosterDir, $"{b.Red}.json"), keepCopy: true);
+                    var (blueFile, blueHash) = prior is not null ? (prior.BlueFile, prior.BlueHash) : league.Snapshot(Path.Combine(RosterDir, $"{b.Blue}.json"), keepCopy: true);
+                    specs.Add(new BoutSpec(id, state.Season, evt + step, b.Kind == "challenge" ? "challenge" : "title",
                         division.Id, league.SeedOf(state.Season, 100 + step, division.Id, 0), league.Config.Season.ChallengeRounds, b.Red, b.Blue, redFile, blueFile, redHash, blueHash));
                     met.Add((b.Blue, b.Red));
                     met.Add((b.Red, b.Blue));
@@ -266,10 +283,26 @@ internal static class CircuitCommand
                 break;
             }
 
-            Console.Error.WriteLine($"挑戦 {step}");
-            var results = league.Run(new BoutCard(league.Org.Id, commit, league.Config.Season.BreakSeconds, specs), workers, string.Create(CultureInfo.InvariantCulture, $"s{state.Season}-c{step:00}"), Console.Error);
-            BoutLedger.Append(league.LedgerPath, results);
-            foreach (var r in results)
+            var todo = specs.Where(s => !done.ContainsKey(s.Id)).ToList();
+            var stale = specs.Where(s => done.TryGetValue(s.Id, out var r) && (r.Red != s.Red || r.Blue != s.Blue)).ToList();
+            if (stale.Count > 0)
+            {
+                throw new InvalidDataException($"記録の試合 {string.Join(", ", stale.Select(s => s.Id))} の組が、読み直した席の組と違います。");
+            }
+
+            if (todo.Count > 0)
+            {
+                Console.Error.WriteLine($"挑戦 {step}");
+                var ran = league.Run(new BoutCard(league.Org.Id, commit, league.Config.Season.BreakSeconds, todo), workers,
+                    string.Create(CultureInfo.InvariantCulture, $"s{state.Season}-c{step:00}"), Console.Error);
+                BoutLedger.Append(league.LedgerPath, ran);
+                foreach (var r in ran)
+                {
+                    done[r.Id] = r;
+                }
+            }
+
+            foreach (var r in specs.Select(s => done[s.Id]))
             {
                 var division = league.Org.Division(r.Division);
                 var seat = standings.For(division);
@@ -279,6 +312,11 @@ internal static class CircuitCommand
                     standings = vacant
                         ? standings.WithSeat(new DivisionStanding(division.Id, winner, [.. seat.Ranking.Where(id => id != winner)]))
                         : standings.AfterBout(division, winner, r.LoserId!);
+                    if (r.Death)
+                    {
+                        var after = standings.For(division); // 試合で死んだ選手は席から外す
+                        standings = standings.WithSeat(after with { Ranking = [.. after.Ranking.Where(id => id != r.LoserId)] });
+                    }
                 }
 
                 var climber = climbers[division.Id].Count > 0 ? climbers[division.Id].Peek() : null;
@@ -291,12 +329,12 @@ internal static class CircuitCommand
                     }
                 }
             }
+
+            File.WriteAllText(output, (standings with { AsOf = Today() }).ToJson()); // 1 段ごとに残す
         }
 
-        var output = o.Get("standings") ?? Path.Combine("games", "MiniRing.Arena", "Orgs", "standings", $"{league.Org.Id}.json");
-        File.WriteAllText(output, (standings with { AsOf = Today() }).ToJson());
         league.SaveState(state with { ChallengesDone = true });
-        Console.Error.WriteLine($"→ {output}");
+        Console.Error.WriteLine($"→ {output}（組み込みなので、使うにはビルドし直す）");
         return 0;
     }
 
@@ -333,7 +371,9 @@ internal static class CircuitCommand
                 profile["career"] = Strings(career);
             }
 
-            File.WriteAllText(path, CharacterFile.Format(node));
+            var text = CharacterFile.Format(node);
+            _ = CharacterRoster.FromFiles([($"{id}.json", text)], [.. CharacterRoster.All.Select(c => c.Id)]); // 壊れたプロフィールを名簿に書かない
+            File.WriteAllText(path, text);
             Console.Error.WriteLine($"{id}: {tally.Text}（記録 {mine.Count} 試合）");
         }
 
@@ -519,6 +559,18 @@ internal static class CircuitCommand
         if (record.Commit != commit)
         {
             Console.Error.WriteLine($"注意: 記録のコミット {record.Commit} と今のコミット {commit} が違います（物理・ボットが同じなら一致するはず）。");
+        }
+
+        if (record.Org != league.Org.Id)
+        {
+            Console.Error.WriteLine($"記録の団体 {record.Org} で回してください（--org {record.Org}）。");
+            return 2;
+        }
+
+        if (record.Speed != CircuitLeague.Speed || record.Fps != CircuitLeague.Fps)
+        {
+            Console.Error.WriteLine($"記録の歩の幅（speed {record.Speed}・fps {record.Fps}）が今の道具（{CircuitLeague.Speed}・{CircuitLeague.Fps}）と違います。");
+            return 2;
         }
 
         if (record.Physics != Fighter.PhysicsVersion || record.Logic != Bots.BoxerBot.LogicVersion)

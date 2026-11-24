@@ -1,0 +1,104 @@
+{
+  "id": "tyrell-gaines",
+  "order": 1204,
+  "org": "ivf",
+  "name": "タイレル・ゲインズ",
+  "reading": "タイレル ゲインズ",
+  "hudName": "タイレル",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Full",
+    "eyes": [0.424, 0.506, 0.569],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.998,
+      "jaw": 1.014,
+      "noseLength": 1.129,
+      "cheekbones": 1.366,
+      "faceWidth": 1.004
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.998,
+      "jaw": 1.014,
+      "noseLength": 1.129,
+      "cheekbones": 1.366,
+      "faceWidth": 1.004
+    },
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.424, 0.506, 0.569]
+  },
+  "body": {
+    "build": {
+      "height": 1.0367,
+      "arms": 0.948,
+      "legs": 0.999,
+      "muscle": 1.2035
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.537,
+      "Circling": 0.644,
+      "HeadMovement": 0.294,
+      "DefenseRate": 0.684,
+      "CounterRate": 0.39,
+      "ExitAfterCombo": 0.979,
+      "AttackRange": 1.055,
+      "Southpaw": true
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 204,
+      "age": 18,
+      "stance": "サウスポー",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

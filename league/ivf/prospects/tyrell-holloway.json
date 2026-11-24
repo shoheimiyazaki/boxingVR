@@ -1,0 +1,105 @@
+{
+  "id": "tyrell-holloway",
+  "order": 1114,
+  "org": "ivf",
+  "name": "タイレル・ホロウェイ",
+  "reading": "タイレル ホロウェイ",
+  "hudName": "タイレル",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.227, 0.165, 0.122],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.96,
+      "jaw": 0.984,
+      "noseWidth": 1.1,
+      "noseLength": 0.989,
+      "cheekbones": 1.459,
+      "faceWidth": 1.012
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.96,
+      "jaw": 0.984,
+      "noseWidth": 1.1,
+      "noseLength": 0.989,
+      "cheekbones": 1.459,
+      "faceWidth": 1.012
+    },
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.227, 0.165, 0.122],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0979,
+      "arms": 0.937,
+      "legs": 0.943,
+      "muscle": 0.915
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.805,
+      "Circling": 0.204,
+      "HeadMovement": 0.938,
+      "DefenseRate": 0.534,
+      "CounterRate": 0.562,
+      "ExitAfterCombo": 0.098,
+      "AttackRange": 0.864
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 114,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

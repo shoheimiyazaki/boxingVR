@@ -1,0 +1,107 @@
+{
+  "id": "victor-bishop",
+  "order": 1207,
+  "org": "ivf",
+  "name": "ビクター・ビショップ",
+  "reading": "ビクター ビショップ",
+  "hudName": "ビクター",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.125, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 1.022,
+      "jaw": 1.007,
+      "noseWidth": 1.1,
+      "noseLength": 0.992,
+      "cheekbones": 1.414,
+      "faceWidth": 0.992
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.022,
+      "jaw": 1.007,
+      "noseWidth": 1.1,
+      "noseLength": 0.992,
+      "cheekbones": 1.414,
+      "faceWidth": 0.992
+    },
+    "skin": [0.78, 0.604, 0.451],
+    "hair": [0.125, 0.106, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0606,
+      "arms": 1.034,
+      "legs": 0.989,
+      "muscle": 1.0983
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.89,
+      "Circling": 0.202,
+      "HeadMovement": 0.865,
+      "DefenseRate": 0.565,
+      "CounterRate": 0.713,
+      "ExitAfterCombo": 0.088,
+      "AttackRange": 0.767
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 207,
+      "age": 20,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "id": "brandon-merritt",
+  "order": 1107,
+  "org": "ivf",
+  "name": "ブランドン・メリット",
+  "reading": "ブランドン メリット",
+  "hudName": "ブランドン",
+  "origin": "アメリカ",
+  "country": "usa",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.125, 0.106, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.478, 0.322, 0.188],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 1.087,
+      "noseWidth": 1.1,
+      "noseLength": 1.041,
+      "cheekbones": 1.379,
+      "faceWidth": 0.969
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {
+        "beard.1": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.087,
+      "noseWidth": 1.1,
+      "noseLength": 1.041,
+      "cheekbones": 1.379,
+      "faceWidth": 0.969
+    },
+    "skin": [0.557, 0.369, 0.243],
+    "hair": [0.125, 0.106, 0.09],
+    "iris": [0.478, 0.322, 0.188]
+  },
+  "body": {
+    "build": {
+      "height": 0.9911,
+      "arms": 1.008,
+      "legs": 0.977,
+      "muscle": 1.0299
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "outboxer",
+  "education": {
+    "style": {
+      "Aggression": 0.514,
+      "Circling": 0.691,
+      "HeadMovement": 0.283,
+      "DefenseRate": 0.52,
+      "CounterRate": 0.367,
+      "ExitAfterCombo": 0.812,
+      "AttackRange": 0.93
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 107,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

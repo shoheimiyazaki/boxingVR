@@ -1,0 +1,103 @@
+{
+  "id": "ezequiel-funes",
+  "order": 1184,
+  "org": "ivf",
+  "name": "エセキエル・フネス",
+  "reading": "エセキエル フネス",
+  "hudName": "エセキエル",
+  "origin": "アルゼンチン",
+  "country": "argentina",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.722, 0.557, 0.431],
+    "hair": [0.318, 0.22, 0.165],
+    "hairstyle": "Full",
+    "eyes": [0.533, 0.451, 0.243],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.964,
+      "jaw": 1.019,
+      "noseLength": 1.005,
+      "cheekbones": 1.435,
+      "faceWidth": 0.988
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.3": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.3": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.964,
+      "jaw": 1.019,
+      "noseLength": 1.005,
+      "cheekbones": 1.435,
+      "faceWidth": 0.988
+    },
+    "skin": [0.722, 0.557, 0.431],
+    "hair": [0.318, 0.22, 0.165],
+    "iris": [0.533, 0.451, 0.243]
+  },
+  "body": {
+    "build": {
+      "height": 1.0715,
+      "arms": 1.02,
+      "legs": 1.064,
+      "muscle": 1.005
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.791,
+      "Circling": 0.62,
+      "HeadMovement": 0.226,
+      "DefenseRate": 0.417,
+      "CounterRate": 0.515,
+      "ExitAfterCombo": 0.797,
+      "AttackRange": 1.217
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 184,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

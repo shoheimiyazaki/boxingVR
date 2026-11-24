@@ -1,0 +1,105 @@
+{
+  "id": "declan-oakley",
+  "order": 1101,
+  "org": "ivf",
+  "name": "デクラン・オークリー",
+  "reading": "デクラン オークリー",
+  "hudName": "デクラン",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "IVF 新人（ミドル級）",
+  "look": {
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.533, 0.439, 0.267],
+    "hairstyle": "Crop",
+    "eyes": [0.376, 0.451, 0.306],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 1.031,
+      "jaw": 0.975,
+      "noseLength": 1.175,
+      "cheekbones": 1.326,
+      "faceWidth": 0.987
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 1.031,
+      "jaw": 0.975,
+      "noseLength": 1.175,
+      "cheekbones": 1.326,
+      "faceWidth": 0.987
+    },
+    "skin": [0.867, 0.725, 0.643],
+    "hair": [0.533, 0.439, 0.267],
+    "iris": [0.376, 0.451, 0.306]
+  },
+  "body": {
+    "build": {
+      "height": 0.9951,
+      "arms": 1.003,
+      "legs": 0.956,
+      "muscle": 1.0593
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "swarmer",
+  "education": {
+    "style": {
+      "Aggression": 0.998,
+      "Circling": 0.172,
+      "HeadMovement": 0.853,
+      "DefenseRate": 0.49,
+      "CounterRate": 0.538,
+      "ExitAfterCombo": 0.1,
+      "AttackRange": 0.788
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 101,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

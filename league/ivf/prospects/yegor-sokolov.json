@@ -1,0 +1,103 @@
+{
+  "id": "yegor-sokolov",
+  "order": 1216,
+  "org": "ivf",
+  "name": "エゴール・ソコロフ",
+  "reading": "エゴール ソコロフ",
+  "hudName": "エゴール",
+  "origin": "ロシア",
+  "country": "russia",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.533, 0.439, 0.267],
+    "hairstyle": "Crop",
+    "eyes": [0.424, 0.506, 0.569],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.985,
+      "jaw": 0.94,
+      "noseLength": 1.136,
+      "cheekbones": 1.383,
+      "faceWidth": 1.058
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.985,
+      "jaw": 0.94,
+      "noseLength": 1.136,
+      "cheekbones": 1.383,
+      "faceWidth": 1.058
+    },
+    "skin": [0.91, 0.784, 0.706],
+    "hair": [0.533, 0.439, 0.267],
+    "iris": [0.424, 0.506, 0.569]
+  },
+  "body": {
+    "build": {
+      "height": 0.9748,
+      "arms": 1.025,
+      "legs": 1.011,
+      "muscle": 1.2303
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.732,
+      "Circling": 0.175,
+      "HeadMovement": 0.209,
+      "DefenseRate": 0.331,
+      "CounterRate": 0.307,
+      "ExitAfterCombo": 0.171,
+      "AttackRange": 0.929
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 216,
+      "age": 25,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "id": "rhys-kershaw",
+  "order": 1203,
+  "org": "ivf",
+  "name": "リース・カーショー",
+  "reading": "リース カーショー",
+  "hudName": "リース",
+  "origin": "イギリス",
+  "country": "uk",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.09, 0.082, 0.078],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.968,
+      "jaw": 0.998,
+      "noseWidth": 1.2,
+      "noseLength": 1.062,
+      "lips": 1.1,
+      "cheekbones": 1.323,
+      "faceWidth": 0.975
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.968,
+      "jaw": 0.998,
+      "noseWidth": 1.2,
+      "noseLength": 1.062,
+      "lips": 1.1,
+      "cheekbones": 1.323,
+      "faceWidth": 0.975
+    },
+    "skin": [0.439, 0.29, 0.208],
+    "hair": [0.09, 0.082, 0.078],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.1667,
+      "arms": 0.964,
+      "legs": 0.99,
+      "muscle": 0.966
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.781,
+      "Circling": 0.144,
+      "HeadMovement": 0.181,
+      "DefenseRate": 0.329,
+      "CounterRate": 0.362,
+      "ExitAfterCombo": 0.168,
+      "AttackRange": 0.956
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 203,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

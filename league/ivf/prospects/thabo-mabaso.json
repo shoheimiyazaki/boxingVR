@@ -1,0 +1,109 @@
+{
+  "id": "thabo-mabaso",
+  "order": 1181,
+  "org": "ivf",
+  "name": "タボ・マバソ",
+  "reading": "タボ マバソ",
+  "hudName": "タボ",
+  "origin": "南アフリカ",
+  "country": "southafrica",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.353, 0.227, 0.157],
+    "hair": [0.094, 0.082, 0.071],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": true,
+    "parts": {
+      "nose": 0.968,
+      "jaw": 0.993,
+      "noseWidth": 1.2,
+      "noseLength": 0.939,
+      "lips": 1.1,
+      "cheekbones": 1.332,
+      "faceWidth": 1.028
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {
+        "beard.2": 1
+      },
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.9": 1
+      },
+      "nose": {
+        "nose.2": 0.6,
+        "nose.4": 0.4
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.968,
+      "jaw": 0.993,
+      "noseWidth": 1.2,
+      "noseLength": 0.939,
+      "lips": 1.1,
+      "cheekbones": 1.332,
+      "faceWidth": 1.028
+    },
+    "skin": [0.353, 0.227, 0.157],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.0223,
+      "arms": 1.017,
+      "legs": 1.028,
+      "muscle": 1.0981
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "counter",
+  "education": {
+    "style": {
+      "Aggression": 0.181,
+      "Circling": 0.466,
+      "HeadMovement": 0.422,
+      "DefenseRate": 0.791,
+      "CounterRate": 0.979,
+      "ExitAfterCombo": 0.492,
+      "AttackRange": 0.903
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 181,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

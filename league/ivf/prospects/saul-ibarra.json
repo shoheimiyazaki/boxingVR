@@ -1,0 +1,105 @@
+{
+  "id": "saul-ibarra",
+  "order": 1210,
+  "org": "ivf",
+  "name": "サウル・イバラ",
+  "reading": "サウル イバラ",
+  "hudName": "サウル",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.227, 0.165, 0.122],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.026,
+      "jaw": 0.931,
+      "noseWidth": 1.1,
+      "noseLength": 1.005,
+      "cheekbones": 1.362,
+      "faceWidth": 1.007
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.9": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 1.026,
+      "jaw": 0.931,
+      "noseWidth": 1.1,
+      "noseLength": 1.005,
+      "cheekbones": 1.362,
+      "faceWidth": 1.007
+    },
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.227, 0.165, 0.122],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.1759,
+      "arms": 0.98,
+      "legs": 0.985,
+      "muscle": 1.0142
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.671,
+      "Circling": 0.16,
+      "HeadMovement": 0.196,
+      "DefenseRate": 0.291,
+      "CounterRate": 0.264,
+      "ExitAfterCombo": 0.137,
+      "AttackRange": 0.78
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 210,
+      "age": 23,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

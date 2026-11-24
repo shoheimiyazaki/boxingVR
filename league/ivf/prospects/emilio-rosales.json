@@ -1,0 +1,103 @@
+{
+  "id": "emilio-rosales",
+  "order": 1230,
+  "org": "ivf",
+  "name": "エミリオ・ロサレス",
+  "reading": "エミリオ ロサレス",
+  "hudName": "エミリオ",
+  "origin": "メキシコ",
+  "country": "mexico",
+  "tagline": "IVF 新人（ヘビー級）",
+  "look": {
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.129, 0.106, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.998,
+      "noseWidth": 1.1,
+      "noseLength": 0.941,
+      "cheekbones": 1.309,
+      "faceWidth": 0.975
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.10": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.7": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.3": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.2": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.2": 1
+      }
+    },
+    "values": {
+      "nose": 0.998,
+      "noseWidth": 1.1,
+      "noseLength": 0.941,
+      "cheekbones": 1.309,
+      "faceWidth": 0.975
+    },
+    "skin": [0.682, 0.471, 0.329],
+    "hair": [0.129, 0.106, 0.09],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0542,
+      "arms": 0.995,
+      "legs": 0.965,
+      "muscle": 1.153
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "boxer",
+  "education": {
+    "style": {
+      "Aggression": 0.501,
+      "Circling": 0.395,
+      "HeadMovement": 0.392,
+      "DefenseRate": 0.673,
+      "CounterRate": 0.421,
+      "ExitAfterCombo": 0.421,
+      "AttackRange": 0.945
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 230,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "id": "roman-sokolov",
+  "order": 1150,
+  "org": "ivf",
+  "name": "ロマン・ソコロフ",
+  "reading": "ロマン ソコロフ",
+  "hudName": "ロマン",
+  "origin": "ロシア",
+  "country": "russia",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.569, 0.286, 0.157],
+    "hairstyle": "Crop",
+    "eyes": [0.424, 0.506, 0.569],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.976,
+      "jaw": 1.003,
+      "noseLength": 1.172,
+      "cheekbones": 1.228,
+      "faceWidth": 1.003
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.8": 0.5,
+        "jaw.9": 0.5
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.4": 1
+      },
+      "brows": {
+        "brows.2": 1
+      },
+      "mouth": {
+        "mouth.7": 1
+      },
+      "nose": {
+        "nose.1": 0.6,
+        "nose.5": 0.4
+      },
+      "ears": {
+        "ears.2": 1
+      },
+      "browridge": {
+        "browridge.3": 1
+      }
+    },
+    "values": {
+      "nose": 0.976,
+      "jaw": 1.003,
+      "noseLength": 1.172,
+      "cheekbones": 1.228,
+      "faceWidth": 1.003
+    },
+    "skin": [0.788, 0.647, 0.557],
+    "hair": [0.569, 0.286, 0.157],
+    "iris": [0.424, 0.506, 0.569]
+  },
+  "body": {
+    "build": {
+      "height": 1.0732,
+      "arms": 1.005,
+      "legs": 0.977,
+      "muscle": 0.9401
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "slugger",
+  "education": {
+    "style": {
+      "Aggression": 0.814,
+      "Circling": 0.128,
+      "HeadMovement": 0.192,
+      "DefenseRate": 0.325,
+      "CounterRate": 0.296,
+      "ExitAfterCombo": 0.144,
+      "AttackRange": 0.863
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 150,
+      "age": 22,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}
