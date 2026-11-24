@@ -25,14 +25,15 @@ public sealed class TvShowTests
         """;
 
     [TestMethod]
-    public void Rules_LongerBreak_KeepsTheSameTotalHealing()
+    public void Rules_LongerBreak_HealsMore_AtTheSameSpeed()
     {
-        var rules = TvShowRules.Rules(rounds: 3, breakSeconds: 20f);
+        var rules = TvShowRules.Rules(rounds: 3, breakSeconds: 2f * MatchRules.Tv.BreakSeconds);
 
         Assert.AreEqual(3, rules.Rounds);
-        Assert.AreEqual(20f, rules.BreakSeconds);
-        Assert.AreEqual(MatchRules.Tv.RegenVoxelsPerSecond * MatchRules.Tv.BreakSeconds, rules.RegenVoxelsPerSecond * rules.BreakSeconds, 1e-3f,
-            "休みを延ばしても、休みの間に治る量（速さ × 長さ）は標準と同じ");
+        Assert.AreEqual(2f * MatchRules.Tv.BreakSeconds, rules.BreakSeconds);
+        Assert.AreEqual(MatchRules.Tv.RegenVoxelsPerSecond, rules.RegenVoxelsPerSecond, "休みを延ばしても治る速さは同じ");
+        Assert.AreEqual(2f * MatchRules.Tv.RegenVoxelsPerSecond * MatchRules.Tv.BreakSeconds, rules.RegenVoxelsPerSecond * rules.BreakSeconds, 1e-3f,
+            "休みの間に治る量は休みの長さ × 速さ（2026-11-24 から）");
     }
 
     [TestMethod]

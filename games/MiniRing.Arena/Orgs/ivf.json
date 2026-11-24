@@ -48,8 +48,9 @@
   },
   "crowd": { "reactionGain": 1, "ambienceGain": 0.9 },
   "countsDowns": true,
-  // 試合の決まり: 最終ラウンドの終わりは判定・休みに浅い傷が治る・レフェリーがいる・四角いリング（WVC と同じ）に、3 ノックダウン制（1 ラウンドに 3 度のダウンで TKO）を足す。
-  "match": { "judgesDecision": true, "regenerates": true, "referee": true, "arena": "ropedSquare", "knockdownLimit": 3 },
+  // 試合の決まり: 最終ラウンドの終わりは判定・休みに浅い傷が治る（標準の 89.37 個/秒 = MatchRules.Tv。休み 16.78 s で 1500 個ほど）・レフェリーがいる・四角いリング（WVC と同じ）に、
+  // 3 ノックダウン制（1 ラウンドに 3 度のダウンで TKO）を足す。
+  "match": { "judgesDecision": true, "regenVoxelsPerSecond": 89.37, "referee": true, "arena": "ropedSquare", "knockdownLimit": 3 },
   // 出場: 純粋なボクシング。団体がグローブを着けさせ、武器は持てず、ボクシングの教科書の選手だけ（蹴る教科書・トンファーは出られない）。
   "entry": {
     "gear": "glove",

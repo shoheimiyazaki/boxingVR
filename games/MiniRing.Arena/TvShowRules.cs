@@ -44,9 +44,12 @@ internal static class TvShowRules
     /// <summary>世界を作った直後の助走 [s]（映像の始めに、生成直後の T 字の姿勢が映らないよう構えへ追いつかせる）。<see cref="BoxingCorners.SettleSeconds"/>。</summary>
     public const float SettleSeconds = 1.678f;
 
-    /// <summary>テレビ中継の決まり（ラウンドの数・休みの長さ。休みの間に治る量は標準と同じ）。撮影と下見（tvscout）が同じものを使う。</summary>
+    /// <summary>
+    /// テレビ中継の決まり（ラウンドの数・休みの長さ）。撮影と下見（tvscout）が同じものを使う。治る速さは標準のままで、休みの間に治る量は
+    /// 休みの長さ × 速さ（2026-11-24 から。以前は休みを延ばすと速さを下げて量をそろえていた）。
+    /// </summary>
     public static MatchRules Rules(int rounds, float breakSeconds)
-        => MatchRules.Tv with { Rounds = rounds, BreakSeconds = breakSeconds, RegenVoxelsPerSecond = MatchRules.Tv.RegenVoxelsPerSecond * MatchRules.Tv.BreakSeconds / breakSeconds, IntroSeconds = IntroSeconds, EndSeconds = EndSeconds };
+        => MatchRules.Tv with { Rounds = rounds, BreakSeconds = breakSeconds, IntroSeconds = IntroSeconds, EndSeconds = EndSeconds };
 
     /// <summary>
     /// 団体の決まり（<see cref="Organization.CountsDowns"/>・<see cref="OrgMatch"/>）を重ねたテレビ中継の決まり。WVC は標準の試合に打撃の調整を重ね、
@@ -61,9 +64,9 @@ internal static class TvShowRules
         {
             CountsDowns = org.CountsDowns,
             JudgesDecision = org.Match.JudgesDecision,
-            RegenVoxelsPerSecond = org.Match.Regenerates ? rules.RegenVoxelsPerSecond : 0f,
+            RegenVoxelsPerSecond = org.Match.RegenVoxelsPerSecond,
             // 皮膚のあざは、体が休みに治る団体（予算でも前線でも）では休みに引く。
-            BruiseHalfLifeSeconds = org.Match.Regenerates || regrowth is { Speed: > 0f } ? rules.BruiseHalfLifeSeconds : 0f,
+            BruiseHalfLifeSeconds = org.Match.RegenVoxelsPerSecond > 0f || regrowth is { Speed: > 0f } ? rules.BruiseHalfLifeSeconds : 0f,
             RegrowthSpeed = regrowth?.Speed ?? 0f,
             RegrowthTickSeconds = regrowth?.TickSeconds ?? rules.RegrowthTickSeconds,
             StuckDoublingSeconds = regrowth?.StuckDoublingSeconds ?? 0f,

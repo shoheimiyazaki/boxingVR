@@ -85,12 +85,12 @@ internal sealed record OrgCast(OrgSeat Announcer, OrgSeat Commentator);
 
 /// <summary>
 /// 団体の試合の決まり（ルールの値。体・物理は団体によらず同じ）: 最終ラウンドの終わりに判定するか（<see cref="MatchRules.JudgesDecision"/>）・
-/// 休みの間に削れた体が予算で治るか（<see cref="MatchRules.RegenVoxelsPerSecond"/>、WVC）・レフェリーがいるか（<see cref="BoxingCorners.Referee"/>）・場の形（<see cref="ArenaShape"/>）・
+/// 休みの間に削れた体が予算で内側から治る速さ [ボクセル/s]（<see cref="RegenVoxelsPerSecond"/> = <see cref="MatchRules.RegenVoxelsPerSecond"/>。治る量は休みの長さ × これ。0 なら治さない）・レフェリーがいるか（<see cref="BoxingCorners.Referee"/>）・場の形（<see cref="ArenaShape"/>）・
 /// 傷の前線の再生（<see cref="Regrowth"/>、VFC。書かなければしない）・休みに失った武器を支給するか（<see cref="ResupplyWeapons"/>）。
 /// ダウンを数えるかは <see cref="Organization.CountsDowns"/>（下書き・画面と共有）。
 /// 1 ラウンドにこの数のダウンで TKO（<see cref="Organization"/> の <c>KnockdownLimit</c> = <see cref="MatchRules.KnockdownLimit"/>。0 なら無い、IVF は 3）。
 /// </summary>
-internal sealed record OrgMatch(bool JudgesDecision, bool Regenerates, bool Referee, ArenaShape Arena, OrgRegrowth? Regrowth = null, bool ResupplyWeapons = false,
+internal sealed record OrgMatch(bool JudgesDecision, [property: System.Text.Json.Serialization.JsonRequired] float RegenVoxelsPerSecond, bool Referee, ArenaShape Arena, OrgRegrowth? Regrowth = null, bool ResupplyWeapons = false,
     float ConcussionSpinScale = 1f, float LimbBendStrengthScale = 1f, int KnockdownLimit = 0);
 
 /// <summary>
@@ -287,6 +287,11 @@ internal static class Organizations
             if (!Id.All(ch => ch is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-' or '_'))
             {
                 throw new InvalidDataException($"id '{Id}' は小文字・数字・-・_ だけにしてください。");
+            }
+
+            if (!(float.IsFinite(Match.RegenVoxelsPerSecond) && Match.RegenVoxelsPerSecond >= 0f))
+            {
+                throw new InvalidDataException("match.regenVoxelsPerSecond は 0 以上の有限の値にしてください（休みの間に治るボクセルの数 / 秒。0 なら治さない）。");
             }
 
             if (Match.Regrowth is { } regrowth && !(regrowth.Speed >= 0f && regrowth.TickSeconds > 0f && regrowth.StuckDoublingSeconds >= 0f))

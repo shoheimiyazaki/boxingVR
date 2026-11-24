@@ -238,7 +238,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 90; // 素手の実寸と手首の輪郭。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 91; // 休みの再生の速さを団体の値に（WVC ほぼ治らない・VFC 速く）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }

@@ -27,7 +27,7 @@ namespace MiniRing.Arena;
 /// <param name="tvRounds">テレビ中継のラウンドの数（1 ラウンドは <see cref="MatchRules.Tv"/> の 30 秒のまま）。</param>
 /// <param name="tvEvent">テレビ中継の冒頭に出す大会名。</param>
 /// <param name="tvBout">テレビ中継の冒頭に出す「第 1 試合」などの札（空なら出さない）。</param>
-/// <param name="tvBreak">テレビ中継のラウンドの間の休み [s]（休みの間に治る量は標準と同じ）。</param>
+/// <param name="tvBreak">テレビ中継のラウンドの間の休み [s]（休みの間に治る量は休みの長さ × 団体の治る速さ）。</param>
 /// <param name="tvNotes">台本の資料に足すこの試合の行（計量・王座とランキングの席。<see cref="OrgBouts.Billing"/>）。</param>
 /// <param name="render">
 /// false なら描かない下回し: <see cref="HeadlessRenderer"/>・ffmpeg・音を作らず、試合と演出（<see cref="TvDirector"/>・リプレイの影の試合・<see cref="Broadcast"/>）だけを同じに回して
@@ -51,7 +51,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         : !render;
 
     /// <summary>
-    /// テレビ中継の決まり。休みの長さを変えても、休みの間に治る量（速さ × 長さ）は標準（<see cref="MatchRules.Tv"/> の休みの長さ × 治る速さ）と同じにする（休みを長くした分だけ多く治らないように）。
+    /// テレビ中継の決まり（団体の決まりを重ねる）。休みの間に治る量は休みの長さ × 団体の治る速さ（2026-11-24 から。休みを長くすれば多く治る）。
     /// </summary>
     private readonly MatchRules? _rules = tv ? TvShowRules.Rules(tvRounds, tvBreak, org ?? Organization.Default) : null;
 
