@@ -57,7 +57,7 @@
     "weapons": false,
     "textbooks": ["champion", "jabber", "slugger", "boxer", "outboxer", "swarmer", "counter"]
   },
-  // 階級（体重は見えている体から: CharacterProfile.WeightOf = 72 kg × 身長の比² × 太さの比）。上限ちょうどまで入る。
+  // 階級（体重は見えている体から: CharacterProfile.WeightOf = 物理の体の質量）。上限ちょうどまで入る。
   "divisions": [
     { "id": "light", "name": "ライト級", "limitKg": 64 },
     { "id": "middle", "name": "ミドル級", "limitKg": 73 },

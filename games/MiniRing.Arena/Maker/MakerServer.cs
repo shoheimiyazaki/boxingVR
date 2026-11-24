@@ -129,6 +129,7 @@ internal sealed class MakerServer
             {
                 "/api/new" => New(body),
                 "/api/root" => Root(body),
+                "/api/weight" => Weight(body),
                 "/api/preview" => Preview(body),
                 "/api/save" => Save(body),
                 "/api/load" => Load(body),
@@ -271,8 +272,26 @@ internal sealed class MakerServer
     private static JsonObject New(JsonNode body)
     {
         var draft = CharacterMaker.NewDraft(body["bodyType"]?.GetValue<string>() ?? "standard", body["root"]?.GetValue<string>() ?? CharacterMaker.Roots[0].Id,
-            body["heightCm"]?.GetValue<int>() ?? (int)CharacterProfile.BaseHeightCm);
+            body["heightCm"]?.GetValue<int>() ?? CharacterProfile.StandardHeightCm);
         return new JsonObject { ["draft"] = JsonSerializer.SerializeToNode(draft, Json) };
+    }
+
+    /// <summary>身長・腕・脚のときの体重の幅と身長の幅（脚の長さのとき）。muscle があれば、その太さの体重（体型を選んだとき）。</summary>
+    private static JsonObject Weight(JsonNode body)
+    {
+        var height = body["heightCm"]?.GetValue<int>() ?? CharacterProfile.StandardHeightCm;
+        var arms = body["arms"]?.GetValue<float>() ?? 1f;
+        var legs = body["legs"]?.GetValue<float>() ?? 1f;
+        var (hlo, hhi) = (CharacterProfile.HeightOf(new BodyBuild(BodySizing.MinRatio, 1f, legs, 1f)), CharacterProfile.HeightOf(new BodyBuild(BodySizing.MaxRatio, 1f, legs, 1f)));
+        height = Math.Clamp(height, hlo + 1, hhi - 1);
+        var (lo, hi) = BodySizing.WeightRange(height, arms, legs);
+        var result = new JsonObject { ["range"] = new JsonArray(lo, hi), ["heightRange"] = new JsonArray(hlo + 1, hhi - 1) };
+        if (body["muscle"] is JsonValue m && m.TryGetValue<float>(out var muscle))
+        {
+            result["weightKg"] = BodySizing.WeightFor(height, muscle, arms, legs);
+        }
+
+        return result;
     }
 
     /// <summary>ルーツのテンプレートの顔（色は候補の番号）。</summary>
@@ -305,7 +324,7 @@ internal sealed class MakerServer
     /// <summary>身長・体重・体格・物理の質量（体格が解けないときは体重の幅だけ）。</summary>
     private static JsonObject BodyNumbers(CharacterDraft draft)
     {
-        var (lo, hi) = BodySizing.WeightRange(draft.HeightCm);
+        var (lo, hi) = BodySizing.WeightRange(draft.HeightCm, draft.Arms, draft.Legs);
         var build = BodySizing.Solve(draft.HeightCm, draft.WeightKg, draft.Arms, draft.Legs);
         return new JsonObject
         {

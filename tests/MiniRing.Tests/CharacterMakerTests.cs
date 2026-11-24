@@ -89,9 +89,9 @@ public sealed class CharacterMakerTests
     [TestMethod]
     public void TheSolvedBuild_GivesBackTheAskedHeightAndWeight_AndWeightGrowsOnlyTheMuscle()
     {
-        foreach (var height in new[] { 150, 163, 175, 188, 201 })
+        foreach (var height in new[] { 120, 135, 145, 160, 175 })
         {
-            var (lo, hi) = BodySizing.WeightRange(height);
+            var (lo, hi) = BodySizing.WeightRange(height, arms: 1.05f, legs: 0.97f);
             var previous = 0f;
             for (var weight = lo; weight <= hi; weight += 3)
             {
@@ -104,11 +104,13 @@ public sealed class CharacterMakerTests
                 previous = build.Muscle;
             }
 
-            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => BodySizing.Solve(height, hi + 2));
-            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => BodySizing.Solve(height, lo - 2));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => BodySizing.Solve(height, hi + 2, 1.05f, 0.97f));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => BodySizing.Solve(height, lo - 2, 1.05f, 0.97f));
         }
 
-        Assert.AreEqual(BodyBuild.Standard, BodySizing.Solve(175, 72), "基準の身長・体重は基準の体");
+        var standard = BodySizing.Solve(CharacterProfile.StandardHeightCm, CharacterProfile.StandardWeightKg);
+        Assert.AreEqual(1f, standard.Height, 0.01f, "基準の身長・体重は基準の体（cm・kg の丸めの幅の中）");
+        Assert.AreEqual(1f, standard.Muscle, 0.02f);
     }
 
     [TestMethod]
@@ -125,6 +127,22 @@ public sealed class CharacterMakerTests
         Assert.IsGreaterThan(standard, BodySizing.PhysicalMassKg(BodyBuild.Standard with { Muscle = 1.1f }), "太いほど重い");
         Assert.IsGreaterThan(standard, BodySizing.PhysicalMassKg(BodyBuild.Standard with { Height = 1.1f }), "高いほど重い");
         Assert.IsGreaterThan(standard, BodySizing.PhysicalMassKg(BodyBuild.Standard with { Arms = 1.1f }), "腕が長いほど重い（体積に比例）");
+    }
+
+    [TestMethod]
+    public void ThePaperHeightAndWeight_AreTheSpawnedBodysHeightAndMass()
+    {
+        foreach (var c in CharacterRoster.All.Take(6).Append(CharacterRoster.Get("marcus")))
+        {
+            using var world = new PhysicsWorld();
+            var tuning = FighterTuning.Default with { Build = c.Build };
+            var fighter = Fighter.Spawn(world, tuning, c.Id, Vector3.Zero, 0f);
+            var top = world.GetState(fighter.Parts.Head).Position.Y + tuning.HalfExtents.Head.Y;
+            var bottom = world.GetState(fighter.Parts.LeftFoot).Position.Y - tuning.HalfExtents.Foot.Y;
+            Assert.AreEqual(top - bottom, BodySizing.PhysicalHeightMeters(c.Build), 0.002f, $"{c.Id}: 身長の式 = 生成した体の足の裏から頭の上");
+            Assert.AreEqual(CharacterProfile.HeightOf(c.Build), c.Profile!.HeightCm, c.Id);
+            Assert.AreEqual((int)MathF.Round(fighter.TotalMass, MidpointRounding.AwayFromZero), c.Profile.WeightKg, $"{c.Id}: 紙の体重 = 試合の体の質量");
+        }
     }
 
     [TestMethod]
@@ -148,7 +166,7 @@ public sealed class CharacterMakerTests
         foreach (var type in CharacterMaker.BodyTypes)
         {
             var d = CharacterMaker.NewDraft(type.Id);
-            Assert.AreEqual(type.Muscle, BodySizing.Solve(d.HeightCm, d.WeightKg).Muscle, 0.01f, $"{type.Id}: 体重は体型の太さから");
+            Assert.AreEqual(type.Muscle, BodySizing.Solve(d.HeightCm, d.WeightKg, type.Arms, type.Legs).Muscle, 0.01f, $"{type.Id}: 体重は体型の太さから");
         }
     }
 

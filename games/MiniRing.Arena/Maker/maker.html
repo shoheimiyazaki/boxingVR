@@ -100,11 +100,11 @@
       <p class="hint">強さは体から出ます（太いほど腕の力が強く、重いほど押し負けない）。能力値の倍率はありません。</p>
       <div class="chips" id="bodyTypes"></div>
       <div class="hint" id="bodyTypeNote"></div>
-      <label class="row">身長 <input type="range" id="f-heightCm" min="140" max="215" step="1"><span class="val" id="v-heightCm"></span></label>
+      <label class="row">身長 <input type="range" id="f-heightCm" min="110" max="190" step="1"><span class="val" id="v-heightCm"></span></label>
       <label class="row">体重 <input type="range" id="f-weightKg" min="40" max="160" step="1"><span class="val" id="v-weightKg"></span></label>
       <label class="row">腕の長さ <input type="range" id="f-arms" min="0.85" max="1.15" step="0.01"><span class="val" id="v-arms"></span></label>
       <label class="row">脚の長さ <input type="range" id="f-legs" min="0.85" max="1.15" step="0.01"><span class="val" id="v-legs"></span></label>
-      <p class="hint">体重は名簿の体重の式（72 kg × 身長の比² × 太さの比）を太さについて解きます。物理の体の質量（部位の体積に比例）は右に並べて出します。</p>
+      <p class="hint">身長は物理の体の立った高さ、体重は物理の体の質量（部位の体積に比例。試合の体と同じ）です。身長と体重から、身長の比と筋肉の太さを解きます。</p>
     </section>
 
     <section id="tab-face">
@@ -236,20 +236,22 @@ for (const f of textFields) $('f-' + f).addEventListener('input', e => { draft[f
 for (const f of ['heightCm', 'weightKg']) $('f-' + f).addEventListener('input', e => {
   draft[f] = parseInt(e.target.value, 10);
   if (f === 'weightKg') { typeMuscle = null; for (const x of $('bodyTypes').children) x.classList.remove('on'); }
-  else if (typeMuscle !== null) draft.weightKg = weightFor(draft.heightCm, typeMuscle);
   showBodyValues(); changed();
 });
 for (const f of ['arms', 'legs']) $('f-' + f).addEventListener('input', e => { draft[f] = parseFloat(e.target.value); showBodyValues(); changed(); });
-$('f-heightCm').addEventListener('change', () => clampWeight());
+for (const f of ['heightCm', 'arms', 'legs']) $('f-' + f).addEventListener('change', () => clampWeight());
 for (const c of ['skin', 'hair', 'iris']) $('c-' + c).addEventListener('input', e => { draft.face[c] = rgb(e.target.value); changed(); });
 
-// 体重の幅（名簿の体重の式で、太さが 0.6〜1.5 倍）。身長を変えたら、体重を幅の中へ寄せる。
-function weightFor(cm, muscle) { const h = Math.round(cm / 175 * 10000) / 10000; return Math.round(72 * h * h * muscle); }
-function weightRange(cm) { const h = Math.round(cm / 175 * 10000) / 10000; const w = 72 * h * h; return [Math.ceil(w * 0.6), Math.floor(w * 1.5)]; }
-function clampWeight() {
-  const [lo, hi] = weightRange(draft.heightCm);
-  $('f-weightKg').min = lo; $('f-weightKg').max = hi;
-  draft.weightKg = Math.max(lo, Math.min(hi, draft.weightKg));
+// 身長・腕・脚を決めたら、体重の幅（太さが 0.6〜1.5 倍、物理の体の質量）をサーバーに聞いて、体重を幅の中へ寄せる。
+// 体型を選んでいれば（体重を手で動かすまで）、その太さの体重にする。式はサーバーの 1 か所（BodySizing）。
+async function clampWeight() {
+  try {
+    const r = await api('/api/weight', { heightCm: draft.heightCm, arms: draft.arms, legs: draft.legs, muscle: typeMuscle });
+    const [lo, hi] = r.range;
+    $('f-weightKg').min = lo; $('f-weightKg').max = hi;
+    draft.weightKg = r.weightKg ?? Math.max(lo, Math.min(hi, draft.weightKg));
+    $('f-heightCm').min = r.heightRange[0]; $('f-heightCm').max = r.heightRange[1];
+  } catch (e) { $('err').textContent = e.message; }
   $('f-weightKg').value = draft.weightKg; $('f-heightCm').value = draft.heightCm; showBodyValues(); changed();
 }
 
@@ -260,7 +262,6 @@ function buildBodyTypes() {
     b.textContent = t.label; b.title = t.note;
     b.onclick = () => {
       typeMuscle = t.muscle;
-      draft.weightKg = weightFor(draft.heightCm, t.muscle);
       draft.arms = t.arms; draft.legs = t.legs;
       for (const x of box.children) x.classList.toggle('on', x === b);
       $('bodyTypeNote').textContent = t.note;
@@ -367,7 +368,7 @@ async function preview() {
     const b = r.build;
     $('f-weightKg').min = r.weightRange[0]; $('f-weightKg').max = r.weightRange[1];
     $('stats').innerHTML = [
-      [draft.heightCm + ' cm', '身長'], [draft.weightKg + ' kg', '体重（計量・階級）'], [fmt(r.physicalMassKg, 1) + ' kg', '物理の体の質量'],
+      [draft.heightCm + ' cm', '身長'], [draft.weightKg + ' kg', '体重（計量・階級）'], [fmt(r.physicalMassKg, 1) + ' kg', '体の質量（丸める前）'],
       [fmt(b.muscle, 3), '筋肉の太さ（基準 = 1）'], [fmt(r.armStrength), '腕の力（断面の比）'], [fmt(r.massRatio), '見た目の重さの比 H³M²'],
       [fmt(b.height * b.arms), '腕の長さ（基準 = 1）'],
     ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');

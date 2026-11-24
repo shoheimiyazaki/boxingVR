@@ -20,7 +20,7 @@
 | 中継 | 金・黒・赤、ゴング | クリーム・赤・黒、ホーン、暗い会場に檻のスポット | エメラルド・紺・銀、ゴング、明るく澄んだ会場。紋章は階級の王座のベルト（5 つの星 = 5 階級） |
 
 軸との関係:
-- 計量の体重は**見えている体**から出る（`CharacterProfile.WeightOf` = 72 kg × 身長の比² × 太さの比。プロフィールの体重と同じ値。§1.7）。階級は体重の値で引くだけで、強さの倍率は持たない。
+- 計量の体重は**見えている体**から出る（`CharacterProfile.WeightOf` = 物理の体の質量、試合の体の `Fighter.TotalMass` を kg に丸めた値。プロフィールの体重と同じ値。§1.7。2026-11-24 にそれまでの紙の式 72 kg × 身長の比² × 太さから物理へそろえ、ramon（63 kg）はライト級、yoandry（72 kg）はミドル級へ移った。席は試合をせずに移った階級のランキングの末尾）。階級は体重の値で引くだけで、強さの倍率は持たない。
 - 出場の条件は見える物（はめる物・武器・教科書）だけで決める。
 - 3 ノックダウン制・判定・ダウンを数えないは試合の決まり（`MatchRules`）で、体の物理ではない。`MatchRules.KnockdownLimit` の既定は 0（今の試合のまま 1 ビットも変わらない）なので `PhysicsVersion` は上げていない（VFC の決まりを足したときと同じ）。
 
@@ -50,7 +50,7 @@
 ... rankings --org ivf [--division middle] [--seeds 1,2,3] [--rounds 5] [--break 10] [--crown on|off] [--report docs/arena/ivf_rankings.md]
                                                          階級ごとの総当たり（両コーナー × 種、団体の決まりで最後まで。tvscout と同じ試合）で順位を決め直し、standings を書く
 ... title --org ivf --winner dmitri --loser marcus       試合の結果で王座とランキングを動かす
-... video --tv on --org ivf --red-char ramon --blue-char albert ...   計量を通して撮る（階級が違えば止まる。見出しに「ミドル級」「ヘビー級タイトルマッチ」、選手の比較に「階級・席」、台本の資料に計量と席）
+... video --tv on --org ivf --red-char joao --blue-char albert ...   計量を通して撮る（階級が違えば止まる。見出しに「ミドル級」「ヘビー級タイトルマッチ」、選手の比較に「階級・席」、台本の資料に計量と席）
 ```
 
 `tvscout` も同じ計量を通す（撮影と同じ試合）。中継の札（`tools/tvshow/cards/*.json`）は `"org": "ivf"` で IVF の中継になる。

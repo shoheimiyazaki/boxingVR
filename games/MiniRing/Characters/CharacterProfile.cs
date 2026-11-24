@@ -4,16 +4,16 @@ namespace MiniRing.Characters;
 
 /// <summary>
 /// キャラクターのプロフィール（作中の世界の経歴・人柄。キャラクターの軸を作り、テレビ中継の実況・解説が参照する）。
-/// 強さは持たない（CLAUDE.md §1.7: 強さは見えている体から）。身長・体重は見えている体（<see cref="BodyBuild"/>）から決まる値と一致させる
-/// （<see cref="HeightOf"/>・<see cref="WeightOf"/>。見た目と紙の上の数字が食い違わないように、読み込みで確かめる）。全員架空（docs/CHARACTERS.md）。
+/// 強さは持たない（CLAUDE.md §1.7: 強さは見えている体から）。身長・体重は物理の体（<see cref="BodyBuild"/> の寸法の箱）の立った高さと質量に一致させる
+/// （<see cref="HeightOf"/>・<see cref="WeightOf"/>、式は <see cref="BodySizing"/> の 1 か所。見た目・物理と紙の上の数字が食い違わないように、読み込みで確かめる）。全員架空（docs/CHARACTERS.md）。
 /// </summary>
 public sealed record CharacterProfile
 {
-    /// <summary>基準体格の身長 [cm]（<see cref="BodyBuild.Height"/> = 1）。</summary>
-    public const float BaseHeightCm = 175f;
+    /// <summary>基準体格（<see cref="BodyBuild.Standard"/>）の身長 [cm]。</summary>
+    public static int StandardHeightCm => HeightOf(BodyBuild.Standard);
 
-    /// <summary>基準体格の体重 [kg]。体重 = これ × 身長の比² × 太さの比（身長の 2 乗と太さに比例: 見た目の体格指数）。</summary>
-    public const float BaseWeightKg = 72f;
+    /// <summary>基準体格の体重 [kg]。</summary>
+    public static int StandardWeightKg => WeightOf(BodyBuild.Standard);
 
     public int Age { get; init; }
 
@@ -53,11 +53,11 @@ public sealed record CharacterProfile
 
     public IReadOnlyList<string> CommentaryNotes { get; init; } = [];
 
-    /// <summary>見えている体の身長 [cm]。</summary>
-    public static int HeightOf(BodyBuild build) => (int)MathF.Round(BaseHeightCm * build.Height, MidpointRounding.AwayFromZero);
+    /// <summary>見えている体の身長 [cm]: 物理の体の立った高さ（<see cref="BodySizing.PhysicalHeightMeters"/>）を cm に丸めた値。</summary>
+    public static int HeightOf(BodyBuild build) => (int)MathF.Round(BodySizing.PhysicalHeightMeters(build) * 100f, MidpointRounding.AwayFromZero);
 
-    /// <summary>見えている体の体重 [kg]。</summary>
-    public static int WeightOf(BodyBuild build) => (int)MathF.Round(BaseWeightKg * build.Height * build.Height * build.Muscle, MidpointRounding.AwayFromZero);
+    /// <summary>見えている体の体重 [kg]: 物理の体の質量（<see cref="BodySizing.PhysicalMassKg"/>、試合の体と同じ）を kg に丸めた値。</summary>
+    public static int WeightOf(BodyBuild build) => (int)MathF.Round(BodySizing.PhysicalMassKg(build), MidpointRounding.AwayFromZero);
 
     /// <summary>中身を確かめる（足りない項目・体と合わない身長と体重・ありえない戦績は例外）。</summary>
     public CharacterProfile Validate(BodyBuild build)
