@@ -1,0 +1,15 @@
+{
+  "_comment": "2026-11-24: master d3bc725（PhysicsVersion 92・LogicVersion 65。WVC の休みはほぼ治らない 1.79 個/秒）で撮る WVC の番組。セミは蹴りの打撃系どうし（ムエタイ 対 テコンドー）、メインは王者ザ・ハンマー（ボクシング）が柔術家レンを迎える異種格闘技の王座戦。種は 8 種の下見で選んだ（セミ 1: R2 10 カウント K.O.・両者ダウン、メイン 6: 判定・レンが 5 度ダウン）。プロスペクティブ制の実況解説。",
+  "event": "WVC ファイトナイト",
+  "program": "WVC ファイトナイト",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/wvc-p92-1124",
+  "scoutSeeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "partLimitMiB": 29,
+  "commentary": { "writer": "prospective", "model": "haiku" },
+  "bouts": [
+    { "red": "narong", "blue": "taeyun", "seed": 1, "bout": "セミファイナル", "stake": "蹴りの打撃系どうし、ムエタイの肘と膝 対 テコンドーの足技", "next": "王座挑戦者の候補" },
+    { "red": "marcus", "blue": "ren", "seed": 6, "bout": "メインイベント", "stake": "WVC 世界王座、異種格闘技戦。王者の拳 対 柔術家の組み", "next": "WVC 世界王座防衛", "belt": true }
+  ]
+}

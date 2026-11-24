@@ -1,0 +1,16 @@
+{
+  "_comment": "2026-11-24: master d3bc725（PhysicsVersion 92・LogicVersion 65。檻の開始位置の直し・VFC の休みは前線の再生 1.26 mm/s）で撮る VFC の番組。セミは持つ武器なし（はめる物だけ）の組を狭い檻（3.66 m）で: カタールのヴィクラム 対 ナックルのガロ（金網に挟まらずに動けるかの確かめ。下見 8 種すべて両者生還の引き分けで、ガロの与えたダメージは 0〜10）。メインは広い檻（7.32 m）で両手剣のコンラート 対 棍棒のショーン（種 5: R5 ショーンの決着・心臓の破壊、見ごたえの点 25.5 で下見の最高）。種は 8 種の下見で選んだ。プロスペクティブ制の実況解説。",
+  "org": "vfc",
+  "event": "VFC ファイトナイト",
+  "program": "VFC ファイトナイト",
+  "rounds": 5,
+  "break": 25,
+  "out": "docs/video/vfc-p92-1124",
+  "scoutSeeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "partLimitMiB": 29,
+  "commentary": { "writer": "prospective", "model": "haiku" },
+  "bouts": [
+    { "red": "vikram", "blue": "joao", "seed": 1, "bout": "セミファイナル", "stake": "狭い檻で、刃のカタール 対 拳の鉄の輪" },
+    { "red": "konrad", "blue": "sean", "seed": 5, "bout": "メインイベント", "stake": "両手剣の間合い 対 棍棒の一撃、生き残った方が勝ち" }
+  ]
+}

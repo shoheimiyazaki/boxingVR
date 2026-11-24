@@ -537,7 +537,9 @@ async function main() {
     const head = !first && drivers.freshNext(seat) ? recap(seat) : '';
     const news = update(seat);
     const detail = rawNow(seat);
-    return `${head}いま ${fmt(T)} 秒（残り ${fmt(length - T)} 秒）。\n${news ? news + '\n' : ''}${detail ? detail + '\n' : ''}${stateNow(seat)}\n\n${situation}\n\n${format}`;
+    // 番組の終わりが近いときは、言い切れる長さを添える（何を言うかは渡さない。終わりの台詞が途中で切れた、2026-11-24）。
+    const closing = length - T < config.closingSeconds ? `番組はあと ${fmt(length - T)} 秒で終わり、その先は声に出ません。` : '';
+    return `${head}いま ${fmt(T)} 秒（残り ${fmt(length - T)} 秒）。${closing}\n${news ? news + '\n' : ''}${detail ? detail + '\n' : ''}${stateNow(seat)}\n\n${situation}\n\n${format}`;
   }
 
   const MIC_FORMAT = '答え: {"action":"speak",...} か {"action":"pass",...} の JSON だけ。';
@@ -798,11 +800,19 @@ async function main() {
   // 声入れで次の台詞が 1〜3 秒ずつ押し出された（v2）。切れた台詞は読み上げて測り、枠に収まる所まで字を縮める。
   // 言い出してすぐ切れた切れ端（minSaid 字未満: 「意」「ディエ」）と、縮めても収まらない台詞は声に出さない（記録 transcript.md には残る）。
   function fitted(l) {
+    if (l.end >= length - 1e-3 && (l.cutBy || l.start + measure(l.text, l.seat, l.excited) > length)) return wholeSentences(l);
     if (!l.cutBy) return l.said;
     const slot = l.end - l.start - config.gap;
     let text = l.said;
     while (text.length >= config.minSaid && measure(text, l.seat, l.excited) > slot) text = text.slice(0, Math.floor(text.length * 0.8));
     return text;
+  }
+  // 番組の終わりで切れる台詞は、割り込んだ相手がいないので、切れ端は言いさしでなく途切れた音に聞こえた（「ご覧いただき、ありがとうござ」、
+  // 2026-11-24 物理 90 の番組）。番組の終わりまでに言い切れる文（。！？ で終わる所）までにし、1 文も入らなければ声に出さない。
+  function wholeSentences(l) {
+    const slot = length - l.start - config.gap;
+    const ends = [...l.text.matchAll(/[。！？!?]/g)].map((m) => m.index + 1).reverse();
+    return ends.map((i) => l.text.slice(0, i)).find((t) => measure(t, l.seat, l.excited) <= slot) || '';
   }
   // ---- 残った無音を埋める（2026-11-18、ユーザーの指定: 2 秒以上の無音を作らない） ----
   // 進行中に警告しても、切れた台詞を枠に縮めた・短すぎて捨てた台詞のぶん、声に出る台本には無音が残ることがある。

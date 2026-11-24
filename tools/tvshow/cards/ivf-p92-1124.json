@@ -1,0 +1,16 @@
+{
+  "_comment": "2026-11-24: master d3bc725（PhysicsVersion 92・LogicVersion 65。体重は物理の体から、IVF の休みは標準の 89.37 個/秒）で撮る IVF の最初の番組。階級制のダブルタイトルマッチ: セミはミドル級（王者アルバート 対 1 位ヴィクラム）、メインはヘビー級（王者ザ・ハンマー 対 1 位ドミトリー、11-24 の総当たりで 3 勝 3 敗の同点）。全員グローブ。種は 8 種の下見で選んだ（セミ 6: 判定・ダウン 3 と 6、メイン 4: R2 失神 K.O.・ダウン 1 と 3）。プロスペクティブ制の実況解説。",
+  "org": "ivf",
+  "event": "IVF ファイトナイト",
+  "program": "IVF ダブルタイトルマッチ",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/ivf-p92-1124",
+  "scoutSeeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "partLimitMiB": 29,
+  "commentary": { "writer": "prospective", "model": "haiku" },
+  "bouts": [
+    { "red": "vikram", "blue": "albert", "seed": 6, "bout": "セミファイナル", "stake": "IVF ミドル級タイトルマッチ、王者アルバートに 1 位ヴィクラムが挑む", "next": "IVF ミドル級王座", "belt": true },
+    { "red": "marcus", "blue": "dmitri", "seed": 4, "bout": "メインイベント", "stake": "IVF ヘビー級タイトルマッチ、総当たりで 3 勝 3 敗の王者と 1 位の決着", "next": "IVF ヘビー級王座", "belt": true }
+  ]
+}
