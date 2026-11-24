@@ -1,0 +1,107 @@
+{
+  "id": "daniyar-seitkali",
+  "order": 1120,
+  "org": "ivf",
+  "name": "ダニヤル・セイトカリ",
+  "reading": "ダニヤル セイトカリ",
+  "hudName": "ダニヤル",
+  "origin": "カザフスタン",
+  "country": "kazakhstan",
+  "tagline": "IVF 新人（ライトヘビー級）",
+  "look": {
+    "skin": [0.89, 0.769, 0.659],
+    "hair": [0.165, 0.129, 0.106],
+    "hairstyle": "Crop",
+    "eyes": [0.188, 0.125, 0.09],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 1.007,
+      "jaw": 1.043,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 0.972,
+      "cheekbones": 1.169,
+      "faceWidth": 0.981
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.1": 0.5,
+        "jaw.10": 0.5
+      },
+      "hair": {
+        "hair.2": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.1": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 1
+      },
+      "nose": {
+        "nose.1": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 1.007,
+      "jaw": 1.043,
+      "eyeSize": 0.95,
+      "noseWidth": 0.92,
+      "noseLength": 0.972,
+      "cheekbones": 1.169,
+      "faceWidth": 0.981
+    },
+    "skin": [0.89, 0.769, 0.659],
+    "hair": [0.165, 0.129, 0.106],
+    "iris": [0.188, 0.125, 0.09]
+  },
+  "body": {
+    "build": {
+      "height": 1.0726,
+      "arms": 0.971,
+      "legs": 1.002,
+      "muscle": 0.9381
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 1,
+      "Circling": 0.139,
+      "HeadMovement": 0.502,
+      "DefenseRate": 0.644,
+      "CounterRate": 0.97,
+      "ExitAfterCombo": 0.83,
+      "AttackRange": 1.235
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 120,
+      "age": 24,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "id": "anan-inthasorn",
+  "order": 1018,
+  "org": "ivf",
+  "name": "アナン・インタソーン",
+  "reading": "アナン インタソーン",
+  "hudName": "アナン",
+  "origin": "タイ",
+  "country": "thailand",
+  "tagline": "IVF 新人（ライト級）",
+  "look": {
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.137, 0.11, 0.09],
+    "hairstyle": "Full",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.869,
+      "jaw": 0.96,
+      "noseWidth": 1.12,
+      "noseLength": 1.022,
+      "cheekbones": 1.379,
+      "faceWidth": 1.075
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.10": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.869,
+      "jaw": 0.96,
+      "noseWidth": 1.12,
+      "noseLength": 1.022,
+      "cheekbones": 1.379,
+      "faceWidth": 1.075
+    },
+    "skin": [0.718, 0.502, 0.325],
+    "hair": [0.137, 0.11, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 0.9961,
+      "arms": 0.994,
+      "legs": 0.954,
+      "muscle": 0.9434
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "jabber",
+  "education": {
+    "style": {
+      "Aggression": 0.791,
+      "Circling": 0.748,
+      "HeadMovement": 0.219,
+      "DefenseRate": 0.423,
+      "CounterRate": 0.543,
+      "ExitAfterCombo": 0.859,
+      "AttackRange": 1.216
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 18,
+      "age": 18,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

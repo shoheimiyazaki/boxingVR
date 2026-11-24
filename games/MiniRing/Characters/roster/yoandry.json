@@ -18,7 +18,7 @@
     "nicknameStory": "リングネームは名のヨアンドリ。相手の拳を見切ってから返すので、キューバでは「鏡のヨアンドリ」とも呼ばれるが、リングでは名前だけで通っている。",
     "fightRecord": {
       "wins": 25,
-      "losses": 2,
+      "losses": 4,
       "draws": 0,
       "kos": 12
     },
@@ -30,7 +30,9 @@
       "2020年: ヘビー級王者ザ・ハンマーに判定勝ち。大金星として話題になる",
       "2021年: ザ・ハンマーの再戦でKO負け。初の敗戦",
       "2023年: ドミトリーに左フックで倒されて2敗目",
-      "2025年: ドミトリーに再戦で判定勝ち。1勝1敗に持ち込む"
+      "2025年: ドミトリーに再戦で判定勝ち。1勝1敗に持ち込む",
+      "シーズン1・IVF ミドル級ランキング挑戦: アベル・ナバレテに1R KO 負け",
+      "シーズン1・IVF ミドル級ランキング挑戦: ウルグベク・ナザロフに1R KO 負け"
     ],
     "trainer": "元キューバ代表のトレーナー、ホセ・アルバレス。ハバナの古いジム「ラ・エスキーナ」を率いる",
     "fightingStyle": "標準よりやや背が高く、腕の長い体で、相手の拳を外してから返すカウンターの名手。無理に攻めず、相手の打ち終わりを狙って打ち込む。ステップも軽く、相手の距離を外す。",
@@ -72,51 +74,162 @@
     ]
   },
   "look": {
-    "skin": [0.4, 0.26, 0.17], "hair": [0.05, 0.05, 0.05], "hairstyle": "Crop", "eyes": [0.12, 0.07, 0.03],
-    "brows": true, "beard": false
+    "skin": [0.4, 0.26, 0.17],
+    "hair": [0.05, 0.05, 0.05],
+    "hairstyle": "Crop",
+    "eyes": [0.12, 0.07, 0.03],
+    "brows": true,
+    "beard": false
   },
   "face": {
     "parts": {
-      "hair": { "hair.10": 1.0 },
-      "brows": { "brows.3": 1.0 },
-      "eyes": { "eyes.6": 1.0 },
-      "nose": { "nose.4": 0.4, "nose.2": 0.6 },
-      "mouth": { "mouth.9": 0.7, "mouth.10": 0.3 },
-      "jaw": { "jaw.3": 0.5, "jaw.9": 0.5 },
-      "ears": { "ears.1": 1.0 },
-      "beard": {  },
-      "browridge": { "browridge.2": 1.0 }
+      "hair": {
+        "hair.10": 1.0
+      },
+      "brows": {
+        "brows.3": 1.0
+      },
+      "eyes": {
+        "eyes.6": 1.0
+      },
+      "nose": {
+        "nose.4": 0.4,
+        "nose.2": 0.6
+      },
+      "mouth": {
+        "mouth.9": 0.7,
+        "mouth.10": 0.3
+      },
+      "jaw": {
+        "jaw.3": 0.5,
+        "jaw.9": 0.5
+      },
+      "ears": {
+        "ears.1": 1.0
+      },
+      "beard": {},
+      "browridge": {
+        "browridge.2": 1.0
+      }
     },
-    "values": { "cheekbones": 1.4, "noseWidth": 1.15, "faceWidth": 1.02, "lips": 1.1 },
-    "skin": [0.545, 0.361, 0.247], "hair": [0.094, 0.082, 0.071], "iris": [0.396, 0.255, 0.153]
+    "values": {
+      "cheekbones": 1.4,
+      "noseWidth": 1.15,
+      "faceWidth": 1.02,
+      "lips": 1.1
+    },
+    "skin": [0.545, 0.361, 0.247],
+    "hair": [0.094, 0.082, 0.071],
+    "iris": [0.396, 0.255, 0.153]
   },
   "body": {
-    "build": { "height": 1.02, "arms": 1.06, "legs": 1, "muscle": 1 },
+    "build": {
+      "height": 1.02,
+      "arms": 1.06,
+      "legs": 1,
+      "muscle": 1
+    },
     "wear": "glove",
     "weapon": null
   },
   "textbook": "counter",
   "education": {
     "style": {
-      "BreakLikes": { "handshake": 4, "cigarette": 4, "dance": 3, "headphones": 3, "hum": 2.5, "blowkiss": 2, "wavetwo": 2, "wave": 2, "applause": 2, "hypecrowd": 2, "roar": 0.5 },
+      "BreakLikes": {
+        "handshake": 4,
+        "cigarette": 4,
+        "dance": 3,
+        "headphones": 3,
+        "hum": 2.5,
+        "blowkiss": 2,
+        "wavetwo": 2,
+        "wave": 2,
+        "applause": 2,
+        "hypecrowd": 2,
+        "roar": 0.5
+      },
       "GamePlan": {
-        "Weight": 1, "Boldness": 1, "Caution": 1, "Patience": 13.43, "Pressure": 1,
+        "Weight": 1,
+        "Boldness": 1,
+        "Caution": 1,
+        "Patience": 13.43,
+        "Pressure": 1,
         "Own": [
-          { "Cm": 42.25, "Dealt": 8.011, "Taken": 7.336 },
-          { "Cm": 47.89, "Dealt": 10.376, "Taken": 8.311 },
-          { "Cm": 53.52, "Dealt": 11.436, "Taken": 7.772 },
-          { "Cm": 59.15, "Dealt": 11.927, "Taken": 8.2 },
-          { "Cm": 64.79, "Dealt": 7.872, "Taken": 5.8 },
-          { "Cm": 70.42, "Dealt": 6.454, "Taken": 4.806 },
-          { "Cm": 76.06, "Dealt": 3.725, "Taken": 4.096 },
-          { "Cm": 81.69, "Dealt": 2.189, "Taken": 3.141 },
-          { "Cm": 87.32, "Dealt": 1.258, "Taken": 1.217 },
-          { "Cm": 92.96, "Dealt": 0.391, "Taken": 1.25 },
-          { "Cm": 98.59, "Dealt": 0.326, "Taken": 1.248 },
-          { "Cm": 104.23, "Dealt": 0.123, "Taken": 0.359 },
-          { "Cm": 109.86, "Dealt": 0.136, "Taken": 0.727 },
-          { "Cm": 115.49, "Dealt": 0, "Taken": 0.267 },
-          { "Cm": 121.13, "Dealt": 0, "Taken": 0 }
+          {
+            "Cm": 42.25,
+            "Dealt": 8.011,
+            "Taken": 7.336
+          },
+          {
+            "Cm": 47.89,
+            "Dealt": 10.376,
+            "Taken": 8.311
+          },
+          {
+            "Cm": 53.52,
+            "Dealt": 11.436,
+            "Taken": 7.772
+          },
+          {
+            "Cm": 59.15,
+            "Dealt": 11.927,
+            "Taken": 8.2
+          },
+          {
+            "Cm": 64.79,
+            "Dealt": 7.872,
+            "Taken": 5.8
+          },
+          {
+            "Cm": 70.42,
+            "Dealt": 6.454,
+            "Taken": 4.806
+          },
+          {
+            "Cm": 76.06,
+            "Dealt": 3.725,
+            "Taken": 4.096
+          },
+          {
+            "Cm": 81.69,
+            "Dealt": 2.189,
+            "Taken": 3.141
+          },
+          {
+            "Cm": 87.32,
+            "Dealt": 1.258,
+            "Taken": 1.217
+          },
+          {
+            "Cm": 92.96,
+            "Dealt": 0.391,
+            "Taken": 1.25
+          },
+          {
+            "Cm": 98.59,
+            "Dealt": 0.326,
+            "Taken": 1.248
+          },
+          {
+            "Cm": 104.23,
+            "Dealt": 0.123,
+            "Taken": 0.359
+          },
+          {
+            "Cm": 109.86,
+            "Dealt": 0.136,
+            "Taken": 0.727
+          },
+          {
+            "Cm": 115.49,
+            "Dealt": 0,
+            "Taken": 0.267
+          },
+          {
+            "Cm": 121.13,
+            "Dealt": 0,
+            "Taken": 0
+          }
         ]
       }
     },

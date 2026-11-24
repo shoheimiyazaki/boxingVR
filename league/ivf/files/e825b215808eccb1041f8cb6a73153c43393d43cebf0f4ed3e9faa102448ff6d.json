@@ -1,0 +1,106 @@
+{
+  "id": "prasert-rattanakul",
+  "order": 1192,
+  "org": "ivf",
+  "name": "プラサート・ラッタナクン",
+  "reading": "プラサート ラッタナクン",
+  "hudName": "プラサート",
+  "origin": "タイ",
+  "country": "thailand",
+  "tagline": "IVF 新人（クルーザー級）",
+  "look": {
+    "skin": [0.604, 0.396, 0.251],
+    "hair": [0.098, 0.098, 0.09],
+    "hairstyle": "Crop",
+    "eyes": [0.396, 0.255, 0.153],
+    "brows": true,
+    "beard": false,
+    "parts": {
+      "nose": 0.912,
+      "jaw": 0.947,
+      "noseWidth": 1.12,
+      "noseLength": 1.087,
+      "cheekbones": 1.424,
+      "faceWidth": 0.937
+    }
+  },
+  "face": {
+    "parts": {
+      "jaw": {
+        "jaw.3": 0.6,
+        "jaw.9": 0.4
+      },
+      "hair": {
+        "hair.1": 1
+      },
+      "beard": {},
+      "eyes": {
+        "eyes.2": 1
+      },
+      "brows": {
+        "brows.1": 1
+      },
+      "mouth": {
+        "mouth.8": 0.7,
+        "mouth.9": 0.3
+      },
+      "nose": {
+        "nose.2": 0.5,
+        "nose.4": 0.5
+      },
+      "ears": {
+        "ears.1": 1
+      },
+      "browridge": {
+        "browridge.1": 1
+      }
+    },
+    "values": {
+      "nose": 0.912,
+      "jaw": 0.947,
+      "noseWidth": 1.12,
+      "noseLength": 1.087,
+      "cheekbones": 1.424,
+      "faceWidth": 0.937
+    },
+    "skin": [0.604, 0.396, 0.251],
+    "hair": [0.098, 0.098, 0.09],
+    "iris": [0.396, 0.255, 0.153]
+  },
+  "body": {
+    "build": {
+      "height": 1.119,
+      "arms": 1.013,
+      "legs": 0.974,
+      "muscle": 0.9769
+    },
+    "wear": "glove",
+    "weapon": null
+  },
+  "textbook": "champion",
+  "education": {
+    "style": {
+      "Aggression": 1,
+      "Circling": 0.173,
+      "HeadMovement": 0.433,
+      "DefenseRate": 0.597,
+      "CounterRate": 0.753,
+      "ExitAfterCombo": 0.586,
+      "AttackRange": 1.25
+    },
+    "vs": {},
+    "weaponBot": null
+  },
+  "record": [
+    {
+      "kind": "generated",
+      "league": "ivf",
+      "seed": 20261125,
+      "generatorVersion": 1,
+      "index": 192,
+      "age": 22,
+      "stance": "オーソドックス",
+      "note": "新人リーグの生成（体格・教科書・教育の揺らぎは種から。docs/plans/IVF_PROSPECTS_PLAN.md）"
+    }
+  ]
+}

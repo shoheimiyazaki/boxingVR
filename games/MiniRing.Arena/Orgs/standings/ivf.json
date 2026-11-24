@@ -5,46 +5,44 @@
   "divisions": [
     {
       "division": "light",
-      "champion": null,
+      "champion": "andre-bishop",
       "ranking": [
-        "ramon",
         "anan-inthasorn",
-        "andre-bishop"
+        "ramon"
       ]
     },
     {
       "division": "middle",
       "champion": "albert",
       "ranking": [
-        "vikram",
-        "joao",
-        "yoandry",
         "abel-navarrete",
-        "ulugbek-nazarov"
+        "vikram",
+        "ulugbek-nazarov",
+        "joao",
+        "yoandry"
       ]
     },
     {
       "division": "lightheavy",
-      "champion": "gaston",
+      "champion": "sipho-van-wyk",
       "ranking": [
-        "daniyar-seitkali",
-        "sipho-van-wyk"
+        "gaston",
+        "daniyar-seitkali"
       ]
     },
     {
       "division": "cruiser",
-      "champion": null,
+      "champion": "prasert-rattanakul",
       "ranking": [
-        "ivan-escobedo",
-        "prasert-rattanakul"
+        "ivan-escobedo"
       ]
     },
     {
       "division": "heavy",
-      "champion": "marcus",
+      "champion": "mauricio-villegas",
       "ranking": [
+        "marcus",
         "dmitri",
-        "mauricio-villegas",
         "takumi-ishiguro"
       ]
     }

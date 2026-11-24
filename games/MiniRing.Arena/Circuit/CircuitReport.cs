@@ -41,7 +41,7 @@ internal static class CircuitReport
         sb.AppendLine();
         sb.AppendLine("引退の理由（規則は `retire`: 通算の負け越し・連敗・倒されての負けの通算。どれか 1 つで引退）:");
         sb.AppendLine();
-        foreach (var g in state.Fighters.Values.Where(f => f.Status == LeagueEntry.Retired).GroupBy(f => f.Reason?.Split(' ')[0] ?? "").OrderByDescending(g => g.Count()))
+        foreach (var g in state.Fighters.Values.Where(f => f.Status == LeagueEntry.Retired).GroupBy(f => System.Text.RegularExpressions.Regex.Replace(f.Reason ?? "", @"[0-9]+ ?|回$", "").Trim()).OrderByDescending(g => g.Count()))
         {
             sb.AppendLine(Inv($"- {g.Key}: {g.Count()} 人（興行 {string.Join("・", g.GroupBy(f => f.Since).OrderBy(x => x.Key).Select(x => $"{x.Key}: {x.Count()}"))}）"));
         }
