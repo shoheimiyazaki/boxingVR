@@ -214,6 +214,36 @@ internal sealed class GroundPractice(Action<string> log, int parallel = 1)
         File.WriteAllText(outPath, JsonSerializer.Serialize(new PracticeOut(id, result.CiHigh < 0d, before.Average(), after.Average(), Edu(chosen.Item2, c)), Json));
     }
 
+    /// <summary>
+    /// 練習の結果（<c>--out</c> の JSON）を、さらに別の受け手・種で始めの教育と比べ直す（標本を増やす。groundtime --recheck）。結果は台帳に残し、
+    /// 良ければ JSON の <c>Better</c> を true に書き直す（tools/ground-education.py が読む）。
+    /// </summary>
+    public void Recheck(string path, IReadOnlyList<string> holdVictims, IReadOnlyList<int> holdSeeds, float seconds, int parallel)
+    {
+        var node = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        var id = node["Id"]!.GetValue<string>();
+        var edu = node["Education"]!.AsObject();
+        var c = CharacterRoster.Get(id);
+        var begin = Start(id, holdVictims[0]);
+        float F(string k) => edu[k]!.GetValue<float>();
+        var trained = new State(begin.Style with
+        {
+            GroundDrive = F("GroundDrive"), GroundRest = F("GroundRest"), GroundLoad = F("GroundLoad"),
+            GroundStomp = F("GroundStomp"), GroundKick = F("GroundKick"), GroundCut = F("GroundCut"),
+        }, JsonSerializer.Deserialize<GroundTuning>(edu["Ground"]!.ToJsonString())!.Validated());
+        var runs = holdVictims.SelectMany(v => holdSeeds.Select(sd => (v, sd))).ToList();
+        double[] Measure(State st) => [.. runs.AsParallel().AsOrdered().WithDegreeOfParallelism(Math.Max(1, parallel)).Select(r => (double)Score(FinishDrill.Run(id, r.v, r.sd, seconds, TeachOf(c, st))))];
+        var before = Measure(begin);
+        var after = Measure(trained);
+        var result = PairedEvaluation.Compute(after, before);
+        log(string.Create(CultureInfo.InvariantCulture, $"- {id} の比べ直し 2（受け手 {string.Join(",", holdVictims)}・種 {string.Join(",", holdSeeds)}）: 始め {before.Average():0.00} → 練習した {after.Average():0.00}、{result}"));
+        ConfirmLog.Append("groundtime --recheck", $"{id}: 倒れた相手を死なせるまでの秒（+ 倒れた罰）", "練習した", "始め", holdSeeds, result,
+            new Dictionary<string, string> { ["victims"] = string.Join(",", holdVictims) });
+        node["Better"] = result.CiHigh < 0d;
+        node["Recheck"] = result.ToString();
+        File.WriteAllText(path, node.ToJsonString(Json));
+    }
+
     internal sealed record PracticeOut(string Id, bool Better, double Before, double After, Dictionary<string, object?> Education);
 
     /// <summary>教育へ入れる値（スタイルの好みと経路）。</summary>

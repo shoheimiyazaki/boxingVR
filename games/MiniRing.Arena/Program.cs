@@ -29,7 +29,7 @@ try
         "fistmatch" => FistMatchCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "referee", "parallel", "out", "compare", "labels", "log", "confirm")),
         "punchlab" => PunchLabCommand(Options.Parse(argv[1..], "study", "depths", "aim", "paths", "defenders", "ranges", "reach", "far", "seeds", "telegraph", "nocap", "log", "video", "slow", "width", "height", "fps")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
-        "groundtime" => GroundTimeCommand(Options.Parse(argv[1..], "chars", "seeds", "rounds", "shard", "out", "compare", "labels", "log", "confirm", "drill", "victims", "seconds", "practice", "hold-victims", "hold-seeds", "gens", "lambda", "seed", "video", "parallel", "teach")),
+        "groundtime" => GroundTimeCommand(Options.Parse(argv[1..], "chars", "seeds", "rounds", "shard", "out", "compare", "labels", "log", "confirm", "drill", "victims", "seconds", "practice", "hold-victims", "hold-seeds", "gens", "lambda", "seed", "video", "parallel", "teach", "recheck")),
         "groundlab" => GroundLabCommand(Options.Parse(argv[1..], "style", "moves", "bouts", "seconds", "seed", "log", "video", "practice", "candidates", "sigma", "validate")),
         "kickbalance" => KickBalanceCommand(Options.Parse(argv[1..], "style", "kicks", "teachings", "bouts", "seconds", "seed", "confirm", "log", "video")),
         "stick" => StickCommand(Options.Parse(StickSwingLab.WithYes(argv[1..]), "style", "kicks", "teachings", "png", "design", "candidates", "seed", "log", "approach", "ground", "moves", "path", "out", "forms", "detail", "swing", "planes", "samples", "weights", "video", "polish", "iterations", "character", "limits", "bvh", "bvh-scale")),
@@ -778,6 +778,14 @@ static int GroundTimeCommand(Options o)
             ConfirmLog.Append("groundtime", "VFC: 最初の攻められる場面が死で終わった割合", labels[1], labels[0], seeds, finished, detail);
         }
 
+        return 0;
+    }
+
+    if (o.Get("recheck") is { } recheckPath)
+    {
+        // 練習の結果を別の受け手・種で比べ直す: --recheck id.json --hold-victims a,b --hold-seeds 201,202 [--parallel 4]
+        new GroundPractice(Log).Recheck(recheckPath, o.List("hold-victims", GroundTime.VfcRoster), [.. o.List("hold-seeds", ["201", "202", "203", "204"]).Select(x => int.Parse(x, CultureInfo.InvariantCulture))],
+            o.Float("seconds", 12f, min: 2f), o.Int("parallel", 1, min: 1));
         return 0;
     }
 
