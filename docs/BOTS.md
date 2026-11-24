@@ -281,6 +281,8 @@ run.cmd arena cmatune --target defense:Slip,defense:Duck   # 対象が複数な�
 | `FinishPress`（1.5） | 詰める強さ p = min(1, k × 開き): 普段の立ち位置を打つ間合いへ p の割合で寄せ、危ない所から出る足・回り込み・打って離れる距離・ピボットの後ずさりを (1 − p) 倍 |
 | `FinishSpend`（0.6） | 休む度合い × (1 − k × 開き)（蓄えが無ければ体が動かないのは物理が決める） |
 
+2026-11-24 に、開きへ見える息の上がり・見えている傷み（`HurtWinded`・`HurtInjury`）を重ね、開きに比例してフィニッシュの表（`FinishCombos`、割合 `FinishComboShare`）から型を選び連打を詰める（`FinishGap`）値を足した。どれも既定 0（教育が空なら従来どおり）。練習した教育は比べ直しで良くならず、まだどのキャラにも入っていない（docs/BOT_PDCA.md「フィニッシュのコンビネーション」）。
+
 根拠と測定は `docs/BOT_PDCA.md` の「弱った相手を詰める」、生の記録は `docs/arena/finish_*.md`（`rosterleague` に「相手が弱った間」の表を足した）。
 
 ## 戦略の層（2026-11-18、LogicVersion 50、`Bots/GamePlan.cs`）

@@ -1,4 +1,5 @@
-"""Write a character's practised ground finishing (groundtime --practice <id> --out <id>.json) into its roster file.
+"""Write a character's practised ground finishing (groundtime --practice <id> --out <id>.json) or finish combinations
+(groundtime --finish-practice <id>; every value goes to education.style) into its roster file.
 
     py -3 tools/ground-education.py docs/arena/groundtime/practice-<label>/<id>.json [--force]
 
@@ -89,6 +90,14 @@ def main():
     roster = f'games/MiniRing/Characters/roster/{practice["Id"]}.json'
     text = open(roster, encoding="utf-8", newline="").read()
     nl = "\r\n" if "\r\n" in text else "\n"
+    if "Armed" not in edu:
+        # フィニッシュの練習（groundtime --finish-practice）: どの値も education.style へ。
+        for key in reversed(list(edu.keys())):
+            text = set_line(text, "style", key, edu[key], nl)
+        json.loads(text)
+        open(roster, "w", encoding="utf-8", newline="").write(text)
+        print(f'{practice["Id"]}: wrote finish ({practice["Before"]:.2f} -> {practice["After"]:.2f})')
+        return
     armed = edu["Armed"]
     for key in reversed(STYLE_KEYS):
         if armed and key in ("GroundStomp", "GroundKick"):
