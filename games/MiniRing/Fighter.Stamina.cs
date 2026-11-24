@@ -158,8 +158,8 @@ public sealed partial class Fighter
     private float RegionMuscle(int region) => region switch
     {
         0 or 1 => 0.5f * (Strength(_arms[region].UpperArm) + Strength(_arms[region].Forearm)),
-        (int)MuscleRegion.LeftLeg => LegCondition(_legParts[(int)Hand.Left].AigisLeft),
-        (int)MuscleRegion.RightLeg => LegCondition(_legParts[(int)Hand.Right].AigisLeft),
+        (int)MuscleRegion.LeftLeg => SideLegMuscle(Hand.Left),
+        (int)MuscleRegion.RightLeg => SideLegMuscle(Hand.Right),
         _ => CoreStrength,
     };
 
@@ -515,8 +515,8 @@ public sealed partial class Fighter
     /// <summary>両脚の駆動の割合（歩く・脚のバネ: 両脚が受け持つ。左右の平均）。</summary>
     private float LegsVigor => 0.5f * (VigorOf(MuscleRegion.LeftLeg) + VigorOf(MuscleRegion.RightLeg));
 
-    /// <summary>脚 <paramref name="leg"/> の筋肉の部位（本人の左右）。</summary>
-    private MuscleRegion LegRegion(Leg leg) => leg == _legParts[(int)Hand.Left] ? MuscleRegion.LeftLeg : MuscleRegion.RightLeg;
+    /// <summary>脚 <paramref name="leg"/> の筋肉の部位（本人の左右。四足の後ろ脚は、同じ側の前脚と同じ部位で数える）。</summary>
+    private MuscleRegion LegRegion(Leg leg) => leg.AigisLeft == _legParts[(int)Hand.Left].AigisLeft ? MuscleRegion.LeftLeg : MuscleRegion.RightLeg;
 
     /// <summary>本人の左右の脚の酸素の蓄えの残り（0..1。自分が感じる脚の疲れ: <see cref="FighterSense.SelfLegOxygenLeft"/>）。</summary>
     public float LegOxygen(Hand side) => _oxygen[(int)(side == Hand.Left ? MuscleRegion.LeftLeg : MuscleRegion.RightLeg)];

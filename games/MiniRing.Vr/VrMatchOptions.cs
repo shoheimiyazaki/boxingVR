@@ -1,4 +1,5 @@
 using MiniRing.Bots;
+using MiniRing.Characters;
 using MiniRing.Motion;
 using MiniRing.Weapons;
 
@@ -13,6 +14,8 @@ internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuW
 {
     /// <summary>お手本づくりの稽古（<c>--training katana</c>）の武器。null なら試合（<see cref="VrTrainingSession"/>）。</summary>
     public WeaponKind? Training { get; init; }
+
+    public FighterCharacter? PlayerCharacter { get; init; }
 
     /// <summary>① <c>--two-hand right</c>（既定）: 両手持ちの武器は右のコントローラが両手を動かす（左はグリップを押しているだけ）。<c>both</c>: 左右のコントローラがそれぞれの手を動かす。</summary>
     public VrTwoHand TwoHand { get; init; } = VrTwoHand.Right;
@@ -84,6 +87,18 @@ internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuW
             training = kind;
         }
 
+        FighterCharacter? character = null;
+        if (args.Contains("--player-char"))
+        {
+            var id = Value(args, "--player-char");
+            character = id is null ? null : CharacterRoster.Find(id);
+            if (character is null || training is not null || player is not null || args.Contains("--shield"))
+            {
+                error = "Choose a roster id for --player-char and use its own equipment in a match.";
+                return false;
+            }
+        }
+
         var twoHand = VrTwoHand.Right;
         if (Value(args, "--two-hand") is { } twoHandText)
         {
@@ -94,9 +109,10 @@ internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuW
             }
         }
 
-        options = new VrMatchOptions(training ?? player, training ?? cpuWeapon, cpu)
+        options = new VrMatchOptions(training ?? character?.Weapon ?? player, training ?? cpuWeapon, cpu)
         {
             Training = training,
+            PlayerCharacter = character,
             TwoHand = twoHand,
             FirstPerson = args.Contains("--first-person"),
             Wear = args.Contains("--shield") ? HandWear.Shield : HandWear.Glove,
@@ -105,7 +121,7 @@ internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuW
     }
 
     /// <summary>この設定の両コーナー（武器の無い設定は今まで通り）。</summary>
-    public BoxingCorners Corners => PlayerWeapon is null
+    private BoxingCorners EquipmentCorners => PlayerWeapon is null
         ? BotCatalog.Corners(CpuStyle)
         : BotCatalog.Corners(CpuStyle) with
         {
@@ -118,6 +134,14 @@ internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuW
             CpuWear = Wear,
             PlayerWeaponFloats = true, // VR の人は目の前に浮いた武器を取って始める（放して止まるとまた浮く）
         };
+
+    public BoxingCorners Corners => PlayerCharacter is { } character
+        ? EquipmentCorners with
+        {
+            PlayerBody = character.Build, PlayerWear = character.Wear, PlayerLook = character.Look,
+            PlayerFaceSpec = character.Face, PlayerLabel = character.HudName, PlayerStyle = character.Style,
+        }
+        : EquipmentCorners;
 
     private static string? Value(IReadOnlyList<string> args, string name)
     {

@@ -3,7 +3,7 @@ using System.Numerics;
 namespace MiniRing;
 
 /// <summary>基準体格に対する寸法。太さは長さと独立、筋力は断面積から求める。</summary>
-public sealed record BodyBuild(float Height = 1f, float Arms = 1f, float Legs = 1f, float Muscle = 1f)
+public sealed record BodyBuild(float Height = 1f, float Arms = 1f, float Legs = 1f, float Muscle = 1f, bool FourLegged = false)
 {
     public static BodyBuild Standard { get; } = new();
 
@@ -21,9 +21,12 @@ public sealed record BodyBuild(float Height = 1f, float Arms = 1f, float Legs = 
 
     public Vector3 ScaleOf(BodyPartKind kind) => kind switch
     {
+        BodyPartKind.UpperArm or BodyPartKind.Forearm when FourLegged => new(Height * Arms, 0.87f * Height * Muscle, 0.92f * Height * Muscle),
         BodyPartKind.UpperArm or BodyPartKind.Forearm => new(Height * Arms, Height * Muscle, Height * Muscle),
         BodyPartKind.Thigh or BodyPartKind.Shin => new(Height * Muscle, Height * Legs, Height * Muscle),
+        BodyPartKind.Head when FourLegged => new(1.22f * Height, 0.97f * Height, 1.52f * Height),
         BodyPartKind.Head => new(Height),
+        BodyPartKind.Pelvis when FourLegged => new(Height * Muscle, Height, Height * Muscle * 3.2f),
         _ => new(Height * Muscle, Height, Height * Muscle),
     };
 
@@ -37,4 +40,7 @@ public sealed record BodyBuild(float Height = 1f, float Arms = 1f, float Legs = 
 
     /// <summary>脚の関節トルクの比: 断面積の比 × 脚の長さの比（てこの腕）。基準体格で 1。</summary>
     public float LegTorqueRatio => SectionRatio * Height * Legs;
+
+    /// <summary>脚の対の数（人は前の 1 対、四足は前後の 2 対。後ろの対は前の対と同じ寸法の脚: <c>Fighter.AddRearRig</c>）。</summary>
+    public int LegPairs => FourLegged ? 2 : 1;
 }

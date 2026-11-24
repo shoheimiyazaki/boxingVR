@@ -28,13 +28,16 @@ public enum HandWear
 
     /// <summary>盾（拳が握る握り棒・拳の前を覆う鉄の椀・丸い木の板・縁の鉄の輪）。<see cref="WeaponKind.Shield"/>。</summary>
     Shield,
+
+    /// <summary>鎌形の骨でできた手。</summary>
+    SickleClaw,
 }
 
 /// <summary><see cref="HandWear"/> の変換（ボクセルの物の種類・コマンドラインの名前）。</summary>
 public static class HandWears
 {
     /// <summary>コマンドラインで使える名前（<see cref="Parse"/> が受け付ける）。</summary>
-    public const string Names = "glove|none|knuckles|katar|gauntlet|tonfa|shield";
+    public const string Names = "glove|none|knuckles|katar|gauntlet|tonfa|shield|sickle-claw";
 
     /// <summary>はめる物を作る種類。</summary>
     public static WeaponKind Kind(this HandWear wear) => wear switch
@@ -46,6 +49,7 @@ public static class HandWears
         HandWear.Gauntlet => WeaponKind.Gauntlet,
         HandWear.Tonfa => WeaponKind.Tonfa,
         HandWear.Shield => WeaponKind.Shield,
+        HandWear.SickleClaw => WeaponKind.SickleClaw,
         _ => throw new ArgumentOutOfRangeException(nameof(wear), wear, "知らないはめる物です。"),
     };
 
@@ -65,6 +69,7 @@ public static class HandWears
             "gauntlet" or "gauntlets" => HandWear.Gauntlet,
             "tonfa" or "tonfas" => HandWear.Tonfa,
             "shield" or "shields" => HandWear.Shield,
+            "sickle-claw" => HandWear.SickleClaw,
             _ => throw new ArgumentException($"はめる物 '{name}' は知りません（{Names}）。", nameof(name)),
         };
     }

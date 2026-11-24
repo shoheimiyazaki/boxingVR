@@ -201,7 +201,7 @@ internal static class OrgBouts
         return CharacterProfile.WeightOf(character.Build);
     }
 
-    /// <summary>出られない理由（出られるなら null）。武器・教科書だけを見る（体重は階級を選ぶだけ）。</summary>
+    /// <summary>出られない理由（出られるなら null）。武器・教科書・指定装備を着用できるかを見る（体重は階級を選ぶだけ）。</summary>
     public static string? Ineligible(Organization org, FighterCharacter character)
     {
         ArgumentNullException.ThrowIfNull(org);
@@ -209,6 +209,11 @@ internal static class OrgBouts
         if (!org.Entry.Weapons && character.Weapon is { } weapon)
         {
             return $"{org.LogoText} は武器を持てません（{character.HudName} は {FighterCharacter.WeaponLabel(weapon)}）。";
+        }
+
+        if (org.Entry.Gear is { } gear && character.Wear == MiniRing.Weapons.HandWear.SickleClaw && gear != character.Wear)
+        {
+            return $"{org.LogoText} の指定装備を着用できません（{character.HudName} の手は鎌状）。";
         }
 
         if (org.Entry.Textbooks is { } books && !books.Contains(character.StyleName))

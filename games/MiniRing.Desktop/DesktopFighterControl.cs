@@ -12,6 +12,8 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
     internal BotStyle? Style { get; } = style;
 
     private readonly IntentControl _intent = new();
+    private readonly FrontLegStrike _frontLeg = new();
+    private readonly ClawMotion[] _claws = [new(), new()];
     private static readonly WeaponSwing SwordLight = SwordTechnique.Basics.First(t => t.Name == "kote").Swing;
     private static readonly WeaponSwing SwordHeavy = SwordTechnique.Basics.First(t => t.Name == "men").Swing;
     private static readonly WeaponSwing ClubLight = WeaponSwing.Default(SwingFamily.Thrust);
@@ -48,8 +50,19 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
         return command with { Right = WeaponSwing.GuardCommand(sense.ArmReach, kind == WeaponKind.WoodenClub ? SwingFamily.Chop : SwingFamily.Sword) };
     }
 
-    public FighterCommand Read(FighterIntent input, in FighterSense sense, float dt)
+    public FighterCommand Read(FighterIntent input, in FighterSense sense, float dt, bool kickPressed = false, bool sweep = false)
     {
+        if (sense.SelfBuild?.FourLegged == true)
+        {
+            _intent.Input = input with { Light = false, Heavy = false };
+            var motion = _intent.Read(sense, dt) with
+            {
+                Left = _claws[0].Read(Hand.Left, input.Light, sweep, sense, sense.OpponentChest, dt),
+                Right = _claws[1].Read(Hand.Right, input.Heavy, sweep, sense, sense.OpponentChest, dt),
+            };
+            return _frontLeg.Read(motion, sense, kickPressed, sweep, dt);
+        }
+
         var light = input.Light && !_light;
         var heavy = input.Heavy && !_heavy;
         (_light, _heavy) = (input.Light, input.Heavy);

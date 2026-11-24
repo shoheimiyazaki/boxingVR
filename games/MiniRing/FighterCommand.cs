@@ -43,6 +43,7 @@ public readonly record struct HandCommand(Vector3 TargetLocal, bool Grip, float 
 /// <para><paramref name="HeadOffset"/> は頭の構えからのずれ（体フレームのローカル [m]）: 前へ出せば前傾、横へずらせば
 /// スリップ（横傾き）、下げればダッキング（沈み込み）。体の軸の向きは両手の位置とこの頭の位置から決まる。</para>
 /// <para><paramref name="TwistBias"/> は胴のひねりの指令 [rad]（正で右肩が前）。分割胴の肘打ちでは、畳んだ拳の位置差に代わる腰の回旋目標として使う。</para>
+/// <para>四足の体では <paramref name="LeftLeg"/> と <paramref name="RightLeg"/> が左右の前脚を動かし、後脚は足運びが動かす。</para>
 /// <para><paramref name="Step"/>（2026-11-18、ステップ）は、脚のバネ（構えで縮めてある脚: <see cref="Fighter.StepSpring"/>）を体の移動へ放つ向き（ワールドの水平）と割合（長さ 0..1）。
 /// 拳の <see cref="HandCommand.Spring"/> と同じく「体のバネをどこへ移すか」の目標で、位置や速さは書かない。前へ放てば後ろ足が床を蹴って一気に詰め、
 /// 後ろへ放てば前足が蹴って下がる（どちらの足が蹴るかは、向きに対して腰より後ろにある足: 脚が押せる向きの幾何から）。放った後は足が体を受け止めて構えを整え直し、

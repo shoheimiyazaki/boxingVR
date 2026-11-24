@@ -110,6 +110,14 @@ public static class CharacterPortraits
 
             if (id == fighter.Parts.Head)
             {
+                if (character.Build.FourLegged)
+                {
+                    var alien = new Placed(grid, position, orientation, half);
+                    parts.Add(alien);
+                    head.Add(alien);
+                    continue;
+                }
+
                 // 頭は試合の体と同じく、頭蓋骨の中（14 mm）と顔の層（7 mm、キャラの顔: FaceLayer）の 2 つの格子。
                 var (inner, faceLayer) = FaceLayer.Split(grid, character.Face);
                 head.Add(new Placed(inner, position, orientation, half));

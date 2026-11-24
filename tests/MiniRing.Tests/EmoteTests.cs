@@ -356,11 +356,17 @@ public sealed class EmoteTests
     {
         var names = BreakBook.All(0.5f).Select(a => a.Name).ToHashSet();
         var smokers = new List<string>();
+        // 好みはプロフィール（趣味・逸話）から手で書いた選手だけが持つ。新人リーグで登録した選手（record の kind: generated）の好みはまだ無い（教科書の既定）。
+        var handMade = MiniRing.Arena.Circuit.ProspectFactory.ReservedIds(CharacterRoster.All).ToHashSet();
         foreach (var c in CharacterRoster.All)
         {
             var likes = c.Resolve().BreakLikes;
             var liked = likes.Count(p => p.Value > 1f);
-            Assert.IsInRange(5, 10, liked, $"{c.Id}: 好き（倍率 > 1）は 5〜10 個");
+            if (handMade.Contains(c.Id))
+            {
+                Assert.IsInRange(5, 10, liked, $"{c.Id}: 好き（倍率 > 1）は 5〜10 個");
+            }
+
             foreach (var (name, factor) in likes)
             {
                 Assert.IsTrue(names.Contains(name), $"{c.Id}: 知らない動作 '{name}'");

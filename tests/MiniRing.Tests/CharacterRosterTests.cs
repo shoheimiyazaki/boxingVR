@@ -95,15 +95,15 @@ public sealed class CharacterRosterTests
     [TestMethod]
     public void Roster_HoldsTheDecidedTwelve_WithTheirEquipmentStyleAndBody()
     {
-        // 手で作った名簿（新人リーグで作られ登録された選手 = record の kind: generated を除く）。2026-11-18: 柔術家 ren を足して 18 人。
+        // 手で作った名簿（新人リーグで作られ登録された選手 = record の kind: generated を除く）。2026-11-18: 柔術家 ren を足して 18 人、2026-11-25: 四足の異星人 galva を足して 19 人。
         var handMade = MiniRing.Arena.Circuit.ProspectFactory.ReservedIds(CharacterRoster.All).ToHashSet();
         var all = CharacterRoster.All.Where(c => handMade.Contains(c.Id)).ToList();
-        Assert.HasCount(18, all);
+        Assert.HasCount(19, all);
         // 2026-11-25: IVF の新人リーグの上位 10 人を登録（docs/arena/ivf_prospects.md）。所属は IVF、グローブ、ボクシングの教科書。
         var league = CharacterRoster.All.Where(c => !handMade.Contains(c.Id)).ToList();
         Assert.HasCount(10, league);
         Assert.IsTrue(league.All(c => c.Org == "ivf" && c.Wear == HandWear.Glove && c.Weapon is null && c.Profile is not null), "登録した新人の所属・装備・プロフィール");
-        CollectionAssert.AreEqual(Decided.Select(d => d.Id).ToArray(), all.Select(c => c.Id).ToArray(), "the decided order");
+        CollectionAssert.AreEqual(Decided.Select(d => d.Id).Append("galva").ToArray(), all.Select(c => c.Id).ToArray(), "the decided order");
         foreach (var d in Decided)
         {
             var c = CharacterRoster.Get(d.Id);

@@ -86,6 +86,9 @@ public enum WeaponKind
     /// 握りの端（柄頭の側）も打つ所（グリップエンド）。片手で振る棍棒（こんぼう）とは別の種類にして、こんぼうの試合・記録を変えない。
     /// </summary>
     Bat,
+
+    /// <summary>前腕につながった、曲がった骨の手。</summary>
+    SickleClaw,
 }
 
 /// <summary>
@@ -346,13 +349,13 @@ public sealed class Weapon
     /// 左右が非対称な形（トンファーの棒は拳の片側にある）を、左右の手で鏡にするか。左の手の物は拳の幅の向き（Z）を裏返して作る
     /// （手の座標は左右とも同じ向きの回転で付くので、そのままだと棒が一方では外側・他方では内側になる）。左右が対称な物は裏返さない。
     /// </summary>
-    public static bool MirroredOn(WeaponKind kind, Hand hand) => kind == WeaponKind.Tonfa && hand == Hand.Left;
+    public static bool MirroredOn(WeaponKind kind, Hand hand) => (kind is WeaponKind.Tonfa or WeaponKind.SickleClaw) && hand == Hand.Left;
 
     /// <summary>
     /// 手にはめる物か（グローブ・素手の拳・メリケンサック・カタール・籠手・トンファー）。はめた物は拳から離れず、拳の打撃（パンチ）として数え、
     /// 握った本人の体・同じ人のもう一方の手にはめた物とは当たらない。
     /// </summary>
-    public static bool IsWorn(WeaponKind kind) => kind is WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield;
+    public static bool IsWorn(WeaponKind kind) => kind is WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield or WeaponKind.SickleClaw;
 
     private static Weapon Create(PhysicsWorld world, WeaponKind kind, VoxelGrid grid, Vector3 position, Quaternion orientation, bool mirrored = false)
     {
@@ -395,6 +398,7 @@ public sealed class Weapon
         WeaponKind.WoodenClub => new Vector3(-ClubHalfLength + 0.04225f, 0f, 0f),
         WeaponKind.Katana or WeaponKind.Longsword or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.Bat => TwoHandGripsOf(kind).Top,
         WeaponKind.Glove => -GloveBounds.Center, // 手首（腕の先）= グローブの座標の原点
+        WeaponKind.SickleClaw => SickleClawShape.Grip,
         WeaponKind.Fist => HandSkeleton.Wrist, // 腕の先が手を握る所（手首）
         WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield => HandSkeleton.Wrist - WornBoundsOf(kind, mirrored).Center, // 中の手の手首（腕の先が手を握る点）
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
@@ -496,6 +500,7 @@ public sealed class Weapon
         WeaponKind.Longsword => new Vector3(LongHalfLength, 0f, 0f),
         WeaponKind.Staff or WeaponKind.Jo => new Vector3(RodOf(kind).HalfLength - StaffTipInset, 0f, 0f),
         WeaponKind.Glove => new Vector3(GloveFront, 0f, 0f) - GloveBounds.Center, // 拳頭の前の詰め物の外の面（前の球と同じく、握りの 68 mm 前）
+        WeaponKind.SickleClaw => SickleClawShape.Tip,
         WeaponKind.Fist => HandSkeleton.SeikenTip,
         WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield => WornTipInHand(kind) - WornBoundsOf(kind).Center, // 手の座標の打つ所を、物の格子の座標へ
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
@@ -559,6 +564,7 @@ public sealed class Weapon
         WeaponKind.Longsword => Longsword(),
         WeaponKind.Staff or WeaponKind.Jo => Rod(kind),
         WeaponKind.Glove => Glove(leather),
+        WeaponKind.SickleClaw => SickleClawShape.Build(mirrored),
         WeaponKind.Fist => BareHandState.InitialGrid(),
         WeaponKind.KnuckleDuster => Worn(kind, WornCell, KnuckleDusterAt),
         WeaponKind.Katar => Worn(kind, KatarCell, KatarAt),

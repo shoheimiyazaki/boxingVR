@@ -148,6 +148,7 @@ public sealed partial class BoxingGame
             Track(worn);
             fighter.Wield(hand, worn.Body.BodyId, Weapon.GripOf(kind, mirrored), glove: true);
             fighter.SetStrikeReach(hand, worn.HandState is null ? null : worn.StrikeOffset);
+            fighter.SetBladeChord(hand, kind == WeaponKind.SickleClaw ? SickleClawShape.Edge(hand) : null);
             _wielders[worn] = fighter;
             _wieldHand[worn] = hand;
         }
@@ -1049,7 +1050,7 @@ public sealed partial class BoxingGame
             // 部位が接している所）。そのまま歩を終えると、刃が体の中にあるのに何も起きない 1 歩になる。刃が動いたら、まだ触れていない相手の部位だけを、
             // 握りの押す力（drive・massBehind）を数えずに掃き直す（同じ部位を 2 度打たない・腕の力を 2 度払わない。<see cref="MaxContactPasses"/> まで。握った本人の体は 1 回だけ）。
             // 手にはめた物（グローブなど）は 1 回だけ（拳はいつも相手の体に押し当てて動くので、掃き直すと拳の打撃の手触りまで変わる。調べたのは刃・棍棒）。
-            var passes = Weapon.IsWorn(weapon.Kind) ? 1 : MaxContactPasses;
+            var passes = UsesBladeSweep(weapon.Kind) ? MaxContactPasses : 1;
             var touched = _touchedScratch;
             touched.Clear();
             _touchedBridgeScratch.Clear();
@@ -1132,12 +1133,14 @@ public sealed partial class BoxingGame
             }
 
             // 関節のつなぎ: 部位の間の隙間を通る刃も、関節の肉・骨に当たる。握った本人の体のつなぎは数えない（自分の体の中で押し合うだけ）。
-            if (JointBridges && !holds && deadHand is null && !Weapon.IsWorn(weapon.Kind))
+            if (JointBridges && !holds && deadHand is null && UsesBladeSweep(weapon.Kind))
             {
                 ResolveBridges(weapon, before, drive, behind, fighter, includeHolder);
             }
         }
     }
+
+    private static bool UsesBladeSweep(WeaponKind kind) => !Weapon.IsWorn(kind) || kind == WeaponKind.SickleClaw;
 
     private readonly HashSet<JointBridge> _touchedBridgeScratch = [];
 
@@ -1302,7 +1305,9 @@ public sealed partial class BoxingGame
         // （カタールの刃が斬った所も、メリケンサックの突起が潰した所も、同じ接触が壊した分）。
         if (Weapon.IsWorn(weapon.Kind))
         {
-            if (!(part.FragmentOf is null && HolderOf(weapon) is { } puncher && puncher != victim && Punch(puncher, HandOf(weapon), victim, part, hit, contactTwist, UseLegacyWornImpact(puncher, weapon.Kind))))
+            var pointVelocity = weapon.Kind == WeaponKind.SickleClaw ? PreStepVelocityAt(weapon.Body.BodyId, hit.Point) : (Vector3?)null;
+            if (!(part.FragmentOf is null && HolderOf(weapon) is { } puncher && puncher != victim
+                && Punch(puncher, HandOf(weapon), victim, part, hit, contactTwist, UseLegacyWornImpact(puncher, weapon.Kind), pointVelocity)))
             {
                 if (contactTwist != Vector3.Zero && MayStrike(victim))
                 {
@@ -1862,7 +1867,7 @@ public sealed partial class BoxingGame
     /// 乗る質量は拳の有効質量（<see cref="Fighter.ImpactMass(Hand, Vector3)"/>）。ダメージが小さすぎる触れ合い・押し合いは数えない（拳の打撃と同じ）。
     /// 体を削るのはボクセル同士の接触が壊した分だけ（エネルギーで掘る近道は使わない）。数えたら true。
     /// </summary>
-    private bool Punch(Fighter attacker, Hand hand, Fighter victim, VoxelPart part, VoxelContactResult hit, Vector3 contactTwist, bool legacyImpact)
+    private bool Punch(Fighter attacker, Hand hand, Fighter victim, VoxelPart part, VoxelContactResult hit, Vector3 contactTwist, bool legacyImpact, Vector3? pointVelocity = null)
     {
         if (RoundOver || Holding || !MayStrike(victim) || _hitCooldown[(attacker, hand)] > 0f)
         {
@@ -1871,7 +1876,7 @@ public sealed partial class BoxingGame
 
         // 当たる速さは拳と打たれた点の相対速度（歩の前。PunchMechanics.ClosingSpeed）: 下がる相手に付いたまま押す拳は打撃にならない。
         // 向き（velocity: へこみ・押し込み・体の有効質量の向き）は拳の速度のまま。
-        var velocity = _preStepGloveVelocity[(attacker, hand)];
+        var velocity = pointVelocity ?? _preStepGloveVelocity[(attacker, hand)];
         var struck = PreStepVelocityAt(part.Body.BodyId, hit.Point);
         var speed = PunchMechanics.ClosingSpeed(velocity, struck, hit.Direction);
         if (speed <= 0f)
@@ -2005,7 +2010,7 @@ public sealed partial class BoxingGame
         _disconnectScratch.Clear();
         foreach (var weapon in _weapons)
         {
-            if (!Weapon.IsWorn(weapon.Kind)
+            if ((!Weapon.IsWorn(weapon.Kind) || weapon.Kind == WeaponKind.SickleClaw)
                 && (!_connectedAt.TryGetValue(weapon, out var version) || version != weapon.Body.Grid.GeometryVersion))
             {
                 _disconnectScratch.Add(weapon);
