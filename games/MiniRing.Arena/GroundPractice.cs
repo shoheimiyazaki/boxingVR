@@ -136,6 +136,8 @@ internal sealed class GroundPractice(Action<string> log, int parallel = 1)
 
         var c = CharacterRoster.Get(id);
         var knobs = Knobs(c, fixedAim: false).ToDictionary(k => k.Name);
+        // かかとの連打を選ぶ割合（GroundHeel）はドリルの比べにだけ使う（練習の 30 値には入れない）。
+        knobs["GroundHeel"] = S("GroundHeel", 0f, 1f, s => s.GroundHeel, (s, v) => s with { GroundHeel = v });
         var state = Start(id, victim);
         foreach (var (name, v) in values)
         {
