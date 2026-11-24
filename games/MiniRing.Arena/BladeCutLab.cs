@@ -61,10 +61,11 @@ internal static class BladeCutLab
     /// <param name="MassScale">刃の剛体の質量と慣性の倍率（形は同じ。運動量とエネルギーを分ける実験）。</param>
     /// <param name="FromTip">打つ点の、切っ先からの距離 [m]。</param>
     /// <param name="Mode">当たった後の刃の動き。</param>
-    public sealed record Case(WeaponKind Kind, Target Target, float Speed, float Drive = 0f, float MassScale = 1f, float FromTip = 0.12f, Mode Mode = Mode.Free)
+    /// <param name="Tilt">刃筋の傾き [度]: 刃の面と打つ向きのなす角（刀身の軸のまわりに刃を回す）。0 なら刃筋が通る（刃の面が打つ向きに沿う）。</param>
+    public sealed record Case(WeaponKind Kind, Target Target, float Speed, float Drive = 0f, float MassScale = 1f, float FromTip = 0.12f, Mode Mode = Mode.Free, float Tilt = 0f)
     {
         public string Label => string.Create(CultureInfo.InvariantCulture,
-            $"{WeaponName(Kind)} {TargetName(Target)} {Speed:0.#} m/s{(Drive > 0f ? $" +{Drive:0}N" : "")}{(MassScale != 1f ? $" 質量×{MassScale:0.##}" : "")}{(FromTip != 0.12f ? $" 先から{FromTip * 100f:0}cm" : "")}{(Mode == Mode.Imposed ? " 角速度保持" : "")}");
+            $"{WeaponName(Kind)} {TargetName(Target)} {Speed:0.#} m/s{(Drive > 0f ? $" +{Drive:0}N" : "")}{(MassScale != 1f ? $" 質量×{MassScale:0.##}" : "")}{(FromTip != 0.12f ? $" 先から{FromTip * 100f:0}cm" : "")}{(Mode == Mode.Imposed ? " 角速度保持" : "")}{(Tilt != 0f ? $" 刃筋{Tilt:0}°" : "")}");
     }
 
     /// <summary>1 回の結果。</summary>
@@ -279,7 +280,8 @@ internal static class BladeCutLab
         var radius = ArmLength + (strike.X - grip);
         var pivot = aim.Point - (aim.Across * radius);
         var n = Vector3.Normalize(Vector3.Cross(aim.Across, aim.Heading));
-        var orientation = WeaponDrills.Edge(aim.Heading, aim.Across);
+        // 刃筋の傾き: 刀身の軸（across）のまわりに刃を回す（打つ点は刃の縁なので、回しても当たる所はほぼ同じ）。
+        var orientation = Quaternion.Concatenate(WeaponDrills.Edge(aim.Heading, aim.Across), Quaternion.CreateFromAxisAngle(aim.Across, c.Tilt * MathF.PI / 180f));
         var runUp = (aim.Entry + RunUp) / radius;
         var back = Quaternion.CreateFromAxisAngle(n, -runUp);
         var start = pivot + Vector3.Transform(aim.Across * radius, back);
@@ -564,15 +566,83 @@ internal static class BladeCutLab
         return (Markdown(rows.Take(ladderCount).ToList(), rows.Skip(ladderCount).ToList()), Csv(rows));
     }
 
+    private static readonly Target[] EdgeTargets = [Target.Forearm, Target.UpperArm, Target.Neck, Target.Thigh];
+    private static readonly float[] EdgeSpeeds = [8f, 12f, 18f, 25f, 35f];
+    private static readonly float[] Tilts = [0f, 5f, 10f, 20f, 35f];
+    private static readonly float[] PushSpeeds = [1f, 2f, 4f];
+    private static readonly float[] PushDrives = [0f, 150f, 400f, 800f];
+
+    /// <summary>
+    /// 太刀筋の計測: 日本刀で (1) 刃筋の傾き × 速さ、(2) 押し切り（遅い振り × 押す手の力）を、前腕・上腕・首・腿に。表（Markdown）と CSV。
+    /// </summary>
+    public static (string Markdown, string Csv) EdgeStudy(int parallel, TextWriter log)
+    {
+        var tilt = new List<Case>();
+        foreach (var target in EdgeTargets)
+        {
+            foreach (var v in EdgeSpeeds)
+            {
+                tilt.AddRange(Tilts.Select(a => new Case(WeaponKind.Katana, target, v, Tilt: a)));
+            }
+        }
+
+        var push = new List<Case>();
+        foreach (var target in EdgeTargets)
+        {
+            foreach (var v in PushSpeeds)
+            {
+                push.AddRange(PushDrives.Select(f => new Case(WeaponKind.Katana, target, v, Drive: f)));
+            }
+        }
+
+        var rows = RunAll([.. tilt, .. push], parallel, log);
+        var text = new StringBuilder();
+        text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"# 太刀筋の計測（bladecut --mode edge、PhysicsVersion {Fighter.PhysicsVersion}、日本刀）"));
+        text.AppendLine();
+        text.AppendLine("## 刃筋の傾き（行 = 部位・速さ、列 = 傾き。中身 = 結果 / 深さの割合 / 壊したセル）");
+        text.AppendLine();
+        text.AppendLine("| 部位 | 速さ [m/s] | " + string.Join(" | ", Tilts.Select(a => string.Create(CultureInfo.InvariantCulture, $"{a:0}°"))) + " |");
+        text.AppendLine("|---|---:|" + string.Concat(Tilts.Select(_ => "---|")));
+        foreach (var g in rows.Take(tilt.Count).GroupBy(r => (r.Case.Target, r.Case.Speed)))
+        {
+            text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"| {TargetName(g.Key.Target)} | {g.Key.Speed:0} | ") + string.Join(" | ", g.Select(Cell)) + " |");
+        }
+
+        text.AppendLine();
+        text.AppendLine("## 押し切り（行 = 部位・速さ、列 = 押す手の力）");
+        text.AppendLine();
+        text.AppendLine("| 部位 | 速さ [m/s] | " + string.Join(" | ", PushDrives.Select(f => string.Create(CultureInfo.InvariantCulture, $"{f:0} N"))) + " |");
+        text.AppendLine("|---|---:|" + string.Concat(PushDrives.Select(_ => "---|")));
+        foreach (var g in rows.Skip(tilt.Count).GroupBy(r => (r.Case.Target, r.Case.Speed)))
+        {
+            text.AppendLine(string.Create(CultureInfo.InvariantCulture, $"| {TargetName(g.Key.Target)} | {g.Key.Speed:0} | ") + string.Join(" | ", g.Select(Cell)) + " |");
+        }
+
+        return (text.ToString(), Csv(rows));
+    }
+
+    private static string Cell(Row r) => string.Create(CultureInfo.InvariantCulture, $"{Short(r)} {r.DepthShare * 100f:0}% ({r.Skin + r.Muscle + r.Bone + r.Organ})");
+
+    private static string Short(Row r) => r.Level switch
+    {
+        0 => "—",
+        1 => "無傷",
+        2 => "皮",
+        3 => "肉",
+        4 => "骨傷",
+        5 => r.Bent ? "骨折" : "骨断",
+        _ => "落ちる",
+    };
+
     public static string Csv(IEnumerable<Row> rows)
     {
         var text = new StringBuilder();
-        text.AppendLine("weapon,target,speed_set,drive_N,mass_scale,from_tip_m,mode,touched,first_part,sword_mass_kg,meff_sword_kg,meff_part_kg,meff_pair_kg,hit_speed,energy_J,sword_energy_J,momentum_Ns,skin,muscle,bone,organ,other,depth_m,thickness_m,bone_cut,bent,fell,died,stopped,exit_ratio,spent_J,peak_MPa,weapon_lost,other_parts,slab_bone_cells,cell_m,outcome");
+        text.AppendLine("weapon,target,speed_set,drive_N,mass_scale,from_tip_m,mode,tilt_deg,touched,first_part,sword_mass_kg,meff_sword_kg,meff_part_kg,meff_pair_kg,hit_speed,energy_J,sword_energy_J,momentum_Ns,skin,muscle,bone,organ,other,depth_m,thickness_m,bone_cut,bent,fell,died,stopped,exit_ratio,spent_J,peak_MPa,weapon_lost,other_parts,slab_bone_cells,cell_m,outcome");
         foreach (var r in rows)
         {
             var c = r.Case;
             text.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                $"{c.Kind},{c.Target},{c.Speed:0.###},{c.Drive:0},{c.MassScale:0.###},{c.FromTip:0.###},{c.Mode},{r.Touched},{r.FirstPart},{r.SwordMass:0.0000},{r.MEffSword:0.0000},{r.MEffPart:0.0000},{r.MEffPair:0.0000},{r.HitSpeed:0.000},{r.Energy:0.000},{r.SwordEnergy:0.000},{r.Momentum:0.000},{r.Skin},{r.Muscle},{r.Bone},{r.Organ},{r.Other},{r.Depth:0.0000},{r.Thickness:0.0000},{r.BoneCut},{r.Bent},{r.Fell},{r.Died},{r.Stopped},{r.ExitRatio:0.000},{r.Spent:0.000},{r.PeakPressure / 1e6f:0.000},{r.WeaponLost},{r.OtherParts},{r.SlabBone},{r.Cell:0.0000},{r.Outcome}"));
+                $"{c.Kind},{c.Target},{c.Speed:0.###},{c.Drive:0},{c.MassScale:0.###},{c.FromTip:0.###},{c.Mode},{c.Tilt:0.#},{r.Touched},{r.FirstPart},{r.SwordMass:0.0000},{r.MEffSword:0.0000},{r.MEffPart:0.0000},{r.MEffPair:0.0000},{r.HitSpeed:0.000},{r.Energy:0.000},{r.SwordEnergy:0.000},{r.Momentum:0.000},{r.Skin},{r.Muscle},{r.Bone},{r.Organ},{r.Other},{r.Depth:0.0000},{r.Thickness:0.0000},{r.BoneCut},{r.Bent},{r.Fell},{r.Died},{r.Stopped},{r.ExitRatio:0.000},{r.Spent:0.000},{r.PeakPressure / 1e6f:0.000},{r.WeaponLost},{r.OtherParts},{r.SlabBone},{r.Cell:0.0000},{r.Outcome}"));
         }
 
         return text.ToString();
@@ -626,11 +696,11 @@ internal static class BladeCutLab
     /// <summary>
     /// 試合の中の値: 名簿の刃物の使い手どうしを戦わせ、刃が相手に当てた 1 打ごとの速さ・壊したセル・その歩の握る手の押す力・刃の運動エネルギーを集める。
     /// </summary>
-    public static string InGame(IReadOnlyList<(string Red, string Blue)> pairs, int seeds, float seconds, TextWriter log)
+    public static string InGame(IReadOnlyList<(string Red, string Blue)> pairs, int seeds, float seconds, TextWriter log, int parallel = 3)
     {
         var rows = new ConcurrentBag<(string Pair, string Weapon, string Part, float Speed, int Cells, float Drive, float Energy)>();
         var jobs = pairs.SelectMany(p => Enumerable.Range(1, seeds).Select(s => (p.Red, p.Blue, Seed: s))).ToList();
-        Parallel.ForEach(jobs, new ParallelOptions { MaxDegreeOfParallelism = 3 }, job =>
+        Parallel.ForEach(jobs, new ParallelOptions { MaxDegreeOfParallelism = parallel }, job =>
         {
             var red = CharacterRoster.Get(job.Red);
             var blue = CharacterRoster.Get(job.Blue);

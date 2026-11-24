@@ -117,7 +117,24 @@ public sealed class HandWearTests
     internal static BoutResult Bout(HandWear wear, string bot, float seconds = 20.14f, int seed = 1)
     {
         using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("stand", _ => new StandGuard(), s => BotCatalog.Create(bot, s), PlayerWear: wear, CpuWear: HandWear.Glove));
-        int Filled() => game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount) + game.Cpu.Voxels!.Fragments.Sum(p => p.Body.Grid.FilledCount);
+        // 2026-11-24（PhysicsVersion 93）: 接触はセルを丸ごとでなく、奥行きを押し抜けた分だけ壊す（途中で止まれば刻み目 = 丈夫さの減りが残る）。
+        // 失ったセルに、残ったセルの丈夫さの減りをセルの数に換算して足す（拳頭で割れかけた皮膚も「削った量」）。
+        static float Intact(Aigis.Foundation.Voxels.VoxelGrid g)
+        {
+            var sum = 0f;
+            for (var i = 0; i < g.CellCount; i++)
+            {
+                var m = g.MaterialAt(i);
+                if (m != 0)
+                {
+                    sum += Math.Clamp(g.HealthAt(i) / MathF.Max(1e-6f, g.Palette[m].Toughness), 0f, 1f);
+                }
+            }
+
+            return sum;
+        }
+
+        int Filled() => (int)MathF.Round(game.Cpu.Voxels!.Parts.Sum(p => Intact(p.Body.Grid)) + game.Cpu.Voxels!.Fragments.Sum(p => Intact(p.Body.Grid)));
         int Worn(byte? material = null) => new[] { Hand.Left, Hand.Right }.Sum(h =>
             game.GloveOf(game.Player, h)!.Body.Grid is var g && material is { } m ? g.Remaining(m) : g.FilledCount);
         var before = Filled();
@@ -252,10 +269,13 @@ public sealed class HandWearTests
             Assert.AreEqual(0, result[wear].IronLost, $"{wear}: skin and leather never break iron");
         }
 
-        var glove = result[HandWear.Glove].Carved;
-        Assert.IsGreaterThan(glove, result[HandWear.None].Carved, "bare fists remove more cells over the bouts than gloves");
-        Assert.IsGreaterThan(glove, result[HandWear.KnuckleDuster].Carved, "iron knuckles remove more cells over the bouts than gloves");
-        Assert.IsGreaterThan(glove, result[HandWear.Gauntlet].Carved, "iron plates remove more cells over the bouts than gloves");
-        Assert.IsGreaterThan(glove, result[HandWear.Katar].Carved, "the blade removes more cells over the bouts than gloves");
+        // 1 発あたりで比べる: 道具によって当たる数が違う（素手は 69 発、グローブは 111 発）。2026-11-24（PhysicsVersion 93、セルは押し抜いた分だけ壊れる）から、
+        // 合計では素手 617 対グローブ 618 とほぼ並んだが、1 発あたりでは素手 8.9 対グローブ 5.6 セル。
+        static float PerHit(BoutResult r) => r.Hits > 0 ? (float)r.Carved / r.Hits : 0f;
+        var glove = PerHit(result[HandWear.Glove]);
+        Assert.IsGreaterThan(glove, PerHit(result[HandWear.None]), "bare fists remove more cells per punch than gloves");
+        Assert.IsGreaterThan(glove, PerHit(result[HandWear.KnuckleDuster]), "iron knuckles remove more cells per punch than gloves");
+        Assert.IsGreaterThan(glove, PerHit(result[HandWear.Gauntlet]), "iron plates remove more cells per punch than gloves");
+        Assert.IsGreaterThan(glove, PerHit(result[HandWear.Katar]), "the blade removes more cells per punch than gloves");
     }
 }

@@ -17,7 +17,9 @@ public sealed class LegLossTests
     [TestMethod]
     public void ACutShin_KneelsOnTheStump_AndFightsOn()
     {
-        using var game = new BoxingGame(seed: 2);
+        // 2026-11-24（PhysicsVersion 93）: 相手と打ち合う試合では、接触の式が変わるたびに試合の流れ（どこで打たれ・踏み直すか）が変わり、腰の高さが揺れた
+        // （下の 8 秒の注釈と同じ偶然）。確かめるのは切り株の高さと、切った直後に立っていられることなので、両者とも構えて立つだけにする。
+        using var game = new BoxingGame(seed: 2, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => new StandGuard()));
         var cpu = game.Cpu;
         Play(game, 1.678f);
         var standing = cpu.PelvisPosition.Y;

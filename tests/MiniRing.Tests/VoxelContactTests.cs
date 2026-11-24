@@ -115,19 +115,27 @@ public sealed class VoxelContactTests
     [TestMethod]
     public void OnlyTheSofterSide_Breaks()
     {
-        // 鋼の縁で木を打つ: 木が切れ、鋼は無傷。
+        // 鋼の縁で木を打つ: 木が切れ（斬り進んだ分だけ木のセルの丈夫さが減る。奥まで斬り抜けたセルは消える）、鋼は無傷。
+        // 2026-11-24（PhysicsVersion 93）: セルは刃がその奥行きを斬り抜けたときに断たれ、途中で止まれば刻み目が残る。だから「食い込んだ」は
+        // 消えたセルの数でなく、丈夫さの減りで見る。
         using var w1 = World();
         var woodBlock = Box(w1, Wood, new Vector3(0.03f), 0.005f, Vector3.Zero);
-        var steelOnWood = Run(w1, Plate(w1, edgeOn: true, speed: 14f), woodBlock);
-        Assert.IsGreaterThan(0, steelOnWood.RemovedB, "steel bites into wood");
-        Assert.AreEqual(0, steelOnWood.RemovedA, "and stays whole");
+        var plate1 = Plate(w1, edgeOn: true, speed: 14f);
+        var (woodBefore, steelBefore) = (woodBlock.Grid.TotalHealth, plate1.Grid.TotalHealth);
+        var steelOnWood = Run(w1, plate1, woodBlock);
+        Assert.IsLessThan(woodBefore, woodBlock.Grid.TotalHealth, "steel bites into wood");
+        Assert.AreEqual(steelBefore, plate1.Grid.TotalHealth, "and stays whole");
+        Assert.AreEqual(0, steelOnWood.RemovedA);
 
         // 木の板の縁を、上向きに立てた鋼の板の縁へ十字に打ち下ろす: 触れるのは縁と縁の交わり（2.5mm 角）だけ。木の縁が潰れ、鋼は無傷。
         using var w2 = World();
         var steelEdge = Box(w2, Steel, new Vector3(0.00125f, 0.015f, 0.04f), 0.00125f, Vector3.Zero);
-        var woodOnSteel = Run(w2, Plate(w2, edgeOn: true, speed: 10f, material: Wood), steelEdge);
-        Assert.IsGreaterThan(0, woodOnSteel.RemovedA, "the wooden edge is crushed");
-        Assert.AreEqual(0, woodOnSteel.RemovedB, "the steel is not");
+        var plate2 = Plate(w2, edgeOn: true, speed: 10f, material: Wood);
+        var (woodEdgeBefore, steelEdgeBefore) = (plate2.Grid.TotalHealth, steelEdge.Grid.TotalHealth);
+        var woodOnSteel = Run(w2, plate2, steelEdge);
+        Assert.IsLessThan(woodEdgeBefore, plate2.Grid.TotalHealth, "the wooden edge is crushed");
+        Assert.AreEqual(steelEdgeBefore, steelEdge.Grid.TotalHealth, "the steel is not");
+        Assert.AreEqual(0, woodOnSteel.RemovedB);
     }
 
     [TestMethod]

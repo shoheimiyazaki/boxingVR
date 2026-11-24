@@ -45,7 +45,8 @@ public sealed class IntentFeelTests
     /// <summary>回避を押してからの頭の下がり（Drop）と、構えの体の座標での横のずれ（Lateral）の最大 [cm]。</summary>
     private static (float Drop, float Lateral) HeadMotionCm(Defense defense, float seconds)
     {
-        var (game, control) = Settled(defense);
+        // 相手は入力なしの体（自分の回避の動きだけを測る。相手のパンチが当たると回避が途中で切れ、試合の流れで結果が揺れる）。
+        var (game, control) = Settled(defense, passiveCpu: true);
         using var _ = game;
         var before = game.Player.HeadPosition.Y;
         var frame = game.PlayerSense.Self;

@@ -48,8 +48,11 @@ public static class WeaponDrills
     /// <summary>ふつうの振りの速さ [m/s]（剣の当たる所の速さ。人の 6 m/s × <see cref="SwingSpeedSimilitude"/> ≈ 5.7 m/s）。</summary>
     public static readonly float OrdinarySpeed = 6f * SwingSpeedSimilitude;
 
-    /// <summary>強い振りの速さ [m/s]（人の 16 m/s × <see cref="SwingSpeedSimilitude"/> ≈ 15.2 m/s）。</summary>
-    public static readonly float HardSpeed = 16f * SwingSpeedSimilitude;
+    /// <summary>
+    /// 強い振りの速さ [m/s]（人の 22 m/s × <see cref="SwingSpeedSimilitude"/> ≈ 20.9 m/s）。2026-11-24（PhysicsVersion 93）に 16 → 22: セルは刃がその奥行きを
+    /// 斬り抜けたときに断たれるようになり、投げた剣が前腕の骨を断って腕を落とすのは 20 m/s から（docs/BLADE_CUT_STUDY.md）。剣道の打突の竹刀の先（17〜25 m/s）の範囲。
+    /// </summary>
+    public static readonly float HardSpeed = 22f * SwingSpeedSimilitude;
 
     /// <summary>刃の真ん中あたり（鍔から 37cm 先）の、刃先（ローカル −Y の縁）。</summary>
     public static Vector3 EdgeMiddle { get; } = new(0.08451f, -0.02535f, 0f);

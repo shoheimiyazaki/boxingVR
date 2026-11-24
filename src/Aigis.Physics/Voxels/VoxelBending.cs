@@ -53,6 +53,10 @@ public static class VoxelBending
     public static VoxelBreak? WorstBend(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f, float tensileScale = 1f)
         => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, tensileScale, minRatio: 0f);
 
+    // 2026-11-24: 試合を同じ処理の中で並列に回すと（Arena の並列・テストの Parallel.For）、Release の動的 PGO で最適化し直されたこの関数の中で
+    // AccessViolation / IndexOutOfRange が出た（PhysicsVersion 93 で刃が刻み目に残り、毎歩ここを通るようになってから。並列 3 本で約半分の回。
+    // 1 試合ずつ・別の処理・Debug・DOTNET_TieredPGO=0 ではどれも 0 回）。この関数だけ段階的な最適化と PGO を通さず、最初から最適化して作る。
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]
     private static VoxelBreak? Worst(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis, bool loadBearingOnly, (int Low, int High)? candidates, float tieActivation, float tensileScale, float minRatio)
     {
         ArgumentNullException.ThrowIfNull(grid);
