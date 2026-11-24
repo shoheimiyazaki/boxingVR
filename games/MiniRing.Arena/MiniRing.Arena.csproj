@@ -13,6 +13,8 @@
     <EmbeddedResource Include="Orgs\*.json" LogicalName="MiniRing.Arena.Orgs.%(Filename)%(Extension)" />
     <!-- コマンドの使い方（help・知らないコマンドのときに出す。ArenaUsageTests が switch と合っているかを確かめる）。 -->
     <EmbeddedResource Include="Usage.txt" LogicalName="MiniRing.Arena.Usage.txt" />
+    <!-- キャラメイクの画面（maker のコマンドが localhost で出す 1 枚の HTML）。 -->
+    <EmbeddedResource Include="Maker\maker.html" LogicalName="MiniRing.Arena.Maker.maker.html" />
     <!-- 団体の王座とランキングの記録（rankings・title のコマンドが書き直す。試合と試合の間にだけ変わる）。 -->
     <EmbeddedResource Include="Orgs\standings\*.json" LogicalName="MiniRing.Arena.Standings.%(Filename)%(Extension)" />
   </ItemGroup>

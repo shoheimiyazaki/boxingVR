@@ -30,6 +30,28 @@ internal static class FaceSheet
         => Draw(path, characters.Select(c => (c.Id, (Func<BoxingGame>)(() => new BoxingGame(seed: 1, corners: new BoxingCorners(c.Id, s => BotCatalog.Create("champion", s),
             CpuBody: c.Build, CpuFace: c.Look.Parts, CpuLook: c.Look, CpuFaceSpec: c.Face))))).ToList());
 
+    /// <summary>
+    /// 1 人の試合の頭を、向き <paramref name="views"/>（0 = 正面・1 = 横・2 = 上・3 = 斜め 40 度）で横に並べた RGBA（1 枚 <see cref="Tile"/> 四方）。
+    /// キャラメイクの画面のプレビュー（<see cref="Maker.MakerServer"/>）が使う。
+    /// </summary>
+    public static (int Width, int Height, byte[] Rgba) HeadViews(MiniRing.Characters.FighterCharacter character, IReadOnlyList<int> views)
+    {
+        ArgumentNullException.ThrowIfNull(character);
+        var width = views.Count * Tile;
+        var rgba = new byte[width * Tile * 4];
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners(character.Id, s => BotCatalog.Create("champion", s),
+            CpuBody: character.Build, CpuFace: character.Look.Parts, CpuLook: character.Look, CpuFaceSpec: character.Face));
+        var head = game.Cpu.Voxels!.PartOf(game.Cpu.Parts.Head)!.Body.Grid;
+        var face = game.Cpu.Voxels!.Face?.Body.Grid;
+        VoxelGrid[] grids = face is null ? [head] : [head, face];
+        for (var v = 0; v < views.Count; v++)
+        {
+            Render(rgba, width, v * Tile, 0, grids, Views[views[v]]);
+        }
+
+        return (width, Tile, rgba);
+    }
+
     public static int Run(string path, IReadOnlyList<Contender> contenders, int columns)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(columns, 1);

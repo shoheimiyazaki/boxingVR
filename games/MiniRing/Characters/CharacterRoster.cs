@@ -266,6 +266,7 @@ public static class CharacterRoster
             Profile = c.Profile?.Validate(build),
             Face = ReadFace(c.Face, c.Id!, look),
             Org = org,
+            Order = c.Order ?? 0,
         };
     }
 
