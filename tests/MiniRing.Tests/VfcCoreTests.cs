@@ -42,10 +42,14 @@ public sealed class VfcCoreTests
     {
         foreach (var layout in new[] { RingLayout.Cage, RingLayout.WeaponsCage })
         {
+            // 休むコーナーは体と持ち物の輪郭から決まる（RingLayout.CornerFor）: 肩幅ほどの輪郭のどの点も、金網から隙間（CornerClearance）だけ内側。
+            Vector2[] outline = [new(0.3f, 0.3f), new(-0.3f, 0.3f), new(0.3f, -0.3f), new(-0.3f, -0.3f)];
             foreach (var red in new[] { true, false })
             {
-                var corner = layout.RestCorner(red, []);
-                Assert.IsGreaterThan(0.0845f, layout.EdgeDistance(corner), $"{layout.Size} m cage, red={red}: the rest corner is inside the walls");
+                var corner = layout.RestCorner(red, outline);
+                var closest = outline.Min(q => layout.EdgeDistance(corner + new Vector3(q.X, 0f, q.Y)));
+                Assert.IsGreaterThan(RingLayout.CornerClearance - 1e-4f, closest, $"{layout.Size} m cage, red={red}: the outline at the rest corner is inside the walls");
+                Assert.IsGreaterThan(0.3f, layout.EdgeDistance(corner), $"{layout.Size} m cage, red={red}: the rest corner stands at least the outline's half width inside");
             }
 
             var apart = layout.StartGap * 0.5f;
