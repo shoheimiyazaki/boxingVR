@@ -58,9 +58,9 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
         _intent.Input = GroundTrigger.ForIntent(input with { Light = input.Light && !sense.SelfWeapon.Held, Heavy = input.Heavy && !sense.SelfWeapon.Held && !karate }, ground);
         var command = _intent.Read(sense, dt);
 
-        // レフェリーなしで相手が倒れている間: 弱・強は倒れた相手への打ち下ろし（ボットと同じ GroundStrike。弱 = 振り下ろす系、強 = 突き下ろす系・空手は踏み下ろし）。
+        // レフェリーなしで相手が倒れている間は、弱で振り下ろし、強で素手なら踏み下ろし、武器を握っていれば突き下ろす。
         // 押している間は溜め、離して打つ。移動は今のまま（相手の横へ回るのはプレイヤーの操作）。
-        var call = _trigger.Update(ground, input.Light, input.Heavy, dt, karate && !sense.SelfWeapon.Held ? GroundCall.Stomp : GroundCall.Thrust, out var load);
+        var call = _trigger.Update(ground, input.Light, input.Heavy, dt, sense.SelfWeapon.Held ? GroundCall.Thrust : GroundCall.Stomp, out var load);
         if (ground)
         {
             _form = null;

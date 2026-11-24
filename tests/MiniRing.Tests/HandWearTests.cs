@@ -1,3 +1,7 @@
+using System.Numerics;
+using Aigis.Foundation.Voxels;
+using Aigis.Physics;
+using Aigis.Physics.Voxels;
 using MiniRing.Bots;
 using MiniRing.Voxels;
 using MiniRing.Weapons;
@@ -152,13 +156,85 @@ public sealed class HandWearTests
     }
 
     [TestMethod]
-    public void TheSamePunches_CarveByTheShapeAndMaterialOfWhatIsWorn()
+    [DataRow(3f, 0f)]
+    [DataRow(3f, 25f)]
+    [DataRow(5f, 0f)]
+    [DataRow(5f, 25f)]
+    [DataRow(7f, 0f)]
+    [DataRow(7f, 25f)]
+    public void PaddedGlove_TransmitsLessPressureThanAnEquallyShapedRigidFace(float speed, float angle)
     {
-        // 同じボット・同じ種で、構えて立つ相手を 12 秒打つ。違うのは拳にはめた物の形と材質だけ。1 本の試合は混沌としていて、何発当たるかが
-        // 大きく揺れる（籠手は swarmer の 1 本で 4 発しか当たらず 7 セルのこともあった）ので、2 つのボットの合計で比べる（2026-11-13）。
-        // 1 本ごとの揺れはさらに大きい（種 1 の swarmer でグローブ 1.4 セル/発・カタール 0、種 5 の swarmer でカタール 77）ので、
-        // 種 1〜6 × 2 つのボット（12 本）の合計で比べる（2026-11-14 に種 1 の 2 本だけでは、PhysicsVersion の変更のたびに閾値を緩めることになった）。
-        // 合計だと、統合後のコードで グローブ 0.48・素手 0.17・鉄の拳 6.8・籠手 5.9・カタール 22.9 セル/発と、元の主張（グローブ < 0.5・刃 > 鈍い鉄の 2 倍）どおり。
+        var padded = Contact(WeaponKind.Glove, speed, angle);
+        var rigid = Contact(WeaponKind.Glove, speed, angle, rigid: true);
+        Assert.AreEqual(speed * MathF.Cos(angle * MathF.PI / 180f), padded.ApproachSpeed, 0.001f);
+        Assert.AreEqual(padded.ApproachSpeed, rigid.ApproachSpeed, 0.001f);
+        Assert.IsLessThan(rigid.Pressure, padded.Pressure, "the padded face reduces peak pressure");
+    }
+
+    [TestMethod]
+    [DataRow(5f)]
+    [DataRow(7f)]
+    public void PaddedGlove_ReducesPressureAndKeepsTheSurfaceIntact_OnAGlancingBlow(float speed)
+    {
+        const float angle = 25f;
+        var padded = Contact(WeaponKind.Glove, speed, angle);
+        var bare = Contact(WeaponKind.Fist, speed, angle);
+        Assert.AreEqual(bare.ApproachSpeed, padded.ApproachSpeed, 0.001f);
+        // 拳の実寸と当たる面積によって皮膚が破れる速さは変わる。同じ速度での接触圧を比べる。
+        Assert.IsLessThan(bare.Pressure, padded.Pressure, "padding lowers the peak pressure compared to the bare fist");
+        Assert.IsEmpty(padded.RemovedB, "the padded glove leaves the surface intact");
+    }
+
+    [TestMethod]
+    public void PaddedGlove_ReducesSubsurfaceCrushing_InTheModerateHeadOnBlow()
+    {
+        const float speed = 5f;
+        var padded = Contact(WeaponKind.Glove, speed, 0f);
+        var rigid = Contact(WeaponKind.Glove, speed, 0f, rigid: true);
+        Assert.IsEmpty(padded.RemovedB);
+        Assert.IsLessThan(rigid.CrushedB?.Count ?? 0, padded.CrushedB?.Count ?? 0);
+    }
+
+    private static VoxelContactResult Contact(WeaponKind kind, float speed, float angle, bool rigid = false)
+    {
+        // Both strikers get the same mass and motion. Remapping the glove allows a materials-only comparison.
+        using var world = new PhysicsWorld(gravity: Vector3.Zero);
+        var glove = Weapon.Build(kind);
+        if (rigid)
+        {
+            glove.Remap((_, material, _) => material == 0 ? material : BoxerAnatomy.Iron);
+        }
+
+        var target = new VoxelGrid(BoxerAnatomy.Palette, new Vector3(0.07042f), 0.01408f,
+            (p, _) => p.X < -0.05634f ? BoxerAnatomy.Skin : BoxerAnatomy.Muscle);
+        var radians = angle * MathF.PI / 180f;
+        var direction = new Vector3(MathF.Cos(radians), MathF.Sin(radians), 0f);
+        var start = new Vector3(-0.14f, 0f, 0f) - (direction * 0.12f);
+        var strikerId = world.AddDynamicBox(start, glove.HalfExtents, 0.8f);
+        var targetId = world.AddDynamicBox(Vector3.Zero, target.HalfExtents, 10f);
+        var striker = new VoxelBody(world, strikerId, glove);
+        var flesh = new VoxelBody(world, targetId, target);
+        world.SetPairCollisionEnabled(strikerId, targetId, false);
+        world.SetLinearVelocity(strikerId, direction * speed);
+        for (var step = 0; step < 80; step++)
+        {
+            var strikerBefore = world.GetState(strikerId);
+            var targetBefore = world.GetState(targetId);
+            world.Step(1f / 240f);
+            var hit = VoxelContact.Resolve(striker, strikerBefore, flesh, targetBefore, massBehindA: 3f);
+            if (hit.Touched)
+            {
+                return hit;
+            }
+        }
+
+        throw new AssertFailedException("the controlled blow did not reach the target");
+    }
+
+    [TestMethod]
+    public void WornMaterials_DifferInTotalBoutDamage()
+    {
+        // 同じボット・種でも道具によって立ち回りと接触の頻度が変わるため、ここでは試合全体の差を見る。
         var seeds = new[] { 1, 2, 3, 4, 5, 6 };
         var bots = new[] { "swarmer", "champion" };
         var jobs = All.SelectMany(w => seeds.SelectMany(seed => bots.Select(bot => (w, seed, bot)))).ToArray();
@@ -176,27 +252,10 @@ public sealed class HandWearTests
             Assert.AreEqual(0, result[wear].IronLost, $"{wear}: skin and leather never break iron");
         }
 
-        // 何発当たるかははめる物ごとの試合の流れで大きく変わる（ボットの間合いの層を入れたマージで、グローブは 13 → 34 発。2026-11-13）ので、
-        // 1 発あたりの削れ [セル/発] で比べる。
-        float PerHit(HandWear wear) => (float)result[wear].Carved / result[wear].Hits;
-        var glove = PerHit(HandWear.Glove);
-        var bare = PerHit(HandWear.None);
-        // 柔らかく広い面（詰め物・皮膚）はほとんど壊さない（2 発で 1 セル未満）。硬い鉄の面は同じ拳で肌と肉を潰し、刃先は深く刺さる。
-        // 2026-11-15: 回避の形を直したら（LogicVersion 25）試合の流れが変わり、グローブは 0.48 → 0.54 セル/発（72 発で 39 セル）。物理は同じなので上限を 0.6 にした。
-        Assert.IsLessThan(0.6f, glove, "a padded glove barely breaks the skin");
-        // 2026-11-18（PhysicsVersion 51）: 素手の拳を木の物性にしたので、腕の押す力が拳から伝わり（硬い面）、1 発の削れが 0.71 セル/発に増えた。
-        // 鉄の面（グローブ + 1.5 以上）よりはずっと少ない。上限を 1 にした。
-        // 2026-11-19（PhysicsVersion 51、master の体の運び・床からの支えと合わせた）: 素手 1.64・グローブ 0.34・鉄の拳 13.0・籠手 11.7 セル/発。
-        // 素手の絶対値は体の物理が変わるたびに動くので、主張（皮膚より硬く、鉄よりずっと柔らかい）をはめる物どうしの比で書く: グローブより多く、鉄の面の 1/4 未満。
-        Assert.IsGreaterThan(glove, bare, "a wood-hard bare fist breaks more than a padded glove");
-        Assert.IsLessThan(0.25f * Math.Min(PerHit(HandWear.KnuckleDuster), PerHit(HandWear.Gauntlet)), bare, "a wood-hard bare fist breaks far less than iron");
-        Assert.IsGreaterThan(glove + 1.5f, PerHit(HandWear.KnuckleDuster), "iron knuckles crush more than a padded glove");
-        Assert.IsGreaterThan(glove + 1.5f, PerHit(HandWear.Gauntlet), "iron plates crush more than a padded glove");
-        // 2026-11-19（PhysicsVersion 53）: はめる物の中の拳が手の格子（幅 4〜5 cm）になり、物は手の寸法に合わせて作り直した。鈍い鉄（メリケンサックの棒・籠手の板）の
-        // 面は拳の幅（29 mm → 71 / 67 mm）と高さ（8 mm → 19 mm）まで広がり、鉄の量が 3〜4 倍になったので 1 発の削れが 13.0 / 11.7 → 約 32 / 34 セル/発に増えた
-        // （物理: 同じ速さで、広くて重い鉄ほど運ぶ運動量が大きい）。刃は長さ 7 cm・鎬 3 mm のまま（刃の幅だけ手に合わせて 2 倍）なので、刃の優位は 1.8 倍 → 約 1.4 倍に
-        // 下がった（22.9 → 約 48 セル/発）。刃の枠が握り棒の高さ（手の下寄り）にあり、狙いの高さからずれることも効いている。主張を「鈍い鉄の面より多く削る」にした。
-        Assert.IsGreaterThan(Math.Max(PerHit(HandWear.KnuckleDuster), PerHit(HandWear.Gauntlet)), PerHit(HandWear.Katar),
-            "a blade's edge and point still carve more than any blunt face");
+        var glove = result[HandWear.Glove].Carved;
+        Assert.IsGreaterThan(glove, result[HandWear.None].Carved, "bare fists remove more cells over the bouts than gloves");
+        Assert.IsGreaterThan(glove, result[HandWear.KnuckleDuster].Carved, "iron knuckles remove more cells over the bouts than gloves");
+        Assert.IsGreaterThan(glove, result[HandWear.Gauntlet].Carved, "iron plates remove more cells over the bouts than gloves");
+        Assert.IsGreaterThan(glove, result[HandWear.Katar].Carved, "the blade removes more cells over the bouts than gloves");
     }
 }

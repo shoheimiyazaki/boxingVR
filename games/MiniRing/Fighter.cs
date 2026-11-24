@@ -238,7 +238,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 87; // 87: スタミナの仕様（5 秒のラッシュ・胴と腰の酸素・慢性の疲れの見た目）と骨折の頻度。86: 当たりの瞬間の関節の筋の構え（受け止めの慣性）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 90; // 素手の実寸と手首の輪郭。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -2534,7 +2534,8 @@ public sealed partial class Fighter
             input = input with { Com = new Vector2(com.X, com.Z), ComVelocity = new Vector2(comVelocity.X, comVelocity.Z) };
         }
 
-        _footwork.Update(input, dt, twistLimit);
+        var canShiftLoad = LegShortfall <= 1e-3f && lead.Command is null && _legParts[Footwork.Rear].Command is null;
+        _footwork.Update(input, dt, twistLimit, canShiftLoad);
     }
 
     /// <summary>足の母指球の実際の位置（水平面）。</summary>
@@ -2931,13 +2932,16 @@ public sealed partial class Fighter
         var abdomenRate = 0f;
         if (Parts.Abdomen is not null)
         {
-            // 手の位置差から出したひねりを、腰→腹→胸へ順に伝える。
+            // 拳は手の位置差で回す。肘打ちでは拳を畳むので、その位置差の代わりに技の回旋指令を使う。
+            // どちらも同じ腰→腹→胸の順で伝える。
+            var hasElbowTwist = (command.Left.ElbowTarget is not null || command.Right.ElbowTarget is not null) && float.IsFinite(command.TwistBias);
+            var twistTarget = hasElbowTwist ? Math.Clamp(command.TwistBias, -maxTwist, maxTwist) : armTwist;
             var previous = _abdomenTwist;
             var hipResponse = 1f - MathF.Exp(-dt / _tuning.WavePelvisSeconds);
             var abdomenResponse = 1f - MathF.Exp(-dt / _tuning.WaveAbdomenSeconds);
             var chestResponse = 1f - MathF.Exp(-dt / _tuning.WaveChestSeconds);
             (_wavePelvisTwist, _abdomenTwist, _splitChestTwist) = AdvanceTorsoChain(
-                armTwist, _wavePelvisTwist, previous, _splitChestTwist, hipResponse, abdomenResponse, chestResponse);
+                twistTarget, _wavePelvisTwist, previous, _splitChestTwist, hipResponse, abdomenResponse, chestResponse);
             pelvisTwist = _wavePelvisTwist * _tuning.HipTwistShare;
             chestTwist = _splitChestTwist;
             abdomenRate = (_abdomenTwist - previous) / MathF.Max(1e-4f, dt);

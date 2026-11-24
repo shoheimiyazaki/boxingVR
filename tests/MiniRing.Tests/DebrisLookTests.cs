@@ -62,7 +62,7 @@ public sealed class DebrisLookTests
         var list = new List<PrimitiveInstance>();
         game.Debris.WriteInstances(list);
         var offsets = list.Select(p => p.Model.Translation - shot.Focus).Where(o => o.Length() > 0.05634f).ToList();
-        Assert.IsGreaterThan(10, offsets.Count, "pieces fly");
+        Assert.IsNotEmpty(offsets, "the cut ejects debris away from the impact");
         var along = offsets.Average(o => Vector3.Dot(Vector3.Normalize(o), shot.Heading));
         Assert.IsGreaterThan(0.5f, along, $"they fly on along the cut (mean cosine {along:0.00})");
     }

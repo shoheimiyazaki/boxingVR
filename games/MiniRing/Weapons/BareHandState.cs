@@ -148,11 +148,14 @@ public sealed class BareHandState
         }
 
         var placement = new int[positions.Length];
+        // 曲げた指の重なりを解くとき、組織を手の側面へ押し出して外形を広げない。
+        var minZ = (int)MathF.Floor((positions.Min(p => p.Z) + half.Z) / HandSkeleton.Cell);
+        var maxZ = (int)MathF.Floor((positions.Max(p => p.Z) + half.Z) / HandSkeleton.Cell);
         for (var i = 0; i < positions.Length; i++)
         {
             var f = (positions[i] + half) / HandSkeleton.Cell;
             var (cx, cy, cz) = ((int)MathF.Floor(f.X), (int)MathF.Floor(f.Y), (int)MathF.Floor(f.Z));
-            placement[i] = Vacant(taken, (nx, ny, nz), (cx, cy, cz), f);
+            placement[i] = Vacant(taken, (nx, ny, nz), (cx, cy, cz), f, (minZ, maxZ));
             taken[placement[i]] = true;
         }
 
@@ -230,7 +233,7 @@ public sealed class BareHandState
         }
     }
 
-    /// <summary>入れ替えてよい距離の上限（セルの数の 2 乗）: 筋肉は 3 セル（5 mm のセルで 15 mm）、骨は 1 セル + 斜めまで。</summary>
+    /// <summary>皮膚と入れ替えてよい距離の上限（セルの数の 2 乗）。筋肉は 3 セル、骨は 1 セル + 斜めまで。</summary>
     private const float MaxSwapCells2 = 9f;
 
     private const float MaxBoneSwapCells2 = 3f;
@@ -246,7 +249,7 @@ public sealed class BareHandState
     /// 場所 <paramref name="exact"/>（セルの単位の連続値）に最も近い空きセル。まず本来のセルを見て、塞がっていれば 1 セルまわりの空きのうち連続値に最も近いもの、
     /// それも無ければ近い順に外へ（斜めに回した形が穴だらけ・散らばりにならないよう、押しのけ先も本来の位置に近い所を選ぶ）。
     /// </summary>
-    private static int Vacant(bool[] taken, (int X, int Y, int Z) size, (int X, int Y, int Z) at, Vector3 exact)
+    private static int Vacant(bool[] taken, (int X, int Y, int Z) size, (int X, int Y, int Z) at, Vector3 exact, (int Min, int Max) width)
     {
         int? best = null;
         var bestDistance = float.MaxValue;
@@ -260,7 +263,7 @@ public sealed class BareHandState
             }
 
             var (x, y, z) = (at.X + dx, at.Y + dy, at.Z + dz);
-            if (x < 0 || y < 0 || z < 0 || x >= size.X || y >= size.Y || z >= size.Z)
+            if (x < 0 || y < 0 || z < width.Min || x >= size.X || y >= size.Y || z > width.Max)
             {
                 continue;
             }
@@ -289,16 +292,11 @@ public sealed class BareHandState
             return found;
         }
 
-        // 近くに空きが無ければ、格子の中で最初の空き（番号順。決定的）。
-        for (var index = 0; index < taken.Length; index++)
-        {
-            if (!taken[index])
-            {
-                return index;
-            }
-        }
-
-        throw new InvalidOperationException("手のセルを置く空きがありません。");
+        // 近くに空きが無ければ、同じ幅の中で探す。柄などでそこも埋まっていれば格子全体から取る。
+        var strideZ = size.X * size.Y;
+        var fallback = Array.IndexOf(taken, false, width.Min * strideZ, (width.Max - width.Min + 1) * strideZ);
+        fallback = fallback >= 0 ? fallback : Array.IndexOf(taken, false);
+        return fallback >= 0 ? fallback : throw new InvalidOperationException("手のセルを置く空きがありません。");
     }
 }
 

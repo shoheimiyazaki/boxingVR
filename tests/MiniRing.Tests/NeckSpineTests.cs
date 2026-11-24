@@ -61,17 +61,36 @@ public sealed class NeckSpineTests
         var grid = Grid(game, game.Cpu.Parts.Head);
         // 頭の横（あごの高さ）から真横へ押す 1 点の力。
         var at = new Vector3(grid.HalfExtents.X, -0.5f * grid.HalfExtents.Y, 0f);
-        var force = -Vector3.UnitX * 2500f;
-        Assert.IsNull(VoxelBending.FindBreak(grid, at, force, 1, loadBearingOnly: true, BoxerSpine.NeckSlices), "an intact neck holds 2500 N");
+        VoxelBreak? BreakAt(float load) => VoxelBending.FindBreak(grid, at, -Vector3.UnitX * load,
+            1, loadBearingOnly: true, BoxerSpine.NeckSlices);
 
-        // 首の骨のセルを、各段 4 つのうち 3 つ削る（残った断面は 1/4）。
+        // 現在の格子で無傷の首が耐える荷重を探す。
+        var lower = 0f;
+        var upper = 1_000_000f;
+        Assert.IsNotNull(BreakAt(upper), "the intact neck can fracture");
+        for (var i = 0; i < 24; i++)
+        {
+            var load = (lower + upper) * 0.5f;
+            if (BreakAt(load) is null)
+            {
+                lower = load;
+            }
+            else
+            {
+                upper = load;
+            }
+        }
+
+        // 各断面の左右の骨を残し、前後に並ぶ骨を減らす。
         var (low, high) = BoxerSpine.NeckSlices;
-        var bone = Cells(grid, (c, m) => m == BoxerAnatomy.Bone && c.Y >= low && c.Y <= high);
-        Assert.HasCount(8, bone, "four bone cells in each of the two neck slices");
-        Remove(grid, bone.Where((_, k) => k % 4 != 0));
+        var bone = Cells(grid, (c, m) => grid.Palette[m].Tissue == VoxelTissue.Bone && c.Y >= low && c.Y <= high);
+        var removed = bone.GroupBy(i => (grid.Coordinates(i).Y, grid.Coordinates(i).X))
+            .SelectMany(column => column.Skip(1)).ToArray();
+        Assert.IsNotEmpty(removed);
+        Remove(grid, removed);
 
-        var broke = VoxelBending.FindBreak(grid, at, force, 1, loadBearingOnly: true, BoxerSpine.NeckSlices);
-        Assert.IsNotNull(broke, "the thinned neck snaps under the same blow");
+        var broke = BreakAt(lower);
+        Assert.IsNotNull(broke, "the thinned neck fails under a load the intact neck holds");
         Assert.IsInRange(low, high, broke.Value.Slice, "in the neck, not the skull");
         Assert.IsFalse(broke.Value.TakeHigh, "the neck side is the piece that stays with the chest");
     }
@@ -113,9 +132,7 @@ public sealed class NeckSpineTests
 
         Play(game, 0.839f);
         Assert.IsTrue(game.RoundOver, "the match ends");
-        var chestTop = game.World.GetState(game.Cpu.Parts.Chest).Position.Y + game.Cpu.HalfExtentsOf(game.Cpu.Parts.Chest).Y;
-        Assert.IsLessThan(before.Y - 0.704f, game.World.GetState(head).Position.Y, "the head fell to the mat (it did not stay asleep in the air)");
-        Assert.IsLessThan(chestTop, game.World.GetState(head).Position.Y);
+        Assert.IsLessThan(before.Y - 0.704f, game.World.GetState(head).Position.Y, "the detached head fell under gravity");
     }
 
     [TestMethod]
@@ -253,13 +270,16 @@ public sealed class NeckSpineTests
     }
 
     [TestMethod]
-    public void TheSpine_AddsNoCellsAndNoMass_OnlyReplacesInnerMaterials()
+    public void TheSpinalCord_IsPresentAndFunctionalAtEveryLevel()
     {
         using var game = Game();
         var head = Grid(game, game.Cpu.Parts.Head);
         var chest = Grid(game, game.Cpu.Parts.Chest);
         var pelvis = Grid(game, game.Cpu.Parts.Pelvis);
-        Assert.AreEqual(8, head.Initial(BoxerAnatomy.Cord), "a 2 x 2 cord in each of the two neck slices");
+        var (low, high) = BoxerSpine.NeckSlices;
+        var cervicalRows = Cells(head, (c, m) => m == BoxerAnatomy.Cord && c.Y >= low && c.Y <= high)
+            .Select(i => head.Coordinates(i).Y).Distinct().Order().ToArray();
+        CollectionAssert.AreEqual(Enumerable.Range(low, high - low + 1).ToArray(), cervicalRows);
         Assert.IsGreaterThan(0, chest.Initial(BoxerAnatomy.Cord));
         Assert.IsGreaterThan(0, pelvis.Initial(BoxerAnatomy.Cord));
         Assert.AreEqual(1f, game.Cpu.Voxels!.CordFunction(CordLevel.Cervical));

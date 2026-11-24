@@ -101,36 +101,25 @@ public sealed class EvasionBasicsTests
             game.Cpu.Stamina = 1f;
         }
 
-        // 2026-11-19（PhysicsVersion 59、顔の層）: 1 つの種（5）では、頭に数えられる拳が 7 発のうち 2 発（29 %）になり、0.4 を割った。種 1〜10 では
-        // 頭に数えられる割合が 29〜75 %（顔の層の面が前の頭より 5 mm 後ろで、腕だけの遅い拳が顔に届く割合は種によって大きく揺れる）ので、
-        // 予測のドリルと同じく複数の種の合計で見る（種 1〜8: 打たれた拳の頭に当たる割合は合計で 0.5 前後）。主張（止まっていれば大半が頭に当たる・外せば 0 近く）は同じ。
+        // 同じ種で初撃だけを比較し、ダウンまでの手数に測定を依存させない。
+        const float FirstPunchWindowSeconds = 3.6f;
         var seeds = Enumerable.Range(1, 8).ToArray();
         var openRuns = new PunchDrillResult[seeds.Length];
         var slippedRuns = new PunchDrillResult[seeds.Length];
         Parallel.For(0, seeds.Length, i =>
         {
-            openRuns[i] = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: seeds[i], seconds: 13.43f, telegraph: 0.1343f, observe: KeepFresh);
-            slippedRuns[i] = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: true, counters: false), seed: seeds[i], seconds: 13.43f, cue: 0f, telegraph: 0.1343f, observe: KeepFresh);
+            openRuns[i] = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: seeds[i], seconds: FirstPunchWindowSeconds, telegraph: 0.1343f, observe: KeepFresh);
+            slippedRuns[i] = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: true, counters: false), seed: seeds[i], seconds: FirstPunchWindowSeconds, cue: 0f, telegraph: 0.1343f, observe: KeepFresh);
         });
+        Assert.IsTrue(openRuns.All(r => r.Punches == 1), $"each open trial records one punch: {string.Join(",", openRuns.Select(r => r.Punches))}");
+        Assert.IsTrue(slippedRuns.All(r => r.Punches == 1), $"each slip trial records one punch: {string.Join(",", slippedRuns.Select(r => r.Punches))}");
+        Assert.IsGreaterThan(0, slippedRuns.Sum(r => r.Defenses));
         static float HeadShare(PunchDrillResult[] runs) => runs.Sum(r => r.HeadHits + r.OpenHeadHits) / (float)runs.Sum(r => r.Punches);
         var openHead = HeadShare(openRuns);
         var slippedHead = HeadShare(slippedRuns);
         var slippedEvade = 1f - (slippedRuns.Sum(r => r.Failed) / (float)slippedRuns.Sum(r => r.Defenses));
         Console.WriteLine($"open {openRuns.Sum(r => r.Punches)} punches head {openHead:P0}, slipped head {slippedHead:P0} evade {slippedEvade:P0}; punches per seed {string.Join(",", openRuns.Select(r => r.Punches))}");
 
-        // 構えたまま動かない受け手は、頭に 4 発当たると意識が 1.0 → 0.70 → 0.55 → 0 と落ちて倒れ、ラウンドが終わる（2026-11-18、床から支える体で測り直し: 1.5 秒で
-        // 4 発・全部頭）。ここの打数は標本の大きさでなく「倒れるまでに打たれた数」なので、どの種でも倒れるまでの 4 発以上で、頭に当たる割合は下で見る。
-        // 2026-11-20（LogicVersion 58、拳の経路）: 右ストレートが速く重くなり（打ち出しの最高速 2.0 → 3.4 m/s）、種 7 では 3 発で倒れる（種 1〜8: 7,5,7,7,7,5,3,5 発）。
-        // 頭に当たる割合は 65 %、外せば 5 %（前は 47 % と 0 近く）で主張は変わらないので、倒れるまでの数の下限を 3 にした。
-        Assert.IsTrue(openRuns.All(r => r.Punches >= 3), "every seed: at least three punches before the still defender falls");
-        // 頭を人の比率（HeadScale 0.8）に小さくしてから、打たれてのけぞった頭は溜めの始めに決めた狙いから外れやすくなった（82 % → 71 %。ダメージ編 D2）。
-        // 2026-11-17: 狙いを体（胴）の速さで延ばすようにしてから 57 %（打たれて下がった体の速さの分だけ奥を狙い、戻った頭の手前を通る拳が出る。詰めのドリルでは顔に当たる割合が上がった）。
-        // 2026-11-18（PhysicsVersion 45、体の運び）: 構えて止まった攻め手の拳は、体が前へ動かないので腕だけの質量（0.33 kg）で当たる。
-        // 前は連結度 × 体の有効質量 × 拳の速さで体の質量（3〜5 kg、体の割合 9 割）が湧いていた。ダメージは (√運動量 − 0.5) × 11 で 1 点に満たない当たりは
-        // 「触れただけ」なので、腕だけの拳は当たる速さがおよそ 1 m/s を割ると数えない（種 5: 速さ 0.6 m/s で頭に止まった拳が数えられない）。
-        // 種 5 の 7 発のうち頭に数えられたのは 版 43 で 5 発（71 %）、いまは 3 発（43 %。ほかの 4 発は頭の手前で止まる・触れるだけ）。
-        // 種 1〜8 の 8 秒では 版 43 が 37/56（66 %）、いまは 25/53（47 %）。受け手が動かず守らないなら、腕だけの拳でも頭に数えられる割合が多く（4 割以上）、
-        // 守って外せば 0 近くになる、という比べが主張なので、下限を 0.5 → 0.4 にし、「守った側は止まった側の半分以下」を足した。
         Assert.IsGreaterThan(0.4f, openHead, "standing still, the right straight lands on a large share (arm-only punches that arrive slower than about 1 m/s count as a touch)");
         Assert.IsLessThanOrEqualTo(0.5f * openHead, slippedHead, "and slipping as it is thrown makes it far less likely");
         Assert.IsLessThan(0.6f, slippedHead, "slipping as it is thrown, the head is often missed");

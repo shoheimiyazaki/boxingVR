@@ -39,20 +39,26 @@ public sealed class SlideTests
             Vector2.Zero, Vector2.Zero, 0f, 0f, false, true, Facing, Facing, 0f, 0f);
     }
 
-    private static (float Drift, int Steps) Run(WeaponKind? weapon, bool vr, float headYaw, float sway)
+    private static (float Drift, int Steps) Run(WeaponKind? weapon, bool vr, float headYaw, float sway, float warmupSeconds = 0f)
     {
         var corners = weapon is { } w
             ? SwordTraining.Corners(w, 2.535f)
             : new BoxingCorners("idle", _ => new IdleFoe(), Referee: false, BreakActions: false, Ring: RingLayout.DrillBoxing);
         using var game = new BoxingGame(FighterTuning.Default with { PlayerFatigue = false }, corners: corners);
         var mapper = new VrPlayerMapper(weaponMode: weapon is not null);
+        var warmupSteps = (int)(warmupSeconds / Dt);
         var start = Flat(game.Player.PelvisPosition);
+        var initialFootsteps = game.Player.Footwork.Steps;
         for (var i = 1; i <= (int)(Seconds / Dt); i++)
         {
             game.Step(vr ? mapper.Read(Raw(i * Dt, headYaw, sway), game.PlayerSense, Dt) : default, Dt);
+            if (i == warmupSteps)
+            {
+                initialFootsteps = game.Player.Footwork.Steps;
+            }
         }
 
-        return ((Flat(game.Player.PelvisPosition) - start).Length(), game.Player.Footwork.Steps);
+        return ((Flat(game.Player.PelvisPosition) - start).Length(), game.Player.Footwork.Steps - initialFootsteps);
     }
 
     private static Vector3 Flat(Vector3 v) => new(v.X, 0f, v.Z);
@@ -77,7 +83,8 @@ public sealed class SlideTests
     public void KatanaLookingAwayFromTheOpponentDoesNotSlide()
     {
         // 頭が相手から 40 度それている（手は同じ位置）: 胴がひねられた構えのまま止まっていられる。
-        var (drift, steps) = Run(WeaponKind.Katana, vr: true, headYaw: 0.7f, sway: 0f);
+        // 流れは入力開始から測り、踏み直しは向きの変化へ追いついた後で数える。
+        var (drift, steps) = Run(WeaponKind.Katana, vr: true, headYaw: 0.7f, sway: 0f, warmupSeconds: 5f);
         Assert.IsLessThan(0.2254f, drift, $"胴をひねった構えで骨盤が流れた: {drift * 100f:0.0} cm（直す前は 20 秒で 29 cm）");
         Assert.IsLessThan(12, steps, $"構えの踏み直しが止まらない: {steps} 歩");
     }

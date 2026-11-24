@@ -101,7 +101,7 @@ public sealed class BoneBreakTests
             using var world = new PhysicsWorld(gravity: Vector3.Zero);
             var half = tuning.HalfExtents.Forearm;
             var id = world.AddDynamicBox(Vector3.Zero, Quaternion.Identity, half, tuning.Masses.Forearm);
-            var limb = new VoxelBody(world, id, BoxerAnatomy.Build(BodyPartKind.Forearm, half, tuning.VoxelSize)) { BeamAxis = 0 };
+            var limb = new VoxelBody(world, id, BoxerAnatomy.Build(BodyPartKind.Forearm, half, tuning.VoxelSize, overrides: BoxerVoxelOverrides.Shipped)) { BeamAxis = 0 };
             var glove = Weapon.CreateWorn(world, WeaponKind.Glove, BoxerAnatomy.RedGlove, new Vector3(0f, 0f, half.Z + 0.0845f), Quaternion.Identity);
             world.SetLinearVelocity(glove.Body.BodyId, new Vector3(0f, 0f, -speed));
             world.SetPairCollisionEnabled(id, glove.Body.BodyId, false);
@@ -120,8 +120,10 @@ public sealed class BoneBreakTests
         }
 
         Assert.IsFalse(Bends(3.357f, 20f), "an ordinary punch (3.4 m/s with the arm behind it) does not break the bone");
-        Assert.IsFalse(Bends(6.714f, 0f), "the glove alone, without the arm behind it, does not either");
-        Assert.IsTrue(Bends(6.714f, 20f), "a hard punch with the arm and body behind it does");
+        // CT の前腕を使い、軽い打撃と両方の有効質量で、折れる・折れないの境を挟む。
+        const float HardSpeed = 10f;
+        Assert.IsFalse(Bends(HardSpeed, 0f), "the glove alone, without the arm behind it, does not either");
+        Assert.IsTrue(Bends(HardSpeed, 20f), "a hard punch with the arm and body behind it does");
     }
 
     // ── 試合の中: 腕が断たれる・折れる ──

@@ -279,7 +279,7 @@ public sealed record FighterTuning
     /// <c>Weapon.HandSpacing</c>）のおよそ 1.8 倍: 手の幅ほど（人形の縮尺 0.32 倍の手）の所へ手を持っていけば握れる。これより遠いと握れない
     /// （握った後は <see cref="SupportGripReach"/> まで拳を握りへ寄せてつなぐ）。VR の手は縮尺（約 3 倍）で人形へ写るので、実際の手では 15 cm ほどの許し。
     /// </summary>
-    public float WeaponGraspReach { get; init; } = 0.141f;
+    public float WeaponGraspReach { get; init; } = 0.152f; // 1.8 × 掌幅 84.5 mm（手の実寸化 2026-11-24。旧 0.141 = 1.8 × 78.9 mm。大きくなった手が柄のそばで止まる距離が 0.142 になり、握れなくなった）
 
     /// <summary>
     /// 生成で握らせた武器と握った本人の部位を「重ねて置いた」と見なす、格子を囲む箱どうしの隙間 [m]（これより近い組は、一度この隙間より離れるまで当たらない。

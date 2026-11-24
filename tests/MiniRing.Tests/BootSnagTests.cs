@@ -36,25 +36,27 @@ public sealed class BootSnagTests
     [TestMethod]
     public void AFootBeyondTheCanvasEdge_FallsBelowTheCanvas()
     {
-        var (world, fighter, ring, _) = BootSnagDrill.Build();
+        // ロープを越える歩行とは切り離し、エプロンの外に出た足の支持を測る。
+        const float apronClearance = 0.25f;
+        var offset = -(RingLayout.Boxing.PlinthHalf + apronClearance) * Vector3.UnitZ;
+        var (world, fighter, ring, layout) = BootSnagDrill.Build(offset);
         using (world)
         {
-            for (var i = 0; i < 403; i++)
+            var toe = fighter.ToeId(0);
+            var width = fighter.HalfExtentsOf(toe).Length();
+            var initial = world.GetState(toe).Position;
+            Assert.IsLessThan(-width - 0.05634f, layout.EdgeDistance(initial), "the whole toe starts beyond the apron");
+            Assert.IsGreaterThanOrEqualTo(ring.SurfaceHeight, initial.Y);
+
+            var lowest = initial.Y;
+            for (var i = 0; i < 240; i++)
             {
                 fighter.ApplyControl(BootSnagDrill.Command(fighter, Vector3.Zero, Vector3.UnitZ), BootSnagDrill.Dt);
                 world.Step(BootSnagDrill.Dt);
+                lowest = MathF.Min(lowest, world.GetState(toe).Position.Y);
             }
 
-            var lowest = float.MaxValue;
-            for (var i = 0; i < 2417; i++)
-            {
-                fighter.ApplyControl(BootSnagDrill.Command(fighter, -Vector3.UnitZ, Vector3.UnitZ), BootSnagDrill.Dt);
-                world.Step(BootSnagDrill.Dt);
-                lowest = MathF.Min(lowest, MathF.Min(world.GetState(fighter.ToeId(0)).Position.Y, world.GetState(fighter.ToeId(1)).Position.Y));
-            }
-
-            // つま先の箱の半分の厚さは約 2.8 cm。キャンバスに乗っていれば、中心はキャンバスの上 2.8 cm あたり。縁の外へ出れば 8.5 cm 以上下がる。
-            Assert.IsLessThan(ring.SurfaceHeight - 0.0563f, lowest, $"toe never dropped below the canvas (lowest {lowest - ring.SurfaceHeight:0.000} m)");
+            Assert.IsLessThan(ring.SurfaceHeight - width, lowest, "the toe drops entirely below the canvas height");
         }
     }
 }

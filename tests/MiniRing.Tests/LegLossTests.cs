@@ -1,5 +1,6 @@
 using System.Numerics;
 using Aigis.Foundation.Voxels;
+using Aigis.Physics.Voxels;
 
 namespace MiniRing.Tests;
 
@@ -81,9 +82,9 @@ public sealed class LegLossTests
         var cpu = game.Cpu;
         Play(game, 0.8392f);
         var full = cpu.LegSupportLength(true);
-        var standingHips = cpu.PelvisPosition.Y;
         Cut(game, cpu, cpu.Parts.LeftThigh, 0.2f);
         Cut(game, cpu, cpu.Parts.RightThigh, 0.2f);
+        var unpoweredPeak = UnpoweredPeakAfterCut(game, cpu);
         Assert.IsLessThan(0.5f * full, MathF.Max(cpu.LegSupportLength(true), cpu.LegSupportLength(false)), "both legs are cut near the hip");
         Assert.IsTrue(cpu.CanStand, "sitting needs no leg strength");
 
@@ -100,7 +101,7 @@ public sealed class LegLossTests
             standing += cpu.State == FighterState.Standing ? 1 : 0;
             down = cpu.State == FighterState.Standing ? 0f : down + Dt;
             longestDown = MathF.Max(longestDown, down);
-            highest = MathF.Max(highest, cpu.PelvisPosition.Y);
+            highest = MathF.Max(highest, cpu.CenterOfMass.Y);
         }
 
         var share = standing / (float)Steps;
@@ -110,7 +111,7 @@ public sealed class LegLossTests
         // 「立ち直って戦う時間がかなりある」（4 分の 1 より長い）こと。10 カウントにならないことは下の最長のダウンで見る。
         Assert.IsGreaterThan(0.25f, share, "sitting up on the pelvis and fighting a large part of the time (a quarter at least; 35-58 % measured)");
         Assert.IsLessThan(8.392f, longestDown, "never down long enough to be counted out");
-        Assert.IsLessThan(standingHips, highest, "the hips never go above where they stood on whole legs (no launch)");
+        Assert.IsLessThanOrEqualTo(unpoweredPeak, highest, "the remaining body is not launched above its unpowered peak");
     }
 
     private static readonly FighterTuning Shortcut = FighterTuning.Default with { LegLossSupportShortcut = true };
@@ -123,116 +124,96 @@ public sealed class LegLossTests
         using var game = new BoxingGame(seed: 2);
         var cpu = game.Cpu;
         Play(game, 0.8392f);
-        var standingHips = cpu.PelvisPosition.Y;
         Cut(game, cpu, cpu.Parts.LeftThigh, 0.2f);
         Cut(game, cpu, cpu.Parts.RightThigh, 0.2f);
+        var unpoweredPeak = UnpoweredPeakAfterCut(game, cpu);
         var highest = 0f;
         var standing = 0;
         var steps = 0;
         for (; steps < 1611 && !game.RoundOver; steps++)
         {
             game.Step(default, Dt);
-            highest = MathF.Max(highest, cpu.PelvisPosition.Y);
+            highest = MathF.Max(highest, cpu.CenterOfMass.Y);
             standing += cpu.State == FighterState.Standing ? 1 : 0;
         }
 
         TestContext.WriteLine($"round over {game.RoundOver} after {steps * Dt:F1}s  standing {standing * Dt:F1}s  {game.Message}");
         Assert.IsTrue(game.RoundOver && game.PlayerWins > 0, "counted out on the canvas");
         Assert.IsLessThan(3.357f, standing * Dt, "never back up for long");
-        Assert.IsLessThan(standingHips, highest, "the hips never go above where they stood on whole legs (no launch)");
+        Assert.IsLessThanOrEqualTo(unpoweredPeak, highest, "the remaining body is not launched above its unpowered peak");
     }
 
     [TestMethod]
-    public void WithoutTheShortcut_ACutThigh_CannotStepToKeepItsBalance_AndGoesDown()
+    public void WithoutTheShortcut_ACutThigh_LosesSupportWithoutTakingRecoverySteps()
     {
-        // 片方の腿を失った体は足の運びで踏み直せないので、短い脚と長い脚の支えの外へ重心が出ると倒れる（近道ありなら立ち続けた）。
-        // 2026-11-19（rush-physics・間合いの層とのマージ後）: 前は「切った後 8 秒待てば、相手へ寄る歩みで支えの外へ出て倒れる」を見ていたが、
-        // それは待つ間のボットの動き（体の揺れ・当たり）しだいの偶然だった（切った体は 2 つの版とも支えの余白 −0.03 m の所で立ち続け、版 48 では 5 秒目に
-        // 重心が支えの外 8 cm へ流れて倒れ、マージ後は同じ 8 秒で流れずに立ち続けた。重心の動きは同じ物理で、ボットの揺れだけが違う）。
-        // 支えの外へ出す力を決めて与える: 全身を 4.2 m/s（人形の単位で 2.5 m/s）（重い 1 発の押し込みを超える速さ）で押し、前後左右の 4 方向の合計で見る
-        // （1 方向だけだと、押す前に 1 歩ずれただけで倒れる・倒れないが入れ替わる。測った 4 方向の合計: 立っていない時間は 4 方向 × 4 秒のうち、
-        // 切った体が 15.4 秒、脚が無傷の体は起き上がりが早く 8.2 秒）。脚が無傷の体も押しには倒れる（足の運びで踏み直せないほどの押し）が、すぐ立ち直る。
         var intact = ShoveAndWatch(cut: false);
         var stump = ShoveAndWatch(cut: true);
-        TestContext.WriteLine($"not standing, summed over 4 shoves: intact {intact.Down:F1}s  cut {stump.Down:F1}s  shortfall {stump.Shortfall:F3}");
         Assert.IsTrue(stump.CanStand, "the stump still has the strength to bear weight");
-        Assert.IsGreaterThan(intact.Down + 1.678f, stump.Down, "without stepping, the body falls off its stump and takes longer to get back up than a whole body");
-        Assert.IsLessThan(stump.StandingHips, stump.Highest, "and is never lifted from nowhere");
+        Assert.IsGreaterThan(0, intact.Steps, "the intact fighter can reposition its feet");
+        Assert.AreEqual(0, stump.Steps, "the short leg does not use intact footwork to recover");
+        Assert.IsLessThan(1f, stump.MinimumBalance, "the shove moves the capture point beyond the available support");
     }
 
-    private static (float Down, float Shortfall, bool CanStand, float StandingHips, float Highest) ShoveAndWatch(bool cut)
+    private static float UnpoweredPeakAfterCut(BoxingGame game, Fighter fighter)
     {
-        var down = 0f;
-        var shortfall = 0f;
+        // 切断で質量の構成が変わるので、切断後の重心と上向き速度から自由落下の最高点を求める。
+        var riseSpeed = MathF.Max(0f, fighter.CenterOfMassVelocity.Y);
+        var ballisticRise = riseSpeed * riseSpeed / (2f * -game.World.Gravity.Y);
+        return fighter.CenterOfMass.Y + ballisticRise + (riseSpeed * Dt); // 観測間隔 1 フレーム分
+    }
+
+    private static (int Steps, float MinimumBalance, bool CanStand) ShoveAndWatch(bool cut)
+    {
+        var steps = 0;
+        var minimumBalance = 1f;
         var canStand = true;
-        var standingHips = 0f;
-        var highest = 0f;
         foreach (var direction in new[] { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitZ, -Vector3.UnitZ })
         {
             using var game = new BoxingGame(seed: 2);
             var cpu = game.Cpu;
             Play(game, 1.678f);
-            standingHips = cpu.PelvisPosition.Y;
             if (cut)
             {
                 Cut(game, cpu, cpu.Parts.LeftThigh, 0.5f);
             }
 
             Play(game, 1.678f);
+            Assert.AreEqual(FighterState.Standing, cpu.State);
+            Assert.AreEqual(cut, cpu.LegSevered);
+            var stepsBefore = cpu.Footwork.Steps;
             cpu.Push(direction * 4.196f);
             for (var t = 0; t < 403 && !game.RoundOver; t++)
             {
                 game.Step(default, Dt);
-                down += cpu.State != FighterState.Standing ? Dt : 0f;
-                highest = MathF.Max(highest, cpu.PelvisPosition.Y);
+                minimumBalance = MathF.Min(minimumBalance, cpu.Balance);
             }
 
-            shortfall = cpu.LegShortfall;
+            steps += cpu.Footwork.Steps - stepsBefore;
             canStand &= cpu.CanStand;
         }
 
-        return (down, shortfall, canStand, standingHips, highest);
+        return (steps, minimumBalance, canStand);
     }
 
     [TestMethod]
-    public void TheLegBones_AreAsThickAtTheJointsAsInTheShaft_SoATouchNearTheKneeDoesNotSnapThem()
+    public void AMinorSideLoadNearTheKnee_DoesNotBreakTheLegBones()
     {
-        // 2026-11-17（PhysicsVersion 40）: 脚の外形が膝・股で絞れていて、骨が端の段で 1〜2 セルまで細り、30〜60 N の当たりでそこが折れて
-        // 脚が丸ごと落ちていた。骨の端（骨端）を骨の胴と同じ断面にした。
+        // 旧モデルで膝付近の接触時に 30〜60 N で折れたため、100 N の横荷重に耐えることを確かめる。
+        const float MinorSideLoadNewtons = 100f;
         using var game = new BoxingGame(seed: 1);
         var f = game.Cpu;
-        foreach (var body in new[] { f.Parts.LeftThigh, f.Parts.LeftShin })
+        foreach (var (body, end) in new[] { (f.Parts.LeftThigh, 1f), (f.Parts.LeftShin, -1f) })
         {
             var part = f.Voxels!.PartOf(body)!;
-            var grid = part.Body.Grid;
-            var ny = grid.Dimensions.Y;
-            var bone = new int[ny];
-            for (var i = 0; i < grid.CellCount; i++)
-            {
-                var m = grid.AtIndex(i);
-                if (m != 0 && grid.Palette[m].Tissue == VoxelTissue.Bone)
-                {
-                    bone[grid.Coordinates(i).Y]++;
-                }
-            }
-
-            var withBone = bone.Where(b => b > 0).ToArray();
-            Assert.AreEqual(withBone.Max(), withBone.Min(), $"every slice of the bone has the shaft's section: [{string.Join(",", bone)}]");
-
-            // 端の近く（長さの 45 % の所）を直角に押して折れる力は、端を細く作っていた頃の腿 138〜301 N・すね 43〜98 N を下回らず、
-            // 折れる所は端の段ではない。
-            var half = grid.HalfExtents.Y;
-            var force = 10f;
-            Aigis.Physics.Voxels.VoxelBreak? found = null;
-            while (force < 1e6f && (found = Aigis.Physics.Voxels.VoxelBending.FindBreak(grid, new Vector3(0f, -0.9f * half, 0f), -Vector3.UnitZ * force, 1, loadBearingOnly: true, part.Body.BeamSlices)) is null)
-            {
-                force *= 1.05f;
-            }
-
-            var ends = (Array.IndexOf(bone, withBone[0]), Array.LastIndexOf(bone, withBone[^1]));
-            TestContext.WriteLine($"{(body == f.Parts.LeftThigh ? "thigh" : "shin")} bone [{string.Join(",", bone)}] breaks at {force:F0} N in slice {found?.Slice}");
-            Assert.IsGreaterThan(1500f, force);
-            Assert.IsTrue(found is { } b && b.Slice != ends.Item1 && b.Slice != ends.Item2, "it does not snap at the end of the bone");
+            var beam = part.Body;
+            var grid = beam.Grid;
+            // 膝は腿の遠位端とすねの近位端にある。格子の遠位側が逆なら位置も反転する。
+            var knee = 0.9f * grid.HalfExtents.Y * end * (part.DistalHigh ? 1f : -1f);
+            var point = new Vector3(0f, knee, grid.HalfExtents.Z);
+            var bend = VoxelBending.WorstBend(grid, point, -Vector3.UnitZ * MinorSideLoadNewtons,
+                beam.BeamAxis, loadBearingOnly: true, beam.BeamSlices, tensileScale: beam.BeamTensileScale);
+            Assert.IsNotNull(bend, $"{part.Kind}: the bone carries a bending load");
+            Assert.IsLessThan(1f, bend.Value.Ratio, $"{part.Kind}: the knee-side load stays below fracture stress");
         }
     }
 

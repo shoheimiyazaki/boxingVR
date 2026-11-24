@@ -63,6 +63,8 @@ try
         "excitement" => ExcitementLab.SingleCommand(Options.Parse(argv[1..], "red", "blue", "seconds", "seeds", "seed", "out", "curve", "tune", "style")),
         "excitementfit" => ExcitementLab.FitCommand(Options.Parse(argv[1..], "pairs", "seconds", "seeds", "seed", "out")),
         "excitementleague" => ExcitementLab.LeagueCommand(Options.Parse(argv[1..], "pairs", "seconds", "seeds", "seed", "out", "label", "tune", "style")),
+        "excitementpanel" => DramaPanel.Capture(Options.Parse(argv[1..], "out", "pairs", "seconds", "seed", "seeds", "parallel")),
+        "excitementcompare" => DramaPanel.CompareCommand(Options.Parse(argv[1..], "before", "after", "out")),
         "swordlib" => SwordLibCommand(Options.Parse(argv[1..], "out", "best", "bouts", "seconds", "seed", "fight", "video", "red", "blue")),
         "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead", "weapon", "vrmotion")),
         "vrmotion-synth" => VrMotionSynthCommand(Options.Parse(argv[1..], "out")),

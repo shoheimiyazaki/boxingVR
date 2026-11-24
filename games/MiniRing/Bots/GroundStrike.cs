@@ -192,7 +192,7 @@ public enum GroundCall
     /// <summary>突き下ろす系を今打つ（強）。</summary>
     Thrust,
 
-    /// <summary>踏み下ろしを今打つ（空手の強。素手のとき）。</summary>
+    /// <summary>踏み下ろしを今打つ（素手の強）。</summary>
     Stomp,
 }
 
@@ -218,6 +218,7 @@ public sealed class GroundStrike
     private float _time;
     private Hand _hand;
     private Hand _nextHand;
+    private bool _armed;
 
     /// <summary>踏みつけの足（打ち始めた歩で決め、踏み終えるまで変えない。毎歩選び直すと左右がちらついて両足が床から離れた）。</summary>
     private Hand _foot;
@@ -274,6 +275,12 @@ public sealed class GroundStrike
         var reach = sense.ArmReach;
         var self = sense.Self;
         var tool = ToolOf(sense);
+        if (_armed != tool.Armed)
+        {
+            Cancel();
+            _armed = tool.Armed;
+        }
+
         var catalog = GroundMove.For(tool, _t, _club);
 
         // 動いていなければ、どの攻めにするかを決める。
@@ -285,12 +292,12 @@ public sealed class GroundStrike
                 GroundCall.Thrust => catalog.Thrust ?? catalog.Swing,
                 GroundCall.Stomp => tool.Armed ? catalog.Thrust ?? catalog.Swing : _t.Stomp,
                 GroundCall.Hold => null,
-                _ => _plan ?? Choose(catalog),
+                _ => _plan ?? Choose(catalog, tool.Armed),
             };
         }
 
-        var aimW = Nearest(sense, self.Origin);
         var plan = _move ?? _plan;
+        var aimW = Aim(sense, self.Origin, plan?.Limb == GroundLimb.Foot);
         var toAim = Flat(aimW - self.Origin);
         var face = toAim.LengthSquared() > 1e-8f ? Vector3.Normalize(toAim) : self.Forward;
 
@@ -439,10 +446,10 @@ public sealed class GroundStrike
         return sense.SelfArmed == true || !_tool.Armed ? _tool : GroundTool.Fist;
     }
 
-    private GroundMove Choose((GroundMove Swing, GroundMove? Thrust) catalog)
+    private GroundMove Choose((GroundMove Swing, GroundMove? Thrust) catalog, bool armed)
     {
         // 踏みつけ（足）を好むスタイルは、直前に踏んでいなければ好みの割合で踏む。
-        if (!_tool.Armed && !_stomped && _random.NextDouble() < _style.GroundStomp)
+        if (!armed && !_stomped && _random.NextDouble() < _style.GroundStomp)
         {
             return _t.Stomp;
         }
@@ -451,17 +458,23 @@ public sealed class GroundStrike
     }
 
     /// <summary>
-    /// 狙う点: 倒れた相手の体の軸（腰から頭まで）のうち、水平で自分にいちばん近い点。倒れた相手の頭・胴のどちらでも、遠回りせず近い所を打つ
-    /// （足は倒れた体にさえぎられて、反対側の端へは回り込めない）。
+    /// 狙う点は、倒れた相手の体軸で水平にいちばん近い点。足裏で踏むときは、頭から首までの範囲に絞る。
     /// </summary>
-    private static Vector3 Nearest(in FighterSense sense, Vector3 from)
+    private static Vector3 Aim(in FighterSense sense, Vector3 from, bool stomp)
     {
         var head = sense.OpponentHead;
-        var pelvis = sense.OpponentBody == default ? sense.OpponentChest - (head - sense.OpponentChest) : sense.OpponentBody.Pelvis;
-        var axis = Flat(head - pelvis);
+        var body = sense.OpponentBody;
+        var lower = body == default ? sense.OpponentChest - (head - sense.OpponentChest) : body.Pelvis;
+        if (stomp)
+        {
+            var shoulders = body == default ? sense.OpponentChest : (body.LeftShoulder + body.RightShoulder) * 0.5f;
+            lower = Vector3.Lerp(shoulders, head, 0.5f);
+        }
+
+        var axis = Flat(head - lower);
         var length2 = axis.LengthSquared();
-        var t = length2 > 1e-8f ? Math.Clamp(Vector3.Dot(Flat(from - pelvis), axis) / length2, 0f, 1f) : 1f;
-        return Vector3.Lerp(pelvis, head, t);
+        var t = length2 > 1e-8f ? Math.Clamp(Vector3.Dot(Flat(from - lower), axis) / length2, 0f, 1f) : 1f;
+        return Vector3.Lerp(lower, head, t);
     }
 
     private static Vector3 Flat(Vector3 v) => new(v.X, 0f, v.Z);
@@ -572,7 +585,7 @@ public sealed class GroundTrigger
     /// </summary>
     public static FighterIntent ForIntent(FighterIntent input, bool ground) => ground ? input with { Light = false, Heavy = false } : input;
 
-    /// <summary>1 歩ぶんの更新。<paramref name="heavyCall"/> は強を離したときの呼びかけ（突き下ろし・空手は踏み下ろし）。</summary>
+    /// <summary>1 歩ぶんの更新。<paramref name="heavyCall"/> は強を離したときの技（武器なら突き下ろし、素手なら踏み下ろし）。</summary>
     public GroundCall Update(bool ground, bool light, bool heavy, float dt, GroundCall heavyCall, out float load)
     {
         load = 0f;

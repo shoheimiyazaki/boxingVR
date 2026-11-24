@@ -516,18 +516,25 @@ public sealed class VoxelDamageTests
     }
 
     [TestMethod]
-    public void CarvedFlesh_WeakensTheArm_ButDoesNotDisableIt()
+    public void PartialFleshLoss_WeakensTheArm_ButDoesNotDisableIt()
     {
         using var game = new BoxingGame(seed: 2);
         var cpu = game.Cpu;
         var upper = cpu.Parts.RightUpperArm; // Hand.Left の上腕（Aigis の Right 側）
-        for (var i = 0; i < 4; i++)
+        var grid = cpu.Voxels!.PartOf(upper)!.Body.Grid;
+        var intactStrength = cpu.ArmStrength(Hand.Left);
+        var flesh = Enumerable.Range(0, grid.CellCount)
+            .Where(i => grid.Palette[grid.MaterialAt(i)].Tissue == VoxelTissue.Flesh).ToArray();
+        Assert.IsNotEmpty(flesh);
+        foreach (var i in flesh.Where((_, index) => index % 2 == 0))
         {
-            Strike(game, cpu, upper, damage: 8f, Vector3.UnitZ);
+            grid.SetCellState(i, (0, 0f, false, 0f));
         }
 
-        Assert.IsLessThan(1f, cpu.ArmStrength(Hand.Left));
-        Assert.IsGreaterThan(0.5f, cpu.ArmStrength(Hand.Left));
+        Assert.IsTrue(cpu.Owns(upper));
+        Assert.IsFalse(cpu.ArmSevered(Hand.Left));
+        Assert.IsLessThan(intactStrength, cpu.ArmStrength(Hand.Left));
+        Assert.IsGreaterThan(FighterTuning.Default.MinMuscleStrength, cpu.ArmStrength(Hand.Left));
         Assert.AreEqual(1f, cpu.ArmStrength(Hand.Right));
     }
 

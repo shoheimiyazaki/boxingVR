@@ -1,3 +1,4 @@
+using Aigis.Foundation.Voxels;
 using MiniRing.Bots;
 using MiniRing.Voxels;
 
@@ -39,8 +40,10 @@ public sealed class CharacterTests
         var id = f.ForearmId(Hand.Left);
         var grid = f.Voxels!.PartOf(id)!.Body.Grid;
         var full = f.Strength(id);
-        // 力は肉（皮膚と筋肉）の残りから出て、肉が無くなっても MinMuscleStrength（腱・骨で動かせる分）は残る。
-        var cells = Enumerable.Range(0, grid.CellCount).Where(i => grid.MaterialAt(i) is BoxerAnatomy.Muscle or BoxerAnatomy.Skin).ToArray();
+        // 筋力の計算で肉とみなす組織を、材質パレットから選ぶ。
+        var cells = Enumerable.Range(0, grid.CellCount)
+            .Where(i => grid.Palette[grid.MaterialAt(i)].Tissue == VoxelTissue.Flesh)
+            .ToArray();
         foreach (var i in cells.Where((_, n) => n % 2 == 0))
         {
             grid.SetCellState(i, (0, 0f, false, 0f));
@@ -51,6 +54,7 @@ public sealed class CharacterTests
         {
             grid.SetCellState(i, (0, 0f, false, 0f));
         }
+        Assert.AreEqual(0f, grid.Fraction(VoxelTissue.Flesh));
         Assert.AreEqual(FighterTuning.Default.MinMuscleStrength, f.Strength(id), 0.0001f);
         f.Voxels.Regenerate(int.MaxValue);
         Assert.AreEqual(full, f.Strength(id), 0.0001f);
