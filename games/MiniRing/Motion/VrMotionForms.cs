@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Numerics;
+using System.Text;
 
 namespace MiniRing.Motion;
 
@@ -23,6 +25,32 @@ public static class VrMotionForms
 
     /// <summary>記録の区間の終わりから構えへ戻す時間 [s]（型の戻りと同じくらい）。</summary>
     public const float BlendOut = 0.5f;
+
+    private const string ResourcePrefix = "MiniRing.Motion.VrForms.";
+
+    private static readonly ConcurrentDictionary<string, VrMotionClip> Clips = new(StringComparer.Ordinal);
+
+    /// <summary>組み込みの VR の振りの名前（<c>Motion/VrForms/&lt;名前&gt;.vrmotion</c>。docs/vrmotion/ の写し）。</summary>
+    public static IReadOnlyList<string> Embedded { get; } =
+    [
+        .. typeof(VrMotionForms).Assembly.GetManifestResourceNames()
+            .Where(n => n.StartsWith(ResourcePrefix, StringComparison.Ordinal) && n.EndsWith(VrMotionClip.Extension, StringComparison.Ordinal))
+            .Select(n => n[ResourcePrefix.Length..^VrMotionClip.Extension.Length])
+            .Order(StringComparer.Ordinal),
+    ];
+
+    /// <summary>組み込みの VR の振り <paramref name="id"/>。無ければ <see cref="ArgumentException"/>。読んだものは覚えておく（中身は変わらない）。</summary>
+    public static VrMotionClip Load(string id)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        return Clips.GetOrAdd(id, key =>
+        {
+            using var stream = typeof(VrMotionForms).Assembly.GetManifestResourceStream(ResourcePrefix + key + VrMotionClip.Extension)
+                ?? throw new ArgumentException($"組み込みの VR の振り '{key}' がありません（Motion/VrForms/）。", nameof(id));
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            return VrMotionClip.FromJson(reader.ReadToEnd());
+        });
+    }
 
     /// <summary>切っ先を測る長さ（腕の長さ = 1。<see cref="SwordForms"/> の刀身と同じ）。</summary>
     private const float Blade = 1.7f;
