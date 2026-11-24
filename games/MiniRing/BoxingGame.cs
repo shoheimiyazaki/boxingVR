@@ -1493,7 +1493,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     private FighterCommand RestCommand(Fighter self, Fighter opponent)
     {
         var rules = Rules ?? MatchRules.Tv;
-        return WalkTo(self, opponent, Layout.RestCorner(self == Player, rules.CornerInset), rules.RestGuardDrop, rules.RestWalk);
+        return WalkTo(self, opponent, Layout.RestCorner(self == Player, FootprintOf(self)), rules.RestGuardDrop, rules.RestWalk);
     }
 
     /// <summary>
@@ -1511,7 +1511,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 行き先のコーナーは数え始めに 1 度だけ決める（倒れた体が対角線の上で動くたびに選び直すと、行き先が入れ替わって揺れる）。
         if (!_neutralCorners.TryGetValue(self, out var corner))
         {
-            corner = Layout.NeutralCorner(opponent.PelvisPosition, rules.CornerInset);
+            corner = Layout.NeutralCorner(opponent.PelvisPosition, FootprintOf(self));
             _neutralCorners[self] = corner;
         }
 
@@ -1635,12 +1635,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         LivingRoom.AddColliders(_world, Layout);
         _ring = new Ring(_world, Layout, RingSurfaceHeight, LivingRoom.PhysicsStageBase);
         var surface = _ring.SurfaceCenter;
-        // コーナーから始める試合は、赤・青の休むコーナー（四角は手前左・奥右、檻は 240°・60° の頂点）に立ち、互いに向き合う（生成の向きは +Z が 0、Y 軸まわり）。
+        // コーナーから始める試合は、赤・青の休むコーナー（四角は手前左・奥右、檻は 240°・60° の頂点の側）の対角線の上で、互いに向き合う（生成の向きは +Z が 0、Y 軸まわり）。
+        // ここでは仮に角の近くへ生み、持ち物を持たせてから、体と持ち物の輪郭が縁に触れない所へ移す（PlaceAtCorner）。
         // コーナーから始めない形（ドリル）は、中央で StartGap だけ離れて Z 軸の上で向き合う。
+        var redCorner = Layout.RestCorner(true, []);
+        var blueCorner = Layout.RestCorner(false, []);
         var (redFeet, blueFeet, redYaw) = Layout.FromCorners
-            ? (Layout.RestCorner(true, RingLayout.CornerInset) with { Y = surface.Y }, Layout.RestCorner(false, RingLayout.CornerInset) with { Y = surface.Y },
-                MathF.Atan2(Layout.RestCorner(false, RingLayout.CornerInset).X - Layout.RestCorner(true, RingLayout.CornerInset).X,
-                    Layout.RestCorner(false, RingLayout.CornerInset).Z - Layout.RestCorner(true, RingLayout.CornerInset).Z))
+            ? (redCorner with { Y = surface.Y }, blueCorner with { Y = surface.Y }, MathF.Atan2(blueCorner.X - redCorner.X, blueCorner.Z - redCorner.Z))
             : (surface - new Vector3(0f, 0f, Layout.StartGap * 0.5f), surface + new Vector3(0f, 0f, Layout.StartGap * 0.5f), 0f);
         // VR のプレイヤーには、手触りの調整が終わるまでスタミナの疲れを効かせない（FighterTuning.PlayerFatigue）。
         var concussionSpin = _tuning.ConcussionSpin * (Rules?.ConcussionSpinScale ?? 1f);
@@ -1702,6 +1703,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             Wear(Player, _corners.PlayerWear);
             Wear(Cpu, _corners.CpuWear);
         }
+
+        _footprints.Clear();
+        PlaceAtCorner(Player, red: true);
+        PlaceAtCorner(Cpu, red: false);
 
         // 前のラウンドの操作元から、覚えたことを引き継がせる（学ぶボット。IFighterControl.CarryOver）。
         var previousCpu = _round > 1 ? _cpuControl : null;
@@ -2177,9 +2182,6 @@ public sealed record MatchRules(float RoundSeconds = 50.35f, int Rounds = 5, flo
 
     /// <summary>判定で引き分けとする、与えたダメージの差の下限（どちらもほとんど当てていないとき）。</summary>
     public float DrawMinimum { get; init; } = 1f;
-
-    /// <summary>休むコーナーの、リングの縁からの内側の距離 [m]（ロープとコーナーポストに触れない所）。</summary>
-    public float CornerInset { get; init; } = 0.1972f;
 
     /// <summary>コーナーに着いたとみなす距離 [m]（それより近ければ歩かない）。</summary>
     public float CornerArrive { get; init; } = 0.08451f;

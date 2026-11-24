@@ -27,7 +27,7 @@
   - 厚み 0.06 m（`HexCage.WallThickness`）: 240 Hz で 1 歩に進む距離（拳 6 m/s で 2.5 cm、剣先 10 m/s で 4 cm）より厚い。内側の面が辺に付き、角の外側は t·tan30° だけ長くして隙間を埋める。
   - 見た目は 45° の細い棒の菱形格子（間隔 6 cm）・頂点の柱・上端と下端のパッド（黒）。キャンバスは明るい灰で中央に何も描かない。
 - `IsOut` は今のまま（面より下へ落ちたら）。
-- `RingLayout.EdgeDistance(point)`（縁から内側への距離）と `RingLayout.RestCorner(red, inset)`（休むコーナー）は形ごとの計算をここに置いた。檻の休むコーナーは赤 240°・青 60° の頂点から `CornerInset` だけ中心へ寄せた点。
+- `RingLayout.EdgeDistance(point)`（縁から内側への距離）と `RingLayout.RestCorner(red, footprint)`（休むコーナー）は形ごとの計算をここに置いた。檻の休むコーナーは赤 240°・青 60° の頂点の側の二等分線の上で、生成した姿勢の体と持ち物（武器・盾・はめる物）の格子の箱を上から見た輪郭が、どの面からも `CornerClearance`（5.6 cm）以上内側に収まる、頂点にいちばん近い点（`RingLayout.CornerFor`。始め・休み・ニュートラルコーナーで同じ式。2026-11-24 まで一律の `CornerInset` で、狭い檻の 120° の角では武器・盾が生まれた時点で金網に食い込み動けなかった）。
 - 記録・再生: `ReplayMatchSettings` は `RingLayout`・`MatchRules` をそのまま JSON で持つので、`Shape`・`CountsDowns`・`JudgesDecision` も入る。古い記録は既定値（四角・今のルール）で読める（テストあり）。
 
 ## 再生（2026-11-18、指示書 F。ユーザーの指定「両者ダウンしたまま何もしない時間が長く、番組として失敗」）

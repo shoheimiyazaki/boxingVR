@@ -40,12 +40,11 @@ public sealed class VfcCoreTests
     [TestMethod]
     public void Cage_StartAndRestCorners_AreInsideTheHexagon_ForBothSizes()
     {
-        var rules = MatchRules.Vfc;
         foreach (var layout in new[] { RingLayout.Cage, RingLayout.WeaponsCage })
         {
             foreach (var red in new[] { true, false })
             {
-                var corner = layout.RestCorner(red, rules.CornerInset);
+                var corner = layout.RestCorner(red, []);
                 Assert.IsGreaterThan(0.0845f, layout.EdgeDistance(corner), $"{layout.Size} m cage, red={red}: the rest corner is inside the walls");
             }
 

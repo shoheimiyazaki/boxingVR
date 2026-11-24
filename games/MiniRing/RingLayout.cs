@@ -35,8 +35,11 @@ public sealed record RingLayout(float Size, float StartGap, ArenaShape Shape = A
     /// </summary>
     public const float StandardSize = 5.3f;
 
-    /// <summary>ラウンドの始めに立つコーナーの、リングの縁からの内側の距離 [m]（ロープとコーナーポストに触れない所）。</summary>
-    public const float CornerInset = 0.2817f;
+    /// <summary>
+    /// コーナーに立つ体と持ち物（武器・盾・はめる物）の輪郭と、場の縁の当たり（ロープ・金網の内側の面）との間に残す隙間 [m]（2 cm × 2.817）。
+    /// 輪郭はボクセルの格子の箱で、ボクセル 1 つ分ほどの余り。生まれた時点で何も縁に食い込まないための量（2026-11-24: 檻の 120° の角で武器・盾が金網に挟まって動けなかった）。
+    /// </summary>
+    public const float CornerClearance = 0.05634f;
 
     /// <summary>
     /// 拳の試合: 標準のリング（<see cref="StandardSize"/>）。コーナーから始めない形（ドリル）では 1.24 m 離れて始める（拳の間合いの少し外）。
@@ -100,22 +103,11 @@ public sealed record RingLayout(float Size, float StartGap, ArenaShape Shape = A
     /// <summary>
     /// ニュートラルコーナー（どちらの持ち場でもない角。四角は左奥・右手前、檻は 120°・300° の頂点）のうち、<paramref name="awayFrom"/> から遠い方の立つ所（床の上）。
     /// ダウンを取った側が、数えている間に下がって待つ所（ボクシングの決まり: 倒れた相手からいちばん遠いニュートラルコーナー）。
+    /// 立つ所は休むコーナーと同じ式（<see cref="CornerFor"/>: 輪郭 <paramref name="footprint"/> がどの面にも触れない所）。
     /// </summary>
-    public Vector3 NeutralCorner(Vector3 awayFrom, float inset = CornerInset)
+    public Vector3 NeutralCorner(Vector3 awayFrom, IReadOnlyList<Vector2> footprint)
     {
-        Vector3 a, b;
-        if (IsCage)
-        {
-            var radius = Circumradius - inset;
-            a = Center + new Vector3(radius * MathF.Cos(MathF.PI * 2f / 3f), 0f, radius * MathF.Sin(MathF.PI * 2f / 3f));
-            b = Center + new Vector3(radius * MathF.Cos(MathF.PI * 5f / 3f), 0f, radius * MathF.Sin(MathF.PI * 5f / 3f));
-        }
-        else
-        {
-            var d = Half - inset;
-            a = Center + new Vector3(-d, 0f, d);
-            b = Center + new Vector3(d, 0f, -d);
-        }
+        var (a, b) = IsCage ? (CornerFor(120f, footprint), CornerFor(300f, footprint)) : (CornerFor(135f, footprint), CornerFor(315f, footprint));
 
         static float Flat(Vector3 p, Vector3 q) => new Vector2(p.X - q.X, p.Z - q.Z).LengthSquared();
         return Flat(a, awayFrom) >= Flat(b, awayFrom) ? a : b;
@@ -145,20 +137,70 @@ public sealed record RingLayout(float Size, float StartGap, ArenaShape Shape = A
     }
 
     /// <summary>
-    /// 休むコーナー（床の上の位置）: 四角は赤が (−X, −Z)・青が (+X, +Z) の角、檻は赤が 240°・青が 60° の頂点（X 軸から Z 軸の向きへ測る）。
-    /// どちらも縁から <paramref name="inset"/> だけ内側（四角は両辺から、檻は頂点から中心へ向かって）。
+    /// 場の縁の当たりの面が、縁（<see cref="Half"/>）から内側へ出ている厚み [m]: 四角いリングはロープの当たりの箱の半分の厚み（<see cref="Ring.RopeCollisionHalf"/>）、
+    /// 檻は金網の内側の面がちょうど縁（<see cref="HexCage"/>: 壁の箱は縁の外側に置く）なので 0。
     /// </summary>
-    public Vector3 RestCorner(bool red, float inset)
+    public float BoundaryInset => IsCage ? 0f : Ring.RopeCollisionHalf;
+
+    /// <summary>
+    /// 休むコーナー（床の上の、骨盤の立つ所）: 四角は赤が (−X, −Z)・青が (+X, +Z) の角、檻は赤が 240°・青が 60° の頂点（X 軸から Z 軸の向きへ測る）の側。
+    /// 立つ所は <see cref="CornerFor"/>（体と持ち物の輪郭 <paramref name="footprint"/> が、どの面にも <see cref="CornerClearance"/> の隙間を残して触れない、角にいちばん近い所）。
+    /// </summary>
+    public Vector3 RestCorner(bool red, IReadOnlyList<Vector2> footprint) =>
+        CornerFor(IsCage ? (red ? 240f : 60f) : (red ? 225f : 45f), footprint);
+
+    /// <summary>
+    /// 中心から <paramref name="degrees"/> の向き（X 軸から Z 軸の向きへ測る。角の二等分線）の上で、角にいちばん近く、輪郭 <paramref name="footprint"/>
+    /// （骨盤から見た、体と持ち物の格子の箱の角の水平のずれ: X, Z）のどの点も、場のどの面からも <see cref="BoundaryInset"/> ＋ <see cref="CornerClearance"/> 以上内側にある所。
+    /// 面の法線 n、二等分線の向き u、中心からの距離 s、輪郭の点 q について n·(s u + q) ≤ Half − 厚み − 隙間 を、u に向いた面（n·u &gt; 0）ごとに解いた s の最小
+    /// （<see cref="EdgeDistance"/> と同じ面の並び）。場の形と持ち物の大きさだけで決まり、持ち物の種類は見ない。輪郭が場より大きければ中心に立つ。
+    /// </summary>
+    public Vector3 CornerFor(float degrees, IReadOnlyList<Vector2> footprint)
+    {
+        ArgumentNullException.ThrowIfNull(footprint);
+        var angle = degrees * (MathF.PI / 180f);
+        var u = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+        var vertex = IsCage ? Circumradius : Half * MathF.Sqrt(2f); // 角（頂点）までの距離
+        var limit = Half - BoundaryInset - CornerClearance;
+        var reach = vertex;
+        foreach (var n in FaceNormals())
+        {
+            var toward = Vector2.Dot(n, u);
+            if (toward <= 1e-4f)
+            {
+                continue;
+            }
+
+            var widest = 0f;
+            foreach (var q in footprint)
+            {
+                widest = MathF.Max(widest, Vector2.Dot(n, q));
+            }
+
+            reach = MathF.Min(reach, (limit - widest) / toward);
+        }
+
+        reach = MathF.Max(0f, reach);
+        return Center + new Vector3(u.X * reach, 0f, u.Y * reach);
+    }
+
+    /// <summary>場の面の外向きの法線（水平、X と Z）: 四角は ±X・±Z、檻は 30°・90°・150°・210°・270°・330°。</summary>
+    private IEnumerable<Vector2> FaceNormals()
     {
         if (!IsCage)
         {
-            var edge = Half - inset;
-            return Center + (red ? new Vector3(-edge, 0f, -edge) : new Vector3(edge, 0f, edge));
+            yield return Vector2.UnitX;
+            yield return -Vector2.UnitX;
+            yield return Vector2.UnitY;
+            yield return -Vector2.UnitY;
+            yield break;
         }
 
-        var radius = Circumradius - inset;
-        var angle = (red ? 240f : 60f) * (MathF.PI / 180f);
-        return Center + new Vector3(radius * MathF.Cos(angle), 0f, radius * MathF.Sin(angle));
+        for (var k = 0; k < 6; k++)
+        {
+            var a = (MathF.PI / 6f) + (k * MathF.PI / 3f);
+            yield return new Vector2(MathF.Cos(a), MathF.Sin(a));
+        }
     }
 
     /// <summary>形の検査をして自分を返す（リングが小さすぎる・始めの間がリングに収まらない・形が未知の場合は例外）。</summary>

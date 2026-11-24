@@ -11,6 +11,9 @@ namespace MiniRing;
 public sealed class Ring
 {
     private const float RopeThickness = 0.0338f;
+
+    /// <summary>ロープの当たりの箱の、ロープの線から内側への半分の厚み [m]（見た目の太さの 2.5 倍: 細い箱をすり抜けないよう太くした当たり）。</summary>
+    public const float RopeCollisionHalf = RopeThickness * 2.5f;
     private readonly List<PrimitiveInstance> _visuals = [];
 
     /// <param name="world">物理のワールド（台・エプロン・コーナーポスト・ロープを静的な箱で置く）。</param>
@@ -87,7 +90,7 @@ public sealed class Ring
 
     private void Rope(PhysicsWorld world, Vector3 position, Vector3 visualHalf, Vector4 color)
     {
-        world.AddStaticBox(position, visualHalf * new Vector3(visualHalf.X > RopeThickness ? 1f : 2.5f, 2.5f, visualHalf.Z > RopeThickness ? 1f : 2.5f));
+        world.AddStaticBox(position, new Vector3(visualHalf.X > RopeThickness ? visualHalf.X : RopeCollisionHalf, RopeCollisionHalf, visualHalf.Z > RopeThickness ? visualHalf.Z : RopeCollisionHalf));
         _visuals.Add(Cube(position, visualHalf, color));
     }
 

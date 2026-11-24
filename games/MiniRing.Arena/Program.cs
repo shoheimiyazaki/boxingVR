@@ -83,7 +83,7 @@ try
         "rankings" => RankingsCommand(Options.Parse(argv[1..], "org", "division", "seeds", "rounds", "break", "crown", "out", "report")),
         "title" => TitleCommand(Options.Parse(argv[1..], "org", "winner", "loser", "out")),
         "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break", "org")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt", "camera-scale", "camera-focus")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt", "camera-scale", "camera-focus", "ring")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns", "roster")),
         "portraits" => Portraits(Options.Parse(argv[1..], "out", "scale")),
@@ -1986,6 +1986,7 @@ static int Video(Options o)
         tvBreak: o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f), render: render, live: live,
         tvProgram: o.Get("program") is { } programPath ? TvProgram.FromJson(File.ReadAllText(programPath), TvProgram.RosterName) : null,
         org: OrgOption(o), belt: (o.Get("belt") ?? "off") switch { "on" => true, "off" => false, _ => throw new ArgumentException("--belt は on か off にしてください。") },
+        ring: RingOption(o.Get("ring")),
         cameraScale: o.Float("camera-scale", 1f, min: 0.3f), focusRed: (o.Get("camera-focus") ?? "both") switch { "both" => false, "red" => true, _ => throw new ArgumentException("--camera-focus は both か red にしてください。") })
         .Make(red, blue, o.Int("seed", 4), o.Float("seconds", 45f, min: 1f), output, Console.Out, untilKo: (o.Get("until-ko") ?? "no") switch { "yes" => true, "no" => false, _ => throw new ArgumentException("--until-ko は yes か no にしてください。") },
             redWear: o.Get("red-wear") is { } rwear ? MiniRing.Weapons.HandWears.Parse(rwear) : redCharacter?.Wear ?? MiniRing.Weapons.HandWear.Glove,
@@ -2177,6 +2178,17 @@ static int TvDigestCommand(Options o)
 
 // 中継の主催団体（--org wvc|vfc|ivf）。指定が無ければ null（動画・下見は WVC、台本の道具は記録の org に従う）。
 static Organization? OrgOption(Options o) => o.Get("org") is { } id ? Organizations.Get(id) : null;
+
+// 場（--ring cage | weaponscage | boxing | weapons）: 団体・武器から決まる既定の場の代わりに使う（例: 狭い檻で武器どうしを撮る）。
+static MiniRing.RingLayout? RingOption(string? name) => name switch
+{
+    null => null,
+    "cage" => MiniRing.RingLayout.Cage,
+    "weaponscage" => MiniRing.RingLayout.WeaponsCage,
+    "boxing" => MiniRing.RingLayout.Boxing,
+    "weapons" => MiniRing.RingLayout.Weapons,
+    _ => throw new ArgumentException("--ring は cage・weaponscage・boxing・weapons のどれかにしてください。"),
+};
 
 // 団体の試合に両者を通す（両方が名簿のキャラのとき）: 出場の条件・計量（階級制なら同じ階級）を確かめ、団体のはめる物（IVF はグローブ）を着ける。
 // 片方でもキャラでなければそのまま（ボットの名前で組む試し撮りは計量しない）。
