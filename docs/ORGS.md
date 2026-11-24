@@ -70,7 +70,7 @@
 |---|---|---|
 | ミドル | albert（据え置き） | albert 15勝・vikram 14勝・joao 6勝・ramon 1勝。王者が 1 位のまま |
 | ライトヘビー | gaston（据え置き） | **yoandry 4勝2敗が gaston 2勝4敗を上回った**（王者は試合でしか動かないので、王座戦で決める課題） |
-| ヘビー | marcus（据え置き） | marcus と dmitri は 3 勝 3 敗の同点（直接対決は dmitri 優勢でなく、同点は先に並んだ方を 1 位） |
+| ヘビー | marcus（据え置き） | marcus と dmitri は 3 勝 3 敗の同点（直接対決も 3 勝 3 敗。同点は王者を上に置く） |
 | ライト・クルーザー | 空位 | 選手なし |
 
 WVC・VFC の `Orgs/standings/` と `docs/arena/{wvc,vfc}_rankings.md` は 11-19 の値のまま（測り直していない）。
