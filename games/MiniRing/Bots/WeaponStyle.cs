@@ -81,6 +81,13 @@ public sealed record WeaponStyle
     /// <summary>こんぼうの振りの選ばれやすさ（振りの型 Chop・Side・Thrust → 重み。書いていない型は 1）。null なら同じ割合で。</summary>
     public IReadOnlyDictionary<string, float>? ClubSwingWeights { get; init; }
 
+    /// <summary>
+    /// 倒れた相手へのとどめの経路（<see cref="GroundTuning"/> の斬り下ろし <c>Cut</c>・突き下ろし <c>Thrust</c> など。狙う範囲 <see cref="GroundMove.AimFrom"/> も）。
+    /// 武器の長さ・重さ・握りで合う経路が違うので、武器の教科書に持つ。null ならキャラのスタイルの値（<see cref="BotStyle.Ground"/>）か既定。
+    /// 使うときに <see cref="GroundTuning.Validated"/> で丸める。
+    /// </summary>
+    public GroundTuning? Ground { get; init; }
+
     // この record の既定値（コード側）は、教科書を JSON へ移した時点（LogicVersion 30）までの値のまま。今の教科書の値（Pacing を入れる・こんぼうの間合い 0.845 m など）は
     // Bots/weapons/*.json が持つ（WeaponCatalog.Textbook）。new WeaponStyle() は「何も鍛えていない昔の値」。
 

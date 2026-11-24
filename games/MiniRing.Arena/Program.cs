@@ -29,7 +29,7 @@ try
         "fistmatch" => FistMatchCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "referee", "parallel", "out", "compare", "labels", "log", "confirm")),
         "punchlab" => PunchLabCommand(Options.Parse(argv[1..], "study", "depths", "aim", "paths", "defenders", "ranges", "reach", "far", "seeds", "telegraph", "nocap", "log", "video", "slow", "width", "height", "fps")),
         "karatelab" => KarateLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log", "cues", "video", "handsheet")),
-        "groundtime" => GroundTimeCommand(Options.Parse(argv[1..], "chars", "seeds", "rounds", "shard", "out", "compare", "labels", "log", "confirm")),
+        "groundtime" => GroundTimeCommand(Options.Parse(argv[1..], "chars", "seeds", "rounds", "shard", "out", "compare", "labels", "log", "confirm", "drill", "victims", "seconds", "practice", "hold-victims", "hold-seeds", "gens", "lambda", "seed", "video", "parallel")),
         "groundlab" => GroundLabCommand(Options.Parse(argv[1..], "style", "moves", "bouts", "seconds", "seed", "log", "video", "practice", "candidates", "sigma", "validate")),
         "kickbalance" => KickBalanceCommand(Options.Parse(argv[1..], "style", "kicks", "teachings", "bouts", "seconds", "seed", "confirm", "log", "video")),
         "stick" => StickCommand(Options.Parse(StickSwingLab.WithYes(argv[1..]), "style", "kicks", "teachings", "png", "design", "candidates", "seed", "log", "approach", "ground", "moves", "path", "out", "forms", "detail", "swing", "planes", "samples", "weights", "video", "polish", "iterations", "character", "limits", "bvh", "bvh-scale")),
@@ -778,6 +778,49 @@ static int GroundTimeCommand(Options o)
             ConfirmLog.Append("groundtime", "VFC: 最初の攻められる場面が死で終わった割合", labels[1], labels[0], seeds, finished, detail);
         }
 
+        return 0;
+    }
+
+    if (o.Get("practice") is { } practiceId)
+    {
+        // とどめの練習: --practice <id> --victims a,b,c --seeds 1 --hold-victims d,e --hold-seeds 101,102 --gens 8 --lambda 12 --seconds 12 --out <id>.json
+        static IReadOnlyList<int> Ints(IReadOnlyList<string> s) => [.. s.Select(x => int.Parse(x, CultureInfo.InvariantCulture))];
+        var others = GroundTime.VfcRoster.Where(v => v != practiceId).ToList();
+        new GroundPractice(Log, o.Int("parallel", 1, min: 1)).Practice(practiceId,
+            o.List("victims", others.Take(4).ToList()), Ints(o.List("seeds", ["1"])),
+            o.List("hold-victims", others.Skip(4).ToList()), Ints(o.List("hold-seeds", ["101", "102"])),
+            o.Int("gens", 8, min: 1), o.Int("lambda", 12, min: 4), o.Float("seconds", 12f, min: 2f), o.Int("seed", 1), null,
+            o.Get("out") ?? $"{practiceId}.ground.json");
+        return 0;
+    }
+
+    if (o.Get("drill") is { } drill)
+    {
+        // とどめのドリル: --drill 攻め手,... --victims 受け手,...（既定は攻め手どうしの残り）。
+        var attackers = drill.Split(',');
+        if (o.Get("video") is { } drillVideo)
+        {
+            FinishDrillVideo.Make(attackers[0], o.List("victims", ["gaston"])[0], int.Parse(o.List("seeds", ["1"])[0], CultureInfo.InvariantCulture), o.Float("seconds", 20f, min: 1f), drillVideo, Console.Out);
+            return 0;
+        }
+
+        var victims = o.List("victims", GroundTime.VfcRoster);
+        var drillSeeds = o.List("seeds", ["1", "2"]).Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToList();
+        var seconds = o.Float("seconds", 20f, min: 1f);
+        Log($"## とどめのドリル（受け手は気を失って倒れたまま、檻・レフェリーなし、上限 {seconds:0} 秒、physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}）");
+        Log("");
+        Log("| 攻め手 | 本 | 死 | 死までの中央値 [s] | 平均 [s]（死ななければ上限） | 打ち始め / 本 | 攻め手が倒れた / 本 | 攻め | 死因 |");
+        Log("|---|---|---|---|---|---|---|---|---|");
+        foreach (var attacker in attackers)
+        {
+            var runs = victims.Where(v => v != attacker).SelectMany(v => drillSeeds.Select(s => FinishDrill.Run(attacker, v, s, seconds))).ToList();
+            var moves = runs.SelectMany(r => r.Moves).GroupBy(kv => kv.Key).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => $"{g.Key} {g.Sum(kv => kv.Value)}");
+            var causes = runs.Where(r => r.Killed).GroupBy(r => r.Cause).OrderByDescending(g => g.Count()).Select(g => $"{g.Key} {g.Count()}");
+            Log(string.Create(CultureInfo.InvariantCulture,
+                $"| {attacker} | {runs.Count} | {runs.Count(r => r.Killed)} | {GroundTime.Median(runs.Where(r => r.Killed).Select(r => r.Seconds)):0.0} | {runs.Average(r => r.Seconds):0.0} | {runs.Average(r => r.Strikes):0.0} | {runs.Average(r => r.AttackerFalls):0.00} | {string.Join(", ", moves)} | {string.Join(", ", causes)} |"));
+        }
+
+        Log("");
         return 0;
     }
 

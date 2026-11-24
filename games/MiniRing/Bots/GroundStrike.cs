@@ -38,8 +38,12 @@ public readonly record struct GroundTool(float Length, bool TwoHanded = false, f
 /// <param name="Spring">打ち下ろす間に体の動き・バネを手へ移す割合（<see cref="HandCommand.Spring"/>）。</param>
 /// <param name="MaxSink">この技で体を沈める上限 [腕の長さ]（null なら <see cref="GroundTuning.MaxSink"/>）。立ったまま打つ技は浅く: 倒れた相手の上へ崩れ落ちない。</param>
 /// <param name="StanceLean">足の技で、頭を軸足（打たない側の足）の上へ寄せる量 [腕の長さ]。片脚を上げる前に体重を軸足へ移す（蹴りの <see cref="BotStyle.KickLeanSide"/> と同じ考え）。</param>
+/// <param name="Through">相手の点より前（自分の向き）へ抜ける量 [腕の長さ]。0 なら真下へだけ抜ける（踏みつけ・打ち下ろし）。正なら後ろから前へ振り抜く（倒れた相手を蹴る）。</param>
+/// <param name="AimFrom">狙う範囲の始め: 倒れた体の軸の上の位置（0 = 腰、1 = 両肩の真ん中、2 = 頭。間は直線）。範囲の中で水平にいちばん近い点を狙う。</param>
+/// <param name="AimTo">狙う範囲の終わり（<paramref name="AimFrom"/> と同じ物差し）。首は 1.5 あたり（両肩の真ん中と頭の真ん中）。</param>
 public sealed record GroundMove(string Name, GroundLimb Limb, float Duration, float Stand, float Reach, float Rise, float Pull,
-    float WindElevation, float StrikeElevation, float Overshoot, float Dip, float Lean, float Spring, float? MaxSink = null, float StanceLean = 0f)
+    float WindElevation, float StrikeElevation, float Overshoot, float Dip, float Lean, float Spring, float? MaxSink = null, float StanceLean = 0f,
+    float Through = 0f, float AimFrom = 0f, float AimTo = 2f)
 {
     /// <summary>この道具で出せる攻めの 2 系統: 振り下ろす系（<see cref="GroundTuning.Hammer"/> / <see cref="GroundTuning.Cut"/>）と突き下ろす系（<see cref="GroundTuning.PunchDown"/> / <see cref="GroundTuning.Thrust"/>）。棍棒は振り下ろす系だけ。</summary>
     public static (GroundMove Swing, GroundMove? Thrust) For(GroundTool tool, GroundTuning tuning, bool club = false)
@@ -64,6 +68,9 @@ public sealed record GroundMove(string Name, GroundLimb Limb, float Duration, fl
             Spring = R(Spring, 0f, 1f, fallback.Spring),
             MaxSink = MaxSink is { } sink ? R(sink, 0f, 3f, fallback.MaxSink ?? 0f) : null,
             StanceLean = R(StanceLean, 0f, 1f, fallback.StanceLean),
+            Through = R(Through, -0.5f, 1f, fallback.Through),
+            AimFrom = R(MathF.Min(AimFrom, AimTo), 0f, 2f, fallback.AimFrom),
+            AimTo = R(MathF.Max(AimFrom, AimTo), 0f, 2f, fallback.AimTo),
         };
     }
 }
@@ -85,6 +92,7 @@ public sealed record GroundTuning
             Hammer = (Hammer ?? d.Hammer).Validated(d.Hammer),
             PunchDown = (PunchDown ?? d.PunchDown).Validated(d.PunchDown),
             Stomp = (Stomp ?? d.Stomp).Validated(d.Stomp),
+            Kick = (Kick ?? d.Kick).Validated(d.Kick),
             Cut = (Cut ?? d.Cut).Validated(d.Cut),
             Thrust = (Thrust ?? d.Thrust).Validated(d.Thrust),
         };
@@ -168,7 +176,14 @@ public sealed record GroundTuning
     /// 踏みつけ（足裏で踏み下ろす、2026-11-17 に立ったまま踏む形へ）: 体重を軸足へ寄せながら膝を高く上げ、足裏を下へ向けたまま（足首の向きは立つときと同じ）
     /// 狙いの真上から真下へ踏み抜く。沈みはほとんど無し（立ったまま）。値は groundlab の練習（40 候補、使わなかった種で 4 本の渡したエネルギー 56→192 J・攻め手の転倒 0。docs/arena/groundlab_practice.md）。
     /// </summary>
-    public GroundMove Stomp { get; init; } = new("stomp", GroundLimb.Foot, 1.208f, 0.23f, 1.70f, 1.15f, 0f, 0f, 0f, 0.06f, 0.09f, 0.43f, 1f, MaxSink: 0.03f, StanceLean: 0.17f);
+    public GroundMove Stomp { get; init; } = new("stomp", GroundLimb.Foot, 1.208f, 0.23f, 1.70f, 1.15f, 0f, 0f, 0f, 0.06f, 0.09f, 0.43f, 1f, MaxSink: 0.03f, StanceLean: 0.17f, AimFrom: 1.5f);
+
+    /// <summary>
+    /// 倒れた相手を蹴る（2026-11-24、ユーザーの指定「蹴りや踏みつけを連続で」）: 体重を軸足へ寄せ、蹴る足を後ろへ引いてから（<see cref="GroundMove.Pull"/>）、
+    /// 床に近い高さを前へ振り抜く（<see cref="GroundMove.Through"/>）。狙いは頭から首（踏みつけと同じ範囲）。始めの値は踏みつけの値から手で決め、練習で磨く。
+    /// </summary>
+    public GroundMove Kick { get; init; } = new("kick", GroundLimb.Foot, 0.80f, 0.45f, 1.70f, 0.20f, 0.70f, 0f, 0f, 0.02f, 0.05f, 0.10f, 1f, MaxSink: 0.03f, StanceLean: 0.17f,
+        Through: 0.35f, AimFrom: 1.5f);
 
     /// <summary>片手・両手で握った武器: 上段から振りかぶって斬り下ろす（刀・ロングソード・棍棒。握りの先が頭の後ろへ寝るまで振りかぶる）。</summary>
     public GroundMove Cut { get; init; } = new("cut", GroundLimb.Hand, 1.091f, 0.80f, 0.95f, 0.70f, 0.20f, 2.3f, -0.75f, 0.10f, 0.30f, 0.10f, 1f);
@@ -222,7 +237,6 @@ public sealed class GroundStrike
 
     /// <summary>踏みつけの足（打ち始めた歩で決め、踏み終えるまで変えない。毎歩選び直すと左右がちらついて両足が床から離れた）。</summary>
     private Hand _foot;
-    private bool _stomped;
 
     public GroundStrike(BotStyle style, GroundTool tool, int seed, bool club = false, GroundTuning? tuning = null)
     {
@@ -234,8 +248,11 @@ public sealed class GroundStrike
         _nextHand = style.Lead == Hand.Left ? Hand.Right : Hand.Left;
     }
 
-    /// <summary>この入力元が倒れた相手を攻める場面か（相手は倒れていて、レフェリーはいない）。</summary>
-    public static bool Applies(in FighterSense sense) => !sense.OpponentAlive && sense.OpponentDowned && sense.MayStrikeDowned;
+    /// <summary>
+    /// この入力元が倒れた相手を攻める場面か（相手は倒れていて、レフェリーはいない）。自分も倒れている間は攻めない（倒れたまま打ち続けると、
+    /// 沈める頭の指令で起き上がれず、床で両者がもつれた。2026-11-18 に見つけ、2026-11-24 に入れた）。
+    /// </summary>
+    public static bool Applies(in FighterSense sense) => !sense.OpponentAlive && sense.OpponentDowned && sense.MayStrikeDowned && !sense.SelfDowned;
 
     /// <summary>今打ち下ろしている最中か。</summary>
     public bool Striking => _move is not null;
@@ -297,7 +314,7 @@ public sealed class GroundStrike
         }
 
         var plan = _move ?? _plan;
-        var aimW = Aim(sense, self.Origin, plan?.Limb == GroundLimb.Foot);
+        var aimW = Aim(sense, self.Origin, plan);
         var toAim = Flat(aimW - self.Origin);
         var face = toAim.LengthSquared() > 1e-8f ? Vector3.Normalize(toAim) : self.Forward;
 
@@ -393,7 +410,6 @@ public sealed class GroundStrike
         {
             _move = null;
             _plan = null;
-            _stomped = m.Limb == GroundLimb.Foot;
             _nextAt = _clock + _style.GroundRest;
             _time = 0f;
             return result with { HeadOffset = basis.HeadOffset + new Vector3(0f, -_sink * reach, _t.ApproachLean * MathF.Min(_sink, 1f) * reach) };
@@ -448,33 +464,51 @@ public sealed class GroundStrike
 
     private GroundMove Choose((GroundMove Swing, GroundMove? Thrust) catalog, bool armed)
     {
-        // 踏みつけ（足）を好むスタイルは、直前に踏んでいなければ好みの割合で踏む。
-        if (!armed && !_stomped && _random.NextDouble() < _style.GroundStomp)
+        // 足の技（踏みつけ・蹴り）を好むスタイルは、好みの割合で足を使う（続けて踏んでよい: 2026-11-24 に「直前に踏んだら手の技を挟む」をやめた）。
+        // 足の技のうち蹴りを選ぶ割合は GroundKick。
+        if (!armed && _random.NextDouble() < _style.GroundStomp)
         {
-            return _t.Stomp;
+            return _random.NextDouble() < _style.GroundKick ? _t.Kick : _t.Stomp;
         }
 
         return catalog.Thrust is null || _random.NextDouble() < _style.GroundCut ? catalog.Swing : catalog.Thrust;
     }
 
     /// <summary>
-    /// 狙う点は、倒れた相手の体軸で水平にいちばん近い点。足裏で踏むときは、頭から首までの範囲に絞る。
+    /// 狙う点は、倒れた相手の体の軸（腰 → 両肩の真ん中 → 頭の折れ線）のうち、技の狙う範囲（<see cref="GroundMove.AimFrom"/>〜<see cref="GroundMove.AimTo"/>）で
+    /// 水平にいちばん近い点。範囲は技の値（教科書・教育）で、急所がどこにあるかの狙い。技の種類では分けない。
     /// </summary>
-    private static Vector3 Aim(in FighterSense sense, Vector3 from, bool stomp)
+    private static Vector3 Aim(in FighterSense sense, Vector3 from, GroundMove? move)
     {
         var head = sense.OpponentHead;
         var body = sense.OpponentBody;
-        var lower = body == default ? sense.OpponentChest - (head - sense.OpponentChest) : body.Pelvis;
-        if (stomp)
+        var pelvis = body == default ? sense.OpponentChest - (head - sense.OpponentChest) : body.Pelvis;
+        var shoulders = body == default ? sense.OpponentChest : (body.LeftShoulder + body.RightShoulder) * 0.5f;
+        var lower = AxisPoint(pelvis, shoulders, head, move?.AimFrom ?? 0f);
+        var upper = AxisPoint(pelvis, shoulders, head, move?.AimTo ?? 2f);
+        // 範囲が腰と肩、肩と頭をまたぐときは、両方の線分で近い方（折れ線の上の最寄りの点）。
+        var mid = (move?.AimFrom ?? 0f) < 1f && (move?.AimTo ?? 2f) > 1f ? shoulders : (Vector3?)null;
+        if (mid is { } m)
         {
-            var shoulders = body == default ? sense.OpponentChest : (body.LeftShoulder + body.RightShoulder) * 0.5f;
-            lower = Vector3.Lerp(shoulders, head, 0.5f);
+            var a = Nearest(lower, m, from);
+            var b = Nearest(m, upper, from);
+            return Flat(a - from).LengthSquared() <= Flat(b - from).LengthSquared() ? a : b;
         }
 
-        var axis = Flat(head - lower);
+        return Nearest(lower, upper, from);
+    }
+
+    /// <summary>折れ線（腰 = 0、両肩の真ん中 = 1、頭 = 2）の上の点。</summary>
+    private static Vector3 AxisPoint(Vector3 pelvis, Vector3 shoulders, Vector3 head, float s)
+        => s <= 1f ? Vector3.Lerp(pelvis, shoulders, Math.Clamp(s, 0f, 1f)) : Vector3.Lerp(shoulders, head, Math.Clamp(s - 1f, 0f, 1f));
+
+    /// <summary>線分 a–b のうち、<paramref name="from"/> に水平でいちばん近い点。</summary>
+    private static Vector3 Nearest(Vector3 a, Vector3 b, Vector3 from)
+    {
+        var axis = Flat(b - a);
         var length2 = axis.LengthSquared();
-        var t = length2 > 1e-8f ? Math.Clamp(Vector3.Dot(Flat(from - lower), axis) / length2, 0f, 1f) : 1f;
-        return Vector3.Lerp(lower, head, t);
+        var t = length2 > 1e-8f ? Math.Clamp(Vector3.Dot(Flat(from - a), axis) / length2, 0f, 1f) : 1f;
+        return Vector3.Lerp(a, b, t);
     }
 
     private static Vector3 Flat(Vector3 v) => new(v.X, 0f, v.Z);
@@ -484,7 +518,7 @@ public sealed class GroundStrike
     /// <summary>打つ瞬間: 先が相手の点の少し奥（下）へ届く、手の位置と武器の向き。手の位置は先の位置から武器の長さだけ戻した所（届かなければ <c>handStrike</c> が肩から遠い）。</summary>
     private static (Vector3 Tip, Vector3 Blade, Vector3 Hand) Strike(GroundMove m, GroundTool tool, Vector3 aimLocal, float reach)
     {
-        var tip = aimLocal + (new Vector3(0f, -m.Overshoot, 0f) * reach);
+        var tip = aimLocal + (new Vector3(0f, -m.Overshoot, m.Through) * reach);
         var blade = tool.Armed ? SwordForms.Direction(0f, m.StrikeElevation) : Vector3.UnitZ;
         var hand = tool.Armed ? tip - (blade * (tool.Length * reach)) : tip;
         return (tip, blade, hand);
@@ -540,7 +574,7 @@ public sealed class GroundStrike
     private LegCommand Foot(GroundMove m, Hand side, float t, Vector3 aimLocal, float reach)
     {
         var rest = new Vector3(side.LocalSide() * _t.FootRestSide * reach, -_t.FootRestDrop * reach, 0f);
-        var contact = aimLocal + (new Vector3(0f, -m.Overshoot, 0f) * reach);
+        var contact = aimLocal + (new Vector3(0f, -m.Overshoot, m.Through) * reach);
         var chamber = contact + (new Vector3(0f, m.Rise, -m.Pull) * reach);
         Vector3 target;
         if (t < _t.WindShare)

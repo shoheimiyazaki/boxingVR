@@ -1715,12 +1715,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             // レフェリーなし: ボットは倒れた相手への攻め（GroundStrike）を足す。レフェリーありの試合には何も足さない（振る舞いも記録も今のまま）。
             if (!_corners.ExternalBlue && _cpuControl is not (IntentControl or ExternalControl))
             {
-                _cpuControl = GroundStriking(_cpuControl, Cpu, GroundStyle(_corners.CpuStyle), _corners.CpuWeapon, _corners.CpuTwoHanded, cpuSeed);
+                _cpuControl = GroundStriking(_cpuControl, Cpu, WithWeaponGround(GroundStyle(_corners.CpuStyle), _corners.CpuWeaponStyle, _corners.CpuWeapon), _corners.CpuWeapon, _corners.CpuTwoHanded, cpuSeed);
             }
 
             if (_playerControl is not null and not (IntentControl or ExternalControl))
             {
-                _playerControl = GroundStriking(_playerControl, Player, GroundStyle(_corners.RedBotStyle ?? _corners.PlayerStyle), _corners.PlayerWeapon, _corners.PlayerTwoHanded, playerSeed);
+                _playerControl = GroundStriking(_playerControl, Player, WithWeaponGround(GroundStyle(_corners.RedBotStyle ?? _corners.PlayerStyle), _corners.PlayerWeaponStyle, _corners.PlayerWeapon), _corners.PlayerWeapon, _corners.PlayerTwoHanded, playerSeed);
             }
         }
 
@@ -1782,6 +1782,16 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// </summary>
     private static Bots.BotStyle GroundStyle(Bots.BotStyle? resolved) => resolved ?? Bots.BotCatalog.Boxer;
 
+    /// <summary>
+    /// 武器を握るなら、とどめの経路は武器の教科書（<see cref="Bots.WeaponStyle.Ground"/>。キャラの教育を重ねた物があればそれ）の値。武器の長さ・重さ・握りで合う経路が違うので、
+    /// 武器の側に持つ（2026-11-24、退避していた shelf/ground-weapon-finish から移した）。無ければスタイルの値のまま。
+    /// </summary>
+    private static Bots.BotStyle WithWeaponGround(Bots.BotStyle style, Bots.WeaponStyle? weaponStyle, MiniRing.Weapons.WeaponKind? weapon)
+    {
+        var textbook = weaponStyle ?? (Bots.WeaponCatalog.HasBot(weapon) ? Bots.WeaponCatalog.Textbook(weapon!.Value) : null);
+        return textbook?.Ground is { } ground ? style with { Ground = ground.Validated() } : style;
+    }
+
     /// <summary>ボットに倒れた相手への攻めを足す（武器を握る側は、その武器の長さ・握りで）。</summary>
     private static Bots.GroundStriker GroundStriking(IFighterControl bot, Fighter self, Bots.BotStyle style, MiniRing.Weapons.WeaponKind? weapon, bool twoHanded, int seed)
     {
@@ -1813,7 +1823,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             new BodySense(opponent.ShoulderPosition(Hand.Left), opponent.ShoulderPosition(Hand.Right), opponent.PelvisPosition),
             self.Faintness, OpponentTargets: opponent.AsTarget, SelfStamina: self.Stamina,
             SelfVision: self.Voxels?.Vision ?? VisionState.Healthy, OpponentVision: opponent.Voxels?.Vision ?? VisionState.Healthy,
-            OpponentArmReach: opponent.ArmReach, OpponentDowned: opponent.State != FighterState.Standing,
+            OpponentArmReach: opponent.ArmReach, OpponentDowned: opponent.State != FighterState.Standing, SelfDowned: self.State != FighterState.Standing,
             SelfBuild: self.Build, OpponentBuild: opponent.Build,
             SelfLegLeft: self.LegBodyOf(Hand.Left), SelfLegRight: self.LegBodyOf(Hand.Right),
             SelfInjury: self.Injury(felt: true), OpponentInjury: opponent.Injury(felt: false), OpponentWinded: opponent.Winded, Grapple: GrappleSenseOf(self, opponent));

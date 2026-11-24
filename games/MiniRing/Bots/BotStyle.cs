@@ -375,8 +375,11 @@ public sealed record BotStyle
     /// <summary>倒れた相手への攻めのうち、振り下ろす系（鉄槌・斬り下ろし・棍棒の打ち下ろし）を選ぶ割合（残りは突き下ろす系。棍棒は振り下ろす系だけ）。</summary>
     public float GroundCut { get; init; } = 0.5f;
 
-    /// <summary>武器を握っていないとき、踏みつけを選ぶ割合。既定は空手の教科書と同じ。</summary>
+    /// <summary>武器を握っていないとき、足の技（踏みつけ・蹴り）を選ぶ割合。既定は空手の教科書と同じ。</summary>
     public float GroundStomp { get; init; } = 0.6f;
+
+    /// <summary>足の技のうち、倒れた相手を蹴る（<see cref="GroundTuning.Kick"/>）割合（残りは踏みつけ）。既定 0（蹴らない。2026-11-24 に足した）。</summary>
+    public float GroundKick { get; init; }
 
     /// <summary>倒れた相手への打ち下ろしの合間 [s]（次を決めるまで）。</summary>
     public float GroundRest { get; init; } = 0.5874f;
@@ -518,6 +521,7 @@ public sealed record BotStyle
             GroundLoad = Range(GroundLoad, 0f, MaxTelegraph, 0.08392f),
             GroundCut = Unit(GroundCut),
             GroundStomp = Unit(GroundStomp),
+            GroundKick = Unit(GroundKick),
             GroundRest = Range(GroundRest, 0.1678f, 5.035f, 0.5874f),
             Parry = Parry ?? SwordDefense.Parrying,
             KickWeights = (KickWeights ?? new Dictionary<KickTechnique, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),

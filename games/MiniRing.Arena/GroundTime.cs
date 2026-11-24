@@ -221,3 +221,138 @@ internal static class GroundTime
         return (seconds, finished, a.Count);
     }
 }
+
+/// <summary>とどめのドリルの 1 本（<see cref="FinishDrill"/>）。</summary>
+/// <param name="Attacker">攻め手（名簿の id）。</param>
+/// <param name="Victim">受け手（名簿の id。気を失って倒れたまま、武器は持たない）。</param>
+/// <param name="Seed">種。</param>
+/// <param name="Killed">受け手が死んだか。</param>
+/// <param name="Seconds">受け手が倒れてから死ぬまで [s]（死ななければ上限の秒）。</param>
+/// <param name="Cause">死因（死んだとき）。</param>
+/// <param name="AttackerFalls">攻め手が倒れた回数。</param>
+/// <param name="Strikes">打ち始めた数。</param>
+/// <param name="Moves">打ち始めた攻めの名前ごとの数。</param>
+/// <param name="Cells">受け手の体から欠けたセルの数（倒れてから）。死ななかった本の進み具合の目安。</param>
+internal sealed record FinishRun(string Attacker, string Victim, int Seed, bool Killed, float Seconds, string Cause, int AttackerFalls, int Strikes, IReadOnlyDictionary<string, int> Moves, int Cells);
+
+/// <summary>
+/// とどめのドリル（2026-11-24）: VFC の名簿のキャラ（体・教育・武器・はめる物）が攻め手、名簿のキャラの体の受け手を気絶させて倒しておき、
+/// 倒れてから死ぬまでの時間を測る。檻・レフェリーなしは試合と同じ。教育の値（経路・好み）を変えて練習するのに使う。
+/// </summary>
+internal static class FinishDrill
+{
+    private const float StepDt = 1f / 60f;
+
+    /// <summary>受け手を気絶させる時刻 [s] と、その脳しんとう（GroundLab と同じ値）。</summary>
+    private const float KnockAt = 2.518f;
+
+    private const float Out = 0.97f;
+
+    private static BotStyle Still => BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f, FinishTempo = 0f, FinishPress = 0f, FinishSpend = 0f };
+
+    /// <summary>攻め手の教育を差し替える: スタイル（拳の側の好み・経路）と、武器を握るなら武器の教科書の経路。</summary>
+    public delegate (BotStyle Style, GroundTuning? WeaponGround) Teach(BotStyle style, GroundTuning? weaponGround);
+
+    /// <summary>攻め手の今の教育（スタイルと武器の教科書の経路）。</summary>
+    public static (BotStyle Style, GroundTuning? WeaponGround) Current(string attackerId, string victimId)
+    {
+        var c = CharacterRoster.Get(attackerId);
+        var weapon = WeaponCatalog.HasBot(c.Weapon) ? (c.WeaponStyle ?? WeaponCatalog.Textbook(c.Weapon!.Value)).Ground : null;
+        return (c.Resolve(victimId), weapon);
+    }
+
+    public static FinishRun Run(string attackerId, string victimId, int seed, float seconds, Teach? teach = null)
+    {
+        var a = CharacterRoster.Get(attackerId);
+        var v = CharacterRoster.Get(victimId);
+        var (style, weaponGround) = Current(attackerId, victimId);
+        (style, weaponGround) = teach?.Invoke(style, weaponGround) ?? (style, weaponGround);
+        var blue = new Contender(style.Name, s => BotCatalog.Bot(style, s));
+        var red = new Contender("victim", s => new BoxerBot(Still, s));
+        var corners = VideoMaker.Corners(red, blue, seed, v.Wear, a.Wear, null, a.Weapon, s => blue.Create(s), s => red.Create(s), referee: false);
+        corners = VideoMaker.WithCharacters(corners, v, a) with { PlayerStyle = Still };
+        if (WeaponCatalog.HasBot(a.Weapon))
+        {
+            corners = corners with { CpuWeaponStyle = (a.WeaponStyle ?? WeaponCatalog.Textbook(a.Weapon!.Value)) with { Ground = weaponGround } };
+        }
+
+        corners = TvShowRules.Stage(corners, Organizations.Get("vfc"));
+        // 檻の中央から始める（コーナーから始めると、狭い檻では攻め手が角の壁に押し付けられて動けないことがあった。檻の開始位置は別の作業で直す）。
+        corners = corners with { Ring = corners.Ring! with { FromCorners = false } };
+        using var game = new BoxingGame(seed: seed, corners: corners, rules: MiniRing.MatchRules.Vfc);
+        var victim = game.Player;
+        var falls = 0;
+        var wasStanding = true;
+        var moves = new Dictionary<string, int>(StringComparer.Ordinal);
+        var lastStarted = 0;
+        GroundStriker? lastStriker = null;
+        float? downAt = null;
+        var cells0 = 0;
+        var t = 0f;
+        for (; t < KnockAt + seconds && !victim.IsDead && !game.RoundOver; t += StepDt)
+        {
+            if (t > KnockAt)
+            {
+                victim.Concussion = MathF.Max(victim.Concussion, Out);
+            }
+
+            game.Step(default, StepDt);
+            if (downAt is null && victim.State != FighterState.Standing && t > KnockAt)
+            {
+                downAt = t;
+                cells0 = Filled(victim);
+            }
+
+            var striker = game.CpuControl as GroundStriker;
+            if (!ReferenceEquals(striker, lastStriker))
+            {
+                (lastStriker, lastStarted) = (striker, 0);
+            }
+
+            var started = striker?.Ground.Started ?? 0;
+            if (started > lastStarted && striker?.Ground.CurrentName is { } name)
+            {
+                moves[name] = moves.GetValueOrDefault(name) + (started - lastStarted);
+            }
+
+            lastStarted = started;
+            if (GroundLab.Trace && ((int)(t / StepDt)) % 30 == 0)
+            {
+                var g = striker?.Ground;
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  t={t:0.0} victim={victim.State} attacker={game.Cpu.State} ctrl={game.CpuControl.GetType().Name} plan={g?.CurrentName} dist={g?.Distance:0.00} gap={g?.Gap:0.00} sink={g?.Sink:0.00} started={started} cpu={game.Cpu.PelvisPosition} vic={victim.PelvisPosition} move={striker?.Last.MoveWorld} stam={game.Cpu.Stamina:0.00}"));
+            }
+            var standing = game.Cpu.State == FighterState.Standing;
+            falls += wasStanding && !standing ? 1 : 0;
+            wasStanding = standing;
+        }
+
+        var from = downAt ?? KnockAt;
+        return new FinishRun(attackerId, victimId, seed, victim.IsDead, victim.IsDead ? t - from : seconds, victim.DeathCause?.ToString() ?? "-", falls, moves.Values.Sum(), moves, downAt is null ? 0 : cells0 - Filled(victim));
+    }
+
+    private static int Filled(Fighter f) => f.Voxels is { } v ? v.Parts.Sum(p => p.Body.Grid.FilledCount) : 0;
+}
+
+/// <summary>とどめのドリルの動画（groundtime --drill a --victims v --video out.mp4）: 名簿のキャラが、気を失って倒れた名簿のキャラを攻める。檻・コーナーから。</summary>
+internal static class FinishDrillVideo
+{
+    public static void Make(string attackerId, string victimId, int seed, float seconds, string output, TextWriter console)
+    {
+        var a = CharacterRoster.Get(attackerId);
+        var v = CharacterRoster.Get(victimId);
+        var style = a.Resolve(victimId);
+        var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f, FinishTempo = 0f, FinishPress = 0f, FinishSpend = 0f };
+        var red = new Contender("victim", s => new BoxerBot(still, s));
+        var blue = new Contender(style.Name, s => BotCatalog.Bot(style, s));
+        BoxingGame? game = null;
+        new VideoMaker(1280, 720, 30, speed: 0.5f, org: Organizations.Get("vfc"), rules: MiniRing.MatchRules.Vfc).Make(red, blue, seed, seconds, output, console,
+            afterStep: time =>
+            {
+                if (time > 2.518f && game is not null)
+                {
+                    game.Player.Concussion = MathF.Max(game.Player.Concussion, 0.97f);
+                }
+            },
+            redWear: v.Wear, blueWear: a.Wear, setup: g => game = g, blueWeapon: a.Weapon, redCharacter: v, blueCharacter: a, referee: false);
+    }
+}

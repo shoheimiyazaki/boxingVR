@@ -29,6 +29,7 @@ namespace MiniRing.Arena;
 /// <param name="tvBout">テレビ中継の冒頭に出す「第 1 試合」などの札（空なら出さない）。</param>
 /// <param name="tvBreak">テレビ中継のラウンドの間の休み [s]（休みの間に治る量は標準と同じ）。</param>
 /// <param name="tvNotes">台本の資料に足すこの試合の行（計量・王座とランキングの席。<see cref="OrgBouts.Billing"/>）。</param>
+/// <param name="rules">中継でない動画（<paramref name="tv"/> が偽）の試合の決まり（ドリルの動画で VFC の決まりにする。既定は無し）。中継の札や場面は作らない。</param>
 /// <param name="render">
 /// false なら描かない下回し: <see cref="HeadlessRenderer"/>・ffmpeg・音を作らず、試合と演出（<see cref="TvDirector"/>・リプレイの影の試合・<see cref="Broadcast"/>）だけを同じに回して
 /// *.events.json だけを書く（コマは数えるだけ。物理の速さで終わる）。mp4・wav・タイムラインは書かない。
@@ -42,7 +43,7 @@ namespace MiniRing.Arena;
 /// </param>
 internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false,
     int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 16.78f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null, bool belt = false, float cameraScale = 1f, bool focusRed = false,
-    IReadOnlyList<string>? tvNotes = null)
+    IReadOnlyList<string>? tvNotes = null, MatchRules? rules = null)
 {
     private readonly Organization _org = org ?? Organization.Default;
 
@@ -135,7 +136,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         corners = TvShowRules.Stage(WithCharacters(corners, redCharacter, blueCharacter), _org);
         var redRing = redCharacter?.HudName ?? BotNames.RingNameOf(red.Name);
         var blueRing = blueCharacter?.HudName ?? BotNames.RingNameOf(blue.Name);
-        using var game = new BoxingGame(seed: seed, corners: corners, rules: _rules, mood: _org.ArenaMood);
+        using var game = new BoxingGame(seed: seed, corners: corners, rules: _rules ?? rules, mood: _org.ArenaMood);
         setup?.Invoke(game);
         var intent = intentScript is null ? null : new IntentControl();
         var intentRound = game.Round;
