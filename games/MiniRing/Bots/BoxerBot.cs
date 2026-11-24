@@ -209,7 +209,8 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 66; // 四足の前脚を相手との位置関係から選ぶ。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 67; // 四足の鎌が切断面を追う。履歴は docs/VERSIONS.md
+    private ClawBot? _claws;
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;
@@ -245,12 +246,19 @@ public sealed class BoxerBot : IFighterControl
     /// <summary>その手で出している（または当たり判定の猶予中の）パンチ（観戦・集計用）。</summary>
     public Technique? CurrentTechnique(Hand hand)
     {
+        if (_claws is not null)
+        {
+            return null;
+        }
+
         var action = _hands[(int)hand];
         return action.Time >= 0f && action.Time < action.Duration + LandWindow ? action.Technique : null;
     }
 
     public FighterCommand Read(in FighterSense sense, float dt)
     {
+        var fourLegged = sense.SelfBuild?.FourLegged == true;
+
         var perceiveStart = StepProfile.Begin();
         var attack = _attackPerception.Update(sense, dt);
         StepProfile.End(StepProfile.Slot.BotPerceive, perceiveStart);
@@ -270,6 +278,7 @@ public sealed class BoxerBot : IFighterControl
         if (!sense.OpponentAlive)
         {
             ResetActions();
+            _claws = null;
             _read.Pause();
             _crouchTime = MathF.Max(0f, _crouchTime - (CrouchRecovery * dt)); // 相手が倒れている間に、しゃがみの疲れも抜ける
             var back = Math.Clamp((distance - (Style.NeutralRange + 0.3f) * reach) / reach * 3f, -1f, 0f);
@@ -277,6 +286,8 @@ public sealed class BoxerBot : IFighterControl
             return new FighterCommand(dir * back, dir,
                 new HandCommand(Guard(Hand.Left, reach, headLocal), false), new HandCommand(Guard(Hand.Right, reach, headLocal), false), _head);
         }
+
+        _claws = fourLegged ? _claws ?? new ClawBot(Stats) : null;
 
         if (_defense == Defense.None)
         {
@@ -368,7 +379,6 @@ public sealed class BoxerBot : IFighterControl
         // 一度疲れたら、疲れが抜けきるまで（立ち上がって息を整えるまで）沈む守りを控える。
         _crouchTired = _crouchTime > CrouchBudget || (_crouchTired && _crouchTime > 0f);
         Stats.Tick(dt, crouched, _defense != Defense.None, _hands[0].Active || _hands[1].Active);
-        var fourLegged = sense.SelfBuild?.FourLegged == true;
         var length = KickLength(fourLegged);
         var rest = new Vector3(_kickSide.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
         var kickSpec = _kick is { } kickKind ? KickSpec.Of(kickKind) : (KickSpec?)null;
@@ -420,9 +430,10 @@ public sealed class BoxerBot : IFighterControl
         }
 
         StepProfile.End(StepProfile.Slot.BotExecute, executeStart);
-        return new FighterCommand(move, kickFace, leftHand, rightHand, head, LoadTwist() + kickTwist + elbowTwist, LeftLeg: _kickSide == Hand.Left ? leg : null, RightLeg: _kickSide == Hand.Right ? leg : null,
+        var command = new FighterCommand(move, kickFace, leftHand, rightHand, head, LoadTwist() + kickTwist + elbowTwist, LeftLeg: _kickSide == Hand.Left ? leg : null, RightLeg: _kickSide == Hand.Right ? leg : null,
             Step: _kick is null && _clinchTime < 0f && _throwTime < 0f ? _step + TechniqueExecution.GroundDrive(_hands[(int)Hand.Left], kickFace, 0f, TechniqueExecution.PunchGroundDrive)
                 + TechniqueExecution.GroundDrive(_hands[(int)Hand.Right], kickFace, 0f, TechniqueExecution.PunchGroundDrive) : Vector3.Zero);
+        return _claws?.Read(command, sense, dt, Style) ?? command;
     }
 
     /// <summary>
@@ -1197,7 +1208,10 @@ public sealed class BoxerBot : IFighterControl
         _comboIndex = 0;
         _comboClock = 0f;
         _comboIsCounter = counter;
-        Stats.ComboStarted(combo.Name);
+        if (_claws is null)
+        {
+            Stats.ComboStarted(combo.Name);
+        }
     }
 
     /// <summary>連打を進め（次のパンチの開始時刻が来て手が空いていれば打つ）、出ている拳の時計を進める。</summary>

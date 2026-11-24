@@ -207,8 +207,8 @@ public sealed class VrPlayerMapper(bool weaponMode = false)
         {
             command = command with
             {
-                Left = command.Left with { Orientation = leftOrientation, Grip = false },
-                Right = command.Right with { Orientation = _lastOrientation[1], Grip = false },
+                Left = ClawSegment.FromWrist(MiniRing.Hand.Left, left, leftOrientation).ToCommand(MiniRing.Hand.Left),
+                Right = ClawSegment.FromWrist(MiniRing.Hand.Right, _lastHandLocal[1], _lastOrientation[1]).ToCommand(MiniRing.Hand.Right),
             };
             var sweep = frame.Focused && frame.LeftTrigger > 0.6f;
             return new BoxingInput(_frontLeg.Read(command, sense, sweep || (frame.Focused && frame.RightTrigger > 0.6f), sweep, dt));

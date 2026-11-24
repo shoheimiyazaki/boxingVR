@@ -519,6 +519,18 @@ public sealed class BoxerBody
     internal static VoxelGrid BuildPartGrid(BodyPartKind kind, Vector3 half, FighterTuning tuning, LowPoly.BoxerModel? shapes,
         LowPoly.BoxerModel? standardShapes, Outfit? outfit, BoxerVoxelOverrides? overrides, FaceLook? look, ref VoxelPalette? lookPalette, bool mirrorX = false)
     {
+        if (tuning.Build.FourLegged)
+        {
+            outfit = null;
+            lookPalette ??= look?.Palette(AlienAnatomy.Palette) ?? AlienAnatomy.Palette;
+            if (kind == BodyPartKind.Head)
+            {
+                var head = AlienAnatomy.Head(half, lookPalette);
+                BoxerSpine.Place(kind, head);
+                return head;
+            }
+        }
+
         var sourceHalf = half / tuning.Build.ScaleOf(kind);
         // 同じ材質セルを伸縮する。太さを変えてセルを増やすと解像度と筋肉量が混ざる。
         var sourceShape = tuning.Build != BodyBuild.Standard ? standardShapes?.Mesh(kind) : shapes?.Mesh(kind);
@@ -544,6 +556,11 @@ public sealed class BoxerBody
         {
             lookPalette ??= look.Palette(grid.Palette);
             grid = look.Restyle(kind, grid, lookPalette);
+        }
+
+        if (tuning.Build.FourLegged)
+        {
+            grid = AlienAnatomy.Plate(kind, grid, lookPalette!);
         }
 
         BoxerSpine.Place(kind, grid); // 頸椎・脊髄は外見のセルに触れず、中の材質だけ（顔の彫り直しの後に置いて位置を保つ）
@@ -640,7 +657,7 @@ public sealed class BoxerBody
             VoxelGrid? faceGrid = null;
             FaceCellColors? faceColors = null;
             float? massPerCell = null;
-            if (kind == BodyPartKind.Head)
+            if (kind == BodyPartKind.Head && !tuning.Build.FourLegged)
             {
                 // 頭: 14 mm の格子は頭蓋骨・脳・首の中だけ。その外は顔の層（7 mm）が持つ（FaceLayer）。頭の質量（体格の寸法から）を 2 つの格子の体積で分ける
                 // （ほかの部位と同じく、質量は体積に比例: 顔の層の 1 セルは 14 mm のセルの 1/8）。剛体の質量と当たりの箱は 2 つの格子の和になる（AddCompanion）。

@@ -21,8 +21,10 @@ public sealed record BodyBuild(float Height = 1f, float Arms = 1f, float Legs = 
 
     public Vector3 ScaleOf(BodyPartKind kind) => kind switch
     {
+        BodyPartKind.UpperArm or BodyPartKind.Forearm when FourLegged => new(Height * Arms, 0.87f * Height * Muscle, 0.92f * Height * Muscle),
         BodyPartKind.UpperArm or BodyPartKind.Forearm => new(Height * Arms, Height * Muscle, Height * Muscle),
         BodyPartKind.Thigh or BodyPartKind.Shin => new(Height * Muscle, Height * Legs, Height * Muscle),
+        BodyPartKind.Head when FourLegged => new(1.22f * Height, 0.97f * Height, 1.52f * Height),
         BodyPartKind.Head => new(Height),
         BodyPartKind.Pelvis when FourLegged => new(Height * Muscle, Height, Height * Muscle * 3.2f),
         _ => new(Height * Muscle, Height, Height * Muscle),

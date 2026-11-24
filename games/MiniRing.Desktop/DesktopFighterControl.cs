@@ -13,7 +13,7 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
 
     private readonly IntentControl _intent = new();
     private readonly FrontLegStrike _frontLeg = new();
-    private readonly float[] _clawExtension = new float[2];
+    private readonly ClawMotion[] _claws = [new(), new()];
     private static readonly WeaponSwing SwordLight = SwordTechnique.Basics.First(t => t.Name == "kote").Swing;
     private static readonly WeaponSwing SwordHeavy = SwordTechnique.Basics.First(t => t.Name == "men").Swing;
     private static readonly WeaponSwing ClubLight = WeaponSwing.Default(SwingFamily.Thrust);
@@ -57,8 +57,8 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
             _intent.Input = input with { Light = false, Heavy = false };
             var motion = _intent.Read(sense, dt) with
             {
-                Left = Claw(Hand.Left, input.Light, sweep, sense, dt),
-                Right = Claw(Hand.Right, input.Heavy, sweep, sense, dt),
+                Left = _claws[0].Read(Hand.Left, input.Light, sweep, sense, sense.OpponentChest, dt),
+                Right = _claws[1].Read(Hand.Right, input.Heavy, sweep, sense, sense.OpponentChest, dt),
             };
             return _frontLeg.Read(motion, sense, kickPressed, sweep, dt);
         }
@@ -174,15 +174,5 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
         var leg = kick.Evaluate(Hand.Right, _time, kick.Seconds ?? kick.Duration, rest, _kickAim, sense.ArmReach);
         _time += dt;
         return command with { RightLeg = leg };
-    }
-
-    private HandCommand Claw(Hand side, bool attack, bool sweep, in FighterSense sense, float dt)
-    {
-        ref var extend = ref _clawExtension[(int)side];
-        extend = Math.Clamp(extend + (attack ? 4.77f : -2.98f) * dt, 0f, 1f);
-        var aim = sense.Self.WorldToLocal(sense.OpponentChest) - Vector3.UnitZ * (0.30f * sense.ArmReach);
-        var through = aim - Vector3.UnitX * (sweep ? side.LocalSide() * 0.40f * sense.ArmReach : 0f);
-        var reach = sense.ArmReach;
-        return new HandCommand(PunchPath.Point(AiControl.Guard(side, reach), PunchPath.Windup(side, sweep ? 1f : 0f, 0f, reach), through, extend), false);
     }
 }

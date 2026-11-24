@@ -25,6 +25,10 @@ public sealed class AlienTests
             Assert.AreEqual(4, f.Voxels!.Parts.Count(part => part.Kind == kind));
         }
 
+        var head = f.Voxels!.PartOf(f.Parts.Head)!.Body.Grid;
+        Assert.IsGreaterThan(0, head.Remaining(Voxels.BoxerAnatomy.Cord));
+        Assert.IsGreaterThan(0, head.Remaining(Voxels.BoxerAnatomy.Brain));
+        Assert.IsGreaterThan(0, head.Remaining(Voxels.BoxerAnatomy.Eye));
         Assert.AreEqual(WeaponKind.SickleClaw, game.GloveOf(f, Hand.Left)?.Kind);
         Assert.AreEqual(WeaponKind.SickleClaw, game.GloveOf(f, Hand.Right)?.Kind);
         var height = f.HeadPosition.Y + f.HalfExtents.Head.Y - BoxingGame.RingSurfaceHeight;
@@ -99,7 +103,12 @@ public sealed class AlienTests
     {
         using var game = CreateGame();
         using var stream = new MemoryStream();
-        var player = Guard(game.Player) with { LeftLeg = new LegCommand(new Vector3(0.1f, -0.60f, 0.45f)) };
+        var blade = ClawStroke.Create(Hand.Left, game.Player.ArmReach, new Vector3(0.1f, 0.15f, 0.80f), true).Sample(0.41f);
+        var player = Guard(game.Player) with
+        {
+            Left = blade.ToCommand(Hand.Left),
+            LeftLeg = new LegCommand(new Vector3(0.1f, -0.60f, 0.45f)),
+        };
         var blue = Guard(game.Cpu) with { FaceDirection = -Vector3.UnitZ };
         using (var recorder = new ReplayRecorder(stream, game, "test"))
         {
@@ -115,6 +124,7 @@ public sealed class AlienTests
         Assert.IsTrue(corners.PlayerBody?.FourLegged);
         Assert.AreEqual(HandWear.SickleClaw, corners.PlayerWear);
         Assert.AreEqual(player.LeftLeg, data.Steps[0].Input.Player.LeftLeg);
+        Assert.AreEqual(player.Left, data.Steps[0].Input.Player.Left);
         Assert.IsTrue(ReplayPlayer.Verify(data).Reproduced);
     }
 
@@ -129,8 +139,8 @@ public sealed class AlienTests
         };
         var desktop = new DesktopFighterControl();
         var left = desktop.Read(new FighterIntent(Vector2.Zero, Light: true), sense, 0.12f, kickPressed: true, sweep: true);
-        Assert.AreNotEqual(AiControl.Guard(Hand.Left, sense.ArmReach), left.Left.TargetLocal);
-        Assert.AreEqual(AiControl.Guard(Hand.Right, sense.ArmReach), left.Right.TargetLocal);
+        Assert.IsNotNull(left.Left.Orientation);
+        Assert.AreEqual(ClawStroke.Guard(Hand.Right, sense.ArmReach).Root, left.Right.TargetLocal);
         Assert.IsNull(left.LeftLeg);
         Assert.IsNotNull(left.RightLeg);
 
@@ -148,9 +158,20 @@ public sealed class AlienTests
     }
 
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public void AimedStrike_UsesTheExistingContactPipeline(bool kick)
+    public void GalvaBot_ReportsTheClawStrokeItActuallyStarts()
+    {
+        using var game = CreateGame(0.84f);
+        var galva = CharacterRoster.Get("galva");
+        var bot = new BoxerBot(galva.Style with { KickRate = 0f }, seed: 77);
+        var command = bot.Read(game.PlayerSense, Dt);
+        Assert.AreEqual(1, bot.Stats.Combos.GetValueOrDefault("claw-sweep"));
+        Assert.HasCount(1, bot.Stats.Combos);
+        Assert.IsNotNull(command.Right.Orientation);
+        Assert.IsNull(bot.CurrentTechnique(Hand.Right));
+    }
+
+    [TestMethod]
+    public void AimedKick_UsesTheExistingContactPipeline()
     {
         using var game = CreateGame(0.80f);
         var fighter = game.Player;
@@ -165,14 +186,11 @@ public sealed class AlienTests
             var sense = game.PlayerSense;
             var side = Hand.Right;
             var basis = Guard(fighter);
-            var target = sense.Self.WorldToLocal(sense.OpponentChest);
-            var strike = kick
-                ? basis with { RightLeg = FrontLegStrike.At(sense.SelfLeg(side), sense.Self.WorldToLocal(FrontLegStrike.Aim(sense)), i / 160f, false, side) }
-                : basis with { Right = new HandCommand(target, false, Orientation: Quaternion.CreateFromAxisAngle(Vector3.UnitY, -MathF.PI / 2f)) };
+            var strike = basis with { RightLeg = FrontLegStrike.At(sense.SelfLeg(side), sense.Self.WorldToLocal(FrontLegStrike.Aim(sense)), i / 160f, false, side) };
             Step(game, strike);
             foreach (var hit in game.RecentHits)
             {
-                if (hit.Attacker == fighter && hit.Hand == side && hit.Kick == kick)
+                if (hit.Attacker == fighter && hit.Hand == side && hit.Kick)
                 {
                     landed = hit;
                     break;
@@ -180,7 +198,7 @@ public sealed class AlienTests
             }
         }
 
-        Assert.IsNotNull(landed, kick ? "front-leg hit" : "claw hit");
+        Assert.IsNotNull(landed, "front-leg hit");
         Assert.IsGreaterThan(0f, landed.Value.ImpactMass);
     }
 

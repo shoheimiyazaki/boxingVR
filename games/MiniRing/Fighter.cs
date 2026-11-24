@@ -193,9 +193,16 @@ public sealed partial class Fighter
         _legParts[Footwork.Rear] = Leg.Create(world, parts, joints, halfExtents, aigisLeft: true, toes.AigisLeft, toes.AigisLeftServo, _legs.LeftHip, _legs.LeftKnee, _legs.LeftAnkle);
         _legFull = _standHeight + _legParts[Footwork.Lead].PivotOnPelvis.Y; // 股の中心は骨盤の中心より下（Y < 0）
         _legSupport[0] = _legSupport[1] = _legFull;
-        _footwork = new Footwork(tuning.Footwork) { MaxTwist = tuning.MaxTorsoTwistRadians };
+        var stance = rear is null ? tuning.Footwork : tuning.Footwork with
+        {
+            StanceLength = 0.22f,
+            StanceWidth = 0.64f,
+            LeadYawDegrees = 17f,
+            RearYawDegrees = -17f,
+        };
+        _footwork = new Footwork(stance) { MaxTwist = tuning.MaxTorsoTwistRadians };
         _rearLegs = rear is null ? [] : CreateRearLegs(world, tuning, halfExtents, rear);
-        _rearFootwork = rear is null ? null : new Footwork(tuning.Footwork) { MaxTwist = tuning.MaxTorsoTwistRadians };
+        _rearFootwork = rear is null ? null : new Footwork(stance) { MaxTwist = tuning.MaxTorsoTwistRadians };
         _legBodies = [parts.LeftThigh, parts.RightThigh, parts.LeftShin, parts.RightShin, parts.LeftFoot, parts.RightFoot, toes.AigisLeft, toes.AigisRight, .. (rear?.Bodies ?? [])];
         // 生え直す部位（肘から先・膝から先・足首から先・つま先）の、作ったときの関節の所（両方の剛体のローカル）と向きの差。生え直すときは、
         // 親の今の姿勢からこの休みの形へ置き直して、同じ関節を作り直す（Rebud）。生成の直後に読むだけ（試合の計算は変えない）。
@@ -240,7 +247,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 91; // 四足の支持と鎌状の手。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 92; // 四足の外骨格と長腕の鎌。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1419,6 +1426,9 @@ public sealed partial class Fighter
     public Vector3 HandTargetWorld(Hand hand) => _arms[(int)hand].LastTarget;
 
     private readonly Func<Vector3, Vector3?>?[] _strikeReach = new Func<Vector3, Vector3?>?[2];
+    private readonly Vector3?[] _bladeChords = new Vector3?[2];
+
+    internal void SetBladeChord(Hand hand, Vector3? chord) => _bladeChords[(int)hand] = chord;
 
     /// <summary>
     /// 手の打つ面の点（<see cref="Weapons.Weapon.StrikeOffset"/>）の取り方を渡す: 向き（手の剛体のローカル）→ 握りの点から打つ面の点へのずれ（手の剛体のローカル）。
@@ -2496,7 +2506,7 @@ public sealed partial class Fighter
 
         // 意識が薄れると腕を上げていられない（ガードが重さで下がる）。
         // 疲れると拳を運ぶ力が落ちる（パンチが遅く軽くなり、ガードが下がる）。体を支える脚は意識（張り）で決まり、疲れでは崩れない。
-        DriveArms(drivenHands, ControlScale * FaintArm, weightShift: grounded && State == FighterState.Standing, dt);
+        DriveArms(Build.FourLegged ? command : drivenHands, ControlScale * FaintArm, weightShift: grounded && State == FighterState.Standing, dt);
     }
 
     /// <summary>今の両足の位置で、足の運びを置き直す（立ち直ったとき・生成直後）。</summary>
@@ -2725,6 +2735,11 @@ public sealed partial class Fighter
             }
             var pivot = pelvis.Position + Vector3.Transform(leg.PivotOnPelvis, pelvis.Orientation);
             var toes = kick?.KneeTargetLocal is { } kneeGoal ? Frame.LocalToWorld(kneeGoal) - pivot : new Vector3(MathF.Sin(pose.Yaw), 0f, MathF.Cos(pose.Yaw));
+            if (_rearFootwork is not null && kick is null)
+            {
+                var outward = Frame.Rotate(leg.AigisLeft ? -Vector3.UnitX : Vector3.UnitX);
+                toes += outward * (i < _legParts.Length ? 0.28f : 0.58f);
+            }
             var (thigh, knee, reach) = LegIk.Solve(Vector3.Transform(ankle - pivot, inverse), leg.ThighToKnee, leg.ShinLength, Vector3.Transform(toes, inverse));
             leg.ReachRatio = reach;
             var hipTarget = thigh;
@@ -3005,7 +3020,8 @@ public sealed partial class Fighter
         var rest = MathF.Max(0f, -head.Y - hipDrop);
         var hinge = MathF.Min(_tuning.MaxHingeRadians, MathF.Acos(Math.Clamp(1f - (rest / _restTorso), -1f, 1f)));
         _hinge = hinge;
-        var pitch = Math.Clamp(moveLean + MathF.Atan2(head.Z, torsoLength), -_tuning.MaxLeanRadians, _tuning.MaxLeanRadians) + hinge;
+        var restPitch = Build.FourLegged ? 0.27f : 0f;
+        var pitch = Math.Clamp(restPitch + moveLean + MathF.Atan2(head.Z, torsoLength), -_tuning.MaxLeanRadians, _tuning.MaxLeanRadians) + hinge;
         if (UsesHipDrive)
         {
             pitch = MathF.Min(pitch, _tuning.MaxTrunkPitchRadians); // 関節の筋で追う胸は目標まで届くので、前傾を倒れる線の手前で頭打ちに
@@ -3338,6 +3354,15 @@ public sealed partial class Fighter
             if (arm.Support is { } support)
             {
                 target = SupportTarget(arm, support, command, frame);
+            }
+            else if (_bladeChords[(int)arm.Hand] is { } chord && arm.Glove && arm.Held is { } claw && hand.Orientation is { } bladeTarget)
+            {
+                // 手首の回転が遅れた分は、面に垂直な方向だけ刃の中点が目標面へ近づくように腕で補う。
+                // 面の中の移動は刃元の目標のまま。腕・手首とも実際に動くのは既存の力と関節から。
+                var actualRotation = Quaternion.Concatenate(_world.GetState(claw.Body).Orientation, Quaternion.Conjugate(frame.Rotation));
+                var normal = Vector3.Transform(Vector3.UnitY, bladeTarget);
+                var error = Vector3.Transform(chord, bladeTarget) - Vector3.Transform(chord, actualRotation);
+                target += normal * (0.5f * Vector3.Dot(error, normal));
             }
             else if (_strikeReach[(int)arm.Hand] is { } reach && arm.Glove && arm.Held is { } worn)
             {
@@ -5073,7 +5098,9 @@ public sealed partial class Fighter
 
             // 1) IK → 肩・肘サーボの目標（腕の「形」）。肘の向きは入力の目標（Tuck: 逃がす … 脇を締める）。
             var chest = world.GetState(chestId);
-            var pole = Pole(shoulder, frame, reach, tuck);
+            var pole = tuning.Build.FourLegged
+                ? shoulder + frame.Rotate(new Vector3(0.92f * Side, 0.20f, -0.33f)) * reach
+                : Pole(shoulder, frame, reach, tuck);
             var (elbow, hand) = ArmIk.SolveTwoBone(shoulder, target, pole, UpperLength, LowerLength);
             var (upperRotation, elbowAngle) = ArmIk.JointTargets(shoulder, elbow, hand, ArmIk.BendNormal(shoulder, target, pole), Side);
             var elbowTarget = Math.Clamp(elbowAngle, 0f, 140f * MathF.PI / 180f);

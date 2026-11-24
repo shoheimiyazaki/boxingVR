@@ -321,6 +321,10 @@ public sealed record BotStyle
 
     /// <summary>Probability of selecting a kick. Zero preserves the old random sequence.</summary>
     public float KickRate { get; init; }
+
+    public float ClawDriveSeconds { get; init; } = 0.31f;
+
+    public float ClawWindup { get; init; } = 1f;
     /// <summary>Kick goal cycle duration in seconds.</summary>
     public float KickDuration { get; init; } = 1.175f;
     /// <summary>
@@ -504,6 +508,8 @@ public sealed record BotStyle
             Face = Face?.Validate(),
             Build = Build?.Validate(),
             KickRate = Unit(KickRate),
+            ClawDriveSeconds = Range(ClawDriveSeconds, 0.16f, 0.65f, 0.31f),
+            ClawWindup = Range(ClawWindup, 0.45f, 1.5f, 1f),
             KickDuration = Range(KickDuration, 0.6714f, 2.014f, 1.175f),
             KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
             BreakLikes = (BreakLikes ?? new Dictionary<string, float>()).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
