@@ -103,7 +103,7 @@ internal sealed class VrTrainingSession : IDisposable
         Game.Dispose();
     }
 
-    private BoxingGame Create() => new(_tuning, corners: SwordTraining.Corners(_weapon, Current.Gap, _wear)) { HidePlayerHead = _firstPerson };
+    private BoxingGame Create() => new(_tuning, corners: SwordTraining.Corners(_weapon, Current.Gap, _wear)) { HidePlayerHead = _firstPerson, PlayerBodyOpacity = _firstPerson ? BoxingRenderer.FirstPersonBodyOpacity : 1f };
 
     private void Rebuild()
     {

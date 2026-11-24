@@ -26,6 +26,12 @@ public static class BoxingRenderer
     private const float BareFistScale = 0.55f;
 
     /// <summary>
+    /// 一人称の自分の体の不透明度（<see cref="BoxingGame.PlayerBodyOpacity"/>）。腕・胴の形と傷（色）は分かり、その向こうの相手の拳・体が
+    /// 見える値（2026-11-24、ユーザーの要望「自分の身体がちょっと邪魔なので半透明に」。<c>--first-person-selftest</c> の画像で選んだ）。
+    /// </summary>
+    public const float FirstPersonBodyOpacity = 0.35f;
+
+    /// <summary>
     /// 部屋（ローテーブルに載った箱庭のリングの周り）と会場の飾り（表示の空間）。リングも部屋も動かないので、リングの大きさごとに 1 度だけ作る。
     /// </summary>
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(RingLayout, float), PrimitiveInstance[]> Dressings = new();
@@ -172,7 +178,8 @@ public static class BoxingRenderer
                     continue; // 一人称: 自分の頭は目の描画に入れない（カメラが頭の中にある）
                 }
 
-                voxels.Add(part.Draw(fighter.Cyanosis, eyes, fighter.Pallor)); // 血の酸素が減ると青紫に、心臓が送りきれないと青白く（見た目だけ）。顔の層も同じ
+                var draw = part.Draw(fighter.Cyanosis, eyes, fighter.Pallor); // 血の酸素が減ると青紫に、心臓が送りきれないと青白く（見た目だけ）。顔の層も同じ
+                voxels.Add(ReferenceEquals(fighter, game.Player) ? draw with { Opacity = game.PlayerBodyOpacity } : draw); // 一人称: 自分の体は半透明
             }
 
             foreach (var fragment in body.Fragments)

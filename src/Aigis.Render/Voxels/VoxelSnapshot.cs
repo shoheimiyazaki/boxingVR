@@ -15,7 +15,7 @@ public sealed class VoxelSnapshot
 
 internal sealed record VoxelSnapshotData(object Identity, int Revision, int Width, int Height, int Depth, byte[] Rgba);
 
-internal readonly record struct VoxelSnapshotDraw(VoxelSnapshotData Data, Matrix4x4 CellToWorld);
+internal readonly record struct VoxelSnapshotDraw(VoxelSnapshotData Data, Matrix4x4 CellToWorld, float Opacity);
 
 /// <summary>Simulation-thread owner: copies texels only when the source revision changes.</summary>
 public sealed class VoxelSnapshotProducer
@@ -45,7 +45,7 @@ public sealed class VoxelSnapshotProducer
                     (byte[])volume.Rgba.Clone());
             }
 
-            captured[index] = new(cached.Data, draw.CellToWorld);
+            captured[index] = new(cached.Data, draw.CellToWorld, draw.Opacity);
         }
 
         return new(captured);
@@ -85,7 +85,7 @@ public sealed class VoxelSnapshotConsumer
                 _volumes[data.Identity] = replica with { Data = data };
             }
 
-            resolved[index] = new(replica.Volume, draw.CellToWorld);
+            resolved[index] = new(replica.Volume, draw.CellToWorld, draw.Opacity);
         }
 
         foreach (var identity in _volumes.Keys.Where(identity => !live.Contains(identity)).ToArray())

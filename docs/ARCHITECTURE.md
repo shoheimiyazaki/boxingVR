@@ -107,6 +107,17 @@ XrSession.Create
 
 `--weapon <kind>` で VR でも武器を持てます（トリガーを引いている手は握り、離すと棒の上を滑る。コントローラの向きが武器の向きの目標）。B/Y ボタン・`--record-motion` で VR の動きを `motions/*.vrmotion` に記録し、Arena の `imitate --vrmotion` で人形になぞらせられます。写像は `games/MiniRing/Motion/VrPlayerMapper.cs`（ホスト非依存）、記録は `VrMotionClip`・`VrMotionRecorder`、なぞる操作元は `VrMotionImitation`。起動の引数・ボタン・実機で試す手順は [VR_MOTION.md](VR_MOTION.md)。
 
+### 手の写し方と、一人称の自分の体（2026-11-24）
+
+座標は 3 つ: VR の空間（Stage、人の実寸）→ 物理の空間（実物大の人）→ 表示の空間（`DisplaySpace`、テーブルの上の 60 cm の人形）。
+
+| 視点 | 手の目標（`FighterCommand` の体フレームのローカル） | 増幅 |
+|---|---|---|
+| 卓上の人形を外から操る（既定） | 人の肩のフレーム（HMD から推定、ヨーは視線を緩く追う）での手の位置を、腕の長さの比で縮めて人形の体フレームへ（`PuppetMapping.HandTargetLocal`） | 構えからのずれを `VrPlayerMapper.MotionGain`（2）倍 |
+| 一人称（`--first-person`） | 目の描画と同じ変換 `VrWorldPlacement` でコントローラをワールドへ写し、体の今のフレーム（肩の中心・相手を向くヨー）へ戻す（`VrPlayerMapper.FirstPersonHandLocal`）。武器の向きも同じ変換で回す | 1（`HandGain`）: 手の目標のワールドの点 = 目に見えているコントローラの点 |
+
+一人称の描画では、自分の頭を描かず（`BoxingGame.HidePlayerHead`）、自分の体のボクセルを半透明にする（`BoxingGame.PlayerBodyOpacity` = `BoxingRenderer.FirstPersonBodyOpacity` 0.35）。半透明のボクセル（`VoxelVolumeDraw.Opacity` < 1）はエンジンの `VoxelVolumePipeline` が不透明のボクセルの後に 2 回描く（深度だけ → 一番手前の面だけ混ぜる）ので、腕の重なりや裏の面が重ならず、向こうの相手・武器が均一に透けて見える。手（グローブ・素手の拳）・握った武器・切り落とされた部位は不透明のまま。どれも描画だけで、試合の計算・記録には響かない。
+
 ### 描画の流れ
 
 Aigis のレンダラーは自前のデバイスを作り、出力先は自分のウィンドウか CPU 読み戻しに限られます。そこで `HeadlessRenderer` に**外部デバイスモード**を追加しました。

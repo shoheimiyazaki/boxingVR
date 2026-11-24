@@ -122,7 +122,7 @@ var vrTuning = matchTuning with { PlayerFatigue = false }; // VR の手触りの
 var recordingMessage = "training: replays are not recorded";
 using (xr)
 using (var training = match.Training is { } trainingWeapon ? new VrTrainingSession(trainingWeapon, vrTuning, Path.Combine(Environment.CurrentDirectory, "motions"), match.FirstPerson, match.Wear) : null)
-using (var matchGame = training is null ? new BoxingGame(vrTuning, corners: match.Corners.StartingAtCorners()) { HidePlayerHead = match.FirstPerson } : null)
+using (var matchGame = training is null ? new BoxingGame(vrTuning, corners: match.Corners.StartingAtCorners()) { HidePlayerHead = match.FirstPerson, PlayerBodyOpacity = match.FirstPerson ? BoxingRenderer.FirstPersonBodyOpacity : 1f } : null)
 using (var recorder = matchGame is null ? null : ReplayRecorder.TryStartFile(Path.Combine(Environment.CurrentDirectory, "replays"), matchGame, "vr", out recordingMessage))
 using (var renderer = new HeadlessRenderer(xr.EyeWidth, xr.EyeHeight, xr.Vulkan.External))
 using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))

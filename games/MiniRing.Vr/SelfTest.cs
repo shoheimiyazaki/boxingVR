@@ -99,12 +99,13 @@ internal static unsafe class SelfTest
     /// <summary>
     /// HMD なしで一人称（<c>--first-person</c>）の目の描画を確かめる（<c>--first-person-selftest</c>）: 稽古の世界（katana、正眼の相手）で、
     /// 止まった HMD と両手（グリップを押して構える）を写像（①: 右のコントローラが両手）へ数秒流し、身長の合わせで決めた変換を掛けた目の視点から 2 枚描く
-    /// （自分の頭を描かない = 実際の描画 / 描く = 比較用）。<c>.visualcheck/vr_first_person.png</c>・<c>vr_first_person_headvisible.png</c>。
+    /// （自分の頭を描かず体は半透明 = 実際の描画 / 頭を描く・体が不透明 = 比較用）。<c>.visualcheck/vr_first_person.png</c>・<c>vr_first_person_headvisible.png</c>・
+    /// 下を見た <c>vr_first_person_down.png</c>（半透明）・<c>vr_first_person_down_opaque.png</c>（不透明）。
     /// </summary>
     public static int FirstPerson(string outputDirectory)
     {
         var tuning = FighterTuning.Default with { PlayerFatigue = false };
-        using var game = new BoxingGame(tuning, corners: MiniRing.Motion.SwordTraining.Corners(Weapons.WeaponKind.Katana, 2.535f)) { HidePlayerHead = true };
+        using var game = new BoxingGame(tuning, corners: MiniRing.Motion.SwordTraining.Corners(Weapons.WeaponKind.Katana, 2.535f)) { HidePlayerHead = true, PlayerBodyOpacity = BoxingRenderer.FirstPersonBodyOpacity };
         var mapper = new MiniRing.Motion.VrPlayerMapper(weaponMode: true)
         {
             GripHolds = true,
@@ -126,16 +127,29 @@ internal static unsafe class SelfTest
         var physicsPlacement = mapper.Placement ?? throw new InvalidOperationException("The first-person placement was not set by the calibration frame.");
         var placement = physicsPlacement.Displayed(game.Display); // 描画は表示の空間
         var eyePosition = head;
-        Matrix4x4.Invert(Matrix4x4.CreateFromQuaternion(Quaternion.Identity) * Matrix4x4.CreateTranslation(eyePosition), out var vrView);
-        var view = placement.View(vrView);
         var worldEye = placement.Point(eyePosition);
         var window = new FrustumWindow(-1.0f, 1.0f, -0.563f, 0.563f);
-        var viewProjection = Camera.OffCenterViewProjection(view, window, 0.02f * placement.Scale, 50f);
+        Matrix4x4 EyeViewProjection(Quaternion look)
+        {
+            Matrix4x4.Invert(Matrix4x4.CreateFromQuaternion(look) * Matrix4x4.CreateTranslation(eyePosition), out var vrView);
+            return Camera.OffCenterViewProjection(placement.View(vrView), window, 0.02f * placement.Scale, 50f);
+        }
+
+        var level = EyeViewProjection(Quaternion.Identity);
+        var down = EyeViewProjection(Quaternion.CreateFromAxisAngle(Vector3.UnitX, -0.6f)); // 目だけ 34° 下へ: 自分の腕と胴が視野に入る
         Directory.CreateDirectory(outputDirectory);
         Console.WriteLine($"[first-person selftest] scale {physicsPlacement.Scale:0.000} (display {placement.Scale:0.000}), puppet head {game.PlayerSense.SelfHead}, camera {physicsPlacement.Point(eyePosition)}, hmd target offset {(physicsPlacement.Point(eyePosition) - game.PlayerSense.SelfHead).Length() / game.PlayerSense.ArmReach:0.00} arm reaches");
-        foreach (var (hide, name) in new[] { (true, "vr_first_person.png"), (false, "vr_first_person_headvisible.png") })
+        // 実際の描画（頭を描かない・体は半透明）と、比べる絵（頭を描く / 体が不透明 = 2026-11-24 までの描画）。下を見た 2 枚で、自分の体の半透明を見る。
+        foreach (var (hide, opacity, viewProjection, name) in new[]
+        {
+            (true, BoxingRenderer.FirstPersonBodyOpacity, level, "vr_first_person.png"),
+            (false, BoxingRenderer.FirstPersonBodyOpacity, level, "vr_first_person_headvisible.png"),
+            (true, BoxingRenderer.FirstPersonBodyOpacity, down, "vr_first_person_down.png"),
+            (true, 1f, down, "vr_first_person_down_opaque.png"),
+        })
         {
             game.HidePlayerHead = hide;
+            game.PlayerBodyOpacity = opacity;
             var (instances, lines) = game.BuildRenderables();
             var voxels = game.BuildVoxelVolumes();
             using var reference = new HeadlessRenderer(960, 540);
@@ -148,6 +162,7 @@ internal static unsafe class SelfTest
         var puppetHead = game.Display.Point(game.PlayerSense.SelfHead);
         var behind = puppetHead + game.Display.Point(new Vector3(0.338f, 0.282f, -0.845f));
         var outside = Camera.OffCenterViewProjection(Matrix4x4.CreateLookAt(behind, puppetHead, Vector3.UnitY), new FrustumWindow(-0.5f, 0.5f, -0.28f, 0.28f), 0.02f, 50f);
+        game.PlayerBodyOpacity = 1f; // 外から見る比べは頭の隠し方だけを見る
         foreach (var (hide, name) in new[] { (true, "vr_first_person_behind_hidden.png"), (false, "vr_first_person_behind_visible.png") })
         {
             game.HidePlayerHead = hide;

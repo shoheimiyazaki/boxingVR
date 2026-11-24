@@ -1967,6 +1967,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// </summary>
     public bool HidePlayerHead { get; set; }
 
+    /// <summary>
+    /// 自分の体（プレイヤーの付いている部位のボクセル）を描く不透明度（1 = 不透明、既定）。一人称（VR の <c>--first-person</c>）では
+    /// <see cref="BoxingRenderer.FirstPersonBodyOpacity"/> にして、目の前の自分の腕・胴越しに相手が見えるようにする。描画だけの設定で、
+    /// 物理・当たり・相手から見た姿・試合の計算・記録には響かない。手（グローブ・素手の拳）・握った武器・切り落とされた部位は不透明のまま。
+    /// </summary>
+    public float PlayerBodyOpacity { get; set; } = 1f;
+
     /// <summary>ホストが試合を進めている速さ（<see cref="GameSpeed"/>）。HUD に出すだけで、試合の計算には響かない（速さはホストが 1 歩の時間で決める）。</summary>
     public GameSpeed? Speed { get; set; }
 

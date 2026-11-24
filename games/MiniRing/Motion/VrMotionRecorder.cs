@@ -17,6 +17,7 @@ public sealed class VrMotionRecorder(string? weapon, string note = "")
     private float _playerHeight = 1.7f;
     private float _playerArm = PuppetMapping.ArmReachFromHeight(1.7f);
     private float _puppetArm = 0.530f;
+    private float _gain = VrPlayerMapper.MotionGain;
 
     public int Count => _frames.Count;
 
@@ -38,6 +39,7 @@ public sealed class VrMotionRecorder(string? weapon, string note = "")
             return;
         }
 
+        _gain = mapper.HandGain;
         _playerHeight = mapper.PlayerHeight;
         _playerArm = mapper.PlayerArmReach;
         _puppetArm = puppetArmReach;
@@ -58,7 +60,7 @@ public sealed class VrMotionRecorder(string? weapon, string note = "")
 
     /// <summary>ここまでを 1 本のクリップにする（フレームが無ければ null）。</summary>
     public VrMotionClip? Build()
-        => _frames.Count == 0 ? null : new VrMotionClip(new VrMotionHeader(_playerHeight, _playerArm, _puppetArm, VrPlayerMapper.MotionGain, weapon, note), [.. _frames]);
+        => _frames.Count == 0 ? null : new VrMotionClip(new VrMotionHeader(_playerHeight, _playerArm, _puppetArm, _gain, weapon, note), [.. _frames]);
 
     /// <summary>貯めたフレームを捨てて、次の稽古を最初から記録する。</summary>
     public void Reset() => _frames.Clear();
