@@ -1,5 +1,6 @@
 using System.Numerics;
 using MiniRing.Characters;
+using MiniRing.Voxels;
 
 namespace MiniRing.Tests;
 
@@ -116,8 +117,31 @@ public sealed class PhotoFaceTests
         var wide = Read(Hair, false, Points(mouthHalf: 48f, jawHalf: 95f));
         Assert.IsGreaterThan(narrow.Face.Values.MouthWidth, wide.Face.Values.MouthWidth, "広い口");
         Assert.IsGreaterThan(narrow.Face.Values.JawWidth, wide.Face.Values.JawWidth, "広いあご");
-        Assert.IsLessThan(narrow.Face.Values.Cheekbones, wide.Face.Values.Cheekbones, "あごが広いほど頬骨は目立たない");
-        Assert.AreEqual(1f, Read(Hair, false).Measured.EyeWidth / 0.5f, 1e-4f, "目の幅 50 px / IOD 100 px");
+        var m = Read(Hair, false).Measured.Proportions;
+        Assert.AreEqual(50f / 224f, m.EyeWidth, 1e-4f, "目の幅 50 px / 顔の幅（頬の端から端）224 px");
+        Assert.AreEqual(285f / 224f, m.Aspect, 1e-4f, "顔の高さ（額 135 → あご 420）/ 幅");
+        Assert.AreEqual((230f - 135f) / 285f, m.EyeRow, 1e-4f, "目の位置は額から下へ顔の高さの比");
+    }
+
+    [TestMethod]
+    public void TheAverageFace_IsTheDefaultFace_AndTheGainScalesTheDeviation()
+    {
+        var norms = CharacterMaker.PhotoNorms;
+        float Mean(string key) => norms[key].Mean;
+        var average = new FaceProportions(Mean("aspect"), Mean("jawWidth"), Mean("eyeSpan"), Mean("eyeWidth"), Mean("eyeOpen"), Mean("eyeRow"),
+            Mean("browRow"), Mean("noseRow"), Mean("noseWidth"), Mean("mouthRow"), Mean("mouthWidth"), Mean("lipThickness"));
+        var basis = new FaceSpec(CharacterMaker.Roots[0].Face().Parts, FaceParts.Default);
+        var (values, parts) = Caricature.Apply(basis, average, norms, gain: 3f);
+        Assert.AreEqual(FaceParts.Default, values, "平均の顔は、どれだけ誇張しても既定の顔");
+        Assert.AreEqual("eyes.3", parts["eyes"].Keys.Single());
+
+        var wideMouth = average with { MouthWidth = Mean("mouthWidth") + norms["mouthWidth"].Sd, EyeRow = Mean("eyeRow") + norms["eyeRow"].Sd };
+        var once = Caricature.Apply(basis, wideMouth, norms, gain: 1f).Values;
+        var twice = Caricature.Apply(basis, wideMouth, norms, gain: 2f).Values;
+        Assert.AreEqual(2f * (once.MouthWidth - 1f), twice.MouthWidth - 1f, 1e-4f, "口の幅のずれは強さに比例");
+        Assert.IsLessThan(0f, once.EyeHeight, "目が低い顔は目の位置の値が下（負）");
+        Assert.AreEqual(2f * once.EyeHeight, twice.EyeHeight, 1e-4f);
+        Assert.AreEqual(FaceParts.Default, Caricature.Apply(basis, wideMouth, norms, gain: 0f).Values, "強さ 0 は平均の顔");
     }
 
     [TestMethod]
