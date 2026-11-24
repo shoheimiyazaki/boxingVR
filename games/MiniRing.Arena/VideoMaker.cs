@@ -1376,6 +1376,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         "angle-counter" => "サイドステップからカウンター",
         "step-counter" => "バックステップからカウンター",
         "stop-jab" => "ストップジャブ",
+        "claw-sweep" => "鎌の斬り払い",
         // 名簿の型なら技を並べる。知らない名前（ボットが後から足した型）は名前のまま出す。
         _ => Combo.All.FirstOrDefault(c => c.Name == name) is { } combo
             ? $"{name}  " + string.Join(" → ", combo.Steps.Select(t => TechniqueLabel(t, english: false)))

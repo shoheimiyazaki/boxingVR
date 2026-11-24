@@ -91,6 +91,9 @@ public sealed class IvfTests
         // 武器の選手・蹴る教科書の選手は IVF に出られない。WVC は無差別で、どの組み合わせも組める（今までの中継のまま）。
         Assert.IsNotNull(OrgBouts.Ineligible(ivf, CharacterRoster.Get("konrad")));
         Assert.IsNotNull(OrgBouts.Ineligible(ivf, CharacterRoster.Get("akira")));
+        var galva = CharacterRoster.Get("galva");
+        Assert.IsNotNull(OrgBouts.Ineligible(ivf, galva));
+        Assert.IsNull(OrgBouts.Ineligible(Organization.Of("vfc"), galva));
         var (wvcRed, _, open) = OrgBouts.Enter(Organization.Of("wvc"), CharacterRoster.Get("jin"), CharacterRoster.Get("dmitri"));
         Assert.AreEqual(WeaponKind.Katana, wvcRed.Weapon);
         Assert.AreEqual("open", open.Id);

@@ -64,6 +64,9 @@ public sealed record CharacterDraft
     /// <summary>脚の長さの比。</summary>
     public float Legs { get; init; } = 1f;
 
+    /// <summary>四足の体（<see cref="BodyBuild.FourLegged"/>: 後ろの脚の対を持つ）。</summary>
+    public bool FourLegged { get; init; }
+
     /// <summary>顔（部品の重み・値・肌・髪・瞳の色）。ファイルの <c>"face"</c> と同じ形。</summary>
     public FaceDraft Face { get; init; } = new();
 
@@ -271,6 +274,7 @@ public static class CharacterMaker
             MuscleRatio = character.Build.Muscle,
             Arms = character.Build.Arms,
             Legs = character.Build.Legs,
+            FourLegged = character.Build.FourLegged,
             Face = FaceDraft.From(character.Face, character.Look),
             Textbook = character.StyleName,
             Wear = CharacterFile.WearName(character.Wear),
@@ -334,8 +338,8 @@ public static class CharacterMaker
         BodyBuild build;
         try
         {
-            build = BodySizing.Solve(d.HeightCm, d.WeightKg, d.Arms, d.Legs);
-            if (d is { HeightRatio: { } h, MuscleRatio: { } m } && new BodyBuild(h, d.Arms, d.Legs, m) is var kept
+            build = BodySizing.Solve(d.HeightCm, d.WeightKg, d.Arms, d.Legs, d.FourLegged);
+            if (d is { HeightRatio: { } h, MuscleRatio: { } m } && new BodyBuild(h, d.Arms, d.Legs, m, d.FourLegged) is var kept
                 && kept.Validate() is var _ && CharacterProfile.HeightOf(kept) == d.HeightCm && CharacterProfile.WeightOf(kept) == d.WeightKg)
             {
                 build = kept; // 読み込んだ体のまま（身長・体重を変えていない）

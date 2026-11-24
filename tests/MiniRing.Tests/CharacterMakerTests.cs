@@ -116,7 +116,8 @@ public sealed class CharacterMakerTests
     [TestMethod]
     public void ThePhysicalMass_IsTheMatchBodysMass_AndGrowsWithTheVolume()
     {
-        foreach (var build in new[] { BodyBuild.Standard, BodySizing.Solve(190, 100, 1.08f, 1.02f), BodySizing.Solve(160, 55) })
+        // 四足（galva: 後ろの脚の対を足した体）も同じ式で、生成した体の質量と一致する。
+        foreach (var build in new[] { BodyBuild.Standard, BodySizing.Solve(190, 100, 1.08f, 1.02f), BodySizing.Solve(160, 55), CharacterRoster.Get("galva").Build })
         {
             using var world = new PhysicsWorld();
             var fighter = Fighter.Spawn(world, FighterTuning.Default with { Build = build }, "f", Vector3.Zero, 0f);

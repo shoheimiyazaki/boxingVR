@@ -138,8 +138,22 @@ public sealed partial class Fighter
     }
 
     /// <summary>この足（足・つま先の部位）を足の運びが振り出していない（床に着けば体重を受ける。蹴る脚の足でも、床に着いていれば踏んでいる）。</summary>
+    private (Vector2 Ball, float Yaw)? LandingFoot => _footwork.Landing ?? _rearFootwork?.Landing;
+
     private bool BearsWeight(int footPart)
     {
+        if (_rearFootwork is not null)
+        {
+            foreach (var (limb, pose) in StanceLegs())
+            {
+                if (footPart == limb.Heel || footPart == limb.Toe)
+                {
+                    return limb.Command is null && !(_footworkActive && pose.Swinging);
+                }
+            }
+
+            return false;
+        }
         for (var leg = 0; leg < 2; leg++)
         {
             if (footPart == _legParts[leg].Heel || footPart == _legParts[leg].Toe)
@@ -404,7 +418,7 @@ public sealed partial class Fighter
         var recovery = MathF.Max(1e-3f, _tuning.SupportRecovery * legLength);
         float outside;
         float liftOutside;
-        if (_tuning.SupportRegion == SupportRegion.Disk && State == FighterState.Standing && _footworkActive)
+        if (_rearFootwork is null && _tuning.SupportRegion == SupportRegion.Disk && State == FighterState.Standing && _footworkActive)
         {
             // 両足の母指球を直径の両端とする円（足の長さの半分だけ大きく）。
             var a = BallOnGround(_legParts[0]);
@@ -424,7 +438,7 @@ public sealed partial class Fighter
                 _region.Add(hull[i]);
             }
 
-            if (State == FighterState.Standing && _footworkActive && _footwork.Landing is { } landing)
+            if (State == FighterState.Standing && _footworkActive && LandingFoot is { } landing)
             {
                 var heel = HalfExtents.Foot;
                 var toe = FootGeometry.ToeHalf(heel);
@@ -479,7 +493,7 @@ public sealed partial class Fighter
             _catchable.Add(hull[i]);
         }
 
-        if (_footwork.Landing is { } landing)
+        if (LandingFoot is { } landing)
         {
             var heel = HalfExtents.Foot;
             var toe = FootGeometry.ToeHalf(heel);

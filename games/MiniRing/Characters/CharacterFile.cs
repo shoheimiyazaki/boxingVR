@@ -76,13 +76,7 @@ public static partial class CharacterFile
         root["face"] = Face(character.Face);
         root["body"] = new JsonObject
         {
-            ["build"] = new JsonObject
-            {
-                ["height"] = character.Build.Height,
-                ["arms"] = character.Build.Arms,
-                ["legs"] = character.Build.Legs,
-                ["muscle"] = character.Build.Muscle,
-            },
+            ["build"] = BuildNode(character.Build),
             ["wear"] = WearName(character.Wear),
             ["weapon"] = character.Weapon is { } weapon ? WeaponName(weapon) : null,
         };
@@ -144,6 +138,24 @@ public static partial class CharacterFile
         return node;
     }
 
+    /// <summary>体格（ファイルの <c>"body"."build"</c>）。四足（<see cref="BodyBuild.FourLegged"/>）は四足のときだけ書く。</summary>
+    private static JsonObject BuildNode(BodyBuild build)
+    {
+        var node = new JsonObject
+        {
+            ["height"] = build.Height,
+            ["arms"] = build.Arms,
+            ["legs"] = build.Legs,
+            ["muscle"] = build.Muscle,
+        };
+        if (build.FourLegged)
+        {
+            node["fourLegged"] = true;
+        }
+
+        return node;
+    }
+
     /// <summary>はめる物のファイルの名前（<see cref="HandWears.Parse"/> が読む名前）。</summary>
     public static string WearName(HandWear wear) => wear switch
     {
@@ -154,6 +166,7 @@ public static partial class CharacterFile
         HandWear.Gauntlet => "gauntlet",
         HandWear.Tonfa => "tonfa",
         HandWear.Shield => "shield",
+        HandWear.SickleClaw => "sickle-claw",
         _ => throw new ArgumentOutOfRangeException(nameof(wear), wear, "知らないはめる物です。"),
     };
 

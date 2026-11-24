@@ -218,7 +218,8 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 70; // 倒れた相手への攻め: 蹴り・続けて踏む・かかとの連打（踏み替え・練習した経路）・狙う範囲（刃は首）・キャラごとの練習（68・69 を合わせた）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 71; // 四足の鎌が切断面を追う（71）・倒れた相手への攻め（70）。履歴は docs/VERSIONS.md
+    private ClawBot? _claws;
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
     private Hand _kickSide;
@@ -233,7 +234,7 @@ public sealed class BoxerBot : IFighterControl
     private bool _kickSet;
 
     /// <summary>今の蹴りの長さ [s]。技が自分の長さを持つなら（人の動きから作った手本、<see cref="KickSpec.Seconds"/>）それ、なければスタイルの値。</summary>
-    private float KickLength => (_kick is { } kind ? KickSpec.Of(kind).SecondsFor(_kickSide, Style.Lead) : null) ?? Style.KickDuration;
+    private float KickLength(bool fourLegged) => (!fourLegged && _kick is { } kind ? KickSpec.Of(kind).SecondsFor(_kickSide, Style.Lead) : null) ?? Style.KickDuration;
     private Vector3 _kickAim;
     private Vector3 _kickAimWorld;
     public KickTechnique? CurrentKick => _kick;
@@ -254,12 +255,19 @@ public sealed class BoxerBot : IFighterControl
     /// <summary>その手で出している（または当たり判定の猶予中の）パンチ（観戦・集計用）。</summary>
     public Technique? CurrentTechnique(Hand hand)
     {
+        if (_claws is not null)
+        {
+            return null;
+        }
+
         var action = _hands[(int)hand];
         return action.Time >= 0f && action.Time < action.Duration + LandWindow ? action.Technique : null;
     }
 
     public FighterCommand Read(in FighterSense sense, float dt)
     {
+        var fourLegged = sense.SelfBuild?.FourLegged == true;
+
         var perceiveStart = StepProfile.Begin();
         var attack = _attackPerception.Update(sense, dt);
         StepProfile.End(StepProfile.Slot.BotPerceive, perceiveStart);
@@ -279,6 +287,7 @@ public sealed class BoxerBot : IFighterControl
         if (!sense.OpponentAlive)
         {
             ResetActions();
+            _claws = null;
             _read.Pause();
             _crouchTime = MathF.Max(0f, _crouchTime - (CrouchRecovery * dt)); // 相手が倒れている間に、しゃがみの疲れも抜ける
             var back = Math.Clamp((distance - (Style.NeutralRange + 0.3f) * reach) / reach * 3f, -1f, 0f);
@@ -286,6 +295,8 @@ public sealed class BoxerBot : IFighterControl
             return new FighterCommand(dir * back, dir,
                 new HandCommand(Guard(Hand.Left, reach, headLocal), false), new HandCommand(Guard(Hand.Right, reach, headLocal), false), _head);
         }
+
+        _claws = fourLegged ? _claws ?? new ClawBot(Stats) : null;
 
         if (_defense == Defense.None)
         {
@@ -377,6 +388,7 @@ public sealed class BoxerBot : IFighterControl
         // 一度疲れたら、疲れが抜けきるまで（立ち上がって息を整えるまで）沈む守りを控える。
         _crouchTired = _crouchTime > CrouchBudget || (_crouchTired && _crouchTime > 0f);
         Stats.Tick(dt, crouched, _defense != Defense.None, _hands[0].Active || _hands[1].Active);
+        var length = KickLength(fourLegged);
         var rest = new Vector3(_kickSide.LocalSide() * 0.2f * reach, -1.4f * reach, 0f);
         var kickSpec = _kick is { } kickKind ? KickSpec.Of(kickKind) : (KickSpec?)null;
         // 体の向きを回す蹴り: 向きは相手へ向けた向きから回す（FaceDirection の目標）。狙い（体フレーム）は体が回るにつれて動くので毎歩求め直す。
@@ -387,18 +399,22 @@ public sealed class BoxerBot : IFighterControl
             kickSpec = null; // 体重を軸足へ移している間（KickShift）は脚を上げない
         }
 
-        if (kickSpec is { Turns: true } turning)
+        if (kickSpec is { Turns: true } turning && !fourLegged)
         {
-            kickTwist = turning.TorsoTwist(_kickSide, _kickTime, KickLength);
+            kickTwist = turning.TorsoTwist(_kickSide, _kickTime, length);
             if (turning.Rotates)
             {
-                var yaw = turning.FaceYaw(_kickSide, _kickTime, KickLength);
+                var yaw = turning.FaceYaw(_kickSide, _kickTime, length);
                 kickFace = Vector3.Transform(dir, Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw));
                 _kickAim = self.WorldToLocal(_kickAimWorld);
             }
         }
 
-        var leg = kickSpec is { } spec ? spec.Evaluate(_kickSide, _kickTime, KickLength, rest, _kickAim, reach, sense.SelfLeg(_kickSide), Style.Lead) : (LegCommand?)null;
+        var leg = kickSpec is { } spec
+            ? fourLegged
+                ? FrontLegStrike.At(sense.SelfLeg(_kickSide), self.WorldToLocal(_kickAimWorld), _kickTime / length, spec.Technique != KickTechnique.Front, _kickSide)
+                : spec.Evaluate(_kickSide, _kickTime, length, rest, _kickAim, reach, sense.SelfLeg(_kickSide), Style.Lead)
+            : (LegCommand?)null;
         var leftHand = new HandCommand(left, grip.Left, Spring(Hand.Left), Shape: _shapes[0], Tuck: Tuck(Hand.Left));
         var rightHand = new HandCommand(right, grip.Right, Spring(Hand.Right), Shape: _shapes[1], Tuck: Tuck(Hand.Right));
         var head = _head;
@@ -423,9 +439,10 @@ public sealed class BoxerBot : IFighterControl
         }
 
         StepProfile.End(StepProfile.Slot.BotExecute, executeStart);
-        return new FighterCommand(move, kickFace, leftHand, rightHand, head, LoadTwist() + kickTwist + elbowTwist, LeftLeg: _kickSide == Hand.Left ? leg : null, RightLeg: _kickSide == Hand.Right ? leg : null,
+        var command = new FighterCommand(move, kickFace, leftHand, rightHand, head, LoadTwist() + kickTwist + elbowTwist, LeftLeg: _kickSide == Hand.Left ? leg : null, RightLeg: _kickSide == Hand.Right ? leg : null,
             Step: _kick is null && _clinchTime < 0f && _throwTime < 0f ? _step + TechniqueExecution.GroundDrive(_hands[(int)Hand.Left], kickFace, 0f, TechniqueExecution.PunchGroundDrive)
                 + TechniqueExecution.GroundDrive(_hands[(int)Hand.Right], kickFace, 0f, TechniqueExecution.PunchGroundDrive) : Vector3.Zero);
+        return _claws?.Read(command, sense, dt, Style) ?? command;
     }
 
     /// <summary>
@@ -951,22 +968,31 @@ public sealed class BoxerBot : IFighterControl
             return;
         }
 
+        var fourLegged = sense.SelfBuild?.FourLegged == true;
         var before = _kickTime;
         if (!_kickSet || (before < 0f && before + dt >= 0f))
         {
             // 蹴りを選んだ歩と、体重を移し終えて脚を上げる歩で、狙いを決める（移している間に相手が動く）。
-            _kickSide = Style.Lead == Hand.Left ? Hand.Right : Hand.Left;
-            _kickAimWorld = KickSpec.Of(kind).AimWorld(sense);
+            _kickAimWorld = fourLegged ? FrontLegStrike.Aim(sense) : KickSpec.Of(kind).AimWorld(sense);
+            var side = fourLegged ? FrontLegStrike.Choose(sense, _kickAimWorld)
+                : Style.Lead == Hand.Left ? Hand.Right : Hand.Left;
+            if (side is not { } available)
+            {
+                _kick = null;
+                _kickSet = false;
+                return;
+            }
+            _kickSide = available;
             _kickAim = sense.Self.WorldToLocal(_kickAimWorld);
             _kickSet = true;
         }
         _kickTime += dt;
-        if (_kickTime >= KickLength)
+        if (_kickTime >= KickLength(fourLegged))
         {
             _kick = null;
             _kickTime = 0f;
             _kickSet = false;
-            _cooldown = KickLength;
+            _cooldown = KickLength(fourLegged);
         }
     }
 
@@ -1193,7 +1219,10 @@ public sealed class BoxerBot : IFighterControl
         _comboIndex = 0;
         _comboClock = 0f;
         _comboIsCounter = counter;
-        Stats.ComboStarted(combo.Name);
+        if (_claws is null)
+        {
+            Stats.ComboStarted(combo.Name);
+        }
     }
 
     /// <summary>連打を進め（次のパンチの開始時刻が来て手が空いていれば打つ）、出ている拳の時計を進める。</summary>

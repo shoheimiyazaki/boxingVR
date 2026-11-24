@@ -132,6 +132,7 @@ public sealed class VrPlayerMapper(bool weaponMode = false)
     {
         _placeAgain = true;
         _kick.Cancel();
+        _frontLeg = new FrontLegStrike();
     }
 
     /// <summary>
@@ -145,6 +146,7 @@ public sealed class VrPlayerMapper(bool weaponMode = false)
 
     private readonly FaceButtonTracker _faceButtons = new();
     private readonly KickRunner _kick = new();
+    private FrontLegStrike _frontLeg = new();
 
     public BoxingInput Read(in VrRawFrame frame, in FighterSense sense, float dt)
     {
@@ -219,6 +221,17 @@ public sealed class VrPlayerMapper(bool weaponMode = false)
             HandOf(MiniRing.Hand.Left, left, leftOrientation, grabLeft, letGo && releasedLeft, frame),
             HandOf(MiniRing.Hand.Right, _lastHandLocal[1], _lastOrientation[1], grabRight, letGo && releasedRight, frame),
             headOffset);
+        if (sense.SelfBuild?.FourLegged == true)
+        {
+            command = command with
+            {
+                Left = ClawSegment.FromWrist(MiniRing.Hand.Left, left, leftOrientation).ToCommand(MiniRing.Hand.Left),
+                Right = ClawSegment.FromWrist(MiniRing.Hand.Right, _lastHandLocal[1], _lastOrientation[1]).ToCommand(MiniRing.Hand.Right),
+            };
+            var sweep = frame.Focused && frame.LeftTrigger > 0.6f;
+            return new BoxingInput(_frontLeg.Read(command, sense, sweep || (frame.Focused && frame.RightTrigger > 0.6f), sweep, dt));
+        }
+
         if (FaceButtonControls)
         {
             // X = 左脚・Y = 右脚の蹴り（間合いで前蹴り・膝蹴り）。脚は追跡しないので、蹴りの経路を体が追う。手はコントローラを追ったまま。
