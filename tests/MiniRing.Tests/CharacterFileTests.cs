@@ -32,10 +32,11 @@ public sealed class CharacterFileTests
         Assert.HasCount(13, CharacterRoster.Countries.Keys.Where(k => all.Any(c => c.Country.Id == k)).ToList());
         foreach (var c in all)
         {
-            // 2026-11-18: 教育は休みの動作の好み（BreakLikes）と戦略の層（GamePlan: 得意な間合いの表）だけ。ほかの値は教科書そのもの。
-            Assert.AreEqual("BreakLikes,GamePlan", string.Join(",", c.Education.Style.Select(p => p.Key).Order()), c.Id);
+            // 2026-11-18: 教育は休みの動作の好み（BreakLikes）と戦略の層（GamePlan: 得意な間合いの表）。2026-11-24: VFC の練習したキャラは倒れた相手への攻め
+            // （Ground*、武器を握るなら education.weaponBot.Ground）も。ほかの値は教科書そのもの。
+            Assert.AreEqual("BreakLikes,GamePlan", string.Join(",", c.Education.Style.Select(p => p.Key).Where(k => !CharacterRosterTests.GroundKeys.Contains(k)).Order()), c.Id);
             Assert.AreEqual(0, c.Education.Vs.Count, c.Id);
-            Assert.IsNull(c.Education.WeaponBot, c.Id);
+            Assert.IsTrue(c.Education.WeaponBot is null || c.Education.WeaponBot.Select(p => p.Key).SequenceEqual(["Ground"]), c.Id);
             Assert.IsEmpty(c.Record, c.Id);
             var textbook = BotCatalog.Style(c.StyleName);
             CharacterRosterTests.AssertTextbookPlusGamePlan(textbook, c.Resolve(), c.Id);

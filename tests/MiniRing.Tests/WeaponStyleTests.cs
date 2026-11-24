@@ -124,7 +124,8 @@ public sealed class WeaponStyleTests
         Assert.AreEqual(1.408f, jin.WeaponStyle.ClubRange, "the club values are carried even when unused");
         Assert.AreSame(WeaponCatalog.Textbook(WeaponKind.Katana), CharacterRoster.Get("jin").WeaponStyle, "an empty education plays the textbook itself");
         Assert.AreSame(WeaponCatalog.Textbook(WeaponKind.Longsword), CharacterRoster.Get("konrad").WeaponStyle);
-        Assert.AreSame(WeaponCatalog.Textbook(WeaponKind.WoodenClub), CharacterRoster.Get("sean").WeaponStyle);
+        // 2026-11-24: ショーンの教育はとどめの経路（weaponBot.Ground）だけを持つ。
+        CharacterRosterTests.AssertWeaponTextbookPlusGround(WeaponCatalog.Textbook(WeaponKind.WoodenClub), CharacterRoster.Get("sean").WeaponStyle, "sean");
         Assert.IsNull(CharacterRoster.Get("marcus").WeaponStyle, "fists have no weapon bot");
 
         Assert.Throws<InvalidDataException>(() => WithWeaponBot("jin", "{ \"Rst\": 0.4 }"));
