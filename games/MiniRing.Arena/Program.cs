@@ -1686,7 +1686,7 @@ static int ImitateCommand(Options o)
         if (o.Get("measure") is not null)
         {
             var r = vrVideo.Run(vrClip, vrWeapon, vrRate, vrTitle, null);
-            Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{vrTitle}: right hand error {r.MeanRightError:0.00} left {r.MeanLeftError:0.00} ({r.Steps} steps)"));
+            Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{vrTitle}: right hand error {r.MeanRightError:0.00} left {r.MeanLeftError:0.00} ({r.Steps} steps), self cells lost {r.SelfCellsLost}"));
             return 0;
         }
 
