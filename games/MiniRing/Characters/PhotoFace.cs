@@ -46,21 +46,33 @@ public static class PhotoFace
     /// <summary>頭の箱の正規化座標 1 の実寸 / IOD（顔の層の頭の高さの半分 ≒ 115 mm = 1.85 IOD）。位置のずれの値を IOD の比から写す。</summary>
     private const float NormalizedPerIod = 1f / 1.85f;
 
-    /// <summary>髪の色が肌の色にこれより近ければ（RGB の距離）、髪が無い（坊主・剃った頭）と見る。</summary>
-    private const float BaldColorDistance = 0.12f;
+    /// <summary>
+    /// 肌との違い（<see cref="Unlike"/>: 色み（明るさで割った rgb）の距離 × <see cref="ChromaWeight"/> ＋ 明るさの比の対数の大きさ）がこれを超えたら、肌ではない（髪・ひげ）と見る。
+    /// 白髪・灰色のひげは暗くないが赤みが無いので色みで、黒い髪・ひげは明るさで分かる。影の肌（明るさ 0.75 倍 → 0.29）はこれより下。
+    /// </summary>
+    private const float NotSkin = 0.5f;
 
-    /// <summary>あご先の明るさ / 頬の明るさ。これより暗いほどひげが濃い（無精ひげ → 短いひげ）。</summary>
-    private const float StubbleShade = 0.72f;
+    /// <summary>
+    /// あご先の肌との違いがこれを超えたら無精ひげ・<see cref="FullBeard"/> を超えたら短いひげ。生成の顔写真 4 枚（2026-11-24）で、ひげの無いあご 0.06〜0.17、
+    /// 白髪まじりの短いひげ 0.41 だったので、その間に置いた（あごの下の影は色みが肌のままで明るさだけ落ちる）。
+    /// </summary>
+    private const float Stubble = 0.3f;
 
-    /// <inheritdoc cref="StubbleShade"/>
-    private const float BeardShade = 0.55f;
+    /// <inheritdoc cref="Stubble"/>
+    private const float FullBeard = 0.55f;
+
+    /// <summary>色みの距離の重み（肌の色みの差 0.01 が明るさの比の対数 0.1 と同じ重さ）。</summary>
+    private const float ChromaWeight = 10f;
+
+    /// <summary>髪を探す所: 額の目印（MediaPipe の 10 番は額の中ほど）から上へ、IOD のこの倍まで 0.1 ずつ。ここまで肌のままなら髪が無い（坊主・剃った頭）と見る（生え際は普通この内側。頭の上の端より下）。</summary>
+    private const float HairSearchIod = 0.8f;
 
     /// <summary>目の中で、肌の明るさのこれ倍より暗い画素を瞳（虹彩・瞳孔）と見る（白目と肌を外す）。</summary>
     private const float IrisDarkerThanSkin = 0.8f;
 
     /// <summary>測った量（IOD を 1 とする比）。画面に出して、何を読み取ったかを見せる。</summary>
     public sealed record Measurements(float CheekWidth, float JawShare, float EyeWidth, float InnerGap, float EyeAspect, float EyeTilt, float BrowAbove,
-        float NoseWidth, float NoseLength, float MouthWidth, float LipShare, float EyeToChin, float MouthShare, float Forehead, float ChinShade, float HairToSkin);
+        float NoseWidth, float NoseLength, float MouthWidth, float LipShare, float EyeToChin, float MouthShare, float Forehead, float ChinUnlike, float HairUnlike, float HairAbove);
 
     /// <summary>写真から作った顔と、測った量。</summary>
     public sealed record Result(FaceSpec Face, Measurements Measured);
@@ -113,14 +125,33 @@ public static class PhotoFace
         var cheekL = Vector2.Lerp(P("leftEyeBottom"), P("mouthLeft"), 0.5f) + new Vector2(-0.15f * iod, 0f);
         var cheekR = Vector2.Lerp(P("rightEyeBottom"), P("mouthRight"), 0.5f) + new Vector2(0.15f * iod, 0f);
         var skin = image.Median([(cheekL, radius), (cheekR, radius)]);
-        var hairPoint = P("forehead") - new Vector2(0f, 0.3f * iod);
-        var hair = image.Median([(hairPoint, 0.18f * iod)]);
+        // 髪: 額の目印から上へ、肌でない色が初めて出る所（生え際）の少し上の色。最後まで肌なら髪が無い（額の上が肌のまま頭の上まで）。
+        var (hair, hairUnlike, hairAbove) = (skin, 0f, float.NaN);
+        for (var up = 0.1f; up <= HairSearchIod + 1e-4f; up += 0.1f)
+        {
+            var center = P("forehead") - new Vector2(0f, up * iod);
+            if (center.Y < 0f)
+            {
+                break;
+            }
+
+            var patch = image.Median([(center, 0.1f * iod)]);
+            if (Unlike(patch, skin) > NotSkin)
+            {
+                var above = center - new Vector2(0f, 0.15f * iod);
+                hair = above.Y >= 0f ? image.Median([(above, 0.1f * iod)]) : patch;
+                (hairUnlike, hairAbove) = (Unlike(patch, skin), up);
+                break;
+            }
+
+            hairUnlike = MathF.Max(hairUnlike, Unlike(patch, skin));
+        }
+
         var irisLuma = IrisDarkerThanSkin * Luma(skin);
         var iris = image.IrisOf(irisLuma, (P("leftEyeOuter"), P("leftEyeInner"), P("leftEyeTop"), P("leftEyeBottom")),
             (P("rightEyeOuter"), P("rightEyeInner"), P("rightEyeTop"), P("rightEyeBottom"))) ?? basis.Iris ?? new Vector3(0.19f, 0.13f, 0.09f);
         var chinPatch = image.Median([(Vector2.Lerp(P("lipBottom"), chin, 0.55f), 0.14f * iod)]);
-        var chinShade = Luma(chinPatch) / MathF.Max(1e-3f, Luma(skin));
-        var hairToSkin = Vector3.Distance(hair, skin);
+        var chinUnlike = Unlike(chinPatch, skin);
 
         var measured = new Measurements(
             CheekWidth: cheekWidth,
@@ -137,8 +168,9 @@ public static class PhotoFace
             EyeToChin: (chin.Y - eyeY) / iod,
             MouthShare: (mouthY - noseTip.Y) / MathF.Max(1e-3f, chin.Y - noseTip.Y),
             Forehead: (eyeY - P("forehead").Y) / iod,
-            ChinShade: chinShade,
-            HairToSkin: hairToSkin);
+            ChinUnlike: chinUnlike,
+            HairUnlike: hairUnlike,
+            HairAbove: hairAbove);
 
         var v = basis.Values with
         {
@@ -163,13 +195,13 @@ public static class PhotoFace
         parts["mouth"] = Blend(measured.LipShare, ("mouth.7", 0.22f), ("mouth.8", 0.33f), ("mouth.9", 0.44f), ("mouth.10", 0.55f));
         parts["nose"] = Blend(measured.NoseWidth, ("nose.4", 0.48f), ("nose.1", 0.58f), ("nose.2", 0.7f));
         parts["jaw"] = Blend(measured.JawShare, ("jaw.1", 0.66f), ("jaw.10", 0.76f), ("jaw.9", 0.86f));
-        if (hairToSkin < BaldColorDistance)
+        if (float.IsNaN(hairAbove))
         {
             parts["hair"] = new Dictionary<string, float> { ["hair.3"] = 1f };
         }
 
-        parts["beard"] = chinShade < BeardShade ? new Dictionary<string, float> { ["beard.4"] = 1f }
-            : chinShade < StubbleShade ? new Dictionary<string, float> { ["beard.1"] = 1f }
+        parts["beard"] = chinUnlike > FullBeard ? new Dictionary<string, float> { ["beard.4"] = 1f }
+            : chinUnlike > Stubble ? new Dictionary<string, float> { ["beard.1"] = 1f }
             : new Dictionary<string, float>();
 
         var face = new FaceSpec(parts, v) { Skin = Clamp01(skin), Hair = Clamp01(hair), Iris = Clamp01(iris) }.Validate();
@@ -181,6 +213,14 @@ public static class PhotoFace
     private static Vector3 Clamp01(Vector3 c) => Vector3.Clamp(c, Vector3.Zero, Vector3.One);
 
     private static float Luma(Vector3 c) => (0.299f * c.X) + (0.587f * c.Y) + (0.114f * c.Z);
+
+    /// <summary>肌との違い: 色み（明るさで割った rgb）の距離 × <see cref="ChromaWeight"/> ＋ |ln(明るさの比)|。0 = 同じ肌。</summary>
+    private static float Unlike(Vector3 c, Vector3 skin)
+    {
+        static Vector3 Chroma(Vector3 v) => v / MathF.Max(1e-3f, v.X + v.Y + v.Z);
+        var shade = MathF.Max(1e-3f, Luma(c)) / MathF.Max(1e-3f, Luma(skin));
+        return (ChromaWeight * Vector3.Distance(Chroma(c), Chroma(skin))) + MathF.Abs(MathF.Log(shade));
+    }
 
     /// <summary>いちばん近い 1 部品（目は 1 部品: 名簿の決まり）。</summary>
     private static Dictionary<string, float> Nearest(float value, params (string Id, float At)[] parts)
