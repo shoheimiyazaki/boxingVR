@@ -15,7 +15,7 @@ namespace MiniRing.Tests;
 [TestClass]
 public sealed class OrganizationTests
 {
-    private static readonly string[] Ids = ["vfc", "wvc"];
+    private static readonly string[] Ids = ["ivf", "vfc", "wvc"];
     private static readonly string[] VfcFighters = ["daichi", "edgar", "gaston", "jin", "joao", "konrad", "sean", "tsuyoshi", "vikram"];
 
     private const string KnockoutEvents = """
@@ -422,6 +422,29 @@ public sealed class OrganizationVisualTests
             PngWriter.WriteRgba(Path.Combine(outDir, $"org_result_ko_{org.Id}.png"), Width, Height, renderer.RenderPrimitiveScene(back, Matrix4x4.Identity, [], [], t3, shapes: s3));
             Assert.IsTrue(t1.Any(t => t.Text.Contains(org.Name, StringComparison.OrdinalIgnoreCase) || t.Text.Replace(" ", "").Contains(org.Name.ToUpperInvariant(), StringComparison.Ordinal)));
         }
+    }
+
+    [TestMethod]
+    public void BroadcastScreens_Ivf_ShowTheDivisionTitleBoutAndTko()
+    {
+        var outDir = OutDir();
+        using var renderer = new HeadlessRenderer(Width, Height);
+        var back = new Vector4(0.2f, 0.19f, 0.2f, 1f);
+        var ivf = Organization.Of("ivf");
+        var g = new TvShowGraphics(Width, Height, ivf);
+        var card = new TvCard("IVF ファイトナイト", "メインイベント　・　ヘビー級タイトルマッチ",
+            TvCorner.Of(CharacterRoster.Get("marcus")) with { Seat = "ヘビー級 王者" }, TvCorner.Of(CharacterRoster.Get("dmitri")) with { Seat = "ヘビー級 1位" },
+            TvShowRules.Rules(5, 10f, ivf));
+        var (t1, s1) = g.Opening(card, 4f);
+        PngWriter.WriteRgba(Path.Combine(outDir, "org_opening_ivf.png"), Width, Height, renderer.RenderPrimitiveScene(back, Matrix4x4.Identity, [], [], t1, shapes: s1));
+        var (t2, s2) = g.Tape(card, 6f);
+        PngWriter.WriteRgba(Path.Combine(outDir, "org_tape_ivf.png"), Width, Height, renderer.RenderPrimitiveScene(back, Matrix4x4.Identity, [], [], t2, shapes: s2));
+        var tko = new TvResult(1, "TKO — 3 KNOCKDOWNS  RED WIN", 2, 21f, [100f, 120f], [40f, 30f]);
+        var (t3, s3) = g.Result(card, tko, 3.5f);
+        PngWriter.WriteRgba(Path.Combine(outDir, "org_result_tko_ivf.png"), Width, Height, renderer.RenderPrimitiveScene(back, Matrix4x4.Identity, [], [], t3, shapes: s3));
+        Assert.IsTrue(t1.Any(t => t.Text.Contains("タイトルマッチ", StringComparison.Ordinal)));
+        Assert.IsTrue(t2.Any(t => t.Text.Contains("ヘビー級 王者", StringComparison.Ordinal)), "比べる表に階級と席");
+        Assert.IsTrue(t3.Any(t => t.Text.Contains("T.K.O.", StringComparison.Ordinal) || t.Text.Contains("3 度のダウン", StringComparison.Ordinal)));
     }
 
     [TestMethod]

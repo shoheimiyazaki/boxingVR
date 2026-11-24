@@ -197,6 +197,7 @@ internal static class Emblems
     {
         ["wvc"] = WvcEmblem.Draw,
         ["vfc"] = VfcEmblem.Draw,
+        ["ivf"] = IvfEmblem.Draw,
     };
 
     /// <summary>紋章の id の一覧。</summary>

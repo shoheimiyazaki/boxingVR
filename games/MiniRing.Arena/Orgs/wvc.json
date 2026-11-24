@@ -50,6 +50,12 @@
     "judgesDecision": true, "regenerates": true, "referee": true, "arena": "ropedSquare",
     "concussionSpinScale": 2.0142677, "limbBendStrengthScale": 0.60
   },
+  // 出場（2026-11-19、3 団体の整理）: 無差別級。ボクサー同士がメインで、まれに異種格闘技戦（素手・はめる物・武器の選手も招く）。はめる物は選手のまま。
+  "entry": { "gear": null, "weapons": true },
+  "divisions": [ { "id": "open", "name": "無差別級", "limitKg": null } ],
+  // 王座は無差別級の世界王座 1 本。ランキングは所属の選手だけ。勝ち 3・引き分け 1（判定の団体なので引き分けにも点）。
+  "titles": { "belt": "{org} 世界王座", "titleBout": "世界タイトルマッチ", "bout": "" },
+  "ranking": { "membersOnly": true, "win": 3, "draw": 1, "finishBonus": 0 },
   "text": {
     "openingRule": "{seconds}秒 × {rounds}ラウンド　・　K.O. か判定で決着",
     "finishWord": "K.O.",

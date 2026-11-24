@@ -11,8 +11,9 @@ namespace MiniRing.Arena;
 /// <param name="Detail">見出しの下の説明（スタイル・手にはめる物）。</param>
 /// <param name="FullName">紹介の板の上の行に出す本名（名簿のキャラクター）。空なら出さない。</param>
 /// <param name="Profile">プロフィール（名簿のキャラクター。比べる表に年齢・身長・体重・戦績を出す）。無ければ null。</param>
+/// <param name="Seat">団体の中の階級と席（「ミドル級 王者」「ヘビー級 2位」）。比べる表に出す。無ければ null（行を出さない）。</param>
 /// <param name="Character">名簿のキャラクター（全身の絵を試合の体のボクセルから写す番組の型が読む）。名簿に無い選手は null。</param>
-internal sealed record TvCorner(string Name, string Discipline, string Detail, string FullName = "", MiniRing.Characters.CharacterProfile? Profile = null, MiniRing.Characters.FighterCharacter? Character = null)
+internal sealed record TvCorner(string Name, string Discipline, string Detail, string FullName = "", MiniRing.Characters.CharacterProfile? Profile = null, MiniRing.Characters.FighterCharacter? Character = null, string? Seat = null)
 {
     /// <summary>名簿のキャラクターの紹介: 試合の名前・武器（はめる物）・肩書きと出身・本名。</summary>
     public static TvCorner Of(MiniRing.Characters.FighterCharacter character)
@@ -86,7 +87,8 @@ internal sealed record TvResult(int Winner, string? Finish, int Round, float Rou
     public bool ByDecision => Finish is null || Finish.Contains("DECISION", StringComparison.Ordinal) || Finish == "DRAW";
 
     /// <summary>決まり手の大きな文字（K.O. / 判定 / 引き分け）。</summary>
-    public string Method => Winner == 0 ? "引き分け" : ByDecision ? "判定" : Finish?.StartsWith("RING OUT", StringComparison.Ordinal) == true ? "リングアウト" : "K.O.";
+    public string Method => Winner == 0 ? "引き分け" : ByDecision ? "判定" : Finish?.StartsWith("RING OUT", StringComparison.Ordinal) == true ? "リングアウト"
+        : Finish?.StartsWith("TKO", StringComparison.Ordinal) == true ? "T.K.O." : "K.O.";
 
     /// <summary>決まり手の説明（「脳の破壊」「失神」「10 カウント」）。</summary>
     public string Cause => Finish?.Split("  ")[0] switch // ゲームの文の後ろの "  BLUE WINS" は落とす
@@ -95,6 +97,7 @@ internal sealed record TvResult(int Winner, string? Finish, int Round, float Rou
         "RING OUT" => "リングの外へ",
         "10 COUNT K.O." => "10 カウント",
         "K.O. — OUT COLD" => "失神",
+        { } tko when tko.StartsWith("TKO — ", StringComparison.Ordinal) => $"1 ラウンドに {tko["TKO — ".Length..].Split(' ')[0]} 度のダウン",
         { } ko when ko.StartsWith("K.O. — ", StringComparison.Ordinal) => Organ(ko["K.O. — ".Length..].Replace(" DESTROYED", "", StringComparison.Ordinal)) + "の破壊",
         _ => "",
     };
@@ -261,6 +264,12 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
             ("拠点", red.Hometown, blue.Hometown),
             ("構え", red.Stance, blue.Stance),
         };
+        if (card.Red.Seat is not null || card.Blue.Seat is not null)
+        {
+            // 団体の席（階級制の団体の計量と王座・ランキング）は体重のすぐ下に。
+            rows = [.. rows[..3], ("階級・席", card.Red.Seat ?? "—", card.Blue.Seat ?? "—"), .. rows[3..]];
+        }
+
         var rowHeight = (h * 0.66f) / rows.Length;
         var top = h * 0.29f;
         for (var i = 0; i < rows.Length; i++)

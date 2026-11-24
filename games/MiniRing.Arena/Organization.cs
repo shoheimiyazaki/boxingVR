@@ -88,9 +88,10 @@ internal sealed record OrgCast(OrgSeat Announcer, OrgSeat Commentator);
 /// 休みの間に削れた体が予算で治るか（<see cref="MatchRules.RegenVoxelsPerSecond"/>、WVC）・レフェリーがいるか（<see cref="BoxingCorners.Referee"/>）・場の形（<see cref="ArenaShape"/>）・
 /// 傷の前線の再生（<see cref="Regrowth"/>、VFC。書かなければしない）・休みに失った武器を支給するか（<see cref="ResupplyWeapons"/>）。
 /// ダウンを数えるかは <see cref="Organization.CountsDowns"/>（下書き・画面と共有）。
+/// 1 ラウンドにこの数のダウンで TKO（<see cref="Organization"/> の <c>KnockdownLimit</c> = <see cref="MatchRules.KnockdownLimit"/>。0 なら無い、IVF は 3）。
 /// </summary>
 internal sealed record OrgMatch(bool JudgesDecision, bool Regenerates, bool Referee, ArenaShape Arena, OrgRegrowth? Regrowth = null, bool ResupplyWeapons = false,
-    float ConcussionSpinScale = 1f, float LimbBendStrengthScale = 1f);
+    float ConcussionSpinScale = 1f, float LimbBendStrengthScale = 1f, int KnockdownLimit = 0);
 
 /// <summary>
 /// 傷の前線の再生の値（団体のファイルの <c>match.regrowth</c>）: 前線の速さ [m/s]（<see cref="MatchRules.RegrowthSpeed"/>）・抽選の間隔 [s]
@@ -99,13 +100,63 @@ internal sealed record OrgMatch(bool JudgesDecision, bool Regenerates, bool Refe
 internal sealed record OrgRegrowth(float Speed, float TickSeconds, float StuckDoublingSeconds);
 
 /// <summary>
+/// 出場の条件（団体のファイルの <c>entry</c>）。条件は選手の見える物（はめる物・武器・教科書）だけで決め、強さの値は見ない（CLAUDE.md §1.7）。
+/// </summary>
+/// <param name="Gear">団体が着けさせるはめる物（IVF はグローブ）。null なら選手のはめる物のまま。</param>
+/// <param name="Weapons">武器を握った選手が出られるか。</param>
+/// <param name="Textbooks">出られる教科書（スタイル）の名前。null なら何でも。</param>
+internal sealed record OrgEntry(MiniRing.Weapons.HandWear? Gear, bool Weapons, IReadOnlyList<string>? Textbooks);
+
+/// <summary>階級（団体のファイルの <c>divisions</c>。軽い順）。</summary>
+/// <param name="Id">階級の id（王座の記録が引く）。</param>
+/// <param name="Name">画面と実況の名前（「ミドル級」「無差別級」）。</param>
+/// <param name="LimitKg">体重の上限 [kg]（その値ちょうどまで入る）。null なら上限なし（最も重い階級・無差別級）。</param>
+internal sealed record OrgDivision(string Id, string Name, int? LimitKg);
+
+/// <summary>王座と試合の呼び方（<c>{org}</c>・<c>{division}</c> を差し込む）。</summary>
+/// <param name="Belt">王座の名前（「{org} {division}王座」）。</param>
+/// <param name="TitleBout">王者が出る試合の見出し（「{division}タイトルマッチ」）。</param>
+/// <param name="Bout">王者が出ない試合の見出し（「{division}」。空なら出さない）。</param>
+internal sealed record OrgTitles(string Belt, string TitleBout, string Bout);
+
+/// <summary>ランキングの付け方（団体のファイルの <c>ranking</c>）。</summary>
+/// <param name="MembersOnly">true なら所属（キャラの <c>org</c>）の選手だけを順位に入れる。false なら出場の条件を満たす名簿の全員（計量で振り分ける）。</param>
+/// <param name="Win">勝ちの点。</param>
+/// <param name="Draw">引き分けの点。</param>
+/// <param name="FinishBonus">判定でなく倒して勝ったときに足す点。</param>
+internal sealed record OrgRanking(bool MembersOnly, float Win, float Draw, float FinishBonus);
+
+/// <summary>
 /// 中継の主催団体（<c>games/MiniRing.Arena/Orgs/&lt;id&gt;.json</c>、2026-11-18）。画面の色と名前・紋章・ラウンドの合図の音・会場の雰囲気・
 /// 台本の資料と下書きの言い回し・下見の点数の重みを、コードの分岐ではなく値で切り替える（CLAUDE.md §1.3・§1.8 と同じ考え方）。
 /// 体・物理・材料は団体によらず同じで、違うのは中継の見せ方（と、試合の決まり・場の形は別の仕組み）。
 /// </summary>
 internal sealed record Organization(string Id, string Name, string LogoText, string Sport, string Emblem, OrgColors Colors, ArenaMood ArenaMood, string Bell, OrgCrowd Crowd, bool CountsDowns,
-    OrgText Text, IReadOnlyList<string> RulesSheet, OrgDraft Draft, IReadOnlyList<string> CallWords, DramaWeights Drama, OrgCommentary Commentary, OrgMatch Match, string Show, OrgCast Cast)
+    OrgText Text, IReadOnlyList<string> RulesSheet, OrgDraft Draft, IReadOnlyList<string> CallWords, DramaWeights Drama, OrgCommentary Commentary, OrgMatch Match, string Show, OrgCast Cast,
+    OrgEntry Entry, IReadOnlyList<OrgDivision> Divisions, OrgTitles Titles, OrgRanking Ranking)
 {
+    /// <summary>階級制か（階級が 2 つ以上）。階級制なら、違う階級の選手どうしの試合は組めない。</summary>
+    public bool HasWeightClasses => Divisions.Count > 1;
+
+    /// <summary>体重 <paramref name="weightKg"/> の入る階級（上限がその体重以上の、いちばん軽い階級）。</summary>
+    public OrgDivision DivisionOf(int weightKg) => Divisions.First(d => d.LimitKg is not { } limit || weightKg <= limit);
+
+    /// <summary>階級を id で引く。</summary>
+    public OrgDivision Division(string id)
+        => Divisions.FirstOrDefault(d => d.Id == id) ?? throw new ArgumentException($"{LogoText} に階級 '{id}' はありません（{string.Join(", ", Divisions.Select(d => d.Id))}）。", nameof(id));
+
+    /// <summary>王座の名前（「IVF ミドル級王座」）。</summary>
+    public string BeltName(OrgDivision division) => Fill(Titles.Belt, division);
+
+    /// <summary>試合の見出し（王者が出るなら「ミドル級タイトルマッチ」、出ないなら「ミドル級」。空もある）。</summary>
+    public string BoutName(OrgDivision division, bool titleBout) => Fill(titleBout ? Titles.TitleBout : Titles.Bout, division);
+
+    private string Fill(string format, OrgDivision division)
+    {
+        ArgumentNullException.ThrowIfNull(division);
+        return format.Replace("{org}", LogoText, StringComparison.Ordinal).Replace("{division}", division.Name, StringComparison.Ordinal).Trim();
+    }
+
     /// <summary>既定の団体の id。</summary>
     public const string DefaultId = "wvc";
 
@@ -225,6 +276,10 @@ internal static class Organizations
         public required OrgMatch Match { get; init; }
         public required string Show { get; init; }
         public required CastDto Cast { get; init; }
+        public required EntryDto Entry { get; init; }
+        public required OrgDivision[] Divisions { get; init; }
+        public required OrgTitles Titles { get; init; }
+        public required OrgRanking Ranking { get; init; }
 
         public Organization ToOrganization()
         {
@@ -258,6 +313,24 @@ internal static class Organizations
             }
 
             ArenaMood.Validate();
+            if (Match.KnockdownLimit < 0)
+            {
+                throw new InvalidDataException("match.knockdownLimit は 0 以上にしてください（0 = 無し）。");
+            }
+
+            ValidateDivisions(Divisions);
+            Need(Titles?.Belt, "titles.belt");
+            Need(Titles?.TitleBout, "titles.titleBout");
+            if (Titles!.Bout is null)
+            {
+                throw new InvalidDataException("titles.bout がありません（出さないなら空の文字にしてください）。");
+            }
+
+            if (Ranking is null || !float.IsFinite(Ranking.Win) || !float.IsFinite(Ranking.Draw) || !float.IsFinite(Ranking.FinishBonus)
+                || Ranking.Win <= Ranking.Draw || Ranking.Draw < 0f || Ranking.FinishBonus < 0f)
+            {
+                throw new InvalidDataException("ranking は 勝ち > 引き分け ≥ 0、finishBonus ≥ 0 の有限値にしてください。");
+            }
             if (RulesSheet.Length == 0 || RulesSheet.Any(string.IsNullOrWhiteSpace))
             {
                 throw new InvalidDataException("rulesSheet は空でない文の並びにしてください。");
@@ -269,7 +342,8 @@ internal static class Organizations
             }
 
             return new Organization(Id, Name, LogoText, Sport, Emblem, Colors.ToColors(), ArenaMood, Bell, Crowd.ToCrowd(), CountsDowns, Text.ToText(), RulesSheet, Draft.ToDraft(), Lint.CallWords,
-                Drama.ToWeights(), Commentary.ToCommentary(), Match, Show, Cast.ToCast());
+                Drama.ToWeights(), Commentary.ToCommentary(), Match, Show, Cast.ToCast(),
+                Entry.ToEntry(), Divisions, Titles, Ranking);
         }
     }
 
@@ -287,6 +361,64 @@ internal static class Organizations
 
         public OrgColors ToColors() => new(Rgba(Accent, "colors.accent"), Rgba(AccentLight, "colors.accentLight"), Rgba(AccentDeep, "colors.accentDeep"), Rgba(Text, "colors.text"),
             Rgba(Muted, "colors.muted"), Rgba(Ink, "colors.ink"), Rgb(VoxelTop, "colors.voxelTop"), Rgb(VoxelBottom, "colors.voxelBottom"), Rgb(VoxelSide, "colors.voxelSide"));
+    }
+
+    private sealed class EntryDto
+    {
+        public string? Gear { get; init; }
+        public required bool Weapons { get; init; }
+        public string[]? Textbooks { get; init; }
+
+        public OrgEntry ToEntry()
+        {
+            MiniRing.Weapons.HandWear? gear;
+            try
+            {
+                gear = Gear is null ? null : MiniRing.Weapons.HandWears.Parse(Gear);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidDataException($"entry.gear '{Gear}' は知りません（{MiniRing.Weapons.HandWears.Names}）。", ex);
+            }
+
+            if (Textbooks is { } books && (books.Length == 0 || books.Any(b => !MiniRing.Bots.BotCatalog.Styles.Any(s => s.Name == b))))
+            {
+                throw new InvalidDataException($"entry.textbooks は BotCatalog のスタイルの名前の並びにしてください（{string.Join(", ", MiniRing.Bots.BotCatalog.Styles.Select(s => s.Name))}）。何でもよければ書かない。");
+            }
+
+            return new OrgEntry(gear, Weapons, Textbooks);
+        }
+    }
+
+    /// <summary>階級は 1 つ以上・id が重ならない・軽い順・上限なしは最後の 1 つだけ。</summary>
+    private static void ValidateDivisions(OrgDivision[]? divisions)
+    {
+        if (divisions is not { Length: > 0 })
+        {
+            throw new InvalidDataException("divisions は 1 つ以上の階級にしてください（階級の無い団体は上限なしの 1 つ）。");
+        }
+
+        for (var i = 0; i < divisions.Length; i++)
+        {
+            var d = divisions[i];
+            Need(d.Id, $"divisions[{i}].id");
+            Need(d.Name, $"divisions[{i}].name");
+            if (divisions.Take(i).Any(o => o.Id == d.Id))
+            {
+                throw new InvalidDataException($"divisions の id '{d.Id}' が重複しています。");
+            }
+
+            var last = i == divisions.Length - 1;
+            if (last != d.LimitKg is null)
+            {
+                throw new InvalidDataException("divisions は最後の 1 つだけを上限なし（limitKg: null）にしてください（どの体重もどこかの階級に入るように）。");
+            }
+
+            if (d.LimitKg is { } limit && (limit <= 0 || (i > 0 && divisions[i - 1].LimitKg >= limit)))
+            {
+                throw new InvalidDataException($"divisions[{i}].limitKg {limit} は正で、軽い順（前の階級より重い）にしてください。");
+            }
+        }
     }
 
     private sealed class CrowdDto

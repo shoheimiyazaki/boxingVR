@@ -79,6 +79,9 @@ try
         "tvmerge" => TvMergeCommand(Options.Parse(argv[1..], "draft", "extras", "out")),
         "tvlint" => TvLintCommand(Options.Parse(argv[1..], "script", "events", "manifest", "org")),
         "tvdigest" => TvDigestCommand(Options.Parse(argv[1..], "events", "out", "org")),
+        "weighin" => WeighInCommand(Options.Parse(argv[1..], "org")),
+        "rankings" => RankingsCommand(Options.Parse(argv[1..], "org", "division", "seeds", "rounds", "break", "crown", "out", "report")),
+        "title" => TitleCommand(Options.Parse(argv[1..], "org", "winner", "loser", "out")),
         "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break", "org")),
         "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt", "camera-scale", "camera-focus")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
@@ -1927,6 +1930,11 @@ static int Video(Options o)
     // 名簿のキャラクター（--red-char / --blue-char <id>。games/MiniRing/Characters/roster/<id>.json）: ボットのスタイル・武器・はめる物・体格・顔・表示名をそのキャラクターの値にする。
     var redCharacter = o.Get("red-char") is { } redId ? MiniRing.Characters.CharacterRoster.Get(redId) : null;
     var blueCharacter = o.Get("blue-char") is { } blueId ? MiniRing.Characters.CharacterRoster.Get(blueId) : null;
+    // 団体の試合なら計量を通す（出られない・階級が違えば止める。IVF はグローブを着ける）。見出しに階級・タイトルマッチを足し、台本の資料に計量と席を足す。
+    (redCharacter, blueCharacter, var division) = EnterOrg(o, redCharacter, blueCharacter);
+    var (billing, billingNotes) = division is not null && OrgOption(o) is { } billedOrg
+        ? OrgBouts.Billing(billedOrg, OrgStandings.Of(billedOrg), division, redCharacter!, blueCharacter!)
+        : ("", (IReadOnlyList<string>)[]);
     var set = SetOf(o);
     // キャラクターは教科書に教育を重ねた解決済みのスタイル（相手ごとの備えは、もう片方がキャラクターのときだけ効く）。--set はその上にさらに重ねる。
     var red = redCharacter is not null ? RosterLeague.ContenderOf(redCharacter, blueCharacter?.Id, set)
@@ -1973,7 +1981,8 @@ static int Video(Options o)
         _ => throw new ArgumentException("--tv は on か off にしてください。"),
     };
     new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), breakStyle, hitSounds, faceCam, speed, tv,
-        tvRounds: o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1), tvEvent: o.Get("event") ?? "ファイトナイト", tvBout: o.Get("bout") ?? "",
+        tvRounds: o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1), tvEvent: o.Get("event") ?? "ファイトナイト",
+        tvBout: string.Join("　・　", new[] { o.Get("bout") ?? "", billing }.Where(s => s.Length > 0)), tvNotes: billingNotes,
         tvBreak: o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f), render: render, live: live,
         tvProgram: o.Get("program") is { } programPath ? TvProgram.FromJson(File.ReadAllText(programPath), TvProgram.RosterName) : null,
         org: OrgOption(o), belt: (o.Get("belt") ?? "off") switch { "on" => true, "off" => false, _ => throw new ArgumentException("--belt は on か off にしてください。") },
@@ -2078,6 +2087,7 @@ static int TvScoutCommand(Options o)
     // 名簿のキャラクター（--red-char / --blue-char）は video と同じ決め方（スタイル・武器・はめる物・体格・顔）。
     var redCharacter = o.Get("red-char") is { } redId ? MiniRing.Characters.CharacterRoster.Get(redId) : null;
     var blueCharacter = o.Get("blue-char") is { } blueId ? MiniRing.Characters.CharacterRoster.Get(blueId) : null;
+    (redCharacter, blueCharacter, _) = EnterOrg(o, redCharacter, blueCharacter); // 撮影と同じ計量・はめる物
     var rounds = o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1);
     var red = redCharacter is not null ? RosterLeague.ContenderOf(redCharacter, blueCharacter?.Id, null) : Load(o.Get("red") ?? "champion");
     var blue = blueCharacter is not null ? RosterLeague.ContenderOf(blueCharacter, redCharacter?.Id, null) : Load(o.Get("blue") ?? "karate");
@@ -2165,8 +2175,108 @@ static int TvDigestCommand(Options o)
     return 0;
 }
 
-// 中継の主催団体（--org wvc|vfc）。指定が無ければ null（動画・下見は WVC、台本の道具は記録の org に従う）。
+// 中継の主催団体（--org wvc|vfc|ivf）。指定が無ければ null（動画・下見は WVC、台本の道具は記録の org に従う）。
 static Organization? OrgOption(Options o) => o.Get("org") is { } id ? Organizations.Get(id) : null;
+
+// 団体の試合に両者を通す（両方が名簿のキャラのとき）: 出場の条件・計量（階級制なら同じ階級）を確かめ、団体のはめる物（IVF はグローブ）を着ける。
+// 片方でもキャラでなければそのまま（ボットの名前で組む試し撮りは計量しない）。
+static (MiniRing.Characters.FighterCharacter? Red, MiniRing.Characters.FighterCharacter? Blue, OrgDivision? Division) EnterOrg(Options o,
+    MiniRing.Characters.FighterCharacter? red, MiniRing.Characters.FighterCharacter? blue)
+{
+    var org = OrgOption(o);
+    if (org?.Entry.Gear is { } gear && new[] { o.Get("red-wear"), o.Get("blue-wear") }.FirstOrDefault(w => w is not null && MiniRing.Weapons.HandWears.Parse(w) != gear) is { } wear)
+    {
+        // 団体が着けさせるはめる物と違う物を渡されたら止める（IVF の中継なのに素手で撮らない）。
+        throw new ArgumentException($"{org.LogoText} の試合は {gear} を着けます（--red-wear / --blue-wear {wear} とは組めません）。");
+    }
+
+    if (org is null || red is null || blue is null)
+    {
+        return (red, blue, null);
+    }
+
+    var (r, b, division) = OrgBouts.Enter(org, red, blue);
+    return (r, b, division);
+}
+
+// 名簿の計量の表: weighin --org ivf
+static int WeighInCommand(Options o)
+{
+    var org = OrgOption(o) ?? Organization.Default;
+    Console.Write(OrgBouts.WeighIn(org, OrgStandings.Of(org), MiniRing.Characters.CharacterRoster.All));
+    return 0;
+}
+
+// 階級ごとの総当たりでランキングを決め直す（王者は王者のまま。空位は --crown on で 1 位が王者に）。
+//   rankings --org ivf [--division middle] [--seeds 1,2] [--rounds 5] [--break 10] [--crown on|off] [--out <standings.json>] [--report <file.md>]
+static int RankingsCommand(Options o)
+{
+    var org = OrgOption(o) ?? throw new ArgumentException("--org を渡してください（wvc・vfc・ivf）。");
+    var seeds = o.List("seeds", ["1"]).Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToList();
+    var rounds = o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1);
+    var breakSeconds = o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f);
+    var crown = (o.Get("crown") ?? "on") switch
+    {
+        "on" => true,
+        "off" => false,
+        _ => throw new ArgumentException("--crown は on か off にしてください。"),
+    };
+    var only = o.Get("division") is { } id ? org.Division(id) : null;
+    var standings = OrgStandings.Of(org);
+    var pool = OrgBouts.Pool(org, MiniRing.Characters.CharacterRoster.All);
+    var report = new System.Text.StringBuilder();
+    report.AppendLine(CultureInfo.InvariantCulture, $"# {org.LogoText} ランキング（{DateTime.Now:yyyy-MM-dd}）");
+    report.AppendLine();
+    var basis = string.Create(CultureInfo.InvariantCulture,
+        $"階級ごとの総当たり（両コーナー × 種 {string.Join(",", seeds)}・{rounds}R・休み {breakSeconds:0} 秒）。physics {MiniRing.Fighter.PhysicsVersion}・logic {MiniRing.Bots.BoxerBot.LogicVersion}");
+    report.AppendLine(basis);
+    report.AppendLine();
+    var watch = Stopwatch.StartNew();
+    foreach (var division in org.Divisions.Where(d => only is null || d == only))
+    {
+        var fighters = pool[division.Id];
+        Console.Error.WriteLine($"{division.Name}: {string.Join(", ", fighters.Select(f => f.Id))}");
+        var bouts = OrgLeague.Play(org, fighters, seeds, rounds, breakSeconds, Console.Error);
+        var table = OrgLeague.Table(org.Ranking, fighters, bouts);
+        var seat = OrgLeague.Seat(standings.For(division), table, crown);
+        standings = standings.WithSeat(seat); // 階級を移った選手は前の階級から外れる
+        report.Append(OrgLeague.Report(org, division, table, seat, bouts));
+    }
+
+    standings = standings with { AsOf = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), Basis = basis };
+    var output = o.Get("out") ?? Path.Combine("games", "MiniRing.Arena", "Orgs", "standings", $"{org.Id}.json");
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
+    File.WriteAllText(output, standings.ToJson());
+    Console.Write(report.ToString());
+    if (o.Get("report") is { } reportPath)
+    {
+        File.WriteAllText(reportPath, report.ToString());
+    }
+
+    Console.Error.WriteLine($"rankings done in {watch.Elapsed.TotalSeconds:0.0}s → {output}（組み込みの記録なので、使うにはビルドし直す）");
+    return 0;
+}
+
+// 試合の結果で王座とランキングを動かす: title --org ivf --winner marcus --loser dmitri
+static int TitleCommand(Options o)
+{
+    var org = OrgOption(o) ?? throw new ArgumentException("--org を渡してください（wvc・vfc・ivf）。");
+    var winner = MiniRing.Characters.CharacterRoster.Get(o.Get("winner") ?? throw new ArgumentException("--winner <キャラの id> を渡してください。"));
+    var loser = MiniRing.Characters.CharacterRoster.Get(o.Get("loser") ?? throw new ArgumentException("--loser <キャラの id> を渡してください。"));
+    var (_, _, division) = OrgBouts.Enter(org, winner, loser);
+    if (org.Ranking.MembersOnly && (winner.Org != org.Id || loser.Org != org.Id))
+    {
+        throw new ArgumentException($"{org.LogoText} の順位は所属の選手だけです（{winner.Id}: {winner.Org}、{loser.Id}: {loser.Org}）。");
+    }
+
+    var before = OrgStandings.Of(org);
+    var after = before.AfterBout(division, winner.Id, loser.Id) with { AsOf = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) };
+    var output = o.Get("out") ?? Path.Combine("games", "MiniRing.Arena", "Orgs", "standings", $"{org.Id}.json");
+    File.WriteAllText(output, after.ToJson());
+    var seat = after.For(division);
+    Console.WriteLine($"{org.BeltName(division)}: 王者 {seat.Champion ?? "空位"}・ランキング {string.Join(" > ", seat.Ranking)} → {output}");
+    return 0;
+}
 
 static Contender Load(string nameOrPath)
 {

@@ -1,0 +1,116 @@
+{
+  // IVF（Interesting Voxing Federation、2026-11-19 ユーザーの指定）: 階級制のボクシング団体の中継。紺・エメラルド・銀、明るく澄んだ会場、ゴング。
+  // WVC（無差別級・異種格闘技も組む・格式）・VFC（何でもあり・死だけが決着）と違い、計量で階級を分け、同じ階級の選手だけを戦わせ、階級ごとに王座とランキングを持つ。
+  "id": "ivf",
+  "name": "Interesting Voxing Federation",
+  "logoText": "IVF",
+  "sport": "Voxing",
+  "emblem": "ivf",
+  "colors": {
+    // accent = エメラルド #5CE6A8、ink = 紺。罫の飾り（voxel*）もエメラルド、紋章の板は銀。
+    "accent": [0.36, 0.9, 0.66],
+    "accentLight": [0.82, 1, 0.92],
+    "accentDeep": [0.03, 0.32, 0.22, 0.9],
+    "text": [1, 1, 1],
+    "muted": [0.74, 0.82, 0.86],
+    "ink": [0.03, 0.05, 0.12, 0.9],
+    "voxelTop": [0.3, 0.88, 0.62],
+    "voxelBottom": [0.06, 0.52, 0.34],
+    "voxelSide": [0.02, 0.22, 0.15]
+  },
+  // 明るく澄んだ会場: 主光を少し強く、天井の灯りを少し絞り、周りを暗くしすぎない。檻のスポットは無い。
+  "arenaMood": {
+    "ambient": 1.05,
+    "key": 1.1,
+    "lamp": 0.9,
+    "window": 1,
+    "cageSpotIntensity": 0,
+    "vignette": 0.4,
+    "exposure": 1
+  },
+  "bell": "gong",
+  // 番組の型（games/MiniRing.Arena/Shows）: 階級制の地上波の中継（WVC と同じ番組の型・同じ放送席。紋章・色・席の行だけ団体の値）。
+  "show": "wvc",
+  // 放送席（実況・解説）。人物の説明のファイル（経歴・役割・場だけ）と声。声の値は tools/commentary/Synthesize.ps1 の既定（今までの立花・佐伯の声）と同じ。
+  "cast": {
+    "announcer": {
+      "name": "立花",
+      "persona": "docs/commentary/personas/tachibana.md",
+      "role": "あなたは試合の熱をそのまま声に乗せる人です。",
+      "voice": { "voice": ["IchiroM", "Ichiro"], "rate": "+30%", "pitch": "+5%", "volume": "+0%", "excited": { "rate": "+50%", "pitch": "+12%", "volume": "+20%" } }
+    },
+    "commentator": {
+      "name": "佐伯",
+      "persona": "docs/commentary/personas/saeki.md",
+      "role": "あなたは見えたものの理由を語る人です。",
+      "voice": { "voice": ["AyumiM", "Ayumi", "HarukaM", "Haruka"], "rate": "+15%", "pitch": "-2%", "volume": "+0%", "excited": { "rate": "+28%", "pitch": "+4%", "volume": "+10%" } }
+    }
+  },
+  "crowd": { "reactionGain": 1, "ambienceGain": 0.9 },
+  "countsDowns": true,
+  // 試合の決まり: 最終ラウンドの終わりは判定・休みに浅い傷が治る・レフェリーがいる・四角いリング（WVC と同じ）に、3 ノックダウン制（1 ラウンドに 3 度のダウンで TKO）を足す。
+  "match": { "judgesDecision": true, "regenerates": true, "referee": true, "arena": "ropedSquare", "knockdownLimit": 3 },
+  // 出場: 純粋なボクシング。団体がグローブを着けさせ、武器は持てず、ボクシングの教科書の選手だけ（蹴る教科書・トンファーは出られない）。
+  "entry": {
+    "gear": "glove",
+    "weapons": false,
+    "textbooks": ["champion", "jabber", "slugger", "boxer", "outboxer", "swarmer", "counter"]
+  },
+  // 階級（体重は見えている体から: CharacterProfile.WeightOf = 72 kg × 身長の比² × 太さの比）。上限ちょうどまで入る。
+  "divisions": [
+    { "id": "light", "name": "ライト級", "limitKg": 64 },
+    { "id": "middle", "name": "ミドル級", "limitKg": 73 },
+    { "id": "lightheavy", "name": "ライトヘビー級", "limitKg": 80 },
+    { "id": "cruiser", "name": "クルーザー級", "limitKg": 91 },
+    { "id": "heavy", "name": "ヘビー級", "limitKg": null }
+  ],
+  "titles": { "belt": "{org} {division}王座", "titleBout": "{division}タイトルマッチ", "bout": "{division}" },
+  // ランキング: 出場の条件を満たす名簿の全員を計量で振り分ける（所属は問わない）。勝ち 3・引き分け 1、倒して勝てば +1（倒しにいくボクシングを評価する）。
+  "ranking": { "membersOnly": false, "win": 3, "draw": 1, "finishBonus": 1 },
+  "text": {
+    "openingRule": "{seconds}秒 × {rounds}ラウンド　・　1ラウンド3度のダウンでTKO　・　K.O. か判定",
+    "finishWord": "K.O.",
+    "decisionLine": "{rounds}ラウンド終了　・　与えたダメージの判定"
+  },
+  "rulesSheet": [
+    "この記録は IVF（Interesting Voxing Federation）の大会のテレビ中継のためのもの。競技の名前は Voxing。階級制のボクシング団体。",
+    "\"for\" が 実況 の出来事は画面で見えること（誰が何でどこを打った・ダウン・カウント・ラウンド）。解説 の出来事は体の中で起きていること（どこが壊れた・何が効いている・疲れ）と選手の狙い。",
+    "実況は見えたことを伝えて解説に問いを振り、解説は体の中と作戦の言葉で答える。数字はラウンドと時間と、体の何割が失われたかと、階級・体重・ランキングの順位だけ言う。",
+    "試合の前に計量があり、同じ階級の選手どうししか戦わない。全員がグローブを着け、武器は持たない。",
+    "倒れて 10 カウントで立てない、倒れたまま動かなければ K.O.。1 ラウンドに 3 度ダウンすれば、その場で TKO。最終ラウンドが終われば、与えたダメージの多い方の判定勝ち。",
+    "ラウンドの間の休みで、浅い傷は少し治る（大会の決まり）。折れた骨・失った手足は戻らない。",
+    "階級ごとに王者とランキングがある。王者が負ければ王座は勝った選手へ移る。"
+  ],
+  "draft": {
+    "bellWord": "ゴング",
+    "finishCall": "ノックアウト！",
+    "winLine": "{winner}の勝ち！",
+    "drawLine": "",
+    "fallenCall": "{victim}、ダウン！"
+  },
+  "lint": { "callWords": ["ダウン", "倒れ", "止め", "アウト", "KO", "TKO", "テン", "判定"] },
+  // 見ごたえの点: WVC と同じ形に、ダウンを少し重く（3 ノックダウン制でダウンの数そのものが勝負になる）。
+  "drama": {
+    "perRound": 3,
+    "perDown": 2,
+    "downCap": 5,
+    "bothDowns": 3,
+    "ko": 2,
+    "koLastRound": 1,
+    "death": 0,
+    "deathPerRound": 0,
+    "comeback": 4,
+    "bothHurt": 0,
+    "bothHurtDamage": 200,
+    "quickSeconds": 15,
+    "quickPenalty": 6,
+    "drawPenalty": 1
+  },
+  "commentary": {
+    "intro": "IVF（Interesting Voxing Federation）は階級制のボクシング団体。競技の名前は Voxing。計量で階級を分け、同じ階級の選手だけが戦う。階級ごとに王者とランキングがあり、1 ラウンドに 3 度ダウンすれば TKO。",
+    "announcerTone": "テンポの良い実況。階級・順位・王座の行方を軸に、見えたことを伝え、ダウンの数を必ず数えて言う。",
+    "analystTone": "技術の解説。体重が同じなので、体格の差より間合い・手数・ダウンの取り方の差で、なぜ効いたかを一言にまとめる。",
+    "callThing": "ダウン・決着",
+    "callExamples": "「ダウン」「2度目のダウン」「TKO」「ノックアウト」など"
+  }
+}
