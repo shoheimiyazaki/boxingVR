@@ -744,7 +744,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
                             BoxingRenderer.Fill(replayGame!, showTargetGhosts: false, instances, lines);
                             var (rvp, reye) = director.Replay(replayGame!, highlight, Math.Clamp(replayFrames / (float)((last - first) * TvDirector.ReplayFramesPerStep), 0f, 1f));
-                            var (replayText, replayShapes) = show.ReplayOverlay(highlight.Round, highlight.Text, at);
+                            var (replayText, replayShapes) = show.ReplayOverlay(highlight.Round, TvLocale.ReplayCaption(highlight.Text), at);
                             Emit(rvp, reye, replayText, [.. replayShapes, .. wipe], scene: replayGame);
                             continue;
                         }
@@ -828,7 +828,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                             var wipe = rel < 0.25f ? show.Wipe(0.5f + (rel / 0.5f)) : rel > length - 0.25f ? show.Wipe((rel - length + 0.25f) / 0.5f) : [];
                             BoxingRenderer.Fill(replayGame!, showTargetGhosts: false, instances, lines);
                             var (rvp, reye) = director.Replay(replayGame!, finale, Math.Clamp(finaleFrames / (float)((last - first) * TvDirector.ReplayFramesPerStep), 0f, 1f));
-                            var (replayText, replayShapes) = show.ReplayOverlay(finale.Round, finale.Text, frame / (float)fps);
+                            var (replayText, replayShapes) = show.ReplayOverlay(finale.Round, TvLocale.ReplayCaption(finale.Text), frame / (float)fps);
                             Emit(rvp, reye, replayText, [.. replayShapes, .. wipe], scene: replayGame);
                             if (++finaleFrames % TvDirector.ReplayFramesPerStep != 0)
                             {
@@ -1080,12 +1080,15 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         var seat = OrgStandings.Of(_org).SeatOf(character.Id);
         if (!_org.HasWeightClasses)
         {
-            return seat is null ? null : $"{_org.LogoText} {seat}";
+            return seat is null ? null : $"{_org.LogoText} {SeatLabel(seat)}";
         }
 
         var division = _org.DivisionOf(OrgBouts.WeightOf(character)).Name;
-        return seat is null ? division : $"{division} {seat}";
+        return seat is null ? division : $"{division} {SeatLabel(seat)}";
     }
+
+    /// <summary>席（記録の「王者」「2位」）を画面の言葉に（英語は「Champion」「#2」）。</summary>
+    private static string SeatLabel(string seat) => !TvLocale.IsEnglish ? seat : seat == "王者" ? "Champion" : seat.EndsWith('位') ? $"#{seat[..^1]}" : seat;
 
     /// <summary>握る武器の呼び名（中継の言葉）。拳なら null。</summary>
     private static string? GearName(MiniRing.Weapons.WeaponKind? weapon) => weapon switch
@@ -1329,32 +1332,34 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             if (seen.GetValueOrDefault(key) < count)
             {
                 seen[key] = count;
-                caption.Combo = ComboLabel(name);
+                caption.Combo = ComboLabel(name, english: false);
+                caption.ComboShown = ComboLabel(name, TvLocale.IsEnglish);
                 caption.ComboTime = time;
             }
         }
 
         if (bot.CurrentDefense != Defense.None)
         {
-            caption.Defense = DefenseLabel(bot.CurrentDefense);
+            caption.Defense = DefenseLabel(bot.CurrentDefense, english: false);
+            caption.DefenseShown = DefenseLabel(bot.CurrentDefense, TvLocale.IsEnglish);
             caption.DefenseTime = time;
         }
     }
 
     private static void AddCaption(List<ScreenTextDraw> list, Caption caption, Vector2 at, TextAnchor anchor, Vector4 color, float time)
     {
-        if (caption.Combo is { } combo && time - caption.ComboTime < 1.1f)
+        if ((caption.ComboShown ?? caption.Combo) is { } combo && time - caption.ComboTime < 1.1f)
         {
             list.Add(new ScreenTextDraw(combo, at, 34f, Fade(color, 1f - MathF.Max(0f, (time - caption.ComboTime - 0.8f) / 0.3f)), anchor));
         }
 
-        if (caption.Defense is { } defense && time - caption.DefenseTime < 0.6f)
+        if ((caption.DefenseShown ?? caption.Defense) is { } defense && time - caption.DefenseTime < 0.6f)
         {
             list.Add(new ScreenTextDraw(defense, at + new Vector2(0f, 46f), 30f, Fade(Gold, 1f - MathF.Max(0f, (time - caption.DefenseTime - 0.3f) / 0.3f)), anchor));
         }
     }
 
-    private static string ComboLabel(string name) => name switch
+    private static string ComboLabel(string name, bool english) => english ? ComboLabelEn(name) : name switch
     {
         "slip-counter" => "スリップからカウンター",
         "duck-counter" => "ダッキングからカウンター",
@@ -1366,11 +1371,26 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         "stop-jab" => "ストップジャブ",
         // 名簿の型なら技を並べる。知らない名前（ボットが後から足した型）は名前のまま出す。
         _ => Combo.All.FirstOrDefault(c => c.Name == name) is { } combo
-            ? $"{name}  " + string.Join(" → ", combo.Steps.Select(TechniqueLabel))
+            ? $"{name}  " + string.Join(" → ", combo.Steps.Select(t => TechniqueLabel(t, english: false)))
             : name,
     };
 
-    private static string TechniqueLabel(Technique t) => t switch
+    private static string ComboLabelEn(string name) => name switch
+    {
+        "slip-counter" => "Slip → Counter",
+        "duck-counter" => "Duck → Counter",
+        "pull-counter" => "Sway → Pull Counter",
+        "block-counter" => "Block → Counter",
+        "weave-counter" => "Weave → Counter",
+        "angle-counter" => "Side Step → Counter",
+        "step-counter" => "Back Step → Counter",
+        "stop-jab" => "Stop Jab",
+        _ => Combo.All.FirstOrDefault(c => c.Name == name) is { } combo
+            ? $"{name}  " + string.Join(" → ", combo.Steps.Select(t => TechniqueLabel(t, english: true)))
+            : name,
+    };
+
+    private static string TechniqueLabel(Technique t, bool english) => english ? TechniqueLabelEn(t) : t switch
     {
         Technique.Jab => "ジャブ",
         Technique.Cross => "ストレート",
@@ -1387,7 +1407,38 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         _ => t.ToString(),
     };
 
-    private static string DefenseLabel(Defense d) => d switch
+    private static string TechniqueLabelEn(Technique t) => t switch
+    {
+        Technique.Jab => "Jab",
+        Technique.Cross => "Cross",
+        Technique.LeadHook => "Lead Hook",
+        Technique.RearHook => "Rear Hook",
+        Technique.LeadUppercut => "Lead Uppercut",
+        Technique.RearUppercut => "Rear Uppercut",
+        Technique.BodyJab => "Body Jab",
+        Technique.BodyCross => "Body Cross",
+        Technique.LeadBodyHook => "Lead Body Hook",
+        Technique.RearBodyHook => "Rear Body Hook",
+        Technique.Overhand => "Overhand",
+        Technique.Feint => "Feint",
+        _ => t.ToString(),
+    };
+
+    private static string DefenseLabel(Defense d, bool english) => english ? DefenseLabelEn(d) : DefenseLabelJa(d);
+
+    private static string DefenseLabelEn(Defense d) => d switch
+    {
+        Defense.Block => "Block",
+        Defense.Duck => "Duck",
+        Defense.Slip => "Slip",
+        Defense.Sway => "Sway",
+        Defense.StepBack => "Back Step",
+        Defense.Weave => "Weave",
+        Defense.SideStep => "Side Step",
+        _ => "",
+    };
+
+    private static string DefenseLabelJa(Defense d) => d switch
     {
         Defense.Block => "ブロック",
         Defense.Duck => "ダッキング",
@@ -1467,6 +1518,12 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         public float ComboTime { get; set; }
         public string? Defense { get; set; }
         public float DefenseTime { get; set; }
+
+        /// <summary>画面に出す字幕（<see cref="Combo"/>・<see cref="Defense"/> は出来事の記録の言葉で日本語のまま。これは表示の言語）。</summary>
+        public string? ComboShown { get; set; }
+
+        /// <summary>画面に出す守りの字幕。</summary>
+        public string? DefenseShown { get; set; }
 
         /// <summary>最後に実況の資料へ書いた守り（続いている間は 1 回だけ書く）。</summary>
         public string? LastNotedDefense { get; set; }

@@ -106,5 +106,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Edgar Thornhill",
+      "reading": "Edgar Thornhill",
+      "hudName": "Edgar",
+      "origin": "United Kingdom",
+      "tagline": "Sword and round shield warrior",
+      "profile": {
+        "birthplace": "York, England, United Kingdom",
+        "hometown": "London",
+        "stance": "Orthodox",
+        "quote": "Take it, then return it. That is enough."
+      }
+    }
+  }
 }

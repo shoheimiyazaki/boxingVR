@@ -121,5 +121,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Akira Higa",
+      "reading": "Akira Higa",
+      "hudName": "Akira",
+      "origin": "Japan (Okinawa)",
+      "tagline": "Karate master of Shuri",
+      "profile": {
+        "birthplace": "Shuri, Naha, Okinawa, Japan",
+        "hometown": "Shuri, Naha, Okinawa",
+        "stance": "Orthodox",
+        "quote": "Everything, in one strike."
+      }
+    }
+  }
 }

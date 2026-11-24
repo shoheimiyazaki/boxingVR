@@ -101,5 +101,74 @@
     "analystTone": "理由を言う解説。なぜ効いたか・なぜ倒れたかを、体の中と作戦の言葉で一言にまとめる。",
     "callThing": "ダウン・決着",
     "callExamples": "「ダウン」「ノックアウト」「KO」など"
+  },
+  // 英語版（--lang en）: ここの値が本体へ深く重なる（オブジェクトは再帰、配列と値は置き換え）。画面に出す言葉と放送席だけ。台本・採点の資料（rulesSheet・commentary・lint）は日本語のまま。
+  "locales": {
+    "en": {
+      "text": {
+        "openingRule": "{seconds} sec × {rounds} rounds  ·  Decided by K.O. or decision",
+        "finishWord": "K.O.",
+        "decisionLine": "{rounds} rounds complete  ·  Decision on damage dealt"
+      },
+      "divisions": [
+        {
+          "id": "open",
+          "name": "Open Weight",
+          "limitKg": null
+        }
+      ],
+      "titles": {
+        "belt": "{org} World Title",
+        "titleBout": "World Title Bout",
+        "bout": ""
+      },
+      "draft": {
+        "bellWord": "Bell",
+        "finishCall": "Knockout!",
+        "winLine": "{winner} wins by KO!",
+        "drawLine": "",
+        "fallenCall": "{victim} is down!"
+      },
+      "cast": {
+        "announcer": {
+          "name": "Mike Callahan",
+          "persona": "docs/commentary/personas/tachibana.md",
+          "role": "You carry the heat of the fight straight into your voice.",
+          "voice": {
+            "engine": "edge",
+            "voice": [
+              "en-US-GuyNeural"
+            ],
+            "rate": "+10%",
+            "pitch": "+0Hz",
+            "volume": "+0%",
+            "excited": {
+              "rate": "+25%",
+              "pitch": "+6Hz",
+              "volume": "+10%"
+            }
+          }
+        },
+        "commentator": {
+          "name": "Dana Whitfield",
+          "persona": "docs/commentary/personas/saeki.md",
+          "role": "You explain the reasons behind what we see.",
+          "voice": {
+            "engine": "edge",
+            "voice": [
+              "en-US-AriaNeural"
+            ],
+            "rate": "+5%",
+            "pitch": "+0Hz",
+            "volume": "+0%",
+            "excited": {
+              "rate": "+15%",
+              "pitch": "+3Hz",
+              "volume": "+5%"
+            }
+          }
+        }
+      }
+    }
   }
 }

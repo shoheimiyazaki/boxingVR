@@ -32,7 +32,9 @@ public static class CharacterRoster
         return CountriesFromJson(reader.ReadToEnd());
     });
 
-    private static readonly Lazy<IReadOnlyList<FighterCharacter>> Loaded = new(() =>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<IReadOnlyList<FighterCharacter>>> LoadedByLanguage = new();
+
+    private static IReadOnlyList<FighterCharacter> LoadBuiltIn(string language)
     {
         var assembly = typeof(CharacterRoster).Assembly;
         var files = new List<(string FileName, string Json)>();
@@ -50,14 +52,18 @@ public static class CharacterRoster
             throw new InvalidOperationException($"組み込みの名簿 {RosterPrefix}*.json が 1 つもありません（MiniRing.csproj の EmbeddedResource）。");
         }
 
-        return FromFiles(files);
-    });
+        return FromFiles(files, null, language);
+    }
+
+    /// <summary>指定した言語の名簿（言語ごとに 1 回だけ読む。<c>locales.&lt;言語&gt;</c> が本体に重なる）。テストなど、全体の言語を触りたくないとき。</summary>
+    public static IReadOnlyList<FighterCharacter> ForLanguage(string language)
+        => LoadedByLanguage.GetOrAdd(DisplayLanguage.Validate(language), l => new Lazy<IReadOnlyList<FighterCharacter>>(() => LoadBuiltIn(l))).Value;
 
     /// <summary>国の表（組み込みの <c>countries.json</c>）。キャラクターの <c>country</c> はこの id。</summary>
     public static IReadOnlyDictionary<string, CountryInfo> Countries => LoadedCountries.Value;
 
     /// <summary>名簿の全員（表示の順: ファイルの <c>order</c>、同じなら id）。</summary>
-    public static IReadOnlyList<FighterCharacter> All => Loaded.Value;
+    public static IReadOnlyList<FighterCharacter> All => ForLanguage(DisplayLanguage.Current);
 
     /// <summary>id から探す。</summary>
     public static FighterCharacter Get(string id) => All.FirstOrDefault(c => c.Id == id)
@@ -111,7 +117,7 @@ public static class CharacterRoster
     /// ファイル名（拡張子を除く）は id と同じ。<paramref name="knownIds"/> は、この中に無くても <c>education.vs</c> の相手として認める id
     /// （プレイヤーのファイルが組み込みのキャラを相手に挙げるとき）。
     /// </summary>
-    public static IReadOnlyList<FighterCharacter> FromFiles(IEnumerable<(string FileName, string Json)> files, IReadOnlyCollection<string>? knownIds = null)
+    public static IReadOnlyList<FighterCharacter> FromFiles(IEnumerable<(string FileName, string Json)> files, IReadOnlyCollection<string>? knownIds = null, string language = DisplayLanguage.Japanese)
     {
         ArgumentNullException.ThrowIfNull(files);
         var parsed = new List<(string FileName, FileDto Dto)>();
@@ -122,7 +128,7 @@ public static class CharacterRoster
             FileDto dto;
             try
             {
-                dto = JsonSerializer.Deserialize<FileDto>(json, Options) ?? throw new InvalidDataException("ファイルが空です。");
+                dto = JsonSerializer.Deserialize<FileDto>(LocaleOverlay.Apply(json, language), Options) ?? throw new InvalidDataException("ファイルが空です。");
             }
             catch (JsonException ex)
             {

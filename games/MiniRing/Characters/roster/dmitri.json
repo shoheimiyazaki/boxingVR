@@ -120,5 +120,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Dmitri Volkov",
+      "reading": "Dmitri Volkov",
+      "hudName": "Dmitri",
+      "origin": "Russia",
+      "tagline": "The Northern Tank",
+      "profile": {
+        "birthplace": "Arkhangelsk, Russia",
+        "hometown": "Saint Petersburg",
+        "stance": "Orthodox",
+        "quote": "Forward. That is all."
+      }
+    }
+  }
 }

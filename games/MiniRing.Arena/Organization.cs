@@ -68,7 +68,8 @@ internal sealed record OrgCommentary(string Intro, string AnnouncerTone, string 
 /// <param name="Pitch">声の高さ（「+5%」）。</param>
 /// <param name="Volume">音量（「+0%」）。</param>
 /// <param name="Excited">声が高ぶったとき（台詞の <c>excited</c>）の速さ・高さ・音量。</param>
-internal sealed record OrgVoice(IReadOnlyList<string> Voice, string Rate, string Pitch, string Volume, OrgVoiceProsody Excited);
+/// <param name="Engine">読み上げの道具（"edge" = Edge の声。空なら今までの Windows の声）。英語の放送席が使う。</param>
+internal sealed record OrgVoice(IReadOnlyList<string> Voice, string Rate, string Pitch, string Volume, OrgVoiceProsody Excited, string Engine = "");
 
 /// <summary>声の速さ・高さ・音量（高ぶったとき）。</summary>
 internal sealed record OrgVoiceProsody(string Rate, string Pitch, string Volume);
@@ -172,7 +173,9 @@ internal static class Organizations
 {
     private const string Prefix = "MiniRing.Arena.Orgs.";
 
-    private static readonly Lazy<IReadOnlyDictionary<string, Organization>> Loaded = new(() =>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<IReadOnlyDictionary<string, Organization>>> LoadedByLanguage = new();
+
+    private static IReadOnlyDictionary<string, Organization> LoadBuiltIn(string language)
     {
         var assembly = typeof(Organizations).Assembly;
         var files = new List<(string FileName, string Json)>();
@@ -187,11 +190,15 @@ internal static class Organizations
 
         return files.Count == 0
             ? throw new InvalidOperationException($"組み込みの団体のファイル {Prefix}*.json が 1 つもありません（MiniRing.Arena.csproj の EmbeddedResource）。")
-            : FromFiles(files);
-    });
+            : FromFiles(files, language);
+    }
 
-    /// <summary>全団体（id → 団体）。</summary>
-    public static IReadOnlyDictionary<string, Organization> All => Loaded.Value;
+    /// <summary>指定した言語の全団体（言語ごとに 1 回だけ読む。<c>locales.&lt;言語&gt;</c> が本体に重なる）。</summary>
+    public static IReadOnlyDictionary<string, Organization> ForLanguage(string language)
+        => LoadedByLanguage.GetOrAdd(MiniRing.DisplayLanguage.Validate(language), l => new Lazy<IReadOnlyDictionary<string, Organization>>(() => LoadBuiltIn(l))).Value;
+
+    /// <summary>全団体（id → 団体。いまの表示言語 <see cref="MiniRing.DisplayLanguage.Current"/> で）。</summary>
+    public static IReadOnlyDictionary<string, Organization> All => ForLanguage(MiniRing.DisplayLanguage.Current);
 
     /// <summary>id から探す。無ければ、ある id を書いた例外。</summary>
     public static Organization Get(string id)
@@ -216,7 +223,7 @@ internal static class Organizations
     };
 
     /// <summary>団体のファイル（ファイル名と JSON の組）から読んで検査する。足りない欄・型違い・範囲外・id とファイル名の食い違いは、どのファイルのどの欄かを書いた例外で止める。</summary>
-    public static IReadOnlyDictionary<string, Organization> FromFiles(IEnumerable<(string FileName, string Json)> files)
+    public static IReadOnlyDictionary<string, Organization> FromFiles(IEnumerable<(string FileName, string Json)> files, string language = MiniRing.DisplayLanguage.Japanese)
     {
         ArgumentNullException.ThrowIfNull(files);
         var result = new Dictionary<string, Organization>(StringComparer.Ordinal);
@@ -226,7 +233,7 @@ internal static class Organizations
             Dto dto;
             try
             {
-                dto = JsonSerializer.Deserialize<Dto>(json, Options) ?? throw new InvalidDataException("ファイルが空です。");
+                dto = JsonSerializer.Deserialize<Dto>(MiniRing.LocaleOverlay.Apply(json, language), Options) ?? throw new InvalidDataException("ファイルが空です。");
             }
             catch (JsonException ex)
             {
@@ -547,6 +554,7 @@ internal static class Organizations
         public required string Pitch { get; init; }
         public required string Volume { get; init; }
         public required ProsodyDto Excited { get; init; }
+        public string? Engine { get; init; }
 
         public OrgVoice ToVoice(string field)
         {
@@ -555,7 +563,7 @@ internal static class Organizations
                 throw new InvalidDataException($"{field}.voice は空でない声の名前の断片の並びにしてください。");
             }
 
-            return new OrgVoice(Voice, Percent(Rate, $"{field}.rate"), Percent(Pitch, $"{field}.pitch"), Percent(Volume, $"{field}.volume"), Excited.ToProsody($"{field}.excited"));
+            return new OrgVoice(Voice, Percent(Rate, $"{field}.rate"), Pitch(Pitch, $"{field}.pitch"), Percent(Volume, $"{field}.volume"), Excited.ToProsody($"{field}.excited"), Engine ?? "");
         }
     }
 
@@ -565,8 +573,14 @@ internal static class Organizations
         public required string Pitch { get; init; }
         public required string Volume { get; init; }
 
-        public OrgVoiceProsody ToProsody(string field) => new(Percent(Rate, $"{field}.rate"), Percent(Pitch, $"{field}.pitch"), Percent(Volume, $"{field}.volume"));
+        public OrgVoiceProsody ToProsody(string field) => new(Percent(Rate, $"{field}.rate"), Pitch(Pitch, $"{field}.pitch"), Percent(Volume, $"{field}.volume"));
     }
+
+    /// <summary>声の高さ（割合「+5%」か、Edge の声の Hz「+6Hz」）。</summary>
+    private static string Pitch(string? value, string field)
+        => value is not null && System.Text.RegularExpressions.Regex.IsMatch(value, @"^[+-]\d{1,3}(%|Hz)$")
+            ? value
+            : throw new InvalidDataException($"{field} は「+5%」「-2%」「+6Hz」のように符号つきの割合か Hz にしてください（{value}）。");
 
     /// <summary>SSML の prosody の割合（「+30%」「-2%」）。</summary>
     private static string Percent(string? value, string field)

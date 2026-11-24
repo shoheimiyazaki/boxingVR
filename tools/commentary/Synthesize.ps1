@@ -2,7 +2,8 @@
 .SYNOPSIS
   Synthesizes Japanese commentary lines to WAV files (default cast: announcer / commentator;
   a script may declare its own cast in "speakers": voice and prosody per speaker id)
-  with Windows OneCore voices (WinRT SpeechSynthesizer), and writes a manifest with the
+  with Windows OneCore voices (WinRT SpeechSynthesizer) - or, for a speaker whose voice has
+  "engine": "edge", with Edge neural voices (edge_say.py; online, used for the English programs) - and writes a manifest with the
   actual start time and duration of each line. Lines never overlap (except lines marked "overlap": true, short exclamations placed as requested): a line that would run
   into the next one pushes the next one later (order is kept).
 
@@ -137,8 +138,8 @@ if ($lines.Count -eq 0) { throw "Script has no lines: $Script" }
 #                                "excited": { "rate": "+20%", "pitch": "+6%", "volume": "+0%" } } }
 # Speaker ids are case-sensitive (as in the C# merge tool) and must be file-name safe.
 $cast = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
-$cast['announcer'] = @{ voice = $AnnouncerVoice; base = $Prosody.announcer; excited = $Prosody.announcer_excited }
-$cast['commentator'] = @{ voice = $CommentatorVoice; base = $Prosody.commentator; excited = $Prosody.commentator_excited }
+$cast['announcer'] = @{ voice = $AnnouncerVoice; base = $Prosody.announcer; excited = $Prosody.announcer_excited; engine = 'onecore' }
+$cast['commentator'] = @{ voice = $CommentatorVoice; base = $Prosody.commentator; excited = $Prosody.commentator_excited; engine = 'onecore' }
 function Get-Field($o, [string]$name, $default) { if ($null -ne $o -and $o.PSObject.Properties[$name]) { return $o.$name } return $default }
 if ($json.PSObject.Properties['speakers'] -and $null -ne $json.speakers) {
     if ($json.speakers -isnot [pscustomobject]) { throw "'speakers' must be an object of speaker id -> { voice, rate, pitch, volume, excited }" }
@@ -146,14 +147,17 @@ if ($json.PSObject.Properties['speakers'] -and $null -ne $json.speakers) {
         if ($sp.Name -notmatch '^[A-Za-z0-9_-]+$') { throw "Speaker id '$($sp.Name)' must match [A-Za-z0-9_-]+" }
         $d = $sp.Value
         if ($d -isnot [pscustomobject]) { throw "speakers.$($sp.Name) must be an object" }
-        $old = if ($cast.ContainsKey($sp.Name)) { $cast[$sp.Name] } else { @{ voice = @('Haruka'); base = @{ rate = '+0%'; pitch = '+0%'; volume = '+0%' }; excited = $null } }
+        $old = if ($cast.ContainsKey($sp.Name)) { $cast[$sp.Name] } else { @{ voice = @('Haruka'); base = @{ rate = '+0%'; pitch = '+0%'; volume = '+0%' }; excited = $null; engine = 'onecore' } }
         $base = @{ rate = [string](Get-Field $d 'rate' $old.base.rate); pitch = [string](Get-Field $d 'pitch' $old.base.pitch); volume = [string](Get-Field $d 'volume' $old.base.volume) }
         $ex = Get-Field $d 'excited' $null
         $exOld = if ($old.excited) { $old.excited } else { $base }
         $excitedP = @{ rate = [string](Get-Field $ex 'rate' $exOld.rate); pitch = [string](Get-Field $ex 'pitch' $exOld.pitch); volume = [string](Get-Field $ex 'volume' $exOld.volume) }
         $voiceList = @(Get-Field $d 'voice' $null | Where-Object { $_ })
         if ($voiceList.Count -eq 0) { $voiceList = @($old.voice) }
-        $cast[$sp.Name] = @{ voice = $voiceList; base = $base; excited = $excitedP }
+        # "engine": "edge" = Edge neural voice (voice = e.g. 'en-US-GuyNeural', pitch in Hz such as '+4Hz'); default = OneCore.
+        $engine = [string](Get-Field $d 'engine' 'onecore')
+        if ($engine -notin @('onecore', 'edge')) { throw "speakers.$($sp.Name).engine must be 'onecore' or 'edge': $engine" }
+        $cast[$sp.Name] = @{ voice = $voiceList; base = $base; excited = $excitedP; engine = $engine }
     }
 }
 
@@ -177,8 +181,26 @@ $OutDir = (Resolve-Path -LiteralPath $OutDir).Path
 
 $used = @($lines | ForEach-Object { [string]$_.speaker } | Sort-Object -Unique)
 $voices = @{}
-foreach ($k in $used) { $voices[$k] = Find-Voice $cast[$k].voice }
+foreach ($k in $used) {
+    # Edge voices are named exactly (no local lookup); OneCore voices are matched by name fragment.
+    $voices[$k] = if ($cast[$k].engine -eq 'edge') { [pscustomobject]@{ DisplayName = [string]@($cast[$k].voice)[0]; Id = 'edge'; Language = '' } } else { Find-Voice $cast[$k].voice }
+}
 foreach ($k in $voices.Keys) { Write-Host ("{0,-12} -> {1} ({2})" -f $k, $voices[$k].DisplayName, $voices[$k].Id) }
+$edgeSay = Join-Path $PSScriptRoot 'edge_say.py'
+
+# One line with an Edge neural voice, as WAV bytes (edge_say.py writes 16-bit mono PCM).
+function Get-EdgeWav([string]$text, [string]$voiceName, $prosody) {
+    # The text goes in a UTF-8 file and the values as --name=value: Windows PowerShell 5.1 mangles '"' inside native
+    # arguments, and argparse reads a value starting with '-' (rate '-10%') as an option.
+    $tmp = [System.IO.Path]::GetTempFileName()
+    $textFile = [System.IO.Path]::GetTempFileName()
+    try {
+        [System.IO.File]::WriteAllText($textFile, $text, (New-Object System.Text.UTF8Encoding($false)))
+        & py -3 $edgeSay "--voice=$voiceName" "--rate=$($prosody.rate)" "--pitch=$($prosody.pitch)" "--volume=$($prosody.volume)" "--text-file=$textFile" "--out=$tmp" | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "edge_say.py failed for '$voiceName' (exit $LASTEXITCODE)" }
+        return [System.IO.File]::ReadAllBytes($tmp)
+    } finally { Remove-Item -LiteralPath $tmp, $textFile -ErrorAction SilentlyContinue }
+}
 
 $synth = New-Object Windows.Media.SpeechSynthesis.SpeechSynthesizer
 
@@ -194,19 +216,22 @@ foreach ($entry in $ordered) {
     $p = if ($excited) { $cast[$speaker].excited } else { $cast[$speaker].base }
     $voice = $voices[$speaker]
 
-    $ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='$($voice.Language)'>" +
-            "<voice name='$(Escape-Xml $voice.DisplayName)'>" +
-            "<prosody rate='$($p.rate)' pitch='$($p.pitch)' volume='$($p.volume)'>$(Escape-Xml (Spoken ([string]$l.text)))</prosody>" +
-            "</voice></speak>"
-
-    $synth.Voice = $voice
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    $stream = Wait-WinRt ($synth.SynthesizeSsmlToStreamAsync($ssml)) ([Windows.Media.SpeechSynthesis.SpeechSynthesisStream])
     $file = Join-Path $OutDir ('{0:D3}_{1}.wav' -f $seq, $speaker)
-    $netStream = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)
-    $mem = New-Object System.IO.MemoryStream
-    try { $netStream.CopyTo($mem) } finally { $netStream.Dispose(); $stream.Dispose() }
-    $bytes = $mem.ToArray()
+    if ($cast[$speaker].engine -eq 'edge') {
+        $bytes = Get-EdgeWav (Spoken ([string]$l.text)) $voice.DisplayName $p
+    } else {
+        $ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='$($voice.Language)'>" +
+                "<voice name='$(Escape-Xml $voice.DisplayName)'>" +
+                "<prosody rate='$($p.rate)' pitch='$($p.pitch)' volume='$($p.volume)'>$(Escape-Xml (Spoken ([string]$l.text)))</prosody>" +
+                "</voice></speak>"
+        $synth.Voice = $voice
+        $stream = Wait-WinRt ($synth.SynthesizeSsmlToStreamAsync($ssml)) ([Windows.Media.SpeechSynthesis.SpeechSynthesisStream])
+        $netStream = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)
+        $mem = New-Object System.IO.MemoryStream
+        try { $netStream.CopyTo($mem) } finally { $netStream.Dispose(); $stream.Dispose() }
+        $bytes = $mem.ToArray()
+    }
     $sw.Stop()
 
     $wav = Read-Wav $bytes

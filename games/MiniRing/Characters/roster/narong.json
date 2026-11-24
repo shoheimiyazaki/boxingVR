@@ -116,5 +116,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Narong Sor Wongsawat",
+      "reading": "Narong Sor Wongsawat",
+      "hudName": "Narong",
+      "origin": "Thailand",
+      "tagline": "Master of the eight limbs",
+      "profile": {
+        "birthplace": "Buriram Province, Thailand",
+        "hometown": "Buriram",
+        "stance": "Orthodox",
+        "quote": "Close in, elbows. Out of range, shins."
+      }
+    }
+  }
 }

@@ -124,5 +124,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Jin Onizuka",
+      "reading": "Jin Onizuka",
+      "hudName": "Jin",
+      "origin": "Japan",
+      "tagline": "Iai swordsman",
+      "profile": {
+        "birthplace": "Kochi, Kochi Prefecture, Japan",
+        "hometown": "Kochi, Kochi Prefecture",
+        "stance": "Orthodox",
+        "quote": "One cut, and it is over."
+      }
+    }
+  }
 }

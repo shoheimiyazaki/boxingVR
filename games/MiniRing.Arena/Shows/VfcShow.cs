@@ -231,7 +231,7 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         if (tag > 0.4f)
         {
             BlockFont.Draw(shapes, "MAIN EVENT", new Vector2(34f, (h * 0.04f) + 14f), 5.5f, Cream, 0.2f);
-            Shadowed(text, "今夜のメインイベント", new Vector2(34f, (h * 0.04f) + 64f), 30f, RedTop);
+            Shadowed(text, TvLocale.T("今夜のメインイベント", "TONIGHT'S FEATURED BOUT"), new Vector2(34f, (h * 0.04f) + 64f), 30f, RedTop);
         }
 
         Shadowed(text, card.EventTitle, new Vector2(w - 32f, (h * 0.04f) + 6f), 30f, Cream with { W = tag }, TextAnchor.Right);
@@ -322,11 +322,13 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         rows.Add((corner.Discipline, 30f, RedTop, 104f));
         if (corner.Profile is { } p)
         {
-            rows.Add((string.Create(CultureInfo.InvariantCulture, $"身長 {p.HeightCm} cm　体重 {p.WeightKg} kg　戦績 {RecordText(p.FightRecord)}"), 24f, Cream, 142f));
+            rows.Add((TvLocale.IsEnglish
+                ? string.Create(CultureInfo.InvariantCulture, $"Height {p.HeightCm} cm    Weight {p.WeightKg} kg    Record {TvLocale.Record(p.FightRecord)}")
+                : string.Create(CultureInfo.InvariantCulture, $"身長 {p.HeightCm} cm　体重 {p.WeightKg} kg　戦績 {RecordText(p.FightRecord)}"), 24f, Cream, 142f));
             if (p.Quote.Length > 0)
             {
                 var quote = p.Quote.Length > 26 ? p.Quote[..25] + "…" : p.Quote;
-                rows.Add(($"「{quote}」", 22f, Muted, 178f));
+                rows.Add((TvLocale.IsEnglish ? $"“{quote}”" : $"「{quote}」", 22f, Muted, 178f));
             }
         }
 
@@ -427,8 +429,8 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
             var rightEdge = x1 - 50f;
             if (bout.WinnerName is { } winner)
             {
-                var how = bout.Cause is { Length: > 0 } ? bout.Cause : bout.Method;
-                text.Add(new ScreenTextDraw($"{winner} 勝ち{(how.Length > 0 ? $"　{how}" : "")}", new Vector2(rightEdge, textY + 2f), 22f, RedTop with { W = a }, TextAnchor.Right));
+                var how = bout.Cause is { Length: > 0 } ? TvLocale.Cause(bout.Cause) : TvLocale.Method(bout.Method);
+                text.Add(new ScreenTextDraw(TvLocale.IsEnglish ? $"{winner} wins{(how.Length > 0 ? $"  {how}" : "")}" : $"{winner} 勝ち{(how.Length > 0 ? $"　{how}" : "")}", new Vector2(rightEdge, textY + 2f), 22f, RedTop with { W = a }, TextAnchor.Right));
             }
             else if (bout.Current)
             {
@@ -699,8 +701,8 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         foreach (var (name, fighter, edge, color, anchor) in columns)
         {
             var figure = bodies.Of(fighter);
-            var wounds = figure.Wounds();
-            var lines = wounds.Count == 0 ? ["目立つ傷はない"] : wounds.Take(2).ToList();
+            var wounds = figure.Wounds(TvLocale.IsEnglish);
+            var lines = wounds.Count == 0 ? [TvLocale.T("目立つ傷はない", "No visible wounds")] : wounds.Take(2).ToList();
             var left = anchor == TextAnchor.Left ? edge : edge - columnWidth;
             var bottom = figureTop + (FigureHeightUnits * unit) + 14f + (lines.Count * 22f);
             shapes.Add(Rect(left - 10f, figureTop - 48f, left + columnWidth + 10f, bottom, Black with { W = 0.55f * a }));
@@ -734,12 +736,13 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         var blink = 0.5f + (0.5f * MathF.Sin(videoTime * 9f));
         BlockFont.Draw(shapes, "<<", new Vector2(22f, 34f), 4f, RedTop with { W = 0.45f + (0.55f * blink) });
         BlockFont.Draw(shapes, "REWIND", new Vector2(100f, 30f), 5f, Cream, 0.15f);
-        text.Add(new ScreenTextDraw($"第{round}ラウンド　スロー", new Vector2(24f, 92f), 22f, Muted));
+        text.Add(new ScreenTextDraw(TvLocale.T($"第{round}ラウンド　スロー", $"ROUND {round}  SLOW MOTION"), new Vector2(24f, 92f), 22f, Muted));
 
-        // 下: 場面の説明。
+        // 下: 場面の説明（呼ぶ側が TvLocale.ReplayCaption で画面の言葉にして渡す）。
         BlockFont.Slab(shapes, w * 0.06f, w * 0.94f, h - 84f, h - 24f, 28f, Black with { W = 0.88f });
         BlockFont.Slab(shapes, w * 0.06f, w * 0.94f, h - 88f, h - 84f, 28f, RedTop);
         Shadowed(text, description, new Vector2(w * 0.5f, h - 70f), 24f, Cream, TextAnchor.Center);
+
         return new ShowDraw(text, shapes);
     }
 
@@ -787,8 +790,8 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
         if (result.Winner == 0)
         {
             var pop = BackOut(name);
-            Shadowed(text, "両者生還", new Vector2(w * 0.04f, h * 0.22f), 128f * MathF.Max(0.01f, pop), Cream with { W = name });
-            var line = org.Text.DecisionLine.Replace("{rounds}", card.Rules.Rounds.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+            Shadowed(text, TvLocale.T("両者生還", "BOTH SURVIVE"), new Vector2(w * 0.04f, h * 0.22f), 128f * MathF.Max(0.01f, pop), Cream with { W = name });
+            var line = TvLocale.Singular(org.Text.DecisionLine.Replace("{rounds}", card.Rules.Rounds.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
             var sub = Clamp01((t - 1.3f) / 0.4f);
             BlockFont.Slab(shapes, w * 0.04f - 20f, w * 0.04f + (w * 0.46f * EaseOut(sub)), (h * 0.22f) + 170f, (h * 0.22f) + 234f, 26f, Black with { W = 0.9f });
             Shadowed(text, line, new Vector2(w * 0.04f + 14f, (h * 0.22f) + 184f), 26f, Cream with { W = sub });
@@ -803,10 +806,11 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
             Shadowed(text, winner.Name, new Vector2(w * 0.04f, (h * 0.2f) + 38f), size, Cream with { W = name });
 
             var cause = Clamp01((t - 1.3f) / 0.4f);
-            var phrase = result.DeathPhrase;
+            var phrase = TvLocale.DeathPhrase(result);
             if (phrase.Length > 0)
             {
-                BlockFont.Slab(shapes, w * 0.04f - 20f, (w * 0.04f) + (phrase.Length * 56f) + 70f, (h * 0.2f) + 190f, (h * 0.2f) + 262f, 26f, RedDeep with { W = cause });
+                var phraseWidth = TvLocale.IsEnglish ? Aigis.Render.ScreenText.MeasurePixelWidth(phrase, 56f) : phrase.Length * 56f;
+                BlockFont.Slab(shapes, w * 0.04f - 20f, (w * 0.04f) + phraseWidth + 70f, (h * 0.2f) + 190f, (h * 0.2f) + 262f, 26f, RedDeep with { W = cause });
                 Shadowed(text, phrase, new Vector2(w * 0.04f + 14f, (h * 0.2f) + 198f), 56f, Cream with { W = cause });
             }
 
@@ -826,7 +830,7 @@ internal sealed class VfcShow(int width, int height, Organization org) : ITvShow
             var top = (h * 0.2f) + ((1f - figureIn) * 60f) + (sunk ? unit * 1.2f : 0f);
             DrawFigure(shapes, figure, new Vector2(left, top), unit, figureIn, sunk);
             Shadowed(text, who, new Vector2(left, (h * 0.2f) + (FigureHeightUnits * unit) + 22f), 28f, (sunk ? Muted : color) with { W = figureIn });
-            var wounds = figure.Wounds();
+            var wounds = figure.Wounds(TvLocale.IsEnglish);
             for (var i = 0; i < Math.Min(3, wounds.Count); i++)
             {
                 text.Add(new ScreenTextDraw(wounds[i], new Vector2(left, (h * 0.2f) + (FigureHeightUnits * unit) + 60f + (i * 24f)), 18f, Muted with { W = figureIn }));

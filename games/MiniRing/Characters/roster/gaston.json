@@ -123,5 +123,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Gaston de Valois",
+      "reading": "Gaston de Valois",
+      "hudName": "Gaston",
+      "origin": "France",
+      "tagline": "Knight of the iron gauntlets",
+      "profile": {
+        "birthplace": "Carcassonne, Occitanie, France",
+        "hometown": "Lyon",
+        "stance": "Orthodox",
+        "quote": "Distance is a courtesy."
+      }
+    }
+  }
 }

@@ -40,6 +40,14 @@ const SCREEN = ['round_start', 'replay', 'cut', 'wound_cam', 'result', 'end'];
 const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8').replace(/^﻿/, ''));
 // 団体のファイル（games/MiniRing.Arena/Orgs/<id>.json）。// の行コメントがあるので、行ごと外してから読む。
 const readOrg = (id) => JSON.parse(fs.readFileSync(path.join(repo, 'games', 'MiniRing.Arena', 'Orgs', `${id}.json`), 'utf8').replace(/^﻿/, '').replace(/^\s*\/\/.*$/gm, ''));
+// 言語の上書き（団体のファイルの "locales": { "en": {...} }）を元の値に重ねる: 物は中まで重ね、配列・値は置き換える（ゲームの読み込みと同じ決まり）。
+function overlay(base, top) {
+  if (!top || typeof top !== 'object' || Array.isArray(top) || !base || typeof base !== 'object' || Array.isArray(base)) return top === undefined ? base : top;
+  const out = { ...base };
+  for (const [k, v] of Object.entries(top)) out[k] = overlay(base[k], v);
+  return out;
+}
+const localized = (org, lang) => overlay(org, (org.locales || {})[lang]);
 // 人物の説明のファイルから、人物と場の節だけ（経歴・役割・場。docs/LLM_CONTENT.md §1: 口ぐせ・言い回しの例の節は渡さない）。
 function personaText(file) {
   const text = fs.readFileSync(path.join(repo, file), 'utf8').replace(/\r/g, '');
@@ -47,6 +55,17 @@ function personaText(file) {
   return sections.filter((s) => ['人物', '場'].includes(s.title)).map((s) => s.body).filter(Boolean).join('\n\n');
 }
 const round1 = (x) => Math.round(x * 10) / 10;
+// text の j 字目が区切り（re の字）か。語を空白で区切る言語では、後ろが空白か終わりのときだけ（「K.O.」「3.5」の . で切らない）。
+const breakAt = (text, j, re) => re.test(text[j]) && (!LANG.wordCut || j + 1 >= text.length || /\s/.test(text[j + 1]));
+
+// 番組の言語（札の "lang"、既定 ja）。台詞の言語・区切り・短い切れ端の字数・1 字の長さの見積もりは config.languages の値。
+// 記録（events.json）・資料・問いの説明は日本語のままで、英語版は LLM が英語で話す（2026-11-25）。
+let LANG = null;
+function useLanguage(lang) {
+  const l = config.languages[lang];
+  if (!l) throw new Error(`札の lang が config.languages にありません: ${lang}`);
+  LANG = { ...l, id: lang, pause: new RegExp(l.pause), pauseAll: new RegExp(l.pause, 'g'), sentence: new RegExp(l.sentence), sentenceAll: new RegExp(l.sentence, 'g') };
+}
 const fmt = (t) => t.toFixed(1);
 
 // ---- 話す長さ ----
@@ -65,7 +84,12 @@ function makeMeasure(work, driver, speakers) {
       fs.writeFileSync(script, JSON.stringify({ speakers, lines: [{ at: 0, speaker: seat, text, excited }] }));
       const r = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(repo, 'tools', 'commentary', 'Synthesize.ps1'), '-Script', script, '-OutDir', tmp], { encoding: 'utf8', timeout: 120000 });
       const manifest = path.join(tmp, 'manifest.json');
-      if (r.status !== 0 || !fs.existsSync(manifest)) throw new Error(`読み上げで長さを測れません: ${(r.stderr || r.stdout || '').slice(0, 300)}`);
+      if (r.status !== 0 || !fs.existsSync(manifest)) {
+        // 読み上げに失敗した（Edge の声のサービスの一時的な不調など）: 中継を止めずに字数の見積もりで進め、記録には残さない（次に回すときに測り直す）。
+        // 声入れ（dub）は同じ台詞をもう一度読むので、そこで実際の長さになる。2026-11-25。
+        console.warn(`読み上げで長さを測れません（見積もりで進めます）: ${(r.stderr || r.stdout || '').slice(0, 200)}`);
+        return speechSeconds(text, seat, excited) * config.speech.margin;
+      }
       cache[key] = readJson(manifest).lines[0].duration;
       fs.rmSync(manifest);
       fs.writeFileSync(cachePath, JSON.stringify(cache));
@@ -77,16 +101,19 @@ function makeMeasure(work, driver, speakers) {
 // 字数からの見積もり（TvDraft.Duration と同じ式）。LLM への速さの目安と mock に使う。
 function speechSeconds(text, seat, excited) {
   const s = config.speech;
-  const pauses = (text.match(/[。、！？!?]/g) || []).length + (text.match(/…+/g) || []).length;
-  const chars = text.replace(/[。、！？!?…]/g, '').length;
+  const pauses = (text.replace(/…+/g, '').match(LANG.pauseAll) || []).length + (text.match(/…+/g) || []).length; // 続く … は 1 つの間
+  const chars = text.replace(LANG.pauseAll, '').replace(/…/g, '').length;
   const rate = s.rates[seat][excited ? 'excited' : 'normal'];
-  return (chars * s.charSeconds + pauses * s.pauseSeconds) / (1 + rate);
+  return (chars * LANG.charSeconds + pauses * LANG.pauseSeconds) / (1 + rate);
 }
 
-// 話し始めから seconds 秒で言えた所まで（字の割合で切る）。
+// 話し始めから seconds 秒で言えた所まで（字の割合で切る。語を空白で区切る言語は、言いかけの語を落とす）。
 function spokenPart(text, fraction) {
   if (fraction >= 1) return text;
-  return text.slice(0, Math.max(0, Math.floor(text.length * fraction)));
+  const said = text.slice(0, Math.max(0, Math.floor(text.length * fraction)));
+  if (!LANG.wordCut || said.length === text.length || /\s/.test(text[said.length])) return said;
+  const space = said.lastIndexOf(' ');
+  return space > 0 ? said.slice(0, space) : '';
 }
 
 // ---- 答えの JSON を取り出す ----
@@ -264,7 +291,8 @@ async function main() {
   const endEvent = all.find((e) => e.type === 'end');
   const length = endEvent ? endEvent.t : all[all.length - 1].t;
   // 放送席（実況・解説）は団体のファイルの cast から。団体名の決め打ちを置かない。
-  const org = readOrg(events.org || card.org || 'wvc');
+  useLanguage(card.lang || 'ja');
+  const org = localized(readOrg(events.org || card.org || 'wvc'), LANG.id);
   for (const s of Object.keys(config.seats)) Object.assign(config.seats[s], org.cast[s]);
   const speakers = Object.fromEntries(Object.keys(config.seats).map((s) => [s, org.cast[s].voice]));
   const seats = Object.keys(config.seats);
@@ -347,7 +375,7 @@ async function main() {
     const persona = personaText(me.persona);
     const rules = (events.rules || []).filter((l) => !/^この記録は|"for"|^実況は|^解説は/.test(l));
     return [
-      `あなたは ${org.logoText}（${org.name}）のテレビ中継の${me.label}、${me.name}です。相方は${you.label}の${you.name}。競技は ${org.sport}。日本語の話し言葉で話します。${me.role}`,
+      `あなたは ${org.logoText}（${org.name}）のテレビ中継の${me.label}、${me.name}です。相方は${you.label}の${you.name}。競技は ${org.sport}。${LANG.speak}${me.role}`,
       '',
       '## あなたの人物と場',
       persona,
@@ -369,7 +397,7 @@ async function main() {
       '',
       '## 何を言うか',
       '- 中継の時間は限られています。何が大事か、何が面白いか、何を言って何を言わないかは、あなたが判断してください。',
-      `- 声の速さの目安: あなたは 1 秒に約 ${Math.round(1 / speechSeconds('あ', seat, false))} 字。`,
+      `- 声の速さの目安: あなたは 1 秒に約 ${LANG.speedPerSecond ? Math.round(LANG.speedPerSecond * (1 + config.speech.rates[seat].normal)) : Math.round(1 / speechSeconds(LANG.speedSample, seat, false))} ${LANG.speedUnit}。`,
       '',
       '## 守ること',
       '- 起きたことを記録と違えて言わない（まだ起きていないことは知りません）。',
@@ -567,14 +595,14 @@ async function main() {
   let gi = 0;
 
   // ---- 言葉の終え方（2026-11-17、ユーザーの指定: 言葉の途中で切れると聞き苦しい。どこで終えるかは話し手が大事さを比べて決める） ----
-  const PAUSE = /[、。！？!?…]/;
-  const SENTENCE = /[。！？!?]/;
+  const PAUSE = LANG.pause;
+  const SENTENCE = LANG.sentence;
   // 今の言葉を終えられる所: いま止める（言葉の途中のことがある）・次の区切り・文の終わり・最後まで。時刻は字の割合で見積もる。
   function stopOptions(line) {
     const len = Math.max(1, line.text.length);
     const i = Math.min(len, Math.floor(len * Math.min(1, Math.max(0, (T - line.start) / line.full))));
     const at = (idx) => Math.max(T, line.start + (line.full * idx / len));
-    const upTo = (re) => { for (let j = i; j < len; j++) if (re.test(line.text[j])) return j + 1; return len; };
+    const upTo = (re) => { for (let j = i; j < len; j++) if (breakAt(line.text, j, re)) return j + 1; return len; };
     const comma = upTo(PAUSE);
     const sentence = upTo(SENTENCE);
     return {
@@ -598,7 +626,7 @@ async function main() {
   function pausesOf(line) {
     const len = Math.max(1, line.text.length);
     const at = [];
-    for (let j = 0; j < len - 1; j++) if (PAUSE.test(line.text[j])) at.push(`${fmt(line.full * (j + 1) / len)} 秒（「${line.text.slice(Math.max(0, j - 7), j + 1)}」まで）`);
+    for (let j = 0; j < len - 1; j++) if (breakAt(line.text, j, PAUSE)) at.push(`${fmt(line.full * (j + 1) / len)} 秒（「${line.text.slice(Math.max(0, j - 7), j + 1)}」まで）`);
     return at.length ? `言葉の中の区切り: ${at.join('・')}` : '言葉の中に区切りはありません';
   }
 
@@ -804,21 +832,21 @@ async function main() {
     if (!l.cutBy) return l.said;
     const slot = l.end - l.start - config.gap;
     let text = l.said;
-    while (text.length >= config.minSaid && measure(text, l.seat, l.excited) > slot) text = text.slice(0, Math.floor(text.length * 0.8));
+    while (text.length >= LANG.minSaid && measure(text, l.seat, l.excited) > slot) text = text.slice(0, Math.floor(text.length * 0.8));
     return text;
   }
   // 番組の終わりで切れる台詞は、割り込んだ相手がいないので、切れ端は言いさしでなく途切れた音に聞こえた（「ご覧いただき、ありがとうござ」、
   // 2026-11-24 物理 90 の番組）。番組の終わりまでに言い切れる文（。！？ で終わる所）までにし、1 文も入らなければ声に出さない。
   function wholeSentences(l) {
     const slot = length - l.start - config.gap;
-    const ends = [...l.text.matchAll(/[。！？!?]/g)].map((m) => m.index + 1).reverse();
+    const ends = [...l.text.matchAll(LANG.sentenceAll)].filter((m) => breakAt(l.text, m.index, LANG.sentence)).map((m) => m.index + 1).reverse();
     return ends.map((i) => l.text.slice(0, i)).find((t) => measure(t, l.seat, l.excited) <= slot) || '';
   }
   // ---- 残った無音を埋める（2026-11-18、ユーザーの指定: 2 秒以上の無音を作らない） ----
   // 進行中に警告しても、切れた台詞を枠に縮めた・短すぎて捨てた台詞のぶん、声に出る台本には無音が残ることがある。
   // 声に出る長さで無音を探し（pacing.findSilences）、maxSilenceSeconds 以上なら、その頭の時刻で「ここで N 秒の無音があります」と
   // 警告して埋める台詞を書かせる（席は交互。埋まらなかった無音は transcript と標準エラーに残す）。
-  const voiced = () => lines.map((l) => ({ l, text: fitted(l) })).filter((x) => x.text.trim().length >= config.minSaid)
+  const voiced = () => lines.map((l) => ({ l, text: fitted(l) })).filter((x) => x.text.trim().length >= LANG.minSaid)
     .map(({ l, text }) => ({ start: l.start, end: l.start + (text === l.text ? l.full : measure(text, l.seat, l.excited)) }));
   for (const gap of pacing.findSilences(voiced(), length, config.maxSilenceSeconds)) {
     if (gap.to - gap.from - (2 * config.gap) < 0.6) continue; // 台詞を置く隙間が無い
@@ -839,7 +867,7 @@ async function main() {
   const leftover = pacing.findSilences(voiced(), length, 2.0);
   for (const g of leftover) console.warn(`${key}: ${fmt(g.from)}〜${fmt(g.to)} 秒に ${fmt(g.seconds)} 秒の無音が残りました`);
 
-  const out_lines = lines.map((l) => ({ l, text: fitted(l) })).filter((x) => x.text.trim().length >= config.minSaid)
+  const out_lines = lines.map((l) => ({ l, text: fitted(l) })).filter((x) => x.text.trim().length >= LANG.minSaid)
     .map(({ l, text }) => ({ at: round1(l.start), speaker: l.seat, text, excited: l.excited }))
     .concat(overlaps.map((o) => ({ at: round1(o.start), speaker: o.seat, text: o.text, excited: true, overlap: true })))
     .sort((a, b) => a.at - b.at);

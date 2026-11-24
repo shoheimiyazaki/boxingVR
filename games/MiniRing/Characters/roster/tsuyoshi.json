@@ -122,5 +122,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Tsuyoshi Arakaki",
+      "reading": "Tsuyoshi Arakaki",
+      "hudName": "Tsuyoshi",
+      "origin": "Japan (Okinawa)",
+      "tagline": "Dual-tonfa fighter",
+      "profile": {
+        "birthplace": "Naha, Okinawa, Japan",
+        "hometown": "Naha, Okinawa",
+        "stance": "Orthodox",
+        "quote": "Blocking isn't losing."
+      }
+    }
+  }
 }

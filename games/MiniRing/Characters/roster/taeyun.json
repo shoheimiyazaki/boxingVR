@@ -121,5 +121,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Kang Tae-yun",
+      "reading": "Kang Tae-yun",
+      "hudName": "Tae-yun",
+      "origin": "South Korea",
+      "tagline": "Leaping taekwondo kicker",
+      "profile": {
+        "birthplace": "Busan, South Korea",
+        "hometown": "Busan",
+        "stance": "Orthodox",
+        "quote": "The feet are longer than the hands."
+      }
+    }
+  }
 }

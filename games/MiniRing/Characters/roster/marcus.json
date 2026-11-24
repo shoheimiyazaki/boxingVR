@@ -124,5 +124,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Marcus \"The Hammer\" Brooks",
+      "reading": "Marcus \"The Hammer\" Brooks",
+      "hudName": "The Hammer",
+      "origin": "United States",
+      "tagline": "Heavyweight champion",
+      "profile": {
+        "birthplace": "Detroit, Michigan, United States",
+        "hometown": "Las Vegas",
+        "stance": "Orthodox",
+        "quote": "One shot is the kindest way to end it."
+      }
+    }
+  }
 }

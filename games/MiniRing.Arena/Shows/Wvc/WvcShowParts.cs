@@ -102,7 +102,7 @@ internal static class WvcShowParts
         float Reveal(float at) => Clamp01((t - at) / 0.3f) * fade;
 
         // 「赤コーナー」の札と両脇の罫。
-        var label = red ? "赤コーナー" : "青コーナー";
+        var label = red ? TvLocale.T("赤コーナー", "RED CORNER") : TvLocale.T("青コーナー", "BLUE CORNER");
         var a0 = Reveal(0.45f);
         var chipW = (ScreenText.MeasurePixelWidth(label, 24f * k) + (36f * k)) * EaseOut(Clamp01((t - 0.45f) / 0.3f));
         shapes.Add(UiShapeDraw.Rounded(new Vector2(cx, top + (26f * k)), new Vector2(chipW, 30f * k), 6f * k, accent with { W = 0.96f * a0 }));
@@ -136,7 +136,7 @@ internal static class WvcShowParts
         }
 
         var a3 = Reveal(1.65f);
-        var weight = corner.Profile is { WeightKg: > 0 } p ? string.Create(CultureInfo.InvariantCulture, $"体重　{p.WeightKg} kg") : "";
+        var weight = corner.Profile is { WeightKg: > 0 } p ? string.Create(CultureInfo.InvariantCulture, $"{TvLocale.T("体重　", "WEIGHT  ")}{p.WeightKg} kg") : "";
         if (a3 > 0f && weight.Length > 0)
         {
             text.Add(FitCentered(weight, cx, top + (122f * k), 26f * k, inner, gold with { W = a3 }));
@@ -196,6 +196,11 @@ internal static class WvcShowParts
         }
 
         var r = p.FightRecord;
+        if (TvLocale.IsEnglish)
+        {
+            return TvLocale.Record(r);
+        }
+
         var s = string.Create(CultureInfo.InvariantCulture, $"{r.Wins}勝 {r.Kos}K.O. {r.Losses}敗");
         return r.Draws > 0 ? string.Create(CultureInfo.InvariantCulture, $"{s} {r.Draws}分") : s;
     }
@@ -248,7 +253,7 @@ internal static class WvcShowParts
             FillColorEnd: new Vector4(0.02f, 0.03f, 0.1f, 0.93f * fade), GradientAxis: Vector2.UnitY));
 
         // 見出し: ラウンド終了の札と、赤・青の名札（列）。
-        text.Add(FitLeft(string.Create(CultureInfo.InvariantCulture, $"第{rounds.Count}ラウンド終了　与えたダメージ"), left + (16f * k), top + (8f * k), 22f * k, panelW - (32f * k), gold with { W = fade }));
+        text.Add(FitLeft(TvLocale.IsEnglish ? string.Create(CultureInfo.InvariantCulture, $"ROUND {rounds.Count} COMPLETE  ·  DAMAGE DEALT") : string.Create(CultureInfo.InvariantCulture, $"第{rounds.Count}ラウンド終了　与えたダメージ"), left + (16f * k), top + (8f * k), 22f * k, panelW - (32f * k), gold with { W = fade }));
         var labelW = 56f * k;
         var colW = (panelW - labelW - (16f * k)) * 0.5f;
         var redX = left + labelW + (colW * 0.5f);
@@ -302,7 +307,7 @@ internal static class WvcShowParts
         shapes.Add(new UiShapeDraw(new Vector2(cx, fy + (2f * k)), new Vector2(panelW - (24f * k), 2f * k), gold with { W = 0.7f * fade }));
         if (total > 0f)
         {
-            text.Add(new ScreenTextDraw("計", new Vector2(left + (16f * k), fy + (11f * k)), 22f * k, gold with { W = total }));
+            text.Add(new ScreenTextDraw(TvLocale.T("計", "TOTAL"), new Vector2(left + (16f * k), fy + (11f * k)), 22f * k, gold with { W = total }));
             DamageCell(text, redTotal, redHits, redX, fy + (8f * k), k, colW, gold with { W = total }, muted with { W = total });
             DamageCell(text, blueTotal, blueHits, blueX, fy + (8f * k), k, colW, gold with { W = total }, muted with { W = total });
         }
@@ -313,7 +318,7 @@ internal static class WvcShowParts
     private static void DamageCell(List<ScreenTextDraw> text, float damage, int hits, float x, float y, float k, float colW, Vector4 main, Vector4 sub)
     {
         var damageText = string.Create(CultureInfo.InvariantCulture, $"{damage:0}");
-        var hitText = string.Create(CultureInfo.InvariantCulture, $"（{hits}発）");
+        var hitText = TvLocale.IsEnglish ? string.Create(CultureInfo.InvariantCulture, $"({hits} hits)") : string.Create(CultureInfo.InvariantCulture, $"（{hits}発）");
         var wDamage = ScreenText.MeasurePixelWidth(damageText, 24f * k);
         var wHit = ScreenText.MeasurePixelWidth(hitText, 16f * k);
         var gap = 6f * k;

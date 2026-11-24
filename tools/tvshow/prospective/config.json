@@ -19,8 +19,13 @@
   "silenceSeconds": 1.0,
   "_maxSilenceSeconds": "誰の声も無い間がこの秒数に達したら、台本を組む側が LLM に「ここで N 秒の無音があります」と警告して埋める台詞を書かせる（pacing.js）。台本ができた後にも残った無音を探して埋め直す（2026-11-18、ユーザーの指定: 2 秒以上の無音を作らない）。少し手前（1.8 秒）で警告して、声が 2 秒より前に出るようにする。警告に話題の例は書かない（何を話すかは話し手が決める、2026-11-19）。",
   "maxSilenceSeconds": 1.8,
-  "_minSaid": "言い出してすぐ切れた台詞は、この字数に満たなければ声に出さない（「意」「ディエ」のような切れ端）。",
+  "_minSaid": "言い出してすぐ切れた台詞は、この字数に満たなければ声に出さない（「意」「ディエ」のような切れ端）。今は languages.<lang>.minSaid を使う（これは古い札の目安として残す）。",
   "minSaid": 3,
+  "_languages": "番組の言語（札の \"lang\"）ごとの値。speak: 席の説明に入れる話す言語の一文。pause / sentence: 台詞の区切り・文の終わりの字（正規表現の字の組）。minSaid: これより短い切れ端は声に出さない（字数）。charSeconds / pauseSeconds: 字数からの長さの見積もり（mock と速さの目安。本番は読み上げて測る）。wordCut: 切れた台詞の言いかけの語を落とす。speedUnit と speedSample（または speedPerSecond: 1 秒の語数）: 席に伝える声の速さの目安。en は Edge の英語の声（en-US の Neural）の速さを測った値（2026-11-25）。",
+  "languages": {
+    "ja": { "speak": "日本語の話し言葉で話します。", "pause": "[、。！？!?…]", "sentence": "[。！？!?]", "minSaid": 3, "charSeconds": 0.16, "pauseSeconds": 0.48, "wordCut": false, "speedUnit": "字", "speedSample": "あ" },
+    "en": { "speak": "台詞（now・then・text・close・exclaim）はすべて英語で、アメリカのテレビの格闘技中継の話し言葉で話します。届く記録・資料・この説明は日本語ですが、声になるのは英語だけです（日本語を混ぜない）。選手・団体・王座の名前は、記録と画面に出る英語の表記で言います。", "pause": "[,.;:!?…]", "sentence": "[.!?]", "minSaid": 8, "charSeconds": 0.062, "pauseSeconds": 0.3, "wordCut": true, "speedUnit": "語", "speedPerSecond": 2.6 }
+  },
   "_closingSeconds": "番組の終わりまでこの秒数を切ったら、問いに「番組はあと N 秒で終わり、その先は声に出ません」と添える（何を言うかは渡さない）。終わりの数秒に長い台詞を始めて切れた（2026-11-24）。番組の終わりで切れた台詞は、言い切れる文までにする（run.js の wholeSentences）。",
   "closingSeconds": 10,
   "_replyFreshSeconds": "話し終わってから返す返事を、決めてからこの秒数より後に声に出すときは、言う前にもう一度聞く（出来事があればこれより早くても聞く）。",

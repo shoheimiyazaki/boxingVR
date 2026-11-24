@@ -83,7 +83,7 @@ try
         "rankings" => RankingsCommand(Options.Parse(argv[1..], "org", "division", "seeds", "rounds", "break", "crown", "out", "report")),
         "title" => TitleCommand(Options.Parse(argv[1..], "org", "winner", "loser", "out")),
         "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break", "org")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt", "camera-scale", "camera-focus", "ring")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt", "camera-scale", "camera-focus", "ring", "lang")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns", "roster")),
         "portraits" => Portraits(Options.Parse(argv[1..], "out", "scale")),
@@ -1923,6 +1923,7 @@ static LiveOptions? LiveOf(Options o, bool render)
 
 static int Video(Options o)
 {
+    TvLocale.Set(o.Get("lang")); // 画面の言葉の言語（既定 ja）。名簿・団体の読み込みより前に決める（locales が本体に重なる）
     if (o.Get("drill") is { } punch)
     {
         return DrillVideo(o, punch);
@@ -1982,8 +1983,8 @@ static int Video(Options o)
         _ => throw new ArgumentException("--tv は on か off にしてください。"),
     };
     new VideoMaker(o.Int("width", 1280, min: 160), o.Int("height", 720, min: 90), o.Int("fps", 30, min: 10), breakStyle, hitSounds, faceCam, speed, tv,
-        tvRounds: o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1), tvEvent: o.Get("event") ?? "ファイトナイト",
-        tvBout: string.Join("　・　", new[] { o.Get("bout") ?? "", billing }.Where(s => s.Length > 0)), tvNotes: billingNotes,
+        tvRounds: o.Int("rounds", MiniRing.MatchRules.Tv.Rounds, min: 1), tvEvent: o.Get("event") ?? TvLocale.T("ファイトナイト", "FIGHT NIGHT"),
+        tvBout: string.Join(TvLocale.T("　・　", "  ·  "), new[] { o.Get("bout") ?? "", billing }.Where(s => s.Length > 0)), tvNotes: billingNotes,
         tvBreak: o.Float("break", MiniRing.MatchRules.Tv.BreakSeconds, min: 1f), render: render, live: live,
         tvProgram: o.Get("program") is { } programPath ? TvProgram.FromJson(File.ReadAllText(programPath), TvProgram.RosterName) : null,
         org: OrgOption(o), belt: (o.Get("belt") ?? "off") switch { "on" => true, "off" => false, _ => throw new ArgumentException("--belt は on か off にしてください。") },

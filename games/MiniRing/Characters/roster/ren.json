@@ -112,5 +112,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Ren Shiraishi",
+      "reading": "Ren Shiraishi",
+      "hudName": "Ren",
+      "origin": "Japan (Kumamoto)",
+      "tagline": "Jujutsu grappler who grabs and breaks balance",
+      "profile": {
+        "birthplace": "Kumamoto, Kumamoto Prefecture, Japan",
+        "hometown": "Kumamoto, Kumamoto Prefecture",
+        "stance": "Orthodox",
+        "quote": "What you topple is your opponent's weight."
+      }
+    }
+  }
 }

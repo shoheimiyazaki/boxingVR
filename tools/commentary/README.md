@@ -63,6 +63,19 @@ UTF-8 で書く。
 
 合成は WinRT の `Windows.Media.SpeechSynthesis.SpeechSynthesizer`（OneCore の声）を使う。デスクトップの SAPI の声（Microsoft Haruka Desktop）は使わない。OneCore の声は台詞の後ろに 0.6〜0.8 秒の無音を付けるので、-50 dB より小さい後ろの無音を切り、0.08 秒だけ残す（台詞が無駄に後ろへずれないように）。
 
+### 英語の声（Edge のニューラル音声、2026-11-25）
+
+この PC の OneCore の声は日本語の 3 人だけなので、英語版の番組（札の `"lang": "en"`）の声は Edge のニューラル音声で読む。話し手の声に `"engine": "edge"` を書くと、`Synthesize.ps1` は 1 行ずつ `edge_say.py`（Python の `edge-tts` 7.3.1 以上）を呼んで WAV にし、あとは OneCore の声と同じに後ろの無音を切って並べる。
+
+```json
+"announcer": { "engine": "edge", "voice": ["en-US-GuyNeural"], "rate": "+10%", "pitch": "+0Hz", "volume": "+0%", "excited": { "rate": "+25%", "pitch": "+6Hz", "volume": "+10%" } }
+```
+
+- `voice` は Edge の声の名前そのまま（`py -3 -m edge_tts --list-voices`）。高さ（`pitch`）は Hz で書く（OneCore は %）。
+- 台詞の文は Microsoft の音声のサービスへ送られる（ネットが要る）。1 行 5〜15 秒かかる（OneCore の 10 倍ほど）。ネット・サービスの失敗（音が返らない）は 8 度まで、待ちを倍々に（2・4・8… 秒、上限 30 秒）やり直す。語りの長さを測るときに読めなかった台詞は、字数の見積もりで進める（`run.js`）。
+- edge-tts 7.2.8 はサービスに断られた（403）。古いときは `py -3 -m pip install -U edge-tts`。
+- 団体ごとの英語の放送席（名前と声）は、団体のファイルの `locales.en.cast`。
+
 ## 時刻のずれ（重なりを避ける仕組み）
 
 二つの声が同時に話すことはない。台詞を `at` の順に（同じ時刻なら台本の順に）並べ、

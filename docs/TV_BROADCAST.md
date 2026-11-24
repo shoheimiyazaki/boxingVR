@@ -103,6 +103,7 @@ powershell -ExecutionPolicy Bypass -File tools\tvshow\tvshow.ps1 -Card tools\tvs
 - `red` / `blue`: 名簿のキャラクターの id（`games/MiniRing/Characters/roster/<id>.json`）。武器・はめる物・体格・顔・名前はキャラクターの値。
 - `seed`: 数字か `"auto"`。`"auto"` は下見（`scoutSeeds` の種を全部回す）で一番見ごたえのある種を選び、`<out>\card.resolved.json` に**選んだときの物理・ボットの版と一緒に**残す。版（`Fighter.PhysicsVersion`・`BoxerBot.LogicVersion`）が変わると同じ種でも別の試合になるので、版が違えば選び直す（撮った動画は `-Force` で撮り直す）。
 - `belt`（試合ごと、既定 false）: true なら、WVC の勝敗の画面で勝者の名前の上に王座のベルトを出す（引き分けでは出ない。VFC は使わない）。例 `tools/tvshow/cards/wvc-title.json`。
+- `lang`（既定 `"ja"`）: `"en"` で英語版の番組（2026-11-25）。画面の文字・選手の名前・団体の呼び方は英語（`video --lang en`。名簿と団体のファイルの `locales.en` を重ねる）、放送席は団体の `locales.en.cast`（英語の名前と Edge のニューラル音声、`tools/commentary/README.md`「英語の声」）、語りは LLM が英語で話す（`tools/tvshow/prospective/config.json` の `languages.en`。中継の記録・資料・問いの説明は日本語のまま）。語りは `"commentary": { "writer": "prospective" }` だけ（下書き・`tvlint` の決まりは日本語の言葉で組んである）。例 `tools/tvshow/cards/ivf-p92-en-1125.json`。
 - `rounds`・`break`: 30 秒のラウンドの数と、間の休み [s]（既定 25。解説の問いと答えが入る長さ）。休みの間に治る量は休みの長さ × 団体の治る速さ（2026-11-24 から。団体のファイルの `match.regenVoxelsPerSecond`: WVC 1.79・IVF 89.37 個/秒、VFC は前線の再生。`TvShowRules.Rules`）。
 
 ### 大会のプログラムとトーナメント（`tools/tvshow/cards/wvc-boxing-tournament.json`）

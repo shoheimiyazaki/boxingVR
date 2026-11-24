@@ -128,5 +128,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Sean O'Malley",
+      "reading": "Sean O'Malley",
+      "hudName": "Sean",
+      "origin": "Ireland",
+      "tagline": "Staff-fighting brawler",
+      "profile": {
+        "birthplace": "Cork, Ireland",
+        "hometown": "Dublin",
+        "stance": "Orthodox",
+        "quote": "Hit, laugh, hit again!"
+      }
+    }
+  }
 }

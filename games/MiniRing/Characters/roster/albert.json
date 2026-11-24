@@ -123,5 +123,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Albert Cromwell",
+      "reading": "Albert Cromwell",
+      "hudName": "Albert",
+      "origin": "United Kingdom",
+      "tagline": "Bare-knuckle boxer",
+      "profile": {
+        "birthplace": "Sheffield, England, United Kingdom",
+        "hometown": "East London (Bethnal Green)",
+        "stance": "Orthodox",
+        "quote": "Use your head before you use your hands."
+      }
+    }
+  }
 }

@@ -125,5 +125,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Daichi Tamaki",
+      "reading": "Daichi Tamaki",
+      "hudName": "Daichi",
+      "origin": "Japan (Okinawa)",
+      "tagline": "Six-foot staff master",
+      "profile": {
+        "birthplace": "Nago, Okinawa, Japan",
+        "hometown": "Nago, Okinawa",
+        "stance": "Orthodox",
+        "quote": "The staff is an extension of the arm, and of the heart."
+      }
+    }
+  }
 }

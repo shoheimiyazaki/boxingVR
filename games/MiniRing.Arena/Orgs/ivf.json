@@ -113,5 +113,94 @@
     "analystTone": "技術の解説。体重が同じなので、体格の差より間合い・手数・ダウンの取り方の差で、なぜ効いたかを一言にまとめる。",
     "callThing": "ダウン・決着",
     "callExamples": "「ダウン」「2度目のダウン」「TKO」「ノックアウト」など"
+  },
+  // 英語版（--lang en）: ここの値が本体へ深く重なる（オブジェクトは再帰、配列と値は置き換え）。画面に出す言葉と放送席だけ。台本・採点の資料（rulesSheet・commentary・lint）は日本語のまま。
+  "locales": {
+    "en": {
+      "text": {
+        "openingRule": "{seconds} sec × {rounds} rounds  ·  3 knockdowns in a round is a TKO  ·  K.O. or decision",
+        "finishWord": "K.O.",
+        "decisionLine": "{rounds} rounds complete  ·  Decision on damage dealt"
+      },
+      "divisions": [
+        {
+          "id": "light",
+          "name": "Lightweight",
+          "limitKg": 64
+        },
+        {
+          "id": "middle",
+          "name": "Middleweight",
+          "limitKg": 73
+        },
+        {
+          "id": "lightheavy",
+          "name": "Light Heavyweight",
+          "limitKg": 80
+        },
+        {
+          "id": "cruiser",
+          "name": "Cruiserweight",
+          "limitKg": 91
+        },
+        {
+          "id": "heavy",
+          "name": "Heavyweight",
+          "limitKg": null
+        }
+      ],
+      "titles": {
+        "belt": "{org} {division} Title",
+        "titleBout": "{division} Title Bout",
+        "bout": "{division}"
+      },
+      "draft": {
+        "bellWord": "Bell",
+        "finishCall": "Knockout!",
+        "winLine": "{winner} wins!",
+        "drawLine": "",
+        "fallenCall": "{victim} is down!"
+      },
+      "cast": {
+        "announcer": {
+          "name": "Tom Hartley",
+          "persona": "docs/commentary/personas/tachibana.md",
+          "role": "You carry the heat of the fight straight into your voice.",
+          "voice": {
+            "engine": "edge",
+            "voice": [
+              "en-US-AndrewNeural"
+            ],
+            "rate": "+10%",
+            "pitch": "+0Hz",
+            "volume": "+0%",
+            "excited": {
+              "rate": "+25%",
+              "pitch": "+6Hz",
+              "volume": "+10%"
+            }
+          }
+        },
+        "commentator": {
+          "name": "Grace Lin",
+          "persona": "docs/commentary/personas/saeki.md",
+          "role": "You explain the reasons behind what we see.",
+          "voice": {
+            "engine": "edge",
+            "voice": [
+              "en-US-EmmaNeural"
+            ],
+            "rate": "+5%",
+            "pitch": "+0Hz",
+            "volume": "+0%",
+            "excited": {
+              "rate": "+15%",
+              "pitch": "+3Hz",
+              "volume": "+5%"
+            }
+          }
+        }
+      }
+    }
   }
 }

@@ -29,24 +29,24 @@ internal sealed record TvCorner(string Name, string Discipline, string Detail, s
     {
         var (discipline, detail) = weapon switch
         {
-            WeaponKind.Katana => ("日本刀", "両手持ち・刀の型"),
-            WeaponKind.Longsword => ("ロングソード", "両手持ち・西洋剣の型"),
-            WeaponKind.Staff => ("棒術", "両手持ち・六尺棒の型"),
-            WeaponKind.Jo => ("杖術", "両手持ち・杖（4 尺 3 寸）"),
-            WeaponKind.WoodenClub => ("こんぼう", $"片手持ち・{StyleLabel(styleName)}"),
-            WeaponKind.Bat => ("バット", "両手持ち・バットの型"),
-            WeaponKind.IronSword when wear == HandWear.Shield => ("剣と盾", "右手に剣・左手に盾"),
-            WeaponKind.IronSword => ("鉄の剣", $"片手持ち・{StyleLabel(styleName)}"),
+            WeaponKind.Katana => (TvLocale.T("日本刀", "Katana"), TvLocale.T("両手持ち・刀の型", "Two-handed · katana forms")),
+            WeaponKind.Longsword => (TvLocale.T("ロングソード", "Longsword"), TvLocale.T("両手持ち・西洋剣の型", "Two-handed · Western sword forms")),
+            WeaponKind.Staff => (TvLocale.T("棒術", "Bojutsu"), TvLocale.T("両手持ち・六尺棒の型", "Two-handed · six-foot staff forms")),
+            WeaponKind.Jo => (TvLocale.T("杖術", "Jojutsu"), TvLocale.T("両手持ち・杖（4 尺 3 寸）", "Two-handed · jo staff (128 cm)")),
+            WeaponKind.WoodenClub => (TvLocale.T("こんぼう", "Wooden Club"), TvLocale.T("片手持ち・", "One-handed · ") + StyleLabel(styleName)),
+            WeaponKind.Bat => (TvLocale.T("バット", "Baseball Bat"), TvLocale.T("両手持ち・バットの型", "Two-handed · bat forms")),
+            WeaponKind.IronSword when wear == HandWear.Shield => (TvLocale.T("剣と盾", "Sword & Shield"), TvLocale.T("右手に剣・左手に盾", "Sword in right hand · shield in left")),
+            WeaponKind.IronSword => (TvLocale.T("鉄の剣", "Iron Sword"), TvLocale.T("片手持ち・", "One-handed · ") + StyleLabel(styleName)),
             _ => wear switch
             {
-                HandWear.None when styleName == "karate" => ("空手", "素手・正拳と蹴り"),
-                HandWear.None => ("ベアナックル", StyleLabel(styleName)),
-                HandWear.KnuckleDuster => ("メリケンサック", StyleLabel(styleName)),
-                HandWear.Katar => ("カタール", StyleLabel(styleName)),
-                HandWear.Gauntlet => ("籠手", StyleLabel(styleName)),
-                HandWear.Tonfa => ("トンファー", "両手に木の棒・前腕で受ける"),
-                HandWear.Shield => ("盾", "盾で受ける"),
-                _ => ("ボクシング", StyleLabel(styleName)),
+                HandWear.None when styleName == "karate" => (TvLocale.T("空手", "Karate"), TvLocale.T("素手・正拳と蹴り", "Bare hands · punches and kicks")),
+                HandWear.None => (TvLocale.T("ベアナックル", "Bare Knuckle"), StyleLabel(styleName)),
+                HandWear.KnuckleDuster => (TvLocale.T("メリケンサック", "Brass Knuckles"), StyleLabel(styleName)),
+                HandWear.Katar => (TvLocale.T("カタール", "Katar"), StyleLabel(styleName)),
+                HandWear.Gauntlet => (TvLocale.T("籠手", "Gauntlets"), StyleLabel(styleName)),
+                HandWear.Tonfa => (TvLocale.T("トンファー", "Tonfa"), TvLocale.T("両手に木の棒・前腕で受ける", "Wooden batons in both hands · forearm blocks")),
+                HandWear.Shield => (TvLocale.T("盾", "Shield"), TvLocale.T("盾で受ける", "Blocks with the shield")),
+                _ => (TvLocale.T("ボクシング", "Boxing"), StyleLabel(styleName)),
             },
         };
         return new TvCorner(ringName, discipline, detail);
@@ -54,13 +54,13 @@ internal sealed record TvCorner(string Name, string Discipline, string Detail, s
 
     private static string StyleLabel(string styleName) => styleName switch
     {
-        "champion" => "王者型・読みとカウンター",
-        "swarmer" => "インファイター",
-        "slugger" => "強打者",
-        "outboxer" => "アウトボクサー",
-        "counter" => "カウンター使い",
-        "jabber" => "ジャブ使い",
-        "karate" => "空手家",
+        "champion" => TvLocale.T("王者型・読みとカウンター", "Champion · reads and counters"),
+        "swarmer" => TvLocale.T("インファイター", "In-fighter"),
+        "slugger" => TvLocale.T("強打者", "Slugger"),
+        "outboxer" => TvLocale.T("アウトボクサー", "Out-boxer"),
+        "counter" => TvLocale.T("カウンター使い", "Counter-puncher"),
+        "jabber" => TvLocale.T("ジャブ使い", "Jabber"),
+        "karate" => TvLocale.T("空手家", "Karateka"),
         _ => styleName,
     };
 }
@@ -193,8 +193,8 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         var panelY = h * 0.53f;
         var redX = Lerp(-panelSize.X * 0.5f, w * 0.25f, slide);
         var blueX = Lerp(w + (panelSize.X * 0.5f), w * 0.75f, slide);
-        CornerPanel(text, shapes, card.Red, new Vector2(redX, panelY), panelSize, RedBright, RedDeep, "赤コーナー", fade);
-        CornerPanel(text, shapes, card.Blue, new Vector2(blueX, panelY), panelSize, BlueBright, BlueDeep, "青コーナー", fade);
+        CornerPanel(text, shapes, card.Red, new Vector2(redX, panelY), panelSize, RedBright, RedDeep, TvLocale.T("赤コーナー", "RED CORNER"), fade);
+        CornerPanel(text, shapes, card.Blue, new Vector2(blueX, panelY), panelSize, BlueBright, BlueDeep, TvLocale.T("青コーナー", "BLUE CORNER"), fade);
 
         // VS: 少し大きく出て落ち着く。
         var vs = Clamp01((t - 2.3f) / 0.45f);
@@ -213,9 +213,9 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         var rules = Clamp01((t - 3f) / 0.5f);
         var ribbonY = h * 0.85f;
         shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, ribbonY + 14f), new Vector2(w * 0.86f * EaseOut(rules), 46f), Ink with { W = 0.85f * fade }, UiShapeDraw.Uniform(6f)));
-        var rule = _org.Text.OpeningRule
+        var rule = TvLocale.Singular(_org.Text.OpeningRule
             .Replace("{seconds}", card.Rules.RoundSeconds.ToString("0", CultureInfo.InvariantCulture), StringComparison.Ordinal)
-            .Replace("{rounds}", card.Rules.Rounds.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+            .Replace("{rounds}", card.Rules.Rounds.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
         Shadowed(text, rule, new Vector2(w * 0.5f, ribbonY), 24f, Grey with { W = rules * fade }, TextAnchor.Center);
         return (text, shapes);
     }
@@ -242,7 +242,7 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         var fade = Clamp01(t / 0.4f) * (1f - Clamp01((t - (TapeSeconds - 0.5f)) / 0.5f));
         shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, h * 0.5f), new Vector2(w, h), new Vector4(0f, 0f, 0f, 0.6f * fade)));
         Logo(text, shapes, new Vector2(74f, 34f), 1f, fade);
-        Shadowed(text, "選手の比較", new Vector2(w * 0.5f, h * 0.06f), 40f, Gold with { W = fade }, TextAnchor.Center);
+        Shadowed(text, TvLocale.T("選手の比較", "TALE OF THE TAPE"), new Vector2(w * 0.5f, h * 0.06f), 40f, Gold with { W = fade }, TextAnchor.Center);
 
         // 名前の帯（赤は左、青は右）。
         var headY = h * 0.17f;
@@ -253,23 +253,24 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
             Shadowed(text, corner.Name, new Vector2(x, headY + 4f), 36f, White with { W = fade }, TextAnchor.Center);
         }
 
-        static string Record(Characters.FightRecord r) => string.Create(CultureInfo.InvariantCulture, $"{r.Wins}勝{r.Losses}敗{(r.Draws > 0 ? $"{r.Draws}分" : "")}（{r.Kos}KO）");
+        static string Record(Characters.FightRecord r) => TvLocale.Record(r);
         var rows = new (string Label, string Red, string Blue)[]
         {
-            ("年齢", $"{red.Age}歳", $"{blue.Age}歳"),
-            ("身長", $"{red.HeightCm} cm", $"{blue.HeightCm} cm"),
-            ("体重", $"{red.WeightKg} kg", $"{blue.WeightKg} kg"),
-            ("戦績", Record(red.FightRecord), Record(blue.FightRecord)),
-            ("出身", red.Birthplace, blue.Birthplace),
-            ("拠点", red.Hometown, blue.Hometown),
-            ("構え", red.Stance, blue.Stance),
+            (TvLocale.T("年齢", "AGE"), TvLocale.T($"{red.Age}歳", $"{red.Age}"), TvLocale.T($"{blue.Age}歳", $"{blue.Age}")),
+            (TvLocale.T("身長", "HEIGHT"), $"{red.HeightCm} cm", $"{blue.HeightCm} cm"),
+            (TvLocale.T("体重", "WEIGHT"), $"{red.WeightKg} kg", $"{blue.WeightKg} kg"),
+            (TvLocale.T("戦績", "RECORD"), Record(red.FightRecord), Record(blue.FightRecord)),
+            (TvLocale.T("出身", "BIRTHPLACE"), red.Birthplace, blue.Birthplace),
+            (TvLocale.T("拠点", "HOMETOWN"), red.Hometown, blue.Hometown),
+            (TvLocale.T("構え", "STANCE"), red.Stance, blue.Stance),
         };
         if (card.Red.Seat is not null || card.Blue.Seat is not null)
         {
             // 団体の席（階級制の団体の計量と王座・ランキング）は体重のすぐ下に。
-            rows = [.. rows[..3], ("階級・席", card.Red.Seat ?? "—", card.Blue.Seat ?? "—"), .. rows[3..]];
+            rows = [.. rows[..3], (TvLocale.T("階級・席", "DIVISION / RANK"), card.Red.Seat ?? "—", card.Blue.Seat ?? "—"), .. rows[3..]];
         }
 
+        var FitChars = TvLocale.IsEnglish ? 34 : 18; // 表の 1 マスの字数（日本語は約 18 字、英語は字幅が狭いので約 34 字）
         var rowHeight = (h * 0.66f) / rows.Length;
         var top = h * 0.29f;
         for (var i = 0; i < rows.Length; i++)
@@ -289,8 +290,8 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
 
         return (text, shapes);
 
-        // 出身・拠点の長い値は表の幅（約 18 字）に収める。
-        static string Fit(string value) => value.Length <= 18 ? value : value[..17] + "…";
+        // 出身・拠点の長い値は表の幅に収める。
+        string Fit(string value) => value.Length <= FitChars ? value : value[..(FitChars - 1)] + "…";
     }
 
     /// <summary>
@@ -309,7 +310,7 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         Logo(text, shapes, new Vector2(74f, 34f), 1f, fade);
 
         var headIn = EaseOut(Clamp01(t / 0.6f));
-        Shadowed(text, "本日のプログラム", new Vector2(w * 0.5f, (h * 0.08f) - ((1f - headIn) * 20f)), 46f, Gold with { W = headIn * fade }, TextAnchor.Center);
+        Shadowed(text, TvLocale.T("本日のプログラム", "TONIGHT'S CARD"), new Vector2(w * 0.5f, (h * 0.08f) - ((1f - headIn) * 20f)), 46f, Gold with { W = headIn * fade }, TextAnchor.Center);
         shapes.Add(new UiShapeDraw(new Vector2(w * 0.5f, h * 0.08f + 58f), new Vector2(w * 0.4f * headIn, 1.5f), Gold with { W = fade }));
         Shadowed(text, program.Title, new Vector2(w * 0.5f, h * 0.08f + 66f), 26f, White with { W = headIn * fade }, TextAnchor.Center);
 
@@ -351,17 +352,17 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
             var right = center.X + (size.X * 0.5f) - 24f;
             if (bout.WinnerName is { } winnerName)
             {
-                var method = bout.Method.Length > 0 ? $"（{bout.Method}）" : "";
-                text.Add(new ScreenTextDraw($"{winnerName} 勝ち{method}", new Vector2(right, textY), 24f, Gold with { W = a }, TextAnchor.Right));
+                var method = bout.Method.Length > 0 ? TvLocale.T($"（{bout.Method}）", $" ({TvLocale.Method(bout.Method)})") : "";
+                text.Add(new ScreenTextDraw(TvLocale.T($"{winnerName} 勝ち{method}", $"{winnerName} wins{method}"), new Vector2(right, textY), 24f, Gold with { W = a }, TextAnchor.Right));
             }
             else if (bout.Current)
             {
                 shapes.Add(UiShapeDraw.Rounded(new Vector2(right - 62f, center.Y), new Vector2(124f, 34f), 6f, Gold with { W = 0.95f * a }));
-                text.Add(new ScreenTextDraw("この試合", new Vector2(right - 62f, center.Y - 13f), 22f, Ink with { W = a }, TextAnchor.Center));
+                text.Add(new ScreenTextDraw(TvLocale.T("この試合", "UP NEXT"), new Vector2(right - 62f, center.Y - 13f), 22f, Ink with { W = a }, TextAnchor.Center));
             }
             else
             {
-                text.Add(new ScreenTextDraw("このあと", new Vector2(right, textY), 22f, Grey with { W = 0.8f * a }, TextAnchor.Right));
+                text.Add(new ScreenTextDraw(TvLocale.T("このあと", "LATER"), new Vector2(right, textY), 22f, Grey with { W = 0.8f * a }, TextAnchor.Right));
             }
         }
 
@@ -394,10 +395,10 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         // 試合終了の札。
         var tagIn = Clamp01(t / 0.4f);
         shapes.Add(UiShapeDraw.Rounded(new Vector2(w * 0.5f, h * 0.09f + 16f), new Vector2(200f * EaseOut(tagIn), 40f), 6f, Gold with { W = 0.95f * tagIn }));
-        text.Add(new ScreenTextDraw("試合終了", new Vector2(w * 0.5f, h * 0.09f), 26f, Ink with { W = tagIn }, TextAnchor.Center));
+        text.Add(new ScreenTextDraw(TvLocale.T("試合終了", "FINAL"), new Vector2(w * 0.5f, h * 0.09f), 26f, Ink with { W = tagIn }, TextAnchor.Center));
 
         // 決まり手（K.O. にあたる決着の言い方は団体ごと）。
-        var methodText = result.Method == "K.O." ? _org.Text.FinishWord : result.Method;
+        var methodText = result.Method == "K.O." ? _org.Text.FinishWord : TvLocale.Method(result.Method);
         var method = Clamp01((t - 0.4f) / 0.5f);
         // 王座のベルトを出すときは、決まり手の字を小さく上げて、勝者の帯の上にベルトの場所をあける（字と重ならないように）。
         var showBelt = card.Belt && result.Winner != 0;
@@ -435,18 +436,20 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         else
         {
             var winner = result.Winner > 0 ? card.Red : card.Blue;
-            var corner = result.Winner > 0 ? "赤コーナー" : "青コーナー";
-            Shadowed(text, "勝者", new Vector2(w * 0.5f - 250f, bandY - 22f), 38f, Gold with { W = nameIn }, TextAnchor.Right);
+            var corner = result.Winner > 0 ? TvLocale.T("赤コーナー", "RED CORNER") : TvLocale.T("青コーナー", "BLUE CORNER");
+            Shadowed(text, TvLocale.T("勝者", "WINNER"), new Vector2(w * 0.5f - 250f, bandY - 22f), 38f, Gold with { W = nameIn }, TextAnchor.Right);
             Shadowed(text, winner.Name, new Vector2(w * 0.5f - 220f, bandY - 54f), 64f, White with { W = nameIn });
             Shadowed(text, $"{corner}　{winner.Discipline}", new Vector2(w * 0.5f - 216f, bandY + 20f), 26f, Gold with { W = nameIn });
         }
 
         // 決着の時刻と決まり手の説明。
         var detail = Clamp01((t - 2.1f) / 0.4f);
-        var timeText = string.Create(CultureInfo.InvariantCulture, $"第{result.Round}ラウンド {(int)result.RoundTime / 60}:{(int)result.RoundTime % 60:00}");
+        var timeText = TvLocale.IsEnglish
+            ? string.Create(CultureInfo.InvariantCulture, $"ROUND {result.Round} {(int)result.RoundTime / 60}:{(int)result.RoundTime % 60:00}")
+            : string.Create(CultureInfo.InvariantCulture, $"第{result.Round}ラウンド {(int)result.RoundTime / 60}:{(int)result.RoundTime % 60:00}");
         var detailText = result.ByDecision
-            ? _org.Text.DecisionLine.Replace("{rounds}", card.Rules.Rounds.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-            : $"{timeText}　・　{methodText}（{result.Cause}）";
+            ? TvLocale.Singular(_org.Text.DecisionLine.Replace("{rounds}", card.Rules.Rounds.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal))
+            : TvLocale.T($"{timeText}　・　{methodText}（{result.Cause}）", $"{timeText}  ·  {methodText} ({TvLocale.Cause(result.Cause)})");
         Shadowed(text, detailText, new Vector2(w * 0.5f, bandY + 82f), 28f, White with { W = detail }, TextAnchor.Center);
 
         // 採点表（ラウンドごとに与えたダメージ）。
@@ -470,10 +473,10 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         var top = center.Y - (Row * 1.5f);
         shapes.Add(UiShapeDraw.Rounded(center, new Vector2(tableWidth, Row * 3f + 14f), 8f, Ink with { W = 0.88f * alpha }));
         float ColumnX(int i) => left + NameColumn + (Column * (i + 0.5f));
-        text.Add(new ScreenTextDraw("与えたダメージ", new Vector2(left + 16f, top + 6f), 20f, Grey with { W = alpha }));
+        text.Add(new ScreenTextDraw(TvLocale.T("与えたダメージ", "DAMAGE DEALT"), new Vector2(left + 16f, top + 6f), 20f, Grey with { W = alpha }));
         for (var r = 0; r <= rounds; r++)
         {
-            text.Add(new ScreenTextDraw(r < rounds ? $"R{r + 1}" : "計", new Vector2(ColumnX(r), top + 6f), 20f, (r < rounds ? Grey : Gold) with { W = alpha }, TextAnchor.Center));
+            text.Add(new ScreenTextDraw(r < rounds ? $"R{r + 1}" : TvLocale.T("計", "TOTAL"), new Vector2(ColumnX(r), top + 6f), 20f, (r < rounds ? Grey : Gold) with { W = alpha }, TextAnchor.Center));
         }
 
         foreach (var (row, corner, scores, color) in new[] { (1, card.Red, result.RedScores, RedBright), (2, card.Blue, result.BlueScores, BlueBright) })
@@ -625,7 +628,7 @@ internal sealed class TvShowGraphics(int width, int height, Organization? org = 
         var blink = 0.5f + (0.5f * MathF.Sin(videoTime * 6f));
         shapes.Add(UiShapeDraw.Rounded(new Vector2(44f, 26f), new Vector2(12f, 12f), 6f, White with { W = 0.4f + (0.6f * blink) }));
         text.Add(new ScreenTextDraw("REPLAY", new Vector2(100f, 13f), 24f, White, TextAnchor.Center));
-        text.Add(new ScreenTextDraw($"第{round}ラウンド　スロー", new Vector2(170f, 14f), 22f, Gold));
+        text.Add(new ScreenTextDraw(TvLocale.T($"第{round}ラウンド　スロー", $"ROUND {round}  SLOW MOTION REPLAY"), new Vector2(170f, 14f), 22f, Gold));
         Shadowed(text, description, new Vector2(w * 0.5f, h - 50f), 24f, White, TextAnchor.Center);
         Logo(text, shapes, new Vector2(w - 74f, 26f), 0.8f);
         return (text, shapes);

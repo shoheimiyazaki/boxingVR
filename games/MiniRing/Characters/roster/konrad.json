@@ -124,5 +124,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Konrad Eisenhardt",
+      "reading": "Konrad Eisenhardt",
+      "hudName": "Konrad",
+      "origin": "Germany",
+      "tagline": "Swordsman of the Liechtenauer school",
+      "profile": {
+        "birthplace": "Nuremberg, Bavaria, Germany",
+        "hometown": "Nuremberg",
+        "stance": "Orthodox",
+        "quote": "The sword is courtesy, extended."
+      }
+    }
+  }
 }

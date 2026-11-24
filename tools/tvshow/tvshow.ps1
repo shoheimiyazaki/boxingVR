@@ -49,6 +49,8 @@ $rounds = [int](Get-Field $cardData 'rounds' 3)
 $breakSeconds = [double](Get-Field $cardData 'break' 25) # 25 秒: 2 本目のリプレイの後に、解説のなぜ効くかと問いと答えが入る長さ
 # 主催団体（games/MiniRing.Arena/Orgs/<id>.json）。画面の色と名前・紋章・合図の音・下見の点数・台本の資料と言い回しが団体のファイルで変わる。既定は wvc。
 $orgId = ([string](Get-Field $cardData 'org' 'wvc')).ToLowerInvariant()
+# 番組の言語（"lang": "ja" | "en"、既定 ja）。画面の文字・選手の名前（video --lang）と、語りの言語・放送席（prospective の run.js が札から読む）。
+$lang = ([string](Get-Field $cardData 'lang' 'ja')).ToLowerInvariant()
 $eventTitle = [string](Get-Field $cardData 'event' $orgId.ToUpperInvariant())
 $scoutSeeds = @(Get-Field $cardData 'scoutSeeds' @(1, 2, 3, 4, 5, 6, 7, 8)) -join ','
 $PartLimitMiB = [double](Get-Field $cardData 'partLimitMiB' $PartLimitMiB)
@@ -221,7 +223,7 @@ for ($i = 0; $i -lt $bouts.Count; $i++) {
     Write-Host "== render $key ($red vs $blue, seed $($resolved[$key]))"
     $lines = Invoke-Arena (@('video', '--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
         '--org', $orgId, '--event', $eventTitle, '--bout', (Get-BoutLabel $i), '--red-char', $red, '--blue-char', $blue, '--seed', "$($resolved[$key])",
-        '--program', $programPath) + @(if (Get-Field $bout 'belt' $false) { '--belt'; 'on' }) + @('--out', $video))
+        '--program', $programPath, '--lang', $lang) + @(if (Get-Field $bout 'belt' $false) { '--belt'; 'on' }) + @('--out', $video))
     $lines | Where-Object { $_ -notmatch 'elapsed' } | Select-Object -Last 2 | ForEach-Object { Write-Host $_ }
     $outcome = Get-Outcome $i
     Write-Host "   ${key}: $(if ($outcome.winner -eq 'red') { $red } else { $blue }) の勝ち（$($outcome.method)）"
@@ -246,7 +248,7 @@ if ($Stage -in @('liveprep', 'live')) {
         $key = "b$($i + 1)"
         $label = [string](Get-Field $bout 'bout' "第$($i + 1)試合")
         return @('--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
-            '--org', $orgId, '--event', $eventTitle, '--bout', $label, '--red-char', (Resolve-Fighter $i 'red'), '--blue-char', (Resolve-Fighter $i 'blue'), '--seed', "$($resolved[$key])") +
+            '--org', $orgId, '--event', $eventTitle, '--bout', $label, '--red-char', (Resolve-Fighter $i 'red'), '--blue-char', (Resolve-Fighter $i 'blue'), '--seed', "$($resolved[$key])", '--lang', $lang) +
             @(if (Get-Field $bout 'belt' $false) { '--belt'; 'on' })
     }
 
@@ -328,6 +330,8 @@ $commentaryCard = Get-Field $cardData 'commentary' $null
 #    "prospective" なら、2 エージェントのプロスペクティブ制（tools\tvshow\prospective\run.js、docs\commentary\styles\prospective.md）。
 $writerKind = [string](Get-Field $commentaryCard 'writer' '')
 $llmWriter = $writerKind -in @('llm', 'prospective')
+# 日本語でない番組は、プロスペクティブ制の語りだけが書ける（下書き・tvlint・llm の台本の決まりは日本語の言葉で組んである）。
+if ($lang -ne 'ja' -and $writerKind -ne 'prospective') { throw "lang '$lang' の番組は commentary.writer = prospective で作ります（今は '$writerKind'）" }
 if ($writerKind -eq 'prospective' -and ($Stage -eq 'write' -or $Stage -in @('all', 'dub'))) {
     # プロスペクティブ制（Haiku 2 体の生実況）: 台本の無い試合を commentary.parallel（既定 2）本ずつ並べて動かす。止まった試合は 1 回だけやり直す
     # （同じ問いは記録 calls.jsonl の答えを使うので、やり直しは止まった所から先だけ LLM に聞く）。-Stage write は全試合を頭から。

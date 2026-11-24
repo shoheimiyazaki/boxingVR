@@ -63,7 +63,7 @@ internal sealed class BodyFigure
     public bool Unharmed => _parts.Values.All(p => p is { Gone: false, Broken: false, Lost: < 0.05f }) && LeftSight >= 0.9f && RightSight >= 0.9f;
 
     /// <summary>図の部位の呼び名（本人の左右つき）。</summary>
-    public static string Name(FigurePart part) => part switch
+    public static string Name(FigurePart part, bool english = false) => english ? NameEn(part) : part switch
     {
         FigurePart.Head => "頭",
         FigurePart.Chest => "胸",
@@ -78,12 +78,28 @@ internal sealed class BodyFigure
         _ => "左すね",
     };
 
+    private static string NameEn(FigurePart part) => part switch
+    {
+        FigurePart.Head => "Head",
+        FigurePart.Chest => "Chest",
+        FigurePart.Waist => "Waist",
+        FigurePart.RightUpperArm => "Right upper arm",
+        FigurePart.RightForearm => "Right forearm",
+        FigurePart.LeftUpperArm => "Left upper arm",
+        FigurePart.LeftForearm => "Left forearm",
+        FigurePart.RightThigh => "Right thigh",
+        FigurePart.RightShin => "Right shin",
+        FigurePart.LeftThigh => "Left thigh",
+        _ => "Left shin",
+    };
+
     /// <summary>
     /// 見えている傷を短い言葉に（「左前腕 骨折」「右上腕から先を失った」「右目が潰れた」「胸 肉が3割削れた」）。重い傷から順に。
     /// 切り落とされた部位から先の部位は、先の部位の傷として重ねて言わない。
     /// </summary>
-    public IReadOnlyList<string> Wounds()
+    public IReadOnlyList<string> Wounds(bool english = false)
     {
+        string Part(FigurePart part) => Name(part, english);
         var gone = new List<string>();
         var broken = new List<string>();
         var carved = new List<(float Lost, string Text)>();
@@ -94,29 +110,29 @@ internal sealed class BodyFigure
             {
                 if (!IsBeyondGone(part))
                 {
-                    gone.Add(part == FigurePart.Head ? "首から先を失った" : $"{Name(part)}から先を失った");
+                    gone.Add(english ? (part == FigurePart.Head ? "Head severed" : $"{Part(part)} lost") : part == FigurePart.Head ? "首から先を失った" : $"{Part(part)}から先を失った");
                 }
             }
             else if (s.Broken)
             {
-                broken.Add($"{Name(part)} 骨折");
+                broken.Add(english ? $"{Part(part)} fractured" : $"{Part(part)} 骨折");
             }
             else if (s.Lost >= 0.25f)
             {
-                carved.Add((s.Lost, $"{Name(part)} 肉が{Tenths(s.Lost)}削れた"));
+                carved.Add((s.Lost, english ? $"{Part(part)} {TenthsEn(s.Lost)} flesh gone" : $"{Part(part)} 肉が{Tenths(s.Lost)}削れた"));
             }
         }
 
         var eyes = new List<string>();
-        foreach (var (side, sight) in new[] { ("左", LeftSight), ("右", RightSight) })
+        foreach (var (side, sight) in new[] { (english ? "Left" : "左", LeftSight), (english ? "Right" : "右", RightSight) })
         {
             if (sight <= 0.01f)
             {
-                eyes.Add($"{side}目が潰れた");
+                eyes.Add(english ? $"{side} eye destroyed" : $"{side}目が潰れた");
             }
             else if (sight < 0.5f)
             {
-                eyes.Add($"{side}目がほとんど見えない");
+                eyes.Add(english ? $"{side} eye nearly blind" : $"{side}目がほとんど見えない");
             }
         }
 
@@ -132,6 +148,8 @@ internal sealed class BodyFigure
         FigurePart.LeftShin => this[FigurePart.LeftThigh].Gone,
         _ => false,
     };
+
+    private static string TenthsEn(float fraction) => fraction >= 0.95f ? "nearly all" : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{Math.Max(1, (int)MathF.Round(fraction * 10f)) * 10}%");
 
     private static string Tenths(float fraction) => fraction >= 0.95f ? "ほぼすべて" : fraction is >= 0.45f and < 0.55f ? "半分"
         : (int)MathF.Round(fraction * 10f) is var n && n <= 0 ? "1割近く" : $"{n}割";

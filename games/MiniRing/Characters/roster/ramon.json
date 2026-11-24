@@ -122,5 +122,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Ramón \"El Toro\" Castillo",
+      "reading": "Ramón \"El Toro\" Castillo",
+      "hudName": "El Toro",
+      "origin": "Mexico",
+      "tagline": "Relentless forward brawler",
+      "profile": {
+        "birthplace": "Monterrey, Nuevo León, Mexico",
+        "hometown": "Guadalajara",
+        "stance": "Orthodox",
+        "quote": "The road backward isn't on the map."
+      }
+    }
+  }
 }

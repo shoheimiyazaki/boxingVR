@@ -120,5 +120,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "João \"Galo\" Silva",
+      "reading": "João \"Galo\" Silva",
+      "hudName": "Galo",
+      "origin": "Brazil",
+      "tagline": "Street fighting rooster",
+      "profile": {
+        "birthplace": "Outskirts of São Paulo, Brazil",
+        "hometown": "São Paulo",
+        "stance": "Orthodox",
+        "quote": "The comb may break, but the rooster never stops crowing."
+      }
+    }
+  }
 }

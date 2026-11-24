@@ -123,5 +123,81 @@
     "analystTone": "解説は「どこが壊れたか・あと何が残っているか」を伝える。折れた骨・削れた肉・失った手足と、残った体で次に何ができるか。",
     "callThing": "倒れたこと・決着",
     "callExamples": "「倒れた」「決着」「引き分け」など"
+  },
+  // 英語版（--lang en）: ここの値が本体へ深く重なる（オブジェクトは再帰、配列と値は置き換え）。画面に出す言葉と放送席だけ。台本・採点の資料（rulesSheet・commentary・lint）は日本語のまま。
+  "locales": {
+    "en": {
+      "text": {
+        "openingRule": "{seconds} sec × {rounds} R  ·  No referee  ·  Fight to the death",
+        "finishWord": "FINISH",
+        "decisionLine": "{rounds} R complete  ·  Both fighters survive: draw",
+        "strapline": "Late-night cage fight stream",
+        "intervalSign": "REGEN INTERVAL",
+        "coldOpen": [
+          "NO REFEREE",
+          "NO COUNT",
+          "TO THE DEATH"
+        ]
+      },
+      "divisions": [
+        {
+          "id": "open",
+          "name": "Open",
+          "limitKg": null
+        }
+      ],
+      "titles": {
+        "belt": "{org} Champion",
+        "titleBout": "Title Bout",
+        "bout": ""
+      },
+      "draft": {
+        "bellWord": "Horn",
+        "finishCall": "It's over!",
+        "winLine": "{winner} wins!",
+        "drawLine": "Final horn. Both fighters survive every round: a draw.",
+        "fallenCall": "{victim} is down! But the fight does not stop!"
+      },
+      "cast": {
+        "announcer": {
+          "name": "Rex Holloway",
+          "persona": "docs/commentary/personas/kuze.md",
+          "role": "You call a late-night combat stream. You tell the audience what can be seen.",
+          "voice": {
+            "engine": "edge",
+            "voice": [
+              "en-US-ChristopherNeural"
+            ],
+            "rate": "+10%",
+            "pitch": "+0Hz",
+            "volume": "+0%",
+            "excited": {
+              "rate": "+25%",
+              "pitch": "+6Hz",
+              "volume": "+10%"
+            }
+          }
+        },
+        "commentator": {
+          "name": "Sam Ortega",
+          "persona": "docs/commentary/personas/takamiya.md",
+          "role": "You are the analyst, a former emergency physician who served as the VFC cage doctor. You read how bodies break and what remains.",
+          "voice": {
+            "engine": "edge",
+            "voice": [
+              "en-US-EricNeural"
+            ],
+            "rate": "+5%",
+            "pitch": "+0Hz",
+            "volume": "+0%",
+            "excited": {
+              "rate": "+15%",
+              "pitch": "+3Hz",
+              "volume": "+5%"
+            }
+          }
+        }
+      }
+    }
   }
 }

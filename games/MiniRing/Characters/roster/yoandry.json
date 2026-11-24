@@ -123,5 +123,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Yoandry Morales",
+      "reading": "Yoandry Morales",
+      "hudName": "Yoandry",
+      "origin": "Cuba",
+      "tagline": "Master of the counter",
+      "profile": {
+        "birthplace": "Havana, Cuba",
+        "hometown": "Havana",
+        "stance": "Orthodox",
+        "quote": "If you can see it, you needn't fear it."
+      }
+    }
+  }
 }

@@ -1,0 +1,17 @@
+{
+  "_comment": "2026-11-25: 英語版の番組の最初の札（lang en）。ivf-p92-1124.json と同じ 2 試合・同じ種（master d3bc725 + 枝 claude/tv-p92-3324a3、PhysicsVersion 92・LogicVersion 65）。画面の文字・選手の名前は英語、放送席は IVF の locales.en.cast（Edge のニューラル音声）、語りはプロスペクティブ制で英語。",
+  "org": "ivf",
+  "lang": "en",
+  "event": "IVF FIGHT NIGHT",
+  "program": "IVF DOUBLE TITLE HEADER",
+  "rounds": 3,
+  "break": 20,
+  "out": "docs/video/ivf-p92-en-1125",
+  "scoutSeeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "partLimitMiB": 29,
+  "commentary": { "writer": "prospective", "model": "haiku" },
+  "bouts": [
+    { "red": "vikram", "blue": "albert", "seed": 6, "bout": "Co-Main Event", "stake": "IVF Middleweight Championship: No. 1 contender Vikram challenges champion Albert", "next": "IVF Middleweight Champion", "belt": true },
+    { "red": "marcus", "blue": "dmitri", "seed": 4, "bout": "Main Event", "stake": "IVF Heavyweight Championship: the champion and the No. 1 contender, dead even at 3-3 in the rankings round robin", "next": "IVF Heavyweight Champion", "belt": true }
+  ]
+}

@@ -123,5 +123,20 @@
     "vs": {},
     "weaponBot": null
   },
-  "record": []
+  "record": [],
+  "locales": {
+    "en": {
+      "name": "Vikram Rathore",
+      "reading": "Vikram Rathore",
+      "hudName": "Vikram",
+      "origin": "India",
+      "tagline": "Rajput warrior",
+      "profile": {
+        "birthplace": "Jodhpur, Rajasthan, India",
+        "hometown": "Jaipur",
+        "stance": "Orthodox",
+        "quote": "The blade is the shape of pride."
+      }
+    }
+  }
 }
