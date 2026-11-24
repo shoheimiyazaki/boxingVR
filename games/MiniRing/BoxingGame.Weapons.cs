@@ -185,7 +185,7 @@ public sealed partial class BoxingGame
 
     private void Resupply(Fighter fighter, WeaponKind? kind, bool twoHanded)
     {
-        if (kind is not { } weaponKind || fighter.IsDead || fighter.Wields(WeaponHand)
+        if (kind is not { } weaponKind || fighter.IsDead || fighter.Wields(WeaponHand) || HasFloatingHomeWeapon(fighter)
             || (_suppliedAfterRound.TryGetValue(fighter, out var round) && round == MatchRound))
         {
             return;
@@ -217,7 +217,15 @@ public sealed partial class BoxingGame
             _wieldHand.Remove(old);
         }
 
-        Arm(fighter, weaponKind, both);
+        if (FloatsFor(fighter, weaponKind))
+        {
+            FloatWeapon(fighter, weaponKind);
+        }
+        else
+        {
+            Arm(fighter, weaponKind, both);
+        }
+
         _suppliedAfterRound[fighter] = MatchRound;
         _supplies[fighter] = _supplies.GetValueOrDefault(fighter) + 1;
         RecentSupplies.Add(new WeaponSupplyEvent(fighter, weaponKind));
@@ -422,6 +430,7 @@ public sealed partial class BoxingGame
 
         Weapon? best = null;
         var bestDistance = reach;
+        var bestGrip = Vector3.Zero;
         foreach (var weapon in _weapons)
         {
             if (Weapon.IsWorn(weapon.Kind) || OwnerOf(weapon) is not null)
@@ -429,12 +438,12 @@ public sealed partial class BoxingGame
                 continue; // はめ物・誰かが（切れた手でも）握っている物は拾えない
             }
 
-            var s = _world.GetState(weapon.Body.BodyId);
-            var distance = Vector3.Distance(fist, s.Position + Vector3.Transform(Weapon.GripOf(weapon.Kind), s.Orientation));
+            var (grip, distance) = GraspPoint(weapon, fist);
             if (distance <= bestDistance)
             {
                 best = weapon;
                 bestDistance = distance;
+                bestGrip = grip;
             }
         }
 
@@ -444,8 +453,9 @@ public sealed partial class BoxingGame
         }
 
         RetireWorn(self, hand);
+        Unfloat(best);
         var kind = best.Kind;
-        self.Grasp(hand, best.Body.BodyId, Weapon.GripOf(kind), Weapon.CanTwoHand(kind), Weapon.SlideSpanOf(kind));
+        self.Grasp(hand, best.Body.BodyId, bestGrip, Weapon.CanTwoHand(kind), Weapon.SlideSpanOf(kind));
         _wielders[best] = self;
         _wieldHand[best] = hand;
     }
@@ -978,14 +988,19 @@ public sealed partial class BoxingGame
         for (var i = 0; i < weapons.Count; i++)
         {
             var weapon = weapons[i];
-            if (!_beforeStep.TryGetValue(weapon.Body.BodyId, out var before))
+            if (!_beforeStep.TryGetValue(weapon.Body.BodyId, out var before) || _floating.ContainsKey(weapon))
             {
-                continue;
+                continue; // 浮いている武器は誰にも当たらない
             }
 
             for (var j = i + 1; j < weapons.Count; j++)
             {
                 var other = weapons[j];
+                if (_floating.ContainsKey(other))
+                {
+                    continue;
+                }
+
                 // 同じ人の両手にはめた物は打ち合わない（構えでいつも触れ合っている）。
                 if (Weapon.IsWorn(weapon.Kind) && Weapon.IsWorn(other.Kind) && OwnerOf(weapon) is { } h && OwnerOf(other) == h)
                 {

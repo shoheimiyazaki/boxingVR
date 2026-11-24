@@ -16,7 +16,10 @@ namespace Aigis.Render.Voxels;
 /// the simplest boundary surface ("blocky" faces, no smoothing). Every other face collapses to one point outside the clip
 /// volume, which the rasteriser discards. Flat-shaded with the engine's default sun and a hemisphere ambient.
 /// </para>
-/// <para>Opaque, depth-tested and depth-written: drawn with the opaque scene, before X-ray markers, decals and particles.</para>
+/// <para>Opaque, depth-tested and depth-written: drawn with the opaque scene, before X-ray markers, decals and particles.
+/// A volume with <see cref="VoxelVolumeDraw.Opacity"/> below 1 is drawn after the opaque ones, in two passes (depth only, then
+/// blended where it is the nearest surface): what is behind it shows through its front surface only, and its own hidden faces
+/// do not stack up. Things drawn later (particles, decals) behind it are hidden by its depth.</para>
 /// </summary>
 internal sealed unsafe class VoxelVolumePipeline : IDisposable
 {
@@ -29,7 +32,9 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
     private const string VertexSource = """
         #version 450
         layout(set = 0, binding = 0) uniform sampler3D volume;
-        layout(push_constant) uniform Push { mat4 viewProjection; mat4 cellToWorld; } pc;
+        // cellToWorld is affine: its three rows (world.x/y/z = dot(row, vec4(cell, 1))) leave room in the 128 bytes every Vulkan
+        // device guarantees for the opacity.
+        layout(push_constant) uniform Push { mat4 viewProjection; vec4 cellRow0; vec4 cellRow1; vec4 cellRow2; vec4 style; } pc;
         layout(location = 0) out vec3 vColor;
         layout(location = 1) out vec3 vNormal;
         layout(location = 2) out vec3 vWorld;
@@ -37,6 +42,18 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
         layout(location = 4) flat out vec3 vEye;
         layout(location = 5) out float vBright;
         layout(location = 6) out float vOpen;
+        layout(location = 7) flat out float vOpacity;
+        // The translucent passes draw the same vertices twice (depth only, then blended with LessOrEqual): the depth must match exactly.
+        invariant gl_Position;
+
+        vec3 cellToWorld(vec3 cell) {
+            vec4 p = vec4(cell, 1.0);
+            return vec3(dot(pc.cellRow0, p), dot(pc.cellRow1, p), dot(pc.cellRow2, p));
+        }
+
+        vec3 cellToWorldDirection(vec3 d) {
+            return vec3(dot(pc.cellRow0.xyz, d), dot(pc.cellRow1.xyz, d), dot(pc.cellRow2.xyz, d));
+        }
 
         const ivec3 DIRS[6] = ivec3[](ivec3(1,0,0), ivec3(-1,0,0), ivec3(0,1,0), ivec3(0,-1,0), ivec3(0,0,1), ivec3(0,0,-1));
         // Four corners of each face, in the cell's own unit cube.
@@ -66,6 +83,7 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
             vEye = vec3(0.0);
             vBright = 0.0;
             vOpen = 1.0;
+            vOpacity = clamp(pc.style.x, 0.0, 1.0);
             if (texel.a < 0.5 || neighbour >= 0.5) {
                 gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // hidden face: one point outside the clip volume
                 return;
@@ -73,7 +91,7 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
 
             vec3 corner3 = CORNERS[face * 4 + corner];
             vec3 local = vec3(c) + corner3;
-            vec4 world = pc.cellToWorld * vec4(local, 1.0);
+            vec4 world = vec4(cellToWorld(local), 1.0);
             gl_Position = pc.viewProjection * world;
             vWorld = world.xyz;
             // Where on the face this corner is (0..1 on the two axes in the face), for the bevel.
@@ -103,7 +121,7 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
             // is for the silhouette, not for the small faces a staircase shows edge-on.
             vOpen = clamp(dot(shading, faceAxis), 0.0, 1.0);
             // An axis-aligned normal through rotation and per-axis scale stays on that rotated axis (the bent one nearly so).
-            vNormal = normalize(mat3(pc.cellToWorld) * shading);
+            vNormal = normalize(cellToWorldDirection(shading));
             vColor = texel.rgb;
             // Alpha below 1 (but at least 0.5: still filled) marks a bright surface (the white of an eye): 1 gives 0, 0.5 gives 1.
             vBright = clamp((1.0 - texel.a) * 2.0, 0.0, 1.0);
@@ -119,6 +137,7 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
         layout(location = 4) flat in vec3 vEye;
         layout(location = 5) in float vBright;
         layout(location = 6) in float vOpen;
+        layout(location = 7) flat in float vOpacity;
         layout(location = 0) out vec4 outColor;
 
         void main() {
@@ -141,7 +160,8 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
             vec3 h = normalize(key + v);
             float sheen = pow(max(dot(n, h), 0.0), 28.0) * 0.16;
             float rim = pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.28 * smoothstep(0.6, 0.95, vOpen);
-            outColor = vec4(lit + vec3(sheen) + rim * vec3(0.72, 0.82, 1.0), 1.0);
+            // The opaque pipeline does not blend, so the alpha only matters to the translucent one.
+            outColor = vec4(lit + vec3(sheen) + rim * vec3(0.72, 0.82, 1.0), vOpacity);
         }
         """;
 
@@ -163,6 +183,8 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
     private long _sequence;
     private bool _ready;
     private Pipeline _pipeline;
+    private Pipeline _depthOnlyPipeline;
+    private Pipeline _blendPipeline;
     private PipelineLayout _layout;
     private ShaderModule _vert;
     private ShaderModule _frag;
@@ -182,10 +204,27 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
     /// <summary>Volumes left out of the last frame because more than <see cref="MaxVolumes"/> were named.</summary>
     public int DroppedLastFrame { get; private set; }
 
+    /// <summary>128 bytes (the size every Vulkan device guarantees): the view-projection, the three rows of the affine cell → world, the opacity.</summary>
     private struct Push
     {
         public Matrix4x4 ViewProjection;
-        public Matrix4x4 CellToWorld;
+        public Vector4 CellRow0;
+        public Vector4 CellRow1;
+        public Vector4 CellRow2;
+        public Vector4 Style;
+
+        /// <summary>
+        /// The push for one volume. <paramref name="m"/> (cell → world) is a row-vector affine matrix (world = cell × M), so world.x is
+        /// dot((M11, M21, M31, M41), (cell, 1)) and so on; its last column must be (0, 0, 0, 1).
+        /// </summary>
+        public static Push For(Matrix4x4 viewProjection, Matrix4x4 m, float opacity) => new()
+        {
+            ViewProjection = viewProjection,
+            CellRow0 = new Vector4(m.M11, m.M21, m.M31, m.M41),
+            CellRow1 = new Vector4(m.M12, m.M22, m.M32, m.M42),
+            CellRow2 = new Vector4(m.M13, m.M23, m.M33, m.M43),
+            Style = new Vector4(float.IsFinite(opacity) ? Math.Clamp(opacity, 0f, 1f) : 1f, 0f, 0f, 0f),
+        };
     }
 
     private sealed class Resident
@@ -251,7 +290,11 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
         }
     }
 
-    /// <summary>Records one draw per resident volume (inside the scene render pass).</summary>
+    /// <summary>
+    /// Records one draw per resident volume (inside the scene render pass): the opaque volumes first; then the translucent ones
+    /// (<see cref="VoxelVolumeDraw.IsTranslucent"/>) twice — depth only, then blended where their depth is the nearest — so a
+    /// translucent body shows its front surface over the scene once, not every face behind it stacked.
+    /// </summary>
     public void Draw(CommandBuffer cmd, IReadOnlyList<VoxelVolumeDraw> draws, Matrix4x4 viewProjection)
     {
         if (draws.Count == 0 || !_ready)
@@ -259,20 +302,50 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
             return;
         }
 
+        var translucent = false;
         _vk.CmdBindPipeline(cmd, PipelineBindPoint.Graphics, _pipeline);
         foreach (var draw in draws)
         {
-            if (!_resident.TryGetValue(draw.Volume, out var resident))
+            translucent |= draw.IsTranslucent;
+            if (!draw.IsTranslucent)
             {
-                continue; // over the budget this frame (counted in DroppedLastFrame)
+                DrawOne(cmd, draw, viewProjection);
             }
-
-            var set = resident.Set;
-            _vk.CmdBindDescriptorSets(cmd, PipelineBindPoint.Graphics, _layout, 0, 1, &set, 0, null);
-            var push = new Push { ViewProjection = viewProjection, CellToWorld = draw.CellToWorld };
-            _vk.CmdPushConstants(cmd, _layout, ShaderStageFlags.VertexBit, 0, (uint)sizeof(Push), &push);
-            _vk.CmdDraw(cmd, (uint)(draw.Volume.CellCount * 36), 1, 0, 0);
         }
+
+        if (!translucent)
+        {
+            return;
+        }
+
+        DrawTranslucent(cmd, _depthOnlyPipeline, draws, viewProjection);
+        DrawTranslucent(cmd, _blendPipeline, draws, viewProjection);
+    }
+
+    private void DrawTranslucent(CommandBuffer cmd, Pipeline pipeline, IReadOnlyList<VoxelVolumeDraw> draws, Matrix4x4 viewProjection)
+    {
+        _vk.CmdBindPipeline(cmd, PipelineBindPoint.Graphics, pipeline);
+        foreach (var draw in draws)
+        {
+            if (draw.IsTranslucent)
+            {
+                DrawOne(cmd, draw, viewProjection);
+            }
+        }
+    }
+
+    private void DrawOne(CommandBuffer cmd, in VoxelVolumeDraw draw, Matrix4x4 viewProjection)
+    {
+        if (!_resident.TryGetValue(draw.Volume, out var resident))
+        {
+            return; // over the budget this frame (counted in DroppedLastFrame)
+        }
+
+        var set = resident.Set;
+        _vk.CmdBindDescriptorSets(cmd, PipelineBindPoint.Graphics, _layout, 0, 1, &set, 0, null);
+        var push = Push.For(viewProjection, draw.CellToWorld, draw.Opacity);
+        _vk.CmdPushConstants(cmd, _layout, ShaderStageFlags.VertexBit, 0, (uint)sizeof(Push), &push);
+        _vk.CmdDraw(cmd, (uint)(draw.Volume.CellCount * 36), 1, 0, 0);
     }
 
     private void ReleaseIdle()
@@ -536,6 +609,25 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
                 Subpass = 0,
             };
             Check(_vk.CreateGraphicsPipelines(_device, default, 1, in pipelineInfo, null, out _pipeline), "CreateGraphicsPipelines(voxel)");
+
+            // Translucent, pass 1: depth only (no colour), so pass 2 colours only each pixel's nearest translucent surface.
+            blendAttachment.ColorWriteMask = 0;
+            Check(_vk.CreateGraphicsPipelines(_device, default, 1, in pipelineInfo, null, out _depthOnlyPipeline), "CreateGraphicsPipelines(voxel depth only)");
+
+            // Translucent, pass 2: the same vertices pass LessOrEqual exactly where pass 1 wrote; blended, depth left as it is.
+            depthStencil.DepthWriteEnable = false;
+            blendAttachment = new PipelineColorBlendAttachmentState
+            {
+                ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit | ColorComponentFlags.BBit,
+                BlendEnable = true,
+                SrcColorBlendFactor = BlendFactor.SrcAlpha,
+                DstColorBlendFactor = BlendFactor.OneMinusSrcAlpha,
+                ColorBlendOp = BlendOp.Add,
+                SrcAlphaBlendFactor = BlendFactor.Zero,
+                DstAlphaBlendFactor = BlendFactor.One,
+                AlphaBlendOp = BlendOp.Add,
+            };
+            Check(_vk.CreateGraphicsPipelines(_device, default, 1, in pipelineInfo, null, out _blendPipeline), "CreateGraphicsPipelines(voxel blend)");
         }
         finally
         {
@@ -635,9 +727,12 @@ internal sealed unsafe class VoxelVolumePipeline : IDisposable
             _vk.DestroySampler(_device, _sampler, null);
         }
 
-        if (_pipeline.Handle != 0)
+        foreach (var pipeline in new[] { _pipeline, _depthOnlyPipeline, _blendPipeline })
         {
-            _vk.DestroyPipeline(_device, _pipeline, null);
+            if (pipeline.Handle != 0)
+            {
+                _vk.DestroyPipeline(_device, pipeline, null);
+            }
         }
 
         if (_layout.Handle != 0)

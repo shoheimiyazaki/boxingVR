@@ -116,6 +116,7 @@ internal sealed record VrMatchOptions(WeaponKind? PlayerWeapon, WeaponKind? CpuW
             UseWeaponBots = true,
             PlayerWear = Wear,
             CpuWear = Wear,
+            PlayerWeaponFloats = true, // VR の人は目の前に浮いた武器を取って始める（放して止まるとまた浮く）
         };
 
     private static string? Value(IReadOnlyList<string> args, string name)

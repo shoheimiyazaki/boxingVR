@@ -20,10 +20,10 @@ using MiniRing.Vr;
 //   --first-person      ② 一人称: カメラは HMD の姿勢のまま（VR の空間 → ワールドの変換を身長の合わせで固定）、体の頭を HMD の位置へ。自分の頭は描かない
 //   --first-person-selftest  HMD なしで一人称の目の描画を 1 枚の PNG にして終了（.visualcheck/vr_first_person.png）
 //   --profile-headless [--profile-katana]  HMD なしで両目を12秒計測（各640x360・VSyncなし）
-//   --weapon <staff|katana|longsword|ironsword|woodenclub>  自分が武器を持つ（グリップボタンで持つ: 離すと放す。柄の近くでグリップを握ると拾う・もう一方の手を添える）
+//   --weapon <staff|katana|longsword|ironsword|woodenclub>  自分が武器を持つ（目の前に浮いている武器をグリップで取る: 離すと放し、床で止まるとまた浮く。柄の近くでグリップを握ると拾う・もう一方の手を添える）
 //   --cpu-weapon <kind|none>  相手の武器（既定は自分と同じ。none で素手）  --cpu <style>  相手のスタイル（既定 champion）
 //   --record-motion      起動から終了まで VR の動きを motions/<日時>_<武器>.vrmotion に記録（B/Y ボタンでも開始・停止。docs/VR_MOTION.md）
-//   --training <katana|longsword|jo|woodenclub|ironsword|...>  お手本づくりの稽古: 正眼に構えて動かない相手へ切り込む動きを型ごとに常に記録（右スティック 左右 = 型、A+B+X+Y 同時 = 作り直す、X・Y = 蹴り、A 単独 = 身長の合わせ。docs/VR_MOTION.md §5）  --shield  左手に盾（片手剣）
+//   --training <katana|longsword|jo|woodenclub|ironsword|...>  お手本づくりの稽古: 正眼に構えて動かない相手へ切り込む動きを型ごとに常に記録（右スティック 左右 = 型、上下 = 相手（構えて動かない・無防備・同じ武器・素手の各スタイル）、A+B+X+Y 同時 = 作り直す、X・Y = 蹴り、A 単独 = 身長の合わせ。docs/VR_MOTION.md §5）  --shield  左手に盾（片手剣）
 
 if (args.Contains("--selftest"))
 {
@@ -122,7 +122,7 @@ var vrTuning = matchTuning with { PlayerFatigue = false }; // VR の手触りの
 var recordingMessage = "training: replays are not recorded";
 using (xr)
 using (var training = match.Training is { } trainingWeapon ? new VrTrainingSession(trainingWeapon, vrTuning, Path.Combine(Environment.CurrentDirectory, "motions"), match.FirstPerson, match.Wear) : null)
-using (var matchGame = training is null ? new BoxingGame(vrTuning, corners: match.Corners.StartingAtCorners()) { HidePlayerHead = match.FirstPerson } : null)
+using (var matchGame = training is null ? new BoxingGame(vrTuning, corners: match.Corners.StartingAtCorners()) { HidePlayerHead = match.FirstPerson, PlayerBodyOpacity = match.FirstPerson ? BoxingRenderer.FirstPersonBodyOpacity : 1f } : null)
 using (var recorder = matchGame is null ? null : ReplayRecorder.TryStartFile(Path.Combine(Environment.CurrentDirectory, "replays"), matchGame, "vr", out recordingMessage))
 using (var renderer = new HeadlessRenderer(xr.EyeWidth, xr.EyeHeight, xr.Vulkan.External))
 using (var sounds = HitSoundPlayer.CreateDefault(breakStyle, hitSounds))

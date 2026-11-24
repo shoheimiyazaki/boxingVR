@@ -16,7 +16,8 @@ public enum VrTwoHand
 
 /// <summary>
 /// VR の姿勢・ボタン → プレイヤーのファイター指令（ホスト非依存。<c>MiniRing.Vr.VrPlayerControl</c> は OpenXR の入力をこれへ渡すだけ）。
-/// 左スティック: 歩き（視線基準） ／ 腕: コントローラ位置を肩基準で腕の長さ比に縮め、構えからの動きを <see cref="MotionGain"/> 倍して人形の体へ ／
+/// 左スティック: 歩き（視線基準） ／ 腕: コントローラ位置を肩基準で腕の長さ比に縮め、構えからの動きを <see cref="MotionGain"/> 倍して人形の体へ
+/// （一人称では目の描画と同じ変換でそのまま: ②） ／
 /// グリップ（squeeze）: 掴む（クリンチ） ／ 向きは常に相手へロックオン。
 /// <para>
 /// <b>武器の持ち方・旧</b>（<c>weaponMode</c>、2026-11-17。<see cref="GripHolds"/> が false のとき。合成の記録 <see cref="VrMotionSynth"/> が使う）:
@@ -40,11 +41,16 @@ public enum VrTwoHand
 /// （<see cref="VrWorldPlacement"/>）を決めて固定し、体の頭の目標 = HMD のワールドの位置。体はその点へ頭を持っていく: 水平のずれは歩く指令
 /// （<see cref="WalkToward"/>: ずれに比例・歩く速さで頭打ち。小さい間は <see cref="FighterCommand.HeadOffset"/> で傾けるだけ）。左スティックは変換の基準点を
 /// ワールドで動かす（体が追って歩く）。位置・姿勢は書き込まない（§1.1）。
+/// 手の目標も同じ変換で決める（<see cref="FirstPersonHandLocal"/>、2026-11-24）: コントローラのワールドの点 = 手の目標のワールドの点（増幅しない）、
+/// 武器の向き = コントローラの向きを同じ変換で回したもの。目に見えている手の所へ体の手が引かれる。
 /// </para>
 /// </summary>
 public sealed class VrPlayerMapper(bool weaponMode = false)
 {
-    /// <summary>コントローラの動き（構えからのずれ）の増幅率。</summary>
+    /// <summary>
+    /// 卓上の人形を外から操るとき（一人称でないとき）の、コントローラの動き（構えからのずれ）の増幅率。人形は 60 cm で、人の小さな動きでも
+    /// 人形の腕が伸び切るように（docs/VR_MOTION.md）。一人称では使わない（<see cref="HandGain"/> = 1: 手の目標 = 見えているコントローラ）。
+    /// </summary>
     public const float MotionGain = 2f;
 
     /// <summary>握り・トリガーが「押した」になる値。</summary>
@@ -172,13 +178,23 @@ public sealed class VrPlayerMapper(bool weaponMode = false)
         }
 
         // トラッキングが切れた手は最後の目標に留める（急に体の中心へ吸い込まれないように）。
+        var placed = FirstPerson && _calibrated ? Placement : null;
         foreach (var hand in new[] { MiniRing.Hand.Left, MiniRing.Hand.Right })
         {
             if (frame.Tracked(hand))
             {
                 var i = (int)hand;
-                _lastHandLocal[i] = PuppetMapping.HandTargetLocal(frame.HandPosition(hand), shoulders, scale, hand, PlayerHeight, MotionGain);
-                _lastOrientation[i] = WeaponOrientation(frame.HandRotation(hand), shoulders);
+                if (placed is { } placement)
+                {
+                    // ② 一人称: 目を描くのと同じ変換でコントローラをワールドへ写し、体フレームへ戻す（見えている手の位置 = 目標）。
+                    _lastHandLocal[i] = FirstPersonHandLocal(placement, frame.HandPosition(hand), sense.Self);
+                    _lastOrientation[i] = WeaponOrientation(placement.Rotation(frame.HandRotation(hand)), sense.Self);
+                }
+                else
+                {
+                    _lastHandLocal[i] = PuppetMapping.HandTargetLocal(frame.HandPosition(hand), shoulders, scale, hand, PlayerHeight, MotionGain);
+                    _lastOrientation[i] = WeaponOrientation(frame.HandRotation(hand), shoulders);
+                }
             }
         }
 
@@ -196,7 +212,9 @@ public sealed class VrPlayerMapper(bool weaponMode = false)
             leftOrientation = _lastOrientation[1];
         }
 
-        var letGo = GripHolds && sense.SelfWeapon.Held; // 握っているときだけ放す（握っていない手の離しは何も起こさない）
+        // 離した手が握っている物を放す。握っていない手・グローブの手の放すは試合の側が無視する（BoxingGame.LetGo）。主の武器を握っているか
+        // （SelfWeapon）では決めない: 左手だけで持つ物・拾った 2 本目を放せなかった（2026-11-25）。
+        var letGo = GripHolds;
         var command = new FighterCommand(move, sense.OpponentChest - sense.Self.Origin,
             HandOf(MiniRing.Hand.Left, left, leftOrientation, grabLeft, letGo && releasedLeft, frame),
             HandOf(MiniRing.Hand.Right, _lastHandLocal[1], _lastOrientation[1], grabRight, letGo && releasedRight, frame),
@@ -310,6 +328,19 @@ public sealed class VrPlayerMapper(bool weaponMode = false)
         released = was && focused && !state[hand];
         return state[hand];
     }
+
+    /// <summary>
+    /// ② 一人称の手の目標（体フレームのローカル）: コントローラの位置（VR の空間）を、目の描画と同じ変換 <paramref name="placement"/> でワールドへ写し、
+    /// 体の今のフレーム <paramref name="self"/>（肩の中心・相手を向くヨー）へ戻したもの。増幅もしない（倍率 1）ので、体の目標のワールドの点は
+    /// 目に見えているコントローラ（実際の手）の点と同じになる。届かない・遅れるのは体の側（§1.1）。
+    /// </summary>
+    public static Vector3 FirstPersonHandLocal(in VrWorldPlacement placement, Vector3 controllerPosition, in BodyFrame self)
+        => self.WorldToLocal(placement.Point(controllerPosition));
+
+    /// <summary>
+    /// 手の動きの増幅率（記録の見出しに書く）: 一人称では 1（コントローラの点がそのまま目標）、それ以外（卓上の人形を外から操る）は <see cref="MotionGain"/>。
+    /// </summary>
+    public float HandGain => FirstPerson && Placement is not null ? 1f : MotionGain; // 合わせる前の一人称は三人称と同じ写し方
 
     /// <summary>
     /// コントローラの向き（grip 姿勢 → ワールド）を、武器の向きの目標（武器のローカル → 体フレームの回転）にする。

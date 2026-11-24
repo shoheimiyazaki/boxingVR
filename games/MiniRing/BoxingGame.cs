@@ -50,7 +50,7 @@ public sealed record BoxingCorners(string CpuName, ControlFactory Cpu, ControlFa
     bool Referee = true, Voxels.FaceLook? PlayerLook = null, Voxels.FaceLook? CpuLook = null, string? PlayerLabel = null, string? CpuLabel = null,
     Bots.BotStyle? PlayerStyle = null, Bots.WeaponStyle? PlayerWeaponStyle = null, Bots.WeaponStyle? CpuWeaponStyle = null,
     bool BreakActions = true, Func<int, Fighter, Break.IBreakSource?>? BreakSource = null, float SettleSeconds = 0f,
-    Voxels.FaceSpec? PlayerFaceSpec = null, Voxels.FaceSpec? CpuFaceSpec = null)
+    Voxels.FaceSpec? PlayerFaceSpec = null, Voxels.FaceSpec? CpuFaceSpec = null, bool PlayerWeaponFloats = false)
 {
     /// <summary>CPU 側のスタイル（<see cref="CpuStyleJson"/> を読んだもの。解決済みの全体）。スタイルを持たない CPU（legacy・外の入力）は null。</summary>
     public Bots.BotStyle? CpuStyle => CpuStyleJson is { } json ? Bots.BotStyle.FromJson(json) : null;
@@ -516,6 +516,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         FilterElbowPairs();
         StepProfile.End(StepProfile.Slot.ControlTail, tailStart);
         StepProfile.End(StepProfile.Slot.Control, controlStart);
+        UpdateFloatingWeapons(dt);
         RememberBeforeStep();
         CoolWeapons(dt);
         var bepuStart = StepProfile.Begin();
@@ -670,7 +671,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// 手 <paramref name="hand"/> が握っている武器を放す（<see cref="HandCommand.LetGo"/>）。利き手なら、添えていた手も放す（その手も同じ歩に
     /// 放すとき。そうでなければ添えていた手がそのまま片手で持つ）。添えていた手なら、利き手は片手で持つ。はめた物（グローブ）は外さない。
     /// </summary>
-    private static void LetGo(Fighter self, Hand hand, bool otherLetsGoToo)
+    private void LetGo(Fighter self, Hand hand, bool otherLetsGoToo)
     {
         if (self.WearsGlove(hand) || !self.Wields(hand))
         {
@@ -686,11 +687,33 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             else
             {
                 self.UnwieldKeepingSupport(hand);
+                FollowPromotedHand(self, hand == Hand.Left ? Hand.Right : Hand.Left);
             }
         }
         else
         {
             self.LetGoSupport(hand);
+        }
+    }
+
+    /// <summary>
+    /// 利き手が放して、添えていた手 <paramref name="hand"/> が片手で持つことになった武器の「握る手」を、その手に移す。移さないと
+    /// その武器を握っている人が分からなくなり（<see cref="HolderOf"/> が元の手を見る）、残った手の放す・自分の武器の見え方が効かない
+    /// （2026-11-25、VR で「左手で持っている物を落とせない」）。
+    /// </summary>
+    private void FollowPromotedHand(Fighter self, Hand hand)
+    {
+        if (self.WieldedBody(hand) is not { } body)
+        {
+            return;
+        }
+
+        foreach (var (weapon, holder) in _wielders)
+        {
+            if (holder == self && weapon.Body.BodyId == body)
+            {
+                _wieldHand[weapon] = hand;
+            }
         }
     }
 
@@ -1688,9 +1711,17 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         _selfCooldown.Clear();
         _spawnGrace.Clear();
         _spawnOverlaps.Clear();
+        ClearFloating();
         if (_corners.PlayerWeapon is { } playerWeapon)
         {
-            Arm(Player, playerWeapon, _corners.PlayerTwoHanded);
+            if (FloatsFor(Player, playerWeapon))
+            {
+                FloatWeapon(Player, playerWeapon); // VR: 手に持たせず、目の前に浮かせて置く（BoxingGame.Floating.cs）
+            }
+            else
+            {
+                Arm(Player, playerWeapon, _corners.PlayerTwoHanded);
+            }
         }
 
         if (_corners.CpuWeapon is { } cpuWeapon)
@@ -1700,7 +1731,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
         if (_corners.VoxelGloves)
         {
-            Wear(Player, _corners.PlayerWear);
+            // 浮いた武器を取りに行く手は素手（グローブの手は握れない）。
+            Wear(Player, _corners.PlayerWeapon is { } floated && FloatsFor(Player, floated) && _corners.PlayerWear == MiniRing.Weapons.HandWear.Glove ? MiniRing.Weapons.HandWear.None : _corners.PlayerWear);
             Wear(Cpu, _corners.CpuWear);
         }
 
@@ -1966,6 +1998,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// 目の前に自分の頭が来て邪魔になるのを避ける描画だけの設定: 物理・当たり・相手から見た姿・試合の計算・記録には響かない。切り落とされた頭（破片）は描く。
     /// </summary>
     public bool HidePlayerHead { get; set; }
+
+    /// <summary>
+    /// 自分の体（プレイヤーの付いている部位のボクセル）を描く不透明度（1 = 不透明、既定）。一人称（VR の <c>--first-person</c>）では
+    /// <see cref="BoxingRenderer.FirstPersonBodyOpacity"/> にして、目の前の自分の腕・胴越しに相手が見えるようにする。描画だけの設定で、
+    /// 物理・当たり・相手から見た姿・試合の計算・記録には響かない。手（グローブ・素手の拳）・握った武器・切り落とされた部位は不透明のまま。
+    /// </summary>
+    public float PlayerBodyOpacity { get; set; } = 1f;
 
     /// <summary>ホストが試合を進めている速さ（<see cref="GameSpeed"/>）。HUD に出すだけで、試合の計算には響かない（速さはホストが 1 歩の時間で決める）。</summary>
     public GameSpeed? Speed { get; set; }

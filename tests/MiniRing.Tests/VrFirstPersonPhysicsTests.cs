@@ -19,9 +19,11 @@ public sealed class VrFirstPersonPhysicsTests
     private static BoxingGame NewGame() => new(FighterTuning.Default with { PlayerFatigue = false },
         corners: SwordTraining.Corners(WeaponKind.Katana, 2.535f)) { HidePlayerHead = true };
 
+    // 手は頭と一緒に動く（人が部屋の中を歩けば手も付いてくる。一人称では手の目標 = コントローラの部屋の中の点なので、
+    // 頭だけを動かすと手が元の所に残り、体を後ろへ引き続ける）。
     private static VrRawFrame Raw(Vector3 head, float leftGrip, float rightGrip) => new(
         head, Quaternion.Identity,
-        new Vector3(-0.35f, 1.0f, -0.1f), new Vector3(0.15f, 1.25f, -0.4f), true, true,
+        new Vector3(-0.35f, 1.0f, -0.1f) + (head - Head), new Vector3(0.15f, 1.25f, -0.4f) + (head - Head), true, true,
         Vector2.Zero, Vector2.Zero, leftGrip, rightGrip, false, true, Quaternion.Identity, Quaternion.Identity);
 
     private static VrPlayerMapper Mapper(bool firstPerson) => new(weaponMode: true)
@@ -106,5 +108,21 @@ public sealed class VrFirstPersonPhysicsTests
         Run(game, mapper, Raw(Head, 1f, 1f), 1.678f);
         Run(game, mapper, Raw(Head, 1f, 0f), 1.678f);
         Assert.IsFalse(game.Player.Wields(Hand.Right), "右のグリップを離せば刀を放す");
+    }
+
+    [TestMethod]
+    public void TheDrawnHandTargetSitsOnTheStillControllerAndTheHandComesToIt()
+    {
+        // 一人称: 止めたコントローラ（届く所）に、描いている手の目標の玉（体が引かれている点）が重なり、体の手もそこへ来る。
+        using var game = NewGame();
+        var mapper = Mapper(firstPerson: true);
+        var frame = Raw(Head, 1f, 1f);
+        Run(game, mapper, frame, 1.678f);
+        var controller = mapper.Placement!.Value.Point(frame.RightHand);
+        var marker = Vector3.Distance(game.Player.HandTargetWorld(Hand.Right), controller);
+        var hand = Vector3.Distance(game.Player.GloveCenter(Hand.Right), controller);
+        Console.WriteLine($"still controller: target marker {marker * 100f:0.00} cm, hand {hand * 100f:0.0} cm from the controller (arm reach {game.Player.ArmReach * 100f:0.0} cm)");
+        Assert.IsTrue(marker < 0.01f, $"描いている目標がコントローラから {marker * 100f:0.00} cm ずれる");
+        Assert.IsTrue(hand < 0.1f * game.Player.ArmReach, $"体の手がコントローラへ来ない: {hand * 100f:0.0} cm");
     }
 }

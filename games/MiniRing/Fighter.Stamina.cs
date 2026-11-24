@@ -467,8 +467,8 @@ public sealed partial class Fighter
             var heldBody = arm.Held?.Body ?? arm.Support?.Body;
             if (wrist is { } joint && heldBody is { } body && _world.HasConstraint(joint))
             {
-                var torque = ReserveServo(arm.Region, joint, arm.Forearm, body, _tuning.WristMaxTorque * _tuning.TorqueScale * arm.WristShare * ControlScale * FaintArm * vigor * Strength(arm.Forearm), allowance, dt);
-                _world.SetAngularServoSettings(joint, _tuning.WristServoHz * MathF.Sqrt(arm.WristShare), torque);
+                var torque = ReserveServo(arm.Region, joint, arm.Forearm, body, arm.WristTorque(_tuning) * _tuning.TorqueScale * arm.WristShare * ControlScale * FaintArm * vigor * Strength(arm.Forearm), allowance, dt);
+                _world.SetAngularServoSettings(joint, arm.WristHz(_tuning) * MathF.Sqrt(arm.WristShare), torque, arm.WristDamping(_tuning));
             }
         }
     }

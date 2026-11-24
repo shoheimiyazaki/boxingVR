@@ -190,7 +190,14 @@ public delegate Vector4 VoxelRecolor(byte material, Vector4 color, int x, int y,
 /// <summary>One voxel volume to draw this frame: the texture and where its cell coordinates land in the world.</summary>
 /// <param name="Volume">The volume (uploaded on first use and whenever its revision changes).</param>
 /// <param name="CellToWorld">Cell coordinates → world (see <see cref="VoxelVolume.CellToWorld"/>).</param>
-public readonly record struct VoxelVolumeDraw(VoxelVolume Volume, Matrix4x4 CellToWorld);
+/// <param name="Opacity">How much of what lies behind the surface it hides (1 = opaque, the default). Below 1 the volume is drawn
+/// after every opaque volume: a depth-only pass first, so only its nearest surface shows, then blended over the scene
+/// (<see cref="VoxelVolumePipeline"/>). Clamped to 0..1 when drawn.</param>
+public readonly record struct VoxelVolumeDraw(VoxelVolume Volume, Matrix4x4 CellToWorld, float Opacity = 1f)
+{
+    /// <summary>Drawn in the translucent passes (<see cref="Opacity"/> below 1).</summary>
+    public bool IsTranslucent => Opacity < 1f;
+}
 
 /// <summary>A rectangular texel region to upload into an existing GPU image.</summary>
 public readonly record struct VoxelUploadBounds(int X, int Y, int Z, int Width, int Height, int Depth);

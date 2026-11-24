@@ -28,6 +28,9 @@ public sealed record GuardPosture(string Name, Vector3 Head, Vector3 Hands)
 
     /// <summary>ドリルで使う構えの全部。</summary>
     public static IReadOnlyList<GuardPosture> All { get; } = [Upright, Crouched, Leaning, HighGuard, LowGuard];
+
+    /// <summary>無防備: 両手を体の横に下ろして立つ（VR の稽古の相手。構えの一覧 <see cref="All"/> には入れない）。</summary>
+    public static GuardPosture Defenseless { get; } = new("無防備", Vector3.Zero, new Vector3(0.25f, -0.75f, 0.05f));
 }
 
 /// <summary>
