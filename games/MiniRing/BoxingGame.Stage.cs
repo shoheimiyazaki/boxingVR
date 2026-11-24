@@ -42,7 +42,7 @@ public sealed partial class BoxingGame
     {
         var rules = Rules ?? MatchRules.Tv;
         var red = self == Player;
-        var target = pose == StagePose.Corners ? Layout.RestCorner(red, rules.CornerInset) : red ? _stageHome!.Value.Red : _stageHome!.Value.Blue;
+        var target = pose == StagePose.Corners ? Layout.RestCorner(red, FootprintOf(self)) : red ? _stageHome!.Value.Red : _stageHome!.Value.Blue;
         var toTarget = target - self.PelvisPosition;
         toTarget.Y = 0f;
         var distance = toTarget.Length();

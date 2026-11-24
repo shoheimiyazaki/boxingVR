@@ -52,7 +52,7 @@ public sealed class OrgShowFixTests
     {
         using var a = new BoxingGame(seed: 5, rules: TvShowRules.Rules(3, 33.57f));
         using var b = new BoxingGame(seed: 5, rules: TvShowRules.Rules(3, 33.57f));
-        var corner = a.Layout.RestCorner(true, (a.Rules ?? MatchRules.Tv).CornerInset);
+        var corner = a.Layout.RestCorner(true, a.FootprintOf(a.Player));
         corner.Y = 0f;
         float RedDistance(BoxingGame g)
         {

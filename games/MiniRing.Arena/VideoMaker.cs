@@ -42,9 +42,13 @@ namespace MiniRing.Arena;
 /// </param>
 internal sealed class VideoMaker(int width, int height, int fps, BreakStyle breakStyle = VoxelBreakSound.DefaultStyle, bool hitSounds = true, FaceCam? faceCam = null, float speed = GameSpeed.Standard, bool tv = false,
     int tvRounds = 5, string tvEvent = "ファイトナイト", string tvBout = "", float tvBreak = 16.78f, bool render = true, LiveOptions? live = null, TvProgram? tvProgram = null, Organization? org = null, bool belt = false, float cameraScale = 1f, bool focusRed = false,
-    IReadOnlyList<string>? tvNotes = null)
+    IReadOnlyList<string>? tvNotes = null, RingLayout? ring = null)
 {
     private readonly Organization _org = org ?? Organization.Default;
+
+    /// <summary>両コーナーを団体の場に重ねる。<c>--ring</c> で場を決めたなら、団体の既定の場の代わりにそれを使う（コーナーから始めるのは同じ）。</summary>
+    private BoxingCorners Staged(BoxingCorners corners) =>
+        TvShowRules.Stage(ring is null ? corners : corners with { Ring = ring with { FromCorners = corners.Ring?.FromCorners ?? false } }, _org);
 
     private readonly bool _off = live is not null && !render
         ? throw new ArgumentException("--live と --render off は一緒に使えません（生配信は描かないと流せません）。")
@@ -132,7 +136,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             s => Keep(blueBots, blue.Create(s)), intentScript is null ? s => Keep(redBots, red.Create(s)) : null, referee);
         // 画面と実況ではリングネームで呼ぶ（ドリルで生まれた個体にもそれぞれの名前がある）。
         // 名簿のキャラクター（--red-char / --blue-char）は、体格・顔・表示名をそのキャラクターの値にする（ボットの性格はスタイル）。
-        corners = TvShowRules.Stage(WithCharacters(corners, redCharacter, blueCharacter), _org);
+        corners = Staged(WithCharacters(corners, redCharacter, blueCharacter));
         var redRing = redCharacter?.HudName ?? BotNames.RingNameOf(red.Name);
         var blueRing = blueCharacter?.HudName ?? BotNames.RingNameOf(blue.Name);
         using var game = new BoxingGame(seed: seed, corners: corners, rules: _rules, mood: _org.ArenaMood);
@@ -151,7 +155,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
             blueCharacter is null ? TvCorner.Of(blueRing, blue.Name, blueWear, blueWeapon) : TvCorner.Of(blueCharacter) with { Seat = SeatOf(blueCharacter) }, _rules, belt);
         // 試合の前の場面の生の絵のための影の試合（生成直後の T ポーズを映さない。本番の試合は進めない）。同じ種・両コーナー・決まり・雰囲気。
         var stage = card is null ? null : new BoxingGame(seed: seed,
-            corners: TvShowRules.Stage(WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter), _org),
+            corners: Staged(WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter)),
             rules: _rules, mood: _org.ArenaMood);
         if (stage is not null)
         {
@@ -403,7 +407,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
                     {
                         if (replayGame is null)
                         {
-                            var replayCorners = TvShowRules.Stage(WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter), _org);
+                            var replayCorners = Staged(WithCharacters(Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon, s => blue.Create(s), s => red.Create(s), referee), redCharacter, blueCharacter));
                             replayGame = new BoxingGame(seed: seed, corners: replayCorners, rules: _rules, mood: _org.ArenaMood);
                             setup?.Invoke(replayGame);
                         }
