@@ -88,7 +88,23 @@ public sealed partial class Fighter
             // 足の箱は床に押し付けられずに傾き・浮きがちだが、本当は体重が足の裏を床に押し付けて平らに着く（CLAUDE.md §8「体を支える力」）。
             // 体重を受ける足だけ: 足の運びで振り出している足は、床をかすめても体重を受けていない（裏全体を数えると、
             // 円を歩く途中で振り出した足の裏まで支えに入り、2 秒止まった）。
-            var isFoot = KindOf(id) is BodyPartKind.Foot or BodyPartKind.Toe && BearsWeight(id);
+            var kind = KindOf(id);
+            if (Build.FourLegged && kind == BodyPartKind.Toe)
+            {
+                var cap = s.Position + Vector3.Transform(TarsusTip(id, half), s.Orientation);
+                if (cap.Y <= touch && BearsWeight(id))
+                {
+                    var point = new Vector2(cap.X, cap.Z);
+                    _support.Add(point);
+                    _feet.Add(point);
+                    _handsFeet.Add(point);
+                    _limbs.Add(point);
+                    _legsTouch = true;
+                }
+                continue;
+            }
+
+            var isFoot = !Build.FourLegged && kind is (BodyPartKind.Foot or BodyPartKind.Toe) && BearsWeight(id);
             var footDown = false;
             if (isFoot)
             {
@@ -109,7 +125,7 @@ public sealed partial class Fighter
                 {
                     var flat = new Vector2(p.X, p.Z);
                     _support.Add(flat);
-                    switch (KindOf(id))
+                    switch (kind)
                     {
                         case BodyPartKind.Foot or BodyPartKind.Toe:
                             _feet.Add(flat);
@@ -117,7 +133,7 @@ public sealed partial class Fighter
                             _limbs.Add(flat);
                             _legsTouch = true;
                             break;
-                        case BodyPartKind.Shin or BodyPartKind.Thigh:
+                        case BodyPartKind.Coxa or BodyPartKind.Shin or BodyPartKind.Thigh:
                             _limbs.Add(flat);
                             _legsTouch = true;
                             break;
@@ -139,6 +155,34 @@ public sealed partial class Fighter
 
     /// <summary>この足（足・つま先の部位）を足の運びが振り出していない（床に着けば体重を受ける。蹴る脚の足でも、床に着いていれば踏んでいる）。</summary>
     private (Vector2 Ball, float Yaw)? LandingFoot => _footwork.Landing ?? _rearFootwork?.Landing;
+
+    private Vector3 TarsusTip(int part, Vector3 half)
+    {
+        var (center, bounds) = Voxels?.PartOf(part)?.Body.ColliderBox ?? (Vector3.Zero, half);
+        return center - (bounds.Y * Vector3.UnitY);
+    }
+
+    private void AddLandingSupport(SupportPolygon polygon, (Vector2 Ball, float Yaw) landing)
+    {
+        if (Build.FourLegged)
+        {
+            polygon.Add(landing.Ball);
+            return;
+        }
+
+        var heel = HalfExtents.Foot;
+        var toe = FootGeometry.ToeHalf(heel);
+        var (sin, cos) = MathF.SinCos(landing.Yaw);
+        var forward = new Vector2(sin, cos);
+        var side = new Vector2(cos, -sin);
+        foreach (var along in (ReadOnlySpan<float>)[-2f * heel.Z, 2f * toe.Z])
+        {
+            foreach (var across in (ReadOnlySpan<float>)[-heel.X, heel.X])
+            {
+                polygon.Add(landing.Ball + (forward * along) + (side * across));
+            }
+        }
+    }
 
     private bool BearsWeight(int footPart)
     {
@@ -440,18 +484,7 @@ public sealed partial class Fighter
 
             if (State == FighterState.Standing && _footworkActive && LandingFoot is { } landing)
             {
-                var heel = HalfExtents.Foot;
-                var toe = FootGeometry.ToeHalf(heel);
-                var (sn, cs) = MathF.SinCos(landing.Yaw);
-                var forward = new Vector2(sn, cs);
-                var side = new Vector2(cs, -sn);
-                foreach (var along in (ReadOnlySpan<float>)[-2f * heel.Z, 2f * toe.Z])
-                {
-                    foreach (var across in (ReadOnlySpan<float>)[-heel.X, heel.X])
-                    {
-                        _region.Add(landing.Ball + (forward * along) + (side * across));
-                    }
-                }
+                AddLandingSupport(_region, landing);
             }
 
             _region.Build();
@@ -495,18 +528,7 @@ public sealed partial class Fighter
 
         if (LandingFoot is { } landing)
         {
-            var heel = HalfExtents.Foot;
-            var toe = FootGeometry.ToeHalf(heel);
-            var (s, cos) = MathF.SinCos(landing.Yaw);
-            var forward = new Vector2(s, cos);
-            var side = new Vector2(cos, -s);
-            foreach (var along in (ReadOnlySpan<float>)[-2f * heel.Z, 2f * toe.Z])
-            {
-                foreach (var across in (ReadOnlySpan<float>)[-heel.X, heel.X])
-                {
-                    _catchable.Add(landing.Ball + (forward * along) + (side * across));
-                }
-            }
+            AddLandingSupport(_catchable, landing);
         }
 
         _catchable.Build();
@@ -563,7 +585,7 @@ public sealed partial class Fighter
                 continue;
             }
 
-            var pivot = pelvis.Position + Vector3.Transform(leg.PivotOnPelvis, pelvis.Orientation);
+            var pivot = LegPivot(leg, pelvis);
             var side = new Vector2(pivot.X - pelvis.Position.X, pivot.Z - pelvis.Position.Z);
             var ball = new Vector2(com.X, com.Z) + side + (new Vector2(forward.X, forward.Z) * (HalfExtents.Foot.Z * _tuning.RiseFootLead));
             var pose = new FootPose(new Vector3(ball.X, 0f, ball.Y), _facingYaw, 0f, true);
@@ -579,7 +601,7 @@ public sealed partial class Fighter
 
             var (thigh, knee, reach) = LegIk.Solve(Vector3.Transform(ankle - pivot, inverse), leg.ThighToKnee, leg.ShinLength, Vector3.Transform(toes, inverse));
             leg.ReachRatio = reach;
-            _world.SetAngularServoTarget(leg.HipServo, thigh);
+            SetLegHipTarget(leg, pelvis, thigh);
             SetTwistTarget(leg.KneeServo, knee);
             var shin = Quaternion.Concatenate(Quaternion.Concatenate(Quaternion.CreateFromAxisAngle(Vector3.UnitX, knee), thigh), pelvis.Orientation);
             leg.AnkleTarget = LegIk.AnklePitch(shin, foot);

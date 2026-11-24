@@ -57,6 +57,25 @@ internal static class AlienAnatomy
         });
     }
 
+    public static VoxelGrid LegSegment(BodyPartKind kind, Vector3 half, VoxelPalette palette)
+    {
+        // The distal tarsus converges to a tip. The other shells have a muscle core and broad joint ends.
+        return new VoxelGrid(palette, half, 0.0035f, (_, n) =>
+        {
+            var radial = kind == BodyPartKind.Coxa ? new Vector2(n.Y, n.Z) : new Vector2(n.X, n.Z);
+            var length = kind == BodyPartKind.Coxa ? n.X : n.Y;
+            var width = kind == BodyPartKind.Toe ? 0.26f + (0.71f * (length + 1f) * 0.5f)
+                : 0.70f + (0.24f * MathF.Sin((length + 1f) * MathF.PI * 0.5f));
+            var r = radial.LengthSquared() / (width * width);
+            if (r > 1f)
+            {
+                return 0;
+            }
+
+            return kind == BodyPartKind.Toe || r > 0.65f || MathF.Abs(length) > 0.82f ? BoxerAnatomy.Bone : BoxerAnatomy.Muscle;
+        });
+    }
+
     public static VoxelGrid Plate(BodyPartKind kind, VoxelGrid grid, VoxelPalette palette) =>
         new(palette, grid.HalfExtents, grid.Dimensions, (_, n) =>
         {
@@ -66,6 +85,12 @@ internal static class AlienAnatomy
             var line = kind is BodyPartKind.Pelvis or BodyPartKind.Chest ? n.Z : kind is BodyPartKind.UpperArm or BodyPartKind.Forearm ? MathF.Abs(n.X) : n.Y;
             var seam = MathF.Sin((line + 0.16f * MathF.Abs(n.X)) * 13f);
             var back = kind is BodyPartKind.Pelvis or BodyPartKind.Chest ? n.Y > 0.12f || n.Z < -0.44f : n.Z < 0.40f;
+            // The lower thorax meets the front dorsal shell across their overlap.
+            if (material == 0 && kind == BodyPartKind.Chest && n.Y < -0.55f
+                && (n.X * n.X) + (1.5f * n.Z * n.Z) < 0.48f)
+            {
+                return BoxerAnatomy.Bone;
+            }
             if (material == BoxerAnatomy.Skin && back && seam > -0.25f)
             {
                 return BoxerAnatomy.Bone;

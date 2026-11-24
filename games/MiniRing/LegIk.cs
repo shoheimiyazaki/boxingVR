@@ -15,20 +15,26 @@ public static class FootGeometry
     public const float ToeThickness = 0.7f;
 
     /// <summary>つま先の箱の半分の大きさ（かかと側の箱 <paramref name="heel"/> から）。</summary>
-    public static Vector3 ToeHalf(Vector3 heel) => new(heel.X, heel.Y * ToeThickness, heel.Z * ToeShare / (1f - ToeShare));
+    public static Vector3 ToeHalf(Vector3 heel, bool pointed = false) => pointed
+        ? new Vector3(0.38f * heel.X, 0.55f * heel.Y, 0.38f * heel.Z)
+        : new Vector3(heel.X, heel.Y * ToeThickness, heel.Z * ToeShare / (1f - ToeShare));
 
     /// <summary>母指球（つま先の蝶番）の位置（かかと側のローカル: 前の下の縁）。</summary>
-    public static Vector3 BallOnHeel(Vector3 heel) => new(0f, -heel.Y, heel.Z);
+    public static Vector3 BallOnHeel(Vector3 heel, bool pointed = false) => new(0f, -heel.Y, pointed ? 0f : heel.Z);
 
     /// <summary>母指球の位置（つま先のローカル: 後ろの下の縁）。</summary>
-    public static Vector3 BallOnToe(Vector3 heel)
+    public static Vector3 BallOnToe(Vector3 heel, bool pointed = false)
     {
-        var toe = ToeHalf(heel);
-        return new Vector3(0f, -toe.Y, -toe.Z);
+        var toe = ToeHalf(heel, pointed);
+        return pointed ? Vector3.UnitY * toe.Y : new Vector3(0f, -toe.Y, -toe.Z);
     }
 
     /// <summary>つま先の中心（かかと側のローカル。足裏の高さをそろえる）。</summary>
-    public static Vector3 ToeCenterOnHeel(Vector3 heel) => BallOnHeel(heel) - BallOnToe(heel);
+    public static Vector3 ToeCenterOnHeel(Vector3 heel, bool pointed = false) => BallOnHeel(heel, pointed) - BallOnToe(heel, pointed);
+
+    public static Vector3 ContactOnHeel(Vector3 heel, bool pointed) => pointed
+        ? BallOnHeel(heel, true) - (2f * ToeHalf(heel, true).Y * Vector3.UnitY)
+        : BallOnHeel(heel);
 }
 
 /// <summary>

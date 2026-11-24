@@ -15,6 +15,52 @@ public sealed class AlienTests
     private const float Dt = 1f / 240f;
 
     [TestMethod]
+    public void Galva_HasOneThoraxAndFourArticulatedPointedLegs()
+    {
+        using var game = CreateGame();
+        var f = game.Player;
+        var joints = game.World.JointStates();
+        Assert.IsNull(f.Parts.Abdomen);
+        Assert.IsTrue(joints.Any(j => j.Type == Aigis.Physics.JointType.Weld
+            && ((j.BodyA == f.Parts.Pelvis && j.BodyB == f.Parts.Chest) || (j.BodyB == f.Parts.Pelvis && j.BodyA == f.Parts.Chest))));
+        Assert.IsLessThan(0.12f, f.HalfExtents.Chest.X);
+
+        var localChest = f.Frame.WorldToLocal(game.World.GetState(f.Parts.Chest).Position);
+        var front = game.PlayerSense.SelfLeg(Hand.Left).Hip;
+        Assert.IsTrue(MathF.Abs(localChest.Z - front.Z) < 0.06f);
+
+        var roots = f.AllParts.Where(id => game.World.TryGetName(id)?.EndsWith("_coxa", StringComparison.Ordinal) == true).ToArray();
+        Assert.HasCount(4, roots);
+        foreach (var root in roots)
+        {
+            Assert.IsTrue(joints.Any(j => j.BodyA == f.Parts.Pelvis && j.BodyB == root));
+            Assert.IsTrue(joints.Any(j => j.BodyA == root && f.KindOf(j.BodyB) == BodyPartKind.Thigh));
+        }
+
+        foreach (var tip in f.Voxels!.Parts.Where(p => p.Kind == BodyPartKind.Toe))
+        {
+            var grid = tip.Body.Grid;
+            var half = grid.HalfExtents;
+            Assert.IsGreaterThan(2f * MathF.Max(half.X, half.Z), half.Y);
+            var (nx, ny, nz) = grid.Dimensions;
+            int Area(int y) => Enumerable.Range(0, nx).Sum(x => Enumerable.Range(0, nz).Count(z => grid.At(x, y, z) != 0));
+            Assert.IsGreaterThan(0, Area(0));
+            Assert.IsGreaterThan(Area(0), Area(ny - 1));
+        }
+
+        for (var i = 0; i < 480; i++)
+        {
+            Step(game, Guard(f));
+        }
+        foreach (var joint in joints.Where(j => j.Type is Aigis.Physics.JointType.Hinge or Aigis.Physics.JointType.BallSocket
+            && (roots.Contains(j.BodyA) || roots.Contains(j.BodyB))))
+        {
+            var anchors = game.World.GetJointAnchors(joint.Id)!.Value;
+            Assert.IsLessThan(0.025f, Vector3.Distance(anchors.AnchorA, anchors.AnchorB));
+        }
+    }
+
+    [TestMethod]
     public void Galva_HasFourLegsAndTwoClaws()
     {
         using var game = CreateGame();
@@ -60,6 +106,24 @@ public sealed class AlienTests
         Assert.IsTrue(float.IsFinite(f.OxygenOf(MuscleRegion.Legs)));
         Assert.IsGreaterThan(0f, f.HeartCapacity);
         Assert.IsGreaterThan(0f, f.LungCapacity);
+    }
+
+    [TestMethod]
+    public void Galva_CornerStanceKeepsAllFourTipsInsideTheRing()
+    {
+        using var game = CreateGame(fromCorners: true);
+        var f = game.Player;
+        var red = Guard(f) with { FaceDirection = f.Frame.Forward };
+        var blue = Guard(game.Cpu) with { FaceDirection = game.Cpu.Frame.Forward };
+        for (var i = 0; i < 480; i++)
+        {
+            game.Step(new BoxingInput(red, Blue: blue), Dt);
+        }
+
+        foreach (var tip in f.AllParts.Where(id => f.KindOf(id) == BodyPartKind.Toe))
+        {
+            Assert.IsGreaterThan(0f, game.Layout.EdgeDistance(game.World.GetState(tip).Position));
+        }
     }
 
     [TestMethod]
@@ -202,13 +266,13 @@ public sealed class AlienTests
         Assert.IsGreaterThan(0f, landed.Value.ImpactMass);
     }
 
-    private static BoxingGame CreateGame(float gap = 3f)
+    private static BoxingGame CreateGame(float gap = 3f, bool fromCorners = false)
     {
         var c = CharacterRoster.Get("galva");
         return new BoxingGame(corners: BotCatalog.Corners("boxer") with
         {
             PlayerBody = c.Build, PlayerWear = c.Wear, PlayerLook = c.Look, PlayerFaceSpec = c.Face,
-            Ring = RingLayout.Boxing with { StartGap = gap, FromCorners = false }, ExternalBlue = true, Referee = false,
+            Ring = RingLayout.Boxing with { StartGap = gap, FromCorners = fromCorners }, ExternalBlue = true, Referee = false,
         });
     }
 

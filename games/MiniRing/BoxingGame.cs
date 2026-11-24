@@ -1489,11 +1489,16 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         ShowMessage($"END OF ROUND {MatchRound}", 2f);
     }
 
+    // The biped inset already leaves room for a stance. A longer thorax needs room for its hind pair too.
+    private static float CornerInsetFor(float inset, BodyBuild build, HumanoidRagdoll.HalfExtents half) =>
+        build.FourLegged ? inset + half.Pelvis.Z : inset;
+
     /// <summary>休むときの指令: 自分のコーナー（赤は手前左、青は奥右）へ歩き、相手の方を向いて、ガードを下げる。</summary>
     private FighterCommand RestCommand(Fighter self, Fighter opponent)
     {
         var rules = Rules ?? MatchRules.Tv;
-        return WalkTo(self, opponent, Layout.RestCorner(self == Player, rules.CornerInset), rules.RestGuardDrop, rules.RestWalk);
+        return WalkTo(self, opponent, Layout.RestCorner(self == Player, CornerInsetFor(rules.CornerInset, self.Build, self.HalfExtents)),
+            rules.RestGuardDrop, rules.RestWalk);
     }
 
     /// <summary>
@@ -1511,7 +1516,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         // 行き先のコーナーは数え始めに 1 度だけ決める（倒れた体が対角線の上で動くたびに選び直すと、行き先が入れ替わって揺れる）。
         if (!_neutralCorners.TryGetValue(self, out var corner))
         {
-            corner = Layout.NeutralCorner(opponent.PelvisPosition, rules.CornerInset);
+            corner = Layout.NeutralCorner(opponent.PelvisPosition, CornerInsetFor(rules.CornerInset, self.Build, self.HalfExtents));
             _neutralCorners[self] = corner;
         }
 
@@ -1635,18 +1640,22 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         LivingRoom.AddColliders(_world, Layout);
         _ring = new Ring(_world, Layout, RingSurfaceHeight, LivingRoom.PhysicsStageBase);
         var surface = _ring.SurfaceCenter;
-        // コーナーから始める試合は、赤・青の休むコーナー（四角は手前左・奥右、檻は 240°・60° の頂点）に立ち、互いに向き合う（生成の向きは +Z が 0、Y 軸まわり）。
-        // コーナーから始めない形（ドリル）は、中央で StartGap だけ離れて Z 軸の上で向き合う。
-        var (redFeet, blueFeet, redYaw) = Layout.FromCorners
-            ? (Layout.RestCorner(true, RingLayout.CornerInset) with { Y = surface.Y }, Layout.RestCorner(false, RingLayout.CornerInset) with { Y = surface.Y },
-                MathF.Atan2(Layout.RestCorner(false, RingLayout.CornerInset).X - Layout.RestCorner(true, RingLayout.CornerInset).X,
-                    Layout.RestCorner(false, RingLayout.CornerInset).Z - Layout.RestCorner(true, RingLayout.CornerInset).Z))
-            : (surface - new Vector3(0f, 0f, Layout.StartGap * 0.5f), surface + new Vector3(0f, 0f, Layout.StartGap * 0.5f), 0f);
         // VR のプレイヤーには、手触りの調整が終わるまでスタミナの疲れを効かせない（FighterTuning.PlayerFatigue）。
         var concussionSpin = _tuning.ConcussionSpin * (Rules?.ConcussionSpinScale ?? 1f);
         var playerTuning = (_tuning.PlayerFatigue ? _tuning : _tuning with { StaminaFatigue = false })
             with { Build = _corners.PlayerBody ?? _tuning.Build, ConcussionSpin = concussionSpin };
         var cpuTuning = _tuning with { Build = _corners.CpuBody ?? _tuning.Build, ConcussionSpin = concussionSpin };
+        // 生成時は +Z が 0。コーナーのある試合は対角線上、ドリルは中央で向き合う。
+        var halfGap = Vector3.UnitZ * (Layout.StartGap * 0.5f);
+        var redFeet = surface - halfGap;
+        var blueFeet = surface + halfGap;
+        var redYaw = 0f;
+        if (Layout.FromCorners)
+        {
+            redFeet = Layout.RestCorner(true, CornerInsetFor(RingLayout.CornerInset, playerTuning.Build, playerTuning.HalfExtents)) with { Y = surface.Y };
+            blueFeet = Layout.RestCorner(false, CornerInsetFor(RingLayout.CornerInset, cpuTuning.Build, cpuTuning.HalfExtents)) with { Y = surface.Y };
+            redYaw = MathF.Atan2(blueFeet.X - redFeet.X, blueFeet.Z - redFeet.Z);
+        }
         if (!_corners.Referee)
         {
             // レフェリーなし: 倒れた相手を打ち下ろせるよう、腰を落とせる深さを広げる（レフェリーありの試合の体は変わらない）。

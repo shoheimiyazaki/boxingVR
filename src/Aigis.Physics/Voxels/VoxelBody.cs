@@ -91,6 +91,16 @@ public sealed class VoxelBody
 
     public VoxelGrid Grid { get; private set; }
 
+    /// <summary>The last fitted collider box in the rigid body's local coordinates.</summary>
+    public (Vector3 Center, Vector3 HalfExtents) ColliderBox
+    {
+        get
+        {
+            var applied = _owner is { } owner ? owner._applied : _applied;
+            return (applied.Center, applied.Half);
+        }
+    }
+
     /// <summary>
     /// Other grids carried by the same rigid body (<see cref="AddCompanion"/>), in the order they were added (fixed, so a loop over
     /// them is deterministic). Empty for an ordinary body and for a companion itself.

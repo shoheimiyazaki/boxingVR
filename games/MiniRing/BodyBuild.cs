@@ -7,6 +7,8 @@ public sealed record BodyBuild(float Height = 1f, float Arms = 1f, float Legs = 
 {
     public static BodyBuild Standard { get; } = new();
 
+    internal static Vector3 CoxaHalf(Vector3 pelvisHalf) => pelvisHalf * new Vector3(0.45f, 0.50f, 0.10f);
+
     public BodyBuild Validate()
     {
         foreach (var value in new[] { Height, Arms, Legs, Muscle })
@@ -23,10 +25,13 @@ public sealed record BodyBuild(float Height = 1f, float Arms = 1f, float Legs = 
     {
         BodyPartKind.UpperArm or BodyPartKind.Forearm when FourLegged => new(Height * Arms, 0.87f * Height * Muscle, 0.92f * Height * Muscle),
         BodyPartKind.UpperArm or BodyPartKind.Forearm => new(Height * Arms, Height * Muscle, Height * Muscle),
+        BodyPartKind.Thigh or BodyPartKind.Shin when FourLegged => new(0.72f * Height * Muscle, 0.94f * Height * Legs, 0.76f * Height * Muscle),
         BodyPartKind.Thigh or BodyPartKind.Shin => new(Height * Muscle, Height * Legs, Height * Muscle),
         BodyPartKind.Head when FourLegged => new(1.22f * Height, 0.97f * Height, 1.52f * Height),
         BodyPartKind.Head => new(Height),
-        BodyPartKind.Pelvis when FourLegged => new(Height * Muscle, Height, Height * Muscle * 3.2f),
+        BodyPartKind.Pelvis when FourLegged => new(0.80f * Height * Muscle, 0.88f * Height, 3.2f * Height * Muscle),
+        BodyPartKind.Chest when FourLegged => new(0.61f * Height * Muscle, Height, 0.95f * Height * Muscle),
+        BodyPartKind.Foot when FourLegged => new(0.46f * Height * Muscle, 1.12f * Height, 0.32f * Height * Muscle),
         _ => new(Height * Muscle, Height, Height * Muscle),
     };
 

@@ -47,7 +47,19 @@ public sealed record FighterTuning
 
     /// <summary>足首から足の中心までの前へのずれを決める値 [m]（Aigis の既定 5cm は 1.7m の体用。そのままでは、かかとが足首から後ろへ 5cm 飛び出していた）。</summary>
     [JsonIgnore]
-    public float FootForwardOffset => HumanoidRagdoll.FootForwardOffset * Scale;
+    public float FootForwardOffset => Build.FourLegged ? HalfExtents.Foot.Z : HumanoidRagdoll.FootForwardOffset * Scale;
+
+    internal Vector3 CoxaHalf => BodyBuild.CoxaHalf(HalfExtents.Pelvis);
+
+    internal float CoxaMass
+    {
+        get
+        {
+            var root = CoxaHalf;
+            var thigh = HalfExtents.Thigh;
+            return Masses.Thigh * (root.X * root.Y * root.Z) / (thigh.X * thigh.Y * thigh.Z);
+        }
+    }
     public float GloveRadius { get; init; } = 0.0676f;
 
     // ── 体幹（加速度単位）

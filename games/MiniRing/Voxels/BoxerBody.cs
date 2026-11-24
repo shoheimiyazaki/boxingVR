@@ -529,6 +529,11 @@ public sealed class BoxerBody
                 BoxerSpine.Place(kind, head);
                 return head;
             }
+
+            if (kind is BodyPartKind.Coxa or BodyPartKind.Foot or BodyPartKind.Toe)
+            {
+                return AlienAnatomy.LegSegment(kind, half, lookPalette);
+            }
         }
 
         var sourceHalf = half / tuning.Build.ScaleOf(kind);

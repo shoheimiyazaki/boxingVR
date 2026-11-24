@@ -64,7 +64,7 @@ public sealed record CharacterProfile
         var tuning = FighterTuning.Default with { Build = build };
         var h = tuning.HalfExtents;
         var height = (2f * (h.Foot.Y + h.Shin.Y + h.Thigh.Y + h.Pelvis.Y + h.Chest.Y + h.Head.Y)) - (5f * tuning.JointOverlap);
-        return Rounded(height * 100f);
+        return Rounded((height + 2f * FootGeometry.ToeHalf(h.Foot, true).Y) * 100f);
     }
 
     /// <summary>見えている体の体重 [kg]。</summary>
@@ -75,9 +75,10 @@ public sealed record CharacterProfile
             return Rounded(BaseWeightKg * build.Height * build.Height * build.Muscle);
         }
 
-        var m = (FighterTuning.Default with { Build = build }).Masses;
+        var tuning = FighterTuning.Default with { Build = build };
+        var m = tuning.Masses;
         return Rounded(m.Pelvis + m.Chest + m.Head + (2f * (m.UpperArm + m.Forearm))
-            + (4f * (m.Thigh + m.Shin + (m.Foot / (1f - FootGeometry.ToeShare)))));
+            + (4f * (m.Thigh + m.Shin + tuning.CoxaMass + (m.Foot / (1f - FootGeometry.ToeShare)))));
     }
 
     private static int Rounded(float value) => (int)MathF.Round(value, MidpointRounding.AwayFromZero);
