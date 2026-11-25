@@ -214,9 +214,19 @@ internal static class BladeCutLab
         return new Aim(id, part.Body, point, heading, across, localPoint, localHeading, entry, thickness, slab.Count(i => grid.MaterialAt(i) == BoxerAnatomy.Bone), cell);
     }
 
-    /// <summary>刃の打つ点（武器のローカル）: 切っ先から <paramref name="fromTip"/> 手前の、刃（−Y）の縁。</summary>
+    /// <summary>
+    /// 刃の縁を打つ向きへ向ける回転。剣は刃が −Y の縁、はめた鎌（<see cref="WeaponKind.SickleClaw"/>）は刃の面が Y に薄く、縁が −Z の側（2026-11-25、huntlab の
+    /// 刃のすり抜けの確かめのために足した）。どちらも、刃の長さ（X）を円弧の半径の向き（across）に、縁を打つ向き（heading）に合わせる。
+    /// </summary>
+    private static Quaternion EdgeFacing(WeaponKind kind, Vector3 heading, Vector3 across)
+        => kind == WeaponKind.SickleClaw
+            ? WeaponDrills.Axes(across, Vector3.Cross(-heading, across), -heading)
+            : WeaponDrills.Edge(heading, across);
+
+    /// <summary>刃の打つ点（武器のローカル）: 切っ先から <paramref name="fromTip"/> 手前の、刃（剣は −Y、鎌は −Z）の縁。</summary>
     private static Vector3 StrikeLocal(WeaponKind kind, float fromTip)
     {
+        var claw = kind == WeaponKind.SickleClaw;
         var grid = Weapon.Build(kind);
         var x = Weapon.TipOf(kind).X - fromTip;
         var edge = float.MaxValue;
@@ -231,11 +241,11 @@ internal static class BladeCutLab
             var c = grid.CellCenter(cx, cy, cz);
             if (MathF.Abs(c.X - x) <= grid.CellSize.X * 0.5f)
             {
-                edge = MathF.Min(edge, c.Y - (grid.CellSize.Y * 0.5f));
+                edge = claw ? MathF.Min(edge, c.Z - (grid.CellSize.Z * 0.5f)) : MathF.Min(edge, c.Y - (grid.CellSize.Y * 0.5f));
             }
         }
 
-        return new Vector3(x, edge, 0f);
+        return claw ? new Vector3(x, 0f, edge) : new Vector3(x, edge, 0f);
     }
 
     /// <summary>
@@ -281,7 +291,7 @@ internal static class BladeCutLab
         var pivot = aim.Point - (aim.Across * radius);
         var n = Vector3.Normalize(Vector3.Cross(aim.Across, aim.Heading));
         // 刃筋の傾き: 刀身の軸（across）のまわりに刃を回す（打つ点は刃の縁なので、回しても当たる所はほぼ同じ）。
-        var orientation = Quaternion.Concatenate(WeaponDrills.Edge(aim.Heading, aim.Across), Quaternion.CreateFromAxisAngle(aim.Across, c.Tilt * MathF.PI / 180f));
+        var orientation = Quaternion.Concatenate(EdgeFacing(c.Kind, aim.Heading, aim.Across), Quaternion.CreateFromAxisAngle(aim.Across, c.Tilt * MathF.PI / 180f));
         var runUp = (aim.Entry + RunUp) / radius;
         var back = Quaternion.CreateFromAxisAngle(n, -runUp);
         var start = pivot + Vector3.Transform(aim.Across * radius, back);
@@ -834,6 +844,7 @@ internal static class BladeCutLab
         "sword" or "ironsword" => WeaponKind.IronSword,
         "katana" => WeaponKind.Katana,
         "longsword" => WeaponKind.Longsword,
-        _ => throw new ArgumentException($"知らない刃物: {name}（sword, katana, longsword）"),
+        "claw" or "sickleclaw" => WeaponKind.SickleClaw,
+        _ => throw new ArgumentException($"知らない刃物: {name}（sword, katana, longsword, claw）"),
     };
 }

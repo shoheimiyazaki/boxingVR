@@ -3491,16 +3491,10 @@ public sealed partial class Fighter
             {
                 target = SupportTarget(arm, support, command, frame);
             }
-            else if (_bladeChords[(int)arm.Hand] is { } chord && arm.Glove && arm.Held is { } claw && hand.Orientation is { } bladeTarget)
-            {
-                // 手首の回転が遅れた分は、面に垂直な方向だけ刃の中点が目標面へ近づくように腕で補う。
-                // 刃先の前後の遅れも一部を刃元で補う。腕・手首を動かす力は既存のサーボから出る。
-                var actualRotation = Quaternion.Concatenate(_world.GetState(claw.Body).Orientation, Quaternion.Conjugate(frame.Rotation));
-                var normal = Vector3.Transform(Vector3.UnitY, bladeTarget);
-                var error = Vector3.Transform(chord, bladeTarget) - Vector3.Transform(chord, actualRotation);
-                target += normal * (0.5f * Vector3.Dot(error, normal)) + Vector3.UnitZ * (0.25f * error.Z);
-            }
-            else if (_strikeReach[(int)arm.Hand] is { } reach && arm.Glove && arm.Held is { } worn)
+            // はめた鎌（刃の弦を持つ手）は、入力元の刃元の目標をそのまま追う。2026-11-25 まで、手首の遅れた分を腕の目標へ足し戻していた（刃の向きの誤差
+            // × 0.5 を拳の目標へ）が、手首を固めた（PhysicsVersion 103）あとは、その帰還が腕と手首の間で発振し、構えたまま前腕が 10〜30 rad/s で回って
+            // 刃の向きが 40〜80° 外れた（ClawAimProbe）。外すと止めた構えの刃の向きの誤差は 2〜5°・刃元は 1〜3 cm。体が目標を書き換えない（§1.1）。
+            else if (_bladeChords[(int)arm.Hand] is null && _strikeReach[(int)arm.Hand] is { } reach && arm.Glove && arm.Held is { } worn)
             {
                 // 目標は「打つ面の点」を運ぶ点: 肩から目標への向きにいちばん前に出ている手のセル（指先・拳頭・掌の根元…）が目標へ届くよう、
                 // 握りの点の目標を、いまの手の向きで回した「握りの点 → 打つ面の点」のずれだけ引く。

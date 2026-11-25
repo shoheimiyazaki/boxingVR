@@ -34,7 +34,7 @@ try
         "kickbalance" => KickBalanceCommand(Options.Parse(argv[1..], "style", "kicks", "teachings", "bouts", "seconds", "seed", "confirm", "log", "video")),
         "stick" => StickCommand(Options.Parse(StickSwingLab.WithYes(argv[1..]), "style", "kicks", "teachings", "png", "design", "candidates", "seed", "log", "approach", "ground", "moves", "path", "out", "forms", "detail", "swing", "planes", "samples", "weights", "video", "polish", "iterations", "character", "limits", "bvh", "bvh-scale")),
         "clawlab" => ClawLab.Report(Console.Out),
-        "huntlab" => HuntLab.Command(Options.Parse(argv[1..], "hunter", "victims", "victim", "seeds", "seed", "seconds", "set", "parallel", "log", "tune", "knobs", "gens", "lambda", "sigma", "confirm", "video", "trace", "goal", "contacts", "track")),
+        "huntlab" => HuntLab.Command(Options.Parse(argv[1..], "hunter", "victims", "victim", "seeds", "seed", "seconds", "set", "parallel", "log", "tune", "knobs", "gens", "lambda", "sigma", "confirm", "video", "trace", "goal", "contacts", "track", "camera")),
         "kicklab" => KickLabCommand(Options.Parse(argv[1..], "body", "kick", "distances", "seeds", "confirm-seeds", "shin", "overshoot", "side", "log")),
         "kickvideo" => KickVideoCommand(Options.Parse(argv[1..], "body", "kick", "distances", "side", "slow", "width", "height", "fps", "out")),
         "kickmocap" => KickMocapCommand(Options.Parse(argv[1..], "dir", "export", "log", "video", "doll", "durations", "distances", "export-mid", "body")),

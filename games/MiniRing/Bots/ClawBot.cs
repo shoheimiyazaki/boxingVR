@@ -10,7 +10,7 @@ internal sealed class ClawBot(BotStats stats)
     private int _strokeCount;
 
     /// <summary>狙いごとに溜まった重み（首・腕・胴。<see cref="BotStyle.ClawAimNeck"/>）。</summary>
-    private readonly float[] _aimCredit = new float[3];
+    private readonly float[] _aimCredit = new float[4];
 
     /// <summary>次の斬り払いの狙い（0 首・1 腕・2 胴）。斬り始めた後に次を決める。</summary>
     private int _nextAim = -1;
@@ -84,16 +84,17 @@ internal sealed class ClawBot(BotStats stats)
     /// </summary>
     internal int NextAim(BotStyle style)
     {
-        Span<float> w = [style.ClawAimNeck, style.ClawAimArm, style.ClawAimTorso];
-        var total = w[0] + w[1] + w[2];
+        Span<float> w = [style.ClawAimNeck, style.ClawAimArm, style.ClawAimTorso, style.ClawAimLeg];
+        var total = w[0] + w[1] + w[2] + w[3];
         if (!(total > 0f))
         {
             w[0] = w[1] = w[2] = 1f;
+            w[3] = 0f;
             total = 3f;
         }
 
         var best = -1;
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < w.Length; i++)
         {
             _aimCredit[i] += w[i];
             best = w[i] > 0f && (best < 0 || _aimCredit[i] > _aimCredit[best]) ? i : best;
@@ -131,8 +132,9 @@ internal sealed class ClawBot(BotStats stats)
 
     internal static Vector3 Stance(float reach) => new(0f, -reach * 0.05f, 0f);
 
-    internal static Vector3 Aim(in FighterSense sense, int stroke) => (stroke % 3) switch
+    internal static Vector3 Aim(in FighterSense sense, int stroke) => stroke switch
     {
+        3 => sense.OpponentTargets?.Point(AimGoal.Shin, sense.Self.Origin) ?? (sense.OpponentBody == default ? sense.OpponentChest : sense.OpponentBody.Pelvis),
         0 => sense.OpponentTargets?.Point(AimGoal.NeckSeam, sense.Self.Origin) ?? Vector3.Lerp(sense.OpponentChest, sense.OpponentHead, 0.57f),
         1 => sense.OpponentTargets?.Point(AimGoal.GuardArm, sense.Self.Origin) ?? sense.OpponentChest,
         _ => sense.OpponentTargets?.Point(AimGoal.TorsoSeam, sense.Self.Origin)

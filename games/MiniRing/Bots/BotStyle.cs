@@ -360,6 +360,9 @@ public sealed record BotStyle
     /// <summary>鎌で相手の胴の継ぎ目を狙う重み（<see cref="ClawAimNeck"/>）。</summary>
     public float ClawAimTorso { get; init; } = 1f;
 
+    /// <summary>鎌で相手の脛（近い方の脚）を狙う重み（<see cref="ClawAimNeck"/>）。既定 0（今までどおり脚は狙わない）。</summary>
+    public float ClawAimLeg { get; init; }
+
     /// <summary>
     /// 鎌の間合い: 腕の長さに足す、鎌の長さの割合（教育の値: 間合いの取り方。2026-11-25）。この距離（胸まで）より遠ければ寄り、届けば斬る。
     /// 小さいほど深く踏み込んで鎌の根元の側で斬り、大きいほど遠くから先で斬る。負なら腕の長さより内側まで踏み込む（引き斬りで刃を相手の向こうへ掛けるため）。既定 0.56（それまでの値）。
@@ -599,6 +602,7 @@ public sealed record BotStyle
             ClawAimNeck = Range(ClawAimNeck, 0f, 10f, 1f),
             ClawAimArm = Range(ClawAimArm, 0f, 10f, 1f),
             ClawAimTorso = Range(ClawAimTorso, 0f, 10f, 1f),
+            ClawAimLeg = Range(ClawAimLeg, 0f, 10f, 0f),
             ClawReach = Range(ClawReach, -0.8f, 1f, 0.56f),
             ClawRest = Range(ClawRest, 0f, 3f, 0f),
             ClawDraw = Unit(ClawDraw),

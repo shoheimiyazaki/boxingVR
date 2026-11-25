@@ -38,6 +38,9 @@ internal static class HuntLab
     /// </summary>
     public static string Goal { get; set; } = "kill";
 
+    /// <summary>動画のカメラの引き具合（<c>--camera 0.6</c>。1 が標準、小さいほど寄る。1 未満なら倒れても横の低い角度のまま）。</summary>
+    public static float CameraScale { get; set; } = 1f;
+
     /// <summary>あれば、1 回ごとに鎌（はめた物）と受け手の体の接触を部位ごとにまとめて書く（<c>--contacts 1</c>。切り分け用）。</summary>
     public static TextWriter? Contacts { get; set; }
 
@@ -482,7 +485,7 @@ internal static class HuntLab
         var hunter = CharacterRoster.Get(hunterId);
         var victim = CharacterRoster.Get(victimId);
         var style = Style(hunterId, victimId, set);
-        new VideoMaker(1280, 720, Fps, org: Organizations.Get("vfc"), rules: Rules(seconds)).Make(Victim, HunterOf(style), seed, seconds, output, console,
+        new VideoMaker(1280, 720, Fps, org: Organizations.Get("vfc"), rules: Rules(seconds), cameraScale: CameraScale) { SideView = CameraScale < 1f }.Make(Victim, HunterOf(style), seed, seconds, output, console,
             redWear: HandWear.None, blueWear: hunter.Wear, blueWeapon: hunter.Weapon, redCharacter: victim, blueCharacter: hunter, referee: false,
             editCorners: EditCorners);
     }
@@ -501,6 +504,7 @@ internal static class HuntLab
         TextWriter log = file is null ? Console.Out : new Tee(Console.Out, file);
         Trace = o.Get("trace") is not null ? Console.Out : null;
         Goal = o.Get("goal") ?? "kill";
+        CameraScale = o.Float("camera", 1f, 0.2f);
         Contacts = o.Get("contacts") is not null ? Console.Out : null;
         CapSeconds = seconds;
         if (Goal is not ("kill" or "neck"))
