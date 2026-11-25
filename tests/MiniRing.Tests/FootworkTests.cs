@@ -72,8 +72,70 @@ public sealed class FootworkTests
             return footwork.Swinging;
         }
 
-        Assert.AreEqual(Footwork.Lead, FirstSwing(tuning with { ShuffleShare = 0f }), "the lead foot only shuffles");
+        Assert.AreEqual(Footwork.Lead, FirstSwing(tuning with { ShuffleShare = 0f, UnloadedFootShare = 0f }), "the lead foot only shuffles");
         Assert.AreEqual(Footwork.Rear, FirstSwing(tuning), "the lead foot keeps supporting the weight");
+    }
+
+    /// <summary>
+    /// 体重の乗った足は、体重を抜くまで床を離れられない（2026-11-26、docs/arena/foot_snag.md）: 左へ動くとき、重心が真ん中なら行く向きの側の左足（前足）から、
+    /// 重心が前足の上なら体重の抜けている後ろ足から出る。体重を見ない選び方（UnloadedFootShare 0）では前足のまま。
+    /// </summary>
+    [TestMethod]
+    public void Footwork_StepsWithTheUnloadedFoot_WhenTheLoadedFootWouldGoFirst()
+    {
+        int FirstSwing(Vector2 com, FootworkTuning tuning)
+        {
+            var footwork = new Footwork(tuning);
+            const float leg = 0.6197f;
+            var lead = new Vector2(0.5f * tuning.StanceWidth * leg, 0.5f * tuning.StanceLength * leg);
+            var rear = -lead;
+            footwork.Reset(lead, tuning.LeadYawDegrees * MathF.PI / 180f, rear, tuning.RearYawDegrees * MathF.PI / 180f);
+            footwork.Update(new FootworkInput(0f, Vector2.Zero, Vector2.Zero, 3.813f, new Vector2(0.5f, 0f), 0f, 0f, leg,
+                LeadBall: lead, RearBall: rear, Com: com), Dt);
+            return footwork.Swinging;
+        }
+
+        var tuning = new FootworkTuning();
+        var overLead = 0.9f * new Vector2(0.5f * tuning.StanceWidth * 0.6197f, 0.5f * tuning.StanceLength * 0.6197f);
+        Assert.AreEqual(Footwork.Lead, FirstSwing(Vector2.Zero, tuning), "weight in the middle: the foot on the side it goes");
+        Assert.AreEqual(Footwork.Rear, FirstSwing(overLead, tuning), "weight on the lead foot: the unloaded rear foot goes first");
+        Assert.AreEqual(Footwork.Lead, FirstSwing(overLead, tuning with { UnloadedFootShare = 0f }), "without the load: the lead foot as before");
+    }
+
+    /// <summary>
+    /// 前へ踏み出している足は、向きを後ろへ切り返したら運び終えるのを待たずに下ろして計画し直し、後ろへ向かう 1 歩になる（宙の足を前へ運び終えてから戻ると、
+    /// 切り返しの出だしが 1 歩ぶん遅れた）。計画し直さない設定（ReplanSwing 偽）では前足が前へ運ばれ続ける。
+    /// </summary>
+    [TestMethod]
+    public void Footwork_RedirectsASwingingFoot_WhenTheDirectionReverses()
+    {
+        (int Swinging, float LandingZ) AfterReversal(FootworkTuning tuning)
+        {
+            var footwork = new Footwork(tuning);
+            const float leg = 0.6197f;
+            var lead = new Vector2(0.5f * tuning.StanceWidth * leg, 0.5f * tuning.StanceLength * leg);
+            footwork.Reset(lead, tuning.LeadYawDegrees * MathF.PI / 180f, -lead, tuning.RearYawDegrees * MathF.PI / 180f);
+            var input = new FootworkInput(0f, Vector2.Zero, Vector2.Zero, 3.813f, new Vector2(0f, 0.5f), 0f, 0f, leg, LeadBall: lead, RearBall: -lead, Com: Vector2.Zero);
+            footwork.Update(input, Dt);
+            Assert.AreEqual(Footwork.Lead, footwork.Swinging, "forward: the lead foot steps out");
+            var forward = footwork.Landing!.Value.Ball.Y;
+            Assert.IsGreaterThan(lead.Y, forward);
+            for (var i = 0; i < 6; i++)
+            {
+                footwork.Update(input with { Intent = new Vector2(0f, -0.5f) }, Dt);
+            }
+
+            return (footwork.Swinging, footwork.Landing?.Ball.Y ?? float.NaN);
+        }
+
+        var tuning = new FootworkTuning();
+        var leadZ = 0.5f * tuning.StanceLength * 0.6197f;
+        var replanned = AfterReversal(tuning);
+        Assert.IsGreaterThanOrEqualTo(0, replanned.Swinging, "a foot is stepping");
+        Assert.IsLessThan(replanned.Swinging == Footwork.Lead ? leadZ : -leadZ, replanned.LandingZ, $"the foot in the air is redirected back (foot {replanned.Swinging})");
+        var carried = AfterReversal(tuning with { ReplanSwing = false });
+        Assert.AreEqual(Footwork.Lead, carried.Swinging, "without replanning the lead foot is still in the air");
+        Assert.IsGreaterThan(leadZ, carried.LandingZ, "and still carried forward");
     }
 
     [TestMethod]
