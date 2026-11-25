@@ -12,6 +12,9 @@ namespace MiniRing.Tests;
 public sealed class SwordPracticeProbe
 {
     private static readonly string[] Swordsmen = ["jin", "konrad", "edgar"];
+    private static readonly bool[] Flags = [false, true];
+    private static readonly string[] Standard = ["standard"];
+    private static readonly int[] CheckSeeds = [11, 12];
 
     [TestMethod]
     public void Baseline()
@@ -61,6 +64,194 @@ public sealed class SwordPracticeProbe
         }
 
         Console.WriteLine($"ADOPTED {id} " + System.Text.Json.JsonSerializer.Serialize(adopted));
+    }
+
+    /// <summary>3 周目に採った差分（docs/arena/swordpractice_2026-11-26_round3.md）。4 周目はここから（オーバーハウは教科書から）。</summary>
+    private static readonly Dictionary<string, string> Round3 = new()
+    {
+        ["jin"] = """{"kesa":{"Tempo":0.7340395,"Twist":0.90022045,"Lift":-0.039707273,"Lean":0.0064524487,"Reach":-0.28055072},"shomen":{"Tempo":1.4569677,"Twist":1.0799829,"Lift":0.03290581,"Lean":-0.004199765,"Reach":-0.033927582},"harai-men":{"Tempo":1.286337,"Twist":0,"Lift":0.124481454,"Lean":0.022987546,"Reach":-0.05875615}}""",
+        ["konrad"] = """{"unterhau":{"Tempo":1.3274145,"Twist":0.9117595,"Lift":-0.034988325,"Lean":0.00048754504,"Reach":-0.12780634}}""",
+        ["edgar"] = """{"kiri-oroshi":{"Tempo":2.0052786,"Twist":0.9811229,"Lift":-0.0072263554,"Lean":0.06029655,"Reach":-0.06284144}}""",
+    };
+
+    private static readonly Dictionary<string, string[]> Practice4 = new()
+    {
+        ["jin"] = ["harai-men", "shomen", "kesa"],
+        ["konrad"] = ["oberhau", "unterhau"],
+        ["edgar"] = ["kiri-oroshi"],
+    };
+
+    /// <summary>
+    /// 4 周目（2026-11-26）: 3 周目はどの体でも種による違いがほぼ無く（体ごとに 3/3 か 0/3）、いちばん大きく太い dmitri だけがどの型でも倒れなかった。
+    /// 練習に dmitri を足し（standard・heavy・dmitri × 種 1,2）、比べ直しは練習で使わない 4 つの体（ramon・akira = 小さい、marcus・takumi-ishiguro = 大きい・高い）。
+    /// </summary>
+    [TestMethod]
+    [DataRow("jin")]
+    [DataRow("konrad")]
+    [DataRow("edgar")]
+    public void Train4(string id)
+    {
+        var who = CharacterRoster.Get(id);
+        var adopted = new Dictionary<string, MiniRing.Motion.FormTune>();
+        var round3 = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, MiniRing.Motion.FormTune>>(Round3[id])!;
+        foreach (var form in Practice4[id])
+        {
+            var (tune, report) = SwordPractice.Train(who, form, generations: 30, lambda: 12, sigma: 0.4f, seed: 4, seeds: [1, 2], victims: ["standard", "heavy", "dmitri"],
+                heldSeeds: [11, 12], heldVictims: ["ramon", "akira", "marcus", "takumi-ishiguro"], parallel: Environment.ProcessorCount, log: TextWriter.Null,
+                from: round3.GetValueOrDefault(form));
+            Console.WriteLine(report);
+            if (tune is not null)
+            {
+                adopted[form] = tune;
+            }
+        }
+
+        Console.WriteLine($"ADOPTED {id} " + System.Text.Json.JsonSerializer.Serialize(adopted));
+    }
+
+    /// <summary>4 周目に採った差分（docs/arena/swordpractice_2026-11-26_round4.md）。</summary>
+    private static readonly Dictionary<string, string> Round4 = new()
+    {
+        ["jin"] = """{"harai-men":{"Tempo":1.2629216,"Twist":0.22269554,"Lift":0.108421944,"Lean":-0.03258914,"Reach":0.02162886},"shomen":{"Tempo":1.4428612,"Twist":1.2003361,"Lift":-0.010764726,"Lean":-0.0052448334,"Reach":-0.056772053}}""",
+        ["konrad"] = """{"oberhau":{"Tempo":2.2890172,"Twist":1.084059,"Lift":-0.025004588,"Lean":-0.1161254,"Reach":-0.056888994}}""",
+        ["edgar"] = """{"kiri-oroshi":{"Tempo":2.3576238,"Twist":0.9448839,"Lift":0.028237833,"Lean":0.08900997,"Reach":-0.04126966}}""",
+    };
+
+    /// <summary>
+    /// 5 周目（2026-11-26）: 4 周目も、倒れるかどうかは体ごとにほぼ決まり（種で変わらない）、練習した体だけを倒す型になった。
+    /// 種は 1 つにして体を 6 つ（小さい・標準・大きい・太い）で練習し、比べ直しは練習で使わない 5 つの体 × 種 2 つ。
+    /// </summary>
+    [TestMethod]
+    [DataRow("jin")]
+    [DataRow("konrad")]
+    [DataRow("edgar")]
+    public void Train5(string id)
+    {
+        var who = CharacterRoster.Get(id);
+        var adopted = new Dictionary<string, MiniRing.Motion.FormTune>();
+        var from = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, MiniRing.Motion.FormTune>>(Round4[id])!;
+        foreach (var (form, tune0) in from)
+        {
+            var (tune, report) = SwordPractice.Train(who, form, generations: 30, lambda: 12, sigma: 0.3f, seed: 5, seeds: [1], victims: ["standard", "heavy", "dmitri", "ramon", "marcus", "akira"],
+                heldSeeds: [11, 12], heldVictims: ["takumi-ishiguro", "sean", "joao", "abel-navarrete", "tsuyoshi"], parallel: Environment.ProcessorCount, log: TextWriter.Null,
+                from: tune0);
+            Console.WriteLine(report);
+            if (tune is not null)
+            {
+                adopted[form] = tune;
+            }
+        }
+
+        Console.WriteLine($"ADOPTED {id} " + System.Text.Json.JsonSerializer.Serialize(adopted));
+    }
+
+    /// <summary>
+    /// 狙い（<see cref="MiniRing.Bots.WeaponStyle.AutoAim"/>: 相手の空いている部位へ両手の通り道をずらす）の有無で、5 周目の型が体格の違う相手を倒せるか。
+    /// 5 周目までは、どの体でも同じ通り道で振っていた（刀・剣と盾の教科書は狙わない）。
+    /// </summary>
+    [TestMethod]
+    public void AimCheck()
+    {
+        var cases = new (string Id, string Form, string Tune)[]
+        {
+            ("jin", "harai-men", """{"Tempo":1.23004,"Twist":0.07971518,"Lift":0.064279966,"Lean":0.0033723712,"Reach":0.016796041}"""),
+            ("jin", "shomen", """{"Tempo":1.4831306,"Twist":0.59811574,"Lift":-0.041464347,"Lean":0.080022454,"Reach":-0.06768147}"""),
+            ("edgar", "kiri-oroshi", """{"Tempo":2.2448418,"Twist":1.0368705,"Lift":0.015612647,"Lean":0.07474075,"Reach":-0.03295328}"""),
+            ("konrad", "oberhau", """{"Tempo":2.2155821,"Twist":1.0217743,"Lift":-0.006157292,"Lean":-0.11143296,"Reach":-0.062244557}"""),
+        };
+        string[] bodies = ["standard", "heavy", "dmitri", "ramon", "marcus", "akira", "takumi-ishiguro", "sean", "joao", "abel-navarrete", "tsuyoshi", "ivan-escobedo", "andre-bishop", "taeyun"];
+        var jobs = (from c in cases from aim in Flags from tuned in Flags from b in bodies select (c, aim, tuned, b)).ToList();
+        var results = new string[jobs.Count];
+        var outcomes = new SwordPractice.Outcome[jobs.Count];
+        Parallel.For(0, jobs.Count, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, i =>
+        {
+            var (c, aim, tuned, b) = jobs[i];
+            var who = CharacterRoster.Get(c.Id);
+            var style = who.WeaponStyle! with { AutoAim = aim };
+            var tune = tuned ? System.Text.Json.JsonSerializer.Deserialize<MiniRing.Motion.FormTune>(c.Tune)! : MiniRing.Motion.FormTune.Identity;
+            outcomes[i] = SwordPractice.Swing(who, style, SwordPractice.Technique(who, c.Form, tune), 11, SwordPractice.Victim(b)) with { Victim = b };
+        });
+        foreach (var g in jobs.Select((j, i) => (j, o: outcomes[i])).GroupBy(x => (x.j.c.Id, x.j.c.Form, x.j.aim, x.j.tuned)))
+        {
+            var list = g.ToList();
+            Console.WriteLine($"{g.Key.Id} {g.Key.Form} aim={g.Key.aim} tuned={g.Key.tuned}: {list.Count(x => x.o.Incapacitated)}/{list.Count} impact {list.Average(x => x.o.ImpactSpeed):0.0} self {list.Average(x => x.o.SelfCells):0} | "
+                + string.Join(" ", list.Select(x => $"{x.j.b}:{(x.o.Incapacitated ? "X" : "-")}{x.o.ConsciousnessEnd:0.0}")));
+        }
+    }
+
+    /// <summary>5 周目に採った差分（docs/arena/swordpractice_2026-11-26_round5.md）。</summary>
+    private static readonly Dictionary<string, string> Round5 = new()
+    {
+        ["jin"] = """{"harai-men":{"Tempo":1.23004,"Twist":0.07971518,"Lift":0.064279966,"Lean":0.0033723712,"Reach":0.016796041},"shomen":{"Tempo":1.4831306,"Twist":0.59811574,"Lift":-0.041464347,"Lean":0.080022454,"Reach":-0.06768147}}""",
+        ["konrad"] = """{"oberhau":{"Tempo":2.2155821,"Twist":1.0217743,"Lift":-0.006157292,"Lean":-0.11143296,"Reach":-0.062244557}}""",
+        ["edgar"] = """{"kiri-oroshi":{"Tempo":2.2448418,"Twist":1.0368705,"Lift":0.015612647,"Lean":0.07474075,"Reach":-0.03295328}}""",
+    };
+
+    /// <summary>
+    /// 6 周目（2026-11-26）: 5 周目の比べ直しと <see cref="AimCheck"/> で、倒せなかったのは背の高い・脚の長い体（takumi-ishiguro・taeyun・ivan-escobedo・abel-navarrete）。
+    /// 練習の振りは試合と同じく教科書の狙い（AutoAim: 長剣は狙う）で振る。練習に高い体を足して 8 つ、比べ直しは別の 8 つ。
+    /// </summary>
+    [TestMethod]
+    [DataRow("jin")]
+    [DataRow("konrad")]
+    [DataRow("edgar")]
+    public void Train6(string id)
+    {
+        var who = CharacterRoster.Get(id);
+        var adopted = new Dictionary<string, MiniRing.Motion.FormTune>();
+        var from = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, MiniRing.Motion.FormTune>>(Round5[id])!;
+        foreach (var (form, tune0) in from)
+        {
+            var (tune, report) = SwordPractice.Train(who, form, generations: 30, lambda: 12, sigma: 0.3f, seed: 6, seeds: [1],
+                victims: ["standard", "heavy", "dmitri", "ramon", "takumi-ishiguro", "taeyun", "abel-navarrete", "akira"],
+                heldSeeds: [11], heldVictims: ["marcus", "sean", "joao", "tsuyoshi", "ivan-escobedo", "andre-bishop", "prasert-rattanakul", "mauricio-villegas"],
+                parallel: Environment.ProcessorCount, log: TextWriter.Null, from: tune0);
+            Console.WriteLine(report);
+            if (tune is not null)
+            {
+                adopted[form] = tune;
+            }
+        }
+
+        Console.WriteLine($"ADOPTED {id} " + System.Text.Json.JsonSerializer.Serialize(adopted));
+    }
+
+    /// <summary>
+    /// 採る候補を、名簿の全部の体（四足の galva を除く 28 体 + 基準の体）× 種 11・12 で、教科書と比べる（練習で使った体も使わなかった体も）。
+    /// 長剣は狙う（教科書）・狙わない（教育で変える候補）の両方。
+    /// </summary>
+    [TestMethod]
+    public void FinalCheck()
+    {
+        var cases = new (string Id, string Form, string Tune, bool? Aim)[]
+        {
+            ("jin", "harai-men", """{"Tempo":1.235742,"Twist":0.5021529,"Lift":0.077622086,"Lean":-0.010121513,"Reach":0.04616947}""", null),
+            ("jin", "shomen", """{"Tempo":1.5067066,"Twist":0.13271883,"Lift":-0.023316912,"Lean":0.049709447,"Reach":-0.10149773}""", null),
+            ("jin", "harai-men", """{"Tempo":1.23004,"Twist":0.07971518,"Lift":0.064279966,"Lean":0.0033723712,"Reach":0.016796041}""", null),
+            ("edgar", "kiri-oroshi", """{"Tempo":2.1822982,"Twist":1.0218937,"Lift":0.03213026,"Lean":-0.010457604,"Reach":0.033105146}""", null),
+            ("edgar", "kiri-oroshi", """{"Tempo":2.2448418,"Twist":1.0368705,"Lift":0.015612647,"Lean":0.07474075,"Reach":-0.03295328}""", null),
+            ("konrad", "oberhau", """{"Tempo":2.2155821,"Twist":1.0217743,"Lift":-0.006157292,"Lean":-0.11143296,"Reach":-0.062244557}""", true),
+            ("konrad", "oberhau", """{"Tempo":2.2155821,"Twist":1.0217743,"Lift":-0.006157292,"Lean":-0.11143296,"Reach":-0.062244557}""", false),
+        };
+        var bodies = Standard.Concat(CharacterRoster.All.Where(c => !c.Build.FourLegged).Select(c => c.Id)).ToList();
+        var jobs = (from c in cases.Select((c, k) => (c, k)) from tuned in Flags from b in bodies from seed in CheckSeeds select (c.c, c.k, tuned, b, seed)).ToList();
+        var outcomes = new SwordPractice.Outcome[jobs.Count];
+        Parallel.For(0, jobs.Count, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, i =>
+        {
+            var (c, _, tuned, b, seed) = jobs[i];
+            var who = CharacterRoster.Get(c.Id);
+            var textbook = MiniRing.Bots.WeaponCatalog.Textbook(who.Weapon!.Value);
+            var style = tuned && c.Aim is { } aim ? textbook with { AutoAim = aim } : textbook;
+            var tune = tuned ? System.Text.Json.JsonSerializer.Deserialize<MiniRing.Motion.FormTune>(c.Tune)! : MiniRing.Motion.FormTune.Identity;
+            outcomes[i] = SwordPractice.Swing(who, style, SwordPractice.Technique(who, c.Form, tune), seed, SwordPractice.Victim(b)) with { Victim = b };
+        });
+        foreach (var g in jobs.Select((j, i) => (j, o: outcomes[i])).GroupBy(x => (x.j.k, x.j.tuned)))
+        {
+            var list = g.ToList();
+            var c = list[0].j.c;
+            var failed = list.Where(x => !x.o.Incapacitated).Select(x => $"{x.j.b}/{x.j.seed}").ToList();
+            Console.WriteLine($"[{g.Key.k}] {c.Id} {c.Form} {(g.Key.tuned ? $"tuned aim={c.Aim?.ToString() ?? "textbook"}" : "textbook")}: {list.Count(x => x.o.Incapacitated)}/{list.Count} dead {list.Count(x => x.o.Dead)} impact {list.Average(x => x.o.ImpactSpeed):0.0} m/s self {list.Average(x => x.o.SelfCells):0} selfdown {list.Count(x => x.o.SelfDown)} | failed: {string.Join(" ", failed)}");
+        }
     }
 
     [TestMethod]

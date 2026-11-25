@@ -95,6 +95,7 @@ internal static class SwordPractice
         var bot = new SwordsmanBot([technique], FormSwordsman.Guard(weapon), seed, SwordStance.Rate, rest: 1000f, exact: true, tuning: tuning,
             defense: style.Defense, bladeLength: FormSwordsman.BladeLength(weapon, arm), spacing: FormSwordsman.Spacing(weapon), aim: style.Aim)
         {
+            AutoAim = style.AutoAim, // 試合のボットと同じく、空いている部位へ通り道を向けるか（教科書・教育の値）
             Clearance = style.Clearance,
             Pacing = style.Pacing,
             RearLength = FormSwordsman.RearLength(weapon, arm),
