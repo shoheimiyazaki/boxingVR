@@ -104,6 +104,7 @@
 
 ボットの判断の仕組みを変えたら上げる。
 
+- **72**（2026-11-25、枝 `claude/vfc-royale-c1e767`）: バトルロイヤル（3 人以上）で狙う相手を、相手の見える特徴（距離・こちらへの向き・傷み・頭の低さ・受けた打撃の恨み）の重み付きの和で選ぶ（`Bots.RivalChoice`、重みは `BotStyle.Rival`）。2 人の試合の判断は変わらない（docs/plans/VFC_ROYALE_PLAN.md）。
 - **71**（2026-11-25 のマージで 71。枝 `claude/six-limbed-alien`、枝の中では 66・67）: 四足のボット（`ClawBot`・`FrontLegStrike`）は相手への距離と左右の位置から前脚を選び、鎌で助走つきの切断面を作る（`ClawStroke`）。四足でないボットの判断は変わらない。
 - **70**（2026-11-24、枝 `claude/vfc-ground-5de882`）: 68 と 69（`claude/heel-control-378a8d` a992ce1: 踏み替え・1 撃の威力を練習したかかとの経路）を合わせた。かかとの連打も狙う範囲（首〜頭、`AimFrom` 1.5）で狙う。
 - **69**（2026-11-24、枝 `claude/heel-control-378a8d`。68 は `claude/vfc-ground-5de882` がこの枝の 67 と合わせた番号）: かかとの連打で、踏む脚の酸素の蓄えが軸足より `HeelBarrage.SwitchMargin`（0.10）少なくなったら、足を上げきった所で踏むのをやめて構えへ下ろし、反対の足で残りを踏む（連打の始めも元気な方の足）。自分の脚の蓄えを `FighterSense.SelfLegOxygenLeft/Right` で感じる。経路を 1 撃の威力を点にした練習の値にした（下ろす区間 0.4 → 0.1・1 回 0.30 → 0.37 s・上げる高さ 0.48 → 0.58 腕。使わなかった種で 1 撃 132 → 564 J、当たり 27 → 26、転倒 0。`docs/arena/groundlab_heel_practice.md`）。踏み下ろす間に腰を落とす `HeelBarrage.Drop`（既定 0、練習で 0 に戻った）を足した。

@@ -31,7 +31,7 @@ public sealed partial class BoxingGame
     {
         foreach (var self in Fighters)
         {
-            var other = self == Player ? Cpu : Player;
+            var other = TargetOf(self);
             var holding = self.IsHolding(Hand.Left) || self.IsHolding(Hand.Right);
             if (!holding || self.State != FighterState.Standing || !TorsosTouch(self, other))
             {
@@ -170,7 +170,7 @@ public sealed partial class BoxingGame
     private void Land(CanvasEpisode episode)
     {
         var fighter = episode.Fighter;
-        if (fighter != Player && fighter != Cpu)
+        if (SeatOf(fighter) < 0)
         {
             return; // ラウンドが替わって作り直された前の体
         }
