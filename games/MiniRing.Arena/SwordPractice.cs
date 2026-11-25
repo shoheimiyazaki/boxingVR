@@ -279,17 +279,19 @@ internal static class SwordPractice
     /// 練習の種 × 相手の体で。最後に比べ直しの種 × 相手の体で、始めの差分と比べる。採ったら (差分, 報告)、採らなければ (null, 報告)。
     /// </summary>
     public static (FormTune? Adopted, string Report) Train(FighterCharacter who, string form, int generations, int lambda, float sigma, int seed,
-        IReadOnlyList<int> seeds, IReadOnlyList<string> victims, IReadOnlyList<int> heldSeeds, IReadOnlyList<string> heldVictims, int parallel, TextWriter log)
+        IReadOnlyList<int> seeds, IReadOnlyList<string> victims, IReadOnlyList<int> heldSeeds, IReadOnlyList<string> heldVictims, int parallel, TextWriter log, FormTune? from = null)
     {
         var style = who.WeaponStyle ?? throw new ArgumentException($"{who.Id} は武器のボットを持ちません。");
         var watch = Stopwatch.StartNew();
         var random = new Random(seed ^ (who.Id + form).Sum(c => (int)c)); // 名前から決まる種（string.GetHashCode は実行ごとに変わる）
         var start = style.Forms?.GetValueOrDefault(form) ?? FormTune.Identity;
         var report = new StringBuilder();
+        // 探し始める差分（前の練習の続き）。比べ直しの相手は、いつも今の教育（start）。
+        var origin = from ?? start;
         report.AppendLine(CultureInfo.InvariantCulture, $"### {who.Name}（{who.Id}）の {form}: (1+{lambda}) × {generations} 世代、練習の種 {string.Join(",", seeds)} × 相手 {string.Join(",", victims)}");
         report.AppendLine();
         report.AppendLine(Header.Replace("| |", "| 世代 |", StringComparison.Ordinal));
-        var best = Evaluate(who, style, form, start, seeds, victims, parallel);
+        var best = Evaluate(who, style, form, origin, seeds, victims, parallel);
         report.AppendLine(Row("0", best));
         log.WriteLine(Row("0", best));
         var step = sigma;
