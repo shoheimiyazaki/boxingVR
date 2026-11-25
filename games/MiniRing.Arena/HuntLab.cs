@@ -17,7 +17,8 @@ namespace MiniRing.Arena;
 /// <param name="Removed">受け手の体から失われたボクセルの数。</param>
 /// <param name="Lethal">死への近さ 0..1（<see cref="HuntLab.Lethality"/>。死んだら 1）。</param>
 /// <param name="Neck">首の断ち具合 0..1（<see cref="HuntLab.NeckCut"/>。頭が離れたら 1）。</param>
-internal sealed record HuntRun(string Victim, int Seed, bool Killed, float Seconds, float? DownAt, string Cause, int Removed, float Lethal, float Neck)
+/// <param name="Form">鎌の振りの形（<see cref="ClawForm"/>）。</param>
+internal sealed record HuntRun(string Victim, int Seed, bool Killed, float Seconds, float? DownAt, string Cause, int Removed, float Lethal, float Neck, ClawForm? Form = null)
 {
     /// <summary>首を断って（頭が離れて）死んだか。</summary>
     public bool Beheaded => Killed && Cause == "neck";
@@ -34,7 +35,8 @@ internal static class HuntLab
     public const string DefaultHunter = "galva";
 
     /// <summary>
-    /// 何を速くするか（<c>--goal</c>）: <c>kill</c>（既定。死ぬまでの時間）か <c>neck</c>（首を断って頭が離れるまでの時間。臓器で先に死んだ回は断てなかった回）。
+    /// 何を速くするか（<c>--goal</c>）: <c>kill</c>（既定。死ぬまでの時間）か <c>neck</c>（首を断って頭が離れるまでの時間。臓器で先に死んだ回は断てなかった回）か
+    /// <c>form</c>（1 振りあたりの点 = 削った量 − 形の代価 <see cref="ClawForm.Points"/>。大きいほど良いので、点は負にして小さいほど良いにそろえる）。
     /// </summary>
     public static string Goal { get; set; } = "kill";
 
@@ -113,10 +115,12 @@ internal static class HuntLab
         var closeSteps = 0;
         var closeFast = 0f;
         var neckY0 = Vector3.Lerp(body.ChestPosition, body.HeadPosition, 0.6f).Y;
+        var form = new ClawFormMeter(game.Cpu);
         while (t < seconds && !body.IsDead)
         {
             game.Step(default, dt);
             t += dt;
+            form.Sample(game, dt);
             if (Contacts is not null)
             {
                 Tally(game, grids, tally);
@@ -187,7 +191,9 @@ internal static class HuntLab
             }
         }
 
-        return new HuntRun(victimId, seed, body.IsDead, body.IsDead ? t : seconds, downAt, body.DeathCause ?? "-", cells0 - Filled(body), Lethality(body), NeckCut(body, neck0));
+        var strokes = ((game.CpuControl as GroundStriker)?.Inner as BoxerBot)?.Stats.Combos.GetValueOrDefault("claw-sweep") ?? 0;
+        return new HuntRun(victimId, seed, body.IsDead, body.IsDead ? t : seconds, downAt, body.DeathCause ?? "-", cells0 - Filled(body), Lethality(body), NeckCut(body, neck0),
+            form.Finish(strokes, cells0 - Filled(body)));
     }
 
     /// <summary>
@@ -351,9 +357,13 @@ internal static class HuntLab
     /// 打ち切りの時間は <see cref="HuntRun.Seconds"/>（生きていればそれが打ち切り）。
     /// </summary>
     /// <para>首（<see cref="Goal"/> = neck）: 首を断った回はその時間、断てなかった回は打ち切りの時間 × (2 − 首の断ち具合)。臓器で先に死んだ回は、そこで止まった時間ではなく打ち切りの時間で数える。</para>
-    public static double Score(HuntRun r) => Goal == "neck"
-        ? r.Beheaded ? r.Seconds : Cap(r) * (2d - r.Neck)
-        : r.Killed ? r.Seconds : r.Seconds * (2d - r.Lethal);
+    /// <para>形（<see cref="Goal"/> = form）: −（1 振りあたりの点 <see cref="ClawForm.Points"/>）。</para>
+    public static double Score(HuntRun r) => Goal switch
+    {
+        "neck" => r.Beheaded ? r.Seconds : Cap(r) * (2d - r.Neck),
+        "form" => -(r.Form?.Points ?? 0d),
+        _ => r.Killed ? r.Seconds : r.Seconds * (2d - r.Lethal),
+    };
 
     /// <summary>その回の打ち切りの時間（死んだ回は分からないので、測った全部の回で同じ値を CapSeconds に入れる）。</summary>
     private static double Cap(HuntRun r) => r.Killed ? CapSeconds : r.Seconds;
@@ -368,7 +378,21 @@ internal static class HuntLab
         var downs = runs.Where(r => r.DownAt is not null).Select(r => (double)r.DownAt!.Value).OrderBy(x => x).ToArray();
         var downMedian = downs.Length == 0 ? double.NaN : downs[downs.Length / 2];
         return string.Create(CultureInfo.InvariantCulture,
-            $"killed {runs.Count(r => r.Killed)}/{runs.Count}  time median {median:0.00} s  mean {times.DefaultIfEmpty().Average():0.00} s  (q1 {Quantile(times, 0.25):0.00}, q3 {Quantile(times, 0.75):0.00})  first down median {downMedian:0.00} s ({downs.Length}/{runs.Count})  lethal {runs.Average(r => r.Lethal):0.00}  beheaded {runs.Count(r => r.Beheaded)}/{runs.Count}  neck {runs.Average(r => r.Neck):0.00}  score {runs.Average(Score):0.00}");
+            $"killed {runs.Count(r => r.Killed)}/{runs.Count}  time median {median:0.00} s  mean {times.DefaultIfEmpty().Average():0.00} s  (q1 {Quantile(times, 0.25):0.00}, q3 {Quantile(times, 0.75):0.00})  first down median {downMedian:0.00} s ({downs.Length}/{runs.Count})  lethal {runs.Average(r => r.Lethal):0.00}  beheaded {runs.Count(r => r.Beheaded)}/{runs.Count}  neck {runs.Average(r => r.Neck):0.00}  score {runs.Average(Score):0.00}{FormSummary(runs)}");
+    }
+
+    /// <summary>鎌の振りの形の平均（<see cref="ClawForm"/>）: 1 振りの仕事（人の満タン = 1）・部位の偏り・部位ごとの仕事の割合・先端のジャーク・速さ・刃筋・点。</summary>
+    public static string FormSummary(IReadOnlyList<HuntRun> runs)
+    {
+        var forms = runs.Select(r => r.Form).OfType<ClawForm>().ToArray();
+        if (forms.Length == 0)
+        {
+            return "";
+        }
+
+        var regions = Enumerable.Range(0, MuscleRegions.Count).Select(i => forms.Average(f => f.Regions[i])).ToArray();
+        return string.Create(CultureInfo.InvariantCulture,
+            $"  | strokes {forms.Average(f => f.Strokes):0.0}  work/stroke {forms.Average(f => f.TanksPerStroke) * 1000d:0.00} mtank ({forms.Average(f => f.WorkJoules / Math.Max(1, f.Strokes)):0} J)  imbalance {forms.Average(f => f.Imbalance):0.00} (arms {regions[0] + regions[1]:0.00} legs {regions[2] + regions[4]:0.00} trunk {regions[3]:0.00})  jerk {forms.Average(f => f.JerkRms):0} m/s3  speed {forms.Average(f => f.Speed):0.00} m/s  edge {forms.Average(f => f.EdgeDegrees):0.0} deg  cost {forms.Average(f => f.Cost):0.00}  points {forms.Average(f => f.Points):0.00}");
     }
 
     private static double Quantile(double[] sorted, double q)
@@ -507,9 +531,9 @@ internal static class HuntLab
         CameraScale = o.Float("camera", 1f, 0.2f);
         Contacts = o.Get("contacts") is not null ? Console.Out : null;
         CapSeconds = seconds;
-        if (Goal is not ("kill" or "neck"))
+        if (Goal is not ("kill" or "neck" or "form"))
         {
-            throw new ArgumentException($"--goal は kill か neck: '{Goal}'");
+            throw new ArgumentException($"--goal は kill・neck・form のどれか: '{Goal}'");
         }
 
         if (o.Get("track") is { } track)

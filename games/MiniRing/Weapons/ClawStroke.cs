@@ -52,6 +52,28 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
         return new ClawSegment(root, root + direction * ClawSegment.Length, new Vector3(-0.45f * hand.LocalSide(), 0.20f, 0.76f));
     }
 
+    /// <summary>
+    /// 振りの体の拍子 −1..1（2026-11-25、体を振りに使う教育 <c>ClawTwist</c>・<c>ClawSpring</c> のため）: 溜め（<see cref="LoadTime"/>）で 0 → −1（打つ側の肩を引く）、
+    /// 振り抜き（<see cref="DriveTime"/>）で −1 → 1（肩を出す）、戻り（<see cref="FollowThrough"/>）で 1 → 0。刃の経路と同じ時刻の滑らかな曲線で、技の種類で分けない。
+    /// </summary>
+    public float Swing(float time)
+    {
+        if (time < LoadTime)
+        {
+            return -Smooth(time / LoadTime);
+        }
+
+        if (time < LoadTime + DriveTime)
+        {
+            return -1f + (2f * Smooth((time - LoadTime) / DriveTime));
+        }
+
+        return 1f - Smooth((time - LoadTime - DriveTime) / FollowThrough);
+    }
+
+    /// <summary>振り抜きの区間（溜めの後・戻りの前）か。</summary>
+    public bool Driving(float time) => time >= LoadTime && time < LoadTime + DriveTime;
+
     public ClawSegment Sample(float time, ClawSegment? recoveryGuard = null)
     {
         var guard = Guard(Hand, Reach);

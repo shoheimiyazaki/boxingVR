@@ -64,6 +64,17 @@ internal sealed class ClawBot(BotStats stats)
             stats.ComboStarted("claw-sweep");
         }
 
+        // 引き手: 振っていない側の手を、振っている腕の拍子と逆に前後させる（左右の腕は同時には振らない）。体を振りに使う教育の値。
+        if (style.ClawPull > 0f)
+        {
+            var pull = style.ClawPull * sense.ArmReach;
+            left = !_arms[0].Active ? left with { TargetLocal = left.TargetLocal - (Vector3.UnitZ * (pull * _arms[1].Swing)) } : left;
+            right = !_arms[1].Active ? right with { TargetLocal = right.TargetLocal - (Vector3.UnitZ * (pull * _arms[0].Swing)) } : right;
+        }
+
+        var driving = _arms[0].Driving || _arms[1].Driving;
+        left = _arms[0].Driving ? left with { Spring = style.ClawSpring } : left;
+        right = _arms[1].Driving ? right with { Spring = style.ClawSpring } : right;
         return basis with
         {
             Left = left,
@@ -73,7 +84,7 @@ internal sealed class ClawBot(BotStats stats)
             MoveWorld = style.Attacks && sense.OpponentAlive && !occupied && !ready && !kick
                 ? forward * Math.Clamp((distance - range * 0.85f) / (range * 0.28f), -0.38f, 1f)
                 : style.Attacks ? Vector3.Zero : basis.MoveWorld,
-            Step = Vector3.Zero,
+            Step = driving && !kick ? forward * style.ClawStep : Vector3.Zero,
             HeadOffset = Stance(sense.ArmReach),
         };
     }
