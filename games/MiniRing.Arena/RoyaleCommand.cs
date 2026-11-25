@@ -88,7 +88,7 @@ internal static class RoyaleCommand
             var clock = Stopwatch.StartNew();
             if (o.Get("out") is { } outPath)
             {
-                new RoyaleVideo(o.Int("width", 1280), o.Int("height", 720), o.Int("fps", 30), teamNames).Make(game, seconds, step, outPath, Console.Out);
+                new RoyaleVideo(o.Int("width", 1280), o.Int("height", 720), o.Int("fps", 30), [.. characters.Select(TvCorner.Of)], teamNames).Make(game, seconds, step, outPath, Console.Out);
             }
             else
             {
@@ -277,7 +277,7 @@ internal sealed class RoyaleWatch(BoxingGame game)
 }
 
 /// <summary>バトルロイヤルの動画: 全員を見下ろし、いちばん激しい所へ寄せるカメラ。頭の上の名前の札・生き残りの一覧・脱落の字幕・打撃音。</summary>
-internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<string>? teamNames = null)
+internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<TvCorner> corners, IReadOnlyList<string>? teamNames = null)
 {
     private static readonly Vector4 White = new(1f, 1f, 1f, 1f);
     private static readonly Vector4 Cream = new(0.95f, 0.91f, 0.84f, 1f);
@@ -291,8 +291,8 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
     private float _heatWeight;
     private readonly RoyaleDirector _director = new(new DirectorTuning());
     private int _cuts;
+    private readonly RoyaleOverlay _overlay = new(width, height, corners, teamNames);
     private bool _cutPending; // 描かない刻み（60 Hz の判断と 30 fps の絵）で起きたカットを、次に描く絵まで覚える
-    private readonly List<(string Text, float Until)> _captions = [];
 
     public void Make(BoxingGame game, float seconds, Func<BoxingGame, float, bool> step, string outPath, TextWriter log)
     {
@@ -358,17 +358,6 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
 
             Heat(game);
             Direct(game, t);
-            foreach (var e in game.RecentEliminations)
-            {
-                _captions.Add((e.By is { } by ? $"{game.LabelOf(by)} が {game.LabelOf(e.Fighter)} を倒した（{Cause(e.Cause)}）" : $"{game.LabelOf(e.Fighter)} 脱落（{Cause(e.Cause)}）", t + 4f));
-            }
-
-            if (game.MatchOver && game.WinningTeam is { } team && !_captions.Any(c => c.Text.StartsWith("勝者", StringComparison.Ordinal)))
-            {
-                var members = game.AllFighters.Where(x => game.InPlay(x)).Select(game.LabelOf);
-                _captions.Add((game.InitialCorners.Teams is null ? $"勝者 {string.Join("・", members)} — 最後の 1 人" : $"勝者 {TeamName(team)} — {string.Join("・", members)} が生き残った", t + 1e6f));
-            }
-
             if (t < nextFrame)
             {
                 continue;
@@ -378,9 +367,9 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
             BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
             var (eye, look) = Camera(game);
             var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, look, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.05f, 60f);
-            var text = Overlay(game, vp, t, startCells);
+            var (text, shapes) = _overlay.Draw(game, vp, t, startCells, _director.Current, _director.ShotStart);
             var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),
-                shadow: game.BuildShadow(), cameraPosition: displayEye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                shadow: game.BuildShadow(), cameraPosition: displayEye, shapes: shapes, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
             ffmpeg.StandardInput.BaseStream.Write(rgba);
             frames++;
         }
@@ -422,7 +411,7 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
 
     private static int Cells(Fighter fighter) => fighter.Voxels?.Parts.Sum(p => p.Body.Grid.FilledCount) ?? 1;
 
-    private static string Cause(string cause) => cause switch
+    internal static string Cause(string cause) => cause switch
     {
         "OUT OF THE CAGE" => "檻の外へ",
         _ => cause.Replace(" DESTROYED", "", StringComparison.Ordinal).ToLowerInvariant() switch
@@ -432,7 +421,10 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
             "liver" => "肝臓",
             "neck" => "首",
             "lungs" or "lung" => "肺",
-            "spine" => "脊髄",
+            "spine" or "cord" => "脊髄",
+            "gut" => "腸",
+            "artery" => "動脈",
+            "eye" => "目",
             var other => other,
         },
     };
@@ -577,44 +569,5 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
         var c = from.LengthSquared() - (radius * radius);
         var disc = (b * b) - c;
         return c > 0f || disc < 0f ? 0f : -b + MathF.Sqrt(disc);
-    }
-
-    private ScreenTextDraw[] Overlay(BoxingGame game, Matrix4x4 vp, float t, int[] startCells)
-    {
-        var list = new List<ScreenTextDraw>
-        {
-            new($"VFC バトルロイヤル  {game.AllFighters.Count} 人", new Vector2(36f, 36f), 30f, Cream, TextAnchor.Left),
-            new(game.InIntro ? "まもなく開始" : game.InBreak ? $"休み  R{game.MatchRound}  {game.BreakLeft:0}s" : string.Create(CultureInfo.InvariantCulture, $"R{game.MatchRound}  {game.RoundLeft:0}s"),
-                new Vector2(width - 36f, 36f), 28f, Cream, TextAnchor.Right),
-        };
-        if (!_director.Current.IsWide)
-        {
-            var shot = _director.Current;
-            list.Add(new ScreenTextDraw($"注目  {game.LabelOf(game.AllFighters[shot.A])} × {game.LabelOf(game.AllFighters[shot.B])}",
-                new Vector2(width - 36f, 72f), 22f, Cream, TextAnchor.Right));
-        }
-
-        var screen = new Vector2(width, height);
-        for (var i = 0; i < game.AllFighters.Count; i++)
-        {
-            var f = game.AllFighters[i];
-            var alive = game.InPlay(f);
-            var body = 100f * Cells(f) / startCells[i];
-            list.Add(new ScreenTextDraw(string.Create(CultureInfo.InvariantCulture, $"{game.LabelOf(f)}  {(alive ? $"体 {body:0}%" : "脱落")}{(alive && f.State != FighterState.Standing ? "  ダウン" : "")}"),
-                new Vector2(36f, 84f + (i * 30f)), 22f, alive ? White : Grey, TextAnchor.Left));
-            if (alive && Aigis.Render.Camera.TryWorldToScreen(vp, game.Display.Point(f.HeadPosition + new Vector3(0f, 0.45f, 0f)), screen, out var pixel))
-            {
-                list.Add(new ScreenTextDraw(game.LabelOf(f), pixel, 20f, game.InitialCorners.RedKit(i) ? new Vector4(1f, 0.7f, 0.65f, 1f) : new Vector4(0.7f, 0.8f, 1f, 1f), TextAnchor.Center));
-            }
-        }
-
-        _captions.RemoveAll(c => c.Until < t);
-        for (var i = 0; i < _captions.Count; i++)
-        {
-            list.Add(new ScreenTextDraw(_captions[i].Text, new Vector2(width * 0.5f, height - 60f - ((_captions.Count - 1 - i) * 36f)), 28f, i == _captions.Count - 1 ? Red : Cream, TextAnchor.Center));
-        }
-
-        list.Add(new ScreenTextDraw(string.Create(CultureInfo.InvariantCulture, $"{t:0.0} s"), new Vector2(width - 36f, height - 30f), 20f, Grey, TextAnchor.Right));
-        return [.. list];
     }
 }
