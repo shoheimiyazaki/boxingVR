@@ -111,7 +111,7 @@ internal sealed record EducationJitter(float Sd, IReadOnlyList<JitterKey> Keys, 
 
 internal sealed record FaceJitter(IReadOnlyList<string> Hairs, IReadOnlyList<string> Beards, float BeardChance, float ValueSd, IReadOnlyList<string> Values);
 
-internal sealed record CountryNames(float Weight, IReadOnlyDictionary<string, float> Roots, string Order, IReadOnlyList<string> Given, IReadOnlyList<string> Family, string? Sep = null);
+internal sealed record CountryNames(float Weight, IReadOnlyDictionary<string, float> Roots, string Order, IReadOnlyList<string> Given, IReadOnlyList<string> Family, string? Sep = null, string? English = null);
 
 internal sealed record SeasonRules(int Events, int ProspectRounds, int ChallengeRounds, float BreakSeconds);
 

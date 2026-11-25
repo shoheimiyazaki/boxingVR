@@ -87,7 +87,17 @@
       "DefenseRate": 0.558,
       "CounterRate": 0.437,
       "ExitAfterCombo": 0.36,
-      "AttackRange": 0.956
+      "AttackRange": 0.956,
+      "BreakLikes": {
+        "bounce": 3,
+        "headphones": 2.5,
+        "hum": 2,
+        "gloveclap": 2,
+        "pointcrowd": 1.5,
+        "shadowbox": 2,
+        "bow": 0.5,
+        "prayer": 0.6
+      }
     },
     "vs": {},
     "weaponBot": null
@@ -159,5 +169,20 @@
       "新人リーグで一番早い KO は 1R 13 秒",
       "細身で長身、足を使うボクサー型"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Andre Bishop",
+      "reading": "Andre Bishop",
+      "hudName": "Andre",
+      "origin": "United States",
+      "tagline": "IVF lightweight with quick feet",
+      "profile": {
+        "birthplace": "Philadelphia, United States",
+        "hometown": "North Philadelphia",
+        "stance": "Orthodox",
+        "quote": "When my feet stop, that's not me anymore."
+      }
+    }
   }
 }

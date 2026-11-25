@@ -85,7 +85,16 @@
       "DefenseRate": 0.585,
       "CounterRate": 0.928,
       "ExitAfterCombo": 0.656,
-      "AttackRange": 1.054
+      "AttackRange": 1.054,
+      "BreakLikes": {
+        "fixgloves": 2,
+        "gloveclap": 2,
+        "shadowbox": 2.5,
+        "energydrink": 1.5,
+        "pointup": 2.5,
+        "crossself": 1.5,
+        "yawn": 0.4
+      }
     },
     "vs": {},
     "weaponBot": null
@@ -155,5 +164,20 @@
       "新人リーグで一番早い KO は 1R 19 秒",
       "クルーザー級の新人で負けなし"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Ivan Escobedo",
+      "reading": "Ivan Escobedo",
+      "hudName": "Ivan",
+      "origin": "Mexico",
+      "tagline": "IVF cruiserweight, El Poste",
+      "profile": {
+        "birthplace": "Monterrey, Mexico",
+        "hometown": "Monterrey",
+        "stance": "Orthodox",
+        "quote": "I'm punching where my father left off."
+      }
+    }
   }
 }

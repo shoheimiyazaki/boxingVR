@@ -90,7 +90,17 @@
       "CounterRate": 0.93,
       "ExitAfterCombo": 0.714,
       "AttackRange": 1.249,
-      "Southpaw": true
+      "Southpaw": true,
+      "BreakLikes": {
+        "bow": 3,
+        "mirror": 2,
+        "neckcrack": 2,
+        "onigiri": 2.5,
+        "mouthguard": 1.5,
+        "looksky": 1.5,
+        "dance": 0.4,
+        "blowkiss": 0.2
+      }
     },
     "vs": {},
     "weaponBot": null
@@ -161,5 +171,20 @@
       "新人リーグで一番早い KO は 1R 14 秒",
       "日本出身、ヘビー級の長身サウスポー"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Takumi Ishiguro",
+      "reading": "Takumi Ishiguro",
+      "hudName": "Takumi",
+      "origin": "Japan",
+      "tagline": "IVF southpaw heavyweight from Fukuoka",
+      "profile": {
+        "birthplace": "Fukuoka, Japan",
+        "hometown": "Fukuoka",
+        "stance": "Southpaw",
+        "quote": "One punch changes everything, so I prepare for that one punch."
+      }
+    }
   }
 }

@@ -18,5 +18,21 @@
   "quote": "間合いは計算できる。",
   "commentaryNotes": [
     "長い腕の正統派"
-  ]
+  ],
+  "breakLikes": {
+    "looksky": 3,
+    "mirror": 2,
+    "stretcharms": 2,
+    "sitdown": 1.5,
+    "coffee": 2,
+    "bow": 1.5,
+    "roar": 0.4,
+    "dance": 0.5
+  },
+  "en": {
+    "tagline": "IVF middleweight who measures the range",
+    "birthplace": "Tashkent, Uzbekistan",
+    "hometown": "Tashkent",
+    "quote": "Distance can be calculated."
+  }
 }

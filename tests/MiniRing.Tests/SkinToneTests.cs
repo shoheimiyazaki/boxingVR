@@ -24,7 +24,17 @@ public sealed class SkinToneTests
             var voxels = game.Cpu.Voxels!;
             var expected = new Vector4(c.Face.Skin ?? c.Look.Skin, 1f);
             Assert.AreEqual(expected, voxels.SkinColor, $"{c.Id}: body skin is the roster face skin");
-            Assert.AreEqual(expected, voxels.Face!.Body.Grid.Palette[BoxerAnatomy.Skin].Color, $"{c.Id}: face layer");
+            if (c.Build.FourLegged)
+            {
+                Assert.IsNull(voxels.Face, $"{c.Id}: the head grid supplies the face");
+            }
+            else
+            {
+                Assert.IsNotNull(voxels.Face, $"{c.Id}: human face layer");
+            }
+
+            var face = voxels.Face ?? voxels.PartOf(game.Cpu.Parts.Head)!;
+            Assert.AreEqual(expected, face.Body.Grid.Palette[BoxerAnatomy.Skin].Color, $"{c.Id}: face palette");
             foreach (var part in voxels.Parts)
             {
                 Assert.AreEqual(expected, part.Body.Grid.Palette[BoxerAnatomy.Skin].Color, $"{c.Id}: {part.Kind}");

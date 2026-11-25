@@ -18,5 +18,20 @@
   "quote": "静かに、強く。",
   "commentaryNotes": [
     "タイ出身のクルーザー級"
-  ]
+  ],
+  "breakLikes": {
+    "prayer": 3,
+    "bow": 2.5,
+    "hum": 2,
+    "jelly": 1.5,
+    "onigiri": 1.5,
+    "sitdown": 1.5,
+    "roar": 0.5
+  },
+  "en": {
+    "tagline": "IVF cruiserweight from the rice fields",
+    "birthplace": "Khon Kaen, Thailand",
+    "hometown": "Khon Kaen",
+    "quote": "Quiet, and strong."
+  }
 }

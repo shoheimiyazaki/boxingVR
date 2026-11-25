@@ -1,5 +1,6 @@
 using System.Numerics;
 using Aigis.Platform;
+using MiniRing.Weapons;
 using Silk.NET.Input;
 
 namespace MiniRing.Desktop;
@@ -19,6 +20,8 @@ internal sealed class KeyboardControl
 {
     private readonly float[] _extend = new float[2];
     private Vector3 _head;
+    private FrontLegStrike _frontLeg = new();
+    private ClawMotion[] _claws = [new(), new()];
 
     public BoxingInput Read(InputSnapshot input, float cameraYaw, FighterSense sense, float dt)
     {
@@ -48,7 +51,23 @@ internal sealed class KeyboardControl
             new HandCommand(left, input.IsKeyDown(Key.Q)),
             new HandCommand(right, input.IsKeyDown(Key.E)),
             _head);
-        return new BoxingInput(command, input.WasKeyPressed(Key.R));
+        var reset = input.WasKeyPressed(Key.R);
+        if (reset)
+        {
+            _frontLeg = new FrontLegStrike();
+            _claws = [new(), new()];
+        }
+
+        if (sense.SelfBuild?.FourLegged == true)
+        {
+            command = command with
+            {
+                Left = _claws[0].Read(Hand.Left, input.IsMouseButtonDown(MouseButton.Right), lateral > 0f, sense, sense.OpponentChest, dt),
+                Right = _claws[1].Read(Hand.Right, input.IsMouseButtonDown(MouseButton.Left), lateral > 0f, sense, sense.OpponentChest, dt),
+            };
+        }
+
+        return new BoxingInput(_frontLeg.Read(command, sense, input.IsKeyDown(Key.F), lateral > 0f, dt), reset);
     }
 
     /// <summary>構え → 溜め（横 / 下）→ 狙いの奥、を 2 次ベジェで結ぶ。押している間だけ進み、離すと構えへ戻る。</summary>

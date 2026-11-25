@@ -21,8 +21,8 @@ public static class BodySizing
     /// <inheritdoc cref="MinRatio"/>
     public const float MaxRatio = 1.5f;
 
-    /// <summary>身長・体重・腕・脚から体格を解く。範囲の外（体格の比が 0.6〜1.5 に入らない）なら、どの値が外れたかを書いた例外。</summary>
-    public static BodyBuild Solve(int heightCm, int weightKg, float arms = 1f, float legs = 1f)
+    /// <summary>身長・体重・腕・脚（と四足か: <see cref="BodyBuild.FourLegged"/>）から体格を解く。範囲の外（体格の比が 0.6〜1.5 に入らない）なら、どの値が外れたかを書いた例外。</summary>
+    public static BodyBuild Solve(int heightCm, int weightKg, float arms = 1f, float legs = 1f, bool fourLegged = false)
     {
         foreach (var (value, name, param) in new[] { (arms, "腕の長さ", nameof(arms)), (legs, "脚の長さ", nameof(legs)) })
         {
@@ -33,37 +33,37 @@ public static class BodySizing
         }
 
         (arms, legs) = (MathF.Round(arms, 4), MathF.Round(legs, 4));
-        var height = HeightRatio(heightCm, legs);
-        var (lo, hi) = WeightRange(heightCm, arms, legs);
+        var height = HeightRatio(heightCm, legs, fourLegged);
+        var (lo, hi) = WeightRange(heightCm, arms, legs, fourLegged);
         if (weightKg < lo || weightKg > hi)
         {
             throw new ArgumentOutOfRangeException(nameof(weightKg), weightKg, $"身長 {heightCm} cm で作れる体重は {lo}〜{hi} kg です（筋肉の太さが基準の {MinRatio}〜{MaxRatio} 倍）。");
         }
 
-        var muscle = Bisect(m => PhysicalMassKg(new BodyBuild(height, arms, legs, m)), weightKg, m => CharacterProfile.WeightOf(new BodyBuild(height, arms, legs, m)) == weightKg)
+        var muscle = Bisect(m => PhysicalMassKg(new BodyBuild(height, arms, legs, m, fourLegged)), weightKg, m => CharacterProfile.WeightOf(new BodyBuild(height, arms, legs, m, fourLegged)) == weightKg)
             ?? throw new InvalidOperationException($"身長 {heightCm} cm で体重 {weightKg} kg になる太さが見つかりませんでした。");
-        return new BodyBuild(height, arms, legs, muscle).Validate();
+        return new BodyBuild(height, arms, legs, muscle, fourLegged).Validate();
     }
 
     /// <summary>この身長 [cm] になる身長の比（脚の長さの比 <paramref name="legs"/> のとき）。範囲の外は例外。</summary>
-    public static float HeightRatio(int heightCm, float legs = 1f)
+    public static float HeightRatio(int heightCm, float legs = 1f, bool fourLegged = false)
     {
-        float Cm(float h) => PhysicalHeightMeters(new BodyBuild(h, 1f, legs, 1f)) * 100f;
+        float Cm(float h) => PhysicalHeightMeters(new BodyBuild(h, 1f, legs, 1f, fourLegged)) * 100f;
         var (lo, hi) = ((int)MathF.Ceiling(Cm(MinRatio)), (int)MathF.Floor(Cm(MaxRatio)));
         if (heightCm < lo || heightCm > hi)
         {
             throw new ArgumentOutOfRangeException(nameof(heightCm), heightCm, $"身長は {lo}〜{hi} cm にしてください（脚の長さ {legs:0.00}）。");
         }
 
-        return Bisect(Cm, heightCm, h => CharacterProfile.HeightOf(new BodyBuild(h, 1f, legs, 1f)) == heightCm)
+        return Bisect(Cm, heightCm, h => CharacterProfile.HeightOf(new BodyBuild(h, 1f, legs, 1f, fourLegged)) == heightCm)
             ?? throw new InvalidOperationException($"身長 {heightCm} cm になる身長の比が見つかりませんでした。");
     }
 
     /// <summary>この身長で作れる体重の範囲 [kg]（筋肉の太さが 0.6〜1.5 倍）。</summary>
-    public static (int Min, int Max) WeightRange(int heightCm, float arms = 1f, float legs = 1f)
+    public static (int Min, int Max) WeightRange(int heightCm, float arms = 1f, float legs = 1f, bool fourLegged = false)
     {
-        var h = HeightRatio(heightCm, legs);
-        return ((int)MathF.Ceiling(PhysicalMassKg(new BodyBuild(h, arms, legs, MinRatio))), (int)MathF.Floor(PhysicalMassKg(new BodyBuild(h, arms, legs, MaxRatio))));
+        var h = HeightRatio(heightCm, legs, fourLegged);
+        return ((int)MathF.Ceiling(PhysicalMassKg(new BodyBuild(h, arms, legs, MinRatio, fourLegged))), (int)MathF.Floor(PhysicalMassKg(new BodyBuild(h, arms, legs, MaxRatio, fourLegged))));
     }
 
     /// <summary>体型（太さの比）とこの身長での体重 [kg]。体型を選んだときの体重の初めの値。</summary>
@@ -71,15 +71,16 @@ public static class BodySizing
         => CharacterProfile.WeightOf(new BodyBuild(HeightRatio(heightCm, legs), arms, legs, muscle).Validate());
 
     /// <summary>
-    /// 物理の体の質量 [kg]: 部位ごとの質量（<see cref="FighterTuning.Masses"/>、体積に比例）の和に、左右のつま先（足の質量の残り）を足したもの。
-    /// 試合の体（<see cref="Fighter.TotalMass"/>）と同じ値（<c>CharacterMakerTests</c> が確かめる）。
+    /// 物理の体の質量 [kg]: 部位ごとの質量（<see cref="FighterTuning.Masses"/>、体積に比例）の和に、脚の対の数（<see cref="BodyBuild.LegPairs"/>: 四足は後ろの対を足す）だけの
+    /// 脚（腿・すね・足・つま先 = 足の質量の残り）を数えたもの。試合の体（<see cref="Fighter.TotalMass"/>）と同じ値（<c>CharacterMakerTests</c>・<c>AlienTests</c> が確かめる）。
     /// </summary>
     public static float PhysicalMassKg(BodyBuild build)
     {
         ArgumentNullException.ThrowIfNull(build);
         var masses = (FighterTuning.Default with { Build = build }).Masses;
-        var toes = masses.Foot / (1f - FootGeometry.ToeShare) * FootGeometry.ToeShare;
-        return masses.Total + (2f * toes);
+        var leg = masses.Thigh + masses.Shin + (masses.Foot / (1f - FootGeometry.ToeShare));
+        var trunkAndArms = masses.Total - (2f * (masses.Thigh + masses.Shin + masses.Foot));
+        return trunkAndArms + (2f * build.LegPairs * leg);
     }
 
     /// <summary>

@@ -18,5 +18,20 @@
   "quote": "父さんの続きを打つ。",
   "commentaryNotes": [
     "クルーザー級の新人で負けなし"
-  ]
+  ],
+  "breakLikes": {
+    "fixgloves": 2,
+    "gloveclap": 2,
+    "shadowbox": 2.5,
+    "energydrink": 1.5,
+    "pointup": 2.5,
+    "crossself": 1.5,
+    "yawn": 0.4
+  },
+  "en": {
+    "tagline": "IVF cruiserweight, El Poste",
+    "birthplace": "Monterrey, Mexico",
+    "hometown": "Monterrey",
+    "quote": "I'm punching where my father left off."
+  }
 }

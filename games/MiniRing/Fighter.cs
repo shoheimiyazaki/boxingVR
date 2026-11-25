@@ -153,7 +153,7 @@ public sealed partial class Fighter
     private readonly float _legFull;
 
     private Fighter(PhysicsWorld world, FighterTuning tuning, string name, HumanoidRagdoll.Parts parts, HumanoidRagdoll.HalfExtents halfExtents, float yaw,
-        IReadOnlyList<HumanoidRagdoll.JointGroup> joints, ToeParts toes)
+        IReadOnlyList<HumanoidRagdoll.JointGroup> joints, ToeParts toes, RearRig? rear)
     {
         _world = world;
         _joints = [.. joints];
@@ -161,8 +161,8 @@ public sealed partial class Fighter
         Name = name;
         Parts = parts;
         HalfExtents = halfExtents;
-        _all = [.. parts.All, toes.AigisLeft, toes.AigisRight];
-        _plusXSide = [parts.RightUpperArm, parts.RightForearm, parts.RightThigh, parts.RightShin, parts.RightFoot, toes.AigisRight];
+        _all = [.. parts.All, toes.AigisLeft, toes.AigisRight, .. (rear?.Bodies ?? [])];
+        _plusXSide = [parts.RightUpperArm, parts.RightForearm, parts.RightThigh, parts.RightShin, parts.RightFoot, toes.AigisRight, .. (rear?.PlusX ?? [])];
         _facingYaw = yaw;
         TotalMass = _all.Sum(world.GetMass);
 
@@ -193,8 +193,17 @@ public sealed partial class Fighter
         _legParts[Footwork.Rear] = Leg.Create(world, parts, joints, halfExtents, aigisLeft: true, toes.AigisLeft, toes.AigisLeftServo, _legs.LeftHip, _legs.LeftKnee, _legs.LeftAnkle);
         _legFull = _standHeight + _legParts[Footwork.Lead].PivotOnPelvis.Y; // 股の中心は骨盤の中心より下（Y < 0）
         _legSupport[0] = _legSupport[1] = _legFull;
-        _footwork = new Footwork(tuning.Footwork) { MaxTwist = tuning.MaxTorsoTwistRadians };
-        _legBodies = [parts.LeftThigh, parts.RightThigh, parts.LeftShin, parts.RightShin, parts.LeftFoot, parts.RightFoot, toes.AigisLeft, toes.AigisRight];
+        var stance = rear is null ? tuning.Footwork : tuning.Footwork with
+        {
+            StanceLength = 0.22f,
+            StanceWidth = 0.64f,
+            LeadYawDegrees = 17f,
+            RearYawDegrees = -17f,
+        };
+        _footwork = new Footwork(stance) { MaxTwist = tuning.MaxTorsoTwistRadians };
+        _rearLegs = rear is null ? [] : CreateRearLegs(world, tuning, halfExtents, rear);
+        _rearFootwork = rear is null ? null : new Footwork(stance) { MaxTwist = tuning.MaxTorsoTwistRadians };
+        _legBodies = [parts.LeftThigh, parts.RightThigh, parts.LeftShin, parts.RightShin, parts.LeftFoot, parts.RightFoot, toes.AigisLeft, toes.AigisRight, .. (rear?.Bodies ?? [])];
         // 生え直す部位（肘から先・膝から先・足首から先・つま先）の、作ったときの関節の所（両方の剛体のローカル）と向きの差。生え直すときは、
         // 親の今の姿勢からこの休みの形へ置き直して、同じ関節を作り直す（Rebud）。生成の直後に読むだけ（試合の計算は変えない）。
         foreach (var joint in joints)
@@ -207,11 +216,11 @@ public sealed partial class Fighter
             }
         }
 
-        foreach (var (foot, toe) in new[] { (parts.LeftFoot, toes.AigisLeft), (parts.RightFoot, toes.AigisRight) })
+        foreach (var leg in AllLegs())
         {
-            var heel = world.GetState(foot);
-            var ball = heel.Position + Vector3.Transform(FootGeometry.BallOnHeel(halfExtents.Foot), heel.Orientation);
-            _rest[toe] = RestJoint.Of(world, null, foot, toe, ball, ball);
+            var heel = world.GetState(leg.Heel);
+            var ball = heel.Position + Vector3.Transform(leg.BallOnHeel, heel.Orientation);
+            _rest[leg.Toe] = RestJoint.Of(world, null, leg.Heel, leg.Toe, ball, ball);
         }
         _legMass = _legBodies.Sum(world.GetMass);
     }
@@ -238,7 +247,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 99; // 木を実物の樫・WVC の骨の倍率 1（99）・刃はセルを進んだ分だけ切る（97）・顔の生え際（96）・手首と VR の武器（95）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 99; // 木を実物の樫・WVC の骨の倍率 1（99）・四足の外骨格と長腕の鎌（98）・刃はセルを進んだ分だけ切る（97）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -277,7 +286,7 @@ public sealed partial class Fighter
     internal void RefreshVoxelMass()
     {
         TotalMass = _all.Sum(_world.GetMass);
-        _legMass = new[] { Parts.LeftThigh, Parts.RightThigh, Parts.LeftShin, Parts.RightShin, Parts.LeftFoot, Parts.RightFoot, _legParts[0].Toe, _legParts[1].Toe }.Sum(_world.GetMass);
+        _legMass = _legBodies.Sum(_world.GetMass);
         var pelvisY = _world.GetState(Parts.Pelvis).Position.Y;
         var footBottom = pelvisY - _standHeight;
         var height = _world.GetState(Parts.Head).Position.Y + HalfExtents.Head.Y - footBottom;
@@ -449,12 +458,12 @@ public sealed partial class Fighter
             var chain = new List<int> { joint.ChildPart };
             if (KindOf(joint.ChildPart) == BodyPartKind.Shin)
             {
-                chain.Add(_legParts.First(l => l.Shin == joint.ChildPart).Heel);
+                chain.Add(AllLegs().First(l => l.Shin == joint.ChildPart).Heel);
             }
 
             if (chain.Exists(id => KindOf(id) == BodyPartKind.Foot))
             {
-                chain.Add(_legParts.First(l => chain.Contains(l.Heel)).Toe);
+                chain.Add(AllLegs().First(l => chain.Contains(l.Heel)).Toe);
             }
 
             foreach (var part in chain)
@@ -581,7 +590,7 @@ public sealed partial class Fighter
             return;
         }
 
-        int[] chain = KindOf(child) == BodyPartKind.Foot ? [child, _legParts[Footwork.Lead].Heel == child ? _legParts[Footwork.Lead].Toe : _legParts[Footwork.Rear].Toe] : [child];
+        int[] chain = KindOf(child) == BodyPartKind.Foot ? [child, AllLegs().First(l => l.Heel == child).Toe] : [child];
         foreach (var part in chain)
         {
             ReleaseFleshLinks(part);
@@ -803,16 +812,30 @@ public sealed partial class Fighter
             {
                 var knee = _world.AddTwistServo(parent, child, HumanoidRagdoll.XAxisTwistBasis, HumanoidRagdoll.XAxisTwistBasis, 0f,
                     frequency: _tuning.LegServoHz, maxForce: _tuning.KneeMaxTorque * _tuning.TorqueScale);
-                _legs = child == p.LeftShin ? _legs with { LeftKnee = knee } : _legs with { RightKnee = knee };
-                _legParts.First(l => l.Shin == child).KneeServo = knee;
+                if (child == p.LeftShin)
+                {
+                    _legs = _legs with { LeftKnee = knee };
+                }
+                if (child == p.RightShin)
+                {
+                    _legs = _legs with { RightKnee = knee };
+                }
+                AllLegs().First(l => l.Shin == child).KneeServo = knee;
                 break;
             }
             case HumanoidRagdoll.RagdollJoint.LeftAnkle or HumanoidRagdoll.RagdollJoint.RightAnkle:
             {
                 var ankle = _world.AddTwistServo(parent, child, HumanoidRagdoll.XAxisTwistBasis, HumanoidRagdoll.XAxisTwistBasis, 0f,
                     frequency: _tuning.LegServoHz, maxForce: _tuning.AnkleMaxTorque * _tuning.TorqueScale);
-                _legs = child == p.LeftFoot ? _legs with { LeftAnkle = ankle } : _legs with { RightAnkle = ankle };
-                _legParts.First(l => l.Heel == child).AnkleServo = ankle;
+                if (child == p.LeftFoot)
+                {
+                    _legs = _legs with { LeftAnkle = ankle };
+                }
+                if (child == p.RightFoot)
+                {
+                    _legs = _legs with { RightAnkle = ankle };
+                }
+                AllLegs().First(l => l.Heel == child).AnkleServo = ankle;
                 break;
             }
         }
@@ -1002,7 +1025,7 @@ public sealed partial class Fighter
     /// 失った脚の長さ [m]（短い方の脚が、無傷の脚より短い分）。体は短い脚の端（膝・切り株）が床に着く高さまで腰を下ろして立ち、
     /// 長い方の脚はその分だけ曲げる。両脚が付け根近くで無ければ、腰そのものが床に着いて座る（<see cref="StandTargetHeight"/>）。
     /// </summary>
-    public float LegShortfall => MathF.Max(0f, _legFull - MathF.Min(_legSupport[0], _legSupport[1]));
+    public float LegShortfall => _rearLegs.Length != 0 && HasFullLengthRearSupport() ? 0f : MathF.Max(0f, _legFull - MathF.Min(_legSupport[0], _legSupport[1]));
 
     /// <summary>
     /// 脚の力 = 脚の状態 × 関節トルクの基準体格に対する比 <see cref="BodyBuild.LegTorqueRatio"/>（筋肉の断面積 × 脚の長さ: 筋力は断面積に比例し、
@@ -1036,7 +1059,11 @@ public sealed partial class Fighter
 
         kept += 0.5f * (Remaining(p.LeftThigh, felt) + Remaining(p.LeftShin, felt));
         kept += 0.5f * (Remaining(p.RightThigh, felt) + Remaining(p.RightShin, felt));
-        return Math.Clamp(1f - (0.25f * kept), 0f, 1f);
+        foreach (var leg in _rearLegs)
+        {
+            kept += 0.5f * (Remaining(leg.Thigh, felt) + Remaining(leg.Shin, felt));
+        }
+        return Math.Clamp(1f - (kept / (4 + _rearLegs.Length)), 0f, 1f);
     }
 
     /// <summary>部位の残った力（0..1）: 体が支えていない部位は 0、ほかは残った筋の断面（感じる量なら神経の働きも掛ける）。</summary>
@@ -1048,7 +1075,8 @@ public sealed partial class Fighter
     /// （<see cref="LegBearing"/>）以上。脚が折れた・切れただけでは倒れたままにならない: 残った脚の長さの高さ（<see cref="StandTargetHeight"/>。
     /// 膝立ち・座り）で戦い続ける。骨盤で座る体は脚で持ち上げる高さが無いので、脚の力は要らない。
     /// </summary>
-    public bool CanStand => !IsDead && MathF.Min(LegCondition(true), LegCondition(false)) >= _tuning.StandStrength * LegBearing;
+    public bool CanStand => !IsDead && (_rearLegs.Length == 0 ? MathF.Min(LegCondition(true), LegCondition(false))
+        : MultiLegStrength() / _tuning.Build.LegTorqueRatio) >= _tuning.StandStrength * LegBearing;
 
     /// <summary>
     /// 脚が骨盤を持ち上げている高さの、無傷の体に対する割合（0..1）: 骨盤が床に座る高さから、今立てる高さまで。無傷なら 1、骨盤で座るなら 0。
@@ -1264,11 +1292,17 @@ public sealed partial class Fighter
         return s.Position + Vector3.Transform(p.AnkleOnHeel, s.Orientation);
     }
 
-    /// <summary>本人の左右の脚の質量 [kg]（腿・すね・かかと側の足・つま先。脚の筋肉の部位の大きさ）。</summary>
-    private float LegSideMass(Hand side)
+    /// <summary>本人の左右の脚の質量 [kg]（腿・すね・かかと側の足・つま先。四足なら同じ側の後ろ脚も足す。脚の筋肉の部位の大きさ）。</summary>
+    private float LegSideMass(Hand side) => SideLegs(side).Sum(p => _world.GetMass(p.Thigh) + _world.GetMass(p.Shin) + _world.GetMass(p.Heel) + _world.GetMass(p.Toe));
+
+    /// <summary>本人の左右の脚の残った筋肉（0..1）: 同じ側の脚（人は 1 本、四足は前後の 2 本。質量は同じ）の状態の平均。</summary>
+    private float SideLegMuscle(Hand side) => SideLegs(side).Average(leg => leg == _legParts[(int)side] ? LegCondition(leg.AigisLeft) : RearLegStrength(leg) / _tuning.Build.LegTorqueRatio);
+
+    /// <summary>本人の <paramref name="side"/> 側の脚（前の脚と、四足なら同じ側の後ろ脚）。</summary>
+    private IEnumerable<Leg> SideLegs(Hand side)
     {
-        var p = _legParts[(int)side];
-        return _world.GetMass(p.Thigh) + _world.GetMass(p.Shin) + _world.GetMass(p.Heel) + _world.GetMass(p.Toe);
+        var front = _legParts[(int)side];
+        return _rearLegs.Where(l => l.AigisLeft == front.AigisLeft).Prepend(front);
     }
 
     /// <summary>かかとの点（足裏の後ろの縁。<see cref="FootPoint.Heel"/>）。左右は本人の左右。</summary>
@@ -1402,11 +1436,12 @@ public sealed partial class Fighter
             : part == p.LeftForearm || part == p.RightForearm ? BodyPartKind.Forearm
             : part == p.LeftThigh || part == p.RightThigh ? BodyPartKind.Thigh
             : part == p.LeftShin || part == p.RightShin ? BodyPartKind.Shin
+            : RearKindOf(part) is { } rearKind ? rearKind
             : IsToe(part) ? BodyPartKind.Toe
             : BodyPartKind.Foot;
     }
 
-    private bool IsToe(int part) => part == _legParts[0].Toe || part == _legParts[1].Toe;
+    private bool IsToe(int part) => part == _legParts[0].Toe || part == _legParts[1].Toe || RearKindOf(part) == BodyPartKind.Toe;
 
     /// <summary><paramref name="point"/> から自分の部位 <paramref name="part"/>（箱）までの距離。</summary>
     public float DistanceToPart(int part, Vector3 point) => Vector3.Distance(ClosestPointOnBox(this, part, point), point);
@@ -1420,6 +1455,9 @@ public sealed partial class Fighter
     public Vector3 HandTargetWorld(Hand hand) => _arms[(int)hand].LastTarget;
 
     private readonly Func<Vector3, Vector3?>?[] _strikeReach = new Func<Vector3, Vector3?>?[2];
+    private readonly Vector3?[] _bladeChords = new Vector3?[2];
+
+    internal void SetBladeChord(Hand hand, Vector3? chord) => _bladeChords[(int)hand] = chord;
 
     /// <summary>
     /// 手の打つ面の点（<see cref="Weapons.Weapon.StrikeOffset"/>）の取り方を渡す: 向き（手の剛体のローカル）→ 握りの点から打つ面の点へのずれ（手の剛体のローカル）。
@@ -1640,9 +1678,10 @@ public sealed partial class Fighter
         var footBottom = world.GetState(parts.LeftFoot).Position.Y - built.Foot.Y;
         var lift = feetPosition.Y - footBottom + 0.00563f;
         var toes = AddToes(world, tuning, name, parts, built);
+        var rear = tuning.Build.FourLegged ? AddRearRig(world, tuning, name, parts, built, toes, ref joints) : null;
         var pivot = world.GetState(parts.Pelvis).Position;
         var rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yawRadians);
-        foreach (var id in (int[])[.. parts.All, toes.AigisLeft, toes.AigisRight])
+        foreach (var id in (int[])[.. parts.All, toes.AigisLeft, toes.AigisRight, .. (rear?.Bodies ?? [])])
         {
             // 生成直後（未ステップ・速度 0）に限り剛体を剛体ごと回すのは安全（関節はローカル定義なので保たれる）。
             var s = world.GetState(id);
@@ -1650,7 +1689,7 @@ public sealed partial class Fighter
             world.SetDynamicPose(id, position, Quaternion.Concatenate(s.Orientation, rotation));
         }
 
-        return new Fighter(world, tuning, name, parts, built, yawRadians, joints, toes);
+        return new Fighter(world, tuning, name, parts, built, yawRadians, joints, toes, rear);
     }
 
     /// <summary>つま先 2 つと、その母指球の蝶番（関節の制限 + サーボ）。T ポーズのまま（回す前）に足す。</summary>
@@ -2126,6 +2165,8 @@ public sealed partial class Fighter
             : part == p.LeftForearm || part == p.RightForearm ? h.Forearm
             : part == p.LeftThigh || part == p.RightThigh ? h.Thigh
             : part == p.LeftShin || part == p.RightShin ? h.Shin
+            : RearKindOf(part) == BodyPartKind.Thigh ? h.Thigh
+            : RearKindOf(part) == BodyPartKind.Shin ? h.Shin
             : IsToe(part) ? FootGeometry.ToeHalf(h.Foot)
             : h.Foot;
     }
@@ -2409,11 +2450,11 @@ public sealed partial class Fighter
         }
 
         // 脚の肉が削られるほど体を持ち上げる力・歩く力が落ち、胴の肉が削られるほど体の軸を保つ力が落ちる。
-        var legs = MathF.Min(LegStrength(true), LegStrength(false));
+        var legs = _rearLegs.Length == 0 ? MathF.Min(LegStrength(true), LegStrength(false)) : MultiLegStrength();
         // 頭を下げる量のうち、腰から前へ折る分（HipHingeShare）を除いた残りを膝と股を曲げて腰を落とす。
         var drop = MathF.Min(0f, command.HeadOffset.Y);
         // 立っている間は足の運び（足を置いてから体が付いていく）。倒れて起き上がる間は以前の歩行の形のまま。
-        var footwork = _tuning.Footwork.Enabled && State == FighterState.Standing && grounded && !LegSevered;
+        var footwork = _tuning.Footwork.Enabled && State == FighterState.Standing && grounded && (!LegSevered || _rearFootwork is not null);
         // 脚のバネ（ステップ）が空いている分だけ腰が伸び上がる（足の運びの間だけ。貯めきった構えでは 0）。
         _crouch = Math.Clamp(((command.HeadOffset.Y - drop) + (drop * (1f - _tuning.HipHingeShare))) / _standHeight + (footwork ? StepSinkShare : 0f), -_tuning.MaxCrouch, 0.05f);
         if (footwork && !_footworkActive)
@@ -2494,7 +2535,7 @@ public sealed partial class Fighter
 
         // 意識が薄れると腕を上げていられない（ガードが重さで下がる）。
         // 疲れると拳を運ぶ力が落ちる（パンチが遅く軽くなり、ガードが下がる）。体を支える脚は意識（張り）で決まり、疲れでは崩れない。
-        DriveArms(drivenHands, ControlScale * FaintArm, weightShift: grounded && State == FighterState.Standing, dt);
+        DriveArms(Build.FourLegged ? command : drivenHands, ControlScale * FaintArm, weightShift: grounded && State == FighterState.Standing, dt);
     }
 
     /// <summary>今の両足の位置で、足の運びを置き直す（立ち直ったとき・生成直後）。</summary>
@@ -2507,7 +2548,13 @@ public sealed partial class Fighter
         var lead = OnGround(_legParts[Footwork.Lead]);
         var rear = OnGround(_legParts[Footwork.Rear]);
         _footwork.Reset(lead.Ball, lead.Yaw, rear.Ball, rear.Yaw);
-        foreach (var leg in _legParts)
+        if (_rearFootwork is { } hind)
+        {
+            var a = OnGround(_rearLegs[0]);
+            var b = OnGround(_rearLegs[1]);
+            hind.Reset(a.Ball, a.Yaw, b.Ball, b.Yaw);
+        }
+        foreach (var leg in AllLegs())
         {
             leg.HasTarget = false;
             leg.ReachRatio = 0f;
@@ -2558,7 +2605,14 @@ public sealed partial class Fighter
         }
 
         var canShiftLoad = LegShortfall <= 1e-3f && lead.Command is null && _legParts[Footwork.Rear].Command is null;
-        _footwork.Update(input, dt, twistLimit, canShiftLoad);
+        if (_rearFootwork is null)
+        {
+            _footwork.Update(input, dt, twistLimit, canShiftLoad);
+        }
+        else
+        {
+            UpdateQuadrupedGait(_rearFootwork, input, dt, twistLimit);
+        }
     }
 
     /// <summary>足の母指球の実際の位置（水平面）。</summary>
@@ -2593,6 +2647,10 @@ public sealed partial class Fighter
         // 腰から打つ体の体重移動: 前へ打ち込む拳の度合い（_wavePush）だけ、腰の行き先を支えの中心から前へ運ぶ（脚で床を蹴る代わりに腰から）。
         // 置き換えた脚のバネの踏み込みと同じく、前へ打つ割合（ForwardPunchShare）を掛ける。
         var shift = HipShift;
+        if (_rearFootwork is not null)
+        {
+            support = MultiLegSupport(new Vector2(pelvis.Position.X, pelvis.Position.Z));
+        }
         var toSupport = support + new Vector2(back.X + shift.X, back.Z + shift.Z) - new Vector2(pelvis.Position.X, pelvis.Position.Z);
         _centerIntegral = (_centerIntegral * MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.BalanceIntegralSeconds))) + (toSupport * dt);
         var centering = (toSupport * t.Centering) + (_centerIntegral * (_tuning.BalanceKi * t.Centering));
@@ -2646,11 +2704,10 @@ public sealed partial class Fighter
     {
         var pelvis = _world.GetState(Parts.Pelvis);
         var allow = float.PositiveInfinity;
-        for (var i = 0; i < 2; i++)
+        for (var i = 0; i < _legParts.Length + _rearLegs.Length; i++)
         {
-            var leg = _legParts[i];
-            var pose = _footwork.Pose(i);
-            if (pose.Swinging || leg.Command is not null)
+            var (leg, pose) = StanceLeg(i);
+            if (pose.Swinging || leg.Command is not null || (_rearFootwork is not null && _detached.Contains(leg.Heel)))
             {
                 continue;
             }
@@ -2677,15 +2734,14 @@ public sealed partial class Fighter
 
         var inverse = Quaternion.Conjugate(pelvis.Orientation);
         var stance = JointStanceContacts();
-        for (var i = 0; i < 2; i++)
+        for (var i = 0; i < _legParts.Length + _rearLegs.Length; i++)
         {
-            var leg = _legParts[i];
-            if (!_world.HasConstraint(leg.HipServo))
+            var (leg, pose) = StanceLeg(i);
+            if ((_rearFootwork is not null && _detached.Contains(leg.Heel)) || !_world.HasConstraint(leg.HipServo))
             {
                 continue;
             }
 
-            var pose = _footwork.Pose(i);
             if (leg.KneeDriven && leg.Command is not { IsKneeControl: true })
             {
                 // 膝の制御が終わった: 前の目標（膝の点）から足首の目標の速さを出さない。
@@ -2713,10 +2769,16 @@ public sealed partial class Fighter
             }
             var pivot = pelvis.Position + Vector3.Transform(leg.PivotOnPelvis, pelvis.Orientation);
             var toes = kick?.KneeTargetLocal is { } kneeGoal ? Frame.LocalToWorld(kneeGoal) - pivot : new Vector3(MathF.Sin(pose.Yaw), 0f, MathF.Cos(pose.Yaw));
+            if (_rearFootwork is not null && kick is null)
+            {
+                var outward = Frame.Rotate(leg.AigisLeft ? -Vector3.UnitX : Vector3.UnitX);
+                toes += outward * (i < _legParts.Length ? 0.28f : 0.58f);
+            }
             var (thigh, knee, reach) = LegIk.Solve(Vector3.Transform(ankle - pivot, inverse), leg.ThighToKnee, leg.ShinLength, Vector3.Transform(toes, inverse));
             leg.ReachRatio = reach;
             var hipTarget = thigh;
-            var planted = !pose.Swinging && kick is null && (stance & (1 << i)) != 0;
+            var frontIndex = i < _legParts.Length ? i : -1;
+            var planted = !pose.Swinging && kick is null && frontIndex >= 0 && (stance & (1 << frontIndex)) != 0;
             if (planted)
             {
                 // The planted thigh provides the angular reference for holding the pelvis.
@@ -2744,7 +2806,7 @@ public sealed partial class Fighter
             if (UsesGroundSupport && (!UsesJointDrive || stance != 0))
             {
                 DriveFoot(leg, pointTarget, pose.Swinging || kick is not null, pelvisId: Parts.Pelvis, dt,
-                    strength: UsesJointDrive ? JointSupportAssist : 1f, point: point);
+                    strength: frontIndex >= 0 ? (UsesJointDrive ? JointSupportAssist : 1f) : RearLegStrength(leg) * ControlScale, point: point);
             }
         }
     }
@@ -2878,7 +2940,8 @@ public sealed partial class Fighter
         var pelvis = _world.GetState(Parts.Pelvis);
         var hip = HipPosition(leg);
         var rest = hip + Vector3.Transform(p.ThighToKnee, pelvis.Orientation);
-        return new LegBody(Frame.WorldToLocal(hip), Frame.WorldToLocal(rest), p.ThighToKnee.Length(), p.ShinLength);
+        return new LegBody(Frame.WorldToLocal(hip), Frame.WorldToLocal(rest), p.ThighToKnee.Length(), p.ShinLength,
+            _rearFootwork is null || (!_legSevered[p.AigisLeft ? 0 : 1] && LegCondition(p.AigisLeft) > 0f));
     }
 
     /// <summary>
@@ -3018,7 +3081,8 @@ public sealed partial class Fighter
         var rest = MathF.Max(0f, -head.Y - hipDrop);
         var hinge = MathF.Min(_tuning.MaxHingeRadians, MathF.Acos(Math.Clamp(1f - (rest / _restTorso), -1f, 1f)));
         _hinge = hinge;
-        var pitch = Math.Clamp(moveLean + MathF.Atan2(head.Z, torsoLength), -_tuning.MaxLeanRadians, _tuning.MaxLeanRadians) + hinge;
+        var restPitch = Build.FourLegged ? 0.27f : 0f;
+        var pitch = Math.Clamp(restPitch + moveLean + MathF.Atan2(head.Z, torsoLength), -_tuning.MaxLeanRadians, _tuning.MaxLeanRadians) + hinge;
         if (UsesHipDrive)
         {
             pitch = MathF.Min(pitch, _tuning.MaxTrunkPitchRadians); // 関節の筋で追う胸は目標まで届くので、前傾を倒れる線の手前で頭打ちに
@@ -3352,6 +3416,15 @@ public sealed partial class Fighter
             {
                 target = SupportTarget(arm, support, command, frame);
             }
+            else if (_bladeChords[(int)arm.Hand] is { } chord && arm.Glove && arm.Held is { } claw && hand.Orientation is { } bladeTarget)
+            {
+                // 手首の回転が遅れた分は、面に垂直な方向だけ刃の中点が目標面へ近づくように腕で補う。
+                // 面の中の移動は刃元の目標のまま。腕・手首とも実際に動くのは既存の力と関節から。
+                var actualRotation = Quaternion.Concatenate(_world.GetState(claw.Body).Orientation, Quaternion.Conjugate(frame.Rotation));
+                var normal = Vector3.Transform(Vector3.UnitY, bladeTarget);
+                var error = Vector3.Transform(chord, bladeTarget) - Vector3.Transform(chord, actualRotation);
+                target += normal * (0.5f * Vector3.Dot(error, normal));
+            }
             else if (_strikeReach[(int)arm.Hand] is { } reach && arm.Glove && arm.Held is { } worn)
             {
                 // 目標は「打つ面の点」を運ぶ点: 肩から目標への向きにいちばん前に出ている手のセル（指先・拳頭・掌の根元…）が目標へ届くよう、
@@ -3667,6 +3740,7 @@ public sealed partial class Fighter
 
     private void SetServoScale(float scale)
     {
+        TuneRearLegs(scale);
         var s = Math.Clamp(scale, 0.01f, 1.5f);
         _servoScale = s;
         var t = _tuning.TorqueScale * s;
@@ -3829,7 +3903,7 @@ public sealed partial class Fighter
                 _detached.Add(hanging);
             }
 
-            foreach (var leg in _legParts)
+            foreach (var leg in AllLegs())
             {
                 if (_detached.Contains(leg.Heel) && _detached.Add(leg.Toe))
                 {
@@ -4381,7 +4455,8 @@ public sealed partial class Fighter
     private void RemoveServosBetween(int a, int b)
     {
         int[] servos = [_legs.LeftHip, _legs.RightHip, _legs.LeftKnee, _legs.RightKnee, _legs.LeftAnkle, _legs.RightAnkle,
-            _arms[0].ShoulderServo, _arms[0].ElbowServo, _arms[1].ShoulderServo, _arms[1].ElbowServo];
+            _arms[0].ShoulderServo, _arms[0].ElbowServo, _arms[1].ShoulderServo, _arms[1].ElbowServo,
+            .. _rearLegs.SelectMany(l => new[] { l.HipServo, l.KneeServo, l.AnkleServo })];
         foreach (var servo in servos)
         {
             if (_world.GetConstraintBodies(servo) is { } bodies && ((bodies.BodyA == a && bodies.BodyB == b) || (bodies.BodyA == b && bodies.BodyB == a)))
@@ -4514,28 +4589,29 @@ public sealed partial class Fighter
         public static Leg Create(PhysicsWorld world, HumanoidRagdoll.Parts parts, IReadOnlyList<HumanoidRagdoll.JointGroup> joints, HumanoidRagdoll.HalfExtents half,
             bool aigisLeft, int toe, int toeServo, int hipServo, int kneeServo, int ankleServo)
         {
-            Vector3 Anchor(HumanoidRagdoll.RagdollJoint kind)
+            Vector3 Anchor(HumanoidRagdoll.RagdollJoint kind, int childId)
             {
-                var joint = joints.Single(j => j.Joint == kind);
+                var joint = joints.Single(j => j.Joint == kind && j.ChildPart == childId);
                 return world.GetJointAnchors(joint.PrimaryConstraintId)?.AnchorA
                     ?? throw new InvalidOperationException($"HumanoidRagdoll's {kind} joint has no anchor.");
             }
 
-            var pivot = Anchor(aigisLeft ? HumanoidRagdoll.RagdollJoint.LeftHip : HumanoidRagdoll.RagdollJoint.RightHip);
-            var knee = Anchor(aigisLeft ? HumanoidRagdoll.RagdollJoint.LeftKnee : HumanoidRagdoll.RagdollJoint.RightKnee);
-            var ankle = Anchor(aigisLeft ? HumanoidRagdoll.RagdollJoint.LeftAnkle : HumanoidRagdoll.RagdollJoint.RightAnkle);
+            var thighId = aigisLeft ? parts.LeftThigh : parts.RightThigh;
+            var shinId = aigisLeft ? parts.LeftShin : parts.RightShin;
+            var heelId = aigisLeft ? parts.LeftFoot : parts.RightFoot;
+            var pivot = Anchor(aigisLeft ? HumanoidRagdoll.RagdollJoint.LeftHip : HumanoidRagdoll.RagdollJoint.RightHip, thighId);
+            var knee = Anchor(aigisLeft ? HumanoidRagdoll.RagdollJoint.LeftKnee : HumanoidRagdoll.RagdollJoint.RightKnee, shinId);
+            var ankle = Anchor(aigisLeft ? HumanoidRagdoll.RagdollJoint.LeftAnkle : HumanoidRagdoll.RagdollJoint.RightAnkle, heelId);
             var pelvis = world.GetState(parts.Pelvis);
             var inverse = Quaternion.Conjugate(pelvis.Orientation);
-            var heelId = aigisLeft ? parts.LeftFoot : parts.RightFoot;
             var heel = world.GetState(heelId);
-            var thighId = aigisLeft ? parts.LeftThigh : parts.RightThigh;
             var thighState = world.GetState(thighId);
             return new Leg
             {
                 AigisLeft = aigisLeft,
                 Thigh = thighId,
                 KneeOnThigh = Vector3.Transform(knee - thighState.Position, Quaternion.Conjugate(thighState.Orientation)),
-                Shin = aigisLeft ? parts.LeftShin : parts.RightShin,
+                Shin = shinId,
                 Heel = heelId,
                 Toe = toe,
                 HipServo = hipServo,
@@ -5164,7 +5240,9 @@ public sealed partial class Fighter
 
             // 1) IK → 肩・肘サーボの目標（腕の「形」）。肘の向きは入力の目標（Tuck: 逃がす … 脇を締める）。
             var chest = world.GetState(chestId);
-            var pole = Pole(shoulder, frame, reach, tuck);
+            var pole = tuning.Build.FourLegged
+                ? shoulder + frame.Rotate(new Vector3(0.92f * Side, 0.20f, -0.33f)) * reach
+                : Pole(shoulder, frame, reach, tuck);
             var (elbow, hand) = ArmIk.SolveTwoBone(shoulder, target, pole, UpperLength, LowerLength);
             var (upperRotation, elbowAngle) = ArmIk.JointTargets(shoulder, elbow, hand, ArmIk.BendNormal(shoulder, target, pole), Side);
             var elbowTarget = Math.Clamp(elbowAngle, 0f, 140f * MathF.PI / 180f);

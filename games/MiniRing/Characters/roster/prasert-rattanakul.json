@@ -86,7 +86,16 @@
       "DefenseRate": 0.597,
       "CounterRate": 0.753,
       "ExitAfterCombo": 0.586,
-      "AttackRange": 1.25
+      "AttackRange": 1.25,
+      "BreakLikes": {
+        "prayer": 3,
+        "bow": 2.5,
+        "hum": 2,
+        "jelly": 1.5,
+        "onigiri": 1.5,
+        "sitdown": 1.5,
+        "roar": 0.5
+      }
     },
     "vs": {},
     "weaponBot": null
@@ -157,5 +166,20 @@
       "新人リーグで一番早い KO は 1R 17 秒",
       "タイ出身のクルーザー級"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Prasert Rattanakul",
+      "reading": "Prasert Rattanakul",
+      "hudName": "Prasert",
+      "origin": "Thailand",
+      "tagline": "IVF cruiserweight from the rice fields",
+      "profile": {
+        "birthplace": "Khon Kaen, Thailand",
+        "hometown": "Khon Kaen",
+        "stance": "Orthodox",
+        "quote": "Quiet, and strong."
+      }
+    }
   }
 }

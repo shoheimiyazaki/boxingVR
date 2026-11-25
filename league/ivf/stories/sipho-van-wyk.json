@@ -18,5 +18,20 @@
   "quote": "前へ。いつも前へ。",
   "commentaryNotes": [
     "前に出る強打者（slugger の教科書）"
-  ]
+  ],
+  "breakLikes": {
+    "hum": 3.5,
+    "dance": 3,
+    "applause": 2,
+    "chestbeat": 2.5,
+    "hypecrowd": 2,
+    "wipetears": 1.5,
+    "bow": 0.6
+  },
+  "en": {
+    "tagline": "IVF light heavyweight puncher, The Drum",
+    "birthplace": "Johannesburg, South Africa",
+    "hometown": "Soweto, Johannesburg",
+    "quote": "Forward. Always forward."
+  }
 }

@@ -89,7 +89,17 @@
       "DefenseRate": 0.567,
       "CounterRate": 0.721,
       "ExitAfterCombo": 0.729,
-      "AttackRange": 1.17
+      "AttackRange": 1.17,
+      "BreakLikes": {
+        "looksky": 3,
+        "mirror": 2,
+        "stretcharms": 2,
+        "sitdown": 1.5,
+        "coffee": 2,
+        "bow": 1.5,
+        "roar": 0.4,
+        "dance": 0.5
+      }
     },
     "vs": {},
     "weaponBot": null
@@ -162,5 +172,20 @@
       "新人リーグで一番早い KO は 1R 18 秒",
       "長い腕の正統派"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Ulugbek Nazarov",
+      "reading": "Ulugbek Nazarov",
+      "hudName": "Ulugbek",
+      "origin": "Uzbekistan",
+      "tagline": "IVF middleweight who measures the range",
+      "profile": {
+        "birthplace": "Tashkent, Uzbekistan",
+        "hometown": "Tashkent",
+        "stance": "Orthodox",
+        "quote": "Distance can be calculated."
+      }
+    }
   }
 }

@@ -85,7 +85,16 @@
       "DefenseRate": 0.49,
       "CounterRate": 0.926,
       "ExitAfterCombo": 0.85,
-      "AttackRange": 1.25
+      "AttackRange": 1.25,
+      "BreakLikes": {
+        "handshake": 2.5,
+        "applause": 2,
+        "pointup": 3,
+        "sandwich": 1.5,
+        "towelhead": 2,
+        "wavetwo": 2,
+        "selfie": 0.5
+      }
     },
     "vs": {},
     "weaponBot": null
@@ -157,5 +166,20 @@
       "新人リーグで一番早い KO は 1R 12 秒",
       "遅咲きのヘビー級の新人"
     ]
+  },
+  "locales": {
+    "en": {
+      "name": "Mauricio Villegas",
+      "reading": "Mauricio Villegas",
+      "hudName": "Mauricio",
+      "origin": "Mexico",
+      "tagline": "IVF heavyweight, El Cargador",
+      "profile": {
+        "birthplace": "Tijuana, Mexico",
+        "hometown": "Tijuana",
+        "stance": "Orthodox",
+        "quote": "The heavier the load, the more you lift with your hips."
+      }
+    }
   }
 }

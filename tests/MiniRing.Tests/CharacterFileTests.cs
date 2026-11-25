@@ -27,10 +27,22 @@ public sealed class CharacterFileTests
     [TestMethod]
     public void BuiltInRoster_IsOneFilePerCharacter_InTheDecidedOrder_WithOnlyTheGamePlanEducated()
     {
-        var all = CharacterRoster.All;
-        Assert.HasCount(18, all); // 2026-11-18: 柔術家 ren を足して 18 人
+        // 手で作った名簿（新人リーグで作られ登録された選手 = record の kind: generated は CircuitTests・下の行が見る）。2026-11-18: 柔術家 ren を足して 18 人。
+        var handMade = MiniRing.Arena.Circuit.ProspectFactory.ReservedIds(CharacterRoster.All).ToHashSet();
+        var all = CharacterRoster.All.Where(c => handMade.Contains(c.Id)).ToList();
+        Assert.HasCount(19, all); // 2026-11-25: 四足の galva で 19 人
+        // 2026-11-25: IVF の新人リーグの上位 10 人。教育は生成の小さな揺らぎ（FighterCommand を出す側の値）と、物語から入れた休みの好みだけ、記録は生成の 1 行。
+        var allowed = MiniRing.Arena.Circuit.CircuitConfig.Of("ivf").Education.Keys.Select(k => k.Key).Concat(["Southpaw", "BreakLikes"]).ToHashSet();
+        foreach (var c in CharacterRoster.All.Where(c => !handMade.Contains(c.Id)))
+        {
+            Assert.IsTrue(c.Education.Style.All(p => allowed.Contains(p.Key)), c.Id);
+            Assert.AreEqual(0, c.Education.Vs.Count, c.Id);
+            Assert.AreEqual("generated", c.Record.Single()["kind"]!.GetValue<string>(), c.Id);
+        }
+
         Assert.HasCount(13, CharacterRoster.Countries.Keys.Where(k => all.Any(c => c.Country.Id == k)).ToList());
-        foreach (var c in all)
+        // galva は鎌の経路と前脚の蹴りを練習した教育と、その育ちの記録（record: claw-plane）を持つ（docs/plans/SIX_LIMBED_ALIEN_PLAN.md）。
+        foreach (var c in all.Where(c => c.Id != "galva"))
         {
             // 2026-11-18: 教育は休みの動作の好み（BreakLikes）と戦略の層（GamePlan: 得意な間合いの表）。2026-11-24: VFC の練習したキャラは倒れた相手への攻め
             // （Ground*、武器を握るなら education.weaponBot.Ground）も。ほかの値は教科書そのもの。
@@ -246,6 +258,7 @@ public sealed class CharacterFileTests
     [TestMethod]
     public void LoadFile_And_LoadDirectory_ReadAPlayersCharacter_AndRefuseBuiltInIds()
     {
+        var builtIn = CharacterRoster.All.Count;
         var dir = Path.Combine(Path.GetTempPath(), "miniring_chars_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         try
@@ -259,7 +272,7 @@ public sealed class CharacterFileTests
             Assert.AreEqual(0.8f, one.Resolve("marcus").Aggression, "vs a built-in character is allowed");
             Assert.AreEqual(0.5f, one.Resolve("akira").Aggression);
             Assert.HasCount(1, CharacterRoster.LoadDirectory(dir));
-            Assert.HasCount(18, CharacterRoster.All, "the built-in roster is untouched");
+            Assert.HasCount(19, MiniRing.Arena.Circuit.ProspectFactory.ReservedIds(CharacterRoster.All), "the built-in roster is untouched");
 
             File.WriteAllText(Path.Combine(dir, "jin.json"), Json("jin"));
             Assert.Contains("組み込み", Assert.ThrowsExactly<InvalidDataException>(() => CharacterRoster.LoadDirectory(dir)).Message);
