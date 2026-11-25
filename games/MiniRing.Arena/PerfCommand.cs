@@ -124,7 +124,7 @@ internal static class PerfCommand
         return check && !plain.SequenceEqual(sums) ? 1 : 0;
     }
 
-    private static BoxingGame Create(string scene, int seed) => scene switch
+    internal static BoxingGame Create(string scene, int seed) => scene switch
     {
         "fist" => new BoxingGame(seed: seed, corners: BoxingCorners.Default with
         {

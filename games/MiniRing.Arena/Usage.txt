@@ -64,6 +64,7 @@
   rangelab [--variants] [--bots] [--bouts] [--seconds] [--seed] [--weapons] [--out]
   finishlab [--attackers] [--victims] [--levels] [--bouts] [--seconds] [--set] [--log] [--aim] [--victim-set]
   groundtime --seeds --out [--chars] [--shard k/n] | --compare a,b [--labels] [--confirm yes] [--log] | --drill ids [--victims] [--seconds] [--video] | --practice id [--gens] [--lambda] [--parallel] [--out] [--log]
+  simplify [--variants base:,s1:sample=1/passes=2,...] [--scenes katana,vfc2,royale] [--seeds 1,2,3,4] [--seconds 40] [--parallel n] [--out docs/arena/simplify.md]
   perf --scene fist|katana|vfc2|royale [--seconds 60] [--seeds 1,2] [--render 1] [--check 0] [--alloc 1] [--out docs/PERFORMANCE_raw.md]
   royale [--fighters ids] [--count n] [--teams 0,0,1,1,1,1] [--team-names a,b] [--seed] [--seconds] [--rounds] [--break] [--trace s] [--replay out.mrrep] [--out video.mp4] | --verify r.mrrep
   groundlab [--style] [--moves hammer,thrust,stomp,punch-down] [--bouts] [--seconds] [--seed] [--log] [--video] [--practice yes] [--candidates] [--sigma] [--validate]
