@@ -175,7 +175,27 @@ public sealed class VoxelBody
     public float TieActivation { get; set; }
 
     /// <summary>Where the grid's centre sits in the body's frame.</summary>
-    public Vector3 GridCenterLocal { get; }
+    public Vector3 GridCenterLocal { get; private set; }
+
+    /// <summary>
+    /// Moves a companion grid (<see cref="AddCompanion"/>) to <paramref name="gridCenterLocal"/> in the body's frame (a hand sliding its grip
+    /// along a staff) and refits the owner's collider and mass. The owner grid itself cannot move: its frame is the body's.
+    /// </summary>
+    public void MoveCompanion(Vector3 gridCenterLocal)
+    {
+        if (_owner is null)
+        {
+            throw new InvalidOperationException("Only a companion grid can move within its body.");
+        }
+
+        if (GridCenterLocal == gridCenterLocal)
+        {
+            return;
+        }
+
+        GridCenterLocal = gridCenterLocal;
+        _owner.UpdateMass();
+    }
 
     /// <summary>The grid's frame in world space (scale 1): grid-local point → world.</summary>
     public Matrix4x4 GridToWorld() => GridToWorld(_world.GetState(BodyId));

@@ -247,7 +247,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 99; // 木を実物の樫・WVC の骨の倍率 1（99）・四足の外骨格と長腕の鎌（98）・刃はセルを進んだ分だけ切る（97）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 100; // 武器を握る手をボクセルの握り拳に（100）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1483,7 +1483,54 @@ public sealed partial class Fighter
     /// グローブ・素手の拳）を描かない。腕が折れた・切れた後は、はめた物は持ち主の手から外れて（<see cref="WearsGlove"/> は false）
     /// 力の抜けた手に付いたままぶら下がる。
     /// </summary>
-    public bool FistCovered(Hand hand) => WearsGlove(hand) || _arms[(int)hand].WornLoose || _arms[(int)hand].HandGone;
+    public bool FistCovered(Hand hand) => WearsGlove(hand) || _arms[(int)hand].WornLoose || _arms[(int)hand].HandGone || HandGripOn(hand) is not null;
+
+    /// <summary>
+    /// その手が今、手に持つ物（はめる物でない）を手の中に包んでいるなら、その物の剛体と、拳のある所（物のローカル X）。握っている（玉継手がある）・
+    /// 添えて握った・力の抜けた手がまだ握っている・握りを柄に沿って滑らせている（拳の中心を柄の軸へ映した所、滑らせられる範囲の中）とき。
+    /// 握りに行っている途中（添える手がまだ届いていない）・手が無いときは null。握る拳の格子（<see cref="Weapons.GripHand"/>）はこれに従う。
+    /// </summary>
+    public (int Body, float X)? HandGripOn(Hand hand)
+    {
+        var arm = _arms[(int)hand];
+        if (arm.HandGone)
+        {
+            return null;
+        }
+
+        if (arm.Held is { } held && !arm.Glove)
+        {
+            return held.Socket is not null ? (held.Body, held.GripLocal.X) : Sliding(arm, held.Body);
+        }
+
+        if (arm.Support is { } support)
+        {
+            return support.Socket is not null ? (support.Body, support.GripLocal.X) : support.Reaching ? null : Sliding(arm, support.Body);
+        }
+
+        foreach (var grip in _deadGrips)
+        {
+            if (!grip.Worn && grip.Side == hand && _world.HasConstraint(grip.Socket))
+            {
+                return (grip.Held, grip.HeldLocal.X);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>握りを滑らせている手の拳の中心を、物の軸（ローカル X）へ映した所（滑らせられる範囲の中）。範囲が無ければ null。</summary>
+    private (int Body, float X)? Sliding(Arm arm, int body)
+    {
+        if (arm.SlideSpan is not { } span)
+        {
+            return null;
+        }
+
+        var s = _world.GetState(body);
+        var local = Vector3.Transform(arm.GlovePosition(_world) - s.Position, Quaternion.Conjugate(s.Orientation));
+        return (body, Math.Clamp(local.X, span.Min, span.Max));
+    }
 
     /// <summary>
     /// 両手で握っているなら、<paramref name="main"/>（武器を握った利き手）に添えて同じ武器を握っているもう一方の手（握れていなければ null）。
@@ -4297,7 +4344,8 @@ public sealed partial class Fighter
     /// <param name="HeldLocal">握る所（物のローカル）。手が別の剛体へ移ったら、つなぎ直すのに使う。</param>
     /// <param name="Since">握りが抜け始めてからの時間 [s]。</param>
     /// <param name="Worn">はめた物（握っているのではないので、抜けない）。</param>
-    private readonly record struct DeadGrip(int Socket, int Held, int Hand, Vector3 HeldLocal, float Since, bool Worn);
+    /// <param name="Side">どちらの腕の手か（腕が生え直して手の剛体が変わっても、握っている元の手を見分ける）。</param>
+    private readonly record struct DeadGrip(int Socket, int Held, int Hand, Vector3 HeldLocal, float Since, bool Worn, Hand Side);
 
     private readonly List<DeadGrip> _deadGrips = [];
 
@@ -4364,7 +4412,7 @@ public sealed partial class Fighter
 
         // 手が付いている剛体（前腕、前腕が切れたら破片）と握る所を、つなぎ直す（切れた前腕の切り株の側に残った玉継手は、空を握っている）。
         var link = _world.AddBallSocket(arm.GloveBody, body, arm.GloveLocal, grip, frequency: 17.87f, dampingRatio: 1f);
-        _deadGrips.Add(new DeadGrip(link, body, arm.GloveBody, grip, 0f, worn));
+        _deadGrips.Add(new DeadGrip(link, body, arm.GloveBody, grip, 0f, worn, arm.Hand));
     }
 
     /// <summary>

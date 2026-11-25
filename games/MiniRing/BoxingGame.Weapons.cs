@@ -145,12 +145,116 @@ public sealed partial class BoxingGame
             var leather = fighter == Player ? BoxerAnatomy.RedGlove : BoxerAnatomy.BlueGlove;
             var mirrored = Weapon.MirroredOn(kind, hand);
             var worn = Weapon.CreateWorn(_world, kind, leather, fighter.GloveCenter(hand), Quaternion.Identity, mirrored);
+            if (_handLedgers.TryGetValue((fighter, hand), out var ledger))
+            {
+                worn.RestoreHand(ledger); // 武器を握っていた手の傷のまま（素手の拳だけ）
+            }
+
             Track(worn);
             fighter.Wield(hand, worn.Body.BodyId, Weapon.GripOf(kind, mirrored), glove: true);
             fighter.SetStrikeReach(hand, worn.HandState is null ? null : worn.StrikeOffset);
             fighter.SetBladeChord(hand, kind == WeaponKind.SickleClaw ? SickleClawShape.Edge(hand) : null);
             _wielders[worn] = fighter;
             _wieldHand[worn] = hand;
+        }
+    }
+
+    /// <summary>
+    /// 選手と手ごとの、手の組織の台帳（傷）。素手の拳を外したとき・握る拳が物を放したときに読み直し、次にはめる拳・次に握る拳へ移す:
+    /// 手は持ち主の手のままなので、武器を握り替えても傷は残る（<see cref="GripHand"/>）。
+    /// </summary>
+    private readonly Dictionary<(Fighter Fighter, Hand Hand), BareHandState> _handLedgers = [];
+
+    /// <summary>
+    /// <paramref name="fighter"/> の手が手に持つ物（剣・刀・棒など）を包んでいる所に、握る拳の格子（<see cref="GripHand"/>: 素手と同じボクセルの手）を置き、
+    /// 放した手の拳は物から外す（台帳は <see cref="_handLedgers"/> へ）。握りを滑らせた手は拳を柄に沿って動かす。毎歩、指令を体へ渡した後に呼ぶ。
+    /// 拳の位置は握りの関節（<see cref="Fighter.HandGripOn"/>）から決まり、物理の拘束は変えない。
+    /// </summary>
+    private void SyncGripHands(Fighter fighter)
+    {
+        Span<(int Body, float X)?> on = [fighter.HandGripOn(Hand.Left), fighter.HandGripOn(Hand.Right)];
+        Span<float> grips = stackalloc float[2];
+        Span<float> wrists = stackalloc float[2];
+        Span<int> slot = stackalloc int[2];
+        foreach (var weapon in _weapons)
+        {
+            if (Weapon.IsWorn(weapon.Kind))
+            {
+                continue;
+            }
+
+            var body = weapon.Body.BodyId;
+            var count = 0;
+            foreach (var hand in Hands)
+            {
+                slot[(int)hand] = -1;
+                if (on[(int)hand] is { } grip && grip.Body == body)
+                {
+                    slot[(int)hand] = count;
+                    grips[count++] = grip.X;
+                }
+            }
+
+            if (count == 0 && weapon.GripHandFor(fighter, Hand.Left, create: false) is null && weapon.GripHandFor(fighter, Hand.Right, create: false) is null)
+            {
+                continue; // この人の手が触れたことの無い物（毎歩、全ての物を見るので早く抜ける）
+            }
+
+            if (count > 0)
+            {
+                GripHand.Wrists(Weapon.HandleSpanOf(weapon.Kind), grips[..count], wrists[..count]);
+            }
+
+            foreach (var hand in Hands)
+            {
+                var index = slot[(int)hand];
+                var gripHand = weapon.GripHandFor(fighter, hand, create: index >= 0);
+                if (gripHand is null)
+                {
+                    continue;
+                }
+
+                if (index < 0)
+                {
+                    if (gripHand.Occupied)
+                    {
+                        _handLedgers[(fighter, hand)] = gripHand.Empty();
+                    }
+
+                    continue;
+                }
+
+                // 拳の位置は半セルの刻み（滑らせている間に、細かいずれのたびに当たりの箱を作り直さない）。
+                var step = 0.5f * HandSkeleton.Cell;
+                var center = GripHand.CenterLocal(MathF.Round(wrists[index] / step) * step);
+                if (!gripHand.Occupied)
+                {
+                    var ledger = _handLedgers.GetValueOrDefault((fighter, hand)) ?? new BareHandState();
+                    gripHand.Fill(ledger, GripHand.Pose, GripHand.Held(Weapon.HandleRadiusAt(weapon.Kind, grips[index])), center);
+                }
+                else
+                {
+                    gripHand.MoveTo(center);
+                }
+            }
+        }
+
+        // 切り落とされた腕の手の傷は、その手と一緒に去る（腕が生え直したら新しい手。力の抜けた手がまだ握っている拳は、上で物に残っている）。
+        foreach (var hand in Hands)
+        {
+            if (fighter.ArmSevered(hand))
+            {
+                _handLedgers.Remove((fighter, hand));
+            }
+        }
+    }
+
+    /// <summary>はめていた素手の拳 <paramref name="worn"/> の手の傷を、選手 <paramref name="fighter"/> の手 <paramref name="hand"/> の台帳へ読み直す。</summary>
+    private void KeepHandLedger(Fighter fighter, Hand hand, Weapon worn)
+    {
+        if (worn.Kind == WeaponKind.Fist && worn.HandState is { } state)
+        {
+            _handLedgers[(fighter, hand)] = state.Capture(worn.Body.Grid);
         }
     }
 
@@ -264,6 +368,7 @@ public sealed partial class BoxingGame
             return;
         }
 
+        KeepHandLedger(fighter, hand, worn);
         fighter.Unwield(hand);
         _weapons.Remove(worn);
         _wielders.Remove(worn);
@@ -307,6 +412,7 @@ public sealed partial class BoxingGame
 
         _wielders[weapon] = fighter;
         _wieldHand[weapon] = WeaponHand;
+        SyncGripHands(fighter); // 握った手の拳（素手と同じボクセルの手）を柄の上へ
         if (MarkSpawnOverlaps(weapon, fighter) > 0)
         {
             // 体に重ねて置いた武器だけ: 構えへ追いつくまで本人に当てない（重ならずに置いた片手の棍棒・剣は今まで通り）。組は時間が来たら数え直す。
@@ -379,8 +485,14 @@ public sealed partial class BoxingGame
         var p = _world.GetState(part.BodyId);
         var partCenter = p.Position + Vector3.Transform(part.GridCenterLocal, p.Orientation);
         var partHalf = part.Grid.HalfExtents + new Vector3(_tuning.SpawnWeaponClearance);
-        foreach (var grid in weapon.Grids)
+        for (var i = 0; i < weapon.Grids.Count; i++)
         {
+            if (weapon.IsHandGrid(i))
+            {
+                continue; // 握る拳は持ち主の体を打たない（構えた拳はいつも体の近く: 数えると刃が本人に当たらない時間が延びる）
+            }
+
+            var grid = weapon.Grids[i];
             var w = _world.GetState(grid.BodyId);
             var gridCenter = w.Position + Vector3.Transform(grid.GridCenterLocal, w.Orientation);
             if (OrientedBox.Overlaps(gridCenter, w.Orientation, grid.Grid.HalfExtents, partCenter, p.Orientation, partHalf))
@@ -459,6 +571,7 @@ public sealed partial class BoxingGame
         self.Grasp(hand, best.Body.BodyId, bestGrip, Weapon.CanTwoHand(kind), Weapon.SlideSpanOf(kind));
         _wielders[best] = self;
         _wieldHand[best] = hand;
+        SyncGripHands(self);
     }
 
     /// <summary>自分が握っている武器 <paramref name="weapon"/> に、空いた手 <paramref name="hand"/> を添える（<see cref="TryGraspWeapon"/>）。</summary>
@@ -506,6 +619,7 @@ public sealed partial class BoxingGame
             return;
         }
 
+        KeepHandLedger(self, hand, worn);
         self.Unwield(hand);
         self.SetStrikeReach(hand, null);
         var id = worn.Body.BodyId;
@@ -1022,6 +1136,8 @@ public sealed partial class BoxingGame
                 if (_beforeStep.TryGetValue(other.Body.BodyId, out var otherBefore))
                 {
                     // 剛体に乗った全ての格子（物 → 手の固定の順）の組を調べる。腕の押す力は、最初に触れた組だけが受ける（格子の数だけ払わない）。
+                    // 同じ人の物どうしでは、握っている拳の格子は打ち合わない（自分の手で自分の盾・もう一方の手を打つことになる）。刃が自分の盾を打つのは今まで通り。
+                    var sameOwner = OwnerOf(weapon) is { } owner && OwnerOf(other) == owner;
                     var pushed = false;
                     // （IReadOnlyList を foreach すると毎歩、列挙子が箱に入って割り当てが出るので、添字で回す。）
                     for (var ia = 0; ia < weapon.Grids.Count; ia++)
@@ -1030,13 +1146,18 @@ public sealed partial class BoxingGame
                         for (var ib = 0; ib < other.Grids.Count; ib++)
                         {
                             var gridB = other.Grids[ib];
+                            if (sameOwner && (weapon.IsHandGrid(ia) || other.IsHandGrid(ib)))
+                            {
+                                continue;
+                            }
+
                             if (!MayTouch(gridA, before, gridB, otherBefore))
                             {
                                 continue;
                             }
 
                             // 物どうし（武器・はめる物）は面の下を押さない: どちらが「場」になるかは格子の粗さだけで決まり、詰め物や刃の内側は固い物として扱う。
-                            var clash = VoxelContact.Resolve(gridA, before, gridB, otherBefore, pushed ? default : Drive(weapon), pushed ? default : Drive(other), pushed ? 0f : MassBehind(weapon), pushed ? 0f : MassBehind(other), pressBeneath: false);
+                            var clash = VoxelContact.Resolve(gridA, before, gridB, otherBefore, pushed || weapon.IsHandGrid(ia) ? default : Drive(weapon), pushed || other.IsHandGrid(ib) ? default : Drive(other), pushed ? 0f : MassBehind(weapon), pushed ? 0f : MassBehind(other), pressBeneath: false);
                             Clash(weapon, other, gridA, gridB, clash);
                             pushed |= clash.Touched;
                         }
@@ -1114,12 +1235,17 @@ public sealed partial class BoxingGame
                     for (var gi = 0; gi < weapon.Grids.Count; gi++)
                     {
                         var grid = weapon.Grids[gi];
+                        if ((holds || deadHand is not null) && weapon.IsHandGrid(gi))
+                        {
+                            continue; // 握っている拳は持ち主の手: 素手の拳と同じく、自分の体は打たない（構えた拳はいつも自分の体に触れている）
+                        }
+
                         if (!MayTouch(grid, before, part.Body, partBefore))
                         {
                             continue;
                         }
 
-                        var hit = VoxelContact.Resolve(grid, before, part.Body, partBefore, pushed ? default : drive, massBehindA: pushed ? 0f : behind);
+                        var hit = VoxelContact.Resolve(grid, before, part.Body, partBefore, pushed || weapon.IsHandGrid(gi) ? default : drive, massBehindA: pushed ? 0f : behind);
                         if (hit.Touched)
                         {
                             touched.Add(part);

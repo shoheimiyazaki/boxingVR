@@ -148,6 +148,64 @@ public sealed class Weapon
         return hand;
     }
 
+    private readonly List<(object Owner, Hand Hand, WeaponHand Grip)> _gripHands = [];
+
+    /// <summary>
+    /// <see cref="Grids"/> の <paramref name="index"/> 番目が、手に持つ物を握っている拳（<see cref="GripHandFor"/>）の格子か。拳は持ち主の手なので、
+    /// 持ち主の体・持ち主のほかの物とは打ち合わない（素手の拳と同じ）。はめる物の中の手は物の一部として今まで通り。
+    /// </summary>
+    public bool IsHandGrid(int index) => index > 0 && !IsWorn(Kind);
+
+    /// <summary>
+    /// 手に持つ物（<see cref="IsWorn"/> でない）を握る拳の格子（<see cref="GripHand"/>）: 持ち主 <paramref name="owner"/> の手 <paramref name="hand"/> の分。
+    /// 初めて握ったときに空の格子として重ね（<see cref="Hands"/> の終わりへ。以後その手の分はずっと同じ格子）、握っている間だけ組織を置く
+    /// （<see cref="WeaponHand.Fill"/>・<see cref="WeaponHand.Empty"/>）。<paramref name="create"/> が false で、まだ無ければ null。
+    /// </summary>
+    internal WeaponHand? GripHandFor(object owner, Hand hand, bool create)
+    {
+        foreach (var (o, h, grip) in _gripHands)
+        {
+            if (ReferenceEquals(o, owner) && h == hand)
+            {
+                return grip;
+            }
+        }
+
+        if (!create || IsPiece)
+        {
+            return null;
+        }
+
+        if (IsWorn(Kind))
+        {
+            throw new InvalidOperationException($"{Kind} は手にはめる物で、手を中に持っています。");
+        }
+
+        var empty = GripHand.EmptyGrid();
+        var added = AddHand(empty, new BareHandState(), GripHand.CenterLocal(GripOf(Kind).X), GripHand.MassPerCell);
+        added.MarkEmpty();
+        _gripHands.Add((owner, hand, added));
+        return added;
+    }
+
+    /// <summary>
+    /// 素手の拳（<see cref="WeaponKind.Fist"/>）の組織を、台帳 <paramref name="ledger"/>（武器を握っていた手の傷のまま）に置き換える
+    /// （武器を放した手に拳をはめ直す: 手の傷は手と一緒に残る）。素手の拳でなければ何もしない。
+    /// </summary>
+    internal void RestoreHand(BareHandState ledger)
+    {
+        ArgumentNullException.ThrowIfNull(ledger);
+        if (Kind != WeaponKind.Fist || _motion is null)
+        {
+            return;
+        }
+
+        HandState = ledger.WithShape(HandShape.Seiken).Placed(_motion.Pose, out var grid);
+        Body.ReplaceGrid(grid);
+        Volume = VoxelVolume.For(Body.Grid);
+        Body.UpdateMass();
+    }
+
     /// <summary>描画用の 3D テクスチャ。</summary>
     public VoxelVolume Volume { get; private set; }
 
@@ -323,7 +381,10 @@ public sealed class Weapon
     }
 
     /// <summary>折れて飛んだ破片を、同じ種類の武器として包む。</summary>
-    internal static Weapon PieceOf(WeaponKind kind, VoxelBody piece) => new(kind, piece, initializeHand: false);
+    internal static Weapon PieceOf(WeaponKind kind, VoxelBody piece) => new(kind, piece, initializeHand: false) { IsPiece = true };
+
+    /// <summary>折れて飛んだ破片か（格子の座標が元の武器と違い、柄の範囲・握る所の値が当てはまらないので、握る拳は置かない: 球のまま）。</summary>
+    public bool IsPiece { get; private init; }
 
     /// <summary>
     /// 武器を <paramref name="world"/> に置く。質量はボクセルの材質の密度 × 体積の合計（剛体の箱は格子の大きさ）。
@@ -402,6 +463,34 @@ public sealed class Weapon
         WeaponKind.Fist => HandSkeleton.Wrist, // 腕の先が手を握る所（手首）
         WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield => HandSkeleton.Wrist - WornBoundsOf(kind, mirrored).Center, // 中の手の手首（腕の先が手を握る点）
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
+    };
+
+    /// <summary>
+    /// 手に持つ物（はめる物でない: 剣・刀・ロングソード・棍棒・バット・棒・杖）の、握る拳が置ける柄の範囲（ローカル X の最小・最大 [m]）。
+    /// 拳は鍔・刀身へ食い込まない（鍔の手前まで）。柄頭の側は物の端まで（両手で握る長剣の下の手は柄頭を包む）。刃も鍔も無い棍棒・棒は全長。
+    /// </summary>
+    internal static (float Min, float Max) HandleSpanOf(WeaponKind kind) => kind switch
+    {
+        WeaponKind.IronSword => (-SwordHalfLength, GuardFrom),
+        WeaponKind.Katana => (-KatanaHalfLength, KatanaGuardAt - KatanaTsubaHalf),
+        WeaponKind.Longsword => (-LongHalfLength, LongGuardAt - LongGuardHalfThick),
+        WeaponKind.WoodenClub or WeaponKind.Bat => (-ClubHalfLength, ClubHalfLength),
+        WeaponKind.Staff or WeaponKind.Jo => (-RodOf(kind).HalfLength, RodOf(kind).HalfLength),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "手に持つ物だけ（はめる物は手を中に持つ）。"),
+    };
+
+    /// <summary>
+    /// 柄のローカル X = <paramref name="x"/> の所の太さ（軸からの半径 [m]）。握る拳の指はこの外を巻く（<see cref="GripHand"/>）。
+    /// 刀の柄は楕円なので、広い方（刃の向き）の半径。
+    /// </summary>
+    internal static float HandleRadiusAt(WeaponKind kind, float x) => kind switch
+    {
+        WeaponKind.IronSword => GripRadius,
+        WeaponKind.Katana => KatanaGripHalfWidth,
+        WeaponKind.Longsword => LongGripRadius,
+        WeaponKind.WoodenClub or WeaponKind.Bat => ClubGripRadius + ((ClubHeadRadius - ClubGripRadius) * MathF.Pow(Math.Clamp((x + ClubHalfLength) / (2f * ClubHalfLength), 0f, 1f), 2f)),
+        WeaponKind.Staff or WeaponKind.Jo => RodOf(kind).Radius,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "手に持つ物だけ（はめる物は手を中に持つ）。"),
     };
 
     /// <summary>両手で握れる武器か（棍棒・日本刀・ロングソード・棒。片手剣の握りは片手ぶんの長さ）。</summary>
