@@ -168,6 +168,10 @@ public sealed record FighterTuning
     // ── 腕（サーボ + 拳への PD 力）
     public float ArmServoHz { get; init; } = 8.94f;
     public float ArmServoMaxSpeed { get; init; } = 23.83f;
+
+    /// <summary>腕の筋（肩・肘・手首のサーボ）が回せる角速度の上限 [rad/s]: <see cref="ArmServoMaxSpeed"/> × 筋の材質の縮む速さ（<see cref="Voxels.TissuePhysiology.MuscleSpeed"/>、人は 1）。</summary>
+    [JsonIgnore]
+    public float ArmMuscleSpeed => ArmServoMaxSpeed * Tissue.MuscleSpeed;
     public float HandKp { get; init; } = 390.5f; // 目標 → 拳のバネ [1/s²]（約 3.1Hz）。固いほどきびきび追う
     public float HandKd { get; init; } = 31.6f; // 減衰比 ≒ 0.8（行き過ぎずに止まる）
     /// <summary>

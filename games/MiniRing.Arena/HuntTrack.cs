@@ -52,7 +52,7 @@ internal static class HuntTrack
             var time = i * Dt;
             var command = motion.Read(hand, i == 0, true, game.PlayerSense, worldAim, Dt, drive, windup, draw);
             game.Step(new BoxingInput(hand == Hand.Left ? guard with { Left = command } : guard with { Right = command }, Blue: blue), Dt);
-            if (i % 12 != 0)
+            if (i % 2 != 0)
             {
                 continue;
             }

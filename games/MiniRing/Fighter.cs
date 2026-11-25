@@ -4870,7 +4870,7 @@ public sealed partial class Fighter
         {
             // 肘の基底は物理的な側で決まる（+X 側の腕が Mirrored / HumanoidRagdoll.BuildCore と同じ）。上腕が折れてつながった腕は、肘を受ける破片との間に付ける。
             var basis = Side > 0f ? HumanoidRagdoll.YAxisTwistBasisMirrored : HumanoidRagdoll.YAxisTwistBasis;
-            ElbowServo = world.AddTwistServo(upper ?? UpperArm, Forearm, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, 30f * tuning.TorqueScale);
+            ElbowServo = world.AddTwistServo(upper ?? UpperArm, Forearm, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmMuscleSpeed, 0f, 30f * tuning.TorqueScale);
         }
 
         public void AttachGlove(int body, Vector3 local)
@@ -4907,7 +4907,7 @@ public sealed partial class Fighter
             world.SetDynamicPose(body, fist - Vector3.Transform(gripLocal, orientation), orientation);
             world.SetLinearVelocity(body, f.LinearVelocity);
             var socket = world.AddBallSocket(Forearm, body, GloveLocal, gripLocal, frequency: 17.87f, dampingRatio: 1f);
-            var wrist = world.AddAngularServo(Forearm, body, along, WristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
+            var wrist = world.AddAngularServo(Forearm, body, along, WristHz(tuning), WristDamping(tuning), tuning.ArmMuscleSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
             Held = new HeldWeapon(body, gripLocal, socket, wrist, along, world.GetMass(body));
         }
 
@@ -4919,7 +4919,7 @@ public sealed partial class Fighter
         {
             var socket = world.AddBallSocket(Forearm, body, GloveLocal, gripLocal, frequency: 17.87f, dampingRatio: 1f);
             var relative = Quaternion.Concatenate(world.GetState(body).Orientation, Quaternion.Conjugate(world.GetState(Forearm).Orientation));
-            var wrist = world.AddAngularServo(Forearm, body, relative, WristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
+            var wrist = world.AddAngularServo(Forearm, body, relative, WristHz(tuning), WristDamping(tuning), tuning.ArmMuscleSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
             Held = new HeldWeapon(body, gripLocal, socket, wrist, relative, world.GetMass(body));
         }
 
@@ -5042,7 +5042,7 @@ public sealed partial class Fighter
 
             HoldOrientation = null;
             var relative = Quaternion.Concatenate(world.GetState(body).Orientation, Quaternion.Conjugate(world.GetState(Forearm).Orientation));
-            var wrist = world.AddAngularServo(Forearm, body, relative, WristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
+            var wrist = world.AddAngularServo(Forearm, body, relative, WristHz(tuning), WristDamping(tuning), tuning.ArmMuscleSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
             if (Held is { } held)
             {
                 Held = held with { Wrist = wrist };
@@ -5153,7 +5153,7 @@ public sealed partial class Fighter
 
             var socket = world.AddBallSocket(Forearm, support.Body, GloveLocal, support.GripLocal, frequency: 17.87f, dampingRatio: 1f);
             var relative = Quaternion.Concatenate(world.GetState(support.Body).Orientation, Quaternion.Conjugate(world.GetState(Forearm).Orientation));
-            var wrist = world.AddAngularServo(Forearm, support.Body, relative, WristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
+            var wrist = world.AddAngularServo(Forearm, support.Body, relative, WristHz(tuning), WristDamping(tuning), tuning.ArmMuscleSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
             Support = support with { Socket = socket, Wrist = wrist, Reaching = false };
         }
 
@@ -5260,8 +5260,8 @@ public sealed partial class Fighter
 
             // 肘の基底は物理的な側で決まる（+X 側の腕が Mirrored / HumanoidRagdoll.BuildCore と同じ）。
             var basis = side > 0f ? HumanoidRagdoll.YAxisTwistBasisMirrored : HumanoidRagdoll.YAxisTwistBasis;
-            var shoulderServo = world.AddAngularServo(parts.Chest, upper, Quaternion.Identity, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, 40f * tuning.TorqueScale);
-            var elbowServo = world.AddTwistServo(upper, fore, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, 30f * tuning.TorqueScale);
+            var shoulderServo = world.AddAngularServo(parts.Chest, upper, Quaternion.Identity, tuning.ArmServoHz, 1f, tuning.ArmMuscleSpeed, 0f, 40f * tuning.TorqueScale);
+            var elbowServo = world.AddTwistServo(upper, fore, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmMuscleSpeed, 0f, 30f * tuning.TorqueScale);
 
             return new Arm(hand)
             {
@@ -5361,10 +5361,10 @@ public sealed partial class Fighter
             // 目標速度（フィードフォワード）。キャリブレーション等の瞬間移動が力のスパイクにならないよう上限付き。
             if (_hasPrevious)
             {
-                var raw = ClampLength((target - _previousTarget) / MathF.Max(1e-4f, dt), tuning.MaxTargetSpeed);
+                var raw = ClampLength((target - _previousTarget) / MathF.Max(1e-4f, dt), tuning.MaxTargetSpeed * tuning.Tissue.MuscleSpeed);
                 _targetVelocity = Vector3.Lerp(_targetVelocity, raw, Math.Clamp(tuning.TargetVelocitySmoothing * dt, 0f, 1f));
                 // 酸素要求は体に対する目標の動き。体の揺れでワールド目標が動く分を、パンチの努力と二重に数えない。
-                var effort = ClampLength((targetLocal - _previousLocalTarget) / MathF.Max(1e-4f, dt), tuning.MaxTargetSpeed);
+                var effort = ClampLength((targetLocal - _previousLocalTarget) / MathF.Max(1e-4f, dt), tuning.MaxTargetSpeed * tuning.Tissue.MuscleSpeed);
                 _effortVelocity = Vector3.Lerp(_effortVelocity, effort, Math.Clamp(tuning.TargetVelocitySmoothing * dt, 0f, 1f));
             }
 

@@ -106,6 +106,7 @@ internal static class HuntLab
         var nearNeck = float.PositiveInfinity;
         var nearAt = 0f;
         var nearSpeed = 0f;
+        var nearOffset = Vector3.Zero;
         var closeSteps = 0;
         var closeFast = 0f;
         var neckY0 = Vector3.Lerp(body.ChestPosition, body.HeadPosition, 0.6f).Y;
@@ -137,6 +138,7 @@ internal static class HuntLab
                         nearNeck = closest;
                         nearAt = t;
                         nearSpeed = speed;
+                        nearOffset = game.CpuSense.Self.InverseRotate(neck - point);
                     }
 
                     if (closest < 0.06f)
@@ -173,7 +175,7 @@ internal static class HuntLab
             lock (contacts)
             {
                 contacts.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                    $"contacts {victimId} seed {seed} ({t:0.0} s, {body.DeathCause ?? "alive"}): neck height {neckY0:0.00} m, claw highest {reachY:0.00} m, blade edge nearest the neck {100f * nearNeck:0} cm at {nearAt:0.0} s moving {nearSpeed:0.00} m/s; within 6 cm for {closeSteps} steps, fastest there {closeFast:0.00} m/s"));
+                    $"contacts {victimId} seed {seed} ({t:0.0} s, {body.DeathCause ?? "alive"}): neck height {neckY0:0.00} m, claw highest {reachY:0.00} m, blade edge nearest the neck {100f * nearNeck:0} cm at {nearAt:0.0} s moving {nearSpeed:0.00} m/s, neck - blade in the hunter's frame (x side, y up, z ahead) {100f * nearOffset.X:0} {100f * nearOffset.Y:0} {100f * nearOffset.Z:0} cm; within 6 cm for {closeSteps} steps, fastest there {closeFast:0.00} m/s"));
                 foreach (var (part, c) in tally)
                 {
                     contacts.WriteLine(string.Create(CultureInfo.InvariantCulture,
