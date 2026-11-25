@@ -74,3 +74,16 @@
 4. ラウンドの切り替えの 1 フレーム（試合を作り直す）の重さは、作り直しを前のフレームへ分ける（見た目だけの問題）。
 
 `run.cmd test all` で元の枝（6b8afaf）から落ちている 6 件（AlienTests 2・CharacterMakerTests.ThePhysicalMass・ClawTrajectoryTests.LongClaw・CornerClearanceTests・LegLossTests.BothLegsGone）は、この作業の前からある（6b8afaf で同じく落ちる）。
+
+## 6. 破片を塊で（2026-11-25、ユーザーの指定「なるべく塊で剥がれてほしい」）
+
+削れたボクセルを、面で接した同じ組織の塊で剥がすようにした（`VoxelClumps`、docs/VOXEL_DAMAGE.md「塊」）。統合役の想定と違い、破片は Bepu の剛体ではなく描画だけの粒（`VoxelDebris`、乱数も試合と別の `_fx`）なので、剛体の数・接触の数・物理の ms は前から関係がない。試合のチェックサムは前と同じ（fist・katana・vfc2・royale の 4 場面）なので `PhysicsVersion` は上げていない。
+
+| 場面（種 1、手元 GRANDEDESKTOP） | 飛んでいる破片の数 前 → 後（平均 / 99%） | 描画の詰め 前 → 後 [ms] |
+|---|---|---|
+| 刀 katana 30 秒 | 27 / 175 → 19 / 141 | 0.68 → 0.62 |
+| VFC 刀対剣 vfc2 30 秒 | 74 / 302 → 67 / 269 | 0.99 → 0.99 |
+| 6 人 royale 20 秒 | 761 / 1784 → 377 / 908 | 3.04 → 3.02 |
+
+見た目: 同じ種の棍棒対刀（`video --red-char sean --blue-char jin --org vfc --camera-scale 0.55`）の 15.2 秒・15.6 秒を前と後で並べた `docs/video/clump_compare.png`（git の外）: 前は 1 セルずつの粒が一面に散り、後は筋肉・臓器が数セル〜十数セルの塊のまま飛ぶ。
+

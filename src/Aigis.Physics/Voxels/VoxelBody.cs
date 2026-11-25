@@ -211,15 +211,14 @@ public sealed class VoxelBody
     /// 65°) and swept along the part of the blow that runs along the surface, so a glancing blow throws them on its way.
     /// The body's own recoil is the caller's to add (it usually comes after the carve). Speeds are about <paramref name="chipSpeed"/> (±25%) on top of the body's own
     /// velocity. <paramref name="jitter"/> (−1..1 per call) spreads them; pass a seeded source to stay deterministic.
-    /// <para>With <paramref name="chunks"/>, a blow that carves at least <see cref="MinCellsForChunks"/> cells tears some
-    /// of them off whole: up to <paramref name="maxChunks"/> connected clumps holding about <paramref name="chunkShare"/>
-    /// of the cells between them, each a <see cref="VoxelChunk"/> (flying a little slower than the chips). The rest
-    /// leave as chips.</para>
+    /// <para>With <paramref name="chunks"/>, the carved cells leave in clumps (<see cref="VoxelClumps"/>: face-joined cells of one
+    /// tissue stay together, and break apart only where they do not touch or the tissue changes), each a <see cref="VoxelChunk"/>
+    /// (flying a little slower than the chips). A cell that joins no other leaves as a chip.</para>
     /// <para>With <paramref name="cutFaces"/>, every face the carve laid bare on what is left of the body (a <see cref="VoxelCutFace"/>).</para>
     /// </summary>
     public int Impact(Vector3 worldPoint, Vector3 worldDirection, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f,
-        ICollection<VoxelChunk>? chunks = null, float chunkShare = 0.6f, int maxChunks = 3, ICollection<VoxelCutFace>? cutFaces = null)
-        => ImpactSpending(worldPoint, worldDirection, energy, chipSpeed, jitter, chips, spread, chunks, chunkShare, maxChunks, cutFaces).Carved;
+        ICollection<VoxelChunk>? chunks = null, ICollection<VoxelCutFace>? cutFaces = null)
+        => ImpactSpending(worldPoint, worldDirection, energy, chipSpeed, jitter, chips, spread, chunks, cutFaces).Carved;
 
     /// <summary>
     /// <see cref="Impact"/>, also returning the damage the carve actually spent (<see cref="VoxelGrid.Carve"/>: less than
@@ -227,7 +226,7 @@ public sealed class VoxelBody
     /// to the layer beneath.
     /// </summary>
     public (int Carved, float Spent) ImpactSpending(Vector3 worldPoint, Vector3 worldDirection, float energy, float chipSpeed, Func<float> jitter, ICollection<VoxelChip> chips, float spread = 0.4f,
-        ICollection<VoxelChunk>? chunks = null, float chunkShare = 0.6f, int maxChunks = 3, ICollection<VoxelCutFace>? cutFaces = null)
+        ICollection<VoxelChunk>? chunks = null, ICollection<VoxelCutFace>? cutFaces = null)
     {
         ArgumentNullException.ThrowIfNull(jitter);
         ArgumentNullException.ThrowIfNull(chips);
@@ -271,10 +270,25 @@ public sealed class VoxelBody
             CollectCutFaces(removed, cutFaces);
         }
 
-        var group = chunks is null ? null : GroupIntoChunks(removed, chunkShare, maxChunks, jitter);
-        if (group is not null)
+        // Clumps of face-joined cells of one tissue leave whole (VoxelClumps); a cell alone leaves as a chip.
+        int[]? group = null;
+        if (chunks is not null)
         {
-            EmitChunks(removed, group, s, Splash, chunks!);
+            group = new int[removed.Count];
+            Array.Fill(group, -1);
+            var clumps = VoxelClumps.Of(Grid, removed);
+            for (var g = 0; g < clumps.Count; g++)
+            {
+                if (clumps[g].Count > 1)
+                {
+                    foreach (var i in clumps[g])
+                    {
+                        group[i] = g;
+                    }
+                }
+            }
+
+            EmitChunks(removed, group, s, Splash, chunks);
         }
 
         for (var i = 0; i < removed.Count; i++)
@@ -291,110 +305,6 @@ public sealed class VoxelBody
 
         UpdateMass();
         return (removed.Count, spent);
-    }
-
-    /// <summary>Fewest carved cells before any of them leave as a chunk (a light blow only crumbles).</summary>
-    public const int MinCellsForChunks = 8;
-
-    /// <summary>Smallest chunk [cells]; a group that grows smaller than this crumbles into chips.</summary>
-    private const int MinChunkCells = 3;
-
-    /// <summary>
-    /// Sorts the carved cells into up to <paramref name="maxChunks"/> chunks (connected clumps, about
-    /// <paramref name="share"/> of the cells between them) and loose chips: the group index of each cell, −1 for a chip.
-    /// Null when nothing forms a chunk. More cells carved, more chunks (one, two from 60, three from 140).
-    /// </summary>
-    private int[]? GroupIntoChunks(List<RemovedVoxel> removed, float share, int maxChunks, Func<float> jitter)
-    {
-        if (removed.Count < MinCellsForChunks || maxChunks <= 0 || !(share > 0f))
-        {
-            return null;
-        }
-
-        var count = Math.Min(maxChunks, 1 + (removed.Count >= 60 ? 1 : 0) + (removed.Count >= 140 ? 1 : 0));
-        var target = Math.Max(MinChunkCells, (int)(Math.Clamp(share, 0f, 1f) * removed.Count / count));
-        var index = new Dictionary<(int X, int Y, int Z), int>(removed.Count);
-        for (var i = 0; i < removed.Count; i++)
-        {
-            index[CellOf(removed[i].LocalCenter)] = i;
-        }
-
-        var group = new int[removed.Count];
-        Array.Fill(group, -1);
-        var any = false;
-        for (var g = 0; g < count; g++)
-        {
-            // Seed somewhere on the torn-off skin when there is one free (a chunk is a flap of the surface and what is under it).
-            var start = (int)((0.5f + (0.5f * jitter())) * removed.Count) % removed.Count;
-            var seed = -1;
-            for (var k = 0; k < removed.Count && seed < 0; k++)
-            {
-                var i = (start + k) % removed.Count;
-                if (group[i] == -1 && removed[i].WasSurface)
-                {
-                    seed = i;
-                }
-            }
-
-            for (var k = 0; k < removed.Count && seed < 0; k++)
-            {
-                var i = (start + k) % removed.Count;
-                if (group[i] == -1)
-                {
-                    seed = i;
-                }
-            }
-
-            if (seed < 0)
-            {
-                break;
-            }
-
-            // Grow a connected clump outward from the seed (breadth first over the six face neighbours).
-            var members = new List<int> { seed };
-            group[seed] = g;
-            for (var head = 0; head < members.Count && members.Count < target; head++)
-            {
-                var (x, y, z) = CellOf(removed[members[head]].LocalCenter);
-                foreach (var (dx, dy, dz) in FaceSteps)
-                {
-                    if (members.Count >= target)
-                    {
-                        break;
-                    }
-
-                    if (index.TryGetValue((x + dx, y + dy, z + dz), out var n) && group[n] == -1)
-                    {
-                        group[n] = g;
-                        members.Add(n);
-                    }
-                }
-            }
-
-            if (members.Count < MinChunkCells)
-            {
-                foreach (var m in members)
-                {
-                    group[m] = -1;
-                }
-
-                // Mark the lone seed so it is not picked again (restored to a chip below).
-                group[seed] = -2;
-                continue;
-            }
-
-            any = true;
-        }
-
-        for (var i = 0; i < group.Length; i++)
-        {
-            if (group[i] == -2)
-            {
-                group[i] = -1;
-            }
-        }
-
-        return any ? group : null;
     }
 
     /// <summary>

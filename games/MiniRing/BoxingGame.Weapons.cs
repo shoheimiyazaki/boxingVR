@@ -2108,6 +2108,7 @@ public sealed partial class BoxingGame
         var strength = Math.Clamp(removed / 80f, 0.15f, 1f);
         var chipSpeed = _tuning.ChipSpeed * (0.5f + (1.3f * strength));
         _chips.Clear();
+        _chunks.Clear();
         AddChips(a, hit.RemovedA, outOfA, hit.Direction, chipSpeed);
         var materials = new List<byte>();
         if (blade is not null)
@@ -2127,7 +2128,9 @@ public sealed partial class BoxingGame
             SpawnDebris(_chips, hit.Point, hit.Direction, strength, attacker: null, recoil: Vector3.Zero);
         }
 
+        SpawnChunks(_chunks, Vector3.Zero);
         materials.AddRange(_chips.Select(c => c.Material));
+        materials.AddRange(_chunks.SelectMany(c => c.Cells.Select(cell => cell.Material)));
         var grains = new ShatterGrain[materials.Count];
         for (var i = 0; i < grains.Length; i++)
         {
@@ -2138,7 +2141,7 @@ public sealed partial class BoxingGame
     }
 
     /// <summary>
-    /// 刃のひと太刀で剥がれたボクセル: 格子の上で面でつながっているものは 1 つの塊になって剥がれ、刃が振り抜けた向き（<paramref name="swing"/>）へ、
+    /// 刃のひと太刀で剥がれたボクセル: 格子の上で面でつながっている同じ組織のもの（<see cref="VoxelClumps"/>）は 1 つの塊になって剥がれ、刃が振り抜けた向き（<paramref name="swing"/>）へ、
     /// 刃の速さの一部をもらって飛ぶ（向きのばらつきは小さく: 刃の面に沿って ±10°、面の外へは ±4°）。塊は刃の進む向きへ前転するように回る。
     /// 1 つだけで剥がれたボクセルと、塊の縁から少しだけ欠ける細かい欠片は、同じ向きへ、少し速く。血は塊から振り抜けた向きへ垂れる。
     /// 拳の削れのような放射状の散り方・当たった所の光の輪はない。
@@ -2162,44 +2165,8 @@ public sealed partial class BoxingGame
         Vector3 Heading(float spreadAcross, float spreadSide) => Vector3.Normalize(dir + (across * (spreadAcross * Jitter())) + (side * (spreadSide * Jitter())));
         Vector3 PointVelocity(Vector3 p) => s.LinearVelocity + Vector3.Cross(s.AngularVelocity, p - s.Position);
 
-        // 面でつながったものを 1 つにまとめる（格子の上の整数の座標で、6 近傍）。
-        var keys = removed.Select(v => (X: (int)MathF.Round(v.LocalCenter.X / cell.X), Y: (int)MathF.Round(v.LocalCenter.Y / cell.Y), Z: (int)MathF.Round(v.LocalCenter.Z / cell.Z))).ToArray();
-        var index = new Dictionary<(int X, int Y, int Z), int>();
-        for (var i = 0; i < keys.Length; i++)
-        {
-            index.TryAdd(keys[i], i);
-        }
-
-        var group = new int[keys.Length];
-        Array.Fill(group, -1);
-        var groups = new List<List<int>>();
-        for (var i = 0; i < keys.Length; i++)
-        {
-            if (group[i] >= 0)
-            {
-                continue;
-            }
-
-            var members = new List<int> { i };
-            group[i] = groups.Count;
-            for (var m = 0; m < members.Count; m++)
-            {
-                var (x, y, z) = keys[members[m]];
-                foreach (var n in new[] { (x + 1, y, z), (x - 1, y, z), (x, y + 1, z), (x, y - 1, z), (x, y, z + 1), (x, y, z - 1) })
-                {
-                    if (index.TryGetValue(n, out var j) && group[j] < 0)
-                    {
-                        group[j] = groups.Count;
-                        members.Add(j);
-                    }
-                }
-            }
-
-            groups.Add(members);
-        }
-
         var palette = body.Grid.Palette; // 体ごとの材質の表（ガルヴァの外骨格は BoxerAnatomy に無い材質）
-        foreach (var members in groups)
+        foreach (var members in VoxelClumps.Of(body.Grid, removed))
         {
             var center = members.Aggregate(Vector3.Zero, (sum, i) => sum + removed[i].LocalCenter) / members.Count;
             var position = Vector3.Transform(center, toWorld);
@@ -2255,14 +2222,35 @@ public sealed partial class BoxingGame
 
         var s = _world.GetState(body.BodyId);
         var toWorld = body.GridToWorld(s);
-        foreach (var v in removed)
+        var grid = body.Grid;
+        var groups = VoxelClumps.Of(grid, removed);
+        var clumpAt = VoxelClumps.CellsOf(grid, removed, groups);
+
+        for (var g = 0; g < groups.Count; g++)
         {
-            var position = Vector3.Transform(v.LocalCenter, toWorld);
+            var members = groups[g];
+            var center = members.Count == 1 ? removed[members[0]].LocalCenter : members.Aggregate(Vector3.Zero, (sum, i) => sum + removed[i].LocalCenter) / members.Count;
+            var position = Vector3.Transform(center, toWorld);
             var scatter = new Vector3(Jitter(), Jitter(), Jitter());
             var heading = (outward * 0.6f) + (along * 0.5f) + (scatter * 0.35f);
             var velocity = s.LinearVelocity + Vector3.Cross(s.AngularVelocity, position - s.Position)
                 + (Vector3.Normalize(heading + new Vector3(1e-4f)) * chipSpeed * (1f + (0.25f * Jitter())));
-            _chips.Add(new VoxelChip(position, velocity, s.Orientation, body.Grid.CellSize, v.Material, v.WasSurface));
+            if (members.Count == 1)
+            {
+                var v = removed[members[0]];
+                _chips.Add(new VoxelChip(position, velocity, s.Orientation, grid.CellSize, v.Material, v.WasSurface));
+                continue;
+            }
+
+            // 塊: 1 つの剛体の見た目として回りながら飛び、剥がれた断面（体に残ったセル・別の塊に面していた面）だけが一瞬光る。
+            var cells = new VoxelChunkCell[members.Count];
+            for (var k = 0; k < members.Count; k++)
+            {
+                var v = removed[members[k]];
+                cells[k] = new VoxelChunkCell(v.LocalCenter - center, v.Material, v.WasSurface, VoxelClumps.TornFaces(grid, v.LocalCenter, clumpAt, g));
+            }
+
+            _chunks.Add(new VoxelChunk(position, velocity, s.Orientation, s.AngularVelocity, grid.CellSize, cells));
         }
     }
 }
