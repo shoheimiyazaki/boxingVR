@@ -569,12 +569,16 @@ internal static class HandleLab
     /// <summary>
     /// 候補の値の点: 勝ち − 負け + 0.45 tanh((与えた − 受けた) / 400) + 0.45 tanh(1 試合あたりの（相手が失ったセル − 自分が失ったセル）/ 300)。
     /// 前の項は <see cref="MatchTrainer{T}"/> と同じ物差し（打撃の得点）、後ろの項は材料で見た差し引き（自分の武器で自分を削った分も、相手に斬られた分も数える。§1.4）。
+    /// 2026-11-25 から − 0.45 tanh(当たった振りの形の代価の平均 / 3)（<see cref="FormCost"/>: 刃筋。docs/plans/FORM_DECAY_STUDY.md）: 刃を寝かせて叩いても勝てば
+    /// 採られていた。刃の無い武器は刃筋を測らない（NaN）ので 0。
     /// <paramref name="weapon"/> を握る側だけ数える。
     /// </summary>
     public static (float Value, int Wins, int Losses, int Draws, float Dealt, float Taken, float CellDiff) Score(IReadOnlyList<Bout> bouts, WeaponKind weapon)
     {
         int wins = 0, losses = 0, draws = 0, n = 0;
         float dealt = 0f, taken = 0f, cells = 0f;
+        double form = 0d;
+        var formSwings = 0;
         foreach (var bout in bouts)
         {
             foreach (var (mine, other) in new[] { (bout.Red, bout.Blue), (bout.Blue, bout.Red) })
@@ -591,10 +595,17 @@ internal static class HandleLab
                 dealt += mine.DamageDealt;
                 taken += mine.DamageTaken;
                 cells += other.CellsLost - mine.CellsLost;
+                foreach (var swing in mine.Swings.Where(s => s.Hit && !float.IsNaN(s.OffPlane)))
+                {
+                    form += FormCost.Of(0d, 0d, swing.OffPlane, 0d);
+                    formSwings++;
+                }
             }
         }
 
+        var formTerm = formSwings == 0 ? 0f : 0.45f * MathF.Tanh((float)(form / formSwings) / 3f);
+
         var perBout = n == 0 ? 0f : cells / n;
-        return (wins - losses + (0.45f * MathF.Tanh((dealt - taken) / 400f)) + (0.45f * MathF.Tanh(perBout / 300f)), wins, losses, draws, dealt, taken, perBout);
+        return (wins - losses + (0.45f * MathF.Tanh((dealt - taken) / 400f)) + (0.45f * MathF.Tanh(perBout / 300f)) - formTerm, wins, losses, draws, dealt, taken, perBout);
     }
 }

@@ -61,6 +61,47 @@ internal static class KickShin
         return KickMocap.Doll(Body(c.Attacker), spec, rear ? Hand.Right : Hand.Left, tune.Standoff, tune.Seconds, c.Seed, null, null, Body(c.Victim));
     }
 
+    /// <summary>
+    /// 1 本の蹴りと、その形（docs/plans/FORM_DECAY_STUDY.md）: 膝の制御点を体が追えなかった距離（RMS）、手本（人の動きの経路）から練習の差分でずらした膝の距離
+    /// （方位・仰角のずれの角 × 腿の長さ）、蹴りの間に使ったスタミナ。
+    /// </summary>
+    internal sealed record KickTrial(KneePractice.Outcome Outcome, float KneeTrackingCm, float TextbookCm, float StaminaUsed);
+
+    /// <summary>1 本の蹴りを形と一緒に測る（<see cref="Kick"/> と同じ蹴り）。</summary>
+    internal static KickTrial Trial(Height h, bool rear, KickTune tune, Condition c)
+    {
+        var side = rear ? Hand.Right : Hand.Left;
+        var spec = KickSpec.Of(h.Technique) with { Tunes = new KickTunes(tune, tune) };
+        double squared = 0;
+        var samples = 0;
+        var thigh = 0f;
+        float? staminaStart = null;
+        var staminaEnd = 0f;
+        var outcome = KickMocap.Doll(Body(c.Attacker), spec, side, tune.Standoff, tune.Seconds, c.Seed, (game, kneeGoal, t) =>
+        {
+            var me = game.Player;
+            if (t > tune.Seconds)
+            {
+                return;
+            }
+
+            staminaStart ??= me.Stamina;
+            staminaEnd = me.Stamina;
+            thigh = MathF.Max(thigh, Vector3.Distance(me.HipPosition(side), me.KneePosition(side)));
+            if (kneeGoal is { } goal)
+            {
+                var e = Vector3.Distance(goal, me.KneePosition(side));
+                squared += e * e;
+                samples++;
+            }
+        }, null, Body(c.Victim));
+        var shift = MathF.Sqrt((tune.AzimuthShift * tune.AzimuthShift) + (tune.ElevationShift * tune.ElevationShift));
+        return new KickTrial(outcome, samples == 0 ? 0f : 100f * MathF.Sqrt((float)(squared / samples)), 100f * shift * thigh, (staminaStart ?? 0f) - staminaEnd);
+    }
+
+    /// <summary>形の代価を引いた点（練習の点。大きいほど良い）: <see cref="Score(Height, KneePractice.Outcome)"/> − <see cref="FormCost.Of"/>（刃筋は脚なので 0）。</summary>
+    internal static double Score(Height h, KickTrial t) => Score(h, t.Outcome) - FormCost.Of(t.TextbookCm, t.KneeTrackingCm, 0d, t.StaminaUsed);
+
     internal const float ShinLow = 0.55f;
     internal const float ShinHigh = 0.9f;
 
@@ -87,7 +128,7 @@ internal static class KickShin
     {
         double ScoreOf(KickTune t)
         {
-            return conditions.Select(c => Score(h, Kick(h, rear, t, c))).Average();
+            return conditions.Select(c => Score(h, Trial(h, rear, t, c))).Average();
         }
 
         var x0 = Encode(start);
@@ -126,6 +167,24 @@ internal static class KickShin
         _ => new KickTune(1.0f, 1.091f, 0f, 0f, 0f, -0.5f),
     };
 
+    /// <summary>
+    /// 比べ直しの門（CLAUDE.md §1.8）: 練習で見つけた差分と今の組み込みの差分を、練習に使わなかった条件（<see cref="ConfirmConditions"/>）で、形の代価を引いた点で
+    /// 対にして比べ、平均で今より良いときだけ採る。結果は docs/arena/confirm.jsonl に残す。
+    /// </summary>
+    internal static KickTune Gate(Height h, bool rear, KickTune trained, Action<string> log)
+    {
+        var tunes = KickTunes.Load(h.File);
+        var current = rear ? tunes.Rear : tunes.Front;
+        var a = ConfirmConditions.Select(c => Score(h, Trial(h, rear, trained, c))).ToArray();
+        var b = ConfirmConditions.Select(c => Score(h, Trial(h, rear, current, c))).ToArray();
+        var result = PairedEvaluation.Compute(a, b);
+        var adopt = result.MeanDiff > 0d;
+        log($"比べ直し（使っていない条件 {a.Length}）: 練習の後 {F((float)result.MeanA)} 対 今 {F((float)result.MeanB)} → {(adopt ? "採る" : "採らない（今のまま）")}（{result}）");
+        ConfirmLog.Append("kickshin", $"{h.File} {(rear ? "rear" : "front")}: 練習の差分は今の差分より形の代価を引いた点で良いか", "trained", "current",
+            [.. ConfirmConditions.Select(c => c.Seed)], result, new Dictionary<string, string> { ["adopted"] = adopt ? "yes" : "no" });
+        return adopt ? trained : current;
+    }
+
     /// <summary>練習して表を作る。<paramref name="practice"/> が false なら練習せず、組み込みの差分（練習の結果）と練習の前を比べる。</summary>
     public static void Run(IReadOnlyList<Height> heights, bool practice, int gens, int lambda, int parallel, string? jsonDir, Action<string> log, int seed = 7)
     {
@@ -150,7 +209,7 @@ internal static class KickShin
                 {
                     log($"## 練習: {h.Name} {(rear ? "後ろ" : "前")}");
                     var (tuned, _, _) = Practice(h, rear, start, TuneConditions, gens, lambda, parallel, log, seed);
-                    results[rear] = tuned;
+                    results[rear] = Gate(h, rear, tuned, log);
                 }
                 else
                 {

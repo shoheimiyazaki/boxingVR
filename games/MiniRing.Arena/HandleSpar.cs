@@ -143,7 +143,7 @@ internal static class HandleSpar
         report.AppendLine(string.Create(CultureInfo.InvariantCulture,
             $"# 武器の教科書を育てる（{trainee} / {CharacterLabel(weapon)}、相手: {string.Join("・", opponents)}、各相手 {bouts} 試合 × {seconds:0} 秒、{gens} 世代 × {lambda} 候補、世代ごとに種を変える、レフェリー {(referee ? "あり" : "なし")}、LogicVersion {BoxerBot.LogicVersion}）"));
         report.AppendLine();
-        report.AppendLine("点 = 勝ち − 負け + 0.45 tanh((与えた − 受けた) / 400) + 0.45 tanh(1 試合あたりの（相手が失ったセル − 自分が失ったセル）/ 300)（`HandleLab.Score`）。");
+        report.AppendLine("点 = 勝ち − 負け + 0.45 tanh((与えた − 受けた) / 400) + 0.45 tanh(1 試合あたりの（相手が失ったセル − 自分が失ったセル）/ 300) − 0.45 tanh(当たった振りの刃筋の代価の平均 / 3)（`HandleLab.Score`・`FormCost`）。");
         report.AppendLine();
         report.AppendLine("| 世代 | 値 | 点（その世代の種） | 勝ち | 負け | 分け | 与えた | 受けた | セル差/試合 | 相手ごと（勝ち-負け） |");
         report.AppendLine("|---:|---|---:|---:|---:|---:|---:|---:|---:|---|");
