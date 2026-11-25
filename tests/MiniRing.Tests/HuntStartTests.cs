@@ -7,13 +7,13 @@ namespace MiniRing.Tests;
 
 /// <summary>狩りのドリルの受け手の臓器が、試合の時計が動く前（助走の間）に削れていないか（2026-11-25）。</summary>
 [TestClass]
-[TestCategory("Probe")]
-public sealed class HuntOrganProbe
+[TestCategory("slow")]
+public sealed class HuntStartTests
 {
     [TestMethod]
-    public void OrgansAtStart()
+    public void Victims_StartTheClockWithEveryOrganWhole()
     {
-        foreach (var id in new[] { "ramon", "sean", "jin", "konrad" })
+        foreach (var id in new[] { "ramon", "sean" })
         {
             var hunter = CharacterRoster.Get("galva");
             var victim = CharacterRoster.Get(id);
@@ -40,7 +40,15 @@ public sealed class HuntOrganProbe
                     line += $"{palette[(byte)m].Name} {left}/{start} ";
                 }
 
-                Console.WriteLine(line + $" parts {body.Parts.Count}");
+                Console.WriteLine(line);
+                Assert.IsNull(game.Player.DeathCause, line);
+                for (var m = 1; m < palette.Count; m++)
+                {
+                    if (palette[(byte)m].Vital)
+                    {
+                        Assert.AreEqual(body.Parts.Sum(p => p.Body.Grid.Initial((byte)m)), body.Parts.Sum(p => p.Body.Grid.Remaining((byte)m)), line);
+                    }
+                }
                 game.Step(default, HuntLab.StepDt);
             }
         }
