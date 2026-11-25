@@ -365,6 +365,12 @@ public sealed record BotStyle
     /// 小さいほど深く踏み込んで鎌の根元の側で斬り、大きいほど遠くから先で斬る。既定 0.56（それまでの値）。
     /// </summary>
     public float ClawReach { get; init; } = 0.56f;
+
+    /// <summary>
+    /// 鎌の斬り払いの合間 [s]（教育の値: 技の拍子。2026-11-25）: 両腕の鎌が構えへ戻ってから、次を振り始めるまで待つ時間。待つ間も間合いは詰める。
+    /// 振り続けると脚・腕の酸素が尽きて（スタミナ）振りが遅く弱くなるので、息を戻す間との釣り合い。既定 0（それまでどおり、届けばすぐ振る）。
+    /// </summary>
+    public float ClawRest { get; init; }
     /// <summary>Kick goal cycle duration in seconds.</summary>
     public float KickDuration { get; init; } = 1.175f;
     /// <summary>
@@ -570,6 +576,7 @@ public sealed record BotStyle
             ClawAimArm = Range(ClawAimArm, 0f, 10f, 1f),
             ClawAimTorso = Range(ClawAimTorso, 0f, 10f, 1f),
             ClawReach = Range(ClawReach, 0f, 1f, 0.56f),
+            ClawRest = Range(ClawRest, 0f, 3f, 0f),
             KickDuration = Range(KickDuration, 0.6714f, 2.014f, 1.175f),
             KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
             BreakLikes = (BreakLikes ?? new Dictionary<string, float>()).ToDictionary(p => p.Key, p => NonNegative(p.Value)),

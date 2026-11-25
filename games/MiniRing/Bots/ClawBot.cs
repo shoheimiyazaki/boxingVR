@@ -15,6 +15,9 @@ internal sealed class ClawBot(BotStats stats)
     /// <summary>次の斬り払いの狙い（0 首・1 腕・2 胴）。斬り始めた後に次を決める。</summary>
     private int _nextAim = -1;
 
+    /// <summary>両腕の鎌が構えに戻ってからの時間 [s]（<see cref="BotStyle.ClawRest"/>）。</summary>
+    private float _idle = float.PositiveInfinity;
+
     public FighterCommand Read(FighterCommand basis, in FighterSense sense, float dt, BotStyle style)
     {
         var to = sense.OpponentChest - sense.Self.Origin;
@@ -23,8 +26,9 @@ internal sealed class ClawBot(BotStats stats)
         var forward = distance > 0.001f ? to / distance : sense.Self.Forward;
         var range = sense.ArmReach + ClawSegment.Length * style.ClawReach;
         var occupied = _arms[0].Active || _arms[1].Active;
+        _idle = occupied ? 0f : _idle + dt;
         var kick = basis.LeftLeg is not null || basis.RightLeg is not null;
-        var ready = style.Attacks && !occupied && !kick && sense.OpponentAlive && distance < range + 0.10f;
+        var ready = style.Attacks && !occupied && !kick && sense.OpponentAlive && distance < range + 0.10f && _idle >= style.ClawRest;
         var side = (_strokeCount & 1) == 0 ? Hand.Right : Hand.Left;
         if (_nextAim < 0)
         {
@@ -59,7 +63,7 @@ internal sealed class ClawBot(BotStats stats)
     /// 次の狙いを重みの比で選ぶ（重み付きの順番回し: 各狙いに重みを足し、いちばん溜まった狙いを選んで合計を引く。乱数を使わない）。
     /// 重みが全部 1 なら 0 → 1 → 2 の繰り返し（等しいときは前の狙い）。
     /// </summary>
-    private int NextAim(BotStyle style)
+    internal int NextAim(BotStyle style)
     {
         Span<float> w = [style.ClawAimNeck, style.ClawAimArm, style.ClawAimTorso];
         var total = w[0] + w[1] + w[2];

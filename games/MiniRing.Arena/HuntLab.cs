@@ -15,7 +15,12 @@ namespace MiniRing.Arena;
 /// <param name="Cause">死因（<see cref="Fighter.DeathCause"/>。死ななければ "-"）。</param>
 /// <param name="Removed">受け手の体から失われたボクセルの数。</param>
 /// <param name="Lethal">死への近さ 0..1（<see cref="HuntLab.Lethality"/>。死んだら 1）。</param>
-internal sealed record HuntRun(string Victim, int Seed, bool Killed, float Seconds, float? DownAt, string Cause, int Removed, float Lethal);
+/// <param name="Neck">首の断ち具合 0..1（<see cref="HuntLab.NeckCut"/>。頭が離れたら 1）。</param>
+internal sealed record HuntRun(string Victim, int Seed, bool Killed, float Seconds, float? DownAt, string Cause, int Removed, float Lethal, float Neck)
+{
+    /// <summary>首を断って（頭が離れて）死んだか。</summary>
+    public bool Beheaded => Killed && Cause == "neck";
+}
 
 /// <summary>
 /// 狩りのドリル（2026-11-25）: 名簿のキャラ（既定は四足の <c>galva</c>）が、VFC の檻（レフェリーなし・ダウンを数えない・死だけが決着）で、
@@ -26,6 +31,11 @@ internal sealed record HuntRun(string Victim, int Seed, bool Killed, float Secon
 internal static class HuntLab
 {
     public const string DefaultHunter = "galva";
+
+    /// <summary>
+    /// 何を速くするか（<c>--goal</c>）: <c>kill</c>（既定。死ぬまでの時間）か <c>neck</c>（首を断って頭が離れるまでの時間。臓器で先に死んだ回は断てなかった回）。
+    /// </summary>
+    public static string Goal { get; set; } = "kill";
 
     /// <summary>真なら 1 回ごとに、0.5 s おきの様子を書く（<c>--trace</c>）。</summary>
     public static TextWriter? Trace { get; set; }
@@ -76,6 +86,7 @@ internal static class HuntLab
         using var game = new BoxingGame(seed: seed, corners: corners, rules: Rules(seconds));
         var body = game.Player;
         var cells0 = Filled(body);
+        var neck0 = NeckRows(body);
         float? downAt = null;
         var dt = StepDt;
         var t = 0f;
@@ -91,18 +102,69 @@ internal static class HuntLab
             if (Trace is { } trace && ((int)MathF.Round(t / dt)) % 30 == 0)
             {
                 var g = (game.CpuControl as GroundStriker)?.Ground;
+                var bot = (game.CpuControl as GroundStriker)?.Inner as BoxerBot;
+                var gap = game.Cpu.ChestPosition - body.ChestPosition;
+                gap.Y = 0f;
+                trace.Write(string.Create(CultureInfo.InvariantCulture, $"  gap={gap.Length():0.00} strokes={bot?.Stats.Combos.GetValueOrDefault("claw-sweep")} stamina={game.Cpu.Stamina:0.00} hunterY={game.Cpu.ChestPosition.Y:0.00} victimY={body.ChestPosition.Y:0.00}"));
                 trace.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                    $"  t={t:0.0} victim={body.State} hunter={game.Cpu.State} plan={g?.CurrentName ?? "-"} started={g?.Started ?? 0} dist={g?.Distance:0.00} sink={g?.Sink:0.00} lethal={Lethality(body):0.00} conscious={body.Consciousness:0.00} removed={cells0 - Filled(body)}"));
+                    $"  t={t:0.0} victim={body.State} hunter={game.Cpu.State} plan={g?.CurrentName ?? "-"} started={g?.Started ?? 0} dist={g?.Distance:0.00} sink={g?.Sink:0.00} lethal={Lethality(body):0.00} neck={NeckCut(body, neck0):0.00} conscious={body.Consciousness:0.00} removed={cells0 - Filled(body)}"));
             }
         }
 
-        return new HuntRun(victimId, seed, body.IsDead, body.IsDead ? t : seconds, downAt, body.DeathCause ?? "-", cells0 - Filled(body), Lethality(body));
+        return new HuntRun(victimId, seed, body.IsDead, body.IsDead ? t : seconds, downAt, body.DeathCause ?? "-", cells0 - Filled(body), Lethality(body), NeckCut(body, neck0));
     }
 
     /// <summary>
     /// 死への近さ 0..1（測る側の物差し。ボットの判断には使わない）: 死んだら 1、生きていれば、致命の材質（脳・心臓などの臓器）ごとの
     /// 「失った割合 / 死ぬ割合（<see cref="FighterTuning.OrganDeathFraction"/>）」の最大。首の切断・臓器の喪失と同じ物差し（<see cref="Voxels.BoxerBody.DeathCause"/>）。
     /// </summary>
+    /// <summary>頭の部位の首の段（<see cref="Voxels.BoxerSpine.NeckSlices"/>）の、段ごとの埋まったセルの数。</summary>
+    public static int[] NeckRows(Fighter f)
+    {
+        var (low, high) = Voxels.BoxerSpine.NeckSlices;
+        var rows = new int[high - low + 1];
+        if (f.Voxels?.Parts.FirstOrDefault(p => p.Kind == BodyPartKind.Head && p.FragmentOf is null) is not { } head)
+        {
+            return rows;
+        }
+
+        var grid = head.Body.Grid;
+        var (nx, ny, nz) = grid.Dimensions;
+        for (var y = low; y <= Math.Min(high, ny - 1); y++)
+        {
+            for (var z = 0; z < nz; z++)
+            {
+                for (var x = 0; x < nx; x++)
+                {
+                    rows[y - low] += grid.At(x, y, z) != 0 ? 1 : 0;
+                }
+            }
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// 首の断ち具合 0..1（測る側の物差し）: 頭が離れて死んだら 1、そうでなければ、首の段のうち最も削れた段の「失ったセルの割合」
+    /// （首は細い所で断たれる: 段ごとの断面のいちばん細い所）。
+    /// </summary>
+    public static float NeckCut(Fighter f, int[] start)
+    {
+        if (f.DeathCause == "neck")
+        {
+            return 1f;
+        }
+
+        var now = NeckRows(f);
+        var worst = 0f;
+        for (var i = 0; i < start.Length; i++)
+        {
+            worst = start[i] > 0 ? MathF.Max(worst, 1f - ((float)now[i] / start[i])) : worst;
+        }
+
+        return Math.Clamp(worst, 0f, 1f);
+    }
+
     public static float Lethality(Fighter f)
     {
         if (f.IsDead)
@@ -153,7 +215,16 @@ internal static class HuntLab
     /// 点（小さいほど良い）: 死んだ回は死ぬまでの時間。死ななかった回は、打ち切りの時間 × (2 − 死への近さ)（打ち切りより必ず悪く、死に近いほど良い）。
     /// 打ち切りの時間は <see cref="HuntRun.Seconds"/>（生きていればそれが打ち切り）。
     /// </summary>
-    public static double Score(HuntRun r) => r.Killed ? r.Seconds : r.Seconds * (2d - r.Lethal);
+    /// <para>首（<see cref="Goal"/> = neck）: 首を断った回はその時間、断てなかった回は打ち切りの時間 × (2 − 首の断ち具合)。臓器で先に死んだ回は、そこで止まった時間ではなく打ち切りの時間で数える。</para>
+    public static double Score(HuntRun r) => Goal == "neck"
+        ? r.Beheaded ? r.Seconds : Cap(r) * (2d - r.Neck)
+        : r.Killed ? r.Seconds : r.Seconds * (2d - r.Lethal);
+
+    /// <summary>その回の打ち切りの時間（死んだ回は分からないので、測った全部の回で同じ値を CapSeconds に入れる）。</summary>
+    private static double Cap(HuntRun r) => r.Killed ? CapSeconds : r.Seconds;
+
+    /// <summary>今の測定の打ち切りの時間 [s]。</summary>
+    public static float CapSeconds { get; set; } = 30f;
 
     public static string Summary(IReadOnlyList<HuntRun> runs)
     {
@@ -162,7 +233,7 @@ internal static class HuntLab
         var downs = runs.Where(r => r.DownAt is not null).Select(r => (double)r.DownAt!.Value).OrderBy(x => x).ToArray();
         var downMedian = downs.Length == 0 ? double.NaN : downs[downs.Length / 2];
         return string.Create(CultureInfo.InvariantCulture,
-            $"killed {runs.Count(r => r.Killed)}/{runs.Count}  time median {median:0.00} s  mean {times.DefaultIfEmpty().Average():0.00} s  (q1 {Quantile(times, 0.25):0.00}, q3 {Quantile(times, 0.75):0.00})  first down median {downMedian:0.00} s ({downs.Length}/{runs.Count})  lethal {runs.Average(r => r.Lethal):0.00}  score {runs.Average(Score):0.00}");
+            $"killed {runs.Count(r => r.Killed)}/{runs.Count}  time median {median:0.00} s  mean {times.DefaultIfEmpty().Average():0.00} s  (q1 {Quantile(times, 0.25):0.00}, q3 {Quantile(times, 0.75):0.00})  first down median {downMedian:0.00} s ({downs.Length}/{runs.Count})  lethal {runs.Average(r => r.Lethal):0.00}  beheaded {runs.Count(r => r.Beheaded)}/{runs.Count}  neck {runs.Average(r => r.Neck):0.00}  score {runs.Average(Score):0.00}");
     }
 
     private static double Quantile(double[] sorted, double q)
@@ -192,7 +263,7 @@ internal static class HuntLab
             foreach (var r in g)
             {
                 log.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                    $"    seed {r.Seed,4}  {(r.Killed ? "killed" : "alive "),-6} {r.Seconds,6:0.00} s  down {(r.DownAt is { } d ? d.ToString("0.00", CultureInfo.InvariantCulture) : "-"),6}  removed {r.Removed,5}  lethal {r.Lethal:0.00}  {r.Cause}"));
+                    $"    seed {r.Seed,4}  {(r.Killed ? "killed" : "alive "),-6} {r.Seconds,6:0.00} s  down {(r.DownAt is { } d ? d.ToString("0.00", CultureInfo.InvariantCulture) : "-"),6}  removed {r.Removed,5}  lethal {r.Lethal:0.00}  neck {r.Neck:0.00}  {r.Cause}"));
             }
         }
     }
@@ -266,7 +337,9 @@ internal static class HuntLab
         log.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"paired n={result.N}: baseline {result.MeanA:0.00} s, trained {result.MeanB:0.00} s, diff {result.MeanDiff:0.00} s (95% CI {result.CiLow:0.00} .. {result.CiHigh:0.00}), sign test p={result.SignP:0.0000} (+{result.Plus}/-{result.Minus})"));
         var pairSeeds = victims.SelectMany((_, vi) => seeds.Select(s => (vi * 100000) + s)).ToArray();
-        ConfirmLog.Append("huntlab", $"{hunterId} の教育で、素手で抵抗しない人間が死ぬまでの時間（打ち切り {seconds:0} s）が縮むか",
+        ConfirmLog.Append("huntlab", Goal == "neck"
+                ? $"{hunterId} の教育で、素手で抵抗しない人間の首を断つまでの時間（打ち切り {seconds:0} s）が縮むか"
+                : $"{hunterId} の教育で、素手で抵抗しない人間が死ぬまでの時間（打ち切り {seconds:0} s）が縮むか",
             "roster", string.Join(",", set.Select(p => string.Create(CultureInfo.InvariantCulture, $"{p.Key}={p.Value:0.###}"))), pairSeeds, result,
             new Dictionary<string, string> { ["victims"] = string.Join(",", victims), ["seeds"] = string.Join(",", seeds), ["baseline"] = Summary(baseline), ["trained"] = Summary(trained) });
         return result;
@@ -295,6 +368,13 @@ internal static class HuntLab
         using var file = o.Get("log") is { } path ? new StreamWriter(path, append: true) : null;
         TextWriter log = file is null ? Console.Out : new Tee(Console.Out, file);
         Trace = o.Get("trace") is not null ? Console.Out : null;
+        Goal = o.Get("goal") ?? "kill";
+        CapSeconds = seconds;
+        if (Goal is not ("kill" or "neck"))
+        {
+            throw new ArgumentException($"--goal は kill か neck: '{Goal}'");
+        }
+
         if (o.Get("video") is { } video)
         {
             Video(hunter, o.Get("victim") ?? Practice[0], o.Int("seed", 1), seconds, set, video, Console.Out);
