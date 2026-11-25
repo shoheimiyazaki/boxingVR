@@ -85,6 +85,7 @@
   kickvideo [--body] [--kick] [--distances] [--side] [--slow] [--width] [--height] [--fps] [--out]
   kickmocap [--dir] [--export] [--log] [--video] [--doll] [--durations] [--distances] [--export-mid] [--body]
   kickshin [--body] [--kick] [--standoff] [--seconds] [--diag] [--log] [--heights] [--practice] [--gens] [--lambda] [--parallel] [--json] [--video] [--victim] [--dir]
+  swordpractice [--who] [--forms] [--gens] [--lambda] [--sigma] [--seed] [--seeds] [--held-seeds] [--victims] [--held-victims] [--parallel] [--baseline] [--write] [--out] [--video] [--tunes] [--victim] [--slow]
   kneelab [--stage] [--bodies] [--body] [--distances] [--distance] [--confirm] [--azimuths] [--elevations] [--twists] [--sides] [--log] [--impact-az] [--impact-el] [--impact-twist] [--foot] [--gens] [--lambda] [--video]
   formlab [--punch] [--slot] [--style] [--move] [--set] [--cue] [--bouts] [--seconds] [--seed] [--log]
   aimlab [--library] [--library-out] [--tuning-out] [--out] [--quick] [--maxshift] [--forms] [--only]

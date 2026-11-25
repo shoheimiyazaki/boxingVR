@@ -122,7 +122,7 @@
       }
     },
     "vs": {},
-    "weaponBot": null
+    "weaponBot": {"Forms": {"harai-men": {"Tempo": 1.23004, "Twist": 0.07971518, "Lift": 0.064279966, "Lean": 0.0033723712, "Reach": 0.016796041}, "shomen": {"Tempo": 1.5067066, "Twist": 0.13271883, "Lift": -0.023316912, "Lean": 0.049709447, "Reach": -0.10149773}}}
   },
   "record": [],
   "locales": {

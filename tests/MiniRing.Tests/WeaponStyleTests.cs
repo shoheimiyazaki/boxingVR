@@ -122,8 +122,10 @@ public sealed class WeaponStyleTests
         var jin = WithWeaponBot("jin", "{ \"Rest\": 0.6714, \"ClubRange\": 1.408 }");
         Assert.AreEqual(0.6714f, jin.WeaponStyle!.Rest);
         Assert.AreEqual(1.408f, jin.WeaponStyle.ClubRange, "the club values are carried even when unused");
-        Assert.AreSame(WeaponCatalog.Textbook(WeaponKind.Katana), CharacterRoster.Get("jin").WeaponStyle, "an empty education plays the textbook itself");
-        Assert.AreSame(WeaponCatalog.Textbook(WeaponKind.Longsword), CharacterRoster.Get("konrad").WeaponStyle);
+        Assert.AreSame(WeaponCatalog.Textbook(WeaponKind.Katana), WithWeaponBot("jin", "{}").WeaponStyle, "an empty education plays the textbook itself");
+        // 2026-11-26: 迅・コンラートの教育は 1 振りの型の経路（Forms）と、コンラートは狙いの切り替え（AutoAim）だけ。
+        CharacterRosterTests.AssertWeaponTextbookPlusGround(WeaponCatalog.Textbook(WeaponKind.Katana), CharacterRoster.Get("jin").WeaponStyle, "jin");
+        CharacterRosterTests.AssertWeaponTextbookPlusGround(WeaponCatalog.Textbook(WeaponKind.Longsword), CharacterRoster.Get("konrad").WeaponStyle, "konrad");
         // 2026-11-24: ショーンの教育はとどめの経路（weaponBot.Ground）だけを持つ。
         CharacterRosterTests.AssertWeaponTextbookPlusGround(WeaponCatalog.Textbook(WeaponKind.WoodenClub), CharacterRoster.Get("sean").WeaponStyle, "sean");
         Assert.IsNull(CharacterRoster.Get("marcus").WeaponStyle, "fists have no weapon bot");
