@@ -98,7 +98,7 @@ try
         "swordlib" => SwordLibCommand(Options.Parse(argv[1..], "out", "best", "bouts", "seconds", "seed", "fight", "video", "red", "blue")),
         "imitate" => ImitateCommand(Options.Parse(argv[1..], "out", "rate", "slow", "width", "height", "fps", "only", "measure", "wrist", "wrist-hz", "self", "lead", "weapon", "vrmotion", "wear")),
         "vrmotion-synth" => VrMotionSynthCommand(Options.Parse(argv[1..], "out")),
-        "vrforms" => VrFormsCommand(Options.Parse(argv[1..], "dir", "rank", "seed", "bouts", "seconds", "out", "video", "width", "height", "fps", "slow", "only", "confirm")),
+        "vrforms" => VrFormsCommand(Options.Parse(argv[1..], "dir", "rank", "seed", "bouts", "seconds", "out", "video", "width", "height", "fps", "slow", "only", "confirm", "char", "forms", "vs", "referee")),
         "mocap" => MocapCommand(Options.Parse(argv[1..], "bvh", "out", "from", "to", "speed", "width", "height", "fps", "strikes")),
         "sparlab" => SparLabCommand(Options.Parse(argv[1..], "gens", "lambda", "bouts", "seconds", "seed", "start", "best", "out", "final-bouts", "final-seconds", "video", "width", "height", "fps")),
         "swordlab" => SwordLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "techniques")),
@@ -1936,6 +1936,25 @@ static int VrFormsCommand(Options o)
     var lab = new VrFormsLab(o.Int("seed", 1), o.Int("bouts", 8, min: 1), o.Float("seconds", 60f, min: 1f), o.List("only", []), o.Get("confirm") == "yes"); // --only kote,nuki-do: 差し替える型だけ。--confirm yes: 比べ直しの台帳へ
     var dir = o.Get("dir") ?? "docs/vrmotion";
     var rank = o.Int("rank", 1, min: 1);
+    if (o.Get("char") is { } characterId)
+    {
+        // キャラの教育に VR の振りを重ねて、名簿の相手と比べる。--forms 型=組み込みの振りの名前,…（MiniRing/Motion/VrForms/）
+        var vrForms = o.List("forms", []).Select(p => p.Split('=', 2))
+            .ToDictionary(p => p[0], p => p.Length > 1 ? p[1] : throw new ArgumentException($"--forms は 型=振りの名前: '{p[0]}'"));
+        var charReport = lab.RunCharacter(characterId, vrForms, o.List("vs", []), Referee(o), Console.Out);
+        if (o.Get("out") is { } charOut)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(charOut))!);
+            File.WriteAllText(charOut, charReport);
+        }
+        else
+        {
+            Console.Write(charReport);
+        }
+
+        return 0;
+    }
+
     if (o.Get("video") is { } video)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(video))!);

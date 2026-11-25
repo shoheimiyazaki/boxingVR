@@ -18,6 +18,8 @@ internal sealed class VrFormsLab(int seed, int bouts, float seconds, IReadOnlyLi
 {
     private const WeaponKind Katana = WeaponKind.Katana;
 
+    private static readonly bool[] Both = [false, true];
+
     internal sealed record Side(string Name, IReadOnlyList<MotionTechnique> Techniques);
 
     internal sealed record Result(int Seed, bool VrIsRed, int VrLost, int TextbookLost, bool VrDied, bool TextbookDied, List<string> VrUsed, List<string> TextbookUsed);
@@ -181,6 +183,89 @@ internal sealed class VrFormsLab(int seed, int bouts, float seconds, IReadOnlyLi
         }
 
         log.WriteLine($"vrforms: {jobs.Length} bouts, VR lost fewer cells in {vrBetter}");
+        return text.ToString();
+    }
+
+    /// <summary>
+    /// キャラで比べる（<c>--char jin --forms gyaku-kesa=katana_gyaku-kesa_1_…,…</c>）: そのキャラのまま（A = 今の教育）と、教育の <c>weaponBot</c> に
+    /// <see cref="WeaponStyle.VrForms"/> を重ねた版（B）を、名簿の相手それぞれと同じ種・同じ色で戦わせる（名簿の試合と同じ道筋 <see cref="RosterLeague.RunBout"/>）。
+    /// 勝ち = 1・引き分け = 0.5・負け = 0 と、名簿の点（与えた − 受けた の重み付き）を、相手 × 種ごとに 2 色を平均して対にして比べる。
+    /// </summary>
+    public string RunCharacter(string characterId, IReadOnlyDictionary<string, string> vrForms, IReadOnlyList<string> opponents, bool referee, TextWriter log)
+    {
+        var baseChar = MiniRing.Characters.CharacterRoster.Get(characterId);
+        var weaponBot = baseChar.Education.WeaponBot?.DeepClone().AsObject() ?? new System.Text.Json.Nodes.JsonObject();
+        var forms = new System.Text.Json.Nodes.JsonObject();
+        foreach (var (form, id) in vrForms)
+        {
+            forms[form] = id;
+        }
+
+        weaponBot["VrForms"] = forms;
+        var variant = baseChar with { Education = baseChar.Education with { WeaponBot = weaponBot } };
+        _ = variant.WeaponStyle; // 教育を重ねられるか（鍵・名前・組み込みの振り）を先に確かめる
+        var foes = opponents.Count > 0 ? [.. opponents.Select(MiniRing.Characters.CharacterRoster.Get)]
+            : MiniRing.Characters.CharacterRoster.All.Where(c => c.Id != characterId).ToList();
+        var jobs = (from foe in foes
+                    from b in Enumerable.Range(0, bouts)
+                    from red in Both
+                    from useVr in Both
+                    select (Foe: foe, Seed: seed + b, Red: red, Vr: useVr)).ToArray();
+        var outcomes = new (double Points, double Score)[jobs.Length];
+        Parallel.For(0, jobs.Length, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount - 2) }, i =>
+        {
+            var (foe, s, red, useVr) = jobs[i];
+            var me = useVr ? variant : baseChar;
+            var o = red ? RosterLeague.RunBout(me, foe, s, seconds, referee) : RosterLeague.RunBout(foe, me, s, seconds, referee);
+            var mine = red ? o.RedTally : o.BlueTally;
+            var winner = red ? o.Winner : -o.Winner;
+            outcomes[i] = (winner > 0 ? 1 : winner == 0 ? 0.5 : 0, mine.WeightedScore);
+        });
+
+        var text = new StringBuilder();
+        text.AppendLine(CultureInfo.InvariantCulture, $"## {baseChar.HudName}（{characterId}）: 今の教育（A）対 遠間の型を VR の振りにした教育（B）");
+        text.AppendLine();
+        text.AppendLine(CultureInfo.InvariantCulture, $"相手 {foes.Count} 人 × 種 {seed}〜{seed + bouts - 1} × 色を入れ替えて、A・B それぞれ {jobs.Length / 2} 試合（{seconds:0} 秒、レフェリー {(referee ? "あり" : "なし")}）。名簿の試合と同じ道筋（`RosterLeague.RunBout`）。");
+        text.AppendLine();
+        text.AppendLine("差し替えた型: " + string.Join("・", vrForms.Select(p => $"{p.Key} ← {p.Value}")));
+        text.AppendLine();
+        text.AppendLine("| 相手 | A 勝ち/分け/負け | B 勝ち/分け/負け | A 名簿の点（平均） | B 名簿の点（平均） |");
+        text.AppendLine("|---|---|---|---:|---:|");
+        string Wdl(IEnumerable<int> idx)
+        {
+            var l = idx.Select(k => outcomes[k].Points).ToList();
+            return string.Create(CultureInfo.InvariantCulture, $"{l.Count(x => x == 1)}/{l.Count(x => x == 0.5)}/{l.Count(x => x == 0)}");
+        }
+
+        foreach (var foe in foes)
+        {
+            var a = Enumerable.Range(0, jobs.Length).Where(k => jobs[k].Foe.Id == foe.Id && !jobs[k].Vr).ToList();
+            var b = Enumerable.Range(0, jobs.Length).Where(k => jobs[k].Foe.Id == foe.Id && jobs[k].Vr).ToList();
+            text.AppendLine(CultureInfo.InvariantCulture, $"| {foe.HudName}（{foe.Id}） | {Wdl(a)} | {Wdl(b)} | {a.Average(k => outcomes[k].Score):0} | {b.Average(k => outcomes[k].Score):0} |");
+        }
+
+        // 相手 × 種ごとに、2 色の平均で 1 対（A, B）。
+        var pairs = jobs.Select((j, k) => (j, k)).GroupBy(x => (x.j.Foe.Id, x.j.Seed)).OrderBy(g => g.Key.Id, StringComparer.Ordinal).ThenBy(g => g.Key.Seed)
+            .Select(g => (A: g.Where(x => !x.j.Vr).Select(x => outcomes[x.k]).ToList(), B: g.Where(x => x.j.Vr).Select(x => outcomes[x.k]).ToList(), g.Key.Seed)).ToList();
+        var pointsA = pairs.Select(p => p.A.Average(x => x.Points)).ToArray();
+        var pointsB = pairs.Select(p => p.B.Average(x => x.Points)).ToArray();
+        var scoreA = pairs.Select(p => p.A.Average(x => x.Score)).ToArray();
+        var scoreB = pairs.Select(p => p.B.Average(x => x.Score)).ToArray();
+        var winResult = PairedEvaluation.Compute(pointsB, pointsA);
+        var scoreResult = PairedEvaluation.Compute(scoreB, scoreA);
+        text.AppendLine();
+        text.AppendLine(CultureInfo.InvariantCulture, $"勝ち点（勝ち 1・分け 0.5、相手 × 種の {pairs.Count} 対）: A {pointsA.Average():0.000}・B {pointsB.Average():0.000}、B − A {winResult.MeanDiff:+0.000;-0.000;0.000}（95 % 区間 {winResult.CiLow:+0.000;-0.000;0.000}〜{winResult.CiHigh:+0.000;-0.000;0.000}、符号 p {winResult.SignP:0.00}、{winResult.Verdict}）");
+        text.AppendLine();
+        text.AppendLine(CultureInfo.InvariantCulture, $"名簿の点: A {scoreA.Average():0}・B {scoreB.Average():0}、B − A {scoreResult.MeanDiff:+0;-0;0}（95 % 区間 {scoreResult.CiLow:+0;-0}〜{scoreResult.CiHigh:+0;-0}、符号 p {scoreResult.SignP:0.00}、{scoreResult.Verdict}）");
+        if (confirm)
+        {
+            var seeds = pairs.Select(p => p.Seed).ToArray();
+            var b = "教育 + VR の振り（" + string.Join(",", vrForms.Keys) + "）";
+            ConfirmLog.Append("vrforms", $"{characterId} の勝ち点（相手 × 種、2 色の平均）", b, "今の教育", seeds, winResult);
+            ConfirmLog.Append("vrforms", $"{characterId} の名簿の点（相手 × 種、2 色の平均）", b, "今の教育", seeds, scoreResult);
+        }
+
+        log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"vrforms --char {characterId}: points A {pointsA.Average():0.000} B {pointsB.Average():0.000} ({winResult.Verdict}), score A {scoreA.Average():0} B {scoreB.Average():0} ({scoreResult.Verdict})"));
         return text.ToString();
     }
 

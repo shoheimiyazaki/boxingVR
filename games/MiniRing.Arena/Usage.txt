@@ -105,7 +105,7 @@
   swordlib [--out] [--best] [--bouts] [--seconds] [--seed] [--fight] [--video] [--red] [--blue]
   imitate [--out] [--rate] [--slow] [--width] [--height] [--fps] [--only] [--measure] [--wrist] [--wrist-hz] [--self] [--lead] [--weapon] [--vrmotion] [--wear]
   vrmotion-synth [--out]
-  vrforms [--dir] [--rank] [--seed] [--bouts] [--seconds] [--out] [--video] [--width] [--height] [--fps] [--slow] [--only] [--confirm]
+  vrforms [--dir] [--rank] [--seed] [--bouts] [--seconds] [--out] [--video] [--width] [--height] [--fps] [--slow] [--only] [--confirm] [--char] [--forms] [--vs] [--referee]
   mocap [--bvh] [--out] [--from] [--to] [--speed] [--width] [--height] [--fps] [--strikes]
   intentvideo [--script] [--blue] [--seed] [--seconds] [--width] [--height] [--out]
   version 
