@@ -6,8 +6,12 @@ namespace MiniRing.Weapons;
 /// 構えから助走を始め、切断面の中を一定方向へ振り抜く目標経路。<see cref="Draw"/> なら引き斬り（2026-11-25）: 刃を寝かせて狙いの点の向こう側へ掛け、
 /// そこから手前へ引いて、刃の手前の縁を狙いの点へ通す（鎌で刈る形。刃の押し当てと引く速さで斬る）。
 /// </summary>
-public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bool Sweep, float Windup, float DriveTime, float FollowThrough, bool Draw = false)
+public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bool Sweep, float Windup, float DriveTime, float FollowThrough, bool Draw = false,
+    ClawCylinder? Cylinder = null)
 {
+    /// <summary>円柱を断つ経路で、斬る点が中心の手前から動き始める距離 [腕の長さ]（溜め <see cref="Windup"/> = 1 のとき）。</summary>
+    private const float CutBefore = 0.45f;
+
     /// <summary>引き斬りで、刃を掛ける所の、狙いの点より向こうの距離 [腕の長さ]（溜め <see cref="Windup"/> = 1 のとき）。</summary>
     private const float DrawBehind = 0.16f;
 
@@ -36,10 +40,10 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
             return Vector3.Normalize(new Vector3(-Hand.LocalSide(), -slope, 0f));
         }
     }
-    public Vector3 Normal => Sweep && !Draw ? Vector3.Cross(Forward, Across) : Vector3.UnitY;
+    public Vector3 Normal => Cylinder is { } c ? c.Axis : Sweep && !Draw ? Vector3.Cross(Forward, Across) : Vector3.UnitY;
 
-    public static ClawStroke Create(Hand hand, float reach, Vector3 aim, bool sweep, float drive = 0.31f, float windup = 1f, bool draw = false)
-        => new(hand, reach, aim, sweep, windup, drive, 0.32f, draw);
+    public static ClawStroke Create(Hand hand, float reach, Vector3 aim, bool sweep, float drive = 0.31f, float windup = 1f, bool draw = false, ClawCylinder? cylinder = null)
+        => new(hand, reach, aim, sweep, windup, drive, 0.32f, draw, cylinder);
 
     public static ClawSegment Guard(Hand hand, float reach)
     {
@@ -66,6 +70,11 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
 
     private ClawSegment Drive(float phase)
     {
+        if (Cylinder is { } cylinder)
+        {
+            return CylinderCut(cylinder, phase);
+        }
+
         if (Draw)
         {
             return DrawCut(phase);
@@ -120,6 +129,31 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
         return new ClawSegment(root, root + axis * ClawSegment.Length, Vector3.UnitY);
     }
 
+    /// <summary>
+    /// 円柱を軸に垂直に断つ経路（2026-11-25、ユーザーの指定「目標を竹のような円柱と考え、なるべく垂直に切る軌道面を定義し、その面を刃の向きで高速で振り抜く」）:
+    /// 切断面 = 狙いの点（円柱の中心）を通り、軸（<see cref="ClawCylinder.Axis"/>）に垂直な面。刃はその面に寝かせ（面の法線 = 軸）、刃の弦は面の中で前（自分から遠い向き）へ向ける。
+    /// 刃の上の斬る点（刃元から弦の <see cref="ClawCylinder.Point"/> の割合）が、中心の手前（手の側へ <see cref="CutBefore"/> × 溜め）から、中心を通って
+    /// 向こう側（<see cref="ClawCylinder.After"/>）まで、面の中をまっすぐ進む（開始点 → 中心 → 終着点）。刃は進む向きに垂直なので、刃筋が通る。
+    /// 狙う部位では分けない（首・腕・胴のどれでも、狙いの点と軸から同じ式）。
+    /// </summary>
+    private ClawSegment CylinderCut(ClawCylinder cylinder, float phase)
+    {
+        var axis = cylinder.Axis.LengthSquared() > 1e-8f ? Vector3.Normalize(cylinder.Axis) : Vector3.UnitY;
+        var forward = Forward - (axis * Vector3.Dot(Forward, axis));
+        forward = forward.LengthSquared() > 1e-6f ? Vector3.Normalize(forward) : Vector3.Normalize(Vector3.Cross(axis, Vector3.UnitX));
+        var across = Vector3.Normalize(Vector3.Cross(axis, forward));
+        if (Vector3.Dot(across, new Vector3(-Hand.LocalSide(), 0f, 0f)) < 0f)
+        {
+            across = -across; // 手の側から体の中心の側へ振り抜く
+        }
+
+        var before = CutBefore * Reach * Windup;
+        var after = cylinder.After * Reach;
+        var cutPoint = Aim + (across * (-before + (phase * (before + after))));
+        var root = cutPoint - (forward * (ClawSegment.Length * cylinder.Point));
+        return new ClawSegment(root, root + (forward * ClawSegment.Length), axis);
+    }
+
     private static ClawSegment Blend(ClawSegment from, ClawSegment to, float blend)
     {
         var root = Vector3.Lerp(from.Root, to.Root, blend);
@@ -133,3 +167,9 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
         return t * t * (3f - 2f * t);
     }
 }
+
+/// <summary>
+/// 円柱を断つ経路の的（体フレーム）: 円柱の軸 <paramref name="Axis"/>（向きだけ）、刃の上の斬る点 <paramref name="Point"/>（刃元から弦の割合 0..1）、
+/// 中心から向こうへ振り抜く距離 <paramref name="After"/> [腕の長さ]。<see cref="ClawStroke.Cylinder"/>。
+/// </summary>
+public readonly record struct ClawCylinder(Vector3 Axis, float Point, float After);

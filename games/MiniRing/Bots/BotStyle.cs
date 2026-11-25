@@ -383,6 +383,18 @@ public sealed record BotStyle
     /// 外れる分だけ上を狙う（人が覚える狙いの癖と同じ）。既定 0。
     /// </summary>
     public float ClawAimLift { get; init; }
+
+    /// <summary>
+    /// 鎌の振りのうち、円柱を垂直に断つ経路（<see cref="Weapons.ClawStroke.Cylinder"/>: 狙いの点を中心、相手の体の軸を軸とする円柱を、軸に垂直な面で振り抜く）
+    /// にする割合 0..1（教育の値: 技の選び方。2026-11-25）。引き斬り（<see cref="ClawDraw"/>）より先に選ぶ。既定 0。
+    /// </summary>
+    public float ClawCut { get; init; }
+
+    /// <summary>円柱を断つ経路で、刃の上の斬る点（刃元から弦の割合）。既定 0.6。</summary>
+    public float ClawCutPoint { get; init; } = 0.6f;
+
+    /// <summary>円柱を断つ経路で、中心から向こうへ振り抜く距離 [腕の長さ]。既定 0.5。</summary>
+    public float ClawCutAfter { get; init; } = 0.5f;
     /// <summary>Kick goal cycle duration in seconds.</summary>
     public float KickDuration { get; init; } = 1.175f;
     /// <summary>
@@ -591,6 +603,9 @@ public sealed record BotStyle
             ClawRest = Range(ClawRest, 0f, 3f, 0f),
             ClawDraw = Unit(ClawDraw),
             ClawAimLift = Range(ClawAimLift, -0.5f, 0.8f, 0f),
+            ClawCut = Unit(ClawCut),
+            ClawCutPoint = Range(ClawCutPoint, 0.1f, 1f, 0.6f),
+            ClawCutAfter = Range(ClawCutAfter, 0f, 1.5f, 0.5f),
             KickDuration = Range(KickDuration, 0.6714f, 2.014f, 1.175f),
             KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
             BreakLikes = (BreakLikes ?? new Dictionary<string, float>()).ToDictionary(p => p.Key, p => NonNegative(p.Value)),

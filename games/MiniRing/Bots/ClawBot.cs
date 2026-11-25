@@ -24,6 +24,11 @@ internal sealed class ClawBot(BotStats stats)
     /// <summary>次の振りを引き斬りにするか（斬り始めた後に次を決める）。null はまだ決めていない。</summary>
     private bool? _nextDraw;
 
+    /// <summary>円柱を断つ経路の割合の溜まり（<see cref="BotStyle.ClawCut"/>）。</summary>
+    private float _cutCredit;
+
+    private bool? _nextCut;
+
     public FighterCommand Read(FighterCommand basis, in FighterSense sense, float dt, BotStyle style)
     {
         var to = sense.OpponentChest - sense.Self.Origin;
@@ -42,15 +47,20 @@ internal sealed class ClawBot(BotStats stats)
         }
 
         _nextDraw ??= NextDraw(style);
+        _nextCut ??= NextCut(style);
         var draw = _nextDraw.Value;
+        // 円柱の軸は相手の体の軸（胸 → 頭）。首・腕・胴のどれを狙っても同じ軸の取り方。
+        var bodyAxis = sense.OpponentHead - sense.OpponentChest;
+        ClawCylinder? cylinder = _nextCut.Value && bodyAxis.LengthSquared() > 1e-6f ? new ClawCylinder(Vector3.Normalize(bodyAxis), style.ClawCutPoint, style.ClawCutAfter) : null;
         var aim = Aim(sense, _nextAim) + new Vector3(0f, style.ClawAimLift * sense.ArmReach, 0f);
-        var left = _arms[0].Read(Hand.Left, ready && side == Hand.Left, true, sense, aim, dt, style.ClawDriveSeconds, style.ClawWindup, draw);
-        var right = _arms[1].Read(Hand.Right, ready && side == Hand.Right, true, sense, aim, dt, style.ClawDriveSeconds, style.ClawWindup, draw);
+        var left = _arms[0].Read(Hand.Left, ready && side == Hand.Left, true, sense, aim, dt, style.ClawDriveSeconds, style.ClawWindup, draw, cylinder);
+        var right = _arms[1].Read(Hand.Right, ready && side == Hand.Right, true, sense, aim, dt, style.ClawDriveSeconds, style.ClawWindup, draw, cylinder);
         if (ready)
         {
             _strokeCount++;
             _nextAim = NextAim(style);
             _nextDraw = NextDraw(style);
+            _nextCut = NextCut(style);
             stats.ComboStarted("claw-sweep");
         }
 
@@ -103,6 +113,19 @@ internal sealed class ClawBot(BotStats stats)
         }
 
         _drawCredit -= 1f;
+        return true;
+    }
+
+    /// <summary>次の振りを円柱を断つ経路にするか（<see cref="NextDraw"/> と同じ、割合を足して 1 に届いたら）。</summary>
+    internal bool NextCut(BotStyle style)
+    {
+        _cutCredit += Math.Clamp(style.ClawCut, 0f, 1f);
+        if (_cutCredit < 1f - 1e-6f)
+        {
+            return false;
+        }
+
+        _cutCredit -= 1f;
         return true;
     }
 

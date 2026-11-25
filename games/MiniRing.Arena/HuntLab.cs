@@ -514,7 +514,10 @@ internal static class HuntLab
             var p = track.Split(',').Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
             var st = new BotStyle();
             HuntTrack.Run(Console.Out, new Vector3(p[0], p[1], p[2]), set.GetValueOrDefault("ClawDraw") > 0f,
-                set.GetValueOrDefault("ClawDriveSeconds", st.ClawDriveSeconds), set.GetValueOrDefault("ClawWindup", st.ClawWindup));
+                set.GetValueOrDefault("ClawDriveSeconds", st.ClawDriveSeconds), set.GetValueOrDefault("ClawWindup", st.ClawWindup),
+                cylinder: set.GetValueOrDefault("ClawCut") > 0f
+                    ? new ClawCylinder(Vector3.UnitY, set.GetValueOrDefault("ClawCutPoint", st.ClawCutPoint), set.GetValueOrDefault("ClawCutAfter", st.ClawCutAfter))
+                    : null);
             return 0;
         }
 
