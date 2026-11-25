@@ -18,6 +18,11 @@ if (Environment.GetEnvironmentVariable("MINIRING_SCAN") is { Length: > 0 } scanT
     Aigis.Physics.Voxels.VoxelContact.ScanStride = int.Parse(scanText, System.Globalization.CultureInfo.InvariantCulture);
 }
 
+if (Environment.GetEnvironmentVariable("MINIRING_BRIDGES") is "0")
+{
+    MiniRing.BoxingGame.DefaultJointBridges = false;
+}
+
 if (Environment.GetEnvironmentVariable("MINIRING_HZ") is { Length: > 0 } hzText)
 {
     MiniRing.BoxingGame.DefaultSubstepRate = float.Parse(hzText, System.Globalization.CultureInfo.InvariantCulture);

@@ -43,7 +43,16 @@ public sealed partial class BoxingGame
     /// <summary>
     /// 関節のつなぎ（<see cref="JointBridge"/>）を刃の接触に使うか。既定は使う。比べものの調べ（necklab・テスト）のために切れる（切っても体の運動は変わらない）。
     /// </summary>
-    public bool JointBridges { get; set; } = true;
+    public bool JointBridges { get; set; } = DefaultJointBridges;
+
+    /// <summary><see cref="JointBridges"/> の既定（true。簡素化の測定で切れる。非同期の流れごと: <see cref="DefaultSubstepRate"/> と同じ）。</summary>
+    public static bool DefaultJointBridges
+    {
+        get => _defaultJointBridges.Value ?? true;
+        set => _defaultJointBridges.Value = value;
+    }
+
+    private static readonly System.Threading.AsyncLocal<bool?> _defaultJointBridges = new();
 
     /// <summary><see cref="MaxContactPasses"/> の既定（3。比べものの調べ（掃き直し 1 回 = 以前）のために変えられる）。
     /// 非同期の流れごとに持つ（<see cref="DefaultSubstepRate"/> と同じ）。</summary>
