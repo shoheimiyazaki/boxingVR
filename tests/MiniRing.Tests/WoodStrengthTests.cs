@@ -49,7 +49,9 @@ public sealed class WoodStrengthTests
         }
 
         Assert.IsLessThan(palette[BoxerAnatomy.Wood].Mechanics!.Tensile!.Value, BoxerAnatomy.HandMechanics.Tensile!.Value, "the weapon wood is the stronger, real oak");
-        Assert.AreEqual(palette[BoxerAnatomy.Wood].Mechanics!.Density, BoxerAnatomy.HandMechanics.Density, "the hand weighs as before (the same density)");
+        // 2026-11-25（PhysicsVersion 105）: 武器の樫は実物の密度 700 kg/m³ に戻した（BoxerAnatomy.WeaponDensity）。手の組織は前の相似の密度のまま（手の重さは変えない）。
+        Assert.AreEqual(700f * BoxerAnatomy.DensitySimilitude, BoxerAnatomy.HandMechanics.Density, 1e-3f, "the hand weighs as before (the similitude density)");
+        Assert.AreEqual(700f, palette[BoxerAnatomy.Wood].Mechanics!.Density, 1e-3f, "the weapon oak has the real density");
     }
 
     /// <summary>端を横（+Y）に押して、いちばん曲がった断面が折れる最小の力 [N]（二分探索）。</summary>

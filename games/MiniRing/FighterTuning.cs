@@ -271,22 +271,35 @@ public sealed record FighterTuning
     public float GripWristServoHz { get; init; } = 25f;
 
     /// <summary>
-    /// 両手で持つ武器を 1 本の手で支える手首の最大トルク（TorqueScale 倍する前）。片手の刀は 1/3 で 6.7 N·m（人の手首の屈曲の最大 10〜15 N·m の内）。10 では
-    /// 向きを変えるたびに頭打ちになって揺れが残った（同じ調査で 10 → 20 にして切っ先の揺れ 8 → 4 mm。両手で持つのを分ける前の測り）。
+    /// 柄を握り込んだ手首の、両手の握り全体のトルクの上限（TorqueScale 倍する前）。手ごとには割合を掛ける: 1 本で支えれば <see cref="OneHandWristShare"/> の 1/3 で
+    /// 10 N·m（人の手首の屈曲・尺屈の最大 10〜15 N·m の下の方）、両手の間は <see cref="TwoHandWristShare"/> の半分ずつ 15 N·m。
+    /// 2026-11-25 に 20 → 30（docs/plans/FORM_DECAY_STUDY.md）: 武器を実物の重さ（刀 1.3 kg・ロングソード 1.3 kg、握る拳 0.36 kg が乗る）にしたので、片手で持った刀の
+    /// 重さだけで 4 N·m 前後になり、6.7 N·m では向きを変える力がほとんど残らなかった。それまでの経緯: 10 では向きを変えるたびに頭打ちになって揺れが残った（10 → 20 で
+    /// 切っ先の揺れ 8 → 4 mm）。
     /// </summary>
-    public float GripWristMaxTorque { get; init; } = 20f;
+    public float GripWristMaxTorque { get; init; } = 30f;
 
     /// <summary>
-    /// 両手で持つ武器を 1 本の手で支える手首のサーボの減衰比。前腕と武器は肩・肘のバネの先で一緒に揺れるので、臨界より強く減衰させて揺れを吸う
-    /// （1 → 3 で向きを 40° 変えた後の狙いのずれの振れ 4.4° → 1.5°、同じ調査。両手で持つのを分ける前の測り）。
+    /// 柄を握り込んだ手首のサーボの減衰比。前腕と武器は肩・肘のバネの先で一緒に揺れるので、臨界より強く減衰させて揺れを吸う
+    /// （1 → 3 で向きを 40° 変えた後の狙いのずれの振れ 4.4° → 1.5°、両手で持つのを分ける前の測り）。2026-11-25 に 3 → 2（docs/plans/FORM_DECAY_STUDY.md）:
+    /// 両手の間も握り込んだ手首にし、武器を実物の重さにした体で、VR の胴をひねった刀の構えの流れが 3 では 35 cm（SlideTests の上限 22.5 cm）、2 で 18 cm。
+    /// 流れは減衰・固さに対して滑らかでない（1.5 で 18 cm、30 Hz・2 で 24 cm）ので、上限に近い値の比べは種 1 つの測りと心得る（WristSlideProbe）。
     /// </summary>
-    public float GripWristDampingRatio { get; init; } = 3f;
+    public float GripWristDampingRatio { get; init; } = 2f;
 
     /// <summary>
     /// 両手で握っていた武器を片手で持つことになったときの、手首の角度のバネ（固さとトルク）の割合。両手の握りは、2 本の手首に加えて、
     /// 2 つの拳が握りの別々の所を押し引きする偶力で武器を支える。片手ではそれが手首 1 本になるので、1/3 にする（ユーザーの指定）。
     /// </summary>
     public float OneHandWristShare { get; init; } = 1f / 3f;
+
+    /// <summary>
+    /// 両手で同じ柄を握り込んでいる間の、手ごとの手首のバネの割合（固さとトルク。周波数は √割合 倍）。握り込んだ手首（<see cref="GripWristServoHz"/>・
+    /// <see cref="GripWristMaxTorque"/>）を両手の握り全体の値とし、2 本の手首で半分ずつ持つ（25 Hz → 17.7 Hz、30 → 15 N·m ずつ）。2026-11-25 まではここを
+    /// はめる物の手首（8.94 Hz・10 N·m）にしていて、刀の刃の向きが打ちの間に遅れた（docs/plans/FORM_DECAY_STUDY.md）。割合 1 ずつ（25 Hz を両手とも）では、
+    /// 両手と武器の閉じた輪の中で固い手首どうしが押し合い、胴をひねった構えで体が 30 cm 滑った（SlideTests）。
+    /// </summary>
+    public float TwoHandWristShare { get; init; } = 0.5f;
 
     /// <summary>
     /// 両手で握った棒の握りの点を棒に沿って動かす速さの上限 [m/s]（<see cref="Fighter"/> の握りの矛盾の解消）。両手の拳の目標の距離と

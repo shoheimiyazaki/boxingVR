@@ -72,8 +72,11 @@ public sealed partial class Fighter
     private Quaternion _pelvisTarget = Quaternion.Identity;
 
     /// <summary>体が付いていく移動の指令（指令から <see cref="FootworkTuning.BodyLag"/> だけ遅れる）。</summary>
-    /// <summary>歩く・ステップ・蹴りの指令が出ていない時間 [s]（足の置いた所を留める条件。<see cref="FootworkTuning.HoldSettleSeconds"/>）。</summary>
+    /// <summary>歩く・ステップの指令が出ていない時間 [s]（足の置いた所を留める条件。<see cref="FootworkTuning.HoldSettleSeconds"/>）。</summary>
     private float _restSeconds;
+
+    /// <summary>脚ごと（Footwork の Lead・Rear）の、その脚で蹴っていない時間 [s]。蹴った脚だけが、下ろした後 <see cref="FootworkTuning.HoldSettleSeconds"/> の間は置いた所を実際の足へ合わせる。</summary>
+    private readonly float[] _kickRestSeconds = new float[2];
     private Vector3 _laggedMove;
 
     internal float HoverHeight => _hoverHeight;
@@ -247,7 +250,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 100; // 武器を握る手をボクセルの握り拳に（100）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 105; // 柄を握り込んだ手首を両手の間も・武器の材料を実物の密度・蹴る間の軸足を留める（105、仮）・武器を握る手をボクセルの握り拳に（100）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -2589,6 +2592,8 @@ public sealed partial class Fighter
     private void ResetFootwork()
     {
         _restSeconds = 0f;
+        _kickRestSeconds[0] = 0f;
+        _kickRestSeconds[1] = 0f;
         (Vector2 Ball, float Yaw) OnGround(Leg leg)
             => (BallOnGround(leg), BodyFrame.YawOf(Vector3.Transform(Vector3.UnitZ, _world.GetState(leg.Heel).Orientation), _facingYaw));
 
@@ -2630,18 +2635,26 @@ public sealed partial class Fighter
         var hip = pelvis.Position + Vector3.Transform(lead.PivotOnPelvis, pelvis.Orientation);
         var drop = hip.Y - (pelvis.Position.Y - height) - lead.AnkleOnHeel.Y - _tuning.HalfExtents.Foot.Y;
         var reach = MathF.Sqrt(MathF.Max(0f, (legLength * legLength) - (drop * drop)));
-        // 蹴っている間（軸足も）と、歩く・ステップの指令が出ている間と、その後 HoldSettleSeconds の間は、足の置き方を実際の足へすぐ合わせる
-        // （足を運んで体が動く間は、置いた所を覚えて留める場面ではない）。動きが止まって落ち着いた立ち姿だけ、置いた所を足首の力で留める。
-        var active = lead.Command is not null || _legParts[Footwork.Rear].Command is not null || command.ClampedMove.LengthSquared() > 0f || command.ClampedStep.LengthSquared() > 0f;
-        _restSeconds = active ? 0f : _restSeconds + dt;
-        var kicking = _restSeconds < _tuning.Footwork.HoldSettleSeconds;
+        // 歩く・ステップの指令が出ている間とその後 HoldSettleSeconds の間は、両足の置き方を実際の足へすぐ合わせる（足を運んで体が動く間は、置いた所を覚えて
+        // 留める場面ではない）。蹴っている脚も、蹴っている間と下ろした後 HoldSettleSeconds の間は同じ。蹴っている間の軸足は床に留めている足なので、置いた所を
+        // 足首の力で留める（2026-11-25、docs/plans/FORM_DECAY_STUDY.md: 軸足まで実際の足へ合わせていたので留める力が 0 になり、前の足で蹴ると軸足が 50〜86 cm 滑った）。
+        var moving = command.ClampedMove.LengthSquared() > 0f || command.ClampedStep.LengthSquared() > 0f;
+        _restSeconds = moving ? 0f : _restSeconds + dt;
+        for (var foot = 0; foot < 2; foot++)
+        {
+            _kickRestSeconds[foot] = _legParts[foot].Command is not null ? 0f : _kickRestSeconds[foot] + dt;
+        }
+
+        var walking = _restSeconds < _tuning.Footwork.HoldSettleSeconds;
+        var leadFree = walking || _kickRestSeconds[Footwork.Lead] < _tuning.Footwork.HoldSettleSeconds;
+        var rearFree = walking || _kickRestSeconds[Footwork.Rear] < _tuning.Footwork.HoldSettleSeconds;
         // 腰から打つ体: わざと前へ運んだ腰（体重移動 HipShift）は、足の置き直しの基準から外す（運んだ腰を足が追って踏み出し、また腰が前へ…と流れないように）。
         // 倒れかけ（捕捉点が足の外）の判断は重心のまま（下の Com）。
         var planned = pelvis.Position - HipShift;
         var input = new FootworkInput(_facingYaw, new Vector2(planned.X, planned.Z), new Vector2(pelvis.LinearVelocity.X, pelvis.LinearVelocity.Z),
             omega, new Vector2(intent.X, intent.Z), twist, weight, legLength,
             lead.ReachRatio > 0.995f, _legParts[Footwork.Rear].ReachRatio > 0.995f, BallOnGround(lead), BallOnGround(_legParts[Footwork.Rear]), MathF.Max(0.3f * legLength, reach),
-            LeadFree: kicking, RearFree: kicking,
+            LeadFree: leadFree, RearFree: rearFree,
             LegHeld: _legParts[0].Command is { IsKneeControl: true } || _legParts[1].Command is { IsKneeControl: true });
         if (_tuning.SupportFromGround)
         {
@@ -3829,8 +3842,8 @@ public sealed partial class Fighter
     }
 
     /// <summary>
-    /// 両手で同じ武器を握っているか（<see cref="Arm.SharedGrip"/>）を決め直し、変わった腕の手首の固さを入れ直す（両手持ちは柔らかく、1 本の手で
-    /// 握ると固く: <see cref="Arm.WristHz"/>）。疲れを数えない体（VR のプレイヤー）は手首の強さを毎歩は入れ直さないので、ここで変わった時に入れる。
+    /// 両手で同じ武器を握っているか（<see cref="Arm.SharedGrip"/>）を決め直し、変わった腕の手首の固さを入れ直す（握り込んだ手首を両手の間は半分ずつ、1 本の手で
+    /// 支えれば 1/3: <see cref="Arm.WristHz"/>）。疲れを数えない体（VR のプレイヤー）は手首の強さを毎歩は入れ直さないので、ここで変わった時に入れる。
     /// </summary>
     private void UpdateSharedGrips()
     {
@@ -5108,16 +5121,23 @@ public sealed partial class Fighter
         public bool Glove { get; set; }
 
         /// <summary>
-        /// もう一方の手も同じ武器を握っているか、添えに行っている（両手持ち。<see cref="Fighter"/> が毎歩 <c>UpdateSharedGrips</c> で決める）。両手の間は武器の向きを
-        /// 2 つの拳の偶力が決めるので、手首は固めない（固めると両手と武器の閉じた輪の中で手首どうしが押し合い、体が滑った: SlideTests）。
+        /// もう一方の手も同じ武器を握っているか、添えに行っている（両手持ち。<see cref="Fighter"/> が毎歩 <c>UpdateSharedGrips</c> で決める）。
         /// </summary>
         public bool SharedGrip { get; set; }
 
         /// <summary>
-        /// 手首を固めて握っているか: 両手で持つ武器（刀・ロングソード…）を 1 本の手だけで支えている（<see cref="WristShare"/> &lt; 1。はめる物・両手持ち・
-        /// 片手の武器は今まで通り）。片手の武器まで固めると、片手剣と盾の守り手の守りが崩れた（ShieldTests: 構えた盾で体の損傷 22 → 325 セル。2026-11-25）。
+        /// 手首を固めて握っているか: 両手で持つ武器（刀・ロングソード…）の柄を握っている（1 本の手で支える <see cref="WristShare"/> &lt; 1 も、両手で持つ間も）。
+        /// 柄を握り込むと前腕の屈筋と伸筋が一緒に縮んで手首が固まるのは、片手でも両手でも同じ現象なので、同じ握り込んだ手首（<see cref="FighterTuning.GripWristServoHz"/>・
+        /// <see cref="FighterTuning.GripWristMaxTorque"/>・<see cref="FighterTuning.GripWristDampingRatio"/>）を、両手の握り全体を 1 として手ごとの割合
+        /// （<see cref="ShareOf"/>: 両手の間は <see cref="FighterTuning.TwoHandWristShare"/>、1 本で支えれば <see cref="FighterTuning.OneHandWristShare"/>）で分ける
+        /// （2026-11-25、docs/plans/FORM_DECAY_STUDY.md。それまで両手の間ははめる物と同じ 8.94 Hz・10 N·m で、刀の刃の向きが打ちの間に 30〜44° 遅れ、刃筋が 20〜32° 寝た。
+        /// 両手とも割合 1 の 25 Hz にすると、両手と武器の閉じた輪の中で固い手首どうしが押し合い、胴をひねった構えで体が 30 cm 滑った: SlideTests）。
+        /// はめる物・片手の武器（片手剣・こんぼう）は今まで通り: 片手の武器まで固めると、片手剣と盾の守り手の守りが崩れた（ShieldTests: 構えた盾で体の損傷 22 → 325 セル）。
         /// </summary>
-        private bool Clenched => !Glove && !SharedGrip && WristShare < 1f;
+        private bool Clenched => !Glove && (SharedGrip || WristShare < 1f);
+
+        /// <summary>手首のバネに掛ける割合: 握り込んだ手首で両手の間は <see cref="FighterTuning.TwoHandWristShare"/>、それ以外は <see cref="WristShare"/>。</summary>
+        private float ShareOf(FighterTuning tuning) => Clenched && SharedGrip ? tuning.TwoHandWristShare : WristShare;
 
         /// <summary>
         /// 手首のサーボの固さ [Hz]: 両手で持つ武器を 1 本の手で支えるとき（<see cref="Clenched"/>）は柄を握り込んで手首を固めた
@@ -5147,7 +5167,8 @@ public sealed partial class Fighter
             var wrist = Held?.Wrist ?? Support?.Wrist;
             if (wrist is { } id && world.HasConstraint(id))
             {
-                world.SetAngularServoSettings(id, WristHz(tuning) * MathF.Sqrt(WristShare), WristTorque(tuning) * tuning.TorqueScale * WristShare * Math.Max(0.01f, scale), WristDamping(tuning));
+                var share = ShareOf(tuning);
+                world.SetAngularServoSettings(id, WristHz(tuning) * MathF.Sqrt(share), WristTorque(tuning) * tuning.TorqueScale * share * Math.Max(0.01f, scale), WristDamping(tuning));
             }
         }
         public bool GripWasHeld { get; set; }

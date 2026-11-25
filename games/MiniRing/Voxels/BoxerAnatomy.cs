@@ -182,17 +182,29 @@ public static class BoxerAnatomy
     /// <summary>グローブの詰め物（発泡材）: 軽く（120 kg/m³）、弱い圧力で潰れ（0.15 MPa）、大きくたわむ（8 mm）。拳の衝撃を広げて和らげる。</summary>
     public static VoxelMechanics PaddingMechanics { get; } = Doll(new(120f, 0.15e6f, 0.008f));
 
-    /// <summary>剣の鋼: 焼き入れした鋼（人で降伏 600MPa、引張 1.5GPa、ヤング率 200GPa。人形の相似則で縮める）。</summary>
-    public static VoxelMechanics IronMechanics { get; } = Doll(new(7800f, 600e6f, 0.0002f, Tensile: 1.5e9f, Stiffness: 200e9f));
+    /// <summary>
+    /// 剣の鋼: 焼き入れした鋼（人で降伏 600MPa、引張 1.5GPa、ヤング率 200GPa。強さ・たわみは人形の相似則で縮める）。密度だけは実物の 7800 kg/m³
+    /// （<see cref="WeaponDensity"/>）。
+    /// </summary>
+    public static VoxelMechanics IronMechanics { get; } = WeaponDensity(Doll(new(7800f, 600e6f, 0.0002f, Tensile: 1.5e9f, Stiffness: 200e9f)), 7800f);
+
+    /// <summary>
+    /// 武器の材料（鋼・樫）の密度を実物に戻す（2026-11-25、段 3 の一部。docs/plans/FORM_DECAY_STUDY.md）。段 2 の相似の密度の倍率（<see cref="DensitySimilitude"/> 0.4474）を
+    /// 掛けたままだと、形は実物大なのに刀 0.61 kg・ロングソード 0.60 kg・六尺棒 0.52 kg と実物の 4〜5 割の重さで、軽い刃が手首の先で暴れた。
+    /// 戻すと形を変えずに刀 1.36 kg（実物は拵え込みで 1.0〜1.4 kg）・ロングソード 1.33 kg（1.3〜1.6 kg）・片手剣 1.95 kg（1.0〜1.5 kg: 刃が厚く、重い側に外れる）・
+    /// 六尺棒 1.17 kg（1.2〜1.5 kg）・杖 0.54 kg（0.5〜0.7 kg）・盾 4.8 kg（3〜6 kg）になる。体の材料（骨・肉…）は相似の密度のまま（体の質量は部位の体積から別に出す:
+    /// docs/DEBT.md「キャラクター」）。
+    /// </summary>
+    private static VoxelMechanics WeaponDensity(VoxelMechanics doll, float realDensity) => doll with { Density = realDensity };
 
     /// <summary>
     /// 樫（ホワイトオーク、含水率 12 %）: 曲げて折れる強さ（曲げ強さ）105 MPa、ヤング率 12.3 GPa、木目に直角に潰れる強さ 7.4 MPa、比重 0.68
     /// （USDA Forest Products Laboratory『Wood Handbook』FPL-GTR-190 表 5-3a。北米のアカガシワ 99 MPa・12.5 GPa・7.0 MPa・0.63、ホワイトアッシュ 106 MPa・12.0 GPa も同じ程度）。
     /// 潰れる強さ 8 MPa・密度 700 kg/m³ は表の広葉樹（樫・トネリコ: 7.0〜8.0 MPa、706〜762 kg/m³）の幅の中なので前の値のまま（武器の質量・削れ方を変えない）。
     /// 2026-11-25 まで曲げ強さ 60 MPa・ヤング率 10 GPa（針葉樹ほどの値）で、実物の樫の 6 割弱の強さしかなく折れすぎた（docs/VOXEL_WEAPONS.md「木の強さ」）。
-    /// 骨（皮質骨 150 MPa・17 GPa）と同じ相似則（<see cref="Doll"/>）で縮める: 木と骨の強さの比は実物どおり。
+    /// 骨（皮質骨 150 MPa・17 GPa）と同じ相似則（<see cref="Doll"/>）で縮める: 木と骨の強さの比は実物どおり。密度だけは実物（<see cref="WeaponDensity"/>）。
     /// </summary>
-    public static VoxelMechanics WoodMechanics { get; } = Doll(new(700f, 8e6f, 0.001f, Tensile: 105e6f, Stiffness: 12.3e9f));
+    public static VoxelMechanics WoodMechanics { get; } = WeaponDensity(Doll(new(700f, 8e6f, 0.001f, Tensile: 105e6f, Stiffness: 12.3e9f)), 700f);
 
     /// <summary>
     /// 手の組織（<see cref="HandSkin"/>・<see cref="HandMuscle"/>・<see cref="HandBone"/>）の物性: 2026-11-25 までの木の値（曲げ強さ 60 MPa・ヤング率 10 GPa）のまま。

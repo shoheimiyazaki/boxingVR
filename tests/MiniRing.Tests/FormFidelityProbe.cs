@@ -50,16 +50,17 @@ public sealed class FormFidelityProbe
         float TargetTipPeak, float TipPeak, float TrunkTiltMax, bool Fell, float StaminaUsed, int Cells, int SelfCells, float StrikeOffPlane, float StrikeAxisErr, float StrikeTipSpeed);
 
     /// <summary>型を 1 回出して測る（StrikeDrill と同じ組み方: 構えて立つ相手へ、間合いまで詰めてから 1 回）。</summary>
-    internal static SwingStats Swing(MotionTechnique technique, MotionFrame guard, FighterTuning tuning, float? weaponMass = null, SwingPacing? pacing = null)
+    internal static SwingStats Swing(MotionTechnique technique, MotionFrame guard, FighterTuning tuning, float? massScale = null, SwingPacing? pacing = null)
     {
         var bot = new SwordsmanBot([technique], guard, seed: 1, SwordStance.Rate, rest: 1000f, exact: true, tuning: tuning) { Pacing = pacing };
         var recorder = new Recorder(bot);
         using var game = new BoxingGame(tuning, seed: 1, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => recorder, PlayerWeapon: technique.Weapon, PlayerTwoHanded: true, PlayerWear: HandWear.Glove));
         var me = game.Player;
         var sword = game.WeaponOf(me)!;
-        if (weaponMass is { } mass)
+        if (massScale is { } k)
         {
-            // 質量を差し替える（慣性は形の箱から: 比べる版はどれもこの道を通す。×1 も）。
+            // 質量を差し替える（握る拳の質量を含む剛体の今の質量の k 倍。慣性は形の箱から: 比べる版はどれもこの道を通す。×1 も）。
+            var mass = game.World.GetMass(sword.Body.BodyId) * k;
             game.World.MakeKinematic(sword.Body.BodyId);
             game.World.MakeDynamic(sword.Body.BodyId, mass);
         }
@@ -169,15 +170,9 @@ public sealed class FormFidelityProbe
         var b = SwordStance.Tuning;
         yield return ("今の体", b, null, false);
         yield return ("技の時計（教科書の Pacing）", b, null, true);
-        yield return ("手首トルク ×3", b with { WristMaxTorque = b.WristMaxTorque * 3f }, null, false);
-        yield return ("手首 25Hz・減衰 3", b with { WristServoHz = b.GripWristServoHz, WristDampingRatio = b.GripWristDampingRatio }, null, false);
-        yield return ("手首 25Hz・トルク ×3", b with { WristServoHz = b.GripWristServoHz, WristDampingRatio = b.GripWristDampingRatio, WristMaxTorque = b.WristMaxTorque * 3f }, null, false);
+        yield return ("握る手首トルク ×1.5", b with { GripWristMaxTorque = b.GripWristMaxTorque * 1.5f }, null, false);
+        yield return ("握る手首トルク ×0.5（前の両手 10 N·m 相当）", b with { GripWristMaxTorque = b.GripWristMaxTorque * 0.5f }, null, false);
         yield return ("腕の速さ ×2", b with { ArmServoMaxSpeed = b.ArmServoMaxSpeed * 2f }, null, false);
-        yield return ("腕の速さ ×0.5", b with { ArmServoMaxSpeed = b.ArmServoMaxSpeed * 0.5f }, null, false);
-        yield return ("質量 ×1（箱の慣性で作り直し）", b, 1f, false);
-        yield return ("質量 ×2（実物）", b, 2f, false);
-        yield return ("質量 ×2・手首トルク ×3", b with { WristMaxTorque = b.WristMaxTorque * 3f }, 2f, false);
-        yield return ("質量 ×0.5", b, 0.5f, false);
     }
 
     [TestMethod]
@@ -197,7 +192,7 @@ public sealed class FormFidelityProbe
         }
 
         var t = SwordStance.Tuning;
-        Console.WriteLine($"両手持ちの手首: {F(t.WristServoHz, "0.00")} Hz・{F(t.WristMaxTorque * t.TorqueScale)} N·m・減衰 {F(t.WristDampingRatio)}、片手で支える手首: {F(t.GripWristServoHz)} Hz・{F(t.GripWristMaxTorque * t.TorqueScale)} N·m、腕のサーボの速さ {F(t.ArmServoMaxSpeed)} rad/s、TorqueScale {F(t.TorqueScale, "0.000")}");
+        Console.WriteLine($"はめる物の手首: {F(t.WristServoHz, "0.00")} Hz・{F(t.WristMaxTorque * t.TorqueScale)} N·m・減衰 {F(t.WristDampingRatio)}、柄を握る手首: {F(t.GripWristServoHz)} Hz・{F(t.GripWristMaxTorque * t.TorqueScale)} N·m、腕のサーボの速さ {F(t.ArmServoMaxSpeed)} rad/s、TorqueScale {F(t.TorqueScale, "0.000")}");
         foreach (var weapon in new[] { WeaponKind.Katana, WeaponKind.Longsword })
         {
             var techniques = FormSwordsman.Techniques(weapon, armReach, 0f);
@@ -206,12 +201,11 @@ public sealed class FormFidelityProbe
             Console.WriteLine($"## {weapon}（{techniques.Count} 型）");
             Console.WriteLine("| 体 | 手のずれ RMS / 最大 [cm] | 刃の軸のずれ 平均 / 最速の時 [°] | 刃筋 目標の経路 / 実際 [°] | 刃先の最速 目標 / 実際 [m/s] | 体幹の傾き最大 [°] | 転倒 | スタミナ減 | 相手のセル | 自傷 | 打ちの区間: 刃筋 / 軸のずれ [°] / 刃先の最速 [m/s] |");
             Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|");
-            var baseMass = Weapon.MassOf(weapon);
             var pacing = WeaponCatalog.Textbook(weapon).Pacing;
             foreach (var (name, tuning, massScale, paced) in BodyVariants())
             {
                 var rows = new SwingStats[techniques.Count];
-                Parallel.For(0, techniques.Count, i => rows[i] = Swing(techniques[i], guard, tuning, massScale is { } k ? k * baseMass : null, paced ? pacing : null));
+                Parallel.For(0, techniques.Count, i => rows[i] = Swing(techniques[i], guard, tuning, massScale, paced ? pacing : null));
                 static double M(IEnumerable<float> xs) => xs.Where(x => !float.IsNaN(x)).DefaultIfEmpty(float.NaN).Average();
                 Console.WriteLine($"| {name} | {F(M(rows.Select(r => r.HandRms)))} / {F(M(rows.Select(r => r.HandMax)))} | {F(M(rows.Select(r => r.AxisErrMean)))} / {F(M(rows.Select(r => r.AxisErrAtPeak)))} | {F(M(rows.Select(r => r.TargetOffPlane)))} / {F(M(rows.Select(r => r.OffPlaneAtPeak)))} | {F(M(rows.Select(r => r.TargetTipPeak)))} / {F(M(rows.Select(r => r.TipPeak)))} | {F(M(rows.Select(r => r.TrunkTiltMax)))} | {rows.Count(r => r.Fell)}/{rows.Length} | {F(M(rows.Select(r => r.StaminaUsed)), "0.000")} | {F(rows.Average(r => r.Cells), "0")} | {F(rows.Average(r => r.SelfCells), "0")} | {F(M(rows.Select(r => r.StrikeOffPlane)))} / {F(M(rows.Select(r => r.StrikeAxisErr)))} / {F(M(rows.Select(r => r.StrikeTipSpeed)))} |");
                 if (name == "今の体")
@@ -292,4 +286,40 @@ public sealed class FormFidelityProbe
     [TestMethod]
     [TestCategory("Probe")]
     public void ClawGridPlaneVersusRemoved() => ClawLab.Report(Console.Out);
+
+    [TestMethod]
+    [TestCategory("Probe")]
+    public void WeaponMassBreakdown()
+    {
+        foreach (var kind in new[] { WeaponKind.Katana, WeaponKind.Longsword, WeaponKind.IronSword, WeaponKind.WoodenClub, WeaponKind.Bat, WeaponKind.Staff, WeaponKind.Jo, WeaponKind.Tonfa, WeaponKind.Shield, WeaponKind.SickleClaw })
+        {
+            var g = Weapon.Build(kind);
+            var parts = Enumerable.Range(0, g.Palette.Count).Where(m => g.Remaining((byte)m) > 0)
+                .Select(m => $"{g.Palette[(byte)m].Name} {g.Remaining((byte)m) * g.CellVolume * g.Palette[(byte)m].MechanicsOrDefault.Density:0.000} kg");
+            Console.WriteLine($"{kind}: {Weapon.MassOf(kind):0.000} kg（{string.Join("、", parts)}）セル {g.CellSize.X * 1000f:0.0}×{g.CellSize.Y * 1000f:0.0}×{g.CellSize.Z * 1000f:0.0} mm、格子 {g.Dimensions}、長さ {2f * g.HalfExtents.X * 100f:0.0} cm");
+            // 刃・棒の断面（X の 1/4・1/2・3/4 の所）: 埋まったセルの Y の数と Z の数の最大
+            foreach (var share in new[] { 0.6f, 0.75f, 0.9f })
+            {
+                var x = (int)(share * g.Dimensions.X);
+                var ys = new HashSet<int>();
+                var zMax = 0;
+                for (var y = 0; y < g.Dimensions.Y; y++)
+                {
+                    var zs = 0;
+                    for (var z = 0; z < g.Dimensions.Z; z++)
+                    {
+                        if (g.At(x, y, z) != 0)
+                        {
+                            zs++;
+                            ys.Add(y);
+                        }
+                    }
+
+                    zMax = Math.Max(zMax, zs);
+                }
+
+                Console.WriteLine($"   X {share:0.00}: 幅 {ys.Count} セル（{ys.Count * g.CellSize.Y * 1000f:0} mm）・厚さ最大 {zMax} セル（{zMax * g.CellSize.Z * 1000f:0.0} mm）");
+            }
+        }
+    }
 }
