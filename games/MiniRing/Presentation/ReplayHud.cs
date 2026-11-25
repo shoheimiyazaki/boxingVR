@@ -305,8 +305,8 @@ public static class ReplayHud
 
         var width = 20f + label.Sum(c => c < 0x2E80 ? 8.5f : 15.5f); // 半角と全角の幅の目安（15px の文字）
         var cx = Math.Clamp(x, (width * 0.5f) + 4f, screen.X - (width * 0.5f) - 4f);
-        var cy = l.Top - 18f;
-        shapes.Add(UiShapeDraw.Rounded(new Vector2(cx, cy), new Vector2(width, 24f), 6f, new Vector4(0f, 0f, 0f, 0.8f)));
+        var cy = l.Top - 62f; // 試合の HUD の最後の打撃の行（枠の下端から 44 px）より上。文字は図形の上に描かれるので、重ねずに避ける
+        shapes.Add(UiShapeDraw.Rounded(new Vector2(cx, cy), new Vector2(width, 26f), 6f, new Vector4(0.03f, 0.03f, 0.04f, 1f)));
         text.Add(new ScreenTextDraw(label, new Vector2(cx, cy - 9f), 15f, White, TextAnchor.Center));
     }
 
