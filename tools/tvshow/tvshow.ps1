@@ -51,6 +51,9 @@ $breakSeconds = [double](Get-Field $cardData 'break' 25) # 25 秒: 2 本目の�
 $orgId = ([string](Get-Field $cardData 'org' 'wvc')).ToLowerInvariant()
 $eventTitle = [string](Get-Field $cardData 'event' $orgId.ToUpperInvariant())
 $scoutSeeds = @(Get-Field $cardData 'scoutSeeds' @(1, 2, 3, 4, 5, 6, 7, 8)) -join ','
+# 過去の試合を撮るとき、その時点の王座とランキングの記録（JSON のパス、リポジトリの根から）。無ければ組み込みの今の記録。
+$standingsFile = [string](Get-Field $cardData 'standings' '')
+$standingsArgs = @(if ($standingsFile) { '--standings'; (Join-Path $repo $standingsFile) })
 $PartLimitMiB = [double](Get-Field $cardData 'partLimitMiB' $PartLimitMiB)
 $bouts = @($cardData.bouts)
 if ($bouts.Count -eq 0) { throw "札に bouts がありません: $cardPath" }
@@ -221,7 +224,7 @@ for ($i = 0; $i -lt $bouts.Count; $i++) {
     Write-Host "== render $key ($red vs $blue, seed $($resolved[$key]))"
     $lines = Invoke-Arena (@('video', '--tv', 'on', '--facecam', 'on', '--rounds', "$rounds", '--break', "$breakSeconds",
         '--org', $orgId, '--event', $eventTitle, '--bout', (Get-BoutLabel $i), '--red-char', $red, '--blue-char', $blue, '--seed', "$($resolved[$key])",
-        '--program', $programPath) + @(if (Get-Field $bout 'belt' $false) { '--belt'; 'on' }) + @('--out', $video))
+        '--program', $programPath) + $standingsArgs + @(if (Get-Field $bout 'belt' $false) { '--belt'; 'on' }) + @('--out', $video))
     $lines | Where-Object { $_ -notmatch 'elapsed' } | Select-Object -Last 2 | ForEach-Object { Write-Host $_ }
     $outcome = Get-Outcome $i
     Write-Host "   ${key}: $(if ($outcome.winner -eq 'red') { $red } else { $blue }) の勝ち（$($outcome.method)）"

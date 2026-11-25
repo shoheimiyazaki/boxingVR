@@ -36,6 +36,7 @@
   video [--red A] [--blue B] [--seed X] [--seconds S] [--width W --height H --fps F] [--out file.mp4] [--red-weapon W --blue-weapon W]  [--red-char ID|f.json --blue-char ID|f.json]（名簿のキャラクターか、キャラメイクで作ったファイル。武器・体格・顔・名前がそのキャラクターの値）
                                                                                   ボット同士の試合を字幕・打撃音つきの mp4 に（ffmpeg が必要）
                                                                                   [--program p.json]（--tv on のとき、冒頭に大会の「本日のプログラム」の表。tvshow.ps1 が書く）
+                                                                                  [--standings f.json --org ivf]（その試合の時点の王座とランキングで見出し・席を出す。過去の試合を撮るとき。札の "standings"）
   weaponlab [--out file.mp4] [--table file.md] [--width W --height H --fps F] [--slow X] [--video on|off]
                                                                                   武器の実験場: 鉄の剣と木の棍棒で斬る・打つ・突く・打ち合う（スロー動画と結果の表）
   sparlab [--gens G] [--lambda L] [--bouts N] [--seconds S] [--seed X] [--start techniques.json] [--best style.json] [--out report.md]

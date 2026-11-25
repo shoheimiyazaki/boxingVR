@@ -42,10 +42,26 @@ internal sealed record OrgStandings(string Org, string AsOf, string Basis, IRead
         return new OrgStandings(org.Id, "", "", [.. org.Divisions.Select(d => new DivisionStanding(d.Id, null, []))]);
     }
 
-    /// <summary>組み込みの記録（無ければ空）。</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, OrgStandings> AsOfOverrides = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// このプロセスの間、団体の席を組み込みの記録でなくこのファイルの記録にする（過去の試合を撮るとき、その試合の時点の王座とランキングで見出し・席を出す:
+    /// <c>video --standings</c>）。試合には響かない（席は見出しと台本の資料だけ）。
+    /// </summary>
+    public static void UseFile(Organization org, string path)
+    {
+        ArgumentNullException.ThrowIfNull(org);
+        AsOfOverrides[org.Id] = FromJson(File.ReadAllText(path), org, CharacterRoster.All.Select(c => c.Id).ToHashSet(StringComparer.Ordinal));
+    }
+
+    /// <summary>組み込みの記録（無ければ空。<see cref="UseFile"/> で置き換えていればそれ）。</summary>
     public static OrgStandings Of(Organization org)
     {
         ArgumentNullException.ThrowIfNull(org);
+        if (AsOfOverrides.TryGetValue(org.Id, out var asOf))
+        {
+            return asOf;
+        }
         using var stream = typeof(OrgStandings).Assembly.GetManifestResourceStream($"{Prefix}{org.Id}.json");
         if (stream is null)
         {

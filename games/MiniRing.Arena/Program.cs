@@ -84,7 +84,7 @@ try
         "title" => TitleCommand(Options.Parse(argv[1..], "org", "winner", "loser", "out")),
         "circuit" => MiniRing.Arena.Circuit.CircuitCommand.Run(argv[1..]),
         "tvscout" => TvScoutCommand(Options.Parse(argv[1..], "red", "blue", "red-wear", "blue-wear", "red-weapon", "blue-weapon", "rounds", "seeds", "speed", "fps", "red-char", "blue-char", "referee", "break", "org")),
-        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt", "camera-scale", "camera-focus", "ring")),
+        "video" => Video(Options.Parse(argv[1..], "red", "blue", "seed", "seconds", "width", "height", "fps", "out", "break-sound", "hit-sound", "facecam", "until-ko", "speed", "tv", "blind-red", "blind-blue", "red-wear", "blue-wear", "drill", "defense", "move", "guard", "cue", "range", "telegraph", "predict", "width-guard", "reach-guard", "style", "attacker-style", "counters", "red-weapon", "blue-weapon", "rounds", "event", "bout", "red-char", "blue-char", "referee", "break", "set", "render", "live", "voices", "encoder", "bitrate", "wait", "delay", "program", "org", "belt", "camera-scale", "camera-focus", "ring", "standings")),
         "visionlab" => VisionLabCommand(Options.Parse(argv[1..], "only", "bouts", "seconds", "seed", "log")),
         "faces" => Faces(Options.Parse(argv[1..], "out", "names", "columns", "roster")),
         "portraits" => Portraits(Options.Parse(argv[1..], "out", "scale")),
@@ -1934,6 +1934,12 @@ static int Video(Options o)
     var blueCharacter = o.Get("blue-char") is { } blueId ? CharacterArg(blueId) : null;
     // 団体の試合なら計量を通す（出られない・階級が違えば止める。IVF はグローブを着ける）。見出しに階級・タイトルマッチを足し、台本の資料に計量と席を足す。
     (redCharacter, blueCharacter, var division) = EnterOrg(o, redCharacter, blueCharacter);
+    if (o.Get("standings") is { } standingsPath)
+    {
+        // 過去の試合を撮るとき、その試合の時点の王座とランキング（見出しの「タイトルマッチ」・比べる表の席・台本の資料）。
+        OrgStandings.UseFile(OrgOption(o) ?? throw new ArgumentException("--standings は --org と一緒に渡してください。"), standingsPath);
+    }
+
     var (billing, billingNotes) = division is not null && OrgOption(o) is { } billedOrg
         ? OrgBouts.Billing(billedOrg, OrgStandings.Of(billedOrg), division, redCharacter!, blueCharacter!)
         : ("", (IReadOnlyList<string>)[]);
