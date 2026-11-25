@@ -6,6 +6,7 @@ namespace Aigis.Foundation.Voxels;
 /// 物理の 1 歩の時間の内訳を取る計測の道具（調査用: 既定では切ってあり、切っている間は <see cref="Begin"/> が 0 を返すだけで
 /// 時計を読まない。試合の計算には一切響かない: 時間を数えるだけで、結果（チェックサム）は変わらない。単スレッド前提）。
 /// 入れ子の枠は、外側の枠に内側の時間も含まれる（表に「含む」と書く）。
+/// 状態はスレッドごと（[ThreadStatic]）: 計測を入れたスレッドの試合だけを数え、同じ処理の中で並列に回る別の試合（テストの並列・Arena の並列）には触らない。
 /// </summary>
 public static class StepProfile
 {
@@ -135,18 +136,56 @@ public static class StepProfile
     /// <summary>この歩のこのスレッドの割り当て [byte]（計測を取る間だけ、<see cref="Reset"/> で基準を取る）。</summary>
     public static long AllocatedSinceReset => Enabled ? GC.GetAllocatedBytesForCurrentThread() - _allocBase : 0;
 
+    [ThreadStatic]
     private static long _allocBase;
 
-    /// <summary>計測を取るか。</summary>
-    public static bool Enabled { get; set; }
+    [ThreadStatic]
+    private static bool _enabled;
+
+    [ThreadStatic]
+    private static bool _trackAllocations;
+
+    [ThreadStatic]
+    private static int _resolveCalls;
+
+    [ThreadStatic]
+    private static int _touches;
+
+    [ThreadStatic]
+    private static long[]? _ticks;
+
+    [ThreadStatic]
+    private static long[]? _allocStack;
+
+    [ThreadStatic]
+    private static int _depth;
+
+    [ThreadStatic]
+    private static long[]? _allocBytes;
+
+    [ThreadStatic]
+    private static long[]? _counts;
+
+    private static long[] Ticks => _ticks ??= new long[Enum.GetValues<Slot>().Length];
+
+    private static long[] AllocStack => _allocStack ??= new long[64];
+
+    private static long[] AllocBytes => _allocBytes ??= new long[Enum.GetValues<Slot>().Length];
+
+    private static long[] Counts => _counts ??= new long[Enum.GetValues<Counter>().Length];
+
+    /// <summary>このスレッドで計測を取るか。</summary>
+    public static bool Enabled
+    {
+        get => _enabled;
+        set => _enabled = value;
+    }
 
     /// <summary>この歩で <c>VoxelContact.Resolve</c> が呼ばれた回数。</summary>
-    public static int ResolveCalls { get; private set; }
+    public static int ResolveCalls => _resolveCalls;
 
     /// <summary>この歩で、実際に触れた（<c>Touched</c>）接触の数。</summary>
-    public static int Touches { get; private set; }
-
-    private static readonly long[] Ticks = new long[Enum.GetValues<Slot>().Length];
+    public static int Touches => _touches;
 
     /// <summary>枠の開始。切っていれば 0。</summary>
     public static long Begin()
@@ -165,11 +204,11 @@ public static class StepProfile
     }
 
     /// <summary>枠ごとの割り当て [byte] も数えるか（枠の入れ子ごとに GC の読みを足すので、時間の測りを少し重くする。時間の表とは別の走りで使う）。</summary>
-    public static bool TrackAllocations { get; set; }
-
-    private static readonly long[] AllocStack = new long[64];
-    private static int _depth;
-    private static readonly long[] AllocBytes = new long[Enum.GetValues<Slot>().Length];
+    public static bool TrackAllocations
+    {
+        get => _trackAllocations;
+        set => _trackAllocations = value;
+    }
 
     /// <summary>枠ごとの割り当て [byte]（入れ子の内側も含む）。<see cref="TrackAllocations"/> のときだけ。</summary>
     public static long Allocated(Slot slot) => AllocBytes[(int)slot];
@@ -192,10 +231,10 @@ public static class StepProfile
     {
         if (Enabled)
         {
-            ResolveCalls++;
+            _resolveCalls++;
             if (touched)
             {
-                Touches++;
+                _touches++;
             }
         }
     }
@@ -211,8 +250,6 @@ public static class StepProfile
         ScanSamples,
         /// <summary>Overlaps で、セルまで調べた塊の数の和。</summary>
         ChunksTested,
-        /// <summary>Overlaps で調べたセルの数の和。</summary>
-        CellsTested,
         /// <summary>関節のつなぎで、組織を作り直したセルの数の和。</summary>
         BridgeCells,
         /// <summary>接触の掃きの、埋まったセルの一覧の作り直しで歩いたセルの数の和（格子が変わったとき）。</summary>
@@ -220,8 +257,6 @@ public static class StepProfile
         /// <summary>梁の曲げの形（質量・剛性の表）の作り直しで歩いたセルの数の和（格子が変わったとき）。</summary>
         BeamRebuildCells,
     }
-
-    private static readonly long[] Counts = new long[Enum.GetValues<Counter>().Length];
 
     /// <summary>量を数える。</summary>
     public static void Count(Counter counter, long n)
@@ -243,8 +278,8 @@ public static class StepProfile
         Array.Clear(Counts);
         _depth = 0;
         _allocBase = Enabled ? GC.GetAllocatedBytesForCurrentThread() : 0;
-        ResolveCalls = 0;
-        Touches = 0;
+        _resolveCalls = 0;
+        _touches = 0;
     }
 
     /// <summary>枠ごとの時間 [ms]。</summary>
