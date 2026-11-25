@@ -15,6 +15,7 @@ try
         "help" or "--help" or "-h" => Help(argv.Length > 1 ? argv[1] : null),
         "league" => League(Options.Parse(argv[1..], "bots", "bouts", "seconds", "seed", "out", "hz", "passes", "sample", "referee")),
         "handlelab" => HandleLabCommand(Options.Parse(argv[1..], "pairs", "fist", "bouts", "seconds", "seed", "referee", "parallel", "out", "style-katana", "style-longsword", "style-club", "style-staff", "style-swordshield", "style-bat", "title")),
+        "swordpractice" => SwordPracticeCommand(Options.Parse(argv[1..], "who", "forms", "gens", "lambda", "sigma", "seed", "seeds", "victims", "held-seeds", "held-victims", "parallel", "baseline", "write", "out")),
         "handlespar" => HandleSparCommand(Options.Parse(argv[1..], "trainee", "opponents", "held-out", "gens", "lambda", "bouts", "seconds", "seed", "referee", "parallel", "start", "best", "out")),
         "maailab" => MaaiLabCommand(Options.Parse(argv[1..], "chars", "focus", "bouts", "seconds", "seed", "referee", "parallel", "out", "json", "csv", "ranges")),
         "rosterleague" => RosterLeagueCommand(Options.Parse(argv[1..], "chars", "bouts", "seconds", "seed", "referee", "out", "parallel", "set", "ab", "layered", "plain", "wear", "matrix", "gameplan")),
@@ -335,6 +336,57 @@ static int HandleLabCommand(Options o)
 }
 
 // 武器の教科書を練習試合で育てる。--trainee は武器を握る名簿のキャラ（jin・konrad・sean）。採った（または始めの）値は --best（既定 docs/arena/weapon_<id>_best.json）へ。
+static int SwordPracticeCommand(Options o)
+{
+    var who = o.List("who", ["jin", "konrad", "edgar"]).Select(MiniRing.Characters.CharacterRoster.Get).ToList();
+    var seeds = o.List("seeds", ["1", "2", "3"]).Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToList();
+    var held = o.List("held-seeds", ["11", "12", "13"]).Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToList();
+    var victims = o.List("victims", ["standard"]);
+    var heldVictims = o.List("held-victims", ["standard", "heavy"]);
+    var parallel = o.Int("parallel", Environment.ProcessorCount, min: 1);
+    var report = new System.Text.StringBuilder();
+    report.AppendLine(string.Create(CultureInfo.InvariantCulture, $"# 剣の型の練習（swordpractice、physics {MiniRing.Fighter.PhysicsVersion}）"));
+    report.AppendLine();
+    foreach (var character in who)
+    {
+        if (o.Get("baseline") == "yes")
+        {
+            report.AppendLine(SwordPractice.Baseline(character, seeds, victims, parallel, Console.Out));
+            continue;
+        }
+
+        var forms = o.List("forms", [.. MiniRing.Bots.FormSwordsman.Forms(character.Weapon!.Value).Select(f => f.Name)]);
+        var adopted = new Dictionary<string, MiniRing.Motion.FormTune>();
+        foreach (var form in forms)
+        {
+            var (tune, text) = SwordPractice.Train(character, form, o.Int("gens", 10, min: 1), o.Int("lambda", 4, min: 1), o.Float("sigma", 0.4f, min: 0.01f), o.Int("seed", 1),
+                seeds, victims, held, heldVictims, parallel, Console.Out);
+            report.AppendLine(text);
+            if (tune is not null)
+            {
+                adopted[form] = tune;
+            }
+        }
+
+        if (adopted.Count > 0)
+        {
+            // 採った差分は JSON で出すだけ（名簿のファイルへ写すのは人かエージェントが確かめてから: education.weaponBot.Forms）。
+            var json = o.Get("write") ?? $"docs/arena/swordpractice_{character.Id}.json";
+            File.WriteAllText(json, System.Text.Json.JsonSerializer.Serialize(adopted, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+            report.AppendLine(string.Create(CultureInfo.InvariantCulture, $"採った差分（{string.Join(", ", adopted.Keys)}）を {json} へ書いた。"));
+            report.AppendLine();
+        }
+    }
+
+    Console.WriteLine(report);
+    if (o.Get("out") is { } path)
+    {
+        File.WriteAllText(path, report.ToString());
+    }
+
+    return 0;
+}
+
 static int HandleSparCommand(Options o)
 {
     var trainee = o.Get("trainee") ?? throw new ArgumentException("--trainee jin|konrad|sean を指定してください。");
