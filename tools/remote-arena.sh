@@ -46,7 +46,7 @@ git branch -D rt-perf-send >/dev/null
   echo 'git clean -fdq'
   echo 'del /q %R%\perf.md 2>nul'
   echo 'dotnet build games\MiniRing.Arena -c Release -nologo -v q > %R%\build.log 2>&1 || exit /b 6'
-  echo "games\MiniRing.Arena\bin\Release\net10.0\miniring-arena.exe $ARGS --out %R%\perf.md > %R%\run.log 2>&1"
+  echo "dotnet games\MiniRing.Arena\bin\Release\net10.0\miniring-arena.dll $ARGS --out %R%\perf.md > %R%\run.log 2>&1"
   echo 'exit /b 0'
 } | sed 's/$/\r/' > "$WORK/run.cmd"
 
