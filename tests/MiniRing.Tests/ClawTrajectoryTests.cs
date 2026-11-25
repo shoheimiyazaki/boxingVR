@@ -35,10 +35,10 @@ public sealed class ClawTrajectoryTests
     public void ScriptedBladeTargets_CarveCellsThroughVoxelContact(bool sweep)
     {
         // 間合いの 1 点では、刃が相手の縁をかすめるかどうかの紙一重で割れる（2026-11-26: 掃かない振りは 0.84 m で 0〜3 セル、0.74 m で 126〜217 セル。
-        // ClawAimProbe.ScriptedStrokeTrace）ので、届く間合いの 3 点の合計で見る。
+        // ClawAimProbe.ScriptedStrokeTrace）ので、届く間合いの 3 点のうち 2 点以上で削ることを見る。
         var trials = StrokeGaps.Select(gap => ClawLab.Run("ramon", 77, gap, 2, Hand.Right, 0.31f, 0.75f, moving: true, sweep: sweep)).ToArray();
         Assert.IsTrue(trials.All(t => t.Standing));
-        Assert.IsGreaterThan(0, trials.Sum(t => t.Removed));
+        Assert.IsGreaterThanOrEqualTo(2, trials.Count(t => t.Removed > 0), "届く間合いの 3 点のうち 2 点以上で削る");
     }
 
     /// <summary>
