@@ -34,16 +34,16 @@ REMOTE="$REMOTE_HOME\\repos\\rt-arena-$TREE"
 REMOTE_FWD=$(printf '%s' "$REMOTE" | tr '\\' '/')
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
-git branch -f rt-perf-send "$REV" >/dev/null
-git bundle create -q "$WORK/rt.bundle" rt-perf-send
-git branch -D rt-perf-send >/dev/null
+SEND=rt-send-$$; git branch -f "$SEND" "$REV" >/dev/null
+git bundle create -q "$WORK/rt.bundle" "$SEND"
+git branch -D "$SEND" >/dev/null
 {
   echo '@echo off'
   echo "set R=$REMOTE"
   echo 'set DOTNET_CLI_UI_LANGUAGE=en'
   echo 'if not exist %R%\src\.git git init -q %R%\src'
   echo 'cd /d %R%\src || exit /b 3'
-  echo 'git fetch -q %R%\rt.bundle +refs/heads/rt-perf-send:refs/rt/incoming || exit /b 4'
+  echo "git fetch -q %R%\\rt.bundle +refs/heads/$SEND:refs/rt/incoming || exit /b 4"
   echo 'git checkout -q -f --detach refs/rt/incoming || exit /b 5'
   echo 'git clean -fdq'
   echo 'del /q %R%\perf.md 2>nul'
