@@ -114,3 +114,4 @@
   tvscout [--red] [--blue] [--red-wear] [--blue-wear] [--red-weapon] [--blue-weapon] [--rounds] [--seeds] [--speed] [--fps] [--red-char] [--blue-char] [--referee] [--break] [--org]
   portraits [--out] [--scale]
   maker [--port 5180] [--save-dir DIR] [--open yes|no]                           キャラメイクの画面（localhost の Web。体・顔・写真・スタイルから 1 ファイルを作る）
+  galva-motion [--only stalk,trot,sweep,cleave,claw-thrust,foreleg-thrust] [--out dir] [--fps 24] [--bones on] [--render off]
