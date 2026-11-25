@@ -103,6 +103,7 @@
   vrforms [--dir] [--rank] [--seed] [--bouts] [--seconds] [--out] [--video] [--width] [--height] [--fps] [--slow] [--only] [--confirm]
   mocap [--bvh] [--out] [--from] [--to] [--speed] [--width] [--height] [--fps] [--strikes]
   intentvideo [--script] [--blue] [--seed] [--seconds] [--width] [--height] [--out]
+  recordbout [--red] [--blue] [--seconds] [--seed] [--tv] [--out]
   version 
   tvdraft [--events] [--out] [--org]
   tvmerge [--draft] [--extras] [--out]
