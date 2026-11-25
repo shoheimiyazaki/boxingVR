@@ -90,9 +90,20 @@ internal static class GalvaAnimation
                             }
                         }
                     }
-                    var overhead = clip.Id == "cleave";
+                    if (bones)
+                    {
+                        foreach (var hand in new[] { Hand.Left, Hand.Right })
+                        {
+                            var index = rig.ClawBone(hand);
+                            var bone = rig.Bones[index];
+                            var claw = pose[index];
+                            var mid = claw.At + 0.45f * Vector3.Transform(bone.End - bone.Bind, claw.Rotation);
+                            lines.Add(new DebugLine(mid, mid + 0.18f * rig.ClawBend(hand, claw), new Vector4(1f, 0.63f, 0.24f, 1f)));
+                        }
+                    }
+                    var overhead = clip.Id is "cleave" or "kesa";
                     var center = new Vector3(0f, overhead ? 1.10f : 0.83f, advance + 0.14f);
-                    var side = clip.Id is "sweep" or "foreleg-thrust" ? -1f : 1f;
+                    var side = clip.Id is "sweep" or "kesa" or "foreleg-thrust" ? -1f : 1f;
                     var eye = center + (clip.Walk ? new Vector3(2.5f, 0.85f, 1.75f) : new Vector3(side * 2.45f, 0.92f, 2.0f));
                     var fov = MathF.PI / (overhead ? 3.4f : 4f);
                     var vp = Camera.ViewProjection(eye, center, Vector3.UnitY, fov, (float)width / height, 0.02f, 25f);

@@ -27,6 +27,9 @@ internal sealed class GalvaRig
 
     public IReadOnlyList<Bone> Bones => _bones;
     public int FrontRightToe => _legs[1].Toe;
+    public int ClawBone(Hand hand) => _arms[(int)hand].End;
+    public Vector3 ClawBend(Hand hand, Pose pose) => Vector3.Transform(SickleClawShape.ConcaveSide(hand),
+        Quaternion.Concatenate(_bladeBind[(int)hand], pose.Rotation));
 
     public static GalvaRig Create()
     {
@@ -72,12 +75,17 @@ internal sealed class GalvaRig
             var claw = game.GloveOf(f, hand) ?? throw new InvalidOperationException("The Galva model is missing a claw.");
             var state = world.GetState(claw.Body.BodyId);
             var grip = state.Position + Vector3.Transform(Weapon.GripOf(claw.Kind, Weapon.MirroredOn(claw.Kind, hand)), state.Orientation);
-            var tip = ClawSegment.FromWrist(hand, grip, state.Orientation).Tip;
+            var folded = Quaternion.Concatenate(SickleClawShape.FoldedMount(hand), state.Orientation);
+            var tip = ClawSegment.FromWrist(hand, grip, folded).Tip;
+            var turn = Quaternion.Concatenate(Quaternion.Conjugate(state.Orientation), folded);
+            var draw = claw.Draw();
+            draw = draw with { CellToWorld = draw.CellToWorld * Matrix4x4.CreateTranslation(-grip)
+                * Matrix4x4.CreateFromQuaternion(turn) * Matrix4x4.CreateTranslation(grip) };
             var s = Part("UpperArm" + side, rig._chest, upper, Pivot(upper));
             var e = Part("Forearm" + side, s, lower, Pivot(lower));
-            var wrist = Add("Claw" + side, e, grip, tip, claw.Draw());
+            var wrist = Add("Claw" + side, e, grip, tip, draw);
             rig._arms[(int)hand] = new Chain(s, e, wrist);
-            rig._bladeBind[(int)hand] = state.Orientation;
+            rig._bladeBind[(int)hand] = folded;
         }
 
         var coxae = f.AllParts.Where(id => f.KindOf(id) == BodyPartKind.Coxa)
@@ -145,10 +153,12 @@ internal sealed class GalvaRig
         {
             var index = (int)hand;
             var direction = Vector3.Normalize(goal.Blade);
-            var bladeGoal = new ClawSegment(Vector3.Zero, direction * ClawSegment.Length, Vector3.UnitY).ToCommand(hand).Orientation!.Value;
+            // Mirrored claws expose opposite sides of the same blade frame.
+            var normal = Vector3.Cross(-hand.LocalSide() * goal.Bend, direction);
+            var bladeGoal = new ClawSegment(Vector3.Zero, direction * ClawSegment.Length, normal).ToCommand(hand).Orientation!.Value;
             var rotation = Quaternion.Normalize(Quaternion.Concatenate(Quaternion.Conjugate(_bladeBind[index]), bladeGoal));
             var travel = clip.Walk ? Vector3.UnitZ * motion.Root.Z : Vector3.Zero;
-            Solve(_arms[index], goal.Wrist + travel, new Vector3(hand.LocalSide(), -0.39f, -0.35f), rotation);
+            Solve(_arms[index], goal.Wrist + travel, goal.Elbow, rotation, isArm: true);
         }
 
         Vector3 JointAt(int index)
@@ -160,7 +170,7 @@ internal sealed class GalvaRig
 
         void Follow(int index, Quaternion rotation) => poses[index] = new Pose(JointAt(index), rotation);
 
-        void Solve(Chain chain, Vector3 goal, Vector3 pole, Quaternion endRotation)
+        void Solve(Chain chain, Vector3 goal, Vector3 pole, Quaternion endRotation, bool isArm = false)
         {
             var restUpper = _bones[chain.Lower].Bind - _bones[chain.Upper].Bind;
             var restLower = _bones[chain.End].Bind - _bones[chain.Lower].Bind;
@@ -170,12 +180,23 @@ internal sealed class GalvaRig
             var delta = goal - root;
             var axis = Vector3.Normalize(delta);
             var side = Vector3.Normalize(pole - Vector3.Dot(pole, axis) * axis);
-            var distance = Math.Clamp(delta.Length(), MathF.Abs(a - b) + 0.002f, a + b - 0.002f);
+            var max = a + b - 0.002f;
+            var distance = delta.Length();
+            const float easing = 0.055f;
+            if (isArm && distance > max - easing)
+            {
+                distance = max - easing * MathF.Exp(-(distance - (max - easing)) / easing);
+            }
+            distance = Math.Clamp(distance, MathF.Abs(a - b) + 0.002f, max);
             var along = (a * a - b * b + distance * distance) / (2f * distance);
             var upper = axis * along + side * MathF.Sqrt(MathF.Max(0f, a * a - along * along));
             var lower = axis * distance - upper;
-            poses[chain.Upper] = new Pose(root, Aim(restUpper, upper, Vector3.UnitZ, pole));
-            Follow(chain.Lower, Aim(restLower, lower, Vector3.UnitZ, pole));
+            // The hinge plane remains perpendicular even when the limb points through the elbow guide.
+            var hinge = Vector3.Cross(axis, side);
+            var upperForward = isArm ? Vector3.Cross(hinge, upper) : pole;
+            var lowerForward = isArm ? Vector3.Cross(hinge, lower) : pole;
+            poses[chain.Upper] = new Pose(root, Aim(restUpper, upper, Vector3.UnitZ, upperForward));
+            Follow(chain.Lower, Aim(restLower, lower, Vector3.UnitZ, lowerForward));
             Follow(chain.End, endRotation);
         }
     }

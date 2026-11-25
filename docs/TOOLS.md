@@ -56,15 +56,16 @@ CLAUDE.md §5 にはよく使う物だけを置き、ここに全部を書く。
 蹴りのように未成熟な所のテストは、`Soft.Check(bool ok, string what)`（tests/MiniRing.Tests/Soft.cs）で書く。条件が成り立たなければ `⚠ WARNING: <what>` をコンソールに出し、`Assert.Inconclusive` でそのテストを「結果なし」にする（失敗に数えない）。数の目安は書いたまま残るので、蹴りを磨いて目安に戻れば自然に通る。いまは KickShinTests と KickContactTests の、当たった本数・当たり先・転倒・足の部位に使っている。
 ### ガルヴァの骨格モーション
 
-`dotnet run --project games/MiniRing.Arena -c Release -- galva-motion` で、6 本の BVH と見本動画を `.visualcheck/galva-motion` に出す。BVH は +Y が上、+Z が前、単位は m。ルートの前進を含み、足・腕・鎌まで 29 本のボーンがある。
+`dotnet run --project games/MiniRing.Arena -c Release -- galva-motion` で、7 本の BVH と見本動画を `.visualcheck/galva-motion` に出す。BVH は +Y が上、+Z が前、単位は m。ルートの前進を含み、足・腕・鎌まで 29 本のボーンがある。
 
 | クリップ | 動き |
 |---|---|
 | `stalk` | 四拍の忍び足 |
 | `trot` | 対角の二脚を組にした速歩 |
-| `sweep` | 右鎌の横薙ぎ |
+| `sweep` | 肩・肘から遅れて鎌が走る右横薙ぎ |
+| `kesa` | 右上から左下に振り抜く右鎌の袈裟斬り |
 | `cleave` | 両鎌の振り下ろし |
 | `claw-thrust` | 踏み込んで左鎌で突く |
 | `foreleg-thrust` | 三脚で支えて右前脚を突き出す |
 
-`--only stalk,sweep` でクリップを選び、`--bones on` で骨格表示、`--render off` で BVH だけを書き出す。試合から独立した確認用ツールで、名簿のモデルから骨と形を読み、キーフレームと幾何 IK で姿勢を直接計算する。
+`--only stalk,sweep` でクリップを選び、`--bones on` で骨格表示、`--render off` で BVH だけを書き出す。試合から独立した確認用ツールで、名簿のモデルから骨と形を読み、キーフレームと幾何 IK で姿勢を直接計算する。攻撃キーは前後の区間で速度をつなぎ、鎌の刃元から刃先までの軸と刃の内側の向きを個別に指定する。骨格動画の橙色の線が刃の内側を示す。
