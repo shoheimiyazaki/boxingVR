@@ -299,7 +299,15 @@ async function main() {
   const other = (s) => seats.find((x) => x !== s);
   // 試合の前の場面（団体の番組の型が決める名前。記録に prefight の印が付く）は、種類の名前で決め打たずに印で見分ける。
   const isScreen = (e) => e.for === '実況' && (e.prefight || SCREEN.includes(e.type));
-  const isTrigger = (e) => e.prefight || config.triggers.includes(e.type);
+  // 場面の役目（config.cues）が続いている間か: cue の出来事が t までにあり、その後 until の出来事がまだ無い。
+  const cueActive = (type, cue, t) => {
+    const start = all.filter((e) => e.type === type && e.t <= t + 1e-6).pop();
+    return !!start && !all.some((e) => e.type === cue.until && e.t > start.t && e.t <= t + 1e-6);
+  };
+  // 役目の場面の間は、holdMic の出来事でマイクを動かさない（記録には入る）。入場の動作ごとに「マイクが戻りました: 〇〇が…している」と
+  // 聞かれて、実況が盛り上げの役目より動作の説明を続けた（2026-11-25、IVF の撮り直し 4 回）。
+  const heldByCue = (e) => Object.entries(config.cues || {}).some(([type, cue]) => (cue.holdMic || []).includes(e.type) && cueActive(type, cue, e.t));
+  const isTrigger = (e) => (e.prefight || config.triggers.includes(e.type)) && !heldByCue(e);
   const calls = new Set(config.calls || []); // 実況が必ずコールする出来事（解説の途中なら切って実況へ）
   const sees = (s, e) => config.seats[s].sees.includes(e.for);
 
@@ -564,11 +572,7 @@ async function main() {
   function activeCues(seat) {
     const out = [];
     for (const [type, cue] of Object.entries(config.cues || {})) {
-      if (!cue[seat]) continue;
-      const start = all.filter((e) => e.type === type && e.t <= T + 1e-6).pop();
-      if (!start) continue;
-      const ended = all.some((e) => e.type === cue.until && e.t > start.t && e.t <= T + 1e-6);
-      if (!ended && !out.includes(cue[seat])) out.push(cue[seat]);
+      if (cue[seat] && cueActive(type, cue, T) && !out.includes(cue[seat])) out.push(cue[seat]);
     }
     return out;
   }
