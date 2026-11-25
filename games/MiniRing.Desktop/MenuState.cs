@@ -1,10 +1,11 @@
 using System.Numerics;
+using MiniRing.Arena;
 using MiniRing.Characters;
 
 namespace MiniRing.Desktop;
 
 /// <summary>メニューの画面（ページ）。</summary>
-internal enum MenuPage { Top, Settings, Select, Replays }
+internal enum MenuPage { Top, Settings, Mode, Select, Replays }
 
 /// <summary>最初の画面のボタン（表示の並び: 2 列 × 3 行）。</summary>
 internal enum TopItem { Single, Versus, Spectate, Replays, Settings, Quit }
@@ -25,8 +26,9 @@ internal readonly record struct MenuInput(int X = 0, int Y = 0, bool Confirm = f
     bool HasSecondPad = false, int X2 = 0, int Y2 = 0, bool Confirm2 = false, bool Cancel2 = false);
 
 /// <summary>1 回の入力の結果。</summary>
+/// <paramref name="Notice"/> は画面の下に出す知らせ（大会に出られない人を選んだ・階級が違う など）。
 internal readonly record struct MenuOutcome(MenuAction Action = MenuAction.None, MatchSelection? Match = null,
-    int ReplayIndex = -1, MenuCue Cue = MenuCue.None, bool SettingsChanged = false);
+    int ReplayIndex = -1, MenuCue Cue = MenuCue.None, bool SettingsChanged = false, string? Notice = null);
 
 /// <summary>
 /// 画面の配置（設計の画面 640 × 464 の座標）。描画（<see cref="MenuView"/>）と指す位置の判定（<see cref="MenuState"/>）が同じ値を使う。
@@ -40,9 +42,9 @@ internal static class MenuLayout
     public static readonly Vector2 TopButtonSize = new(270f, 84f);
     public static Vector2 TopButtonCenter(int index) => new(175f + (index % TopColumns * 290f), 140f + (index / TopColumns * 102f));
 
-    public const int GridColumns = 6;
-    public static readonly Vector2 TileSize = new(44f, 60f);
-    public static Vector2 TileCenter(int index) => new(195f + (index % GridColumns * 50f), 125f + (index / GridColumns * 70f));
+    /// <summary>ゲームモードの行（左の列）。行の数は練習試合 + 団体の数 + 戻る。</summary>
+    public static readonly Vector2 ModeRowSize = new(250f, 46f);
+    public static Vector2 ModeRowCenter(int index) => new(160f, 118f + (index * 54f));
 
     public static readonly Vector2 SettingsRowSize = new(466f, 44f);
     public static Vector2 SettingsRowCenter(int index) => new(320f, 160f + (index * 58f));
@@ -73,21 +75,53 @@ internal static class MenuLayout
 /// <item>最初の画面（<see cref="MenuPage.Top"/>）で戻る（B・Esc）は終了しない。「終了」のボタンへカーソルを移すだけで、終了は決定したときだけ
 /// （試合から B で戻った勢いの 1 押しでゲームが閉じていたため）。</item>
 /// <item>キャラ選択（<see cref="MenuPage.Select"/>）は、シングル・観戦が赤 → 青の順、対戦は同時に動かせる（2 つ目のパッドが青）。
-/// 決定で選びを固め、戻るで 1 段戻る（青を解く → 赤を解く → 最初の画面）。両方が決まったら試合を始める。</item>
+/// 決定で選びを固め、戻るで 1 段戻る（青を解く → 赤を解く → ゲームモード）。両方が決まったら試合を始める。</item>
+/// <item>最初の画面で誰が操るか（シングル・対戦・観戦）を選んだあと、ゲームモード（<see cref="MenuPage.Mode"/>: 練習試合か団体の大会、<see cref="Competition"/>）を選ぶ。
+/// 大会では出場の条件に合わない人・赤と階級の違う人は選べない（カーソルが飛ばし、決定すると理由を知らせる）。</item>
 /// </list>
 /// </summary>
-internal sealed class MenuState(IReadOnlyList<FighterCharacter> roster, MenuSettings settings, int defaultRed = 0, int defaultBlue = 0)
+internal sealed class MenuState
 {
     public const int VisibleRecords = 5;
 
-    public IReadOnlyList<FighterCharacter> Roster { get; } = roster;
+    /// <param name="roster">名簿。</param>
+    /// <param name="settings">設定。</param>
+    /// <param name="defaultRed">赤の最初のカーソル（名簿の添字）。</param>
+    /// <param name="defaultBlue">青の最初のカーソル。</param>
+    /// <param name="organizations">選べる団体（null なら組み込みの全団体: <see cref="Competition.Organizations"/>）。</param>
+    public MenuState(IReadOnlyList<FighterCharacter> roster, MenuSettings settings, int defaultRed = 0, int defaultBlue = 0,
+        IReadOnlyList<Organization>? organizations = null)
+    {
+        Roster = roster ?? throw new ArgumentNullException(nameof(roster));
+        Settings = settings;
+        RedCursor = defaultRed;
+        BlueCursor = defaultBlue;
+        Organizations = organizations ?? Competition.Organizations();
+        Grid = new SelectGrid(roster);
+        Competition = Competition.Practice(null);
+    }
+
+    public IReadOnlyList<FighterCharacter> Roster { get; }
+    public IReadOnlyList<Organization> Organizations { get; }
+
+    /// <summary>キャラ選択の格子（分け方ごとの節・送り）。</summary>
+    public SelectGrid Grid { get; }
     public MenuPage Page { get; private set; }
     public int TopIndex { get; private set; }
     public int SettingsIndex { get; private set; }
-    public MenuSettings Settings { get; private set; } = settings;
+    public MenuSettings Settings { get; private set; }
     public MatchMode Mode { get; private set; }
-    public int RedCursor { get; private set; } = defaultRed;
-    public int BlueCursor { get; private set; } = defaultBlue;
+
+    /// <summary>ゲームモードの行の位置（0 = 練習試合、1.. = 団体の大会、最後 = 戻る）。</summary>
+    public int ModeIndex { get; private set; }
+
+    /// <summary>練習試合の決まり（0 = 標準、1.. = <see cref="Organizations"/> の団体の決まり）。</summary>
+    public int PracticeRules { get; private set; }
+
+    /// <summary>選んだゲームモード（キャラ選択と試合に渡る）。</summary>
+    public Competition Competition { get; private set; }
+    public int RedCursor { get; private set; }
+    public int BlueCursor { get; private set; }
     public bool RedLocked { get; private set; }
     public bool BlueLocked { get; private set; }
     public int ReplayCount { get; private set; }
@@ -98,8 +132,24 @@ internal sealed class MenuState(IReadOnlyList<FighterCharacter> roster, MenuSett
     /// <summary>設定の項目数（レフェリー・戻る）。</summary>
     public const int SettingsRows = 2;
 
+    /// <summary>ゲームモードの行の数（練習試合・団体の大会・戻る）。</summary>
+    public int ModeRows => Organizations.Count + 2;
+
+    /// <summary>ゲームモードの行 <paramref name="row"/> の中身（戻るの行なら null）。</summary>
+    public Competition? ModeAt(int row) => row == 0
+        ? Competition.Practice(PracticeRules == 0 ? null : Organizations[PracticeRules - 1])
+        : row <= Organizations.Count ? Competition.Event(Organizations[row - 1]) : null;
+
     /// <summary>キャラ選択でいま動かしている側（赤が決まるまでは赤、決まったら青）。</summary>
     public bool BlueActive => RedLocked;
+
+    /// <summary>この人を赤に選べるか（大会の出場の条件）。</summary>
+    public bool RedAllowed(int index) => Competition.Ineligible(Roster[index]) is null;
+
+    /// <summary>この人を青に選べるか（出場の条件。赤が決まっていれば、赤と同じ階級か）。</summary>
+    public bool BlueAllowed(int index) => RedLocked
+        ? Competition.CannotFace(Roster[RedCursor], Roster[index]) is null
+        : Competition.Ineligible(Roster[index]) is null;
 
     /// <summary>一覧（リプレイ）を読み込んだ後に、件数を知らせる（カーソルは先頭へ）。</summary>
     public void SetReplayCount(int count)
@@ -121,6 +171,7 @@ internal sealed class MenuState(IReadOnlyList<FighterCharacter> roster, MenuSett
     {
         MenuPage.Top => ApplyTop(input),
         MenuPage.Settings => ApplySettings(input),
+        MenuPage.Mode => ApplyMode(input),
         MenuPage.Select => ApplySelect(input),
         _ => ApplyReplays(input),
     };
@@ -176,9 +227,7 @@ internal sealed class MenuState(IReadOnlyList<FighterCharacter> roster, MenuSett
                 return new(Cue: MenuCue.Confirm);
             default:
                 Mode = (MatchMode)TopIndex; // Single / Versus / Spectate は MatchMode と同じ並び
-                Page = MenuPage.Select;
-                RedLocked = false;
-                BlueLocked = false;
+                Page = MenuPage.Mode;
                 return new(Cue: MenuCue.Confirm);
         }
     }
@@ -216,9 +265,60 @@ internal sealed class MenuState(IReadOnlyList<FighterCharacter> roster, MenuSett
         return new(Cue: SettingsIndex != old ? MenuCue.Move : MenuCue.None);
     }
 
+    /// <summary>
+    /// ゲームモード: 上下で行を選び、練習試合の行では左右で決まり（標準・団体）を切り替える。決定でキャラ選択へ（戻るの行・戻るで最初の画面）。
+    /// </summary>
+    private MenuOutcome ApplyMode(MenuInput input)
+    {
+        if (input.Cancel)
+        {
+            Page = MenuPage.Top;
+            return new(Cue: MenuCue.Confirm);
+        }
+
+        var (oldRow, oldRules) = (ModeIndex, PracticeRules);
+        var confirm = input.Confirm;
+        if (input.Pointer is { } point && MenuLayout.HitCenters(point, ModeRows, MenuLayout.ModeRowCenter, MenuLayout.ModeRowSize) is { } hit)
+        {
+            ModeIndex = hit;
+            confirm |= input.Click;
+        }
+
+        ModeIndex = Wrap(ModeIndex + input.Y, ModeRows);
+        if (ModeIndex == 0 && input.X != 0)
+        {
+            PracticeRules = Wrap(PracticeRules + input.X, Organizations.Count + 1);
+        }
+
+        if (!confirm)
+        {
+            return new(Cue: ModeIndex != oldRow || PracticeRules != oldRules ? MenuCue.Move : MenuCue.None);
+        }
+
+        if (ModeAt(ModeIndex) is not { } competition)
+        {
+            Page = MenuPage.Top;
+            return new(Cue: MenuCue.Confirm);
+        }
+
+        EnterSelect(competition);
+        return new(Cue: MenuCue.Confirm);
+    }
+
+    /// <summary>キャラ選択へ入る: 選びを解き、出られない人を指していれば出られる最初の人へ移す。</summary>
+    private void EnterSelect(Competition competition)
+    {
+        Competition = competition;
+        Page = MenuPage.Select;
+        RedLocked = false;
+        BlueLocked = false;
+        RedCursor = RedAllowed(RedCursor) ? RedCursor : Grid.First(RedAllowed) ?? RedCursor;
+        BlueCursor = BlueAllowed(BlueCursor) ? BlueCursor : Grid.First(BlueAllowed) ?? BlueCursor;
+        Grid.Reveal(RedCursor);
+    }
+
     private MenuOutcome ApplySelect(MenuInput input)
     {
-        var count = Roster.Count;
         if (input.Cancel)
         {
             if (BlueLocked && !(Mode == MatchMode.Versus && input.HasSecondPad))
@@ -231,7 +331,7 @@ internal sealed class MenuState(IReadOnlyList<FighterCharacter> roster, MenuSett
             }
             else
             {
-                Page = MenuPage.Top;
+                Page = MenuPage.Mode;
             }
 
             return new(Cue: MenuCue.Confirm);
@@ -243,8 +343,14 @@ internal sealed class MenuState(IReadOnlyList<FighterCharacter> roster, MenuSett
             return new(Cue: MenuCue.Confirm);
         }
 
-        var (oldRed, oldBlue) = (RedCursor, BlueCursor);
+        var (oldRed, oldBlue, oldLocked) = (RedCursor, BlueCursor, RedLocked);
         var confirm = input.Confirm;
+        string? notice = null;
+        var pointed = false;
+        if (input.Scroll != 0)
+        {
+            Grid.Scroll(Math.Sign(input.Scroll));
+        }
 
         // 動かす側: 対戦で 2 つ目のパッドがあるときは、主の入力は赤、2 つ目は青。赤が決まったあとは主の入力も青へ（キーボードの順）。
         var secondPadBlue = Mode == MatchMode.Versus && input.HasSecondPad;
@@ -252,18 +358,19 @@ internal sealed class MenuState(IReadOnlyList<FighterCharacter> roster, MenuSett
         {
             if (!BlueLocked)
             {
-                BlueCursor = Move(BlueCursor, input.X2, input.Y2, count);
+                BlueCursor = Grid.Move(BlueCursor, input.X2, input.Y2, BlueAllowed);
             }
 
             if (input.Confirm2 && !BlueLocked)
             {
-                BlueLocked = true;
+                notice = TryLockBlue();
             }
         }
 
-        if (input.Pointer is { } point && MenuLayout.HitCenters(point, count, MenuLayout.TileCenter, MenuLayout.TileSize) is { } hit)
+        if (input.Pointer is { } point && input.Scroll == 0 && Grid.Hit(point) is { } hit)
         {
             // 2 つ目のパッドが青のときは、青の選びは 2 つ目のパッドだけ（1P が 2P のキャラを選べてしまわない）。
+            pointed = true;
             var blueByPointer = BlueActive && !secondPadBlue;
             if (blueByPointer) { BlueCursor = hit; } else if (!BlueActive) { RedCursor = hit; }
             confirm |= input.Click && (blueByPointer || !BlueActive);
@@ -272,55 +379,68 @@ internal sealed class MenuState(IReadOnlyList<FighterCharacter> roster, MenuSett
         var driveBlue = BlueActive && !BlueLocked && !secondPadBlue;
         if (!RedLocked)
         {
-            RedCursor = Move(RedCursor, input.X, input.Y, count);
+            RedCursor = Grid.Move(RedCursor, input.X, input.Y, RedAllowed);
         }
         else if (driveBlue)
         {
-            BlueCursor = Move(BlueCursor, input.X, input.Y, count);
+            BlueCursor = Grid.Move(BlueCursor, input.X, input.Y, BlueAllowed);
         }
 
         if (confirm)
         {
             if (!RedLocked)
             {
-                RedLocked = true;
+                notice = TryLockRed() ?? notice;
             }
             else if (!BlueLocked && !secondPadBlue)
             {
-                BlueLocked = true;
+                notice = TryLockBlue() ?? notice;
             }
         }
 
         if (RedLocked && BlueLocked)
         {
-            var match = new MatchSelection(Mode, Roster[RedCursor], Roster[BlueCursor], Settings.Referee);
+            // 2 つ目のパッドが先に青を決めていたとき、赤が決まった後で組めるかを確かめ直す（階級が違えば青を解く）。
+            if (Competition.CannotFace(Roster[RedCursor], Roster[BlueCursor]) is { } why)
+            {
+                BlueLocked = false;
+                return new(Cue: MenuCue.Move, Notice: why);
+            }
+
+            var match = new MatchSelection(Mode, Roster[RedCursor], Roster[BlueCursor], Settings.Referee, Competition);
             return new(MenuAction.StartMatch, match, Cue: MenuCue.Confirm);
         }
 
         var moved = RedCursor != oldRed || BlueCursor != oldBlue;
-        return new(Cue: confirm || input.Confirm2 ? MenuCue.Confirm : moved ? MenuCue.Move : MenuCue.None);
+        // 動かした（か赤が決まって青へ移った）カーソルが見えるように送る。札を指して動かしたときは送らない（指した札は見えている）。
+        if ((moved || RedLocked != oldLocked) && !pointed)
+        {
+            Grid.Reveal(RedLocked ? BlueCursor : RedCursor);
+            if (secondPadBlue && BlueCursor != oldBlue) { Grid.Reveal(BlueCursor); }
+        }
+
+        var cue = notice is not null ? MenuCue.Move : confirm || input.Confirm2 ? MenuCue.Confirm : moved ? MenuCue.Move : MenuCue.None;
+        return new(Cue: cue, Notice: notice);
     }
 
-    private static int Move(int index, int x, int y, int count)
+    /// <summary>赤を決める（出られない人なら決めずに理由を返す）。決まれば、青のカーソルを赤と組める人へ移す。</summary>
+    private string? TryLockRed()
     {
-        if (x != 0)
+        if (Competition.Ineligible(Roster[RedCursor]) is { } why) { return why; }
+        RedLocked = true;
+        if (!BlueLocked && !BlueAllowed(BlueCursor))
         {
-            // 同じ行の中で回る（6 人ずつ）。
-            var row = index / MenuLayout.GridColumns;
-            var start = row * MenuLayout.GridColumns;
-            var width = Math.Min(MenuLayout.GridColumns, count - start);
-            index = start + Wrap(index - start + x, width);
+            BlueCursor = Grid.First(BlueAllowed) ?? BlueCursor;
         }
 
-        if (y != 0)
-        {
-            var rows = (count + MenuLayout.GridColumns - 1) / MenuLayout.GridColumns;
-            var column = index % MenuLayout.GridColumns;
-            var row = Wrap((index / MenuLayout.GridColumns) + y, rows);
-            index = Math.Min((row * MenuLayout.GridColumns) + column, count - 1);
-        }
+        return null;
+    }
 
-        return index;
+    private string? TryLockBlue()
+    {
+        var why = RedLocked ? Competition.CannotFace(Roster[RedCursor], Roster[BlueCursor]) : Competition.Ineligible(Roster[BlueCursor]);
+        if (why is null) { BlueLocked = true; }
+        return why;
     }
 
     private MenuOutcome ApplyReplays(MenuInput input)

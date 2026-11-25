@@ -91,7 +91,7 @@ public sealed class MenuPagesVisualTests
         File.Delete(settings);
         using var menu = new MatchMenu(replays, settings, loadPortraits: true);
         menu.Portraits.Complete();
-        Assert.AreEqual(17, menu.Portraits.ReadyCount, "every character has a portrait");
+        Assert.AreEqual(menu.State.Roster.Count, menu.Portraits.ReadyCount, "every character has a portrait");
         using var renderer = new HeadlessRenderer(Width, Height);
 
         // 最初の画面（カーソルは観戦）。
@@ -107,26 +107,56 @@ public sealed class MenuPagesVisualTests
         Render(renderer, menu, "menu_03_settings_referee_off.png");
         menu.Handle(new MenuInput(Cancel: true));
 
-        // キャラ選択（シングル: 赤を選んだところ・青を選んでいるところ）。
+        // ゲームモード（シングル → 練習試合の行・IVF の大会の行）。
         menu.State.Return();
-        menu.Handle(Move(y: -1)); // 設定 → 観戦…（先頭へ回す）
         while (menu.State.TopIndex != 0) { menu.Handle(Move(y: -1)); }
         menu.Handle(new MenuInput(Confirm: true));
-        menu.Handle(Move(x: 3));
-        Render(renderer, menu, "menu_04_select_single_red.png");
+        Assert.AreEqual(MenuPage.Mode, menu.State.Page);
+        menu.Handle(Move(x: 1)); // 練習試合の決まり: 標準 → 次の団体
+        Render(renderer, menu, "menu_04_mode_practice.png");
+        menu.Handle(Move(x: -1));
+        while (menu.State.ModeAt(menu.State.ModeIndex)?.Org?.Id != "ivf") { menu.Handle(Move(y: 1)); }
+        Render(renderer, menu, "menu_05_mode_ivf.png");
+
+        // キャラ選択（練習試合: 全員。赤を選んでいるところ・下へ送ったところ）。
+        while (menu.State.ModeIndex != 0) { menu.Handle(Move(y: -1)); }
+        menu.Handle(new MenuInput(Confirm: true));
+        Assert.AreEqual(MenuPage.Select, menu.State.Page);
+        Render(renderer, menu, "menu_06_select_practice_top.png");
+        for (var i = 0; i < 4; i++) { menu.Handle(Move(y: 1)); }
+        Render(renderer, menu, "menu_07_select_practice_scrolled.png");
         menu.Handle(new MenuInput(Confirm: true));
         menu.Handle(Move(x: 1));
-        Render(renderer, menu, "menu_05_select_single_blue.png");
+        Render(renderer, menu, "menu_08_select_practice_blue.png");
 
-        // 対戦（2 人とも決めたあと、まだ始まる前の見た目 = 赤だけ決定）。
+        // IVF の大会: 赤を決めると、青は同じ階級の人だけ。
+        menu.State.Return();
+        menu.Handle(new MenuInput(Confirm: true));
+        while (menu.State.ModeAt(menu.State.ModeIndex)?.Org?.Id != "ivf") { menu.Handle(Move(y: 1)); }
+        menu.Handle(new MenuInput(Confirm: true));
+        Render(renderer, menu, "menu_09_select_ivf_red.png");
+        menu.Handle(new MenuInput(Confirm: true));
+        Render(renderer, menu, "menu_10_select_ivf_blue.png");
+
+        // VFC の大会（武器あり・檻）。
+        menu.State.Return();
+        menu.Handle(new MenuInput(Confirm: true));
+        while (menu.State.ModeAt(menu.State.ModeIndex)?.Org?.Id != "vfc") { menu.Handle(Move(y: 1)); }
+        Render(renderer, menu, "menu_11_mode_vfc.png");
+        menu.Handle(new MenuInput(Confirm: true));
+        Render(renderer, menu, "menu_12_select_vfc.png");
+
+        // 対戦（練習試合・赤だけ決定）。
         menu.State.Return();
         menu.Handle(Move(x: 1));
+        menu.Handle(new MenuInput(Confirm: true));
+        while (menu.State.ModeIndex != 0) { menu.Handle(Move(y: -1)); }
         menu.Handle(new MenuInput(Confirm: true));
         Assert.AreEqual(MatchMode.Versus, menu.State.Mode);
         menu.Handle(Move(x: 2));
         menu.Handle(new MenuInput(Confirm: true));
         menu.Handle(Move(x: 1, y: 1));
-        Render(renderer, menu, "menu_06_select_versus.png");
+        Render(renderer, menu, "menu_13_select_versus.png");
 
         // リプレイ。
         menu.State.Return();
@@ -134,6 +164,6 @@ public sealed class MenuPagesVisualTests
         menu.Handle(new MenuInput(Confirm: true));
         Assert.AreEqual(MenuPage.Replays, menu.State.Page);
         Assert.AreEqual(3, menu.State.ReplayCount);
-        Render(renderer, menu, "menu_07_replays.png");
+        Render(renderer, menu, "menu_14_replays.png");
     }
 }

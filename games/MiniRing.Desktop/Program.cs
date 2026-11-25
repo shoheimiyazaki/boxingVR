@@ -29,6 +29,7 @@ if (args.Contains("--control") && Option("--control") is not ("classic" or "inte
 //   --dynamic-punch         脚の踏み込みを拳に乗せる分割胴の試合設定
 //   --no-facecam            画面の両脇の顔の窓を出さない（窓の分の描画が要らない）
 //   --speed <0.5|0.75|1>    最初の速さ（既定 0.75 倍）。遊んでいる間・再生中も 1 / 2 / 3 キーで 0.5 / 0.75 / 1.0 倍に切り替わる
+//   --menu-script <語,...>  メニューを決めた順に操作する（left/right/up/down/enter/back/wait/scroll-up/scroll-down。0.5 秒に 1 つ。画面の確かめ用）
 //   --wear <glove|none|knuckles|katar|gauntlet>  両コーナーが手にはめる物（既定 glove。--quick のときだけ。メニューからの試合は、はめる物・武器をキャラクターが決める）
 
 if (!HitSoundOption.TryParse(args, out var hitSounds, out var hitError))
@@ -119,6 +120,17 @@ catch (ArgumentException e)
     return 1;
 }
 
+MenuScript? menuScript;
+try
+{
+    menuScript = Option("--menu-script") is { } scriptText ? MenuScript.Parse(scriptText) : null;
+}
+catch (ArgumentException e)
+{
+    Console.Error.WriteLine(e.Message);
+    return 1;
+}
+
 var replayDirectory = Path.Combine(Environment.CurrentDirectory, "replays");
 if (Option("--replay") is { } replayPath)
 {
@@ -154,8 +166,10 @@ else
     var confirmCue = ToneGenerator.CreateToneClip("menu-confirm", 660, 1100, 0.10f, 0.35f, attackSeconds: 0.004f, releaseSeconds: 0.04f);
     // 設定（レフェリーの有無など）は記録と同じ場所（作業フォルダー）の settings.json に残す。
     using var menu = new MatchMenu(replayDirectory, Path.Combine(Environment.CurrentDirectory, "settings.json"),
-        confirmed => menuAudio.Play(confirmed ? confirmCue : moveCue, 1f, shouldLoop: false));
-    using var menuGame = new MenuGame(menu, selection => OpenMatch(selection.Corners, selection.Mode), OpenReplay);
+        confirmed => menuAudio.Play(confirmed ? confirmCue : moveCue, 1f, shouldLoop: false), script: menuScript);
+    // ゲームモード（練習試合・団体の大会）の決まりと場は選びから（団体の大会は中継と同じ決まり・会場の歓声つき）。
+    using var menuGame = new MenuGame(menu, selection => OpenMatch(selection.Corners, selection.Mode,
+        selection.RulesOr(tv ? MatchRules.Tv : null), crowd: tv || selection.Event.Tournament), OpenReplay);
     GameHost.Run(profiler, options with
     {
         HelpText = "Menu: WASD, arrows, D-pad or mouse; Enter/A/left click to select; Escape/B to go back. In a match, Escape/B returns to Game Select.",
@@ -192,15 +206,17 @@ MatchSession OpenReplay(ReplayData data)
     }
 }
 
-MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
+MatchSession OpenMatch(BoxingCorners corners, MatchMode mode, MatchRules? rules = null, bool crowd = false)
 {
+    rules ??= tv ? MatchRules.Tv : null;
+    crowd |= tv;
     var tuning = args.Contains("--hybrid-punch")
         ? FighterTuning.HybridPunch
         : args.Contains("--adaptive-punch")
         ? FighterTuning.AdaptivePunch
         : args.Contains("--dynamic-punch") ? FighterTuning.DynamicPunch
         : args.Contains("--compact-punch") ? FighterTuning.CompactPunch : FighterTuning.Default;
-    var game = new BoxingGame(tuning, corners: corners.StartingAtCorners(), rules: tv ? MatchRules.Tv : null) { FaceCam = faceCam, Speed = speed }; // 試合はコーナーから
+    var game = new BoxingGame(tuning, corners: corners.StartingAtCorners(), rules: rules) { FaceCam = faceCam, Speed = speed }; // 試合はコーナーから
     ReplayRecorder? recorder = null;
     try
     {
@@ -221,12 +237,12 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
 
         IGame<BoxingInput> recorded = recorder is null ? game : new RecordingGame(game, recorder);
         var soundPlayer = HitSoundPlayer.CreateDefault(breakStyle, hitSounds);
-        if (tv) { soundPlayer.PrepareCrowd(seed: 7); }
+        if (crowd) { soundPlayer.PrepareCrowd(seed: 7); }
         var sound = new HitSoundGame(recorded, () => game.RecentHits, soundPlayer,
             () => game.RecentShatters, () => game.RecentLandings, () => game.RecentSwings, () => game.RecentBell,
             () => game.RecentGrazes, () => game.RecentSevers, null,
             () => game.RecentContacts, () => [.. game.WeaponHits, .. game.SelfWeaponHits])
-            { DeferredPlayback = true, CaptureCrowd = tv ? CrowdFor(game) : null };
+            { DeferredPlayback = true, CaptureCrowd = crowd ? CrowdFor(game) : null };
         var presentation = new SnapshotMatchGame(game, sound, () => speed.Value);
         var previousStep = -1L;
         return new MatchSession(game, presentation, input =>
