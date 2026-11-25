@@ -140,6 +140,17 @@ public sealed class ClawAimProbe
         }
     }
 
+    [TestMethod]
+    public void CageFootprintTrace()
+    {
+        var c = CharacterRoster.Get("galva");
+        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners(c.Id, _ => new StandGuard(), _ => new StandGuard(),
+            CpuWear: c.Wear, PlayerWear: c.Wear, PlayerBody: c.Build, CpuBody: c.Build, Ring: RingLayout.Cage.AtCorners()));
+        var fp = game.FootprintOf(game.Player);
+        var p = game.Player.PelvisPosition - game.Layout.Center;
+        Console.WriteLine($"pelvis from center {new Vector2(p.X, p.Z).Length():0.000} m; footprint x {fp.Min(q => q.X):0.00}..{fp.Max(q => q.X):0.00} z {fp.Min(q => q.Y):0.00}..{fp.Max(q => q.Y):0.00}; half {game.Layout.Half:0.000}");
+    }
+
     private static IEnumerable<(string, Func<float, ClawSegment>)> Targets()
     {
         yield return ("guard", r => ClawStroke.Guard(Hand.Right, r));

@@ -77,10 +77,12 @@ public static class BodySizing
     public static float PhysicalMassKg(BodyBuild build)
     {
         ArgumentNullException.ThrowIfNull(build);
-        var masses = (FighterTuning.Default with { Build = build }).Masses;
+        var tuning = FighterTuning.Default with { Build = build };
+        var masses = tuning.Masses;
         var leg = masses.Thigh + masses.Shin + (masses.Foot / (1f - FootGeometry.ToeShare));
         var trunkAndArms = masses.Total - (2f * (masses.Thigh + masses.Shin + masses.Foot));
-        return trunkAndArms + (2f * build.LegPairs * leg);
+        var coxae = build.FourLegged ? 2f * build.LegPairs * tuning.CoxaMass : 0f; // 四足は脚ごとに付け根の節（Fighter.AddRearRig の coxa）がある
+        return trunkAndArms + (2f * build.LegPairs * leg) + coxae;
     }
 
     /// <summary>
