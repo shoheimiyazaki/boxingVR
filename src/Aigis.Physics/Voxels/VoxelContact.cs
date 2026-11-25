@@ -121,8 +121,8 @@ public static class VoxelContact
         set => _sampleSpacingScale.Value = value;
     }
 
-    /// <summary>既定の標本の間隔（セルの 1 倍。2026-11-25 に 0.5 から: 刃の切れ味の境目 75 か所のうち 64 が同じ・ずれは 1 段まで 10・平均の偏り 0、docs/PERFORMANCE.md §7）。</summary>
-    private const float DefaultSampleSpacingScale = 1f;
+    /// <summary>既定の標本の間隔（セルの半分。2026-11-25 に 1 セルを試し、刃の切れ味は保ったが、拳・肘・蹴り・踏みつけの 8 つのテストが崩れたので 0.5 のまま: docs/PERFORMANCE.md §7）。</summary>
+    private const float DefaultSampleSpacingScale = 0.5f;
 
     /// <summary>
     /// 最初の接触を探す走査の間引き（1 = すべての標本を見る。既定は <see cref="DefaultScanStride"/>）。簡素化の測定用（docs/PERFORMANCE.md §7）: k なら k 標本おきに見て、触れたら戻って最初を探す。
@@ -136,8 +136,9 @@ public static class VoxelContact
 
     private static readonly AsyncLocal<int?> _scanStride = new();
 
-    /// <summary>既定の走査の間引き（16。2026-11-25: 16 でも 64 でも刃の切れ味の境目 75 か所のほぼ全部が 1 と同じ、docs/PERFORMANCE.md §7）。</summary>
-    private const int DefaultScanStride = 16;
+    /// <summary>既定の走査の間引き（1 = 間引かない。2026-11-25: 刃の切れ味の境目は 64 でも保ったが、16 では細い所を通り抜ける接触を見落として刀・爪の 3 つのテストが、
+    /// 2 でも脚の 1 つのテストが崩れた。効きは 6 人の物理で数 % なので入れない: docs/PERFORMANCE.md §7）。</summary>
+    private const int DefaultScanStride = 1;
     private static readonly AsyncLocal<float?> _sampleSpacingScale = new();
 
     /// <summary>Most samples of the sweep in one step.</summary>
