@@ -407,7 +407,7 @@ public sealed partial class BoxingGame
         }
         else
         {
-            fighter.Wield(WeaponHand, weapon.Body.BodyId, Weapon.GripOf(kind), slideSpan: Weapon.SlideSpanOf(kind));
+            fighter.Wield(WeaponHand, weapon.Body.BodyId, Weapon.GripOf(kind), slideSpan: Weapon.SlideSpanOf(kind), clench: true); // 片手で握る柄（片手剣・片手のこんぼう）は握り込んだ手首
         }
 
         _wielders[weapon] = fighter;

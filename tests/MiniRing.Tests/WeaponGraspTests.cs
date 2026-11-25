@@ -232,4 +232,5 @@ public sealed class WeaponGraspTests
         Assert.AreEqual(bottom.X, game.Cpu.GripX(Hand.Left)!.Value, 1e-5f);
         Assert.IsFalse(game.Cpu.HoldsOneHanded(Hand.Right));
     }
+
 }

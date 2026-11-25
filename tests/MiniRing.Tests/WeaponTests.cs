@@ -23,12 +23,12 @@ public sealed class WeaponTests
     }
 
     /// <summary>1 フレーム後の、打った武器の飛ぶ向きの速さ（止められたか）。</summary>
-    private static float SpeedAfterOneFrame(string name)
+    private static float SpeedAfterOneFrame(string name, int frames = 1)
     {
         var trial = WeaponDrills.Trials.Single(t => t.Name == name);
         using var game = WeaponDrills.StillMatch();
         var shot = trial.Setup(game);
-        WeaponDrills.Run(trial, game, shot, 1, 1f / 60f);
+        WeaponDrills.Run(trial, game, shot, frames, 1f / 60f);
         return Vector3.Dot(game.World.GetState(shot.Weapon.Body.BodyId).LinearVelocity, shot.Heading);
     }
 
@@ -44,7 +44,14 @@ public sealed class WeaponTests
         // 2026-11-24（PhysicsVersion 93）: セルは刃がその奥行きを斬り抜けたときに断たれるので、ふつうの振りの刃も最初の接触で断つセルは 0〜2 と少ない。
         // 最初の接触でなく、腹が最初に触れたときに壊したセルが刃の斬った肉の 1/3 より少ないかで見る。
         Assert.IsLessThan(edge.Lost(VoxelTissue.Flesh) / 3f, flat.FirstContactLost, "the flat itself breaks little");
-        Assert.IsLessThan(5.035f, SpeedAfterOneFrame("sword-flat"), "the arm stops the flat");
+        // 2026-11-25（PhysicsVersion 105）: 剣が実物の重さ（0.88 → 1.19 kg）になり、同じ速さで当たる剣の運動量が増えたので、前腕に止められた後の速さの
+        // 固定の上限（5.035 m/s、軽い剣で決めた値）は物理として当てはまらない（重い物ほど止まりにくい）。同じビルドの中で、腹で打った剣は、刃で斬り込んだ剣より
+        // 前腕に止められる（1 コマ後に遅い）ことを見る。
+        // 1 コマ（1/60 s）では重い剣はまだ前腕に届き切らず、腹も刃も同じ速さ（5.70 m/s）なので、当たり終わる 4 コマ後で比べる。
+        var flatSpeed = SpeedAfterOneFrame("sword-flat", 4);
+        var edgeSpeed = SpeedAfterOneFrame("sword-edge", 4);
+        Console.WriteLine($"4 コマ後の速さ: 腹 {flatSpeed:0.00} m/s、刃 {edgeSpeed:0.00} m/s");
+        Assert.IsLessThan(edgeSpeed, flatSpeed, "the arm stops the flat more than the edge that cuts into it");
         Assert.AreEqual(0, edge.WeaponLost + flat.WeaponLost, "flesh does not hurt iron");
     }
 

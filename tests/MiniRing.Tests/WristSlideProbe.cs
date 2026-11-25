@@ -44,13 +44,12 @@ public sealed class WristSlideProbe
         var b = FighterTuning.Default;
         var variants = new (string Name, FighterTuning T)[]
         {
-            ("25 Hz・減衰 3・45 N·m", b with { GripWristMaxTorque = 45f }),
-            ("25 Hz・減衰 3・60 N·m", b with { GripWristMaxTorque = 60f }),
-            ("25 Hz・減衰 2・45 N·m", b with { GripWristMaxTorque = 45f, GripWristDampingRatio = 2f }),
-            ("25 Hz・減衰 2・60 N·m", b with { GripWristMaxTorque = 60f, GripWristDampingRatio = 2f }),
-            ("30 Hz・減衰 2・60 N·m", b with { GripWristMaxTorque = 60f, GripWristServoHz = 30f, GripWristDampingRatio = 2f }),
-            ("25 Hz・減衰 1.5・60 N·m", b with { GripWristMaxTorque = 60f, GripWristDampingRatio = 1.5f }),
-            ("25 Hz・減衰 2・75 N·m", b with { GripWristMaxTorque = 75f, GripWristDampingRatio = 2f }),
+            ("減衰 3・45 N·m", b with { GripWristDampingRatio = 3f, GripWristMaxTorque = 45f }),
+            ("減衰 3・60 N·m", b with { GripWristDampingRatio = 3f, GripWristMaxTorque = 60f }),
+            ("減衰 3・90 N·m", b with { GripWristDampingRatio = 3f, GripWristMaxTorque = 90f }),
+            ("減衰 4・30 N·m", b with { GripWristDampingRatio = 4f }),
+            ("減衰 3・30 N·m・片手 0.5", b with { GripWristDampingRatio = 3f, OneHandWristShare = 0.5f }),
+            ("減衰 3・腕 Hz ×1.5", b with { GripWristDampingRatio = 3f, ArmServoHz = b.ArmServoHz * 1.5f }),
         };
         var rows = new (float, int)[variants.Length];
         Parallel.For(0, variants.Length, i => rows[i] = Run(variants[i].T));

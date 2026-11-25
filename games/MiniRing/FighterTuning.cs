@@ -252,7 +252,21 @@ public sealed record FighterTuning
     /// <summary>手首の筋肉（手にはめた物: グローブ・素手の拳・トンファー・盾を、向きの目標へ回すサーボ）の固さ [Hz]。握った武器は <see cref="GripWristServoHz"/>。</summary>
     public float WristServoHz { get; init; } = 8.94f;
 
-    /// <summary>手にはめた物を回す最大トルク（TorqueScale 倍する前。肩の 40 の 1/4）。握った武器は <see cref="GripWristMaxTorque"/>。</summary>
+    /// <summary>
+    /// 肩のサーボ（腕の形を作る関節の筋）が出せる最大トルク [N·m]（TorqueScale 倍する前。体格・肉の残りの倍率は <c>Arm.SetStrength</c> が掛ける）。
+    /// 人の肩の等尺性の最大: 屈曲 55〜70・伸展 80〜100・外転 50〜65 N·m（成人男性。Stobbe 1982、Kulig 1984 の総説、Harbo 2012 の基準値）。1 つのサーボで向きを分けないので、
+    /// 弱い向きの屈曲・外転に合わせた 60。2026-11-25 まで 40（実物大へ移す前の値のまま。docs/plans/FORM_DECAY_STUDY.md: 武器を実物の重さにすると、構えた刃が垂れた）。
+    /// 拳を目標へ引く力（<see cref="MaxHandForce"/>）は別にある。
+    /// </summary>
+    public float ShoulderMaxTorque { get; init; } = 60f;
+
+    /// <summary>
+    /// 肘のサーボが出せる最大トルク [N·m]（TorqueScale 倍する前）。人の肘の等尺性の最大: 屈曲 60〜75・伸展 40〜50 N·m（成人男性、肘 90°。Kulig 1984、
+    /// Murray 1995）。1 つのサーボで曲げ・伸ばしを分けないので間の 50。2026-11-25 まで 30（同上）。
+    /// </summary>
+    public float ElbowMaxTorque { get; init; } = 50f;
+
+    /// <summary>手にはめた物を回す最大トルク（TorqueScale 倍する前。人の手首の伸展の最大 7〜10 N·m の上の方）。握った武器は <see cref="GripWristMaxTorque"/>。</summary>
     public float WristMaxTorque { get; init; } = 10f;
 
     /// <summary>手にはめた物の手首のサーボの減衰比（1 = 臨界減衰）。握った武器は <see cref="GripWristDampingRatio"/>。</summary>
@@ -281,11 +295,10 @@ public sealed record FighterTuning
 
     /// <summary>
     /// 柄を握り込んだ手首のサーボの減衰比。前腕と武器は肩・肘のバネの先で一緒に揺れるので、臨界より強く減衰させて揺れを吸う
-    /// （1 → 3 で向きを 40° 変えた後の狙いのずれの振れ 4.4° → 1.5°、両手で持つのを分ける前の測り）。2026-11-25 に 3 → 2（docs/plans/FORM_DECAY_STUDY.md）:
-    /// 両手の間も握り込んだ手首にし、武器を実物の重さにした体で、VR の胴をひねった刀の構えの流れが 3 では 35 cm（SlideTests の上限 22.5 cm）、2 で 18 cm。
-    /// 流れは減衰・固さに対して滑らかでない（1.5 で 18 cm、30 Hz・2 で 24 cm）ので、上限に近い値の比べは種 1 つの測りと心得る（WristSlideProbe）。
+    /// （1 → 3 で向きを 40° 変えた後の狙いのずれの振れ 4.4° → 1.5°、両手で持つのを分ける前の測り）。2026-11-25 に 2 も試した（docs/plans/FORM_DECAY_STUDY.md）が、
+    /// 手首を付けたときに両手の割合を掛ける直しの後は 3 で VR の胴をひねった刀の構えの流れが 18 cm（2 では 28 cm）。流れは減衰・固さに対して滑らかでない（WristSlideProbe）。
     /// </summary>
-    public float GripWristDampingRatio { get; init; } = 2f;
+    public float GripWristDampingRatio { get; init; } = 3f;
 
     /// <summary>
     /// 両手で握っていた武器を片手で持つことになったときの、手首の角度のバネ（固さとトルク）の割合。両手の握りは、2 本の手首に加えて、

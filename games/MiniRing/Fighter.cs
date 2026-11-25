@@ -1567,7 +1567,8 @@ public sealed partial class Fighter
     /// <param name="gripLocal">握る所（武器のローカル）。</param>
     /// <param name="glove">はめるグローブ（武器と同じに拳へ付けるが、握るのではない: 素手にはならない）。</param>
     /// <param name="slideSpan">手の中で滑らせて握り直せる範囲（武器のローカル X。<see cref="Weapons.Weapon.SlideSpanOf"/>。null なら握りは固定）。</param>
-    internal void Wield(Hand hand, int body, Vector3 gripLocal, bool glove = false, (float Min, float Max)? slideSpan = null)
+    /// <param name="clench">片手で持つ武器の柄を握り込む（<see cref="Arm.OneHandHandle"/>）。</param>
+    internal void Wield(Hand hand, int body, Vector3 gripLocal, bool glove = false, (float Min, float Max)? slideSpan = null, bool clench = false)
     {
         var arm = _arms[(int)hand];
         if (arm.Severed || arm.Held is not null)
@@ -1581,6 +1582,7 @@ public sealed partial class Fighter
         }
 
         arm.Glove = glove; // 手首の固さは、はめる物か握る物かで決まる（Arm.WristHz）ので、つなぐ前に
+        arm.OneHandHandle = !glove && clench;
         arm.Wield(_world, _tuning, body, gripLocal);
         arm.Bare |= !glove;
         arm.WristShare = 1f;
@@ -1606,6 +1608,7 @@ public sealed partial class Fighter
         }
 
         arm.Glove = false;
+        arm.OneHandHandle = !twoHandedKind && slideSpan is null;
         arm.Grasp(_world, _tuning, body, gripLocal);
         arm.Bare = true;
         arm.WristShare = twoHandedKind && slideSpan is null ? _tuning.OneHandWristShare : 1f;
@@ -4781,6 +4784,7 @@ public sealed partial class Fighter
             HandGone = false;
             WornLoose = false;
             Glove = false;
+            OneHandHandle = false;
             Bare = false;
             SlideSpan = null;
             WristShare = 1f;
@@ -4800,7 +4804,7 @@ public sealed partial class Fighter
         {
             // 肘の基底は物理的な側で決まる（+X 側の腕が Mirrored / HumanoidRagdoll.BuildCore と同じ）。上腕が折れてつながった腕は、肘を受ける破片との間に付ける。
             var basis = Side > 0f ? HumanoidRagdoll.YAxisTwistBasisMirrored : HumanoidRagdoll.YAxisTwistBasis;
-            ElbowServo = world.AddTwistServo(upper ?? UpperArm, Forearm, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, 30f * tuning.TorqueScale);
+            ElbowServo = world.AddTwistServo(upper ?? UpperArm, Forearm, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.ElbowMaxTorque * tuning.TorqueScale);
         }
 
         public void AttachGlove(int body, Vector3 local)
@@ -4837,7 +4841,7 @@ public sealed partial class Fighter
             world.SetDynamicPose(body, fist - Vector3.Transform(gripLocal, orientation), orientation);
             world.SetLinearVelocity(body, f.LinearVelocity);
             var socket = world.AddBallSocket(Forearm, body, GloveLocal, gripLocal, frequency: 17.87f, dampingRatio: 1f);
-            var wrist = world.AddAngularServo(Forearm, body, along, WristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
+            var wrist = world.AddAngularServo(Forearm, body, along, NewWristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, NewWristTorque(tuning));
             Held = new HeldWeapon(body, gripLocal, socket, wrist, along, world.GetMass(body));
         }
 
@@ -4849,7 +4853,7 @@ public sealed partial class Fighter
         {
             var socket = world.AddBallSocket(Forearm, body, GloveLocal, gripLocal, frequency: 17.87f, dampingRatio: 1f);
             var relative = Quaternion.Concatenate(world.GetState(body).Orientation, Quaternion.Conjugate(world.GetState(Forearm).Orientation));
-            var wrist = world.AddAngularServo(Forearm, body, relative, WristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
+            var wrist = world.AddAngularServo(Forearm, body, relative, NewWristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, NewWristTorque(tuning));
             Held = new HeldWeapon(body, gripLocal, socket, wrist, relative, world.GetMass(body));
         }
 
@@ -4972,7 +4976,7 @@ public sealed partial class Fighter
 
             HoldOrientation = null;
             var relative = Quaternion.Concatenate(world.GetState(body).Orientation, Quaternion.Conjugate(world.GetState(Forearm).Orientation));
-            var wrist = world.AddAngularServo(Forearm, body, relative, WristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
+            var wrist = world.AddAngularServo(Forearm, body, relative, NewWristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, NewWristTorque(tuning));
             if (Held is { } held)
             {
                 Held = held with { Wrist = wrist };
@@ -5083,7 +5087,7 @@ public sealed partial class Fighter
 
             var socket = world.AddBallSocket(Forearm, support.Body, GloveLocal, support.GripLocal, frequency: 17.87f, dampingRatio: 1f);
             var relative = Quaternion.Concatenate(world.GetState(support.Body).Orientation, Quaternion.Conjugate(world.GetState(Forearm).Orientation));
-            var wrist = world.AddAngularServo(Forearm, support.Body, relative, WristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, WristTorque(tuning) * tuning.TorqueScale);
+            var wrist = world.AddAngularServo(Forearm, support.Body, relative, NewWristHz(tuning), WristDamping(tuning), tuning.ArmServoMaxSpeed, 0f, NewWristTorque(tuning));
             Support = support with { Socket = socket, Wrist = wrist, Reaching = false };
         }
 
@@ -5134,7 +5138,22 @@ public sealed partial class Fighter
         /// 両手とも割合 1 の 25 Hz にすると、両手と武器の閉じた輪の中で固い手首どうしが押し合い、胴をひねった構えで体が 30 cm 滑った: SlideTests）。
         /// はめる物・片手の武器（片手剣・こんぼう）は今まで通り: 片手の武器まで固めると、片手剣と盾の守り手の守りが崩れた（ShieldTests: 構えた盾で体の損傷 22 → 325 セル）。
         /// </summary>
-        private bool Clenched => !Glove && (SharedGrip || WristShare < 1f);
+        private bool Clenched => OneHandHandle || (!Glove && (SharedGrip || WristShare < 1f));
+
+        /// <summary>
+        /// 片手で持つ武器（片手剣・こんぼう）の柄を握っている（<see cref="Fighter.Wield"/> の clench）。柄を握り込んだ手首は、両手で持つ武器を 1 本の手で支えるときと
+        /// 同じ現象なので同じ握り込んだ手首で回す（2026-11-25。それまでははめる物と同じ 8.94 Hz・10 N·m で、実物の重さの片手剣は振りが 5〜9 m/s に落ちた）。
+        /// </summary>
+        public bool OneHandHandle { get; set; }
+
+        /// <summary>
+        /// 付けたばかりの手首の固さ・トルク: <see cref="SetWristStrength"/> と同じ式（割合 <see cref="ShareOf"/> と最後の強さ <see cref="LastWristScale"/>）。
+        /// 2026-11-25 までは付けたときだけ割合を掛けず、両手で持った後に添えた手の手首を付け直すと、その手首だけ 1 本で支える固さのままになった
+        /// （VR の体は手首の強さを毎歩は入れ直さないので、そのまま残った）。
+        /// </summary>
+        private float NewWristHz(FighterTuning tuning) => WristHz(tuning) * MathF.Sqrt(ShareOf(tuning));
+
+        private float NewWristTorque(FighterTuning tuning) => WristTorque(tuning) * tuning.TorqueScale * ShareOf(tuning) * Math.Max(0.01f, LastWristScale);
 
         /// <summary>手首のバネに掛ける割合: 握り込んだ手首で両手の間は <see cref="FighterTuning.TwoHandWristShare"/>、それ以外は <see cref="WristShare"/>。</summary>
         private float ShareOf(FighterTuning tuning) => Clenched && SharedGrip ? tuning.TwoHandWristShare : WristShare;
@@ -5195,8 +5214,8 @@ public sealed partial class Fighter
 
             // 肘の基底は物理的な側で決まる（+X 側の腕が Mirrored / HumanoidRagdoll.BuildCore と同じ）。
             var basis = side > 0f ? HumanoidRagdoll.YAxisTwistBasisMirrored : HumanoidRagdoll.YAxisTwistBasis;
-            var shoulderServo = world.AddAngularServo(parts.Chest, upper, Quaternion.Identity, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, 40f * tuning.TorqueScale);
-            var elbowServo = world.AddTwistServo(upper, fore, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, 30f * tuning.TorqueScale);
+            var shoulderServo = world.AddAngularServo(parts.Chest, upper, Quaternion.Identity, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.ShoulderMaxTorque * tuning.TorqueScale);
+            var elbowServo = world.AddTwistServo(upper, fore, basis, basis, 0f, tuning.ArmServoHz, 1f, tuning.ArmServoMaxSpeed, 0f, tuning.ElbowMaxTorque * tuning.TorqueScale);
 
             return new Arm(hand)
             {
@@ -5229,8 +5248,8 @@ public sealed partial class Fighter
 
         public void SetStrength(PhysicsWorld world, FighterTuning tuning, float shoulderScale, float elbowScale)
         {
-            world.SetAngularServoSettings(ShoulderServo, tuning.ArmServoHz, 40f * tuning.TorqueScale * Math.Max(0.01f, shoulderScale));
-            world.SetTwistServoSettings(ElbowServo, tuning.ArmServoHz, 30f * tuning.TorqueScale * Math.Max(0.01f, elbowScale));
+            world.SetAngularServoSettings(ShoulderServo, tuning.ArmServoHz, tuning.ShoulderMaxTorque * tuning.TorqueScale * Math.Max(0.01f, shoulderScale));
+            world.SetTwistServoSettings(ElbowServo, tuning.ArmServoHz, tuning.ElbowMaxTorque * tuning.TorqueScale * Math.Max(0.01f, elbowScale));
         }
 
         /// <summary>
