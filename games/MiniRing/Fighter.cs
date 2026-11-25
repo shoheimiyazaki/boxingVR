@@ -243,14 +243,21 @@ public sealed partial class Fighter
     /// <summary>つま先の剛体（<see cref="Footwork.Lead"/> / <see cref="Footwork.Rear"/>）。</summary>
     public int ToeId(int foot) => _legParts[foot].Toe;
 
+    /// <summary>関節 <paramref name="kind"/> の位置の拘束がつなぐ 2 点の今の距離 [m]（関節の隙間。調べもの・テスト用）。無ければ null。</summary>
+    internal float? JointGap(HumanoidRagdoll.RagdollJoint kind)
+        => _joints.FirstOrDefault(j => j.Joint == kind) is { } joint && _world.GetJointAnchors(joint.PrimaryConstraintId) is { } a ? Vector3.Distance(a.AnchorA, a.AnchorB) : null;
+
     /// <summary>かかと側の足の剛体（<see cref="Footwork.Lead"/> / <see cref="Footwork.Rear"/>）。</summary>
     public int HeelId(int foot) => _legParts[foot].Heel;
+
+    /// <summary>足の運びの番号の脚のすねの剛体（調べもの用）。</summary>
+    internal int ShinIdOf(int foot) => _legParts[foot].Shin;
 
     /// <summary>
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 105; // 握り込んだ手首・切っ先の目標と PD・実物の重さの武器・人の肩肘の力・蹴る間の軸足（105、仮）・武器を握る手をボクセルの握り拳に（100）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 106; // 脚とつま先の関節の位置の拘束を肘と同じ固さに（106、仮）・握り込んだ手首・切っ先の目標と PD・実物の重さの武器・人の肩肘の力・蹴る間の軸足（105、仮）・武器を握る手をボクセルの握り拳に（100）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1774,7 +1781,7 @@ public sealed partial class Fighter
             var toe = world.AddDynamicBox(s.Position + Vector3.Transform(FootGeometry.ToeCenterOnHeel(heel), s.Orientation), s.Orientation, toeHalf,
                 tuning.Masses.Foot / (1f - FootGeometry.ToeShare) * FootGeometry.ToeShare); // 足（かかと側）は足の質量の残り
             world.SetName(toe, name + "_" + side + "_toe");
-            world.AddHinge(foot, toe, FootGeometry.BallOnHeel(heel), FootGeometry.BallOnToe(heel), Vector3.UnitX, Vector3.UnitX, frequency: 10.72f);
+            world.AddHinge(foot, toe, FootGeometry.BallOnHeel(heel), FootGeometry.BallOnToe(heel), Vector3.UnitX, Vector3.UnitX, frequency: tuning.ToeHingeHz);
             var deg = MathF.PI / 180f;
             world.AddTwistLimit(foot, toe, HumanoidRagdoll.XAxisTwistBasis, HumanoidRagdoll.XAxisTwistBasis, -60f * deg, 25f * deg, frequency: tuning.ToeStopHz);
             var servo = world.AddTwistServo(foot, toe, HumanoidRagdoll.XAxisTwistBasis, HumanoidRagdoll.XAxisTwistBasis, 0f,

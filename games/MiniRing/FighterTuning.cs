@@ -606,6 +606,16 @@ public sealed record FighterTuning
     /// </summary>
     public float ElbowHingeHz { get; init; } = 45f;
 
+    /// <summary>
+    /// つま先の蝶番（母指球でかかと側とつま先をつなぐ位置の拘束）のバネの固さ [Hz]。肘と同じ現象（関節の位置の拘束が柔らかいと、速く振られた先の部位が離れる）
+    /// なので同じ考えで決める。2026-11-25 まで 10.72 Hz（人形の単位の 18 Hz を相似で写した値）で、蹴りで足を振ると、つま先が母指球の点から 9〜44 cm 離れた
+    /// （ユーザーの指摘「つま先がかかとから離れる。蹴りで大きな隙間ができる」。ToeGapProbe）。実際の足は靭帯と腱で母指球が開かない。
+    /// 足首・膝・股の位置の拘束も同じく柔らかく蹴りで開く（足首 7〜17 cm）が、固くすると体を支える脚の動きが変わり、立つ・歩く・起き上がるテストが 15〜27 外れたので、
+    /// 今はつま先だけ（docs/plans/TOE_GAP_STUDY.md）。
+    /// </summary>
+    public float ToeHingeHz { get; init; } = 45f;
+
+
     /// <summary>靭帯が切れるまでの伸び [rad]（過伸展がこれだけ増えたら切れる。約 20°。靭帯の破断のひずみは降伏のおよそ 2 倍）。</summary>
     public float LigamentRuptureStretch { get; init; } = 0.35f;
 

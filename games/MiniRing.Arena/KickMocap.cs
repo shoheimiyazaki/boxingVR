@@ -13,9 +13,9 @@ internal static class KickMocap
     private static float Deg(float rad) => rad * 180f / MathF.PI;
 
     /// <summary>人形の 1 本の蹴り（技の値 <paramref name="spec"/> を試合と同じ道で。間合い <paramref name="standoff"/> の目標まで歩いて止まり、体重を軸足へ移してから。体重の移し方 weight は教科書の値で、null ならテコンドーの教科書）。</summary>
-        internal static KneePractice.Outcome Doll(BodyBuild body, KickSpec spec, Hand side, float standoff, float duration, int seed, Action<BoxingGame, Vector3?, float>? onStep = null, Action<BoxingGame, LegCommand?, float>? onCommand = null, BodyBuild? victimBody = null, Bots.BotStyle? weight = null)
+        internal static KneePractice.Outcome Doll(BodyBuild body, KickSpec spec, Hand side, float standoff, float duration, int seed, Action<BoxingGame, Vector3?, float>? onStep = null, Action<BoxingGame, LegCommand?, float>? onCommand = null, BodyBuild? victimBody = null, Bots.BotStyle? weight = null, FighterTuning? tuning = null)
     {
-        using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("still", _ => new StandGuard(), PlayerBody: body, CpuBody: victimBody));
+        using var game = new BoxingGame(tuning, seed: seed, corners: new BoxingCorners("still", _ => new StandGuard(), PlayerBody: body, CpuBody: victimBody));
         var attacker = game.Player;
         var victim = game.Cpu;
         var reach = attacker.ArmReach;
