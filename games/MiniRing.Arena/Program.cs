@@ -18,6 +18,11 @@ if (Environment.GetEnvironmentVariable("MINIRING_SCAN") is { Length: > 0 } scanT
     Aigis.Physics.Voxels.VoxelContact.ScanStride = int.Parse(scanText, System.Globalization.CultureInfo.InvariantCulture);
 }
 
+if (Environment.GetEnvironmentVariable("MINIRING_PASSES") is { Length: > 0 } passesText)
+{
+    MiniRing.BoxingGame.DefaultMaxContactPasses = int.Parse(passesText, System.Globalization.CultureInfo.InvariantCulture);
+}
+
 if (Environment.GetEnvironmentVariable("MINIRING_BRIDGES") is "0")
 {
     MiniRing.BoxingGame.DefaultJointBridges = false;
