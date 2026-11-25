@@ -186,6 +186,8 @@ internal sealed class JointBridge
             parentOffsets[l] = Body.GridCenterLocal - ParentLayers[l].Body.GridCenterLocal; // 同じ剛体なので、つなぎの座標 → 親の格子の座標は平行移動だけ
         }
 
+        var epoch = JoinEpoch(toChildLayers, parentOffsets);
+        var parentEpoch = ParentEpoch(parentOffsets);
         var active = 0;
         for (var z = 0; z < _cells; z++)
         {
@@ -207,7 +209,22 @@ internal sealed class JointBridge
                         continue;
                     }
 
-                    var (material, sp, sc) = Join(center, parentOffsets, toChildLayers, reach);
+                    // Join は両側の層の格子と相対の姿勢だけで決まる: それが前の呼び出しから変わっていなければ、前の答えをそのまま使う
+                    // （同じ歩の中で、掃き直し・別の武器が同じつなぎを何度も作り直す）。
+                    (byte Material, (int Layer, int Cell) Parent, (int Layer, int Cell) Child) join;
+                    if (_joinEpoch[i] == epoch)
+                    {
+                        join = _joinMemo[i];
+                    }
+                    else
+                    {
+                        Aigis.Foundation.Voxels.StepProfile.Count(Aigis.Foundation.Voxels.StepProfile.Counter.BridgeCells, 1);
+                        join = Join(center, parentOffsets, toChildLayers, reach, i, parentEpoch);
+                        _joinMemo[i] = join;
+                        _joinEpoch[i] = epoch;
+                    }
+
+                    var (material, sp, sc) = join;
 
                     _sourceParent[i] = sp;
                     _sourceChild[i] = sc;
@@ -225,18 +242,108 @@ internal sealed class JointBridge
         return active > 0;
     }
 
+    /// <summary>セルごとの、前に計算した <see cref="Join"/> の答えと、そのときの入力の番号（<see cref="JoinEpoch"/>）。</summary>
+    private (byte Material, (int Layer, int Cell) Parent, (int Layer, int Cell) Child)[]? _joinMemoArray;
+    private int[]? _joinEpochArray;
+
+    private (byte Material, (int Layer, int Cell) Parent, (int Layer, int Cell) Child)[] _joinMemo => _joinMemoArray ??= new (byte, (int, int), (int, int))[Body.Grid.CellCount];
+
+    private int[] _joinEpoch => _joinEpochArray ??= new int[Body.Grid.CellCount];
+
+    /// <summary><see cref="Join"/> の入力（層の格子とその形の版・子の層への変換・親の層へのずれ）の、前の呼び出しのときの写し。</summary>
+    private VoxelGrid[] _joinGrids = [];
+    private int[] _joinVersions = [];
+    private Matrix4x4[] _joinTransforms = [];
+    private Vector3[] _joinOffsets = [];
+    private int _epoch;
+
+    /// <summary>セルごとの、親の層の答え（埋まったセルの中か・いちばん近い埋まったセル）と、そのときの親の層の番号（<see cref="ParentEpoch"/>）。</summary>
+    private int[]? _parentEpoch;
+    private (bool Filled, (int Layer, int Cell) Nearest)[]? _parentMemo;
+    private VoxelGrid[] _parentGrids = [];
+    private int[] _parentVersions = [];
+    private Vector3[] _parentOffsetsSeen = [];
+    private int _parentEpochNumber;
+
+    /// <summary>親の層の格子（とその形の版・ずれ）の番号: 前の呼び出しと同じなら同じ番号、違えば新しい番号（1 から）。</summary>
+    private int ParentEpoch(Vector3[] parentOffsets)
+    {
+        var same = _parentEpochNumber > 0 && _parentGrids.Length == ParentLayers.Count && parentOffsets.AsSpan().SequenceEqual(_parentOffsetsSeen);
+        for (var l = 0; same && l < ParentLayers.Count; l++)
+        {
+            var grid = ParentLayers[l].Body.Grid;
+            same = ReferenceEquals(grid, _parentGrids[l]) && grid.GeometryVersion == _parentVersions[l];
+        }
+
+        if (same)
+        {
+            return _parentEpochNumber;
+        }
+
+        _parentGrids = [.. ParentLayers.Select(layer => layer.Body.Grid)];
+        _parentVersions = [.. _parentGrids.Select(grid => grid.GeometryVersion)];
+        _parentOffsetsSeen = parentOffsets;
+        return ++_parentEpochNumber;
+    }
+
+    /// <summary>
+    /// 今の <see cref="Join"/> の入力の番号: 前の呼び出しとビット単位で同じなら同じ番号（セルの答えをそのまま使える）、違えば新しい番号。
+    /// 番号は 1 から（セルの番号の初期値 0 はどの番号とも違う）。
+    /// </summary>
+    private int JoinEpoch(Matrix4x4[] toChildLayers, Vector3[] parentOffsets)
+    {
+        var count = ParentLayers.Count + ChildLayers.Count;
+        var same = _epoch > 0 && _joinGrids.Length == count
+            && toChildLayers.AsSpan().SequenceEqual(_joinTransforms) && parentOffsets.AsSpan().SequenceEqual(_joinOffsets);
+        for (var l = 0; same && l < count; l++)
+        {
+            var grid = (l < ParentLayers.Count ? ParentLayers[l] : ChildLayers[l - ParentLayers.Count]).Body.Grid;
+            same = ReferenceEquals(grid, _joinGrids[l]) && grid.GeometryVersion == _joinVersions[l];
+        }
+
+        if (same)
+        {
+            return _epoch;
+        }
+
+        _joinGrids = new VoxelGrid[count];
+        _joinVersions = new int[count];
+        for (var l = 0; l < count; l++)
+        {
+            var grid = (l < ParentLayers.Count ? ParentLayers[l] : ChildLayers[l - ParentLayers.Count]).Body.Grid;
+            _joinGrids[l] = grid;
+            _joinVersions[l] = grid.GeometryVersion;
+        }
+
+        _joinTransforms = toChildLayers;
+        _joinOffsets = parentOffsets;
+        return ++_epoch;
+    }
+
     /// <summary>
     /// つなぎの座標の点 <paramref name="center"/> のセルが関節の組織か: 親にも子にも埋まったセルが無く、親のセルも子のセルも <see cref="Reach"/> 以内に
     /// あれば、その材質（まわりがあればその組織、無ければ近い 2 つのうち強い方）と、つないでいる親・子のセル。組織でなければ材質 0。
     /// </summary>
-    private (byte Material, (int Layer, int Cell) Parent, (int Layer, int Cell) Child) Join(Vector3 center, Vector3[] parentOffsets, Matrix4x4[] toChildLayers, float reach)
+    /// <remarks>親の側の答えは、つなぎのセル <c>cell</c> ごとに、親の層の番号 <c>parentEpoch</c>（<see cref="ParentEpoch"/>）が変わるまで覚えておく。</remarks>
+    private (byte Material, (int Layer, int Cell) Parent, (int Layer, int Cell) Child) Join(Vector3 center, Vector3[] parentOffsets, Matrix4x4[] toChildLayers, float reach, int cell, int parentEpoch)
     {
-        if (FilledIn(ParentLayers, center, parentOffsets, null) || FilledIn(ChildLayers, center, null, toChildLayers))
+        // The parent's layers ride on the bridge's own rigid body (a fixed offset), so their answers depend only on their cells:
+        // kept per cell until those change (the same calls as before, made once).
+        var parentSide = _parentEpoch ??= new int[Body.Grid.CellCount];
+        var parentMemo = _parentMemo ??= new (bool, (int, int))[Body.Grid.CellCount];
+        if (parentSide[cell] != parentEpoch)
+        {
+            var filled = FilledIn(ParentLayers, center, parentOffsets, null);
+            parentMemo[cell] = (filled, filled ? (-1, -1) : Nearest(ParentLayers, center, parentOffsets, null, reach));
+            parentSide[cell] = parentEpoch;
+        }
+
+        var (parentFilled, sp) = parentMemo[cell];
+        if (parentFilled || FilledIn(ChildLayers, center, null, toChildLayers))
         {
             return (0, (-1, -1), (-1, -1));
         }
 
-        var sp = Nearest(ParentLayers, center, parentOffsets, null, reach);
         var sc = Nearest(ChildLayers, center, null, toChildLayers, reach);
         if (sp.Cell < 0 || sc.Cell < 0)
         {
@@ -299,11 +406,12 @@ internal sealed class JointBridge
             parentOffsets[l] = Body.GridCenterLocal - ParentLayers[l].Body.GridCenterLocal;
         }
 
+        var parentEpoch = ParentEpoch(parentOffsets);
         for (var i = 0; i < view.CellCount; i++)
         {
             var (x, y, z) = view.Coordinates(i);
             var center = view.CellCenter(x, y, z);
-            var join = _cut[i] ? default : Join(center, parentOffsets, toChildLayers, reach);
+            var join = _cut[i] ? default : Join(center, parentOffsets, toChildLayers, reach, i, parentEpoch);
             // 色は親の近いセルの材質（親の皮膚・服がそのまま関節を包んで見える）。当たりに使うつなぎの材質（強い方）は骨・筋肉が多く、関節が赤い輪に見えた。
             var material = join.Material == 0 || join.Parent.Cell < 0 ? (byte)0 : ParentLayers[join.Parent.Layer].Body.Grid.MaterialAt(join.Parent.Cell);
             if (view.MaterialAt(i) != material)

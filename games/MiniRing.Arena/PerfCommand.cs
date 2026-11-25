@@ -25,7 +25,7 @@ internal static class PerfCommand
         StepProfile.Slot.After, StepProfile.Slot.PostStep,
     ];
 
-    private sealed record Frame(int Seed, int Index, double Total, double[] Slots, double Render, int Gc0, int Gc2, int Fragments);
+    private sealed record Frame(int Seed, int Index, double Total, double[] Slots, double Render, int Gc0, int Gc2, int Fragments, long[] Counts, long[] Allocs);
 
     public static int Run(Options o)
     {
@@ -68,6 +68,7 @@ internal static class PerfCommand
         var voxels = new List<Aigis.Render.Voxels.VoxelVolumeDraw>();
         var wall = Stopwatch.StartNew();
         StepProfile.Enabled = true;
+        StepProfile.TrackAllocations = o.Get("alloc") is "1" or "true";
         try
         {
             foreach (var seed in seeds)
@@ -92,7 +93,9 @@ internal static class PerfCommand
                     }
 
                     var fragments = game.AllFighters.Sum(f => f.Voxels?.Fragments.Count ?? 0);
-                    samples.Add(new Frame(seed, i, total, slotMs, renderMs, GC.CollectionCount(0) - gc0, GC.CollectionCount(2) - gc2, fragments));
+                    var counts = Enum.GetValues<StepProfile.Counter>().Select(StepProfile.CountOf).ToArray();
+                    var allocs = slots.Select(StepProfile.Allocated).ToArray();
+                    samples.Add(new Frame(seed, i, total, slotMs, renderMs, GC.CollectionCount(0) - gc0, GC.CollectionCount(2) - gc2, fragments, counts, allocs));
                 }
 
                 sums.Add($"{game.StateChecksum():x}");
@@ -101,6 +104,7 @@ internal static class PerfCommand
         finally
         {
             StepProfile.Enabled = false;
+            StepProfile.TrackAllocations = false;
         }
 
         var text = Report(scene, seconds, seeds, samples, slots, sums, plain, render, wall.Elapsed.TotalSeconds);
@@ -164,8 +168,9 @@ internal static class PerfCommand
         var heavy = samples.OrderByDescending(s => s.Total).Take(Math.Max(1, samples.Count / 100)).ToList();
         sb.AppendLine("処理ごと（ms/フレーム。字下げは外側の枠に含まれる内訳。「重い 1%」は合計の重い上位 1% のフレームの平均）:");
         sb.AppendLine();
-        sb.AppendLine("| 処理 | 平均 | 割合 | 重い 1% の平均 | 最大 |");
-        sb.AppendLine("|---|---:|---:|---:|---:|");
+        var alloc = samples.Any(s => s.Allocs.Any(a => a > 0));
+        sb.AppendLine("| 処理 | 平均 | 割合 | 重い 1% の平均 | 最大 |" + (alloc ? " 割り当て [KB/フレーム] |" : string.Empty));
+        sb.AppendLine("|---|---:|---:|---:|---:|" + (alloc ? "---:|" : string.Empty));
         var mean = totals.Average();
         foreach (var slot in Order(slots))
         {
@@ -178,11 +183,15 @@ internal static class PerfCommand
             }
 
             var indent = TopLevel.Contains(slot) ? string.Empty : "　";
-            sb.AppendLine(inv, $"| {indent}{slot} | {avg:F3} | {avg * 100 / mean:F1}% | {heavy.Average(s => s.Slots[k]):F2} | {max:F2} |");
+            var allocText = alloc ? string.Create(inv, $" {samples.Average(s => s.Allocs[k]) / 1024.0:F1} |") : string.Empty;
+            sb.AppendLine(inv, $"| {indent}{slot} | {avg:F3} | {avg * 100 / mean:F1}% | {heavy.Average(s => s.Slots[k]):F2} | {max:F2} |{allocText}");
         }
 
         var accounted = samples.Average(s => TopLevel.Sum(t => s.Slots[(int)t]));
         sb.AppendLine(inv, $"| （枠の外） | {mean - accounted:F3} | {(mean - accounted) * 100 / mean:F1}% | | |");
+        sb.AppendLine();
+        sb.AppendLine("数（フレームあたりの平均 / 重い 1% の平均）: " + string.Join("、", Enum.GetValues<StepProfile.Counter>().Select(c =>
+            string.Create(inv, $"{c} {samples.Average(s => s.Counts[(int)c]):F0} / {heavy.Average(s => s.Counts[(int)c]):F0}"))));
         sb.AppendLine();
         sb.AppendLine("重いフレームの上位 10（ms、0.3 ms 以上の枠だけ）:");
         sb.AppendLine();
@@ -203,7 +212,7 @@ internal static class PerfCommand
         {
             [StepProfile.Slot.Control] = [StepProfile.Slot.Perception, StepProfile.Slot.BotRead, StepProfile.Slot.BotPerceive, StepProfile.Slot.BotRead2, StepProfile.Slot.BotChoose, StepProfile.Slot.BotExecute, StepProfile.Slot.DriveFighter, StepProfile.Slot.ApplyControl, StepProfile.Slot.FighterStamina, StepProfile.Slot.FighterStanding, StepProfile.Slot.FighterDown, StepProfile.Slot.ControlTail],
             [StepProfile.Slot.PreBepu] = [StepProfile.Slot.Remember],
-            [StepProfile.Slot.Weapons] = [StepProfile.Slot.MayTouch, StepProfile.Slot.SweepSetup, StepProfile.Slot.SetupRelative, StepProfile.Slot.SetupFar, StepProfile.Slot.SetupCandidates, StepProfile.Slot.SweepRun, StepProfile.Slot.RunScan, StepProfile.Slot.RunFront, StepProfile.Slot.RunOverlaps, StepProfile.Slot.RunPatch, StepProfile.Slot.RunHold, StepProfile.Slot.RunCrush, StepProfile.Slot.Snap, StepProfile.Slot.SnapStiffness, StepProfile.Slot.SnapFind, StepProfile.Slot.SnapSplit, StepProfile.Slot.Bend, StepProfile.Slot.Cut, StepProfile.Slot.Debris],
+            [StepProfile.Slot.Weapons] = [StepProfile.Slot.MayTouch, StepProfile.Slot.SweepSetup, StepProfile.Slot.SetupRelative, StepProfile.Slot.SetupFar, StepProfile.Slot.SetupCandidates, StepProfile.Slot.SweepRun, StepProfile.Slot.RunScan, StepProfile.Slot.RunFront, StepProfile.Slot.RunOverlaps, StepProfile.Slot.RunPatch, StepProfile.Slot.RunHold, StepProfile.Slot.RunCrush, StepProfile.Slot.RunCut, StepProfile.Slot.RunSeparate, StepProfile.Slot.RunMass, StepProfile.Slot.Snap, StepProfile.Slot.SnapStiffness, StepProfile.Slot.SnapFind, StepProfile.Slot.SnapSplit, StepProfile.Slot.Bend, StepProfile.Slot.Cut, StepProfile.Slot.Debris, StepProfile.Slot.WeaponClash, StepProfile.Slot.ClashAfter, StepProfile.Slot.ClashPush, StepProfile.Slot.Bridges, StepProfile.Slot.BridgeRefresh],
             [StepProfile.Slot.PostStep] = [StepProfile.Slot.PostDebris, StepProfile.Slot.PostWounds, StepProfile.Slot.PostSwings, StepProfile.Slot.PostRound],
         };
         var listed = new HashSet<StepProfile.Slot>();

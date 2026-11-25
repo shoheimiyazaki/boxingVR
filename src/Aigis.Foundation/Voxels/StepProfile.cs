@@ -108,6 +108,22 @@ public static class StepProfile
         PostSwings,
         /// <summary>PostStep のうち、ラウンドの更新（<c>UpdateRound</c>）。</summary>
         PostRound,
+        /// <summary>SweepRun のうち、刃が進んだぶんのセルを壊す（<c>CutInto</c>）。</summary>
+        RunCut,
+        /// <summary>SweepRun のうち、重なりを押し戻す（<c>Separate</c>）。</summary>
+        RunSeparate,
+        /// <summary>SweepRun のうち、削れた格子の質量と剛体の形を合わせる（<c>UpdateMass</c>）。</summary>
+        RunMass,
+        /// <summary>Weapons のうち、武器どうしの接触（<c>Clash</c> を含む）。</summary>
+        WeaponClash,
+        /// <summary>Weapons のうち、関節のつなぎの接触の全体（<c>ResolveBridges</c>）。</summary>
+        Bridges,
+        /// <summary>Bridges のうち、刃の近くのつなぎのセルの作り直し（<c>JointBridge.RefreshNear</c>）。</summary>
+        BridgeRefresh,
+        /// <summary>WeaponClash のうち、触れた後始末（<c>Clash</c>: 破片・火花・折れ）。</summary>
+        ClashAfter,
+        /// <summary>WeaponClash のうち、腕の押す力と後ろの質量（<c>Drive</c>・<c>MassBehind</c>）。</summary>
+        ClashPush,
     }
 
     /// <summary>この歩のこのスレッドの割り当て [byte]（計測を取る間だけ、<see cref="Reset"/> で基準を取る）。</summary>
@@ -178,11 +194,47 @@ public static class StepProfile
         }
     }
 
+    /// <summary>数える量（計測を取る間だけ。調べもの用）。</summary>
+    public enum Counter
+    {
+        /// <summary>遠くない（候補セルを作った）Sweep の数。</summary>
+        NearSweeps,
+        /// <summary>候補セルの数の和。</summary>
+        Candidates,
+        /// <summary>最初の接触を探して走査した標本の数の和。</summary>
+        ScanSamples,
+        /// <summary>Overlaps で、セルまで調べた塊の数の和。</summary>
+        ChunksTested,
+        /// <summary>Overlaps で調べたセルの数の和。</summary>
+        CellsTested,
+        /// <summary>関節のつなぎで、組織を作り直したセルの数の和。</summary>
+        BridgeCells,
+        /// <summary>接触の掃きの、埋まったセルの一覧の作り直しで歩いたセルの数の和（格子が変わったとき）。</summary>
+        FilledRebuildCells,
+        /// <summary>梁の曲げの形（質量・剛性の表）の作り直しで歩いたセルの数の和（格子が変わったとき）。</summary>
+        BeamRebuildCells,
+    }
+
+    private static readonly long[] Counts = new long[Enum.GetValues<Counter>().Length];
+
+    /// <summary>量を数える。</summary>
+    public static void Count(Counter counter, long n)
+    {
+        if (Enabled)
+        {
+            Counts[(int)counter] += n;
+        }
+    }
+
+    /// <summary>この歩の量。</summary>
+    public static long CountOf(Counter counter) => Counts[(int)counter];
+
     /// <summary>次の歩のために 0 に戻す。</summary>
     public static void Reset()
     {
         Array.Clear(Ticks);
         Array.Clear(AllocBytes);
+        Array.Clear(Counts);
         _depth = 0;
         _allocBase = Enabled ? GC.GetAllocatedBytesForCurrentThread() : 0;
         ResolveCalls = 0;

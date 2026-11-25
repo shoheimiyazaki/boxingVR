@@ -82,6 +82,7 @@ public static class VoxelBending
             Validate(cached, grid);
             if (!cached.Entries.TryGetValue((axis, loadBearingOnly), out geometry))
             {
+                StepProfile.Count(StepProfile.Counter.BeamRebuildCells, grid.CellCount);
                 geometry = BuildGeometry(grid, axis, slices, loadBearingOnly);
                 cached.Entries.Add((axis, loadBearingOnly), geometry);
             }
@@ -252,6 +253,7 @@ public static class VoxelBending
             Validate(cached, grid);
             if (!cached.Stiffness.TryGetValue((axis, loadBearingOnly), out bearing))
             {
+                StepProfile.Count(StepProfile.Counter.BeamRebuildCells, grid.CellCount);
                 bearing = BuildStiffnessCells(grid, axis, slices, loadBearingOnly);
                 cached.Stiffness.Add((axis, loadBearingOnly), bearing);
             }

@@ -1026,6 +1026,7 @@ public sealed partial class BoxingGame
 
                 if (_beforeStep.TryGetValue(other.Body.BodyId, out var otherBefore))
                 {
+                    var clashStart = StepProfile.Begin();
                     // 剛体に乗った全ての格子（物 → 手の固定の順）の組を調べる。腕の押す力は、最初に触れた組だけが受ける（格子の数だけ払わない）。
                     var pushed = false;
                     // （IReadOnlyList を foreach すると毎歩、列挙子が箱に入って割り当てが出るので、添字で回す。）
@@ -1041,11 +1042,18 @@ public sealed partial class BoxingGame
                             }
 
                             // 物どうし（武器・はめる物）は面の下を押さない: どちらが「場」になるかは格子の粗さだけで決まり、詰め物や刃の内側は固い物として扱う。
-                            var clash = VoxelContact.Resolve(gridA, before, gridB, otherBefore, pushed ? default : Drive(weapon), pushed ? default : Drive(other), pushed ? 0f : MassBehind(weapon), pushed ? 0f : MassBehind(other), pressBeneath: false);
+                            var pushStart = StepProfile.Begin();
+                            var (driveA, driveB, behindA, behindB) = pushed ? default : (Drive(weapon), Drive(other), MassBehind(weapon), MassBehind(other));
+                            StepProfile.End(StepProfile.Slot.ClashPush, pushStart);
+                            var clash = VoxelContact.Resolve(gridA, before, gridB, otherBefore, driveA, driveB, behindA, behindB, pressBeneath: false);
+                            var clashAfterStart = StepProfile.Begin();
                             Clash(weapon, other, gridA, gridB, clash);
+                            StepProfile.End(StepProfile.Slot.ClashAfter, clashAfterStart);
                             pushed |= clash.Touched;
                         }
                     }
+
+                    StepProfile.End(StepProfile.Slot.WeaponClash, clashStart);
                 }
             }
 
@@ -1140,7 +1148,9 @@ public sealed partial class BoxingGame
             // 関節のつなぎ: 部位の間の隙間を通る刃も、関節の肉・骨に当たる。握った本人の体のつなぎは数えない（自分の体の中で押し合うだけ）。
             if (JointBridges && !holds && deadHand is null && UsesBladeSweep(weapon.Kind))
             {
+                var bridgesStart = StepProfile.Begin();
                 ResolveBridges(weapon, before, drive, behind, fighter, includeHolder);
+                StepProfile.End(StepProfile.Slot.Bridges, bridgesStart);
             }
         }
     }
@@ -1174,7 +1184,10 @@ public sealed partial class BoxingGame
                 continue;
             }
 
-            if (!bridge.RefreshNear(weapon.Body, before))
+            var refreshStart = StepProfile.Begin();
+            var near = bridge.RefreshNear(weapon.Body, before);
+            StepProfile.End(StepProfile.Slot.BridgeRefresh, refreshStart);
+            if (!near)
             {
                 continue;
             }
