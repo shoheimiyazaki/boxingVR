@@ -18,6 +18,7 @@ public sealed partial class Fighter
 
     // The small coxa takes the weight of the thorax. Its anchor springs must be firmer than the angular drives.
     private const float CoxaAnchorHz = 45f;
+    private const float ThoraxWeldHz = 35f;
 
     private readonly Leg[] _rearLegs;
     private readonly Footwork? _rearFootwork;
@@ -104,7 +105,7 @@ public sealed partial class Fighter
                 world.RemoveConstraint(id, forget: true);
             }
 
-            var weld = world.AddWeld(parts.Pelvis, parts.Chest, frequency: 35f);
+            var weld = world.AddWeld(parts.Pelvis, parts.Chest, frequency: ThoraxWeldHz);
             joints[i] = spine with { PrimaryConstraintId = weld, TorqueConstraintId = weld, AllConstraintIds = [weld] };
             return;
         }

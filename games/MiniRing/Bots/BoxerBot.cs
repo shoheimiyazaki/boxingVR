@@ -209,7 +209,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 67; // 四足の鎌が切断面を追う。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 72; // 長い鎌の間合いと前脚の先端を使う狙い。履歴は docs/VERSIONS.md
     private ClawBot? _claws;
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;

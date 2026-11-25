@@ -176,7 +176,7 @@ public sealed partial class Fighter
         var energy = impulse * (workSpeed + 0.5f * inverseInertia * impulse);
         StepSpring = MathF.Max(0f, StepSpring - energy);
         StepEnergyReleased += energy;
-        _world.ApplyAngularImpulse(Parts.Pelvis, Vector3.UnitY * (sign * impulse));
+        BodyTorque(Parts.Pelvis, Vector3.UnitY * (sign * impulse));
         return true;
     }
 

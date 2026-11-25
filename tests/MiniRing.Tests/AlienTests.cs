@@ -15,6 +15,31 @@ public sealed class AlienTests
     private const float Dt = 1f / 240f;
 
     [TestMethod]
+    public void Galva_WeldSeamTracksTheChestAndPelvisVoxels()
+    {
+        using var game = CreateGame();
+        var f = game.Player;
+        var body = f.Voxels!;
+        Assert.IsGreaterThan(0, body.JointContactCount(f.Parts.Chest, f.Parts.Pelvis).Total);
+        Step(game, Guard(f));
+        Assert.IsTrue(f.JointIntact(f.Parts.Chest, f.Parts.Pelvis));
+        Assert.HasCount(0, body.Fragments);
+
+        var chest = body.PartOf(f.Parts.Chest)!.Body.Grid;
+        for (var i = 0; i < chest.CellCount; i++)
+        {
+            var (x, y, z) = chest.Coordinates(i);
+            if (chest.CellCenter(x, y, z).Y < -0.36f * chest.HalfExtents.Y)
+            {
+                chest.SetCellState(i, (0, 0f, false, 0f));
+            }
+        }
+        Assert.IsTrue(f.SplitDisconnected());
+        Assert.IsFalse(f.JointIntact(f.Parts.Chest, f.Parts.Pelvis));
+        Assert.IsTrue(f.JointIntact(f.Parts.Chest, f.Parts.Head));
+    }
+
+    [TestMethod]
     public void Galva_ExposesEightWhiteEyesWithBlackPupils()
     {
         using var game = CreateGame();
@@ -314,6 +339,61 @@ public sealed class AlienTests
 
         Assert.IsNotNull(landed, "front-leg hit");
         Assert.IsGreaterThan(0f, landed.Value.ImpactMass);
+    }
+
+    [TestMethod]
+    [DataRow(0f, 0f, false)]
+    [DataRow(-0.12f, 0.08f, true)]
+    public void PointedFrontLeg_CarvesWithItsTip(float aimX, float aimY, bool expectThrough)
+    {
+        using var game = CreateGame(0.67f);
+        var f = game.Player;
+        for (var i = 0; i < 240; i++)
+        {
+            Step(game, Guard(f));
+        }
+
+        const Hand side = Hand.Right;
+        var toe = f.ToeId((int)side);
+        var target = FrontLegStrike.Aim(game.PlayerSense) + new Vector3(aimX, aimY, 0f);
+        var targets = game.Cpu.Voxels!.Parts.ToDictionary(p => p.Body.BodyId);
+        var original = targets.ToDictionary(entry => entry.Key, entry => Enumerable.Range(0, entry.Value.Body.Grid.CellCount)
+            .Where(i => entry.Value.Body.Grid.MaterialAt(i) != 0).ToArray());
+        var carved = new Dictionary<int, HashSet<int>>();
+        for (var i = 0; i < 173; i++)
+        {
+            var sense = game.PlayerSense;
+            var strike = FrontLegStrike.At(sense.SelfLeg(side), sense.Self.WorldToLocal(target), i / 172f, false, side);
+            Step(game, Guard(f) with { RightLeg = strike });
+            foreach (var contact in game.RecentCuts.Where(c => c.A.BodyId == toe && targets.ContainsKey(c.B.BodyId)))
+            {
+                if (!carved.TryGetValue(contact.B.BodyId, out var cells))
+                {
+                    carved[contact.B.BodyId] = cells = [];
+                }
+                foreach (var cell in contact.RemovedFor(contact.B))
+                {
+                    var grid = contact.B.Grid;
+                    var at = (cell.LocalCenter + grid.HalfExtents) / grid.CellSize;
+                    cells.Add(grid.Index((int)at.X, (int)at.Y, (int)at.Z));
+                }
+            }
+        }
+
+        var layers = carved.Select(entry => entry.Value.Select(i => targets[entry.Key].Body.Grid.Coordinates(i).Z).Distinct().Count()).DefaultIfEmpty().Max();
+        Assert.IsGreaterThanOrEqualTo(2, layers);
+        if (expectThrough)
+        {
+            Assert.IsTrue(carved.Any(entry =>
+            {
+                var grid = targets[entry.Key].Body.Grid;
+                return original[entry.Key].GroupBy(i =>
+                {
+                    var (x, y, _) = grid.Coordinates(i);
+                    return (x, y);
+                }).Any(column => column.Count() >= 3 && column.All(entry.Value.Contains));
+            }), "A contiguous column that spans the original target is open through both sides.");
+        }
     }
 
     private static BoxingGame CreateGame(float gap = 3f, bool fromCorners = false)

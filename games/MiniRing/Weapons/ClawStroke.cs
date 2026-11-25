@@ -10,7 +10,14 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
     public float CutEnd => LoadTime + DriveTime * 0.82f;
     public float Duration => LoadTime + DriveTime + FollowThrough;
     private static Vector3 Forward => Vector3.UnitZ;
-    private Vector3 Across => Vector3.Normalize(new Vector3(-Hand.LocalSide(), -0.46f, 0f));
+    private Vector3 Across
+    {
+        get
+        {
+            var slope = Math.Clamp(0.12f - (0.25f * Aim.Y / MathF.Max(Reach, 0.01f)), 0.03f, 0.28f);
+            return Vector3.Normalize(new Vector3(-Hand.LocalSide(), -slope, 0f));
+        }
+    }
     public Vector3 Normal => Sweep ? Vector3.Cross(Forward, Across) : Vector3.UnitY;
 
     public static ClawStroke Create(Hand hand, float reach, Vector3 aim, bool sweep, float drive = 0.31f, float windup = 1f)
@@ -43,18 +50,19 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
     {
         Vector3 root;
         Vector3 axis;
-        var z = Math.Clamp(Aim.Z - ClawSegment.Length * 0.58f, Reach * 0.30f, Reach * 0.86f);
-        var center = new Vector3(Aim.X * 0.52f, Math.Clamp(Aim.Y, -Reach * 0.59f, Reach * 0.42f), z);
+        var z = Math.Clamp(Aim.Z - ClawSegment.Length * 0.56f, -Reach * 0.12f, Reach * 0.86f);
+        var center = new Vector3(Aim.X * 0.80f, Math.Clamp(Aim.Y, -Reach * 0.66f, Reach * 0.48f), z);
         if (Sweep)
         {
             var across = Across;
             var angle = (-0.98f * Windup) + (phase * (0.98f * Windup + 1.17f));
-            root = center + (across * ((phase - 0.54f) * Reach * (0.55f + 0.30f * Windup))) + (Forward * ((MathF.Cos(angle) - 1f) * Reach * 0.30f));
+            root = center + (across * ((phase - 0.54f) * Reach * (0.90f + 0.30f * Windup))) + (Forward * ((MathF.Cos(angle) - 1f) * Reach * 0.30f));
             axis = Forward * MathF.Cos(angle) + across * MathF.Sin(angle);
         }
         else
         {
-            root = center + new Vector3(Hand.LocalSide() * Reach * 0.11f, 0f, (phase - 0.56f) * Reach * 0.73f * Windup);
+            var atContact = Math.Clamp(Aim.Z - ClawSegment.Length, -Reach * 0.42f, Reach * 0.86f);
+            root = center with { Z = atContact + ((phase - 0.40f) * Reach * 0.92f * Windup) };
             axis = Forward;
         }
 

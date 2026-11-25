@@ -56,6 +56,7 @@ try
         "guardlab" => GuardLabCommand(Options.Parse(argv[1..], "seeds", "seed", "parallel", "seconds", "out", "only", "variants", "video", "try", "defender", "forms", "techniques", "compare")),
         "selfcuts" => SelfCutCommand(Options.Parse(argv[1..], "pairs", "seeds", "seconds", "out", "hitaway", "passes", "clearance", "margin", "tilt", "pacing", "slack", "angle")),
         "selfpath" => SelfPathCommand(Options.Parse(argv[1..], "margin", "from", "tilt", "out", "forms")),
+        "splitlab" => MiniRing.Arena.SplitLab.Command(Options.Parse(argv[1..], "at", "dir", "offset", "speed", "seconds", "seed", "video", "slow", "lead", "scan", "seeds", "saw", "depth", "after")),
         "jointlab" => JointLabCommand(Options.Parse(argv[1..], "joints", "offsets", "speeds", "bend", "parallel", "out", "video", "joint", "dir", "offset", "speed", "axis", "bridges", "slow", "dims")),
         "necklab" => NeckLabCommand(Options.Parse(argv[1..], "mode", "heights", "offsets", "arms", "speeds", "speed", "dir", "bridges", "tilt", "out", "video", "height", "side", "offset", "slow")),
         "tunnel" => TunnelCommand(Options.Parse(argv[1..], "pairs", "bouts", "seconds", "out", "passes", "hz", "sample")),
@@ -1975,6 +1976,7 @@ static int Video(Options o)
     var speed = o.Get("speed") is { } speedText
         ? MiniRing.GameSpeed.Parse(speedText) ?? throw new ArgumentException("--speed は 0.5 / 0.75 / 1 のどれかです。")
         : MiniRing.GameSpeed.Standard;
+    MiniRing.BoxingGame? played = null;
     var tv = (o.Get("tv") ?? "off") switch
     {
         "on" => true,
@@ -1999,7 +2001,19 @@ static int Video(Options o)
             {
                 BlindStart(game.Player, o.Get("blind-red"));
                 BlindStart(game.Cpu, o.Get("blind-blue"));
+                played = game;
             });
+    if (played is { } finished)
+    {
+        // 試合の終わりの体: 胴・首・頭がつながりで分かれた破片と、体から外れた部位（docs/VOXEL_DAMAGE.md「つながりで分かれる体」。動画を選ぶため）。
+        foreach (var (name, fighter) in new[] { ("red", finished.Player), ("blue", finished.Cpu) })
+        {
+            var torso = fighter.Voxels?.Fragments.Count(f => f.Kind is MiniRing.BodyPartKind.Chest or MiniRing.BodyPartKind.Abdomen or MiniRing.BodyPartKind.Pelvis or MiniRing.BodyPartKind.Head) ?? 0;
+            var off = string.Join(",", fighter.AllParts.Where(id => !fighter.Owns(id)).Select(id => fighter.KindOf(id).ToString()).Distinct());
+            Console.WriteLine($"body {name}: torso/head pieces {torso} off [{off}] dead {fighter.DeathCause ?? "-"}");
+        }
+    }
+
     return 0;
 }
 

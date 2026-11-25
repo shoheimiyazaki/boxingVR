@@ -467,8 +467,17 @@ public sealed partial class Fighter
             var heldBody = arm.Held?.Body ?? arm.Support?.Body;
             if (wrist is { } joint && heldBody is { } body && _world.HasConstraint(joint))
             {
-                var torque = ReserveServo(arm.Region, joint, arm.Forearm, body, _tuning.WristMaxTorque * _tuning.TorqueScale * arm.WristShare * ControlScale * FaintArm * vigor * Strength(arm.Forearm), allowance, dt);
-                _world.SetAngularServoSettings(joint, _tuning.WristServoHz * MathF.Sqrt(arm.WristShare), torque);
+                var torqueLimit = _tuning.WristMaxTorque;
+                var frequency = _tuning.WristServoHz;
+                if (_bladeChords[(int)arm.Hand] is not null && arm.Held is { } claw)
+                {
+                    // Size the actuator to the blade's gravity moment and reserve the work through the same arm budget.
+                    var gravityMoment = _world.GetMass(body) * _world.Gravity.Length() * claw.GripLocal.Length();
+                    torqueLimit += 3f * gravityMoment;
+                    frequency = MathF.Max(frequency, 14f);
+                }
+                var torque = ReserveServo(arm.Region, joint, arm.Forearm, body, torqueLimit * _tuning.TorqueScale * arm.WristShare * ControlScale * FaintArm * vigor * Strength(arm.Forearm), allowance, dt);
+                _world.SetAngularServoSettings(joint, frequency * MathF.Sqrt(arm.WristShare), torque);
             }
         }
     }
@@ -561,8 +570,11 @@ public sealed partial class Fighter
         var scale = MuscleWork.ForceScale(linear, quadratic, holding, budget);
         SpendMuscleEnergy(arm.Region, (linear * scale) + (quadratic * scale * scale) + (holding * scale));
         arm.LastForce = force * scale;
-        _world.ApplyLinearImpulse(arm.Forearm, force * (scale * dt));
-        _world.ApplyLinearImpulse(Parts.Chest, -((armPart * _tuning.HandReactionShare) + internalPart) * (scale * dt));
+        if (Attached(arm.Forearm, Parts.Chest)) // 拳を引く力と胴への反作用は対で
+        {
+            _world.ApplyLinearImpulse(arm.Forearm, force * (scale * dt));
+            _world.ApplyLinearImpulse(Parts.Chest, -((armPart * _tuning.HandReactionShare) + internalPart) * (scale * dt));
+        }
         if (weightShift && bodyForce.LengthSquared() > 0f)
         {
             ApplySharedImpulse(bodyForce * (scale * dt));

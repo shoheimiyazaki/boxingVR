@@ -53,6 +53,8 @@ public static class VoxelBending
     public static VoxelBreak? WorstBend(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis = null, bool loadBearingOnly = false, (int Low, int High)? candidates = null, float tieActivation = 0f, float tensileScale = 1f)
         => Worst(grid, point, force, beamAxis, loadBearingOnly, candidates, tieActivation, tensileScale, minRatio: 0f);
 
+    // Match b2762da: compile fully up front to avoid the .NET 10 OSR crash in long contact runs.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveOptimization)]
     private static VoxelBreak? Worst(VoxelGrid grid, Vector3 point, Vector3 force, int? beamAxis, bool loadBearingOnly, (int Low, int High)? candidates, float tieActivation, float tensileScale, float minRatio)
     {
         ArgumentNullException.ThrowIfNull(grid);

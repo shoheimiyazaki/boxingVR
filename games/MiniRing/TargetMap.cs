@@ -32,6 +32,8 @@ public enum AimGoal
 
     Eye,
     BlindSide,
+    NeckSeam,
+    TorsoSeam,
 }
 
 /// <summary>
@@ -88,6 +90,10 @@ public sealed class TargetMap(Fighter target)
                 return marks?.Temple(Vision.Left < Vision.Right);
             case AimGoal.Chin:
                 return marks?.Chin();
+            case AimGoal.NeckSeam:
+                return target.StructuralAim(Aigis.Physics.HumanoidRagdoll.RagdollJoint.Neck);
+            case AimGoal.TorsoSeam:
+                return target.StructuralAim(Aigis.Physics.HumanoidRagdoll.RagdollJoint.Spine);
             case AimGoal.Temple:
                 var left = marks?.Temple(true);
                 var right = marks?.Temple(false);

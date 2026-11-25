@@ -32,7 +32,7 @@ public readonly record struct LegCommand(Vector3 TargetLocal, Vector3? KneeTarge
 /// 体フレーム（肩中心・向きヨー）での、片脚の寸法と立った形の膝の位置。蹴りの経路を、体の寸法から出すための読み取り専用の情報
 /// （人が自分の脚の長さを知っているのと同じ）。<paramref name="Hip"/> は腿が回る股の中心、<paramref name="RestKnee"/> は脚を立てた形での膝。
 /// </summary>
-public readonly record struct LegBody(Vector3 Hip, Vector3 RestKnee, float Thigh, float Shin, bool Available = true)
+public readonly record struct LegBody(Vector3 Hip, Vector3 RestKnee, float Thigh, float Shin, bool Available = true, Vector3 AnkleToTip = default)
 {
     /// <summary>
     /// 体の寸法が分からないとき（<see cref="FighterSense.SelfLeg"/> が null）の見積もり: 腕の長さ <paramref name="reach"/> に対する比
