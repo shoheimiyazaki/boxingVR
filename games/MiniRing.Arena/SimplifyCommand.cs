@@ -15,7 +15,7 @@ internal static class SimplifyCommand
 {
     private const float Dt = 1f / 60f;
 
-    private sealed record Variant(string Name, float Hz, float Sample, int Passes, bool Bridges);
+    private sealed record Variant(string Name, float Hz, float Sample, int Passes, bool Bridges, int Stride = 1, bool Self = true);
 
     private sealed record Result(string Variant, string Scene, int Seed, double MeanMs, double P95Ms, double MaxMs, int Frames, int FistHits, int WeaponHits,
         int Removed, int Severs, int Breaks, int Deaths, int Eliminations, int Blowups, bool Finished);
@@ -57,7 +57,7 @@ internal static class SimplifyCommand
     {
         var colon = spec.IndexOf(':');
         var name = colon < 0 ? spec : spec[..colon];
-        var (hz, sample, passes, bridges) = (240f, 0.5f, 3, true);
+        var (hz, sample, passes, bridges, stride, self) = (240f, 0.5f, 3, true, 1, true);
         foreach (var pair in (colon < 0 ? string.Empty : spec[(colon + 1)..]).Split('/', StringSplitOptions.RemoveEmptyEntries))
         {
             var kv = pair.Split('=');
@@ -67,11 +67,13 @@ internal static class SimplifyCommand
                 case "sample": sample = float.Parse(kv[1], CultureInfo.InvariantCulture); break;
                 case "passes": passes = int.Parse(kv[1], CultureInfo.InvariantCulture); break;
                 case "bridges": bridges = kv[1] != "0"; break;
-                default: throw new ArgumentException($"案の値が分からない: {pair}（hz・sample・passes・bridges）");
+                case "scan": stride = int.Parse(kv[1], CultureInfo.InvariantCulture); break;
+                case "self": self = kv[1] != "0"; break;
+                default: throw new ArgumentException($"案の値が分からない: {pair}（hz・sample・passes・bridges・scan・self）");
             }
         }
 
-        return new Variant(name, hz, sample, passes, bridges);
+        return new Variant(name, hz, sample, passes, bridges, stride, self);
     }
 
     private static Result Play(Variant v, string scene, int seed, float seconds)
@@ -80,8 +82,10 @@ internal static class SimplifyCommand
         BoxingGame.DefaultSubstepRate = v.Hz;
         BoxingGame.DefaultMaxContactPasses = v.Passes;
         VoxelContact.SampleSpacingScale = v.Sample;
+        VoxelContact.ScanStride = v.Stride;
         using var game = PerfCommand.Create(scene, seed);
         game.JointBridges = v.Bridges;
+        game.WeaponsHitHolder = v.Self;
         var frames = (int)MathF.Round(seconds / Dt);
         var times = new List<double>(frames);
         int fist = 0, weapon = 0, removed = 0, severs = 0, breaks = 0, blowups = 0;
@@ -127,8 +131,8 @@ internal static class SimplifyCommand
         {
             sb.AppendLine(inv, $"### {scene}");
             sb.AppendLine();
-            sb.AppendLine("| 案 | hz | 標本 | 掃き直し | つなぎ | ms/フレーム | p95 | 拳の打撃 | 武器の打撃 | 削れたセル | 切断 | 骨折 | 死 | 脱落 | 暴れ | 決着 |");
-            sb.AppendLine("|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
+            sb.AppendLine("| 案 | hz | 標本 | 掃き直し | つなぎ | 間引き | 自分 | ms/フレーム | p95 | 拳の打撃 | 武器の打撃 | 削れたセル | 切断 | 骨折 | 死 | 脱落 | 暴れ | 決着 |");
+            sb.AppendLine("|---|---:|---:|---:|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
             var baseRuns = runs.Where(r => r.Scene == scene && r.Variant == variants[0].Name).ToList();
             double Mean(IEnumerable<Result> set, Func<Result, double> f) => set.Any() ? set.Average(f) : 0;
             string Cell(List<Result> set, Func<Result, double> f, string format)
@@ -142,7 +146,7 @@ internal static class SimplifyCommand
             foreach (var v in variants)
             {
                 var set = runs.Where(r => r.Scene == scene && r.Variant == v.Name).ToList();
-                sb.AppendLine(inv, $"| {v.Name} | {v.Hz:0} | {v.Sample:0.##} | {v.Passes} | {(v.Bridges ? "あり" : "なし")} | {Cell(set, r => r.MeanMs, "F2")} | {Cell(set, r => r.P95Ms, "F1")} | {Cell(set, r => r.FistHits, "F1")} | {Cell(set, r => r.WeaponHits, "F1")} | {Cell(set, r => r.Removed, "F0")} | {Cell(set, r => r.Severs, "F1")} | {Cell(set, r => r.Breaks, "F1")} | {Mean(set, r => r.Deaths):F1} | {Mean(set, r => r.Eliminations):F1} | {set.Sum(r => r.Blowups)} | {set.Count(r => r.Finished)}/{set.Count} |");
+                sb.AppendLine(inv, $"| {v.Name} | {v.Hz:0} | {v.Sample:0.##} | {v.Passes} | {(v.Bridges ? "あり" : "なし")} | {v.Stride} | {(v.Self ? "あり" : "なし")} | {Cell(set, r => r.MeanMs, "F2")} | {Cell(set, r => r.P95Ms, "F1")} | {Cell(set, r => r.FistHits, "F1")} | {Cell(set, r => r.WeaponHits, "F1")} | {Cell(set, r => r.Removed, "F0")} | {Cell(set, r => r.Severs, "F1")} | {Cell(set, r => r.Breaks, "F1")} | {Mean(set, r => r.Deaths):F1} | {Mean(set, r => r.Eliminations):F1} | {set.Sum(r => r.Blowups)} | {set.Count(r => r.Finished)}/{set.Count} |");
             }
 
             sb.AppendLine();

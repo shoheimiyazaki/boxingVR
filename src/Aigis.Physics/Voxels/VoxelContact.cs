@@ -122,6 +122,18 @@ public static class VoxelContact
     }
 
     private const float DefaultSampleSpacingScale = 0.5f;
+
+    /// <summary>
+    /// 最初の接触を探す走査の間引き（1 = すべての標本を見る、既定）。簡素化の測定用（docs/PERFORMANCE.md §7）: k なら k 標本おきに見て、触れたら戻って最初を探す。
+    /// 非同期の流れごと（<see cref="SampleSpacingScale"/> と同じ）。
+    /// </summary>
+    public static int ScanStride
+    {
+        get => _scanStride.Value ?? 1;
+        set => _scanStride.Value = Math.Max(1, value);
+    }
+
+    private static readonly AsyncLocal<int?> _scanStride = new();
     private static readonly AsyncLocal<float?> _sampleSpacingScale = new();
 
     /// <summary>Most samples of the sweep in one step.</summary>
@@ -1004,14 +1016,34 @@ public static class VoxelContact
             var first = -1;
             var touching = NoOverlaps;
             var scanStart = StepProfile.Begin();
-            for (var k = 0; k <= _samples; k++)
+            // 間引き（ScanStride > 1、簡素化の測定用）: stride おきに見て、触れたら直前の区間を 1 つずつ戻って最初の標本を探す。
+            // stride 1（既定）は 1 つずつ（今までと同じ）。間の標本でだけ触れて抜ける薄い接触は見落とす。
+            var stride = ScanStride;
+            var previous = -1;
+            for (var k = 0; ; k = Math.Min(_samples, k + stride))
             {
                 touching = Overlaps(k);
                 if (touching.Count > 0)
                 {
                     first = k;
+                    for (var back = previous + 1; back < k; back++)
+                    {
+                        if (Overlaps(back) is { Count: > 0 } earlier)
+                        {
+                            (first, touching) = (back, earlier);
+                            break;
+                        }
+                    }
+
                     break;
                 }
+
+                if (k == _samples)
+                {
+                    break;
+                }
+
+                previous = k;
             }
 
             StepProfile.Count(StepProfile.Counter.ScanSamples, first < 0 ? _samples + 1 : first + 1);
