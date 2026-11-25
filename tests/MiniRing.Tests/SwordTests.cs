@@ -89,10 +89,11 @@ public sealed class SwordTests
         // （上腕・前腕）を斬り、胸は 0 セル（拳の質量を 0 にすると 7 回のうち 2 回が胸 16・3 セル。どちらも振りの速さ 7〜11 m/s・胸を 13〜25 cm 外す振りで、
         // 胸を斬るのは偶然の近さ: 版 93 から 1 回だけだった）。「狙った胸を斬る」は今のラグドールの振り（docs/BLADE_CUT_STUDY.md §8）では揺れに負けるので、
         // 振りが速くなるまでは、斬り抜く振りが相手の体まで届いて斬ること（構えた腕でも）と、自分の体をほとんど斬らないことを見る（弱い主張。振りが速くなったら元に戻す）。
-        // 2026-11-25（PhysicsVersion 105、片手で握る柄も握り込んだ手首・剣は実物の重さ 1.19 kg）: 振りが 5〜9 → 11〜20 m/s に速くなり、7 回のうち胸を最初に斬る回が
-        // 出た（胸 107 セル）。速い振りは振り抜いた先で自分の腿もかすめる（間合いの遠い 3 回で 8 セルずつ）。自分の傷は、相手に与えた分の 1/10 より少ないことで見る。
-        Assert.IsGreaterThanOrEqualTo(5, runs.Count(x => x.FirstPart is not null), $"the swings reach and cut the opponent ({detail})");
-        Assert.IsTrue(runs.Any(x => x.FirstPart == BodyPartKind.Chest), $"a swing cuts the chest it is aimed at first ({detail})");
+        // 2026-11-25（PhysicsVersion 105、片手で握る柄も握り込んだ手首・剣は実物の重さ 1.19 kg）: 振りが 5〜9 → 10〜20 m/s に速くなり、狙った胸を
+        // 斬るようになった（7 回の合計で胸 100〜400 セル。先に構えた腕を斬ってから胸へ入る回が多い）。速い振りは振り抜いた先で自分の腿もかすめる（間合いの遠い 3 回で 8 セルずつ）。自分の傷は、相手に与えた分の 1/10 より少ないことで見る。
+        // 切っ先を目標へ合わせる手首の力（Fighter.DriveBladeTip）で、剣は振りの経路（遅れる剣に合わせて 2026-11-14 に作った斬り抜く経路）どおりに動くようになり、
+        // 7 つの間合いのうち 3 つでは経路が胸の横を通って当たらない。間合いのいくつかで狙った胸を斬ることを見る。
+        Assert.IsGreaterThanOrEqualTo(3, runs.Count(x => x.TargetCells > 0), $"the swings cut the chest they are aimed at, at several ranges ({detail})");
         Assert.IsLessThanOrEqualTo((target + runs.Sum(x => x.OtherCells)) / 10f, self, $"and cuts itself far less than the opponent ({detail})");
         Assert.IsGreaterThanOrEqualTo(self, target + runs.Sum(x => x.OtherCells), $"the opponent loses more than yourself ({detail})");
     }
@@ -110,7 +111,13 @@ public sealed class SwordTests
         }
 
         Assert.IsNotNull(bot);
-        Assert.IsGreaterThan(1, bot.Used.Distinct().Count(), $"more than one technique is used ({string.Join(",", bot.Used)})");
+        Console.WriteLine($"技 {string.Join(",", bot.Used)}、相手の状態 {game.Cpu.State}、相手のセル {game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount)} / {start}");
+        // 2026-11-25（PhysicsVersion 105）: 剣が実物の重さで振りが速くなり、最初の袈裟で構えて立つ相手が気を失って倒れることがある（そうなるとボットは打つのをやめる:
+        // SwordBot は相手が倒れている間は構えて待つ）。倒れていなければ、間合いに合わせて 2 つ以上の技を使う。
+        if (game.Cpu.State == FighterState.Standing)
+        {
+            Assert.IsGreaterThan(1, bot.Used.Distinct().Count(), $"more than one technique is used ({string.Join(",", bot.Used)})");
+        }
         Assert.IsLessThan(start, game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), "the sword cuts the opponent");
     }
 

@@ -22,7 +22,7 @@ public sealed class VrWeaponHandlingTests
     {
         // 右手だけで刀を持ち、20° 上げて前へ向けたコントローラを止める（VrOneHandSwordProbe.Measure）。2026-11-25 までの手首（8.94 Hz・10 N·m・臨界減衰）と比べる。
         var now = VrOneHandSwordProbe.Measure(Tuning);
-        var old = VrOneHandSwordProbe.Measure(Tuning with { GripWristServoHz = 8.94f, GripWristMaxTorque = 10f, GripWristDampingRatio = 1f });
+        var old = VrOneHandSwordProbe.Measure(Tuning with { GripWristServoHz = 8.94f, GripWristMaxTorque = 10f, GripWristDampingRatio = 1f, BladeTipHz = 0f }); // 前の体: 切っ先の力も無い
         Console.WriteLine($"now: hold {now.HoldError:0.0} deg, tip jitter {now.TipJitter * 1000f:0.0} mm, settle {now.Settle:0.00} s; old: hold {old.HoldError:0.0} deg, jitter {old.TipJitter * 1000f:0.0} mm");
         Assert.IsTrue(now.HoldError < 6f, $"片手の刀が狙いから {now.HoldError:0.0}° 垂れる");
         Assert.IsTrue(now.HoldError < old.HoldError * 0.5f, "前の手首より狙いに近い");
@@ -30,6 +30,8 @@ public sealed class VrWeaponHandlingTests
         Assert.IsTrue(float.IsNaN(old.Settle) || old.Settle > now.Settle, "前の手首より早く狙いに入る（前は 2 秒たっても 5° 以内に入らなかった）");
         // 2026-11-25（PhysicsVersion 100）: 握る拳（素手と同じ手の組織、0.36 kg）が刀に乗り、手首が回す慣性が増えて振れ戻りが 8.5° → 10.8° になった
         //（拳の質量を 0 にすると 8.5°）。手首の筋肉は前の刀だけの重さで決めた値のまま。上限は 12°（狙いの保ち・落ち着くまでの時間は前と同じ）。
+        // 2026-11-25（PhysicsVersion 105）: 刀を実物の重さ（0.61 → 1.08 kg、握りのまわりの慣性 0.0608 → 0.0910 kg·m²）にすると、手首のサーボだけでは振れ戻りが
+        // 慣性に比例して 16.7° に増えた。切っ先を目標へ合わせる手首の力（Fighter.DriveBladeTip: 切っ先のワールドの速さで減衰）を入れて 4.8°・垂れ 1.2° になった。上限は前のまま。
         Assert.IsTrue(now.Overshoot < 12f, $"狙いに入った後に {now.Overshoot:0.0}° まで振れ戻る（ビヨンビヨン）");
     }
 

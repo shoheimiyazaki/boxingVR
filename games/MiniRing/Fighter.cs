@@ -250,7 +250,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 105; // 柄を握り込んだ手首を両手の間も・武器の材料を実物の密度・蹴る間の軸足を留める（105、仮）・武器を握る手をボクセルの握り拳に（100）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 105; // 握り込んだ手首・切っ先の目標と PD・実物の重さの武器・人の肩肘の力・蹴る間の軸足（105、仮）・武器を握る手をボクセルの握り拳に（100）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -527,6 +527,24 @@ public sealed partial class Fighter
 
     /// <summary>生え直せる部位（子の剛体）ごとの、作ったときの関節。</summary>
     private readonly Dictionary<int, RestJoint> _rest = [];
+
+    /// <summary>握って持つ武器の剛体ごとの切っ先（武器のローカル。<see cref="RegisterBladeTip"/>）。</summary>
+    private readonly Dictionary<int, Vector3> _bladeTips = [];
+
+    /// <summary>
+    /// 握って持つ武器（剛体 <paramref name="body"/>）の切っ先の点（武器のローカル、<c>Weapon.TipOf</c>）を覚える。切っ先の目標と実際の切っ先
+    /// （<see cref="BladeTipWorld"/>・<see cref="BladeTipTargetWorld"/>）と、切っ先の揺れを抑える手首の力（<see cref="DriveBladeTip"/>）に使う。
+    /// </summary>
+    internal void RegisterBladeTip(int body, Vector3 tipLocal) => _bladeTips[body] = tipLocal;
+
+    /// <summary>手 <paramref name="hand"/> が握って持つ武器の、今の切っ先（ワールド）。武器を握っていなければ null（素手・はめた物）。</summary>
+    public Vector3? BladeTipWorld(Hand hand) => _arms[(int)hand].Tip;
+
+    /// <summary>
+    /// 手 <paramref name="hand"/> が握って持つ武器の、切っ先の目標（ワールド）= 手の目標の位置 ＋ 武器の向きの目標で回した「握り → 切っ先」。
+    /// 新しい指令ではなく、<see cref="FighterCommand"/> の手の位置と向きから出す。向きの指令が無い歩・武器を握っていない手は null。
+    /// </summary>
+    public Vector3? BladeTipTargetWorld(Hand hand) => _arms[(int)hand].TipTarget;
 
     /// <summary>直近の <see cref="Regrow"/> で芽から生え直し始めた部位と、古い中身を写して床に残した破片の剛体（呼び出し側の後始末・中継の記録）。</summary>
     private readonly List<int> _rebudded = [];
@@ -3520,7 +3538,9 @@ public sealed partial class Fighter
             {
                 ApplyArmDrive(arm, drive.Force, drive.ArmPart, drive.Internal, weightShift, dt);
             }
-            arm.DriveWrist(_world, frame, arm.Support is { } held && arm.SlideSpan is null ? command.For(held.Main).Orientation : hand.Orientation);
+            var orientation = arm.Support is { } held && arm.SlideSpan is null ? command.For(held.Main).Orientation : hand.Orientation;
+            arm.DriveWrist(_world, frame, orientation);
+            DriveBladeTip(arm, frame, frame.LocalToWorld(target), orientation, armScale * ArmStrength(arm.Hand), dt);
         }
 
         EnsureSlideWrists();
@@ -3529,6 +3549,70 @@ public sealed partial class Fighter
         _budget[(int)MuscleRegion.LeftArm] += leftAllowance;
         _budget[(int)MuscleRegion.RightArm] += rightAllowance;
         BudgetArmServos(leftAllowance, rightAllowance, dt);
+    }
+
+    /// <summary>
+    /// 切っ先を目標へ合わせる手首の力（2026-11-25、ユーザーの指定「切っ先の位置にも目標を作って、そこに合わせて震えを抑えて持っていく」。
+    /// docs/plans/FORM_DECAY_STUDY.md §10）。人は剣を、手首の角度だけでなく切っ先の位置を見て合わせる。
+    /// <list type="bullet">
+    /// <item>切っ先の目標 = 手の目標の位置 ＋ 武器の向きの目標で回した「握り → 切っ先」（<see cref="FighterCommand"/> の手の位置と向きから。新しい指令は無い）。</item>
+    /// <item>実際の切っ先 = 武器の剛体の点。誤差のうち、手の位置のずれ（拳を引く筋肉が受け持つ）を除いた、握りのまわりの回りの分だけを使う:
+    /// 握りから見た切っ先の目標 − 握りから見た実際の切っ先（てこ）。</item>
+    /// <item>PD: 加速度 = Kp × 誤差 ＋ Kd × (目標のてこの速さ − 実際のてこの速さ)。速さはワールドで見る: 手首のサーボの減衰は前腕に対する回りの速さしか見ないので、
+    /// 腕ごと刀が振れるのを止めない。切っ先のワールドの速さで減衰させると、腕と刀が一緒に振れるのも抑える。</item>
+    /// <item>力の出どころ: 切っ先に外から力を掛けない（§1.1）。切っ先の力 × てこ（握り → 切っ先）を手首のトルクにして、武器と前腕に逆向きに掛ける（作用・反作用）。
+    /// 大きさは手首が出せるトルク（<see cref="Arm.WristTorque"/> × 割合 × 肉の残り）までで、手首のサーボと同じ上限（§1.7）。切っ先の有効質量は武器の握りのまわりの
+    /// 慣性 ÷ てこの長さ²（武器の形と質量から連続に。種類で分けない）。</item>
+    /// <item>素手・はめた物（グローブ・鎌）は切っ先を持たない（拳そのものが打つ点）ので何もしない: 素手の試合は変わらない。</item>
+    /// </list>
+    /// </summary>
+    private void DriveBladeTip(Arm arm, BodyFrame frame, Vector3 handTargetWorld, Quaternion? orientationLocal, float scale, float dt)
+    {
+        arm.Tip = null;
+        arm.TipTarget = null;
+        // 手首の筋肉（サーボ）が付いていなければ（両手で滑らせて持つ棒）、手首はトルクを出せないので切っ先の力も出さない。
+        if (arm.Glove || arm.Held is not { Socket: not null } held || !_bladeTips.TryGetValue(held.Body, out var tipLocal))
+        {
+            arm.LastTipLever = null;
+            return;
+        }
+
+        var weapon = _world.GetState(held.Body);
+        var lever = tipLocal - held.GripLocal;
+        var leverWorld = Vector3.Transform(lever, weapon.Orientation);
+        arm.Tip = weapon.Position + Vector3.Transform(tipLocal, weapon.Orientation);
+        if (orientationLocal is not { } q)
+        {
+            arm.LastTipLever = null;
+            return;
+        }
+
+        // 切っ先の目標は、力を出さないとき（手首の筋肉が無い・切っ先の力を使わない体）も読めるように出す（測る・採点に使う）。
+        var desired = Quaternion.Concatenate(q, Quaternion.CreateFromAxisAngle(Vector3.UnitY, frame.YawRadians));
+        var targetLever = Vector3.Transform(lever, desired);
+        arm.TipTarget = handTargetWorld + targetLever;
+        var targetLeverVelocity = arm.LastTipLever is { } last ? (targetLever - last) / dt : Vector3.Zero;
+        arm.LastTipLever = targetLever;
+        if (_tuning.BladeTipHz <= 0f || !arm.HasWrist)
+        {
+            return;
+        }
+
+        var leverVelocity = Vector3.Cross(weapon.AngularVelocity, leverWorld);
+        var omega = 2f * MathF.PI * _tuning.BladeTipHz;
+        var accel = (omega * omega * (targetLever - leverWorld)) + (2f * _tuning.BladeTipDampingRatio * omega * (targetLeverVelocity - leverVelocity));
+        var length2 = MathF.Max(1e-4f, leverWorld.LengthSquared());
+        var diagonal = _world.GetLocalInertiaDiagonal(held.Body);
+        var aboutGrip = (0.5f * (diagonal.Y + diagonal.Z)) + (_world.GetMass(held.Body) * held.GripLocal.LengthSquared());
+        var torque = Vector3.Cross(leverWorld, accel * (aboutGrip / length2));
+        var budget = arm.WristTorqueBudget(_tuning) * Math.Max(0.01f, scale);
+        if (torque.LengthSquared() > budget * budget)
+        {
+            torque *= budget / torque.Length();
+        }
+
+        _world.ApplyAngularImpulse(held.Body, torque * dt);
+        _world.ApplyAngularImpulse(arm.Forearm, -torque * dt);
     }
 
     /// <summary>
@@ -3561,9 +3645,11 @@ public sealed partial class Fighter
                 }
             }
 
-            // 握りが腕の届かない所にあれば、届くまではその手の指令どおり（構えを解かない）。
-            var reachable = Vector3.Distance(arm.ShoulderPosition(_world, Parts.Chest), gripWorld) <= arm.UpperLength + arm.LowerLength;
-            return reachable ? frame.WorldToLocal(gripWorld) : command.For(arm.Hand).TargetLocal;
+            // 握りが腕の届かない所にあれば、腕の届く所まで握りへ手を伸ばす（2026-11-25、docs/plans/FORM_DECAY_STUDY.md §10。それまではその手の指令どおりに
+            // 構えを保った: 切っ先を目標へ合わせる手首の力で刀が構えの向きに保たれると、添える所が肩から腕の長さの 2〜3 cm 先になり、構えの位置の手が
+            // 添える所の 6 cm 手前で止まって握れなかった。伸ばせば 1 cm 以内まで来て握る）。
+            var shoulder = arm.ShoulderPosition(_world, Parts.Chest);
+            return frame.WorldToLocal(ArmIk.ClampReach(shoulder, gripWorld, arm.UpperLength + arm.LowerLength));
         }
 
         // 利き手の目標は、利き手の腕の届く所までに縮めてから使う（届かない所を両手で取り合わない）。
@@ -5145,6 +5231,17 @@ public sealed partial class Fighter
         /// 同じ現象なので同じ握り込んだ手首で回す（2026-11-25。それまでははめる物と同じ 8.94 Hz・10 N·m で、実物の重さの片手剣は振りが 5〜9 m/s に落ちた）。
         /// </summary>
         public bool OneHandHandle { get; set; }
+
+        /// <summary>この歩の切っ先（ワールド）と切っ先の目標（<see cref="Fighter.DriveBladeTip"/>）。武器を握っていない・向きの指令が無ければ null。</summary>
+        public Vector3? Tip { get; set; }
+
+        public Vector3? TipTarget { get; set; }
+
+        /// <summary>前の歩の、目標の「握り → 切っ先」（ワールドの向き。目標の切っ先の速さを差分で出す）。</summary>
+        public Vector3? LastTipLever { get; set; }
+
+        /// <summary>手首が今出せるトルクの上限 [N·m]（<see cref="WristTorque"/> × TorqueScale × 割合。肉の残り・意識は呼ぶ側が掛ける）。</summary>
+        public float WristTorqueBudget(FighterTuning tuning) => WristTorque(tuning) * tuning.TorqueScale * ShareOf(tuning);
 
         /// <summary>
         /// 付けたばかりの手首の固さ・トルク: <see cref="SetWristStrength"/> と同じ式（割合 <see cref="ShareOf"/> と最後の強さ <see cref="LastWristScale"/>）。

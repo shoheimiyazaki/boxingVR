@@ -59,6 +59,21 @@ public sealed class WeaponGraspTests
         }
     }
 
+    /// <summary>
+    /// 両手の構えで <paramref name="hand"/> を置く所（ワールド）。片手で持った刀にもう一方の手を添えるとき、持っている手は刀を両手の構えの位置の中央へ運ぶ:
+    /// 実物の重さの刀（1.08 kg）は片手でも構えの向きに保たれ、持っている手の横に柄が伸びたままだと、もう一方の手の肩から添える所まで 65 cm（腕 53 cm）
+    /// あって届かない（2026-11-25、PhysicsVersion 105。前の軽い刀は垂れて体の前へ来たので、運ばなくても届いた）。
+    /// </summary>
+    private static Vector3 GuardSpot(BoxingGame game, Hand hand)
+    {
+        var sense = game.PlayerSense;
+        var face = sense.OpponentChest - sense.Self.Origin;
+        face.Y = 0f;
+        face = face.LengthSquared() > 1e-6f ? Vector3.Normalize(face) : Vector3.UnitZ;
+        var command = FormSwordsman.GuardCommand(Katana, sense, face, FighterTuning.Default.WalkSpeed, FighterTuning.Default.MaxTorsoTwistRadians);
+        return sense.Self.LocalToWorld(command.For(hand).TargetLocal);
+    }
+
     private static Vector3 GripWorld(BoxingGame game, Weapon weapon, Vector3 gripLocal)
     {
         var s = game.World.GetState(weapon.Body.BodyId);
@@ -100,13 +115,19 @@ public sealed class WeaponGraspTests
         Assert.IsTrue(game.Player.HoldsOneHanded(Hand.Right), "one hand carries a two-handed sword at a third of the wrist spring");
         Assert.AreEqual(top.X, game.Player.GripX(Hand.Right)!.Value, 1e-5f, "the remaining hand keeps its grip");
 
-        // 左手が柄から離れて素手の拳になる（左手は構えの位置のまま、右手は剣を持っている）。
+        // 左手が柄から離れて素手の拳になる。2026-11-25（PhysicsVersion 105）: 実物の重さの刀は片手でも構えの向きに保たれ、構えの位置の左手は柄に触れたまま
+        // になるので、左手を柄から 40 cm 下へ離す（前の軽い刀は垂れて柄が手から離れた）。
+        script.LeftAt = () => GuardSpot(game, Hand.Left) - new Vector3(0f, 0.4f, 0f);
         Play(game, 1.678f);
         Assert.IsTrue(game.Player.WearsGlove(Hand.Left), "the empty left hand is a bare fist once it has moved off the handle");
 
-        // 左手を柄へ持っていって Grip（まだ押さない間は添えない）。
+        // 左手を柄へ持っていって Grip（まだ押さない間は添えない）。右手は刀を両手の構えの中央へ運ぶ（GuardSpot の説明）。
+        script.RightAt = () => Vector3.Lerp(GuardSpot(game, Hand.Left), GuardSpot(game, Hand.Right), 0.5f);
         var spacing = FormSwordsman.Spacing(Katana) * game.Player.ArmReach;
-        script.LeftAt = () => GripWorld(game, sword, top - new Vector3(spacing, 0f, 0f));
+        // 添える所は柄の上: 刃の側の握りから柄頭の側へ通常の間隔、柄頭の端より先へは行かない（TryAddSupport と同じ。2026-11-25 まで柄頭の先の点を狙わせていた:
+        // 前の刀は垂れて肩から届き、握る所へ手を伸ばし直していたので気付かなかった）。
+        var (_, pommelSide) = Weapon.TwoHandGripsOf(Katana);
+        script.LeftAt = () => GripWorld(game, sword, new Vector3(MathF.Max(top.X - spacing, pommelSide.X), 0f, 0f));
         Play(game, 1.678f);
         Assert.IsFalse(game.Player.Wields(Hand.Left), "without Grip the hand just rests by the handle");
 
@@ -141,7 +162,9 @@ public sealed class WeaponGraspTests
         Assert.AreEqual(sword.Body.BodyId, game.Player.WieldedBody(Hand.Left), "as the hand that holds the sword now");
         Assert.AreEqual(bottom.X, game.Player.GripX(Hand.Left)!.Value, 1e-5f, "its grip did not move");
         Assert.IsTrue(game.Player.HoldsOneHanded(Hand.Left));
-        Assert.IsGreaterThan(height - 0.2817f, game.World.GetState(sword.Body.BodyId).Position.Y, "the sword did not fall");
+        // 2026-11-25（PhysicsVersion 105）: 柄頭の側の握りを片手（手首 10 N·m）で持つ実物の重さの刀（1.08 kg ＋ 握る拳 0.36 kg）は、軽い刀より 1 cm ほど深く垂れる
+        // （28 → 29 cm）。落ちていない（手に持っている）ことを見るので、下がる量は腕の長さほど（40 cm）まで認める。
+        Assert.IsGreaterThan(height - 0.4f, game.World.GetState(sword.Body.BodyId).Position.Y, "the sword did not fall");
     }
 
     /// <summary>落とした刀は床へ落ち、空いた左手だけで（鍔に近い握りで）拾え、右手が添えれば両手の間隔になる。</summary>
@@ -185,7 +208,9 @@ public sealed class WeaponGraspTests
 
         // 右手を柄へ持っていって Grip で添える: 左手の握り（鍔の近く）から柄頭の側へ通常の間隔。
         var spacing = FormSwordsman.Spacing(Katana) * game.Player.ArmReach;
-        script.RightAt = () => GripWorld(game, sword, top);
+        // 左手は刀を構えの中央（右手の構えの位置）へ運び、右手はそこから柄頭の側の握る所へ（GuardSpot の説明）。
+        script.LeftAt = () => Vector3.Lerp(GuardSpot(game, Hand.Left), GuardSpot(game, Hand.Right), 0.5f);
+        script.RightAt = () => GripWorld(game, sword, new Vector3(MathF.Max(top.X - spacing, bottom.X), 0f, 0f)); // 柄の上の添える所（上の Releasing… と同じ）
         script.GripRight = true;
         Play(game, 2.518f);
         Assert.AreEqual(Hand.Right, game.Player.SupportOf(Hand.Left), "the right hand joined as the second hand");
@@ -232,5 +257,6 @@ public sealed class WeaponGraspTests
         Assert.AreEqual(bottom.X, game.Cpu.GripX(Hand.Left)!.Value, 1e-5f);
         Assert.IsFalse(game.Cpu.HoldsOneHanded(Hand.Right));
     }
+
 
 }

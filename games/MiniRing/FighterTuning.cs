@@ -286,12 +286,11 @@ public sealed record FighterTuning
 
     /// <summary>
     /// 柄を握り込んだ手首の、両手の握り全体のトルクの上限（TorqueScale 倍する前）。手ごとには割合を掛ける: 1 本で支えれば <see cref="OneHandWristShare"/> の 1/3 で
-    /// 10 N·m（人の手首の屈曲・尺屈の最大 10〜15 N·m の下の方）、両手の間は <see cref="TwoHandWristShare"/> の半分ずつ 15 N·m。
-    /// 2026-11-25 に 20 → 30（docs/plans/FORM_DECAY_STUDY.md）: 武器を実物の重さ（刀 1.3 kg・ロングソード 1.3 kg、握る拳 0.36 kg が乗る）にしたので、片手で持った刀の
-    /// 重さだけで 4 N·m 前後になり、6.7 N·m では向きを変える力がほとんど残らなかった。それまでの経緯: 10 では向きを変えるたびに頭打ちになって揺れが残った（10 → 20 で
-    /// 切っ先の揺れ 8 → 4 mm）。
+    /// 6.7 N·m、両手の間は <see cref="TwoHandWristShare"/> の半分ずつ 10 N·m（人の手首の屈曲の最大 10〜15 N·m の内）。2026-11-25 に 30 も試した
+    /// （docs/plans/FORM_DECAY_STUDY.md §9）: 実物の重さの刀を VR で片手に持って向きを 40° 変えると、止めた後の振れ戻りが 16.7° → 19.8° に増え、刃の追従は
+    /// 良くならなかった（剣の型の刃筋 33.7 対 34.3°）。経緯: 10 では向きを変えるたびに頭打ちになって揺れが残った（10 → 20 で切っ先の揺れ 8 → 4 mm）。
     /// </summary>
-    public float GripWristMaxTorque { get; init; } = 30f;
+    public float GripWristMaxTorque { get; init; } = 20f;
 
     /// <summary>
     /// 柄を握り込んだ手首のサーボの減衰比。前腕と武器は肩・肘のバネの先で一緒に揺れるので、臨界より強く減衰させて揺れを吸う
@@ -308,11 +307,23 @@ public sealed record FighterTuning
 
     /// <summary>
     /// 両手で同じ柄を握り込んでいる間の、手ごとの手首のバネの割合（固さとトルク。周波数は √割合 倍）。握り込んだ手首（<see cref="GripWristServoHz"/>・
-    /// <see cref="GripWristMaxTorque"/>）を両手の握り全体の値とし、2 本の手首で半分ずつ持つ（25 Hz → 17.7 Hz、30 → 15 N·m ずつ）。2026-11-25 まではここを
+    /// <see cref="GripWristMaxTorque"/>）を両手の握り全体の値とし、2 本の手首で半分ずつ持つ（25 Hz → 17.7 Hz、20 → 10 N·m ずつ）。2026-11-25 まではここを
     /// はめる物の手首（8.94 Hz・10 N·m）にしていて、刀の刃の向きが打ちの間に遅れた（docs/plans/FORM_DECAY_STUDY.md）。割合 1 ずつ（25 Hz を両手とも）では、
     /// 両手と武器の閉じた輪の中で固い手首どうしが押し合い、胴をひねった構えで体が 30 cm 滑った（SlideTests）。
     /// </summary>
     public float TwoHandWristShare { get; init; } = 0.5f;
+
+    /// <summary>
+    /// 切っ先を目標へ合わせる手首の PD の固有振動数 [Hz]（<c>Fighter.DriveBladeTip</c>。0 で使わない）。切っ先の目標は手の目標の位置と武器の向きの目標から出す。
+    /// 手首のサーボ（向きのバネ、前腕に対する回りで減衰）に足して、切っ先のワールドの速さで減衰させ、腕と刀が一緒に振れるのを抑える。2 Hz・減衰 1.5（docs/plans/FORM_DECAY_STUDY.md §10）: VR で片手に持った実物の重さの刀の振れ戻り 16.7 → 5.0°・垂れ 5.7 → 2.8°。4 Hz では片手剣の横払いが構えた相手に届く間合いの幅が狭くなった（ShieldTests）。
+    /// </summary>
+    public float BladeTipHz { get; init; } = 2f;
+
+    /// <summary>
+    /// 切っ先の PD の減衰比（臨界 = 1）。バネの項も要る: 減衰だけ（手首のサーボの向きのバネに任せる）では、VR で片手に持った刀が向きを変えた後 2 秒たっても
+    /// 5° 以内に入らなかった（§10）。
+    /// </summary>
+    public float BladeTipDampingRatio { get; init; } = 1.5f;
 
     /// <summary>
     /// 両手で握った棒の握りの点を棒に沿って動かす速さの上限 [m/s]（<see cref="Fighter"/> の握りの矛盾の解消）。両手の拳の目標の距離と

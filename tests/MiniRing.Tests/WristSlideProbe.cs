@@ -44,12 +44,8 @@ public sealed class WristSlideProbe
         var b = FighterTuning.Default;
         var variants = new (string Name, FighterTuning T)[]
         {
-            ("減衰 3・45 N·m", b with { GripWristDampingRatio = 3f, GripWristMaxTorque = 45f }),
-            ("減衰 3・60 N·m", b with { GripWristDampingRatio = 3f, GripWristMaxTorque = 60f }),
-            ("減衰 3・90 N·m", b with { GripWristDampingRatio = 3f, GripWristMaxTorque = 90f }),
-            ("減衰 4・30 N·m", b with { GripWristDampingRatio = 4f }),
-            ("減衰 3・30 N·m・片手 0.5", b with { GripWristDampingRatio = 3f, OneHandWristShare = 0.5f }),
-            ("減衰 3・腕 Hz ×1.5", b with { GripWristDampingRatio = 3f, ArmServoHz = b.ArmServoHz * 1.5f }),
+            ("今（切っ先の PD 2 Hz・1.5）", b),
+            ("切っ先の PD なし", b with { BladeTipHz = 0f }),
         };
         var rows = new (float, int)[variants.Length];
         Parallel.For(0, variants.Length, i => rows[i] = Run(variants[i].T));

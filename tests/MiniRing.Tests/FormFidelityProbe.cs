@@ -47,7 +47,7 @@ public sealed class FormFidelityProbe
     }
 
     internal sealed record SwingStats(string Technique, float HandRms, float HandMax, float AxisErrMean, float AxisErrAtPeak, float TargetOffPlane, float OffPlaneAtPeak,
-        float TargetTipPeak, float TipPeak, float TrunkTiltMax, bool Fell, float StaminaUsed, int Cells, int SelfCells, float StrikeOffPlane, float StrikeAxisErr, float StrikeTipSpeed);
+        float TargetTipPeak, float TipPeak, float TrunkTiltMax, bool Fell, float StaminaUsed, int Cells, int SelfCells, float StrikeOffPlane, float StrikeAxisErr, float StrikeTipSpeed, float TipErrorRms = float.NaN, float StrikeTipError = float.NaN);
 
     /// <summary>型を 1 回出して測る（StrikeDrill と同じ組み方: 構えて立つ相手へ、間合いまで詰めてから 1 回）。</summary>
     internal static SwingStats Swing(MotionTechnique technique, MotionFrame guard, FighterTuning tuning, float? massScale = null, SwingPacing? pacing = null)
@@ -65,7 +65,9 @@ public sealed class FormFidelityProbe
             game.World.MakeDynamic(sword.Body.BodyId, mass);
         }
 
-        var strike = new List<(float TargetSpeed, float Off, float Axis, float Speed)>();
+        var strike = new List<(float TargetSpeed, float Off, float Axis, float Speed, float TipError)>();
+        double tipSq = 0;
+        var tipSamples = 0;
         var tip = Weapon.TipOf(sword.Kind);
         var grip = Weapon.GripOf(sword.Kind);
         var victimStart = game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
@@ -141,7 +143,14 @@ public sealed class FormFidelityProbe
             }
 
             samples++;
-            strike.Add((targetSpeedNow, OffPlane(tipVelocity, state.Orientation), axisErr, tipVelocity.Length()));
+            var tipError = me.BladeTipWorld(hand) is { } tipNow && me.BladeTipTargetWorld(hand) is { } tipGoal ? Vector3.Distance(tipNow, tipGoal) : float.NaN;
+            if (!float.IsNaN(tipError))
+            {
+                tipSq += tipError * tipError;
+                tipSamples++;
+            }
+
+            strike.Add((targetSpeedNow, OffPlane(tipVelocity, state.Orientation), axisErr, tipVelocity.Length(), tipError));
             if (tipVelocity.Length() > tipPeak)
             {
                 tipPeak = tipVelocity.Length();
@@ -159,20 +168,23 @@ public sealed class FormFidelityProbe
         var strikeOff = weight > 0f ? window.Sum(s => s.Off * s.Speed) / weight : float.NaN;
         var strikeAxis = window.Count > 0 ? window.Where(s => !float.IsNaN(s.Axis)).Select(s => s.Axis).DefaultIfEmpty(float.NaN).Average() : float.NaN;
         var strikeSpeed = window.Count > 0 ? window.Max(s => s.Speed) : float.NaN;
+        var strikeTip = window.Where(s => !float.IsNaN(s.TipError)).Select(s => s.TipError).DefaultIfEmpty(float.NaN).Average();
         return new SwingStats(technique.Name, samples == 0 ? float.NaN : 100f * MathF.Sqrt((float)(handSq / samples)), 100f * handMax,
             samples == 0 ? float.NaN : (float)(axisSum / samples), axisAtPeak, targetOffAtPeak, offAtPeak, targetTipPeak, tipPeak, trunkMax, fell,
             started ? staminaStart - me.Stamina : float.NaN,
-            victimStart - game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), ownStart - me.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), strikeOff, strikeAxis, strikeSpeed);
+            victimStart - game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), ownStart - me.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), strikeOff, strikeAxis, strikeSpeed, tipSamples == 0 ? float.NaN : 100f * MathF.Sqrt((float)(tipSq / tipSamples)), 100f * strikeTip);
     }
 
     private static IEnumerable<(string Name, FighterTuning Tuning, float? MassScale, bool Pacing)> BodyVariants()
     {
         var b = SwordStance.Tuning;
-        yield return ("今の体", b, null, false);
+        yield return ("切っ先の PD なし", b with { BladeTipHz = 0f }, null, false);
+        yield return ("今の体（切っ先の PD 2 Hz・1.5）", b, null, false);
+        yield return ("切っ先の PD 4 Hz・1.5", b with { BladeTipHz = 4f }, null, false);
+        yield return ("切っ先の PD 8 Hz・1", b with { BladeTipHz = 8f, BladeTipDampingRatio = 1f }, null, false);
+        yield return ("切っ先の PD 4 Hz・3", b with { BladeTipDampingRatio = 3f }, null, false);
+        yield return ("切っ先の PD 2 Hz・4", b with { BladeTipHz = 2f, BladeTipDampingRatio = 4f }, null, false);
         yield return ("技の時計（教科書の Pacing）", b, null, true);
-        yield return ("握る手首トルク ×1.5", b with { GripWristMaxTorque = b.GripWristMaxTorque * 1.5f }, null, false);
-        yield return ("握る手首トルク ×0.5（前の両手 10 N·m 相当）", b with { GripWristMaxTorque = b.GripWristMaxTorque * 0.5f }, null, false);
-        yield return ("腕の速さ ×2", b with { ArmServoMaxSpeed = b.ArmServoMaxSpeed * 2f }, null, false);
     }
 
     [TestMethod]
@@ -199,16 +211,16 @@ public sealed class FormFidelityProbe
             var guard = FormSwordsman.Guard(weapon);
             Console.WriteLine();
             Console.WriteLine($"## {weapon}（{techniques.Count} 型）");
-            Console.WriteLine("| 体 | 手のずれ RMS / 最大 [cm] | 刃の軸のずれ 平均 / 最速の時 [°] | 刃筋 目標の経路 / 実際 [°] | 刃先の最速 目標 / 実際 [m/s] | 体幹の傾き最大 [°] | 転倒 | スタミナ減 | 相手のセル | 自傷 | 打ちの区間: 刃筋 / 軸のずれ [°] / 刃先の最速 [m/s] |");
-            Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|");
+            Console.WriteLine("| 体 | 手のずれ RMS / 最大 [cm] | 刃の軸のずれ 平均 / 最速の時 [°] | 刃筋 目標の経路 / 実際 [°] | 刃先の最速 目標 / 実際 [m/s] | 体幹の傾き最大 [°] | 転倒 | スタミナ減 | 相手のセル | 自傷 | 打ちの区間: 刃筋 / 軸のずれ [°] / 刃先の最速 [m/s] | 切っ先のずれ RMS / 打ちの区間 [cm] |");
+            Console.WriteLine("|---|---|---|---|---|---|---|---|---|---|---|---|");
             var pacing = WeaponCatalog.Textbook(weapon).Pacing;
             foreach (var (name, tuning, massScale, paced) in BodyVariants())
             {
                 var rows = new SwingStats[techniques.Count];
                 Parallel.For(0, techniques.Count, i => rows[i] = Swing(techniques[i], guard, tuning, massScale, paced ? pacing : null));
                 static double M(IEnumerable<float> xs) => xs.Where(x => !float.IsNaN(x)).DefaultIfEmpty(float.NaN).Average();
-                Console.WriteLine($"| {name} | {F(M(rows.Select(r => r.HandRms)))} / {F(M(rows.Select(r => r.HandMax)))} | {F(M(rows.Select(r => r.AxisErrMean)))} / {F(M(rows.Select(r => r.AxisErrAtPeak)))} | {F(M(rows.Select(r => r.TargetOffPlane)))} / {F(M(rows.Select(r => r.OffPlaneAtPeak)))} | {F(M(rows.Select(r => r.TargetTipPeak)))} / {F(M(rows.Select(r => r.TipPeak)))} | {F(M(rows.Select(r => r.TrunkTiltMax)))} | {rows.Count(r => r.Fell)}/{rows.Length} | {F(M(rows.Select(r => r.StaminaUsed)), "0.000")} | {F(rows.Average(r => r.Cells), "0")} | {F(rows.Average(r => r.SelfCells), "0")} | {F(M(rows.Select(r => r.StrikeOffPlane)))} / {F(M(rows.Select(r => r.StrikeAxisErr)))} / {F(M(rows.Select(r => r.StrikeTipSpeed)))} |");
-                if (name == "今の体")
+                Console.WriteLine($"| {name} | {F(M(rows.Select(r => r.HandRms)))} / {F(M(rows.Select(r => r.HandMax)))} | {F(M(rows.Select(r => r.AxisErrMean)))} / {F(M(rows.Select(r => r.AxisErrAtPeak)))} | {F(M(rows.Select(r => r.TargetOffPlane)))} / {F(M(rows.Select(r => r.OffPlaneAtPeak)))} | {F(M(rows.Select(r => r.TargetTipPeak)))} / {F(M(rows.Select(r => r.TipPeak)))} | {F(M(rows.Select(r => r.TrunkTiltMax)))} | {rows.Count(r => r.Fell)}/{rows.Length} | {F(M(rows.Select(r => r.StaminaUsed)), "0.000")} | {F(rows.Average(r => r.Cells), "0")} | {F(rows.Average(r => r.SelfCells), "0")} | {F(M(rows.Select(r => r.StrikeOffPlane)))} / {F(M(rows.Select(r => r.StrikeAxisErr)))} / {F(M(rows.Select(r => r.StrikeTipSpeed)))} | {F(M(rows.Select(r => r.TipErrorRms)))} / {F(M(rows.Select(r => r.StrikeTipError)))} |");
+                if (name.StartsWith("今の体", StringComparison.Ordinal))
                 {
                     foreach (var r in rows)
                     {
@@ -319,6 +331,29 @@ public sealed class FormFidelityProbe
                 }
 
                 Console.WriteLine($"   X {share:0.00}: 幅 {ys.Count} セル（{ys.Count * g.CellSize.Y * 1000f:0} mm）・厚さ最大 {zMax} セル（{zMax * g.CellSize.Z * 1000f:0.0} mm）");
+            }
+        }
+    }
+
+    [TestMethod]
+    [TestCategory("Probe")]
+    public void ShieldSweepWithTipControl()
+    {
+        float armReach;
+        using (var game = new BoxingGame())
+        {
+            armReach = game.Player.ArmReach;
+        }
+
+        var form = SwordShieldForms.Forms().First(f => f.Name == "yoko-barai");
+        var technique = new MotionTechnique(form.Name, WeaponKind.IronSword, form, 1.408f);
+        technique = technique with { Range = StrikeDrill.ReachOf(technique, armReach) };
+        foreach (var (label, t) in new[] { ("3 Hz・1.5", FighterTuning.Default with { BladeTipHz = 3f, BladeTipDampingRatio = 1.5f }), ("2 Hz・2.5", FighterTuning.Default with { BladeTipHz = 2f, BladeTipDampingRatio = 2.5f }) })
+        {
+            foreach (var shift in new[] { -0.1f, 0f, 0.1f })
+            {
+                var r = StrikeDrill.Run(technique with { Range = technique.Range + shift }, FormSwordsman.Guard(WeaponKind.IronSword), SwordStance.Rate, t, wear: HandWear.Shield);
+                Console.WriteLine($"{label} 間合い {technique.Range + shift:0.00}: セル {r.Cells}、最初 {r.FirstPart}、自傷 {r.SelfCells}");
             }
         }
     }

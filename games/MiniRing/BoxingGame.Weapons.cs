@@ -947,6 +947,14 @@ public sealed partial class BoxingGame
     {
         var weapon = Weapon.Create(_world, kind, position, orientation);
         Track(weapon);
+        if (!Weapon.IsWorn(kind))
+        {
+            foreach (var fighter in Fighters)
+            {
+                fighter.RegisterBladeTip(weapon.Body.BodyId, Weapon.TipOf(kind)); // 切っ先の目標・揺れを抑える力（Fighter.DriveBladeTip）
+            }
+        }
+
         return weapon;
     }
 

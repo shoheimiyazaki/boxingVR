@@ -740,8 +740,10 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     }
 
     /// <summary>
-    /// 手 <paramref name="hand"/> が、放した武器から離れたか（その武器の格子を囲む球の外 + 1 cm）。放した瞬間の拳の所には武器があるので、
-    /// そこに素手の拳を作ると重なったまま始まる（押し出しの跳ねと、重なった所からの接触）。
+    /// 手 <paramref name="hand"/> が、放した武器から離れたか: 素手の拳（それを囲む球）が、武器の格子の箱（向きの付いた箱）から 1 cm 以上離れている。
+    /// 放した瞬間の拳の所には武器があるので、そこに素手の拳を作ると重なったまま始まる（押し出しの跳ねと、重なった所からの接触）。
+    /// 2026-11-25 までは格子を囲む球（刀なら半径 46 cm）の外かで見ていたので、もう一方の手で持った刀が垂れて近くにあると、柄から離れた手もいつまでも
+    /// 素手に戻らなかった（実物の重さの刀: WeaponGraspTests。docs/plans/FORM_DECAY_STUDY.md）。
     /// </summary>
     private bool ClearOfDroppedWeapon(Fighter self, Hand hand)
     {
@@ -750,9 +752,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             return true;
         }
 
-        // 全ての格子（物と重ねた手）を囲む球の外か。
         var s = _world.GetState(weapon.Body.BodyId);
         var glove = self.GloveCenter(hand);
+        var inverse = Quaternion.Conjugate(s.Orientation);
         for (var i = 0; i < weapon.Grids.Count; i++)
         {
             if (weapon.IsHandGrid(i))
@@ -761,8 +763,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             }
 
             var grid = weapon.Grids[i];
-            var center = s.Position + Vector3.Transform(grid.GridCenterLocal, s.Orientation);
-            if (Vector3.Distance(center, glove) <= grid.Grid.HalfExtents.Length() + 0.02817f)
+            var local = Vector3.Transform(glove - s.Position, inverse) - grid.GridCenterLocal;
+            var outside = Vector3.Max(Vector3.Abs(local) - grid.Grid.HalfExtents, Vector3.Zero);
+            if (outside.Length() <= BareFistRadius.Value + 0.01f)
             {
                 return false;
             }
@@ -770,6 +773,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
         return true;
     }
+
+    /// <summary>素手の拳の格子を囲む球の半径 [m]。</summary>
+    private static readonly Lazy<float> BareFistRadius = new(() => MiniRing.Weapons.Weapon.Build(MiniRing.Weapons.WeaponKind.Fist).HalfExtents.Length());
 
     /// <summary>物理の接触一覧から「拳（前腕の先）× 相手の部位」を拾う。</summary>
     private void DetectHits()
