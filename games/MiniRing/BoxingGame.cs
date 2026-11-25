@@ -372,12 +372,20 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
         var postStart = StepProfile.Begin();
         _messageTimer = MathF.Max(0f, _messageTimer - dt);
+        var debrisStart = StepProfile.Begin();
         _debris.Step(dt, _recentLandings);
+        StepProfile.End(StepProfile.Slot.PostDebris, debrisStart);
         _impacts.Step(dt);
+        var woundsStart = StepProfile.Begin();
         _wounds.Step(dt);
+        StepProfile.End(StepProfile.Slot.PostWounds, woundsStart);
         _lookTime += dt;
+        var swingsStart = StepProfile.Begin();
         DetectSwings();
+        StepProfile.End(StepProfile.Slot.PostSwings, swingsStart);
+        var roundStart = StepProfile.Begin();
         UpdateRound(dt);
+        StepProfile.End(StepProfile.Slot.PostRound, roundStart);
         StepProfile.End(StepProfile.Slot.PostStep, postStart);
     }
 
@@ -585,12 +593,14 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         FilterElbowPairs();
         StepProfile.End(StepProfile.Slot.ControlTail, tailStart);
         StepProfile.End(StepProfile.Slot.Control, controlStart);
+        var preStart = StepProfile.Begin();
         UpdateFloatingWeapons(dt);
         RememberBeforeStep();
         CoolWeapons(dt);
-        var bepuStart = StepProfile.Begin();
         RememberCanvasVelocities();
         UpdateCarriedLoads();
+        StepProfile.End(StepProfile.Slot.PreBepu, preStart);
+        var bepuStart = StepProfile.Begin();
         _world.Step(dt);
         StepProfile.End(StepProfile.Slot.Bepu, bepuStart);
         if (_stagePose is not null)
@@ -598,14 +608,19 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             return; // 影の試合（StepStage）は打撃を数えない（映像のための立ち姿だけ）
         }
 
+        var canvasStart = StepProfile.Begin();
         DetectCanvasImpacts(dt);
+        StepProfile.End(StepProfile.Slot.CanvasImpacts, canvasStart);
         var hitsStart = StepProfile.Begin();
         DetectHits();
         StepProfile.End(StepProfile.Slot.FistHits, hitsStart);
         ResolveWeapons();
         SplitDisconnectedWeapons();
         ResolveKicks();
+        var elbowStart = StepProfile.Begin();
         ResolveElbows();
+        StepProfile.End(StepProfile.Slot.Elbows, elbowStart);
+        var splitStart = StepProfile.Begin();
         foreach (var fighter in Fighters)
         {
             // 見えている物質のつながりが切れた所で体を分ける（docs/VOXEL_DAMAGE.md「つながりで分かれる体」）。体に残らなかった臓器は失ったものとして数える。
@@ -615,6 +630,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             }
         }
 
+        StepProfile.End(StepProfile.Slot.FighterSplit, splitStart);
         var afterStart = StepProfile.Begin();
         DetectGrazes();
         WatchRecoveries();

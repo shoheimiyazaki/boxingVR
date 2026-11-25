@@ -92,6 +92,22 @@ public static class StepProfile
         ControlTail,
         /// <summary>武器の格子が削れた歩の、つながっていない部分の切り離し（連結成分の探索と <c>SeverDisconnected</c>）。</summary>
         Disconnect,
+        /// <summary>Bepu の歩の前の準備（浮いた武器・歩の前の姿勢・武器の冷却・キャンバスの速さ・運ぶ荷）。</summary>
+        PreBepu,
+        /// <summary>キャンバス（床）への衝突の検出（<c>DetectCanvasImpacts</c>）。</summary>
+        CanvasImpacts,
+        /// <summary>肘の接触（<c>ResolveElbows</c>）。</summary>
+        Elbows,
+        /// <summary>体のつながりで分ける（全員の <c>Fighter.SplitDisconnected</c>。剛体の作り直しを含む）。</summary>
+        FighterSplit,
+        /// <summary>PostStep のうち、破片の更新（<c>Debris.Step</c>）。</summary>
+        PostDebris,
+        /// <summary>PostStep のうち、傷の更新（<c>Wounds.Step</c>）。</summary>
+        PostWounds,
+        /// <summary>PostStep のうち、振りの音の検出（<c>DetectSwings</c>）。</summary>
+        PostSwings,
+        /// <summary>PostStep のうち、ラウンドの更新（<c>UpdateRound</c>）。</summary>
+        PostRound,
     }
 
     /// <summary>この歩のこのスレッドの割り当て [byte]（計測を取る間だけ、<see cref="Reset"/> で基準を取る）。</summary>
