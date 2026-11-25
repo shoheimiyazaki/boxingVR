@@ -204,7 +204,8 @@ public static class BoxingRenderer
                 if (fighter.JointIntact(parent, child) && body.JointHeld(parent, child)
                     && !(game.HidePlayerHead && ReferenceEquals(fighter, game.Player) && bridge.Child.Kind == BodyPartKind.Head))
                 {
-                    voxels.Add(bridge.View().Draw());
+                    var draw = bridge.View().Draw();
+                    voxels.Add(ReferenceEquals(fighter, game.Player) ? draw with { Opacity = game.PlayerBodyOpacity } : draw);
                 }
             }
         }
