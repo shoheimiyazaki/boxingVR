@@ -172,7 +172,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
         var show = ShowFormats.Create(width, height, _org);
         var practiceGraphics = new TvShowGraphics(width, height, _org);
-        _scenes = card is null ? [] : show.PreFight(card, tvProgram, redCharacter?.Profile is not null && blueCharacter?.Profile is not null);
+        _scenes = card is null ? [] : ShowFormats.PreFight(show, _org, card, tvProgram, redCharacter?.Profile is not null && blueCharacter?.Profile is not null);
         _resultSeconds = show.ResultSeconds;
         _captionY = show.CaptionY(height);
         var broadcast = card is null ? null : new Broadcast(redRing, blueRing, red.Name, blue.Name)
