@@ -1931,12 +1931,12 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         if (!_corners.Referee)
         {
             // レフェリーなし: ボットは倒れた相手への攻め（GroundStrike）を足す。レフェリーありの試合には何も足さない（振る舞いも記録も今のまま）。
-            if (!_corners.ExternalBlue && _cpuControl is not (IntentControl or ExternalControl))
+            if (!_corners.ExternalBlue && _cpuControl is not (IntentControl or ExternalControl or Bots.PassiveControl))
             {
                 _cpuControl = GroundStriking(_cpuControl, Cpu, WithWeaponGround(GroundStyle(_corners.CpuStyle), _corners.CpuWeaponStyle, _corners.CpuWeapon), _corners.CpuWeapon, _corners.CpuTwoHanded, cpuSeed);
             }
 
-            if (_playerControl is not null and not (IntentControl or ExternalControl))
+            if (_playerControl is not null and not (IntentControl or ExternalControl or Bots.PassiveControl))
             {
                 _playerControl = GroundStriking(_playerControl, Player, WithWeaponGround(GroundStyle(_corners.RedBotStyle ?? _corners.PlayerStyle), _corners.PlayerWeaponStyle, _corners.PlayerWeapon), _corners.PlayerWeapon, _corners.PlayerTwoHanded, playerSeed);
             }

@@ -9,23 +9,35 @@ internal sealed class ClawBot(BotStats stats)
     private readonly ClawMotion[] _arms = [new(), new()];
     private int _strokeCount;
 
+    /// <summary>狙いごとに溜まった重み（首・腕・胴。<see cref="BotStyle.ClawAimNeck"/>）。</summary>
+    private readonly float[] _aimCredit = new float[3];
+
+    /// <summary>次の斬り払いの狙い（0 首・1 腕・2 胴）。斬り始めた後に次を決める。</summary>
+    private int _nextAim = -1;
+
     public FighterCommand Read(FighterCommand basis, in FighterSense sense, float dt, BotStyle style)
     {
         var to = sense.OpponentChest - sense.Self.Origin;
         to.Y = 0f;
         var distance = to.Length();
         var forward = distance > 0.001f ? to / distance : sense.Self.Forward;
-        var range = sense.ArmReach + ClawSegment.Length * 0.56f;
+        var range = sense.ArmReach + ClawSegment.Length * style.ClawReach;
         var occupied = _arms[0].Active || _arms[1].Active;
         var kick = basis.LeftLeg is not null || basis.RightLeg is not null;
         var ready = style.Attacks && !occupied && !kick && sense.OpponentAlive && distance < range + 0.10f;
         var side = (_strokeCount & 1) == 0 ? Hand.Right : Hand.Left;
-        var aim = Aim(sense, _strokeCount);
+        if (_nextAim < 0)
+        {
+            _nextAim = NextAim(style);
+        }
+
+        var aim = Aim(sense, _nextAim);
         var left = _arms[0].Read(Hand.Left, ready && side == Hand.Left, true, sense, aim, dt, style.ClawDriveSeconds, style.ClawWindup);
         var right = _arms[1].Read(Hand.Right, ready && side == Hand.Right, true, sense, aim, dt, style.ClawDriveSeconds, style.ClawWindup);
         if (ready)
         {
             _strokeCount++;
+            _nextAim = NextAim(style);
             stats.ComboStarted("claw-sweep");
         }
 
@@ -41,6 +53,31 @@ internal sealed class ClawBot(BotStats stats)
             Step = Vector3.Zero,
             HeadOffset = Stance(sense.ArmReach),
         };
+    }
+
+    /// <summary>
+    /// 次の狙いを重みの比で選ぶ（重み付きの順番回し: 各狙いに重みを足し、いちばん溜まった狙いを選んで合計を引く。乱数を使わない）。
+    /// 重みが全部 1 なら 0 → 1 → 2 の繰り返し（等しいときは前の狙い）。
+    /// </summary>
+    private int NextAim(BotStyle style)
+    {
+        Span<float> w = [style.ClawAimNeck, style.ClawAimArm, style.ClawAimTorso];
+        var total = w[0] + w[1] + w[2];
+        if (!(total > 0f))
+        {
+            w[0] = w[1] = w[2] = 1f;
+            total = 3f;
+        }
+
+        var best = -1;
+        for (var i = 0; i < 3; i++)
+        {
+            _aimCredit[i] += w[i];
+            best = w[i] > 0f && (best < 0 || _aimCredit[i] > _aimCredit[best]) ? i : best;
+        }
+
+        _aimCredit[best] -= total;
+        return best;
     }
 
     internal static Vector3 Stance(float reach) => new(0f, -reach * 0.05f, 0f);

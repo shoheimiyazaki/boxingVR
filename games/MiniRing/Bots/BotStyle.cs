@@ -346,6 +346,25 @@ public sealed record BotStyle
     public float ClawDriveSeconds { get; init; } = 0.31f;
 
     public float ClawWindup { get; init; } = 1f;
+
+    /// <summary>
+    /// 四足の鎌の斬り払いで、狙う所を選ぶ重み（教育の値: 技の選び方。2026-11-25）。首の継ぎ目・相手の腕・胴の継ぎ目の 3 つを、重みの比で順に回す
+    /// （重みを毎回足して、いちばん溜まった狙いを選び、合計を引く: 乱数を使わない決まった順）。三つとも 1（既定）なら 首 → 腕 → 胴 の繰り返し（今までの順）。
+    /// 0 の狙いは選ばない。全部 0 なら既定と同じ。
+    /// </summary>
+    public float ClawAimNeck { get; init; } = 1f;
+
+    /// <summary>鎌で相手の腕を狙う重み（<see cref="ClawAimNeck"/>）。</summary>
+    public float ClawAimArm { get; init; } = 1f;
+
+    /// <summary>鎌で相手の胴の継ぎ目を狙う重み（<see cref="ClawAimNeck"/>）。</summary>
+    public float ClawAimTorso { get; init; } = 1f;
+
+    /// <summary>
+    /// 鎌の間合い: 腕の長さに足す、鎌の長さの割合（教育の値: 間合いの取り方。2026-11-25）。この距離（胸まで）より遠ければ寄り、届けば斬る。
+    /// 小さいほど深く踏み込んで鎌の根元の側で斬り、大きいほど遠くから先で斬る。既定 0.56（それまでの値）。
+    /// </summary>
+    public float ClawReach { get; init; } = 0.56f;
     /// <summary>Kick goal cycle duration in seconds.</summary>
     public float KickDuration { get; init; } = 1.175f;
     /// <summary>
@@ -547,6 +566,10 @@ public sealed record BotStyle
             KickRate = Unit(KickRate),
             ClawDriveSeconds = Range(ClawDriveSeconds, 0.16f, 0.65f, 0.31f),
             ClawWindup = Range(ClawWindup, 0.45f, 1.5f, 1f),
+            ClawAimNeck = Range(ClawAimNeck, 0f, 10f, 1f),
+            ClawAimArm = Range(ClawAimArm, 0f, 10f, 1f),
+            ClawAimTorso = Range(ClawAimTorso, 0f, 10f, 1f),
+            ClawReach = Range(ClawReach, 0f, 1f, 0.56f),
             KickDuration = Range(KickDuration, 0.6714f, 2.014f, 1.175f),
             KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
             BreakLikes = (BreakLikes ?? new Dictionary<string, float>()).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
