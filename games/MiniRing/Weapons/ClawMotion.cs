@@ -13,12 +13,12 @@ public sealed class ClawMotion
     public bool Active => _stroke is not null;
 
     public HandCommand Read(Hand hand, bool pressed, bool sweep, in FighterSense sense, Vector3 aimWorld, float dt,
-        float drive = 0.31f, float windup = 1f)
+        float drive = 0.31f, float windup = 1f, bool draw = false)
     {
         if (pressed && !_pressed && _stroke is null)
         {
             _origin = sense.Self;
-            _stroke = ClawStroke.Create(hand, sense.ArmReach, _origin.WorldToLocal(aimWorld), sweep, drive, windup);
+            _stroke = ClawStroke.Create(hand, sense.ArmReach, _origin.WorldToLocal(aimWorld), sweep, drive, windup, draw);
             _elapsed = 0f;
         }
 

@@ -2,9 +2,24 @@ using System.Numerics;
 
 namespace MiniRing.Weapons;
 
-/// <summary>構えから助走を始め、切断面の中を一定方向へ振り抜く目標経路。</summary>
-public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bool Sweep, float Windup, float DriveTime, float FollowThrough)
+/// <summary>
+/// 構えから助走を始め、切断面の中を一定方向へ振り抜く目標経路。<see cref="Draw"/> なら引き斬り（2026-11-25）: 刃を寝かせて狙いの点の向こう側へ掛け、
+/// そこから手前へ引いて、刃の手前の縁を狙いの点へ通す（鎌で刈る形。刃の押し当てと引く速さで斬る）。
+/// </summary>
+public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bool Sweep, float Windup, float DriveTime, float FollowThrough, bool Draw = false)
 {
+    /// <summary>引き斬りで、刃を掛ける所の、狙いの点より向こうの距離 [腕の長さ]（溜め <see cref="Windup"/> = 1 のとき）。</summary>
+    private const float DrawBehind = 0.16f;
+
+    /// <summary>引き斬りで、狙いの点より手前へ引き抜く距離 [腕の長さ]。</summary>
+    private const float DrawPull = 0.42f;
+
+    /// <summary>引き斬りで、刃を掛けに行く間に狙いの点より上へ上げる高さ [腕の長さ]（頭の上を越えて向こうへ回す）。</summary>
+    private const float DrawLift = 0.30f;
+
+    /// <summary>引き斬りの駆動のうち、刃を掛けて下ろす区間の割合（残りが引く区間）。</summary>
+    private const float DrawHook = 0.30f;
+
     private const float LoadTime = 0.27f;
     public float CutStart => LoadTime + DriveTime * 0.30f;
     public float CutEnd => LoadTime + DriveTime * 0.82f;
@@ -18,10 +33,10 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
             return Vector3.Normalize(new Vector3(-Hand.LocalSide(), -slope, 0f));
         }
     }
-    public Vector3 Normal => Sweep ? Vector3.Cross(Forward, Across) : Vector3.UnitY;
+    public Vector3 Normal => Sweep && !Draw ? Vector3.Cross(Forward, Across) : Vector3.UnitY;
 
-    public static ClawStroke Create(Hand hand, float reach, Vector3 aim, bool sweep, float drive = 0.31f, float windup = 1f)
-        => new(hand, reach, aim, sweep, windup, drive, 0.32f);
+    public static ClawStroke Create(Hand hand, float reach, Vector3 aim, bool sweep, float drive = 0.31f, float windup = 1f, bool draw = false)
+        => new(hand, reach, aim, sweep, windup, drive, 0.32f, draw);
 
     public static ClawSegment Guard(Hand hand, float reach)
     {
@@ -48,6 +63,11 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
 
     private ClawSegment Drive(float phase)
     {
+        if (Draw)
+        {
+            return DrawCut(phase);
+        }
+
         Vector3 root;
         Vector3 axis;
         var z = Math.Clamp(Aim.Z - ClawSegment.Length * 0.56f, -Reach * 0.12f, Reach * 0.86f);
@@ -67,6 +87,32 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
         }
 
         return new ClawSegment(root, root + axis * ClawSegment.Length, Normal);
+    }
+
+    /// <summary>
+    /// 引き斬りの刃: 刃は水平に寝かせ、刃元を手の側、切っ先を体の中心の側（少し向こうへ曲がる）へ向ける。刃の真ん中が狙いの点の上を通る横の位置に置き、
+    /// 掛ける区間（<see cref="DrawHook"/>）で狙いの点より上・向こうから狙いの高さへ下ろし、残りで向こうから手前へ引き抜く。
+    /// </summary>
+    private ClawSegment DrawCut(float phase)
+    {
+        var side = Hand.LocalSide();
+        var axis = Vector3.Normalize(new Vector3(-side, 0f, 0.35f));
+        var behind = Aim.Z + (DrawBehind * Reach * Windup);
+        var level = Math.Clamp(Aim.Y, -Reach * 0.66f, Reach * 0.60f);
+        Vector3 middle;
+        if (phase < DrawHook)
+        {
+            var down = Smooth(phase / DrawHook);
+            middle = new Vector3(Aim.X, level + ((1f - down) * DrawLift * Reach), behind);
+        }
+        else
+        {
+            var pull = Smooth((phase - DrawHook) / (1f - DrawHook));
+            middle = new Vector3(Aim.X, level, behind - (pull * ((DrawBehind * Reach * Windup) + (DrawPull * Reach))));
+        }
+
+        var root = middle - (axis * (ClawSegment.Length * 0.5f));
+        return new ClawSegment(root, root + axis * ClawSegment.Length, Vector3.UnitY);
     }
 
     private static ClawSegment Blend(ClawSegment from, ClawSegment to, float blend)

@@ -497,6 +497,16 @@ internal static class HuntLab
             throw new ArgumentException($"--goal は kill か neck: '{Goal}'");
         }
 
+        if (o.Get("track") is { } track)
+        {
+            // --track x,y,z（狙いの点、体フレーム・腕の長さ = 1）。--set の ClawDraw・ClawDriveSeconds・ClawWindup を使う。
+            var p = track.Split(',').Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            var st = new BotStyle();
+            HuntTrack.Run(Console.Out, new Vector3(p[0], p[1], p[2]), set.GetValueOrDefault("ClawDraw") > 0f,
+                set.GetValueOrDefault("ClawDriveSeconds", st.ClawDriveSeconds), set.GetValueOrDefault("ClawWindup", st.ClawWindup));
+            return 0;
+        }
+
         if (o.Get("video") is { } video)
         {
             Video(hunter, o.Get("victim") ?? Practice[0], o.Int("seed", 1), seconds, set, video, Console.Out);

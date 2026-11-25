@@ -362,7 +362,7 @@ public sealed record BotStyle
 
     /// <summary>
     /// 鎌の間合い: 腕の長さに足す、鎌の長さの割合（教育の値: 間合いの取り方。2026-11-25）。この距離（胸まで）より遠ければ寄り、届けば斬る。
-    /// 小さいほど深く踏み込んで鎌の根元の側で斬り、大きいほど遠くから先で斬る。既定 0.56（それまでの値）。
+    /// 小さいほど深く踏み込んで鎌の根元の側で斬り、大きいほど遠くから先で斬る。負なら腕の長さより内側まで踏み込む（引き斬りで刃を相手の向こうへ掛けるため）。既定 0.56（それまでの値）。
     /// </summary>
     public float ClawReach { get; init; } = 0.56f;
 
@@ -371,6 +371,12 @@ public sealed record BotStyle
     /// 振り続けると脚・腕の酸素が尽きて（スタミナ）振りが遅く弱くなるので、息を戻す間との釣り合い。既定 0（それまでどおり、届けばすぐ振る）。
     /// </summary>
     public float ClawRest { get; init; }
+
+    /// <summary>
+    /// 鎌の振りのうち、引き斬り（<see cref="Weapons.ClawStroke.Draw"/>: 狙いの点の向こうへ刃を掛けて手前へ引く）にする割合 0..1（教育の値: 技の選び方。2026-11-25）。
+    /// 割合を毎回足して 1 を超えたら引き斬り（乱数を使わない決まった順）。既定 0（今までどおり全部を振り抜く）。
+    /// </summary>
+    public float ClawDraw { get; init; }
     /// <summary>Kick goal cycle duration in seconds.</summary>
     public float KickDuration { get; init; } = 1.175f;
     /// <summary>
@@ -575,8 +581,9 @@ public sealed record BotStyle
             ClawAimNeck = Range(ClawAimNeck, 0f, 10f, 1f),
             ClawAimArm = Range(ClawAimArm, 0f, 10f, 1f),
             ClawAimTorso = Range(ClawAimTorso, 0f, 10f, 1f),
-            ClawReach = Range(ClawReach, 0f, 1f, 0.56f),
+            ClawReach = Range(ClawReach, -0.8f, 1f, 0.56f),
             ClawRest = Range(ClawRest, 0f, 3f, 0f),
+            ClawDraw = Unit(ClawDraw),
             KickDuration = Range(KickDuration, 0.6714f, 2.014f, 1.175f),
             KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
             BreakLikes = (BreakLikes ?? new Dictionary<string, float>()).ToDictionary(p => p.Key, p => NonNegative(p.Value)),

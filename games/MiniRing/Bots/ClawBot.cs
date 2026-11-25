@@ -18,6 +18,12 @@ internal sealed class ClawBot(BotStats stats)
     /// <summary>両腕の鎌が構えに戻ってからの時間 [s]（<see cref="BotStyle.ClawRest"/>）。</summary>
     private float _idle = float.PositiveInfinity;
 
+    /// <summary>引き斬りの割合の溜まり（<see cref="BotStyle.ClawDraw"/>）。</summary>
+    private float _drawCredit;
+
+    /// <summary>次の振りを引き斬りにするか（斬り始めた後に次を決める）。null はまだ決めていない。</summary>
+    private bool? _nextDraw;
+
     public FighterCommand Read(FighterCommand basis, in FighterSense sense, float dt, BotStyle style)
     {
         var to = sense.OpponentChest - sense.Self.Origin;
@@ -35,13 +41,16 @@ internal sealed class ClawBot(BotStats stats)
             _nextAim = NextAim(style);
         }
 
+        _nextDraw ??= NextDraw(style);
+        var draw = _nextDraw.Value;
         var aim = Aim(sense, _nextAim);
-        var left = _arms[0].Read(Hand.Left, ready && side == Hand.Left, true, sense, aim, dt, style.ClawDriveSeconds, style.ClawWindup);
-        var right = _arms[1].Read(Hand.Right, ready && side == Hand.Right, true, sense, aim, dt, style.ClawDriveSeconds, style.ClawWindup);
+        var left = _arms[0].Read(Hand.Left, ready && side == Hand.Left, true, sense, aim, dt, style.ClawDriveSeconds, style.ClawWindup, draw);
+        var right = _arms[1].Read(Hand.Right, ready && side == Hand.Right, true, sense, aim, dt, style.ClawDriveSeconds, style.ClawWindup, draw);
         if (ready)
         {
             _strokeCount++;
             _nextAim = NextAim(style);
+            _nextDraw = NextDraw(style);
             stats.ComboStarted("claw-sweep");
         }
 
@@ -82,6 +91,19 @@ internal sealed class ClawBot(BotStats stats)
 
         _aimCredit[best] -= total;
         return best;
+    }
+
+    /// <summary>次の振りを引き斬りにするか: 割合を足して 1 に届いたら引き斬り（割合 0 なら決してしない、1 なら毎回）。</summary>
+    internal bool NextDraw(BotStyle style)
+    {
+        _drawCredit += Math.Clamp(style.ClawDraw, 0f, 1f);
+        if (_drawCredit < 1f - 1e-6f)
+        {
+            return false;
+        }
+
+        _drawCredit -= 1f;
+        return true;
     }
 
     internal static Vector3 Stance(float reach) => new(0f, -reach * 0.05f, 0f);
