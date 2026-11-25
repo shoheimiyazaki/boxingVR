@@ -81,7 +81,7 @@
   "profile": {
     "age": 24,
     "heightCm": 140,
-    "weightKg": 85,
+    "weightKg": 88,
     "birthplace": "外縁宙域",
     "hometown": "日本の観測施設",
     "stance": "四足立ち",
@@ -162,9 +162,9 @@
       0.17
     ],
     "iris": [
-      0.95,
-      0.48,
-      0.1
+      0.025,
+      0.023,
+      0.031
     ]
   }
 }

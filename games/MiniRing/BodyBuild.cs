@@ -27,7 +27,7 @@ public sealed record BodyBuild(float Height = 1f, float Arms = 1f, float Legs = 
         BodyPartKind.UpperArm or BodyPartKind.Forearm => new(Height * Arms, Height * Muscle, Height * Muscle),
         BodyPartKind.Thigh or BodyPartKind.Shin when FourLegged => new(0.72f * Height * Muscle, 0.94f * Height * Legs, 0.76f * Height * Muscle),
         BodyPartKind.Thigh or BodyPartKind.Shin => new(Height * Muscle, Height * Legs, Height * Muscle),
-        BodyPartKind.Head when FourLegged => new(1.22f * Height, 0.97f * Height, 1.52f * Height),
+        BodyPartKind.Head when FourLegged => new(1.22f * Height, 0.97f * Height, 1.96f * Height),
         BodyPartKind.Head => new(Height),
         BodyPartKind.Pelvis when FourLegged => new(0.80f * Height * Muscle, 0.88f * Height, 3.2f * Height * Muscle),
         BodyPartKind.Chest when FourLegged => new(0.61f * Height * Muscle, Height, 0.95f * Height * Muscle),

@@ -15,6 +15,56 @@ public sealed class AlienTests
     private const float Dt = 1f / 240f;
 
     [TestMethod]
+    public void Galva_ExposesEightWhiteEyesWithBlackPupils()
+    {
+        using var game = CreateGame();
+        var head = game.Player.Voxels!.PartOf(game.Player.Parts.Head)!.Body.Grid;
+        var (nx, ny, nz) = head.Dimensions;
+        var visible = new HashSet<(bool Left, bool Outer, bool Upper, byte Material)>();
+        for (var x = 0; x < nx; x++)
+        {
+            for (var y = 0; y < ny; y++)
+            {
+                for (var z = nz - 1; z >= 0; z--)
+                {
+                    var material = head.At(x, y, z);
+                    if (material == 0)
+                    {
+                        continue;
+                    }
+                    if (material is Voxels.BoxerAnatomy.Eye or Voxels.BoxerAnatomy.Pupil)
+                    {
+                        var n = head.CellCenter(x, y, z) / head.HalfExtents;
+                        visible.Add((n.X > 0f, MathF.Abs(n.X) > 0.45f, n.Y > 0.26f, material));
+                    }
+                    break;
+                }
+            }
+        }
+
+        Assert.HasCount(16, visible);
+        var eye = head.Palette[Voxels.BoxerAnatomy.Eye].SurfaceColor;
+        var pupil = head.Palette[Voxels.BoxerAnatomy.Pupil].SurfaceColor;
+        Assert.IsTrue(eye.X > 0.9f && eye.Y > 0.9f && eye.Z > 0.9f);
+        Assert.IsTrue(pupil.X < 0.15f && pupil.Y < 0.15f && pupil.Z < 0.15f);
+        Assert.IsGreaterThan(0f, game.Player.Voxels.Vision.Left);
+        Assert.IsGreaterThan(0f, game.Player.Voxels.Vision.Right);
+    }
+
+    [TestMethod]
+    public void Galva_DorsalPlatesRaiseTheSurfaceAndLeaveOrganCellsIntact()
+    {
+        var source = new Aigis.Foundation.Voxels.VoxelGrid(Voxels.BoxerAnatomy.Palette, new Vector3(0.12f, 0.08f, 0.34f), (21, 21, 51),
+            (_, n) => n.LengthSquared() < 0.05f ? Voxels.BoxerAnatomy.Liver
+                : (n.X * n.X) + (n.Y * n.Y) < 0.36f ? Voxels.BoxerAnatomy.Skin : (byte)0);
+        var shell = Voxels.AlienAnatomy.Plate(BodyPartKind.Pelvis, source, Voxels.AlienAnatomy.Palette, mirrorX: false);
+        var top = Enumerable.Range(0, 51).Select(z => Enumerable.Range(0, 21).Last(y => shell.At(10, y, z) != 0)).ToArray();
+        Assert.IsGreaterThanOrEqualTo(4, top.Zip(top.Skip(1)).Count(pair => pair.First > pair.Second));
+        Assert.AreEqual(source.Remaining(Voxels.BoxerAnatomy.Liver), shell.Remaining(Voxels.BoxerAnatomy.Liver));
+        Assert.IsGreaterThan(source.FilledCount, shell.FilledCount);
+    }
+
+    [TestMethod]
     public void Galva_HasOneThoraxAndFourArticulatedPointedLegs()
     {
         using var game = CreateGame();

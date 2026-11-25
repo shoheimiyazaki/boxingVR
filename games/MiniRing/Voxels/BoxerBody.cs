@@ -565,7 +565,7 @@ public sealed class BoxerBody
 
         if (tuning.Build.FourLegged)
         {
-            grid = AlienAnatomy.Plate(kind, grid, lookPalette!);
+            grid = AlienAnatomy.Plate(kind, grid, lookPalette!, mirrorX);
         }
 
         BoxerSpine.Place(kind, grid); // 頸椎・脊髄は外見のセルに触れず、中の材質だけ（顔の彫り直しの後に置いて位置を保つ）

@@ -164,7 +164,10 @@ public static class BoxingRenderer
 
             // 目: 相手を見る黒目とまばたき（見た目だけ）。
             var other = ReferenceEquals(fighter, game.Player) ? game.Cpu : game.Player;
-            var eyes = new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
+            // The angled eye pairs carry their pupils in their own voxel sockets.
+            MiniRing.Voxels.EyePose? eyes = fighter.Build.FourLegged
+                ? null
+                : new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
             foreach (var part in body.Layers)
             {
                 if (game.HidePlayerHead && ReferenceEquals(fighter, game.Player) && part.Kind == BodyPartKind.Head)
