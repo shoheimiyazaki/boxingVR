@@ -2185,7 +2185,7 @@ public sealed partial class BoxingGame
             groups.Add(members);
         }
 
-        var palette = BoxerAnatomy.Palette;
+        var palette = body.Grid.Palette; // 体ごとの材質の表（ガルヴァの外骨格は BoxerAnatomy に無い材質）
         foreach (var members in groups)
         {
             var center = members.Aggregate(Vector3.Zero, (sum, i) => sum + removed[i].LocalCenter) / members.Count;
