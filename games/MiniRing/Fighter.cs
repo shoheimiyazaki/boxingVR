@@ -1684,6 +1684,7 @@ public sealed partial class Fighter
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(tuning);
+        tuning = tuning with { Tissue = MiniRing.Voxels.TissuePhysiology.Of(MiniRing.Voxels.BoxerBody.PaletteFor(tuning.Build)) }; // 筋・心肺の働きは体の材質から
         var halfExtents = tuning.HalfExtents;
 
         // HumanoidRagdoll は +Z 向き・T ポーズで生成される。足裏高さを測ってから全体を持ち上げ、ヨー回転する。
@@ -5416,7 +5417,7 @@ public sealed partial class Fighter
             var desired = accel * chainMass;
             var bodyEffective = PunchMechanics.BodyEffectiveMass(inertia, torso, glove - centerOfMass, desired);
             var coupling = PunchMechanics.Coupling(glove - shoulder, desired, jointIntegrity: 1f);
-            var armForce = tuning.MaxHandForce * forceScale;
+            var armForce = tuning.MaxHandForce * tuning.Tissue.MuscleStress * forceScale;
             var cap = armForce * PunchMechanics.ForceMultiplier(coupling, bodyEffective, totalMass, tuning.BodyDrive);
             var excitation = ArmMuscle.Excitation(desired, cap, chest.Orientation);
             for (var i = 0; i < ArmMuscle.Groups; i++)

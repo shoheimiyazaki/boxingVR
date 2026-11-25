@@ -945,7 +945,15 @@ public sealed record FighterTuning
 
     /// <summary>関節の力上限の倍率。トルク ∝ 質量 × 長さ なので MassScale × Scale。</summary>
     [JsonIgnore]
-    public float TorqueScale => MassScale * Scale;
+    public float TorqueScale => MassScale * Scale * Tissue.MuscleStress;
+
+    /// <summary>筋でない組織（靭帯・当たりの受け）の力の倍率（<see cref="TorqueScale"/> から筋の材質の倍率を除いた物）。</summary>
+    [JsonIgnore]
+    public float PassiveTorqueScale => MassScale * Scale;
+
+    /// <summary>体の生きた組織（筋肉・心臓・肺の材質）の働きの倍率。<see cref="Fighter.Spawn"/> が体の材質の表（<see cref="Voxels.BoxerBody.PaletteFor"/>）から入れる。</summary>
+    [JsonIgnore]
+    public Voxels.TissuePhysiology Tissue { get; init; } = Voxels.TissuePhysiology.Human;
 
     [JsonIgnore]
     public HumanoidRagdoll.HalfExtents HalfExtents

@@ -17,6 +17,10 @@ internal static class AlienAnatomy
         var shell = new Vector4(0.52f, 0.49f, 0.47f, 1f);
         cells[BoxerAnatomy.Bone] = cells[BoxerAnatomy.Bone] with { SurfaceColor = shell };
         cells[BoxerAnatomy.HandBone] = cells[BoxerAnatomy.HandBone] with { SurfaceColor = new Vector4(0.15f, 0.12f, 0.11f, 1f) };
+        // 筋肉・心臓・肺はエイリアンの材質（見た目と削れ方は人と同じ、働きの値は TissuePhysiology）。
+        cells[BoxerAnatomy.Muscle] = cells[BoxerAnatomy.Muscle] with { Name = TissuePhysiology.AlienNames.Muscle };
+        cells[BoxerAnatomy.Heart] = cells[BoxerAnatomy.Heart] with { Name = TissuePhysiology.AlienNames.Heart };
+        cells[BoxerAnatomy.Lung] = cells[BoxerAnatomy.Lung] with { Name = TissuePhysiology.AlienNames.Lung };
         var eye = cells[BoxerAnatomy.Eye];
         cells[BoxerAnatomy.Eye] = eye with { SurfaceColor = eye.SurfaceColor with { W = 0.5f } };
         return new VoxelPalette(cells);

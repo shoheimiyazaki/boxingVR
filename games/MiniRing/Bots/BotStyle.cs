@@ -582,7 +582,7 @@ public sealed record BotStyle
             Face = Face?.Validate(),
             Build = Build?.Validate(),
             KickRate = Unit(KickRate),
-            ClawDriveSeconds = Range(ClawDriveSeconds, 0.16f, 0.65f, 0.31f),
+            ClawDriveSeconds = Range(ClawDriveSeconds, 0.08f, 0.65f, 0.31f),
             ClawWindup = Range(ClawWindup, 0.45f, 1.5f, 1f),
             ClawAimNeck = Range(ClawAimNeck, 0f, 10f, 1f),
             ClawAimArm = Range(ClawAimArm, 0f, 10f, 1f),
