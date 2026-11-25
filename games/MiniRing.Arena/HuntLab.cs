@@ -68,8 +68,14 @@ internal static class HuntLab
 
     public static Contender HunterOf(BotStyle style) => new(style.Name, s => BotCatalog.Bot(style, s));
 
-    /// <summary>檻の中央から始める（動画の <c>editCorners</c> と同じ）・受け手は素手。</summary>
-    public static BoxingCorners EditCorners(BoxingCorners c) => c with { PlayerWear = HandWear.None, Ring = c.Ring! with { FromCorners = false } };
+    /// <summary>
+    /// 始めの足と足の距離 [m]。檻の中央の既定（1.24 m）では、試合の時計の前の助走（<see cref="TvShowRules.SettleSeconds"/>）の間に、構えた長い鎌が
+    /// 相手の胴へ刺さり、始まる前に臓器が削れていた（ramon は肝臓が 232 → 113 で、時計の 0 秒で死んでいた。HuntOrganProbe）。1.8 m から削れない。
+    /// </summary>
+    public const float StartGap = 2.2f;
+
+    /// <summary>檻の中央から、鎌の届かない間合い（<see cref="StartGap"/>）で始める（動画の <c>editCorners</c> と同じ）・受け手は素手。</summary>
+    public static BoxingCorners EditCorners(BoxingCorners c) => c with { PlayerWear = HandWear.None, Ring = c.Ring! with { FromCorners = false, StartGap = StartGap } };
 
     /// <summary>攻め手の教育: 名簿の教育（受け手を相手にした解決）に、<paramref name="set"/> の値を重ねる。</summary>
     public static BotStyle Style(string hunterId, string victimId, IReadOnlyDictionary<string, float>? set)
