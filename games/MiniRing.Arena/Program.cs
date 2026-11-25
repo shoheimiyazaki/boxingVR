@@ -37,7 +37,7 @@ try
         "kicklab" => KickLabCommand(Options.Parse(argv[1..], "body", "kick", "distances", "seeds", "confirm-seeds", "shin", "overshoot", "side", "log")),
         "kickvideo" => KickVideoCommand(Options.Parse(argv[1..], "body", "kick", "distances", "side", "slow", "width", "height", "fps", "out")),
         "kickmocap" => KickMocapCommand(Options.Parse(argv[1..], "dir", "export", "log", "video", "doll", "durations", "distances", "export-mid", "body")),
-        "kickshin" => KickShinCommand(Options.Parse(argv[1..], "body", "kick", "standoff", "seconds", "diag", "log", "heights", "practice", "gens", "lambda", "parallel", "json", "seed", "video", "victim", "dir")),
+        "kickshin" => KickShinCommand(Options.Parse(argv[1..], "body", "kick", "standoff", "seconds", "diag", "log", "heights", "practice", "gens", "lambda", "parallel", "json", "seed", "video", "victim", "dir", "compare")),
         "kneelab" => KneeLabCommand(Options.Parse(argv[1..], "stage", "bodies", "body", "distances", "distance", "confirm", "azimuths", "elevations", "twists", "sides", "log", "impact-az", "impact-el", "impact-twist", "foot", "gens", "lambda", "video")),
         "practicelab" => PracticeLabCommand(Options.Parse(argv[1..], "only", "candidates", "bouts", "seconds", "seed", "validate", "sigma", "log")),
         "seoilab" => SeoiLabCommand(Options.Parse(argv[1..], "candidates", "bouts", "seconds", "seed", "validate", "log", "compare", "reference", "victims")),
@@ -2680,7 +2680,7 @@ static int KickShinCommand(Options o)
     var heights = KickShin.Heights.Where(h => wanted.Contains(h.File.Replace("roundhouse_", "", StringComparison.Ordinal))).ToList();
     if (o.Get("video") is { } videoOut)
     {
-        KickShin.Video(o.Get("dir") ?? "data/mocap/kyokushin", videoOut, o.Get("body") ?? "taeyun", o.Get("victim") ?? "standard", heights, Log);
+        KickShin.Video(o.Get("dir") ?? "data/mocap/kyokushin", videoOut, o.Get("body") ?? "taeyun", o.Get("victim") ?? "standard", heights, Log, o.Get("compare") is "yes");
         return 0;
     }
 
