@@ -121,19 +121,23 @@ public static class VoxelContact
         set => _sampleSpacingScale.Value = value;
     }
 
-    private const float DefaultSampleSpacingScale = 0.5f;
+    /// <summary>既定の標本の間隔（セルの 1 倍。2026-11-25 に 0.5 から: 刃の切れ味の境目 75 か所のうち 64 が同じ・ずれは 1 段まで 10・平均の偏り 0、docs/PERFORMANCE.md §7）。</summary>
+    private const float DefaultSampleSpacingScale = 1f;
 
     /// <summary>
-    /// 最初の接触を探す走査の間引き（1 = すべての標本を見る、既定）。簡素化の測定用（docs/PERFORMANCE.md §7）: k なら k 標本おきに見て、触れたら戻って最初を探す。
+    /// 最初の接触を探す走査の間引き（1 = すべての標本を見る。既定は <see cref="DefaultScanStride"/>）。簡素化の測定用（docs/PERFORMANCE.md §7）: k なら k 標本おきに見て、触れたら戻って最初を探す。
     /// 非同期の流れごと（<see cref="SampleSpacingScale"/> と同じ）。
     /// </summary>
     public static int ScanStride
     {
-        get => _scanStride.Value ?? 1;
+        get => _scanStride.Value ?? DefaultScanStride;
         set => _scanStride.Value = Math.Max(1, value);
     }
 
     private static readonly AsyncLocal<int?> _scanStride = new();
+
+    /// <summary>既定の走査の間引き（16。2026-11-25: 16 でも 64 でも刃の切れ味の境目 75 か所のほぼ全部が 1 と同じ、docs/PERFORMANCE.md §7）。</summary>
+    private const int DefaultScanStride = 16;
     private static readonly AsyncLocal<float?> _sampleSpacingScale = new();
 
     /// <summary>Most samples of the sweep in one step.</summary>
