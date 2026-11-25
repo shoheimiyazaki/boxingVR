@@ -71,7 +71,7 @@ internal static class SwordPractice
     }
 
     /// <summary>キャラ <paramref name="who"/> が型を 1 回、無防備に立つ <paramref name="victim"/> の体へ出す（種 <paramref name="seed"/>）。</summary>
-    public static Outcome Swing(FighterCharacter who, WeaponStyle style, MotionTechnique technique, int seed, BodyBuild victim, Action<BoxingGame, float>? watch = null)
+    public static Outcome Swing(FighterCharacter who, WeaponStyle style, MotionTechnique technique, int seed, BodyBuild victim, Action<BoxingGame, float, bool>? watch = null)
     {
         var weapon = who.Weapon!.Value;
         var arm = ArmReachOf(who);
@@ -111,8 +111,8 @@ internal static class SwordPractice
         for (var t = 0f; t < 14f && t < endAt; t += dt)
         {
             game.Step(default, dt);
-            watch?.Invoke(game, t);
             var active = bot.Current is not null;
+            watch?.Invoke(game, t, active);
             if (active && !started)
             {
                 started = true;
@@ -152,6 +152,18 @@ internal static class SwordPractice
             handSamples == 0 ? 0f : 100f * MathF.Sqrt((float)(handSq / handSamples)), weight > 0f ? strike.Sum(s => s.Off * s.Speed) / weight : 0f,
             started ? MathF.Max(0f, staminaStart - me.Stamina) : 0f,
             foeStart - foe.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), ownStart - me.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), selfDown);
+    }
+
+    /// <summary>動画（<see cref="SwingVideo"/>）の 1 振り: キャラ <paramref name="who"/> が型 <paramref name="form"/> を差分 <paramref name="tune"/> で、無防備の相手へ 1 回。</summary>
+    internal static SwingVideo.Shot Shot(FighterCharacter who, string form, FormTune tune, string label, int seed, string victim)
+    {
+        var style = who.WeaponStyle ?? throw new ArgumentException($"{who.Id} は武器のボットを持ちません。");
+        return new SwingVideo.Shot($"{who.Name}・{form}", label, Describe(tune), afterStep =>
+        {
+            var o = Swing(who, style, Technique(who, form, tune), seed, Victim(victim), afterStep);
+            return string.Create(CultureInfo.InvariantCulture,
+                $"{who.Id} {form} {label}: consciousness {o.ConsciousnessEnd:0.00} (min {o.ConsciousnessMin:0.00}) dead {o.Dead} tip {o.TipPeak:0.0} cells {o.Cells} self {o.SelfCells}");
+        });
     }
 
     /// <summary>1 回の振りの点（クラスの説明の式）。振れなかった振りは −10。</summary>
