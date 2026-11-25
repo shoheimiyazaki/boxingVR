@@ -80,7 +80,9 @@ public sealed class BojutsuTests
         var staff = game.WeaponOf(game.Cpu)!;
         var grid = staff.Body.Grid;
         var expected = grid.FilledCount * grid.CellVolume * grid.Palette[Voxels.BoxerAnatomy.Wood].MechanicsOrDefault.Density;
-        Assert.AreEqual(expected, game.World.GetMass(staff.Body.BodyId), expected * 0.01f);
+        // 剛体の質量は棒と、握っている両手の拳（PhysicsVersion 100: 素手と同じ手の組織の密度 × 体積）の和。
+        var hands = staff.Hands.Where(h => h.Occupied).Sum(h => h.Body.Grid.FilledCount * MiniRing.Weapons.GripHand.MassPerCell);
+        Assert.AreEqual(expected + hands, game.World.GetMass(staff.Body.BodyId), expected * 0.01f);
         Assert.IsGreaterThan(0.3f, expected);
     }
 

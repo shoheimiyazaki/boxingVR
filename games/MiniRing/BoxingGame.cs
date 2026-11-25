@@ -664,6 +664,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
 
         self.ApplyControl(command, dt);
+        SyncGripHands(self); // 握り・放し・滑らせが決まった後の手の所へ、握る拳の格子を
         StepProfile.End(StepProfile.Slot.DriveFighter, driveStart);
     }
 
@@ -754,6 +755,11 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         var glove = self.GloveCenter(hand);
         for (var i = 0; i < weapon.Grids.Count; i++)
         {
+            if (weapon.IsHandGrid(i))
+            {
+                continue; // 握る拳（放した手の空の格子・まだ握っているもう一方の拳）は手の物で、放した物ではない
+            }
+
             var grid = weapon.Grids[i];
             var center = s.Position + Vector3.Transform(grid.GridCenterLocal, s.Orientation);
             if (Vector3.Distance(center, glove) <= grid.Grid.HalfExtents.Length() + 0.02817f)
@@ -1704,6 +1710,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         CpuSkin = new BoxerSkin(cpuModel, Cpu, cpuTuning);
         _fighters = [Player, Cpu];
         _wielders.Clear();
+        _handLedgers.Clear(); // 選手は作り直した（手の傷も新しい体のもの）
         _reach.Clear();
         _fullReach.Clear();
         _wieldHand.Clear();
