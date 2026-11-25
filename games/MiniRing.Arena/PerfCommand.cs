@@ -25,7 +25,7 @@ internal static class PerfCommand
         StepProfile.Slot.After, StepProfile.Slot.PostStep,
     ];
 
-    private sealed record Frame(int Seed, int Index, double Total, double[] Slots, double Render, double RenderVoxels, int Gc0, int Gc2, int Fragments, long[] Counts, long[] Allocs);
+    private sealed record Frame(int Seed, int Index, double Total, double[] Slots, double Render, double RenderVoxels, int Gc0, int Gc2, int Fragments, long[] Counts, long[] Allocs, int Debris);
 
     public static int Run(Options o)
     {
@@ -102,7 +102,7 @@ internal static class PerfCommand
                     }
 
                     var fragments = game.AllFighters.Sum(f => f.Voxels?.Fragments.Count ?? 0);
-                    samples.Add(new Frame(seed, i, total, slotMs, renderMs, voxelMs, GC.CollectionCount(0) - gc0, GC.CollectionCount(2) - gc2, fragments, counts, allocs));
+                    samples.Add(new Frame(seed, i, total, slotMs, renderMs, voxelMs, GC.CollectionCount(0) - gc0, GC.CollectionCount(2) - gc2, fragments, counts, allocs, game.Debris.Count));
                 }
 
                 sums.Add($"{game.StateChecksum():x}");
@@ -173,6 +173,8 @@ internal static class PerfCommand
             sb.AppendLine(inv, $"| 　うちボクセル（FillVoxels） | {rv.Average():F2} | {Pct(rv, 0.5):F2} | {Pct(rv, 0.95):F2} | {Pct(rv, 0.99):F2} | {rv[^1]:F2} | | |");
         }
 
+        var debris = samples.Select(s => s.Debris).Order().ToList();
+        sb.AppendLine(inv, $"| 飛んでいる破片の数（描画の粒） | {debris.Average():F0} | {Pct(debris.Select(d => (double)d).ToList(), 0.5):F0} | {Pct(debris.Select(d => (double)d).ToList(), 0.95):F0} | {Pct(debris.Select(d => (double)d).ToList(), 0.99):F0} | {debris[^1]} | | |");
         sb.AppendLine();
         var heavy = samples.OrderByDescending(s => s.Total).Take(Math.Max(1, samples.Count / 100)).ToList();
         sb.AppendLine("処理ごと（ms/フレーム。字下げは外側の枠に含まれる内訳。「重い 1%」は合計の重い上位 1% のフレームの平均）:");
