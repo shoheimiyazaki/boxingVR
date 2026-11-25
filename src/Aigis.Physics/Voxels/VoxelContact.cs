@@ -136,8 +136,9 @@ public static class VoxelContact
 
     private static readonly AsyncLocal<int?> _scanStride = new();
 
-    /// <summary>既定の走査の間引き（16。2026-11-25: 16 でも 64 でも刃の切れ味の境目 75 か所のほぼ全部が 1 と同じ、docs/PERFORMANCE.md §7）。</summary>
-    private const int DefaultScanStride = 16;
+    /// <summary>既定の走査の間引き（1 = 間引かない。2026-11-25: 刃の切れ味の境目は 64 でも保ったが、16 では細い所を通り抜ける接触を見落として刀・爪の 3 つのテストが、
+    /// 2 でも脚の 1 つのテストが崩れた。効きは 6 人の物理で数 % なので入れない: docs/PERFORMANCE.md §7）。</summary>
+    private const int DefaultScanStride = 1;
     private static readonly AsyncLocal<float?> _sampleSpacingScale = new();
 
     /// <summary>Most samples of the sweep in one step.</summary>
