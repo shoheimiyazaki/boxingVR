@@ -69,7 +69,7 @@ public static class BoxerAnatomy
     public const byte Cord = 22;
 
     // ── 手（素手の拳・はめる物の中の拳）の組織: 見た目と組織の種類は皮膚・肉・骨のまま、押されたときのふるまい（固さ・強さ・密度）と
-    // 削れにくさは木（WoodMechanics）の値（2026-11-18、ユーザーの指定。近道: docs/DEBT.md「手の物性を木の値で代用」）。
+    // 削れにくさは木の値（2026-11-18、ユーザーの指定。近道: docs/DEBT.md「手の物性を木の値で代用」）。2026-11-25 に武器の木を実物の樫へ強めたとき、手は前の木の値のまま HandMechanics に分けた。
     // 14 mm のセルでは手の細かい骨の集まりを表せない（指は 1 セルの骨）。木の値で、拳の当たりの硬さを手の形を保ったまま近似する。
 
     // 色は皮膚・肉・骨とほとんど同じ（赤か緑を 0.01 ずらす）: 目では同じに見え、.vox の読み戻し（色 → 材質）では区別できる。
@@ -185,14 +185,29 @@ public static class BoxerAnatomy
     /// <summary>剣の鋼: 焼き入れした鋼（人で降伏 600MPa、引張 1.5GPa、ヤング率 200GPa。人形の相似則で縮める）。</summary>
     public static VoxelMechanics IronMechanics { get; } = Doll(new(7800f, 600e6f, 0.0002f, Tensile: 1.5e9f, Stiffness: 200e9f));
 
-    /// <summary>樫: 人で、木目に直角に潰れる強さ 8MPa、曲げて折れる強さ 60MPa、ヤング率 10GPa（人形の相似則で縮める）。</summary>
-    public static VoxelMechanics WoodMechanics { get; } = Doll(new(700f, 8e6f, 0.001f, Tensile: 60e6f, Stiffness: 10e9f));
+    /// <summary>
+    /// 樫（ホワイトオーク、含水率 12 %）: 曲げて折れる強さ（曲げ強さ）105 MPa、ヤング率 12.3 GPa、木目に直角に潰れる強さ 7.4 MPa、比重 0.68
+    /// （USDA Forest Products Laboratory『Wood Handbook』FPL-GTR-190 表 5-3a。北米のアカガシワ 99 MPa・12.5 GPa・7.0 MPa・0.63、ホワイトアッシュ 106 MPa・12.0 GPa も同じ程度）。
+    /// 潰れる強さ 8 MPa・密度 700 kg/m³ は表の広葉樹（樫・トネリコ: 7.0〜8.0 MPa、706〜762 kg/m³）の幅の中なので前の値のまま（武器の質量・削れ方を変えない）。
+    /// 2026-11-25 まで曲げ強さ 60 MPa・ヤング率 10 GPa（針葉樹ほどの値）で、実物の樫の 6 割弱の強さしかなく折れすぎた（docs/VOXEL_WEAPONS.md「木の強さ」）。
+    /// 骨（皮質骨 150 MPa・17 GPa）と同じ相似則（<see cref="Doll"/>）で縮める: 木と骨の強さの比は実物どおり。
+    /// </summary>
+    public static VoxelMechanics WoodMechanics { get; } = Doll(new(700f, 8e6f, 0.001f, Tensile: 105e6f, Stiffness: 12.3e9f));
+
+    /// <summary>
+    /// 手の組織（<see cref="HandSkin"/>・<see cref="HandMuscle"/>・<see cref="HandBone"/>）の物性: 2026-11-25 までの木の値（曲げ強さ 60 MPa・ヤング率 10 GPa）のまま。
+    /// 人の手の値ではない近道（docs/DEBT.md「手の物性を木の値で代用」）。武器の木を実物の樫へ直したとき、拳の当たり・手の質量・削れ方を変えないよう分けた。
+    /// </summary>
+    public static VoxelMechanics HandMechanics { get; } = Doll(new(700f, 8e6f, 0.001f, Tensile: 60e6f, Stiffness: 10e9f));
 
     /// <summary>布と革は皮膚と同じ削れにくさ・同じ組織（肉）にする: 着ても打たれ強さと部位の力は裸のときと変わらない。</summary>
     private const float SkinToughness = 0.7f;
 
-    /// <summary>木の削れにくさ（木の武器と手の組織が同じ値を使う）。</summary>
+    /// <summary>木の削れにくさ。</summary>
     private const float WoodToughness = 5f;
+
+    /// <summary>手の組織の削れにくさ（木の値の代用。<see cref="HandMechanics"/>）。</summary>
+    private const float HandToughness = WoodToughness;
 
     private static Vector4 Rgb(float r, float g, float b) => new(r, g, b, 1f);
 
@@ -226,9 +241,9 @@ public static class BoxerAnatomy
         new VoxelMaterial("padding", VoxelTissue.Solid, 1f, false, Rgb(0.92f, 0.9f, 0.82f), Rgb(0.92f, 0.9f, 0.82f), Stainable: 0.4f, Mechanics: PaddingMechanics),
         new VoxelMaterial("lip", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.8f, 0.4f, 0.38f), Rgb(0.8f, 0.4f, 0.38f), Stainable: 1f, Mechanics: SkinMechanics),
         new VoxelMaterial("cord", VoxelTissue.Flesh, 0.5f, false, Rgb(0.5f, 1f, 0.15f), Rgb(0.5f, 1f, 0.15f), Stainable: 0f, Mechanics: CordMechanics),
-        new VoxelMaterial("hand skin", VoxelTissue.Flesh, WoodToughness, false, Rgb(0.87f, 0.6f, 0.42f), Rgb(0.87f, 0.6f, 0.42f), Stainable: 1f, Mechanics: WoodMechanics),
-        new VoxelMaterial("hand muscle", VoxelTissue.Flesh, WoodToughness, false, Rgb(0.81f, 0.05f, 0.07f), Rgb(0.81f, 0.05f, 0.07f), Stainable: 0.3f, Mechanics: WoodMechanics),
-        new VoxelMaterial("hand bone", VoxelTissue.Bone, WoodToughness, false, Rgb(1f, 0.97f, 0.88f), Rgb(1f, 0.97f, 0.88f), Stainable: 0f, Mechanics: WoodMechanics),
+        new VoxelMaterial("hand skin", VoxelTissue.Flesh, HandToughness, false, Rgb(0.87f, 0.6f, 0.42f), Rgb(0.87f, 0.6f, 0.42f), Stainable: 1f, Mechanics: HandMechanics),
+        new VoxelMaterial("hand muscle", VoxelTissue.Flesh, HandToughness, false, Rgb(0.81f, 0.05f, 0.07f), Rgb(0.81f, 0.05f, 0.07f), Stainable: 0.3f, Mechanics: HandMechanics),
+        new VoxelMaterial("hand bone", VoxelTissue.Bone, HandToughness, false, Rgb(1f, 0.97f, 0.88f), Rgb(1f, 0.97f, 0.88f), Stainable: 0f, Mechanics: HandMechanics),
         new VoxelMaterial("artery", VoxelTissue.Flesh, 1f, false, Rgb(1f, 0f, 0.25f), Rgb(1f, 0f, 0.25f), Stainable: 0f, Mechanics: MuscleMechanics),
         new VoxelMaterial("red glove thumb", VoxelTissue.Solid, SkinToughness, false, Rgb(0.58f, 0.06f, 0.07f), Rgb(0.58f, 0.06f, 0.07f), Stainable: 0.6f, Mechanics: LeatherMechanics),
         new VoxelMaterial("blue glove thumb", VoxelTissue.Solid, SkinToughness, false, Rgb(0.06f, 0.16f, 0.58f), Rgb(0.06f, 0.16f, 0.58f), Stainable: 0.6f, Mechanics: LeatherMechanics),

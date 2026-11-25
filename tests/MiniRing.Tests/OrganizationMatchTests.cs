@@ -17,7 +17,6 @@ public sealed class OrganizationMatchTests
         var baseline = TvShowRules.Rules(3, 33.57f);
         var calibrated = TvShowRules.Rules(3, 33.57f, wvc);
         Assert.AreEqual(48f, FighterTuning.Default.ConcussionSpin * calibrated.ConcussionSpinScale, 0.001f);
-        Assert.AreEqual(0.60f, calibrated.LimbBendStrengthScale);
         // WVC は休みにほとんど治らない（ユーザーの指定 2026-11-24）: 予算の速さは標準より小さく、0 ではない。
         Assert.IsTrue(calibrated.RegenVoxelsPerSecond > 0f && calibrated.RegenVoxelsPerSecond < 0.05f * baseline.RegenVoxelsPerSecond,
             $"WVC heals {calibrated.RegenVoxelsPerSecond} voxels/s against the standard {baseline.RegenVoxelsPerSecond}");
@@ -27,6 +26,18 @@ public sealed class OrganizationMatchTests
             LimbBendStrengthScale = baseline.LimbBendStrengthScale,
             RegenVoxelsPerSecond = baseline.RegenVoxelsPerSecond,
         });
+    }
+
+    [TestMethod]
+    public void NoOrganizationChangesTheStrengthOfTheMaterials()
+    {
+        // 強さは見えている体と材料から（CLAUDE.md §1.7）: 団体の決まりで骨の強さを変えない（2026-11-25、ユーザーの指定。WVC は 0.60 だった）。
+        // 仕組み（MatchRules.LimbBendStrengthScale）は残すので、どの団体のファイルも 1 を通すことを見る。
+        foreach (var org in Organizations.All.Values)
+        {
+            Assert.AreEqual(1f, org.Match.LimbBendStrengthScale, $"{org.Id} scales the bending strength of the bones");
+            Assert.AreEqual(1f, TvShowRules.Rules(3, MatchRules.Tv.BreakSeconds, org).LimbBendStrengthScale, org.Id);
+        }
     }
 
     [TestMethod]

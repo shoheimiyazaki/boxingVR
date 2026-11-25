@@ -238,7 +238,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 97; // 刃はセルを進んだ分だけ切る（97）・顔の生え際（96）・手首と VR の武器（95）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 99; // 木を実物の樫・WVC の骨の倍率 1（99）・刃はセルを進んだ分だけ切る（97）・顔の生え際（96）・手首と VR の武器（95）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }

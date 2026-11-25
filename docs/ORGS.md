@@ -28,6 +28,8 @@
 
 | 欄 | 意味 |
 |---|---|
+| `match.limbBendStrengthScale` | 腕・脚の骨の曲げ強さの倍率。仕組みは残すが、どの団体も 1（2026-11-25、ユーザーの指定「大会ごとに材料の強さを変えない」。WVC は物理の版 83 から 0.60 だった。`OrganizationMatchTests` が全団体 1 を見る）。WVC の決まりでグローブどうしの 1 ラウンドに骨が折れる割合（`MaterialStrengthProbe.Wvc_GlovedFractureRatePerRound`、15 人の全組 × 種 2 = 210 ラウンド）: 0.60 で 61.9 %（0.91 本）→ 1 で 33.8 %（0.41 本）。目安の 3〜50 % の中 |
+| `match.concussionSpinScale` | 意識の飛ぶ首のねじれの倍率（WVC 2.01）。見えない倍率の近道（docs/DEBT.md「団体の見えない倍率」） |
 | `match.knockdownLimit` | 1 ラウンドにこの数のダウンで TKO（`"TKO — 3 KNOCKDOWNS"`）。0 なら無し |
 | `entry.gear` | 団体が着けさせるはめる物（`glove` など。`null` なら選手のまま） |
 | `entry.weapons` | 武器の選手が出られるか |
