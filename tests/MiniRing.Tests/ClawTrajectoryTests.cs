@@ -9,6 +9,12 @@ namespace MiniRing.Tests;
 public sealed class ClawTrajectoryTests
 {
     [TestMethod]
+    public void Galva_ClawChordIsTwiceTheOriginalLength()
+    {
+        var original = new Vector2(0.46f, 0.226f).Length();
+        Assert.AreEqual(2f * original, ClawSegment.Length, 1e-5f);
+    }
+    [TestMethod]
     [DataRow(Hand.Left)]
     [DataRow(Hand.Right)]
     public void LineTarget_RoundTripsBothBladeEndpoints(Hand hand)
@@ -29,6 +35,17 @@ public sealed class ClawTrajectoryTests
         var trial = ClawLab.Run("ramon", 77, 0.84f, 2, Hand.Right, 0.31f, 0.75f, moving: true, sweep: sweep);
         Assert.IsTrue(trial.Standing);
         Assert.IsGreaterThan(0, trial.Removed);
+    }
+
+    [TestMethod]
+    public void LongClaw_OneStrokeTrialsCanSeparateHeadArmAndTorso()
+    {
+        var trials = Enumerable.Range(0, 3).Select(aim =>
+            ClawLab.Run("albert", 119, 1.24f, aim, aim == 1 ? Hand.Left : Hand.Right, 0.42f, 0.75f, moving: true)).ToArray();
+        Assert.IsTrue(trials.All(t => t.Standing));
+        Assert.IsTrue(trials.Any(t => t.HeadSeparated), "head separated after a single stroke");
+        Assert.IsTrue(trials.Any(t => t.ArmSeparated), "arm separated after a single stroke");
+        Assert.IsTrue(trials.Any(t => t.TorsoSeparated), "torso separated after a single stroke");
     }
 
     [TestMethod]

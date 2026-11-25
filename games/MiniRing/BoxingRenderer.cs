@@ -71,6 +71,12 @@ public static class BoxingRenderer
     {
         AddFighter(instances, game.World, game.Player, game.Model, game.PlayerSkin, PlayerGlove);
         AddFighter(instances, game.World, game.Cpu, game.Model, game.CpuSkin, CpuGlove);
+        for (var seat = 2; seat < game.AllFighters.Count; seat++)
+        {
+            var other = game.AllFighters[seat];
+            AddFighter(instances, game.World, other, game.Model, game.SkinOf(other), game.InitialCorners.RedKit(seat) ? PlayerGlove : CpuGlove); // バトルロイヤルの追加の席
+        }
+
         foreach (var weapon in game.Weapons)
         {
             // 武器もボクセルなので影の計算に入らない: 残っているボクセルを囲む見えない箱で影だけ落とす。
@@ -161,16 +167,19 @@ public static class BoxingRenderer
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(voxels);
         voxels.Clear();
-        foreach (var fighter in new[] { game.Player, game.Cpu })
+        foreach (var fighter in game.AllFighters)
         {
             if (fighter.Voxels is not { } body)
             {
                 continue;
             }
 
-            // 目: 相手を見る黒目とまばたき（見た目だけ）。
-            var other = ReferenceEquals(fighter, game.Player) ? game.Cpu : game.Player;
-            var eyes = new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
+            // 目: 相手（バトルロイヤルでは狙っている相手）を見る黒目とまばたき（見た目だけ）。
+            var other = game.TargetOf(fighter);
+            // The angled eye pairs carry their pupils in their own voxel sockets.
+            MiniRing.Voxels.EyePose? eyes = fighter.Build.FourLegged
+                ? null
+                : new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
             foreach (var part in body.Layers)
             {
                 if (game.HidePlayerHead && ReferenceEquals(fighter, game.Player) && part.Kind == BodyPartKind.Head)
@@ -185,6 +194,18 @@ public static class BoxingRenderer
             foreach (var fragment in body.Fragments)
             {
                 voxels.Add(fragment.Draw());
+            }
+
+            // 関節のつなぎ（関節を曲げて開いた隙間を埋める肉・骨）: 関節がまだつながっている間だけ、今の両側の物質から作って描く（見た目だけ）。
+            // 両側が削れればつなぎも細り、関節が外れれば描かない: 見えている首がつながっていれば、首はつながっている。
+            foreach (var bridge in body.Bridges)
+            {
+                var (parent, child) = (bridge.Parent.Body.BodyId, bridge.Child.Body.BodyId);
+                if (fighter.JointIntact(parent, child) && body.JointHeld(parent, child)
+                    && !(game.HidePlayerHead && ReferenceEquals(fighter, game.Player) && bridge.Child.Kind == BodyPartKind.Head))
+                {
+                    voxels.Add(bridge.View().Draw());
+                }
             }
         }
 

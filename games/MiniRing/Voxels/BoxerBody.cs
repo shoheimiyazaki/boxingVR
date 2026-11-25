@@ -407,7 +407,7 @@ public sealed record FleshBridge(VoxelBody Stub, VoxelBody Fragment, IReadOnlyLi
 /// <item>どれかの臓器が半分以上壊れたら死ぬ（<see cref="DeathCause"/>）。</item>
 /// </list>
 /// </summary>
-public sealed class BoxerBody
+public sealed partial class BoxerBody
 {
     private (int Version, VisionState State)? _vision;
 
@@ -529,6 +529,11 @@ public sealed class BoxerBody
                 BoxerSpine.Place(kind, head);
                 return head;
             }
+
+            if (kind is BodyPartKind.Coxa or BodyPartKind.Foot or BodyPartKind.Toe)
+            {
+                return AlienAnatomy.LegSegment(kind, half, lookPalette);
+            }
         }
 
         var sourceHalf = half / tuning.Build.ScaleOf(kind);
@@ -560,7 +565,7 @@ public sealed class BoxerBody
 
         if (tuning.Build.FourLegged)
         {
-            grid = AlienAnatomy.Plate(kind, grid, lookPalette!);
+            grid = AlienAnatomy.Plate(kind, grid, lookPalette!, mirrorX);
         }
 
         BoxerSpine.Place(kind, grid); // 頸椎・脊髄は外見のセルに触れず、中の材質だけ（顔の彫り直しの後に置いて位置を保つ）
@@ -612,6 +617,8 @@ public sealed class BoxerBody
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(tuning);
         _deathFraction = tuning.OrganDeathFraction;
+        _contactSlack = tuning.JointContactSlack;
+        _looseCellLimit = tuning.LooseCellLimit;
         if (tuning.Build.FourLegged)
         {
             outfit = null;
@@ -713,6 +720,7 @@ public sealed class BoxerBody
                 var halo = overrides?.HaloFor(parentPart.Kind, parentPart.Body.Grid.Dimensions);
                 halo = halo is not null && fighter.OnPlusXSide(parentId) ? halo.MirroredX() : halo;
                 _bridges.Add(new JointBridge(joint, parentPart, childPart, anchor, LayersOf(parentPart), LayersOf(childPart), halo));
+                AddJointContact(parentPart, childPart, anchor);
             }
         }
 
@@ -803,7 +811,7 @@ public sealed class BoxerBody
         var severed = new HashSet<int>();
         foreach (var fragment in _fragments)
         {
-            if (fragment.FragmentOf is { } from)
+            if (fragment.FragmentOf is { } from && !_splitPieces.Contains(fragment)) // つながりで分かれた欠片は、元の部位の治りを止めない（分かれた所は元の形から外してある）
             {
                 severed.Add(from);
             }
@@ -830,7 +838,7 @@ public sealed class BoxerBody
                 // 削れた所だけでなく、へこみで押し込まれた所（潰れた肉の場所に入った皮膚）・擦り減った皮膚（赤み）も元に戻す。
                 // 数えるのは、中身が入れ替わったセル（埋め直した・押し込まれた所を戻した）だけ。赤み・擦り減りを消すだけなら予算を使わない。
                 var was = grid.AtIndex(i);
-                if (grid.Reset(i, original.Materials[i], original.Surface[i]) && was != original.Materials[i])
+                if (original.Materials[i] != 0 && grid.Reset(i, original.Materials[i], original.Surface[i]) && was != original.Materials[i])
                 {
                     restored++;
                 }
@@ -1246,7 +1254,7 @@ public sealed class BoxerBody
     }
 
     /// <summary>首の骨が折れた・断たれた（頭の部位が分かれた）か。</summary>
-    public bool NeckBroken => _fragments.Exists(f => f.Kind == BodyPartKind.Head);
+    public bool NeckBroken { get; private set; }
 
     /// <summary>
     /// 脊髄の働き（0..1）: 高さ <paramref name="level"/> の、いちばん細くなった薄切りで残っている脊髄のセルの割合。神経は直列に信号を通すので、
@@ -1818,6 +1826,7 @@ public sealed class BoxerBody
             piece.BeamAxis = axis; // 破片も骨で曲げを受ける梁（武器のように Snap で飛ばない。破片はそれ以上は分けない）
             fragment = new VoxelPart(part.Kind, piece, VoxelVolume.For(piece.Grid), axis, part.DistalHigh, body.BodyId);
             _fragments.Add(fragment);
+            NeckBroken |= part.Kind == BodyPartKind.Head; // 首は 1 度だけ折れる（つながりで分かれた頭の欠片は数えない: SplitDisconnected）
             _originals[fragment] = Original.Slice(parentOriginal, grid, piece.Grid, axis, part.DistalHigh ? slice + 1 : 0, earlierCut, part.DistalHigh);
             Matrix4x4.Invert(piece.GridToWorld(), out var toPiece);
             foreach (var (moved, world) in cordMoves)

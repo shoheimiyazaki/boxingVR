@@ -107,7 +107,7 @@ public static class TiredLook
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(instances);
-        foreach (var fighter in new[] { game.Player, game.Cpu })
+        foreach (var fighter in game.AllFighters)
         {
             var strength = Visibility(fighter);
             if (strength <= 0f)

@@ -16,6 +16,127 @@ public sealed class AlienTests
     private const float Dt = 1f / 240f;
 
     [TestMethod]
+    public void Galva_WeldSeamTracksTheChestAndPelvisVoxels()
+    {
+        using var game = CreateGame();
+        var f = game.Player;
+        var body = f.Voxels!;
+        Assert.IsGreaterThan(0, body.JointContactCount(f.Parts.Chest, f.Parts.Pelvis).Total);
+        Step(game, Guard(f));
+        Assert.IsTrue(f.JointIntact(f.Parts.Chest, f.Parts.Pelvis));
+        Assert.HasCount(0, body.Fragments);
+
+        var chest = body.PartOf(f.Parts.Chest)!.Body.Grid;
+        for (var i = 0; i < chest.CellCount; i++)
+        {
+            var (x, y, z) = chest.Coordinates(i);
+            if (chest.CellCenter(x, y, z).Y < -0.36f * chest.HalfExtents.Y)
+            {
+                chest.SetCellState(i, (0, 0f, false, 0f));
+            }
+        }
+        Assert.IsTrue(f.SplitDisconnected());
+        Assert.IsFalse(f.JointIntact(f.Parts.Chest, f.Parts.Pelvis));
+        Assert.IsTrue(f.JointIntact(f.Parts.Chest, f.Parts.Head));
+    }
+
+    [TestMethod]
+    public void Galva_ExposesEightWhiteEyesWithBlackPupils()
+    {
+        using var game = CreateGame();
+        var head = game.Player.Voxels!.PartOf(game.Player.Parts.Head)!.Body.Grid;
+        var (nx, ny, nz) = head.Dimensions;
+        var visible = new HashSet<(bool Left, bool Outer, bool Upper, byte Material)>();
+        for (var x = 0; x < nx; x++)
+        {
+            for (var y = 0; y < ny; y++)
+            {
+                for (var z = nz - 1; z >= 0; z--)
+                {
+                    var material = head.At(x, y, z);
+                    if (material == 0)
+                    {
+                        continue;
+                    }
+                    if (material is Voxels.BoxerAnatomy.Eye or Voxels.BoxerAnatomy.Pupil)
+                    {
+                        var n = head.CellCenter(x, y, z) / head.HalfExtents;
+                        visible.Add((n.X > 0f, MathF.Abs(n.X) > 0.45f, n.Y > 0.26f, material));
+                    }
+                    break;
+                }
+            }
+        }
+
+        Assert.HasCount(16, visible);
+        var eye = head.Palette[Voxels.BoxerAnatomy.Eye].SurfaceColor;
+        var pupil = head.Palette[Voxels.BoxerAnatomy.Pupil].SurfaceColor;
+        Assert.IsTrue(eye.X > 0.9f && eye.Y > 0.9f && eye.Z > 0.9f);
+        Assert.IsTrue(pupil.X < 0.15f && pupil.Y < 0.15f && pupil.Z < 0.15f);
+        Assert.IsGreaterThan(0f, game.Player.Voxels.Vision.Left);
+        Assert.IsGreaterThan(0f, game.Player.Voxels.Vision.Right);
+    }
+
+    [TestMethod]
+    public void Galva_DorsalPlatesRaiseTheSurfaceAndLeaveOrganCellsIntact()
+    {
+        var source = new Aigis.Foundation.Voxels.VoxelGrid(Voxels.BoxerAnatomy.Palette, new Vector3(0.12f, 0.08f, 0.34f), (21, 21, 51),
+            (_, n) => n.LengthSquared() < 0.05f ? Voxels.BoxerAnatomy.Liver
+                : (n.X * n.X) + (n.Y * n.Y) < 0.36f ? Voxels.BoxerAnatomy.Skin : (byte)0);
+        var shell = Voxels.AlienAnatomy.Plate(BodyPartKind.Pelvis, source, Voxels.AlienAnatomy.Palette, mirrorX: false);
+        var top = Enumerable.Range(0, 51).Select(z => Enumerable.Range(0, 21).Last(y => shell.At(10, y, z) != 0)).ToArray();
+        Assert.IsGreaterThanOrEqualTo(4, top.Zip(top.Skip(1)).Count(pair => pair.First > pair.Second));
+        Assert.AreEqual(source.Remaining(Voxels.BoxerAnatomy.Liver), shell.Remaining(Voxels.BoxerAnatomy.Liver));
+        Assert.IsGreaterThan(source.FilledCount, shell.FilledCount);
+    }
+
+    [TestMethod]
+    public void Galva_HasOneThoraxAndFourArticulatedPointedLegs()
+    {
+        using var game = CreateGame();
+        var f = game.Player;
+        var joints = game.World.JointStates();
+        Assert.IsNull(f.Parts.Abdomen);
+        Assert.IsTrue(joints.Any(j => j.Type == Aigis.Physics.JointType.Weld
+            && ((j.BodyA == f.Parts.Pelvis && j.BodyB == f.Parts.Chest) || (j.BodyB == f.Parts.Pelvis && j.BodyA == f.Parts.Chest))));
+        Assert.IsLessThan(0.12f, f.HalfExtents.Chest.X);
+
+        var localChest = f.Frame.WorldToLocal(game.World.GetState(f.Parts.Chest).Position);
+        var front = game.PlayerSense.SelfLeg(Hand.Left).Hip;
+        Assert.IsTrue(MathF.Abs(localChest.Z - front.Z) < 0.06f);
+
+        var roots = f.AllParts.Where(id => game.World.TryGetName(id)?.EndsWith("_coxa", StringComparison.Ordinal) == true).ToArray();
+        Assert.HasCount(4, roots);
+        foreach (var root in roots)
+        {
+            Assert.IsTrue(joints.Any(j => j.BodyA == f.Parts.Pelvis && j.BodyB == root));
+            Assert.IsTrue(joints.Any(j => j.BodyA == root && f.KindOf(j.BodyB) == BodyPartKind.Thigh));
+        }
+
+        foreach (var tip in f.Voxels!.Parts.Where(p => p.Kind == BodyPartKind.Toe))
+        {
+            var grid = tip.Body.Grid;
+            var half = grid.HalfExtents;
+            Assert.IsGreaterThan(2f * MathF.Max(half.X, half.Z), half.Y);
+            var (nx, ny, nz) = grid.Dimensions;
+            int Area(int y) => Enumerable.Range(0, nx).Sum(x => Enumerable.Range(0, nz).Count(z => grid.At(x, y, z) != 0));
+            Assert.IsGreaterThan(0, Area(0));
+            Assert.IsGreaterThan(Area(0), Area(ny - 1));
+        }
+
+        for (var i = 0; i < 480; i++)
+        {
+            Step(game, Guard(f));
+        }
+        foreach (var joint in joints.Where(j => j.Type is Aigis.Physics.JointType.Hinge or Aigis.Physics.JointType.BallSocket
+            && (roots.Contains(j.BodyA) || roots.Contains(j.BodyB))))
+        {
+            var anchors = game.World.GetJointAnchors(joint.Id)!.Value;
+            Assert.IsLessThan(0.025f, Vector3.Distance(anchors.AnchorA, anchors.AnchorB));
+        }
+    }
+
+    [TestMethod]
     public void Galva_HasFourLegsAndTwoClaws()
     {
         using var game = CreateGame();
@@ -61,6 +182,24 @@ public sealed class AlienTests
         Assert.IsTrue(float.IsFinite(f.OxygenOf(MuscleRegion.LeftLeg)) && float.IsFinite(f.OxygenOf(MuscleRegion.RightLeg)));
         Assert.IsGreaterThan(0f, f.HeartCapacity);
         Assert.IsGreaterThan(0f, f.LungCapacity);
+    }
+
+    [TestMethod]
+    public void Galva_CornerStanceKeepsAllFourTipsInsideTheRing()
+    {
+        using var game = CreateGame(fromCorners: true);
+        var f = game.Player;
+        var red = Guard(f) with { FaceDirection = f.Frame.Forward };
+        var blue = Guard(game.Cpu) with { FaceDirection = game.Cpu.Frame.Forward };
+        for (var i = 0; i < 480; i++)
+        {
+            game.Step(new BoxingInput(red, Blue: blue), Dt);
+        }
+
+        foreach (var tip in f.AllParts.Where(id => f.KindOf(id) == BodyPartKind.Toe))
+        {
+            Assert.IsGreaterThan(0f, game.Layout.EdgeDistance(game.World.GetState(tip).Position));
+        }
     }
 
     [TestMethod]
@@ -221,13 +360,68 @@ public sealed class AlienTests
         Assert.AreEqual(2f, four.Left / two.Left, 0.02f, $"four {four.Left:0} J / two {two.Left:0} J");
     }
 
-    private static BoxingGame CreateGame(float gap = 3f, BodyBuild? build = null)
+    [TestMethod]
+    [DataRow(0f, 0f, false)]
+    [DataRow(-0.12f, 0.08f, true)]
+    public void PointedFrontLeg_CarvesWithItsTip(float aimX, float aimY, bool expectThrough)
+    {
+        using var game = CreateGame(0.67f);
+        var f = game.Player;
+        for (var i = 0; i < 240; i++)
+        {
+            Step(game, Guard(f));
+        }
+
+        const Hand side = Hand.Right;
+        var toe = f.ToeId((int)side);
+        var target = FrontLegStrike.Aim(game.PlayerSense) + new Vector3(aimX, aimY, 0f);
+        var targets = game.Cpu.Voxels!.Parts.ToDictionary(p => p.Body.BodyId);
+        var original = targets.ToDictionary(entry => entry.Key, entry => Enumerable.Range(0, entry.Value.Body.Grid.CellCount)
+            .Where(i => entry.Value.Body.Grid.MaterialAt(i) != 0).ToArray());
+        var carved = new Dictionary<int, HashSet<int>>();
+        for (var i = 0; i < 173; i++)
+        {
+            var sense = game.PlayerSense;
+            var strike = FrontLegStrike.At(sense.SelfLeg(side), sense.Self.WorldToLocal(target), i / 172f, false, side);
+            Step(game, Guard(f) with { RightLeg = strike });
+            foreach (var contact in game.RecentCuts.Where(c => c.A.BodyId == toe && targets.ContainsKey(c.B.BodyId)))
+            {
+                if (!carved.TryGetValue(contact.B.BodyId, out var cells))
+                {
+                    carved[contact.B.BodyId] = cells = [];
+                }
+                foreach (var cell in contact.RemovedFor(contact.B))
+                {
+                    var grid = contact.B.Grid;
+                    var at = (cell.LocalCenter + grid.HalfExtents) / grid.CellSize;
+                    cells.Add(grid.Index((int)at.X, (int)at.Y, (int)at.Z));
+                }
+            }
+        }
+
+        var layers = carved.Select(entry => entry.Value.Select(i => targets[entry.Key].Body.Grid.Coordinates(i).Z).Distinct().Count()).DefaultIfEmpty().Max();
+        Assert.IsGreaterThanOrEqualTo(2, layers);
+        if (expectThrough)
+        {
+            Assert.IsTrue(carved.Any(entry =>
+            {
+                var grid = targets[entry.Key].Body.Grid;
+                return original[entry.Key].GroupBy(i =>
+                {
+                    var (x, y, _) = grid.Coordinates(i);
+                    return (x, y);
+                }).Any(column => column.Count() >= 3 && column.All(entry.Value.Contains));
+            }), "A contiguous column that spans the original target is open through both sides.");
+        }
+    }
+
+    private static BoxingGame CreateGame(float gap = 3f, BodyBuild? build = null, bool fromCorners = false)
     {
         var c = CharacterRoster.Get("galva");
         return new BoxingGame(corners: BotCatalog.Corners("boxer") with
         {
             PlayerBody = build ?? c.Build, PlayerWear = c.Wear, PlayerLook = c.Look, PlayerFaceSpec = c.Face,
-            Ring = RingLayout.Boxing with { StartGap = gap, FromCorners = false }, ExternalBlue = true, Referee = false,
+            Ring = RingLayout.Boxing with { StartGap = gap, FromCorners = fromCorners }, ExternalBlue = true, Referee = false,
         });
     }
 

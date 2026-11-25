@@ -85,8 +85,11 @@ public sealed partial class Fighter
         // 保つ分（等尺性）: 筋が出している力 = トルク ÷ てこの腕。動かさなくても力を出すだけで酸素を使う（腕の IsometricCost と同じ量）。
         var hold = _tuning.IsometricCost * effort.Length() / MathF.Max(1e-3f, _tuning.TrunkMuscleArm) * dt;
         _jointWork.Add(new JointWork(parent, child, Quaternion.Concatenate(b.Orientation, inverse), effort, region, hold, channel));
-        _world.ApplyAngularImpulse(child, applied);
-        _world.ApplyAngularImpulse(parent, -applied);
+        if (Attached(child, parent)) // 関節の筋のトルクは対で（片方だけが外れていたら、どちらにも掛けない）
+        {
+            _world.ApplyAngularImpulse(child, applied);
+            _world.ApplyAngularImpulse(parent, -applied);
+        }
 
         float ImpulseInertiaTerm(int body, Quaternion orientation)
         {

@@ -382,6 +382,12 @@ public sealed record BotStyle
     /// </summary>
     public GroundTuning? Ground { get; init; }
 
+    /// <summary>
+    /// バトルロイヤル（3 人以上）で狙う相手を選ぶ重み（<see cref="RivalWeights"/>。教科書・教育の値）。null なら <see cref="RivalWeights.Default"/>。
+    /// 2 人の試合では使わない（相手は 1 人）。
+    /// </summary>
+    public RivalWeights? Rival { get; init; }
+
     /// <summary>蹴りの間、頭を前（相手の方、腕の長さの倍数）へ寄せる量。軸足は前足なので、前へ寄せるほど体重が軸足に乗る。</summary>
     public float KickLeanForward { get; init; }
 
@@ -549,6 +555,7 @@ public sealed record BotStyle
             ElbowWeights = (ElbowWeights ?? new Dictionary<ElbowTechnique, float>()).Where(p => Enum.IsDefined(p.Key)).ToDictionary(p => p.Key, p => NonNegative(p.Value)),
             KickShift = Range(KickShift, 0f, 1.007f, 0f),
             Ground = Ground?.Validated(),
+            Rival = Rival?.Validated(),
             KickLeanForward = Range(KickLeanForward, -0.4f, 0.4f, 0f),
             KickLeanSide = Range(KickLeanSide, -0.4f, 0.4f, 0f),
             GroundDrive = Unit(GroundDrive),

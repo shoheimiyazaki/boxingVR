@@ -91,6 +91,16 @@ public sealed class VoxelBody
 
     public VoxelGrid Grid { get; private set; }
 
+    /// <summary>The last fitted collider box in the rigid body's local coordinates.</summary>
+    public (Vector3 Center, Vector3 HalfExtents) ColliderBox
+    {
+        get
+        {
+            var applied = _owner is { } owner ? owner._applied : _applied;
+            return (applied.Center, applied.Half);
+        }
+    }
+
     /// <summary>
     /// Other grids carried by the same rigid body (<see cref="AddCompanion"/>), in the order they were added (fixed, so a loop over
     /// them is deterministic). Empty for an ordinary body and for a companion itself.
@@ -642,6 +652,21 @@ public sealed class VoxelBody
         }
 
         return pieces;
+    }
+
+    /// <summary>
+    /// Moves the cells <paramref name="cells"/> (indices of filled cells of this grid, e.g. one of <see cref="VoxelGrid.ConnectedComponents"/>)
+    /// into a new dynamic body, as <see cref="SeverDisconnected"/> does for each piece it breaks off: the same collision filter, the velocity of
+    /// this body at the piece, and the mass of its cells. This body is reshaped to what is left. Null if there is nothing to move.
+    /// </summary>
+    public VoxelBody? SplitOff(IReadOnlyList<int> cells)
+    {
+        if (_owner is not null)
+        {
+            return null;
+        }
+
+        return Grid.Extract(cells) is { } piece ? Detach(piece.Piece, piece.CenterOffset) : null;
     }
 
     /// <summary>The cells already moved out of this grid into <paramref name="grid"/> (centre <paramref name="centerOffset"/> from the grid's centre) become a new dynamic body that keeps flying as this one was.</summary>

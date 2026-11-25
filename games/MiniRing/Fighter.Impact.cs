@@ -45,13 +45,24 @@ public sealed partial class Fighter
         var edges = new Dictionary<int, List<(int Other, ImpactJoint Joint)>>();
         foreach (var joint in _joints)
         {
-            if (_detached.Contains(joint.ParentPart) || _detached.Contains(joint.ChildPart)
-                || _world.GetJointAnchors(joint.PrimaryConstraintId)?.AnchorA is not { } anchor)
+            if (_detached.Contains(joint.ParentPart) || _detached.Contains(joint.ChildPart))
             {
                 continue;
             }
 
-            var j = new ImpactJoint(anchor, HingeAxis(joint.Joint, joint.ParentPart), joint.Joint);
+            var rigid = Build.FourLegged && joint.Joint == HumanoidRagdoll.RagdollJoint.Spine
+                && joint.ParentPart == Parts.Chest && joint.ChildPart == Parts.Pelvis
+                && _world.HasConstraint(joint.PrimaryConstraintId);
+            var anchor = _world.GetJointAnchors(joint.PrimaryConstraintId)?.AnchorA;
+            if (!rigid && anchor is null)
+            {
+                continue;
+            }
+
+            var axis = KindOf(joint.ChildPart) == BodyPartKind.Coxa
+                ? Vector3.Transform(Vector3.UnitZ, _world.GetState(joint.ParentPart).Orientation)
+                : HingeAxis(joint.Joint, joint.ParentPart);
+            var j = new ImpactJoint(anchor.GetValueOrDefault(), axis, joint.Joint, rigid);
             Add(joint.ParentPart, joint.ChildPart, j);
             Add(joint.ChildPart, joint.ParentPart, j);
         }
@@ -84,7 +95,9 @@ public sealed partial class Fighter
         for (var i = order.Count - 1; i > 0; i--)
         {
             var (part, parent, joint) = order[i];
-            inertia[parent] = inertia[parent].Add(Transmit(inertia[part], joint, point, Bracing(joint, part, point, closingSpeed)));
+            inertia[parent] = inertia[parent].Add(joint.Rigid
+                ? inertia[part]
+                : Transmit(inertia[part], joint, point, Bracing(joint, part, point, closingSpeed)));
         }
 
         // 根は自由な体: 点に [0; n] の撃力（点まわりのモーメント 0）。速度の変化の並進の分が点の速度の変化。
@@ -156,7 +169,7 @@ public sealed partial class Fighter
     }
 
     /// <summary>関節: 中心（ワールド）と、蝶番なら軸（ワールド。玉継手は null）。</summary>
-    private readonly record struct ImpactJoint(Vector3 Anchor, Vector3? Axis, HumanoidRagdoll.RagdollJoint Kind);
+    private readonly record struct ImpactJoint(Vector3 Anchor, Vector3? Axis, HumanoidRagdoll.RagdollJoint Kind, bool Rigid);
 
     /// <summary>撃力を受けた剛体の、体の中での根の部位: 付いている部位ならそれ、手にはめた物・握った物ならその手の前腕。</summary>
     private int? RootPartOf(int body)

@@ -142,7 +142,7 @@ public sealed partial class BoxingGame
                 continue;
             }
 
-            var leather = fighter == Player ? BoxerAnatomy.RedGlove : BoxerAnatomy.BlueGlove;
+            var leather = _corners.RedKit(SeatOf(fighter)) ? BoxerAnatomy.RedGlove : BoxerAnatomy.BlueGlove; // 赤・青（追加の席は席かチームの偶奇）
             var mirrored = Weapon.MirroredOn(kind, hand);
             var worn = Weapon.CreateWorn(_world, kind, leather, fighter.GloveCenter(hand), Quaternion.Identity, mirrored);
             if (_handLedgers.TryGetValue((fighter, hand), out var ledger))
@@ -286,6 +286,10 @@ public sealed partial class BoxingGame
     {
         Resupply(Player, _corners.PlayerWeapon, _corners.PlayerTwoHanded);
         Resupply(Cpu, _corners.CpuWeapon, _corners.CpuTwoHanded);
+        for (var k = 0; k < _others.Length; k++)
+        {
+            Resupply(_others[k], _corners.Others![k].Weapon, _corners.Others[k].TwoHanded);
+        }
     }
 
     private void Resupply(Fighter fighter, WeaponKind? kind, bool twoHanded)
@@ -651,10 +655,10 @@ public sealed partial class BoxingGame
         {
             if (!_perception.TryGetValue(self, out var filter))
             {
-                filter = new VisionPerception(_seed ^ (_round * 397) ^ (self == Player ? 0x1357 : 0x2468));
+                filter = new VisionPerception(_seed ^ (_round * 397) ^ (0x1357 + (SeatOf(self) * 0x1111))); // 赤 0x1357・青 0x2468・追加の席はその先
                 _perception.Add(self, filter);
             }
-            var raw = RawArmedSense(self, self == Player ? Cpu : Player);
+            var raw = RawArmedSense(self, TargetOf(self));
             _perceived[self] = filter.Update(raw, self.Voxels?.Vision ?? VisionState.Healthy, dt);
         }
     }
@@ -827,7 +831,8 @@ public sealed partial class BoxingGame
         return holder.ImpactMass(hand, velocity, out _, factor);
     }
 
-    private Fighter OpponentOf(Fighter fighter) => fighter == Player ? Cpu : Player;
+    /// <summary>打たれる人がまだ決まっていない見積もりに使う相手: 今狙っている相手（2 人の試合ではもう一人。3 人以上では近道: docs/DEBT.md）。</summary>
+    private Fighter OpponentOf(Fighter fighter) => TargetOf(fighter);
 
     /// <summary>握った腕が武器の後ろで運ぶ運動量 [kg·m/s]: 腕の質量 × 握った拳が打たれた点へ近づく速さ（歩の前）。</summary>
     private float ArmBehind(Fighter holder, Hand hand, Vector3 struckVelocity, Vector3 direction)
@@ -1489,6 +1494,7 @@ public sealed partial class BoxingGame
                 var strength = PunchMechanics.Damage(delivered) * PunchMechanics.Sharpness(contactSpeed);
                 var damage = strength * ZoneDamage.Multiplier(zone);
                 victim.Condition.ApplyHit(zone, damage);
+                NoteHit(swinger, victim, damage);
 
                 // 打撲: 刃の無い硬い武器が運んだ運動エネルギーで、当たった所を拳と同じく潰して掘る（グローブの詰め物が無い分、深く）。
                 // 刃のある武器は、刃が当たった所をボクセル同士の接触そのもので斬る（潰しはしない）。
@@ -1586,7 +1592,14 @@ public sealed partial class BoxingGame
     /// 刃の無い物は拳と同じ散り方）。握った武器も手にはめた物も同じ。
     /// </summary>
     private void Wound(Weapon weapon, VoxelBody grid, Fighter victim, VoxelPart part, VoxelContactResult hit)
-        => Wound(grid, Weapon.IsBlunt(weapon.Kind) ? null : weapon, victim, part, hit);
+    {
+        if (hit.RemovedB.Count > 0 && OwnerOf(weapon) is { } holder)
+        {
+            NoteCut(holder, victim); // バトルロイヤルのとどめの記録（2 人の試合では何もしない）
+        }
+
+        Wound(grid, Weapon.IsBlunt(weapon.Kind) ? null : weapon, victim, part, hit);
+    }
 
     /// <summary>
     /// 打った物（武器・蹴った脚の骨）<paramref name="striker"/> が相手の部位を壊した後始末。<paramref name="blade"/> は刃のある武器のとき
@@ -1642,7 +1655,6 @@ public sealed partial class BoxingGame
                 continue;
             }
 
-            var victim = attacker == Player ? Cpu : Player;
             foreach (var side in Hands)
             {
                 if (!attacker.IsKicking(side))
@@ -1658,15 +1670,25 @@ public sealed partial class BoxingGame
                     }
 
                     var behind = KickMassBehind(attacker, side, kicker, kickerBefore);
-                    var pushedBody = -1;
-                    foreach (var part in VoxelPartsOf([victim]).ToList())
+                    foreach (var victim in Fighters)
                     {
-                        if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore) && MayTouch(kicker.Body, kickerBefore, part.Body, partBefore))
+                        if (victim == attacker)
                         {
-                            // 脚の後ろの体の質量は、同じ剛体の格子のうち打撃を止めた層（顔の層 → 頭蓋骨）までが受ける（顔の肉を潰し抜けた打撃は頭蓋骨にも運ぶ）。
-                            var hit = VoxelContact.Resolve(kicker.Body, kickerBefore, part.Body, partBefore, massBehindA: part.Body.BodyId == pushedBody ? 0f : behind);
-                            pushedBody = hit.Touched && hit.Stopped ? part.Body.BodyId : pushedBody;
-                            Kick(attacker, side, victim, kicker, part, hit);
+                            continue; // 自分以外の全員（2 人なら相手 1 人）
+                        }
+
+                        var pushedBody = -1;
+                        foreach (var part in VoxelPartsOf([victim]).ToList())
+                        {
+                            if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore) && MayTouch(kicker.Body, kickerBefore, part.Body, partBefore))
+                            {
+                                // 脚の後ろの体の質量は、同じ剛体の格子のうち打撃を止めた層（顔の層 → 頭蓋骨）までが受ける（顔の肉を潰し抜けた打撃は頭蓋骨にも運ぶ）。
+                                var drive = attacker.DistalKickDrive(side, kicker.Body.BodyId);
+                                var hit = VoxelContact.Resolve(kicker.Body, kickerBefore, part.Body, partBefore,
+                                    driveA: drive, massBehindA: part.Body.BodyId == pushedBody ? 0f : behind);
+                                pushedBody = hit.Touched && hit.Stopped ? part.Body.BodyId : pushedBody;
+                                Kick(attacker, side, victim, kicker, part, hit);
+                            }
                         }
                     }
                 }
@@ -1697,12 +1719,11 @@ public sealed partial class BoxingGame
                 continue;
             }
 
-            var victim = attacker == Player ? Cpu : Player;
             foreach (var side in Hands.Where(attacker.IsKicking))
             {
                 foreach (var kicker in own.Parts.Where(p => attacker.IsKickingBody(side, p.Body.BodyId)))
                 {
-                    foreach (var part in VoxelPartsOf([victim]))
+                    foreach (var part in VoxelPartsOf(Fighters.Where(f => f != attacker)))
                     {
                         wanted.Add((kicker.Body.BodyId, part.Body.BodyId));
                     }
@@ -1828,7 +1849,6 @@ public sealed partial class BoxingGame
                 continue;
             }
 
-            var victim = attacker == Player ? Cpu : Player;
             foreach (var side in Hands)
             {
                 if (!attacker.IsElbowing(side))
@@ -1844,15 +1864,23 @@ public sealed partial class BoxingGame
                     }
 
                     var behind = ElbowMassBehind(attacker, side, striker, strikerBefore);
-                    var pushedBody = -1;
-                    foreach (var part in VoxelPartsOf([victim]).ToList())
+                    foreach (var victim in Fighters)
                     {
-                        if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore) && MayTouch(striker.Body, strikerBefore, part.Body, partBefore))
+                        if (victim == attacker)
                         {
-                            // 腕の後ろの体の質量は、同じ剛体の格子のうち打撃を止めた層（顔の層 → 頭蓋骨）までが受ける（顔の肉を潰し抜けた打撃は頭蓋骨にも運ぶ）。
-                            var hit = VoxelContact.Resolve(striker.Body, strikerBefore, part.Body, partBefore, massBehindA: part.Body.BodyId == pushedBody ? 0f : behind);
-                            pushedBody = hit.Touched && hit.Stopped ? part.Body.BodyId : pushedBody;
-                            Elbow(attacker, side, victim, striker, part, hit);
+                            continue; // 自分以外の全員（2 人なら相手 1 人）
+                        }
+
+                        var pushedBody = -1;
+                        foreach (var part in VoxelPartsOf([victim]).ToList())
+                        {
+                            if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore) && MayTouch(striker.Body, strikerBefore, part.Body, partBefore))
+                            {
+                                // 腕の後ろの体の質量は、同じ剛体の格子のうち打撃を止めた層（顔の層 → 頭蓋骨）までが受ける（顔の肉を潰し抜けた打撃は頭蓋骨にも運ぶ）。
+                                var hit = VoxelContact.Resolve(striker.Body, strikerBefore, part.Body, partBefore, massBehindA: part.Body.BodyId == pushedBody ? 0f : behind);
+                                pushedBody = hit.Touched && hit.Stopped ? part.Body.BodyId : pushedBody;
+                                Elbow(attacker, side, victim, striker, part, hit);
+                            }
                         }
                     }
                 }
@@ -1879,12 +1907,11 @@ public sealed partial class BoxingGame
                 continue;
             }
 
-            var victim = attacker == Player ? Cpu : Player;
             foreach (var side in Hands.Where(attacker.IsElbowing))
             {
                 foreach (var striker in own.Parts.Where(p => attacker.IsElbowingBody(side, p.Body.BodyId)))
                 {
-                    foreach (var part in VoxelPartsOf([victim]))
+                    foreach (var part in VoxelPartsOf(Fighters.Where(f => f != attacker)))
                     {
                         wanted.Add((striker.Body.BodyId, part.Body.BodyId));
                     }
@@ -2292,7 +2319,7 @@ public sealed partial class BoxingGame
             groups.Add(members);
         }
 
-        var palette = BoxerAnatomy.Palette;
+        var palette = body.Grid.Palette; // 体ごとの材質の表（ガルヴァの外骨格は BoxerAnatomy に無い材質）
         foreach (var members in groups)
         {
             var center = members.Aggregate(Vector3.Zero, (sum, i) => sum + removed[i].LocalCenter) / members.Count;

@@ -146,8 +146,27 @@ public sealed record RingLayout(float Size, float StartGap, ArenaShape Shape = A
     /// 休むコーナー（床の上の、骨盤の立つ所）: 四角は赤が (−X, −Z)・青が (+X, +Z) の角、檻は赤が 240°・青が 60° の頂点（X 軸から Z 軸の向きへ測る）の側。
     /// 立つ所は <see cref="CornerFor"/>（体と持ち物の輪郭 <paramref name="footprint"/> が、どの面にも <see cref="CornerClearance"/> の隙間を残して触れない、角にいちばん近い所）。
     /// </summary>
-    public Vector3 RestCorner(bool red, IReadOnlyList<Vector2> footprint) =>
-        CornerFor(IsCage ? (red ? 240f : 60f) : (red ? 225f : 45f), footprint);
+    public Vector3 RestCorner(bool red, IReadOnlyList<Vector2> footprint) => SeatCorner(red ? 0 : 1, 2, footprint);
+
+    /// <summary>
+    /// <paramref name="seats"/> 人の試合で、席 <paramref name="seat"/>（赤 = 0、青 = 1、バトルロイヤルの追加の席 = 2..）の休むコーナー・始めの立つ所。
+    /// 角の向きは赤の角（檻 240°・四角 225°）から 360° / 人数ずつ回した所（2 人なら赤・青の対角、檻で 6 人なら 6 つの頂点すべて）。
+    /// 立つ所は <see cref="CornerFor"/>（輪郭が縁に触れない、角にいちばん近い所）。
+    /// </summary>
+    public Vector3 SeatCorner(int seat, int seats, IReadOnlyList<Vector2> footprint)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(seats, 2);
+        ArgumentOutOfRangeException.ThrowIfNegative(seat);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(seat, seats);
+        var start = IsCage ? 240f : 225f;
+        return CornerFor((start + (seat * (360f / seats))) % 360f, footprint); // 2 人なら 240°・60°（225°・45°）がちょうど出る
+    }
+
+    /// <summary>
+    /// バトルロイヤル（6 人）の檻: 向かい合う辺の距離 8.97 m の正六角形（面積 ≈ 69.7 m²）。1 人あたりの広さを素手の檻（<see cref="Cage"/>、1 人 5.8 m²）と
+    /// 武器の檻（<see cref="WeaponsCage"/>、1 人 23.2 m²）の幾何平均 11.6 m² にした（素手と武器が混ざる）。始めは席ごとの頂点（<see cref="SeatCorner"/>）から。
+    /// </summary>
+    public static RingLayout RoyaleCage { get; } = new(8.97f, 2.817f, ArenaShape.HexCage, FromCorners: true);
 
     /// <summary>
     /// 中心から <paramref name="degrees"/> の向き（X 軸から Z 軸の向きへ測る。角の二等分線）の上で、角にいちばん近く、輪郭 <paramref name="footprint"/>

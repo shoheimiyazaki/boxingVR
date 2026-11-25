@@ -49,6 +49,7 @@ public sealed class BoxerModel
         BodyPartKind.Pelvis => h.Pelvis,
         BodyPartKind.UpperArm => h.UpperArm,
         BodyPartKind.Forearm => h.Forearm,
+        BodyPartKind.Coxa => BodyBuild.CoxaHalf(h.Pelvis),
         BodyPartKind.Thigh => h.Thigh,
         BodyPartKind.Shin => h.Shin,
         BodyPartKind.Foot => h.Foot,

@@ -73,6 +73,7 @@ public static class BoxerShapes
         BodyPartKind.Pelvis => Pelvis(),
         BodyPartKind.UpperArm => UpperArm().Rotated(LimbAlongX),
         BodyPartKind.Forearm => Forearm().Rotated(LimbAlongX),
+        BodyPartKind.Coxa => Limb(0.88f, 1f, 0.88f).Rotated(LimbAlongX),
         BodyPartKind.Thigh => Limb(0.95f, 1.0f, 0.72f),
         BodyPartKind.Shin => Limb(0.88f, 1.0f, 0.62f),
         BodyPartKind.Foot => Heel(),
