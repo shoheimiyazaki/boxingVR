@@ -16,7 +16,8 @@ namespace MiniRing.Arena;
 /// 型の経路の差分（<see cref="FormTune"/>: 時計の速さ・ひねり・両手の高さ・頭の出し・間合い）を (1+λ) 進化戦略で磨く。
 /// <para>
 /// 点 = 10 × (1 − 振り終えて <see cref="After"/> 秒後の相手の意識) + 3 × (1 − 途中の意識の最低) + 0.5 × 刃先の最速 [m/s] − 形の代価（<see cref="FormCost"/>:
-/// 手本からずらした距離・体が追えなかった距離・刃筋・スタミナ）。意識は脳の残り（斬られた脳）と脳しんとうから出て、死ねば 0（<see cref="Fighter.Consciousness"/>）。
+/// 手本からずらした距離・体が追えなかった距離・刃筋・スタミナ） − <see cref="PerSelfCell"/> × 自分の体から削ったセル。
+/// 刃先の最速は、構えから型の始めへ移る最初の <see cref="SkipSeconds"/> 秒を数えない（どの型でも同じ移りの速さが出て、振りの速さを表さない）。意識は脳の残り（斬られた脳）と脳しんとうから出て、死ねば 0（<see cref="Fighter.Consciousness"/>）。
 /// どの項も物理の量の連続な関数で、型の種類で分けない（CLAUDE.md §1.3）。変えるのは経路だけで、体の強さは変えない（§1.7・§1.8）。
 /// </para>
 /// <para>
@@ -27,6 +28,15 @@ internal static class SwordPractice
 {
     /// <summary>振り終えてから相手の様子を見る時間 [s]（倒れて意識が戻るかどうかが分かるまで）。</summary>
     public const float After = 3f;
+
+    /// <summary>
+    /// 自分の体から削った 1 セルあたりの代価。教科書のロングソードの打ち下ろしは、相手が先に倒れると振り抜いた刃が自分の脚を 300〜500 セル削った
+    /// （swordpractice の基準の表・動画）。相手を倒す 1 発（10 点）より自分の脚を断つ方が重いように、400 セルで 8 点。
+    /// </summary>
+    public const double PerSelfCell = 0.02;
+
+    /// <summary>刃先の最速を数え始める、技の始めからの時間 [s]。</summary>
+    public const float SkipSeconds = 0.15f;
 
     /// <summary>無力化とみなす意識（体の張りが抜けて崩れる値。<see cref="FighterTuning.LimpConsciousness"/>）。</summary>
     public static float OutCold => FighterTuning.Default.LimpConsciousness;
@@ -108,6 +118,7 @@ internal static class SwordPractice
         var handSamples = 0;
         var swing = new List<(float Speed, float Off)>();
         var selfDown = false;
+        var activeSince = 0f;
         for (var t = 0f; t < 14f && t < endAt; t += dt)
         {
             game.Step(default, dt);
@@ -117,6 +128,7 @@ internal static class SwordPractice
             {
                 started = true;
                 staminaStart = me.Stamina;
+                activeSince = t;
             }
             else if (!active && started && float.IsPositiveInfinity(endAt))
             {
@@ -137,7 +149,11 @@ internal static class SwordPractice
             selfDown |= me.State != FighterState.Standing;
             var state = game.World.GetState(sword.Body.BodyId);
             var velocity = state.LinearVelocity + Vector3.Cross(state.AngularVelocity, Vector3.Transform(tip, state.Orientation));
-            tipPeak = MathF.Max(tipPeak, velocity.Length());
+            if (t - activeSince >= SkipSeconds)
+            {
+                tipPeak = MathF.Max(tipPeak, velocity.Length());
+            }
+
             var local = Vector3.Transform(velocity, Quaternion.Conjugate(state.Orientation));
             var off = local.Length() < 1e-4f ? float.NaN : MathF.Asin(Math.Clamp(MathF.Abs(local.Z) / local.Length(), 0f, 1f)) * 180f / MathF.PI;
             swing.Add((velocity.Length(), off));
@@ -168,7 +184,7 @@ internal static class SwordPractice
 
     /// <summary>1 回の振りの点（クラスの説明の式）。振れなかった振りは −10。</summary>
     public static double Score(Outcome o, float textbookCm) => !o.Swung ? -10d
-        : (10d * (1d - o.ConsciousnessEnd)) + (3d * (1d - o.ConsciousnessMin)) + (0.5d * o.TipPeak) - FormCost.Of(textbookCm, o.HandRmsCm, o.EdgeDeg, o.Stamina);
+        : (10d * (1d - o.ConsciousnessEnd)) + (3d * (1d - o.ConsciousnessMin)) + (0.5d * o.TipPeak) - FormCost.Of(textbookCm, o.HandRmsCm, o.EdgeDeg, o.Stamina) - (PerSelfCell * o.SelfCells);
 
     /// <summary>型 1 つの、条件の全部（種 × 相手の体）の結果。</summary>
     internal sealed record Trial(FormTune Tune, double Score, IReadOnlyList<Outcome> Outcomes)
