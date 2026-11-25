@@ -55,6 +55,7 @@ public sealed class SlideTests
             if (i == warmupSteps)
             {
                 initialFootsteps = game.Player.Footwork.Steps;
+                start = Flat(game.Player.PelvisPosition);
             }
         }
 
@@ -63,10 +64,19 @@ public sealed class SlideTests
 
     private static Vector3 Flat(Vector3 v) => new(v.X, 0f, v.Z);
 
+    /// <summary>
+    /// 刀の VR の構えは、流れも踏み直しも、生成の構えから VR の姿勢へ移り終えた後（5 秒）から数える（2026-11-25、PhysicsVersion 105。
+    /// docs/plans/FORM_DECAY_STUDY.md §9）。刀を実物の重さ（0.61 → 1.08 kg）にすると、生成の T 字の腕の先から VR の手の位置へ刀を運ぶ最初の 1.6 秒に、
+    /// その反作用で 4〜8 歩踏み直して骨盤が 17〜28 cm 動く（前の刀では 10 cm 前後）。その後は 4〜11 秒ごとの踏み直しで ±3 cm ずつ行き来するだけで、
+    /// 流れ続けはしない（このテストが守る、直す前の 30 秒で 45 cm・170 歩の流れではない）。入力の始めから数えると、最初の移り変わりに、窓の終わり（33.57 秒）の
+    /// 直前に最後の 1 歩が入るか（±3 cm・1 歩）が足されるだけで値が上限（22.54 cm・12 歩）をまたいで飛んだ（22.55 cm・12 歩）。上限は変えない。
+    /// </summary>
+    private const float VrSettleSeconds = 5f;
+
     [TestMethod]
     public void KatanaStandingStillWithAVrPoseDoesNotSlide()
     {
-        var (drift, steps) = Run(WeaponKind.Katana, vr: true, headYaw: 0f, sway: 0f);
+        var (drift, steps) = Run(WeaponKind.Katana, vr: true, headYaw: 0f, sway: 0f, warmupSeconds: VrSettleSeconds);
         Assert.IsLessThan(0.2254f, drift, $"静止した VR の姿勢（刀）で骨盤が流れた: {drift * 100f:0.0} cm");
         Assert.IsLessThan(12, steps, $"構えの踏み直しが止まらない: {steps} 歩");
     }
@@ -74,7 +84,7 @@ public sealed class SlideTests
     [TestMethod]
     public void KatanaWithTwoCentimetreHeadSwayDoesNotSlide()
     {
-        var (drift, steps) = Run(WeaponKind.Katana, vr: true, headYaw: 0f, sway: 0.02f);
+        var (drift, steps) = Run(WeaponKind.Katana, vr: true, headYaw: 0f, sway: 0.02f, warmupSeconds: VrSettleSeconds);
         Assert.IsLessThan(0.2254f, drift, $"頭が 2 cm ゆれるだけで骨盤が流れた: {drift * 100f:0.0} cm（直す前は 20 秒で 45 cm）");
         Assert.IsLessThan(12, steps, $"構えの踏み直しが止まらない: {steps} 歩（直す前は 170 歩前後）");
     }
@@ -83,8 +93,8 @@ public sealed class SlideTests
     public void KatanaLookingAwayFromTheOpponentDoesNotSlide()
     {
         // 頭が相手から 40 度それている（手は同じ位置）: 胴がひねられた構えのまま止まっていられる。
-        // 流れは入力開始から測り、踏み直しは向きの変化へ追いついた後で数える。
-        var (drift, steps) = Run(WeaponKind.Katana, vr: true, headYaw: 0.7f, sway: 0f, warmupSeconds: 5f);
+        // 流れも踏み直しも、向きの変化と VR の姿勢へ追いついた後で数える（VrSettleSeconds）。
+        var (drift, steps) = Run(WeaponKind.Katana, vr: true, headYaw: 0.7f, sway: 0f, warmupSeconds: VrSettleSeconds);
         Assert.IsLessThan(0.2254f, drift, $"胴をひねった構えで骨盤が流れた: {drift * 100f:0.0} cm（直す前は 20 秒で 29 cm）");
         Assert.IsLessThan(12, steps, $"構えの踏み直しが止まらない: {steps} 歩");
     }

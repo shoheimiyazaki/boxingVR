@@ -83,17 +83,19 @@ public sealed class SwordTests
         // （ほかの 4 回は胸 50・44・19・19、自分 0）。1 回の振りの「胸を斬る」は揺れに負けるので、5 回の合計で見る（胸 132 セル対 自分 60 セル）。
         // 2026-11-17（PhysicsVersion 44、剣の柄に鉄の芯を通した: 剣が重くなり、振りが変わる）: 5 回の合計は 胸 90 セル対 自分 121 セル（かすめる回の数が変わった）。
         // 間合いを −6〜+6 cm（人形の単位。人の大きさで −17〜+17 cm）の 7 回にして合計で見る。
-        Assert.IsGreaterThan(10f, target, "the chest is cut");
-        var detail = string.Join(", ", runs.Select(x => $"{x.TargetCells}/{x.SelfCells}"));
-        // 自分の腿をかすめるのは 1〜2 回の振りで、そのセル数が大きい（121 セル）。合計では勝てなくなったので、振りごとに「胸が自分より多い」回と「自分が胸より多い」回を比べる。
-        // 2026-11-24（PhysicsVersion 93）: セルは刃がその奥行きを斬り抜けたときに断たれるようになり、ラグドールの振り（刃の速さ数 m/s）ではほとんど斬れない:
-        // 7 回のうち 6 回が 0/0、1 回が胸 17 セル（打ち出しを 0.10 秒に速めても 6 回が 0/0、1 回が胸 26 セル）。元の「たいていの振りは狙いを自分より多く斬る」は
-        // 今のラグドールの振りでは作れない（振りを速くするのは別の作業: docs/BLADE_CUT_STUDY.md §8）。それまでは、斬れた振りで狙いの方が多い回が多いことと、
-        // 合計で狙いが自分より多いことで見る（弱い主張。振りが速くなったら元に戻す）。
-        var better = runs.Count(x => x.TargetCells > x.SelfCells);
-        var worse = runs.Count(x => x.SelfCells > x.TargetCells);
-        Assert.IsGreaterThan(worse, better, $"swings that cut, cut the target more than yourself (target/self per swing {detail}; the cut through can graze your own thigh)");
-        Assert.IsGreaterThan(self, target, $"over the swings, the target loses more than yourself ({detail})");
+        var detail = string.Join(", ", runs.Select(x => $"{x.TargetCells}/{x.SelfCells} first {x.FirstPart} tip {x.TipSpeed:0.0}"));
+        Console.WriteLine(detail);
+        // 2026-11-25（PhysicsVersion 100、握る手が素手と同じボクセルの拳になり、その質量 0.36 kg が剣に足された）: 7 回とも、胸より先に相手の構えた腕
+        // （上腕・前腕）を斬り、胸は 0 セル（拳の質量を 0 にすると 7 回のうち 2 回が胸 16・3 セル。どちらも振りの速さ 7〜11 m/s・胸を 13〜25 cm 外す振りで、
+        // 胸を斬るのは偶然の近さ: 版 93 から 1 回だけだった）。「狙った胸を斬る」は今のラグドールの振り（docs/BLADE_CUT_STUDY.md §8）では揺れに負けるので、
+        // 振りが速くなるまでは、斬り抜く振りが相手の体まで届いて斬ること（構えた腕でも）と、自分の体をほとんど斬らないことを見る（弱い主張。振りが速くなったら元に戻す）。
+        // 2026-11-25（PhysicsVersion 105、片手で握る柄も握り込んだ手首・剣は実物の重さ 1.19 kg）: 振りが 5〜9 → 10〜20 m/s に速くなり、狙った胸を
+        // 斬るようになった（7 回の合計で胸 100〜400 セル。先に構えた腕を斬ってから胸へ入る回が多い）。速い振りは振り抜いた先で自分の腿もかすめる（間合いの遠い 3 回で 8 セルずつ）。自分の傷は、相手に与えた分の 1/10 より少ないことで見る。
+        // 切っ先を目標へ合わせる手首の力（Fighter.DriveBladeTip）で、剣は振りの経路（遅れる剣に合わせて 2026-11-14 に作った斬り抜く経路）どおりに動くようになり、
+        // 7 つの間合いのうち 3 つでは経路が胸の横を通って当たらない。間合いのいくつかで狙った胸を斬ることを見る。
+        Assert.IsGreaterThanOrEqualTo(3, runs.Count(x => x.TargetCells > 0), $"the swings cut the chest they are aimed at, at several ranges ({detail})");
+        Assert.IsLessThanOrEqualTo((target + runs.Sum(x => x.OtherCells)) / 10f, self, $"and cuts itself far less than the opponent ({detail})");
+        Assert.IsGreaterThanOrEqualTo(self, target + runs.Sum(x => x.OtherCells), $"the opponent loses more than yourself ({detail})");
     }
 
     [TestMethod]
@@ -109,7 +111,13 @@ public sealed class SwordTests
         }
 
         Assert.IsNotNull(bot);
-        Assert.IsGreaterThan(1, bot.Used.Distinct().Count(), $"more than one technique is used ({string.Join(",", bot.Used)})");
+        Console.WriteLine($"技 {string.Join(",", bot.Used)}、相手の状態 {game.Cpu.State}、相手のセル {game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount)} / {start}");
+        // 2026-11-25（PhysicsVersion 105）: 剣が実物の重さで振りが速くなり、最初の袈裟で構えて立つ相手が気を失って倒れることがある（そうなるとボットは打つのをやめる:
+        // SwordBot は相手が倒れている間は構えて待つ）。倒れていなければ、間合いに合わせて 2 つ以上の技を使う。
+        if (game.Cpu.State == FighterState.Standing)
+        {
+            Assert.IsGreaterThan(1, bot.Used.Distinct().Count(), $"more than one technique is used ({string.Join(",", bot.Used)})");
+        }
         Assert.IsLessThan(start, game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), "the sword cuts the opponent");
     }
 

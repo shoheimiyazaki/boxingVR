@@ -5,11 +5,11 @@ public static class SwordStance
 {
     /// <summary>
     /// 剣の構え: 足は剣道の構えに近く、右足を半歩前（ボクサーの構えより前後も左右も狭い）、両足のつま先は前、後ろ足のかかとを少し上げる。
-    /// 両手で柄を締めた手首は、片手で棍棒を握るより固い（17.9 Hz。人形の単位で 30 Hz。剣の向きの遅れが半分ほどになる）。
+    /// 両手で柄を締めた手首の固さは、試合の体と同じ握り込んだ手首（<see cref="FighterTuning.GripWristServoHz"/>、Fighter の Arm.Clenched）。
+    /// 2026-11-25 まではここだけ 17.9 Hz にしていた（ドリルと試合で手首が違った）。
     /// </summary>
     public static FighterTuning Tuning { get; } = FighterTuning.Default with
     {
-        WristServoHz = 17.87f,
         Footwork = FighterTuning.Default.Footwork with { StanceLength = 0.38f, StanceWidth = 0.22f, LeadYawDegrees = 0f, RearYawDegrees = -6f, HeelRaiseDegrees = 18f },
     };
 

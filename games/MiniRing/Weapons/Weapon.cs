@@ -148,6 +148,64 @@ public sealed class Weapon
         return hand;
     }
 
+    private readonly List<(object Owner, Hand Hand, WeaponHand Grip)> _gripHands = [];
+
+    /// <summary>
+    /// <see cref="Grids"/> の <paramref name="index"/> 番目が、手に持つ物を握っている拳（<see cref="GripHandFor"/>）の格子か。拳は持ち主の手なので、
+    /// 持ち主の体・持ち主のほかの物とは打ち合わない（素手の拳と同じ）。はめる物の中の手は物の一部として今まで通り。
+    /// </summary>
+    public bool IsHandGrid(int index) => index > 0 && !IsWorn(Kind);
+
+    /// <summary>
+    /// 手に持つ物（<see cref="IsWorn"/> でない）を握る拳の格子（<see cref="GripHand"/>）: 持ち主 <paramref name="owner"/> の手 <paramref name="hand"/> の分。
+    /// 初めて握ったときに空の格子として重ね（<see cref="Hands"/> の終わりへ。以後その手の分はずっと同じ格子）、握っている間だけ組織を置く
+    /// （<see cref="WeaponHand.Fill"/>・<see cref="WeaponHand.Empty"/>）。<paramref name="create"/> が false で、まだ無ければ null。
+    /// </summary>
+    internal WeaponHand? GripHandFor(object owner, Hand hand, bool create)
+    {
+        foreach (var (o, h, grip) in _gripHands)
+        {
+            if (ReferenceEquals(o, owner) && h == hand)
+            {
+                return grip;
+            }
+        }
+
+        if (!create || IsPiece)
+        {
+            return null;
+        }
+
+        if (IsWorn(Kind))
+        {
+            throw new InvalidOperationException($"{Kind} は手にはめる物で、手を中に持っています。");
+        }
+
+        var empty = GripHand.EmptyGrid();
+        var added = AddHand(empty, new BareHandState(), GripHand.CenterLocal(GripOf(Kind).X), GripHand.MassPerCell);
+        added.MarkEmpty();
+        _gripHands.Add((owner, hand, added));
+        return added;
+    }
+
+    /// <summary>
+    /// 素手の拳（<see cref="WeaponKind.Fist"/>）の組織を、台帳 <paramref name="ledger"/>（武器を握っていた手の傷のまま）に置き換える
+    /// （武器を放した手に拳をはめ直す: 手の傷は手と一緒に残る）。素手の拳でなければ何もしない。
+    /// </summary>
+    internal void RestoreHand(BareHandState ledger)
+    {
+        ArgumentNullException.ThrowIfNull(ledger);
+        if (Kind != WeaponKind.Fist || _motion is null)
+        {
+            return;
+        }
+
+        HandState = ledger.WithShape(HandShape.Seiken).Placed(_motion.Pose, out var grid);
+        Body.ReplaceGrid(grid);
+        Volume = VoxelVolume.For(Body.Grid);
+        Body.UpdateMass();
+    }
+
     /// <summary>描画用の 3D テクスチャ。</summary>
     public VoxelVolume Volume { get; private set; }
 
@@ -323,7 +381,10 @@ public sealed class Weapon
     }
 
     /// <summary>折れて飛んだ破片を、同じ種類の武器として包む。</summary>
-    internal static Weapon PieceOf(WeaponKind kind, VoxelBody piece) => new(kind, piece, initializeHand: false);
+    internal static Weapon PieceOf(WeaponKind kind, VoxelBody piece) => new(kind, piece, initializeHand: false) { IsPiece = true };
+
+    /// <summary>折れて飛んだ破片か（格子の座標が元の武器と違い、柄の範囲・握る所の値が当てはまらないので、握る拳は置かない: 球のまま）。</summary>
+    public bool IsPiece { get; private init; }
 
     /// <summary>
     /// 武器を <paramref name="world"/> に置く。質量はボクセルの材質の密度 × 体積の合計（剛体の箱は格子の大きさ）。
@@ -402,6 +463,34 @@ public sealed class Weapon
         WeaponKind.Fist => HandSkeleton.Wrist, // 腕の先が手を握る所（手首）
         WeaponKind.KnuckleDuster or WeaponKind.Katar or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield => HandSkeleton.Wrist - WornBoundsOf(kind, mirrored).Center, // 中の手の手首（腕の先が手を握る点）
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "知らない武器です。"),
+    };
+
+    /// <summary>
+    /// 手に持つ物（はめる物でない: 剣・刀・ロングソード・棍棒・バット・棒・杖）の、握る拳が置ける柄の範囲（ローカル X の最小・最大 [m]）。
+    /// 拳は鍔・刀身へ食い込まない（鍔の手前まで）。柄頭の側は物の端まで（両手で握る長剣の下の手は柄頭を包む）。刃も鍔も無い棍棒・棒は全長。
+    /// </summary>
+    internal static (float Min, float Max) HandleSpanOf(WeaponKind kind) => kind switch
+    {
+        WeaponKind.IronSword => (-SwordHalfLength, GuardFrom),
+        WeaponKind.Katana => (-KatanaHalfLength, KatanaGuardAt - KatanaTsubaHalf),
+        WeaponKind.Longsword => (-LongHalfLength, LongGuardAt - LongGuardHalfThick),
+        WeaponKind.WoodenClub or WeaponKind.Bat => (-ClubHalfLength, ClubHalfLength),
+        WeaponKind.Staff or WeaponKind.Jo => (-RodOf(kind).HalfLength, RodOf(kind).HalfLength),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "手に持つ物だけ（はめる物は手を中に持つ）。"),
+    };
+
+    /// <summary>
+    /// 柄のローカル X = <paramref name="x"/> の所の太さ（軸からの半径 [m]）。握る拳の指はこの外を巻く（<see cref="GripHand"/>）。
+    /// 刀の柄は楕円なので、広い方（刃の向き）の半径。
+    /// </summary>
+    internal static float HandleRadiusAt(WeaponKind kind, float x) => kind switch
+    {
+        WeaponKind.IronSword => GripRadius,
+        WeaponKind.Katana => KatanaGripHalfWidth,
+        WeaponKind.Longsword => LongGripRadius,
+        WeaponKind.WoodenClub or WeaponKind.Bat => ClubGripRadius + ((ClubHeadRadius - ClubGripRadius) * MathF.Pow(Math.Clamp((x + ClubHalfLength) / (2f * ClubHalfLength), 0f, 1f), 2f)),
+        WeaponKind.Staff or WeaponKind.Jo => RodOf(kind).Radius,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "手に持つ物だけ（はめる物は手を中に持つ）。"),
     };
 
     /// <summary>両手で握れる武器か（棍棒・日本刀・ロングソード・棒。片手剣の握りは片手ぶんの長さ）。</summary>
@@ -585,8 +674,13 @@ public sealed class Weapon
     private const float SwordCell = 0.003521f;
     private const float SwordHalfLength = 0.4648f;
     private const float BladeFrom = -0.2817f;
+    // 刃の幅と厚さは実物の片手剣（Oakeshott の型 XIV〜XVIII ほど: 元幅 5 cm・先へ 2.5 cm、元の鎬 6.5 mm・先 3 mm、菱形。全体で 1.0〜1.5 kg）の値
+    // （2026-11-25、docs/plans/FORM_DECAY_STUDY.md。それまでは幅 5.1 cm のまま細らず、鎬 10.6 mm で 1.97 kg あった）。菱形の断面の面積（幅 × 厚さ × 0.5）を
+    // 刀と同じく 1 セルと 3 セルの帯で合わせる（SwordThickBand。3.5 mm のセルでは元でも 1 セル）。
     private const float BladeHalfWidth = 0.02535f;
-    private const float BladeSpine = 0.01056f;
+    private const float BladeTipHalfWidth = 0.0125f;
+    private const float BladeSpine = 0.0065f;
+    private const float BladeTipSpine = 0.003f;
     private const float PointLength = 0.08451f;
     private const float GuardFrom = -0.2986f;
     private const float GuardHalfWidth = 0.05634f;
@@ -608,16 +702,19 @@ public sealed class Weapon
             if (p.X >= BladeFrom)
             {
                 var toPoint = SwordHalfLength - p.X;
-                var width = BladeHalfWidth * MathF.Min(1f, toPoint / PointLength);
+                var along = (p.X - BladeFrom) / (SwordHalfLength - BladeFrom);
+                var width = (BladeHalfWidth + ((BladeTipHalfWidth - BladeHalfWidth) * along)) * MathF.Min(1f, toPoint / PointLength);
                 var across = MathF.Abs(p.Y);
                 if (across > width)
                 {
                     return 0;
                 }
 
-                // 菱形: 鎬から刃先へ厚さが直線で減る。最も薄い所でも 1 セル（中央の列）は残る。
-                var thickness = BladeSpine * (1f - (across / MathF.Max(width, 1e-6f)));
-                return MathF.Abs(p.Z) <= MathF.Max(0.5f * thickness, 0.5f * SwordCell) ? BoxerAnatomy.Iron : (byte)0;
+                // 菱形: 断面の面積が実物（幅 × 鎬の厚さ × 0.5）と同じになるよう、鎬の側の帯だけ 3 セル、ほかは 1 セル（中央の列）。
+                var spine = BladeSpine + ((BladeTipSpine - BladeSpine) * along);
+                var band = Math.Clamp(((0.5f * spine / SwordCell) - 1f) / 2f, 0f, 1f);
+                var cells = across <= band * width ? 1.5f : 0.5f;
+                return MathF.Abs(p.Z) <= cells * SwordCell ? BoxerAnatomy.Iron : (byte)0;
             }
 
             if (p.X >= GuardFrom)
@@ -716,13 +813,22 @@ public sealed class Weapon
     private const float KatanaCell = 0.003521f;
     private const float KatanaHalfLength = 0.4479f;
     private const float KatanaGuardAt = -KatanaHalfLength + 0.2394f;
-    private const float KatanaBladeWidth = 0.02676f;
-    private const float KatanaBack = 0.007042f;
+    // 刀身の幅（身幅）と厚さ（重ね）は実物の値（2026-11-25、docs/plans/FORM_DECAY_STUDY.md）: 元幅 3.1 cm・先幅 2.2 cm、元重ね 7 mm・先重ね 5 mm
+    // （日本刀の標準的な打刀: 刃長 70 cm 前後、元幅 3.0〜3.2 cm、先幅 2.0〜2.3 cm、元重ね 6.5〜7.5 mm、先重ね 4.5〜5.5 mm。刀身だけで 0.8〜0.9 kg、拵え込み 1.1〜1.3 kg）。
+    // 断面は鎬造り: 峰から鎬筋（身幅の 1/3 ほど）までは重ねのまま、鎬筋から刃へ平肉の付いた楔で薄くなるので、面積は 身幅 × 重ね × KatanaSectionShare（約 0.8:
+    // 刃長 70 cm・元幅 3.1・先幅 2.2 cm・元重ね 7・先重ね 5 mm で刀身 0.6 kg、茎・鍔・柄を入れて 1.1 kg）。セルが 3.5 mm なので重ね 7 mm を 2 セルにはできない（格子の Z は奇数で中央の列がある）:
+    // 断面の面積が同じになるように、刃側は 1 セル、峰の側の帯だけ 3 セルにする（帯の幅は面積から出す: KatanaThickBand）。質量と慣性が実物の断面と合う。
+    private const float KatanaMotohaba = 0.031f;
+    private const float KatanaSakihaba = 0.022f;
+    private const float KatanaKasaneBase = 0.007f;
+    private const float KatanaKasaneTip = 0.005f;
+    private const float KatanaSectionShare = 0.8f;
     private const float KatanaSori = 0.0169f;
     private const float KatanaPoint = 0.05634f;
     private const float KatanaTsubaRadius = 0.03662f;
-    private const float KatanaTsubaHalf = 0.003521f;
-    private const float KatanaGripHalfWidth = 0.01268f;
+    // 鍔は厚さ 1 セル（3.5 mm、実物の鉄鍔 4〜6 mm）。直径 7.3 cm で約 0.11 kg（実物の鉄鍔 0.1〜0.15 kg）。2026-11-25 までは 2〜3 セル（7〜10.5 mm）で 0.23〜0.35 kg あった。
+    private const float KatanaTsubaHalf = 0.5f * KatanaCell;
+    private const float KatanaGripHalfWidth = 0.01268f; // 柄は幅 2.5 cm・厚さ 2.0 cm（実物の打刀の柄は 2.8〜3.0 × 2.2〜2.4 cm。太くすると握る拳が柄のそばで止まり、WeaponGraspReach の内に入れず両手で握り直せなかった: WeaponGraspTests、2026-11-25）
     private const float KatanaGripHalfThick = 0.009859f;
 
     // 茎の寸法の根拠（柄の幅 25 mm・厚さ 20 mm に対して）: 実物の刀の茎は刀身の幅を保って柄頭の近くまで通り、
@@ -732,8 +838,15 @@ public sealed class Weapon
     private const float KatanaTangHalfThick = 0.003944f;
 
     /// <summary>
+    /// 刀身の断面のうち 3 セルの厚さにする峰の側の帯の割合（身幅に対して）: 1 セルの厚さの断面 KatanaCell × 身幅 に、帯の 2 セル分を足して、実物の断面の面積
+    /// 身幅 × 重ね × <see cref="KatanaSectionShare"/> に合わせる。元（重ね 7 mm）で 0.30、先（5 mm）で 0.07。
+    /// </summary>
+    private static float KatanaThickBand(float width, float kasane)
+        => Math.Clamp(((KatanaSectionShare * kasane / KatanaCell) - 1f) / 2f, 0f, 1f);
+
+    /// <summary>
     /// 刀身（鍔から先）: 中心線は鍔から切っ先へ放物線で +Y（峰の側）へ反る。幅（Y）は刃（−Y の縁）から峰まで、厚さ（Z）は峰で
-    /// <see cref="KatanaBack"/>、刃先へ向かって 1 セルまで薄くなる楔。切っ先の手前 <see cref="KatanaPoint"/> から刃の側が峰へ向かって
+    /// 峰の側の帯（<see cref="KatanaThickBand"/>）で 3 セル、刃の側は 1 セルの楔（断面の面積を実物に合わせる）。切っ先の手前 <see cref="KatanaPoint"/> から刃の側が峰へ向かって
     /// 丸く削られて尖る。鍔は鉄の円盤、柄は木（柄巻き）の楕円の棒。
     /// </summary>
     private static VoxelGrid Katana()
@@ -745,14 +858,15 @@ public sealed class Weapon
             {
                 var t = (p.X - KatanaGuardAt) / (KatanaHalfLength - KatanaGuardAt);
                 var center = KatanaSori * t * t;
-                var back = center + (0.5f * KatanaBladeWidth);
-                var edge = center - (0.5f * KatanaBladeWidth);
+                var width = KatanaMotohaba + ((KatanaSakihaba - KatanaMotohaba) * t);
+                var back = center + (0.5f * width);
+                var edge = center - (0.5f * width);
                 // 切っ先: 最後の KatanaPoint で、刃の縁が峰へ向かって弧を描いて上がる。
                 var toTip = KatanaHalfLength - p.X;
                 if (toTip < KatanaPoint)
                 {
                     var u = 1f - (toTip / KatanaPoint);
-                    edge += KatanaBladeWidth * (1f - MathF.Sqrt(MathF.Max(0f, 1f - (u * u))));
+                    edge += width * (1f - MathF.Sqrt(MathF.Max(0f, 1f - (u * u))));
                 }
 
                 if (p.Y < edge || p.Y > back)
@@ -761,8 +875,9 @@ public sealed class Weapon
                 }
 
                 var fromEdge = (p.Y - edge) / MathF.Max(1e-6f, back - edge);
-                var thickness = KatanaBack * MathF.Min(1f, fromEdge * 1.6f);
-                return MathF.Abs(p.Z) <= MathF.Max(0.5f * thickness, 0.5f * KatanaCell) ? BoxerAnatomy.Iron : (byte)0;
+                var band = KatanaThickBand(width, KatanaKasaneBase + ((KatanaKasaneTip - KatanaKasaneBase) * t));
+                var cells = fromEdge >= 1f - band ? 1.5f : 0.5f;
+                return MathF.Abs(p.Z) <= cells * KatanaCell ? BoxerAnatomy.Iron : (byte)0;
             }
 
             if (p.X >= KatanaGuardAt - KatanaTsubaHalf)

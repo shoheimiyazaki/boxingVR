@@ -339,9 +339,10 @@ internal static class KickShin
     /// 人形の蹴り 1 本を、蹴る脚の側から真横と斜め前の 2 つの向きで 0.25 倍のスローで撮る。カメラはリングの中（ロープ・柱の内側）に収める。
     /// 1 本目に当たりを調べ（描かない）、2 本目で当たった所の字幕を付けて描く。
     /// </summary>
-    private static void DollShot(Aigis.Render.HeadlessRenderer renderer, System.Diagnostics.Process ffmpeg, Height h, bool rear, string bodyId, string victimId, int width, int height, int fps, float slow)
+    private static void DollShot(Aigis.Render.HeadlessRenderer renderer, System.Diagnostics.Process ffmpeg, Height h, bool rear, string bodyId, string victimId, int width, int height, int fps, float slow,
+        KickTune? tuneOverride = null, string label = "")
     {
-        var tune = KickSpec.Of(h.Technique).TuneFor(rear ? Hand.Right : Hand.Left)!;
+        var tune = tuneOverride ?? KickSpec.Of(h.Technique).TuneFor(rear ? Hand.Right : Hand.Left)!;
         var spec = KickSpec.Of(h.Technique);
         var side = rear ? Hand.Right : Hand.Left;
         var outcome = Kick(h, rear, tune, new Condition(bodyId, victimId, 1));
@@ -379,8 +380,8 @@ internal static class KickShin
                 var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, middle, Vector3.UnitY, 55f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
                 var text = new Aigis.Render.ScreenTextDraw[]
                 {
-                    new($"{h.Name}・{(rear ? "後ろの足（右）" : "前の足（左）")}・{(oblique ? "斜め前" : "真横")}（蹴る人 {bodyId}、受ける人 {victimId}）", new Vector2(40f, 40f), 26f, white, Aigis.Render.TextAnchor.Left),
-                    new($"{t:0.00} s  {slow:0.##} 倍スロー  金の線 = 膝の制御点  間合い {F(tune.Standoff)}・長さ {F(tune.Seconds)} s", new Vector2(40f, 76f), 22f, gold, Aigis.Render.TextAnchor.Left),
+                    new($"{label}{h.Name}・{(rear ? "後ろの足（右）" : "前の足（左）")}・{(oblique ? "斜め前" : "真横")}（蹴る人 {bodyId}、受ける人 {victimId}）", new Vector2(40f, 40f), 26f, white, Aigis.Render.TextAnchor.Left),
+                    new($"{t:0.00} s  {slow:0.##} 倍スロー  金の線 = 膝の制御点  間合い {F(tune.Standoff)}・長さ {F(tune.Seconds)} s・方位のずれ {tune.AzimuthShift * 180f / MathF.PI:0}°・仰角のずれ {tune.ElevationShift * 180f / MathF.PI:0}°", new Vector2(40f, 76f), 22f, gold, Aigis.Render.TextAnchor.Left),
                     new(hitText, new Vector2(40f, height - 40f), 24f, white, Aigis.Render.TextAnchor.Left),
                 };
                 var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),
@@ -391,7 +392,7 @@ internal static class KickShin
     }
 
     /// <summary>ロー・ミドル・ハイ（と前蹴り）を、人の棒人間 → 人形（脚ごと・真横と斜め前）の順に 1 本の mp4 へ。</summary>
-    public static void Video(string dir, string outPath, string bodyId, string victimId, IReadOnlyList<Height> heights, Action<string> log)
+    public static void Video(string dir, string outPath, string bodyId, string victimId, IReadOnlyList<Height> heights, Action<string> log, bool compare = false)
     {
         const int width = 1280, height = 720, fps = 30;
         const float slow = 0.25f;
@@ -410,7 +411,16 @@ internal static class KickShin
             foreach (var rear in new[] { true, false })
             {
                 log($"video {h.Name} {(rear ? "rear" : "front")}");
-                DollShot(renderer, ffmpeg, h, rear, bodyId, victimId, width, height, fps, slow);
+                if (compare)
+                {
+                    // 練習の前（人の動きの手本のまま）と練習の後（組み込みの差分）を続けて撮る（docs/plans/FORM_DECAY_STUDY.md）。
+                    DollShot(renderer, ffmpeg, h, rear, bodyId, victimId, width, height, fps, slow, Baseline(h), "【練習の前】");
+                    DollShot(renderer, ffmpeg, h, rear, bodyId, victimId, width, height, fps, slow, null, "【練習の後】");
+                }
+                else
+                {
+                    DollShot(renderer, ffmpeg, h, rear, bodyId, victimId, width, height, fps, slow);
+                }
             }
         }
 

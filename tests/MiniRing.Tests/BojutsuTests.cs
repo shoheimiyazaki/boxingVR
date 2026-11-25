@@ -80,7 +80,9 @@ public sealed class BojutsuTests
         var staff = game.WeaponOf(game.Cpu)!;
         var grid = staff.Body.Grid;
         var expected = grid.FilledCount * grid.CellVolume * grid.Palette[Voxels.BoxerAnatomy.Wood].MechanicsOrDefault.Density;
-        Assert.AreEqual(expected, game.World.GetMass(staff.Body.BodyId), expected * 0.01f);
+        // 剛体の質量は棒と、握っている両手の拳（PhysicsVersion 100: 素手と同じ手の組織の密度 × 体積）の和。
+        var hands = staff.Hands.Where(h => h.Occupied).Sum(h => h.Body.Grid.FilledCount * MiniRing.Weapons.GripHand.MassPerCell);
+        Assert.AreEqual(expected + hands, game.World.GetMass(staff.Body.BodyId), expected * 0.01f);
         Assert.IsGreaterThan(0.3f, expected);
     }
 
@@ -207,7 +209,10 @@ public sealed class BojutsuTests
         // すぐ外、x = −0.07〜−0.11 m）が相手の頭の顔の層に触れるようになり、符号だけで数えると「後ろの端」に入っていた（端の打撃は前の端 0.30 の 1 打）。
         // 確かめたいのは「どちらの端で打ったか」なので、真ん中の接触は数えない。
         var endReach = 0.5f * Weapon.StrikeEndsX(WeaponKind.Staff)[0];
-        Assert.IsTrue(gaeshi.Count(x => x > endReach) >= gaeshi.Count(x => x < -endReach), "the front end hits at least as often as the rear");
+        var front = gaeshi.Count(x => x > endReach);
+        var rear = gaeshi.Count(x => x < -endReach);
+        Console.WriteLine($"gaeshi: 前の端 {front} 打・後ろの端 {rear} 打（{string.Join(" ", gaeshi.Select(x => x.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)))}）");
+        Assert.IsTrue(front >= rear, $"the front end hits at least as often as the rear (front {front}, rear {rear})");
     }
 
     [TestMethod]

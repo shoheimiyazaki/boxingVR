@@ -10,7 +10,7 @@ internal static class ClawLab
 {
     private const float Dt = 1f / 240f;
     internal readonly record struct Trial(float Drive, float Windup, string Opponent, Hand Hand, int Aim, int Removed, int Crushed, int Arm, int Neck, int Torso, int Hits, float TipSpeed, float PlaneError, bool Standing,
-        bool HeadSeparated, bool ArmSeparated, bool TorsoSeparated)
+        bool HeadSeparated, bool ArmSeparated, bool TorsoSeparated, float StaminaUsed = 0f)
     {
         public bool AimSeparated => Aim switch { 0 => HeadSeparated, 1 => ArmSeparated, _ => TorsoSeparated };
         public int AimRemoved => Aim switch { 0 => Neck, 1 => Arm, _ => Torso };
@@ -33,10 +33,15 @@ internal static class ClawLab
             }
         }
 
-        var best = results.OrderByDescending(r => r.Trials.Count(t => t.Standing && t.AimSeparated))
-            .ThenByDescending(r => r.Trials.Where(t => t.Standing).Sum(t => t.AimRemoved)).First();
-        Write(log, "holdout-baseline", 0.24f, 0.75f, RunSet(validation, 0.24f, 0.75f, moving: true));
-        Write(log, "holdout-selected", best.Drive, best.Windup, RunSet(validation, best.Drive, best.Windup, moving: true));
+        var best = results.OrderByDescending(r => Score(r.Trials)).First();
+        var baseline = RunSet(validation, 0.31f, 1f, moving: true);
+        var selected = RunSet(validation, best.Drive, best.Windup, moving: true);
+        Write(log, "holdout-baseline", 0.31f, 1f, baseline);
+        Write(log, "holdout-selected", best.Drive, best.Windup, selected);
+        // 比べ直しの門（CLAUDE.md §1.8）: 練習に使わなかった相手（動く相手）で、形の代価を引いた点を試行ごとの対で比べる。
+        var result = PairedEvaluation.Compute([.. selected.Select(TrialScore)], [.. baseline.Select(TrialScore)]);
+        log.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"selected {best.Drive:F2} s wind {best.Windup:F2}: holdout score {result.MeanA:F2} vs baseline {result.MeanB:F2} per trial -> {(result.MeanDiff > 0d ? "adopt" : "keep the baseline")} ({result})"));
         return 0;
     }
 
@@ -46,11 +51,20 @@ internal static class ClawLab
             ((c.Seed / 10 + aim) & 1) == 0 ? Hand.Left : Hand.Right, drive, windup, moving)))];
     }
 
+    /// <summary>
+    /// 練習の点（2026-11-25 から形の代価を引く。docs/plans/FORM_DECAY_STUDY.md）: 立っていた試行の、削ったセル / 60（剣のドリルの 1 点 = 60 セル: <c>StrikeResult.Effect</c>）
+    /// − <see cref="FormCost.Of"/>（刃が狙った切断面から外れた距離を「追えなかった距離」、使ったスタミナ）。それまでは削ったセルだけで、面から 20 cm 外れて叩きつける
+    /// 短い振り抜きが選ばれた。
+    /// </summary>
+    private static double Score(Trial[] trials) => trials.Sum(TrialScore);
+
+    private static double TrialScore(Trial t) => !t.Standing ? 0d : (t.Removed / 60d) - FormCost.Of(0d, 100d * t.PlaneError, 0d, t.StaminaUsed);
+
     private static void Write(TextWriter log, string set, float drive, float wind, Trial[] trials)
     {
         log.WriteLine($"  separated: head {trials.Count(t => t.HeadSeparated)}, arm {trials.Count(t => t.ArmSeparated)}, thorax {trials.Count(t => t.TorsoSeparated)}");
         log.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"{set,-17} {drive:F2} s  wind {wind:F2}  removed {trials.Sum(t => t.Removed),5}  cuts {trials.Count(t => t.Removed > 0)}/{trials.Length}  crush {trials.Sum(t => t.Crushed),4}  hits {trials.Sum(t => t.Hits),3}  tip {trials.Average(t => t.TipSpeed):F2} m/s  plane {100f * trials.Average(t => t.PlaneError):F1} cm  standing {trials.Count(t => t.Standing)}/{trials.Length}"));
+            $"{set,-17} {drive:F2} s  wind {wind:F2}  score {Score(trials),6:F2}  stamina {trials.Average(t => t.StaminaUsed):F3}  removed {trials.Sum(t => t.Removed),5}  cuts {trials.Count(t => t.Removed > 0)}/{trials.Length}  crush {trials.Sum(t => t.Crushed),4}  hits {trials.Sum(t => t.Hits),3}  tip {trials.Average(t => t.TipSpeed):F2} m/s  plane {100f * trials.Average(t => t.PlaneError):F1} cm  standing {trials.Count(t => t.Standing)}/{trials.Length}"));
         if (set.StartsWith("holdout", StringComparison.Ordinal))
         {
             foreach (var t in trials)
@@ -98,6 +112,7 @@ internal static class ClawLab
         var trackingSamples = 0;
         var planeError = 0f;
         var madeContact = false;
+        var staminaStart = f.Stamina;
         var hits = 0;
         var removed = 0;
         var crushed = 0;
@@ -159,6 +174,6 @@ internal static class ClawLab
         var armSeparated = Separated(other.Parts.LeftForearm) || Separated(other.Parts.RightForearm);
         var torsoSeparated = Separated(other.Parts.Pelvis);
         return new Trial(drive, windup, opponent, hand, aim, removed, crushed, arms, neck, torso, hits, peak, planeError / Math.Max(1, trackingSamples), f.State == FighterState.Standing,
-            headSeparated, armSeparated, torsoSeparated);
+            headSeparated, armSeparated, torsoSeparated, staminaStart - f.Stamina);
     }
 }

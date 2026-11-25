@@ -268,7 +268,21 @@ public sealed record FighterTuning
     /// <summary>手首の筋肉（手にはめた物: グローブ・素手の拳・トンファー・盾を、向きの目標へ回すサーボ）の固さ [Hz]。握った武器は <see cref="GripWristServoHz"/>。</summary>
     public float WristServoHz { get; init; } = 8.94f;
 
-    /// <summary>手にはめた物を回す最大トルク（TorqueScale 倍する前。肩の 40 の 1/4）。握った武器は <see cref="GripWristMaxTorque"/>。</summary>
+    /// <summary>
+    /// 肩のサーボ（腕の形を作る関節の筋）が出せる最大トルク [N·m]（TorqueScale 倍する前。体格・肉の残りの倍率は <c>Arm.SetStrength</c> が掛ける）。
+    /// 人の肩の等尺性の最大: 屈曲 55〜70・伸展 80〜100・外転 50〜65 N·m（成人男性。Stobbe 1982、Kulig 1984 の総説、Harbo 2012 の基準値）。1 つのサーボで向きを分けないので、
+    /// 弱い向きの屈曲・外転に合わせた 60。2026-11-25 まで 40（実物大へ移す前の値のまま。docs/plans/FORM_DECAY_STUDY.md: 武器を実物の重さにすると、構えた刃が垂れた）。
+    /// 拳を目標へ引く力（<see cref="MaxHandForce"/>）は別にある。
+    /// </summary>
+    public float ShoulderMaxTorque { get; init; } = 60f;
+
+    /// <summary>
+    /// 肘のサーボが出せる最大トルク [N·m]（TorqueScale 倍する前）。人の肘の等尺性の最大: 屈曲 60〜75・伸展 40〜50 N·m（成人男性、肘 90°。Kulig 1984、
+    /// Murray 1995）。1 つのサーボで曲げ・伸ばしを分けないので間の 50。2026-11-25 まで 30（同上）。
+    /// </summary>
+    public float ElbowMaxTorque { get; init; } = 50f;
+
+    /// <summary>手にはめた物を回す最大トルク（TorqueScale 倍する前。人の手首の伸展の最大 7〜10 N·m の上の方）。握った武器は <see cref="GripWristMaxTorque"/>。</summary>
     public float WristMaxTorque { get; init; } = 10f;
 
     /// <summary>手にはめた物の手首のサーボの減衰比（1 = 臨界減衰）。握った武器は <see cref="GripWristDampingRatio"/>。</summary>
@@ -287,14 +301,17 @@ public sealed record FighterTuning
     public float GripWristServoHz { get; init; } = 25f;
 
     /// <summary>
-    /// 両手で持つ武器を 1 本の手で支える手首の最大トルク（TorqueScale 倍する前）。片手の刀は 1/3 で 6.7 N·m（人の手首の屈曲の最大 10〜15 N·m の内）。10 では
-    /// 向きを変えるたびに頭打ちになって揺れが残った（同じ調査で 10 → 20 にして切っ先の揺れ 8 → 4 mm。両手で持つのを分ける前の測り）。
+    /// 柄を握り込んだ手首の、両手の握り全体のトルクの上限（TorqueScale 倍する前）。手ごとには割合を掛ける: 1 本で支えれば <see cref="OneHandWristShare"/> の 1/3 で
+    /// 6.7 N·m、両手の間は <see cref="TwoHandWristShare"/> の半分ずつ 10 N·m（人の手首の屈曲の最大 10〜15 N·m の内）。2026-11-25 に 30 も試した
+    /// （docs/plans/FORM_DECAY_STUDY.md §9）: 実物の重さの刀を VR で片手に持って向きを 40° 変えると、止めた後の振れ戻りが 16.7° → 19.8° に増え、刃の追従は
+    /// 良くならなかった（剣の型の刃筋 33.7 対 34.3°）。経緯: 10 では向きを変えるたびに頭打ちになって揺れが残った（10 → 20 で切っ先の揺れ 8 → 4 mm）。
     /// </summary>
     public float GripWristMaxTorque { get; init; } = 20f;
 
     /// <summary>
-    /// 両手で持つ武器を 1 本の手で支える手首のサーボの減衰比。前腕と武器は肩・肘のバネの先で一緒に揺れるので、臨界より強く減衰させて揺れを吸う
-    /// （1 → 3 で向きを 40° 変えた後の狙いのずれの振れ 4.4° → 1.5°、同じ調査。両手で持つのを分ける前の測り）。
+    /// 柄を握り込んだ手首のサーボの減衰比。前腕と武器は肩・肘のバネの先で一緒に揺れるので、臨界より強く減衰させて揺れを吸う
+    /// （1 → 3 で向きを 40° 変えた後の狙いのずれの振れ 4.4° → 1.5°、両手で持つのを分ける前の測り）。2026-11-25 に 2 も試した（docs/plans/FORM_DECAY_STUDY.md）が、
+    /// 手首を付けたときに両手の割合を掛ける直しの後は 3 で VR の胴をひねった刀の構えの流れが 18 cm（2 では 28 cm）。流れは減衰・固さに対して滑らかでない（WristSlideProbe）。
     /// </summary>
     public float GripWristDampingRatio { get; init; } = 3f;
 
@@ -303,6 +320,26 @@ public sealed record FighterTuning
     /// 2 つの拳が握りの別々の所を押し引きする偶力で武器を支える。片手ではそれが手首 1 本になるので、1/3 にする（ユーザーの指定）。
     /// </summary>
     public float OneHandWristShare { get; init; } = 1f / 3f;
+
+    /// <summary>
+    /// 両手で同じ柄を握り込んでいる間の、手ごとの手首のバネの割合（固さとトルク。周波数は √割合 倍）。握り込んだ手首（<see cref="GripWristServoHz"/>・
+    /// <see cref="GripWristMaxTorque"/>）を両手の握り全体の値とし、2 本の手首で半分ずつ持つ（25 Hz → 17.7 Hz、20 → 10 N·m ずつ）。2026-11-25 まではここを
+    /// はめる物の手首（8.94 Hz・10 N·m）にしていて、刀の刃の向きが打ちの間に遅れた（docs/plans/FORM_DECAY_STUDY.md）。割合 1 ずつ（25 Hz を両手とも）では、
+    /// 両手と武器の閉じた輪の中で固い手首どうしが押し合い、胴をひねった構えで体が 30 cm 滑った（SlideTests）。
+    /// </summary>
+    public float TwoHandWristShare { get; init; } = 0.5f;
+
+    /// <summary>
+    /// 切っ先を目標へ合わせる手首の PD の固有振動数 [Hz]（<c>Fighter.DriveBladeTip</c>。0 で使わない）。切っ先の目標は手の目標の位置と武器の向きの目標から出す。
+    /// 手首のサーボ（向きのバネ、前腕に対する回りで減衰）に足して、切っ先のワールドの速さで減衰させ、腕と刀が一緒に振れるのを抑える。2 Hz・減衰 1.5（docs/plans/FORM_DECAY_STUDY.md §10）: VR で片手に持った実物の重さの刀の振れ戻り 16.7 → 5.0°・垂れ 5.7 → 2.8°。4 Hz では片手剣の横払いが構えた相手に届く間合いの幅が狭くなった（ShieldTests）。
+    /// </summary>
+    public float BladeTipHz { get; init; } = 2f;
+
+    /// <summary>
+    /// 切っ先の PD の減衰比（臨界 = 1）。バネの項も要る: 減衰だけ（手首のサーボの向きのバネに任せる）では、VR で片手に持った刀が向きを変えた後 2 秒たっても
+    /// 5° 以内に入らなかった（§10）。
+    /// </summary>
+    public float BladeTipDampingRatio { get; init; } = 1.5f;
 
     /// <summary>
     /// 両手で握った棒の握りの点を棒に沿って動かす速さの上限 [m/s]（<see cref="Fighter"/> の握りの矛盾の解消）。両手の拳の目標の距離と

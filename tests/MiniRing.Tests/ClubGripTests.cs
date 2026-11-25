@@ -80,7 +80,8 @@ public sealed class ClubGripTests
     public void AWeakWrist_CannotSwingTheClubsInertiaUpright()
     {
         var up = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 2f);
-        using var weak = Armed(s => Guard(Hand.Right, s.ArmReach) with { Orientation = up }, tuning: FighterTuning.Default with { WristMaxTorque = 0.3f });
+        // 2026-11-25（PhysicsVersion 105）: 片手で握る柄は握り込んだ手首（GripWristMaxTorque）で回すので、弱い手首はそちらも弱くする（はめる物の手首と同じ 1/33）。
+        using var weak = Armed(s => Guard(Hand.Right, s.ArmReach) with { Orientation = up }, tuning: FighterTuning.Default with { WristMaxTorque = 0.3f, GripWristMaxTorque = 0.6f });
         Play(weak, 1.678f);
         Assert.IsLessThan(0.5f, Vector3.Dot(ClubAxis(weak), Vector3.UnitY), "a wrist too weak for the club's weight lets it hang");
     }
