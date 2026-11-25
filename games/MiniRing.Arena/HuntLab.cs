@@ -159,6 +159,9 @@ internal static class HuntLab
                 var bot = (game.CpuControl as GroundStriker)?.Inner as BoxerBot;
                 var gap = game.Cpu.ChestPosition - body.ChestPosition;
                 gap.Y = 0f;
+                var cs = game.CpuSense;
+                var neckLocal = cs.Self.WorldToLocal(ClawBot.Aim(cs, 0)) / cs.ArmReach;
+                trace.Write(string.Create(CultureInfo.InvariantCulture, $"  neckAim=({neckLocal.X:0.00},{neckLocal.Y:0.00},{neckLocal.Z:0.00}) reach={cs.ArmReach:0.00}"));
                 trace.Write(string.Create(CultureInfo.InvariantCulture, $"  gap={gap.Length():0.00} strokes={bot?.Stats.Combos.GetValueOrDefault("claw-sweep")} stamina={game.Cpu.Stamina:0.00} hunterY={game.Cpu.ChestPosition.Y:0.00} victimY={body.ChestPosition.Y:0.00}"));
                 trace.WriteLine(string.Create(CultureInfo.InvariantCulture,
                     $"  t={t:0.0} victim={body.State} hunter={game.Cpu.State} plan={g?.CurrentName ?? "-"} started={g?.Started ?? 0} dist={g?.Distance:0.00} sink={g?.Sink:0.00} lethal={Lethality(body):0.00} neck={NeckCut(body, neck0):0.00} conscious={body.Consciousness:0.00} removed={cells0 - Filled(body)}"));

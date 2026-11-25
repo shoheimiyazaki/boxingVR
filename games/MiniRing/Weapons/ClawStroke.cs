@@ -21,6 +21,9 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
     private const float DrawHook = 0.30f;
 
     private const float LoadTime = 0.27f;
+
+    /// <summary>切断面の高さの上限 [腕の長さ、肩から上]: 腕が届く高さ。</summary>
+    private const float MaxHeight = 0.85f;
     public float CutStart => LoadTime + DriveTime * 0.30f;
     public float CutEnd => LoadTime + DriveTime * 0.82f;
     public float Duration => LoadTime + DriveTime + FollowThrough;
@@ -71,7 +74,9 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
         Vector3 root;
         Vector3 axis;
         var z = Math.Clamp(Aim.Z - ClawSegment.Length * 0.56f, -Reach * 0.12f, Reach * 0.86f);
-        var center = new Vector3(Aim.X * 0.80f, Math.Clamp(Aim.Y, -Reach * 0.66f, Reach * 0.48f), z);
+        // 切断面の高さは、腕が届く高さ（肩から腕の長さの 0.85 倍上）まで狙いに合わせる。2026-11-25 までは 0.48 倍で頭打ちにしていて、
+        // 背の高い相手の首（ガルヴァの肩から 0.45〜0.77 倍上）を狙っても刃が肩・胸を通った（huntlab の neckAim）。
+        var center = new Vector3(Aim.X * 0.80f, Math.Clamp(Aim.Y, -Reach * 0.66f, Reach * MaxHeight), z);
         if (Sweep)
         {
             var across = Across;
@@ -98,7 +103,7 @@ public readonly record struct ClawStroke(Hand Hand, float Reach, Vector3 Aim, bo
         var side = Hand.LocalSide();
         var axis = Vector3.Normalize(new Vector3(-side, 0f, 0.35f));
         var behind = Aim.Z + (DrawBehind * Reach * Windup);
-        var level = Math.Clamp(Aim.Y, -Reach * 0.66f, Reach * 0.60f);
+        var level = Math.Clamp(Aim.Y, -Reach * 0.66f, Reach * MaxHeight);
         Vector3 middle;
         if (phase < DrawHook)
         {
