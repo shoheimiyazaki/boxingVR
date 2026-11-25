@@ -108,6 +108,7 @@ try
         "royale" => RoyaleCommand.Run(Options.Parse(argv[1..], "fighters", "count", "seed", "seconds", "rounds", "break", "out", "width", "height", "fps", "replay", "verify", "trace", "teams", "team-names")),
         "simplify" => SimplifyCommand.Run(Options.Parse(argv[1..], "variants", "scenes", "seeds", "seconds", "parallel", "out")),
         "perf" => PerfCommand.Run(Options.Parse(argv[1..], "scene", "seconds", "seeds", "render", "check", "alloc", "out")),
+        "recordbout" => RecordBoutCommand(Options.Parse(argv[1..], "red", "blue", "seconds", "seed", "tv", "out")),
         "version" => Print($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}"),
         "tvdraft" => TvDraftCommand(Options.Parse(argv[1..], "events", "out", "org")),
         "tvmerge" => TvMergeCommand(Options.Parse(argv[1..], "draft", "extras", "out")),
@@ -2449,6 +2450,27 @@ static int TvScoutCommand(Options o)
     // 最後の 2 行は機械が読む（tools/tvshow/tvshow.ps1 が種を選び、どの版の物理・ボットで選んだかを残す）。
     Console.WriteLine($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}");
     Console.WriteLine($"best seed {TvShowRules.Best(results, rounds, roundSeconds, org.Drama).Seed}");
+    return 0;
+}
+
+// ボットどうしの試合を、デスクトップのリプレイで開ける記録（.mrrep）にする（リプレイの機能を今のビルドで試す・見せる）。
+static int RecordBoutCommand(Options o)
+{
+    var red = MiniRing.Bots.BotCatalog.Style(o.Get("red") ?? "champion");
+    var corners = MiniRing.Bots.BotCatalog.Corners(o.Get("blue") ?? "swarmer") with { RedBotStyle = red };
+    var seconds = o.Float("seconds", 60f, 1f);
+    var tv = o.Get("tv") is "1" or "true" or "on";
+    using var game = new MiniRing.BoxingGame(corners: corners.StartingAtCorners(), seed: o.Int("seed", 1), rules: tv ? MiniRing.MatchRules.Tv : null);
+    var path = o.Get("out") ?? Path.Combine("replays", $"bout_{red.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.mrrep");
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+    using (var file = File.Create(path))
+    using (var recorder = new MiniRing.Replay.ReplayRecorder(file, game, "arena"))
+    {
+        var steps = (int)MathF.Round(seconds * 240f);
+        for (var i = 0; i < steps; i++) { recorder.Step(game, default, 1f / 240f); }
+    }
+
+    Console.WriteLine($"{path}: {seconds:0.#} s, {game.RedLabel} {game.PlayerWins} - {game.CpuWins} {game.BlueLabel}");
     return 0;
 }
 
