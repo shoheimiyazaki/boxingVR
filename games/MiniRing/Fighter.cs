@@ -249,7 +249,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 104; // 接触の掃きを軽く（走査の間引き 16・標本 1 セル・掃き直し 2・関節のつなぎなし）、仮の番号（統合役が付け直す）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 104; // 接触の掃きを軽く（走査の間引き 16・掃き直し 2・関節のつなぎなし）、仮の番号（統合役が付け直す）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }

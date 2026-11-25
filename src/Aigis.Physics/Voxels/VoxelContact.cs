@@ -121,8 +121,8 @@ public static class VoxelContact
         set => _sampleSpacingScale.Value = value;
     }
 
-    /// <summary>既定の標本の間隔（セルの 1 倍。2026-11-25 に 0.5 から: 刃の切れ味の境目 75 か所のうち 64 が同じ・ずれは 1 段まで 10・平均の偏り 0、docs/PERFORMANCE.md §7）。</summary>
-    private const float DefaultSampleSpacingScale = 1f;
+    /// <summary>既定の標本の間隔（セルの半分。2026-11-25 に 1 セルを試し、刃の切れ味は保ったが、拳・肘・蹴り・踏みつけの 8 つのテストが崩れたので 0.5 のまま: docs/PERFORMANCE.md §7）。</summary>
+    private const float DefaultSampleSpacingScale = 0.5f;
 
     /// <summary>
     /// 最初の接触を探す走査の間引き（1 = すべての標本を見る。既定は <see cref="DefaultScanStride"/>）。簡素化の測定用（docs/PERFORMANCE.md §7）: k なら k 標本おきに見て、触れたら戻って最初を探す。
