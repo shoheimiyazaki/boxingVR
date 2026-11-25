@@ -537,6 +537,15 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         SplitDisconnectedWeapons();
         ResolveKicks();
         ResolveElbows();
+        foreach (var fighter in Fighters)
+        {
+            // 見えている物質のつながりが切れた所で体を分ける（docs/VOXEL_DAMAGE.md「つながりで分かれる体」）。体に残らなかった臓器は失ったものとして数える。
+            if (fighter.SplitDisconnected() && !fighter.IsDead && fighter.Voxels?.DeathCause() is { } cause)
+            {
+                fighter.Die(cause);
+            }
+        }
+
         var afterStart = StepProfile.Begin();
         DetectGrazes();
         WatchRecoveries();

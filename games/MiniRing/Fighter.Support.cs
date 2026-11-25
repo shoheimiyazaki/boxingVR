@@ -363,8 +363,8 @@ public sealed partial class Fighter
             var hands = (((_handsTouch & 1) != 0 ? 0.5f : 0f) + ((_handsTouch & 2) != 0 ? 0.5f : 0f));
             var chestShare = chestMass / (pelvisMass + chestMass);
             var moved = lift * chestShare * (1f - MathF.Max(hands, feet));
-            _world.ApplyLinearImpulse(Parts.Chest, new Vector3(0f, -moved, 0f));
-            _world.ApplyLinearImpulse(Parts.Pelvis, new Vector3(0f, moved, 0f));
+            BodyImpulse(Parts.Chest, new Vector3(0f, -moved, 0f));
+            BodyImpulse(Parts.Pelvis, new Vector3(0f, moved, 0f));
         }
 
         // 手で床を押して、重心を足の上へ移す（足が着いていて、重心がまだ足の上に無い分だけ）。
@@ -389,7 +389,7 @@ public sealed partial class Fighter
             // 押されて動くのは腰（お尻を足の上へ引く）。手が床を押す反作用は胸へ（腕が胴と床の間で出す力）。
             // 手で押すのは起き上がろうとする体だけ（起き上がる力 ControlScale と、意識の分）。
             var push = accel * ((1f - feet) * ControlScale * Awareness * (SupportedMass - SupportedLegMass) * dt);
-            _world.ApplyLinearImpulse(Parts.Pelvis, new Vector3(push.X, 0f, push.Y));
+            BodyImpulse(Parts.Pelvis, new Vector3(push.X, 0f, push.Y));
         }
     }
 
@@ -530,15 +530,15 @@ public sealed partial class Fighter
     {
         if (UsesHipDrive)
         {
-            _world.ApplyAngularImpulse(Parts.Pelvis, angularImpulse); // 腰から打つ体: 外から起こす・回すねじりは骨盤だけにかかっている
+            BodyTorque(Parts.Pelvis, angularImpulse); // 腰から打つ体: 外から起こす・回すねじりは骨盤だけにかかっている
             return;
         }
 
         var pelvisMass = _world.GetMass(Parts.Pelvis);
         var chestMass = _world.GetMass(Parts.Chest);
         var total = pelvisMass + chestMass;
-        _world.ApplyAngularImpulse(Parts.Pelvis, angularImpulse * (pelvisMass / total));
-        _world.ApplyAngularImpulse(Parts.Chest, angularImpulse * (chestMass / total));
+        BodyTorque(Parts.Pelvis, angularImpulse * (pelvisMass / total));
+        BodyTorque(Parts.Chest, angularImpulse * (chestMass / total));
     }
 }
 

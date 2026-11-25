@@ -262,7 +262,8 @@ public sealed class VrKatanaControlTests
         // 頭は 2 つの格子（14 mm の頭蓋・脳・首と、7 mm の顔の層。どちらも Kind は Head）になった。カメラは頭の中にあるので両方を外す。
         var headLayers = game.Player.Voxels!.Layers.Count(p => p.Kind == BodyPartKind.Head);
         Assert.AreEqual(2, headLayers, "頭 = 頭の格子 + 顔の層");
-        Assert.AreEqual(all - headLayers, hidden, "自分の頭の格子と顔の層だけを描かない（相手の頭は描く）");
+        var neckBridges = game.Player.Voxels.Bridges.Count(b => b.Child.Kind == BodyPartKind.Head);
+        Assert.AreEqual(all - headLayers - neckBridges, hidden, "自分の頭の格子と顔の層・首のつなぎだけを描かない（相手の頭は描く）");
         Assert.AreEqual(checksum, game.StateChecksum(), "描画だけの設定: 試合の状態は変わらない");
         game.HidePlayerHead = false;
         Assert.AreEqual(all, game.BuildVoxelVolumes().Count);

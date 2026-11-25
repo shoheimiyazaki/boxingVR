@@ -624,6 +624,21 @@ public sealed class VoxelBody
         return pieces;
     }
 
+    /// <summary>
+    /// Moves the cells <paramref name="cells"/> (indices of filled cells of this grid, e.g. one of <see cref="VoxelGrid.ConnectedComponents"/>)
+    /// into a new dynamic body, as <see cref="SeverDisconnected"/> does for each piece it breaks off: the same collision filter, the velocity of
+    /// this body at the piece, and the mass of its cells. This body is reshaped to what is left. Null if there is nothing to move.
+    /// </summary>
+    public VoxelBody? SplitOff(IReadOnlyList<int> cells)
+    {
+        if (_owner is not null)
+        {
+            return null;
+        }
+
+        return Grid.Extract(cells) is { } piece ? Detach(piece.Piece, piece.CenterOffset) : null;
+    }
+
     /// <summary>The cells already moved out of this grid into <paramref name="grid"/> (centre <paramref name="centerOffset"/> from the grid's centre) become a new dynamic body that keeps flying as this one was.</summary>
     private VoxelBody? Detach(VoxelGrid grid, Vector3 centerOffset)
     {

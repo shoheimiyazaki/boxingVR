@@ -605,8 +605,11 @@ public sealed partial class Fighter
         var scale = MuscleWork.ForceScale(linear, quadratic, holding, budget);
         SpendMuscleEnergy(arm.Region, (linear * scale) + (quadratic * scale * scale) + (holding * scale));
         arm.LastForce = force * scale;
-        _world.ApplyLinearImpulse(arm.Forearm, force * (scale * dt));
-        _world.ApplyLinearImpulse(Parts.Chest, -((armPart * _tuning.HandReactionShare) + internalPart) * (scale * dt));
+        if (Attached(arm.Forearm, Parts.Chest)) // 拳を引く力と胴への反作用は対で
+        {
+            _world.ApplyLinearImpulse(arm.Forearm, force * (scale * dt));
+            _world.ApplyLinearImpulse(Parts.Chest, -((armPart * _tuning.HandReactionShare) + internalPart) * (scale * dt));
+        }
         if (weightShift && bodyForce.LengthSquared() > 0f)
         {
             ApplySharedImpulse(bodyForce * (scale * dt));

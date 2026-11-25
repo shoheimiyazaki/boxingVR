@@ -186,6 +186,19 @@ public static class BoxingRenderer
             {
                 voxels.Add(fragment.Draw());
             }
+
+            // 関節のつなぎ（関節を曲げて開いた隙間を埋める肉・骨）: 関節がまだつながっている間だけ、今の両側の物質から作って描く（見た目だけ）。
+            // 両側が削れればつなぎも細り、関節が外れれば描かない: 見えている首がつながっていれば、首はつながっている。
+            foreach (var bridge in body.Bridges)
+            {
+                var (parent, child) = (bridge.Parent.Body.BodyId, bridge.Child.Body.BodyId);
+                if (fighter.JointIntact(parent, child) && body.JointHeld(parent, child)
+                    && !(game.HidePlayerHead && ReferenceEquals(fighter, game.Player) && bridge.Child.Kind == BodyPartKind.Head))
+                {
+                    var draw = bridge.View().Draw();
+                    voxels.Add(ReferenceEquals(fighter, game.Player) ? draw with { Opacity = game.PlayerBodyOpacity } : draw);
+                }
+            }
         }
 
         foreach (var weapon in game.Weapons)
