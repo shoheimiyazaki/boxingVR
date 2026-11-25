@@ -165,7 +165,7 @@ internal static class ClawLab
                 var flat = other.ChestPosition - chest;
                 var apart = MathF.Sqrt((flat.X * flat.X) + (flat.Z * flat.Z));
                 trace.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                    $"  t={time:0.00} state={f.State} chestY={chest.Y:0.00} pelvisY={game.World.GetState(f.Parts.Pelvis).Position.Y:0.00} support={f.SupportedMass:0} removed={removed} clawSpeed={state.LinearVelocity.Length():0.0} gap={apart:0.00} pelvisSpin={game.World.GetState(f.Parts.Pelvis).AngularVelocity.Length():0.0}"));
+                    $"  t={time:0.00} state={f.State} chestY={chest.Y:0.00} pelvisY={game.World.GetState(f.Parts.Pelvis).Position.Y:0.00} support={f.SupportedMass:0} removed={removed} clawSpeed={state.LinearVelocity.Length():0.0} gap={apart:0.00} pelvisSpin={game.World.GetState(f.Parts.Pelvis).AngularVelocity.Length():0.0} upright={f.Uprightness:0.00} chestUp={Vector3.Transform(Vector3.UnitY, game.World.GetState(f.Parts.Chest).Orientation):0.00} pelvisUp={Vector3.Transform(Vector3.UnitY, game.World.GetState(f.Parts.Pelvis).Orientation):0.00} cause={f.LastFallCause}"));
             }
         }
 

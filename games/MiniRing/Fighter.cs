@@ -252,7 +252,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 104; // master（握り込んだ手首・切っ先の目標・実物の重さの武器、100）との統合（104）・はめた鎌は片手で刀を支えるのと同じ固めた手首で回す（103）・vfc-royale と six-limbed-alien（ボクセルの接続で首・胴を分離、101）の統合（102）・木を実物の樫（99）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 104; // master（握り込んだ手首・切っ先の目標・実物の重さの武器、100）との統合・体を保つ筋に材質の強さ・足を引く力の仕事を脚の鎖の質量で（104）・はめた鎌は片手で刀を支えるのと同じ固めた手首で回す（103）・vfc-royale と six-limbed-alien（ボクセルの接続で首・胴を分離、101）の統合（102）・木を実物の樫（99）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -3004,7 +3004,7 @@ public sealed partial class Fighter
         var force = ClampLength(FighterMath.HandAccel(kneeNow, velocity, goal, targetVelocity, t.KneeKp, t.KneeKd) * mass,
             t.MaxFootForce * _tuning.TorqueScale / _tuning.Scale * scale * t.KickKneeForceGain);
         // 力は膝の点にかかる（腿の重心まわりのトルクにもなる）。反作用は骨盤へ（脚の筋肉が体と脚の間で出す力）。
-        force = PayLegDrive(leg, leg.Thigh, velocity, force, dt); // 脚の筋肉の仕事はその脚の蓄えから
+        force = PayLegDrive(leg, velocity, force, mass, dt); // 脚の筋肉の仕事はその脚の蓄えから（力が動かす脚の鎖の質量で）
         if (Attached(leg.Thigh, Parts.Pelvis)) // 作用と反作用は対で（片方だけが外れていたら、どちらにも掛けない）
         {
             _world.ApplyLinearImpulse(leg.Thigh, force * dt);
@@ -3108,7 +3108,7 @@ public sealed partial class Fighter
         if (leg.Command is not null)
         {
             // 蹴り・踏み下ろしで足を引く仕事は、その脚の蓄えから払う（歩く足を床に留める力は歩く費用 WalkCost で数える）。
-            force = PayLegDrive(leg, leg.Heel, velocity, force, dt);
+            force = PayLegDrive(leg, velocity, force, mass, dt);
         }
         if (Attached(leg.Heel, pelvisId)) // 作用と反作用は対で
         {
@@ -3395,7 +3395,11 @@ public sealed partial class Fighter
         _uprightIntegral[slot] = (_uprightIntegral[slot] * MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.BalanceIntegralSeconds))) + (error * dt);
         // 腰から打つ体の骨盤: ねじりの力積は骨盤から上の胴全体の慣性で効かせるので、減衰も胴全体の回り（質量の重みの平均の角速度）で見る（骨盤だけの角速度で見ると歩ごとに揺れ返す）。
         var spin = s.AngularVelocity;
-        var accel = (error * _tuning.UprightKp) + (_uprightIntegral[slot] * (_tuning.BalanceKi * _tuning.UprightKp)) - (spin * _tuning.UprightKd);
+        // 傾きを起こすバネは脚と胴の筋が出す: 固さと上限に筋の材質の断面あたりの力（TissuePhysiology.MuscleStress、人は 1）を掛け、減衰は同じ減衰比（√倍）。
+        // 腕の力（MaxHandForce・サーボ）は材質の分だけ強いのに体を立てて保つ筋だけ人のままだと、腕の反作用で胴が倒れる（2026-11-26、ガルヴァの筋 4 倍:
+        // 胴を斬る鎌の振りが相手の腕で止まり、反作用で骨盤ごと 50° 横へ回って倒れた。ClawAimProbe.LongClawTorsoStrokeFall）。ひねりは下で回旋筋の力（TorqueScale）から。
+        var muscle = _tuning.Tissue.MuscleStress;
+        var accel = ((error * _tuning.UprightKp) + (_uprightIntegral[slot] * (_tuning.BalanceKi * _tuning.UprightKp))) * muscle - (spin * (_tuning.UprightKd * MathF.Sqrt(muscle)));
         // 鉛直軸まわり（ひねり）: 回旋筋のトルクから決めたバネ。Kp は可動域の端の誤差でちょうど最大のトルク、減衰比は傾きのバネと同じ。
         // 腰から打つ体の骨盤: 外からのねじりで骨盤から上の胴全体（関節でつながった腹・胸・頭・腕）を起こし・回すので、その合成の慣性で効かせる。
         var hipRoot = UsesHipDrive && body == Parts.Pelvis;
@@ -3411,7 +3415,7 @@ public sealed partial class Fighter
         var yawKd = _tuning.UprightKd / MathF.Sqrt(_tuning.UprightKp) * MathF.Sqrt(yawKp); // 2ζ√Kp（ζ = UprightKd / 2√UprightKp）
         var yaw = (error.Y * yawKp) + (_uprightIntegral[slot].Y * (_tuning.BalanceKi * yawKp)) + ((yawRate - spin.Y) * yawKd);
         var yawLimit = rotatorTorque / MathF.Max(1e-4f, inertia.Y);
-        accel = ClampLength(new Vector3(accel.X, 0f, accel.Z) * scale, _tuning.MaxUprightAccel) + new Vector3(0f, tiltOnly ? 0f : Math.Clamp(yaw * scale * yawVigor, -yawLimit, yawLimit), 0f);
+        accel = ClampLength(new Vector3(accel.X, 0f, accel.Z) * scale, _tuning.MaxUprightAccel * muscle) + new Vector3(0f, tiltOnly ? 0f : Math.Clamp(yaw * scale * yawVigor, -yawLimit, yawLimit), 0f);
         // 加速度を慣性で力積へ（PhysicsWorld.GetLocalInertiaDiagonal の推奨式）。
         var local = Vector3.Transform(accel, Quaternion.Conjugate(s.Orientation));
         var impulse = Vector3.Transform(local * inertia * dt, s.Orientation);

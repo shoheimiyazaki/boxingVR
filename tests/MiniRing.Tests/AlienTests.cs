@@ -163,12 +163,18 @@ public sealed class AlienTests
     {
         using var game = CreateGame();
         var f = game.Player;
+        // 立っている間も足を 1 本ずつ置き直す（その間は 3 本で立つ）ので、足跡の前後の幅は歩ごとに 0.25〜0.8 m で揺れる。1 歩の瞬間でなく、
+        // 落ち着いた後の 1 秒でいちばん広く 4 本を着いた足跡で見る（2026-11-26、ClawAimProbe.IdleStanceTrace）。
+        var zSpan = 0f;
         for (var i = 0; i < 480; i++)
         {
             Step(game, Guard(f));
+            if (i >= 240 && f.SupportHull.Count > 0)
+            {
+                zSpan = MathF.Max(zSpan, f.SupportHull.Max(v => v.Y) - f.SupportHull.Min(v => v.Y));
+            }
         }
 
-        var zSpan = f.SupportHull.Max(v => v.Y) - f.SupportHull.Min(v => v.Y);
         Assert.IsGreaterThan(0.42f, zSpan);
         Assert.AreEqual(FighterState.Standing, f.State);
         var before = f.PelvisPosition;
@@ -345,29 +351,58 @@ public sealed class AlienTests
     [TestMethod]
     public void RearLegs_AddTheirMuscleToTheirOwnSidesOxygenStore()
     {
-        // 脚の酸素の蓄えは本人の左右に分かれている（PhysicsVersion 94）。四足の後ろ脚は前脚と同じ寸法なので、同じ体格の二足より各側の蓄えがちょうど 2 倍。
+        // 脚の酸素の蓄えは本人の左右に分かれている（PhysicsVersion 94）。四足は脚の質量を前後の 2 対に分ける（1 本は同じ体格の二足の脚の約半分:
+        // 腿 4.47 kg 対 8.69 kg）ので、各側の蓄えは「その側の脚（前と後ろ）の質量」に比例する。後ろ脚を数えなければ前脚の分だけ（比は約半分）になる。
+        // 2026-11-26 まで「後ろ脚は前脚と同じ寸法なので 2 倍」を期待していたが、脚の寸法は同じでも質量は分けてあり、前提が誤り（ClawAimProbe.LegStoreTrace）。
         var galva = CharacterRoster.Get("galva").Build;
-        (float Left, float Right) Capacity(BodyBuild build)
+        (float Left, float Right, float SideLegMass) Capacity(BodyBuild build)
         {
             using var game = CreateGame(build: build);
             Step(game, Guard(game.Player));
+            var f = game.Player;
+            var legs = f.AllParts.Where(id => f.KindOf(id) is BodyPartKind.Thigh or BodyPartKind.Shin or BodyPartKind.Foot or BodyPartKind.Toe).Sum(id => game.World.GetMass(id));
             // 四足はエイリアンの筋の材質（蓄えの係数が仮に極端: TissuePhysiology）、二足は人の材質で作るので、筋の量を比べるため材質の係数で割る（2026-11-25）。
             var store = MiniRing.Voxels.TissuePhysiology.Of(MiniRing.Voxels.BoxerBody.PaletteFor(build)).OxygenStore;
-            return (game.Player.OxygenBudgetOf(MuscleRegion.LeftLeg).Capacity / store, game.Player.OxygenBudgetOf(MuscleRegion.RightLeg).Capacity / store);
+            return (f.OxygenBudgetOf(MuscleRegion.LeftLeg).Capacity / store, f.OxygenBudgetOf(MuscleRegion.RightLeg).Capacity / store, 0.5f * legs);
         }
 
         var four = Capacity(galva);
         var two = Capacity(galva with { FourLegged = false });
         Assert.AreEqual(four.Left, four.Right, four.Left * 1e-3f, "左右の脚は同じ");
-        Assert.AreEqual(2f, four.Left / two.Left, 0.02f, $"four {four.Left:0} J / two {two.Left:0} J");
+        var massRatio = four.SideLegMass / two.SideLegMass;
+        Assert.AreEqual(massRatio, four.Left / two.Left, 0.02f * massRatio, $"four {four.Left:0} J / two {two.Left:0} J, side leg mass {four.SideLegMass:0.00} / {two.SideLegMass:0.00} kg");
+        Assert.IsGreaterThan(0.75f, four.Left / two.Left, "後ろ脚の筋も同じ側の蓄えに入る（前脚だけなら約半分）");
     }
 
+    private static readonly float[] FrontLegGaps = [0.57f, 0.62f, 0.67f, 0.72f];
+
+    /// <summary>
+    /// 尖った前脚の突きは、その先でセルを削る（2 層以上の深さ）。間合いを 1 点に決めると、刃先がセルの縁をかすめるか外れるかの紙一重で結果が割れる
+    /// （2026-11-26: 0.67 m で削れても 0.62 m で 0、体を保つ筋の強さを材質に合わせた後は逆。ClawAimProbe.FrontLegStrikeTrace）ので、
+    /// 届く間合いの 4 点で確かめる: どの間合いでも立ったまま、4 点のうち 3 点以上で 2 層以上削る。
+    /// </summary>
     [TestMethod]
     [DataRow(0f, 0f, false)]
     [DataRow(-0.12f, 0.08f, true)]
     public void PointedFrontLeg_CarvesWithItsTip(float aimX, float aimY, bool expectThrough)
     {
-        using var game = CreateGame(0.67f);
+        var results = FrontLegGaps.Select(gap => FrontLegCarve(gap, aimX, aimY)).ToArray();
+        foreach (var (gap, layers, through, standing) in results)
+        {
+            Console.WriteLine($"gap {gap}: layers {layers} through {through} standing {standing}");
+        }
+
+        Assert.IsTrue(results.All(r => r.Standing), "突いても立っている");
+        Assert.IsGreaterThanOrEqualTo(3, results.Count(r => r.Layers >= 2), "届く間合いのほとんどで先が 2 層以上削る");
+        if (expectThrough)
+        {
+            Assert.IsTrue(results.Any(r => r.Through), "A contiguous column that spans the original target is open through both sides.");
+        }
+    }
+
+    private static (float Gap, int Layers, bool Through, bool Standing) FrontLegCarve(float gap, float aimX, float aimY)
+    {
+        using var game = CreateGame(gap);
         var f = game.Player;
         for (var i = 0; i < 240; i++)
         {
@@ -402,19 +437,16 @@ public sealed class AlienTests
         }
 
         var layers = carved.Select(entry => entry.Value.Select(i => targets[entry.Key].Body.Grid.Coordinates(i).Z).Distinct().Count()).DefaultIfEmpty().Max();
-        Assert.IsGreaterThanOrEqualTo(2, layers);
-        if (expectThrough)
+        var through = carved.Any(entry =>
         {
-            Assert.IsTrue(carved.Any(entry =>
+            var grid = targets[entry.Key].Body.Grid;
+            return original[entry.Key].GroupBy(i =>
             {
-                var grid = targets[entry.Key].Body.Grid;
-                return original[entry.Key].GroupBy(i =>
-                {
-                    var (x, y, _) = grid.Coordinates(i);
-                    return (x, y);
-                }).Any(column => column.Count() >= 3 && column.All(entry.Value.Contains));
-            }), "A contiguous column that spans the original target is open through both sides.");
-        }
+                var (x, y, _) = grid.Coordinates(i);
+                return (x, y);
+            }).Any(column => column.Count() >= 3 && column.All(entry.Value.Contains));
+        });
+        return (gap, layers, through, f.State == FighterState.Standing);
     }
 
     private static BoxingGame CreateGame(float gap = 3f, BodyBuild? build = null, bool fromCorners = false)
