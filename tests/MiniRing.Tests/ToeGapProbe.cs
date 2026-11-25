@@ -120,4 +120,70 @@ public sealed class ToeGapProbe
             lastToe = toe;
         }, tuning: FighterTuning.Default with { ToeHingeHz = 45f });
     }
+
+    [TestMethod]
+    [TestCategory("Probe")]
+    public void StandingStill()
+    {
+        foreach (var (hz, zeta) in new[] { (10.72f, 1f), (45f, 1f) })
+        {
+            using var game = new BoxingGame(FighterTuning.Default with { ToeHingeHz = hz }, seed: 1, corners: new BoxingCorners("still", _ => new StandGuard(), _ => new StandGuard()));
+            var me = game.Player;
+            var start = me.PelvisPosition with { Y = 0f };
+            double toeSpin = 0, heelSpin = 0;
+            var n = 0;
+            for (var i = 0; i < 240 * 10; i++)
+            {
+                game.Step(default, 1f / 240f);
+                if (i > 480)
+                {
+                    foreach (var foot in new[] { 0, 1 })
+                    {
+                        toeSpin += game.World.GetState(me.ToeId(foot)).AngularVelocity.LengthSquared();
+                        heelSpin += game.World.GetState(me.HeelId(foot)).AngularVelocity.LengthSquared();
+                        n++;
+                    }
+                }
+            }
+
+            Console.WriteLine($"つま先 {hz:0} Hz・減衰 {zeta:0}: 骨盤の流れ {(new Vector3(me.PelvisPosition.X, 0f, me.PelvisPosition.Z) - start).Length() * 100f:0.0} cm、踏み直し {me.Footwork.Steps}、つま先の回りの速さ RMS {Math.Sqrt(toeSpin / n):0.00} rad/s、かかと {Math.Sqrt(heelSpin / n):0.00} rad/s");
+        }
+    }
+
+    [TestMethod]
+    [TestCategory("Probe")]
+    public void KnockedDownRecovery()
+    {
+        foreach (var hz in new[] { 10.72f, 45f })
+        {
+            var rows = new List<string>();
+            foreach (var seed in new[] { 1, 2, 3, 4, 5, 6 })
+            {
+                var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
+                using var game = new BoxingGame(FighterTuning.Default with { ToeHingeHz = hz }, seed: seed, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
+                const float dt = 1f / 240f;
+                for (var t = 0f; t < 2.518f; t += dt)
+                {
+                    game.Step(default, dt);
+                }
+
+                var cpu = game.Cpu;
+                DamageModelTests.Hit(game, cpu, DamageModelTests.Chin(cpu), mass: 12f, speed: 3.692f);
+                var peak = 0f;
+                var upAt = -1f;
+                var downAt = -1f;
+                for (var t = 0f; t < 26.85f; t += dt)
+                {
+                    game.Step(default, dt);
+                    peak = MathF.Max(peak, cpu.Concussion);
+                    downAt = downAt < 0f && cpu.State == FighterState.Down ? t : downAt;
+                    upAt = downAt >= 0f && upAt < 0f && cpu.State == FighterState.Standing ? t : upAt;
+                }
+
+                rows.Add($"種 {seed}: 脳しんとうの最大 {peak:0.00}・起き上がり {upAt:0.0} s");
+            }
+
+            Console.WriteLine($"つま先 {hz:0} Hz: " + string.Join(" / ", rows));
+        }
+    }
 }

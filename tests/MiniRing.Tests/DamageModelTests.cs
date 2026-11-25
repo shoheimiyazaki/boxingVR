@@ -51,42 +51,55 @@ public sealed class DamageModelTests
     [TestMethod]
     public void AKnockedDownFighter_GetsUpOnceHisHeadClears()
     {
-        var (game, cpu) = NewGame();
-        using (game)
+        // 意識が 0 のまま StillKoSeconds 動かないほど深い 1 発はその場で K.O. になるので、倒れても意識が少し残る 1 発で、
+        // もがきながら起き上がるまでを見る（2026-11-20 実物大へ: 質量 ×10・速さ ×1.678・時間 ×1.678。下の経緯の数字は人形の単位）。
+        // 2026-11-18（PhysicsVersion 45）: 脳しんとうの係数 ConcussionGain を 100 倍にした（体が運ぶ運動量を体自身の動きの分だけにしたので、
+        // 試合の拳で頭をねじる運動量が約 1/7〜1/25 になった）。ここで当てる 1 発はテストが直接決める乗る質量なので、同じ脳しんとうの深さに
+        // 合わせて質量を 4.5 kg → 0.7 kg にした（脳しんとうは運動量の 2 乗にほぼ比例）。測った数字（GetUpScanProbe。0.7 kg × 2.1 m/s は脳しんとう 0.90・4.2 秒で起き上がり、0.65 kg × 2.1 は 0.68 で倒れない）:
+        // 版 43: 4.5 kg × 2.1 m/s で脳しんとう 1.15・0.20 秒でダウン・6.75 秒で起き上がり・意識 0.97。
+        // いま: 4.5 kg × 2.1 では脳しんとう 114.7 で意識 0 のまま（起き上がらない）。0.7 kg × 2.2 m/s で脳しんとう 1.09・0.23 秒でダウン・5.94 秒で起き上がり。
+        // （いまの試合の拳に乗る質量は腕 0.3〜0.4 kg ＋ 体の分でせいぜい 1 kg なので、0.7 kg は強い 1 発の質量）。
+        // 2026-11-19（PhysicsVersion 60）: 脳しんとうを 1 つの値（頭の回転の速さ ÷ ConcussionSpin 40 rad/s の 2 乗）にした。前の拳の係数 0.0035 の約 1/5.6 なので、
+        // 同じ深さの脳しんとうに合わせて体の分の質量（0.7 − 腕 0.33 kg）を √5.6 倍にし、1.2 kg にした（脳しんとうは体の分の運動量の 2 乗に比例）。
+        // 2026-11-25（PhysicsVersion 106、つま先の蝶番を固くした）: 同じ 1 発でも、倒れるときに頭が床を打つ強さで脳しんとうが 1.3〜5.6 まで変わり、深いと
+        // 10 カウントまでに起き上がれない（種 1〜6 で、前のつま先では 3 つ、固いつま先では 2 つが起き上がらない。ToeGapProbe.KnockedDownRecovery）。
+        // 種 1 の 1 回は前のつま先でたまたま起き上がっていた。倒れ方は種で変わるので、6 つの種のうち半分以上が「しばらく倒れていて、意識が戻ると起き上がる」ことを見る。
+        var risen = 0;
+        var detail = new List<string>();
+        foreach (var seed in new[] { 1, 2, 3, 4, 5, 6 })
         {
-            // 意識が 0 のまま StillKoSeconds 動かないほど深い 1 発はその場で K.O. になるので、倒れても意識が少し残る 1 発で、
-            // もがきながら起き上がるまでを見る（2026-11-20 実物大へ: 質量 ×10・速さ ×1.678・時間 ×1.678。下の経緯の数字は人形の単位）。
-            // 2026-11-18（PhysicsVersion 45）: 脳しんとうの係数 ConcussionGain を 100 倍にした（体が運ぶ運動量を体自身の動きの分だけにしたので、
-            // 試合の拳で頭をねじる運動量が約 1/7〜1/25 になった）。ここで当てる 1 発はテストが直接決める乗る質量なので、同じ脳しんとうの深さに
-            // 合わせて質量を 4.5 kg → 0.7 kg にした（脳しんとうは運動量の 2 乗にほぼ比例）。測った数字（GetUpScanProbe。0.7 kg × 2.1 m/s は脳しんとう 0.90・4.2 秒で起き上がり、0.65 kg × 2.1 は 0.68 で倒れない）:
-            // 版 43: 4.5 kg × 2.1 m/s で脳しんとう 1.15・0.20 秒でダウン・6.75 秒で起き上がり・意識 0.97。
-            // いま: 4.5 kg × 2.1 では脳しんとう 114.7 で意識 0 のまま（起き上がらない）。0.7 kg × 2.2 m/s で脳しんとう 1.09・0.23 秒でダウン・5.94 秒で起き上がり。
-            // （いまの試合の拳に乗る質量は腕 0.3〜0.4 kg ＋ 体の分でせいぜい 1 kg なので、0.7 kg は強い 1 発の質量）。
-            // 2026-11-19（PhysicsVersion 60）: 脳しんとうを 1 つの値（頭の回転の速さ ÷ ConcussionSpin 40 rad/s の 2 乗）にした。前の拳の係数 0.0035 の約 1/5.6 なので、
-            // 同じ深さの脳しんとうに合わせて体の分の質量（0.7 − 腕 0.33 kg）を √5.6 倍にし、1.2 kg にした（脳しんとうは体の分の運動量の 2 乗に比例）。
-            Hit(game, cpu, Chin(cpu), mass: 12f, speed: 3.692f);
-            Console.WriteLine($"concussion {cpu.Concussion:0.00}");
-            var downAt = -1f;
-            var upAt = -1f;
-            for (var t = 0f; t < 26.85f; t += Dt)
+            var (game, cpu) = NewGame(seed);
+            using (game)
             {
-                game.Step(default, Dt);
-                if (downAt < 0f && cpu.State == FighterState.Down)
+                Hit(game, cpu, Chin(cpu), mass: 12f, speed: 3.692f);
+                var downAt = -1f;
+                var upAt = -1f;
+                for (var t = 0f; t < 26.85f; t += Dt)
                 {
-                    downAt = t;
+                    game.Step(default, Dt);
+                    if (downAt < 0f && cpu.State == FighterState.Down)
+                    {
+                        downAt = t;
+                    }
+
+                    if (downAt >= 0f && upAt < 0f && cpu.State == FighterState.Standing)
+                    {
+                        upAt = t;
+                    }
                 }
 
-                if (downAt >= 0f && upAt < 0f && cpu.State == FighterState.Standing)
+                detail.Add($"seed {seed}: down at {downAt:0.00}s, standing again at {upAt:0.00}s, consciousness {cpu.Consciousness:0.00}");
+                Assert.IsGreaterThanOrEqualTo(0f, downAt, $"knocked down (seed {seed})");
+                if (upAt > 0f)
                 {
-                    upAt = t;
+                    Assert.IsGreaterThan(downAt + 2.518f, upAt, $"stays down for a while (seed {seed})");
+                    risen++;
                 }
             }
-
-            Console.WriteLine($"down at {downAt:0.00}s, standing again at {upAt:0.00}s, consciousness {cpu.Consciousness:0.00}");
-            Assert.IsGreaterThanOrEqualTo(0f, downAt, "knocked down");
-            Assert.IsGreaterThan(downAt + 2.518f, upAt, "stays down for a while");
-            Assert.IsTrue(upAt > 0f, "and gets back up once conscious again");
         }
+
+        Console.WriteLine(string.Join(Environment.NewLine, detail));
+        Assert.IsGreaterThanOrEqualTo(3, risen, $"and gets back up once conscious again, in at least half of the falls ({string.Join("; ", detail)})");
     }
 
     [TestMethod]
@@ -171,11 +184,11 @@ public sealed class DamageModelTests
     }
 
     /// <summary>打たず守らない 2 人のボットで、立って落ち着いた試合。</summary>
-    internal static (BoxingGame Game, Fighter Cpu) NewGame()
+    internal static (BoxingGame Game, Fighter Cpu) NewGame(int seed = 1)
     {
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         var corners = new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s));
-        var game = new BoxingGame(seed: 1, corners: corners);
+        var game = new BoxingGame(seed: seed, corners: corners);
         for (var t = 0f; t < 2.518f; t += Dt)
         {
             game.Step(default, Dt);
