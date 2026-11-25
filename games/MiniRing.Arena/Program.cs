@@ -7,6 +7,22 @@ using MiniRing.Bots;
 // コマンドを足したら、下の switch と Usage.txt の両方に足す（ArenaUsageTests が確かめる）。
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 var argv = args.Length == 0 ? ["league"] : args;
+// 簡素化の測定（docs/PERFORMANCE.md §7）: どのコマンドにも、物理の既定を環境変数で渡せる（この処理と、その後に始める並列の流れに効く）。
+if (Environment.GetEnvironmentVariable("MINIRING_SAMPLE") is { Length: > 0 } sampleText)
+{
+    Aigis.Physics.Voxels.VoxelContact.SampleSpacingScale = float.Parse(sampleText, System.Globalization.CultureInfo.InvariantCulture);
+}
+
+if (Environment.GetEnvironmentVariable("MINIRING_SCAN") is { Length: > 0 } scanText)
+{
+    Aigis.Physics.Voxels.VoxelContact.ScanStride = int.Parse(scanText, System.Globalization.CultureInfo.InvariantCulture);
+}
+
+if (Environment.GetEnvironmentVariable("MINIRING_HZ") is { Length: > 0 } hzText)
+{
+    MiniRing.BoxingGame.DefaultSubstepRate = float.Parse(hzText, System.Globalization.CultureInfo.InvariantCulture);
+}
+
 var command = argv[0];
 try
 {

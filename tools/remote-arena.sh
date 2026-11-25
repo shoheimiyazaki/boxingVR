@@ -14,12 +14,14 @@ OUT=${1:?usage: remote-arena.sh <out.md> [--host H] [--rev X] -- <arena args wit
 shift
 HOST=tower32
 ARGS=
+ENVS=()
 REV=HEAD
 while [ $# -gt 0 ]; do
   case "$1" in
     --host) HOST="$2"; shift 2 ;;
     --) shift; ARGS="$*"; break ;;
     --rev) REV="$2"; shift 2 ;;
+    --env) ENVS+=("$2"); shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -45,6 +47,7 @@ git branch -D rt-perf-send >/dev/null
   echo 'git checkout -q -f --detach refs/rt/incoming || exit /b 5'
   echo 'git clean -fdq'
   echo 'del /q %R%\perf.md 2>nul'
+  for e in "${ENVS[@]}"; do echo "set $e"; done
   echo 'dotnet build games\MiniRing.Arena -c Release -nologo -v q > %R%\build.log 2>&1 || exit /b 6'
   echo "dotnet games\MiniRing.Arena\bin\Release\net10.0\miniring-arena.dll $ARGS --out %R%\perf.md > %R%\run.log 2>&1"
   echo 'exit /b 0'
