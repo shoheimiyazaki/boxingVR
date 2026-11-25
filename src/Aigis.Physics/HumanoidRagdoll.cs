@@ -736,7 +736,9 @@ public static partial class HumanoidRagdoll
         Parts parts,
         float frequency = 15f,
         float anklePitchMaxForce = 100f,
-        float kneeMaxForce = 100f)
+        float kneeMaxForce = 100f,
+        int? leftHipParent = null,
+        int? rightHipParent = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         if (frequency <= 0f || !float.IsFinite(frequency))
@@ -756,8 +758,8 @@ public static partial class HumanoidRagdoll
         // 15Hz default is stiff -- it follows setpoint jitter faithfully (the ServoBench jit_gain),
         // which the balance track can lower to soften the servos without touching maxForce (holding
         // strength). Walk callers keep 15Hz via the default.
-        var leftHip = world.AddAngularServo(parts.Pelvis, parts.LeftThigh, Quaternion.Identity, frequency: frequency, maxForce: 120f);
-        var rightHip = world.AddAngularServo(parts.Pelvis, parts.RightThigh, Quaternion.Identity, frequency: frequency, maxForce: 120f);
+        var leftHip = world.AddAngularServo(leftHipParent ?? parts.Pelvis, parts.LeftThigh, Quaternion.Identity, frequency: frequency, maxForce: 120f);
+        var rightHip = world.AddAngularServo(rightHipParent ?? parts.Pelvis, parts.RightThigh, Quaternion.Identity, frequency: frequency, maxForce: 120f);
         var leftKnee = world.AddTwistServo(parts.LeftThigh, parts.LeftShin, XAxisTwistBasis, XAxisTwistBasis, 0f, frequency: frequency, maxForce: kneeMaxForce);
         var rightKnee = world.AddTwistServo(parts.RightThigh, parts.RightShin, XAxisTwistBasis, XAxisTwistBasis, 0f, frequency: frequency, maxForce: kneeMaxForce);
         // The ankle roll axis remains passive (AnkleJoint's spring/damper), but pitch must hold the

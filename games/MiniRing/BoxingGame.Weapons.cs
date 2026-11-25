@@ -1549,7 +1549,9 @@ public sealed partial class BoxingGame
                             if (_beforeStep.TryGetValue(part.Body.BodyId, out var partBefore) && MayTouch(kicker.Body, kickerBefore, part.Body, partBefore))
                             {
                                 // 脚の後ろの体の質量は、同じ剛体の格子のうち打撃を止めた層（顔の層 → 頭蓋骨）までが受ける（顔の肉を潰し抜けた打撃は頭蓋骨にも運ぶ）。
-                                var hit = VoxelContact.Resolve(kicker.Body, kickerBefore, part.Body, partBefore, massBehindA: part.Body.BodyId == pushedBody ? 0f : behind);
+                                var drive = attacker.DistalKickDrive(side, kicker.Body.BodyId);
+                                var hit = VoxelContact.Resolve(kicker.Body, kickerBefore, part.Body, partBefore,
+                                    driveA: drive, massBehindA: part.Body.BodyId == pushedBody ? 0f : behind);
                                 pushedBody = hit.Touched && hit.Stopped ? part.Body.BodyId : pushedBody;
                                 Kick(attacker, side, victim, kicker, part, hit);
                             }

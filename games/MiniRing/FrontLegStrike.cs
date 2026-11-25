@@ -15,7 +15,7 @@ public sealed class FrontLegStrike
     public static Vector3 Aim(in FighterSense sense)
     {
         var hip = sense.OpponentBody == default ? sense.OpponentChest : sense.OpponentBody.Pelvis;
-        return hip - Vector3.UnitY * (sense.SelfLeg(Hand.Left).Shin * 0.55f);
+        return hip - Vector3.UnitY * (sense.SelfLeg(Hand.Left).Shin * 0.20f);
     }
 
     public static Hand? Choose(in FighterSense sense, Vector3 aimWorld)
@@ -39,15 +39,24 @@ public sealed class FrontLegStrike
         var rest = leg.Hip + new Vector3(0f, -0.92f, 0.10f) * length;
         var chamber = leg.Hip + new Vector3(side.LocalSide() * (sweep ? 0.38f : 0.08f), -0.53f, 0.14f) * length;
         var approach = aim - leg.Hip;
-        var distance = approach.Length();
-        var reach = length * 0.98f;
-        var end = leg.Hip + (distance > 1e-6f ? approach * (MathF.Min(distance + 0.15f * length, reach) / distance) : Vector3.UnitZ * reach);
+        var thrust = !sweep && leg.AnkleToTip != Vector3.Zero;
+        var foot = Quaternion.CreateFromAxisAngle(Vector3.UnitX,
+            thrust ? -MathF.Atan2(MathF.Max(0.01f, approach.Z), -approach.Y) : -0.38f);
+        var toTip = thrust ? Vector3.Transform(leg.AnkleToTip, foot) : Vector3.Zero;
+        var ankleApproach = approach - toTip;
+        var distance = ankleApproach.Length();
+        var reach = length * (thrust ? 0.995f : 0.98f);
+        var overrun = length * (thrust ? 0.38f : 0.15f);
+        var end = leg.Hip + (distance > 1e-6f ? ankleApproach * (MathF.Min(distance + overrun, reach) / distance) : Vector3.UnitZ * reach);
         var t = Math.Clamp(phase, 0f, 1f);
         static float Smooth(float x) => x * x * (3f - (2f * x));
+        var extensionEnd = thrust ? 0.50f : 0.55f;
+        var returnStart = thrust ? 0.73f : extensionEnd;
         var target = t < 0.28f ? Vector3.Lerp(rest, chamber, Smooth(t / 0.28f))
-            : t < 0.55f ? Vector3.Lerp(chamber, end, Smooth((t - 0.28f) / 0.27f))
-            : Vector3.Lerp(end, rest, Smooth((t - 0.55f) / 0.45f));
-        return new LegCommand(target, Orientation: Quaternion.CreateFromAxisAngle(Vector3.UnitX, -0.38f));
+            : t < extensionEnd ? Vector3.Lerp(chamber, end, Smooth((t - 0.28f) / (extensionEnd - 0.28f)))
+            : t < returnStart ? end : Vector3.Lerp(end, rest, Smooth((t - returnStart) / (1f - returnStart)));
+        var extension = thrust ? Math.Clamp((t - 0.13f) / 0.25f, 0f, 1f) * Math.Clamp((1f - t) / (1f - returnStart), 0f, 1f) : 1f;
+        return new LegCommand(target, Orientation: Quaternion.Slerp(Quaternion.Identity, foot, extension));
     }
 
     public FighterCommand Read(FighterCommand basis, in FighterSense sense, bool pressed, bool sweep, float dt)

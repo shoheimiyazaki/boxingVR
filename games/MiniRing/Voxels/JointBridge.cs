@@ -2,6 +2,7 @@ using System.Numerics;
 using Aigis.Foundation.Voxels;
 using Aigis.Physics;
 using Aigis.Physics.Voxels;
+using Aigis.Render.Voxels;
 
 namespace MiniRing.Voxels;
 
@@ -206,23 +207,7 @@ internal sealed class JointBridge
                         continue;
                     }
 
-                    byte material = 0;
-                    var sp = (Layer: -1, Cell: -1);
-                    var sc = (Layer: -1, Cell: -1);
-                    if (!FilledIn(ParentLayers, center, parentOffsets, null) && !FilledIn(ChildLayers, center, null, toChildLayers))
-                    {
-                        sp = Nearest(ParentLayers, center, parentOffsets, null, reach);
-                        sc = Nearest(ChildLayers, center, null, toChildLayers, reach);
-                        if (sp.Cell >= 0 && sc.Cell >= 0)
-                        {
-                            var gridA = ParentLayers[sp.Layer].Body.Grid;
-                            var gridB = ChildLayers[sc.Layer].Body.Grid;
-                            var a = gridA.MaterialAt(sp.Cell);
-                            var b = gridB.MaterialAt(sc.Cell);
-                            material = HaloMaterial(ParentLayers[0].Body.Grid, center + parentOffsets[0]) is var halo and not 0 ? halo
-                                : StrengthOf(gridA, a) >= StrengthOf(gridB, b) ? a : b;
-                        }
-                    }
+                    var (material, sp, sc) = Join(center, parentOffsets, toChildLayers, reach);
 
                     _sourceParent[i] = sp;
                     _sourceChild[i] = sc;
@@ -238,6 +223,105 @@ internal sealed class JointBridge
 
         _activeCells = active;
         return active > 0;
+    }
+
+    /// <summary>
+    /// つなぎの座標の点 <paramref name="center"/> のセルが関節の組織か: 親にも子にも埋まったセルが無く、親のセルも子のセルも <see cref="Reach"/> 以内に
+    /// あれば、その材質（まわりがあればその組織、無ければ近い 2 つのうち強い方）と、つないでいる親・子のセル。組織でなければ材質 0。
+    /// </summary>
+    private (byte Material, (int Layer, int Cell) Parent, (int Layer, int Cell) Child) Join(Vector3 center, Vector3[] parentOffsets, Matrix4x4[] toChildLayers, float reach)
+    {
+        if (FilledIn(ParentLayers, center, parentOffsets, null) || FilledIn(ChildLayers, center, null, toChildLayers))
+        {
+            return (0, (-1, -1), (-1, -1));
+        }
+
+        var sp = Nearest(ParentLayers, center, parentOffsets, null, reach);
+        var sc = Nearest(ChildLayers, center, null, toChildLayers, reach);
+        if (sp.Cell < 0 || sc.Cell < 0)
+        {
+            return (0, sp, sc);
+        }
+
+        var gridA = ParentLayers[sp.Layer].Body.Grid;
+        var gridB = ChildLayers[sc.Layer].Body.Grid;
+        var a = gridA.MaterialAt(sp.Cell);
+        var b = gridB.MaterialAt(sc.Cell);
+        var material = HaloMaterial(ParentLayers[0].Body.Grid, center + parentOffsets[0]) is var halo and not 0 ? halo
+            : StrengthOf(gridA, a) >= StrengthOf(gridB, b) ? a : b;
+        return (material, sp, sc);
+    }
+
+    private VoxelPart? _view;
+    private Matrix4x4[]? _viewPose;
+    private int[]? _viewGeometry;
+
+    /// <summary>
+    /// 描くためのつなぎ（見た目だけ。試合の計算に入らない）: 今の姿勢の 2 つの部位の格子から、つなぎの全部のセルの組織を、当たりに使う格子とは
+    /// 別の格子に作る（<see cref="Refresh"/> と同じ式で組織のセルを決め、色は親の近いセルの材質。刃が断ったセル（<see cref="Sever"/>）は空のまま）。関節を曲げて開いた隙間を、肉・骨の
+    /// 色のボクセルが埋めて見える。両側の物質が削れればつなぎも細り、どちらかが無くなれば消える。描くたびに呼ぶ。
+    /// </summary>
+    public VoxelPart View()
+    {
+        var grid = Body.Grid;
+        if (_view is null)
+        {
+            var empty = new VoxelGrid(grid.Palette, grid.HalfExtents, grid.Dimensions, static (_, _) => 0);
+            _view = new VoxelPart(Child.Kind, new VoxelBody(Body.World, Body.BodyId, empty, Body.GridCenterLocal) { Massless = true }, VoxelVolume.For(empty), null, false);
+        }
+
+        var view = _view.Body.Grid;
+        var parentGrid = Parent.Body.Grid;
+        var reach = Reach * MathF.Max(parentGrid.CellSize.X, MathF.Max(parentGrid.CellSize.Y, parentGrid.CellSize.Z));
+        var toWorld = Body.GridToWorld();
+        var toChildLayers = new Matrix4x4[ChildLayers.Count];
+        for (var l = 0; l < toChildLayers.Length; l++)
+        {
+            Matrix4x4.Invert(ChildLayers[l].Body.GridToWorld(), out var worldToChild);
+            toChildLayers[l] = toWorld * worldToChild;
+        }
+
+        // Refresh the drawing once the surface changes or the relative pose moves by half a cell.
+        // Nothing in the contact bridge uses this cache.
+        var versions = ParentLayers.Concat(ChildLayers).Select(layer => layer.Body.Grid.GeometryVersion).ToArray();
+        var halfCell = 0.5f * MathF.Min(view.CellSize.X, MathF.Min(view.CellSize.Y, view.CellSize.Z));
+        if (_viewGeometry is { } before && before.AsSpan().SequenceEqual(versions) && _viewPose is { } pose
+            && toChildLayers.Zip(pose).All(pair => WithinCell(pair.First - pair.Second, view.HalfExtents, halfCell)))
+        {
+            return _view;
+        }
+        _viewGeometry = versions;
+        _viewPose = toChildLayers;
+
+        var parentOffsets = new Vector3[ParentLayers.Count];
+        for (var l = 0; l < parentOffsets.Length; l++)
+        {
+            parentOffsets[l] = Body.GridCenterLocal - ParentLayers[l].Body.GridCenterLocal;
+        }
+
+        for (var i = 0; i < view.CellCount; i++)
+        {
+            var (x, y, z) = view.Coordinates(i);
+            var center = view.CellCenter(x, y, z);
+            var join = _cut[i] ? default : Join(center, parentOffsets, toChildLayers, reach);
+            // 色は親の近いセルの材質（親の皮膚・服がそのまま関節を包んで見える）。当たりに使うつなぎの材質（強い方）は骨・筋肉が多く、関節が赤い輪に見えた。
+            var material = join.Material == 0 || join.Parent.Cell < 0 ? (byte)0 : ParentLayers[join.Parent.Layer].Body.Grid.MaterialAt(join.Parent.Cell);
+            if (view.MaterialAt(i) != material)
+            {
+                view.SetCellState(i, (material, material == 0 ? 0f : view.Palette[material].Toughness, false, 0f));
+            }
+        }
+
+        return _view;
+    }
+
+    private static bool WithinCell(Matrix4x4 delta, Vector3 half, float limit)
+    {
+        var motion = delta.Translation.Length()
+            + (half.X * new Vector3(delta.M11, delta.M12, delta.M13).Length())
+            + (half.Y * new Vector3(delta.M21, delta.M22, delta.M23).Length())
+            + (half.Z * new Vector3(delta.M31, delta.M32, delta.M33).Length());
+        return motion <= limit;
     }
 
     /// <summary>
@@ -259,6 +343,7 @@ internal sealed class JointBridge
             }
 
             _cut[i] = true;
+            _viewPose = null;
             if (_sourceParent[i].Cell >= 0)
             {
                 ParentLayers[_sourceParent[i].Layer].Body.Grid.Break(_sourceParent[i].Cell, parent[_sourceParent[i].Layer]);
@@ -350,6 +435,13 @@ internal sealed class JointBridge
     /// <summary>格子 <paramref name="grid"/> の点 <paramref name="local"/> から <paramref name="reach"/> 以内にある、いちばん近い埋まったセルと距離の 2 乗（無ければ −1）。</summary>
     private static (int Cell, float Distance) NearestIn(VoxelGrid grid, Vector3 local, float reach)
     {
+        var outside = Vector3.Max(Vector3.Abs(local) - grid.HalfExtents, Vector3.Zero);
+        var reachSquared = reach * reach;
+        if (outside.LengthSquared() > reachSquared)
+        {
+            return (-1, float.MaxValue);
+        }
+
         var best = -1;
         var bestDistance = float.MaxValue;
         var n = (int)MathF.Ceiling(reach / MathF.Min(grid.CellSize.X, MathF.Min(grid.CellSize.Y, grid.CellSize.Z)));
@@ -361,7 +453,7 @@ internal sealed class JointBridge
                 {
                     var offset = new Vector3(dx * grid.CellSize.X, dy * grid.CellSize.Y, dz * grid.CellSize.Z);
                     var d = offset.LengthSquared();
-                    if (d >= bestDistance || d > reach * reach)
+                    if (d >= bestDistance || d > reachSquared)
                     {
                         continue;
                     }

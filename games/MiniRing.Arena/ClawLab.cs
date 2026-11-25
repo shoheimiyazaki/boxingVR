@@ -9,14 +9,19 @@ namespace MiniRing.Arena;
 internal static class ClawLab
 {
     private const float Dt = 1f / 240f;
-    internal readonly record struct Trial(float Drive, float Windup, string Opponent, Hand Hand, int Aim, int Removed, int Crushed, int Arm, int Neck, int Torso, int Hits, float TipSpeed, float PlaneError, bool Standing);
+    internal readonly record struct Trial(float Drive, float Windup, string Opponent, Hand Hand, int Aim, int Removed, int Crushed, int Arm, int Neck, int Torso, int Hits, float TipSpeed, float PlaneError, bool Standing,
+        bool HeadSeparated, bool ArmSeparated, bool TorsoSeparated)
+    {
+        public bool AimSeparated => Aim switch { 0 => HeadSeparated, 1 => ArmSeparated, _ => TorsoSeparated };
+        public int AimRemoved => Aim switch { 0 => Neck, 1 => Arm, _ => Torso };
+    }
 
     public static int Report(TextWriter log)
     {
-        float[] times = [0.24f, 0.31f, 0.39f, 0.48f];
-        float[] winds = [0.75f, 1f, 1.25f];
-        var practice = new[] { ("jin", 13, 0.79f), ("marcus", 31, 0.92f) };
-        var validation = new[] { ("ramon", 77, 0.84f), ("albert", 119, 0.99f) };
+        float[] times = [0.24f, 0.32f, 0.42f];
+        float[] winds = [0.75f, 1.10f];
+        var practice = new[] { ("jin", 13, 0.94f), ("marcus", 31, 1.12f) };
+        var validation = new[] { ("ramon", 77, 0.99f), ("albert", 119, 1.24f) };
         var results = new List<(float Drive, float Windup, Trial[] Trials)>();
         foreach (var time in times)
         {
@@ -28,8 +33,9 @@ internal static class ClawLab
             }
         }
 
-        var best = results.OrderByDescending(r => Score(r.Trials)).First();
-        Write(log, "holdout-baseline", 0.31f, 1f, RunSet(validation, 0.31f, 1f, moving: true));
+        var best = results.OrderByDescending(r => r.Trials.Count(t => t.Standing && t.AimSeparated))
+            .ThenByDescending(r => r.Trials.Where(t => t.Standing).Sum(t => t.AimRemoved)).First();
+        Write(log, "holdout-baseline", 0.24f, 0.75f, RunSet(validation, 0.24f, 0.75f, moving: true));
         Write(log, "holdout-selected", best.Drive, best.Windup, RunSet(validation, best.Drive, best.Windup, moving: true));
         return 0;
     }
@@ -40,10 +46,9 @@ internal static class ClawLab
             ((c.Seed / 10 + aim) & 1) == 0 ? Hand.Left : Hand.Right, drive, windup, moving)))];
     }
 
-    private static int Score(Trial[] trials) => trials.Where(t => t.Standing).Sum(t => t.Removed);
-
     private static void Write(TextWriter log, string set, float drive, float wind, Trial[] trials)
     {
+        log.WriteLine($"  separated: head {trials.Count(t => t.HeadSeparated)}, arm {trials.Count(t => t.ArmSeparated)}, thorax {trials.Count(t => t.TorsoSeparated)}");
         log.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"{set,-17} {drive:F2} s  wind {wind:F2}  removed {trials.Sum(t => t.Removed),5}  cuts {trials.Count(t => t.Removed > 0)}/{trials.Length}  crush {trials.Sum(t => t.Crushed),4}  hits {trials.Sum(t => t.Hits),3}  tip {trials.Average(t => t.TipSpeed):F2} m/s  plane {100f * trials.Average(t => t.PlaneError):F1} cm  standing {trials.Count(t => t.Standing)}/{trials.Length}"));
         if (set.StartsWith("holdout", StringComparison.Ordinal))
@@ -51,7 +56,7 @@ internal static class ClawLab
             foreach (var t in trials)
             {
                 log.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                    $"  {t.Opponent,-8} {t.Hand,-5} aim {t.Aim} removed {t.Removed,4} (arm {t.Arm}, neck {t.Neck}, torso {t.Torso}) hits {t.Hits,2} tip {t.TipSpeed:F2} m/s"));
+                    $"  {t.Opponent,-8} {t.Hand,-5} aim {t.Aim} removed {t.Removed,4} (arm {t.Arm}, neck {t.Neck}, torso {t.Torso}) hits {t.Hits,2} tip {t.TipSpeed:F2} m/s separate {t.HeadSeparated}/{t.ArmSeparated}/{t.TorsoSeparated}"));
             }
         }
     }
@@ -141,6 +146,11 @@ internal static class ClawLab
             hits += game.RecentHits.Count(h => h.Attacker == f && h.Hand == hand && !h.Kick);
         }
 
-        return new Trial(drive, windup, opponent, hand, aim, removed, crushed, arms, neck, torso, hits, peak, planeError / Math.Max(1, trackingSamples), f.State == FighterState.Standing);
+        bool Separated(int id) => other.IsDetachedPart(id) && !other.HangsByFlesh(id);
+        var headSeparated = Separated(other.Parts.Head);
+        var armSeparated = Separated(other.Parts.LeftForearm) || Separated(other.Parts.RightForearm);
+        var torsoSeparated = Separated(other.Parts.Pelvis);
+        return new Trial(drive, windup, opponent, hand, aim, removed, crushed, arms, neck, torso, hits, peak, planeError / Math.Max(1, trackingSamples), f.State == FighterState.Standing,
+            headSeparated, armSeparated, torsoSeparated);
     }
 }

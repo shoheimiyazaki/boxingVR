@@ -56,7 +56,7 @@
         "bow": 1.4,
         "neckroll": 1.3
       },
-      "ClawDriveSeconds": 0.24,
+      "ClawDriveSeconds": 0.42,
       "ClawWindup": 0.75
     }
   },
@@ -76,12 +76,28 @@
       "baselineRemoved": 363,
       "trainedRemoved": 461,
       "planeErrorCm": 16.7
+    },
+    {
+      "stage": "long-claw-separation",
+      "date": "2026-11-25",
+      "drills": 48,
+      "practice": [
+        "jin:13",
+        "marcus:31"
+      ],
+      "holdout": [
+        "ramon:77",
+        "albert:119"
+      ],
+      "baselineRemoved": 911,
+      "trainedRemoved": 2038,
+      "planeErrorCm": 46.7
     }
   ],
   "profile": {
     "age": 24,
     "heightCm": 140,
-    "weightKg": 133,
+    "weightKg": 88,
     "birthplace": "外縁宙域",
     "hometown": "日本の観測施設",
     "stance": "四足立ち",
@@ -162,9 +178,9 @@
       0.17
     ],
     "iris": [
-      0.95,
-      0.48,
-      0.1
+      0.025,
+      0.023,
+      0.031
     ]
   },
   "locales": {

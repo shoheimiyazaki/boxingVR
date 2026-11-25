@@ -93,6 +93,7 @@
   selfcuts [--pairs] [--seeds] [--seconds] [--out] [--hitaway] [--passes] [--clearance] [--margin] [--tilt] [--pacing] [--slack] [--angle]
   selfpath [--margin] [--from] [--tilt] [--out] [--forms]
   jointlab [--joints LeftKnee,Neck] [--bend] [--offsets] [--speeds] [--parallel] [--out] [--dims] [--video] [--joint] [--axis] [--dir] [--offset] [--speed] [--bridges off] [--slow]
+  splitlab [--at hip|waist|chest|neck] [--dir side|back] [--offset] [--speed] [--seconds] [--seed] [--lead] [--video] [--slow] | --saw <Joint> [--depth] [--after] [--video] | --scan red,blue [--seeds] [--seconds]
   necklab [--mode geom|slash] [--heights] [--offsets] [--speeds] [--speed] [--dir] [--bridges off] [--tilt] [--arms] [--video] [--height] [--side] [--offset] [--slow] [--out]
   tunnel [--pairs] [--bouts] [--seconds] [--out] [--passes] [--hz] [--sample]
   bladecut [--mode study|edge|one|film|ingame] [--tilt] [--weapon] [--target] [--speed] [--speeds] [--targets] [--weapons] [--drive] [--mass] [--fromtip] [--imposed] [--parallel] [--out] [--csv] [--slow] [--pairs] [--seeds] [--seconds]   刃の切れ味の計測台（1 関節の円弧の振り。docs/BLADE_CUT_STUDY.md）

@@ -7,10 +7,10 @@ namespace MiniRing.Weapons;
 /// <summary>曲がった刀身と刃元を一つの格子に彫る。制御する弦は刃元から切っ先まで。</summary>
 internal static class SickleClawShape
 {
-    private const float Length = 0.46f;
+    private const float Length = 0.92f;
     private const float Root = 0.038f;
-    private const float Curve = 0.226f;
-    private static readonly Vector3 Half = new((Length + Root) * 0.5f, 0.035f, 0.245f);
+    private const float Curve = 0.452f;
+    private static readonly Vector3 Half = new((Length + Root) * 0.5f, 0.035f, Curve + 0.019f);
 
     public static Vector3 Grip => new(Root - Half.X, 0f, 0f);
     public static Vector3 Tip => new(Half.X, 0f, Curve);
@@ -22,7 +22,7 @@ internal static class SickleClawShape
     {
         var original = AlienAnatomy.Palette;
         var materials = Enumerable.Range(0, original.Count).Select(i => original[(byte)i]).ToArray();
-        materials[BoxerAnatomy.Bone] = materials[BoxerAnatomy.Bone] with { SurfaceColor = new Vector4(0.59f, 0.48f, 0.39f, 1f) };
+        materials[BoxerAnatomy.Iron] = materials[BoxerAnatomy.Iron] with { SurfaceColor = new Vector4(0.59f, 0.48f, 0.39f, 1f) };
         return new VoxelPalette(materials);
     }
 
@@ -32,12 +32,12 @@ internal static class SickleClawShape
         var z = hand.Z * (mirrored ? -1f : 1f);
         var along = Math.Clamp(hand.X / Length, 0f, 1f);
         var spine = Curve * along * along * along - 0.032f * MathF.Sin(MathF.PI * along);
-        var width = 0.059f * (1f - along) + 0.005f;
+        var width = 0.042f * (1f - along) + 0.005f;
         var edge = MathF.Abs(z - spine) / width;
-        var thickness = MathF.Max(0.0034f, 0.024f * (1f - edge) * (1f - 0.75f * along));
+        var thickness = MathF.Max(0.0034f, 0.013f * (1f - edge) * (1f - 0.75f * along));
         if (edge <= 1f && MathF.Abs(hand.Y) <= thickness)
         {
-            return z > spine && edge < 0.61f && along < 0.82f ? BoxerAnatomy.HandBone : BoxerAnatomy.Bone;
+            return edge < 0.58f && along < 0.84f ? BoxerAnatomy.Bone : BoxerAnatomy.Iron;
         }
 
         return 0;
