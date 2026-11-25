@@ -79,7 +79,7 @@ try
         "swinglab" => SwingLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "families")),
         "weaponlab" => WeaponLabCommand(Options.Parse(argv[1..], "out", "table", "width", "height", "fps", "slow", "video")),
         "intentvideo" => IntentVideo(Options.Parse(argv[1..], "script", "blue", "seed", "seconds", "width", "height", "out", "camera-scale")),
-        "royale" => RoyaleCommand.Run(Options.Parse(argv[1..], "fighters", "count", "seed", "seconds", "rounds", "break", "out", "width", "height", "fps", "replay", "verify", "trace", "teams", "team-names")),
+        "royale" => RoyaleCommand.Run(Options.Parse(argv[1..], "fighters", "count", "seed", "seconds", "rounds", "break", "out", "width", "height", "fps", "replay", "verify", "trace", "teams", "team-names", "events")),
         "version" => Print($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}"),
         "tvdraft" => TvDraftCommand(Options.Parse(argv[1..], "events", "out", "org")),
         "tvmerge" => TvMergeCommand(Options.Parse(argv[1..], "draft", "extras", "out")),

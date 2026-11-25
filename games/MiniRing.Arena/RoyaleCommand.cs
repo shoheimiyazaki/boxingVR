@@ -64,6 +64,10 @@ internal static class RoyaleCommand
         try
         {
             var watch = new RoyaleWatch(game);
+            var tvCorners = characters.Select(TvCorner.Of).ToList();
+            // 実況・解説の資料（--events、または動画の横に <名前>.events.json と .events.md）。
+            var eventsPath = o.Get("events") ?? (o.Get("out") is { } video ? Path.ChangeExtension(video, ".events.json") : null);
+            var log = eventsPath is null ? null : new RoyaleLog(game, characters, tvCorners);
             var trace = o.Float("trace", 0f, min: 0f); // 何秒ごとに全員の様子を 1 行で出すか（0 なら出さない）
             Func<BoxingGame, float, bool> step = (g, t) =>
             {
@@ -77,6 +81,7 @@ internal static class RoyaleCommand
                 }
 
                 watch.Observe(Dt);
+                log?.Observe(t + Dt);
                 if (trace > 0f && (int)((t + Dt) / trace) != (int)(t / trace))
                 {
                     Console.WriteLine(RoyaleWatch.Trace(g, t + Dt));
@@ -88,7 +93,7 @@ internal static class RoyaleCommand
             var clock = Stopwatch.StartNew();
             if (o.Get("out") is { } outPath)
             {
-                new RoyaleVideo(o.Int("width", 1280), o.Int("height", 720), o.Int("fps", 30), [.. characters.Select(TvCorner.Of)], teamNames).Make(game, seconds, step, outPath, Console.Out);
+                new RoyaleVideo(o.Int("width", 1280), o.Int("height", 720), o.Int("fps", 30), tvCorners, teamNames).Make(game, seconds, step, outPath, Console.Out);
             }
             else
             {
@@ -98,6 +103,12 @@ internal static class RoyaleCommand
             }
 
             clock.Stop();
+            if (log is not null && eventsPath is not null)
+            {
+                log.Write(eventsPath);
+                Console.WriteLine($"events: {eventsPath}");
+            }
+
             Console.Write(watch.Report(clock.Elapsed.TotalSeconds));
         }
         finally
@@ -450,18 +461,24 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
     /// <summary>カメラの切り替え（<see cref="RoyaleDirector"/>）へ、この刻みの様子と当たった打撃を渡す。</summary>
     private void Direct(BoxingGame game, float t)
     {
-        var all = game.AllFighters;
-        int Seat(Fighter f) => game.SeatOf(f);
-        var view = all.Select(f => new DirectorFighter(f.ChestPosition, game.InPlay(f), f.State != FighterState.Standing,
-            game.TargetSeatOf(f))).ToArray();
-        var hits = game.RecentHits.Select(h => (Seat(h.Attacker), Seat(h.Victim), h.Damage))
-            .Concat(game.WeaponHits.Select(h => (Seat(h.Attacker), Seat(h.Victim), h.Damage)));
+        var (view, hits) = DirectorInput(game);
         _director.Update(t, BoxingGameDt, view, hits, wholeCage: game.InIntro || game.InBreak);
         if (_director.Cut)
         {
             _cuts++;
             _cutPending = true;
         }
+    }
+
+    /// <summary>カメラの判断に渡す今の刻みの様子（選手と、当たった打撃）。動画と記録（<see cref="RoyaleLog"/>）が同じものを渡す。</summary>
+    internal static (DirectorFighter[] View, (int, int, float)[] Hits) DirectorInput(BoxingGame game)
+    {
+        int Seat(Fighter f) => game.SeatOf(f);
+        var view = game.AllFighters.Select(f => new DirectorFighter(f.ChestPosition, game.InPlay(f), f.State != FighterState.Standing,
+            game.TargetSeatOf(f))).ToArray();
+        (int, int, float)[] hits = [.. game.RecentHits.Select(h => (Seat(h.Attacker), Seat(h.Victim), h.Damage))
+            .Concat(game.WeaponHits.Select(h => (Seat(h.Attacker), Seat(h.Victim), h.Damage)))];
+        return (view, hits);
     }
 
     /// <summary>
