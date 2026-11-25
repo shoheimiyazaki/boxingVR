@@ -26,6 +26,7 @@
   karatelab [--only shapes,parry,kicks,video] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md] [--video media_tmp/karate_vitals]
                                                                                   空手のドリル: 手の形 × 急所、パリー（拳の曲がり）、5 種の蹴り
   clawlab                                      鎌の試振りと、練習に使わなかった相手での比較。
+  huntlab [--goal kill|neck] [--tune 1|--confirm 1|--video out.mp4]  四足が素手で抵抗しない人間を倒す・首を断つまでの時間（docs/TOOLS.md）。
   kicklab [--body taeyun] [--kick Roundhouse] [--distances 1.0,1.1,...] [--seeds 1,2,..] [--confirm-seeds 11,12,..] [--shin 0.75] [--overshoot -0.2] [--log f.md]
                                                                                   蹴りの間合いのドリル: 間合いを刻んで蹴り、当たり・すねの当たった点・渡したエネルギーの表（採る間合いは使っていない種で比べ直す）
   stick [--swing] [--planes vertical,kesa,...] [--samples 2000] [--polish 8] [--iterations 3000] [--seed 1] [--weights speed:3,smooth:1,plane:1,edge:1,dir:1,whole:0.5] [--character jin] [--limits grip|loose] [--bvh dir] [--bvh-scale 2.82] [--video docs/video] [--log f.md]

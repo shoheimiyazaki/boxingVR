@@ -2,6 +2,7 @@ using System.Globalization;
 using MiniRing.Arena.Evolution;
 using MiniRing.Bots;
 using MiniRing.Characters;
+using System.Numerics;
 using MiniRing.Weapons;
 
 namespace MiniRing.Arena;
@@ -36,6 +37,9 @@ internal static class HuntLab
     /// 何を速くするか（<c>--goal</c>）: <c>kill</c>（既定。死ぬまでの時間）か <c>neck</c>（首を断って頭が離れるまでの時間。臓器で先に死んだ回は断てなかった回）。
     /// </summary>
     public static string Goal { get; set; } = "kill";
+
+    /// <summary>あれば、1 回ごとに鎌（はめた物）と受け手の体の接触を部位ごとにまとめて書く（<c>--contacts 1</c>。切り分け用）。</summary>
+    public static TextWriter? Contacts { get; set; }
 
     /// <summary>真なら 1 回ごとに、0.5 s おきの様子を書く（<c>--trace</c>）。</summary>
     public static TextWriter? Trace { get; set; }
@@ -90,10 +94,54 @@ internal static class HuntLab
         float? downAt = null;
         var dt = StepDt;
         var t = 0f;
+        var grids = body.Voxels?.Parts.ToDictionary(p => p.Body, p => p) ?? [];
+        var tally = new SortedDictionary<string, ContactTally>(StringComparer.Ordinal);
+        var reachY = float.NegativeInfinity;
+        var nearNeck = float.PositiveInfinity;
+        var nearAt = 0f;
+        var nearSpeed = 0f;
+        var closeSteps = 0;
+        var closeFast = 0f;
+        var neckY0 = Vector3.Lerp(body.ChestPosition, body.HeadPosition, 0.6f).Y;
         while (t < seconds && !body.IsDead)
         {
             game.Step(default, dt);
             t += dt;
+            if (Contacts is not null)
+            {
+                Tally(game, grids, tally);
+                var neck = Vector3.Lerp(body.ChestPosition, body.HeadPosition, 0.6f);
+                foreach (var hand in new[] { Hand.Left, Hand.Right })
+                {
+                    if (game.GloveOf(game.Cpu, hand) is not { } claw)
+                    {
+                        continue;
+                    }
+
+                    var state = game.World.GetState(claw.Body.BodyId);
+                    var root = state.Position + Vector3.Transform(Weapon.GripOf(claw.Kind), state.Orientation);
+                    var tip = state.Position + Vector3.Transform(Weapon.GripOf(claw.Kind) + SickleClawShape.Edge(hand), state.Orientation);
+                    reachY = MathF.Max(reachY, MathF.Max(tip.Y, root.Y));
+                    var along = Vector3.Clamp(new Vector3(Vector3.Dot(neck - root, tip - root) / (tip - root).LengthSquared()), Vector3.Zero, Vector3.One).X;
+                    var closest = Vector3.Distance(neck, root + ((tip - root) * along));
+                    var point = root + ((tip - root) * along);
+                    var speed = (state.LinearVelocity + Vector3.Cross(state.AngularVelocity, point - state.Position)).Length();
+                    if (closest < nearNeck)
+                    {
+                        nearNeck = closest;
+                        nearAt = t;
+                        nearSpeed = speed;
+                    }
+
+                    if (closest < 0.06f)
+                    {
+                        // 刃が首の 6 cm 以内を通った歩: そのときの刃の点の速さ
+                        closeSteps++;
+                        closeFast = MathF.Max(closeFast, speed);
+                    }
+                }
+            }
+
             if (downAt is null && body.State != FighterState.Standing)
             {
                 downAt = t;
@@ -108,6 +156,20 @@ internal static class HuntLab
                 trace.Write(string.Create(CultureInfo.InvariantCulture, $"  gap={gap.Length():0.00} strokes={bot?.Stats.Combos.GetValueOrDefault("claw-sweep")} stamina={game.Cpu.Stamina:0.00} hunterY={game.Cpu.ChestPosition.Y:0.00} victimY={body.ChestPosition.Y:0.00}"));
                 trace.WriteLine(string.Create(CultureInfo.InvariantCulture,
                     $"  t={t:0.0} victim={body.State} hunter={game.Cpu.State} plan={g?.CurrentName ?? "-"} started={g?.Started ?? 0} dist={g?.Distance:0.00} sink={g?.Sink:0.00} lethal={Lethality(body):0.00} neck={NeckCut(body, neck0):0.00} conscious={body.Consciousness:0.00} removed={cells0 - Filled(body)}"));
+            }
+        }
+
+        if (Contacts is { } contacts)
+        {
+            lock (contacts)
+            {
+                contacts.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                    $"contacts {victimId} seed {seed} ({t:0.0} s, {body.DeathCause ?? "alive"}): neck height {neckY0:0.00} m, claw highest {reachY:0.00} m, blade edge nearest the neck {100f * nearNeck:0} cm at {nearAt:0.0} s moving {nearSpeed:0.00} m/s; within 6 cm for {closeSteps} steps, fastest there {closeFast:0.00} m/s"));
+                foreach (var (part, c) in tally)
+                {
+                    contacts.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                        $"  {part,-14} contacts {c.Contacts,5}  cutting {c.Cutting,4}  removed {c.Removed,5} (skin {c.Skin}, muscle {c.Muscle}, bone {c.Bone}, other {c.Other})  crushed {c.Crushed,4}  stopped {c.Stopped,4}  approach max {c.MaxSpeed:0.00} m/s mean {(c.Cutting > 0 ? c.SpeedSum / c.Cutting : 0):0.00}  pressure max {c.MaxPressure / 1e6:0.0} MPa"));
+                }
             }
         }
 
@@ -197,6 +259,65 @@ internal static class HuntLab
         }
 
         return Math.Clamp(worst, 0f, 1f);
+    }
+
+    private sealed class ContactTally
+    {
+        public int Contacts;
+        public int Cutting;
+        public int Removed;
+        public int Skin;
+        public int Muscle;
+        public int Bone;
+        public int Other;
+        public int Crushed;
+        public int Stopped;
+        public float MaxSpeed;
+        public float SpeedSum;
+        public float MaxPressure;
+    }
+
+    /// <summary>この歩の、攻め手のはめた物（鎌）と受け手の体の接触を部位ごとに足す。首は頭の部位の首の段（下の端）に当たった分を別に数える。</summary>
+    private static void Tally(BoxingGame game, Dictionary<Aigis.Physics.Voxels.VoxelBody, Voxels.VoxelPart> grids, SortedDictionary<string, ContactTally> tally)
+    {
+        var tools = new[] { game.GloveOf(game.Cpu, Hand.Left)?.Body, game.GloveOf(game.Cpu, Hand.Right)?.Body };
+        foreach (var cut in game.RecentCuts)
+        {
+            var tool = tools.Contains(cut.A) ? cut.A : tools.Contains(cut.B) ? cut.B : null;
+            var struck = tool is null ? null : cut.A == tool ? cut.B : cut.A;
+            if (struck is null || !grids.TryGetValue(struck, out var part))
+            {
+                continue;
+            }
+
+            var removed = cut.RemovedFor(struck);
+            var (low, high) = Voxels.BoxerSpine.NeckSlices;
+            var name = part.Kind == BodyPartKind.Head && removed.Count > 0 && removed.Average(r => r.LocalCenter.Y) < -struck.Grid.HalfExtents.Y + ((high + 1) * struck.Grid.CellSize.Y)
+                ? "Head(neck)" : part.Kind.ToString();
+            if (!tally.TryGetValue(name, out var c))
+            {
+                tally[name] = c = new ContactTally();
+            }
+
+            c.Contacts++;
+            c.Cutting += cut.ApproachSpeed > 0f ? 1 : 0;
+            c.SpeedSum += cut.ApproachSpeed;
+            c.MaxSpeed = MathF.Max(c.MaxSpeed, cut.ApproachSpeed);
+            c.MaxPressure = MathF.Max(c.MaxPressure, cut.Pressure);
+            c.Removed += removed.Count;
+            c.Crushed += cut.CrushedFor(struck).Count;
+            c.Stopped += cut.Stopped ? 1 : 0;
+            foreach (var r in removed)
+            {
+                switch (r.Material)
+                {
+                    case Voxels.BoxerAnatomy.Skin: c.Skin++; break;
+                    case Voxels.BoxerAnatomy.Muscle: c.Muscle++; break;
+                    case Voxels.BoxerAnatomy.Bone: c.Bone++; break;
+                    default: c.Other++; break;
+                }
+            }
+        }
     }
 
     private static int Filled(Fighter f) => f.Voxels is { } v ? v.Parts.Sum(p => p.Body.Grid.FilledCount) : 0;
@@ -369,6 +490,7 @@ internal static class HuntLab
         TextWriter log = file is null ? Console.Out : new Tee(Console.Out, file);
         Trace = o.Get("trace") is not null ? Console.Out : null;
         Goal = o.Get("goal") ?? "kill";
+        Contacts = o.Get("contacts") is not null ? Console.Out : null;
         CapSeconds = seconds;
         if (Goal is not ("kill" or "neck"))
         {

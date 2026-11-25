@@ -107,6 +107,8 @@
 
 ## LogicVersion（`BoxerBot.LogicVersion`）
 
+- **74**（2026-11-25、枝 `claude/priceless-faraday-45d51b`、ユーザーの依頼「エイリアン vs 人間で、無抵抗の人間を最も早く倒せるように鍛えて」「首を切断する技も」）: 四足の鎌（`ClawBot`）の狙いの選び方・間合い・拍子を教育の値にした: 狙いの重み `ClawAimNeck`・`ClawAimArm`・`ClawAimTorso`（重み付きの順番回し。1・1・1 で今までの 首 → 腕 → 胴）、間合い `ClawReach`（腕の長さに足す鎌の長さの割合、既定 0.56 = 今までの値）、合間 `ClawRest`（既定 0）。既定の値では今までと同じ動き。ガルヴァの教育を `huntlab` で最適化した。
+
 - **73**（2026-11-25、枝 `claude/vfc-royale-c1e767` に `claude/six-limbed-alien` をマージ）: バトルロイヤルの狙い（72）と四足の鎌・前脚の狙い（枝の 72）を合わせた版。
 - **72（枝 `claude/six-limbed-alien`）** 長い鎌の間合いに合わせ、首・腕・胴を横切る経路と跗節の先端を向ける前脚の突きを見直した。
 - **次の版（枝 `claude/six-limbed-alien`）** 四足のボットは相手への距離から前脚を選び、鎌で助走つきの切断面を作る。
