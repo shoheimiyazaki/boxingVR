@@ -61,7 +61,7 @@ internal static class ClawLab
         }
     }
 
-    internal static Trial Run(string opponent, int seed, float gap, int aim, Hand hand, float drive, float windup, bool moving = false, bool sweep = true)
+    internal static Trial Run(string opponent, int seed, float gap, int aim, Hand hand, float drive, float windup, bool moving = false, bool sweep = true, TextWriter? trace = null)
     {
         var creature = CharacterRoster.Get("galva");
         var target = CharacterRoster.Get(opponent);
@@ -144,6 +144,14 @@ internal static class ClawLab
                 }
             }
             hits += game.RecentHits.Count(h => h.Attacker == f && h.Hand == hand && !h.Kick);
+            if (trace is not null && i % 24 == 0)
+            {
+                var chest = f.ChestPosition;
+                var flat = other.ChestPosition - chest;
+                var apart = MathF.Sqrt((flat.X * flat.X) + (flat.Z * flat.Z));
+                trace.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                    $"  t={time:0.00} state={f.State} chestY={chest.Y:0.00} pelvisY={game.World.GetState(f.Parts.Pelvis).Position.Y:0.00} support={f.SupportedMass:0} removed={removed} clawSpeed={state.LinearVelocity.Length():0.0} gap={apart:0.00} pelvisSpin={game.World.GetState(f.Parts.Pelvis).AngularVelocity.Length():0.0}"));
+            }
         }
 
         bool Separated(int id) => other.IsDetachedPart(id) && !other.HangsByFlesh(id);

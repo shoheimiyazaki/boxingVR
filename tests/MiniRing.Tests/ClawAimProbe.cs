@@ -28,6 +28,17 @@ public sealed class ClawAimProbe
         }
     }
 
+    [TestMethod]
+    public void LongClawTorsoStrokeFall()
+    {
+        foreach (var aim in new[] { 0, 2 })
+        {
+            Console.WriteLine($"aim {aim}");
+            var t = MiniRing.Arena.ClawLab.Run("albert", 119, 1.24f, aim, aim == 1 ? Hand.Left : Hand.Right, 0.42f, 0.75f, moving: true, trace: Console.Out);
+            Console.WriteLine($"  standing {t.Standing} removed {t.Removed}");
+        }
+    }
+
     private static IEnumerable<(string, Func<float, ClawSegment>)> Targets()
     {
         yield return ("guard", r => ClawStroke.Guard(Hand.Right, r));
