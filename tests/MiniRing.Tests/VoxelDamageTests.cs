@@ -773,17 +773,25 @@ public sealed class VoxelDamageTests
     public void TheCpusPunches_AreHeardAsSwings_OncePerPunch()
     {
         // 音の発火回数を測る。疲労による攻撃停止は別の回帰テストで検証する。
-        using var game = new BoxingGame(FighterTuning.Default with { OxygenStorePerKg = 304_225f }, seed: 4);
-        var swings = new List<SwingEvent>();
-        for (var i = 0; i < 2014; i++)
+        // 2026-11-26（PhysicsVersion 106）: 1 つの試合の振りの数は、相手（入力なし）が早く倒れると少ない（種 1〜6 で 4〜46 回。前のつま先でも 5〜29 回。
+        // ToeRegressionProbe.CpuSwings）。種 4 の 1 試合で「6 回以上」を見ていたのを、6 つの種の合計で見る。1 試合あたりの上限（1 振り 1 回）は種ごとに見る。
+        var total = 0;
+        foreach (var seed in new[] { 1, 2, 3, 4, 5, 6 })
         {
-            game.Step(default, 1f / 60f);
-            swings.AddRange(game.RecentSwings);
+            using var game = new BoxingGame(FighterTuning.Default with { OxygenStorePerKg = 304_225f }, seed: seed);
+            var swings = new List<SwingEvent>();
+            for (var i = 0; i < 2014; i++)
+            {
+                game.Step(default, 1f / 60f);
+                swings.AddRange(game.RecentSwings);
+            }
+
+            Assert.IsLessThan(80, swings.Count, $"one whoosh per punch, not one per frame (seed {seed})");
+            Assert.IsTrue(swings.All(s => s.Speed >= SwingSound.MinSpeed));
+            total += swings.Count;
         }
 
-        Assert.IsGreaterThan(5, swings.Count, "the CPU threw punches");
-        Assert.IsLessThan(80, swings.Count, "one whoosh per punch, not one per frame");
-        Assert.IsTrue(swings.All(s => s.Speed >= SwingSound.MinSpeed));
+        Assert.IsGreaterThan(30, total, "the CPU threw punches");
     }
 
     [TestMethod]

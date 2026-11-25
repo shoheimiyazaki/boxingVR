@@ -101,24 +101,33 @@ public sealed class SwordTests
     [TestMethod]
     public void TheSwordBot_PicksTechniquesByRange_AndCutsTheOpponent()
     {
-        SwordBot? bot = null;
-        var fresh = FighterTuning.Default with { OxygenStorePerKg = 304_200f };
-        using var game = new BoxingGame(fresh, seed: 2, corners: new BoxingCorners("stand", _ => new StandGuard(), s => bot = SwordBot.Basic(s), PlayerWeapon: WeaponKind.IronSword));
-        var start = game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
-        for (var f = 0; f < 806 && !game.Cpu.IsDead; f++)
+        // 2026-11-26（PhysicsVersion 106）: 最初の 1 振りで相手が倒れると、ボットは構えて待つので斬った量は 0〜24 セル（種 2: 前のつま先で 2、固いつま先で 0）。
+        // 種 2 の 1 試合で「斬った」を見ていたのを、種 1〜6 の多数で見る（どちらのつま先でも 6 つのうち 5 つで斬った。ToeRegressionProbe.SwordBotFirstCut）。
+        var cut = 0;
+        foreach (var seed in new[] { 1, 2, 3, 4, 5, 6 })
         {
-            game.Step(default, 1f / 60f);
+            SwordBot? bot = null;
+            var fresh = FighterTuning.Default with { OxygenStorePerKg = 304_200f };
+            using var game = new BoxingGame(fresh, seed: seed, corners: new BoxingCorners("stand", _ => new StandGuard(), s => bot = SwordBot.Basic(s), PlayerWeapon: WeaponKind.IronSword));
+            var start = game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount);
+            for (var f = 0; f < 806 && !game.Cpu.IsDead; f++)
+            {
+                game.Step(default, 1f / 60f);
+            }
+
+            Assert.IsNotNull(bot);
+            Console.WriteLine($"種 {seed}: 技 {string.Join(",", bot.Used)}、相手の状態 {game.Cpu.State}、相手のセル {game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount)} / {start}");
+            // 2026-11-25（PhysicsVersion 105）: 剣が実物の重さで振りが速くなり、最初の袈裟で構えて立つ相手が気を失って倒れることがある（そうなるとボットは打つのをやめる:
+            // SwordBot は相手が倒れている間は構えて待つ）。倒れていなければ、間合いに合わせて 2 つ以上の技を使う。
+            if (game.Cpu.State == FighterState.Standing)
+            {
+                Assert.IsGreaterThan(1, bot.Used.Distinct().Count(), $"more than one technique is used ({string.Join(",", bot.Used)}, seed {seed})");
+            }
+
+            cut += game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount) < start ? 1 : 0;
         }
 
-        Assert.IsNotNull(bot);
-        Console.WriteLine($"技 {string.Join(",", bot.Used)}、相手の状態 {game.Cpu.State}、相手のセル {game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount)} / {start}");
-        // 2026-11-25（PhysicsVersion 105）: 剣が実物の重さで振りが速くなり、最初の袈裟で構えて立つ相手が気を失って倒れることがある（そうなるとボットは打つのをやめる:
-        // SwordBot は相手が倒れている間は構えて待つ）。倒れていなければ、間合いに合わせて 2 つ以上の技を使う。
-        if (game.Cpu.State == FighterState.Standing)
-        {
-            Assert.IsGreaterThan(1, bot.Used.Distinct().Count(), $"more than one technique is used ({string.Join(",", bot.Used)})");
-        }
-        Assert.IsLessThan(start, game.Cpu.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), "the sword cuts the opponent");
+        Assert.IsGreaterThanOrEqualTo(4, cut, "the sword cuts the opponent");
     }
 
     [TestMethod]

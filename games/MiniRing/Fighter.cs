@@ -257,7 +257,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 106; // 脚とつま先の関節の位置の拘束を肘と同じ固さに（106、仮）・握り込んだ手首・切っ先の目標と PD・実物の重さの武器・人の肩肘の力・蹴る間の軸足（105、仮）・武器を握る手をボクセルの握り拳に（100）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 106; // つま先の蝶番の位置の拘束を肘と同じ固さに（106、仮）・握り込んだ手首・切っ先の目標と PD・実物の重さの武器・人の肩肘の力・蹴る間の軸足（105、仮）・武器を握る手をボクセルの握り拳に（100）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
