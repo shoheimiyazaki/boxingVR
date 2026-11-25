@@ -35,6 +35,7 @@
 | `divisions` | 階級（軽い順。`limitKg` はその体重ちょうどまで。最後の 1 つだけ `null` = 上限なし） |
 | `titles.belt` / `titleBout` / `bout` | 王座・王者が出る試合・出ない試合の呼び方（`{org}`・`{division}` を差し込む） |
 | `ranking.membersOnly` / `win` / `draw` / `finishBonus` | 順位に入る選手と点 |
+| `showSkip` | 番組の型の試合の前の場面のうち流さないもの（場面の出来事の種類。型に無い名前は読み込みで止まる）。IVF は `["tape", "call"]`: 紋章のタイトルの板で紹介し、情報の重なる選手の比較の表・コールを外す（2026-11-25、試合まで約 51 秒 → 約 25 秒） |
 
 ## 王座とランキングの記録（`Orgs/standings/<id>.json`）
 

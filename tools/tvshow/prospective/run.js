@@ -558,6 +558,21 @@ async function main() {
       'ここまでの台詞（全部）:', ...recent].join('\n') + '\n\n';
   }
 
+  // 場面の役目（config.cues: 出来事の種類 → { 席: 一文, until: 終わりの出来事の種類 }）。何を言うかは渡さず、その場面で席が担う役目だけを、
+  // 場面が続く間（cue の出来事から until の出来事まで）毎回の問いの、答えの形式の直前に添える。届いた 1 回だけでは、話の途中でパスした後の問いに残らず、
+  // 出来事の並びの中に置いても、直後の「マイクが戻りました: 〇〇が…している」に引かれて入場の動作の説明だけになった（2026-11-25、IVF の撮り直し 2 回）。
+  function activeCues(seat) {
+    const out = [];
+    for (const [type, cue] of Object.entries(config.cues || {})) {
+      if (!cue[seat]) continue;
+      const start = all.filter((e) => e.type === type && e.t <= T + 1e-6).pop();
+      if (!start) continue;
+      const ended = all.some((e) => e.type === cue.until && e.t > start.t && e.t <= T + 1e-6);
+      if (!ended && !out.includes(cue[seat])) out.push(cue[seat]);
+    }
+    return out;
+  }
+
   function prompt(seat, situation, format) {
     // 席の説明（中継のしくみ・守ること・答え方）は会話の指示（system）として渡す。会話を作り直した最初の問いには、それまでの流れを付ける。
     const first = told[seat].first;
@@ -567,7 +582,8 @@ async function main() {
     const detail = rawNow(seat);
     // 番組の終わりが近いときは、言い切れる長さを添える（何を言うかは渡さない。終わりの台詞が途中で切れた、2026-11-24）。
     const closing = length - T < config.closingSeconds ? `番組はあと ${fmt(length - T)} 秒で終わり、その先は声に出ません。` : '';
-    return `${head}いま ${fmt(T)} 秒（残り ${fmt(length - T)} 秒）。${closing}\n${news ? news + '\n' : ''}${detail ? detail + '\n' : ''}${stateNow(seat)}\n\n${situation}\n\n${format}`;
+    const role = activeCues(seat);
+    return `${head}いま ${fmt(T)} 秒（残り ${fmt(length - T)} 秒）。${closing}\n${news ? news + '\n' : ''}${detail ? detail + '\n' : ''}${stateNow(seat)}\n\n${situation}\n\n${role.map((c) => `この場面でのあなたの役目: ${c}\n\n`).join('')}${format}`;
   }
 
   const MIC_FORMAT = '答え: {"action":"speak",...} か {"action":"pass",...} の JSON だけ。';
