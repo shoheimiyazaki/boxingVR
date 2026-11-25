@@ -109,6 +109,8 @@
 
 ## LogicVersion（`BoxerBot.LogicVersion`）
 
+- **75**（2026-11-25、枝 `claude/priceless-faraday-45d51b`、ユーザーの依頼「スタミナの総消費を抑え、偏らず全身を使い、滑らかで速く刃筋の揃った爪の先の軌道」）: 鎌の振りに体を使う教育の値 `ClawPull`（振っていない手の引き手。分割胴は `TwistBias` を肘打ちでしか使わないので、両手の目標の差でひねる）・`ClawStep`（振り抜きで脚のバネを前へ）・`ClawSpring`（振り抜きで体のバネを拳へ）。どれも既定 0 で、教育が空なら今までと同じ振り。振りの拍子は `ClawStroke.Swing`。
+
 - **74**（2026-11-25、枝 `claude/priceless-faraday-45d51b`、ユーザーの依頼「エイリアン vs 人間で、無抵抗の人間を最も早く倒せるように鍛えて」「首を切断する技も」）: 四足の鎌（`ClawBot`）の狙いの選び方・間合い・拍子を教育の値にした: 狙いの重み `ClawAimNeck`・`ClawAimArm`・`ClawAimTorso`（重み付きの順番回し。1・1・1 で今までの 首 → 腕 → 胴）、間合い `ClawReach`（腕の長さに足す鎌の長さの割合、既定 0.56 = 今までの値）、合間 `ClawRest`（既定 0）。既定の値では今までと同じ動き。ガルヴァの教育を `huntlab` で最適化した。
 
 - **73**（2026-11-25、枝 `claude/vfc-royale-c1e767` に `claude/six-limbed-alien` をマージ）: バトルロイヤルの狙い（72）と四足の鎌・前脚の狙い（枝の 72）を合わせた版。
