@@ -104,6 +104,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | `docs/DEBT.md` | 軸から外れている所（近道）の中身（§8） |
 | `docs/VERSIONS.md` | `PhysicsVersion`・`LogicVersion` の履歴 |
 | `docs/TOOLS.md` | 確かめ方の道具の全部（§5） |
+| `docs/PERFORMANCE.md` | 物理の 1 フレームの処理ごとの時間（`perf`）、重い所と直した記録、結果を変えない最適化の決まり |
 | `docs/DELEGATION.md` | Codex・Sonnet・raytrek への渡し方（§10） |
 | `docs/WORKFLOW.md` | セッションとワークツリーの進め方: 統合役・1 作業 1 ワークツリー・統合の手順と止める決まり・片付け（`tools/wt-status.sh`）・並列の数（§10） |
 | `docs/BOXING.md` | パンチの力学・足の運び・部位ダメージ・打撃音・調整表 |

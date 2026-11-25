@@ -7,6 +7,32 @@ using MiniRing.Bots;
 // コマンドを足したら、下の switch と Usage.txt の両方に足す（ArenaUsageTests が確かめる）。
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 var argv = args.Length == 0 ? ["league"] : args;
+// 簡素化の測定（docs/PERFORMANCE.md §7）: どのコマンドにも、物理の既定を環境変数で渡せる（この処理と、その後に始める並列の流れに効く）。
+if (Environment.GetEnvironmentVariable("MINIRING_SAMPLE") is { Length: > 0 } sampleText)
+{
+    Aigis.Physics.Voxels.VoxelContact.SampleSpacingScale = float.Parse(sampleText, System.Globalization.CultureInfo.InvariantCulture);
+}
+
+if (Environment.GetEnvironmentVariable("MINIRING_SCAN") is { Length: > 0 } scanText)
+{
+    Aigis.Physics.Voxels.VoxelContact.ScanStride = int.Parse(scanText, System.Globalization.CultureInfo.InvariantCulture);
+}
+
+if (Environment.GetEnvironmentVariable("MINIRING_PASSES") is { Length: > 0 } passesText)
+{
+    MiniRing.BoxingGame.DefaultMaxContactPasses = int.Parse(passesText, System.Globalization.CultureInfo.InvariantCulture);
+}
+
+if (Environment.GetEnvironmentVariable("MINIRING_BRIDGES") is "0")
+{
+    MiniRing.BoxingGame.DefaultJointBridges = false;
+}
+
+if (Environment.GetEnvironmentVariable("MINIRING_HZ") is { Length: > 0 } hzText)
+{
+    MiniRing.BoxingGame.DefaultSubstepRate = float.Parse(hzText, System.Globalization.CultureInfo.InvariantCulture);
+}
+
 var command = argv[0];
 try
 {
@@ -80,6 +106,8 @@ try
         "weaponlab" => WeaponLabCommand(Options.Parse(argv[1..], "out", "table", "width", "height", "fps", "slow", "video")),
         "intentvideo" => IntentVideo(Options.Parse(argv[1..], "script", "blue", "seed", "seconds", "width", "height", "out", "camera-scale")),
         "royale" => RoyaleCommand.Run(Options.Parse(argv[1..], "fighters", "count", "seed", "seconds", "rounds", "break", "out", "width", "height", "fps", "replay", "verify", "trace", "teams", "team-names")),
+        "simplify" => SimplifyCommand.Run(Options.Parse(argv[1..], "variants", "scenes", "seeds", "seconds", "parallel", "out")),
+        "perf" => PerfCommand.Run(Options.Parse(argv[1..], "scene", "seconds", "seeds", "render", "check", "alloc", "out")),
         "version" => Print($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}"),
         "tvdraft" => TvDraftCommand(Options.Parse(argv[1..], "events", "out", "org")),
         "tvmerge" => TvMergeCommand(Options.Parse(argv[1..], "draft", "extras", "out")),

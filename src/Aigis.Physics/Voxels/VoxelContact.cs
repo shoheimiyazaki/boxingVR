@@ -121,7 +121,23 @@ public static class VoxelContact
         set => _sampleSpacingScale.Value = value;
     }
 
-    private const float DefaultSampleSpacingScale = 0.5f;
+    /// <summary>既定の標本の間隔（セルの 1 倍。2026-11-25 に 0.5 から: 刃の切れ味の境目 75 か所のうち 64 が同じ・ずれは 1 段まで 10・平均の偏り 0、docs/PERFORMANCE.md §7）。</summary>
+    private const float DefaultSampleSpacingScale = 1f;
+
+    /// <summary>
+    /// 最初の接触を探す走査の間引き（1 = すべての標本を見る。既定は <see cref="DefaultScanStride"/>）。簡素化の測定用（docs/PERFORMANCE.md §7）: k なら k 標本おきに見て、触れたら戻って最初を探す。
+    /// 非同期の流れごと（<see cref="SampleSpacingScale"/> と同じ）。
+    /// </summary>
+    public static int ScanStride
+    {
+        get => _scanStride.Value ?? DefaultScanStride;
+        set => _scanStride.Value = Math.Max(1, value);
+    }
+
+    private static readonly AsyncLocal<int?> _scanStride = new();
+
+    /// <summary>既定の走査の間引き（16。2026-11-25: 16 でも 64 でも刃の切れ味の境目 75 か所のほぼ全部が 1 と同じ、docs/PERFORMANCE.md §7）。</summary>
+    private const int DefaultScanStride = 16;
     private static readonly AsyncLocal<float?> _sampleSpacingScale = new();
 
     /// <summary>Most samples of the sweep in one step.</summary>
@@ -359,6 +375,7 @@ public static class VoxelContact
         var box = Filled.GetValue(grid, static _ => new StrongBox<FilledSet>(new FilledSet(-1, [], [], [], [], [], [])));
         if (box.Value!.Version != grid.GeometryVersion)
         {
+            StepProfile.Count(StepProfile.Counter.FilledRebuildCells, grid.CellCount);
             // 2 回の走査（割り当てを少なく: 毎歩削れる武器では、この組み立てが歩ごとに走る）。セルを番号の昇順に歩き、箱（BrickSize 角）は
             // 最初に現れた順、箱の中のセルは番号の昇順に並べる（結果は、箱ごとの一覧を作ってから並べ直す前の組み立てと同じ並び）。
             var count = 0;
@@ -518,13 +535,78 @@ public static class VoxelContact
             var farStart = StepProfile.Begin();
             Far = DistanceToSegment(Vector3.Zero, t0, t1) > reach + field.Grid.HalfExtents.Length()
                 || BoxDistance(probe.Grid.HalfExtents, FieldOrigin(q0, t0), FieldOrigin(q1, t1)) > field.Grid.HalfExtents.Length() + MaxCell(probe.Grid);
+            // The field's filled cells (a body part's grid is mostly empty around the limb): a sample can only touch inside their box.
+            // Skipping a sweep that never comes near it changes nothing (it would find no overlap): see MissesOccupied.
+            if (field.Grid.OccupiedBounds() is { } occupied)
+            {
+                var slack = new Vector3(OccupiedSlack);
+                (_occupiedLo, _occupiedHi) = (occupied.Center - occupied.HalfExtents - slack, occupied.Center + occupied.HalfExtents + slack);
+                Far = Far || MissesOccupied(probe.Grid.HalfExtents, q0, t0, t1);
+            }
+            else
+            {
+                Far = true; // an empty field: nothing to touch
+            }
+
             StepProfile.End(StepProfile.Slot.SetupFar, farStart);
             var candidatesStart = StepProfile.Begin();
+            LazyBricks.Clear();
             (_cellIndex, _cellCenter, _cellCount) = Far ? ([], [], 0) : Candidates(FilledCells(probe.Grid), reach);
             StepProfile.End(StepProfile.Slot.SetupCandidates, candidatesStart);
+            if (!Far)
+            {
+                StepProfile.Count(StepProfile.Counter.NearSweeps, 1);
+                StepProfile.Count(StepProfile.Counter.Candidates, _cellCount);
+            }
             (_chunkStart, _chunkCenter, _chunkRadius, _chunkCount) = BuildChunks(_cellCenter, _cellCount, ChunkSize, ChunkScratch);
             (_, _superCenter, _superRadius, _superCount) = BuildChunks(_cellCenter, _cellCount, ChunkSize * ChunksPerSuper, SuperScratch);
         }
+
+        /// <summary>Slack [m] on the field's occupied box: far above the float rounding of a sample's position (about 1e-7 m), far below a cell.</summary>
+        private const float OccupiedSlack = 1e-4f;
+
+        /// <summary>The box (field frame) around the field's filled cells at the start of the sweep, widened by <see cref="OccupiedSlack"/>.
+        /// The sweep only removes field cells, so every cell it can touch (or has broken) lies in it.</summary>
+        private readonly Vector3 _occupiedLo;
+        private readonly Vector3 _occupiedHi;
+
+        /// <summary>
+        /// Whether no probe cell can be inside the field's occupied box at any sample of the step (a sufficient test: true only when
+        /// certain). A cell at <c>c</c> (probe frame, inside the probe's box of <paramref name="half"/>) is at <c>R(s) c + t(s)</c>, with the
+        /// angle and the translation both linear in <c>s</c> (<see cref="Pose"/>). Between two poses the path leaves the straight line
+        /// between its ends by at most <c>|c| φ² / 8</c> (φ the turn between them: the bound on linear interpolation by the second
+        /// derivative), so with poses at <c>s</c> = 0, ½, 1 every sample lies in the union of the probe box's world boxes there,
+        /// widened by <c>|half| (θ/2)² / 8</c>.
+        /// </summary>
+        private bool MissesOccupied(Vector3 half, Quaternion q0, Vector3 t0, Vector3 t1)
+        {
+            var lo = new Vector3(float.MaxValue);
+            var hi = new Vector3(float.MinValue);
+            for (var i = 0; i <= 2; i++)
+            {
+                var s = 0.5f * i;
+                var q = _angle > 1e-7f ? Quaternion.CreateFromAxisAngle(_axis, _angle * s) * q0 : q0;
+                var m = Matrix4x4.CreateFromQuaternion(q);
+                var extent = new Vector3(
+                    (MathF.Abs(m.M11) * half.X) + (MathF.Abs(m.M21) * half.Y) + (MathF.Abs(m.M31) * half.Z),
+                    (MathF.Abs(m.M12) * half.X) + (MathF.Abs(m.M22) * half.Y) + (MathF.Abs(m.M32) * half.Z),
+                    (MathF.Abs(m.M13) * half.X) + (MathF.Abs(m.M23) * half.Y) + (MathF.Abs(m.M33) * half.Z));
+                var center = Vector3.Lerp(t0, t1, s);
+                lo = Vector3.Min(lo, center - extent);
+                hi = Vector3.Max(hi, center + extent);
+            }
+
+            var bow = (half.Length() * _angle * _angle / 32f) + OccupiedSlack;
+            lo -= new Vector3(bow);
+            hi += new Vector3(bow);
+            return lo.X > _occupiedHi.X || hi.X < _occupiedLo.X || lo.Y > _occupiedHi.Y || hi.Y < _occupiedLo.Y || lo.Z > _occupiedHi.Z || hi.Z < _occupiedLo.Z;
+        }
+
+        /// <summary>Whether the sphere (field frame) lies wholly outside the field's occupied box.</summary>
+        private bool OutsideOccupied(Vector3 center, float radius) =>
+            center.X - radius > _occupiedHi.X || center.X + radius < _occupiedLo.X
+            || center.Y - radius > _occupiedHi.Y || center.Y + radius < _occupiedLo.Y
+            || center.Z - radius > _occupiedHi.Z || center.Z + radius < _occupiedLo.Z;
 
         /// <summary>The field grid's centre in the probe grid's frame, for the probe's pose (<paramref name="q"/>, <paramref name="t"/>) in the field frame.</summary>
         private static Vector3 FieldOrigin(Quaternion q, Vector3 t) => Vector3.Transform(-t, Quaternion.Conjugate(q));
@@ -588,10 +670,32 @@ public static class VoxelContact
                     continue;
                 }
 
+                // A brick whose sphere at the start of the step lies inside the field's box (widened by the bow): every cell's start
+                // point is inside it, so every cell meets (TestCell would take them all). Take them without the per-cell transforms; their
+                // part of the reach box is summed only if a contact needs it (EnsureReach, the same sums as TestCell).
+                var inside = half + new Vector3(bow - brick.Radius - InsideSlack);
+                if (MathF.Abs(b0.X) <= inside.X && MathF.Abs(b0.Y) <= inside.Y && MathF.Abs(b0.Z) <= inside.Z)
+                {
+                    for (var i = brick.Start; i < brick.Start + brick.Count; i++)
+                    {
+                        var r = all.Rank[i];
+                        found[r >> 6] |= 1UL << (r & 63);
+                    }
+
+                    foundCount += brick.Count;
+                    LazyBricks.Add(brick);
+                    continue;
+                }
+
                 for (var i = brick.Start; i < brick.Start + brick.Count; i++)
                 {
                     TestCell(i);
                 }
+            }
+
+            if (LazyBricks.Count > 0)
+            {
+                (_lazyAll, _lazyPoses, _lazyBow) = (all, (q0, t0, q1, t1, q2, t2, q3, t3), bow);
             }
 
             // In cell order, as without the bricks (which cells are tried first decides what breaks first).
@@ -636,6 +740,49 @@ public static class VoxelContact
             }
 
             float travelStep() => _advance * (MaxLookahead + 1);
+        }
+
+        /// <summary>Slack [m] on the test that a brick lies inside the field's box: far above float rounding, far below a cell.</summary>
+        private const float InsideSlack = 1e-4f;
+
+        /// <summary>The bricks Candidates took whole (their cells' part of the reach box not summed yet: <see cref="EnsureReach"/>).
+        /// Per thread, cleared by each sweep (a sweep is over before the next one begins).</summary>
+        [ThreadStatic]
+        private static List<Brick>? _lazyBricks;
+
+        private static List<Brick> LazyBricks => _lazyBricks ??= [];
+
+        private FilledSet? _lazyAll;
+        private (Quaternion Q0, Vector3 T0, Quaternion Q1, Vector3 T1, Quaternion Q2, Vector3 T2, Quaternion Q3, Vector3 T3) _lazyPoses;
+        private float _lazyBow;
+
+        /// <summary>Adds the cells of the bricks Candidates took whole to the reach box, with the same sums as its TestCell.</summary>
+        private void EnsureReach()
+        {
+            if (_lazyAll is not { } all)
+            {
+                return;
+            }
+
+            var (q0, t0, q1, t1, q2, t2, q3, t3) = _lazyPoses;
+            var bow = _lazyBow;
+            foreach (var brick in LazyBricks)
+            {
+                for (var i = brick.Start; i < brick.Start + brick.Count; i++)
+                {
+                    var c = all.Center[i];
+                    var p0 = Vector3.Transform(c, q0) + t0;
+                    var p1 = Vector3.Transform(c, q1) + t1;
+                    var p2 = Vector3.Transform(c, q2) + t2;
+                    var p3 = Vector3.Transform(c, q3) + t3;
+                    var lo = Vector3.Min(Vector3.Min(p0, p1), Vector3.Min(p2, p3));
+                    var hi = Vector3.Max(Vector3.Max(p0, p1), Vector3.Max(p2, p3));
+                    _reachLo = Vector3.Min(_reachLo, lo - new Vector3(bow));
+                    _reachHi = Vector3.Max(_reachHi, hi + new Vector3(bow));
+                }
+            }
+
+            _lazyAll = null;
         }
 
         /// <summary>Candidate cells per chunk (see <see cref="BuildChunks"/>).</summary>
@@ -783,7 +930,8 @@ public static class VoxelContact
                 // A run of chunks whose sphere is wholly outside the field's grid holds no cell that is inside it.
                 var around = Vector3.Transform(_superCenter[g], q) + t;
                 var span = _superRadius[g];
-                if (MathF.Abs(around.X) - span > half.X || MathF.Abs(around.Y) - span > half.Y || MathF.Abs(around.Z) - span > half.Z)
+                if (MathF.Abs(around.X) - span > half.X || MathF.Abs(around.Y) - span > half.Y || MathF.Abs(around.Z) - span > half.Z
+                    || OutsideOccupied(around, span))
                 {
                     continue;
                 }
@@ -793,11 +941,13 @@ public static class VoxelContact
                     // Likewise a chunk.
                     var middle = Vector3.Transform(_chunkCenter[c], q) + t;
                     var reach = _chunkRadius[c];
-                    if (MathF.Abs(middle.X) - reach > half.X || MathF.Abs(middle.Y) - reach > half.Y || MathF.Abs(middle.Z) - reach > half.Z)
+                    if (MathF.Abs(middle.X) - reach > half.X || MathF.Abs(middle.Y) - reach > half.Y || MathF.Abs(middle.Z) - reach > half.Z
+                        || OutsideOccupied(middle, reach))
                     {
                         continue;
                     }
 
+                    StepProfile.Count(StepProfile.Counter.ChunksTested, 1);
                     for (var i = _chunkStart[c]; i < _chunkStart[c + 1]; i++)
                     {
                         if (_probe.Grid.MaterialAt(_cellIndex[i]) == 0)
@@ -870,15 +1020,37 @@ public static class VoxelContact
             var first = -1;
             var touching = NoOverlaps;
             var scanStart = StepProfile.Begin();
-            for (var k = 0; k <= _samples; k++)
+            // 間引き（ScanStride > 1、簡素化の測定用）: stride おきに見て、触れたら直前の区間を 1 つずつ戻って最初の標本を探す。
+            // stride 1（既定）は 1 つずつ（今までと同じ）。間の標本でだけ触れて抜ける薄い接触は見落とす。
+            var stride = ScanStride;
+            var previous = -1;
+            for (var k = 0; ; k = Math.Min(_samples, k + stride))
             {
                 touching = Overlaps(k);
                 if (touching.Count > 0)
                 {
                     first = k;
+                    for (var back = previous + 1; back < k; back++)
+                    {
+                        if (Overlaps(back) is { Count: > 0 } earlier)
+                        {
+                            (first, touching) = (back, earlier);
+                            break;
+                        }
+                    }
+
                     break;
                 }
+
+                if (k == _samples)
+                {
+                    break;
+                }
+
+                previous = k;
             }
+
+            StepProfile.Count(StepProfile.Counter.ScanSamples, first < 0 ? _samples + 1 : first + 1);
 
             StepProfile.End(StepProfile.Slot.RunScan, scanStart);
 
@@ -905,7 +1077,9 @@ public static class VoxelContact
                 // that cannot cut) is pushed out: what does not break is pushed aside, it does not pass through.
                 if (first == 0)
                 {
+                    var separateStart = StepProfile.Begin();
                     Separate(Vector3.Zero, normal, 0);
+                    StepProfile.End(StepProfile.Slot.RunSeparate, separateStart);
                 }
 
                 return new Hit(point, normal, speed > 1e-5f ? relative / speed : -normal, 0f, 0f, 0f, 0f, true, removedProbe, removedField,
@@ -1005,14 +1179,18 @@ public static class VoxelContact
                     // The blow runs out partway through this advance: it cuts on only as far as its energy (and the drive) pays for,
                     // and stops there. The cells keep how far they were cut (a notch), so the next blow carries on from it.
                     var partial = through > drive ? left / (through - drive) : advance;
+                    var partialStart = StepProfile.Begin();
                     CutInto(now, probeYields, fieldYields, MathF.Min(partial, advance), localAlong, qFirst, removedProbe, removedField);
+                    StepProfile.End(StepProfile.Slot.RunCut, partialStart);
                     left = 0f;
                     stoppedAt = k;
                     break;
                 }
 
                 left -= MathF.Max(0f, cost - driven);
+                var cutStart = StepProfile.Begin();
                 CutInto(now, probeYields, fieldYields, advance, localAlong, qFirst, removedProbe, removedField);
+                StepProfile.End(StepProfile.Slot.RunCut, cutStart);
             }
 
             var stopped = stoppedAt >= 0;
@@ -1021,7 +1199,9 @@ public static class VoxelContact
                 // An inelastic collision along the face, and back to where the blow stopped.
                 var j = mEffNormal * (1f + Restitution) * approach;
                 Push(point, normal * j);
+                var separateStart = StepProfile.Begin();
                 Separate(contactOnProbe, normal, Math.Max(0, stoppedAt - 1));
+                StepProfile.End(StepProfile.Slot.RunSeparate, separateStart);
             }
             else if (left < energy)
             {
@@ -1035,6 +1215,7 @@ public static class VoxelContact
             var crushed = heldPatch is null || !_pressBeneath ? null : CrushBeneath(heldPatch, localAlong, heldGive, heldForce, blowEnergy, removedField);
             StepProfile.End(StepProfile.Slot.RunCrush, crushStart);
 
+            var massStart = StepProfile.Begin();
             if (removedProbe.Count > 0)
             {
                 _probe.UpdateMass();
@@ -1044,6 +1225,8 @@ public static class VoxelContact
             {
                 _field.UpdateMass();
             }
+
+            StepProfile.End(StepProfile.Slot.RunMass, massStart);
 
             // The whole blow (with the mass behind) that the contact passed on: what bends a limb it lands on.
             var passed = heldPatch is null ? peakForce : MathF.Max(peakForce, heldForce);
@@ -1217,6 +1400,7 @@ public static class VoxelContact
             var half = grid.CellSize * 0.5f;
             float Projected(Vector3 axis) => (MathF.Abs(axis.X) * half.X) + (MathF.Abs(axis.Y) * half.Y) + (MathF.Abs(axis.Z) * half.Z);
             var (ru, rw, ra) = (Projected(_u), Projected(_w), Projected(along));
+            EnsureReach();
             var lo = _reachLo - half;
             var hi = _reachHi + half;
             // Restrict traversal to the swept bounds while preserving the original index order and depth ties.
