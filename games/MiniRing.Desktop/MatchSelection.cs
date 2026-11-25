@@ -15,37 +15,52 @@ internal enum MatchMode { Single, Versus, Spectate }
 /// （教科書に教育を重ねた解決済みのもの。相手ごとの備え <c>vs</c> はこの試合の相手で引く。<see cref="FighterCharacter.Resolve(string)"/>）。
 /// 解決したスタイルは、青のボット（<see cref="BoxingCorners.CpuStyleJson"/>）・赤のボット（<see cref="BoxingCorners.RedBotStyle"/>）・
 /// 人が操る側の意図の解釈（<see cref="BoxingCorners.PlayerStyle"/>・<see cref="BoxingCorners.CpuStyle"/>）・記録の見出しの全部に同じ物が通る。
+/// <para>ゲームモード（<see cref="Competition"/>、2026-11-26）: 大会なら計量と団体の着けさせる物（<see cref="Competition.Enter"/>）を通した両者で、
+/// 団体の場（レフェリー・檻: <see cref="Competition.Stage"/>）と決まり（<see cref="RulesOr"/>）を重ねる。練習試合の標準は今までと同じ。</para>
 /// </summary>
-internal sealed record MatchSelection(MatchMode Mode, FighterCharacter Red, FighterCharacter Blue, bool Referee = true)
+internal sealed record MatchSelection(MatchMode Mode, FighterCharacter Red, FighterCharacter Blue, bool Referee = true, Competition? Competition = null)
 {
-    public BoxingCorners Corners => Build(Red.Resolve(Blue), Blue.Resolve(Red));
+    /// <summary>ゲームモード（無ければ練習試合の標準）。</summary>
+    public Competition Event => Competition ?? Desktop.Competition.Practice(null);
 
-    private BoxingCorners Build(BotStyle redStyle, BotStyle blueStyle) => BotCatalog.Corners(blueStyle) with
+    public BoxingCorners Corners
+    {
+        get
+        {
+            var (red, blue) = Event.Enter(Red, Blue);
+            return Event.Stage(Build(red, blue, red.Resolve(blue), blue.Resolve(red)));
+        }
+    }
+
+    /// <summary>この試合の決まり（団体が無ければ <paramref name="standard"/>）。</summary>
+    public MatchRules? RulesOr(MatchRules? standard) => Event.Rules(standard);
+
+    private BoxingCorners Build(FighterCharacter red, FighterCharacter blue, BotStyle redStyle, BotStyle blueStyle) => BotCatalog.Corners(blueStyle) with
     {
         RedBotStyle = Mode == MatchMode.Spectate ? redStyle : null,
         PlayerStyle = redStyle,
         ExternalBlue = Mode == MatchMode.Versus,
         // 名前はスタイルの名前（空手の判定 LocalVersusControl.IsKarate がスタイルで見る）。顔・画面の名前はキャラクターの値。
-        PlayerName = Red.StyleName,
-        PlayerBody = Red.Build,
-        PlayerFace = Red.Look.Parts,
-        PlayerLook = Red.Look,
-        PlayerFaceSpec = Red.Face,
-        PlayerLabel = Red.HudName,
-        PlayerWear = Red.Wear,
-        PlayerWeapon = Red.Weapon,
-        PlayerWeaponStyle = Red.WeaponStyle,
-        CpuBody = Blue.Build,
-        CpuFace = Blue.Look.Parts,
-        CpuLook = Blue.Look,
-        CpuFaceSpec = Blue.Face,
-        CpuLabel = Blue.HudName,
-        CpuWeapon = Blue.Weapon,
-        CpuWeaponStyle = Blue.WeaponStyle,
-        PlayerTwoHanded = TwoHanded(Red.Weapon),
-        CpuTwoHanded = TwoHanded(Blue.Weapon),
+        PlayerName = red.StyleName,
+        PlayerBody = red.Build,
+        PlayerFace = red.Look.Parts,
+        PlayerLook = red.Look,
+        PlayerFaceSpec = red.Face,
+        PlayerLabel = red.HudName,
+        PlayerWear = red.Wear,
+        PlayerWeapon = red.Weapon,
+        PlayerWeaponStyle = red.WeaponStyle,
+        CpuBody = blue.Build,
+        CpuFace = blue.Look.Parts,
+        CpuLook = blue.Look,
+        CpuFaceSpec = blue.Face,
+        CpuLabel = blue.HudName,
+        CpuWeapon = blue.Weapon,
+        CpuWeaponStyle = blue.WeaponStyle,
+        PlayerTwoHanded = TwoHanded(red.Weapon),
+        CpuTwoHanded = TwoHanded(blue.Weapon),
         UseWeaponBots = true,
-        CpuWear = Blue.Wear,
+        CpuWear = blue.Wear,
         Referee = Referee,
     };
 
