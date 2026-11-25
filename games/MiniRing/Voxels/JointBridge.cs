@@ -339,6 +339,13 @@ internal sealed class JointBridge
         }
 
         var (parentFilled, sp) = parentMemo[cell];
+        if (!parentFilled && sp.Cell < 0)
+        {
+            // 親のセルが届かない: 組織にならない（材質 0）。子の側は見なくても答えは同じ（材質 0 のセルのつないだ先は、壊すとき・描くときに読まない:
+            // 材質 0 のセルは刃に壊されず、描くときは材質 0 なら空）。体の外の大半のセルがここで終わる。
+            return (0, sp, (-1, -1));
+        }
+
         if (parentFilled || FilledIn(ChildLayers, center, null, toChildLayers))
         {
             return (0, (-1, -1), (-1, -1));

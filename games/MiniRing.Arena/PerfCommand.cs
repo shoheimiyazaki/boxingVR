@@ -25,7 +25,7 @@ internal static class PerfCommand
         StepProfile.Slot.After, StepProfile.Slot.PostStep,
     ];
 
-    private sealed record Frame(int Seed, int Index, double Total, double[] Slots, double Render, int Gc0, int Gc2, int Fragments, long[] Counts, long[] Allocs);
+    private sealed record Frame(int Seed, int Index, double Total, double[] Slots, double Render, double RenderVoxels, int Gc0, int Gc2, int Fragments, long[] Counts, long[] Allocs);
 
     public static int Run(Options o)
     {
@@ -83,19 +83,26 @@ internal static class PerfCommand
                     game.Step(default, Dt);
                     var total = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
                     var slotMs = slots.Select(StepProfile.Milliseconds).ToArray();
-                    var renderMs = 0.0;
+                    var counts = Enum.GetValues<StepProfile.Counter>().Select(StepProfile.CountOf).ToArray();
+                    var allocs = slots.Select(StepProfile.Allocated).ToArray();
+                    var (renderMs, voxelMs) = (0.0, 0.0);
                     if (render)
                     {
+                        StepProfile.Reset(); // 描画の枠だけを数える（物理の枠は上で写した）
                         var r = Stopwatch.GetTimestamp();
                         BoxingRenderer.Fill(game, false, instances, lines);
+                        var v = Stopwatch.GetTimestamp();
                         BoxingRenderer.FillVoxels(game, voxels);
                         renderMs = Stopwatch.GetElapsedTime(r).TotalMilliseconds;
+                        voxelMs = Stopwatch.GetElapsedTime(v).TotalMilliseconds;
+                        foreach (var slot in new[] { StepProfile.Slot.RenderParts, StepProfile.Slot.RenderFragments, StepProfile.Slot.RenderBridges })
+                        {
+                            slotMs[(int)slot] = StepProfile.Milliseconds(slot);
+                        }
                     }
 
                     var fragments = game.AllFighters.Sum(f => f.Voxels?.Fragments.Count ?? 0);
-                    var counts = Enum.GetValues<StepProfile.Counter>().Select(StepProfile.CountOf).ToArray();
-                    var allocs = slots.Select(StepProfile.Allocated).ToArray();
-                    samples.Add(new Frame(seed, i, total, slotMs, renderMs, GC.CollectionCount(0) - gc0, GC.CollectionCount(2) - gc2, fragments, counts, allocs));
+                    samples.Add(new Frame(seed, i, total, slotMs, renderMs, voxelMs, GC.CollectionCount(0) - gc0, GC.CollectionCount(2) - gc2, fragments, counts, allocs));
                 }
 
                 sums.Add($"{game.StateChecksum():x}");
@@ -162,6 +169,8 @@ internal static class PerfCommand
         {
             var r = samples.Select(s => s.Render).Order().ToList();
             sb.AppendLine(inv, $"| 描画の詰め（CPU） | {r.Average():F2} | {Pct(r, 0.5):F2} | {Pct(r, 0.95):F2} | {Pct(r, 0.99):F2} | {r[^1]:F2} | | |");
+            var rv = samples.Select(s => s.RenderVoxels).Order().ToList();
+            sb.AppendLine(inv, $"| 　うちボクセル（FillVoxels） | {rv.Average():F2} | {Pct(rv, 0.5):F2} | {Pct(rv, 0.95):F2} | {Pct(rv, 0.99):F2} | {rv[^1]:F2} | | |");
         }
 
         sb.AppendLine();

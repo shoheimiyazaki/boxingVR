@@ -124,6 +124,12 @@ public static class StepProfile
         ClashAfter,
         /// <summary>WeaponClash のうち、腕の押す力と後ろの質量（<c>Drive</c>・<c>MassBehind</c>）。</summary>
         ClashPush,
+        /// <summary>描画の詰め（試合の外）: 体の部位の 3D テクスチャ（<c>VoxelPart.Draw</c>）。</summary>
+        RenderParts,
+        /// <summary>描画の詰め: 切り落とされた破片。</summary>
+        RenderFragments,
+        /// <summary>描画の詰め: 関節のつなぎ（<c>JointBridge.View</c>）。</summary>
+        RenderBridges,
     }
 
     /// <summary>この歩のこのスレッドの割り当て [byte]（計測を取る間だけ、<see cref="Reset"/> で基準を取る）。</summary>

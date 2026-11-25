@@ -180,6 +180,7 @@ public static class BoxingRenderer
             MiniRing.Voxels.EyePose? eyes = fighter.Build.FourLegged
                 ? null
                 : new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
+            var partsStart = Aigis.Foundation.Voxels.StepProfile.Begin();
             foreach (var part in body.Layers)
             {
                 if (game.HidePlayerHead && ReferenceEquals(fighter, game.Player) && part.Kind == BodyPartKind.Head)
@@ -191,10 +192,15 @@ public static class BoxingRenderer
                 voxels.Add(ReferenceEquals(fighter, game.Player) ? draw with { Opacity = game.PlayerBodyOpacity } : draw); // 一人称: 自分の体は半透明
             }
 
+            Aigis.Foundation.Voxels.StepProfile.End(Aigis.Foundation.Voxels.StepProfile.Slot.RenderParts, partsStart);
+            var fragmentsStart = Aigis.Foundation.Voxels.StepProfile.Begin();
             foreach (var fragment in body.Fragments)
             {
                 voxels.Add(fragment.Draw());
             }
+
+            Aigis.Foundation.Voxels.StepProfile.End(Aigis.Foundation.Voxels.StepProfile.Slot.RenderFragments, fragmentsStart);
+            var bridgesStart = Aigis.Foundation.Voxels.StepProfile.Begin();
 
             // 関節のつなぎ（関節を曲げて開いた隙間を埋める肉・骨）: 関節がまだつながっている間だけ、今の両側の物質から作って描く（見た目だけ）。
             // 両側が削れればつなぎも細り、関節が外れれば描かない: 見えている首がつながっていれば、首はつながっている。
@@ -207,6 +213,8 @@ public static class BoxingRenderer
                     voxels.Add(bridge.View().Draw());
                 }
             }
+
+            Aigis.Foundation.Voxels.StepProfile.End(Aigis.Foundation.Voxels.StepProfile.Slot.RenderBridges, bridgesStart);
         }
 
         foreach (var weapon in game.Weapons)
