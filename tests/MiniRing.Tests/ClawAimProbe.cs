@@ -5,12 +5,42 @@ using MiniRing.Weapons;
 
 namespace MiniRing.Tests;
 
+/// <summary>はめた鎌の向きが指令をどれだけ追うか（2026-11-25、huntlab の切り分け）。相手は 4 m 先、鎌を同じ目標に 1 s 保つ。</summary>
 [TestClass]
 [TestCategory("Probe")]
 public sealed class ClawAimProbe
 {
     [TestMethod]
-    public void GuardTipError()
+    public void HeldTargets()
+    {
+        var reach = 1f;
+        foreach (var (label, tuning) in new[]
+        {
+            ("now (103)", new FighterTuning()),
+            ("grip values", new FighterTuning() with { WristMaxTorque = 20f, WristServoHz = 25f }),
+            ("wrist x5 30Hz", new FighterTuning() with { WristMaxTorque = 50f, WristServoHz = 30f }),
+        })
+        {
+            foreach (var (name, make) in Targets())
+            {
+                var (angle, root) = Hold(tuning, make, out reach);
+                Console.WriteLine($"{label,-14} {name,-22} blade angle error {angle:0.0} deg, root error {root * 100f:0} cm");
+            }
+        }
+    }
+
+    private static IEnumerable<(string, Func<float, ClawSegment>)> Targets()
+    {
+        yield return ("guard", r => ClawStroke.Guard(Hand.Right, r));
+        yield return ("level forward", r => Seg(new Vector3(-0.5f, 0.1f, 0.4f) * r, Vector3.UnitZ, Vector3.UnitY));
+        yield return ("level across", r => Seg(new Vector3(-0.6f, 0.3f, 0.7f) * r, Vector3.UnitX, Vector3.UnitY));
+        yield return ("up", r => Seg(new Vector3(-0.5f, 0.3f, 0.4f) * r, Vector3.Normalize(new Vector3(0f, 1f, 0.3f)), Vector3.UnitZ));
+        yield return ("level fwd, edge down", r => Seg(new Vector3(-0.5f, 0.1f, 0.4f) * r, Vector3.UnitZ, Vector3.UnitX));
+    }
+
+    private static ClawSegment Seg(Vector3 root, Vector3 axis, Vector3 normal) => new(root, root + axis * ClawSegment.Length, normal);
+
+    private static (float Angle, float Root) Hold(FighterTuning tuning, Func<float, ClawSegment> make, out float reach)
     {
         var creature = CharacterRoster.Get("galva");
         var target = CharacterRoster.Get("marcus");
@@ -20,18 +50,19 @@ public sealed class ClawAimProbe
             CpuBody = target.Build, CpuWear = HandWear.None, CpuLook = target.Look, CpuFaceSpec = target.Face,
             ExternalBlue = true, Referee = false, Ring = RingLayout.Boxing with { StartGap = 4f, FromCorners = false },
         };
-        using var game = new BoxingGame(seed: 1, corners: corners);
+        using var game = new BoxingGame(tuning, seed: 1, corners: corners);
         var f = game.Player;
+        reach = f.ArmReach;
+        var hand = Hand.Right;
+        var want = make(f.ArmReach);
         var guard = new FighterCommand(Vector3.Zero, Vector3.UnitZ, ClawStroke.Guard(Hand.Left, f.ArmReach).ToCommand(Hand.Left),
-            ClawStroke.Guard(Hand.Right, f.ArmReach).ToCommand(Hand.Right), ClawBot.Stance(f.ArmReach));
+            want.ToCommand(hand), ClawBot.Stance(f.ArmReach));
         var blue = new FighterCommand(Vector3.Zero, -Vector3.UnitZ, new HandCommand(AiControl.Guard(Hand.Left, 0.7f), false), new HandCommand(AiControl.Guard(Hand.Right, 0.7f), false));
-        for (var i = 0; i < 216; i++)
+        for (var i = 0; i < 240; i++)
         {
             game.Step(new BoxingInput(guard, Blue: blue), 1f / 240f);
         }
 
-        var hand = Hand.Right;
-        var want = ClawStroke.Guard(hand, f.ArmReach);
         var claw = game.GloveOf(f, hand)!;
         var state = game.World.GetState(claw.Body.BodyId);
         var self = game.PlayerSense.Self;
@@ -39,6 +70,6 @@ public sealed class ClawAimProbe
         var tip = self.WorldToLocal(state.Position + Vector3.Transform(Weapon.GripOf(claw.Kind) + SickleClawShape.Edge(hand), state.Orientation));
         var a = Vector3.Normalize(want.Tip - want.Root);
         var b = Vector3.Normalize(tip - root);
-        Console.WriteLine($"guard blade angle error {MathF.Acos(Math.Clamp(Vector3.Dot(a, b), -1f, 1f)) * 180f / MathF.PI:0.0} deg, root error {Vector3.Distance(root, want.Root) * 100f:0} cm, mass {game.World.GetMass(claw.Body.BodyId):0.00}");
+        return (MathF.Acos(Math.Clamp(Vector3.Dot(a, b), -1f, 1f)) * 180f / MathF.PI, Vector3.Distance(root, want.Root));
     }
 }

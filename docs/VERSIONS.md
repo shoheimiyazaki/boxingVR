@@ -9,6 +9,8 @@
 
 体の物理・当たり・静的な形（リング・部屋の当たり判定を含む）を変えたら上げる。22 以前は git の履歴を見る。
 
+- **103**（2026-11-25、枝 `claude/priceless-faraday-45d51b`。統合役の指定は 101 だが、この枝はもう 102 なので 103。マージで付け直す）: はめた鎌（`Weapon.ClenchesWrist`）の手首を、片手で刀を支えるときと同じ固めた手首（`GripWristServoHz` 25 Hz・`GripWristMaxTorque` 20・減衰 3）にした。鎌 0.77 kg・刃渡り 1.03 m をグローブの手首（8.9 Hz・10）で回すと、構えで刃の向きが目標から 7〜33°（揺れている）、前へ寝かせた構えで 26° 外れ、刃筋が通らず首を断てなかった（`ClawAimProbe`）。
+
 - **102**（2026-11-25、枝 `claude/vfc-royale-c1e767` に `claude/six-limbed-alien` をマージ）: 両方の物理を合わせた版（バトルロイヤルの N 人の体と、ガルヴァの昆虫の脚・8 つの目・外骨格・ボクセルの接続による分離 101）。
 - **99**（2026-11-25、枝 `claude/material-fix-f18610`。98 は galva（`claude/galva-merge`、四足の外骨格）なので 99、ユーザーの指定「大会ごとに材料の強さを変えない」「木が過剰に折れやすい」）: WVC の団体ファイルの腕・脚の骨の曲げ強さの倍率 `limbBendStrengthScale` を 0.60 → 1（仕組みは残す）。木の材料を実物の樫（Wood Handbook 表 5-3a のホワイトオーク）へ: 曲げ強さ 60 → 105 MPa・ヤング率 10 → 12.3 GPa（潰れる強さ・密度は表の幅の中なので前のまま）。手の組織（木の値の代用）は前の値のまま `BoxerAnatomy.HandMechanics` に分けた。測った: WVC のグローブどうしの 1 ラウンドに骨が折れる割合 61.9 → 33.8 %、木の武器の選手の 1 ラウンドに木が折れる割合 9 → 7 / 105（折れはほぼ削れの道。docs/VOXEL_WEAPONS.md「木の強さ」）。
 - **98**（2026-11-25 のマージで 98。枝 `claude/six-limbed-alien` dcf96cd・04516de、枝の中では 91・92）: 四足二腕のガルヴァ（`BodyBuild.FourLegged`）。前の脚の対を写した後ろの脚の対（`Fighter.AddRearRig`・`CreateRearLegs`）を前後に延ばした骨盤へつなぎ、一脚ずつ踏み替える。長い腕・外骨格の頭と胴（`AlienAnatomy`）・骨の鎌（`SickleClawShape`）を手首のサーボと装着物のボクセル接触で振る。刃元と切っ先の線分を目標にする経路（`ClawSegment`・`ClawStroke`）。マージで、脚の酸素の蓄え（94 で左右に分けた）は後ろ脚を同じ側の部位に数え（`Fighter.SideLegs`・`LegRegion` は脚の左右で引く）、紙の体重（`BodySizing.PhysicalMassKg`）は脚の対の数（`BodyBuild.LegPairs`）だけ脚を数える。四足でない体の物理は変わらない。docs/plans/SIX_LIMBED_ALIEN_PLAN.md。

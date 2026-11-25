@@ -43,7 +43,7 @@ internal sealed class ClawBot(BotStats stats)
 
         _nextDraw ??= NextDraw(style);
         var draw = _nextDraw.Value;
-        var aim = Aim(sense, _nextAim);
+        var aim = Aim(sense, _nextAim) + new Vector3(0f, style.ClawAimLift * sense.ArmReach, 0f);
         var left = _arms[0].Read(Hand.Left, ready && side == Hand.Left, true, sense, aim, dt, style.ClawDriveSeconds, style.ClawWindup, draw);
         var right = _arms[1].Read(Hand.Right, ready && side == Hand.Right, true, sense, aim, dt, style.ClawDriveSeconds, style.ClawWindup, draw);
         if (ready)

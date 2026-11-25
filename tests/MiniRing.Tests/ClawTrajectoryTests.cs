@@ -48,6 +48,11 @@ public sealed class ClawTrajectoryTests
         var trials = Enumerable.Range(0, 3).Select(aim =>
             ClawLab.Run("albert", 119, 1.24f, aim, aim == 1 ? Hand.Left : Hand.Right, 0.42f, 0.75f, moving: true)).ToArray();
         Assert.IsTrue(trials.All(t => t.Standing));
+        foreach (var t in trials)
+        {
+            Console.WriteLine($"aim {t.Aim}: removed {t.Removed} (arm {t.Arm}, neck {t.Neck}, torso {t.Torso}) tip {t.TipSpeed:0.00} m/s plane {t.PlaneError * 100f:0.0} cm separated {t.HeadSeparated}/{t.ArmSeparated}/{t.TorsoSeparated}");
+        }
+
         Assert.IsTrue(trials.All(t => t.Removed > 0), "every aimed stroke carves cells");
     }
 

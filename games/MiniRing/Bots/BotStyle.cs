@@ -377,6 +377,12 @@ public sealed record BotStyle
     /// 割合を毎回足して 1 を超えたら引き斬り（乱数を使わない決まった順）。既定 0（今までどおり全部を振り抜く）。
     /// </summary>
     public float ClawDraw { get; init; }
+
+    /// <summary>
+    /// 鎌の狙いの点を上へずらす量 [腕の長さ]（教育の値: 技の経路。2026-11-25）。重い刃は振る間に腕ごと下へ外れる（huntlab: 首を狙った振りが胴に入った）ので、
+    /// 外れる分だけ上を狙う（人が覚える狙いの癖と同じ）。既定 0。
+    /// </summary>
+    public float ClawAimLift { get; init; }
     /// <summary>Kick goal cycle duration in seconds.</summary>
     public float KickDuration { get; init; } = 1.175f;
     /// <summary>
@@ -584,6 +590,7 @@ public sealed record BotStyle
             ClawReach = Range(ClawReach, -0.8f, 1f, 0.56f),
             ClawRest = Range(ClawRest, 0f, 3f, 0f),
             ClawDraw = Unit(ClawDraw),
+            ClawAimLift = Range(ClawAimLift, -0.5f, 0.8f, 0f),
             KickDuration = Range(KickDuration, 0.6714f, 2.014f, 1.175f),
             KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
             BreakLikes = (BreakLikes ?? new Dictionary<string, float>()).ToDictionary(p => p.Key, p => NonNegative(p.Value)),

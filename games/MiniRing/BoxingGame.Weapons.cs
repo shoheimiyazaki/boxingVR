@@ -146,7 +146,7 @@ public sealed partial class BoxingGame
             var mirrored = Weapon.MirroredOn(kind, hand);
             var worn = Weapon.CreateWorn(_world, kind, leather, fighter.GloveCenter(hand), Quaternion.Identity, mirrored);
             Track(worn);
-            fighter.Wield(hand, worn.Body.BodyId, Weapon.GripOf(kind, mirrored), glove: true);
+            fighter.Wield(hand, worn.Body.BodyId, Weapon.GripOf(kind, mirrored), glove: true, clench: Weapon.ClenchesWrist(kind));
             fighter.SetStrikeReach(hand, worn.HandState is null ? null : worn.StrikeOffset);
             fighter.SetBladeChord(hand, kind == WeaponKind.SickleClaw ? SickleClawShape.Edge(hand) : null);
             _wielders[worn] = fighter;

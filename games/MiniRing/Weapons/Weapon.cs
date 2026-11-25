@@ -432,6 +432,13 @@ public sealed class Weapon
         _ => null,
     };
 
+    /// <summary>
+    /// はめる物のうち、手首を固めて支える長い刃（前腕の先に付いた鎌）か（2026-11-25、PhysicsVersion 103）。片手で刀を支えるときと同じ現象なので、
+    /// 同じ握り込んだ手首（<see cref="FighterTuning.GripWristServoHz"/>・<see cref="FighterTuning.GripWristMaxTorque"/>・<see cref="FighterTuning.GripWristDampingRatio"/>）で回す。
+    /// グローブ・拳・カタール（刃は 7 cm）・トンファー・盾は今まで通り。種類の一覧は近道（docs/DEBT.md「はめた鎌の向きと倒れた相手への鎌」）。
+    /// </summary>
+    public static bool ClenchesWrist(WeaponKind kind) => kind is WeaponKind.SickleClaw;
+
     /// <summary>刃の無い（打って潰す）武器か。刃のある武器は、刃の形と材質だけで斬る（<see cref="VoxelContact"/>）。</summary>
     public static bool IsBlunt(WeaponKind kind) => kind is WeaponKind.WoodenClub or WeaponKind.Bat or WeaponKind.Staff or WeaponKind.Jo or WeaponKind.Glove or WeaponKind.Fist or WeaponKind.KnuckleDuster or WeaponKind.Gauntlet or WeaponKind.Tonfa or WeaponKind.Shield;
 

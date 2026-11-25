@@ -249,7 +249,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 102; // vfc-royale と six-limbed-alien（ボクセルの接続で首・胴を分離、101）の統合（102）・木を実物の樫（99）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 103; // はめた鎌は片手で刀を支えるのと同じ固めた手首で回す（103）・vfc-royale と six-limbed-alien（ボクセルの接続で首・胴を分離、101）の統合（102）・木を実物の樫（99）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -1529,7 +1529,8 @@ public sealed partial class Fighter
     /// <param name="gripLocal">握る所（武器のローカル）。</param>
     /// <param name="glove">はめるグローブ（武器と同じに拳へ付けるが、握るのではない: 素手にはならない）。</param>
     /// <param name="slideSpan">手の中で滑らせて握り直せる範囲（武器のローカル X。<see cref="Weapons.Weapon.SlideSpanOf"/>。null なら握りは固定）。</param>
-    internal void Wield(Hand hand, int body, Vector3 gripLocal, bool glove = false, (float Min, float Max)? slideSpan = null)
+    /// <param name="clench">はめる物でも、手首を固めて支える長い刃か（<see cref="Weapons.Weapon.ClenchesWrist"/>）。</param>
+    internal void Wield(Hand hand, int body, Vector3 gripLocal, bool glove = false, (float Min, float Max)? slideSpan = null, bool clench = false)
     {
         var arm = _arms[(int)hand];
         if (arm.Severed || arm.Held is not null)
@@ -1543,6 +1544,7 @@ public sealed partial class Fighter
         }
 
         arm.Glove = glove; // 手首の固さは、はめる物か握る物かで決まる（Arm.WristHz）ので、つなぐ前に
+        arm.WornLever = glove && clench;
         arm.Wield(_world, _tuning, body, gripLocal);
         arm.Bare |= !glove;
         arm.WristShare = 1f;
@@ -1568,6 +1570,7 @@ public sealed partial class Fighter
         }
 
         arm.Glove = false;
+        arm.WornLever = false;
         arm.Grasp(_world, _tuning, body, gripLocal);
         arm.Bare = true;
         arm.WristShare = twoHandedKind && slideSpan is null ? _tuning.OneHandWristShare : 1f;
@@ -4846,6 +4849,7 @@ public sealed partial class Fighter
             HandGone = false;
             WornLoose = false;
             Glove = false;
+            WornLever = false;
             Bare = false;
             SlideSpan = null;
             WristShare = 1f;
@@ -5195,7 +5199,10 @@ public sealed partial class Fighter
         /// 手首を固めて握っているか: 両手で持つ武器（刀・ロングソード…）を 1 本の手だけで支えている（<see cref="WristShare"/> &lt; 1。はめる物・両手持ち・
         /// 片手の武器は今まで通り）。片手の武器まで固めると、片手剣と盾の守り手の守りが崩れた（ShieldTests: 構えた盾で体の損傷 22 → 325 セル。2026-11-25）。
         /// </summary>
-        private bool Clenched => !Glove && !SharedGrip && WristShare < 1f;
+        private bool Clenched => WornLever || (!Glove && !SharedGrip && WristShare < 1f);
+
+        /// <summary>はめた物が手首を固めて支える長い刃（<see cref="Weapons.Weapon.ClenchesWrist"/>: 鎌）。片手で刀を支えるのと同じ握り込んだ手首で回す。</summary>
+        public bool WornLever { get; set; }
 
         /// <summary>
         /// 手首のサーボの固さ [Hz]: 両手で持つ武器を 1 本の手で支えるとき（<see cref="Clenched"/>）は柄を握り込んで手首を固めた
