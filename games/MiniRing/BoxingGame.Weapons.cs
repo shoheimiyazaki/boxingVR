@@ -48,7 +48,7 @@ public sealed partial class BoxingGame
     /// <summary><see cref="JointBridges"/> の既定（true。簡素化の測定で切れる。非同期の流れごと: <see cref="DefaultSubstepRate"/> と同じ）。</summary>
     public static bool DefaultJointBridges
     {
-        get => _defaultJointBridges.Value ?? true;
+        get => _defaultJointBridges.Value ?? false; // 2026-11-25 に切った（6 人戦で物理の 18%。首が落ちる幅は 4 段 → 3 段: docs/PERFORMANCE.md §7）
         set => _defaultJointBridges.Value = value;
     }
 
@@ -58,7 +58,7 @@ public sealed partial class BoxingGame
     /// 非同期の流れごとに持つ（<see cref="DefaultSubstepRate"/> と同じ）。</summary>
     public static int DefaultMaxContactPasses
     {
-        get => _defaultMaxContactPasses.Value ?? 3;
+        get => _defaultMaxContactPasses.Value ?? 2; // 2026-11-25 に 3 から（刀の試合でビット単位で同じだった 2 回。docs/PERFORMANCE.md §7）
         set => _defaultMaxContactPasses.Value = value;
     }
 
