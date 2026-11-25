@@ -240,8 +240,11 @@ public sealed class TonfaTests
         // 2026-11-19（PhysicsVersion 59、顔・手の層と関節のつなぎのマージ）: 切り上げは、トンファー側の上腕が肩のつなぎで 3 セル切られ（手袋 2 に対し 3）、
         // 「棒の後ろの腕は少ない」が崩れた（この台本は 10 秒に 4 発で、1 発の当たり方で数が決まる）。技の一覧（SwordAtTheGuard_TechniqueScan_Probe）から、
         // 腕（前腕）を狙う小手（kote）に取り直した: 手袋の前腕 12・トンファーの前腕 8・木の削れ 23。期待値は変えていない。
-        var glove = SwordAtTheGuard(HandWear.Glove, 1, "kote");
-        var tonfa = SwordAtTheGuard(HandWear.Tonfa, 1, "kote");
+        // 2026-11-25（PhysicsVersion 104、関節のつなぎを刃の接触に使わない）: 小手の 1 発目がつなぎに当たらなくなって振り抜けの道が変わり、
+        // この台本の 10 秒では刀が棒に 1 度も当たらなかった（木 0）。技の一覧（SwordAtTheGuard_TechniqueScan_Probe）から小手面に取り直した:
+        // 手袋の前腕 0・トンファーの前腕 0・木の削れ 42。期待値は変えていない。
+        var glove = SwordAtTheGuard(HandWear.Glove, 1, "kote-men");
+        var tonfa = SwordAtTheGuard(HandWear.Tonfa, 1, "kote-men");
         TestContext.WriteLine($"glove: forearm cut {glove.Forearm}, total cut {glove.Cut}; tonfa: wood lost {tonfa.Wood}, forearm cut {tonfa.Forearm}, total cut {tonfa.Cut}");
         TestContext.WriteLine($"glove: arm (forearm + upper arm) cut {glove.ArmCut}; tonfa: arm cut {tonfa.ArmCut}");
         Assert.IsGreaterThan(0, tonfa.Wood, "the blade bites the stick (wood is carved)");
