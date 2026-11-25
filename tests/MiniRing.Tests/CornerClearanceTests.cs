@@ -53,6 +53,15 @@ public sealed class CornerClearanceTests
                 var red = game.FootprintOf(game.Player);
                 var blue = game.FootprintOf(game.Cpu);
                 Assert.IsNotEmpty(red);
+                if (!FitsInside(layout, red))
+                {
+                    // 生成した姿勢の輪郭が場の向かい合う面の間（隙間を両側に残した幅）より広ければ、立てる所は無く、CornerFor は中心寄りに立たせる
+                    // （RingLayout.CornerFor の注釈）。四足のガルヴァ（T 字の長い腕と倍に延ばした鎌、輪郭の幅 3.65 m）は素手の檻（向かい合う辺の間 3.66 m）に
+                    // 収まらない。これは場より大きい体という幾何の事実で、隙間の式の誤りではないので、収まる場だけで隙間を確かめる。
+                    Assert.IsTrue(c.Build.FourLegged, $"{c.Id} in the {layout.Shape} {layout.Size} m: only the four-legged body is wider than an arena");
+                    continue;
+                }
+
                 foreach (var (fighter, outline) in new[] { (game.Player, red), (game.Cpu, blue) })
                 {
                     var closest = outline.Min(q => layout.EdgeDistance(fighter.PelvisPosition + new Vector3(q.X, 0f, q.Y)));
@@ -68,6 +77,18 @@ public sealed class CornerClearanceTests
                 Assert.IsGreaterThan(reach, gap, $"{c.Id} in the {layout.Shape} {layout.Size} m: the two outlines start apart");
             }
         }
+    }
+
+    /// <summary>輪郭 <paramref name="outline"/> の、場のどの面の法線の向きの幅も、向かい合う面の間から両側の縁の厚みと隙間を引いた幅に収まる。</summary>
+    private static bool FitsInside(RingLayout layout, IReadOnlyList<Vector2> outline)
+    {
+        var room = layout.Size - (2f * (layout.BoundaryInset + RingLayout.CornerClearance));
+        float[] normals = layout.IsCage ? [30f, 90f, 150f] : [0f, 90f];
+        return normals.All(deg =>
+        {
+            var n = new Vector2(MathF.Cos(deg * MathF.PI / 180f), MathF.Sin(deg * MathF.PI / 180f));
+            return outline.Max(q => Vector2.Dot(n, q)) - outline.Min(q => Vector2.Dot(n, q)) <= room;
+        });
     }
 
     private static float Flat(Vector3 a, Vector3 b) => new Vector2(a.X - b.X, a.Z - b.Z).Length();
