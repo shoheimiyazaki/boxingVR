@@ -15,9 +15,10 @@ namespace MiniRing.Arena;
 /// キャラ（刀の迅・ロングソードのコンラート・片手剣と盾のエドガー…）の体で、型を 1 回だけ、腕を下げて立つだけの相手（<see cref="GuardPosture.Defenseless"/>）へ出し、
 /// 型の経路の差分（<see cref="FormTune"/>: 時計の速さ・ひねり・両手の高さ・頭の出し・間合い）を (1+λ) 進化戦略で磨く。
 /// <para>
-/// 点 = 10 × (1 − 振り終えて <see cref="After"/> 秒後の相手の意識) + 3 × (1 − 途中の意識の最低) + 0.5 × 刃先の最速 [m/s] − 形の代価（<see cref="FormCost"/>:
+/// 点 = 10 × (1 − 振り終えて <see cref="After"/> 秒後の相手の意識) + 3 × (1 − 途中の意識の最低) + <see cref="PerImpactSpeed"/> × 当たる直前の刃先の速さ [m/s] − 形の代価（<see cref="FormCost"/>:
 /// 手本からずらした距離・体が追えなかった距離・刃筋・スタミナ） − <see cref="PerSelfCell"/> × 自分の体から削ったセル。
-/// 刃先の最速は、構えから型の始めへ移る最初の <see cref="SkipSeconds"/> 秒を数えない（どの型でも同じ移りの速さが出て、振りの速さを表さない）。意識は脳の残り（斬られた脳）と脳しんとうから出て、死ねば 0（<see cref="Fighter.Consciousness"/>）。
+/// 当たる直前の刃先の速さ = 相手の体が初めて削れたか脳しんとうが増えた歩の、その前 <see cref="ImpactWindow"/> 秒の刃先の最速（当たらなければ 0）。
+/// 刃先の最速そのものは、構えから型の始めへ移る跳び（迅の刀ではどの型でも 0.2 秒目に 10.7 m/s。打ちそのものは 5〜7 m/s）が出て振りの速さを表さなかった。意識は脳の残り（斬られた脳）と脳しんとうから出て、死ねば 0（<see cref="Fighter.Consciousness"/>）。
 /// どの項も物理の量の連続な関数で、型の種類で分けない（CLAUDE.md §1.3）。変えるのは経路だけで、体の強さは変えない（§1.7・§1.8）。
 /// </para>
 /// <para>
@@ -35,14 +36,18 @@ internal static class SwordPractice
     /// </summary>
     public const double PerSelfCell = 0.02;
 
-    /// <summary>刃先の最速を数え始める、技の始めからの時間 [s]。</summary>
-    public const float SkipSeconds = 0.15f;
+    /// <summary>当たる直前の刃先の速さ 1 m/s あたりの点（ユーザーの指定「振りを速く」。刀で 5 → 15 m/s なら 10 点 = 相手を倒す 1 発と同じ重さ）。</summary>
+    public const double PerImpactSpeed = 1.0;
+
+    /// <summary>当たる直前の刃先の速さを見る、当たった歩の前の時間 [s]。</summary>
+    public const float ImpactWindow = 0.05f;
 
     /// <summary>無力化とみなす意識（体の張りが抜けて崩れる値。<see cref="FighterTuning.LimpConsciousness"/>）。</summary>
     public static float OutCold => FighterTuning.Default.LimpConsciousness;
 
     /// <summary>1 回の振りの結果。</summary>
-    internal sealed record Outcome(bool Swung, float ConsciousnessEnd, float ConsciousnessMin, bool Dead, float TipPeak, float HandRmsCm, float EdgeDeg, float Stamina, int Cells, int SelfCells, bool SelfDown)
+    internal sealed record Outcome(bool Swung, float ConsciousnessEnd, float ConsciousnessMin, bool Dead, float TipPeak, float HandRmsCm, float EdgeDeg, float Stamina, int Cells, int SelfCells, bool SelfDown,
+        float ImpactSpeed = 0f, string Victim = "")
     {
         public bool Incapacitated => Swung && (Dead || ConsciousnessEnd < OutCold);
     }
@@ -118,7 +123,8 @@ internal static class SwordPractice
         var handSamples = 0;
         var swing = new List<(float Speed, float Off)>();
         var selfDown = false;
-        var activeSince = 0f;
+        var recentTip = new Queue<float>();
+        var impactSpeed = -1f;
         for (var t = 0f; t < 14f && t < endAt; t += dt)
         {
             game.Step(default, dt);
@@ -128,7 +134,6 @@ internal static class SwordPractice
             {
                 started = true;
                 staminaStart = me.Stamina;
-                activeSince = t;
             }
             else if (!active && started && float.IsPositiveInfinity(endAt))
             {
@@ -136,6 +141,11 @@ internal static class SwordPractice
             }
 
             cMin = MathF.Min(cMin, foe.Consciousness);
+            if (started && impactSpeed < 0f && (foe.Concussion > 0.01f || foe.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount) < foeStart))
+            {
+                impactSpeed = recentTip.Count == 0 ? 0f : recentTip.Max();
+            }
+
             if (!started && t > 6f)
             {
                 break;
@@ -149,9 +159,11 @@ internal static class SwordPractice
             selfDown |= me.State != FighterState.Standing;
             var state = game.World.GetState(sword.Body.BodyId);
             var velocity = state.LinearVelocity + Vector3.Cross(state.AngularVelocity, Vector3.Transform(tip, state.Orientation));
-            if (t - activeSince >= SkipSeconds)
+            tipPeak = MathF.Max(tipPeak, velocity.Length());
+            recentTip.Enqueue(velocity.Length());
+            if (recentTip.Count > (int)(ImpactWindow / dt))
             {
-                tipPeak = MathF.Max(tipPeak, velocity.Length());
+                recentTip.Dequeue();
             }
 
             var local = Vector3.Transform(velocity, Quaternion.Conjugate(state.Orientation));
@@ -167,7 +179,7 @@ internal static class SwordPractice
         return new Outcome(started, foe.Consciousness, cMin, foe.IsDead, tipPeak,
             handSamples == 0 ? 0f : 100f * MathF.Sqrt((float)(handSq / handSamples)), weight > 0f ? strike.Sum(s => s.Off * s.Speed) / weight : 0f,
             started ? MathF.Max(0f, staminaStart - me.Stamina) : 0f,
-            foeStart - foe.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), ownStart - me.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), selfDown);
+            foeStart - foe.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), ownStart - me.Voxels!.Parts.Sum(p => p.Body.Grid.FilledCount), selfDown, MathF.Max(0f, impactSpeed));
     }
 
     /// <summary>動画（<see cref="SwingVideo"/>）の 1 振り: キャラ <paramref name="who"/> が型 <paramref name="form"/> を差分 <paramref name="tune"/> で、無防備の相手へ 1 回。</summary>
@@ -184,13 +196,18 @@ internal static class SwordPractice
 
     /// <summary>1 回の振りの点（クラスの説明の式）。振れなかった振りは −10。</summary>
     public static double Score(Outcome o, float textbookCm) => !o.Swung ? -10d
-        : (10d * (1d - o.ConsciousnessEnd)) + (3d * (1d - o.ConsciousnessMin)) + (0.5d * o.TipPeak) - FormCost.Of(textbookCm, o.HandRmsCm, o.EdgeDeg, o.Stamina) - (PerSelfCell * o.SelfCells);
+        : (10d * (1d - o.ConsciousnessEnd)) + (3d * (1d - o.ConsciousnessMin)) + (PerImpactSpeed * o.ImpactSpeed) - FormCost.Of(textbookCm, o.HandRmsCm, o.EdgeDeg, o.Stamina) - (PerSelfCell * o.SelfCells);
 
     /// <summary>型 1 つの、条件の全部（種 × 相手の体）の結果。</summary>
     internal sealed record Trial(FormTune Tune, double Score, IReadOnlyList<Outcome> Outcomes)
     {
         public int Incapacitated => Outcomes.Count(o => o.Incapacitated);
         public float TipPeak => Outcomes.Count == 0 ? 0f : Outcomes.Average(o => o.TipPeak);
+
+        public float ImpactSpeed => Outcomes.Count == 0 ? 0f : Outcomes.Average(o => o.ImpactSpeed);
+
+        /// <summary>相手の体ごとの無力化の数（「standard 6/6・heavy 0/6」）。</summary>
+        public string ByVictim => string.Join("・", Outcomes.GroupBy(o => o.Victim).Select(g => $"{g.Key} {g.Count(o => o.Incapacitated)}/{g.Count()}"));
     }
 
     /// <summary>型 <paramref name="form"/> を <paramref name="tune"/> で、種 × 体の全部で振った結果（並列）。</summary>
@@ -205,7 +222,7 @@ internal static class SwordPractice
         var jobs = tunes.SelectMany((_, k) => seeds.SelectMany(s => victims.Select(v => (Tune: k, Seed: s, Victim: v)))).ToList();
         var results = new Outcome[jobs.Count];
         Parallel.For(0, jobs.Count, new ParallelOptions { MaxDegreeOfParallelism = parallel },
-            i => results[i] = Swing(who, style, techniques[jobs[i].Tune], jobs[i].Seed, Victim(jobs[i].Victim)));
+            i => results[i] = Swing(who, style, techniques[jobs[i].Tune], jobs[i].Seed, Victim(jobs[i].Victim)) with { Victim = jobs[i].Victim });
         return
         [
             .. tunes.Select((t, k) =>
@@ -233,9 +250,9 @@ internal static class SwordPractice
         $"速さ ×{t.Tempo:0.00}・ひねり ×{t.Twist:0.00}・高さ {t.Lift:+0.00;-0.00}・前 {t.Lean:+0.00;-0.00}・間合い {t.Reach * 100f:+0;-0} cm");
 
     private static string Row(string label, Trial t) => string.Create(CultureInfo.InvariantCulture,
-        $"| {label} | {Describe(t.Tune)} | {t.Score:0.0} | {t.Incapacitated}/{t.Outcomes.Count} | {t.Outcomes.Average(o => o.ConsciousnessEnd):0.00} | {t.Outcomes.Count(o => o.Dead)} | {t.TipPeak:0.0} | {t.Outcomes.Average(o => o.HandRmsCm):0.0} | {t.Outcomes.Average(o => o.EdgeDeg):0} | {t.Outcomes.Average(o => o.Cells):0} | {t.Outcomes.Average(o => o.SelfCells):0} |");
+        $"| {label} | {Describe(t.Tune)} | {t.Score:0.0} | {t.Incapacitated}/{t.Outcomes.Count}（{t.ByVictim}） | {t.Outcomes.Average(o => o.ConsciousnessEnd):0.00} | {t.Outcomes.Count(o => o.Dead)} | {t.ImpactSpeed:0.0} | {t.Outcomes.Average(o => o.HandRmsCm):0.0} | {t.Outcomes.Average(o => o.EdgeDeg):0} | {t.Outcomes.Average(o => o.Cells):0} | {t.Outcomes.Average(o => o.SelfCells):0} |");
 
-    private const string Header = "| | 差分 | 点 | 無力化 | 意識（後） | 死 | 刃先の最速 [m/s] | 手のずれ [cm] | 刃筋 [°] | 斬ったセル | 自分のセル |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|";
+    private const string Header = "| | 差分 | 点 | 無力化 | 意識（後） | 死 | 当たる直前の刃先 [m/s] | 手のずれ [cm] | 刃筋 [°] | 斬ったセル | 自分のセル |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|";
 
     /// <summary>教科書の型の全部を、練習の条件で 1 回ずつ測る（どの型を練習するかを選ぶ表）。</summary>
     public static string Baseline(FighterCharacter who, IReadOnlyList<int> seeds, IReadOnlyList<string> victims, int parallel, TextWriter log)

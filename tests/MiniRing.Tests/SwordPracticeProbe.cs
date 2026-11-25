@@ -51,4 +51,28 @@ public sealed class SwordPracticeProbe
 
         Console.WriteLine($"ADOPTED {id} " + System.Text.Json.JsonSerializer.Serialize(adopted));
     }
+
+    [TestMethod]
+    public void TipTrace()
+    {
+        var who = CharacterRoster.Get("jin");
+        var technique = SwordPractice.Technique(who, "shomen", MiniRing.Motion.FormTune.Identity);
+        var last = -1f;
+        var o = SwordPractice.Swing(who, who.WeaponStyle!, technique, 1, SwordPractice.Victim("standard"), (game, t, swinging) =>
+        {
+            if (t - last < 0.05f)
+            {
+                return;
+            }
+
+            last = t;
+            var sword = game.WeaponOf(game.Player)!;
+            var s = game.World.GetState(sword.Body.BodyId);
+            var tip = System.Numerics.Vector3.Transform(MiniRing.Weapons.Weapon.TipOf(sword.Kind), s.Orientation);
+            var v = s.LinearVelocity + System.Numerics.Vector3.Cross(s.AngularVelocity, tip);
+            var chest = game.World.GetState(game.Player.Parts.Chest).LinearVelocity;
+            Console.WriteLine($"{t:0.00} swing {swinging} tip {v.Length():0.0} chest {chest.Length():0.00} foe c {game.Cpu.Consciousness:0.00} conc {game.Cpu.Concussion:0.00}");
+        });
+        Console.WriteLine(o);
+    }
 }
