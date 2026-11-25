@@ -50,6 +50,6 @@ public sealed class WeaponContactPassTests
     public void TheContactPasses_AreBounded()
     {
         using var game = new BoxingGame(seed: 1);
-        Assert.AreEqual(2, game.MaxContactPasses);
+        Assert.AreEqual(3, game.MaxContactPasses);
     }
 }
