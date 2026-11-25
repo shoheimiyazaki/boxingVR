@@ -40,6 +40,16 @@ internal static class HuntLab
     /// </summary>
     public static string Goal { get; set; } = "kill";
 
+    /// <summary>
+    /// 振りのドリル（<c>--strokes N</c>、0 なら切る。2026-11-25）: 攻め手が N 回振り終えたら（N 回目の振り始めから <see cref="StrokeSettle"/> 後に）止め、
+    /// 形の点（<see cref="ClawForm.Points"/>）を、実際に振った数ではなく N で割る。試合の時間で割ると「届かない所に立って振らない」が形の代価を逃れる道になった
+    /// （docs/BOT_PDCA.md「ガルヴァの振りの形」）。どの試行も同じ数の振りを測る。
+    /// </summary>
+    public static int StrokeLimit { get; set; }
+
+    /// <summary>最後の振りの始めから止めるまで [s]: 振りの長さ（溜め 0.27 + 振り抜き ≤ 0.5 + 戻り 0.32）より長く。</summary>
+    public const float StrokeSettle = 1.2f;
+
     /// <summary>動画のカメラの引き具合（<c>--camera 0.6</c>。1 が標準、小さいほど寄る。1 未満なら倒れても横の低い角度のまま）。</summary>
     public static float CameraScale { get; set; } = 1f;
 
@@ -116,11 +126,17 @@ internal static class HuntLab
         var closeFast = 0f;
         var neckY0 = Vector3.Lerp(body.ChestPosition, body.HeadPosition, 0.6f).Y;
         var form = new ClawFormMeter(game.Cpu);
-        while (t < seconds && !body.IsDead)
+        var hunterBot = (game.CpuControl as GroundStriker)?.Inner as BoxerBot;
+        var stopAt = float.PositiveInfinity;
+        while (t < seconds && !body.IsDead && t < stopAt)
         {
             game.Step(default, dt);
             t += dt;
             form.Sample(game, dt);
+            if (StrokeLimit > 0 && float.IsPositiveInfinity(stopAt) && hunterBot is not null && hunterBot.Stats.Combos.GetValueOrDefault("claw-sweep") >= StrokeLimit)
+            {
+                stopAt = t + StrokeSettle;
+            }
             if (Contacts is not null)
             {
                 Tally(game, grids, tally);
@@ -191,9 +207,9 @@ internal static class HuntLab
             }
         }
 
-        var strokes = ((game.CpuControl as GroundStriker)?.Inner as BoxerBot)?.Stats.Combos.GetValueOrDefault("claw-sweep") ?? 0;
+        var strokes = StrokeLimit > 0 ? StrokeLimit : hunterBot?.Stats.Combos.GetValueOrDefault("claw-sweep") ?? 0;
         return new HuntRun(victimId, seed, body.IsDead, body.IsDead ? t : seconds, downAt, body.DeathCause ?? "-", cells0 - Filled(body), Lethality(body), NeckCut(body, neck0),
-            form.Finish(strokes, cells0 - Filled(body)));
+            form.Finish(strokes, cells0 - Filled(body), StrokeLimit > 0 ? Math.Min(StrokeLimit, hunterBot?.Stats.Combos.GetValueOrDefault("claw-sweep") ?? 0) : -1));
     }
 
     /// <summary>
@@ -531,6 +547,7 @@ internal static class HuntLab
         CameraScale = o.Float("camera", 1f, 0.2f);
         Contacts = o.Get("contacts") is not null ? Console.Out : null;
         CapSeconds = seconds;
+        StrokeLimit = o.Int("strokes", 0, 0);
         if (Goal is not ("kill" or "neck" or "form"))
         {
             throw new ArgumentException($"--goal は kill・neck・form のどれか: '{Goal}'");

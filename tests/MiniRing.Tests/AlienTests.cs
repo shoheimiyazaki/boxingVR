@@ -351,7 +351,9 @@ public sealed class AlienTests
         {
             using var game = CreateGame(build: build);
             Step(game, Guard(game.Player));
-            return (game.Player.OxygenBudgetOf(MuscleRegion.LeftLeg).Capacity, game.Player.OxygenBudgetOf(MuscleRegion.RightLeg).Capacity);
+            // 四足はエイリアンの筋の材質（蓄えの係数が仮に極端: TissuePhysiology）、二足は人の材質で作るので、筋の量を比べるため材質の係数で割る（2026-11-25）。
+            var store = MiniRing.Voxels.TissuePhysiology.Of(MiniRing.Voxels.BoxerBody.PaletteFor(build)).OxygenStore;
+            return (game.Player.OxygenBudgetOf(MuscleRegion.LeftLeg).Capacity / store, game.Player.OxygenBudgetOf(MuscleRegion.RightLeg).Capacity / store);
         }
 
         var four = Capacity(galva);

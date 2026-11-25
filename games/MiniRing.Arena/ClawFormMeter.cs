@@ -15,7 +15,8 @@ namespace MiniRing.Arena;
 /// <param name="EdgeDegrees">刃筋 [°]: 先端の速度が刃の面から外れた角（速さの 2 乗の重み付きの平均）。</param>
 /// <param name="Removed">受け手の体から失われたボクセルの数。</param>
 /// <param name="Regions">部位ごとの仕事の割合（左腕・右腕・左脚・胴・右脚の順、合計 1）。</param>
-internal sealed record ClawForm(int Strokes, double WorkJoules, double Imbalance, double JerkRms, double Speed, double EdgeDegrees, int Removed, double[] Regions)
+/// <param name="Thrown">実際に振った数（振りのドリルでは <paramref name="Strokes"/> に届かないことがある）。</param>
+internal sealed record ClawForm(int Strokes, double WorkJoules, double Imbalance, double JerkRms, double Speed, double EdgeDegrees, int Removed, double[] Regions, int Thrown = -1)
 {
     /// <summary>人の満タンのスタミナに当たる仕事 [J]（<see cref="FighterTuning.StaminaEndurance"/>）。エイリアンの心肺は仮に極端な値（docs/DEBT.md）なので、スタミナの割合でなく、した仕事を人の蓄えで数える。</summary>
     public static readonly double HumanTankJoules = new FighterTuning().StaminaEndurance;
@@ -24,7 +25,14 @@ internal sealed record ClawForm(int Strokes, double WorkJoules, double Imbalance
     public double TanksPerStroke => WorkJoules / HumanTankJoules / Math.Max(1, Strokes);
 
     /// <summary>形の代価（<see cref="FormCost.Of"/>）。</summary>
-    public double Cost => FormCost.Of(0d, 0d, EdgeDegrees, TanksPerStroke, Imbalance, JerkRms, Speed);
+    public double Cost => FormCost.Of(0d, 0d, EdgeDegrees, TanksPerStroke, Imbalance, JerkRms, Speed) + MissedCost;
+
+    /// <summary>
+    /// 振らなかった振りの代価: 振らなかった振りは速さ 0 の振りとして、速さの項（<see cref="FormCost.PerSlowMetrePerSecond"/> × <see cref="FormCost.CuttingSpeed"/>）を
+    /// 割合で払う。振りのドリル（<c>--strokes</c>）で「届かない所に立って振らない」を形の代価の逃げ道にしない（2026-11-25）。
+    /// </summary>
+    public double MissedCost => Thrown < 0 || Strokes <= 0 ? 0d
+        : FormCost.Of(0d, 0d, 0d, 0d, speed: 1e-9) * Math.Clamp(1d - ((double)Thrown / Strokes), 0d, 1d);
 
     /// <summary>1 振りあたりの点: 削ったセル / 60（剣のドリルの 1 点 = 60 セル、clawlab と同じ）/ 振った数 − 形の代価。</summary>
     public double Points => (Removed / 60d / Math.Max(1, Strokes)) - Cost;
@@ -90,7 +98,7 @@ internal sealed class ClawFormMeter
         }
     }
 
-    public ClawForm Finish(int strokes, int removed)
+    public ClawForm Finish(int strokes, int removed, int thrown = -1)
     {
         var work = new double[MuscleRegions.Count];
         var load = new double[MuscleRegions.Count];
@@ -106,6 +114,6 @@ internal sealed class ClawFormMeter
         var imbalance = mean > 0d ? (load.Max() / mean) - 1d : 0d;
         return new ClawForm(strokes, total, imbalance, _jerkSamples > 0 ? Math.Sqrt(_jerk2 / _jerkSamples) : 0d,
             _v2 > 0d ? _v3 / _v2 : 0d, _v2 > 0d ? _edge / _v2 : 0d, removed,
-            [.. work.Select(w => total > 0d ? w / total : 0d)]);
+            [.. work.Select(w => total > 0d ? w / total : 0d)], thrown);
     }
 }
