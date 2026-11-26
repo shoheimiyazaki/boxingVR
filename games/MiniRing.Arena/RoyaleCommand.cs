@@ -425,7 +425,7 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
     internal static string Cause(string cause) => cause switch
     {
         "OUT OF THE CAGE" => "檻の外へ",
-        _ => cause.Replace(" DESTROYED", "", StringComparison.Ordinal).ToLowerInvariant() switch
+        _ => cause.Replace(" DESTROYED", "", StringComparison.Ordinal).ToLowerInvariant().Replace("alien ", "", StringComparison.Ordinal) switch
         {
             "brain" => "脳",
             "heart" => "心臓",

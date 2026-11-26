@@ -26,6 +26,7 @@
   karatelab [--only shapes,parry,kicks,video] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md] [--video media_tmp/karate_vitals]
                                                                                   空手のドリル: 手の形 × 急所、パリー（拳の曲がり）、5 種の蹴り
   clawlab [--natural yes] [--cards yes]        鎌の試振りと、練習に使わなかった相手での比較（練習の共通の枠。--natural で自然さの代価も引く）。
+  huntlab [--goal kill|neck|form] [--strokes N] [--tune 1|--confirm 1|--video out.mp4]  四足が素手で抵抗しない人間を倒す・首を断つまでの時間、form は振りの形（docs/TOOLS.md）。
   kicklab [--body taeyun] [--kick Roundhouse] [--distances 1.0,1.1,...] [--seeds 1,2,..] [--confirm-seeds 11,12,..] [--shin 0.75] [--overshoot -0.2] [--log f.md]
                                                                                   蹴りの間合いのドリル: 間合いを刻んで蹴り、当たり・すねの当たった点・渡したエネルギーの表（採る間合いは使っていない種で比べ直す）
   stick [--swing] [--planes vertical,kesa,...] [--samples 2000] [--polish 8] [--iterations 3000] [--seed 1] [--weights speed:3,smooth:1,plane:1,edge:1,dir:1,whole:0.5] [--character jin] [--limits grip|loose] [--bvh dir] [--bvh-scale 2.82] [--video docs/video] [--log f.md]
@@ -121,3 +122,4 @@
   tvscout [--red] [--blue] [--red-wear] [--blue-wear] [--red-weapon] [--blue-weapon] [--rounds] [--seeds] [--speed] [--fps] [--red-char] [--blue-char] [--referee] [--break] [--org]
   portraits [--out] [--scale]
   maker [--port 5180] [--save-dir DIR] [--open yes|no]                           キャラメイクの画面（localhost の Web。体・顔・写真・スタイルから 1 ファイルを作る）
+  galva-motion [--only stalk,trot,sweep,kesa,cleave,claw-thrust,foreleg-thrust] [--out dir] [--fps 24] [--bones on] [--render off]

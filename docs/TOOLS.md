@@ -42,6 +42,7 @@ CLAUDE.md §5 にはよく使う物だけを置き、ここに全部を書く。
 | 物理の 1 フレームの時間を処理ごとに（docs/PERFORMANCE.md） | `... -- perf --scene fist\|katana\|vfc2\|royale [--seconds 60] [--seeds 1] [--render 1] [--alloc 1] [--check 0] [--out docs/perf/x.md]`（`Step(1/60)` ごとの合計と `StepProfile` の枠の平均・重い 1%・最大、数える量、GC。既定で計測を切った同じ試合を先に回し、チェックサムが同じか確かめる。`--render 1` で描画の詰め（`BoxingRenderer.Fill`・`FillVoxels`）も）。空いた tower32 で前後を比べる: `bash tools/remote-perf.sh docs/perf/<名前>.md [--rev <コミット>]`（1 種 1 プロセス） |
 | とどめのドリル・練習（名簿のキャラ） | `... -- groundtime --drill id,... --victims id,... --seeds 1 --seconds 12 [--video out.mp4]`（受け手を気絶させて倒したまま、死ぬまでの秒）、`--practice id [--gens 6 --lambda 8 --parallel 2 --out id.json --log id.md]`（CMA-ES で教育を練習し、使わなかった受け手・種で比べ直す）→ `py -3 tools/ground-education.py id.json` で名簿の教育へ |
 | フィニッシュ（立っている相手のチャンス） | `... -- groundtime --org wvc --chars ... --seeds 1,2 --out a.jsonl`（チャンスから倒すまで。`--compare` が表と対の比べを出す）、ドリル `--finish id,... --victims ... --seeds 2,3`、練習 `--finish-practice id [--gens --lambda --parallel --out --log]` |
+| 狩りのドリル（四足の galva が素手で抵抗しない人間を倒す・首を断つまで） | `... -- huntlab [--goal kill\|neck\|form] [--victims jin,marcus,daichi] [--seeds 1,2] [--seconds 30] [--set K=V,...] [--trace 1]`（死ぬ・首を断つまでの秒、最初のダウン、死への近さ・首の断ち具合）、`--tune 1 --knobs 名前:下限:上限,... [--gens --lambda --parallel]`（CMA-ES）、`--confirm 1 --set ...`（練習に使わなかった相手 ramon・konrad・sean で比べ直し、`confirm.jsonl` に残す）、`--video out.mp4 --victim id --seed n`。受け手は `PassiveControl`（立って腕を下ろすだけ） |
 | 倒れた相手への攻め（立ったまま真下へ突く・踏みつけ） | `... -- groundlab [--moves hammer,thrust,stomp,heel] [--bouts N] [--seconds S] [--practice yes --candidates 40] [--video out.mp4]`（受け手を気絶させて倒したまま。技ごとの打ち始め・当たり・J・攻め手の転倒。`docs/BOT_PDCA.md`「倒れた相手への攻め」） |
 | 姿勢のモデルを比べる・揺さぶりで崩す | `... -- balancelab [--only old,cop,soft-poly,soft-disk,softcop]`（立つ・引く・歩く・蹴る・投げ・試合で、倒れた回数・浮いた時間）/ `... -- swaylab [--hz 0,1,2] [--ki 0,3] [--cycles 3] [--push 0.25]`（周波数ごとに揺さぶってから支え釣り込み足。`docs/GRAPPLING.md` §7・§9） |
 | フォームの忠実さ（型・蹴りが目標の経路をどれだけ追えているか） | `bash tools/remote-test.sh probe:FormFidelityProbe`（剣の手・刃の向き・刃筋・体幹・スタミナを体の候補ごとに、回し蹴りの練習の前 / 後、鎌の格子。`docs/plans/FORM_DECAY_STUDY.md`）/ 回し蹴りの練習の前後の動画 `... -- kickshin --video out.mp4 --compare yes --heights mid,high` |
@@ -62,3 +63,18 @@ CLAUDE.md §5 にはよく使う物だけを置き、ここに全部を書く。
 ## 警告にとどめるテスト（`Soft.Check`）
 
 蹴りのように未成熟な所のテストは、`Soft.Check(bool ok, string what)`（tests/MiniRing.Tests/Soft.cs）で書く。条件が成り立たなければ `⚠ WARNING: <what>` をコンソールに出し、`Assert.Inconclusive` でそのテストを「結果なし」にする（失敗に数えない）。数の目安は書いたまま残るので、蹴りを磨いて目安に戻れば自然に通る。いまは KickShinTests と KickContactTests の、当たった本数・当たり先・転倒・足の部位に使っている。
+### ガルヴァの骨格モーション
+
+`dotnet run --project games/MiniRing.Arena -c Release -- galva-motion` で、7 本の BVH と見本動画を `.visualcheck/galva-motion` に出す。BVH は +Y が上、+Z が前、単位は m。ルートの前進を含み、足・腕・鎌まで 29 本のボーンがある。
+
+| クリップ | 動き |
+|---|---|
+| `stalk` | 四拍の忍び足 |
+| `trot` | 対角の二脚を組にした速歩 |
+| `sweep` | 肩・肘から遅れて鎌が走る右横薙ぎ |
+| `kesa` | 右上から左下に振り抜く右鎌の袈裟斬り |
+| `cleave` | 両鎌の振り下ろし |
+| `claw-thrust` | 踏み込んで左鎌で突く |
+| `foreleg-thrust` | 三脚で支えて右前脚を突き出す |
+
+`--only stalk,sweep` でクリップを選び、`--bones on` で骨格表示、`--render off` で BVH だけを書き出す。試合から独立した確認用ツールで、名簿のモデルから骨と形を読み、キーフレームと幾何 IK で姿勢を直接計算する。攻撃キーは前後の区間で速度をつなぎ、鎌の刃元から刃先までの軸と刃の内側の向きを個別に指定する。骨格動画の橙色の線が刃の内側を示す。

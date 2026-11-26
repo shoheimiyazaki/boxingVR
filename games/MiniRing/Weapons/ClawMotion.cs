@@ -12,21 +12,33 @@ public sealed class ClawMotion
 
     public bool Active => _stroke is not null;
 
+    /// <summary>いまの振りの体の拍子（<see cref="ClawStroke.Swing"/>。振っていなければ 0）。直前の <see cref="Read"/> で出した目標の時刻の値。</summary>
+    public float Swing { get; private set; }
+
+    /// <summary>いま振り抜きの区間か（<see cref="ClawStroke.Driving"/>）。</summary>
+    public bool Driving { get; private set; }
+
     public HandCommand Read(Hand hand, bool pressed, bool sweep, in FighterSense sense, Vector3 aimWorld, float dt,
-        float drive = 0.31f, float windup = 1f)
+        float drive = 0.31f, float windup = 1f, bool draw = false, ClawCylinder? cylinderWorld = null)
     {
         if (pressed && !_pressed && _stroke is null)
         {
             _origin = sense.Self;
-            _stroke = ClawStroke.Create(hand, sense.ArmReach, _origin.WorldToLocal(aimWorld), sweep, drive, windup);
+            _stroke = ClawStroke.Create(hand, sense.ArmReach, _origin.WorldToLocal(aimWorld), sweep, drive, windup, draw,
+                cylinderWorld is { } c ? c with { Axis = _origin.InverseRotate(c.Axis) } : null);
             _elapsed = 0f;
         }
 
         _pressed = pressed;
         if (_stroke is not { } stroke)
         {
+            Swing = 0f;
+            Driving = false;
             return ClawStroke.Guard(hand, sense.ArmReach).ToCommand(hand);
         }
+
+        Swing = stroke.Swing(_elapsed);
+        Driving = stroke.Driving(_elapsed);
 
         var self = sense.Self;
         var guard = ClawStroke.Guard(hand, sense.ArmReach);

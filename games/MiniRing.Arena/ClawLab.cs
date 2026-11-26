@@ -91,7 +91,7 @@ internal static class ClawLab
     /// </summary>
     private static double TrialScore(Trial t) => !t.Standing ? 0d : (t.Removed / 60d) - FormCost.Of(0d, 100d * t.PlaneError, 0d, t.StaminaUsed);
 
-    internal static Trial Run(string opponent, int seed, float gap, int aim, Hand hand, float drive, float windup, bool moving = false, bool sweep = true, Action<BoxingGame, float>? afterStep = null, FighterTuning? tuning = null)
+    internal static Trial Run(string opponent, int seed, float gap, int aim, Hand hand, float drive, float windup, bool moving = false, bool sweep = true, Action<BoxingGame, float>? afterStep = null, FighterTuning? tuning = null, TextWriter? trace = null)
     {
         var creature = CharacterRoster.Get("galva");
         var target = CharacterRoster.Get(opponent);
@@ -175,6 +175,14 @@ internal static class ClawLab
                 }
             }
             hits += game.RecentHits.Count(h => h.Attacker == f && h.Hand == hand && !h.Kick);
+            if (trace is not null && i % 24 == 0)
+            {
+                var chest = f.ChestPosition;
+                var flat = other.ChestPosition - chest;
+                var apart = MathF.Sqrt((flat.X * flat.X) + (flat.Z * flat.Z));
+                trace.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                    $"  t={time:0.00} state={f.State} chestY={chest.Y:0.00} pelvisY={game.World.GetState(f.Parts.Pelvis).Position.Y:0.00} support={f.SupportedMass:0} removed={removed} clawSpeed={state.LinearVelocity.Length():0.0} gap={apart:0.00} pelvisSpin={game.World.GetState(f.Parts.Pelvis).AngularVelocity.Length():0.0} upright={f.Uprightness:0.00} chestUp={Vector3.Transform(Vector3.UnitY, game.World.GetState(f.Parts.Chest).Orientation):0.00} pelvisUp={Vector3.Transform(Vector3.UnitY, game.World.GetState(f.Parts.Pelvis).Orientation):0.00} cause={f.LastFallCause}"));
+            }
             afterStep?.Invoke(game, time);
         }
 

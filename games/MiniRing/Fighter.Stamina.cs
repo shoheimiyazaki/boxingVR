@@ -164,7 +164,7 @@ public sealed partial class Fighter
     };
 
     /// <summary>部位の酸素の蓄えの容量 [J]（今の肉の残りから数え直す）。</summary>
-    private float MeasureOxygenCapacity(int region) => _tuning.OxygenStorePerKg * RegionMass(region) * RegionMuscle(region);
+    private float MeasureOxygenCapacity(int region) => _tuning.OxygenStorePerKg * _tuning.Tissue.OxygenStore * RegionMass(region) * RegionMuscle(region);
 
     /// <summary>部位の酸素の蓄えの容量 [J]（歩の始めに <see cref="UpdateStamina"/> が数え直した値。歩の途中の削れは次の歩から効く）。</summary>
     private readonly float[] _capacity = new float[MuscleRegions.Count];
@@ -175,10 +175,10 @@ public sealed partial class Fighter
     internal (float Capacity, float Budget) OxygenBudgetOf(MuscleRegion region) => (_capacity[(int)region], _budget[(int)region]);
 
     /// <summary>心臓が全部位へ送れる速さ [W]（死ねば 0）。</summary>
-    public float HeartCapacity => IsDead ? 0f : _tuning.HeartPower * MuscleMassRatio * HeartFunction;
+    public float HeartCapacity => IsDead ? 0f : _tuning.HeartPower * _tuning.Tissue.HeartPower * MuscleMassRatio * HeartFunction;
 
     /// <summary>肺が血へ取り込める速さ [W]（横隔膜を動かす頸の脊髄を含む。死ねば 0）。</summary>
-    public float LungCapacity => IsDead ? 0f : _tuning.LungPower * MuscleMassRatio * LungFunction * _cord[0];
+    public float LungCapacity => IsDead ? 0f : _tuning.LungPower * _tuning.Tissue.LungPower * MuscleMassRatio * LungFunction * _cord[0];
 
     /// <summary>血の酸素の容量 [J]。</summary>
     private float BloodCapacity => MathF.Max(1e-3f, _tuning.BloodOxygenStore * MuscleMassRatio);
@@ -190,7 +190,7 @@ public sealed partial class Fighter
     /// </summary>
     private float VesselFlow(int region)
     {
-        var most = _tuning.VesselPowerPerKg * RegionMass(region) * RegionMuscle(region) * Endurance;
+        var most = _tuning.VesselPowerPerKg * _tuning.Tissue.VesselFlow * RegionMass(region) * RegionMuscle(region) * Endurance;
         var working = most * Math.Clamp(_tuning.VesselWorkingShare, 1e-3f, 1f);
         var power = _regionPower[region];
         return power >= working ? working : most - ((most - working) * power / working);
@@ -218,7 +218,7 @@ public sealed partial class Fighter
     /// 作り直せるエネルギーが落ちる近似。ラウンドの間の休みでは戻らないので、後のラウンドほど疲れやすい。持久の蓄え = <see cref="FighterTuning.StaminaEndurance"/>
     /// × 筋肉の量の比（1 kg あたりで同じ）。
     /// </summary>
-    public float Endurance => MathF.Exp(-_workDone / MathF.Max(1e-3f, _tuning.StaminaEndurance * MuscleMassRatio));
+    public float Endurance => MathF.Exp(-_workDone / MathF.Max(1e-3f, _tuning.StaminaEndurance * _tuning.Tissue.OxygenStore * MuscleMassRatio));
 
     /// <summary>この試合で筋肉がした仕事の合計 [J]（<see cref="Endurance"/> の元）。</summary>
     internal float WorkDone => _workDone;

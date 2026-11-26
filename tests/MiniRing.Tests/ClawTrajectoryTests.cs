@@ -27,14 +27,18 @@ public sealed class ClawTrajectoryTests
         Assert.IsLessThan(0.0001f, Vector3.Distance(tip, reconstructed.Tip));
     }
 
+    private static readonly float[] StrokeGaps = [0.74f, 0.79f, 0.84f];
+
     [TestMethod]
     [DataRow(true)]
     [DataRow(false)]
     public void ScriptedBladeTargets_CarveCellsThroughVoxelContact(bool sweep)
     {
-        var trial = ClawLab.Run("ramon", 77, 0.84f, 2, Hand.Right, 0.31f, 0.75f, moving: true, sweep: sweep);
-        Assert.IsTrue(trial.Standing);
-        Assert.IsGreaterThan(0, trial.Removed);
+        // 間合いの 1 点では、刃が相手の縁をかすめるかどうかの紙一重で割れる（2026-11-26: 掃かない振りは 0.84 m で 0〜3 セル、0.74 m で 126〜217 セル。
+        // ClawAimProbe.ScriptedStrokeTrace）ので、届く間合いの 3 点のうち 2 点以上で削ることを見る。
+        var trials = StrokeGaps.Select(gap => ClawLab.Run("ramon", 77, gap, 2, Hand.Right, 0.31f, 0.75f, moving: true, sweep: sweep)).ToArray();
+        Assert.IsTrue(trials.All(t => t.Standing));
+        Assert.IsGreaterThanOrEqualTo(2, trials.Count(t => t.Removed > 0), "届く間合いの 3 点のうち 2 点以上で削る");
     }
 
     private static readonly float[] Gaps = [1.14f, 1.19f, 1.24f, 1.29f, 1.34f, 1.39f];

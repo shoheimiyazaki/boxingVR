@@ -142,7 +142,7 @@ public static class ArmMuscle
         float ElbowPeak, float ElbowLimit, float ElbowEndTorque, float MinBend)
     {
         public static Constants From(FighterTuning tuning, float slowness) => new(
-            tuning.ElbowMuscleMaxSpeed, tuning.ShoulderMuscleMaxSpeed, MathF.Max(0f, slowness),
+            tuning.ElbowMuscleMaxSpeed * tuning.Tissue.MuscleSpeed, tuning.ShoulderMuscleMaxSpeed * tuning.Tissue.MuscleSpeed, MathF.Max(0f, slowness), // 縮む速さは筋の材質から
             tuning.HandMuscleCurvature, tuning.HandMuscleEccentricMax, tuning.HandMuscleEccentricSlope,
             tuning.ElbowPeakRadians, tuning.ElbowFlexLimitRadians, tuning.ElbowEndTorque, tuning.ElbowMinLeverRadians);
 

@@ -160,7 +160,7 @@ public sealed partial class BoxingGame
             }
 
             Track(worn);
-            fighter.Wield(hand, worn.Body.BodyId, Weapon.GripOf(kind, mirrored), glove: true);
+            fighter.Wield(hand, worn.Body.BodyId, Weapon.GripOf(kind, mirrored), glove: true, clench: Weapon.ClenchesWrist(kind));
             fighter.SetStrikeReach(hand, worn.HandState is null ? null : worn.StrikeOffset);
             fighter.SetBladeChord(hand, kind == WeaponKind.SickleClaw ? SickleClawShape.Edge(hand) : null);
             _wielders[worn] = fighter;

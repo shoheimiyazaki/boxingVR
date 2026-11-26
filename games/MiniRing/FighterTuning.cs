@@ -92,8 +92,7 @@ public sealed record FighterTuning
     /// <summary>
     /// 胴の回旋筋（腹斜筋・多裂筋・回旋筋群）が出せる最大トルク [N·m]（TorqueScale 倍する前）。胸と腰を、向きの目標（両手の位置から決めるひねり）へ
     /// 鉛直軸のまわりで回すバネの強さを決める: バネ定数 Kp = これ / (胸の鉛直軸まわりの慣性 × <see cref="MaxTorsoTwistRadians"/>)（ひねりの可動域の端でちょうど
-    /// この力）、減衰は <see cref="UprightKd"/> と同じ減衰比（<c>2ζ√Kp</c>）、角加速度の上限はこの力 / その部位の慣性。傾き（前後・左右）は従来の
-    /// <see cref="UprightKp"/>・<see cref="UprightKd"/>・<see cref="MaxUprightAccel"/> のまま。
+    /// この力）、減衰は <see cref="UprightKd"/> と同じ減衰比（<c>2ζ√Kp</c>）、角加速度の上限はこの力 / その部位の慣性。傾き（前後・左右）は<see cref="UprightKp"/>・<see cref="UprightKd"/>・<see cref="MaxUprightAccel"/> に筋の材質の断面あたりの力（<see cref="Voxels.TissuePhysiology.MuscleStress"/>、人は 1）を掛けた値（減衰は同じ減衰比で √ 倍。2026-11-26、物理 104）。
     /// 70 N·m は、人の体幹の回旋の静的な最大トルク 70〜120 N·m の下の端（成人、Mayer 1984 ほか。パンチの動作の動的な値は 150〜250 N·m 級でさらに大きいので、
     /// 控えめな側を採った）。PhysicsVersion 67 までは、傾きと同じバネ（Kp = 213 /s²）を鉛直軸にも使っていて、胸の慣性 0.217 kg·m² × 213 × 可動域 0.611 rad = 28 N·m
     /// （人の約 1/4〜1/5）しか出ず、胸の回旋は 2 rad/s（人 8〜12）にとどまった。測った値（docs/plans/DRIVE_DOE_ANALYSIS.md、docs/arena/drive/doe_trunk_grid.csv、基準の点）:
@@ -168,6 +167,10 @@ public sealed record FighterTuning
     // ── 腕（サーボ + 拳への PD 力）
     public float ArmServoHz { get; init; } = 8.94f;
     public float ArmServoMaxSpeed { get; init; } = 23.83f;
+
+    /// <summary>腕の筋（肩・肘・手首のサーボ）が回せる角速度の上限 [rad/s]: <see cref="ArmServoMaxSpeed"/> × 筋の材質の縮む速さ（<see cref="Voxels.TissuePhysiology.MuscleSpeed"/>、人は 1）。</summary>
+    [JsonIgnore]
+    public float ArmMuscleSpeed => ArmServoMaxSpeed * Tissue.MuscleSpeed;
     public float HandKp { get; init; } = 390.5f; // 目標 → 拳のバネ [1/s²]（約 3.1Hz）。固いほどきびきび追う
     public float HandKd { get; init; } = 31.6f; // 減衰比 ≒ 0.8（行き過ぎずに止まる）
     /// <summary>
@@ -992,7 +995,15 @@ public sealed record FighterTuning
 
     /// <summary>関節の力上限の倍率。トルク ∝ 質量 × 長さ なので MassScale × Scale。</summary>
     [JsonIgnore]
-    public float TorqueScale => MassScale * Scale;
+    public float TorqueScale => MassScale * Scale * Tissue.MuscleStress;
+
+    /// <summary>筋でない組織（靭帯・当たりの受け）の力の倍率（<see cref="TorqueScale"/> から筋の材質の倍率を除いた物）。</summary>
+    [JsonIgnore]
+    public float PassiveTorqueScale => MassScale * Scale;
+
+    /// <summary>体の生きた組織（筋肉・心臓・肺の材質）の働きの倍率。<see cref="Fighter.Spawn"/> が体の材質の表（<see cref="Voxels.BoxerBody.PaletteFor"/>）から入れる。</summary>
+    [JsonIgnore]
+    public Voxels.TissuePhysiology Tissue { get; init; } = Voxels.TissuePhysiology.Human;
 
     [JsonIgnore]
     public HumanoidRagdoll.HalfExtents HalfExtents

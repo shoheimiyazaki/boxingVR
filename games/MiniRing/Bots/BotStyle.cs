@@ -346,6 +346,73 @@ public sealed record BotStyle
     public float ClawDriveSeconds { get; init; } = 0.31f;
 
     public float ClawWindup { get; init; } = 1f;
+
+    /// <summary>
+    /// 四足の鎌の斬り払いで、狙う所を選ぶ重み（教育の値: 技の選び方。2026-11-25）。首の継ぎ目・相手の腕・胴の継ぎ目の 3 つを、重みの比で順に回す
+    /// （重みを毎回足して、いちばん溜まった狙いを選び、合計を引く: 乱数を使わない決まった順）。三つとも 1（既定）なら 首 → 腕 → 胴 の繰り返し（今までの順）。
+    /// 0 の狙いは選ばない。全部 0 なら既定と同じ。
+    /// </summary>
+    public float ClawAimNeck { get; init; } = 1f;
+
+    /// <summary>鎌で相手の腕を狙う重み（<see cref="ClawAimNeck"/>）。</summary>
+    public float ClawAimArm { get; init; } = 1f;
+
+    /// <summary>鎌で相手の胴の継ぎ目を狙う重み（<see cref="ClawAimNeck"/>）。</summary>
+    public float ClawAimTorso { get; init; } = 1f;
+
+    /// <summary>鎌で相手の脛（近い方の脚）を狙う重み（<see cref="ClawAimNeck"/>）。既定 0（今までどおり脚は狙わない）。</summary>
+    public float ClawAimLeg { get; init; }
+
+    /// <summary>
+    /// 鎌の間合い: 腕の長さに足す、鎌の長さの割合（教育の値: 間合いの取り方。2026-11-25）。この距離（胸まで）より遠ければ寄り、届けば斬る。
+    /// 小さいほど深く踏み込んで鎌の根元の側で斬り、大きいほど遠くから先で斬る。負なら腕の長さより内側まで踏み込む（引き斬りで刃を相手の向こうへ掛けるため）。既定 0.56（それまでの値）。
+    /// </summary>
+    public float ClawReach { get; init; } = 0.56f;
+
+    /// <summary>
+    /// 鎌の斬り払いの合間 [s]（教育の値: 技の拍子。2026-11-25）: 両腕の鎌が構えへ戻ってから、次を振り始めるまで待つ時間。待つ間も間合いは詰める。
+    /// 振り続けると脚・腕の酸素が尽きて（スタミナ）振りが遅く弱くなるので、息を戻す間との釣り合い。既定 0（それまでどおり、届けばすぐ振る）。
+    /// </summary>
+    public float ClawRest { get; init; }
+
+    /// <summary>
+    /// 鎌の振りのうち、引き斬り（<see cref="Weapons.ClawStroke.Draw"/>: 狙いの点の向こうへ刃を掛けて手前へ引く）にする割合 0..1（教育の値: 技の選び方。2026-11-25）。
+    /// 割合を毎回足して 1 を超えたら引き斬り（乱数を使わない決まった順）。既定 0（今までどおり全部を振り抜く）。
+    /// </summary>
+    public float ClawDraw { get; init; }
+
+    /// <summary>
+    /// 鎌の狙いの点を上へずらす量 [腕の長さ]（教育の値: 技の経路。2026-11-25）。重い刃は振る間に腕ごと下へ外れる（huntlab: 首を狙った振りが胴に入った）ので、
+    /// 外れる分だけ上を狙う（人が覚える狙いの癖と同じ）。既定 0。
+    /// </summary>
+    public float ClawAimLift { get; init; }
+
+    /// <summary>
+    /// 鎌の振りのうち、円柱を垂直に断つ経路（<see cref="Weapons.ClawStroke.Cylinder"/>: 狙いの点を中心、相手の体の軸を軸とする円柱を、軸に垂直な面で振り抜く）
+    /// にする割合 0..1（教育の値: 技の選び方。2026-11-25）。引き斬り（<see cref="ClawDraw"/>）より先に選ぶ。既定 0。
+    /// </summary>
+    public float ClawCut { get; init; }
+
+    /// <summary>円柱を断つ経路で、刃の上の斬る点（刃元から弦の割合）。既定 0.6。</summary>
+    public float ClawCutPoint { get; init; } = 0.6f;
+
+    /// <summary>円柱を断つ経路で、中心から向こうへ振り抜く距離 [腕の長さ]。既定 0.5。</summary>
+    public float ClawCutAfter { get; init; } = 0.5f;
+
+    /// <summary>
+    /// 鎌の振りの引き手 [腕の長さ]（教育の値: 2026-11-25、全身で振る練習）: 振っていない側の手の目標を、振りの拍子（<c>ClawStroke.Swing</c>）と逆に前後へ動かす
+    /// （溜めで前へ、振り抜きで後ろへ引く）。拳の引き手と同じく、両手の目標の差が胴をひねる（<c>PunchMechanics.TorsoTwist</c>）。分割胴の体は
+    /// <see cref="FighterCommand.TwistBias"/> を肘打ちのときしか使わないので、ひねりは手の目標から出す。既定 0。
+    /// </summary>
+    public float ClawPull { get; init; }
+
+    /// <summary>鎌の振り抜きの間に、脚のバネを前へ放つ割合（<see cref="FighterCommand.Step"/>、教育の値: 2026-11-25）。既定 0。</summary>
+    public float ClawStep { get; init; }
+
+    /// <summary>
+    /// 鎌の振り抜きの間に、体の動き（胴・脚のバネ）を拳へ移す割合（<see cref="HandCommand.Spring"/>、教育の値: 2026-11-25）。既定 0。
+    /// </summary>
+    public float ClawSpring { get; init; }
     /// <summary>Kick goal cycle duration in seconds.</summary>
     public float KickDuration { get; init; } = 1.175f;
     /// <summary>
@@ -545,8 +612,22 @@ public sealed record BotStyle
             Face = Face?.Validate(),
             Build = Build?.Validate(),
             KickRate = Unit(KickRate),
-            ClawDriveSeconds = Range(ClawDriveSeconds, 0.16f, 0.65f, 0.31f),
+            ClawDriveSeconds = Range(ClawDriveSeconds, 0.08f, 0.65f, 0.31f),
             ClawWindup = Range(ClawWindup, 0.45f, 1.5f, 1f),
+            ClawAimNeck = Range(ClawAimNeck, 0f, 10f, 1f),
+            ClawAimArm = Range(ClawAimArm, 0f, 10f, 1f),
+            ClawAimTorso = Range(ClawAimTorso, 0f, 10f, 1f),
+            ClawAimLeg = Range(ClawAimLeg, 0f, 10f, 0f),
+            ClawReach = Range(ClawReach, -0.8f, 1f, 0.56f),
+            ClawRest = Range(ClawRest, 0f, 3f, 0f),
+            ClawDraw = Unit(ClawDraw),
+            ClawAimLift = Range(ClawAimLift, -0.5f, 0.8f, 0f),
+            ClawCut = Unit(ClawCut),
+            ClawCutPoint = Range(ClawCutPoint, 0.1f, 1f, 0.6f),
+            ClawCutAfter = Range(ClawCutAfter, 0f, 1.5f, 0.5f),
+            ClawPull = Range(ClawPull, 0f, 0.6f, 0f),
+            ClawStep = Unit(ClawStep),
+            ClawSpring = Unit(ClawSpring),
             KickDuration = Range(KickDuration, 0.6714f, 2.014f, 1.175f),
             KickRangeFit = Range(KickRangeFit, 0f, 4f, 0f),
             BreakLikes = (BreakLikes ?? new Dictionary<string, float>()).ToDictionary(p => p.Key, p => NonNegative(p.Value)),

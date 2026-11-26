@@ -15,6 +15,10 @@ internal static class SickleClawShape
     public static Vector3 Grip => new(Root - Half.X, 0f, 0f);
     public static Vector3 Tip => new(Half.X, 0f, Curve);
     public static Vector3 Edge(Hand hand) => (Tip - Grip) with { Z = hand == Hand.Left ? -Curve : Curve };
+    public static Vector3 ConcaveSide(Hand hand) => -hand.LocalSide() * Vector3.Normalize(Vector3.Cross(Edge(hand), Vector3.UnitY));
+
+    // Turn into the inner curve at the wrist so the tip folds back along the arm.
+    public static Quaternion FoldedMount(Hand hand) => Quaternion.CreateFromAxisAngle(Vector3.UnitY, 1.82f * hand.LocalSide());
 
     private static readonly VoxelPalette BladePalette = LightenBlade();
 

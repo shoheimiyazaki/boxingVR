@@ -518,6 +518,9 @@ public sealed partial class BoxerBody
     /// <summary>遠い側の端がまだ次の部位の関節を受けている部位（上腕・太もも・すね。骨が切れたら、その先は破片の側へ移る）。</summary>
     private readonly HashSet<int> _holdsFarEnd = [];
 
+    /// <summary>この体格の体を作る材質の表（四足の体はエイリアンの材質: <see cref="AlienAnatomy.Palette"/>）。働きの値は <see cref="TissuePhysiology.Of"/>。</summary>
+    public static VoxelPalette PaletteFor(BodyBuild build) => build.FourLegged ? AlienAnatomy.Palette : BoxerAnatomy.Palette;
+
     /// <summary>
     /// 部位 <paramref name="kind"/>（箱の半分の大きさ <paramref name="half"/>）のボクセルの格子を、試合の体と同じ手順で作る
     /// （基準体格の格子を作り、体格の寸法へ同じ材質のセルを伸縮し、顔の色・形を巻き付ける）。体の構築とメニューの肖像

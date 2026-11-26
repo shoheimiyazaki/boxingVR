@@ -163,12 +163,18 @@ public sealed class AlienTests
     {
         using var game = CreateGame();
         var f = game.Player;
+        // 立っている間も足を 1 本ずつ置き直す（その間は 3 本で立つ）ので、足跡の前後の幅は歩ごとに 0.25〜0.8 m で揺れる。1 歩の瞬間でなく、
+        // 落ち着いた後の 1 秒でいちばん広く 4 本を着いた足跡で見る（2026-11-26、ClawAimProbe.IdleStanceTrace）。
+        var zSpan = 0f;
         for (var i = 0; i < 480; i++)
         {
             Step(game, Guard(f));
+            if (i >= 240 && f.SupportHull.Count > 0)
+            {
+                zSpan = MathF.Max(zSpan, f.SupportHull.Max(v => v.Y) - f.SupportHull.Min(v => v.Y));
+            }
         }
 
-        var zSpan = f.SupportHull.Max(v => v.Y) - f.SupportHull.Min(v => v.Y);
         Assert.IsGreaterThan(0.42f, zSpan);
         Assert.AreEqual(FighterState.Standing, f.State);
         var before = f.PelvisPosition;
@@ -356,7 +362,9 @@ public sealed class AlienTests
             var f = game.Player;
             var p = f.Parts;
             var front = new[] { p.LeftThigh, p.LeftShin, p.LeftFoot, p.RightThigh, p.RightShin, p.RightFoot, f.ToeId(0), f.ToeId(1) }.Sum(game.World.GetMass);
-            return (f.OxygenBudgetOf(MuscleRegion.LeftLeg).Capacity, f.OxygenBudgetOf(MuscleRegion.RightLeg).Capacity, front);
+            // 四足はエイリアンの筋の材質（蓄えの係数が仮に極端: TissuePhysiology）、二足は人の材質で作るので、筋の量を比べるため材質の係数で割る（2026-11-25）。
+            var store = MiniRing.Voxels.TissuePhysiology.Of(MiniRing.Voxels.BoxerBody.PaletteFor(build)).OxygenStore;
+            return (f.OxygenBudgetOf(MuscleRegion.LeftLeg).Capacity / store, f.OxygenBudgetOf(MuscleRegion.RightLeg).Capacity / store, front);
         }
 
         var four = Capacity(galva);
