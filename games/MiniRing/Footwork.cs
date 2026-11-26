@@ -124,16 +124,19 @@ public sealed record FootworkTuning
     public float ShuffleShare { get; init; } = 1f;
 
     /// <summary>
-    /// どちらの足から出るかを、両足の「1 歩で構えの位置へ近づける距離 × その足から抜けている体重の割合（1 − これ × その足が受ける力の割合）」で比べる強さ
-    /// （0..1。0 で従来の、行く向きの側の足と刻みの入れ替えだけ）。体重の割合は、移動の指令が求める加速度でずれた床反力の作用点（ZMP）から出す。
-    /// 体重の乗った足・ひねって床を押している軸足は、それを抜くまで床を離れられない（2026-11-26、docs/arena/foot_snag.md）。
+    /// 行く向きの側の足が半歩も構えへ近づけない（届く範囲で切られた刻み・構えから遠ざかる 1 歩）とき、両足の「1 歩で構えの位置へ近づける距離 × その足から
+    /// 抜けている体重の割合（1 − これ × その足が受ける力の割合）」で比べてどちらから出るかを決める強さ（0..1。0 で従来の刻みの入れ替えだけ）。体重の割合は、
+    /// 移動の指令が求める加速度でずれた床反力の作用点（ZMP）から出し、胴をひねる度合いを両足に足す。移動の指令があり、意識が KO の線より上の間だけ
+    /// （2026-11-26、docs/arena/foot_snag.md）。
     /// </summary>
     public float UnloadedFootShare { get; init; } = 1f;
 
     /// <summary>
     /// 踏み出している足の着地点が構えの位置から遠ざかる所になったら（向きを変えた・切り返した）、その場で下ろして計画し直すか（偽で従来の、運び終えるまで待つ）。
+    /// 既定は偽: 切り返しの出だしは 0.58 → 0.47 秒（最悪）と速くなるが、体重の比べと合わさるとボットの寄り方が変わり、寄って止まった後の溜めた右で
+    /// 肩を引けなくなった（docs/arena/foot_snag.md）。
     /// </summary>
-    public bool ReplanSwing { get; init; } = true;
+    public bool ReplanSwing { get; init; }
 
     /// <summary>前後の体重のかけ方の幅（0.5 ± これ）。前へ出した頭・打つ拳で前足へ、反らした頭で後ろ足へ。</summary>
     public float WeightShift { get; init; } = 0.25f;
@@ -564,21 +567,26 @@ public sealed class Footwork
                 bool swap;
                 if (leadLoad is { } load)
                 {
-                    // 体重の乗った足は、体重を抜くまで床を離れられない。両足の「1 歩で構えの位置へ近づける距離 × その足から抜けている体重の割合」を比べ、
-                    // 大きい方から出る（乗った足を先に選ぶと、届く範囲で切られた短い 1 歩に時間を使い、その間に支えが反対の足へ移って体が止まった。足を交差させない
-                    // 制約で構えの位置から遠ざかる向きへ押し出される 1 歩も、近づく距離では得にならない: docs/arena/foot_snag.md）。体重の割合は、移動の指令が求める
+                    // 体重の乗った足は、体重を抜くまで床を離れられない。行く向きの側の足が構えへ近づけないとき、両足の「1 歩で構えの位置へ近づける距離 × その足から
+                    // 抜けている体重の割合」を比べ、大きい方から出る（乗った足を先に選ぶと、届く範囲で切られた短い 1 歩に時間を使い、その間に支えが反対の足へ移って
+                    // 体が止まった。足を交差させない制約で構えの位置から遠ざかる向きへ押し出される 1 歩も選ばれ続けた: docs/arena/foot_snag.md）。体重の割合は、移動の指令が求める
                     // 加速度で床反力の作用点がずれた所から出す（LeadLoad）: 止まった構えから前へは、前へ加速する分だけ前足が抜けて前足から出る。
-                    // ひねって打つ間は、軸足（右の拳は後ろ足、左は前足）が床を押して回している: 体重の分に加えて、ひねりの度合いだけ軸足は床を離れられない
-                    // （打ちながら軸足を持ち上げると、押していた足が抜けて体が流れた）。反対の足は体重を受けたまま（軽くはならない）。
+                    // 胴をひねる間（打つ・溜める）は、胴を鉛直軸まわりに回すトルクを両足が床を押す偶力で出している: 体重の分に加えて、ひねりの度合いだけ
+                    // どちらの足も床を離れられない（打ちながら軸足を持ち上げると押していた足が抜けて体が流れ、右の溜めの間に後ろ足を踏み出すと肩を引けなかった）。
                     var twist = Math.Clamp(float.IsFinite(input.Twist) ? input.Twist : 0f, -1f, 1f);
                     float Free(int foot) => 1f - (t.UnloadedFootShare
-                        * Math.Clamp((foot == Lead ? load : 1f - load) + MathF.Max(0f, foot == Lead ? -twist : twist), 0f, 1f));
-                    var gain = MathF.Max(0f, error[foot0] - Vector2.Distance(home[foot0], target)) * Free(foot0);
+                        * Math.Clamp((foot == Lead ? load : 1f - load) + MathF.Abs(twist), 0f, 1f));
+                    var progress = MathF.Max(0f, error[foot0] - Vector2.Distance(home[foot0], target));
+                    var gain = progress * Free(foot0);
                     var otherGain = MathF.Max(0f, error[other] - Vector2.Distance(home[other], otherTarget)) * Free(other);
                     // 踏んだばかりの足（FollowTime の内）は、体がその上へ移ってくる体重を受け止めている: 付いていく足が踏み直しを要するうちは、
                     // 比べで踏んだばかりの足へ戻さない（交互に運ぶ。同じ足を選び続けると、スリップの間に前足だけが横へ踏み続けて構えが開ききり、体が崩れた）。
                     var following = other == _lastFoot && _sinceStep < t.FollowTime && need[foot0];
-                    swap = (otherOverreach && stride < shuffle && otherStride >= shuffle) || (!following && otherGain > gain);
+                    // 入れ替えるのは、行く向きの側の足が半歩（0.5 × StepThreshold）も構えへ近づけないときだけ（届く範囲で切られた刻み・足を交差させない制約で
+                    // 構えから遠ざかる 1 歩）。そのときは体重の抜けている足と比べる。少しでも得な方へ毎歩入れ替えると、寄っては下がる間合いの合わせで
+                    // 後ろ足を前足のすぐ後ろへ引き寄せ続けて構えが狭く崩れ、寄って止まった後の技（肘・かかと落とし・溜めた右）の形が変わった。
+                    var enough = 0.5f * t.StepThreshold * leg;
+                    swap = (otherOverreach && stride < shuffle && otherStride >= shuffle) || (!following && progress < enough && otherGain > gain);
                 }
                 else
                 {

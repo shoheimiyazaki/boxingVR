@@ -77,32 +77,6 @@ public sealed class FootworkTests
     }
 
     /// <summary>
-    /// 体重の乗った足は、体重を抜くまで床を離れられない（2026-11-26、docs/arena/foot_snag.md）: 左へ動くとき、重心が真ん中なら行く向きの側の左足（前足）から、
-    /// 重心が前足の上なら体重の抜けている後ろ足から出る。体重を見ない選び方（UnloadedFootShare 0）では前足のまま。
-    /// </summary>
-    [TestMethod]
-    public void Footwork_StepsWithTheUnloadedFoot_WhenTheLoadedFootWouldGoFirst()
-    {
-        int FirstSwing(Vector2 com, FootworkTuning tuning)
-        {
-            var footwork = new Footwork(tuning);
-            const float leg = 0.6197f;
-            var lead = new Vector2(0.5f * tuning.StanceWidth * leg, 0.5f * tuning.StanceLength * leg);
-            var rear = -lead;
-            footwork.Reset(lead, tuning.LeadYawDegrees * MathF.PI / 180f, rear, tuning.RearYawDegrees * MathF.PI / 180f);
-            footwork.Update(new FootworkInput(0f, Vector2.Zero, Vector2.Zero, 3.813f, new Vector2(0.5f, 0f), 0f, 0f, leg,
-                LeadBall: lead, RearBall: rear, Com: com), Dt);
-            return footwork.Swinging;
-        }
-
-        var tuning = new FootworkTuning();
-        var overLead = 0.9f * new Vector2(0.5f * tuning.StanceWidth * 0.6197f, 0.5f * tuning.StanceLength * 0.6197f);
-        Assert.AreEqual(Footwork.Lead, FirstSwing(Vector2.Zero, tuning), "weight in the middle: the foot on the side it goes");
-        Assert.AreEqual(Footwork.Rear, FirstSwing(overLead, tuning), "weight on the lead foot: the unloaded rear foot goes first");
-        Assert.AreEqual(Footwork.Lead, FirstSwing(overLead, tuning with { UnloadedFootShare = 0f }), "without the load: the lead foot as before");
-    }
-
-    /// <summary>
     /// 前へ加速しようとすると床反力の作用点が重心より後ろへずれ（加速度 / ω²）、前足の荷重が抜ける（ボクサーから見て、重力と前への加速を合わせた
     /// 見かけの重力が後ろへ傾く）。後ろへ加速すれば前足に乗る。重心が両足の真ん中で加速度が無ければ半々。
     /// </summary>
@@ -147,7 +121,7 @@ public sealed class FootworkTests
             return (footwork.Swinging, footwork.Landing?.Ball.Y ?? float.NaN);
         }
 
-        var tuning = new FootworkTuning();
+        var tuning = new FootworkTuning { ReplanSwing = true }; // 既定では切ってある（寄って止まった後の技の形が変わった: docs/arena/foot_snag.md）
         var leadZ = 0.5f * tuning.StanceLength * 0.6197f;
         var replanned = AfterReversal(tuning);
         Assert.IsGreaterThanOrEqualTo(0, replanned.Swinging, "a foot is stepping");

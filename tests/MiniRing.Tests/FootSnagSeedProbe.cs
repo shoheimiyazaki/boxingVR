@@ -551,11 +551,11 @@ public sealed class FootSnagSeedProbe
                 twistAt = Twist();
             }
 
-            if (thrownAt >= 0f && seed == 1 && Environment.GetEnvironmentVariable("WB_TRACE") == "1")
+            if ((thrownAt >= 0f || game.Cpu.Footwork.Steps > 0) && seed == 1 && Environment.GetEnvironmentVariable("WB_TRACE") == "1" && (int)(t / Dt) % 6 == 0)
             {
                 var c = game.Cpu;
                 Vector3 Toe(int foot) => c.Frame.WorldToLocal(game.World.GetState(c.ToeId(foot)).Position);
-                Console.WriteLine(F($"  dt={t - thrownAt:0.000} twist={Twist() - twistAt:0.000} sw={c.Footwork.Swinging} steps={c.Footwork.Steps} lead=({Toe(0).X:0.00},{Toe(0).Z:0.00}) rear=({Toe(1).X:0.00},{Toe(1).Z:0.00}) yaw={c.Frame.YawRadians:0.000} pelvisV=({c.PelvisVelocity.X:0.00},{c.PelvisVelocity.Z:0.00})"));
+                Console.WriteLine(F($"  t={t:0.00} thrown={thrownAt >= 0f} dt={t - thrownAt:0.000} gap={new Vector2(game.Cpu.ChestPosition.X - game.Player.ChestPosition.X, game.Cpu.ChestPosition.Z - game.Player.ChestPosition.Z).Length():0.00} twist={Twist() - twistAt:0.000} sw={c.Footwork.Swinging} steps={c.Footwork.Steps} lead=({Toe(0).X:0.00},{Toe(0).Z:0.00}) rear=({Toe(1).X:0.00},{Toe(1).Z:0.00}) yaw={c.Frame.YawRadians:0.000} pelvisV=({c.PelvisVelocity.X:0.00},{c.PelvisVelocity.Z:0.00})"));
             }
 
             if (thrownAt >= 0f && t >= thrownAt + 0.1678f)
@@ -566,6 +566,130 @@ public sealed class FootSnagSeedProbe
         }
 
         return "nothrow";
+    });
+
+    /// <summary>PunchWeightTests の溜めない右ストレート（腰の強弱）を、間合い 5 通り × 種で。</summary>
+    [TestMethod]
+    public void HipsSample() => Report("hips", [.. Enumerable.Range(1, 4)], seed =>
+    {
+        float[] ranges = [0.95f, 1.0f, 1.05f, 1.1f, 1.15f];
+        var d = FighterTuning.Default;
+        var quick = ranges.Sum(r => PunchWeightTests.Cross(d, 0.06f, seed, r));
+        var weak = ranges.Sum(r => PunchWeightTests.Cross(d with { PelvisRotatorTorque = 60f }, 0.06f, seed, r));
+        return F($"quick={quick:0} quickWeak={weak:0} pass={quick > 1.15f * weak}");
+    });
+
+    /// <summary>DownRecoveryTests の深いダウン（master の形: 0.84 秒より後に意識が力の抜ける線より下だった回を数える）。</summary>
+    [TestMethod]
+    public void DeepLimp() => Report("deeplimp", Seeds, seed =>
+    {
+        using var game = StillGame(seed, fromCorners: false);
+        for (var t = 0f; t < 2.518f; t += Dt)
+        {
+            game.Step(default, Dt);
+        }
+
+        var f = game.Cpu;
+        var ground = f.AllParts.Min(id => game.World.GetState(id).Position.Y) - 0.02817f;
+        var stand = f.PelvisPosition.Y - ground;
+        f.Concussion = 0.95f;
+        var samples = 0;
+        var lowest = 1f;
+        var lowestKo = 1f;
+        for (var t = 0f; t < 6f; t += Dt)
+        {
+            game.Step(default, Dt);
+            var ratio = (game.Cpu.PelvisPosition.Y - ground) / stand;
+            if (t > 0.8392f && game.Cpu.Consciousness < FighterTuning.Default.LimpConsciousness)
+            {
+                samples++;
+                lowest = MathF.Min(lowest, ratio);
+            }
+
+            lowestKo = t > 0.8392f && game.Cpu.Consciousness < FighterTuning.Default.KnockoutConsciousness ? MathF.Min(lowestKo, ratio) : lowestKo;
+        }
+
+        return F($"limpSamples={samples} wentLimp={samples > 0} lowestLimp={lowest:0.00} lowestKo={lowestKo:0.00} flat={lowestKo < 0.3f}");
+    });
+
+    /// <summary>EvasionBasicsTests の早いスリップ: 3.6 秒の中で打った本数（1 本であること）と頭に当たった数。</summary>
+    [TestMethod]
+    public void EarlySlip() => Report("earlyslip", [.. Enumerable.Range(1, 16)], seed =>
+    {
+        var inside = new DefenseMove { HeadX = 0.5f, HeadY = -0.5f, HeadZ = -0.2f, Step = 1f, Duration = 0.5035f, Rate = 35.75f, HandsUp = 0.3f, VsStraight = 1f };
+        var book = DefenseBook.Default.With(Defense.Duck, inside);
+        static void KeepFresh(BoxingGame game, BoxerBot _)
+        {
+            game.Player.Stamina = 1f;
+            game.Cpu.Stamina = 1f;
+        }
+
+        var open = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: seed, seconds: 3.6f, telegraph: 0.1343f, observe: KeepFresh);
+        var slip = DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: true, counters: false), seed: seed, seconds: 3.6f, cue: 0f, telegraph: 0.1343f, observe: KeepFresh);
+        return F($"openPunches={open.Punches} slipPunches={slip.Punches} openHead={open.HeadHits + open.OpenHeadHits} slipHead={slip.HeadHits + slip.OpenHeadHits} onePunch={open.Punches == 1 && slip.Punches == 1}");
+    });
+
+    /// <summary>1 場面のテスト 3 つを、寄る位置・間合いを 9 通りに振って（かかと落とし・肘の速さ・胸の回転）。</summary>
+    [TestMethod]
+    public void Fragile() => Report("fragile", [.. Enumerable.Range(0, 9)], i =>
+    {
+        var closeIn = (i - 4) * 0.01f;
+        var axe = KickContactTests.Run(KickTechnique.Axe, closeIn: closeIn).MaxYawDeviation;
+        var side = KickContactTests.Run(KickTechnique.Side, closeIn: closeIn).MaxYawDeviation;
+        var scale = 0.96f + (0.01f * i);
+        var slow = ElbowContactTests.Run(ElbowTechnique.Horizontal, durationScale: 1.4f, distanceScale: scale);
+        var fast = ElbowContactTests.Run(ElbowTechnique.Horizontal, durationScale: 0.8f, distanceScale: scale);
+        var range = 0.97f + (0.02f * i);
+        var legacy = FighterTuning.Default with { TrunkRotatorTorque = 28.2f, TrunkTwistFeedForward = 0f };
+        var chestLegacy = TrunkTwistTests.Punch(legacy, range).ChestRate;
+        var chestFf = TrunkTwistTests.Punch(legacy with { TrunkTwistFeedForward = 1f }, range).ChestRate;
+        return F($"axe={axe:0.00} side={side:0.00} slowJ={slow.MaxSpecificEnergy:0.00} fastJ={fast.MaxSpecificEnergy:0.00} slowHits={slow.Hits} fastHits={fast.Hits} chestLegacy={chestLegacy:0.00} chestFf={chestFf:0.00}");
+    });
+
+    /// <summary>かかと落とし・横蹴りの体の回り、肘の速さの比べを、左右 × 技の長さ・間合いを振って。</summary>
+    [TestMethod]
+    public void Fragile2() => Report("fragile2", [.. Enumerable.Range(0, 6)], i =>
+    {
+        var side = i % 2 == 0 ? Hand.Right : Hand.Left;
+        var duration = 0.9f + (0.1f * (i / 2));
+        var axe = KickContactTests.Run(KickTechnique.Axe, side, duration).MaxYawDeviation;
+        var sideKick = KickContactTests.Run(KickTechnique.Side, side, duration).MaxYawDeviation;
+        var scale = 0.85f + (0.15f * (i / 2));
+        var slow = ElbowContactTests.Run(ElbowTechnique.Horizontal, side, durationScale: 1.4f, distanceScale: scale);
+        var fast = ElbowContactTests.Run(ElbowTechnique.Horizontal, side, durationScale: 0.8f, distanceScale: scale);
+        return F($"side={side} dur={duration:0.0} scale={scale:0.00} axe={axe:0.00} sideKick={sideKick:0.00} slowJ={slow.MaxSpecificEnergy:0.00} fastJ={fast.MaxSpecificEnergy:0.00} slowHits={slow.Hits} fastHits={fast.Hits} slowSpeed={slow.MaxElbowSpeed:0.00} fastSpeed={fast.MaxElbowSpeed:0.00}");
+    });
+
+    /// <summary>IntentFeelTests のカメラ基準の移動（相手との線に直角へ 1.7 秒）を、足の動きを追いながら。</summary>
+    [TestMethod]
+    public void CameraSide() => Report("cameraside", [43], seed =>
+    {
+        const float dt = 1f / 60f;
+        var game = new BoxingGame(null, seed: seed);
+        var control = new IntentControl();
+        for (var i = 0; i < 101; i++)
+        {
+            game.Step(new BoxingInput(control.Read(game.PlayerSense, dt)), dt);
+        }
+
+        using var _ = game;
+        var before = game.Player.PelvisPosition;
+        var yaw = (MathF.PI / 2f) + CameraFollow.BehindYaw(game.PlayerSense.Self.Origin, game.PlayerSense.OpponentChest, 0f);
+        var expected = CameraFollow.ToWorld(Vector2.UnitY, yaw);
+        control.Input = new FighterIntent(Vector2.Zero, World: expected);
+        for (var i = 0; i < 101; i++)
+        {
+            game.Step(new BoxingInput(control.Read(game.PlayerSense, dt)), dt);
+            var p = game.Player;
+            Vector3 Toe(int foot) => p.Frame.WorldToLocal(game.World.GetState(p.ToeId(foot)).Position);
+            if (i % 3 == 0)
+            {
+                Console.WriteLine(F($"  i={i} moved=({(p.PelvisPosition - before).X:0.00},{(p.PelvisPosition - before).Z:0.00}) v=({p.PelvisVelocity.X:0.00},{p.PelvisVelocity.Z:0.00}) sw={p.Footwork.Swinging} steps={p.Footwork.Steps} lead=({Toe(0).X:0.00},{Toe(0).Z:0.00}) rear=({Toe(1).X:0.00},{Toe(1).Z:0.00}) state={p.State} hits={game.RecentHits.Count}"));
+            }
+        }
+
+        var moved = game.Player.PelvisPosition - before;
+        return F($"moved=({moved.X:0.00},{moved.Z:0.00}) expected=({expected.X:0.00},{expected.Y:0.00})");
     });
 
     [TestMethod]

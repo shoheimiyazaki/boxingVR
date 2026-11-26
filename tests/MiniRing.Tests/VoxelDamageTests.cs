@@ -489,7 +489,9 @@ public sealed class VoxelDamageTests
     [TestMethod]
     public void BlowsToTheForearm_CutItOff_AndTheGloveFallsWithIt()
     {
-        using var game = new BoxingGame(seed: 2);
+        // 2 人とも打たない（構えて立つだけ）: 確かめるのは台本で打った左の前腕が切れることで、ボットどうしの打ち合いではない（2026-11-26 まで既定のボットが
+        // 打ち合っていて、足の運びを変えた版では最後の 1.7 秒の打ち合いで右の前腕まで切れた: docs/arena/foot_snag.md）。
+        using var game = new BoxingGame(seed: 2, corners: new BoxingCorners("still", _ => new StandGuard(), _ => new StandGuard()));
         var cpu = game.Cpu;
         var forearm = cpu.ForearmId(Hand.Left);
         StrikeUntil(game, cpu, forearm, () => cpu.ArmSevered(Hand.Left), damage: 20f);

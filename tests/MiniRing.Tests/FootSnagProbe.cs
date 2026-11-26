@@ -17,6 +17,10 @@ public sealed class FootSnagProbe
     [TestMethod]
     public void TableBefore() => Table(FighterTuning.Default with { Footwork = FighterTuning.Default.Footwork with { UnloadedFootShare = 0f, ReplanSwing = false } }, "直す前（体重を見ない・宙の足を運び終える）");
 
+    /// <summary>比べもの: 宙の足の計画し直しを入れた形（既定では切ってある）。</summary>
+    [TestMethod]
+    public void TableWithReplan() => Table(FighterTuning.Default with { Footwork = FighterTuning.Default.Footwork with { ReplanSwing = true } }, "宙の足の計画し直しあり");
+
     private void Table(FighterTuning tuning, string label)
     {
         TestContext.WriteLine($"== {label}");
