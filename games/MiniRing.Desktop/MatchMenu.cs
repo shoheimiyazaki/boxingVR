@@ -34,7 +34,7 @@ internal sealed class MatchMenu : IDisposable
     /// <param name="roster">名簿（既定は組み込みの名簿の全員）。</param>
     /// <param name="loadPortraits">肖像（顔・全身の絵）を背景で作るか。テストで重い構築を避けるときだけ false。</param>
     /// <param name="script">決めた順の操作（<see cref="MenuScript"/>。null なら手の入力だけ）。</param>
-    /// <param name="campaignDirectory">キャンペーンのボクサーの置き場（1 人 1 ファイル）。null なら設定のファイルと同じ場所の <c>campaign</c>。</param>
+    /// <param name="campaignDirectory">キャンペーンのボクサーの置き場（1 人 1 ファイル）。null なら設定のファイルと同じ場所の <c>campaign</c>（テスト用。ゲームは <see cref="CampaignStore.DefaultDirectory"/> の %LOCALAPPDATA% を渡す）。</param>
     public MatchMenu(string replayDirectory, string settingsPath, Action<bool>? playCue = null,
         IReadOnlyList<FighterCharacter>? roster = null, bool loadPortraits = true, MenuScript? script = null, string? campaignDirectory = null)
     {

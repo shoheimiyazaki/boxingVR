@@ -2275,7 +2275,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
         else
         {
-            list.Add(new($"{PlayerWins} - {CpuWins}", new Vector2(screenSizePixels.X * 0.5f, 20f), 28f, white, TextAnchor.Center));
+            list.Add(UiFont.Text($"{PlayerWins} - {CpuWins}", new Vector2(screenSizePixels.X * 0.5f, 20f), 32f, white, TextAnchor.Center));
             AddCondition(list, RedLabel, Cpu, new Vector2(24f, 20f), TextAnchor.Left, new Vector4(1f, 0.45f, 0.4f, 1f));
             AddCondition(list, BlueLabel, Player, new Vector2(screenSizePixels.X - 24f, 20f), TextAnchor.Right, new Vector4(0.5f, 0.65f, 1f, 1f));
         }
@@ -2285,25 +2285,31 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             var who = hit.Attacker == Player ? RedLabel : BlueLabel;
             var text = $"{who} {(hit.Hand == Hand.Left ? "L" : "R")} > {HitZones.Label(hit.Zone)}  {hit.Damage:0}  " +
                 $"{hit.ImpactMass:0.0}kg x {hit.Speed:0.0}m/s  BODY {Percent(hit.BodyShare)}";
-            list.Add(new ScreenTextDraw(text, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y - 44f), 22f, white, TextAnchor.Center));
+            list.Add(HudText(text, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y - 44f), 24f, white, TextAnchor.Center));
         }
 
         list.AddRange(DownCountHud.Text(this, viewProjection, screenSizePixels, f => f == Player ? RedLabel : BlueLabel,
-            f => f == Player ? new Vector4(1f, 0.45f, 0.4f, 1f) : new Vector4(0.5f, 0.65f, 1f, 1f)));
+            f => f == Player ? new Vector4(1f, 0.45f, 0.4f, 1f) : new Vector4(0.5f, 0.65f, 1f, 1f), HudFont));
 
         if (Speed is { } speed)
         {
-            list.Add(new ScreenTextDraw($"{speed.Label}  [1] 0.5x  [2] 0.75x  [3] 1.0x", new Vector2(24f, screenSizePixels.Y - 20f), 18f,
+            list.Add(HudText($"{speed.Label}  [1] 0.5x  [2] 0.75x  [3] 1.0x", new Vector2(24f, screenSizePixels.Y - 24f), 16f,
                 new Vector4(0.85f, 0.85f, 0.85f, 0.8f), TextAnchor.Left));
         }
 
         if (Message.Length > 0)
         {
-            list.Add(new ScreenTextDraw(Message, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y * 0.3f), 56f, white, TextAnchor.Center));
+            list.Add(HudText(Message, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y * 0.3f), 56f, white, TextAnchor.Center));
         }
 
         return list;
     }
+
+    /// <summary>試合の HUD の字形: デスクトップの HUD は美咲フォント（<see cref="UiFont"/>、8 px の整数倍）、テレビ中継（<see cref="Rules"/> あり）は OS のフォントのまま。</summary>
+    private TextFont HudFont => Rules is null ? TextFont.Pixel : TextFont.System;
+
+    private ScreenTextDraw HudText(string text, Vector2 at, float pixelHeight, Vector4 color, TextAnchor anchor) =>
+        HudFont == TextFont.Pixel ? UiFont.Text(text, at, pixelHeight, color, anchor) : new ScreenTextDraw(text, at, pixelHeight, color, anchor);
 
     private static void AddCondition(List<ScreenTextDraw> list, string name, Fighter opponent, Vector2 at, TextAnchor anchor, Vector4 color)
     {
@@ -2318,7 +2324,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         for (var i = 0; i < lines.Length; i++)
         {
             var y = i == 0 ? 0f : 12f + (i * 22f);
-            list.Add(new ScreenTextDraw(lines[i], at + new Vector2(0f, y), i == 0 ? 26f : 18f, color, anchor));
+            list.Add(UiFont.Text(lines[i], at + new Vector2(0f, y), i == 0 ? 24f : 16f, color, anchor));
         }
     }
 

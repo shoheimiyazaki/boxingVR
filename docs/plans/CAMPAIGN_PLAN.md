@@ -24,7 +24,7 @@
 
 ### 置き場
 
-デスクトップの設定（`settings.json`）と同じ場所の `campaign/<id>.json`（既定は作業フォルダー。記録 `replays/` と同じ流儀）。名簿（組み込みの架空のキャラ）とは別で、id は `my-boxer-<n>`（名簿・置き場と重ならない番号）。
+`%LOCALAPPDATA%\MiniRing\campaign\<id>.json`（2026-11-26 から。`CampaignStore.DefaultDirectory`: `Environment.GetFolderPath(LocalApplicationData)` の下なので Linux は `~/.local/share/MiniRing/campaign`、macOS は `~/Library/Application Support/MiniRing/campaign`）。Roaming（%APPDATA%）でなく Local にしたのは、この PC のゲームの記録でドメインのプロファイルで同期させる物ではないから（キャラメイクの道具の保存 `MiniRing\characters` と同じ根）。前の版の置き場（作業フォルダーの `campaign/`）にファイルがあれば、起動のたびに新しい置き場に無い名前だけを写す（`CampaignStore.CopyLegacy`。古い方は消さない・新しい方を上書きしない）。テストは `MatchMenu` に一時フォルダーを渡す（`campaignDirectory`。null なら設定のファイルの隣で、実際の AppData に触れない）。名簿（組み込みの架空のキャラ）とは別で、id は `my-boxer-<n>`（名簿・置き場と重ならない番号）。
 
 ### 大会と席
 

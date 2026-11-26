@@ -91,7 +91,7 @@ internal sealed partial class MenuView
     private static void DrawBoxerCard(CampaignBoxer b, LabelFn label)
     {
         var c = b.Character;
-        label(c.HudName, 326, 124, FitHeight(c.HudName, 270, 21), Gold);
+        label(c.HudName, 326, 124, 21, Gold, maxWidth: 270);
         label(string.Create(CultureInfo.InvariantCulture, $"身長 {CharacterProfile.HeightOf(c.Build)} cm・計量 {b.WeightKg} kg"), 326, 156, 14, Pale);
         label($"教科書 {c.StyleName}・{b.Career.RecordText}", 326, 178, 14, Pale);
         var y = 206f;
@@ -110,7 +110,7 @@ internal sealed partial class MenuView
     }
 
     // ── キャンペーン: 作る
-    private void DrawCreate(PlateFn plate, FrameFn frame, LabelFn label)
+    private void DrawCreate(MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
     {
         var type = CharacterMaker.BodyTypes[state.BodyTypeIndex];
         var draft = state.Draft();
@@ -133,7 +133,7 @@ internal sealed partial class MenuView
         Panel(plate, frame);
         label("見込み（体は寸法から）", 326, 124, 19, Gold);
         label(string.Create(CultureInfo.InvariantCulture, $"身長 {draft.HeightCm} cm・体重 {draft.WeightKg} kg"), 326, 154, 14, Pale);
-        label(type.Note, 326, 176, FitHeight(type.Note, 270, 13), Dim);
+        label(type.Note, 326, 176, 13, Dim, maxWidth: 270);
         var y = 206f;
         label("出られる大会は体重と身長で決まります", 326, y, 13, Pale);
         y += 22f;
@@ -141,7 +141,7 @@ internal sealed partial class MenuView
         {
             label($"・{ev.Name}", 326, y, 13, Pale);
             y += 18f;
-            foreach (var line in Wrap(ev.Note, 21))
+            foreach (var line in MenuText.Wrap(ev.Note, (PanelRight - 340) * canvas.Scale, 12 * canvas.Scale))
             {
                 label(line, 340, y, 12, Dim);
                 y += 16f;
@@ -150,7 +150,7 @@ internal sealed partial class MenuView
     }
 
     // ── キャンペーン: ボクサー
-    private void DrawBoxer(PlateFn plate, FrameFn frame, LabelFn label)
+    private void DrawBoxer(MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
     {
         if (state.Boxer is not { } boxer) { return; }
         for (var i = 0; i < MenuState.BoxerRows; i++)
@@ -177,7 +177,7 @@ internal sealed partial class MenuView
             else
             {
                 var text = i == MenuState.WeightRow ? state.WeightLine() : i == MenuState.DeleteRow ? (state.ConfirmingDelete ? "もう一度で消す" : "このボクサーを消す") : "戻る";
-                label(text, left, c.Y - 9, FitHeight(text, MenuLayout.CampaignRowSize.X - 24, 14), selected ? Gold : Pale);
+                label(text, left, c.Y - 9, 14, selected ? Gold : Pale, maxWidth: MenuLayout.CampaignRowSize.X - 24);
             }
         }
 
@@ -185,13 +185,13 @@ internal sealed partial class MenuView
         if (state.BoxerIndex < state.Events.Count)
         {
             var (ev, entry, reason) = state.Events[state.BoxerIndex];
-            label(ev.Name, 326, 124, FitHeight(ev.Name, 270, 21), Gold);
-            label(ev.Note, 326, 154, FitHeight(ev.Note, 270, 13), Pale);
+            label(ev.Name, 326, 124, 21, Gold, maxWidth: 270);
+            label(ev.Note, 326, 154, 13, Pale, maxWidth: 270);
             if (entry is not null)
             {
                 var opponent = entry.Opponent;
                 label(string.Create(CultureInfo.InvariantCulture, $"階級 {entry.Division.Name}（計量 {boxer.WeightKg} kg）"), 326, 182, 14, Pale);
-                label(string.Create(CultureInfo.InvariantCulture, $"相手 {opponent.HudName}（{Arena.OrgBouts.WeightOf(opponent)} kg・{opponent.StyleName}）"), 326, 204, FitHeight($"相手 {opponent.HudName}（00 kg・{opponent.StyleName}）", 270, 14), Pale);
+                label(string.Create(CultureInfo.InvariantCulture, $"相手 {opponent.HudName}（{Arena.OrgBouts.WeightOf(opponent)} kg・{opponent.StyleName}）"), 326, 204, 14, Pale, maxWidth: 270);
                 label(entry.Weapons.Count > 1 ? "← → で武器を選び直せます（大会ごと）" : "この団体は武器を持てません", 326, 228, 12, Dim);
                 label("Enter で試合へ", 326, 252, 15, Gold);
             }
@@ -199,7 +199,7 @@ internal sealed partial class MenuView
             {
                 label("出られない理由", 326, 182, 13, Dim);
                 var ry = 204f;
-                foreach (var line in Wrap(reason ?? "", 19))
+                foreach (var line in MenuText.Wrap(reason ?? "", (PanelRight - 326) * canvas.Scale, 14 * canvas.Scale))
                 {
                     label(line, 326, ry, 14, Pale);
                     ry += 21f;
@@ -231,20 +231,8 @@ internal sealed partial class MenuView
         }
     }
 
-    /// <summary>説明の文を、1 行 <paramref name="perLine"/> 字ずつに折る（句読点の直後で折れればそこで）。</summary>
-    internal static IEnumerable<string> Wrap(string text, int perLine)
-    {
-        var rest = text;
-        while (rest.Length > perLine)
-        {
-            var cut = rest.LastIndexOfAny(['、', '。', '）', '・', ' '], perLine - 1);
-            cut = cut >= perLine / 2 ? cut + 1 : perLine;
-            yield return rest[..cut];
-            rest = rest[cut..];
-        }
-
-        if (rest.Length > 0) { yield return rest; }
-    }
+    /// <summary>右の説明の板の文字が使える右端（設計の座標。板の右の縁 612 から内側へ 8）。</summary>
+    private const float PanelRight = 604f;
 
     private static void Row(PlateFn plate, FrameFn frame, Vector2 c, Vector2 size, bool selected)
     {

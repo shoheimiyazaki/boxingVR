@@ -131,6 +131,46 @@ internal sealed class CampaignStore
 
     public string Directory { get; }
 
+    /// <summary>ゲームのフォルダー名（%LOCALAPPDATA% の下。キャラメイクの道具 <c>MakerServer</c> の <c>MiniRing\characters</c> と同じ根）。</summary>
+    public const string AppFolderName = "MiniRing";
+
+    /// <summary>
+    /// 既定の置き場: <c>&lt;LocalApplicationData&gt;/MiniRing/campaign</c>（Windows は <c>%LOCALAPPDATA%\MiniRing\campaign</c>、
+    /// Linux は <c>~/.local/share/MiniRing/campaign</c>、macOS は <c>~/Library/Application Support/MiniRing/campaign</c>）。
+    /// Roaming（%APPDATA%）でなく Local にしたのは、セーブがこの PC のゲームの記録で、ドメインのプロファイルで他の PC へ同期させる物ではないから
+    /// （キャラメイクの保存と同じ根に揃える）。OS が場所を返さない（空）ときは <paramref name="fallback"/>。
+    /// </summary>
+    public static string DefaultDirectory(string fallback)
+    {
+        var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.DoNotVerify);
+        return string.IsNullOrEmpty(root) ? fallback : Path.Combine(root, AppFolderName, "campaign");
+    }
+
+    /// <summary>
+    /// 古い置き場（作業フォルダーの <c>campaign/</c>）のボクサーを新しい置き場へ写す（古い方は消さない）。新しい方に同じ名前があれば写さない
+    /// （新しい方が正。何度呼んでも同じ）。写した数を返す。読めない古いファイルもそのまま写す（読むときにファイル名つきで知らせる）。
+    /// </summary>
+    public static int CopyLegacy(string legacyDirectory, string directory)
+    {
+        if (string.Equals(Path.GetFullPath(legacyDirectory).TrimEnd(Path.DirectorySeparatorChar), Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase) || !System.IO.Directory.Exists(legacyDirectory))
+        {
+            return 0;
+        }
+
+        var copied = 0;
+        foreach (var source in System.IO.Directory.GetFiles(legacyDirectory, "*.json"))
+        {
+            var target = Path.Combine(directory, Path.GetFileName(source));
+            if (File.Exists(target)) { continue; }
+            System.IO.Directory.CreateDirectory(directory);
+            File.Copy(source, target, overwrite: false);
+            copied++;
+        }
+
+        return copied;
+    }
+
     /// <summary>全員（id の順）。壊れたファイルは飛ばさず、ファイル名を書いた例外で止める（黙って消えない）。</summary>
     public IReadOnlyList<CampaignBoxer> LoadAll()
     {

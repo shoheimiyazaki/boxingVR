@@ -167,4 +167,45 @@ public sealed class CampaignTests
         Assert.ThrowsExactly<InvalidDataException>(() => CampaignEvents.FromJson(Json));
         Assert.IsTrue(CampaignEvents.All.Count >= 9);
     }
+
+    /// <summary>既定の置き場は LocalApplicationData の下のゲームのフォルダー（作業フォルダーでない）。</summary>
+    [TestMethod]
+    public void DefaultDirectory_IsUnderLocalAppData_GameFolder()
+    {
+        var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.DoNotVerify);
+        var dir = CampaignStore.DefaultDirectory("fallback");
+        if (string.IsNullOrEmpty(root)) { Assert.AreEqual("fallback", dir); return; }
+        Assert.AreEqual(Path.Combine(root, CampaignStore.AppFolderName, "campaign"), dir);
+    }
+
+    /// <summary>古い置き場のボクサーは新しい置き場へ写り（古い方は残る）、新しい方にある名前は上書きしない。2 度目は何も写さない。</summary>
+    [TestMethod]
+    public void CopyLegacy_CopiesOnce_KeepsOld_DoesNotOverwriteNew()
+    {
+        var legacy = TempDir();
+        var target = TempDir();
+        try
+        {
+            Directory.CreateDirectory(legacy);
+            Directory.CreateDirectory(target);
+            File.WriteAllText(Path.Combine(legacy, "a.json"), "old-a");
+            File.WriteAllText(Path.Combine(legacy, "b.json"), "old-b");
+            File.WriteAllText(Path.Combine(legacy, "note.txt"), "not a boxer");
+            File.WriteAllText(Path.Combine(target, "b.json"), "new-b");
+
+            Assert.AreEqual(1, CampaignStore.CopyLegacy(legacy, target));
+            Assert.AreEqual("old-a", File.ReadAllText(Path.Combine(target, "a.json")));
+            Assert.AreEqual("new-b", File.ReadAllText(Path.Combine(target, "b.json")), "the new place wins");
+            Assert.IsFalse(File.Exists(Path.Combine(target, "note.txt")));
+            Assert.IsTrue(File.Exists(Path.Combine(legacy, "a.json")), "the old file stays");
+            Assert.AreEqual(0, CampaignStore.CopyLegacy(legacy, target));
+            Assert.AreEqual(0, CampaignStore.CopyLegacy(Path.Combine(legacy, "missing"), target));
+            Assert.AreEqual(0, CampaignStore.CopyLegacy(target, target));
+        }
+        finally
+        {
+            if (Directory.Exists(legacy)) { Directory.Delete(legacy, recursive: true); }
+            if (Directory.Exists(target)) { Directory.Delete(target, recursive: true); }
+        }
+    }
 }

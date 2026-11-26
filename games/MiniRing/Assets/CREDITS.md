@@ -22,3 +22,9 @@
 | 腿・すね・足（症例 s0774） | Wasserthal J. et al., *TotalSegmentator dataset v2.0.1*, University Hospital Basel, Zenodo, [DOI 10.5281/zenodo.10047292](https://doi.org/10.5281/zenodo.10047292) | CC BY 4.0 | 同上 |
 
 元の CT はリポジトリに入れない（`tools/ct-body/fetch.py` が取り方を持つ）。
+
+# UI の文字（美咲フォント）の出典
+
+| 素材 | 出典 | ライセンス | 使い方 |
+|---|---|---|---|
+| `Fonts/misaki_gothic.ttf` | [美咲フォント](https://littlelimit.net/misaki.htm)（門真なむ氏）の TTF 版 `misaki_ttf_2021-05-05.zip` | フリーソフトウェア: 改変の有無・商用を問わず利用・複製・再配布が自由、無保証（`Fonts/misaki_LICENSE.txt` = 同梱の `misaki.txt` をそのまま） | 美咲ゴシックをそのまま。メニューと試合の HUD の文字（8 px の整数倍・ニアレスト。`UiFont`） |

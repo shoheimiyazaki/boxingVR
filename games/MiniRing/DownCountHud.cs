@@ -82,9 +82,12 @@ public static class DownCountHud
     /// <summary>目盛りの行の縦の中心（表示の下端から）。</summary>
     private static float PipRow(Vector2 bottom) => bottom.Y - (PipSize * 0.5f);
 
-    /// <summary>カウントの文字（名前と数字。どちらも影付き）。</summary>
-    public static IEnumerable<ScreenTextDraw> Text(BoxingGame game, Matrix4x4 viewProjection, Vector2 screen, Func<Fighter, string> name, Func<Fighter, Vector4> color)
+    /// <summary>カウントの文字（名前と数字。どちらも影付き）。<paramref name="font"/> はデスクトップの試合の HUD が美咲フォント（<see cref="UiFont"/>）、テレビ中継は OS のフォント（既定）。</summary>
+    public static IEnumerable<ScreenTextDraw> Text(BoxingGame game, Matrix4x4 viewProjection, Vector2 screen, Func<Fighter, string> name, Func<Fighter, Vector4> color,
+        TextFont font = TextFont.System)
     {
+        if (font == TextFont.Pixel) { UiFont.Ensure(); }
+
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(color);
@@ -102,14 +105,14 @@ public static class DownCountHud
                 var alpha = 0.8f + (0.2f * MathF.Exp(-since * 4f));
                 var top = numberTop - ((size - NumberSize) * 0.85f);
                 var text = count.ToString(CultureInfo.InvariantCulture);
-                yield return new ScreenTextDraw(text, new Vector2(bottom.X + ShadowOffset, top + ShadowOffset), size, Shadow with { W = Shadow.W * alpha }, TextAnchor.Center);
-                yield return new ScreenTextDraw(text, new Vector2(bottom.X, top), size, Gold with { W = alpha }, TextAnchor.Center);
+                yield return new ScreenTextDraw(text, new Vector2(bottom.X + ShadowOffset, top + ShadowOffset), size, Shadow with { W = Shadow.W * alpha }, TextAnchor.Center, font);
+                yield return new ScreenTextDraw(text, new Vector2(bottom.X, top), size, Gold with { W = alpha }, TextAnchor.Center, font);
                 nameTop = top - NameSize - 4f;
             }
 
             var label = $"{name(fighter)} DOWN";
-            yield return new ScreenTextDraw(label, new Vector2(bottom.X + 2f, nameTop + 2f), NameSize, Shadow, TextAnchor.Center);
-            yield return new ScreenTextDraw(label, new Vector2(bottom.X, nameTop), NameSize, color(fighter), TextAnchor.Center);
+            yield return new ScreenTextDraw(label, new Vector2(bottom.X + 2f, nameTop + 2f), NameSize, Shadow, TextAnchor.Center, font);
+            yield return new ScreenTextDraw(label, new Vector2(bottom.X, nameTop), NameSize, color(fighter), TextAnchor.Center, font);
         }
     }
 

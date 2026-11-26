@@ -128,7 +128,7 @@ internal sealed class MenuGame(MatchMenu menu, Func<MatchSelection, MatchSession
     public PostProcessSettings? BuildPostProcess() => _session?.Host.BuildPostProcess();
     public IReadOnlyList<ScreenTextDraw> BuildOverlayText(Matrix4x4 view, Vector2 size)
         => _session?.Host.BuildOverlayText(view, size) ?? (IsLoadingMatch
-            ? [new ScreenTextDraw("試合を準備中…", size * 0.5f, 32f, Vector4.One, TextAnchor.Center)]
+            ? [UiFont.Text("試合を準備中…", size * 0.5f, 32f, Vector4.One, TextAnchor.Center)]
             : menu.Text(size));
     public IReadOnlyList<UiShapeDraw> BuildOverlayShapes(Matrix4x4 view, Vector2 size)
         => _session?.Host.BuildOverlayShapes(view, size) ?? menu.Shapes(size);
