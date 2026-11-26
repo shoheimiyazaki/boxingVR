@@ -130,7 +130,7 @@ internal abstract record CampaignCard
         {
             cards.Add(new Title(where, entry.Opponent.HudName, from == 0));
         }
-        else if (to is { } t && (from is null || t < from))
+        else if (result == BoutResult.Win && to is { } t && (from is null || t < from))
         {
             cards.Add(new RankUp(where, from, t, entry.Opponent.HudName));
         }

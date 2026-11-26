@@ -107,7 +107,8 @@ internal sealed partial class MenuState
     /// <summary>試合の後の札を並べる（本拠地の上に出る）。「次の試合」は自動へ戻す（新しく開いた大会へ移る）。</summary>
     public void Celebrate(IReadOnlyList<CampaignCard> cards)
     {
-        Cards = cards ?? throw new ArgumentNullException(nameof(cards));
+        ArgumentNullException.ThrowIfNull(cards);
+        Cards = Boxer is null ? [] : cards;
         _chosenNext = null;
         HomeIndex = HomeNext;
         if (Boxer is not null) { Page = MenuPage.Boxer; }
@@ -121,6 +122,7 @@ internal sealed partial class MenuState
         Page = MenuPage.Boxer;
         ConfirmingDelete = false;
         _chosenNext = null;
+        _weaponChoice.Clear(); // 武器の選びはボクサーごと
         Cards = [];
         HomeIndex = HomeNext;
         RefreshStops();

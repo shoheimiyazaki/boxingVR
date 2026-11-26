@@ -117,6 +117,7 @@ internal sealed class MatchMenu : IDisposable
         {
             _pendingBout = null;
             _view.Notice = outcome is { } result ? RecordBout(ticket, result) : "試合が終わる前に抜けたので、戦績には書きません。";
+            if (State.Cards.Count > 0) { _view.Notice = null; } // 札が同じことを言う（閉じた後に古い 1 行を残さない）
         }
     }
 
