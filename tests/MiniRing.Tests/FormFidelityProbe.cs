@@ -30,13 +30,8 @@ public sealed class FormFidelityProbe
 
     private static float Angle(Vector3 a, Vector3 b) => Deg(MathF.Acos(Math.Clamp(Vector3.Dot(Vector3.Normalize(a), Vector3.Normalize(b)), -1f, 1f)));
 
-    /// <summary>刃筋のずれ [度]: 速度 <paramref name="velocity"/> が、向き <paramref name="orientation"/> の刃の面（ローカル XY）から外れた角（HandleLab と同じ）。</summary>
-    private static float OffPlane(Vector3 velocity, Quaternion orientation)
-    {
-        var local = Vector3.Transform(velocity, Quaternion.Conjugate(orientation));
-        var length = local.Length();
-        return length < 1e-4f ? float.NaN : Deg(MathF.Asin(Math.Clamp(MathF.Abs(local.Z) / length, 0f, 1f)));
-    }
+    /// <summary>刃筋のずれ [度]: 速度 <paramref name="velocity"/> が、向き <paramref name="orientation"/> の刃の面（ローカル XY）から外れた角（motioncard・motionaudit と同じ式: MotionMetrics.EdgeOffPlaneDegrees）。</summary>
+    private static float OffPlane(Vector3 velocity, Quaternion orientation) => MiniRing.Arena.MotionTools.MotionMetrics.EdgeOffPlaneDegrees(velocity, orientation);
 
     /// <summary>指令を覚えておく入力元（剣士のボットをそのまま包む）。</summary>
     private sealed class Recorder(IFighterControl inner) : IFighterControl

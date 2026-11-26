@@ -86,11 +86,11 @@ internal static class SwordPractice
     }
 
     /// <summary>キャラ <paramref name="who"/> が型を 1 回、無防備に立つ <paramref name="victim"/> の体へ出す（種 <paramref name="seed"/>）。</summary>
-    public static Outcome Swing(FighterCharacter who, WeaponStyle style, MotionTechnique technique, int seed, BodyBuild victim, Action<BoxingGame, float, bool>? watch = null)
+    public static Outcome Swing(FighterCharacter who, WeaponStyle style, MotionTechnique technique, int seed, BodyBuild victim, Action<BoxingGame, float, bool>? watch = null, FighterTuning? bodyTuning = null)
     {
         var weapon = who.Weapon!.Value;
         var arm = ArmReachOf(who);
-        var tuning = FighterTuning.Default;
+        var tuning = bodyTuning ?? FighterTuning.Default;
         var offhand = Weapon.CoverRadiusOf(HandWears.Kind(who.Wear)) / arm;
         var bot = new SwordsmanBot([technique], FormSwordsman.Guard(weapon), seed, SwordStance.Rate, rest: 1000f, exact: true, tuning: tuning,
             defense: style.Defense, bladeLength: FormSwordsman.BladeLength(weapon, arm), spacing: FormSwordsman.Spacing(weapon), aim: style.Aim)
@@ -167,8 +167,7 @@ internal static class SwordPractice
                 recentTip.Dequeue();
             }
 
-            var local = Vector3.Transform(velocity, Quaternion.Conjugate(state.Orientation));
-            var off = local.Length() < 1e-4f ? float.NaN : MathF.Asin(Math.Clamp(MathF.Abs(local.Z) / local.Length(), 0f, 1f)) * 180f / MathF.PI;
+            var off = MotionTools.MotionMetrics.EdgeOffPlaneDegrees(velocity, state.Orientation); // 刃筋の式は 1 か所（docs/plans/MOTION_TOOLS_PLAN.md）
             swing.Add((velocity.Length(), off));
             var error = Vector3.Distance(me.HandTargetWorld(Hand.Right), me.GloveCenter(Hand.Right));
             handSq += error * error;

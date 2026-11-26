@@ -72,15 +72,18 @@ public static class BodySizing
 
     /// <summary>
     /// 物理の体の質量 [kg]: 部位ごとの質量（<see cref="FighterTuning.Masses"/>、体積に比例）の和に、脚の対の数（<see cref="BodyBuild.LegPairs"/>: 四足は後ろの対を足す）だけの
-    /// 脚（腿・すね・足・つま先 = 足の質量の残り）を数えたもの。試合の体（<see cref="Fighter.TotalMass"/>）と同じ値（<c>CharacterMakerTests</c>・<c>AlienTests</c> が確かめる）。
+    /// 脚（腿・すね・足・つま先 = 足の質量の残り）と、四足なら脚ごとの基節（coxa）を数えたもの。試合の体（<see cref="Fighter.TotalMass"/>）と同じ値（<c>CharacterMakerTests</c>・<c>AlienTests</c> が確かめる）。
     /// </summary>
     public static float PhysicalMassKg(BodyBuild build)
     {
         ArgumentNullException.ThrowIfNull(build);
-        var masses = (FighterTuning.Default with { Build = build }).Masses;
+        var tuning = FighterTuning.Default with { Build = build };
+        var masses = tuning.Masses;
         var leg = masses.Thigh + masses.Shin + (masses.Foot / (1f - FootGeometry.ToeShare));
+        // 四足は脚ごとに骨盤と腿の間の基節（coxa、Fighter.AddRearRig）を 1 つ持つ。
+        var coxae = build.FourLegged ? 2f * build.LegPairs * tuning.CoxaMass : 0f;
         var trunkAndArms = masses.Total - (2f * (masses.Thigh + masses.Shin + masses.Foot));
-        return trunkAndArms + (2f * build.LegPairs * leg);
+        return trunkAndArms + (2f * build.LegPairs * leg) + coxae;
     }
 
     /// <summary>

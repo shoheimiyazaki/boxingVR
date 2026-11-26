@@ -16,6 +16,127 @@ public sealed class AlienTests
     private const float Dt = 1f / 240f;
 
     [TestMethod]
+    public void Galva_WeldSeamTracksTheChestAndPelvisVoxels()
+    {
+        using var game = CreateGame();
+        var f = game.Player;
+        var body = f.Voxels!;
+        Assert.IsGreaterThan(0, body.JointContactCount(f.Parts.Chest, f.Parts.Pelvis).Total);
+        Step(game, Guard(f));
+        Assert.IsTrue(f.JointIntact(f.Parts.Chest, f.Parts.Pelvis));
+        Assert.HasCount(0, body.Fragments);
+
+        var chest = body.PartOf(f.Parts.Chest)!.Body.Grid;
+        for (var i = 0; i < chest.CellCount; i++)
+        {
+            var (x, y, z) = chest.Coordinates(i);
+            if (chest.CellCenter(x, y, z).Y < -0.36f * chest.HalfExtents.Y)
+            {
+                chest.SetCellState(i, (0, 0f, false, 0f));
+            }
+        }
+        Assert.IsTrue(f.SplitDisconnected());
+        Assert.IsFalse(f.JointIntact(f.Parts.Chest, f.Parts.Pelvis));
+        Assert.IsTrue(f.JointIntact(f.Parts.Chest, f.Parts.Head));
+    }
+
+    [TestMethod]
+    public void Galva_ExposesEightWhiteEyesWithBlackPupils()
+    {
+        using var game = CreateGame();
+        var head = game.Player.Voxels!.PartOf(game.Player.Parts.Head)!.Body.Grid;
+        var (nx, ny, nz) = head.Dimensions;
+        var visible = new HashSet<(bool Left, bool Outer, bool Upper, byte Material)>();
+        for (var x = 0; x < nx; x++)
+        {
+            for (var y = 0; y < ny; y++)
+            {
+                for (var z = nz - 1; z >= 0; z--)
+                {
+                    var material = head.At(x, y, z);
+                    if (material == 0)
+                    {
+                        continue;
+                    }
+                    if (material is Voxels.BoxerAnatomy.Eye or Voxels.BoxerAnatomy.Pupil)
+                    {
+                        var n = head.CellCenter(x, y, z) / head.HalfExtents;
+                        visible.Add((n.X > 0f, MathF.Abs(n.X) > 0.45f, n.Y > 0.26f, material));
+                    }
+                    break;
+                }
+            }
+        }
+
+        Assert.HasCount(16, visible);
+        var eye = head.Palette[Voxels.BoxerAnatomy.Eye].SurfaceColor;
+        var pupil = head.Palette[Voxels.BoxerAnatomy.Pupil].SurfaceColor;
+        Assert.IsTrue(eye.X > 0.9f && eye.Y > 0.9f && eye.Z > 0.9f);
+        Assert.IsTrue(pupil.X < 0.15f && pupil.Y < 0.15f && pupil.Z < 0.15f);
+        Assert.IsGreaterThan(0f, game.Player.Voxels.Vision.Left);
+        Assert.IsGreaterThan(0f, game.Player.Voxels.Vision.Right);
+    }
+
+    [TestMethod]
+    public void Galva_DorsalPlatesRaiseTheSurfaceAndLeaveOrganCellsIntact()
+    {
+        var source = new Aigis.Foundation.Voxels.VoxelGrid(Voxels.BoxerAnatomy.Palette, new Vector3(0.12f, 0.08f, 0.34f), (21, 21, 51),
+            (_, n) => n.LengthSquared() < 0.05f ? Voxels.BoxerAnatomy.Liver
+                : (n.X * n.X) + (n.Y * n.Y) < 0.36f ? Voxels.BoxerAnatomy.Skin : (byte)0);
+        var shell = Voxels.AlienAnatomy.Plate(BodyPartKind.Pelvis, source, Voxels.AlienAnatomy.Palette, mirrorX: false);
+        var top = Enumerable.Range(0, 51).Select(z => Enumerable.Range(0, 21).Last(y => shell.At(10, y, z) != 0)).ToArray();
+        Assert.IsGreaterThanOrEqualTo(4, top.Zip(top.Skip(1)).Count(pair => pair.First > pair.Second));
+        Assert.AreEqual(source.Remaining(Voxels.BoxerAnatomy.Liver), shell.Remaining(Voxels.BoxerAnatomy.Liver));
+        Assert.IsGreaterThan(source.FilledCount, shell.FilledCount);
+    }
+
+    [TestMethod]
+    public void Galva_HasOneThoraxAndFourArticulatedPointedLegs()
+    {
+        using var game = CreateGame();
+        var f = game.Player;
+        var joints = game.World.JointStates();
+        Assert.IsNull(f.Parts.Abdomen);
+        Assert.IsTrue(joints.Any(j => j.Type == Aigis.Physics.JointType.Weld
+            && ((j.BodyA == f.Parts.Pelvis && j.BodyB == f.Parts.Chest) || (j.BodyB == f.Parts.Pelvis && j.BodyA == f.Parts.Chest))));
+        Assert.IsLessThan(0.12f, f.HalfExtents.Chest.X);
+
+        var localChest = f.Frame.WorldToLocal(game.World.GetState(f.Parts.Chest).Position);
+        var front = game.PlayerSense.SelfLeg(Hand.Left).Hip;
+        Assert.IsTrue(MathF.Abs(localChest.Z - front.Z) < 0.06f);
+
+        var roots = f.AllParts.Where(id => game.World.TryGetName(id)?.EndsWith("_coxa", StringComparison.Ordinal) == true).ToArray();
+        Assert.HasCount(4, roots);
+        foreach (var root in roots)
+        {
+            Assert.IsTrue(joints.Any(j => j.BodyA == f.Parts.Pelvis && j.BodyB == root));
+            Assert.IsTrue(joints.Any(j => j.BodyA == root && f.KindOf(j.BodyB) == BodyPartKind.Thigh));
+        }
+
+        foreach (var tip in f.Voxels!.Parts.Where(p => p.Kind == BodyPartKind.Toe))
+        {
+            var grid = tip.Body.Grid;
+            var half = grid.HalfExtents;
+            Assert.IsGreaterThan(2f * MathF.Max(half.X, half.Z), half.Y);
+            var (nx, ny, nz) = grid.Dimensions;
+            int Area(int y) => Enumerable.Range(0, nx).Sum(x => Enumerable.Range(0, nz).Count(z => grid.At(x, y, z) != 0));
+            Assert.IsGreaterThan(0, Area(0));
+            Assert.IsGreaterThan(Area(0), Area(ny - 1));
+        }
+
+        for (var i = 0; i < 480; i++)
+        {
+            Step(game, Guard(f));
+        }
+        foreach (var joint in joints.Where(j => j.Type is Aigis.Physics.JointType.Hinge or Aigis.Physics.JointType.BallSocket
+            && (roots.Contains(j.BodyA) || roots.Contains(j.BodyB))))
+        {
+            var anchors = game.World.GetJointAnchors(joint.Id)!.Value;
+            Assert.IsLessThan(0.025f, Vector3.Distance(anchors.AnchorA, anchors.AnchorB));
+        }
+    }
+
+    [TestMethod]
     public void Galva_HasFourLegsAndTwoClaws()
     {
         using var game = CreateGame();
@@ -42,12 +163,18 @@ public sealed class AlienTests
     {
         using var game = CreateGame();
         var f = game.Player;
+        // 立っている間も足を 1 本ずつ置き直す（その間は 3 本で立つ）ので、足跡の前後の幅は歩ごとに 0.25〜0.8 m で揺れる。1 歩の瞬間でなく、
+        // 落ち着いた後の 1 秒でいちばん広く 4 本を着いた足跡で見る（2026-11-26、ClawAimProbe.IdleStanceTrace）。
+        var zSpan = 0f;
         for (var i = 0; i < 480; i++)
         {
             Step(game, Guard(f));
+            if (i >= 240 && f.SupportHull.Count > 0)
+            {
+                zSpan = MathF.Max(zSpan, f.SupportHull.Max(v => v.Y) - f.SupportHull.Min(v => v.Y));
+            }
         }
 
-        var zSpan = f.SupportHull.Max(v => v.Y) - f.SupportHull.Min(v => v.Y);
         Assert.IsGreaterThan(0.42f, zSpan);
         Assert.AreEqual(FighterState.Standing, f.State);
         var before = f.PelvisPosition;
@@ -61,6 +188,24 @@ public sealed class AlienTests
         Assert.IsTrue(float.IsFinite(f.OxygenOf(MuscleRegion.LeftLeg)) && float.IsFinite(f.OxygenOf(MuscleRegion.RightLeg)));
         Assert.IsGreaterThan(0f, f.HeartCapacity);
         Assert.IsGreaterThan(0f, f.LungCapacity);
+    }
+
+    [TestMethod]
+    public void Galva_CornerStanceKeepsAllFourTipsInsideTheRing()
+    {
+        using var game = CreateGame(fromCorners: true);
+        var f = game.Player;
+        var red = Guard(f) with { FaceDirection = f.Frame.Forward };
+        var blue = Guard(game.Cpu) with { FaceDirection = game.Cpu.Frame.Forward };
+        for (var i = 0; i < 480; i++)
+        {
+            game.Step(new BoxingInput(red, Blue: blue), Dt);
+        }
+
+        foreach (var tip in f.AllParts.Where(id => f.KindOf(id) == BodyPartKind.Toe))
+        {
+            Assert.IsGreaterThan(0f, game.Layout.EdgeDistance(game.World.GetState(tip).Position));
+        }
     }
 
     [TestMethod]
@@ -206,28 +351,101 @@ public sealed class AlienTests
     [TestMethod]
     public void RearLegs_AddTheirMuscleToTheirOwnSidesOxygenStore()
     {
-        // 脚の酸素の蓄えは本人の左右に分かれている（PhysicsVersion 94）。四足の後ろ脚は前脚と同じ寸法なので、同じ体格の二足より各側の蓄えがちょうど 2 倍。
+        // 脚の酸素の蓄えは本人の左右に分かれている（PhysicsVersion 94）。四足の後ろ脚は前脚を写した対なので、各側の蓄えは前脚 1 本の分のちょうど 2 倍。
+        // 蓄えは脚の質量に比例する（Fighter.LegSideMass）ので、前脚の質量 1 kg あたりの蓄えで二足と比べる。四足の脚は昆虫の細い脚の寸法
+        // （BodyBuild.ScaleOf の FourLegged、2026-11-25 の a6cae71）で二足の脚と太さが違うため、同じ体格の二足の蓄えそのものとは比べない。
         var galva = CharacterRoster.Get("galva").Build;
-        (float Left, float Right) Capacity(BodyBuild build)
+        (float Left, float Right, float FrontLegs) Capacity(BodyBuild build)
         {
             using var game = CreateGame(build: build);
             Step(game, Guard(game.Player));
-            return (game.Player.OxygenBudgetOf(MuscleRegion.LeftLeg).Capacity, game.Player.OxygenBudgetOf(MuscleRegion.RightLeg).Capacity);
+            var f = game.Player;
+            var p = f.Parts;
+            var front = new[] { p.LeftThigh, p.LeftShin, p.LeftFoot, p.RightThigh, p.RightShin, p.RightFoot, f.ToeId(0), f.ToeId(1) }.Sum(game.World.GetMass);
+            // 四足はエイリアンの筋の材質（蓄えの係数が仮に極端: TissuePhysiology）、二足は人の材質で作るので、筋の量を比べるため材質の係数で割る（2026-11-25）。
+            var store = MiniRing.Voxels.TissuePhysiology.Of(MiniRing.Voxels.BoxerBody.PaletteFor(build)).OxygenStore;
+            return (f.OxygenBudgetOf(MuscleRegion.LeftLeg).Capacity / store, f.OxygenBudgetOf(MuscleRegion.RightLeg).Capacity / store, front);
         }
 
         var four = Capacity(galva);
         var two = Capacity(galva with { FourLegged = false });
         Assert.AreEqual(four.Left, four.Right, four.Left * 1e-3f, "左右の脚は同じ");
-        Assert.AreEqual(2f, four.Left / two.Left, 0.02f, $"four {four.Left:0} J / two {two.Left:0} J");
+        var perKgFour = (four.Left + four.Right) / four.FrontLegs;
+        var perKgTwo = (two.Left + two.Right) / two.FrontLegs;
+        Assert.AreEqual(2f, perKgFour / perKgTwo, 0.02f, $"four {four.Left:0} J ({four.FrontLegs:0.0} kg of front legs) / two {two.Left:0} J ({two.FrontLegs:0.0} kg)");
     }
 
-    private static BoxingGame CreateGame(float gap = 3f, BodyBuild? build = null)
+    private static readonly float[] Gaps = [0.62f, 0.67f, 0.72f];
+
+    [TestMethod]
+    [DataRow(0f, 0f)]
+    [DataRow(-0.12f, 0.08f)]
+    public void PointedFrontLeg_CarvesWithItsTip(float aimX, float aimY)
+    {
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした: この尖った跗節がその蝶番の先）: 台本の突きは間合いを合わせないので、先端が届くかどうかは
+        // 立つ位置の数 cm で入れ替わる。間合い 0.67 の 1 回だけを見ていたのを、0.62・0.67・0.72 で見る（前のつま先: 狙いごとに 3 つのうち 2 つ、
+        // 固いつま先: 正面 2 つ・ずらした狙い 1 つ（0.72 で 4 層 9 セル）。ToeRegressionProbe.PointedLeg）。どこかの間合いで削ることを見る。
+        var results = Gaps.Select(gap => PointedLegStrike(aimX, aimY, null, gap, 1)).ToList();
+        foreach (var (gap, (c, l, d)) in Gaps.Zip(results))
+        {
+            Console.WriteLine($"gap {gap}: layers {l}, carved {c} [{d}]");
+        }
+
+        var carved = results.Max(r => r.Carved);
+        // 2026-11-26（統合、物理 101〜102）: 尖った跗節の突きは、どの狙いでも相手の部位を削る。ガルヴァの枝（abd1076）では 6 層まで掘り（腿 91 セル）、
+        // 横へずらした狙いは前後に貫いた（「2 層以上・貫く列がある」を確かめていた）が、それは刃がセルを丸ごと壊していた物理 96 までの土台での値。
+        // 物理 97（刃は進んだ奥行きの分だけ断つ VoxelContact.Sweep.CutInto、docs/BLADE_CUT_STUDY.md §8）の下では、この台本の先端は 1〜2 層で止まる
+        // （腿 2 セル・すね 2 セル）。長い鎌が 1 振りで離さなくなった（ClawTrajectoryTests.LongClaw_OneStrokeCutsIntoEveryAim）のと同じ理由。
+        // 深く貫くことを期待するのは、体の側（突きに乗る脚と胴の力）を直してから。
+        Assert.IsGreaterThan(0, carved, "the pointed tarsus carves the target");
+    }
+
+    /// <summary>ガルヴァの右前脚の尖った跗節（つま先の部位）で、狙いへ 1 回突く: 削ったセルの数・最も深く削った部位の層の数・部位ごとの内訳。</summary>
+    internal static (int Carved, int Layers, string Detail) PointedLegStrike(float aimX, float aimY, FighterTuning? tuning, float gap, int seed)
+    {
+        using var game = CreateGame(gap, tuning: tuning, seed: seed);
+        var f = game.Player;
+        for (var i = 0; i < 240; i++)
+        {
+            Step(game, Guard(f));
+        }
+
+        const Hand side = Hand.Right;
+        var toe = f.ToeId((int)side);
+        var target = FrontLegStrike.Aim(game.PlayerSense) + new Vector3(aimX, aimY, 0f);
+        var targets = game.Cpu.Voxels!.Parts.ToDictionary(p => p.Body.BodyId);
+        var carved = new Dictionary<int, HashSet<int>>();
+        for (var i = 0; i < 173; i++)
+        {
+            var sense = game.PlayerSense;
+            var strike = FrontLegStrike.At(sense.SelfLeg(side), sense.Self.WorldToLocal(target), i / 172f, false, side);
+            Step(game, Guard(f) with { RightLeg = strike });
+            foreach (var contact in game.RecentCuts.Where(c => c.A.BodyId == toe && targets.ContainsKey(c.B.BodyId)))
+            {
+                if (!carved.TryGetValue(contact.B.BodyId, out var cells))
+                {
+                    carved[contact.B.BodyId] = cells = [];
+                }
+                foreach (var cell in contact.RemovedFor(contact.B))
+                {
+                    var grid = contact.B.Grid;
+                    var at = (cell.LocalCenter + grid.HalfExtents) / grid.CellSize;
+                    cells.Add(grid.Index((int)at.X, (int)at.Y, (int)at.Z));
+                }
+            }
+        }
+
+        var layers = carved.Select(entry => entry.Value.Select(i => targets[entry.Key].Body.Grid.Coordinates(i).Z).Distinct().Count()).DefaultIfEmpty().Max();
+        return (carved.Values.Sum(c => c.Count), layers, string.Join(" ", carved.Select(e => $"{targets[e.Key].Kind}:{e.Value.Count}")));
+    }
+
+    private static BoxingGame CreateGame(float gap = 3f, BodyBuild? build = null, bool fromCorners = false, FighterTuning? tuning = null, int seed = 1)
     {
         var c = CharacterRoster.Get("galva");
-        return new BoxingGame(corners: BotCatalog.Corners("boxer") with
+        return new BoxingGame(tuning, seed: seed, corners: BotCatalog.Corners("boxer") with
         {
             PlayerBody = build ?? c.Build, PlayerWear = c.Wear, PlayerLook = c.Look, PlayerFaceSpec = c.Face,
-            Ring = RingLayout.Boxing with { StartGap = gap, FromCorners = false }, ExternalBlue = true, Referee = false,
+            Ring = RingLayout.Boxing with { StartGap = gap, FromCorners = fromCorners }, ExternalBlue = true, Referee = false,
         });
     }
 

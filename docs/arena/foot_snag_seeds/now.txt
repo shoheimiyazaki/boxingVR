@@ -1,0 +1,186 @@
+TestContext Messages:
+shield seed 1 tsuki=99 kiri-oroshi=111 yoko-barai=0
+shield seed 2 tsuki=99 kiri-oroshi=111 yoko-barai=0
+shield seed 3 tsuki=99 kiri-oroshi=111 yoko-barai=0
+shield seed 4 tsuki=99 kiri-oroshi=111 yoko-barai=0
+shield seed 5 tsuki=99 kiri-oroshi=111 yoko-barai=0
+shield seed 6 tsuki=99 kiri-oroshi=111 yoko-barai=0
+shield seed 7 tsuki=99 kiri-oroshi=111 yoko-barai=0
+shield seed 8 tsuki=99 kiri-oroshi=111 yoko-barai=0
+shield seed 9 tsuki=99 kiri-oroshi=111 yoko-barai=0
+shield seed 10 tsuki=99 kiri-oroshi=111 yoko-barai=0
+shield seed 11 tsuki=99 kiri-oroshi=111 yoko-barai=0
+shield seed 12 tsuki=99 kiri-oroshi=111 yoko-barai=0
+TestContext Messages:
+targeting seed 1 chinBehindMargin=0.0018 pass=False
+targeting seed 2 chinBehindMargin=-0.0317 pass=True
+targeting seed 3 chinBehindMargin=-0.0321 pass=True
+targeting seed 4 chinBehindMargin=-0.0317 pass=True
+targeting seed 5 chinBehindMargin=-0.0176 pass=True
+targeting seed 6 chinBehindMargin=-0.0321 pass=True
+targeting seed 7 chinBehindMargin=-0.0317 pass=True
+targeting seed 8 chinBehindMargin=-0.0317 pass=True
+targeting seed 9 chinBehindMargin=-0.0055 pass=True
+targeting seed 10 chinBehindMargin=0.0052 pass=False
+targeting seed 11 chinBehindMargin=-0.0317 pass=True
+targeting seed 12 chinBehindMargin=-0.0317 pass=True
+TestContext Messages:
+counter seed 1 with=1.6 without=0.0
+counter seed 2 with=1.6 without=0.0
+counter seed 3 with=1.4 without=0.0
+counter seed 4 with=1.6 without=0.0
+counter seed 5 with=1.6 without=0.0
+counter seed 6 with=1.5 without=0.0
+counter seed 7 with=1.6 without=0.0
+counter seed 8 with=1.6 without=0.0
+counter seed 9 with=1.6 without=0.0
+counter seed 10 with=1.6 without=0.0
+counter seed 11 with=1.6 without=0.0
+counter seed 12 with=1.7 without=0.0
+counter seed 13 with=1.6 without=0.0
+counter seed 14 with=2.0 without=0.0
+counter seed 15 with=1.6 without=0.0
+counter seed 16 with=2.0 without=0.0
+TestContext Messages:
+cornerdown seed 1 counted=True drift=0.133 toward=0.84 closest=0.329 pass=False
+cornerdown seed 2 counted=True drift=0.241 toward=0.80 closest=0.002 pass=False
+cornerdown seed 3 counted=True drift=0.263 toward=0.99 closest=0.001 pass=False
+cornerdown seed 4 counted=True drift=0.165 toward=-0.99 closest=0.010 pass=True
+cornerdown seed 5 counted=True drift=0.059 toward=0.02 closest=1.113 pass=False
+cornerdown seed 6 counted=True drift=0.322 toward=-1.00 closest=1.269 pass=False
+cornerdown seed 7 counted=True drift=0.303 toward=-0.90 closest=0.005 pass=True
+cornerdown seed 8 counted=True drift=0.001 toward=-0.47 closest=0.014 pass=True
+cornerdown seed 9 counted=True drift=0.315 toward=-0.76 closest=0.005 pass=True
+cornerdown seed 10 counted=True drift=0.195 toward=-0.95 closest=0.564 pass=True
+cornerdown seed 11 counted=True drift=0.123 toward=-0.98 closest=0.020 pass=True
+cornerdown seed 12 counted=True drift=0.549 toward=-0.38 closest=0.012 pass=True
+TestContext Messages:
+deepknockdown seed 1 lowestWhileLimp=0.54 standingAt=5.47 pass=False
+deepknockdown seed 2 lowestWhileLimp=0.28 standingAt=7.32 pass=True
+deepknockdown seed 3 lowestWhileLimp=1.00 standingAt=5.22 pass=False
+deepknockdown seed 4 lowestWhileLimp=0.23 standingAt=4.97 pass=True
+deepknockdown seed 5 lowestWhileLimp=1.00 standingAt=5.31 pass=False
+deepknockdown seed 6 lowestWhileLimp=1.00 standingAt=5.13 pass=False
+deepknockdown seed 7 lowestWhileLimp=0.24 standingAt=5.33 pass=True
+deepknockdown seed 8 lowestWhileLimp=1.00 standingAt=5.12 pass=False
+deepknockdown seed 9 lowestWhileLimp=1.00 standingAt=5.09 pass=False
+deepknockdown seed 10 lowestWhileLimp=1.00 standingAt=6.42 pass=False
+deepknockdown seed 11 lowestWhileLimp=0.16 standingAt=6.15 pass=True
+deepknockdown seed 12 lowestWhileLimp=0.24 standingAt=6.52 pass=True
+TestContext Messages:
+punchweight seed 1 quick=46 quickWeak=43 loaded=50 loadedWeak=44
+punchweight seed 2 quick=46 quickWeak=43 loaded=50 loadedWeak=44
+punchweight seed 3 quick=46 quickWeak=43 loaded=50 loadedWeak=44
+punchweight seed 4 quick=46 quickWeak=43 loaded=50 loadedWeak=44
+punchweight seed 5 quick=46 quickWeak=43 loaded=50 loadedWeak=44
+punchweight seed 6 quick=46 quickWeak=43 loaded=50 loadedWeak=44
+punchweight seed 7 quick=46 quickWeak=43 loaded=50 loadedWeak=44
+punchweight seed 8 quick=46 quickWeak=43 loaded=50 loadedWeak=44
+punchweight seed 9 quick=46 quickWeak=43 loaded=50 loadedWeak=44
+punchweight seed 10 quick=46 quickWeak=43 loaded=50 loadedWeak=44
+punchweight seed 11 quick=46 quickWeak=43 loaded=50 loadedWeak=44
+punchweight seed 12 quick=46 quickWeak=43 loaded=50 loadedWeak=44
+TestContext Messages:
+pelvisheight seed 1 h0.6=0.94 h0.4=0.70 h0.25=0.34 h0.1=0.24 pass=False
+pelvisheight seed 2 h0.6=0.90 h0.4=0.61 h0.25=0.66 h0.1=0.25 pass=True
+pelvisheight seed 3 h0.6=0.85 h0.4=0.67 h0.25=0.48 h0.1=0.16 pass=True
+pelvisheight seed 4 h0.6=1.00 h0.4=0.72 h0.25=0.54 h0.1=0.32 pass=False
+pelvisheight seed 5 h0.6=1.04 h0.4=0.81 h0.25=0.35 h0.1=0.23 pass=True
+pelvisheight seed 6 h0.6=0.88 h0.4=0.49 h0.25=0.19 h0.1=0.15 pass=False
+pelvisheight seed 7 h0.6=0.96 h0.4=0.69 h0.25=0.57 h0.1=0.29 pass=True
+pelvisheight seed 8 h0.6=0.89 h0.4=0.69 h0.25=0.49 h0.1=0.24 pass=True
+pelvisheight seed 9 h0.6=0.90 h0.4=0.67 h0.25=0.61 h0.1=0.16 pass=True
+pelvisheight seed 10 h0.6=0.92 h0.4=0.71 h0.25=0.45 h0.1=0.23 pass=True
+pelvisheight seed 11 h0.6=0.94 h0.4=0.74 h0.25=0.40 h0.1=0.26 pass=True
+pelvisheight seed 12 h0.6=0.92 h0.4=0.74 h0.25=0.43 h0.1=0.31 pass=False
+TestContext Messages:
+heelswitch seed 1 first=Left after=Right switched=True hitsAfter=14 falls=1
+heelswitch seed 2 first=Left after=Right switched=True hitsAfter=21 falls=0
+heelswitch seed 3 first=Left after=Right switched=True hitsAfter=22 falls=0
+heelswitch seed 4 first=Right after=Left switched=True hitsAfter=30 falls=0
+heelswitch seed 5 first=Left after=Right switched=True hitsAfter=13 falls=1
+heelswitch seed 6 first=Right after=Left switched=True hitsAfter=26 falls=0
+heelswitch seed 7 first=Left after=Right switched=True hitsAfter=20 falls=0
+heelswitch seed 8 first=Right after=Left switched=True hitsAfter=20 falls=0
+heelswitch seed 9 first=Left after=Right switched=True hitsAfter=16 falls=1
+heelswitch seed 10 first=Right after=Left switched=True hitsAfter=25 falls=0
+heelswitch seed 11 first=Right after=Left switched=True hitsAfter=1 falls=0
+heelswitch seed 12 first=Right after=Left switched=True hitsAfter=24 falls=1
+TestContext Messages:
+hybrid seed 1 corners=False hits=0 firstHit=NaN firstDown=NaN pass=False
+hybrid seed -1 corners=True hits=0 firstHit=NaN firstDown=2.62 pass=False
+hybrid seed 2 corners=False hits=3 firstHit=0.67 firstDown=NaN pass=True
+hybrid seed -2 corners=True hits=0 firstHit=NaN firstDown=3.15 pass=False
+hybrid seed 3 corners=False hits=3 firstHit=0.68 firstDown=1.57 pass=True
+hybrid seed -3 corners=True hits=6 firstHit=4.93 firstDown=6.08 pass=True
+hybrid seed 4 corners=False hits=2 firstHit=0.70 firstDown=NaN pass=True
+hybrid seed -4 corners=True hits=6 firstHit=4.55 firstDown=11.18 pass=True
+hybrid seed 5 corners=False hits=2 firstHit=0.68 firstDown=NaN pass=True
+hybrid seed -5 corners=True hits=10 firstHit=4.05 firstDown=8.13 pass=True
+hybrid seed 6 corners=False hits=1 firstHit=0.70 firstDown=NaN pass=True
+hybrid seed -6 corners=True hits=6 firstHit=5.82 firstDown=9.17 pass=True
+hybrid seed 7 corners=False hits=2 firstHit=0.67 firstDown=2.35 pass=True
+hybrid seed -7 corners=True hits=5 firstHit=4.30 firstDown=8.75 pass=True
+hybrid seed 8 corners=False hits=5 firstHit=1.08 firstDown=NaN pass=True
+hybrid seed -8 corners=True hits=6 firstHit=3.83 firstDown=5.90 pass=True
+hybrid seed 9 corners=False hits=1 firstHit=1.55 firstDown=1.93 pass=True
+hybrid seed -9 corners=True hits=2 firstHit=4.57 firstDown=4.72 pass=True
+hybrid seed 10 corners=False hits=3 firstHit=1.03 firstDown=2.15 pass=True
+hybrid seed -10 corners=True hits=4 firstHit=3.65 firstDown=4.38 pass=True
+hybrid seed 11 corners=False hits=5 firstHit=0.67 firstDown=2.95 pass=True
+hybrid seed -11 corners=True hits=5 firstHit=5.72 firstDown=7.12 pass=True
+hybrid seed 12 corners=False hits=3 firstHit=1.17 firstDown=2.33 pass=True
+hybrid seed -12 corners=True hits=2 firstHit=4.32 firstDown=4.47 pass=True
+TestContext Messages:
+rush seed 1 w0=5.50 w1=4.57 w2=2.57 w3=2.31 pass=False
+rush seed 2 w0=5.59 w1=4.33 w2=2.59 w3=2.29 pass=True
+rush seed 3 w0=5.49 w1=4.15 w2=2.33 w3=1.59 pass=False
+rush seed 4 w0=5.68 w1=4.38 w2=2.45 w3=1.98 pass=True
+rush seed 5 w0=5.59 w1=3.97 w2=2.08 w3=2.18 pass=True
+rush seed 6 w0=5.44 w1=4.51 w2=2.54 w3=2.39 pass=False
+rush seed 7 w0=5.58 w1=3.76 w2=2.61 w3=1.85 pass=False
+rush seed 8 w0=5.56 w1=4.46 w2=2.16 w3=1.76 pass=False
+rush seed 9 w0=5.55 w1=4.19 w2=2.91 w3=1.79 pass=False
+rush seed 10 w0=5.72 w1=4.16 w2=2.33 w3=2.25 pass=True
+rush seed 11 w0=5.56 w1=4.30 w2=2.46 w3=2.19 pass=True
+rush seed 12 w0=5.55 w1=4.11 w2=2.39 w3=1.93 pass=True
+TestContext Messages:
+roundhouse seed 1 side=Right landed=True mainFraction=0.21 inBand=False standing=True
+roundhouse seed 2 side=Left landed=True mainFraction=0.48 inBand=False standing=True
+roundhouse seed 3 side=Right landed=True mainFraction=0.21 inBand=False standing=True
+roundhouse seed 4 side=Left landed=True mainFraction=0.48 inBand=False standing=True
+roundhouse seed 5 side=Right landed=True mainFraction=0.21 inBand=False standing=True
+roundhouse seed 6 side=Left landed=True mainFraction=0.48 inBand=False standing=True
+roundhouse seed 7 side=Right landed=True mainFraction=0.21 inBand=False standing=True
+roundhouse seed 8 side=Left landed=True mainFraction=0.48 inBand=False standing=True
+roundhouse seed 9 side=Right landed=True mainFraction=0.21 inBand=False standing=True
+roundhouse seed 10 side=Left landed=True mainFraction=0.48 inBand=False standing=True
+roundhouse seed 11 side=Right landed=True mainFraction=0.21 inBand=False standing=True
+roundhouse seed 12 side=Left landed=True mainFraction=0.48 inBand=False standing=True
+TestContext Messages:
+heelstomp seed 1 soleHits=2 heelHits=11 soleHead=2 heelHead=4 solePeak=4.45 heelPeak=12.44 heelFalls=0 lift=0.29
+heelstomp seed 2 soleHits=11 heelHits=14 soleHead=9 heelHead=5 solePeak=3.78 heelPeak=11.66 heelFalls=0 lift=0.28
+heelstomp seed 3 soleHits=12 heelHits=10 soleHead=9 heelHead=1 solePeak=4.33 heelPeak=12.09 heelFalls=1 lift=0.28
+heelstomp seed 4 soleHits=6 heelHits=12 soleHead=4 heelHead=3 solePeak=3.94 heelPeak=12.25 heelFalls=0 lift=0.28
+heelstomp seed 5 soleHits=8 heelHits=13 soleHead=6 heelHead=2 solePeak=4.02 heelPeak=12.06 heelFalls=0 lift=0.30
+heelstomp seed 6 soleHits=14 heelHits=13 soleHead=6 heelHead=0 solePeak=3.43 heelPeak=11.04 heelFalls=0 lift=0.29
+heelstomp seed 7 soleHits=3 heelHits=13 soleHead=2 heelHead=3 solePeak=4.39 heelPeak=12.37 heelFalls=0 lift=0.30
+heelstomp seed 8 soleHits=5 heelHits=12 soleHead=1 heelHead=0 solePeak=4.44 heelPeak=12.03 heelFalls=0 lift=0.31
+heelstomp seed 9 soleHits=13 heelHits=17 soleHead=5 heelHead=9 solePeak=2.91 heelPeak=10.54 heelFalls=0 lift=0.29
+heelstomp seed 10 soleHits=13 heelHits=15 soleHead=10 heelHead=2 solePeak=3.60 heelPeak=11.70 heelFalls=0 lift=0.27
+heelstomp seed 11 soleHits=10 heelHits=13 soleHead=6 heelHead=7 solePeak=4.10 heelPeak=11.40 heelFalls=0 lift=0.32
+heelstomp seed 12 soleHits=3 heelHits=14 soleHead=1 heelHead=1 solePeak=4.05 heelPeak=11.56 heelFalls=0 lift=0.28
+TestContext Messages:
+ivf3kd seed 1 downs=1 over=True message="K.O. — OUT COLD  YOU WIN" pass=False
+ivf3kd seed 2 downs=3 over=True message="TKO — 3 KNOCKDOWNS  YOU WIN" pass=True
+ivf3kd seed 3 downs=3 over=True message="TKO — 3 KNOCKDOWNS  YOU WIN" pass=True
+ivf3kd seed 4 downs=3 over=True message="TKO — 3 KNOCKDOWNS  YOU WIN" pass=True
+ivf3kd seed 5 downs=3 over=True message="TKO — 3 KNOCKDOWNS  YOU WIN" pass=True
+ivf3kd seed 6 downs=3 over=True message="TKO — 3 KNOCKDOWNS  YOU WIN" pass=True
+ivf3kd seed 7 downs=3 over=True message="TKO — 3 KNOCKDOWNS  YOU WIN" pass=True
+ivf3kd seed 8 downs=1 over=True message="K.O. — OUT COLD  YOU WIN" pass=False
+ivf3kd seed 9 downs=3 over=True message="TKO — 3 KNOCKDOWNS  YOU WIN" pass=True
+ivf3kd seed 10 downs=3 over=True message="TKO — 3 KNOCKDOWNS  YOU WIN" pass=True
+ivf3kd seed 11 downs=3 over=True message="TKO — 3 KNOCKDOWNS  YOU WIN" pass=True
+ivf3kd seed 12 downs=3 over=True message="TKO — 3 KNOCKDOWNS  YOU WIN" pass=True
+

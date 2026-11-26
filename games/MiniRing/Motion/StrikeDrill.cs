@@ -43,11 +43,11 @@ public static class StrikeDrill
     /// <paramref name="target"/> は的の構え（null ならその場で構えて立つ <see cref="StandGuard"/>）、<paramref name="aim"/> は狙う部位（<see cref="SwordsmanBot.Aim"/>）。
     /// </summary>
     public static StrikeResult Run(MotionTechnique technique, MotionFrame guard, float rate, FighterTuning? tuning = null, Action<BoxingGame, float, bool>? afterStep = null,
-        Func<IFighterControl>? target = null, BodyPartKind? aim = null, AimTuning? aimTuning = null, HandWear wear = HandWear.Glove)
+        Func<IFighterControl>? target = null, BodyPartKind? aim = null, AimTuning? aimTuning = null, HandWear wear = HandWear.Glove, int seed = 1)
     {
         ArgumentNullException.ThrowIfNull(technique);
-        var bot = new SwordsmanBot([technique], guard, seed: 1, rate, rest: 1000f, exact: true, tuning: tuning, aim: aimTuning) { Aim = aim };
-        using var game = new BoxingGame(tuning, seed: 1, corners: new BoxingCorners("stand", _ => target?.Invoke() ?? new StandGuard(), _ => bot, PlayerWeapon: technique.Weapon, PlayerTwoHanded: technique.Weapon != WeaponKind.IronSword, PlayerWear: wear));
+        var bot = new SwordsmanBot([technique], guard, seed: seed, rate, rest: 1000f, exact: true, tuning: tuning, aim: aimTuning) { Aim = aim };
+        using var game = new BoxingGame(tuning, seed: seed, corners: new BoxingCorners("stand", _ => target?.Invoke() ?? new StandGuard(), _ => bot, PlayerWeapon: technique.Weapon, PlayerTwoHanded: technique.Weapon != WeaponKind.IronSword, PlayerWear: wear));
         var victim = game.Cpu.Voxels!;
         var start = Count(victim);
         var sword = game.WeaponOf(game.Player)!;

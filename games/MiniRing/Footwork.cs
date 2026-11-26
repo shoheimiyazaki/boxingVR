@@ -123,6 +123,21 @@ public sealed record FootworkTuning
     /// </summary>
     public float ShuffleShare { get; init; } = 1f;
 
+    /// <summary>
+    /// 行く向きの側の足が半歩も構えへ近づけない（届く範囲で切られた刻み・構えから遠ざかる 1 歩）とき、両足の「1 歩で構えの位置へ近づける距離 × その足から
+    /// 抜けている体重の割合（1 − これ × その足が受ける力の割合）」で比べてどちらから出るかを決める強さ（0..1。0 で従来の刻みの入れ替えだけ）。体重の割合は、
+    /// 移動の指令が求める加速度でずれた床反力の作用点（ZMP）から出し、胴をひねる度合いを両足に足す。移動の指令があり、意識が KO の線より上の間だけ
+    /// （2026-11-26、docs/arena/foot_snag.md）。
+    /// </summary>
+    public float UnloadedFootShare { get; init; } = 1f;
+
+    /// <summary>
+    /// 踏み出している足の着地点が構えの位置から遠ざかる所になったら（向きを変えた・切り返した）、その場で下ろして計画し直すか（偽で従来の、運び終えるまで待つ）。
+    /// 既定は偽: 切り返しの出だしは 0.58 → 0.47 秒（最悪）と速くなるが、体重の比べと合わさるとボットの寄り方が変わり、寄って止まった後の溜めた右で
+    /// 肩を引けなくなった（docs/arena/foot_snag.md）。
+    /// </summary>
+    public bool ReplanSwing { get; init; }
+
     /// <summary>前後の体重のかけ方の幅（0.5 ± これ）。前へ出した頭・打つ拳で前足へ、反らした頭で後ろ足へ。</summary>
     public float WeightShift { get; init; } = 0.25f;
 
@@ -200,10 +215,12 @@ public readonly record struct FootPose(Vector3 Ball, float Yaw, float HeelRaise,
 /// <param name="HipOffset">股（脚の付け根）の体の中心からの横のずれ [m]。届く範囲の中心は左右の脚でこれだけずれる。</param>
 /// <param name="Com">全身の重心の水平位置（捕捉点はこれから出す。null なら骨盤 <paramref name="Body"/>）。上体が傾いて倒れていくのは、骨盤より重心に出る。</param>
 /// <param name="ComVelocity">全身の重心の水平速度（null なら骨盤の速度）。</param>
+/// <param name="ComAcceleration">移動の指令が重心に求める水平の加速度。床反力の作用点（ZMP）は重心から加速度 / ω² だけ逆へずれる（前へ加速するなら後ろ）。</param>
+/// <param name="Travel">移動の指令（方向キー・ボットの移動）が出ている。体重を見た足の選び方と宙の足の計画し直しはこの間だけ（拳の踏み込み・釣り合いの意図では使わない）。</param>
 /// <param name="LegHeld">どちらかの脚を膝の制御の指令（<see cref="LegCommand.IsKneeControl"/>）が動かしている。その間は新しい 1 歩を踏み出さない（残る足が軸足）。</param>
 public readonly record struct FootworkInput(float FacingYaw, Vector2 Body, Vector2 BodyVelocity, float Omega, Vector2 Intent, float Twist, float Weight, float LegLength,
     bool LeadOverreach = false, bool RearOverreach = false, Vector2? LeadBall = null, Vector2? RearBall = null, float Reach = 0f, float HipOffset = 0f, bool LeadFree = false, bool RearFree = false,
-    Vector2? Com = null, Vector2? ComVelocity = null, bool LegHeld = false);
+    Vector2? Com = null, Vector2? ComVelocity = null, bool LegHeld = false, Vector2 ComAcceleration = default, bool Travel = true);
 
 /// <summary>
 /// 足の置き場所を決めるモデル（倒立振子 + 構え）。ボクサーは左足が常に前（オーソドックス）。
@@ -298,6 +315,26 @@ public sealed class Footwork
         return (foot == Lead ? loadOffset : -loadOffset) > 0.05f * stance.LengthSquared();
     }
 
+    /// <summary>
+    /// 前足に乗っている体重の割合（0 = 全部後ろ足、1 = 全部前足）の見積もり: 床反力の作用点（ZMP）= 重心 − 水平の加速度 × 重心の高さ / g
+    /// （倒立振子で 高さ / g = 1 / ω²）を、両足を結ぶ線へ落とした位置のてこの比（2 点で支える静的な釣り合い。作用点が足の外なら外側の足が全部受ける）。
+    /// 前へ加速しようとすれば作用点が重心より後ろへずれ、前足の荷重が抜ける（ボクサーから見て、重力と前への加速を合わせた見かけの重力が後ろへ傾く）。
+    /// 後ろへ加速すれば前足に乗る。重心か実際の足が分からなければ null。
+    /// </summary>
+    internal static float? LeadLoad(in FootworkInput input)
+    {
+        if (input.Com is not { } com || input.LeadBall is not { } lead || input.RearBall is not { } rear)
+        {
+            return null;
+        }
+
+        var omega = MathF.Max(1f, input.Omega);
+        var accel = float.IsFinite(input.ComAcceleration.X) && float.IsFinite(input.ComAcceleration.Y) ? input.ComAcceleration : Vector2.Zero;
+        var pressure = com - (accel / (omega * omega));
+        var line = lead - rear;
+        return line.LengthSquared() < 1e-8f ? 0.5f : Math.Clamp(Vector2.Dot(pressure - rear, line) / line.LengthSquared(), 0f, 1f);
+    }
+
     /// <summary>足 <paramref name="foot"/> の今の置き方（踏み出している足は宙の途中）。</summary>
     public FootPose Pose(int foot)
     {
@@ -335,6 +372,7 @@ public sealed class Footwork
         _weight = Math.Clamp(float.IsFinite(input.Weight) ? input.Weight : 0f, -1f, 1f);
         _legLength = MathF.Max(0.01f, input.LegLength);
         _sinceStep += dt;
+        Swing? aborted = null;
         if (_swinging >= 0)
         {
             _swingTime += dt;
@@ -342,6 +380,17 @@ public sealed class Footwork
             {
                 _ball[_swinging] = _to;
                 _yaw[_swinging] = _toYaw;
+                _swinging = -1;
+            }
+            else if (allowStep && canShiftLoad && _tuning.ReplanSwing && input.Travel && input.Intent != Vector2.Zero && SwingLeadsAway(input))
+            {
+                // 宙の足の着地点が、今の構えの位置から遠ざかる所になった（向きを変えた・切り返した）: 運び終えるのを待たず、その場で下ろして計画し直す
+                // （宙の足は低く、すり足に近い。前の向きへ運び終えてから戻ると、切り返しの出だしが 1 歩ぶん遅れた: docs/arena/foot_snag.md）。
+                aborted = new Swing(_swinging, _from, _to, _fromYaw, _toYaw, _swingTime, _swingDuration, _ball[_swinging], _yaw[_swinging], _ball[1 - _swinging], _lastFoot, _sinceStep, Steps);
+                var pose = Pose(_swinging);
+                var u = SwingProgress;
+                _ball[_swinging] = new Vector2(pose.Ball.X, pose.Ball.Z);
+                _yaw[_swinging] = Lerp(_fromYaw, _toYaw, u * u * (3f - (2f * u))); // Pose と同じ運び方（滑らかな段）で、下ろした所の向き
                 _swinging = -1;
             }
         }
@@ -359,6 +408,14 @@ public sealed class Footwork
             {
                 PlanStep(input, canShiftLoad);
             }
+
+            // 計画し直しても同じ足を同じ所へ運ぶ（届く範囲・足を交差させない制約で、着地点が構えの位置から離れたままになる）なら、下ろさずに運び続ける
+            // （下ろしては同じ所へ踏み出すのを繰り返して、足が止まった）。
+            if (aborted is { } swing && (_swinging < 0 || (_swinging == swing.Foot && Vector2.Distance(_to, swing.To) <= _tuning.StepThreshold * _legLength)))
+            {
+                (_swinging, _from, _to, _fromYaw, _toYaw, _swingTime, _swingDuration) = (swing.Foot, swing.From, swing.To, swing.FromYaw, swing.ToYaw, swing.Time, swing.Duration);
+                (_ball[swing.Foot], _yaw[swing.Foot], _ball[1 - swing.Foot], _lastFoot, _sinceStep, Steps) = (swing.Ball, swing.Yaw, swing.Planted, swing.LastFoot, swing.SinceStep, swing.Steps);
+            }
         }
 
         UpdateSupport(input);
@@ -374,7 +431,33 @@ public sealed class Footwork
 
     private float StanceYaw(int foot) => (foot == Lead ? _tuning.LeadYawDegrees : _tuning.RearYawDegrees) * MathF.PI / 180f;
 
-    private void PlanStep(in FootworkInput input, bool canShiftLoad)
+    /// <summary>
+    /// 踏み出している足を運び終えると、今の構えの位置（足の置き場所）から、ここで下ろすより <see cref="FootworkTuning.StepThreshold"/> 以上遠くなるか
+    /// （踏み直しが要る距離だけ、着地点が行き先と逆へずれた）。
+    /// </summary>
+    private bool SwingLeadsAway(in FootworkInput input)
+    {
+        var pose = Pose(_swinging);
+        var now = new Vector2(pose.Ball.X, pose.Ball.Z);
+        var stance = _ball[1 - _swinging];
+        var (center, _, _) = StanceCenter(input, _swinging == Lead ? now : stance, _swinging == Lead ? stance : now);
+        var home = center + Rotate(StanceOffset(_swinging), input.FacingYaw);
+        return Vector2.Distance(home, _to) - Vector2.Distance(home, now) > _tuning.StepThreshold * _legLength;
+    }
+
+    /// <summary>踏み出している足の運びの状態（計画し直して同じ 1 歩になったら戻すため）。</summary>
+    private readonly record struct Swing(int Foot, Vector2 From, Vector2 To, float FromYaw, float ToYaw, float Time, float Duration, Vector2 Ball, float Yaw, Vector2 Planted, int LastFoot, float SinceStep, int Steps);
+
+    private void UpdateReach(in FootworkInput input)
+    {
+        _reachCenter = input.Body + (input.BodyVelocity * (0.5f * _tuning.StepTimeMax));
+        _hipOffset = input.HipOffset;
+        _facing = input.FacingYaw;
+        _reach = _tuning.ReachShare * (input.Reach > 0f ? input.Reach : _legLength);
+    }
+
+    /// <summary>構えの中心（両足の置き場所の真ん中）と、重心の捕捉点、捕捉点が両足の支えの外か（倒れていく）。</summary>
+    private (Vector2 Center, Vector2 Capture, bool Falling) StanceCenter(in FootworkInput input, Vector2 leadBall, Vector2 rearBall)
     {
         var t = _tuning;
         var leg = _legLength;
@@ -383,7 +466,7 @@ public sealed class Footwork
         var capture = (input.Com ?? input.Body) + ((input.ComVelocity ?? input.BodyVelocity) / omega);
         // 構えの中心: 止まっていれば今の両足の真ん中（足を置き直すのは構えの形を直すときだけ。体を追って足を置くと、
         // 足 → 支え → 体 → 足 と回って、立っているだけで少しずつ歩いてしまう）。捕捉点が真ん中から離れたら（押された・動いている）その分だけ寄せる。
-        var middle = Vector2.Lerp(_ball[Lead], _ball[Rear], 0.5f);
+        var middle = Vector2.Lerp(leadBall, rearBall, 0.5f);
         // 構えを寄せる量（drift）は、骨盤の位置 + 骨盤の速度で出す。重心（capture）でなく: 床から支える体は、胴をひねった構え・重い武器・体重の移しで
         // 重心が両足の真ん中から静止のまま十数 cm ずれて釣り合う。それを「押された」と読んで足を重心の側へ 2 cm ずつ踏み直すと、
         // 体がそれを追って流れ続けた（構えを直す歩が止まらず、20 秒で 10 cm・15 歩）。倒れていく判定（falling）は重心の捕捉点のまま
@@ -393,17 +476,22 @@ public sealed class Footwork
         var center = middle + (drift.Length() > deadband ? drift * (1f - (deadband / drift.Length())) : Vector2.Zero)
             + ClampLength(input.Intent * t.Lookahead, t.MaxLookahead * leg);
         // 踏み直しが必要なら、置き先も重心の速度を止められる側に寄せる。
-        var off = DistanceToSegment(capture, _ball[Lead], _ball[Rear]);
+        var off = DistanceToSegment(capture, leadBall, rearBall);
         var falling = off > t.CaptureMargin * leg;
         if (falling && t.CapturePlacementShare > 0f)
         {
             center = Vector2.Lerp(center, capture, t.CapturePlacementShare);
         }
 
-        _reachCenter = input.Body + (input.BodyVelocity * (0.5f * t.StepTimeMax));
-        _hipOffset = input.HipOffset;
-        _facing = input.FacingYaw;
-        _reach = t.ReachShare * (input.Reach > 0f ? input.Reach : leg);
+        return (center, capture, falling);
+    }
+
+    private void PlanStep(in FootworkInput input, bool canShiftLoad)
+    {
+        var t = _tuning;
+        var leg = _legLength;
+        var (center, capture, falling) = StanceCenter(input, _ball[Lead], _ball[Rear]);
+        UpdateReach(input);
         Span<Vector2> home = [Vector2.Zero, Vector2.Zero];
         Span<float> error = [0f, 0f];
         Span<bool> need = [false, false];
@@ -470,15 +558,48 @@ public sealed class Footwork
             var shuffle = t.ShuffleShare * t.StepThreshold * leg;
             var other = 1 - foot0;
             var otherOverreach = other == Lead ? input.LeadOverreach : input.RearOverreach;
-            // 刻みしかできない足が重心に近いときは、その足を支えにし、構えを保って大きく運べるもう一方の足を先に出す。
-            if (Vector2.Distance(target, _ball[foot0]) < shuffle
-                && (otherOverreach || (canShiftLoad && IsLoadedSidestepFoot(input, foot0)))
-                && TryTarget(other, home, input.FacingYaw, out var otherTarget, out var otherYaw)
-                && Vector2.Distance(otherTarget, _ball[other]) >= shuffle)
+            // 移動の指令がある間だけ（行きたい向きへ早く足を運ぶための選び方。止まって構え・打つ・蹴る間の構えの直しは前のまま。89 の入れ替えと同じ）。
+            var leadLoad = canShiftLoad && t.UnloadedFootShare > 0f && input.Travel && input.Intent != Vector2.Zero ? LeadLoad(input) : null;
+            if (TryTarget(other, home, input.FacingYaw, out var otherTarget, out var otherYaw))
             {
-                foot0 = other;
-                target = otherTarget;
-                targetYaw = otherYaw;
+                var stride = Vector2.Distance(target, _ball[foot0]);
+                var otherStride = Vector2.Distance(otherTarget, _ball[other]);
+                bool swap;
+                if (leadLoad is { } load)
+                {
+                    // 体重の乗った足は、体重を抜くまで床を離れられない。行く向きの側の足が構えへ近づけないとき、両足の「1 歩で構えの位置へ近づける距離 × その足から
+                    // 抜けている体重の割合」を比べ、大きい方から出る（乗った足を先に選ぶと、届く範囲で切られた短い 1 歩に時間を使い、その間に支えが反対の足へ移って
+                    // 体が止まった。足を交差させない制約で構えの位置から遠ざかる向きへ押し出される 1 歩も選ばれ続けた: docs/arena/foot_snag.md）。体重の割合は、移動の指令が求める
+                    // 加速度で床反力の作用点がずれた所から出す（LeadLoad）: 止まった構えから前へは、前へ加速する分だけ前足が抜けて前足から出る。
+                    // 胴をひねる間（打つ・溜める）は、胴を鉛直軸まわりに回すトルクを両足が床を押す偶力で出している: 体重の分に加えて、ひねりの度合いだけ
+                    // どちらの足も床を離れられない（打ちながら軸足を持ち上げると押していた足が抜けて体が流れ、右の溜めの間に後ろ足を踏み出すと肩を引けなかった）。
+                    var twist = Math.Clamp(float.IsFinite(input.Twist) ? input.Twist : 0f, -1f, 1f);
+                    float Free(int foot) => 1f - (t.UnloadedFootShare
+                        * Math.Clamp((foot == Lead ? load : 1f - load) + MathF.Abs(twist), 0f, 1f));
+                    var progress = MathF.Max(0f, error[foot0] - Vector2.Distance(home[foot0], target));
+                    var gain = progress * Free(foot0);
+                    var otherGain = MathF.Max(0f, error[other] - Vector2.Distance(home[other], otherTarget)) * Free(other);
+                    // 踏んだばかりの足（FollowTime の内）は、体がその上へ移ってくる体重を受け止めている: 付いていく足が踏み直しを要するうちは、
+                    // 比べで踏んだばかりの足へ戻さない（交互に運ぶ。同じ足を選び続けると、スリップの間に前足だけが横へ踏み続けて構えが開ききり、体が崩れた）。
+                    var following = other == _lastFoot && _sinceStep < t.FollowTime && need[foot0];
+                    // 入れ替えるのは、行く向きの側の足が半歩（0.5 × StepThreshold）も構えへ近づけないときだけ（届く範囲で切られた刻み・足を交差させない制約で
+                    // 構えから遠ざかる 1 歩）。そのときは体重の抜けている足と比べる。少しでも得な方へ毎歩入れ替えると、寄っては下がる間合いの合わせで
+                    // 後ろ足を前足のすぐ後ろへ引き寄せ続けて構えが狭く崩れ、寄って止まった後の技（肘・かかと落とし・溜めた右）の形が変わった。
+                    var enough = 0.5f * t.StepThreshold * leg;
+                    swap = (otherOverreach && stride < shuffle && otherStride >= shuffle) || (!following && progress < enough && otherGain > gain);
+                }
+                else
+                {
+                    // 刻みしかできない足が重心に近いときは、その足を支えにし、構えを保って大きく運べるもう一方の足を先に出す。
+                    swap = stride < shuffle && (otherOverreach || (canShiftLoad && IsLoadedSidestepFoot(input, foot0))) && otherStride >= shuffle;
+                }
+
+                if (swap)
+                {
+                    foot0 = other;
+                    target = otherTarget;
+                    targetYaw = otherYaw;
+                }
             }
         }
 

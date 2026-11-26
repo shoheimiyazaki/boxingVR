@@ -276,7 +276,7 @@ public sealed class IvfKnockdownTests
         open.Dispose();
     }
 
-    /// <summary>青が立ち直るたびに軽い脳しんとうを与えて倒す（4 度まで）。取られたダウンの数を返す。</summary>
+    /// <summary>青が立ち直るたびに体を倒す（4 度まで）。取られたダウンの数を返す。</summary>
     private static (BoxingGame Game, int Downs) KnockDownRepeatedly(MatchRules rules)
     {
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
@@ -293,7 +293,10 @@ public sealed class IvfKnockdownTests
             upFor = game.Cpu.State == FighterState.Standing && !down ? upFor + Dt : 0f;
             if (upFor > 1f)
             {
-                game.Cpu.Concussion = 1f; // 倒れて約 4.5 秒で立てる深さ（0.8 では倒れず、1.3 では 9 秒かかる: 測った値）
+                // 体を直接倒す（意識ははっきりしていて、床から RiseTime で立ち直る）。数えるのはダウンの決まりで、倒れ方ではない。
+                // 2026-11-26 まで脳しんとう 1.0 で崩していたが、崩れ落ちる体が仰向けに頭を床へ打つと脳しんとうが 2.4 に増えて 10 カウントの KO になり、
+                // 足の運びを変えるたびに倒れ方が変わって 12 種のうち 6 種で 3 度目のダウンまで行かなかった（docs/arena/foot_snag.md）。
+                game.Cpu.Knockdown(-game.Cpu.Frame.Forward, permanent: false);
                 upFor = 0f;
             }
         }

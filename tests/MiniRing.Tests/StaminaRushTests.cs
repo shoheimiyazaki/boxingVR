@@ -16,12 +16,14 @@ public sealed class StaminaRushTests
 {
     private const float Dt = 1f / 60f;
 
-    private static double[] RushWindows(float seconds, Action<BoxingGame>? setup = null)
+    private static readonly int[] RushSeeds = [3, 4, 5];
+
+    internal static double[] RushWindows(float seconds, Action<BoxingGame>? setup = null, FighterTuning? tuning = null, int seed = 3)
     {
         var corners = BoxingCorners.Default with { Player = _ => new IntentControl(), Cpu = _ => new IntentControl() };
         // 意識（ConcussionSpin を無限大に）に加え、腹の打撲による体の張りの低下（CoreToneFloor）も切る: 的の相手は胴を打たれ続けて倒れる。
         // 倒れて待つ間に打つ側のスタミナが戻ると全力が延びてしまう。測るのは打つ側の拳とスタミナ。
-        using var game = new BoxingGame(FighterTuning.Default with { ConcussionSpin = float.PositiveInfinity, CoreToneFloor = 1f }, seed: 3, corners: corners);
+        using var game = new BoxingGame((tuning ?? FighterTuning.Default) with { ConcussionSpin = float.PositiveInfinity, CoreToneFloor = 1f }, seed: seed, corners: corners);
         setup?.Invoke(game);
         var control = (IntentControl)game.PlayerControl!;
         ((IntentControl)game.CpuControl!).Input = new FighterIntent(Vector2.Zero, Evade: true);
@@ -69,7 +71,10 @@ public sealed class StaminaRushTests
     [TestMethod]
     public void AlternatingRush_FullForFiveSeconds_ThenFadesOverTheNextFive_AndSettlesAtTheSupply()
     {
-        var mean = RushWindows(20f);
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした）: 種 3 だけでは 10〜15 秒と 15〜20 秒の差が上限すれすれ（0.61 対 0.59 m/s）。連打の拳の速さは、
+        // 打たれた的が揺れる・下がる拍子で窓ごとに揺れる（種 3・4・5 で 10〜15 秒が 2.50〜2.77 m/s、ToeRegressionProbe.RushFade）。3 つの種の平均で見る。
+        var runs = RushSeeds.Select(seed => RushWindows(20f, seed: seed)).ToArray();
+        var mean = Enumerable.Range(0, runs[0].Length).Select(i => runs.Average(r => r[i])).ToArray();
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"rush fist peak per 0.83 s: 0-5 s {mean[0]:F2}, 5-10 s {mean[1]:F2}, 10-15 s {mean[2]:F2}, 15-20 s {mean[3]:F2} m/s"));
         Assert.IsGreaterThan(4.5, mean[0], "始めの 5 秒は全力（体重を乗せた満タンの拳）");

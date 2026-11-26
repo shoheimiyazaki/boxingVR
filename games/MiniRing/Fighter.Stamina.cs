@@ -164,7 +164,7 @@ public sealed partial class Fighter
     };
 
     /// <summary>部位の酸素の蓄えの容量 [J]（今の肉の残りから数え直す）。</summary>
-    private float MeasureOxygenCapacity(int region) => _tuning.OxygenStorePerKg * RegionMass(region) * RegionMuscle(region);
+    private float MeasureOxygenCapacity(int region) => _tuning.OxygenStorePerKg * _tuning.Tissue.OxygenStore * RegionMass(region) * RegionMuscle(region);
 
     /// <summary>部位の酸素の蓄えの容量 [J]（歩の始めに <see cref="UpdateStamina"/> が数え直した値。歩の途中の削れは次の歩から効く）。</summary>
     private readonly float[] _capacity = new float[MuscleRegions.Count];
@@ -175,10 +175,10 @@ public sealed partial class Fighter
     internal (float Capacity, float Budget) OxygenBudgetOf(MuscleRegion region) => (_capacity[(int)region], _budget[(int)region]);
 
     /// <summary>心臓が全部位へ送れる速さ [W]（死ねば 0）。</summary>
-    public float HeartCapacity => IsDead ? 0f : _tuning.HeartPower * MuscleMassRatio * HeartFunction;
+    public float HeartCapacity => IsDead ? 0f : _tuning.HeartPower * _tuning.Tissue.HeartPower * MuscleMassRatio * HeartFunction;
 
     /// <summary>肺が血へ取り込める速さ [W]（横隔膜を動かす頸の脊髄を含む。死ねば 0）。</summary>
-    public float LungCapacity => IsDead ? 0f : _tuning.LungPower * MuscleMassRatio * LungFunction * _cord[0];
+    public float LungCapacity => IsDead ? 0f : _tuning.LungPower * _tuning.Tissue.LungPower * MuscleMassRatio * LungFunction * _cord[0];
 
     /// <summary>血の酸素の容量 [J]。</summary>
     private float BloodCapacity => MathF.Max(1e-3f, _tuning.BloodOxygenStore * MuscleMassRatio);
@@ -190,7 +190,7 @@ public sealed partial class Fighter
     /// </summary>
     private float VesselFlow(int region)
     {
-        var most = _tuning.VesselPowerPerKg * RegionMass(region) * RegionMuscle(region) * Endurance;
+        var most = _tuning.VesselPowerPerKg * _tuning.Tissue.VesselFlow * RegionMass(region) * RegionMuscle(region) * Endurance;
         var working = most * Math.Clamp(_tuning.VesselWorkingShare, 1e-3f, 1f);
         var power = _regionPower[region];
         return power >= working ? working : most - ((most - working) * power / working);
@@ -218,7 +218,7 @@ public sealed partial class Fighter
     /// 作り直せるエネルギーが落ちる近似。ラウンドの間の休みでは戻らないので、後のラウンドほど疲れやすい。持久の蓄え = <see cref="FighterTuning.StaminaEndurance"/>
     /// × 筋肉の量の比（1 kg あたりで同じ）。
     /// </summary>
-    public float Endurance => MathF.Exp(-_workDone / MathF.Max(1e-3f, _tuning.StaminaEndurance * MuscleMassRatio));
+    public float Endurance => MathF.Exp(-_workDone / MathF.Max(1e-3f, _tuning.StaminaEndurance * _tuning.Tissue.OxygenStore * MuscleMassRatio));
 
     /// <summary>この試合で筋肉がした仕事の合計 [J]（<see cref="Endurance"/> の元）。</summary>
     internal float WorkDone => _workDone;
@@ -439,7 +439,21 @@ public sealed partial class Fighter
     /// 顔の青白さ（0..1、見た目だけ）: 心臓が部位の欲しがる酸素を送りきれない割合（ならした値）。心臓の働きが落ちる・全身で酸素を欲しがるほど強い。
     /// 試合の計算には使わない。
     /// </summary>
-    public float Pallor => IsDead ? 1f : Smooth(Math.Clamp(_heartShortfall / PallorFull, 0f, 1f));
+    public float Pallor => IsDead ? MathF.Max(Lividity, LivePallor) : LivePallor;
+
+    private float LivePallor => Smooth(Math.Clamp(_heartShortfall / PallorFull, 0f, 1f));
+
+    /// <summary>死んでからの時間 [s]（見た目だけ。試合の計算・チェックサムに入れない）。</summary>
+    public float DeadTime { get; private set; }
+
+    /// <summary>
+    /// 死後の皮膚の変色（0..1、見た目だけ）: 心臓が止まり血の酸素が尽きて、全身の皮膚が数秒かけて青黒くなる（<see cref="LividitySeconds"/> で満ちる）。
+    /// 現実の死斑・チアノーゼは数分〜数時間かかるが、中継で「死んだ」と伝わるよう縮めた合図の速さ（§1.7 の見える手がかり）。
+    /// </summary>
+    public float Lividity => IsDead ? Smooth(Math.Clamp(DeadTime / LividitySeconds, 0f, 1f)) : 0f;
+
+    /// <summary>死後の変色が満ちるまで [s]（ユーザーの指定「数秒かけてだんだん」）。</summary>
+    private const float LividitySeconds = 5f;
 
     /// <summary>心臓がこの割合だけ送りきれないとき、顔の青白さがいちばん強い。</summary>
     private const float PallorFull = 0.5f;
@@ -469,8 +483,17 @@ public sealed partial class Fighter
             var heldBody = arm.Held?.Body ?? arm.Support?.Body;
             if (wrist is { } joint && heldBody is { } body && _world.HasConstraint(joint))
             {
-                var torque = ReserveServo(arm.Region, joint, arm.Forearm, body, arm.WristTorque(_tuning) * _tuning.TorqueScale * arm.WristShare * ControlScale * FaintArm * vigor * Strength(arm.Forearm), allowance, dt);
-                _world.SetAngularServoSettings(joint, arm.WristHz(_tuning) * MathF.Sqrt(arm.WristShare), torque, arm.WristDamping(_tuning));
+                var torqueLimit = arm.WristTorque(_tuning);
+                var frequency = arm.WristHz(_tuning);
+                if (_bladeChords[(int)arm.Hand] is not null && arm.Held is { } claw)
+                {
+                    // Size the actuator to the blade's gravity moment and reserve the work through the same arm budget.
+                    var gravityMoment = _world.GetMass(body) * _world.Gravity.Length() * claw.GripLocal.Length();
+                    torqueLimit += 3f * gravityMoment;
+                    frequency = MathF.Max(frequency, 14f);
+                }
+                var torque = ReserveServo(arm.Region, joint, arm.Forearm, body, torqueLimit * _tuning.TorqueScale * arm.WristShare * ControlScale * FaintArm * vigor * Strength(arm.Forearm), allowance, dt);
+                _world.SetAngularServoSettings(joint, frequency * MathF.Sqrt(arm.WristShare), torque, arm.WristDamping(_tuning));
             }
         }
     }
@@ -605,8 +628,11 @@ public sealed partial class Fighter
         var scale = MuscleWork.ForceScale(linear, quadratic, holding, budget);
         SpendMuscleEnergy(arm.Region, (linear * scale) + (quadratic * scale * scale) + (holding * scale));
         arm.LastForce = force * scale;
-        _world.ApplyLinearImpulse(arm.Forearm, force * (scale * dt));
-        _world.ApplyLinearImpulse(Parts.Chest, -((armPart * _tuning.HandReactionShare) + internalPart) * (scale * dt));
+        if (Attached(arm.Forearm, Parts.Chest)) // 拳を引く力と胴への反作用は対で
+        {
+            _world.ApplyLinearImpulse(arm.Forearm, force * (scale * dt));
+            _world.ApplyLinearImpulse(Parts.Chest, -((armPart * _tuning.HandReactionShare) + internalPart) * (scale * dt));
+        }
         if (weightShift && bodyForce.LengthSquared() > 0f)
         {
             ApplySharedImpulse(bodyForce * (scale * dt));

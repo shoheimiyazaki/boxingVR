@@ -124,6 +124,27 @@ public static class FormSwordsman
     }
 
     /// <summary>
+    /// 武器の型のうち <paramref name="vrForms"/>（型の名前 → 組み込みの VR の振りの名前）に書いた型の目標の経路を、VR の稽古の振りにした技の一覧
+    /// （<see cref="VrMotionForms.ToSwordMotion"/>）。間合いは型と同じく、その動きで物打ちが届く距離で決め、<paramref name="minReach"/> より短い技は除く。
+    /// </summary>
+    public static IReadOnlyList<MotionTechnique> TechniquesWithVrForms(WeaponKind weapon, float armReach, float minReach, IReadOnlyDictionary<string, string> vrForms, FighterTuning tuning)
+    {
+        ArgumentNullException.ThrowIfNull(vrForms);
+        ArgumentNullException.ThrowIfNull(tuning);
+        var guard = Guard(weapon);
+        return
+        [
+            .. Forms(weapon)
+                .Select(f => vrForms.TryGetValue(f.Name, out var id)
+                    ? VrMotionForms.ToSwordMotion(VrMotionForms.Load(id), f.Name, guard, tuning.WalkSpeed, armReach, SwordStance.Rate, tuning.MaxTorsoTwistRadians)
+                    : f)
+                .Select(m => new MotionTechnique(m.Name, weapon, m, 1.408f, Skill: SwordFormSkills.For(weapon, m.Name)))
+                .Select(t => t with { Range = StrikeDrill.ReachOf(t, armReach) })
+                .Where(t => t.Range >= minReach),
+        ];
+    }
+
+    /// <summary>
     /// プレイヤーの弱・強の型。刀: 弱 = 突き（tsuki）・強 = 袈裟（kesa）。ロングソード: 弱 = Stich・強 = Oberhau。棒: 弱 = 突き（tsuki）・強 = 打ち下ろし（uchi-oroshi）。
     /// </summary>
     public static (SwordMotion Light, SwordMotion Heavy) PlayerForms(WeaponKind weapon)
@@ -178,8 +199,12 @@ public static class FormSwordsman
     {
         ArgumentNullException.ThrowIfNull(style);
         CheckTechniqueNames(weapon, style.TechniqueWeights);
+        CheckTechniqueNames(weapon, style.VrForms?.ToDictionary(p => p.Key, _ => 0f));
         CheckFormNames(weapon, style.Forms);
-        var bot = new SwordsmanBot([.. techniques ?? Techniques(weapon, armReach, style.InnerMinReach ?? style.MinReach, style.Forms)], Guard(weapon), seed, SwordStance.Rate, rest: style.Rest, tuning: tuning,
+        var minReach = style.InnerMinReach ?? style.MinReach;
+        // VR の振り（VrForms）に差し替えた型は VR の経路のまま、ほかの型は教科書に型ごとの差分（Forms）を当てる。
+        techniques ??= style.VrForms is { Count: > 0 } vrForms ? TechniquesWithVrForms(weapon, armReach, minReach, vrForms, tuning) : Techniques(weapon, armReach, minReach, style.Forms);
+        var bot = new SwordsmanBot([.. techniques], Guard(weapon), seed, SwordStance.Rate, rest: style.Rest, tuning: tuning,
             defense: style.Defense, bladeLength: BladeLength(weapon, armReach), spacing: Spacing(weapon), opponentReach: 3f, hitAndAway: style.HitAndAway, aim: style.Aim)
         {
             AutoAim = style.AutoAim,

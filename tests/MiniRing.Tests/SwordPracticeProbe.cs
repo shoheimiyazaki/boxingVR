@@ -294,4 +294,50 @@ public sealed class SwordPracticeProbe
         });
         Console.WriteLine(o);
     }
+
+    private static readonly int[] RetrainSeeds = [1, 2];
+    private static readonly string[] RetrainVictims = ["standard", "heavy", "dmitri"];
+    private static readonly string[] RetrainHeldVictims = ["ramon", "akira", "marcus", "takumi-ishiguro"];
+
+    /// <summary>
+    /// 体が変わった後に、名簿の教育の型を今の体に合わせて練習し直す（2026-11-26、つま先の蝶番を固くした体 = 物理 103。エドガーは ToeEdgarTrainProbe）。
+    /// 名簿の今の差分から、練習 standard・heavy・dmitri × 種 1・2、比べ直しは使っていない ramon・akira・marcus・takumi-ishiguro × 種 11・12（Train4 と同じ設定）。
+    /// そのあと名簿の全部の体（四足を除く 29 体）× 種 11・12 で、教科書・今の教育・練習し直した型を比べる。
+    /// </summary>
+    [TestMethod]
+    [DataRow("jin")]
+    public void RetrainForBody(string id)
+    {
+        var who = CharacterRoster.Get(id);
+        var current = who.WeaponStyle!.Forms!;
+        var adopted = new Dictionary<string, MiniRing.Motion.FormTune>();
+        foreach (var form in current.Keys)
+        {
+            var (tune, report) = SwordPractice.Train(who, form, generations: 30, lambda: 12, sigma: 0.4f, seed: 5, seeds: RetrainSeeds, victims: RetrainVictims,
+                heldSeeds: CheckSeeds, heldVictims: RetrainHeldVictims, parallel: Environment.ProcessorCount, log: TextWriter.Null);
+            Console.WriteLine(report);
+            if (tune is not null)
+            {
+                adopted[form] = tune;
+            }
+        }
+
+        Console.WriteLine($"ADOPTED {id} " + System.Text.Json.JsonSerializer.Serialize(adopted));
+        var bodies = Standard.Concat(CharacterRoster.All.Where(c => !c.Build.FourLegged).Select(c => c.Id)).ToList();
+        var kinds = new[] { "textbook", "current", "retrained" };
+        var jobs = (from form in current.Keys from kind in kinds where kind != "retrained" || adopted.ContainsKey(form) from b in bodies from seed in CheckSeeds select (form, kind, b, seed)).ToList();
+        var outcomes = new SwordPractice.Outcome[jobs.Count];
+        Parallel.For(0, jobs.Count, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, i =>
+        {
+            var (form, kind, b, seed) = jobs[i];
+            var style = kind == "textbook" ? MiniRing.Bots.WeaponCatalog.Textbook(who.Weapon!.Value) : who.WeaponStyle!;
+            var tune = kind switch { "textbook" => MiniRing.Motion.FormTune.Identity, "current" => current[form], _ => adopted[form] };
+            outcomes[i] = SwordPractice.Swing(who, style, SwordPractice.Technique(who, form, tune), seed, SwordPractice.Victim(b)) with { Victim = b };
+        });
+        foreach (var g in jobs.Select((j, i) => (j, o: outcomes[i])).GroupBy(x => (x.j.form, x.j.kind)))
+        {
+            var five = g.Count(x => x.o.Incapacitated && x.j.seed == 11 && new[] { "standard", "konrad", "ramon", "joao", "dmitri" }.Contains(x.j.b));
+            Console.WriteLine($"ROSTER {id} {g.Key.form} {g.Key.kind}: {g.Count(x => x.o.Incapacitated)}/{g.Count()} impact {g.Average(x => x.o.ImpactSpeed):0.0} m/s; the five test victims {five}/5");
+        }
+    }
 }

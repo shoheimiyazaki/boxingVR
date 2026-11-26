@@ -5,16 +5,34 @@ namespace MiniRing;
 
 public sealed partial class Fighter
 {
-    private sealed record RearRig(HumanoidRagdoll.Parts Parts, HumanoidRagdoll.JointGroup[] Joints, ToeParts Toes)
+    private readonly record struct CoxaRig(int Body, int Servo);
+    private readonly record struct Coxae(CoxaRig Left, CoxaRig Right);
+
+    private sealed record RearRig(HumanoidRagdoll.Parts Parts, HumanoidRagdoll.JointGroup[] Joints, ToeParts Toes,
+        Coxae ForeCoxae, Coxae HindCoxae)
     {
         public int[] Bodies => [Parts.LeftThigh, Parts.RightThigh, Parts.LeftShin, Parts.RightShin,
-            Parts.LeftFoot, Parts.RightFoot, Toes.AigisLeft, Toes.AigisRight];
-        public int[] PlusX => [Parts.RightThigh, Parts.RightShin, Parts.RightFoot, Toes.AigisRight];
+            Parts.LeftFoot, Parts.RightFoot, Toes.AigisLeft, Toes.AigisRight, ForeCoxae.Left.Body, ForeCoxae.Right.Body, HindCoxae.Left.Body, HindCoxae.Right.Body];
+        public int[] PlusX => [Parts.RightThigh, Parts.RightShin, Parts.RightFoot, Toes.AigisRight, ForeCoxae.Right.Body, HindCoxae.Right.Body];
     }
+
+    // The small coxa takes the weight of the thorax. Its anchor springs must be firmer than the angular drives.
+    private const float CoxaAnchorHz = 45f;
+    private const float ThoraxWeldHz = 35f;
 
     private readonly Leg[] _rearLegs;
     private readonly Footwork? _rearFootwork;
     private bool _rearStepsNext;
+
+    /// <summary>後ろ脚の本数（四足の体だけ 2、人は 0）。観測の道具（motioncard の記録）が読むだけで、試合の計算には使わない。</summary>
+    public int RearLegCount => _rearLegs.Length;
+
+    /// <summary>後ろ脚の腿・すね・かかと・つま先の剛体（観測だけ）。<paramref name="leg"/> は前の脚と同じ側の番号（0 = <see cref="ToeId"/>(0) と同じ側）。</summary>
+    public (int Thigh, int Shin, int Heel, int Toe) RearLegBodies(int leg)
+    {
+        var rear = _rearLegs.First(r => r.AigisLeft == _legParts[leg].AigisLeft);
+        return (rear.Thigh, rear.Shin, rear.Heel, rear.Toe);
+    }
 
     private IEnumerable<Leg> AllLegs()
     {
@@ -51,6 +69,10 @@ public sealed partial class Fighter
     {
         foreach (var leg in _rearLegs)
         {
+            if (part == leg.Coxa)
+            {
+                return BodyPartKind.Coxa;
+            }
             if (part == leg.Thigh)
             {
                 return BodyPartKind.Thigh;
@@ -72,29 +94,81 @@ public sealed partial class Fighter
         return null;
     }
 
-    // Both pairs use the original leg geometry, constraints and muscle servos.
+    private static void JoinThorax(PhysicsWorld world, HumanoidRagdoll.Parts parts, Span<HumanoidRagdoll.JointGroup> joints, Vector3 advance)
+    {
+        foreach (var id in (int[])[parts.Chest, parts.Head, parts.LeftUpperArm, parts.RightUpperArm, parts.LeftForearm, parts.RightForearm])
+        {
+            var state = world.GetState(id);
+            world.SetDynamicPose(id, state.Position + advance, state.Orientation);
+        }
+
+        for (var i = 0; i < joints.Length; i++)
+        {
+            var spine = joints[i];
+            if (spine.Joint != HumanoidRagdoll.RagdollJoint.Spine)
+            {
+                continue;
+            }
+
+            foreach (var id in spine.AllConstraintIds)
+            {
+                world.RemoveConstraint(id, forget: true);
+            }
+
+            var weld = world.AddWeld(parts.Pelvis, parts.Chest, frequency: ThoraxWeldHz);
+            joints[i] = spine with { PrimaryConstraintId = weld, TorqueConstraintId = weld, AllConstraintIds = [weld] };
+            return;
+        }
+        throw new InvalidOperationException("Quadruped thorax requires the original spine joint.");
+    }
+
+    // The femur through the tip reuse the original leg controller. The coxa adds a lateral pivot.
     private static RearRig AddRearRig(PhysicsWorld world, FighterTuning tuning, string name, HumanoidRagdoll.Parts parts,
         HumanoidRagdoll.HalfExtents half, ToeParts frontToes, ref IReadOnlyList<HumanoidRagdoll.JointGroup> joints)
     {
         var spread = Vector3.UnitZ * (half.Pelvis.Z * 0.76f);
         var frontJoints = joints.ToArray();
+        JoinThorax(world, parts, frontJoints, spread);
+        var coxaJoints = new List<HumanoidRagdoll.JointGroup>();
         var rearJoints = new List<HumanoidRagdoll.JointGroup>();
-        int Copy(int source, Vector3 size, string label)
+        var coxaHalf = tuning.CoxaHalf;
+        var coxaMass = tuning.CoxaMass;
+        var pelvis = world.GetState(parts.Pelvis).Position;
+
+        CoxaRig AddCoxa(string label, HumanoidRagdoll.RagdollJoint kind, Vector3 outer, float side)
+        {
+            var center = outer - (coxaHalf.X * side * Vector3.UnitX);
+            var inner = center - (coxaHalf.X * side * Vector3.UnitX);
+            var id = world.AddDynamicBox(center, coxaHalf, coxaMass);
+            world.SetName(id, name + "." + label + "_coxa");
+            var hinge = world.AddHinge(parts.Pelvis, id, inner - pelvis, inner - center, Vector3.UnitZ, Vector3.UnitZ, CoxaAnchorHz);
+            var limit = world.AddTwistLimit(parts.Pelvis, id, Quaternion.Identity, Quaternion.Identity, -0.30f, 0.30f, tuning.ToeStopHz);
+            var spring = world.AddTwistServo(parts.Pelvis, id, Quaternion.Identity, Quaternion.Identity, 0f,
+                tuning.LegServoHz, 1f, 11.92f, 0f, tuning.HipMaxTorque * tuning.TorqueScale);
+            coxaJoints.Add(new HumanoidRagdoll.JointGroup(kind, parts.Pelvis, id, hinge, limit, [hinge, limit, spring], false));
+            return new CoxaRig(id, spring);
+        }
+
+        int Copy(int source, Vector3 size, string label, Vector3 translation)
         {
             var state = world.GetState(source);
-            var id = world.AddDynamicBox(state.Position - spread, size, world.GetMass(source));
+            var id = world.AddDynamicBox(state.Position + translation, size, world.GetMass(source));
             world.SetName(id, name + ".hind_" + label);
             return id;
         }
 
-        (int Thigh, int Shin, int Heel) CopyLeg(bool left)
+        (int Thigh, int Shin, int Heel, CoxaRig ForeCoxa, CoxaRig HindCoxa) CopyLeg(bool left)
         {
             var side = left ? "l_" : "r_";
+            var sign = left ? -1f : 1f;
+            var lateral = sign * 2f * coxaHalf.X * Vector3.UnitX;
             var front = left ? new[] { parts.LeftThigh, parts.LeftShin, parts.LeftFoot, frontToes.AigisLeft }
                 : new[] { parts.RightThigh, parts.RightShin, parts.RightFoot, frontToes.AigisRight };
-            var rear = new[] { Copy(front[0], half.Thigh, side + "thigh"), Copy(front[1], half.Shin, side + "shin"),
-                Copy(front[2], half.Foot, side + "foot") };
+            var rear = new[] { Copy(front[0], half.Thigh, side + "thigh", lateral - spread), Copy(front[1], half.Shin, side + "shin", lateral - spread),
+                Copy(front[2], half.Foot, side + "foot", lateral - spread) };
 
+            CoxaRig foreCoxa = default;
+            CoxaRig hindCoxa = default;
             for (var i = 0; i < rear.Length; i++)
             {
                 var index = Array.FindIndex(frontJoints, j => j.ChildPart == front[i]);
@@ -105,27 +179,35 @@ public sealed partial class Fighter
                     ?? throw new InvalidOperationException($"Missing leg anchor for {joint.Joint}.");
                 var shift = i == 0 ? new Vector3(child.X - anchor.X, 0f, 0f) : Vector3.Zero;
                 var local = anchor + shift - child;
-                var rearParent = i == 0 ? parts.Pelvis : rear[i - 1];
-                rearJoints.Add(HumanoidRagdoll.AttachJointAt(world, joint.Joint, rearParent, rear[i],
-                    anchor + shift - parent - (i == 0 ? spread : Vector3.Zero), local, tuning.TorqueScale));
                 if (i == 0)
                 {
+                    var outer = anchor + shift + lateral;
+                    foreCoxa = AddCoxa(side + "fore", joint.Joint, outer + spread, sign);
+                    hindCoxa = AddCoxa(side + "hind", joint.Joint, outer - spread, sign);
+                    var coxaPivot = sign * coxaHalf.X * Vector3.UnitX;
+                    var hindHip = HumanoidRagdoll.AttachJointAt(world, joint.Joint, hindCoxa.Body, rear[i], coxaPivot, local, tuning.TorqueScale);
+                    world.SetJointSpring(hindHip.PrimaryConstraintId, CoxaAnchorHz, dampingRatio: 1f);
+                    rearJoints.Add(hindHip);
                     foreach (var id in joint.AllConstraintIds)
                     {
                         world.RemoveConstraint(id, forget: true);
                     }
-                    frontJoints[index] = HumanoidRagdoll.AttachJointAt(world, joint.Joint, parts.Pelvis, front[0],
-                        anchor + shift - parent + spread, local, tuning.TorqueScale);
+                    frontJoints[index] = HumanoidRagdoll.AttachJointAt(world, joint.Joint, foreCoxa.Body, front[0], coxaPivot, local, tuning.TorqueScale);
+                    world.SetJointSpring(frontJoints[index].PrimaryConstraintId, CoxaAnchorHz, dampingRatio: 1f);
+                }
+                else
+                {
+                    rearJoints.Add(HumanoidRagdoll.AttachJointAt(world, joint.Joint, rear[i - 1], rear[i], anchor - parent, local, tuning.TorqueScale));
                 }
             }
 
             foreach (var id in front)
             {
                 var state = world.GetState(id);
-                world.SetDynamicPose(id, state.Position + spread, state.Orientation);
+                world.SetDynamicPose(id, state.Position + lateral + spread, state.Orientation);
             }
 
-            return (rear[0], rear[1], rear[2]);
+            return (rear[0], rear[1], rear[2], foreCoxa, hindCoxa);
         }
 
         var left = CopyLeg(true);
@@ -136,7 +218,7 @@ public sealed partial class Fighter
             RightThigh = right.Thigh, RightShin = right.Shin, RightFoot = right.Heel,
         };
         var toes = AddToes(world, tuning, name + "_hind", hind, half);
-        var rig = new RearRig(hind, [.. rearJoints], toes);
+        var rig = new RearRig(hind, [.. rearJoints], toes, new Coxae(left.ForeCoxa, right.ForeCoxa), new Coxae(left.HindCoxa, right.HindCoxa));
         int[] frontBodies = [.. parts.All, frontToes.AigisLeft, frontToes.AigisRight];
         foreach (var body in rig.Bodies)
         {
@@ -149,17 +231,18 @@ public sealed partial class Fighter
             }
         }
 
-        joints = [.. frontJoints, .. rig.Joints];
+        joints = [.. frontJoints, .. rig.Joints, .. coxaJoints];
         return rig;
     }
 
     private static Leg[] CreateRearLegs(PhysicsWorld world, FighterTuning tuning, HumanoidRagdoll.HalfExtents half, RearRig rear)
     {
         var s = HumanoidRagdoll.AddLegServos(world, rear.Parts, tuning.LegServoHz,
-            anklePitchMaxForce: tuning.AnkleMaxTorque * tuning.TorqueScale, kneeMaxForce: tuning.KneeMaxTorque * tuning.TorqueScale);
+            anklePitchMaxForce: tuning.AnkleMaxTorque * tuning.TorqueScale, kneeMaxForce: tuning.KneeMaxTorque * tuning.TorqueScale,
+            leftHipParent: rear.HindCoxae.Left.Body, rightHipParent: rear.HindCoxae.Right.Body);
         return [
-            Leg.Create(world, rear.Parts, rear.Joints, half, false, rear.Toes.AigisRight, rear.Toes.AigisRightServo, s.RightHip, s.RightKnee, s.RightAnkle),
-            Leg.Create(world, rear.Parts, rear.Joints, half, true, rear.Toes.AigisLeft, rear.Toes.AigisLeftServo, s.LeftHip, s.LeftKnee, s.LeftAnkle),
+            Leg.Create(world, rear.Parts, rear.Joints, half, false, rear.Toes.AigisRight, rear.Toes.AigisRightServo, s.RightHip, s.RightKnee, s.RightAnkle, rear.HindCoxae.Right),
+            Leg.Create(world, rear.Parts, rear.Joints, half, true, rear.Toes.AigisLeft, rear.Toes.AigisLeftServo, s.LeftHip, s.LeftKnee, s.LeftAnkle, rear.HindCoxae.Left),
         ];
     }
 

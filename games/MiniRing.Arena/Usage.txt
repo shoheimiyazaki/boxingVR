@@ -25,7 +25,8 @@
                                                                                   攻撃のドリル: 単発・連打 × 溜めの長さで、拳の速さ・体重の乗り・威力
   karatelab [--only shapes,parry,kicks,video] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md] [--video media_tmp/karate_vitals]
                                                                                   空手のドリル: 手の形 × 急所、パリー（拳の曲がり）、5 種の蹴り
-  clawlab                                      鎌の試振りと、練習に使わなかった相手での比較。
+  clawlab [--natural yes] [--cards yes]        鎌の試振りと、練習に使わなかった相手での比較（練習の共通の枠。--natural で自然さの代価も引く）。
+  huntlab [--goal kill|neck|form] [--strokes N] [--tune 1|--confirm 1|--video out.mp4]  四足が素手で抵抗しない人間を倒す・首を断つまでの時間、form は振りの形（docs/TOOLS.md）。
   kicklab [--body taeyun] [--kick Roundhouse] [--distances 1.0,1.1,...] [--seeds 1,2,..] [--confirm-seeds 11,12,..] [--shin 0.75] [--overshoot -0.2] [--log f.md]
                                                                                   蹴りの間合いのドリル: 間合いを刻んで蹴り、当たり・すねの当たった点・渡したエネルギーの表（採る間合いは使っていない種で比べ直す）
   stick [--swing] [--planes vertical,kesa,...] [--samples 2000] [--polish 8] [--iterations 3000] [--seed 1] [--weights speed:3,smooth:1,plane:1,edge:1,dir:1,whole:0.5] [--character jin] [--limits grip|loose] [--bvh dir] [--bvh-scale 2.82] [--video docs/video] [--log f.md]
@@ -37,6 +38,7 @@
   video [--red A] [--blue B] [--seed X] [--seconds S] [--width W --height H --fps F] [--out file.mp4] [--red-weapon W --blue-weapon W]  [--red-char ID|f.json --blue-char ID|f.json]（名簿のキャラクターか、キャラメイクで作ったファイル。武器・体格・顔・名前がそのキャラクターの値）  [--lang ja|en]（画面の言葉の言語。en は名簿・団体の locales.en を重ね、字幕を英語に。既定 ja）
                                                                                   ボット同士の試合を字幕・打撃音つきの mp4 に（ffmpeg が必要）
                                                                                   [--program p.json]（--tv on のとき、冒頭に大会の「本日のプログラム」の表。tvshow.ps1 が書く）
+                                                                                  [--standings f.json --org ivf]（その試合の時点の王座とランキングで見出し・席を出す。過去の試合を撮るとき。札の "standings"）
   weaponlab [--out file.mp4] [--table file.md] [--width W --height H --fps F] [--slow X] [--video on|off]
                                                                                   武器の実験場: 鉄の剣と木の棍棒で斬る・打つ・突く・打ち合う（スロー動画と結果の表）
   sparlab [--gens G] [--lambda L] [--bouts N] [--seconds S] [--seed X] [--start techniques.json] [--best style.json] [--out report.md]
@@ -64,6 +66,9 @@
   rangelab [--variants] [--bots] [--bouts] [--seconds] [--seed] [--weapons] [--out]
   finishlab [--attackers] [--victims] [--levels] [--bouts] [--seconds] [--set] [--log] [--aim] [--victim-set]
   groundtime --seeds --out [--chars] [--shard k/n] | --compare a,b [--labels] [--confirm yes] [--log] | --drill ids [--victims] [--seconds] [--video] | --practice id [--gens] [--lambda] [--parallel] [--out] [--log]
+  simplify [--variants base:,s1:sample=1/passes=2,...] [--scenes katana,vfc2,royale] [--seeds 1,2,3,4] [--seconds 40] [--parallel n] [--out docs/arena/simplify.md]
+  perf --scene fist|katana|vfc2|royale [--seconds 60] [--seeds 1,2] [--render 1] [--check 0] [--alloc 1] [--out docs/PERFORMANCE_raw.md]
+  royale [--fighters ids] [--count n] [--teams 0,0,1,1,1,1] [--team-names a,b] [--seed] [--seconds] [--rounds] [--break] [--trace s] [--replay out.mrrep] [--out video.mp4] | --verify r.mrrep
   groundlab [--style] [--moves hammer,thrust,stomp,punch-down] [--bouts] [--seconds] [--seed] [--log] [--video] [--practice yes] [--candidates] [--sigma] [--validate]
                                                                                   倒れた相手への攻め（立ったまま真下へ突く・踏みつけ）: 技ごとの打ち始め・当たり・J・攻め手の転倒
   kickbalance [--style karate] [--kicks Front,Side] [--teachings 0:0:0,0.35:0.3:0] [--bouts] [--seconds] [--seed] [--confirm] [--log] [--video]
@@ -93,6 +98,7 @@
   selfcuts [--pairs] [--seeds] [--seconds] [--out] [--hitaway] [--passes] [--clearance] [--margin] [--tilt] [--pacing] [--slack] [--angle]
   selfpath [--margin] [--from] [--tilt] [--out] [--forms]
   jointlab [--joints LeftKnee,Neck] [--bend] [--offsets] [--speeds] [--parallel] [--out] [--dims] [--video] [--joint] [--axis] [--dir] [--offset] [--speed] [--bridges off] [--slow]
+  splitlab [--at hip|waist|chest|neck] [--dir side|back] [--offset] [--speed] [--seconds] [--seed] [--lead] [--video] [--slow] | --saw <Joint> [--depth] [--after] [--video] | --scan red,blue [--seeds] [--seconds]
   necklab [--mode geom|slash] [--heights] [--offsets] [--speeds] [--speed] [--dir] [--bridges off] [--tilt] [--arms] [--video] [--height] [--side] [--offset] [--slow] [--out]
   tunnel [--pairs] [--bouts] [--seconds] [--out] [--passes] [--hz] [--sample]
   bladecut [--mode study|edge|one|film|ingame] [--tilt] [--weapon] [--target] [--speed] [--speeds] [--targets] [--weapons] [--drive] [--mass] [--fromtip] [--imposed] [--parallel] [--out] [--csv] [--slow] [--pairs] [--seeds] [--seconds]   刃の切れ味の計測台（1 関節の円弧の振り。docs/BLADE_CUT_STUDY.md）
@@ -101,9 +107,13 @@
   swordlib [--out] [--best] [--bouts] [--seconds] [--seed] [--fight] [--video] [--red] [--blue]
   imitate [--out] [--rate] [--slow] [--width] [--height] [--fps] [--only] [--measure] [--wrist] [--wrist-hz] [--self] [--lead] [--weapon] [--vrmotion] [--wear]
   vrmotion-synth [--out]
-  vrforms [--dir] [--rank] [--seed] [--bouts] [--seconds] [--out] [--video] [--width] [--height] [--fps] [--slow] [--only] [--confirm]
+  vrforms [--dir] [--rank] [--seed] [--bouts] [--seconds] [--out] [--video] [--width] [--height] [--fps] [--slow] [--only] [--confirm] [--char] [--forms] [--vs] [--referee]
   mocap [--bvh] [--out] [--from] [--to] [--speed] [--width] [--height] [--fps] [--strikes]
   intentvideo [--script] [--blue] [--seed] [--seconds] [--width] [--height] [--out]
+  motioncard [--scene jab|bout|sword|kick|claw|replay] [--style] [--weapon] [--form] [--kick] [--body] [--victim] [--rear] [--opponent] [--aim] [--gap] [--hand] [--red] [--blue] [--red-char] [--blue-char] [--who] [--seed] [--seconds] [--replay] [--char] [--tune textbook|trained] [--from] [--to] [--hit] [--out] [--card] [--audit-cards] [--every]   動きの 1 枚（3 面の残像と軌跡・時系列・動きの言葉。docs/plans/MOTION_TOOLS_PLAN.md）
+  motionaudit （motioncard と同じ引数）   不自然な瞬間（引っかかり・滑り・関節の隙間・震え・支えの外…）の一覧と、その瞬間ごとの絵
+  motionhuman [--dir data/mocap/kyokushin] [--out …human_ranges.json] [--export <名前>]   人の蹴りの計測を同じ式で測った幅（躍度・連鎖の順・足の滑り）。--export で手本の記録
+  recordbout [--red] [--blue] [--seconds] [--seed] [--tv] [--out]
   version 
   tvdraft [--events] [--out] [--org]
   tvmerge [--draft] [--extras] [--out]
@@ -112,3 +122,4 @@
   tvscout [--red] [--blue] [--red-wear] [--blue-wear] [--red-weapon] [--blue-weapon] [--rounds] [--seeds] [--speed] [--fps] [--red-char] [--blue-char] [--referee] [--break] [--org]
   portraits [--out] [--scale]
   maker [--port 5180] [--save-dir DIR] [--open yes|no]                           キャラメイクの画面（localhost の Web。体・顔・写真・スタイルから 1 ファイルを作る）
+  galva-motion [--only stalk,trot,sweep,kesa,cleave,claw-thrust,foreleg-thrust] [--out dir] [--fps 24] [--bones on] [--render off]

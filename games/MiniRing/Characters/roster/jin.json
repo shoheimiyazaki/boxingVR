@@ -122,9 +122,34 @@
       }
     },
     "vs": {},
-    "weaponBot": {"Forms": {"harai-men": {"Tempo": 1.23004, "Twist": 0.07971518, "Lift": 0.064279966, "Lean": 0.0033723712, "Reach": 0.016796041}, "shomen": {"Tempo": 1.5067066, "Twist": 0.13271883, "Lift": -0.023316912, "Lean": 0.049709447, "Reach": -0.10149773}}}
+    "weaponBot": {"Forms": {"harai-men": {"Tempo": 1.23004, "Twist": 0.07971518, "Lift": 0.064279966, "Lean": 0.0033723712, "Reach": 0.016796041}, "shomen": {"Tempo": 1.8776851, "Twist": 0.3981331, "Lift": 0.19096115, "Lean": -0.016822025, "Reach": -0.089079075}}}
   },
-  "record": [],
+  "record": [
+    {
+      "kind": "swordpractice",
+      "date": "2026-11-26",
+      "physicsVersion": 103,
+      "form": "shomen",
+      "from": "Tempo 1.51 Twist 0.13 Lift -0.02 Lean 0.05 Reach -0.10",
+      "search": "(1+12) x 30, seed 5, practice seeds 1,2 x standard,heavy,dmitri",
+      "held": "seeds 11,12 x ramon,akira,marcus,takumi-ishiguro: incapacitated 0/8 -> 2/8, score 2.2 -> 3.1",
+      "roster": "seeds 11,12 x 29 bodies: textbook 0/58 at 3.2 m/s, before 22/58 at 8.5 m/s, adopted 40/58 at 8.7 m/s",
+      "adopted": true,
+      "note": "つま先の蝶番を固くした体（物理 103）に合わせて練習し直した（固いつま先で 36 -> 22/58 に落ちていた）。docs/BOT_PDCA.md"
+    },
+    {
+      "kind": "swordpractice",
+      "date": "2026-11-26",
+      "physicsVersion": 103,
+      "form": "harai-men",
+      "from": "Tempo 1.23 Twist 0.08 Lift 0.06 Lean 0.00 Reach 0.02",
+      "search": "(1+12) x 30, seed 5, practice seeds 1,2 x standard,heavy,dmitri",
+      "held": "seeds 11,12 x ramon,akira,marcus,takumi-ishiguro: incapacitated 2/8 -> 4/8, score 7.1 -> 11.2",
+      "roster": "seeds 11,12 x 29 bodies: textbook 2/58 at 6.9 m/s, current 30/58 at 9.4 m/s, candidate 28/58 at 9.4 m/s",
+      "adopted": false,
+      "note": "比べ直しは上回ったが名簿の全部では今の教育（30/58）を上回らなかったので採らない（Tempo 1.22 Twist 0.17 Lift 0.09 Lean -0.04 Reach -0.01）"
+    }
+  ],
   "locales": {
     "en": {
       "name": "Jin Onizuka",

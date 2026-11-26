@@ -32,6 +32,11 @@ public enum AimGoal
 
     Eye,
     BlindSide,
+    NeckSeam,
+    TorsoSeam,
+
+    /// <summary>脛（打つ側に近い方の脚の、膝と足首の間。体から外れた脚は狙わない。2026-11-25、鎌の狙いに足した）。</summary>
+    Shin,
 }
 
 /// <summary>
@@ -88,6 +93,10 @@ public sealed class TargetMap(Fighter target)
                 return marks?.Temple(Vision.Left < Vision.Right);
             case AimGoal.Chin:
                 return marks?.Chin();
+            case AimGoal.NeckSeam:
+                return target.StructuralAim(Aigis.Physics.HumanoidRagdoll.RagdollJoint.Neck);
+            case AimGoal.TorsoSeam:
+                return target.StructuralAim(Aigis.Physics.HumanoidRagdoll.RagdollJoint.Spine);
             case AimGoal.Temple:
                 var left = marks?.Temple(true);
                 var right = marks?.Temple(false);
@@ -104,6 +113,20 @@ public sealed class TargetMap(Fighter target)
                 return marks?.SolarPlexus();
             case AimGoal.Heart:
                 return BodyLandmarks.OrganSkin(target.Voxels?.OrganLandmark(BoxerAnatomy.Heart), from);
+            case AimGoal.Shin:
+                Vector3? shin = null;
+                foreach (var id in new[] { target.Parts.LeftShin, target.Parts.RightShin })
+                {
+                    if (target.IsDetachedPart(id))
+                    {
+                        continue;
+                    }
+
+                    var at = target.World.GetState(id).Position;
+                    shin = shin is { } near && Vector3.DistanceSquared(near, from) <= Vector3.DistanceSquared(at, from) ? near : at;
+                }
+
+                return shin;
             case AimGoal.GuardArm:
                 // 傷んでいる方の腕（肉の残りが少ない方）を、同じなら打つ側に近い方を。
                 Hand? best = null;

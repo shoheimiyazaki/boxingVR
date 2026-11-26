@@ -1,0 +1,23 @@
+{
+  "_comment": "IVF 新人リーグ シーズン 1 のハイライト番組の札（docs/arena/ivf_prospects.md）。5 試合とも新人どうしの 3R で、種は記録（league/ivf/bouts.jsonl）と同じ。撮って実況を付けた後、tools/tvshow/highlights.py がダウンと決着の場面だけを切り出してつなぐ。登録された選手は名簿の id、それ以外は新人のファイル。",
+  "org": "ivf",
+  "event": "IVF 新人リーグ ハイライト",
+  "rounds": 3,
+  "break": 16.78,
+  "out": "media/ivf-prospects-highlights-s1",
+  "standings": "league/ivf/standings-before-league.json",
+  "partLimitMiB": 29,
+  "commentary": { "writer": "llm", "model": "haiku" },
+  "bouts": [
+    { "red": "anan-inthasorn", "blue": "andre-bishop", "seed": 1921802621, "bout": "第2興行 ライト級", "stake": "新人リーグ ライト級",
+      "notes": "240 人の新人が戦う IVF 新人リーグの第 2 興行。この 2 人は後にそろってランキングに登録され、ライト級の王座決定戦で再び戦うことになる。" },
+    { "red": "league/ivf/prospects/hayden-kingsley.json", "blue": "league/ivf/prospects/gaston-sosa.json", "seed": 1327389681, "bout": "第2興行 ライトヘビー級", "stake": "新人リーグ ライトヘビー級",
+      "notes": "IVF 新人リーグの第 2 興行。両者とも無名の新人。何度倒れても立ち上がる打ち合いになる。" },
+    { "red": "league/ivf/prospects/gaston-funes.json", "blue": "league/ivf/prospects/isaiah-mabry.json", "seed": 1822399843, "bout": "第4興行 ヘビー級", "stake": "新人リーグ ヘビー級",
+      "notes": "IVF 新人リーグの第 4 興行。3 連敗や負け越しで引退する選手が出始める興行。両者とも無名の新人。" },
+    { "red": "daniyar-seitkali", "blue": "league/ivf/prospects/archie-whitlock.json", "seed": 1614955369, "bout": "第4興行 ライトヘビー級", "stake": "新人リーグ ライトヘビー級",
+      "notes": "IVF 新人リーグの第 4 興行。赤のダニヤルはこの後も勝ち続け、ライトヘビー級でランキングに登録される。" },
+    { "red": "league/ivf/prospects/ivan-mendoza.json", "blue": "league/ivf/prospects/roman-lebedev.json", "seed": 1508189839, "bout": "第6興行 ミドル級", "stake": "新人リーグ ミドル級 最終興行",
+      "notes": "IVF 新人リーグの最後の第 6 興行。両者とも上位に残っている新人で、勝った方がミドル級の上位に食い込む。" }
+  ]
+}

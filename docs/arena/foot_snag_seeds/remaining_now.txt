@@ -1,0 +1,58 @@
+TestContext Messages:
+windback seed 1 windBack=0.004 pass=False
+windback seed 2 windBack=0.004 pass=False
+windback seed 3 windBack=0.004 pass=False
+windback seed 4 windBack=0.004 pass=False
+windback seed 5 windBack=0.004 pass=False
+windback seed 6 windBack=0.004 pass=False
+windback seed 7 windBack=0.004 pass=False
+windback seed 8 windBack=0.004 pass=False
+TestContext Messages:
+earlyslip seed 1 openPunches=1 slipPunches=2 openHead=1 slipHead=0 onePunch=False
+earlyslip seed 2 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 3 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 4 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 5 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 6 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 7 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 8 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 9 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 10 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 11 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 12 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 13 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 14 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+earlyslip seed 15 openPunches=1 slipPunches=2 openHead=1 slipHead=0 onePunch=False
+earlyslip seed 16 openPunches=1 slipPunches=1 openHead=1 slipHead=0 onePunch=True
+TestContext Messages:
+deeplimp seed 1 limpSamples=0 wentLimp=False lowestLimp=1.00 lowestKo=0.17 flat=True
+deeplimp seed 2 limpSamples=0 wentLimp=False lowestLimp=1.00 lowestKo=0.37 flat=False
+deeplimp seed 3 limpSamples=659 wentLimp=True lowestLimp=0.24 lowestKo=0.24 flat=True
+deeplimp seed 4 limpSamples=0 wentLimp=False lowestLimp=1.00 lowestKo=0.15 flat=True
+deeplimp seed 5 limpSamples=0 wentLimp=False lowestLimp=1.00 lowestKo=0.16 flat=True
+deeplimp seed 6 limpSamples=8 wentLimp=True lowestLimp=0.49 lowestKo=0.22 flat=True
+deeplimp seed 7 limpSamples=0 wentLimp=False lowestLimp=1.00 lowestKo=0.15 flat=True
+deeplimp seed 8 limpSamples=208 wentLimp=True lowestLimp=0.34 lowestKo=0.34 flat=False
+deeplimp seed 9 limpSamples=746 wentLimp=True lowestLimp=0.21 lowestKo=0.21 flat=True
+deeplimp seed 10 limpSamples=1239 wentLimp=True lowestLimp=0.23 lowestKo=0.23 flat=True
+deeplimp seed 11 limpSamples=1239 wentLimp=True lowestLimp=0.22 lowestKo=0.22 flat=True
+deeplimp seed 12 limpSamples=0 wentLimp=False lowestLimp=1.00 lowestKo=0.16 flat=True
+TestContext Messages:
+hips seed 1 quick=152 quickWeak=179 pass=False
+hips seed 2 quick=152 quickWeak=179 pass=False
+hips seed 3 quick=152 quickWeak=179 pass=False
+hips seed 4 quick=152 quickWeak=179 pass=False
+TestContext Messages:
+cornerdown seed 1 counted=True drift=0.508 toward=1.00 closest=0.001 pass=False
+cornerdown seed 2 counted=True drift=0.297 toward=-0.92 closest=0.001 pass=True
+cornerdown seed 3 counted=True drift=0.359 toward=-0.37 closest=0.001 pass=True
+cornerdown seed 4 counted=True drift=0.218 toward=-0.94 closest=0.001 pass=True
+cornerdown seed 5 counted=True drift=0.175 toward=-0.51 closest=0.002 pass=True
+cornerdown seed 6 counted=True drift=0.147 toward=0.19 closest=0.012 pass=True
+cornerdown seed 7 counted=True drift=0.229 toward=0.93 closest=0.000 pass=False
+cornerdown seed 8 counted=True drift=0.113 toward=0.12 closest=0.004 pass=True
+cornerdown seed 9 counted=True drift=0.502 toward=-0.91 closest=1.832 pass=False
+cornerdown seed 10 counted=True drift=0.221 toward=-0.79 closest=0.036 pass=True
+cornerdown seed 11 counted=True drift=0.116 toward=-0.60 closest=0.024 pass=True
+cornerdown seed 12 counted=True drift=0.441 toward=-1.00 closest=0.026 pass=True
+

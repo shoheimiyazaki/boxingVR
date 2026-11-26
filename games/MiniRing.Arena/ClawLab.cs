@@ -9,41 +9,79 @@ namespace MiniRing.Arena;
 internal static class ClawLab
 {
     private const float Dt = 1f / 240f;
-    internal readonly record struct Trial(float Drive, float Windup, string Opponent, Hand Hand, int Aim, int Removed, int Crushed, int Arm, int Neck, int Torso, int Hits, float TipSpeed, float PlaneError, bool Standing, float StaminaUsed = 0f);
-
-    public static int Report(TextWriter log)
+    internal readonly record struct Trial(float Drive, float Windup, string Opponent, Hand Hand, int Aim, int Removed, int Crushed, int Arm, int Neck, int Torso, int Hits, float TipSpeed, float PlaneError, bool Standing,
+        bool HeadSeparated, bool ArmSeparated, bool TorsoSeparated, float StaminaUsed = 0f)
     {
-        float[] times = [0.24f, 0.31f, 0.39f, 0.48f];
-        float[] winds = [0.75f, 1f, 1.25f];
-        var practice = new[] { ("jin", 13, 0.79f), ("marcus", 31, 0.92f) };
-        var validation = new[] { ("ramon", 77, 0.84f), ("albert", 119, 0.99f) };
-        var results = new List<(float Drive, float Windup, Trial[] Trials)>();
-        foreach (var time in times)
-        {
-            foreach (var wind in winds)
-            {
-                var trials = RunSet(practice, time, wind);
-                results.Add((time, wind, trials));
-                Write(log, "practice", time, wind, trials);
-            }
-        }
+        public bool AimSeparated => Aim switch { 0 => HeadSeparated, 1 => ArmSeparated, _ => TorsoSeparated };
+        public int AimRemoved => Aim switch { 0 => Neck, 1 => Arm, _ => Torso };
+    }
 
-        var best = results.OrderByDescending(r => Score(r.Trials)).First();
-        var baseline = RunSet(validation, 0.31f, 1f, moving: true);
-        var selected = RunSet(validation, best.Drive, best.Windup, moving: true);
-        Write(log, "holdout-baseline", 0.31f, 1f, baseline);
-        Write(log, "holdout-selected", best.Drive, best.Windup, selected);
-        // 比べ直しの門（CLAUDE.md §1.8）: 練習に使わなかった相手（動く相手）で、形の代価を引いた点を試行ごとの対で比べる。
-        var result = PairedEvaluation.Compute([.. selected.Select(TrialScore)], [.. baseline.Select(TrialScore)]);
-        log.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"selected {best.Drive:F2} s wind {best.Windup:F2}: holdout score {result.MeanA:F2} vs baseline {result.MeanB:F2} per trial -> {(result.MeanDiff > 0d ? "adopt" : "keep the baseline")} ({result})"));
+    /// <summary>候補: 振りの時間 [s] と溜めの大きさ。</summary>
+    internal readonly record struct Swing(float Drive, float Windup);
+
+    /// <summary>条件: 相手・種・間合い・狙い（手は種と狙いから決まる）。</summary>
+    internal readonly record struct Case(string Opponent, int Seed, float Gap, int Aim)
+    {
+        public Hand Hand => ((Seed / 10 + Aim) & 1) == 0 ? Hand.Left : Hand.Right;
+    }
+
+    /// <summary>今の基準の振り（ClawBot の既定）。</summary>
+    public static readonly Swing Baseline = new(0.31f, 1f);
+
+    /// <summary>練習で試す振りの時間 [s] と溜めの格子。</summary>
+    private static readonly float[] DriveGrid = [0.24f, 0.32f, 0.42f];
+
+    private static readonly float[] WindupGrid = [0.75f, 1.10f];
+
+    /// <summary>
+    /// 鎌の振りの練習（練習の共通の枠 <see cref="PracticeFrame{TCandidate, TCase}"/> の 1 つ目の移し替え）: 振りの時間 × 溜めの格子を練習の相手（止まった jin・marcus）で選び、
+    /// 使わなかった相手（動く ramon・albert）で基準と比べ直す。<paramref name="natural"/> なら点から自然さの代価（<see cref="FormCost.OfNaturalness"/>）も引く（§C7）。
+    /// <paramref name="cards"/> なら基準と選んだ振りの motioncard を media_tmp/motion/ に撮る。
+    /// </summary>
+    public static int Report(TextWriter log, bool natural = false, bool cards = false)
+    {
+        var practice = new[] { ("jin", 13, 0.94f), ("marcus", 31, 1.12f) };
+        var validation = new[] { ("ramon", 77, 0.99f), ("albert", 119, 1.24f) };
+        static Case[] Cases((string Opponent, int Seed, float Gap)[] set) => [.. set.SelectMany(c => Enumerable.Range(0, 3).Select(aim => new Case(c.Opponent, c.Seed, c.Gap, aim)))];
+        Swing[] candidates = [.. DriveGrid.SelectMany(time => WindupGrid.Select(wind => new Swing(time, wind)))];
+        var frame = new PracticeFrame<Swing, Case>
+        {
+            Tool = natural ? "clawlab-natural" : "clawlab",
+            Question = natural ? "Galva claw swing time x windup, score minus form and naturalness cost, held-out moving opponents" : "Galva claw swing time x windup, score minus form cost, held-out moving opponents",
+            Train = Cases(practice),
+            HeldOut = Cases(validation),
+            Score = (s, k, heldOut) => Score(s, k, heldOut, natural),
+            Describe = s => string.Create(CultureInfo.InvariantCulture, $"drive {s.Drive:F2} s wind {s.Windup:F2}"),
+            SeedOf = k => k.Seed * 10 + k.Aim,
+            Card = cards ? (s, name) => CardOf(s, name) : null,
+        };
+        frame.Run(candidates, Baseline, log);
         return 0;
     }
 
-    private static Trial[] RunSet((string Opponent, int Seed, float Gap)[] cases, float drive, float windup, bool moving = false)
+    /// <summary>1 つの条件の点（練習なら止まった相手、held-out なら動く相手）。</summary>
+    internal static double Score(Swing s, Case k, bool heldOut, bool natural)
     {
-        return [.. cases.SelectMany(c => Enumerable.Range(0, 3).Select(aim => Run(c.Opponent, c.Seed, c.Gap, aim,
-            ((c.Seed / 10 + aim) & 1) == 0 ? Hand.Left : Hand.Right, drive, windup, moving)))];
+        var trace = natural ? new MotionTools.MotionTrace("claw", "red", k.Seed, 1f, 1f) : null;
+        var trial = Run(k.Opponent, k.Seed, k.Gap, k.Aim, k.Hand, s.Drive, s.Windup, heldOut, afterStep: trace is null ? null : (game, t) => trace.Record(game, game.Player, t));
+        var score = TrialScore(trial);
+        if (trace is not null && trial.Standing && trace.Frames.Count > 8)
+        {
+            var n = MotionTools.MotionWords.Natural(trace, trace.Frames[0].Time, trace.Frames[^1].Time, k.Hand == Hand.Left ? "tipL" : "tip");
+            score -= FormCost.OfNaturalness(n.ChainOrder, n.Jerk);
+        }
+
+        return score;
+    }
+
+    private static void CardOf(Swing s, string name)
+    {
+        var k = new Case("ramon", 77, 0.99f, 0);
+        var trace = new MotionTools.MotionTrace(string.Create(CultureInfo.InvariantCulture, $"claw galva drive {s.Drive:F2} wind {s.Windup:F2} vs ramon (held-out)"), "red", k.Seed, 1f, 1f);
+        Run(k.Opponent, k.Seed, k.Gap, k.Aim, k.Hand, s.Drive, s.Windup, moving: true, afterStep: (game, t) => trace.Record(game, game.Player, t));
+        var path = Path.Combine("media_tmp", "motion", name + ".motion.json");
+        trace.Save(path, MotionTools.MotionAudit.Run(trace), MotionTools.MotionWords.Captions(trace), new Dictionary<string, string> { ["command"] = "clawlab --cards" });
+        MotionTools.MotionCommand.Card(path, 0);
     }
 
     /// <summary>
@@ -51,25 +89,9 @@ internal static class ClawLab
     /// − <see cref="FormCost.Of"/>（刃が狙った切断面から外れた距離を「追えなかった距離」、使ったスタミナ）。それまでは削ったセルだけで、面から 20 cm 外れて叩きつける
     /// 短い振り抜きが選ばれた。
     /// </summary>
-    private static double Score(Trial[] trials) => trials.Sum(TrialScore);
-
     private static double TrialScore(Trial t) => !t.Standing ? 0d : (t.Removed / 60d) - FormCost.Of(0d, 100d * t.PlaneError, 0d, t.StaminaUsed);
 
-    private static void Write(TextWriter log, string set, float drive, float wind, Trial[] trials)
-    {
-        log.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"{set,-17} {drive:F2} s  wind {wind:F2}  score {Score(trials),6:F2}  stamina {trials.Average(t => t.StaminaUsed):F3}  removed {trials.Sum(t => t.Removed),5}  cuts {trials.Count(t => t.Removed > 0)}/{trials.Length}  crush {trials.Sum(t => t.Crushed),4}  hits {trials.Sum(t => t.Hits),3}  tip {trials.Average(t => t.TipSpeed):F2} m/s  plane {100f * trials.Average(t => t.PlaneError):F1} cm  standing {trials.Count(t => t.Standing)}/{trials.Length}"));
-        if (set.StartsWith("holdout", StringComparison.Ordinal))
-        {
-            foreach (var t in trials)
-            {
-                log.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                    $"  {t.Opponent,-8} {t.Hand,-5} aim {t.Aim} removed {t.Removed,4} (arm {t.Arm}, neck {t.Neck}, torso {t.Torso}) hits {t.Hits,2} tip {t.TipSpeed:F2} m/s"));
-            }
-        }
-    }
-
-    internal static Trial Run(string opponent, int seed, float gap, int aim, Hand hand, float drive, float windup, bool moving = false, bool sweep = true)
+    internal static Trial Run(string opponent, int seed, float gap, int aim, Hand hand, float drive, float windup, bool moving = false, bool sweep = true, Action<BoxingGame, float>? afterStep = null, FighterTuning? tuning = null, TextWriter? trace = null)
     {
         var creature = CharacterRoster.Get("galva");
         var target = CharacterRoster.Get(opponent);
@@ -79,7 +101,7 @@ internal static class ClawLab
             CpuBody = target.Build, CpuWear = HandWear.Glove, CpuLook = target.Look, CpuFaceSpec = target.Face,
             ExternalBlue = true, Referee = false, Ring = RingLayout.Boxing with { StartGap = gap, FromCorners = false },
         };
-        using var game = new BoxingGame(seed: seed, corners: corners);
+        using var game = new BoxingGame(tuning, seed: seed, corners: corners);
         var f = game.Player;
         var other = game.Cpu;
         var left = ClawStroke.Guard(Hand.Left, f.ArmReach).ToCommand(Hand.Left);
@@ -153,9 +175,22 @@ internal static class ClawLab
                 }
             }
             hits += game.RecentHits.Count(h => h.Attacker == f && h.Hand == hand && !h.Kick);
+            if (trace is not null && i % 24 == 0)
+            {
+                var chest = f.ChestPosition;
+                var flat = other.ChestPosition - chest;
+                var apart = MathF.Sqrt((flat.X * flat.X) + (flat.Z * flat.Z));
+                trace.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                    $"  t={time:0.00} state={f.State} chestY={chest.Y:0.00} pelvisY={game.World.GetState(f.Parts.Pelvis).Position.Y:0.00} support={f.SupportedMass:0} removed={removed} clawSpeed={state.LinearVelocity.Length():0.0} gap={apart:0.00} pelvisSpin={game.World.GetState(f.Parts.Pelvis).AngularVelocity.Length():0.0} upright={f.Uprightness:0.00} chestUp={Vector3.Transform(Vector3.UnitY, game.World.GetState(f.Parts.Chest).Orientation):0.00} pelvisUp={Vector3.Transform(Vector3.UnitY, game.World.GetState(f.Parts.Pelvis).Orientation):0.00} cause={f.LastFallCause}"));
+            }
+            afterStep?.Invoke(game, time);
         }
 
+        bool Separated(int id) => other.IsDetachedPart(id) && !other.HangsByFlesh(id);
+        var headSeparated = Separated(other.Parts.Head);
+        var armSeparated = Separated(other.Parts.LeftForearm) || Separated(other.Parts.RightForearm);
+        var torsoSeparated = Separated(other.Parts.Pelvis);
         return new Trial(drive, windup, opponent, hand, aim, removed, crushed, arms, neck, torso, hits, peak, planeError / Math.Max(1, trackingSamples), f.State == FighterState.Standing,
-            staminaStart - f.Stamina);
+            headSeparated, armSeparated, torsoSeparated, staminaStart - f.Stamina);
     }
 }

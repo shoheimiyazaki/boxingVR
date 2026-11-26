@@ -151,8 +151,39 @@ public sealed class VoxelDamageTests
         Assert.IsLessThan(0.3f, Math.Abs(straight.Average(c => c.Velocity.X)), "a straight blow sweeps no way in particular");
     }
 
+    /// <summary>
+    /// 削れたセルは、面で接した同じ組織どうしの塊で剥がれる（<see cref="VoxelClumps"/>、2026-11-25「なるべく塊で」）。一様な肉のくぼみは 1 つの塊、
+    /// 骨の層をまたぐくぼみは肉の塊と骨の塊に分かれる（組織の境で切れる）。どのセルも 1 度だけ飛ぶ。
+    /// </summary>
     [TestMethod]
-    public void AHeavyBlow_TearsOffChunksWhole_WithTheirTornFacesMarked_AndTheRestCrumbles()
+    public void ACarve_LeavesInClumpsOfOneTissue_SplitWhereTheTissueChanges()
+    {
+        (List<VoxelChip> Chips, List<VoxelChunk> Chunks, int Carved) Hit(float energy, Func<Vector3, Vector3, byte> fill)
+        {
+            using var world = new PhysicsWorld(gravity: Vector3.Zero);
+            var id = world.AddDynamicBox(Vector3.Zero, new Vector3(0.05f), 2f);
+            var body = new VoxelBody(world, id, new VoxelGrid(Palette, new Vector3(0.05f), (10, 10, 10), fill));
+            var random = new Random(4);
+            var chips = new List<VoxelChip>();
+            var chunks = new List<VoxelChunk>();
+            var carved = body.Impact(new Vector3(0f, 0.08f, 0f), -Vector3.UnitY, energy, chipSpeed: 2f, () => (2f * random.NextSingle()) - 1f, chips, chunks: chunks);
+            return (chips, chunks, carved);
+        }
+
+        var flesh = Hit(120f, (_, _) => Flesh);
+        Assert.AreEqual(flesh.Carved, flesh.Chips.Count + flesh.Chunks.Sum(c => c.Cells.Count), "every carved cell leaves once");
+        Assert.HasCount(1, flesh.Chunks, "one crater of flesh is one clump");
+        Assert.IsGreaterThan(0.8f * flesh.Carved, flesh.Chunks[0].Cells.Count, "most of it whole");
+
+        // 上から 3 層目より下が骨: くぼみが骨まで届くと、肉の塊と骨の塊は別々に剥がれる。
+        var layered = Hit(400f, (_, n) => n.Y < 0.4f ? Bone : Flesh);
+        Assert.AreEqual(layered.Carved, layered.Chips.Count + layered.Chunks.Sum(c => c.Cells.Count));
+        Assert.IsTrue(layered.Chunks.Any(c => c.Cells.All(x => x.Material == Bone)) || layered.Chips.Any(c => c.Material == Bone), "the blow reached the bone");
+        Assert.IsTrue(layered.Chunks.All(c => c.Cells.All(x => x.Material == c.Cells[0].Material)), "no clump mixes flesh and bone");
+    }
+
+    [TestMethod]
+    public void AHeavyBlow_TearsOffChunksWhole_WithTheirTornFacesMarked()
     {
         (List<VoxelChip> Chips, List<VoxelChunk> Chunks, int Carved) Hit(float energy)
         {
@@ -167,17 +198,12 @@ public sealed class VoxelDamageTests
             return (chips, chunks, carved);
         }
 
-        var light = Hit(4f);
-        Assert.IsLessThan(VoxelBody.MinCellsForChunks, light.Carved);
-        Assert.IsEmpty(light.Chunks, "a light blow only crumbles");
-
         var heavy = Hit(120f);
-        Assert.IsTrue(heavy.Chunks.Count is >= 1 and <= 3, $"one to a few chunks ({heavy.Chunks.Count})");
-        Assert.IsNotEmpty(heavy.Chips, "and fine chips besides");
+        Assert.IsNotEmpty(heavy.Chunks);
         Assert.AreEqual(heavy.Carved, heavy.Chips.Count + heavy.Chunks.Sum(c => c.Cells.Count), "every carved cell leaves once");
         foreach (var chunk in heavy.Chunks)
         {
-            Assert.IsGreaterThanOrEqualTo(3, chunk.Cells.Count);
+            Assert.IsGreaterThanOrEqualTo(2, chunk.Cells.Count);
             // 1 つにつながった塊（隣り合う面でたどれる）。
             var cells = chunk.Cells.Select(c => Vector3.Round(c.Offset / 0.01f * 2f)).ToList();
             var reached = new HashSet<Vector3> { cells[0] };
@@ -463,7 +489,9 @@ public sealed class VoxelDamageTests
     [TestMethod]
     public void BlowsToTheForearm_CutItOff_AndTheGloveFallsWithIt()
     {
-        using var game = new BoxingGame(seed: 2);
+        // 2 人とも打たない（構えて立つだけ）: 確かめるのは台本で打った左の前腕が切れることで、ボットどうしの打ち合いではない（2026-11-26 まで既定のボットが
+        // 打ち合っていて、足の運びを変えた版では最後の 1.7 秒の打ち合いで右の前腕まで切れた: docs/arena/foot_snag.md）。
+        using var game = new BoxingGame(seed: 2, corners: new BoxingCorners("still", _ => new StandGuard(), _ => new StandGuard()));
         var cpu = game.Cpu;
         var forearm = cpu.ForearmId(Hand.Left);
         StrikeUntil(game, cpu, forearm, () => cpu.ArmSevered(Hand.Left), damage: 20f);
@@ -773,17 +801,25 @@ public sealed class VoxelDamageTests
     public void TheCpusPunches_AreHeardAsSwings_OncePerPunch()
     {
         // 音の発火回数を測る。疲労による攻撃停止は別の回帰テストで検証する。
-        using var game = new BoxingGame(FighterTuning.Default with { OxygenStorePerKg = 304_225f }, seed: 4);
-        var swings = new List<SwingEvent>();
-        for (var i = 0; i < 2014; i++)
+        // 2026-11-26（PhysicsVersion 103）: 1 つの試合の振りの数は、相手（入力なし）が早く倒れると少ない（種 1〜6 で 4〜46 回。前のつま先でも 5〜29 回。
+        // ToeRegressionProbe.CpuSwings）。種 4 の 1 試合で「6 回以上」を見ていたのを、6 つの種の合計で見る。1 試合あたりの上限（1 振り 1 回）は種ごとに見る。
+        var total = 0;
+        foreach (var seed in new[] { 1, 2, 3, 4, 5, 6 })
         {
-            game.Step(default, 1f / 60f);
-            swings.AddRange(game.RecentSwings);
+            using var game = new BoxingGame(FighterTuning.Default with { OxygenStorePerKg = 304_225f }, seed: seed);
+            var swings = new List<SwingEvent>();
+            for (var i = 0; i < 2014; i++)
+            {
+                game.Step(default, 1f / 60f);
+                swings.AddRange(game.RecentSwings);
+            }
+
+            Assert.IsLessThan(80, swings.Count, $"one whoosh per punch, not one per frame (seed {seed})");
+            Assert.IsTrue(swings.All(s => s.Speed >= SwingSound.MinSpeed));
+            total += swings.Count;
         }
 
-        Assert.IsGreaterThan(5, swings.Count, "the CPU threw punches");
-        Assert.IsLessThan(80, swings.Count, "one whoosh per punch, not one per frame");
-        Assert.IsTrue(swings.All(s => s.Speed >= SwingSound.MinSpeed));
+        Assert.IsGreaterThan(30, total, "the CPU threw punches");
     }
 
     [TestMethod]

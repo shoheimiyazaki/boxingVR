@@ -88,6 +88,9 @@ public sealed class VoxelVolume
             _lastChange = new(minX, minY, minZ, maxX - minX + 1, maxY - minY + 1, maxZ - minZ + 1);
             Revision++;
         }
+
+        _snapshot = null; // the texels no longer follow a grid: the next Sync rewrites them all
+        _source = null;
     }
 
     private int _colorKey;
@@ -131,38 +134,78 @@ public sealed class VoxelVolume
             return;
         }
 
+        // The same grid and colouring: only the cells whose material, surface flag or stain changed need new texels (a blow
+        // changes a few cells of a part; rewriting the whole part every frame it is hit was most of the frame's CPU in a six-way fight).
+        var incremental = _snapshot is not null && ReferenceEquals(grid, _source) && colorKey == _colorKey;
         _source = grid;
         _sourceVersion = grid.Version;
         _colorKey = colorKey;
+        var snapshot = _snapshot ??= new Snapshot(CellCount);
+        var (minX, minY, minZ, maxX, maxY, maxZ) = (Width, Height, Depth, -1, -1, -1);
+        var cell = 0;
         for (var z = 0; z < Depth; z++)
         {
             for (var y = 0; y < Height; y++)
             {
-                for (var x = 0; x < Width; x++)
+                for (var x = 0; x < Width; x++, cell++)
                 {
-                    var t = 4 * (x + (Width * (y + (Height * z))));
                     var m = grid.At(x, y, z);
-                    if (m == 0)
+                    var surface = m != 0 && grid.IsOriginalSurface(x, y, z);
+                    var stain = m == 0 ? 0f : grid.Stain(x, y, z);
+                    if (incremental && snapshot.Material[cell] == m && snapshot.Surface[cell] == surface && snapshot.Stain[cell].Equals(stain))
                     {
-                        Rgba[t] = Rgba[t + 1] = Rgba[t + 2] = Rgba[t + 3] = 0;
                         continue;
                     }
 
-                    var material = grid.Palette[m];
-                    var color = grid.IsOriginalSurface(x, y, z) ? material.SurfaceColor : material.Color;
-                    color = recolor?.Invoke(m, color, x, y, z) ?? color;
-                    color = Vector4.Lerp(color, StainColor, 0.85f * material.Stainable * grid.Stain(x, y, z));
-                    Rgba[t] = ToByte(color.X);
-                    Rgba[t + 1] = ToByte(color.Y);
-                    Rgba[t + 2] = ToByte(color.Z);
-                    // Alpha: 255 for an ordinary filled cell; a recolour may ask for a bright surface (an eye white) with W in [0.5, 1).
-                    Rgba[t + 3] = color.W is >= 0.5f and < 0.999f ? ToByte(color.W) : (byte)255;
+                    snapshot.Material[cell] = m;
+                    snapshot.Surface[cell] = surface;
+                    snapshot.Stain[cell] = stain;
+                    WriteTexel(4 * cell, grid, m, surface, stain, recolor, x, y, z);
+                    (minX, minY, minZ) = (Math.Min(minX, x), Math.Min(minY, y), Math.Min(minZ, z));
+                    (maxX, maxY, maxZ) = (Math.Max(maxX, x), Math.Max(maxY, y), Math.Max(maxZ, z));
                 }
             }
         }
 
-        _lastChange = new(0, 0, 0, Width, Height, Depth);
-        Revision++;
+        if (!incremental)
+        {
+            _lastChange = new(0, 0, 0, Width, Height, Depth);
+            Revision++;
+        }
+        else if (maxX >= 0)
+        {
+            _lastChange = new(minX, minY, minZ, maxX - minX + 1, maxY - minY + 1, maxZ - minZ + 1);
+            Revision++;
+        }
+    }
+
+    /// <summary>What each texel was last written from (for <see cref="Sync(VoxelGrid, int, VoxelRecolor?)"/> to rewrite only changed cells).</summary>
+    private sealed class Snapshot(int cells)
+    {
+        public readonly byte[] Material = new byte[cells];
+        public readonly bool[] Surface = new bool[cells];
+        public readonly float[] Stain = new float[cells];
+    }
+
+    private Snapshot? _snapshot;
+
+    private void WriteTexel(int t, VoxelGrid grid, byte m, bool surface, float stain, VoxelRecolor? recolor, int x, int y, int z)
+    {
+        if (m == 0)
+        {
+            Rgba[t] = Rgba[t + 1] = Rgba[t + 2] = Rgba[t + 3] = 0;
+            return;
+        }
+
+        var material = grid.Palette[m];
+        var color = surface ? material.SurfaceColor : material.Color;
+        color = recolor?.Invoke(m, color, x, y, z) ?? color;
+        color = Vector4.Lerp(color, StainColor, 0.85f * material.Stainable * stain);
+        Rgba[t] = ToByte(color.X);
+        Rgba[t + 1] = ToByte(color.Y);
+        Rgba[t + 2] = ToByte(color.Z);
+        // Alpha: 255 for an ordinary filled cell; a recolour may ask for a bright surface (an eye white) with W in [0.5, 1).
+        Rgba[t + 3] = color.W is >= 0.5f and < 0.999f ? ToByte(color.W) : (byte)255;
     }
 
     /// <summary>

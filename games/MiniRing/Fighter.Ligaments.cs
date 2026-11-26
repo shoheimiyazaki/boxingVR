@@ -23,7 +23,7 @@ public sealed partial class Fighter
     public float ElbowLockTorque(Hand hand) => _elbowTorque[(int)hand];
 
     /// <summary>肘の靭帯の降伏の力 [N·m]（この体の。基準体格の値 × 体格の比 H³: 靭帯の断面 H² × てこの長さ H）。</summary>
-    public float ElbowLigamentYield => _tuning.ElbowLigamentYield * _tuning.TorqueScale * MathF.Pow(_tuning.Build.Height, 3f);
+    public float ElbowLigamentYield => _tuning.ElbowLigamentYield * _tuning.PassiveTorqueScale * MathF.Pow(_tuning.Build.Height, 3f);
 
     /// <summary>物理の歩の後に、両肘の過伸展の荷重を読み、靭帯を伸ばす。</summary>
     internal void StrainLigaments(float dt)
@@ -35,7 +35,7 @@ public sealed partial class Fighter
         }
 
         var yield = ElbowLigamentYield;
-        var viscosity = _tuning.LigamentViscosity * _tuning.TorqueScale * MathF.Pow(_tuning.Build.Height, 3f);
+        var viscosity = _tuning.LigamentViscosity * _tuning.PassiveTorqueScale * MathF.Pow(_tuning.Build.Height, 3f);
         foreach (var arm in _arms)
         {
             var i = (int)arm.Hand;
