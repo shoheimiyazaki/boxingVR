@@ -98,12 +98,18 @@ public sealed class MenuPagesVisualTests
         if (Directory.Exists(campaign)) { Directory.Delete(campaign, recursive: true); }
         using var menu = new MatchMenu(replays, settings, loadPortraits: true, campaignDirectory: campaign);
         menu.Portraits.Complete();
+        menu.Previews.Synchronous = true; // 見込みの全身の絵（作る・減量）をその場で作る
         Assert.AreEqual(menu.State.Roster.Count, menu.Portraits.ReadyCount, "every character has a portrait");
         using var renderer = new HeadlessRenderer(Width, Height);
 
         // 最初の画面（カーソルはキャンペーン）。
         menu.Handle(Move(x: 1));
         Render(renderer, menu, "menu_01_top.png");
+        menu.Handle(new MenuInput(Pointer: MenuLayout.TopButtonCenter((int)TopItem.Replays))); // マウスで指す（ホバー）
+        Render(renderer, menu, "menu_01b_top_hover.png");
+        menu.Handle(Move(y: -1));
+        menu.Handle(Move(x: 1));
+        Assert.AreEqual((int)TopItem.Campaign, menu.State.TopIndex);
 
         // 設定（レフェリーなしに切り替えた後）。
         menu.Handle(Move(y: 1)); // 設定（2 行目の右）
@@ -134,6 +140,8 @@ public sealed class MenuPagesVisualTests
         menu.Handle(new MenuInput(Confirm: true));
         Assert.AreEqual(MenuPage.Select, menu.State.Page);
         Render(renderer, menu, "menu_06_select_practice_top.png");
+        menu.Handle(new MenuInput(Pointer: MouseLayout.CornerBackCenter)); // 隅の戻るを指す
+        Render(renderer, menu, "menu_06b_select_back_hover.png");
         for (var i = 0; i < 4; i++) { menu.Handle(Move(y: 1)); }
         Render(renderer, menu, "menu_07_select_practice_scrolled.png");
         menu.Handle(new MenuInput(Confirm: true));
@@ -192,12 +200,28 @@ public sealed class MenuPagesVisualTests
         menu.Handle(Move(y: 1));
         menu.Handle(Move(x: 4)); // 身長 +4 cm
         Render(renderer, menu, "menu_16_campaign_create.png");
+        menu.Handle(new MenuInput(Pointer: MouseLayout.CreateArrow(0, 1), Click: true, Held: true)); // マウス: 体型の ▶ を押して指したまま
+        Render(renderer, menu, "menu_16b_campaign_create_mouse.png");
+        menu.Handle(new MenuInput());
+        menu.Handle(Move(y: 1)); // 身長の行へ戻す（後のキーボードの手順と同じ位置）
         menu.Handle(Move(y: 2));
         menu.Handle(new MenuInput(Confirm: true)); // 作る
         Assert.AreEqual(MenuPage.Boxer, menu.State.Page);
         var now = 0.0;
         menu.Clock = () => now; // 札の動きは決めた時刻で撮る（見せ始めから 5 秒: 動き終わった絵）
         Render(renderer, menu, "menu_17_campaign_home.png");
+
+        // マウスだけで: 団体と大会 → VFC → 武器を選べる段を次の試合に → 札の ▶ を指す（武器の ◀ ▶）。
+        menu.Handle(new MenuInput(Pointer: CampaignLayout.HomeCenter(MenuState.HomeOrgs), Click: true));
+        menu.Handle(new MenuInput(Pointer: CampaignLayout.OrgCenter(CampaignPlan.Orgs.ToList().FindIndex(o => o.Id == "vfc")), Click: true));
+        Assert.AreEqual(MenuPage.Path, menu.State.Page);
+        var armed = menu.State.PathStops.ToList().FindIndex(s => s.Open && s.Entry is { Weapons.Count: > 1 });
+        Assert.IsGreaterThanOrEqualTo(0, armed, "VFC lets a new boxer choose a weapon");
+        menu.Handle(new MenuInput(Pointer: CampaignLayout.NodeCenter(armed), Click: true));
+        Assert.IsTrue(menu.State.WeaponChoosable);
+        menu.Handle(new MenuInput(Pointer: MouseLayout.WeaponArrow(1), Click: true));
+        Render(renderer, menu, "menu_17b_campaign_home_weapon_mouse.png");
+        menu.State.OpenBoxer(menu.State.Boxer!.Id); // 次の試合を自動へ戻す（後の手順はキーボードで同じ位置から）
         menu.Handle(Move(y: 1));
         menu.Handle(new MenuInput(Confirm: true));
         Assert.AreEqual(MenuPage.Orgs, menu.State.Page);
@@ -208,6 +232,12 @@ public sealed class MenuPagesVisualTests
         Assert.AreEqual(MenuPage.Weight, menu.State.Page);
         menu.Handle(Move(x: -9));
         Render(renderer, menu, "menu_19_campaign_weight_cut.png");
+        // マウス: スライダーを右へドラッグ（増量）して放し、+5 kg を指す。
+        menu.Handle(new MenuInput(Pointer: new Vector2(CampaignLayout.SliderLeft, CampaignLayout.SliderY), Click: true, Held: true));
+        var (lo, hi) = menu.State.Boxer!.WeightRange;
+        menu.Handle(new MenuInput(Pointer: new Vector2(CampaignLayout.SliderX(menu.State.Boxer!.WeightKg + 12, lo, hi), CampaignLayout.SliderY), Held: true));
+        menu.Handle(new MenuInput(Pointer: CampaignLayout.StepCenter(3)));
+        Render(renderer, menu, "menu_19b_campaign_weight_gain_mouse.png");
         menu.Handle(new MenuInput(Cancel: true));
 
         // 戦績のあるボクサー（IVF の自分の階級で 3 勝・5 位）: 道の開いた所と閉じた所が混ざる。

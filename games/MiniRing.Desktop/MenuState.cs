@@ -23,10 +23,13 @@ internal enum MenuCue { None, Move, Confirm }
 /// メニューへの入力（<c>InputSnapshot</c> に依らない最小の形）。上下左右は 1 回の押し下げを −1 / 0 / +1（右・下が +）。
 /// <paramref name="Pointer"/> は指している位置（設計の画面 640 × 464 の座標。動いていない・指していなければ null）。
 /// <paramref name="Scroll"/> は一覧の送り（+ が下）。2 つ目のパッド（<paramref name="X2"/> 以降）は、対戦のキャラ選択で青を同時に動かす。
+/// <paramref name="Held"/> は左ボタンを押している間（ドラッグ・押しっぱなしの連続。押している間は <paramref name="Pointer"/> が毎回入る）、
+/// <paramref name="Dt"/> は前の入力からの時間 [s]（押しっぱなしの連続の時計。メニューだけで、試合の計算には入らない）。
 /// </summary>
 internal readonly record struct MenuInput(int X = 0, int Y = 0, bool Confirm = false, bool Cancel = false,
     Vector2? Pointer = null, bool Click = false, int Scroll = 0,
-    bool HasSecondPad = false, int X2 = 0, int Y2 = 0, bool Confirm2 = false, bool Cancel2 = false);
+    bool HasSecondPad = false, int X2 = 0, int Y2 = 0, bool Confirm2 = false, bool Cancel2 = false,
+    bool Held = false, float Dt = 0f);
 
 /// <summary>1 回の入力の結果。</summary>
 /// <paramref name="Notice"/> は画面の下に出す知らせ（大会に出られない人を選んだ・階級が違う など）。
@@ -179,7 +182,15 @@ internal sealed partial class MenuState
         BlueLocked = false;
     }
 
-    public MenuOutcome Apply(MenuInput input) => Page switch
+    public MenuOutcome Apply(MenuInput input)
+    {
+        Track(input);
+        var outcome = ApplyPage(input);
+        Release(input);
+        return outcome;
+    }
+
+    private MenuOutcome ApplyPage(MenuInput input) => Page switch
     {
         MenuPage.Top => ApplyTop(input),
         MenuPage.Settings => ApplySettings(input),
@@ -309,6 +320,20 @@ internal sealed partial class MenuState
             return new(Cue: MenuCue.Confirm);
         }
 
+        // 「あり」「なし」を直に押す（行を押すと切り替え）。
+        if (input is { Click: true, Pointer: { } option })
+        {
+            for (var o = 0; o < 2; o++)
+            {
+                if (!MouseLayout.Inside(option, MouseLayout.RefereeOption(o), MouseLayout.OptionSize)) { continue; }
+                SettingsIndex = 0;
+                var referee = o == 0;
+                if (Settings.Referee == referee) { return new(Cue: MenuCue.Move); }
+                Settings = Settings with { Referee = referee };
+                return new(Cue: MenuCue.Confirm, SettingsChanged: true);
+            }
+        }
+
         var old = SettingsIndex;
         var confirm = input.Confirm;
         if (input.Pointer is { } point && MenuLayout.HitCenters(point, SettingsRows, MenuLayout.SettingsRowCenter, MenuLayout.SettingsRowSize) is { } hit)
@@ -345,6 +370,7 @@ internal sealed partial class MenuState
             return new(Cue: MenuCue.Confirm);
         }
 
+        input = Arrows(input, MouseLayout.ModeArrow, "mode");
         var (oldRow, oldRules) = (ModeIndex, PracticeRules);
         var confirm = input.Confirm;
         if (input.Pointer is { } point && MenuLayout.HitCenters(point, ModeRows, MenuLayout.ModeRowCenter, MenuLayout.ModeRowSize) is { } hit)
@@ -388,6 +414,7 @@ internal sealed partial class MenuState
 
     private MenuOutcome ApplySelect(MenuInput input)
     {
+        input = CornerBack(input);
         if (input.Cancel)
         {
             if (BlueLocked && !(Mode == MatchMode.Versus && input.HasSecondPad))
@@ -514,6 +541,7 @@ internal sealed partial class MenuState
 
     private MenuOutcome ApplyReplays(MenuInput input)
     {
+        input = CornerBack(input);
         if (input.Cancel)
         {
             Page = MenuPage.Top;
