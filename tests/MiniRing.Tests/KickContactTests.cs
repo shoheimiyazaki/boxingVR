@@ -135,7 +135,7 @@ public sealed class KickContactTests
             Console.WriteLine($"{kind}: parts [{string.Join(',', results[kind].Parts)}], body turned {results[kind].MaxYawDeviation:F2} rad");
         }
 
-        // 2026-11-26（PhysicsVersion 106、つま先の蝶番を固くした）: 前は当たった部位がすべて すね・つま先・足 であることを見ていた。固いつま先では、すねが当たった後に
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした）: 前は当たった部位がすべて すね・つま先・足 であることを見ていた。固いつま先では、すねが当たった後に
         // 振り抜いた腿も相手に触れることがある（止まる位置を −2〜3 cm 替えた 6 つのうち 4 つ。すね 128〜136 J の後に腿 87〜100 J。前のつま先では すね だけ 117〜155 J。
         // ToeRegressionProbe.KickDistance）。蹴りの本命（いちばん強い当たり）が すね・つま先・足 であることを見る。
         Assert.IsTrue(results[KickTechnique.Roundhouse].MainPart is KickPart.Shin or KickPart.Toe or KickPart.Foot, $"a roundhouse lands mainly with the shin or the foot ({results[KickTechnique.Roundhouse].MainPart})");

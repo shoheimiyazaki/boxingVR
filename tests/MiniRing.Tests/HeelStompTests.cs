@@ -144,7 +144,7 @@ public sealed class HeelStompTests
 
         Assert.IsTrue(heel.All(r => r.Seconds > 0f), "the heel barrage starts on the downed opponent");
         Assert.IsGreaterThan(sole.Sum(r => r.FootHits), heel.Sum(r => r.FootHits), "more foot strikes land in the same time");
-        // 2026-11-26（PhysicsVersion 106、つま先の蝶番を固くした）: 前は「頭・首に当たる数も足の裏の踏みつけより多い」を見ていた（種 1〜6 で踵 17 対 足の裏 7）。
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした）: 前は「頭・首に当たる数も足の裏の踏みつけより多い」を見ていた（種 1〜6 で踵 17 対 足の裏 7）。
         // つま先が母指球で外れなくなると、足の裏の踏みつけは足が 1 枚の板として床と相手に当たり、当たる数が倍（種 1〜6 で 23 → 49）、頭・首にも 7 → 22 当たる
         // （ToeRegressionProbe.HeelStomp）。前の差は、つま先が折れて足の裏が逃げていた分だった。踵の連打の利点は、当たる数と速さ（下の 2 つ）で見て、頭・首へは
         // 3 回の練習の合計で練習の数以上（平均で 1 回の練習に 1 回以上）届くことを見る。
@@ -214,7 +214,7 @@ public sealed class HeelStompTests
     [TestMethod]
     public void HeelBarrage_SwitchesToTheOtherFoot_WhenTheStompingLegTires_AndKeepsBalance()
     {
-        // 2026-11-26（PhysicsVersion 106）: 替えた後は、疲れた脚（蓄え 3 割）が軸足になる。その脚が持たずに転ぶことがある（種 1〜6 で、前のつま先では
+        // 2026-11-26（PhysicsVersion 103）: 替えた後は、疲れた脚（蓄え 3 割）が軸足になる。その脚が持たずに転ぶことがある（種 1〜6 で、前のつま先では
         // 種 2・5、固いつま先では種 1・5 の 2 つ。どちらも替えて 0.4〜1.1 秒後。ToeRegressionProbe.HeelSwitch）。種 1 の 1 試合で「転ばない」を見ていたのを、
         // 種 1〜6 で: 連打が始まった試合はすべて足を替えて新しい足で当て、転ばない試合が多数であることを見る。
         var started = 0;

@@ -6,6 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\MiniRing\MiniRing.csproj" />
+    <!-- 団体（WVC・VFC・IVF）のファイルの読み込み・出場の条件・試合の決まりは Arena の 1 か所（Organization・OrgBouts・TvShowRules）を使う。 -->
+    <ProjectReference Include="..\MiniRing.Arena\MiniRing.Arena.csproj" />
     <ProjectReference Include="..\..\src\Aigis.Platform\Aigis.Platform.csproj" />
     <ProjectReference Include="..\..\src\Aigis.Player\Aigis.Player.csproj" />
   </ItemGroup>

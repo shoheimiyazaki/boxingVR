@@ -101,7 +101,7 @@ public sealed class SwordTests
     [TestMethod]
     public void TheSwordBot_PicksTechniquesByRange_AndCutsTheOpponent()
     {
-        // 2026-11-26（PhysicsVersion 106）: 最初の 1 振りで相手が倒れると、ボットは構えて待つので斬った量は 0〜24 セル（種 2: 前のつま先で 2、固いつま先で 0）。
+        // 2026-11-26（PhysicsVersion 103）: 最初の 1 振りで相手が倒れると、ボットは構えて待つので斬った量は 0〜24 セル（種 2: 前のつま先で 2、固いつま先で 0）。
         // 種 2 の 1 試合で「斬った」を見ていたのを、種 1〜6 の多数で見る（どちらのつま先でも 6 つのうち 5 つで斬った。ToeRegressionProbe.SwordBotFirstCut）。
         var cut = 0;
         foreach (var seed in new[] { 1, 2, 3, 4, 5, 6 })

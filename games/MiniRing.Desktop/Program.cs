@@ -29,6 +29,7 @@ if (args.Contains("--control") && Option("--control") is not ("classic" or "inte
 //   --dynamic-punch         脚の踏み込みを拳に乗せる分割胴の試合設定
 //   --no-facecam            画面の両脇の顔の窓を出さない（窓の分の描画が要らない）
 //   --speed <0.5|0.75|1>    最初の速さ（既定 0.75 倍）。遊んでいる間・再生中も 1 / 2 / 3 キーで 0.5 / 0.75 / 1.0 倍に切り替わる
+//   --menu-script <語,...>  メニューを決めた順に操作する（left/right/up/down/enter/back/wait/scroll-up/scroll-down。0.5 秒に 1 つ。画面の確かめ用）
 //   --wear <glove|none|knuckles|katar|gauntlet>  両コーナーが手にはめる物（既定 glove。--quick のときだけ。メニューからの試合は、はめる物・武器をキャラクターが決める）
 
 if (!HitSoundOption.TryParse(args, out var hitSounds, out var hitError))
@@ -69,19 +70,23 @@ profiler.Mark("process start");
 // 自分のファイターの真後ろ・少し上（リング手前に立って見下ろす大人の目線）から見る。
 var camera = new OrbitCamera(initialDistance: 0.9f) { Target = DisplaySpace.Standard.Point(BoxingGame.RingCenter with { Y = BoxingGame.RingSurfaceHeight + 0.563f }) }; // カメラは表示の空間（部屋）にある
 camera.ApplyDrag(new Vector2(-MathF.PI / 0.005f, -60f));
+// リプレイは自分のカメラ（回転中心 / FPS）を持つ。その間だけホストのカメラをそれへ切り替える。
+MatchSession? directSession = null;
+MenuGame? menuGameRef = null;
+var hostCamera = new CameraSwitch(camera, () => directSession?.Camera ?? menuGameRef?.Camera);
 var options = new GameHost.Options(
     "Mini Ring Boxing",
     classic
         ? "WASD: move, LMB/RMB: right/left hand (Ctrl: hook, Shift: uppercut, Alt: body), arrows: head, Q/E: grab, R: reset, 1/2/3: speed, middle-drag: orbit, Escape: quit."
         : "Arrows/WASD or left stick: move; J/RMB or X: light; K/LMB or Y: heavy; Space or A: evade/guard; R or Start/Back: reset; middle-drag or right stick: orbit; 1/2/3: speed; Escape: quit.",
-    camera,
+    hostCamera,
     "miniring",
     OrbitButton: MouseButton.Middle);
 
 // 画面の両脇に両ボクサーの顔の窓（左が自分・右が CPU）（頭のボクセルの格子に固定したカメラで、リングの上の実際の顔を正面から撮る）。
 var faceCam = args.Contains("--no-facecam") ? null : FaceCam.Default;
-Func<SnapshotMatchGame, Func<Vector2, IReadOnlyList<Aigis.Render.CameraView>?>> faceViews =
-    g => size => g.Views(camera, size);
+Func<IMatchPresentation, Func<Vector2, IReadOnlyList<Aigis.Render.CameraView>?>> faceViews =
+    g => size => g.Views(hostCamera, size);
 
 // 試合の速さ（標準 0.75 倍）。1 / 2 / 3 キーで切り替える。
 if (args.Contains("--speed") && GameSpeed.Parse(Option("--speed")) is null)
@@ -119,12 +124,24 @@ catch (ArgumentException e)
     return 1;
 }
 
+MenuScript? menuScript;
+try
+{
+    menuScript = Option("--menu-script") is { } scriptText ? MenuScript.Parse(scriptText) : null;
+}
+catch (ArgumentException e)
+{
+    Console.Error.WriteLine(e.Message);
+    return 1;
+}
+
 var replayDirectory = Path.Combine(Environment.CurrentDirectory, "replays");
 if (Option("--replay") is { } replayPath)
 {
     using var session = OpenReplay(ReplayFile.Read(replayPath));
-    GameHost.Run(profiler, options with { DynamicViews = faceViews(session.Presentation) }, session.Host,
-        (input, _, _) => session.Read(input));
+    directSession = session;
+    GameHost.Run(profiler, options with { DynamicViews = faceViews(session.Presentation), HelpText = ReplayHelpText() }, session.Host,
+        (input, _, size) => session.Read(input, size));
 }
 else if (args.Contains("--profile-katana"))
 {
@@ -139,13 +156,13 @@ else if (args.Contains("--profile-katana"))
     };
     using var session = OpenMatch(corners, MatchMode.Spectate);
     GameHost.Run(profiler, options with { DynamicViews = faceViews(session.Presentation) },
-        session.Host, (input, _, _) => session.Read(input));
+        session.Host, (input, _, size) => session.Read(input, size));
 }
 else if (args.Contains("--quick"))
 {
     using var session = OpenMatch(BoxingCorners.Default with { PlayerWear = wear, CpuWear = wear }, MatchMode.Single);
     GameHost.Run(profiler, options with { DynamicViews = faceViews(session.Presentation) }, session.Host,
-        (input, _, _) => session.Read(input));
+        (input, _, size) => session.Read(input, size));
 }
 else
 {
@@ -154,53 +171,49 @@ else
     var confirmCue = ToneGenerator.CreateToneClip("menu-confirm", 660, 1100, 0.10f, 0.35f, attackSeconds: 0.004f, releaseSeconds: 0.04f);
     // 設定（レフェリーの有無など）は記録と同じ場所（作業フォルダー）の settings.json に残す。
     using var menu = new MatchMenu(replayDirectory, Path.Combine(Environment.CurrentDirectory, "settings.json"),
-        confirmed => menuAudio.Play(confirmed ? confirmCue : moveCue, 1f, shouldLoop: false));
-    using var menuGame = new MenuGame(menu, selection => OpenMatch(selection.Corners, selection.Mode), OpenReplay);
+        confirmed => menuAudio.Play(confirmed ? confirmCue : moveCue, 1f, shouldLoop: false), script: menuScript);
+    // ゲームモード（練習試合・団体の大会）の決まりと場は選びから（団体の大会は中継と同じ決まり・会場の歓声つき）。
+    using var menuGame = new MenuGame(menu, selection => OpenMatch(selection.Corners, selection.Mode,
+        selection.RulesOr(tv ? MatchRules.Tv : null), crowd: tv || selection.Event.Tournament), OpenReplay);
+    menuGameRef = menuGame;
     GameHost.Run(profiler, options with
     {
         HelpText = "Menu: WASD, arrows, D-pad or mouse; Enter/A/left click to select; Escape/B to go back. In a match, Escape/B returns to Game Select.",
-        DynamicViews = size => menuGame.Presentation?.Views(camera, size),
+        DynamicViews = size => menuGame.Presentation?.Views(hostCamera, size),
     }, menuGame, (input, _, size) => menuGame.Read(input, size));
 }
 return 0;
 
+// リプレイ: 裏で記録を一度だけ走査して場面と試合の展開を貯め、再生ヘッドの時刻の場面を描く（巻き戻し・スロー・シーク・自由カメラ）。
+// 操作は ReplayControls.Rows（画面の [H]、docs/REPLAY.md）。
 MatchSession OpenReplay(ReplayData data)
 {
-    var replay = new ReplayGame(data);
+    // 音の再生器は画面が持って破棄する（画面を作れなければ画面の側で破棄する）。
+    var viewer = new ReplayViewerGame(data, HitSoundPlayer.CreateDefault(breakStyle, hitSounds), faceCam);
     try
     {
-        replay.Game.FaceCam = faceCam;
-        replay.Game.Speed = speed;
-        var openingTarget = replay.Game.Display.Point(replay.Game.Layout.Center with { Y = BoxingGame.RingSurfaceHeight + 0.563f });
-        var placeCamera = true;
-        var sound = new HitSoundGame(replay, () => replay.FrameHits, HitSoundPlayer.CreateDefault(breakStyle, hitSounds),
-            () => replay.FrameShatters, () => replay.FrameLandings, () => replay.FrameSwings, () => replay.FrameBell,
-            () => replay.FrameGrazes, () => replay.FrameSevers, contacts: () => replay.FrameContacts,
-            weaponHits: () => replay.FrameWeaponHits) { DeferredPlayback = true };
-        var presentation = new SnapshotMatchGame(replay.Game, sound, () => speed.Value);
-        return new MatchSession(replay.Game, presentation, input =>
-        {
-            if (placeCamera) { camera.Target = openingTarget; placeCamera = false; }
-            ReadSpeed(input);
-            return default;
-        }, new SessionResources(replay, null, sound), presentation);
+        var replayCamera = new ReplayCamera();
+        var controls = new ReplayControls(viewer, replayCamera);
+        return new MatchSession(viewer, controls.Read, viewer, viewer, replayCamera);
     }
     catch
     {
-        replay.Dispose();
+        viewer.Dispose();
         throw;
     }
 }
 
-MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
+MatchSession OpenMatch(BoxingCorners corners, MatchMode mode, MatchRules? rules = null, bool crowd = false)
 {
+    rules ??= tv ? MatchRules.Tv : null;
+    crowd |= tv;
     var tuning = args.Contains("--hybrid-punch")
         ? FighterTuning.HybridPunch
         : args.Contains("--adaptive-punch")
         ? FighterTuning.AdaptivePunch
         : args.Contains("--dynamic-punch") ? FighterTuning.DynamicPunch
         : args.Contains("--compact-punch") ? FighterTuning.CompactPunch : FighterTuning.Default;
-    var game = new BoxingGame(tuning, corners: corners.StartingAtCorners(), rules: tv ? MatchRules.Tv : null) { FaceCam = faceCam, Speed = speed }; // 試合はコーナーから
+    var game = new BoxingGame(tuning, corners: corners.StartingAtCorners(), rules: rules) { FaceCam = faceCam, Speed = speed }; // 試合はコーナーから
     ReplayRecorder? recorder = null;
     try
     {
@@ -221,15 +234,15 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
 
         IGame<BoxingInput> recorded = recorder is null ? game : new RecordingGame(game, recorder);
         var soundPlayer = HitSoundPlayer.CreateDefault(breakStyle, hitSounds);
-        if (tv) { soundPlayer.PrepareCrowd(seed: 7); }
+        if (crowd) { soundPlayer.PrepareCrowd(seed: 7); }
         var sound = new HitSoundGame(recorded, () => game.RecentHits, soundPlayer,
             () => game.RecentShatters, () => game.RecentLandings, () => game.RecentSwings, () => game.RecentBell,
             () => game.RecentGrazes, () => game.RecentSevers, null,
             () => game.RecentContacts, () => [.. game.WeaponHits, .. game.SelfWeaponHits])
-            { DeferredPlayback = true, CaptureCrowd = tv ? CrowdFor(game) : null };
+            { DeferredPlayback = true, CaptureCrowd = crowd ? CrowdFor(game) : null };
         var presentation = new SnapshotMatchGame(game, sound, () => speed.Value);
         var previousStep = -1L;
-        return new MatchSession(game, presentation, input =>
+        return new MatchSession(presentation, (input, _) =>
         {
             if (placeCamera) { camera.SetView(game.Display.Point(eye), game.Display.Point(target)); placeCamera = false; } // 物理の空間 → 表示の空間
             ReadSpeed(input);
@@ -259,6 +272,8 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode)
         throw;
     }
 }
+static string ReplayHelpText() => "Replay: H/F1 shows every shortcut. Space play/pause, J/L rewind/forward, arrows seek/speed, Tab orbit/FPS camera, Escape quit.";
+
 string? Option(string name)
 {
     var i = Array.IndexOf(args, name);

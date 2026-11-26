@@ -41,7 +41,7 @@ public sealed class DownRecoveryTests
     [TestMethod]
     public void AfterADeepKnockdown_RisesSlowlyAsConsciousnessReturns()
     {
-        // 2026-11-26（PhysicsVersion 106、つま先の蝶番を固くした）: 腰が 4 割から 8 割へ上がる時間は、膝立ちから立つまでの手と足の着き方で種ごとに揺れる
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした）: 腰が 4 割から 8 割へ上がる時間は、膝立ちから立つまでの手と足の着き方で種ごとに揺れる
         // （前のつま先で 1.87・1.70・0.82 秒、固いつま先で 0.75・2.03 秒。ToeRegressionProbe.DeepKnockdownRise）。種 1 の 1 回で「1 秒より長い」を見ていたのを、
         // 種 1〜4 のうち、膝立ち（腰 4 割）のときにまだ意識が倒れる線より下だった回（= 意識が戻りながら起きた回）の平均で見る。数え終わってワールドが
         // 作り直された回は、新しいラウンドで意識が 1 に戻ってから立つので、ここで除かれる（種 2・3 がそう）。

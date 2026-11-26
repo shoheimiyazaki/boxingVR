@@ -6,6 +6,7 @@ namespace Aigis.Foundation.Voxels;
 /// 物理の 1 歩の時間の内訳を取る計測の道具（調査用: 既定では切ってあり、切っている間は <see cref="Begin"/> が 0 を返すだけで
 /// 時計を読まない。試合の計算には一切響かない: 時間を数えるだけで、結果（チェックサム）は変わらない。単スレッド前提）。
 /// 入れ子の枠は、外側の枠に内側の時間も含まれる（表に「含む」と書く）。
+/// 状態はスレッドごと（[ThreadStatic]）: 計測を入れたスレッドの試合だけを数え、同じ処理の中で並列に回る別の試合（テストの並列・Arena の並列）には触らない。
 /// </summary>
 public static class StepProfile
 {
@@ -92,23 +93,99 @@ public static class StepProfile
         ControlTail,
         /// <summary>武器の格子が削れた歩の、つながっていない部分の切り離し（連結成分の探索と <c>SeverDisconnected</c>）。</summary>
         Disconnect,
+        /// <summary>Bepu の歩の前の準備（浮いた武器・歩の前の姿勢・武器の冷却・キャンバスの速さ・運ぶ荷）。</summary>
+        PreBepu,
+        /// <summary>キャンバス（床）への衝突の検出（<c>DetectCanvasImpacts</c>）。</summary>
+        CanvasImpacts,
+        /// <summary>肘の接触（<c>ResolveElbows</c>）。</summary>
+        Elbows,
+        /// <summary>体のつながりで分ける（全員の <c>Fighter.SplitDisconnected</c>。剛体の作り直しを含む）。</summary>
+        FighterSplit,
+        /// <summary>PostStep のうち、破片の更新（<c>Debris.Step</c>）。</summary>
+        PostDebris,
+        /// <summary>PostStep のうち、傷の更新（<c>Wounds.Step</c>）。</summary>
+        PostWounds,
+        /// <summary>PostStep のうち、振りの音の検出（<c>DetectSwings</c>）。</summary>
+        PostSwings,
+        /// <summary>PostStep のうち、ラウンドの更新（<c>UpdateRound</c>）。</summary>
+        PostRound,
+        /// <summary>SweepRun のうち、刃が進んだぶんのセルを壊す（<c>CutInto</c>）。</summary>
+        RunCut,
+        /// <summary>SweepRun のうち、重なりを押し戻す（<c>Separate</c>）。</summary>
+        RunSeparate,
+        /// <summary>SweepRun のうち、削れた格子の質量と剛体の形を合わせる（<c>UpdateMass</c>）。</summary>
+        RunMass,
+        /// <summary>Weapons のうち、武器どうしの接触（<c>Clash</c> を含む）。</summary>
+        WeaponClash,
+        /// <summary>Weapons のうち、関節のつなぎの接触の全体（<c>ResolveBridges</c>）。</summary>
+        Bridges,
+        /// <summary>Bridges のうち、刃の近くのつなぎのセルの作り直し（<c>JointBridge.RefreshNear</c>）。</summary>
+        BridgeRefresh,
+        /// <summary>WeaponClash のうち、触れた後始末（<c>Clash</c>: 破片・火花・折れ）。</summary>
+        ClashAfter,
+        /// <summary>WeaponClash のうち、腕の押す力と後ろの質量（<c>Drive</c>・<c>MassBehind</c>）。</summary>
+        ClashPush,
+        /// <summary>描画の詰め（試合の外）: 体の部位の 3D テクスチャ（<c>VoxelPart.Draw</c>）。</summary>
+        RenderParts,
+        /// <summary>描画の詰め: 切り落とされた破片。</summary>
+        RenderFragments,
+        /// <summary>描画の詰め: 関節のつなぎ（<c>JointBridge.View</c>）。</summary>
+        RenderBridges,
     }
 
     /// <summary>この歩のこのスレッドの割り当て [byte]（計測を取る間だけ、<see cref="Reset"/> で基準を取る）。</summary>
     public static long AllocatedSinceReset => Enabled ? GC.GetAllocatedBytesForCurrentThread() - _allocBase : 0;
 
+    [ThreadStatic]
     private static long _allocBase;
 
-    /// <summary>計測を取るか。</summary>
-    public static bool Enabled { get; set; }
+    [ThreadStatic]
+    private static bool _enabled;
+
+    [ThreadStatic]
+    private static bool _trackAllocations;
+
+    [ThreadStatic]
+    private static int _resolveCalls;
+
+    [ThreadStatic]
+    private static int _touches;
+
+    [ThreadStatic]
+    private static long[]? _ticks;
+
+    [ThreadStatic]
+    private static long[]? _allocStack;
+
+    [ThreadStatic]
+    private static int _depth;
+
+    [ThreadStatic]
+    private static long[]? _allocBytes;
+
+    [ThreadStatic]
+    private static long[]? _counts;
+
+    private static long[] Ticks => _ticks ??= new long[Enum.GetValues<Slot>().Length];
+
+    private static long[] AllocStack => _allocStack ??= new long[64];
+
+    private static long[] AllocBytes => _allocBytes ??= new long[Enum.GetValues<Slot>().Length];
+
+    private static long[] Counts => _counts ??= new long[Enum.GetValues<Counter>().Length];
+
+    /// <summary>このスレッドで計測を取るか。</summary>
+    public static bool Enabled
+    {
+        get => _enabled;
+        set => _enabled = value;
+    }
 
     /// <summary>この歩で <c>VoxelContact.Resolve</c> が呼ばれた回数。</summary>
-    public static int ResolveCalls { get; private set; }
+    public static int ResolveCalls => _resolveCalls;
 
     /// <summary>この歩で、実際に触れた（<c>Touched</c>）接触の数。</summary>
-    public static int Touches { get; private set; }
-
-    private static readonly long[] Ticks = new long[Enum.GetValues<Slot>().Length];
+    public static int Touches => _touches;
 
     /// <summary>枠の開始。切っていれば 0。</summary>
     public static long Begin()
@@ -127,11 +204,11 @@ public static class StepProfile
     }
 
     /// <summary>枠ごとの割り当て [byte] も数えるか（枠の入れ子ごとに GC の読みを足すので、時間の測りを少し重くする。時間の表とは別の走りで使う）。</summary>
-    public static bool TrackAllocations { get; set; }
-
-    private static readonly long[] AllocStack = new long[64];
-    private static int _depth;
-    private static readonly long[] AllocBytes = new long[Enum.GetValues<Slot>().Length];
+    public static bool TrackAllocations
+    {
+        get => _trackAllocations;
+        set => _trackAllocations = value;
+    }
 
     /// <summary>枠ごとの割り当て [byte]（入れ子の内側も含む）。<see cref="TrackAllocations"/> のときだけ。</summary>
     public static long Allocated(Slot slot) => AllocBytes[(int)slot];
@@ -154,23 +231,55 @@ public static class StepProfile
     {
         if (Enabled)
         {
-            ResolveCalls++;
+            _resolveCalls++;
             if (touched)
             {
-                Touches++;
+                _touches++;
             }
         }
     }
+
+    /// <summary>数える量（計測を取る間だけ。調べもの用）。</summary>
+    public enum Counter
+    {
+        /// <summary>遠くない（候補セルを作った）Sweep の数。</summary>
+        NearSweeps,
+        /// <summary>候補セルの数の和。</summary>
+        Candidates,
+        /// <summary>最初の接触を探して走査した標本の数の和。</summary>
+        ScanSamples,
+        /// <summary>Overlaps で、セルまで調べた塊の数の和。</summary>
+        ChunksTested,
+        /// <summary>関節のつなぎで、組織を作り直したセルの数の和。</summary>
+        BridgeCells,
+        /// <summary>接触の掃きの、埋まったセルの一覧の作り直しで歩いたセルの数の和（格子が変わったとき）。</summary>
+        FilledRebuildCells,
+        /// <summary>梁の曲げの形（質量・剛性の表）の作り直しで歩いたセルの数の和（格子が変わったとき）。</summary>
+        BeamRebuildCells,
+    }
+
+    /// <summary>量を数える。</summary>
+    public static void Count(Counter counter, long n)
+    {
+        if (Enabled)
+        {
+            Counts[(int)counter] += n;
+        }
+    }
+
+    /// <summary>この歩の量。</summary>
+    public static long CountOf(Counter counter) => Counts[(int)counter];
 
     /// <summary>次の歩のために 0 に戻す。</summary>
     public static void Reset()
     {
         Array.Clear(Ticks);
         Array.Clear(AllocBytes);
+        Array.Clear(Counts);
         _depth = 0;
         _allocBase = Enabled ? GC.GetAllocatedBytesForCurrentThread() : 0;
-        ResolveCalls = 0;
-        Touches = 0;
+        _resolveCalls = 0;
+        _touches = 0;
     }
 
     /// <summary>枠ごとの時間 [ms]。</summary>

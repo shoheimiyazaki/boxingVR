@@ -122,7 +122,7 @@
       }
     },
     "vs": {},
-    "weaponBot": null
+    "weaponBot": {"AutoAim": false, "Forms": {"oberhau": {"Tempo": 2.2155821, "Twist": 1.0217743, "Lift": -0.006157292, "Lean": -0.11143296, "Reach": -0.062244557}}}
   },
   "record": [],
   "locales": {

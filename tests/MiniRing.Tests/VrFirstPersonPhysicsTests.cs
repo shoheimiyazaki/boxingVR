@@ -51,7 +51,7 @@ public sealed class VrFirstPersonPhysicsTests
         var (drift, headDrift, later) = StillHmdDrift(game);
         var foot = 2f * game.Player.HalfExtents.Foot.Z / (1f - FootGeometry.ToeShare);
         Console.WriteLine($"still HMD 13.4 s: pelvis drift {drift * 100f:0.0} cm (later half {later * 100f:0.0} cm), head drift {headDrift * 100f:0.0} cm (arm reach {game.Player.ArmReach * 100f:0.0} cm, foot {foot * 100f:0.0} cm)");
-        // 2026-11-26（PhysicsVersion 106、つま先の蝶番を固くした）: 前は 13.4 秒の流れ全体を 8.45 cm 未満で見ていた（前のつま先で 5.8 cm）。固いつま先では
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした）: 前は 13.4 秒の流れ全体を 8.45 cm 未満で見ていた（前のつま先で 5.8 cm）。固いつま先では
         // 構えに落ち着く始めの半分で足を 1 度置き直して 7.4 cm 動き、後の半分は 1.3 cm（前のつま先は 2.5 cm）で、滑り続けはしない（ToeRegressionProbe.StillHmd、
         // つま先 20・30 Hz でも全体 8〜9 cm）。滑り続けないことは後の半分で、置き直しの大きさは足の長さの半分までで見る。
         Assert.IsTrue(later < 0.0423f, $"止まった HMD で体が滑り続ける: 後の半分で {later * 100f:0.0} cm");

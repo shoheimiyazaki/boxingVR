@@ -37,6 +37,11 @@ public sealed partial class BoxingGame
     /// </summary>
     public float EndMood(Fighter fighter)
     {
+        if (IsRoyale)
+        {
+            return WinningTeam is not { } team ? 0f : _corners.TeamOf(SeatOf(fighter)) == team ? 1f : -1f; // バトルロイヤル: 最後に残った人（チーム）だけが勝ち
+        }
+
         var lead = fighter == Player ? PlayerWins - CpuWins : CpuWins - PlayerWins;
         return MathF.Sign(lead);
     }
@@ -56,8 +61,8 @@ public sealed partial class BoxingGame
         if (!_breakSources.TryGetValue(self, out var source))
         {
             var salt = scene.Value switch { BreakScene.Start => 3, BreakScene.End => 5, _ => 0 };
-            var seed = unchecked((_seed * 7919) + (MatchRound * 131) + (self == Player ? 1 : 2) + (salt * 104729));
-            var style = self == Cpu ? _corners.CpuStyle : _corners.RedBotStyle ?? _corners.PlayerStyle;
+            var seed = unchecked((_seed * 7919) + (MatchRound * 131) + (SeatOf(self) + 1) + (salt * 104729));
+            var style = self == Cpu ? _corners.CpuStyle : self == Player ? _corners.RedBotStyle ?? _corners.PlayerStyle : StyleOfSeat(SeatOf(self));
             var created = scene == BreakScene.Break && _corners.BreakSource is { } factory
                 ? factory(seed, self)
                 : new BreakRoutine(seed, style, scene: scene.Value, mood: scene == BreakScene.End ? EndMood(self) : 0f);

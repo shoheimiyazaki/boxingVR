@@ -162,7 +162,7 @@
 - **戦略の層**（`education.style.GamePlan`、2026-11-18、LogicVersion 50）: 名簿の 17 人の教育は今これだけ。自分の得意な間合いの表（`Own`。`docs/arena/maai_roster_ranges_bins.csv` から `node tools/roster-report/fill-gameplan.mjs` で書き込む）と性格（全員既定）。相手の表（`Foe`）は書かず、解決のとき（`FighterCharacter.Resolve(相手)`）に相手のキャラの `Own` が入る（名簿にいない相手なら空）。解決済みのスタイルに入るので記録の見出しにも入り、再生は同じになる。式と入力は `docs/BOTS.md`「戦略の層」。剣・棒・棍棒の選手の表は相手として使うだけ（そのボットは読まない）。
 - **解決したスタイルを全部に通す**（名前で `BotCatalog` を引き直さない）: 青の CPU（`BotCatalog.Corners(解決済み)` → `CpuStyleJson`）、観戦の赤（`RedBotStyle`）、人が操る赤・2P の青の意図の解釈（`BoxingCorners.PlayerStyle`・`CpuStyle` → `DesktopFighterControl`）、レフェリーなしの倒れた相手への攻め（`GroundStyle`）、Arena の `--red-char` / `rosterleague`（`--set` はその上にさらに重ねる）。
 - **記録**: 見出しに解決済みのスタイルの全体が入る（青 = `CpuStyleJson`、ボットの赤 = `RedBotStyleJson`、人が操る赤 = `PlayerStyleJson`）。再生は名簿のファイルを引かないので、後でファイルの教育が変わっても同じ試合。リプレイ形式は版 9（バイナリの並びは版 7 と同じ。古い記録は `PlayerStyleJson` が無く、今までの決め方）。握る武器のボットの値（解決済みの `WeaponStyle` の JSON）は見出しの `PlayerWeaponStyleJson`・`CpuWeaponStyleJson`（版 9。無い記録は null = その武器の組み込みの教科書）。
-- **武器のボットの教科書と教育**（`education.weaponBot`、2026-11-16）: 刀・ロングソード・こんぼうのボットの判断の値は `WeaponStyle`（`Bots/WeaponStyle.cs`）に全部まとまっていて、JSON に読み書きできる（`Validated()` が範囲を検査し、知らない鍵・範囲外は止める）。武器ごとの教科書は組み込みの `Bots/weapons/katana.json`・`longsword.json`・`club.json`（`WeaponCatalog.Textbook`）。値: 剣士の守り `Defense`（`SwordDefense`）・間合いの取り合い `HitAndAway`（null = 遠間で構えて 1 つずつ詰める）・狙い `Aim`/`AutoAim`・自分の体を避ける通り道 `Clearance`・技の時計 `Pacing`・`Rest`・`MinReach`・折れた武器を捨てる長さ `KeepReach`、こんぼうの `ClubRange`・`ClubRest`・`ClubStandOff`・`ClubExact`。使わない側の値は無視される（剣士はこんぼうの値を読まない）。`education.weaponBot` は書いた鍵だけが教科書を上書きする（`WeaponEducation.Resolve`、重ね方は `style` と同じ。最上位の鍵が教科書に無い・`Name` を書いた・値が範囲外・武器を握らない（拳・鉄の剣）キャラが空でない値を書いた、は読み込みで止める）。解決した値は `FighterCharacter.WeaponStyle` → `BoxingCorners.PlayerWeaponStyle`/`CpuWeaponStyle` → 武器のボット（`FormSwordsman.Bot(.., style)`・`ClubBot.FromStyle`）と記録の見出しへ。教育が空なら教科書そのもの（今までの試合とビット単位で同じ: `CharacterSamenessTests` の `w-*` の組）。**相手ごとの層（`vs`）は無い**（武器の値は相手を読んで変えるものではなく、教育全体で 1 組）。
+- **武器のボットの教科書と教育**（`education.weaponBot`、2026-11-16）: 刀・ロングソード・こんぼうのボットの判断の値は `WeaponStyle`（`Bots/WeaponStyle.cs`）に全部まとまっていて、JSON に読み書きできる（`Validated()` が範囲を検査し、知らない鍵・範囲外は止める）。武器ごとの教科書は組み込みの `Bots/weapons/katana.json`・`longsword.json`・`club.json`（`WeaponCatalog.Textbook`）。値: 剣士の守り `Defense`（`SwordDefense`）・間合いの取り合い `HitAndAway`（null = 遠間で構えて 1 つずつ詰める）・狙い `Aim`/`AutoAim`・自分の体を避ける通り道 `Clearance`・技の時計 `Pacing`・`Rest`・`MinReach`・折れた武器を捨てる長さ `KeepReach`・型の目標の経路を VR の稽古の振りに差し替える `VrForms`（型の名前 → 組み込みの振りの名前 `Motion/VrForms/*.vrmotion`、`VrMotionForms`。技の経路だけで体の強さは変えない。docs/VR_MOTION.md）、こんぼうの `ClubRange`・`ClubRest`・`ClubStandOff`・`ClubExact`。使わない側の値は無視される（剣士はこんぼうの値を読まない）。`education.weaponBot` は書いた鍵だけが教科書を上書きする（`WeaponEducation.Resolve`、重ね方は `style` と同じ。最上位の鍵が教科書に無い・`Name` を書いた・値が範囲外・武器を握らない（拳・鉄の剣）キャラが空でない値を書いた、は読み込みで止める）。解決した値は `FighterCharacter.WeaponStyle` → `BoxingCorners.PlayerWeaponStyle`/`CpuWeaponStyle` → 武器のボット（`FormSwordsman.Bot(.., style)`・`ClubBot.FromStyle`）と記録の見出しへ。教育が空なら教科書そのもの（今までの試合とビット単位で同じ: `CharacterSamenessTests` の `w-*` の組）。**相手ごとの層（`vs`）は無い**（武器の値は相手を読んで変えるものではなく、教育全体で 1 組）。
 - プレイヤーが作ったキャラ・新人: `CharacterRoster.LoadFile(path)` / `LoadDirectory(dir)`（アプリのデータの場所から読む入口。`vs` の相手は組み込みの id を認め、組み込みと同じ id は断る）。E5・E6 が使う。
 
 ### 所属（`org`、2026-11-18）
@@ -210,15 +210,20 @@
 
 ### メニュー（`games/MiniRing.Desktop`）
 - 状態の遷移は `MenuState`（描画・ファイル・音を持たない純粋な部分。入力は `MenuInput`、結果は `MenuOutcome`）、描画は `MenuView`・`MenuIcons`（`UiShapeDraw` の組み合わせだけ。外部の画像・フォントなし）、`MatchMenu` は `InputSnapshot` → `MenuInput` への変換と、結果の実行（設定の保存・記録の一覧・試合の開始・合図の音）だけ。
-- ページ: 最初の画面（シングル・対戦・観戦・リプレイ・設定・終了）→ キャラ選択（12 人の顔の格子、赤・青のカーソル、左右に全身の絵・名前・国旗・武器・体格・一言）/ 設定（レフェリー あり／なし）/ リプレイ。
-- キャラ選択: シングル・観戦は赤 → 青の順。対戦は 2 つ目のパッドで青を同時に動かせる（キーボードは順）。決定で選びを固め、戻るで 1 段戻る（青を解く → 赤を解く → 最初の画面）。最初の画面で戻っても終了しない（「終了」のボタンへ移るだけ）。
+- ページ: 最初の画面（シングル・対戦・観戦・リプレイ・設定・終了）→ ゲームモード → キャラ選択 / 設定（レフェリー あり／なし）/ リプレイ。
+- ゲームモード（2026-11-26、`Competition`）: 練習試合（誰とでも組める・手の物は選手のまま。左右で決まりを「標準・各団体」から選ぶ）と、団体の大会（`Orgs/<id>.json` の 1 ファイルが 1 行。出場の条件・団体の着けさせる物・計量と階級・試合の決まり・場（檻）は中継と同じ `Organization`・`OrgBouts`・`TvShowRules` を通る。デスクトップは Arena を参照する）。右の枠に決まりの要約（ファイルの値から: ラウンド・階級・ダウン・判定・レフェリー・場・再生・武器）と、階級制なら階級ごとの上限（lb と kg）と人数。
+- キャラ選択（2026-11-26、`SelectGrid`）: 名簿を分け方（`FighterCategories.Of`）の節に並べ、節の頭に見出し、節の中は 6 人ずつの行。入りきらない行は縦に送る（カーソルに付いてくる・ホイール・右端のスクロールバー）ので、人数が増えても崩れない。分け方は名簿の値だけから: 体の形（四つ足・鎌の手）→ 人間以外、武器かグローブ・素手でない手の物 → 武器を持つ、教科書のスタイルの組みの技表（`Grapple`）→ 組み技、蹴る割合（`KickRate` > 0）→ 蹴りも使う打撃、ほか → ボクサー（キャラ名・教科書の名前で分けない）。札は顔・国旗・短い名前。左右の枠は全身の絵（全員を同じ縮尺: 背の高い人は高く見える）・国旗と出身・名前・分け方・持ち物・身長（ft/in と cm）・体重（lb と kg、`FighterTape`。値は `CharacterProfile.HeightOf`/`WeightOf` と同じ見えている体から）・階級（階級制の団体に出られる人だけ、例「IVF ライト級」）・一言。
+- 大会では出場の条件に合わない人・赤と階級の違う人は暗く描き、カーソルが飛ばす。指して決めても決まらず、理由を画面の下に出す。
+- 選び方: シングル・観戦は赤 → 青の順。対戦は 2 つ目のパッドで青を同時に動かせる（キーボードは順）。左右は画面の並びで前後、上下は札の行を移る。決定で選びを固め、戻るで 1 段戻る（青を解く → 赤を解く → ゲームモード → 最初の画面）。最初の画面で戻っても終了しない（「終了」のボタンへ移るだけ）。
+- 実際のウィンドウで確かめる: `miniring-desktop --menu-script "enter,down,enter,..."`（ゲームの中で 0.5 秒に 1 つ操作を渡す。外からキーを送らない）。
 - 設定は `settings.json`（作業フォルダー、記録の `replays/` と同じ所）に残し、読むときに検証する。壊れていれば既定（レフェリーあり）へ戻して標準エラーに出す。
 
 | テスト | 内容 |
 |---|---|
 | `CharacterRosterTests` | 名簿が決めた表どおり、壊れたデータを項目名つきで拒む、武器が試合へ渡る、顔・体格・画面の名前が試合に出る、記録の往復で同じ顔（古い記録は名前から）、肖像が本物のボクセルから作られ体格に従う |
 | `MenuStateTests` | 選ぶ・戻る・一番上で戻っても終わらない・対戦の 2 つ目のパッド・ポインタ・設定の切り替えと保存と壊れたファイル・リプレイの一覧 |
-| `MenuPagesVisualTests`（visual） | 各ページ（最初・設定・キャラ選択（シングル・対戦）・リプレイ）と肖像の拡大を `.visualcheck/menu_*.png` へ |
+| `MenuCompetitionTests` | 分け方が名簿の値から決まる・単位（ft/in・lb）が見えている体と合う・格子が全員を 1 度ずつ持ち送れば全員が枠に収まる（人数 3 倍でも）・ゲームモードの行が団体のファイルから・練習試合が団体の決まりと場を借りる・IVF は出られない人と違う階級を選べない |
+| `MenuPagesVisualTests`（visual） | 各ページ（最初・設定・ゲームモード・キャラ選択（練習試合・送った所・IVF・VFC・対戦）・リプレイ）と肖像の拡大を `.visualcheck/menu_*.png` へ |
 
 ## 6. 体格が戦い方に効く所（2026-11-16、`Bots/BuildRead.cs`）
 

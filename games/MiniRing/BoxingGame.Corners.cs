@@ -20,16 +20,16 @@ public sealed partial class BoxingGame
     /// まとめて自分のコーナーの立つ所（<see cref="RingLayout.RestCorner"/>）へ水平に平行移動する（向きは変えない）。生成の向き合わせ（<see cref="Fighter.Spawn"/>）と同じく、
     /// まだ一歩も進めていない（速度 0）ときだけの置き直しで、関節はローカルの定義なので保たれる（CLAUDE.md §1.1 の例外: 生成直後の配置）。
     /// </summary>
-    private void PlaceAtCorner(Fighter fighter, bool red)
+    private void PlaceAtCorner(Fighter fighter, int seat)
     {
         var footprint = MeasureFootprint(fighter);
         _footprints[fighter] = footprint;
-        if (!Layout.FromCorners)
+        if (!Layout.FromCorners && _fighters.Length <= 2)
         {
-            return;
+            return; // バトルロイヤルはいつも席の頂点から
         }
 
-        var shift = Layout.RestCorner(red, footprint) - fighter.PelvisPosition;
+        var shift = Layout.SeatCorner(seat, _fighters.Length, footprint) - fighter.PelvisPosition;
         shift.Y = 0f;
         foreach (var id in BodiesOf(fighter))
         {

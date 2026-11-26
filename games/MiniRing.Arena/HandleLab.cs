@@ -397,7 +397,7 @@ internal static class HandleLab
         var inverse = Quaternion.Inverse(state.Orientation);
         var local = Vector3.Transform(v, inverse);
         // 刃（刀・ロングソード）は、長さ X・幅 Y・厚さ Z。面内（X-Y）を動けば切る向き、Z へ動けば平らな面で叩く向き。
-        swing.OffPlane = MathF.Asin(Math.Clamp(MathF.Abs(local.Z) / local.Length(), 0f, 1f)) * 180f / MathF.PI;
+        swing.OffPlane = MotionTools.MotionMetrics.EdgeOffPlaneDegrees(v, state.Orientation); // 刃筋の式は 1 か所（docs/plans/MOTION_TOOLS_PLAN.md）
         if (kind == WeaponKind.Katana && MathF.Abs(local.Y) > MathF.Abs(local.X))
         {
             swing.EdgeFirst = local.Y < 0f ? 1 : 0; // 刃は −Y の縁（Weapon.Katana）

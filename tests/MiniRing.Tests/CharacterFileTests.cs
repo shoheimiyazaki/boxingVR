@@ -18,6 +18,9 @@ public sealed class CharacterFileTests
 {
     private static string Json(string id) => CharacterRosterTests.RosterFileJson(id);
 
+    /// <summary>名簿のキャラの education.weaponBot が持ってよい鍵（倒れた相手への攻め・型の経路の差分・狙いの切り替え）。</summary>
+    private static readonly HashSet<string> WeaponBotEducated = ["Ground", "Forms", "AutoAim"];
+
     /// <summary>組み込みの 1 人ぶんのファイルの education を差し替えた JSON。</summary>
     private static string WithEducation(string id, string education) => CharacterRosterTests.WithEducation(Json(id), education);
 
@@ -48,7 +51,8 @@ public sealed class CharacterFileTests
             // （Ground*、武器を握るなら education.weaponBot.Ground）も。ほかの値は教科書そのもの。
             Assert.AreEqual("BreakLikes,GamePlan", string.Join(",", c.Education.Style.Select(p => p.Key).Where(k => !CharacterRosterTests.GroundKeys.Contains(k)).Order()), c.Id);
             Assert.AreEqual(0, c.Education.Vs.Count, c.Id);
-            Assert.IsTrue(c.Education.WeaponBot is null || c.Education.WeaponBot.Select(p => p.Key).SequenceEqual(["Ground"]), c.Id);
+            // 2026-11-26: 剣士 3 人は、無防備な相手を 1 振りで倒す型の経路の差分（Forms）と狙いの切り替え（AutoAim）も（docs/BOT_PDCA.md「剣士 3 人の 1 振り」）。
+            Assert.IsTrue(c.Education.WeaponBot is null || c.Education.WeaponBot.All(p => WeaponBotEducated.Contains(p.Key)), c.Id);
             Assert.IsEmpty(c.Record, c.Id);
             var textbook = BotCatalog.Style(c.StyleName);
             CharacterRosterTests.AssertTextbookPlusGamePlan(textbook, c.Resolve(), c.Id);

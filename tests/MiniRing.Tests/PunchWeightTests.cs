@@ -14,7 +14,7 @@ public sealed class PunchWeightTests
     [TestMethod]
     public void TheHipsRotation_PutsWeightIntoTheCross()
     {
-        // 2026-11-26（PhysicsVersion 106）: 最初に当たった拳のエネルギーは、間合いを 5 cm 変えるだけで 24〜60 J と揺れる（当たる瞬間が拳の速さの山の前か後か）。
+        // 2026-11-26（PhysicsVersion 103）: 最初に当たった拳のエネルギーは、間合いを 5 cm 変えるだけで 24〜60 J と揺れる（当たる瞬間が拳の速さの山の前か後か）。
         // 前は間合い 1.05 の 1 本だけを見ていて、そこでは「溜めると重い」「腰が強いと溜めた右も重い」が成り立っていたが、間合い 0.95〜1.15 の 5 本の合計では
         // 前のつま先でも成り立たない（溜め 219 対 溜めなし 220 J、溜めで腰が弱い 210 J。固いつま先では 209・210・250 J。ToeRegressionProbe.CrossEnergy）。
         // 5 本の合計で成り立つ「腰が強いと溜めなしの右が重い」（前 220 対 166 J、今 210 対 152 J）だけを確かめ、溜めの 2 つは数字を出すだけにする（docs/plans/TOE_GAP_STUDY.md）。

@@ -900,8 +900,26 @@ public sealed class VoxelGrid
         return (piece, center);
     }
 
-    /// <summary>The box (grid-local) around every filled cell, or null if the grid is empty.</summary>
+    /// <summary>The box (grid-local) around every filled cell, or null if the grid is empty. Cached until the cells change
+    /// (<see cref="GeometryVersion"/>): the contact sweep asks for it on every pair it tests, and the mass fit on every cut.</summary>
     public (Vector3 Center, Vector3 HalfExtents)? OccupiedBounds()
+    {
+        // One immutable box per version, swapped in whole (a grid read from two threads never sees a box from another version).
+        if (_occupied is { } cached && cached.Version == GeometryVersion)
+        {
+            return cached.Bounds;
+        }
+
+        var bounds = ComputeOccupiedBounds();
+        _occupied = new OccupiedCache(GeometryVersion, bounds);
+        return bounds;
+    }
+
+    private sealed record OccupiedCache(int Version, (Vector3 Center, Vector3 HalfExtents)? Bounds);
+
+    private OccupiedCache? _occupied;
+
+    private (Vector3 Center, Vector3 HalfExtents)? ComputeOccupiedBounds()
     {
         var min = new Vector3(float.MaxValue);
         var max = new Vector3(float.MinValue);

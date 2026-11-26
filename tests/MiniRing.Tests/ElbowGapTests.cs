@@ -23,7 +23,7 @@ public sealed class ElbowGapTests
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"ELBOWGAP max={max * 1000f:F1} mm at t={maxT:F3}, before the first hit (t={hitT:F3}) {beforeHit * 1000f:F1} mm (cell {cell * 1000f:F1} mm) upperHalf={half.UpperArm} foreHalf={half.Forearm} overlap={overlap}"));
         // 打ち出す間は、肘のつなぎ目がセルの半分より開かない（開くと腕の継ぎ目に穴が見える）。
         Assert.IsLessThan(0.5f * cell, beforeHit, "肘の隙間（当たる前）[m]");
-        // 2026-11-26（PhysicsVersion 106、つま先の蝶番を固くした）: 前は当たった瞬間を含めて 7 mm 未満で見ていた（前のつま先で 5.8 mm）。最大は拳が当たった直後の
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした）: 前は当たった瞬間を含めて 7 mm 未満で見ていた（前のつま先で 5.8 mm）。最大は拳が当たった直後の
         // 10 ms ほど（当たる前は 3.6 → 4.9 mm、当たった後に 7.1 mm。ToeRegressionProbe.ElbowGap）: 接触の止める力積は拳だけに掛かり、腕の残りは肘のバネが引き戻すまで
         // 進む（足首・つま先の当たった瞬間の開きと同じ近道。docs/DEBT.md「脚の関節の開き」）。当たった瞬間はセル 1 つ未満で見る。
         Assert.IsLessThan(cell, max, "肘の隙間（当たった瞬間を含む）[m]");

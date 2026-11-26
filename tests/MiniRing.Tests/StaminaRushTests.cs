@@ -71,7 +71,7 @@ public sealed class StaminaRushTests
     [TestMethod]
     public void AlternatingRush_FullForFiveSeconds_ThenFadesOverTheNextFive_AndSettlesAtTheSupply()
     {
-        // 2026-11-26（PhysicsVersion 106、つま先の蝶番を固くした）: 種 3 だけでは 10〜15 秒と 15〜20 秒の差が上限すれすれ（0.61 対 0.59 m/s）。連打の拳の速さは、
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした）: 種 3 だけでは 10〜15 秒と 15〜20 秒の差が上限すれすれ（0.61 対 0.59 m/s）。連打の拳の速さは、
         // 打たれた的が揺れる・下がる拍子で窓ごとに揺れる（種 3・4・5 で 10〜15 秒が 2.50〜2.77 m/s、ToeRegressionProbe.RushFade）。3 つの種の平均で見る。
         var runs = RushSeeds.Select(seed => RushWindows(20f, seed: seed)).ToArray();
         var mean = Enumerable.Range(0, runs[0].Length).Select(i => runs.Average(r => r[i])).ToArray();

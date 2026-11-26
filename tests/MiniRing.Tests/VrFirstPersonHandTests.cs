@@ -99,7 +99,8 @@ public sealed class VrFirstPersonHandTests
         using var game = NewGame();
         game.PlayerBodyOpacity = BoxingRenderer.FirstPersonBodyOpacity;
         var draws = game.BuildVoxelVolumes();
-        var playerLayers = game.Player.Voxels!.Layers.Count(l => l.Kind != BodyPartKind.Head); // 頭（と顔の層）は描かない（HidePlayerHead）
+        // 頭（と顔の層、首のつなぎ）は描かない（HidePlayerHead）。ほかの関節のつなぎ（JointBridge.View）は体の一部として描く。
+        var playerLayers = game.Player.Voxels!.Layers.Count(l => l.Kind != BodyPartKind.Head) + game.Player.Voxels.Bridges.Count(b => b.Child.Kind != BodyPartKind.Head);
         Assert.AreEqual(playerLayers, draws.Count(d => d.IsTranslucent), "半透明は自分の体の部位（頭を除く）だけ");
         Assert.IsTrue(draws.Where(d => d.IsTranslucent).All(d => d.Opacity == BoxingRenderer.FirstPersonBodyOpacity));
         Assert.IsTrue(draws.Count(d => !d.IsTranslucent) >= game.Cpu.Voxels!.Layers.Count, "相手の体は不透明のまま");

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using Aigis.Render;
 using MiniRing.Characters;
@@ -29,12 +30,6 @@ internal sealed class MenuView(MenuState state, PortraitSet portraits, Func<IRea
     private static readonly Vector4 Cyan = new(0.26f, 0.8f, 1f, 1f);
     private static readonly Vector4 RedSide = new(1f, 0.40f, 0.34f, 1f);
     private static readonly Vector4 BlueSide = new(0.40f, 0.62f, 1f, 1f);
-
-    /// <summary>肖像の 1 ピクセル（全身はボクセル 1 つ = 実寸 5 mm）の設計の画面での大きさ。</summary>
-    internal const float BodyPixel = 1.5f;
-
-    /// <summary>顔の 1 ピクセル（ボクセル 1 つ）の設計の画面での大きさ。</summary>
-    internal const float FacePixel = 1.85f; // 顔の肖像は顔の層の細かさ（1 ピクセル = 約 2.5 mm）。5 mm のとき 3.7 だったので、同じ大きさに見えるよう半分
 
     /// <summary>画面の下に出す、エラー・知らせ。</summary>
     public string? Notice { get; set; }
@@ -83,22 +78,28 @@ internal sealed class MenuView(MenuState state, PortraitSet portraits, Func<IRea
         var heading = state.Page switch
         {
             MenuPage.Settings => "ゲームの設定",
+            MenuPage.Mode => "ゲームモード",
             MenuPage.Select => "キャラクターセレクト",
             MenuPage.Replays => "リプレイセレクト",
             _ => "ゲームセレクト",
         };
-        Label("MINI RING BOXING", 320, 20, 19, Pale, TextAnchor.Center);
+        // 一番上の行: キャラ選択ではいまのゲームモード（大会・練習試合の決まり）。
+        var banner = state.Page == MenuPage.Select
+            ? (state.Competition.Tournament ? state.Competition.Title : $"練習試合（{state.Competition.RulesName}の決まり）")
+            : "MINI RING BOXING";
+        Label(banner, 320, 20, 19, state.Page == MenuPage.Select ? Gold : Pale, TextAnchor.Center);
         Label(heading, 320, 51, 31, Gold, TextAnchor.Center);
 
         switch (state.Page)
         {
             case MenuPage.Top: DrawTop(shapes, canvas, Plate, Frame, Label); break;
             case MenuPage.Settings: DrawSettings(shapes, canvas, Plate, Frame, Label); break;
+            case MenuPage.Mode: DrawMode(shapes, canvas, Plate, Frame, Label); break;
             case MenuPage.Select: DrawSelect(shapes, canvas, Plate, Frame, Label); break;
             default: DrawReplays(Plate, Frame, Label); break;
         }
 
-        if (Notice is { } notice) { Label(notice, 320, 392, 16, Gold, TextAnchor.Center); }
+        if (Notice is { } notice) { Label(notice, 320, 388, FitHeight(notice, 600f, 15), Gold, TextAnchor.Center); }
         Label(Hint(), 320, 420, 15, Pale, TextAnchor.Center);
         return (shapes, text);
     }
@@ -111,9 +112,10 @@ internal sealed class MenuView(MenuState state, PortraitSet portraits, Func<IRea
     {
         MenuPage.Top => "WASD / 矢印 / 十字キー: 選ぶ   Enter / A / クリック: 決定   Esc / B: 終了へ",
         MenuPage.Settings => "← →  Enter / A: 切り替え   Esc / B: 戻る",
+        MenuPage.Mode => "↑ ↓: 選ぶ   ← →: 練習試合の決まり   Enter / A: 決定   Esc / B: 戻る",
         MenuPage.Select => state.Mode == MatchMode.Versus
             ? "赤: WASD / 青: 矢印・2 つ目のパッド   Enter / A: 決定   Esc / B: 戻る"
-            : "WASD / 矢印 / 十字キー: 選ぶ   Enter / A / クリック: 決定   Esc / B: 戻る",
+            : "WASD / 矢印 / 十字キー: 選ぶ   ホイール: 送る   Enter / A / クリック: 決定   Esc / B: 戻る",
         _ => "↑ ↓ / ホイール: 選ぶ   Enter / A / クリック: 再生   Esc / B: 戻る",
     };
 
@@ -201,44 +203,154 @@ internal sealed class MenuView(MenuState state, PortraitSet portraits, Func<IRea
         }
     }
 
-    // ── キャラクター選択
-    private void DrawSelect(List<UiShapeDraw> shapes, MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
+    // ── ゲームモード
+    private void DrawMode(List<UiShapeDraw> shapes, MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
     {
-        var roster = state.Roster;
-        for (var i = 0; i < roster.Count; i++)
+        for (var i = 0; i < state.ModeRows; i++)
         {
-            var c = MenuLayout.TileCenter(i);
-            var tile = MenuLayout.TileSize;
-            plate(c.X + 2, c.Y + 3, tile.X, tile.Y, Shadow, Shadow, 3);
-            plate(c.X, c.Y, tile.X, tile.Y, new(0.12f, 0.30f, 0.42f, 1), new(0.05f, 0.14f, 0.26f, 1), 3);
-            if (portraits.TryGet(i) is { } portrait)
+            var c = MenuLayout.ModeRowCenter(i);
+            var size = MenuLayout.ModeRowSize;
+            var selected = i == state.ModeIndex;
+            var competition = state.ModeAt(i);
+            // 団体の行は団体のファイルの色（accent）で縁取る。
+            var accent = competition is { Tournament: true, Org: { } org } ? org.Colors.Accent : Cyan;
+            plate(c.X + 3, c.Y + 3, size.X, size.Y, Shadow, Shadow, 6);
+            plate(c.X, c.Y, size.X, size.Y, selected ? new(0.16f, 0.50f, 0.72f, 1) : new(0.10f, 0.28f, 0.40f, 1), new(0.04f, 0.13f, 0.26f, 1), 6);
+            frame(c.X, c.Y, size.X, size.Y, selected ? accent : accent with { W = 0.45f }, selected ? 2.5f : 1.5f, 6);
+            if (selected) { plate(c.X - (size.X / 2) + 6, c.Y, 5, 30, Gold, Gold, 2); }
+            var ink = selected ? Gold : Pale;
+            var left = c.X - (size.X / 2) + 16;
+            if (competition is null)
             {
-                DrawPortrait(shapes, canvas, portrait.Face, c + new Vector2(0f, 1f), FacePixel, blue: false, anchorBottom: false);
+                label("戻る", left, c.Y - 11, 20, ink);
+            }
+            else if (!competition.Tournament)
+            {
+                label("練習試合", left, c.Y - 19, 19, ink);
+                label($"決まり  ◀ {competition.RulesName} ▶", left, c.Y + 3, 13, selected ? Pale : Dim);
             }
             else
             {
-                label("…", c.X, c.Y - 8, 16, Dim, TextAnchor.Center);
+                var name = competition.Org!.Name;
+                label(competition.Title, left, c.Y - 19, 19, ink);
+                label(name, left, c.Y + 3, FitHeight(name, size.X - 30, 12), selected ? Pale : Dim);
             }
-
-            frame(c.X, c.Y, tile.X, tile.Y, new(0.19f, 0.38f, 0.51f, 1), 1.5f, 3);
         }
 
-        // カーソル（赤・青）。決めたら太く塗る。同じ人を指していれば青を外側へ。
+        // 右: 選んでいる行の中身（決まりの要約はファイルの値から）。
+        const float PanelX = 452f, PanelW = 312f;
+        plate(PanelX, 238, PanelW, 284, new(0.08f, 0.22f, 0.32f, 1), new(0.03f, 0.10f, 0.20f, 1), 6);
+        frame(PanelX, 238, PanelW, 284, new(0.19f, 0.38f, 0.51f, 1), 1.5f, 6);
+        var x0 = PanelX - (PanelW / 2) + 14;
+        var (who, whoDetail) = WhoPlays();
+        label($"{who}（{whoDetail}）", x0, 104, 13, Dim);
+        if (state.ModeAt(state.ModeIndex) is not { } focused)
+        {
+            label("最初の画面へ戻ります", x0, 128, 17, Pale);
+            return;
+        }
+
+        var title = focused.Tournament ? focused.Title : $"練習試合（{focused.RulesName}の決まり）";
+        label(title, x0, 124, FitHeight(title, PanelW - 28, 21), Gold);
+        var y = 156f;
+        foreach (var line in Competition.Summary(focused.Org, focused.Tournament))
+        {
+            label(line, x0, y, FitHeight(line, PanelW - 28, 13), Pale);
+            y += 20f;
+        }
+
+        var eligible = state.Roster.Count(c => focused.Ineligible(c) is null);
+        label($"出られる選手  {eligible} / {state.Roster.Count} 人", x0, y + 4, 13, Pale);
+        y += 30f;
+        if (focused is { Tournament: true, Org: { HasWeightClasses: true } weighed })
+        {
+            label("階級（計量 = 見えている体の重さ）", x0, y, 12, Dim);
+            y += 18f;
+            var lower = 0;
+            foreach (var division in weighed.Divisions)
+            {
+                var range = division.LimitKg is { } limit
+                    ? string.Create(CultureInfo.InvariantCulture, $"〜{Pounds(limit)} lb（{limit} kg）")
+                    : string.Create(CultureInfo.InvariantCulture, $"{Pounds(lower)} lb 超（{lower} kg 超）");
+                var count = state.Roster.Count(c => focused.Ineligible(c) is null && focused.DivisionOf(c) == division);
+                label(division.Name, x0 + 6, y, 12, Pale);
+                label(range, x0 + 110, y, 12, Pale);
+                label($"{count} 人", x0 + PanelW - 34, y, 12, Dim, TextAnchor.Right);
+                lower = division.LimitKg ?? lower;
+                y += 17f;
+            }
+        }
+        else if (!focused.Tournament)
+        {
+            label("← → で決まりを切り替え（標準・各団体）", x0, y, 12, Dim);
+        }
+    }
+
+    private static int Pounds(int kg) => (int)MathF.Round(kg / FighterTape.KgPerPound, MidpointRounding.AwayFromZero);
+
+    private (string Who, string Detail) WhoPlays() => state.Mode switch
+    {
+        MatchMode.Single => ("シングルプレイ", "人 VS CPU"),
+        MatchMode.Versus => ("対戦", "人 VS 人"),
+        _ => ("観戦モード", "CPU VS CPU"),
+    };
+
+    // ── キャラクター選択
+    private const float PanelWidth = 152f;
+    private const float PanelTop = 92f;
+    private const float BodyBoxHeight = 168f;
+    private static float PanelCenterX(bool left) => left ? 91f : 549f;
+
+    private void DrawSelect(List<UiShapeDraw> shapes, MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
+    {
+        var grid = state.Grid;
+        var activeBlue = state.RedLocked;
+        bool Allowed(int i) => activeBlue ? state.BlueAllowed(i) : state.RedAllowed(i);
+
+        // 格子の地。
+        plate(320, (SelectGrid.Top + SelectGrid.Bottom) / 2, SelectGrid.Right - SelectGrid.Left + 4, SelectGrid.Bottom - SelectGrid.Top + 4,
+            new(0.03f, 0.10f, 0.18f, 0.6f), new(0.03f, 0.10f, 0.18f, 0.6f), 4);
+        foreach (var (row, top) in grid.VisibleRows())
+        {
+            var line = grid.Rows[row];
+            if (line.IsHeader)
+            {
+                var y = top + (SelectGrid.HeaderHeight / 2);
+                plate(320, y + 1, SelectGrid.Right - SelectGrid.Left - 6, SelectGrid.HeaderHeight - 4, new(0.14f, 0.36f, 0.50f, 1), new(0.07f, 0.20f, 0.32f, 1), 3);
+                label($"{line.Category.Label()}  {line.Count} 人", SelectGrid.Left + 8, y - 7, 12, Gold, shadow: false);
+                continue;
+            }
+
+            foreach (var index in line.Members)
+            {
+                DrawTile(shapes, canvas, plate, frame, label, index, Allowed(index));
+            }
+        }
+
+        if (grid.MaxFirstRow > 0)
+        {
+            var (start, length) = grid.ScrollBar();
+            var trackH = SelectGrid.Bottom - SelectGrid.Top;
+            plate(SelectGrid.Right - 1, SelectGrid.Top + (trackH / 2), 3, trackH, new(0.02f, 0.06f, 0.12f, 1), new(0.02f, 0.06f, 0.12f, 1), 1.5f);
+            plate(SelectGrid.Right - 1, SelectGrid.Top + (trackH * (start + (length / 2))), 3, trackH * length, Cyan, Cyan, 1.5f);
+        }
+
+        // カーソル（赤・青）。決めたら太く塗る。同じ人を指していれば青を外側へ。見えていない札には描かない。
         void Cursor(int index, Vector4 color, bool locked, float grow)
         {
-            var c = MenuLayout.TileCenter(index);
-            var size = MenuLayout.TileSize + new Vector2(grow);
+            if (grid.TileCenter(index) is not { } c) { return; }
+            var size = SelectGrid.TileSize + new Vector2(grow);
             if (locked)
             {
                 plate(c.X, c.Y, size.X, size.Y, color with { W = 0.28f }, color with { W = 0.28f }, 4);
             }
 
-            frame(c.X, c.Y, size.X, size.Y, color, locked ? 4f : 3f, 4);
+            frame(c.X, c.Y, size.X, size.Y, color, locked ? 3.5f : 2.5f, 4);
         }
 
         var same = state.RedCursor == state.BlueCursor;
         Cursor(state.RedCursor, RedSide, state.RedLocked, 3f);
-        Cursor(state.BlueCursor, BlueSide, state.BlueLocked, same ? 9f : 3f);
+        if (state.RedLocked || state.Mode == MatchMode.Versus) { Cursor(state.BlueCursor, BlueSide, state.BlueLocked, same ? 8f : 3f); }
 
         var (redTag, blueTag) = state.Mode switch
         {
@@ -248,10 +360,42 @@ internal sealed class MenuView(MenuState state, PortraitSet portraits, Func<IRea
         };
         var prompt = !state.RedLocked ? $"赤  {redTag}  を選んでください"
             : !state.BlueLocked ? $"青  {blueTag}  を選んでください" : "試合を始めます";
-        label(prompt, 320, 236, 18, Gold, TextAnchor.Center);
+        if (Notice is null) { label(prompt, 320, SelectGrid.Bottom + 3, 15, Gold, TextAnchor.Center); }
 
         DrawSide(shapes, canvas, plate, frame, label, state.RedCursor, left: true, redTag, state.RedLocked, !state.RedLocked || state.Mode == MatchMode.Versus);
         DrawSide(shapes, canvas, plate, frame, label, state.BlueCursor, left: false, blueTag, state.BlueLocked, state.RedLocked || state.Mode == MatchMode.Versus);
+    }
+
+    /// <summary>格子の 1 枚: 顔・国旗・短い名前。選べない人（大会に出られない・階級が違う）は暗くする。</summary>
+    private void DrawTile(List<UiShapeDraw> shapes, MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label, int index, bool allowed)
+    {
+        if (state.Grid.TileCenter(index) is not { } c) { return; }
+        var tile = SelectGrid.TileSize;
+        var character = state.Roster[index];
+        plate(c.X + 2, c.Y + 2, tile.X, tile.Y, Shadow, Shadow, 3);
+        plate(c.X, c.Y, tile.X, tile.Y, new(0.12f, 0.30f, 0.42f, 1), new(0.05f, 0.14f, 0.26f, 1), 3);
+        const float FaceBox = 40f;
+        var faceCenter = c + new Vector2(0f, -7f);
+        if (portraits.TryGet(index) is { } portrait)
+        {
+            var face = portrait.Face;
+            var pixel = MathF.Min(FaceBox / face.Height, (tile.X - 4f) / face.Width);
+            DrawPortrait(shapes, canvas, face, faceCenter, pixel, blue: false, anchorBottom: false);
+        }
+        else
+        {
+            label("…", faceCenter.X, faceCenter.Y - 8, 14, Dim, TextAnchor.Center);
+        }
+
+        MenuIcons.DrawFlag(shapes, canvas.At(c.X - (tile.X / 2) + 7, c.Y - (tile.Y / 2) + 5), 11 * canvas.Scale, character.Country.Flag);
+        var name = character.HudName;
+        label(name, c.X, c.Y + (tile.Y / 2) - 13, FitHeight(name, tile.X - 3, 10), allowed ? Pale : Dim, TextAnchor.Center, shadow: false);
+        if (!allowed)
+        {
+            plate(c.X, c.Y, tile.X, tile.Y, new(0.01f, 0.03f, 0.08f, 0.62f), new(0.01f, 0.03f, 0.08f, 0.62f), 3);
+        }
+
+        frame(c.X, c.Y, tile.X, tile.Y, new(0.19f, 0.38f, 0.51f, 1), 1.2f, 3);
     }
 
     private void DrawSide(List<UiShapeDraw> shapes, MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label,
@@ -259,48 +403,88 @@ internal sealed class MenuView(MenuState state, PortraitSet portraits, Func<IRea
     {
         var character = state.Roster[index];
         var color = left ? RedSide : BlueSide;
-        var panelX = left ? 90f : 550f;
-        var x0 = left ? 16f : 324f;
-        // 全身の絵の枠。
-        plate(panelX, 186, 150, 172, new(0.08f, 0.22f, 0.32f, 1), new(0.03f, 0.10f, 0.20f, 1), 6);
-        frame(panelX, 186, 150, 172, active ? color : color with { W = 0.45f }, active ? 2.5f : 1.5f, 6);
-        label(tag.Split('（')[0], panelX - 68, 104, 13, color); // 肩書き（「1P（あなた）」は 1P だけ。頭の上に重ならない左の隅へ）
-        if (locked) { label("決定", panelX + 68, 104, 13, Gold, TextAnchor.Right); }
-        plate(panelX, 263, 110, 5, Shadow, Shadow, 3); // 足元の影
+        var panelX = PanelCenterX(left);
+        var x0 = panelX - (PanelWidth / 2) + 6;
+        var textW = PanelWidth - 12;
+        // 全身の絵の枠（全員を同じ縮尺で描く: 背の高い人は高く、四つ足は横に広く見える）。
+        var boxCenterY = PanelTop + (BodyBoxHeight / 2);
+        plate(panelX, boxCenterY, PanelWidth, BodyBoxHeight, new(0.08f, 0.22f, 0.32f, 1), new(0.03f, 0.10f, 0.20f, 1), 6);
+        frame(panelX, boxCenterY, PanelWidth, BodyBoxHeight, active ? color : color with { W = 0.45f }, active ? 2.5f : 1.5f, 6);
+        label(tag.Split('（')[0], x0, PanelTop + 4, 13, color); // 肩書き（「1P（あなた）」は 1P だけ。頭の上に重ならない左の隅へ）
+        if (locked) { label("決定", panelX + (PanelWidth / 2) - 6, PanelTop + 4, 13, Gold, TextAnchor.Right); }
+        var feetY = PanelTop + BodyBoxHeight - 8f;
+        plate(panelX, feetY + 1, 100, 5, Shadow, Shadow, 3); // 足元の影
         if (portraits.TryGet(index) is { } portrait)
         {
-            DrawPortrait(shapes, canvas, portrait.Body, new Vector2(panelX, 262f), BodyPixel, blue: !left, anchorBottom: true);
+            var body = portrait.Body;
+            var pixel = MathF.Min(body.PixelMeters * BodyPixelsPerMeter, (PanelWidth - 8f) / body.Width);
+            DrawPortrait(shapes, canvas, body, new Vector2(panelX, feetY), pixel, blue: !left, anchorBottom: true);
         }
         else
         {
-            label("…", panelX, 170, 22, Dim, TextAnchor.Center);
+            label("…", panelX, boxCenterY - 12, 22, Dim, TextAnchor.Center);
         }
 
         // 国旗・出身。
-        MenuIcons.DrawFlag(shapes, canvas.At(x0 + 16, 289), 30 * canvas.Scale, character.Country.Flag);
-        label(character.Origin, x0 + 40, 281, 14, Pale);
-        label(character.Tagline, x0 + 296, 281, 14, Gold, TextAnchor.Right);
+        var y = PanelTop + BodyBoxHeight + 5f;
+        MenuIcons.DrawFlag(shapes, canvas.At(x0 + 10, y + 7), 20 * canvas.Scale, character.Country.Flag);
+        label(character.Origin, x0 + 24, y, FitHeight(character.Origin, textW - 24, 12), Pale);
         // 名前（長いものは文字を縮めて収める）。
-        var nameHeight = FitHeight(character.Name, 296f, 20f);
-        label(character.Name, x0, 304, nameHeight, Pale);
-        // 武器。
-        MenuIcons.DrawEquipment(shapes, canvas.At(x0 + 28, 337), 20 * canvas.Scale, character.Weapon, character.Wear);
-        label(character.EquipmentName, x0 + 62, 328, 15, Pale);
-        // 体格（体の寸法そのもの。基準 = 1.00）。
-        var build = character.Build;
-        (string Name, float Value)[] rows = [("身長", build.Height), ("腕", build.Arms), ("脚", build.Legs), ("筋肉", build.Muscle)];
-        for (var i = 0; i < rows.Length; i++)
+        y += 17f;
+        label(character.Name, x0, y, FitHeight(character.Name, textW, 17), Pale);
+        // 分け方の札・持ち物。
+        y += 21f;
+        var category = state.Grid.Categories[index].ShortLabel();
+        var chipW = (FitHeight(category, 200f, 11) * category.Sum(ch => ch < 0x80 ? 0.55f : 1f)) + 8f;
+        plate(x0 + (chipW / 2), y + 7, chipW, 14, color with { W = 0.85f }, color with { X = color.X * 0.6f, Y = color.Y * 0.6f, Z = color.Z * 0.6f }, 3);
+        label(category, x0 + 4, y + 1, 11, Shadow, shadow: false);
+        MenuIcons.DrawEquipment(shapes, canvas.At(x0 + chipW + 16, y + 7), 11 * canvas.Scale, character.Weapon, character.Wear);
+        label(character.EquipmentName, x0 + chipW + 30, y + 1, FitHeight(character.EquipmentName, textW - chipW - 30, 11), Pale);
+        // 体格（ボクシングの単位: 身長は ft/in と cm、体重は lb と kg）。
+        var tape = FighterTape.Of(character.Build);
+        y += 19f;
+        label("身長", x0, y, 12, Dim);
+        label(tape.HeightText, x0 + 30, y, FitHeight(tape.HeightText, textW - 30, 12), Pale);
+        y += 16f;
+        label("体重", x0, y, 12, Dim);
+        label(tape.WeightText, x0 + 30, y, FitHeight(tape.WeightText, textW - 30, 12), Pale);
+        // 階級（階級制の団体に出られる人だけ。いまの大会が階級制ならその団体、ほかは階級制の最初の団体）。
+        y += 16f;
+        if (DivisionText(character) is { } division)
         {
-            var (bx, by) = (x0 + ((i % 2) * 150f), 356f + ((i / 2) * 19f));
-            label(rows[i].Name, bx, by, 13, Dim);
-            const float TrackX = 30f, TrackW = 62f;
-            plate(bx + TrackX + (TrackW / 2), by + 8, TrackW, 6, new(0.03f, 0.08f, 0.16f, 1), new(0.03f, 0.08f, 0.16f, 1), 3);
-            var fill = Math.Clamp((rows[i].Value - 0.6f) / 0.9f, 0f, 1f) * TrackW;
-            plate(bx + TrackX + (fill / 2), by + 8, MathF.Max(fill, 1f), 6, color, color with { X = color.X * 0.7f, Y = color.Y * 0.7f, Z = color.Z * 0.7f }, 3);
-            plate(bx + TrackX + ((1f - 0.6f) / 0.9f * TrackW), by + 8, 1.5f, 10, Pale, Pale); // 基準（1.00）の目盛り
-            label($"×{rows[i].Value:0.00}", bx + TrackX + TrackW + 4, by, 13, Pale);
+            label("階級", x0, y, 12, Dim);
+            label(division, x0 + 30, y, FitHeight(division, textW - 30, 12), Pale);
         }
+
+        y += 16f;
+        var why = state.Competition.Ineligible(character);
+        var last = why is null ? character.Tagline : "出場できません";
+        label(last, x0, y, FitHeight(last, textW, 11), why is null ? Gold : RedSide);
     }
+
+    /// <summary>階級の表示（「IVF ミドル級」）。階級制の団体に出られなければ null。</summary>
+    private string? DivisionText(FighterCharacter character)
+    {
+        var orgs = state.Competition is { Tournament: true, Org: { HasWeightClasses: true } current }
+            ? [current]
+            : state.Organizations.Where(o => o.HasWeightClasses);
+        foreach (var org in orgs)
+        {
+            var competition = Competition.Event(org);
+            if (competition.Ineligible(character) is null && competition.DivisionOf(character) is { } division)
+            {
+                return $"{org.LogoText} {division.Name}";
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>全身の絵の縮尺 [設計の画面のピクセル / m]: 名簿でいちばん背の高い人が枠に収まる値（全員に同じ値）。</summary>
+    private float BodyPixelsPerMeter => _bodyScale ??= (BodyBoxHeight - 22f)
+        / MathF.Max(0.5f, state.Roster.Max(c => BodySizing.PhysicalHeightMeters(c.Build)) * 1.06f);
+
+    private float? _bodyScale;
 
     /// <summary>文字の幅（全角 = 高さ、半角 = 高さの約半分）が <paramref name="maxWidth"/> に収まる文字の高さ。</summary>
     internal static float FitHeight(string value, float maxWidth, float maxHeight)
