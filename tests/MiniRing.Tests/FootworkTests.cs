@@ -72,8 +72,63 @@ public sealed class FootworkTests
             return footwork.Swinging;
         }
 
-        Assert.AreEqual(Footwork.Lead, FirstSwing(tuning with { ShuffleShare = 0f }), "the lead foot only shuffles");
+        Assert.AreEqual(Footwork.Lead, FirstSwing(tuning with { ShuffleShare = 0f, UnloadedFootShare = 0f }), "the lead foot only shuffles");
         Assert.AreEqual(Footwork.Rear, FirstSwing(tuning), "the lead foot keeps supporting the weight");
+    }
+
+    /// <summary>
+    /// 前へ加速しようとすると床反力の作用点が重心より後ろへずれ（加速度 / ω²）、前足の荷重が抜ける（ボクサーから見て、重力と前への加速を合わせた
+    /// 見かけの重力が後ろへ傾く）。後ろへ加速すれば前足に乗る。重心が両足の真ん中で加速度が無ければ半々。
+    /// </summary>
+    [TestMethod]
+    public void Footwork_ForwardAccelerationUnloadsTheLeadFoot()
+    {
+        var tuning = new FootworkTuning();
+        const float leg = 0.6197f;
+        var lead = new Vector2(0.5f * tuning.StanceWidth * leg, 0.5f * tuning.StanceLength * leg);
+        float Load(float forwardAccel) => Footwork.LeadLoad(new FootworkInput(0f, Vector2.Zero, Vector2.Zero, 3.813f, new Vector2(0f, 0.5f), 0f, 0f, leg,
+            LeadBall: lead, RearBall: -lead, Com: Vector2.Zero, ComAcceleration: new Vector2(0f, forwardAccel)))!.Value;
+
+        Assert.AreEqual(0.5f, Load(0f), 1e-4f, "standing still in the middle: half on each foot");
+        Assert.IsLessThan(0.35f, Load(3f), "accelerating forward unloads the lead foot");
+        Assert.IsLessThanOrEqualTo(Load(3f), Load(6f), "the harder the push, the lighter the lead foot");
+        Assert.IsGreaterThan(0.65f, Load(-3f), "accelerating back loads the lead foot");
+    }
+
+    /// <summary>
+    /// 前へ踏み出している足は、向きを後ろへ切り返したら運び終えるのを待たずに下ろして計画し直し、後ろへ向かう 1 歩になる（宙の足を前へ運び終えてから戻ると、
+    /// 切り返しの出だしが 1 歩ぶん遅れた）。計画し直さない設定（ReplanSwing 偽）では前足が前へ運ばれ続ける。
+    /// </summary>
+    [TestMethod]
+    public void Footwork_RedirectsASwingingFoot_WhenTheDirectionReverses()
+    {
+        (int Swinging, float LandingZ) AfterReversal(FootworkTuning tuning)
+        {
+            var footwork = new Footwork(tuning);
+            const float leg = 0.6197f;
+            var lead = new Vector2(0.5f * tuning.StanceWidth * leg, 0.5f * tuning.StanceLength * leg);
+            footwork.Reset(lead, tuning.LeadYawDegrees * MathF.PI / 180f, -lead, tuning.RearYawDegrees * MathF.PI / 180f);
+            var input = new FootworkInput(0f, Vector2.Zero, Vector2.Zero, 3.813f, new Vector2(0f, 0.5f), 0f, 0f, leg, LeadBall: lead, RearBall: -lead, Com: Vector2.Zero);
+            footwork.Update(input, Dt);
+            Assert.AreEqual(Footwork.Lead, footwork.Swinging, "forward: the lead foot steps out");
+            var forward = footwork.Landing!.Value.Ball.Y;
+            Assert.IsGreaterThan(lead.Y, forward);
+            for (var i = 0; i < 6; i++)
+            {
+                footwork.Update(input with { Intent = new Vector2(0f, -0.5f) }, Dt);
+            }
+
+            return (footwork.Swinging, footwork.Landing?.Ball.Y ?? float.NaN);
+        }
+
+        var tuning = new FootworkTuning { ReplanSwing = true }; // 既定では切ってある（寄って止まった後の技の形が変わった: docs/arena/foot_snag.md）
+        var leadZ = 0.5f * tuning.StanceLength * 0.6197f;
+        var replanned = AfterReversal(tuning);
+        Assert.IsGreaterThanOrEqualTo(0, replanned.Swinging, "a foot is stepping");
+        Assert.IsLessThan(replanned.Swinging == Footwork.Lead ? leadZ : -leadZ, replanned.LandingZ, $"the foot in the air is redirected back (foot {replanned.Swinging})");
+        var carried = AfterReversal(tuning with { ReplanSwing = false });
+        Assert.AreEqual(Footwork.Lead, carried.Swinging, "without replanning the lead foot is still in the air");
+        Assert.IsGreaterThan(leadZ, carried.LandingZ, "and still carried forward");
     }
 
     [TestMethod]

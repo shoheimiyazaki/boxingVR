@@ -236,7 +236,9 @@ public sealed class IntentFeelTests
     [TestMethod]
     public void SideEvade_StepsQuicklyToTheSide_AndKeepsFacingTheOpponent()
     {
-        var (game, control) = Settled();
+        // 相手は入力なしの体（打たない）: 測るのは横への回避の動きで、相手のパンチとの当たり外れではない（2026-11-26: 相手のボットの足の運びが変わると
+        // パンチの時刻が変わり、横へ踏み出す途中に当たって倒れた試行が出た。docs/arena/foot_snag.md）。
+        var (game, control) = Settled(passiveCpu: true);
         using var _ = game;
         var frame = game.PlayerSense.Self;
         var start = frame.WorldToLocal(game.Player.PelvisPosition);
@@ -272,7 +274,9 @@ public sealed class IntentFeelTests
         Assert.AreEqual(-1f, right.X, 1e-5f, "+Z を向いた人の右は −X");
         Assert.IsLessThanOrEqualTo(1f + 1e-5f, CameraFollow.ToWorld(new Vector2(1f, 1f), 0.3f).Length());
 
-        var (game, control) = Settled();
+        // 相手は入力なしの体（打たない）: 測るのはカメラ基準のキーで歩く向きで、相手のパンチとの当たり外れではない（2026-11-26: 相手のボットの足の運びが
+        // 変わるとパンチの時刻が変わり、歩く途中に当たって倒れ 29 cm しか進まなかった。docs/arena/foot_snag.md）。
+        var (game, control) = Settled(passiveCpu: true);
         using var _ = game;
         var before = game.Player.PelvisPosition;
         yaw = (MathF.PI / 2f) + CameraFollow.BehindYaw(game.PlayerSense.Self.Origin, game.PlayerSense.OpponentChest, 0f);

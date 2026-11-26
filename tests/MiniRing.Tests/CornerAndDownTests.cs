@@ -92,7 +92,9 @@ public sealed class CornerAndDownTests
         // 倒れた所から後ろへ少し流れる。重心で出すと 0.12 m になるが、止まって立つ体が流れる不具合（SlideTests）が戻る。重心の速さが 0.25 や 0.6 m/s を超えたときだけ重心で出す案は、
         // 起き上がりは 0.08 m になったが、歩く体のテスト（BootSnagTests・拳の速さ・肘・カウンターなど 10 件）が落ちたので採らなかった。
         Assert.IsLessThan(0.845f, drift, "the downed fighter gets up near where it fell");
-        Assert.IsLessThan(0.5f, towardOpponent, "and does not stumble toward the opponent");
+        // 2026-11-26: 向き（内積）だけで見ると、0.14 m しか動かない試行でもその向きが相手側なら落ちた（直す前の足の運びでも 12 種のうち 5 種）。
+        // 相手の方へ実際に動いた距離（ずれ × 向き）で見る: 直す前・今の 12 種とも 0.21 m 以下（docs/arena/foot_snag.md）。
+        Assert.IsLessThan(0.3f, drift * towardOpponent, "and does not stumble toward the opponent");
     }
 
     private static BotStyle Still => BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
