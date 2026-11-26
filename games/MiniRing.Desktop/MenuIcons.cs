@@ -30,7 +30,18 @@ internal static class MenuIcons
 
     /// <summary>最初の画面のボタンの絵。</summary>
     public static void DrawTop(List<UiShapeDraw> shapes, Vector2 center, float size, TopItem item, Vector4 ink, Vector4 accent, Vector4 plate)
-        => Emit(shapes, center, size, TopParts(item, ink, accent, plate));
+        => Draw(shapes, center, size, item switch
+        {
+            TopItem.FreeBattle => MenuIcon.Versus,
+            TopItem.Campaign => MenuIcon.Campaign,
+            TopItem.Replays => MenuIcon.Replays,
+            TopItem.Settings => MenuIcon.Settings,
+            _ => MenuIcon.Quit,
+        }, ink, accent, plate);
+
+    /// <summary>ボタンの絵（最初の画面・フリーバトルの誰が操るか）。</summary>
+    public static void Draw(List<UiShapeDraw> shapes, Vector2 center, float size, MenuIcon icon, Vector4 ink, Vector4 accent, Vector4 plate)
+        => Emit(shapes, center, size, TopParts(icon, ink, accent, plate));
 
     /// <summary>設定の「レフェリー」の絵（縞のシャツの人）。</summary>
     public static void DrawReferee(List<UiShapeDraw> shapes, Vector2 center, float size, Vector4 ink)
@@ -47,30 +58,30 @@ internal static class MenuIcons
         Emit(shapes, center, size, parts);
     }
 
-    private static List<Part> TopParts(TopItem item, Vector4 ink, Vector4 accent, Vector4 plate)
+    private static List<Part> TopParts(MenuIcon item, Vector4 ink, Vector4 accent, Vector4 plate)
     {
         List<Part> parts = [];
         switch (item)
         {
-            case TopItem.Single:
+            case MenuIcon.Single:
                 parts.Add(Disc(0, -0.27f, 0.3f, ink));
                 parts.Add(Rect(0, 0.14f, 0.56f, 0.5f, ink, 0.26f));
                 break;
-            case TopItem.Versus:
+            case MenuIcon.Versus:
                 parts.Add(Disc(-0.28f, -0.2f, 0.22f, ink));
                 parts.Add(Rect(-0.28f, 0.12f, 0.36f, 0.38f, ink, 0.17f));
                 parts.Add(Disc(0.28f, -0.2f, 0.22f, accent));
                 parts.Add(Rect(0.28f, 0.12f, 0.36f, 0.38f, accent, 0.17f));
                 parts.Add(Rect(0, 0.0f, 0.05f, 0.7f, Gold, 0.02f));
                 break;
-            case TopItem.Spectate:
+            case MenuIcon.Spectate:
                 parts.Add(Rect(0, 0, 0.94f, 0.5f, ink, 99f));
                 parts.Add(Rect(0, 0, 0.82f, 0.38f, plate, 99f));
                 parts.Add(Disc(0, 0, 0.34f, accent));
                 parts.Add(Disc(0, 0, 0.15f, plate));
                 parts.Add(Disc(-0.05f, -0.05f, 0.06f, ink));
                 break;
-            case TopItem.Replays:
+            case MenuIcon.Replays:
                 parts.Add(Ring(0, 0, 0.9f, ink, 0.07f));
                 for (var i = 0; i < 11; i++)
                 {
@@ -80,7 +91,7 @@ internal static class MenuIcons
                 }
 
                 break;
-            case TopItem.Settings:
+            case MenuIcon.Settings:
                 parts.Add(Rect(0, 0, 0.5f, 0.5f, ink, 99f));
                 foreach (var (x, y) in new[] { (0f, -0.34f), (0f, 0.34f), (-0.34f, 0f), (0.34f, 0f) })
                 {
@@ -93,6 +104,12 @@ internal static class MenuIcons
                 }
 
                 parts.Add(Disc(0, 0, 0.22f, plate));
+                break;
+            case MenuIcon.Campaign: // 人と、腰の金のベルト
+                parts.Add(Disc(0, -0.3f, 0.28f, ink));
+                parts.Add(Rect(0, 0.12f, 0.54f, 0.5f, ink, 0.24f));
+                parts.Add(Rect(0, 0.1f, 0.72f, 0.16f, accent, 0.04f));
+                parts.Add(Disc(0, 0.1f, 0.2f, plate));
                 break;
             default: // Quit: 電源の印（輪の上を開けて、棒を立てる）
                 parts.Add(Ring(0, 0.04f, 0.7f, ink, 0.08f));
@@ -241,3 +258,6 @@ internal static class MenuIcons
         }
     }
 }
+
+/// <summary>メニューのボタンの絵の種類。</summary>
+internal enum MenuIcon { Single, Versus, Spectate, Replays, Settings, Quit, Campaign }

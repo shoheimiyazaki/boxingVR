@@ -89,17 +89,20 @@ public sealed class MenuPagesVisualTests
 
         var settings = Path.Combine(outDir, "menu-test-settings.json");
         File.Delete(settings);
-        using var menu = new MatchMenu(replays, settings, loadPortraits: true);
+        var campaign = Path.Combine(outDir, "menu-test-campaign");
+        if (Directory.Exists(campaign)) { Directory.Delete(campaign, recursive: true); }
+        using var menu = new MatchMenu(replays, settings, loadPortraits: true, campaignDirectory: campaign);
         menu.Portraits.Complete();
         Assert.AreEqual(menu.State.Roster.Count, menu.Portraits.ReadyCount, "every character has a portrait");
         using var renderer = new HeadlessRenderer(Width, Height);
 
-        // 最初の画面（カーソルは観戦）。
-        menu.Handle(Move(y: 1));
+        // 最初の画面（カーソルはキャンペーン）。
+        menu.Handle(Move(x: 1));
         Render(renderer, menu, "menu_01_top.png");
 
         // 設定（レフェリーなしに切り替えた後）。
-        menu.Handle(Move(y: 1));
+        menu.Handle(Move(y: 1)); // 設定（2 行目の右）
+        Assert.AreEqual((int)TopItem.Settings, menu.State.TopIndex);
         menu.Handle(new MenuInput(Confirm: true));
         Assert.AreEqual(MenuPage.Settings, menu.State.Page);
         Render(renderer, menu, "menu_02_settings_referee_on.png");
@@ -110,6 +113,9 @@ public sealed class MenuPagesVisualTests
         // ゲームモード（シングル → 練習試合の行・IVF の大会の行）。
         menu.State.Return();
         while (menu.State.TopIndex != 0) { menu.Handle(Move(y: -1)); }
+        menu.Handle(new MenuInput(Confirm: true));
+        Assert.AreEqual(MenuPage.Free, menu.State.Page);
+        Render(renderer, menu, "menu_03b_free_battle.png");
         menu.Handle(new MenuInput(Confirm: true));
         Assert.AreEqual(MenuPage.Mode, menu.State.Page);
         menu.Handle(Move(x: 1)); // 練習試合の決まり: 標準 → 次の団体
@@ -132,6 +138,7 @@ public sealed class MenuPagesVisualTests
         // IVF の大会: 赤を決めると、青は同じ階級の人だけ。
         menu.State.Return();
         menu.Handle(new MenuInput(Confirm: true));
+        menu.Handle(new MenuInput(Confirm: true));
         while (menu.State.ModeAt(menu.State.ModeIndex)?.Org?.Id != "ivf") { menu.Handle(Move(y: 1)); }
         menu.Handle(new MenuInput(Confirm: true));
         Render(renderer, menu, "menu_09_select_ivf_red.png");
@@ -141,6 +148,7 @@ public sealed class MenuPagesVisualTests
         // VFC の大会（武器あり・檻）。
         menu.State.Return();
         menu.Handle(new MenuInput(Confirm: true));
+        menu.Handle(new MenuInput(Confirm: true));
         while (menu.State.ModeAt(menu.State.ModeIndex)?.Org?.Id != "vfc") { menu.Handle(Move(y: 1)); }
         Render(renderer, menu, "menu_11_mode_vfc.png");
         menu.Handle(new MenuInput(Confirm: true));
@@ -148,7 +156,8 @@ public sealed class MenuPagesVisualTests
 
         // 対戦（練習試合・赤だけ決定）。
         menu.State.Return();
-        menu.Handle(Move(x: 1));
+        menu.Handle(new MenuInput(Confirm: true));
+        menu.Handle(Move(y: 1));
         menu.Handle(new MenuInput(Confirm: true));
         while (menu.State.ModeIndex != 0) { menu.Handle(Move(y: -1)); }
         menu.Handle(new MenuInput(Confirm: true));
@@ -165,5 +174,37 @@ public sealed class MenuPagesVisualTests
         Assert.AreEqual(MenuPage.Replays, menu.State.Page);
         Assert.AreEqual(3, menu.State.ReplayCount);
         Render(renderer, menu, "menu_14_replays.png");
+
+        // キャンペーン: 空の一覧 → 作る（重量級・高め）→ ボクサーのページ（大会の並び・出られない理由・体重）。
+        menu.Handle(new MenuInput(Cancel: true));
+        while (menu.State.TopIndex != (int)TopItem.Campaign) { menu.Handle(Move(x: 1)); if (menu.State.TopIndex == (int)TopItem.Campaign) { break; } menu.Handle(Move(y: 1)); }
+        menu.Handle(new MenuInput(Confirm: true));
+        Assert.AreEqual(MenuPage.Campaign, menu.State.Page);
+        Render(renderer, menu, "menu_15_campaign_empty.png");
+        menu.Handle(new MenuInput(Confirm: true)); // 新しく作る
+        Assert.AreEqual(MenuPage.Create, menu.State.Page);
+        menu.Handle(Move(x: 3)); // 体型を回す
+        menu.Handle(Move(y: 1));
+        menu.Handle(Move(x: 4)); // 身長 +4 cm
+        Render(renderer, menu, "menu_16_campaign_create.png");
+        menu.Handle(Move(y: 2));
+        menu.Handle(new MenuInput(Confirm: true)); // 作る
+        Assert.AreEqual(MenuPage.Boxer, menu.State.Page);
+        Render(renderer, menu, "menu_17_campaign_boxer_ivf_rookie.png");
+        while (menu.State.Events[menu.State.BoxerIndex].Event.Id != "vfc-rookie") { menu.Handle(Move(y: 1)); }
+        menu.Handle(Move(x: 2)); // 武器を選び直す
+        Render(renderer, menu, "menu_18_campaign_boxer_vfc_weapon.png");
+        while (menu.State.BoxerIndex != MenuState.WeightRow) { menu.Handle(Move(y: 1)); }
+        menu.Handle(Move(x: -6));
+        Render(renderer, menu, "menu_19_campaign_weight_cut.png");
+        menu.Handle(new MenuInput(Confirm: true));
+        menu.Handle(new MenuInput(Cancel: true));
+        menu.Handle(Move(y: 1)); // 新しく作る
+        menu.Handle(new MenuInput(Confirm: true));
+        menu.Handle(Move(y: 3)); // 作る
+        menu.Handle(new MenuInput(Confirm: true));
+        Assert.AreEqual(2, menu.State.Boxers.Count, "as many boxers as you like");
+        menu.Handle(new MenuInput(Cancel: true));
+        Render(renderer, menu, "menu_20_campaign_list.png");
     }
 }

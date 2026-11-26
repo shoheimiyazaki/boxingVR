@@ -1,0 +1,24 @@
+{
+  // キャンペーンの大会（2026-11-26、docs/plans/CAMPAIGN_PLAN.md）。並びは画面の並び（団体ごとに 新人戦 → ランキング戦 → タイトル）。
+  // 出られるかは、ボクサーの体（計量の体重・身長）と団体のファイル（出場の条件・階級）とこの表の値だけで決まる（コードに大会名の分岐を書かない）。
+  //   divisions     : 出られる階級（計量の体重で団体の階級に振り分けた結果。null = 全階級）
+  //   minKg / maxKg : 計量の体重の下限・上限 [kg]（null = 無し）
+  //   minHeightCm / maxHeightCm : 身長の下限・上限 [cm]
+  //   maxPriorBouts : この団体での試合の数の上限（新人戦: まだ試合の少ない選手だけ）
+  //   minWins       : この団体での勝ちの数の下限
+  //   maxSeat       : 出るのに要る席（1 = ランキング 1 位か王者。null = 不問）
+  //   tier          : rookie（ランキング外の相手と組む）・ranking（一つ上の席の相手と組み、勝てば席を取る）・title（王者と組み、勝てば王者）
+  "events": [
+    { "id": "ivf-rookie", "name": "IVF 新人王戦", "org": "ivf", "tier": "rookie", "divisions": ["light", "middle", "lightheavy"], "maxPriorBouts": 3,
+      "note": "ライトヘビー級（80 kg）までの新人だけ" },
+    { "id": "ivf-ranking", "name": "IVF ランキング戦", "org": "ivf", "tier": "ranking", "minWins": 2, "note": "IVF で 2 勝した選手が、一つ上の席の相手に挑む" },
+    { "id": "ivf-title", "name": "IVF タイトルマッチ", "org": "ivf", "tier": "title", "maxSeat": 1, "note": "ランキング 1 位が王者に挑む（王者は防衛戦）" },
+    { "id": "wvc-rookie", "name": "WVC 新人戦", "org": "wvc", "tier": "rookie", "minKg": 60, "maxPriorBouts": 3, "note": "無差別級。60 kg 以上の新人" },
+    { "id": "wvc-ranking", "name": "WVC ランキング戦", "org": "wvc", "tier": "ranking", "minWins": 2, "note": "WVC で 2 勝した選手が、一つ上の席の相手に挑む" },
+    { "id": "wvc-title", "name": "WVC 世界タイトルマッチ", "org": "wvc", "tier": "title", "maxSeat": 1, "note": "ランキング 1 位が世界王者に挑む" },
+    { "id": "vfc-rookie", "name": "VFC 新人戦", "org": "vfc", "tier": "rookie", "minKg": 70, "minHeightCm": 140, "maxPriorBouts": 3,
+      "note": "檻の中の何でもあり。70 kg・140 cm 以上の新人" },
+    { "id": "vfc-ranking", "name": "VFC ランキング戦", "org": "vfc", "tier": "ranking", "minWins": 2, "note": "VFC で 2 勝した選手が、一つ上の席の相手に挑む" },
+    { "id": "vfc-title", "name": "VFC 王者戦", "org": "vfc", "tier": "title", "maxSeat": 1, "note": "ランキング 1 位が王者に挑む" }
+  ]
+}

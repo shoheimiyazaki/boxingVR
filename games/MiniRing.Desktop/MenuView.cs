@@ -21,7 +21,7 @@ internal readonly record struct MenuCanvas(Vector2 Size)
 /// メニューの描画（状態 <see cref="MenuState"/> から図形と文字を作るだけ。状態を変えない）。最初の画面・設定・キャラ選択・リプレイの各ページ。
 /// 顔・全身の絵は、試合の体のボクセルを正面から写した四角の並び（<see cref="CharacterPortraits"/>）をそのまま四角で描く。
 /// </summary>
-internal sealed class MenuView(MenuState state, PortraitSet portraits, Func<IReadOnlyList<string>> replayNames)
+internal sealed partial class MenuView(MenuState state, PortraitSet portraits, Func<IReadOnlyList<string>> replayNames)
 {
     private static readonly Vector4 Shadow = new(0.02f, 0.04f, 0.12f, 1f);
     private static readonly Vector4 Pale = new(0.85f, 0.92f, 0.95f, 1f);
@@ -81,6 +81,10 @@ internal sealed class MenuView(MenuState state, PortraitSet portraits, Func<IRea
             MenuPage.Mode => "ゲームモード",
             MenuPage.Select => "キャラクターセレクト",
             MenuPage.Replays => "リプレイセレクト",
+            MenuPage.Free => "フリーバトル",
+            MenuPage.Campaign => "キャンペーン",
+            MenuPage.Create => "ボクサーを作る",
+            MenuPage.Boxer => state.Boxer?.Character.HudName ?? "キャンペーン",
             _ => "ゲームセレクト",
         };
         // 一番上の行: キャラ選択ではいまのゲームモード（大会・練習試合の決まり）。
@@ -96,6 +100,10 @@ internal sealed class MenuView(MenuState state, PortraitSet portraits, Func<IRea
             case MenuPage.Settings: DrawSettings(shapes, canvas, Plate, Frame, Label); break;
             case MenuPage.Mode: DrawMode(shapes, canvas, Plate, Frame, Label); break;
             case MenuPage.Select: DrawSelect(shapes, canvas, Plate, Frame, Label); break;
+            case MenuPage.Free: DrawFree(shapes, canvas, Plate, Frame, Label); break;
+            case MenuPage.Campaign: DrawCampaign(Plate, Frame, Label); break;
+            case MenuPage.Create: DrawCreate(Plate, Frame, Label); break;
+            case MenuPage.Boxer: DrawBoxer(Plate, Frame, Label); break;
             default: DrawReplays(Plate, Frame, Label); break;
         }
 
@@ -113,6 +121,9 @@ internal sealed class MenuView(MenuState state, PortraitSet portraits, Func<IRea
         MenuPage.Top => "WASD / 矢印 / 十字キー: 選ぶ   Enter / A / クリック: 決定   Esc / B: 終了へ",
         MenuPage.Settings => "← →  Enter / A: 切り替え   Esc / B: 戻る",
         MenuPage.Mode => "↑ ↓: 選ぶ   ← →: 練習試合の決まり   Enter / A: 決定   Esc / B: 戻る",
+        MenuPage.Free or MenuPage.Campaign => "↑ ↓: 選ぶ   Enter / A / クリック: 決定   Esc / B: 戻る",
+        MenuPage.Create => "↑ ↓: 選ぶ   ← →: 変える   Enter / A: 決定   Esc / B: 戻る",
+        MenuPage.Boxer => "↑ ↓: 選ぶ   ← →: 武器・目標体重   Enter / A: 出る・決める   Esc / B: 戻る",
         MenuPage.Select => state.Mode == MatchMode.Versus
             ? "赤: WASD / 青: 矢印・2 つ目のパッド   Enter / A: 決定   Esc / B: 戻る"
             : "WASD / 矢印 / 十字キー: 選ぶ   ホイール: 送る   Enter / A / クリック: 決定   Esc / B: 戻る",
@@ -120,8 +131,8 @@ internal sealed class MenuView(MenuState state, PortraitSet portraits, Func<IRea
     };
 
     // ── 最初の画面
-    private static readonly string[] TopLabels = ["シングルプレイ", "対戦", "観戦モード", "リプレイ", "ゲームの設定", "終了"];
-    private static readonly string[] TopDetails = ["人 VS CPU", "人 VS 人", "CPU VS CPU", "過去の試合を再生", "レフェリーなど", ""];
+    private static readonly string[] TopLabels = ["フリーバトル", "キャンペーン", "リプレイ", "ゲームの設定", "終了"];
+    private static readonly string[] TopDetails = ["シングル・対戦・観戦", "自分のボクサーで勝ち上がる", "過去の試合を再生", "レフェリーなど", ""];
 
     private void DrawTop(List<UiShapeDraw> shapes, MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
     {

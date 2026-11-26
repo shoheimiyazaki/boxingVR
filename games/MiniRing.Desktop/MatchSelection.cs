@@ -23,6 +23,9 @@ internal sealed record MatchSelection(MatchMode Mode, FighterCharacter Red, Figh
     /// <summary>ゲームモード（無ければ練習試合の標準）。</summary>
     public Competition Event => Competition ?? Desktop.Competition.Practice(null);
 
+    /// <summary>キャンペーンの試合なら札（試合の後に戦績へ書く。フリーバトルは null）。</summary>
+    public CampaignTicket? Campaign { get; init; }
+
     public BoxingCorners Corners
     {
         get
