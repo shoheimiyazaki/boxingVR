@@ -84,6 +84,9 @@ public sealed partial class BoxingGame
         return seat >= 0 && _target[seat] >= 0 ? _fighters[_target[seat]] : fighter == Player ? Cpu : Player;
     }
 
+    /// <summary><paramref name="fighter"/> が今狙っている相手の席（まだ選んでいない・2 人の試合では -1。中継のカメラが使う）。</summary>
+    public int TargetSeatOf(Fighter fighter) => IsRoyale && SeatOf(fighter) is var seat and >= 0 ? _target[seat] : -1;
+
     /// <summary>画面に出す名前（赤・青・追加の席）。</summary>
     public string LabelOf(Fighter fighter)
     {

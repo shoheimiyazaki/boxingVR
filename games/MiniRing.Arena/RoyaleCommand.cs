@@ -64,6 +64,10 @@ internal static class RoyaleCommand
         try
         {
             var watch = new RoyaleWatch(game);
+            var tvCorners = characters.Select(TvCorner.Of).ToList();
+            // 実況・解説の資料（--events、または動画の横に <名前>.events.json と .events.md）。
+            var eventsPath = o.Get("events") ?? (o.Get("out") is { } video ? Path.ChangeExtension(video, ".events.json") : null);
+            var log = eventsPath is null ? null : new RoyaleLog(game, characters, tvCorners);
             var trace = o.Float("trace", 0f, min: 0f); // 何秒ごとに全員の様子を 1 行で出すか（0 なら出さない）
             Func<BoxingGame, float, bool> step = (g, t) =>
             {
@@ -77,6 +81,7 @@ internal static class RoyaleCommand
                 }
 
                 watch.Observe(Dt);
+                log?.Observe(t + Dt);
                 if (trace > 0f && (int)((t + Dt) / trace) != (int)(t / trace))
                 {
                     Console.WriteLine(RoyaleWatch.Trace(g, t + Dt));
@@ -88,7 +93,7 @@ internal static class RoyaleCommand
             var clock = Stopwatch.StartNew();
             if (o.Get("out") is { } outPath)
             {
-                new RoyaleVideo(o.Int("width", 1280), o.Int("height", 720), o.Int("fps", 30), teamNames).Make(game, seconds, step, outPath, Console.Out);
+                new RoyaleVideo(o.Int("width", 1280), o.Int("height", 720), o.Int("fps", 30), tvCorners, teamNames).Make(game, seconds, step, outPath, Console.Out);
             }
             else
             {
@@ -98,6 +103,12 @@ internal static class RoyaleCommand
             }
 
             clock.Stop();
+            if (log is not null && eventsPath is not null)
+            {
+                log.Write(eventsPath);
+                Console.WriteLine($"events: {eventsPath}");
+            }
+
             Console.Write(watch.Report(clock.Elapsed.TotalSeconds));
         }
         finally
@@ -277,7 +288,7 @@ internal sealed class RoyaleWatch(BoxingGame game)
 }
 
 /// <summary>バトルロイヤルの動画: 全員を見下ろし、いちばん激しい所へ寄せるカメラ。頭の上の名前の札・生き残りの一覧・脱落の字幕・打撃音。</summary>
-internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<string>? teamNames = null)
+internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<TvCorner> corners, IReadOnlyList<string>? teamNames = null)
 {
     private static readonly Vector4 White = new(1f, 1f, 1f, 1f);
     private static readonly Vector4 Cream = new(0.95f, 0.91f, 0.84f, 1f);
@@ -285,10 +296,14 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
     private static readonly Vector4 Red = new(0.93f, 0.2f, 0.16f, 1f);
 
     private Vector3 _look;
+    private Vector3 _eye;
     private float _radius;
     private Vector3 _heat;
     private float _heatWeight;
-    private readonly List<(string Text, float Until)> _captions = [];
+    private readonly RoyaleDirector _director = new(new DirectorTuning());
+    private int _cuts;
+    private readonly RoyaleOverlay _overlay = new(width, height, corners, teamNames);
+    private bool _cutPending; // 描かない刻み（60 Hz の判断と 30 fps の絵）で起きたカットを、次に描く絵まで覚える
 
     public void Make(BoxingGame game, float seconds, Func<BoxingGame, float, bool> step, string outPath, TextWriter log)
     {
@@ -353,17 +368,7 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
             }
 
             Heat(game);
-            foreach (var e in game.RecentEliminations)
-            {
-                _captions.Add((e.By is { } by ? $"{game.LabelOf(by)} が {game.LabelOf(e.Fighter)} を倒した（{Cause(e.Cause)}）" : $"{game.LabelOf(e.Fighter)} 脱落（{Cause(e.Cause)}）", t + 4f));
-            }
-
-            if (game.MatchOver && game.WinningTeam is { } team && !_captions.Any(c => c.Text.StartsWith("勝者", StringComparison.Ordinal)))
-            {
-                var members = game.AllFighters.Where(x => game.InPlay(x)).Select(game.LabelOf);
-                _captions.Add((game.InitialCorners.Teams is null ? $"勝者 {string.Join("・", members)} — 最後の 1 人" : $"勝者 {TeamName(team)} — {string.Join("・", members)} が生き残った", t + 1e6f));
-            }
-
+            Direct(game, t);
             if (t < nextFrame)
             {
                 continue;
@@ -373,9 +378,9 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
             BoxingRenderer.Fill(game, showTargetGhosts: false, instances, lines);
             var (eye, look) = Camera(game);
             var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, look, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.05f, 60f);
-            var text = Overlay(game, vp, t, startCells);
+            var (text, shapes) = _overlay.Draw(game, vp, t, startCells, _director.Current, _director.ShotStart);
             var rgba = renderer.RenderPrimitiveScene(ArenaLook.Background, vp, instances, lines, text, particles: game.BuildParticles(), lighting: game.BuildLighting(),
-                shadow: game.BuildShadow(), cameraPosition: displayEye, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
+                shadow: game.BuildShadow(), cameraPosition: displayEye, shapes: shapes, postProcess: game.BuildPostProcess(), voxels: game.BuildVoxelVolumes());
             ffmpeg.StandardInput.BaseStream.Write(rgba);
             frames++;
         }
@@ -408,7 +413,7 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
 
         File.Delete(silentPath);
         File.Delete(wavPath);
-        log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{outPath}: {frames} frames ({duration:0.0}s)"));
+        log.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{outPath}: {frames} frames ({duration:0.0}s), {_cuts} camera cuts"));
     }
 
     private const float BoxingGameDt = 1f / 60f;
@@ -417,7 +422,7 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
 
     private static int Cells(Fighter fighter) => fighter.Voxels?.Parts.Sum(p => p.Body.Grid.FilledCount) ?? 1;
 
-    private static string Cause(string cause) => cause switch
+    internal static string Cause(string cause) => cause switch
     {
         "OUT OF THE CAGE" => "檻の外へ",
         _ => cause.Replace(" DESTROYED", "", StringComparison.Ordinal).ToLowerInvariant() switch
@@ -427,7 +432,10 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
             "liver" => "肝臓",
             "neck" => "首",
             "lungs" or "lung" => "肺",
-            "spine" => "脊髄",
+            "spine" or "cord" => "脊髄",
+            "gut" => "腸",
+            "artery" => "動脈",
+            "eye" => "目",
             var other => other,
         },
     };
@@ -450,8 +458,48 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
         }
     }
 
-    /// <summary>生きている人の重心（と激しい所）を見下ろし、生きている人の広がりが画面に入る所から。</summary>
+    /// <summary>カメラの切り替え（<see cref="RoyaleDirector"/>）へ、この刻みの様子と当たった打撃を渡す。</summary>
+    private void Direct(BoxingGame game, float t)
+    {
+        var (view, hits) = DirectorInput(game);
+        _director.Update(t, BoxingGameDt, view, hits, wholeCage: game.InIntro || game.InBreak);
+        if (_director.Cut)
+        {
+            _cuts++;
+            _cutPending = true;
+        }
+    }
+
+    /// <summary>カメラの判断に渡す今の刻みの様子（選手と、当たった打撃）。動画と記録（<see cref="RoyaleLog"/>）が同じものを渡す。</summary>
+    internal static (DirectorFighter[] View, (int, int, float)[] Hits) DirectorInput(BoxingGame game)
+    {
+        int Seat(Fighter f) => game.SeatOf(f);
+        var view = game.AllFighters.Select(f => new DirectorFighter(f.ChestPosition, game.InPlay(f), f.State != FighterState.Standing,
+            game.TargetSeatOf(f))).ToArray();
+        (int, int, float)[] hits = [.. game.RecentHits.Select(h => (Seat(h.Attacker), Seat(h.Victim), h.Damage))
+            .Concat(game.WeaponHits.Select(h => (Seat(h.Attacker), Seat(h.Victim), h.Damage)))];
+        return (view, hits);
+    }
+
+    /// <summary>
+    /// 今の絵のカメラ。全体の絵: 生きている人の重心（と激しい所）を見下ろし、全員の広がりが入る所から。戦いの絵: 2 人（とそばにいる人）を、
+    /// 2 人を結ぶ線の横から（どちらの顔も見える、ボクシング中継の向き）。線の同じ側に留まり（向きが飛ばない）、絵が切り替わった瞬間はカメラを飛ばす（カット）。
+    /// </summary>
     private (Vector3 Eye, Vector3 Look) Camera(BoxingGame game)
+    {
+        var (eye, look) = _director.Current.IsWide ? WideCamera(game) : FightCamera(game, _director.Current);
+        var display = DisplaySpace.Standard;
+        // 目は表示の空間で部屋の中へ寄せる（天井の上・壁の外へ出ると天井の裏しか映らない: LivingRoom.KeepInside）。
+        eye = display.ToPhysics(LivingRoom.KeepInside(display.Point(eye), 0.15f));
+        var snap = _cutPending || _eye == Vector3.Zero;
+        _cutPending = false;
+        // 追う速さは秒あたり（fps に依らない）: 1 秒でずれの約 88 %（見る点）・約 79 %（目）を詰める。
+        _look = snap ? look : Vector3.Lerp(_look, look, 1f - MathF.Pow(0.12f, 1f / fps));
+        _eye = snap ? eye : Vector3.Lerp(_eye, eye, 1f - MathF.Pow(0.21f, 1f / fps));
+        return (_eye, _look);
+    }
+
+    private (Vector3 Eye, Vector3 Look) WideCamera(BoxingGame game)
     {
         var alive = game.AllFighters.Where(game.InPlay).ToList();
         if (alive.Count == 0)
@@ -468,45 +516,75 @@ internal sealed class RoyaleVideo(int width, int height, int fps, IReadOnlyList<
         }
 
         var spread = alive.Max(f => Vector3.Distance(new Vector3(f.ChestPosition.X, center.Y, f.ChestPosition.Z), center));
-        _look = Vector3.Lerp(_look, center, 0.06f);
-        _radius += (MathF.Max(1.6f, spread) - _radius) * 0.04f;
-        // 見下ろす。目は表示の空間で部屋の中へ寄せる（天井の上・壁の外へ出ると天井の裏しか映らない: LivingRoom.KeepInside）。
+        _radius = _cutPending ? MathF.Max(1.6f, spread) : _radius + ((MathF.Max(1.6f, spread) - _radius) * 0.04f);
         var back = Vector3.Normalize(new Vector3(0f, 0.6f, -0.8f));
         var distance = Math.Clamp((_radius * 1.6f) + 2.5f, 4f, 11f);
-        var display = DisplaySpace.Standard;
-        var eye = display.ToPhysics(LivingRoom.KeepInside(display.Point(_look + (back * distance)), 0.15f));
-        return (eye, _look);
+        return (center + (back * distance), center);
     }
 
-    private ScreenTextDraw[] Overlay(BoxingGame game, Matrix4x4 vp, float t, int[] startCells)
+    private (Vector3 Eye, Vector3 Look) FightCamera(BoxingGame game, Shot shot)
     {
-        var list = new List<ScreenTextDraw>
+        var a = game.AllFighters[shot.A].ChestPosition;
+        var b = game.AllFighters[shot.B].ChestPosition;
+        var mid = (a + b) * 0.5f;
+        // そばにいる 3 人目も絵に入れる（割って入る・背中から打つ人）。
+        var near = game.AllFighters.Where(f => game.InPlay(f) && Vector3.Distance(f.ChestPosition, mid) < 1.6f).Select(f => f.ChestPosition).Append(a).Append(b).ToList();
+        var center = near.Aggregate(Vector3.Zero, (s, p) => s + p) / near.Count;
+        var extent = near.Max(p => Vector2.Distance(new Vector2(p.X, p.Z), new Vector2(center.X, center.Z)));
+        var line = new Vector3(b.X - a.X, 0f, b.Z - a.Z);
+        line = line.LengthSquared() > 1e-6f ? Vector3.Normalize(line) : Vector3.UnitX;
+        var side = Vector3.Cross(Vector3.UnitY, line);
+        var distance = Math.Clamp((extent * 1.7f) + 2.2f, 2.8f, 6.5f);
+        var flat = distance * MathF.Cos(24f * MathF.PI / 180f);
+        // 撮る向き: 2 人を結ぶ線の真横（両方の顔が見える）を好み、金網の内側から撮れる向きを選ぶ（外からだと網越しになる）。
+        // 候補は真横から ±25°・±50° ずつ、線の両側。切り替えの瞬間は全部から、絵の途中は今の向きの近く（±25° まで）から選ぶ（向きが飛ばない）。
+        var ring = game.Layout.Center;
+        var inside = (game.Layout.IsCage ? game.Layout.Circumradius * MathF.Cos(MathF.PI / 6f) : game.Layout.Half) - 0.35f; // 金網・ロープの面（内接円）の少し内側
+        var fresh = _cutPending || _eye == Vector3.Zero;
+        var now = new Vector3(_eye.X - center.X, 0f, _eye.Z - center.Z);
+        now = now.LengthSquared() > 1e-6f ? Vector3.Normalize(now) : side;
+        var best = (Dir: side, Reach: 0f, Score: float.NegativeInfinity);
+        // 2 人の中心が縁の外寄りにいるときは、縁の内側の点から測る（金網に押し付けられた 2 人でも、中へ向く向きは撮れる）。
+        var from = new Vector2(center.X - ring.X, center.Z - ring.Z);
+        from = from.Length() > inside * 0.98f ? Vector2.Normalize(from) * (inside * 0.98f) : from;
+        for (var pass = 0; pass < 2 && float.IsNegativeInfinity(best.Score); pass++)
         {
-            new($"VFC バトルロイヤル  {game.AllFighters.Count} 人", new Vector2(36f, 36f), 30f, Cream, TextAnchor.Left),
-            new(game.InIntro ? "まもなく開始" : game.InBreak ? $"休み  R{game.MatchRound}  {game.BreakLeft:0}s" : string.Create(CultureInfo.InvariantCulture, $"R{game.MatchRound}  {game.RoundLeft:0}s"),
-                new Vector2(width - 36f, 36f), 28f, Cream, TextAnchor.Right),
-        };
-        var screen = new Vector2(width, height);
-        for (var i = 0; i < game.AllFighters.Count; i++)
-        {
-            var f = game.AllFighters[i];
-            var alive = game.InPlay(f);
-            var body = 100f * Cells(f) / startCells[i];
-            list.Add(new ScreenTextDraw(string.Create(CultureInfo.InvariantCulture, $"{game.LabelOf(f)}  {(alive ? $"体 {body:0}%" : "脱落")}{(alive && f.State != FighterState.Standing ? "  ダウン" : "")}"),
-                new Vector2(36f, 84f + (i * 30f)), 22f, alive ? White : Grey, TextAnchor.Left));
-            if (alive && Aigis.Render.Camera.TryWorldToScreen(vp, game.Display.Point(f.HeadPosition + new Vector3(0f, 0.45f, 0f)), screen, out var pixel))
+            // 1 回目は今の向きの近くだけ。どれも外れたら（2 人が速く回った・3 人目が出入りした）、全部から選び直す。
+            var any = fresh || pass == 1;
+            foreach (var sign in (ReadOnlySpan<float>)[1f, -1f])
             {
-                list.Add(new ScreenTextDraw(game.LabelOf(f), pixel, 20f, game.InitialCorners.RedKit(i) ? new Vector4(1f, 0.7f, 0.65f, 1f) : new Vector4(0.7f, 0.8f, 1f, 1f), TextAnchor.Center));
+                foreach (var degrees in (ReadOnlySpan<float>)[0f, 25f, -25f, 50f, -50f])
+                {
+                    var dir = Vector3.Transform(side * sign, Quaternion.CreateFromAxisAngle(Vector3.UnitY, degrees * MathF.PI / 180f));
+                    if (!any && Vector3.Dot(dir, now) < MathF.Cos(26f * MathF.PI / 180f))
+                    {
+                        continue;
+                    }
+
+                    var reach = MathF.Min(flat, ReachInside(from, new Vector2(dir.X, dir.Z), inside));
+                    // 金網の内側に収まる距離を一番に、真横からのずれを二番に、今の向きに近いことを三番に。
+                    var score = reach - (MathF.Abs(degrees) * 0.01f) + (Vector3.Dot(dir, now) * 0.05f);
+                    if (score > best.Score)
+                    {
+                        best = (dir, reach, score);
+                    }
+                }
             }
         }
 
-        _captions.RemoveAll(c => c.Until < t);
-        for (var i = 0; i < _captions.Count; i++)
-        {
-            list.Add(new ScreenTextDraw(_captions[i].Text, new Vector2(width * 0.5f, height - 60f - ((_captions.Count - 1 - i) * 36f)), 28f, i == _captions.Count - 1 ? Red : Cream, TextAnchor.Center));
-        }
+        // 内側に収まらない分は、高く上がって見下ろす（同じ距離のまま角度を立てる: 金網の上から撮る）。
+        var horizontal = MathF.Max(0.6f, best.Reach);
+        var height = MathF.Sqrt(MathF.Max(0f, (distance * distance) - (horizontal * horizontal)));
+        height = MathF.Max(height, distance * MathF.Sin(24f * MathF.PI / 180f));
+        return (center + (best.Dir * horizontal) + (Vector3.UnitY * height), center);
+    }
 
-        list.Add(new ScreenTextDraw(string.Create(CultureInfo.InvariantCulture, $"{t:0.0} s"), new Vector2(width - 36f, height - 30f), 20f, Grey, TextAnchor.Right));
-        return [.. list];
+    /// <summary>円の中の点 <paramref name="from"/> から向き <paramref name="dir"/>（単位）へ、半径 <paramref name="radius"/> の円の縁まで進める距離（外にいれば 0）。</summary>
+    private static float ReachInside(Vector2 from, Vector2 dir, float radius)
+    {
+        var b = Vector2.Dot(from, dir);
+        var c = from.LengthSquared() - (radius * radius);
+        var disc = (b * b) - c;
+        return c > 0f || disc < 0f ? 0f : -b + MathF.Sqrt(disc);
     }
 }

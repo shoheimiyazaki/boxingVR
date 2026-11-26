@@ -106,7 +106,7 @@ try
         "swinglab" => SwingLabCommand(Options.Parse(argv[1..], "gens", "lambda", "seed", "bouts", "seconds", "out", "best", "fight", "video", "width", "height", "fps", "slow", "families")),
         "weaponlab" => WeaponLabCommand(Options.Parse(argv[1..], "out", "table", "width", "height", "fps", "slow", "video")),
         "intentvideo" => IntentVideo(Options.Parse(argv[1..], "script", "blue", "seed", "seconds", "width", "height", "out", "camera-scale")),
-        "royale" => RoyaleCommand.Run(Options.Parse(argv[1..], "fighters", "count", "seed", "seconds", "rounds", "break", "out", "width", "height", "fps", "replay", "verify", "trace", "teams", "team-names")),
+        "royale" => RoyaleCommand.Run(Options.Parse(argv[1..], "fighters", "count", "seed", "seconds", "rounds", "break", "out", "width", "height", "fps", "replay", "verify", "trace", "teams", "team-names", "events")),
         "simplify" => SimplifyCommand.Run(Options.Parse(argv[1..], "variants", "scenes", "seeds", "seconds", "parallel", "out")),
         "perf" => PerfCommand.Run(Options.Parse(argv[1..], "scene", "seconds", "seeds", "render", "check", "alloc", "out")),
         "recordbout" => RecordBoutCommand(Options.Parse(argv[1..], "red", "blue", "seconds", "seed", "tv", "out")),
