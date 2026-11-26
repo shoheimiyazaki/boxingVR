@@ -50,6 +50,12 @@ internal sealed partial class MenuState
     /// <summary>ボクサーのページの行（0..大会の数−1 = 大会、次 = 目標体重、次 = 消す、最後 = 戻る）。</summary>
     public int BoxerIndex { get; private set; }
 
+    /// <summary>ボクサーのページの見えている先頭の行（大会は階級ごとにあって画面に収まらないので送る）。</summary>
+    public int BoxerFirst { get; private set; }
+
+    /// <summary>ボクサーのページで一度に見せる行の数。</summary>
+    public const int BoxerVisible = CampaignVisible + 2;
+
     public static int BoxerRows => CampaignEvents.All.Count + 3;
     public static int WeightRow => CampaignEvents.All.Count;
     public static int DeleteRow => CampaignEvents.All.Count + 1;
@@ -113,10 +119,15 @@ internal sealed partial class MenuState
         _boxerId = id;
         CampaignIndex = Math.Max(0, Boxers.ToList().FindIndex(b => b.Id == id));
         Page = MenuPage.Boxer;
-        BoxerIndex = 0;
         ConfirmingDelete = false;
         RefreshEvents();
+        // 初めは出られる最初の大会に合わせる（無ければ先頭）。
+        BoxerIndex = Math.Max(0, Events.ToList().FindIndex(e => e.Entry is not null));
+        BoxerFirst = 0;
+        ScrollBoxer();
     }
+
+    private void ScrollBoxer() => BoxerFirst = Math.Clamp(BoxerFirst, Math.Max(0, BoxerIndex - BoxerVisible + 1), BoxerIndex);
 
     private void EnterCampaign()
     {
@@ -246,13 +257,15 @@ internal sealed partial class MenuState
         var (oldRow, oldKg) = (BoxerIndex, TargetKg);
         var oldWeapons = _weaponChoice.ToDictionary(p => p.Key, p => p.Value);
         var confirm = input.Confirm;
-        if (input.Pointer is { } point && MenuLayout.HitCenters(point, BoxerRows, MenuLayout.CampaignRowCenter, MenuLayout.CampaignRowSize) is { } hit)
+        if (input.Pointer is { } point && MenuLayout.HitCenters(point, Math.Min(BoxerRows - BoxerFirst, BoxerVisible), MenuLayout.CampaignRowCenter, MenuLayout.CampaignRowSize) is { } hit)
         {
-            BoxerIndex = hit;
+            BoxerIndex = BoxerFirst + hit;
             confirm |= input.Click;
         }
 
-        BoxerIndex = Wrap(BoxerIndex + input.Y, BoxerRows);
+        var step = input.Scroll != 0 ? Math.Sign(input.Scroll) : input.Y;
+        BoxerIndex = Wrap(BoxerIndex + step, BoxerRows);
+        ScrollBoxer();
         if (BoxerIndex != oldRow) { ConfirmingDelete = false; }
         if (input.X != 0)
         {
