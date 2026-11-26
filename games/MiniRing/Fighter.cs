@@ -3857,7 +3857,7 @@ public sealed partial class Fighter
     /// 体のバネに溜まったエネルギー [J]（タメ）: 屈んだ脚（立つ高さより腰が低い分。体を支えるバネ <see cref="FighterTuning.HoverKp"/>）と、
     /// ひねった胸（向きから鉛直軸まわりに外れた分。体の軸を保つバネ <see cref="FighterTuning.UprightKp"/>）。前へ傾けたままの姿勢は数えない。
     /// </summary>
-    private float BodySpringEnergy()
+    internal float BodySpringEnergy()
     {
         var legs = 0f;
         if (TryFindGround(out var height))
