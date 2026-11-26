@@ -63,7 +63,7 @@ public sealed class UiFontTests
 
         // 名前は「・」で折り、引用符の中の通り名は分けない。
         var lines = MiniRing.Desktop.MenuText.WrapName("ラモン・\"エル・トロ\"・カスティージョ", 180f, 16f).ToList();
-        CollectionAssert.AreEqual(new[] { "ラモン・\"エル・トロ\"・", "カスティージョ" }, lines);
+        Assert.AreEqual("ラモン・\"エル・トロ\"・|カスティージョ", string.Join("|", lines));
         Assert.IsTrue(lines.All(l => UiFont.Width(l, 16f) <= 180f));
     }
 
