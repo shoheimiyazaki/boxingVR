@@ -103,6 +103,25 @@ public sealed class FootworkTests
     }
 
     /// <summary>
+    /// 前へ加速しようとすると床反力の作用点が重心より後ろへずれ（加速度 / ω²）、前足の荷重が抜ける（ボクサーから見て、重力と前への加速を合わせた
+    /// 見かけの重力が後ろへ傾く）。後ろへ加速すれば前足に乗る。重心が両足の真ん中で加速度が無ければ半々。
+    /// </summary>
+    [TestMethod]
+    public void Footwork_ForwardAccelerationUnloadsTheLeadFoot()
+    {
+        var tuning = new FootworkTuning();
+        const float leg = 0.6197f;
+        var lead = new Vector2(0.5f * tuning.StanceWidth * leg, 0.5f * tuning.StanceLength * leg);
+        float Load(float forwardAccel) => Footwork.LeadLoad(new FootworkInput(0f, Vector2.Zero, Vector2.Zero, 3.813f, new Vector2(0f, 0.5f), 0f, 0f, leg,
+            LeadBall: lead, RearBall: -lead, Com: Vector2.Zero, ComAcceleration: new Vector2(0f, forwardAccel)))!.Value;
+
+        Assert.AreEqual(0.5f, Load(0f), 1e-4f, "standing still in the middle: half on each foot");
+        Assert.IsLessThan(0.35f, Load(3f), "accelerating forward unloads the lead foot");
+        Assert.IsLessThanOrEqualTo(Load(3f), Load(6f), "the harder the push, the lighter the lead foot");
+        Assert.IsGreaterThan(0.65f, Load(-3f), "accelerating back loads the lead foot");
+    }
+
+    /// <summary>
     /// 前へ踏み出している足は、向きを後ろへ切り返したら運び終えるのを待たずに下ろして計画し直し、後ろへ向かう 1 歩になる（宙の足を前へ運び終えてから戻ると、
     /// 切り返しの出だしが 1 歩ぶん遅れた）。計画し直さない設定（ReplanSwing 偽）では前足が前へ運ばれ続ける。
     /// </summary>

@@ -124,9 +124,9 @@ public sealed record FootworkTuning
     public float ShuffleShare { get; init; } = 1f;
 
     /// <summary>
-    /// どちらの足から出るかに、足から抜けている体重の割合（1 − これ × その足が受ける力の割合）を効かせる強さ（0..1。0 で従来の、行く向きの側の足と刻みの入れ替えだけ）。
-    /// 行く向きの側の足の「1 歩で構えの位置へ近づける距離 × 抜けている割合」が、体重半々の構えでの <see cref="StepThreshold"/> の 1 歩に満たなければ、
-    /// もう一方の足と比べて大きい方から出る。体重の乗った足・ひねって床を押している軸足は、それを抜くまで床を離れられない（2026-11-26、docs/arena/foot_snag.md）。
+    /// どちらの足から出るかを、両足の「1 歩で構えの位置へ近づける距離 × その足から抜けている体重の割合（1 − これ × その足が受ける力の割合）」で比べる強さ
+    /// （0..1。0 で従来の、行く向きの側の足と刻みの入れ替えだけ）。体重の割合は、移動の指令が求める加速度でずれた床反力の作用点（ZMP）から出す。
+    /// 体重の乗った足・ひねって床を押している軸足は、それを抜くまで床を離れられない（2026-11-26、docs/arena/foot_snag.md）。
     /// </summary>
     public float UnloadedFootShare { get; init; } = 1f;
 
@@ -212,10 +212,11 @@ public readonly record struct FootPose(Vector3 Ball, float Yaw, float HeelRaise,
 /// <param name="HipOffset">股（脚の付け根）の体の中心からの横のずれ [m]。届く範囲の中心は左右の脚でこれだけずれる。</param>
 /// <param name="Com">全身の重心の水平位置（捕捉点はこれから出す。null なら骨盤 <paramref name="Body"/>）。上体が傾いて倒れていくのは、骨盤より重心に出る。</param>
 /// <param name="ComVelocity">全身の重心の水平速度（null なら骨盤の速度）。</param>
+/// <param name="ComAcceleration">移動の指令が重心に求める水平の加速度。床反力の作用点（ZMP）は重心から加速度 / ω² だけ逆へずれる（前へ加速するなら後ろ）。</param>
 /// <param name="LegHeld">どちらかの脚を膝の制御の指令（<see cref="LegCommand.IsKneeControl"/>）が動かしている。その間は新しい 1 歩を踏み出さない（残る足が軸足）。</param>
 public readonly record struct FootworkInput(float FacingYaw, Vector2 Body, Vector2 BodyVelocity, float Omega, Vector2 Intent, float Twist, float Weight, float LegLength,
     bool LeadOverreach = false, bool RearOverreach = false, Vector2? LeadBall = null, Vector2? RearBall = null, float Reach = 0f, float HipOffset = 0f, bool LeadFree = false, bool RearFree = false,
-    Vector2? Com = null, Vector2? ComVelocity = null, bool LegHeld = false);
+    Vector2? Com = null, Vector2? ComVelocity = null, bool LegHeld = false, Vector2 ComAcceleration = default);
 
 /// <summary>
 /// 足の置き場所を決めるモデル（倒立振子 + 構え）。ボクサーは左足が常に前（オーソドックス）。
@@ -311,20 +312,23 @@ public sealed class Footwork
     }
 
     /// <summary>
-    /// 前足に乗っている体重の割合（0 = 全部後ろ足、1 = 全部前足）の見積もり: 重心から遠い足ほど受ける力が小さい（てこの釣り合い）。
-    /// 重心が両足を結ぶ線の上にあれば、2 本の足が受ける力の比は重心から各足までの距離の逆比で、線の外（足を横に並べた・体が足の後ろへ倒れていく）でも
-    /// 連続に同じ式で出す（線へ落とす射影は、足が横に並ぶと意味を失い 0 か 1 に振り切れた）。重心か実際の足が分からなければ null。
+    /// 前足に乗っている体重の割合（0 = 全部後ろ足、1 = 全部前足）の見積もり: 床反力の作用点（ZMP）= 重心 − 水平の加速度 × 重心の高さ / g
+    /// （倒立振子で 高さ / g = 1 / ω²）を、両足を結ぶ線へ落とした位置のてこの比（2 点で支える静的な釣り合い。作用点が足の外なら外側の足が全部受ける）。
+    /// 前へ加速しようとすれば作用点が重心より後ろへずれ、前足の荷重が抜ける（ボクサーから見て、重力と前への加速を合わせた見かけの重力が後ろへ傾く）。
+    /// 後ろへ加速すれば前足に乗る。重心か実際の足が分からなければ null。
     /// </summary>
-    private static float? LeadLoad(in FootworkInput input)
+    internal static float? LeadLoad(in FootworkInput input)
     {
         if (input.Com is not { } com || input.LeadBall is not { } lead || input.RearBall is not { } rear)
         {
             return null;
         }
 
-        var toLead = Vector2.Distance(com, lead);
-        var toRear = Vector2.Distance(com, rear);
-        return toLead + toRear < 1e-6f ? 0.5f : toRear / (toLead + toRear);
+        var omega = MathF.Max(1f, input.Omega);
+        var accel = float.IsFinite(input.ComAcceleration.X) && float.IsFinite(input.ComAcceleration.Y) ? input.ComAcceleration : Vector2.Zero;
+        var pressure = com - (accel / (omega * omega));
+        var line = lead - rear;
+        return line.LengthSquared() < 1e-8f ? 0.5f : Math.Clamp(Vector2.Dot(pressure - rear, line) / line.LengthSquared(), 0f, 1f);
     }
 
     /// <summary>足 <paramref name="foot"/> の今の置き方（踏み出している足は宙の途中）。</summary>
@@ -559,11 +563,10 @@ public sealed class Footwork
                 bool swap;
                 if (leadLoad is { } load)
                 {
-                    // 体重の乗った足は、体重を抜くまで床を離れられない。先に選んだ（行く向きの側の）足の「1 歩で構えの位置へ近づける距離 × その足から
-                    // 抜けている体重の割合」が、体重が半々の構えで踏み直しの要る距離（StepThreshold）の 1 歩に満たなければ、もう一方の足と比べて大きい方から出る
-                    // （乗った足を先に選ぶと、届く範囲で切られた短い 1 歩に時間を使い、その間に支えが反対の足へ移って体が止まった。足を交差させない制約で
-                    // 構えの位置から遠ざかる向きへ押し出される 1 歩も、近づく距離では得にならない: docs/arena/foot_snag.md）。足りていれば行く向きの側の足のまま
-                    // （止まった構えから前へは前足から。前足は届く範囲で 1 歩が短いので、比べだけで選ぶと後ろ足から出た）。
+                    // 体重の乗った足は、体重を抜くまで床を離れられない。両足の「1 歩で構えの位置へ近づける距離 × その足から抜けている体重の割合」を比べ、
+                    // 大きい方から出る（乗った足を先に選ぶと、届く範囲で切られた短い 1 歩に時間を使い、その間に支えが反対の足へ移って体が止まった。足を交差させない
+                    // 制約で構えの位置から遠ざかる向きへ押し出される 1 歩も、近づく距離では得にならない: docs/arena/foot_snag.md）。体重の割合は、移動の指令が求める
+                    // 加速度で床反力の作用点がずれた所から出す（LeadLoad）: 止まった構えから前へは、前へ加速する分だけ前足が抜けて前足から出る。
                     // ひねって打つ間は、軸足（右の拳は後ろ足、左は前足）が床を押して回している: 体重の分に加えて、ひねりの度合いだけ軸足は床を離れられない
                     // （打ちながら軸足を持ち上げると、押していた足が抜けて体が流れた）。反対の足は体重を受けたまま（軽くはならない）。
                     var twist = Math.Clamp(float.IsFinite(input.Twist) ? input.Twist : 0f, -1f, 1f);
@@ -571,8 +574,7 @@ public sealed class Footwork
                         * Math.Clamp((foot == Lead ? load : 1f - load) + MathF.Max(0f, foot == Lead ? -twist : twist), 0f, 1f));
                     var gain = MathF.Max(0f, error[foot0] - Vector2.Distance(home[foot0], target)) * Free(foot0);
                     var otherGain = MathF.Max(0f, error[other] - Vector2.Distance(home[other], otherTarget)) * Free(other);
-                    var enough = 0.5f * t.StepThreshold * leg;
-                    swap = (otherOverreach && stride < shuffle && otherStride >= shuffle) || (gain < enough && otherGain > gain);
+                    swap = (otherOverreach && stride < shuffle && otherStride >= shuffle) || otherGain > gain;
                 }
                 else
                 {

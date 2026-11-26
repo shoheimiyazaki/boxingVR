@@ -250,7 +250,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 107; // 足の運び: 体重の乗った足・ひねりの軸足を後にし、構えへ近づく 1 歩で選ぶ・切り返しで宙の足を計画し直す（107、仮の番号）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 107; // 足の運び: 加速度でずれた床反力の作用点から足の荷重を出し、体重の乗った足・ひねりの軸足を後にして構えへ近づく 1 歩で選ぶ・切り返しで宙の足を計画し直す（107、仮の番号）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -2682,7 +2682,7 @@ public sealed partial class Fighter
             // 支えが床から出る体では、倒れていくのは上体の傾きを含む全身の重心: 捕捉点を重心から出す（Fighter.Support.cs）。
             var com = CenterOfMass;
             var comVelocity = CenterOfMassVelocity;
-            input = input with { Com = new Vector2(com.X, com.Z), ComVelocity = new Vector2(comVelocity.X, comVelocity.Z) };
+            input = input with { Com = new Vector2(com.X, com.Z), ComVelocity = new Vector2(comVelocity.X, comVelocity.Z), ComAcceleration = IntendedAcceleration(intent, comVelocity) };
         }
 
         var canShiftLoad = LegShortfall <= 1e-3f && lead.Command is null && _legParts[Footwork.Rear].Command is null;
@@ -2694,6 +2694,18 @@ public sealed partial class Fighter
         {
             UpdateQuadrupedGait(_rearFootwork, input, dt, twistLimit);
         }
+    }
+
+    /// <summary>
+    /// 移動の指令が体に求める水平の加速度: 行きたい速さと今の重心の速さの差を、体が指令に付いていく遅れ（<see cref="FootworkTuning.BodyLag"/>）で割り、
+    /// 体を運ぶ加速度の上限（<see cref="FighterTuning.MaxMoveAccel"/>）で切る。動き出す前に床反力の作用点を加速する向きと逆へ移す（荷重を抜く）ための見込みで、
+    /// 体が実際に出す加速度（足が先に動いてから体が付いていくので、出だしは 0）ではない。
+    /// </summary>
+    private Vector2 IntendedAcceleration(Vector3 intent, Vector3 comVelocity)
+    {
+        var accel = new Vector2(intent.X - comVelocity.X, intent.Z - comVelocity.Z) / MathF.Max(1e-3f, _tuning.Footwork.BodyLag);
+        var limit = _tuning.MaxMoveAccel;
+        return accel.Length() > limit ? accel * (limit / accel.Length()) : accel;
     }
 
     /// <summary>足の母指球の実際の位置（水平面）。</summary>
