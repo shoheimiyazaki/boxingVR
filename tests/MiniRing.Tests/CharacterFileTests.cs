@@ -53,7 +53,8 @@ public sealed class CharacterFileTests
             Assert.AreEqual(0, c.Education.Vs.Count, c.Id);
             // 2026-11-26: 剣士 3 人は、無防備な相手を 1 振りで倒す型の経路の差分（Forms）と狙いの切り替え（AutoAim）も（docs/BOT_PDCA.md「剣士 3 人の 1 振り」）。
             Assert.IsTrue(c.Education.WeaponBot is null || c.Education.WeaponBot.All(p => WeaponBotEducated.Contains(p.Key)), c.Id);
-            Assert.IsEmpty(c.Record, c.Id);
+            // 2026-11-26: 剣の型を練習し直した剣士は、その比べ直しの結果を育ちの記録（record の kind: swordpractice）に残す（CLAUDE.md §1.8。エドガー、物理 103）。
+            Assert.IsTrue(c.Record.All(r => r["kind"]?.GetValue<string>() == "swordpractice"), c.Id);
             var textbook = BotCatalog.Style(c.StyleName);
             CharacterRosterTests.AssertTextbookPlusGamePlan(textbook, c.Resolve(), c.Id);
             CharacterRosterTests.AssertTextbookPlusGamePlan(textbook, c.Resolve("marcus"), c.Id);

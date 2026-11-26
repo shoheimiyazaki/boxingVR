@@ -37,6 +37,8 @@ public sealed class ClawTrajectoryTests
         Assert.IsGreaterThan(0, trial.Removed);
     }
 
+    private static readonly float[] Gaps = [1.14f, 1.19f, 1.24f, 1.29f, 1.34f, 1.39f];
+
     /// <summary>
     /// 長い鎌の 1 振りは、首・腕・胴のどの狙いでも相手に食い込む（セルを削る）。2026-11-25: 物理 97（刃は斬り抜けた奥行きの分だけ断つ、
     /// docs/BLADE_CUT_STUDY.md）とのマージから、1 振りで頭・腕・胴が離れることは無くなった。台本の振りの切っ先は 10〜23 m/s 出るが、
@@ -45,10 +47,24 @@ public sealed class ClawTrajectoryTests
     [TestMethod]
     public void LongClaw_OneStrokeCutsIntoEveryAim()
     {
-        var trials = Enumerable.Range(0, 3).Select(aim =>
-            ClawLab.Run("albert", 119, 1.24f, aim, aim == 1 ? Hand.Left : Hand.Right, 0.42f, 0.75f, moving: true)).ToArray();
-        Assert.IsTrue(trials.All(t => t.Standing));
-        Assert.IsTrue(trials.All(t => t.Removed > 0), "every aimed stroke carves cells");
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした: ガルヴァの尖った跗節もこの蝶番）: 鎌の刃筋が通らない振りは、寄る間合いの数 cm で
+        // かすって削るか外れるかが入れ替わる。間合い 1.24・種 119 の 1 回だけを見ていたのを、間合い 1.14〜1.39 の 6 つで見る。前のつま先でも 1.24 のほかの種
+        // （120・121・124）では腕の狙いが 0 セルで、間合いを替えると狙いごとに 6 つのうち 4〜6 つで削る。固いつま先では 4〜5 つ（ToeRegressionProbe.LongClaw）。
+        // 狙いごとに、半分以上の間合いで削ることを見る。
+        var removed = new int[3];
+        foreach (var gap in Gaps)
+        {
+            var trials = Enumerable.Range(0, 3).Select(aim =>
+                ClawLab.Run("albert", 119, gap, aim, aim == 1 ? Hand.Left : Hand.Right, 0.42f, 0.75f, moving: true)).ToArray();
+            Console.WriteLine($"gap {gap}: removed {string.Join(" / ", trials.Select(t => t.Removed))}");
+            Assert.IsTrue(trials.All(t => t.Standing));
+            for (var aim = 0; aim < 3; aim++)
+            {
+                removed[aim] += trials[aim].Removed > 0 ? 1 : 0;
+            }
+        }
+
+        Assert.IsTrue(removed.All(n => n * 2 >= Gaps.Length), $"every aimed stroke carves cells at most stand-off distances ({string.Join(", ", removed)} of {Gaps.Length})");
     }
 
     [TestMethod]

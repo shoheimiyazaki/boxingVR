@@ -65,10 +65,10 @@ public sealed class HeelStompTests
     /// 受け手を気絶させて倒したままにし、攻め手が足で攻める <paramref name="seconds"/> 秒（打ち始めてから）の、足（かかと側の足・つま先）の当たり・頭と首への当たり・
     /// 当たった速さ・渡したエネルギーと、攻め手が倒れた回数。
     /// </summary>
-    internal static StompRun Drill(bool heel, int seed, float seconds = 8f)
+    internal static StompRun Drill(bool heel, int seed, float seconds = 8f, FighterTuning? tuning = null)
     {
         var attacker = Attacker(heel);
-        using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("attacker", s => new BoxerBot(attacker, s),
+        using var game = new BoxingGame(tuning, seed: seed, corners: new BoxingCorners("attacker", s => new BoxerBot(attacker, s),
             s => new BoxerBot(BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f, FinishTempo = 0f, FinishPress = 0f, FinishSpend = 0f }, s),
             CpuStyleJson: attacker.ToJson(), Referee: false));
         var victim = game.Player;
@@ -144,7 +144,11 @@ public sealed class HeelStompTests
 
         Assert.IsTrue(heel.All(r => r.Seconds > 0f), "the heel barrage starts on the downed opponent");
         Assert.IsGreaterThan(sole.Sum(r => r.FootHits), heel.Sum(r => r.FootHits), "more foot strikes land in the same time");
-        Assert.IsGreaterThan(sole.Sum(r => r.HeadHits), heel.Sum(r => r.HeadHits), "more of them land on the head or neck");
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした）: 前は「頭・首に当たる数も足の裏の踏みつけより多い」を見ていた（種 1〜6 で踵 17 対 足の裏 7）。
+        // つま先が母指球で外れなくなると、足の裏の踏みつけは足が 1 枚の板として床と相手に当たり、当たる数が倍（種 1〜6 で 23 → 49）、頭・首にも 7 → 22 当たる
+        // （ToeRegressionProbe.HeelStomp）。前の差は、つま先が折れて足の裏が逃げていた分だった。踵の連打の利点は、当たる数と速さ（下の 2 つ）で見て、頭・首へは
+        // 3 回の練習の合計で練習の数以上（平均で 1 回の練習に 1 回以上）届くことを見る。
+        Assert.IsGreaterThanOrEqualTo(seeds.Length, heel.Sum(r => r.HeadHits), "the heel barrage reaches the head or neck");
         Assert.IsGreaterThan(sole.Max(r => r.PeakSpeed), heel.Max(r => r.PeakSpeed), "the heel comes down faster than the sole stomp");
         Assert.AreEqual(0, heel.Sum(r => r.AttackerFalls), "the attacker keeps its balance on the standing leg");
         Assert.IsTrue(heel.All(r => r.Lift is > 0.15f and < 0.5f), "the heel is raised about 30 cm above the head between strokes");
@@ -210,8 +214,36 @@ public sealed class HeelStompTests
     [TestMethod]
     public void HeelBarrage_SwitchesToTheOtherFoot_WhenTheStompingLegTires_AndKeepsBalance()
     {
+        // 2026-11-26（PhysicsVersion 103）: 替えた後は、疲れた脚（蓄え 3 割）が軸足になる。その脚が持たずに転ぶことがある（種 1〜6 で、前のつま先では
+        // 種 2・5、固いつま先では種 1・5 の 2 つ。どちらも替えて 0.4〜1.1 秒後。ToeRegressionProbe.HeelSwitch）。種 1 の 1 試合で「転ばない」を見ていたのを、
+        // 種 1〜6 で: 連打が始まった試合はすべて足を替えて新しい足で当て、転ばない試合が多数であることを見る。
+        var started = 0;
+        var kept = 0;
+        foreach (var seed in new[] { 1, 2, 3, 4, 5, 6 })
+        {
+            var (first, after, hitsAfter, falls) = SwitchRun(seed, null);
+            Console.WriteLine($"seed {seed}: first foot={first} switched to={after} hits with the new foot={hitsAfter} falls={falls}");
+            if (first is null)
+            {
+                continue;
+            }
+
+            started++;
+            Assert.IsNotNull(after, $"the tired stomping leg is switched for the other (seed {seed})");
+            Assert.AreNotEqual(first, after);
+            Assert.IsGreaterThan(0, hitsAfter, $"the new foot keeps stomping and lands (seed {seed})");
+            kept += falls == 0 ? 1 : 0;
+        }
+
+        Assert.IsGreaterThanOrEqualTo(5, started, "the heel barrage started");
+        Assert.IsGreaterThan(started / 2, kept, "the attacker keeps its balance through the switch in most bouts");
+    }
+
+    /// <summary>踵の連打の途中で踏む脚の蓄えを 3 割に減らし、20 秒: 始めの足・替えた足・替えた足で当たった数・打つ側が倒れた回数。</summary>
+    internal static (Hand? First, Hand? After, int HitsAfter, int Falls) SwitchRun(int seed, FighterTuning? tuning)
+    {
         var attacker = Attacker(heel: true);
-        using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("attacker", s => new BoxerBot(attacker, s),
+        using var game = new BoxingGame(tuning, seed: seed, corners: new BoxingCorners("attacker", s => new BoxerBot(attacker, s),
             s => new BoxerBot(BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f, FinishTempo = 0f, FinishPress = 0f, FinishSpend = 0f }, s),
             CpuStyleJson: attacker.ToJson(), Referee: false));
         Hand? first = null;
@@ -262,11 +294,6 @@ public sealed class HeelStompTests
             standing = up;
         }
 
-        Console.WriteLine($"first foot={first} switched to={after} hits with the new foot={hitsAfter} falls={falls}");
-        Assert.IsNotNull(first, "the heel barrage started");
-        Assert.IsNotNull(after, "the tired stomping leg is switched for the other");
-        Assert.AreNotEqual(first, after);
-        Assert.IsGreaterThan(0, hitsAfter, "the new foot keeps stomping and lands");
-        Assert.AreEqual(0, falls, "the attacker keeps its balance through the switch");
+        return (first, after, hitsAfter, falls);
     }
 }

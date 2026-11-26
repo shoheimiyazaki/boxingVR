@@ -86,11 +86,11 @@ internal static class SwordPractice
     }
 
     /// <summary>キャラ <paramref name="who"/> が型を 1 回、無防備に立つ <paramref name="victim"/> の体へ出す（種 <paramref name="seed"/>）。</summary>
-    public static Outcome Swing(FighterCharacter who, WeaponStyle style, MotionTechnique technique, int seed, BodyBuild victim, Action<BoxingGame, float, bool>? watch = null)
+    public static Outcome Swing(FighterCharacter who, WeaponStyle style, MotionTechnique technique, int seed, BodyBuild victim, Action<BoxingGame, float, bool>? watch = null, FighterTuning? bodyTuning = null)
     {
         var weapon = who.Weapon!.Value;
         var arm = ArmReachOf(who);
-        var tuning = FighterTuning.Default;
+        var tuning = bodyTuning ?? FighterTuning.Default;
         var offhand = Weapon.CoverRadiusOf(HandWears.Kind(who.Wear)) / arm;
         var bot = new SwordsmanBot([technique], FormSwordsman.Guard(weapon), seed, SwordStance.Rate, rest: 1000f, exact: true, tuning: tuning,
             defense: style.Defense, bladeLength: FormSwordsman.BladeLength(weapon, arm), spacing: FormSwordsman.Spacing(weapon), aim: style.Aim)

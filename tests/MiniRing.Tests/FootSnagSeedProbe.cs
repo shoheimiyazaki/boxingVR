@@ -465,7 +465,7 @@ public sealed class FootSnagSeedProbe
         var d = FighterTuning.Default;
         return F($"range={range:0.00} chestLegacy={baseline.ChestRate:0.00} chestStrong={strong.ChestRate:0.00} chestFf={ff.ChestRate:0.00} chestAll={all.ChestRate:0.00} shoulderLegacy={baseline.ShoulderForward:0.00} shoulderAll={all.ShoulderForward:0.00} ")
             + F($"pelvis={Pelvis(d):0.00} pelvisStrong={Pelvis(d with { PelvisRotatorTorque = d.TrunkRotatorTorque }):0.00} uniform={PunchPathTests.PeakFistSpeed(true, range):0.00} smooth={PunchPathTests.PeakFistSpeed(false, range):0.00} ")
-            + F($"quick={PunchWeightTests.Cross(d, 0.06f, range):0} quickWeak={PunchWeightTests.Cross(d with { PelvisRotatorTorque = 60f }, 0.06f, range):0} loaded={PunchWeightTests.Cross(d, 0.25f, range):0} loadedWeak={PunchWeightTests.Cross(d with { PelvisRotatorTorque = 60f }, 0.25f, range):0}");
+            + F($"quick={PunchWeightTests.Cross(d, 0.06f, range: range):0} quickWeak={PunchWeightTests.Cross(d with { PelvisRotatorTorque = 60f }, 0.06f, range: range):0} loaded={PunchWeightTests.Cross(d, 0.25f, range: range):0} loadedWeak={PunchWeightTests.Cross(d with { PelvisRotatorTorque = 60f }, 0.25f, range: range):0}");
     });
 
     [TestMethod]
