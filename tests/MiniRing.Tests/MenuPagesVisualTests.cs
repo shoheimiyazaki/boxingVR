@@ -190,25 +190,66 @@ public sealed class MenuPagesVisualTests
         menu.Handle(Move(y: 2));
         menu.Handle(new MenuInput(Confirm: true)); // 作る
         Assert.AreEqual(MenuPage.Boxer, menu.State.Page);
-        Render(renderer, menu, "menu_17_campaign_boxer_ivf_rookie.png");
-        // 階級ごとの大会のうち、前日計量で上限を超える軽い階級（失格の理由）。
-        Assert.IsTrue(menu.State.Events.Any(e => e.Reason?.Contains("失格", StringComparison.Ordinal) == true), "a lighter IVF division shows the weigh-in disqualification");
-        while (menu.State.Events[menu.State.BoxerIndex].Reason?.Contains("失格", StringComparison.Ordinal) != true) { menu.Handle(Move(y: -1)); }
-        Render(renderer, menu, "menu_17b_campaign_weighin_disqualified.png");
-        while (menu.State.Events[menu.State.BoxerIndex].Event.Id != "vfc-rookie") { menu.Handle(Move(y: 1)); }
-        menu.Handle(Move(x: 2)); // 武器を選び直す
-        Render(renderer, menu, "menu_18_campaign_boxer_vfc_weapon.png");
-        while (menu.State.BoxerIndex != MenuState.WeightRow) { menu.Handle(Move(y: 1)); }
-        menu.Handle(Move(x: -6));
+        var now = 0.0;
+        menu.Clock = () => now; // 札の動きは決めた時刻で撮る（見せ始めから 5 秒: 動き終わった絵）
+        Render(renderer, menu, "menu_17_campaign_home.png");
+        menu.Handle(Move(y: 1));
+        menu.Handle(new MenuInput(Confirm: true));
+        Assert.AreEqual(MenuPage.Orgs, menu.State.Page);
+        Render(renderer, menu, "menu_18_campaign_orgs.png");
+        menu.Handle(new MenuInput(Cancel: true));
+        menu.Handle(Move(x: 1)); // 体重を変える
+        menu.Handle(new MenuInput(Confirm: true));
+        Assert.AreEqual(MenuPage.Weight, menu.State.Page);
+        menu.Handle(Move(x: -9));
         Render(renderer, menu, "menu_19_campaign_weight_cut.png");
-        menu.Handle(new MenuInput(Confirm: true));
         menu.Handle(new MenuInput(Cancel: true));
-        menu.Handle(Move(y: 1)); // 新しく作る
+
+        // 戦績のあるボクサー（IVF の自分の階級で 3 勝・5 位）: 道の開いた所と閉じた所が混ざる。
+        var store = new MiniRing.Arena.Campaign.CampaignStore(campaign, [.. menu.State.Roster.Select(c => c.Id)]);
+        var fresh = menu.State.Boxer!;
+        var ivf = MiniRing.Arena.Organizations.Get("ivf");
+        var division = ivf.DivisionOf(fresh.WeightKg).Id;
+        var bouts = Enumerable.Range(0, 3).Select(i => new MiniRing.Arena.Campaign.CampaignBout($"ivf-rookie-{division}", "ivf", division,
+            menu.State.Roster[i].Id, MiniRing.Arena.Campaign.BoutResult.Win, i == 0, fresh.WeightKg, null, null));
+        var seasoned = fresh with { Career = fresh.Career.WithSeat("ivf", division, 5) with { Bouts = [.. bouts] } };
+        store.Save(seasoned);
+        menu.State.SetBoxers(store.LoadAll());
+        menu.State.OpenBoxer(seasoned.Id);
+        Render(renderer, menu, "menu_20_campaign_home_seasoned.png");
+        menu.Handle(Move(y: 1));
         menu.Handle(new MenuInput(Confirm: true));
-        menu.Handle(Move(y: 3)); // 作る
-        menu.Handle(new MenuInput(Confirm: true));
-        Assert.AreEqual(2, menu.State.Boxers.Count, "as many boxers as you like");
+        while (menu.State.PathOrg.Id != "ivf") { menu.Handle(Move(y: -1)); }
+        menu.Handle(new MenuInput(Confirm: true)); // IVF の道
+        Assert.AreEqual(MenuPage.Path, menu.State.Page);
+        Assert.IsTrue(menu.State.PathStops.Any(s => s.Open) && menu.State.PathStops.Any(s => !s.Open), "the path mixes open and closed steps");
+        Render(renderer, menu, "menu_21_campaign_path_ivf.png");
+        menu.Handle(Move(x: 1));
+        Render(renderer, menu, "menu_21b_campaign_path_ivf_title_closed.png");
         menu.Handle(new MenuInput(Cancel: true));
-        Render(renderer, menu, "menu_20_campaign_list.png");
+        menu.Handle(new MenuInput(Cancel: true));
+
+        // 試合の後の札（前後の差から作る物を、決めた中身で撮る）。
+        var rookie = MiniRing.Arena.Campaign.CampaignEvents.Get($"ivf-ranking-{division}");
+        menu.State.Celebrate([
+            new CampaignCard.Result(rookie.Name, MiniRing.Arena.Campaign.BoutResult.Win, true, menu.State.Roster[3].HudName, (3, 0, 0), (4, 0, 0), "5 位 → 1 位で挑戦: " + rookie.Name),
+            new CampaignCard.RankUp($"IVF {ivf.DivisionOf(fresh.WeightKg).Name}", 12, 8, menu.State.Roster[4].HudName),
+            new CampaignCard.Unlocked([rookie, MiniRing.Arena.Campaign.CampaignEvents.Get("wvc-ranking")]),
+            new CampaignCard.Title($"IVF {ivf.DivisionOf(fresh.WeightKg).Name}", menu.State.Roster[5].HudName, false),
+            new CampaignCard.Result(rookie.Name, MiniRing.Arena.Campaign.BoutResult.Loss, false, menu.State.Roster[6].HudName, (4, 0, 0), (4, 1, 0), "あと 1 勝で開く: WVC ランキング戦"),
+        ]);
+        string[] cards = ["menu_22_campaign_card_win.png", "menu_23_campaign_card_rankup.png", "menu_24_campaign_card_unlocked.png", "menu_25_campaign_card_title.png", "menu_26_campaign_card_loss.png"];
+        foreach (var name in cards)
+        {
+            _ = menu.Shapes(new Vector2(Width, Height)); // この札を見せ始める
+            now += 5.0;
+            Render(renderer, menu, name);
+            menu.Handle(new MenuInput(Confirm: true));
+        }
+
+        Assert.AreEqual(0, menu.State.Cards.Count);
+        menu.Handle(new MenuInput(Cancel: true));
+        Assert.AreEqual(MenuPage.Campaign, menu.State.Page);
+        Render(renderer, menu, "menu_27_campaign_list.png");
     }
 }

@@ -5,7 +5,7 @@ using MiniRing.Characters;
 namespace MiniRing.Desktop;
 
 /// <summary>メニューの画面（ページ）。</summary>
-internal enum MenuPage { Top, Settings, Mode, Select, Replays, Free, Campaign, Create, Boxer }
+internal enum MenuPage { Top, Settings, Mode, Select, Replays, Free, Campaign, Create, Boxer, Orgs, Path, Weight }
 
 /// <summary>
 /// 最初の画面のボタン（表示の並び: 2 列 × 3 行、最後の行は「終了」だけ。2026-11-26）: ゲームモード（フリーバトル・キャンペーン）と、リプレイ・設定・終了。
@@ -184,7 +184,10 @@ internal sealed partial class MenuState
         MenuPage.Free => ApplyFree(input),
         MenuPage.Campaign => ApplyCampaign(input),
         MenuPage.Create => ApplyCreate(input),
-        MenuPage.Boxer => ApplyBoxer(input),
+        MenuPage.Boxer => Cards.Count > 0 ? ApplyCard(input) : ApplyBoxer(input),
+        MenuPage.Orgs => ApplyOrgs(input),
+        MenuPage.Path => ApplyPath(input),
+        MenuPage.Weight => ApplyWeight(input),
         _ => ApplyReplays(input),
     };
 
