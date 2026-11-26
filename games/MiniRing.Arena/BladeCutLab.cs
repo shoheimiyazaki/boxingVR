@@ -22,7 +22,8 @@ namespace MiniRing.Arena;
 /// </summary>
 internal static class BladeCutLab
 {
-    private const float Dt = 1f / 240f;
+    /// <summary>1 歩 [s]: 物理の刻み（既定 240 Hz。簡素化の測定では <see cref="BoxingGame.DefaultSubstepRate"/> に合わせて粗くする）。</summary>
+    private static float Dt => 1f / BoxingGame.DefaultSubstepRate;
 
     /// <summary>肩（円弧の中心）から握りまでの長さ [m]: 伸ばした腕（肩から握った拳の中心）。成人男性の肩峰から握りの中心でおよそ 0.6〜0.65 m。</summary>
     private const float ArmLength = 0.62f;

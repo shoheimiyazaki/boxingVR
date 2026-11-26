@@ -83,6 +83,9 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
     /// <summary>字幕（コンビネーション・守り）を置く高さ [px]（番組の型が決める。Make の始めに決める）。</summary>
     private float _captionY;
 
+    /// <summary>画面の左下に焼き込む「何を撮ったか」（<see cref="ShotLabel"/>）。</summary>
+    private string _shot = "";
+
     private float ResultSeconds => tv ? _resultSeconds : 5f;
 
     /// <summary>K.O. の後、結果へ進むまでに撮る長さ [試合の s]。ゲームが次のラウンドを始める（5.87 s）より短く。</summary>
@@ -137,6 +140,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         MiniRing.Characters.FighterCharacter? redCharacter = null, MiniRing.Characters.FighterCharacter? blueCharacter = null, bool referee = true,
         Func<BoxingCorners, BoxingCorners>? editCorners = null)
     {
+        _shot = ShotLabel.Text(seed);
         var redBots = new List<IFighterControl>();
         var blueBots = new List<IFighterControl>();
         var corners = Corners(red, blue, seed, redWear, blueWear, redWeapon, blueWeapon,
@@ -172,7 +176,7 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
 
         var show = ShowFormats.Create(width, height, _org);
         var practiceGraphics = new TvShowGraphics(width, height, _org);
-        _scenes = card is null ? [] : show.PreFight(card, tvProgram, redCharacter?.Profile is not null && blueCharacter?.Profile is not null);
+        _scenes = card is null ? [] : ShowFormats.PreFight(show, _org, card, tvProgram, redCharacter?.Profile is not null && blueCharacter?.Profile is not null);
         _resultSeconds = show.ResultSeconds;
         _captionY = show.CaptionY(height);
         var broadcast = card is null ? null : new Broadcast(redRing, blueRing, red.Name, blue.Name)
@@ -1287,6 +1291,11 @@ internal sealed class VideoMaker(int width, int height, int fps, BreakStyle brea
         else if (_faceCam is not null)
         {
             list.RemoveRange(0, 5); // 練習試合の顔の窓つき: 上の名前・ダメージの代わりに、窓の下の名札と時計（TvShowGraphics.MatchHud）
+        }
+
+        if (game.Rules is null && _faceCam is null && !tv && _shot.Length > 0)
+        {
+            list.Add(ShotLabel.Draw(_shot, h));
         }
 
         // 顔の窓を左下・右下に置くときは、字幕を窓の内側へずらす。

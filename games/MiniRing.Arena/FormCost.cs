@@ -57,4 +57,17 @@ internal static class FormCost
            + (PerEdgeDegree * Math.Max(0d, edgeDegrees)) + (PerStamina * Math.Max(0d, staminaUsed))
            + (PerImbalance * Math.Max(0d, imbalance)) + (PerHundredJerk * Math.Max(0d, jerk) / 100d)
            + (speed > 0d ? PerSlowMetrePerSecond * Math.Max(0d, CuttingSpeed - speed) : 0d);
+
+    /// <summary>
+    /// 自然さの項の差し込み口（docs/plans/MOTION_TOOLS_PLAN.md §C7。まだどの練習も使っていない: 採るかは練習ごとに比べ直してから）。
+    /// 運動連鎖の順の乱れ 1（<see cref="MotionTools.MotionMetrics.ChainOrder"/> の 1 − 割合）あたりと、無次元の躍度が最小躍度（720）の何桁上か 1 桁あたりの代価。
+    /// </summary>
+    public const double PerChainDisorder = 1.0;
+
+    public const double PerJerkDecade = 0.5;
+
+    /// <summary>自然さの代価（大きいほど悪い）。<paramref name="chainOrder"/> は 0..1（1 が近い所から順）、<paramref name="normalizedJerk"/> は無次元の躍度。</summary>
+    public static double OfNaturalness(double chainOrder, double normalizedJerk)
+        => (PerChainDisorder * Math.Clamp(1d - (double.IsNaN(chainOrder) ? 1d : chainOrder), 0d, 1d))
+           + (double.IsFinite(normalizedJerk) && normalizedJerk > 720d ? PerJerkDecade * Math.Log10(normalizedJerk / 720d) : 0d);
 }

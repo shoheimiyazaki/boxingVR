@@ -42,7 +42,15 @@ public sealed partial class Fighter
         }
 
         // 木: 付いている部位どうしを、いまもつながっている関節で結ぶ（折れた・外れた所はつながっていない）。
-        var edges = new Dictionary<int, List<(int Other, ImpactJoint Joint)>>();
+        // 木の一時置き場は使い回す（呼ぶたびに作ると、武器どうしの接触のたびに割り当てが出る）。並びは前と同じ（挿入の順）。
+        var edges = _impactEdges;
+        foreach (var list in edges.Values)
+        {
+            list.Clear();
+            _impactListPool.Push(list);
+        }
+
+        edges.Clear();
         foreach (var joint in _joints)
         {
             if (_detached.Contains(joint.ParentPart) || _detached.Contains(joint.ChildPart))
@@ -68,8 +76,12 @@ public sealed partial class Fighter
         }
 
         // 根から幅優先で並べ、葉から根へ畳む。
-        var order = new List<(int Part, int Parent, ImpactJoint Joint)> { (start, -1, default) };
-        var seen = new HashSet<int> { start };
+        var order = _impactOrder;
+        order.Clear();
+        order.Add((start, -1, default));
+        var seen = _impactSeen;
+        seen.Clear();
+        seen.Add(start);
         for (var i = 0; i < order.Count; i++)
         {
             if (!edges.TryGetValue(order[i].Part, out var next))
@@ -86,7 +98,8 @@ public sealed partial class Fighter
             }
         }
 
-        var inertia = new Dictionary<int, Spatial>();
+        var inertia = _impactInertia;
+        inertia.Clear();
         foreach (var (part, _, _) in order)
         {
             inertia[part] = SpatialInertia(part, point);
@@ -101,7 +114,8 @@ public sealed partial class Fighter
         }
 
         // 根は自由な体: 点に [0; n] の撃力（点まわりのモーメント 0）。速度の変化の並進の分が点の速度の変化。
-        var dv = inertia[start].Solve([0, 0, 0, n.X, n.Y, n.Z]);
+        Span<double> dv = stackalloc double[6];
+        inertia[start].Solve([0, 0, 0, n.X, n.Y, n.Z], dv);
         var along = (dv[3] * n.X) + (dv[4] * n.Y) + (dv[5] * n.Z);
         return along > 1e-9 ? (float)(1.0 / along) : _world.GetMass(body);
 
@@ -109,12 +123,18 @@ public sealed partial class Fighter
         {
             if (!edges.TryGetValue(a, out var list))
             {
-                edges[a] = list = [];
+                edges[a] = list = _impactListPool.Count > 0 ? _impactListPool.Pop() : [];
             }
 
             list.Add((b, j));
         }
     }
+
+    private readonly Dictionary<int, List<(int Other, ImpactJoint Joint)>> _impactEdges = [];
+    private readonly Stack<List<(int Other, ImpactJoint Joint)>> _impactListPool = new();
+    private readonly List<(int Part, int Parent, ImpactJoint Joint)> _impactOrder = [];
+    private readonly HashSet<int> _impactSeen = [];
+    private readonly Dictionary<int, Spatial> _impactInertia = [];
 
     /// <summary>
     /// 関節の筋の構え: 打撃の接触の間（<see cref="FighterTuning.ImpactContactSeconds"/> = T）に、関節の筋（体が使うのと同じサーボのばね k・減衰 b）が
@@ -218,25 +238,39 @@ public sealed partial class Fighter
     /// <summary>
     /// 子の articulated inertia を、受け身の関節を通して親へ伝わる分にする: I − I S (Sᵀ I S)⁻¹ Sᵀ I（S は関節が許す動きの基底:
     /// 玉継手は中心まわりの 3 つの回り、蝶番は軸まわりの 1 つ）。
+    /// 一時の行列はスタックに置く（2026-11-25: 武器どうしの接触のたびに 6×6 の配列を何十も作り、6 人の試合で 1 フレーム 1 MB を確保していた。
+    /// 足し算・掛け算の順は前の配列の版と同じ: 結果はビット単位で同じ）。
     /// </summary>
-    private static Spatial Transmit(Spatial child, ImpactJoint joint, Vector3 origin, double bracing)
+    private static Spatial Transmit(in Spatial child, ImpactJoint joint, Vector3 origin, double bracing)
     {
-        var axes = joint.Axis is { } axis ? new[] { Vector3.Normalize(axis) } : new[] { Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ };
-        var k = axes.Length;
-        var s = new double[6, k];
+        Span<Vector3> axes = stackalloc Vector3[3];
+        var k = 3;
+        if (joint.Axis is { } axis)
+        {
+            axes[0] = Vector3.Normalize(axis);
+            k = 1;
+        }
+        else
+        {
+            axes[0] = Vector3.UnitX;
+            axes[1] = Vector3.UnitY;
+            axes[2] = Vector3.UnitZ;
+        }
+
+        Span<double> s = stackalloc double[6 * 3]; // s[m, c] = s[(m * k) + c]
         for (var c = 0; c < k; c++)
         {
             var e = axes[c];
             var v = Vector3.Cross(e, origin - joint.Anchor); // 関節の中心まわりの回りの、点 origin での速さ
-            s[0, c] = e.X;
-            s[1, c] = e.Y;
-            s[2, c] = e.Z;
-            s[3, c] = v.X;
-            s[4, c] = v.Y;
-            s[5, c] = v.Z;
+            s[(0 * k) + c] = e.X;
+            s[(1 * k) + c] = e.Y;
+            s[(2 * k) + c] = e.Z;
+            s[(3 * k) + c] = v.X;
+            s[(4 * k) + c] = v.Y;
+            s[(5 * k) + c] = v.Z;
         }
 
-        var u = new double[6, k]; // I S
+        Span<double> u = stackalloc double[6 * 3]; // I S
         for (var r = 0; r < 6; r++)
         {
             for (var c = 0; c < k; c++)
@@ -244,14 +278,14 @@ public sealed partial class Fighter
                 double acc = 0;
                 for (var m = 0; m < 6; m++)
                 {
-                    acc += child.M[r, m] * s[m, c];
+                    acc += child[r, m] * s[(m * k) + c];
                 }
 
-                u[r, c] = acc;
+                u[(r * k) + c] = acc;
             }
         }
 
-        var d = new double[k, k]; // Sᵀ I S
+        Span<double> d = stackalloc double[3 * 3]; // Sᵀ I S
         for (var a = 0; a < k; a++)
         {
             for (var b = 0; b < k; b++)
@@ -259,15 +293,16 @@ public sealed partial class Fighter
                 double acc = 0;
                 for (var m = 0; m < 6; m++)
                 {
-                    acc += s[m, a] * u[m, b];
+                    acc += s[(m * k) + a] * u[(m * k) + b];
                 }
 
-                d[a, b] = acc + (a == b ? bracing : 0); // 関節の筋の構え: 関節の回りに足す慣性（Bracing）
+                d[(a * k) + b] = acc + (a == b ? bracing : 0); // 関節の筋の構え: 関節の回りに足す慣性（Bracing）
             }
         }
 
-        var dInv = Invert(d);
-        var result = new double[6, 6];
+        Span<double> dInv = stackalloc double[3 * 3];
+        Invert(d[..(k * k)], k, dInv[..(k * k)]);
+        var result = default(Spatial);
         for (var r = 0; r < 6; r++)
         {
             for (var c = 0; c < 6; c++)
@@ -277,25 +312,27 @@ public sealed partial class Fighter
                 {
                     for (var b = 0; b < k; b++)
                     {
-                        acc += u[r, a] * dInv[a, b] * u[c, b];
+                        acc += u[(r * k) + a] * dInv[(a * k) + b] * u[(c * k) + b];
                     }
                 }
 
-                result[r, c] = child.M[r, c] - acc;
+                result[r, c] = child[r, c] - acc;
             }
         }
 
-        return new Spatial(result);
+        return result;
     }
 
-    private static double[,] Invert(double[,] m)
+    /// <summary>k×k の行列 <paramref name="m"/>（行の順）の逆を <paramref name="inv"/> へ（部分ピボットの消去法）。動きの無い関節（慣性 0）は 0 の行列。</summary>
+    private static void Invert(ReadOnlySpan<double> m, int k, Span<double> inv)
     {
-        var k = m.GetLength(0);
-        var a = (double[,])m.Clone();
-        var inv = new double[k, k];
+        Span<double> a = stackalloc double[6 * 6];
+        a = a[..(k * k)];
+        m.CopyTo(a);
+        inv.Clear();
         for (var i = 0; i < k; i++)
         {
-            inv[i, i] = 1;
+            inv[(i * k) + i] = 1;
         }
 
         for (var col = 0; col < k; col++)
@@ -303,28 +340,29 @@ public sealed partial class Fighter
             var pivot = col;
             for (var r = col + 1; r < k; r++)
             {
-                if (Math.Abs(a[r, col]) > Math.Abs(a[pivot, col]))
+                if (Math.Abs(a[(r * k) + col]) > Math.Abs(a[(pivot * k) + col]))
                 {
                     pivot = r;
                 }
             }
 
-            if (Math.Abs(a[pivot, col]) < 1e-12)
+            if (Math.Abs(a[(pivot * k) + col]) < 1e-12)
             {
-                return new double[k, k]; // 動きの無い関節（慣性 0）: 伝える分を引かない
+                inv.Clear(); // 動きの無い関節（慣性 0）: 伝える分を引かない
+                return;
             }
 
             for (var c = 0; c < k; c++)
             {
-                (a[col, c], a[pivot, c]) = (a[pivot, c], a[col, c]);
-                (inv[col, c], inv[pivot, c]) = (inv[pivot, c], inv[col, c]);
+                (a[(col * k) + c], a[(pivot * k) + c]) = (a[(pivot * k) + c], a[(col * k) + c]);
+                (inv[(col * k) + c], inv[(pivot * k) + c]) = (inv[(pivot * k) + c], inv[(col * k) + c]);
             }
 
-            var p = a[col, col];
+            var p = a[(col * k) + col];
             for (var c = 0; c < k; c++)
             {
-                a[col, c] /= p;
-                inv[col, c] /= p;
+                a[(col * k) + c] /= p;
+                inv[(col * k) + c] /= p;
             }
 
             for (var r = 0; r < k; r++)
@@ -334,41 +372,54 @@ public sealed partial class Fighter
                     continue;
                 }
 
-                var f = a[r, col];
+                var f = a[(r * k) + col];
                 for (var c = 0; c < k; c++)
                 {
-                    a[r, c] -= f * a[col, c];
-                    inv[r, c] -= f * inv[col, c];
+                    a[(r * k) + c] -= f * a[(col * k) + c];
+                    inv[(r * k) + c] -= f * inv[(col * k) + c];
                 }
             }
         }
+    }
 
-        return inv;
+    /// <summary>6×6 の行列の要素（行の順）。</summary>
+    [System.Runtime.CompilerServices.InlineArray(36)]
+    private struct Six
+    {
+        private double _element;
     }
 
     /// <summary>
     /// 空間の慣性（6×6、ある点 O まわり。速度は [ω; v_O]、運動量は [O まわりの角運動量; 運動量]）:
-    /// [[I_c − m[c]×[c]×, m[c]×], [−m[c]×, m·1]]（c は重心 − O）。
+    /// [[I_c − m[c]×[c]×, m[c]×], [−m[c]×, m·1]]（c は重心 − O）。値の型（ヒープに置かない）。
     /// </summary>
-    private readonly record struct Spatial(double[,] M)
+    private struct Spatial
     {
+        private Six _m;
+
+        public double this[int r, int c]
+        {
+            readonly get => _m[(r * 6) + c];
+            set => _m[(r * 6) + c] = value;
+        }
+
         public static Spatial Of(float mass, BodyState state, Vector3 localInertia, Vector3 origin)
         {
             var r = Matrix4x4.CreateFromQuaternion(state.Orientation);
             // ワールドの慣性テンソル R diag Rᵀ。
-            var col = new[] { new Vector3(r.M11, r.M12, r.M13), new Vector3(r.M21, r.M22, r.M23), new Vector3(r.M31, r.M32, r.M33) };
-            var ic = new double[3, 3];
+            Span<Vector3> col = [new Vector3(r.M11, r.M12, r.M13), new Vector3(r.M21, r.M22, r.M23), new Vector3(r.M31, r.M32, r.M33)];
+            Span<double> ic = stackalloc double[9];
             for (var i = 0; i < 3; i++)
             {
                 for (var j = 0; j < 3; j++)
                 {
-                    ic[i, j] = (localInertia.X * Get(col[0], i) * Get(col[0], j)) + (localInertia.Y * Get(col[1], i) * Get(col[1], j)) + (localInertia.Z * Get(col[2], i) * Get(col[2], j));
+                    ic[(i * 3) + j] = (localInertia.X * Get(col[0], i) * Get(col[0], j)) + (localInertia.Y * Get(col[1], i) * Get(col[1], j)) + (localInertia.Z * Get(col[2], i) * Get(col[2], j));
                 }
             }
 
             var c = state.Position - origin;
-            double[,] cx = { { 0, -c.Z, c.Y }, { c.Z, 0, -c.X }, { -c.Y, c.X, 0 } };
-            var m = new double[6, 6];
+            Span<double> cx = [0, -c.Z, c.Y, c.Z, 0, -c.X, -c.Y, c.X, 0];
+            var m = default(Spatial);
             for (var i = 0; i < 3; i++)
             {
                 for (var j = 0; j < 3; j++)
@@ -376,52 +427,50 @@ public sealed partial class Fighter
                     double cxcx = 0;
                     for (var t = 0; t < 3; t++)
                     {
-                        cxcx += cx[i, t] * cx[t, j];
+                        cxcx += cx[(i * 3) + t] * cx[(t * 3) + j];
                     }
 
-                    m[i, j] = ic[i, j] - (mass * cxcx);
-                    m[i, j + 3] = mass * cx[i, j];
-                    m[i + 3, j] = -mass * cx[i, j];
+                    m[i, j] = ic[(i * 3) + j] - (mass * cxcx);
+                    m[i, j + 3] = mass * cx[(i * 3) + j];
+                    m[i + 3, j] = -mass * cx[(i * 3) + j];
                     m[i + 3, j + 3] = i == j ? mass : 0;
                 }
             }
 
-            return new Spatial(m);
+            return m;
 
             static double Get(Vector3 v, int i) => i == 0 ? v.X : i == 1 ? v.Y : v.Z;
         }
 
-        public Spatial Add(Spatial other)
+        public readonly Spatial Add(in Spatial other)
         {
-            var m = new double[6, 6];
+            var m = default(Spatial);
             for (var i = 0; i < 6; i++)
             {
                 for (var j = 0; j < 6; j++)
                 {
-                    m[i, j] = M[i, j] + other.M[i, j];
+                    m[i, j] = this[i, j] + other[i, j];
                 }
             }
 
-            return new Spatial(m);
+            return m;
         }
 
-        /// <summary>M x = b を解く（6×6、部分ピボットの消去法）。</summary>
-        public double[] Solve(double[] b)
+        /// <summary>M x = b を解いて <paramref name="x"/> へ（6×6、部分ピボットの消去法）。</summary>
+        public readonly void Solve(ReadOnlySpan<double> b, Span<double> x)
         {
-            var inv = Invert(M);
-            var x = new double[6];
+            Span<double> inv = stackalloc double[36];
+            Invert(_m, 6, inv);
             for (var i = 0; i < 6; i++)
             {
                 double acc = 0;
                 for (var j = 0; j < 6; j++)
                 {
-                    acc += inv[i, j] * b[j];
+                    acc += inv[(i * 6) + j] * b[j];
                 }
 
                 x[i] = acc;
             }
-
-            return x;
         }
     }
 }

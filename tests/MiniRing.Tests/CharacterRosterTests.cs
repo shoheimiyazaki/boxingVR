@@ -66,7 +66,9 @@ public sealed class CharacterRosterTests
     internal static void AssertWeaponTextbookPlusGround(WeaponStyle textbook, WeaponStyle? resolved, string message)
     {
         Assert.IsNotNull(resolved, message);
-        Assert.AreEqual(textbook.ToJson(), (resolved with { Ground = textbook.Ground }).ToJson(), "apart from the ground finishing, the weapon's textbook itself: " + message);
+        // 2026-11-26: 剣士 3 人は型の経路の差分（Forms）と狙いの切り替え（AutoAim）も教育で持つ（docs/BOT_PDCA.md「剣士 3 人の 1 振り」）。
+        Assert.AreEqual(textbook.ToJson(), (resolved with { Ground = textbook.Ground, Forms = textbook.Forms, AutoAim = textbook.AutoAim }).ToJson(),
+            "apart from the ground finishing, the form tunes and the aiming, the weapon's textbook itself: " + message);
     }
 
     /// <summary>決めた名簿（CLAUDE_BRIEF_ROSTER_MENU の表）: id・武器・はめる物・スタイル・身長/腕/脚/筋肉。</summary>

@@ -7,6 +7,8 @@
   <ItemGroup>
     <ProjectReference Include="..\MiniRing\MiniRing.csproj" />
     <InternalsVisibleTo Include="MiniRing.Tests" />
+    <!-- デスクトップのメニューが団体のファイル（出場の条件・階級・試合の決まり）を同じ読み込みで使う（2026-11-26）。 -->
+    <InternalsVisibleTo Include="miniring-desktop" />
   </ItemGroup>
   <ItemGroup>
     <!-- 中継の団体のファイル（WVC・VFC・IVF）。名簿 roster/*.json と同じく組み込みにして、実行場所によらず読む。 -->

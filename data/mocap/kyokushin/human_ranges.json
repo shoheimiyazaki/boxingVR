@@ -1,0 +1,18 @@
+{
+  "source": "data/mocap/kyokushin (18 kicks, Kyokushin, CC0; same formulas as motioncard)",
+  "jerkLog10": {
+    "Min": 5.333167520160677,
+    "Median": 5.835474585302711,
+    "Max": 6.094934929293082,
+    "Count": 18
+  },
+  "chainOrder": {
+    "Min": 0.75,
+    "Median": 1,
+    "Max": 1,
+    "Count": 18
+  },
+  "plantedSpeedP95": 1.7464220821857452,
+  "plantedSpeedP99": 2.6172525882720947,
+  "boneSpreadMax": 0.08584541082382202
+}

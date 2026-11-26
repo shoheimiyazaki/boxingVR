@@ -10,8 +10,9 @@ using Silk.NET.Input;
 
 namespace MiniRing.Desktop;
 
-internal sealed record MatchSession(BoxingGame Game, IGame<BoxingInput> Host,
-    Func<InputSnapshot, BoxingInput> Read, IDisposable Lifetime, SnapshotMatchGame Presentation) : IDisposable
+/// <summary>メニューから始めた試合かリプレイ。<paramref name="Camera"/> があれば、その間はホストのカメラの代わりにこれを使う（リプレイの自由カメラ）。</summary>
+internal sealed record MatchSession(IGame<BoxingInput> Host,
+    Func<InputSnapshot, Vector2, BoxingInput> Read, IDisposable Lifetime, IMatchPresentation Presentation, IGameCamera? Camera = null) : IDisposable
 {
     public void Dispose()
     {
@@ -31,8 +32,10 @@ internal sealed class MenuGame(MatchMenu menu, Func<MatchSelection, MatchSession
     public bool IsLiveMatch { get; private set; }
     public bool IsLoadingMatch => _loading is not null;
 
-    public BoxingGame? ActiveGame => _session?.Game;
-    public SnapshotMatchGame? Presentation => _session?.Presentation;
+    public IMatchPresentation? Presentation => _session?.Presentation;
+
+    /// <summary>今の試合・リプレイが自分のカメラを持っていれば、それ（無ければ null でホストのカメラ）。</summary>
+    public IGameCamera? Camera => _session?.Camera;
     public PhysicsWorld World => _session?.Host.World ?? _menuWorld;
     public string StatusLine => _session?.Host.StatusLine ?? "Game Select";
     public bool IsOver => false;
@@ -59,7 +62,7 @@ internal sealed class MenuGame(MatchMenu menu, Func<MatchSelection, MatchSession
                 menu.Return(input.IsGamepadButtonDown(GamepadButton.East));
                 return default;
             }
-            return session.Read(input);
+            return session.Read(input, size);
         }
 
         if (IsLoadingMatch) { return default; }
@@ -72,7 +75,7 @@ internal sealed class MenuGame(MatchMenu menu, Func<MatchSelection, MatchSession
         {
             _loading = Task.Run(() => playback(replay));
         }
-        return _session?.Read(input) ?? default;
+        return _session?.Read(input, size) ?? default;
     }
 
     internal void StartMatch(MatchSelection selection)

@@ -2,6 +2,8 @@
   <!-- ゲーム本体（ホスト非依存）。デスクトップ（GameHost）と VR（OpenXR）の両ホストから使う。 -->
   <ItemGroup>
     <EmbeddedResource Include="Motion/SwordFormSkills.json" LogicalName="MiniRing.Motion.SwordFormSkills.json" />
+    <!-- VR の稽古の記録から選んだ振り（docs/vrmotion/ の写し）。キャラの教育（weaponBot.VrForms）が型の目標の経路として使う（VrMotionForms）。 -->
+    <EmbeddedResource Include="Motion/VrForms/*.vrmotion" LogicalName="MiniRing.Motion.VrForms.%(Filename)%(Extension)" />
     <ProjectReference Include="..\..\src\Aigis.Foundation\Aigis.Foundation.csproj" />
     <ProjectReference Include="..\..\src\Aigis.Physics\Aigis.Physics.csproj" />
     <ProjectReference Include="..\..\src\Aigis.Render\Aigis.Render.csproj" />

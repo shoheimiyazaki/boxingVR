@@ -118,7 +118,8 @@ internal sealed record TvProgram(string Title, IReadOnlyList<TvProgramBout> Bout
 
     /// <summary>名簿のキャラクターの短い名前（id でなければ null）。</summary>
     public static string? RosterName(string id) =>
-        MiniRing.Characters.CharacterRoster.All.FirstOrDefault(c => c.Id == id)?.HudName;
+        MiniRing.Characters.CharacterRoster.All.FirstOrDefault(c => c.Id == id)?.HudName
+        ?? (id.EndsWith(".json", StringComparison.OrdinalIgnoreCase) && File.Exists(id) ? MiniRing.Characters.CharacterRoster.LoadFile(id).HudName : null); // 名簿の外のファイル（新人リーグの新人）
 
     private static string Required(string? value, string label, string field) =>
         string.IsNullOrWhiteSpace(value) ? throw new InvalidDataException($"{label} の {field} がありません。") : value;

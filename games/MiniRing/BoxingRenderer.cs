@@ -180,6 +180,7 @@ public static class BoxingRenderer
             MiniRing.Voxels.EyePose? eyes = fighter.Build.FourLegged
                 ? null
                 : new MiniRing.Voxels.EyePose(fighter.Eyes.Closure, MiniRing.Voxels.EyeGaze.TargetOf(fighter, other));
+            var partsStart = Aigis.Foundation.Voxels.StepProfile.Begin();
             foreach (var part in body.Layers)
             {
                 if (game.HidePlayerHead && ReferenceEquals(fighter, game.Player) && part.Kind == BodyPartKind.Head)
@@ -187,14 +188,19 @@ public static class BoxingRenderer
                     continue; // 一人称: 自分の頭は目の描画に入れない（カメラが頭の中にある）
                 }
 
-                var draw = part.Draw(fighter.Cyanosis, eyes, fighter.Pallor); // 血の酸素が減ると青紫に、心臓が送りきれないと青白く（見た目だけ）。顔の層も同じ
+                var draw = part.Draw(fighter.Cyanosis, eyes, fighter.Pallor, fighter.Lividity); // 血の酸素が減ると青紫に、心臓が送りきれないと青白く（見た目だけ）。顔の層も同じ
                 voxels.Add(ReferenceEquals(fighter, game.Player) ? draw with { Opacity = game.PlayerBodyOpacity } : draw); // 一人称: 自分の体は半透明
             }
 
+            Aigis.Foundation.Voxels.StepProfile.End(Aigis.Foundation.Voxels.StepProfile.Slot.RenderParts, partsStart);
+            var fragmentsStart = Aigis.Foundation.Voxels.StepProfile.Begin();
             foreach (var fragment in body.Fragments)
             {
                 voxels.Add(fragment.Draw());
             }
+
+            Aigis.Foundation.Voxels.StepProfile.End(Aigis.Foundation.Voxels.StepProfile.Slot.RenderFragments, fragmentsStart);
+            var bridgesStart = Aigis.Foundation.Voxels.StepProfile.Begin();
 
             // 関節のつなぎ（関節を曲げて開いた隙間を埋める肉・骨）: 関節がまだつながっている間だけ、今の両側の物質から作って描く（見た目だけ）。
             // 両側が削れればつなぎも細り、関節が外れれば描かない: 見えている首がつながっていれば、首はつながっている。
@@ -204,9 +210,12 @@ public static class BoxingRenderer
                 if (fighter.JointIntact(parent, child) && body.JointHeld(parent, child)
                     && !(game.HidePlayerHead && ReferenceEquals(fighter, game.Player) && bridge.Child.Kind == BodyPartKind.Head))
                 {
-                    voxels.Add(bridge.View().Draw());
+                    var draw = bridge.View().Draw();
+                    voxels.Add(ReferenceEquals(fighter, game.Player) ? draw with { Opacity = game.PlayerBodyOpacity } : draw);
                 }
             }
+
+            Aigis.Foundation.Voxels.StepProfile.End(Aigis.Foundation.Voxels.StepProfile.Slot.RenderBridges, bridgesStart);
         }
 
         foreach (var weapon in game.Weapons)

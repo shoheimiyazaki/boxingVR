@@ -82,6 +82,36 @@ public sealed class ShowFormatTests
     }
 
     [TestMethod]
+    public void Ivf_PreFight_KeepsTheEmblemTitleBoard_AndSkipsTheOverlappingIntroductions()
+    {
+        // IVF は WVC と同じ型だが、紋章のタイトルの板（opening）だけで選手を紹介し、情報の重なる比較の表・コールを流さない（2026-11-25 ユーザーの指定: 試合までが長い）。
+        var ivf = Organization.Of("ivf");
+        var show = ShowFormats.Create(Width, Height, ivf);
+        var card = new TvCard("IVF ファイトナイト", "メインイベント", TvCorner.Of(CharacterRoster.Get("marcus")), TvCorner.Of(CharacterRoster.Get("dmitri")), TvShowRules.Rules(3, 20f, ivf));
+        var all = show.PreFight(card, Program(), hasProfiles: true);
+        var scenes = ShowFormats.PreFight(show, ivf, card, Program(), hasProfiles: true);
+        Assert.AreEqual("program,opening", string.Join(",", scenes.Select(s => s.EventType)));
+        Assert.IsTrue(scenes.Sum(s => s.Seconds) < all.Sum(s => s.Seconds) - 20f, "試合の前が 20 秒以上短くなる");
+
+        // WVC は今までどおり全部を流す。
+        var wvc = Organization.Of("wvc");
+        Assert.AreEqual("program,opening,tape,call,call", string.Join(",", ShowFormats.PreFight(ShowFormats.Create(Width, Height, wvc), wvc, card, Program(), hasProfiles: true).Select(s => s.EventType)));
+
+        // 型に無い場面の名前は、ファイルの欄を名指しして止める（書き間違いで黙って全部が流れない）。
+        // 型ごとの場面の種類の表（ShowFormats.SceneTypes）は、型が実際に流す場面の種類と一致する（表の書き漏れで showSkip が名指しできなくならない）。
+        foreach (var org in new[] { wvc, Organization.Of("vfc") })
+        {
+            var types = ShowFormats.Create(Width, Height, org).PreFight(Card(), Program(), hasProfiles: true).Select(s => s.EventType).Distinct().Order(StringComparer.Ordinal);
+            CollectionAssert.AreEqual(ShowFormats.SceneTypes(org.Show).Order(StringComparer.Ordinal).ToList(), types.ToList(), org.Show);
+        }
+
+        var good = File.ReadAllText(Path.Combine(OrganizationTests.OrgsDirectory(), "ivf.json"));
+        Assert.Contains("\"showSkip\": [\"tape\", \"call\"]", good, "下の書き換えが当たる");
+        var ex = Assert.ThrowsExactly<InvalidDataException>(() => Organizations.FromFiles([("ivf.json", good.Replace("\"showSkip\": [\"tape\", \"call\"]", "\"showSkip\": [\"tapes\"]", StringComparison.Ordinal))]));
+        Assert.Contains("showSkip", ex.Message);
+    }
+
+    [TestMethod]
     public void Vfc_PreFight_IsColdOpenPosterWalkoutsFaceOff_AndFightCardWhenAProgramExists()
     {
         var show = ShowFormats.Create(Width, Height, Organization.Of("vfc"));

@@ -89,12 +89,60 @@ public static class FormSwordsman
     public static IReadOnlyList<MotionTechnique> Techniques(WeaponKind weapon, float armReach) => Techniques(weapon, armReach, MinReach);
 
     /// <summary><see cref="Techniques(WeaponKind, float)"/> の、間合いの下限 <paramref name="minReach"/> [m] を選べる版（武器の教科書の <see cref="WeaponStyle.MinReach"/>）。</summary>
-    public static IReadOnlyList<MotionTechnique> Techniques(WeaponKind weapon, float armReach, float minReach) =>
+    public static IReadOnlyList<MotionTechnique> Techniques(WeaponKind weapon, float armReach, float minReach) => Techniques(weapon, armReach, minReach, null);
+
+    /// <summary>
+    /// <see cref="Techniques(WeaponKind, float, float)"/> に、型ごとの経路の差分 <paramref name="tunes"/>（<see cref="WeaponStyle.Forms"/>）を掛けた版。
+    /// 間合いは差分を掛けた後の型の動きから出し（<see cref="StrikeDrill.ReachOf"/>）、<see cref="FormTune.Reach"/> を足す。null か空なら教科書のまま。
+    /// </summary>
+    public static IReadOnlyList<MotionTechnique> Techniques(WeaponKind weapon, float armReach, float minReach, IReadOnlyDictionary<string, FormTune>? tunes) =>
     [
-        .. Forms(weapon).Select(f => new MotionTechnique(f.Name, weapon, f, 1.408f, Skill: SwordFormSkills.For(weapon, f.Name)))
-            .Select(t => t with { Range = StrikeDrill.ReachOf(t, armReach) })
+        .. Forms(weapon).Select(f => (Form: f, Tune: tunes?.GetValueOrDefault(f.Name) ?? FormTune.Identity))
+            .Select(x => new MotionTechnique(x.Form.Name, weapon, x.Tune.Apply(x.Form), 1.408f, Skill: SwordFormSkills.For(weapon, x.Form.Name)))
+            .Select(t => t with { Range = StrikeDrill.ReachOf(t, armReach) + (tunes?.GetValueOrDefault(t.Name)?.Reach ?? 0f) })
             .Where(t => t.Range >= minReach),
     ];
+
+    /// <summary>型の経路の差分の鍵が、その武器の型の名前にあるか確かめる（綴りの誤りを黙って無視しない）。</summary>
+    public static void CheckFormNames(WeaponKind? weapon, IReadOnlyDictionary<string, FormTune>? tunes)
+    {
+        if (tunes is null || tunes.Count == 0)
+        {
+            return;
+        }
+
+        if (!HasForms(weapon))
+        {
+            throw new ArgumentOutOfRangeException(nameof(tunes), weapon, "型の経路の差分は、型で動かす武器だけが持てます。");
+        }
+
+        var names = Forms(weapon!.Value).Select(f => f.Name).ToList();
+        foreach (var key in tunes.Keys.Where(k => !names.Contains(k)))
+        {
+            throw new ArgumentOutOfRangeException(nameof(tunes), key, $"型 '{key}' は {weapon} の型にありません（{string.Join(", ", names)}）。");
+        }
+    }
+
+    /// <summary>
+    /// 武器の型のうち <paramref name="vrForms"/>（型の名前 → 組み込みの VR の振りの名前）に書いた型の目標の経路を、VR の稽古の振りにした技の一覧
+    /// （<see cref="VrMotionForms.ToSwordMotion"/>）。間合いは型と同じく、その動きで物打ちが届く距離で決め、<paramref name="minReach"/> より短い技は除く。
+    /// </summary>
+    public static IReadOnlyList<MotionTechnique> TechniquesWithVrForms(WeaponKind weapon, float armReach, float minReach, IReadOnlyDictionary<string, string> vrForms, FighterTuning tuning)
+    {
+        ArgumentNullException.ThrowIfNull(vrForms);
+        ArgumentNullException.ThrowIfNull(tuning);
+        var guard = Guard(weapon);
+        return
+        [
+            .. Forms(weapon)
+                .Select(f => vrForms.TryGetValue(f.Name, out var id)
+                    ? VrMotionForms.ToSwordMotion(VrMotionForms.Load(id), f.Name, guard, tuning.WalkSpeed, armReach, SwordStance.Rate, tuning.MaxTorsoTwistRadians)
+                    : f)
+                .Select(m => new MotionTechnique(m.Name, weapon, m, 1.408f, Skill: SwordFormSkills.For(weapon, m.Name)))
+                .Select(t => t with { Range = StrikeDrill.ReachOf(t, armReach) })
+                .Where(t => t.Range >= minReach),
+        ];
+    }
 
     /// <summary>
     /// プレイヤーの弱・強の型。刀: 弱 = 突き（tsuki）・強 = 袈裟（kesa）。ロングソード: 弱 = Stich・強 = Oberhau。棒: 弱 = 突き（tsuki）・強 = 打ち下ろし（uchi-oroshi）。
@@ -151,7 +199,12 @@ public static class FormSwordsman
     {
         ArgumentNullException.ThrowIfNull(style);
         CheckTechniqueNames(weapon, style.TechniqueWeights);
-        var bot = new SwordsmanBot([.. techniques ?? Techniques(weapon, armReach, style.InnerMinReach ?? style.MinReach)], Guard(weapon), seed, SwordStance.Rate, rest: style.Rest, tuning: tuning,
+        CheckTechniqueNames(weapon, style.VrForms?.ToDictionary(p => p.Key, _ => 0f));
+        CheckFormNames(weapon, style.Forms);
+        var minReach = style.InnerMinReach ?? style.MinReach;
+        // VR の振り（VrForms）に差し替えた型は VR の経路のまま、ほかの型は教科書に型ごとの差分（Forms）を当てる。
+        techniques ??= style.VrForms is { Count: > 0 } vrForms ? TechniquesWithVrForms(weapon, armReach, minReach, vrForms, tuning) : Techniques(weapon, armReach, minReach, style.Forms);
+        var bot = new SwordsmanBot([.. techniques], Guard(weapon), seed, SwordStance.Rate, rest: style.Rest, tuning: tuning,
             defense: style.Defense, bladeLength: BladeLength(weapon, armReach), spacing: Spacing(weapon), opponentReach: 3f, hitAndAway: style.HitAndAway, aim: style.Aim)
         {
             AutoAim = style.AutoAim,

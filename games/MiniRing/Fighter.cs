@@ -252,7 +252,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 104; // master（握り込んだ手首・切っ先の目標・実物の重さの武器、100）との統合・体を保つ筋に材質の強さ・足を引く力の仕事を脚の鎖の質量で（104）・はめた鎌は片手で刀を支えるのと同じ固めた手首で回す（103）・vfc-royale と six-limbed-alien（ボクセルの接続で首・胴を分離、101）の統合（102）・木を実物の樫（99）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 103; // ガルヴァの枝: はめた鎌の固めた手首・組織の材質・体を保つ筋に材質の強さ・足を引く力の仕事を脚の鎖の質量で（103、仮）・接触の掃き直し 2 回・刃の接触に関節のつなぎを使わない（102）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -529,6 +529,35 @@ public sealed partial class Fighter
 
     /// <summary>生え直せる部位（子の剛体）ごとの、作ったときの関節。</summary>
     private readonly Dictionary<int, RestJoint> _rest = [];
+
+    /// <summary>
+    /// 観測用（motionaudit）: つながっている関節ごとの、親の側の関節の点と子の側の関節の点の距離 [m]（関節の隙間）。つま先は作ったときの
+    /// 母趾球の点（両方の剛体のローカル）で測る。読むだけで、試合の計算は変えない。
+    /// </summary>
+    internal IEnumerable<(string Joint, float Gap)> JointGaps()
+    {
+        foreach (var joint in _joints)
+        {
+            if (!_detached.Contains(joint.ChildPart) && _world.GetJointAnchors(joint.PrimaryConstraintId) is { } anchors)
+            {
+                yield return (joint.Joint.ToString(), Vector3.Distance(anchors.AnchorA, anchors.AnchorB));
+            }
+        }
+
+        foreach (var leg in AllLegs())
+        {
+            if (_detached.Contains(leg.Toe) || _detached.Contains(leg.Heel) || !_rest.TryGetValue(leg.Toe, out var rest))
+            {
+                continue;
+            }
+
+            var heel = _world.GetState(leg.Heel);
+            var toe = _world.GetState(leg.Toe);
+            var onHeel = heel.Position + Vector3.Transform(rest.ParentLocal, heel.Orientation);
+            var onToe = toe.Position + Vector3.Transform(rest.ChildLocal, toe.Orientation);
+            yield return (leg.Toe == ToeId(0) ? "LeftToe" : leg.Toe == ToeId(1) ? "RightToe" : "Toe", Vector3.Distance(onHeel, onToe));
+        }
+    }
 
     /// <summary>握って持つ武器の剛体ごとの切っ先（武器のローカル。<see cref="RegisterBladeTip"/>）。</summary>
     private readonly Dictionary<int, Vector3> _bladeTips = [];
@@ -1820,6 +1849,7 @@ public sealed partial class Fighter
         // 脳しんとうは時間とともに一定の速さで抜ける: 深く飛んだ意識ほど戻るのに長くかかる（指数で抜くと、深いほど速く戻っていた）。
         Concussion = MathF.Max(0f, Concussion - (dt * _tuning.ConcussionRecoveryRate));
         _stateTime += dt;
+        DeadTime = IsDead ? DeadTime + dt : 0f; // 見た目だけ（死後の皮膚の色: Lividity）
         FaintTime = Consciousness < _tuning.KnockoutConsciousness ? FaintTime + dt : 0f;
         UpdateDownCall(dt);
         // 意識が無い（死んだ・完全に気を失った）うえで体が止まっている間だけ数える（ユーザーの指示どおり両方）。意識があれば、脚を失って
@@ -1965,7 +1995,9 @@ public sealed partial class Fighter
     /// チアノーゼの度合い（0..1、見た目だけ）: 血の酸素（<see cref="BloodOxygen"/>）が減るほど唇・顔が青紫になる。肺が取り込みきれない
     /// （肺が傷んだ・打たれて息が詰まった・全身で使いすぎた）ときに出る。死んでいれば 1。試合の計算には使わない。
     /// </summary>
-    public float Cyanosis => IsDead ? 1f : Smooth(Math.Clamp((1f - BloodOxygen) / CyanosisFullDrop, 0f, 1f));
+    public float Cyanosis => IsDead ? MathF.Max(Lividity, LiveCyanosis) : LiveCyanosis;
+
+    private float LiveCyanosis => Smooth(Math.Clamp((1f - BloodOxygen) / CyanosisFullDrop, 0f, 1f));
 
     /// <summary>血の酸素がこの割合だけ減ると、チアノーゼがいちばん強い。</summary>
     private const float CyanosisFullDrop = 0.7f;

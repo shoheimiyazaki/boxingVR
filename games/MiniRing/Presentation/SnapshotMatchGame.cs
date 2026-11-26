@@ -9,7 +9,7 @@ using MiniRing.Audio;
 namespace MiniRing.Presentation;
 
 /// <summary>Desktop presentation boundary. The live game is accessed only by the worker.</summary>
-public sealed class SnapshotMatchGame : IGame<BoxingInput>, IPresentationGame<BoxingInput>
+public sealed class SnapshotMatchGame : IGame<BoxingInput>, IMatchPresentation
 {
     public sealed record Scene(long Step, int Round, FighterSense Player, FighterSense Cpu,
         PrimitiveInstance[] Instances, DebugLine[] Lines, ParticleInstance[] Particles, VoxelSnapshot Voxels,

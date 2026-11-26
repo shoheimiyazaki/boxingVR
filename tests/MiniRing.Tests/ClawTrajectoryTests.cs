@@ -57,7 +57,6 @@ public sealed class ClawTrajectoryTests
         }
 
         Assert.IsTrue(trials.All(t => t.Standing));
-
         Assert.IsTrue(trials.All(t => t.Removed > 0), "every aimed stroke carves cells");
     }
 

@@ -134,8 +134,14 @@ internal sealed record OrgRanking(bool MembersOnly, float Win, float Draw, float
 /// </summary>
 internal sealed record Organization(string Id, string Name, string LogoText, string Sport, string Emblem, OrgColors Colors, ArenaMood ArenaMood, string Bell, OrgCrowd Crowd, bool CountsDowns,
     OrgText Text, IReadOnlyList<string> RulesSheet, OrgDraft Draft, IReadOnlyList<string> CallWords, DramaWeights Drama, OrgCommentary Commentary, OrgMatch Match, string Show, OrgCast Cast,
-    OrgEntry Entry, IReadOnlyList<OrgDivision> Divisions, OrgTitles Titles, OrgRanking Ranking)
+    OrgEntry Entry, IReadOnlyList<OrgDivision> Divisions, OrgTitles Titles, OrgRanking Ranking, IReadOnlyList<string>? ShowSkip = null)
 {
+    /// <summary>
+    /// 番組の型の試合の前の場面のうち、この団体では流さないもの（場面の出来事の種類 <see cref="ShowScene.EventType"/>。団体のファイルの <c>showSkip</c>）。
+    /// 同じ型を使う団体で、紹介の板の重なりを外す（IVF は紋章のタイトルの板だけを残す、2026-11-25 ユーザーの指定）。
+    /// </summary>
+    public IReadOnlyList<string> SkippedScenes => ShowSkip ?? [];
+
     /// <summary>階級制か（階級が 2 つ以上）。階級制なら、違う階級の選手どうしの試合は組めない。</summary>
     public bool HasWeightClasses => Divisions.Count > 1;
 
@@ -287,6 +293,7 @@ internal static class Organizations
         public required OrgDivision[] Divisions { get; init; }
         public required OrgTitles Titles { get; init; }
         public required OrgRanking Ranking { get; init; }
+        public string[]? ShowSkip { get; init; }
 
         public Organization ToOrganization()
         {
@@ -317,6 +324,11 @@ internal static class Organizations
             if (!ShowIds.Contains(Show))
             {
                 throw new InvalidDataException($"show '{Show}' は知りません（{string.Join(", ", ShowIds)}）。");
+            }
+
+            if (ShowSkip is { } skip && ShowFormats.UnknownScenes(Show, skip) is { Count: > 0 } unknown)
+            {
+                throw new InvalidDataException($"showSkip の '{string.Join("', '", unknown)}' は番組の型 '{Show}' の場面にありません（{string.Join(", ", ShowFormats.SceneTypes(Show))}）。");
             }
 
             if (!BellIds.Contains(Bell))
@@ -355,7 +367,7 @@ internal static class Organizations
 
             return new Organization(Id, Name, LogoText, Sport, Emblem, Colors.ToColors(), ArenaMood, Bell, Crowd.ToCrowd(), CountsDowns, Text.ToText(), RulesSheet, Draft.ToDraft(), Lint.CallWords,
                 Drama.ToWeights(), Commentary.ToCommentary(), Match, Show, Cast.ToCast(),
-                Entry.ToEntry(), Divisions, Titles, Ranking);
+                Entry.ToEntry(), Divisions, Titles, Ranking, ShowSkip);
         }
     }
 

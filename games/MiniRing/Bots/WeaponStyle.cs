@@ -51,6 +51,18 @@ public sealed record WeaponStyle
     /// </summary>
     public IReadOnlyDictionary<string, float>? TechniqueWeights { get; init; }
 
+    /// <summary>
+    /// 型の目標の経路を VR の稽古の振りに差し替える（型の名前 → 組み込みの振りの名前、<see cref="VrMotionForms.Embedded"/>）。null なら武器の型のまま。
+    /// 教育で変えるのは技の経路だけ（CLAUDE.md §1.8: 体の強さは変えない）。docs/VR_MOTION.md・docs/BOT_PDCA.md「VR の振りを刀の剣士の型にする」。
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? VrForms { get; init; }
+
+    /// <summary>
+    /// 型の経路の差分（型の名前 → <see cref="FormTune"/>: 時計の速さ・ひねり・両手の高さ・頭の出し・間合い）。書いていない型は教科書のまま。
+    /// キャラの教育（練習: Arena の <c>swordpractice</c>）が、自分の体と武器に合わせて型ごとに持つ（CLAUDE.md §1.8）。null なら全部の型が教科書のまま。
+    /// </summary>
+    public IReadOnlyDictionary<string, FormTune>? Forms { get; init; }
+
     /// <summary>これより間合いが短い型は技に入れない [m]（打ち込まずその場で振る型は、剣士同士の間合いの技ではない）。</summary>
     public float MinReach { get; init; } = FormSwordsman.MinReach;
 
@@ -125,10 +137,22 @@ public sealed record WeaponStyle
         }
 
         InRange(KeepReach, 0f, 3f, nameof(KeepReach));
+        foreach (var (form, id) in VrForms ?? new Dictionary<string, string>())
+        {
+            if (!VrMotionForms.Embedded.Contains(id))
+            {
+                throw new ArgumentOutOfRangeException(nameof(VrForms), id, $"型 '{form}' の VR の振り '{id}' は組み込みにありません（{string.Join(", ", VrMotionForms.Embedded)}）。");
+            }
+        }
         InRange(ClubRange, 0.2817f, 3.380f, nameof(ClubRange));
         InRange(ClubRest, 0f, 8.392f, nameof(ClubRest));
         InRange(ClubStandOff, 0.2817f, 5.634f, nameof(ClubStandOff));
         CheckWeights(TechniqueWeights, nameof(TechniqueWeights), null);
+        foreach (var (key, tune) in Forms ?? new Dictionary<string, FormTune>())
+        {
+            _ = (tune ?? throw new ArgumentOutOfRangeException(nameof(Forms), key, $"Forms.{key} が空です。")).Validated(key);
+        }
+
         CheckWeights(ClubSwingWeights, nameof(ClubSwingWeights), [.. ClubBot.OneHanded.Select(f => f.ToString())]);
         return this;
     }
@@ -278,6 +302,8 @@ public static class WeaponEducation
             var parsed = JsonSerializer.Deserialize<WeaponStyle>(node.ToJsonString(), WeaponStyle.ReadOptions) ?? throw new InvalidDataException("空の武器のスタイルになりました。");
             var resolved = (parsed with { Name = textbook.Name }).Validated();
             FormSwordsman.CheckTechniqueNames(weapon, resolved.TechniqueWeights);
+            FormSwordsman.CheckTechniqueNames(weapon, resolved.VrForms?.ToDictionary(p => p.Key, _ => 0f));
+            FormSwordsman.CheckFormNames(weapon, resolved.Forms);
             return resolved;
         }
         catch (Exception ex) when (ex is JsonException or ArgumentException)

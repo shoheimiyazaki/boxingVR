@@ -24,6 +24,16 @@ public sealed partial class Fighter
     private readonly Footwork? _rearFootwork;
     private bool _rearStepsNext;
 
+    /// <summary>後ろ脚の本数（四足の体だけ 2、人は 0）。観測の道具（motioncard の記録）が読むだけで、試合の計算には使わない。</summary>
+    public int RearLegCount => _rearLegs.Length;
+
+    /// <summary>後ろ脚の腿・すね・かかと・つま先の剛体（観測だけ）。<paramref name="leg"/> は前の脚と同じ側の番号（0 = <see cref="ToeId"/>(0) と同じ側）。</summary>
+    public (int Thigh, int Shin, int Heel, int Toe) RearLegBodies(int leg)
+    {
+        var rear = _rearLegs.First(r => r.AigisLeft == _legParts[leg].AigisLeft);
+        return (rear.Thigh, rear.Shin, rear.Heel, rear.Toe);
+    }
+
     private IEnumerable<Leg> AllLegs()
     {
         foreach (var leg in _legParts)

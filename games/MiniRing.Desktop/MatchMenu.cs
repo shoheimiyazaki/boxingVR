@@ -19,6 +19,7 @@ internal sealed class MatchMenu : IDisposable
     private readonly Action<bool>? _playCue;
     private readonly PortraitSet _portraits;
     private readonly MenuView _view;
+    private readonly MenuScript? _script;
     private string[] _files = [];
     private Vector2 _pad;
     private Vector2 _pad2;
@@ -27,11 +28,13 @@ internal sealed class MatchMenu : IDisposable
     /// <param name="replayDirectory">記録（.mrrep）の置き場。</param>
     /// <param name="settingsPath">設定（JSON）のファイル。壊れていれば既定へ戻して標準エラーへ出す。</param>
     /// <param name="playCue">合図の音（true = 決定、false = カーソルの移動）。</param>
-    /// <param name="roster">名簿（既定は組み込みの 12 人）。</param>
+    /// <param name="roster">名簿（既定は組み込みの名簿の全員）。</param>
     /// <param name="loadPortraits">肖像（顔・全身の絵）を背景で作るか。テストで重い構築を避けるときだけ false。</param>
+    /// <param name="script">決めた順の操作（<see cref="MenuScript"/>。null なら手の入力だけ）。</param>
     public MatchMenu(string replayDirectory, string settingsPath, Action<bool>? playCue = null,
-        IReadOnlyList<FighterCharacter>? roster = null, bool loadPortraits = true)
+        IReadOnlyList<FighterCharacter>? roster = null, bool loadPortraits = true, MenuScript? script = null)
     {
+        _script = script;
         _replayDirectory = replayDirectory;
         _settingsPath = settingsPath;
         _playCue = playCue;
@@ -53,7 +56,11 @@ internal sealed class MatchMenu : IDisposable
 
     public bool QuitRequested => State.QuitRequested;
 
-    public (MatchSelection? Match, ReplayData? Replay) Read(InputSnapshot input, Vector2 size) => Handle(Translate(input, size));
+    public (MatchSelection? Match, ReplayData? Replay) Read(InputSnapshot input, Vector2 size)
+    {
+        var real = Translate(input, size); // 押し下げの記憶（前のフレームの状態）は台本の間も進める
+        return Handle(_script?.Next() ?? real);
+    }
 
     /// <summary>入力 1 回分を状態へ渡し、結果（設定の保存・記録の一覧と再生・試合の開始・合図の音）を実行する。</summary>
     internal (MatchSelection? Match, ReplayData? Replay) Handle(MenuInput menuInput)
@@ -62,7 +69,7 @@ internal sealed class MatchMenu : IDisposable
         if (outcome.Cue != MenuCue.None)
         {
             _playCue?.Invoke(outcome.Cue == MenuCue.Confirm);
-            _view.Notice = null;
+            _view.Notice = outcome.Notice;
         }
 
         if (outcome.SettingsChanged)
