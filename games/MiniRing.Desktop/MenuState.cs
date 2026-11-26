@@ -5,13 +5,16 @@ using MiniRing.Characters;
 namespace MiniRing.Desktop;
 
 /// <summary>メニューの画面（ページ）。</summary>
-internal enum MenuPage { Top, Settings, Mode, Select, Replays }
+internal enum MenuPage { Top, Settings, Mode, Select, Replays, Free, Campaign, Create, Boxer }
 
-/// <summary>最初の画面のボタン（表示の並び: 2 列 × 3 行）。</summary>
-internal enum TopItem { Single, Versus, Spectate, Replays, Settings, Quit }
+/// <summary>
+/// 最初の画面のボタン（表示の並び: 2 列 × 3 行、最後の行は「終了」だけ。2026-11-26）: ゲームモード（フリーバトル・キャンペーン）と、リプレイ・設定・終了。
+/// 今までの「シングル・対戦・観戦」はフリーバトルの中（<see cref="MenuPage.Free"/>）へ移した（挙動は同じ）。
+/// </summary>
+internal enum TopItem { FreeBattle, Campaign, Replays, Settings, Quit }
 
 /// <summary>メニューが外へ頼むこと。</summary>
-internal enum MenuAction { None, BrowseReplays, OpenReplay, StartMatch, Quit }
+internal enum MenuAction { None, BrowseReplays, OpenReplay, StartMatch, Quit, Campaign }
 
 /// <summary>鳴らす合図（カーソルが動いた・決定）。</summary>
 internal enum MenuCue { None, Move, Confirm }
@@ -27,8 +30,9 @@ internal readonly record struct MenuInput(int X = 0, int Y = 0, bool Confirm = f
 
 /// <summary>1 回の入力の結果。</summary>
 /// <paramref name="Notice"/> は画面の下に出す知らせ（大会に出られない人を選んだ・階級が違う など）。
+/// <paramref name="Request"/> はキャンペーンのボクサーの置き場への頼み（作る・消す・体重を変える。<see cref="MenuAction.Campaign"/> のとき）。
 internal readonly record struct MenuOutcome(MenuAction Action = MenuAction.None, MatchSelection? Match = null,
-    int ReplayIndex = -1, MenuCue Cue = MenuCue.None, bool SettingsChanged = false, string? Notice = null);
+    int ReplayIndex = -1, MenuCue Cue = MenuCue.None, bool SettingsChanged = false, string? Notice = null, CampaignRequest? Request = null);
 
 /// <summary>
 /// 画面の配置（設計の画面 640 × 464 の座標）。描画（<see cref="MenuView"/>）と指す位置の判定（<see cref="MenuState"/>）が同じ値を使う。
@@ -45,6 +49,10 @@ internal static class MenuLayout
     /// <summary>ゲームモードの行（左の列）。行の数は練習試合 + 団体の数 + 戻る。</summary>
     public static readonly Vector2 ModeRowSize = new(250f, 46f);
     public static Vector2 ModeRowCenter(int index) => new(160f, 118f + (index * 54f));
+
+    /// <summary>キャンペーンの行（左の列。一覧・作る・ボクサーのページ）。</summary>
+    public static readonly Vector2 CampaignRowSize = new(280f, 22f);
+    public static Vector2 CampaignRowCenter(int index) => new(162f, 104f + (index * 25f));
 
     public static readonly Vector2 SettingsRowSize = new(466f, 44f);
     public static Vector2 SettingsRowCenter(int index) => new(320f, 160f + (index * 58f));
@@ -80,7 +88,7 @@ internal static class MenuLayout
 /// 大会では出場の条件に合わない人・赤と階級の違う人は選べない（カーソルが飛ばし、決定すると理由を知らせる）。</item>
 /// </list>
 /// </summary>
-internal sealed class MenuState
+internal sealed partial class MenuState
 {
     public const int VisibleRecords = 5;
 
@@ -159,10 +167,10 @@ internal sealed class MenuState
         FirstRecord = 0;
     }
 
-    /// <summary>試合・一覧から最初の画面へ戻る（選びは解く。カーソルの位置は残す）。</summary>
+    /// <summary>試合・一覧から戻る（選びは解く。カーソルの位置は残す）。キャンペーンの試合からはそのボクサーのページへ、ほかは最初の画面へ。</summary>
     public void Return()
     {
-        Page = MenuPage.Top;
+        Page = Page == MenuPage.Boxer && Boxer is not null ? MenuPage.Boxer : MenuPage.Top;
         RedLocked = false;
         BlueLocked = false;
     }
@@ -173,6 +181,10 @@ internal sealed class MenuState
         MenuPage.Settings => ApplySettings(input),
         MenuPage.Mode => ApplyMode(input),
         MenuPage.Select => ApplySelect(input),
+        MenuPage.Free => ApplyFree(input),
+        MenuPage.Campaign => ApplyCampaign(input),
+        MenuPage.Create => ApplyCreate(input),
+        MenuPage.Boxer => ApplyBoxer(input),
         _ => ApplyReplays(input),
     };
 
@@ -180,7 +192,7 @@ internal sealed class MenuState
 
     private MenuOutcome ApplyTop(MenuInput input)
     {
-        const int Count = 6;
+        const int Count = TopCount;
         if (input.Cancel)
         {
             TopIndex = (int)TopItem.Quit;
@@ -203,9 +215,11 @@ internal sealed class MenuState
 
         if (input.Y != 0)
         {
-            var rows = Count / MenuLayout.TopColumns;
+            var rows = (Count + MenuLayout.TopColumns - 1) / MenuLayout.TopColumns;
             TopIndex = (Wrap((TopIndex / MenuLayout.TopColumns) + input.Y, rows) * MenuLayout.TopColumns) + (TopIndex % MenuLayout.TopColumns);
         }
+
+        TopIndex = Math.Min(TopIndex, Count - 1); // 最後の行は「終了」だけ（空いた所へは行かない）
 
         if (!confirm)
         {
@@ -225,11 +239,58 @@ internal sealed class MenuState
                 Page = MenuPage.Settings;
                 SettingsIndex = 0;
                 return new(Cue: MenuCue.Confirm);
+            case TopItem.Campaign:
+                EnterCampaign();
+                return new(Cue: MenuCue.Confirm);
             default:
-                Mode = (MatchMode)TopIndex; // Single / Versus / Spectate は MatchMode と同じ並び
-                Page = MenuPage.Mode;
+                Page = MenuPage.Free;
                 return new(Cue: MenuCue.Confirm);
         }
+    }
+
+    /// <summary>最初の画面のボタンの数。</summary>
+    public const int TopCount = 5;
+
+    /// <summary>フリーバトルの行の数（シングル・対戦・観戦・戻る）。</summary>
+    public const int FreeRows = 4;
+
+    /// <summary>フリーバトルの行の位置（0〜2 = <see cref="MatchMode"/>、3 = 戻る）。</summary>
+    public int FreeIndex { get; private set; }
+
+    /// <summary>
+    /// フリーバトル（今までのモード選択そのまま）: 誰が操るか（シングル・対戦・観戦）を選んで、ゲームモード（練習試合・団体の大会）→ キャラ選択へ。
+    /// </summary>
+    private MenuOutcome ApplyFree(MenuInput input)
+    {
+        if (input.Cancel)
+        {
+            Page = MenuPage.Top;
+            return new(Cue: MenuCue.Confirm);
+        }
+
+        var old = FreeIndex;
+        var confirm = input.Confirm;
+        if (input.Pointer is { } point && MenuLayout.HitCenters(point, FreeRows, MenuLayout.ModeRowCenter, MenuLayout.ModeRowSize) is { } hit)
+        {
+            FreeIndex = hit;
+            confirm |= input.Click;
+        }
+
+        FreeIndex = Wrap(FreeIndex + input.Y, FreeRows);
+        if (!confirm)
+        {
+            return new(Cue: FreeIndex != old ? MenuCue.Move : MenuCue.None);
+        }
+
+        if (FreeIndex == FreeRows - 1)
+        {
+            Page = MenuPage.Top;
+            return new(Cue: MenuCue.Confirm);
+        }
+
+        Mode = (MatchMode)FreeIndex; // Single / Versus / Spectate は MatchMode と同じ並び
+        Page = MenuPage.Mode;
+        return new(Cue: MenuCue.Confirm);
     }
 
     private MenuOutcome ApplySettings(MenuInput input)
@@ -272,7 +333,7 @@ internal sealed class MenuState
     {
         if (input.Cancel)
         {
-            Page = MenuPage.Top;
+            Page = MenuPage.Free;
             return new(Cue: MenuCue.Confirm);
         }
 
@@ -297,7 +358,7 @@ internal sealed class MenuState
 
         if (ModeAt(ModeIndex) is not { } competition)
         {
-            Page = MenuPage.Top;
+            Page = MenuPage.Free;
             return new(Cue: MenuCue.Confirm);
         }
 

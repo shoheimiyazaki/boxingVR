@@ -13,6 +13,8 @@ TestResults/
 # Per-user Claude Code settings
 .claude/settings.local.json
 replays/
+# キャンペーンの自作ボクサー（デスクトップの作業フォルダー、docs/plans/CAMPAIGN_PLAN.md）
+/campaign/
 motions/
 
 # Rendered videos (run.cmd arena video)

@@ -26,11 +26,12 @@ public sealed class MenuStateTests
     private static MenuState AtSelect(MatchMode mode, MenuSettings? settings = null, string? tournament = null)
     {
         var state = NewState(settings);
-        // 最初の画面: 並び（シングル・対戦 / 観戦・リプレイ / 設定・終了）で、mode のボタンまで動かして決定する。
-        var index = (int)mode;
-        if (index % 2 == 1) { state.Apply(Dir(x: 1)); }
-        for (var i = 0; i < index / 2; i++) { state.Apply(Dir(y: 1)); }
-        Assert.AreEqual(index, state.TopIndex);
+        // 最初の画面: 並び（フリーバトル・キャンペーン / リプレイ・設定 / 終了）の先頭（フリーバトル）を決定し、誰が操るか（mode）の行を選ぶ。
+        Assert.AreEqual((int)TopItem.FreeBattle, state.TopIndex);
+        state.Apply(Confirm);
+        Assert.AreEqual(MenuPage.Free, state.Page);
+        for (var i = 0; i < (int)mode; i++) { state.Apply(Dir(y: 1)); }
+        Assert.AreEqual((int)mode, state.FreeIndex);
         state.Apply(Confirm);
         Assert.AreEqual(MenuPage.Mode, state.Page);
         if (tournament is not null)
@@ -63,13 +64,15 @@ public sealed class MenuStateTests
     {
         var state = NewState();
         state.Apply(Dir(x: 1));
-        Assert.AreEqual((int)TopItem.Versus, state.TopIndex);
+        Assert.AreEqual((int)TopItem.Campaign, state.TopIndex);
         state.Apply(Dir(x: 1));
-        Assert.AreEqual((int)TopItem.Single, state.TopIndex, "wraps within the row");
+        Assert.AreEqual((int)TopItem.FreeBattle, state.TopIndex, "wraps within the row");
         state.Apply(Dir(y: -1));
-        Assert.AreEqual((int)TopItem.Settings, state.TopIndex, "wraps to the last row");
+        Assert.AreEqual((int)TopItem.Quit, state.TopIndex, "wraps to the last row (only Quit there)");
+        state.Apply(Dir(x: 1));
+        Assert.AreEqual((int)TopItem.Quit, state.TopIndex, "the empty cell next to Quit is never selected");
         state.Apply(Dir(y: 1));
-        Assert.AreEqual((int)TopItem.Single, state.TopIndex);
+        Assert.AreEqual((int)TopItem.FreeBattle, state.TopIndex);
     }
 
     [TestMethod]
@@ -107,9 +110,12 @@ public sealed class MenuStateTests
         state.Apply(Cancel);
         Assert.AreEqual(MenuPage.Mode, state.Page, "back from the first pick returns to the game mode");
         state.Apply(Cancel);
+        Assert.AreEqual(MenuPage.Free, state.Page, "then to the free battle page");
+        Assert.AreEqual((int)MatchMode.Spectate, state.FreeIndex, "the cursor stays on the row we came from");
+        state.Apply(Cancel);
         Assert.AreEqual(MenuPage.Top, state.Page);
         Assert.IsFalse(state.QuitRequested);
-        Assert.AreEqual((int)TopItem.Spectate, state.TopIndex, "the cursor stays on the button we came from");
+        Assert.AreEqual((int)TopItem.FreeBattle, state.TopIndex, "the cursor stays on the button we came from");
     }
 
     [TestMethod]
@@ -191,7 +197,7 @@ public sealed class MenuStateTests
     public void Settings_TogglingTheReferee_ChangesWhatTheMatchGets_AndReportsAChange()
     {
         var state = NewState();
-        state.Apply(Dir(y: 2)); // 設定のボタン（3 行目の左）
+        state.Apply(Dir(x: 1, y: 1)); // 設定のボタン（2 行目の右）
         Assert.AreEqual((int)TopItem.Settings, state.TopIndex);
         state.Apply(Confirm);
         Assert.AreEqual(MenuPage.Settings, state.Page);
@@ -214,9 +220,9 @@ public sealed class MenuStateTests
         Assert.IsFalse(state.QuitRequested);
 
         // 試合へ渡る。
-        state.Apply(Dir(y: -1)); // シングルへ（設定の 1 行上 = 観戦。2 回で先頭）
-        state.Apply(Dir(y: -1));
-        Assert.AreEqual((int)TopItem.Single, state.TopIndex);
+        state.Apply(Dir(x: -1, y: -1)); // フリーバトルへ（設定の 1 行上の左）
+        Assert.AreEqual((int)TopItem.FreeBattle, state.TopIndex);
+        state.Apply(Confirm); // フリーバトル（シングルの行）
         state.Apply(Confirm); // ゲームモードへ
         state.Apply(Confirm); // 練習試合
         state.Apply(Confirm);
@@ -229,7 +235,6 @@ public sealed class MenuStateTests
     public void Replays_BrowseThenMoveAndOpen_BackReturnsToTheTopMenu()
     {
         var state = NewState();
-        state.Apply(Dir(x: 1));
         state.Apply(Dir(y: 1));
         Assert.AreEqual((int)TopItem.Replays, state.TopIndex);
         var browse = state.Apply(Confirm);
@@ -299,6 +304,10 @@ public sealed class MenuStateTests
         var size = new Vector2(960, 540);
         var topShapes = menu.Shapes(size).Count;
         Assert.IsGreaterThan(100, topShapes, "icons are many shapes");
+        Assert.Contains("フリーバトル", menu.Text(size).Select(t => t.Text).ToList());
+        Assert.Contains("キャンペーン", menu.Text(size).Select(t => t.Text).ToList());
+        menu.State.Apply(Confirm);
+        Assert.AreEqual(MenuPage.Free, menu.State.Page);
         Assert.Contains("シングルプレイ", menu.Text(size).Select(t => t.Text).ToList());
         menu.State.Apply(Confirm);
         Assert.AreEqual(MenuPage.Mode, menu.State.Page);
@@ -338,6 +347,7 @@ public sealed class MenuStateTests
         state.Apply(new MenuInput(HasSecondPad: true, Confirm2: true, Confirm: false));
         // 青が決まれば試合が始まっているので、先に青だけ決めた状態を作り直す。
         state.Return();
+        state.Apply(Confirm); // フリーバトル（対戦の行のまま）
         state.Apply(Confirm); // ゲームモードへ
         state.Apply(Confirm); // 練習試合
         state.Apply(new MenuInput(HasSecondPad: true, Confirm2: true));

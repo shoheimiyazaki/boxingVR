@@ -66,6 +66,37 @@ public static class BodySizing
         return ((int)MathF.Ceiling(PhysicalMassKg(new BodyBuild(h, arms, legs, MinRatio, fourLegged))), (int)MathF.Floor(PhysicalMassKg(new BodyBuild(h, arms, legs, MaxRatio, fourLegged))));
     }
 
+    /// <summary>
+    /// 減量・増量（2026-11-26、キャンペーンの試合と試合の間）: 骨格（身長・腕・脚の比）はそのままに、筋肉の太さ（<see cref="BodyBuild.Muscle"/>）だけを変えて
+    /// 計量の体重が <paramref name="weightKg"/> になる体格。強さは断面（<see cref="BodyBuild.SectionRatio"/>）から出るので、減量で太さが減ればその分だけ力も落ちる（隠れた倍率は無い。§1.7）。
+    /// 作れない体重（太さが 0.6〜1.5 倍を外れる）は、作れる範囲を書いた例外。
+    /// </summary>
+    public static BodyBuild WithWeight(BodyBuild build, int weightKg)
+    {
+        ArgumentNullException.ThrowIfNull(build);
+        var (lo, hi) = WeightRange(build);
+        if (weightKg < lo || weightKg > hi)
+        {
+            throw new ArgumentOutOfRangeException(nameof(weightKg), weightKg, $"この骨格で作れる体重は {lo}〜{hi} kg です（筋肉の太さが基準の {MinRatio}〜{MaxRatio} 倍）。");
+        }
+
+        if (CharacterProfile.WeightOf(build) == weightKg)
+        {
+            return build;
+        }
+
+        var muscle = Bisect(m => PhysicalMassKg(build with { Muscle = m }), weightKg, m => CharacterProfile.WeightOf(build with { Muscle = m }) == weightKg)
+            ?? throw new InvalidOperationException($"体重 {weightKg} kg になる太さが見つかりませんでした。");
+        return (build with { Muscle = muscle }).Validate();
+    }
+
+    /// <summary>この骨格（身長・腕・脚）で作れる体重の範囲 [kg]（筋肉の太さが 0.6〜1.5 倍）。</summary>
+    public static (int Min, int Max) WeightRange(BodyBuild build)
+    {
+        ArgumentNullException.ThrowIfNull(build);
+        return ((int)MathF.Ceiling(PhysicalMassKg(build with { Muscle = MinRatio })), (int)MathF.Floor(PhysicalMassKg(build with { Muscle = MaxRatio })));
+    }
+
     /// <summary>体型（太さの比）とこの身長での体重 [kg]。体型を選んだときの体重の初めの値。</summary>
     public static int WeightFor(int heightCm, float muscle, float arms = 1f, float legs = 1f)
         => CharacterProfile.WeightOf(new BodyBuild(HeightRatio(heightCm, legs), arms, legs, muscle).Validate());

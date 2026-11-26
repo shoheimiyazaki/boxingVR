@@ -14,6 +14,8 @@
     <Compile Include="..\..\games\MiniRing.Desktop\MatchSelection.cs" Link="MatchSelection.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuState.cs" Link="MenuState.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuView.cs" Link="MenuView.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuView.Campaign.cs" Link="MenuView.Campaign.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuState.Campaign.cs" Link="MenuState.Campaign.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuIcons.cs" Link="MenuIcons.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuSettings.cs" Link="MenuSettings.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\Competition.cs" Link="Competition.cs" />

@@ -263,7 +263,8 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode, MatchRules? rules 
             }
             followCamera.Update(input, scene.Player);
             return intentKeyboard.Read(input, scene.Player, dt, scene.Round, camera.YawRadians);
-        }, new SessionResources(game, recorded == game ? null : recorded, sound), presentation);
+        }, new SessionResources(game, recorded == game ? null : recorded, sound), presentation,
+            Outcome: () => MiniRing.Arena.Campaign.BoutOutcome.Of(game.MatchOver, game.PlayerWins, game.CpuWins, game.Decision));
     }
     catch
     {

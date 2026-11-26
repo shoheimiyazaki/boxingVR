@@ -11,8 +11,10 @@ using Silk.NET.Input;
 namespace MiniRing.Desktop;
 
 /// <summary>メニューから始めた試合かリプレイ。<paramref name="Camera"/> があれば、その間はホストのカメラの代わりにこれを使う（リプレイの自由カメラ）。</summary>
+/// <paramref name="Outcome"/> は試合の結果（終わっていなければ null。リプレイは持たない）。キャンペーンの戦績はこれで書く。
 internal sealed record MatchSession(IGame<BoxingInput> Host,
-    Func<InputSnapshot, Vector2, BoxingInput> Read, IDisposable Lifetime, IMatchPresentation Presentation, IGameCamera? Camera = null) : IDisposable
+    Func<InputSnapshot, Vector2, BoxingInput> Read, IDisposable Lifetime, IMatchPresentation Presentation, IGameCamera? Camera = null,
+    Func<MiniRing.Arena.Campaign.BoutOutcome?>? Outcome = null) : IDisposable
 {
     public void Dispose()
     {
@@ -58,8 +60,9 @@ internal sealed class MenuGame(MatchMenu menu, Func<MatchSelection, MatchSession
             {
                 _session = null;
                 IsLiveMatch = false;
+                var outcome = session.Outcome?.Invoke(); // 片付ける前に結果を読む
                 _retired.Add(Task.Run(session.Dispose));
-                menu.Return(input.IsGamepadButtonDown(GamepadButton.East));
+                menu.Return(input.IsGamepadButtonDown(GamepadButton.East), outcome);
                 return default;
             }
             return session.Read(input, size);
