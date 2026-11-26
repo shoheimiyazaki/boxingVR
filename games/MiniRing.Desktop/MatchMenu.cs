@@ -252,10 +252,9 @@ internal sealed class MatchMenu : IDisposable
         // 押し続けた方向キー・十字キーは、押しっぱなしのマウスと同じ間（MouseLayout.RepeatDelay・RepeatInterval）で連続する（連打を不要に）。
         var heldX = (input.IsKeyDown(Key.Right) || input.IsKeyDown(Key.D) || pad.X > 0 ? 1 : 0) - (input.IsKeyDown(Key.Left) || input.IsKeyDown(Key.A) || pad.X < 0 ? 1 : 0);
         var heldY = (input.IsKeyDown(Key.Down) || input.IsKeyDown(Key.S) || pad.Y < 0 ? 1 : 0) - (input.IsKeyDown(Key.Up) || input.IsKeyDown(Key.W) || pad.Y > 0 ? 1 : 0);
-        x = x != 0 ? x : _repeatX.Step(heldX, dt);
-        y = y != 0 ? y : _repeatY.Step(heldY, dt);
-        if (x != 0) { _repeatX.Start(x); }
-        if (y != 0) { _repeatY.Start(y); }
+        // 押した瞬間だけ時計を始める（連続の 1 回で始め直すと、間が RepeatDelay に戻ってしまう）。
+        if (x != 0) { _repeatX.Start(x); } else { x = _repeatX.Step(heldX, dt); }
+        if (y != 0) { _repeatY.Start(y); } else { y = _repeatY.Step(heldY, dt); }
         var select = input.WasKeyPressed(Key.Enter) || (confirm && !_confirm);
         var cancel = input.WasKeyPressed(Key.Escape) || (back && !_back) || input.WasMouseButtonPressed(MouseButton.Right); // 右クリックでも戻る
 
