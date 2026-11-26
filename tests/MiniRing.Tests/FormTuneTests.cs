@@ -61,5 +61,29 @@ public sealed class FormTuneTests
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => FormSwordsman.Bot(WeaponKind.Katana, 1, 0.6f, FighterTuning.Default, typo));
     }
 
+    [TestMethod]
+    public void Follow_RaisesTheHandsByTheShareOfTheHeadHeightGap_AndIsCarriedByTheTechnique()
+    {
+        Assert.AreEqual(0f, FormTune.FollowLift(0f, 2f, 1.6f, 0.6f), "no follow, no shift");
+        Assert.AreEqual(0.5f * 0.12f / 0.6f, FormTune.FollowLift(0.5f, 1.72f, 1.6f, 0.6f), 1e-6f, "a taller opponent lifts the path by the share of the gap, in arm lengths");
+        Assert.IsLessThan(0f, FormTune.FollowLift(1f, 1.5f, 1.6f, 0.6f), "a shorter opponent lowers it");
+        Assert.AreEqual(0.5f, FormTune.FollowLift(1.5f, 3f, 1.6f, 0.6f), "kept within the width that keeps the form's shape");
+
+        var kesa = FormSwordsman.Forms(WeaponKind.Katana).First(f => f.Name == "kesa");
+        Assert.AreSame(kesa, FormTune.Raised(kesa, 0f));
+        var raised = FormTune.Raised(kesa, 0.1f);
+        foreach (var (a, b) in kesa.Frames.Zip(raised.Frames))
+        {
+            Assert.AreEqual(0.1f, b.Right.Y - a.Right.Y, 1e-6f);
+            Assert.AreEqual(0.1f, b.Left.Y - a.Left.Y, 1e-6f);
+            Assert.AreEqual(a.Blade, b.Blade, "the blade's direction is unchanged");
+        }
+
+        var tuned = FormSwordsman.Techniques(WeaponKind.Katana, 0.6f, 0f, new Dictionary<string, FormTune> { ["kesa"] = new(Follow: 0.8f) });
+        Assert.AreEqual(0.8f, tuned.First(t => t.Name == "kesa").HeadFollow);
+        Assert.IsTrue(tuned.Where(t => t.Name != "kesa").All(t => t.HeadFollow == 0f));
+        Assert.ThrowsExactly<InvalidDataException>(() => WeaponEducation.Resolve(WeaponKind.Katana, JsonNode.Parse("{ \"Forms\": { \"kesa\": { \"Follow\": 3 } } }")!.AsObject()));
+    }
+
     private static float Vector3Distance(System.Numerics.Vector3 a, System.Numerics.Vector3 b) => System.Numerics.Vector3.Distance(a, b);
 }

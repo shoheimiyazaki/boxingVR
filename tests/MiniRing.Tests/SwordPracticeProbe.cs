@@ -225,13 +225,9 @@ public sealed class SwordPracticeProbe
     {
         var cases = new (string Id, string Form, string Tune, bool? Aim)[]
         {
-            ("jin", "harai-men", """{"Tempo":1.235742,"Twist":0.5021529,"Lift":0.077622086,"Lean":-0.010121513,"Reach":0.04616947}""", null),
-            ("jin", "shomen", """{"Tempo":1.5067066,"Twist":0.13271883,"Lift":-0.023316912,"Lean":0.049709447,"Reach":-0.10149773}""", null),
-            ("jin", "harai-men", """{"Tempo":1.23004,"Twist":0.07971518,"Lift":0.064279966,"Lean":0.0033723712,"Reach":0.016796041}""", null),
+            // 7 周目: エドガーの切り下ろしに頭の高さを追う（Follow）を足した差分と、今の教育（6 周目）。
             ("edgar", "kiri-oroshi", """{"Tempo":2.1822982,"Twist":1.0218937,"Lift":0.03213026,"Lean":-0.010457604,"Reach":0.033105146}""", null),
-            ("edgar", "kiri-oroshi", """{"Tempo":2.2448418,"Twist":1.0368705,"Lift":0.015612647,"Lean":0.07474075,"Reach":-0.03295328}""", null),
-            ("konrad", "oberhau", """{"Tempo":2.2155821,"Twist":1.0217743,"Lift":-0.006157292,"Lean":-0.11143296,"Reach":-0.062244557}""", true),
-            ("konrad", "oberhau", """{"Tempo":2.2155821,"Twist":1.0217743,"Lift":-0.006157292,"Lean":-0.11143296,"Reach":-0.062244557}""", false),
+            ("edgar", "kiri-oroshi", """{"Tempo":2.5,"Twist":0.95960414,"Lift":-0.14537771,"Lean":-0.034919977,"Reach":-0.014127758,"Follow":0.5777249}""", null),
         };
         var bodies = Standard.Concat(CharacterRoster.All.Where(c => !c.Build.FourLegged).Select(c => c.Id)).ToList();
         var jobs = (from c in cases.Select((c, k) => (c, k)) from tuned in Flags from b in bodies from seed in CheckSeeds select (c.c, c.k, tuned, b, seed)).ToList();
@@ -252,6 +248,27 @@ public sealed class SwordPracticeProbe
             var failed = list.Where(x => !x.o.Incapacitated).Select(x => $"{x.j.b}/{x.j.seed}").ToList();
             Console.WriteLine($"[{g.Key.k}] {c.Id} {c.Form} {(g.Key.tuned ? $"tuned aim={c.Aim?.ToString() ?? "textbook"}" : "textbook")}: {list.Count(x => x.o.Incapacitated)}/{list.Count} dead {list.Count(x => x.o.Dead)} impact {list.Average(x => x.o.ImpactSpeed):0.0} m/s self {list.Average(x => x.o.SelfCells):0} selfdown {list.Count(x => x.o.SelfDown)} | failed: {string.Join(" ", failed)}");
         }
+    }
+
+    private static readonly string[] Train7Bodies = ["standard", "heavy", "dmitri", "ramon", "takumi-ishiguro", "taeyun", "abel-navarrete", "akira", "marcus", "ivan-escobedo"];
+
+    /// <summary>
+    /// 7 周目（2026-11-26）: 頭の高さを追う（<see cref="MiniRing.Motion.FormTune.Follow"/>）。今の教育（名簿）の型から、追う割合 0.7 を足して探し始める。
+    /// 練習は体格の違う 10 体 × 種 1、比べ直しは名簿の残りの体（四足を除く）× 種 11。比べ直しの相手は今の教育（追わない）。
+    /// </summary>
+    [TestMethod]
+    [DataRow("jin", "harai-men")]
+    [DataRow("jin", "shomen")]
+    [DataRow("edgar", "kiri-oroshi")]
+    public void Train7(string id, string form)
+    {
+        var who = CharacterRoster.Get(id);
+        var held = Standard.Concat(CharacterRoster.All.Where(c => !c.Build.FourLegged).Select(c => c.Id)).Where(b => !Train7Bodies.Contains(b) && b != "konrad").ToList();
+        var from = who.WeaponStyle!.Forms![form] with { Follow = 0.7f };
+        var (tune, report) = SwordPractice.Train(who, form, generations: 30, lambda: 12, sigma: 0.3f, seed: 7, seeds: [1], victims: Train7Bodies,
+            heldSeeds: [11], heldVictims: held, parallel: Environment.ProcessorCount, log: TextWriter.Null, from: from);
+        Console.WriteLine(report);
+        Console.WriteLine($"ADOPTED {id} {form} " + (tune is null ? "none" : System.Text.Json.JsonSerializer.Serialize(tune)));
     }
 
     [TestMethod]

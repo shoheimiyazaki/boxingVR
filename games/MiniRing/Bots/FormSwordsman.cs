@@ -99,7 +99,7 @@ public static class FormSwordsman
     [
         .. Forms(weapon).Select(f => (Form: f, Tune: tunes?.GetValueOrDefault(f.Name) ?? FormTune.Identity))
             .Select(x => new MotionTechnique(x.Form.Name, weapon, x.Tune.Apply(x.Form), 1.408f, Skill: SwordFormSkills.For(weapon, x.Form.Name)))
-            .Select(t => t with { Range = StrikeDrill.ReachOf(t, armReach) + (tunes?.GetValueOrDefault(t.Name)?.Reach ?? 0f) })
+            .Select(t => t with { Range = StrikeDrill.ReachOf(t, armReach) + (tunes?.GetValueOrDefault(t.Name)?.Reach ?? 0f), HeadFollow = tunes?.GetValueOrDefault(t.Name)?.Follow ?? 0f })
             .Where(t => t.Range >= minReach),
     ];
 
