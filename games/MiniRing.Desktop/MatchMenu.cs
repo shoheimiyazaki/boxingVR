@@ -61,6 +61,9 @@ internal sealed class MatchMenu : IDisposable
 
     public PortraitSet Portraits => _portraits;
 
+    /// <summary>描画の時計 [s]（札の動き。試合の計算には入らない）。テストは決めた時刻を入れて、動き終わった絵を撮る。</summary>
+    internal Func<double> Clock { set => _view.Clock = value; }
+
     public bool QuitRequested => State.QuitRequested;
 
     public (MatchSelection? Match, ReplayData? Replay) Read(InputSnapshot input, Vector2 size)
@@ -114,6 +117,7 @@ internal sealed class MatchMenu : IDisposable
         {
             _pendingBout = null;
             _view.Notice = outcome is { } result ? RecordBout(ticket, result) : "試合が終わる前に抜けたので、戦績には書きません。";
+            if (State.Cards.Count > 0) { _view.Notice = null; } // 札が同じことを言う（閉じた後に古い 1 行を残さない）
         }
     }
 
@@ -129,6 +133,9 @@ internal sealed class MatchMenu : IDisposable
             var after = boxer.AfterBout(ticket.Entry, outcome.Result, outcome.Finish, ticket.Weapon, ranked);
             _campaign.Save(after);
             ReloadBoxers();
+            // 前後の差から喜びの札（新しい大会・席・王座・戦績）を作って本拠地の上に出す。札は Enter で送る。
+            State.Celebrate(CampaignCard.Between(boxer, after, ticket.Entry, outcome.Result, outcome.Finish, State.Roster));
+            _playCue?.Invoke(true);
             var word = outcome.Result switch { BoutResult.Win => outcome.Finish ? "勝ち（倒して）" : "勝ち（判定）", BoutResult.Loss => outcome.Finish ? "負け（倒されて）" : "負け（判定）", _ => "引き分け" };
             return $"{ticket.Entry.Event.Name}: {word}。{after.Career.RecordText}・{ticket.Entry.Division.Name}の席 {CampaignLadder.SeatName(after.Career.SeatIn(org.Id, ticket.Entry.Division.Id))}";
         }

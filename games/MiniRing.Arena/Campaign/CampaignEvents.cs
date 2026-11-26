@@ -138,6 +138,18 @@ internal static class CampaignEvents
     }
 }
 
+/// <summary>大会が開くまでに止まっている所（<see cref="CampaignLadder.Gate"/>）。</summary>
+internal enum CampaignGateKind { Open, Wins, Seat, Graduated, Other }
+
+/// <summary>
+/// 大会の開き具合: <paramref name="Have"/> / <paramref name="Need"/> は勝ちの数（Open・Wins）、席（Seat: Have は今の席、ランキング外は −1、Need は要る席）、
+/// 試合の数（Graduated: 新人の枠の上限）。<paramref name="Reason"/> は <see cref="CampaignLadder.Check"/> の理由そのもの。
+/// </summary>
+internal sealed record CampaignGate(CampaignGateKind Kind, int Have, int Need, string? Reason)
+{
+    public bool IsOpen => Kind == CampaignGateKind.Open;
+}
+
 /// <summary>大会に出るときの組み合わせ（出られるときだけ作る）。</summary>
 /// <param name="Event">大会。</param>
 /// <param name="Division">計量で決まった階級（= 大会の階級）。</param>
@@ -186,6 +198,32 @@ internal static class CampaignLadder
 
         IReadOnlyList<MiniRing.Weapons.WeaponKind?> weapons = org.Entry.Weapons ? [null, .. CharacterFile.Weapons.Cast<MiniRing.Weapons.WeaponKind?>()] : [null];
         return (new CampaignEntry(ev, division, opponent, weapons), null);
+    }
+
+    /// <summary>
+    /// 閉じている大会が「あと何で開くか」（画面の道しるべ。2026-11-26 UI の作り直し）。新しい判定ではなく、<see cref="Check"/> と同じ順・同じ値
+    /// （出場の条件 → 階級 → 戦績の数 → 席）のどこで止まったかと、その数（持っている数・要る数）を返すだけ。開いていれば <see cref="CampaignGateKind.Open"/>。
+    /// </summary>
+    public static CampaignGate Gate(CampaignEvent ev, CampaignBoxer boxer, IReadOnlyList<FighterCharacter> roster, OrgStandings? standings = null)
+    {
+        ArgumentNullException.ThrowIfNull(ev);
+        ArgumentNullException.ThrowIfNull(boxer);
+        var (entry, reason) = Check(ev, boxer, roster, standings);
+        var need = ev.Record;
+        var (bouts, wins) = Count(boxer.Career, need.Scope, ev.Org, ev.Division.Id);
+        if (entry is not null) { return new(CampaignGateKind.Open, wins, need.MinWins, null); }
+        var body = boxer.Character with { Weapon = null };
+        if ((OrgBouts.Ineligible(ev.Organization, body) ?? DivisionReason(ev.Organization, ev.Division, OrgBouts.WeightOf(body))) is not null)
+        {
+            return new(CampaignGateKind.Other, 0, 0, reason);
+        }
+
+        if (need.MaxBouts is { } maxBouts && bouts + 1 > maxBouts) { return new(CampaignGateKind.Graduated, bouts, maxBouts, reason); }
+        if (wins < need.MinWins) { return new(CampaignGateKind.Wins, wins, need.MinWins, reason); }
+        var seat = boxer.Career.SeatIn(ev.Org, ev.Division.Id);
+        return ev.MaxSeat is { } maxSeat && (seat is not { } s || s > maxSeat)
+            ? new(CampaignGateKind.Seat, seat ?? -1, maxSeat, reason)
+            : new(CampaignGateKind.Other, 0, 0, reason);
     }
 
     private static string Kg(int v) => v.ToString(CultureInfo.InvariantCulture) + " kg";

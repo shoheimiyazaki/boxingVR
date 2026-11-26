@@ -1,4 +1,3 @@
-using System.Globalization;
 using MiniRing.Arena.Campaign;
 using MiniRing.Characters;
 using MiniRing.Weapons;
@@ -47,33 +46,6 @@ internal sealed partial class MenuState
 
     private string? _boxerId;
 
-    /// <summary>ボクサーのページの行（0..大会の数−1 = 大会、次 = 目標体重、次 = 消す、最後 = 戻る）。</summary>
-    public int BoxerIndex { get; private set; }
-
-    /// <summary>ボクサーのページの見えている先頭の行（大会は階級ごとにあって画面に収まらないので送る）。</summary>
-    public int BoxerFirst { get; private set; }
-
-    /// <summary>ボクサーのページで一度に見せる行の数。</summary>
-    public const int BoxerVisible = CampaignVisible + 2;
-
-    public static int BoxerRows => CampaignEvents.All.Count + 3;
-    public static int WeightRow => CampaignEvents.All.Count;
-    public static int DeleteRow => CampaignEvents.All.Count + 1;
-
-    /// <summary>目標体重 [kg]（ボクサーのページ。決定で減量・増量）。</summary>
-    public int TargetKg { get; private set; }
-
-    /// <summary>消すの確かめ（もう一度決定で消す）。</summary>
-    public bool ConfirmingDelete { get; private set; }
-
-    private readonly Dictionary<string, int> _weaponChoice = new(StringComparer.Ordinal);
-
-    /// <summary>大会ごとに選んでいる武器（<see cref="CampaignEntry.Weapons"/> の添字。大会ごとに選び直せる）。</summary>
-    public WeaponKind? WeaponFor(CampaignEntry entry) => entry.Weapons[Math.Clamp(_weaponChoice.GetValueOrDefault(entry.Event.Id), 0, entry.Weapons.Count - 1)];
-
-    /// <summary>大会の並びと、出られるか（理由）・組み合わせ。</summary>
-    public IReadOnlyList<(CampaignEvent Event, CampaignEntry? Entry, string? Reason)> Events { get; private set; } = [];
-
     // ── 作る
     public const int CreateRows = 5;
     public int CreateIndex { get; private set; }
@@ -110,45 +82,18 @@ internal sealed partial class MenuState
             Page = MenuPage.Campaign;
         }
 
-        RefreshEvents();
-    }
+        if (Page is MenuPage.Orgs or MenuPage.Path or MenuPage.Weight && Boxer is null)
+        {
+            Page = MenuPage.Campaign;
+        }
 
-    /// <summary>作ったボクサーのページを開く。</summary>
-    public void OpenBoxer(string id)
-    {
-        _boxerId = id;
-        CampaignIndex = Math.Max(0, Boxers.ToList().FindIndex(b => b.Id == id));
-        Page = MenuPage.Boxer;
-        ConfirmingDelete = false;
-        RefreshEvents();
-        // 初めは出られる最初の大会に合わせる（無ければ先頭）。
-        BoxerIndex = Math.Max(0, Events.ToList().FindIndex(e => e.Entry is not null));
-        BoxerFirst = 0;
-        ScrollBoxer();
+        RefreshStops();
     }
-
-    private void ScrollBoxer() => BoxerFirst = Math.Clamp(BoxerFirst, Math.Max(0, BoxerIndex - BoxerVisible + 1), BoxerIndex);
 
     private void EnterCampaign()
     {
         Page = MenuPage.Campaign;
         ConfirmingDelete = false;
-    }
-
-    private void RefreshEvents()
-    {
-        if (Boxer is not { } boxer)
-        {
-            Events = [];
-            return;
-        }
-
-        TargetKg = boxer.WeightKg;
-        Events = [.. CampaignEvents.All.Select(e =>
-        {
-            var (entry, reason) = CampaignLadder.Check(e, boxer, Roster);
-            return (e, entry, reason);
-        })];
     }
 
     private static int ListMove(int index, int rows, MenuInput input, Func<int, System.Numerics.Vector2> center, System.Numerics.Vector2 size, int first, ref bool confirm)
@@ -243,100 +188,5 @@ internal sealed partial class MenuState
         }
 
         return new(Cue: MenuCue.Confirm);
-    }
-
-    private MenuOutcome ApplyBoxer(MenuInput input)
-    {
-        if (input.Cancel || Boxer is not { } boxer)
-        {
-            Page = MenuPage.Campaign;
-            ConfirmingDelete = false;
-            return new(Cue: MenuCue.Confirm);
-        }
-
-        var (oldRow, oldKg) = (BoxerIndex, TargetKg);
-        var oldWeapons = _weaponChoice.ToDictionary(p => p.Key, p => p.Value);
-        var confirm = input.Confirm;
-        if (input.Pointer is { } point && MenuLayout.HitCenters(point, Math.Min(BoxerRows - BoxerFirst, BoxerVisible), MenuLayout.CampaignRowCenter, MenuLayout.CampaignRowSize) is { } hit)
-        {
-            BoxerIndex = BoxerFirst + hit;
-            confirm |= input.Click;
-        }
-
-        var step = input.Scroll != 0 ? Math.Sign(input.Scroll) : input.Y;
-        BoxerIndex = Wrap(BoxerIndex + step, BoxerRows);
-        ScrollBoxer();
-        if (BoxerIndex != oldRow) { ConfirmingDelete = false; }
-        if (input.X != 0)
-        {
-            if (BoxerIndex < Events.Count && Events[BoxerIndex].Entry is { } focused)
-            {
-                _weaponChoice[focused.Event.Id] = Wrap(_weaponChoice.GetValueOrDefault(focused.Event.Id) + input.X, focused.Weapons.Count);
-            }
-            else if (BoxerIndex == WeightRow)
-            {
-                var (lo, hi) = boxer.WeightRange;
-                TargetKg = Math.Clamp(TargetKg + input.X, lo, hi);
-            }
-        }
-
-        if (!confirm)
-        {
-            var moved = BoxerIndex != oldRow || TargetKg != oldKg || !oldWeapons.SequenceEqual(_weaponChoice);
-            return new(Cue: moved ? MenuCue.Move : MenuCue.None);
-        }
-
-        if (BoxerIndex < Events.Count)
-        {
-            var (ev, entry, reason) = Events[BoxerIndex];
-            if (entry is null)
-            {
-                return new(Cue: MenuCue.Move, Notice: reason ?? $"{ev.Name} には出られません。");
-            }
-
-            var weapon = WeaponFor(entry);
-            var red = boxer.Character with { Weapon = weapon };
-            var match = new MatchSelection(MatchMode.Single, red, entry.Opponent, Settings.Referee, Competition.Event(entry.Event.Organization))
-            {
-                Campaign = new CampaignTicket(boxer.Id, entry, weapon),
-            };
-            return new(MenuAction.StartMatch, match, Cue: MenuCue.Confirm);
-        }
-
-        if (BoxerIndex == WeightRow)
-        {
-            return TargetKg == boxer.WeightKg
-                ? new(Cue: MenuCue.Move, Notice: "← → で目標の体重を決めてから決定します。")
-                : new(MenuAction.Campaign, Cue: MenuCue.Confirm, Request: new CampaignRequest.ChangeWeight(boxer.Id, TargetKg));
-        }
-
-        if (BoxerIndex == DeleteRow)
-        {
-            if (!ConfirmingDelete)
-            {
-                ConfirmingDelete = true;
-                return new(Cue: MenuCue.Move, Notice: $"{boxer.Character.HudName} を消します。もう一度決定で消します（元に戻せません）。");
-            }
-
-            ConfirmingDelete = false;
-            _boxerId = null;
-            Page = MenuPage.Campaign;
-            return new(MenuAction.Campaign, Cue: MenuCue.Confirm, Request: new CampaignRequest.Delete(boxer.Id));
-        }
-
-        Page = MenuPage.Campaign;
-        return new(Cue: MenuCue.Confirm);
-    }
-
-    /// <summary>目標体重にしたときの体（画面の見込み: 計量・階級・力の変わり方。決定するまでファイルは変わらない）。</summary>
-    public BodyBuild? TargetBuild => Boxer is { } boxer && TargetKg != boxer.WeightKg ? BodySizing.WithWeight(boxer.Character.Build, TargetKg) : null;
-
-    /// <summary>体重の行の言い方（「72 kg → 66 kg　力 −8%」）。</summary>
-    public string WeightLine()
-    {
-        if (Boxer is not { } boxer) { return ""; }
-        if (TargetBuild is not { } target) { return string.Create(CultureInfo.InvariantCulture, $"目標体重  ◀ {TargetKg} kg ▶"); }
-        var power = (target.SectionRatio / boxer.Character.Build.SectionRatio) - 1f;
-        return string.Create(CultureInfo.InvariantCulture, $"目標体重  ◀ {TargetKg} kg ▶  力 {power:+0%;-0%;0%}");
     }
 }

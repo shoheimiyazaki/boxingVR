@@ -131,7 +131,10 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
             MenuPage.Free => "フリーバトル",
             MenuPage.Campaign => "キャンペーン",
             MenuPage.Create => "ボクサーを作る",
-            MenuPage.Boxer => state.Boxer?.Character.HudName ?? "キャンペーン",
+            MenuPage.Boxer => "本拠地",
+            MenuPage.Orgs => "団体と大会",
+            MenuPage.Path => $"{state.PathOrg.LogoText} の道",
+            MenuPage.Weight => "減量・増量",
             _ => "ゲームセレクト",
         };
         // 一番上の行: キャラ選択ではいまのゲームモード（大会・練習試合の決まり）。
@@ -141,8 +144,11 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         Label(banner, 320, 20, 19, state.Page == MenuPage.Select ? Gold : Pale, TextAnchor.Center);
         Label(heading, 320, 51, 31, Gold, TextAnchor.Center);
 
+        // 試合の後の札を出している間は、本拠地を描かずに札だけ（文字は図形の上に重なるので、下のページの字が透けて読みにくくなる）。
+        var celebrating = state.Page == MenuPage.Boxer && state.Cards.Count > 0;
         switch (state.Page)
         {
+            case MenuPage.Boxer when celebrating: DrawCard(Plate, Frame, Label); break;
             case MenuPage.Top: DrawTop(shapes, canvas, Plate, Frame, Label); break;
             case MenuPage.Settings: DrawSettings(shapes, canvas, Plate, Frame, Label); break;
             case MenuPage.Mode: DrawMode(shapes, canvas, Plate, Frame, Label); break;
@@ -150,11 +156,14 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
             case MenuPage.Free: DrawFree(shapes, canvas, Plate, Frame, Label); break;
             case MenuPage.Campaign: DrawCampaign(Plate, Frame, Label); break;
             case MenuPage.Create: DrawCreate(canvas, Plate, Frame, Label); break;
-            case MenuPage.Boxer: DrawBoxer(canvas, Plate, Frame, Label); break;
+            case MenuPage.Boxer: DrawHome(Plate, Frame, Label); break;
+            case MenuPage.Orgs: DrawOrgs(Plate, Frame, Label); break;
+            case MenuPage.Path: DrawPath(canvas, Plate, Frame, Label); break;
+            case MenuPage.Weight: DrawWeight(canvas, Plate, Frame, Label); break;
             default: DrawReplays(Plate, Frame, Label); break;
         }
 
-        if (Notice is { } notice) { Label(notice, 320, 388, 15, Gold, TextAnchor.Center, maxWidth: 600f); }
+        if (Notice is { } notice && !celebrating) { Label(notice, 320, 388, 15, Gold, TextAnchor.Center, maxWidth: 600f); }
         Label(Hint(), 320, 420, 15, Pale, TextAnchor.Center, maxWidth: 524f);
         return (shapes, text);
     }
@@ -170,7 +179,13 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         MenuPage.Mode => "↑ ↓: 選ぶ   ← →: 練習試合の決まり   Enter / A: 決定   Esc / B: 戻る",
         MenuPage.Free or MenuPage.Campaign => "↑ ↓: 選ぶ   Enter / A / クリック: 決定   Esc / B: 戻る",
         MenuPage.Create => "↑ ↓: 選ぶ   ← →: 変える   Enter / A: 決定   Esc / B: 戻る",
-        MenuPage.Boxer => "↑ ↓: 選ぶ   ← →: 武器・目標体重   Enter / A: 出る・決める   Esc / B: 戻る",
+        MenuPage.Boxer when state.Cards.Count > 0 => "Enter / A / クリック: 次へ",
+        MenuPage.Boxer => state.HomeIndex == MenuState.HomeNext
+            ? "↑ ↓: 選ぶ   ← →: 武器   Enter / A: 試合へ   Esc / B: 戻る"
+            : "↑ ↓ ← →: 選ぶ   Enter / A: 決定   Esc / B: 戻る",
+        MenuPage.Orgs => "↑ ↓: 選ぶ   Enter / A: 道を見る   Esc / B: 戻る",
+        MenuPage.Path => "← →: 段   ↓: 戻る   Enter / A: 次の試合にする   Esc / B: 戻る",
+        MenuPage.Weight => "↑ ↓: 選ぶ   ← →: 体重   Enter / A: 決定   Esc / B: 戻る",
         MenuPage.Select => state.Mode == MatchMode.Versus
             ? "赤: WASD / 青: 矢印・2 つ目のパッド   Enter / A: 決定   Esc / B: 戻る"
             : "WASD / 矢印 / 十字キー: 選ぶ   ホイール: 送る   Enter / A / クリック: 決定   Esc / B: 戻る",
