@@ -79,7 +79,7 @@ public sealed partial class Fighter
     private readonly float[] _kickRestSeconds = new float[2];
     private Vector3 _laggedMove;
 
-    /// <summary>この歩に移動の指令（方向キー・ボットの移動）が出ているか。拳の踏み込み・足でつり合いを取る体の釣り合いの意図は含めない。</summary>
+    /// <summary>この歩に移動の指令（方向キー・ボットの移動）が出ていて、意識が KO の線より上か。拳の踏み込み・足でつり合いを取る体の釣り合いの意図は含めない。</summary>
     private bool _travelCommanded;
 
     internal float HoverHeight => _hoverHeight;
@@ -2553,7 +2553,8 @@ public sealed partial class Fighter
 
     private void DriveBody(in FighterCommand command, float scale, bool grounded, float height, float dt)
     {
-        _travelCommanded = command.ClampedMove.LengthSquared() > 0f;
+        // 移動の指令を足の選び方（体重を見る・宙の足の計画し直し）に使うのは、意識が KO の線より上の体だけ（気を失って崩れていく体は足を選ばない）。
+        _travelCommanded = command.ClampedMove.LengthSquared() > 0f && Consciousness >= _tuning.KnockoutConsciousness;
         foreach (var side in new[] { Hand.Left, Hand.Right })
         {
             var leg = _legParts[(int)side];

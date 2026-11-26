@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Numerics;
 using MiniRing.Arena;
+using MiniRing.Characters;
 using MiniRing.Bots;
 using MiniRing.Motion;
 using MiniRing.Weapons;
@@ -19,6 +20,7 @@ public sealed class FootSnagSeedProbe
 {
     private const float Dt = 1f / 240f;
     private static readonly int[] Seeds = [.. Enumerable.Range(1, 12)];
+    private static readonly int[] IvfSeeds = [.. Enumerable.Range(1, Environment.GetEnvironmentVariable("IVF_TRACE") == "1" ? 1 : 12)];
     private static readonly float[] Levels = [0.6f, 0.4f, 0.25f, 0.1f];
 
     public TestContext TestContext { get; set; } = null!;
@@ -245,6 +247,10 @@ public sealed class FootSnagSeedProbe
             }
 
             standingAt ??= t > 0.8392f && f.State == FighterState.Standing ? t : null;
+            if (seed == 1 && Environment.GetEnvironmentVariable("DEEP_TRACE") == "1" && (int)(t / Dt) % 48 == 0)
+            {
+                Console.WriteLine(F($"  t={t:0.0} state={f.State} aware={f.Consciousness:0.00} tone={f.Tone:0.00} ratio={ratio:0.00} limp={f.Consciousness < FighterTuning.Default.LimpConsciousness}"));
+            }
         }
 
         return F($"lowestWhileLimp={lowest:0.00} standingAt={standingAt:0.00} pass={lowest < 0.3f && standingAt is not null}");
@@ -361,6 +367,208 @@ public sealed class FootSnagSeedProbe
     });
 
     [TestMethod]
+    public void CrossStance() => Report("crossstance", [1], seed =>
+    {
+        using var bout = new PunchLab.Bout(new(PunchLabPath.Standard, "still", "reach", 1.05f, false), seed, 0.25f, FighterTuning.Default);
+        var frames = 0;
+        while (bout.PunchTime is null)
+        {
+            bout.Step();
+            frames++;
+            var f0 = bout.Game.Player;
+            if (frames % 12 == 0)
+            {
+                Console.WriteLine(F($"  f={frames} feet=({Local(bout.Game, f0, 0).X:0.00},{Local(bout.Game, f0, 0).Z:0.00})/({Local(bout.Game, f0, 1).X:0.00},{Local(bout.Game, f0, 1).Z:0.00}) sw={f0.Footwork.Swinging} steps={f0.Footwork.Steps} v=({f0.PelvisVelocity.X:0.00},{f0.PelvisVelocity.Z:0.00})"));
+            }
+        }
+
+        var f = bout.Game.Player;
+        var lead = Local(bout.Game, f, 0);
+        var rear = Local(bout.Game, f, 1);
+        var gap = Vector3.Distance(f.ChestPosition with { Y = 0f }, bout.Game.Cpu.ChestPosition with { Y = 0f });
+        return F($"frames={frames} gap={gap:0.000} lead=({lead.X:0.00},{lead.Z:0.00}) rear=({rear.X:0.00},{rear.Z:0.00}) steps={f.Footwork.Steps} sw={f.Footwork.Swinging}");
+
+        static Vector3 Local(BoxingGame game, Fighter f, int foot) => f.Frame.WorldToLocal(game.World.GetState(f.ToeId(foot)).Position);
+    });
+
+    /// <summary>寄る間合い（腕の長さの倍）を 0.97〜1.13 に振った右ストレート: 拳のエネルギー（腰の強弱・溜めの有無）と、溜めた本の腰の鉛直軸の最高角速度（腰の回旋筋の強弱）。</summary>
+    [TestMethod]
+    public void CrossRanges() => Report("crossrange", [.. Enumerable.Range(0, 9)], i =>
+    {
+        var range = 0.97f + (0.02f * i);
+        float Energy(FighterTuning tuning, float telegraph)
+        {
+            using var bout = new PunchLab.Bout(new(PunchLabPath.Standard, "still", "reach", range, false), 1, telegraph, tuning);
+            while (bout.PunchTime is null)
+            {
+                bout.Step();
+            }
+
+            var f = bout.Game.Player;
+            while (bout.PunchTime is { } t && t < 0.45f)
+            {
+                bout.Step();
+                foreach (var hit in bout.Game.RecentHits.Where(h => h.Attacker == f && h.Hand == Hand.Right && !h.Kick && !h.Elbow))
+                {
+                    return hit.Energy;
+                }
+            }
+
+            return 0f;
+        }
+
+        float PelvisRate(FighterTuning tuning)
+        {
+            using var bout = new PunchLab.Bout(new(PunchLabPath.Standard, "still", "reach", range, false), 1, BotStyle.MaxTelegraph, tuning with { HipTwistShare = 0.45f, ChestTwistResponseSeconds = 0.025f }, new PunchLab.DriveKnobs());
+            while (bout.PunchTime is null)
+            {
+                bout.Step();
+            }
+
+            var rate = 0f;
+            while (bout.PunchTime is { } t && t < 0.25f)
+            {
+                rate = t >= 0f ? MathF.Max(rate, bout.Game.World.GetState(bout.Game.Player.Parts.Pelvis).AngularVelocity.Y) : rate;
+                bout.Step();
+            }
+
+            return rate;
+        }
+
+        var d = FighterTuning.Default;
+        var weak = d with { PelvisRotatorTorque = 60f };
+        return F($"range={range:0.00} quick={Energy(d, 0.06f):0} quickWeak={Energy(weak, 0.06f):0} loaded={Energy(d, 0.25f):0} loadedWeak={Energy(weak, 0.25f):0} pelvisRate={PelvisRate(d):0.00} pelvisRateStrong={PelvisRate(d with { PelvisRotatorTorque = d.TrunkRotatorTorque }):0.00}");
+    });
+
+    /// <summary>寄る間合いを振った、ストレート系のテストの量（TrunkTwistTests・PunchWeightTests・PunchPathTests の 1 試行の関数）。</summary>
+    [TestMethod]
+    public void PunchFamily() => Report("punchfamily", [.. Enumerable.Range(0, 9)], i =>
+    {
+        var range = 0.97f + (0.02f * i);
+        var legacy = FighterTuning.Default with { TrunkRotatorTorque = 28.2f, TrunkTwistFeedForward = 0f };
+        var baseline = TrunkTwistTests.Punch(legacy, range);
+        var strong = TrunkTwistTests.Punch(legacy with { TrunkRotatorTorque = 120f }, range);
+        var ff = TrunkTwistTests.Punch(legacy with { TrunkTwistFeedForward = 1f }, range);
+        var all = TrunkTwistTests.Punch(FighterTuning.Default, range);
+        float Pelvis(FighterTuning t)
+        {
+            try
+            {
+                return TrunkTwistTests.LoadedCross(t, range);
+            }
+            catch (Exception e) when (e is not OutOfMemoryException)
+            {
+                return float.NaN;
+            }
+        }
+
+        var d = FighterTuning.Default;
+        return F($"range={range:0.00} chestLegacy={baseline.ChestRate:0.00} chestStrong={strong.ChestRate:0.00} chestFf={ff.ChestRate:0.00} chestAll={all.ChestRate:0.00} shoulderLegacy={baseline.ShoulderForward:0.00} shoulderAll={all.ShoulderForward:0.00} ")
+            + F($"pelvis={Pelvis(d):0.00} pelvisStrong={Pelvis(d with { PelvisRotatorTorque = d.TrunkRotatorTorque }):0.00} uniform={PunchPathTests.PeakFistSpeed(true, range):0.00} smooth={PunchPathTests.PeakFistSpeed(false, range):0.00} ")
+            + F($"quick={PunchWeightTests.Cross(d, 0.06f, range):0} quickWeak={PunchWeightTests.Cross(d with { PelvisRotatorTorque = 60f }, 0.06f, range):0} loaded={PunchWeightTests.Cross(d, 0.25f, range):0} loadedWeak={PunchWeightTests.Cross(d with { PelvisRotatorTorque = 60f }, 0.25f, range):0}");
+    });
+
+    [TestMethod]
+    public void Settle() => Report("settle", [.. Enumerable.Range(0, 9)], i =>
+    {
+        var range = 0.97f + (0.02f * i);
+        try
+        {
+            return F($"range={range:0.00} settled=True smooth={PunchPathTests.PeakFistSpeed(false, range):0.00}");
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            return F($"range={range:0.00} settled=False");
+        }
+    });
+
+    [TestMethod]
+    public void GroundStrikeNoReferee() => Report("groundstrike", Seeds, seed =>
+    {
+        var off = GroundStrikeTests.Drill(BotCatalog.Boxer, referee: false, seed: seed);
+        return F($"downed={off.Downed} hits={off.Hits} started={off.Started} pass={off.Downed && off.Hits > 0}");
+    });
+
+    [TestMethod]
+    public void WvcSlip() => Report("wvcslip", [.. Enumerable.Range(1, 8)], seed =>
+    {
+        const float dt = 1f / 60f;
+        var albert = CharacterRoster.Get("albert");
+        var ramon = CharacterRoster.Get("ramon");
+        var red = RosterLeague.ContenderOf(albert, ramon.Id, null);
+        var blue = RosterLeague.ContenderOf(ramon, albert.Id, null);
+        var wvc = Organizations.Get("wvc");
+        var corners = TvShowRules.Stage(VideoMaker.WithCharacters(VideoMaker.Corners(
+            red, blue, seed, albert.Wear, ramon.Wear, albert.Weapon, ramon.Weapon,
+            blue.Create.Invoke, red.Create.Invoke), albert, ramon), wvc);
+        var rules = TvShowRules.Rules(3, 20f);
+        using var game = new BoxingGame(seed: seed, corners: corners, rules: rules, mood: wvc.ArenaMood);
+        var wasStanding = true;
+        var falls = 0;
+        var hits = 0;
+        var ko = false;
+        for (var step = 0; step < (rules.TotalSeconds + 9f) / dt && !game.MatchOver; step++)
+        {
+            game.Step(default, dt);
+            if (game.Resting)
+            {
+                wasStanding = game.Player.State == FighterState.Standing;
+                continue;
+            }
+
+            var standing = game.Player.State == FighterState.Standing;
+            falls += wasStanding && !standing && game.Player.Consciousness >= 0.98f ? 1 : 0;
+            wasStanding = standing;
+            hits += game.RecentHits.Count;
+            ko |= game.Cpu.IsKnockedDown && game.Cpu.Consciousness < 0.30f;
+        }
+
+        return F($"falls={falls} hits={hits} ko={ko} pass={falls <= 1 && hits >= 3 && ko}");
+    });
+
+    [TestMethod]
+    public void WindBack() => Report("windback", [.. Enumerable.Range(1, Environment.GetEnvironmentVariable("WB_TRACE") == "1" ? 1 : 8)], seed =>
+    {
+        var attackers = new List<BoxerBot>();
+        var attacker = DefenseDrill.PunchAttacker("2", telegraph: 0.2014f);
+        var corners = new BoxingCorners("a", s => { var b = new BoxerBot(attacker, s); attackers.Add(b); return b; }, s => new BoxerBot(PredictionTests.SlipDefender(0f) with { DefenseRate = 0f }, s));
+        using var game = new BoxingGame(seed: seed, corners: corners);
+        float Twist()
+        {
+            var toward = Vector3.Normalize((game.Player.Frame.Origin - game.Cpu.Frame.Origin) with { Y = 0f });
+            return Vector3.Dot(game.Cpu.ShoulderPosition(Hand.Right) - game.Cpu.ShoulderPosition(Hand.Left), toward) / game.Cpu.ArmReach;
+        }
+
+        var thrownAt = -1f;
+        var twistAt = 0f;
+        for (var t = 0f; t < 10.07f; t += Dt)
+        {
+            game.Step(default, Dt);
+            var thrown = attackers.Sum(a => a.Stats.Techniques.Values.Sum(c => c.Thrown));
+            if (thrownAt < 0f && thrown > 0)
+            {
+                thrownAt = t;
+                twistAt = Twist();
+            }
+
+            if (thrownAt >= 0f && seed == 1 && Environment.GetEnvironmentVariable("WB_TRACE") == "1")
+            {
+                var c = game.Cpu;
+                Vector3 Toe(int foot) => c.Frame.WorldToLocal(game.World.GetState(c.ToeId(foot)).Position);
+                Console.WriteLine(F($"  dt={t - thrownAt:0.000} twist={Twist() - twistAt:0.000} sw={c.Footwork.Swinging} steps={c.Footwork.Steps} lead=({Toe(0).X:0.00},{Toe(0).Z:0.00}) rear=({Toe(1).X:0.00},{Toe(1).Z:0.00}) yaw={c.Frame.YawRadians:0.000} pelvisV=({c.PelvisVelocity.X:0.00},{c.PelvisVelocity.Z:0.00})"));
+            }
+
+            if (thrownAt >= 0f && t >= thrownAt + 0.1678f)
+            {
+                var d = Twist() - twistAt;
+                return F($"windBack={d:0.000} pass={d < -0.01f}");
+            }
+        }
+
+        return "nothrow";
+    });
+
+    [TestMethod]
     public void CounterDamage() => Report("counter", [.. Enumerable.Range(1, 16)], seed =>
     {
         var with = DefenseDrill.Punch("2", Defense.Slip, DefenseDrill.Defender(BotCatalog.Champion.Defenses, defend: true, DefenseDrill.DefaultRange, true), seed: seed, seconds: 23.5f, cue: 0.06714f);
@@ -380,13 +588,22 @@ public sealed class FootSnagSeedProbe
                 last = bot;
                 gaps.Add(Vector3.Distance(game.Player.ChestPosition with { Y = 0f }, game.Cpu.ChestPosition with { Y = 0f }));
                 punches = game.Player.Footwork.Steps;
+                if (seed == -1 && gaps.Count <= 900 && (game.RecentHits.Count > 0 || bot.CurrentDefense != Defense.None || game.Player.State != FighterState.Standing) && gaps.Count % 2 == 0)
+                {
+                    var p = game.Player;
+                    Vector3 Toe(int foot) => game.World.GetState(p.ToeId(foot)).Position;
+                    var lead = p.Frame.WorldToLocal(Toe(0));
+                    var rear = p.Frame.WorldToLocal(Toe(1));
+                    var head = p.Frame.WorldToLocal(p.HeadPosition);
+                    Console.WriteLine(F($"  t={gaps.Count / 60f:0.00} gap={gaps[^1]:0.00} lead=({lead.X:0.00},{lead.Z:0.00}) rear=({rear.X:0.00},{rear.Z:0.00}) head=({head.X:0.00},{head.Y:0.00},{head.Z:0.00}) sw={p.Footwork.Swinging} steps={p.Footwork.Steps} def={bot.CurrentDefense} state={p.State} hits={string.Join(",", game.RecentHits.Where(h => h.Victim == p).Select(h => h.Zone))}"));
+                }
             });
         var defenses = last!.Stats.Defenses.Values.Sum(d => d.Attempts);
         return F($"gapMean={gaps.Average():0.000} gapMin={gaps.Min():0.000} gapMax={gaps.Max():0.000} countersThrown={last.Stats.CountersThrown} countersLanded={last.Stats.CountersLanded} defenses={defenses} defenderSteps={punches}");
     });
 
     [TestMethod]
-    public void IvfThirdKnockdown() => Report("ivf3kd", Seeds, seed =>
+    public void IvfThirdKnockdown() => Report("ivf3kd", IvfSeeds, seed =>
     {
         var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
         using var game = new BoxingGame(seed: seed, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)),
@@ -403,8 +620,14 @@ public sealed class FootSnagSeedProbe
             upFor = game.Cpu.State == FighterState.Standing && !down ? upFor + Dt : 0f;
             if (upFor > 1f)
             {
-                game.Cpu.Concussion = 1f;
+                game.Cpu.Knockdown(-game.Cpu.Frame.Forward, permanent: false);
                 upFor = 0f;
+            }
+
+            var c = game.Cpu;
+            if (seed == 1 && Environment.GetEnvironmentVariable("IVF_TRACE") == "1" && ((int)(t / Dt) % 24 == 0 || (t > 1f && t < 2.2f && game.RecentHits.Count > 0)))
+            {
+                Console.WriteLine(F($"  t={t:0.0} state={c.State} down={down} conc={c.Concussion:0.00} aware={c.Consciousness:0.00} gap={new Vector2(c.ChestPosition.X - game.Player.ChestPosition.X, c.ChestPosition.Z - game.Player.ChestPosition.Z).Length():0.00} pelY={c.PelvisPosition.Y:0.000} hits={string.Join(",", game.RecentHits.Select(h => (h.Attacker == c ? "cpu" : "pl") + ">" + (h.Victim == c ? "cpu" : "pl") + ":" + h.Zone))}"));
             }
         }
 
@@ -423,6 +646,7 @@ public sealed class FootSnagSeedProbe
         var tap = 0f;
         var second = 0f;
         var peak = 0f;
+        const float rushDt = 1f / 60f; // StaminaRushTests と同じ刻み
         var windows = new (double Sum, int Count)[4];
         while (rushing < 20f - 1e-3f && clock < 60f)
         {
@@ -431,16 +655,16 @@ public sealed class FootSnagSeedProbe
             var index = (int)MathF.Floor(phase);
             var down = standing && phase - index < 0.67f;
             control.Input = new FighterIntent(Vector2.Zero, Light: down && index % 2 == 0, Heavy: down && index % 2 == 1);
-            game.Step(new BoxingInput(default), Dt);
-            clock += Dt;
+            game.Step(new BoxingInput(default), rushDt);
+            clock += rushDt;
             if (!standing)
             {
                 continue;
             }
 
-            tap += Dt;
-            rushing += Dt;
-            second += Dt;
+            tap += rushDt;
+            rushing += rushDt;
+            second += rushDt;
             foreach (var hand in new[] { Hand.Left, Hand.Right })
             {
                 peak = MathF.Max(peak, (game.Player.GloveVelocity(hand) - game.Player.ChestVelocity).Length());

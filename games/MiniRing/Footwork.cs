@@ -575,7 +575,10 @@ public sealed class Footwork
                         * Math.Clamp((foot == Lead ? load : 1f - load) + MathF.Max(0f, foot == Lead ? -twist : twist), 0f, 1f));
                     var gain = MathF.Max(0f, error[foot0] - Vector2.Distance(home[foot0], target)) * Free(foot0);
                     var otherGain = MathF.Max(0f, error[other] - Vector2.Distance(home[other], otherTarget)) * Free(other);
-                    swap = (otherOverreach && stride < shuffle && otherStride >= shuffle) || otherGain > gain;
+                    // 踏んだばかりの足（FollowTime の内）は、体がその上へ移ってくる体重を受け止めている: 付いていく足が踏み直しを要するうちは、
+                    // 比べで踏んだばかりの足へ戻さない（交互に運ぶ。同じ足を選び続けると、スリップの間に前足だけが横へ踏み続けて構えが開ききり、体が崩れた）。
+                    var following = other == _lastFoot && _sinceStep < t.FollowTime && need[foot0];
+                    swap = (otherOverreach && stride < shuffle && otherStride >= shuffle) || (!following && otherGain > gain);
                 }
                 else
                 {

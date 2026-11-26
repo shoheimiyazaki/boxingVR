@@ -53,7 +53,9 @@ public sealed class DownRecoveryTests
         {
             game.Step(default, Dt);
             var ratio = (f.PelvisPosition.Y - ground) / stand;
-            if (t > 0.8392f && f.Consciousness < FighterTuning.Default.LimpConsciousness)
+            // 気を失っている間（意識が KO の線より下）の腰の最低。2026-11-26 まで LimpConsciousness（0.12）の下だけを見ていたが、倒れてから 0.84 秒を過ぎると
+            // 意識はもう 0.12 のすぐ上へ戻っていて窓がほとんど無く、意識の戻りがわずかに速い試行では窓が空になって最低が 1.0 のまま落ちた（体は 0.17 まで平らに倒れていた）。
+            if (t > 0.8392f && f.Consciousness < FighterTuning.Default.KnockoutConsciousness)
             {
                 lowestWhileLimp = MathF.Min(lowestWhileLimp, ratio);
             }
