@@ -31,6 +31,9 @@ public sealed class MatchFlowVisualTests
     private static void RenderMenu(HeadlessRenderer renderer, MatchMenu menu, string name)
     {
         var size = new Vector2(Width, Height);
+        var drawn = menu.Text(size);
+        var unfit = drawn.Where(t => t.Font != TextFont.Pixel || t.Text.Contains(MenuText.Cut, StringComparison.Ordinal) || t.PixelHeight < UiFont.Cell).Select(t => t.Text).Distinct().ToList();
+        Assert.AreEqual(0, unfit.Count, $"{name}: every label fits at 1× (16 px) or larger: {string.Join(" / ", unfit)}");
         var pixels = renderer.RenderPrimitiveScene(Vector4.Zero, Matrix4x4.Identity, [], [], menu.Text(size), shapes: menu.Shapes(size));
         PngWriter.WriteRgba(Path.Combine(OutDir(), name), Width, Height, pixels);
     }

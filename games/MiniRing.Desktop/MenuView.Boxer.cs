@@ -10,7 +10,7 @@ namespace MiniRing.Desktop;
 
 /// <summary>
 /// キャンペーンのボクサーの画面の描画（2026-11-26 UI の作り直し）: 本拠地・団体を選ぶ・団体の道・減量・増量と、試合の後の札（解放・席・王座・勝敗）。
-/// 文字は美咲フォントの 2 倍以上（設計の高さ 13 以上）。札の動きは描画の時計だけで、試合の計算に入らない。
+/// 文字は DotGothic16 の 1 倍（16 px）以上。札の動きは描画の時計だけで、試合の計算に入らない。
 /// </summary>
 internal sealed partial class MenuView
 {
@@ -415,12 +415,12 @@ internal sealed partial class MenuView
         plate(320, 112, 120 * pop, 40 * pop, blink ? new(1f, 0.30f, 0.25f, 1) : new(0.85f, 0.20f, 0.18f, 1), new(0.55f, 0.08f, 0.08f, 1), 8);
         label("NEW!", 320, 98, 28 * pop, new(1f, 0.97f, 0.85f, 1), TextAnchor.Center);
         label("新しい大会に出られる！", 320, 146, 21, Gold, TextAnchor.Center, maxWidth: 500);
-        var y = 180f;
+        var y = 200f;
         foreach (var ev in unlocked.Events.Take(3))
         {
-            label($"{CampaignPlan.TierName(ev.Tier)}に挑戦できる！", 320, y, 21, Green, TextAnchor.Center, maxWidth: 500);
-            label(ev.Name, 320, y + 26, 14, Pale, TextAnchor.Center, maxWidth: 500);
-            y += 52f;
+            label($"{CampaignPlan.TierName(ev.Tier)}に挑戦できる！", 320, y, 17, Green, TextAnchor.Center, maxWidth: 500);
+            label(ev.Name, 320, y + 20, 14, Pale, TextAnchor.Center, maxWidth: 500);
+            y += 46f;
         }
 
         if (unlocked.Events.Count > 3) { label($"ほか {unlocked.Events.Count - 3} 大会", 320, y, 14, Dim, TextAnchor.Center); }

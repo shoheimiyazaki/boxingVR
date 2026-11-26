@@ -6,24 +6,67 @@ using MiniRing.Characters;
 namespace MiniRing.Desktop;
 
 /// <summary>
-/// メニューの文字の大きさ・折り返し（美咲フォント、<see cref="UiFont"/>）。高さは 8 px の整数倍に寄せ、幅の決まった所はその幅に収まる倍率へ下げる。
+/// メニューの文字の大きさ・折り返し（DotGothic16、<see cref="UiFont"/>）。高さは 16 px の整数倍（最小 16 px）に寄せ、幅の決まった所はその幅に収まる倍率へ下げる。
+/// 1 倍（16 px）より小さくはしない（小さく潰れた字を出さない）: 1 倍でも収まらない文は、配置で広げるか折る（<see cref="Wrap"/>）。
 /// </summary>
 internal static class MenuText
 {
+    /// <summary>1 倍でも幅に収まらなかったときに、末尾を切って付ける印（配置の直し漏れ。visual テストが 0 件を確かめる）。</summary>
+    public const char Cut = '…';
+
     /// <summary>
-    /// <paramref name="pixels"/> の高さで描く字形と高さ [px]。<paramref name="maxWidth"/> &gt; 0 なら、その幅に収まる一番大きい整数倍
-    /// （頼んだ高さに一番近い倍率から下げる）。美咲の 1 倍（8 px）でも収まらない長い文字だけ、OS のフォントで縮める（前と同じ見積もり）。
+    /// <paramref name="pixels"/> の高さで描く高さ [px] と文字。<paramref name="maxWidth"/> &gt; 0 なら、その幅に収まる一番大きい整数倍
+    /// （頼んだ高さに一番近い倍率から下げる）。1 倍でも収まらないときは縮めず、末尾を <see cref="Cut"/> で切る（読める大きさのまま）。
     /// </summary>
-    public static (float Pixels, TextFont Font) Fit(string value, float pixels, float maxWidth)
+    public static (float Pixels, string Text) Fit(string value, float pixels, float maxWidth)
     {
         var dots = UiFont.Ensure();
         var scale = dots.ScaleFor(pixels);
-        if (maxWidth <= 0f) { return (scale * UiFont.Cell, TextFont.Pixel); }
+        if (maxWidth <= 0f) { return (scale * UiFont.Cell, value); }
         var width = dots.MeasureDots(value);
         while (scale > 1 && width * scale > maxWidth) { scale--; }
-        return width * scale <= maxWidth
-            ? (scale * UiFont.Cell, TextFont.Pixel)
-            : (MenuView.FitHeight(value, maxWidth, pixels), TextFont.System);
+        if (width * scale <= maxWidth) { return (scale * UiFont.Cell, value); }
+        var keep = value.Length;
+        while (keep > 0 && dots.MeasureDots(value[..keep] + Cut) > maxWidth) { keep--; }
+        return (UiFont.Cell, value[..keep] + Cut);
+    }
+
+    /// <summary>
+    /// 人の名前を、「・」の区切りで <paramref name="maxWidth"/> [px] の行に詰める（引用符の中の通り名 <c>"ザ・ハンマー"</c> は分けない）。
+    /// 1 つの区切りだけで幅を超えるときは <see cref="Wrap"/> で字の途中で折る。
+    /// </summary>
+    public static IEnumerable<string> WrapName(string name, float maxWidth, float pixels)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        var parts = new List<string>();
+        var quoted = false;
+        var start = 0;
+        for (var i = 0; i < name.Length; i++)
+        {
+            if (name[i] == '"') { quoted = !quoted; }
+            if (name[i] == '・' && !quoted) { parts.Add(name[start..(i + 1)]); start = i + 1; }
+        }
+
+        if (start < name.Length) { parts.Add(name[start..]); }
+        var line = "";
+        foreach (var part in parts)
+        {
+            if (line.Length > 0 && UiFont.Width(line + part, pixels) > maxWidth)
+            {
+                yield return line;
+                line = "";
+            }
+
+            if (UiFont.Width(part, pixels) > maxWidth)
+            {
+                foreach (var piece in Wrap(part, maxWidth, pixels)) { yield return piece; }
+                continue;
+            }
+
+            line += part;
+        }
+
+        if (line.Length > 0) { yield return line; }
     }
 
     /// <summary>
@@ -101,14 +144,14 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
             shapes.Add(UiShapeDraw.VerticalGradient(canvas.At(x, y), new Vector2(w, h) * s, radius * s, top, bottom));
         void Frame(float x, float y, float w, float h, Vector4 color, float thickness, float radius = 0f) =>
             shapes.Add(UiShapeDraw.Outline(canvas.At(x, y), new Vector2(w, h) * s, radius * s, color, thickness * s));
-        // 文字は美咲フォント（8 px の整数倍。MenuText.Fit）。maxWidth があれば、その幅に収まる一番大きい倍率へ（1 倍でも収まらなければ OS のフォントで縮める）。
+        // 文字は DotGothic16（16 px の整数倍。MenuText.Fit）。maxWidth があれば、その幅に収まる一番大きい倍率へ（1 倍より小さくはしない）。
         void Label(string value, float x, float y, float height, Vector4 ink, TextAnchor anchor = TextAnchor.Left, bool shadow = true, float maxWidth = 0f)
         {
             var position = canvas.At(x, y);
-            var (pixels, font) = MenuText.Fit(value, height * s, maxWidth * s);
-            var drop = font == TextFont.Pixel ? UiFont.Height(pixels) / UiFont.Cell : 2f * s; // 影は 1 ドットずらす
-            if (shadow) { text.Add(new(value, position + new Vector2(drop), pixels, Shadow, anchor, font)); }
-            text.Add(new(value, position, pixels, ink, anchor, font));
+            var (pixels, fitted) = MenuText.Fit(value, height * s, maxWidth * s);
+            var drop = UiFont.Height(pixels) / UiFont.Cell; // 影は 1 ドットずらす
+            if (shadow) { text.Add(new(fitted, position + new Vector2(drop), pixels, Shadow, anchor, TextFont.Pixel)); }
+            text.Add(new(fitted, position, pixels, ink, anchor, TextFont.Pixel));
         }
 
         // 共通の背景・枠・見出し。
@@ -193,13 +236,13 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
             : "← →: 選ぶ   Enter / A / クリック: 決定   Esc / B: メニューへ",
         MenuPage.Select => state.Mode == MatchMode.Versus
             ? "赤: WASD / 青: 矢印・2 つ目のパッド   Enter / A: 決定   Esc / B: 戻る"
-            : "WASD / 矢印 / 十字キー: 選ぶ   ホイール: 送る   Enter / A / クリック: 決定   Esc / B: 戻る",
+            : "WASD / 矢印: 選ぶ   ホイール: 送る   Enter / A: 決定   Esc / B: 戻る",
         _ => "↑ ↓ / ホイール: 選ぶ   Enter / A / クリック: 再生   Esc / B: 戻る",
     };
 
     // ── 最初の画面
     private static readonly string[] TopLabels = ["フリーバトル", "キャンペーン", "リプレイ", "ゲームの設定", "終了"];
-    private static readonly string[] TopDetails = ["シングル・対戦・観戦", "自分のボクサーで勝ち上がる", "過去の試合を再生", "レフェリーなど", ""];
+    private static readonly string[] TopDetails = ["シングル・対戦・観戦", "自分の選手で勝ち上がる", "過去の試合を再生", "レフェリーなど", ""];
 
     private void DrawTop(List<UiShapeDraw> shapes, MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
     {
@@ -317,8 +360,8 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
 
         // 右: 選んでいる行の中身（決まりの要約はファイルの値から）。
         const float PanelX = 452f, PanelW = 312f;
-        plate(PanelX, 238, PanelW, 284, new(0.08f, 0.22f, 0.32f, 1), new(0.03f, 0.10f, 0.20f, 1), 6);
-        frame(PanelX, 238, PanelW, 284, new(0.19f, 0.38f, 0.51f, 1), 1.5f, 6);
+        plate(PanelX, 250, PanelW, 308, new(0.08f, 0.22f, 0.32f, 1), new(0.03f, 0.10f, 0.20f, 1), 6);
+        frame(PanelX, 250, PanelW, 308, new(0.19f, 0.38f, 0.51f, 1), 1.5f, 6);
         var x0 = PanelX - (PanelW / 2) + 14;
         var (who, whoDetail) = WhoPlays();
         label($"{who}（{whoDetail}）", x0, 104, 13, Dim);
@@ -333,11 +376,11 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         var y = 156f;
         foreach (var line in Competition.Summary(focused.Org, focused.Tournament))
         {
-            // 長い要約は縮めずに折る（美咲の 1 倍は小さすぎる）。
+            // 長い要約は縮めずに折る（行の間は 16 px の字が触れない 15）。
             foreach (var part in MenuText.Wrap(line, (PanelW - 28) * canvas.Scale, 13 * canvas.Scale))
             {
                 label(part, x0, y, 13, Pale);
-                y += 14f;
+                y += 15f;
             }
 
             y += 2f;
@@ -349,7 +392,7 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         if (focused is { Tournament: true, Org: { HasWeightClasses: true } weighed })
         {
             label("階級（計量 = 見えている体の重さ）", x0, y, 12, Dim);
-            y += 15f;
+            y += 16f;
             var lower = 0;
             foreach (var division in weighed.Divisions)
             {
@@ -361,7 +404,7 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
                 label(range, x0 + PanelW - 62, y, 12, Pale, TextAnchor.Right, maxWidth: PanelW - 62 - 104);
                 label($"{count} 人", x0 + PanelW - 34, y, 12, Dim, TextAnchor.Right);
                 lower = division.LimitKg ?? lower;
-                y += 14f;
+                y += 15f;
             }
         }
         else if (!focused.Tournament)
@@ -380,10 +423,10 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
     };
 
     // ── キャラクター選択
-    private const float PanelWidth = 152f;
+    private const float PanelWidth = 180f;
     private const float PanelTop = 92f;
-    private const float BodyBoxHeight = 168f;
-    private static float PanelCenterX(bool left) => left ? 91f : 549f;
+    private const float BodyBoxHeight = 140f; // 下の文字（16 px の字で名前・一言を折る）の場所を空けた高さ
+    private static float PanelCenterX(bool left) => left ? 104f : 536f;
 
     private void DrawSelect(List<UiShapeDraw> shapes, MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
     {
@@ -401,7 +444,7 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
             {
                 var y = top + (SelectGrid.HeaderHeight / 2);
                 plate(320, y + 1, SelectGrid.Right - SelectGrid.Left - 6, SelectGrid.HeaderHeight - 4, new(0.14f, 0.36f, 0.50f, 1), new(0.07f, 0.20f, 0.32f, 1), 3);
-                label($"{line.Category.Label()}  {line.Count} 人", SelectGrid.Left + 8, y - 7, 12, Gold, shadow: false);
+                label($"{line.Category.Label()}  {line.Count} 人", SelectGrid.Left + 8, y - 7, 12, Gold, shadow: false, maxWidth: SelectGrid.Right - SelectGrid.Left - 16);
                 continue;
             }
 
@@ -450,7 +493,10 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         DrawSide(shapes, canvas, plate, frame, label, state.BlueCursor, left: false, blueTag, state.BlueLocked, state.RedLocked || state.Mode == MatchMode.Versus);
     }
 
-    /// <summary>格子の 1 枚: 顔・国旗・短い名前。選べない人（大会に出られない・階級が違う）は暗くする。</summary>
+    /// <summary>
+    /// 格子の 1 枚: 顔・国旗。選べない人（大会に出られない・階級が違う）は暗くする。名前は札に書かない（16 px の字では札の幅に 3 字しか入らない）:
+    /// カーソルの人の名前は左右のパネルに出る。
+    /// </summary>
     private void DrawTile(List<UiShapeDraw> shapes, MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label, int index, bool allowed)
     {
         if (state.Grid.TileCenter(index) is not { } c) { return; }
@@ -458,8 +504,8 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         var character = state.Roster[index];
         plate(c.X + 2, c.Y + 2, tile.X, tile.Y, Shadow, Shadow, 3);
         plate(c.X, c.Y, tile.X, tile.Y, new(0.12f, 0.30f, 0.42f, 1), new(0.05f, 0.14f, 0.26f, 1), 3);
-        const float FaceBox = 40f;
-        var faceCenter = c + new Vector2(0f, -7f);
+        const float FaceBox = 54f;
+        var faceCenter = c + new Vector2(0f, 2f);
         if (portraits.TryGet(index) is { } portrait)
         {
             var face = portrait.Face;
@@ -472,8 +518,6 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         }
 
         MenuIcons.DrawFlag(shapes, canvas.At(c.X - (tile.X / 2) + 7, c.Y - (tile.Y / 2) + 5), 11 * canvas.Scale, character.Country.Flag);
-        var name = character.HudName;
-        label(name, c.X, c.Y + (tile.Y / 2) - 13, 10, allowed ? Pale : Dim, TextAnchor.Center, shadow: false, maxWidth: tile.X - 3);
         if (!allowed)
         {
             plate(c.X, c.Y, tile.X, tile.Y, new(0.01f, 0.03f, 0.08f, 0.62f), new(0.01f, 0.03f, 0.08f, 0.62f), 3);
@@ -488,8 +532,8 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         var character = state.Roster[index];
         var color = left ? RedSide : BlueSide;
         var panelX = PanelCenterX(left);
-        var x0 = panelX - (PanelWidth / 2) + 6;
-        var textW = PanelWidth - 12;
+        var x0 = panelX - (PanelWidth / 2) + 4;
+        var textW = PanelWidth - 8;
         // 全身の絵の枠（全員を同じ縮尺で描く: 背の高い人は高く、四つ足は横に広く見える）。
         var boxCenterY = PanelTop + (BodyBoxHeight / 2);
         plate(panelX, boxCenterY, PanelWidth, BodyBoxHeight, new(0.08f, 0.22f, 0.32f, 1), new(0.03f, 0.10f, 0.20f, 1), 6);
@@ -513,37 +557,47 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         var y = PanelTop + BodyBoxHeight + 5f;
         MenuIcons.DrawFlag(shapes, canvas.At(x0 + 10, y + 7), 20 * canvas.Scale, character.Country.Flag);
         label(character.Origin, x0 + 24, y, 12, Pale, maxWidth: textW - 24);
-        // 名前（長いものは文字を縮めて収める）。
+        // 名前（長いものは「・」で折る。縮めない）。
         y += 17f;
-        label(character.Name, x0, y, 17, Pale, maxWidth: textW);
-        // 分け方の札・持ち物。
-        y += 21f;
+        foreach (var part in MenuText.WrapName(character.Name, textW * canvas.Scale, 17 * canvas.Scale))
+        {
+            label(part, x0, y, 17, Pale, maxWidth: textW);
+            y += 16f;
+        }
+
+        // 分け方の札・持ち物（持ち物は札の下の行。札の横では 3 字しか入らない）。
+        y += 3f;
         var category = state.Grid.Categories[index].ShortLabel();
         var chipW = (ScreenText.MeasurePixelWidth(category, MenuText.Fit(category, 11 * canvas.Scale, 0f).Pixels, TextFont.Pixel) / canvas.Scale) + 8f;
-        plate(x0 + (chipW / 2), y + 7, chipW, 14, color with { W = 0.85f }, color with { X = color.X * 0.6f, Y = color.Y * 0.6f, Z = color.Z * 0.6f }, 3);
-        label(category, x0 + 4, y + 1, 11, Shadow, shadow: false);
-        MenuIcons.DrawEquipment(shapes, canvas.At(x0 + chipW + 16, y + 7), 11 * canvas.Scale, character.Weapon, character.Wear);
-        label(character.EquipmentName, x0 + chipW + 30, y + 1, 11, Pale, maxWidth: textW - chipW - 30);
+        plate(x0 + (chipW / 2), y + 7, chipW, 16, color with { W = 0.85f }, color with { X = color.X * 0.6f, Y = color.Y * 0.6f, Z = color.Z * 0.6f }, 3);
+        label(category, x0 + 4, y, 11, Shadow, shadow: false);
+        y += 19f;
+        MenuIcons.DrawEquipment(shapes, canvas.At(x0 + 14, y + 7), 11 * canvas.Scale, character.Weapon, character.Wear);
+        label(character.EquipmentName, x0 + 30, y, 11, Pale, maxWidth: textW - 30);
         // 体格（ボクシングの単位: 身長は ft/in と cm、体重は lb と kg）。
         var tape = FighterTape.Of(character.Build);
-        y += 19f;
+        y += 17f;
         label("身長", x0, y, 12, Dim);
-        label(tape.HeightText, x0 + 30, y, 12, Pale, maxWidth: textW - 30);
+        label(tape.HeightText, x0 + 32, y, 12, Pale, maxWidth: textW - 32);
         y += 16f;
         label("体重", x0, y, 12, Dim);
-        label(tape.WeightText, x0 + 30, y, 12, Pale, maxWidth: textW - 30);
+        label(tape.WeightText, x0 + 32, y, 12, Pale, maxWidth: textW - 32);
         // 階級（階級制の団体に出られる人だけ。いまの大会が階級制ならその団体、ほかは階級制の最初の団体）。
         y += 16f;
         if (DivisionText(character) is { } division)
         {
             label("階級", x0, y, 12, Dim);
-            label(division, x0 + 30, y, 12, Pale, maxWidth: textW - 30);
+            label(division, x0 + 32, y, 12, Pale, maxWidth: textW - 32);
+            y += 16f;
         }
 
-        y += 16f;
         var why = state.Competition.Ineligible(character);
         var last = why is null ? character.Tagline : "出場できません";
-        label(last, x0, y, 11, why is null ? Gold : RedSide, maxWidth: textW);
+        foreach (var part in MenuText.Wrap(last, textW * canvas.Scale, 11 * canvas.Scale))
+        {
+            label(part, x0, y, 11, why is null ? Gold : RedSide, maxWidth: textW);
+            y += 16f;
+        }
     }
 
     /// <summary>階級の表示（「IVF ミドル級」）。階級制の団体に出られなければ null。</summary>
@@ -569,13 +623,6 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         / MathF.Max(0.5f, state.Roster.Max(c => BodySizing.PhysicalHeightMeters(c.Build)) * 1.06f);
 
     private float? _bodyScale;
-
-    /// <summary>OS のフォントで、文字の幅（全角 = 高さ、半角 = 高さの約半分）が <paramref name="maxWidth"/> に収まる文字の高さ（美咲の 1 倍でも収まらないときだけ。<see cref="MenuText.Fit"/>）。</summary>
-    internal static float FitHeight(string value, float maxWidth, float maxHeight)
-    {
-        var units = value.Sum(ch => ch < 0x80 ? 0.55f : 1f);
-        return units <= 0f ? maxHeight : MathF.Min(maxHeight, maxWidth / units);
-    }
 
     /// <summary>
     /// 肖像（四角の並び）を設計の座標へ描く。同じ行で同じ色が続くところは 1 つの四角にまとめる（図形の数を減らす）。

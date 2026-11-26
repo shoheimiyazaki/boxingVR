@@ -23,8 +23,8 @@
 
 元の CT はリポジトリに入れない（`tools/ct-body/fetch.py` が取り方を持つ）。
 
-# UI の文字（美咲フォント）の出典
+# UI の文字（DotGothic16）の出典
 
 | 素材 | 出典 | ライセンス | 使い方 |
 |---|---|---|---|
-| `Fonts/misaki_gothic.ttf` | [美咲フォント](https://littlelimit.net/misaki.htm)（門真なむ氏）の TTF 版 `misaki_ttf_2021-05-05.zip` | フリーソフトウェア: 改変の有無・商用を問わず利用・複製・再配布が自由、無保証（`Fonts/misaki_LICENSE.txt` = 同梱の `misaki.txt` をそのまま） | 美咲ゴシックをそのまま。メニューと試合の HUD の文字（8 px の整数倍・ニアレスト。`UiFont`） |
+| `Fonts/DotGothic16-Regular.ttf` | [DotGothic16](https://github.com/fontworks-fonts/DotGothic16)（Fontworks、16 ドットの格子の日本語フォント、JIS 第 1・2 水準）。Google Fonts の配布 `github.com/google/fonts` の `ofl/dotgothic16/DotGothic16-Regular.ttf`（2026-11-26 に取得） | SIL Open Font License 1.1（`Fonts/DotGothic16_OFL.txt` = 配布の `OFL.txt` をそのまま） | 改変なし。メニューと試合の HUD の文字（16 px の整数倍・ニアレスト。`UiFont`） |

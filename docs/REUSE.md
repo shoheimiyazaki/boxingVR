@@ -44,15 +44,15 @@ Aigis の CLAUDE.md の規約「別のゲームを作るならリポジトリを
 - `PhysicsWorld.SetAngularServoSettings` / `SetTwistServoSettings` に任意の `maxSpeed`（サーボの最大の速さ）を足した（2026-11-17。MiniRing が膝の制御で蹴る脚のサーボの速さの上限だけを上げるため。渡さなければ今まで通り速さの上限は変えない）。
 既存の呼び出しの挙動は変わりません（既定の経路は従来どおり）。
 
-## 美咲フォント（UI の文字）
+## DotGothic16（UI の文字）
 
 | 元 | 扱い |
 |---|---|
-| [美咲フォント](https://littlelimit.net/misaki.htm)（門真なむ氏、8×8 ドットの日本語フォント）TTF 版 `misaki_ttf_2021-05-05.zip` の `misaki_gothic.ttf` | `games/MiniRing/Assets/Fonts/misaki_gothic.ttf` にそのまま置き、`MiniRing.csproj` で組み込む。ライセンスは配布元（https://littlelimit.net/font.htm#license と同梱の `misaki.txt`）の文で確かめた: フリーソフトウェアで、改変の有無・商用を問わず利用・複製・再配布が自由、無保証。同梱の `misaki.txt` を `Assets/Fonts/misaki_LICENSE.txt` として一緒に置く |
+| [DotGothic16](https://github.com/fontworks-fonts/DotGothic16)（Fontworks、16 ドットの格子の日本語フォント、JIS 第 1・2 水準）。Google Fonts の配布 `github.com/google/fonts` の `ofl/dotgothic16/DotGothic16-Regular.ttf`（2026-11-26 に取得） | `games/MiniRing/Assets/Fonts/DotGothic16-Regular.ttf` に改変せずに置き、`MiniRing.csproj` で組み込む。ライセンスは SIL Open Font License 1.1（配布の `OFL.txt` を `Assets/Fonts/DotGothic16_OFL.txt` として一緒に置く）: フォント単体を売らない・予約名で改変版を出さない範囲で、ゲームへの組み込み・再配布は自由。2026-11-26 までは美咲フォント（8×8）を使っていたが、8×8 では漢字が潰れて読みづらいので替え、美咲のファイルは消した |
 
-使い方: `games/MiniRing/UiFont.cs` が読み、エンジンに足した `Aigis.Render.PixelFont`（TrueType の cmap・hmtx を読み、字形を 8 px で 1 ビットに描いて持つ）を `ScreenText.PixelFont` に置く。`ScreenTextDraw` の `Font = TextFont.Pixel` の文字は、高さを 8 px の一番近い整数倍に寄せ、1 ドットを n×n の四角で描く（ニアレスト）。美咲に無い字（◀ ▶、ラテン文字の ã ó · など JIS X 0208 の外）は OS の日本語のフォント（MS Gothic → Yu Gothic UI → Segoe UI）を同じ 8 px の格子に 1 ビットで描いて補う。メニュー（`MenuView`）・デスクトップの試合の HUD（`BoxingGame`・`DownCountHud`）・試合の準備中の文字に使い、テレビ中継（`TvHud`・Arena の動画）・リプレイの HUD・エンジンの知らせは OS のフォントのまま。
+使い方: `games/MiniRing/UiFont.cs` が読み、エンジンに足した `Aigis.Render.PixelFont`（TrueType の cmap・hmtx を読み、字形を 16 px（em = 16 ドット）で 1 ビットに描いて持つ）を `ScreenText.PixelFont` に置く。`ScreenTextDraw` の `Font = TextFont.Pixel` の文字は、高さを 16 px の一番近い整数倍（最小 16 px）に寄せ、1 ドットを n×n の四角で描く（ニアレスト）。DotGothic16 に無い字は OS の日本語のフォント（MS Gothic → Yu Gothic UI → Segoe UI）を同じ 16 px の格子に 1 ビットで描いて補う。メニュー（`MenuView`）・デスクトップの試合の HUD（`BoxingGame`・`DownCountHud`）・試合の準備中の文字に使い、テレビ中継（`TvHud`・Arena の動画）・リプレイの HUD・エンジンの知らせは OS のフォントのまま。
 
-### コピーしたエンジンへの変更（2026-11-26、美咲フォント）
+### コピーしたエンジンへの変更（2026-11-26、ドットのフォント。美咲 → DotGothic16）
 
 | ファイル | 変更 |
 |---|---|

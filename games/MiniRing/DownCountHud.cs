@@ -82,7 +82,7 @@ public static class DownCountHud
     /// <summary>目盛りの行の縦の中心（表示の下端から）。</summary>
     private static float PipRow(Vector2 bottom) => bottom.Y - (PipSize * 0.5f);
 
-    /// <summary>カウントの文字（名前と数字。どちらも影付き）。<paramref name="font"/> はデスクトップの試合の HUD が美咲フォント（<see cref="UiFont"/>）、テレビ中継は OS のフォント（既定）。</summary>
+    /// <summary>カウントの文字（名前と数字。どちらも影付き）。<paramref name="font"/> はデスクトップの試合の HUD が DotGothic16（<see cref="UiFont"/>）、テレビ中継は OS のフォント（既定）。</summary>
     public static IEnumerable<ScreenTextDraw> Text(BoxingGame game, Matrix4x4 viewProjection, Vector2 screen, Func<Fighter, string> name, Func<Fighter, Vector4> color,
         TextFont font = TextFont.System)
     {
@@ -91,23 +91,26 @@ public static class DownCountHud
         ArgumentNullException.ThrowIfNull(game);
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(color);
+        // ドットのフォントは高さを 16 px の整数倍へ寄せるので、並べるときは実際に描かれる高さで測る（OS のフォントでは頼んだ高さのまま）。
+        var numberSize = ScreenText.RenderedHeight(NumberSize, font);
+        var nameSize = ScreenText.RenderedHeight(NameSize, font);
         foreach (var (fighter, bottom) in Counted(game, viewProjection, screen))
         {
             // 文字の Y は上端。下から: 目盛り → 数字 → 名前。
-            var numberTop = PipRow(bottom) - (PipSize * 0.5f) - 6f - (NumberSize * 0.85f);
+            var numberTop = PipRow(bottom) - (PipSize * 0.5f) - 6f - (numberSize * 0.85f);
             var count = Count(fighter);
-            var nameTop = numberTop - NameSize - 4f;
+            var nameTop = numberTop - nameSize - 4f;
             if (count >= 1)
             {
                 // 数が増えた瞬間に 1.4 倍で打ち出し、カウント 1 つの間の 1/4 ほどで元の大きさへ（下端を揃えて大きくする）。
                 var since = (fighter.DownTime / BoxingGame.CountInterval) - MathF.Floor(fighter.DownTime / BoxingGame.CountInterval); // カウントの間の中の位置 [0..1)
-                var size = NumberSize * (1f + (0.4f * MathF.Exp(-since * 10f)));
+                var size = numberSize * (1f + (0.4f * MathF.Exp(-since * 10f)));
                 var alpha = 0.8f + (0.2f * MathF.Exp(-since * 4f));
-                var top = numberTop - ((size - NumberSize) * 0.85f);
+                var top = numberTop - ((ScreenText.RenderedHeight(size, font) - numberSize) * 0.85f);
                 var text = count.ToString(CultureInfo.InvariantCulture);
                 yield return new ScreenTextDraw(text, new Vector2(bottom.X + ShadowOffset, top + ShadowOffset), size, Shadow with { W = Shadow.W * alpha }, TextAnchor.Center, font);
                 yield return new ScreenTextDraw(text, new Vector2(bottom.X, top), size, Gold with { W = alpha }, TextAnchor.Center, font);
-                nameTop = top - NameSize - 4f;
+                nameTop = top - nameSize - 4f;
             }
 
             var label = $"{name(fighter)} DOWN";

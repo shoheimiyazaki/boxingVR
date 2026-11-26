@@ -10,9 +10,9 @@ namespace MiniRing.Desktop;
 /// </summary>
 internal sealed class SelectGrid
 {
-    public const int Columns = 6;
-    public const float Left = 172f;
-    public const float Right = 468f;
+    public const int Columns = 5; // 5 列（2026-11-26、DotGothic16 の 16 px の字で左右のパネルに名前が 1〜2 行で入る幅を空けた）
+    public const float Left = 200f;
+    public const float Right = 440f;
     public const float Top = 96f;
     public const float Bottom = 382f;
     public const float HeaderHeight = 18f;

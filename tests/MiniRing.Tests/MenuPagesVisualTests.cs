@@ -29,11 +29,16 @@ public sealed class MenuPagesVisualTests
         return path;
     }
 
+    /// <summary>撮った画面で、1 倍（16 px）でも収まらずに末尾を切った文字・OS のフォントの文字（ドットのフォントでない）。配置の直し漏れ。</summary>
+    private static readonly List<string> Unfit = [];
+
     private static void Render(HeadlessRenderer renderer, MatchMenu menu, string name)
     {
         var size = new Vector2(Width, Height);
         var text = menu.Text(size);
         Assert.IsTrue(ScreenText.BuildQuads(text).Count > 0);
+        Unfit.AddRange(text.Where(t => t.Font != TextFont.Pixel || t.Text.Contains(MenuText.Cut, StringComparison.Ordinal) || t.PixelHeight < UiFont.Cell)
+            .Select(t => $"{name}: {t.Text} ({t.Font}, {t.PixelHeight} px)").Distinct());
         var pixels = renderer.RenderPrimitiveScene(Vector4.Zero, Matrix4x4.Identity, [], [], text, shapes: menu.Shapes(size));
         PngWriter.WriteRgba(Path.Combine(OutDir(), name), Width, Height, pixels);
     }
@@ -251,5 +256,6 @@ public sealed class MenuPagesVisualTests
         menu.Handle(new MenuInput(Cancel: true));
         Assert.AreEqual(MenuPage.Campaign, menu.State.Page);
         Render(renderer, menu, "menu_27_campaign_list.png");
+        Assert.AreEqual(0, Unfit.Count, "every label fits at 1× (16 px) or larger:" + Environment.NewLine + string.Join(Environment.NewLine, Unfit.Distinct()));
     }
 }
