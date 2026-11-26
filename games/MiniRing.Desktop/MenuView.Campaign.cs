@@ -135,7 +135,7 @@ internal sealed partial class MenuView
         label(string.Create(CultureInfo.InvariantCulture, $"身長 {draft.HeightCm} cm・体重 {draft.WeightKg} kg"), 326, 154, 14, Pale);
         label(type.Note, 326, 176, 13, Dim, maxWidth: 270);
         var y = 206f;
-        label("出られる大会は体重（階級）と戦績で決まります", 326, y, FitHeight("出られる大会は体重（階級）と戦績で決まります", 270, 13), Pale);
+        label("出られる新人戦（体重の階級で決まる）", 326, y, 13, Pale, maxWidth: PanelRight - 326);
         y += 22f;
         // この体重で入る階級の新人戦（団体ごとに 1 つ。身長・体型では弾かれない）。
         foreach (var ev in CampaignEvents.All.Where(e => e.Tier == CampaignTier.Rookie && e.Division == e.Organization.DivisionOf(draft.WeightKg)))
@@ -166,7 +166,7 @@ internal sealed partial class MenuView
             {
                 var (ev, entry, _) = state.Events[i];
                 var open = entry is not null;
-                label(ev.Name, left, c.Y - 9, FitHeight(ev.Name, MenuLayout.CampaignRowSize.X - 100, 14), selected ? Gold : open ? Pale : Dim);
+                label(ev.Name, left, c.Y - 9, 14, selected ? Gold : open ? Pale : Dim, maxWidth: (entry is not null ? MenuLayout.CampaignRowSize.X - 110 : MenuLayout.CampaignRowSize.X - 44));
                 if (entry is not null)
                 {
                     var weapon = state.WeaponFor(entry) is { } w ? FighterCharacter.WeaponLabel(w) : "素手";
@@ -174,7 +174,7 @@ internal sealed partial class MenuView
                 }
                 else
                 {
-                    label("出られない", c.X + 130, c.Y - 8, 12, Dim, TextAnchor.Right);
+                    label("×", c.X + 130, c.Y - 8, 12, Dim, TextAnchor.Right); // 理由は右の板に出る。行は大会名に幅を譲る
                 }
             }
             else
@@ -189,19 +189,26 @@ internal sealed partial class MenuView
         {
             var (ev, entry, reason) = state.Events[state.BoxerIndex];
             label(ev.Name, 326, 124, 21, Gold, maxWidth: 270);
-            label(ev.Note, 326, 154, 13, Pale, maxWidth: 270);
+            var ny = 154f;
+            foreach (var line in MenuText.Wrap(ev.Note, (PanelRight - 326) * canvas.Scale, 13 * canvas.Scale))
+            {
+                label(line, 326, ny, 13, Pale);
+                ny += 19f;
+            }
+
+            ny += 8f; // 説明の行数だけ下へずらす（長い説明が下の行に重ならない）
             if (entry is not null)
             {
                 var opponent = entry.Opponent;
-                label(string.Create(CultureInfo.InvariantCulture, $"階級 {entry.Division.Name}（{(entry.Event.Organization.Entry.WeighIn ? "前日計量" : "体重の発表")} {boxer.WeightKg} kg）"), 326, 182, 14, Pale);
-                label(string.Create(CultureInfo.InvariantCulture, $"相手 {opponent.HudName}（{Arena.OrgBouts.WeightOf(opponent)} kg・{opponent.StyleName}）"), 326, 204, 14, Pale, maxWidth: 270);
-                label(entry.Weapons.Count > 1 ? "← → で武器を選び直せます（大会ごと）" : "この団体は武器を持てません", 326, 228, 12, Dim);
-                label("Enter で試合へ", 326, 252, 15, Gold);
+                label(string.Create(CultureInfo.InvariantCulture, $"階級 {entry.Division.Name}（{(entry.Event.Organization.Entry.WeighIn ? "前日計量" : "体重の発表")} {boxer.WeightKg} kg）"), 326, ny, 14, Pale, maxWidth: PanelRight - 326);
+                label(string.Create(CultureInfo.InvariantCulture, $"相手 {opponent.HudName}（{Arena.OrgBouts.WeightOf(opponent)} kg・{opponent.StyleName}）"), 326, ny + 22f, 14, Pale, maxWidth: PanelRight - 326);
+                label(entry.Weapons.Count > 1 ? "← → で武器を選び直せます（大会ごと）" : "この団体は武器を持てません", 326, ny + 46f, 12, Dim);
+                label("Enter で試合へ", 326, ny + 70f, 15, Gold);
             }
             else
             {
-                label("出られない理由", 326, 182, 13, Dim);
-                var ry = 204f;
+                label("出られない理由", 326, ny, 13, Dim);
+                var ry = ny + 22f;
                 foreach (var line in MenuText.Wrap(reason ?? "", (PanelRight - 326) * canvas.Scale, 14 * canvas.Scale))
                 {
                     label(line, 326, ry, 14, Pale);

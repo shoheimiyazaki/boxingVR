@@ -40,6 +40,7 @@ internal static class MenuText
             while (fits < rest.Length && UiFont.Width(rest[..(fits + 1)], pixels) <= maxWidth) { fits++; }
             var cut = rest.LastIndexOfAny(['、', '。', '）', '・', ' '], fits - 1);
             cut = cut >= fits / 2 ? cut + 1 : fits;
+            while (cut < rest.Length && rest[cut] is '。' or '、' or '）') { cut++; } // 行の頭に句読点を置かない（少しはみ出しても前の行へ）
             yield return rest[..cut];
             rest = rest[cut..].TrimStart(' ');
         }
