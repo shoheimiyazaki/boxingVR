@@ -21,7 +21,8 @@
 | 前日計量の有無（`entry.weighIn`） | `games/MiniRing.Arena/Orgs/<org>.json`・`OrgEntry.WeighIn` |
 | 出られるかの判定・相手・席の動き | `CampaignLadder`（`Campaign/CampaignEvents.cs`） |
 | ボクサー・戦績・置き場（1 人 1 ファイル） | `CampaignBoxer`・`CampaignCareer`・`CampaignStore`（`Campaign/CampaignBoxer.cs`） |
-| 試合の結果を戦績へ（終わった試合だけ。途中で抜けたら書かない） | `MatchSession.Outcome` → `MenuGame` → `MatchMenu.Return` → `RecordBout` |
+| 試合の結果を戦績へ（終わった試合だけ。途中で抜けたら書かない） | `MatchSession.Outcome` → `MenuGame` → `MatchMenu.Finish`（決着）/ `MatchMenu.Return`（途中で抜けた）→ `RecordBout` |
+| 決着から次へ自動で進む（下の「決着から本拠地まで」） | `MatchFinish`・`FinishGate`（`MatchFinish.cs`）・`MenuPage.Result`（`MenuState.Result.cs`・`MenuView.Result.cs`） |
 | 減量・増量の口: 骨格はそのまま太さだけを変えて目標の体重へ | `BodySizing.WithWeight`・`CampaignBoxer.ChangeWeight` |
 | テスト | `CampaignTests`・`CampaignMenuTests`・`CampaignPlanTests`・メニューの既存テスト（フリーバトル経由に直した）・`MenuPagesVisualTests`（`menu_03b`・`menu_15`〜`menu_27`） |
 
@@ -39,6 +40,19 @@
 - **次の試合の選び方**（`CampaignPlan.AutoNext`）: 出られる大会のうち、一番先の段（タイトル → ランキング戦 → 新人戦）、同じ段なら表の順（IVF の自分の階級が先）。新しく大会が開けばそちらへ移る。道で選んだ大会は、出られる間だけ次の試合として残る（試合の後・体重を変えた後は自動へ戻す）。
 - **IVF の他の階級** は道に出さない（計量で入らない階級の大会は、減量・増量の画面の階級の表で見せる）。
 - **あと何で開くか** は `CampaignLadder.Gate`: `Check` と同じ順（出場の条件 → 階級 → 戦績の数 → 席）でどこで止まったかと、数（持っている勝ち・要る勝ち・席）を返すだけで、新しい判定の式は持たない（`CampaignPlanTests` が「Gate が開いている ⇔ Check が通る」を全大会で確かめる）。
+
+### 決着から本拠地まで（2026-11-26、「相手を KO してもそのままゲームが進行しません」）
+
+原因: 団体の決まりのある試合（キャンペーンは全部）は、決着すると `BoxingGame.MatchOver` が立って試合の画面のまま止まり、メニューへ戻る道が Esc だけだった（決まりの無い練習試合は 5.9 秒で次のラウンドへ作り直し、終わりが無かった）。
+
+| 段 | 中身 | 進め方 |
+|---|---|---|
+| 決着を読む（`MatchFinish.Settled`） | 新しい判定は作らない。決まりのある試合は `MatchOver`（K.O.・TKO・死・判定・引き分け）、決まりの無い練習試合は最初に決まったラウンド（`RoundOver`） | — |
+| 決着の瞬間（`FinishGate`） | 試合の画面のまま（`K.O. — OUT COLD`・`DRAW` などの試合の言葉と FINAL の時計）。1.5 秒の後に「Enter / A / クリック: 結果へ」の 1 行 | 1.5 秒は押しても進まない（決着の一撃の勢いで見逃さない）。Enter・A・左クリック・Esc で結果へ、5 秒で自動（練習試合の作り直し 5.874 秒より前） |
+| 結果の画面（`MenuPage.Result`） | 勝者・決まり手（`BoxingGame.FinishReason`、判定・引き分け）・ラウンドと時刻・対戦の 2 人 | キャンペーン:「本拠地へ」1 つ。フリーバトル:「もう一度」（同じ組・同じ決まり）「キャラ選択へ」「メニューへ」。キー・パッド・クリック。Esc / B は一番控えめな行き先 |
+| 本拠地と札 | 戦績は結果の画面を出す前に書く（結果の画面のまま閉じても残る）。札は本拠地に積んでおき、本拠地へ戻ると出る | 下の「試合の後の喜びの札」 |
+
+決着の前に Esc で抜けた試合は今までどおり記録せず、結果の画面も出さずに本拠地へ戻る。決着の読み取りは画面の流れだけで、試合の計算・記録には入らない（版は変わらない）。テストは `MatchFlowTests`（門の段・キャンペーンの K.O. / 判定負け / 引き分け / 途中で抜ける・フリーバトルのクリック）、`MatchFinishTests`（実際の試合を判定まで回して読む）、`MatchFlowVisualTests`（`.visualcheck/flow_*.png`）。
 
 ### 試合の後の喜びの札
 

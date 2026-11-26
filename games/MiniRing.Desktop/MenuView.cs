@@ -178,6 +178,7 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
             MenuPage.Orgs => "団体と大会",
             MenuPage.Path => $"{state.PathOrg.LogoText} の道",
             MenuPage.Weight => "減量・増量",
+            MenuPage.Result => "試合の結果",
             _ => "ゲームセレクト",
         };
         // 一番上の行: キャラ選択ではいまのゲームモード（大会・練習試合の決まり）。
@@ -203,6 +204,7 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
             case MenuPage.Orgs: DrawOrgs(Plate, Frame, Label); break;
             case MenuPage.Path: DrawPath(canvas, Plate, Frame, Label); break;
             case MenuPage.Weight: DrawWeight(canvas, Plate, Frame, Label); break;
+            case MenuPage.Result: DrawResult(Plate, Frame, Label); break;
             default: DrawReplays(Plate, Frame, Label); break;
         }
 
@@ -229,6 +231,9 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         MenuPage.Orgs => "↑ ↓: 選ぶ   Enter / A: 道を見る   Esc / B: 戻る",
         MenuPage.Path => "← →: 段   ↓: 戻る   Enter / A: 次の試合にする   Esc / B: 戻る",
         MenuPage.Weight => "↑ ↓: 選ぶ   ← →: 体重   Enter / A: 決定   Esc / B: 戻る",
+        MenuPage.Result => state.Result?.Campaign == true
+            ? "Enter / A / クリック: 本拠地へ"
+            : "← →: 選ぶ   Enter / A / クリック: 決定   Esc / B: メニューへ",
         MenuPage.Select => state.Mode == MatchMode.Versus
             ? "赤: WASD / 青: 矢印・2 つ目のパッド   Enter / A: 決定   Esc / B: 戻る"
             : "WASD / 矢印: 選ぶ   ホイール: 送る   Enter / A: 決定   Esc / B: 戻る",

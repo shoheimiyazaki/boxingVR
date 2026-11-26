@@ -27,6 +27,7 @@ internal sealed class MatchMenu : IDisposable
     private bool _confirm, _back, _confirm2, _back2;
     private readonly CampaignStore _campaign;
     private CampaignTicket? _pendingBout;
+    private MatchSelection? _lastMatch;
 
     /// <param name="replayDirectory">記録（.mrrep）の置き場。</param>
     /// <param name="settingsPath">設定（JSON）のファイル。壊れていれば既定へ戻して標準エラーへ出す。</param>
@@ -94,7 +95,11 @@ internal sealed class MatchMenu : IDisposable
                 break;
             case MenuAction.StartMatch:
                 _pendingBout = outcome.Match?.Campaign;
+                _lastMatch = outcome.Match;
                 return (outcome.Match, null);
+            case MenuAction.Rematch when _lastMatch is { Campaign: null } again:
+                // フリーバトルの「もう一度」: 同じ組み合わせ・同じ決まりで始め直す（キャンペーンは本拠地から次の試合を選ぶ）。
+                return (again, null);
             case MenuAction.Campaign when outcome.Request is { } request:
                 RunCampaign(request);
                 break;
@@ -119,6 +124,32 @@ internal sealed class MatchMenu : IDisposable
             _view.Notice = outcome is { } result ? RecordBout(ticket, result) : "試合が終わる前に抜けたので、戦績には書きません。";
             if (State.Cards.Count > 0) { _view.Notice = null; } // 札が同じことを言う（閉じた後に古い 1 行を残さない）
         }
+    }
+
+    /// <summary>今の試合がキャンペーンの試合か（結果の画面のボタンが変わる）。</summary>
+    public bool InCampaignBout => _pendingBout is not null;
+
+    /// <summary>
+    /// 決着した試合から戻る: キャンペーンなら先に戦績を書いて（札は本拠地に積む）、結果の画面（<see cref="MenuPage.Result"/>）を開く。
+    /// 結果の画面のボタンで本拠地（札が出る）・もう一度・キャラ選択・最初の画面へ進む。
+    /// </summary>
+    /// <param name="summary">結果の画面の中身。</param>
+    /// <param name="outcome">戦績に書く結果（キャンペーンの試合なら決着していれば null でない）。</param>
+    public void Finish(BoutSummary summary, BoutOutcome? outcome)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+        // A を押したまま結果へ来たかもしれない: 放すまでは次の 1 押しに数えない（結果の画面の先頭のボタンを勝手に押さない）。
+        (_confirm, _back) = (true, false);
+        _view.Notice = null;
+        if (_pendingBout is { } ticket)
+        {
+            _pendingBout = null;
+            // 戦績は結果の画面を見せる前に書く（結果の画面のままゲームを閉じても、決着した試合は残る）。
+            var notice = outcome is { } result ? RecordBout(ticket, result) : "決着の結果を読めなかったので、戦績には書きません。";
+            _view.Notice = State.Cards.Count > 0 ? null : notice;
+        }
+
+        State.ShowResult(summary);
     }
 
     /// <summary>キャンペーンの試合を戦績へ書いて保存し、知らせの 1 行を返す。</summary>

@@ -5,7 +5,7 @@ using MiniRing.Characters;
 namespace MiniRing.Desktop;
 
 /// <summary>メニューの画面（ページ）。</summary>
-internal enum MenuPage { Top, Settings, Mode, Select, Replays, Free, Campaign, Create, Boxer, Orgs, Path, Weight }
+internal enum MenuPage { Top, Settings, Mode, Select, Replays, Free, Campaign, Create, Boxer, Orgs, Path, Weight, Result }
 
 /// <summary>
 /// 最初の画面のボタン（表示の並び: 2 列 × 3 行、最後の行は「終了」だけ。2026-11-26）: ゲームモード（フリーバトル・キャンペーン）と、リプレイ・設定・終了。
@@ -14,7 +14,7 @@ internal enum MenuPage { Top, Settings, Mode, Select, Replays, Free, Campaign, C
 internal enum TopItem { FreeBattle, Campaign, Replays, Settings, Quit }
 
 /// <summary>メニューが外へ頼むこと。</summary>
-internal enum MenuAction { None, BrowseReplays, OpenReplay, StartMatch, Quit, Campaign }
+internal enum MenuAction { None, BrowseReplays, OpenReplay, StartMatch, Quit, Campaign, Rematch }
 
 /// <summary>鳴らす合図（カーソルが動いた・決定）。</summary>
 internal enum MenuCue { None, Move, Confirm }
@@ -61,6 +61,10 @@ internal static class MenuLayout
     public const float ListStep = 49f;
     public static readonly Vector2 ListRowSize = new(466f, 38f);
     public static Vector2 ListRowCenter(int row) => new(320f, ListFirstY + (row * ListStep));
+
+    /// <summary>結果の画面のボタン（横に並べる。マウスで押しやすい大きさ）。</summary>
+    public static readonly Vector2 ResultButtonSize = new(170f, 48f);
+    public static Vector2 ResultButtonCenter(int index, int count) => new(320f + ((index - ((count - 1) / 2f)) * 186f), 340f);
 
     public static int? HitCenters(Vector2 point, int count, Func<int, Vector2> center, Vector2 size)
     {
@@ -188,6 +192,7 @@ internal sealed partial class MenuState
         MenuPage.Orgs => ApplyOrgs(input),
         MenuPage.Path => ApplyPath(input),
         MenuPage.Weight => ApplyWeight(input),
+        MenuPage.Result => ApplyResult(input),
         _ => ApplyReplays(input),
     };
 
