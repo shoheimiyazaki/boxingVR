@@ -192,7 +192,7 @@ else
     menuGameRef = menuGame;
     GameHost.Run(profiler, options with
     {
-        HelpText = "Menu: WASD, arrows, D-pad or mouse; Enter/A/left click to select; Escape/B to go back. In a match, Escape/B returns to Game Select.",
+        HelpText = "Menu: WASD, arrows, D-pad or mouse; Enter/A/left click to select; Escape/B to go back. In a match, Escape returns to Game Select; when the bout is decided, Enter/A/click (or a few seconds) shows the result.",
         DynamicViews = size => menuGame.Presentation?.Views(hostCamera, size),
     }, menuGame, (input, _, size) => menuGame.Read(input, size));
 }
@@ -278,7 +278,9 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode, MatchRules? rules 
             followCamera.Update(input, scene.Player);
             return intentKeyboard.Read(input, scene.Player, dt, scene.Round, camera.YawRadians);
         }, new SessionResources(game, recorded == game ? null : recorded, sound), presentation,
-            Outcome: () => MiniRing.Arena.Campaign.BoutOutcome.Of(game.MatchOver, game.PlayerWins, game.CpuWins, game.Decision));
+            Outcome: () => MiniRing.Arena.Campaign.BoutOutcome.Of(game.MatchOver, game.PlayerWins, game.CpuWins, game.Decision),
+            Settled: () => MatchFinish.Settled(game),
+            Summarize: campaign => MatchFinish.Summary(game, campaign));
     }
     catch
     {

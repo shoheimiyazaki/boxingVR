@@ -1439,6 +1439,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <summary>判定の結果（"YOU WIN BY DECISION" など）。K.O. なら null。</summary>
     public string? Decision { get; private set; }
 
+    /// <summary>最後に倒して決まったときの決まり手（"K.O. — OUT COLD"・"TKO — 3 KNOCKDOWNS" など。<see cref="EndRound"/> の言葉。判定・引き分け・まだなら null）。画面の結果に出すだけで、試合の計算には入らない。</summary>
+    public string? FinishReason { get; private set; }
+
     /// <summary>休んでいる（ラウンドの間・試合の後）: 入力元を読まず、コーナーへ戻って休む（K.O. の後も打ち続けない）。</summary>
     public bool Resting => InBreak || MatchOver || InIntro;
 
@@ -1759,6 +1762,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
 
         _roundOverTimer = RoundResetDelay;
+        FinishReason = reason;
         RecentBell = RoundBell.End;
         ShowMessage($"{reason}  {(cpuWon ? $"{BlueLabel} WINS" : $"{RedLabel} WIN")}", RoundResetDelay);
     }
@@ -2030,6 +2034,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         InBreak = false;
         MatchOver = false;
         Decision = null;
+        FinishReason = null;
     }
 
     /// <summary>
