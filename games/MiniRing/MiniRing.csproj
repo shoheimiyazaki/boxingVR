@@ -38,8 +38,8 @@
     <!-- 部屋の素材（CC0。Assets/CREDITS.md）: 家具の OBJ/MTL（Kenney）と色のテクスチャ（ambientCG）。 -->
     <EmbeddedResource Include="Assets\Furniture\*.obj;Assets\Furniture\*.mtl" LogicalName="MiniRing.Assets.Furniture.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Assets\Textures\*.png" LogicalName="MiniRing.Assets.Textures.%(Filename)%(Extension)" />
-    <!-- UI の文字の美咲フォント（門真なむ氏、フリー・再配布可。Assets/Fonts/misaki_LICENSE.txt・docs/REUSE.md）。描画だけ（試合に響かない）。 -->
-    <EmbeddedResource Include="Assets\Fonts\misaki_gothic.ttf" LogicalName="MiniRing.Assets.Fonts.misaki_gothic.ttf" />
+    <!-- UI の文字の DotGothic16（Fontworks、SIL OFL 1.1。Assets/Fonts/DotGothic16_OFL.txt・docs/REUSE.md）。描画だけ（試合に響かない）。 -->
+    <EmbeddedResource Include="Assets\Fonts\DotGothic16-Regular.ttf" LogicalName="MiniRing.Assets.Fonts.DotGothic16-Regular.ttf" />
     <!-- ボクセル編集ソフト（Vengi など）で直したボクサーの中身。無ければ生成のまま（docs/VOXEL_EDITING.md）。 -->
     <EmbeddedResource Include="Voxels\boxer.vox" LogicalName="MiniRing.Voxels.boxer.vox" Condition="Exists('Voxels\boxer.vox')" />
     <!-- 同じく、直した武器・はめる物の中身（無ければ生成のまま）。組み込むと武器の質量・接触が変わるので PhysicsVersion を上げる。 -->

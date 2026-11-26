@@ -9,8 +9,8 @@ using System.Runtime.InteropServices;
 namespace Aigis.Render;
 
 /// <summary>
-/// A dot (bitmap) font read from a TrueType file whose outlines are whole pixels at one size — e.g. 美咲フォント
-/// (8×8 dots). Each glyph is rasterized ONCE at its native cell size with antialiasing off, so every stroke is an exact
+/// A dot (bitmap) font read from a TrueType file whose outlines are whole pixels at one size — e.g. DotGothic16
+/// (16 dots per em). Each glyph is rasterized ONCE at its native cell size with antialiasing off, so every stroke is an exact
 /// on/off dot, and <see cref="ScreenText"/> draws it scaled by a whole number (nearest-neighbour: each dot becomes an
 /// n×n square — never blurred, never resampled at a fractional size).
 /// <para><b>Coverage</b> comes from the font's own <c>cmap</c> table (read here, no extra dependency), not from guessing
@@ -72,7 +72,7 @@ public sealed class PixelFont : IDisposable
         }
     }
 
-    /// <summary>Reads a TrueType font whose design grid is <paramref name="cellPixels"/> dots per em (美咲: 8).</summary>
+    /// <summary>Reads a TrueType font whose design grid is <paramref name="cellPixels"/> dots per em (DotGothic16: 16).</summary>
     /// <exception cref="InvalidDataException">The bytes are not a TrueType font this reader understands (no usable cmap).</exception>
     public static PixelFont FromTrueType(byte[] data, int cellPixels)
     {
@@ -166,7 +166,8 @@ public sealed class PixelFont : IDisposable
         {
             graphics.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
             graphics.Clear(Color.Transparent);
-            var top = Pad + (fromCollection ? 0f : MathF.Round(ascentDots - fontAscent));
+            // Row 0 = the design ascender, with the baseline on a whole pixel (so the dot grid lands on pixel centres).
+            var top = Pad + ascentDots - (fromCollection ? fontAscent : MathF.Round(fontAscent));
             graphics.DrawString(c.ToString(), font, Brushes.White, new PointF(Pad, top), StringFormat.GenericTypographic);
         }
 
@@ -238,7 +239,9 @@ internal readonly record struct TrueTypeTables(int UnitsPerEm, int Ascent, HashS
         int Table(string tag) => tables.TryGetValue(tag, out var at) ? at : throw new InvalidDataException($"The font has no '{tag}' table.");
         var unitsPerEm = U16(Table("head") + 18);
         var hhea = Table("hhea");
-        var ascent = S16(hhea + 4);
+        // The design ascender (top of the em box above the baseline): OS/2 sTypoAscender when present, else hhea's.
+        // hhea/win ascent can be taller than the em (DotGothic16: 1160 vs em 1000) — the cell must start at the em's top.
+        var ascent = tables.TryGetValue("OS/2", out var os2) ? S16(os2 + 68) : S16(hhea + 4);
         var metrics = U16(hhea + 34);
         var hmtx = Table("hmtx");
         var glyphOf = ReadCmap(data, Table("cmap"));

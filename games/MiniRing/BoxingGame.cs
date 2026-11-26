@@ -2285,7 +2285,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             var who = hit.Attacker == Player ? RedLabel : BlueLabel;
             var text = $"{who} {(hit.Hand == Hand.Left ? "L" : "R")} > {HitZones.Label(hit.Zone)}  {hit.Damage:0}  " +
                 $"{hit.ImpactMass:0.0}kg x {hit.Speed:0.0}m/s  BODY {Percent(hit.BodyShare)}";
-            list.Add(HudText(text, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y - 44f), 24f, white, TextAnchor.Center));
+            list.Add(HudText(text, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y - 56f), 32f, white, TextAnchor.Center));
         }
 
         list.AddRange(DownCountHud.Text(this, viewProjection, screenSizePixels, f => f == Player ? RedLabel : BlueLabel,
@@ -2299,13 +2299,13 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
 
         if (Message.Length > 0)
         {
-            list.Add(HudText(Message, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y * 0.3f), 56f, white, TextAnchor.Center));
+            list.Add(HudText(Message, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y * 0.3f), 64f, white, TextAnchor.Center));
         }
 
         return list;
     }
 
-    /// <summary>試合の HUD の字形: デスクトップの HUD は美咲フォント（<see cref="UiFont"/>、8 px の整数倍）、テレビ中継（<see cref="Rules"/> あり）は OS のフォントのまま。</summary>
+    /// <summary>試合の HUD の字形: デスクトップの HUD は DotGothic16（<see cref="UiFont"/>、16 px の整数倍）、テレビ中継（<see cref="Rules"/> あり）は OS のフォントのまま。</summary>
     private TextFont HudFont => Rules is null ? TextFont.Pixel : TextFont.System;
 
     private ScreenTextDraw HudText(string text, Vector2 at, float pixelHeight, Vector4 color, TextAnchor anchor) =>
@@ -2323,8 +2323,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         ];
         for (var i = 0; i < lines.Length; i++)
         {
-            var y = i == 0 ? 0f : 12f + (i * 22f);
-            list.Add(UiFont.Text(lines[i], at + new Vector2(0f, y), i == 0 ? 24f : 16f, color, anchor));
+            var y = i == 0 ? 0f : 18f + (i * 20f); // 名前 32 px、下の 2 行 16 px（UiFont の 2 倍・1 倍）。メーター（y = 102）の上に収まる
+            list.Add(UiFont.Text(lines[i], at + new Vector2(0f, y), i == 0 ? 32f : 16f, color, anchor));
         }
     }
 

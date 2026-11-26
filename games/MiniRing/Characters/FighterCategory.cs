@@ -58,7 +58,7 @@ public static class FighterCategories
     public static string Label(this FighterCategory category) => category switch
     {
         FighterCategory.Boxer => "ボクサー",
-        FighterCategory.Kicker => "蹴りも使う打撃（空手・キック）",
+        FighterCategory.Kicker => "蹴り（空手・キック）",
         FighterCategory.Grappler => "組み技",
         FighterCategory.Armed => "武器を持つ",
         FighterCategory.Creature => "人間でない体",
