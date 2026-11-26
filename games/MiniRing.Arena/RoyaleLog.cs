@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -31,6 +32,12 @@ internal sealed class RoyaleLog(BoxingGame game, IReadOnlyList<FighterCharacter>
     private readonly Dictionary<(Fighter, Fighter), (int Index, float Last, int Count, string Text)> _volleys = [];
     private readonly RoyaleDirector _director = new(new DirectorTuning());
     private readonly bool[] _down = new bool[game.AllFighters.Count];
+    private readonly int[] _target = [.. Enumerable.Repeat(-2, game.AllFighters.Count)];
+    private readonly int[,] _windowHits = new int[game.AllFighters.Count, game.AllFighters.Count]; // [打った, 打たれた]: 前の状況の要約からの当たりの数
+    private readonly int[] _landed = new int[game.AllFighters.Count];
+    private readonly int[] _taken = new int[game.AllFighters.Count];
+    private readonly int[] _startCells = [.. game.AllFighters.Select(Cells)];
+    private float _nextSituation = SituationEvery;
     private int _eliminationsSeen;
     private bool _ended;
 
@@ -47,6 +54,7 @@ internal sealed class RoyaleLog(BoxingGame game, IReadOnlyList<FighterCharacter>
                 break;
         }
 
+        Tally(game.RecentHits.Select(h => (h.Attacker, h.Victim)).Concat(game.WeaponHits.Select(h => (h.Attacker, h.Victim))));
         foreach (var h in game.RecentHits.Where(h => h.Damage >= HitFloor && h.Attacker != h.Victim))
         {
             var tool = h.Kick ? "蹴り" : h.Elbow ? "肘" : "拳";
@@ -88,6 +96,16 @@ internal sealed class RoyaleLog(BoxingGame game, IReadOnlyList<FighterCharacter>
         }
 
         _eliminationsSeen = game.Eliminations.Count;
+        Targets(t);
+        if (t >= _nextSituation && !game.MatchOver)
+        {
+            _nextSituation = t + SituationEvery;
+            if (!game.InIntro)
+            {
+                Add(t, "situation", Situation());
+            }
+        }
+
         var (view, hits) = RoyaleVideo.DirectorInput(game);
         _director.Update(t, 1f / 60f, view, hits, wholeCage: game.InIntro || game.InBreak);
         if (_director.Cut)
@@ -103,6 +121,115 @@ internal sealed class RoyaleLog(BoxingGame game, IReadOnlyList<FighterCharacter>
             Add(t, "result", game.Winner is { } w ? $"決着: {Name(w)}の勝利（最後の 1 人）" : $"5 ラウンドを終えて決着つかず、引き分け。生還: {string.Join("・", alive)}");
         }
     }
+
+    /// <summary>状況の要約を出す間隔 [s]（書き手が「今、檻の中で誰が誰と」を俯瞰できる頻度。出来事の行の間に挟まる）。</summary>
+    private const float SituationEvery = 4f;
+
+    /// <summary>この距離 [m] より近い 2 人は「組み合っている」（踏み込みの届く距離 2 m ＋ 武器の長さの目安）。</summary>
+    private const float EngagedRange = 2.5f;
+
+    private void Tally(IEnumerable<(Fighter Attacker, Fighter Victim)> hits)
+    {
+        foreach (var (attacker, victim) in hits)
+        {
+            var a = game.SeatOf(attacker);
+            var v = game.SeatOf(victim);
+            if (a >= 0 && v >= 0 && a != v)
+            {
+                _windowHits[a, v]++;
+                _landed[a]++;
+                _taken[v]++;
+            }
+        }
+    }
+
+    /// <summary>狙いを替えた（新しく狙った・別の相手へ替えた）ときだけ 1 行（休みの間は数えない）。</summary>
+    private void Targets(float t)
+    {
+        var all = game.AllFighters;
+        for (var i = 0; i < all.Count; i++)
+        {
+            var target = game.InPlay(all[i]) ? game.TargetSeatOf(all[i]) : -1;
+            if (target != _target[i] && _target[i] != -2 && target >= 0 && !game.Resting)
+            {
+                var from = _target[i] >= 0 && game.InPlay(all[_target[i]]) ? $"{game.LabelOf(all[_target[i]])}から" : "";
+                Add(t, "target", $"{game.LabelOf(all[i])}が狙いを{from}{game.LabelOf(all[target])}へ替えた");
+            }
+
+            _target[i] = target;
+        }
+    }
+
+    /// <summary>
+    /// 今の檻の俯瞰（書き手の資料。画面に出ない）: 生き残りの数・組み合っている組と距離・誰が誰を狙っているか（複数に狙われている人）・
+    /// 離れている人・檻の中の位置（中央寄り／金網際）・前の要約からの当たりの数・体の残り・立っているか・息。
+    /// </summary>
+    private string Situation()
+    {
+        var all = game.AllFighters;
+        var alive = Enumerable.Range(0, all.Count).Where(i => game.InPlay(all[i])).ToList();
+        string N(int i) => game.LabelOf(all[i]);
+        float Gap(int a, int b) => Vector2.Distance(Flat(all[a].ChestPosition), Flat(all[b].ChestPosition));
+        var sb = new StringBuilder($"状況（残り {alive.Count} 人）: ");
+
+        var pairs = alive.SelectMany(a => alive.Where(b => b > a).Select(b => (A: a, B: b))).Where(p => Gap(p.A, p.B) < EngagedRange).OrderBy(p => Gap(p.A, p.B)).ToList();
+        sb.Append(pairs.Count == 0 ? "組み合っている組は無い" : "組み合い " + string.Join("、", pairs.Select(p =>
+        {
+            var aims = (_target[p.A] == p.B, _target[p.B] == p.A) switch
+            {
+                (true, true) => "狙い合い",
+                (true, false) => $"{N(p.A)}が一方的に狙う",
+                (false, true) => $"{N(p.B)}が一方的に狙う",
+                _ => "互いに別の相手を狙う",
+            };
+            var ab = _windowHits[p.A, p.B];
+            var ba = _windowHits[p.B, p.A];
+            var exchange = ab + ba > 0 ? $"、当たり {N(p.A)} {ab}・{N(p.B)} {ba}" : "";
+            return string.Create(CultureInfo.InvariantCulture, $"{N(p.A)}×{N(p.B)}（{Gap(p.A, p.B):0.0} m、{aims}{exchange}）");
+        })));
+
+        var lonely = alive.Where(i => alive.All(j => j == i || Gap(i, j) >= EngagedRange)).ToList();
+        if (lonely.Count > 0)
+        {
+            sb.Append("。離れている: ").Append(string.Join("、", lonely.Select(i =>
+            {
+                var near = alive.Where(j => j != i).OrderBy(j => Gap(i, j)).DefaultIfEmpty(-1).First();
+                return near >= 0 ? string.Create(CultureInfo.InvariantCulture, $"{N(i)}（一番近い {N(near)} まで {Gap(i, near):0.0} m）") : N(i);
+            })));
+        }
+
+        foreach (var i in alive)
+        {
+            var by = alive.Where(j => j != i && _target[j] == i).ToList();
+            if (by.Count >= 2)
+            {
+                sb.Append(CultureInfo.InvariantCulture, $"。{N(i)}が {by.Count} 人（{string.Join("・", by.Select(N))}）に狙われている");
+            }
+        }
+
+        sb.Append("。各選手: ").Append(string.Join("／", alive.Select(i =>
+        {
+            var f = all[i];
+            var aim = _target[i] >= 0 ? $"→{N(_target[i])}" : "→狙いなし";
+            var place = Flat(f.ChestPosition - game.Layout.Center).Length() > game.Layout.Circumradius * 0.6f ? "金網際" : "中央寄り";
+            var stance = f.State == FighterState.Standing ? "立っている" : "倒れている";
+            var body = Tenths(Cells(f) / (float)Math.Max(1, _startCells[i]));
+            var breath = f.Stamina < 0.3f ? "、息が上がっている" : "";
+            var dealt = Enumerable.Range(0, all.Count).Sum(v => _windowHits[i, v]);
+            var got = Enumerable.Range(0, all.Count).Sum(a => _windowHits[a, i]);
+            return $"{N(i)} {aim}・{place}・{stance}・体の残り{body}{breath}・この間に当てた {dealt}／受けた {got}";
+        })));
+
+        Array.Clear(_windowHits);
+        return sb.ToString();
+    }
+
+    private static Vector2 Flat(Vector3 v) => new(v.X, v.Z);
+
+    private static int Cells(Fighter fighter) => fighter.Voxels?.Parts.Sum(p => p.Body.Grid.FilledCount) ?? 1;
+
+    /// <summary>割合を話し言葉の「N割」で（中継では % を言わない）。</summary>
+    private static string Tenths(float fraction) => fraction >= 0.95f ? "ほぼすべて" : $"{Math.Clamp((int)MathF.Round(fraction * 10f), 0, 9)}割";
 
     /// <summary>記録（JSON）と、書き手が読む資料（Markdown: 選手の紹介と時刻の表）を書く。</summary>
     public void Write(string jsonPath)
@@ -131,7 +258,23 @@ internal sealed class RoyaleLog(BoxingGame game, IReadOnlyList<FighterCharacter>
         }
 
         md.AppendLine();
+        md.AppendLine("## 試合の通しの数（先出しに使わないこと。起きた時点の出来事で語る）");
+        md.AppendLine();
+        md.AppendLine("| 選手 | 当てた | 受けた | 倒した相手 | 結末 |");
+        md.AppendLine("|---|---|---|---|---|");
+        var fighters = game.AllFighters;
+        for (var i = 0; i < fighters.Count; i++)
+        {
+            var kills = game.Eliminations.Where(e => e.By == fighters[i]).Select(e => game.LabelOf(e.Fighter));
+            var death = game.Eliminations.FirstOrDefault(e => e.Fighter == fighters[i]);
+            var end = death is null ? "生還" : string.Create(CultureInfo.InvariantCulture, $"第{death.Round}ラウンドに死亡（{RoyaleVideo.Cause(death.Cause)}）");
+            md.AppendLine(CultureInfo.InvariantCulture, $"| {game.LabelOf(fighters[i])} | {_landed[i]} | {_taken[i]} | {string.Join("・", kills)} | {end} |");
+        }
+
+        md.AppendLine();
         md.AppendLine("## 出来事（動画の時刻 [s]）");
+        md.AppendLine();
+        md.AppendLine("[situation] は 4 秒ごとの檻の俯瞰（画面には出ない）: 組み合っている組と距離・誰が誰を狙っているか・離れている人・複数に狙われている人・各選手の位置・体の残り・その 4 秒の当たりの数。[target] は狙いを替えた瞬間。");
         md.AppendLine();
         foreach (var e in _events)
         {

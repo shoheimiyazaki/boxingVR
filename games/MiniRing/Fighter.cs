@@ -1846,6 +1846,7 @@ public sealed partial class Fighter
         // 脳しんとうは時間とともに一定の速さで抜ける: 深く飛んだ意識ほど戻るのに長くかかる（指数で抜くと、深いほど速く戻っていた）。
         Concussion = MathF.Max(0f, Concussion - (dt * _tuning.ConcussionRecoveryRate));
         _stateTime += dt;
+        DeadTime = IsDead ? DeadTime + dt : 0f; // 見た目だけ（死後の皮膚の色: Lividity）
         FaintTime = Consciousness < _tuning.KnockoutConsciousness ? FaintTime + dt : 0f;
         UpdateDownCall(dt);
         // 意識が無い（死んだ・完全に気を失った）うえで体が止まっている間だけ数える（ユーザーの指示どおり両方）。意識があれば、脚を失って
@@ -1991,7 +1992,9 @@ public sealed partial class Fighter
     /// チアノーゼの度合い（0..1、見た目だけ）: 血の酸素（<see cref="BloodOxygen"/>）が減るほど唇・顔が青紫になる。肺が取り込みきれない
     /// （肺が傷んだ・打たれて息が詰まった・全身で使いすぎた）ときに出る。死んでいれば 1。試合の計算には使わない。
     /// </summary>
-    public float Cyanosis => IsDead ? 1f : Smooth(Math.Clamp((1f - BloodOxygen) / CyanosisFullDrop, 0f, 1f));
+    public float Cyanosis => IsDead ? MathF.Max(Lividity, LiveCyanosis) : LiveCyanosis;
+
+    private float LiveCyanosis => Smooth(Math.Clamp((1f - BloodOxygen) / CyanosisFullDrop, 0f, 1f));
 
     /// <summary>血の酸素がこの割合だけ減ると、チアノーゼがいちばん強い。</summary>
     private const float CyanosisFullDrop = 0.7f;

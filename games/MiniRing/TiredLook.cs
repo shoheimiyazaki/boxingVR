@@ -9,7 +9,7 @@ namespace MiniRing;
 /// <list type="bullet">
 /// <item>吐く息（肺）: 口から白い息がふっと出て、前へ流れながら広がって消える。肺の仕事が大きいほど（<see cref="Fighter.Winded"/>）速く（肩で息をする拍子）、大きく濃い。</item>
 /// <item>顔の青紫（肺）: 血の酸素が減るほど（<see cref="Fighter.Cyanosis"/>）。顔の青白さ（心臓）: 心臓が送りきれないほど（<see cref="Fighter.Pallor"/>）。
-/// どちらも <see cref="Voxels.VoxelPart.Draw(float, Voxels.EyePose?, float)"/>。</item>
+/// どちらも <see cref="Voxels.VoxelPart.Draw(float, Voxels.EyePose?, float, float)"/>。</item>
 /// <item>腕の遅れ（血管）: 描き足さない。蓄えの尽きた腕は届く酸素の分しか力が出ず、物理で遅れる。</item>
 /// <item>スタミナのメーター: いちばん減った部位の残りが少ないと、息の拍子で白く点滅する（<see cref="MeterFlash"/>）。</item>
 /// </list>

@@ -188,7 +188,7 @@ public static class BoxingRenderer
                     continue; // 一人称: 自分の頭は目の描画に入れない（カメラが頭の中にある）
                 }
 
-                var draw = part.Draw(fighter.Cyanosis, eyes, fighter.Pallor); // 血の酸素が減ると青紫に、心臓が送りきれないと青白く（見た目だけ）。顔の層も同じ
+                var draw = part.Draw(fighter.Cyanosis, eyes, fighter.Pallor, fighter.Lividity); // 血の酸素が減ると青紫に、心臓が送りきれないと青白く（見た目だけ）。顔の層も同じ
                 voxels.Add(ReferenceEquals(fighter, game.Player) ? draw with { Opacity = game.PlayerBodyOpacity } : draw); // 一人称: 自分の体は半透明
             }
 

@@ -439,7 +439,21 @@ public sealed partial class Fighter
     /// 顔の青白さ（0..1、見た目だけ）: 心臓が部位の欲しがる酸素を送りきれない割合（ならした値）。心臓の働きが落ちる・全身で酸素を欲しがるほど強い。
     /// 試合の計算には使わない。
     /// </summary>
-    public float Pallor => IsDead ? 1f : Smooth(Math.Clamp(_heartShortfall / PallorFull, 0f, 1f));
+    public float Pallor => IsDead ? MathF.Max(Lividity, LivePallor) : LivePallor;
+
+    private float LivePallor => Smooth(Math.Clamp(_heartShortfall / PallorFull, 0f, 1f));
+
+    /// <summary>死んでからの時間 [s]（見た目だけ。試合の計算・チェックサムに入れない）。</summary>
+    public float DeadTime { get; private set; }
+
+    /// <summary>
+    /// 死後の皮膚の変色（0..1、見た目だけ）: 心臓が止まり血の酸素が尽きて、全身の皮膚が数秒かけて青黒くなる（<see cref="LividitySeconds"/> で満ちる）。
+    /// 現実の死斑・チアノーゼは数分〜数時間かかるが、中継で「死んだ」と伝わるよう縮めた合図の速さ（§1.7 の見える手がかり）。
+    /// </summary>
+    public float Lividity => IsDead ? Smooth(Math.Clamp(DeadTime / LividitySeconds, 0f, 1f)) : 0f;
+
+    /// <summary>死後の変色が満ちるまで [s]（ユーザーの指定「数秒かけてだんだん」）。</summary>
+    private const float LividitySeconds = 5f;
 
     /// <summary>心臓がこの割合だけ送りきれないとき、顔の青白さがいちばん強い。</summary>
     private const float PallorFull = 0.5f;
