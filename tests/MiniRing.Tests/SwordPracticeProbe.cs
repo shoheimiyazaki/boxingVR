@@ -225,8 +225,8 @@ public sealed class SwordPracticeProbe
     {
         var cases = new (string Id, string Form, string Tune, bool? Aim)[]
         {
-            // 7 周目: エドガーの切り下ろしに頭の高さを追う（Follow）を足した差分と、今の教育（6 周目）。
-            ("edgar", "kiri-oroshi", """{"Tempo":2.1822982,"Twist":1.0218937,"Lift":0.03213026,"Lean":-0.010457604,"Reach":0.033105146}""", null),
+            // 物理 105: master の教育（固いつま先の体に合わせて練習し直した切り下ろし）と、物理 103 より前に採った頭の高さを追う差分（7 周目）。
+            ("edgar", "kiri-oroshi", """{"Tempo":2.4790552,"Twist":0.9848383,"Lift":0.013247714,"Lean":0.020487998,"Reach":0.0292892}""", null),
             ("edgar", "kiri-oroshi", """{"Tempo":2.5,"Twist":0.95960414,"Lift":-0.14537771,"Lean":-0.034919977,"Reach":-0.014127758,"Follow":0.5777249}""", null),
         };
         var bodies = Standard.Concat(CharacterRoster.All.Where(c => !c.Build.FourLegged).Select(c => c.Id)).ToList();
