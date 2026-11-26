@@ -16,7 +16,7 @@ public sealed class VrFirstPersonPhysicsTests
 
     private static readonly Vector3 Head = new(0f, 1.62f, 0f);
 
-    private static BoxingGame NewGame() => new(FighterTuning.Default with { PlayerFatigue = false },
+    private static BoxingGame NewGame(FighterTuning? tuning = null) => new((tuning ?? FighterTuning.Default) with { PlayerFatigue = false },
         corners: SwordTraining.Corners(WeaponKind.Katana, 2.535f)) { HidePlayerHead = true };
 
     // 手は頭と一緒に動く（人が部屋の中を歩けば手も付いてくる。一人称では手の目標 = コントローラの部屋の中の点なので、
@@ -48,16 +48,30 @@ public sealed class VrFirstPersonPhysicsTests
     public void AStillHmdKeepsTheBodyStandingWithoutAnyInput()
     {
         using var game = NewGame();
+        var (drift, headDrift, later) = StillHmdDrift(game);
+        var foot = 2f * game.Player.HalfExtents.Foot.Z / (1f - FootGeometry.ToeShare);
+        Console.WriteLine($"still HMD 13.4 s: pelvis drift {drift * 100f:0.0} cm (later half {later * 100f:0.0} cm), head drift {headDrift * 100f:0.0} cm (arm reach {game.Player.ArmReach * 100f:0.0} cm, foot {foot * 100f:0.0} cm)");
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした）: 前は 13.4 秒の流れ全体を 8.45 cm 未満で見ていた（前のつま先で 5.8 cm）。固いつま先では
+        // 構えに落ち着く始めの半分で足を 1 度置き直して 7.4 cm 動き、後の半分は 1.3 cm（前のつま先は 2.5 cm）で、滑り続けはしない（ToeRegressionProbe.StillHmd、
+        // つま先 20・30 Hz でも全体 8〜9 cm）。滑り続けないことは後の半分で、置き直しの大きさは足の長さの半分までで見る。
+        Assert.IsTrue(later < 0.0423f, $"止まった HMD で体が滑り続ける: 後の半分で {later * 100f:0.0} cm");
+        Assert.IsTrue(drift < 0.5f * foot, $"止まった HMD で体が足の長さの半分より大きく動く: {drift * 100f:0.0} cm");
+        Assert.IsTrue(headDrift < 0.5f * foot, $"頭が漂う: {headDrift * 100f:0.0} cm");
+    }
+
+    /// <summary>止まった HMD（一人称・刀を両手）で 13.4 秒立たせた間の、骨盤と頭の水平の流れ [m]。</summary>
+    internal static (float Pelvis, float Head, float PelvisLaterHalf) StillHmdDrift(FighterTuning? tuning) { using var game = NewGame(tuning); return StillHmdDrift(game); }
+
+    private static (float Pelvis, float Head, float PelvisLaterHalf) StillHmdDrift(BoxingGame game)
+    {
         var mapper = Mapper(firstPerson: true);
         Run(game, mapper, Raw(Head, 1f, 1f), 1.678f); // 構えに落ち着く
         var start = game.Player.HeadPosition;
         var pelvis = game.Player.PelvisPosition;
-        Run(game, mapper, Raw(Head, 1f, 1f), 13.43f);
-        var drift = Flat(game.Player.PelvisPosition, pelvis);
-        var headDrift = Flat(game.Player.HeadPosition, start);
-        Console.WriteLine($"still HMD 13.4 s: pelvis drift {drift * 100f:0.0} cm, head drift {headDrift * 100f:0.0} cm (arm reach {game.Player.ArmReach * 100f:0.0} cm)");
-        Assert.IsTrue(drift < 0.0845f, $"止まった HMD で体が滑る: {drift * 100f:0.0} cm");
-        Assert.IsTrue(headDrift < 0.0845f, $"頭が漂う: {headDrift * 100f:0.0} cm");
+        Run(game, mapper, Raw(Head, 1f, 1f), 6.715f);
+        var middle = game.Player.PelvisPosition;
+        Run(game, mapper, Raw(Head, 1f, 1f), 6.715f);
+        return (Flat(game.Player.PelvisPosition, pelvis), Flat(game.Player.HeadPosition, start), Flat(game.Player.PelvisPosition, middle));
     }
 
     [TestMethod]
