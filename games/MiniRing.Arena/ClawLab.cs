@@ -91,7 +91,7 @@ internal static class ClawLab
     /// </summary>
     private static double TrialScore(Trial t) => !t.Standing ? 0d : (t.Removed / 60d) - FormCost.Of(0d, 100d * t.PlaneError, 0d, t.StaminaUsed);
 
-    internal static Trial Run(string opponent, int seed, float gap, int aim, Hand hand, float drive, float windup, bool moving = false, bool sweep = true, Action<BoxingGame, float>? afterStep = null)
+    internal static Trial Run(string opponent, int seed, float gap, int aim, Hand hand, float drive, float windup, bool moving = false, bool sweep = true, Action<BoxingGame, float>? afterStep = null, FighterTuning? tuning = null)
     {
         var creature = CharacterRoster.Get("galva");
         var target = CharacterRoster.Get(opponent);
@@ -101,7 +101,7 @@ internal static class ClawLab
             CpuBody = target.Build, CpuWear = HandWear.Glove, CpuLook = target.Look, CpuFaceSpec = target.Face,
             ExternalBlue = true, Referee = false, Ring = RingLayout.Boxing with { StartGap = gap, FromCorners = false },
         };
-        using var game = new BoxingGame(seed: seed, corners: corners);
+        using var game = new BoxingGame(tuning, seed: seed, corners: corners);
         var f = game.Player;
         var other = game.Cpu;
         var left = ClawStroke.Guard(Hand.Left, f.ArmReach).ToCommand(Hand.Left);

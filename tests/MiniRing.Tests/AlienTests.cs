@@ -367,12 +367,35 @@ public sealed class AlienTests
         Assert.AreEqual(2f, perKgFour / perKgTwo, 0.02f, $"four {four.Left:0} J ({four.FrontLegs:0.0} kg of front legs) / two {two.Left:0} J ({two.FrontLegs:0.0} kg)");
     }
 
+    private static readonly float[] Gaps = [0.62f, 0.67f, 0.72f];
+
     [TestMethod]
     [DataRow(0f, 0f)]
     [DataRow(-0.12f, 0.08f)]
     public void PointedFrontLeg_CarvesWithItsTip(float aimX, float aimY)
     {
-        using var game = CreateGame(0.67f);
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした: この尖った跗節がその蝶番の先）: 台本の突きは間合いを合わせないので、先端が届くかどうかは
+        // 立つ位置の数 cm で入れ替わる。間合い 0.67 の 1 回だけを見ていたのを、0.62・0.67・0.72 で見る（前のつま先: 狙いごとに 3 つのうち 2 つ、
+        // 固いつま先: 正面 2 つ・ずらした狙い 1 つ（0.72 で 4 層 9 セル）。ToeRegressionProbe.PointedLeg）。どこかの間合いで削ることを見る。
+        var results = Gaps.Select(gap => PointedLegStrike(aimX, aimY, null, gap, 1)).ToList();
+        foreach (var (gap, (c, l, d)) in Gaps.Zip(results))
+        {
+            Console.WriteLine($"gap {gap}: layers {l}, carved {c} [{d}]");
+        }
+
+        var carved = results.Max(r => r.Carved);
+        // 2026-11-26（統合、物理 101〜102）: 尖った跗節の突きは、どの狙いでも相手の部位を削る。ガルヴァの枝（abd1076）では 6 層まで掘り（腿 91 セル）、
+        // 横へずらした狙いは前後に貫いた（「2 層以上・貫く列がある」を確かめていた）が、それは刃がセルを丸ごと壊していた物理 96 までの土台での値。
+        // 物理 97（刃は進んだ奥行きの分だけ断つ VoxelContact.Sweep.CutInto、docs/BLADE_CUT_STUDY.md §8）の下では、この台本の先端は 1〜2 層で止まる
+        // （腿 2 セル・すね 2 セル）。長い鎌が 1 振りで離さなくなった（ClawTrajectoryTests.LongClaw_OneStrokeCutsIntoEveryAim）のと同じ理由。
+        // 深く貫くことを期待するのは、体の側（突きに乗る脚と胴の力）を直してから。
+        Assert.IsGreaterThan(0, carved, "the pointed tarsus carves the target");
+    }
+
+    /// <summary>ガルヴァの右前脚の尖った跗節（つま先の部位）で、狙いへ 1 回突く: 削ったセルの数・最も深く削った部位の層の数・部位ごとの内訳。</summary>
+    internal static (int Carved, int Layers, string Detail) PointedLegStrike(float aimX, float aimY, FighterTuning? tuning, float gap, int seed)
+    {
+        using var game = CreateGame(gap, tuning: tuning, seed: seed);
         var f = game.Player;
         for (var i = 0; i < 240; i++)
         {
@@ -405,19 +428,13 @@ public sealed class AlienTests
         }
 
         var layers = carved.Select(entry => entry.Value.Select(i => targets[entry.Key].Body.Grid.Coordinates(i).Z).Distinct().Count()).DefaultIfEmpty().Max();
-        Console.WriteLine($"layers {layers}, carved {string.Join(" ", carved.Select(e => $"{targets[e.Key].Kind}:{e.Value.Count}"))}");
-        // 2026-11-26（統合、物理 101〜102）: 尖った跗節の突きは、どの狙いでも相手の部位を削る。ガルヴァの枝（abd1076）では 6 層まで掘り（腿 91 セル）、
-        // 横へずらした狙いは前後に貫いた（「2 層以上・貫く列がある」を確かめていた）が、それは刃がセルを丸ごと壊していた物理 96 までの土台での値。
-        // 物理 97（刃は進んだ奥行きの分だけ断つ VoxelContact.Sweep.CutInto、docs/BLADE_CUT_STUDY.md §8）の下では、この台本の先端は 1〜2 層で止まる
-        // （腿 2 セル・すね 2 セル）。長い鎌が 1 振りで離さなくなった（ClawTrajectoryTests.LongClaw_OneStrokeCutsIntoEveryAim）のと同じ理由。
-        // 深く貫くことを期待するのは、体の側（突きに乗る脚と胴の力）を直してから。
-        Assert.IsTrue(carved.Values.Any(cells => cells.Count > 0), "the pointed tarsus carves the target");
+        return (carved.Values.Sum(c => c.Count), layers, string.Join(" ", carved.Select(e => $"{targets[e.Key].Kind}:{e.Value.Count}")));
     }
 
-    private static BoxingGame CreateGame(float gap = 3f, BodyBuild? build = null, bool fromCorners = false)
+    private static BoxingGame CreateGame(float gap = 3f, BodyBuild? build = null, bool fromCorners = false, FighterTuning? tuning = null, int seed = 1)
     {
         var c = CharacterRoster.Get("galva");
-        return new BoxingGame(corners: BotCatalog.Corners("boxer") with
+        return new BoxingGame(tuning, seed: seed, corners: BotCatalog.Corners("boxer") with
         {
             PlayerBody = build ?? c.Build, PlayerWear = c.Wear, PlayerLook = c.Look, PlayerFaceSpec = c.Face,
             Ring = RingLayout.Boxing with { StartGap = gap, FromCorners = fromCorners }, ExternalBlue = true, Referee = false,

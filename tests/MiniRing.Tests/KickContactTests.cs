@@ -11,7 +11,11 @@ public sealed class KickContactTests
     private const float Dt = 1f / 240f;
 
     internal sealed record KickResult(int Hits, int VictimCellsLost, float MinPelvis, float StartPelvis, FighterState AttackerState,
-        float MaxSpeed, float Mass, float MinAnkleToTarget, IReadOnlyList<KickPart> Parts, float MaxYawDeviation);
+        float MaxSpeed, float Mass, float MinAnkleToTarget, IReadOnlyList<KickPart> Parts, float MaxYawDeviation, IReadOnlyList<float>? Energies = null)
+    {
+        /// <summary>いちばん強い当たり（その蹴りの本命）の部位。当たりが無ければ null。</summary>
+        public KickPart? MainPart => Energies is { Count: > 0 } e ? Parts[Enumerable.Range(0, e.Count).MaxBy(i => e[i])] : null;
+    }
 
     private static int Cells(Fighter f) => f.Voxels!.Parts.Concat(f.Voxels.Fragments).Sum(p => p.Body.Grid.FilledCount);
 
@@ -27,10 +31,10 @@ public sealed class KickContactTests
     /// <summary>足は腕より短い（高い所ほど近づかないと届かない）: 蹴りごとの、胸と胸の距離（腕の長さ倍）。</summary>
     private static float ApproachOf(KickTechnique kind) => KickSpec.Of(kind).Standoff;
 
-    internal static KickResult Run(KickTechnique kind, Hand side = Hand.Right, float durationScale = 1f, float closeIn = 0f)
+    internal static KickResult Run(KickTechnique kind, Hand side = Hand.Right, float durationScale = 1f, float closeIn = 0f, FighterTuning? tuning = null)
     {
         // 蹴られる側は立って構えるだけ。蹴る側（赤）は台本の指令で歩いて詰め、止まって蹴る。
-        using var game = new BoxingGame(seed: 3, corners: new BoxingCorners("still", _ => new StandGuard()));
+        using var game = new BoxingGame(tuning, seed: 3, corners: new BoxingCorners("still", _ => new StandGuard()));
         var attacker = game.Player;
         var victim = game.Cpu;
         for (var i = 0; i < 2417; i++)
@@ -63,6 +67,7 @@ public sealed class KickContactTests
         var minAnkle = float.MaxValue;
         var hits = new HashSet<HitEvent>();
         var parts = new List<KickPart>();
+        var energies = new List<float>();
         var maxYaw = 0f;
         var startYaw = attacker.Frame.YawRadians;
         var maxSpeed = 0f;
@@ -86,12 +91,13 @@ public sealed class KickContactTests
             if (game.LastHit is { Kick: true } hit && hits.Add(hit))
             {
                 parts.Add(hit.KickerPart);
+                energies.Add(hit.Energy);
                 maxSpeed = MathF.Max(maxSpeed, hit.Speed);
                 mass = MathF.Max(mass, hit.ImpactMass);
             }
         }
 
-        return new KickResult(hits.Count, before - Cells(victim), minPelvis, startPelvis, attacker.State, maxSpeed, mass, minAnkle, parts, maxYaw);
+        return new KickResult(hits.Count, before - Cells(victim), minPelvis, startPelvis, attacker.State, maxSpeed, mass, minAnkle, parts, maxYaw, energies);
     }
 
     [TestMethod]
@@ -129,7 +135,10 @@ public sealed class KickContactTests
             Console.WriteLine($"{kind}: parts [{string.Join(',', results[kind].Parts)}], body turned {results[kind].MaxYawDeviation:F2} rad");
         }
 
-        CollectionAssert.IsSubsetOf(results[KickTechnique.Roundhouse].Parts.Distinct().ToList(), new[] { KickPart.Shin, KickPart.Toe, KickPart.Foot });
+        // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした）: 前は当たった部位がすべて すね・つま先・足 であることを見ていた。固いつま先では、すねが当たった後に
+        // 振り抜いた腿も相手に触れることがある（止まる位置を −2〜3 cm 替えた 6 つのうち 4 つ。すね 128〜136 J の後に腿 87〜100 J。前のつま先では すね だけ 117〜155 J。
+        // ToeRegressionProbe.KickDistance）。蹴りの本命（いちばん強い当たり）が すね・つま先・足 であることを見る。
+        Assert.IsTrue(results[KickTechnique.Roundhouse].MainPart is KickPart.Shin or KickPart.Toe or KickPart.Foot, $"a roundhouse lands mainly with the shin or the foot ({results[KickTechnique.Roundhouse].MainPart})");
         Soft.Check(results[KickTechnique.Roundhouse].Parts.Any(p => p is KickPart.Shin or KickPart.Toe), "a roundhouse lands with the shin or the top of the foot");
         // 横蹴りは足（足の箱 = 足刀・かかと、またはつま先）で当たる。足の向き（足刀を立てる）は持たないので、どちらが先に触れるかは寄り方の
         // わずかな違いで入れ替わる（CLAUDE.md §8 テコンドー）。PhysicsVersion 44 で寄る間の押し付けが打撃に数えられなくなり、つま先が相手の膝へ先に触れた。
