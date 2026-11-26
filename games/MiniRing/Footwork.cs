@@ -213,10 +213,11 @@ public readonly record struct FootPose(Vector3 Ball, float Yaw, float HeelRaise,
 /// <param name="Com">全身の重心の水平位置（捕捉点はこれから出す。null なら骨盤 <paramref name="Body"/>）。上体が傾いて倒れていくのは、骨盤より重心に出る。</param>
 /// <param name="ComVelocity">全身の重心の水平速度（null なら骨盤の速度）。</param>
 /// <param name="ComAcceleration">移動の指令が重心に求める水平の加速度。床反力の作用点（ZMP）は重心から加速度 / ω² だけ逆へずれる（前へ加速するなら後ろ）。</param>
+/// <param name="Travel">移動の指令（方向キー・ボットの移動）が出ている。体重を見た足の選び方と宙の足の計画し直しはこの間だけ（拳の踏み込み・釣り合いの意図では使わない）。</param>
 /// <param name="LegHeld">どちらかの脚を膝の制御の指令（<see cref="LegCommand.IsKneeControl"/>）が動かしている。その間は新しい 1 歩を踏み出さない（残る足が軸足）。</param>
 public readonly record struct FootworkInput(float FacingYaw, Vector2 Body, Vector2 BodyVelocity, float Omega, Vector2 Intent, float Twist, float Weight, float LegLength,
     bool LeadOverreach = false, bool RearOverreach = false, Vector2? LeadBall = null, Vector2? RearBall = null, float Reach = 0f, float HipOffset = 0f, bool LeadFree = false, bool RearFree = false,
-    Vector2? Com = null, Vector2? ComVelocity = null, bool LegHeld = false, Vector2 ComAcceleration = default);
+    Vector2? Com = null, Vector2? ComVelocity = null, bool LegHeld = false, Vector2 ComAcceleration = default, bool Travel = true);
 
 /// <summary>
 /// 足の置き場所を決めるモデル（倒立振子 + 構え）。ボクサーは左足が常に前（オーソドックス）。
@@ -378,7 +379,7 @@ public sealed class Footwork
                 _yaw[_swinging] = _toYaw;
                 _swinging = -1;
             }
-            else if (allowStep && canShiftLoad && _tuning.ReplanSwing && input.Intent != Vector2.Zero && SwingLeadsAway(input))
+            else if (allowStep && canShiftLoad && _tuning.ReplanSwing && input.Travel && input.Intent != Vector2.Zero && SwingLeadsAway(input))
             {
                 // 宙の足の着地点が、今の構えの位置から遠ざかる所になった（向きを変えた・切り返した）: 運び終えるのを待たず、その場で下ろして計画し直す
                 // （宙の足は低く、すり足に近い。前の向きへ運び終えてから戻ると、切り返しの出だしが 1 歩ぶん遅れた: docs/arena/foot_snag.md）。
@@ -555,7 +556,7 @@ public sealed class Footwork
             var other = 1 - foot0;
             var otherOverreach = other == Lead ? input.LeadOverreach : input.RearOverreach;
             // 移動の指令がある間だけ（行きたい向きへ早く足を運ぶための選び方。止まって構え・打つ・蹴る間の構えの直しは前のまま。89 の入れ替えと同じ）。
-            var leadLoad = canShiftLoad && t.UnloadedFootShare > 0f && input.Intent != Vector2.Zero ? LeadLoad(input) : null;
+            var leadLoad = canShiftLoad && t.UnloadedFootShare > 0f && input.Travel && input.Intent != Vector2.Zero ? LeadLoad(input) : null;
             if (TryTarget(other, home, input.FacingYaw, out var otherTarget, out var otherYaw))
             {
                 var stride = Vector2.Distance(target, _ball[foot0]);

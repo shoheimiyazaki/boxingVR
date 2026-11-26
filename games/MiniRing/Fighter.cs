@@ -79,6 +79,9 @@ public sealed partial class Fighter
     private readonly float[] _kickRestSeconds = new float[2];
     private Vector3 _laggedMove;
 
+    /// <summary>この歩に移動の指令（方向キー・ボットの移動）が出ているか。拳の踏み込み・足でつり合いを取る体の釣り合いの意図は含めない。</summary>
+    private bool _travelCommanded;
+
     internal float HoverHeight => _hoverHeight;
 
     internal (float Chest, float Pelvis) Tilt => (UpOf(Parts.Chest).Y, UpOf(Parts.Pelvis).Y);
@@ -2503,6 +2506,7 @@ public sealed partial class Fighter
 
     private void DriveBody(in FighterCommand command, float scale, bool grounded, float height, float dt)
     {
+        _travelCommanded = command.ClampedMove.LengthSquared() > 0f;
         foreach (var side in new[] { Hand.Left, Hand.Right })
         {
             var leg = _legParts[(int)side];
@@ -2676,7 +2680,7 @@ public sealed partial class Fighter
             omega, new Vector2(intent.X, intent.Z), twist, weight, legLength,
             lead.ReachRatio > 0.995f, _legParts[Footwork.Rear].ReachRatio > 0.995f, BallOnGround(lead), BallOnGround(_legParts[Footwork.Rear]), MathF.Max(0.3f * legLength, reach),
             LeadFree: leadFree, RearFree: rearFree,
-            LegHeld: _legParts[0].Command is { IsKneeControl: true } || _legParts[1].Command is { IsKneeControl: true });
+            LegHeld: _legParts[0].Command is { IsKneeControl: true } || _legParts[1].Command is { IsKneeControl: true }, Travel: _travelCommanded);
         if (_tuning.SupportFromGround)
         {
             // 支えが床から出る体では、倒れていくのは上体の傾きを含む全身の重心: 捕捉点を重心から出す（Fighter.Support.cs）。
