@@ -191,6 +191,10 @@ public sealed class MenuPagesVisualTests
         menu.Handle(new MenuInput(Confirm: true)); // 作る
         Assert.AreEqual(MenuPage.Boxer, menu.State.Page);
         Render(renderer, menu, "menu_17_campaign_boxer_ivf_rookie.png");
+        // 階級ごとの大会のうち、前日計量で上限を超える軽い階級（失格の理由）。
+        Assert.IsTrue(menu.State.Events.Any(e => e.Reason?.Contains("失格", StringComparison.Ordinal) == true), "a lighter IVF division shows the weigh-in disqualification");
+        while (menu.State.Events[menu.State.BoxerIndex].Reason?.Contains("失格", StringComparison.Ordinal) != true) { menu.Handle(Move(y: -1)); }
+        Render(renderer, menu, "menu_17b_campaign_weighin_disqualified.png");
         while (menu.State.Events[menu.State.BoxerIndex].Event.Id != "vfc-rookie") { menu.Handle(Move(y: 1)); }
         menu.Handle(Move(x: 2)); // 武器を選び直す
         Render(renderer, menu, "menu_18_campaign_boxer_vfc_weapon.png");

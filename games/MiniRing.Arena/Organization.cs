@@ -106,7 +106,8 @@ internal sealed record OrgRegrowth(float Speed, float TickSeconds, float StuckDo
 /// <param name="Gear">団体が着けさせるはめる物（IVF はグローブ）。null なら選手のはめる物のまま。</param>
 /// <param name="Weapons">武器を握った選手が出られるか。</param>
 /// <param name="Textbooks">出られる教科書（スタイル）の名前。null なら何でも。</param>
-internal sealed record OrgEntry(MiniRing.Weapons.HandWear? Gear, bool Weapons, IReadOnlyList<string>? Textbooks);
+/// <param name="WeighIn">前日計量をするか。true なら、大会の階級の上限を計量の体重が超えた選手は失格（<c>CampaignLadder.Check</c>）。false なら体重は発表だけ。</param>
+internal sealed record OrgEntry(MiniRing.Weapons.HandWear? Gear, bool Weapons, IReadOnlyList<string>? Textbooks, bool WeighIn = false);
 
 /// <summary>階級（団体のファイルの <c>divisions</c>。軽い順）。</summary>
 /// <param name="Id">階級の id（王座の記録が引く）。</param>
@@ -392,6 +393,7 @@ internal static class Organizations
         public string? Gear { get; init; }
         public required bool Weapons { get; init; }
         public string[]? Textbooks { get; init; }
+        public bool WeighIn { get; init; }
 
         public OrgEntry ToEntry()
         {
@@ -410,7 +412,7 @@ internal static class Organizations
                 throw new InvalidDataException($"entry.textbooks は BotCatalog のスタイルの名前の並びにしてください（{string.Join(", ", MiniRing.Bots.BotCatalog.Styles.Select(s => s.Name))}）。何でもよければ書かない。");
             }
 
-            return new OrgEntry(gear, Weapons, Textbooks);
+            return new OrgEntry(gear, Weapons, Textbooks, WeighIn);
         }
     }
 

@@ -74,7 +74,7 @@ internal sealed partial class MenuView
             label("新しいボクサー", 326, 124, 21, Gold);
             label("体型・身長・教科書を選んで作ります。", 326, 156, 14, Pale);
             label("何人でも作れます（1 人 1 ファイル）。", 326, 178, 14, Pale);
-            label("体格で出られる大会が決まり、", 326, 210, 14, Pale);
+            label("体重の階級と戦績で出られる大会が決まり、", 326, 210, 14, Pale);
             label("新人戦 → ランキング戦 → タイトルへ。", 326, 232, 14, Pale);
         }
         else
@@ -135,9 +135,10 @@ internal sealed partial class MenuView
         label(string.Create(CultureInfo.InvariantCulture, $"身長 {draft.HeightCm} cm・体重 {draft.WeightKg} kg"), 326, 154, 14, Pale);
         label(type.Note, 326, 176, 13, Dim, maxWidth: 270);
         var y = 206f;
-        label("出られる大会は体重と身長で決まります", 326, y, 13, Pale);
+        label("出られる大会は体重（階級）と戦績で決まります", 326, y, FitHeight("出られる大会は体重（階級）と戦績で決まります", 270, 13), Pale);
         y += 22f;
-        foreach (var ev in CampaignEvents.All.Where(e => e.Tier == CampaignTier.Rookie))
+        // この体重で入る階級の新人戦（団体ごとに 1 つ。身長・体型では弾かれない）。
+        foreach (var ev in CampaignEvents.All.Where(e => e.Tier == CampaignTier.Rookie && e.Division == e.Organization.DivisionOf(draft.WeightKg)))
         {
             label($"・{ev.Name}", 326, y, 13, Pale);
             y += 18f;
@@ -153,9 +154,11 @@ internal sealed partial class MenuView
     private void DrawBoxer(MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
     {
         if (state.Boxer is not { } boxer) { return; }
-        for (var i = 0; i < MenuState.BoxerRows; i++)
+        var visible = Math.Min(MenuState.BoxerRows - state.BoxerFirst, MenuState.BoxerVisible);
+        for (var r = 0; r < visible; r++)
         {
-            var c = MenuLayout.CampaignRowCenter(i);
+            var i = state.BoxerFirst + r;
+            var c = MenuLayout.CampaignRowCenter(r);
             var selected = i == state.BoxerIndex;
             Row(plate, frame, c, MenuLayout.CampaignRowSize, selected);
             var left = c.X - (MenuLayout.CampaignRowSize.X / 2) + 14;
@@ -163,7 +166,7 @@ internal sealed partial class MenuView
             {
                 var (ev, entry, _) = state.Events[i];
                 var open = entry is not null;
-                label(ev.Name, left, c.Y - 9, 14, selected ? Gold : open ? Pale : Dim);
+                label(ev.Name, left, c.Y - 9, FitHeight(ev.Name, MenuLayout.CampaignRowSize.X - 100, 14), selected ? Gold : open ? Pale : Dim);
                 if (entry is not null)
                 {
                     var weapon = state.WeaponFor(entry) is { } w ? FighterCharacter.WeaponLabel(w) : "素手";
@@ -190,7 +193,7 @@ internal sealed partial class MenuView
             if (entry is not null)
             {
                 var opponent = entry.Opponent;
-                label(string.Create(CultureInfo.InvariantCulture, $"階級 {entry.Division.Name}（計量 {boxer.WeightKg} kg）"), 326, 182, 14, Pale);
+                label(string.Create(CultureInfo.InvariantCulture, $"階級 {entry.Division.Name}（{(entry.Event.Organization.Entry.WeighIn ? "前日計量" : "体重の発表")} {boxer.WeightKg} kg）"), 326, 182, 14, Pale);
                 label(string.Create(CultureInfo.InvariantCulture, $"相手 {opponent.HudName}（{Arena.OrgBouts.WeightOf(opponent)} kg・{opponent.StyleName}）"), 326, 204, 14, Pale, maxWidth: 270);
                 label(entry.Weapons.Count > 1 ? "← → で武器を選び直せます（大会ごと）" : "この団体は武器を持てません", 326, 228, 12, Dim);
                 label("Enter で試合へ", 326, 252, 15, Gold);

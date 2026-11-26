@@ -63,7 +63,8 @@
     "resupplyWeapons": true
   },
   // 出場（2026-11-19、3 団体の整理）: 無差別・何でもあり。
-  "entry": { "gear": null, "weapons": true },
+  // 計量なし（体重は発表だけ）。
+  "entry": { "gear": null, "weapons": true, "weighIn": false },
   "divisions": [ { "id": "open", "name": "無差別", "limitKg": null } ],
   // 王座は「VFC 王者」1 つ（生き残った者の座）。ランキングは所属の選手だけ。両者生還の引き分けは点にしない（決着だけが評価される）。
   "titles": { "belt": "{org} 王者", "titleBout": "王者戦", "bout": "" },
