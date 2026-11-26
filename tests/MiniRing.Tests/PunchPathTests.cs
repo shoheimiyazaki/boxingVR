@@ -79,17 +79,22 @@ public sealed class PunchPathTests
     [TestCategory("slow")]
     public void Cross_LaunchesFasterThanTheUniformPath()
     {
-        var uniform = PeakFistSpeed(legacy: true);
-        var smooth = PeakFistSpeed(legacy: false);
-        Assert.IsGreaterThan(uniform * 1.25f, smooth, $"打ち出しの最高速: 等速 {uniform:0.00} m/s → 今 {smooth:0.00} m/s");
+        // 寄り終わった間合い 1 点の 1 本は、足の置き方のわずかな違いで拳の速さが 1 m/s 単位で揺れる（docs/arena/foot_snag.md「種を増やした比べ」:
+        // 間合い 1.05 の 1 本で 5.40 → 6.15 m/s が要るのに届かなかった版も、間合いを振った平均では 1.3〜1.5 倍）。間合いを振った平均で比べる。
+        var uniform = Ranges.Select(r => PeakFistSpeed(legacy: true, r)).Where(float.IsFinite).ToArray();
+        var smooth = Ranges.Select(r => PeakFistSpeed(legacy: false, r)).Where(float.IsFinite).ToArray();
+        Assert.IsGreaterThanOrEqualTo(Ranges.Length / 2, Math.Min(uniform.Length, smooth.Length), "半分以上の間合いで寄せられる");
+        Assert.IsGreaterThan(uniform.Average() * 1.25f, smooth.Average(), $"打ち出しの最高速（平均）: 等速 {uniform.Average():0.00} m/s → 今 {smooth.Average():0.00} m/s");
     }
 
-    /// <summary>手を下げて立つ相手へ、1.05 腕の間合いまで寄ってから右ストレートを 1 本打ち、打ち出しから 0.34 秒の拳の速さの最大 [m/s]。</summary>
-    private static float PeakFistSpeed(bool legacy)
+    /// <summary>寄り終わる間合い（腕の長さの倍）。1 本ずつの揺れをならすために振る。</summary>
+    internal static readonly float[] Ranges = [1.03f, 1.05f, 1.07f, 1.09f, 1.11f, 1.13f];
+
+    /// <summary>手を下げて立つ相手へ、<paramref name="range"/> 腕の間合いまで寄ってから右ストレートを 1 本打ち、打ち出しから 0.34 秒の拳の速さの最大 [m/s]。寄れなければ NaN。</summary>
+    internal static float PeakFistSpeed(bool legacy, float range = 1.05f)
     {
         const float dt = 1f / 240f;
         const float load = 0.1343f;
-        const float range = 1.05f;
         using var game = new BoxingGame(seed: 1, corners: new BoxingCorners("still", _ => new StandGuard(GuardPosture.LowGuard)));
         var me = game.Player;
         var spec = PunchSpec.Of(Technique.Cross);
@@ -149,8 +154,7 @@ public sealed class PunchPathTests
                 new HandCommand(right, false, spring), head, twist)), dt);
         }
 
-        Assert.Fail("間合いに寄れなかった");
-        return 0f;
+        return float.NaN; // 間合いに寄れなかった
     }
 
     /// <summary>前の経路（LogicVersion 57 まで）: 構え → 打ち抜く先を、技の時間の 0.6 × 0.5 で等速に動き、残りを等速で構えへ戻す。</summary>

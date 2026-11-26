@@ -1,0 +1,8 @@
+TestContext Messages:
+fragile2 seed 0 side=Right dur=0.9 scale=0.85 axe=0.50 sideKick=1.44 slowJ=3.08 fastJ=3.29 slowHits=1 fastHits=1 slowSpeed=4.36 fastSpeed=5.27
+fragile2 seed 1 side=Left dur=0.9 scale=0.85 axe=0.56 sideKick=1.30 slowJ=2.41 fastJ=3.09 slowHits=1 fastHits=1 slowSpeed=3.92 fastSpeed=4.82
+fragile2 seed 2 side=Right dur=1.0 scale=1.00 axe=0.74 sideKick=1.49 slowJ=3.08 fastJ=3.29 slowHits=1 fastHits=1 slowSpeed=4.36 fastSpeed=5.27
+fragile2 seed 3 side=Left dur=1.0 scale=1.00 axe=0.63 sideKick=1.31 slowJ=2.41 fastJ=3.09 slowHits=1 fastHits=1 slowSpeed=3.92 fastSpeed=4.82
+fragile2 seed 4 side=Right dur=1.1 scale=1.15 axe=0.76 sideKick=1.49 slowJ=2.95 fastJ=3.95 slowHits=1 fastHits=1 slowSpeed=4.34 fastSpeed=6.31
+fragile2 seed 5 side=Left dur=1.1 scale=1.15 axe=0.57 sideKick=1.36 slowJ=2.34 fastJ=5.84 slowHits=1 fastHits=1 slowSpeed=3.93 fastSpeed=4.98
+

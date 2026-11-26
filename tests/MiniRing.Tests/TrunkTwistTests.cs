@@ -12,9 +12,9 @@ namespace MiniRing.Tests;
 public sealed class TrunkTwistTests
 {
     /// <summary>右ストレートを 1 本打たせ、打ち出しから当たる頃（0.13 秒）までの胸の鉛直軸まわりの角速度の最大 [rad/s] と、肩の前進の最大 [m/s] を返す。</summary>
-    private static (float ChestRate, float ShoulderForward) Punch(FighterTuning tuning)
+    internal static (float ChestRate, float ShoulderForward) Punch(FighterTuning tuning, float range = 1.05f)
     {
-        using var bout = new PunchLab.Bout(new(PunchLabPath.Standard, "still", "reach", 1.05f, false), 1, 0.1343f, tuning with { HipTwistShare = 0.45f, ChestTwistResponseSeconds = 0.025f }, new PunchLab.DriveKnobs());
+        using var bout = new PunchLab.Bout(new(PunchLabPath.Standard, "still", "reach", range, false), 1, 0.1343f, tuning with { HipTwistShare = 0.45f, ChestTwistResponseSeconds = 0.025f }, new PunchLab.DriveKnobs());
         for (var guard = 0; bout.PunchTime is null; guard++)
         {
             Assert.IsLessThan(6000, guard, "打ち出しまで寄せられる");
@@ -54,10 +54,17 @@ public sealed class TrunkTwistTests
         var feedForward = legacy with { TrunkTwistFeedForward = 1f };
         var both = FighterTuning.Default;
 
-        var baseline = Punch(legacy);
-        var strong = Punch(stronger);
-        var ff = Punch(feedForward);
-        var all = Punch(both);
+        // 間合いを振った平均で比べる（寄り終わった間合い 1 点の 1 本は、足の置き方のわずかな違いで胸の速さが 3 割揺れる: docs/arena/foot_snag.md）。
+        static (float ChestRate, float ShoulderForward) Mean(FighterTuning tuning)
+        {
+            var runs = PunchPathTests.Ranges.Select(r => Punch(tuning, r)).ToArray();
+            return (runs.Average(r => r.ChestRate), runs.Average(r => r.ShoulderForward));
+        }
+
+        var baseline = Mean(legacy);
+        var strong = Mean(stronger);
+        var ff = Mean(feedForward);
+        var all = Mean(both);
 
         Assert.IsLessThan(3f, baseline.ChestRate, $"変更前の体の胸は遅い（人 8〜12 rad/s）: {baseline.ChestRate:F2}");
         Assert.IsGreaterThan(baseline.ChestRate * 1.4f, strong.ChestRate, $"トルクを上げると胸が速く回る: {strong.ChestRate:F2} 対 {baseline.ChestRate:F2}");
@@ -71,14 +78,15 @@ public sealed class TrunkTwistTests
     public void LoadedCross_ReversesThePelvisBeforeTheChest()
     {
         var tuning = FighterTuning.Default;
-        var standard = LoadedCross(tuning);
-        var stronger = LoadedCross(tuning with { PelvisRotatorTorque = tuning.TrunkRotatorTorque });
+        // 腰の最高角速度は間合いを振った平均で比べる（1 本では 1 割の揺れで大小が入れ替わる: 直す前の足の運びでも 9 通りのうち 1 つで逆転、docs/arena/foot_snag.md）。
+        var standard = PunchPathTests.Ranges.Average(r => LoadedCross(tuning, r));
+        var stronger = PunchPathTests.Ranges.Average(r => LoadedCross(tuning with { PelvisRotatorTorque = tuning.TrunkRotatorTorque }, r));
         Assert.IsGreaterThan(standard, stronger, "腰のトルクを上げると腰の最高角速度が上がる");
     }
 
-    private static float LoadedCross(FighterTuning tuning)
+    internal static float LoadedCross(FighterTuning tuning, float range = 1.05f)
     {
-        using var bout = new PunchLab.Bout(new(PunchLabPath.Standard, "still", "reach", 1.05f, false), 1, Bots.BotStyle.MaxTelegraph, tuning with { HipTwistShare = 0.45f, ChestTwistResponseSeconds = 0.025f }, new PunchLab.DriveKnobs());
+        using var bout = new PunchLab.Bout(new(PunchLabPath.Standard, "still", "reach", range, false), 1, Bots.BotStyle.MaxTelegraph, tuning with { HipTwistShare = 0.45f, ChestTwistResponseSeconds = 0.025f }, new PunchLab.DriveKnobs());
         for (var guard = 0; bout.PunchTime is null; guard++)
         {
             Assert.IsLessThan(6000, guard);
