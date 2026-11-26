@@ -1,4 +1,6 @@
 using System.Globalization;
+using MiniRing.Arena;
+using MiniRing.Motion;
 using MiniRing.Weapons;
 using MiniRing.Bots;
 
@@ -369,6 +371,223 @@ public sealed class ToeKickDistanceProbe
                 var turning = KickContactTests.Run(KickTechnique.Roundhouse, closeIn: -back, tuning: tuning);
                 Console.WriteLine(ToeVariants.F($"{name} back off {back * 100f:0} cm: kneecontrol L {l.Main?.Fraction:0.00} ({l.Distance:0.000} m) R {r.Main?.Fraction:0.00} ({r.Distance:0.000} m); kickcontact roundhouse parts [{string.Join(",", turning.Parts.Zip(turning.Energies!, (p, e) => $"{p} {e:0}J"))}] main {turning.MainPart} {turning.AttackerState}"));
             }
+        }
+    }
+}
+
+[TestClass]
+[TestCategory("Probe")]
+public sealed class ToeEdgarProbe
+{
+    private static readonly string[] Victims = ["standard", "konrad", "ramon", "joao", "dmitri"];
+    private static readonly int[] Seeds = [11, 12, 13, 14];
+    private static readonly string[] More = ["akira", "albert", "daichi", "gaston", "marcus", "narong", "sean", "taeyun", "tsuyoshi", "vikram"];
+
+    [TestMethod]
+    public void EdgarForms()
+    {
+        // SwordOneBlowTests の場面（edgar の教育の型と教科書の型を、守らない 5 人に 1 振り）を種で。
+        var who = MiniRing.Characters.CharacterRoster.Get("edgar");
+        var educated = who.WeaponStyle!;
+        var textbook = WeaponCatalog.Textbook(who.Weapon!.Value);
+        foreach (var (name, tuning) in ToeVariants.Toes)
+        {
+            foreach (var (form, tune) in educated.Forms!)
+            {
+                var wide = Victims.Concat(More).Select(v => (v, SwordPractice.Swing(who, textbook, SwordPractice.Technique(who, form, FormTune.Identity), 11, SwordPractice.Victim(v), bodyTuning: tuning),
+                    SwordPractice.Swing(who, educated, SwordPractice.Technique(who, form, tune), 11, SwordPractice.Victim(v), bodyTuning: tuning))).ToList();
+                foreach (var (v, t, e) in wide)
+                {
+                    Console.WriteLine(ToeVariants.F($"  {name} {form} {v}: textbook out {t.Incapacitated} (end {t.ConsciousnessEnd:0.00} min {t.ConsciousnessMin:0.00}, cells {t.Cells}, {t.ImpactSpeed:0.0} m/s), educated out {e.Incapacitated} (end {e.ConsciousnessEnd:0.00} min {e.ConsciousnessMin:0.00}, cells {e.Cells}, {e.ImpactSpeed:0.0} m/s)"));
+                }
+
+                Console.WriteLine(ToeVariants.F($"{name} {form} over {wide.Count} victims: textbook {wide.Count(w => w.Item2.Incapacitated)}, educated {wide.Count(w => w.Item3.Incapacitated)}"));
+                foreach (var seed in Seeds.Take(1))
+                {
+                    var before = Victims.Select(v => SwordPractice.Swing(who, textbook, SwordPractice.Technique(who, form, FormTune.Identity), seed, SwordPractice.Victim(v), bodyTuning: tuning)).ToList();
+                    var after = Victims.Select(v => SwordPractice.Swing(who, educated, SwordPractice.Technique(who, form, tune), seed, SwordPractice.Victim(v), bodyTuning: tuning)).ToList();
+                    Console.WriteLine(ToeVariants.F($"{name} {form} seed {seed}: textbook {before.Count(o => o.Incapacitated)}/5 at {before.Average(o => o.ImpactSpeed):0.0} m/s, educated {after.Count(o => o.Incapacitated)}/5 at {after.Average(o => o.ImpactSpeed):0.0} m/s, swung {after.Count(o => o.Swung)}"));
+                }
+            }
+        }
+    }
+}
+
+[TestClass]
+[TestCategory("Probe")]
+public sealed class ToeGalvaLegProbe
+{
+    private static readonly (float X, float Y)[] Aims = [(0f, 0f), (-0.12f, 0.08f)];
+    private static readonly float[] Gaps = [0.62f, 0.67f, 0.72f];
+
+    [TestMethod]
+    public void PointedLeg()
+    {
+        foreach (var (name, tuning) in ToeVariants.Toes)
+        {
+            foreach (var (x, y) in Aims)
+            {
+                foreach (var gap in Gaps)
+                {
+                    foreach (var seed in new[] { 1, 2 })
+                    {
+                        var (carved, layers, detail) = AlienTests.PointedLegStrike(x, y, tuning, gap, seed);
+                        Console.WriteLine(ToeVariants.F($"{name} aim ({x},{y}) gap {gap} seed {seed}: carved {carved} layers {layers} [{detail}]"));
+                    }
+                }
+            }
+        }
+    }
+}
+
+[TestClass]
+[TestCategory("Probe")]
+public sealed class ToeLongClawProbe
+{
+    private static readonly int[] Seeds = [119, 120, 121, 122, 123, 124];
+    private static readonly float[] Gaps = [1.09f, 1.14f, 1.19f, 1.24f, 1.29f, 1.34f, 1.39f];
+
+    [TestMethod]
+    public void LongClaw()
+    {
+        foreach (var (name, tuning) in ToeVariants.Toes)
+        {
+            foreach (var gap in Gaps)
+            {
+                var swept = Enumerable.Range(0, 3).Select(aim => ClawLab.Run("albert", 119, gap, aim, aim == 1 ? Hand.Left : Hand.Right, 0.42f, 0.75f, moving: true, tuning: tuning)).ToArray();
+                Console.WriteLine(ToeVariants.F($"{name} gap {gap}: removed {string.Join(" / ", swept.Select(t => t.Removed))}, standing {string.Join(" / ", swept.Select(t => t.Standing))}"));
+            }
+
+            foreach (var seed in Seeds.Take(2))
+            {
+                var trials = Enumerable.Range(0, 3).Select(aim => ClawLab.Run("albert", seed, 1.24f, aim, aim == 1 ? Hand.Left : Hand.Right, 0.42f, 0.75f, moving: true, tuning: tuning)).ToArray();
+                Console.WriteLine(ToeVariants.F($"{name} seed {seed}: removed {string.Join(" / ", trials.Select(t => t.Removed))}, standing {string.Join(" / ", trials.Select(t => t.Standing))}"));
+            }
+        }
+    }
+}
+
+[TestClass]
+[TestCategory("Probe")]
+public sealed class ToeEdgarTraceProbe
+{
+    [TestMethod]
+    public void TextbookTrace()
+    {
+        // 教科書の袈裟（切り下ろし）が、斬らずに相手（standard）の意識を飛ばす: 何が相手に当たり、いつ倒れ、いつ意識が落ちるか。
+        var who = MiniRing.Characters.CharacterRoster.Get("edgar");
+        var textbook = WeaponCatalog.Textbook(who.Weapon!.Value);
+        var form = who.WeaponStyle!.Forms!.Keys.First();
+        foreach (var (name, tuning) in ToeVariants.Toes)
+        {
+            var lastState = FighterState.Standing;
+            var lastC = 1f;
+            var lines = new List<string>();
+            var outcome = SwordPractice.Swing(who, textbook, SwordPractice.Technique(who, form, FormTune.Identity), 11, SwordPractice.Victim("standard"), (game, t, active) =>
+            {
+                var foe = game.Cpu;
+                foreach (var h in game.RecentHits.Where(h => h.Victim == foe))
+                {
+                    lines.Add(ToeVariants.F($"    t {t:0.000} hit from {(h.Attacker == foe ? "self" : "edgar")} zone {h.Zone} hand {h.Hand} kick {h.Kick} energy {h.Energy:0.0} J speed {h.Speed:0.0}"));
+                }
+
+                foreach (var w in game.WeaponHits.Where(w => w.Victim == foe))
+                {
+                    lines.Add(ToeVariants.F($"    t {t:0.000} weapon hit {w.Part} zone {w.Zone} cells {w.Cells} speed {w.Speed:0.0} twist {w.HeadTwist:0.00}"));
+                }
+
+                if (foe.State != lastState || MathF.Abs(foe.Consciousness - lastC) > 0.2f)
+                {
+                    lines.Add(ToeVariants.F($"    t {t:0.000} state {foe.State} consciousness {foe.Consciousness:0.00} concussion {foe.Concussion:0.00} active {active}"));
+                    lastState = foe.State;
+                    lastC = foe.Consciousness;
+                }
+            }, bodyTuning: tuning);
+            Console.WriteLine(ToeVariants.F($"{name}: out {outcome.Incapacitated}, cells {outcome.Cells}, impact {outcome.ImpactSpeed:0.0}"));
+            foreach (var l in lines.Take(60))
+            {
+                Console.WriteLine(l);
+            }
+        }
+    }
+}
+
+[TestClass]
+[TestCategory("Probe")]
+public sealed class ToeSwordRosterProbe
+{
+    private static readonly int[] Seeds = [11, 12];
+    private static readonly string[] Swordsmen = ["jin", "konrad", "edgar"];
+    private static readonly string[] Standard = ["standard"];
+    private static readonly bool[] Flags = [false, true];
+
+    [TestMethod]
+    public void SwordRoster()
+    {
+        // 名簿の全部の体（四足を除く）+ 基準 × 種 11・12 で、名簿の教育の型と教科書の型を、前のつま先と固いつま先で（SwordPracticeProbe.FinalCheck と同じ比べ）。
+        var bodies = Standard.Concat(MiniRing.Characters.CharacterRoster.All.Where(c => !c.Build.FourLegged).Select(c => c.Id)).ToList();
+        var jobs = (from id in Swordsmen
+                    let who = MiniRing.Characters.CharacterRoster.Get(id)
+                    from form in who.WeaponStyle!.Forms!.Keys
+                    from toe in Enumerable.Range(0, ToeVariants.Toes.Length)
+                    from tuned in Flags
+                    from b in bodies
+                    from seed in Seeds
+                    select (id, form, toe, tuned, b, seed)).ToList();
+        var outcomes = new SwordPractice.Outcome[jobs.Count];
+        Parallel.For(0, jobs.Count, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, i =>
+        {
+            var (id, form, toe, tuned, b, seed) = jobs[i];
+            var who = MiniRing.Characters.CharacterRoster.Get(id);
+            var style = tuned ? who.WeaponStyle! : WeaponCatalog.Textbook(who.Weapon!.Value);
+            var tune = tuned ? who.WeaponStyle!.Forms![form] : FormTune.Identity;
+            outcomes[i] = SwordPractice.Swing(who, style, SwordPractice.Technique(who, form, tune), seed, SwordPractice.Victim(b), bodyTuning: ToeVariants.Toes[toe].Tuning);
+        });
+        foreach (var g in jobs.Select((j, i) => (j, o: outcomes[i])).GroupBy(x => (x.j.id, x.j.form, x.j.toe, x.j.tuned)))
+        {
+            var list = g.ToList();
+            Console.WriteLine(ToeVariants.F($"{g.Key.id} {g.Key.form} {ToeVariants.Toes[g.Key.toe].Name} {(g.Key.tuned ? "educated" : "textbook")}: {list.Count(x => x.o.Incapacitated)}/{list.Count} impact {list.Average(x => x.o.ImpactSpeed):0.0} m/s"));
+        }
+    }
+}
+
+[TestClass]
+[TestCategory("Probe")]
+public sealed class ToeEdgarTrainProbe
+{
+    private static readonly int[] Seeds = [1, 2];
+    private static readonly int[] HeldSeeds = [11, 12];
+    private static readonly string[] Victims = ["standard", "heavy", "dmitri"];
+    private static readonly string[] Victims2 = ["standard", "heavy", "dmitri", "joao", "sean", "gaston"];
+    private const string First = """{"Tempo":2.4790552,"Twist":0.9848383,"Lift":0.013247714,"Lean":0.020487998,"Reach":0.0292892}""";
+    private static readonly string[] HeldVictims = ["ramon", "akira", "marcus", "takumi-ishiguro"];
+    private static readonly string[] Standard = ["standard"];
+    private static readonly bool[] Flags = [false, true];
+
+    [TestMethod]
+    public void TrainEdgar()
+    {
+        // 固いつま先の体（PhysicsVersion 103）に合わせて、エドガーの切り下ろしを練習し直す（SwordPracticeProbe.Train4 と同じ設定、名簿の今の教育から）。
+        var who = MiniRing.Characters.CharacterRoster.Get("edgar");
+        // 2 周目: 1 周目（下の First から）は比べ直しで採れたが、名簿の全部では教科書と並んだだけ（26 対 27/58）。練習の相手を 6 つに広げる。
+        var (tune, report) = SwordPractice.Train(who, "kiri-oroshi", generations: 30, lambda: 12, sigma: 0.4f, seed: 6, seeds: Seeds, victims: Victims2,
+            heldSeeds: HeldSeeds, heldVictims: HeldVictims, parallel: Environment.ProcessorCount, log: TextWriter.Null,
+            from: System.Text.Json.JsonSerializer.Deserialize<FormTune>(First));
+        Console.WriteLine(report);
+        Console.WriteLine($"ADOPTED edgar {System.Text.Json.JsonSerializer.Serialize(tune)}");
+        var candidate = tune ?? who.WeaponStyle!.Forms!["kiri-oroshi"];
+        var bodies = Standard.Concat(MiniRing.Characters.CharacterRoster.All.Where(c => !c.Build.FourLegged).Select(c => c.Id)).ToList();
+        var jobs = (from tuned in Flags from b in bodies from seed in HeldSeeds select (tuned, b, seed)).ToList();
+        var outcomes = new SwordPractice.Outcome[jobs.Count];
+        Parallel.For(0, jobs.Count, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, i =>
+        {
+            var (tuned, b, seed) = jobs[i];
+            var style = tuned ? who.WeaponStyle! : WeaponCatalog.Textbook(who.Weapon!.Value);
+            outcomes[i] = SwordPractice.Swing(who, style, SwordPractice.Technique(who, "kiri-oroshi", tuned ? candidate : FormTune.Identity), seed, SwordPractice.Victim(b));
+        });
+        foreach (var g in jobs.Select((j, i) => (j, o: outcomes[i])).GroupBy(x => x.j.tuned))
+        {
+            Console.WriteLine(ToeVariants.F($"roster check {(g.Key ? "candidate" : "textbook")}: {g.Count(x => x.o.Incapacitated)}/{g.Count()} impact {g.Average(x => x.o.ImpactSpeed):0.0} m/s; on the five test victims {g.Count(x => x.o.Incapacitated && x.j.seed == 11 && new[] { "standard", "konrad", "ramon", "joao", "dmitri" }.Contains(x.j.b))}/5"));
         }
     }
 }

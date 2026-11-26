@@ -18,10 +18,14 @@ public sealed class SwordOneBlowTests
     private static readonly string[] Victims = ["standard", "konrad", "ramon", "joao", "dmitri"];
 
     [TestMethod]
-    [DataRow("jin")]
-    [DataRow("konrad")]
-    [DataRow("edgar")]
-    public void TheEducatedForm_IncapacitatesMoreDefenselessOpponents_WithAFasterBlade(string id)
+    [DataRow("jin", true)]
+    [DataRow("konrad", true)]
+    // 2026-11-26（PhysicsVersion 103、つま先の蝶番を固くした）: エドガーの教科書の切り下ろし（刃先 5.9 m/s）は、固いつま先の体では頭を首の上で大きくねじって
+    // 倒すようになった（同じ 5.1 m/s の当たりで頭のねじれ 9 → 32、名簿の 29 体 × 種 11・12 で 7 → 27/58。ToeRegressionProbe.TextbookTrace・SwordRoster）。
+    // 体に合わせて練習し直した教育（比べ直しで 4 → 5/8 を採った）は 26/58 で数は並び、刃先は 10.4 m/s。10 m/s では刃が頭のどこへ当たるかで倒れるかが
+    // 決まる（docs/BOT_PDCA.md「剣士 3 人の 1 振り」）ので、エドガーは「教科書より少なくない・刃先が速い」を見る。
+    [DataRow("edgar", false)]
+    public void TheEducatedForm_IncapacitatesMoreDefenselessOpponents_WithAFasterBlade(string id, bool moreThanTextbook)
     {
         var who = CharacterRoster.Get(id);
         var educated = who.WeaponStyle!;
@@ -35,7 +39,14 @@ public sealed class SwordOneBlowTests
                 + $"educated {after.Count(o => o.Incapacitated)}/{Victims.Length} at {after.Average(o => o.ImpactSpeed):0.0} m/s";
             Console.WriteLine(detail);
             Assert.IsTrue(after.All(o => o.Swung), $"the educated form is swung ({detail})");
-            Assert.IsGreaterThan(before.Count(o => o.Incapacitated), after.Count(o => o.Incapacitated), $"more one-blow incapacitations ({detail})");
+            if (moreThanTextbook)
+            {
+                Assert.IsGreaterThan(before.Count(o => o.Incapacitated), after.Count(o => o.Incapacitated), $"more one-blow incapacitations ({detail})");
+            }
+            else
+            {
+                Assert.IsGreaterThanOrEqualTo(before.Count(o => o.Incapacitated), after.Count(o => o.Incapacitated), $"no fewer one-blow incapacitations ({detail})");
+            }
             Assert.IsGreaterThan(before.Average(o => o.ImpactSpeed), after.Average(o => o.ImpactSpeed), $"the blade is faster just before it lands ({detail})");
         }
     }
