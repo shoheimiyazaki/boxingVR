@@ -17,9 +17,18 @@ internal sealed class RoyaleLog(BoxingGame game, IReadOnlyList<FighterCharacter>
     /// <summary>この重さより軽い当たりは記録しない（Broadcast.Strength の「いい」一撃の下の端）。</summary>
     private const float HitFloor = 12f;
 
+    /// <summary>
+    /// 武器の当たりはこの重さから記録する（武器の打撃の値は 1 発ずつは拳より小さく、削った量で効く: 種 6 で 4 人を倒したこんぼうの当たりが 12 に届かず、記録に 1 つも出なかった）。
+    /// </summary>
+    private const float WeaponHitFloor = 3f;
+
+    /// <summary>同じ 2 人の当たりがこの間 [s] に続いたら 1 行にまとめる（連打を 1 行ずつ並べない）。</summary>
+    private const float VolleyGap = 2f;
+
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     private readonly List<(float T, string Type, string Text)> _events = [];
+    private readonly Dictionary<(Fighter, Fighter), (int Index, float Last, int Count, string Text)> _volleys = [];
     private readonly RoyaleDirector _director = new(new DirectorTuning());
     private readonly bool[] _down = new bool[game.AllFighters.Count];
     private int _eliminationsSeen;
@@ -41,17 +50,18 @@ internal sealed class RoyaleLog(BoxingGame game, IReadOnlyList<FighterCharacter>
         foreach (var h in game.RecentHits.Where(h => h.Damage >= HitFloor && h.Attacker != h.Victim))
         {
             var tool = h.Kick ? "蹴り" : h.Elbow ? "肘" : "拳";
-            Add(t, "hit", $"{Name(h.Attacker)}の{tool}が{Name(h.Victim)}の{Broadcast.ZoneName(h.Zone)}に入った（{Strength(h.Damage)}）");
+            Hit(t, h.Attacker, h.Victim, $"{Name(h.Attacker)}の{tool}が{Name(h.Victim)}の{Broadcast.ZoneName(h.Zone)}に入った（{Strength(h.Damage)}）");
         }
 
-        foreach (var h in game.WeaponHits.Where(h => h.Damage >= HitFloor && h.Attacker != h.Victim))
+        foreach (var h in game.WeaponHits.Where(h => (h.Damage >= WeaponHitFloor || h.Cells > 0) && h.Attacker != h.Victim))
         {
-            Add(t, "hit", $"{Name(h.Attacker)}の{Gear(h.Attacker)}が{Name(h.Victim)}の{AimLab.Ja(h.Part)}を捉えた（{Strength(h.Damage)}）");
+            var how = string.Join("、", new[] { Broadcast.Strength(h.Damage) is { Length: > 0 } s ? $"{s}一撃" : "", h.Cells > 0 ? "肉が削れた" : "" }.Where(x => x.Length > 0));
+            Hit(t, h.Attacker, h.Victim, $"{Name(h.Attacker)}の{Gear(h.Attacker)}が{Name(h.Victim)}の{PartJa(h.Part)}を捉えた{(how.Length > 0 ? $"（{how}）" : "")}");
         }
 
         foreach (var b in game.BrokenBones)
         {
-            Add(t, "bone", $"{Name(b.Victim)}の{(b.Body >= 0 ? Broadcast.PartName(b.Victim, b.Body) : AimLab.Ja(b.Part))}の骨が{(b.Bent ? "曲がった" : "折れた")}");
+            Add(t, "bone", $"{Name(b.Victim)}の{(b.Body >= 0 ? Broadcast.PartName(b.Victim, b.Body) : PartJa(b.Part))}の骨が{(b.Bent ? "曲がった" : "折れた")}");
         }
 
         foreach (var s in game.RecentSevers.Where(s => s.Victim is not null))
@@ -132,6 +142,29 @@ internal sealed class RoyaleLog(BoxingGame game, IReadOnlyList<FighterCharacter>
     }
 
     private void Add(float t, string type, string text) => _events.Add((t, type, text));
+
+    private static string PartJa(BodyPartKind part) => part switch
+    {
+        BodyPartKind.Abdomen => "腹",
+        BodyPartKind.Foot or BodyPartKind.Toe => "足",
+        BodyPartKind.Coxa => "脚の付け根",
+        _ => AimLab.Ja(part),
+    };
+
+    /// <summary>当たりを記録する。同じ 2 人の当たりが続けば、最初の行に「続けて N 発」と数を足す。</summary>
+    private void Hit(float t, Fighter attacker, Fighter victim, string text)
+    {
+        if (_volleys.TryGetValue((attacker, victim), out var v) && t - v.Last <= VolleyGap)
+        {
+            var count = v.Count + 1;
+            _events[v.Index] = _events[v.Index] with { Text = $"{v.Text}。続けて計 {count} 発（{t:0.0} 秒まで）" };
+            _volleys[(attacker, victim)] = v with { Last = t, Count = count };
+            return;
+        }
+
+        _volleys[(attacker, victim)] = (_events.Count, t, 1, text);
+        Add(t, "hit", text);
+    }
 
     private string Gear(Fighter f) => game.SeatOf(f) is var seat and >= 0 && seat < corners.Count ? corners[seat].Discipline : "武器";
 
