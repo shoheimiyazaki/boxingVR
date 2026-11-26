@@ -12,7 +12,11 @@ internal sealed record MotionFinding(string Kind, string Where, float From, floa
 /// </summary>
 internal static class MotionAudit
 {
-    /// <summary>関節の隙間 [m]: 関節の両側の点がこれ以上離れたら「つなぎ目が開いた」（人の関節は開かない。拘束のばねの普段のずれは数 mm）。</summary>
+    /// <summary>
+    /// 関節の隙間 [m]: 関節の両側の点がこれ以上離れたら「つなぎ目が開いた」。人の関節は開かない（関節包と靭帯で 1 cm 未満）。拘束のばねの普段のずれは数 mm で、
+    /// 3 cm はすねの長さ（約 43 cm）の 7%: 目で見て「脚が外れた」と分かり始める大きさ。人の計測（motionhuman）の骨の長さのぶれは最大 8.6 cm あるが、
+    /// これは皮膚の印から関節の中心を推す計測のぶれで、体の隙間ではないので閾値の根拠にしない（2026-11-26 見直し、値は据え置き）。
+    /// </summary>
     public const float GapMetres = 0.03f;
 
     /// <summary>引っかかり: 足が床に着いたまま、股関節から足首までが脚の長さのこの割合以上に伸び、腰がその足から離れていく。</summary>
@@ -21,8 +25,12 @@ internal static class MotionAudit
     /// <summary>引っかかりの腰の離れる速さ [m/s]（ゆっくりした構えの伸びを除く）。</summary>
     public const float SnagPelvisSpeed = 0.3f;
 
-    /// <summary>滑り: 床に着いた点が床に沿ってこれ以上の速さで動く [m/s]（すり足は設計どおり床に着いたまま運ぶ（docs/BOXING.md「足首は PD の力で目標へ引く」）ので、人のすり足の速さ ~1 m/s を超えた分だけを載せる。軸足の回転は点の速さが小さい）。</summary>
-    public const float SlideSpeed = 1.5f;
+    /// <summary>
+    /// 滑り: 床に着いた点が床に沿ってこれ以上の速さで動く [m/s]。すり足は設計どおり床に着いたまま運ぶ（docs/BOXING.md「足首は PD の力で目標へ引く」）。
+    /// 人の値（motionhuman、極真の蹴り 18 本、床から 2 cm 以内の足の印）: 床に着いた足の速さの 95 パーセンタイル 1.75 m/s、99 パーセンタイル 2.6 m/s
+    /// （軸足の回転・踏み替えの瞬間を含む）。人が 20 回に 1 回しか出さない速さ（p95）から上を載せる（2026-11-26、1.5 → 1.75）。
+    /// </summary>
+    public const float SlideSpeed = 1.75f;
 
     /// <summary>震え: 0.1 s の窓に加速度の向きの入れ替わりがこれ以上（30 Hz 以上の振動。人の生理的な震えは 8〜12 Hz で小さい）。</summary>
     public const int JitterFlips = 6;
@@ -113,6 +121,21 @@ internal static class MotionAudit
             }
         }
 
+        // 四足の後ろ脚の滑り（引っかかりは腿の付け根の点が無いので見ない）。
+        if (trace.Quadruped)
+        {
+            foreach (var (point, contact, label) in new[] { ("rheelL", 4, "左後ろ脚のかかと"), ("rtoeL", 5, "左後ろ脚のつま先"), ("rheelR", 6, "右後ろ脚のかかと"), ("rtoeR", 7, "右後ろ脚のつま先") })
+            {
+                var v = MotionMetrics.Velocities(trace.Series(point), dt);
+                var slide = frames.Select((f, i) => standing[i] && f.Contacts[contact] && new Vector2(v[i].X, v[i].Z).Length() > SlideSpeed).ToArray();
+                foreach (var run in MotionMetrics.Runs(slide, dt, 0.08f))
+                {
+                    var peak = Enumerable.Range(run.Start, run.End - run.Start + 1).Max(i => new Vector2(v[i].X, v[i].Z).Length());
+                    Add("slide", label, run, peak, $"{label}が床に着いたまま {T(peak)} m/s で滑る");
+                }
+            }
+        }
+
         // 震え・急な加速。
         var hitNear = new bool[frames.Count];
         for (var i = 0; i < frames.Count; i++)
@@ -158,7 +181,7 @@ internal static class MotionAudit
         for (var i = 0; i < frames.Count; i++)
         {
             var points = new List<Vector2>();
-            for (var k = 0; k < 4; k++)
+            for (var k = 0; k < frames[i].Contacts.Length; k++)
             {
                 if (frames[i].Contacts[k])
                 {

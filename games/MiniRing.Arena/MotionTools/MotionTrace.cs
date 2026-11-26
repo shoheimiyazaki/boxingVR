@@ -37,17 +37,22 @@ internal sealed class MotionTrace
         "shoulderL", "elbowL", "handL", "shoulderR", "elbowR", "handR",
         "hipL", "kneeL", "ankleL", "heelL", "toeL",
         "hipR", "kneeR", "ankleR", "heelR", "toeR",
-        "tip",
+        "tip", "tipL",
+        // 四足（ガルヴァ）の後ろ脚: 腿・すねの剛体の中心、かかと・つま先。人の体では前の脚の点の写し（接地は常に無し、絵にも描かない: Quadruped）。
+        "rthighL", "rshinL", "rheelL", "rtoeL", "rthighR", "rshinR", "rheelR", "rtoeR",
     ];
 
-    /// <summary>接地の名前（<see cref="MotionSample.Contacts"/> の順）。</summary>
-    public static readonly string[] ContactNames = ["heelL", "toeL", "heelR", "toeR"];
+    /// <summary>接地の名前（<see cref="MotionSample.Contacts"/> の順。後ろ 4 つは四足の後ろ脚で、人は常に false）。</summary>
+    public static readonly string[] ContactNames = ["heelL", "toeL", "heelR", "toeR", "rheelL", "rtoeL", "rheelR", "rtoeR"];
+
+    /// <summary>四足の体を記録したか（後ろ脚の点と接地が意味を持つ）。</summary>
+    public bool Quadruped { get; private set; }
 
     private const float StepSeconds = 1f / 240f;
 
     private int _steps;
 
-    public MotionTrace(string scene, string subject, int seed, float legLength, float armReach, int every = 2)
+    public MotionTrace(string scene, string subject, int seed, float legLength, float armReach, int every = 2, float frameSeconds = 0f)
     {
         Scene = scene;
         Subject = subject;
@@ -55,6 +60,7 @@ internal sealed class MotionTrace
         LegLength = legLength;
         ArmReach = armReach;
         Every = Math.Max(1, every);
+        _frameSeconds = frameSeconds;
     }
 
     public string Scene { get; }
@@ -69,7 +75,10 @@ internal sealed class MotionTrace
 
     public int Every { get; }
 
-    public float Dt => Every * StepSeconds;
+    /// <summary>記録の間隔 [s]（試合は物理の歩 × Every、人の計測（mocap）は撮影の間隔）。</summary>
+    public float Dt => _frameSeconds > 0f ? _frameSeconds : Every * StepSeconds;
+
+    private readonly float _frameSeconds;
 
     public List<MotionSample> Frames { get; } = [];
 
@@ -113,11 +122,18 @@ internal sealed class MotionTrace
         }
         else
         {
-            tip = me.BladeTipWorld(Hand.Right) ?? me.BladeTipWorld(Hand.Left) ?? me.GloveCenter(Hand.Right);
+            tip = ClawTip(game, me, Hand.Right) ?? me.BladeTipWorld(Hand.Right) ?? me.BladeTipWorld(Hand.Left) ?? me.GloveCenter(Hand.Right);
         }
 
-        var contacts = new bool[4];
-        int[] ids = [me.HeelId(0), me.ToeId(0), me.HeelId(1), me.ToeId(1)];
+        var tipLeft = ClawTip(game, me, Hand.Left) ?? me.BladeTipWorld(Hand.Left) ?? me.GloveCenter(Hand.Left);
+
+        Quadruped = me.RearLegCount >= 2;
+        var rearL = Quadruped ? me.RearLegBodies(0) : default;
+        var rearR = Quadruped ? me.RearLegBodies(1) : default;
+        var contacts = new bool[ContactNames.Length];
+        int[] ids = Quadruped
+            ? [me.HeelId(0), me.ToeId(0), me.HeelId(1), me.ToeId(1), rearL.Heel, rearL.Toe, rearR.Heel, rearR.Toe]
+            : [me.HeelId(0), me.ToeId(0), me.HeelId(1), me.ToeId(1)];
         foreach (var c in world.Contacts())
         {
             for (var k = 0; k < ids.Length; k++)
@@ -147,7 +163,9 @@ internal sealed class MotionTrace
             me.ShoulderPosition(Hand.Right), me.ElbowPosition(Hand.Right), me.GloveCenter(Hand.Right),
             Hip(world, me, 1f), me.KneePosition(Hand.Left), me.AnklePosition(Hand.Left), me.HeelPosition(Hand.Left), world.GetState(me.ToeId(0)).Position,
             Hip(world, me, -1f), me.KneePosition(Hand.Right), me.AnklePosition(Hand.Right), me.HeelPosition(Hand.Right), world.GetState(me.ToeId(1)).Position,
-            tip,
+            tip, tipLeft,
+            .. Quadruped ? RearPoints(world, rearL) : FrontCopy(world, me, 0),
+            .. Quadruped ? RearPoints(world, rearR) : FrontCopy(world, me, 1),
         ];
         Frames.Add(new MotionSample(time, points, me.HandTargetWorld(Hand.Left), me.HandTargetWorld(Hand.Right), contacts, gap, gapJoint, edge, me.Stamina,
             me.State != FighterState.Standing, hits.Count == 0 ? null : string.Join("+", hits), selfCells, forward, opponent.HeadPosition, me.Concussion));
@@ -164,6 +182,27 @@ internal sealed class MotionTrace
     {
         var pelvis = world.GetState(me.Parts.Pelvis);
         return pelvis.Position + Vector3.Transform(new Vector3(side * HipHalfWidth, 0f, 0f), pelvis.Orientation);
+    }
+
+    /// <summary>はめた鎌（ガルヴァの手）の刃先 [m]（ClawLab の刃先と同じ点: 握り + 刃の弦）。鎌でなければ null。</summary>
+    private static Vector3? ClawTip(BoxingGame game, Fighter me, Hand hand)
+    {
+        if (game.GloveOf(me, hand) is not { Kind: WeaponKind.SickleClaw } claw)
+        {
+            return null;
+        }
+
+        var s = game.World.GetState(claw.Body.BodyId);
+        return s.Position + Vector3.Transform(Weapon.GripOf(claw.Kind) + SickleClawShape.Edge(hand), s.Orientation);
+    }
+
+    private static Vector3[] RearPoints(Aigis.Physics.PhysicsWorld world, (int Thigh, int Shin, int Heel, int Toe) leg) =>
+        [world.GetState(leg.Thigh).Position, world.GetState(leg.Shin).Position, world.GetState(leg.Heel).Position, world.GetState(leg.Toe).Position];
+
+    private static Vector3[] FrontCopy(Aigis.Physics.PhysicsWorld world, Fighter me, int foot)
+    {
+        var hand = foot == 0 ? Hand.Left : Hand.Right;
+        return [me.KneePosition(hand), me.AnklePosition(hand), me.HeelPosition(hand), world.GetState(me.ToeId(foot)).Position];
     }
 
     private readonly List<string> _pendingHits = [];
@@ -215,6 +254,7 @@ internal sealed class MotionTrace
         json.WriteNumber("dt", Dt);
         json.WriteNumber("legLength", LegLength);
         json.WriteNumber("armReach", ArmReach);
+        json.WriteBoolean("quadruped", Quadruped);
         foreach (var (k, v) in extra ?? new Dictionary<string, string>())
         {
             json.WriteString(k, v);

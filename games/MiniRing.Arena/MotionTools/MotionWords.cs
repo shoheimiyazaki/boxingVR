@@ -176,14 +176,14 @@ internal static class MotionWords
             return [.. span.Select(f => f.Points[k])];
         }
 
-        var candidates = new[] { "handL", "handR", "tip", "toeL", "toeR" };
+        var candidates = new[] { "handL", "handR", "tip", "tipL", "toeL", "toeR" };
         var effector = effectorHint ?? candidates.MaxBy(n => MotionMetrics.Speeds(S(n), dt).DefaultIfEmpty().Max())!;
         var speeds = MotionMetrics.Speeds(S(effector), dt);
         var peakIndex = speeds.Length == 0 ? 0 : Array.IndexOf(speeds, speeds.Max());
         var side = effector.EndsWith('L') ? "L" : effector.EndsWith('R') ? "R" : (MotionMetrics.Speeds(S("handR"), dt).DefaultIfEmpty().Max() >= MotionMetrics.Speeds(S("handL"), dt).DefaultIfEmpty().Max() ? "R" : "L");
         string[] chain = effector.StartsWith("toe", StringComparison.Ordinal)
             ? ["pelvis", "hip" + side, "knee" + side, "ankle" + side, "toe" + side]
-            : ["pelvis", "chest", "shoulder" + side, "elbow" + side, "hand" + side, .. effector == "tip" ? new[] { "tip" } : []];
+            : ["pelvis", "chest", "shoulder" + side, "elbow" + side, "hand" + side, .. effector.StartsWith("tip", StringComparison.Ordinal) ? new[] { effector } : []];
         // 打ちの前 0.5 s から打ちの山まで（戻りの速さを数えない）。
         var start = Math.Max(0, peakIndex - (int)(0.5f / dt));
         var order = MotionMetrics.ChainOrder([.. chain.Select(n => (IReadOnlyList<float>)MotionMetrics.Speeds(S(n), dt)[start..(peakIndex + 1)])], dt);
@@ -197,7 +197,7 @@ internal static class MotionWords
         var outside = 0;
         for (var i = 0; i < span.Count; i++)
         {
-            var pts = Enumerable.Range(0, 4).Where(k => span[i].Contacts[k]).Select(k => span[i].Points[Array.IndexOf(MotionTrace.PointNames, MotionTrace.ContactNames[k])]).Select(p => new Vector2(p.X, p.Z)).ToList();
+            var pts = Enumerable.Range(0, span[i].Contacts.Length).Where(k => span[i].Contacts[k]).Select(k => span[i].Points[Array.IndexOf(MotionTrace.PointNames, MotionTrace.ContactNames[k])]).Select(p => new Vector2(p.X, p.Z)).ToList();
             var com = span[i].Points[3];
             outside += MotionMetrics.SupportDistance(new Vector2(com.X, com.Z), pts) > MotionAudit.SupportOutside ? 1 : 0;
         }

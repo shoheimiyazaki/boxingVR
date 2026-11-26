@@ -169,6 +169,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | ドリル | `attacklab`・`finishlab`・`karatelab`・`drill`・`basics`・`formlab`・`guardlab`（引数は docs/TOOLS.md） |
 | 試合の動画 | `... video --red champion --blue swarmer --seconds 40 --out docs/video/<名前>.mp4`（ffmpeg が要る） |
 | 動きを 1 枚で見る・おかしな瞬間を探す | `... motioncard --scene jab\|sword --form kesa\|kick\|claw\|bout --out media_tmp/motion/<名前>`・`... motionaudit --replay x.mrrep`（3 面の残像と軌跡・時系列・動きの言葉 `docs/MOTION_WORDS.md`・引っかかり / 隙間 / 滑り / 震えの一覧。`docs/plans/MOTION_TOOLS_PLAN.md`） |
+| 動きの並べ比べ・人の幅 | `... motioncard --scene sword --char jin --form shomen --tune textbook\|trained --card no --out media_tmp/motion/<名前>` を 2〜3 本撮って `py -3 tools/motioncard.py --compare a.motion.json,b.motion.json --labels 教科書,教育`。人の幅は `... motionhuman`。動画（`video`・`imitate`）の左下に撮った物（コマンド・種・版）が焼き込まれる |
 | 動画を 1 枚で見る | `py -3 tools/sheet.py docs/video/<名前>.mp4 --count 12`（`<名前>.sheet.png`。区間は `--from/--to`、決まった時刻は `--times`） |
 
 撮った動画・記録は、世代を区切るときに `media/<世代>/` へ移し、`docs/MEDIA.md` に足す。動画を縮めるときは**音を残す**: `ffmpeg -i in.mp4 -vcodec libx264 -crf 30 -preset slow -vf scale=960:-2 -c:a aac -b:a 96k out_small.mp4`（`-an` は音を消す）。

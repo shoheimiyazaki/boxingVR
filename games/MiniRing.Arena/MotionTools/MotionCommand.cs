@@ -20,7 +20,7 @@ internal static class MotionCommand
     public static readonly string[] OptionNames =
     [
         "scene", "style", "weapon", "form", "kick", "body", "victim", "rear", "opponent", "aim", "hand", "red", "blue", "red-char", "blue-char",
-        "gap", "who", "seed", "seconds", "replay", "from", "to", "hit", "out", "card", "audit-cards", "every",
+        "gap", "who", "seed", "seconds", "replay", "char", "tune", "from", "to", "hit", "out", "card", "audit-cards", "every",
     ];
 
     public static int Run(Options o, bool audit)
@@ -51,13 +51,9 @@ internal static class MotionCommand
         }
 
         var c = CultureInfo.InvariantCulture;
-        trace.Save(output, findings, captions, new Dictionary<string, string>
-        {
-            ["windowFrom"] = from.ToString("0.000", c),
-            ["windowTo"] = to.ToString("0.000", c),
-            ["natural"] = natural.Format(),
-            ["command"] = (audit ? "motionaudit " : "motioncard ") + string.Join(' ', Environment.GetCommandLineArgs().Skip(2)),
-        });
+        var fields = MotionHuman.NaturalFields(natural, from, to, (audit ? "motionaudit " : "motioncard ") + string.Join(' ', Environment.GetCommandLineArgs().Skip(1)));
+        fields["alignTime"] = AlignTime(trace, from, to, natural.PeakTime).ToString("0.000", c);
+        trace.Save(output, findings, captions, fields);
         Console.WriteLine(trace.Summary());
         Console.WriteLine($"version physics {Fighter.PhysicsVersion} logic {BoxerBot.LogicVersion}, seed {trace.Seed}");
         Console.WriteLine(string.Create(c, $"window {from:0.00}-{to:0.00} s"));
@@ -72,8 +68,18 @@ internal static class MotionCommand
         return 0;
     }
 
+    /// <summary>
+    /// 並べ比べでそろえる時刻（docs/plans/MOTION_TOOLS_PLAN.md §A3）: 区間 [<paramref name="from"/>, <paramref name="to"/>] の最初の当たり、
+    /// 当たりが無ければ末端の速さの山 <paramref name="peakTime"/>。教科書と練習の後・手本を「当たりの瞬間」で重ねるため。
+    /// </summary>
+    public static float AlignTime(MotionTrace trace, float from, float to, float peakTime)
+    {
+        ArgumentNullException.ThrowIfNull(trace);
+        return trace.Frames.FirstOrDefault(f => f.Hit is not null && f.Time >= from && f.Time <= to)?.Time ?? peakTime;
+    }
+
     /// <summary>tools/motioncard.py を呼ぶ（Python と matplotlib が要る）。</summary>
-    private static void Card(string json, int auditCards)
+    internal static void Card(string json, int auditCards)
     {
         var script = Path.Combine("tools", "motioncard.py");
         if (!File.Exists(script))
@@ -112,7 +118,7 @@ internal static class MotionCommand
         }
         else
         {
-            var names = new[] { "handL", "handR", "tip", "toeL", "toeR" };
+            var names = new[] { "handL", "handR", "tip", "tipL", "toeL", "toeR" };
             var speeds = names.Select(n => MotionMetrics.Speeds(trace.Series(n), trace.Dt)).ToList();
             var best = Enumerable.Range(0, frames.Count).MaxBy(i => speeds.Max(s => s[i]) * (frames[i].Down ? 0f : 1f));
             at = frames[best].Time;
@@ -175,6 +181,11 @@ internal static class MotionCommand
     /// <summary>剣の型を構えて立つ相手へ 1 回（StrikeDrill と同じ。--weapon katana / longsword / bat、--form 型の名前、既定 katana の kesa）。</summary>
     private static MotionTrace Sword(Options o)
     {
+        if (o.Get("char") is { } id)
+        {
+            return CharacterSword(o, CharacterRoster.Get(id));
+        }
+
         var weapon = Enum.Parse<WeaponKind>(o.Get("weapon") ?? "katana", ignoreCase: true);
         var name = o.Get("form") ?? "kesa";
         var motion = FormSwordsman.Forms(weapon).FirstOrDefault(f => f.Name == name)
@@ -191,6 +202,37 @@ internal static class MotionCommand
         StrikeDrill.Run(technique, FormSwordsman.Guard(weapon), SwordStance.Rate, SwordStance.Tuning, (game, t, _) =>
         {
             trace ??= new MotionTrace($"sword {weapon} {name} vs stand", "red", 1, game.Player.LegLength, game.Player.ArmReach, o.Int("every", 2, min: 1));
+            trace.Record(game, game.Player, t);
+        });
+        return trace!;
+    }
+
+    /// <summary>
+    /// 名簿のキャラの剣の 1 振り（swordpractice と同じ <see cref="SwordPractice.Swing"/>）: --char の体・武器で、--form の型を --tune textbook（教科書の経路）か
+    /// trained（名簿の教育の差分 weaponBot.Forms）で、無防備の --victim（既定 standard）へ。並べ比べ（motioncompare）で教科書と練習の後を同じ種で撮る。
+    /// </summary>
+    private static MotionTrace CharacterSword(Options o, FighterCharacter who)
+    {
+        var style = who.WeaponStyle ?? throw new ArgumentException($"{who.Id} は武器のボットを持ちません。");
+        var name = o.Get("form") ?? FormSwordsman.Forms(who.Weapon!.Value)[0].Name;
+        var tuneName = o.Get("tune") ?? "trained";
+        var tune = tuneName switch
+        {
+            "textbook" => FormTune.Identity,
+            "trained" => style.Forms?.GetValueOrDefault(name) ?? FormTune.Identity,
+            _ => throw new ArgumentException($"--tune は textbook / trained です（{tuneName}）。"),
+        };
+        if (tuneName == "trained" && style.Forms?.ContainsKey(name) != true)
+        {
+            Console.WriteLine($"注意: {who.Id} の教育に型 {name} の差分が無い（trained = 教科書と同じ）。差分のある型: {string.Join(", ", style.Forms?.Keys ?? [])}");
+        }
+
+        var seed = o.Int("seed", 1);
+        MotionTrace? trace = null;
+        SwordPractice.Swing(who, style, SwordPractice.Technique(who, name, tune), seed, SwordPractice.Victim(o.Get("victim") ?? "standard"), (game, t, _) =>
+        {
+            trace ??= new MotionTrace($"sword {who.Id} {who.Weapon} {name} {tuneName} ({SwordPractice.Describe(tune)}) vs {o.Get("victim") ?? "standard"}", "red", seed,
+                game.Player.LegLength, game.Player.ArmReach, o.Int("every", 2, min: 1));
             trace.Record(game, game.Player, t);
         });
         return trace!;

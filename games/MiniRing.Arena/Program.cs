@@ -60,7 +60,7 @@ try
         "groundlab" => GroundLabCommand(Options.Parse(argv[1..], "style", "moves", "bouts", "seconds", "seed", "log", "video", "practice", "candidates", "sigma", "validate")),
         "kickbalance" => KickBalanceCommand(Options.Parse(argv[1..], "style", "kicks", "teachings", "bouts", "seconds", "seed", "confirm", "log", "video")),
         "stick" => StickCommand(Options.Parse(StickSwingLab.WithYes(argv[1..]), "style", "kicks", "teachings", "png", "design", "candidates", "seed", "log", "approach", "ground", "moves", "path", "out", "forms", "detail", "swing", "planes", "samples", "weights", "video", "polish", "iterations", "character", "limits", "bvh", "bvh-scale")),
-        "clawlab" => ClawLab.Report(Console.Out),
+        "clawlab" => ClawLabCommand(Options.Parse(argv[1..], "natural", "cards")),
         "kicklab" => KickLabCommand(Options.Parse(argv[1..], "body", "kick", "distances", "seeds", "confirm-seeds", "shin", "overshoot", "side", "log")),
         "kickvideo" => KickVideoCommand(Options.Parse(argv[1..], "body", "kick", "distances", "side", "slow", "width", "height", "fps", "out")),
         "kickmocap" => KickMocapCommand(Options.Parse(argv[1..], "dir", "export", "log", "video", "doll", "durations", "distances", "export-mid", "body")),
@@ -111,6 +111,7 @@ try
         "perf" => PerfCommand.Run(Options.Parse(argv[1..], "scene", "seconds", "seeds", "render", "check", "alloc", "out")),
         "motioncard" => MiniRing.Arena.MotionTools.MotionCommand.Run(Options.Parse(argv[1..], MiniRing.Arena.MotionTools.MotionCommand.OptionNames), audit: false),
         "motionaudit" => MiniRing.Arena.MotionTools.MotionCommand.Run(Options.Parse(argv[1..], MiniRing.Arena.MotionTools.MotionCommand.OptionNames), audit: true),
+        "motionhuman" => MiniRing.Arena.MotionTools.MotionHuman.Run(Options.Parse(argv[1..], "dir", "out", "export", "trace")),
         "recordbout" => RecordBoutCommand(Options.Parse(argv[1..], "red", "blue", "seconds", "seed", "tv", "out")),
         "version" => Print($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}"),
         "tvdraft" => TvDraftCommand(Options.Parse(argv[1..], "events", "out", "org")),
@@ -2819,6 +2820,8 @@ static int WeaponCheck(Options o)
     var install = o.Get("install") ?? "no";
     return install is "yes" or "no" ? VoxelTool.CheckWeapons(input, install == "yes") : throw new ArgumentException($"--install は yes か no です（{install}）。");
 }
+
+static int ClawLabCommand(Options o) => ClawLab.Report(Console.Out, natural: o.Get("natural") is "yes" or "1" or "true", cards: o.Get("cards") is "yes" or "1" or "true");
 
 static int KickShinCommand(Options o)
 {

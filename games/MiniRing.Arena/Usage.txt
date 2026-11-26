@@ -25,7 +25,7 @@
                                                                                   攻撃のドリル: 単発・連打 × 溜めの長さで、拳の速さ・体重の乗り・威力
   karatelab [--only shapes,parry,kicks,video] [--cues 0,0.06] [--bouts N] [--seconds S] [--seed X] [--log f.md] [--video media_tmp/karate_vitals]
                                                                                   空手のドリル: 手の形 × 急所、パリー（拳の曲がり）、5 種の蹴り
-  clawlab                                      鎌の試振りと、練習に使わなかった相手での比較。
+  clawlab [--natural yes] [--cards yes]        鎌の試振りと、練習に使わなかった相手での比較（練習の共通の枠。--natural で自然さの代価も引く）。
   kicklab [--body taeyun] [--kick Roundhouse] [--distances 1.0,1.1,...] [--seeds 1,2,..] [--confirm-seeds 11,12,..] [--shin 0.75] [--overshoot -0.2] [--log f.md]
                                                                                   蹴りの間合いのドリル: 間合いを刻んで蹴り、当たり・すねの当たった点・渡したエネルギーの表（採る間合いは使っていない種で比べ直す）
   stick [--swing] [--planes vertical,kesa,...] [--samples 2000] [--polish 8] [--iterations 3000] [--seed 1] [--weights speed:3,smooth:1,plane:1,edge:1,dir:1,whole:0.5] [--character jin] [--limits grip|loose] [--bvh dir] [--bvh-scale 2.82] [--video docs/video] [--log f.md]
@@ -109,8 +109,9 @@
   vrforms [--dir] [--rank] [--seed] [--bouts] [--seconds] [--out] [--video] [--width] [--height] [--fps] [--slow] [--only] [--confirm] [--char] [--forms] [--vs] [--referee]
   mocap [--bvh] [--out] [--from] [--to] [--speed] [--width] [--height] [--fps] [--strikes]
   intentvideo [--script] [--blue] [--seed] [--seconds] [--width] [--height] [--out]
-  motioncard [--scene jab|bout|sword|kick|claw|replay] [--style] [--weapon] [--form] [--kick] [--body] [--victim] [--rear] [--opponent] [--aim] [--gap] [--hand] [--red] [--blue] [--red-char] [--blue-char] [--who] [--seed] [--seconds] [--replay] [--from] [--to] [--hit] [--out] [--card] [--audit-cards] [--every]   動きの 1 枚（3 面の残像と軌跡・時系列・動きの言葉。docs/plans/MOTION_TOOLS_PLAN.md）
+  motioncard [--scene jab|bout|sword|kick|claw|replay] [--style] [--weapon] [--form] [--kick] [--body] [--victim] [--rear] [--opponent] [--aim] [--gap] [--hand] [--red] [--blue] [--red-char] [--blue-char] [--who] [--seed] [--seconds] [--replay] [--char] [--tune textbook|trained] [--from] [--to] [--hit] [--out] [--card] [--audit-cards] [--every]   動きの 1 枚（3 面の残像と軌跡・時系列・動きの言葉。docs/plans/MOTION_TOOLS_PLAN.md）
   motionaudit （motioncard と同じ引数）   不自然な瞬間（引っかかり・滑り・関節の隙間・震え・支えの外…）の一覧と、その瞬間ごとの絵
+  motionhuman [--dir data/mocap/kyokushin] [--out …human_ranges.json] [--export <名前>]   人の蹴りの計測を同じ式で測った幅（躍度・連鎖の順・足の滑り）。--export で手本の記録
   recordbout [--red] [--blue] [--seconds] [--seed] [--tv] [--out]
   version 
   tvdraft [--events] [--out] [--org]
