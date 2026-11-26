@@ -653,6 +653,12 @@ public sealed class SwordsmanBot : IFighterControl
             technique = MotionAim.Aimed(technique, target, sense.ArmReach, _aimTuning) with { Name = technique.Name };
         }
 
+        // 教育で相手の頭の高さを追う型なら、今見えている頭の高さの差の分だけ両手の通り道を上下へずらす（FormTune.Follow）。
+        if (technique.HeadFollow != 0f && sense.SelfHead != default)
+        {
+            technique = technique with { Motion = FormTune.Raised(technique.Motion, FormTune.FollowLift(technique.HeadFollow, sense.OpponentHead.Y, sense.SelfHead.Y, sense.ArmReach)) };
+        }
+
         _counterStrike = _counterPlanned;
         Counters += _counterStrike ? 1 : 0;
         _counterPlanned = false;

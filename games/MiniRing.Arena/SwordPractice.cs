@@ -243,11 +243,12 @@ internal static class SwordPractice
             Math.Clamp(t.Twist + (N() * step * 0.8f), 0f, 2.5f),
             Math.Clamp(t.Lift + (N() * step * 0.15f), -0.5f, 0.5f),
             Math.Clamp(t.Lean + (N() * step * 0.1f), -0.3f, 0.3f),
-            Math.Clamp(t.Reach + (N() * step * 0.12f), -0.4f, 0.4f));
+            Math.Clamp(t.Reach + (N() * step * 0.12f), -0.4f, 0.4f),
+            Math.Clamp(t.Follow + (N() * step * 0.3f), -0.5f, 1.5f));
     }
 
     public static string Describe(FormTune t) => string.Create(CultureInfo.InvariantCulture,
-        $"速さ ×{t.Tempo:0.00}・ひねり ×{t.Twist:0.00}・高さ {t.Lift:+0.00;-0.00}・前 {t.Lean:+0.00;-0.00}・間合い {t.Reach * 100f:+0;-0} cm");
+        $"速さ ×{t.Tempo:0.00}・ひねり ×{t.Twist:0.00}・高さ {t.Lift:+0.00;-0.00}・前 {t.Lean:+0.00;-0.00}・間合い {t.Reach * 100f:+0;-0} cm{(t.Follow != 0f ? $"・頭を追う {t.Follow:0.00}" : "")}");
 
     private static string Row(string label, Trial t) => string.Create(CultureInfo.InvariantCulture,
         $"| {label} | {Describe(t.Tune)} | {t.Score:0.0} | {t.Incapacitated}/{t.Outcomes.Count}（{t.ByVictim}） | {t.Outcomes.Average(o => o.ConsciousnessEnd):0.00} | {t.Outcomes.Count(o => o.Dead)} | {t.ImpactSpeed:0.0} | {t.Outcomes.Average(o => o.HandRmsCm):0.0} | {t.Outcomes.Average(o => o.EdgeDeg):0} | {t.Outcomes.Average(o => o.Cells):0} | {t.Outcomes.Average(o => o.SelfCells):0} |");
