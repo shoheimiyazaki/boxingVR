@@ -99,6 +99,13 @@ internal sealed class ImitationVideo(int width, int height, int fps, float slow,
     /// <summary>1 本をなぞらせ、<paramref name="emit"/> へ絵を出す（null なら測るだけ）。</summary>
     internal Tracking Run(Shot shot, Action<BoxingGame, IReadOnlyList<ScreenTextDraw>, IReadOnlyList<DebugLine>, float>? emit, TextWriter? trace = null, Action<BoxingGame, float>? afterStep = null)
     {
+        if (emit is { } inner)
+        {
+            // 何を撮ったか（コマンド・種・版）を左下に焼き込む（ShotLabel）
+            var label = ShotLabel.Text(1);
+            emit = (g, text, extra, dim) => inner(g, [.. text, ShotLabel.Draw(label, height)], extra, dim);
+        }
+
         var nextTrace = 0f;
         // 相手に背を向けて稽古する（動きの踏み込みで相手にぶつからないように）。
         MotionImitation? imitation = null;

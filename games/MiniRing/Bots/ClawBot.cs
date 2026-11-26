@@ -15,7 +15,7 @@ internal sealed class ClawBot(BotStats stats)
         to.Y = 0f;
         var distance = to.Length();
         var forward = distance > 0.001f ? to / distance : sense.Self.Forward;
-        var range = sense.ArmReach + ClawSegment.Length * 0.38f;
+        var range = sense.ArmReach + ClawSegment.Length * 0.56f;
         var occupied = _arms[0].Active || _arms[1].Active;
         var kick = basis.LeftLeg is not null || basis.RightLeg is not null;
         var ready = style.Attacks && !occupied && !kick && sense.OpponentAlive && distance < range + 0.10f;
@@ -47,8 +47,9 @@ internal sealed class ClawBot(BotStats stats)
 
     internal static Vector3 Aim(in FighterSense sense, int stroke) => (stroke % 3) switch
     {
-        0 => Vector3.Lerp(sense.OpponentChest, sense.OpponentHead, 0.65f),
+        0 => sense.OpponentTargets?.Point(AimGoal.NeckSeam, sense.Self.Origin) ?? Vector3.Lerp(sense.OpponentChest, sense.OpponentHead, 0.57f),
         1 => sense.OpponentTargets?.Point(AimGoal.GuardArm, sense.Self.Origin) ?? sense.OpponentChest,
-        _ => sense.OpponentChest,
+        _ => sense.OpponentTargets?.Point(AimGoal.TorsoSeam, sense.Self.Origin)
+            ?? (sense.OpponentBody == default ? sense.OpponentChest : Vector3.Lerp(sense.OpponentBody.Pelvis, sense.OpponentChest, 0.60f)),
     };
 }

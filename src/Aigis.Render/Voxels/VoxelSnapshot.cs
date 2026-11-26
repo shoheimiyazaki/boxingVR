@@ -11,6 +11,55 @@ public sealed class VoxelSnapshot
     internal VoxelSnapshotDraw[] Draws { get; }
 
     public int Count => Draws.Length;
+
+    /// <summary>
+    /// The bytes of texel copies this frame holds that are not yet in <paramref name="counted"/>, which it then
+    /// adds to it. Frames share unchanged copies, so a store of many frames counts each copy once this way.
+    /// </summary>
+    public long CountTexelBytes(ISet<object> counted)
+    {
+        ArgumentNullException.ThrowIfNull(counted);
+        var bytes = 0L;
+        foreach (var draw in Draws)
+        {
+            if (counted.Add(draw.Data)) { bytes += draw.Data.Rgba.Length; }
+        }
+
+        return bytes;
+    }
+
+    /// <summary>
+    /// Two frames of the same volumes, <paramref name="amount"/> of the way from <paramref name="from"/> to
+    /// <paramref name="to"/> (a replay drawing between two stored frames). Placement is blended by
+    /// <paramref name="blend"/>; the texels are the nearer frame's, never mixed. When the two frames do not hold
+    /// the same volumes in the same order, the nearer frame is returned unchanged.
+    /// </summary>
+    public static VoxelSnapshot Blend(VoxelSnapshot from, VoxelSnapshot to, float amount, Func<Matrix4x4, Matrix4x4, float, Matrix4x4> blend)
+    {
+        ArgumentNullException.ThrowIfNull(from);
+        ArgumentNullException.ThrowIfNull(to);
+        ArgumentNullException.ThrowIfNull(blend);
+        var nearer = amount < 0.5f ? from : to;
+        if (ReferenceEquals(from, to) || from.Count != to.Count)
+        {
+            return nearer;
+        }
+
+        var draws = new VoxelSnapshotDraw[from.Count];
+        for (var i = 0; i < draws.Length; i++)
+        {
+            var a = from.Draws[i];
+            var b = to.Draws[i];
+            if (!ReferenceEquals(a.Data.Identity, b.Data.Identity))
+            {
+                return nearer;
+            }
+
+            draws[i] = new(nearer.Draws[i].Data, blend(a.CellToWorld, b.CellToWorld, amount), a.Opacity + ((b.Opacity - a.Opacity) * amount));
+        }
+
+        return new(draws);
+    }
 }
 
 internal sealed record VoxelSnapshotData(object Identity, int Revision, int Width, int Height, int Depth, byte[] Rgba);

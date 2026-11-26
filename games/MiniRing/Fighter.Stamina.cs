@@ -439,7 +439,21 @@ public sealed partial class Fighter
     /// 顔の青白さ（0..1、見た目だけ）: 心臓が部位の欲しがる酸素を送りきれない割合（ならした値）。心臓の働きが落ちる・全身で酸素を欲しがるほど強い。
     /// 試合の計算には使わない。
     /// </summary>
-    public float Pallor => IsDead ? 1f : Smooth(Math.Clamp(_heartShortfall / PallorFull, 0f, 1f));
+    public float Pallor => IsDead ? MathF.Max(Lividity, LivePallor) : LivePallor;
+
+    private float LivePallor => Smooth(Math.Clamp(_heartShortfall / PallorFull, 0f, 1f));
+
+    /// <summary>死んでからの時間 [s]（見た目だけ。試合の計算・チェックサムに入れない）。</summary>
+    public float DeadTime { get; private set; }
+
+    /// <summary>
+    /// 死後の皮膚の変色（0..1、見た目だけ）: 心臓が止まり血の酸素が尽きて、全身の皮膚が数秒かけて青黒くなる（<see cref="LividitySeconds"/> で満ちる）。
+    /// 現実の死斑・チアノーゼは数分〜数時間かかるが、中継で「死んだ」と伝わるよう縮めた合図の速さ（§1.7 の見える手がかり）。
+    /// </summary>
+    public float Lividity => IsDead ? Smooth(Math.Clamp(DeadTime / LividitySeconds, 0f, 1f)) : 0f;
+
+    /// <summary>死後の変色が満ちるまで [s]（ユーザーの指定「数秒かけてだんだん」）。</summary>
+    private const float LividitySeconds = 5f;
 
     /// <summary>心臓がこの割合だけ送りきれないとき、顔の青白さがいちばん強い。</summary>
     private const float PallorFull = 0.5f;
@@ -469,8 +483,17 @@ public sealed partial class Fighter
             var heldBody = arm.Held?.Body ?? arm.Support?.Body;
             if (wrist is { } joint && heldBody is { } body && _world.HasConstraint(joint))
             {
-                var torque = ReserveServo(arm.Region, joint, arm.Forearm, body, arm.WristTorque(_tuning) * _tuning.TorqueScale * arm.WristShare * ControlScale * FaintArm * vigor * Strength(arm.Forearm), allowance, dt);
-                _world.SetAngularServoSettings(joint, arm.WristHz(_tuning) * MathF.Sqrt(arm.WristShare), torque, arm.WristDamping(_tuning));
+                var torqueLimit = arm.WristTorque(_tuning);
+                var frequency = arm.WristHz(_tuning);
+                if (_bladeChords[(int)arm.Hand] is not null && arm.Held is { } claw)
+                {
+                    // Size the actuator to the blade's gravity moment and reserve the work through the same arm budget.
+                    var gravityMoment = _world.GetMass(body) * _world.Gravity.Length() * claw.GripLocal.Length();
+                    torqueLimit += 3f * gravityMoment;
+                    frequency = MathF.Max(frequency, 14f);
+                }
+                var torque = ReserveServo(arm.Region, joint, arm.Forearm, body, torqueLimit * _tuning.TorqueScale * arm.WristShare * ControlScale * FaintArm * vigor * Strength(arm.Forearm), allowance, dt);
+                _world.SetAngularServoSettings(joint, frequency * MathF.Sqrt(arm.WristShare), torque, arm.WristDamping(_tuning));
             }
         }
     }
@@ -605,8 +628,11 @@ public sealed partial class Fighter
         var scale = MuscleWork.ForceScale(linear, quadratic, holding, budget);
         SpendMuscleEnergy(arm.Region, (linear * scale) + (quadratic * scale * scale) + (holding * scale));
         arm.LastForce = force * scale;
-        _world.ApplyLinearImpulse(arm.Forearm, force * (scale * dt));
-        _world.ApplyLinearImpulse(Parts.Chest, -((armPart * _tuning.HandReactionShare) + internalPart) * (scale * dt));
+        if (Attached(arm.Forearm, Parts.Chest)) // 拳を引く力と胴への反作用は対で
+        {
+            _world.ApplyLinearImpulse(arm.Forearm, force * (scale * dt));
+            _world.ApplyLinearImpulse(Parts.Chest, -((armPart * _tuning.HandReactionShare) + internalPart) * (scale * dt));
+        }
         if (weightShift && bodyForce.LengthSquared() > 0f)
         {
             ApplySharedImpulse(bodyForce * (scale * dt));

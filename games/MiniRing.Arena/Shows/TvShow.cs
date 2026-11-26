@@ -112,6 +112,27 @@ internal static class ShowFormats
         ["vfc"] = (w, h, org) => new VfcShow(w, h, org),
     };
 
+    /// <summary>型ごとの試合の前の場面の出来事の種類（団体のファイルの <c>showSkip</c> が名指しできるもの）。</summary>
+    private static readonly Dictionary<string, IReadOnlyList<string>> Scenes = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+    {
+        ["wvc"] = ["program", "opening", "tape", "call"],
+        ["vfc"] = ["fight_card", "cold_open", "poster", "walkout", "faceoff"],
+    };
+
+    /// <summary>型 <paramref name="showId"/> の試合の前の場面の出来事の種類。</summary>
+    public static IReadOnlyList<string> SceneTypes(string showId) => Scenes.TryGetValue(showId, out var types) ? types : [];
+
+    /// <summary><paramref name="types"/> のうち、型 <paramref name="showId"/> に無い場面の種類。</summary>
+    public static IReadOnlyList<string> UnknownScenes(string showId, IEnumerable<string> types) => [.. types.Where(t => !SceneTypes(showId).Contains(t, StringComparer.Ordinal))];
+
+    /// <summary>試合の前の場面の並びから、団体が流さない場面（<see cref="Organization.SkippedScenes"/>）を除く。</summary>
+    public static IReadOnlyList<ShowScene> PreFight(ITvShow show, Organization org, TvCard card, TvProgram? program, bool hasProfiles)
+    {
+        ArgumentNullException.ThrowIfNull(show);
+        ArgumentNullException.ThrowIfNull(org);
+        return [.. show.PreFight(card, program, hasProfiles).Where(s => !org.SkippedScenes.Contains(s.EventType, StringComparer.Ordinal))];
+    }
+
     /// <summary>型の id の一覧。</summary>
     public static IReadOnlyList<string> Ids { get; } = [.. Makers.Keys.Order(StringComparer.Ordinal)];
 

@@ -47,7 +47,19 @@ public sealed record FighterTuning
 
     /// <summary>足首から足の中心までの前へのずれを決める値 [m]（Aigis の既定 5cm は 1.7m の体用。そのままでは、かかとが足首から後ろへ 5cm 飛び出していた）。</summary>
     [JsonIgnore]
-    public float FootForwardOffset => HumanoidRagdoll.FootForwardOffset * Scale;
+    public float FootForwardOffset => Build.FourLegged ? HalfExtents.Foot.Z : HumanoidRagdoll.FootForwardOffset * Scale;
+
+    internal Vector3 CoxaHalf => BodyBuild.CoxaHalf(HalfExtents.Pelvis);
+
+    internal float CoxaMass
+    {
+        get
+        {
+            var root = CoxaHalf;
+            var thigh = HalfExtents.Thigh;
+            return Masses.Thigh * (root.X * root.Y * root.Z) / (thigh.X * thigh.Y * thigh.Z);
+        }
+    }
     public float GloveRadius { get; init; } = 0.0676f;
 
     // ── 体幹（加速度単位）
@@ -933,6 +945,22 @@ public sealed record FighterTuning
 
     /// <summary>臓器がこの割合より少なくなったら死ぬ。</summary>
     public float OrganDeathFraction { get; init; } = 0.5f;
+
+    /// <summary>
+    /// 関節で 2 つの部位の格子が接しているとみなすセルの中心の距離の余裕 [セル]: 作ったときに中心の距離が「2 つのセルの大きさの半分の和
+    /// （面で接する距離）＋ この値 × 大きい方のセル」以内だった親と子のセルの組が、関節で体をつないでいる物質（<see cref="Voxels.BoxerBody.JointHeld"/>）。
+    /// 組が 1 つも残らなければ、その関節で体は分かれる。1: 関節の立った姿勢の隙間は 1 セル以下で、その隙間は関節の組織（関節のつなぎ
+    /// <see cref="Voxels.JointBridge"/> が埋める物。つなぎも 1 セル以内の親・子のセルをつなぐ）が埋めているので、1 セル越しの組も関節の物質として数える。
+    /// 0.5 では肘の組が 12（皮膚だけ）になり、拳を受けて皮膚が削れただけで、骨と筋が残っているのに肘が外れた（StaminaRushTests）。1 で肘 32・肩 66〜73。
+    /// </summary>
+    public float JointContactSlack { get; init; } = 1f;
+
+    /// <summary>
+    /// つながりで分かれた欠片のうち、これより少ないセルのもの [セル] は剛体にせず、削れたセルと同じに体から落とす（<see cref="Voxels.BoxerBody.SplitDisconnected"/>）。
+    /// 8 = 2 × 2 × 2（約 3 cm 角）: 打撃で削れて飛ぶ破片（1 発で数十セル、塊でも数セル）と同じ大きさの物は、剛体の数を増やして当たりの箱と重なって弾かせるより、
+    /// 削れと同じ道で落とす。拳の連打で皮膚の 1 セルが孤立するたびに剛体ができ、試合が変わっていた（StaminaRushTests）。
+    /// </summary>
+    public int LooseCellLimit { get; init; } = 8;
     /// <summary>
     /// 肉が無くなったときに残る力の割合（腕・脚・胴）。肉の残り f に対して力は MinMuscleStrength + (1 − MinMuscleStrength) × f。
     /// </summary>

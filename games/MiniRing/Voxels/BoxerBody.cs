@@ -48,6 +48,12 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
     /// <summary>チアノーゼの皮膚の色（青紫。現実よりはっきりさせた、ゲームの合図の色）。</summary>
     private static readonly Vector4 CyanoticSkin = new(0.36f, 0.34f, 0.86f, 1f);
 
+    /// <summary>死んだ体の皮膚の色（青黒い。チアノーゼの青紫より暗く、生きている顔色の合図と見分けられる）。</summary>
+    private static readonly Vector4 DeadSkin = new(0.16f, 0.18f, 0.30f, 1f);
+
+    /// <summary>死後の変色が満ちたとき、皮膚の色を青黒へ寄せる割合（傷・あざが少し透けて見える程度に残す）。</summary>
+    private const float MaxLividity = 0.85f;
+
     /// <summary>
     /// 塗り直しの関数の置き場（段ごとに作り直す）。record の値の比較・ハッシュ（<c>_originals</c> の鍵）が描画で変わらないよう、
     /// 中身を書き換える別の箱に入れて、この部位は箱への参照だけを持つ。
@@ -228,7 +234,7 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
     /// 材質のセルは変えない（打撃・視覚・チェックサムに響かない）。<paramref name="pallor"/>（0..1）は顔全体を灰色がかった白へ寄せる
     /// （心臓が送りきれず顔から血の気が引く。チアノーゼの青はその上に重なる）。
     /// </summary>
-    public VoxelVolumeDraw Draw(float cyanosis, EyePose? eyes, float pallor = 0f)
+    public VoxelVolumeDraw Draw(float cyanosis, EyePose? eyes, float pallor = 0f, float lividity = 0f)
     {
         var eyeScan = EyeScan.None;
         var eyeOn = Kind == BodyPartKind.Head && eyes is not null;
@@ -246,7 +252,9 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
         // あざの色は、増えたとき（版）と、いちばん新しいあざの古さの段（1 秒ごと、赤から青紫へ変わる間だけ）で書き直す。
         var bruise = _cache.Bruise is { } b && b.Length == Body.Grid.CellCount ? b : null;
         var ageStep = bruise is null ? 0 : (int)MathF.Min(3f * BruiseAgeSeconds, _cache.Clock - _cache.LastBruise);
+        var livid = (int)MathF.Round(Math.Clamp(lividity, 0f, 1f) * CyanosisSteps); // 全身の皮膚（頭に限らない）
         var step = cyan + ((CyanosisSteps + 1) * (pale + ((CyanosisSteps + 1) * ((bruise is null ? 0 : _cache.BruiseVersion * 64) + ageStep))));
+        step = livid == 0 ? step : HashCode.Combine(step, livid);
         if (eyeOn)
         {
             step = HashCode.Combine(step, eyeScan.Pupil0, eyeScan.Pupil1, eyeScan.ClosedAbove0, eyeScan.ClosedAbove1);
@@ -258,6 +266,7 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
             var height = MathF.Max(1f, Body.Grid.Dimensions.Y - 1);
             var amount = MaxCyanosis * cyan / CyanosisSteps;
             var paleAmount = MaxPallor * pale / CyanosisSteps;
+            var lividAmount = MaxLividity * livid / CyanosisSteps;
             var since = _cache.BruiseSince;
             var clock = _cache.Clock;
             var grid = Body.Grid;
@@ -266,7 +275,7 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
             var half = grid.Dimensions.X / 2;
             var cellColors = CellColors;
             VoxelRecolor? recolor = null;
-            recolor = cyan == 0 && pale == 0 && bruise is null && !eyeOn && cellColors is null ? null : (m, color, x, y, z) =>
+            recolor = cyan == 0 && pale == 0 && livid == 0 && bruise is null && !eyeOn && cellColors is null ? null : (m, color, x, y, z) =>
             {
                 if (cellColors?.At(grid.Index(x, y, z), m) is { } own)
                 {
@@ -313,7 +322,8 @@ public sealed record VoxelPart(BodyPartKind Kind, VoxelBody Body, VoxelVolume Vo
                     color = Vector4.Lerp(color, PaleSkin, paleAmount) with { W = color.W };
                 }
 
-                return cyan == 0 ? color : Vector4.Lerp(color, CyanoticSkin, amount * MathF.Pow(y / height, CyanosisRise)) with { W = color.W };
+                color = cyan == 0 ? color : Vector4.Lerp(color, CyanoticSkin, amount * MathF.Pow(y / height, CyanosisRise)) with { W = color.W };
+                return livid == 0 ? color : Vector4.Lerp(color, DeadSkin, lividAmount) with { W = color.W };
             };
             _cache.Recolor = recolor;
             _cache.Step = step;
@@ -407,7 +417,7 @@ public sealed record FleshBridge(VoxelBody Stub, VoxelBody Fragment, IReadOnlyLi
 /// <item>どれかの臓器が半分以上壊れたら死ぬ（<see cref="DeathCause"/>）。</item>
 /// </list>
 /// </summary>
-public sealed class BoxerBody
+public sealed partial class BoxerBody
 {
     private (int Version, VisionState State)? _vision;
 
@@ -529,6 +539,11 @@ public sealed class BoxerBody
                 BoxerSpine.Place(kind, head);
                 return head;
             }
+
+            if (kind is BodyPartKind.Coxa or BodyPartKind.Foot or BodyPartKind.Toe)
+            {
+                return AlienAnatomy.LegSegment(kind, half, lookPalette);
+            }
         }
 
         var sourceHalf = half / tuning.Build.ScaleOf(kind);
@@ -560,7 +575,7 @@ public sealed class BoxerBody
 
         if (tuning.Build.FourLegged)
         {
-            grid = AlienAnatomy.Plate(kind, grid, lookPalette!);
+            grid = AlienAnatomy.Plate(kind, grid, lookPalette!, mirrorX);
         }
 
         BoxerSpine.Place(kind, grid); // 頸椎・脊髄は外見のセルに触れず、中の材質だけ（顔の彫り直しの後に置いて位置を保つ）
@@ -612,6 +627,8 @@ public sealed class BoxerBody
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(tuning);
         _deathFraction = tuning.OrganDeathFraction;
+        _contactSlack = tuning.JointContactSlack;
+        _looseCellLimit = tuning.LooseCellLimit;
         if (tuning.Build.FourLegged)
         {
             outfit = null;
@@ -713,6 +730,7 @@ public sealed class BoxerBody
                 var halo = overrides?.HaloFor(parentPart.Kind, parentPart.Body.Grid.Dimensions);
                 halo = halo is not null && fighter.OnPlusXSide(parentId) ? halo.MirroredX() : halo;
                 _bridges.Add(new JointBridge(joint, parentPart, childPart, anchor, LayersOf(parentPart), LayersOf(childPart), halo));
+                AddJointContact(parentPart, childPart, anchor);
             }
         }
 
@@ -803,7 +821,7 @@ public sealed class BoxerBody
         var severed = new HashSet<int>();
         foreach (var fragment in _fragments)
         {
-            if (fragment.FragmentOf is { } from)
+            if (fragment.FragmentOf is { } from && !_splitPieces.Contains(fragment)) // つながりで分かれた欠片は、元の部位の治りを止めない（分かれた所は元の形から外してある）
             {
                 severed.Add(from);
             }
@@ -830,7 +848,7 @@ public sealed class BoxerBody
                 // 削れた所だけでなく、へこみで押し込まれた所（潰れた肉の場所に入った皮膚）・擦り減った皮膚（赤み）も元に戻す。
                 // 数えるのは、中身が入れ替わったセル（埋め直した・押し込まれた所を戻した）だけ。赤み・擦り減りを消すだけなら予算を使わない。
                 var was = grid.AtIndex(i);
-                if (grid.Reset(i, original.Materials[i], original.Surface[i]) && was != original.Materials[i])
+                if (original.Materials[i] != 0 && grid.Reset(i, original.Materials[i], original.Surface[i]) && was != original.Materials[i])
                 {
                     restored++;
                 }
@@ -1246,7 +1264,7 @@ public sealed class BoxerBody
     }
 
     /// <summary>首の骨が折れた・断たれた（頭の部位が分かれた）か。</summary>
-    public bool NeckBroken => _fragments.Exists(f => f.Kind == BodyPartKind.Head);
+    public bool NeckBroken { get; private set; }
 
     /// <summary>
     /// 脊髄の働き（0..1）: 高さ <paramref name="level"/> の、いちばん細くなった薄切りで残っている脊髄のセルの割合。神経は直列に信号を通すので、
@@ -1818,6 +1836,7 @@ public sealed class BoxerBody
             piece.BeamAxis = axis; // 破片も骨で曲げを受ける梁（武器のように Snap で飛ばない。破片はそれ以上は分けない）
             fragment = new VoxelPart(part.Kind, piece, VoxelVolume.For(piece.Grid), axis, part.DistalHigh, body.BodyId);
             _fragments.Add(fragment);
+            NeckBroken |= part.Kind == BodyPartKind.Head; // 首は 1 度だけ折れる（つながりで分かれた頭の欠片は数えない: SplitDisconnected）
             _originals[fragment] = Original.Slice(parentOriginal, grid, piece.Grid, axis, part.DistalHigh ? slice + 1 : 0, earlierCut, part.DistalHigh);
             Matrix4x4.Invert(piece.GridToWorld(), out var toPiece);
             foreach (var (moved, world) in cordMoves)

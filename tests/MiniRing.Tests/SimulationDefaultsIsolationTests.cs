@@ -34,7 +34,7 @@ public sealed class SimulationDefaultsIsolationTests
         });
 
         Assert.AreEqual((120f, 1, 1f), mine);
-        Assert.AreEqual((240f, 3, 0.5f), await other);
+        Assert.AreEqual((240f, 2, 0.5f), await other);
         Assert.AreEqual(240f, BoxingGame.DefaultSubstepRate, "the test's own flow is untouched");
     }
 }

@@ -69,4 +69,38 @@ public sealed class VrMotionFormsTests
         Assert.AreEqual(1f, MathF.Abs(Quaternion.Dot(atPeak.Orientation, recorded)), 0.02f);
         Assert.AreEqual(0f, Vector3.Distance(atPeak.Right, clip.Sample(peak).RightTarget), 0.02f);
     }
+
+    private const string KoteVr = "katana_kote_1_20261124_230024";
+
+    [TestMethod]
+    public void EducationOverlaysVrFormsAndRejectsUnknownSwings()
+    {
+        Assert.IsTrue(VrMotionForms.Embedded.Contains(KoteVr), string.Join(", ", VrMotionForms.Embedded));
+        var good = new System.Text.Json.Nodes.JsonObject { ["VrForms"] = new System.Text.Json.Nodes.JsonObject { ["kote"] = KoteVr } };
+        var style = WeaponEducation.Resolve(WeaponKind.Katana, good)!;
+        Assert.AreEqual(KoteVr, style.VrForms!["kote"]);
+        var unknownSwing = new System.Text.Json.Nodes.JsonObject { ["VrForms"] = new System.Text.Json.Nodes.JsonObject { ["kote"] = "no-such-swing" } };
+        Assert.ThrowsExactly<InvalidDataException>(() => WeaponEducation.Resolve(WeaponKind.Katana, unknownSwing));
+        var unknownForm = new System.Text.Json.Nodes.JsonObject { ["VrForms"] = new System.Text.Json.Nodes.JsonObject { ["no-such-form"] = KoteVr } };
+        Assert.ThrowsExactly<InvalidDataException>(() => WeaponEducation.Resolve(WeaponKind.Katana, unknownForm));
+    }
+
+    [TestMethod]
+    public void OnlyTheListedFormsTakeTheVrSwing()
+    {
+        // 型の経路を差し替えるのは書いた型だけで、ほかの型は武器の型そのもの（同じ動き・同じ間合い）。
+        const float reach = 0.53f;
+        var style = WeaponCatalog.Textbook(WeaponKind.Katana);
+        var minReach = style.InnerMinReach ?? style.MinReach;
+        var plain = FormSwordsman.Techniques(WeaponKind.Katana, reach, minReach).ToDictionary(t => t.Name);
+        var vr = FormSwordsman.TechniquesWithVrForms(WeaponKind.Katana, reach, minReach, new Dictionary<string, string> { ["kote"] = KoteVr }, FighterTuning.Default)
+            .ToDictionary(t => t.Name);
+        Assert.IsTrue(vr.ContainsKey("kote"));
+        Assert.AreNotEqual(plain["kote"].Motion.Frames.Count, vr["kote"].Motion.Frames.Count);
+        foreach (var (name, technique) in plain.Where(p => p.Key != "kote"))
+        {
+            Assert.AreSame(technique.Motion, vr[name].Motion, name);
+            Assert.AreEqual(technique.Range, vr[name].Range, 1e-6f, name);
+        }
+    }
 }
