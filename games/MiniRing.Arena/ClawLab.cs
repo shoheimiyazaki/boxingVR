@@ -75,7 +75,7 @@ internal static class ClawLab
         }
     }
 
-    internal static Trial Run(string opponent, int seed, float gap, int aim, Hand hand, float drive, float windup, bool moving = false, bool sweep = true)
+    internal static Trial Run(string opponent, int seed, float gap, int aim, Hand hand, float drive, float windup, bool moving = false, bool sweep = true, Action<BoxingGame, float>? afterStep = null)
     {
         var creature = CharacterRoster.Get("galva");
         var target = CharacterRoster.Get(opponent);
@@ -159,6 +159,7 @@ internal static class ClawLab
                 }
             }
             hits += game.RecentHits.Count(h => h.Attacker == f && h.Hand == hand && !h.Kick);
+            afterStep?.Invoke(game, time);
         }
 
         bool Separated(int id) => other.IsDetachedPart(id) && !other.HangsByFlesh(id);

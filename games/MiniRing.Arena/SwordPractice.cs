@@ -167,8 +167,7 @@ internal static class SwordPractice
                 recentTip.Dequeue();
             }
 
-            var local = Vector3.Transform(velocity, Quaternion.Conjugate(state.Orientation));
-            var off = local.Length() < 1e-4f ? float.NaN : MathF.Asin(Math.Clamp(MathF.Abs(local.Z) / local.Length(), 0f, 1f)) * 180f / MathF.PI;
+            var off = MotionTools.MotionMetrics.EdgeOffPlaneDegrees(velocity, state.Orientation); // 刃筋の式は 1 か所（docs/plans/MOTION_TOOLS_PLAN.md）
             swing.Add((velocity.Length(), off));
             var error = Vector3.Distance(me.HandTargetWorld(Hand.Right), me.GloveCenter(Hand.Right));
             handSq += error * error;

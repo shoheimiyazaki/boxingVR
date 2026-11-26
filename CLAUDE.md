@@ -132,6 +132,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | `docs/ORGS.md` | 3 団体（WVC・VFC・IVF）の決まり・出場の条件・階級と計量・王座とランキングの比べと、記録（`Orgs/standings/`）・道具（`weighin`・`rankings`・`title`）。IVF = 階級制のボクシング団体（3 ノックダウン制） |
 | `docs/MEDIA.md` | 動画・リプレイの保管（`media/<世代>/`、git の外）の索引と、世代の区切り方 |
 | `docs/EXCITEMENT.md` | 試合の面白さの測り方: 見どころ（打ち合い・紙一重・カウンター・ダウン・骨折…の物理の定義）・観客の見込みの驚きとはらはら（ドラマ）・慣れのある興奮の曲線（緩急）・テストの床 |
+| `docs/MOTION_WORDS.md` | 動きのたとえ（万歳・腰から折る・U 字・軌道面・鉄棒をくぐる…）と測れる量の辞書。motioncard の言葉の説明と同じ定義 |
 | `docs/ROSTER_REPORT.md` | 名簿の総当たり（組ごとの勝率と区間）・技ごとの間合いとダメージ・得意 / 不得意の距離を測り、ゲームの画像入りのレポート（Data 型の Artifact）にする手順・定義・考察の書き方（道具は `tools/roster-report/`） |
 
 **読み方（トークンの節約）**: 上の表は「今の仕組み」。**記録**（経緯・測定の生の値）は、その経緯が要るときだけ見出しで探して読む: `docs/BOT_PDCA.md`・`docs/arena/*`・`docs/LEARNING_PLAN.md` の記録の節・`docs/plans/done/`（終わった指示書と報告。報告が出た指示書はここへ移す）・`docs/VERSIONS.md`。大きい文書（`VOXEL_DAMAGE`・`BOTS`・`KARATE` など 20KB 超）は全部を読まず、`Grep` で節を探してその節だけ読む。
@@ -167,6 +168,7 @@ docs/                  仕組みの説明と PDCA の記録（下の表）
 | 総当たり | `... league --bouts 4 --seconds 60 --out docs/arena/<名前>.md`（名簿のキャラどうしは `rosterleague`） |
 | ドリル | `attacklab`・`finishlab`・`karatelab`・`drill`・`basics`・`formlab`・`guardlab`（引数は docs/TOOLS.md） |
 | 試合の動画 | `... video --red champion --blue swarmer --seconds 40 --out docs/video/<名前>.mp4`（ffmpeg が要る） |
+| 動きを 1 枚で見る・おかしな瞬間を探す | `... motioncard --scene jab\|sword --form kesa\|kick\|claw\|bout --out media_tmp/motion/<名前>`・`... motionaudit --replay x.mrrep`（3 面の残像と軌跡・時系列・動きの言葉 `docs/MOTION_WORDS.md`・引っかかり / 隙間 / 滑り / 震えの一覧。`docs/plans/MOTION_TOOLS_PLAN.md`） |
 | 動画を 1 枚で見る | `py -3 tools/sheet.py docs/video/<名前>.mp4 --count 12`（`<名前>.sheet.png`。区間は `--from/--to`、決まった時刻は `--times`） |
 
 撮った動画・記録は、世代を区切るときに `media/<世代>/` へ移し、`docs/MEDIA.md` に足す。動画を縮めるときは**音を残す**: `ffmpeg -i in.mp4 -vcodec libx264 -crf 30 -preset slow -vf scale=960:-2 -c:a aac -b:a 96k out_small.mp4`（`-an` は音を消す）。

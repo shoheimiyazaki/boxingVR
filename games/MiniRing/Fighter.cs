@@ -530,6 +530,35 @@ public sealed partial class Fighter
     /// <summary>生え直せる部位（子の剛体）ごとの、作ったときの関節。</summary>
     private readonly Dictionary<int, RestJoint> _rest = [];
 
+    /// <summary>
+    /// 観測用（motionaudit）: つながっている関節ごとの、親の側の関節の点と子の側の関節の点の距離 [m]（関節の隙間）。つま先は作ったときの
+    /// 母趾球の点（両方の剛体のローカル）で測る。読むだけで、試合の計算は変えない。
+    /// </summary>
+    internal IEnumerable<(string Joint, float Gap)> JointGaps()
+    {
+        foreach (var joint in _joints)
+        {
+            if (!_detached.Contains(joint.ChildPart) && _world.GetJointAnchors(joint.PrimaryConstraintId) is { } anchors)
+            {
+                yield return (joint.Joint.ToString(), Vector3.Distance(anchors.AnchorA, anchors.AnchorB));
+            }
+        }
+
+        foreach (var leg in AllLegs())
+        {
+            if (_detached.Contains(leg.Toe) || _detached.Contains(leg.Heel) || !_rest.TryGetValue(leg.Toe, out var rest))
+            {
+                continue;
+            }
+
+            var heel = _world.GetState(leg.Heel);
+            var toe = _world.GetState(leg.Toe);
+            var onHeel = heel.Position + Vector3.Transform(rest.ParentLocal, heel.Orientation);
+            var onToe = toe.Position + Vector3.Transform(rest.ChildLocal, toe.Orientation);
+            yield return (leg.Toe == ToeId(0) ? "LeftToe" : leg.Toe == ToeId(1) ? "RightToe" : "Toe", Vector3.Distance(onHeel, onToe));
+        }
+    }
+
     /// <summary>握って持つ武器の剛体ごとの切っ先（武器のローカル。<see cref="RegisterBladeTip"/>）。</summary>
     private readonly Dictionary<int, Vector3> _bladeTips = [];
 

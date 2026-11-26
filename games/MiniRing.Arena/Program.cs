@@ -109,6 +109,8 @@ try
         "royale" => RoyaleCommand.Run(Options.Parse(argv[1..], "fighters", "count", "seed", "seconds", "rounds", "break", "out", "width", "height", "fps", "replay", "verify", "trace", "teams", "team-names", "events")),
         "simplify" => SimplifyCommand.Run(Options.Parse(argv[1..], "variants", "scenes", "seeds", "seconds", "parallel", "out")),
         "perf" => PerfCommand.Run(Options.Parse(argv[1..], "scene", "seconds", "seeds", "render", "check", "alloc", "out")),
+        "motioncard" => MiniRing.Arena.MotionTools.MotionCommand.Run(Options.Parse(argv[1..], MiniRing.Arena.MotionTools.MotionCommand.OptionNames), audit: false),
+        "motionaudit" => MiniRing.Arena.MotionTools.MotionCommand.Run(Options.Parse(argv[1..], MiniRing.Arena.MotionTools.MotionCommand.OptionNames), audit: true),
         "recordbout" => RecordBoutCommand(Options.Parse(argv[1..], "red", "blue", "seconds", "seed", "tv", "out")),
         "version" => Print($"versions physics {MiniRing.Fighter.PhysicsVersion} logic {MiniRing.Bots.BoxerBot.LogicVersion}"),
         "tvdraft" => TvDraftCommand(Options.Parse(argv[1..], "events", "out", "org")),
