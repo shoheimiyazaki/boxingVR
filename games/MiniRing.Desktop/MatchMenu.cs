@@ -19,6 +19,7 @@ internal sealed class MatchMenu : IDisposable
     private readonly string _settingsPath;
     private readonly Action<bool>? _playCue;
     private readonly PortraitSet _portraits;
+    private readonly PreviewPortraits _previews;
     private readonly MenuView _view;
     private readonly MenuScript? _script;
     private string[] _files = [];
@@ -52,7 +53,8 @@ internal sealed class MatchMenu : IDisposable
             [.. roster.Select(c => c.Id)]);
         _portraits = new PortraitSet(roster);
         if (loadPortraits) { _portraits.Start(); }
-        _view = new MenuView(State, _portraits, () => _files.Select(Path.GetFileNameWithoutExtension).OfType<string>().ToArray());
+        _previews = new PreviewPortraits(loadPortraits);
+        _view = new MenuView(State, _portraits, () => _files.Select(Path.GetFileNameWithoutExtension).OfType<string>().ToArray(), _previews);
         ReloadBoxers(); // 壊れたファイルは知らせの行へ（_view の後）
     }
 
@@ -227,10 +229,19 @@ internal sealed class MatchMenu : IDisposable
 
     public IReadOnlyList<ScreenTextDraw> Text(Vector2 size) => _view.Text(size);
 
-    public void Dispose() => _portraits.Dispose();
+    /// <summary>見込みの全身の絵（作る・減量 / 増量）。</summary>
+    public PreviewPortraits Previews => _previews;
+
+    public void Dispose()
+    {
+        _portraits.Dispose();
+        _previews.Dispose();
+    }
 
     private MenuInput Translate(InputSnapshot input, Vector2 size)
     {
+        var dt = (float)Math.Min(_frameClock.Elapsed.TotalSeconds, 0.25); // 止まっていた後の 1 回で連続が飛ばないように
+        _frameClock.Restart();
         var pad = DirectionOf(input, 0);
         var confirm = input.IsGamepadButtonDown(GamepadButton.South);
         var back = input.IsGamepadButtonDown(GamepadButton.East);
@@ -238,8 +249,15 @@ internal sealed class MatchMenu : IDisposable
             - (input.WasKeyPressed(Key.Left) || input.WasKeyPressed(Key.A) || (pad.X < 0 && _pad.X >= 0) ? 1 : 0);
         var y = (input.WasKeyPressed(Key.Down) || input.WasKeyPressed(Key.S) || (pad.Y < 0 && _pad.Y >= 0) ? 1 : 0)
             - (input.WasKeyPressed(Key.Up) || input.WasKeyPressed(Key.W) || (pad.Y > 0 && _pad.Y <= 0) ? 1 : 0);
+        // 押し続けた方向キー・十字キーは、押しっぱなしのマウスと同じ間（MouseLayout.RepeatDelay・RepeatInterval）で連続する（連打を不要に）。
+        var heldX = (input.IsKeyDown(Key.Right) || input.IsKeyDown(Key.D) || pad.X > 0 ? 1 : 0) - (input.IsKeyDown(Key.Left) || input.IsKeyDown(Key.A) || pad.X < 0 ? 1 : 0);
+        var heldY = (input.IsKeyDown(Key.Down) || input.IsKeyDown(Key.S) || pad.Y < 0 ? 1 : 0) - (input.IsKeyDown(Key.Up) || input.IsKeyDown(Key.W) || pad.Y > 0 ? 1 : 0);
+        x = x != 0 ? x : _repeatX.Step(heldX, dt);
+        y = y != 0 ? y : _repeatY.Step(heldY, dt);
+        if (x != 0) { _repeatX.Start(x); }
+        if (y != 0) { _repeatY.Start(y); }
         var select = input.WasKeyPressed(Key.Enter) || (confirm && !_confirm);
-        var cancel = input.WasKeyPressed(Key.Escape) || (back && !_back);
+        var cancel = input.WasKeyPressed(Key.Escape) || (back && !_back) || input.WasMouseButtonPressed(MouseButton.Right); // 右クリックでも戻る
 
         // 2 つ目のパッド（対戦のキャラ選択で青を同時に動かす）。
         var second = input.GamepadCount > 1;
@@ -258,9 +276,43 @@ internal sealed class MatchMenu : IDisposable
         (_pad, _confirm, _back) = (pad, confirm, back);
 
         var click = input.WasMouseButtonPressed(MouseButton.Left);
-        Vector2? pointer = click || input.MouseDelta != Vector2.Zero ? new MenuCanvas(size).ToDesign(input.MousePosition) : null;
+        var held = input.IsMouseButtonDown(MouseButton.Left);
+        // 指す位置は、動かした・押した・押している間だけ（止まったマウスがキーボードで動かしたカーソルを引き戻さない）。
+        Vector2? pointer = click || held || input.MouseDelta != Vector2.Zero ? new MenuCanvas(size).ToDesign(input.MousePosition) : null;
         var scroll = input.ScrollDelta == 0f ? 0 : -Math.Sign(input.ScrollDelta);
-        return new MenuInput(x, y, select, cancel, pointer, click, scroll, second, x2, y2, select2, cancel2);
+        return new MenuInput(x, y, select, cancel, pointer, click, scroll, second, x2, y2, select2, cancel2, held, dt);
+    }
+
+    private readonly System.Diagnostics.Stopwatch _frameClock = System.Diagnostics.Stopwatch.StartNew();
+    private readonly KeyRepeat _repeatX = new();
+    private readonly KeyRepeat _repeatY = new();
+
+    /// <summary>押し続けた方向の連続（1 軸）。押した瞬間の 1 回は呼ぶ側が出し、<see cref="Start"/> で時計を始める。</summary>
+    internal sealed class KeyRepeat
+    {
+        private int _direction;
+        private float _time;
+
+        public void Start(int direction)
+        {
+            _direction = Math.Sign(direction);
+            _time = 0f;
+        }
+
+        /// <summary>押し続けている向き <paramref name="held"/> で <paramref name="dt"/> 進め、連続の 1 回なら向き（−1 / +1）、それ以外は 0。</summary>
+        public int Step(int held, float dt)
+        {
+            if (held == 0 || held != _direction)
+            {
+                _direction = 0;
+                return 0;
+            }
+
+            static int Ticks(float t) => t < MouseLayout.RepeatDelay ? 0 : 1 + (int)((t - MouseLayout.RepeatDelay) / MouseLayout.RepeatInterval);
+            var before = Ticks(_time);
+            _time += dt;
+            return Ticks(_time) > before ? held : 0;
+        }
     }
 
     /// <summary>十字キー、無ければスティックを、上が + の方向（上下左右の 4 方向）へ。</summary>

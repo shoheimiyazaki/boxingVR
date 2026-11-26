@@ -27,6 +27,8 @@
     <Compile Include="..\..\games\MiniRing.Desktop\MatchFinish.cs" Link="MatchFinish.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuState.Result.cs" Link="MenuState.Result.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuView.Result.cs" Link="MenuView.Result.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuState.Mouse.cs" Link="MenuState.Mouse.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\PreviewPortraits.cs" Link="PreviewPortraits.cs" />
     <ProjectReference Include="..\..\games\MiniRing\MiniRing.csproj" />
     <ProjectReference Include="..\..\games\MiniRing.Vr\MiniRing.Vr.csproj" />
     <!-- Arena（対戦場・テレビ中継の道具）は InternalsVisibleTo で中まで参照する（以前はファイルを取り込んでいた）。 -->

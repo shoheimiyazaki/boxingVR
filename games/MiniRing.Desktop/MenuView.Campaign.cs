@@ -110,25 +110,30 @@ internal sealed partial class MenuView
     }
 
     // ── キャンペーン: 作る
-    private void DrawCreate(MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
+    private void DrawCreate(List<UiShapeDraw> shapes, MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
     {
         var type = CharacterMaker.BodyTypes[state.BodyTypeIndex];
         var draft = state.Draft();
-        string[] rows =
-        [
-            $"体型  ◀ {type.Label} ▶",
-            string.Create(CultureInfo.InvariantCulture, $"身長  ◀ {state.HeightCm} cm ▶"),
-            $"教科書  ◀ {state.Textbooks[state.TextbookIndex]} ▶",
-            "このボクサーで作る",
-            "戻る",
-        ];
-        for (var i = 0; i < rows.Length; i++)
+        string[] names = ["体型", "身長", "教科書", "このボクサーで作る", "戻る"];
+        string[] values = [type.Label, string.Create(CultureInfo.InvariantCulture, $"{state.HeightCm} cm"), state.Textbooks[state.TextbookIndex]];
+        for (var i = 0; i < names.Length; i++)
         {
             var c = MenuLayout.CampaignRowCenter(i);
             var selected = i == state.CreateIndex;
             Row(plate, frame, c, MenuLayout.CampaignRowSize, selected);
-            label(rows[i], c.X - (MenuLayout.CampaignRowSize.X / 2) + 14, c.Y - 9, 15, selected ? Gold : Pale);
+            label(names[i], c.X - (MenuLayout.CampaignRowSize.X / 2) + 14, c.Y - 9, 15, selected ? Gold : Pale);
+            if (i >= MenuState.CreateValueRows) { continue; }
+            var row = i;
+            var (left, right) = (MouseLayout.CreateArrow(row, -1).X, MouseLayout.CreateArrow(row, 1).X);
+            label(values[i], (left + right) / 2, c.Y - 9, 15, selected ? Gold : Pale, TextAnchor.Center, maxWidth: right - left - MouseLayout.ArrowSize.X - 4);
+            ArrowButtons(plate, frame, label, side => MouseLayout.CreateArrow(row, side), selected);
         }
+
+        // 左の下: この体型・身長の全身（試合の体のボクセルから写す。値が止まってから作る）。
+        var preview = Preview(PreviewSlot.Create, state.DraftPreviewKey, state.DraftPreview, out var stale);
+        // 縮尺は名簿でいちばん背の高い人が収まる値（キャラ選択と同じ: 身長を変えると絵の背も変わって見える）。
+        BodyBox(shapes, canvas, plate, frame, label, CreatePreviewCenter, CreatePreviewSize, preview, stale,
+            MathF.Max(RosterTallestMeters, preview?.HeightMeters ?? 0f), "この体（正面）", Pale);
 
         Panel(plate, frame);
         label("見込み（体は寸法から）", 326, 124, 19, Gold);
@@ -148,6 +153,84 @@ internal sealed partial class MenuView
                 y += 16f;
             }
         }
+    }
+
+    /// <summary>作る画面の全身の絵の枠（行の下、左の列）。</summary>
+    private static readonly Vector2 CreatePreviewCenter = new(162f, 300f);
+    private static readonly Vector2 CreatePreviewSize = new(280f, 150f);
+
+    /// <summary>見込みの絵の置き場（同じ置き場の前の絵は、新しい絵ができるまで出しておく）。</summary>
+    private enum PreviewSlot { Create, WeightNow, WeightTarget }
+
+    /// <summary>値が止まってから絵を作るまでの間 [s]（スライダーを動かしている間に重い構築を積まない）。</summary>
+    private const double PreviewSettleSeconds = 0.15;
+
+    private readonly Dictionary<PreviewSlot, (string Key, double Since)> _wanted = [];
+    private readonly Dictionary<PreviewSlot, CharacterPortrait> _shown = [];
+
+    /// <summary>
+    /// 置き場 <paramref name="slot"/> の絵: 鍵 <paramref name="key"/> の絵ができていればそれ、まだなら前の絵（<paramref name="stale"/> = true）。
+    /// 鍵が <see cref="PreviewSettleSeconds"/> 変わらなかったら作り始める。
+    /// </summary>
+    private CharacterPortrait? Preview(PreviewSlot slot, string key, Func<FighterCharacter> make, out bool stale)
+    {
+        var now = Clock();
+        if (!_wanted.TryGetValue(slot, out var wanted) || wanted.Key != key) { _wanted[slot] = wanted = (key, now); }
+        var ready = previews.Ready(key);
+        if (ready is null && (previews.Synchronous || now - wanted.Since >= PreviewSettleSeconds)) { ready = previews.Get(key, make); }
+        stale = ready is null;
+        if (ready is not null) { _shown[slot] = ready; }
+        return ready ?? _shown.GetValueOrDefault(slot);
+    }
+
+    /// <summary>
+    /// 全身の絵の枠: 足元をそろえ、背の高さ <paramref name="heightMeters"/> [m] が枠に収まる縮尺で描く（同じ骨格の 2 枚は同じ縮尺: 太さの違いがそのまま見える）。
+    /// </summary>
+    private static void BodyBox(List<UiShapeDraw> shapes, MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label,
+        Vector2 center, Vector2 size, CharacterPortrait? portrait, bool stale, float heightMeters, string caption, Vector4 ink)
+    {
+        plate(center.X, center.Y, size.X, size.Y, new(0.08f, 0.22f, 0.32f, 1), new(0.03f, 0.10f, 0.20f, 1), 6);
+        frame(center.X, center.Y, size.X, size.Y, new(0.19f, 0.38f, 0.51f, 1), 1.5f, 6);
+        var top = center.Y - (size.Y / 2);
+        label(caption, center.X - (size.X / 2) + 6, top + 4, 14, ink, maxWidth: size.X - 12);
+        var feetY = top + size.Y - 8f;
+        plate(center.X, feetY + 1, size.X * 0.6f, 5, Shadow, Shadow, 3); // 足元の影
+        if (portrait is { Body: var body })
+        {
+            var pixelsPerMeter = (size.Y - 30f) / MathF.Max(0.5f, heightMeters * 1.06f);
+            var pixel = MathF.Min(body.PixelMeters * pixelsPerMeter, (size.X - 8f) / body.Width);
+            DrawPortrait(shapes, canvas, body, new Vector2(center.X, feetY), pixel, blue: false, anchorBottom: true);
+        }
+
+        if (portrait is null || stale)
+        {
+            label("…", center.X + (size.X / 2) - 8, top + 4, 14, Dim, TextAnchor.Right); // 作っている間
+        }
+    }
+
+    /// <summary>左右で変える値の ◀ ▶（クリック・押しっぱなしで変わる）。</summary>
+    private void ArrowButtons(PlateFn plate, FrameFn frame, LabelFn label, Func<int, Vector2> at, bool active)
+    {
+        var size = MouseLayout.ArrowSize;
+        foreach (var side in new[] { -1, 1 })
+        {
+            var c = at(side);
+            var lit = state.IsHovered(c, size);
+            plate(c.X, c.Y, size.X, size.Y, lit ? new(0.30f, 0.70f, 0.95f, 1) : active ? new(0.22f, 0.60f, 0.85f, 1) : new(0.12f, 0.30f, 0.42f, 1), new(0.04f, 0.13f, 0.26f, 1), 4);
+            frame(c.X, c.Y, size.X, size.Y, lit || active ? Cyan : new(0.19f, 0.38f, 0.51f, 1), 1.2f, 4);
+            label(side < 0 ? "◀" : "▶", c.X, c.Y - 8, 14, lit || active ? Gold : Pale, TextAnchor.Center, shadow: false);
+        }
+    }
+
+    /// <summary>行の戻るが無いページ（キャラ選択・リプレイ）の、左上の隅の「戻る」。</summary>
+    private void CornerBack(PlateFn plate, FrameFn frame, LabelFn label)
+    {
+        var c = MouseLayout.CornerBackCenter;
+        var size = MouseLayout.CornerBackSize;
+        var lit = state.IsHovered(c, size);
+        plate(c.X, c.Y, size.X, size.Y, lit ? SelectedTop : new(0.12f, 0.30f, 0.42f, 1), new(0.04f, 0.13f, 0.26f, 1), 5);
+        frame(c.X, c.Y, size.X, size.Y, lit ? Cyan : new(0.19f, 0.38f, 0.51f, 1), 1.2f, 5);
+        label("◀ 戻る", c.X, c.Y - 8, 14, lit ? Gold : Pale, TextAnchor.Center, shadow: false);
     }
 
     /// <summary>右の説明の板の文字が使える右端（設計の座標。板の右の縁 612 から内側へ 8）。</summary>

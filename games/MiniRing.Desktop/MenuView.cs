@@ -108,7 +108,7 @@ internal readonly record struct MenuCanvas(Vector2 Size)
 /// メニューの描画（状態 <see cref="MenuState"/> から図形と文字を作るだけ。状態を変えない）。最初の画面・設定・キャラ選択・リプレイの各ページ。
 /// 顔・全身の絵は、試合の体のボクセルを正面から写した四角の並び（<see cref="CharacterPortraits"/>）をそのまま四角で描く。
 /// </summary>
-internal sealed partial class MenuView(MenuState state, PortraitSet portraits, Func<IReadOnlyList<string>> replayNames)
+internal sealed partial class MenuView(MenuState state, PortraitSet portraits, Func<IReadOnlyList<string>> replayNames, PreviewPortraits previews)
 {
     private static readonly Vector4 Shadow = new(0.02f, 0.04f, 0.12f, 1f);
     private static readonly Vector4 Pale = new(0.85f, 0.92f, 0.95f, 1f);
@@ -199,13 +199,18 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
             case MenuPage.Select: DrawSelect(shapes, canvas, Plate, Frame, Label); break;
             case MenuPage.Free: DrawFree(shapes, canvas, Plate, Frame, Label); break;
             case MenuPage.Campaign: DrawCampaign(Plate, Frame, Label); break;
-            case MenuPage.Create: DrawCreate(canvas, Plate, Frame, Label); break;
+            case MenuPage.Create: DrawCreate(shapes, canvas, Plate, Frame, Label); break;
             case MenuPage.Boxer: DrawHome(Plate, Frame, Label); break;
             case MenuPage.Orgs: DrawOrgs(Plate, Frame, Label); break;
             case MenuPage.Path: DrawPath(canvas, Plate, Frame, Label); break;
-            case MenuPage.Weight: DrawWeight(canvas, Plate, Frame, Label); break;
+            case MenuPage.Weight: DrawWeight(shapes, canvas, Plate, Frame, Label); break;
             case MenuPage.Result: DrawResult(Plate, Frame, Label); break;
             default: DrawReplays(Plate, Frame, Label); break;
+        }
+
+        if (state.Page is MenuPage.Select or MenuPage.Replays)
+        {
+            CornerBack(Plate, Frame, Label);
         }
 
         if (Notice is { } notice && !celebrating) { Label(notice, 320, 388, 15, Gold, TextAnchor.Center, maxWidth: 600f); }
@@ -219,25 +224,25 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
 
     private string Hint() => state.Page switch
     {
-        MenuPage.Top => "WASD / 矢印 / 十字キー: 選ぶ   Enter / A / クリック: 決定   Esc / B: 終了へ",
-        MenuPage.Settings => "← →  Enter / A: 切り替え   Esc / B: 戻る",
-        MenuPage.Mode => "↑ ↓: 選ぶ   ← →: 練習試合の決まり   Enter / A: 決定   Esc / B: 戻る",
-        MenuPage.Free or MenuPage.Campaign => "↑ ↓: 選ぶ   Enter / A / クリック: 決定   Esc / B: 戻る",
-        MenuPage.Create => "↑ ↓: 選ぶ   ← →: 変える   Enter / A: 決定   Esc / B: 戻る",
-        MenuPage.Boxer when state.Cards.Count > 0 => "Enter / A / クリック: 次へ",
+        MenuPage.Top => "クリック / Enter / A: 決定   矢印 / WASD: 選ぶ   Esc / B: 終了へ",
+        MenuPage.Settings => "クリック / ← → / Enter: 切り替え   右クリック / Esc: 戻る",
+        MenuPage.Mode => "クリック / Enter: 決定   ◀ ▶ / ← →: 決まり   右クリック: 戻る",
+        MenuPage.Free or MenuPage.Campaign => "クリック / Enter / A: 決定   ホイール / ↑ ↓: 選ぶ   右クリック: 戻る",
+        MenuPage.Create => "◀ ▶ / ← →: 変える   クリック / Enter: 決定   右クリック: 戻る",
+        MenuPage.Boxer when state.Cards.Count > 0 => "クリック / Enter / A: 次へ",
         MenuPage.Boxer => state.HomeIndex == MenuState.HomeNext
-            ? "↑ ↓: 選ぶ   ← →: 武器   Enter / A: 試合へ   Esc / B: 戻る"
-            : "↑ ↓ ← →: 選ぶ   Enter / A: 決定   Esc / B: 戻る",
-        MenuPage.Orgs => "↑ ↓: 選ぶ   Enter / A: 道を見る   Esc / B: 戻る",
-        MenuPage.Path => "← →: 段   ↓: 戻る   Enter / A: 次の試合にする   Esc / B: 戻る",
-        MenuPage.Weight => "↑ ↓: 選ぶ   ← →: 体重   Enter / A: 決定   Esc / B: 戻る",
+            ? "◀ ▶ / ← →: 武器   クリック / Enter: 試合へ   右クリック: 戻る"
+            : "クリック / Enter / A: 決定   右クリック / Esc / B: 戻る",
+        MenuPage.Orgs => "クリック / Enter: 道を見る   右クリック / Esc / B: 戻る",
+        MenuPage.Path => "クリック / Enter: 次の試合にする   右クリック / Esc: 戻る",
+        MenuPage.Weight => "ドラッグ・ボタン（押し続けて連続）/ ← →: 体重   右クリック: 戻る",
         MenuPage.Result => state.Result?.Campaign == true
-            ? "Enter / A / クリック: 本拠地へ"
-            : "← →: 選ぶ   Enter / A / クリック: 決定   Esc / B: メニューへ",
+            ? "クリック / Enter / A: 本拠地へ"
+            : "クリック / Enter / A: 決定   ← →: 選ぶ   右クリック: メニューへ",
         MenuPage.Select => state.Mode == MatchMode.Versus
-            ? "赤: WASD / 青: 矢印・2 つ目のパッド   Enter / A: 決定   Esc / B: 戻る"
-            : "WASD / 矢印: 選ぶ   ホイール: 送る   Enter / A: 決定   Esc / B: 戻る",
-        _ => "↑ ↓ / ホイール: 選ぶ   Enter / A / クリック: 再生   Esc / B: 戻る",
+            ? "赤: WASD / 青: 矢印・2P パッド   クリック / Enter: 決定   Esc: 戻る"
+            : "クリック / Enter: 決定   ホイール: 送る   右クリック / Esc: 戻る",
+        _ => "クリック / Enter: 再生   ホイール / ↑ ↓: 選ぶ   右クリック / Esc: 戻る",
     };
 
     // ── 最初の画面
@@ -348,7 +353,10 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
             else if (!competition.Tournament)
             {
                 label("練習試合", left, c.Y - 19, 19, ink);
-                label($"決まり  ◀ {competition.RulesName} ▶", left, c.Y + 3, 13, selected ? Pale : Dim);
+                label("決まり", left, c.Y + 3, 13, selected ? Pale : Dim);
+                var mid = (MouseLayout.ModeArrow(-1).X + MouseLayout.ModeArrow(1).X) / 2;
+                label(competition.RulesName, mid, c.Y + 3, 13, selected ? Gold : Pale, TextAnchor.Center, maxWidth: MouseLayout.ModeArrow(1).X - MouseLayout.ModeArrow(-1).X - MouseLayout.ArrowSize.X - 4);
+                ArrowButtons(plate, frame, label, MouseLayout.ModeArrow, selected);
             }
             else
             {
@@ -409,7 +417,7 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         }
         else if (!focused.Tournament)
         {
-            label("← → で決まりを切り替え（標準・各団体）", x0, y, 12, Dim);
+            label("◀ ▶ / ← → で決まりを切り替え（標準・各団体）", x0, y, 12, Dim);
         }
     }
 
@@ -623,6 +631,11 @@ internal sealed partial class MenuView(MenuState state, PortraitSet portraits, F
         / MathF.Max(0.5f, state.Roster.Max(c => BodySizing.PhysicalHeightMeters(c.Build)) * 1.06f);
 
     private float? _bodyScale;
+
+    /// <summary>名簿でいちばん背の高い人の高さ [m]（見込みの全身の絵の縮尺をキャラ選択とそろえる）。</summary>
+    private float RosterTallestMeters => _tallest ??= state.Roster.Max(c => BodySizing.PhysicalHeightMeters(c.Build));
+
+    private float? _tallest;
 
     /// <summary>
     /// 肖像（四角の並び）を設計の座標へ描く。同じ行で同じ色が続くところは 1 つの四角にまとめる（図形の数を減らす）。

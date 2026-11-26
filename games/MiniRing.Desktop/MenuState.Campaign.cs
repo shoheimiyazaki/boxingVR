@@ -48,6 +48,9 @@ internal sealed partial class MenuState
 
     // ── 作る
     public const int CreateRows = 5;
+
+    /// <summary>作るの、← → で変える行の数（体型・身長・教科書。◀ ▶ のボタンがある）。</summary>
+    public const int CreateValueRows = 3;
     public int CreateIndex { get; private set; }
     public int BodyTypeIndex { get; private set; }
     public int HeightCm { get; private set; } = CharacterProfile.StandardHeightCm;
@@ -64,6 +67,15 @@ internal sealed partial class MenuState
         var type = CharacterMaker.BodyTypes[BodyTypeIndex];
         return CharacterMaker.NewDraft(type.Id, heightCm: HeightCm) with { Textbook = Textbooks[TextbookIndex] };
     }
+
+    /// <summary>
+    /// 作る下書きの体の見込み（全身の絵のため。ファイルには書かない）。体は置き場が作るのと同じ道（<see cref="CharacterMaker.ToFile"/>）で、名前・id・国は仮。
+    /// </summary>
+    public FighterCharacter DraftPreview() =>
+        CharacterMaker.ToFile(Draft() with { Id = "preview", Name = "preview", Country = "japan", Order = 1 }).Character;
+
+    /// <summary>作る下書きの体の見込みを区別する鍵（体型と身長で体が決まる。教科書は体を変えない）。</summary>
+    public string DraftPreviewKey => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"create:{BodyTypeIndex}:{HeightCm}");
 
     /// <summary>作れる身長の範囲 [cm]（体格の比 0.6〜1.5 の内側）。</summary>
     public static (int Min, int Max) HeightRange(float legs)
@@ -148,6 +160,12 @@ internal sealed partial class MenuState
         {
             Page = MenuPage.Campaign;
             return new(Cue: MenuCue.Confirm);
+        }
+
+        for (var row = 0; row < CreateValueRows; row++)
+        {
+            var r = row;
+            input = Arrows(input, side => MouseLayout.CreateArrow(r, side), $"create{r}");
         }
 
         var (oldRow, oldType, oldHeight, oldBook) = (CreateIndex, BodyTypeIndex, HeightCm, TextbookIndex);

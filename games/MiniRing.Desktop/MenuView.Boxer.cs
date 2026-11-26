@@ -95,7 +95,16 @@ internal sealed partial class MenuView
             var opponent = entry.Opponent;
             label(string.Create(CultureInfo.InvariantCulture, $"相手 {opponent.HudName}（{OrgBouts.WeightOf(opponent)} kg）"), 600, top + 8, 14, Pale, TextAnchor.Right, maxWidth: 220);
             var weapon = state.WeaponFor(entry) is { } w ? FighterCharacter.WeaponLabel(w) : "素手";
-            label(entry.Weapons.Count > 1 ? $"◀ {weapon} ▶" : weapon, 600, top + 34, 14, selectedNext ? Gold : Dim, TextAnchor.Right);
+            if (state.WeaponChoosable)
+            {
+                var (left, right) = (MouseLayout.WeaponArrow(-1).X, MouseLayout.WeaponArrow(1).X);
+                label(weapon, (left + right) / 2, MouseLayout.WeaponArrow(1).Y - 8, 14, selectedNext ? Gold : Pale, TextAnchor.Center, maxWidth: right - left - MouseLayout.ArrowSize.X - 4);
+                ArrowButtons(plate, frame, label, MouseLayout.WeaponArrow, selectedNext);
+            }
+            else
+            {
+                label(weapon, 600, top + 34, 14, selectedNext ? Gold : Dim, TextAnchor.Right);
+            }
         }
         else
         {
@@ -237,68 +246,95 @@ internal sealed partial class MenuView
         label("戻る", CampaignLayout.PathBackCenter.X + 3, CampaignLayout.PathBackCenter.Y - 8, 14, back ? Gold : Pale, TextAnchor.Center);
     }
 
-    // ── 減量・増量
-    private void DrawWeight(MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
+    // ── 減量・増量（2026-11-26 マウス向け: 全身の絵 2 枚・スライダー・±kg・階級の表のボタン）
+    private void DrawWeight(List<UiShapeDraw> shapes, MenuCanvas canvas, PlateFn plate, FrameFn frame, LabelFn label)
     {
         if (state.Boxer is not { } boxer) { return; }
-        string[] rows = [state.WeightLine(), "この体重に決める", "戻る"];
-        for (var i = 0; i < rows.Length; i++)
+        var character = boxer.Character;
+        var target = state.TargetBuild is { } build ? CharacterProfile.WeightOf(build) : boxer.WeightKg;
+        var changed = state.TargetBuild is not null;
+        var (lo, hi) = boxer.WeightRange;
+
+        // 左上: 今の体と目標の体（同じ骨格・同じ縮尺。筋肉の太さの違いがそのまま見える）。
+        var nowPortrait = Preview(PreviewSlot.WeightNow, Invariant($"{boxer.Id}:{boxer.WeightKg}"), () => character, out var nowStale);
+        var targetBuild = state.TargetBuild ?? character.Build;
+        var targetPortrait = Preview(PreviewSlot.WeightTarget, Invariant($"{boxer.Id}:{target}"), () => character with { Build = targetBuild }, out var targetStale);
+        var height = nowPortrait?.HeightMeters ?? targetPortrait?.HeightMeters ?? 1.8f;
+        BodyBox(shapes, canvas, plate, frame, label, CampaignLayout.PreviewCenter(0), CampaignLayout.PreviewSize, nowPortrait, nowStale, height,
+            Invariant($"今 {boxer.WeightKg} kg"), Pale);
+        BodyBox(shapes, canvas, plate, frame, label, CampaignLayout.PreviewCenter(1), CampaignLayout.PreviewSize, targetPortrait, targetStale, height,
+            Invariant($"目標 {target} kg"), changed ? Gold : Pale);
+
+        // スライダー（行 0）: 溝・今の体重の印・つまみ。
+        var sliderSelected = state.WeightIndex == 0;
+        var slider = CampaignLayout.SliderCenter;
+        var sliderSize = CampaignLayout.SliderSize;
+        if (sliderSelected) { frame(slider.X, slider.Y, sliderSize.X, sliderSize.Y, Cyan, 1.5f, 6); }
+        label("目標体重", CampaignLayout.SliderLeft - 4, slider.Y - 18, 14, sliderSelected ? Gold : Pale);
+        label(Invariant($"{lo}〜{hi} kg"), CampaignLayout.SliderRight + 4, slider.Y - 18, 14, Dim, TextAnchor.Right);
+        var trackW = CampaignLayout.SliderRight - CampaignLayout.SliderLeft;
+        var trackX = (CampaignLayout.SliderLeft + CampaignLayout.SliderRight) / 2;
+        plate(trackX, CampaignLayout.SliderY, trackW + 8, 8, new(0.02f, 0.06f, 0.12f, 1), new(0.02f, 0.06f, 0.12f, 1), 4);
+        var nowX = CampaignLayout.SliderX(boxer.WeightKg, lo, hi);
+        var knobX = CampaignLayout.SliderX(target, lo, hi);
+        var (from, to) = (MathF.Min(nowX, knobX), MathF.Max(nowX, knobX));
+        if (to > from) { plate((from + to) / 2, CampaignLayout.SliderY, to - from, 8, Gold with { W = 0.7f }, Gold with { W = 0.7f }, 4); }
+        plate(nowX, CampaignLayout.SliderY, 3, 16, Pale, Pale, 1);
+        plate(knobX, CampaignLayout.SliderY, 14, 20, sliderSelected ? Gold : Pale, sliderSelected ? new(0.85f, 0.55f, 0.15f, 1) : Dim, 4);
+        frame(knobX, CampaignLayout.SliderY, 14, 20, Shadow, 1.2f, 4);
+
+        // −5 / −1 / +1 / +5 kg（押しっぱなしで連続）。
+        for (var i = 0; i < CampaignLayout.WeightSteps.Count; i++)
+        {
+            var c = CampaignLayout.StepCenter(i);
+            var step = CampaignLayout.WeightSteps[i];
+            var can = step < 0 ? target > lo : target < hi;
+            var lit = can && state.IsHovered(c, CampaignLayout.StepSize);
+            Box(plate, frame, c, CampaignLayout.StepSize, lit, dim: !can);
+            label(Invariant($"{(step < 0 ? "−" : "+")}{Math.Abs(step)} kg"), c.X + (lit ? 3 : 0), c.Y - 8, 14, lit ? Gold : can ? Pale : Locked, TextAnchor.Center);
+        }
+
+        // 決める（行 1）・戻る（行 2）。
+        string[] buttons = ["決める", "戻る"];
+        for (var i = 1; i < MenuState.WeightRows; i++)
         {
             var c = CampaignLayout.WeightRowCenter(i);
             var selected = state.WeightIndex == i;
-            Box(plate, frame, c, CampaignLayout.WeightRowSize, selected);
-            label(rows[i], c.X - (CampaignLayout.WeightRowSize.X / 2) + 18, c.Y - 8, 14, selected ? Gold : Pale);
+            Box(plate, frame, c, CampaignLayout.WeightRowSize(i), selected, dim: i == 1 && !changed);
+            label(buttons[i - 1], c.X + 3, c.Y - 8, 14, selected ? Gold : i == 1 && !changed ? Locked : Pale, TextAnchor.Center);
         }
 
-        // 左の下: IVF の階級の表（今の体重と目標の体重がどこに入るか）。
-        var target = state.TargetBuild is { } build ? CharacterProfile.WeightOf(build) : boxer.WeightKg;
-        var y = 262f;
-        foreach (var org in CampaignPlan.Orgs.Where(o => o.HasWeightClasses))
-        {
-            label($"{org.LogoText} の階級", 40, y, 14, Dim);
-            y += 20f;
-            var lower = 0;
-            foreach (var division in org.Divisions)
-            {
-                var now = org.DivisionOf(boxer.WeightKg) == division;
-                var then = org.DivisionOf(target) == division;
-                var range = division.LimitKg is { } limit
-                    ? string.Create(CultureInfo.InvariantCulture, $"〜{limit} kg")
-                    : string.Create(CultureInfo.InvariantCulture, $"{lower} kg 超");
-                label(then ? "▶" : now ? "・" : "", 40, y, 14, then ? Gold : Dim);
-                label(division.Name, 56, y, 14, then ? Gold : now ? Pale : Dim);
-                label(range, 300, y, 14, then ? Gold : Dim, TextAnchor.Right);
-                lower = division.LimitKg ?? lower;
-                y += 18f;
-            }
-        }
-
+        // 右の板: 数字と、押すとその階級へ合わせる表。
         Panel(plate, frame);
-        label("減量・増量", 326, 106, 21, Gold);
-        var ny = 136f;
-        foreach (var line in MenuText.Wrap("骨格はそのまま、筋肉の太さが変わります。力は筋肉の断面から出るので、減量すれば力も落ちます。", (PanelRight - 326) * canvas.Scale, 14 * canvas.Scale))
+        // 見出しは画面の上にある（板の中では繰り返さない）。32 px の行の下は 34 空ける。
+        label("骨格はそのまま、筋肉の太さが変わる", 326, 104, 14, Dim, maxWidth: PanelRight - 326);
+        label(Invariant($"{boxer.WeightKg} kg ▶ {target} kg"), 326, 124, 21, changed ? Gold : Pale, maxWidth: PanelRight - 326);
+        label(Invariant($"力 {state.TargetPower:+0%;-0%;±0%}（筋肉の断面から）"), 326, 162, 14, state.TargetPower < 0 ? new(1f, 0.6f, 0.5f, 1) : changed ? Green : Pale, maxWidth: PanelRight - 326);
+        label(Invariant($"身長 {CharacterProfile.HeightOf(character.Build)} cm・作れる {lo}〜{hi} kg"), 326, 186, 14, Pale, maxWidth: PanelRight - 326);
+        var org = MenuState.WeightOrg;
+        label($"{org.LogoText} の階級（押すとその階級へ）", 326, 224, 14, Dim, maxWidth: PanelRight - 326);
+        var lower = 0;
+        for (var i = 0; i < org.Divisions.Count; i++)
         {
-            label(line, 326, ny, 14, Pale);
-            ny += 20f;
+            var division = org.Divisions[i];
+            var c = CampaignLayout.DivisionRowCenter(i);
+            var size = CampaignLayout.DivisionRowSize;
+            var now = org.DivisionOf(boxer.WeightKg) == division;
+            var then = org.DivisionOf(target) == division;
+            plate(c.X, c.Y, size.X, size.Y, then ? new(0.30f, 0.26f, 0.08f, 1) : CardBlue, then ? new(0.18f, 0.14f, 0.03f, 1) : CardDeep, 3);
+            frame(c.X, c.Y, size.X, size.Y, state.IsHovered(c, size) ? Cyan : then ? Gold : Edge, state.IsHovered(c, size) ? 2f : 1f, 3);
+            var range = division.LimitKg is { } limit ? Invariant($"〜{limit} kg") : Invariant($"{lower} kg 超");
+            var left = c.X - (size.X / 2) + 6;
+            label(then ? "▶" : now ? "・" : "", left, c.Y - 8, 14, then ? Gold : Pale, shadow: false);
+            label(division.Name, left + 18, c.Y - 8, 14, then ? Gold : now ? Pale : Dim, shadow: false);
+            label(range, c.X + (size.X / 2) - 6, c.Y - 8, 14, then ? Gold : Dim, TextAnchor.Right, shadow: false);
+            lower = division.LimitKg ?? lower;
         }
 
-        var (lo, hi) = boxer.WeightRange;
-        label(string.Create(CultureInfo.InvariantCulture, $"作れる体重 {lo}〜{hi} kg"), 326, ny + 6, 14, Dim);
-        ny += 34f;
-        label(string.Create(CultureInfo.InvariantCulture, $"{boxer.WeightKg} kg ▶ {target} kg"), 326, ny, 21, state.TargetBuild is null ? Pale : Gold);
-        label(string.Create(CultureInfo.InvariantCulture, $"力 {state.TargetPower:+0%;-0%;±0%}"), 326, ny + 30, 21, state.TargetPower < 0 ? new(1f, 0.6f, 0.5f, 1) : Green);
-        ny += 66f;
-        foreach (var org in CampaignPlan.Orgs.Where(o => o.HasWeightClasses))
-        {
-            var then = org.DivisionOf(target);
-            var now = org.DivisionOf(boxer.WeightKg);
-            var text = then == now ? $"{org.LogoText}: {now.Name}のまま" : $"{org.LogoText}: この体重なら{then.Name}";
-            label(text, 326, ny, 14, then == now ? Pale : Gold, maxWidth: PanelRight - 326);
-            ny += 20f;
-        }
-
-        label("WVC・VFC は無差別級", 326, ny, 14, Dim);
+        label("WVC・VFC は無差別級", 326, CampaignLayout.DivisionRowCenter(org.Divisions.Count).Y - 8, 14, Dim);
     }
+
+    private static string Invariant(FormattableString value) => value.ToString(CultureInfo.InvariantCulture);
 
     // ── 試合の後の札
     private void DrawCard(PlateFn plate, FrameFn frame, LabelFn label)

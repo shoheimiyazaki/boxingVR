@@ -36,9 +36,39 @@ internal static class CampaignLayout
     public static Vector2 NodeCenter(int index) => new(116f + (index * 204f), 176f);
     public static readonly Vector2 PathBackCenter = new(542f, 356f);
 
-    /// <summary>減量・増量: 目標体重・決める・戻る。</summary>
-    public static readonly Vector2 WeightRowSize = new(270f, 36f);
-    public static Vector2 WeightRowCenter(int index) => new(170f, 132f + (index * 46f));
+    /// <summary>
+    /// 減量・増量（2026-11-26 マウス向け）: 左上に今の体と目標の体の全身の絵、その下に目標体重のスライダー（行 0）、−5 / −1 / +1 / +5 kg、
+    /// 決める（行 1）・戻る（行 2）。右の板に数字と、押すとその階級へ合わせる階級の表。
+    /// </summary>
+    public static readonly Vector2 PreviewSize = new(132f, 150f);
+    public static Vector2 PreviewCenter(int index) => new(96f + (index * 140f), 170f);
+
+    /// <summary>スライダー（行 0）の当たりの範囲と、溝の左右の端・高さ。</summary>
+    public static readonly Vector2 SliderCenter = new(166f, 270f);
+    public static readonly Vector2 SliderSize = new(276f, 40f);
+    public const float SliderLeft = 50f;
+    public const float SliderRight = 282f;
+    public const float SliderY = 280f;
+
+    /// <summary>スライダーの位置 <paramref name="x"/> の体重（作れる範囲 [<paramref name="lo"/>, <paramref name="hi"/>] の整数 kg）。</summary>
+    public static int SliderKg(float x, int lo, int hi) =>
+        lo + (int)MathF.Round(Math.Clamp((x - SliderLeft) / (SliderRight - SliderLeft), 0f, 1f) * (hi - lo));
+
+    /// <summary>体重 <paramref name="kg"/> のスライダーの位置。</summary>
+    public static float SliderX(int kg, int lo, int hi) => hi > lo ? SliderLeft + ((SliderRight - SliderLeft) * (kg - lo) / (hi - lo)) : SliderLeft;
+
+    /// <summary>−5 / −1 / +1 / +5 kg のボタン。</summary>
+    public static readonly IReadOnlyList<int> WeightSteps = [-5, -1, 1, 5];
+    public static readonly Vector2 StepSize = new(58f, 26f);
+    public static Vector2 StepCenter(int index) => new(67f + (index * 66f), 314f);
+
+    /// <summary>行 0 = スライダー、1 = 決める、2 = 戻る。</summary>
+    public static Vector2 WeightRowCenter(int index) => index == 0 ? SliderCenter : new(100f + ((index - 1) * 134f), 354f);
+    public static Vector2 WeightRowSize(int index) => index == 0 ? SliderSize : new(128f, 32f);
+
+    /// <summary>右の板の階級の表の行（押すとその階級へ）。</summary>
+    public static readonly Vector2 DivisionRowSize = new(284f, 20f);
+    public static Vector2 DivisionRowCenter(int index) => new(462f, 254f + (index * 21f));
 }
 
 /// <summary>
@@ -92,8 +122,11 @@ internal sealed partial class MenuState
     /// <summary>道で選んだ「次の試合」（null = 自動: <see cref="CampaignPlan.AutoNext"/>）。出られなくなれば自動へ戻る。</summary>
     private string? _chosenNext;
 
+    /// <summary>次の試合の武器を選び直せるか（武器が 2 つ以上: 札に ◀ ▶ が出る）。</summary>
+    public bool WeaponChoosable => Next?.Entry is { Weapons.Count: > 1 };
+
     /// <summary>本拠地で推す「次の試合」。</summary>
-    public CampaignStop? Next => Stops.FirstOrDefault(s => s.Open && s.Event.Id == _chosenNext) ?? CampaignPlan.AutoNext(Stops);
+    public CampaignStop? Next =>Stops.FirstOrDefault(s => s.Open && s.Event.Id == _chosenNext) ?? CampaignPlan.AutoNext(Stops);
 
     /// <summary>道を見ている団体。</summary>
     public Organization PathOrg => CampaignPlan.Orgs[Math.Clamp(OrgIndex, 0, CampaignPlan.Orgs.Count - 1)];
@@ -171,6 +204,7 @@ internal sealed partial class MenuState
             return new(Cue: MenuCue.Confirm);
         }
 
+        if (WeaponChoosable) { input = Arrows(input, MouseLayout.WeaponArrow, "weapon"); }
         var oldIndex = HomeIndex;
         var oldWeapons = _weaponChoice.ToDictionary(p => p.Key, p => p.Value);
         var confirm = input.Confirm;
@@ -329,21 +363,47 @@ internal sealed partial class MenuState
         }
 
         var (oldIndex, oldKg) = (WeightIndex, TargetKg);
+        var (lo, hi) = boxer.WeightRange;
         var confirm = input.Confirm;
-        if (Hit(input, WeightRows, CampaignLayout.WeightRowCenter, _ => CampaignLayout.WeightRowSize) is { } hit)
+        string? notice = null;
+        if (input.Pointer is { } point)
         {
-            WeightIndex = hit;
-            confirm |= input.Click;
+            // スライダー: 押した所から、放すまでドラッグで目標体重（作れる範囲の中）。
+            if (input.Click && MouseLayout.Inside(point, CampaignLayout.SliderCenter, CampaignLayout.SliderSize)) { _dragging = true; }
+            if (_dragging)
+            {
+                WeightIndex = 0;
+                TargetKg = CampaignLayout.SliderKg(point.X, lo, hi);
+            }
+
+            // −5 / −1 / +1 / +5 kg（押しっぱなしで連続）。
+            if (!_dragging && Hit(input, CampaignLayout.WeightSteps.Count, CampaignLayout.StepCenter, _ => CampaignLayout.StepSize) is { } step)
+            {
+                WeightIndex = 0;
+                TargetKg = Math.Clamp(TargetKg + (CampaignLayout.WeightSteps[step] * Fire(input, $"kg{step}")), lo, hi);
+            }
+
+            // 階級の表の行: その階級へ入る一番近い体重（重い側からなら上限、軽い側からなら下限）。
+            if (input.Click && Hit(input, WeightOrg.Divisions.Count, CampaignLayout.DivisionRowCenter, _ => CampaignLayout.DivisionRowSize) is { } row)
+            {
+                WeightIndex = 0;
+                (TargetKg, notice) = IntoDivision(row, lo, hi);
+            }
+
+            if (Hit(input, WeightRows, CampaignLayout.WeightRowCenter, CampaignLayout.WeightRowSize) is { } hit)
+            {
+                WeightIndex = hit;
+                confirm |= input.Click && hit != 0; // スライダーの行は押しても決めない（決めるのボタンで決める）
+            }
         }
 
         WeightIndex = Wrap(WeightIndex + (input.Scroll != 0 ? Math.Sign(input.Scroll) : input.Y), WeightRows);
         if (WeightIndex == 0 && input.X != 0)
         {
-            var (lo, hi) = boxer.WeightRange;
             TargetKg = Math.Clamp(TargetKg + input.X, lo, hi);
         }
 
-        if (!confirm) { return new(Cue: (WeightIndex, TargetKg) != (oldIndex, oldKg) ? MenuCue.Move : MenuCue.None); }
+        if (!confirm) { return new(Cue: notice is not null || (WeightIndex, TargetKg) != (oldIndex, oldKg) ? MenuCue.Move : MenuCue.None, Notice: notice); }
         if (WeightIndex == 2)
         {
             Page = MenuPage.Boxer;
@@ -352,7 +412,7 @@ internal sealed partial class MenuState
 
         if (TargetKg == boxer.WeightKg)
         {
-            return new(Cue: MenuCue.Move, Notice: "← → で目標の体重を決めてから決めます。");
+            return new(Cue: MenuCue.Move, Notice: "スライダー・ボタン・← → で目標の体重を決めてから決めます。");
         }
 
         Page = MenuPage.Boxer;
@@ -360,12 +420,32 @@ internal sealed partial class MenuState
         return new(MenuAction.Campaign, Cue: MenuCue.Confirm, Request: new CampaignRequest.ChangeWeight(boxer.Id, TargetKg));
     }
 
+    /// <summary>スライダーをドラッグしている間（押した所から放すまで）。</summary>
+    private bool _dragging;
+
+    /// <summary>減量・増量の画面の階級の表の団体（階級制の最初の団体 = IVF）。</summary>
+    public static MiniRing.Arena.Organization WeightOrg => CampaignPlan.Orgs.First(o => o.HasWeightClasses);
+
+    /// <summary>
+    /// 階級の表の行 <paramref name="row"/> を押したときの目標体重: 今の目標より軽い階級ならその上限、重い階級ならその下限（一つ下の上限 + 1）。
+    /// 作れる範囲 [<paramref name="lo"/>, <paramref name="hi"/>] で届かなければ、届く端と、届かないことの知らせ。
+    /// </summary>
+    private (int Kg, string? Notice) IntoDivision(int row, int lo, int hi)
+    {
+        var divisions = WeightOrg.Divisions;
+        var division = divisions[row];
+        var floor = row == 0 ? 0 : (divisions[row - 1].LimitKg ?? 0) + 1;
+        var ceiling = division.LimitKg ?? int.MaxValue;
+        var wanted = TargetKg > ceiling ? ceiling : TargetKg < floor ? floor : TargetKg;
+        var kg = Math.Clamp(wanted, lo, hi);
+        return WeightOrg.DivisionOf(kg) == division
+            ? (kg, null)
+            : (kg, string.Create(CultureInfo.InvariantCulture, $"この骨格では {division.Name}に届きません（作れる体重 {lo}〜{hi} kg）。"));
+    }
+
     /// <summary>目標体重にしたときの体（画面の見込み: 計量・階級・力の変わり方。決めるまでファイルは変わらない）。</summary>
     public BodyBuild? TargetBuild => Boxer is { } boxer && TargetKg != boxer.WeightKg ? BodySizing.WithWeight(boxer.Character.Build, TargetKg) : null;
 
     /// <summary>目標体重での力の変わり方（筋肉の断面の比 − 1。変えなければ 0）。</summary>
     public float TargetPower => Boxer is { } boxer && TargetBuild is { } target ? (target.SectionRatio / boxer.Character.Build.SectionRatio) - 1f : 0f;
-
-    /// <summary>体重の行の言い方（「◀ 66 kg ▶」）。</summary>
-    public string WeightLine() => string.Create(CultureInfo.InvariantCulture, $"目標  ◀ {TargetKg} kg ▶");
 }
