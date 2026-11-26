@@ -259,7 +259,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 104; // ガルヴァの枝: はめた鎌の固めた手首・組織の材質・体を保つ筋に材質の強さ・足を引く力の仕事を脚の鎖の質量で（104）・つま先の蝶番の位置の拘束を肘と同じ固さに（103）・接触の掃き直し 2 回・刃の接触に関節のつなぎを使わない（102）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 104; // ガルヴァの枝: はめた鎌の固めた手首・組織の材質・体を保つ筋に材質の強さ（104）・つま先の蝶番の位置の拘束を肘と同じ固さに（103）・接触の掃き直し 2 回・刃の接触に関節のつなぎを使わない（102）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -3043,7 +3043,7 @@ public sealed partial class Fighter
         var force = ClampLength(FighterMath.HandAccel(kneeNow, velocity, goal, targetVelocity, t.KneeKp, t.KneeKd) * mass,
             t.MaxFootForce * _tuning.TorqueScale / _tuning.Scale * scale * t.KickKneeForceGain);
         // 力は膝の点にかかる（腿の重心まわりのトルクにもなる）。反作用は骨盤へ（脚の筋肉が体と脚の間で出す力）。
-        force = PayLegDrive(leg, velocity, force, mass, dt); // 脚の筋肉の仕事はその脚の蓄えから（力が動かす脚の鎖の質量で）
+        force = PayLegDrive(leg, leg.Thigh, velocity, force, dt); // 脚の筋肉の仕事はその脚の蓄えから
         if (Attached(leg.Thigh, Parts.Pelvis)) // 作用と反作用は対で（片方だけが外れていたら、どちらにも掛けない）
         {
             _world.ApplyLinearImpulse(leg.Thigh, force * dt);
@@ -3147,7 +3147,7 @@ public sealed partial class Fighter
         if (leg.Command is not null)
         {
             // 蹴り・踏み下ろしで足を引く仕事は、その脚の蓄えから払う（歩く足を床に留める力は歩く費用 WalkCost で数える）。
-            force = PayLegDrive(leg, velocity, force, mass, dt);
+            force = PayLegDrive(leg, leg.Heel, velocity, force, dt);
         }
         if (Attached(leg.Heel, pelvisId)) // 作用と反作用は対で
         {

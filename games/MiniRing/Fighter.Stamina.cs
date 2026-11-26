@@ -546,15 +546,15 @@ public sealed partial class Fighter
 
     /// <summary>
     /// 足の点を引く力（蹴り・踏み下ろしの <see cref="DriveFoot"/>、膝の制御）の仕事を、その脚の蓄えから払い、払える分まで力を縮める（腕の拳を引く力
-    /// <see cref="ApplyArmDrive"/> と同じ数え方: 力積がした仕事 max(0, F·v dt) + |F|²dt²/(2m) + 力を保つ費用）。<paramref name="drivenMass"/> は力が動かす脚の鎖の質量（力の大きさを決めたのと同じ質量。力が掛かる部位 1 つの質量で割ると、脚を 4 本に分けて足が 0.1 kg の体で |F|²dt²/2m の項が 1 振り数十 kJ に膨らんだ: 2026-11-26、huntlab）、
+    /// <see cref="ApplyArmDrive"/> と同じ数え方: 力積がした仕事 max(0, F·v dt) + |F|²dt²/(2m) + 力を保つ費用）。<paramref name="point"/> は力が掛かる体、
     /// <paramref name="velocity"/> はその点の速さ。反作用を受ける骨盤の分も数える。返すのは縮めた後の力。
     /// </summary>
-    private Vector3 PayLegDrive(Leg leg, Vector3 velocity, Vector3 force, float drivenMass, float dt)
+    private Vector3 PayLegDrive(Leg leg, int point, Vector3 velocity, Vector3 force, float dt)
     {
         var region = LegRegion(leg);
         var pelvis = _world.GetState(Parts.Pelvis);
         var linear = (MathF.Max(0f, Vector3.Dot(force, velocity)) + MathF.Max(0f, Vector3.Dot(-force, pelvis.LinearVelocity))) * dt;
-        var quadratic = force.LengthSquared() * dt * dt * 0.5f * ((1f / MathF.Max(1e-3f, drivenMass)) + (1f / MathF.Max(1e-3f, _world.GetMass(Parts.Pelvis))));
+        var quadratic = force.LengthSquared() * dt * dt * 0.5f * ((1f / MathF.Max(1e-3f, _world.GetMass(point))) + (1f / MathF.Max(1e-3f, _world.GetMass(Parts.Pelvis))));
         var holding = _tuning.IsometricCost * force.Length() * dt;
         var budget = FatigueEnabled ? _budget[(int)region] : linear + quadratic + holding;
         var scale = MuscleWork.ForceScale(linear, quadratic, holding, budget);
