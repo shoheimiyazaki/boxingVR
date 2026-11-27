@@ -585,6 +585,28 @@ public sealed partial class BoxerBody
         return grid;
     }
 
+    /// <summary>
+    /// 作ったばかりの格子の、最大のつながりに斜めでしか触れていない浮いたセル（1〜3 個の毛・皮）を空にする。寸法を変えて伸縮した格子や顔の彫り直しの縁にできる。
+    /// 浮いた所は最初の歩で黙って剥がれ、セルの数・質量が体ごと・試合ごとにずれるので、作る時に取り除く（形の整理で、材質の値は変えない）。つながっていれば何もしない。
+    /// </summary>
+    private static VoxelGrid WithoutFloating(VoxelGrid grid)
+    {
+        if (grid.IsConnected())
+        {
+            return grid;
+        }
+
+        foreach (var component in grid.ConnectedComponents().OrderByDescending(c => c.Length).Skip(1))
+        {
+            foreach (var index in component)
+            {
+                grid.Reset(index, 0, false);
+            }
+        }
+
+        return grid;
+    }
+
     private static VoxelGrid SliceTorso(VoxelGrid source, Vector3 half, float chestShare, bool abdomen)
     {
         var (nx, ny, nz) = source.Dimensions;
@@ -681,6 +703,7 @@ public sealed partial class BoxerBody
                 // 頭: 14 mm の格子は頭蓋骨・脳・首の中だけ。その外は顔の層（7 mm）が持つ（FaceLayer）。剛体の質量と当たりの箱は 2 つの格子の和になる（AddCompanion）。
                 var spec = face ?? (look is not null ? FaceSpec.FromLook(look, "face") : FaceSpec.For("standard"));
                 (grid, faceGrid, faceColors) = FaceLayer.Build(grid, spec);
+                faceGrid = WithoutFloating(faceGrid!);
             }
 
             // 質量と慣性はセルの実測（材質の密度 × セルの体積、docs/plans/BASE_BODY_PLAN.md §3）。当たりの箱は生成のまま（削れて変わったときに合わせ直す）。
