@@ -31,7 +31,9 @@ public sealed class GloveShapeTests
         Assert.IsInRange(0.1239f, 0.1521f, width, $"the glove is about as wide as the old ball (135 mm): {width * 1000f:F0} mm");
         Assert.IsInRange(0.05634f, 0.07887f, Weapon.CoverRadiusOf(WeaponKind.Glove), "the visible size is the old ball's radius, 68 mm");
         var mass = Weapon.MassOf(WeaponKind.Glove);
-        Assert.IsInRange(0.40f, 0.56f, mass, $"the mass stays near the old ball (480 g): {mass * 1000f:F0} g");
+        // 2026-11-27: 革・詰め物は前の質量のまま（0.40 kg）、中の拳の骨 78 セルが骨の実物の密度（1900 kg/m³、前は相似の × 0.4474）になって 0.21 kg。
+        // 合わせて 0.61 kg（実物の 16 oz のグローブ 0.45 kg ＋ 手 0.45 kg より軽い）。
+        Assert.IsInRange(0.55f, 0.70f, mass, $"the leather and padding of the old ball (400 g) and the fist's bone at bone density: {mass * 1000f:F0} g");
         Assert.AreEqual(0.06761f, Weapon.TipOf(WeaponKind.Glove).X - Weapon.GripOf(WeaponKind.Glove).X, 2.817e-4f, "the striking face is 68 mm in front of the wrist, as the old ball's front was");
     }
 

@@ -118,10 +118,10 @@ public sealed record FighterTuning
     /// 80・90・120 N·m では、距離の差を 0.02 の余裕で測る試合のテスト（BuildReadTests.SameStyle_LongArms…）か、触れるだけの肘が当たるかどうかの縁のテスト
     /// （ElbowContactTests.AFasterElbow…）のどちらかが外れる（70・60 N·m は両方通る。縁の値に敏感な測り方で、物理の誤りではない）。
     /// </summary>
-    public float TrunkRotatorTorque { get; init; } = 120f;
+    public float TrunkRotatorTorque { get; init; } = 120f * StandardBodyStrength.Trunk;
 
     /// <summary>腰の回旋筋のトルク上限 [N·m]。null なら胸と同じ値を使う。150 N·m で最大溜めの腰の角速度 3.67 rad/s。</summary>
-    public float? PelvisRotatorTorque { get; init; } = 150f;
+    public float? PelvisRotatorTorque { get; init; } = 150f * StandardBodyStrength.Trunk;
 
     /// <summary>
     /// 胴のひねりの目標が動く速さ（角速度）を、回すバネの速度の目標に入れる割合（0 = 位置のバネだけ、1 = 目標の速さへそのまま合わせる）。
@@ -153,9 +153,9 @@ public sealed record FighterTuning
     public float LegServoHz { get; init; } = 11.92f;
 
     /// <summary>股・膝・足首のサーボが出せる最大トルク（TorqueScale 倍する前）。足を置き場所へ運び切れる強さ（以前は 120 / 100 / 100）。</summary>
-    public float HipMaxTorque { get; init; } = 360f;
-    public float KneeMaxTorque { get; init; } = 300f;
-    public float AnkleMaxTorque { get; init; } = 900f;
+    public float HipMaxTorque { get; init; } = 360f * StandardBodyStrength.Hip;
+    public float KneeMaxTorque { get; init; } = 300f * StandardBodyStrength.Knee;
+    public float AnkleMaxTorque { get; init; } = 900f * StandardBodyStrength.Ankle;
     /// <summary>首（頭と胴をつなぐバネ）の固有振動数 [Hz]。低いほど打たれた頭が大きく揺れる。</summary>
     public float NeckServoHz { get; init; } = 5.36f;
 
@@ -163,7 +163,7 @@ public sealed record FighterTuning
     public FootworkTuning Footwork { get; init; } = new();
 
     /// <summary>つま先の蝶番のサーボの強さ（TorqueScale 倍する前）。</summary>
-    public float ToeMaxTorque { get; init; } = 20f;
+    public float ToeMaxTorque { get; init; } = 20f * StandardBodyStrength.Toe;
 
     /// <summary>
     /// つま先の蝶番の可動域の止め（上 25°・下 −60°）のバネの固さ [Hz]。つま先は軽い（足の 4 割）ので、止めが既定の 15 Hz では、
@@ -177,7 +177,7 @@ public sealed record FighterTuning
     public float NeckDampingRatio { get; init; } = 0.7f;
 
     /// <summary>首のバネが出せる最大トルク（TorqueScale 倍する前）。</summary>
-    public float NeckMaxTorque { get; init; } = 60f;
+    public float NeckMaxTorque { get; init; } = 60f * StandardBodyStrength.Neck;
 
     /// <summary>折れた首の、胴に残った側の破片を胴に固定するサーボの最大トルク（TorqueScale 倍する前）。固定の役で、動かす筋ではない（首の筋は折れたとき外れる）。胴の側の首の根は動かない。</summary>
     public float NeckWeldTorque { get; init; } = 500f;
@@ -291,13 +291,13 @@ public sealed record FighterTuning
     /// 弱い向きの屈曲・外転に合わせた 60。2026-11-25 まで 40（実物大へ移す前の値のまま。docs/plans/FORM_DECAY_STUDY.md: 武器を実物の重さにすると、構えた刃が垂れた）。
     /// 拳を目標へ引く力（<see cref="MaxHandForce"/>）は別にある。
     /// </summary>
-    public float ShoulderMaxTorque { get; init; } = 60f;
+    public float ShoulderMaxTorque { get; init; } = 60f * StandardBodyStrength.Shoulder;
 
     /// <summary>
     /// 肘のサーボが出せる最大トルク [N·m]（TorqueScale 倍する前）。人の肘の等尺性の最大: 屈曲 60〜75・伸展 40〜50 N·m（成人男性、肘 90°。Kulig 1984、
     /// Murray 1995）。1 つのサーボで曲げ・伸ばしを分けないので間の 50。2026-11-25 まで 30（同上）。
     /// </summary>
-    public float ElbowMaxTorque { get; init; } = 50f;
+    public float ElbowMaxTorque { get; init; } = 50f * StandardBodyStrength.Elbow;
 
     /// <summary>手にはめた物を回す最大トルク（TorqueScale 倍する前。人の手首の伸展の最大 7〜10 N·m の上の方）。握った武器は <see cref="GripWristMaxTorque"/>。</summary>
     public float WristMaxTorque { get; init; } = 10f;
@@ -1081,7 +1081,7 @@ public sealed record FighterTuning
     {
         SplitTorso = true,
         MaxTorsoTwistRadians = 65f * MathF.PI / 180f,
-        TrunkRotatorTorque = 240f,
+        TrunkRotatorTorque = 240f * StandardBodyStrength.Trunk,
         ElbowMuscleMaxSpeed = 200f,
         WaveHandSeconds = 0.025f,
         WaveFootSeconds = 0.050f,
@@ -1126,8 +1126,8 @@ public sealed record FighterTuning
         ArticulatedImpact = true,
         HandReactionShare = 1f,
         WeightShiftShare = 0f,
-        PelvisRotatorTorque = 300f,
-        TrunkRotatorTorque = 360f,
+        PelvisRotatorTorque = 300f * StandardBodyStrength.Trunk,
+        TrunkRotatorTorque = 360f * StandardBodyStrength.Trunk,
         ConcussionRecoveryRate = 0.0834f,
         SupportRecovery = 1.0f,
         SupportVerticalRecovery = 3f,

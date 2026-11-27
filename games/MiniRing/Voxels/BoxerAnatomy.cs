@@ -145,6 +145,13 @@ public static class BoxerAnatomy
     private static readonly VoxelMechanics ClothMechanics = Doll(new(1100f, 1.2e6f, 0.005f));
     private static readonly VoxelMechanics LeatherMechanics = Doll(new(1100f, 2.0e6f, 0.004f));
 
+    /// <summary>
+    /// グローブの革（表と親指・縁取り）: 強さは革のまま、密度 492 kg/m³ は近道（2026-11-27 まで全材料に掛けていた相似の 0.4474 × 1100 と同じ値を明示）。
+    /// グローブの格子は革の殻が実物（1〜2 mm）より厚い（セル 1 つぶん）ので、革の密度のままだと 1.1 kg（実物の 16 oz は 0.45 kg）になる（GloveShapeTests）。
+    /// 殻の厚みを実物へ直すまで、質量を前のまま保つ（docs/DEBT.md「キャラクター」(1)）。
+    /// </summary>
+    private static readonly VoxelMechanics GloveLeatherMechanics = Doll(new(492f, 2.0e6f, 0.004f));
+
 
     /// <summary>人形の体の大きさの、人に対する比（腕の長さの比 0.17 m / 0.53 m）。2026-11-20 まで（人形の物理）材質の強さの相似則に使った値。</summary>
     public const float Similitude = 0.32f;
@@ -174,7 +181,8 @@ public static class BoxerAnatomy
     };
 
     /// <summary>グローブの詰め物（発泡材）: 軽く（120 kg/m³）、弱い圧力で潰れ（0.15 MPa）、大きくたわむ（8 mm）。拳の衝撃を広げて和らげる。</summary>
-    public static VoxelMechanics PaddingMechanics { get; } = Doll(new(120f, 0.15e6f, 0.008f));
+    /// <remarks>密度 54 kg/m³ は 2026-11-27 まで掛けていた相似の 0.4474 × 120 を明示した値（グローブの質量を前のまま保つ近道: <see cref="GloveLeatherMechanics"/>）。</remarks>
+    public static VoxelMechanics PaddingMechanics { get; } = Doll(new(53.7f, 0.15e6f, 0.008f));
 
     /// <summary>
     /// 剣の鋼: 焼き入れした鋼（人で降伏 600MPa、引張 1.5GPa、ヤング率 200GPa。強さ・たわみは人形の相似則で縮める）。密度だけは実物の 7800 kg/m³
@@ -243,8 +251,8 @@ public static class BoxerAnatomy
         new VoxelMaterial("pupil", VoxelTissue.Organ, 0.8f, false, Rgb(0.02f, 0.02f, 0.03f), Rgb(0.02f, 0.02f, 0.03f), Stainable: 0f, Mechanics: BrainMechanics),
         new VoxelMaterial("iron", VoxelTissue.Solid, 50f, false, Rgb(0.72f, 0.74f, 0.78f), Rgb(0.82f, 0.84f, 0.88f), Stainable: 0.6f, Mechanics: IronMechanics),
         new VoxelMaterial("wood", VoxelTissue.Solid, WoodToughness, false, Rgb(0.78f, 0.6f, 0.38f), Rgb(0.5f, 0.32f, 0.16f), Stainable: 0.7f, Mechanics: WoodMechanics),
-        new VoxelMaterial("red glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.85f, 0.1f, 0.1f), Rgb(0.85f, 0.1f, 0.1f), Stainable: 0.6f, Mechanics: LeatherMechanics),
-        new VoxelMaterial("blue glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.1f, 0.25f, 0.85f), Rgb(0.1f, 0.25f, 0.85f), Stainable: 0.6f, Mechanics: LeatherMechanics),
+        new VoxelMaterial("red glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.85f, 0.1f, 0.1f), Rgb(0.85f, 0.1f, 0.1f), Stainable: 0.6f, Mechanics: GloveLeatherMechanics),
+        new VoxelMaterial("blue glove", VoxelTissue.Solid, SkinToughness, false, Rgb(0.1f, 0.25f, 0.85f), Rgb(0.1f, 0.25f, 0.85f), Stainable: 0.6f, Mechanics: GloveLeatherMechanics),
         new VoxelMaterial("padding", VoxelTissue.Solid, 1f, false, Rgb(0.92f, 0.9f, 0.82f), Rgb(0.92f, 0.9f, 0.82f), Stainable: 0.4f, Mechanics: PaddingMechanics),
         new VoxelMaterial("lip", VoxelTissue.Flesh, SkinToughness, false, Rgb(0.8f, 0.4f, 0.38f), Rgb(0.8f, 0.4f, 0.38f), Stainable: 1f, Mechanics: SkinMechanics),
         new VoxelMaterial("cord", VoxelTissue.Flesh, 0.5f, false, Rgb(0.5f, 1f, 0.15f), Rgb(0.5f, 1f, 0.15f), Stainable: 0f, Mechanics: CordMechanics),
@@ -252,9 +260,9 @@ public static class BoxerAnatomy
         new VoxelMaterial("hand muscle", VoxelTissue.Flesh, HandToughness, false, Rgb(0.81f, 0.05f, 0.07f), Rgb(0.81f, 0.05f, 0.07f), Stainable: 0.3f, Mechanics: HandMechanics),
         new VoxelMaterial("hand bone", VoxelTissue.Bone, HandToughness, false, Rgb(1f, 0.97f, 0.88f), Rgb(1f, 0.97f, 0.88f), Stainable: 0f, Mechanics: HandMechanics),
         new VoxelMaterial("artery", VoxelTissue.Flesh, 1f, false, Rgb(1f, 0f, 0.25f), Rgb(1f, 0f, 0.25f), Stainable: 0f, Mechanics: MuscleMechanics),
-        new VoxelMaterial("red glove thumb", VoxelTissue.Solid, SkinToughness, false, Rgb(0.58f, 0.06f, 0.07f), Rgb(0.58f, 0.06f, 0.07f), Stainable: 0.6f, Mechanics: LeatherMechanics),
-        new VoxelMaterial("blue glove thumb", VoxelTissue.Solid, SkinToughness, false, Rgb(0.06f, 0.16f, 0.58f), Rgb(0.06f, 0.16f, 0.58f), Stainable: 0.6f, Mechanics: LeatherMechanics),
-        new VoxelMaterial("glove trim", VoxelTissue.Solid, SkinToughness, false, Rgb(0.97f, 0.97f, 0.94f), Rgb(0.97f, 0.97f, 0.94f), Stainable: 0.8f, Mechanics: LeatherMechanics),
+        new VoxelMaterial("red glove thumb", VoxelTissue.Solid, SkinToughness, false, Rgb(0.58f, 0.06f, 0.07f), Rgb(0.58f, 0.06f, 0.07f), Stainable: 0.6f, Mechanics: GloveLeatherMechanics),
+        new VoxelMaterial("blue glove thumb", VoxelTissue.Solid, SkinToughness, false, Rgb(0.06f, 0.16f, 0.58f), Rgb(0.06f, 0.16f, 0.58f), Stainable: 0.6f, Mechanics: GloveLeatherMechanics),
+        new VoxelMaterial("glove trim", VoxelTissue.Solid, SkinToughness, false, Rgb(0.97f, 0.97f, 0.94f), Rgb(0.97f, 0.97f, 0.94f), Stainable: 0.8f, Mechanics: GloveLeatherMechanics),
     ]);
 
     /// <summary>腰のゴム: 骨盤の外形の上からこの高さ（正規化 Y）より上。</summary>

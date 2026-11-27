@@ -141,14 +141,17 @@ public sealed partial class Fighter
     /// </summary>
     private float MuscleMassRatio => _tuning.Build.MassRatio;
 
-    /// <summary>部位の質量 [kg]（体に付いている物理の体の質量。胴は回して支える筋の分だけ: <see cref="FighterTuning.TrunkMuscleShare"/>）。</summary>
+    /// <summary>
+    /// 部位の筋の量 [kg]（体に付いている物理の体の質量 × 基準の体の筋の量の置き直し <see cref="StandardBodyStrength.ArmMuscle"/> ほか。
+    /// 胴は回して支える筋の分だけ: <see cref="FighterTuning.TrunkMuscleShare"/>）。
+    /// </summary>
     private float RegionMass(int region) => region switch
     {
-        0 or 1 => ArmMass((Hand)region),
-        (int)MuscleRegion.LeftLeg => LegSideMass(Hand.Left),
-        (int)MuscleRegion.RightLeg => LegSideMass(Hand.Right),
+        0 or 1 => ArmMass((Hand)region) * StandardBodyStrength.ArmMuscle,
+        (int)MuscleRegion.LeftLeg => LegSideMass(Hand.Left) * StandardBodyStrength.LegMuscle,
+        (int)MuscleRegion.RightLeg => LegSideMass(Hand.Right) * StandardBodyStrength.LegMuscle,
         _ => (_world.GetMass(Parts.Chest) + _world.GetMass(Parts.Pelvis)
-            + (Parts.Abdomen is { } abdomen ? _world.GetMass(abdomen) : 0f)) * _tuning.TrunkMuscleShare,
+            + (Parts.Abdomen is { } abdomen ? _world.GetMass(abdomen) : 0f)) * _tuning.TrunkMuscleShare * StandardBodyStrength.TrunkMuscle,
     };
 
     /// <summary>
