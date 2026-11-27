@@ -78,3 +78,13 @@ CLAUDE.md §5 にはよく使う物だけを置き、ここに全部を書く。
 | `foreleg-thrust` | 三脚で支えて右前脚を突き出す |
 
 `--only stalk,sweep` でクリップを選び、`--bones on` で骨格表示、`--render off` で BVH だけを書き出す。試合から独立した確認用ツールで、名簿のモデルから骨と形を読み、キーフレームと幾何 IK で姿勢を直接計算する。攻撃キーは前後の区間で速度をつなぎ、鎌の刃元から刃先までの軸と刃の内側の向きを個別に指定する。骨格動画の橙色の線が刃の内側を示す。
+
+可動域付きガルヴァの Blender ファイルから、肩を支える胴体を固定した右鎌の軌道を生成できる。
+
+```powershell
+blender --background Galva-Attacks-Stable-Edge.blend --python-exit-code 1 --python tools/galva_analytic_cut.py -- --output Galva-Analytic-Target-Cut.blend
+```
+
+`--point X Y Z` はアーマチュア座標の刃先目標 [m]、`--direction X Y Z` は目標での進行方向、`--normal X Y Z` は切断面の法線。`--radius` で円弧の半径、`--rake` で刃の弦と半径のなす角を指定する。各関節の角速度上限 [deg/s] は `--rates` に肩の X・Y・Z、前腕のねじり、肘の屈伸、手首の順で渡す。`--runup` と `--follow` は目標前後の弧長 [m]、`--acceleration` は円弧に沿った加減速の上限 [m/s²]。これらはアニメーション用の設定値。
+
+刃先の位置と刃面から肘の候補を幾何式で列挙し、ヤコビアンから各候補の速度上限を求める。円弧の全区間で可動域に収まる候補のうち、指定の助走と減速で目標を最も速く通過するものを `06 Analytic Target Sweep` に保存する。
