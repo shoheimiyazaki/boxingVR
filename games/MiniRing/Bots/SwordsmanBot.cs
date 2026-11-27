@@ -252,6 +252,42 @@ public sealed class SwordsmanBot : IFighterControl
     /// </summary>
     public float OffhandRadius { get; init; }
 
+    /// <summary>
+    /// 刃の通り道で切る（<see cref="BladeCutChooser"/>）。技を選ぶまでは今まで通りで、選んだ技の型は振る面と狙う高さの好みになり、
+    /// 武器の手だけを <see cref="BladeCutPlan"/> の円弧で振る（足・胴のひねり・頭は型のまま）。計画が作れなければ型のまま振る。null なら使わない。
+    /// </summary>
+    public BladeCutStyle? BladeCut { get; init; }
+
+    private readonly BladeCutPlayback _cut = new();
+    private readonly Dictionary<string, CutPreference?> _preferences = [];
+    private CutState _cutState;
+    private Vector3 _cutStep;
+    private float _cutStepUntil;
+
+    /// <summary>刃の通り道で選んだ狙い・面・深さ・詰めの記録（比べ・テスト用）。</summary>
+    public List<ChosenCut> CutTargets { get; } = [];
+
+    private enum CutState
+    {
+        Off,
+        Waiting,
+        Running,
+    }
+
+    private CutPreference? Preference(MotionTechnique technique)
+    {
+        if (!_preferences.TryGetValue(technique.Name, out var preference))
+        {
+            preference = CutPreference.Of(technique.Motion);
+            _preferences[technique.Name] = preference;
+        }
+
+        return preference;
+    }
+
+    /// <summary>刃の通り道で振った回数（比べ・テスト用）。</summary>
+    public int PlannedCuts { get; private set; }
+
     /// <summary>今出している技（出していなければ null）。</summary>
     public MotionTechnique? Current => _current;
 
@@ -547,6 +583,8 @@ public sealed class SwordsmanBot : IFighterControl
         if (!sense.OpponentAlive)
         {
             _current = null;
+            _cut.Cancel();
+            _cutState = CutState.Off;
             return MotionImitation.ToCommand(_guard, sense, face, 0f, _walkSpeed, _maxTwist);
         }
 
@@ -555,6 +593,39 @@ public sealed class SwordsmanBot : IFighterControl
             // 技の時計は、体が目標に付いてきている間だけ進む（付いてこられない振りは、体の追いつきを待つ）。
             _phase += dt * _rate * _gate;
             var t = Pacing is null ? (_time - _start) * _rate : _phase;
+            // 刃の通り道: 型の足が間合いへ運んだ所（型の打ちの始めから、構えに入る時間だけ前）で、狙いと面を選んで円弧を計画する。
+            if (BladeCut is { } cutStyle && _cutState == CutState.Waiting && Preference(technique) is { } preference &&
+                t >= preference.Start - (cutStyle.Preparation * _rate))
+            {
+                var hand = sense.BladeGrip(Hand.Right) is not null ? Hand.Right : Hand.Left;
+                var advance = CutPreference.Advance(technique.Motion, t, preference.Peak, sense.ArmReach);
+                _cutState = BladeCutChooser.TryStart(_cut, hand, sense, preference, cutStyle, MotionAim.Targets, advance, out var chosen) ? CutState.Running : CutState.Off;
+                if (_cutState == CutState.Running)
+                {
+                    PlannedCuts++;
+                    CutTargets.Add(chosen);
+                    // 詰める距離は、刃が通るまでに歩いて運ぶ（歩く速さの上限の割合で）。
+                    var contact = _cut.Plan!.ContactTime;
+                    _cutStep = face * MathF.Min(1f, chosen.Step / contact / _walkSpeed);
+                    _cutStepUntil = _time + contact;
+                }
+            }
+
+            if (_cutState == CutState.Running)
+            {
+                // 足・胴のひねり・頭は型の経路のまま、武器の手だけを円弧で。円弧の時計は固定（体の追いつきは待たない）。
+                var step = _time < _cutStepUntil ? _cutStep : Vector3.Zero;
+                var body = MotionImitation.WithKick(MotionImitation.ToCommand(Clear(technique.Motion.Sample(MathF.Min(t, technique.Motion.Duration))), sense, face, _rate, _walkSpeed, _maxTwist, step), technique.Motion, t, sense);
+                if (_cut.TryRead(sense, body, dt, out var cut))
+                {
+                    return cut;
+                }
+
+                // 振り抜いて構えへ戻った（か、握りが変わって計画が切れた）: 型の残りは振らずに技を終える。
+                _cutState = CutState.Off;
+                t = technique.Motion.Duration;
+            }
+
             if (t < technique.Motion.Duration)
             {
                 var frame = technique.Motion.Sample(t);
@@ -668,6 +739,8 @@ public sealed class SwordsmanBot : IFighterControl
         _gate = 1f;
         Used.Add(technique.Name);
         UsedAt.Add(distance);
+        _cut.Cancel();
+        _cutState = BladeCut is not null && technique.Motion.Kick is null ? CutState.Waiting : CutState.Off;
         return MotionImitation.ToCommand(Clear(technique.Motion.Frames[0]), sense, face, _rate, _walkSpeed, _maxTwist);
     }
 

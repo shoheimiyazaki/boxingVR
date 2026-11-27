@@ -139,8 +139,14 @@ public readonly record struct FighterSense(
     bool OpponentDowned = false, bool MayStrikeDowned = false, BodyBuild? SelfBuild = null, BodyBuild? OpponentBuild = null,
     LegBody? SelfLegLeft = null, LegBody? SelfLegRight = null,
     float SelfInjury = 0f, float OpponentInjury = 0f, float OpponentWinded = 0f, MatchSense Match = default, int SelfSupplies = 0, GrappleSense? Grapple = null,
-    bool SelfDowned = false, float SelfLegOxygenLeft = 1f, float SelfLegOxygenRight = 1f, BodySense SelfBody = default, Vector3 SelfChin = default)
+    bool SelfDowned = false, float SelfLegOxygenLeft = 1f, float SelfLegOxygenRight = 1f, BodySense SelfBody = default, Vector3 SelfChin = default,
+    Motion.BladeArm? SelfBladeArmLeft = null, Motion.BladeArm? SelfBladeArmRight = null,
+    Motion.BladeGripSense? SelfBladeGripLeft = null, Motion.BladeGripSense? SelfBladeGripRight = null)
 {
+    public Motion.BladeArm? BladeArm(Hand hand) => hand == Hand.Left ? SelfBladeArmLeft : SelfBladeArmRight;
+
+    public Motion.BladeGripSense? BladeGrip(Hand hand) => hand == Hand.Left ? SelfBladeGripLeft : SelfBladeGripRight;
+
     /// <summary>自分の脚の寸法と立った形の膝（体フレーム）。分からなければ腕の長さからの見積もり。</summary>
     public LegBody SelfLeg(Hand leg) => (leg == Hand.Left ? SelfLegLeft : SelfLegRight) ?? LegBody.FromReach(leg, ArmReach);
 

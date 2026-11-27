@@ -11,6 +11,7 @@ CLAUDE.md §5 にはよく使う物だけを置き、ここに全部を書く。
 | 調査用の Probe | `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~<名前>" --logger "console;verbosity=detailed"`（tower32 で: `bash tools/remote-test.sh probe:<名前>`。Probe は `[TestCategory("Probe")]` で通常の実行から外れる） |
 | 名簿の組の試合のチェックサムを並べる（ある変更で変わる組・変わらない組を調べる） | `bash tools/remote-test.sh probe:CharacterSamenessProbe`（変更の前後で回して比べる。`CharacterSamenessTests` は 2026-11-20 から金型を持たないので、版を上げても取り直しは要らない） |
 | デスクトップのメニューを実際のウィンドウで動かす（画面の確かめ） | `games/MiniRing.Desktop/bin/Release/net10.0/miniring-desktop.exe --no-record --menu-script "wait,enter,down,enter,..."`（ゲームの中で 0.5 秒に 1 つ操作を渡す: left/right/up/down/enter/back/wait/scroll-up/scroll-down。外からキーを送らない。撮るのはウィンドウの矩形の画面写し。ページの PNG は `MenuPagesVisualTests`（フリーバトル `menu_03b`・キャンペーン `menu_15`〜`menu_20`）。キャンペーンのボクサーは設定と同じ場所の `campaign/<id>.json`） |
+| 武器の目標姿勢をその場で生成する | `dotnet run --project games/MiniRing.Desktop -c Release -- --blade-plan`。シングルで刀・ロングソード・剣と盾・ガルヴァを選び、届く間合いで強（K または左クリック）。通常は斜め、左 Ctrl を押している間は横。ガルヴァは弱（J または右クリック）でも左の鎌を振れる。計画が作れない間合いでは既存の技を使う |
 | リプレイで見られる記録を作る（ボットどうし、今のビルド） | `... recordbout --red champion --blue swarmer --seconds 100 [--tv 1] [--seed 3] --out replays/<名前>.mrrep` → `run.cmd replay replays/<名前>.mrrep`（操作は docs/REPLAY.md「リプレイを見る」） |
 | 総当たり | `dotnet run --project games/MiniRing.Arena -c Release -- league --bouts 4 --seconds 60 --out docs/arena/<名前>.md` |
 | 試合の面白さ（見どころ・ドラマ・緩急、docs/EXCITEMENT.md） | `... excitement --red champion --blue swarmer --seconds 40 --seeds 4 [--curve <接頭辞>]`（出来事の一覧とまとめ。`--curve` で曲線の CSV → `py -3 tools/excitement_curve.py <csv>... --out <png>`）・`... excitementleague [--pairs a:b,c:d] --seeds 2 --seconds 40 --out docs/arena/excitement_<日付>.md --label <名前>`（組ごとの表）・`... excitementfit --seeds 8 --out docs/arena/winmodel_<日付>.json`（観客の見込みのモデルを当てはめ直す。係数は `WinModel.Default` へ写す）。`video` は `<out>.highlights.txt`（映像の秒つきの一覧）も書く |
@@ -78,3 +79,45 @@ CLAUDE.md §5 にはよく使う物だけを置き、ここに全部を書く。
 | `foreleg-thrust` | 三脚で支えて右前脚を突き出す |
 
 `--only stalk,sweep` でクリップを選び、`--bones on` で骨格表示、`--render off` で BVH だけを書き出す。試合から独立した確認用ツールで、名簿のモデルから骨と形を読み、キーフレームと幾何 IK で姿勢を直接計算する。攻撃キーは前後の区間で速度をつなぎ、鎌の刃元から刃先までの軸と刃の内側の向きを個別に指定する。骨格動画の橙色の線が刃の内側を示す。
+
+可動域付きガルヴァの Blender ファイルから、肩を支える胴体を固定した右鎌の軌道を生成できる。
+
+```powershell
+blender --background Galva-Attacks-Stable-Edge.blend --python-exit-code 1 --python tools/galva_analytic_cut.py -- --output Galva-Analytic-Target-Cut.blend
+```
+
+`--point X Y Z` はアーマチュア座標の刃先目標 [m]、`--direction X Y Z` は目標での進行方向、`--normal X Y Z` は切断面の法線。`--radius` で円弧の半径、`--rake` で刃の弦と半径のなす角を指定する。各関節の角速度上限 [deg/s] は `--rates` に肩の X・Y・Z、前腕のねじり、肘の屈伸、手首の順で渡す。`--runup` と `--follow` は目標前後の弧長 [m]、`--acceleration` は円弧に沿った加減速の上限 [m/s²]。これらはアニメーション用の設定値。
+
+刃先の位置と刃面から肘の候補を幾何式で列挙し、ヤコビアンから各候補の速度上限を求める。円弧の全区間で可動域に収まる候補のうち、指定の助走と減速で目標を最も速く通過するものを `06 Analytic Target Sweep` に保存する。
+
+同じ目標で腹（`Thorax`）と胸（`Chest`）のヨーを加える比較も生成できる。
+
+```powershell
+blender --background Galva-Analytic-Target-Cut.blend --python-exit-code 1 --python tools/galva_analytic_trunk_cut.py -- --output Galva-Analytic-Trunk-Cut.blend
+```
+
+両関節のひねり方を探索し、各候補について円弧全体の腕の可動域、角速度、足先の接地を確認する。腹と胸のヨーの上限はそれぞれ ±24°・±35°、角速度上限は 160°/s・200°/s。元の右鎌アクションと比較用の `07 Analytic Trunk Sweep` を出力ファイルの同じリグに収録する。
+
+目標の位置・進行方向・切断面・刃の向きをまとめて試す場合は、同じリグから一括で生成できる。
+
+```powershell
+blender --background Galva-Attacks-Stable-Edge.blend --python-exit-code 1 --python tools/galva_analytic_cut_study.py -- --output Galva-Analytic-Target-Study.blend
+```
+
+生成できたアクションは、番号に続く `A` が腕のみ、`T` が胴体あり。同名の CSV に目標座標、角度、刃先の通過速度、全区間を生成できたかを記録する。腕で円弧全体を生成できない場合は、目標通過時の腹と胸の向きを変更する候補も試す。
+
+同じ試験ファイルから、低い構え・鎌を引いた構え・前の技を振り終えた姿勢を横・縦・斜めの各目標につなげられる。
+
+```powershell
+blender --background Galva-Analytic-Target-Study.blend --python-exit-code 1 --python tools/galva_cut_starts.py -- --output Galva-Cut-Start-Study.blend
+```
+
+`S` で始まるアクションは各開始姿勢から目標を通るまでの比較、`C` は前の技も含む連続動作。準備区間は四足を接地させて関節の角速度と角加速度を制限し、いったん静止してから方向ごとの同一の解析円弧に合流する。CSV には準備時間、目標までの時間、開始時の手首と目標の座標を出す。
+
+## 刃物の目標姿勢をコードから作る
+
+`MiniRing.Motion.BladeCutPlan.TryCreate` に通過点、進行方向、平面法線、助走と振り抜きの距離を渡す。座標は計画開始時の体フレームで、距離は m。物打ちの位置、刃の傾き、構えと駆動に使う時間も指定できる。装備の寸法は `BladeCutGeometry.TryFromWeapon` で取得できる。
+
+稽古では `Windup`、`Contact`、`FollowThrough` を個別の目標として使える。`Sample` は途中の握りの位置と武器の向きを返す。`ToCommand` はその姿勢を利き手と添え手の目標にする。実戦入力には `BladeCutPlayback.TryStart` と `TryRead` を使うと、現在の握りから計画し、計画開始時の座標を毎歩の体フレームへ変換する。
+
+計画では、開始時の肩と腕長から円弧の両端と距離の極値を調べる。必要なら助走と振り抜きを短くする。通過姿勢で速さが最大になる時間配分を目標経路に与える。実測の速度と到達位置は、物理サーボ、姿勢の変化、武器の重さや接触に依存する。

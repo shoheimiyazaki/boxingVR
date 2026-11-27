@@ -214,6 +214,7 @@ public static class FormSwordsman
             PlanMinReach = style.InnerMinReach is null ? 0f : style.MinReach,
             RearLength = RearLength(weapon, armReach),
             OffhandRadius = offhandRadius,
+            BladeCut = style.BladeCut,
         };
         return new DisarmedFallback(bot, BotCatalog.Create(DisarmedFallback.FistStyle, seed), style.KeepReach);
     }

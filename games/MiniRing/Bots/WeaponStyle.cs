@@ -63,6 +63,12 @@ public sealed record WeaponStyle
     /// </summary>
     public IReadOnlyDictionary<string, FormTune>? Forms { get; init; }
 
+    /// <summary>
+    /// 刃の通り道で切る（<see cref="BladeCutChooser"/>）。型は「振る面と狙う高さの好み」として読み、狙いと面を状況から選んで
+    /// <see cref="Motion.BladeCutPlan"/> の円弧で振る。null なら型の経路のまま（今までと同じ）。
+    /// </summary>
+    public BladeCutStyle? BladeCut { get; init; }
+
     /// <summary>これより間合いが短い型は技に入れない [m]（打ち込まずその場で振る型は、剣士同士の間合いの技ではない）。</summary>
     public float MinReach { get; init; } = FormSwordsman.MinReach;
 
