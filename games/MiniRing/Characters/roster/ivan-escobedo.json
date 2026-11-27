@@ -85,7 +85,7 @@
       "DefenseRate": 0.585,
       "CounterRate": 0.928,
       "ExitAfterCombo": 0.656,
-      "AttackRange": 1.054,
+      "AttackRange": 1.0183,
       "BreakLikes": {
         "fixgloves": 2,
         "gloveclap": 2,

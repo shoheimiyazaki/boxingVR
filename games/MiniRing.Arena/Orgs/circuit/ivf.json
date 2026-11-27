@@ -34,7 +34,7 @@
       { "key": "DefenseRate", "min": 0, "max": 0.85 },
       { "key": "CounterRate", "min": 0, "max": 1 },
       { "key": "ExitAfterCombo", "min": 0, "max": 1 },
-      { "key": "AttackRange", "min": 0.75, "max": 1.25 }
+      { "key": "AttackRange", "min": 0.7214, "max": 1.2098 }
     ],
     "southpaw": 0.15
   },

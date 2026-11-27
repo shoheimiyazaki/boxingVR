@@ -87,7 +87,7 @@
       "DefenseRate": 0.558,
       "CounterRate": 0.437,
       "ExitAfterCombo": 0.36,
-      "AttackRange": 0.956,
+      "AttackRange": 0.9226,
       "BreakLikes": {
         "bounce": 3,
         "headphones": 2.5,

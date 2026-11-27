@@ -118,6 +118,8 @@
 
 ## LogicVersion（`BoxerBot.LogicVersion`）
 
+- **76**（2026-11-27、仮番号、枝 `claude/base-body-v2`。統合役の指定）: 拳の間合いを胸と胸の距離ではなく**届く間合い**（自分の両肩それぞれから相手のあごまでの距離の平均 ÷ 腕の長さ、`Bots.ReachGap`）で測る。`AttackRange`・`NeutralRange`・`EngageRange` と投げ・組み付き・止めのジャブの間合い、間合いの層（`RangeSense`: 相手の両肩から自分のあごまで、`RangeThreat`・`EvadeReach`）、相手の打ち始めの間合い（`OpponentRead.AttackDistance`）が同じ物差し。前の体（145 cm）で構えて測った対応（`ReachRangeProbe`: 胸と胸 c → 0.9767 c − 0.0111、前の間合いの層の物差し t → 0.947 t + 0.033）で、スタイル・名簿の教育・IVF の新人の生成の範囲の値を移した。戦略の表（胸と胸の cm）は今の「届く間合い ÷ 胸と胸」で直す。蹴り・肘の届く間合いはドリルで胸と胸で測った値のまま。`FighterSense` に `SelfBody`・`SelfChin` を足した。
+
 - **75**（2026-11-25、枝 `claude/priceless-faraday-45d51b`、ユーザーの依頼「スタミナの総消費を抑え、偏らず全身を使い、滑らかで速く刃筋の揃った爪の先の軌道」）: 鎌の振りに体を使う教育の値 `ClawPull`（振っていない手の引き手。分割胴は `TwistBias` を肘打ちでしか使わないので、両手の目標の差でひねる）・`ClawStep`（振り抜きで脚のバネを前へ）・`ClawSpring`（振り抜きで体のバネを拳へ）。どれも既定 0 で、教育が空なら今までと同じ振り。振りの拍子は `ClawStroke.Swing`。
 
 - **74**（2026-11-25、枝 `claude/priceless-faraday-45d51b`、ユーザーの依頼「エイリアン vs 人間で、無抵抗の人間を最も早く倒せるように鍛えて」「首を切断する技も」）: 四足の鎌（`ClawBot`）の狙いの選び方・間合い・拍子を教育の値にした: 狙いの重み `ClawAimNeck`・`ClawAimArm`・`ClawAimTorso`（重み付きの順番回し。1・1・1 で今までの 首 → 腕 → 胴）、間合い `ClawReach`（腕の長さに足す鎌の長さの割合、既定 0.56 = 今までの値）、合間 `ClawRest`（既定 0）。既定の値では今までと同じ動き。ガルヴァの教育を `huntlab` で最適化した。

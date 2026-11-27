@@ -269,7 +269,7 @@ public sealed class DefenseTests
     public void PunchesThatCannotReach_AreNotEvaded()
     {
         // 相手は胸と胸で腕の長さの 2 倍先。拳が速く向かってきても、肩から頭まで届かないので避けない。
-        var style = BotCatalog.Boxer with { EvadeReach = 1.2f, DefenseRate = BotStyle.MaxDefenseRate, Attacks = false };
+        var style = BotCatalog.Boxer with { EvadeReach = 1.1694f, DefenseRate = BotStyle.MaxDefenseRate, Attacks = false };
         var far = Coming() with { OpponentHead = new Vector3(0f, 2.986f, 2f * Reach), OpponentChest = new Vector3(0f, 2.761f, 2f * Reach) };
         for (var seed = 0; seed < 5; seed++)
         {
@@ -298,7 +298,7 @@ public sealed class DefenseTests
     public void SkippedOutOfReachPunch_IsEvaded_OnceTheOpponentStepsIn()
     {
         // 振りかぶりの時点では届かない距離 → 相手が踏み込んで届く距離に。見送った拳を見直して避ける。
-        var style = BotCatalog.Boxer with { EvadeReach = 1.2f, DefenseRate = BotStyle.MaxDefenseRate, Attacks = false };
+        var style = BotCatalog.Boxer with { EvadeReach = 1.1694f, DefenseRate = BotStyle.MaxDefenseRate, Attacks = false };
         var far = Coming() with { OpponentHead = new Vector3(0f, 2.986f, 2f * Reach), OpponentChest = new Vector3(0f, 2.761f, 2f * Reach) };
         var near = Coming() with { OpponentHead = new Vector3(0f, 2.986f, 0.9f * Reach), OpponentChest = new Vector3(0f, 2.761f, 0.9f * Reach) };
         Assert.IsTrue(Enumerable.Range(0, 10).Any(seed =>

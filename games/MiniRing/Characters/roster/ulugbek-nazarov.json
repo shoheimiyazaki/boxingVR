@@ -89,7 +89,7 @@
       "DefenseRate": 0.567,
       "CounterRate": 0.721,
       "ExitAfterCombo": 0.729,
-      "AttackRange": 1.17,
+      "AttackRange": 1.1316,
       "BreakLikes": {
         "looksky": 3,
         "mirror": 2,

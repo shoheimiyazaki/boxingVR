@@ -75,7 +75,7 @@ internal sealed class OpponentRead
     /// <summary>覚えた相手の拳の数。</summary>
     public int Onsets { get; private set; }
 
-    /// <summary>相手が打ち始める間合いの平均（胸と胸、腕の長さ倍）。少なくとも数発見るまでは null。</summary>
+    /// <summary>相手が打ち始める間合いの平均（届く間合い: 相手の両肩から自分のあごまで、腕の長さ倍。<see cref="ReachGap"/>）。少なくとも数発見るまでは null。</summary>
     public float? AttackDistance => _openings >= MinOnsets ? _distanceSum / _openings : null;
 
     /// <summary>
@@ -99,7 +99,7 @@ internal sealed class OpponentRead
         var u = toSelf / distance;
         var twist = Vector3.Dot(body.RightShoulder - body.LeftShoulder, u) / reach; // 正: 相手の右肩が前
         var lean = Vector3.Dot(((body.LeftShoulder + body.RightShoulder) * 0.5f) - body.Pelvis, u) / reach;
-        var chestDistance = Vector3.Distance(sense.OpponentChest with { Y = 0f }, sense.Self.Origin with { Y = 0f }) / reach;
+        var reachDistance = ReachGap.FromOpponent(sense) / reach; // 相手の両肩から自分のあごまで（届く間合い、ReachGap）
         var k = 1f - MathF.Exp(-dt / Smoothing);
         // 踏み込みは相手の胴の速度だけで測る（距離の変化で測ると、自分の踏み込みや後退まで相手の踏み込みに見える。レビュー指摘）。
         _closing += ((Vector3.Dot(sense.OpponentVelocity with { Y = 0f }, u) / reach) - _closing) * k;
@@ -110,7 +110,7 @@ internal sealed class OpponentRead
         }
 
         _primed = true;
-        _distance = chestDistance;
+        _distance = reachDistance;
         _twistValue = twist;
         _leanValue = lean;
 

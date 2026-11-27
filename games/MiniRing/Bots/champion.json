@@ -13,9 +13,9 @@
     "GuardArm": 0.3
   },
   "Aggression": 1,
-  "AttackRange": 1.3,
-  "NeutralRange": 1.3,
-  "EngageRange": 1.6239883,
+  "AttackRange": 1.2586,
+  "NeutralRange": 1.2586,
+  "EngageRange": 1.575,
   "PunchSpeed": 1.15,
   "ComboWeights": {
     "1": 2,

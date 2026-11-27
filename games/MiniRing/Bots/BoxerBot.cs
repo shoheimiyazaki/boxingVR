@@ -78,7 +78,7 @@ public sealed class BoxerBot : IFighterControl
     private const float PredictionCooldown = 0.8392f;
 
     /// <summary>相手の打ち始めの間合いから外へ置く余裕（腕の長さ倍、<see cref="BotStyle.EdgeRange"/>）。</summary>
-    private const float EdgeMargin = 0.1f;
+    private const float EdgeMargin = 0.098f;
 
     private static readonly Hand[] Hands = [Hand.Left, Hand.Right];
 
@@ -218,7 +218,7 @@ public sealed class BoxerBot : IFighterControl
     /// ボットの判断の仕組みの版。スタイルの値が同じでも、仕組みが変われば同じ入力から違う試合になるので、記録はこの版を持ち、違う版の記録は再生しない。
     /// 変えたら 1 増やし、docs/VERSIONS.md の先頭に 1 行足す。
     /// </summary>
-    public const int LogicVersion = 75; // 鎌の振りの引き手・脚のバネ・体のバネを教育の値に（75）・四足の鎌の狙いの重み・間合い・合間を教育の値に（74）。履歴は docs/VERSIONS.md
+    public const int LogicVersion = 76; // 仮番号: 拳の間合いを両肩から相手のあごまでで測る（ReachGap、76）。履歴は docs/VERSIONS.md
     private ClawBot? _claws;
     private readonly HandShape[] _shapes = new HandShape[2];
     private KickTechnique? _kick;
@@ -279,8 +279,11 @@ public sealed class BoxerBot : IFighterControl
         _build = BuildRead.From(sense);
         var toOpponent = sense.OpponentChest - self.Origin;
         toOpponent.Y = 0f;
-        var distance = toOpponent.Length();
-        var dir = distance > 1e-3f ? toOpponent / distance : self.Forward;
+        var flat = toOpponent.Length();
+        var dir = flat > 1e-3f ? toOpponent / flat : self.Forward;
+        // 拳の間合いは両肩から相手のあごまでで測る（ReachGap。スタイルの間合いの値の単位）。
+        var distance = ReachGap.ToOpponent(sense);
+        _reachPerChest = flat > 1e-3f ? distance / flat : 1f;
         var headLocal = sense.SelfHead == default ? new Vector3(0f, 0.3f * reach, 0f) : self.WorldToLocal(sense.SelfHead);
 
         _recentDamage *= MathF.Exp(-dt / 1.678f); // 時定数 1.678 s（人形の単位の 1 s を相似で換算）
@@ -290,7 +293,7 @@ public sealed class BoxerBot : IFighterControl
             _claws = null;
             _read.Pause();
             _crouchTime = MathF.Max(0f, _crouchTime - (CrouchRecovery * dt)); // 相手が倒れている間に、しゃがみの疲れも抜ける
-            var back = Math.Clamp((distance - (Style.NeutralRange + 0.3f) * reach) / reach * 3f, -1f, 0f);
+            var back = Math.Clamp((distance - (Style.NeutralRange + 0.293f) * reach) / reach * 3f, -1f, 0f);
             _head = Vector3.Lerp(_head, Vector3.Zero, 1f - MathF.Exp(-4.767f * dt));
             return new FighterCommand(dir * back, dir,
                 new HandCommand(Guard(Hand.Left, reach, headLocal), false), new HandCommand(Guard(Hand.Right, reach, headLocal), false), _head);
@@ -336,14 +339,15 @@ public sealed class BoxerBot : IFighterControl
         UpdateDefense(distance, reach, dt);
         if (attack is { } observed)
         {
-            var seen = observed.Sense with { Self = self, SelfHead = sense.SelfHead, ArmReach = reach };
+            var seen = observed.Sense with { Self = self, SelfHead = sense.SelfHead, ArmReach = reach, SelfBody = sense.SelfBody };
             var offset = seen.OpponentChest - self.Origin;
             offset.Y = 0f;
-            var attackDistance = offset.Length();
-            var attackDirection = attackDistance > 1e-3f ? offset / attackDistance : self.Forward;
+            var attackChest = offset.Length();
+            var attackDirection = attackChest > 1e-3f ? offset / attackChest : self.Forward;
+            var attackDistance = ReachGap.ToOpponent(seen);
             ReadOpponentGuard(seen);
             UpdateStopJab(seen, attackDirection, attackDistance, reach, dt);
-            UpdateAttack(attackDistance, reach, dt);
+            UpdateAttack(attackDistance, attackChest, reach, dt);
             UpdateKick(seen, attackDistance, dt);
             UpdateElbow(seen, dt);
             UpdatePunches(observed, sense.SelfHead, dt);
@@ -606,8 +610,9 @@ public sealed class BoxerBot : IFighterControl
             return false;
         }
 
-        var shoulder = sense.OpponentChest + new Vector3(0f, 0.25f * sense.ArmReach, 0f);
-        return Vector3.Distance(shoulder, head) > Style.EvadeReach * sense.ArmReach;
+        // 相手の両肩から自分のあごまで（ReachGap）。頭の位置は見え方を通した値を渡されても、あごは体の目印から取る。
+        var reach = sense.OpponentArmReach > 0f ? sense.OpponentArmReach : sense.ArmReach;
+        return ReachGap.FromOpponent(sense with { SelfHead = head }) > Style.EvadeReach * reach;
     }
 
     /// <summary>拳が速く近づいてきていて、まもなく頭か胴の近くを通るか。</summary>
@@ -770,10 +775,14 @@ public sealed class BoxerBot : IFighterControl
     }
 
     /// <summary>
-    /// 構えで頭が胸より前へ出ている分 [腕の長さ]（間合いの層: 相手の肩から自分の頭までで測る届く長さを、足運びの胸と胸の距離へ直すため）。
-    /// 構えの頭はおよそ胸の 0.1 腕の長さ前（`Guard` の頭の位置・前傾から）。
+    /// 相手の届く長さ（<see cref="BotStyle.RangeThreat"/> ＋ 境目の幅）の外へ立つときに足す余白 [腕の長さ]。
+    /// 前は「構えで頭が胸より 0.1 腕前へ出る分」として胸と胸へ直す値だったが、前の体で測ると相手の肩（胸の 0.25 腕上）から自分の頭までは胸と胸とほぼ同じで（<c>ReachRangeProbe</c>）、
+    /// 実際は余白として働いていた。届く間合い（<see cref="ReachGap"/>）へ移したとき、前の体の立ち位置を保つ値（0.977 × (1.2 + 0.15 + 0.1) − 0.011 − (1.169 + 0.15)）にした。
     /// </summary>
-    private const float RangeHeadLead = 0.1f;
+    private const float RangeHeadLead = 0.087f;
+
+    /// <summary>今の歩の届く間合い ÷ 胸と胸の水平な距離（戦略の表の胸と胸の距離を届く間合いへ直す）。</summary>
+    private float _reachPerChest = 1f;
 
     /// <summary>間合いの層で普段の立ち位置を外へ寄せた分 [腕の長さ]（前の歩の足運びで求めた値）。</summary>
     private float _keepOutShift;
@@ -1093,7 +1102,11 @@ public sealed class BoxerBot : IFighterControl
         throw new InvalidOperationException("Kick selection requires positive weights.");
     }
 
-    private void UpdateAttack(float distance, float reach, float dt)
+    /// <param name="distance">届く間合い [m]（<see cref="ReachGap.ToOpponent"/>）。</param>
+    /// <param name="chest">胸と胸の水平な距離 [m]: 蹴り・肘の届く間合い（<see cref="KickSpec.Standoff"/>・<see cref="ElbowSpec.Standoff"/>）はドリルで胸と胸で測った値なので、それと比べる（docs/DEBT.md「ボットの読み」）。</param>
+    /// <param name="reach">腕の長さ [m]。</param>
+    /// <param name="dt">歩の時間 [s]。</param>
+    private void UpdateAttack(float distance, float chest, float reach, float dt)
     {
         // 間合いの層: 危ない所に何もせず居続けるのが一番危ない。下がるのでなく打って解消する（消極的にならない）:
         // 危険度 × (1 + さらされ) に比例して、次の拳までの間を早く縮める（RangePress）。
@@ -1112,11 +1125,11 @@ public sealed class BoxerBot : IFighterControl
             if (distance <= AttackRangeNow * reach * 1.15f)
             {
                 _wantAttack = false;
-                if (distance < 0.95f * reach && _random.NextSingle() < Style.ThrowRate)
+                if (distance < 0.917f * reach && _random.NextSingle() < Style.ThrowRate)
                 {
                     StartThrow();
                 }
-                else if (PickElbow(distance, reach) is { } elbowKind)
+                else if (PickElbow(chest, reach) is { } elbowKind)
                 {
                     _elbow = elbowKind;
                 }
@@ -1128,7 +1141,7 @@ public sealed class BoxerBot : IFighterControl
                     }
                     else
                     {
-                        _kick = PickKick(distance, reach);
+                        _kick = PickKick(chest, reach);
                         _kickTime = -Style.KickShift;
                     }
                 }
@@ -1148,7 +1161,7 @@ public sealed class BoxerBot : IFighterControl
             return;
         }
 
-        if (_recentDamage > ClinchDamage && distance < 1.1f * reach)
+        if (_recentDamage > ClinchDamage && distance < 1.063f * reach)
         {
             _recentDamage = 0f;
             if (_random.NextSingle() < Style.ClinchRate)
@@ -1179,7 +1192,7 @@ public sealed class BoxerBot : IFighterControl
             return;
         }
 
-        if (_opponentClosing > 0.8937f * reach && distance < Style.NeutralRange * _build.StandOff(Style) * reach && distance > 0.8f * reach)
+        if (_opponentClosing > 0.8937f * reach && distance < Style.NeutralRange * _build.StandOff(Style) * reach && distance > 0.770f * reach)
         {
             _stopJabCooldown = 1.007f;
             if (_random.NextSingle() < Style.StopJab)
@@ -1442,7 +1455,8 @@ public sealed class BoxerBot : IFighterControl
         // ほかの層（詰める・休む・危ない所から出る）はこの上に重なる。
         if (_plan is { } plan)
         {
-            neutral += ((plan.Distance / reach) - neutral) * Style.GamePlan!.Weight;
+            // 戦略の表は胸と胸の距離で測った値（GamePlan、MaaiLab）。今の体どうしの「届く間合い ÷ 胸と胸」で届く間合いへ直す。
+            neutral += ((plan.Distance * _reachPerChest / reach) - neutral) * Style.GamePlan!.Weight;
         }
 
         // 弱った相手を詰める層: 相手が開いているほど、普段の立ち位置を打つ間合いへ寄せる（離れて待たず、詰めて打ち続ける。FinishPress）。

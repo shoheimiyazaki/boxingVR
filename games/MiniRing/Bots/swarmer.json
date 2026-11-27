@@ -13,9 +13,9 @@
     "GuardArm": 0
   },
   "Aggression": 0.85,
-  "AttackRange": 0.82,
-  "NeutralRange": 1.05,
-  "EngageRange": 1.5,
+  "AttackRange": 0.7898,
+  "NeutralRange": 1.0144,
+  "EngageRange": 1.4539,
   "PunchSpeed": 1,
   "ComboWeights": {
     "1-2-3": 2,
@@ -39,7 +39,7 @@
   "GuardHeight": 0.8,
   "ReactionTime": 0.3021,
   "Anticipation": 0.7,
-  "EvadeReach": 1.2,
+  "EvadeReach": 1.1694,
   "DefenseRate": 0.55,
   "BlockWeight": 1,
   "DuckWeight": 0.5,

@@ -2103,7 +2103,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             SelfBuild: self.Build, OpponentBuild: opponent.Build,
             SelfLegLeft: self.LegBodyOf(Hand.Left), SelfLegRight: self.LegBodyOf(Hand.Right),
             SelfInjury: self.Injury(felt: true), OpponentInjury: opponent.Injury(felt: false), OpponentWinded: opponent.Winded, Grapple: GrappleSenseOf(self, opponent),
-            SelfLegOxygenLeft: self.LegOxygen(Hand.Left), SelfLegOxygenRight: self.LegOxygen(Hand.Right));
+            SelfLegOxygenLeft: self.LegOxygen(Hand.Left), SelfLegOxygenRight: self.LegOxygen(Hand.Right),
+            SelfBody: new BodySense(self.ShoulderPosition(Hand.Left), self.ShoulderPosition(Hand.Right), self.PelvisPosition),
+            SelfChin: self.AsTarget.Point(AimGoal.Chin, 0.5f * (opponent.ShoulderPosition(Hand.Left) + opponent.ShoulderPosition(Hand.Right))) ?? self.HeadPosition);
     }
 
     // ── 試合の時刻と点（戦略の層の入力 MatchSense。読むだけで、試合の物理には響かない）──

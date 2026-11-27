@@ -2,7 +2,7 @@
   "Name": "taekwondo", "RingName": "テコンドー", "Aggression": 0.7, "Telegraph": 0.08392,
   "Aim": { "Chin": 1.5, "Temple": 1, "Liver": 1.2, "SolarPlexus": 1.5, "Heart": 0.3, "GuardArm": 0.1 },
   "ComboWeights": { "1": 3, "2": 1, "1-2": 2 },
-  "AttackRange": 1.0, "NeutralRange": 1.4, "EngageRange": 1.7,
+  "AttackRange": 0.9656, "NeutralRange": 1.3563, "EngageRange": 1.6493,
   "Circling": 0.6, "HeadMovement": 0.5, "ExitAfterCombo": 0.5,
   "BlockWeight": 0.4, "SlipWeight": 0.8, "SwayWeight": 0.8, "StepBackWeight": 1, "ParryWeight": 0,
   "DefenseRate": 0.7, "CounterRate": 0.7, "ReactionTime": 0.2853, "Anticipation": 0.7,
