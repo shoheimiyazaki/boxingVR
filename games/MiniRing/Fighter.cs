@@ -3458,7 +3458,11 @@ public sealed partial class Fighter
         _uprightIntegral[slot] = (_uprightIntegral[slot] * MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.BalanceIntegralSeconds))) + (error * dt);
         // 腰から打つ体の骨盤: ねじりの力積は骨盤から上の胴全体の慣性で効かせるので、減衰も胴全体の回り（慣性の重みの平均の角速度、UpperBodyAboutPelvis）で見る。
         var hipRoot = UsesHipDrive && body == Parts.Pelvis;
-        var upper = hipRoot ? UpperBodyAboutPelvis(s) : (Inertia: _world.GetLocalInertiaDiagonal(body), Spin: s.AngularVelocity);
+        // 関節の筋で上体を追う体（JointDrive）の骨盤の傾きの保ちも、骨盤が担ぐ上体（腹・胸・頭・腕）の慣性で効かせる: 傾きを起こす力は担ぐ重さに比例する筋の力で、
+        // 骨盤自身の慣性（胸が 1.39 倍・骨盤が 0.88 倍になった基準の体では担ぐ物の 1/50 以下）に比例させると、頭を下げる守り（ダッキング）で上体の重さに負けて
+        // 骨盤が目標より 8° 前へ傾き、胸が倒れる線（66°）を越えた（HybridMatch、BASE_BODY_PLAN §10.8。同じ頭を下げる指令を保つ 1 体で、胸の最大 61° → 50°、立っているだけの胸の傾き 13° → 4°）。
+        var carried = hipRoot || (UsesJointDrive && tiltOnly && body == Parts.Pelvis);
+        var upper = carried ? UpperBodyAboutPelvis(s) : (Inertia: _world.GetLocalInertiaDiagonal(body), Spin: s.AngularVelocity);
         // 傾き（前後・左右）の減衰だけを胴の回りで見る: 胸・頭は骨盤から 0.3〜0.5 m 離れているので、傾きの合成の慣性は骨盤自身の約 50 倍になり、骨盤だけの角速度で
         // 減衰すると 1 歩で回りを反転させて震えた。ひねり（鉛直軸）は骨盤自身の回りのまま: 打つときは腰が胸より先に回る（腰 → 腹 → 胸の波）ので、遅れて付いてくる
         // 胴の平均で減衰すると先に回る腰を止め、腰の強さが拳に乗らなくなった（腰の強い体と弱い体の右ストレートの差 210 対 152 J → 185 対 189 J、PunchWeightTests）。

@@ -51,11 +51,12 @@ public static class WeaponDrills
     /// <summary>
     /// 強い振りの速さ [m/s]（人の 22 m/s × <see cref="SwingSpeedSimilitude"/> ≈ 20.9 m/s）。2026-11-24（PhysicsVersion 93）に 16 → 22: セルは刃がその奥行きを
     /// 斬り抜けたときに断たれるようになり、投げた剣が前腕の骨を断って腕を落とすのは 20 m/s から（docs/BLADE_CUT_STUDY.md）。剣道の打突の竹刀の先（17〜25 m/s）の範囲。
-    /// 2026-11-27（基準の体）: 22 → 26（人の m/s）。基準の体の前腕は、18〜22 m/s で腕を落とす・落とさないが速さの順に並ばず（4 つの待ち時間 × 7 つの速さで、
+    /// 2026-11-27（基準の体）: 22 → 25（人の m/s）。基準の体の前腕は、18〜22 m/s で腕を落とす・落とさないが速さの順に並ばず（4 つの待ち時間 × 7 つの速さで、
     /// 骨の失うセルは 8〜12）、刃が当たる位置の揺れで決まる境の上にいた（頭の離れたセル 1〜2 個の有無で変わった）。24 m/s 以上は 12 本とも落ちる（骨 10〜15 セル。<c>HardSlashProbe</c>）。
-    /// 境は 20〜23 m/s の帯にあるので、「強く斬る」は帯の上で測る（人の 26 m/s = 24.7 m/s。竹刀の先の上限を少し超えるが、刃の落とす物理の確かめであって人の振りの値ではない）。
+    /// 25 は剣道の面打ちの竹刀の先の速さの上限（17〜25 m/s、Kanzaki &amp; Ito 2004、武道学研究 36(3)。要旨の値・原典で要確認。docs/BLADE_CUT_STUDY.md の表）で、文献の範囲の中。
+    /// 一度 26 にしたが、25 を超える値は文献が支えないので戻した（25 で <c>AnOrdinarySlash</c> は通る）。
     /// </summary>
-    public static readonly float HardSpeed = 26f * SwingSpeedSimilitude;
+    public static readonly float HardSpeed = 25f * SwingSpeedSimilitude;
 
     /// <summary>刃の真ん中あたり（鍔から 37cm 先）の、刃先（ローカル −Y の縁）。</summary>
     public static Vector3 EdgeMiddle { get; } = new(0.08451f, -0.02535f, 0f);
