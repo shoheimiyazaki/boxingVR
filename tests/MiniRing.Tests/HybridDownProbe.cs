@@ -31,7 +31,8 @@ public sealed class HybridDownProbe
     [TestCategory("Probe")]
     public void Trace()
     {
-        var corners = new BoxingCorners("hybrid", s => BotCatalog.Create("swarmer", s), s => BotCatalog.Create("champion", s), VoxelGloves: true);
+        BoxerBot? cpuBot = null;
+        var corners = new BoxingCorners("hybrid", s => BotCatalog.Create("swarmer", s), s => cpuBot = (BoxerBot)BotCatalog.Create("champion", s), VoxelGloves: true);
         using var game = new BoxingGame(FighterTuning.HybridPunch, 1, corners);
         for (var frame = 1; frame <= 80; frame++)
         {
@@ -50,7 +51,7 @@ public sealed class HybridDownProbe
                 var fw = f.FootworkState;
                 var com = f.CenterOfMass;
                 var pv = f.PelvisPosition;
-                Console.WriteLine($"DBG t={frame / 60f:0.00} {name} {f.State} pelvisY {pv.Y:0.00} tilt pelvis {MathF.Acos(up.Y) * 57.3f:0.0} chest {MathF.Acos(cup.Y) * 57.3f:0.0} com-pelvis {(com.X - pv.X) * 100:0.0},{(com.Z - pv.Z) * 100:0.0} steps {fw.Steps} swing {fw.Swinging} hull {f.SupportHull.Count}");
+                Console.WriteLine($"DBG t={frame / 60f:0.00} {name} {f.State} pelvisY {pv.Y:0.00} tilt pelvis {MathF.Acos(up.Y) * 57.3f:0.0} chest {MathF.Acos(cup.Y) * 57.3f:0.0} com-pelvis {(com.X - pv.X) * 100:0.0},{(com.Z - pv.Z) * 100:0.0} steps {fw.Steps} swing {fw.Swinging} hull {f.SupportHull.Count} def {(name == "C" ? cpuBot!.CurrentDefense.ToString() : "")}");
             }
         }
     }
