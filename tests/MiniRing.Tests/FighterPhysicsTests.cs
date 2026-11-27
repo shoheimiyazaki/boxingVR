@@ -21,16 +21,19 @@ public sealed class FighterPhysicsTests
         var fighter = Fighter.Spawn(world, FighterTuning.Default, "f", Floor, 0f);
         var startPelvis = fighter.PelvisPosition;
 
-        Run(world, fighter, Idle(fighter), seconds: 5.035f);
+        Run(world, fighter, Idle(fighter), seconds: 2.518f);
+        var settled = fighter.PelvisPosition;
+        Run(world, fighter, Idle(fighter), seconds: 2.518f);
 
         Assert.AreEqual(FighterState.Standing, fighter.State);
         Assert.IsGreaterThan(0.9f, fighter.Uprightness, $"upright {fighter.Uprightness}");
         // 足の運びの構え（足を前後に開き、膝を曲げる）で骨盤は生成時（脚がまっすぐ）より下がる。下がり過ぎない（2 割以内）。
         Assert.IsLessThan(startPelvis.Y, fighter.PelvisPosition.Y, $"pelvis {fighter.PelvisPosition}");
         Assert.IsGreaterThan(0.8f * startPelvis.Y, fighter.PelvisPosition.Y, $"pelvis {fighter.PelvisPosition}");
-        // 支えを床から出す体（PhysicsVersion 39）は、生成直後に脚を伸ばした T ポーズから構えへ沈む揺れを、
-        // 起こすねじりでなく足の踏み直しで受け止めるので、前の体より少し（人形の単位で 5.1 cm）動く。立っているだけで歩き出さない（17 cm 以内）。
-        Assert.IsLessThan(0.169f, Horizontal(fighter.PelvisPosition - startPelvis));
+        // 支えを床から出す体（PhysicsVersion 39）は、生成直後に脚を伸ばした T ポーズから構えへ沈む揺れを、起こすねじりでなく足の踏み直しで受け止める。
+        // 沈む間の流れは生成の向きで 13〜26 cm と変わる（2026-11-27、物理 105 と 106 で生成の向き 8 通り: 平均 21.7 / 22.9 cm。UprightSeedProbe.StandDrift）ので、
+        // 前の「5 秒で 17 cm 以内」は向き 0 の 1 回に合っていただけだった。沈み終えた後（約 2.3 秒から）は止まっている: 立っているだけで歩き出さない（2.5 秒で 3 cm 以内）。
+        Assert.IsLessThan(0.03f, Horizontal(fighter.PelvisPosition - settled), "standing still does not start walking");
     }
 
     [TestMethod]
