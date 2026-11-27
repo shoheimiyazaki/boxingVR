@@ -269,6 +269,8 @@ public sealed partial class Fighter
             return;
         }
 
+        SupportTorqueWanted = _supportTorque / dt;
+
         if (_support.IsEmpty)
         {
             // 床に何も着いていない（どの状態でも）: 立たせる力はどれも出せない。宙の体は持ち上げられず、起こせず、運べない。
@@ -501,6 +503,9 @@ public sealed partial class Fighter
 
     /// <summary>この歩で、起こすねじりに要る CoP が支持多角形の外へ出た距離 [m]（出せなかったねじりの大きさの物差し。0 なら出せた）。</summary>
     internal float CopShortfall { get; private set; }
+
+    /// <summary>この歩で、体を立たせる力が求めたねじり（CoP の制限の前、重心まわり）[N·m]。足で立っている間だけ更新する（調べもの用）。</summary>
+    internal Vector3 SupportTorqueWanted { get; private set; }
 
     /// <summary>足の運び（調べもの用）。</summary>
     internal Footwork FootworkState => _footwork;

@@ -99,6 +99,19 @@ internal sealed class SparVideo(int width, int height, int fps)
     /// <summary>台本の場面が指定した、カメラが寄る先（null なら 2 人を横から）。</summary>
     private Func<BoxingGame, Vector3>? _closeUp;
 
+    /// <summary>呼び出し側が決めるカメラ（目・見る先・上。null なら <see cref="_closeUp"/> か 2 人を横から）。</summary>
+    private Func<BoxingGame, (Vector3 Eye, Vector3 Look, Vector3 Up)>? _camera;
+
+    /// <summary>
+    /// 呼び出し側が試合を進める 1 本（問題の動画: 画面の赤の行・青の行に <paramref name="run"/> が渡す文だけを書く）。
+    /// <paramref name="run"/> は試合を進め、歩ごとに渡された関数（試合・動画の時刻 [s]・赤の行・青の行）を呼び、最後に記録へ残す要約を返す。
+    /// </summary>
+    internal void MakeCustom(string title, Func<Action<BoxingGame, float, string?, string?>, string> run, Func<BoxingGame, (Vector3 Eye, Vector3 Look, Vector3 Up)>? camera, string outPath, TextWriter log)
+    {
+        _camera = camera;
+        Render(title, run, outPath, log, plainLabels: true);
+    }
+
     /// <summary>守りのドリル（<see cref="GuardLab"/>）の何本かを続けて撮る。画面には打ち手と、受け手の今の守り（受け・外し）。</summary>
     public void MakeGuard(SwordLibraryLab.Library library, IReadOnlyList<GuardLab.Attack> attacks, GuardLab.Variant variant, int seed, float seconds, string outPath, TextWriter log) =>
         Render($"守りのドリル（青: 日本刀・{variant.Name}）", step =>
@@ -207,7 +220,13 @@ internal sealed class SparVideo(int width, int height, int fps)
                 eye = focus + (side * 1.127f) + new Vector3(0f, 0.0845f, 0f);
             }
 
-            var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, look, Vector3.UnitY, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
+            var up = Vector3.UnitY;
+            if (_camera?.Invoke(game) is { } custom)
+            {
+                (eye, look, up) = custom;
+            }
+
+            var (vp, displayEye) = DisplaySpace.Standard.Camera(eye, look, up, 45f * MathF.PI / 180f, (float)width / height, 0.02f, 30f);
             ScreenTextDraw[] text =
             [
                 new(title, new Vector2(40f, 40f), 34f, White, TextAnchor.Left),

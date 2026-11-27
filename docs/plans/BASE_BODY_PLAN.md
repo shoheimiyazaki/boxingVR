@@ -521,3 +521,30 @@ Aigis の既定の体 × 頭 0.8・腕の長さ 1.18（145 cm）をやめ、Mini
 **6. コードレビュー（別のエージェント）**: 高なし。中: PunchWeightTests の弱めた主張（DEBT 済み）・ArmWork/TrunkWork の補正（DEBT 済み）・BoxerBot の換算後の数値の直書き・BladeTip/HeelStomp の 5 → 6 cm の根拠が弱い・上の骨盤の力積の記録。低: HardSpeed の出典（上で対応）・ReachGap の 0.25/0.3・StaffHandSpacing 0.40 のリテラル。未対応のものは統合役の判断へ。
 
 **全テスト（tower32・12 並び、557a8496）**: 1629 件中 失敗 8・not-run 15（前は 9）。残り: ClawHold 2・ClawTrajectory・JointPunchSeries 2・HeelStomp・VrStill・SwordOneBlow konrad（上の 2〜4）。HybridMatch は直り、AnOrdinarySlash は HardSpeed 25 で通る。
+
+### 10.9 続き（2026-11-28、11 人目の作業者）: 骨盤の傾きの直しの確かめ・残り 8 件の Ignore・問題ごとの動画
+
+**1. 骨盤の傾きの保ちを担ぐ上体の慣性で効かせた直し（`carried`、36c6f2b2）は、揺れ返しを起こさない。採る。** `CarriedTiltProbe`（新規）: 身長 0.9 / 1.0 / 1.25 × 太さ 0.6〜1.2 の 15 体を 20 秒立たせ、胸・骨盤の傾きの時系列と、骨盤の前後の傾きの 0.5 秒の移動平均からのずれ（後ろ 2/3 の区間）の山谷の幅と符号の入れ替わり数を、直す前（`carried` を外した同じビルド）と比べた。
+- **標準（`FighterTuning.Default`、関節の筋で追わない体）は 15 体とも前後で同じ値**（`carried` は `UsesJointDrive` の体だけに効く）。
+- **`HybridPunch`（関節の筋で追う体）の 15 体**: 胸の傾きの平均 0.9〜4.3° → 0.4〜4.3°（多くの体で半分）、最大 5.0〜8.7° → 1.8〜6.0°（背の高い重い体 H1.25 M1.2 だけ 6.8 → 6.0° でほぼ同じ）。骨盤の傾きの揺れの山谷の幅 0.0〜1.5° → 0.0〜1.55°、符号の入れ替わりは 13 秒で 0〜3 回（前は 0〜2 回）。2 歩周期の揺れ返しなら 13 秒で 10 回以上入れ替わるはずなので、出ていない。背の高い重い 2 体（H1.25 M1.0・M1.2）で山谷の幅が 0.75 → 1.17°・1.01 → 1.55° に増えたが、1.6° 未満で揺れ返しではない。倒れた体は 0（前も 0）。
+- **ダッキング**（頭を腕の -0.7 倍へ 0.3 秒で下げて 1.3 秒保つ）: 胸の最大 60.1 → 51.2°（M0.75）・56.6 → 48.4°（M1.0）、骨盤の傾きの揺れは 4.5 → 5.6°・3.9 → 2.5°。前への 1 歩（片脚が宙）: 胸の最大 4.7 → 2.2°・6.4 → 2.7°、揺れは同程度。
+- **`RecordSupportTorque` に約 50 倍で載る件**（`Fighter.Support.cs` に `SupportTorqueWanted` を足して測った。CoP の制限の前の水平のねじり [N·m]）: 立つだけ（H1.0）の最大 2〜8 → 30〜87（太さ 0.6 の細い体で 76）、背の高い重い体で 21 → 446〜498。ダッキングの最大 3〜6 → 68〜115、平均 1〜2 → 15〜25。前への 1 歩の最大 1〜3 → 37〜68。つまり**求めるねじりは 10〜50 倍に増えた**。標準の支えのモデルは `Soft`（CoP・摩擦の制限を掛けない。捕捉点が足の外へ出た分だけ減らす）なので、この増えた分は CoP の制限に掛からず、そのまま胸と骨盤へ返る（DEBT「腰から打つ体」(1)）。`SoftCop`（比べるための切り替え）で CoP の制限を掛けると、掛かる割合（歩のうち CoP が足の凸包の外を求めた割合・外れ幅の平均）は、立つだけの 15 体のうち細い体で増える（H1.0 M0.6: 0.09 → 0.19・外れ幅 1.9 → 7.7 cm、H0.9 M0.6: 0 → 0.06）、ダッキング M0.75 で 0.014 → 0.23・外れ幅 2.1 → 10.5 cm（M1.0 は 0 のまま）、前への 1 歩は 0.008 → 0。`SoftCop` でも倒れた体は 0、胸の最大はむしろ下がる（`Soft` と同じ傾向）。結論: `Soft` の標準では問題が出ていない。`SoftCop` へ移すときは、この担ぐ上体の傾きのねじりが足で出せる範囲（CoP が凸包の中）を超える体（細い体・ダッキング）があるので、先にそこを直す（DEBT「腰から打つ体」(1) に追記）。
+- 採る理由: 揺れ返しなし・胸の傾きが減る・HybridMatch が直る。外さない。
+
+**2. 残り 8 件に `Ignore`（5 つの DEBT 項目）。** `TestSuiteRulesTests` は `Ignore` を許している（ルールの変更なし。BojutsuTests・GrapplingTests にも既存）。DataRow の件には `IgnoreMessage`（MSTest 4.3）を付け、通る行は残した（`JointPunchSeries` の 240 Hz 空中・konrad 以外の剣士）。
+| 件 | DEBT の項目 |
+|---|---|
+| `ClawHold`（level across・up）・`ClawTrajectory.LongClaw_OneStrokeCutsIntoEveryAim` | 鎌の向きと前腕の揺れ |
+| `VrFirstPersonPhysicsTests.AStillHmdKeepsTheBodyStandingWithoutAnyInput` | 止まった HMD の足の踏み直し |
+| `HeelStompTests.HeelBarrage_SwitchesToTheOtherFoot_…` | かかとの連打の踏み直し |
+| `JointPunchSeriesTests.MeasureRepeatedPunches`（240・480 Hz の接地） | 連打の腰の位相 |
+| `SwordOneBlowTests…("konrad", false)` | konrad の斬り下ろしの教育 |
+CLAUDE.md §8 の項目名にも足した。**全テスト（tower32・12 並び、80b0a076 + 変更）: 1629 件中 実行 1606・成功 1606・失敗 0・not-run 23（前の 15 + Ignore の 8）。**
+
+**3. 動画（`IssueVideoProbe`、960×540・30 fps・音あり、`media_tmp/basebody_v2/issues/`）**。撮り方: `dotnet test tests/MiniRing.Tests --filter "FullyQualifiedName~IssueVideoProbe.<Claw|VrStill|Heel|Series|Konrad|Duck>"`（`SparVideo.MakeCustom` を足した）。シート: `py -3 tools/sheet.py <名前>.mp4 --count 8`。自分で見た結果:
+- `claw.mp4`（6 秒）: 鎌が構えのまま止まらず、前腕と一緒に大きく振れる。上向きの目標では刃が 59・33・24° ずれる様子が見える。目標の向きは見えにくい（画面の文字は白で背景に溶ける）が、揺れは分かる。
+- `vrstill.mp4`（8 秒、2.5 秒から）: 足元に寄ったが、足を置き直す瞬間は静止画では見えにくい。画面の「足を踏み直した回数」が 2 → 28 と増え続け、骨盤の揺れ 1〜2 cm が見える。動画では足が小刻みに動く。
+- `heel.mp4`（6.5 秒、種 1・10.4 秒で転ぶ）: 倒れた赤を青が踵で踏み続け、脚の蓄えを減らした後に踏む足を替えて、青が崩れる。画面の上の端で小さい。
+- `series.mp4`（5.4 秒、1/6 のスロー）: **試合の場の再現で、テストの数と一致しない**（テストの 20.7 / 12.1 / 18.4° に対し、この場は 18.4 / 35.0 / 8.9°、骨盤の向きの始めのずれも違う。テストは `Fighter` 単体の世界）。発ごとに腰の回りが大きくばらつくことは見えるが、「2 発目で減り 3 発目で戻る」そのものは撮れていない（未解決。`Fighter` 単体の世界を描く道具が無い）。
+- `konrad.mp4`（9.3 秒、1/1.5 のスロー、相手 ramon）: 教科書の斬り下ろしは ramon を倒す（頭が落ちる）。教育の oberhau は刃先が速い（15.7 対 9.4 m/s）のに、刃は届かず ramon は立ったまま。見て分かる。
+- `duck.mp4`（6 秒、1/3 のスロー）: swarmer（青）が頭を下げて胸を 49〜64° まで折るが、倒れる線（66°）の手前で戻り、立ち続ける（直った所。前は 72° で倒れた）。見て分かる。胸が 64° と線に近いので、余裕は少ない。

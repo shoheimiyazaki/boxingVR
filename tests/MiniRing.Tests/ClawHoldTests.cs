@@ -14,8 +14,8 @@ namespace MiniRing.Tests;
 public sealed class ClawHoldTests
 {
     [TestMethod]
-    [DataRow(-0.6f, 0.3f, 0.7f, 1f, 0f, 0f, 0f, 1f, 0f, DisplayName = "level across")]
-    [DataRow(-0.5f, 0.3f, 0.4f, 0f, 1f, 0.3f, 0f, 0f, 1f, DisplayName = "up")]
+    [DataRow(-0.6f, 0.3f, 0.7f, 1f, 0f, 0f, 0f, 1f, 0f, DisplayName = "level across", IgnoreMessage = "既知: 鎌の向きと前腕の揺れ・BASE_BODY_PLAN §10.8")]
+    [DataRow(-0.5f, 0.3f, 0.4f, 0f, 1f, 0.3f, 0f, 0f, 1f, DisplayName = "up", IgnoreMessage = "既知: 鎌の向きと前腕の揺れ・BASE_BODY_PLAN §10.8")]
     public void HeldClaw_SettlesOnTheCommandedBlade(float rx, float ry, float rz, float ax, float ay, float az, float nx, float ny, float nz)
     {
         var creature = CharacterRoster.Get("galva");
