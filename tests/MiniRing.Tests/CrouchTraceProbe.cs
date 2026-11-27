@@ -25,7 +25,7 @@ public sealed class CrouchTraceProbe
             {
                 var p = game.Player;
                 Console.WriteLine(string.Create(inv,
-                    $"t {i / 60f:F2} pelvis {(p.PelvisPosition.Y - Floor(p)) / stand:F2} crouch {Field(p, "_crouch"):F2} headCrouch {Field(p, "_headCrouch"):F2} rise {Field(p, "_rise"):F2} hover {p.HoverHeight:F2} headY {p.LastCommand.HeadOffset.Y / p.ArmReach:F2} move {p.LastCommand.ClampedMove.Length():F2} tone {p.Tone:F2} ankleL {p.AnklePosition(Hand.Left).Y:F3} ankleR {p.AnklePosition(Hand.Right).Y:F3} supp {p.SupportedMass:F0}"));
+                    $"t {i / 60f:F2} pelvis {(p.PelvisPosition.Y - Floor(p)) / stand:F2} crouch {Field(p, "_crouch"):F2} headCrouch {Field(p, "_headCrouch"):F2} rise {Field(p, "_rise"):F2} hover {p.HoverHeight:F2} headY {p.LastCommand.HeadOffset.Y / p.ArmReach:F2} move {p.LastCommand.ClampedMove.Length():F2} step {p.LastCommand.ClampedStep.Length():F2} tone {p.Tone:F2} ankleL {p.AnklePosition(Hand.Left).Y:F3} ankleR {p.AnklePosition(Hand.Right).Y:F3} supp {p.SupportedMass:F0}"));
             }
 
             game.Step(default, 1f / 60f);
@@ -39,12 +39,8 @@ public sealed class CrouchTraceProbe
         var variants = new (string Name, FighterTuning Tuning)[]
         {
             ("default", d),
-            ("knee x1.5", d with { KneeMaxTorque = d.KneeMaxTorque * 1.5f }),
-            ("hip x1.5", d with { HipMaxTorque = d.HipMaxTorque * 1.5f }),
-            ("ankle x1.5", d with { AnkleMaxTorque = d.AnkleMaxTorque * 1.5f }),
-            ("all legs x1.5", d with { HipMaxTorque = d.HipMaxTorque * 1.5f, KneeMaxTorque = d.KneeMaxTorque * 1.5f, AnkleMaxTorque = d.AnkleMaxTorque * 1.5f }),
-            ("kp x2", d with { HoverKp = d.HoverKp * 2f }),
-            ("lift cap x2", d with { LegLiftCapacity = d.LegLiftCapacity * 2f, MaxHoverAccel = d.MaxHoverAccel * 2f }),
+            ("no body->fist", d with { BodyToFistEfficiency = 0f }),
+            ("kp x1.5", d with { HoverKp = d.HoverKp * 1.5f }),
         };
         var inv = CultureInfo.InvariantCulture;
         foreach (var (name, tuning) in variants)
