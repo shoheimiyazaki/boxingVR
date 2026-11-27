@@ -334,6 +334,29 @@ public static class BoxerAnatomy
     }
 
     /// <summary>
+    /// 作った（顔の彫り直しまで終えた）格子で、いちばん大きいつながりに 6 近傍でつながらないセル（外形のメッシュのくびれや鼻の出っ張りで、1〜2 セルだけ離れて残った骨・肉）を取り除く。
+    /// 残すと最初の歩で黙って破片に分かれる（基準の体の頭: 前の顔の出っ張りに骨 1 セル）。つながっていれば何もしない。
+    /// </summary>
+    internal static void DropStrayCells(VoxelGrid grid)
+    {
+        if (grid.IsConnected())
+        {
+            return;
+        }
+
+        var parts = grid.ConnectedComponents();
+        var main = parts.OrderByDescending(p => p.Length).First();
+        var removed = new List<RemovedVoxel>();
+        foreach (var part in parts.Where(p => !ReferenceEquals(p, main)))
+        {
+            foreach (var i in part)
+            {
+                grid.Break(i, removed);
+            }
+        }
+    }
+
+    /// <summary>
     /// 脚の骨の端（膝・股の側の骨端）を、骨の胴の部分と同じ太さにする。人の骨は関節の所がいちばん太い。脚の外形（直した .vox も生成も）は
     /// 膝・股で丸く絞れていて、骨の棒が端で 1〜2 セルまで細り、そこが曲げで折れて脚が丸ごと落ちていた（2026-11-17、ユーザーの指摘
     /// 「脚がもげやすい」。脚の折れ 16 件のうち 12 件が端の段: <c>LegLossProbe.Probe_HowLegsBreak</c>）。

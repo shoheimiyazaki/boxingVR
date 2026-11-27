@@ -681,6 +681,7 @@ public sealed partial class BoxerBody
                 // 頭: 14 mm の格子は頭蓋骨・脳・首の中だけ。その外は顔の層（7 mm）が持つ（FaceLayer）。剛体の質量と当たりの箱は 2 つの格子の和になる（AddCompanion）。
                 var spec = face ?? (look is not null ? FaceSpec.FromLook(look, "face") : FaceSpec.For("standard"));
                 (grid, faceGrid, faceColors) = FaceLayer.Build(grid, spec);
+                BoxerAnatomy.DropStrayCells(grid); // 顔の層へ出した後に、頭の格子へ 1〜2 セルだけ離れて残った骨・肉は、最初の歩で黙って破片になるので作る時に除く
             }
 
             // 質量と慣性はセルの実測（材質の密度 × セルの体積、docs/plans/BASE_BODY_PLAN.md §3）。当たりの箱は生成のまま（削れて変わったときに合わせ直す）。
