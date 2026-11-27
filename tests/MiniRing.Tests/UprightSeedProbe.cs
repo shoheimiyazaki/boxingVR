@@ -17,6 +17,9 @@ public sealed class UprightSeedProbe
     private const float Dt = 1f / 240f;
     private static readonly float[] TipHz = [0f, 2f];
     private static readonly int[] RushSeeds = [3, 4, 5];
+    private static readonly bool[] TwoHands = [true, false];
+    private static readonly float[] SlipWindows = [3.0f, 3.3f, 3.6f];
+    private static readonly float[] AxeScales = [0.85f, 0.9f, 0.95f, 1f, 1.05f, 1.1f, 1.15f];
 
     /// <summary>生成直後から構えのまま 5 秒: 骨盤の水平の流れの時系列と、足の運びの歩数（FighterPhysicsTests.Standing と同じ場面）。</summary>
     [TestMethod]
@@ -47,10 +50,11 @@ public sealed class UprightSeedProbe
     [TestMethod]
     public void KatanaGuard()
     {
-        foreach (var (hz, seed) in TipHz.SelectMany(h => Enumerable.Range(1, 6).Select(s => (h, s))))
+        foreach (var (hz, two) in TipHz.SelectMany(h => TwoHands.Select(t => (h, t))))
         {
+            var seed = 1;
             using var game = new BoxingGame(SwordStance.Tuning with { BladeTipHz = hz }, seed: seed, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => new KatanaGuardOnly(),
-                PlayerWeapon: WeaponKind.Katana, PlayerTwoHanded: true));
+                PlayerWeapon: WeaponKind.Katana, PlayerTwoHanded: two));
             var (tipSum, handSum, n) = (0f, 0f, 0);
             var errSum = System.Numerics.Vector3.Zero;
             var (pelYaw, chestYaw, swordYaw) = (0f, 0f, 0f);
@@ -83,7 +87,7 @@ public sealed class UprightSeedProbe
             }
 
             if (Environment.GetEnvironmentVariable("KATANA_LINE") != "1") { line.Clear(); }
-            Console.WriteLine($"KATANA hz {hz} seed {seed}: yaw pel/chest/sword {pelYaw / n * 57.3f:0.0}/{chestYaw / n * 57.3f:0.0}/{swordYaw / n * 57.3f:0.0} meanErr side/up/fwd {errSum.X / n * 100:0.0}/{errSum.Y / n * 100:0.0}/{errSum.Z / n * 100:0.0} tip {tipSum / n * 100:0.0} cm hand {handSum / n * 100:0.0} cm | {string.Join(" | ", line)}");
+            Console.WriteLine($"KATANA hz {hz} twoHanded {two}: yaw pel/chest/sword {pelYaw / n * 57.3f:0.0}/{chestYaw / n * 57.3f:0.0}/{swordYaw / n * 57.3f:0.0} meanErr side/up/fwd {errSum.X / n * 100:0.0}/{errSum.Y / n * 100:0.0}/{errSum.Z / n * 100:0.0} tip {tipSum / n * 100:0.0} cm hand {handSum / n * 100:0.0} cm | {string.Join(" | ", line)}");
         }
     }
 
@@ -186,16 +190,205 @@ public sealed class UprightSeedProbe
         Console.WriteLine("LIMP " + string.Join(" | ", line));
     }
 
+    /// <summary>起き上がりの 1 種（GETUP_SEED、既定 4）: 状態の移り変わり・脳しんとうが増えた瞬間（頭のねじれ）・意識・張り。</summary>
     [TestMethod]
-    public void GetUp()
+    public void GetUpTrace()
     {
-        var (risen, down, n) = (0, 0, 0);
+        foreach (var (seed, store) in new[] { (33, 1200f), (18, 1200f) })
+        {
+        var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
+        var game = new BoxingGame(FighterTuning.Default with { OxygenStorePerKg = store }, seed: seed, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
+        for (var t0 = 0f; t0 < 2.518f; t0 += Dt) { game.Step(default, Dt); }
+        
+        using (game)
+        {
+            DamageModelTests.Hit(game, game.Cpu, DamageModelTests.Chin(game.Cpu), mass: 12f, speed: 3.692f);
+            var (state, conc) = (game.Cpu.State, game.Cpu.Concussion);
+            var line = new List<string>();
+            for (var t = 0f; t < 26.85f; t += Dt)
+            {
+                game.Step(default, Dt);
+                if (game.Cpu.State == FighterState.GettingUp && (int)(t * 240f) % 240 == 0)
+                {
+                    var c = game.Cpu.Parts;
+                    float UpY(int id) => System.Numerics.Vector3.Transform(System.Numerics.Vector3.UnitY, game.World.GetState(id).Orientation).Y;
+                    line.Add($"  {t:0.0} GU pel {(game.Cpu.PelvisPosition.Y - BoxingGame.RingSurfaceHeight) * 100:0} up {game.Cpu.Uprightness:0.00} chestUp {UpY(c.Chest):0.00} pelUp {UpY(c.Pelvis):0.00} headY {(game.Cpu.HeadPosition.Y - BoxingGame.RingSurfaceHeight) * 100:0} cons {game.Cpu.Consciousness:0.00} tone {game.Cpu.Tone:0.00} feet {(game.World.GetState(game.Cpu.HeelId(0)).Position.Y - BoxingGame.RingSurfaceHeight) * 100:0}/{(game.World.GetState(game.Cpu.HeelId(1)).Position.Y - BoxingGame.RingSurfaceHeight) * 100:0}");
+                }
+
+                if (game.Cpu.State != state || game.Cpu.Concussion > conc + 0.05f)
+                {
+                    line.Add($"{t:0.00} {game.Cpu.State} conc {game.Cpu.Concussion:0.00} twist {game.Cpu.LastHeadTwist:0.0} cons {game.Cpu.Consciousness:0.00} tone {game.Cpu.Tone:0.00} pel {(game.Cpu.PelvisPosition.Y - BoxingGame.RingSurfaceHeight) * 100:0}");
+                }
+
+                (state, conc) = (game.Cpu.State, game.Cpu.Concussion);
+            }
+
+            Console.WriteLine($"GETUPTRACE seed {seed} store {store}: end {game.Cpu.State} cons {game.Cpu.Consciousness:0.00} | " + string.Join(" | ", line.Take(30)));
+        }
+        }
+    }
+
+    /// <summary>倒れて 2 秒の間の、頭が床を打った回数（脳しんとうが 0.05 以上増えた歩）と、2 秒での脳しんとう。18 種。</summary>
+    [TestMethod]
+    public void FallHeadHits()
+    {
+        var rows = new List<string>();
         foreach (var seed in Enumerable.Range(1, 18))
         {
             var (game, cpu) = DamageModelTests.NewGame(seed);
             using (game)
             {
                 DamageModelTests.Hit(game, cpu, DamageModelTests.Chin(cpu), mass: 12f, speed: 3.692f);
+                var (hits, conc, maxTwist) = (0, cpu.Concussion, 0f);
+                for (var t = 0f; t < 2f; t += Dt)
+                {
+                    game.Step(default, Dt);
+                    if (cpu.Concussion > conc + 0.05f) { hits++; maxTwist = MathF.Max(maxTwist, cpu.LastHeadTwist); }
+                    conc = cpu.Concussion;
+                }
+
+                rows.Add($"{seed}:{hits}x/{conc:0.0}/{maxTwist:0}");
+            }
+        }
+
+        Console.WriteLine("FALLHITS " + string.Join(" ", rows));
+    }
+
+    /// <summary>かかと落とし（右・左）を技の長さ 0.85〜1.15 で: 当たりのエネルギーの最大と、拳の速さ・質量（KickContactTests.Run）。</summary>
+    [TestMethod]
+    public void AxeEnergy()
+    {
+        foreach (var side in new[] { Hand.Right, Hand.Left })
+        {
+            var row = new List<string>();
+            foreach (var scale in AxeScales)
+            {
+                var r = KickContactTests.Run(KickTechnique.Axe, side, durationScale: scale);
+                row.Add($"{scale:0.00}:{(r.Energies is { Count: > 0 } e ? e.Max() : 0f):0}J/{r.MaxSpeed:0.0}m/s");
+            }
+
+            Console.WriteLine($"AXE {side} " + string.Join(" ", row));
+        }
+    }
+
+    /// <summary>HeelStompTests の足の替え（種 1〜18）: 始まった数・転ばなかった数。</summary>
+    [TestMethod]
+    public void HeelSwitch()
+    {
+        var (started, kept) = (0, 0);
+        var rows = new List<string>();
+        foreach (var seed in Enumerable.Range(1, 18))
+        {
+            var (first, after, hits, falls) = HeelStompTests.SwitchRun(seed, null);
+            if (first is null) { continue; }
+            started++;
+            kept += falls == 0 ? 1 : 0;
+            rows.Add($"{seed}:{(after is null ? "noswitch" : "sw")}/{hits}/{falls}");
+        }
+
+        Console.WriteLine($"HEEL started {started} kept {kept} | " + string.Join(" ", rows));
+    }
+
+    /// <summary>EvasionBasicsTests の初撃の窓: 窓の長さを振って、種 1〜8 の拳の数（open / slip）。</summary>
+    [TestMethod]
+    public void SlipWindow()
+    {
+        var inside = new DefenseMove { HeadX = 0.5f, HeadY = -0.5f, HeadZ = -0.2f, Step = 1f, Duration = 0.5035f, Rate = 35.75f, HandsUp = 0.3f, VsStraight = 1f };
+        var book = DefenseBook.Default.With(Defense.Duck, inside);
+        static void KeepFresh(BoxingGame game, BoxerBot _) { game.Player.Stamina = 1f; game.Cpu.Stamina = 1f; }
+        foreach (var window in SlipWindows)
+        {
+            var open = Enumerable.Range(1, 8).Select(seed => DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: false, counters: false), seed: seed, seconds: window, telegraph: 0.1343f, observe: KeepFresh)).ToArray();
+            var slip = Enumerable.Range(1, 8).Select(seed => DefenseDrill.Punch("2", Defense.Duck, DefenseDrill.Defender(book, defend: true, counters: false), seed: seed, seconds: window, cue: 0f, telegraph: 0.1343f, observe: KeepFresh)).ToArray();
+            float Head(PunchDrillResult[] r) => r.Sum(x => x.HeadHits + x.OpenHeadHits) / (float)Math.Max(1, r.Sum(x => x.Punches));
+            Console.WriteLine($"SLIPWIN {window}: open {string.Join(",", open.Select(r => r.Punches))} head {Head(open):P0} | slip {string.Join(",", slip.Select(r => r.Punches))} head {Head(slip):P0}");
+        }
+    }
+
+    /// <summary>IntentReplayTests.ChargedIntent の入力: 強ボタンの間の右の溜め（Spring）・ひねり・間合い・状態。</summary>
+    [TestMethod]
+    public void ChargedIntent()
+    {
+        using var game = new BoxingGame(seed: 31);
+        var control = new IntentControl();
+        var rows = new List<string>();
+        for (var step = 0; step < 480; step++)
+        {
+            var phase = step % 120;
+            control.Input = new FighterIntent(phase < 60 ? System.Numerics.Vector2.UnitY : -System.Numerics.Vector2.UnitY,
+                Light: phase is >= 20 and < 24, Heavy: phase is >= 50 and < 75, Evade: phase is >= 90 and < 100);
+            var cmd = control.Read(game.PlayerSense, 1f / 60f);
+            game.Step(new BoxingInput(cmd), 1f / 60f);
+            foreach (var h in game.RecentHits.Where(h => step < 70))
+            {
+                rows.Insert(0, $"HIT@{step} {h.Attacker.Name}->{h.Victim.Name} {h.Zone} speed {h.Speed:0.00} mass {h.ImpactMass:0.00} E {h.Energy:0} twist {h.Victim.LastHeadTwist:0.0} conc {h.Victim.Concussion:0.00}");
+            }
+
+            if (step < 70 && game.Cpu.State != FighterState.Standing && rows.All(r => !r.StartsWith("FALL", StringComparison.Ordinal)))
+            {
+                rows.Insert(0, $"FALL@{step} cause {game.Cpu.LastFallCause} cons {game.Cpu.Consciousness:0.00} tone {game.Cpu.Tone:0.00} hits {game.RecentHits.Count}");
+            }
+
+            if (phase is >= 48 and < 90 && phase % 6 == 0)
+            {
+                var gap = System.Numerics.Vector3.Distance(game.Player.ChestPosition with { Y = 0f }, game.Cpu.ChestPosition with { Y = 0f });
+                rows.Add($"{step}:spr{cmd.Right.Spring:0.00}/tw{cmd.TwistBias:0.00}/gap{gap:0.00}/{game.Player.State}/{game.Cpu.State}");
+            }
+        }
+
+        Console.WriteLine("CHARGED " + string.Join(" ", rows));
+    }
+
+    /// <summary>倒れた体: 意識が起き上がれる値（KnockoutConsciousness）へ戻った時刻・起き上がった時刻・負け（カウントアウトで試合が作り直された）時刻。種 1〜24。</summary>
+    [TestMethod]
+    public void GetUpTiming()
+    {
+        var k = FighterTuning.Default.KnockoutConsciousness;
+        var rows = new List<string>();
+        foreach (var seed in Enumerable.Range(1, 24))
+        {
+            var (game, cpu) = DamageModelTests.NewGame(seed);
+            using (game)
+            {
+                DamageModelTests.Hit(game, cpu, DamageModelTests.Chin(cpu), mass: 12f, speed: 3.692f);
+                var (downAt, consAt, upAt, outAt) = (-1f, -1f, -1f, -1f);
+                for (var t = 0f; t < 26.85f; t += Dt)
+                {
+                    game.Step(default, Dt);
+                    if (game.Cpu != cpu) { outAt = t; break; }
+                    if (downAt < 0f && cpu.State == FighterState.Down) { downAt = t; }
+                    if (downAt >= 0f && consAt < 0f && cpu.Consciousness >= k) { consAt = t; }
+                    if (downAt >= 0f && upAt < 0f && cpu.State == FighterState.Standing) { upAt = t; }
+                }
+
+                rows.Add($"{seed}:c{consAt:0.0}/u{upAt:0.0}/o{outAt:0.0}");
+            }
+        }
+
+        Console.WriteLine($"TIMING k {k}: " + string.Join(" ", rows));
+    }
+
+    [TestMethod]
+    public void AxeTrace()
+    {
+        var r = KickContactTests.Run(KickTechnique.Axe, Hand.Right, durationScale: 1.05f);
+        Console.WriteLine($"AXETRACE energies {string.Join(",", (r.Energies ?? []).Select(e => e.ToString("0", System.Globalization.CultureInfo.InvariantCulture)))} parts {string.Join(",", r.Parts)}");
+    }
+
+    [TestMethod]
+    public void GetUp()
+    {
+        var (risen, down, n, stuck) = (0, 0, 0, 0);
+        var concSum = 0f;
+        var risen6 = 0;
+        foreach (var seed in Enumerable.Range(1, 36))
+        {
+            var (game, cpu) = DamageModelTests.NewGame(seed);
+            using (game)
+            {
+                DamageModelTests.Hit(game, cpu, DamageModelTests.Chin(cpu), mass: float.Parse(Environment.GetEnvironmentVariable("GETUP_MASS") ?? "11", System.Globalization.CultureInfo.InvariantCulture), speed: 3.692f);
+                var firstConc = cpu.Concussion;
+                concSum += firstConc;
                 var (downAt, upAt) = (-1f, -1f);
                 for (var t = 0f; t < 26.85f; t += Dt)
                 {
@@ -214,11 +407,13 @@ public sealed class UprightSeedProbe
                 n++;
                 down += downAt >= 0f ? 1 : 0;
                 risen += upAt > 0f ? 1 : 0;
-                Console.WriteLine($"GETUP seed {seed}: down {downAt:0.00} up {upAt:0.00} cons {cpu.Consciousness:0.00}");
+                risen6 += upAt > 0f && seed <= 6 ? 1 : 0;
+                stuck += cpu.State == FighterState.GettingUp ? 1 : 0;
+                Console.WriteLine($"GETUP seed {seed}: down {downAt:0.00} up {upAt:0.00} cons {cpu.Consciousness:0.00} end {cpu.State}");
             }
         }
 
-        Console.WriteLine($"GETUP SUMMARY down {down}/{n} risen {risen}/{n}");
+        Console.WriteLine($"GETUP SUMMARY down {down}/{n} risen {risen}/{n} first-blow concussion mean {concSum / n:0.00} (seeds 1-6 risen {risen6})");
     }
 
     /// <summary>腰の強さが右ストレートに乗るか: 間合い 0.9〜1.2（13 本）× 種 1〜3 の合計で、標準と腰の弱い体（60 N·m）の溜めなしの右のエネルギー。</summary>

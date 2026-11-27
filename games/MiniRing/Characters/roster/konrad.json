@@ -122,9 +122,33 @@
       }
     },
     "vs": {},
-    "weaponBot": {"AutoAim": false, "Forms": {"oberhau": {"Tempo": 2.2155821, "Twist": 1.0217743, "Lift": -0.006157292, "Lean": -0.11143296, "Reach": -0.062244557}}}
+    "weaponBot": {"AutoAim": false, "Forms": {"oberhau": {"Tempo": 2.4664152, "Twist": 1.0534904, "Lift": 0.16804108, "Lean": -0.03830583, "Reach": 0.020732647, "Follow": 0.09968509}}}
   },
-  "record": [],
+  "record": [
+    {
+      "kind": "swordpractice",
+      "date": "2026-11-27",
+      "physicsVersion": 106,
+      "form": "oberhau",
+      "search": "(1+12) x 30, seed 5, practice seeds 1,2 x standard,heavy,dmitri",
+      "held": "seeds 11,12 x ramon,akira,marcus,takumi-ishiguro: the best candidate did not beat the current form",
+      "roster": "seeds 11,12 x 29 bodies: textbook 56/58 at 8.0 m/s, current 58/58 at 15.3 m/s",
+      "adopted": false,
+      "note": "胴の震えを止めた体（物理 106 仮）で練習し直したが、今の教育を上回る型が無かった。重い長剣の斬り下ろしは教科書でもほぼ全員を倒し（56/58）、教育は残りの 2 体も倒して刃先は倍の速さ"
+    },
+    {
+      "kind": "swordpractice",
+      "date": "2026-11-27",
+      "physicsVersion": 106,
+      "form": "oberhau",
+      "from": "Tempo 2.22 Twist 1.02 Lift -0.01 Lean -0.11 Reach -0.06",
+      "search": "(1+12) x 30, seed 5, practice seeds 1,2 x standard,heavy,dmitri",
+      "held": "seeds 11,12 x ramon,akira,marcus,takumi-ishiguro: incapacitated 4/8 -> 8/8, score 11.9 -> 13.4",
+      "roster": "seeds 11,12 x 29 bodies: textbook 58/58 at 8.0 m/s, current 16/58 at 15.1 m/s, adopted 48/58 at 15.3 m/s",
+      "adopted": true,
+      "note": "胴の震えを止め、切っ先を合わせる手首の粘りを前腕に対する相対にした体（物理 106 仮）で練習し直した。SwordPracticeProbe.RetrainForBody"
+    }
+  ],
   "locales": {
     "en": {
       "name": "Konrad Eisenhardt",

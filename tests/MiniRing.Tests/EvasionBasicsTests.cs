@@ -102,7 +102,9 @@ public sealed class EvasionBasicsTests
         }
 
         // 同じ種で初撃だけを比較し、ダウンまでの手数に測定を依存させない。
-        const float FirstPunchWindowSeconds = 3.6f;
+        // 2026-11-27（物理 106 仮）: 3.6 → 3.3 秒。種 1 の外す試しで、2 発目が 3.3〜3.6 秒の間に出るようになった（初撃だけを見る窓）。3.0・3.3 秒では物理 105 と 106 で
+        // 拳の数・頭へ当たった割合（外さない 100%・外す 0%）が同じ（UprightSeedProbe.SlipWindow）。
+        const float FirstPunchWindowSeconds = 3.3f;
         var seeds = Enumerable.Range(1, 8).ToArray();
         var openRuns = new PunchDrillResult[seeds.Length];
         var slippedRuns = new PunchDrillResult[seeds.Length];

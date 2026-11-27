@@ -64,22 +64,37 @@ public sealed class DamageModelTests
         // 2026-11-25（PhysicsVersion 103、つま先の蝶番を固くした）: 同じ 1 発でも、倒れるときに頭が床を打つ強さで脳しんとうが 1.3〜5.6 まで変わり、深いと
         // 10 カウントまでに起き上がれない（種 1〜6 で、前のつま先では 3 つ、固いつま先では 2 つが起き上がらない。ToeGapProbe.KnockedDownRecovery）。
         // 種 1 の 1 回は前のつま先でたまたま起き上がっていた。倒れ方は種で変わるので、6 つの種のうち半分以上が「しばらく倒れていて、意識が戻ると起き上がる」ことを見る。
+        // 2026-11-27（物理 106 仮、胴の震えを止めた）: 上体が垂れずに立つ体は、倒れて頭が床を打つことが少し多く（18 種で 13 対 10）、10 カウントまでに
+        // 意識が戻らない種が増えた（36 種で起き上がった 19 → 14〜15）。どちらの体でも、意識が起き上がれる値（KnockoutConsciousness）へ戻った体は、
+        // その 2.0〜2.4 秒後に必ず立っていた（戻る前に数え終わった種を除く。UprightSeedProbe.GetUpTiming、種 1〜24）。種の数の割合（半分以上）でなく、
+        // その主張を直接見る: しばらく倒れていて、意識が戻ったら（数え終わる 3 秒前までに）3 秒以内に立つ。12 種のうち 3 つ以上で起き上がる（空の主張にしない）。
         var risen = 0;
         var detail = new List<string>();
-        foreach (var seed in new[] { 1, 2, 3, 4, 5, 6 })
+        var clear = FighterTuning.Default.KnockoutConsciousness;
+        foreach (var seed in Enumerable.Range(1, 12))
         {
             var (game, cpu) = NewGame(seed);
             using (game)
             {
                 Hit(game, cpu, Chin(cpu), mass: 12f, speed: 3.692f);
-                var downAt = -1f;
-                var upAt = -1f;
+                var (downAt, clearAt, upAt, outAt) = (-1f, -1f, -1f, -1f);
                 for (var t = 0f; t < 26.85f; t += Dt)
                 {
                     game.Step(default, Dt);
+                    if (game.Cpu != cpu)
+                    {
+                        outAt = t; // 10 カウントで負け（試合が作り直された）
+                        break;
+                    }
+
                     if (downAt < 0f && cpu.State == FighterState.Down)
                     {
                         downAt = t;
+                    }
+
+                    if (downAt >= 0f && clearAt < 0f && cpu.Consciousness >= clear)
+                    {
+                        clearAt = t;
                     }
 
                     if (downAt >= 0f && upAt < 0f && cpu.State == FighterState.Standing)
@@ -88,18 +103,23 @@ public sealed class DamageModelTests
                     }
                 }
 
-                detail.Add($"seed {seed}: down at {downAt:0.00}s, standing again at {upAt:0.00}s, consciousness {cpu.Consciousness:0.00}");
+                detail.Add($"seed {seed}: down at {downAt:0.00}s, head clear at {clearAt:0.00}s, standing again at {upAt:0.00}s, counted out at {outAt:0.00}s");
                 Assert.IsGreaterThanOrEqualTo(0f, downAt, $"knocked down (seed {seed})");
                 if (upAt > 0f)
                 {
                     Assert.IsGreaterThan(downAt + 2.518f, upAt, $"stays down for a while (seed {seed})");
                     risen++;
                 }
+
+                if (clearAt > 0f && (outAt < 0f || outAt > clearAt + 3f))
+                {
+                    Assert.IsTrue(upAt > 0f && upAt <= clearAt + 3f, $"gets up within 3 s once the head clears (seed {seed}: {detail[^1]})");
+                }
             }
         }
 
         Console.WriteLine(string.Join(Environment.NewLine, detail));
-        Assert.IsGreaterThanOrEqualTo(3, risen, $"and gets back up once conscious again, in at least half of the falls ({string.Join("; ", detail)})");
+        Assert.IsGreaterThanOrEqualTo(3, risen, $"and some of the falls get back up ({string.Join("; ", detail)})");
     }
 
     [TestMethod]
