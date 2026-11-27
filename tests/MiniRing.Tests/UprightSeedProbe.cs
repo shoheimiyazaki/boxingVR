@@ -165,6 +165,27 @@ public sealed class UprightSeedProbe
         }
     }
 
+    /// <summary>RoundRulesTests.DownCount と同じ: 相手の脳しんとうを 0.95 にして、倒れるまでの骨盤の高さ・傾き・張り・状態。</summary>
+    [TestMethod]
+    public void LimpFall()
+    {
+        using var game = new BoxingGame(seed: 1);
+        game.Step(default, 1f / 60f);
+        game.Cpu.Concussion = 0.95f;
+        var line = new List<string>();
+        for (var t = 0f; t < 6f; t += 1f / 60f)
+        {
+            game.Step(default, 1f / 60f);
+            var f = game.Cpu;
+            if ((int)(t * 60f) % 15 == 0)
+            {
+                line.Add($"{t:0.00} {f.State} pel {(f.PelvisPosition.Y - BoxingGame.RingSurfaceHeight) * 100:0} up {f.Uprightness:0.00} tone {f.Tone:0.00} cons {f.Consciousness:0.00} faint {f.FaintTime:0.0}");
+            }
+        }
+
+        Console.WriteLine("LIMP " + string.Join(" | ", line));
+    }
+
     [TestMethod]
     public void GetUp()
     {

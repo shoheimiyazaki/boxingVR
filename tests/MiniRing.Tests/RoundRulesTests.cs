@@ -102,7 +102,9 @@ public sealed class RoundRulesTests
         game.Step(default, 1f / 60f);
         Assert.IsEmpty(DownCountHud.Text(game, vp, screen, _ => "X", _ => Vector4.One).ToList(), "nobody is down");
         game.Cpu.Concussion = 0.95f; // 倒れるが意識は戻る（カウントが進む）
-        for (var t = 0f; t < 5.371f; t += 1f / 60f)
+        // カウントが 2 に進んだ所で表示を見る（2026-11-27、物理 106: 前は 5.4 秒の決め打ち。倒れて頭が床を打つ脳しんとうで 5 秒まで倒れていたが、
+        // 胴の震えを止めた体は床で頭をねじらず、意識が戻るまま 2.8 秒で起き上がり始める。このテストが見るのは表示で、倒れ方ではない）。
+        for (var t = 0f; t < 8f && !(game.Cpu.IsKnockedDown && DownCountHud.Count(game.Cpu) >= 2); t += 1f / 60f)
         {
             game.Step(default, 1f / 60f);
         }
