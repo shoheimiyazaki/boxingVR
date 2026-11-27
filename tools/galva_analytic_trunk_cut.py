@@ -27,12 +27,14 @@ def with_rotation(matrix, turn):
 
 
 class Trial:
-    def __init__(self, scene, rig, source):
+    def __init__(self, scene, rig, source, anchor=None):
         self.scene, self.rig = scene, rig
-        rig.animation_data.action = source
-        rig.animation_data.action_slot = source.slots[0]
-        scene.frame_set(source.pose_markers["Target"].frame)
+        reference, frame = anchor if anchor is not None else (source, source.pose_markers["Target"].frame)
+        rig.animation_data.action = reference
+        rig.animation_data.action_slot = reference.slots[0]
+        scene.frame_set(frame)
         self.source = source
+        self.center_yaw = np.zeros(2)
         self.rest = {b.name: b.matrix_local.copy() for b in rig.data.bones}
         self.held = {b.name: b.matrix.copy() for b in rig.pose.bones}
         self.other_arm = {b.name: {key: b[key] for key in b.keys() if isinstance(b[key], float)}
@@ -88,7 +90,7 @@ class Trial:
 
     def at(self, s, slopes, width, branch, require_feet=True):
         phase = tanh(s / width)
-        angles = width * phase * slopes
+        angles = self.center_yaw + width * phase * slopes
         deriv = (1 - phase * phase) * slopes
         if np.any(abs(angles) > TRUNK_RANGE):
             return None
@@ -155,7 +157,7 @@ def optimize(trial, runup, follow, acceleration):
         return np.r_[np.linspace(-runup, 0, samples + 1), np.linspace(0, follow, samples + 1)[1:]]
 
     coarse = grid(48)
-    trial.trunk((0, 0))
+    trial.trunk(trial.center_yaw)
     tip, blade, _ = trial.goal(0)
     branches = [key for key, _ in trial.arm.inverse(tip, blade)]
     results = []
@@ -265,6 +267,7 @@ def bake(trial, result, local_limit, acceleration):
     action["local_max_m_s"] = float(local_limit)
     action["chosen_path_cap_m_s"] = float(cap)
     action["trunk_rates_deg_s"] = list(np.degrees(TRUNK_RATES))
+    action["target_trunk_yaw_deg"] = list(np.degrees(trial.center_yaw))
     scene.frame_start, scene.frame_end = 1, end
     scene.frame_set(contact)
     print("Contact", contact, "speed", attained, "instantaneous 8-DOF limit", local_limit,

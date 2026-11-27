@@ -232,7 +232,8 @@ def bake(scene, rig, args):
     last = None
     previous_frame = None
     worst_rate = 0
-    for frame in np.linspace(1, end, (end - 1) * 4 + 1):
+    samples_per_frame = 16
+    for frame in np.linspace(1, end, (end - 1) * samples_per_frame + 1):
         s = distance_at(times[400] + (frame - contact_frame) / 60)
         tip, blade = goal(s)
         q = dict(arm.inverse(tip, blade))[branch]

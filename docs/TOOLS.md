@@ -96,3 +96,11 @@ blender --background Galva-Analytic-Target-Cut.blend --python-exit-code 1 --pyth
 ```
 
 両関節のひねり方を探索し、各候補について円弧全体の腕の可動域、角速度、足先の接地を確認する。腹と胸のヨーの上限はそれぞれ ±24°・±35°、角速度上限は 160°/s・200°/s。元の右鎌アクションと比較用の `07 Analytic Trunk Sweep` を出力ファイルの同じリグに収録する。
+
+目標の位置・進行方向・切断面・刃の向きをまとめて試す場合は、同じリグから一括で生成できる。
+
+```powershell
+blender --background Galva-Attacks-Stable-Edge.blend --python-exit-code 1 --python tools/galva_analytic_cut_study.py -- --output Galva-Analytic-Target-Study.blend
+```
+
+生成できたアクションは、番号に続く `A` が腕のみ、`T` が胴体あり。同名の CSV に目標座標、角度、刃先の通過速度、全区間を生成できたかを記録する。腕で円弧全体を生成できない場合は、目標通過時の腹と胸の向きを変更する候補も試す。
