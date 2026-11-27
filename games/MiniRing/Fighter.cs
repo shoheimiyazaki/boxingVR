@@ -1614,6 +1614,15 @@ public sealed partial class Fighter
         return other.Support is { Socket: not null } support && support.Main == main ? other.Hand : null;
     }
 
+    /// <summary>添え手が握っているか、握りに向かっている点。オフセットは利き手の握り基準。</summary>
+    internal (Hand Hand, Vector3 Offset)? BladeSupportGripOf(Hand main)
+    {
+        var other = _arms[1 - (int)main];
+        return other.Support is { } support && support.Main == main && (support.Reaching || support.Socket is not null)
+            ? (other.Hand, support.GripLocal - support.MainGrip)
+            : null;
+    }
+
     /// <summary>その手が武器を握っている所（武器のローカル X）。滑っている・握っていなければ null（棒のように握りを滑らせられる武器の調べもの用）。</summary>
     internal float? GripX(Hand hand) => _arms[(int)hand].GripX;
 

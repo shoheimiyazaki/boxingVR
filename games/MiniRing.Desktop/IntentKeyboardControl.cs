@@ -6,9 +6,9 @@ using MiniRing.Weapons;
 namespace MiniRing.Desktop;
 
 /// <summary>キーを意図へ写すだけのホスト側。経路の生成はゲーム本体へ委ねる。</summary>
-internal sealed class IntentKeyboardControl(WeaponKind? weapon = null, bool karate = false, MiniRing.Bots.BotStyle? style = null)
+internal sealed class IntentKeyboardControl(WeaponKind? weapon = null, bool karate = false, MiniRing.Bots.BotStyle? style = null, bool bladePlan = false)
 {
-    private DesktopFighterControl _control = new(weapon, karate, style);
+    private DesktopFighterControl _control = new(weapon, karate, style, bladePlan);
     private int? _round;
     // cameraYaw はカメラの向き（OrbitCamera.YawRadians）。矢印・WASD はカメラ基準で、入力の段階でワールドの方向へ直す。
     public BoxingInput Read(InputSnapshot input, FighterSense sense, float dt, int round, float cameraYaw)
@@ -17,7 +17,7 @@ internal sealed class IntentKeyboardControl(WeaponKind? weapon = null, bool kara
         var reset = input.WasKeyPressed(Key.R);
         if (reset || _round != round)
         {
-            _control = new DesktopFighterControl(weapon, karate, style);
+            _control = new DesktopFighterControl(weapon, karate, style, bladePlan);
             _round = round;
         }
 
