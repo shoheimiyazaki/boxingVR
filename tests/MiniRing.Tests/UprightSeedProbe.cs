@@ -17,6 +17,7 @@ public sealed class UprightSeedProbe
     private const float Dt = 1f / 240f;
     private static readonly float[] TipHz = [0f, 2f];
     private static readonly int[] RushSeeds = [3, 4, 5];
+    private static readonly bool[] TwoHands = [true, false];
     private static readonly float[] AxeScales = [0.85f, 0.9f, 0.95f, 1f, 1.05f, 1.1f, 1.15f];
 
     /// <summary>生成直後から構えのまま 5 秒: 骨盤の水平の流れの時系列と、足の運びの歩数（FighterPhysicsTests.Standing と同じ場面）。</summary>
@@ -48,10 +49,11 @@ public sealed class UprightSeedProbe
     [TestMethod]
     public void KatanaGuard()
     {
-        foreach (var (hz, seed) in TipHz.SelectMany(h => Enumerable.Range(1, 6).Select(s => (h, s))))
+        foreach (var (hz, two) in TipHz.SelectMany(h => TwoHands.Select(t => (h, t))))
         {
+            var seed = 1;
             using var game = new BoxingGame(SwordStance.Tuning with { BladeTipHz = hz }, seed: seed, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => new KatanaGuardOnly(),
-                PlayerWeapon: WeaponKind.Katana, PlayerTwoHanded: true));
+                PlayerWeapon: WeaponKind.Katana, PlayerTwoHanded: two));
             var (tipSum, handSum, n) = (0f, 0f, 0);
             var errSum = System.Numerics.Vector3.Zero;
             var (pelYaw, chestYaw, swordYaw) = (0f, 0f, 0f);
@@ -84,7 +86,7 @@ public sealed class UprightSeedProbe
             }
 
             if (Environment.GetEnvironmentVariable("KATANA_LINE") != "1") { line.Clear(); }
-            Console.WriteLine($"KATANA hz {hz} seed {seed}: yaw pel/chest/sword {pelYaw / n * 57.3f:0.0}/{chestYaw / n * 57.3f:0.0}/{swordYaw / n * 57.3f:0.0} meanErr side/up/fwd {errSum.X / n * 100:0.0}/{errSum.Y / n * 100:0.0}/{errSum.Z / n * 100:0.0} tip {tipSum / n * 100:0.0} cm hand {handSum / n * 100:0.0} cm | {string.Join(" | ", line)}");
+            Console.WriteLine($"KATANA hz {hz} twoHanded {two}: yaw pel/chest/sword {pelYaw / n * 57.3f:0.0}/{chestYaw / n * 57.3f:0.0}/{swordYaw / n * 57.3f:0.0} meanErr side/up/fwd {errSum.X / n * 100:0.0}/{errSum.Y / n * 100:0.0}/{errSum.Z / n * 100:0.0} tip {tipSum / n * 100:0.0} cm hand {handSum / n * 100:0.0} cm | {string.Join(" | ", line)}");
         }
     }
 
@@ -259,6 +261,24 @@ public sealed class UprightSeedProbe
 
             Console.WriteLine($"AXE {side} " + string.Join(" ", row));
         }
+    }
+
+    /// <summary>HeelStompTests の足の替え（種 1〜18）: 始まった数・転ばなかった数。</summary>
+    [TestMethod]
+    public void HeelSwitch()
+    {
+        var (started, kept) = (0, 0);
+        var rows = new List<string>();
+        foreach (var seed in Enumerable.Range(1, 18))
+        {
+            var (first, after, hits, falls) = HeelStompTests.SwitchRun(seed, null);
+            if (first is null) { continue; }
+            started++;
+            kept += falls == 0 ? 1 : 0;
+            rows.Add($"{seed}:{(after is null ? "noswitch" : "sw")}/{hits}/{falls}");
+        }
+
+        Console.WriteLine($"HEEL started {started} kept {kept} | " + string.Join(" ", rows));
     }
 
     [TestMethod]
