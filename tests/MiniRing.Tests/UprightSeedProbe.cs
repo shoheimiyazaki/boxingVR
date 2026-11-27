@@ -186,11 +186,68 @@ public sealed class UprightSeedProbe
         Console.WriteLine("LIMP " + string.Join(" | ", line));
     }
 
+    /// <summary>起き上がりの 1 種（GETUP_SEED、既定 4）: 状態の移り変わり・脳しんとうが増えた瞬間（頭のねじれ）・意識・張り。</summary>
+    [TestMethod]
+    public void GetUpTrace()
+    {
+        foreach (var (seed, store) in new[] { (18, 1300f), (18, 1200f), (9, 1300f), (9, 1200f) })
+        {
+        var still = BotCatalog.Boxer with { Attacks = false, DefenseRate = 0f, Prediction = 0f, Aggression = 0f };
+        var game = new BoxingGame(FighterTuning.Default with { OxygenStorePerKg = store }, seed: seed, corners: new BoxingCorners("still", s => new BoxerBot(still, s), s => new BoxerBot(still, s)));
+        for (var t0 = 0f; t0 < 2.518f; t0 += Dt) { game.Step(default, Dt); }
+        var cpu = game.Cpu;
+        using (game)
+        {
+            DamageModelTests.Hit(game, cpu, DamageModelTests.Chin(cpu), mass: 12f, speed: 3.692f);
+            var (state, conc) = (cpu.State, cpu.Concussion);
+            var line = new List<string>();
+            for (var t = 0f; t < 26.85f; t += Dt)
+            {
+                game.Step(default, Dt);
+                if (cpu.State != state || cpu.Concussion > conc + 0.05f)
+                {
+                    line.Add($"{t:0.00} {cpu.State} conc {cpu.Concussion:0.00} twist {cpu.LastHeadTwist:0.0} cons {cpu.Consciousness:0.00} tone {cpu.Tone:0.00} pel {(cpu.PelvisPosition.Y - BoxingGame.RingSurfaceHeight) * 100:0}");
+                }
+
+                (state, conc) = (cpu.State, cpu.Concussion);
+            }
+
+            Console.WriteLine($"GETUPTRACE seed {seed} store {store}: end {cpu.State} cons {cpu.Consciousness:0.00} | " + string.Join(" | ", line.Take(12)));
+        }
+        }
+    }
+
+    /// <summary>倒れて 2 秒の間の、頭が床を打った回数（脳しんとうが 0.05 以上増えた歩）と、2 秒での脳しんとう。18 種。</summary>
+    [TestMethod]
+    public void FallHeadHits()
+    {
+        var rows = new List<string>();
+        foreach (var seed in Enumerable.Range(1, 18))
+        {
+            var (game, cpu) = DamageModelTests.NewGame(seed);
+            using (game)
+            {
+                DamageModelTests.Hit(game, cpu, DamageModelTests.Chin(cpu), mass: 12f, speed: 3.692f);
+                var (hits, conc, maxTwist) = (0, cpu.Concussion, 0f);
+                for (var t = 0f; t < 2f; t += Dt)
+                {
+                    game.Step(default, Dt);
+                    if (cpu.Concussion > conc + 0.05f) { hits++; maxTwist = MathF.Max(maxTwist, cpu.LastHeadTwist); }
+                    conc = cpu.Concussion;
+                }
+
+                rows.Add($"{seed}:{hits}x/{conc:0.0}/{maxTwist:0}");
+            }
+        }
+
+        Console.WriteLine("FALLHITS " + string.Join(" ", rows));
+    }
+
     [TestMethod]
     public void GetUp()
     {
-        var (risen, down, n) = (0, 0, 0);
-        foreach (var seed in Enumerable.Range(1, 18))
+        var (risen, down, n, stuck) = (0, 0, 0, 0);
+        foreach (var seed in Enumerable.Range(1, 36))
         {
             var (game, cpu) = DamageModelTests.NewGame(seed);
             using (game)
@@ -214,11 +271,12 @@ public sealed class UprightSeedProbe
                 n++;
                 down += downAt >= 0f ? 1 : 0;
                 risen += upAt > 0f ? 1 : 0;
-                Console.WriteLine($"GETUP seed {seed}: down {downAt:0.00} up {upAt:0.00} cons {cpu.Consciousness:0.00}");
+                stuck += cpu.State == FighterState.GettingUp ? 1 : 0;
+                Console.WriteLine($"GETUP seed {seed}: down {downAt:0.00} up {upAt:0.00} cons {cpu.Consciousness:0.00} end {cpu.State}");
             }
         }
 
-        Console.WriteLine($"GETUP SUMMARY down {down}/{n} risen {risen}/{n}");
+        Console.WriteLine($"GETUP SUMMARY down {down}/{n} risen {risen}/{n} stuck {stuck}");
     }
 
     /// <summary>腰の強さが右ストレートに乗るか: 間合い 0.9〜1.2（13 本）× 種 1〜3 の合計で、標準と腰の弱い体（60 N·m）の溜めなしの右のエネルギー。</summary>

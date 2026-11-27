@@ -3285,7 +3285,7 @@ public sealed partial class Fighter
         // 腰の沈みで届かない分の頭の下げは、股から上体を前へ折って（ヒップヒンジ）下げる。首だけ・背中を丸めるだけでは沈まない。
         // 脚のバネが空いて腰が伸び上がる分（StepSinkShare）は頭の指令ではないので、頭を下げる量に数えない（数えると、ステップの後に頭の高さを保とうと
         // 上体を 20° 前へ折り、バネが貯まるまで 1 秒折ったままだった。2026-11-27）。
-        var hipDrop = MathF.Max(0f, -_headCrouch) * _standHeight * _tuning.StandHeightRatio;
+        var hipDrop = -_headCrouch * _standHeight * _tuning.StandHeightRatio;
         var rest = MathF.Max(0f, -head.Y - hipDrop);
         var hinge = MathF.Min(_tuning.MaxHingeRadians, MathF.Acos(Math.Clamp(1f - (rest / _restTorso), -1f, 1f)));
         _hinge = hinge;
