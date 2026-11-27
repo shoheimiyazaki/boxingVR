@@ -369,6 +369,13 @@ public sealed class UprightSeedProbe
     }
 
     [TestMethod]
+    public void AxeTrace()
+    {
+        var r = KickContactTests.Run(KickTechnique.Axe, Hand.Right, durationScale: 1.05f);
+        Console.WriteLine($"AXETRACE energies {string.Join(",", (r.Energies ?? []).Select(e => e.ToString("0", System.Globalization.CultureInfo.InvariantCulture)))} parts {string.Join(",", r.Parts)}");
+    }
+
+    [TestMethod]
     public void GetUp()
     {
         var (risen, down, n, stuck) = (0, 0, 0, 0);
