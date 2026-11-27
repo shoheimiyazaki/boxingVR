@@ -104,7 +104,9 @@ public sealed class EvasionBasicsTests
         // 同じ種で初撃だけを比較し、ダウンまでの手数に測定を依存させない。
         // 2026-11-27（物理 106 仮）: 3.6 → 3.3 秒。種 1 の外す試しで、2 発目が 3.3〜3.6 秒の間に出るようになった（初撃だけを見る窓）。3.0・3.3 秒では物理 105 と 106 で
         // 拳の数・頭へ当たった割合（外さない 100%・外す 0%）が同じ（UprightSeedProbe.SlipWindow）。
-        const float FirstPunchWindowSeconds = 3.3f;
+        // 2026-11-27（基準の体）: 3.3 → 3.6 秒（元に戻した）。基準の体では初撃の守りの勘定（Defenses = 回避を出した回数）が 3.4〜3.5 秒の間に付き、3.3・3.4 秒では
+        // 外した 1 発が数えられなかった（回避は成功していて頭への命中は 0）。3.5〜3.8 秒は 8 種とも拳 1 発・回避 1 回・外す 0% 対 外さない 100%で、2 発目は 4.0 秒から。
+        const float FirstPunchWindowSeconds = 3.6f;
         var seeds = Enumerable.Range(1, 8).ToArray();
         var openRuns = new PunchDrillResult[seeds.Length];
         var slippedRuns = new PunchDrillResult[seeds.Length];
