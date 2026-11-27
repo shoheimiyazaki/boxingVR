@@ -20,8 +20,10 @@ public sealed class IntentReplayTests
             for (var step = 0; step < 480; step++)
             {
                 var phase = step % 120;
+                // 強（溜めて打つ）を弱より先に押す（2026-11-27、物理 106 仮: 先のジャブがガードの横を抜けてあごに当たり、相手が 1 秒で倒れると、倒れた相手へは
+                // 溜めた右を出さないので、溜めの入力が記録に入らなかった。このテストが見るのは溜めた意図の記録と再生の一致）。
                 control.Input = new FighterIntent(phase < 60 ? Vector2.UnitY : -Vector2.UnitY,
-                    Light: phase is >= 20 and < 24, Heavy: phase is >= 50 and < 75, Evade: phase is >= 90 and < 100);
+                    Light: phase is >= 50 and < 54, Heavy: phase is >= 15 and < 40, Evade: phase is >= 90 and < 100);
                 recorder.Step(game, new BoxingInput(control.Read(game.PlayerSense, 1f / 60f)), 1f / 60f);
                 checksums.Add(game.StateChecksum());
             }

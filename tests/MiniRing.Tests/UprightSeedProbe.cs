@@ -298,6 +298,40 @@ public sealed class UprightSeedProbe
         }
     }
 
+    /// <summary>IntentReplayTests.ChargedIntent の入力: 強ボタンの間の右の溜め（Spring）・ひねり・間合い・状態。</summary>
+    [TestMethod]
+    public void ChargedIntent()
+    {
+        using var game = new BoxingGame(seed: 31);
+        var control = new IntentControl();
+        var rows = new List<string>();
+        for (var step = 0; step < 480; step++)
+        {
+            var phase = step % 120;
+            control.Input = new FighterIntent(phase < 60 ? System.Numerics.Vector2.UnitY : -System.Numerics.Vector2.UnitY,
+                Light: phase is >= 20 and < 24, Heavy: phase is >= 50 and < 75, Evade: phase is >= 90 and < 100);
+            var cmd = control.Read(game.PlayerSense, 1f / 60f);
+            game.Step(new BoxingInput(cmd), 1f / 60f);
+            foreach (var h in game.RecentHits.Where(h => step < 70))
+            {
+                rows.Insert(0, $"HIT@{step} {h.Attacker.Name}->{h.Victim.Name} {h.Zone} speed {h.Speed:0.00} mass {h.ImpactMass:0.00} E {h.Energy:0} twist {h.Victim.LastHeadTwist:0.0} conc {h.Victim.Concussion:0.00}");
+            }
+
+            if (step < 70 && game.Cpu.State != FighterState.Standing && rows.All(r => !r.StartsWith("FALL", StringComparison.Ordinal)))
+            {
+                rows.Insert(0, $"FALL@{step} cause {game.Cpu.LastFallCause} cons {game.Cpu.Consciousness:0.00} tone {game.Cpu.Tone:0.00} hits {game.RecentHits.Count}");
+            }
+
+            if (phase is >= 48 and < 90 && phase % 6 == 0)
+            {
+                var gap = System.Numerics.Vector3.Distance(game.Player.ChestPosition with { Y = 0f }, game.Cpu.ChestPosition with { Y = 0f });
+                rows.Add($"{step}:spr{cmd.Right.Spring:0.00}/tw{cmd.TwistBias:0.00}/gap{gap:0.00}/{game.Player.State}/{game.Cpu.State}");
+            }
+        }
+
+        Console.WriteLine("CHARGED " + string.Join(" ", rows));
+    }
+
     [TestMethod]
     public void GetUp()
     {
