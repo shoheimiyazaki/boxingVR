@@ -176,7 +176,8 @@ public sealed class BojutsuTests
 
             Assert.IsGreaterThan(-0.05f, worst, $"{form.Name}: the staff line stays out of the body boxes");
             // 0.95 → 0.97（2026-11-27）: 握りの間隔を肩幅 0.40 m（0.689 腕、前は 0.585 腕）へ広げ、下の手が棒に沿って 0.10 腕遠い（横打ちで 0.963）。腕の長さの内（< 1）。
-            Assert.IsLessThan(0.97f, reach, $"{form.Name}: both hands stay within an arm reach of their shoulders");
+            // 0.97 → 0.99（2026-11-27、統合後）: 足払い（ashi-barai）は棒を低く払うので下の手がほぼ腕いっぱい（0.988）。守るのは「腕の長さの内（< 1）」なので、1 に近い上限にする。
+            Assert.IsLessThan(0.99f, reach, $"{form.Name}: both hands stay within an arm reach of their shoulders");
         }
     }
 
