@@ -14,7 +14,7 @@ public sealed class NeckMuscleTests
 {
     private static float Threshold(VoxelGrid grid, Vector3 point, Vector3 dir, float tone, int axis = 1, (int, int)? slices = null)
     {
-        float lo = 0f, hi = 200000f;
+        float lo = 0f, hi = 20000000f; // 2026-11-27: 上限 20 万 N → 2000 万 N（基準の体の首は 20 万 N でも折れず、どちらも上限で同値になっていた）
         for (var i = 0; i < 40; i++)
         {
             var mid = 0.5f * (lo + hi);
