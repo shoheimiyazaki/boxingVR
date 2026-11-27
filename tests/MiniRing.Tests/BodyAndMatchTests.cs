@@ -79,7 +79,9 @@ public sealed class BodyAndMatchTests
         Settle(game);
         var f = game.Cpu;
         var toneBefore = f.Tone;
-        Blow(game, f, height: -0.9f, side: 0.6f); // 肋骨の下: 肝臓・腸に近い
+        // 2026-11-27（基準の体）: この 1 発（45 kg）は胴 12.4 kg の前の体に合わせた大きさ。基準の体の胴は 17.2 kg（質量・慣性の表 docs/plans/BASE_BODY_PLAN.md §10.5: 胴 1.39 倍）なので、
+        // 同じ重さの拳（胴に対する比）で打つ。同じ絶対の 1 発では 1.39 倍の胴・肝臓が受ける割合が小さく、張りの落ちが 0.17（前は 0.2 超）だった。
+        Blow(game, f, height: -0.9f, side: 0.6f, massScale: game.World.GetMass(f.Parts.Chest) / 12.4f); // 肋骨の下: 肝臓・腸に近い
         Console.WriteLine($"core {f.Core:0.00}, tone {toneBefore:0.00} → {f.Tone:0.00}, consciousness {f.Consciousness:0.00}");
         Assert.IsGreaterThan(0.99f, f.Consciousness, "the head is clear");
         Assert.IsLessThan(0.75f, f.Core);
@@ -143,14 +145,15 @@ public sealed class BodyAndMatchTests
     }
 
     /// <summary>重い 1 発（45 kg × 3.69 m/s）を胴の前へ。<paramref name="height"/> / <paramref name="side"/> は胴の半分の大きさに対する位置。打った後のスタミナを返す。</summary>
-    private static float Blow(BoxingGame game, Fighter f, float height, float side = 0f)
+    private static float Blow(BoxingGame game, Fighter f, float height, float side = 0f, float massScale = 1f)
     {
         var half = f.HalfExtents.Chest;
         var right = Vector3.Normalize(Vector3.Cross(f.Frame.Forward, Vector3.UnitY));
         var point = f.ChestPosition + (f.Frame.Forward * half.Z) + (right * (side * half.X)) + (Vector3.UnitY * (height * half.Y));
-        const float Mass = 45f, Speed = 3.693f;
-        var damage = PunchMechanics.Damage(Mass * Speed) * PunchMechanics.Sharpness(Speed);
-        game.ApplyHit(new HitEvent(game.Player, Hand.Right, f, HitZone.Body, point, Speed, Mass, 0.7f, damage), f.Parts.Chest, -f.Frame.Forward * Speed);
+        const float Speed = 3.693f;
+        var mass = 45f * massScale;
+        var damage = PunchMechanics.Damage(mass * Speed) * PunchMechanics.Sharpness(Speed);
+        game.ApplyHit(new HitEvent(game.Player, Hand.Right, f, HitZone.Body, point, Speed, mass, 0.7f, damage), f.Parts.Chest, -f.Frame.Forward * Speed);
         return f.Stamina;
     }
 
