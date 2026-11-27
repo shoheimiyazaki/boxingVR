@@ -27,6 +27,7 @@ if (args.Contains("--control") && Option("--control") is not ("classic" or "inte
 //   --hybrid-punch           関節駆動のパンチと従来の立位・打撃処理を組み合わせた試合設定
 //   --adaptive-punch        拳の目標距離から回旋と踏み込みを連続に配分する試合設定
 //   --dynamic-punch         脚の踏み込みを拳に乗せる分割胴の試合設定
+//   --blade-plan           シングルの意図操作で、狙いから武器の目標姿勢を生成する
 //   --no-facecam            画面の両脇の顔の窓を出さない（窓の分の描画が要らない）
 //   --speed <0.5|0.75|1>    最初の速さ（既定 0.75 倍）。遊んでいる間・再生中も 1 / 2 / 3 キーで 0.5 / 0.75 / 1.0 倍に切り替わる
 //   --menu-script <語,...>  メニューを決めた順に操作する（left/right/up/down/enter/back/wait/scroll-up/scroll-down。0.5 秒に 1 つ。画面の確かめ用）
@@ -223,7 +224,7 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode, MatchRules? rules 
         var keyboard = new KeyboardControl();
         var intentKeyboard = new IntentKeyboardControl(corners.PlayerWeapon,
             LocalVersusControl.IsKarate(corners.PlayerName, corners.PlayerWear),
-            corners.PlayerStyle);
+            corners.PlayerStyle, bladePlan: args.Contains("--blade-plan"));
         var local = new LocalVersusControl(corners);
         var followCamera = new FollowCameraRig(camera, BoxingGame.RingSurfaceHeight + 0.563f);
         if (!args.Contains("--no-record"))

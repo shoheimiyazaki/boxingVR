@@ -703,7 +703,43 @@ public sealed partial class BoxingGame
 
         var held = WeaponOf(self) is { } mine && HolderOf(mine) == self ? mine : null;
         var own = held is null ? default : OwnWeaponSense(held, self);
-        return sense with { OpponentBlade = blade, SelfArmed = held is not null, SelfWeapon = own, SelfSupplies = _supplies.GetValueOrDefault(self) };
+        sense = sense with { OpponentBlade = blade, SelfArmed = held is not null, SelfWeapon = own, SelfSupplies = _supplies.GetValueOrDefault(self) };
+        if (held is not null && Motion.BladeCutGeometry.Supports(held.Kind))
+        {
+            return WithBladeGrip(sense, self, held, own);
+        }
+
+        if (self.Build.FourLegged)
+        {
+            foreach (var hand in Hands)
+            {
+                if (GloveOf(self, hand) is { Kind: WeaponKind.SickleClaw } claw && self.WieldedBody(hand) == claw.Body.BodyId)
+                {
+                    sense = WithBladeGrip(sense, self, claw, OwnWeaponSense(claw, self));
+                }
+            }
+        }
+        return sense;
+    }
+
+    private FighterSense WithBladeGrip(FighterSense sense, Fighter holder, Weapon weapon, WeaponSense own)
+    {
+        var hand = HandOf(weapon);
+        var support = holder.BladeSupportGripOf(hand);
+        var gripLocal = holder.WieldedGrip(hand) ?? Weapon.GripOf(weapon.Kind, Weapon.MirroredOn(weapon.Kind, hand));
+        var orientation = _world.GetState(weapon.Body.BodyId).Orientation;
+        var grip = new Motion.BladeGripSense(weapon.Kind,
+            new Motion.BladeKeyPose(sense.Self.WorldToLocal(own.Grip),
+                Quaternion.Concatenate(orientation, Quaternion.Conjugate(sense.Self.Rotation))),
+            own.FullReach > 0f ? Math.Clamp(own.Reach / own.FullReach, 0f, 1f) : 0f, support?.Hand, gripLocal, support?.Offset);
+        var arm = Motion.BladeArm.From(holder, hand);
+        if (hand == Hand.Left)
+        {
+            return sense with { SelfBladeGripLeft = grip, SelfBladeArmLeft = arm,
+                SelfBladeArmRight = support.HasValue ? Motion.BladeArm.From(holder, Hand.Right) : sense.SelfBladeArmRight };
+        }
+        return sense with { SelfBladeGripRight = grip, SelfBladeArmRight = arm,
+            SelfBladeArmLeft = support.HasValue ? Motion.BladeArm.From(holder, Hand.Left) : sense.SelfBladeArmLeft };
     }
 
     /// <summary>握っている武器の見え方: 長さと、今実際にある握りの位置・向き（手に感じる剣）。</summary>

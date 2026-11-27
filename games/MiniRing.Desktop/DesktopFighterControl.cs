@@ -6,7 +6,7 @@ using MiniRing.Weapons;
 namespace MiniRing.Desktop;
 
 /// <summary>既存の意図操作に、装備と空手に応じた攻撃の経路を重ねる。</summary>
-internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool karate = false, BotStyle? style = null)
+internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool karate = false, BotStyle? style = null, bool bladePlan = false)
 {
     /// <summary>この操作に渡された、人が操る側のスタイル（名簿のキャラクターなら教育を重ねた解決済みのもの。倒れた相手への攻めの好みに使う）。</summary>
     internal BotStyle? Style { get; } = style;
@@ -14,6 +14,7 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
     private readonly IntentControl _intent = new();
     private readonly FrontLegStrike _frontLeg = new();
     private readonly ClawMotion[] _claws = [new(), new()];
+    private readonly BladeCutPlayback[] _bladeCuts = [new(), new()];
     private static readonly WeaponSwing SwordLight = SwordTechnique.Basics.First(t => t.Name == "kote").Swing;
     private static readonly WeaponSwing SwordHeavy = SwordTechnique.Basics.First(t => t.Name == "men").Swing;
     private static readonly WeaponSwing ClubLight = WeaponSwing.Default(SwingFamily.Thrust);
@@ -50,6 +51,70 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
         return command with { Right = WeaponSwing.GuardCommand(sense.ArmReach, kind == WeaponKind.WoodenClub ? SwingFamily.Chop : SwingFamily.Sword) };
     }
 
+    private static BladeCutRequest CutAtOpponent(Hand hand, bool sweep, in FighterSense sense)
+    {
+        var travel = Vector3.Normalize(new Vector3(-hand.LocalSide(), sweep ? 0f : -1f, 0f));
+        return new BladeCutRequest(sense.Self.WorldToLocal(sense.OpponentChest), travel, Vector3.Cross(Vector3.UnitZ, travel));
+    }
+
+    private HandCommand ReadClaw(Hand hand, bool pressed, bool wasPressed, bool sweep, in FighterSense sense, float dt)
+    {
+        var slot = (int)hand;
+        if (bladePlan && !_claws[slot].Active)
+        {
+            var playback = _bladeCuts[slot];
+            if (pressed && !wasPressed && sense.OpponentAlive)
+            {
+                playback.TryStart(hand, sense, CutAtOpponent(hand, sweep, sense));
+            }
+
+            var guard = ClawStroke.Guard(hand, sense.ArmReach).ToCommand(hand);
+            var basis = new FighterCommand(Vector3.Zero, sense.Self.Forward, guard, guard);
+            if (playback.TryRead(sense, basis, dt, out var command))
+            {
+                // 従来の経路にもボタンを離した状態を渡しておく。
+                _claws[slot].Read(hand, false, sweep, sense, sense.OpponentChest, dt);
+                return command.For(hand);
+            }
+
+            pressed &= !wasPressed;
+        }
+
+        return _claws[slot].Read(hand, pressed, sweep, sense, sense.OpponentChest, dt);
+    }
+
+    private bool TryReadSwordPlan(bool trigger, bool sweep, in FighterSense sense, in FighterCommand command, float dt,
+        out FighterCommand planned)
+    {
+        planned = command;
+        var hand = sense.BladeGrip(Hand.Right) is not null ? Hand.Right : Hand.Left;
+        var playback = _bladeCuts[(int)hand];
+        var other = hand == Hand.Right ? Hand.Left : Hand.Right;
+        _bladeCuts[(int)other].Cancel();
+
+        if (sense.BladeGrip(hand) is not { } grip || grip.Kind == WeaponKind.SickleClaw ||
+            (!trigger && playback.Plan is null))
+        {
+            playback.Cancel();
+            return false;
+        }
+
+        var idle = (_form is null || _formTime >= _form.Duration) && (_swing is null || _time >= _swing.Duration);
+        if (trigger && idle && sense.OpponentAlive && playback.TryStart(hand, sense, CutAtOpponent(hand, sweep, sense)))
+        {
+            _form = null;
+            _swing = null;
+        }
+
+        return playback.TryRead(sense, BladeGuard(grip.Kind, sense, command), dt, out planned);
+    }
+
+    private static FighterCommand BladeGuard(WeaponKind kind, in FighterSense sense, in FighterCommand command)
+    {
+        var held = FormSwordsman.GuardCommand(kind, sense, command.FaceDirection, Body.WalkSpeed, Body.MaxTorsoTwistRadians);
+        return command with { Left = held.Left, Right = held.Right, TwistBias = held.TwistBias };
+    }
+
     public FighterCommand Read(FighterIntent input, in FighterSense sense, float dt, bool kickPressed = false, bool sweep = false)
     {
         if (sense.SelfBuild?.FourLegged == true)
@@ -57,9 +122,10 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
             _intent.Input = input with { Light = false, Heavy = false };
             var motion = _intent.Read(sense, dt) with
             {
-                Left = _claws[0].Read(Hand.Left, input.Light, sweep, sense, sense.OpponentChest, dt),
-                Right = _claws[1].Read(Hand.Right, input.Heavy, sweep, sense, sense.OpponentChest, dt),
+                Left = ReadClaw(Hand.Left, input.Light, _light, sweep, sense, dt),
+                Right = ReadClaw(Hand.Right, input.Heavy, _heavy, sweep, sense, dt),
             };
+            (_light, _heavy) = (input.Light, input.Heavy);
             return _frontLeg.Read(motion, sense, kickPressed, sweep, dt);
         }
 
@@ -79,11 +145,18 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
             _form = null;
             _swing = null;
             _kick = null;
+            _bladeCuts[(int)Hand.Left].Cancel();
+            _bladeCuts[(int)Hand.Right].Cancel();
             var basis = GuardedBasis(command, sense);
             return _ground.Read(sense, basis, dt, call, load, steer: false);
         }
 
         _ground.Cancel();
+
+        if (bladePlan && TryReadSwordPlan(heavy && !input.Evade, sweep, sense, command, dt, out var planned))
+        {
+            return planned;
+        }
 
         if (FormSwordsman.Handles(weapon) && sense.SelfWeapon.Held)
         {
@@ -125,6 +198,12 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
         if (weapon.HasValue && sense.SelfWeapon.Held)
         {
             var club = weapon == WeaponKind.WoodenClub;
+            var shieldGuard = bladePlan && weapon == WeaponKind.IronSword;
+            if (shieldGuard)
+            {
+                command = BladeGuard(WeaponKind.IronSword, sense, command);
+            }
+
             if (_swing is { } previous && _time >= previous.Duration)
             {
                 _swing = null;
@@ -147,7 +226,7 @@ internal sealed class DesktopFighterControl(WeaponKind? weapon = null, bool kara
                     MoveWorld = move.LengthSquared() > 1f ? Vector3.Normalize(move) : move,
                 };
             }
-            return command with { Right = WeaponSwing.GuardCommand(sense.ArmReach, club ? SwingFamily.Chop : SwingFamily.Sword) };
+            return shieldGuard ? command : command with { Right = WeaponSwing.GuardCommand(sense.ArmReach, club ? SwingFamily.Chop : SwingFamily.Sword) };
         }
 
         _swing = null;
