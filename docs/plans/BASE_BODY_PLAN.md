@@ -335,3 +335,7 @@ Aigis の既定の体 × 頭 0.8・腕の長さ 1.18（145 cm）をやめ、Mini
 - 両手の武器の型の間隔は「握りの長さ ÷ 基準の腕」を手で割った定数（型が腕の単位なので、腕の長い体ほど同じ柄を広く握る）。9.4 の型の書き直しで、握りの間隔を m で持つ形にする。
 - `FighterPhysicsTests.Standing` の生成から落ち着くまでの流れの上限を外したのは A の枝（c586bcea）の変更。
 - 打たれるたびに格子を全部なめて慣性を数える（`VoxelBody.UpdateMass`）: `perf` で未測定。空の格子の慣性の床（1e-10）が小さい。
+
+### 9.10 止めた所（2026-11-27、文脈の残りが少ないのでここで止めて引き継ぐ）
+
+全テスト（tower32・12 並び、6edb6219）: 1629 件中 **39 件**失敗（土台 a4783fb7 は 14 件）。土台と共通 6 件（`SwordOneBlowTests` jin・konrad、`PunchWeightTests`、`KneeControlTests`、`RoundRulesTests`、`BladeTipTests`）、新しく落ちる物 33 件。段 4 のあとの 42 件から、段 5 の握りの間隔で 4 件（`SlideGripTests` 2・`BatFormsTests`・`BojutsuTests.TheStaffGrips…`）が通り、`TonfaTests.ASwordSweepingAtTheGuard…` が新しく落ちた（A の枝の取り込みか握りの間隔の影響か未確認）。残りの分け方と順は 9.8 のまま。0 件落ちにはなっていない。
