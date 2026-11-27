@@ -68,12 +68,15 @@ def measured(scene, rig, action):
     )
     assert speed.normalized().dot(Vector(action["direction"])) > 0.999
     normal = Vector(action["normal"])
+    cut_start = action.pose_markers.get("Cut starts")
+    first_cut_frame = cut_start.frame if cut_start else 1
     toe_start = None
     drift = 0.0
     blade_error = 0.0
     for frame in range(1, int(action.frame_end) + 1):
         scene.frame_set(frame)
-        blade_error = max(blade_error, (tip.matrix.to_quaternion() @ arm.Z + normal).length)
+        if frame >= first_cut_frame:
+            blade_error = max(blade_error, (tip.matrix.to_quaternion() @ arm.Z + normal).length)
         toes = [b.tail.copy() for b in rig.pose.bones if b.name.startswith("Tip")]
         if toe_start is None:
             toe_start = toes

@@ -104,3 +104,11 @@ blender --background Galva-Attacks-Stable-Edge.blend --python-exit-code 1 --pyth
 ```
 
 生成できたアクションは、番号に続く `A` が腕のみ、`T` が胴体あり。同名の CSV に目標座標、角度、刃先の通過速度、全区間を生成できたかを記録する。腕で円弧全体を生成できない場合は、目標通過時の腹と胸の向きを変更する候補も試す。
+
+同じ試験ファイルから、低い構え・鎌を引いた構え・前の技を振り終えた姿勢を横・縦・斜めの各目標につなげられる。
+
+```powershell
+blender --background Galva-Analytic-Target-Study.blend --python-exit-code 1 --python tools/galva_cut_starts.py -- --output Galva-Cut-Start-Study.blend
+```
+
+`S` で始まるアクションは各開始姿勢から目標を通るまでの比較、`C` は前の技も含む連続動作。準備区間は四足を接地させて関節の角速度と角加速度を制限し、いったん静止してから方向ごとの同一の解析円弧に合流する。CSV には準備時間、目標までの時間、開始時の手首と目標の座標を出す。
