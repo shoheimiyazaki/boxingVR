@@ -17,6 +17,7 @@ public sealed class UprightSeedProbe
     private const float Dt = 1f / 240f;
     private static readonly float[] TipHz = [0f, 2f];
     private static readonly int[] RushSeeds = [3, 4, 5];
+    private static readonly float[] AxeScales = [0.85f, 0.9f, 0.95f, 1f, 1.05f, 1.1f, 1.15f];
 
     /// <summary>生成直後から構えのまま 5 秒: 骨盤の水平の流れの時系列と、足の運びの歩数（FighterPhysicsTests.Standing と同じ場面）。</summary>
     [TestMethod]
@@ -241,6 +242,23 @@ public sealed class UprightSeedProbe
         }
 
         Console.WriteLine("FALLHITS " + string.Join(" ", rows));
+    }
+
+    /// <summary>かかと落とし（右・左）を技の長さ 0.85〜1.15 で: 当たりのエネルギーの最大と、拳の速さ・質量（KickContactTests.Run）。</summary>
+    [TestMethod]
+    public void AxeEnergy()
+    {
+        foreach (var side in new[] { Hand.Right, Hand.Left })
+        {
+            var row = new List<string>();
+            foreach (var scale in AxeScales)
+            {
+                var r = KickContactTests.Run(KickTechnique.Axe, side, durationScale: scale);
+                row.Add($"{scale:0.00}:{(r.Energies is { Count: > 0 } e ? e.Max() : 0f):0}J/{r.MaxSpeed:0.0}m/s");
+            }
+
+            Console.WriteLine($"AXE {side} " + string.Join(" ", row));
+        }
     }
 
     [TestMethod]

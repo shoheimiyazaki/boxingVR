@@ -3738,9 +3738,14 @@ public sealed partial class Fighter
             return;
         }
 
-        var leverVelocity = Vector3.Cross(weapon.AngularVelocity, leverWorld);
+        // 手首の筋は前腕と手（武器）の間の関節の筋なので、粘り（減衰）は前腕に対する相対の回りで見る（世界の回りで見ると、体ごと回った分まで止めようとして
+        // 反作用が前腕から胴へ抜け、胴の回りを外から止める支えのように働いた。胴の震えを止めた体で、片手の刀の腕が長軸まわりに回り続け、両手の構えでは胴のひねりを
+        // 戻す釣り合いに落ちた。2026-11-27）。目標の動く速さも前腕に対する分にする。
+        var forearmSpin = _world.GetState(arm.Forearm).AngularVelocity;
+        var leverVelocity = Vector3.Cross(weapon.AngularVelocity - forearmSpin, leverWorld);
+        var targetRelative = targetLeverVelocity - Vector3.Cross(forearmSpin, targetLever);
         var omega = 2f * MathF.PI * _tuning.BladeTipHz;
-        var accel = (omega * omega * (targetLever - leverWorld)) + (2f * _tuning.BladeTipDampingRatio * omega * (targetLeverVelocity - leverVelocity));
+        var accel = (omega * omega * (targetLever - leverWorld)) + (2f * _tuning.BladeTipDampingRatio * omega * (targetRelative - leverVelocity));
         var length2 = MathF.Max(1e-4f, leverWorld.LengthSquared());
         var diagonal = _world.GetLocalInertiaDiagonal(held.Body);
         var aboutGrip = (0.5f * (diagonal.Y + diagonal.Z)) + (_world.GetMass(held.Body) * held.GripLocal.LengthSquared());
