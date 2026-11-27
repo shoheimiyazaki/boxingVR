@@ -2,6 +2,7 @@ using MiniRing.Arena;
 using MiniRing.Bots;
 using MiniRing.Characters;
 using MiniRing.Motion;
+using MiniRing.Weapons;
 
 namespace MiniRing.Tests;
 
@@ -14,6 +15,8 @@ namespace MiniRing.Tests;
 public sealed class UprightSeedProbe
 {
     private const float Dt = 1f / 240f;
+    private static readonly float[] TipHz = [0f, 2f];
+    private static readonly int[] RushSeeds = [3, 4, 5];
 
     /// <summary>生成直後から構えのまま 5 秒: 骨盤の水平の流れの時系列と、足の運びの歩数（FighterPhysicsTests.Standing と同じ場面）。</summary>
     [TestMethod]
@@ -38,6 +41,128 @@ public sealed class UprightSeedProbe
         }
 
         Console.WriteLine($"DRIFT cm: {string.Join(" ", drifts.Select(d => d.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)))} max {drifts.Max():0.0} mean {drifts.Average():0.0}");
+    }
+
+    /// <summary>刀の構え（BladeTipTests と同じ場面）: 切っ先のずれを、手の位置のずれと、それを除いた向きのずれに分ける。時系列も。</summary>
+    [TestMethod]
+    public void KatanaGuard()
+    {
+        foreach (var (hz, seed) in TipHz.SelectMany(h => Enumerable.Range(1, 6).Select(s => (h, s))))
+        {
+            using var game = new BoxingGame(SwordStance.Tuning with { BladeTipHz = hz }, seed: seed, corners: new BoxingCorners("stand", _ => new StandGuard(), _ => new KatanaGuardOnly(),
+                PlayerWeapon: WeaponKind.Katana, PlayerTwoHanded: true));
+            var (tipSum, handSum, n) = (0f, 0f, 0);
+            var errSum = System.Numerics.Vector3.Zero;
+            var (pelYaw, chestYaw, swordYaw) = (0f, 0f, 0f);
+            var line = new List<string>();
+            for (var i = 0; i < 240 * 4; i++)
+            {
+                game.Step(default, 1f / 240f);
+                var p = game.Player;
+                if (i > 240 && p.BladeTipWorld(Hand.Right) is { } tip && p.BladeTipTargetWorld(Hand.Right) is { } goal)
+                {
+                    var hand = System.Numerics.Vector3.Distance(p.GloveCenter(Hand.Right), p.HandTargetWorld(Hand.Right));
+                    tipSum += System.Numerics.Vector3.Distance(tip, goal);
+                    var dv = System.Numerics.Vector3.Transform(tip - goal, System.Numerics.Quaternion.CreateFromAxisAngle(System.Numerics.Vector3.UnitY, -p.Frame.YawRadians));
+                    errSum += dv;
+                    float YawOf(int id) { var fw = System.Numerics.Vector3.Transform(System.Numerics.Vector3.UnitZ, game.World.GetState(id).Orientation); return MathF.Atan2(fw.X, fw.Z); }
+                    float Wrap(float a) => MathF.Atan2(MathF.Sin(a), MathF.Cos(a));
+                    pelYaw += Wrap(YawOf(p.Parts.Pelvis) - p.Frame.YawRadians);
+                    chestYaw += Wrap(YawOf(p.Parts.Chest) - p.Frame.YawRadians);
+                    var w = game.World.GetState(game.WeaponOf(p)!.Body.BodyId).Orientation;
+                    var wf = System.Numerics.Vector3.Transform(System.Numerics.Vector3.UnitX, w);
+                    swordYaw += Wrap(MathF.Atan2(wf.X, wf.Z) - p.Frame.YawRadians);
+                    handSum += hand;
+                    n++;
+                    if (i % 48 == 0 || i % 48 == 1)
+                    {
+                        var up = System.Numerics.Vector3.Transform(System.Numerics.Vector3.UnitY, game.World.GetState(p.Parts.Chest).Orientation);
+                        line.Add($"{i / 240f:0.0}:tip {System.Numerics.Vector3.Distance(tip, goal) * 100:0.0} hand {hand * 100:0.0} chestUp {up.Y:0.000} pelW {game.World.GetState(p.Parts.Pelvis).AngularVelocity.Y:0.00} chestW {game.World.GetState(p.Parts.Chest).AngularVelocity.Y:0.00}");
+                    }
+                }
+            }
+
+            if (Environment.GetEnvironmentVariable("KATANA_LINE") != "1") { line.Clear(); }
+            Console.WriteLine($"KATANA hz {hz} seed {seed}: yaw pel/chest/sword {pelYaw / n * 57.3f:0.0}/{chestYaw / n * 57.3f:0.0}/{swordYaw / n * 57.3f:0.0} meanErr side/up/fwd {errSum.X / n * 100:0.0}/{errSum.Y / n * 100:0.0}/{errSum.Z / n * 100:0.0} tip {tipSum / n * 100:0.0} cm hand {handSum / n * 100:0.0} cm | {string.Join(" | ", line)}");
+        }
+    }
+
+    private sealed class KatanaGuardOnly : IFighterControl
+    {
+        public FighterCommand Read(in FighterSense sense, float dt)
+        {
+            var face = sense.OpponentChest - sense.Self.Origin;
+            face.Y = 0f;
+            face = face.LengthSquared() > 1e-6f ? System.Numerics.Vector3.Normalize(face) : System.Numerics.Vector3.UnitZ;
+            return FormSwordsman.GuardCommand(WeaponKind.Katana, sense, face, FighterTuning.Default.WalkSpeed, FighterTuning.Default.MaxTorsoTwistRadians);
+        }
+    }
+
+    /// <summary>構えて立つだけ 20 秒: 部位ごとの酸素（胴・腕・脚）と血の酸素・スタミナ（震えが酸素を使っていたか）。</summary>
+    [TestMethod]
+    public void IdleOxygen()
+    {
+        using var world = new Aigis.Physics.PhysicsWorld();
+        world.AddStaticBox(new System.Numerics.Vector3(0f, -1.408f, 0f), new System.Numerics.Vector3(14.08f, 1.408f, 14.08f));
+        var f = Fighter.Spawn(world, FighterTuning.Default, "f", System.Numerics.Vector3.Zero, 0f);
+        var cmd = new FighterCommand(System.Numerics.Vector3.Zero, f.Frame.Forward, new HandCommand(AiControl.Guard(Hand.Left, f.ArmReach), false), new HandCommand(AiControl.Guard(Hand.Right, f.ArmReach), false));
+        var line = new List<string>();
+        for (var i = 0; i < 240 * 20; i++)
+        {
+            f.ApplyControl(cmd, Dt);
+            world.Step(Dt);
+            if (i % (240 * 4) == 0 || i == (240 * 20) - 1)
+            {
+                line.Add($"{i / 240f:0}s trunk {f.OxygenOf(MuscleRegion.Trunk):0.000} armR {f.OxygenOf(MuscleRegion.RightArm):0.000} legL {f.OxygenOf(MuscleRegion.LeftLeg):0.000} blood {f.BloodOxygen:0.000} stam {f.Stamina:0.000}");
+            }
+        }
+
+        Console.WriteLine("IDLEO2 " + string.Join(" | ", line));
+    }
+
+    /// <summary>StaminaRushTests の連打（種 3）: 5 秒ごとの終わりの部位ごとの酸素。</summary>
+    [TestMethod]
+    public void RushOxygen()
+    {
+        const float dt = 1f / 60f;
+        var corners = BoxingCorners.Default with { Player = _ => new IntentControl(), Cpu = _ => new IntentControl() };
+        using var game = new BoxingGame(FighterTuning.Default with { ConcussionSpin = float.PositiveInfinity, CoreToneFloor = 1f }, seed: 3, corners: corners);
+        var control = (IntentControl)game.PlayerControl!;
+        ((IntentControl)game.CpuControl!).Input = new FighterIntent(System.Numerics.Vector2.Zero, Evade: true);
+        var (rushing, tap, next) = (0f, 0f, 5f);
+        var line = new List<string>();
+        for (var clock = 0f; rushing < 20f && clock < 60f; clock += dt)
+        {
+            var standing = game.Player.State == FighterState.Standing && game.Cpu.State == FighterState.Standing;
+            var phase = tap / 0.2014f;
+            var index = (int)MathF.Floor(phase);
+            var down = standing && phase - index < 0.67f;
+            control.Input = new FighterIntent(System.Numerics.Vector2.Zero, Light: down && index % 2 == 0, Heavy: down && index % 2 == 1);
+            game.Step(new BoxingInput(default), dt);
+            if (!standing) { continue; }
+            tap += dt;
+            rushing += dt;
+            if (rushing >= next)
+            {
+                var f = game.Player;
+                line.Add($"{next:0}s trunk {f.OxygenOf(MuscleRegion.Trunk):0.00} armL {f.OxygenOf(MuscleRegion.LeftArm):0.00} armR {f.OxygenOf(MuscleRegion.RightArm):0.00} legs {f.OxygenOf(MuscleRegion.LeftLeg):0.00}/{f.OxygenOf(MuscleRegion.RightLeg):0.00} blood {f.BloodOxygen:0.00}");
+                next += 5f;
+            }
+        }
+
+        Console.WriteLine("RUSHO2 " + string.Join(" | ", line));
+    }
+
+    /// <summary>連打の 4 つの窓（種 3・4・5 の平均）を、筋肉 1 kg あたりの酸素の蓄えを振って。</summary>
+    [TestMethod]
+    public void RushStore()
+    {
+        foreach (var store in (Environment.GetEnvironmentVariable("STORES") ?? "1300,1200,1100").Split(',').Select(v => float.Parse(v, System.Globalization.CultureInfo.InvariantCulture)))
+        {
+            var runs = RushSeeds.Select(seed => StaminaRushTests.RushWindows(20f, tuning: FighterTuning.Default with { OxygenStorePerKg = store }, seed: seed)).ToArray();
+            var mean = Enumerable.Range(0, runs[0].Length).Select(i => runs.Average(r => r[i])).ToArray();
+            Console.WriteLine(System.FormattableString.Invariant($"RUSHSTORE {store}: {mean[0]:F2} {mean[1]:F2} {mean[2]:F2} {mean[3]:F2}  ratio1 {mean[1] / mean[0]:F3} ratio3 {mean[3] / mean[0]:F3}"));
+        }
     }
 
     [TestMethod]
