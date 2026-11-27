@@ -151,13 +151,23 @@ public sealed class WoundGlow
         return u * u * (3f - (2f * u));
     }
 
-    /// <summary>そのボクセルが体の上で見えている色（血の染みも込み）。冷めきったときの色。</summary>
+    /// <summary>
+    /// そのボクセルが体の上で見えている色（材質の色・血の染み込み）。冷めきったときの色。体の 3D テクスチャ（<see cref="VoxelPart.Volume"/>）は
+    /// 描くときにだけ、変わったセルだけを顔色の変わる量を刻んで写すので、読むと直前に何度描いたかで色が変わる（リプレイの走査と先頭からの再生で
+    /// 光の色が合わなかった）。テクスチャと同じ式で格子から出す（顔色の変化は入れない。断面は体の中の色）。
+    /// </summary>
     private static Vector4 ShownColor(VoxelPart part, VoxelCutFace face)
     {
-        var volume = part.Volume;
-        var t = 4 * (face.X + (volume.Width * (face.Y + (volume.Height * face.Z))));
-        var rgba = volume.Rgba;
-        return t + 2 < rgba.Length ? new Vector4(rgba[t] / 255f, rgba[t + 1] / 255f, rgba[t + 2] / 255f, 1f) : Vector4.One;
+        var grid = part.Body.Grid;
+        var m = grid.At(face.X, face.Y, face.Z);
+        if (m == 0)
+        {
+            return Vector4.One;
+        }
+
+        var material = grid.Palette[m];
+        var color = grid.IsOriginalSurface(face.X, face.Y, face.Z) ? material.SurfaceColor : material.Color;
+        return Vector4.Lerp(color, part.Volume.StainColor, 0.85f * material.Stainable * grid.Stain(face.X, face.Y, face.Z)) with { W = 1f };
     }
 
     private readonly record struct Wound(VoxelPart Part, VoxelCutFace Face, float Age);
