@@ -15,6 +15,31 @@ public sealed class UprightSeedProbe
 {
     private const float Dt = 1f / 240f;
 
+    /// <summary>生成直後から構えのまま 5 秒: 骨盤の水平の流れの時系列と、足の運びの歩数（FighterPhysicsTests.Standing と同じ場面）。</summary>
+    [TestMethod]
+    public void StandDrift()
+    {
+        var drifts = new List<float>();
+        foreach (var yaw in new[] { 0f, 0.4f, 0.8f, 1.2f, 1.6f, 2.4f, 3.1f, 4.4f })
+        {
+            using var world = new Aigis.Physics.PhysicsWorld();
+            world.AddStaticBox(new System.Numerics.Vector3(0f, -1.408f, 0f), new System.Numerics.Vector3(14.08f, 1.408f, 14.08f));
+            var f = Fighter.Spawn(world, FighterTuning.Default, "f", System.Numerics.Vector3.Zero, yaw);
+            var start = f.PelvisPosition;
+            var cmd = new FighterCommand(System.Numerics.Vector3.Zero, f.Frame.Forward, new HandCommand(AiControl.Guard(Hand.Left, f.ArmReach), false), new HandCommand(AiControl.Guard(Hand.Right, f.ArmReach), false));
+            for (var i = 0; i < (int)(5.035f * 240f); i++)
+            {
+                f.ApplyControl(cmd, Dt);
+                world.Step(Dt);
+            }
+
+            var e = f.PelvisPosition - start;
+            drifts.Add(MathF.Sqrt((e.X * e.X) + (e.Z * e.Z)) * 100f);
+        }
+
+        Console.WriteLine($"DRIFT cm: {string.Join(" ", drifts.Select(d => d.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)))} max {drifts.Max():0.0} mean {drifts.Average():0.0}");
+    }
+
     [TestMethod]
     public void GetUp()
     {
