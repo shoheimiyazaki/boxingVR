@@ -41,12 +41,24 @@ public sealed partial class Fighter
         var speed = Vector3.Transform(b.AngularVelocity - a.AngularVelocity, inverse);
         var limit = FormValue(_tuning.TrunkRotatorTorque, FighterTuning.DynamicPunch.TrunkRotatorTorque) * _tuning.TorqueScale;
         var stiffness = limit / MathF.Max(0.1f, PunchTwistLimit);
-        var damping = 2f * MathF.Sqrt(stiffness * _world.GetLocalInertiaDiagonal(child).Y);
+        // 減衰（臨界、回旋の慣性で決めた値）は、1 歩で関節の相対の回りを止めきる量で頭打ちにする: 親と子の慣性の換算の慣性 I_r = I_p I_c / (I_p + I_c) に対し
+        // 減衰 × dt ≤ I_r。越えると 1 歩ごとに相対の回りが反転して震え（細い体の腹は慣性が小さく、胸⇔腹が 120 Hz で ±10 rad/s 振れた）、
+        // その減衰が筋の上限を埋めて上体を起こす分が押し出された（2026-11-27）。粘る筋は相対の動きを止めるまでで、逆へは回さない。
+        var reduced = ReducedInertia(parent, child);
+        var damping = Vector3.Min(new Vector3(2f * MathF.Sqrt(stiffness * _world.GetLocalInertiaDiagonal(child).Y)), reduced / MathF.Max(1e-4f, dt));
         var targetSpeed = Vector3.Transform(Vector3.UnitY * (_tuning.TrunkTwistFeedForward * yawRate), inverse);
         var raw = ClampLength((error * stiffness) + ((targetSpeed - speed) * damping), limit) * scale;
         // 酸素が切れて弱るのは軸（背骨のまわり）の回旋筋だけ: 体を起こして保つ筋（傾きの保ち）は疲れで崩れない（立位の近道と同じ決まり）。
         var torque = new Vector3(raw.X, raw.Y * VigorOf(MuscleRegion.Trunk), raw.Z);
         ApplyMuscleCouple(parent, child, Vector3.Transform(torque, a.Orientation) * dt, MuscleRegion.Trunk, dt);
+    }
+
+    /// <summary>関節でつながった 2 部位の、相対の回りに対する換算の慣性 [kg·m²]（軸ごと、各部位のローカルの主慣性を同じ軸とみなす近似）。</summary>
+    private Vector3 ReducedInertia(int parent, int child)
+    {
+        var a = _world.GetLocalInertiaDiagonal(parent);
+        var b = _world.GetLocalInertiaDiagonal(child);
+        return a * b / Vector3.Max(a + b, new Vector3(1e-6f));
     }
 
     private void ApplyMuscleCouple(int parent, int child, Vector3 impulse, MuscleRegion region, float dt, int channel = 0)

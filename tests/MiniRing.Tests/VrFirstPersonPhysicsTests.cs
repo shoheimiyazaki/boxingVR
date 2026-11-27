@@ -65,7 +65,9 @@ public sealed class VrFirstPersonPhysicsTests
     private static (float Pelvis, float Head, float PelvisLaterHalf) StillHmdDrift(BoxingGame game)
     {
         var mapper = Mapper(firstPerson: true);
-        Run(game, mapper, Raw(Head, 1f, 1f), 1.678f); // 構えに落ち着く
+        // 構えに落ち着く。2026-11-27（物理 106 仮）: 生成の T ポーズから構えへ沈む最後の踏み直しが 2.0〜2.4 秒までかかることがある（立つだけの体・正眼の相手と同じ）ので、
+        // 1.7 秒から 2.5 秒にした。
+        Run(game, mapper, Raw(Head, 1f, 1f), 2.518f);
         var start = game.Player.HeadPosition;
         var pelvis = game.Player.PelvisPosition;
         Run(game, mapper, Raw(Head, 1f, 1f), 6.715f);

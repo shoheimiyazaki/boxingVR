@@ -18,19 +18,22 @@ public sealed class PunchWeightTests
         // 前は間合い 1.05 の 1 本だけを見ていて、そこでは「溜めると重い」「腰が強いと溜めた右も重い」が成り立っていたが、間合い 0.95〜1.15 の 5 本の合計では
         // 前のつま先でも成り立たない（溜め 219 対 溜めなし 220 J、溜めで腰が弱い 210 J。固いつま先では 209・210・250 J。ToeRegressionProbe.CrossEnergy）。
         // 5 本の合計で成り立つ「腰が強いと溜めなしの右が重い」（前 220 対 166 J、今 210 対 152 J）だけを確かめ、溜めの 2 つは数字を出すだけにする（docs/plans/TOE_GAP_STUDY.md）。
+        // 2026-11-27（物理 106 仮、胴の震えを止めた）: 5 本の合計では 194 対 188 J と揺れに埋もれた。胴の筋が震えを止めるのに上限を使わなくなり、腰の弱い体でも
+        // 腹・胸の関節の筋が胴を回すので、腰の強さの差は小さくなった（間合い 0.9〜1.2 の 13 本 × 種 1〜3 の 39 本の合計で、物理 105 は 1598 対 1245 J（1.28 倍）、
+        // 物理 106 は 1515 対 1399 J（1.08 倍）。UprightSeedProbe.HipCross）。39 本の合計で「腰が強いほど溜めなしの右が重い」（順序）を見る。
         var standard = FighterTuning.Default;
         var weakHips = standard with { PelvisRotatorTorque = 60f };
-        float Sum(FighterTuning tuning, float telegraph) => Ranges.Sum(range => Cross(tuning, telegraph, range: range));
-        var quick = Sum(standard, 0.06f);
-        var loaded = Sum(standard, 0.25f);
-        var quickWeak = Sum(weakHips, 0.06f);
-        var loadedWeak = Sum(weakHips, 0.25f);
-        Console.WriteLine($"cross energy over {Ranges.Length} ranges: quick {quick:0} J (weak hips {quickWeak:0}), loaded {loaded:0} J (weak hips {loadedWeak:0})");
+        float Sum(FighterTuning tuning) => Seeds.Sum(seed => Ranges.Sum(range => Cross(tuning, 0.06f, seed, range)));
+        var quick = Sum(standard);
+        var quickWeak = Sum(weakHips);
+        Console.WriteLine($"quick cross energy over {Seeds.Length * Ranges.Length} punches: {quick:0} J (weak hips {quickWeak:0} J, ratio {quick / quickWeak:0.000})");
 
-        Assert.IsGreaterThan(1.15f * quickWeak, quick, "strong hips put more weight into the quick cross");
+        Assert.IsGreaterThan(quickWeak, quick, "strong hips put more weight into the quick cross");
     }
 
-    private static readonly float[] Ranges = [0.95f, 1.0f, 1.05f, 1.1f, 1.15f];
+    private static readonly int[] Seeds = [1, 2, 3];
+
+    private static readonly float[] Ranges = [0.9f, 0.925f, 0.95f, 0.975f, 1.0f, 1.025f, 1.05f, 1.075f, 1.1f, 1.125f, 1.15f, 1.175f, 1.2f];
 
     /// <summary>右ストレート 1 本（守らない相手・届く間合い・種 1）の、最初に当たった拳のエネルギー [J]。当たらなければ 0。</summary>
     internal static float Cross(FighterTuning tuning, float telegraph, int seed = 1, float range = 1.05f)

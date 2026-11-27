@@ -306,6 +306,8 @@ public sealed class SwordPracticeProbe
     /// </summary>
     [TestMethod]
     [DataRow("jin")]
+    [DataRow("edgar")]
+    [DataRow("konrad")]
     public void RetrainForBody(string id)
     {
         var who = CharacterRoster.Get(id);

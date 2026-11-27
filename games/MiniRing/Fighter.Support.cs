@@ -488,6 +488,7 @@ public sealed partial class Fighter
             }
 
             _region.Build();
+            _regionFresh = true;
             outside = _region.SignedDistance(capture);
             liftOutside = _tuning.UseCaptureForVerticalSupport ? outside : _region.SignedDistance(position);
         }

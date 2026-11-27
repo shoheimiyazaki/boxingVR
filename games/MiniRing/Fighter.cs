@@ -120,6 +120,7 @@ public sealed partial class Fighter
     private float _gaitPhase;
     private float _smoothedSpeed;
     private float _forwardSpeed;
+    private float _headCrouch;
 
     /// <summary>いまの沈み込み（立つ高さに対する割合、負で沈む）。骨盤の高さと脚の曲げを同じ値でそろえる。</summary>
     private float _crouch;
@@ -262,7 +263,7 @@ public sealed partial class Fighter
     /// 体の物理の版。足の運び・関節の位置・非線形のダメージ（意識と崩れ落ち）のように、同じ入力から違う試合になる変更で上げる。
     /// 記録はこの版を持ち、違う版の記録は再生しない（黙ってどこかでずれる）。
     /// </summary>
-    public const int PhysicsVersion = 105; // ガルヴァ: はめた鎌の固めた手首・組織の材質・体を保つ筋に材質の強さ（105）・足の運び（104）: 加速度でずれた床反力の作用点から足の荷重を出し、体重の乗った足・ひねりの軸足を後にして構えへ近づく 1 歩で選ぶ・切り返しで宙の足を計画し直す（104）。履歴は docs/VERSIONS.md
+    public const int PhysicsVersion = 106; // 釣り合いの傾き（作用点が足の外へ出る分だけ加速度と重力の向きへ傾ける）・腰と胴の筋の減衰を 1 歩で止めきる量まで（106、仮番号）・ガルヴァ: はめた鎌の固めた手首・組織の材質・体を保つ筋に材質の強さ（105）・足の運び（104）: 加速度でずれた床反力の作用点から足の荷重を出し、体重の乗った足・ひねりの軸足を後にして構えへ近づく 1 歩で選ぶ・切り返しで宙の足を計画し直す（104）。履歴は docs/VERSIONS.md
 
     public string Name { get; }
     public HumanoidRagdoll.Parts Parts { get; }
@@ -2589,7 +2590,10 @@ public sealed partial class Fighter
         // 立っている間は足の運び（足を置いてから体が付いていく）。倒れて起き上がる間は以前の歩行の形のまま。
         var footwork = _tuning.Footwork.Enabled && State == FighterState.Standing && grounded && (!LegSevered || _rearFootwork is not null);
         // 脚のバネ（ステップ）が空いている分だけ腰が伸び上がる（足の運びの間だけ。貯めきった構えでは 0）。
-        _crouch = Math.Clamp(((command.HeadOffset.Y - drop) + (drop * (1f - _tuning.HipHingeShare))) / _standHeight + (footwork ? StepSinkShare : 0f), -_tuning.MaxCrouch, 0.05f);
+        var headCrouch = ((command.HeadOffset.Y - drop) + (drop * (1f - _tuning.HipHingeShare))) / _standHeight;
+        _crouch = Math.Clamp(headCrouch + (footwork ? StepSinkShare : 0f), -_tuning.MaxCrouch, 0.05f);
+        // 頭の指令で腰を落とす分（脚のバネが空いて伸び上がる分を除く）。ヒップヒンジはこの分で届かない頭の下げを受け持つ。
+        _headCrouch = Math.Clamp(headCrouch, -_tuning.MaxCrouch, 0.05f);
         if (footwork && !_footworkActive)
         {
             ResetFootwork();
@@ -2606,7 +2610,7 @@ public sealed partial class Fighter
         }
 
         var drivenHands = Parts.Abdomen is not null ? AdvanceHandWave(command, dt) : command;
-        ApplyFacingAndUpright(command, scale * CoreStrength, dt, grounded);
+        ApplyFacingAndUpright(command, scale * CoreStrength, dt, grounded, groundY);
         if (footwork)
         {
             var handDrivenStep = Parts.Abdomen is not null && command.ClampedStep.LengthSquared() < 1e-8f;
@@ -3231,7 +3235,7 @@ public sealed partial class Fighter
     /// 体の軸の向き: 向き（相手へロックオン）＋ 両手の位置からのひねり（前に出た手・横切る手の側の肩が前へ）
     /// ＋ 頭の位置からの前傾・横傾き。腰は胸のひねりの一部だけ回る。
     /// </summary>
-    private void ApplyFacingAndUpright(in FighterCommand command, float scale, float dt, bool grounded)
+    private void ApplyFacingAndUpright(in FighterCommand command, float scale, float dt, bool grounded, float groundY)
     {
         if (command.FaceDirection.LengthSquared() > 1e-4f)
         {
@@ -3276,19 +3280,22 @@ public sealed partial class Fighter
         _pelvisTwist = pelvisTwist;
         var torsoLength = MathF.Max(0.141f, HeadPosition.Y - PelvisPosition.Y);
         var head = command.HeadOffset;
-        var moveLean = Math.Clamp(_forwardSpeed / _tuning.WalkSpeed, -1f, 1f) * (6f * MathF.PI / 180f);
+        // 釣り合いの傾き: 体の加速度（移動の指令からの見込み ＋ 支えの外へ出た捕捉点を戻す分）と重力を合わせた向きへ傾ける（Fighter.Balance.cs）。
+        var balance = BalanceLean(command, groundY, dt);
         // 腰の沈みで届かない分の頭の下げは、股から上体を前へ折って（ヒップヒンジ）下げる。首だけ・背中を丸めるだけでは沈まない。
-        var hipDrop = -_crouch * _standHeight * _tuning.StandHeightRatio;
+        // 脚のバネが空いて腰が伸び上がる分（StepSinkShare）は頭の指令ではないので、頭を下げる量に数えない（数えると、ステップの後に頭の高さを保とうと
+        // 上体を 20° 前へ折り、バネが貯まるまで 1 秒折ったままだった。2026-11-27）。
+        var hipDrop = -_headCrouch * _standHeight * _tuning.StandHeightRatio;
         var rest = MathF.Max(0f, -head.Y - hipDrop);
         var hinge = MathF.Min(_tuning.MaxHingeRadians, MathF.Acos(Math.Clamp(1f - (rest / _restTorso), -1f, 1f)));
         _hinge = hinge;
         var restPitch = Build.FourLegged ? 0.13f : 0f;
-        var pitch = Math.Clamp(restPitch + moveLean + MathF.Atan2(head.Z, torsoLength), -_tuning.MaxLeanRadians, _tuning.MaxLeanRadians) + hinge;
+        var pitch = Math.Clamp(restPitch + balance.Pitch + MathF.Atan2(head.Z, torsoLength), -_tuning.MaxLeanRadians, _tuning.MaxLeanRadians) + hinge;
         if (UsesHipDrive)
         {
             pitch = MathF.Min(pitch, _tuning.MaxTrunkPitchRadians); // 関節の筋で追う胸は目標まで届くので、前傾を倒れる線の手前で頭打ちに
         }
-        var roll = Math.Clamp(MathF.Atan2(-head.X, torsoLength), -_tuning.MaxLeanRadians, _tuning.MaxLeanRadians); // 頭を右（−X）へ → 右へ傾く
+        var roll = Math.Clamp(balance.Roll + MathF.Atan2(-head.X, torsoLength), -_tuning.MaxLeanRadians, _tuning.MaxLeanRadians); // 頭を右（−X）へ → 右へ傾く
         // 姿勢 = 向き（ヨー）×（向きの座標系での）傾き × 胴自身のひねり。傾きは向きの座標系で与えるので、
         // ひねっていても「前へ出した頭」は前傾のまま。傾きは主に胸、腰はその一部（脚の付け根が後ろへ振れないように）。
         var facing = Quaternion.CreateFromAxisAngle(Vector3.UnitY, _facingYaw);
@@ -3449,8 +3456,14 @@ public sealed partial class Fighter
         // 遅れて押し戻す（戻りすぎて揺れ返す）。Ki = BalanceKi × Kp。BalanceKi = 0 で前の PD のまま。
         var slot = body == Parts.Pelvis ? 0 : body == Parts.Chest ? 1 : 2;
         _uprightIntegral[slot] = (_uprightIntegral[slot] * MathF.Exp(-dt / MathF.Max(1e-3f, _tuning.BalanceIntegralSeconds))) + (error * dt);
-        // 腰から打つ体の骨盤: ねじりの力積は骨盤から上の胴全体の慣性で効かせるので、減衰も胴全体の回り（質量の重みの平均の角速度）で見る（骨盤だけの角速度で見ると歩ごとに揺れ返す）。
-        var spin = s.AngularVelocity;
+        // 腰から打つ体の骨盤: ねじりの力積は骨盤から上の胴全体の慣性で効かせるので、減衰も胴全体の回り（慣性の重みの平均の角速度、UpperBodyAboutPelvis）で見る。
+        var hipRoot = UsesHipDrive && body == Parts.Pelvis;
+        var upper = hipRoot ? UpperBodyAboutPelvis(s) : (Inertia: _world.GetLocalInertiaDiagonal(body), Spin: s.AngularVelocity);
+        // 傾き（前後・左右）の減衰だけを胴の回りで見る: 胸・頭は骨盤から 0.3〜0.5 m 離れているので、傾きの合成の慣性は骨盤自身の約 50 倍になり、骨盤だけの角速度で
+        // 減衰すると 1 歩で回りを反転させて震えた。ひねり（鉛直軸）は骨盤自身の回りのまま: 打つときは腰が胸より先に回る（腰 → 腹 → 胸の波）ので、遅れて付いてくる
+        // 胴の平均で減衰すると先に回る腰を止め、腰の強さが拳に乗らなくなった（腰の強い体と弱い体の右ストレートの差 210 対 152 J → 185 対 189 J、PunchWeightTests）。
+        // ひねりの慣性の比は約 10 倍で、1 歩の減衰は回りを反転させない。
+        var spin = new Vector3(upper.Spin.X, s.AngularVelocity.Y, upper.Spin.Z);
         // 傾きを起こすバネは脚と胴の筋が出す: 固さと上限に筋の材質の断面あたりの力（TissuePhysiology.MuscleStress、人は 1）を掛け、減衰は同じ減衰比（√倍）。
         // 腕の力（MaxHandForce・サーボ）は材質の分だけ強いのに体を立てて保つ筋だけ人のままだと、腕の反作用で胴が倒れる（2026-11-26、ガルヴァの筋 4 倍:
         // 胴を斬る鎌の振りが相手の腕で止まり、反作用で骨盤ごと 50° 横へ回って倒れた。ClawAimProbe.LongClawTorsoStrokeFall）。ひねりは下で回旋筋の力（TorqueScale）から。
@@ -3458,17 +3471,22 @@ public sealed partial class Fighter
         var accel = ((error * _tuning.UprightKp) + (_uprightIntegral[slot] * (_tuning.BalanceKi * _tuning.UprightKp))) * muscle - (spin * (_tuning.UprightKd * MathF.Sqrt(muscle)));
         // 鉛直軸まわり（ひねり）: 回旋筋のトルクから決めたバネ。Kp は可動域の端の誤差でちょうど最大のトルク、減衰比は傾きのバネと同じ。
         // 腰から打つ体の骨盤: 外からのねじりで骨盤から上の胴全体（関節でつながった腹・胸・頭・腕）を起こし・回すので、その合成の慣性で効かせる。
-        var hipRoot = UsesHipDrive && body == Parts.Pelvis;
         // 腰の駆動も胴の筋: 胴の酸素が切れれば腰の回転（鉛直軸まわりのひねり）が遅れる（2026-11-22、スタミナの仕様）。立つための起こす力（傾き）は
         // 意識で決まり、疲れでは崩れない（脚を弱めて崩れ落ちた過去の失敗。docs/BOXING.md §2）。
         var yawVigor = hipRoot ? VigorOf(MuscleRegion.Trunk) : 1f;
-        var inertia = hipRoot ? UpperBodyInertiaAboutPelvis(s) : _world.GetLocalInertiaDiagonal(body);
+        var inertia = upper.Inertia;
         var chestYawInertia = MathF.Max(1e-4f, hipRoot ? inertia.Y : _world.GetLocalInertiaDiagonal(Parts.Chest).Y);
         var trunkTorque = FormValue(_tuning.TrunkRotatorTorque, FighterTuning.DynamicPunch.TrunkRotatorTorque);
         var torque = body == Parts.Pelvis ? _tuning.PelvisRotatorTorque ?? trunkTorque : trunkTorque;
         var rotatorTorque = torque * _tuning.TorqueScale;
         var yawKp = rotatorTorque / (chestYawInertia * MathF.Max(1e-3f, PunchTwistLimit));
         var yawKd = _tuning.UprightKd / MathF.Sqrt(_tuning.UprightKp) * MathF.Sqrt(yawKp); // 2ζ√Kp（ζ = UprightKd / 2√UprightKp）
+        if (hipRoot)
+        {
+            // 胴全体の慣性で効かせる減衰を骨盤自身の回りで見るので、1 歩で骨盤の回りを止めきる量（骨盤の慣性 ÷ (胴全体の慣性 × dt)）で頭打ち
+            // （胴の関節の筋の減衰と同じ決まり。小さく軽い体ほど比が大きく、越えると骨盤がひねりの向きに 1 歩ごとに反転して震えた）。
+            yawKd = MathF.Min(yawKd, _world.GetLocalInertiaDiagonal(body).Y / (MathF.Max(1e-4f, inertia.Y) * MathF.Max(1e-4f, dt)));
+        }
         var yaw = (error.Y * yawKp) + (_uprightIntegral[slot].Y * (_tuning.BalanceKi * yawKp)) + ((yawRate - spin.Y) * yawKd);
         var yawLimit = rotatorTorque / MathF.Max(1e-4f, inertia.Y);
         accel = ClampLength(new Vector3(accel.X, 0f, accel.Z) * scale, _tuning.MaxUprightAccel * muscle) + new Vector3(0f, tiltOnly ? 0f : Math.Clamp(yaw * scale * yawVigor, -yawLimit, yawLimit), 0f);
@@ -3490,13 +3508,18 @@ public sealed partial class Fighter
     }
 
     /// <summary>
-    /// 骨盤の中心まわりの、骨盤から上の体（脚・足を除く、付いている部位）の合成の慣性 [kg·m²]（骨盤のローカル軸。各部位の慣性は骨盤の軸に揃っているとみなす近似）。
-    /// 腰から打つ体で、骨盤へ外からかけるねじりの効きを、それが起こし・回す胴全体に合わせる（立つ近道。<see cref="FighterTuning.HipDrive"/>）。
+    /// 骨盤の中心まわりの、骨盤から上の体（脚・足を除く、付いている部位）の合成の慣性 [kg·m²]（骨盤のローカル軸。各部位の慣性は骨盤の軸に揃っているとみなす近似）と、
+    /// 胴（骨盤・腹・胸・頭）の回る速さ [rad/s、ワールド]（各部位の角速度を、骨盤まわりの慣性で重みづけた平均 = 角運動量 ÷ 慣性。部位の並進の寄与・腕は除く近似）。
+    /// 腰から打つ体で、骨盤へ外からかけるねじりの効き（慣性）と、その減衰が見る回り（速さ）を、それが起こし・回す胴全体に揃える（立つ近道。<see cref="FighterTuning.HipDrive"/>）。
+    /// 減衰を骨盤だけの角速度で見ると、胴全体の慣性 ÷ 骨盤の慣性（約 50 倍）だけ 1 歩の減衰が強すぎて、骨盤が 1 歩ごとに向きを反転して震える
+    /// （2026-11-27: 太さ 0.75 で ±39 rad/s・120 Hz。胴の関節の筋の上限がこの震えの減衰で埋まり、上体を起こす分が押し出されて胸が 30° 前へ垂れた）。
     /// </summary>
-    private Vector3 UpperBodyInertiaAboutPelvis(BodyState pelvis)
+    private (Vector3 Inertia, Vector3 Spin) UpperBodyAboutPelvis(BodyState pelvis)
     {
         var inverse = Quaternion.Conjugate(pelvis.Orientation);
         var sum = Vector3.Zero;
+        var momentum = Vector3.Zero;
+        var trunk = Vector3.Zero;
         foreach (var id in _all)
         {
             if (_detached.Contains(id) || KindOf(id) is BodyPartKind.Coxa or BodyPartKind.Thigh or BodyPartKind.Shin or BodyPartKind.Foot or BodyPartKind.Toe)
@@ -3505,32 +3528,21 @@ public sealed partial class Fighter
             }
 
             var m = _world.GetMass(id);
-            var r = Vector3.Transform(_world.GetState(id).Position - pelvis.Position, inverse);
+            var state = _world.GetState(id);
+            var r = Vector3.Transform(state.Position - pelvis.Position, inverse);
             var own = _world.GetLocalInertiaDiagonal(id);
-            sum += own + (m * new Vector3((r.Y * r.Y) + (r.Z * r.Z), (r.X * r.X) + (r.Z * r.Z), (r.X * r.X) + (r.Y * r.Y)));
-        }
-
-        return Vector3.Max(sum, new Vector3(1e-4f));
-    }
-
-    /// <summary>骨盤・腹・胸・頭の角速度の、質量の重みの平均 [rad/s、ワールド]（腰から打つ体で、骨盤の起こす・回すバネの減衰が見る胴全体の回り）。</summary>
-    private Vector3 UpperBodySpin()
-    {
-        var sum = Vector3.Zero;
-        var mass = 0f;
-        foreach (var id in new[] { Parts.Pelvis, Parts.Abdomen ?? Parts.Pelvis, Parts.Chest, Parts.Head })
-        {
-            if (_detached.Contains(id) || (id == Parts.Pelvis && mass > 0f))
+            var about = own + (m * new Vector3((r.Y * r.Y) + (r.Z * r.Z), (r.X * r.X) + (r.Z * r.Z), (r.X * r.X) + (r.Y * r.Y)));
+            sum += about;
+            if (id == Parts.Pelvis || id == Parts.Abdomen || id == Parts.Chest || id == Parts.Head)
             {
-                continue; // 腹の無い体では骨盤を 2 度数えない
+                // 回りの平均は胴（骨盤・腹・胸・頭）だけで取る: 腕の回り（フックの腕は 15 rad/s）が入ると、腰のひねりの減衰が打つ腕に引かれて腰を止める。
+                trunk += about;
+                momentum += about * Vector3.Transform(state.AngularVelocity, inverse);
             }
-
-            var m = _world.GetMass(id);
-            sum += _world.GetState(id).AngularVelocity * m;
-            mass += m;
         }
 
-        return mass > 0f ? sum / mass : Vector3.Zero;
+        sum = Vector3.Max(sum, new Vector3(1e-4f));
+        return (sum, Vector3.Transform(momentum / Vector3.Max(trunk, new Vector3(1e-4f)), pelvis.Orientation));
     }
 
     private void ApplyMovement(in FighterCommand command, float scale, float dt)
@@ -3726,9 +3738,14 @@ public sealed partial class Fighter
             return;
         }
 
-        var leverVelocity = Vector3.Cross(weapon.AngularVelocity, leverWorld);
+        // 手首の筋は前腕と手（武器）の間の関節の筋なので、粘り（減衰）は前腕に対する相対の回りで見る（世界の回りで見ると、体ごと回った分まで止めようとして
+        // 反作用が前腕から胴へ抜け、胴の回りを外から止める支えのように働いた。胴の震えを止めた体で、片手の刀の腕が長軸まわりに回り続け、両手の構えでは胴のひねりを
+        // 戻す釣り合いに落ちた。2026-11-27）。目標の動く速さも前腕に対する分にする。
+        var forearmSpin = _world.GetState(arm.Forearm).AngularVelocity;
+        var leverVelocity = Vector3.Cross(weapon.AngularVelocity - forearmSpin, leverWorld);
+        var targetRelative = targetLeverVelocity - Vector3.Cross(forearmSpin, targetLever);
         var omega = 2f * MathF.PI * _tuning.BladeTipHz;
-        var accel = (omega * omega * (targetLever - leverWorld)) + (2f * _tuning.BladeTipDampingRatio * omega * (targetLeverVelocity - leverVelocity));
+        var accel = (omega * omega * (targetLever - leverWorld)) + (2f * _tuning.BladeTipDampingRatio * omega * (targetRelative - leverVelocity));
         var length2 = MathF.Max(1e-4f, leverWorld.LengthSquared());
         var diagonal = _world.GetLocalInertiaDiagonal(held.Body);
         var aboutGrip = (0.5f * (diagonal.Y + diagonal.Z)) + (_world.GetMass(held.Body) * held.GripLocal.LengthSquared());

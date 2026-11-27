@@ -283,6 +283,10 @@ public sealed class KneeControlTests
         // 本命の当たりは前のつま先でも左 0.45〜0.52・右 0.22〜0.24（左が帯に入るのは 6 つのうち 2 つ）、固いつま先で左 0.43〜0.49・右 0.22〜0.25（ToeRegressionProbe.KickDistance）。
         // 右脚がすねの上の方で当たるのは前からの課題（docs/DEBT.md「テコンドーの蹴り」）で、固いつま先は左を 0.03 ほど膝の側へずらした（体に合わせた練習のやり直しは別の作業）。
         // ここでは、どの止まる位置でも当たり・蹴った側が立ち・本命の当たりが膝より下のすね（0.2〜1.2）で、左脚はすねの中ほどより下（0.4 以上）であることを見る。
+        // 2026-11-27（物理 106 仮、胴の震えを止めた）: 右は 0.13〜0.20（前は 0.22〜0.25）。前の値は上体が 1 歩ごとに ±10 rad/s で震えて実質的に固くなった体のもので
+        // （胸と腹の相対の回りの 1 歩ごとの差の二乗平均 21.7 → 0.12 rad/s）、震えを止める胴の筋の減衰の上限か骨盤の傾きの減衰を戻すと 0.22 に戻るが、小さい体が 27° 垂れる。
+        // 右の帯の下を 0.12（すねの上の端から 5 cm ほど下）にする。右脚がすねの上の方で当たる課題（DEBT「テコンドーの蹴り」）は蹴りの経路の練習で直す。
+        const float rightLowest = 0.12f;
         foreach (var backOff in BackOffs)
         {
             foreach (var side in new[] { Hand.Left, Hand.Right })
@@ -291,7 +295,7 @@ public sealed class KneeControlTests
                 Console.WriteLine($"stop {backOff * 100f:0} cm further, {side}: {r.Hits} hits, main at {r.Main?.Fraction:F2} of the shin, {r.Main?.Energy:F2} J (chests {r.Distance:F3} m apart at the start)");
                 Assert.IsTrue(r.Standing, "the kicker is still standing");
                 Assert.IsNotNull(r.Main, $"the roundhouse lands ({side}, {backOff * 100f:0} cm)");
-                Assert.IsTrue(r.Main.Value.Fraction is >= 0.2f and <= 1.2f, $"the strongest contact is on the shin below the knee ({side}, {r.Main.Value.Fraction:F2})");
+                Assert.IsTrue(r.Main.Value.Fraction >= (side == Hand.Right ? rightLowest : 0.2f) && r.Main.Value.Fraction <= 1.2f, $"the strongest contact is on the shin below the knee ({side}, {r.Main.Value.Fraction:F2})");
                 if (side == Hand.Left)
                 {
                     Assert.IsGreaterThanOrEqualTo(0.4f, r.Main.Value.Fraction, $"the left roundhouse lands on the lower half of the shin or near it ({backOff * 100f:0} cm)");

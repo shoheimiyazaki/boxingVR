@@ -116,8 +116,10 @@ public sealed class WeaponGraspTests
         Assert.AreEqual(top.X, game.Player.GripX(Hand.Right)!.Value, 1e-5f, "the remaining hand keeps its grip");
 
         // 左手が柄から離れて素手の拳になる。2026-11-25（PhysicsVersion 105）: 実物の重さの刀は片手でも構えの向きに保たれ、構えの位置の左手は柄に触れたまま
-        // になるので、左手を柄から 40 cm 下へ離す（前の軽い刀は垂れて柄が手から離れた）。
-        script.LeftAt = () => GuardSpot(game, Hand.Left) - new Vector3(0f, 0.4f, 0f);
+        // になるので、左手を柄から離す（前の軽い刀は垂れて柄が手から離れた）。2026-11-27（物理 106 仮）: 「構えの位置から 40 cm 下」の目標へは、物理 105 でも
+        // 左手が柄のそばで止まったまま動かず（下へ 27 cm 届かない）、横へ 11 cm ずれていたので素手と数えられていただけだった。手を体の左の腰の横へ下ろす
+        // （柄から確かに離れる所）。
+        script.LeftAt = () => game.PlayerSense.Self.LocalToWorld(new Vector3(0.45f, -0.9f, 0.1f) * game.Player.ArmReach);
         Play(game, 1.678f);
         Assert.IsTrue(game.Player.WearsGlove(Hand.Left), "the empty left hand is a bare fist once it has moved off the handle");
 
