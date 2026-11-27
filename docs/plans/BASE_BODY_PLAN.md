@@ -519,3 +519,5 @@ Aigis の既定の体 × 頭 0.8・腕の長さ 1.18（145 cm）をやめ、Mini
 **5. 前回の変更の見直し**: `WeaponDrills.HardSpeed` 26 → **25**（人の m/s）。26 は文献の範囲（剣道の竹刀の先 17〜25 m/s、Kanzaki & Ito 2004、要旨の値）の外。25 は範囲の上端で、`AnOrdinarySlash` は通る（落ちる境は 20〜23 m/s の帯の上）。Tonfa の kote → kote-men: kote-men は kote と同じ手首打ちの後に面へ返す型で（`SwordForms.Additional.cs`）、テストの主張（刃が棒に食い込む・手袋に木は無い・棒の前の前腕は手袋より多く切られない）は変えていない。2026-11-25 にも同じ取り替えをした履歴があり、意図は変わっていない: そのまま。
 
 **6. コードレビュー（別のエージェント）**: 高なし。中: PunchWeightTests の弱めた主張（DEBT 済み）・ArmWork/TrunkWork の補正（DEBT 済み）・BoxerBot の換算後の数値の直書き・BladeTip/HeelStomp の 5 → 6 cm の根拠が弱い・上の骨盤の力積の記録。低: HardSpeed の出典（上で対応）・ReachGap の 0.25/0.3・StaffHandSpacing 0.40 のリテラル。未対応のものは統合役の判断へ。
+
+**全テスト（tower32・12 並び、557a8496）**: 1629 件中 失敗 8・not-run 15（前は 9）。残り: ClawHold 2・ClawTrajectory・JointPunchSeries 2・HeelStomp・VrStill・SwordOneBlow konrad（上の 2〜4）。HybridMatch は直り、AnOrdinarySlash は HardSpeed 25 で通る。
