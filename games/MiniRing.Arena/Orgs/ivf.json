@@ -57,6 +57,8 @@
   "entry": {
     "gear": "glove",
     "weapons": false,
+    // 前日計量（2026-11-26、キャンペーンの大会の作り直し）: 大会の階級の上限を計量の体重が超えたら失格（その大会の試合は組まれない）。
+    "weighIn": true,
     "textbooks": ["champion", "jabber", "slugger", "boxer", "outboxer", "swarmer", "counter"]
   },
   // 階級（体重は見えている体から: CharacterProfile.WeightOf = 物理の体の質量）。上限ちょうどまで入る。

@@ -18,6 +18,9 @@ public sealed record MotionTechnique(string Name, WeaponKind Weapon, SwordMotion
     /// <summary>技を出す間合いの幅 [m]: 間合いが <see cref="Range"/> ± これに入ったら出す。</summary>
     public const float Window = 0.0845f;
 
+    /// <summary>型を出す瞬間に相手の頭の高さを追う割合（<see cref="FormTune.Follow"/>。0 なら追わない）。</summary>
+    public float HeadFollow { get; init; }
+
     /// <summary>間合い <paramref name="distance"/> で出せる技か。</summary>
     public bool Fits(float distance) => MathF.Abs(distance - Range) <= Window;
 }

@@ -18,7 +18,8 @@ public sealed class MenuCompetitionTests
     private static MenuState AtMode(MatchMode mode = MatchMode.Single)
     {
         var state = new MenuState(CharacterRoster.All, MenuSettings.Default);
-        while (state.TopIndex != (int)mode) { state.Apply(Dir(x: 1)); if (state.TopIndex == (int)mode) { break; } state.Apply(Dir(y: 1)); }
+        state.Apply(Confirm); // フリーバトル
+        while (state.FreeIndex != (int)mode) { state.Apply(Dir(y: 1)); }
         state.Apply(Confirm);
         Assert.AreEqual(MenuPage.Mode, state.Page);
         return state;
@@ -133,7 +134,7 @@ public sealed class MenuCompetitionTests
         Assert.IsNull(state.ModeAt(state.ModeRows - 1), "the last row goes back");
         state.Apply(Dir(y: -1));
         state.Apply(Confirm);
-        Assert.AreEqual(MenuPage.Top, state.Page);
+        Assert.AreEqual(MenuPage.Free, state.Page, "back to the free battle page");
     }
 
     [TestMethod]

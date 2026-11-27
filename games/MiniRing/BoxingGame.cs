@@ -1439,6 +1439,9 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
     /// <summary>判定の結果（"YOU WIN BY DECISION" など）。K.O. なら null。</summary>
     public string? Decision { get; private set; }
 
+    /// <summary>最後に倒して決まったときの決まり手（"K.O. — OUT COLD"・"TKO — 3 KNOCKDOWNS" など。<see cref="EndRound"/> の言葉。判定・引き分け・まだなら null）。画面の結果に出すだけで、試合の計算には入らない。</summary>
+    public string? FinishReason { get; private set; }
+
     /// <summary>休んでいる（ラウンドの間・試合の後）: 入力元を読まず、コーナーへ戻って休む（K.O. の後も打ち続けない）。</summary>
     public bool Resting => InBreak || MatchOver || InIntro;
 
@@ -1759,6 +1762,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
 
         _roundOverTimer = RoundResetDelay;
+        FinishReason = reason;
         RecentBell = RoundBell.End;
         ShowMessage($"{reason}  {(cpuWon ? $"{BlueLabel} WINS" : $"{RedLabel} WIN")}", RoundResetDelay);
     }
@@ -2030,6 +2034,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         InBreak = false;
         MatchOver = false;
         Decision = null;
+        FinishReason = null;
     }
 
     /// <summary>
@@ -2275,7 +2280,7 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         }
         else
         {
-            list.Add(new($"{PlayerWins} - {CpuWins}", new Vector2(screenSizePixels.X * 0.5f, 20f), 28f, white, TextAnchor.Center));
+            list.Add(UiFont.Text($"{PlayerWins} - {CpuWins}", new Vector2(screenSizePixels.X * 0.5f, 20f), 32f, white, TextAnchor.Center));
             AddCondition(list, RedLabel, Cpu, new Vector2(24f, 20f), TextAnchor.Left, new Vector4(1f, 0.45f, 0.4f, 1f));
             AddCondition(list, BlueLabel, Player, new Vector2(screenSizePixels.X - 24f, 20f), TextAnchor.Right, new Vector4(0.5f, 0.65f, 1f, 1f));
         }
@@ -2285,25 +2290,31 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
             var who = hit.Attacker == Player ? RedLabel : BlueLabel;
             var text = $"{who} {(hit.Hand == Hand.Left ? "L" : "R")} > {HitZones.Label(hit.Zone)}  {hit.Damage:0}  " +
                 $"{hit.ImpactMass:0.0}kg x {hit.Speed:0.0}m/s  BODY {Percent(hit.BodyShare)}";
-            list.Add(new ScreenTextDraw(text, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y - 44f), 22f, white, TextAnchor.Center));
+            list.Add(HudText(text, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y - 56f), 32f, white, TextAnchor.Center));
         }
 
         list.AddRange(DownCountHud.Text(this, viewProjection, screenSizePixels, f => f == Player ? RedLabel : BlueLabel,
-            f => f == Player ? new Vector4(1f, 0.45f, 0.4f, 1f) : new Vector4(0.5f, 0.65f, 1f, 1f)));
+            f => f == Player ? new Vector4(1f, 0.45f, 0.4f, 1f) : new Vector4(0.5f, 0.65f, 1f, 1f), HudFont));
 
         if (Speed is { } speed)
         {
-            list.Add(new ScreenTextDraw($"{speed.Label}  [1] 0.5x  [2] 0.75x  [3] 1.0x", new Vector2(24f, screenSizePixels.Y - 20f), 18f,
+            list.Add(HudText($"{speed.Label}  [1] 0.5x  [2] 0.75x  [3] 1.0x", new Vector2(24f, screenSizePixels.Y - 24f), 16f,
                 new Vector4(0.85f, 0.85f, 0.85f, 0.8f), TextAnchor.Left));
         }
 
         if (Message.Length > 0)
         {
-            list.Add(new ScreenTextDraw(Message, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y * 0.3f), 56f, white, TextAnchor.Center));
+            list.Add(HudText(Message, new Vector2(screenSizePixels.X * 0.5f, screenSizePixels.Y * 0.3f), 64f, white, TextAnchor.Center));
         }
 
         return list;
     }
+
+    /// <summary>試合の HUD の字形: デスクトップの HUD は DotGothic16（<see cref="UiFont"/>、16 px の整数倍）、テレビ中継（<see cref="Rules"/> あり）は OS のフォントのまま。</summary>
+    private TextFont HudFont => Rules is null ? TextFont.Pixel : TextFont.System;
+
+    private ScreenTextDraw HudText(string text, Vector2 at, float pixelHeight, Vector4 color, TextAnchor anchor) =>
+        HudFont == TextFont.Pixel ? UiFont.Text(text, at, pixelHeight, color, anchor) : new ScreenTextDraw(text, at, pixelHeight, color, anchor);
 
     private static void AddCondition(List<ScreenTextDraw> list, string name, Fighter opponent, Vector2 at, TextAnchor anchor, Vector4 color)
     {
@@ -2317,8 +2328,8 @@ public sealed partial class BoxingGame : IGame<BoxingInput>
         ];
         for (var i = 0; i < lines.Length; i++)
         {
-            var y = i == 0 ? 0f : 12f + (i * 22f);
-            list.Add(new ScreenTextDraw(lines[i], at + new Vector2(0f, y), i == 0 ? 26f : 18f, color, anchor));
+            var y = i == 0 ? 0f : 18f + (i * 20f); // 名前 32 px、下の 2 行 16 px（UiFont の 2 倍・1 倍）。メーター（y = 102）の上に収まる
+            list.Add(UiFont.Text(lines[i], at + new Vector2(0f, y), i == 0 ? 32f : 16f, color, anchor));
         }
     }
 

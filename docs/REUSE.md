@@ -44,6 +44,21 @@ Aigis の CLAUDE.md の規約「別のゲームを作るならリポジトリを
 - `PhysicsWorld.SetAngularServoSettings` / `SetTwistServoSettings` に任意の `maxSpeed`（サーボの最大の速さ）を足した（2026-11-17。MiniRing が膝の制御で蹴る脚のサーボの速さの上限だけを上げるため。渡さなければ今まで通り速さの上限は変えない）。
 既存の呼び出しの挙動は変わりません（既定の経路は従来どおり）。
 
+## DotGothic16（UI の文字）
+
+| 元 | 扱い |
+|---|---|
+| [DotGothic16](https://github.com/fontworks-fonts/DotGothic16)（Fontworks、16 ドットの格子の日本語フォント、JIS 第 1・2 水準）。Google Fonts の配布 `github.com/google/fonts` の `ofl/dotgothic16/DotGothic16-Regular.ttf`（2026-11-26 に取得） | `games/MiniRing/Assets/Fonts/DotGothic16-Regular.ttf` に改変せずに置き、`MiniRing.csproj` で組み込む。ライセンスは SIL Open Font License 1.1（配布の `OFL.txt` を `Assets/Fonts/DotGothic16_OFL.txt` として一緒に置く）: フォント単体を売らない・予約名で改変版を出さない範囲で、ゲームへの組み込み・再配布は自由。2026-11-26 までは美咲フォント（8×8）を使っていたが、8×8 では漢字が潰れて読みづらいので替え、美咲のファイルは消した |
+
+使い方: `games/MiniRing/UiFont.cs` が読み、エンジンに足した `Aigis.Render.PixelFont`（TrueType の cmap・hmtx を読み、字形を 16 px（em = 16 ドット）で 1 ビットに描いて持つ）を `ScreenText.PixelFont` に置く。`ScreenTextDraw` の `Font = TextFont.Pixel` の文字は、高さを 16 px の一番近い整数倍（最小 16 px）に寄せ、1 ドットを n×n の四角で描く（ニアレスト）。DotGothic16 に無い字は OS の日本語のフォント（MS Gothic → Yu Gothic UI → Segoe UI）を同じ 16 px の格子に 1 ビットで描いて補う。メニュー（`MenuView`）・デスクトップの試合の HUD（`BoxingGame`・`DownCountHud`）・試合の準備中の文字に使い、テレビ中継（`TvHud`・Arena の動画）・リプレイの HUD・エンジンの知らせは OS のフォントのまま。
+
+### コピーしたエンジンへの変更（2026-11-26、ドットのフォント。美咲 → DotGothic16）
+
+| ファイル | 変更 |
+|---|---|
+| `src/Aigis.Render/PixelFont.cs`（新規） | ドットのフォント（TrueType の cmap 4/12・hmtx を読む・字形を 1 ビットで描いてキャッシュ・無い字は OS のフォントで同じ格子に） |
+| `src/Aigis.Render/ScreenText.cs` | `ScreenTextDraw` に任意の `Font`（`TextFont.System` が既定）、`ScreenText.PixelFont`、整数倍・整数の画素に乗せるドットの描き方、`MeasurePixelWidth` の `font`・`RenderedHeight`。既定の経路（OS のフォント）は変えない |
+
 ## 前回の Unity 版について
 
 最初の試作では、参照先を `Nathon-rtgo/iTVision`（旧 Unity 版）と `Game4/Triage`（Unity 版の旧プロトタイプ）と取り違えていました。このとき作った Unity プロジェクトは削除済みです。ただし、制御の考え方（バネ・ダンパでの駆動、体フレームでの写像、ダメージ式）と、その時に受けたレビューの指摘は、このバージョンに引き継いでいます。具体的には、重力補償を常に満額にする、捻りの基準を曲げ平面の法線にする、衝突直前の速度でダメージを判定する、目標速度に上限を設ける、の 4 点です。

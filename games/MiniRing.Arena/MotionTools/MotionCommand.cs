@@ -166,13 +166,14 @@ internal static class MotionCommand
         }
 
         using var game = new BoxingGame(seed: seed, corners: corners);
-        var me = o.Get("who") == "blue" ? game.Cpu : game.Player;
+        var asBlue = o.Get("who") == "blue";
+        var me = asBlue ? game.Cpu : game.Player;
         var trace = new MotionTrace(label, me == game.Player ? "red" : "blue", seed, me.LegLength, me.ArmReach, o.Int("every", 2, min: 1));
         var steps = (int)MathF.Round(seconds / Dt);
         for (var i = 0; i < steps; i++)
         {
             game.Step(default, Dt);
-            trace.Record(game, me, (i + 1) * Dt);
+            trace.Record(game, asBlue ? game.Cpu : game.Player, (i + 1) * Dt); // ラウンドの間で世界ごと作り直すので、毎回いまの体を引く
         }
 
         return trace;
@@ -276,13 +277,14 @@ internal static class MotionCommand
         var path = o.Get("replay") ?? throw new ArgumentException("--replay <x.mrrep> を渡してください。");
         using var player = new ReplayPlayer(ReplayFile.Read(path));
         var game = player.Game;
-        var me = o.Get("who") == "blue" ? game.Cpu : game.Player;
+        var asBlue = o.Get("who") == "blue";
+        var me = asBlue ? game.Cpu : game.Player;
         var trace = new MotionTrace($"replay {Path.GetFileName(path)}", me == game.Player ? "red" : "blue", 0, me.LegLength, me.ArmReach, o.Int("every", 2, min: 1));
         var limit = o.Float("seconds", float.MaxValue, min: 0.1f);
         while (!player.Finished && player.Time < limit)
         {
             player.StepOnce();
-            trace.Record(game, me, player.Time);
+            trace.Record(game, asBlue ? game.Cpu : game.Player, player.Time); // ラウンドの間で世界ごと作り直すので、毎回いまの体を引く
         }
 
         if (player.FirstDivergence is { } step)

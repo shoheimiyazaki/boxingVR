@@ -22,3 +22,9 @@
 | 腿・すね・足（症例 s0774） | Wasserthal J. et al., *TotalSegmentator dataset v2.0.1*, University Hospital Basel, Zenodo, [DOI 10.5281/zenodo.10047292](https://doi.org/10.5281/zenodo.10047292) | CC BY 4.0 | 同上 |
 
 元の CT はリポジトリに入れない（`tools/ct-body/fetch.py` が取り方を持つ）。
+
+# UI の文字（DotGothic16）の出典
+
+| 素材 | 出典 | ライセンス | 使い方 |
+|---|---|---|---|
+| `Fonts/DotGothic16-Regular.ttf` | [DotGothic16](https://github.com/fontworks-fonts/DotGothic16)（Fontworks、16 ドットの格子の日本語フォント、JIS 第 1・2 水準）。Google Fonts の配布 `github.com/google/fonts` の `ofl/dotgothic16/DotGothic16-Regular.ttf`（2026-11-26 に取得） | SIL Open Font License 1.1（`Fonts/DotGothic16_OFL.txt` = 配布の `OFL.txt` をそのまま） | 改変なし。メニューと試合の HUD の文字（16 px の整数倍・ニアレスト。`UiFont`） |

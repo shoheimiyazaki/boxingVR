@@ -14,11 +14,21 @@
     <Compile Include="..\..\games\MiniRing.Desktop\MatchSelection.cs" Link="MatchSelection.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuState.cs" Link="MenuState.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuView.cs" Link="MenuView.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuView.Campaign.cs" Link="MenuView.Campaign.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuState.Campaign.cs" Link="MenuState.Campaign.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuState.Boxer.cs" Link="MenuState.Boxer.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuView.Boxer.cs" Link="MenuView.Boxer.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\CampaignPlan.cs" Link="CampaignPlan.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuIcons.cs" Link="MenuIcons.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuSettings.cs" Link="MenuSettings.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\Competition.cs" Link="Competition.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\SelectGrid.cs" Link="SelectGrid.cs" />
     <Compile Include="..\..\games\MiniRing.Desktop\MenuScript.cs" Link="MenuScript.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MatchFinish.cs" Link="MatchFinish.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuState.Result.cs" Link="MenuState.Result.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuView.Result.cs" Link="MenuView.Result.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\MenuState.Mouse.cs" Link="MenuState.Mouse.cs" />
+    <Compile Include="..\..\games\MiniRing.Desktop\PreviewPortraits.cs" Link="PreviewPortraits.cs" />
     <ProjectReference Include="..\..\games\MiniRing\MiniRing.csproj" />
     <ProjectReference Include="..\..\games\MiniRing.Vr\MiniRing.Vr.csproj" />
     <!-- Arena（対戦場・テレビ中継の道具）は InternalsVisibleTo で中まで参照する（以前はファイルを取り込んでいた）。 -->

@@ -171,15 +171,29 @@ else
     var moveCue = ToneGenerator.CreateToneClip("menu-move", 520, 680, 0.045f, 0.25f, attackSeconds: 0.003f, releaseSeconds: 0.02f);
     var confirmCue = ToneGenerator.CreateToneClip("menu-confirm", 660, 1100, 0.10f, 0.35f, attackSeconds: 0.004f, releaseSeconds: 0.04f);
     // 設定（レフェリーの有無など）は記録と同じ場所（作業フォルダー）の settings.json に残す。
+    // キャンペーンのボクサーは %LOCALAPPDATA%\MiniRing\campaign（CampaignStore.DefaultDirectory）。前の版の置き場（作業フォルダーの campaign/）に
+    // ボクサーがいれば、初回に写す（古い方は消さない）。
+    var legacyCampaign = Path.Combine(Environment.CurrentDirectory, "campaign");
+    var campaignDirectory = MiniRing.Arena.Campaign.CampaignStore.DefaultDirectory(legacyCampaign);
+    try
+    {
+        var copied = MiniRing.Arena.Campaign.CampaignStore.CopyLegacy(legacyCampaign, campaignDirectory);
+        if (copied > 0) { Console.Error.WriteLine($"キャンペーンのボクサー {copied} 人を {legacyCampaign} から {campaignDirectory} へ写しました（元のファイルは残っています）。"); }
+    }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+    {
+        Console.Error.WriteLine($"キャンペーンのボクサーを {legacyCampaign} から {campaignDirectory} へ写せませんでした: {e.Message}");
+    }
+
     using var menu = new MatchMenu(replayDirectory, Path.Combine(Environment.CurrentDirectory, "settings.json"),
-        confirmed => menuAudio.Play(confirmed ? confirmCue : moveCue, 1f, shouldLoop: false), script: menuScript);
+        confirmed => menuAudio.Play(confirmed ? confirmCue : moveCue, 1f, shouldLoop: false), script: menuScript, campaignDirectory: campaignDirectory);
     // ゲームモード（練習試合・団体の大会）の決まりと場は選びから（団体の大会は中継と同じ決まり・会場の歓声つき）。
     using var menuGame = new MenuGame(menu, selection => OpenMatch(selection.Corners, selection.Mode,
         selection.RulesOr(tv ? MatchRules.Tv : null), crowd: tv || selection.Event.Tournament), OpenReplay);
     menuGameRef = menuGame;
     GameHost.Run(profiler, options with
     {
-        HelpText = "Menu: WASD, arrows, D-pad or mouse; Enter/A/left click to select; Escape/B to go back. In a match, Escape/B returns to Game Select.",
+        HelpText = "Menu: WASD, arrows, D-pad or mouse; Enter/A/left click to select; Escape/B to go back. In a match, Escape returns to Game Select; when the bout is decided, Enter/A/click (or a few seconds) shows the result.",
         DynamicViews = size => menuGame.Presentation?.Views(hostCamera, size),
     }, menuGame, (input, _, size) => menuGame.Read(input, size));
 }
@@ -264,7 +278,10 @@ MatchSession OpenMatch(BoxingCorners corners, MatchMode mode, MatchRules? rules 
             }
             followCamera.Update(input, scene.Player);
             return intentKeyboard.Read(input, scene.Player, dt, scene.Round, camera.YawRadians);
-        }, new SessionResources(game, recorded == game ? null : recorded, sound), presentation);
+        }, new SessionResources(game, recorded == game ? null : recorded, sound), presentation,
+            Outcome: () => MiniRing.Arena.Campaign.BoutOutcome.Of(game.MatchOver, game.PlayerWins, game.CpuWins, game.Decision),
+            Settled: () => MatchFinish.Settled(game),
+            Summarize: campaign => MatchFinish.Summary(game, campaign));
     }
     catch
     {

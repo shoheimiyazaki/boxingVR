@@ -22,13 +22,26 @@ public enum TextAnchor
 /// anchor point <see cref="TextAnchor"/> is relative to (left edge/center/right edge
 /// depending on <paramref name="Anchor"/>); its <c>Y</c> is always the <b>top edge</b> of the
 /// rendered text, unconditionally — there is no vertical equivalent of <see cref="TextAnchor"/>,
-/// so a caller wanting e.g. bottom-anchored text must subtract the measured height itself.</summary>
+/// so a caller wanting e.g. bottom-anchored text must subtract the measured height itself.
+/// <paramref name="Font"/> picks the OS font (default) or the registered dot font (<see cref="ScreenText.PixelFont"/>).</summary>
 public readonly record struct ScreenTextDraw(
     string Text,
     Vector2 ScreenPosPixels,
     float PixelHeight,
     Vector4 Color,
-    TextAnchor Anchor = TextAnchor.Left);
+    TextAnchor Anchor = TextAnchor.Left,
+    TextFont Font = TextFont.System);
+
+/// <summary>Which typeface a <see cref="ScreenTextDraw"/> uses.</summary>
+public enum TextFont
+{
+    /// <summary>The OS UI font, antialiased, at the requested height (<see cref="GlyphRasterizer"/>).</summary>
+    System,
+
+    /// <summary>The registered dot font (<see cref="ScreenText.PixelFont"/>), at the nearest whole multiple of its cell,
+    /// nearest-neighbour. Falls back to <see cref="System"/> when no dot font is registered.</summary>
+    Pixel,
+}
 
 /// <summary>One solid-colour overlay rectangle in pixel space (origin top-left, Y down —
 /// same convention as <see cref="ScreenTextDraw"/>), centered at <paramref name="CenterPixels"/>.
@@ -49,6 +62,13 @@ public readonly record struct OverlayQuad(Vector2 CenterPixels, Vector2 SizePixe
 /// </summary>
 public static class ScreenText
 {
+    /// <summary>The dot font <see cref="TextFont.Pixel"/> draws use (set once by the game at start-up; null = none, and
+    /// such draws use the OS font). A process-wide setting like the OS font itself, read by every renderer.</summary>
+    public static PixelFont? PixelFont { get; set; }
+
+    /// <summary>The dot font a draw uses, or null when it is drawn with the OS font.</summary>
+    private static PixelFont? DotFontOf(TextFont font) => font == TextFont.Pixel ? PixelFont : null;
+
     /// <summary>
     /// TASK-153: digits and punctuation rasterise with visibly SHORTER ink than kanji at the
     /// identical nominal <see cref="ScreenTextDraw.PixelHeight"/> — GDI+'s measured line height
@@ -140,6 +160,12 @@ public static class ScreenText
                 continue;
             }
 
+            if (DotFontOf(draw.Font) is { } dots)
+            {
+                AddDotQuads(dots, draw, quads);
+                continue;
+            }
+
             // TASK-153: numeric/punctuation-only text is rasterized (and cell-scaled) at a taller
             // EFFECTIVE height than its declared PixelHeight — see NumericPunctuationInkCompensation's
             // own doc comment. The declared PixelHeight (used for layout/positioning below) is
@@ -220,11 +246,16 @@ public static class ScreenText
     /// needs a gap between runs should add its own authored spacing rather than measuring a space.
     /// </para>
     /// </summary>
-    public static float MeasurePixelWidth(string text, float pixelHeight)
+    public static float MeasurePixelWidth(string text, float pixelHeight, TextFont font = TextFont.System)
     {
         if (string.IsNullOrWhiteSpace(text) || pixelHeight <= 0f || !float.IsFinite(pixelHeight))
         {
             return 0f;
+        }
+
+        if (DotFontOf(font) is { } dots)
+        {
+            return dots.MeasureDots(text) * dots.ScaleFor(pixelHeight);
         }
 
         // Must use the SAME rasterization height and divisor BuildQuads does (including the sub-1.0
@@ -234,5 +265,43 @@ public static class ScreenText
         var effectiveHeight = IsNumericOrPunctuationOnly(text) ? pixelHeight * NumericPunctuationInkCompensation : pixelHeight;
         var raw = GlyphRasterizer.Rasterize(text, effectiveHeight);
         return raw.ContentHeight == 0 ? 0f : raw.BitmapWidth * MathF.Max(1f, effectiveHeight / raw.ContentHeight);
+    }
+
+    /// <summary>
+    /// The height a <see cref="TextFont.Pixel"/> draw of <paramref name="pixelHeight"/> really has on screen (a whole
+    /// multiple of the dot font's cell), or <paramref name="pixelHeight"/> itself when it falls back to the OS font.
+    /// </summary>
+    public static float RenderedHeight(float pixelHeight, TextFont font) =>
+        DotFontOf(font) is { } dots ? dots.ScaleFor(pixelHeight) * dots.CellPixels : pixelHeight;
+
+    /// <summary>
+    /// A dot-font draw: every dot becomes an n×n square (n = <see cref="PixelFont.ScaleFor"/>), with the text's origin
+    /// snapped to a whole pixel so the dots stay square and sharp (nearest-neighbour, never a fractional scale).
+    /// </summary>
+    private static void AddDotQuads(PixelFont dots, ScreenTextDraw draw, List<OverlayQuad> quads)
+    {
+        var scale = dots.ScaleFor(draw.PixelHeight);
+        var width = dots.MeasureDots(draw.Text) * scale;
+        var left = MathF.Round(draw.ScreenPosPixels.X + draw.Anchor switch
+        {
+            TextAnchor.Left => 0f,
+            TextAnchor.Center => -width * 0.5f,
+            TextAnchor.Right => -width,
+            _ => throw new ArgumentOutOfRangeException(nameof(draw), $"Unsupported anchor: {draw.Anchor}."),
+        });
+        var top = MathF.Round(draw.ScreenPosPixels.Y);
+        var pen = 0;
+        foreach (var c in draw.Text)
+        {
+            var glyph = dots.Glyph(c);
+            foreach (var run in glyph.Runs)
+            {
+                var size = new Vector2(run.Width * scale, scale);
+                var corner = new Vector2(left + ((pen + run.X) * scale), top + (run.Y * scale));
+                quads.Add(new OverlayQuad(corner + (size * 0.5f), size, draw.Color));
+            }
+
+            pen += glyph.Advance;
+        }
     }
 }

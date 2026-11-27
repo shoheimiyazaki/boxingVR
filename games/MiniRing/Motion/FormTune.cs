@@ -13,7 +13,9 @@ namespace MiniRing.Motion;
 /// <param name="Lift">両手の目標の高さのずれ [腕の長さ]（型の全部の間。上へ正。刃が通る高さが変わる）。</param>
 /// <param name="Lean">頭の目標の前へのずれ [腕の長さ]（型の全部の間。前へ正。体を打ちへ乗せる）。</param>
 /// <param name="Reach">間合いのずれ [m]（型の動きから出す間合い <see cref="StrikeDrill.ReachOf"/> に足す。負なら近くから打ち込み、深く斬る）。</param>
-public sealed record FormTune(float Tempo = 1f, float Twist = 1f, float Lift = 0f, float Lean = 0f, float Reach = 0f)
+/// <param name="Follow">相手の頭の高さを追う割合（型を出す瞬間の、相手の頭と自分の頭の高さの差のこの割合だけ、両手の通り道を上下へずらす。0 で体格を問わず同じ通り道、
+/// 1 で頭の高さの差だけそのまま）。見えている相手の体（背・構え）から引く、相手ごとの備え（§1.8）。</param>
+public sealed record FormTune(float Tempo = 1f, float Twist = 1f, float Lift = 0f, float Lean = 0f, float Reach = 0f, float Follow = 0f)
 {
     /// <summary>何も変えない差分。</summary>
     public static FormTune Identity { get; } = new();
@@ -26,8 +28,30 @@ public sealed record FormTune(float Tempo = 1f, float Twist = 1f, float Lift = 0
         Bots.WeaponStyle.InRange(Lift, -0.5f, 0.5f, $"Forms.{name}.Lift");
         Bots.WeaponStyle.InRange(Lean, -0.3f, 0.3f, $"Forms.{name}.Lean");
         Bots.WeaponStyle.InRange(Reach, -0.4f, 0.4f, $"Forms.{name}.Reach");
+        Bots.WeaponStyle.InRange(Follow, -0.5f, 1.5f, $"Forms.{name}.Follow");
         return this;
     }
+
+    /// <summary>
+    /// 両手の通り道を上下へ <paramref name="lift"/> [腕の長さ] ずらした型（<see cref="Follow"/> で、型を出す瞬間に相手の頭の高さへ合わせる。0 なら同じ物）。
+    /// </summary>
+    public static SwordMotion Raised(SwordMotion motion, float lift)
+    {
+        ArgumentNullException.ThrowIfNull(motion);
+        if (lift == 0f)
+        {
+            return motion;
+        }
+
+        var up = new Vector3(0f, lift, 0f);
+        return motion with { Frames = motion.Frames.Select(f => f with { Right = f.Right + up, Left = f.Left + up }).ToList() };
+    }
+
+    /// <summary>
+    /// 型を出す瞬間の両手のずらし [腕の長さ]: 相手の頭と自分の頭の高さの差 [m] の <see cref="Follow"/> の割合を腕の長さで割る（±0.5 で止める: 型の形が保たれる幅）。
+    /// </summary>
+    public static float FollowLift(float follow, float opponentHeadY, float selfHeadY, float armReach) =>
+        follow == 0f || armReach <= 0f ? 0f : Math.Clamp(follow * (opponentHeadY - selfHeadY) / armReach, -0.5f, 0.5f);
 
     /// <summary>型 <paramref name="motion"/> に差分を掛けた型（<see cref="Identity"/> なら同じ物を返す）。</summary>
     public SwordMotion Apply(SwordMotion motion)

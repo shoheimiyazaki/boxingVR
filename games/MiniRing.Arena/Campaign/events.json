@@ -1,0 +1,33 @@
+{
+  // キャンペーンの大会（2026-11-26 作り直し、docs/plans/CAMPAIGN_PLAN.md）。コードに団体名・大会名の分岐を書かず、条件はこの表と団体のファイルの値だけ。
+  // 1 行は「大会の型」で、団体の階級ごとに 1 つずつ大会になる（IVF は 5 階級 × 3 = 15 大会、無差別の WVC・VFC は 1 つずつ）。
+  // 出られるかは、どの大会も同じ式で決まる（CampaignLadder.Check）:
+  //   1. 団体の出場の条件（entry: はめる物・武器・教科書）
+  //   2. 階級: 計量の体重で入る階級がこの大会の階級か。団体の entry.weighIn が true なら、上限を超えた選手は前日計量で失格（理由を見せる）
+  //   3. 戦績（record）: scope の範囲の試合の数・勝ちの数を数えて、上限・下限と比べる
+  //   4. 席（maxSeat）: その階級のランキングの何位までか
+  // 体格（身長・体型）では弾かない。どんな体でも、計量のない団体（VFC）の新人戦には出られる（詰まない）。
+  //   name   : 大会の名前。{division} は階級の名前（無差別の団体では書かない）
+  //   tier   : rookie（ランキング外の相手と組む）・ranking（一つ上の席の相手と組み、勝てば席を取る）・title（王者と組み、勝てば王者）
+  //   record : { scope: career（プロの通算・全団体）| org（この団体）| division（この団体のこの階級）,
+  //              maxBouts: この試合を含めた試合の数の上限（4 = 4 戦目までは出られる）, minWins: 勝ちの数の下限 }
+  //   maxSeat: 出るのに要る席（1 = ランキング 1 位か王者）
+  "events": [
+    { "id": "ivf-rookie", "name": "IVF {division}新人王戦", "org": "ivf", "tier": "rookie", "record": { "scope": "career", "maxBouts": 4 },
+      "note": "プロ 4 戦目までの新人。前日計量で階級の上限を超えたら失格" },
+    { "id": "ivf-ranking", "name": "IVF {division}ランキング戦", "org": "ivf", "tier": "ranking", "record": { "scope": "division", "minWins": 3 },
+      "note": "この階級で 3 勝した選手が、一つ上の席の相手に挑む" },
+    { "id": "ivf-title", "name": "IVF {division}タイトルマッチ", "org": "ivf", "tier": "title", "maxSeat": 1,
+      "note": "この階級のランキング 1 位が王者に挑む（王者は防衛戦）" },
+    { "id": "wvc-rookie", "name": "WVC 新人戦", "org": "wvc", "tier": "rookie", "record": { "scope": "career", "maxBouts": 4 },
+      "note": "無差別級・計量なし。プロ 4 戦目までの新人" },
+    { "id": "wvc-ranking", "name": "WVC ランキング戦", "org": "wvc", "tier": "ranking", "record": { "scope": "career", "minWins": 3 },
+      "note": "プロ通算 3 勝した選手が、一つ上の席の相手に挑む" },
+    { "id": "wvc-title", "name": "WVC 世界タイトルマッチ", "org": "wvc", "tier": "title", "maxSeat": 1, "note": "ランキング 1 位が世界王者に挑む" },
+    { "id": "vfc-rookie", "name": "VFC 新人戦", "org": "vfc", "tier": "rookie",
+      "note": "檻の中の何でもあり。計量も戦績の条件もない。誰でも出られる" },
+    { "id": "vfc-ranking", "name": "VFC ランキング戦", "org": "vfc", "tier": "ranking", "record": { "scope": "org", "minWins": 1 },
+      "note": "VFC で 1 勝した選手が、一つ上の席の相手に挑む" },
+    { "id": "vfc-title", "name": "VFC 王者戦", "org": "vfc", "tier": "title", "maxSeat": 1, "note": "ランキング 1 位が王者に挑む" }
+  ]
+}
